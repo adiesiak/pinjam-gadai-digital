@@ -4,10 +4,11 @@ import {
   FileText,
   Loader2,
   LogOut,
+  MapPin,
   Package,
   Wallet,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { toast } from "sonner";
 
@@ -44,6 +45,7 @@ import {
   type LoanStatus,
 } from "@/lib/loan";
 import { formatRupiah, parseRupiah, type Rupiah } from "@/lib/money";
+import { KYC_FILES, MAX_FILE_BYTES, validateKycInput, type KycFileKey } from "@/lib/kyc";
 import {
   COLLATERAL_CATEGORIES,
   LTV_HINTS,
@@ -158,6 +160,7 @@ export default function Dashboard() {
           <>
             {/* Pengingat jatuh tempo — ditampilkan di atas semua tab. */}
             {dueReminder !== null && <DueReminderBanner reminder={dueReminder} />}
+            <LocationConsentCard />
             <Tabs defaultValue="pinjaman" className="mt-8">
             <TabsList className="bg-transparent p-0">
               <TabsTrigger
@@ -344,6 +347,112 @@ export default function Dashboard() {
 // Pengingat jatuh tempo — banner live di atas ruang nasabah
 // =====================================================================
 
+// =====================================================================
+// Pelacakan lokasi berkelanjutan — opt-in eksplisit + watcher GPS.
+// =====================================================================
+
+function LocationConsentCard() {
+  const status = useQuery(api.tracking.getStatus);
+  const setuju = useMutation(api.tracking.setuju);
+  const cabut = useMutation(api.tracking.cabut);
+  const pushTitik = useMutation(api.tracking.pushTitik);
+  const [busy, setBusy] = useState(false);
+
+  // Posisi dikirim berkala selama persetujuan aktif. Throttle klien 45 dtk
+  // (server punya batasnya sendiri) — cukup untuk kepatuhan tanpa membanjiri.
+  const watchRef = useRef<number | null>(null);
+  const lastPushRef = useRef(0);
+  const pushRef = useRef(pushTitik);
+  pushRef.current = pushTitik;
+
+  useEffect(() => {
+    const stopWatch = () => {
+      if (watchRef.current !== null) {
+        navigator.geolocation?.clearWatch(watchRef.current);
+        watchRef.current = null;
+      }
+    };
+    if (status?.aktif !== true || !navigator.geolocation) {
+      stopWatch();
+      return;
+    }
+    watchRef.current = navigator.geolocation.watchPosition(
+      (pos) => {
+        const now = Date.now();
+        if (now - lastPushRef.current < 45_000) return;
+        lastPushRef.current = now;
+        void pushRef
+          .current({
+            lat: pos.coords.latitude,
+            lng: pos.coords.longitude,
+            akurasi: pos.coords.accuracy,
+          })
+          .catch(() => undefined);
+      },
+      () => undefined,
+      { enableHighAccuracy: true, maximumAge: 20_000, timeout: 25_000 },
+    );
+    return stopWatch;
+  }, [status?.aktif]);
+
+  const statusText =
+    status === undefined
+      ? "Memuat status pelacakan…"
+      : status.aktif
+        ? "AKTIF — posisi Anda dikirim berkala selama persetujuan berlaku sebagai bagian kepatuhan layanan. Nonaktifkan kapan saja."
+        : "Belum aktif. Aktifkan hanya jika Anda bersedia membagikan posisi real secara berkala (dapat dicabut kapan saja).";
+
+  return (
+    <section className="card-lift mt-6 flex flex-col gap-3 rounded-xl border border-sky-100 bg-white px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+      <div>
+        <p className="flex items-center gap-2 text-sm font-semibold">
+          <MapPin className="size-4 text-primary" />
+          Pelacakan lokasi berkelanjutan
+        </p>
+        <p className="mt-1 max-w-xl text-xs leading-5 text-muted-foreground">{statusText}</p>
+      </div>
+      {status?.aktif ? (
+        <Button
+          variant="outline"
+          className="rounded-full"
+          disabled={busy}
+          onClick={async () => {
+            setBusy(true);
+            try {
+              await cabut();
+              toast.info("Pelacakan lokasi dinonaktifkan.");
+            } catch (e) {
+              toast.error(e instanceof Error ? e.message : "Gagal menonaktifkan.");
+            } finally {
+              setBusy(false);
+            }
+          }}
+        >
+          {busy ? <Loader2 className="size-4 animate-spin" /> : "Nonaktifkan"}
+        </Button>
+      ) : (
+        <Button
+          className="rounded-full"
+          disabled={busy || status === undefined}
+          onClick={async () => {
+            setBusy(true);
+            try {
+              await setuju();
+              toast.success("Terima kasih — pelacakan lokasi kini aktif.");
+            } catch (e) {
+              toast.error(e instanceof Error ? e.message : "Gagal mengaktifkan.");
+            } finally {
+              setBusy(false);
+            }
+          }}
+        >
+          {busy ? <Loader2 className="size-4 animate-spin" /> : "Izinkan pelacakan"}
+        </Button>
+      )}
+    </section>
+  );
+}
+
 function DueReminderBanner({
   reminder,
 }: {
@@ -439,7 +548,92 @@ function LoanForm({ onCreated }: { onCreated: (ref: string) => void }) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // ===== KYC =====
+  const [nik, setNik] = useState("");
+  const [nomorWhatsApp, setNomorWhatsApp] = useState("");
+  const [penghasilanInput, setPenghasilanInput] = useState("");
+  const [sumberPenghasilan, setSumberPenghasilan] = useState("");
+  const [dok, setDok] = useState<
+    Record<KycFileKey, { id: Id<"_storage"> | null; name: string; busy: boolean }>
+  >({
+    ktp: { id: null, name: "", busy: false },
+    selfie: { id: null, name: "", busy: false },
+    slip: { id: null, name: "", busy: false },
+  });
+
+  // ===== Lokasi real (GPS) =====
+  const [lokasi, setLokasi] = useState<{
+    lat: number;
+    lng: number;
+    akurasi: number;
+    waktu: number;
+  } | null>(null);
+  const [lokBusy, setLokBusy] = useState(false);
+
   const createLoan = useMutation(api.loans.createLoanApplication);
+  const generateUploadUrl = useMutation(api.loans.generateKycUploadUrl);
+
+  const captureLokasi = () => {
+    if (!("geolocation" in navigator)) {
+      setError("Perangkat Anda tidak mendukung GPS.");
+      return;
+    }
+    setLokBusy(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setLokasi({
+          lat: pos.coords.latitude,
+          lng: pos.coords.longitude,
+          akurasi: pos.coords.accuracy,
+          waktu: Date.now(),
+        });
+        setLokBusy(false);
+      },
+      (err) => {
+        setError(
+          `Gagal mengambil lokasi: ${err.message}. Izinkan akses lokasi di browser.`,
+        );
+        setLokBusy(false);
+      },
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 30000 },
+    );
+  };
+
+  // Coba ambil lokasi otomatis saat form dibuka — browser meminta izin.
+  useEffect(() => {
+    captureLokasi();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleFile = async (
+    key: KycFileKey,
+    label: string,
+    file: File | undefined,
+  ) => {
+    if (!file) return;
+    if (file.size > MAX_FILE_BYTES) {
+      setError(`${label} maksimal 5 MB.`);
+      return;
+    }
+    setDok((p) => ({ ...p, [key]: { ...p[key], busy: true, name: file.name } }));
+    try {
+      const url = await generateUploadUrl();
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": file.type || "application/octet-stream" },
+        body: file,
+      });
+      const json = (await res.json()) as { storageId?: Id<"_storage"> };
+      if (!res.ok || !json.storageId) throw new Error(`Unggah ${label} gagal.`);
+      setDok((p) => ({
+        ...p,
+        [key]: { id: json.storageId ?? null, name: file.name, busy: false },
+      }));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : `Unggah ${label} gagal.`);
+      setDok((p) => ({ ...p, [key]: { ...p[key], busy: false } }));
+    }
+  };
 
   const parsed = useMemo<Rupiah | null>(() => {
     try {
@@ -476,6 +670,33 @@ function LoanForm({ onCreated }: { onCreated: (ref: string) => void }) {
       return;
     }
 
+    // ===== Validasi KYC & lokasi =====
+    const penghasilanParsed = (() => {
+      try {
+        return parseRupiah(penghasilanInput);
+      } catch {
+        return null;
+      }
+    })();
+    const kycError = validateKycInput({
+      nik,
+      nomorWhatsApp,
+      penghasilanBulanan: penghasilanParsed ?? -1,
+      sumberPenghasilan,
+    });
+    if (kycError) {
+      setError(kycError);
+      return;
+    }
+    if (!dok.ktp.id || !dok.selfie.id || !dok.slip.id) {
+      setError("Unggah ketiga dokumen: KTP, selfie dengan KTP, dan slip gaji.");
+      return;
+    }
+    if (lokasi === null) {
+      setError("Lokasi real belum terkunci — izinkan akses GPS lalu klik 'Ambil lokasi'.");
+      return;
+    }
+
     setSubmitting(true);
     try {
       const result = await createLoan({
@@ -485,6 +706,14 @@ function LoanForm({ onCreated }: { onCreated: (ref: string) => void }) {
         namaLengkap,
         nomorRekening,
         catatanPeminjam: catatanPeminjam.trim() ? catatanPeminjam : undefined,
+        nik: nik.replace(/\s+/g, ""),
+        nomorWhatsApp: nomorWhatsApp.replace(/[\s+-]/g, ""),
+        penghasilanBulanan: penghasilanParsed!,
+        sumberPenghasilan,
+        dokKtpId: dok.ktp.id,
+        dokSelfieKtpId: dok.selfie.id,
+        dokSlipGajiId: dok.slip.id,
+        lokasiAjukan: lokasi,
       });
       onCreated(result.nomorReferensi);
       setPokokInput("");
@@ -630,6 +859,150 @@ function LoanForm({ onCreated }: { onCreated: (ref: string) => void }) {
           rows={3}
           disabled={submitting}
         />
+      </div>
+
+      {/* ================= KYC wajib ================= */}
+      <div className="rounded-2xl border border-sky-100 bg-white p-4">
+        <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
+          Verifikasi identitas (wajib)
+        </p>
+        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          <div>
+            <Label htmlFor="nik">NIK (16 digit)</Label>
+            <Input
+              id="nik"
+              inputMode="numeric"
+              maxLength={16}
+              value={nik}
+              onChange={(e) => setNik(e.target.value.replace(/\D/g, ""))}
+              placeholder="3204xxxxxxxxxxxx"
+              className="tabular-nums"
+              disabled={submitting}
+            />
+          </div>
+          <div>
+            <Label htmlFor="wa">Nomor WhatsApp</Label>
+            <Input
+              id="wa"
+              inputMode="numeric"
+              value={nomorWhatsApp}
+              onChange={(e) => setNomorWhatsApp(e.target.value.replace(/[^\d+]/g, ""))}
+              placeholder="6281234567890"
+              className="tabular-nums"
+              disabled={submitting}
+            />
+            <p className="mt-1 text-xs text-muted-foreground">
+              Untuk pengingat penagihan via WhatsApp.
+            </p>
+          </div>
+          <div>
+            <Label htmlFor="penghasilan">Penghasilan per bulan</Label>
+            <Input
+              id="penghasilan"
+              inputMode="numeric"
+              value={penghasilanInput}
+              onChange={(e) => setPenghasilanInput(e.target.value)}
+              onBlur={() => {
+                try {
+                  const p = parseRupiah(penghasilanInput);
+                  setPenghasilanInput(formatRupiah(p).replace("Rp ", ""));
+                } catch {
+                  /* biarkan — divalidasi saat submit */
+                }
+              }}
+              placeholder="5.000.000"
+              className="tabular-nums"
+              disabled={submitting}
+            />
+          </div>
+          <div>
+            <Label htmlFor="sumber">Sumber penghasilan</Label>
+            <Input
+              id="sumber"
+              value={sumberPenghasilan}
+              onChange={(e) => setSumberPenghasilan(e.target.value)}
+              placeholder="Gaji, usaha, dll."
+              disabled={submitting}
+            />
+          </div>
+        </div>
+
+        <div className="mt-4 space-y-3">
+          {KYC_FILES.map(({ key, label, accept }) => (
+            <div key={key} className="rounded-xl border border-sky-100 bg-secondary/40 px-4 py-3">
+              <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <Label htmlFor={`dok-${key}`}>{label}</Label>
+                  <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                    {dok[key].busy
+                      ? "Mengunggah…"
+                      : dok[key].name
+                        ? dok[key].name
+                        : "Maks. 5 MB — gambar atau PDF"}
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="rounded-full"
+                  disabled={submitting || dok[key].busy}
+                  onClick={() => document.getElementById(`dok-${key}`)?.click()}
+                >
+                  {dok[key].busy ? (
+                    <Loader2 className="size-3.5 animate-spin" />
+                  ) : (
+                    "Pilih file"
+                  )}
+                </Button>
+              </div>
+              <input
+                id={`dok-${key}`}
+                type="file"
+                accept={accept}
+                className="hidden"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  e.target.value = "";
+                  void handleFile(key, label, f);
+                }}
+              />
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* ================= Lokasi real ================= */}
+      <div className="rounded-2xl border border-sky-100 bg-white p-4">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
+              Lokasi real saat pengajuan (wajib)
+            </p>
+            {lokasi ? (
+              <p className="mt-1 text-sm tabular-nums">
+                <MapPin className="mr-1 inline size-4 text-emerald-600" />
+                {lokasi.lat.toFixed(5)}, {lokasi.lng.toFixed(5)} · ±
+                {Math.round(lokasi.akurasi)} m
+              </p>
+            ) : (
+              <p className="mt-1 text-xs text-muted-foreground">
+                {lokBusy
+                  ? "Mengunci posisi GPS…"
+                  : "Belum terkunci — izinkan akses lokasi di browser."}
+              </p>
+            )}
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            className="rounded-full"
+            disabled={lokBusy || submitting}
+            onClick={captureLokasi}
+          >
+            {lokBusy ? <Loader2 className="size-4 animate-spin" /> : "Ambil lokasi"}
+          </Button>
+        </div>
       </div>
 
       {error && (

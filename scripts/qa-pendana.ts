@@ -10,6 +10,7 @@
 import { ConvexHttpClient } from "convex/browser";
 import { readFileSync } from "node:fs";
 import { api } from "../src/convex/_generated/api";
+import { kycArgs } from "./qa-kyc";
 
 const url = process.env.VITE_CONVEX_URL;
 if (!url) {
@@ -57,6 +58,7 @@ const loan = await borrower.mutation(api.loans.createLoanApplication, {
   tujuan: "modal_usaha",
   namaLengkap: "Nasabah QA Pendanaan",
   nomorRekening: "9876543210",
+  ...(await kycArgs(borrower)),
 });
 ok(!!loan.appId, "pinjaman QA terbuat");
 

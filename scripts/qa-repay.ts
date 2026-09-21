@@ -11,6 +11,7 @@
 import { ConvexHttpClient } from "convex/browser";
 import { readFileSync } from "node:fs";
 import { api } from "../src/convex/_generated/api";
+import { kycArgs } from "./qa-kyc";
 
 const url = process.env.VITE_CONVEX_URL;
 if (!url) {
@@ -57,6 +58,7 @@ const loan = await borrower.mutation(api.loans.createLoanApplication, {
   tujuan: "kebutuhan_pribadi",
   namaLengkap: "Nasabah QA Pelunasan",
   nomorRekening: "1122334455",
+  ...(await kycArgs(borrower)),
 });
 
 const pendana = await signUpAnonymous();

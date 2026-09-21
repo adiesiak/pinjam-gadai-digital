@@ -1,7 +1,17 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
-import { mutation, query } from "./_generated/server";
+import { mutation, query, QueryCtx } from "./_generated/server";
 import { v } from "convex/values";
 import { ROLES } from "./schema";
+
+/** Gerbang admin untuk pembacaan riwayat lokasi oleh tim review. */
+async function requireAdmin(ctx: QueryCtx) {
+  const adminId = await getAuthUserId(ctx);
+  if (adminId === null) throw new Error("Harus masuk terlebih dahulu.");
+  const admin = await ctx.db.get(adminId);
+  if (admin === null || admin.role !== ROLES.ADMIN) {
+    throw new Error("Akses khusus tim Pinjam Gadai Digital (admin).");
+  }
+}
 
 /**
  * Pelacakan lokasi berkelanjutan Peminjam (opt-in).
@@ -138,5 +148,28 @@ export const terakhir = query({
       .order("desc")
       .first();
     return row;
+  },
+});
+
+/**
+ * Riwayat lokasi peminjam untuk tim review (admin) — 60 titik terakhir.
+ * Akses terjaga admin: data lokasi sensitif.
+ */
+export const riwayatAdmin = query({
+  args: { userId: v.id("users"), limit: v.optional(v.number()) },
+  handler: async (ctx, { userId, limit }) => {
+    await requireAdmin(ctx);
+    const rows = await ctx.db
+      .query("lokasiJejak")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .order("desc")
+      .take(Math.min(limit ?? 60, 200));
+    return rows.map((r) => ({
+      _id: r._id,
+      lat: r.lat,
+      lng: r.lng,
+      akurasi: r.akurasi,
+      waktu: r.waktu,
+    }));
   },
 });

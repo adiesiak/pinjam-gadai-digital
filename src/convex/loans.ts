@@ -87,6 +87,20 @@ function referenceNumber(now: number): string {
 // =====================================================================
 
 /** Ajukan pinjaman (Peminjam). Pricing dihitung server-side dari pokok bulat. */
+/**
+ * URL unggah dokumen KYC (satu per file) — hanya Peminjam yang masuk.
+ * Klien meng-POST file langsung ke URL ini, lalu memakai storageId-nya
+ * pada createLoanApplication.
+ */
+export const generateKycUploadUrl = mutation({
+  args: {},
+  returns: v.string(),
+  handler: async (ctx) => {
+    await requirePeminjam(ctx);
+    return await ctx.storage.generateUploadUrl();
+  },
+});
+
 export const createLoanApplication = mutation({
   args: {
     pokokPinjaman: v.number(),

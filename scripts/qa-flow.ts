@@ -10,6 +10,7 @@
  */
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "../src/convex/_generated/api";
+import { kycArgs } from "./qa-kyc";
 
 const url = process.env.VITE_CONVEX_URL;
 if (!url) {
@@ -64,6 +65,7 @@ const loan = await userA.mutation(api.loans.createLoanApplication, {
   namaLengkap: "Nasabah Uji Alur",
   nomorRekening: "1234567890",
   catatanPeminjam: "Uji coba alur QA",
+  ...(await kycArgs(userA)),
 });
 ok(typeof loan.nomorReferensi === "string" && loan.nomorReferensi.startsWith("PGD-"),
   `nomor referensi format PGD- (${loan.nomorReferensi})`);

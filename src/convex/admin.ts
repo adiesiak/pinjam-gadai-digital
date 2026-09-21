@@ -68,6 +68,7 @@ export const adminOverview = query({
             nomorRekening: l.nomorRekening,
             catatanPeminjam: l.catatanPeminjam,
             emailPeminjam: borrower?.email ?? null,
+            userIdPeminjam: l.userId,
             tenorHari: l.tenorHari ?? null,
             // KYC & lokasi (opsional untuk data warisan)
             nik: l.nik ?? null,
@@ -129,7 +130,16 @@ export const dokumenKycUrls = query({
       loan.dokSelfieKtpId ? ctx.storage.getUrl(loan.dokSelfieKtpId) : null,
       loan.dokSlipGajiId ? ctx.storage.getUrl(loan.dokSlipGajiId) : null,
     ]);
-    return { ktpUrl: ktp, selfieUrl: selfie, slipUrl: slip };
+    return {
+      ktpUrl: ktp,
+      selfieUrl: selfie,
+      slipUrl: slip,
+      nik: loan.nik ?? null,
+      nomorWhatsApp: loan.nomorWhatsApp ?? null,
+      penghasilanBulanan: loan.penghasilanBulanan ?? null,
+      sumberPenghasilan: loan.sumberPenghasilan ?? null,
+      lokasiAjukan: loan.lokasiAjukan ?? null,
+    };
   },
 });
 

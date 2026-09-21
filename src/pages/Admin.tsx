@@ -1,12 +1,15 @@
-import { useMutation, useQuery } from "convex/react";
+import { useAction, useMutation, useQuery } from "convex/react";
 import {
   ArrowLeft,
   BadgeCheck,
   ClipboardList,
   Coins,
+  ExternalLink,
   Loader2,
   MapPin,
+  MessageSquare,
   Package,
+  Send,
   ShieldCheck,
 } from "lucide-react";
 import { useState, type ReactNode } from "react";
@@ -14,6 +17,7 @@ import { Link, useNavigate } from "react-router";
 import { toast } from "sonner";
 
 import { StatusBadge } from "@/components/StatusBadge";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -49,7 +53,16 @@ type LoanRow = {
   nomorRekening: string;
   catatanPeminjam?: string;
   emailPeminjam: string | null;
+  userIdPeminjam: Id<"users">;
   tenorHari: number | null;
+  nik: string | null;
+  nomorWhatsApp: string | null;
+  penghasilanBulanan: number | null;
+  sumberPenghasilan: string | null;
+  dokKtpId: Id<"_storage"> | null;
+  dokSelfieKtpId: Id<"_storage"> | null;
+  dokSlipGajiId: Id<"_storage"> | null;
+  lokasiAjukan: { lat: number; lng: number; akurasi: number } | null;
   jatuhTempoPada: number | null;
   sisaHari: number | null;
   hariTerlambat: number | null;
@@ -284,6 +297,12 @@ export default function Admin() {
             >
               Pengumuman
             </TabsTrigger>
+            <TabsTrigger
+              value="whatsapp"
+              className="rounded-none border-b-2 border-transparent px-4 py-2 data-[state=active]:border-foreground data-[state=active]:bg-transparent data-[state=active]:shadow-none"
+            >
+              WhatsApp
+            </TabsTrigger>
           </TabsList>
 
           {/* ---------------- Pinjaman ---------------- */}
@@ -413,6 +432,11 @@ export default function Admin() {
           <TabsContent value="pengumuman" className="mt-8">
             <AnnouncementCms />
           </TabsContent>
+
+          {/* ---------------- WhatsApp Reminder ---------------- */}
+          <TabsContent value="whatsapp" className="mt-8">
+            <WhatsAppPanel />
+          </TabsContent>
         </Tabs>
       </main>
 
@@ -537,6 +561,7 @@ function LoanReviewDialog({
   const markInReview = useMutation(api.loans.markLoanInReview);
   const approve = useMutation(api.loans.approveLoan);
   const reject = useMutation(api.loans.rejectLoan);
+  const sendWa = useAction(api.whatsapp.sendReminder);
 
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
@@ -564,7 +589,7 @@ function LoanReviewDialog({
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg">
+      <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-xl">
         <DialogHeader>
           <div className="flex items-center justify-between gap-3">
             <DialogTitle className="tabular-nums">
@@ -576,6 +601,8 @@ function LoanReviewDialog({
             {row.nomorReferensi} · {formatDate(row._creationTime)}
           </DialogDescription>
         </DialogHeader>
+
+        <LoanKycPanel row={row} />
 
         <dl className="divide-y divide-sky-100 rounded-2xl border border-sky-100 bg-white">
           {[
@@ -696,6 +723,354 @@ function LoanReviewDialog({
         )}
       </DialogContent>
     </Dialog>
+  );
+}
+
+// =====================================================================
+// Panel KYC + lokasi pengajuan + kirim pengingat WhatsApp
+// =====================================================================
+
+function LoanKycPanel({ row }: { row: LoanRow }) {
+  const urls = useQuery(api.admin.dokumenKycUrls, { loanId: row._id });
+  const sendWa = useAction(api.whatsapp.sendReminder);
+  const [waBusy, setWaBusy] = useState(false);
+
+  const lokasi = row.lokasiAjukan;
+  const petaHref = lokasi
+    ? `https://www.openstreetmap.org/?mlat=${lokasi.lat}&mlon=${lokasi.lng}#map=16/${lokasi.lat}/${lokasi.lng}`
+    : null;
+
+  const kirim = async () => {
+    setWaBusy(true);
+    try {
+      await sendWa({ loanId: row._id });
+      toast.success("Pengingat WhatsApp terkirim & tercatat di log.");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Gagal mengirim pengingat.");
+    } finally {
+      setWaBusy(false);
+    }
+  };
+
+  return (
+    <div className="space-y-3 rounded-2xl border border-sky-100 bg-white p-4">
+      <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
+        Data KYC peminjam
+      </p>
+      {urls === undefined ? (
+        <div className="flex items-center gap-2 py-2 text-sm text-muted-foreground">
+          <Loader2 className="size-4 animate-spin" /> Memuat data KYC…
+        </div>
+      ) : urls === null ? (
+        <p className="text-sm text-muted-foreground">Data KYC tidak ditemukan untuk pinjaman ini.</p>
+      ) : (
+        <>
+          <div className="grid gap-x-4 gap-y-2 text-sm sm:grid-cols-2">
+            <p className="text-muted-foreground">
+              NIK: <span className="tabular-nums text-navy">{urls.nik ?? "—"}</span>
+            </p>
+            <p className="text-muted-foreground">
+              WhatsApp: <span className="tabular-nums text-navy">{urls.nomorWhatsApp ?? "—"}</span>
+            </p>
+            <p className="text-muted-foreground">
+              Penghasilan: <span className="tabular-nums text-navy">{urls.penghasilanBulanan !== null ? formatRupiah(urls.penghasilanBulanan) : "—"}</span>
+            </p>
+            <p className="text-muted-foreground">
+              Sumber: <span className="text-navy">{urls.sumberPenghasilan ?? "—"}</span>
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {[
+              ["KTP", urls.ktpUrl],
+              ["Selfie + KTP", urls.selfieUrl],
+              ["Slip gaji", urls.slipUrl],
+            ].map(([label, url]) =>
+              url ? (
+                <a
+                  key={label as string}
+                  href={url as string}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-1.5 rounded-full border border-sky-200 bg-secondary/50 px-3 py-1.5 text-xs font-medium text-navy transition-colors hover:border-sky-300 hover:bg-secondary"
+                >
+                  <ExternalLink className="size-3 text-primary" /> {label as string}
+                </a>
+              ) : (
+                <span
+                  key={label as string}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-dashed border-border/60 px-3 py-1.5 text-xs text-muted-foreground"
+                >
+                  {label as string} tidak tersedia
+                </span>
+              ),
+            )}
+          </div>
+          <div className="rounded-xl border border-sky-100 bg-secondary/40 px-3 py-2.5">
+            <p className="flex items-center gap-1.5 text-xs font-medium">
+              <MapPin className="size-3.5 text-primary" /> Lokasi saat pengajuan
+            </p>
+            {lokasi ? (
+              <p className="mt-1 text-xs tabular-nums text-muted-foreground">
+                {lokasi.lat.toFixed(5)}, {lokasi.lng.toFixed(5)} · ±{Math.round(lokasi.akurasi)} m
+                {petaHref && (
+                  <>
+                    {" · "}
+                    <a href={petaHref} target="_blank" rel="noreferrer" className="font-medium text-primary underline-offset-2 hover:underline">
+                      Buka peta
+                    </a>
+                  </>
+                )}
+              </p>
+            ) : (
+              <p className="mt-1 text-xs text-muted-foreground">Tidak ada (pengajuan sebelum fitur lokasi).</p>
+            )}
+          </div>
+          <RiwayatLokasiMini userId={row.userIdPeminjam} />
+          {row.nomorWhatsApp && (
+            <Button
+              size="sm"
+              className="gradient-primary rounded-full border-0"
+              disabled={waBusy}
+              onClick={kirim}
+            >
+              {waBusy ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Send className="mr-2 size-3.5" />}
+              Kirim pengingat WhatsApp
+            </Button>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+/** 5 titik lokasi terakhir peminjam — ringkasan untuk reviewer. */
+function RiwayatLokasiMini({ userId }: { userId: Id<"users"> }) {
+  const riwayat = useQuery(api.tracking.riwayatAdmin, { userId, limit: 5 });
+  if (riwayat === undefined) return null;
+  if (riwayat.length === 0) {
+    return (
+      <p className="text-xs text-muted-foreground">
+        Belum ada jejak lokasi berkelanjutan dari peminjam ini.
+      </p>
+    );
+  }
+  return (
+    <div className="rounded-xl border border-sky-100 bg-secondary/40 px-3 py-2.5">
+      <p className="text-xs font-medium">Jejak lokasi terakhir ({riwayat.length})</p>
+      <ul className="mt-1.5 space-y-1">
+        {riwayat.map((t) => (
+          <li key={t._id} className="text-xs tabular-nums text-muted-foreground">
+            {new Date(t.waktu).toLocaleString("id-ID")} · {t.lat.toFixed(5)}, {t.lng.toFixed(5)} · ±{Math.round(t.akurasi)} m
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+// =====================================================================
+// Panel WhatsApp — konfigurasi gateway, template, tes, dan log
+// =====================================================================
+
+function WhatsAppPanel() {
+  const data = useQuery(api.whatsapp.getAdminConfig);
+  const save = useMutation(api.whatsapp.saveConfig);
+  const sendTest = useAction(api.whatsapp.sendTest);
+
+  const [apiUrl, setApiUrl] = useState<string | null>(null);
+  const [authHeader, setAuthHeader] = useState<string | null>(null);
+  const [authPrefix, setAuthPrefix] = useState<string | null>(null);
+  const [fieldNomor, setFieldNomor] = useState<string | null>(null);
+  const [fieldPesan, setFieldPesan] = useState<string | null>(null);
+  const [aktif, setAktif] = useState(false);
+  const [template, setTemplate] = useState<string | null>(null);
+  const [nomorTes, setNomorTes] = useState("");
+  const [busy, setBusy] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  if (data === undefined) {
+    return (
+      <div className="flex items-center gap-2 py-10 text-sm text-muted-foreground">
+        <Loader2 className="size-4 animate-spin" /> Memuat pengaturan WhatsApp…
+      </div>
+    );
+  }
+
+  const cfg = data.config;
+  // Inisialisasi form sekali dari data server (state lokal menyusul editor).
+  if (apiUrl === null) {
+    setApiUrl(cfg.apiUrl ?? "");
+    setAuthHeader(cfg.authHeader ?? "Authorization");
+    setAuthPrefix(cfg.authPrefix ?? "");
+    setFieldNomor(cfg.fieldNomor ?? "target");
+    setFieldPesan(cfg.fieldPesan ?? "message");
+    setAktif(cfg.aktif === true);
+    setTemplate(cfg.templatePengingat ?? "");
+  }
+  if (apiUrl === null) return null;
+
+  const simpan = async () => {
+    if (!apiUrl || !authHeader || !fieldNomor || !fieldPesan || template === null) return;
+    setBusy("save");
+    setError(null);
+    try {
+      await save({
+        apiUrl,
+        authHeader,
+        authPrefix: authPrefix ?? "",
+        fieldNomor,
+        fieldPesan,
+        aktif,
+        templatePengingat: template,
+      });
+      toast.success("Konfigurasi WhatsApp tersimpan.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Gagal menyimpan konfigurasi.");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const tes = async () => {
+    setBusy("test");
+    setError(null);
+    try {
+      await sendTest({ nomorTujuan: nomorTes, isiPesan: "Tes integrasi WhatsApp Pinjam Gadai Digital — abaikan pesan ini." });
+      toast.success("Pesan tes terkirim.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Pengiriman tes gagal.");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  return (
+    <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,22rem)]">
+      <div className="space-y-4 rounded-2xl border border-sky-100 bg-white p-5">
+        <div>
+          <p className="text-sm font-semibold">Koneksi gateway WhatsApp</p>
+          <p className="mt-1 text-xs leading-5 text-muted-foreground">
+            Bekerja dengan gateway berbasis token (Fonnte, Wablas, Meta Cloud API,
+            dsb). API key diisi di environment variabel <code className="rounded bg-secondary px-1 py-0.5 text-[11px]">WHATSAPP_API_KEY</code> — tidak pernah disimpan di database.
+          </p>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className="sm:col-span-2">
+            <Label htmlFor="wa-url">Endpoint (URL https)</Label>
+            <Input id="wa-url" value={apiUrl} onChange={(e) => setApiUrl(e.target.value)} placeholder="https://api.fonnte.com/send" />
+          </div>
+          <div>
+            <Label htmlFor="wa-header">Nama header auth</Label>
+            <Input id="wa-header" value={authHeader ?? ""} onChange={(e) => setAuthHeader(e.target.value)} placeholder="Authorization" />
+          </div>
+          <div>
+            <Label htmlFor="wa-prefix">Prefix token (opsional)</Label>
+            <Input id="wa-prefix" value={authPrefix ?? ""} onChange={(e) => setAuthPrefix(e.target.value)} placeholder="" />
+          </div>
+          <div>
+            <Label htmlFor="wa-fnomor">Field body untuk nomor</Label>
+            <Input id="wa-fnomor" value={fieldNomor ?? ""} onChange={(e) => setFieldNomor(e.target.value)} placeholder="target" />
+          </div>
+          <div>
+            <Label htmlFor="wa-fpesan">Field body untuk pesan</Label>
+            <Input id="wa-fpesan" value={fieldPesan ?? ""} onChange={(e) => setFieldPesan(e.target.value)} placeholder="message" />
+          </div>
+          <div className="sm:col-span-2">
+            <Label htmlFor="wa-template">Template pengingat penagihan</Label>
+            <Textarea
+              id="wa-template"
+              rows={4}
+              value={template ?? ""}
+              onChange={(e) => setTemplate(e.target.value)}
+              placeholder="{nama}, {ref}, {jumlah}, {tanggal}, {sisa}, {denda}"
+            />
+            <p className="mt-1 text-xs text-muted-foreground">
+              Placeholder: <code className="rounded bg-secondary px-1">{"{nama} {ref} {jumlah} {tanggal} {sisa} {denda}"}</code> — wajib memuat <code className="rounded bg-secondary px-1">{"{jumlah}"}</code>.
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center justify-between gap-3 rounded-xl border border-sky-100 bg-secondary/40 px-4 py-3">
+          <div>
+            <p className="text-sm font-medium">Aktifkan pengiriman</p>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              Saat nonaktif, percobaan kirim tetap tercatat di log dengan status gagal.
+            </p>
+          </div>
+          <Switch checked={aktif} onCheckedChange={setAktif} />
+        </div>
+        {error && (
+          <p className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">{error}</p>
+        )}
+        <Button className="gradient-primary rounded-full border-0" disabled={busy !== null} onClick={simpan}>
+          {busy === "save" ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
+          Simpan konfigurasi
+        </Button>
+      </div>
+
+      <div className="space-y-4">
+        <div className="rounded-2xl border border-sky-100 bg-white p-5">
+          <p className="flex items-center gap-2 text-sm font-semibold">
+            <MessageSquare className="size-4 text-primary" /> Statistik log
+          </p>
+          <div className="mt-3 grid grid-cols-3 gap-2 text-center">
+            {[
+              ["Total", `${data.statistik.total}`],
+              ["Terkirim", `${data.statistik.terkirim}`],
+              ["Gagal", `${data.statistik.gagal}`],
+            ].map(([label, value]) => (
+              <div key={label} className="rounded-xl bg-secondary/50 px-2 py-3">
+                <p className="text-lg font-semibold tabular-nums text-navy">{value}</p>
+                <p className="text-[11px] text-muted-foreground">{label}</p>
+              </div>
+            ))}
+          </div>
+          <Separator className="my-4" />
+          <p className="text-sm font-semibold">Kirim pesan tes</p>
+          <div className="mt-2 flex gap-2">
+            <Input
+              value={nomorTes}
+              onChange={(e) => setNomorTes(e.target.value.replace(/[^\d+]/g, ""))}
+              placeholder="6281234567890"
+              className="tabular-nums"
+            />
+            <Button variant="outline" disabled={busy !== null || nomorTes.trim().length < 8} onClick={tes}>
+              {busy === "test" ? <Loader2 className="size-4 animate-spin" /> : "Tes"}
+            </Button>
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-sky-100 bg-white p-5">
+          <p className="text-sm font-semibold">Log pengiriman (terbaru)</p>
+          {data.logs.length === 0 ? (
+            <p className="mt-3 text-xs text-muted-foreground">Belum ada pengiriman.</p>
+          ) : (
+            <ul className="mt-3 max-h-96 space-y-2 overflow-y-auto pr-1">
+              {data.logs.map((log) => (
+                <li key={log._id} className="rounded-xl border border-border/50 px-3 py-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="truncate text-xs font-medium tabular-nums">{log.nomorTujuan}</span>
+                    <Badge
+                      className={
+                        log.status === "terkirim"
+                          ? "bg-emerald-100 text-emerald-800 hover:bg-emerald-100"
+                          : "bg-red-100 text-red-700 hover:bg-red-100"
+                      }
+                    >
+                      {log.status}
+                    </Badge>
+                  </div>
+                  <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{log.isiPesan}</p>
+                  <p className="mt-1 text-[11px] text-muted-foreground">
+                    {new Date(log.waktu).toLocaleString("id-ID")} · jenis {log.jenis}
+                    {log.respon ? ` · ${log.respon.slice(0, 80)}` : ""}
+                  </p>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </div>
+    </div>
   );
 }
 
