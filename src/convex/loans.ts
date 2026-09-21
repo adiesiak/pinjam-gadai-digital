@@ -8,34 +8,46 @@ import {
 } from "./_generated/server";
 import { v } from "convex/values";
 import { Id } from "./_generated/dataModel";
-import { ROLES, loanStatusValidator, LoanStatusValue } from "./schema";
+import { ROLES, loanStatusValidator, LoanStatusValue, PawnStatusValue } from "./schema";
 import { quoteLoan } from "../lib/loan";
 import { formatRupiah, type Rupiah } from "../lib/money";
+import { COLLATERAL_CATEGORIES } from "../lib/pawn";
 
-/** PINDAI v1 business range for pokok pinjaman (rupiah bulat). */
+/** Business range for pokok pinjaman / nilai taksiran (rupiah bulat). */
 export const MIN_POKOK = 100_000;
 export const MAX_POKOK = 500_000_000;
 
-function validatePokok(pokok: Rupiah): void {
-  if (!Number.isSafeInteger(pokok) || pokok <= 0) {
-    throw new Error("Pokok pinjaman harus rupiah bulat positif (tanpa desimal).");
+function validateRupiahAmount(amount: Rupiah, label: string): void {
+  if (!Number.isSafeInteger(amount) || amount <= 0) {
+    throw new Error(`${label} harus rupiah bulat positif (tanpa desimal).`);
   }
-  if (pokok < MIN_POKOK || pokok > MAX_POKOK) {
+  if (amount < MIN_POKOK || amount > MAX_POKOK) {
     throw new Error(
-      `Pokok pinjaman harus antara ${formatRupiah(MIN_POKOK)} dan ${formatRupiah(MAX_POKOK)}.`,
+      `${label} harus antara ${formatRupiah(MIN_POKOK)} dan ${formatRupiah(MAX_POKOK)}.`,
     );
   }
 }
 
-/**
- * Role gate for v1: Peminjam. A user without an explicit role is promoted to
- * Peminjam on first loan activity; Pendana is reserved for a later phase.
- */
-async function requirePeminjam(ctx: QueryCtx) {
+/** Shared auth gate: signed-in users only. */
+async function requireUser(ctx: QueryCtx) {
   const userId = await getAuthUserId(ctx);
   if (userId === null) throw new Error("Harus masuk terlebih dahulu.");
   const user = await ctx.db.get(userId);
   if (user === null) throw new Error("Pengguna tidak ditemukan.");
+  return { userId, user };
+}
+
+/**
+ * Role gate for v1: Peminjam. A user without an explicit role is promoted to
+ * Peminjam on first application activity; Pendana is reserved for a later phase.
+ */
+async function requirePeminjam(ctx: QueryCtx) {
+  const { userId, user } = await requireUser(ctx);
+  if (user.role === ROLES.PENDANA) {
+    throw new Error(
+      "Akun Pendana tidak dapat mengajukan. Gunakan akun Peminjam.",
+    );
+  }
   return { userId, user };
 }
 
@@ -44,8 +56,12 @@ function referenceNumber(now: number): string {
   const suffix = Array.from({ length: 4 }, () =>
     "ABCDEFGHJKLMNPQRSTUVWXYZ23456789".charAt(Math.floor(Math.random() * 32)),
   ).join("");
-  return `PND-${date}-${suffix}`;
+  return `PGD-${date}-${suffix}`;
 }
+
+// =====================================================================
+// Pinjaman (cash loan applications)
+// =====================================================================
 
 /** Ajukan pinjaman (Peminjam). Pricing dihitung server-side dari pokok bulat. */
 export const createLoanApplication = mutation({
@@ -56,16 +72,10 @@ export const createLoanApplication = mutation({
     nomorRekening: v.string(),
     catatanPeminjam: v.optional(v.string()),
   },
-  returns: v.object({ loanId: v.id("loans"), nomorReferensi: v.string() }),
+  returns: v.object({ appId: v.id("loans"), nomorReferensi: v.string() }),
   handler: async (ctx, args) => {
     const { userId, user } = await requirePeminjam(ctx);
-    if (user.role === ROLES.PENDANA) {
-      throw new Error(
-        "Akun Pendana tidak dapat mengajukan pinjaman. Gunakan akun Peminjam.",
-      );
-    }
-
-    validatePokok(args.pokokPinjaman);
+    validateRupiahAmount(args.pokokPinjaman, "Pokok pinjaman");
     // Server-side pricing engine — fee fields are never accepted from the client.
     const quote = quoteLoan(args.pokokPinjaman);
 
@@ -87,7 +97,6 @@ export const createLoanApplication = mutation({
 
     const now = Date.now();
     const nomorReferensi = referenceNumber(now);
-
     const loanId = await ctx.db.insert("loans", {
       userId,
       pokokPinjaman: quote.pokok,
@@ -98,11 +107,11 @@ export const createLoanApplication = mutation({
       status: "diajukan",
       nomorReferensi,
     });
-    return { loanId, nomorReferensi };
+    return { appId: loanId, nomorReferensi };
   },
 });
 
-/** Daftar aplikasi milik Peminjam yang sedang masuk — hanya miliknya. */
+/** Daftar pinjaman milik Peminjam — hanya miliknya. */
 export const listMyLoans = query({
   args: {},
   handler: async (ctx) => {
@@ -125,14 +134,13 @@ export const listMyLoans = query({
   },
 });
 
-/** Detail satu aplikasi milik sendiri, dengan quote turunannya. */
+/** Detail satu pinjaman milik sendiri, dengan quote turunannya. */
 export const getMyLoan = query({
   args: { loanId: v.id("loans") },
   handler: async (ctx, args) => {
     const { userId } = await requirePeminjam(ctx);
     const loan = await ctx.db.get(args.loanId);
     if (loan === null || loan.userId !== userId) return null;
-    const quote = quoteLoan(loan.pokokPinjaman);
     return {
       _id: loan._id,
       _creationTime: loan._creationTime,
@@ -141,7 +149,7 @@ export const getMyLoan = query({
       tujuan: loan.tujuan,
       status: loan.status,
       catatanReview: loan.catatanReview,
-      quote,
+      quote: quoteLoan(loan.pokokPinjaman),
     };
   },
 });
@@ -155,38 +163,149 @@ export const myLoanSummary = query({
       .query("loans")
       .withIndex("by_user", (q) => q.eq("userId", userId))
       .collect();
-    const diajukan = loans.filter((l) => l.status === "diajukan").length;
-    const direview = loans.filter((l) => l.status === "sedang_direview").length;
-    const disetujui = loans.filter((l) => l.status === "disetujui").length;
-    const ditolak = loans.filter((l) => l.status === "ditolak").length;
-    const disetujuiRupiah = loans
-      .filter((l) => l.status === "disetujui")
-      .reduce((acc, l) => acc + l.pokokPinjaman, 0);
+    const disetujui = loans.filter((l) => l.status === "disetujui");
     return {
       totalAplikasi: loans.length,
-      diajukan,
-      direview,
-      disetujui,
-      ditolak,
-      disetujuiRupiah,
+      diajukan: loans.filter((l) => l.status === "diajukan").length,
+      direview: loans.filter((l) => l.status === "sedang_direview").length,
+      disetujui: disetujui.length,
+      ditolak: loans.filter((l) => l.status === "ditolak").length,
+      disetujuiRupiah: disetujui.reduce((acc, l) => acc + l.pokokPinjaman, 0),
     };
   },
 });
 
-// ---- Reviewer (tim PINDAI) transitions ----
+// =====================================================================
+// Gadai (collateral applications)
+// =====================================================================
 
-/** Hanya admin PINDAI boleh memindahkan status aplikasi. */
+/** Ajukan penggadaian barang (Peminjam). Penilaian dilakukan oleh petugas. */
+export const createPawnApplication = mutation({
+  args: {
+    deskripsiBarang: v.string(),
+    kategori: v.string(),
+    alamatPenilaian: v.string(),
+    namaLengkap: v.string(),
+    nomorRekening: v.string(),
+    catatanPeminjam: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const { userId, user } = await requirePeminjam(ctx);
+
+    const deskripsi = args.deskripsiBarang.trim();
+    if (deskripsi.length < 10) {
+      throw new Error(
+        "Deskripsi barang wajib diisi (minimal 10 karakter) agar petugas dapat menilai.",
+      );
+    }
+    if (!(COLLATERAL_CATEGORIES as readonly string[]).includes(args.kategori)) {
+      throw new Error("Pilih kategori barang yang valid.");
+    }
+    const alamat = args.alamatPenilaian.trim();
+    if (alamat.length < 10) {
+      throw new Error(
+        "Alamat lokasi barang wajib diisi (minimal 10 karakter) untuk penjadwalan pemeriksaan.",
+      );
+    }
+    const nama = args.namaLengkap.trim();
+    if (nama.length < 3) {
+      throw new Error("Nama lengkap wajib diisi (minimal 3 karakter).");
+    }
+    const rekening = args.nomorRekening.trim().replace(/\s+/g, "");
+    if (!/^\d{6,20}$/.test(rekening)) {
+      throw new Error("Nomor rekening harus 6–20 digit angka.");
+    }
+
+    if (user.role === undefined) {
+      await ctx.db.patch(userId, { role: ROLES.PEMINJAM });
+    }
+
+    await ctx.db.insert("pawns", {
+      userId,
+      deskripsiBarang: deskripsi,
+      kategori: args.kategori,
+      alamatPenilaian: alamat,
+      namaLengkap: nama,
+      nomorRekening: rekening,
+      catatanPeminjam: args.catatanPeminjam?.trim() || undefined,
+      status: "diajukan",
+      nomorReferensi: referenceNumber(Date.now()),
+    });
+  },
+});
+
+/** Daftar pengajuan gadai milik Peminjam. */
+export const listMyPawns = query({
+  args: {},
+  handler: async (ctx) => {
+    const { userId } = await requirePeminjam(ctx);
+    const pawns = await ctx.db
+      .query("pawns")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .collect();
+    return pawns
+      .sort((a, b) => b._creationTime - a._creationTime)
+      .map((p) => ({
+        _id: p._id,
+        _creationTime: p._creationTime,
+        nomorReferensi: p.nomorReferensi,
+        deskripsiBarang: p.deskripsiBarang,
+        kategori: p.kategori,
+        status: p.status,
+        nilaiTaksiran: p.nilaiTaksiran,
+        catatanReview: p.catatanReview,
+      }));
+  },
+});
+
+/** Detail satu pengajuan gadai milik sendiri. */
+export const getMyPawn = query({
+  args: { pawnId: v.id("pawns") },
+  handler: async (ctx, args) => {
+    const { userId } = await requirePeminjam(ctx);
+    const pawn = await ctx.db.get(args.pawnId);
+    if (pawn === null || pawn.userId !== userId) return null;
+    return pawn;
+  },
+});
+
+/** Ringkasan gadai — jujur: 0 saat belum ada data. */
+export const myPawnSummary = query({
+  args: {},
+  handler: async (ctx) => {
+    const { userId } = await requirePeminjam(ctx);
+    const pawns = await ctx.db
+      .query("pawns")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .collect();
+    return {
+      totalGadai: pawns.length,
+      dinilai: pawns.filter(
+        (p) => p.status === "diajukan" || p.status === "sedang_dinilai",
+      ).length,
+      disetujui: pawns.filter((p) => p.status === "disetujui").length,
+    };
+  },
+});
+
+// =====================================================================
+// Reviewer (tim Pinjam Gadai Digital) transitions — admin only
+// =====================================================================
+
+/** Hanya admin boleh memindahkan status aplikasi. */
 async function requireAdmin(ctx: MutationCtx) {
   const userId = await getAuthUserId(ctx);
   if (userId === null) throw new Error("Harus masuk terlebih dahulu.");
   const user = await ctx.db.get(userId);
   if (user === null || user.role !== ROLES.ADMIN) {
-    throw new Error("Hanya tim PINDAI (admin) yang dapat mengubah status aplikasi.");
+    throw new Error(
+      "Hanya tim Pinjam Gadai Digital (admin) yang dapat mengubah status aplikasi.",
+    );
   }
   return userId;
 }
 
-async function setStatus(
+async function setLoanStatus(
   ctx: MutationCtx,
   loanId: Id<"loans">,
   status: LoanStatusValue,
@@ -207,27 +326,83 @@ async function setStatus(
   });
 }
 
-export const markInReview = mutation({
+export const markLoanInReview = mutation({
   args: { loanId: v.id("loans") },
-  handler: (ctx, args) => setStatus(ctx, args.loanId, "sedang_direview"),
+  handler: (ctx, args) => setLoanStatus(ctx, args.loanId, "sedang_direview"),
 });
 
-export const approve = mutation({
+export const approveLoan = mutation({
   args: { loanId: v.id("loans") },
-  handler: (ctx, args) => setStatus(ctx, args.loanId, "disetujui"),
+  handler: (ctx, args) => setLoanStatus(ctx, args.loanId, "disetujui"),
 });
 
-export const reject = mutation({
+export const rejectLoan = mutation({
   args: { loanId: v.id("loans"), reason: v.string() },
-  handler: (ctx, args) => setStatus(ctx, args.loanId, "ditolak", args.reason),
+  handler: (ctx, args) => setLoanStatus(ctx, args.loanId, "ditolak", args.reason),
+});
+
+async function setPawnStatus(
+  ctx: MutationCtx,
+  pawnId: Id<"pawns">,
+  status: PawnStatusValue,
+  opts: { nilaiTaksiran?: Rupiah; catatan?: string },
+) {
+  await requireAdmin(ctx);
+  const pawn = await ctx.db.get(pawnId);
+  if (pawn === null) throw new Error("Pengajuan gadai tidak ditemukan.");
+  if (status === "diajukan") {
+    throw new Error("Status tidak boleh dikembalikan ke diajukan.");
+  }
+  if (
+    status === "disetujui" &&
+    (opts.nilaiTaksiran === undefined ||
+      !Number.isSafeInteger(opts.nilaiTaksiran) ||
+      opts.nilaiTaksiran <= 0)
+  ) {
+    throw new Error(
+      "Persetujuan gadai wajib menyertakan nilai taksiran rupiah bulat positif.",
+    );
+  }
+  if (status === "ditolak" && (!opts.catatan || opts.catatan.trim().length === 0)) {
+    throw new Error("Penolakan wajib menyertakan alasan.");
+  }
+  if (opts.nilaiTaksiran !== undefined) {
+    validateRupiahAmount(opts.nilaiTaksiran, "Nilai taksiran");
+  }
+  await ctx.db.patch(pawnId, {
+    status,
+    ...(opts.nilaiTaksiran !== undefined ? { nilaiTaksiran: opts.nilaiTaksiran } : {}),
+    catatanReview: opts.catatan?.trim() || undefined,
+  });
+}
+
+export const markPawnInAppraisal = mutation({
+  args: { pawnId: v.id("pawns") },
+  handler: (ctx, args) =>
+    setPawnStatus(ctx, args.pawnId, "sedang_dinilai", {}),
+});
+
+export const approvePawn = mutation({
+  args: { pawnId: v.id("pawns"), nilaiTaksiran: v.number() },
+  handler: (ctx, args) =>
+    setPawnStatus(ctx, args.pawnId, "disetujui", {
+      nilaiTaksiran: args.nilaiTaksiran,
+    }),
+});
+
+export const rejectPawn = mutation({
+  args: { pawnId: v.id("pawns"), reason: v.string() },
+  handler: (ctx, args) =>
+    setPawnStatus(ctx, args.pawnId, "ditolak", { catatan: args.reason }),
 });
 
 /** Internal helper dipakai oleh skrip/seed nanti — tidak diekspor ke HTTP. */
-export const _internalSetStatus = internalMutation({
+export const _internalSetLoanStatus = internalMutation({
   args: {
     loanId: v.id("loans"),
     status: loanStatusValidator,
     reason: v.optional(v.string()),
   },
-  handler: (ctx, args) => setStatus(ctx, args.loanId, args.status, args.reason),
+  handler: (ctx, args) =>
+    setLoanStatus(ctx, args.loanId, args.status, args.reason),
 });

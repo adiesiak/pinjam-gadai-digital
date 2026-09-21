@@ -114,19 +114,20 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
             href="/"
             className="text-sm font-semibold tracking-[0.18em] text-foreground"
           >
-            PINDAI
+            PINJAM GADAI DIGITAL
           </a>
           <p className="mt-2 text-xs text-muted-foreground">
-            Pinjam &amp; Gadai Digital
+            Pinjaman &amp; Penggadaian Barang
           </p>
 
           <Card className="mt-8 w-full gap-6 rounded-xl border-border/60 pb-0 shadow-none">
             {step === "signIn" ? (
               <>
                 <CardHeader className="text-center">
-                  <CardTitle className="text-xl">Masuk ke PINDAI</CardTitle>
+                  <CardTitle className="text-xl">Masuk atau buat akun</CardTitle>
                   <CardDescription>
-                    Ruang Peminjam — ajukan dan pantau pinjaman Anda
+                    Ruang nasabah — ajukan pinjaman tunai atau gadaikan barang
+                    dari satu akun
                   </CardDescription>
                 </CardHeader>
                 <form onSubmit={handleEmailSubmit}>
@@ -273,9 +274,10 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
               </>
             )}
 
-            <div className="rounded-b-xl border-t bg-muted px-6 py-4 text-center text-xs text-muted-foreground">
-              Struktur biaya tetap: potongan di muka 5%, bunga 30%, total
-              kewajiban 130%.
+            <div className="rounded-b-xl border-t bg-muted px-6 py-4 text-center text-xs leading-5 text-muted-foreground">
+              Pemeriksaan barang gadai dilakukan di lokasi dengan live location
+              wajib. Struktur biaya tetap: potongan di muka 5%, bunga 30%,
+              total kewajiban 130%.
             </div>
           </Card>
         </div>

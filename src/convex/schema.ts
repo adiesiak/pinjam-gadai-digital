@@ -3,7 +3,7 @@ import { defineSchema, defineTable } from "convex/server";
 import { Infer, v } from "convex/values";
 
 /**
- * PINDAI — Pinjam & Gadai Digital
+ * Pinjam Gadai Digital
  *
  * STRICT TERMINOLOGY (Rule 2):
  * - "Pendana"  — pihak yang menyediakan dana (dilarang: investor)
@@ -17,9 +17,9 @@ import { Infer, v } from "convex/values";
 // default user roles. can add / remove based on the project as needed
 export const ROLES = {
   ADMIN: "admin",
-  /** Peminjam — borrower. First served user of PINDAI v1. */
+  /** Peminjam — borrower. First served user of Pinjam Gadai Digital. */
   PEMINJAM: "peminjam",
-  /** Pendana — fund provider (reserved for a later phase; unused in v1). */
+  /** Pendana — fund provider (Pendanaan is a later phase; unused in v1). */
   PENDANA: "pendana",
   MEMBER: "member",
 } as const;
@@ -40,6 +40,14 @@ export const loanStatusValidator = v.union(
 );
 export type LoanStatusValue = Infer<typeof loanStatusValidator>;
 
+export const pawnStatusValidator = v.union(
+  v.literal("diajukan"),
+  v.literal("sedang_dinilai"),
+  v.literal("disetujui"),
+  v.literal("ditolak"),
+);
+export type PawnStatusValue = Infer<typeof pawnStatusValidator>;
+
 const schema = defineSchema(
   {
     // default auth tables using convex auth.
@@ -57,7 +65,7 @@ const schema = defineSchema(
     }).index("email", ["email"]), // index for the email. do not remove or modify
 
     /**
-     * Aplikasi pinjaman Peminjam (v1: satu-satunya objek domain).
+     * Aplikasi pinjaman tunai Peminjam.
      * Semua nilai uang dalam rupiah bulat (integer). Tidak ada kolom duplikat
      * untuk biaya — biaya selalu diturunkan dari `pokokPinjaman` via
      * quoteLoan() agar tidak pernah ada dua sumber kebenaran.
@@ -78,7 +86,36 @@ const schema = defineSchema(
       status: loanStatusValidator,
       /** Catatan keputusan reviewer (wajib saat ditolak). */
       catatanReview: v.optional(v.string()),
-      /** Nomor urut aplikasi per hari — ringan untuk referensi manusia. */
+      /** Nomor referensi manusiawi. */
+      nomorReferensi: v.string(),
+    })
+      .index("by_user", ["userId"])
+      .index("by_status", ["status"]),
+
+    /**
+     * Pengajuan penggadaian barang.
+     * Barang dinilai petugas berwenang melalui kunjungan dengan live location
+     * wajib; nilai taksiran dan keputusan diisi oleh reviewer (admin), bukan
+     * oleh Peminjam.
+     */
+    pawns: defineTable({
+      userId: v.id("users"),
+      /** Deskripsi barang yang digadaikan. */
+      deskripsiBarang: v.string(),
+      /** Kategori barang. */
+      kategori: v.string(),
+      /** Alamat lokasi barang saat pemeriksaan. */
+      alamatPenilaian: v.string(),
+      /** Nama lengkap sesuai KTP. */
+      namaLengkap: v.string(),
+      /** Nomor rekening tujuan pencairan. */
+      nomorRekening: v.string(),
+      catatanPeminjam: v.optional(v.string()),
+      status: pawnStatusValidator,
+      /** Rupiah bulat — diisi reviewer saat penilaian selesai. */
+      nilaiTaksiran: v.optional(v.number()),
+      /** Catatan penilaian/keputusan reviewer. */
+      catatanReview: v.optional(v.string()),
       nomorReferensi: v.string(),
     })
       .index("by_user", ["userId"])
