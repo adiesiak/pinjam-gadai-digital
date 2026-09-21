@@ -132,8 +132,6 @@ export const dokumenKycUrls = query({
     return { ktpUrl: ktp, selfieUrl: selfie, slipUrl: slip };
   },
 });
-  },
-});
 
 /** Apakah sudah ada admin di sistem — dipakai halaman /admin untuk bootstrap. */
 export const adminExists = query({
