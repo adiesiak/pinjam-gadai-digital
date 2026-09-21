@@ -103,6 +103,16 @@ export default function Dashboard() {
                 <Link to="/admin">Panel Tim</Link>
               </Button>
             )}
+            {user?.role === "pendana" && (
+              <Button
+                asChild
+                variant="ghost"
+                size="sm"
+                className="text-muted-foreground"
+              >
+                <Link to="/pendana">Ruang Pendana</Link>
+              </Button>
+            )}
             <span className="hidden max-w-48 truncate text-muted-foreground sm:block">
               {user?.email ?? user?.name ?? "Nasabah"}
             </span>
