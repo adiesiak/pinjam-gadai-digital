@@ -56,7 +56,9 @@ import {
   buildPinjamanContract,
   nomorContract,
 } from "@/lib/contract";
-import { DEFAULT_CONFIG } from "@/convex/system";
+import { DEFAULT_CONFIG } from "@/lib/system-config";
+import { EContractWidget } from "@/components/EContract";
+import { WatermarkedDoc } from "@/components/WatermarkedDoc";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 
@@ -130,6 +132,10 @@ export default function Admin() {
     overview?.isAdmin ? {} : "skip",
   );
   const ledger = useQuery(api.admin.ledgerSummary, overview?.isAdmin ? {} : "skip");
+  const sysCfg = useQuery(api.system.getStatusPublic, overview?.isAdmin ? {} : "skip");
+  const setKill = useMutation(api.system.setKillSwitch);
+  const [killBusy, setKillBusy] = useState(false);
+  const [killConfirm, setKillConfirm] = useState(false);
 
   const [loanDetail, setLoanDetail] = useState<LoanRow | null>(null);
   const [pawnDetail, setPawnDetail] = useState<PawnRow | null>(null);
@@ -237,94 +243,161 @@ export default function Admin() {
 
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground">
-      <header className="border-b border-border/60">
-        <div className="mx-auto flex h-16 w-full max-w-5xl items-center justify-between px-6">
-          <Link
-            to="/dashboard"
-            className="flex items-center gap-2.5 text-sm font-semibold tracking-[0.18em]"
-          >
-            <span className="gradient-primary flex size-8 items-center justify-center rounded-lg font-bold text-primary-foreground">
-              P
-            </span>
-            PINJAM GADAI DIGITAL
-          </Link>
-          <span className="flex items-center gap-2 text-xs text-muted-foreground">
-            <ShieldCheck className="size-3.5" />
-            Panel Tim
-          </span>
+      <SecurityBar seimbang={ledger?.seimbang === true} killSwitch={sysCfg?.killSwitch === true} />
+
+      <header className="border-b border-sky-100 bg-white/80 backdrop-blur sticky top-0 z-40">
+        <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between gap-3 px-6">
+          <div className="flex min-w-0 items-center gap-3">
+            <VaultLogo3D size={38} />
+            <div className="min-w-0">
+              <p className="truncate text-sm font-bold tracking-[0.14em] text-navy">PANEL ADMIN</p>
+              <p className="truncate text-[11px] text-muted-foreground">PINDAI · Pinjam & Gadai Digital</p>
+            </div>
+            <Badge className="hidden bg-emerald-100 text-emerald-800 hover:bg-emerald-100 sm:inline-flex">
+              <ShieldCheck className="mr-1 size-3" /> Super Admin (Full Access)
+            </Badge>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              className={
+                killConfirm
+                  ? "rounded-full border-0 bg-red-600 text-white shadow-[0_10px_22px_-8px_oklch(0.62_0.19_25/0.55)] hover:bg-red-700"
+                  : "rounded-full border-0 bg-red-500/95 text-white shadow-[0_10px_22px_-8px_oklch(0.62_0.19_25/0.45)] hover:bg-red-600"
+              }
+              disabled={killBusy || sysCfg === undefined}
+              onClick={async () => {
+                const next = !(sysCfg?.killSwitch === true);
+                if (next && !killConfirm) {
+                  setKillConfirm(true);
+                  setTimeout(() => setKillConfirm(false), 4000);
+                  return;
+                }
+                setKillBusy(true);
+                try {
+                  await setKill({ aktif: next });
+                  toast.warning(
+                    next ? "EMERGENCY KILL SWITCH DIAKTIFKAN — semua pengajuan diblokir." : "Kill switch dinonaktifkan — sistem normal.",
+                  );
+                  setKillConfirm(false);
+                } catch (err) {
+                  toast.error(err instanceof Error ? err.message : "Gagal mengubah kill switch.");
+                } finally {
+                  setKillBusy(false);
+                }
+              }}
+            >
+              {killBusy ? (
+                <Loader2 className="mr-2 size-4 animate-spin" />
+              ) : (
+                <ShieldAlert className="mr-2 size-4" />
+              )}
+              {sysCfg?.killSwitch === true
+                ? "Matikan Kill Switch"
+                : killConfirm
+                  ? "Klik lagi untuk konfirmasi!"
+                  : "Emergency Kill Switch"}
+            </Button>
+            <Link
+              to="/dashboard"
+              className="flex size-9 items-center justify-center rounded-full border border-sky-100 bg-secondary/60 text-xs font-bold text-navy"
+              title="Profil & kembali ke ruang nasabah"
+            >
+              A
+            </Link>
+          </div>
         </div>
       </header>
 
-      <main className="mx-auto w-full max-w-5xl flex-1 px-6 py-10">
+      <main className="mx-auto w-full max-w-6xl flex-1 px-6 py-10">
         <div className="flex flex-col gap-1">
-          <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-muted-foreground">
-            Panel Admin
+          <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-primary">
+            Ruang Operasional Tim
           </p>
-          <h1 className="text-2xl font-semibold tracking-tight">
-            Antrean pengajuan
+          <h1 className="text-2xl font-semibold tracking-tight text-navy">
+            Ringkasan sistem hari ini
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Tindak setiap pengajuan: review, taksiran gadai, dan keputusan
-            dengan alasan. Semua keputusan tercatat.
+            Tindak setiap pengajuan, pantau lokasi, kelola pencairan dan
+            keamanan data — semua keputusan tercatat di audit trail.
           </p>
         </div>
 
         {stats && (
-          <section className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+          <section className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-4">
             {[
-              ["Pinjaman baru", `${stats.pinjamanBaru}`],
-              ["Gadai diproses", `${stats.gadaiProses}`],
-              ["Total pinjaman", `${stats.totalPinjaman}`],
-              ["Total gadai", `${stats.totalGadai}`],
-              ["Taksiran disetujui", formatRupiah(stats.nilaiTaksiranDisetujui)],
-              [
-                "Terlambat / denda",
-                `${stats.pinjamanTerlambat} · ${formatRupiah(stats.totalDendaBerjalan)}`,
-              ],
-            ].map(([label, value]) => (
+              ["Pinjaman Baru", `${stats.pinjamanBaru}`, "amber"],
+              ["Gadai Diproses", `${stats.gadaiProses}`, "amber"],
+              ["Total Pinjaman", `${stats.totalPinjaman}`, "sky"],
+              ["Total Gadai", `${stats.totalGadai}`, "sky"],
+              ["Antrean Pencairan", `${stats.antreanPencairan}`, "sky"],
+              ["Wanprestasi / DPD", `${stats.pinjamanTerlambat}`, "red"],
+              ["Taksiran Disetujui", formatRupiah(stats.nilaiTaksiranDisetujui), "mint"],
+              ["GPS Mismatch Alert", `${stats.gpsMismatch}`, stats.gpsMismatch > 0 ? "red" : "mint"],
+            ].map(([label, value, tone]) => (
               <div
-                key={label}
-                className="rounded-2xl border border-sky-100 bg-white px-4 py-4 shadow-[0_10px_26px_-18px_oklch(0.55_0.12_240/0.3)]"
+                key={label as string}
+                className="card-lift rounded-2xl border border-sky-100 bg-white px-4 py-4 shadow-[0_14px_30px_-20px_oklch(0.55_0.12_240/0.35)]"
               >
-                <p className="text-xs text-muted-foreground">{label}</p>
-                <p className="mt-2 text-lg font-semibold tabular-nums text-navy">{value}</p>
+                <p className="text-xs text-muted-foreground">{label as string}</p>
+                <p
+                  className={`mt-2 text-lg font-semibold tabular-nums ${
+                    tone === "red"
+                      ? "text-red-600"
+                      : tone === "mint"
+                        ? "text-emerald-600"
+                        : tone === "amber"
+                          ? "text-amber-600"
+                          : "text-navy"
+                  }`}
+                >
+                  {value as string}
+                </p>
               </div>
             ))}
           </section>
         )}
 
         <Tabs defaultValue="pinjaman" className="mt-8">
-          <TabsList className="bg-transparent p-0">
-            <TabsTrigger
-              value="pinjaman"
-              className="rounded-none border-b-2 border-transparent px-4 py-2 data-[state=active]:border-foreground data-[state=active]:bg-transparent data-[state=active]:shadow-none"
-            >
-              Pinjaman ({overview.loans.filter((l) => l.status === "diajukan").length})
-            </TabsTrigger>
-            <TabsTrigger
-              value="gadai"
-              className="rounded-none border-b-2 border-transparent px-4 py-2 data-[state=active]:border-foreground data-[state=active]:bg-transparent data-[state=active]:shadow-none"
-            >
-              Gadai ({overview.pawns.filter((p) => p.status !== "disetujui" && p.status !== "ditolak").length})
-            </TabsTrigger>
-            <TabsTrigger
-              value="setoran"
-              className="rounded-none border-b-2 border-transparent px-4 py-2 data-[state=active]:border-foreground data-[state=active]:bg-transparent data-[state=active]:shadow-none"
-            >
-              Setoran ({pendingDeposits?.length ?? 0})
-            </TabsTrigger>
-            <TabsTrigger
-              value="pengumuman"
-              className="rounded-none border-b-2 border-transparent px-4 py-2 data-[state=active]:border-foreground data-[state=active]:bg-transparent data-[state=active]:shadow-none"
-            >
-              Pengumuman
-            </TabsTrigger>
-            <TabsTrigger
-              value="whatsapp"
-              className="rounded-none border-b-2 border-transparent px-4 py-2 data-[state=active]:border-foreground data-[state=active]:bg-transparent data-[state=active]:shadow-none"
-            >
-              WhatsApp
-            </TabsTrigger>
+          <TabsList className="flex w-full flex-wrap gap-2 overflow-x-auto rounded-none bg-transparent p-0">
+            {[
+              ["pinjaman", "Pinjaman", `${overview.loans.filter((l) => l.status === "diajukan").length}`, ClipboardList],
+              ["gadai", "Gadai", `${overview.pawns.filter((p) => p.status === "diajukan" || p.status === "sedang_dinilai").length}`, Package],
+              ["lokasi", "Live Location Map", null, MapIcon],
+              ["pencairan", "Pencairan", stats ? `${stats.antreanPencairan}` : null, Wallet],
+              ["dpd", "Koleksi / DPD", stats ? `${stats.pinjamanTerlambat}` : null, BellRing],
+              ["lelang", "Lelang Jaminan", null, Gavel],
+              ["ledger", "Ledger & Keuangan", ledger?.seimbang ? "OK" : "!", Landmark],
+              ["backup", "Backup & Keamanan", null, Database],
+              ["config", "Pengaturan System", null, Settings2],
+              ["audit", "Audit Trail", null, Lock],
+              ["setoran", "Setoran", `${pendingDeposits?.length ?? 0}`, Coins],
+              ["pengumuman", "Pengumuman", null, MessageSquare],
+              ["whatsapp", "WhatsApp", null, Send],
+            ].map(([value, label, badge, Icon]) => (
+              <TabsTrigger
+                key={value as string}
+                value={value as string}
+                className="tab-pill gap-1.5 rounded-full border border-sky-100 bg-white px-4 py-2 text-xs font-medium text-navy shadow-[0_8px_18px_-12px_oklch(0.55_0.12_240/0.4)] transition-all data-[state=active]:gradient-primary data-[state=active]:border-0 data-[state=active]:text-white hover:-translate-y-0.5"
+              >
+                {/* @ts-expect-error ikon dinamis bertipe komponen lucide */}
+                <Icon className="size-3.5" />
+                {label as string}
+                {badge !== null && badge !== undefined && badge !== "0" && (
+                  <span
+                    className={`ml-0.5 inline-flex min-w-5 items-center justify-center rounded-full px-1.5 py-0.5 text-[10px] font-bold tabular-nums ${
+                      badge === "OK"
+                        ? "bg-emerald-100 text-emerald-700"
+                        : badge === "!"
+                          ? "animate-pulse bg-red-100 text-red-700"
+                          : "bg-amber-100 text-amber-700"
+                    }`}
+                  >
+                    {badge as string}
+                  </span>
+                )}
+              </TabsTrigger>
+            ))}
           </TabsList>
 
           {/* ---------------- Pinjaman ---------------- */}
@@ -458,6 +531,46 @@ export default function Admin() {
           {/* ---------------- WhatsApp Reminder ---------------- */}
           <TabsContent value="whatsapp" className="mt-8">
             <WhatsAppPanel />
+          </TabsContent>
+
+          {/* ---------------- Live Location Map ---------------- */}
+          <TabsContent value="lokasi" className="mt-8">
+            <LiveLocationMap />
+          </TabsContent>
+
+          {/* ---------------- Pencairan ---------------- */}
+          <TabsContent value="pencairan" className="mt-8">
+            <PencairanTab onOpen={(l) => setLoanDetail(l)} />
+          </TabsContent>
+
+          {/* ---------------- Koleksi / DPD ---------------- */}
+          <TabsContent value="dpd" className="mt-8">
+            <DpdTab />
+          </TabsContent>
+
+          {/* ---------------- Lelang Jaminan ---------------- */}
+          <TabsContent value="lelang" className="mt-8">
+            <LelangTab />
+          </TabsContent>
+
+          {/* ---------------- Ledger & Keuangan ---------------- */}
+          <TabsContent value="ledger" className="mt-8">
+            <LedgerTab />
+          </TabsContent>
+
+          {/* ---------------- Backup & Keamanan ---------------- */}
+          <TabsContent value="backup" className="mt-8">
+            <BackupPanel />
+          </TabsContent>
+
+          {/* ---------------- Pengaturan System ---------------- */}
+          <TabsContent value="config" className="mt-8">
+            <SystemConfigPanel />
+          </TabsContent>
+
+          {/* ---------------- Audit Trail ---------------- */}
+          <TabsContent value="audit" className="mt-8">
+            <AuditTrailPanel />
           </TabsContent>
         </Tabs>
       </main>
@@ -625,6 +738,8 @@ function LoanReviewDialog({
         </DialogHeader>
 
         <LoanKycPanel row={row} />
+
+        <EContractWidget kind="loan" loanId={row._id} />
 
         <dl className="divide-y divide-sky-100 rounded-2xl border border-sky-100 bg-white">
           {[
@@ -801,28 +916,20 @@ function LoanKycPanel({ row }: { row: LoanRow }) {
               Sumber: <span className="text-navy">{urls.sumberPenghasilan ?? "—"}</span>
             </p>
           </div>
-          <div className="flex flex-wrap gap-2">
-            {[
+          <div className="grid gap-2 sm:grid-cols-3">
+            {([
               ["KTP", urls.ktpUrl],
               ["Selfie + KTP", urls.selfieUrl],
               ["Slip gaji", urls.slipUrl],
-            ].map(([label, url]) =>
+            ] as const).map(([label, url]) =>
               url ? (
-                <a
-                  key={label as string}
-                  href={url as string}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex items-center gap-1.5 rounded-full border border-sky-200 bg-secondary/50 px-3 py-1.5 text-xs font-medium text-navy transition-colors hover:border-sky-300 hover:bg-secondary"
-                >
-                  <ExternalLink className="size-3 text-primary" /> {label as string}
-                </a>
+                <WatermarkedDoc key={label} src={url} label={label} />
               ) : (
                 <span
-                  key={label as string}
-                  className="inline-flex items-center gap-1.5 rounded-full border border-dashed border-border/60 px-3 py-1.5 text-xs text-muted-foreground"
+                  key={label}
+                  className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-dashed border-border/60 px-3 py-6 text-xs text-muted-foreground"
                 >
-                  {label as string} tidak tersedia
+                  {label} tidak tersedia
                 </span>
               ),
             )}
@@ -849,15 +956,27 @@ function LoanKycPanel({ row }: { row: LoanRow }) {
           </div>
           <RiwayatLokasiMini userId={row.userIdPeminjam} />
           {row.nomorWhatsApp && (
-            <Button
-              size="sm"
-              className="gradient-primary rounded-full border-0"
-              disabled={waBusy}
-              onClick={kirim}
-            >
-              {waBusy ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Send className="mr-2 size-3.5" />}
-              Kirim pengingat WhatsApp
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                size="sm"
+                className="gradient-primary rounded-full border-0"
+                disabled={waBusy}
+                onClick={kirim}
+              >
+                {waBusy ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Send className="mr-2 size-3.5" />}
+                Kirim pengingat WhatsApp
+              </Button>
+              <a
+                href={`https://wa.me/${row.nomorWhatsApp}?text=${encodeURIComponent(
+                  `Halo ${row.namaLengkap}, kami dari PINDAI (Pinjam & Gadai Digital). Pinjaman Anda ${row.nomorReferensi} memiliki total kewajiban ${formatRupiah(row.totalKewajibanDenganPenalti ?? 0)}${(row.hariTerlambat ?? 0) > 0 ? ` (termasuk denda keterlambatan ${formatRupiah(row.dendaTerlambat ?? 0)})` : ""}. Mohon lakukan pelunasan tepat waktu. Terima kasih.`,
+                )}`}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500 px-3 py-1.5 text-xs font-semibold text-white shadow-[0_8px_18px_-8px_oklch(0.7_0.15_160/0.6)] transition-transform hover:-translate-y-0.5 hover:bg-emerald-600"
+              >
+                <Send className="size-3.5" /> Kirim Tagihan WA
+              </a>
+            </div>
           )}
         </>
       )}
@@ -1096,6 +1215,624 @@ function WhatsAppPanel() {
   );
 }
 
+function VaultLogo3D({ size = 40 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 64 64" fill="none" aria-hidden>
+      <defs>
+        <linearGradient id="vaultBody" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stopColor="#7DD3FC" />
+          <stop offset="55%" stopColor="#38BDF8" />
+          <stop offset="100%" stopColor="#0EA5E9" />
+        </linearGradient>
+        <radialGradient id="vaultDial" cx="0.35" cy="0.3" r="1">
+          <stop offset="0%" stopColor="#A7F3D0" />
+          <stop offset="60%" stopColor="#10B981" />
+          <stop offset="100%" stopColor="#059669" />
+        </radialGradient>
+      </defs>
+      <rect x="4" y="8" width="56" height="46" rx="12" fill="url(#vaultBody)" />
+      <rect x="12" y="16" width="40" height="30" rx="8" fill="#0C4A6E" opacity="0.25" />
+      <circle cx="32" cy="31" r="10" fill="url(#vaultDial)" />
+      <circle cx="32" cy="31" r="4" fill="#065F46" opacity="0.55" />
+      <rect x="29" y="29" width="6" height="3" rx="1.5" fill="#F0FDF4" />
+      <rect x="14" y="54" width="8" height="6" rx="2" fill="#0284C7" />
+      <rect x="42" y="54" width="8" height="6" rx="2" fill="#0284C7" />
+      <ellipse cx="24" cy="14" rx="10" ry="3" fill="white" opacity="0.35" />
+    </svg>
+  );
+}
+
+function SecurityBar({ seimbang, killSwitch }: { seimbang: boolean; killSwitch: boolean }) {
+  return (
+    <div className={`overflow-hidden border-b ${killSwitch ? "border-red-200 bg-red-50" : "border-sky-100 bg-gradient-to-r from-sky-50 via-white to-emerald-50"}`}>
+      <div className="animate-marquee flex w-max items-center gap-8 py-1.5 text-[11px] font-medium text-navy">
+        {[0, 1].map((dup) => (
+          <div key={dup} className="flex items-center gap-8 pr-8" aria-hidden={dup === 1}>
+            <span className="flex items-center gap-1.5">
+              <ShieldCheck className="size-3.5 text-emerald-600" /> SSL Active
+            </span>
+            <span className="flex items-center gap-1.5">
+              {seimbang ? (
+                <><Lock className="size-3.5 text-emerald-600" /> Ledger Balanced</>
+              ) : (
+                <><ShieldAlert className="size-3.5 animate-pulse text-amber-600" /> Ledger menunggu transaksi</>
+              )}
+            </span>
+            <span className="flex items-center gap-1.5">
+              <Database className="size-3.5 text-sky-600" /> Backup Ready
+            </span>
+            <span className="text-muted-foreground">
+              Pengumuman sistem: semua aksi admin tercatat di audit trail.
+            </span>
+            {killSwitch && (
+              <span className="flex items-center gap-1.5 font-bold text-red-600">
+                <ShieldAlert className="size-3.5 animate-pulse" /> KILL SWITCH AKTIF — pengajuan diblokir
+              </span>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function LiveLocationMap() {
+  const data = useQuery(api.admin.petaPeminjam);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const mapRef = useRef<L.Map | null>(null);
+  const layerRef = useRef<L.LayerGroup | null>(null);
+
+  useEffect(() => {
+    if (containerRef.current === null || mapRef.current !== null) return;
+    const map = L.map(containerRef.current, { scrollWheelZoom: true }).setView(
+      [DEFAULT_CONFIG.vaultLat, DEFAULT_CONFIG.vaultLng],
+      11,
+    );
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      attribution: "&copy; OpenStreetMap contributors",
+      maxZoom: 19,
+    }).addTo(map);
+    layerRef.current = L.layerGroup().addTo(map);
+    mapRef.current = map;
+    return () => {
+      map.remove();
+      mapRef.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    const layer = layerRef.current;
+    if (!map || !layer || data === undefined) return;
+    layer.clearLayers();
+    L.circleMarker([data.vault.lat, data.vault.lng], {
+      radius: 10,
+      color: "#0EA5E9",
+      fillColor: "#38BDF8",
+      fillOpacity: 0.9,
+      weight: 3,
+    })
+      .bindTooltip("Gudang Brankas PINDAI", { direction: "top" })
+      .addTo(layer);
+    L.circle([data.vault.lat, data.vault.lng], {
+      radius: data.gpsMismatchKm * 1000,
+      color: "#38BDF8",
+      fillColor: "#38BDF8",
+      fillOpacity: 0.05,
+      weight: 1,
+      dashArray: "6 6",
+    }).addTo(layer);
+    const bounds = L.latLngBounds([L.latLng(data.vault.lat, data.vault.lng)]);
+    for (const r of data.rows) {
+      if (!r.posisi) continue;
+      bounds.extend([r.posisi.lat, r.posisi.lng]);
+      const warna = r.mismatch ? "#EF4444" : "#10B981";
+      L.circleMarker([r.posisi.lat, r.posisi.lng], {
+        radius: 7,
+        color: warna,
+        fillColor: warna,
+        fillOpacity: 0.85,
+        weight: 2,
+      })
+        .bindTooltip(
+          `<strong>${r.namaLengkap}</strong><br/>${r.nomorReferensi} · ${r.statusPinjaman}<br/>` +
+            (r.mismatch ? `GPS MISMATCH` : r.jarakVaultKm !== null ? `${r.jarakVaultKm.toFixed(1)} km dari vault` : ""),
+          { direction: "top" },
+        )
+        .addTo(layer);
+    }
+    map.fitBounds(bounds.pad(0.25));
+  }, [data]);
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-sm text-muted-foreground">
+          Peta live OpenStreetMap (gratis) — posisi peminjam, gudang brankas, dan radius mismatch {data?.gpsMismatchKm ?? 50} km.
+        </p>
+        <div className="flex items-center gap-2 text-xs">
+          <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100">Dalam radius</Badge>
+          <Badge className="bg-red-100 text-red-700 hover:bg-red-100">GPS Mismatch</Badge>
+        </div>
+      </div>
+      {data === undefined ? (
+        <div className="flex h-[420px] items-center justify-center rounded-2xl border border-sky-100 bg-white">
+          <Loader2 className="size-5 animate-spin text-muted-foreground" />
+        </div>
+      ) : (
+        <div ref={containerRef} className="z-0 h-[420px] overflow-hidden rounded-2xl border border-sky-100 shadow-[0_14px_30px_-20px_oklch(0.55_0.12_240/0.35)]" />
+      )}
+      {data !== undefined && (
+        <ul className="divide-y divide-sky-100 rounded-2xl border border-sky-100 bg-white">
+          {data.rows.filter((r) => r.mismatch).map((r) => (
+            <li key={r.userId} className="flex items-center justify-between gap-3 px-5 py-3 text-sm">
+              <span className="min-w-0 truncate">
+                <Badge className="mr-2 bg-red-100 text-red-700 hover:bg-red-100">GPS Mismatch</Badge>
+                {r.namaLengkap} · {r.nomorReferensi}
+              </span>
+              <span className="shrink-0 tabular-nums text-muted-foreground">
+                {r.jarakVaultKm !== null ? `${r.jarakVaultKm.toFixed(1)} km dari vault` : ""}
+              </span>
+            </li>
+          ))}
+          {data.rows.every((r) => !r.mismatch) && (
+            <li className="px-5 py-3 text-sm text-muted-foreground">Tidak ada peminjam di luar radius — semua posisi aman.</li>
+          )}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+function PencairanTab({ onOpen }: { onOpen: (l: LoanRow) => void }) {
+  const overview = useQuery(api.admin.adminOverview);
+  if (overview === undefined) {
+    return <div className="flex items-center gap-2 py-10 text-sm text-muted-foreground"><Loader2 className="size-4 animate-spin" /> Memuat…</div>;
+  }
+  const antrean = overview.loans.filter((l) => l.status === "disetujui");
+  if (antrean.length === 0) {
+    return <EmptyQueue icon={Wallet} title="Tidak ada pinjaman menunggu pencairan" />;
+  }
+  return (
+    <ul className="divide-y divide-sky-100 rounded-2xl border border-sky-100 bg-white">
+      {antrean.map((l) => (
+        <li key={l._id}>
+          <QueueRow
+            reference={l.nomorReferensi}
+            date={formatDate(l._creationTime)}
+            title={formatRupiah(l.pokokPinjaman)}
+            subtitle={`${l.namaLengkap} · dana bersih ${formatRupiah(Math.round(l.pokokPinjaman * 0.95))} ke ${l.nomorRekening}`}
+            status={<StatusBadge status={l.status} kind="loan" />}
+            onOpen={() => onOpen(l)}
+          />
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function DpdTab() {
+  const overview = useQuery(api.admin.adminOverview);
+  if (overview === undefined) {
+    return <div className="flex items-center gap-2 py-10 text-sm text-muted-foreground"><Loader2 className="size-4 animate-spin" /> Memuat…</div>;
+  }
+  const terlambat = overview.loans.filter((l) => l.status === "didanai" && (l.hariTerlambat ?? 0) > 0);
+  if (terlambat.length === 0) {
+    return <EmptyQueue icon={BellRing} title="Tidak ada pinjaman terlambat — koleksi bersih" />;
+  }
+  return (
+    <ul className="divide-y divide-sky-100 rounded-2xl border border-sky-100 bg-white">
+      {terlambat.map((l) => {
+        const waText = encodeURIComponent(
+          `Halo ${l.namaLengkap}, pengingat PINDAI untuk pinjaman ${l.nomorReferensi}. Total kewajiban Anda saat ini ${formatRupiah(l.totalKewajibanDenganPenalti ?? 0)} (terlambat ${l.hariTerlambat ?? 0} hari, termasuk denda ${formatRupiah(l.dendaTerlambat ?? 0)}). Mohon segera lakukan pelunasan. Terima kasih.`,
+        );
+        const waNomor = l.nomorWhatsApp ?? "";
+        return (
+          <li key={l._id} className="flex flex-wrap items-center justify-between gap-3 px-5 py-4">
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-medium">{l.namaLengkap} — {formatRupiah(l.pokokPinjaman)}</p>
+              <p className="mt-1 truncate text-xs text-muted-foreground">
+                {l.nomorReferensi} · terlambat <span className="font-semibold text-red-600">{l.hariTerlambat} hari</span> · denda {formatRupiah(l.dendaTerlambat ?? 0)} · total {formatRupiah(l.totalKewajibanDenganPenalti ?? 0)}
+              </p>
+            </div>
+            <div className="flex shrink-0 items-center gap-2">
+              {waNomor && (
+                <a
+                  href={`https://wa.me/${waNomor}?text=${waText}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500 px-3 py-1.5 text-xs font-semibold text-white shadow-[0_8px_18px_-8px_oklch(0.7_0.15_160/0.6)] transition-transform hover:-translate-y-0.5 hover:bg-emerald-600"
+                >
+                  <Send className="size-3.5" /> Kirim Tagihan WA
+                </a>
+              )}
+              <StatusBadge status={l.status} kind="loan" />
+            </div>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
+function LelangTab() {
+  const overview = useQuery(api.admin.adminOverview);
+  const [nilaiLelang, setNilaiLelang] = useState<Record<string, string>>({});
+  if (overview === undefined) {
+    return <div className="flex items-center gap-2 py-10 text-sm text-muted-foreground"><Loader2 className="size-4 animate-spin" /> Memuat…</div>;
+  }
+  const kandidat = overview.pawns.filter((p) => p.status === "aktif" && (p.nilaiTaksiran ?? 0) > 0);
+  return (
+    <div className="space-y-4">
+      <p className="text-sm text-muted-foreground">
+        Simulasi lelang barang jaminan wanprestasi: masukkan harga lelang untuk menghitung sisa hasil setelah pemenuhan kewajiban (pokok + imbal hasil Pendana). Sisa dikembalikan ke Peminjam.
+      </p>
+      {kandidat.length === 0 ? (
+        <EmptyQueue icon={Gavel} title="Belum ada barang gadai aktif untuk simulasi lelang" />
+      ) : (
+        <ul className="space-y-3">
+          {kandidat.map((p) => {
+            const input = nilaiLelang[p._id] ?? "";
+            let hasil: string | null = null;
+            try {
+              const v = input.trim() === "" ? 0 : parseRupiah(input);
+              const kewajiban = Math.round((p.nilaiTaksiran ?? 0) * 1.3);
+              const sisa = v - kewajiban;
+              hasil = v <= 0 ? null : sisa >= 0 ? `Sisa hasil lelang ${formatRupiah(sisa)} dikembalikan ke Peminjam.` : `Kekurangan ${formatRupiah(-sisa)} — kewajiban belum tertutup penuh.`;
+            } catch {
+              hasil = "Nominal tidak valid.";
+            }
+            return (
+              <li key={p._id} className="rounded-2xl border border-sky-100 bg-white px-5 py-4">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium">{p.deskripsiBarang}</p>
+                    <p className="mt-1 truncate text-xs text-muted-foreground">
+                      {p.nomorReferensi} · {p.kategori} · taksiran {formatRupiah(p.nilaiTaksiran ?? 0)} · rak {p.kodeRakVault ?? "—"}
+                    </p>
+                  </div>
+                  <Input
+                    value={input}
+                    onChange={(e) => setNilaiLelang((m) => ({ ...m, [p._id]: e.target.value }))}
+                    placeholder="Harga lelang (mis. 8.000.000)"
+                    className="w-56 rounded-full"
+                  />
+                </div>
+                {hasil && <p className="mt-2 text-xs font-medium text-navy">{hasil}</p>}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+function LedgerTab() {
+  const summary = useQuery(api.admin.ledgerSummary);
+  const rows = useQuery(api.admin.ledgerRows);
+  const [q, setQ] = useState("");
+  if (summary === undefined || rows === undefined) {
+    return <div className="flex items-center gap-2 py-10 text-sm text-muted-foreground"><Loader2 className="size-4 animate-spin" /> Memuat…</div>;
+  }
+  const filtered = q.trim()
+    ? rows.filter(
+        (r) =>
+          r.groupId.includes(q.trim()) ||
+          r.akun.toLowerCase().includes(q.trim().toLowerCase()) ||
+          r.keterangan.toLowerCase().includes(q.trim().toLowerCase()),
+      )
+    : rows;
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {([
+          ["Total Debit", formatRupiah(summary.totalDebit)],
+          ["Total Kredit", formatRupiah(summary.totalKredit)],
+          ["Jumlah Entri", `${summary.entryCount}`],
+          ["Status", summary.seimbang ? "SEIMBANG" : "TIDAK SEIMBANG"],
+        ] as const).map(([label, value]) => (
+          <div key={label} className="rounded-2xl border border-sky-100 bg-white px-4 py-3">
+            <p className="text-xs text-muted-foreground">{label}</p>
+            <p className={`mt-1 text-sm font-semibold tabular-nums ${label === "Status" ? (summary.seimbang ? "text-emerald-600" : "text-red-600") : "text-navy"}`}>
+              {value}
+            </p>
+          </div>
+        ))}
+      </div>
+      <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Cari akun / grup / keterangan…" className="rounded-full" />
+      <div className="max-h-[420px] overflow-y-auto rounded-2xl border border-sky-100 bg-white">
+        <table className="w-full text-left text-xs">
+          <thead className="sticky top-0 bg-secondary/70 text-[11px] uppercase tracking-wide text-muted-foreground">
+            <tr>
+              <th className="px-4 py-2.5">Waktu</th>
+              <th className="px-4 py-2.5">Grup</th>
+              <th className="px-4 py-2.5">Akun</th>
+              <th className="px-4 py-2.5">Arah</th>
+              <th className="px-4 py-2.5 text-right">Jumlah</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-border/40">
+            {filtered.slice(0, 200).map((r) => (
+              <tr key={r._id}>
+                <td className="whitespace-nowrap px-4 py-2 text-muted-foreground">{new Date(r.waktu).toLocaleString("id-ID")}</td>
+                <td className="max-w-32 truncate px-4 py-2 text-muted-foreground">{r.groupId}</td>
+                <td className="px-4 py-2 font-medium">{r.akun}</td>
+                <td className="px-4 py-2">
+                  <span className={r.arah === "debit" ? "text-emerald-600" : "text-sky-600"}>{r.arah}</span>
+                </td>
+                <td className="px-4 py-2 text-right tabular-nums">{formatRupiah(r.jumlah)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function BackupPanel() {
+  const snapshot = useQuery(api.system.snapshotData);
+  const ledgerRows = useQuery(api.admin.ledgerRows);
+  const auditData = useQuery(api.system.getConfigAdmin);
+  const catat = useMutation(api.system.catatBackup);
+  const [busy, setBusy] = useState<string | null>(null);
+
+  const unduhFile = (nama: string, isi: string, mime: string) => {
+    const blob = new Blob([isi], { type: mime });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = nama;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const unduhJson = async () => {
+    if (!snapshot) return;
+    setBusy("json");
+    try {
+      unduhFile(`pindai-backup-${new Date().toISOString().slice(0, 10)}.json`, JSON.stringify(snapshot, null, 2), "application/json");
+      await catat({ jenis: "snapshot-json" });
+      toast.success("Snapshot JSON terunduh & tercatat di audit.");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const unduhCsv = async () => {
+    if (!ledgerRows) return;
+    setBusy("csv");
+    try {
+      const head = "waktu,grup,akun,arah,jumlah,jenis,keterangan,aktor";
+      const baris = ledgerRows
+        .map((r) => `${new Date(r.waktu).toISOString()},${r.groupId},"${r.akun}",${r.arah},${r.jumlah},${r.jenis},"${r.keterangan}","${r.aktor}"`)
+        .join("\n");
+      unduhFile(`pindai-ledger-${new Date().toISOString().slice(0, 10)}.csv`, `${head}\n${baris}`, "text/csv");
+      await catat({ jenis: "ledger-csv" });
+      toast.success("Export CSV ledger terunduh.");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const unduhAuditPdf = async () => {
+    if (!auditData) return;
+    setBusy("pdf");
+    try {
+      const log = auditData.auditTerbaru;
+      const html = `<!doctype html><html><head><meta charset="utf-8"><title>Audit Trail PINDAI</title><style>body{font-family:system-ui,sans-serif;padding:32px;color:#0F172A}h1{font-size:20px}table{width:100%;border-collapse:collapse;font-size:12px}td,th{border:1px solid #e2e8f0;padding:6px 8px;text-align:left}</style></head><body><h1>Audit Trail — Pinjam Gadai Digital</h1><p>Dicetak: ${new Date().toLocaleString("id-ID")}</p><table><tr><th>Waktu</th><th>Aktor</th><th>Aksi</th><th>Target</th><th>Detail</th></tr>${log
+        .map((a) => `<tr><td>${new Date(a.waktu).toLocaleString("id-ID")}</td><td>${a.aktorLabel}</td><td>${a.aksi}</td><td>${a.target ?? "-"}</td><td>${a.detail ?? "-"}</td></tr>`)
+        .join("")}</table></body></html>`;
+      const w = window.open("", "_blank");
+      if (w) {
+        w.document.write(html);
+        w.document.close();
+        w.print();
+      }
+      await catat({ jenis: "audit-pdf" });
+      toast.success("Audit log dikirim ke dialog cetak PDF.");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  return (
+    <div className="grid gap-5 lg:grid-cols-2">
+      <div className="space-y-4 rounded-2xl border border-sky-100 bg-white p-5">
+        <p className="flex items-center gap-2 text-sm font-semibold text-navy">
+          <Database className="size-4 text-sky-600" /> Backup Data 1-Click
+        </p>
+        <div className="space-y-2">
+          <Button variant="outline" className="w-full justify-start rounded-2xl" disabled={busy !== null || !snapshot} onClick={unduhJson}>
+            {busy === "json" ? <Loader2 className="mr-2 size-4 animate-spin" /> : <FileDown className="mr-2 size-4 text-sky-600" />}
+            Download Database Snapshot (.JSON)
+          </Button>
+          <Button variant="outline" className="w-full justify-start rounded-2xl" disabled={busy !== null || !ledgerRows} onClick={unduhCsv}>
+            {busy === "csv" ? <Loader2 className="mr-2 size-4 animate-spin" /> : <FileDown className="mr-2 size-4 text-emerald-600" />}
+            Export Ledger & Mutasi (.CSV)
+          </Button>
+          <Button variant="outline" className="w-full justify-start rounded-2xl" disabled={busy !== null || !auditData} onClick={unduhAuditPdf}>
+            {busy === "pdf" ? <Loader2 className="mr-2 size-4 animate-spin" /> : <FileDown className="mr-2 size-4 text-amber-600" />}
+            Export Audit Log (.PDF)
+          </Button>
+        </div>
+        <p className="text-xs leading-5 text-muted-foreground">
+          Snapshot memuat seluruh pinjaman, gadai, setoran, pendanaan, dan pengguna (email disamarkan). Semua unduhan tercatat di audit trail.
+        </p>
+      </div>
+      <div className="space-y-4 rounded-2xl border border-sky-100 bg-white p-5">
+        <p className="flex items-center gap-2 text-sm font-semibold text-navy">
+          <Lock className="size-4 text-emerald-600" /> Proteksi Data
+        </p>
+        <div className="rounded-2xl border border-sky-100 bg-secondary/40 px-4 py-3">
+          <p className="text-sm font-medium">Auto-Watermark KTP</p>
+          <p className="mt-1 text-xs leading-5 text-muted-foreground">
+            Setiap dokumen KYC yang dibuka reviewer diberi overlay transparan VERIFIKASI PINDAI — mencegah penyalahgunaan foto identitas.
+          </p>
+        </div>
+        <div className="rounded-2xl border border-sky-100 bg-secondary/40 px-4 py-3">
+          <p className="text-sm font-medium">Session Timeout Admin</p>
+          <p className="mt-1 text-xs leading-5 text-muted-foreground">Logout otomatis saat admin pasif diatur di tab Pengaturan System (default 30 menit).</p>
+        </div>
+        <div className="rounded-2xl border border-sky-100 bg-secondary/40 px-4 py-3">
+          <p className="text-sm font-medium">Backup Ready</p>
+          <p className="mt-1 text-xs leading-5 text-emerald-700">
+            Snapshot siap: {snapshot ? `${snapshot.jumlah.loans} pinjaman, ${snapshot.jumlah.pawns} gadai` : "—"} · database dapat dipulihkan dari file JSON.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SystemConfigPanel() {
+  const data = useQuery(api.system.getConfigAdmin);
+  const save = useMutation(api.system.saveConfig);
+  const [form, setForm] = useState<typeof DEFAULT_CONFIG | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  if (data === undefined) {
+    return <div className="flex items-center gap-2 py-10 text-sm text-muted-foreground"><Loader2 className="size-4 animate-spin" /> Memuat…</div>;
+  }
+  if (form === null) setForm({ ...DEFAULT_CONFIG, ...data.config });
+  if (form === null) return null;
+  const upd = <K extends keyof typeof DEFAULT_CONFIG>(k: K, v: (typeof DEFAULT_CONFIG)[K]) => setForm({ ...form, [k]: v });
+
+  return (
+    <div className="grid gap-5 lg:grid-cols-2">
+      <div className="space-y-4 rounded-2xl border border-sky-100 bg-white p-5">
+        <p className="flex items-center gap-2 text-sm font-semibold text-navy">
+          <Settings2 className="size-4 text-sky-600" /> Persentase Biaya & Bunga
+        </p>
+        <div className="grid grid-cols-3 gap-3">
+          {(["persenAdmin", "persenPlatform", "persenBunga"] as const).map((k) => (
+            <div key={k}>
+              <Label htmlFor={`cfg-${k}`}>{k === "persenAdmin" ? "Biaya admin %" : k === "persenPlatform" ? "Biaya platform %" : "Bunga %"}</Label>
+              <Input
+                id={`cfg-${k}`}
+                type="number"
+                min={0}
+                value={form[k]}
+                onChange={(e) => upd(k, Math.max(0, Number(e.target.value) || 0))}
+                className="tabular-nums"
+              />
+            </div>
+          ))}
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <Label htmlFor="cfg-ltv">Maks LTV gadai (%)</Label>
+            <Input id="cfg-ltv" type="number" min={1} max={100} value={form.maxLtvPersen} onChange={(e) => upd("maxLtvPersen", Math.min(100, Math.max(1, Number(e.target.value) || 1)))} className="tabular-nums" />
+          </div>
+          <div>
+            <Label htmlFor="cfg-session">Session timeout (menit, 0 = off)</Label>
+            <Input id="cfg-session" type="number" min={0} value={form.sessionTimeoutMenit} onChange={(e) => upd("sessionTimeoutMenit", Math.max(0, Number(e.target.value) || 0))} className="tabular-nums" />
+          </div>
+          <div>
+            <Label htmlFor="cfg-mismatch">Radius mismatch GPS (km)</Label>
+            <Input id="cfg-mismatch" type="number" min={1} value={form.gpsMismatchKm} onChange={(e) => upd("gpsMismatchKm", Math.max(1, Number(e.target.value) || 1))} className="tabular-nums" />
+          </div>
+          <div>
+            <Label htmlFor="cfg-vaultkm">Radius pencairan maks (km)</Label>
+            <Input id="cfg-vaultkm" type="number" min={1} value={form.pencairanMaxKm} onChange={(e) => upd("pencairanMaxKm", Math.max(1, Number(e.target.value) || 1))} className="tabular-nums" />
+          </div>
+        </div>
+        <div className="flex items-center justify-between gap-3 rounded-2xl border border-sky-100 bg-secondary/40 px-4 py-3">
+          <div>
+            <p className="text-sm font-medium">Maintenance Mode</p>
+            <p className="mt-0.5 text-xs text-muted-foreground">Situs menampilkan pengumuman perawatan untuk nasabah.</p>
+          </div>
+          <Switch checked={form.maintenanceMode} onCheckedChange={(v) => upd("maintenanceMode", v)} />
+        </div>
+        <div className="flex items-center justify-between gap-3 rounded-2xl border border-red-100 bg-red-50/60 px-4 py-3">
+          <div>
+            <p className="text-sm font-medium text-red-700">Kill Switch</p>
+            <p className="mt-0.5 text-xs text-muted-foreground">Memblokir seluruh pengajuan pinjaman & gadai seketika.</p>
+          </div>
+          <Switch checked={form.killSwitch} onCheckedChange={(v) => upd("killSwitch", v)} />
+        </div>
+        {error && <p className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">{error}</p>}
+        <Button
+          className="gradient-primary rounded-full border-0"
+          disabled={busy}
+          onClick={async () => {
+            setBusy(true);
+            setError(null);
+            try {
+              await save({ ...form });
+              toast.success("Konfigurasi sistem tersimpan.");
+            } catch (err) {
+              setError(err instanceof Error ? err.message : "Gagal menyimpan konfigurasi.");
+            } finally {
+              setBusy(false);
+            }
+          }}
+        >
+          {busy ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
+          Simpan konfigurasi
+        </Button>
+      </div>
+      <div className="space-y-4 rounded-2xl border border-sky-100 bg-white p-5">
+        <p className="flex items-center gap-2 text-sm font-semibold text-navy">
+          <MapPin className="size-4 text-emerald-600" /> Lokasi Gudang Brankas
+        </p>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <Label htmlFor="cfg-vlat">Latitude vault</Label>
+            <Input id="cfg-vlat" type="number" step="any" value={form.vaultLat} onChange={(e) => upd("vaultLat", Number(e.target.value) || 0)} className="tabular-nums" />
+          </div>
+          <div>
+            <Label htmlFor="cfg-vlng">Longitude vault</Label>
+            <Input id="cfg-vlng" type="number" step="any" value={form.vaultLng} onChange={(e) => upd("vaultLng", Number(e.target.value) || 0)} className="tabular-nums" />
+          </div>
+        </div>
+        <p className="text-xs leading-5 text-muted-foreground">
+          Koordinat ini menjadi pusat peta Live Location dan acuan perhitungan jarak GPS mismatch peminjam.
+        </p>
+        <div className="rounded-2xl border border-sky-100 bg-secondary/40 px-4 py-3">
+          <p className="text-xs text-muted-foreground">Terakhir diubah oleh</p>
+          <p className="mt-1 text-sm font-medium text-navy">{data.diperbaruiOleh}</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AuditTrailPanel() {
+  const data = useQuery(api.system.getConfigAdmin);
+  if (data === undefined) {
+    return <div className="flex items-center gap-2 py-10 text-sm text-muted-foreground"><Loader2 className="size-4 animate-spin" /> Memuat…</div>;
+  }
+  return (
+    <div className="rounded-2xl border border-sky-100 bg-white">
+      <div className="flex items-center justify-between px-5 py-4">
+        <p className="text-sm font-semibold text-navy">Rekam jejak aktivitas admin</p>
+        <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100">{data.auditTerbaru.length} entri terbaru</Badge>
+      </div>
+      <ul className="divide-y divide-border/40">
+        {data.auditTerbaru.map((a) => (
+          <li key={a._id} className="px-5 py-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-sm">
+                <span className="font-semibold text-navy">{a.aktorLabel}</span>{" "}
+                <Badge variant="outline" className="mx-1 text-[10px] uppercase">{a.aksi}</Badge>{" "}
+                <span className="text-muted-foreground">{a.target ?? ""}</span>
+              </p>
+              <span className="text-xs tabular-nums text-muted-foreground">{new Date(a.waktu).toLocaleString("id-ID")}</span>
+            </div>
+            {a.detail && <p className="mt-1 text-xs text-muted-foreground">{a.detail}</p>}
+          </li>
+        ))}
+        {data.auditTerbaru.length === 0 && (
+          <li className="px-5 py-6 text-sm text-muted-foreground">Belum ada aktivitas tercatat.</li>
+        )}
+      </ul>
+    </div>
+  );
+}
+
 // =====================================================================
 // Dialog review gadai + taksiran
 // =====================================================================
@@ -1173,6 +1910,8 @@ function PawnReviewDialog({
             </div>
           ))}
         </dl>
+
+        <EContractWidget kind="pawn" pawnId={row._id} pawnRef={row.nomorReferensi} />
 
         <div className="flex items-start gap-2 rounded-md border border-border/60 bg-muted/40 px-4 py-3">
           <MapPin className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
@@ -1274,6 +2013,9 @@ function AppraisalDialog({
 }) {
   const approvePawn = useMutation(api.loans.approvePawn);
   const [taksiran, setTaksiran] = useState("");
+  const [hargaPasar, setHargaPasar] = useState("");
+  const [kondisi, setKondisi] = useState("");
+  const [rak, setRak] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -1286,9 +2028,23 @@ function AppraisalDialog({
       return null;
     }
   })();
+  const parsedPasar = (() => {
+    if (hargaPasar.trim() === "") return null;
+    try {
+      return parseRupiah(hargaPasar);
+    } catch {
+      return null;
+    }
+  })();
   const hint =
     LTV_HINTS[pawn.kategori as CollateralCategory] ??
     "hingga 60% dari nilai taksiran";
+
+  const ltvPersen =
+    parsedPasar !== null && parsedPasar > 0 && parsed !== null
+      ? Math.round((parsed / parsedPasar) * 100)
+      : null;
+  const ltvMelebihi = ltvPersen !== null && ltvPersen > 70;
 
   const submit = async () => {
     setError(null);
@@ -1296,10 +2052,20 @@ function AppraisalDialog({
       setError("Masukkan nilai taksiran rupiah bulat yang valid.");
       return;
     }
+    if (ltvMelebihi) {
+      setError("LTV " + ltvPersen + "% melebihi batas maksimum 70% dari harga pasar.");
+      return;
+    }
     setBusy(true);
     try {
-      await approvePawn({ pawnId: pawn._id, nilaiTaksiran: parsed });
-      toast.success("Gadai disetujui dengan taksiran tersimpan.");
+      await approvePawn({
+        pawnId: pawn._id,
+        nilaiTaksiran: parsed,
+        ...(parsedPasar !== null ? { hargaPasar: parsedPasar } : {}),
+        ...(kondisi.trim() ? { kondisiFisik: kondisi.trim() } : {}),
+        ...(rak.trim() ? { kodeRakVault: rak.trim().toUpperCase() } : {}),
+      });
+      toast.success("Appraisal tersimpan & gadai disetujui.");
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Gagal menyimpan taksiran.");
@@ -1310,32 +2076,79 @@ function AppraisalDialog({
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Input nilai taksiran</DialogTitle>
+          <DialogTitle>Appraisal gadai</DialogTitle>
           <DialogDescription className="leading-relaxed">
             {pawn.deskripsiBarang}
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-2">
-          <Label htmlFor="taksiran">Nilai taksiran (rupiah bulat)</Label>
-          <div className="relative">
-            <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
-              Rp
-            </span>
-            <Input
-              id="taksiran"
-              inputMode="numeric"
-              className="pl-9 tabular-nums"
-              value={taksiran}
-              onChange={(e) => setTaksiran(e.target.value)}
-              onBlur={() => {
-                if (parsed !== null) setTaksiran(formatRupiah(parsed).replace("Rp ", ""));
-              }}
-              placeholder="8.000.000"
-              disabled={busy}
-            />
+        <div className="space-y-4">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="harga-pasar">Harga pasar (rupiah bulat)</Label>
+              <div className="relative">
+                <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">Rp</span>
+                <Input
+                  id="harga-pasar"
+                  inputMode="numeric"
+                  className="pl-9 tabular-nums"
+                  value={hargaPasar}
+                  onChange={(e) => setHargaPasar(e.target.value)}
+                  onBlur={() => {
+                    if (parsedPasar !== null) setHargaPasar(formatRupiah(parsedPasar).replace("Rp ", ""));
+                  }}
+                  placeholder="12.000.000"
+                  disabled={busy}
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="taksiran">Nilai taksiran (rupiah bulat)</Label>
+              <div className="relative">
+                <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">Rp</span>
+                <Input
+                  id="taksiran"
+                  inputMode="numeric"
+                  className="pl-9 tabular-nums"
+                  value={taksiran}
+                  onChange={(e) => setTaksiran(e.target.value)}
+                  onBlur={() => {
+                    if (parsed !== null) setTaksiran(formatRupiah(parsed).replace("Rp ", ""));
+                  }}
+                  placeholder="8.000.000"
+                  disabled={busy}
+                />
+              </div>
+            </div>
+          </div>
+          {ltvPersen !== null && (
+            <p className={ltvMelebihi ? "text-xs font-medium text-destructive" : "text-xs font-medium text-emerald-600"}>
+              LTV otomatis: {ltvPersen}% dari harga pasar (maksimum 70%).
+            </p>
+          )}
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="kondisi">Kondisi fisik</Label>
+              <Input
+                id="kondisi"
+                value={kondisi}
+                onChange={(e) => setKondisi(e.target.value)}
+                placeholder="Mis. 95% mulus, dus + charger lengkap"
+                disabled={busy}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="rak">Kode rak brankas</Label>
+              <Input
+                id="rak"
+                value={rak}
+                onChange={(e) => setRak(e.target.value)}
+                placeholder="Mis. A-12"
+                disabled={busy}
+              />
+            </div>
           </div>
           <p className="text-xs text-muted-foreground">
             Acuan plafon kategori {pawn.kategori}: {hint}. Dana yang dicairkan

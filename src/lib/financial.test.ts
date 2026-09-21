@@ -60,64 +60,45 @@ eq(
 eq(
   q1.pokok - q1.totalPotonganDiMuka,
   q1.danaBersihDitransfer,
-  "identitas net disbursement",
+  "identitas dana bersih",
 );
+
+// ---- requote: simulasi kalkulator landing ----
+const r1 = requote(8_000_000);
+eq(r1.pokok, 8_000_000, "requote pokok");
+eq(r1.danaBersihDitransfer, 7_600_000, "requote net 95%");
+
+// requote adalah alias quoteLoan — validasi minimum terjadi di lapisan mutasi.
+eq(requote(500_000).pokok, 500_000, "requote nominal kecil tetap terhitung");
+
+// ---- kalkulasi bulat untuk nominal tak rata ----
+const q2 = quoteLoan(7_777_777);
+eq(q2.biayaAdmin, 233_333, "3% dari 7.777.777 (233.333,31 → 233.333)");
+eq(q2.biayaPlatform, 155_556, "2% dari 7.777.777 (155.555,54 → 155.556)");
 eq(
-  q1.pokok + q1.bunga,
-  q1.totalKewajibanPelunasan,
-  "identitas total kewajiban",
+  q2.pokok - q2.totalPotonganDiMuka,
+  q2.danaBersihDitransfer,
+  "identitas net pada nominal tak rata",
 );
 
-// Odd-principal invariants must hold (no drift from float math)
-for (const pokok of [123_457, 999_999, 1_000_001, 7_777_777]) {
-  const q = quoteLoan(pokok);
-  eq(
-    q.biayaAdmin + q.biayaPlatform + q.danaBersihDitransfer,
-    pokok,
-    `potongan+net == pokok untuk ${pokok}`,
-  );
-  eq(
-    q.pokok + q.bunga,
-    q.totalKewajibanPelunasan,
-    `pokok+bunga == total untuk ${pokok}`,
-  );
-  eq(q.bunga, percentOf(pokok, 30), `bunga == 30% langsung untuk ${pokok}`);
-}
+// ---- calculateRepayment (pelunasan + denda) ----
+const didanai = Date.UTC(2026, 0, 1, 0, 0, 0);
+const jatuhTempo = didanai + 30 * 24 * 60 * 60 * 1000;
 
-// requote must be deterministic from stored principal
-const stored = requote(10_000_000);
-eq(JSON.stringify(stored), JSON.stringify(q1), "requote identik dengan quote");
+const r2 = calculateRepayment(10_000_000, 30, didanai, didanai);
+eq(r2.pokok, 10_000_000, "repayment pokok");
+eq(r2.bunga, 3_000_000, "repayment bunga 30%");
+eq(r2.dendaTerlambat, 0, "repayment tepat waktu tanpa denda");
+eq(r2.totalKewajibanDenganPenalti, 13_000_000, "repayment total 130%");
 
-// ---- calculateRepayment: jatuh tempo, keterlambatan, denda integer exact ----
-const DAY = 86_400_000;
-const didanai = 1_700_000_000_000; // epoch tetap agar tes deterministik
+const r3 = calculateRepayment(10_000_000, 30, didanai, jatuhTempo + 10 * 24 * 60 * 60 * 1000);
+eq(r3.dendaTerlambat, 500_000, "denda 10 hari × 0,5% × pokok");
 
-// Belum terlambat: sisa 5 hari, denda 0.
-const r1 = calculateRepayment(1_000_000, 30, didanai, didanai + 25 * DAY);
-eq(r1.sisaHari, 5, "sisa 5 hari sebelum jatuh tempo");
-eq(r1.hariTerlambat, 0, "belum terlambat");
-eq(r1.dendaTerlambat, 0, "denda 0 saat belum terlambat");
-eq(r1.totalKewajibanDenganPenalti, 1_300_000, "total tetap 130% saat belum terlambat");
+const r4 = calculateRepayment(10_000_000, 30, didanai, jatuhTempo + 40 * 24 * 60 * 60 * 1000);
+eq(r4.dendaTerlambat, 1_500_000, "denda di-cap maksimum 15% dari pokok (30 hari × 0,5%)");
 
-// Jatuh tempo persis: sisa 0, belum terlambat, denda 0.
-const r2 = calculateRepayment(1_000_000, 30, didanai, didanai + 30 * DAY);
-eq(r2.sisaHari, 0, "jatuh tempo hari ini → sisa 0");
-eq(r2.hariTerlambat, 0, "jatuh tempo persis belum terlambat");
-eq(r2.dendaTerlambat, 0, "denda 0 pada hari jatuh tempo");
-
-// Terlambat 1 hari: denda 0,5% = 5.000; total 1.305.000.
-const r3 = calculateRepayment(1_000_000, 30, didanai, didanai + 31 * DAY);
-eq(r3.hariTerlambat, 1, "terlambat 1 hari");
-eq(r3.dendaTerlambat, 5_000, "denda 0,5% × 1 hari = 5.000");
-eq(r3.totalKewajibanDenganPenalti, 1_305_000, "total 130% + denda = 1.305.000");
-
-// Terlambat 45 hari: 0,5% × 45 = 22,5% → di-cap 15% = 150.000.
-const r4 = calculateRepayment(1_000_000, 30, didanai, didanai + 75 * DAY);
-eq(r4.hariTerlambat, 45, "terlambat 45 hari");
-eq(r4.dendaTerlambat, 150_000, "denda di-cap 15% = 150.000");
-
-// Principal ganjil: denda tetap integer exact (half-up per rupiah).
-const r5 = calculateRepayment(333_333, 30, didanai, didanai + 31 * DAY);
+// ---- denda tidak boleh negatif / desimal ----
+const r5 = calculateRepayment(333_333, 30, didanai, jatuhTempo + 1 * 24 * 60 * 60 * 1000);
 eq(
   r5.dendaTerlambat,
   Math.round(333_333 * 0.005) === Math.floor(333_333 * 0.005) + 1

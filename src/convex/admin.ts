@@ -462,6 +462,49 @@ export const petaPeminjam = query({
   },
 });
 
+/** Data lengkap pinjaman untuk pembuatan e-contract (admin). */
+export const contractDetail = query({
+  args: { loanId: v.id("loans") },
+  handler: async (ctx, { loanId }) => {
+    await requireAdmin(ctx);
+    const loan = await ctx.db.get(loanId);
+    if (loan === null) return null;
+    return {
+      _creationTime: loan._creationTime,
+      nomorReferensi: loan.nomorReferensi,
+      namaLengkap: loan.namaLengkap,
+      nomorRekening: loan.nomorRekening,
+      nik: loan.nik ?? null,
+      pokokPinjaman: loan.pokokPinjaman,
+      tenorHari: loan.tenorHari,
+      lokasiAjukan: loan.lokasiAjukan ?? null,
+      quote: quoteLoan(loan.pokokPinjaman),
+    };
+  },
+});
+
+/** Data lengkap gadai untuk akad digital (admin). */
+export const contractDetailPawn = query({
+  args: { pawnId: v.id("pawns") },
+  handler: async (ctx, { pawnId }) => {
+    await requireAdmin(ctx);
+    const pawn = await ctx.db.get(pawnId);
+    if (pawn === null) return null;
+    return {
+      _creationTime: pawn._creationTime,
+      nomorReferensi: pawn.nomorReferensi,
+      namaLengkap: pawn.namaLengkap,
+      nomorRekening: pawn.nomorRekening,
+      deskripsiBarang: pawn.deskripsiBarang,
+      kategori: pawn.kategori,
+      nilaiTaksiran: pawn.nilaiTaksiran,
+      hargaPasar: pawn.hargaPasar ?? null,
+      kondisiFisik: pawn.kondisiFisik ?? null,
+      kodeRakVault: pawn.kodeRakVault ?? null,
+    };
+  },
+});
+
 /** Data tanda tangan elektronik peminjam untuk e-contract. */
 export const contractData = query({
   args: { loanId: v.id("loans") },

@@ -2,6 +2,7 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 import { mutation, query, MutationCtx, QueryCtx } from "./_generated/server";
 import { v } from "convex/values";
 import { ROLES } from "./schema";
+import { DEFAULT_CONFIG, type SystemConfig } from "../lib/system-config";
 
 /**
  * Konfigurasi sistem, kill switch, snapshot data, dan audit trail.
@@ -10,33 +11,8 @@ import { ROLES } from "./schema";
 
 export const SYSTEM_SLOT = "global";
 
-export type SystemConfig = {
-  killSwitch: boolean;
-  maintenanceMode: boolean;
-  persenAdmin: number;
-  persenPlatform: number;
-  persenBunga: number;
-  maxLtvPersen: number;
-  sessionTimeoutMenit: number;
-  vaultLat: number;
-  vaultLng: number;
-  gpsMismatchKm: number;
-  pencairanMaxKm: number;
-};
-
-export const DEFAULT_CONFIG: SystemConfig = {
-  killSwitch: false,
-  maintenanceMode: false,
-  persenAdmin: 3,
-  persenPlatform: 2,
-  persenBunga: 30,
-  maxLtvPersen: 70,
-  sessionTimeoutMenit: 30,
-  vaultLat: -6.249511,
-  vaultLng: 106.830711,
-  gpsMismatchKm: 50,
-  pencairanMaxKm: 75,
-};
+export { DEFAULT_CONFIG };
+export type { SystemConfig };
 
 async function requireAdmin(ctx: QueryCtx) {
   const userId = await getAuthUserId(ctx);

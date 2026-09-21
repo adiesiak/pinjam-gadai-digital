@@ -82,11 +82,7 @@ export function quoteLoanDenganPersen(
     throw new Error("Pokok pinjaman harus rupiah bulat positif.");
   }
   const biayaAdmin = percentOf(pokok, persen.admin);
-  const biayaPlatformRaw = (pokok * persen.platform) / 100;
-  const biayaPlatform = Math.max(
-    0,
-    pokok - biayaAdmin - Math.round(biayaPlatformRaw),
-  );
+  const biayaPlatform = percentOf(pokok, persen.platform);
   const totalPotonganDiMuka = biayaAdmin + biayaPlatform;
   const danaBersihDitransfer = pokok - totalPotonganDiMuka;
   const bunga = percentOf(pokok, persen.bunga);
