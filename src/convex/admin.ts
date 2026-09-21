@@ -160,6 +160,27 @@ export const qaPromoteUser = internalMutation({
 });
 
 /**
+ * Cabut peran admin dari semua akun TAMU (anonim tanpa email) — membersihkan
+ * admin hantu buatan skrip QA sehingga slot bootstrap admin pertama kembali
+ * tersedia untuk akun email asli. Admin beremail tidak tersentuh. Internal —
+ * hanya via CLI Convex (`bunx convex run admin:qaDemoteGuestAdmins '{}').
+ */
+export const qaDemoteGuestAdmins = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const all = await ctx.db.query("users").collect();
+    const demoted: Array<{ id: string; email: string | null }> = [];
+    for (const u of all) {
+      if (u.role === ROLES.ADMIN && u.isAnonymous === true && !u.email) {
+        await ctx.db.patch(u._id, { role: undefined });
+        demoted.push({ id: u._id, email: u.email ?? null });
+      }
+    }
+    return { demotedCount: demoted.length, demoted };
+  },
+});
+
+/**
  * Promosikan pengguna lain menjadi admin — hanya oleh admin yang ada.
  * (Dipakai dari halaman admin; tidak diekspos ke nasabah.)
  */
