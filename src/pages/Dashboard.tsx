@@ -841,7 +841,7 @@ function PawnDetailDialog({
             </DialogHeader>
 
             <p className="text-sm leading-6 text-muted-foreground">
-              {pawnStatusMeta(pawn.status).description}
+              {pawnStatusMeta(pawn.status as PawnStatus).description}
             </p>
 
             <dl className="divide-y divide-border/60 rounded-lg border border-border/60">

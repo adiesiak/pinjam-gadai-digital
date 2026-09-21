@@ -40,6 +40,8 @@ export const loanStatusValidator = v.union(
   v.literal("ditolak"),
   // Pinjaman yang telah didanai penuh oleh Pendana (dana bersih telah dicairkan).
   v.literal("didanai"),
+  // Kewajiban 130% telah dibayar penuh oleh Peminjam.
+  v.literal("lunas"),
 );
 export type LoanStatusValue = Infer<typeof loanStatusValidator>;
 
@@ -48,6 +50,12 @@ export const pawnStatusValidator = v.union(
   v.literal("sedang_dinilai"),
   v.literal("disetujui"),
   v.literal("ditolak"),
+  /** Gadai disetujui + dana cair; menunggu pelunasan sebelum barang dilepas. */
+  v.literal("aktif"),
+  /** Nasabah mengajukan pelepasan setelah pelunasan. */
+  v.literal("menunggu_pelepasan"),
+  /** Barang telah dikembalikan ke nasabah. */
+  v.literal("lunas_dilepas"),
 );
 export type PawnStatusValue = Infer<typeof pawnStatusValidator>;
 
@@ -93,6 +101,8 @@ const schema = defineSchema(
       nomorReferensi: v.string(),
       /** Terisi saat pinjaman didanai penuh dan dana bersih dicairkan. */
       didanaiPada: v.optional(v.number()),
+      /** Terisi saat kewajiban 130% dibayar penuh (pelunasan). */
+      lunasPada: v.optional(v.number()),
     })
       .index("by_user", ["userId"])
       .index("by_status", ["status"]),

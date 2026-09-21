@@ -28,6 +28,9 @@ export const PAWN_STATUS_FLOW = [
   "sedang_dinilai",
   "disetujui",
   "ditolak",
+  "aktif",
+  "menunggu_pelepasan",
+  "lunas_dilepas",
 ] as const;
 
 export type PawnStatus = (typeof PAWN_STATUS_FLOW)[number];
@@ -60,6 +63,24 @@ export function pawnStatusMeta(status: PawnStatus): {
         label: "Ditolak",
         description:
           "Pengajuan gadai tidak dapat dilanjutkan. Anda dapat mengajukan ulang dengan barang lain.",
+      };
+    case "aktif":
+      return {
+        label: "Aktif",
+        description:
+          "Gadai aktif dan barang disimpan dengan aman. Barang dilepas setelah kewajiban dilunasi dan pelepasan disetujui tim.",
+      };
+    case "menunggu_pelepasan":
+      return {
+        label: "Menunggu Pelepasan",
+        description:
+          "Permintaan pelepasan Anda tercatat. Petugas akan mengonfirmasi pengembalian barang.",
+      };
+    case "lunas_dilepas":
+      return {
+        label: "Lunas & Dilepas",
+        description:
+          "Kewajiban lunas dan barang telah dikembalikan ke Anda. Terima kasih telah mempercayakan layanan kami.",
       };
   }
 }

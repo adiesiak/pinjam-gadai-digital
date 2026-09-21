@@ -8,10 +8,21 @@ import {
 } from "./_generated/server";
 import { v } from "convex/values";
 import { Id } from "./_generated/dataModel";
-import { ROLES, loanStatusValidator, LoanStatusValue, PawnStatusValue } from "./schema";
+import {
+  ROLES,
+  loanStatusValidator,
+  LoanStatusValue,
+  PawnStatusValue,
+} from "./schema";
 import { quoteLoan } from "../lib/loan";
 import { formatRupiah, type Rupiah } from "../lib/money";
 import { COLLATERAL_CATEGORIES } from "../lib/pawn";
+import { appendJournal } from "./ledger";
+
+/**
+ * Saat pinjaman dilunasi, pinjaman baru (belum pernah didanai) bisa kembali
+ * ke marketplace — sisa kebutuhan akan dihitung ulang otomatis.
+ */
 
 /** Business range for pokok pinjaman / nilai taksiran (rupiah bulat). */
 export const MIN_POKOK = 100_000;
@@ -396,6 +407,122 @@ export const rejectPawn = mutation({
   args: { pawnId: v.id("pawns"), reason: v.string() },
   handler: (ctx, args) =>
     setPawnStatus(ctx, args.pawnId, "ditolak", { catatan: args.reason }),
+});
+
+// =====================================================================
+// Pelunasan (repayment) & pelepasan barang gadai
+// =====================================================================
+
+/**
+ * Pelunasan oleh Peminjam — total kewajiban 130% dari pokok.
+ * Jurnal (semua dalam satu mutation transaksional, append-only):
+ *   1. D platform:CASH 130%  | K pinjaman:<id> 130%   (kas masuk)
+ *   2. D pinjaman:<id> p_i+im_i | K pendana:WALLET:i  (bayar tiap Pendana)
+ * Dust pembulatan proporsi imbal hasil diberikan ke Pendana dengan alokasi
+ * terbesar, sehingga akun pinjaman tepat nol dan total keluar tepat 130%.
+ */
+export const repayLoan = mutation({
+  args: { loanId: v.id("loans") },
+  handler: async (ctx, args) => {
+    const { userId } = await requirePeminjam(ctx);
+    const loan = await ctx.db.get(args.loanId);
+    if (loan === null) throw new Error("Pinjaman tidak ditemukan.");
+    if (loan.userId !== userId) throw new Error("Bukan pinjaman Anda.");
+    if (loan.status !== "didanai") {
+      throw new Error("Hanya pinjaman berstatus Didanai yang dapat dilunasi.");
+    }
+
+    const q = quoteLoan(loan.pokokPinjaman);
+    const fundings = await ctx.db
+      .query("fundings")
+      .withIndex("by_loan", (q2) => q2.eq("loanId", args.loanId))
+      .collect();
+    const aktif = fundings.filter((f) => f.status === "dialokasikan");
+    if (aktif.length === 0) {
+      throw new Error("Tidak ada posisi Pendana aktif pada pinjaman ini.");
+    }
+
+    // 1. Kas masuk: total kewajiban 130% ke akun pinjaman.
+    await appendJournal(ctx, {
+      jenis: "repayment",
+      keterangan: `Pelunasan ${loan.nomorReferensi} — total kewajiban 130%`,
+      aktor: userId,
+      lines: [
+        { akun: "platform:CASH", arah: "debit", jumlah: q.totalKewajibanPelunasan },
+        { akun: `pinjaman:${args.loanId}`, arah: "kredit", jumlah: q.pokok + q.bunga },
+      ],
+    });
+
+    // 2. Bayar tiap Pendana: pokok bagian + imbal hasil bagian (dari akun
+    //    pinjaman). Urut dari alokasi terbesar — dust pembulatan diterimanya.
+    aktif.sort((a, b) => b.jumlahAlokasi - a.jumlahAlokasi);
+    const imbalBagian = aktif.map((f) => ({
+      funding: f,
+      imbal: Math.floor((q.bunga * f.jumlahAlokasi) / loan.pokokPinjaman),
+    }));
+    const dust =
+      q.bunga - imbalBagian.reduce((acc, x) => acc + x.imbal, 0);
+    imbalBagian[0].imbal += dust; // dust selalu >= 0 dan < jumlah Pendana
+
+    let terdistribusi = 0;
+    for (const { funding: f, imbal } of imbalBagian) {
+      const payout = f.jumlahAlokasi + imbal;
+      await appendJournal(ctx, {
+        jenis: "payout",
+        keterangan: `Pelunasan: pembayaran ke ${f.nomorReferensi} (${loan.nomorReferensi})`,
+        aktor: "platform",
+        lines: [
+          { akun: `pinjaman:${args.loanId}`, arah: "debit", jumlah: payout },
+          { akun: `pendana:WALLET:${f.pendanaId}`, arah: "kredit", jumlah: payout },
+        ],
+      });
+      terdistribusi += payout;
+    }
+
+    // 3. Sanity: total keluar tepat 130% (pokok + bunga). Gagal = rollback.
+    const selisih = q.totalKewajibanPelunasan - terdistribusi;
+    if (selisih !== 0) {
+      throw new Error(
+        `Pelunasan tidak seimbang: selisih ${selisih}. Transaksi dibatalkan.`,
+      );
+    }
+
+    await ctx.db.patch(args.loanId, { status: "lunas", lunasPada: Date.now() });
+    return { totalDibayar: q.totalKewajibanPelunasan };
+  },
+});
+
+/** Peminjam mengajukan pelepasan barang gadai yang sudah aktif. */
+export const requestPawnRelease = mutation({
+  args: { pawnId: v.id("pawns") },
+  handler: async (ctx, args) => {
+    const { userId } = await requirePeminjam(ctx);
+    const pawn = await ctx.db.get(args.pawnId);
+    if (pawn === null) throw new Error("Pengajuan gadai tidak ditemukan.");
+    if (pawn.userId !== userId) throw new Error("Bukan pengajuan Anda.");
+    if (pawn.status !== "aktif") {
+      throw new Error(
+        "Hanya gadai berstatus Aktif yang dapat diajukan pelepasan.",
+      );
+    }
+    await ctx.db.patch(args.pawnId, { status: "menunggu_pelepasan" });
+  },
+});
+
+/** Admin melepas barang — menandai gadai selesai sepenuhnya. */
+export const releasePawn = mutation({
+  args: { pawnId: v.id("pawns") },
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx);
+    const pawn = await ctx.db.get(args.pawnId);
+    if (pawn === null) throw new Error("Pengajuan gadai tidak ditemukan.");
+    if (pawn.status !== "menunggu_pelepasan") {
+      throw new Error(
+        "Pelepasan hanya untuk gadai berstatus Menunggu Pelepasan.",
+      );
+    }
+    await ctx.db.patch(args.pawnId, { status: "lunas_dilepas" });
+  },
 });
 
 /** Internal helper dipakai oleh skrip/seed nanti — tidak diekspor ke HTTP. */

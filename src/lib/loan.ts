@@ -87,6 +87,8 @@ export const LOAN_STATUS_FLOW = [
   "sedang_direview",
   "disetujui",
   "ditolak",
+  "didanai",
+  "lunas",
 ] as const;
 
 export type LoanStatus = (typeof LOAN_STATUS_FLOW)[number];
@@ -116,6 +118,18 @@ export function loanStatusMeta(status: LoanStatus): {
       return {
         label: "Ditolak",
         description: "Aplikasi tidak dapat dilanjutkan. Anda dapat mengajukan ulang.",
+      };
+    case "didanai":
+      return {
+        label: "Didanai",
+        description:
+          "Pinjaman didanai penuh oleh Pendana dan dana bersih telah dicairkan. Lunasi total kewajiban 130% untuk menyelesaikan kewajiban Anda.",
+      };
+    case "lunas":
+      return {
+        label: "Lunas",
+        description:
+          "Total kewajiban telah dibayar penuh. Pendana telah menerima pokok dan imbal hasilnya.",
       };
   }
 }

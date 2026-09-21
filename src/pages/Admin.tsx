@@ -41,7 +41,7 @@ type LoanRow = {
   nomorReferensi: string;
   pokokPinjaman: number;
   tujuan: string;
-  status: "diajukan" | "sedang_direview" | "disetujui" | "ditolak" | "didanai";
+  status: "diajukan" | "sedang_direview" | "disetujui" | "ditolak" | "didanai" | "lunas";
   catatanReview?: string;
   namaLengkap: string;
   nomorRekening: string;
@@ -56,7 +56,7 @@ type PawnRow = {
   deskripsiBarang: string;
   kategori: string;
   alamatPenilaian: string;
-  status: "diajukan" | "sedang_dinilai" | "disetujui" | "ditolak";
+  status: "diajukan" | "sedang_dinilai" | "disetujui" | "ditolak" | "aktif" | "menunggu_pelepasan" | "lunas_dilepas";
   nilaiTaksiran?: number;
   catatanReview?: string;
   namaLengkap: string;
