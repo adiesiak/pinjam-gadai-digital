@@ -18,7 +18,7 @@ const SLOT = "global";
 
 /** Teks default — dipakai saat admin belum pernah menyimpan pengumuman. */
 export const DEFAULT_ANNOUNCEMENT = {
-  teks: "PINDAI transparan: potongan di muka hanya 5% — dana bersih 95% sampai ke Peminjam. Total kewajiban jelas sejak awal, tanpa biaya tersembunyi.",
+  teks: "Pengajuan pinjaman tunai & gadai digital kini lebih cepat — dilayani dari rumah, ditinjau tim sesegera mungkin. Daftar gratis dan ajukan hari ini.",
   tautan: "/auth" as const,
 };
 

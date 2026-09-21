@@ -392,13 +392,13 @@ function AnnouncementModal({ onOpenCta }: { onOpenCta: () => void }) {
           </motion.span>
           <DialogHeader className="mt-4 space-y-2 text-center">
             <DialogTitle className="text-xl font-extrabold text-navy">
-              Transparansi 95% Net
+              Ajukan Sekarang, Cair Tanpa Antre
             </DialogTitle>
             <DialogDescription className="text-sm leading-6 text-slate-600">
-              Potongan di muka PINDAI hanya <b>5%</b> — Biaya Admin 3% + Biaya
-              Platform 2%. Sisanya, <b className="text-emerald-700">Dana Bersih 95%</b>,
-              sepenuhnya sampai ke rekening Peminjam. Semua angka ditampilkan
-              sejak halaman pertama, tanpa biaya tersembunyi.
+              Buat pengajuan pinjaman tunai atau gadai digital langsung dari
+              rumah — cukup beberapa menit. Tim kami menindak cepat, barang
+              gadai tersimpan aman di brankas custody, dan pengingat jatuh
+              tempo berjalan otomatis supaya Anda tidak pernah terlambat.
             </DialogDescription>
           </DialogHeader>
         </div>
@@ -410,7 +410,7 @@ function AnnouncementModal({ onOpenCta }: { onOpenCta: () => void }) {
               onOpenCta();
             }}
           >
-            Mengerti, hitung pinjaman saya
+            Mengerti, coba simulasi pinjaman saya
             <ArrowRight className="ml-1.5 size-4" />
           </Button>
           <button
