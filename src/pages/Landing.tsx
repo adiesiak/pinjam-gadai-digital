@@ -5,10 +5,8 @@ import {
   Banknote,
   Calculator,
   Eye,
-  FileClock,
   Landmark,
   Lock,
-  LockKeyhole,
   MapPin,
   Megaphone,
   Package,
@@ -150,70 +148,58 @@ const TRUST_BADGES = [
     icon: Lock,
     tint: "clay-icon-blue",
     title: "SSL 256-bit",
-    tip: "Seluruh koneksi data nasabah dienkripsi TLS/SSL 256-bit dari browser hingga server.",
+    tip: "Koneksi data nasabah terenkripsi TLS/SSL 256-bit end-to-end.",
   },
   {
     icon: Scale,
     tint: "clay-icon-mint",
     title: "Double-Entry Ledger",
-    tip: "Setiap rupiah tercatat berpasangan debit–kredit; total keduanya wajib selalu seimbang.",
-  },
-  {
-    icon: LockKeyhole,
-    tint: "clay-icon-blue",
-    title: "Row-Locking Guard",
-    tip: "Transaksi pendanaan mengunci baris data secara atomik — mustahil dana dialokasi ganda.",
-  },
-  {
-    icon: FileClock,
-    tint: "clay-icon-mint",
-    title: "Append-Only Audit Log",
-    tip: "Jurnal keuangan hanya bisa ditambah, tidak bisa diubah atau dihapus siapa pun.",
+    tip: "Setiap rupiah tercatat berpasangan debit–kredit dan wajib seimbang.",
   },
   {
     icon: Vault,
     tint: "clay-icon-blue",
     title: "Brankas Custody",
-    tip: "Barang gadai disimpan di custody resmi dengan pencatatan perpindahan yang diaudit.",
+    tip: "Barang gadai tersimpan di custody resmi dengan pencatatan diaudit.",
   },
   {
     icon: ShieldCheck,
     tint: "clay-icon-mint",
     title: "HMAC SHA-256",
-    tip: "Callback pembayaran diverifikasi tanda tangan kriptografi + proteksi replay attack.",
+    tip: "Callback pembayaran diverifikasi tanda tangan kriptografi.",
   },
   {
     icon: Calculator,
     tint: "clay-icon-blue",
     title: "Zero Floating Error",
-    tip: "Semua hitungan rupiah bulat tanpa kesalahan desimal — presisi sampai satu rupiah.",
+    tip: "Semua hitungan rupiah bulat — presisi sampai satu rupiah.",
   },
   {
     icon: Eye,
     tint: "clay-icon-mint",
     title: "Transparansi 95% Net",
-    tip: "Potongan di muka 5% dinyatakan terbuka sejak awal — dana bersih 95% sampai ke Peminjam.",
+    tip: "Potongan di muka 5% terbuka — dana bersih 95% sampai ke Peminjam.",
   },
 ] as const;
 
 function TrustBadgesBar() {
   return (
-    <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+    <div className="grid grid-cols-3 gap-3 sm:grid-cols-6">
       {TRUST_BADGES.map(({ icon: Icon, tint, title, tip }) => (
         <div key={title} className="group relative">
           {/* Tooltip melayang di atas kartu saat hover */}
-          <div className="pointer-events-none absolute bottom-full left-1/2 z-30 mb-3 w-56 -translate-x-1/2 translate-y-1 opacity-0 transition-all duration-200 group-hover:translate-y-0 group-hover:opacity-100">
-            <div className="clay-card relative rounded-2xl px-4 py-3">
-              <p className="text-xs font-semibold text-sky-900">{title}</p>
-              <p className="mt-1 text-[11px] leading-4 text-slate-600">{tip}</p>
+          <div className="pointer-events-none absolute bottom-full left-1/2 z-30 mb-3 w-52 -translate-x-1/2 translate-y-1 opacity-0 transition-all duration-200 group-hover:translate-y-0 group-hover:opacity-100">
+            <div className="clay-card relative rounded-2xl px-3.5 py-2.5">
+              <p className="text-[11px] font-semibold text-sky-900">{title}</p>
+              <p className="mt-0.5 text-[11px] leading-4 text-slate-600">{tip}</p>
               <span className="absolute -bottom-1.5 left-1/2 size-3 -translate-x-1/2 rotate-45 rounded-[3px] border-b border-r border-sky-100 bg-white" />
             </div>
           </div>
-          <div className="clay-card flex flex-col items-center gap-2.5 rounded-3xl px-3 py-5 text-center transition-transform duration-200 group-hover:-translate-y-1.5">
-            <span className={`clay-shine relative inline-flex size-11 items-center justify-center ${tint}`}>
-              <Icon className="size-5" strokeWidth={2.2} />
+          <div className="clay-card flex flex-col items-center gap-2 rounded-2xl px-2 py-4 text-center transition-transform duration-200 group-hover:-translate-y-1">
+            <span className={`clay-shine relative inline-flex size-9 items-center justify-center ${tint}`}>
+              <Icon className="size-4" strokeWidth={2.2} />
             </span>
-            <span className="text-xs font-semibold leading-4 text-slate-800">{title}</span>
+            <span className="text-[11px] font-semibold leading-3.5 text-slate-800">{title}</span>
           </div>
         </div>
       ))}
