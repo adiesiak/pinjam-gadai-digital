@@ -101,6 +101,16 @@ export default function Dashboard() {
             PINJAM GADAI DIGITAL
           </Link>
           <div className="flex items-center gap-4 text-sm">
+            {user?.role === "admin" && (
+              <Button
+                asChild
+                variant="ghost"
+                size="sm"
+                className="text-muted-foreground"
+              >
+                <Link to="/admin">Panel Tim</Link>
+              </Button>
+            )}
             <span className="hidden max-w-48 truncate text-muted-foreground sm:block">
               {user?.email ?? user?.name ?? "Nasabah"}
             </span>
