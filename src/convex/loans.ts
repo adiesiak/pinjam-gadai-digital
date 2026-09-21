@@ -109,6 +109,8 @@ export const createLoanApplication = mutation({
     namaLengkap: v.string(),
     nomorRekening: v.string(),
     catatanPeminjam: v.optional(v.string()),
+    /** Tanda tangan digital peminjam (canvas → data URL PNG, opsional). */
+    tandaTangan: v.optional(v.string()),
     /** Tenor pinjaman dalam hari — divalidasi server terhadap opsi resmi. */
     tenorHari: v.number(),
     // ===== KYC wajib =====
@@ -201,6 +203,18 @@ export const createLoanApplication = mutation({
       );
     }
 
+    // Tanda tangan digital (opsional tapi divalidasi ketat saat ada).
+    let tandaTangan: string | undefined;
+    if (args.tandaTangan !== undefined) {
+      if (!args.tandaTangan.startsWith("data:image/png;base64,")) {
+        throw new Error("Format tanda tangan tidak valid.");
+      }
+      if (args.tandaTangan.length > 200_000) {
+        throw new Error("Data tanda tangan terlalu besar.");
+      }
+      tandaTangan = args.tandaTangan;
+    }
+
     if (user.role === undefined) {
       await ctx.db.patch(userId, { role: ROLES.PEMINJAM });
     }
@@ -225,6 +239,8 @@ export const createLoanApplication = mutation({
       dokSelfieKtpId: args.dokSelfieKtpId,
       dokSlipGajiId: args.dokSlipGajiId,
       lokasiAjukan: { ...lok, waktu: now },
+      tandaTanganPeminjam: tandaTangan,
+      tandaTanganPada: tandaTangan !== undefined ? now : undefined,
     });
     return { appId: loanId, nomorReferensi };
   },
@@ -324,6 +340,98 @@ export const myLoanSummary = query({
       ditolak: loans.filter((l) => l.status === "ditolak").length,
       disetujuiRupiah: disetujui.reduce((acc, l) => acc + l.pokokPinjaman, 0),
     };
+  },
+});
+
+/**
+ * Daftar dokumen e-contract milik Peminjam sendiri: pinjaman yang sudah
+ * memenuhi syarat perjanjian (disetujui ke atas) + akad gadai yang sudah
+ * ditaksir. Hanya miliknya — tidak membocorkan data pengguna lain.
+ */
+export const myContracts = query({
+  args: {},
+  handler: async (ctx) => {
+    const { userId } = await requirePeminjam(ctx);
+    const loans = await ctx.db
+      .query("loans")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .collect();
+    const pawns = await ctx.db
+      .query("pawns")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .collect();
+    return {
+      pinjaman: loans
+        .filter((l) => l.status !== "diajukan" && l.status !== "sedang_direview" && l.status !== "ditolak")
+        .sort((a, b) => b._creationTime - a._creationTime)
+        .map((l) => ({
+          _id: l._id,
+          nomorReferensi: l.nomorReferensi,
+          pokokPinjaman: l.pokokPinjaman,
+          tenorHari: l.tenorHari ?? DEFAULT_TENOR_HARI,
+          status: l.status,
+          tandaTanganAda: l.tandaTanganPeminjam !== undefined,
+          tandaTanganPada: l.tandaTanganPada ?? null,
+          createdAt: l._creationTime,
+          nik: l.nik ?? null,
+          namaLengkap: l.namaLengkap,
+          nomorRekening: l.nomorRekening,
+          lokasiAjukan: l.lokasiAjukan ?? null,
+        })),
+      gadai: pawns
+        .filter((p) => p.nilaiTaksiran !== undefined && p.status !== "ditolak")
+        .sort((a, b) => b._creationTime - a._creationTime)
+        .map((p) => ({
+          _id: p._id,
+          nomorReferensi: p.nomorReferensi,
+          deskripsiBarang: p.deskripsiBarang,
+          kategori: p.kategori,
+          status: p.status,
+          nilaiTaksiran: p.nilaiTaksiran,
+          createdAt: p._creationTime,
+        })),
+    };
+  },
+});
+
+/**
+ * Jadwal pelunasan milik Peminjam: setiap pinjaman didanai/lunas dengan
+ * kewajiban live (jatuh tempo, denda, total) yang dihitung server-side.
+ */
+export const myLoanSchedule = query({
+  args: {},
+  handler: async (ctx) => {
+    const { userId } = await requirePeminjam(ctx);
+    const loans = await ctx.db
+      .query("loans")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .collect();
+    const now = Date.now();
+    return loans
+      .filter((l) => l.status === "didanai" || l.status === "lunas")
+      .sort((a, b) => b._creationTime - a._creationTime)
+      .map((l) => {
+        const info = pelunasanInfo(l, now);
+        return {
+          _id: l._id,
+          nomorReferensi: l.nomorReferensi,
+          pokokPinjaman: l.pokokPinjaman,
+          status: l.status,
+          tenorHari: l.tenorHari ?? DEFAULT_TENOR_HARI,
+          didanaiPada: l.didanaiPada ?? null,
+          quote: quoteLoan(l.pokokPinjaman),
+          pelunasan:
+            info === null
+              ? null
+              : {
+                  jatuhTempoPada: info.jatuhTempoPada,
+                  sisaHari: info.sisaHari,
+                  hariTerlambat: info.hariTerlambat,
+                  dendaTerlambat: info.dendaTerlambat,
+                  totalKewajibanDenganPenalti: info.totalKewajibanDenganPenalti,
+                },
+        };
+      });
   },
 });
 
