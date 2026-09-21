@@ -16,7 +16,7 @@ export interface JournalLine {
 }
 
 export interface JournalSpec {
-  jenis: "deposit" | "disbursement" | "platform_fee" | "repayment" | "payout";
+  jenis: "deposit" | "disbursement" | "platform_fee" | "repayment" | "payout" | "withdrawal";
   keterangan: string;
   aktor: string;
   lines: JournalLine[];

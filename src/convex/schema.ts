@@ -314,6 +314,30 @@ const schema = defineSchema(
      * beberapa Pendana; total alokasi tidak boleh melebihi pokok
      * (anti-overfunding divalidasi atomik di server).
      */
+    /**
+     * Permintaan penarikan dana Pendana ke rekening pribadinya. Dicatat
+     * berpasangan di ledger saat admin memproses (append-only).
+     */
+    withdrawals: defineTable({
+      pendanaId: v.id("users"),
+      /** Rupiah bulat — jumlah penarikan. */
+      jumlah: v.number(),
+      /** Nama bank tujuan (mis. BCA). */
+      namaBank: v.string(),
+      /** Nomor rekening tujuan (digit). */
+      nomorRekening: v.string(),
+      status: v.union(
+        v.literal("menunggu_proses"),
+        v.literal("diproses"),
+        v.literal("ditolak"),
+      ),
+      /** Wajib diisi admin saat menolak. */
+      catatanAdmin: v.optional(v.string()),
+      nomorReferensi: v.string(),
+    })
+      .index("by_pendana", ["pendanaId"])
+      .index("by_status", ["status"]),
+
     fundings: defineTable({
       loanId: v.id("loans"),
       pendanaId: v.id("users"),

@@ -7,7 +7,8 @@ import {
   DEFAULT_TENOR_HARI,
   quoteLoan,
 } from "../lib/loan";
-import { appendJournal, ledgerTotals } from "./ledger";
+import { appendJournal, ledgerTotals, pendanaWalletBalance } from "./ledger";
+import { formatRupiah } from "../lib/money";
 import { getConfig, audit } from "./system";
 import { jarakKm } from "../lib/geo";
 
@@ -343,6 +344,92 @@ export const pendingDeposits = query({
       });
     }
     return result;
+  },
+});
+
+/** Antrean penarikan Pendana menunggu diproses (untuk panel admin). */
+export const pendingWithdrawals = query({
+  args: {},
+  handler: async (ctx) => {
+    await requireAdmin(ctx);
+    const rows = await ctx.db
+      .query("withdrawals")
+      .withIndex("by_status", (q) => q.eq("status", "menunggu_proses"))
+      .collect();
+    const result = [];
+    for (const w of rows.sort((a, b) => b._creationTime - a._creationTime)) {
+      const pendana = await ctx.db.get(w.pendanaId);
+      result.push({
+        _id: w._id,
+        _creationTime: w._creationTime,
+        nomorReferensi: w.nomorReferensi,
+        jumlah: w.jumlah,
+        namaBank: w.namaBank,
+        nomorRekening: w.nomorRekening,
+        emailPendana: pendana?.email ?? null,
+      });
+    }
+    return result;
+  },
+});
+
+/**
+ * Proses penarikan — jurnal seimbang: kredit dompet Pendana (saldo turun),
+ * debit kas platform (uang keluar). Saldo divalidasi ulang saat eksekusi.
+ */
+export const processWithdrawal = mutation({
+  args: { withdrawalId: v.id("withdrawals") },
+  handler: async (ctx, args) => {
+    const { userId: adminId } = await requireAdmin(ctx);
+    const w = await ctx.db.get(args.withdrawalId);
+    if (w === null) throw new Error("Permintaan penarikan tidak ditemukan.");
+    if (w.status !== "menunggu_proses") {
+      throw new Error("Permintaan penarikan ini sudah diputuskan.");
+    }
+    const saldo = await pendanaWalletBalance(ctx, w.pendanaId);
+    if (saldo < w.jumlah) {
+      throw new Error(
+        `Saldo Pendana tidak cukup (saldo: ${formatRupiah(saldo)}). Tolak permintaan ini atau minta Pendana membatalkan.`,
+      );
+    }
+    await appendJournal(ctx, {
+      jenis: "withdrawal",
+      keterangan: `Penarikan ${w.nomorReferensi} ke ${w.namaBank} ${w.nomorRekening}`,
+      aktor: adminId,
+      lines: [
+        { akun: "platform:CASH", arah: "debit", jumlah: w.jumlah },
+        { akun: `pendana:WALLET:${w.pendanaId}`, arah: "kredit", jumlah: w.jumlah },
+      ],
+    });
+    await ctx.db.patch(args.withdrawalId, { status: "diproses" });
+    return { success: true };
+  },
+});
+
+/** Tolak penarikan — wajib alasan; tidak menyentuh ledger. */
+export const rejectWithdrawal = mutation({
+  args: { withdrawalId: v.id("withdrawals"), reason: v.string() },
+  handler: async (ctx, args) => {
+    const { userId: adminId } = await requireAdmin(ctx);
+    const w = await ctx.db.get(args.withdrawalId);
+    if (w === null) throw new Error("Permintaan penarikan tidak ditemukan.");
+    if (w.status !== "menunggu_proses") {
+      throw new Error("Permintaan penarikan ini sudah diputuskan.");
+    }
+    if (!args.reason.trim()) {
+      throw new Error("Penolakan wajib menyertakan alasan.");
+    }
+    await ctx.db.patch(args.withdrawalId, {
+      status: "ditolak",
+      catatanAdmin: args.reason.trim(),
+    });
+    await audit(
+      ctx,
+      adminId,
+      "penarikan_ditolak",
+      w.nomorReferensi,
+      args.reason.trim(),
+    );
   },
 });
 

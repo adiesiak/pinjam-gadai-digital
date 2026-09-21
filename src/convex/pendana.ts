@@ -2,7 +2,7 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 import { mutation, query, QueryCtx } from "./_generated/server";
 import { v } from "convex/values";
 import { ROLES } from "./schema";
-import { quoteLoan } from "../lib/loan";
+import { calculateRepayment, DEFAULT_TENOR_HARI, quoteLoan } from "../lib/loan";
 import { formatRupiah, type Rupiah } from "../lib/money";
 import { appendJournal, pendanaWalletBalance } from "./ledger";
 
@@ -177,15 +177,47 @@ export const marketplace = query({
         .filter((f) => f.status === "dialokasikan")
         .reduce((acc, f) => acc + f.jumlahAlokasi, 0);
       const quote = quoteLoan(loan.pokokPinjaman);
+
+      // Info gadai terhubung (nilai taksiran/LTV/rak vault) — peminjam yang
+      // sama + gadai tertaksir, untuk badge "Gadai Digital" di marketplace.
+      let gadai: {
+        deskripsiBarang: string;
+        kategori: string;
+        nilaiTaksiran: number;
+        ltvPersen: number;
+        kodeRakVault: string | null;
+      } | null = null;
+      const pawns = await ctx.db
+        .query("pawns")
+        .withIndex("by_user", (q) => q.eq("userId", loan.userId))
+        .collect();
+      const pawnMatch = pawns.find(
+        (p) => p.namaLengkap === loan.namaLengkap && p.nilaiTaksiran !== undefined,
+      );
+      if (pawnMatch && pawnMatch.nilaiTaksiran !== undefined) {
+        gadai = {
+          deskripsiBarang: pawnMatch.deskripsiBarang,
+          kategori: pawnMatch.kategori,
+          nilaiTaksiran: pawnMatch.nilaiTaksiran,
+          ltvPersen:
+            pawnMatch.hargaPasar && pawnMatch.hargaPasar > 0
+              ? Math.round((pawnMatch.nilaiTaksiran / pawnMatch.hargaPasar) * 100)
+              : 70,
+          kodeRakVault: pawnMatch.kodeRakVault ?? null,
+        };
+      }
+
       rows.push({
         _id: loan._id,
         nomorReferensi: loan.nomorReferensi,
         tujuan: loan.tujuan,
         pokokPinjaman: loan.pokokPinjaman,
+        tenorHari: loan.tenorHari ?? 30,
         terkumpul,
         sisaKebutuhan: loan.pokokPinjaman - terkumpul,
         danaBersih: quote.danaBersihDitransfer,
         bunga: quote.bunga,
+        gadai,
         _creationTime: loan._creationTime,
       });
     }
@@ -310,6 +342,234 @@ export const allocateFunding = mutation({
     }
 
     return { success: true, terkumpulSetelah };
+  },
+});
+
+// =====================================================================
+// Penarikan dana (withdrawal) ke rekening pribadi Pendana
+// =====================================================================
+
+/** Ajukan penarikan saldo dompet ke rekening bank pribadi Pendana. */
+export const requestWithdrawal = mutation({
+  args: {
+    jumlah: v.number(),
+    namaBank: v.string(),
+    nomorRekening: v.string(),
+  },
+  returns: v.object({ nomorReferensi: v.string() }),
+  handler: async (ctx, args) => {
+    const { userId } = await requirePendana(ctx);
+    validateRupiahAmount(args.jumlah, "Jumlah penarikan");
+
+    const bank = args.namaBank.trim();
+    const rek = args.nomorRekening.trim().replace(/\s+/g, "");
+    if (bank.length < 2) {
+      throw new Error("Nama bank wajib diisi (mis. BCA, Mandiri).");
+    }
+    if (!/^\d{6,20}$/.test(rek)) {
+      throw new Error("Nomor rekening harus 6–20 digit angka.");
+    }
+
+    // Saldo dicek di sini untuk umpan balik cepat; pemotongan final terjadi
+    // saat admin memproses (jurnal) dan divalidasi ulang pada momen itu.
+    const saldo = await pendanaWalletBalance(ctx, userId);
+    if (saldo < args.jumlah) {
+      throw new Error(
+        `Saldo tidak cukup. Saldo: ${formatRupiah(saldo)}, penarikan: ${formatRupiah(args.jumlah)}.`,
+      );
+    }
+
+    const nomorReferensi = referenceNumber("WDR");
+    await ctx.db.insert("withdrawals", {
+      pendanaId: userId,
+      jumlah: args.jumlah,
+      namaBank: bank,
+      nomorRekening: rek,
+      status: "menunggu_proses",
+      nomorReferensi,
+    });
+    return { nomorReferensi };
+  },
+});
+
+/** Batalkan permintaan penarikan yang masih menunggu diproses. */
+export const cancelWithdrawal = mutation({
+  args: { withdrawalId: v.id("withdrawals") },
+  handler: async (ctx, args) => {
+    const { userId } = await requirePendana(ctx);
+    const w = await ctx.db.get(args.withdrawalId);
+    if (w === null || w.pendanaId !== userId) {
+      throw new Error("Permintaan penarikan tidak ditemukan.");
+    }
+    if (w.status !== "menunggu_proses") {
+      throw new Error("Permintaan yang sudah diproses tidak dapat dibatalkan.");
+    }
+    await ctx.db.patch(args.withdrawalId, { status: "ditolak", catatanAdmin: "Dibatalkan oleh Pendana" });
+  },
+});
+
+/** Riwayat penarikan milik Pendana. */
+export const myWithdrawals = query({
+  args: {},
+  handler: async (ctx) => {
+    const { userId } = await requirePendana(ctx);
+    const rows = await ctx.db
+      .query("withdrawals")
+      .withIndex("by_pendana", (q) => q.eq("pendanaId", userId))
+      .collect();
+    return rows
+      .sort((a, b) => b._creationTime - a._creationTime)
+      .map((w) => ({
+        _id: w._id,
+        _creationTime: w._creationTime,
+        nomorReferensi: w.nomorReferensi,
+        jumlah: w.jumlah,
+        namaBank: w.namaBank,
+        nomorRekening: w.nomorRekening,
+        status: w.status,
+        catatanAdmin: w.catatanAdmin ?? null,
+      }));
+  },
+});
+
+/**
+ * Portofolio Pendana: setiap alokasi aktif dengan status pelunasan live dari
+ * data pinjaman (lancar / berjalan / menunggak), privasi peminjam dijaga
+ * (hanya inisial nama), plus info jaminan gadai bila terhubung.
+ */
+export const myPortfolio = query({
+  args: {},
+  handler: async (ctx) => {
+    const { userId } = await requirePendana(ctx);
+    const fundings = await ctx.db
+      .query("fundings")
+      .withIndex("by_pendana", (q) => q.eq("pendanaId", userId))
+      .collect();
+    const now = Date.now();
+    const result = [];
+    for (const f of fundings.sort((a, b) => b._creationTime - a._creationTime)) {
+      if (f.status !== "dialokasikan") continue;
+      const loan = await ctx.db.get(f.loanId);
+      if (loan === null) continue;
+
+      const rep =
+        loan.status === "didanai" && loan.didanaiPada !== undefined
+          ? calculateRepayment(
+              loan.pokokPinjaman,
+              loan.tenorHari ?? DEFAULT_TENOR_HARI,
+              loan.didanaiPada,
+              now,
+            )
+          : null;
+
+      // Status pelunasan dari sudut pandang Pendana.
+      let statusPelunasan: "lancar" | "berjalan" | "menunggak";
+      if (loan.status === "lunas") {
+        statusPelunasan = "lancar";
+      } else if (rep === null) {
+        statusPelunasan = "berjalan";
+      } else if (rep.hariTerlambat > 0) {
+        statusPelunasan = "menunggak";
+      } else {
+        statusPelunasan = "berjalan";
+      }
+
+      // Inisial peminjam demi privasi (mis. "Budi Santoso" → "B. S.").
+      const inisial = loan.namaLengkap
+        .split(/\s+/)
+        .slice(0, 2)
+        .map((k) => `${k.charAt(0).toUpperCase()}.`)
+        .join(" ");
+
+      // Jaminan gadai dengan deskripsi cocok nama peminjam + kategori.
+      let jaminan: {
+        deskripsiBarang: string;
+        kategori: string;
+        nilaiTaksiran: number | null;
+        kodeRakVault: string | null;
+      } | null = null;
+      if (loan.namaLengkap) {
+        const pawns = await ctx.db
+          .query("pawns")
+          .withIndex("by_user", (q) => q.eq("userId", loan.userId))
+          .collect();
+        const match = pawns.find(
+          (p) => p.namaLengkap === loan.namaLengkap && p.nilaiTaksiran !== undefined,
+        );
+        if (match) {
+          jaminan = {
+            deskripsiBarang: match.deskripsiBarang,
+            kategori: match.kategori,
+            nilaiTaksiran: match.nilaiTaksiran ?? null,
+            kodeRakVault: match.kodeRakVault ?? null,
+          };
+        }
+      }
+
+      result.push({
+        _id: f._id,
+        nomorReferensi: f.nomorReferensi,
+        loanId: loan._id,
+        loanRef: loan.nomorReferensi,
+        tujuan: loan.tujuan,
+        peminjamInisial: inisial || "—",
+        jumlahAlokasi: f.jumlahAlokasi,
+        imbalHasil: f.imbalHasil,
+        statusAlokasi: f.status,
+        statusPinjaman: loan.status,
+        statusPelunasan,
+        tenorHari: loan.tenorHari ?? DEFAULT_TENOR_HARI,
+        pelunasan:
+          rep === null
+            ? null
+            : {
+                jatuhTempoPada: rep.jatuhTempoPada,
+                sisaHari: rep.sisaHari,
+                hariTerlambat: rep.hariTerlambat,
+                dendaTerlambat: rep.dendaTerlambat,
+              },
+        jaminan,
+      });
+    }
+    return result;
+  },
+});
+
+/**
+ * Dokumen perjanjian pendanaan milik Pendana: satu entri per alokasi yang
+ * sudah terikat pada pinjaman disetujui/didanai/lunas.
+ */
+export const myFundingContracts = query({
+  args: {},
+  handler: async (ctx) => {
+    const { userId } = await requirePendana(ctx);
+    const fundings = await ctx.db
+      .query("fundings")
+      .withIndex("by_pendana", (q) => q.eq("pendanaId", userId))
+      .collect();
+    const result = [];
+    for (const f of fundings.sort((a, b) => b._creationTime - a._creationTime)) {
+      if (f.status !== "dialokasikan" && f.status !== "selesai") continue;
+      const loan = await ctx.db.get(f.loanId);
+      if (loan === null) continue;
+      if (loan.status === "diajukan" || loan.status === "sedang_direview" || loan.status === "ditolak") {
+        continue;
+      }
+      result.push({
+        _id: f._id,
+        nomorReferensi: f.nomorReferensi,
+        loanRef: loan.nomorReferensi,
+        tujuan: loan.tujuan,
+        jumlahAlokasi: f.jumlahAlokasi,
+        imbalHasil: f.imbalHasil,
+        statusAlokasi: f.status,
+        statusPinjaman: loan.status,
+        tenorHari: loan.tenorHari ?? DEFAULT_TENOR_HARI,
+        pokokPinjaman: loan.pokokPinjaman,
+        createdAt: f._creationTime,
+      });
+    }
+    return result;
   },
 });
 
