@@ -69,6 +69,15 @@ export const adminOverview = query({
             catatanPeminjam: l.catatanPeminjam,
             emailPeminjam: borrower?.email ?? null,
             tenorHari: l.tenorHari ?? null,
+            // KYC & lokasi (opsional untuk data warisan)
+            nik: l.nik ?? null,
+            nomorWhatsApp: l.nomorWhatsApp ?? null,
+            penghasilanBulanan: l.penghasilanBulanan ?? null,
+            sumberPenghasilan: l.sumberPenghasilan ?? null,
+            dokKtpId: l.dokKtpId ?? null,
+            dokSelfieKtpId: l.dokSelfieKtpId ?? null,
+            dokSlipGajiId: l.dokSlipGajiId ?? null,
+            lokasiAjukan: l.lokasiAjukan ?? null,
             jatuhTempoPada: pelunasan?.jatuhTempoPada ?? null,
             sisaHari: pelunasan?.sisaHari ?? null,
             hariTerlambat: pelunasan?.hariTerlambat ?? null,
@@ -102,6 +111,27 @@ export const adminOverview = query({
     );
 
     return { isAdmin: true, loans: loanRows, pawns: pawnRows };
+  },
+});
+
+/**
+ * URL dokumen KYC untuk dialog review pinjaman — admin saja.
+ * URL Convex storage bertanda tangan & berkedaluwarsa.
+ */
+export const dokumenKycUrls = query({
+  args: { loanId: v.id("loans") },
+  handler: async (ctx, { loanId }) => {
+    await requireAdmin(ctx);
+    const loan = await ctx.db.get(loanId);
+    if (loan === null) return null;
+    const [ktp, selfie, slip] = await Promise.all([
+      loan.dokKtpId ? ctx.storage.getUrl(loan.dokKtpId) : null,
+      loan.dokSelfieKtpId ? ctx.storage.getUrl(loan.dokSelfieKtpId) : null,
+      loan.dokSlipGajiId ? ctx.storage.getUrl(loan.dokSlipGajiId) : null,
+    ]);
+    return { ktpUrl: ktp, selfieUrl: selfie, slipUrl: slip };
+  },
+});
   },
 });
 

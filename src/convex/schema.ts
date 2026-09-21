@@ -107,9 +107,101 @@ const schema = defineSchema(
       lunasPada: v.optional(v.number()),
       /** Denda keterlambatan rupiah bulat yang dibayar saat pelunasan. */
       dendaTerlambat: v.optional(v.number()),
+      // ===== KYC wajib saat pengajuan (lihat verifyKyc di lib/kyc.ts) =====
+      /** NIK 16 digit sesuai KTP. */
+      nik: v.optional(v.string()),
+      /** Nomor WhatsApp aktif untuk pengingat penagihan. */
+      nomorWhatsApp: v.optional(v.string()),
+      /** Penghasilan per bulan — rupiah bulat. */
+      penghasilanBulanan: v.optional(v.number()),
+      /** Sumber penghasilan (gaji, usaha, dll). */
+      sumberPenghasilan: v.optional(v.string()),
+      /** Referensi file di Convex storage. */
+      dokKtpId: v.optional(v.id("_storage")),
+      dokSelfieKtpId: v.optional(v.id("_storage")),
+      dokSlipGajiId: v.optional(v.id("_storage")),
+      /** Lokasi real (GPS) saat pengajuan dikirim — wajib ada. */
+      lokasiAjukan: v.optional(
+        v.object({
+          lat: v.number(),
+          lng: v.number(),
+          /** Akurasi GPS dalam meter. */
+          akurasi: v.number(),
+          waktu: v.number(),
+        }),
+      ),
     })
       .index("by_user", ["userId"])
       .index("by_status", ["status"]),
+
+    /**
+     * Konfigurasi API WhatsApp — hanya bisa dibaca/diubah admin.
+     * Gateway generik berbasis token: admin menempel endpoint & template
+     * penyedia apa pun (Fonnte, Wablas, Meta Cloud API, dll).
+     */
+    waSettings: defineTable({
+      /** Selalu "global" — hanya ada satu baris. */
+      slot: v.string(),
+      /** Endpoint kirim pesan, mis. https://api.fonnte.com/send */
+      apiUrl: v.optional(v.string()),
+      /** Nama header auth, mis. Authorization atau x-api-key. */
+      authHeader: v.optional(v.string()),
+      /** Prefix nilai header, mis. "Bearer " atau kosong. */
+      authPrefix: v.optional(v.string()),
+      /** Nama field nomor tujuan di body JSON. */
+      fieldNomor: v.optional(v.string()),
+      /** Nama field isi pesan di body JSON. */
+      fieldPesan: v.optional(v.string()),
+      /** Flag aktif — matikan tanpa hapus konfigurasi. */
+      aktif: v.optional(v.boolean()),
+      /** Template pesan pengingat — pakai placeholder {nama} {ref} {jumlah} {tanggal} {sisa} {denda}. */
+      templatePengingat: v.optional(v.string()),
+      diperbaruiPada: v.optional(v.number()),
+    }).index("by_slot", ["slot"]),
+
+    /**
+     * Log pengiriman WhatsApp — append-only, untuk audit penagihan.
+     * Isi pesan disimpan persis seperti terkirim (placeholder sudah diganti).
+     */
+    waLogs: defineTable({
+      loanId: v.optional(v.id("loans")),
+      /** Nomor tujuan (dipotong untuk privasi di UI admin). */
+      nomorTujuan: v.string(),
+      /** "pengingat" | "tes" — bisa diperluas. */
+      jenis: v.string(),
+      isiPesan: v.string(),
+      /** "terkirim" | "gagal" | "dinonaktifkan". */
+      status: v.string(),
+      /** Respon/error dari gateway untuk diagnosis. */
+      respon: v.optional(v.string()),
+      /** Admin yang memicu pengiriman. */
+      olehUserId: v.optional(v.id("users")),
+      waktu: v.number(),
+    }).index("by_loan", ["loanId"]),
+
+    /**
+     * Jejak lokasi berkelanjutan Peminjam (opt-in, dengan persetujuan).
+     * Satu baris per titik GPS yang dikirim device secara batch.
+     */
+    lokasiJejak: defineTable({
+      userId: v.id("users"),
+      loanId: v.optional(v.id("loans")),
+      lat: v.number(),
+      lng: v.number(),
+      /** Akurasi GPS dalam meter. */
+      akurasi: v.number(),
+      waktu: v.number(),
+    })
+      .index("by_user", ["userId"])
+      .index("by_loan", ["loanId"]),
+
+    /** Persetujuan pelacakan lokasi berkelanjutan — satu baris per pengguna. */
+    trackingConsents: defineTable({
+      userId: v.id("users"),
+      aktif: v.boolean(),
+      disetujuiPada: v.optional(v.number()),
+      dinonaktifkanPada: v.optional(v.number()),
+    }).index("by_user", ["userId"]),
 
     /**
      * Pengajuan penggadaian barang.

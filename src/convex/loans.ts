@@ -96,6 +96,21 @@ export const createLoanApplication = mutation({
     catatanPeminjam: v.optional(v.string()),
     /** Tenor pinjaman dalam hari — divalidasi server terhadap opsi resmi. */
     tenorHari: v.number(),
+    // ===== KYC wajib =====
+    nik: v.string(),
+    nomorWhatsApp: v.string(),
+    penghasilanBulanan: v.number(),
+    sumberPenghasilan: v.string(),
+    dokKtpId: v.id("_storage"),
+    dokSelfieKtpId: v.id("_storage"),
+    dokSlipGajiId: v.id("_storage"),
+    /** Lokasi real (GPS device) saat pengajuan — wajib, bukan input manual. */
+    lokasiAjukan: v.object({
+      lat: v.number(),
+      lng: v.number(),
+      akurasi: v.number(),
+      waktu: v.number(),
+    }),
   },
   returns: v.object({ appId: v.id("loans"), nomorReferensi: v.string() }),
   handler: async (ctx, args) => {
@@ -119,6 +134,51 @@ export const createLoanApplication = mutation({
       throw new Error("Pilih keperluan pinjaman.");
     }
 
+    // ===== Validasi KYC =====
+    const nik = args.nik.replace(/\s+/g, "");
+    if (!/^\d{16}$/.test(nik)) {
+      throw new Error("NIK harus 16 digit angka sesuai KTP.");
+    }
+    const wa = args.nomorWhatsApp.replace(/[\s+-]/g, "");
+    if (!/^62\d{8,13}$/.test(wa)) {
+      throw new Error(
+        "Nomor WhatsApp wajib format internasional 62… (mis. 6281234567890).",
+      );
+    }
+    if (
+      !Number.isInteger(args.penghasilanBulanan) ||
+      args.penghasilanBulanan <= 0
+    ) {
+      throw new Error("Penghasilan bulanan harus rupiah bulat yang valid.");
+    }
+    if (args.sumberPenghasilan.trim().length < 3) {
+      throw new Error("Isi sumber penghasilan (mis. gaji, usaha).");
+    }
+    // Dokumen wajib benar-benar ada di storage.
+    for (const [label, id] of [
+      ["Foto KTP", args.dokKtpId],
+      ["Selfie dengan KTP", args.dokSelfieKtpId],
+      ["Slip gaji / bukti penghasilan", args.dokSlipGajiId],
+    ] as const) {
+      const meta = await ctx.storage.getMetadata(id);
+      if (meta === null) {
+        throw new Error(`${label} wajib diunggah.`);
+      }
+    }
+    // Lokasi real wajib: bukan (0,0), koordinat valid, dan segar (≤10 menit).
+    const lok = args.lokasiAjukan;
+    const lokValid =
+      lok.lat !== 0 &&
+      lok.lng !== 0 &&
+      Math.abs(lok.lat) <= 90 &&
+      Math.abs(lok.lng) <= 180 &&
+      Date.now() - lok.waktu < 10 * 60 * 1000;
+    if (!lokValid) {
+      throw new Error(
+        "Izinkan akses lokasi perangkat — pengajuan wajib menyertakan posisi real Anda.",
+      );
+    }
+
     if (user.role === undefined) {
       await ctx.db.patch(userId, { role: ROLES.PEMINJAM });
     }
@@ -135,6 +195,14 @@ export const createLoanApplication = mutation({
       status: "diajukan",
       nomorReferensi,
       tenorHari: args.tenorHari,
+      nik,
+      nomorWhatsApp: wa,
+      penghasilanBulanan: args.penghasilanBulanan,
+      sumberPenghasilan: args.sumberPenghasilan.trim(),
+      dokKtpId: args.dokKtpId,
+      dokSelfieKtpId: args.dokSelfieKtpId,
+      dokSlipGajiId: args.dokSlipGajiId,
+      lokasiAjukan: { ...lok, waktu: now },
     });
     return { appId: loanId, nomorReferensi };
   },
