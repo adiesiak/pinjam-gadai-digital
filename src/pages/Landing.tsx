@@ -1,4 +1,5 @@
-import { motion } from "framer-motion";
+import { useQuery } from "convex/react";
+import { AnimatePresence, motion } from "framer-motion";
 import {
   ArrowRight,
   BadgeCheck,
@@ -8,6 +9,7 @@ import {
   Landmark,
   Lock,
   MapPin,
+  Megaphone,
   Package,
   Scale,
   ShieldCheck,
@@ -18,6 +20,8 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router";
+import { api } from "@/convex/_generated/api";
+import { CMS_DEFAULTS } from "@/lib/cms-defaults";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -359,15 +363,30 @@ function LiveCalculator() {
 }
 
 /* =====================================================================
- * Modal pengumuman — muncul otomatis setelah 1,5 detik.
+ * Modal pengumuman — muncul otomatis setelah 1,5 detik (konten dari CMS).
  * ===================================================================== */
-function AnnouncementModal({ onOpenCta }: { onOpenCta: () => void }) {
+function AnnouncementModal({
+  onOpenCta,
+  judul,
+  isi,
+  cta,
+  aktif,
+}: {
+  onOpenCta: () => void;
+  judul: string;
+  isi: string;
+  cta: string;
+  aktif: boolean;
+}) {
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
+    if (!aktif) return;
     const t = setTimeout(() => setOpen(true), 1500);
     return () => clearTimeout(t);
-  }, []);
+  }, [aktif]);
+
+  if (!aktif) return null;
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -392,13 +411,10 @@ function AnnouncementModal({ onOpenCta }: { onOpenCta: () => void }) {
           </motion.span>
           <DialogHeader className="mt-4 space-y-2 text-center">
             <DialogTitle className="text-xl font-extrabold text-navy">
-              Ajukan Sekarang, Cair Tanpa Antre
+              {judul}
             </DialogTitle>
             <DialogDescription className="text-sm leading-6 text-slate-600">
-              Buat pengajuan pinjaman tunai atau gadai digital langsung dari
-              rumah — cukup beberapa menit. Tim kami menindak cepat, barang
-              gadai tersimpan aman di brankas custody, dan pengingat jatuh
-              tempo berjalan otomatis supaya Anda tidak pernah terlambat.
+              {isi}
             </DialogDescription>
           </DialogHeader>
         </div>
@@ -410,7 +426,7 @@ function AnnouncementModal({ onOpenCta }: { onOpenCta: () => void }) {
               onOpenCta();
             }}
           >
-            Mengerti, coba simulasi pinjaman saya
+            {cta}
             <ArrowRight className="ml-1.5 size-4" />
           </Button>
           <button
@@ -427,10 +443,101 @@ function AnnouncementModal({ onOpenCta }: { onOpenCta: () => void }) {
 }
 
 /* =====================================================================
+ * Widget mengambang (CMS) — megafon promo, pojok kanan bawah, bisa ditutup.
+ * ===================================================================== */
+function FloatingWidget({
+  onOpenCta,
+  judul,
+  isi,
+  cta,
+  aktif,
+  delayDetik,
+}: {
+  onOpenCta: () => void;
+  judul: string;
+  isi: string;
+  cta: string;
+  aktif: boolean;
+  delayDetik: number;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const [revealed, setRevealed] = useState(false);
+
+  useEffect(() => {
+    if (!aktif) return;
+    const t = setTimeout(() => setRevealed(true), Math.max(0, delayDetik) * 1000);
+    return () => clearTimeout(t);
+  }, [aktif, delayDetik]);
+
+  if (!aktif || !revealed) return null;
+
+  return (
+    <div className="fixed bottom-5 right-5 z-50 flex flex-col items-end gap-3">
+      <AnimatePresence>
+        {expanded && (
+          <motion.div
+            initial={{ opacity: 0, y: 16, scale: 0.92 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 12, scale: 0.92 }}
+            transition={{ duration: 0.22 }}
+            className="clay-card w-72 rounded-3xl p-4"
+          >
+            <div className="flex items-start gap-3">
+              <motion.span
+                animate={{ rotate: [0, -10, 8, 0] }}
+                transition={{ repeat: Infinity, repeatDelay: 3.2, duration: 0.9 }}
+                className="clay-shine relative inline-flex size-11 shrink-0 items-center justify-center"
+                style={{
+                  borderRadius: "1rem",
+                  background: "linear-gradient(180deg,#bae6fd,#7dd3fc)",
+                  boxShadow: "0 10px 20px -8px oklch(0.62 0.15 232/0.5)",
+                }}
+              >
+                <Megaphone className="size-5 text-sky-800" />
+              </motion.span>
+              <div>
+                <p className="text-sm font-bold text-navy">{judul}</p>
+                <p className="mt-1 text-xs leading-5 text-slate-600">{isi}</p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setExpanded(false);
+                    onOpenCta();
+                  }}
+                  className="mt-2 text-xs font-bold text-sky-600 hover:text-sky-700"
+                >
+                  {cta} →
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+      <button
+        type="button"
+        onClick={() => setExpanded((v) => !v)}
+        aria-label={expanded ? "Tutup widget pengumuman" : "Buka widget pengumuman"}
+        className="clay-btn-blue inline-flex items-center justify-center rounded-full"
+        style={{ width: 52, height: 52 }}
+      >
+        {expanded ? <X className="size-5" /> : <Megaphone className="size-5" />}
+      </button>
+    </div>
+  );
+}
+
+/* =====================================================================
  * Halaman utama
  * ===================================================================== */
 export default function Landing() {
   const [calcKey, setCalcKey] = useState(0);
+  const cms = useQuery(api.announcements.getPublic);
+
+  // Fallback lokal saat CMS belum termuat — render tetap instan.
+  const c = (cmsVal: string | undefined, fallback: string) => cmsVal ?? fallback;
+  const logoTeks = c(cms?.logoTeks, "PINDAI");
+  const heroJudul1 = c(cms?.heroJudul, CMS_DEFAULTS.hero.judul1);
+  const heroJudul2 = CMS_DEFAULTS.hero.judul2;
 
   const scrollToCalculator = () => {
     document.getElementById("simulasi")?.scrollIntoView({ behavior: "smooth" });
@@ -451,17 +558,17 @@ export default function Landing() {
           <a href="#" className="flex items-center gap-2.5">
             <VaultLogo size={44} />
             <span className="text-base font-extrabold tracking-wide">
-              PINDAI
+              {logoTeks}
               <span className="block text-[10px] font-semibold tracking-[0.22em] text-sky-600">
                 PINJAM &amp; GADAI DIGITAL
               </span>
             </span>
           </a>
           <nav className="hidden items-center gap-7 text-sm font-medium text-slate-600 lg:flex">
-            <a href="#pinjaman" className="transition hover:text-sky-600">Pinjaman Tunai</a>
-            <a href="#gadai" className="transition hover:text-sky-600">Gadai Digital</a>
-            <a href="#simulasi" className="transition hover:text-sky-600">Simulasi</a>
-            <a href="#keamanan" className="transition hover:text-sky-600">Keamanan</a>
+            <a href="#pinjaman" className="transition hover:text-sky-600">{c(cms?.nav1, "Pinjaman Tunai")}</a>
+            <a href="#gadai" className="transition hover:text-sky-600">{c(cms?.nav2, "Gadai Digital")}</a>
+            <a href="#simulasi" className="transition hover:text-sky-600">{c(cms?.nav3, "Simulasi")}</a>
+            <a href="#keamanan" className="transition hover:text-sky-600">{c(cms?.nav4, "Keamanan")}</a>
           </nav>
           <div className="flex items-center gap-2.5">
             <Button
@@ -489,31 +596,27 @@ export default function Landing() {
             >
               <span className="inline-flex items-center gap-2 rounded-full border border-sky-200 bg-white px-3.5 py-1.5 text-xs font-semibold text-sky-700 shadow-sm">
                 <Sparkles className="size-3.5" />
-                Platform Pendanaan &amp; Penggadaian Terpercaya
+                {c(cms?.heroBadge, CMS_DEFAULTS.hero.badge)}
               </span>
               <h1 className="mt-5 text-4xl font-extrabold leading-[1.08] tracking-tight sm:text-5xl">
-                Pinjam &amp; Gadai Digital{" "}
+                {heroJudul1}{" "}
                 <span className="bg-gradient-to-r from-sky-500 via-sky-400 to-emerald-500 bg-clip-text text-transparent">
-                  Transparan
+                  {heroJudul2}
                 </span>
               </h1>
               <p className="mt-5 max-w-xl text-base leading-7 text-slate-600">
-                Ajukan pinjaman tunai atau gadaikan barang dengan potongan di
-                muka yang dinyatakan terbuka: <b className="text-navy">5%</b> —
-                sisanya <b className="text-emerald-600">95% dana bersih</b>{" "}
-                langsung ke rekening Anda. Didanai oleh Pendana terverifikasi,
-                dicatat dalam jurnal yang dapat diaudit.
+                {c(cms?.heroSub, CMS_DEFAULTS.hero.sub)}
               </p>
               <div className="mt-8 flex flex-wrap items-center gap-3">
                 <Button asChild className="clay-btn-blue px-7 py-3.5 text-sm font-bold">
                   <Link to="/auth">
-                    Ajukan Pinjaman
+                    {c(cms?.heroCta1, CMS_DEFAULTS.hero.cta1)}
                     <ArrowRight className="ml-1.5 size-4" />
                   </Link>
                 </Button>
                 <Button asChild className="clay-btn-mint px-7 py-3.5 text-sm font-bold">
                   <Link to="/auth">
-                    Mulai Gadai Digital
+                    {c(cms?.heroCta2, CMS_DEFAULTS.hero.cta2)}
                     <ArrowRight className="ml-1.5 size-4" />
                   </Link>
                 </Button>
@@ -548,16 +651,16 @@ export default function Landing() {
                 transition={{ repeat: Infinity, duration: 5, delay: 0.6 }}
                 className="clay-card absolute -left-6 top-8 rounded-2xl px-4 py-2.5"
               >
-                <p className="text-[10px] font-semibold text-slate-500">Dana bersih</p>
-                <p className="text-sm font-extrabold text-emerald-600">95% selalu</p>
+                <p className="text-[10px] font-semibold text-slate-500">{c(cms?.chip1Label, CMS_DEFAULTS.chips.chip1.label)}</p>
+                <p className="text-sm font-extrabold text-emerald-600">{c(cms?.chip1Nilai, CMS_DEFAULTS.chips.chip1.nilai)}</p>
               </motion.div>
               <motion.div
                 animate={{ y: [0, 9, 0] }}
                 transition={{ repeat: Infinity, duration: 6, delay: 1.1 }}
                 className="clay-card absolute -right-4 bottom-10 rounded-2xl px-4 py-2.5"
               >
-                <p className="text-[10px] font-semibold text-slate-500">Potongan di muka</p>
-                <p className="text-sm font-extrabold text-sky-600">5% terbuka</p>
+                <p className="text-[10px] font-semibold text-slate-500">{c(cms?.chip2Label, CMS_DEFAULTS.chips.chip2.label)}</p>
+                <p className="text-sm font-extrabold text-sky-600">{c(cms?.chip2Nilai, CMS_DEFAULTS.chips.chip2.nilai)}</p>
               </motion.div>
             </motion.div>
           </div>
@@ -587,11 +690,10 @@ export default function Landing() {
             <div className="flex flex-col gap-6">
               <div>
                 <h2 className="text-2xl font-extrabold tracking-tight">
-                  Dua layanan, satu standar transparansi
+                  {c(cms?.layananJudul, CMS_DEFAULTS.layanan.judul)}
                 </h2>
                 <p className="mt-2 text-sm leading-6 text-slate-500">
-                  Pilih jalur yang paling sesuai — keduanya memakai mesin
-                  perhitungan dan jurnal audit yang sama.
+                  {c(cms?.layananSub, CMS_DEFAULTS.layanan.sub)}
                 </p>
               </div>
 
@@ -607,16 +709,13 @@ export default function Landing() {
                   <span className="clay-shine clay-icon-blue relative inline-flex size-10 items-center justify-center sm:hidden">
                     <Banknote className="size-5" strokeWidth={2.2} />
                   </span>
-                  <h3 className="text-lg font-extrabold">Pinjaman Tunai Digital</h3>
+                  <h3 className="text-lg font-extrabold">{c(cms?.pinjamanJudul, CMS_DEFAULTS.layanan.pinjamanJudul)}</h3>
                   <p className="mt-2 text-sm leading-6 text-slate-600">
-                    Ajukan tanpa agunan dengan tenor 30/60/90 hari. Setelah
-                    disetujui tim, dana bersih 95% dari pokok langsung ke
-                    rekening Anda. Lunasi 130% (pokok + Bunga 30% — Imbal Hasil
-                    Pendana).
+                    {c(cms?.pinjamanIsi, CMS_DEFAULTS.layanan.pinjamanIsi)}
                   </p>
                   <Button asChild className="clay-btn-blue mt-4 px-5 py-2.5 text-xs font-bold">
                     <Link to="/auth">
-                      Ajukan sekarang
+                      {c(cms?.pinjamanCta, CMS_DEFAULTS.layanan.pinjamanCta)}
                       <ArrowRight className="ml-1 size-3.5" />
                     </Link>
                   </Button>
@@ -635,15 +734,13 @@ export default function Landing() {
                   <span className="clay-shine clay-icon-mint relative inline-flex size-10 items-center justify-center sm:hidden">
                     <Package className="size-5" strokeWidth={2.2} />
                   </span>
-                  <h3 className="text-lg font-extrabold">Gadai Digital</h3>
+                  <h3 className="text-lg font-extrabold">{c(cms?.gadaiJudul, CMS_DEFAULTS.layanan.gadaiJudul)}</h3>
                   <p className="mt-2 text-sm leading-6 text-slate-600">
-                    Elektronik, kendaraan, perhiasan, hingga properti. Taksiran
-                    resmi oleh petugas berwenang dengan live location wajib,
-                    barang tersimpan di Brankas Custody sampai Anda lunasi.
+                    {c(cms?.gadaiIsi, CMS_DEFAULTS.layanan.gadaiIsi)}
                   </p>
                   <Button asChild className="clay-btn-mint mt-4 px-5 py-2.5 text-xs font-bold">
                     <Link to="/auth">
-                      Gadaikan barang
+                      {c(cms?.gadaiCta, CMS_DEFAULTS.layanan.gadaiCta)}
                       <ArrowRight className="ml-1 size-3.5" />
                     </Link>
                   </Button>
@@ -772,7 +869,21 @@ export default function Landing() {
         </div>
       </footer>
 
-      <AnnouncementModal onOpenCta={scrollToCalculator} />
+      <AnnouncementModal
+        onOpenCta={scrollToCalculator}
+        judul={c(cms?.popupJudul, CMS_DEFAULTS.popup.judul)}
+        isi={c(cms?.popupIsi, CMS_DEFAULTS.popup.isi)}
+        cta={c(cms?.popupCta, CMS_DEFAULTS.popup.cta)}
+        aktif={cms?.popupAktif ?? true}
+      />
+      <FloatingWidget
+        onOpenCta={scrollToCalculator}
+        judul={c(cms?.floatJudul, CMS_DEFAULTS.float.judul)}
+        isi={c(cms?.floatIsi, CMS_DEFAULTS.float.isi)}
+        cta={c(cms?.floatCta, CMS_DEFAULTS.float.cta)}
+        aktif={cms?.floatAktif ?? true}
+        delayDetik={cms?.floatDelayDetik ?? 6}
+      />
     </motion.div>
   );
 }

@@ -40,10 +40,10 @@ export function AnnouncementBar() {
         <span key={i} className="flex items-center">
           <span className="mx-6 flex items-center gap-2 text-xs font-medium text-sky-900">
             <Megaphone className="size-3.5 text-sky-600" />
-            {ann.teks}
-            {ann.tautan && (
+            {ann.barTeks}
+            {ann.barTautan && (
               <Link
-                to={ann.tautan}
+                to={ann.barTautan}
                 className="font-semibold text-emerald-700 underline decoration-emerald-400/60 underline-offset-2 transition hover:text-emerald-800"
               >
                 Mulai sekarang

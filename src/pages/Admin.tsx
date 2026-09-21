@@ -6,11 +6,10 @@ import {
   Coins,
   Loader2,
   MapPin,
-  Megaphone,
   Package,
   ShieldCheck,
 } from "lucide-react";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { Link, useNavigate } from "react-router";
 import { toast } from "sonner";
 
@@ -36,6 +35,7 @@ import { Id } from "@/convex/_generated/dataModel";
 import { loanPurposeLabel, quoteLoan } from "@/lib/loan";
 import { formatRupiah, parseRupiah, type Rupiah } from "@/lib/money";
 import { LTV_HINTS, type CollateralCategory } from "@/lib/pawn";
+import { CMS_DEFAULTS } from "@/lib/cms-defaults";
 
 type LoanRow = {
   _id: Id<"loans">;
@@ -126,7 +126,7 @@ export default function Admin() {
     const canBootstrap = true; // akun tamu akan ditolak server saat mencoba
     return (
       <main className="flex min-h-screen items-center justify-center bg-background px-6">
-        <div className="w-full max-w-md rounded-2xl border border-sky-100 bg-white p-8">
+        <div className="w-full max-w-md rounded-lg border border-border/60 p-8">
           <ShieldCheck className="size-5 text-muted-foreground" />
           <h1 className="mt-4 text-xl font-semibold tracking-tight">
             Setup tim PINDAI
@@ -278,6 +278,12 @@ export default function Admin() {
             >
               Setoran ({pendingDeposits?.length ?? 0})
             </TabsTrigger>
+            <TabsTrigger
+              value="pengumuman"
+              className="rounded-none border-b-2 border-transparent px-4 py-2 data-[state=active]:border-foreground data-[state=active]:bg-transparent data-[state=active]:shadow-none"
+            >
+              Pengumuman
+            </TabsTrigger>
           </TabsList>
 
           {/* ---------------- Pinjaman ---------------- */}
@@ -288,7 +294,7 @@ export default function Admin() {
                 title="Belum ada pengajuan pinjaman"
               />
             ) : (
-              <ul className="divide-y divide-border/60 rounded-2xl border border-sky-100 bg-white">
+              <ul className="divide-y divide-sky-100 rounded-2xl border border-sky-100 bg-white">
                 {overview.loans.map((l) => (
                   <li key={l._id}>
                     <QueueRow
@@ -310,7 +316,7 @@ export default function Admin() {
             {overview.pawns.length === 0 ? (
               <EmptyQueue icon={Package} title="Belum ada pengajuan gadai" />
             ) : (
-              <ul className="divide-y divide-border/60 rounded-2xl border border-sky-100 bg-white">
+              <ul className="divide-y divide-sky-100 rounded-2xl border border-sky-100 bg-white">
                 {overview.pawns.map((p) => (
                   <li key={p._id}>
                     <QueueRow
@@ -336,7 +342,7 @@ export default function Admin() {
             ) : pendingDeposits.length === 0 ? (
               <EmptyQueue icon={Coins} title="Tidak ada setoran menunggu verifikasi" />
             ) : (
-              <ul className="divide-y divide-border/60 rounded-2xl border border-sky-100 bg-white">
+              <ul className="divide-y divide-sky-100 rounded-2xl border border-sky-100 bg-white">
                 {pendingDeposits.map((d) => (
                   <li key={d._id} className="flex items-center justify-between gap-4 px-5 py-4">
                     <div className="min-w-0">
@@ -404,9 +410,6 @@ export default function Admin() {
           </TabsContent>
 
           {/* ---------------- CMS Pengumuman ---------------- */}
-          <TabsTrigger value="pengumuman" className="rounded-none border-b-2 border-transparent px-4 py-2 data-[state=active]:border-foreground data-[state=active]:bg-transparent data-[state=active]:shadow-none">
-            Pengumuman
-          </TabsTrigger>
           <TabsContent value="pengumuman" className="mt-8">
             <AnnouncementCms />
           </TabsContent>
@@ -574,7 +577,7 @@ function LoanReviewDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <dl className="divide-y divide-border/60 rounded-2xl border border-sky-100 bg-white">
+        <dl className="divide-y divide-sky-100 rounded-2xl border border-sky-100 bg-white">
           {[
             ["Pemohon", row.namaLengkap],
             ["Email", row.emailPeminjam ?? "—"],
@@ -752,7 +755,7 @@ function PawnReviewDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <dl className="divide-y divide-border/60 rounded-2xl border border-sky-100 bg-white">
+        <dl className="divide-y divide-sky-100 rounded-2xl border border-sky-100 bg-white">
           {[
             ["Pemohon", row.namaLengkap],
             ["Email", row.emailPeminjam ?? "—"],
@@ -967,3 +970,191 @@ function AppraisalDialog({
       </DialogContent>
     </Dialog>
   );
+}
+
+/**
+ * Editor CMS landing — semua teks halaman utama & pengumuman (bar berjalan,
+ * popup, widget mengambang) diedit tim di sini, langsung tampil publik.
+ */
+function AnnouncementCms() {
+  const row = useQuery(api.announcements.getCmsRow);
+  const publik = useQuery(api.announcements.getPublic);
+  const save = useMutation(api.announcements.save);
+  const reset = useMutation(api.announcements.resetToDefaults);
+
+  const [busy, setBusy] = useState(false);
+  const [draft, setDraft] = useState<Record<string, string | boolean> | null>(null);
+
+  const d = (key: string, fallback: string): string =>
+    (draft?.[key] as string | undefined) ?? fallback;
+  const db = (key: string, fallback: boolean): boolean =>
+    (draft?.[key] as boolean | undefined) ?? fallback;
+
+  if (row === undefined || publik === undefined) {
+    return (
+      <p className="flex items-center gap-2 py-8 text-sm text-muted-foreground">
+        <Loader2 className="size-4 animate-spin" /> Memuat CMS…
+      </p>
+    );
+  }
+
+  const set = (key: string, value: string | boolean) =>
+    setDraft((prev) => ({ ...(prev ?? {}), [key]: value }));
+
+  const simpan = async () => {
+    if (!draft) return;
+    setBusy(true);
+    try {
+      await save({ ...draft });
+      setDraft(null);
+      toast.success("Konten tersimpan — halaman utama langsung diperbarui.");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Gagal menyimpan.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const kembalikanDefault = async () => {
+    setBusy(true);
+    try {
+      await reset({});
+      setDraft(null);
+      toast.success("Semua teks kembali ke default bawaan.");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Gagal reset.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const T = (
+    label: string,
+    key: string,
+    val: string,
+    opts?: { area?: boolean; max?: number; placeholder?: string },
+  ) => (
+    <div>
+      <Label htmlFor={`cms-${key}`}>{label}</Label>
+      {opts?.area ? (
+        <Textarea
+          id={`cms-${key}`}
+          rows={3}
+          className="mt-1.5 rounded-xl"
+          maxLength={opts.max}
+          value={val}
+          placeholder={opts.placeholder}
+          onChange={(e) => set(key, e.target.value)}
+        />
+      ) : (
+        <Input
+          id={`cms-${key}`}
+          className="mt-1.5"
+          maxLength={opts?.max}
+          value={val}
+          placeholder={opts?.placeholder}
+          onChange={(e) => set(key, e.target.value)}
+        />
+      )}
+    </div>
+  );
+
+  const Toggle = (label: string, hint: string, key: string, val: boolean) => (
+    <div className="flex items-center justify-between rounded-xl bg-secondary/60 px-4 py-3">
+      <div>
+        <p className="text-sm font-medium">{label}</p>
+        <p className="text-xs text-muted-foreground">{hint}</p>
+      </div>
+      <Switch checked={val} onCheckedChange={(v) => set(key, v)} />
+    </div>
+  );
+
+  const Section = ({ title, children }: { title: string; children: ReactNode }) => (
+    <section className="rounded-2xl border border-sky-100 bg-white p-5 shadow-[0_10px_30px_-18px_oklch(0.55_0.12_240/0.25)]">
+      <h3 className="text-sm font-semibold text-navy">{title}</h3>
+      <div className="mt-4 space-y-4">{children}</div>
+    </section>
+  );
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-xs leading-5 text-muted-foreground">
+          Semua perubahan langsung tampil di halaman utama setelah disimpan.
+        </p>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" className="rounded-full" disabled={busy} onClick={kembalikanDefault}>
+            Reset ke default
+          </Button>
+          <Button
+            className="gradient-primary rounded-full border-0"
+            disabled={!draft || busy}
+            onClick={simpan}
+          >
+            {busy ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
+            Simpan perubahan
+          </Button>
+        </div>
+      </div>
+
+      <div className="grid gap-5 xl:grid-cols-2">
+        <Section title="Bar pengumuman berjalan (atas semua halaman)">
+          {T("Teks berjalan", "teks", d("teks", publik.barTeks), { area: true, max: 240 })}
+          {T("Tautan CTA (opsional)", "tautan", d("tautan", publik.barTautan), { placeholder: "/auth" })}
+          {Toggle("Tampilkan bar", "Nonaktif menyembunyikan bar dari semua halaman.", "barAktif", db("barAktif", publik.barAktif))}
+          <div className="overflow-hidden rounded-xl border border-sky-100 bg-gradient-to-r from-sky-50 via-white to-emerald-50/70">
+            <div className="animate-marquee flex w-max py-2">
+              {[0, 1, 2, 3].map((i) => (
+                <span key={i} className="mx-4 text-xs font-medium text-sky-900">{d("teks", publik.barTeks)}</span>
+              ))}
+            </div>
+          </div>
+        </Section>
+
+        <Section title="Popup pengumuman (muncul 1,5 detik setelah buka)">
+          {T("Judul", "popupJudul", d("popupJudul", publik.popupJudul), { max: 80 })}
+          {T("Isi", "popupIsi", d("popupIsi", publik.popupIsi), { area: true, max: 500 })}
+          {T("Teks tombol CTA", "popupCta", d("popupCta", publik.popupCta), { max: 60 })}
+          {Toggle("Tampilkan popup", "Tampil tiap kunjungan halaman utama.", "popupAktif", db("popupAktif", publik.popupAktif))}
+        </Section>
+
+        <Section title="Widget pengumuman mengambang (pojok kanan bawah)">
+          {T("Judul", "floatJudul", d("floatJudul", publik.floatJudul), { max: 80 })}
+          {T("Isi", "floatIsi", d("floatIsi", publik.floatIsi), { area: true, max: 300 })}
+          {T("Teks tombol CTA", "floatCta", d("floatCta", publik.floatCta), { max: 60 })}
+          {T("Delay kemunculan (detik)", "floatDelayDetik", d("floatDelayDetik", String(publik.floatDelayDetik)))}
+          {Toggle("Tampilkan widget", "Muncul otomatis sesuai delay, bisa ditutup.", "floatAktif", db("floatAktif", publik.floatAktif))}
+        </Section>
+
+        <Section title="Header & Hero">
+          {T("Teks logo", "logoTeks", d("logoTeks", publik.logoTeks), { max: 40 })}
+          {T("Menu nav 1", "nav1", d("nav1", publik.nav1), { max: 40 })}
+          {T("Menu nav 2", "nav2", d("nav2", publik.nav2), { max: 40 })}
+          {T("Menu nav 3", "nav3", d("nav3", publik.nav3), { max: 40 })}
+          {T("Menu nav 4", "nav4", d("nav4", publik.nav4), { max: 40 })}
+          {T("Badge atas hero", "heroBadge", d("heroBadge", publik.heroBadge), { max: 160 })}
+          {T("Judul hero (bagian 1)", "heroJudul", d("heroJudul", publik.heroJudul), { max: 120 })}
+          {T("Judul hero (aksen berwarna)", "heroJudul2", d("heroJudul2", CMS_DEFAULTS.hero.judul2), { max: 60 })}
+          {T("Sub-judul hero", "heroSub", d("heroSub", publik.heroSub), { area: true, max: 400 })}
+          {T("Tombol CTA 1", "heroCta1", d("heroCta1", publik.heroCta1), { max: 40 })}
+          {T("Tombol CTA 2", "heroCta2", d("heroCta2", publik.heroCta2), { max: 40 })}
+          {T("Chip 1 — label", "chip1Label", d("chip1Label", publik.chip1Label), { max: 40 })}
+          {T("Chip 1 — nilai", "chip1Nilai", d("chip1Nilai", publik.chip1Nilai), { max: 40 })}
+          {T("Chip 2 — label", "chip2Label", d("chip2Label", publik.chip2Label), { max: 40 })}
+          {T("Chip 2 — nilai", "chip2Nilai", d("chip2Nilai", publik.chip2Nilai), { max: 40 })}
+        </Section>
+
+        <Section title="Bagian layanan (body)">
+          {T("Judul bagian", "layananJudul", d("layananJudul", publik.layananJudul), { max: 120 })}
+          {T("Sub-judul bagian", "layananSub", d("layananSub", publik.layananSub), { area: true, max: 300 })}
+          {T("Judul kartu Pinjaman", "pinjamanJudul", d("pinjamanJudul", publik.pinjamanJudul), { max: 80 })}
+          {T("Isi kartu Pinjaman", "pinjamanIsi", d("pinjamanIsi", publik.pinjamanIsi), { area: true, max: 400 })}
+          {T("Tombol kartu Pinjaman", "pinjamanCta", d("pinjamanCta", publik.pinjamanCta), { max: 40 })}
+          {T("Judul kartu Gadai", "gadaiJudul", d("gadaiJudul", publik.gadaiJudul), { max: 80 })}
+          {T("Isi kartu Gadai", "gadaiIsi", d("gadaiIsi", publik.gadaiIsi), { area: true, max: 400 })}
+          {T("Tombol kartu Gadai", "gadaiCta", d("gadaiCta", publik.gadaiCta), { max: 40 })}
+        </Section>
+      </div>
+    </div>
+  );
+}
