@@ -53,6 +53,7 @@ console.log("1) Pinjaman Rp 1.000.000: ajukan → setujui → didanai penuh…")
 const borrower = await signUpAnonymous();
 const loan = await borrower.mutation(api.loans.createLoanApplication, {
   pokokPinjaman: 1_000_000,
+  tenorHari: 30,
   tujuan: "kebutuhan_pribadi",
   namaLengkap: "Nasabah QA Pelunasan",
   nomorRekening: "1122334455",

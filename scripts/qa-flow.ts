@@ -59,6 +59,7 @@ ok(meA.role === undefined, "peran baru masih kosong (akan jadi peminjam)");
 console.log("2) Ajukan pinjaman (Rp 10.000.000)…");
 const loan = await userA.mutation(api.loans.createLoanApplication, {
   pokokPinjaman: 10_000_000,
+  tenorHari: 30,
   tujuan: "modal_usaha",
   namaLengkap: "Nasabah Uji Alur",
   nomorRekening: "1234567890",
@@ -88,6 +89,7 @@ await expectError(
   () =>
     userA.mutation(api.loans.createLoanApplication, {
       pokokPinjaman: 99_999, // di bawah minimum
+      tenorHari: 30,
       tujuan: "modal_usaha",
       namaLengkap: "Nasabah Uji Alur",
       nomorRekening: "1234567890",
@@ -98,6 +100,7 @@ await expectError(
   () =>
     userA.mutation(api.loans.createLoanApplication, {
       pokokPinjaman: 10_000_000.5, // desimal dilarang
+      tenorHari: 30,
       tujuan: "modal_usaha",
       namaLengkap: "Nasabah Uji Alur",
       nomorRekening: "1234567890",
@@ -108,6 +111,7 @@ await expectError(
   () =>
     userA.mutation(api.loans.createLoanApplication, {
       pokokPinjaman: 5_000_000,
+      tenorHari: 30,
       tujuan: "modal_usaha",
       namaLengkap: "Ab",
       nomorRekening: "1234567890",
@@ -118,6 +122,7 @@ await expectError(
   () =>
     userA.mutation(api.loans.createLoanApplication, {
       pokokPinjaman: 5_000_000,
+      tenorHari: 30,
       tujuan: "modal_usaha",
       namaLengkap: "Nasabah Uji Alur",
       nomorRekening: "abc123",
