@@ -33,6 +33,13 @@ import { appendJournal } from "./ledger";
 export const MIN_POKOK = 100_000;
 export const MAX_POKOK = 500_000_000;
 
+/**
+ * Tenor untuk data warisan (pinjaman dibuat sebelum fitur tenor ada). Mesin
+ * denda menghitung jatuh tempo dari didanaiPada + tenor; tanpa default ini,
+ * pinjaman warisan tidak bisa dilunasi dan tidak tampil di pengingat.
+ */
+export const DEFAULT_TENOR_HARI = 30;
+
 function validateRupiahAmount(amount: Rupiah, label: string): void {
   if (!Number.isSafeInteger(amount) || amount <= 0) {
     throw new Error(`${label} harus rupiah bulat positif (tanpa desimal).`);
@@ -144,14 +151,13 @@ function pelunasanInfo(loan: {
   tenorHari?: number;
   didanaiPada?: number;
 }, now: number) {
-  if (
-    loan.status !== "didanai" ||
-    loan.didanaiPada === undefined ||
-    loan.tenorHari === undefined
-  ) {
+  if (loan.status !== "didanai" || loan.didanaiPada === undefined) {
     return null;
   }
-  return calculateRepayment(loan.pokokPinjaman, loan.tenorHari, loan.didanaiPada, now);
+  // Data warisan pra-tenor memakai default 30 hari agar tetap bisa dilunasi
+  // dan tetap mendapat pengingat jatuh tempo.
+  const tenor = loan.tenorHari ?? DEFAULT_TENOR_HARI;
+  return calculateRepayment(loan.pokokPinjaman, tenor, loan.didanaiPada, now);
 }
 
 /** Daftar pinjaman milik Peminjam — hanya miliknya. */
@@ -185,12 +191,10 @@ export const getMyLoan = query({
     const loan = await ctx.db.get(args.loanId);
     if (loan === null || loan.userId !== userId) return null;
     const pelunasan =
-      loan.status === "didanai" &&
-      loan.didanaiPada !== undefined &&
-      loan.tenorHari !== undefined
+      loan.status === "didanai" && loan.didanaiPada !== undefined
         ? calculateRepayment(
             loan.pokokPinjaman,
-            loan.tenorHari,
+            loan.tenorHari ?? DEFAULT_TENOR_HARI,
             loan.didanaiPada,
             Date.now(),
           )
@@ -532,15 +536,15 @@ export const repayLoan = mutation({
     }
 
     const now = Date.now();
-    const pelunasan =
-      loan.tenorHari !== undefined && loan.didanaiPada !== undefined
-        ? calculateRepayment(loan.pokokPinjaman, loan.tenorHari, loan.didanaiPada, now)
-        : null;
-    if (pelunasan === null) {
-      throw new Error(
-        "Pinjaman ini belum memiliki tenor/waktu pendanaan — hubungi tim Pinjam Gadai Digital.",
-      );
+    if (loan.didanaiPada === undefined) {
+      throw new Error("Pinjaman ini belum memiliki waktu pendanaan yang valid.");
     }
+    const pelunasan = calculateRepayment(
+      loan.pokokPinjaman,
+      loan.tenorHari ?? DEFAULT_TENOR_HARI,
+      loan.didanaiPada,
+      now,
+    );
 
     const q = quoteLoan(loan.pokokPinjaman);
     const fundings = await ctx.db

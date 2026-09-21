@@ -23,6 +23,10 @@ export const PINDAI_PRICING = {
 export const TENOR_OPTIONS = [30, 60, 90] as const;
 export type Tenor = (typeof TENOR_OPTIONS)[number];
 
+/** Tenor default untuk data warisan (pinjaman pra-tenor). */
+/** Tenor default untuk data warisan (pinjaman pra-tenor). */
+export const DEFAULT_TENOR_HARI: Tenor = 30;
+
 /**
  * Kebijakan denda keterlambatan (dihitung server, integer exact):
  * - 0,5% dari pokok pinjaman per hari keterlambatan;

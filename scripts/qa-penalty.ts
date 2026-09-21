@@ -126,7 +126,60 @@ await expectError(
 const led: any = await admin.query(api.admin.ledgerSummary);
 ok(led.seimbang === true, `debit == kredit (D=${led.totalDebit}, K=${led.totalKredit})`);
 
-console.log("5) Statistik admin memuat keterlambatan…");
+console.log("5) Klasifikasi jenis pengingat: jatuh_tempo / h_minus_3 / skip…");
+// Pinjaman kedua khusus pengujian jenis pengingat.
+const loan2 = await borrower.mutation(api.loans.createLoanApplication, {
+  pokokPinjaman: 500_000,
+  tenorHari: 30,
+  tujuan: "kebutuhan_pribadi",
+  namaLengkap: "Nasabah QA Penalti",
+  nomorRekening: "9988776655",
+});
+await admin.mutation(api.loans.approveLoan, { loanId: loan2.appId });
+await pendana.mutation(api.pendana.allocateFunding, {
+  loanId: loan2.appId,
+  jumlah: 500_000,
+});
+
+// 30 hari lalu + tenor 30 → jatuh tempo persis (sisa 0, belum terlambat).
+execSync(
+  `bunx convex run loans:qaBackdateDidanai '{"loanId":"${loan2.appId}","hariLalu":30}'`,
+  { stdio: "pipe" },
+);
+await admin.mutation(api.loans.runDueReminderSweep, {});
+let rem2: any[] = await borrower.query(api.loans.myRemindersToday);
+const jt = rem2.find((r) => r.loanId === loan2.appId && r.jenis === "jatuh_tempo");
+ok(jt !== undefined, "jenis jatuh_tempo tercatat saat jatuh tempo persis");
+
+// 27 hari lalu → sisa 3 hari → H-3.
+execSync(
+  `bunx convex run loans:qaBackdateDidanai '{"loanId":"${loan2.appId}","hariLalu":27}'`,
+  { stdio: "pipe" },
+);
+await admin.mutation(api.loans.runDueReminderSweep, {});
+rem2 = await borrower.query(api.loans.myRemindersToday);
+ok(
+  rem2.some((r) => r.loanId === loan2.appId && r.jenis === "h_minus_3"),
+  "jenis h_minus_3 tercatat saat sisa 3 hari",
+);
+
+// 5 hari lalu → sisa 25 hari → di-skip (tidak ada pengingat baru).
+execSync(
+  `bunx convex run loans:qaBackdateDidanai '{"loanId":"${loan2.appId}","hariLalu":5}'`,
+  { stdio: "pipe" },
+);
+await admin.mutation(api.loans.runDueReminderSweep, {});
+rem2 = await borrower.query(api.loans.myRemindersToday);
+const jenisLoan2 = rem2
+  .filter((r) => r.loanId === loan2.appId)
+  .map((r) => r.jenis)
+  .sort();
+ok(
+  JSON.stringify(jenisLoan2) === JSON.stringify(["h_minus_3", "jatuh_tempo"]),
+  `sisa 25 hari tidak menulis pengingat (dapat ${JSON.stringify(jenisLoan2)})`,
+);
+
+console.log("6) Statistik admin memuat keterlambatan…");
 const stats: any = await admin.query(api.admin.adminStats);
 ok(typeof stats.pinjamanTerlambat === "number", "statistik pinjamanTerlambat ada");
 ok(typeof stats.totalDendaBerjalan === "number", "statistik totalDendaBerjalan ada");

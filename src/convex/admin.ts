@@ -2,7 +2,11 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 import { query, mutation, internalMutation, QueryCtx } from "./_generated/server";
 import { v } from "convex/values";
 import { ROLES } from "./schema";
-import { calculateRepayment, quoteLoan } from "../lib/loan";
+import {
+  calculateRepayment,
+  DEFAULT_TENOR_HARI,
+  quoteLoan,
+} from "../lib/loan";
 import { appendJournal, ledgerTotals } from "./ledger";
 
 /** Gerbang admin — semua query/mutation di file ini dijaga. */
@@ -44,10 +48,13 @@ export const adminOverview = query({
         .map(async (l) => {
           const borrower = await ctx.db.get(l.userId);
           const pelunasan =
-            l.status === "didanai" &&
-            l.didanaiPada !== undefined &&
-            l.tenorHari !== undefined
-              ? calculateRepayment(l.pokokPinjaman, l.tenorHari, l.didanaiPada, Date.now())
+            l.status === "didanai" && l.didanaiPada !== undefined
+              ? calculateRepayment(
+                  l.pokokPinjaman,
+                  l.tenorHari ?? DEFAULT_TENOR_HARI,
+                  l.didanaiPada,
+                  Date.now(),
+                )
               : null;
           return {
             _id: l._id,
@@ -189,8 +196,13 @@ export const adminStats = query({
     for (const l of loans) {
       if (l.status !== "didanai") continue;
       const info =
-        l.didanaiPada !== undefined && l.tenorHari !== undefined
-          ? calculateRepayment(l.pokokPinjaman, l.tenorHari, l.didanaiPada, Date.now())
+        l.didanaiPada !== undefined
+          ? calculateRepayment(
+              l.pokokPinjaman,
+              l.tenorHari ?? DEFAULT_TENOR_HARI,
+              l.didanaiPada,
+              Date.now(),
+            )
           : null;
       if (info === null) continue;
       if (info.hariTerlambat > 0) {

@@ -100,7 +100,7 @@ const schema = defineSchema(
       /** Nomor referensi manusiawi. */
       nomorReferensi: v.string(),
       /** Tenor pinjaman dalam hari (30/60/90) — dipilih saat pengajuan. */
-      tenorHari: v.optional(v.number()),
+      tenorHari: v.number(),
       /** Terisi saat pinjaman didanai penuh dan dana bersih dicairkan. */
       didanaiPada: v.optional(v.number()),
       /** Terisi saat kewajiban 130% (+ denda bila terlambat) dibayar penuh. */
