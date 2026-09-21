@@ -10,7 +10,18 @@ export function StatusBadge({
   kind: "loan" | "pawn";
 }) {
   if (kind === "loan" && status === "didanai") {
-    return <Badge className="bg-foreground text-background hover:bg-foreground">Didanai</Badge>;
+    return (
+      <Badge className="gradient-primary border-0 text-primary-foreground">
+        Didanai
+      </Badge>
+    );
+  }
+  if (kind === "loan" && status === "lunas") {
+    return (
+      <Badge className="border-primary/30 bg-primary/10 text-accent-foreground">
+        Lunas
+      </Badge>
+    );
   }
   const meta =
     kind === "loan"
@@ -19,7 +30,7 @@ export function StatusBadge({
 
   if (status === "disetujui") {
     return (
-      <Badge className="bg-foreground text-background hover:bg-foreground">
+      <Badge className="border-primary/30 bg-primary/10 text-accent-foreground">
         {meta.label}
       </Badge>
     );
@@ -27,9 +38,18 @@ export function StatusBadge({
   if (status === "ditolak") {
     return <Badge variant="destructive">{meta.label}</Badge>;
   }
-  if (kind === "pawn" && status === "sedang_dinilai") {
+  // Status proses berjalan (review/penilaian/aktif/pelepasan) — emerald lembut;
+  // alur gadai memakai aksen gold agar jalurnya terlihat jelas.
+  if (
+    (kind === "pawn" &&
+      (status === "aktif" ||
+        status === "menunggu_pelepasan" ||
+        status === "lunas_dilepas" ||
+        status === "sedang_dinilai")) ||
+    (kind === "loan" && status === "sedang_direview")
+  ) {
     return (
-      <Badge variant="outline" className="border-foreground/40 text-foreground">
+      <Badge className="border-gold/40 bg-gold/15 text-gold-foreground">
         {meta.label}
       </Badge>
     );

@@ -45,10 +45,15 @@ export default function Landing() {
       className="flex min-h-screen flex-col bg-background text-foreground"
     >
       {/* Nav */}
-      <header className="border-b border-border/60">
+      <header className="sticky top-0 z-40 border-b border-border/60 bg-background/85 backdrop-blur-md">
         <div className="mx-auto flex h-16 w-full max-w-5xl items-center justify-between px-6">
-          <span className="text-sm font-semibold tracking-[0.18em]">
-            PINJAM GADAI DIGITAL
+          <span className="flex items-center gap-2.5">
+            <span className="gradient-primary flex size-8 items-center justify-center rounded-lg font-bold text-primary-foreground shadow-glow">
+              P
+            </span>
+            <span className="text-sm font-semibold tracking-[0.18em]">
+              PINJAM GADAI DIGITAL
+            </span>
           </span>
           <nav className="flex items-center gap-6 text-sm text-muted-foreground">
             <a href="#layanan" className="hidden hover:text-foreground sm:block">
@@ -69,18 +74,23 @@ export default function Landing() {
 
       <main className="flex-1">
         {/* Hero */}
-        <section className="mx-auto w-full max-w-5xl px-6 pb-20 pt-24 sm:pt-32">
+        <section className="dot-texture relative mx-auto w-full max-w-5xl px-6 pb-20 pt-20 sm:pt-28">
           <motion.div
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.05 }}
             className="max-w-2xl"
           >
-            <Kicker>Pinjaman &amp; Penggadaian Barang</Kicker>
-            <h1 className="mt-4 text-4xl font-semibold leading-[1.1] tracking-tight sm:text-5xl">
+            <span className="inline-flex items-center gap-2 rounded-full border border-primary/25 bg-primary/10 px-3.5 py-1.5 text-xs font-medium text-accent-foreground">
+              <span className="size-1.5 rounded-full bg-primary" />
+              Sertifikasi wajib · Live location terverifikasi
+            </span>
+            <h1 className="mt-5 text-4xl font-semibold leading-[1.1] tracking-tight sm:text-5xl">
               Pinjam tunai. Gadaikan barang.
               <br />
-              <span className="text-muted-foreground">Semua angkanya jelas di muka.</span>
+              <span className="text-gradient-primary">
+                Semua angkanya jelas di muka.
+              </span>
             </h1>
             <p className="mt-6 max-w-xl text-base leading-7 text-muted-foreground">
               Pinjam Gadai Digital menghubungkan nasabah dengan Pendana
@@ -89,7 +99,11 @@ export default function Landing() {
               seluruh pendapatan kami. Tidak ada biaya tersembunyi.
             </p>
             <div className="mt-8 flex flex-wrap items-center gap-3">
-              <Button asChild size="lg" className="rounded-full px-6">
+              <Button
+                asChild
+                size="lg"
+                className="gradient-primary shadow-glow rounded-full border-0 px-7 font-medium transition-transform hover:-translate-y-0.5"
+              >
                 <Link to="/auth">
                   Buat akun nasabah
                   <ArrowRight className="ml-1 size-4" />
@@ -98,34 +112,39 @@ export default function Landing() {
               <Button
                 asChild
                 size="lg"
-                variant="ghost"
-                className="rounded-full px-4 text-muted-foreground"
+                variant="outline"
+                className="rounded-full px-5 border-primary/30 text-accent-foreground hover:bg-primary/5"
               >
                 <a href="#biaya">Hitung biaya Anda</a>
               </Button>
             </div>
           </motion.div>
 
-          <div className="mt-16 grid gap-px overflow-hidden rounded-lg border border-border/60 bg-border/60 sm:grid-cols-3">
+          <div className="mt-16 grid gap-px overflow-hidden rounded-xl border border-border/60 bg-border/60 sm:grid-cols-3">
             {[
               {
                 icon: BadgeCheck,
+                tint: "bg-primary/10 text-accent-foreground",
                 title: "Sertifikasi wajib",
                 body: "Platform beroperasi dengan sertifikasi dan prosedur operasional baku yang diwajibkan sebelum layanan disalurkan.",
               },
               {
                 icon: MapPin,
+                tint: "bg-gold/15 text-gold-foreground",
                 title: "Live location wajib",
                 body: "Pemeriksaan barang gadai dilakukan di lokasi Anda dengan pencatatan lokasi langsung yang terekam sebagai bukti kunjungan.",
               },
               {
                 icon: ShieldCheck,
+                tint: "bg-primary/10 text-accent-foreground",
                 title: "Angka pasti",
                 body: "Seluruh perhitungan rupiah bulat tanpa pembulatan mengambang — presisi sampai satu rupiah.",
               },
-            ].map(({ icon: Icon, title, body }) => (
-              <div key={title} className="bg-background p-6">
-                <Icon className="size-4 text-muted-foreground" />
+            ].map(({ icon: Icon, tint, title, body }) => (
+              <div key={title} className="card-lift bg-background p-6">
+                <span className={`inline-flex size-9 items-center justify-center rounded-lg ${tint}`}>
+                  <Icon className="size-4" />
+                </span>
                 <h3 className="mt-4 text-sm font-medium">{title}</h3>
                 <p className="mt-2 text-sm leading-6 text-muted-foreground">{body}</p>
               </div>
@@ -140,9 +159,11 @@ export default function Landing() {
             <h2 className="mt-4 max-w-xl text-2xl font-semibold tracking-tight">
               Pilih jalur yang sesuai kebutuhan Anda.
             </h2>
-            <div className="mt-10 grid gap-px overflow-hidden rounded-lg border border-border/60 bg-border/60 lg:grid-cols-2">
-              <div className="bg-background p-8">
-                <Banknote className="size-5 text-muted-foreground" />
+            <div className="mt-10 grid gap-px overflow-hidden rounded-xl border border-border/60 bg-border/60 lg:grid-cols-2">
+              <div className="card-lift bg-background p-8">
+                <span className="gradient-primary shadow-glow inline-flex size-10 items-center justify-center rounded-xl text-primary-foreground">
+                  <Banknote className="size-5" />
+                </span>
                 <h3 className="mt-5 text-lg font-medium">Pinjaman tunai</h3>
                 <p className="mt-3 text-sm leading-6 text-muted-foreground">
                   Ajukan pinjaman tunai dengan struktur biaya tetap. Setelah
@@ -169,8 +190,10 @@ export default function Landing() {
                 </Button>
               </div>
 
-              <div className="bg-background p-8">
-                <Package className="size-5 text-muted-foreground" />
+              <div className="card-lift bg-background p-8">
+                <span className="gradient-gold shadow-glow-gold inline-flex size-10 items-center justify-center rounded-xl text-gold-foreground">
+                  <Package className="size-5" />
+                </span>
                 <h3 className="mt-5 text-lg font-medium">Gadai barang</h3>
                 <p className="mt-3 text-sm leading-6 text-muted-foreground">
                   Gadaikan elektronik, kendaraan, perhiasan, atau properti.
@@ -231,7 +254,8 @@ export default function Landing() {
               </p>
             </div>
 
-            <div className="rounded-lg border border-border/60 p-6 sm:p-8">
+            <div className="card-lift relative overflow-hidden rounded-xl border border-primary/25 bg-background p-6 sm:p-8">
+              <div className="gradient-primary absolute inset-x-0 top-0 h-1.5" />
               <Kicker>Kalkulator pinjaman</Kicker>
               <label htmlFor="sim-pokok" className="mt-4 block text-sm font-medium">
                 Pokok pinjaman
@@ -346,22 +370,30 @@ export default function Landing() {
 
         {/* Closing CTA */}
         <section className="border-t border-border/60">
-          <div className="mx-auto flex w-full max-w-5xl flex-col items-start gap-6 px-6 py-16 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <h2 className="text-xl font-semibold tracking-tight">
-                Siap memulai?
-              </h2>
-              <p className="mt-2 max-w-md text-sm leading-6 text-muted-foreground">
-                Buat akun nasabah untuk mengajukan pinjaman tunai atau gadaikan
-                barang Anda — keduanya dapat dikelola dari satu ruang nasabah.
-              </p>
+          <div className="mx-auto w-full max-w-5xl px-6 py-16">
+            <div className="gradient-primary shadow-glow relative overflow-hidden rounded-2xl px-8 py-12 text-center">
+              <div className="dot-texture absolute inset-0 opacity-40" />
+              <div className="relative">
+                <h2 className="text-2xl font-semibold tracking-tight text-primary-foreground">
+                  Siap memulai?
+                </h2>
+                <p className="mx-auto mt-3 max-w-md text-sm leading-6 text-primary-foreground/85">
+                  Buat akun nasabah untuk mengajukan pinjaman tunai atau
+                  gadaikan barang Anda — keduanya dapat dikelola dari satu
+                  ruang nasabah.
+                </p>
+                <Button
+                  asChild
+                  size="lg"
+                  className="mt-8 rounded-full border-0 bg-white px-7 font-medium text-accent-foreground hover:bg-white/90"
+                >
+                  <Link to="/auth">
+                    Daftar sekarang
+                    <ArrowRight className="ml-1 size-4" />
+                  </Link>
+                </Button>
+              </div>
             </div>
-            <Button asChild size="lg" className="rounded-full px-6">
-              <Link to="/auth">
-                Daftar sekarang
-                <ArrowRight className="ml-1 size-4" />
-              </Link>
-            </Button>
           </div>
         </section>
       </main>

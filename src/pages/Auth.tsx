@@ -112,8 +112,11 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
         <div className="flex w-full max-w-sm flex-col items-center">
           <a
             href="/"
-            className="text-sm font-semibold tracking-[0.18em] text-foreground"
+            className="flex items-center gap-2.5 text-sm font-semibold tracking-[0.18em] text-foreground"
           >
+            <span className="gradient-primary shadow-glow flex size-8 items-center justify-center rounded-lg font-bold text-primary-foreground">
+              P
+            </span>
             PINJAM GADAI DIGITAL
           </a>
           <p className="mt-2 text-xs text-muted-foreground">
@@ -245,7 +248,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                   <CardFooter className="flex-col gap-2">
                     <Button
                       type="submit"
-                      className="w-full"
+                      className="gradient-primary shadow-glow w-full rounded-full border-0 font-medium"
                       disabled={isLoading || otp.length !== 6}
                     >
                       {isLoading ? (

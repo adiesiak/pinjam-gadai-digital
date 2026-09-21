@@ -40,42 +40,49 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
+  /* PINDAI theme tokens — gold accent for the pawn (gadai) journey. */
+  --color-gold: var(--gold);
+  --color-gold-foreground: var(--gold-foreground);
 }
 
 /* CHANGE VALUES FOR THEME */
 :root {
   --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
+  /* Pinjam Gadai Digital — emerald trust palette on a warm-neutral base. */
+  --background: oklch(0.993 0.003 160);
+  --foreground: oklch(0.175 0.02 170);
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
+  --card-foreground: oklch(0.175 0.02 170);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
+  --popover-foreground: oklch(0.175 0.02 170);
+  --primary: oklch(0.545 0.135 165);
+  --primary-foreground: oklch(0.985 0.01 165);
+  --secondary: oklch(0.955 0.018 165);
+  --secondary-foreground: oklch(0.3 0.05 168);
+  --muted: oklch(0.958 0.008 165);
+  --muted-foreground: oklch(0.5 0.02 170);
+  --accent: oklch(0.95 0.025 165);
+  --accent-foreground: oklch(0.3 0.06 168);
   --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.646 0.222 41.116);
-  --chart-2: oklch(0.6 0.118 184.704);
+  --border: oklch(0.91 0.012 165);
+  --input: oklch(0.91 0.012 165);
+  --ring: oklch(0.545 0.135 165);
+  /* Gold — aksen kuning untuk alur gadai. */
+  --gold: oklch(0.72 0.14 78);
+  --gold-foreground: oklch(0.25 0.06 78);
+  --chart-1: oklch(0.545 0.135 165);
+  --chart-2: oklch(0.72 0.14 78);
   --chart-3: oklch(0.398 0.07 227.392);
   --chart-4: oklch(0.828 0.189 84.429);
   --chart-5: oklch(0.769 0.188 70.08);
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --sidebar: oklch(0.985 0.004 165);
+  --sidebar-foreground: oklch(0.175 0.02 170);
+  --sidebar-primary: oklch(0.545 0.135 165);
+  --sidebar-primary-foreground: oklch(0.985 0.01 165);
+  --sidebar-accent: oklch(0.955 0.018 165);
+  --sidebar-accent-foreground: oklch(0.3 0.05 168);
+  --sidebar-border: oklch(0.91 0.012 165);
+  --sidebar-ring: oklch(0.545 0.135 165);
 }
 
 .dark {
@@ -122,5 +129,80 @@
   button:not([disabled]),
   [role="button"]:not([disabled]) {
     cursor: pointer;
+  }
+}
+
+/* ===== PINDAI effects — gradien, glow, tekstur, motion ===== */
+@layer utilities {
+  /* Gradien utama emerald (tombol & kartu hero). */
+  .gradient-primary {
+    background-image: linear-gradient(
+      135deg,
+      oklch(0.6 0.145 163) 0%,
+      oklch(0.545 0.135 165) 55%,
+      oklch(0.46 0.12 170) 100%
+    );
+  }
+  .gradient-primary:hover {
+    background-image: linear-gradient(
+      135deg,
+      oklch(0.63 0.15 162) 0%,
+      oklch(0.57 0.14 164) 55%,
+      oklch(0.48 0.125 170) 100%
+    );
+  }
+  /* Gradien gold untuk aksen gadai. */
+  .gradient-gold {
+    background-image: linear-gradient(135deg, oklch(0.8 0.13 82) 0%, oklch(0.7 0.15 72) 100%);
+  }
+  /* Teks bergradasi emerald. */
+  .text-gradient-primary {
+    background-image: linear-gradient(
+      120deg,
+      oklch(0.58 0.14 164) 0%,
+      oklch(0.44 0.11 172) 100%
+    );
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  /* Cahaya lembut di bawah elemen emerald. */
+  .shadow-glow {
+    box-shadow: 0 10px 32px -10px oklch(0.545 0.135 165 / 0.5);
+  }
+  .shadow-glow-gold {
+    box-shadow: 0 10px 32px -10px oklch(0.72 0.14 78 / 0.45);
+  }
+  /* Tekstur titik halus untuk latar hero. */
+  .dot-texture {
+    background-image: radial-gradient(
+      oklch(0.545 0.135 165 / 0.09) 1px,
+      transparent 1.5px
+    );
+    background-size: 22px 22px;
+  }
+  /* Kartu terangkat saat disorot. */
+  .card-lift {
+    transition:
+      transform 0.22s ease,
+      box-shadow 0.22s ease,
+      border-color 0.22s ease;
+  }
+  .card-lift:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 14px 36px -14px oklch(0.3 0.04 168 / 0.22);
+    border-color: oklch(0.545 0.135 165 / 0.35);
+  }
+  .animate-float {
+    animation: pindai-float 7s ease-in-out infinite;
+  }
+  @keyframes pindai-float {
+    0%,
+    100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(-8px);
+    }
   }
 }

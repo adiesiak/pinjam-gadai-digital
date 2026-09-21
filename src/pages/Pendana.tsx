@@ -44,7 +44,13 @@ export default function Pendana() {
     <div className="flex min-h-screen flex-col bg-background text-foreground">
       <header className="border-b border-border/60">
         <div className="mx-auto flex h-16 w-full max-w-5xl items-center justify-between px-6">
-          <Link to="/dashboard" className="text-sm font-semibold tracking-[0.18em]">
+          <Link
+            to="/dashboard"
+            className="flex items-center gap-2.5 text-sm font-semibold tracking-[0.18em]"
+          >
+            <span className="gradient-primary flex size-8 items-center justify-center rounded-lg font-bold text-primary-foreground">
+              P
+            </span>
             PINJAM GADAI DIGITAL
           </Link>
           <span className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -367,7 +373,11 @@ function DepositForm() {
           {error}
         </p>
       )}
-      <Button type="submit" className="w-full rounded-full" disabled={busy}>
+      <Button
+        type="submit"
+        className="gradient-primary shadow-glow w-full rounded-full border-0 font-medium transition-transform hover:-translate-y-0.5"
+        disabled={busy}
+      >
         {busy ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
         Ajukan setoran
       </Button>

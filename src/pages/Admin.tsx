@@ -202,7 +202,13 @@ export default function Admin() {
     <div className="flex min-h-screen flex-col bg-background text-foreground">
       <header className="border-b border-border/60">
         <div className="mx-auto flex h-16 w-full max-w-5xl items-center justify-between px-6">
-          <Link to="/dashboard" className="text-sm font-semibold tracking-[0.18em]">
+          <Link
+            to="/dashboard"
+            className="flex items-center gap-2.5 text-sm font-semibold tracking-[0.18em]"
+          >
+            <span className="gradient-primary flex size-8 items-center justify-center rounded-lg font-bold text-primary-foreground">
+              P
+            </span>
             PINJAM GADAI DIGITAL
           </Link>
           <span className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -337,7 +343,7 @@ export default function Admin() {
                     <div className="flex shrink-0 items-center gap-2">
                       <Button
                         size="sm"
-                        className="rounded-full"
+                        className="gradient-primary rounded-full border-0"
                         onClick={async () => {
                           try {
                             await confirmDeposit({ depositId: d._id });
@@ -647,6 +653,7 @@ function LoanReviewDialog({
                 </Button>
               )}
               <Button
+                className="gradient-primary border-0"
                 disabled={busy !== null}
                 onClick={() => run("approve", () => approve({ loanId: row._id }))}
               >

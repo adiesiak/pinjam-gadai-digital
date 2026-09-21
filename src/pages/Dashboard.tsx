@@ -89,7 +89,13 @@ export default function Dashboard() {
       {/* Top bar */}
       <header className="border-b border-border/60">
         <div className="mx-auto flex h-16 w-full max-w-5xl items-center justify-between px-6">
-          <Link to="/dashboard" className="text-sm font-semibold tracking-[0.18em]">
+          <Link
+            to="/dashboard"
+            className="flex items-center gap-2.5 text-sm font-semibold tracking-[0.18em]"
+          >
+            <span className="gradient-primary flex size-8 items-center justify-center rounded-lg font-bold text-primary-foreground">
+              P
+            </span>
             PINJAM GADAI DIGITAL
           </Link>
           <div className="flex items-center gap-4 text-sm">
@@ -131,7 +137,7 @@ export default function Dashboard() {
 
       <main className="mx-auto w-full max-w-5xl flex-1 px-6 py-10">
         <div className="flex flex-col gap-1">
-          <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-muted-foreground">
+          <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-primary">
             Ruang Nasabah
           </p>
           <h1 className="text-2xl font-semibold tracking-tight">
@@ -151,9 +157,7 @@ export default function Dashboard() {
         ) : (
           <>
             {/* Pengingat jatuh tempo — ditampilkan di atas semua tab. */}
-            {dueReminder !== null && (
-              <DueReminderBanner reminder={dueReminder} />
-            )}
+            {dueReminder !== null && <DueReminderBanner reminder={dueReminder} />}
             <Tabs defaultValue="pinjaman" className="mt-8">
             <TabsList className="bg-transparent p-0">
               <TabsTrigger
@@ -351,10 +355,10 @@ function DueReminderBanner({
   const terlambat = reminder.hariTerlambat > 0;
   return (
     <section
-      className={`rounded-lg border px-5 py-4 ${
+      className={`card-lift mt-6 rounded-xl border px-5 py-4 ${
         terlambat
           ? "border-destructive/40 bg-destructive/5"
-          : "border-border/60 bg-muted/40"
+          : "border-primary/25 bg-primary/5"
       }`}
     >
       <div className="flex flex-wrap items-baseline justify-between gap-3">
@@ -628,7 +632,11 @@ function LoanForm({ onCreated }: { onCreated: (ref: string) => void }) {
         </p>
       )}
 
-      <Button type="submit" className="w-full rounded-full" disabled={submitting}>
+      <Button
+        type="submit"
+        className="gradient-primary shadow-glow w-full rounded-full border-0 font-medium transition-transform hover:-translate-y-0.5"
+        disabled={submitting}
+      >
         {submitting ? (
           <>
             <Loader2 className="mr-2 size-4 animate-spin" />
@@ -814,7 +822,11 @@ function PawnForm({ onCreated }: { onCreated: () => void }) {
         </p>
       )}
 
-      <Button type="submit" className="w-full rounded-full" disabled={submitting}>
+      <Button
+        type="submit"
+        className="gradient-gold shadow-glow-gold w-full rounded-full border-0 font-medium text-gold-foreground transition-transform hover:-translate-y-0.5"
+        disabled={submitting}
+      >
         {submitting ? (
           <>
             <Loader2 className="mr-2 size-4 animate-spin" />
@@ -968,7 +980,7 @@ function LoanDetailDialog({
                   dapat dibatalkan.
                 </p>
                 <Button
-                  className="mt-3 w-full rounded-full"
+                  className="gradient-primary shadow-glow mt-3 w-full rounded-full border-0 font-medium transition-transform hover:-translate-y-0.5"
                   disabled={repaying}
                   onClick={handleRepay}
                 >
