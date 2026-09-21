@@ -2,17 +2,27 @@ import { useAction, useMutation, useQuery } from "convex/react";
 import {
   ArrowLeft,
   BadgeCheck,
+  BellRing,
   ClipboardList,
   Coins,
+  Database,
   ExternalLink,
+  FileDown,
+  Gavel,
+  Landmark,
   Loader2,
+  Lock,
   MapPin,
+  Map as MapIcon,
   MessageSquare,
   Package,
+  Settings2,
   Send,
+  ShieldAlert,
   ShieldCheck,
+  Wallet,
 } from "lucide-react";
-import { useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Link, useNavigate } from "react-router";
 import { toast } from "sonner";
 
@@ -40,6 +50,15 @@ import { loanPurposeLabel, quoteLoan } from "@/lib/loan";
 import { formatRupiah, parseRupiah, type Rupiah } from "@/lib/money";
 import { LTV_HINTS, type CollateralCategory } from "@/lib/pawn";
 import { CMS_DEFAULTS } from "@/lib/cms-defaults";
+import { jarakKm } from "@/lib/geo";
+import {
+  buildGadaiContract,
+  buildPinjamanContract,
+  nomorContract,
+} from "@/lib/contract";
+import { DEFAULT_CONFIG } from "@/convex/system";
+import "leaflet/dist/leaflet.css";
+import L from "leaflet";
 
 type LoanRow = {
   _id: Id<"loans">;
@@ -79,6 +98,9 @@ type PawnRow = {
   alamatPenilaian: string;
   status: "diajukan" | "sedang_dinilai" | "disetujui" | "ditolak" | "aktif" | "menunggu_pelepasan" | "lunas_dilepas";
   nilaiTaksiran?: number;
+  hargaPasar: number | null;
+  kondisiFisik: string | null;
+  kodeRakVault: string | null;
   catatanReview?: string;
   namaLengkap: string;
   nomorRekening: string;

@@ -8,6 +8,8 @@ import {
   quoteLoan,
 } from "../lib/loan";
 import { appendJournal, ledgerTotals } from "./ledger";
+import { getConfig, audit } from "./system";
+import { jarakKm } from "../lib/geo";
 
 /** Gerbang admin — semua query/mutation di file ini dijaga. */
 async function requireAdmin(ctx: QueryCtx) {
@@ -102,6 +104,9 @@ export const adminOverview = query({
             alamatPenilaian: p.alamatPenilaian,
             status: p.status,
             nilaiTaksiran: p.nilaiTaksiran,
+            hargaPasar: p.hargaPasar ?? null,
+            kondisiFisik: p.kondisiFisik ?? null,
+            kodeRakVault: p.kodeRakVault ?? null,
             catatanReview: p.catatanReview,
             namaLengkap: p.namaLengkap,
             nomorRekening: p.nomorRekening,
@@ -270,6 +275,28 @@ export const adminStats = query({
       }
     }
 
+    // Antrean pencairan: pinjaman disetujui menunggu pendanaan penuh.
+    const antreanPencairan = loans.filter((l) => l.status === "disetujui").length;
+
+    // GPS mismatch: posisi terakhir peminjam aktif vs gudang brankas.
+    const cfg = await getConfig(ctx);
+    const vault = { lat: cfg.vaultLat, lng: cfg.vaultLng };
+    let gpsMismatch = 0;
+    for (const l of loans) {
+      if (l.status !== "didanai") continue;
+      const titik = await ctx.db
+        .query("lokasiJejak")
+        .withIndex("by_user", (q) => q.eq("userId", l.userId))
+        .order("desc")
+        .first();
+      if (
+        titik &&
+        jarakKm({ lat: titik.lat, lng: titik.lng }, vault) > cfg.gpsMismatchKm
+      ) {
+        gpsMismatch += 1;
+      }
+    }
+
     return {
       pinjamanBaru: pendingLoans,
       gadaiProses: pendingPawns,
@@ -278,6 +305,8 @@ export const adminStats = query({
       nilaiTaksiranDisetujui: taksiranTotal,
       pinjamanTerlambat,
       totalDendaBerjalan,
+      antreanPencairan,
+      gpsMismatch,
     };
   },
 });
@@ -365,13 +394,112 @@ export const rejectDeposit = mutation({
       catatanAdmin: args.reason.trim(),
     });
   },
-});
-
-/** Ringkasan ledger untuk kartu kesehatan sistem di panel admin. */
+});/** Ringkasan ledger untuk kartu kesehatan sistem di panel admin. */
 export const ledgerSummary = query({
   args: {},
   handler: async (ctx) => {
     await requireAdmin(ctx);
     return ledgerTotals(ctx);
+  },
+});
+
+/** Baris ledger untuk export CSV & tab Ledger (admin). */
+export const ledgerRows = query({
+  args: {},
+  handler: async (ctx) => {
+    await requireAdmin(ctx);
+    return ctx.db.query("ledger_entries").collect();
+  },
+});
+
+/**
+ * Titik lokasi peminjam untuk peta live (OpenStreetMap): satu baris per
+ * peminjam dengan pinjaman — posisi realtime (jejak) atau lokasi pengajuan.
+ */
+export const petaPeminjam = query({
+  args: {},
+  handler: async (ctx) => {
+    await requireAdmin(ctx);
+    const cfg = await getConfig(ctx);
+    const vault = { lat: cfg.vaultLat, lng: cfg.vaultLng };
+    const loans = await ctx.db.query("loans").collect();
+    const rows: Array<{
+      userId: string;
+      namaLengkap: string;
+      nomorReferensi: string;
+      statusPinjaman: string;
+      posisi: { lat: number; lng: number; waktu: number; sumber: string } | null;
+      jarakVaultKm: number | null;
+      mismatch: boolean;
+    }> = [];
+    const seen = new Set<string>();
+    for (const l of loans) {
+      if (seen.has(l.userId)) continue;
+      seen.add(l.userId);
+      const titik = await ctx.db
+        .query("lokasiJejak")
+        .withIndex("by_user", (q) => q.eq("userId", l.userId))
+        .order("desc")
+        .first();
+      const lok = l.lokasiAjukan;
+      const posisi = titik
+        ? { lat: titik.lat, lng: titik.lng, waktu: titik.waktu, sumber: "realtime" }
+        : lok
+          ? { lat: lok.lat, lng: lok.lng, waktu: lok.waktu, sumber: "pengajuan" }
+          : null;
+      const jarak = posisi ? jarakKm(posisi, vault) : null;
+      rows.push({
+        userId: l.userId,
+        namaLengkap: l.namaLengkap,
+        nomorReferensi: l.nomorReferensi,
+        statusPinjaman: l.status,
+        posisi,
+        jarakVaultKm: jarak,
+        mismatch: jarak !== null && jarak > cfg.gpsMismatchKm,
+      });
+    }
+    return { vault, gpsMismatchKm: cfg.gpsMismatchKm, rows };
+  },
+});
+
+/** Data tanda tangan elektronik peminjam untuk e-contract. */
+export const contractData = query({
+  args: { loanId: v.id("loans") },
+  handler: async (ctx, { loanId }) => {
+    await requireAdmin(ctx);
+    const loan = await ctx.db.get(loanId);
+    if (loan === null) return null;
+    return {
+      ttdPeminjam: loan.tandaTanganPeminjam ?? null,
+      ttdPada: loan.tandaTanganPada ?? null,
+    };
+  },
+});
+
+/** Simpan tanda tangan canvas peminjam (data URL PNG) — admin. */
+export const simpanTandaTangan = mutation({
+  args: { loanId: v.id("loans"), dataUrl: v.string() },
+  handler: async (ctx, { loanId, dataUrl }) => {
+    const { userId, user } = await requireAdmin(ctx);
+    if (!dataUrl.startsWith("data:image/png;base64,")) {
+      throw new Error("Format tanda tangan tidak valid.");
+    }
+    if (dataUrl.length > 200_000) {
+      throw new Error("Data tanda tangan terlalu besar.");
+    }
+    await ctx.db.patch(loanId, {
+      tandaTanganPeminjam: dataUrl,
+      tandaTanganPada: Date.now(),
+    });
+    const loan = await ctx.db.get(loanId);
+    await audit(
+      ctx,
+      userId,
+      user.email ?? user.name ?? "admin",
+      "tanda_tangan",
+      loan?.nomorReferensi ?? loanId,
+      "Tanda tangan elektronik peminjam tersimpan",
+    );
+    return { ok: true };
   },
 });

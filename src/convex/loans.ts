@@ -23,6 +23,7 @@ import {
 import { formatRupiah, type Rupiah } from "../lib/money";
 import { COLLATERAL_CATEGORIES } from "../lib/pawn";
 import { appendJournal } from "./ledger";
+import { getConfig, audit } from "./system";
 
 /**
  * Saat pinjaman dilunasi, pinjaman baru (belum pernah didanai) bisa kembali
@@ -129,6 +130,13 @@ export const createLoanApplication = mutation({
   returns: v.object({ appId: v.id("loans"), nomorReferensi: v.string() }),
   handler: async (ctx, args) => {
     const { userId, user } = await requirePeminjam(ctx);
+    // Kill switch: blokir seluruh pengajuan baru saat darurat.
+    const sys = await getConfig(ctx);
+    if (sys.killSwitch) {
+      throw new Error(
+        "Pengajuan sementara dihentikan oleh sistem (kill switch aktif). Coba lagi nanti.",
+      );
+    }
     validateRupiahAmount(args.pokokPinjaman, "Pokok pinjaman");
     // Server-side pricing engine — fee fields are never accepted from the client.
     const quote = quoteLoan(args.pokokPinjaman);
@@ -387,6 +395,13 @@ export const createPawnApplication = mutation({
   },
   handler: async (ctx, args) => {
     const { userId, user } = await requirePeminjam(ctx);
+    // Kill switch: blokir seluruh pengajuan baru saat darurat.
+    const sys = await getConfig(ctx);
+    if (sys.killSwitch) {
+      throw new Error(
+        "Pengajuan sementara dihentikan oleh sistem (kill switch aktif). Coba lagi nanti.",
+      );
+    }
 
     const deskripsi = args.deskripsiBarang.trim();
     if (deskripsi.length < 10) {
@@ -509,7 +524,7 @@ async function setLoanStatus(
   status: LoanStatusValue,
   catatan?: string,
 ) {
-  await requireAdmin(ctx);
+  const adminId = await requireAdmin(ctx);
   const loan = await ctx.db.get(loanId);
   if (loan === null) throw new Error("Aplikasi tidak ditemukan.");
   if (status === "diajukan") {
@@ -522,6 +537,15 @@ async function setLoanStatus(
     status,
     catatanReview: catatan?.trim() || undefined,
   });
+  const admin = await ctx.db.get(adminId);
+  await audit(
+    ctx,
+    adminId,
+    admin?.email ?? admin?.name ?? "admin",
+    `loan_${status}`,
+    loan.nomorReferensi,
+    `${loan.namaLengkap} — ${status}${catatan ? `: ${catatan}` : ""}`,
+  );
 }
 
 export const markLoanInReview = mutation({
@@ -543,9 +567,15 @@ async function setPawnStatus(
   ctx: MutationCtx,
   pawnId: Id<"pawns">,
   status: PawnStatusValue,
-  opts: { nilaiTaksiran?: Rupiah; catatan?: string },
+  opts: {
+    nilaiTaksiran?: Rupiah;
+    catatan?: string;
+    hargaPasar?: Rupiah;
+    kondisiFisik?: string;
+    kodeRakVault?: string;
+  },
 ) {
-  await requireAdmin(ctx);
+  const adminId = await requireAdmin(ctx);
   const pawn = await ctx.db.get(pawnId);
   if (pawn === null) throw new Error("Pengajuan gadai tidak ditemukan.");
   if (status === "diajukan") {
@@ -567,11 +597,26 @@ async function setPawnStatus(
   if (opts.nilaiTaksiran !== undefined) {
     validateRupiahAmount(opts.nilaiTaksiran, "Nilai taksiran");
   }
+  if (opts.hargaPasar !== undefined) {
+    validateRupiahAmount(opts.hargaPasar, "Harga pasar");
+  }
   await ctx.db.patch(pawnId, {
     status,
     ...(opts.nilaiTaksiran !== undefined ? { nilaiTaksiran: opts.nilaiTaksiran } : {}),
+    ...(opts.hargaPasar !== undefined ? { hargaPasar: opts.hargaPasar } : {}),
+    ...(opts.kondisiFisik !== undefined ? { kondisiFisik: opts.kondisiFisik } : {}),
+    ...(opts.kodeRakVault !== undefined ? { kodeRakVault: opts.kodeRakVault } : {}),
     catatanReview: opts.catatan?.trim() || undefined,
   });
+  const admin = await ctx.db.get(adminId);
+  await audit(
+    ctx,
+    adminId,
+    admin?.email ?? admin?.name ?? "admin",
+    `pawn_${status}`,
+    pawn.nomorReferensi,
+    `${pawn.namaLengkap} — ${status}${opts.nilaiTaksiran !== undefined ? `, taksiran ${opts.nilaiTaksiran}` : ""}`,
+  );
 }
 
 export const markPawnInAppraisal = mutation({
@@ -581,10 +626,19 @@ export const markPawnInAppraisal = mutation({
 });
 
 export const approvePawn = mutation({
-  args: { pawnId: v.id("pawns"), nilaiTaksiran: v.number() },
+  args: {
+    pawnId: v.id("pawns"),
+    nilaiTaksiran: v.number(),
+    hargaPasar: v.optional(v.number()),
+    kondisiFisik: v.optional(v.string()),
+    kodeRakVault: v.optional(v.string()),
+  },
   handler: (ctx, args) =>
     setPawnStatus(ctx, args.pawnId, "disetujui", {
       nilaiTaksiran: args.nilaiTaksiran,
+      hargaPasar: args.hargaPasar,
+      kondisiFisik: args.kondisiFisik,
+      kodeRakVault: args.kodeRakVault,
     }),
 });
 

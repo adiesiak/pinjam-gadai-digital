@@ -120,6 +120,10 @@ const schema = defineSchema(
       dokKtpId: v.optional(v.id("_storage")),
       dokSelfieKtpId: v.optional(v.id("_storage")),
       dokSlipGajiId: v.optional(v.id("_storage")),
+      /** Tanda tangan elektronik Peminjam (data URL PNG dari canvas). */
+      tandaTanganPeminjam: v.optional(v.string()),
+      /** Waktu tanda tangan elektronik. */
+      tandaTanganPada: v.optional(v.number()),
       /** Lokasi real (GPS) saat pengajuan dikirim — wajib ada. */
       lokasiAjukan: v.optional(
         v.object({
@@ -204,6 +208,50 @@ const schema = defineSchema(
     }).index("by_user", ["userId"]),
 
     /**
+     * Konfigurasi sistem — satu baris global (slot "global").
+     * Diubah dari /admin → Pengaturan System; kill switch menghentikan
+     * seluruh pengajuan baru (pinjaman & gadai) seketika.
+     */
+    systemConfig: defineTable({
+      slot: v.string(),
+      /** Kill switch: blokir semua pengajuan & pencairan baru. */
+      killSwitch: v.optional(v.boolean()),
+      /** Mode perawatan: frontend menampilkan halaman pengumuman. */
+      maintenanceMode: v.optional(v.boolean()),
+      /** Persentase biaya — diubah dari default 3/2/30 untuk penyesuaian. */
+      persenAdmin: v.optional(v.number()),
+      persenPlatform: v.optional(v.number()),
+      persenBunga: v.optional(v.number()),
+      /** Maks LTV gadai (default 70%). */
+      maxLtvPersen: v.optional(v.number()),
+      /** Logout otomatis admin pasif (menit, 0 = nonaktif). */
+      sessionTimeoutMenit: v.optional(v.number()),
+      /** Titik lokasi gudang brankas untuk peta & cek radius. */
+      vaultLat: v.optional(v.number()),
+      vaultLng: v.optional(v.number()),
+      /** Radius mismatch GPS peminjam vs KTP (km, default 50). */
+      gpsMismatchKm: v.optional(v.number()),
+      /** Jarak maks pencairan dari vault (km, default 75). */
+      pencairanMaxKm: v.optional(v.number()),
+      /** Waktu terakhir konfigurasi diperbarui. */
+      diperbaruiPada: v.number(),
+    }).index("by_slot", ["slot"]),
+
+    /**
+     * Audit trail — append-only. Mencatat setiap aksi berdampak:
+     * keputusan review, kill switch, perubahan konfigurasi, backup.
+     */
+    auditLog: defineTable({
+      aktorUserId: v.optional(v.id("users")),
+      /** Label aktor (email/nama) — snapshot agar tetap terbaca. */
+      aktorLabel: v.string(),
+      aksi: v.string(),
+      target: v.optional(v.string()),
+      detail: v.optional(v.string()),
+      waktu: v.number(),
+    }).index("by_waktu", ["waktu"]),
+
+    /**
      * Pengajuan penggadaian barang.
      * Barang dinilai petugas berwenang melalui kunjungan dengan live location
      * wajib; nilai taksiran dan keputusan diisi oleh reviewer (admin), bukan
@@ -225,6 +273,14 @@ const schema = defineSchema(
       status: pawnStatusValidator,
       /** Rupiah bulat — diisi reviewer saat penilaian selesai. */
       nilaiTaksiran: v.optional(v.number()),
+      /** Harga pasar barang untuk kalkulasi LTV (maks 70%). */
+      hargaPasar: v.optional(v.number()),
+      /** Kondisi fisik barang menurut petugas penilai. */
+      kondisiFisik: v.optional(v.string()),
+      /** Kode rak penyimpanan di gudang brankas (mis. "A-12"). */
+      kodeRakVault: v.optional(v.string()),
+      /** Foto barang dari petugas (Convex storage). */
+      fotoBarangId: v.optional(v.id("_storage")),
       /** Catatan penilaian/keputusan reviewer. */
       catatanReview: v.optional(v.string()),
       nomorReferensi: v.string(),

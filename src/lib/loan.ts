@@ -63,14 +63,33 @@ export interface LoanQuote {
 }
 
 export function quoteLoan(pokok: Rupiah): LoanQuote {
+  return quoteLoanDenganPersen(pokok, {
+    admin: PINDAI_PRICING.adminFeePercent,
+    platform: PINDAI_PRICING.platformFeePercent,
+    bunga: PINDAI_PRICING.bungaPercent,
+  });
+}
+
+/**
+ * Kalkulasi dengan persentase dinamis dari Pengaturan System (admin).
+ * Angka tetap rupiah bulat — pembulatan per komponen, sisa ke platform.
+ */
+export function quoteLoanDenganPersen(
+  pokok: Rupiah,
+  persen: { admin: number; platform: number; bunga: number },
+): LoanQuote {
   if (!Number.isSafeInteger(pokok) || pokok <= 0) {
     throw new Error("Pokok pinjaman harus rupiah bulat positif.");
   }
-  const biayaAdmin = percentOf(pokok, PINDAI_PRICING.adminFeePercent);
-  const biayaPlatform = percentOf(pokok, PINDAI_PRICING.platformFeePercent);
+  const biayaAdmin = percentOf(pokok, persen.admin);
+  const biayaPlatformRaw = (pokok * persen.platform) / 100;
+  const biayaPlatform = Math.max(
+    0,
+    pokok - biayaAdmin - Math.round(biayaPlatformRaw),
+  );
   const totalPotonganDiMuka = biayaAdmin + biayaPlatform;
   const danaBersihDitransfer = pokok - totalPotonganDiMuka;
-  const bunga = percentOf(pokok, PINDAI_PRICING.bungaPercent);
+  const bunga = percentOf(pokok, persen.bunga);
   const totalKewajibanPelunasan = pokok + bunga;
 
   return {
