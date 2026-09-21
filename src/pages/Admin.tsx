@@ -6,6 +6,7 @@ import {
   Coins,
   Loader2,
   MapPin,
+  Megaphone,
   Package,
   ShieldCheck,
 } from "lucide-react";
@@ -26,6 +27,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
+import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/hooks/use-auth";
@@ -124,7 +126,7 @@ export default function Admin() {
     const canBootstrap = true; // akun tamu akan ditolak server saat mencoba
     return (
       <main className="flex min-h-screen items-center justify-center bg-background px-6">
-        <div className="w-full max-w-md rounded-lg border border-border/60 p-8">
+        <div className="w-full max-w-md rounded-2xl border border-sky-100 bg-white p-8">
           <ShieldCheck className="size-5 text-muted-foreground" />
           <h1 className="mt-4 text-xl font-semibold tracking-tight">
             Setup tim PINDAI
@@ -233,7 +235,7 @@ export default function Admin() {
         </div>
 
         {stats && (
-          <section className="mt-8 grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-border/60 bg-border/60 sm:grid-cols-6">
+          <section className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
             {[
               ["Pinjaman baru", `${stats.pinjamanBaru}`],
               ["Gadai diproses", `${stats.gadaiProses}`],
@@ -245,9 +247,12 @@ export default function Admin() {
                 `${stats.pinjamanTerlambat} · ${formatRupiah(stats.totalDendaBerjalan)}`,
               ],
             ].map(([label, value]) => (
-              <div key={label} className="bg-background p-5">
+              <div
+                key={label}
+                className="rounded-2xl border border-sky-100 bg-white px-4 py-4 shadow-[0_10px_26px_-18px_oklch(0.55_0.12_240/0.3)]"
+              >
                 <p className="text-xs text-muted-foreground">{label}</p>
-                <p className="mt-2 text-xl font-semibold tabular-nums">{value}</p>
+                <p className="mt-2 text-lg font-semibold tabular-nums text-navy">{value}</p>
               </div>
             ))}
           </section>
@@ -283,7 +288,7 @@ export default function Admin() {
                 title="Belum ada pengajuan pinjaman"
               />
             ) : (
-              <ul className="divide-y divide-border/60 rounded-lg border border-border/60">
+              <ul className="divide-y divide-border/60 rounded-2xl border border-sky-100 bg-white">
                 {overview.loans.map((l) => (
                   <li key={l._id}>
                     <QueueRow
@@ -305,7 +310,7 @@ export default function Admin() {
             {overview.pawns.length === 0 ? (
               <EmptyQueue icon={Package} title="Belum ada pengajuan gadai" />
             ) : (
-              <ul className="divide-y divide-border/60 rounded-lg border border-border/60">
+              <ul className="divide-y divide-border/60 rounded-2xl border border-sky-100 bg-white">
                 {overview.pawns.map((p) => (
                   <li key={p._id}>
                     <QueueRow
@@ -331,7 +336,7 @@ export default function Admin() {
             ) : pendingDeposits.length === 0 ? (
               <EmptyQueue icon={Coins} title="Tidak ada setoran menunggu verifikasi" />
             ) : (
-              <ul className="divide-y divide-border/60 rounded-lg border border-border/60">
+              <ul className="divide-y divide-border/60 rounded-2xl border border-sky-100 bg-white">
                 {pendingDeposits.map((d) => (
                   <li key={d._id} className="flex items-center justify-between gap-4 px-5 py-4">
                     <div className="min-w-0">
@@ -370,8 +375,8 @@ export default function Admin() {
               </ul>
             )}
 
-            <div className="mt-10 rounded-lg border border-border/60 p-6">
-              <h3 className="text-sm font-medium">Kesehatan ledger (double-entry)</h3>
+            <div className="clay-card mt-10 p-6">
+              <h3 className="text-sm font-semibold text-navy">Kesehatan ledger (double-entry)</h3>
               {ledger === undefined ? (
                 <p className="mt-3 text-sm text-muted-foreground">Memuat…</p>
               ) : (
@@ -396,6 +401,14 @@ export default function Admin() {
                 </>
               )}
             </div>
+          </TabsContent>
+
+          {/* ---------------- CMS Pengumuman ---------------- */}
+          <TabsTrigger value="pengumuman" className="rounded-none border-b-2 border-transparent px-4 py-2 data-[state=active]:border-foreground data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+            Pengumuman
+          </TabsTrigger>
+          <TabsContent value="pengumuman" className="mt-8">
+            <AnnouncementCms />
           </TabsContent>
         </Tabs>
       </main>
@@ -497,7 +510,7 @@ function EmptyQueue({
   title: string;
 }) {
   return (
-    <div className="rounded-lg border border-dashed border-border/60 px-6 py-14 text-center">
+    <div className="rounded-2xl border border-dashed border-sky-200 bg-white/70 px-6 py-14 text-center">
       <Icon className="mx-auto size-5 text-muted-foreground" />
       <p className="mt-4 text-sm font-medium">{title}</p>
       <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-muted-foreground">
@@ -561,7 +574,7 @@ function LoanReviewDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <dl className="divide-y divide-border/60 rounded-lg border border-border/60">
+        <dl className="divide-y divide-border/60 rounded-2xl border border-sky-100 bg-white">
           {[
             ["Pemohon", row.namaLengkap],
             ["Email", row.emailPeminjam ?? "—"],
@@ -739,7 +752,7 @@ function PawnReviewDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <dl className="divide-y divide-border/60 rounded-lg border border-border/60">
+        <dl className="divide-y divide-border/60 rounded-2xl border border-sky-100 bg-white">
           {[
             ["Pemohon", row.namaLengkap],
             ["Email", row.emailPeminjam ?? "—"],
@@ -953,5 +966,161 @@ function AppraisalDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+/** Editor CMS pengumuman — konten bar berjalan di atas semua halaman. */
+function AnnouncementCms() {
+  const row = useQuery(api.announcements.getCmsRow);
+  const save = useMutation(api.announcements.save);
+
+  const [teks, setTeks] = useState<string | null>(null);
+  const [tautan, setTautan] = useState<string | null>(null);
+  const [aktif, setAktif] = useState<boolean | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  // Nilai awal: dari CMS bila ada, kalau tidak pakai default yang tampil publik.
+  const initial = row ?? null;
+  const teksEfektif = teks ?? initial?.teks ?? "";
+  const tautanEfektif = tautan ?? initial?.tautan ?? "";
+  const aktifEfektif = aktif ?? initial?.aktif ?? true;
+
+  const kotor =
+    teks !== null ||
+    tautan !== null ||
+    (aktif !== null && aktif !== (initial?.aktif ?? true));
+
+  const simpan = async () => {
+    setBusy(true);
+    try {
+      await save({
+        teks: teksEfektif,
+        tautan: tautanEfektif.trim() ? tautanEfektif : undefined,
+        aktif: aktifEfektif,
+      });
+      setTeks(null);
+      setTautan(null);
+      setAktif(null);
+      toast.success("Pengumuman tersimpan — bar di atas langsung diperbarui.");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Gagal menyimpan pengumuman.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="grid gap-6 lg:grid-cols-[1.4fr_1fr]">
+      <div className="rounded-2xl border border-sky-100 bg-white p-6 shadow-[0_10px_30px_-18px_oklch(0.55_0.12_240/0.25)]">
+        <div className="flex items-start gap-3">
+          <span className="clay-icon-blue clay-shine relative inline-flex size-10 shrink-0 items-center justify-center">
+            <Megaphone className="size-4.5" strokeWidth={2.2} />
+          </span>
+          <div>
+            <h3 className="text-sm font-semibold">Pengumuman situs</h3>
+            <p className="mt-1 text-xs leading-5 text-muted-foreground">
+              Teks ini tampil sebagai bar berjalan di paling atas semua halaman.
+              Maksimal 240 karakter; tautan opsional mengarah ke halaman internal
+              (mis. /auth atau /pendana).
+            </p>
+          </div>
+        </div>
+
+        {row === undefined ? (
+          <p className="mt-6 flex items-center gap-2 text-sm text-muted-foreground">
+            <Loader2 className="size-4 animate-spin" /> Memuat…
+          </p>
+        ) : (
+          <div className="mt-6 space-y-4">
+            <div>
+              <Label htmlFor="ann-teks">Teks pengumuman</Label>
+              <Textarea
+                id="ann-teks"
+                rows={3}
+                className="mt-1.5 rounded-xl"
+                value={teksEfektif}
+                maxLength={240}
+                onChange={(e) => setTeks(e.target.value)}
+                placeholder="Tulis pengumuman untuk nasabah & Pendana…"
+              />
+              <p className="mt-1 text-right text-[11px] text-muted-foreground">
+                {teksEfektif.length}/240
+              </p>
+            </div>
+            <div>
+              <Label htmlFor="ann-tautan">Tautan (opsional)</Label>
+              <Input
+                id="ann-tautan"
+                className="mt-1.5"
+                value={tautanEfektif}
+                onChange={(e) => setTautan(e.target.value)}
+                placeholder="/auth"
+              />
+            </div>
+            <div className="flex items-center justify-between rounded-xl bg-secondary/60 px-4 py-3">
+              <div>
+                <p className="text-sm font-medium">Tampilkan bar</p>
+                <p className="text-xs text-muted-foreground">
+                  Nonaktif menyembunyikan bar dari semua halaman.
+                </p>
+              </div>
+              <Switch checked={aktifEfektif} onCheckedChange={setAktif} />
+            </div>
+            <div className="flex items-center justify-end gap-2 pt-1">
+              <Button
+                variant="ghost"
+                disabled={!kotor || busy}
+                onClick={() => {
+                  setTeks(null);
+                  setTautan(null);
+                  setAktif(null);
+                }}
+              >
+                Kembalikan
+              </Button>
+              <Button
+                className="gradient-primary rounded-full border-0"
+                disabled={!kotor || busy || teksEfektif.trim().length === 0}
+                onClick={simpan}
+              >
+                {busy ? (
+                  <>
+                    <Loader2 className="mr-2 size-4 animate-spin" />
+                    Menyimpan…
+                  </>
+                ) : (
+                  "Simpan pengumuman"
+                )}
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Pratinjau bar berjalan */}
+      <div>
+        <p className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
+          Pratinjau
+        </p>
+        <div className="mt-3 overflow-hidden rounded-2xl border border-sky-100 bg-gradient-to-r from-sky-50 via-white to-emerald-50/70">
+          <div className="marquee-paused overflow-hidden">
+            <div className="animate-marquee flex w-max py-2.5">
+              {[0, 1, 2, 3, 4, 5].map((i) => (
+                <span key={i} className="mx-5 flex items-center gap-2 text-xs font-medium text-sky-900">
+                  <Megaphone className="size-3.5 text-sky-600" />
+                  {teksEfektif || "Teks pengumuman akan tampil berjalan di sini."}
+                </span>
+              ))
+              }
+            </div>
+          </div>
+        </div>
+        <p className="mt-3 text-xs leading-5 text-muted-foreground">
+          Status: <b>{aktifEfektif ? "aktif" : "nonaktif"}</b> · sumber: {" "}
+          {initial ? "CMS admin" : "default (belum pernah disimpan)"}. Bar bisa
+          ditutup pengunjung untuk sesi itu saja; setelah refresh muncul lagi.
+        </p>
+      </div>
+    </div>
   );
 }

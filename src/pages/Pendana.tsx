@@ -85,7 +85,7 @@ export default function Pendana() {
 
 function Notice({ title, body }: { title: string; body: string }) {
   return (
-    <div className="mx-auto max-w-md rounded-lg border border-border/60 p-8 text-center">
+    <div className="clay-card mx-auto max-w-md p-8 text-center">
       <Coins className="mx-auto size-5 text-muted-foreground" />
       <h1 className="mt-4 text-lg font-semibold">{title}</h1>
       <p className="mt-2 text-sm leading-6 text-muted-foreground">{body}</p>
@@ -173,14 +173,17 @@ function PendanaWorkspace() {
         <h1 className="text-2xl font-semibold tracking-tight">Dompet &amp; alokasi</h1>
       </div>
 
-      <section className="mt-8 grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-border/60 bg-border/60 sm:grid-cols-4">
+      <section className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-4">
         {[
           ["Saldo dompet", formatRupiah(wallet?.saldo ?? 0)],
           ["Dana bekerja", formatRupiah(wallet?.danaBekerja ?? 0)],
           ["Posisi alokasi", `${wallet?.posisiAlokasi ?? 0}`],
           ["Imbal hasil diharapkan", formatRupiah(wallet?.imbalHasilDiharapkan ?? 0)],
         ].map(([label, value]) => (
-          <div key={label} className="bg-background p-5">
+          <div
+            key={label}
+            className="rounded-2xl border border-sky-100 bg-white p-4 shadow-[0_10px_26px_-18px_oklch(0.55_0.12_240/0.3)]"
+          >
             <p className="text-xs text-muted-foreground">{label}</p>
             <p className="mt-2 text-xl font-semibold tabular-nums">{value}</p>
           </div>
@@ -199,7 +202,7 @@ function PendanaWorkspace() {
           ) : deposits.length === 0 ? (
             <p className="text-sm text-muted-foreground">Belum ada setoran.</p>
           ) : (
-            <ul className="divide-y divide-border/60 rounded-lg border border-border/60">
+            <ul className="divide-y divide-sky-100 rounded-2xl border border-sky-100 bg-white">
               {deposits.map((d) => (
                 <li key={d._id} className="flex items-center justify-between gap-3 px-4 py-3">
                   <div className="min-w-0">
@@ -249,7 +252,7 @@ function PendanaWorkspace() {
           ) : fundings.length === 0 ? (
             <p className="text-sm text-muted-foreground">Belum ada alokasi.</p>
           ) : (
-            <ul className="divide-y divide-border/60 rounded-lg border border-border/60">
+            <ul className="divide-y divide-sky-100 rounded-2xl border border-sky-100 bg-white">
               {fundings.map((f) => (
                 <li key={f._id} className="flex items-center justify-between gap-3 px-4 py-3">
                   <div className="min-w-0">
@@ -413,7 +416,7 @@ function MarketRow({
   const full = row.sisaKebutuhan <= 0;
 
   return (
-    <li className="rounded-lg border border-border/60 p-5">
+    <li className="rounded-2xl border border-sky-100 bg-white p-5">
       <div className="flex items-baseline justify-between gap-4">
         <p className="text-sm font-medium tabular-nums">
           {formatRupiah(row.pokokPinjaman)}

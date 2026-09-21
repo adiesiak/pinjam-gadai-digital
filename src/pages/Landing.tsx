@@ -1,4 +1,4 @@
-import { AnimatePresence, motion } from "framer-motion";
+import { motion } from "framer-motion";
 import {
   ArrowRight,
   BadgeCheck,
@@ -8,7 +8,6 @@ import {
   Landmark,
   Lock,
   MapPin,
-  Megaphone,
   Package,
   Scale,
   ShieldCheck,
@@ -428,67 +427,6 @@ function AnnouncementModal({ onOpenCta }: { onOpenCta: () => void }) {
 }
 
 /* =====================================================================
- * Widget mengambang — megafon pengumuman, pojok kanan bawah.
- * ===================================================================== */
-function FloatingWidget({ onOpenCta }: { onOpenCta: () => void }) {
-  const [expanded, setExpanded] = useState(true);
-
-  return (
-    <div className="fixed bottom-5 right-5 z-50 flex flex-col items-end gap-3">
-      <AnimatePresence>
-        {expanded && (
-          <motion.div
-            initial={{ opacity: 0, y: 16, scale: 0.92 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 12, scale: 0.92 }}
-            transition={{ duration: 0.22 }}
-            className="clay-card w-72 rounded-3xl p-4"
-          >
-            <div className="flex items-start gap-3">
-              <motion.span
-                animate={{ rotate: [0, -10, 8, 0] }}
-                transition={{ repeat: Infinity, repeatDelay: 3.2, duration: 0.9 }}
-                className="clay-shine relative inline-flex size-11 shrink-0 items-center justify-center"
-                style={{
-                  borderRadius: "1rem",
-                  background: "linear-gradient(180deg,#fde68a,#fbbf24)",
-                  boxShadow: "0 10px 20px -8px oklch(0.75 0.15 85/0.5)",
-                }}
-              >
-                <Megaphone className="size-5 text-amber-800" />
-              </motion.span>
-              <div>
-                <p className="text-sm font-bold text-navy">Info terbaru</p>
-                <p className="mt-1 text-xs leading-5 text-slate-600">
-                  Kini dengan pengingat jatuh tempo otomatis & denda transparan
-                  0,5%/hari (maks 15%). Dana bersih 95% tetap sampai penuh.
-                </p>
-                <button
-                  type="button"
-                  onClick={onOpenCta}
-                  className="mt-2 text-xs font-bold text-sky-600 hover:text-sky-700"
-                >
-                  Lihat detail →
-                </button>
-              </div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-      <button
-        type="button"
-        onClick={() => setExpanded((v) => !v)}
-        aria-label={expanded ? "Tutup widget pengumuman" : "Buka widget pengumuman"}
-        className="clay-btn-blue inline-flex size-13 items-center justify-center rounded-full p-0"
-        style={{ width: 52, height: 52 }}
-      >
-        {expanded ? <X className="size-5" /> : <Megaphone className="size-5" />}
-      </button>
-    </div>
-  );
-}
-
-/* =====================================================================
  * Halaman utama
  * ===================================================================== */
 export default function Landing() {
@@ -835,7 +773,6 @@ export default function Landing() {
       </footer>
 
       <AnnouncementModal onOpenCta={scrollToCalculator} />
-      <FloatingWidget onOpenCta={scrollToCalculator} />
     </motion.div>
   );
 }

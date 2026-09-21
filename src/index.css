@@ -50,43 +50,43 @@
 /* CHANGE VALUES FOR THEME */
 :root {
   --radius: 0.625rem;
-  /* Pinjam Gadai Digital — emerald trust palette on a warm-neutral base. */
-  --background: oklch(0.993 0.003 160);
-  --foreground: oklch(0.175 0.02 170);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.175 0.02 170);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.175 0.02 170);
-  --primary: oklch(0.545 0.135 165);
-  --primary-foreground: oklch(0.985 0.01 165);
-  --secondary: oklch(0.955 0.018 165);
-  --secondary-foreground: oklch(0.3 0.05 168);
-  --muted: oklch(0.958 0.008 165);
-  --muted-foreground: oklch(0.5 0.02 170);
-  --accent: oklch(0.95 0.025 165);
-  --accent-foreground: oklch(0.3 0.06 168);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.91 0.012 165);
-  --input: oklch(0.91 0.012 165);
-  --ring: oklch(0.545 0.135 165);
-  /* Gold — aksen kuning untuk alur gadai. */
-  --gold: oklch(0.72 0.14 78);
-  --gold-foreground: oklch(0.25 0.06 78);
-  /* Deep Navy — teks utama clay theme (#0F172A). */
+  /* PINDAI clay theme — sky blue utama, mint aksen sukses, teks navy. */
+  --background: #ffffff;
+  --foreground: #0f172a;
+  --card: #ffffff;
+  --card-foreground: #0f172a;
+  --popover: #ffffff;
+  --popover-foreground: #0f172a;
+  --primary: #38bdf8;
+  --primary-foreground: #062b40;
+  --secondary: #f0f9ff;
+  --secondary-foreground: #075985;
+  --muted: #f0f9ff;
+  --muted-foreground: #52657d;
+  --accent: #ecfeff;
+  --accent-foreground: #155e75;
+  --destructive: #ef4444;
+  --border: #e3edf6;
+  --input: #dbe7f2;
+  --ring: #38bdf8;
+  /* Mint — aksen sukses/dana (gadai & CTA kedua). */
+  --gold: #10b981;
+  --gold-foreground: #052e22;
+  /* Deep Navy — teks utama (#0F172A). */
   --navy: #0f172a;
-  --chart-1: oklch(0.545 0.135 165);
-  --chart-2: oklch(0.72 0.14 78);
-  --chart-3: oklch(0.398 0.07 227.392);
-  --chart-4: oklch(0.828 0.189 84.429);
-  --chart-5: oklch(0.769 0.188 70.08);
-  --sidebar: oklch(0.985 0.004 165);
-  --sidebar-foreground: oklch(0.175 0.02 170);
-  --sidebar-primary: oklch(0.545 0.135 165);
-  --sidebar-primary-foreground: oklch(0.985 0.01 165);
-  --sidebar-accent: oklch(0.955 0.018 165);
-  --sidebar-accent-foreground: oklch(0.3 0.05 168);
-  --sidebar-border: oklch(0.91 0.012 165);
-  --sidebar-ring: oklch(0.545 0.135 165);
+  --chart-1: #38bdf8;
+  --chart-2: #10b981;
+  --chart-3: #0f172a;
+  --chart-4: #7dd3fc;
+  --chart-5: #6ee7b7;
+  --sidebar: #f8fbfe;
+  --sidebar-foreground: #0f172a;
+  --sidebar-primary: #38bdf8;
+  --sidebar-primary-foreground: #062b40;
+  --sidebar-accent: #f0f9ff;
+  --sidebar-accent-foreground: #075985;
+  --sidebar-border: #e3edf6;
+  --sidebar-ring: #38bdf8;
 }
 
 .dark {
@@ -136,55 +136,41 @@
   }
 }
 
-/* ===== PINDAI effects — gradien, glow, tekstur, motion ===== */
+/* ===== PINDAI effects — gradien, glow, tekstur, motion (clay sky/mint) ===== */
 @layer utilities {
-  /* Gradien utama emerald (tombol & kartu hero). */
+  /* Gradien utama sky blue (tombol & kartu hero) — dipakai semua halaman. */
   .gradient-primary {
-    background-image: linear-gradient(
-      135deg,
-      oklch(0.6 0.145 163) 0%,
-      oklch(0.545 0.135 165) 55%,
-      oklch(0.46 0.12 170) 100%
-    );
+    background-image: linear-gradient(180deg, #7dd8fc 0%, #38bdf8 55%, #0ea5e9 100%);
   }
   .gradient-primary:hover {
-    background-image: linear-gradient(
-      135deg,
-      oklch(0.63 0.15 162) 0%,
-      oklch(0.57 0.14 164) 55%,
-      oklch(0.48 0.125 170) 100%
-    );
+    background-image: linear-gradient(180deg, #8dddfd 0%, #4cc7f9 55%, #12aede 100%);
   }
-  /* Gradien gold untuk aksen gadai. */
+  /* Gradien aksen sukses — mint (dahulu gold untuk gadai, kini satu bahasa mint). */
   .gradient-gold {
-    background-image: linear-gradient(135deg, oklch(0.8 0.13 82) 0%, oklch(0.7 0.15 72) 100%);
+    background-image: linear-gradient(180deg, #5eead4 0%, #34d399 50%, #10b981 100%);
   }
-  /* Teks bergradasi emerald. */
+  /* Teks bergradasi sky → mint. */
   .text-gradient-primary {
-    background-image: linear-gradient(
-      120deg,
-      oklch(0.58 0.14 164) 0%,
-      oklch(0.44 0.11 172) 100%
-    );
+    background-image: linear-gradient(120deg, #38bdf8 0%, #10b981 100%);
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
   }
-  /* Cahaya lembut di bawah elemen emerald. */
+  /* Cahaya lembut di bawah elemen sky. */
   .shadow-glow {
-    box-shadow: 0 10px 32px -10px oklch(0.545 0.135 165 / 0.5);
+    box-shadow: 0 14px 30px -12px oklch(0.62 0.15 232 / 0.55);
   }
   /* Cahaya biru langit untuk elemen clay utama. */
   .shadow-glow-blue {
     box-shadow: 0 18px 44px -14px oklch(0.62 0.15 232 / 0.5);
   }
   .shadow-glow-gold {
-    box-shadow: 0 10px 32px -10px oklch(0.72 0.14 78 / 0.45);
+    box-shadow: 0 14px 30px -12px oklch(0.7 0.14 165 / 0.5);
   }
   /* Tekstur titik halus untuk latar hero. */
   .dot-texture {
     background-image: radial-gradient(
-      oklch(0.545 0.135 165 / 0.09) 1px,
+      oklch(0.62 0.15 232 / 0.09) 1px,
       transparent 1.5px
     );
     background-size: 22px 22px;
@@ -198,8 +184,28 @@
   }
   .card-lift:hover {
     transform: translateY(-3px);
-    box-shadow: 0 14px 36px -14px oklch(0.3 0.04 168 / 0.22);
-    border-color: oklch(0.545 0.135 165 / 0.35);
+    box-shadow: 0 14px 36px -14px oklch(0.55 0.12 240 / 0.22);
+    border-color: oklch(0.62 0.15 232 / 0.4);
+  }
+  /* Bar pengumuman berjalan (marquee) — digandakan isi track agar loop mulus. */
+  .animate-marquee {
+    animation: pindai-marquee 30s linear infinite;
+  }
+  .marquee-paused:hover .animate-marquee {
+    animation-play-state: paused;
+  }
+  @keyframes pindai-marquee {
+    from {
+      transform: translateX(0);
+    }
+    to {
+      transform: translateX(-50%);
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .animate-marquee {
+      animation: none;
+    }
   }
   .animate-float {
     animation: pindai-float 7s ease-in-out infinite;
@@ -316,5 +322,9 @@
   /* Header modal pengumuman (ice blue → putih). */
   .gradient-hero-modal {
     background: linear-gradient(180deg, #f0f9ff 0%, #e0f2fe 60%, #ffffff 100%);
+  }
+  /* Tab aktif — gradien sky (class custom tak bisa lewat varian tailwind). */
+  [data-slot="tabs-trigger"][data-state="active"] {
+    background-image: linear-gradient(180deg, #7dd8fc 0%, #38bdf8 55%, #0ea5e9 100%);
   }
 }

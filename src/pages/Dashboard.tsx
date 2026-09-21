@@ -176,14 +176,17 @@ export default function Dashboard() {
 
             {/* ---------------- PINJAMAN ---------------- */}
             <TabsContent value="pinjaman" className="mt-8">
-              <section className="grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-border/60 bg-border/60 sm:grid-cols-4">
+              <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                 {[
                   ["Total pengajuan", `${summary?.totalAplikasi ?? 0}`],
                   ["Menunggu / direview", `${(summary?.diajukan ?? 0) + (summary?.direview ?? 0)}`],
                   ["Disetujui / didanai", `${(summary?.disetujui ?? 0)}`],
                   ["Nilai disetujui", formatRupiah(summary?.disetujuiRupiah ?? 0)],
                 ].map(([label, value]) => (
-                  <div key={label} className="bg-background p-5">
+                  <div
+                    key={label}
+                    className="rounded-2xl border border-sky-100 bg-white p-4 shadow-[0_10px_26px_-18px_oklch(0.55_0.12_240/0.3)]"
+                  >
                     <p className="text-xs text-muted-foreground">{label}</p>
                     <p className="mt-2 text-xl font-semibold tabular-nums">{value}</p>
                   </div>
@@ -217,7 +220,7 @@ export default function Dashboard() {
                       body="Pengajuan Anda akan tampil di sini setelah form di samping dikirim. Kami tidak menampilkan data contoh."
                     />
                   ) : (
-                    <ul className="divide-y divide-border/60 rounded-lg border border-border/60">
+                    <ul className="divide-y divide-sky-100 rounded-2xl border border-sky-100 bg-white">
                       {loans?.map((loan) => (
                         <li key={loan._id}>
                           <button
@@ -248,13 +251,16 @@ export default function Dashboard() {
 
             {/* ---------------- GADAI ---------------- */}
             <TabsContent value="gadai" className="mt-8">
-              <section className="grid grid-cols-3 gap-px overflow-hidden rounded-lg border border-border/60 bg-border/60">
+              <section className="grid grid-cols-3 gap-3">
                 {[
                   ["Total pengajuan", `${pawnSummary?.totalGadai ?? 0}`],
                   ["Dalam penilaian", `${pawnSummary?.dinilai ?? 0}`],
                   ["Disetujui", `${pawnSummary?.disetujui ?? 0}`],
                 ].map(([label, value]) => (
-                  <div key={label} className="bg-background p-5">
+                  <div
+                    key={label}
+                    className="rounded-2xl border border-sky-100 bg-white p-4 shadow-[0_10px_26px_-18px_oklch(0.55_0.12_240/0.3)]"
+                  >
                     <p className="text-xs text-muted-foreground">{label}</p>
                     <p className="mt-2 text-xl font-semibold tabular-nums">{value}</p>
                   </div>
@@ -288,7 +294,7 @@ export default function Dashboard() {
                       body="Ajukan barang Anda melalui form di samping. Petugas berwenang akan melakukan pemeriksaan di lokasi dengan pencatatan lokasi langsung."
                     />
                   ) : (
-                    <ul className="divide-y divide-border/60 rounded-lg border border-border/60">
+                    <ul className="divide-y divide-sky-100 rounded-2xl border border-sky-100 bg-white">
                       {pawns?.map((pawn) => (
                         <li key={pawn._id}>
                           <button
@@ -522,7 +528,7 @@ function LoanForm({ onCreated }: { onCreated: (ref: string) => void }) {
       </div>
 
       {q && (
-        <div className="rounded-lg border border-border/60 bg-muted/40 px-4 py-3">
+        <div className="rounded-2xl border border-sky-100 bg-white px-4 py-3">
           <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
             Rincian biaya — final
           </p>
@@ -912,7 +918,7 @@ function LoanDetailDialog({
               {loanStatusMeta(loan.status).description}
             </p>
 
-            <dl className="divide-y divide-border/60 rounded-lg border border-border/60">
+            <dl className="divide-y divide-sky-100 rounded-2xl border border-sky-100 bg-white">
               {[
                 ["Keperluan", loanPurposeLabel(loan.tujuan)],
                 ["Pokok pinjaman", formatRupiah(loan.quote.pokok)],
@@ -1058,7 +1064,7 @@ function PawnDetailDialog({
               {pawnStatusMeta(pawn.status as PawnStatus).description}
             </p>
 
-            <dl className="divide-y divide-border/60 rounded-lg border border-border/60">
+            <dl className="divide-y divide-sky-100 rounded-2xl border border-sky-100 bg-white">
               {[
                 ["Kategori", pawn.kategori],
                 ["Alamat penilaian", pawn.alamatPenilaian],
@@ -1084,7 +1090,7 @@ function PawnDetailDialog({
             )}
 
             {pawn.status === "aktif" && (
-              <div className="rounded-lg border border-border/60 p-4">
+              <div className="rounded-2xl border border-sky-100 bg-white p-4">
                 <p className="text-sm font-medium">Ajukan pelepasan barang</p>
                 <p className="mt-1 text-xs leading-5 text-muted-foreground">
                   Setelah kewajiban gadai Anda lunas, ajukan pelepasan dan

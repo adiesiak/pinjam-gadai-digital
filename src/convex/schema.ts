@@ -224,6 +224,22 @@ const schema = defineSchema(
     })
       .index("by_loan", ["loanId"])
       .index("by_tanggal", ["tanggal"]),
+
+    /**
+     * CMS pengumuman situs — bar berjalan di atas semua halaman.
+     * Satu baris global (slot "global") yang bisa diedit tim lewat panel
+     * admin: teks berjalan, tautan opsional, dan aktif/nonaktif.
+     */
+    pengumuman: defineTable({
+      /** Selalu "global" — CMS pengumuman hanya punya satu baris. */
+      slot: v.string(),
+      teks: v.string(),
+      /** Path internal opsional (mis. "/auth", "/pendana") untuk CTA bar. */
+      tautan: v.optional(v.string()),
+      aktif: v.boolean(),
+      /** Audit ringan: kapan terakhir diubah admin. */
+      diperbaruiPada: v.number(),
+    }).index("by_slot", ["slot"]),
   },
   {
     schemaValidation: false,
