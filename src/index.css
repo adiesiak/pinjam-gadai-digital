@@ -43,6 +43,8 @@
   /* PINDAI theme tokens — gold accent for the pawn (gadai) journey. */
   --color-gold: var(--gold);
   --color-gold-foreground: var(--gold-foreground);
+  /* Clay theme — deep navy text & accents (spec: #0F172A). */
+  --color-navy: var(--navy);
 }
 
 /* CHANGE VALUES FOR THEME */
@@ -70,6 +72,8 @@
   /* Gold — aksen kuning untuk alur gadai. */
   --gold: oklch(0.72 0.14 78);
   --gold-foreground: oklch(0.25 0.06 78);
+  /* Deep Navy — teks utama clay theme (#0F172A). */
+  --navy: #0f172a;
   --chart-1: oklch(0.545 0.135 165);
   --chart-2: oklch(0.72 0.14 78);
   --chart-3: oklch(0.398 0.07 227.392);
@@ -170,6 +174,10 @@
   .shadow-glow {
     box-shadow: 0 10px 32px -10px oklch(0.545 0.135 165 / 0.5);
   }
+  /* Cahaya biru langit untuk elemen clay utama. */
+  .shadow-glow-blue {
+    box-shadow: 0 18px 44px -14px oklch(0.62 0.15 232 / 0.5);
+  }
   .shadow-glow-gold {
     box-shadow: 0 10px 32px -10px oklch(0.72 0.14 78 / 0.45);
   }
@@ -205,4 +213,107 @@
       transform: translateY(-8px);
     }
   }
-}
+
+  /* ===== 3D Cartoon Claymorphism (PINDAI clay theme) ===== */
+  .clay-card {
+    border-radius: 1.75rem;
+    background: #ffffff;
+    border: 1px solid oklch(0.92 0.03 230);
+    box-shadow:
+      0 24px 48px -20px oklch(0.55 0.12 240 / 0.18),
+      0 4px 10px -4px oklch(0.55 0.12 240 / 0.1),
+      inset 0 -6px 14px oklch(0.55 0.12 240 / 0.06);
+  }
+  .clay-inset {
+    border-radius: 1rem;
+    box-shadow:
+      inset 0 3px 8px oklch(0.55 0.12 240 / 0.12),
+      inset 0 -2px 4px oklch(1 0 0 / 0.9);
+  }
+  .clay-btn-blue {
+    border-radius: 9999px;
+    border: 0;
+    background-image: linear-gradient(180deg, #7dd8fc 0%, #38bdf8 55%, #0ea5e9 100%);
+    color: #062b40;
+    box-shadow:
+      0 14px 26px -10px oklch(0.62 0.15 232 / 0.55),
+      inset 0 2px 4px oklch(1 0 0 / 0.55),
+      inset 0 -4px 8px oklch(0.4 0.12 235 / 0.25);
+    transition:
+      transform 0.16s ease,
+      box-shadow 0.16s ease,
+      filter 0.16s ease;
+  }
+  .clay-btn-blue:hover {
+    transform: translateY(-2px) scale(1.02);
+    filter: brightness(1.05);
+  }
+  .clay-btn-blue:active {
+    transform: translateY(1px) scale(0.99);
+  }
+  .clay-btn-mint {
+    border-radius: 9999px;
+    border: 0;
+    background-image: linear-gradient(180deg, #5eead4 0%, #34d399 50%, #10b981 100%);
+    color: #052e22;
+    box-shadow:
+      0 14px 26px -10px oklch(0.7 0.14 165 / 0.5),
+      inset 0 2px 4px oklch(1 0 0 / 0.55),
+      inset 0 -4px 8px oklch(0.45 0.12 165 / 0.25);
+    transition:
+      transform 0.16s ease,
+      box-shadow 0.16s ease,
+      filter 0.16s ease;
+  }
+  .clay-btn-mint:hover {
+    transform: translateY(-2px) scale(1.02);
+    filter: brightness(1.05);
+  }
+  .clay-btn-mint:active {
+    transform: translateY(1px) scale(0.99);
+  }
+  /* Icon clay: kotak membulat bercahaya untuk ikon 3D. */
+  .clay-icon-blue {
+    border-radius: 1rem;
+    background-image: linear-gradient(180deg, #bae6fd 0%, #7dd3fc 100%);
+    box-shadow:
+      0 10px 20px -8px oklch(0.62 0.15 232 / 0.45),
+      inset 0 2px 3px oklch(1 0 0 / 0.8),
+      inset 0 -3px 6px oklch(0.5 0.12 235 / 0.3);
+    color: #0c4a6e;
+  }
+  .clay-icon-mint {
+    border-radius: 1rem;
+    background-image: linear-gradient(180deg, #a7f3d0 0%, #6ee7b7 100%);
+    box-shadow:
+      0 10px 20px -8px oklch(0.7 0.14 165 / 0.45),
+      inset 0 2px 3px oklch(1 0 0 / 0.8),
+      inset 0 -3px 6px oklch(0.45 0.12 165 / 0.3);
+    color: #065f46;
+  }
+  /* Kilau berkilau untuk detail ikon 3D. */
+  .clay-shine::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: linear-gradient(
+      115deg,
+      oklch(1 0 0 / 0.65) 0%,
+      oklch(1 0 0 / 0) 38%,
+      oklch(1 0 0 / 0) 62%,
+      oklch(1 0 0 / 0.35) 100%
+    );
+    pointer-events: none;
+  }
+  /* Panel ice-blue hero. */
+  .clay-hero {
+    background:
+      radial-gradient(60% 55% at 75% 18%, oklch(0.9 0.06 230 / 0.9) 0%, transparent 70%),
+      radial-gradient(45% 45% at 15% 85%, oklch(0.93 0.05 165 / 0.8) 0%, transparent 70%),
+      linear-gradient(180deg, #f0f9ff 0%, #ffffff 100%);
+  }
+  /* Header modal pengumuman (ice blue → putih). */
+  .gradient-hero-modal {
+    background: linear-gradient(180deg, #f0f9ff 0%, #e0f2fe 60%, #ffffff 100%);
+  }
