@@ -6,9 +6,12 @@ export function StatusBadge({
   status,
   kind,
 }: {
-  status: LoanStatus | PawnStatus;
+  status: string;
   kind: "loan" | "pawn";
 }) {
+  if (kind === "loan" && status === "didanai") {
+    return <Badge className="bg-foreground text-background hover:bg-foreground">Didanai</Badge>;
+  }
   const meta =
     kind === "loan"
       ? loanStatusMeta(status as LoanStatus)

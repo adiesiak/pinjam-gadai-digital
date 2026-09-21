@@ -12,14 +12,15 @@ import { Infer, v } from "convex/values";
  * - "Bunga"/"Imbal Hasil" — hak finansial Pendana (dilarang: ROI/return)
  *
  * Rule 3: money is integer rupiah (never float). See src/lib/money.ts.
+ * Rule 5.1: ledger_entries is append-only — never update or delete.
  */
 
 // default user roles. can add / remove based on the project as needed
 export const ROLES = {
   ADMIN: "admin",
-  /** Peminjam — borrower. First served user of Pinjam Gadai Digital. */
+  /** Peminjam — borrower. */
   PEMINJAM: "peminjam",
-  /** Pendana — fund provider (Pendanaan is a later phase; unused in v1). */
+  /** Pendana — fund provider (marketplace pendanaan). */
   PENDANA: "pendana",
   MEMBER: "member",
 } as const;
@@ -37,6 +38,8 @@ export const loanStatusValidator = v.union(
   v.literal("sedang_direview"),
   v.literal("disetujui"),
   v.literal("ditolak"),
+  // Pinjaman yang telah didanai penuh oleh Pendana (dana bersih telah dicairkan).
+  v.literal("didanai"),
 );
 export type LoanStatusValue = Infer<typeof loanStatusValidator>;
 
@@ -88,6 +91,8 @@ const schema = defineSchema(
       catatanReview: v.optional(v.string()),
       /** Nomor referensi manusiawi. */
       nomorReferensi: v.string(),
+      /** Terisi saat pinjaman didanai penuh dan dana bersih dicairkan. */
+      didanaiPada: v.optional(v.number()),
     })
       .index("by_user", ["userId"])
       .index("by_status", ["status"]),
@@ -120,6 +125,70 @@ const schema = defineSchema(
     })
       .index("by_user", ["userId"])
       .index("by_status", ["status"]),
+
+    /**
+     * Setoran dana Pendana. Dana baru dianggap tersedia setelah admin
+     * memverifikasi penerimaan (konfirmasi mencatat jurnal ledger).
+     */
+    deposits: defineTable({
+      pendanaId: v.id("users"),
+      jumlah: v.number(), // rupiah bulat
+      /** Referensi transfer menurut bank/e-wallet Pendana. */
+      referensiTransfer: v.string(),
+      status: v.union(
+        v.literal("menunggu_verifikasi"),
+        v.literal("terverifikasi"),
+        v.literal("ditolak"),
+      ),
+      /** Wajib diisi admin saat menolak. */
+      catatanAdmin: v.optional(v.string()),
+      nomorReferensi: v.string(),
+    })
+      .index("by_pendana", ["pendanaId"])
+      .index("by_status", ["status"]),
+
+    /**
+     * Alokasi dana Pendana ke satu pinjaman. Satu pinjaman bisa didanai
+     * beberapa Pendana; total alokasi tidak boleh melebihi pokok
+     * (anti-overfunding divalidasi atomik di server).
+     */
+    fundings: defineTable({
+      loanId: v.id("loans"),
+      pendanaId: v.id("users"),
+      /** Rupiah bulat — bagian Pendana atas pokok pinjaman. */
+      jumlahAlokasi: v.number(),
+      /** Rupiah bulat — hak imbal hasil Pendana (30% dari bagian pokok). */
+      imbalHasil: v.number(),
+      status: v.union(
+        v.literal("dialokasikan"),
+        v.literal("dibatalkan"),
+      ),
+      nomorReferensi: v.string(),
+    })
+      .index("by_loan", ["loanId"])
+      .index("by_pendana", ["pendanaId"]),
+
+    /**
+     * Jurnal double-entry — APPEND-ONLY (Rule 5.1).
+     * Dilarang UPDATE/DELETE. Setiap transaksi menulis pasangan entri dengan
+     * jumlah debit = jumlah kredit; validasi di convex/ledger.ts.
+     */
+    ledger_entries: defineTable({
+      /** ID grup transaksi — entri dalam satu transaksi berbagi groupId. */
+      groupId: v.string(),
+      /** debit: saldo akun bertambah; kredit: saldo akun berkurang. */
+      arah: v.union(v.literal("debit"), v.literal("kredit")),
+      /** Rupiah bulat. */
+      jumlah: v.number(),
+      /** Nama akun ledger, mis. "pendana:WALLET:<id>", "pinjaman:<id>". */
+      akun: v.string(),
+      /** Jenis transaksi: deposit|disbursement|platform_fee|repayment|payout. */
+      jenis: v.string(),
+      keterangan: v.string(),
+      /** Subjek transaksi (userId atau "platform"). */
+      aktor: v.string(),
+      waktu: v.number(),
+    }).index("by_group", ["groupId"]),
   },
   {
     schemaValidation: false,

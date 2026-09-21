@@ -3,6 +3,7 @@ import {
   ArrowLeft,
   BadgeCheck,
   ClipboardList,
+  Coins,
   Loader2,
   MapPin,
   Package,
@@ -40,7 +41,7 @@ type LoanRow = {
   nomorReferensi: string;
   pokokPinjaman: number;
   tujuan: string;
-  status: "diajukan" | "sedang_direview" | "disetujui" | "ditolak";
+  status: "diajukan" | "sedang_direview" | "disetujui" | "ditolak" | "didanai";
   catatanReview?: string;
   namaLengkap: string;
   nomorRekening: string;
@@ -81,13 +82,22 @@ export default function Admin() {
     overview?.isAdmin ? {} : "skip",
   );
   const adminExistsQ = useQuery(api.admin.adminExists);
+  const pendingDeposits = useQuery(
+    api.admin.pendingDeposits,
+    overview?.isAdmin ? {} : "skip",
+  );
+  const ledger = useQuery(api.admin.ledgerSummary, overview?.isAdmin ? {} : "skip");
 
   const [loanDetail, setLoanDetail] = useState<LoanRow | null>(null);
   const [pawnDetail, setPawnDetail] = useState<PawnRow | null>(null);
   const [appraisePawn, setAppraisePawn] = useState<PawnRow | null>(null);
 
   const bootstrapAdmin = useMutation(api.admin.bootstrapFirstAdmin);
+  const confirmDeposit = useMutation(api.admin.confirmDeposit);
+  const rejectDeposit = useMutation(api.admin.rejectDeposit);
   const [booting, setBooting] = useState(false);
+  const [rejectingDeposit, setRejectingDeposit] = useState<{ id: Id<"deposits">; ref: string } | null>(null);
+  const [depositReason, setDepositReason] = useState("");
 
   if (isLoading || overview === undefined || adminExistsQ === undefined) {
     return (
@@ -241,6 +251,12 @@ export default function Admin() {
             >
               Gadai ({overview.pawns.filter((p) => p.status !== "disetujui" && p.status !== "ditolak").length})
             </TabsTrigger>
+            <TabsTrigger
+              value="setoran"
+              className="rounded-none border-b-2 border-transparent px-4 py-2 data-[state=active]:border-foreground data-[state=active]:bg-transparent data-[state=active]:shadow-none"
+            >
+              Setoran ({pendingDeposits?.length ?? 0})
+            </TabsTrigger>
           </TabsList>
 
           {/* ---------------- Pinjaman ---------------- */}
@@ -289,6 +305,82 @@ export default function Admin() {
               </ul>
             )}
           </TabsContent>
+
+          {/* ---------------- Setoran Pendana ---------------- */}
+          <TabsContent value="setoran" className="mt-8">
+            {pendingDeposits === undefined ? (
+              <div className="flex items-center gap-2 py-8 text-sm text-muted-foreground">
+                <Loader2 className="size-4 animate-spin" /> Memuat…
+              </div>
+            ) : pendingDeposits.length === 0 ? (
+              <EmptyQueue icon={Coins} title="Tidak ada setoran menunggu verifikasi" />
+            ) : (
+              <ul className="divide-y divide-border/60 rounded-lg border border-border/60">
+                {pendingDeposits.map((d) => (
+                  <li key={d._id} className="flex items-center justify-between gap-4 px-5 py-4">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium tabular-nums">{formatRupiah(d.jumlah)}</p>
+                      <p className="mt-1 truncate text-xs text-muted-foreground">
+                        {d.nomorReferensi} · {d.emailPendana ?? "tanpa email"} · ref transfer: {d.referensiTransfer}
+                      </p>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-2">
+                      <Button
+                        size="sm"
+                        className="rounded-full"
+                        onClick={async () => {
+                          try {
+                            await confirmDeposit({ depositId: d._id });
+                            toast.success("Setoran terverifikasi & tercatat di jurnal.");
+                          } catch (err) {
+                            toast.error(err instanceof Error ? err.message : "Gagal konfirmasi.");
+                          }
+                        }}
+                      >
+                        <BadgeCheck className="mr-1 size-3.5" />
+                        Verifikasi
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="rounded-full"
+                        onClick={() => setRejectingDeposit({ id: d._id, ref: d.nomorReferensi })}
+                      >
+                        Tolak
+                      </Button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            <div className="mt-10 rounded-lg border border-border/60 p-6">
+              <h3 className="text-sm font-medium">Kesehatan ledger (double-entry)</h3>
+              {ledger === undefined ? (
+                <p className="mt-3 text-sm text-muted-foreground">Memuat…</p>
+              ) : (
+                <>
+                  <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-4">
+                    {[
+                      ["Total debit", formatRupiah(ledger.totalDebit)],
+                      ["Total kredit", formatRupiah(ledger.totalKredit)],
+                      ["Jumlah entri", `${ledger.entryCount}`],
+                      ["Status", ledger.seimbang ? "Seimbang ✓" : "TIDAK SEIMBANG"],
+                    ].map(([label, value]) => (
+                      <div key={label}>
+                        <p className="text-xs text-muted-foreground">{label}</p>
+                        <p className="mt-1 text-sm font-semibold tabular-nums">{value}</p>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="mt-4 text-xs leading-5 text-muted-foreground">
+                    Jurnal bersifat append-only: entri tidak pernah diubah atau
+                    dihapus. Total debit harus selalu sama dengan total kredit.
+                  </p>
+                </>
+              )}
+            </div>
+          </TabsContent>
         </Tabs>
       </main>
 
@@ -306,6 +398,45 @@ export default function Admin() {
         }}
       />
       <AppraisalDialog pawn={appraisePawn} onClose={() => setAppraisePawn(null)} />
+
+      <Dialog open={rejectingDeposit !== null} onOpenChange={(open) => !open && setRejectingDeposit(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Tolak setoran</DialogTitle>
+            <DialogDescription>
+              {rejectingDeposit?.ref} — alasan wajib diisi dan akan tercatat.
+            </DialogDescription>
+          </DialogHeader>
+          <Textarea
+            rows={3}
+            value={depositReason}
+            onChange={(e) => setDepositReason(e.target.value)}
+            placeholder="Contoh: bukti transfer tidak dapat diverifikasi…"
+          />
+          <DialogFooter className="gap-2">
+            <Button variant="ghost" onClick={() => setRejectingDeposit(null)}>
+              Batal
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={!depositReason.trim()}
+              onClick={async () => {
+                if (!rejectingDeposit) return;
+                try {
+                  await rejectDeposit({ depositId: rejectingDeposit.id, reason: depositReason });
+                  toast.success("Setoran ditolak.");
+                  setRejectingDeposit(null);
+                  setDepositReason("");
+                } catch (err) {
+                  toast.error(err instanceof Error ? err.message : "Gagal menolak setoran.");
+                }
+              }}
+            >
+              Tolak setoran
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

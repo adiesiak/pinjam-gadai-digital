@@ -3,6 +3,7 @@ import { query, mutation, internalMutation, QueryCtx } from "./_generated/server
 import { v } from "convex/values";
 import { ROLES } from "./schema";
 import { quoteLoan } from "../lib/loan";
+import { appendJournal, ledgerTotals } from "./ledger";
 
 /** Gerbang admin — semua query/mutation di file ini dijaga. */
 async function requireAdmin(ctx: QueryCtx) {
@@ -184,4 +185,92 @@ export const adminStats = query({
 export const adminLoanQuote = query({
   args: { pokokPinjaman: v.number() },
   handler: async (_ctx, args) => quoteLoan(args.pokokPinjaman),
+});
+
+// =====================================================================
+// Verifikasi setoran Pendana
+// =====================================================================
+
+/** Antrean setoran Pendana yang menunggu verifikasi. */
+export const pendingDeposits = query({
+  args: {},
+  handler: async (ctx) => {
+    await requireAdmin(ctx);
+    const rows = await ctx.db
+      .query("deposits")
+      .withIndex("by_status", (q) => q.eq("status", "menunggu_verifikasi"))
+      .collect();
+    const result = [];
+    for (const d of rows.sort((a, b) => b._creationTime - a._creationTime)) {
+      const pendana = await ctx.db.get(d.pendanaId);
+      result.push({
+        _id: d._id,
+        _creationTime: d._creationTime,
+        nomorReferensi: d.nomorReferensi,
+        jumlah: d.jumlah,
+        referensiTransfer: d.referensiTransfer,
+        emailPendana: pendana?.email ?? null,
+      });
+    }
+    return result;
+  },
+});
+
+/**
+ * Konfirmasi setoran — menulis jurnal deposit seimbang ke ledger:
+ * debit kas platform, kredit dompet Pendana.
+ */
+export const confirmDeposit = mutation({
+  args: { depositId: v.id("deposits") },
+  handler: async (ctx, args) => {
+    const { userId: adminId } = await requireAdmin(ctx);
+    const deposit = await ctx.db.get(args.depositId);
+    if (deposit === null) throw new Error("Setoran tidak ditemukan.");
+    if (deposit.status !== "menunggu_verifikasi") {
+      throw new Error("Setoran ini sudah diputuskan.");
+    }
+
+    await appendJournal(ctx, {
+      jenis: "deposit",
+      keterangan: `Setoran ${deposit.nomorReferensi} terverifikasi (ref transfer: ${deposit.referensiTransfer})`,
+      aktor: adminId,
+      lines: [
+        // Debit menaikkan saldo dompet Pendana; kredit mencatat kas platform.
+        { akun: `pendana:WALLET:${deposit.pendanaId}`, arah: "debit", jumlah: deposit.jumlah },
+        { akun: "platform:CASH", arah: "kredit", jumlah: deposit.jumlah },
+      ],
+    });
+
+    await ctx.db.patch(args.depositId, { status: "terverifikasi" });
+    return { success: true };
+  },
+});
+
+/** Tolak setoran — wajib alasan; tidak menyentuh ledger. */
+export const rejectDeposit = mutation({
+  args: { depositId: v.id("deposits"), reason: v.string() },
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx);
+    const deposit = await ctx.db.get(args.depositId);
+    if (deposit === null) throw new Error("Setoran tidak ditemukan.");
+    if (deposit.status !== "menunggu_verifikasi") {
+      throw new Error("Setoran ini sudah diputuskan.");
+    }
+    if (!args.reason.trim()) {
+      throw new Error("Penolakan wajib menyertakan alasan.");
+    }
+    await ctx.db.patch(args.depositId, {
+      status: "ditolak",
+      catatanAdmin: args.reason.trim(),
+    });
+  },
+});
+
+/** Ringkasan ledger untuk kartu kesehatan sistem di panel admin. */
+export const ledgerSummary = query({
+  args: {},
+  handler: async (ctx) => {
+    await requireAdmin(ctx);
+    return ledgerTotals(ctx);
+  },
 });

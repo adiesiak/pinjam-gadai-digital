@@ -11,7 +11,7 @@ import { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { toast } from "sonner";
 
-import { Badge } from "@/components/ui/badge";
+import { StatusBadge } from "@/components/StatusBadge";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -50,17 +50,6 @@ import {
   type CollateralCategory,
   type PawnStatus,
 } from "@/lib/pawn";
-
-function StatusBadge({ status, kind }: { status: LoanStatus | PawnStatus; kind: "loan" | "pawn" }) {
-  const meta = kind === "loan" ? loanStatusMeta(status as LoanStatus) : pawnStatusMeta(status as PawnStatus);
-  if (status === "disetujui") {
-    return <Badge className="bg-foreground text-background hover:bg-foreground">{meta.label}</Badge>;
-  }
-  if (status === "ditolak") {
-    return <Badge variant="destructive">{meta.label}</Badge>;
-  }
-  return <Badge variant="outline" className="text-muted-foreground">{meta.label}</Badge>;
-}
 
 function formatDate(ts: number): string {
   return new Date(ts).toLocaleDateString("id-ID", {
@@ -169,7 +158,7 @@ export default function Dashboard() {
                 {[
                   ["Total pengajuan", `${summary?.totalAplikasi ?? 0}`],
                   ["Menunggu / direview", `${(summary?.diajukan ?? 0) + (summary?.direview ?? 0)}`],
-                  ["Disetujui", `${summary?.disetujui ?? 0}`],
+                  ["Disetujui / didanai", `${(summary?.disetujui ?? 0)}`],
                   ["Nilai disetujui", formatRupiah(summary?.disetujuiRupiah ?? 0)],
                 ].map(([label, value]) => (
                   <div key={label} className="bg-background p-5">
@@ -777,7 +766,9 @@ function LoanDetailDialog({
             </DialogHeader>
 
             <p className="text-sm leading-6 text-muted-foreground">
-              {loanStatusMeta(loan.status).description}
+              {loan.status === "didanai"
+                ? "Pinjaman telah didanai penuh oleh Pendana dan dana bersih telah dicairkan ke rekening Anda."
+                : loanStatusMeta(loan.status as LoanStatus).description}
             </p>
 
             <dl className="divide-y divide-border/60 rounded-lg border border-border/60">

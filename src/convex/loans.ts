@@ -163,7 +163,9 @@ export const myLoanSummary = query({
       .query("loans")
       .withIndex("by_user", (q) => q.eq("userId", userId))
       .collect();
-    const disetujui = loans.filter((l) => l.status === "disetujui");
+    const disetujui = loans.filter(
+      (l) => l.status === "disetujui" || l.status === "didanai",
+    );
     return {
       totalAplikasi: loans.length,
       diajukan: loans.filter((l) => l.status === "diajukan").length,
