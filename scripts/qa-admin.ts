@@ -53,6 +53,12 @@ ok(Array.isArray(overview.loans) && Array.isArray(overview.pawns), "antrean terb
 
 const stats = await admin.query(api.admin.adminStats);
 ok(stats !== null, "statistik admin terbaca");
+// Snapshot awal untuk asersi delta — skrip tetap benar walau database berisi
+// data dari run QA sebelumnya.
+const awal = {
+  pinjamanBaru: stats.pinjamanBaru,
+  nilaiTaksiranDisetujui: stats.nilaiTaksiranDisetujui,
+};
 
 // ---------------------------------------------------------------------
 console.log("3) Alur keputusan pinjaman…");
@@ -111,10 +117,13 @@ if (!pawn) {
 // ---------------------------------------------------------------------
 console.log("5) Statistik admin (agregasi nyata)…");
 const stats2: any = await admin.query(api.admin.adminStats);
-ok(stats2.pinjamanBaru === 0, "tidak ada pinjaman baru tersisa di antrean aktif");
 ok(
-  stats2.nilaiTaksiranDisetujui === 8_000_000,
-  `total taksiran disetujui benar (dapat ${stats2.nilaiTaksiranDisetujui})`,
+  stats2.pinjamanBaru === awal.pinjamanBaru - 1,
+  `antrean berkurang tepat 1 (pengajuan uji dikonsumsi saat disetujui; delta ${stats2.pinjamanBaru - awal.pinjamanBaru})`,
+);
+ok(
+  stats2.nilaiTaksiranDisetujui - awal.nilaiTaksiranDisetujui === 8_000_000,
+  `taksiran bertambah tepat 8.000.000 (delta ${stats2.nilaiTaksiranDisetujui - awal.nilaiTaksiranDisetujui})`,
 );
 
 console.log("");
