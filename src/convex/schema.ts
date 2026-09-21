@@ -226,17 +226,54 @@ const schema = defineSchema(
       .index("by_tanggal", ["tanggal"]),
 
     /**
-     * CMS pengumuman situs — bar berjalan di atas semua halaman.
-     * Satu baris global (slot "global") yang bisa diedit tim lewat panel
-     * admin: teks berjalan, tautan opsional, dan aktif/nonaktif.
+     * CMS konten situs — satu baris global (slot "global") yang diedit tim
+     * lewat panel admin: bar berjalan, popup pengumuman, widget mengambang,
+     * dan teks halaman utama (header/hero/layanan). Field opsional;
+     * nilai kosong berarti memakai default di kode.
      */
     pengumuman: defineTable({
-      /** Selalu "global" — CMS pengumuman hanya punya satu baris. */
+      /** Selalu "global" — CMS hanya punya satu baris. */
       slot: v.string(),
-      teks: v.string(),
-      /** Path internal opsional (mis. "/auth", "/pendana") untuk CTA bar. */
+      // --- Bar berjalan ---
+      teks: v.optional(v.string()),
       tautan: v.optional(v.string()),
-      aktif: v.boolean(),
+      aktif: v.optional(v.boolean()),
+      // --- Popup pengumuman ---
+      popupJudul: v.optional(v.string()),
+      popupIsi: v.optional(v.string()),
+      popupCta: v.optional(v.string()),
+      popupAktif: v.optional(v.boolean()),
+      // --- Widget mengambang ---
+      floatJudul: v.optional(v.string()),
+      floatIsi: v.optional(v.string()),
+      floatCta: v.optional(v.string()),
+      floatAktif: v.optional(v.boolean()),
+      /** Delay kemunculan widget mengambang (detik). */
+      floatDelayDetik: v.optional(v.number()),
+      // --- Teks halaman utama ---
+      logoTeks: v.optional(v.string()),
+      nav1Label: v.optional(v.string()),
+      nav2Label: v.optional(v.string()),
+      nav3Label: v.optional(v.string()),
+      nav4Label: v.optional(v.string()),
+      heroBadge: v.optional(v.string()),
+      heroJudul: v.optional(v.string()),
+      heroSub: v.optional(v.string()),
+      heroCta1: v.optional(v.string()),
+      heroCta2: v.optional(v.string()),
+      chip1Label: v.optional(v.string()),
+      chip1Nilai: v.optional(v.string()),
+      chip2Label: v.optional(v.string()),
+      chip2Nilai: v.optional(v.string()),
+      layananJudul: v.optional(v.string()),
+      layananSub: v.optional(v.string()),
+      pinjamanJudul: v.optional(v.string()),
+      pinjamanIsi: v.optional(v.string()),
+      pinjamanCta: v.optional(v.string()),
+      gadaiJudul: v.optional(v.string()),
+      gadaiIsi: v.optional(v.string()),
+      gadaiCta: v.optional(v.string()),
+      langkahJudul: v.optional(v.string()),
       /** Audit ringan: kapan terakhir diubah admin. */
       diperbaruiPada: v.number(),
     }).index("by_slot", ["slot"]),

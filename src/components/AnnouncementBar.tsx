@@ -13,7 +13,7 @@ const DISMISS_KEY = "pindai-ann-dismissed";
  * bisa ditutup sesi ini dan tetap tersembunyi sampai sesi berikutnya.
  */
 export function AnnouncementBar() {
-  const ann = useQuery(api.announcements.getActive);
+  const ann = useQuery(api.announcements.getPublic);
   const [dismissed, setDismissed] = useState(() => {
     try {
       return window.sessionStorage.getItem(DISMISS_KEY) === "1";
@@ -22,7 +22,7 @@ export function AnnouncementBar() {
     }
   });
 
-  if (dismissed || ann === undefined) return null;
+  if (dismissed || ann === undefined || !ann.barAktif) return null;
 
   const dismiss = () => {
     try {
