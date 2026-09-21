@@ -47,6 +47,12 @@ type LoanRow = {
   nomorRekening: string;
   catatanPeminjam?: string;
   emailPeminjam: string | null;
+  tenorHari: number | null;
+  jatuhTempoPada: number | null;
+  sisaHari: number | null;
+  hariTerlambat: number | null;
+  dendaTerlambat: number | null;
+  totalKewajibanDenganPenalti: number | null;
 };
 
 type PawnRow = {
@@ -221,13 +227,17 @@ export default function Admin() {
         </div>
 
         {stats && (
-          <section className="mt-8 grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-border/60 bg-border/60 sm:grid-cols-5">
+          <section className="mt-8 grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-border/60 bg-border/60 sm:grid-cols-6">
             {[
               ["Pinjaman baru", `${stats.pinjamanBaru}`],
               ["Gadai diproses", `${stats.gadaiProses}`],
               ["Total pinjaman", `${stats.totalPinjaman}`],
               ["Total gadai", `${stats.totalGadai}`],
               ["Taksiran disetujui", formatRupiah(stats.nilaiTaksiranDisetujui)],
+              [
+                "Terlambat / denda",
+                `${stats.pinjamanTerlambat} · ${formatRupiah(stats.totalDendaBerjalan)}`,
+              ],
             ].map(([label, value]) => (
               <div key={label} className="bg-background p-5">
                 <p className="text-xs text-muted-foreground">{label}</p>
@@ -551,6 +561,7 @@ function LoanReviewDialog({
             ["Email", row.emailPeminjam ?? "—"],
             ["Rekening tujuan", row.nomorRekening],
             ["Keperluan", loanPurposeLabel(row.tujuan)],
+            ["Tenor", row.tenorHari !== null ? `${row.tenorHari} hari` : "—"],
             ["Catatan pemohon", row.catatanPeminjam ?? "—"],
             ["Biaya Admin (3%)", formatRupiah(q.biayaAdmin)],
             ["Biaya Platform (2%)", formatRupiah(q.biayaPlatform)],
@@ -564,6 +575,42 @@ function LoanReviewDialog({
             </div>
           ))}
         </dl>
+
+        {row.status === "didanai" && row.jatuhTempoPada !== null && (
+          <div
+            className={`rounded-lg border px-4 py-3 ${
+              (row.hariTerlambat ?? 0) > 0
+                ? "border-destructive/40 bg-destructive/5"
+                : "border-border/60 bg-muted/40"
+            }`}
+          >
+            <p
+              className={`text-[11px] font-medium uppercase tracking-[0.18em] ${
+                (row.hariTerlambat ?? 0) > 0
+                  ? "text-destructive"
+                  : "text-muted-foreground"
+              }`}
+            >
+              {(row.hariTerlambat ?? 0) > 0
+                ? `Terlambat ${row.hariTerlambat} hari`
+                : (row.sisaHari ?? 0) === 0
+                  ? "Jatuh tempo hari ini"
+                  : `Jatuh tempo ${row.sisaHari} hari lagi`}
+            </p>
+            <p className="mt-1 text-sm">
+              Batas {formatDate(row.jatuhTempoPada)} · total dengan denda{" "}
+              <span className="font-semibold tabular-nums">
+                {formatRupiah(row.totalKewajibanDenganPenalti ?? 0)}
+              </span>
+              {(row.dendaTerlambat ?? 0) > 0 && (
+                <span className="tabular-nums text-destructive">
+                  {" "}
+                  (denda {formatRupiah(row.dendaTerlambat ?? 0)})
+                </span>
+              )}
+            </p>
+          </div>
+        )}
 
         {!decided && (
           <>

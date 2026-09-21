@@ -99,10 +99,14 @@ const schema = defineSchema(
       catatanReview: v.optional(v.string()),
       /** Nomor referensi manusiawi. */
       nomorReferensi: v.string(),
+      /** Tenor pinjaman dalam hari (30/60/90) — dipilih saat pengajuan. */
+      tenorHari: v.optional(v.number()),
       /** Terisi saat pinjaman didanai penuh dan dana bersih dicairkan. */
       didanaiPada: v.optional(v.number()),
-      /** Terisi saat kewajiban 130% dibayar penuh (pelunasan). */
+      /** Terisi saat kewajiban 130% (+ denda bila terlambat) dibayar penuh. */
       lunasPada: v.optional(v.number()),
+      /** Denda keterlambatan rupiah bulat yang dibayar saat pelunasan. */
+      dendaTerlambat: v.optional(v.number()),
     })
       .index("by_user", ["userId"])
       .index("by_status", ["status"]),
@@ -200,6 +204,26 @@ const schema = defineSchema(
       aktor: v.string(),
       waktu: v.number(),
     }).index("by_group", ["groupId"]),
+
+    /**
+     * Pengingat jatuh tempo pelunasan — APPEND-ONLY, idempoten per
+     * (loan, tanggal). Ditulis oleh cron harian (internal), satu baris per
+     * pinjaman aktif per hari; pembacaan publik via reminderForToday.
+     */
+    pengingat: defineTable({
+      loanId: v.id("loans"),
+      /** Tanggal kalender (UTC epoch ms tengah malam) saat pengingat dibuat. */
+      tanggal: v.number(),
+      /** "h_minus_3" | "jatuh_tempo" | "terlambat". */
+      jenis: v.string(),
+      /** Sisa hari ke jatuh tempo (negatif = terlambat). */
+      sisaHari: v.number(),
+      /** Kewajiban rupiah bulat yang tercatat saat pengingat dibuat. */
+      jumlahKewajiban: v.number(),
+      waktu: v.number(),
+    })
+      .index("by_loan", ["loanId"])
+      .index("by_tanggal", ["tanggal"]),
   },
   {
     schemaValidation: false,

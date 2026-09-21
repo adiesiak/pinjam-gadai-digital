@@ -14,7 +14,12 @@ import {
   LoanStatusValue,
   PawnStatusValue,
 } from "./schema";
-import { quoteLoan } from "../lib/loan";
+import {
+  calculateRepayment,
+  LATE_FEE_POLICY,
+  quoteLoan,
+  TENOR_OPTIONS,
+} from "../lib/loan";
 import { formatRupiah, type Rupiah } from "../lib/money";
 import { COLLATERAL_CATEGORIES } from "../lib/pawn";
 import { appendJournal } from "./ledger";
@@ -82,6 +87,8 @@ export const createLoanApplication = mutation({
     namaLengkap: v.string(),
     nomorRekening: v.string(),
     catatanPeminjam: v.optional(v.string()),
+    /** Tenor pinjaman dalam hari — divalidasi server terhadap opsi resmi. */
+    tenorHari: v.number(),
   },
   returns: v.object({ appId: v.id("loans"), nomorReferensi: v.string() }),
   handler: async (ctx, args) => {
@@ -89,6 +96,9 @@ export const createLoanApplication = mutation({
     validateRupiahAmount(args.pokokPinjaman, "Pokok pinjaman");
     // Server-side pricing engine — fee fields are never accepted from the client.
     const quote = quoteLoan(args.pokokPinjaman);
+    if (!(TENOR_OPTIONS as readonly number[]).includes(args.tenorHari)) {
+      throw new Error("Tenor harus 30, 60, atau 90 hari.");
+    }
 
     const trimmedName = args.namaLengkap.trim();
     const trimmedAccount = args.nomorRekening.trim().replace(/\s+/g, "");
@@ -117,10 +127,32 @@ export const createLoanApplication = mutation({
       nomorRekening: trimmedAccount,
       status: "diajukan",
       nomorReferensi,
+      tenorHari: args.tenorHari,
     });
     return { appId: loanId, nomorReferensi };
   },
 });
+
+/**
+ * Turunan pelunasan live untuk satu pinjaman didanai: jatuh tempo, sisa hari,
+ * hari terlambat, denda, dan total kewajiban saat ini. Dipakai UI nasabah,
+ * panel admin, dan pengingat — satu sumber kebenaran dari lib/loan.ts.
+ */
+function pelunasanInfo(loan: {
+  pokokPinjaman: number;
+  status: string;
+  tenorHari?: number;
+  didanaiPada?: number;
+}, now: number) {
+  if (
+    loan.status !== "didanai" ||
+    loan.didanaiPada === undefined ||
+    loan.tenorHari === undefined
+  ) {
+    return null;
+  }
+  return calculateRepayment(loan.pokokPinjaman, loan.tenorHari, loan.didanaiPada, now);
+}
 
 /** Daftar pinjaman milik Peminjam — hanya miliknya. */
 export const listMyLoans = query({
@@ -152,6 +184,17 @@ export const getMyLoan = query({
     const { userId } = await requirePeminjam(ctx);
     const loan = await ctx.db.get(args.loanId);
     if (loan === null || loan.userId !== userId) return null;
+    const pelunasan =
+      loan.status === "didanai" &&
+      loan.didanaiPada !== undefined &&
+      loan.tenorHari !== undefined
+        ? calculateRepayment(
+            loan.pokokPinjaman,
+            loan.tenorHari,
+            loan.didanaiPada,
+            Date.now(),
+          )
+        : null;
     return {
       _id: loan._id,
       _creationTime: loan._creationTime,
@@ -160,7 +203,9 @@ export const getMyLoan = query({
       tujuan: loan.tujuan,
       status: loan.status,
       catatanReview: loan.catatanReview,
+      tenorHari: loan.tenorHari ?? null,
       quote: quoteLoan(loan.pokokPinjaman),
+      pelunasan,
     };
   },
 });
@@ -185,6 +230,58 @@ export const myLoanSummary = query({
       ditolak: loans.filter((l) => l.status === "ditolak").length,
       disetujuiRupiah: disetujui.reduce((acc, l) => acc + l.pokokPinjaman, 0),
     };
+  },
+});
+
+/**
+ * Ringkasan pengingat jatuh tempo untuk Peminjam: pinjaman didanai terdekat
+ * (paling dekat jatuh tempo / paling terlambat). Jujur null saat tidak ada
+ * pinjaman aktif (Zero Fake Data). Semua nilai dihitung server-side.
+ */
+export const dueReminder = query({
+  args: {},
+  handler: async (ctx) => {
+    const { userId } = await requirePeminjam(ctx);
+    const loans = await ctx.db
+      .query("loans")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .collect();
+
+    let worst: {
+      loanId: Id<"loans">;
+      nomorReferensi: string;
+      jatuhTempoPada: number;
+      sisaHari: number;
+      hariTerlambat: number;
+      dendaTerlambat: Rupiah;
+      totalKewajibanDenganPenalti: Rupiah;
+      totalKewajibanPelunasan: Rupiah;
+    } | null = null;
+
+    for (const loan of loans) {
+      if (loan.status !== "didanai") continue;
+      const info = pelunasanInfo(loan, Date.now());
+      if (info === null) continue;
+      if (
+        worst === null ||
+        info.hariTerlambat > worst.hariTerlambat ||
+        (info.hariTerlambat === 0 &&
+          worst.hariTerlambat === 0 &&
+          info.sisaHari < worst.sisaHari)
+      ) {
+        worst = {
+          loanId: loan._id,
+          nomorReferensi: loan.nomorReferensi,
+          jatuhTempoPada: info.jatuhTempoPada,
+          sisaHari: info.sisaHari,
+          hariTerlambat: info.hariTerlambat,
+          dendaTerlambat: info.dendaTerlambat,
+          totalKewajibanDenganPenalti: info.totalKewajibanDenganPenalti,
+          totalKewajibanPelunasan: info.totalKewajibanPelunasan,
+        };
+      }
+    }
+    return worst;
   },
 });
 
@@ -434,6 +531,17 @@ export const repayLoan = mutation({
       throw new Error("Hanya pinjaman berstatus Didanai yang dapat dilunasi.");
     }
 
+    const now = Date.now();
+    const pelunasan =
+      loan.tenorHari !== undefined && loan.didanaiPada !== undefined
+        ? calculateRepayment(loan.pokokPinjaman, loan.tenorHari, loan.didanaiPada, now)
+        : null;
+    if (pelunasan === null) {
+      throw new Error(
+        "Pinjaman ini belum memiliki tenor/waktu pendanaan — hubungi tim Pinjam Gadai Digital.",
+      );
+    }
+
     const q = quoteLoan(loan.pokokPinjaman);
     const fundings = await ctx.db
       .query("fundings")
@@ -444,15 +552,30 @@ export const repayLoan = mutation({
       throw new Error("Tidak ada posisi Pendana aktif pada pinjaman ini.");
     }
 
-    // 1. Kas masuk: total kewajiban 130% ke akun pinjaman.
+    // 1. Kas masuk: total kewajiban 130% + denda (bila terlambat). Denda
+    //    dijurnal ke platform:FEE agar pembukuan 130% tetap bersih diaudit.
+    const cashLines: Array<{
+      akun: string;
+      arah: "debit" | "kredit";
+      jumlah: number;
+    }> = [
+      { akun: "platform:CASH", arah: "debit", jumlah: q.totalKewajibanPelunasan },
+      { akun: `pinjaman:${args.loanId}`, arah: "kredit", jumlah: q.pokok + q.bunga },
+    ];
+    if (pelunasan.dendaTerlambat > 0) {
+      cashLines.push(
+        { akun: "platform:CASH", arah: "debit", jumlah: pelunasan.dendaTerlambat },
+        { akun: "platform:FEE", arah: "kredit", jumlah: pelunasan.dendaTerlambat },
+      );
+    }
     await appendJournal(ctx, {
       jenis: "repayment",
-      keterangan: `Pelunasan ${loan.nomorReferensi} — total kewajiban 130%`,
+      keterangan:
+        pelunasan.hariTerlambat > 0
+          ? `Pelunasan ${loan.nomorReferensi} — 130% + denda ${pelunasan.hariTerlambat} hari (${pelunasan.dendaTerlambat})`
+          : `Pelunasan ${loan.nomorReferensi} — total kewajiban 130%`,
       aktor: userId,
-      lines: [
-        { akun: "platform:CASH", arah: "debit", jumlah: q.totalKewajibanPelunasan },
-        { akun: `pinjaman:${args.loanId}`, arah: "kredit", jumlah: q.pokok + q.bunga },
-      ],
+      lines: cashLines,
     });
 
     // 2. Bayar tiap Pendana: pokok bagian + imbal hasil bagian (dari akun
@@ -482,11 +605,12 @@ export const repayLoan = mutation({
       terdistribusi += payout;
     }
 
-    // 3. Sanity: total keluar tepat 130% (pokok + bunga). Gagal = rollback.
-    const selisih = q.totalKewajibanPelunasan - terdistribusi;
-    if (selisih !== 0) {
+    // 3. Sanity: total kas masuk (130% + denda) = 130% ke akun pinjaman +
+    //    denda ke platform. Gagal = seluruh transaksi rollback.
+    const totalKasMasuk = q.totalKewajibanPelunasan + pelunasan.dendaTerlambat;
+    if (totalKasMasuk !== terdistribusi + pelunasan.dendaTerlambat) {
       throw new Error(
-        `Pelunasan tidak seimbang: selisih ${selisih}. Transaksi dibatalkan.`,
+        `Pelunasan tidak seimbang: selisih ${totalKasMasuk - terdistribusi - pelunasan.dendaTerlambat}. Transaksi dibatalkan.`,
       );
     }
 
@@ -495,8 +619,18 @@ export const repayLoan = mutation({
       await ctx.db.patch(f._id, { status: "selesai" });
     }
 
-    await ctx.db.patch(args.loanId, { status: "lunas", lunasPada: Date.now() });
-    return { totalDibayar: q.totalKewajibanPelunasan };
+    await ctx.db.patch(args.loanId, {
+      status: "lunas",
+      lunasPada: now,
+      ...(pelunasan.dendaTerlambat > 0
+        ? { dendaTerlambat: pelunasan.dendaTerlambat }
+        : {}),
+    });
+    return {
+      totalDibayar: totalKasMasuk,
+      dendaTerlambat: pelunasan.dendaTerlambat,
+      hariTerlambat: pelunasan.hariTerlambat,
+    };
   },
 });
 
@@ -561,4 +695,138 @@ export const _internalSetLoanStatus = internalMutation({
   },
   handler: (ctx, args) =>
     setLoanStatus(ctx, args.loanId, args.status, args.reason),
+});
+
+// =====================================================================
+// Pengingat jatuh tempo — cron harian, append-only, idempoten
+// =====================================================================
+
+const DAY_MS = 86_400_000;
+
+function startOfUtcDay(now: number): number {
+  return Math.floor(now / DAY_MS) * DAY_MS;
+}
+
+/** Inti sweep pengingat — dipakai cron harian dan aksi admin manual. */
+async function generateRemindersHandler(ctx: MutationCtx) {
+  const now = Date.now();
+  const tanggal = startOfUtcDay(now);
+  const loans = await ctx.db
+    .query("loans")
+    .withIndex("by_status", (q) => q.eq("status", "didanai"))
+    .collect();
+
+  let created = 0;
+  let skipped = 0;
+  for (const loan of loans) {
+    const info = pelunasanInfo(loan, now);
+    if (info === null) continue;
+    if (info.sisaHari > 3) continue; // hanya H-3, H-0, dan terlambat
+
+    const jenis =
+      info.hariTerlambat > 0
+        ? "terlambat"
+        : info.sisaHari === 0
+          ? "jatuh_tempo"
+          : "h_minus_3";
+
+    const existing = await ctx.db
+      .query("pengingat")
+      .withIndex("by_loan", (q) => q.eq("loanId", loan._id))
+      .collect();
+    const sudah = existing.some(
+      (p) => p.tanggal === tanggal && p.jenis === jenis,
+    );
+    if (sudah) {
+      skipped += 1;
+      continue;
+    }
+
+    await ctx.db.insert("pengingat", {
+      loanId: loan._id,
+      tanggal,
+      jenis,
+      sisaHari: info.hariTerlambat > 0 ? -info.hariTerlambat : info.sisaHari,
+      jumlahKewajiban: info.totalKewajibanDenganPenalti,
+      waktu: now,
+    });
+    created += 1;
+  }
+  return { created, skipped, tanggal };
+}
+
+/**
+ * Cron harian: tulis pengingat jatuh tempo untuk semua pinjaman berstatus
+ * Didanai. Idempoten per (loan, tanggal): pemanggilan ulang di hari yang sama
+ * tidak menulis apa pun (proteksi duplikat). Append-only — tidak pernah
+ * mengubah/menghapus pengingat lama.
+ */
+export const generateDueReminders = internalMutation({
+  args: {},
+  handler: generateRemindersHandler,
+});
+
+/**
+ * Jalankan sweep pengingat secara manual (admin) — sama persis dengan cron
+ * harian; tetap idempoten per hari sehingga aman dipanggil kapan saja.
+ */
+export const runDueReminderSweep = mutation({
+  args: {},
+  handler: async (ctx) => {
+    await requireAdmin(ctx);
+    return generateRemindersHandler(ctx);
+  },
+});
+
+/**
+ * Pengingat hari ini untuk Peminjam — hasil cron yang sudah tercatat untuk
+ * pinjaman miliknya. Jujur kosong saat cron belum berjalan.
+ */
+export const myRemindersToday = query({
+  args: {},
+  handler: async (ctx) => {
+    const { userId } = await requirePeminjam(ctx);
+    const tanggal = startOfUtcDay(Date.now());
+    const loans = await ctx.db
+      .query("loans")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .collect();
+    const loanIds = new Set(loans.map((l) => l._id));
+    const reminders = await ctx.db
+      .query("pengingat")
+      .withIndex("by_tanggal", (q) => q.eq("tanggal", tanggal))
+      .collect();
+    return reminders
+      .filter((r) => loanIds.has(r.loanId))
+      .map((r) => ({
+        _id: r._id,
+        loanId: r.loanId,
+        jenis: r.jenis,
+        sisaHari: r.sisaHari,
+        jumlahKewajiban: r.jumlahKewajiban,
+      }));
+  },
+});
+
+/**
+ * QA/dev helper: mundurkan tanggal pendanaan pinjaman `hariLalu` hari
+ * (simulasi hari berjalan tanpa menunggu tenor). Internal — hanya via CLI
+ * Convex (`bunx convex run loans:qaBackdateDidanai '{"loanId":"...","hariLalu":31}'`).
+ */
+export const qaBackdateDidanai = internalMutation({
+  args: { loanId: v.id("loans"), hariLalu: v.number() },
+  handler: async (ctx, args) => {
+    const loan = await ctx.db.get(args.loanId);
+    if (loan === null) throw new Error("Pinjaman tidak ditemukan.");
+    if (loan.status !== "didanai") {
+      throw new Error("Hanya pinjaman berstatus Didanai yang bisa di-backdate.");
+    }
+    if (!Number.isSafeInteger(args.hariLalu) || args.hariLalu < 0) {
+      throw new Error("hariLalu harus bilangan bulat non-negatif.");
+    }
+    await ctx.db.patch(args.loanId, {
+      didanaiPada: Date.now() - args.hariLalu * DAY_MS,
+    });
+    return { success: true };
+  },
 });

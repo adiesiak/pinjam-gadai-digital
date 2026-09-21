@@ -2,7 +2,7 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 import { query, mutation, internalMutation, QueryCtx } from "./_generated/server";
 import { v } from "convex/values";
 import { ROLES } from "./schema";
-import { quoteLoan } from "../lib/loan";
+import { calculateRepayment, quoteLoan } from "../lib/loan";
 import { appendJournal, ledgerTotals } from "./ledger";
 
 /** Gerbang admin — semua query/mutation di file ini dijaga. */
@@ -43,6 +43,12 @@ export const adminOverview = query({
         .sort((a, b) => b._creationTime - a._creationTime)
         .map(async (l) => {
           const borrower = await ctx.db.get(l.userId);
+          const pelunasan =
+            l.status === "didanai" &&
+            l.didanaiPada !== undefined &&
+            l.tenorHari !== undefined
+              ? calculateRepayment(l.pokokPinjaman, l.tenorHari, l.didanaiPada, Date.now())
+              : null;
           return {
             _id: l._id,
             _creationTime: l._creationTime,
@@ -55,6 +61,12 @@ export const adminOverview = query({
             nomorRekening: l.nomorRekening,
             catatanPeminjam: l.catatanPeminjam,
             emailPeminjam: borrower?.email ?? null,
+            tenorHari: l.tenorHari ?? null,
+            jatuhTempoPada: pelunasan?.jatuhTempoPada ?? null,
+            sisaHari: pelunasan?.sisaHari ?? null,
+            hariTerlambat: pelunasan?.hariTerlambat ?? null,
+            dendaTerlambat: pelunasan?.dendaTerlambat ?? null,
+            totalKewajibanDenganPenalti: pelunasan?.totalKewajibanDenganPenalti ?? null,
           };
         }),
     );
@@ -171,12 +183,30 @@ export const adminStats = query({
       .filter((p) => p.status === "disetujui" && p.nilaiTaksiran !== undefined)
       .reduce((acc, p) => acc + (p.nilaiTaksiran ?? 0), 0);
 
+    // Keterlambatan pelunasan — dihitung live dari tanggal pendanaan + tenor.
+    let pinjamanTerlambat = 0;
+    let totalDendaBerjalan = 0;
+    for (const l of loans) {
+      if (l.status !== "didanai") continue;
+      const info =
+        l.didanaiPada !== undefined && l.tenorHari !== undefined
+          ? calculateRepayment(l.pokokPinjaman, l.tenorHari, l.didanaiPada, Date.now())
+          : null;
+      if (info === null) continue;
+      if (info.hariTerlambat > 0) {
+        pinjamanTerlambat += 1;
+        totalDendaBerjalan += info.dendaTerlambat;
+      }
+    }
+
     return {
       pinjamanBaru: pendingLoans,
       gadaiProses: pendingPawns,
       totalPinjaman: loans.length,
       totalGadai: pawns.length,
       nilaiTaksiranDisetujui: taksiranTotal,
+      pinjamanTerlambat,
+      totalDendaBerjalan,
     };
   },
 });

@@ -19,6 +19,28 @@ export const PINDAI_PRICING = {
   totalRepaymentPercent: 130,
 } as const;
 
+/** Tenor pinjaman dalam hari — dipilih nasabah saat mengajukan. */
+export const TENOR_OPTIONS = [30, 60, 90] as const;
+export type Tenor = (typeof TENOR_OPTIONS)[number];
+
+/**
+ * Kebijakan denda keterlambatan (dihitung server, integer exact):
+ * - 0,5% dari pokok pinjaman per hari keterlambatan;
+ * - dibatasi maksimum 15% dari pokok (30 hari terlambat).
+ * Tidak ada grace period: jatuh tempo dilewati satu hari penuh = denda 1 hari.
+ */
+export const LATE_FEE_POLICY = {
+  percentPerDay: 0.5,
+  maxPercent: 15,
+} as const;
+
+/** Persen keterlambatan maksimum = 15% / 0,5% per hari = 30 hari. */
+export const MAX_LATE_DAYS = Math.floor(
+  LATE_FEE_POLICY.maxPercent / LATE_FEE_POLICY.percentPerDay,
+);
+
+const DAY_MS = 86_400_000;
+
 export interface LoanQuote {
   /** Pokok Pinjaman */
   pokok: Rupiah;
@@ -64,6 +86,64 @@ export function quoteLoan(pokok: Rupiah): LoanQuote {
  */
 export function requote(pokok: Rupiah): LoanQuote {
   return quoteLoan(pokok);
+}
+
+export interface RepaymentQuote extends LoanQuote {
+  /** Tenor pinjaman (hari) sejak pendanaan. */
+  tenor: number;
+  /** Batas akhir pelunasan (epoch ms) = didanaiPada + tenor hari. */
+  jatuhTempoPada: number;
+  /** Sisa hari sebelum jatuh tempo; 0 bila sudah lewat/today. */
+  sisaHari: number;
+  /** Hari keterlambatan penuh sejak jatuh tempo (0 = belum terlambat). */
+  hariTerlambat: number;
+  /** Denda keterlambatan rupiah bulat (0 bila belum terlambat). */
+  dendaTerlambat: Rupiah;
+  /** Total kewajiban 130% + denda — jumlah yang harus dibayar sekarang. */
+  totalKewajibanDenganPenalti: Rupiah;
+}
+
+/**
+ * Hitung kewajiban pelunasan live untuk pinjaman yang sudah didanai.
+ * Semua turunan (jatuh tempo, keterlambatan, denda) dihitung dari data
+ * tersimpan — tidak pernah diinput klien — dengan aritmetika integer exact:
+ * denda = pokok × (0,5% × hari) dibulatkan HALF-UP per rupiah.
+ */
+export function calculateRepayment(
+  pokok: Rupiah,
+  tenor: number,
+  didanaiPada: number,
+  now: number,
+): RepaymentQuote {
+  const base = quoteLoan(pokok);
+  if (!Number.isSafeInteger(tenor) || tenor <= 0) {
+    throw new Error("Tenor harus bilangan bulat positif.");
+  }
+  if (!Number.isSafeInteger(didanaiPada) || didanaiPada <= 0) {
+    throw new Error("Waktu pendanaan tidak valid.");
+  }
+  const jatuhTempoPada = didanaiPada + tenor * DAY_MS;
+  const sisaMs = jatuhTempoPada - now;
+  const sisaHari = Math.max(0, Math.ceil(sisaMs / DAY_MS));
+  const hariTerlambat = Math.max(0, Math.floor(-sisaMs / DAY_MS));
+
+  // Denda: 0,5% × pokok × hari, di-cap 15% dari pokok. percentOf menangani
+  // pembulatan HALF-UP; hari di-cap dulu agar hasil selalu dalam batas bisnis.
+  const hariDenda = Math.min(hariTerlambat, MAX_LATE_DAYS);
+  const dendaTerlambat =
+    hariDenda === 0
+      ? 0
+      : percentOf(pokok, LATE_FEE_POLICY.percentPerDay * hariDenda);
+
+  return {
+    ...base,
+    tenor,
+    jatuhTempoPada,
+    sisaHari,
+    hariTerlambat,
+    dendaTerlambat,
+    totalKewajibanDenganPenalti: base.totalKewajibanPelunasan + dendaTerlambat,
+  };
 }
 
 /** File a borrower chooses on the application form. */
@@ -123,7 +203,7 @@ export function loanStatusMeta(status: LoanStatus): {
       return {
         label: "Didanai",
         description:
-          "Pinjaman didanai penuh oleh Pendana dan dana bersih telah dicairkan. Lunasi total kewajiban 130% untuk menyelesaikan kewajiban Anda.",
+          "Pinjaman didanai penuh oleh Pendana dan dana bersih telah dicairkan. Lunasi total kewajiban 130% sebelum jatuh tempo — keterlambatan dikenakan denda 0,5% per hari dari pokok (maksimum 15%).",
       };
     case "lunas":
       return {

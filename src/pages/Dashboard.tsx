@@ -40,6 +40,7 @@ import {
   loanPurposeLabel,
   loanStatusMeta,
   quoteLoan,
+  TENOR_OPTIONS,
   type LoanStatus,
 } from "@/lib/loan";
 import { formatRupiah, parseRupiah, type Rupiah } from "@/lib/money";
@@ -66,6 +67,7 @@ export default function Dashboard() {
   const summary = useQuery(api.loans.myLoanSummary);
   const pawns = useQuery(api.loans.listMyPawns);
   const pawnSummary = useQuery(api.loans.myPawnSummary);
+  const dueReminder = useQuery(api.loans.dueReminder);
 
   const [loanDetailId, setLoanDetailId] = useState<Id<"loans"> | null>(null);
   const [pawnDetailId, setPawnDetailId] = useState<Id<"pawns"> | null>(null);
@@ -79,7 +81,8 @@ export default function Dashboard() {
     loans === undefined ||
     summary === undefined ||
     pawns === undefined ||
-    pawnSummary === undefined;
+    pawnSummary === undefined ||
+    dueReminder === undefined;
 
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground">
@@ -136,7 +139,12 @@ export default function Dashboard() {
             Memuat data Anda…
           </div>
         ) : (
-          <Tabs defaultValue="pinjaman" className="mt-8">
+          <>
+            {/* Pengingat jatuh tempo — ditampilkan di atas semua tab. */}
+            {dueReminder !== null && (
+              <DueReminderBanner reminder={dueReminder} />
+            )}
+            <Tabs defaultValue="pinjaman" className="mt-8">
             <TabsList className="bg-transparent p-0">
               <TabsTrigger
                 value="pinjaman"
@@ -295,6 +303,7 @@ export default function Dashboard() {
               </div>
             </TabsContent>
           </Tabs>
+          </>
         )}
       </main>
 
@@ -308,6 +317,71 @@ export default function Dashboard() {
         </div>
       </footer>
     </div>
+  );
+}
+
+// =====================================================================
+// Pengingat jatuh tempo — banner live di atas ruang nasabah
+// =====================================================================
+
+function DueReminderBanner({
+  reminder,
+}: {
+  reminder: {
+    loanId: Id<"loans">;
+    nomorReferensi: string;
+    jatuhTempoPada: number;
+    sisaHari: number;
+    hariTerlambat: number;
+    dendaTerlambat: number;
+    totalKewajibanDenganPenalti: number;
+    totalKewajibanPelunasan: number;
+  };
+}) {
+  const terlambat = reminder.hariTerlambat > 0;
+  return (
+    <section
+      className={`rounded-lg border px-5 py-4 ${
+        terlambat
+          ? "border-destructive/40 bg-destructive/5"
+          : "border-border/60 bg-muted/40"
+      }`}
+    >
+      <div className="flex flex-wrap items-baseline justify-between gap-3">
+        <div>
+          <p
+            className={`text-[11px] font-medium uppercase tracking-[0.18em] ${
+              terlambat ? "text-destructive" : "text-muted-foreground"
+            }`}
+          >
+            {terlambat
+              ? `Terlambat ${reminder.hariTerlambat} hari — denda berjalan`
+              : reminder.sisaHari === 0
+                ? "Jatuh tempo hari ini"
+                : `Jatuh tempo ${reminder.sisaHari} hari lagi`}
+          </p>
+          <p className="mt-1 text-sm leading-6 text-muted-foreground">
+            Pinjaman {reminder.nomorReferensi} wajib dilunasi paling lambat{" "}
+            <span className="font-medium text-foreground">
+              {formatDate(reminder.jatuhTempoPada)}
+            </span>
+            . Keterlambatan dikenakan denda 0,5% per hari dari pokok
+            (maksimum 15%).
+          </p>
+        </div>
+        <div className="text-right">
+          <p className="text-xs text-muted-foreground">Total kewajiban saat ini</p>
+          <p className="mt-1 text-xl font-semibold tabular-nums">
+            {formatRupiah(reminder.totalKewajibanDenganPenalti)}
+          </p>
+          {terlambat && (
+            <p className="mt-0.5 text-xs tabular-nums text-destructive">
+              termasuk denda {formatRupiah(reminder.dendaTerlambat)}
+            </p>
+          )}
+        </div>
+      </div>
+    </section>
   );
 }
 
@@ -337,6 +411,7 @@ function EmptyState({
 
 function LoanForm({ onCreated }: { onCreated: (ref: string) => void }) {
   const [pokokInput, setPokokInput] = useState("");
+  const [tenorHari, setTenorHari] = useState<string>("30");
   const [tujuan, setTujuan] = useState<string>("");
   const [namaLengkap, setNamaLengkap] = useState("");
   const [nomorRekening, setNomorRekening] = useState("");
@@ -364,6 +439,10 @@ function LoanForm({ onCreated }: { onCreated: (ref: string) => void }) {
       setError(err instanceof Error ? err.message : "Jumlah tidak valid.");
       return;
     }
+    if (!tenorHari) {
+      setError("Pilih tenor pinjaman.");
+      return;
+    }
     if (!tujuan) {
       setError("Pilih keperluan pinjaman.");
       return;
@@ -381,6 +460,7 @@ function LoanForm({ onCreated }: { onCreated: (ref: string) => void }) {
     try {
       const result = await createLoan({
         pokokPinjaman: pokok,
+        tenorHari: Number(tenorHari),
         tujuan,
         namaLengkap,
         nomorRekening,
@@ -452,6 +532,27 @@ function LoanForm({ onCreated }: { onCreated: (ref: string) => void }) {
           </dl>
         </div>
       )}
+
+      <div className="space-y-2">
+        <Label>Tenor pinjaman</Label>
+        <Select value={tenorHari} onValueChange={setTenorHari} disabled={submitting}>
+          <SelectTrigger className="w-full">
+            <SelectValue placeholder="Pilih tenor" />
+          </SelectTrigger>
+          <SelectContent>
+            {TENOR_OPTIONS.map((t) => (
+              <SelectItem key={t} value={String(t)}>
+                {t} hari
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <p className="text-xs text-muted-foreground">
+          Jatuh tempo pelunasan dihitung dari tanggal pendanaan penuh + tenor.
+          Lewat jatuh tempo dikenakan denda 0,5% per hari dari pokok,
+          maksimum 15%.
+        </p>
+      </div>
 
       <div className="space-y-2">
         <Label>Keperluan</Label>
@@ -743,9 +844,11 @@ function LoanDetailDialog({
     if (!loan) return;
     setRepaying(true);
     try {
-      const r: any = await repayLoan({ loanId: loan._id });
+      const r = await repayLoan({ loanId: loan._id });
       toast.success(
-        `Pelunasan tercatat — total dibayar ${formatRupiah(r.totalDibayar)}. Terima kasih!`,
+        r.dendaTerlambat > 0
+          ? `Pelunasan tercatat — total dibayar ${formatRupiah(r.totalDibayar)} (termasuk denda ${formatRupiah(r.dendaTerlambat)} untuk ${r.hariTerlambat} hari keterlambatan).`
+          : `Pelunasan tercatat — total dibayar ${formatRupiah(r.totalDibayar)}. Terima kasih!`,
       );
       onClose();
     } catch (err) {
@@ -813,12 +916,46 @@ function LoanDetailDialog({
               </div>
             )}
 
-            {loan.status === "didanai" && (
-              <div className="rounded-lg border border-border/60 p-4">
+            {loan.status === "didanai" && loan.pelunasan && (
+              <div
+                className={`rounded-lg border p-4 ${
+                  loan.pelunasan.hariTerlambat > 0
+                    ? "border-destructive/40 bg-destructive/5"
+                    : "border-border/60"
+                }`}
+              >
                 <p className="text-sm font-medium">Lunasi pinjaman</p>
-                <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                  Bayar total kewajiban 130% — pokok dan imbal hasil Pendana
-                  otomatis tercatat di jurnal. Aksi ini tidak dapat dibatalkan.
+                <dl className="mt-3 space-y-1.5 text-sm">
+                  <div className="flex items-baseline justify-between gap-4">
+                    <dt className="text-muted-foreground">Jatuh tempo</dt>
+                    <dd className="tabular-nums">
+                      {formatDate(loan.pelunasan.jatuhTempoPada)}
+                    </dd>
+                  </div>
+                  {loan.pelunasan.hariTerlambat > 0 ? (
+                    <div className="flex items-baseline justify-between gap-4">
+                      <dt className="text-destructive">
+                        Terlambat {loan.pelunasan.hariTerlambat} hari
+                      </dt>
+                      <dd className="tabular-nums text-destructive">
+                        +{formatRupiah(loan.pelunasan.dendaTerlambat)}
+                      </dd>
+                    </div>
+                  ) : (
+                    <div className="flex items-baseline justify-between gap-4">
+                      <dt className="text-muted-foreground">Sisa waktu</dt>
+                      <dd className="tabular-nums">
+                        {loan.pelunasan.sisaHari === 0
+                          ? "Hari ini"
+                          : `${loan.pelunasan.sisaHari} hari`}
+                      </dd>
+                    </div>
+                  )}
+                </dl>
+                <p className="mt-3 text-xs leading-5 text-muted-foreground">
+                  Bayar total kewajiban — pokok, imbal hasil Pendana, dan denda
+                  (bila terlambat) otomatis tercatat di jurnal. Aksi ini tidak
+                  dapat dibatalkan.
                 </p>
                 <Button
                   className="mt-3 w-full rounded-full"
@@ -831,7 +968,7 @@ function LoanDetailDialog({
                       Memproses…
                     </>
                   ) : (
-                    `Lunasi ${formatRupiah(loan.quote.totalKewajibanPelunasan)}`
+                    `Lunasi ${formatRupiah(loan.pelunasan.totalKewajibanDenganPenalti)}`
                   )}
                 </Button>
               </div>
