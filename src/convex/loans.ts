@@ -297,6 +297,8 @@ export const myPawnSummary = query({
         (p) => p.status === "diajukan" || p.status === "sedang_dinilai",
       ).length,
       disetujui: pawns.filter((p) => p.status === "disetujui").length,
+      aktif: pawns.filter((p) => p.status === "aktif").length,
+      selesai: pawns.filter((p) => p.status === "lunas_dilepas").length,
     };
   },
 });
@@ -472,8 +474,9 @@ export const repayLoan = mutation({
         keterangan: `Pelunasan: pembayaran ke ${f.nomorReferensi} (${loan.nomorReferensi})`,
         aktor: "platform",
         lines: [
-          { akun: `pinjaman:${args.loanId}`, arah: "debit", jumlah: payout },
-          { akun: `pendana:WALLET:${f.pendanaId}`, arah: "kredit", jumlah: payout },
+          // Debit menaikkan saldo dompet Pendana; kredit menurunkan akun pinjaman.
+          { akun: `pendana:WALLET:${f.pendanaId}`, arah: "debit", jumlah: payout },
+          { akun: `pinjaman:${args.loanId}`, arah: "kredit", jumlah: payout },
         ],
       });
       terdistribusi += payout;
@@ -485,6 +488,11 @@ export const repayLoan = mutation({
       throw new Error(
         `Pelunasan tidak seimbang: selisih ${selisih}. Transaksi dibatalkan.`,
       );
+    }
+
+    // 4. Tutup posisi alokasi Pendana — posisi selesai setelah dibayar penuh.
+    for (const f of aktif) {
+      await ctx.db.patch(f._id, { status: "selesai" });
     }
 
     await ctx.db.patch(args.loanId, { status: "lunas", lunasPada: Date.now() });
@@ -506,6 +514,25 @@ export const requestPawnRelease = mutation({
       );
     }
     await ctx.db.patch(args.pawnId, { status: "menunggu_pelepasan" });
+  },
+});
+
+/**
+ * Admin menandai gadai aktif setelah dana pencairan gadai dibayarkan ke
+ * nasabah — memungkinkan alur pelepasan barang di kemudian hari.
+ */
+export const activatePawn = mutation({
+  args: { pawnId: v.id("pawns") },
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx);
+    const pawn = await ctx.db.get(args.pawnId);
+    if (pawn === null) throw new Error("Pengajuan gadai tidak ditemukan.");
+    if (pawn.status !== "disetujui") {
+      throw new Error(
+        "Hanya gadai berstatus Disetujui yang dapat diaktifkan.",
+      );
+    }
+    await ctx.db.patch(args.pawnId, { status: "aktif" });
   },
 });
 

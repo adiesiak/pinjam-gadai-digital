@@ -644,6 +644,8 @@ function PawnReviewDialog({
 }) {
   const markInAppraisal = useMutation(api.loans.markPawnInAppraisal);
   const reject = useMutation(api.loans.rejectPawn);
+  const activatePawn = useMutation(api.loans.activatePawn);
+  const releasePawn = useMutation(api.loans.releasePawn);
 
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
@@ -749,6 +751,28 @@ function PawnReviewDialog({
                 <Button onClick={onAppraise}>
                   <ClipboardList className="mr-2 size-4" />
                   Input taksiran
+                </Button>
+              )}
+              {row.status === "disetujui" && (
+                <Button
+                  disabled={busy !== null}
+                  onClick={() =>
+                    run("activate", () => activatePawn({ pawnId: row._id }))
+                  }
+                >
+                  {busy === "activate" ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
+                  Tandai aktif (dana cair)
+                </Button>
+              )}
+              {row.status === "menunggu_pelepasan" && (
+                <Button
+                  disabled={busy !== null}
+                  onClick={() =>
+                    run("release", () => releasePawn({ pawnId: row._id }))
+                  }
+                >
+                  {busy === "release" ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
+                  Rilis barang
                 </Button>
               )}
               <Button

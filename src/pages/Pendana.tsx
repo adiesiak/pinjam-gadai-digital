@@ -256,7 +256,11 @@ function PendanaWorkspace() {
                     </p>
                   </div>
                   <span className="shrink-0 text-xs text-muted-foreground">
-                    {f.status === "dialokasikan" ? "Aktif" : "Dibatalkan"}
+                    {f.status === "dialokasikan"
+                      ? "Aktif"
+                      : f.status === "selesai"
+                        ? "Selesai"
+                        : "Dibatalkan"}
                   </span>
                 </li>
               ))}

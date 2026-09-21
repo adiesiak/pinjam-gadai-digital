@@ -736,6 +736,24 @@ function LoanDetailDialog({
   onClose: () => void;
 }) {
   const loan = useQuery(api.loans.getMyLoan, loanId ? { loanId } : "skip");
+  const repayLoan = useMutation(api.loans.repayLoan);
+  const [repaying, setRepaying] = useState(false);
+
+  const handleRepay = async () => {
+    if (!loan) return;
+    setRepaying(true);
+    try {
+      const r: any = await repayLoan({ loanId: loan._id });
+      toast.success(
+        `Pelunasan tercatat — total dibayar ${formatRupiah(r.totalDibayar)}. Terima kasih!`,
+      );
+      onClose();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Pelunasan gagal.");
+    } finally {
+      setRepaying(false);
+    }
+  };
 
   return (
     <Dialog open={loanId !== null} onOpenChange={(open) => !open && onClose()}>
@@ -766,9 +784,7 @@ function LoanDetailDialog({
             </DialogHeader>
 
             <p className="text-sm leading-6 text-muted-foreground">
-              {loan.status === "didanai"
-                ? "Pinjaman telah didanai penuh oleh Pendana dan dana bersih telah dicairkan ke rekening Anda."
-                : loanStatusMeta(loan.status as LoanStatus).description}
+              {loanStatusMeta(loan.status).description}
             </p>
 
             <dl className="divide-y divide-border/60 rounded-lg border border-border/60">
@@ -796,6 +812,30 @@ function LoanDetailDialog({
                 <p className="mt-1 text-sm">{loan.catatanReview}</p>
               </div>
             )}
+
+            {loan.status === "didanai" && (
+              <div className="rounded-lg border border-border/60 p-4">
+                <p className="text-sm font-medium">Lunasi pinjaman</p>
+                <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                  Bayar total kewajiban 130% — pokok dan imbal hasil Pendana
+                  otomatis tercatat di jurnal. Aksi ini tidak dapat dibatalkan.
+                </p>
+                <Button
+                  className="mt-3 w-full rounded-full"
+                  disabled={repaying}
+                  onClick={handleRepay}
+                >
+                  {repaying ? (
+                    <>
+                      <Loader2 className="mr-2 size-4 animate-spin" />
+                      Memproses…
+                    </>
+                  ) : (
+                    `Lunasi ${formatRupiah(loan.quote.totalKewajibanPelunasan)}`
+                  )}
+                </Button>
+              </div>
+            )}
           </>
         )}
       </DialogContent>
@@ -811,6 +851,21 @@ function PawnDetailDialog({
   onClose: () => void;
 }) {
   const pawn = useQuery(api.loans.getMyPawn, pawnId ? { pawnId } : "skip");
+  const requestPawnRelease = useMutation(api.loans.requestPawnRelease);
+  const [requesting, setRequesting] = useState(false);
+
+  const handleRequestRelease = async () => {
+    if (!pawn) return;
+    setRequesting(true);
+    try {
+      await requestPawnRelease({ pawnId: pawn._id });
+      toast.success("Permintaan pelepasan terkirim — petugas akan mengonfirmasi.");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Gagal mengirim permintaan.");
+    } finally {
+      setRequesting(false);
+    }
+  };
 
   return (
     <Dialog open={pawnId !== null} onOpenChange={(open) => !open && onClose()}>
@@ -866,6 +921,30 @@ function PawnDetailDialog({
               <div className="rounded-md border border-border/60 bg-muted/40 px-4 py-3">
                 <p className="text-xs font-medium text-muted-foreground">Catatan penilaian</p>
                 <p className="mt-1 text-sm">{pawn.catatanReview}</p>
+              </div>
+            )}
+
+            {pawn.status === "aktif" && (
+              <div className="rounded-lg border border-border/60 p-4">
+                <p className="text-sm font-medium">Ajukan pelepasan barang</p>
+                <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                  Setelah kewajiban gadai Anda lunas, ajukan pelepasan dan
+                  petugas akan mengonfirmasi pengembalian barang Anda.
+                </p>
+                <Button
+                  className="mt-3 w-full rounded-full"
+                  disabled={requesting}
+                  onClick={handleRequestRelease}
+                >
+                  {requesting ? (
+                    <>
+                      <Loader2 className="mr-2 size-4 animate-spin" />
+                      Mengirim…
+                    </>
+                  ) : (
+                    "Ajukan pelepasan"
+                  )}
+                </Button>
               </div>
             )}
           </>

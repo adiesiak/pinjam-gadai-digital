@@ -171,6 +171,7 @@ const schema = defineSchema(
       imbalHasil: v.number(),
       status: v.union(
         v.literal("dialokasikan"),
+        v.literal("selesai"),
         v.literal("dibatalkan"),
       ),
       nomorReferensi: v.string(),
