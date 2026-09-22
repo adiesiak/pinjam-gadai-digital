@@ -14,6 +14,7 @@ const DISMISS_KEY = "pindai-ann-dismissed";
  */
 export function AnnouncementBar() {
   const ann = useQuery(api.announcements.getPublic);
+  const sysStatus = useQuery(api.system.getStatusPublic);
   const [dismissed, setDismissed] = useState(() => {
     try {
       return window.sessionStorage.getItem(DISMISS_KEY) === "1";
@@ -50,6 +51,11 @@ export function AnnouncementBar() {
               </Link>
             )}
           </span>
+          {sysStatus?.killSwitch && (
+            <span className="mx-6 flex items-center gap-2 text-xs font-bold text-red-600">
+              🛑 Layanan pengajuan sementara dijeda — coba lagi nanti.
+            </span>
+          )}
           <span className="text-[8px] text-sky-300">✦</span>
         </span>
       ))}

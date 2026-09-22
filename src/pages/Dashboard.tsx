@@ -276,8 +276,6 @@ export default function Dashboard() {
   const dueReminder = useQuery(api.loans.dueReminder);
   const schedule = useQuery(api.loans.myLoanSchedule);
   const contracts = useQuery(api.loans.myContracts);
-  const bar = useQuery(api.announcements.getPublic);
-  const sysStatus = useQuery(api.system.getStatusPublic);
 
   const [loanDetailId, setLoanDetailId] = useState<Id<"loans"> | null>(null);
   const [pawnDetailId, setPawnDetailId] = useState<Id<"pawns"> | null>(null);
@@ -320,26 +318,7 @@ export default function Dashboard() {
 
   return (
     <div className="flex min-h-screen flex-col bg-[#F0F9FF] text-[#0F172A]">
-      {/* ===== Top announcement bar — konten diatur admin via CMS ===== */}
-      {bar?.barAktif !== false && bar?.barTeks && (
-        <div className="overflow-hidden border-b border-sky-100 bg-gradient-to-r from-sky-50 via-white to-emerald-50">
-          <div className="animate-marquee flex w-max items-center gap-8 py-1.5 text-[11px] font-medium text-navy">
-            {[0, 1].map((dup) => (
-              <div key={dup} className="flex items-center gap-8 pr-8" aria-hidden={dup === 1}>
-                <span className="flex items-center gap-1.5">
-                  <ShieldCheck className="size-3.5 text-emerald-600" />
-                  {bar.barTeks}
-                </span>
-                {sysStatus?.killSwitch && (
-                  <span className="font-bold text-red-600">
-                    Layanan pengajuan sementara dijeda — coba lagi nanti.
-                  </span>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+      {/* Bar pengumuman global dirender di main.tsx (AnnouncementBar). */}
 
       {/* ===== Header ===== */}
       <header className="border-b border-sky-100 bg-white/80 backdrop-blur">

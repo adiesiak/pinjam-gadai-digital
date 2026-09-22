@@ -392,14 +392,6 @@ function AnnouncementModal({
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogContent className="clay-card max-w-md rounded-3xl border-0 p-0 sm:max-w-md">
         <div className="gradient-hero-modal relative overflow-hidden rounded-t-3xl px-6 pb-6 pt-8 text-center">
-          <button
-            type="button"
-            onClick={() => setOpen(false)}
-            aria-label="Tutup pengumuman"
-            className="absolute right-4 top-4 inline-flex size-8 items-center justify-center rounded-full bg-white/70 text-slate-600 transition hover:bg-white"
-          >
-            <X className="size-4" />
-          </button>
           <motion.span
             initial={{ scale: 0.6, rotate: -8 }}
             animate={{ scale: 1, rotate: 0 }}
