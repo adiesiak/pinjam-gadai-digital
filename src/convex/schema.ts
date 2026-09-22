@@ -348,9 +348,40 @@ const schema = defineSchema(
       /** Catatan penilaian/keputusan reviewer. */
       catatanReview: v.optional(v.string()),
       nomorReferensi: v.string(),
+      // ===== Skema B: Gadai Digital (berjaminan, LTV 70%) =====
+      /** Pokok gadai yang disetujui admin (≤ 70% harga pasar) — rupiah bulat. */
+      pokokGadai: v.optional(v.number()),
+      /** Sewa modal per 30 hari dalam persen (5–10) — dipilih admin saat approval. */
+      persenSewaModal: v.optional(v.number()),
+      /** Sisa pokok berjalan (decreasing principal) — rupiah bulat. */
+      sisaPokok: v.optional(v.number()),
+      /** Terisi saat admin mencairkan dana bersih 99% ke Peminjam. */
+      dicairkanPada: v.optional(v.number()),
     })
       .index("by_user", ["userId"])
       .index("by_status", ["status"]),
+
+    /**
+     * Pembayaran gadai (cicil pokok / sewa modal per 30 hari) — APPEND-ONLY.
+     * Satu baris per pembayaran; sisa pokok dihitung dari akumulasi baris ini.
+     * Sisa pokok mencapai Rp0 → barang berstatus SIAP_DIAMBIL dari Vault.
+     */
+    pawnPayments: defineTable({
+      pawnId: v.id("pawns"),
+      /** Pokok yang dicicil pembayaran ini (rupiah bulat). */
+      pokokDicicil: v.number(),
+      /** Sewa modal yang dibayar (rupiah bulat). */
+      sewaDibayar: v.number(),
+      /** Sisa pokok SETELAH pembayaran ini (snapshot decreasing principal). */
+      sisaPokokSetelah: v.number(),
+      /** Sewa modal periode berikutnya dari sisa pokok terbaru. */
+      sewaModalBerikut: v.number(),
+      /** Peminjam yang membayar (denormalisasi untuk query cepat). */
+      userId: v.id("users"),
+      waktu: v.number(),
+    })
+      .index("by_pawn", ["pawnId"])
+      .index("by_user", ["userId"]),
 
     /**
      * Setoran dana Pendana. Dana baru dianggap tersedia setelah admin
