@@ -131,6 +131,12 @@ export default function Admin() {
     api.admin.pendingDeposits,
     overview?.isAdmin ? {} : "skip",
   );
+  const pendingWd = useQuery(
+    api.admin.pendingWithdrawals,
+    overview?.isAdmin ? {} : "skip",
+  );
+  const processWd = useMutation(api.admin.processWithdrawal);
+  const rejectWd = useMutation(api.admin.rejectWithdrawal);
   const ledger = useQuery(api.admin.ledgerSummary, overview?.isAdmin ? {} : "skip");
   const sysCfg = useQuery(api.system.getStatusPublic, overview?.isAdmin ? {} : "skip");
   const setKill = useMutation(api.system.setKillSwitch);
@@ -147,6 +153,8 @@ export default function Admin() {
   const [booting, setBooting] = useState(false);
   const [rejectingDeposit, setRejectingDeposit] = useState<{ id: Id<"deposits">; ref: string } | null>(null);
   const [depositReason, setDepositReason] = useState("");
+  const [rejectingWd, setRejectingWd] = useState<{ id: Id<"withdrawals">; ref: string } | null>(null);
+  const [wdReason, setWdReason] = useState("");
 
   if (isLoading || overview === undefined || adminExistsQ === undefined) {
     return (
@@ -495,6 +503,55 @@ export default function Admin() {
               </ul>
             )}
 
+            {/* ---------------- Antrean penarikan Pendana ---------------- */}
+            <h3 className="mt-10 text-sm font-semibold text-navy">Antrean penarikan dana</h3>
+            <Separator className="my-4" />
+            {pendingWd === undefined ? (
+              <div className="flex items-center gap-2 py-6 text-sm text-muted-foreground">
+                <Loader2 className="size-4 animate-spin" /> Memuat…
+              </div>
+            ) : pendingWd.length === 0 ? (
+              <EmptyQueue icon={Wallet} title="Tidak ada penarikan menunggu diproses" />
+            ) : (
+              <ul className="divide-y divide-sky-100 rounded-2xl border border-sky-100 bg-white">
+                {pendingWd.map((w) => (
+                  <li key={w._id} className="flex items-center justify-between gap-4 px-5 py-4">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium tabular-nums">{formatRupiah(w.jumlah)}</p>
+                      <p className="mt-1 truncate text-xs text-muted-foreground">
+                        {w.nomorReferensi} · {w.emailPendana ?? "tanpa email"} · {w.namaBank} {w.nomorRekening}
+                      </p>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-2">
+                      <Button
+                        size="sm"
+                        className="gradient-primary rounded-full border-0"
+                        onClick={async () => {
+                          try {
+                            await processWd({ withdrawalId: w._id });
+                            toast.success("Penarikan diproses & tercatat di jurnal.");
+                          } catch (err) {
+                            toast.error(err instanceof Error ? err.message : "Gagal memproses.");
+                          }
+                        }}
+                      >
+                        <BadgeCheck className="mr-1 size-3.5" />
+                        Proses
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="rounded-full"
+                        onClick={() => setRejectingWd({ id: w._id, ref: w.nomorReferensi })}
+                      >
+                        Tolak
+                      </Button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+
             <div className="clay-card mt-10 p-6">
               <h3 className="text-sm font-semibold text-navy">Kesehatan ledger (double-entry)</h3>
               {ledger === undefined ? (
@@ -624,6 +681,45 @@ export default function Admin() {
               }}
             >
               Tolak setoran
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={rejectingWd !== null} onOpenChange={(open) => !open && setRejectingWd(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Tolak penarikan</DialogTitle>
+            <DialogDescription>
+              {rejectingWd?.ref} — alasan wajib diisi dan akan tercatat di audit.
+            </DialogDescription>
+          </DialogHeader>
+          <Textarea
+            rows={3}
+            value={wdReason}
+            onChange={(e) => setWdReason(e.target.value)}
+            placeholder="Contoh: rekening tujuan tidak cocok dengan identitas…"
+          />
+          <DialogFooter className="gap-2">
+            <Button variant="ghost" onClick={() => setRejectingWd(null)}>
+              Batal
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={!wdReason.trim()}
+              onClick={async () => {
+                if (!rejectingWd) return;
+                try {
+                  await rejectWd({ withdrawalId: rejectingWd.id, reason: wdReason });
+                  toast.success("Penarikan ditolak.");
+                  setRejectingWd(null);
+                  setWdReason("");
+                } catch (err) {
+                  toast.error(err instanceof Error ? err.message : "Gagal menolak penarikan.");
+                }
+              }}
+            >
+              Tolak penarikan
             </Button>
           </DialogFooter>
         </DialogContent>

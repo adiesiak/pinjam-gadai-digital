@@ -32,19 +32,24 @@ export type ContractMeta = {
   };
 };
 
-export function judulContract(jenis: "pinjaman" | "gadai"): string {
+export function judulContract(jenis: "pinjaman" | "gadai" | "pendanaan"): string {
+  if (jenis === "pendanaan") return "SURAT PERJANJIAN PENDANAAN DIGITAL";
   return jenis === "pinjaman"
     ? "SURAT PERJANJIAN PINJAMAN DIGITAL"
     : "SURAT AKAD GADAI DIGITAL";
 }
 
-/** Nomor dokumen kontrak: PGC/PGA/<ref>/<yyyymmdd>. */
-export function nomorContract(jenis: "pinjaman" | "gadai", nomorReferensi: string): string {
+/** Nomor dokumen kontrak: PGC/PGA/PGD/<ref>/<yyyymmdd>. */
+export function nomorContract(
+  jenis: "pinjaman" | "gadai" | "pendanaan",
+  nomorReferensi: string,
+): string {
   const d = new Date();
   const ymd = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}${String(
     d.getDate(),
   ).padStart(2, "0")}`;
-  return `${jenis === "pinjaman" ? "PGC" : "PGA"}/${nomorReferensi}/${ymd}`;
+  const prefix = jenis === "pinjaman" ? "PGC" : jenis === "gadai" ? "PGA" : "PGD";
+  return `${prefix}/${nomorReferensi}/${ymd}`;
 }
 
 function fmtTanggal(ts: number): string {
