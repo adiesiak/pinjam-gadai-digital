@@ -9,6 +9,7 @@ import React, { StrictMode, useEffect, lazy, Suspense } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter, Route, Routes, useLocation } from "react-router";
 import "./index.css";
+import { useSessionGuard } from "@/hooks/use-session-guard";
 
 // Lazy load route components for better code splitting
 const Landing = lazy(() => import("./pages/Landing.tsx"));
@@ -87,6 +88,12 @@ const convex = new ConvexReactClient(import.meta.env.VITE_CONVEX_URL as string);
 
 
 
+function SessionGuardBridge() {
+  // Idle auto-logout 15 menit + single active session (heartbeat) — semua halaman.
+  useSessionGuard(15);
+  return null;
+}
+
 function RouteSyncer() {
   const location = useLocation();
   useEffect(() => {
@@ -120,6 +127,7 @@ createRoot(document.getElementById("root")!).render(
       <ConvexAuthProvider client={convex}>
         <BrowserRouter>
           <AnnouncementBar />
+          <SessionGuardBridge />
           <RouteSyncer />
           <Suspense fallback={<RouteLoading />}>
             <Routes>

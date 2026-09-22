@@ -15,8 +15,11 @@ import {
 } from "@/components/ui/input-otp";
 
 import { useAuth } from "@/hooks/use-auth";
-import { ArrowRight, Loader2, Mail, UserX } from "lucide-react";
+import { api } from "@/convex/_generated/api";
+import { getClientIp, getUserAgent } from "@/lib/session";
+import { ArrowRight, Loader2, Mail, ShieldAlert, UserX } from "lucide-react";
 import { Suspense, useEffect, useState } from "react";
+import { useMutation } from "convex/react";
 import { useNavigate, useSearchParams } from "react-router";
 
 interface AuthProps {
@@ -45,6 +48,18 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
   const [otp, setOtp] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [kegagalan, setKegagalan] = useState(0);
+  const [captchaJawab, setCaptchaJawab] = useState("");
+  const [captcha] = useState(() => ({
+    a: Math.floor(Math.random() * 9) + 1,
+    b: Math.floor(Math.random() * 9) + 1,
+  }));
+  const recordLogin = useMutation(api.security.recordLogin);
+  const tandaiGagal = useMutation(api.security.recordFailedAttempt);
+
+  const captchaWajib = kegagalan >= 2;
+  const captchaBenar =
+    !captchaWajib || captchaJawab.trim() === String(captcha.a + captcha.b);
 
   useEffect(() => {
     if (!authLoading && isAuthenticated) {
@@ -54,8 +69,12 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
 
   const handleEmailSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    setIsLoading(true);
     setError(null);
+    if (!captchaBenar) {
+      setError("Jawaban verifikasi anti-bot salah.");
+      return;
+    }
+    setIsLoading(true);
     try {
       const formData = new FormData(event.currentTarget);
       await signIn("email-otp", formData);
@@ -63,6 +82,13 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
       setIsLoading(false);
     } catch (error) {
       console.error("Email sign-in error:", error);
+      setKegagalan((k) => k + 1);
+      try {
+        const ip = await getClientIp();
+        await tandaiGagal({ ip, identifier: "auth-step1" });
+      } catch {
+        /* logging gagal tidak boleh blokir UX */
+      }
       setError(
         error instanceof Error
           ? error.message
@@ -74,14 +100,34 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
 
   const handleOtpSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    setIsLoading(true);
     setError(null);
+    if (!captchaBenar) {
+      setError("Jawaban verifikasi anti-bot salah.");
+      return;
+    }
+    setIsLoading(true);
     try {
       const formData = new FormData(event.currentTarget);
       await signIn("email-otp", formData);
+      try {
+        const ip = await getClientIp();
+        await recordLogin({ ip, userAgent: getUserAgent(), metode: "email_otp" });
+      } catch {
+        /* logging gagal tidak boleh blokir UX */
+      }
       navigate(redirect);
     } catch (error) {
       console.error("OTP verification error:", error);
+      setKegagalan((k) => k + 1);
+      try {
+        const ip = await getClientIp();
+        await tandaiGagal({
+          ip,
+          identifier: step === "signIn" ? "guest" : step.email.toLowerCase(),
+        });
+      } catch {
+        /* ignore */
+      }
       setError("The verification code you entered is incorrect.");
       setIsLoading(false);
       setOtp("");
@@ -89,13 +135,24 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
   };
 
   const handleGuestLogin = async () => {
-    setIsLoading(true);
     setError(null);
+    if (!captchaBenar) {
+      setError("Jawaban verifikasi anti-bot salah.");
+      return;
+    }
+    setIsLoading(true);
     try {
       await signIn("anonymous");
+      try {
+        const ip = await getClientIp();
+        await recordLogin({ ip, userAgent: getUserAgent(), metode: "tamu" });
+      } catch {
+        /* ignore */
+      }
       navigate(redirect);
     } catch (error) {
       console.error("Guest login error:", error);
+      setKegagalan((k) => k + 1);
       setError(
         `Failed to sign in as guest: ${
           error instanceof Error ? error.message : "Unknown error"
@@ -162,6 +219,27 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                     </div>
                     {error && (
                       <p className="mt-2 text-sm text-destructive">{error}</p>
+                    )}
+
+                    {captchaWajib && (
+                      <div className="mt-4 rounded-lg border border-sky-200 bg-sky-50/60 p-3">
+                        <p className="flex items-center gap-1.5 text-xs font-medium text-sky-900">
+                          <ShieldAlert className="size-3.5" />
+                          Verifikasi anti-bot — {captcha.a} + {captcha.b} = ?
+                        </p>
+                        <Input
+                          className="mt-2"
+                          inputMode="numeric"
+                          placeholder="Jawaban"
+                          value={captchaJawab}
+                          onChange={(e) => setCaptchaJawab(e.target.value)}
+                          disabled={isLoading}
+                        />
+                        <p className="mt-1.5 text-[11px] leading-4 text-sky-700">
+                          Proteksi aktif setelah 2x kegagalan login berturut-turut.
+                          Maksimal 5x percobaan salah per 15 menit per IP.
+                        </p>
+                      </div>
                     )}
 
                     <div className="mt-4">

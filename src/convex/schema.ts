@@ -199,6 +199,70 @@ const schema = defineSchema(
       .index("by_user", ["userId"])
       .index("by_loan", ["loanId"]),
 
+    /**
+     * Proteksi otentikasi (2FA TOTP admin & OTP WA Pendana) — satu baris per
+     * pengguna. Secret TOTP disimpan terpisah dari profil agar rotasi mudah.
+     */
+    mfaSettings: defineTable({
+      userId: v.id("users"),
+      /** Secret TOTP (Base32) — non-null berarti 2FA sudah diaktifkan. */
+      totpSecret: v.optional(v.string()),
+      /** Terisi bila setup belum dikonfirmasi dengan kode pertama. */
+      totpPendingSecret: v.optional(v.string()),
+      /** Counter TOTP terakhir yang berhasil — cegah replay dalam 1 step. */
+      totpLastCounter: v.optional(v.number()),
+      /** OTP WA terakhir yang benar (hash-ish) untuk login/transaksi baru. */
+      waOtpKode: v.optional(v.string()),
+      waOtpKedaluwarsa: v.optional(v.number()),
+      /** Jumlah kegagalan verifikasi OTP WA berturut-turut. */
+      waOtpGagal: v.optional(v.number()),
+      /** Setelah true, OTP WA wajib untuk setiap transaksi finansial. */
+      waOtpWajib: v.optional(v.boolean()),
+    }).index("by_user", ["userId"]),
+
+    /**
+     * Rate limit login — hitung kegagalan per email+IP, append-only.
+     * 5x gagal dalam 15 menit → IP diblokir sementara (dicek di verifyLogin). */
+    loginAttempts: defineTable({
+      /** Email yang dicoba (lowercase) — "guest" untuk jalur tamu. */
+      identifier: v.string(),
+      ip: v.string(),
+      berhasil: v.boolean(),
+      waktu: v.number(),
+    })
+      .index("by_identifier", ["identifier"])
+      .index("by_ip", ["ip"]),
+
+    /**
+     * Log login append-only (Rule Audit Trail) — status, IP, UA, timestamp.
+     * Ditulis lewat action (butuh fetch WA) lalu mutation internal.
+     */
+    loginLogs: defineTable({
+      userId: v.optional(v.id("users")),
+      /** "berhasil" | "gagal" | "diblokir" | "dipertanyakan" (anomali). */
+      status: v.string(),
+      metode: v.string(), // email_otp | tamu | totp | wa_otp
+      ip: v.string(),
+      userAgent: v.string(),
+      keterangan: v.optional(v.string()),
+      waktu: v.number(),
+    }).index("by_waktu", ["waktu"]),
+
+    /**
+     * Sesi aktif tunggal — satu baris per sesi (per browser perangkat).
+     * Login baru di perangkat lain membatalkan (mendrop) sesi lama.
+     */
+    sessions: defineTable({
+      userId: v.id("users"),
+      /** ID acak sesi — dibandingkan dengan nilai di localStorage klien. */
+      sessionId: v.string(),
+      perangkat: v.string(),
+      ip: v.string(),
+      waktuMulai: v.number(),
+      /** Terisi saat sesi digantikan sesi baru di perangkat lain. */
+      waktuBerakhir: v.optional(v.number()),
+    }).index("by_user", ["userId"]),
+
     /** Persetujuan pelacakan lokasi berkelanjutan — satu baris per pengguna. */
     trackingConsents: defineTable({
       userId: v.id("users"),

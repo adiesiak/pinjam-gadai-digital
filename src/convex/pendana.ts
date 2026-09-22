@@ -1,5 +1,6 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
-import { mutation, query, QueryCtx } from "./_generated/server";
+import { mutation, query, MutationCtx, QueryCtx } from "./_generated/server";
+import type { Id } from "./_generated/dataModel";
 import { v } from "convex/values";
 import { ROLES } from "./schema";
 import { calculateRepayment, DEFAULT_TENOR_HARI, quoteLoan } from "../lib/loan";
@@ -35,6 +36,41 @@ async function requirePendana(ctx: QueryCtx) {
     throw new Error("Hanya akun Pendana yang dapat melakukan tindakan ini.");
   }
   return { userId, user };
+}
+
+/**
+ * Gerbang OTP WhatsApp untuk transaksi finansial Pendana. Bila Pendana
+ * mengaktifkan proteksi (mfaSettings.waOtpWajib), alokasi dana & penarikan
+ * wajib menyertakan kode OTP yang masih valid (5 menit, sekali pakai).
+ */
+async function requireWaOtpIfEnabled(
+  ctx: MutationCtx,
+  userId: Id<"users">,
+  kodeOtp?: string,
+) {
+  const mfa = await ctx.db
+    .query("mfaSettings")
+    .withIndex("by_user", (q) => q.eq("userId", userId))
+    .first();
+  if (mfa?.waOtpWajib !== true) return; // proteksi belum diaktifkan
+  if (!kodeOtp) {
+    throw new Error(
+      "Transaksi memerlukan kode OTP WhatsApp. Minta kode lalu masukkan 6 digit.",
+    );
+  }
+  const benar =
+    mfa.waOtpKode !== undefined &&
+    kodeOtp === mfa.waOtpKode &&
+    (mfa.waOtpKedaluwarsa ?? 0) > Date.now();
+  if (!benar) {
+    throw new Error("Kode OTP salah atau kedaluwarsa (berlaku 5 menit).");
+  }
+  // Sekali pakai — habiskan kode agar tidak bisa direplay.
+  await ctx.db.patch(mfa._id, {
+    waOtpKode: undefined,
+    waOtpKedaluwarsa: undefined,
+    waOtpGagal: 0,
+  });
 }
 
 function referenceNumber(prefix: string): string {
@@ -239,10 +275,13 @@ export const allocateFunding = mutation({
   args: {
     loanId: v.id("loans"),
     jumlah: v.number(),
+    /** Kode OTP WA — wajib bila Pendana mengaktifkan proteksi transaksi. */
+    kodeOtp: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const { userId } = await requirePendana(ctx);
     validateRupiahAmount(args.jumlah, "Jumlah alokasi");
+    await requireWaOtpIfEnabled(ctx, userId, args.kodeOtp);
 
     // 1. Pinjaman harus terbuka untuk pendanaan.
     const loan = await ctx.db.get(args.loanId);
@@ -355,11 +394,14 @@ export const requestWithdrawal = mutation({
     jumlah: v.number(),
     namaBank: v.string(),
     nomorRekening: v.string(),
+    /** Kode OTP WA — wajib bila Pendana mengaktifkan proteksi transaksi. */
+    kodeOtp: v.optional(v.string()),
   },
   returns: v.object({ nomorReferensi: v.string() }),
   handler: async (ctx, args) => {
     const { userId } = await requirePendana(ctx);
     validateRupiahAmount(args.jumlah, "Jumlah penarikan");
+    await requireWaOtpIfEnabled(ctx, userId, args.kodeOtp);
 
     const bank = args.namaBank.trim();
     const rek = args.nomorRekening.trim().replace(/\s+/g, "");

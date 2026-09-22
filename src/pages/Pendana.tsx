@@ -34,6 +34,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { ContractPrintButton } from "@/components/EContract";
+import { WaOtpDialog } from "@/components/WaOtpDialog";
 import { judulContract, nomorContract } from "@/lib/contract";
 import { loanPurposeLabel } from "@/lib/loan";
 import { formatRupiah, parseRupiah, type Rupiah } from "@/lib/money";
@@ -503,7 +504,10 @@ function MarketCard({
   };
 }) {
   const allocateFunding = useMutation(api.pendana.allocateFunding);
+  const waOtpStatus = useQuery(api.security.myWaOtpStatus, {});
   const [open, setOpen] = useState(false);
+  const [otpOpen, setOtpOpen] = useState(false);
+  const [waNomorPendana, setWaNomorPendana] = useState("");
   const [jumlah, setJumlah] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -525,11 +529,25 @@ function MarketCard({
       setError("Masukkan jumlah rupiah bulat yang valid.");
       return;
     }
+    // OTP WA wajib — buka dialog verifikasi dulu; transaksi lanjut di callback.
+    if (waOtpStatus?.aktif) {
+      if (waNomorPendana.replace(/\D/g, "").length < 8) {
+        setError("Masukkan nomor WhatsApp Anda (format 62…) untuk menerima kode OTP.");
+        return;
+      }
+      setOtpOpen(true);
+      return;
+    }
+    await eksekusiAlokasi();
+  };
+
+  const eksekusiAlokasi = async () => {
     setBusy(true);
     try {
-      await allocateFunding({ loanId: row._id, jumlah: parsed });
+      await allocateFunding({ loanId: row._id, jumlah: parsed! });
       toast.success("Alokasi berhasil dicatat di jurnal.");
       setOpen(false);
+      setOtpOpen(false);
       setJumlah("");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Alokasi gagal.");
@@ -667,6 +685,23 @@ function MarketCard({
                 {error}
               </p>
             )}
+            {waOtpStatus?.aktif && (
+              <div className="space-y-2 rounded-xl border border-sky-100 bg-sky-50/60 p-3">
+                <Label htmlFor="alo-wa">Nomor WhatsApp verifikasi (62…)</Label>
+                <Input
+                  id="alo-wa"
+                  inputMode="tel"
+                  value={waNomorPendana}
+                  onChange={(e) => setWaNomorPendana(e.target.value)}
+                  placeholder="628123456789"
+                  disabled={busy}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Proteksi transaksi aktif — kode OTP dikirim ke nomor ini sebelum
+                  alokasi diproses (5 menit, sekali pakai).
+                </p>
+              </div>
+            )}
             <Button
               className="gradient-primary w-full rounded-full border-0"
               disabled={busy || parsed === null}
@@ -678,6 +713,15 @@ function MarketCard({
           </div>
         </DialogContent>
       </Dialog>
+      {waNomorPendana && (
+        <WaOtpDialog
+          open={otpOpen}
+          onOpenChange={setOtpOpen}
+          tujuan={waNomorPendana.replace(/\D/g, "")}
+          alasan={`Alokasi Dana ${row.nomorReferensi}`}
+          onVerified={() => void eksekusiAlokasi()}
+        />
+      )}
     </article>
   );
 }
@@ -1134,6 +1178,11 @@ function WalletSection({ onDepositRequested }: { onDepositRequested: () => void 
         )}
       </section>
 
+      {/* Proteksi transaksi — OTP WhatsApp */}
+      <section className="card-lift rounded-2xl border border-sky-100 bg-white p-6 shadow-md shadow-sky-100 lg:col-span-2">
+        <WaOtpProtectionCard />
+      </section>
+
       {/* Riwayat setoran */}
       <section className="card-lift rounded-2xl border border-sky-100 bg-white p-6 shadow-md shadow-sky-100 lg:col-span-2">
         <h3 className="text-sm font-semibold">Riwayat setoran</h3>
@@ -1158,6 +1207,59 @@ function WalletSection({ onDepositRequested }: { onDepositRequested: () => void 
           </ul>
         )}
       </section>
+    </div>
+  );
+}
+
+// =====================================================================
+// Kartu proteksi transaksi — aktif/nonaktifkan OTP WhatsApp wajib
+// =====================================================================
+
+function WaOtpProtectionCard() {
+  const status = useQuery(api.security.myWaOtpStatus, {});
+  const setWajib = useMutation(api.security.setWaOtpRequired);
+  const [busy, setBusy] = useState(false);
+
+  const toggle = async (wajib: boolean) => {
+    setBusy(true);
+    try {
+      await setWajib({ wajib });
+      toast.success(
+        wajib
+          ? "Proteksi OTP WhatsApp aktif — setiap alokasi/penarikan wajib verifikasi."
+          : "Proteksi OTP WhatsApp dinonaktifkan.",
+      );
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Gagal mengubah proteksi.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-4">
+      <div className="flex items-start gap-3">
+        <div className="flex size-10 shrink-0 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-700">
+          <ShieldCheck className="size-5" />
+        </div>
+        <div>
+          <h3 className="text-sm font-semibold">Proteksi transaksi — OTP WhatsApp</h3>
+          <p className="mt-1 max-w-xl text-xs leading-5 text-muted-foreground">
+            Aktifkan agar setiap alokasi dana dan penarikan meminta kode 6 digit
+            yang dikirim ke WhatsApp Anda (berlaku 5 menit, sekali pakai).
+            Percobaan verifikasi terbatas 5x per 15 menit.
+          </p>
+        </div>
+      </div>
+      {status?.aktif ? (
+        <Button variant="outline" className="rounded-full" disabled={busy} onClick={() => void toggle(false)}>
+          Nonaktifkan
+        </Button>
+      ) : (
+        <Button className="gradient-primary rounded-full border-0" disabled={busy} onClick={() => void toggle(true)}>
+          Aktifkan proteksi
+        </Button>
+      )}
     </div>
   );
 }
