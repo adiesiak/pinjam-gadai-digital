@@ -1,7 +1,7 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import { v } from "convex/values";
-import type { Id } from "./_generated/dataModel";
+import { Id } from "./_generated/dataModel";
 import { ROLES } from "./schema";
 import { appendJournal } from "./ledger";
 import { audit } from "./system";
@@ -21,7 +21,7 @@ import { formatRupiah, percentOf, type Rupiah } from "../lib/money";
  *  - Potongan muka HANYA 1% → dana bersih diterima Peminjam 99%.
  *  - Sewa modal 5–10% per 30 hari dihitung DINAMIS dari SISA POKOK terbaru
  *    (decreasing principal basis): cicil pokok → sewa berikutnya otomatis turun.
- *  - Sisa pokok = Rp0 → barang keluar status "SIAP_DIAMBIL" dari Vault Custody.
+ *  - Sisa pokok = Rp0 → barang berstatus "SIAP_DIAMBIL" dari Vault Custody.
  *
  * Semua uang integer rupiah; jurnal double-entry append-only (ΣD = ΣC).
  */
@@ -52,20 +52,6 @@ async function requirePeminjam(ctx: QueryCtx) {
   return { userId, user };
 }
 
-/** Sisa pokok berjalan = pokok − akumulasi cicilan (append-only payments). */
-export async function hitungSisaPokok(
-  ctx: QueryCtx,
-  pawnId: Id<"pawns">,
-  pokokGadai: Rupiah,
-): Promise<Rupiah> {
-  const payments = await ctx.db
-    .query("pawnPayments")
-    .withIndex("by_pawn", (q) => q.eq("pawnId", pawnId))
-    .collect();
-  const dicicil = payments.reduce((a, p) => a + p.pokokDicicil, 0);
-  return Math.max(0, pokokGadai - dicicil);
-}
-
 // =====================================================================
 // Admin: persetujuan pendanaan gadai (set pokok ≤ LTV 70% + sewa modal)
 // =====================================================================
@@ -73,7 +59,7 @@ export async function hitungSisaPokok(
 /**
  * Admin menetapkan pokok gadai & persen sewa modal saat approval.
  * Validasi server: pokok ≤ 70% harga pasar, sewa 5–10%.
- * (Pencairan dilakukan lewat aksi `cairkanGadai` setelah dana terkumpul.)
+ * (Pencairan dilakukan lewat aksi `cairkanGadai` setelah ini.)
  */
 export const setPendanaanGadai = mutation({
   args: {
@@ -85,7 +71,11 @@ export const setPendanaanGadai = mutation({
     const { userId, user } = await requireAdmin(ctx);
     const pawn = await ctx.db.get(args.pawnId);
     if (pawn === null) throw new Error("Pengajuan gadai tidak ditemukan.");
-    if (pawn.status !== "disetujui" && pawn.status !== "sedang_dinilai" && pawn.status !== "aktif") {
+    if (
+      pawn.status !== "disetujui" &&
+      pawn.status !== "sedang_dinilai" &&
+      pawn.status !== "aktif"
+    ) {
       throw new Error("Pendanaan hanya untuk gadai yang disetujui/dinilai.");
     }
     if (!Number.isSafeInteger(args.pokokGadai) || args.pokokGadai <= 0) {
@@ -110,7 +100,10 @@ export const setPendanaanGadai = mutation({
       }
     }
     // Pokok juga tidak boleh melebihi nilai taksiran.
-    if (pawn.nilaiTaksiran !== undefined && args.pokokGadai > pawn.nilaiTaksiran) {
+    if (
+      pawn.nilaiTaksiran !== undefined &&
+      args.pokokGadai > pawn.nilaiTaksiran
+    ) {
       throw new Error(
         `Pokok ${formatRupiah(args.pokokGadai)} melebihi nilai taksiran ${formatRupiah(pawn.nilaiTaksiran)}.`,
       );
@@ -139,8 +132,8 @@ export const setPendanaanGadai = mutation({
 
 /**
  * Cairkan dana bersih 99% dari pokok gadai ke Peminjam (jurnal):
- *   D peminjam:<userId>  99%  | K gadai:<pawnId> 99%   (kas keluar)
- *   D gadai:<pawnId>      1%  | K platform:FEE   1%    (potongan muka)
+ *   D platform:FEE      1%  | K gadai:<pawnId>  1%   (potongan muka)
+ *   D peminjam:<userId> 99% | K gadai:<pawnId> 99%   (kas keluar)
  * Wajib: status disetujui, pokokGadai tersedia, belum pernah dicairkan.
  */
 export const cairkanGadai = mutation({
@@ -202,20 +195,21 @@ export const cairkanGadai = mutation({
 });
 
 // =====================================================================
-// Peminjam: bayar sewa modal / cicil pokok (decreasing principal)
+// Peminjam: lihat kewajiban gadai + bayar cicil pokok / sewa modal
 // =====================================================================
 
 /**
- * Ringkasan kewajiban gadai aktif milik Peminjam untuk satu barang:
- * sisa pokok, sewa modal berikutnya (dari sisa terbaru), status custody.
- * Jujur null saat gadai belum aktif/dicairkan (Zero Fake Data).
+ * Ringkasan kewajiban gadai milik Peminjam untuk satu barang:
+ * sisa pokok, sewa modal berikutnya (dari sisa terbaru), status custody,
+ * dan riwayat pembayaran append-only. Jujur null bila belum ada pokok.
  */
 export const myGadaiBilling = query({
   args: { pawnId: v.id("pawns") },
   handler: async (ctx, args) => {
-    await requirePeminjam(ctx);
+    const { userId } = await requirePeminjam(ctx);
     const pawn = await ctx.db.get(args.pawnId);
-    if (pawn === null || pawn.pokokGadai === undefined) return null;
+    if (pawn === null || pawn.userId !== userId) return null;
+    if (pawn.pokokGadai === undefined) return null;
     const sisa = pawn.sisaPokok ?? pawn.pokokGadai;
     const persen = pawn.persenSewaModal ?? GADAI_PRICING.sewaModalMinPercent;
     const payments = await ctx.db
@@ -252,8 +246,8 @@ export const myGadaiBilling = query({
  * Decreasing principal: sewa periode berikutnya = persen × sisa pokok terbaru.
  * Jurnal (satu mutation transaksional, append-only):
  *   D platform:CASH (cicil+sewa) | K gadai:<pawnId> (cicil+sewa)
- *   D gadai:<pawnId> sewa        | K platform:FEE sewa
- * Sisa pokok 0 → status pawn menjadi "menunggu_pelepasan" (SIAP_DIAMBIL).
+ *   D gadai:<pawnId> sewa        | K platform:FEE  sewa
+ * Sisa pokok 0 → status pawn "menunggu_pelepasan" (SIAP_DIAMBIL di Vault).
  */
 export const bayarGadai = mutation({
   args: {
@@ -328,7 +322,7 @@ export const bayarGadai = mutation({
     });
     await ctx.db.patch(args.pawnId, { sisaPokok: plan.sisaPokokSetelah });
 
-    // 4. Sisa pokok Rp0 → SIAP_DIAMBIL: minta pelepasan barang otomatis.
+    // 4. Sisa pokok Rp0 → SIAP_DIAMBIL: ajukan pelepasan barang otomatis.
     if (plan.custody === "SIAP_DIAMBIL" && pawn.status === "aktif") {
       await ctx.db.patch(args.pawnId, { status: "menunggu_pelepasan" });
     }
@@ -344,16 +338,20 @@ export const bayarGadai = mutation({
   },
 });
 
-/** Estimasi sewa modal berikutnya untuk widget kalkulator Peminjam (publik ke pemilik). */
+/**
+ * Simulasi cicil pokok untuk widget kalkulator Peminjam: bila mencicil X,
+ * berapa sewa modal periode berikutnya dan kapan SIAP_DIAMBIL.
+ */
 export const simulasiCicilGadai = query({
   args: {
     pawnId: v.id("pawns"),
     cicilPokok: v.number(),
   },
   handler: async (ctx, args) => {
-    await requirePeminjam(ctx);
+    const { userId } = await requirePeminjam(ctx);
     const pawn = await ctx.db.get(args.pawnId);
-    if (pawn === null || pawn.pokokGadai === undefined) return null;
+    if (pawn === null || pawn.userId !== userId) return null;
+    if (pawn.pokokGadai === undefined) return null;
     const persen = pawn.persenSewaModal ?? GADAI_PRICING.sewaModalMinPercent;
     const sisa = pawn.sisaPokok ?? pawn.pokokGadai;
     const cicil = Math.min(Math.max(0, args.cicilPokok), sisa);
@@ -367,7 +365,8 @@ export const simulasiCicilGadai = query({
       totalBayar: cicil + sewa,
       sisaPokokSetelah: sisaSetelah,
       sewaSetelah: sewaModalBerikutnya(sisaSetelah, persen),
-      custody: sisaSetelah <= 0 ? ("SIAP_DIAMBIL" as const) : ("DALAM_VAULT" as const),
+      custody:
+        sisaSetelah <= 0 ? ("SIAP_DIAMBIL" as const) : ("DALAM_VAULT" as const),
     };
   },
 });

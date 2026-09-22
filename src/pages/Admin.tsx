@@ -50,6 +50,7 @@ import { Id } from "@/convex/_generated/dataModel";
 import { loanPurposeLabel, quoteLoan } from "@/lib/loan";
 import { formatRupiah, parseRupiah, type Rupiah } from "@/lib/money";
 import { LTV_HINTS, type CollateralCategory } from "@/lib/pawn";
+import { GADAI_PRICING, quoteGadai } from "@/lib/gadai";
 import { CMS_DEFAULTS } from "@/lib/cms-defaults";
 import { jarakKm } from "@/lib/geo";
 import {
@@ -110,6 +111,11 @@ type PawnRow = {
   nomorRekening: string;
   catatanPeminjam?: string;
   emailPeminjam: string | null;
+  /** Skema B: pendanaan & sisa pokok berjalan. */
+  pokokGadai?: number;
+  persenSewaModal?: number;
+  sisaPokok?: number;
+  dicairkanPada?: number;
 };
 
 function formatDate(ts: number): string {

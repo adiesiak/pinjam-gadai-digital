@@ -113,6 +113,11 @@ export const adminOverview = query({
             nomorRekening: p.nomorRekening,
             catatanPeminjam: p.catatanPeminjam,
             emailPeminjam: borrower?.email ?? null,
+            // Skema B: pendanaan & sisa pokok berjalan (decreasing principal).
+            pokokGadai: p.pokokGadai,
+            persenSewaModal: p.persenSewaModal,
+            sisaPokok: p.sisaPokok,
+            dicairkanPada: p.dicairkanPada,
           };
         }),
     );
