@@ -34,7 +34,6 @@ import { useAuth } from "@/hooks/use-auth";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { ContractPrintButton } from "@/components/EContract";
-import { DashboardShell, type DockTab, type SummaryCard } from "@/components/DashboardShell";
 import { WaOtpDialog } from "@/components/WaOtpDialog";
 import { judulContract, nomorContract } from "@/lib/contract";
 import { loanPurposeLabel } from "@/lib/loan";
@@ -169,8 +168,10 @@ function VaultBox3D({ size = 40 }: { size?: number }) {
 }
 
 export default function Pendana() {
-  const { user, isLoading } = useAuth();
+  const { user, isLoading, signOut } = useAuth();
+  const navigate = useNavigate();
   const role = user?.role;
+  const bar = useQuery(api.announcements.getPublic);
 
   if (isLoading) {
     return (
@@ -180,30 +181,63 @@ export default function Pendana() {
     );
   }
 
+  const handleSignOut = async () => {
+    await signOut();
+    navigate("/");
+  };
+
   const greetingName = user?.name ?? user?.email?.split("@")[0] ?? "Pendana";
 
-  if (role !== "pendana") {
-    return (
-      <DashboardShell
-        greeting={greetingName}
-        subGreeting={
-          role === "admin"
-            ? "Akun tim tidak dapat menjadi Pendana — gunakan akun terpisah demi kepatuhan."
-            : "Aktifkan peran Pendana untuk mulai menyediakan dana & menerima Imbal Hasil."
-        }
-        quickActions={<></>}
-        summary={[]}
-        tabs={[]}
-        reminder={null}
-        footer={
-          <p className="mt-10 border-t border-sky-100 pt-6 text-xs leading-5 text-muted-foreground">
-            PINDAI — Pendana menyediakan dana melalui skema Alokasi Dana dan menerima
-            Imbal Hasil 30% dari pokok sebagai hak finansialnya. Setiap pergerakan dana
-            tercatat berpasangan di jurnal append-only.
-          </p>
-        }
-      >
-        {role === "admin" ? (
+  return (
+    <div className="flex min-h-screen flex-col bg-[#F0F9FF] text-[#0F172A]">
+      {/* ===== Top announcement bar — konten diatur admin via CMS ===== */}
+      {bar?.barAktif !== false && bar?.barTeks && (
+        <div className="overflow-hidden border-b border-sky-100 bg-gradient-to-r from-sky-50 via-white to-emerald-50">
+          <div className="animate-marquee flex w-max items-center gap-8 py-1.5 text-[11px] font-medium text-navy">
+            {[0, 1].map((dup) => (
+              <div key={dup} className="flex items-center gap-8 pr-8" aria-hidden={dup === 1}>
+                <span className="flex items-center gap-1.5">
+                  <ShieldCheck className="size-3.5 text-emerald-600" />
+                  {bar.barTeks}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <header className="border-b border-sky-100 bg-white/80 backdrop-blur">
+        <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between gap-3 px-4 sm:px-6">
+          <Link to="/pendana" className="flex shrink-0 items-center gap-2.5">
+            <VaultLogo3D size={38} />
+            <span className="hidden text-sm font-bold tracking-[0.16em] sm:block">PINDAI</span>
+          </Link>
+
+          <div className="flex min-w-0 items-center gap-2 sm:gap-4">
+            <div className="min-w-0 text-right">
+              <p className="truncate text-sm font-semibold">Halo, {greetingName} 👋</p>
+              <Badge className="mt-0.5 hidden border-0 bg-emerald-100 text-[10px] text-emerald-700 hover:bg-emerald-100 sm:inline-flex">
+                <BadgeCheck className="mr-1 size-3" /> Akun Verifikasi Aktif
+              </Badge>
+            </div>
+            <div className="gradient-primary flex size-9 items-center justify-center rounded-full text-sm font-bold text-primary-foreground shadow-glow">
+              {greetingName.charAt(0).toUpperCase()}
+            </div>
+          </div>
+
+          <div className="flex shrink-0 items-center gap-2">
+            <Button variant="ghost" size="sm" className="gap-1.5 text-muted-foreground" onClick={handleSignOut}>
+              <ArrowLeft className="size-3.5" />
+              <span className="hidden sm:inline">Keluar</span>
+            </Button>
+          </div>
+        </div>
+      </header>
+
+      <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8 sm:px-6">
+        {role === "pendana" ? (
+          <PendanaWorkspace />
+        ) : role === "admin" ? (
           <Notice
             title="Akun tim tidak dapat menjadi Pendana"
             body="Panel admin dan peran Pendana dipisahkan demi kepatuhan. Gunakan akun terpisah untuk mendanai."
@@ -211,11 +245,17 @@ export default function Pendana() {
         ) : (
           <Onboarding />
         )}
-      </DashboardShell>
-    );
-  }
+      </main>
 
-  return <PendanaWorkspace greetingName={greetingName} />;
+      <footer className="border-t border-sky-100 bg-white">
+        <div className="mx-auto w-full max-w-6xl px-6 py-6 text-xs leading-5 text-muted-foreground">
+          PINDAI — Pendana menyediakan dana melalui skema Alokasi Dana dan menerima
+          Imbal Hasil 30% dari pokok sebagai hak finansialnya. Setiap pergerakan dana
+          tercatat berpasangan di jurnal append-only.
+        </div>
+      </footer>
+    </div>
+  );
 }
 
 function Notice({ title, body }: { title: string; body: string }) {
@@ -292,145 +332,124 @@ function Onboarding() {
 }
 
 // =====================================================================
-// Workspace utama Pendana — kerangka DashboardShell 3D Claymorphism
+// Workspace utama Pendana
 // =====================================================================
 
-function PendanaWorkspace({ greetingName }: { greetingName: string }) {
+function PendanaWorkspace() {
   const wallet = useQuery(api.pendana.myWallet);
   const portfolio = useQuery(api.pendana.myPortfolio);
-  const [tab, setTab] = useState("marketplace");
   const [depositOpen, setDepositOpen] = useState(false);
-
-  const summaryCards: SummaryCard[] = [
-    {
-      label: "Total Saldo Dompet",
-      nilai: wallet?.saldo ?? 0,
-      keterangan: "Tersedia untuk alokasi pendanaan & penarikan.",
-      tone: "sky",
-      icon: <WalletGrowth3D size={22} />,
-    },
-    {
-      label: "Total Dana Dialokasikan",
-      nilai: wallet?.danaBekerja ?? 0,
-      keterangan: `Tersebar di ${wallet?.posisiAlokasi ?? 0} proyek pinjaman/gadai berjalan.`,
-      tone: "amber",
-      icon: <Store className="size-5" />,
-    },
-    {
-      label: "Estimasi Imbal Hasil Bunga",
-      nilai: wallet?.imbalHasilDiharapkan ?? 0,
-      keterangan: "Proyeksi bunga 30% dari porsi pokok saat Peminjam melunasi.",
-      tone: "mint",
-      icon: <YieldChart3D size={22} />,
-    },
-  ];
-
-  const dockTabs: DockTab[] = [
-    {
-      key: "marketplace",
-      label: "Marketplace Pinjaman & Gadai",
-      shortLabel: "Pasar",
-      icon: <Market3D size={18} />,
-      onSelect: () => setTab("marketplace"),
-      active: tab === "marketplace",
-    },
-    {
-      key: "portofolio",
-      label: "Portofolio Pendanaan Saya",
-      shortLabel: "Portofolio",
-      icon: <WalletGrowth3D size={18} />,
-      badge: wallet?.posisiAlokasi,
-      onSelect: () => setTab("portofolio"),
-      active: tab === "portofolio",
-    },
-    {
-      key: "kontrak",
-      label: "E-Contract Pendanaan",
-      shortLabel: "Kontrak",
-      icon: <Certificate3D size={18} />,
-      onSelect: () => setTab("kontrak"),
-      active: tab === "kontrak",
-    },
-    {
-      key: "dompet",
-      label: "Dompet & Penarikan",
-      shortLabel: "Dompet",
-      icon: <YieldChart3D size={18} />,
-      onSelect: () => setTab("dompet"),
-      active: tab === "dompet",
-    },
-    {
-      key: "riwayat",
-      label: "Riwayat Transaksi",
-      shortLabel: "Riwayat",
-      icon: <History3D size={18} />,
-      onSelect: () => setTab("riwayat"),
-      active: tab === "riwayat",
-    },
-  ];
+  const [defaultTab, setDefaultTab] = useState("marketplace");
 
   return (
-    <DashboardShell
-      greeting={greetingName}
-      subGreeting="Ruang Pendana — alokasikan dana, pantau portofolio, cairkan Imbal Hasil."
-      quickActions={
-        <Button
-          className="clay-btn-blue clay-shine relative px-5 font-semibold text-white"
-          onClick={() => setDepositOpen(true)}
-        >
-          <Plus className="mr-1 size-4" /> Deposit Saldo
-        </Button>
-      }
-      summary={summaryCards}
-      tabs={dockTabs}
-      reminder={null}
-      footer={
-        <p className="mt-10 border-t border-sky-100 pt-6 text-center text-xs leading-5 text-muted-foreground">
-          PINDAI — Pendana menyediakan dana melalui skema Alokasi Dana dan menerima
-          Imbal Hasil 30% dari pokok sebagai hak finansialnya. Setiap pergerakan dana
-          tercatat berpasangan di jurnal append-only.
+    <>
+      <div className="flex flex-col gap-1">
+        <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-primary">
+          Ruang Pendana
         </p>
-      }
-    >
-      <Tabs value={tab} onValueChange={setTab} className="mt-2">
-        <TabsList className="hidden">
-          {/* Trigger disembunyikan — navigasi via dock 3D */}
-          {dockTabs.map((t) => (
-            <TabsTrigger key={t.key} value={t.key}>
-              {t.label}
+        <h1 className="text-2xl font-bold tracking-tight">Dompet &amp; Alokasi Pendanaan</h1>
+      </div>
+
+      {/* ===== Ringkasan keuangan — 3 kartu 3D ===== */}
+      <section className="mt-6 grid gap-4 md:grid-cols-3">
+        <div className="card-lift rounded-2xl border border-sky-100 bg-white p-5 shadow-md shadow-sky-100">
+          <div className="flex items-start justify-between">
+            <div>
+              <p className="text-xs text-muted-foreground">Total Saldo Dompet</p>
+              <p className="mt-2 text-2xl font-bold tabular-nums text-sky-600">
+                {formatRupiah(wallet?.saldo ?? 0)}
+              </p>
+            </div>
+            <WalletGrowth3D size={44} />
+          </div>
+          <p className="mt-3 text-xs leading-5 text-muted-foreground">
+            Tersedia untuk alokasi pendanaan &amp; penarikan.
+          </p>
+        </div>
+
+        <div className="card-lift rounded-2xl border border-sky-100 bg-white p-5 shadow-md shadow-sky-100">
+          <div className="flex items-start justify-between">
+            <div>
+              <p className="text-xs text-muted-foreground">Total Dana Dialokasikan</p>
+              <p className="mt-2 text-2xl font-bold tabular-nums">
+                {formatRupiah(wallet?.danaBekerja ?? 0)}
+              </p>
+            </div>
+            <Store size={40} className="text-sky-500" />
+          </div>
+          <p className="mt-3 text-xs leading-5 text-muted-foreground">
+            Tersebar di {wallet?.posisiAlokasi ?? 0} proyek pinjaman/gadai berjalan.
+          </p>
+        </div>
+
+        <div className="card-lift rounded-2xl border border-sky-100 bg-white p-5 shadow-md shadow-sky-100">
+          <div className="flex items-start justify-between">
+            <div>
+              <p className="text-xs text-muted-foreground">Estimasi Imbal Hasil Bunga</p>
+              <p className="mt-2 text-2xl font-bold tabular-nums text-emerald-600">
+                {formatRupiah(wallet?.imbalHasilDiharapkan ?? 0)}
+              </p>
+            </div>
+            <YieldChart3D size={44} />
+          </div>
+          <p className="mt-3 text-xs leading-5 text-muted-foreground">
+            Proyeksi bunga 30% dari porsi pokok saat Peminjam melunasi.
+          </p>
+        </div>
+      </section>
+
+      {/* ===== Tab navigasi floating pills ===== */}
+      <Tabs defaultValue="marketplace" value={defaultTab} onValueChange={setDefaultTab} className="mt-8">
+        <TabsList className="flex w-full flex-wrap gap-2 overflow-x-auto bg-transparent p-0">
+          {(
+            [
+              ["marketplace", "Marketplace Pinjaman & Gadai", <Market3D key="i" size={22} />],
+              ["portofolio", "Portofolio Pendanaan Saya", <WalletGrowth3D key="i" size={22} />],
+              ["kontrak", "E-Contract Pendanaan", <Certificate3D key="i" size={22} />],
+              ["dompet", "Dompet & Penarikan", <YieldChart3D key="i" size={22} />],
+              ["riwayat", "Riwayat Transaksi", <History3D key="i" size={22} />],
+            ] as Array<[string, string, React.ReactNode]>
+          ).map(([value, label, icon]) => (
+            <TabsTrigger
+              key={value}
+              value={value}
+              className="data-[state=active]:gradient-primary data-[state=active]:text-primary-foreground rounded-full border border-sky-100 bg-white px-4 py-2 text-xs font-medium shadow-sm transition-all data-[state=active]:border-0 data-[state=active]:shadow-glow"
+            >
+              <span className="mr-1.5 inline-flex align-middle">{icon}</span>
+              {label}
             </TabsTrigger>
           ))}
         </TabsList>
 
         {/* ============ TAB 1: MARKETPLACE ============ */}
-        <TabsContent value="marketplace" className="mt-6">
+        <TabsContent value="marketplace" className="mt-8">
           <MarketplaceSection />
         </TabsContent>
 
         {/* ============ TAB 2: PORTOFOLIO ============ */}
-        <TabsContent value="portofolio" className="mt-6">
+        <TabsContent value="portofolio" className="mt-8">
           <PortfolioSection portfolio={portfolio} />
         </TabsContent>
 
         {/* ============ TAB 3: E-CONTRACT ============ */}
-        <TabsContent value="kontrak" className="mt-6">
+        <TabsContent value="kontrak" className="mt-8">
           <FundingContractsSection />
         </TabsContent>
 
         {/* ============ TAB 4: DOMPET & PENARIKAN ============ */}
-        <TabsContent value="dompet" className="mt-6">
+        <TabsContent value="dompet" className="mt-8">
           <WalletSection onDepositRequested={() => setDepositOpen(true)} />
         </TabsContent>
 
         {/* ============ TAB 5: RIWAYAT ============ */}
-        <TabsContent value="riwayat" className="mt-6">
+        <TabsContent value="riwayat" className="mt-8">
           <HistorySection />
         </TabsContent>
       </Tabs>
 
       {/* Dialog deposit simulasi (dibuka dari tombol header/kartu) */}
       <DepositSimDialog open={depositOpen} onClose={() => setDepositOpen(false)} />
-    </DashboardShell>
+    </>
   );
 }
 

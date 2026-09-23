@@ -38,7 +38,7 @@ export const CMS_DEFAULTS = {
     pinjamanCta: "Ajukan sekarang",
     gadaiJudul: "Gadai Digital",
     gadaiIsi:
-      "Elektronik, kendaraan, perhiasan, hingga properti. Taksiran resmi oleh petugas berwenang dengan live location wajib; potongan muka hanya 1% — dana bersih 99% langsung cair. Sewa modal 5–10% per 30 hari dihitung dari sisa pokok terbaru, jadi setiap kali Anda mencicil pokok, sewa bulan berikutnya otomatis turun. Sisa pokok Rp0 → barang SIAP_DIAMBIL dari Brankas Custody.",
+      "Elektronik, kendaraan, perhiasan, hingga properti. Taksiran resmi oleh petugas berwenang dengan live location wajib, barang tersimpan di Brankas Custody sampai Anda lunasi.",
     gadaiCta: "Gadaikan barang",
   },
 } as const;
