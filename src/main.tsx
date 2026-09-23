@@ -14,10 +14,24 @@ import { useSessionGuard } from "@/hooks/use-session-guard";
 // Lazy load route components for better code splitting
 const Landing = lazy(() => import("./pages/Landing.tsx"));
 const AuthPage = lazy(() => import("./pages/Auth.tsx"));
+const LoginPage = lazy(() => import("./pages/Login.tsx"));
 const Dashboard = lazy(() => import("./pages/Dashboard.tsx"));
 const Admin = lazy(() => import("./pages/Admin.tsx"));
 const Pendana = lazy(() => import("./pages/Pendana.tsx"));
 const NotFound = lazy(() => import("./pages/NotFound.tsx"));
+// STOP-UP! — Layanan Digital Mandiri (terminal sentuh + panel admin)
+const Terminal = lazy(() => import("./pages/Terminal.tsx"));
+const StopUpAdmin = lazy(() => import("./pages/StopUpAdmin.tsx"));
+
+/** Halaman layar-sentuh: sembunyikan bar pengumuman publik di sini. */
+function AnnouncementBarBertema() {
+  const { pathname } = useLocation();
+  const layarKiosk =
+    pathname === "/" ||
+    pathname.startsWith("/terminal") ||
+    pathname.startsWith("/admin");
+  return layarKiosk ? null : <AnnouncementBar />;
+}
 
 // Simple loading fallback for route transitions
 function RouteLoading() {
@@ -126,16 +140,29 @@ createRoot(document.getElementById("root")!).render(
       </ToolbarErrorBoundary>
       <ConvexAuthProvider client={convex}>
         <BrowserRouter>
-          <AnnouncementBar />
+          <AnnouncementBarBertema />
           <SessionGuardBridge />
           <RouteSyncer />
           <Suspense fallback={<RouteLoading />}>
             <Routes>
-              <Route path="/" element={<Landing />} />
+              {/* STOP-UP! — terminal sentuh adalah muka utama aplikasi. */}
+              <Route path="/" element={<Terminal />} />
+              <Route path="/terminal" element={<Terminal />} />
+              <Route
+                path="/admin"
+                element={
+                  <RequireAuth>
+                    <StopUpAdmin />
+                  </RequireAuth>
+                }
+              />
+              {/* PINDAI (modul pinjam & gadai) tetap tersedia di /pindai. */}
+              <Route path="/pindai" element={<Landing />} />
               <Route
                 path="/auth"
-                element={<AuthPage redirectAfterAuth="/dashboard" />}
+                element={<AuthPage redirectAfterAuth="/admin" />}
               />
+              <Route path="/login" element={<LoginPage />} />
               <Route
                 path="/dashboard"
                 element={
@@ -145,7 +172,7 @@ createRoot(document.getElementById("root")!).render(
                 }
               />
               <Route
-                path="/admin"
+                path="/pindai/admin"
                 element={
                   <RequireAuth>
                     <Admin />

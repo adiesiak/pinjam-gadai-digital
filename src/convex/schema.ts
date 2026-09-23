@@ -23,6 +23,8 @@ export const ROLES = {
   /** Pendana — fund provider (marketplace pendanaan). */
   PENDANA: "pendana",
   MEMBER: "member",
+  /** Supervisor operasional terminal STOP-UP! — boleh urus katalog & harga. */
+  SUPERVISOR: "supervisor",
 } as const;
 
 export const roleValidator = v.union(
@@ -30,6 +32,7 @@ export const roleValidator = v.union(
   v.literal(ROLES.PEMINJAM),
   v.literal(ROLES.PENDANA),
   v.literal(ROLES.MEMBER),
+  v.literal(ROLES.SUPERVISOR),
 );
 export type Role = Infer<typeof roleValidator>;
 
@@ -73,6 +76,10 @@ const schema = defineSchema(
       isAnonymous: v.optional(v.boolean()), // is the user anonymous. do not remove
 
       role: v.optional(roleValidator), // role of the user. do not remove
+      /** Nomor WhatsApp akun (format 62…) — dipakai login & notifikasi. */
+      whatsapp: v.optional(v.string()),
+      /** NIK 16 digit (khusus Peminjam) — pencocokan KYC, tidak publik. */
+      nik: v.optional(v.string()),
     }).index("email", ["email"]), // index for the email. do not remove or modify
 
     /**
@@ -542,6 +549,271 @@ const schema = defineSchema(
       gadaiCta: v.optional(v.string()),
       langkahJudul: v.optional(v.string()),
       /** Audit ringan: kapan terakhir diubah admin. */
+      diperbaruiPada: v.number(),
+    }).index("by_slot", ["slot"]),
+
+    /* ========================================================================
+     * STOP-UP! — Layanan Digital Mandiri (Pulsa, Paket Data, E-Wallet, PPOB,
+     * Apps Premium). Semua tabel ber-prefix `su` agar tidak bentrok dengan
+     * modul PINDAI di atas.
+     *
+     * Konvensi uang: rupiah BULAT (integer), tanpa float. Lihat src/lib/money.ts
+     * untuk format dan src/lib/stopup/pricing.ts untuk perhitungan margin.
+     * ===================================================================== */
+
+    /** Terminal fisik (mesin touchscreen) yang terpasang di lokasi mitra. */
+    suTerminals: defineTable({
+      /** Kode unik terminal, mis. "SU-JKT-01". */
+      code: v.string(),
+      name: v.string(),
+      location: v.string(),
+      /** PIN admin terminal (4–6 digit) untuk membuka menu teknis di layar. */
+      pinAdmin: v.string(),
+      isOnline: v.boolean(),
+      lastHeartbeat: v.number(),
+      /** Versi aplikasi/agent yang dilaporkan terminal. */
+      version: v.optional(v.string()),
+      aktif: v.boolean(),
+    })
+      .index("by_code", ["code"])
+      .index("by_online", ["isOnline"]),
+
+    /** Log kondisi perangkat terminal — append-only (detak & status printer). */
+    suTerminalLogs: defineTable({
+      terminalId: v.id("suTerminals"),
+      /** OK | LOW | EMPTY — sensor kertas printer thermal. */
+      paperStatus: v.union(
+        v.literal("OK"),
+        v.literal("LOW"),
+        v.literal("EMPTY"),
+      ),
+      printerConnected: v.boolean(),
+      /** Saldo deposit supplier termurah saat log dibuat (rupiah bulat). */
+      supplierBalance: v.optional(v.number()),
+      loggedAt: v.number(),
+      catatan: v.optional(v.string()),
+    })
+      .index("by_terminal", ["terminalId"])
+      .index("by_logged", ["loggedAt"]),
+
+    /** Kategori produk (Pulsa, Paket Data, E-Wallet, PPOB & PLN, Apps Premium). */
+    suCategories: defineTable({
+      code: v.string(),
+      name: v.string(),
+      /** Emoji/ikon kategori untuk layar sentuh. */
+      icon: v.string(),
+      sortOrder: v.number(),
+      aktif: v.boolean(),
+    }).index("by_code", ["code"]),
+
+    /** Brand/provider (Telkomsel, DANA, PLN, Netflix, …). */
+    suBrands: defineTable({
+      code: v.string(),
+      name: v.string(),
+      /** OPERATOR | EWALLET | PPOB | PREMIUM — menentukan routing layar. */
+      kind: v.union(
+        v.literal("OPERATOR"),
+        v.literal("EWALLET"),
+        v.literal("PPOB"),
+        v.literal("PREMIUM"),
+      ),
+      /** Emoji/ikon brand. */
+      icon: v.string(),
+      /** Warna aksen hex untuk kartu brand. */
+      color: v.string(),
+      sortOrder: v.number(),
+      /** Khusus PPOB: jumlah digit ID pelanggan (min/maks). */
+      minDigit: v.optional(v.number()),
+      maxDigit: v.optional(v.number()),
+      /** Contoh ID pelanggan untuk placeholder layar. */
+      contohId: v.optional(v.string()),
+      /** Label field target, mis. "No. Meter / ID Pelanggan". */
+      labelTarget: v.optional(v.string()),
+      aktif: v.boolean(),
+    })
+      .index("by_code", ["code"])
+      .index("by_kind", ["kind"]),
+
+    /** Supplier H2H (Digiflazz/Tripay/custom) — bisa banyak, diurut prioritas. */
+    suSuppliers: defineTable({
+      code: v.string(),
+      name: v.string(),
+      apiKey: v.optional(v.string()),
+      secretKey: v.optional(v.string()),
+      /** "sandbox" | "production" — dipakai UI admin, tanpa efek di simulasi. */
+      mode: v.union(v.literal("sandbox"), v.literal("production")),
+      /** Endpoint H2H, mis. https://api.digiflazz.com/v1. */
+      baseUrl: v.optional(v.string()),
+      /** Saldo deposit di supplier (rupiah bulat) — dipantau Telegram Alert. */
+      balance: v.number(),
+      isActive: v.boolean(),
+      priority: v.number(),
+      lastSyncAt: v.optional(v.number()),
+      /** Jumlah SKU terakhir yang tersinkron dari supplier ini. */
+      lastSyncCount: v.optional(v.number()),
+      diperbaruiPada: v.number(),
+    })
+      .index("by_code", ["code"])
+      .index("by_priority", ["priority"]),
+
+    /** Katalog produk siap jual di layar terminal. */
+    suProducts: defineTable({
+      productCodeInternal: v.string(),
+      productCodeSupplier: v.string(),
+      name: v.string(),
+      description: v.optional(v.string()),
+      /** Emoji ikon default. */
+      icon: v.optional(v.string()),
+      /** URL gambar PNG/SVG latar transparan (menimpa emoji bila diisi). */
+      iconUrl: v.optional(v.string()),
+      badgeLabel: v.optional(v.string()),
+      sortOrder: v.number(),
+      categoryId: v.id("suCategories"),
+      brandId: v.id("suBrands"),
+      /** Harga pokok dari supplier (rupiah bulat). */
+      hppPrice: v.number(),
+      /** Harga jual normal (rupiah bulat). */
+      sellPrice: v.number(),
+      /** Harga promo/harga coret (rupiah bulat). */
+      discountPrice: v.optional(v.number()),
+      isDiscountActive: v.boolean(),
+      /** INJECT_PHONE | INJECT_EMAIL | VOUCHER_CODE | PPOB_INQUIRY. */
+      deliveryType: v.union(
+        v.literal("INJECT_PHONE"),
+        v.literal("INJECT_EMAIL"),
+        v.literal("VOUCHER_CODE"),
+        v.literal("PPOB_INQUIRY"),
+      ),
+      status: v.union(v.literal("AKTIF"), v.literal("NONAKTIF")),
+      supplierId: v.optional(v.id("suSuppliers")),
+      /** Nama produk di sisi supplier (hasil sync). */
+      supplierProductName: v.optional(v.string()),
+      diperbaruiPada: v.number(),
+    })
+      .index("by_category", ["categoryId"])
+      .index("by_brand", ["brandId"])
+      .index("by_internal_code", ["productCodeInternal"])
+      .index("by_status", ["status"]),
+
+    /** Transaksi penjualan di terminal — satu baris per struk. */
+    suTransactions: defineTable({
+      invoiceId: v.string(),
+      terminalId: v.id("suTerminals"),
+      productId: v.id("suProducts"),
+      /** Nomor tujuan: nomor HP / ID pelanggan / email sesuai deliveryType. */
+      targetNo: v.string(),
+      /** Nama pemilik akun HASIL INQUIRY dengan partial masking. */
+      accountNameMasked: v.optional(v.string()),
+      /** Nomor WhatsApp penerima invoice/notifikasi (bisa diubah di konfirmasi). */
+      notifWhatsapp: v.string(),
+      /** Nomor HP pelanggan yang diinput di halaman 1 (jika berbeda). */
+      buyerPhone: v.optional(v.string()),
+      /** Snapshot harga & laba saat transaksi (rupiah bulat). */
+      sellPrice: v.number(),
+      hppPrice: v.number(),
+      profit: v.number(),
+      /** Kode voucher/redeem key — hanya untuk VOUCHER_CODE. */
+      voucherCode: v.optional(v.string()),
+      /** Serial number / ref dari supplier. */
+      snRef: v.optional(v.string()),
+      status: v.union(
+        v.literal("PENDING"),
+        v.literal("PROCESSING"),
+        v.literal("SUCCESS"),
+        v.literal("FAILED"),
+        v.literal("EXPIRED"),
+      ),
+      /** Alasan gagal, untuk audit & tampilan admin. */
+      catatanGagal: v.optional(v.string()),
+      /** true bila struk gagal cetak (kertas habis) → bukti dikirim via WA. */
+      strukViaWhatsapp: v.optional(v.boolean()),
+      createdAt: v.number(),
+      paidAt: v.optional(v.number()),
+      selesaiPada: v.optional(v.number()),
+    })
+      .index("by_invoice", ["invoiceId"])
+      .index("by_status", ["status"])
+      .index("by_created", ["createdAt"])
+      .index("by_terminal", ["terminalId"]),
+
+    /** Tagihan QRIS untuk sebuah transaksi — satu baris per invoice. */
+    suPayments: defineTable({
+      invoiceId: v.string(),
+      transactionId: v.id("suTransactions"),
+      paymentMethod: v.union(v.literal("QRIS")),
+      /** Payload QRIS yang dirender jadi QR code di layar. */
+      qrString: v.string(),
+      /** Rupiah bulat — harus sama dengan sellPrice transaksi. */
+      amount: v.number(),
+      status: v.union(
+        v.literal("UNPAID"),
+        v.literal("PAID"),
+        v.literal("EXPIRED"),
+      ),
+      /** Referensi dari payment gateway (RRN/transaction id). */
+      gatewayRef: v.optional(v.string()),
+      createdAt: v.number(),
+      expiresAt: v.number(),
+      paidAt: v.optional(v.number()),
+      /** Callback mentah — jejak audit idempotensi webhook. */
+      callbackPayload: v.optional(v.string()),
+    })
+      .index("by_invoice", ["invoiceId"])
+      .index("by_status", ["status"]),
+
+    /**
+     * Callback payment gateway — APPEND-ONLY, dipakai untuk idempotensi.
+     * Satu baris per event masuk; event dengan (invoiceId, eventId) yang sama
+     * tidak boleh berefek finansial dua kali.
+     */
+    suWebhookEvents: defineTable({
+      invoiceId: v.string(),
+      eventId: v.string(),
+      /** true bila event ini yang mengubah status menjadi PAID. */
+      applied: v.boolean(),
+      payload: v.string(),
+      waktu: v.number(),
+    })
+      .index("by_invoice", ["invoiceId"])
+      .index("by_event", ["eventId"]),
+
+    /**
+     * Pengaturan global STOP-UP! — satu baris (slot "global").
+     * Berisi konfigurasi QRIS, Telegram Alert, dan perilaku layar sentuh.
+     */
+    suSettings: defineTable({
+      slot: v.string(),
+      // --- Terminal & interaksi ---
+      /** Detik idle sebelum popup peringatan muncul (default 45). */
+      idleResetDetik: v.optional(v.number()),
+      /** Detik hitung mundur popup peringatan (default 15). */
+      idleWarningDetik: v.optional(v.number()),
+      /** Batas tunggu respons supplier di layar (default 25 detik). */
+      supplierTimeoutDetik: v.optional(v.number()),
+      /**
+       * Mode Simulasi: tahan jawaban supplier supaya alur PENDING /
+       * struk sementara bisa diuji tanpa menunggu supplier lambat sungguhan.
+       */
+      simulasiPending: v.optional(v.boolean()),
+      // --- Payment gateway QRIS ---
+      qrisProvider: v.optional(v.string()),
+      qrisMerchantId: v.optional(v.string()),
+      qrisMerchantName: v.optional(v.string()),
+      qrisApiKey: v.optional(v.string()),
+      qrisWebhookSecret: v.optional(v.string()),
+      // --- Notifikasi Telegram ---
+      telegramBotToken: v.optional(v.string()),
+      telegramChatId: v.optional(v.string()),
+      telegramAlertAktif: v.optional(v.boolean()),
+      /** Ambang saldo supplier rendah (rupiah bulat, default 500_000). */
+      lowBalanceThreshold: v.optional(v.number()),
+      // --- Printer ---
+      printerAktif: v.optional(v.boolean()),
+      namaMerchantStruk: v.optional(v.string()),
+      alamatStruk: v.optional(v.string()),
+      footerStruk: v.optional(v.string()),
+      /** Jam auto-reload browser untuk bersihkan memory leak (WIB, default 3). */
+      autoReloadJamWib: v.optional(v.number()),
       diperbaruiPada: v.number(),
     }).index("by_slot", ["slot"]),
   },

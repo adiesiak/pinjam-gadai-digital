@@ -561,8 +561,7 @@ export const listMyPawns = query({
     const pawns = await ctx.db
       .query("pawns")
       .withIndex("by_user", (q) => q.eq("userId", userId))
-      .collect();
-    return pawns
+      .collect();      return pawns
       .sort((a, b) => b._creationTime - a._creationTime)
       .map((p) => ({
         _id: p._id,
@@ -573,6 +572,11 @@ export const listMyPawns = query({
         status: p.status,
         nilaiTaksiran: p.nilaiTaksiran,
         catatanReview: p.catatanReview,
+        // Skema B: kewajiban gadai (decreasing principal) — dipakai widget
+        // tagihan sewa modal & cicil pokok di dashboard Peminjam.
+        pokokGadai: p.pokokGadai,
+        sisaPokok: p.sisaPokok,
+        persenSewaModal: p.persenSewaModal,
       }));
   },
 });
