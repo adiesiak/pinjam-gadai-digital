@@ -17,6 +17,13 @@ export type KodeOperator =
 
 export type Operator = {
   kode: KodeOperator;
+  /**
+   * Kode brand di katalog (`suBrands.code`). WAJIB dipakai untuk smart routing
+   * operator → katalog: kode brand sengaja lebih pendek (TSEL, ISAT) daripada
+   * kode operator deteksi (TELKOMSEL, INDOSAT), jadi keduanya tidak boleh
+   * dibandingkan langsung.
+   */
+  brandCode: string;
   nama: string;
   /** Emoji/warna aksen untuk badge berpendar di layar sentuh. */
   icon: string;
@@ -28,6 +35,7 @@ export type Operator = {
 export const OPERATOR_LIST: Operator[] = [
   {
     kode: "TELKOMSEL",
+    brandCode: "TSEL",
     nama: "Telkomsel",
     icon: "🔴",
     warna: "#e11d48",
@@ -37,6 +45,7 @@ export const OPERATOR_LIST: Operator[] = [
   },
   {
     kode: "INDOSAT",
+    brandCode: "ISAT",
     nama: "Indosat Ooredoo",
     icon: "🟡",
     warna: "#eab308",
@@ -46,6 +55,7 @@ export const OPERATOR_LIST: Operator[] = [
   },
   {
     kode: "XL",
+    brandCode: "XL",
     nama: "XL Axiata",
     icon: "🔵",
     warna: "#2563eb",
@@ -53,6 +63,7 @@ export const OPERATOR_LIST: Operator[] = [
   },
   {
     kode: "AXIS",
+    brandCode: "AXIS",
     nama: "Axis",
     icon: "🟣",
     warna: "#7c3aed",
@@ -60,6 +71,7 @@ export const OPERATOR_LIST: Operator[] = [
   },
   {
     kode: "TRI",
+    brandCode: "TRI",
     nama: "Tri (3)",
     icon: "🟠",
     warna: "#f97316",
@@ -67,6 +79,7 @@ export const OPERATOR_LIST: Operator[] = [
   },
   {
     kode: "SMARTFREN",
+    brandCode: "SMART",
     nama: "Smartfren",
     icon: "🟢",
     warna: "#16a34a",

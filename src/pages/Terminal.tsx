@@ -5,12 +5,16 @@
  * Page 2 (tab layanan + smart routing katalog) → input target →
  * konfirmasi (+invoice WA yang bisa diubah) → QRIS → struk.
  *
+ * SELURUH perpindahan langkah ada di `src/lib/stopup/terminal-flow.ts` (reducer
+ * murni) supaya alur ini bisa diuji otomatis dari Idle sampai Struk tanpa
+ * browser — lihat `src/lib/stopup/terminal-flow.test.ts`.
+ *
  * Ergonomi: viewport terkunci, target sentuh >= 64px, tanpa scrollbar,
  * auto-reset saat idle, dan kunci shortcut browser (mode kiosk).
  */
 import { useAction, useMutation, useQuery } from "convex/react";
 import QRCodeLib from "qrcode";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import {
   ArrowLeft,
   CheckCircle2,
@@ -29,7 +33,7 @@ import { LogoStopUp } from "@/components/LogoStopUp";
 import { Numpad } from "@/components/stopup/Numpad";
 import { VirtualKeyboard } from "@/components/VirtualKeyboard";
 import { useThermalPrinter } from "@/hooks/useThermalPrinter";
-import { buildStrukBytes, formatStrukTeks, type DataStruk } from "@/utils/escpos";
+import { buildStrukBytes, formatStrukTeks } from "@/utils/escpos";
 import {
   maskEmail,
   maskIdPelanggan,
@@ -37,57 +41,38 @@ import {
   normalisasiNomorHp,
   tautanWhatsApp,
 } from "@/utils/masking";
+import { deteksiOperator, validasiNomorHp, type Operator } from "@/lib/stopup/operator";
 import {
-  deteksiOperator,
-  validasiNomorHp,
-  type Operator,
-} from "@/lib/stopup/operator";
+  FLOW_AWAL,
+  labelTarget as labelTargetFlow,
+  pakaiNomorHp,
+  rentangDigit,
+  susunStruk,
+  terminalFlow,
+  type Aksi,
+  type BrandRingkas,
+  type HasilInquiry,
+  type InvoiceUntukStruk,
+  type Langkah,
+  type ProdukRingkas,
+  type StatusTransaksi,
+} from "@/lib/stopup/terminal-flow";
 import { labelWaktuWib, sisaDetik } from "@/lib/stopup/waktu";
 
 /* ============================== TIPE ============================== */
 
-type Langkah =
-  | "idle"
-  | "nomor"
-  | "katalog"
-  | "target"
-  | "konfirmasi"
-  | "qris"
-  | "struk";
-
-type DeliveryType =
-  | "INJECT_PHONE"
-  | "INJECT_EMAIL"
-  | "VOUCHER_CODE"
-  | "PPOB_INQUIRY";
-
-type Kategori = { id: string; code: string; name: string; icon: string };
-
-type Brand = {
+type Brand = BrandRingkas & {
   id: string;
-  code: string;
-  name: string;
   icon: string;
   color: string;
-  kind: string;
-  labelTarget: string;
-  minDigit: number;
-  maxDigit: number;
   contohId: string;
 };
 
-type Produk = {
-  id: string;
-  code: string;
-  name: string;
+type Produk = ProdukRingkas & {
   description: string;
-  icon: string;
-  iconUrl: string | null;
-  badgeLabel: string | null;
-  deliveryType: DeliveryType;
-  harga: number;
-  hargaCoret: number | null;
 };
+
+type Kategori = { id: string; code: string; name: string; icon: string };
 
 type InvoiceView = {
   invoiceId: string;
@@ -102,7 +87,7 @@ type InvoiceView = {
   createdAt: number;
   produkNama: string;
   produkIcon: string;
-  deliveryType: DeliveryType;
+  deliveryType: string;
   brandNama: string;
   brandIcon: string;
   kategoriNama: string;
@@ -117,17 +102,7 @@ type InvoiceView = {
   } | null;
 };
 
-type HasilInquiry = {
-  namaMasked: string;
-  sumber: "SUPPLIER" | "SIMULASI";
-  label: string;
-  tagihan: number | null;
-};
-
-const rupiah = (n: number) => `Rp${n.toLocaleString("id-ID")}`;
-
-/** Kategori yang memakai nomor HP Page 1 sebagai nomor tujuan. */
-const PAKAI_NOMOR_HP: string[] = ["pulsa", "data", "ewallet"];
+const rupiah = (n: number) => `Rp${Math.round(n).toLocaleString("id-ID")}`;
 
 /* ============================ KOMPONEN ============================ */
 
@@ -191,22 +166,9 @@ function TombolKiosk({
 /* ============================== HALAMAN ============================== */
 
 export default function Terminal() {
-  const [langkah, setLangkah] = useState<Langkah>("idle");
-  const [nomorHp, setNomorHp] = useState("");
-  const [kategoriCode, setKategoriCode] = useState<string>("");
-  const [brandCode, setBrandCode] = useState<string>("");
-  const [produk, setProduk] = useState<Produk | null>(null);
-  const [targetNo, setTargetNo] = useState("");
-  const [email, setEmail] = useState("");
-  const [notifWa, setNotifWa] = useState("");
-  const [invoiceId, setInvoiceId] = useState<string | null>(null);
-  const [inquiry, setInquiry] = useState<HasilInquiry | null>(null);
-  const [memproses, setMemproses] = useState(false);
-  const [pesanGalat, setPesanGalat] = useState<string | null>(null);
-  const [strukPending, setStrukPending] = useState(false);
+  const [flow, dispatch] = useReducer(terminalFlow, FLOW_AWAL);
   const [peringatan, setPeringatan] = useState<number | null>(null);
   const bootstrapRef = useRef(false);
-  const menungguSejak = useRef<number | null>(null);
 
   const printer = useThermalPrinter();
 
@@ -216,15 +178,17 @@ export default function Terminal() {
   const kategoriList = useQuery(api.stopup.catalog.listCategories);
   const brandList = useQuery(
     api.stopup.catalog.listBrands,
-    kategoriCode ? { categoryCode: kategoriCode } : "skip",
+    flow.kategoriCode ? { categoryCode: flow.kategoriCode } : "skip",
   );
   const produkList = useQuery(
     api.stopup.catalog.listProducts,
-    kategoriCode && brandCode ? { categoryCode: kategoriCode, brandCode } : "skip",
+    flow.kategoriCode && flow.brandCode
+      ? { categoryCode: flow.kategoriCode, brandCode: flow.brandCode }
+      : "skip",
   );
   const invoice = useQuery(
     api.stopup.transactions.getInvoice,
-    invoiceId ? { invoiceId } : "skip",
+    flow.invoiceId ? { invoiceId: flow.invoiceId } : "skip",
   );
 
   const bootstrap = useMutation(api.stopup.suppliers.bootstrap);
@@ -236,12 +200,22 @@ export default function Terminal() {
   const tandaiStrukViaWhatsapp = useMutation(api.stopup.transactions.tandaiStrukViaWhatsapp);
   const inquiryPelanggan = useAction(api.stopup.supplierActions.inquiryPelanggan);
 
-  const operator: Operator | null = useMemo(() => deteksiOperator(nomorHp), [nomorHp]);
+  const operator: Operator | null = useMemo(() => deteksiOperator(flow.nomorHp), [flow.nomorHp]);
   const brandTerpilih: Brand | null = useMemo(
-    () => brandList?.find((b) => b.code === brandCode) ?? null,
-    [brandList, brandCode],
+    () => brandList?.find((b) => b.code === flow.brandCode) ?? null,
+    [brandList, flow.brandCode],
   );
   const penundaan = pengaturan?.supplierTimeoutDetik ?? 25;
+
+  /** Jalankan aksi lalu sinkronkan efek samping dari state hasilnya. */
+  const jalankan = useCallback(
+    (aksi: Aksi): ReturnType<typeof terminalFlow> => {
+      const berikut = terminalFlow(flow, aksi);
+      dispatch(aksi);
+      return berikut;
+    },
+    [flow],
+  );
 
   /* ------------------ Provisioning sekali untuk DB kosong ------------------ */
   useEffect(() => {
@@ -260,8 +234,7 @@ export default function Terminal() {
     if (!kode) return;
     const kirim = () => {
       // Bila perangkat ini memang tidak punya integrasi printer (browser tanpa
-      // Web Serial), JANGAN dilaporkan sebagai printer rusak/kertas habis —
-      // perangkat itu hanya belum bagian dari terminal berprinter.
+      // Web Serial), JANGAN dilaporkan sebagai printer rusak/kertas habis.
       const printerTersedia = !printer.didukung || printer.siap;
       void heartbeat({
         code: kode,
@@ -273,20 +246,20 @@ export default function Terminal() {
     kirim();
     const t = window.setInterval(kirim, 60_000);
     return () => window.clearInterval(t);
-  }, [terminal?.code, printer.siap, heartbeat]);
+  }, [terminal?.code, printer.siap, printer.didukung, heartbeat]);
 
   /* ------------------------ Auto-reload harian (03.00 WIB) ------------------------ */
   useEffect(() => {
     const jam = pengaturan?.autoReloadJamWib ?? 3;
     const t = window.setInterval(() => {
-      if (langkah !== "idle") return;
+      if (flow.langkah !== "idle") return;
       const wib = new Date(Date.now() + 7 * 60 * 60 * 1000);
       if (wib.getUTCHours() === jam && wib.getUTCMinutes() < 5) {
         window.location.reload();
       }
     }, 60_000);
     return () => window.clearInterval(t);
-  }, [langkah, pengaturan?.autoReloadJamWib]);
+  }, [flow.langkah, pengaturan?.autoReloadJamWib]);
 
   /* --------------------------- Mode kiosk lockdown --------------------------- */
   useEffect(() => {
@@ -312,24 +285,12 @@ export default function Terminal() {
 
   /* ---------------------------- Auto reset idle ---------------------------- */
   const resetKeIdle = useCallback(() => {
-    setLangkah("idle");
-    setNomorHp("");
-    setKategoriCode("");
-    setBrandCode("");
-    setProduk(null);
-    setTargetNo("");
-    setEmail("");
-    setNotifWa("");
-    setInvoiceId(null);
-    setInquiry(null);
-    setPesanGalat(null);
-    setStrukPending(false);
+    dispatch({ jenis: "RESET" });
     setPeringatan(null);
-    menungguSejak.current = null;
   }, []);
 
   useEffect(() => {
-    if (langkah === "idle") {
+    if (flow.langkah === "idle") {
       setPeringatan(null);
       return;
     }
@@ -350,7 +311,7 @@ export default function Terminal() {
       window.clearTimeout(timer);
       even.forEach((e) => window.removeEventListener(e, aktif));
     };
-  }, [langkah, pengaturan?.idleResetDetik, pengaturan?.idleWarningDetik]);
+  }, [flow.langkah, pengaturan?.idleResetDetik, pengaturan?.idleWarningDetik]);
 
   // Hitung mundur popup peringatan → reset otomatis.
   useEffect(() => {
@@ -364,188 +325,131 @@ export default function Terminal() {
   }, [peringatan, resetKeIdle]);
 
   /* ------------------------- Pantau status invoice ------------------------- */
+  // Reducer yang memutuskan: sukses/gagal → struk, kedaluwarsa → katalog,
+  // pending melewati batas tunggu → struk sementara.
   useEffect(() => {
-    if (!invoice || !invoiceId) return;
-    if (invoice.status === "SUCCESS" || invoice.status === "FAILED") {
-      setStrukPending(false);
-      setLangkah("struk");
-      return;
-    }
-    if (invoice.status === "EXPIRED") {
-      setPesanGalat("Waktu pembayaran habis. Silakan ulangi transaksi.");
-      setInvoiceId(null);
-      setLangkah("katalog");
-    }
-  }, [invoice, invoiceId]);
-
-  // Batas tunggu supplier di layar 25 detik → struk sementara (pending).
-  useEffect(() => {
-    if (langkah !== "qris") {
-      menungguSejak.current = null;
-      return;
-    }
-    if (invoice?.status === "PROCESSING" && menungguSejak.current === null) {
-      menungguSejak.current = Date.now();
-    }
-    const t = window.setInterval(() => {
-      if (menungguSejak.current && Date.now() - menungguSejak.current > penundaan * 1000) {
-        setStrukPending(true);
-        setLangkah("struk");
-      }
-    }, 1000);
+    // Layar struk ikut dipantau: struk sementara naik menjadi final begitu
+    // supplier menjawab (status invoice reaktif dari Convex).
+    if ((flow.langkah !== "qris" && flow.langkah !== "struk") || !invoice) return;
+    const kirim = () =>
+      dispatch({
+        jenis: "STATUS_INVOICE",
+        status: invoice.status as StatusTransaksi,
+        batasTungguDetik: penundaan,
+        sekarang: Date.now(),
+      });
+    kirim();
+    const t = window.setInterval(kirim, 1000);
     return () => window.clearInterval(t);
-  }, [langkah, invoice?.status, penundaan]);
+  }, [flow.langkah, invoice, penundaan]);
 
   /* ---------------------------- Smart routing ---------------------------- */
   // Pulsa/Paket Data langsung difilter ke operator dari nomor HP Page 1.
   useEffect(() => {
-    if (langkah !== "katalog") return;
-    if (!PAKAI_NOMOR_HP.includes(kategoriCode)) return;
+    if (flow.langkah !== "katalog") return;
+    if (!pakaiNomorHp(flow.kategoriCode)) return;
     if (!brandList || brandList.length === 0) return;
-    if (brandCode && brandList.some((b) => b.code === brandCode)) return;
+    if (flow.brandCode && brandList.some((b) => b.code === flow.brandCode)) return;
+    // Operator → brand memakai `brandCode` (TSEL/ISAT/…), bukan kode operator
+    // (TELKOMSEL/INDOSAT/…): kedua penamaan itu sengaja berbeda.
     const cocok =
-      operator && brandList.find((b) => b.code === operator.kode) ? operator.kode : brandList[0].code;
-    setBrandCode(cocok);
-  }, [langkah, kategoriCode, brandList, brandCode, operator]);
+      operator && brandList.find((b) => b.code === operator.brandCode)
+        ? operator.brandCode
+        : brandList[0].code;
+    dispatch({ jenis: "PILIH_BRAND", code: cocok });
+  }, [flow.langkah, flow.kategoriCode, flow.brandCode, brandList, operator]);
 
   /* ------------------------------ Aksi alur ------------------------------ */
 
-  const mulaiDariIdle = () => {
-    setLangkah("nomor");
-    setNotifWa(nomorHp || "");
+  const mulaiDariIdle = () => dispatch({ jenis: "MULAI" });
+
+  const langkahNomor = {
+    nomor: flow.nomorHp,
+    operator,
+    onAngka: (digit: string) => dispatch({ jenis: "KETIK_DIGIT", digit }),
+    onHapus: () => dispatch({ jenis: "HAPUS_DIGIT" }),
+    onBersihkan: () => dispatch({ jenis: "BERSIHKAN_NOMOR" }),
+    onLanjut: () => dispatch({ jenis: "LANJUT_NOMOR" }),
   };
 
-  const lanjutKeKatalog = () => {
-    const cek = validasiNomorHp(nomorHp);
-    if (!cek.valid) {
-      setPesanGalat(cek.pesan ?? "Nomor tidak valid.");
-      return;
+  /** Jalankan inquiry lalu kembalikan hasilnya ke reducer. */
+  const jalankanInquiry = async (state: ReturnType<typeof terminalFlow>) => {
+    const brand = brandList?.find((b) => b.code === state.brandCode) ?? null;
+    try {
+      const hasil = (await inquiryPelanggan({
+        brandCode: brand?.code ?? "PLTN",
+        targetNo: state.targetNo,
+      })) as HasilInquiry;
+      dispatch({ jenis: "INQUIRY_SELESAI", hasil });
+    } catch (err) {
+      dispatch({
+        jenis: "INQUIRY_GAGAL",
+        pesan: err instanceof Error ? err.message : "Gagal mengambil data pelanggan.",
+      });
     }
-    setPesanGalat(null);
-    setNotifWa((n) => n || nomorHp);
-    if (!kategoriCode) setKategoriCode("pulsa");
-    setLangkah("katalog");
   };
 
   const pilihProduk = (p: Produk) => {
-    setProduk(p);
-    setPesanGalat(null);
-    if (PAKAI_NOMOR_HP.includes(kategoriCode)) {
-      setTargetNo(nomorHp);
-      void keKonfirmasi(nomorHp, p);
-      return;
-    }
-    setLangkah("target");
-  };
-
-  const keKonfirmasi = async (target: string, p: Produk) => {
-    setMemproses(true);
-    setInquiry(null);
-    try {
-      // Produk e-wallet & PPOB butuh nama pemilik akun (partial masking).
-      if (p.deliveryType === "PPOB_INQUIRY" || kategoriCode === "ewallet") {
-        const hasil = (await inquiryPelanggan({
-          brandCode: brandTerpilih?.code ?? "PLNTOKEN",
-          targetNo: target,
-        })) as HasilInquiry;
-        setInquiry(hasil);
-      }
-      if (!notifWa) setNotifWa(nomorHp);
-      setLangkah("konfirmasi");
-    } catch (err) {
-      setPesanGalat(err instanceof Error ? err.message : "Gagal mengambil data pelanggan.");
-    } finally {
-      setMemproses(false);
-    }
+    const berikut = jalankan({ jenis: "PILIH_PRODUK", produk: p });
+    if (berikut.memprosesInquiry) void jalankanInquiry(berikut);
   };
 
   const lanjutDariTarget = () => {
-    if (!produk) return;
-    if (produk.deliveryType === "INJECT_EMAIL") {
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email.trim())) {
-        setPesanGalat("Format email belum benar (contoh: nama@gmail.com).");
-        return;
-      }
-      setTargetNo(email.trim());
-      void keKonfirmasi(email.trim(), produk);
-      return;
-    }
-    if (!brandTerpilih) return;
-    const digit = targetNo.replace(/\D/g, "");
-    if (digit.length < brandTerpilih.minDigit || digit.length > brandTerpilih.maxDigit) {
-      const rentang =
-        brandTerpilih.minDigit === brandTerpilih.maxDigit
-          ? `${brandTerpilih.minDigit}`
-          : `${brandTerpilih.minDigit}–${brandTerpilih.maxDigit}`;
-      setPesanGalat(`${brandTerpilih.labelTarget} harus ${rentang} digit.`);
-      return;
-    }
-    setPesanGalat(null);
-    void keKonfirmasi(digit, produk);
+    const berikut = jalankan({ jenis: "LANJUT_TARGET", brand: brandTerpilih });
+    if (berikut.memprosesInquiry) void jalankanInquiry(berikut);
   };
 
   const bayarSekarang = async () => {
-    if (!produk || !terminal) return;
-    setMemproses(true);
-    setPesanGalat(null);
+    const berikut = jalankan({ jenis: "MULAI_BAYAR" });
+    // Reducer menolak lebih dulu bila data/nomor invoice belum valid.
+    if (!berikut.memprosesBayar || !berikut.produk || !terminal) return;
     try {
       const hasil = await createInvoice({
         terminalCode: terminal.code,
-        productId: produk.id as never,
-        targetNo,
-        notifWhatsapp: notifWa || nomorHp,
-        buyerPhone: nomorHp,
-        accountNameMasked: inquiry?.namaMasked,
+        productId: berikut.produk.id as never,
+        targetNo: berikut.targetNo,
+        notifWhatsapp: berikut.notifWa || berikut.nomorHp,
+        buyerPhone: berikut.nomorHp,
+        accountNameMasked: berikut.inquiry?.namaMasked,
       });
-      setInvoiceId(hasil.invoiceId);
-      menungguSejak.current = null;
-      setLangkah("qris");
+      dispatch({ jenis: "TAGIHAN_DIBUAT", invoiceId: hasil.invoiceId });
     } catch (err) {
-      setPesanGalat(err instanceof Error ? err.message : "Gagal membuat tagihan.");
-    } finally {
-      setMemproses(false);
+      dispatch({
+        jenis: "BAYAR_GAGAL",
+        pesan: err instanceof Error ? err.message : "Gagal membuat tagihan.",
+      });
     }
   };
 
   const simulasiBayar = async () => {
-    if (!invoiceId) return;
+    if (!flow.invoiceId) return;
     try {
-      await markPaid({ invoiceId, simulasi: true });
+      await markPaid({ invoiceId: flow.invoiceId, simulasi: true });
     } catch (err) {
-      setPesanGalat(err instanceof Error ? err.message : "Gagal menandai pembayaran.");
+      dispatch({
+        jenis: "BAYAR_GAGAL",
+        pesan: err instanceof Error ? err.message : "Gagal menandai pembayaran.",
+      });
     }
   };
 
   const batalkan = async () => {
-    if (invoiceId) await batalkanInvoice({ invoiceId }).catch(() => undefined);
-    setInvoiceId(null);
-    setLangkah("katalog");
+    if (flow.invoiceId) await batalkanInvoice({ invoiceId: flow.invoiceId }).catch(() => undefined);
+    dispatch({ jenis: "KEMBALI" });
+    dispatch({ jenis: "PILIH_KATEGORI", code: flow.kategoriCode || "pulsa" });
   };
 
   /** Susun data struk dari invoice (dipakai cetak & WhatsApp). */
-  const dataStruk = useCallback((): DataStruk | null => {
+  const dataStruk = useCallback((): ReturnType<typeof susunStruk> | null => {
     if (!invoice) return null;
-    return {
+    return susunStruk({
+      invoice: invoice as InvoiceInvoice,
       namaMerchant: pengaturan?.namaMerchantStruk ?? "STOP-UP! DIGITAL",
       alamat: pengaturan?.alamatStruk ?? "Terminal STOP-UP!",
-      terminal: invoice.terminalCode,
-      invoiceId: invoice.invoiceId,
-      waktu: labelWaktuWib(invoice.createdAt),
-      item: {
-        nama: invoice.produkNama,
-        tujuan: invoice.targetNo,
-        harga: invoice.sellPrice,
-      },
-      total: invoice.sellPrice,
-      metode: "QRIS",
-      status: invoice.status,
-      snRef: invoice.snRef,
-      voucherCode: invoice.voucherCode,
-      namaPelangganMasked: invoice.accountNameMasked,
       footer: pengaturan?.footerStruk,
-      pending: strukPending || invoice.status === "PROCESSING",
-    };
-  }, [invoice, pengaturan, strukPending]);
+      pending: flow.strukPending,
+    });
+  }, [invoice, pengaturan, flow.strukPending]);
 
   const cetakStruk = async () => {
     const data = dataStruk();
@@ -575,12 +479,16 @@ export default function Terminal() {
       (gantiStruk
         ? "⚠️ Printer terminal tidak dapat mencetak struk. Berikut bukti pembayaran digital Anda:\n\n"
         : "Bukti pembayaran STOP-UP!:\n\n") + formatStrukTeks(data);
-    window.open(tautanWhatsApp(invoice?.notifWhatsapp ?? nomorHp, pesan), "_blank", "noopener");
+    window.open(
+      tautanWhatsApp(invoice?.notifWhatsapp ?? flow.nomorHp, pesan),
+      "_blank",
+      "noopener",
+    );
   };
 
   /* ------------------------------- Render ------------------------------- */
 
-  if (langkah === "idle") {
+  if (flow.langkah === "idle") {
     return (
       <IdleScreen
         onMulai={mulaiDariIdle}
@@ -595,15 +503,15 @@ export default function Terminal() {
   }
 
   const judulLangkah =
-    langkah === "nomor"
+    flow.langkah === "nomor"
       ? "Masukkan Nomor HP"
-      : langkah === "katalog"
+      : flow.langkah === "katalog"
         ? "Pilih Layanan"
-        : langkah === "target"
-          ? brandTerpilih?.labelTarget ?? "Nomor Tujuan"
-          : langkah === "konfirmasi"
+        : flow.langkah === "target"
+          ? labelTargetFlow(flow.kategoriCode, flow.produk, brandTerpilih)
+          : flow.langkah === "konfirmasi"
             ? "Konfirmasi Pesanan"
-            : langkah === "qris"
+            : flow.langkah === "qris"
               ? "Pembayaran QRIS"
               : "Struk";
 
@@ -622,11 +530,10 @@ export default function Terminal() {
             <ShieldCheck className="size-3.5 text-emerald-300" />
             {printer.siap ? "Printer siap" : "Printer standby"}
           </span>
-          <span className="font-mono text-xs text-slate-400">
-            {labelWaktuWib(Date.now())}
-          </span>
+          <span className="font-mono text-xs text-slate-400">{labelWaktuWib(Date.now())}</span>
           <button
             type="button"
+            data-uji="batal"
             onPointerDown={(e) => {
               e.preventDefault();
               resetKeIdle();
@@ -640,16 +547,14 @@ export default function Terminal() {
 
       {/* ---------------- Judul langkah ---------------- */}
       <div className="flex shrink-0 items-center gap-3 px-5 pt-4">
-        {langkah !== "nomor" ? (
+        {flow.langkah !== "nomor" ? (
           <button
             type="button"
+            data-uji="kembali"
             aria-label="Kembali"
             onPointerDown={(e) => {
               e.preventDefault();
-              if (langkah === "katalog") setLangkah("nomor");
-              else if (langkah === "target") setLangkah("katalog");
-              else if (langkah === "konfirmasi") setLangkah("katalog");
-              else resetKeIdle();
+              dispatch({ jenis: "KEMBALI" });
             }}
             className="touch-key flex size-12 items-center justify-center rounded-2xl border border-slate-600/40 bg-slate-800/70 text-slate-200"
           >
@@ -657,92 +562,96 @@ export default function Terminal() {
           </button>
         ) : null}
         <div>
-          <h1 className="text-xl font-black tracking-wide text-slate-50">{judulLangkah}</h1>
+          <h1
+            data-uji="judul-langkah"
+            data-langkah={flow.langkah}
+            className="text-xl font-black tracking-wide text-slate-50"
+          >
+            {judulLangkah}
+          </h1>
           <p className="text-xs text-slate-400">
-            {langkah === "nomor"
+            {flow.langkah === "nomor"
               ? "Nomor ini dipakai untuk pengiriman produk & invoice WhatsApp"
-              : langkah === "katalog"
+              : flow.langkah === "katalog"
                 ? "Sentuh tab layanan, lalu pilih produk"
                 : "Periksa data sebelum membayar"}
           </p>
         </div>
       </div>
 
-      {pesanGalat ? (
-        <div className="mx-5 mt-3 flex items-center gap-2 rounded-2xl border border-rose-400/40 bg-rose-500/15 px-4 py-3 text-sm text-rose-100">
+      {flow.galat ? (
+        <div
+          data-uji="galat"
+          className="mx-5 mt-3 flex items-center gap-2 rounded-2xl border border-rose-400/40 bg-rose-500/15 px-4 py-3 text-sm text-rose-100"
+        >
           <TriangleAlert className="size-4 shrink-0" />
-          {pesanGalat}
+          {flow.galat}
         </div>
       ) : null}
 
       {/* ---------------- Konten langkah ---------------- */}
       <main className="kiosk-scroll flex-1 px-5 py-4">
-        {langkah === "nomor" ? (
-          <LangkahNomor
-            nomor={nomorHp}
-            operator={operator}
-            onAngka={(d) => setNomorHp((n) => normalisasiNomorHp(n + d))}
-            onHapus={() => setNomorHp((n) => n.slice(0, -1))}
-            onBersihkan={() => setNomorHp("")}
-            onLanjut={lanjutKeKatalog}
-          />
-        ) : null}
+        {flow.langkah === "nomor" ? <LangkahNomor {...langkahNomor} /> : null}
 
-        {langkah === "katalog" ? (
+        {flow.langkah === "katalog" ? (
           <LangkahKatalog
             kategori={kategoriList ?? []}
-            kategoriCode={kategoriCode}
-            onKategori={setKategoriCode}
+            kategoriCode={flow.kategoriCode}
+            onKategori={(code) => dispatch({ jenis: "PILIH_KATEGORI", code })}
             brand={brandList ?? []}
-            brandCode={brandCode}
-            onBrand={setBrandCode}
+            brandCode={flow.brandCode}
+            onBrand={(code) => dispatch({ jenis: "PILIH_BRAND", code })}
             produk={produkList ?? []}
             operator={operator}
             onPilih={pilihProduk}
+            memprosesInquiry={flow.memprosesInquiry}
           />
         ) : null}
 
-        {langkah === "target" ? (
+        {flow.langkah === "target" && flow.produk ? (
           <LangkahTarget
-            produk={produk}
+            produk={flow.produk}
             brand={brandTerpilih}
-            email={email}
-            setEmail={setEmail}
-            targetNo={targetNo}
-            setTargetNo={setTargetNo}
+            kategoriCode={flow.kategoriCode}
+            email={flow.email}
+            setEmail={(nilai) => dispatch({ jenis: "SET_EMAIL", nilai })}
+            targetNo={flow.targetNo}
+            onKetik={(digit) => dispatch({ jenis: "KETIK_TARGET", digit })}
+            onHapus={() => dispatch({ jenis: "HAPUS_TARGET" })}
+            onBersihkan={() => dispatch({ jenis: "BERSIHKAN_TARGET" })}
             onLanjut={lanjutDariTarget}
-            memproses={memproses}
+            memproses={flow.memprosesInquiry}
           />
         ) : null}
 
-        {langkah === "konfirmasi" && produk ? (
+        {flow.langkah === "konfirmasi" && flow.produk ? (
           <LangkahKonfirmasi
-            produk={produk}
+            produk={flow.produk}
             brand={brandTerpilih}
-            kategoriCode={kategoriCode}
-            nomorHp={nomorHp}
-            targetNo={targetNo}
-            inquiry={inquiry}
-            notifWa={notifWa}
-            setNotifWa={setNotifWa}
-            memproses={memproses}
+            kategoriCode={flow.kategoriCode}
+            nomorHp={flow.nomorHp}
+            targetNo={flow.targetNo}
+            inquiry={flow.inquiry}
+            notifWa={flow.notifWa}
+            setNotifWa={(nilai) => dispatch({ jenis: "SET_NOTIF_WA", nilai })}
+            memproses={flow.memprosesBayar}
             onBayar={bayarSekarang}
           />
         ) : null}
 
-        {langkah === "qris" && invoice ? (
+        {flow.langkah === "qris" && invoice ? (
           <LangkahQris
-            invoice={invoice}
+            invoice={invoice as InvoiceView}
             penundaan={penundaan}
             onSimulasi={simulasiBayar}
             onBatalkan={batalkan}
           />
         ) : null}
 
-        {langkah === "struk" && invoice ? (
+        {flow.langkah === "struk" && invoice ? (
           <LangkahStruk
-            invoice={invoice}
-            pending={strukPending || invoice.status === "PROCESSING"}
+            invoice={invoice as InvoiceView}
+            pending={flow.strukPending || invoice.status === "PROCESSING"}
             printerSiap={printer.siap}
             printerDidukung={printer.didukung}
             onSambungkanPrinter={printer.sambungkan}
@@ -758,9 +667,7 @@ export default function Terminal() {
         <div className="absolute inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-md">
           <div className="kiosk-surface w-[min(92vw,460px)] rounded-3xl p-7 text-center">
             <Clock className="mx-auto size-10 text-amber-300" />
-            <h2 className="mt-4 text-lg font-black text-slate-50">
-              Masih di sana?
-            </h2>
+            <h2 className="mt-4 text-lg font-black text-slate-50">Masih di sana?</h2>
             <p className="mt-1.5 text-sm text-slate-300">
               Sesi akan direset otomatis dalam{" "}
               <span className="font-mono text-lg font-bold text-amber-200">{peringatan}</span>{" "}
@@ -769,11 +676,7 @@ export default function Terminal() {
             <TombolKiosk className="mt-6 w-full" onClick={() => setPeringatan(null)}>
               LANJUTKAN TRANSAKSI
             </TombolKiosk>
-            <TombolKiosk
-              variasi="sekunder"
-              className="mt-3 w-full"
-              onClick={resetKeIdle}
-            >
+            <TombolKiosk variasi="sekunder" className="mt-3 w-full" onClick={resetKeIdle}>
               SELESAI &amp; KEMBALI KE AWAL
             </TombolKiosk>
           </div>
@@ -782,6 +685,9 @@ export default function Terminal() {
     </div>
   );
 }
+
+/** Invoice dari Convex → bentuk yang dibutuhkan penyusun struk. */
+type InvoiceInvoice = InvoiceUntukStruk;
 
 /* ============================ SUB-LANGKAH ============================ */
 
@@ -806,10 +712,12 @@ function LangkahNomor({
   return (
     <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
       <div className="space-y-5">
-        {/* Display nomor */}
         <div className="kiosk-surface rounded-3xl p-6">
           <p className="text-xs uppercase tracking-[0.3em] text-slate-500">Nomor Handphone</p>
-          <p className="mt-3 font-mono text-4xl font-black tracking-wider text-slate-50 sm:text-5xl">
+          <p
+            data-uji="nomor-terpilih"
+            className="mt-3 font-mono text-4xl font-black tracking-wider text-slate-50 sm:text-5xl"
+          >
             {nomor || <span className="text-slate-600">08xxxxxxxxxx</span>}
           </p>
           <div className="mt-4 flex flex-wrap items-center gap-3">
@@ -818,6 +726,7 @@ function LangkahNomor({
             </span>
             {cukup && operator ? (
               <span
+                data-uji="badge-operator"
                 className="flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-bold"
                 style={{
                   borderColor: `${operator.warna}80`,
@@ -836,18 +745,27 @@ function LangkahNomor({
           </div>
         </div>
 
-        {/* Catatan validasi */}
         <div className="kiosk-surface rounded-3xl p-5">
           <p className="text-sm font-semibold text-slate-200">Syarat nomor</p>
           <ul className="mt-2 space-y-1 text-xs text-slate-400">
-            <li>• Panjang 10 – 13 digit dan diawali <span className="font-mono">08</span>.</li>
-            <li>• Menulis <span className="font-mono">62</span> / <span className="font-mono">+62</span> otomatis menjadi <span className="font-mono">08</span>.</li>
+            <li>
+              • Panjang 10 – 13 digit dan diawali <span className="font-mono">08</span>.
+            </li>
+            <li>
+              • Menulis <span className="font-mono">62</span> /{" "}
+              <span className="font-mono">+62</span> otomatis menjadi{" "}
+              <span className="font-mono">08</span>.
+            </li>
             <li>• Operator dideteksi otomatis dari 4 digit pertama.</li>
           </ul>
           <p className="mt-3 text-xs text-rose-200">{cek.valid ? "" : cek.pesan}</p>
         </div>
 
-        <TombolKiosk className="w-full" onClick={onLanjut} disabled={!cek.valid}>
+        <TombolKiosk
+          className="w-full"
+          onClick={onLanjut}
+          disabled={!cek.valid}
+        >
           LANJUT PILIH LAYANAN
         </TombolKiosk>
       </div>
@@ -872,6 +790,7 @@ function LangkahKatalog({
   produk,
   operator,
   onPilih,
+  memprosesInquiry,
 }: {
   kategori: Kategori[];
   kategoriCode: string;
@@ -882,14 +801,24 @@ function LangkahKatalog({
   produk: Produk[];
   operator: Operator | null;
   onPilih: (p: Produk) => void;
+  memprosesInquiry: boolean;
 }) {
   const kategoriAktif = kategori.find((k) => k.code === kategoriCode);
   const brandAktif = brand.find((b) => b.code === brandCode);
-  const urutOperator = PAKAI_NOMOR_HP.includes(kategoriCode) && operator;
+  const urutOperator = pakaiNomorHp(kategoriCode) && operator;
+  const belumPilihBrand = !brandCode && brand.length > 1;
 
   return (
     <div className="space-y-4">
-      {/* Tab layanan */}
+      {memprosesInquiry ? (
+        <div
+          data-uji="memeriksa"
+          className="rounded-2xl border border-sky-400/40 bg-sky-500/10 px-4 py-3 text-sm text-sky-100"
+        >
+          Memeriksa data pelanggan ke supplier…
+        </div>
+      ) : null}
+
       <div className="flex flex-wrap gap-2.5">
         {kategori.map((k) => {
           const aktif = k.code === kategoriCode;
@@ -897,6 +826,7 @@ function LangkahKatalog({
             <button
               key={k.code}
               type="button"
+              data-uji={`kategori-${k.code}`}
               onPointerDown={(e) => {
                 e.preventDefault();
                 onKategori(k.code);
@@ -920,7 +850,6 @@ function LangkahKatalog({
         </div>
       ) : null}
 
-      {/* Filter brand */}
       {brand.length > 0 ? (
         <div className="kiosk-surface rounded-3xl p-4">
           <p className="mb-3 text-xs uppercase tracking-[0.28em] text-slate-500">
@@ -929,11 +858,12 @@ function LangkahKatalog({
           <div className="flex flex-wrap gap-2">
             {brand.map((b) => {
               const aktif = b.code === brandCode;
-              const disarankan = urutOperator && operator?.kode === b.code;
+              const disarankan = urutOperator && operator?.brandCode === b.code;
               return (
                 <button
                   key={b.code}
                   type="button"
+                  data-uji={`brand-${b.code}`}
                   onPointerDown={(e) => {
                     e.preventDefault();
                     onBrand(b.code);
@@ -959,12 +889,12 @@ function LangkahKatalog({
         </div>
       ) : null}
 
-      {/* Grid produk */}
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {produk.map((p) => (
           <button
             key={p.id}
             type="button"
+            data-uji={`produk-${p.code}`}
             onPointerDown={(e) => {
               e.preventDefault();
               onPilih(p);
@@ -1005,7 +935,13 @@ function LangkahKatalog({
         ))}
       </div>
 
-      {brandAktif && produk.length === 0 ? (
+      {belumPilihBrand && !memprosesInquiry ? (
+        <div className="kiosk-surface rounded-3xl p-8 text-center text-sm text-slate-300">
+          Pilih brand di atas untuk menampilkan produk.
+        </div>
+      ) : null}
+
+      {brandAktif && produk.length === 0 && !memprosesInquiry ? (
         <div className="kiosk-surface rounded-3xl p-8 text-center text-sm text-slate-400">
           Tidak ada produk aktif untuk {brandAktif.name}.
         </div>
@@ -1017,42 +953,49 @@ function LangkahKatalog({
 function LangkahTarget({
   produk,
   brand,
+  kategoriCode,
   email,
   setEmail,
   targetNo,
-  setTargetNo,
+  onKetik,
+  onHapus,
+  onBersihkan,
   onLanjut,
   memproses,
 }: {
-  produk: Produk | null;
+  produk: ProdukRingkas;
   brand: Brand | null;
+  kategoriCode: string;
   email: string;
-  setEmail: (v: string) => void;
+  setEmail: (nilai: string) => void;
   targetNo: string;
-  setTargetNo: (v: string) => void;
+  onKetik: (digit: string) => void;
+  onHapus: () => void;
+  onBersihkan: () => void;
   onLanjut: () => void;
   memproses: boolean;
 }) {
-  if (!produk) return null;
   const butuhEmail = produk.deliveryType === "INJECT_EMAIL";
+  const label = labelTargetFlow(kategoriCode, produk, brand);
 
   return (
     <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_420px]">
       <div className="kiosk-surface rounded-3xl p-6">
-        <p className="text-xs uppercase tracking-[0.3em] text-slate-500">
-          {butuhEmail ? "Email Pembeli" : brand?.labelTarget ?? "Nomor Tujuan"}
-        </p>
-        <p className="mt-2.5 font-mono text-2xl font-black break-all text-slate-50 sm:text-3xl">
-          {butuhEmail ? email || <span className="text-slate-600">nama@domain.com</span> : targetNo || <span className="text-slate-600">{brand?.contohId || "000000000000"}</span>}
+        <p className="text-xs uppercase tracking-[0.3em] text-slate-500">{label}</p>
+        <p
+          data-uji="target-terpilih"
+          className="mt-2.5 font-mono text-2xl font-black break-all text-slate-50 sm:text-3xl"
+        >
+          {butuhEmail ? (
+            email || <span className="text-slate-600">nama@domain.com</span>
+          ) : (
+            targetNo || <span className="text-slate-600">{brand?.contohId || "000000000000"}</span>
+          )}
         </p>
         <p className="mt-3 text-xs text-slate-400">
           {butuhEmail
             ? "Produk ini dikirim dengan cara injeksi ke email pembeli. Pastikan email aktif."
-            : `Produk ${produk.name} membutuhkan ${
-                brand?.minDigit === brand?.maxDigit
-                  ? `${brand?.minDigit}`
-                  : `${brand?.minDigit}–${brand?.maxDigit}`
-              } digit.`}
+            : `Produk ${produk.name} membutuhkan ${rentangDigit(brand)} digit.`}
         </p>
 
         {butuhEmail ? (
@@ -1087,13 +1030,9 @@ function LangkahTarget({
           />
         ) : (
           <>
-            <Numpad
-              onAngka={(d) => setTargetNo(`${targetNo}${d}`)}
-              onHapus={() => setTargetNo(targetNo.slice(0, -1))}
-              onBersihkan={() => setTargetNo("")}
-            />
+            <Numpad onAngka={onKetik} onHapus={onHapus} onBersihkan={onBersihkan} />
             <p className="mt-3 text-center text-[11px] text-slate-500">
-              {brand?.labelTarget ?? "Nomor Tujuan"} · contoh {brand?.contohId || "000000000000"}
+              {label} · contoh {brand?.contohId || "000000000000"}
             </p>
           </>
         )}
@@ -1114,7 +1053,7 @@ function LangkahKonfirmasi({
   memproses,
   onBayar,
 }: {
-  produk: Produk;
+  produk: ProdukRingkas;
   brand: Brand | null;
   kategoriCode: string;
   nomorHp: string;
@@ -1128,7 +1067,7 @@ function LangkahKonfirmasi({
   const butuhEmail = produk.deliveryType === "INJECT_EMAIL";
   const targetTampil = butuhEmail
     ? maskEmail(targetNo)
-    : PAKAI_NOMOR_HP.includes(kategoriCode)
+    : pakaiNomorHp(kategoriCode)
       ? maskNomorHp(targetNo)
       : maskIdPelanggan(targetNo);
   const total = produk.harga + (inquiry?.tagihan ?? 0);
@@ -1151,13 +1090,17 @@ function LangkahKonfirmasi({
         <dl className="mt-5 space-y-3 text-sm">
           <div className="flex items-center justify-between gap-4">
             <dt className="text-slate-400">Nomor tujuan</dt>
-            <dd className="font-mono text-slate-100">{targetTampil}</dd>
+            <dd data-uji="konfirmasi-target" className="font-mono text-slate-100">
+              {targetTampil}
+            </dd>
           </div>
           {inquiry ? (
             <div className="flex items-center justify-between gap-4">
               <dt className="text-slate-400">{inquiry.label}</dt>
               <dd className="flex items-center gap-2">
-                <span className="font-bold text-slate-100">{inquiry.namaMasked}</span>
+                <span data-uji="nama-masked" className="font-bold text-slate-100">
+                  {inquiry.namaMasked}
+                </span>
                 <span
                   className={`rounded-full px-2 py-0.5 text-[10px] font-black ${
                     inquiry.sumber === "SUPPLIER"
@@ -1211,7 +1154,10 @@ function LangkahKonfirmasi({
 
       <div className="kiosk-surface flex flex-col rounded-3xl p-6">
         <p className="text-xs uppercase tracking-[0.3em] text-slate-500">Total Bayar</p>
-        <p className="mt-2 font-mono text-4xl font-black text-emerald-300">
+        <p
+          data-uji="total-bayar"
+          className="mt-2 font-mono text-4xl font-black text-emerald-300"
+        >
           {rupiah(total)}
         </p>
         <p className="mt-2 text-xs text-slate-400">
@@ -1223,7 +1169,11 @@ function LangkahKonfirmasi({
           Produk dikirim otomatis setelah pembayaran terverifikasi.
         </div>
 
-        <TombolKiosk className="mt-auto w-full" onClick={onBayar} disabled={memproses}>
+        <TombolKiosk
+          className="mt-auto w-full"
+          onClick={onBayar}
+          disabled={memproses}
+          >
           <CreditCard className="size-5" />
           {memproses ? "MEMBUAT TAGIHAN…" : "BAYAR DENGAN QRIS"}
         </TombolKiosk>
@@ -1264,15 +1214,16 @@ function LangkahQris({
   return (
     <div className="grid gap-5 lg:grid-cols-[minmax(0,420px)_minmax(0,1fr)]">
       <div className="kiosk-surface flex flex-col items-center rounded-3xl p-6">
-        {invoice.pembayaran ? (
-          <KanvasQr teks={invoice.pembayaran.qrString} ukuran={248} />
-        ) : null}
+        {invoice.pembayaran ? <KanvasQr teks={invoice.pembayaran.qrString} ukuran={248} /> : null}
         <p className="mt-4 font-mono text-3xl font-black text-slate-50">
           {rupiah(invoice.pembayaran?.amount ?? invoice.sellPrice)}
         </p>
         <div className="mt-2 flex items-center gap-2 text-xs text-slate-400">
           <Clock className="size-3.5" />
-          Berlaku <span className="font-mono text-amber-200">{menit}:{detik}</span>
+          Berlaku{" "}
+          <span className="font-mono text-amber-200">
+            {menit}:{detik}
+          </span>
         </div>
         <p className="mt-2 font-mono text-[11px] text-slate-500">{invoice.invoiceId}</p>
       </div>
@@ -1284,7 +1235,9 @@ function LangkahQris({
           </p>
           <ul className="mt-3 space-y-1.5 text-sm text-slate-300">
             <li>1. Buka aplikasi pembayaran pilihan Anda.</li>
-            <li>2. Pilih menu <span className="font-semibold">QRIS / Scan QR</span>.</li>
+            <li>
+              2. Pilih menu <span className="font-semibold">QRIS / Scan QR</span>.
+            </li>
             <li>3. Arahkan kamera ke QR di layar ini.</li>
             <li>4. Periksa nominal, lalu konfirmasi pembayaran.</li>
           </ul>
@@ -1296,7 +1249,7 @@ function LangkahQris({
 
         <div className="kiosk-surface rounded-3xl p-6">
           <p className="text-sm font-bold text-slate-100">Status</p>
-          <p className="mt-1 text-sm text-slate-300">
+          <p data-uji="status-qris" className="mt-1 text-sm text-slate-300">
             {invoice.status === "PENDING"
               ? "Menunggu pembayaran…"
               : invoice.status === "PROCESSING"
@@ -1325,8 +1278,8 @@ function LangkahQris({
             </TombolKiosk>
           </div>
           <p className="mt-3 text-[11px] leading-4 text-slate-500">
-            Tombol simulasi hanya untuk pengujian tanpa payment gateway. Pada
-            produksi, status berubah dari callback QRIS bertanda tangan HMAC.
+            Tombol simulasi hanya untuk pengujian tanpa payment gateway. Pada produksi,
+            status berubah dari callback QRIS bertanda tangan HMAC.
           </p>
         </div>
       </div>
@@ -1354,15 +1307,11 @@ function LangkahStruk({
   onSelesai: () => void;
 }) {
   const gagal = invoice.status === "FAILED";
-  const warna = gagal
-    ? "text-rose-300"
-    : pending
-      ? "text-amber-300"
-      : "text-emerald-300";
+  const warna = gagal ? "text-rose-300" : pending ? "text-amber-300" : "text-emerald-300";
 
   return (
     <div className="mx-auto max-w-3xl space-y-4">
-      <div className="kiosk-surface rounded-3xl p-7 text-center">
+      <div data-uji="struk" className="kiosk-surface rounded-3xl p-7 text-center">
         {gagal ? (
           <TriangleAlert className="mx-auto size-12 text-rose-300" />
         ) : (
@@ -1377,7 +1326,7 @@ function LangkahStruk({
         </h2>
         <p className="mt-1.5 text-sm text-slate-300">
           {gagal
-            ? invoice.catatanGagal ?? "Produk tidak dapat diproses supplier."
+            ? (invoice.catatanGagal ?? "Produk tidak dapat diproses supplier.")
             : pending
               ? "Bukti sementara dicetak. Update status dikirim ke WhatsApp Anda."
               : "Produk sudah dikirim dan struk siap dicetak."}
@@ -1396,7 +1345,10 @@ function LangkahStruk({
       </div>
 
       {invoice.voucherCode ? (
-        <div className="kiosk-surface rounded-3xl border-amber-300/40 p-6 text-center">
+        <div
+          data-uji="kode-voucher"
+          className="kiosk-surface rounded-3xl border-amber-300/40 p-6 text-center"
+        >
           <p className="text-xs uppercase tracking-[0.3em] text-amber-200/80">
             Redeem Key — simpan kode ini
           </p>
@@ -1409,8 +1361,8 @@ function LangkahStruk({
       <div className="grid gap-3 sm:grid-cols-3">
         {!printerDidukung ? (
           <div className="kiosk-surface rounded-2xl p-4 text-xs text-slate-400 sm:col-span-3">
-            Browser ini tidak mendukung Web Serial, jadi struk dialihkan 100% ke
-            WhatsApp. Gunakan Chrome/Edge pada perangkat terminal untuk mencetak.
+            Browser ini tidak mendukung Web Serial, jadi struk dialihkan 100% ke WhatsApp.
+            Gunakan Chrome/Edge pada perangkat terminal untuk mencetak.
           </div>
         ) : printerSiap ? (
           <TombolKiosk variasi="sekunder" onClick={onCetak}>
@@ -1428,8 +1380,7 @@ function LangkahStruk({
       </div>
 
       <p className="text-center text-[11px] text-slate-500">
-        Kertas habis? Bukti bayar otomatis dialihkan ke WhatsApp saat tombol cetak
-        ditekan.
+        Kertas habis? Bukti bayar otomatis dialihkan ke WhatsApp saat tombol cetak ditekan.
       </p>
     </div>
   );
@@ -1459,3 +1410,6 @@ function InfoBaris({
     </div>
   );
 }
+
+/** Dipakai hanya untuk dokumentasi tipe langkah pada data-attribute uji. */
+export type LangkahTerminal = Langkah;

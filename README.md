@@ -52,11 +52,30 @@ ESC/POS, dan panel admin operasional.
 ## Test
 
 ```bash
-bun src/lib/stopup/pricing.test.ts   # harga, margin, bulk price, guard rugi
-bun src/lib/stopup/qris.test.ts      # payload EMVCo + CRC, pembangkit kode
-bun src/utils/masking.test.ts        # partial masking + auto-detect operator
-bun src/utils/escpos.test.ts         # byte struk ESC/POS & format WhatsApp
+bun run test          # semua berkas *.test.ts (runner: scripts/run-tests.ts)
+bun run test:stopup   # khusus modul STOP-UP!
 ```
+
+**Kenapa alur terminal aman diubah:** seluruh perpindahan langkah layar
+sentuh — Idle → nomor HP → katalog → target → konfirmasi → QRIS → struk —
+berada di satu reducer murni, `src/lib/stopup/terminal-flow.ts`, yang benar-benar
+dipakai `src/pages/Terminal.tsx` (bukan salinan logika untuk uji).
+
+`src/lib/stopup/terminal-flow.test.ts` menjalankan perjalanan pelanggan
+lengkap tanpa browser, tanpa Convex, dan tanpa timer palsu — termasuk:
+
+* kelima kategori layanan (pulsa, paket data, e-wallet, PPOB & PLN, apps premium)
+  sampai struk tercetak (isi struk ESC/POS ikut diverifikasi);
+* validasi nomor HP, panjang ID pelanggan PPOB, dan format email;
+* inquiry wajib (PPOB & e-wallet) beserta kegagalannya;
+* struk sementara saat supplier lewat 25 detik, lalu naik menjadi final;
+* tagihan QRIS kedaluwarsa, pascabayar dengan tagihan, dan pemisahan digit;
+* penjaga alur: tidak ada jalan pintas ke layar bayar, dan reset idle total.
+
+Berkas uji lain: `src/lib/stopup/pricing.test.ts` (harga, margin, bulk price,
+guard jual rugi), `src/lib/stopup/qris.test.ts` (payload EMVCo + CRC, pembangkit
+kode), `src/utils/masking.test.ts` (partial masking + auto-detect operator),
+`src/utils/escpos.test.ts` (byte struk ESC/POS & format WhatsApp).
 
 ---
 

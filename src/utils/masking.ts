@@ -93,6 +93,23 @@ export function normalisasiNomorHp(input: string): string {
   return digit.slice(0, 13);
 }
 
+/**
+ * Normalisasi satu ketukan tombol numpad.
+ *
+ * Patokan: JANGAN menambahkan "0" di depan setiap ketukan — kalau dipaksa,
+ * ketikan "6" langsung menjadi "06" sehingga urutan "62…" tidak pernah bisa
+ * dikenali. Karena itu di sini hanya dua koreksi yang diterapkan:
+ *   "62…" → "08…"   (termasuk mengetik 62 sebelum 8)
+ *   "8…"  → "08…"
+ * Selebihnya dibiarkan apa adanya dan divalidasi saat menekan LANJUT.
+ */
+export function normalisasiKetikNomorHp(nilaiSaatIni: string, digit: string): string {
+  const gabung = `${nilaiSaatIni}${digit}`.replace(/\D/g, "");
+  if (gabung.startsWith("62")) return `0${gabung.slice(2)}`.slice(0, 13);
+  if (gabung.startsWith("8")) return `0${gabung}`.slice(0, 13);
+  return gabung.slice(0, 13);
+}
+
 /** Prefix `62` untuk tautan WhatsApp / pengiriman invoice. */
 export function keFormatWhatsapp(nomor: string): string {
   const digit = normalisasiNomorHp(nomor).replace(/^0/, "");
