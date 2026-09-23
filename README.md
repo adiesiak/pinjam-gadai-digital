@@ -1,3 +1,65 @@
+# STOP-UP! — Layanan Digital Mandiri
+
+> **Stop Sejenak, Top-Up Cepat!** — Terminal layanan digital mandiri (pulsa, paket
+data, e-wallet, PPOB & PLN, apps premium) dengan pembayaran QRIS, struk thermal
+ESC/POS, dan panel admin operasional.
+
+## Peta halaman
+
+| Rute | Isi |
+| --- | --- |
+| `/` atau `/terminal` | **Layar terminal sentuh** — Idle screen → input nomor HP (numpad + auto-detect operator) → katalog (smart routing) → konfirmasi (invoice WhatsApp bisa diubah) → QRIS → struk. |
+| `/admin` | **Panel admin** — Overview, Transaksi, Katalog & Harga, Supplier H2H, Terminal Monitor, Payment Gateway, User Management (perlu login). |
+| `/auth` | Masuk/daftar. Setelah masuk diarahkan ke `/admin`. Admin pertama bisa membuat dirinya sendiri dari layar *Akses Terbatas*. |
+| `/pindai` | Modul PINDAI (pinjam & gadai digital) yang tetap dipertahankan. |
+
+## Data & katalog
+
+* Database: Convex (`src/convex/schema.ts`, modul STOP-UP! ber-prefix `su*`).
+* Saat pertama dibuka, layar terminal menjalankan **provisioning sekali jalan**
+  (`stopup/suppliers.bootstrap`): membuat terminal `SU-01`, supplier H2H
+  `digiflazz` (mode sandbox), lalu memuat katalog acuan **hanya bila tabel produk
+  masih kosong**. Katalog/harga yang sudah diatur operator tidak pernah ditimpa.
+* **One-Click Catalog Sync** di panel admin → *Supplier H2H* menarik ulang katalog.
+  Tanpa API key, sync berjalan **Mode Simulasi** memakai `src/lib/stopup/master-catalog.ts`.
+* Harga uang selalu **rupiah bulat** (integer) — tidak ada floating-point di jalur transaksi.
+
+## Integrasi yang perlu diisi operator
+
+* **Payment gateway QRIS** (panel *Payment Gateway*) → merchant ID, API key,
+  webhook secret. Callback: `POST {CONVEX_SITE_URL}/stopup/qris/callback` dengan
+  header `X-Signature` = HMAC-SHA256(body mentah, webhook secret) hex, timestamp
+  ±5 menit (anti replay) dan `eventId` unik (idempotensi). Bila webhook secret
+  sudah diisi, tombol simulasi pembayaran di terminal otomatis ditolak.
+* **Supplier H2H** (panel *Supplier H2H*) → API key + secret/username, mode
+  `production`. Pemetaan: Digiflazz → API key + username; Tripay adalah payment
+  gateway QRIS, bukan pengirim produk.
+* **Telegram Alert** → bot token + chat ID; cron 30 menit mengirim peringatan
+  saldo supplier rendah dan printer bermasalah.
+
+## Menjalankan terminal (kiosk)
+
+* `./startup.sh` (Linux/ChromeOS/Raspberry Pi) atau `startup.bat` (Windows)
+  menjalankan Chrome mode kiosk dengan profil persisten (izin Web Serial printer
+  cukup diberikan sekali).
+* Atribut kiosk di dalam aplikasi: pintasan `F12`, `Ctrl+W`, `Ctrl+R`, `Ctrl+P`,
+  `Alt+Tab`, klik-kanan, pinch-zoom, dan text selection diblokir; auto-reset idle
+  45 detik (popup 15 detik) dan auto-reload harian 03.00 WIB saat Idle.
+* Printer thermal: Web Serial (`src/utils/escpos.ts`, `src/hooks/useThermalPrinter.ts`).
+  Kertas habis / printer terputus → bukti bayar otomatis dialihkan ke WhatsApp
+  (satu-satunya jalur pada browser tanpa Web Serial).
+
+## Test
+
+```bash
+bun src/lib/stopup/pricing.test.ts   # harga, margin, bulk price, guard rugi
+bun src/lib/stopup/qris.test.ts      # payload EMVCo + CRC, pembangkit kode
+bun src/utils/masking.test.ts        # partial masking + auto-detect operator
+bun src/utils/escpos.test.ts         # byte struk ESC/POS & format WhatsApp
+```
+
+---
+
 ## Overview
 
 This project uses the following tech stack:
