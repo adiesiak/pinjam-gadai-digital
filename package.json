@@ -8,9 +8,7 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "format": "prettier --write .",
-    "preview": "vite preview",
-    "test": "bun scripts/run-tests.ts",
-    "test:stopup": "bun src/lib/stopup/terminal-flow.test.ts && bun src/lib/stopup/pricing.test.ts && bun src/lib/stopup/qris.test.ts && bun src/utils/masking.test.ts && bun src/utils/escpos.test.ts"
+    "preview": "vite preview"
   },
   "dependencies": {
     "@convex-dev/auth": "^0.0.90",
@@ -45,7 +43,6 @@
     "@radix-ui/react-tooltip": "^1.2.8",
     "@tailwindcss/vite": "^4.1.17",
     "@types/leaflet": "^1.9.22",
-    "@types/qrcode": "^1.5.6",
     "@vly-ai/integrations": "^0.6.14",
     "@zumer/snapdom": "^2.0.1",
     "axios": "^1.13.2",
@@ -61,7 +58,6 @@
     "leaflet": "^1.9.4",
     "lucide-react": "^0.555.0",
     "next-themes": "^0.4.6",
-    "qrcode": "^1.5.4",
     "react": "^19.2.0",
     "react-day-picker": "9.13.0",
     "react-dom": "^19.2.0",
