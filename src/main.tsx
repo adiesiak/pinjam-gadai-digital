@@ -14,6 +14,7 @@ import { useSessionGuard } from "@/hooks/use-session-guard";
 // Lazy load route components for better code splitting
 const Landing = lazy(() => import("./pages/Landing.tsx"));
 const AuthPage = lazy(() => import("./pages/Auth.tsx"));
+const LoginPage = lazy(() => import("./pages/Login.tsx"));
 const Dashboard = lazy(() => import("./pages/Dashboard.tsx"));
 const Admin = lazy(() => import("./pages/Admin.tsx"));
 const Pendana = lazy(() => import("./pages/Pendana.tsx"));
@@ -136,6 +137,7 @@ createRoot(document.getElementById("root")!).render(
                 path="/auth"
                 element={<AuthPage redirectAfterAuth="/dashboard" />}
               />
+              <Route path="/login" element={<LoginPage />} />
               <Route
                 path="/dashboard"
                 element={

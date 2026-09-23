@@ -327,4 +327,37 @@
   [data-slot="tabs-trigger"][data-state="active"] {
     background-image: linear-gradient(180deg, #7dd8fc 0%, #38bdf8 55%, #0ea5e9 100%);
   }
+
+  /* ===== Claymorphism tambahan (login & dashboard shell) ===== */
+  /* Kilau kaca glassmorphic di kartu ringkasan & hero. */
+  .clay-sheen::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: linear-gradient(
+      120deg,
+      oklch(1 0 0 / 0.45) 0%,
+      oklch(1 0 0 / 0.06) 30%,
+      oklch(1 0 0 / 0) 55%,
+      oklch(1 0 0 / 0.18) 100%
+    );
+    pointer-events: none;
+  }
+  /* Bayangan clay ganda khas spesifikasi (sky lembut + highlight putih). */
+  .clay-double-shadow {
+    box-shadow:
+      8px 8px 16px rgba(56, 189, 248, 0.15),
+      -4px -4px 12px rgba(255, 255, 255, 0.9);
+  }
+  /* Kartu login — clay card + double shadow. */
+  .clay-card-login {
+    border-radius: 1.75rem;
+    background: #ffffff;
+    border: 1px solid oklch(0.92 0.03 230);
+    box-shadow:
+      8px 8px 16px rgba(56, 189, 248, 0.15),
+      -4px -4px 12px rgba(255, 255, 255, 0.9),
+      inset 0 -6px 14px oklch(0.55 0.12 240 / 0.05);
+  }
 }

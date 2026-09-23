@@ -48,6 +48,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/hooks/use-auth";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
+import { DashboardShell, type DockTab, type SummaryCard } from "@/components/DashboardShell";
 import { ContractPrintButton } from "@/components/EContract";
 import {
   buildPinjamanContract,
@@ -316,57 +317,127 @@ export default function Dashboard() {
 
   const greetingName = user?.name ?? user?.email?.split("@")[0] ?? "Nasabah";
 
+  // ===== Dock tabs — sinkron dengan Tabs utama (state terkontrol) =====
+  const [tab, setTab] = useState("pinjaman");
+  const jumlahGadaiAktif = useMemo(
+    () => (pawns ?? []).filter((p) => p.status === "aktif").length,
+    [pawns],
+  );
+  const dockTabs: DockTab[] = [
+    {
+      key: "pinjaman",
+      label: "Pinjaman Aktif",
+      shortLabel: "Pinjaman",
+      icon: <Wallet3D size={18} />,
+      onSelect: () => setTab("pinjaman"),
+      active: tab === "pinjaman",
+    },
+    {
+      key: "jadwal",
+      label: "Jadwal Angsuran",
+      shortLabel: "Jadwal",
+      icon: <Calendar3D size={18} />,
+      onSelect: () => setTab("jadwal"),
+      active: tab === "jadwal",
+    },
+    {
+      key: "gadai",
+      label: "Jaminan Gadai",
+      shortLabel: "Gadai",
+      icon: <VaultBox3D size={18} />,
+      badge: jumlahGadaiAktif,
+      onSelect: () => setTab("gadai"),
+      active: tab === "gadai",
+    },
+    {
+      key: "kontrak",
+      label: "E-Contract",
+      shortLabel: "Kontrak",
+      icon: <Certificate3D size={18} />,
+      onSelect: () => setTab("kontrak"),
+      active: tab === "kontrak",
+    },
+    {
+      key: "form",
+      label: "Pengajuan Baru",
+      shortLabel: "Ajukan",
+      icon: <Form3D size={18} />,
+      onSelect: () => setTab("form"),
+      active: tab === "form",
+    },
+    {
+      key: "riwayat",
+      label: "Riwayat",
+      shortLabel: "Riwayat",
+      icon: <History3D size={18} />,
+      onSelect: () => setTab("riwayat"),
+      active: tab === "riwayat",
+    },
+  ];
+
+  const summaryCards: SummaryCard[] = [
+    {
+      label: "Dana Bersih Diterima",
+      nilai: danaBersihTotal,
+      keterangan: "Hasil cair 95% (Skema A) / 99% (Gadai) tanpa potongan tersembunyi.",
+      tone: "mint",
+      icon: <Wallet className="size-5" />,
+    },
+    {
+      label: "Total Kewajiban Pelunasan",
+      nilai: totalKewajiban,
+      keterangan: "Pokok + Bunga (130%) — imbal hasil hak finansial Pendana.",
+      tone: "amber",
+      icon: <CalendarClock className="size-5" />,
+    },
+    {
+      label: "Sisa Tagihan Berjalan",
+      nilai: sisaTagihan,
+      keterangan: jatuhTempoTerdekat
+        ? `Jatuh tempo ${
+            jatuhTempoTerdekat.pelunasan?.hariTerlambat &&
+            jatuhTempoTerdekat.pelunasan.hariTerlambat > 0
+              ? `terlambat ${jatuhTempoTerdekat.pelunasan.hariTerlambat} hari`
+              : `${jatuhTempoTerdekat.pelunasan?.sisaHari ?? 0} hari lagi`
+          }.`
+        : "Tidak ada tagihan aktif saat ini.",
+      tone: "sky",
+      icon: <Landmark className="size-5" />,
+    },
+  ];
+
   return (
-    <div className="flex min-h-screen flex-col bg-[#F0F9FF] text-[#0F172A]">
-      {/* Bar pengumuman global dirender di main.tsx (AnnouncementBar). */}
-
-      {/* ===== Header ===== */}
-      <header className="border-b border-sky-100 bg-white/80 backdrop-blur">
-        <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between gap-3 px-4 sm:px-6">
-          <Link to="/dashboard" className="flex shrink-0 items-center gap-2.5">
-            <VaultLogo3D size={38} />
-            <span className="hidden text-sm font-bold tracking-[0.16em] sm:block">
-              PINDAI
-            </span>
-          </Link>
-
-          <div className="flex min-w-0 items-center gap-2 sm:gap-4">
-            <div className="min-w-0 text-right">
-              <p className="truncate text-sm font-semibold">Halo, {greetingName} 👋</p>
-              <Badge className="mt-0.5 hidden border-0 bg-emerald-100 text-[10px] text-emerald-700 hover:bg-emerald-100 sm:inline-flex">
-                <ShieldCheck className="mr-1 size-3" /> KTP Terverifikasi
-              </Badge>
-            </div>
-            <div className="gradient-primary flex size-9 items-center justify-center rounded-full text-sm font-bold text-primary-foreground shadow-glow">
-              {greetingName.charAt(0).toUpperCase()}
-            </div>
-          </div>
-
-          <div className="flex shrink-0 items-center gap-2">
-            {user?.role === "admin" && (
-              <Button asChild variant="ghost" size="sm" className="hidden text-muted-foreground sm:inline-flex">
-                <Link to="/admin">Panel Admin</Link>
-              </Button>
-            )}
-            {user?.role === "pendana" && (
-              <Button asChild variant="ghost" size="sm" className="hidden text-muted-foreground sm:inline-flex">
-                <Link to="/pendana">Ruang Pendana</Link>
-              </Button>
-            )}
-            <Button
-              variant="ghost"
-              size="sm"
-              className="gap-1.5 text-muted-foreground"
-              onClick={handleSignOut}
-            >
-              <LogOut className="size-3.5" />
-              <span className="hidden sm:inline">Keluar</span>
-            </Button>
-          </div>
-        </div>
-      </header>
-
-      <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8 sm:px-6">
+    <DashboardShell
+      greeting={greetingName}
+      subGreeting="Kelola pinjaman tunai & gadai digital Anda dari satu tempat."
+      quickActions={
+        <Button
+          className="clay-btn-blue clay-shine relative px-5 font-semibold text-white"
+          onClick={() => setTab("form")}
+        >
+          + Pengajuan Baru
+        </Button>
+      }
+      summary={summaryCards}
+      tabs={dockTabs}
+      reminder={
+        dueReminder
+          ? {
+              nomorReferensi: dueReminder.nomorReferensi,
+              sisaHari: dueReminder.sisaHari,
+              hariTerlambat: dueReminder.hariTerlambat,
+              totalKewajibanDenganPenalti: dueReminder.totalKewajibanDenganPenalti,
+            }
+          : null
+      }
+      footer={
+        <footer className="mt-10 border-t border-sky-100 pt-6 text-center text-xs leading-5 text-muted-foreground">
+          PINDAI — Pinjam &amp; Gadai Digital. Dana bersih 95%, total kewajiban 130%,
+          didanai oleh Pendana terverifikasi. Pengajuan memerlukan verifikasi KTP
+          dan lokasi real.
+        </footer>
+      }
+    >
         {isLoading ? (
           <div className="mt-20 flex items-center justify-center gap-2 text-sm text-muted-foreground">
             <Loader2 className="size-4 animate-spin" />
@@ -380,76 +451,13 @@ export default function Dashboard() {
             {/* Persetujuan pelacakan lokasi (opt-in, dapat dicabut) */}
             <LocationConsentCard />
 
-            {/* ===== Ringkasan keuangan — 3 kartu 3D ===== */}
-            <section className="mt-6 grid gap-4 md:grid-cols-3">
-              <div className="card-lift rounded-2xl border border-sky-100 bg-white p-5 shadow-md shadow-sky-100">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <p className="text-xs text-muted-foreground">Dana Bersih Diterima</p>
-                    <p className="mt-2 text-2xl font-bold tabular-nums text-emerald-600">
-                      {formatRupiah(danaBersihTotal)}
-                    </p>
-                  </div>
-                  <Wallet3D size={44} />
-                </div>
-                <p className="mt-3 text-xs leading-5 text-muted-foreground">
-                  Hasil cair 95% tanpa potongan tersembunyi.
-                </p>
-              </div>
-
-              <div className="card-lift rounded-2xl border border-sky-100 bg-white p-5 shadow-md shadow-sky-100">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <p className="text-xs text-muted-foreground">Total Kewajiban Pelunasan</p>
-                    <p className="mt-2 text-2xl font-bold tabular-nums">
-                      {formatRupiah(totalKewajiban)}
-                    </p>
-                  </div>
-                  <Calendar3D size={44} />
-                </div>
-                <p className="mt-3 text-xs leading-5 text-muted-foreground">
-                  Pokok + Bunga (130%) — imbal hasil Pendana.
-                </p>
-              </div>
-
-              <div className="card-lift rounded-2xl border border-sky-100 bg-white p-5 shadow-md shadow-sky-100">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <p className="text-xs text-muted-foreground">Sisa Tagihan Berjalan</p>
-                    <p className="mt-2 text-2xl font-bold tabular-nums text-destructive">
-                      {formatRupiah(sisaTagihan)}
-                    </p>
-                  </div>
-                  <VaultBox3D size={44} />
-                </div>
-                <p className="mt-3 text-xs leading-5 text-muted-foreground">
-                  {jatuhTempoTerdekat
-                    ? `Jatuh tempo ${jatuhTempoTerdekat.pelunasan?.hariTerlambat && jatuhTempoTerdekat.pelunasan.hariTerlambat > 0 ? `terlambat ${jatuhTempoTerdekat.pelunasan.hariTerlambat} hari` : `${jatuhTempoTerdekat.pelunasan?.sisaHari ?? 0} hari lagi`}`
-                    : "Tidak ada tagihan aktif saat ini."}
-                </p>
-              </div>
-            </section>
-
-            {/* ===== Tab navigasi floating pills ===== */}
-            <Tabs defaultValue="pinjaman" className="mt-8">
-              <TabsList className="flex w-full flex-wrap gap-2 overflow-x-auto bg-transparent p-0">
-                {(
-                  [
-                    ["pinjaman", "Pinjaman Aktif", <Wallet3D key="i" size={22} />],
-                    ["jadwal", "Jadwal Angsuran", <Calendar3D key="i" size={22} />],
-                    ["gadai", "Jaminan Gadai Saya", <VaultBox3D key="i" size={22} />],
-                    ["kontrak", "E-Contract Saya", <Certificate3D key="i" size={22} />],
-                    ["form", "Form Pengajuan Baru", <Form3D key="i" size={22} />],
-                    ["riwayat", "Riwayat Transaksi", <History3D key="i" size={22} />],
-                  ] as Array<[string, string, React.ReactNode]>
-                ).map(([value, label, icon]) => (
-                  <TabsTrigger
-                    key={value}
-                    value={value}
-                    className="data-[state=active]:gradient-primary data-[state=active]:text-primary-foreground rounded-full border border-sky-100 bg-white px-4 py-2 text-xs font-medium shadow-sm transition-all data-[state=active]:border-0 data-[state=active]:shadow-glow"
-                  >
-                    <span className="mr-1.5 inline-flex align-middle">{icon}</span>
-                    {label}
+            {/* ===== Tab konten utama ===== */}
+            <Tabs value={tab} onValueChange={setTab} className="mt-6">
+              <TabsList className="hidden">
+                {/* Trigger disembunyikan — navigasi via dock 3D */}
+                {dockTabs.map((t) => (
+                  <TabsTrigger key={t.key} value={t.key}>
+                    {t.label}
                   </TabsTrigger>
                 ))}
               </TabsList>
@@ -513,19 +521,10 @@ export default function Dashboard() {
             </Tabs>
           </>
         )}
-      </main>
 
       <LoanDetailDialog loanId={loanDetailId} onClose={() => setLoanDetailId(null)} />
       <PawnDetailDialog pawnId={pawnDetailId} onClose={() => setPawnDetailId(null)} />
-
-      <footer className="border-t border-sky-100 bg-white">
-        <div className="mx-auto w-full max-w-6xl px-6 py-6 text-xs leading-5 text-muted-foreground">
-          PINDAI — Pinjam & Gadai Digital. Dana bersih 95%, total kewajiban 130%,
-          didanai oleh Pendana terverifikasi. Pengajuan memerlukan verifikasi KTP
-          dan lokasi real.
-        </div>
-      </footer>
-    </div>
+    </DashboardShell>
   );
 }
 
