@@ -338,7 +338,7 @@ export default function Admin() {
         )}
 
         <Tabs defaultValue="pinjaman" className="mt-8 flex flex-col gap-6 lg:flex-row lg:items-start lg:gap-8">
-          <TabsList className="flex flex-row flex-wrap gap-2 rounded-none bg-transparent p-0 lg:sticky lg:top-20 lg:w-60 lg:shrink-0 lg:flex-col lg:items-stretch lg:gap-1 lg:overflow-visible lg:rounded-2xl lg:border lg:border-sky-100 lg:bg-white lg:p-2">
+          <TabsList className="sticky top-20 z-30 -mx-6 h-auto w-auto flex flex-row flex-wrap items-center gap-2 overflow-x-auto rounded-none border-y border-sky-100 bg-white/90 px-6 py-2 backdrop-blur lg:mx-0 lg:w-64 lg:flex-col lg:items-stretch lg:gap-1 lg:overflow-visible lg:rounded-2xl lg:border lg:border-sky-100 lg:px-2 lg:py-2 lg:shadow-[0_14px_30px_-20px_oklch(0.55_0.12_240/0.35)]">
             {([
               ["pinjaman", "Pinjaman", `${overview.loans.filter((l) => l.status === "diajukan").length}`, ClipboardList],
               ["gadai", "Gadai", `${overview.pawns.filter((p) => p.status === "diajukan" || p.status === "sedang_dinilai").length}`, Package],
@@ -358,13 +358,13 @@ export default function Admin() {
               <TabsTrigger
                 key={value}
                 value={value}
-                className="tab-pill h-9 w-full flex-none justify-start gap-2.5 rounded-full border border-transparent bg-transparent px-3.5 text-left text-xs font-medium text-navy shadow-none transition-colors hover:bg-sky-50 data-[state=active]:gradient-primary data-[state=active]:border-0 data-[state=active]:text-white data-[state=active]:shadow-[0_10px_22px_-10px_oklch(0.62_0.15_232/0.55)] data-[state=active]:hover:bg-none"
+                className="h-9 w-auto flex-none justify-start gap-2.5 rounded-xl px-3.5 text-left text-xs font-medium text-navy shadow-none transition-colors hover:bg-sky-50 data-[state=active]:gradient-primary data-[state=active]:text-white data-[state=active]:shadow-[0_10px_22px_-10px_oklch(0.62_0.15_232/0.55)] data-[state=active]:hover:bg-none lg:w-full"
               >
                 <Icon className="size-3.5" />
                 {label}
                 {badge !== null && badge !== undefined && badge !== "0" && (
                   <span
-                    className={`ml-0.5 inline-flex min-w-5 items-center justify-center rounded-full px-1.5 py-0.5 text-[10px] font-bold tabular-nums ${
+                    className={`ml-auto inline-flex min-w-5 items-center justify-center rounded-full px-1.5 py-0.5 text-[10px] font-bold tabular-nums ${
                       badge === "OK"
                         ? "bg-emerald-100 text-emerald-700"
                         : badge === "!"
