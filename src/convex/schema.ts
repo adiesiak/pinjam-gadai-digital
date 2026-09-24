@@ -525,6 +525,8 @@ const schema = defineSchema(
       nav4Label: v.optional(v.string()),
       heroBadge: v.optional(v.string()),
       heroJudul: v.optional(v.string()),
+      /** Bagian aksen berwarna pada judul hero. */
+      heroJudul2: v.optional(v.string()),
       heroSub: v.optional(v.string()),
       heroCta1: v.optional(v.string()),
       heroCta2: v.optional(v.string()),

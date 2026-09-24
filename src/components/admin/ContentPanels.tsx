@@ -175,7 +175,7 @@ export function AnnouncementCms() {
           {T("Menu nav 4", "nav4", d("nav4", publik.nav4), { max: 40 })}
           {T("Badge atas hero", "heroBadge", d("heroBadge", publik.heroBadge), { max: 160 })}
           {T("Judul hero (bagian 1)", "heroJudul", d("heroJudul", publik.heroJudul), { max: 120 })}
-          {T("Judul hero (aksen berwarna)", "heroJudul2", d("heroJudul2", CMS_DEFAULTS.hero.judul2), { max: 60 })}
+          {T("Judul hero (aksen berwarna)", "heroJudul2", d("heroJudul2", publik.heroJudul2), { max: 60 })}
           {T("Sub-judul hero", "heroSub", d("heroSub", publik.heroSub), { area: true, max: 400 })}
           {T("Tombol CTA 1", "heroCta1", d("heroCta1", publik.heroCta1), { max: 40 })}
           {T("Tombol CTA 2", "heroCta2", d("heroCta2", publik.heroCta2), { max: 40 })}

@@ -529,7 +529,7 @@ export default function Landing() {
   const c = (cmsVal: string | undefined, fallback: string) => cmsVal ?? fallback;
   const logoTeks = c(cms?.logoTeks, "PINDAI");
   const heroJudul1 = c(cms?.heroJudul, CMS_DEFAULTS.hero.judul1);
-  const heroJudul2 = CMS_DEFAULTS.hero.judul2;
+  const heroJudul2 = c(cms?.heroJudul2, CMS_DEFAULTS.hero.judul2);
 
   const scrollToCalculator = () => {
     document.getElementById("simulasi")?.scrollIntoView({ behavior: "smooth" });
