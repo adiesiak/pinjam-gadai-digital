@@ -26,6 +26,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Link, useNavigate } from "react-router";
 import { toast } from "sonner";
 
+import { GadaiPendanaanPanel } from "@/components/GadaiPendanaanPanel";
 import { StatusBadge } from "@/components/StatusBadge";
 import { TotpGate, TotpSetupDialog } from "@/components/TotpGate";
 import { Badge } from "@/components/ui/badge";
@@ -473,6 +474,7 @@ export default function Admin() {
                 ))}
               </ul>
             )}
+            <GadaiPendanaanPanel pawns={overview.pawns} />
           </TabsContent>
 
           {/* ---------------- Setoran Pendana ---------------- */}

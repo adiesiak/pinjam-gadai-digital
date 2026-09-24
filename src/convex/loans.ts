@@ -561,7 +561,8 @@ export const listMyPawns = query({
     const pawns = await ctx.db
       .query("pawns")
       .withIndex("by_user", (q) => q.eq("userId", userId))
-      .collect();      return pawns
+      .collect();
+    return pawns
       .sort((a, b) => b._creationTime - a._creationTime)
       .map((p) => ({
         _id: p._id,
