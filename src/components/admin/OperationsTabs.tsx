@@ -20,20 +20,45 @@ export function LiveLocationMap() {
   const layerRef = useRef<L.LayerGroup | null>(null);
 
   useEffect(() => {
-    if (containerRef.current === null || mapRef.current !== null) return;
-    const map = L.map(containerRef.current, { scrollWheelZoom: true }).setView(
-      [DEFAULT_CONFIG.vaultLat, DEFAULT_CONFIG.vaultLng],
-      11,
-    );
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      attribution: "&copy; OpenStreetMap contributors",
-      maxZoom: 19,
-    }).addTo(map);
-    layerRef.current = L.layerGroup().addTo(map);
-    mapRef.current = map;
+    const container = containerRef.current;
+    if (container === null || mapRef.current !== null) return;
+
+    let map: L.Map | null = null;
+    let resizeObserver: ResizeObserver | null = null;
+    try {
+      map = L.map(container, { scrollWheelZoom: true }).setView(
+        [DEFAULT_CONFIG.vaultLat, DEFAULT_CONFIG.vaultLng],
+        11,
+      );
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        attribution: "&copy; OpenStreetMap contributors",
+        maxZoom: 19,
+      }).addTo(map);
+      layerRef.current = L.layerGroup().addTo(map);
+      mapRef.current = map;
+
+      // Leaflet perlu ukuran container yang sudah terukur. invalidateSize
+      // menjaga tile tetap terlihat ketika tab admin baru aktif di Firefox.
+      requestAnimationFrame(() => {
+        if (map !== null && mapRef.current === map) map.invalidateSize({ pan: false });
+      });
+      if (typeof ResizeObserver !== "undefined") {
+        resizeObserver = new ResizeObserver(() => {
+          if (map !== null && mapRef.current === map) map.invalidateSize({ pan: false });
+        });
+        resizeObserver.observe(container);
+      }
+    } catch (error) {
+      console.error("Gagal menginisialisasi peta admin", error);
+    }
+
     return () => {
-      map.remove();
-      mapRef.current = null;
+      resizeObserver?.disconnect();
+      if (mapRef.current === map) {
+        map?.remove();
+        mapRef.current = null;
+      }
+      layerRef.current = null;
     };
   }, []);
 
@@ -41,6 +66,13 @@ export function LiveLocationMap() {
     const map = mapRef.current;
     const layer = layerRef.current;
     if (!map || !layer || data === undefined) return;
+
+    const validCoord = (lat: number, lng: number) =>
+      Number.isFinite(lat) && Number.isFinite(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180;
+    if (!validCoord(data.vault.lat, data.vault.lng)) {
+      console.error("Koordinat gudang tidak valid", data.vault);
+      return;
+    }
     layer.clearLayers();
     L.circleMarker([data.vault.lat, data.vault.lng], {
       radius: 10,
@@ -51,8 +83,9 @@ export function LiveLocationMap() {
     })
       .bindTooltip("Gudang Brankas PINDAI", { direction: "top" })
       .addTo(layer);
+    const radiusKm = Number.isFinite(data.gpsMismatchKm) ? Math.max(0, data.gpsMismatchKm) : DEFAULT_CONFIG.gpsMismatchKm;
     L.circle([data.vault.lat, data.vault.lng], {
-      radius: data.gpsMismatchKm * 1000,
+      radius: radiusKm * 1000,
       color: "#38BDF8",
       fillColor: "#38BDF8",
       fillOpacity: 0.05,
@@ -61,7 +94,7 @@ export function LiveLocationMap() {
     }).addTo(layer);
     const bounds = L.latLngBounds([L.latLng(data.vault.lat, data.vault.lng)]);
     for (const r of data.rows) {
-      if (!r.posisi) continue;
+      if (!r.posisi || !validCoord(r.posisi.lat, r.posisi.lng)) continue;
       bounds.extend([r.posisi.lat, r.posisi.lng]);
       const warna = r.mismatch ? "#EF4444" : "#10B981";
       L.circleMarker([r.posisi.lat, r.posisi.lng], {
@@ -78,27 +111,33 @@ export function LiveLocationMap() {
         )
         .addTo(layer);
     }
-    map.fitBounds(bounds.pad(0.25));
+    map.invalidateSize({ pan: false });
+    map.fitBounds(bounds.pad(0.25), { animate: false });
   }, [data]);
 
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-muted-foreground">
-          Peta live OpenStreetMap (gratis) — posisi peminjam, gudang brankas, dan radius mismatch {data?.gpsMismatchKm ?? 50} km.
+          Peta live OpenStreetMap (gratis) — posisi peminjam, gudang brankas, dan radius mismatch {data?.gpsMismatchKm ?? DEFAULT_CONFIG.gpsMismatchKm} km.
         </p>
         <div className="flex items-center gap-2 text-xs">
           <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100">Dalam radius</Badge>
           <Badge className="bg-red-100 text-red-700 hover:bg-red-100">GPS Mismatch</Badge>
         </div>
       </div>
-      {data === undefined ? (
-        <div className="flex h-[420px] items-center justify-center rounded-2xl border border-sky-100 bg-white">
-          <Loader2 className="size-5 animate-spin text-muted-foreground" />
-        </div>
-      ) : (
-        <div ref={containerRef} className="z-0 h-[420px] overflow-hidden rounded-2xl border border-sky-100 shadow-[0_14px_30px_-20px_oklch(0.55_0.12_240/0.35)]" />
-      )}
+      <div className="relative h-[420px] min-h-[420px] overflow-hidden rounded-2xl border border-sky-100 bg-sky-50 shadow-[0_14px_30px_-20px_oklch(0.55_0.12_240/0.35)]">
+        <div
+          ref={containerRef}
+          aria-label="Peta lokasi peminjam"
+          className="absolute inset-0 z-0"
+        />
+        {data === undefined && (
+          <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/80">
+            <Loader2 className="size-5 animate-spin text-muted-foreground" />
+          </div>
+        )}
+      </div>
       {data !== undefined && (
         <ul className="divide-y divide-sky-100 rounded-2xl border border-sky-100 bg-white">
           {data.rows.filter((r) => r.mismatch).map((r) => (
