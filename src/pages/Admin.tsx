@@ -337,8 +337,8 @@ export default function Admin() {
           </section>
         )}
 
-        <Tabs defaultValue="pinjaman" className="mt-8">
-          <TabsList className="flex w-full flex-wrap gap-2 overflow-x-auto rounded-none bg-transparent p-0">
+        <Tabs defaultValue="pinjaman" className="mt-8 flex flex-col gap-6 lg:flex-row lg:items-start lg:gap-8">
+          <TabsList className="flex flex-row flex-wrap gap-2 rounded-none bg-transparent p-0 lg:sticky lg:top-20 lg:w-60 lg:shrink-0 lg:flex-col lg:items-stretch lg:gap-1 lg:overflow-visible lg:rounded-2xl lg:border lg:border-sky-100 lg:bg-white lg:p-2">
             {([
               ["pinjaman", "Pinjaman", `${overview.loans.filter((l) => l.status === "diajukan").length}`, ClipboardList],
               ["gadai", "Gadai", `${overview.pawns.filter((p) => p.status === "diajukan" || p.status === "sedang_dinilai").length}`, Package],
@@ -358,7 +358,7 @@ export default function Admin() {
               <TabsTrigger
                 key={value}
                 value={value}
-                className="tab-pill gap-1.5 rounded-full border border-sky-100 bg-white px-4 py-2 text-xs font-medium text-navy shadow-[0_8px_18px_-12px_oklch(0.55_0.12_240/0.4)] transition-all data-[state=active]:gradient-primary data-[state=active]:border-0 data-[state=active]:text-white hover:-translate-y-0.5"
+                className="tab-pill h-9 w-full flex-none justify-start gap-2.5 rounded-full border border-transparent bg-transparent px-3.5 text-left text-xs font-medium text-navy shadow-none transition-colors hover:bg-sky-50 data-[state=active]:gradient-primary data-[state=active]:border-0 data-[state=active]:text-white data-[state=active]:shadow-[0_10px_22px_-10px_oklch(0.62_0.15_232/0.55)] data-[state=active]:hover:bg-none"
               >
                 <Icon className="size-3.5" />
                 {label}
@@ -380,7 +380,7 @@ export default function Admin() {
           </TabsList>
 
           {/* ---------------- Pinjaman ---------------- */}
-          <TabsContent value="pinjaman" className="mt-8">
+          <TabsContent value="pinjaman" className="min-w-0">
             {overview.loans.length === 0 ? (
               <EmptyQueue
                 icon={ClipboardList}
@@ -405,7 +405,7 @@ export default function Admin() {
           </TabsContent>
 
           {/* ---------------- Gadai ---------------- */}
-          <TabsContent value="gadai" className="mt-8">
+          <TabsContent value="gadai" className="min-w-0">
             {overview.pawns.length === 0 ? (
               <EmptyQueue icon={Package} title="Belum ada pengajuan gadai" />
             ) : (
@@ -428,7 +428,7 @@ export default function Admin() {
           </TabsContent>
 
           {/* ---------------- Setoran Pendana ---------------- */}
-          <TabsContent value="setoran" className="mt-8">
+          <TabsContent value="setoran" className="min-w-0">
             {pendingDeposits === undefined ? (
               <div className="flex items-center gap-2 py-8 text-sm text-muted-foreground">
                 <Loader2 className="size-4 animate-spin" /> Memuat…
@@ -552,57 +552,57 @@ export default function Admin() {
           </TabsContent>
 
           {/* ---------------- CMS Pengumuman ---------------- */}
-          <TabsContent value="pengumuman" className="mt-8">
+          <TabsContent value="pengumuman" className="min-w-0">
             <AnnouncementCms />
           </TabsContent>
 
           {/* ---------------- WhatsApp Reminder ---------------- */}
-          <TabsContent value="whatsapp" className="mt-8">
+          <TabsContent value="whatsapp" className="min-w-0">
             <WhatsAppPanel />
           </TabsContent>
 
           {/* ---------------- Live Location Map ---------------- */}
-          <TabsContent value="lokasi" className="mt-8">
+          <TabsContent value="lokasi" className="min-w-0">
             <LiveLocationMap />
           </TabsContent>
 
           {/* ---------------- Pencairan ---------------- */}
-          <TabsContent value="pencairan" className="mt-8">
+          <TabsContent value="pencairan" className="min-w-0">
             <PencairanTab onOpen={(l) => setLoanDetail(l)} />
           </TabsContent>
 
           {/* ---------------- Koleksi / DPD ---------------- */}
-          <TabsContent value="dpd" className="mt-8">
+          <TabsContent value="dpd" className="min-w-0">
             <DpdTab />
           </TabsContent>
 
           {/* ---------------- Lelang Jaminan ---------------- */}
-          <TabsContent value="lelang" className="mt-8">
+          <TabsContent value="lelang" className="min-w-0">
             <LelangTab />
           </TabsContent>
 
           {/* ---------------- Ledger & Keuangan ---------------- */}
-          <TabsContent value="ledger" className="mt-8">
+          <TabsContent value="ledger" className="min-w-0">
             <LedgerTab />
           </TabsContent>
 
           {/* ---------------- Backup & Keamanan ---------------- */}
-          <TabsContent value="backup" className="mt-8">
+          <TabsContent value="backup" className="min-w-0">
             <BackupPanel />
           </TabsContent>
 
           {/* ---------------- Pengaturan System ---------------- */}
-          <TabsContent value="config" className="mt-8">
+          <TabsContent value="config" className="min-w-0">
             <SystemConfigPanel />
           </TabsContent>
 
           {/* ---------------- Audit Trail ---------------- */}
-          <TabsContent value="audit" className="mt-8">
+          <TabsContent value="audit" className="min-w-0">
             <AuditTrailPanel />
           </TabsContent>
 
           {/* ---------------- Keamanan Login ---------------- */}
-          <TabsContent value="loglogin" className="mt-8">
+          <TabsContent value="loglogin" className="min-w-0">
             <LoginSecurityPanel onOpenSetup={() => setTotpSetupOpen(true)} />
           </TabsContent>
         </Tabs>
