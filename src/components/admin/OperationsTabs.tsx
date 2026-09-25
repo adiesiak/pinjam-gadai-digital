@@ -13,106 +13,180 @@ import { EmptyQueue, QueueRow, formatDate, type LoanRow } from "./admin-shared";
 
 import "leaflet/dist/leaflet.css";
 
+const OSM_TILE_URL = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
+const OSM_ATTRIBUTION = "&copy; OpenStreetMap contributors";
+/** Basemap cadangan bila tile OSM tidak dapat dimuat dari jaringan pengguna. */
+const FALLBACK_TILE_URL = "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png";
+
 export function LiveLocationMap() {
   const data = useQuery(api.admin.petaPeminjam);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<L.Map | null>(null);
   const layerRef = useRef<L.LayerGroup | null>(null);
+  const dataRef = useRef<typeof data>(undefined);
+  const drawRef = useRef<(() => void) | null>(null);
 
+  // Radix Tabs menyimpan konten tab non-aktif dengan atribut `hidden`
+  // (lihat @radix-ui/react-tabs → Presence). Leaflet yang diinisialisasi pada
+  // kontainer berukuran 0 × 0 px tidak akan memuat tile maupun menggambar
+  // marker — persis gejala "peta blank". Karena itu peta baru dibuat setelah
+  // kontainer benar-benar terlihat dan terukur.
   useEffect(() => {
     const container = containerRef.current;
-    if (container === null || mapRef.current !== null) return;
+    if (container === null) return;
 
-    let map: L.Map | null = null;
     let resizeObserver: ResizeObserver | null = null;
-    try {
-      map = L.map(container, { scrollWheelZoom: true }).setView(
-        [DEFAULT_CONFIG.vaultLat, DEFAULT_CONFIG.vaultLng],
-        11,
-      );
-      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        attribution: "&copy; OpenStreetMap contributors",
-        maxZoom: 19,
-      }).addTo(map);
-      layerRef.current = L.layerGroup().addTo(map);
-      mapRef.current = map;
+    let intersectionObserver: IntersectionObserver | null = null;
+    let disposed = false;
 
-      // Leaflet perlu ukuran container yang sudah terukur. invalidateSize
-      // menjaga tile tetap terlihat ketika tab admin baru aktif di Firefox.
-      requestAnimationFrame(() => {
-        if (map !== null && mapRef.current === map) map.invalidateSize({ pan: false });
-      });
-      if (typeof ResizeObserver !== "undefined") {
-        resizeObserver = new ResizeObserver(() => {
-          if (map !== null && mapRef.current === map) map.invalidateSize({ pan: false });
-        });
-        resizeObserver.observe(container);
+    const validCoord = (lat: number, lng: number) =>
+      Number.isFinite(lat) && Number.isFinite(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180;
+
+    const draw = () => {
+      const map = mapRef.current;
+      const layer = layerRef.current;
+      if (map === null || layer === null) return;
+      // Selagi data server belum tiba, gambar dulu baseline gudang dari
+      // konfigurasi default supaya peta tidak pernah tampil kosong.
+      const current = dataRef.current;
+      const vault = current?.vault ?? { lat: DEFAULT_CONFIG.vaultLat, lng: DEFAULT_CONFIG.vaultLng };
+      if (!validCoord(vault.lat, vault.lng)) {
+        console.error("Koordinat gudang tidak valid", vault);
+        return;
       }
-    } catch (error) {
-      console.error("Gagal menginisialisasi peta admin", error);
+      layer.clearLayers();
+      L.circleMarker([vault.lat, vault.lng], {
+        radius: 10,
+        color: "#0EA5E9",
+        fillColor: "#38BDF8",
+        fillOpacity: 0.9,
+        weight: 3,
+      })
+        .bindTooltip("Gudang Brankas PINDAI", { direction: "top" })
+        .addTo(layer);
+      const radiusKm =
+        current !== undefined && Number.isFinite(current.gpsMismatchKm)
+          ? Math.max(0, current.gpsMismatchKm)
+          : DEFAULT_CONFIG.gpsMismatchKm;
+      L.circle([vault.lat, vault.lng], {
+        radius: radiusKm * 1000,
+        color: "#38BDF8",
+        fillColor: "#38BDF8",
+        fillOpacity: 0.05,
+        weight: 1,
+        dashArray: "6 6",
+      }).addTo(layer);
+      const titikPeminjam: L.LatLngTuple[] = [];
+      for (const r of current?.rows ?? []) {
+        if (!r.posisi || !validCoord(r.posisi.lat, r.posisi.lng)) continue;
+        titikPeminjam.push([r.posisi.lat, r.posisi.lng]);
+        const warna = r.mismatch ? "#EF4444" : "#10B981";
+        L.circleMarker([r.posisi.lat, r.posisi.lng], {
+          radius: 7,
+          color: warna,
+          fillColor: warna,
+          fillOpacity: 0.85,
+          weight: 2,
+        })
+          .bindTooltip(
+            `<strong>${r.namaLengkap}</strong><br/>${r.nomorReferensi} · ${r.statusPinjaman}<br/>` +
+              (r.mismatch ? "GPS MISMATCH" : r.jarakVaultKm !== null ? `${r.jarakVaultKm.toFixed(1)} km dari vault` : ""),
+            { direction: "top" },
+          )
+          .addTo(layer);
+      }
+      map.invalidateSize({ pan: false });
+      // Satu titik tidak punya luasan, sehingga fitBounds akan melompat ke zoom
+      // maksimum (peta nyaris kosong). Pakai tampilan kota bila belum ada
+      // posisi peminjam.
+      if (titikPeminjam.length === 0) {
+        map.setView([vault.lat, vault.lng], 12, { animate: false });
+      } else {
+        const bounds = L.latLngBounds(titikPeminjam);
+        bounds.extend([vault.lat, vault.lng]);
+        map.fitBounds(bounds, { animate: false, padding: [30, 30], maxZoom: 15 });
+      }
+    };
+    drawRef.current = draw;
+
+    const ensureMap = () => {
+      if (disposed || mapRef.current !== null) return;
+      if (container.clientWidth === 0 || container.clientHeight === 0) return;
+      try {
+        const map = L.map(container, { scrollWheelZoom: true }).setView(
+          [DEFAULT_CONFIG.vaultLat, DEFAULT_CONFIG.vaultLng],
+          12,
+        );
+        let tiles = L.tileLayer(OSM_TILE_URL, {
+          attribution: OSM_ATTRIBUTION,
+          maxZoom: 19,
+        }).addTo(map);
+        // OSM sesekali memblokir/limiting tile dari sebagian jaringan. Bila tile
+        // gagal berulang, pindah ke basemap cadangan agar peta tidak tinggal
+        // abu-abu tanpa isi.
+        let tileErrors = 0;
+        let switched = false;
+        tiles.on("tileerror", () => {
+          if (switched) return;
+          tileErrors += 1;
+          console.warn(`Tile peta gagal dimuat (${tileErrors}×)`);
+          if (tileErrors < 4) return;
+          switched = true;
+          const pengganti = L.tileLayer(FALLBACK_TILE_URL, {
+            attribution: `${OSM_ATTRIBUTION} &copy; CARTO`,
+            maxZoom: 19,
+          }).addTo(map);
+          map.removeLayer(tiles);
+          tiles = pengganti;
+        });
+        mapRef.current = map;
+        layerRef.current = L.layerGroup().addTo(map);
+        draw();
+        requestAnimationFrame(() => {
+          if (disposed) return;
+          mapRef.current?.invalidateSize({ pan: false });
+          drawRef.current?.();
+        });
+      } catch (error) {
+        console.error("Gagal menginisialisasi peta admin", error);
+        mapRef.current = null;
+        layerRef.current = null;
+      }
+    };
+
+    ensureMap();
+    if (typeof ResizeObserver !== "undefined") {
+      resizeObserver = new ResizeObserver(() => {
+        ensureMap();
+        if (container.clientWidth > 0 && container.clientHeight > 0) {
+          mapRef.current?.invalidateSize({ pan: false });
+        }
+      });
+      resizeObserver.observe(container);
+    }
+    // Jaring pengaman tambahan saat tab baru dibuka/ditampilkan kembali.
+    if (typeof IntersectionObserver !== "undefined") {
+      intersectionObserver = new IntersectionObserver((entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) ensureMap();
+      });
+      intersectionObserver.observe(container);
     }
 
     return () => {
+      disposed = true;
       resizeObserver?.disconnect();
-      if (mapRef.current === map) {
-        map?.remove();
-        mapRef.current = null;
-      }
+      intersectionObserver?.disconnect();
+      drawRef.current = null;
+      const map = mapRef.current;
+      mapRef.current = null;
       layerRef.current = null;
+      map?.remove();
     };
   }, []);
 
   useEffect(() => {
-    const map = mapRef.current;
-    const layer = layerRef.current;
-    if (!map || !layer || data === undefined) return;
-
-    const validCoord = (lat: number, lng: number) =>
-      Number.isFinite(lat) && Number.isFinite(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180;
-    if (!validCoord(data.vault.lat, data.vault.lng)) {
-      console.error("Koordinat gudang tidak valid", data.vault);
-      return;
-    }
-    layer.clearLayers();
-    L.circleMarker([data.vault.lat, data.vault.lng], {
-      radius: 10,
-      color: "#0EA5E9",
-      fillColor: "#38BDF8",
-      fillOpacity: 0.9,
-      weight: 3,
-    })
-      .bindTooltip("Gudang Brankas PINDAI", { direction: "top" })
-      .addTo(layer);
-    const radiusKm = Number.isFinite(data.gpsMismatchKm) ? Math.max(0, data.gpsMismatchKm) : DEFAULT_CONFIG.gpsMismatchKm;
-    L.circle([data.vault.lat, data.vault.lng], {
-      radius: radiusKm * 1000,
-      color: "#38BDF8",
-      fillColor: "#38BDF8",
-      fillOpacity: 0.05,
-      weight: 1,
-      dashArray: "6 6",
-    }).addTo(layer);
-    const bounds = L.latLngBounds([L.latLng(data.vault.lat, data.vault.lng)]);
-    for (const r of data.rows) {
-      if (!r.posisi || !validCoord(r.posisi.lat, r.posisi.lng)) continue;
-      bounds.extend([r.posisi.lat, r.posisi.lng]);
-      const warna = r.mismatch ? "#EF4444" : "#10B981";
-      L.circleMarker([r.posisi.lat, r.posisi.lng], {
-        radius: 7,
-        color: warna,
-        fillColor: warna,
-        fillOpacity: 0.85,
-        weight: 2,
-      })
-        .bindTooltip(
-          `<strong>${r.namaLengkap}</strong><br/>${r.nomorReferensi} · ${r.statusPinjaman}<br/>` +
-            (r.mismatch ? `GPS MISMATCH` : r.jarakVaultKm !== null ? `${r.jarakVaultKm.toFixed(1)} km dari vault` : ""),
-          { direction: "top" },
-        )
-        .addTo(layer);
-    }
-    map.invalidateSize({ pan: false });
-    map.fitBounds(bounds.pad(0.25), { animate: false });
+    dataRef.current = data;
+    drawRef.current?.();
   }, [data]);
 
   return (
@@ -126,15 +200,21 @@ export function LiveLocationMap() {
           <Badge className="bg-red-100 text-red-700 hover:bg-red-100">GPS Mismatch</Badge>
         </div>
       </div>
-      <div className="relative h-[420px] min-h-[420px] overflow-hidden rounded-2xl border border-sky-100 bg-sky-50 shadow-[0_14px_30px_-20px_oklch(0.55_0.12_240/0.35)]">
+      <div
+        className="relative h-[420px] min-h-[420px] overflow-hidden rounded-2xl border border-sky-100 bg-sky-50 shadow-[0_14px_30px_-20px_oklch(0.55_0.12_240/0.35)]"
+        style={{ height: 420, minHeight: 420 }}
+      >
         <div
           ref={containerRef}
+          role="region"
           aria-label="Peta lokasi peminjam"
-          className="absolute inset-0 z-0"
+          className="absolute inset-0 z-0 bg-[#ddd]"
         />
         {data === undefined && (
-          <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/80">
-            <Loader2 className="size-5 animate-spin text-muted-foreground" />
+          <div className="pointer-events-none absolute inset-x-0 top-3 z-10 flex justify-center">
+            <span className="inline-flex items-center gap-2 rounded-full bg-white/90 px-3 py-1 text-xs text-muted-foreground shadow-sm">
+              <Loader2 className="size-3.5 animate-spin" /> Memuat titik lokasi…
+            </span>
           </div>
         )}
       </div>
