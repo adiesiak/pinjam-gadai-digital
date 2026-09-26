@@ -1,25 +1,19 @@
 import { useQuery } from "convex/react";
-import {
-  CalendarClock,
-  FileText,
-  Loader2,
-  Package,
-  ScrollText,
-  Send,
-  Wallet,
-} from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router";
 import { toast } from "sonner";
 
 import { Separator } from "@/components/ui/separator";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { useAuth } from "@/hooks/use-auth";
 
 import { MyContractsSection } from "./dashboard/contract-views";
+import { DashboardFooter } from "./dashboard/dashboard-footer";
 import { DashboardHeader } from "./dashboard/dashboard-header";
+import { DashboardTabNav } from "./dashboard/dashboard-tab-nav";
 import { LoanDetailDialog, PawnDetailDialog } from "./dashboard/detail-dialogs";
 import { LoanForm, PawnForm } from "./dashboard/forms-views";
 import { GadaiBillingSection } from "./dashboard/gadai-views";
@@ -88,27 +82,7 @@ export default function Dashboard() {
 
             {/* ===== Tab navigasi ===== */}
             <Tabs defaultValue="pinjaman" className="mt-8">
-              <TabsList className="flex w-full flex-wrap gap-2 overflow-x-auto bg-transparent p-0">
-                {(
-                  [
-                    ["pinjaman", "Pinjaman Aktif", <Wallet key="i" className="size-4" />],
-                    ["jadwal", "Jadwal Angsuran", <CalendarClock key="i" className="size-4" />],
-                    ["gadai", "Jaminan Gadai Saya", <Package key="i" className="size-4" />],
-                    ["kontrak", "E-Contract Saya", <FileText key="i" className="size-4" />],
-                    ["form", "Form Pengajuan Baru", <Send key="i" className="size-4" />],
-                    ["riwayat", "Riwayat Transaksi", <ScrollText key="i" className="size-4" />],
-                  ] as Array<[string, string, React.ReactNode]>
-                ).map(([value, label, icon]) => (
-                  <TabsTrigger
-                    key={value}
-                    value={value}
-                    className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-medium shadow-sm transition-all data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm"
-                  >
-                    <span className="mr-1.5 inline-flex align-middle">{icon}</span>
-                    {label}
-                  </TabsTrigger>
-                ))}
-              </TabsList>
+              <DashboardTabNav />
 
               {/* ============ TAB 1: PINJAMAN AKTIF ============ */}
               <TabsContent value="pinjaman" className="mt-8">
@@ -174,13 +148,7 @@ export default function Dashboard() {
       <LoanDetailDialog loanId={loanDetailId} onClose={() => setLoanDetailId(null)} />
       <PawnDetailDialog pawnId={pawnDetailId} onClose={() => setPawnDetailId(null)} />
 
-      <footer className="border-t border-slate-200 bg-white">
-        <div className="mx-auto w-full max-w-6xl px-6 py-6 text-xs leading-5 text-muted-foreground">
-          PINDAI — Pinjam & Gadai Digital. Dana bersih 95%, total kewajiban 130%,
-          didanai oleh Pendana terverifikasi. Pengajuan memerlukan verifikasi KTP
-          dan lokasi real.
-        </div>
-      </footer>
+      <DashboardFooter />
     </div>
   );
 }
