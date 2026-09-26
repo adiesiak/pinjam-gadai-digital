@@ -9,7 +9,7 @@ import type { Id } from "@/convex/_generated/dataModel";
 import { formatRupiah } from "@/lib/money";
 import { pawnStatusMeta, type PawnStatus } from "@/lib/pawn";
 import { DEFAULT_CONFIG } from "@/lib/system-config";
-import { EmptyState } from "./shared";
+import { EmptyState } from "./empty-state";
 
 import "leaflet/dist/leaflet.css";
 

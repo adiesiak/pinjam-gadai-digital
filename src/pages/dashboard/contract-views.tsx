@@ -15,7 +15,7 @@ import {
 } from "@/lib/contract";
 import { quoteLoan } from "@/lib/loan";
 import { formatRupiah } from "@/lib/money";
-import { EmptyState } from "./shared";
+import { EmptyState } from "./empty-state";
 
 /** Tab 4 — E-Contract Saya. */
 export function MyContractsSection({

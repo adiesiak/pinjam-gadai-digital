@@ -18,7 +18,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { formatRupiah } from "@/lib/money";
-import { EmptyState, formatDate, type LoanScheduleRow } from "./shared";
+import { EmptyState } from "./empty-state";
+import { formatDate, type LoanScheduleRow } from "./shared";
 
 /** Status pill (LUNAS / MENUNGGU / OVERDUE) sesuai semantik warna. */
 function ScheduleBadge({ state }: { state: "lunas" | "menunggu" | "overdue" }) {

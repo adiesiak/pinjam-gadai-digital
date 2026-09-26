@@ -5,7 +5,8 @@ import type { Id } from "@/convex/_generated/dataModel";
 import { loanPurposeLabel } from "@/lib/loan";
 import { formatRupiah } from "@/lib/money";
 
-import { EmptyState, formatDate } from "./shared";
+import { EmptyState } from "./empty-state";
+import { formatDate } from "./shared";
 
 /** Tab 6 — Riwayat transaksi pinjaman & gadai. */
 export function HistorySection({
