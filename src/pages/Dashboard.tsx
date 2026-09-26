@@ -1358,7 +1358,7 @@ function MyContractsSection({
                   <div className="min-w-0">
                     <p className="truncate text-sm font-semibold">{c.deskripsiBarang}</p>
                     <p className="mt-0.5 text-xs text-muted-foreground">
-                      Akad {c.nomorReferensi} · {c.kategori} · taksiran{" "}
+                      Akad {c.nomorReferensi} · taksiran{" "}
                       {c.nilaiTaksiran !== undefined ? formatRupiah(c.nilaiTaksiran) : "—"}
                     </p>
                   </div>
@@ -1545,7 +1545,7 @@ function LoanForm({ onCreated }: { onCreated: (ref: string) => void }) {
     if (!canvas) return;
     const pad = new SignaturePad(canvas, {
       backgroundColor: "rgba(255,255,255,0)",
-      penColor: "#0F172A",
+      penColor: "#0f172a",
       minWidth: 1.2,
       maxWidth: 2.4,
     });
