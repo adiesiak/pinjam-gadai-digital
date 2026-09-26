@@ -243,8 +243,8 @@ export function TotpGate({ onVerified }: { onVerified: () => void }) {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-sky-50 to-white p-6">
-      <div className="w-full max-w-sm rounded-2xl border border-sky-100 bg-white p-6 shadow-md shadow-sky-100">
+    <div className="flex min-h-screen items-center justify-center bg-slate-50 p-6">
+      <div className="w-full max-w-sm rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
         <div className="mb-4 flex items-center gap-3">
           <div className="flex size-11 items-center justify-center rounded-2xl bg-sky-100 text-2xl">
             🔒

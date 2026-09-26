@@ -38,7 +38,7 @@ import { WaOtpDialog } from "@/components/WaOtpDialog";
 import { judulContract, nomorContract } from "@/lib/contract";
 import { loanPurposeLabel } from "@/lib/loan";
 import { formatRupiah, parseRupiah, type Rupiah } from "@/lib/money";
-import { ShieldCheck, TrendingUp, Store } from "lucide-react";
+import { Package, ScrollText, ShieldCheck, TrendingUp, Store } from "lucide-react";
 
 function formatDate(ts: number): string {
   return new Date(ts).toLocaleDateString("id-ID", {
@@ -49,123 +49,8 @@ function formatDate(ts: number): string {
 }
 
 // =====================================================================
-// Ikonografi 3D cartoon (SVG clay) — dompet pertumbuhan, grafis imbal
-// hasil, sertifikat, pasar pinjaman, brankas.
+// Ikon halaman memakai ikon garis lucide yang diimpor di atas.
 // =====================================================================
-
-function VaultLogo3D({ size = 40 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 64 64" fill="none" aria-hidden>
-      <defs>
-        <linearGradient id="pVaultBody" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stopColor="#7DD3FC" />
-          <stop offset="55%" stopColor="#38BDF8" />
-          <stop offset="100%" stopColor="#0EA5E9" />
-        </linearGradient>
-        <radialGradient id="pVaultDial" cx="0.35" cy="0.3" r="1">
-          <stop offset="0%" stopColor="#A7F3D0" />
-          <stop offset="60%" stopColor="#10B981" />
-          <stop offset="100%" stopColor="#059669" />
-        </radialGradient>
-      </defs>
-      <rect x="4" y="8" width="56" height="46" rx="12" fill="url(#pVaultBody)" />
-      <rect x="12" y="16" width="40" height="30" rx="8" fill="#0C4A6E" opacity="0.25" />
-      <circle cx="32" cy="31" r="10" fill="url(#pVaultDial)" />
-      <circle cx="32" cy="31" r="4" fill="#065F46" opacity="0.55" />
-      <rect x="29" y="29" width="6" height="3" rx="1.5" fill="#F0FDF4" />
-      <rect x="14" y="54" width="8" height="6" rx="2" fill="#0284C7" />
-      <rect x="42" y="54" width="8" height="6" rx="2" fill="#0284C7" />
-      <ellipse cx="24" cy="14" rx="10" ry="3" fill="white" opacity="0.35" />
-    </svg>
-  );
-}
-
-function WalletGrowth3D({ size = 44 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 64 64" fill="none" aria-hidden>
-      <defs>
-        <linearGradient id="pWalletBody" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stopColor="#7DD3FC" />
-          <stop offset="100%" stopColor="#0EA5E9" />
-        </linearGradient>
-      </defs>
-      <rect x="6" y="18" width="52" height="36" rx="10" fill="url(#pWalletBody)" />
-      <rect x="6" y="18" width="52" height="11" rx="5.5" fill="#0284C7" opacity="0.5" />
-      <rect x="40" y="31" width="16" height="11" rx="5.5" fill="#F0FDFA" />
-      <circle cx="46" cy="36.5" r="2.4" fill="#10B981" />
-      <path d="M18 14l8-8 7 5 9-9" stroke="#10B981" strokeWidth="3.4" strokeLinecap="round" strokeLinejoin="round" fill="none" />
-      <path d="M38 1h5v5" stroke="#10B981" strokeWidth="3.4" strokeLinecap="round" strokeLinejoin="round" fill="none" />
-      <ellipse cx="26" cy="21" rx="12" ry="3" fill="white" opacity="0.4" />
-    </svg>
-  );
-}
-
-function YieldChart3D({ size = 44 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 64 64" fill="none" aria-hidden>
-      <rect x="6" y="10" width="52" height="46" rx="10" fill="#F0F9FF" stroke="#7DD3FC" strokeWidth="2" />
-      <rect x="14" y="38" width="8" height="12" rx="2.5" fill="#38BDF8" />
-      <rect x="26" y="30" width="8" height="20" rx="2.5" fill="#0EA5E9" />
-      <rect x="38" y="20" width="8" height="30" rx="2.5" fill="#10B981" />
-      <path d="M16 26c8-4 12-10 20-13" stroke="#F59E0B" strokeWidth="2.6" strokeLinecap="round" strokeDasharray="1 5" fill="none" />
-      <circle cx="44" cy="12" r="3.4" fill="#F59E0B" />
-    </svg>
-  );
-}
-
-function Certificate3D({ size = 44 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 64 64" fill="none" aria-hidden>
-      <rect x="10" y="8" width="44" height="48" rx="8" fill="#F0F9FF" stroke="#7DD3FC" strokeWidth="2" />
-      <rect x="16" y="16" width="22" height="3.5" rx="1.75" fill="#38BDF8" />
-      <rect x="16" y="24" width="32" height="3" rx="1.5" fill="#BAE6FD" />
-      <rect x="16" y="30" width="28" height="3" rx="1.5" fill="#BAE6FD" />
-      <rect x="16" y="36" width="24" height="3" rx="1.5" fill="#BAE6FD" />
-      <circle cx="44" cy="46" r="8" fill="#10B981" />
-      <path d="M40 46l3 3 5.5-6" stroke="#F0FDF4" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" fill="none" />
-      <path d="M41 52l-2 7 5-3 5 3-2-7" fill="#059669" />
-    </svg>
-  );
-}
-
-function Market3D({ size = 44 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 64 64" fill="none" aria-hidden>
-      <path d="M8 22l4-12h40l4 12" fill="#38BDF8" />
-      <rect x="8" y="22" width="48" height="8" rx="4" fill="#0EA5E9" />
-      <rect x="12" y="30" width="40" height="26" rx="6" fill="#F0F9FF" stroke="#7DD3FC" strokeWidth="2" />
-      <rect x="26" y="14" width="12" height="9" rx="2" fill="#FDE68A" />
-      <path d="M26 23l-4 0 8 8 8-8-4 0z" fill="#F59E0B" opacity="0.7" />
-      <rect x="20" y="38" width="24" height="4" rx="2" fill="#BAE6FD" />
-      <rect x="20" y="46" width="16" height="4" rx="2" fill="#BAE6FD" />
-    </svg>
-  );
-}
-
-function History3D({ size = 44 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 64 64" fill="none" aria-hidden>
-      <rect x="14" y="10" width="36" height="44" rx="8" fill="#FDE68A" />
-      <rect x="14" y="10" width="36" height="9" rx="4" fill="#F59E0B" />
-      <rect x="20" y="26" width="24" height="3" rx="1.5" fill="#92400E" opacity="0.6" />
-      <rect x="20" y="33" width="20" height="3" rx="1.5" fill="#92400E" opacity="0.45" />
-      <rect x="20" y="40" width="24" height="3" rx="1.5" fill="#92400E" opacity="0.3" />
-    </svg>
-  );
-}
-
-function VaultBox3D({ size = 40 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 64 64" fill="none" aria-hidden>
-      <rect x="10" y="14" width="44" height="38" rx="9" fill="#0F172A" opacity="0.85" />
-      <rect x="14" y="18" width="36" height="30" rx="7" fill="#1E293B" />
-      <circle cx="32" cy="32" r="8" fill="#38BDF8" />
-      <circle cx="32" cy="32" r="3" fill="#0C4A6E" />
-      <rect x="30" y="8" width="4" height="8" rx="2" fill="#38BDF8" />
-      <ellipse cx="24" cy="17" rx="8" ry="2.5" fill="white" opacity="0.25" />
-    </svg>
-  );
-}
 
 export default function Pendana() {
   const { user, isLoading, signOut } = useAuth();
@@ -174,7 +59,7 @@ export default function Pendana() {
 
   if (isLoading) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-[#F0F9FF]">
+      <main className="flex min-h-screen items-center justify-center bg-slate-50">
         <Loader2 className="size-5 animate-spin text-muted-foreground" />
       </main>
     );
@@ -188,14 +73,16 @@ export default function Pendana() {
   const greetingName = user?.name ?? user?.email?.split("@")[0] ?? "Pendana";
 
   return (
-    <div className="flex min-h-screen flex-col bg-[#F0F9FF] text-[#0F172A]">
+    <div className="flex min-h-screen flex-col bg-slate-50 text-slate-900">
       {/* Bar pengumuman global dirender di main.tsx (AnnouncementBar). */}
 
-      <header className="border-b border-sky-100 bg-white/80 backdrop-blur">
+      <header className="border-b border-slate-200 bg-white/80 backdrop-blur">
         <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between gap-3 px-4 sm:px-6">
           <Link to="/pendana" className="flex shrink-0 items-center gap-2.5">
-            <VaultLogo3D size={38} />
-            <span className="hidden text-sm font-bold tracking-[0.16em] sm:block">PINDAI</span>
+            <span className="flex size-8 items-center justify-center rounded-lg bg-[#2563eb] text-sm font-bold text-white">
+              P
+            </span>
+            <span className="hidden text-sm font-semibold tracking-[0.14em] sm:block">PINDAI</span>
           </Link>
 
           <div className="flex min-w-0 items-center gap-2 sm:gap-4">
@@ -232,7 +119,7 @@ export default function Pendana() {
         )}
       </main>
 
-      <footer className="border-t border-sky-100 bg-white">
+      <footer className="border-t border-slate-200 bg-white">
         <div className="mx-auto w-full max-w-6xl px-6 py-6 text-xs leading-5 text-muted-foreground">
           PINDAI — Pendana menyediakan dana melalui skema Alokasi Dana dan menerima
           Imbal Hasil 30% dari pokok sebagai hak finansialnya. Setiap pergerakan dana
@@ -245,7 +132,7 @@ export default function Pendana() {
 
 function Notice({ title, body }: { title: string; body: string }) {
   return (
-    <div className="card-lift mx-auto max-w-md rounded-2xl border border-sky-100 bg-white p-8 text-center shadow-md shadow-sky-100">
+    <div className="card-lift mx-auto max-w-md rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm">
       <Coins className="mx-auto size-5 text-sky-400" />
       <h1 className="mt-4 text-lg font-semibold">{title}</h1>
       <p className="mt-2 text-sm leading-6 text-muted-foreground">{body}</p>
@@ -264,18 +151,17 @@ function Onboarding() {
   const [busy, setBusy] = useState(false);
 
   return (
-    <div className="card-lift mx-auto max-w-xl rounded-2xl border border-sky-100 bg-white p-8 shadow-md shadow-sky-100">
-      <VaultLogo3D size={52} />
+    <div className="card-lift mx-auto max-w-xl rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
+      <span className="flex size-11 items-center justify-center rounded-xl bg-[#eff6ff] text-[#1d4ed8]">
+        <Landmark className="size-5" strokeWidth={2} />
+      </span>
       <p className="mt-4 text-[11px] font-medium uppercase tracking-[0.2em] text-muted-foreground">
         Peran Pendana
       </p>
-      <h1 className="mt-2 text-2xl font-bold tracking-tight">Sediakan dana, terima Imbal Hasil.</h1>
+      <h1 className="mt-2 text-2xl font-semibold tracking-tight">Sediakan dana, terima Imbal Hasil.</h1>
       <p className="mt-3 text-sm leading-7 text-muted-foreground">
-        Sebagai Pendana, Anda menyediakan dana untuk pinjaman nasabah yang telah
-        disetujui tim kami. Setiap pinjaman terbagi dalam satu atau beberapa alokasi
-        Pendana; saat pinjaman terpenuhi, dana bersih (95% dari pokok) dicairkan ke
-        nasabah dan Anda menerima hak Imbal Hasil sebesar 30% dari porsi pokok yang
-        Anda danai, dibayarkan saat nasabah melunasi total kewajiban 130%.
+        Salurkan dana ke pinjaman yang sudah disetujui tim. Anda menerima Imbal
+        Hasil 30% dari porsi pokok yang didanai, dibayarkan saat Peminjam melunasi.
       </p>
       <ul className="mt-6 space-y-3 text-sm">
         {[
@@ -335,9 +221,9 @@ function PendanaWorkspace() {
         <h1 className="text-2xl font-bold tracking-tight">Dompet &amp; Alokasi Pendanaan</h1>
       </div>
 
-      {/* ===== Ringkasan keuangan — 3 kartu 3D ===== */}
+      {/* ===== Ringkasan keuangan ===== */}
       <section className="mt-6 grid gap-4 md:grid-cols-3">
-        <div className="card-lift rounded-2xl border border-sky-100 bg-white p-5 shadow-md shadow-sky-100">
+        <div className="card-lift rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
           <div className="flex items-start justify-between">
             <div>
               <p className="text-xs text-muted-foreground">Total Saldo Dompet</p>
@@ -345,14 +231,13 @@ function PendanaWorkspace() {
                 {formatRupiah(wallet?.saldo ?? 0)}
               </p>
             </div>
-            <WalletGrowth3D size={44} />
+            <span className="flex size-10 items-center justify-center rounded-xl bg-[#eff6ff] text-[#1d4ed8]">
+              <Wallet className="size-5" strokeWidth={2} />
+            </span>
           </div>
-          <p className="mt-3 text-xs leading-5 text-muted-foreground">
-            Tersedia untuk alokasi pendanaan &amp; penarikan.
-          </p>
         </div>
 
-        <div className="card-lift rounded-2xl border border-sky-100 bg-white p-5 shadow-md shadow-sky-100">
+        <div className="card-lift rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
           <div className="flex items-start justify-between">
             <div>
               <p className="text-xs text-muted-foreground">Total Dana Dialokasikan</p>
@@ -360,14 +245,13 @@ function PendanaWorkspace() {
                 {formatRupiah(wallet?.danaBekerja ?? 0)}
               </p>
             </div>
-            <Store size={40} className="text-sky-500" />
+            <span className="flex size-10 items-center justify-center rounded-xl bg-slate-100 text-slate-600">
+              <Store className="size-5" strokeWidth={2} />
+            </span>
           </div>
-          <p className="mt-3 text-xs leading-5 text-muted-foreground">
-            Tersebar di {wallet?.posisiAlokasi ?? 0} proyek pinjaman/gadai berjalan.
-          </p>
         </div>
 
-        <div className="card-lift rounded-2xl border border-sky-100 bg-white p-5 shadow-md shadow-sky-100">
+        <div className="card-lift rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
           <div className="flex items-start justify-between">
             <div>
               <p className="text-xs text-muted-foreground">Estimasi Imbal Hasil Bunga</p>
@@ -375,11 +259,10 @@ function PendanaWorkspace() {
                 {formatRupiah(wallet?.imbalHasilDiharapkan ?? 0)}
               </p>
             </div>
-            <YieldChart3D size={44} />
+            <span className="flex size-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
+              <TrendingUp className="size-5" strokeWidth={2} />
+            </span>
           </div>
-          <p className="mt-3 text-xs leading-5 text-muted-foreground">
-            Proyeksi bunga 30% dari porsi pokok saat Peminjam melunasi.
-          </p>
         </div>
       </section>
 
@@ -388,17 +271,17 @@ function PendanaWorkspace() {
         <TabsList className="flex w-full flex-wrap gap-2 overflow-x-auto bg-transparent p-0">
           {(
             [
-              ["marketplace", "Marketplace Pinjaman & Gadai", <Market3D key="i" size={22} />],
-              ["portofolio", "Portofolio Pendanaan Saya", <WalletGrowth3D key="i" size={22} />],
-              ["kontrak", "E-Contract Pendanaan", <Certificate3D key="i" size={22} />],
-              ["dompet", "Dompet & Penarikan", <YieldChart3D key="i" size={22} />],
-              ["riwayat", "Riwayat Transaksi", <History3D key="i" size={22} />],
+              ["marketplace", "Marketplace Pinjaman & Gadai", <Store key="i" className="size-4" />],
+              ["portofolio", "Portofolio Pendanaan Saya", <Wallet key="i" className="size-4" />],
+              ["kontrak", "E-Contract Pendanaan", <FileText key="i" className="size-4" />],
+              ["dompet", "Dompet & Penarikan", <Coins key="i" className="size-4" />],
+              ["riwayat", "Riwayat Transaksi", <ScrollText key="i" className="size-4" />],
             ] as Array<[string, string, React.ReactNode]>
           ).map(([value, label, icon]) => (
             <TabsTrigger
               key={value}
               value={value}
-              className="data-[state=active]:gradient-primary data-[state=active]:text-primary-foreground rounded-full border border-sky-100 bg-white px-4 py-2 text-xs font-medium shadow-sm transition-all data-[state=active]:border-0 data-[state=active]:shadow-glow"
+              className="data-[state=active]:gradient-primary data-[state=active]:text-primary-foreground rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-medium shadow-sm transition-all data-[state=active]:border-0 data-[state=active]:shadow-glow"
             >
               <span className="mr-1.5 inline-flex align-middle">{icon}</span>
               {label}
@@ -542,7 +425,7 @@ function MarketCard({
   };
 
   return (
-    <article className="card-lift rounded-2xl border border-sky-100 bg-white p-5 shadow-md shadow-sky-100">
+    <article className="card-lift rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
@@ -565,7 +448,7 @@ function MarketCard({
       {/* Info jaminan gadai bila ada */}
       {row.gadai && (
         <div className="mt-3 flex items-start gap-3 rounded-xl border border-emerald-100 bg-emerald-50/60 px-3 py-2.5">
-          <VaultBox3D size={34} />
+          <Package className="mt-0.5 size-4 shrink-0 text-emerald-600" strokeWidth={2} />
           <div className="min-w-0 text-xs">
             <p className="truncate font-medium text-emerald-900">{row.gadai.deskripsiBarang}</p>
             <p className="mt-0.5 tabular-nums text-emerald-700">
@@ -577,7 +460,7 @@ function MarketCard({
       )}
 
       {/* Rincian transparansi */}
-      <dl className="mt-3 grid grid-cols-3 gap-2 rounded-xl border border-sky-100 bg-secondary/40 px-3 py-2.5 text-center text-xs">
+      <dl className="mt-3 grid grid-cols-3 gap-2 rounded-xl border border-slate-200 bg-secondary/40 px-3 py-2.5 text-center text-xs">
         <div>
           <dt className="text-muted-foreground">Tenor</dt>
           <dd className="mt-0.5 font-semibold tabular-nums">{row.tenorHari} hari</dd>
@@ -671,7 +554,7 @@ function MarketCard({
               </p>
             )}
             {waOtpStatus?.aktif && (
-              <div className="space-y-2 rounded-xl border border-sky-100 bg-sky-50/60 p-3">
+              <div className="space-y-2 rounded-xl border border-slate-200 bg-sky-50/60 p-3">
                 <Label htmlFor="alo-wa">Nomor WhatsApp verifikasi (62…)</Label>
                 <Input
                   id="alo-wa"
@@ -758,8 +641,8 @@ function PortfolioSection({ portfolio }: { portfolio: PortfolioRow[] | undefined
       {portfolio.map((f) => (
         <li
           key={f._id}
-          className={`card-lift rounded-2xl border bg-white p-5 shadow-md shadow-sky-100 ${
-            f.statusPelunasan === "menunggak" ? "border-red-200" : "border-sky-100"
+          className={`card-lift rounded-2xl border bg-white p-5 shadow-sm ${
+            f.statusPelunasan === "menunggak" ? "border-red-200" : "border-slate-200"
           }`}
         >
           <div className="flex flex-wrap items-start justify-between gap-3">
@@ -804,7 +687,7 @@ function PortfolioSection({ portfolio }: { portfolio: PortfolioRow[] | undefined
           {/* Widget pelacakan jaminan gadai */}
           {f.jaminan && (
             <div className="mt-3 flex items-start gap-3 rounded-xl border border-emerald-100 bg-emerald-50/60 px-3 py-2.5">
-              <VaultBox3D size={34} />
+              <Package className="mt-0.5 size-4 shrink-0 text-emerald-600" strokeWidth={2} />
               <div className="min-w-0 text-xs">
                 <p className="font-medium text-emerald-900">
                   Jaminan: {f.jaminan.deskripsiBarang}
@@ -871,7 +754,7 @@ function FundingContractsSection() {
         return (
           <li
             key={c._id}
-            className="card-lift rounded-2xl border border-sky-100 bg-white p-5 shadow-md shadow-sky-100"
+            className="card-lift rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
           >
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="min-w-0">
@@ -1042,7 +925,7 @@ function WalletSection({ onDepositRequested }: { onDepositRequested: () => void 
   return (
     <div className="grid gap-8 lg:grid-cols-2">
       {/* ===== Setor / tambah saldo ===== */}
-      <section className="card-lift rounded-2xl border border-sky-100 bg-white p-6 shadow-md shadow-sky-100">
+      <section className="card-lift rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
         <div className="flex items-center justify-between">
           <h3 className="text-sm font-semibold">Tambah Saldo (Deposit)</h3>
           <Badge className="border-0 bg-emerald-100 text-emerald-700 hover:bg-emerald-100">
@@ -1069,7 +952,7 @@ function WalletSection({ onDepositRequested }: { onDepositRequested: () => void 
       </section>
 
       {/* ===== Penarikan ===== */}
-      <section className="card-lift rounded-2xl border border-sky-100 bg-white p-6 shadow-md shadow-sky-100">
+      <section className="card-lift rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
         <h3 className="text-sm font-semibold">Penarikan Dana ke Rekening Pribadi</h3>
         <Separator className="my-4" />
         <form onSubmit={ajukanPenarikan} className="space-y-4">
@@ -1164,12 +1047,12 @@ function WalletSection({ onDepositRequested }: { onDepositRequested: () => void 
       </section>
 
       {/* Proteksi transaksi — OTP WhatsApp */}
-      <section className="card-lift rounded-2xl border border-sky-100 bg-white p-6 shadow-md shadow-sky-100 lg:col-span-2">
+      <section className="card-lift rounded-2xl border border-slate-200 bg-white p-6 shadow-sm lg:col-span-2">
         <WaOtpProtectionCard />
       </section>
 
       {/* Riwayat setoran */}
-      <section className="card-lift rounded-2xl border border-sky-100 bg-white p-6 shadow-md shadow-sky-100 lg:col-span-2">
+      <section className="card-lift rounded-2xl border border-slate-200 bg-white p-6 shadow-sm lg:col-span-2">
         <h3 className="text-sm font-semibold">Riwayat setoran</h3>
         <Separator className="my-4" />
         {deposits === undefined ? (
@@ -1303,7 +1186,7 @@ function DepositSimDialog({ open, onClose }: { open: boolean; onClose: () => voi
             <TabsTrigger value="va" className="rounded-full text-xs">Virtual Account</TabsTrigger>
           </TabsList>
           <TabsContent value="qris" className="mt-4">
-            <div className="flex flex-col items-center gap-2 rounded-2xl border border-sky-100 p-5">
+            <div className="flex flex-col items-center gap-2 rounded-2xl border border-slate-200 p-5">
               <QrSim />
               <p className="text-xs text-muted-foreground">
                 Pindai QR simulasi — dana masuk dompet setelah tim memverifikasi transfer.
@@ -1311,7 +1194,7 @@ function DepositSimDialog({ open, onClose }: { open: boolean; onClose: () => voi
             </div>
           </TabsContent>
           <TabsContent value="va" className="mt-4">
-            <div className="rounded-2xl border border-sky-100 p-4 text-center">
+            <div className="rounded-2xl border border-slate-200 p-4 text-center">
               <p className="text-xs text-muted-foreground">Nomor Virtual Account (simulasi)</p>
               <p className="mt-1 font-mono text-lg font-bold tracking-wider">880801000000000</p>
               <Button
@@ -1406,7 +1289,7 @@ function HistorySection() {
         {fundings.length === 0 ? (
           <p className="mt-3 text-xs text-muted-foreground">Belum ada.</p>
         ) : (
-          <ul className="mt-3 divide-y divide-sky-100 rounded-2xl border border-sky-100 bg-white">
+          <ul className="mt-3 divide-y divide-sky-100 rounded-2xl border border-slate-200 bg-white">
             {fundings.map((f) => (
               <li key={f._id} className="px-5 py-4">
                 <div className="flex items-center justify-between gap-3">
@@ -1426,7 +1309,7 @@ function HistorySection() {
         {deposits.length === 0 ? (
           <p className="mt-3 text-xs text-muted-foreground">Belum ada.</p>
         ) : (
-          <ul className="mt-3 divide-y divide-sky-100 rounded-2xl border border-sky-100 bg-white">
+          <ul className="mt-3 divide-y divide-sky-100 rounded-2xl border border-slate-200 bg-white">
             {deposits.map((d) => (
               <li key={d._id} className="px-5 py-4">
                 <div className="flex items-center justify-between gap-3">
@@ -1446,7 +1329,7 @@ function HistorySection() {
         {withdrawals.length === 0 ? (
           <p className="mt-3 text-xs text-muted-foreground">Belum ada.</p>
         ) : (
-          <ul className="mt-3 divide-y divide-sky-100 rounded-2xl border border-sky-100 bg-white">
+          <ul className="mt-3 divide-y divide-sky-100 rounded-2xl border border-slate-200 bg-white">
             {withdrawals.map((w) => (
               <li key={w._id} className="px-5 py-4">
                 <div className="flex items-center justify-between gap-3">

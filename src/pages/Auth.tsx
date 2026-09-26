@@ -171,13 +171,13 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
             href="/"
             className="flex items-center gap-2.5 text-sm font-semibold tracking-[0.18em] text-foreground"
           >
-            <span className="gradient-primary shadow-glow flex size-8 items-center justify-center rounded-lg font-bold text-primary-foreground">
+            <span className="flex size-8 items-center justify-center rounded-lg bg-primary font-bold text-primary-foreground">
               P
             </span>
-            PINJAM GADAI DIGITAL
+            PINDAI
           </a>
           <p className="mt-2 text-xs text-muted-foreground">
-            Pinjaman &amp; Penggadaian Barang
+            Pinjam &amp; Gadai Digital
           </p>
 
           <Card className="mt-8 w-full gap-6 rounded-xl border-border/60 pb-0 shadow-none">
@@ -186,8 +186,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                 <CardHeader className="text-center">
                   <CardTitle className="text-xl">Masuk atau buat akun</CardTitle>
                   <CardDescription>
-                    Ruang nasabah — ajukan pinjaman tunai atau gadaikan barang
-                    dari satu akun
+                    Ajukan pinjaman atau gadai dari satu akun
                   </CardDescription>
                 </CardHeader>
                 <form onSubmit={handleEmailSubmit}>
@@ -236,8 +235,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                           disabled={isLoading}
                         />
                         <p className="mt-1.5 text-[11px] leading-4 text-sky-700">
-                          Proteksi aktif setelah 2x kegagalan login berturut-turut.
-                          Maksimal 5x percobaan salah per 15 menit per IP.
+                          Aktif setelah 2x gagal. Maksimal 5 percobaan per 15 menit.
                         </p>
                       </div>
                     )}
@@ -326,7 +324,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                   <CardFooter className="flex-col gap-2">
                     <Button
                       type="submit"
-                      className="gradient-primary shadow-glow w-full rounded-full border-0 font-medium"
+                      className="w-full bg-primary font-medium text-primary-foreground hover:bg-primary/90"
                       disabled={isLoading || otp.length !== 6}
                     >
                       {isLoading ? (
@@ -356,9 +354,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
             )}
 
             <div className="rounded-b-xl border-t bg-muted px-6 py-4 text-center text-xs leading-5 text-muted-foreground">
-              Pemeriksaan barang gadai dilakukan di lokasi dengan live location
-              wajib. Struktur biaya tetap: potongan di muka 5%, bunga 30%,
-              total kewajiban 130%.
+              Potongan 5% · Bunga 30% · Pelunasan 130%
             </div>
           </Card>
         </div>

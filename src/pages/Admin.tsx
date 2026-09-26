@@ -50,7 +50,6 @@ import {
   EmptyQueue,
   QueueRow,
   SecurityBar,
-  VaultLogo3D,
   formatDate,
   type LoanRow,
   type PawnRow,
@@ -224,12 +223,14 @@ export default function Admin() {
     <div className="flex min-h-screen flex-col bg-background text-foreground">
       <SecurityBar seimbang={ledger?.seimbang === true} killSwitch={sysCfg?.killSwitch === true} />
 
-      <header className="border-b border-sky-100 bg-white/80 backdrop-blur sticky top-0 z-40">
+      <header className="border-b border-slate-200 bg-white/80 backdrop-blur sticky top-0 z-40">
         <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between gap-3 px-6">
           <div className="flex min-w-0 items-center gap-3">
-            <VaultLogo3D size={38} />
+            <span className="flex size-8 items-center justify-center rounded-lg bg-[#2563eb] text-sm font-bold text-white">
+              P
+            </span>
             <div className="min-w-0">
-              <p className="truncate text-sm font-bold tracking-[0.14em] text-navy">PANEL ADMIN</p>
+              <p className="truncate text-sm font-semibold tracking-[0.14em] text-navy">PANEL ADMIN</p>
               <p className="truncate text-[11px] text-muted-foreground">PINDAI · Pinjam & Gadai Digital</p>
             </div>
             <Badge className="hidden bg-emerald-100 text-emerald-800 hover:bg-emerald-100 sm:inline-flex">
@@ -279,7 +280,7 @@ export default function Admin() {
             </Button>
             <Link
               to="/dashboard"
-              className="flex size-9 items-center justify-center rounded-full border border-sky-100 bg-secondary/60 text-xs font-bold text-navy"
+              className="flex size-9 items-center justify-center rounded-full border border-slate-200 bg-secondary/60 text-xs font-bold text-navy"
               title="Profil & kembali ke ruang nasabah"
             >
               A
@@ -297,8 +298,7 @@ export default function Admin() {
             Ringkasan sistem hari ini
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Tindak setiap pengajuan, pantau lokasi, kelola pencairan dan
-            keamanan data — semua keputusan tercatat di audit trail.
+            Tindak pengajuan, pantau lokasi, dan kelola pencairan.
           </p>
         </div>
 
@@ -316,7 +316,7 @@ export default function Admin() {
             ].map(([label, value, tone]) => (
               <div
                 key={label as string}
-                className="card-lift rounded-2xl border border-sky-100 bg-white px-4 py-4 shadow-[0_14px_30px_-20px_oklch(0.55_0.12_240/0.35)]"
+                className="card-lift rounded-2xl border border-slate-200 bg-white px-4 py-4 shadow-sm"
               >
                 <p className="text-xs text-muted-foreground">{label as string}</p>
                 <p
@@ -338,7 +338,7 @@ export default function Admin() {
         )}
 
         <Tabs defaultValue="pinjaman" className="mt-8 flex flex-col gap-6 lg:flex-row lg:items-start lg:gap-8">
-          <TabsList className="sticky top-20 z-30 -mx-6 h-auto w-auto flex flex-row flex-wrap items-center gap-2 overflow-x-auto rounded-none border-y border-sky-100 bg-white/90 px-6 py-2 backdrop-blur lg:mx-0 lg:w-64 lg:flex-col lg:items-stretch lg:gap-1 lg:overflow-visible lg:rounded-2xl lg:border lg:border-sky-100 lg:px-2 lg:py-2 lg:shadow-[0_14px_30px_-20px_oklch(0.55_0.12_240/0.35)]">
+          <TabsList className="sticky top-20 z-30 -mx-6 h-auto w-auto flex flex-row flex-wrap items-center gap-2 overflow-x-auto rounded-none border-y border-slate-200 bg-white/90 px-6 py-2 backdrop-blur lg:mx-0 lg:w-64 lg:flex-col lg:items-stretch lg:gap-1 lg:overflow-visible lg:rounded-2xl lg:border lg:border-slate-200 lg:px-2 lg:py-2 lg:shadow-sm">
             {([
               ["pinjaman", "Pinjaman", `${overview.loans.filter((l) => l.status === "diajukan").length}`, ClipboardList],
               ["gadai", "Gadai", `${overview.pawns.filter((p) => p.status === "diajukan" || p.status === "sedang_dinilai").length}`, Package],
@@ -358,7 +358,7 @@ export default function Admin() {
               <TabsTrigger
                 key={value}
                 value={value}
-                className="h-9 w-auto flex-none justify-start gap-2.5 rounded-xl px-3.5 text-left text-xs font-medium text-navy shadow-none transition-colors hover:bg-sky-50 data-[state=active]:gradient-primary data-[state=active]:text-white data-[state=active]:shadow-[0_10px_22px_-10px_oklch(0.62_0.15_232/0.55)] data-[state=active]:hover:bg-none lg:w-full"
+                className="h-9 w-auto flex-none justify-start gap-2.5 rounded-xl px-3.5 text-left text-xs font-medium text-navy shadow-none transition-colors hover:bg-slate-50 data-[state=active]:gradient-primary data-[state=active]:text-white data-[state=active]:shadow-none data-[state=active]:hover:bg-none lg:w-full"
               >
                 <Icon className="size-3.5" />
                 {label}
@@ -387,7 +387,7 @@ export default function Admin() {
                 title="Belum ada pengajuan pinjaman"
               />
             ) : (
-              <ul className="divide-y divide-sky-100 rounded-2xl border border-sky-100 bg-white">
+              <ul className="divide-y divide-sky-100 rounded-2xl border border-slate-200 bg-white">
                 {overview.loans.map((l) => (
                   <li key={l._id}>
                     <QueueRow
@@ -409,7 +409,7 @@ export default function Admin() {
             {overview.pawns.length === 0 ? (
               <EmptyQueue icon={Package} title="Belum ada pengajuan gadai" />
             ) : (
-              <ul className="divide-y divide-sky-100 rounded-2xl border border-sky-100 bg-white">
+              <ul className="divide-y divide-sky-100 rounded-2xl border border-slate-200 bg-white">
                 {overview.pawns.map((p) => (
                   <li key={p._id}>
                     <QueueRow
@@ -436,7 +436,7 @@ export default function Admin() {
             ) : pendingDeposits.length === 0 ? (
               <EmptyQueue icon={Coins} title="Tidak ada setoran menunggu verifikasi" />
             ) : (
-              <ul className="divide-y divide-sky-100 rounded-2xl border border-sky-100 bg-white">
+              <ul className="divide-y divide-sky-100 rounded-2xl border border-slate-200 bg-white">
                 {pendingDeposits.map((d) => (
                   <li key={d._id} className="flex items-center justify-between gap-4 px-5 py-4">
                     <div className="min-w-0">
@@ -484,7 +484,7 @@ export default function Admin() {
             ) : pendingWd.length === 0 ? (
               <EmptyQueue icon={Wallet} title="Tidak ada penarikan menunggu diproses" />
             ) : (
-              <ul className="divide-y divide-sky-100 rounded-2xl border border-sky-100 bg-white">
+              <ul className="divide-y divide-sky-100 rounded-2xl border border-slate-200 bg-white">
                 {pendingWd.map((w) => (
                   <li key={w._id} className="flex items-center justify-between gap-4 px-5 py-4">
                     <div className="min-w-0">
@@ -543,8 +543,7 @@ export default function Admin() {
                     ))}
                   </div>
                   <p className="mt-4 text-xs leading-5 text-muted-foreground">
-                    Jurnal bersifat append-only: entri tidak pernah diubah atau
-                    dihapus. Total debit harus selalu sama dengan total kredit.
+                    Jurnal append-only. Total debit selalu sama dengan total kredit.
                   </p>
                 </>
               )}

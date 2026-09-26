@@ -40,53 +40,71 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
-  /* PINDAI theme tokens — gold accent for the pawn (gadai) journey. */
+  /* PINDAI tokens — aksen tunggal (biru) + netral abu. */
   --color-gold: var(--gold);
   --color-gold-foreground: var(--gold-foreground);
-  /* Clay theme — deep navy text & accents (spec: #0F172A). */
   --color-navy: var(--navy);
+}
+
+/*
+ * Skala `sky-*` dipetakan ulang ke satu biru profesional. Semua komponen yang
+ * memakai utilitas sky kini otomatis mengikuti bahasa warna tunggal ini.
+ */
+@theme {
+  --color-sky-50: #eff6ff;
+  /* sky-100 dipakai hampir hanya untuk garis kartu → dibuat netral. */
+  --color-sky-100: #e2e8f0;
+  --color-sky-200: #bfdbfe;
+  --color-sky-300: #93c5fd;
+  --color-sky-400: #60a5fa;
+  --color-sky-500: #3b82f6;
+  --color-sky-600: #2563eb;
+  --color-sky-700: #1d4ed8;
+  --color-sky-800: #1e40af;
+  --color-sky-900: #1e3a8a;
+  --color-sky-950: #172554;
 }
 
 /* CHANGE VALUES FOR THEME */
 :root {
   --radius: 0.625rem;
-  /* PINDAI clay theme — sky blue utama, mint aksen sukses, teks navy. */
+  /* Permukaan netral: putih & abu, teks near-black. */
   --background: #ffffff;
   --foreground: #0f172a;
   --card: #ffffff;
   --card-foreground: #0f172a;
   --popover: #ffffff;
   --popover-foreground: #0f172a;
-  --primary: #38bdf8;
-  --primary-foreground: #062b40;
-  --secondary: #f0f9ff;
-  --secondary-foreground: #075985;
-  --muted: #f0f9ff;
-  --muted-foreground: #52657d;
-  --accent: #ecfeff;
-  --accent-foreground: #155e75;
-  --destructive: #ef4444;
-  --border: #e3edf6;
-  --input: #dbe7f2;
-  --ring: #38bdf8;
-  /* Mint — aksen sukses/dana (gadai & CTA kedua). */
-  --gold: #10b981;
-  --gold-foreground: #052e22;
-  /* Deep Navy — teks utama (#0F172A). */
+  /* Satu warna aksen: biru profesional. */
+  --primary: #2563eb;
+  --primary-foreground: #ffffff;
+  --secondary: #f1f5f9;
+  --secondary-foreground: #0f172a;
+  --muted: #f8fafc;
+  --muted-foreground: #64748b;
+  --accent: #f1f5f9;
+  --accent-foreground: #0f172a;
+  --destructive: #dc2626;
+  --border: #e2e8f0;
+  --input: #cbd5e1;
+  --ring: #2563eb;
+  /* Semantik sukses (bukan aksen kedua). */
+  --gold: #059669;
+  --gold-foreground: #065f46;
   --navy: #0f172a;
-  --chart-1: #38bdf8;
-  --chart-2: #10b981;
-  --chart-3: #0f172a;
-  --chart-4: #7dd3fc;
-  --chart-5: #6ee7b7;
-  --sidebar: #f8fbfe;
+  --chart-1: #2563eb;
+  --chart-2: #0f172a;
+  --chart-3: #64748b;
+  --chart-4: #94a3b8;
+  --chart-5: #cbd5e1;
+  --sidebar: #f8fafc;
   --sidebar-foreground: #0f172a;
-  --sidebar-primary: #38bdf8;
-  --sidebar-primary-foreground: #062b40;
-  --sidebar-accent: #f0f9ff;
-  --sidebar-accent-foreground: #075985;
-  --sidebar-border: #e3edf6;
-  --sidebar-ring: #38bdf8;
+  --sidebar-primary: #2563eb;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #f1f5f9;
+  --sidebar-accent-foreground: #0f172a;
+  --sidebar-border: #e2e8f0;
+  --sidebar-ring: #2563eb;
 }
 
 .dark {
@@ -129,6 +147,8 @@
   }
   body {
     @apply bg-background text-foreground;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
   }
   button:not([disabled]),
   [role="button"]:not([disabled]) {
@@ -136,58 +156,50 @@
   }
 }
 
-/* ===== PINDAI effects — gradien, glow, tekstur, motion (clay sky/mint) ===== */
+/* ===== PINDAI utilities — bersih, netral, satu aksen ===== */
 @layer utilities {
-  /* Gradien utama sky blue (tombol & kartu hero) — dipakai semua halaman. */
+  /* Tombol/elemen aksi utama: solid, tanpa gradien. */
   .gradient-primary {
-    background-image: linear-gradient(180deg, #7dd8fc 0%, #38bdf8 55%, #0ea5e9 100%);
+    background-image: none;
+    background-color: var(--primary);
   }
   .gradient-primary:hover {
-    background-image: linear-gradient(180deg, #8dddfd 0%, #4cc7f9 55%, #12aede 100%);
+    background-image: none;
+    background-color: #1d4ed8;
   }
-  /* Gradien aksen sukses — mint (dahulu gold untuk gadai, kini satu bahasa mint). */
   .gradient-gold {
-    background-image: linear-gradient(180deg, #5eead4 0%, #34d399 50%, #10b981 100%);
+    background-image: none;
+    background-color: var(--gold);
   }
-  /* Teks bergradasi sky → mint. */
+  /* Teks aksen solid. */
   .text-gradient-primary {
-    background-image: linear-gradient(120deg, #38bdf8 0%, #10b981 100%);
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
+    background-image: none;
+    color: var(--primary);
   }
-  /* Cahaya lembut di bawah elemen sky. */
-  .shadow-glow {
-    box-shadow: 0 14px 30px -12px oklch(0.62 0.15 232 / 0.55);
-  }
-  /* Cahaya biru langit untuk elemen clay utama. */
-  .shadow-glow-blue {
-    box-shadow: 0 18px 44px -14px oklch(0.62 0.15 232 / 0.5);
-  }
+  /* Satu bayangan lembut seragam untuk semua "glow". */
+  .shadow-glow,
+  .shadow-glow-blue,
   .shadow-glow-gold {
-    box-shadow: 0 14px 30px -12px oklch(0.7 0.14 165 / 0.5);
+    box-shadow:
+      0 1px 2px oklch(0.2 0.02 260 / 0.06),
+      0 10px 28px -16px oklch(0.2 0.02 260 / 0.22);
   }
-  /* Tekstur titik halus untuk latar hero. */
   .dot-texture {
-    background-image: radial-gradient(
-      oklch(0.62 0.15 232 / 0.09) 1px,
-      transparent 1.5px
-    );
-    background-size: 22px 22px;
+    background-image: none;
   }
-  /* Kartu terangkat saat disorot. */
+  /* Kartu terangkat halus saat disorot. */
   .card-lift {
     transition:
-      transform 0.22s ease,
-      box-shadow 0.22s ease,
-      border-color 0.22s ease;
+      transform 0.18s ease,
+      box-shadow 0.18s ease,
+      border-color 0.18s ease;
   }
   .card-lift:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 14px 36px -14px oklch(0.55 0.12 240 / 0.22);
-    border-color: oklch(0.62 0.15 232 / 0.4);
+    transform: translateY(-2px);
+    box-shadow: 0 12px 28px -18px oklch(0.2 0.02 260 / 0.24);
+    border-color: #cbd5e1;
   }
-  /* Bar pengumuman berjalan (marquee) — digandakan isi track agar loop mulus. */
+  /* Bar pengumuman berjalan (marquee). */
   .animate-marquee {
     animation: pindai-marquee 30s linear infinite;
   }
@@ -216,115 +228,90 @@
       transform: translateY(0);
     }
     50% {
-      transform: translateY(-8px);
+      transform: translateY(-6px);
     }
   }
 
-  /* ===== 3D Cartoon Claymorphism (PINDAI clay theme) ===== */
+  /* ===== Kartu & panel (dahulu claymorphism, kini flat & rapi) ===== */
   .clay-card {
-    border-radius: 1.75rem;
+    border-radius: 1rem;
     background: #ffffff;
-    border: 1px solid oklch(0.92 0.03 230);
+    border: 1px solid var(--border);
     box-shadow:
-      0 24px 48px -20px oklch(0.55 0.12 240 / 0.18),
-      0 4px 10px -4px oklch(0.55 0.12 240 / 0.1),
-      inset 0 -6px 14px oklch(0.55 0.12 240 / 0.06);
+      0 1px 2px oklch(0.2 0.02 260 / 0.05),
+      0 10px 30px -22px oklch(0.2 0.02 260 / 0.2);
   }
   .clay-inset {
-    border-radius: 1rem;
-    box-shadow:
-      inset 0 3px 8px oklch(0.55 0.12 240 / 0.12),
-      inset 0 -2px 4px oklch(1 0 0 / 0.9);
+    border-radius: 0.75rem;
+    background-color: var(--muted);
+    box-shadow: none;
   }
+  /* Tombol utama. */
   .clay-btn-blue {
-    border-radius: 9999px;
+    border-radius: 0.625rem;
     border: 0;
-    background-image: linear-gradient(180deg, #7dd8fc 0%, #38bdf8 55%, #0ea5e9 100%);
-    color: #062b40;
-    box-shadow:
-      0 14px 26px -10px oklch(0.62 0.15 232 / 0.55),
-      inset 0 2px 4px oklch(1 0 0 / 0.55),
-      inset 0 -4px 8px oklch(0.4 0.12 235 / 0.25);
+    background-image: none;
+    background-color: var(--primary);
+    color: var(--primary-foreground);
+    box-shadow: 0 1px 2px oklch(0.2 0.02 260 / 0.12);
     transition:
-      transform 0.16s ease,
+      background-color 0.16s ease,
       box-shadow 0.16s ease,
-      filter 0.16s ease;
+      transform 0.16s ease;
   }
   .clay-btn-blue:hover {
-    transform: translateY(-2px) scale(1.02);
-    filter: brightness(1.05);
+    background-color: #1d4ed8;
+    transform: translateY(-1px);
+    box-shadow: 0 8px 18px -10px oklch(0.5 0.16 262 / 0.5);
   }
   .clay-btn-blue:active {
-    transform: translateY(1px) scale(0.99);
+    transform: translateY(0);
   }
+  /* Tombol sekunder netral. */
   .clay-btn-mint {
-    border-radius: 9999px;
-    border: 0;
-    background-image: linear-gradient(180deg, #5eead4 0%, #34d399 50%, #10b981 100%);
-    color: #052e22;
-    box-shadow:
-      0 14px 26px -10px oklch(0.7 0.14 165 / 0.5),
-      inset 0 2px 4px oklch(1 0 0 / 0.55),
-      inset 0 -4px 8px oklch(0.45 0.12 165 / 0.25);
+    border-radius: 0.625rem;
+    border: 1px solid var(--border);
+    background-image: none;
+    background-color: #ffffff;
+    color: var(--foreground);
+    box-shadow: 0 1px 2px oklch(0.2 0.02 260 / 0.05);
     transition:
-      transform 0.16s ease,
-      box-shadow 0.16s ease,
-      filter 0.16s ease;
+      background-color 0.16s ease,
+      border-color 0.16s ease;
   }
   .clay-btn-mint:hover {
-    transform: translateY(-2px) scale(1.02);
-    filter: brightness(1.05);
+    background-color: var(--muted);
+    border-color: #cbd5e1;
   }
-  .clay-btn-mint:active {
-    transform: translateY(1px) scale(0.99);
-  }
-  /* Icon clay: kotak membulat bercahaya untuk ikon 3D. */
+  /* Kotak ikon lembut. */
   .clay-icon-blue {
-    border-radius: 1rem;
-    background-image: linear-gradient(180deg, #bae6fd 0%, #7dd3fc 100%);
-    box-shadow:
-      0 10px 20px -8px oklch(0.62 0.15 232 / 0.45),
-      inset 0 2px 3px oklch(1 0 0 / 0.8),
-      inset 0 -3px 6px oklch(0.5 0.12 235 / 0.3);
-    color: #0c4a6e;
+    border-radius: 0.625rem;
+    background-color: #eff6ff;
+    color: #1d4ed8;
+    box-shadow: inset 0 0 0 1px #dbeafe;
   }
   .clay-icon-mint {
-    border-radius: 1rem;
-    background-image: linear-gradient(180deg, #a7f3d0 0%, #6ee7b7 100%);
-    box-shadow:
-      0 10px 20px -8px oklch(0.7 0.14 165 / 0.45),
-      inset 0 2px 3px oklch(1 0 0 / 0.8),
-      inset 0 -3px 6px oklch(0.45 0.12 165 / 0.3);
-    color: #065f46;
+    border-radius: 0.625rem;
+    background-color: #f1f5f9;
+    color: #334155;
+    box-shadow: inset 0 0 0 1px #e2e8f0;
   }
-  /* Kilau berkilau untuk detail ikon 3D. */
+  /* Kilau glossy dimatikan — tampilan bersih. */
   .clay-shine::after {
-    content: "";
-    position: absolute;
-    inset: 0;
-    border-radius: inherit;
-    background: linear-gradient(
-      115deg,
-      oklch(1 0 0 / 0.65) 0%,
-      oklch(1 0 0 / 0) 38%,
-      oklch(1 0 0 / 0) 62%,
-      oklch(1 0 0 / 0.35) 100%
-    );
-    pointer-events: none;
+    content: none;
   }
-  /* Panel ice-blue hero. */
+  /* Latar hero: putih → abu sangat tipis. */
   .clay-hero {
-    background:
-      radial-gradient(60% 55% at 75% 18%, oklch(0.9 0.06 230 / 0.9) 0%, transparent 70%),
-      radial-gradient(45% 45% at 15% 85%, oklch(0.93 0.05 165 / 0.8) 0%, transparent 70%),
-      linear-gradient(180deg, #f0f9ff 0%, #ffffff 100%);
+    background-color: #ffffff;
+    background-image: linear-gradient(180deg, #f8fafc 0%, #ffffff 42%);
   }
-  /* Header modal pengumuman (ice blue → putih). */
+  /* Header modal pengumuman. */
   .gradient-hero-modal {
-    background: linear-gradient(180deg, #f0f9ff 0%, #e0f2fe 60%, #ffffff 100%);
+    background: linear-gradient(180deg, #f8fafc 0%, #ffffff 100%);
   }
-  /* Tab aktif — gradien sky (class custom tak bisa lewat varian tailwind). */
+  /* Tab aktif — aksen solid. */
   [data-slot="tabs-trigger"][data-state="active"] {
-    background-image: linear-gradient(180deg, #7dd8fc 0%, #38bdf8 55%, #0ea5e9 100%);
+    background-image: none;
+    background-color: var(--primary);
   }
 }

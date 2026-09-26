@@ -110,7 +110,7 @@ export function AnnouncementCms() {
   );
 
   const Section = ({ title, children }: { title: string; children: ReactNode }) => (
-    <section className="rounded-2xl border border-sky-100 bg-white p-5 shadow-[0_10px_30px_-18px_oklch(0.55_0.12_240/0.25)]">
+    <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_10px_30px_-18px_oklch(0.55_0.12_240/0.25)]">
       <h3 className="text-sm font-semibold text-navy">{title}</h3>
       <div className="mt-4 space-y-4">{children}</div>
     </section>
@@ -142,7 +142,7 @@ export function AnnouncementCms() {
           {T("Teks berjalan", "teks", d("teks", publik.barTeks), { area: true, max: 240 })}
           {T("Tautan CTA (opsional)", "tautan", d("tautan", publik.barTautan), { placeholder: "/auth" })}
           {Toggle("Tampilkan bar", "Nonaktif menyembunyikan bar dari semua halaman.", "barAktif", db("barAktif", publik.barAktif))}
-          <div className="overflow-hidden rounded-xl border border-sky-100 bg-gradient-to-r from-sky-50 via-white to-emerald-50/70">
+          <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
             <div className="animate-marquee flex w-max py-2">
               {[0, 1, 2, 3].map((i) => (
                 <span key={i} className="mx-4 text-xs font-medium text-sky-900">{d("teks", publik.barTeks)}</span>
@@ -221,7 +221,7 @@ export function LoginSecurityPanel({ onOpenSetup }: { onOpenSetup: () => void })
         ].map(([label, value, tone]) => (
           <div
             key={label as string}
-            className="card-lift rounded-2xl border border-sky-100 bg-white px-4 py-4 shadow-[0_14px_30px_-20px_oklch(0.55_0.12_240/0.35)]"
+            className="card-lift rounded-2xl border border-slate-200 bg-white px-4 py-4 shadow-[0_14px_30px_-20px_oklch(0.55_0.12_240/0.35)]"
           >
             <p className="text-xs text-muted-foreground">{label as string}</p>
             <p
@@ -240,7 +240,7 @@ export function LoginSecurityPanel({ onOpenSetup }: { onOpenSetup: () => void })
       </section>
 
       {/* 2FA admin */}
-      <section className="rounded-2xl border border-sky-100 bg-white p-6 shadow-md shadow-sky-100">
+      <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h3 className="text-sm font-semibold">Two-Factor Authentication (TOTP)</h3>
@@ -262,7 +262,7 @@ export function LoginSecurityPanel({ onOpenSetup }: { onOpenSetup: () => void })
       </section>
 
       {/* Sesi aktif */}
-      <section className="rounded-2xl border border-sky-100 bg-white p-6 shadow-md shadow-sky-100">
+      <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
         <h3 className="text-sm font-semibold">Sesi aktif (single active session)</h3>
         <p className="mt-1 text-xs leading-5 text-muted-foreground">
           Login di perangkat baru otomatis menggugurkan sesi lama. Admin dengan 2FA
@@ -292,7 +292,7 @@ export function LoginSecurityPanel({ onOpenSetup }: { onOpenSetup: () => void })
       </section>
 
       {/* Log login append-only */}
-      <section className="rounded-2xl border border-sky-100 bg-white p-6 shadow-md shadow-sky-100">
+      <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
         <div className="flex items-center justify-between">
           <h3 className="text-sm font-semibold">Log login (append-only)</h3>
           <Badge variant="outline" className="text-[10px]">
@@ -309,7 +309,7 @@ export function LoginSecurityPanel({ onOpenSetup }: { onOpenSetup: () => void })
           <div className="mt-4 overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead>
-                <tr className="border-b border-sky-100 text-xs uppercase tracking-wide text-muted-foreground">
+                <tr className="border-b border-slate-200 text-xs uppercase tracking-wide text-muted-foreground">
                   <th className="py-2 pr-3 font-medium">Waktu</th>
                   <th className="py-2 pr-3 font-medium">Status</th>
                   <th className="py-2 pr-3 font-medium">Metode</th>

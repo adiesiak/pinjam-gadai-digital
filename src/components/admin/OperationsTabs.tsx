@@ -201,7 +201,7 @@ export function LiveLocationMap() {
         </div>
       </div>
       <div
-        className="relative h-[420px] min-h-[420px] overflow-hidden rounded-2xl border border-sky-100 bg-sky-50 shadow-[0_14px_30px_-20px_oklch(0.55_0.12_240/0.35)]"
+        className="relative h-[420px] min-h-[420px] overflow-hidden rounded-2xl border border-slate-200 bg-sky-50 shadow-[0_14px_30px_-20px_oklch(0.55_0.12_240/0.35)]"
         style={{ height: 420, minHeight: 420 }}
       >
         <div
@@ -219,7 +219,7 @@ export function LiveLocationMap() {
         )}
       </div>
       {data !== undefined && (
-        <ul className="divide-y divide-sky-100 rounded-2xl border border-sky-100 bg-white">
+        <ul className="divide-y divide-sky-100 rounded-2xl border border-slate-200 bg-white">
           {data.rows.filter((r) => r.mismatch).map((r) => (
             <li key={r.userId} className="flex items-center justify-between gap-3 px-5 py-3 text-sm">
               <span className="min-w-0 truncate">
@@ -250,7 +250,7 @@ export function PencairanTab({ onOpen }: { onOpen: (l: LoanRow) => void }) {
     return <EmptyQueue icon={Wallet} title="Tidak ada pinjaman menunggu pencairan" />;
   }
   return (
-    <ul className="divide-y divide-sky-100 rounded-2xl border border-sky-100 bg-white">
+    <ul className="divide-y divide-sky-100 rounded-2xl border border-slate-200 bg-white">
       {antrean.map((l) => (
         <li key={l._id}>
           <QueueRow
@@ -277,7 +277,7 @@ export function DpdTab() {
     return <EmptyQueue icon={BellRing} title="Tidak ada pinjaman terlambat — koleksi bersih" />;
   }
   return (
-    <ul className="divide-y divide-sky-100 rounded-2xl border border-sky-100 bg-white">
+    <ul className="divide-y divide-sky-100 rounded-2xl border border-slate-200 bg-white">
       {terlambat.map((l) => {
         const waText = encodeURIComponent(
           `Halo ${l.namaLengkap}, pengingat PINDAI untuk pinjaman ${l.nomorReferensi}. Total kewajiban Anda saat ini ${formatRupiah(l.totalKewajibanDenganPenalti ?? 0)} (terlambat ${l.hariTerlambat ?? 0} hari, termasuk denda ${formatRupiah(l.dendaTerlambat ?? 0)}). Mohon segera lakukan pelunasan. Terima kasih.`,
@@ -339,7 +339,7 @@ export function LelangTab() {
               hasil = "Nominal tidak valid.";
             }
             return (
-              <li key={p._id} className="rounded-2xl border border-sky-100 bg-white px-5 py-4">
+              <li key={p._id} className="rounded-2xl border border-slate-200 bg-white px-5 py-4">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div className="min-w-0">
                     <p className="truncate text-sm font-medium">{p.deskripsiBarang}</p>
@@ -388,7 +388,7 @@ export function LedgerTab() {
           ["Jumlah Entri", `${summary.entryCount}`],
           ["Status", summary.seimbang ? "SEIMBANG" : "TIDAK SEIMBANG"],
         ] as const).map(([label, value]) => (
-          <div key={label} className="rounded-2xl border border-sky-100 bg-white px-4 py-3">
+          <div key={label} className="rounded-2xl border border-slate-200 bg-white px-4 py-3">
             <p className="text-xs text-muted-foreground">{label}</p>
             <p className={`mt-1 text-sm font-semibold tabular-nums ${label === "Status" ? (summary.seimbang ? "text-emerald-600" : "text-red-600") : "text-navy"}`}>
               {value}
@@ -397,7 +397,7 @@ export function LedgerTab() {
         ))}
       </div>
       <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Cari akun / grup / keterangan…" className="rounded-full" />
-      <div className="max-h-[420px] overflow-y-auto rounded-2xl border border-sky-100 bg-white">
+      <div className="max-h-[420px] overflow-y-auto rounded-2xl border border-slate-200 bg-white">
         <table className="w-full text-left text-xs">
           <thead className="sticky top-0 bg-secondary/70 text-[11px] uppercase tracking-wide text-muted-foreground">
             <tr>

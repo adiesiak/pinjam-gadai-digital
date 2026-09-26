@@ -114,36 +114,9 @@ export function EmptyQueue({
   );
 }
 
-export function VaultLogo3D({ size = 40 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 64 64" fill="none" aria-hidden>
-      <defs>
-        <linearGradient id="vaultBody" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stopColor="#7DD3FC" />
-          <stop offset="55%" stopColor="#38BDF8" />
-          <stop offset="100%" stopColor="#0EA5E9" />
-        </linearGradient>
-        <radialGradient id="vaultDial" cx="0.35" cy="0.3" r="1">
-          <stop offset="0%" stopColor="#A7F3D0" />
-          <stop offset="60%" stopColor="#10B981" />
-          <stop offset="100%" stopColor="#059669" />
-        </radialGradient>
-      </defs>
-      <rect x="4" y="8" width="56" height="46" rx="12" fill="url(#vaultBody)" />
-      <rect x="12" y="16" width="40" height="30" rx="8" fill="#0C4A6E" opacity="0.25" />
-      <circle cx="32" cy="31" r="10" fill="url(#vaultDial)" />
-      <circle cx="32" cy="31" r="4" fill="#065F46" opacity="0.55" />
-      <rect x="29" y="29" width="6" height="3" rx="1.5" fill="#F0FDF4" />
-      <rect x="14" y="54" width="8" height="6" rx="2" fill="#0284C7" />
-      <rect x="42" y="54" width="8" height="6" rx="2" fill="#0284C7" />
-      <ellipse cx="24" cy="14" rx="10" ry="3" fill="white" opacity="0.35" />
-    </svg>
-  );
-}
-
 export function SecurityBar({ seimbang, killSwitch }: { seimbang: boolean; killSwitch: boolean }) {
   return (
-    <div className={`overflow-hidden border-b ${killSwitch ? "border-red-200 bg-red-50" : "border-sky-100 bg-gradient-to-r from-sky-50 via-white to-emerald-50"}`}>
+    <div className={`overflow-hidden border-b ${killSwitch ? "border-red-200 bg-red-50" : "border-slate-200 bg-slate-50"}`}>
       <div className="animate-marquee flex w-max items-center gap-8 py-1.5 text-[11px] font-medium text-navy">
         {[0, 1].map((dup) => (
           <div key={dup} className="flex items-center gap-8 pr-8" aria-hidden={dup === 1}>

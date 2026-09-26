@@ -76,6 +76,7 @@ import {
   sewaModalBerikutnya,
 } from "@/lib/gadai";
 
+// PINDAI — dashboard nasabah
 const OSM_TILE_URL = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
 const OSM_ATTRIBUTION = "&copy; OpenStreetMap contributors";
 /** Basemap cadangan bila tile OSM tidak dapat dimuat dari jaringan pengguna. */
@@ -108,138 +109,8 @@ type LoanScheduleRow = {
 };
 
 // =====================================================================
-// Ikonografi 3D cartoon (SVG clay) — brankas, dompet, kalender, peta,
-// sertifikat. Ringan, tanpa aset eksternal.
+// Ikon halaman memakai ikon garis lucide yang diimpor di atas.
 // =====================================================================
-
-function VaultLogo3D({ size = 40 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 64 64" fill="none" aria-hidden>
-      <defs>
-        <linearGradient id="vaultBody" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stopColor="#7DD3FC" />
-          <stop offset="55%" stopColor="#38BDF8" />
-          <stop offset="100%" stopColor="#0EA5E9" />
-        </linearGradient>
-        <radialGradient id="vaultDial" cx="0.35" cy="0.3" r="1">
-          <stop offset="0%" stopColor="#A7F3D0" />
-          <stop offset="60%" stopColor="#10B981" />
-          <stop offset="100%" stopColor="#059669" />
-        </radialGradient>
-      </defs>
-      <rect x="4" y="8" width="56" height="46" rx="12" fill="url(#vaultBody)" />
-      <rect x="12" y="16" width="40" height="30" rx="8" fill="#0C4A6E" opacity="0.25" />
-      <circle cx="32" cy="31" r="10" fill="url(#vaultDial)" />
-      <circle cx="32" cy="31" r="4" fill="#065F46" opacity="0.55" />
-      <rect x="29" y="29" width="6" height="3" rx="1.5" fill="#F0FDF4" />
-      <rect x="14" y="54" width="8" height="6" rx="2" fill="#0284C7" />
-      <rect x="42" y="54" width="8" height="6" rx="2" fill="#0284C7" />
-      <ellipse cx="24" cy="14" rx="10" ry="3" fill="white" opacity="0.35" />
-    </svg>
-  );
-}
-
-function Wallet3D({ size = 44 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 64 64" fill="none" aria-hidden>
-      <defs>
-        <linearGradient id="walletBody" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stopColor="#7DD3FC" />
-          <stop offset="100%" stopColor="#0EA5E9" />
-        </linearGradient>
-      </defs>
-      <rect x="6" y="16" width="52" height="38" rx="10" fill="url(#walletBody)" />
-      <rect x="6" y="16" width="52" height="12" rx="6" fill="#0284C7" opacity="0.5" />
-      <rect x="40" y="30" width="16" height="12" rx="6" fill="#F0FDFA" />
-      <circle cx="46" cy="36" r="2.5" fill="#10B981" />
-      <ellipse cx="26" cy="19" rx="12" ry="3" fill="white" opacity="0.4" />
-    </svg>
-  );
-}
-
-function Calendar3D({ size = 44 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 64 64" fill="none" aria-hidden>
-      <defs>
-        <linearGradient id="calBody" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#FDE68A" />
-          <stop offset="100%" stopColor="#F59E0B" />
-        </linearGradient>
-      </defs>
-      <rect x="8" y="12" width="48" height="44" rx="10" fill="url(#calBody)" />
-      <rect x="8" y="12" width="48" height="12" rx="6" fill="#D97706" opacity="0.55" />
-      <rect x="18" y="6" width="6" height="10" rx="3" fill="#0F172A" opacity="0.7" />
-      <rect x="40" y="6" width="6" height="10" rx="3" fill="#0F172A" opacity="0.7" />
-      <circle cx="24" cy="38" r="4" fill="#FFFFFF" opacity="0.85" />
-      <circle cx="36" cy="38" r="4" fill="#FFFFFF" opacity="0.85" />
-      <rect x="20" y="46" width="24" height="4" rx="2" fill="#FFFFFF" opacity="0.7" />
-    </svg>
-  );
-}
-
-function VaultBox3D({ size = 44 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 64 64" fill="none" aria-hidden>
-      <rect x="10" y="14" width="44" height="38" rx="9" fill="#0F172A" opacity="0.85" />
-      <rect x="14" y="18" width="36" height="30" rx="7" fill="#1E293B" />
-      <circle cx="32" cy="32" r="8" fill="#38BDF8" />
-      <circle cx="32" cy="32" r="3" fill="#0C4A6E" />
-      <rect x="30" y="8" width="4" height="8" rx="2" fill="#38BDF8" />
-      <ellipse cx="24" cy="17" rx="8" ry="2.5" fill="white" opacity="0.25" />
-    </svg>
-  );
-}
-
-function Certificate3D({ size = 44 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 64 64" fill="none" aria-hidden>
-      <rect x="10" y="8" width="44" height="48" rx="8" fill="#F0F9FF" stroke="#7DD3FC" strokeWidth="2" />
-      <rect x="16" y="16" width="22" height="3.5" rx="1.75" fill="#38BDF8" />
-      <rect x="16" y="24" width="32" height="3" rx="1.5" fill="#BAE6FD" />
-      <rect x="16" y="30" width="28" height="3" rx="1.5" fill="#BAE6FD" />
-      <rect x="16" y="36" width="24" height="3" rx="1.5" fill="#BAE6FD" />
-      <circle cx="44" cy="46" r="8" fill="#10B981" />
-      <path d="M40 46l3 3 5.5-6" stroke="#F0FDF4" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" fill="none" />
-      <path d="M41 52l-2 7 5-3 5 3-2-7" fill="#059669" />
-    </svg>
-  );
-}
-
-function Map3D({ size = 44 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 64 64" fill="none" aria-hidden>
-      <rect x="8" y="10" width="48" height="44" rx="9" fill="#A7F3D0" />
-      <path d="M8 30c10-6 18 2 24-2s12-8 24-4v30H8V30z" fill="#34D399" />
-      <path d="M8 44c12-5 20 3 28-1s12-4 20-2v13H8V44z" fill="#10B981" />
-      <circle cx="40" cy="26" r="7" fill="#EF4444" />
-      <circle cx="40" cy="26" r="2.6" fill="#FEF2F2" />
-    </svg>
-  );
-}
-
-function Form3D({ size = 44 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 64 64" fill="none" aria-hidden>
-      <rect x="12" y="8" width="40" height="48" rx="8" fill="#FFFFFF" stroke="#7DD3FC" strokeWidth="2" />
-      <rect x="19" y="17" width="26" height="3.5" rx="1.75" fill="#38BDF8" />
-      <rect x="19" y="26" width="18" height="3" rx="1.5" fill="#BAE6FD" />
-      <rect x="19" y="34" width="22" height="3" rx="1.5" fill="#BAE6FD" />
-      <path d="M40 44l4 4 8-9" stroke="#10B981" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" fill="none" />
-    </svg>
-  );
-}
-
-function History3D({ size = 44 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 64 64" fill="none" aria-hidden>
-      <rect x="14" y="10" width="36" height="44" rx="8" fill="#FDE68A" />
-      <rect x="14" y="10" width="36" height="9" rx="4" fill="#F59E0B" />
-      <rect x="20" y="26" width="24" height="3" rx="1.5" fill="#92400E" opacity="0.6" />
-      <rect x="20" y="33" width="20" height="3" rx="1.5" fill="#92400E" opacity="0.45" />
-      <rect x="20" y="40" width="24" height="3" rx="1.5" fill="#92400E" opacity="0.3" />
-    </svg>
-  );
-}
 
 // =====================================================================
 // Status pill (LUNAS / MENUNGGU / OVERDUE / JATUH TEMPO) sesuai semantik
@@ -322,15 +193,17 @@ export default function Dashboard() {
   const greetingName = user?.name ?? user?.email?.split("@")[0] ?? "Nasabah";
 
   return (
-    <div className="flex min-h-screen flex-col bg-[#F0F9FF] text-[#0F172A]">
+    <div className="flex min-h-screen flex-col bg-slate-50 text-slate-900">
       {/* Bar pengumuman global dirender di main.tsx (AnnouncementBar). */}
 
       {/* ===== Header ===== */}
-      <header className="border-b border-sky-100 bg-white/80 backdrop-blur">
+      <header className="border-b border-slate-200 bg-white/80 backdrop-blur">
         <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between gap-3 px-4 sm:px-6">
           <Link to="/dashboard" className="flex shrink-0 items-center gap-2.5">
-            <VaultLogo3D size={38} />
-            <span className="hidden text-sm font-bold tracking-[0.16em] sm:block">
+            <span className="flex size-8 items-center justify-center rounded-lg bg-[#2563eb] text-sm font-bold text-white">
+              P
+            </span>
+            <span className="hidden text-sm font-semibold tracking-[0.14em] sm:block">
               PINDAI
             </span>
           </Link>
@@ -385,47 +258,47 @@ export default function Dashboard() {
             {/* Persetujuan pelacakan lokasi (opt-in, dapat dicabut) */}
             <LocationConsentCard />
 
-            {/* ===== Ringkasan keuangan — 3 kartu 3D ===== */}
+            {/* ===== Ringkasan keuangan ===== */}
             <section className="mt-6 grid gap-4 md:grid-cols-3">
-              <div className="card-lift rounded-2xl border border-sky-100 bg-white p-5 shadow-md shadow-sky-100">
+              <div className="card-lift rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
                 <div className="flex items-start justify-between">
                   <div>
                     <p className="text-xs text-muted-foreground">Dana Bersih Diterima</p>
-                    <p className="mt-2 text-2xl font-bold tabular-nums text-emerald-600">
+                    <p className="mt-2 text-2xl font-semibold tabular-nums text-emerald-600">
                       {formatRupiah(danaBersihTotal)}
                     </p>
                   </div>
-                  <Wallet3D size={44} />
+                  <span className="flex size-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
+                    <Wallet className="size-5" strokeWidth={2} />
+                  </span>
                 </div>
-                <p className="mt-3 text-xs leading-5 text-muted-foreground">
-                  Hasil cair 95% tanpa potongan tersembunyi.
-                </p>
               </div>
 
-              <div className="card-lift rounded-2xl border border-sky-100 bg-white p-5 shadow-md shadow-sky-100">
+              <div className="card-lift rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
                 <div className="flex items-start justify-between">
                   <div>
                     <p className="text-xs text-muted-foreground">Total Kewajiban Pelunasan</p>
-                    <p className="mt-2 text-2xl font-bold tabular-nums">
+                    <p className="mt-2 text-2xl font-semibold tabular-nums">
                       {formatRupiah(totalKewajiban)}
                     </p>
                   </div>
-                  <Calendar3D size={44} />
+                  <span className="flex size-10 items-center justify-center rounded-xl bg-slate-100 text-slate-600">
+                    <CalendarClock className="size-5" strokeWidth={2} />
+                  </span>
                 </div>
-                <p className="mt-3 text-xs leading-5 text-muted-foreground">
-                  Pokok + Bunga (130%) — imbal hasil Pendana.
-                </p>
               </div>
 
-              <div className="card-lift rounded-2xl border border-sky-100 bg-white p-5 shadow-md shadow-sky-100">
+              <div className="card-lift rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
                 <div className="flex items-start justify-between">
                   <div>
                     <p className="text-xs text-muted-foreground">Sisa Tagihan Berjalan</p>
-                    <p className="mt-2 text-2xl font-bold tabular-nums text-destructive">
+                    <p className="mt-2 text-2xl font-semibold tabular-nums text-destructive">
                       {formatRupiah(sisaTagihan)}
                     </p>
                   </div>
-                  <VaultBox3D size={44} />
+                  <span className="flex size-10 items-center justify-center rounded-xl bg-slate-100 text-slate-600">
+                    <Package className="size-5" strokeWidth={2} />
+                  </span>
                 </div>
                 <p className="mt-3 text-xs leading-5 text-muted-foreground">
                   {jatuhTempoTerdekat
@@ -440,18 +313,18 @@ export default function Dashboard() {
               <TabsList className="flex w-full flex-wrap gap-2 overflow-x-auto bg-transparent p-0">
                 {(
                   [
-                    ["pinjaman", "Pinjaman Aktif", <Wallet3D key="i" size={22} />],
-                    ["jadwal", "Jadwal Angsuran", <Calendar3D key="i" size={22} />],
-                    ["gadai", "Jaminan Gadai Saya", <VaultBox3D key="i" size={22} />],
-                    ["kontrak", "E-Contract Saya", <Certificate3D key="i" size={22} />],
-                    ["form", "Form Pengajuan Baru", <Form3D key="i" size={22} />],
-                    ["riwayat", "Riwayat Transaksi", <History3D key="i" size={22} />],
+                    ["pinjaman", "Pinjaman Aktif", <Wallet key="i" className="size-4" />],
+                    ["jadwal", "Jadwal Angsuran", <CalendarClock key="i" className="size-4" />],
+                    ["gadai", "Jaminan Gadai Saya", <Package key="i" className="size-4" />],
+                    ["kontrak", "E-Contract Saya", <FileText key="i" className="size-4" />],
+                    ["form", "Form Pengajuan Baru", <Send key="i" className="size-4" />],
+                    ["riwayat", "Riwayat Transaksi", <ScrollText key="i" className="size-4" />],
                   ] as Array<[string, string, React.ReactNode]>
                 ).map(([value, label, icon]) => (
                   <TabsTrigger
                     key={value}
                     value={value}
-                    className="data-[state=active]:gradient-primary data-[state=active]:text-primary-foreground rounded-full border border-sky-100 bg-white px-4 py-2 text-xs font-medium shadow-sm transition-all data-[state=active]:border-0 data-[state=active]:shadow-glow"
+                    className="data-[state=active]:gradient-primary data-[state=active]:text-primary-foreground rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-medium shadow-sm transition-all data-[state=active]:border-0 data-[state=active]:shadow-glow"
                   >
                     <span className="mr-1.5 inline-flex align-middle">{icon}</span>
                     {label}
@@ -523,7 +396,7 @@ export default function Dashboard() {
       <LoanDetailDialog loanId={loanDetailId} onClose={() => setLoanDetailId(null)} />
       <PawnDetailDialog pawnId={pawnDetailId} onClose={() => setPawnDetailId(null)} />
 
-      <footer className="border-t border-sky-100 bg-white">
+      <footer className="border-t border-slate-200 bg-white">
         <div className="mx-auto w-full max-w-6xl px-6 py-6 text-xs leading-5 text-muted-foreground">
           PINDAI — Pinjam & Gadai Digital. Dana bersih 95%, total kewajiban 130%,
           didanai oleh Pendana terverifikasi. Pengajuan memerlukan verifikasi KTP
@@ -566,7 +439,7 @@ function ActiveLoanSection({
       {lainnya.length > 0 && (
         <section>
           <h3 className="text-sm font-semibold">Sedang diproses</h3>
-          <ul className="mt-3 divide-y divide-sky-100 rounded-2xl border border-sky-100 bg-white">
+          <ul className="mt-3 divide-y divide-slate-200 rounded-2xl border border-slate-200 bg-white">
             {lainnya.map((l) => (
               <li key={l._id}>
                 <button
@@ -603,7 +476,7 @@ function ActiveLoanCard({
   const [payOpen, setPayOpen] = useState(false);
 
   return (
-    <article className="card-lift rounded-2xl border border-sky-100 bg-white p-6 shadow-md shadow-sky-100">
+    <article className="card-lift rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="text-xs text-muted-foreground">
@@ -624,7 +497,7 @@ function ActiveLoanCard({
       </div>
 
       {/* Rincian transparansi presisi */}
-      <dl className="mt-5 divide-y divide-sky-100 overflow-hidden rounded-2xl border border-sky-100">
+      <dl className="mt-5 divide-y divide-slate-200 overflow-hidden rounded-2xl border border-slate-200">
         {[
           ["Pokok Pengajuan", formatRupiah(q.pokok), ""],
           ["Biaya Admin (3%)", `- ${formatRupiah(q.biayaAdmin)}`, "text-muted-foreground"],
@@ -707,7 +580,7 @@ function ActiveLoanCard({
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
-            <div className="rounded-2xl border border-sky-100 bg-sky-50/60 p-4 text-center">
+            <div className="rounded-2xl border border-slate-200 bg-sky-50/60 p-4 text-center">
               <p className="text-xs text-muted-foreground">Total kewajiban saat ini</p>
               <p className="mt-1 text-xl font-bold tabular-nums">
                 {formatRupiah(loan.pelunasan?.totalKewajibanDenganPenalti ?? q.totalKewajibanPelunasan)}
@@ -736,7 +609,7 @@ function PaySimTabs({ total, loanRef }: { total: number; loanRef: string }) {
         <TabsTrigger value="va" className="rounded-full text-xs">Virtual Account</TabsTrigger>
       </TabsList>
       <TabsContent value="qris" className="mt-4">
-        <div className="flex flex-col items-center gap-2 rounded-2xl border border-sky-100 p-5">
+        <div className="flex flex-col items-center gap-2 rounded-2xl border border-slate-200 p-5">
           {/* QRIS simulasi — pola QR deterministik dari jumlah (dekoratif). */}
           <QrSim total={total} />
           <p className="text-xs text-muted-foreground">
@@ -745,7 +618,7 @@ function PaySimTabs({ total, loanRef }: { total: number; loanRef: string }) {
         </div>
       </TabsContent>
       <TabsContent value="va" className="mt-4">
-        <div className="rounded-2xl border border-sky-100 p-4 text-center">
+        <div className="rounded-2xl border border-slate-200 p-4 text-center">
           <p className="text-xs text-muted-foreground">Nomor Virtual Account (simulasi)</p>
           <p className="mt-1 font-mono text-lg font-bold tracking-wider">{vaNumber}</p>
           <Button
@@ -848,8 +721,8 @@ function ScheduleSection({
         return (
           <li
             key={l._id}
-            className={`card-lift rounded-2xl border bg-white p-5 shadow-md shadow-sky-100 ${
-              overdue ? "border-red-200" : "border-sky-100"
+            className={`card-lift rounded-2xl border bg-white p-5 shadow-sm ${
+              overdue ? "border-red-200" : "border-slate-200"
             }`}
           >
             <div className="flex flex-wrap items-start justify-between gap-3">
@@ -1081,7 +954,7 @@ function GadaiBillingCard({
   );
 
   return (
-    <div className="card-lift rounded-2xl border border-sky-100 bg-white p-5 shadow-md shadow-sky-100">
+    <div className="card-lift rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="truncate text-sm font-semibold">{pawn.deskripsiBarang}</p>
@@ -1233,10 +1106,12 @@ function PawnVaultSection({
           const meta = pawnStatusMeta(p.status as PawnStatus);
           const dalamVault = p.status === "aktif" || p.status === "menunggu_pelepasan";
           return (
-            <li key={p._id} className="card-lift rounded-2xl border border-sky-100 bg-white p-5 shadow-md shadow-sky-100">
+            <li key={p._id} className="card-lift rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="flex min-w-0 items-start gap-3">
-                  <VaultBox3D size={40} />
+                  <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-600">
+                    <Package className="size-5" strokeWidth={2} />
+                  </span>
                   <div className="min-w-0">
                     <p className="truncate text-sm font-semibold">{p.deskripsiBarang}</p>
                     <p className="mt-0.5 text-xs text-muted-foreground">
@@ -1380,7 +1255,7 @@ function VaultMapCard() {
   }, []);
 
   return (
-    <section className="card-lift rounded-2xl border border-sky-100 bg-white p-5 shadow-md shadow-sky-100">
+    <section className="card-lift rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h3 className="text-sm font-semibold">Lokasi Gudang Brankas (Vault Custody)</h3>
@@ -1393,7 +1268,7 @@ function VaultMapCard() {
         </Badge>
       </div>
       <div
-        className="relative mt-4 h-[260px] min-h-[260px] overflow-hidden rounded-2xl border border-sky-100 bg-sky-50"
+        className="relative mt-4 h-[260px] min-h-[260px] overflow-hidden rounded-2xl border border-slate-200 bg-sky-50"
         style={{ height: 260, minHeight: 260 }}
       >
         <div
@@ -1478,7 +1353,7 @@ function MyContractsSection({
           <h3 className="text-sm font-semibold">Akad Gadai Digital</h3>
           <ul className="mt-3 space-y-3">
             {contracts.gadai.map((c) => (
-              <li key={c._id} className="card-lift rounded-2xl border border-sky-100 bg-white p-5 shadow-md shadow-sky-100">
+              <li key={c._id} className="card-lift rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div className="min-w-0">
                     <p className="truncate text-sm font-semibold">{c.deskripsiBarang}</p>
@@ -1533,7 +1408,7 @@ function LoanContractCard({
   );
 
   return (
-    <div className="card-lift rounded-2xl border border-sky-100 bg-white p-5 shadow-md shadow-sky-100">
+    <div className="card-lift rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="min-w-0">
           <p className="text-sm font-semibold">{judulContract("pinjaman")}</p>

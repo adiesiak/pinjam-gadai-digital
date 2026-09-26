@@ -63,7 +63,7 @@ export function AnnouncementBar() {
   );
 
   return (
-    <div className="marquee-paused relative z-50 overflow-hidden border-b border-sky-100 bg-gradient-to-r from-sky-50 via-white to-emerald-50/70">
+    <div className="marquee-paused relative z-50 overflow-hidden border-b border-slate-200 bg-slate-50">
       <div className="animate-marquee flex w-max py-2">
         {half}
         {half}
