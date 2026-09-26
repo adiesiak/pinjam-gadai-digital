@@ -284,18 +284,23 @@ function PaySimTabs({ total, loanRef }: { total: number; loanRef: string }) {
   );
 }
 
-/** QR dekoratif deterministik (simulasi) — murni visual, tanpa pustaka eksternal. */
-function QrSim({ total }: { total: number }) {
-  const cells = 21;
-  const seed = total % 2147483647 || 1;
+/** Deret pseudo-acak deterministik (LCG) — murni, tanpa state global. */
+function pseudoRandomGrid(rows: number, cols: number, seed: number): boolean[][] {
   let state = seed;
   const rand = () => {
     state = (state * 48271) % 2147483647;
     return state / 2147483647;
   };
-  const grid: boolean[][] = Array.from({ length: cells }, () =>
-    Array.from({ length: cells }, () => rand() > 0.5),
+  return Array.from({ length: rows }, () =>
+    Array.from({ length: cols }, () => rand() > 0.5),
   );
+}
+
+/** QR dekoratif deterministik (simulasi) — murni visual, tanpa pustaka eksternal. */
+function QrSim({ total }: { total: number }) {
+  const cells = 21;
+  const seed = total % 2147483647 || 1;
+  const grid = pseudoRandomGrid(cells, cells, seed);
   const finder = (r0: number, c0: number) => {
     for (let r = 0; r < 7; r++)
       for (let c = 0; c < 7; c++) {

@@ -116,10 +116,10 @@ export function LoanForm({ onCreated }: { onCreated: (ref: string) => void }) {
     );
   };
 
-  // Minta izin GPS otomatis saat form dibuka.
+  // Minta izin GPS otomatis saat form dibuka. Dijadwalkan sebagai microtask
+  // agar tidak memanggil setState langsung di dalam tubuh efek.
   useEffect(() => {
-    captureLokasi();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    queueMicrotask(captureLokasi);
   }, []);
 
   const handleFile = async (key: KycFileKey, label: string, file: File | undefined) => {

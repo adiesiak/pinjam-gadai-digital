@@ -74,7 +74,9 @@ export function LocationConsentCard() {
   const watchRef = useRef<number | null>(null);
   const lastPushRef = useRef(0);
   const pushRef = useRef(pushTitik);
-  pushRef.current = pushTitik;
+  useEffect(() => {
+    pushRef.current = pushTitik;
+  }, [pushTitik]);
 
   useEffect(() => {
     const stopWatch = () => {
