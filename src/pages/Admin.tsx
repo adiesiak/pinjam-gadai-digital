@@ -5,11 +5,9 @@ import { useNavigate } from "react-router";
 import { toast } from "sonner";
 
 import { TotpGate, TotpSetupDialog } from "@/components/TotpGate";
-import {
-  AppraisalDialog,
-  LoanReviewDialog,
-  PawnReviewDialog,
-} from "@/components/admin/ReviewDialogs";
+import { AppraisalDialog } from "@/components/admin/AppraisalDialog";
+import { LoanReviewDialog } from "@/components/admin/LoanReviewDialog";
+import { PawnReviewDialog } from "@/components/admin/PawnReviewDialog";
 import { SecurityBar, type LoanRow, type PawnRow } from "@/components/admin/admin-shared";
 import { api } from "@/convex/_generated/api";
 import { useAuth } from "@/hooks/use-auth";

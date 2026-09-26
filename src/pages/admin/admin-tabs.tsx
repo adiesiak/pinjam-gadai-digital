@@ -15,20 +15,14 @@ import {
   Wallet,
 } from "lucide-react";
 
-import { AnnouncementCms, LoginSecurityPanel } from "@/components/admin/ContentPanels";
-import {
-  DpdTab,
-  LedgerTab,
-  LiveLocationMap,
-  LelangTab,
-  PencairanTab,
-} from "@/components/admin/OperationsTabs";
-import {
-  AuditTrailPanel,
-  BackupPanel,
-  SystemConfigPanel,
-  WhatsAppPanel,
-} from "@/components/admin/SystemPanels";
+import { AnnouncementCms } from "@/components/admin/AnnouncementCms";
+import { AuditTrailPanel } from "@/components/admin/AuditTrailPanel";
+import { BackupPanel } from "@/components/admin/BackupPanel";
+import { LiveLocationMap } from "@/components/admin/LiveLocationMap";
+import { LoginSecurityPanel } from "@/components/admin/LoginSecurityPanel";
+import { DpdTab, LedgerTab, LelangTab, PencairanTab } from "@/components/admin/OperationsTabs";
+import { SystemConfigPanel } from "@/components/admin/SystemConfigPanel";
+import { WhatsAppPanel } from "@/components/admin/WhatsAppPanel";
 import { type LoanRow, type PawnRow } from "@/components/admin/admin-shared";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
