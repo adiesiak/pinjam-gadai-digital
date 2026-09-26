@@ -1,0 +1,207 @@
+import { api } from "@/convex/_generated/api";
+import { otpauthUri } from "@/lib/totp";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  InputOTP,
+  InputOTPGroup,
+  InputOTPSlot,
+} from "@/components/ui/input-otp";
+import { Input } from "@/components/ui/input";
+import { useMutation, useQuery } from "convex/react";
+import { Loader2, ShieldCheck, QrCode, Copy, Check } from "lucide-react";
+import { useMemo, useState } from "react";
+
+/**
+ * Dialog setup/uninstall 2FA TOTP: admin memindai QR di Google
+ * Authenticator/Authy lalu memasukkan kode pertama untuk aktivasi.
+ */
+export function TotpSetupDialog({
+  open,
+  onOpenChange,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const status = useQuery(api.security.myTotpStatus, {});
+  const startSetup = useMutation(api.security.startTotpSetup);
+  const confirm = useMutation(api.security.confirmTotpSetup);
+  const disable = useMutation(api.security.disableTotp);
+  const [secret, setSecret] = useState<string | null>(null);
+  const [kode, setKode] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  const uri = useMemo(
+    () => (secret ? otpauthUri(secret, "admin@pindai.id") : null),
+    [secret],
+  );
+
+  const handleStart = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await startSetup({});
+      setSecret(res.secret);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Gagal memulai setup.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleConfirm = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      await confirm({ kode });
+      setSecret(null);
+      setKode("");
+      onOpenChange(false);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Kode salah.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleDisable = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      await disable({ kode });
+      setKode("");
+      onOpenChange(false);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Gagal menonaktifkan.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md rounded-2xl">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <ShieldCheck className="size-5 text-sky-600" />
+            Two-Factor Authentication (TOTP)
+          </DialogTitle>
+          <DialogDescription>
+            Wajib untuk Super Admin. Gunakan Google Authenticator atau Authy.
+          </DialogDescription>
+        </DialogHeader>
+
+        {status?.aktif ? (
+          <div className="space-y-4">
+            <div className="rounded-xl bg-emerald-50 border border-emerald-200 p-3 text-sm text-emerald-800">
+              2FA aktif. Panel admin meminta kode TOTP setiap sesi browser baru.
+            </div>
+            <div className="space-y-2">
+              <p className="text-sm text-muted-foreground">
+                Masukkan kode 6 digit saat ini untuk menonaktifkan:
+              </p>
+              <InputOTP value={kode} onChange={setKode} maxLength={6}>
+                <InputOTPGroup>
+                  {Array.from({ length: 6 }).map((_, i) => (
+                    <InputOTPSlot key={i} index={i} />
+                  ))}
+                </InputOTPGroup>
+              </InputOTP>
+            </div>
+            {error && <p className="text-sm text-destructive">{error}</p>}
+            <DialogFooter>
+              <Button variant="outline" onClick={() => onOpenChange(false)}>
+                Tutup
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={handleDisable}
+                disabled={busy || kode.length !== 6}
+              >
+                {busy ? <Loader2 className="size-4 animate-spin" /> : null}
+                Nonaktifkan 2FA
+              </Button>
+            </DialogFooter>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {secret === null ? (
+              <>
+                <p className="text-sm text-muted-foreground">
+                  Aktifkan lapisan keamanan kedua: selain masuk, panel admin akan
+                  meminta kode dari aplikasi authenticator Anda.
+                </p>
+                {error && <p className="text-sm text-destructive">{error}</p>}
+                <Button onClick={handleStart} disabled={busy} className="w-full">
+                  {busy ? <Loader2 className="size-4 animate-spin" /> : <QrCode className="size-4" />}
+                  Mulai Setup QR
+                </Button>
+              </>
+            ) : (
+              <>
+                <div className="flex flex-col items-center gap-3 rounded-xl border border-sky-100 bg-sky-50/60 p-4">
+                  {/* QR ringan tanpa dependensi: gambar QR dari otpauth URI
+                      di-render via API publik gratis (ok, sandbox-friendly).
+                      Alternatif: scan manual secret di bawah. */}
+                  <img
+                    src={`https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(uri ?? "")}`}
+                    alt="QR TOTP"
+                    className="size-40 rounded-lg bg-white p-1"
+                  />
+                  <div className="flex w-full items-center gap-2">
+                    <Input readOnly value={secret} className="font-mono text-xs" />
+                    <Button
+                      size="icon"
+                      variant="outline"
+                      onClick={() => {
+                        void navigator.clipboard.writeText(secret ?? "");
+                        setCopied(true);
+                        window.setTimeout(() => setCopied(false), 1500);
+                      }}
+                    >
+                      {copied ? <Check className="size-4" /> : <Copy className="size-4" />}
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground text-center">
+                    Atau masukkan secret manual ke aplikasi authenticator.
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <p className="text-sm text-muted-foreground">
+                    Masukkan kode 6 digit dari aplikasi untuk konfirmasi:
+                  </p>
+                  <InputOTP value={kode} onChange={setKode} maxLength={6}>
+                    <InputOTPGroup>
+                      {Array.from({ length: 6 }).map((_, i) => (
+                        <InputOTPSlot key={i} index={i} />
+                      ))}
+                    </InputOTPGroup>
+                  </InputOTP>
+                </div>
+                {error && <p className="text-sm text-destructive">{error}</p>}
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setSecret(null)}>
+                    Ulangi
+                  </Button>
+                  <Button onClick={handleConfirm} disabled={busy || kode.length !== 6}>
+                    {busy ? <Loader2 className="size-4 animate-spin" /> : null}
+                    Aktifkan 2FA
+                  </Button>
+                </DialogFooter>
+              </>
+            )}
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
