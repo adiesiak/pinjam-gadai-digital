@@ -76,6 +76,11 @@ import {
   sewaModalBerikutnya,
 } from "@/lib/gadai";
 
+const OSM_TILE_URL = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
+const OSM_ATTRIBUTION = "&copy; OpenStreetMap contributors";
+/** Basemap cadangan bila tile OSM tidak dapat dimuat dari jaringan pengguna. */
+const FALLBACK_TILE_URL = "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png";
+
 function formatDate(ts: number): string {
   return new Date(ts).toLocaleDateString("id-ID", {
     day: "numeric",
@@ -1283,29 +1288,94 @@ function VaultMapCard() {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<L.Map | null>(null);
 
+  // Radix Tabs meng-unmount konten tab non-aktif, sehingga Leaflet pernah
+  // dibuat pada kontainer berukuran 0 × 0 px → peta tampil blank. Peta baru
+  // dibuat setelah kontainer benar-benar terlihat dan terukur.
   useEffect(() => {
-    if (containerRef.current === null || mapRef.current !== null) return;
-    const map = L.map(containerRef.current, { scrollWheelZoom: false }).setView(
-      [DEFAULT_CONFIG.vaultLat, DEFAULT_CONFIG.vaultLng],
-      14,
-    );
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      attribution: "&copy; OpenStreetMap contributors",
-      maxZoom: 19,
-    }).addTo(map);
-    L.circleMarker([DEFAULT_CONFIG.vaultLat, DEFAULT_CONFIG.vaultLng], {
-      radius: 10,
-      color: "#0EA5E9",
-      fillColor: "#38BDF8",
-      fillOpacity: 0.9,
-      weight: 3,
-    })
-      .bindTooltip("Gudang Brankas PINDAI — barang jaminan tersimpan di sini", { direction: "top" })
-      .addTo(map);
-    mapRef.current = map;
+    const container = containerRef.current;
+    if (container === null) return;
+
+    let resizeObserver: ResizeObserver | null = null;
+    let intersectionObserver: IntersectionObserver | null = null;
+    let disposed = false;
+
+    const ensureMap = () => {
+      if (disposed || mapRef.current !== null) return;
+      if (container.clientWidth === 0 || container.clientHeight === 0) return;
+      try {
+        const map = L.map(container, { scrollWheelZoom: false }).setView(
+          [DEFAULT_CONFIG.vaultLat, DEFAULT_CONFIG.vaultLng],
+          14,
+        );
+        let tiles = L.tileLayer(OSM_TILE_URL, {
+          attribution: OSM_ATTRIBUTION,
+          maxZoom: 19,
+        }).addTo(map);
+        // OSM sesekali memblokir/limiting tile dari sebagian jaringan. Bila tile
+        // gagal berulang, pindah ke basemap cadangan agar peta tidak tinggal
+        // abu-abu tanpa isi.
+        let tileErrors = 0;
+        let switched = false;
+        tiles.on("tileerror", () => {
+          if (switched) return;
+          tileErrors += 1;
+          console.warn(`Tile peta gagal dimuat (${tileErrors}×)`);
+          if (tileErrors < 4) return;
+          switched = true;
+          const pengganti = L.tileLayer(FALLBACK_TILE_URL, {
+            attribution: `${OSM_ATTRIBUTION} &copy; CARTO`,
+            maxZoom: 19,
+          }).addTo(map);
+          map.removeLayer(tiles);
+          tiles = pengganti;
+        });
+        L.circleMarker([DEFAULT_CONFIG.vaultLat, DEFAULT_CONFIG.vaultLng], {
+          radius: 10,
+          color: "#0EA5E9",
+          fillColor: "#38BDF8",
+          fillOpacity: 0.9,
+          weight: 3,
+        })
+          .bindTooltip("Gudang Brankas PINDAI — barang jaminan tersimpan di sini", {
+            direction: "top",
+          })
+          .addTo(map);
+        mapRef.current = map;
+        requestAnimationFrame(() => {
+          if (disposed) return;
+          mapRef.current?.invalidateSize({ pan: false });
+        });
+      } catch (error) {
+        console.error("Gagal menginisialisasi peta gudang", error);
+        mapRef.current = null;
+      }
+    };
+
+    ensureMap();
+    if (typeof ResizeObserver !== "undefined") {
+      resizeObserver = new ResizeObserver(() => {
+        ensureMap();
+        if (container.clientWidth > 0 && container.clientHeight > 0) {
+          mapRef.current?.invalidateSize({ pan: false });
+        }
+      });
+      resizeObserver.observe(container);
+    }
+    // Jaring pengaman tambahan saat tab baru dibuka/ditampilkan kembali.
+    if (typeof IntersectionObserver !== "undefined") {
+      intersectionObserver = new IntersectionObserver((entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) ensureMap();
+      });
+      intersectionObserver.observe(container);
+    }
+
     return () => {
-      map.remove();
+      disposed = true;
+      resizeObserver?.disconnect();
+      intersectionObserver?.disconnect();
+      const map = mapRef.current;
       mapRef.current = null;
+      map?.remove();
     };
   }, []);
 
@@ -1323,9 +1393,16 @@ function VaultMapCard() {
         </Badge>
       </div>
       <div
-        ref={containerRef}
-        className="z-0 mt-4 h-[260px] overflow-hidden rounded-2xl border border-sky-100"
-      />
+        className="relative mt-4 h-[260px] min-h-[260px] overflow-hidden rounded-2xl border border-sky-100 bg-sky-50"
+        style={{ height: 260, minHeight: 260 }}
+      >
+        <div
+          ref={containerRef}
+          role="region"
+          aria-label="Peta lokasi gudang brankas"
+          className="absolute inset-0 z-0 bg-[#ddd]"
+        />
+      </div>
     </section>
   );
 }
