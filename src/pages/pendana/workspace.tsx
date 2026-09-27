@@ -10,12 +10,21 @@ import { DepositSimDialog } from "./deposit-views";
 import { FundingContractsSection } from "./funding-contracts-views";
 import { HistorySection } from "./history-views";
 import { MarketplaceSection } from "./market-views";
-import { PendanaTabNav } from "./pendana-tab-nav";
+import { PendanaSidebar } from "./pendana-sidebar";
 import { PortfolioSection } from "./portfolio-views";
 import { WalletSection } from "./wallet-views";
 
-/** Workspace utama Pendana: ringkasan saldo + lima tab. */
-export function PendanaWorkspace() {
+/**
+ * Workspace utama Pendana: profil + lima tab di sisi kiri, ringkasan saldo dan
+ * konten tab di kolom kanan.
+ */
+export function PendanaWorkspace({
+  greetingName,
+  onSignOut,
+}: {
+  greetingName: string;
+  onSignOut: () => void;
+}) {
   const wallet = useQuery(api.pendana.myWallet);
   const portfolio = useQuery(api.pendana.myPortfolio);
   const [depositOpen, setDepositOpen] = useState(false);
@@ -23,81 +32,92 @@ export function PendanaWorkspace() {
 
   return (
     <>
-      <div className="flex flex-col gap-1">
-        <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-primary">
-          Ruang Pendana
-        </p>
-        <h1 className="text-2xl font-bold tracking-tight">Dompet &amp; Alokasi Pendanaan</h1>
-      </div>
+      <Tabs
+        defaultValue="marketplace"
+        value={defaultTab}
+        onValueChange={setDefaultTab}
+        className="flex flex-col gap-6 lg:flex-row lg:items-start lg:gap-8"
+      >
+        {/* ===== Sisi kiri: profil + navigasi tab ===== */}
+        <aside className="w-full shrink-0 lg:sticky lg:top-6 lg:w-64">
+          <PendanaSidebar greetingName={greetingName} onSignOut={onSignOut} />
+        </aside>
 
-      {/* ===== Ringkasan keuangan ===== */}
-      <section className="mt-6 grid gap-4 md:grid-cols-3">
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <div className="flex items-start justify-between">
-            <div>
-              <p className="text-xs text-muted-foreground">Total Saldo Dompet</p>
-              <p className="mt-2 text-2xl font-bold tabular-nums text-primary">
-                {formatRupiah(wallet?.saldo ?? 0)}
-              </p>
-            </div>
-            <span className="flex size-10 items-center justify-center rounded-xl bg-slate-100 text-slate-700">
-              <Wallet className="size-5" strokeWidth={2} />
-            </span>
+        {/* ===== Kolom konten ===== */}
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-col gap-1">
+            <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-primary">
+              Ruang Pendana
+            </p>
+            <h1 className="text-2xl font-bold tracking-tight">Dompet &amp; Alokasi Pendanaan</h1>
           </div>
-        </div>
 
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <div className="flex items-start justify-between">
-            <div>
-              <p className="text-xs text-muted-foreground">Total Dana Dialokasikan</p>
-              <p className="mt-2 text-2xl font-bold tabular-nums">
-                {formatRupiah(wallet?.danaBekerja ?? 0)}
-              </p>
+          {/* ===== Ringkasan keuangan ===== */}
+          <section className="mt-6 grid gap-4 md:grid-cols-3">
+            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+              <div className="flex items-start justify-between">
+                <div>
+                  <p className="text-xs text-muted-foreground">Total Saldo Dompet</p>
+                  <p className="mt-2 text-2xl font-bold tabular-nums text-primary">
+                    {formatRupiah(wallet?.saldo ?? 0)}
+                  </p>
+                </div>
+                <span className="flex size-10 items-center justify-center rounded-xl bg-slate-100 text-slate-700">
+                  <Wallet className="size-5" strokeWidth={2} />
+                </span>
+              </div>
             </div>
-            <span className="flex size-10 items-center justify-center rounded-xl bg-slate-100 text-slate-600">
-              <Store className="size-5" strokeWidth={2} />
-            </span>
-          </div>
-        </div>
 
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <div className="flex items-start justify-between">
-            <div>
-              <p className="text-xs text-muted-foreground">Estimasi Imbal Hasil Bunga</p>
-              <p className="mt-2 text-2xl font-bold tabular-nums text-emerald-600">
-                {formatRupiah(wallet?.imbalHasilDiharapkan ?? 0)}
-              </p>
+            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+              <div className="flex items-start justify-between">
+                <div>
+                  <p className="text-xs text-muted-foreground">Total Dana Dialokasikan</p>
+                  <p className="mt-2 text-2xl font-bold tabular-nums">
+                    {formatRupiah(wallet?.danaBekerja ?? 0)}
+                  </p>
+                </div>
+                <span className="flex size-10 items-center justify-center rounded-xl bg-slate-100 text-slate-600">
+                  <Store className="size-5" strokeWidth={2} />
+                </span>
+              </div>
             </div>
-            <span className="flex size-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
-              <TrendingUp className="size-5" strokeWidth={2} />
-            </span>
-          </div>
+
+            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+              <div className="flex items-start justify-between">
+                <div>
+                  <p className="text-xs text-muted-foreground">Estimasi Imbal Hasil Bunga</p>
+                  <p className="mt-2 text-2xl font-bold tabular-nums text-emerald-600">
+                    {formatRupiah(wallet?.imbalHasilDiharapkan ?? 0)}
+                  </p>
+                </div>
+                <span className="flex size-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
+                  <TrendingUp className="size-5" strokeWidth={2} />
+                </span>
+              </div>
+            </div>
+          </section>
+
+          {/* ===== Konten tab ===== */}
+          <TabsContent value="marketplace" className="mt-8">
+            <MarketplaceSection />
+          </TabsContent>
+
+          <TabsContent value="portofolio" className="mt-8">
+            <PortfolioSection portfolio={portfolio} />
+          </TabsContent>
+
+          <TabsContent value="kontrak" className="mt-8">
+            <FundingContractsSection />
+          </TabsContent>
+
+          <TabsContent value="dompet" className="mt-8">
+            <WalletSection onDepositRequested={() => setDepositOpen(true)} />
+          </TabsContent>
+
+          <TabsContent value="riwayat" className="mt-8">
+            <HistorySection />
+          </TabsContent>
         </div>
-      </section>
-
-      {/* ===== Tab navigasi ===== */}
-      <Tabs defaultValue="marketplace" value={defaultTab} onValueChange={setDefaultTab} className="mt-8">
-        <PendanaTabNav />
-
-        <TabsContent value="marketplace" className="mt-8">
-          <MarketplaceSection />
-        </TabsContent>
-
-        <TabsContent value="portofolio" className="mt-8">
-          <PortfolioSection portfolio={portfolio} />
-        </TabsContent>
-
-        <TabsContent value="kontrak" className="mt-8">
-          <FundingContractsSection />
-        </TabsContent>
-
-        <TabsContent value="dompet" className="mt-8">
-          <WalletSection onDepositRequested={() => setDepositOpen(true)} />
-        </TabsContent>
-
-        <TabsContent value="riwayat" className="mt-8">
-          <HistorySection />
-        </TabsContent>
       </Tabs>
 
       {/* Dialog deposit simulasi (dibuka dari tombol di dalam tab dompet) */}

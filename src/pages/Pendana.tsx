@@ -36,11 +36,11 @@ export default function Pendana() {
   return (
     <div className="flex min-h-screen flex-col bg-slate-50 text-slate-900">
       {/* Bar pengumuman global dirender di main.tsx (AnnouncementBar). */}
-      <PendanaHeader greetingName={greetingName} onSignOut={handleSignOut} />
+      <PendanaHeader />
 
-      <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8 sm:px-6">
+      <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-8 sm:px-6">
         {role === "pendana" ? (
-          <PendanaWorkspace />
+          <PendanaWorkspace greetingName={greetingName} onSignOut={handleSignOut} />
         ) : role === "admin" ? (
           <Notice
             title="Akun tim tidak dapat menjadi Pendana"

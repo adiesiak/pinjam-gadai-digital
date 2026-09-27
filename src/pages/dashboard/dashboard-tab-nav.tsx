@@ -19,18 +19,21 @@ const TABS: Array<[string, string, React.ReactNode]> = [
   ["riwayat", "Riwayat Transaksi", <ScrollText key="i" className="size-4" />],
 ];
 
-/** Navigasi tab dashboard (pills) — dirender di dalam <Tabs>. */
+/**
+ * Navigasi tab dashboard (sisi kiri) — dirender di dalam <Tabs>.
+ * Vertikal di layar lebar, dapat digulir mendatar di layar sempit.
+ */
 export function DashboardTabNav() {
   return (
-    <TabsList className="flex w-full flex-wrap gap-2 overflow-x-auto bg-transparent p-0">
+    <TabsList className="flex h-auto w-full flex-row items-stretch justify-start gap-1 overflow-x-auto rounded-2xl border border-slate-200 bg-white p-1.5 shadow-sm lg:flex-col lg:overflow-visible">
       {TABS.map(([value, label, icon]) => (
         <TabsTrigger
           key={value}
           value={value}
-          className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-medium shadow-sm transition-all data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm"
+          className="h-auto w-auto flex-none shrink-0 justify-start gap-2.5 rounded-xl px-3 py-2.5 text-xs font-medium text-slate-600 transition-all hover:bg-slate-50 hover:text-slate-900 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm lg:w-full"
         >
-          <span className="mr-1.5 inline-flex align-middle">{icon}</span>
-          {label}
+          <span className="inline-flex align-middle">{icon}</span>
+          <span className="whitespace-nowrap lg:whitespace-normal lg:text-left">{label}</span>
         </TabsTrigger>
       ))}
     </TabsList>
