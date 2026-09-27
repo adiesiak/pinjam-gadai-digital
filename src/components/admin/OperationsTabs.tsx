@@ -1,6 +1,15 @@
 import { useQuery } from "convex/react";
 import { BellRing, Gavel, Loader2, Send, Wallet } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import {
+  Area,
+  AreaChart,
+  CartesianGrid,
+  ResponsiveContainer,
+  Tooltip as RechartsTooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 
 import { StatusBadge } from "@/components/StatusBadge";
 import { Input } from "@/components/ui/input";
@@ -133,9 +142,94 @@ export function LelangTab() {
   );
 }
 
+/**
+ * Grafik tren pendapatan platform per bulan (12 bulan terakhir).
+ * Recharts langsung (Area) — warna dari token tema `--primary` agar selaras
+ * dengan "tinta & kuningan"; axis ringkas, tooltip rupiah penuh.
+ */
+function TrenPendapatanChart({
+  data,
+}: {
+  data: Array<{ kunci: string; label: string; jumlah: number }> | undefined;
+}) {
+  const total = useMemo(
+    () => (data ?? []).reduce((acc, d) => acc + d.jumlah, 0),
+    [data],
+  );
+  if (data === undefined) {
+    return (
+      <div className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-5 py-8 text-sm text-muted-foreground">
+        <Loader2 className="size-4 animate-spin" /> Memuat grafik tren…
+      </div>
+    );
+  }
+  const semuaNol = total === 0;
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-5">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h3 className="text-sm font-semibold text-navy">Tren pendapatan platform — 12 bulan terakhir</h3>
+        <p className="text-sm font-semibold tabular-nums text-navy">{formatRupiah(total)}</p>
+      </div>
+      <div className="mt-4 h-56 w-full">
+        <ResponsiveContainer width="100%" height="100%">
+          <AreaChart data={data} margin={{ top: 4, right: 8, bottom: 0, left: 8 }}>
+            <defs>
+              <linearGradient id="gradPendapatan" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="var(--primary)" stopOpacity={0.35} />
+                <stop offset="100%" stopColor="var(--primary)" stopOpacity={0.02} />
+              </linearGradient>
+            </defs>
+            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+            <XAxis
+              dataKey="label"
+              tickLine={false}
+              axisLine={false}
+              tick={{ fontSize: 11, fill: "var(--muted-foreground)" }}
+              interval="preserveStartEnd"
+            />
+            <YAxis
+              width={64}
+              tickLine={false}
+              axisLine={false}
+              tick={{ fontSize: 11, fill: "var(--muted-foreground)" }}
+              tickFormatter={(v: number) =>
+                v >= 1_000_000 ? `${Math.round(v / 1_000_000)}jt` : v > 0 ? `${Math.round(v / 1_000)}rb` : "0"
+              }
+            />
+            <RechartsTooltip
+              formatter={(value) => [formatRupiah(Number(value)), "Pendapatan"]}
+              labelFormatter={(label) => `Bulan ${label}`}
+              contentStyle={{
+                borderRadius: 12,
+                border: "1px solid #e2e8f0",
+                fontSize: 12,
+              }}
+            />
+            <Area
+              type="monotone"
+              dataKey="jumlah"
+              stroke="var(--primary)"
+              strokeWidth={2}
+              fill="url(#gradPendapatan)"
+              dot={false}
+              activeDot={{ r: 4 }}
+            />
+          </AreaChart>
+        </ResponsiveContainer>
+      </div>
+      {semuaNol && (
+        <p className="mt-3 text-xs leading-5 text-muted-foreground">
+          Belum ada pendapatan platform tercatat dalam 12 bulan terakhir.
+        </p>
+      )}
+    </div>
+  );
+}
+
 export function LedgerTab() {
   const summary = useQuery(api.admin.ledgerSummary);
   const rows = useQuery(api.admin.ledgerRows);
+  const tren = useQuery(api.admin.trenPendapatanBulanan);
   const [q, setQ] = useState("");
   if (summary === undefined || rows === undefined) {
     return <div className="flex items-center gap-2 py-10 text-sm text-muted-foreground"><Loader2 className="size-4 animate-spin" /> Memuat…</div>;
@@ -166,6 +260,8 @@ export function LedgerTab() {
           </div>
         ))}
       </div>
+      <TrenPendapatanChart data={tren} />
+
       {/* Pendapatan platform per lini usaha — dari entri platform:FEE. */}
       <div className="rounded-2xl border border-slate-200 bg-white p-5">
         <div className="flex flex-wrap items-baseline justify-between gap-2">

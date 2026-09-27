@@ -553,6 +553,55 @@ export const ledgerSummary = query({
   },
 });
 
+/**
+ * Tren pendapatan platform per bulan kalender (WIB) — 12 bulan terakhir,
+ * tertua → terbaru. Bulan tanpa transaksi tetap muncul dengan nilai 0.
+ * Sumber: entri `platform_fee` pada akun platform:FEE (sumber sama dengan
+ * ledgerSummary), sehingga Σ semua bulan = pendapatanPlatform.
+ */
+export const trenPendapatanBulanan = query({
+  args: {},
+  handler: async (ctx) => {
+    await requireAdmin(ctx);
+    const entries = await ctx.db.query("ledger_entries").collect();
+
+    // Bucket per bulan kalender WIB (UTC+7): kunci "YYYY-MM".
+    const WIB = 7 * 60 * 60 * 1000;
+    const kunciBulan = (waktu: number): string =>
+      new Date(waktu + WIB).toISOString().slice(0, 7);
+    const labelBulan = (kunci: string): string => {
+      const [tahun, bulan] = kunci.split("-").map(Number);
+      return new Date(Date.UTC(tahun, bulan - 1, 1)).toLocaleDateString("id-ID", {
+        month: "short",
+        year: "2-digit",
+        timeZone: "UTC",
+      });
+    };
+
+    // Kumpulkan pendapatan per kunci bulan.
+    const perBulan = new Map<string, number>();
+    for (const e of entries) {
+      if (e.jenis !== "platform_fee" || e.akun !== "platform:FEE") continue;
+      const kunci = kunciBulan(e.waktu);
+      perBulan.set(kunci, (perBulan.get(kunci) ?? 0) + e.jumlah);
+    }
+
+    // 12 bulan kalender terakhir (bulan ini termasuk), tertua lebih dulu.
+    const hasil: Array<{ kunci: string; label: string; jumlah: number }> = [];
+    const sekarang = new Date(Date.now() + WIB);
+    for (let i = 11; i >= 0; i -= 1) {
+      const d = new Date(Date.UTC(sekarang.getUTCFullYear(), sekarang.getUTCMonth() - i, 1));
+      const kunci = d.toISOString().slice(0, 7);
+      hasil.push({
+        kunci,
+        label: labelBulan(kunci),
+        jumlah: perBulan.get(kunci) ?? 0,
+      });
+    }
+    return hasil;
+  },
+});
+
 /** Baris ledger untuk export CSV & tab Ledger (admin). */
 export const ledgerRows = query({
   args: {},
