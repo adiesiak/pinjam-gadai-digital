@@ -59,7 +59,7 @@ const SECURITY = [
   { icon: Vault, label: "Barang gadai di brankas custody" },
   { icon: ShieldCheck, label: "Callback pembayaran bertanda tangan" },
   { icon: Calculator, label: "Rupiah bulat, tanpa error float" },
-  { icon: Eye, label: "Potongan di muka terbuka" },
+  { icon: Eye, label: "Status pengajuan bisa dipantau" },
 ] as const;
 
 const QUICK_AMOUNTS = [1_000_000, 5_000_000, 10_000_000, 50_000_000];
@@ -153,10 +153,10 @@ function LiveCalculator() {
       <dl className="mt-6 space-y-2 border-t border-slate-200 pt-5 text-sm">
         {(
           [
-            ["Biaya admin (3%)", formatRupiah(quote.biayaAdmin), false],
-            ["Biaya platform (2%)", formatRupiah(quote.biayaPlatform), false],
+            ["Biaya admin", formatRupiah(quote.biayaAdmin), false],
+            ["Biaya platform", formatRupiah(quote.biayaPlatform), false],
             ["Bunga (hak Pendana)", formatRupiah(quote.bunga), false],
-            ["Dana bersih diterima (95%)", formatRupiah(quote.danaBersihDitransfer), true],
+            ["Dana bersih diterima", formatRupiah(quote.danaBersihDitransfer), true],
           ] as Array<[string, string, boolean?]>
         ).map(([term, value, strong]) => (
           <div key={term} className="flex items-baseline justify-between gap-4">
@@ -178,11 +178,8 @@ function LiveCalculator() {
         </div>
       </dl>
 
-      <div className="mt-4 h-2 w-full overflow-hidden rounded-full bg-slate-100">
-        <div className="h-full bg-primary" style={{ width: "76.9%" }} />
-      </div>
-      <p className="mt-2 text-[11px] text-slate-500">
-        Dana bersih 95% dari pokok — sisanya potongan di muka yang ditampilkan terbuka.
+      <p className="mt-4 text-[11px] leading-5 text-slate-500">
+        Angka dihitung mesin PINDAI dan dipakai sama persis saat pengajuan dibuat.
       </p>
 
       <Button asChild className="mt-5 w-full bg-primary text-white hover:bg-primary/90">
@@ -337,7 +334,7 @@ export default function Landing() {
     {
       icon: Landmark,
       title: "Ajukan",
-      body: "Pilih nominal dan tenor. Rincian potongan dan dana bersih tampil sebelum dikirim.",
+      body: "Pilih nominal dan tenor, unggah dokumen dari rumah, lalu kirim pengajuan.",
     },
     {
       icon: ShieldCheck,
@@ -347,7 +344,7 @@ export default function Landing() {
     {
       icon: Banknote,
       title: "Cair",
-      body: "Dana bersih ke rekening. Pantau jatuh tempo dengan pengingat otomatis.",
+      body: "Dana cair ke rekening. Pantau jatuh tempo dengan pengingat otomatis.",
     },
   ];
 
@@ -431,7 +428,7 @@ export default function Landing() {
               </ul>
             </div>
 
-            {/* Ringkasan angka — pengganti ilustrasi berat */}
+            {/* Sorotan produk — pengganti ilustrasi berat */}
             <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
               <div className="flex items-center gap-3">
                 <VaultLogo size={44} />
@@ -446,10 +443,13 @@ export default function Landing() {
               </div>
               <dl className="mt-6 divide-y divide-slate-200 border-t border-slate-200">
                 {[
-                  ["Potongan di muka", c(cms?.chip2Nilai, CMS_DEFAULTS.chips.chip2.nilai)],
-                  ["Total pelunasan", "130% dari pokok"],
-                  ["Biaya admin + platform", "3% + 2%"],
-                  ["Tenor", "30 / 60 / 90 hari"],
+                  ["Tenor pinjaman", "30 / 60 / 90 hari"],
+                  [
+                    c(cms?.chip2Label, CMS_DEFAULTS.chips.chip2.label),
+                    c(cms?.chip2Nilai, CMS_DEFAULTS.chips.chip2.nilai),
+                  ],
+                  ["Penaksiran gadai", "Petugas ke lokasi + live location"],
+                  ["Pengingat jatuh tempo", "Otomatis"],
                 ].map(([k, v]) => (
                   <div key={k} className="flex items-center justify-between py-3 text-sm">
                     <dt className="text-slate-500">{k}</dt>
@@ -458,7 +458,7 @@ export default function Landing() {
                 ))}
               </dl>
               <p className="mt-4 text-xs leading-5 text-slate-500">
-                Semua angka dipakai langsung oleh mesin perhitungan PINDAI.
+                Satu mesin perhitungan untuk pengajuan, kontrak, dan pelunasan.
               </p>
             </div>
           </div>
@@ -552,8 +552,8 @@ export default function Landing() {
               <p className="mt-8 rounded-xl bg-slate-50 p-4 text-xs leading-5 text-slate-600">
                 Dana berasal dari <b className="font-semibold text-slate-900">Pendana</b>{" "}
                 terverifikasi yang menerima{" "}
-                <b className="font-semibold text-slate-900">Bunga / Imbal Hasil</b> 30%. PINDAI
-                memungut biaya admin 3% dan platform 2%.
+                <b className="font-semibold text-slate-900">Bunga / Imbal Hasil</b> 30%. Setiap
+                transaksi tercatat di jurnal audit dan kontraknya bertanda tangan digital.
               </p>
             </div>
           </div>
@@ -665,7 +665,7 @@ export default function Landing() {
           </div>
           <div className="mt-8 flex flex-col items-center justify-between gap-2 border-t border-slate-200 pt-6 text-xs text-slate-400 sm:flex-row">
             <span>© 2026 {logoTeks}. Seluruh hak cipta.</span>
-            <span>Potongan 5% · Dana bersih 95% · Pelunasan 130%</span>
+            <span>Tanpa agunan · Brankas custody · Pengingat jatuh tempo</span>
           </div>
         </div>
       </footer>

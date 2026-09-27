@@ -9,36 +9,36 @@ export const CMS_DEFAULTS = {
   },
   popup: {
     judul: "Ajukan dari Rumah",
-    isi: "Buat pengajuan pinjaman atau gadai dalam beberapa menit. Barang gadai tersimpan di brankas custody, pengingat jatuh tempo berjalan otomatis.",
+    isi: "Ajukan pinjaman tanpa agunan atau gadai barang dalam beberapa menit. Barang gadai tersimpan di brankas custody, pengingat jatuh tempo berjalan otomatis.",
     cta: "Coba simulasi",
   },
   float: {
     judul: "Pengajuan cepat",
-    isi: "Tim menindaklanjuti pengajuan Anda secepat mungkin.",
+    isi: "Unggah dokumen dari rumah dan pantau status pengajuan langsung dari dashboard.",
     cta: "Mulai pengajuan",
   },
   hero: {
     badge: "Pinjaman & gadai digital — didanai Pendana terverifikasi",
     judul1: "Pinjam & Gadai Digital",
     judul2: "Transparan",
-    sub: "Pinjaman tanpa agunan atau gadai barang dengan angka terbuka sejak awal: potongan 5%, dana bersih 95%.",
+    sub: "Ajukan pinjaman tanpa agunan atau gadai barang dari rumah: taksiran resmi petugas, barang tersimpan di Brankas Custody, dan pengingat jatuh tempo otomatis.",
     cta1: "Ajukan Pinjaman",
     cta2: "Gadaikan Barang",
   },
   chips: {
-    chip1: { label: "Dana bersih", nilai: "95% selalu" },
-    chip2: { label: "Potongan di muka", nilai: "5% terbuka" },
+    chip1: { label: "Pinjaman tunai", nilai: "Tanpa agunan" },
+    chip2: { label: "Barang gadai", nilai: "Brankas custody" },
   },
   layanan: {
     judul: "Dua layanan, satu standar",
     sub: "Keduanya memakai mesin perhitungan dan jurnal audit yang sama.",
     pinjamanJudul: "Pinjaman Tunai Digital",
     pinjamanIsi:
-      "Tanpa agunan, tenor 30/60/90 hari. Dana bersih 95% dari pokok langsung ke rekening. Pelunasan 130% (pokok + Bunga 30% — hak Pendana).",
+      "Tanpa agunan, tenor 30/60/90 hari. Ajukan dari rumah, dana langsung ke rekening, dan pelunasan dipantau pengingat otomatis. Total pelunasan 130% dari pokok (Bunga 30% — hak Pendana).",
     pinjamanCta: "Ajukan sekarang",
     gadaiJudul: "Gadai Digital",
     gadaiIsi:
-      "Elektronik, kendaraan, perhiasan, hingga properti. Taksiran resmi petugas, potongan muka 1%, dana bersih 99%. Sewa modal 5–10% per 30 hari dari sisa pokok terbaru. Sisa pokok Rp0 → barang siap diambil dari Brankas Custody.",
+      "Elektronik, kendaraan, perhiasan, hingga properti. Petugas menaksir resmi di lokasi Anda, pantau lewat live location, dan barang tersimpan di Brankas Custody. Sewa modal 5–10% per 30 hari dari sisa pokok terbaru. Sisa pokok Rp0, barang siap diambil.",
     gadaiCta: "Gadaikan barang",
   },
 } as const;
