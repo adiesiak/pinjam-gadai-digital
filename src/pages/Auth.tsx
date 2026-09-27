@@ -20,7 +20,7 @@ import { getClientIp, getUserAgent } from "@/lib/session";
 import { ArrowRight, Loader2, Mail, ShieldAlert, UserX } from "lucide-react";
 import { Suspense, useEffect, useState } from "react";
 import { useMutation } from "convex/react";
-import { useNavigate, useSearchParams } from "react-router";
+import { Link, useNavigate, useSearchParams } from "react-router";
 
 interface AuthProps {
   redirectAfterAuth?: string;
@@ -92,7 +92,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
       setError(
         error instanceof Error
           ? error.message
-          : "Failed to send verification code. Please try again.",
+          : "Gagal mengirim kode verifikasi. Coba lagi sebentar lagi.",
       );
       setIsLoading(false);
     }
@@ -128,7 +128,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
       } catch {
         /* ignore */
       }
-      setError("The verification code you entered is incorrect.");
+      setError("Kode verifikasi yang Anda masukkan salah.");
       setIsLoading(false);
       setOtp("");
     }
@@ -154,8 +154,8 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
       console.error("Guest login error:", error);
       setKegagalan((k) => k + 1);
       setError(
-        `Failed to sign in as guest: ${
-          error instanceof Error ? error.message : "Unknown error"
+        `Gagal masuk sebagai tamu: ${
+          error instanceof Error ? error.message : "kesalahan tidak diketahui"
         }`,
       );
       setIsLoading(false);
@@ -167,15 +167,15 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
       <div className="flex-1" />
       <div className="flex items-center justify-center px-6">
         <div className="flex w-full max-w-sm flex-col items-center">
-          <a
-            href="/"
+          <Link
+            to="/"
             className="flex items-center gap-2.5 text-sm font-semibold tracking-[0.18em] text-foreground"
           >
             <span className="flex size-8 items-center justify-center rounded-lg bg-primary font-bold text-primary-foreground">
               P
             </span>
             PINDAI
-          </a>
+          </Link>
           <p className="mt-2 text-xs text-muted-foreground">
             Pinjam &amp; Gadai Digital
           </p>
@@ -193,9 +193,10 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                   <CardContent>
                     <div className="relative flex items-center gap-2">
                       <div className="relative flex-1">
-                        <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                        <Mail className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
                         <Input
                           name="email"
+                          aria-label="Alamat email"
                           placeholder="nama@contoh.com"
                           type="email"
                           className="pl-9"
@@ -207,17 +208,20 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                         type="submit"
                         variant="outline"
                         size="icon"
+                        aria-label="Kirim kode verifikasi"
                         disabled={isLoading}
                       >
                         {isLoading ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
+                          <Loader2 className="size-4 animate-spin" />
                         ) : (
-                          <ArrowRight className="h-4 w-4" />
+                          <ArrowRight className="size-4" />
                         )}
                       </Button>
                     </div>
                     {error && (
-                      <p className="mt-2 text-sm text-destructive">{error}</p>
+                      <p role="alert" className="mt-2 text-sm text-destructive">
+                        {error}
+                      </p>
                     )}
 
                     {captchaWajib && (
@@ -228,13 +232,14 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                         </p>
                         <Input
                           className="mt-2"
+                          aria-label="Jawaban verifikasi anti-bot"
                           inputMode="numeric"
                           placeholder="Jawaban"
                           value={captchaJawab}
                           onChange={(e) => setCaptchaJawab(e.target.value)}
                           disabled={isLoading}
                         />
-                        <p className="mt-1.5 text-[11px] leading-4 text-sky-700">
+                        <p className="mt-1.5 text-xs leading-5 text-sky-700">
                           Aktif setelah 2x gagal. Maksimal 5 percobaan per 15 menit.
                         </p>
                       </div>
@@ -259,7 +264,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                         onClick={handleGuestLogin}
                         disabled={isLoading}
                       >
-                        <UserX className="mr-2 h-4 w-4" />
+                        <UserX className="mr-2 size-4" />
                         Lanjut sebagai tamu
                       </Button>
                     </div>
@@ -268,7 +273,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
               </>
             ) : (
               <>
-                <CardHeader className="mt-4 text-center">
+                <CardHeader className="text-center">
                   <CardTitle>Cek email Anda</CardTitle>
                   <CardDescription>
                     Kami mengirim kode verifikasi ke {step.email}
@@ -284,6 +289,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                         value={otp}
                         onChange={setOtp}
                         maxLength={6}
+                        aria-label="Kode verifikasi 6 digit"
                         disabled={isLoading}
                         onKeyDown={(e) => {
                           if (
@@ -306,20 +312,10 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                       </InputOTP>
                     </div>
                     {error && (
-                      <p className="mt-2 text-center text-sm text-destructive">
+                      <p role="alert" className="mt-2 text-center text-sm text-destructive">
                         {error}
                       </p>
                     )}
-                    <p className="mt-4 text-center text-sm text-muted-foreground">
-                      Tidak menerima kode?{" "}
-                      <Button
-                        variant="link"
-                        className="h-auto p-0"
-                        onClick={() => setStep("signIn")}
-                      >
-                        Coba lagi
-                      </Button>
-                    </p>
                   </CardContent>
                   <CardFooter className="flex-col gap-2">
                     <Button
@@ -329,13 +325,13 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                     >
                       {isLoading ? (
                         <>
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          <Loader2 className="mr-2 size-4 animate-spin" />
                           Memverifikasi…
                         </>
                       ) : (
                         <>
                           Verifikasi kode
-                          <ArrowRight className="ml-2 h-4 w-4" />
+                          <ArrowRight className="ml-2 size-4" />
                         </>
                       )}
                     </Button>
@@ -354,7 +350,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
             )}
 
             <div className="rounded-b-xl border-t bg-muted px-6 py-4 text-center text-xs leading-5 text-muted-foreground">
-              Potongan 5% · Bunga 30% · Pelunasan 130%
+              Tanpa agunan · Brankas custody · Pengingat jatuh tempo
             </div>
           </Card>
         </div>
