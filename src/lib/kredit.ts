@@ -18,14 +18,23 @@
  *    penuh — satu-satunya pendapatan platform dari skema ini.
  */
 import { isRupiah, percentOf, type Rupiah } from "./money";
+import {
+  hitungSimulasiBulanan,
+  TENOR_BULANAN_OPTIONS,
+  type CicilanBulananRow,
+} from "./bulanan";
 
 export const KREDIT_PRICING = {
   /** Uang muka minimum (% dari harga barang). */
   dpMinPersen: 10,
   /** Uang muka maksimum (% dari harga barang). */
   dpMaxPersen: 50,
-  /** Pilihan tenor kredit barang (bulan). */
-  tenorBulanOptions: [3, 6, 12, 24],
+  /**
+   * Pilihan tenor kredit barang (bulan) — tenor 1/3/6 bulan memakai skema
+   * bulanan (DP 0%, biaya layanan 3% diamortisasi, bunga 10/8/7,5% per bulan
+   * dari pokok penuh); tenor 12/24 bulan memakai skema DP + margin flat.
+   */
+  tenorBulanOptions: [1, ...TENOR_BULANAN_OPTIONS.slice(1), 12, 24],
   /** Imbal Hasil minimum per bulan (% dari pokok dibiayai). */
   marginMinPersenPerBulan: 2.5,
   /** Imbal Hasil maksimum per bulan (% dari pokok dibiayai). */
@@ -58,7 +67,11 @@ export interface KreditBarangInput {
   dpPersen: number;
   /** Tenor cicilan dalam bulan (3/6/12/24). */
   tenorBulan: number;
-  /** Imbal Hasil Pendana per bulan (% dari pokok dibiayai, 1,5–4). */
+  /**
+   * Imbal Hasil Pendana per bulan (% dari pokok dibiayai) — hanya dipakai
+   * tenor 12/24 bulan (skema DP + margin flat). Tenor 1/3/6 bulan (skema
+   * bulanan) mengabaikan nilai ini: bunga mengikuti tenor secara otomatis.
+   */
   marginPersenPerBulan: number;
   /** Porsi pokok yang didanai Pendana (%, 10–100). Default 100. */
   porsiPendanaPersen?: number;
@@ -137,10 +150,14 @@ export function quoteKreditBarang(input: KreditBarangInput): KreditBarangQuote {
       `Harga barang harus antara ${KREDIT_PRICING.minHargaBarang} dan ${KREDIT_PRICING.maxHargaBarang} rupiah.`,
     );
   }
+  // Tenor 1/3/6 bulan (skema bulanan) tidak memakai DP & margin flat —
+  // validasi keduanya dilewati; skema DP + margin (12/24 bulan) tetap ketat.
+  const skemaBulanan = (TENOR_BULANAN_OPTIONS as readonly number[]).includes(tenorBulan);
   if (
-    !Number.isFinite(dpPersen) ||
-    dpPersen < KREDIT_PRICING.dpMinPersen ||
-    dpPersen > KREDIT_PRICING.dpMaxPersen
+    !skemaBulanan &&
+    (!Number.isFinite(dpPersen) ||
+      dpPersen < KREDIT_PRICING.dpMinPersen ||
+      dpPersen > KREDIT_PRICING.dpMaxPersen)
   ) {
     throw new Error(
       `Uang muka (DP) harus ${KREDIT_PRICING.dpMinPersen}–${KREDIT_PRICING.dpMaxPersen}% dari harga barang.`,
@@ -149,15 +166,6 @@ export function quoteKreditBarang(input: KreditBarangInput): KreditBarangQuote {
   if (!(KREDIT_PRICING.tenorBulanOptions as readonly number[]).includes(tenorBulan)) {
     throw new Error(
       `Tenor harus salah satu dari ${KREDIT_PRICING.tenorBulanOptions.join(" / ")} bulan.`,
-    );
-  }
-  if (
-    !Number.isFinite(marginPersenPerBulan) ||
-    marginPersenPerBulan < KREDIT_PRICING.marginMinPersenPerBulan ||
-    marginPersenPerBulan > KREDIT_PRICING.marginMaxPersenPerBulan
-  ) {
-    throw new Error(
-      `Imbal Hasil harus ${KREDIT_PRICING.marginMinPersenPerBulan}–${KREDIT_PRICING.marginMaxPersenPerBulan}% per bulan.`,
     );
   }
   if (
@@ -170,6 +178,64 @@ export function quoteKreditBarang(input: KreditBarangInput): KreditBarangQuote {
     );
   }
 
+  // ===== Skema bulanan (tenor 1/3/6 bulan): DP 0%, layanan 3% diamortisasi,
+  // bunga 10/8/7,5% per bulan dari pokok penuh — mesin bulanan yang sama
+  // dengan pinjaman tunai bulanan. Biaya layanan = pendapatan platform;
+  // bunga = Imbal Hasil Pendana.
+  if (skemaBulanan) {
+    const sim = hitungSimulasiBulanan(hargaBarang, tenorBulan);
+    const jadwal: KreditBarangJadwalRow[] = sim.jadwal.map(
+      (r: CicilanBulananRow) => ({
+        bulan: r.bulan,
+        pokok: r.pokok,
+        margin: r.bunga,
+        total: r.total,
+        sisaPokok: r.sisaPokok,
+      }),
+    );
+
+    // ===== Hak Pendana: proporsional terhadap porsi pendanaan =====
+    // (DP 0% → pokok dibiayai = harga barang.)
+    const porsiPendanaBulanan = percentOf(hargaBarang, porsiPendanaPersen);
+    const imbalHasilPerBulanBulanan = percentOf(sim.bungaPerBulan, porsiPendanaPersen);
+    const imbalHasilBulanan = imbalHasilPerBulanBulanan * tenorBulan;
+    const persenImbalHasilBulanan =
+      porsiPendanaBulanan > 0
+        ? bulatDuaDesimal((imbalHasilBulanan / porsiPendanaBulanan) * 100)
+        : 0;
+
+    return {
+      hargaBarang,
+      dp: sim.dp,
+      pokokDibiayai: sim.pokokDibiayai,
+      biayaLayanan: sim.biayaLayananTotal,
+      marginPerBulan: sim.bungaPerBulan,
+      marginTotal: sim.bungaTotal,
+      cicilanPerBulan: sim.cicilanPerBulan,
+      cicilanTerakhir: sim.cicilanTerakhir,
+      totalDibayarKonsumen: sim.totalPengembalian,
+      jadwal,
+      porsiPendanaPersen,
+      porsiPendana: porsiPendanaBulanan,
+      imbalHasilPerBulan: imbalHasilPerBulanBulanan,
+      imbalHasil: imbalHasilBulanan,
+      totalDiterima: porsiPendanaBulanan + imbalHasilBulanan,
+      persenImbalHasil: persenImbalHasilBulanan,
+      persenImbalHasilTahunan: bulatDuaDesimal(
+        (persenImbalHasilBulanan * 12) / tenorBulan,
+      ),
+    };
+  }
+  if (
+    !skemaBulanan &&
+    (!Number.isFinite(marginPersenPerBulan) ||
+      marginPersenPerBulan < KREDIT_PRICING.marginMinPersenPerBulan ||
+      marginPersenPerBulan > KREDIT_PRICING.marginMaxPersenPerBulan)
+  ) {
+    throw new Error(
+      `Imbal Hasil harus ${KREDIT_PRICING.marginMinPersenPerBulan}–${KREDIT_PRICING.marginMaxPersenPerBulan}% per bulan.`,
+    );
+  }
   const dp = percentOf(hargaBarang, dpPersen);
   const pokokDibiayai = hargaBarang - dp;
   if (pokokDibiayai <= 0) {

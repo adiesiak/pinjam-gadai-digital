@@ -19,8 +19,15 @@ import {
   calculateRepayment,
   quoteLoan,
   TENOR_OPTIONS,
+  LATE_FEE_POLICY,
+  MAX_LATE_DAYS,
 } from "../lib/loan";
-import { formatRupiah, type Rupiah } from "../lib/money";
+import {
+  assertSimulasiBulananValid,
+  hitungSimulasiBulanan,
+  TENOR_BULANAN_OPTIONS,
+} from "../lib/bulanan";
+import { formatRupiah, type Rupiah, percentOf } from "../lib/money";
 import { COLLATERAL_CATEGORIES } from "../lib/pawn";
 import { appendJournal } from "./ledger";
 import { getConfig, audit } from "./system";
@@ -43,6 +50,10 @@ export const MAX_POKOK = 500_000_000;
  * pinjaman warisan tidak bisa dilunasi dan tidak tampil di pengingat.
  */
 export const DEFAULT_TENOR_HARI = 30;
+
+/** Satu hari & satu bulan (30 hari) dalam milidetik — jatuh tempo skema bulanan. */
+const DAY_MS = 86_400_000;
+const BULAN_MS = 30 * DAY_MS;
 
 function validateRupiahAmount(amount: Rupiah, label: string): void {
   if (!Number.isSafeInteger(amount) || amount <= 0) {
@@ -114,8 +125,17 @@ export const createLoanApplication = mutation({
     catatanPeminjam: v.optional(v.string()),
     /** Tanda tangan digital peminjam (canvas → data URL PNG, opsional). */
     tandaTangan: v.optional(v.string()),
-    /** Tenor pinjaman dalam hari — divalidasi server terhadap opsi resmi. */
+    /**
+     * Tenor pinjaman dalam hari (skema 1 jt / 30 hari) — divalidasi server
+     * terhadap opsi resmi. Diabaikan bila `tenorBulan` disertakan.
+     */
     tenorHari: v.number(),
+    /**
+     * Tenor bulanan (skema bulanan: DP 0%, layanan 3%, bunga 10/8/7,5% per
+     * bulan) — pinjaman DI LUAR plafon 1 jt / 30 hari. Bila diisi, `tenorHari`
+     * diabaikan.
+     */
+    tenorBulan: v.optional(v.number()),
     // ===== KYC wajib =====
     nik: v.string(),
     nomorWhatsApp: v.string(),
@@ -143,10 +163,23 @@ export const createLoanApplication = mutation({
       );
     }
     // Batas pinjaman tunai: Rp 100.000–Rp 1.000.000 (LOAN_LIMITS, lib/loan.ts).
-    assertPokokPinjamanValid(args.pokokPinjaman);
+    // Skema bulanan (tenorBulan diisi) berada di luar plafon itu — 100 rb s.d.
+    // 500 jt dengan DP 0% dan bunga menurun per tenor (lib/bulanan.ts).
+    let tenorBulanSim: number | undefined;
+    if (args.tenorBulan !== undefined) {
+      if (!(TENOR_BULANAN_OPTIONS as readonly number[]).includes(args.tenorBulan)) {
+        throw new Error(
+          `Tenor bulanan harus salah satu dari ${TENOR_BULANAN_OPTIONS.join(" / ")} bulan.`,
+        );
+      }
+      assertSimulasiBulananValid(args.pokokPinjaman, args.tenorBulan);
+      tenorBulanSim = args.tenorBulan;
+    } else {
+      assertPokokPinjamanValid(args.pokokPinjaman);
+    }
     // Server-side pricing engine — fee fields are never accepted from the client.
     const quote = quoteLoan(args.pokokPinjaman);
-    if (!(TENOR_OPTIONS as readonly number[]).includes(args.tenorHari)) {
+    if (tenorBulanSim === undefined && !(TENOR_OPTIONS as readonly number[]).includes(args.tenorHari)) {
       throw new Error(
         `Tenor harus salah satu dari ${TENOR_OPTIONS.join(" / ")} hari (maksimal 30 hari).`,
       );
@@ -237,6 +270,7 @@ export const createLoanApplication = mutation({
       status: "diajukan",
       nomorReferensi,
       tenorHari: args.tenorHari,
+      tenorBulan: tenorBulanSim,
       nik,
       nomorWhatsApp: wa,
       penghasilanBulanan: args.penghasilanBulanan,
@@ -261,10 +295,34 @@ function pelunasanInfo(loan: {
   pokokPinjaman: number;
   status: string;
   tenorHari?: number;
+  tenorBulan?: number;
   didanaiPada?: number;
 }, now: number) {
   if (loan.status !== "didanai" || loan.didanaiPada === undefined) {
     return null;
+  }
+  // Skema bulanan (tenorBulan diisi): kewajiban = Σ cicilan + denda flat.
+  if (loan.tenorBulan !== undefined) {
+    const sim = hitungSimulasiBulanan(loan.pokokPinjaman, loan.tenorBulan);
+    const jatuhTempoPada = loan.didanaiPada + loan.tenorBulan * BULAN_MS;
+    const sisaMs = jatuhTempoPada - now;
+    const sisaHari = Math.max(0, Math.ceil(sisaMs / DAY_MS));
+    const hariTerlambat = Math.max(0, Math.floor(-sisaMs / DAY_MS));
+    const dendaTerlambat =
+      hariTerlambat === 0
+        ? 0
+        : percentOf(
+            loan.pokokPinjaman,
+            Math.min(LATE_FEE_POLICY.percentPerDay * hariTerlambat, LATE_FEE_POLICY.maxPercent),
+          );
+    return {
+      jatuhTempoPada,
+      sisaHari,
+      hariTerlambat,
+      dendaTerlambat,
+      totalKewajibanDenganPenalti: sim.totalPengembalian + dendaTerlambat,
+      totalKewajibanPelunasan: sim.totalPengembalian,
+    };
   }
   // Data warisan pra-tenor memakai default 30 hari agar tetap bisa dilunasi
   // dan tetap mendapat pengingat jatuh tempo.
@@ -291,6 +349,7 @@ export const listMyLoans = query({
         tujuan: l.tujuan,
         status: l.status,
         catatanReview: l.catatanReview,
+        tenorBulan: l.tenorBulan ?? null,
       }));
   },
 });
@@ -311,6 +370,11 @@ export const getMyLoan = query({
             Date.now(),
           )
         : null;
+    // Skema bulanan: kewajiban diturunkan dari mesin bulanan, bukan 130%.
+    const sim =
+      loan.tenorBulan !== undefined
+        ? hitungSimulasiBulanan(loan.pokokPinjaman, loan.tenorBulan)
+        : null;
     return {
       _id: loan._id,
       _creationTime: loan._creationTime,
@@ -320,7 +384,10 @@ export const getMyLoan = query({
       status: loan.status,
       catatanReview: loan.catatanReview,
       tenorHari: loan.tenorHari ?? null,
+      tenorBulan: loan.tenorBulan ?? null,
       quote: quoteLoan(loan.pokokPinjaman),
+      imbalHasilTotal: sim !== null ? sim.bungaTotal : quoteLoan(loan.pokokPinjaman).bunga,
+      totalKewajiban: sim !== null ? sim.totalPengembalian : quoteLoan(loan.pokokPinjaman).totalKewajibanPelunasan,
       pelunasan,
     };
   },
@@ -424,8 +491,13 @@ export const myLoanSchedule = query({
           pokokPinjaman: l.pokokPinjaman,
           status: l.status,
           tenorHari: l.tenorHari ?? DEFAULT_TENOR_HARI,
+          tenorBulan: l.tenorBulan ?? null,
           didanaiPada: l.didanaiPada ?? null,
           quote: quoteLoan(l.pokokPinjaman),
+          imbalHasilTotal:
+            l.tenorBulan !== undefined
+              ? hitungSimulasiBulanan(l.pokokPinjaman, l.tenorBulan).bungaTotal
+              : quoteLoan(l.pokokPinjaman).bunga,
           pelunasan:
             info === null
               ? null
@@ -772,12 +844,13 @@ export const rejectPawn = mutation({
 // =====================================================================
 
 /**
- * Pelunasan oleh Peminjam — total kewajiban 130% dari pokok.
+ * Pelunasan oleh Peminjam — skema harian: total kewajiban 130% dari pokok;
+ * skema bulanan (tenorBulan): Σ cicilan + biaya layanan (fee platform).
  * Jurnal (semua dalam satu mutation transaksional, append-only):
- *   1. D platform:CASH 130%  | K pinjaman:<id> 130%   (kas masuk)
+ *   1. D platform:CASH total kewajiban | K pinjaman:<id>
  *   2. D pinjaman:<id> p_i+im_i | K pendana:WALLET:i  (bayar tiap Pendana)
  * Dust pembulatan proporsi imbal hasil diberikan ke Pendana dengan alokasi
- * terbesar, sehingga akun pinjaman tepat nol dan total keluar tepat 130%.
+ * terbesar, sehingga akun pinjaman tepat nol dan total keluar tepat.
  */
 export const repayLoan = mutation({
   args: { loanId: v.id("loans") },
@@ -794,14 +867,24 @@ export const repayLoan = mutation({
     if (loan.didanaiPada === undefined) {
       throw new Error("Pinjaman ini belum memiliki waktu pendanaan yang valid.");
     }
-    const pelunasan = calculateRepayment(
-      loan.pokokPinjaman,
-      loan.tenorHari ?? DEFAULT_TENOR_HARI,
-      loan.didanaiPada,
-      now,
-    );
+    const pelunasan = pelunasanInfo(loan, now);
+    if (pelunasan === null) {
+      throw new Error("Kewajiban pelunasan tidak dapat dihitung untuk pinjaman ini.");
+    }
 
+    // Skema bulanan: fee platform = biaya layanan 3%; bunga = hak Pendana.
+    // Skema harian: bunga 30% dari quoteLoan (fee sudah dipotong di muka).
+    const simBulanan =
+      loan.tenorBulan !== undefined
+        ? hitungSimulasiBulanan(loan.pokokPinjaman, loan.tenorBulan)
+        : null;
     const q = quoteLoan(loan.pokokPinjaman);
+    const totalPokokPendana = loan.pokokPinjaman;
+    const totalImbalPendana = simBulanan !== null ? simBulanan.bungaTotal : q.bunga;
+    const totalKewajibanPendana = totalPokokPendana + totalImbalPendana;
+    const feePlatform =
+      simBulanan !== null ? simBulanan.biayaLayananTotal : q.totalKewajibanPelunasan - q.pokok - q.bunga;
+
     const fundings = await ctx.db
       .query("fundings")
       .withIndex("by_loan", (q2) => q2.eq("loanId", args.loanId))
@@ -811,15 +894,19 @@ export const repayLoan = mutation({
       throw new Error("Tidak ada posisi Pendana aktif pada pinjaman ini.");
     }
 
-    // 1. Kas masuk: total kewajiban 130% + denda (bila terlambat). Denda
-    //    dijurnal ke platform:FEE agar pembukuan 130% tetap bersih diaudit.
+    // 1. Kas masuk: total kewajiban (+ denda bila terlambat). Denda dijurnal
+    //    ke platform:FEE agar pembukuan kewajiban tetap bersih diaudit.
     const cashLines: Array<{
       akun: string;
       arah: "debit" | "kredit";
       jumlah: number;
     }> = [
-      { akun: "platform:CASH", arah: "debit", jumlah: q.totalKewajibanPelunasan },
-      { akun: `pinjaman:${args.loanId}`, arah: "kredit", jumlah: q.pokok + q.bunga },
+      {
+        akun: "platform:CASH",
+        arah: "debit",
+        jumlah: totalKewajibanPendana + feePlatform,
+      },
+      { akun: `pinjaman:${args.loanId}`, arah: "kredit", jumlah: totalKewajibanPendana },
     ];
     if (pelunasan.dendaTerlambat > 0) {
       cashLines.push(
@@ -829,8 +916,11 @@ export const repayLoan = mutation({
     }
     await appendJournal(ctx, {
       jenis: "repayment",
-      keterangan:
-        pelunasan.hariTerlambat > 0
+      keterangan: simBulanan !== null
+        ? pelunasan.hariTerlambat > 0
+          ? `Pelunasan ${loan.nomorReferensi} — skema bulanan + denda ${pelunasan.hariTerlambat} hari (${pelunasan.dendaTerlambat})`
+          : `Pelunasan ${loan.nomorReferensi} — total cicilan skema bulanan`
+        : pelunasan.hariTerlambat > 0
           ? `Pelunasan ${loan.nomorReferensi} — 130% + denda ${pelunasan.hariTerlambat} hari (${pelunasan.dendaTerlambat})`
           : `Pelunasan ${loan.nomorReferensi} — total kewajiban 130%`,
       aktor: userId,
@@ -842,10 +932,10 @@ export const repayLoan = mutation({
     aktif.sort((a, b) => b.jumlahAlokasi - a.jumlahAlokasi);
     const imbalBagian = aktif.map((f) => ({
       funding: f,
-      imbal: Math.floor((q.bunga * f.jumlahAlokasi) / loan.pokokPinjaman),
+      imbal: Math.floor((totalImbalPendana * f.jumlahAlokasi) / totalPokokPendana),
     }));
     const dust =
-      q.bunga - imbalBagian.reduce((acc, x) => acc + x.imbal, 0);
+      totalImbalPendana - imbalBagian.reduce((acc, x) => acc + x.imbal, 0);
     imbalBagian[0].imbal += dust; // dust selalu >= 0 dan < jumlah Pendana
 
     let terdistribusi = 0;
@@ -864,16 +954,30 @@ export const repayLoan = mutation({
       terdistribusi += payout;
     }
 
-    // 3. Sanity: total kas masuk (130% + denda) = 130% ke akun pinjaman +
-    //    denda ke platform. Gagal = seluruh transaksi rollback.
-    const totalKasMasuk = q.totalKewajibanPelunasan + pelunasan.dendaTerlambat;
-    if (totalKasMasuk !== terdistribusi + pelunasan.dendaTerlambat) {
+    // 3. Fee platform dijurnal dari akun pinjaman ke platform:FEE. Skema
+    //    harian: totalPotonganDiMuka sudah dipotong saat pencairan (fee = 0).
+    if (feePlatform > 0) {
+      await appendJournal(ctx, {
+        jenis: "platform_fee",
+        keterangan: `Biaya layanan platform ${loan.nomorReferensi} (skema bulanan)`,
+        aktor: "platform",
+        lines: [
+          { akun: "platform:FEE", arah: "debit", jumlah: feePlatform },
+          { akun: `pinjaman:${args.loanId}`, arah: "kredit", jumlah: feePlatform },
+        ],
+      });
+    }
+
+    // 4. Sanity: total kas masuk (kewajiban + denda) = kewajiban ke akun
+    //    pinjaman (payout Pendana + fee) + denda. Gagal = rollback penuh.
+    const totalKasMasuk = totalKewajibanPendana + feePlatform + pelunasan.dendaTerlambat;
+    if (totalKasMasuk !== terdistribusi + feePlatform + pelunasan.dendaTerlambat) {
       throw new Error(
-        `Pelunasan tidak seimbang: selisih ${totalKasMasuk - terdistribusi - pelunasan.dendaTerlambat}. Transaksi dibatalkan.`,
+        `Pelunasan tidak seimbang: selisih ${totalKasMasuk - terdistribusi - feePlatform - pelunasan.dendaTerlambat}. Transaksi dibatalkan.`,
       );
     }
 
-    // 4. Tutup posisi alokasi Pendana — posisi selesai setelah dibayar penuh.
+    // 5. Tutup posisi alokasi Pendana — posisi selesai setelah dibayar penuh.
     for (const f of aktif) {
       await ctx.db.patch(f._id, { status: "selesai" });
     }
@@ -959,8 +1063,6 @@ export const _internalSetLoanStatus = internalMutation({
 // =====================================================================
 // Pengingat jatuh tempo — cron harian, append-only, idempoten
 // =====================================================================
-
-const DAY_MS = 86_400_000;
 
 function startOfUtcDay(now: number): number {
   return Math.floor(now / DAY_MS) * DAY_MS;

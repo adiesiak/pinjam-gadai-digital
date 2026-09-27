@@ -117,6 +117,12 @@ const schema = defineSchema(
       nomorReferensi: v.string(),
       /** Tenor pinjaman dalam hari (30/60/90) — dipilih saat pengajuan. */
       tenorHari: v.number(),
+      /**
+       * Tenor bulanan skema bulanan (1/3/6 bln: DP 0%, layanan 3%, bunga
+       * 10/8/7,5%/bln — lib/bulanan.ts) untuk pinjaman DI LUAR plafon 1 jt /
+       * 30 hari. Kosong = pinjaman memakai skema harian quoteLoan().
+       */
+      tenorBulan: v.optional(v.number()),
       /** Terisi saat pinjaman didanai penuh dan dana bersih dicairkan. */
       didanaiPada: v.optional(v.number()),
       /** Terisi saat kewajiban 130% (+ denda bila terlambat) dibayar penuh. */

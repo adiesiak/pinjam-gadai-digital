@@ -89,23 +89,39 @@ eq(sebagian.imbalHasil, 1_200_000, "total Imbal Hasil 50% = 1,2jt");
 eq(sebagian.totalDiterima, 5_200_000, "total diterima porsi 50%");
 eq(sebagian.persenImbalHasil, 30, "persen Imbal Hasil tetap 30%");
 
-// ---- Tenor pendek pada Imbal Hasil minimum skema ----
+// ---- Tenor 3 bulan: skema bulanan (DP 0%, bunga 8%/bln dari pokok penuh) ----
 const pendek = quoteKreditBarang({
   hargaBarang: 10_000_000,
-  dpPersen: 20,
+  dpPersen: 0,
   tenorBulan: 3,
+  // Diabaikan skema bulanan — bunga mengikuti tenor (3–5 bln = 8%/bln).
   marginPersenPerBulan: KREDIT_PRICING.marginMinPersenPerBulan,
 });
-eq(pendek.marginPerBulan, 200_000, "Imbal Hasil 2,5% dari 8jt = 200rb");
-eq(pendek.marginTotal, 600_000, "total Imbal Hasil 3 bulan");
-eq(pendek.cicilanPerBulan, 2_866_666, "cicilan 3 bulan lebih besar");
-eq(pendek.persenImbalHasil, 7.5, "Imbal Hasil 7,5% dari porsi (3 bulan)");
-eq(pendek.persenImbalHasilTahunan, 30, "setara 30% per tahun (7,5% × 12/3)");
+eq(pendek.dp, 0, "tenor 3 bulan: DP 0 (skema bulanan)");
+eq(pendek.pokokDibiayai, 10_000_000, "tenor 3 bulan: pokok dibiayai = harga barang");
+eq(pendek.marginPerBulan, 800_000, "Imbal Hasil 8% dari 10jt = 800rb");
+eq(pendek.marginTotal, 2_400_000, "total Imbal Hasil 3 bulan");
+eq(pendek.biayaLayanan, 300_000, "biaya layanan 3% dari 10jt (diamortisasi)");
+eq(pendek.cicilanPerBulan, 3_333_333 + 800_000 + 100_000, "cicilan 3 bulan 4.233.333");
+eq(pendek.persenImbalHasil, 24, "Imbal Hasil 24% dari pokok penuh (3 bulan)");
+eq(pendek.persenImbalHasilTahunan, 96, "setara 96% per tahun (24% × 12/3)");
 eq(
   pendek.jadwal.reduce((acc, row) => acc + row.pokok, 0),
   pendek.pokokDibiayai,
   "Σ pokok tenor 3 bulan tetap utuh",
 );
+
+// ---- Tenor 12 bulan pada Imbal Hasil minimum skema (DP + margin flat) ----
+const flatMin = quoteKreditBarang({
+  hargaBarang: 10_000_000,
+  dpPersen: 20,
+  tenorBulan: 12,
+  marginPersenPerBulan: KREDIT_PRICING.marginMinPersenPerBulan,
+});
+eq(flatMin.marginPerBulan, 200_000, "flat: Imbal Hasil 2,5% dari 8jt = 200rb");
+eq(flatMin.marginTotal, 2_400_000, "flat: total Imbal Hasil 12 bulan");
+eq(flatMin.persenImbalHasil, 30, "flat: Imbal Hasil 30% dari porsi");
+eq(flatMin.persenImbalHasilTahunan, 30, "flat: setara 30% per tahun");
 
 // ---- Tenor panjang ----
 const panjang = quoteKreditBarang({
