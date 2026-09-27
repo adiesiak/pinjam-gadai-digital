@@ -41,7 +41,7 @@ function VaultLogo({ size = 36 }: { size?: number }) {
       height={size}
       viewBox="0 0 64 64"
       fill="none"
-      aria-label="Logo PINDAI"
+      aria-hidden="true"
     >
       <rect x="8" y="10" width="48" height="44" rx="10" fill="#0f3d3a" />
       <rect x="16" y="18" width="32" height="28" rx="6" fill="#ffffff" />
@@ -176,11 +176,11 @@ function LiveCalculator() {
         </div>
       </dl>
 
-      <p className="mt-4 text-[11px] leading-5 text-slate-500">
+      <p className="mt-4 text-xs leading-5 text-slate-500">
         Angka dihitung mesin PINDAI dan dipakai sama persis saat pengajuan dibuat.
       </p>
 
-      <Button asChild className="mt-5 w-full bg-primary text-white hover:bg-primary/90">
+      <Button asChild className="mt-5 h-11 w-full bg-primary text-white hover:bg-primary/90">
         <Link to="/auth">
           Ajukan pinjaman
           <ArrowRight className="ml-1.5 size-4" />
@@ -398,7 +398,7 @@ export default function Landing() {
               <div className="mt-8 flex flex-wrap items-center gap-3">
                 <Button
                   asChild
-                  className="bg-primary px-6 text-white hover:bg-primary/90"
+                  className="h-11 bg-primary px-6 text-white hover:bg-primary/90"
                 >
                   <Link to="/auth">
                     {c(cms?.heroCta1, CMS_DEFAULTS.hero.cta1)}
@@ -408,7 +408,7 @@ export default function Landing() {
                 <Button
                   asChild
                   variant="outline"
-                  className="border-slate-200 px-6 text-slate-700"
+                  className="h-11 border-slate-200 px-6 text-slate-700"
                 >
                   <Link to="/auth">{c(cms?.heroCta2, CMS_DEFAULTS.hero.cta2)}</Link>
                 </Button>
@@ -427,7 +427,7 @@ export default function Landing() {
             </div>
 
             {/* Sorotan produk — pengganti ilustrasi berat */}
-            <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+            <div className="card-lift rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
               <div className="flex items-center gap-3">
                 <VaultLogo size={44} />
                 <div>
@@ -477,7 +477,7 @@ export default function Landing() {
             <div className="mt-10 grid gap-6 md:grid-cols-2">
               <article
                 id="pinjaman"
-                className="flex flex-col rounded-2xl border border-slate-200 bg-white p-7 shadow-sm"
+                className="card-lift flex scroll-mt-24 flex-col rounded-2xl border border-slate-200 bg-white p-7 shadow-sm"
               >
                 <span className="clay-icon-blue inline-flex size-10 items-center justify-center">
                   <Banknote className="size-5" strokeWidth={2} />
@@ -498,7 +498,7 @@ export default function Landing() {
 
               <article
                 id="gadai"
-                className="flex flex-col rounded-2xl border border-slate-200 bg-white p-7 shadow-sm"
+                className="card-lift flex scroll-mt-24 flex-col rounded-2xl border border-slate-200 bg-white p-7 shadow-sm"
               >
                 <span className="clay-icon-mint inline-flex size-10 items-center justify-center">
                   <Package className="size-5" strokeWidth={2} />
@@ -521,7 +521,7 @@ export default function Landing() {
         </section>
 
         {/* Simulasi + langkah */}
-        <section id="simulasi" className="mx-auto w-full max-w-6xl px-6 py-20">
+        <section id="simulasi" className="mx-auto w-full max-w-6xl scroll-mt-24 px-6 py-20">
           <div className="grid gap-10 lg:grid-cols-2">
             <LiveCalculator />
             <div>
@@ -558,7 +558,7 @@ export default function Landing() {
         </section>
 
         {/* Keamanan */}
-        <section id="keamanan" className="border-t border-slate-200 bg-slate-50/60">
+        <section id="keamanan" className="scroll-mt-24 border-t border-slate-200 bg-slate-50/60">
           <div className="mx-auto w-full max-w-6xl px-6 py-20">
             <div className="max-w-2xl">
               <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">
@@ -591,13 +591,13 @@ export default function Landing() {
             <div className="mt-7 flex flex-wrap justify-center gap-3">
               <Button
                 asChild
-                className="border-0 bg-white px-6 text-primary hover:bg-primary/10"
+                className="h-11 border-0 bg-white px-6 text-primary hover:bg-secondary"
               >
                 <Link to="/auth">Daftar sebagai Peminjam</Link>
               </Button>
               <Button
                 asChild
-                className="border border-white/40 bg-transparent px-6 text-white hover:bg-white/10"
+                className="h-11 border border-white/40 bg-transparent px-6 text-white hover:bg-white/10"
               >
                 <Link to="/pendana">Jadi Pendana</Link>
               </Button>
@@ -620,7 +620,7 @@ export default function Landing() {
               </p>
             </div>
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+              <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
                 Produk
               </p>
               <ul className="mt-3 space-y-2 text-sm text-slate-600">
@@ -642,7 +642,7 @@ export default function Landing() {
               </ul>
             </div>
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+              <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
                 Sistem
               </p>
               <ul className="mt-3 space-y-2 text-sm text-slate-600">
@@ -661,7 +661,7 @@ export default function Landing() {
               </ul>
             </div>
           </div>
-          <div className="mt-8 flex flex-col items-center justify-between gap-2 border-t border-slate-200 pt-6 text-xs text-slate-400 sm:flex-row">
+          <div className="mt-8 flex flex-col items-center justify-between gap-2 border-t border-slate-200 pt-6 text-xs text-slate-500 sm:flex-row">
             <span>© 2026 {logoTeks}. Seluruh hak cipta.</span>
             <span>Tanpa agunan · Brankas custody · Pengingat jatuh tempo</span>
           </div>
