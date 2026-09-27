@@ -17,7 +17,16 @@ import {
 import { useAuth } from "@/hooks/use-auth";
 import { api } from "@/convex/_generated/api";
 import { getClientIp, getUserAgent } from "@/lib/session";
-import { ArrowRight, Loader2, Mail, ShieldAlert, UserX } from "lucide-react";
+import {
+  ArrowRight,
+  BadgeCheck,
+  CalendarClock,
+  Loader2,
+  Mail,
+  ShieldAlert,
+  UserX,
+  Vault,
+} from "lucide-react";
 import { Suspense, useEffect, useState } from "react";
 import { useMutation } from "convex/react";
 import { Link, useNavigate, useSearchParams } from "react-router";
@@ -179,8 +188,22 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
           <p className="mt-2 text-xs text-muted-foreground">
             Pinjam &amp; Gadai Digital
           </p>
+          <ul className="mt-4 flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-xs text-muted-foreground">
+            <li className="flex items-center gap-1.5">
+              <BadgeCheck className="size-3.5 text-primary" />
+              Tanpa agunan
+            </li>
+            <li className="flex items-center gap-1.5">
+              <Vault className="size-3.5 text-primary" />
+              Brankas custody
+            </li>
+            <li className="flex items-center gap-1.5">
+              <CalendarClock className="size-3.5 text-primary" />
+              Pengingat jatuh tempo
+            </li>
+          </ul>
 
-          <Card className="mt-8 w-full gap-6 rounded-xl border-border/60 pb-0 shadow-none">
+          <Card className="mt-8 w-full gap-6 rounded-xl border-border/60 shadow-none">
             {step === "signIn" ? (
               <>
                 <CardHeader className="text-center">
@@ -349,9 +372,6 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
               </>
             )}
 
-            <div className="rounded-b-xl border-t bg-muted px-6 py-4 text-center text-xs leading-5 text-muted-foreground">
-              Tanpa agunan · Brankas custody · Pengingat jatuh tempo
-            </div>
           </Card>
         </div>
       </div>
