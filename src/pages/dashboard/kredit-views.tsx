@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Progress } from "@/components/ui/progress";
 import {
   Select,
   SelectContent,
@@ -18,6 +19,7 @@ import { Separator } from "@/components/ui/separator";
 import { Slider } from "@/components/ui/slider";
 import { Textarea } from "@/components/ui/textarea";
 import { api } from "@/convex/_generated/api";
+import { Id } from "@/convex/_generated/dataModel";
 import { KREDIT_ASUMSI_AWAL, KREDIT_PRICING, quoteKreditBarang } from "@/lib/kredit";
 import { formatRupiah, parseRupiah } from "@/lib/money";
 import { cn } from "@/lib/utils";
@@ -68,7 +70,13 @@ const STATUS_META: Record<string, { label: string; className: string; descriptio
     label: "Didanai",
     className: "gradient-primary border-0 text-primary-foreground",
     description:
-      "Pendanaan penuh oleh Pendana — dana pokok diteruskan ke merchant mitra. Cicilan berjalan sesuai tenor setelah barang diterima.",
+      "Pendanaan penuh oleh Pendana — dana pokok diteruskan ke merchant mitra. Cicilan bulanan dibayar dari kartu Tagihan Cicilan di bawah.",
+  },
+  lunas: {
+    label: "Lunas",
+    className: "border-primary/30 bg-primary/10 text-accent-foreground",
+    description:
+      "Seluruh cicilan sudah dibayar — porsi pokok dan Imbal Hasil Pendana telah diteruskan ke dompet Pendana.",
   },
 };
 
@@ -591,24 +599,157 @@ export function KreditSayaSection() {
   );
 }
 
-/** Tab Kredit Barang: form pengajuan + daftar pengajuan Peminjam. */
+/** Tab Kredit Barang: tagihan cicilan + form pengajuan + daftar pengajuan. */
 export function KreditBarangSection() {
   return (
-    <div className="grid gap-8 lg:grid-cols-2">
-      <section>
-        <h2 className="text-lg font-semibold">Ajukan Kredit Barang</h2>
-        <Separator className="my-4" />
-        <KreditBarangForm
-          onCreated={(ref) =>
-            toast.success(`Pengajuan kredit barang terkirim — nomor referensi ${ref}`)
-          }
-        />
-      </section>
-      <section>
-        <h2 className="text-lg font-semibold">Pengajuan Kredit Barang Saya</h2>
-        <Separator className="my-4" />
-        <KreditSayaSection />
-      </section>
+    <div className="flex flex-col gap-8">
+      <KreditBillingSection />
+      <div className="grid gap-8 lg:grid-cols-2">
+        <section>
+          <h2 className="text-lg font-semibold">Ajukan Kredit Barang</h2>
+          <Separator className="my-4" />
+          <KreditBarangForm
+            onCreated={(ref) =>
+              toast.success(`Pengajuan kredit barang terkirim — nomor referensi ${ref}`)
+            }
+          />
+        </section>
+        <section>
+          <h2 className="text-lg font-semibold">Pengajuan Kredit Barang Saya</h2>
+          <Separator className="my-4" />
+          <KreditSayaSection />
+        </section>
+      </div>
     </div>
+  );
+}
+
+/**
+ * Tagihan cicilan bulanan: hanya tampil untuk pengajuan yang sudah didanai
+ * penuh (atau lunas). Pembayaran dicatat di jurnal: kas masuk dari Konsumen,
+ * lalu porsi pokok + Imbal Hasil dialirkan ke dompet tiap Pendana.
+ */
+export function KreditBillingSection() {
+  const kredit = useQuery(api.kredit.kreditSaya);
+  const bayar = useMutation(api.kredit.bayarCicilanKredit);
+  const [busyId, setBusyId] = useState<Id<"kreditBarang"> | null>(null);
+
+  if (kredit === undefined) return null;
+  const berjalan = kredit.filter((k) => k.status === "didanai" || k.status === "lunas");
+  if (berjalan.length === 0) return null;
+
+  const handleBayar = async (id: Id<"kreditBarang">) => {
+    setBusyId(id);
+    try {
+      const r = await bayar({ kreditId: id });
+      if (r.lunas) {
+        toast.success(
+          "Cicilan terakhir dibayar — kredit barang lunas. Pendana menerima porsi pokok + Imbal Hasilnya.",
+        );
+      } else {
+        toast.success(
+          `Cicilan bulan ${r.bulanKe} dibayar ${formatRupiah(r.totalDibayar)} — sisa pokok ${formatRupiah(r.sisaPokokSetelah)}.`,
+        );
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Pembayaran cicilan gagal.");
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  return (
+    <section>
+      <h2 className="text-lg font-semibold">Tagihan Cicilan Kredit Barang</h2>
+      <Separator className="my-4" />
+      <div className="space-y-4">
+        {berjalan.map((k) => {
+          const totalBulan = k.totalBulan || 1;
+          const persen = Math.min(100, Math.round((k.dibayarBulan / totalBulan) * 100));
+          return (
+            <article
+              key={k._id}
+              className={cn(
+                "card-lift rounded-2xl border bg-white p-5 shadow-sm",
+                k.status === "lunas" ? "border-emerald-200" : "border-slate-200",
+              )}
+            >
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold">{k.namaBarang}</p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">
+                    {k.nomorReferensi} · {k.merchant} · cicilan {formatRupiah(k.cicilanPerBulan ?? 0)
+                    }/bulan
+                  </p>
+                </div>
+                {k.status === "lunas" ? (
+                  <Badge className="border-primary/30 bg-primary/10 text-accent-foreground">
+                    Lunas
+                  </Badge>
+                ) : (
+                  <Badge className="border-0 bg-emerald-100 text-emerald-700 hover:bg-emerald-100">
+                    Cicilan {k.dibayarBulan}/{totalBulan}
+                  </Badge>
+                )}
+              </div>
+
+              <dl className="mt-3 grid gap-x-8 gap-y-1.5 text-sm sm:grid-cols-2">
+                <div className="flex items-baseline justify-between gap-4">
+                  <dt className="text-muted-foreground">Sisa pokok dibiayai</dt>
+                  <dd className="font-semibold tabular-nums">
+                    {formatRupiah(k.sisaPokokKredit)}
+                  </dd>
+                </div>
+                <div className="flex items-baseline justify-between gap-4">
+                  <dt className="text-muted-foreground">Sisa kewajiban</dt>
+                  <dd className="tabular-nums">{formatRupiah(k.kewajibanSisa)}</dd>
+                </div>
+              </dl>
+
+              <div className="mt-3">
+                <div className="flex items-baseline justify-between text-xs text-muted-foreground">
+                  <span>Progres cicilan</span>
+                  <span className="tabular-nums">
+                    {k.dibayarBulan} / {totalBulan} bulan
+                  </span>
+                </div>
+                <Progress className="mt-1.5" value={persen} />
+              </div>
+
+              {k.status === "lunas" ? (
+                <p className="mt-3 rounded-xl bg-emerald-50/70 px-3 py-2 text-xs leading-5 text-emerald-800">
+                  Seluruh cicilan sudah dibayar — porsi pokok dan Imbal Hasil Pendana telah cair ke
+                  dompet masing-masing Pendana.
+                </p>
+              ) : (
+                k.cicilanBerikut !== null && (
+                  <Button
+                    className="mt-3 w-full"
+                    disabled={busyId === k._id}
+                    onClick={() => void handleBayar(k._id)}
+                  >
+                    {busyId === k._id ? (
+                      <Loader2 className="mr-1.5 size-4 animate-spin" />
+                    ) : (
+                      <PackageCheck className="mr-1.5 size-4" />
+                    )}
+                    Bayar cicilan bulan {k.cicilanBerikut.bulan} (
+                    {formatRupiah(k.cicilanBerikut.total)})
+                  </Button>
+                )
+              )}
+
+              {k.cicilanBerikut !== null && k.status !== "lunas" && (
+                <p className="mt-2 text-xs leading-5 text-muted-foreground">
+                  Rincian bulan {k.cicilanBerikut.bulan}: pokok {formatRupiah(k.cicilanBerikut.pokok)} +
+                  Imbal Hasil Pendana {formatRupiah(k.cicilanBerikut.margin)} (dibagi proporsional ke
+                  Pendana yang mendanai).
+                </p>
+              )}
+            </article>
+          );
+        })}
+      </div>
+    </section>
   );
 }

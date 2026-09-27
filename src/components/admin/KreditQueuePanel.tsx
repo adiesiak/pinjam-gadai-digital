@@ -265,6 +265,7 @@ export function KreditQueuePanel() {
                   </p>
                   <p className="mt-1 truncate text-xs text-muted-foreground">
                     {r.nomorReferensi} · {r.namaLengkap} · {r.merchant} · tenor {r.tenorBulan} bulan
+                    {r.status !== "disetujui" && ` · cicilan ${r.dibayarBulan}/${r.totalBulan}`}
                     {r.catatanReview !== null && ` · ${r.catatanReview}`}
                   </p>
                 </div>

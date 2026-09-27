@@ -70,6 +70,8 @@ export const kreditStatusValidator = v.union(
   v.literal("disetujui"),
   v.literal("ditolak"),
   v.literal("didanai"),
+  // Seluruh cicilan (pokok + Imbal Hasil) lunas — posisi Pendana ditutup.
+  v.literal("lunas"),
 );
 export type KreditStatusValue = Infer<typeof kreditStatusValidator>;
 
@@ -448,9 +450,36 @@ const schema = defineSchema(
       catatanPeminjam: v.optional(v.string()),
       /** Terisi saat pendanaan penuh — dana pokok diteruskan ke merchant. */
       didanaiPada: v.optional(v.number()),
+      /** Terisi saat cicilan terakhir dibayar penuh oleh Konsumen. */
+      lunasPada: v.optional(v.number()),
     })
       .index("by_user", ["userId"])
       .index("by_status", ["status"]),
+
+    /**
+     * Pembayaran cicilan bulanan Kredit Barang (Skema C) — APPEND-ONLY.
+     * Satu baris per bulan yang dibayar Konsumen; bulan ke-n dihitung dari
+     * jumlah baris ini (cicilan selalu berurutan). Sisa pokok & kewajiban
+     * berikutnya diturunkan dari jadwal engine, bukan disimpan ganda.
+     */
+    kreditPayments: defineTable({
+      kreditId: v.id("kreditBarang"),
+      /** Peminjam yang mencatat pembayaran (denormalisasi untuk query cepat). */
+      userId: v.id("users"),
+      /** Bulan cicilan yang dibayar (1..tenorBulan). */
+      bulanKe: v.number(),
+      /** Cicilan pokok bulan ini (rupiah bulat). */
+      pokokDibayar: v.number(),
+      /** Imbal Hasil bulan ini yang dibayarkan Konsumen (rupiah bulat). */
+      marginDibayar: v.number(),
+      /** Total pembayaran bulan ini = pokok + margin. */
+      totalDibayar: v.number(),
+      /** Sisa pokok dibiayai setelah pembayaran ini (snapshot). */
+      sisaPokokSetelah: v.number(),
+      waktu: v.number(),
+    })
+      .index("by_kredit", ["kreditId"])
+      .index("by_user", ["userId"]),
 
     /**
      * Alokasi Dana Pendana ke satu pengajuan Kredit Barang (Skema C) —

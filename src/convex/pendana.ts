@@ -923,6 +923,11 @@ export const myKreditFundings = query({
     for (const f of rows.sort((a, b) => b._creationTime - a._creationTime)) {
       const kredit = await ctx.db.get(f.kreditId);
       if (kredit === null) continue;
+      // Progres cicilan bulanan: jumlah pembayaran tercatat (berurutan).
+      const payments = await ctx.db
+        .query("kreditPayments")
+        .withIndex("by_kredit", (q) => q.eq("kreditId", f.kreditId))
+        .collect();
       let quote = null;
       try {
         quote = quoteKreditBarang({
@@ -947,6 +952,7 @@ export const myKreditFundings = query({
         jumlahAlokasi: f.jumlahAlokasi,
         imbalHasil: f.imbalHasil,
         totalDiterima: f.jumlahAlokasi + f.imbalHasil,
+        dibayarBulan: payments.length,
         tenorBulan: kredit.tenorBulan,
         marginPersenPerBulan: kredit.marginPersenPerBulan,
         pokokDibiayai: quote?.pokokDibiayai ?? null,

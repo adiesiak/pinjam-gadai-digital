@@ -874,14 +874,22 @@ function PortofolioKreditSection() {
                     {f.cicilanPerBulan !== null ? ` · ${formatRupiah(f.cicilanPerBulan)}/bln` : ""}
                   </dd>
                 </div>
+                <div className="flex items-baseline justify-between gap-4">
+                  <dt className="text-muted-foreground">Progres cicilan Konsumen</dt>
+                  <dd className="tabular-nums">
+                    {f.dibayarBulan}/{f.tenorBulan} bulan
+                  </dd>
+                </div>
               </dl>
 
               <p className="mt-3 rounded-xl bg-slate-50 px-3 py-2 text-xs leading-5 text-muted-foreground">
-                {f.statusKredit === "didanai"
-                  ? "Pendanaan penuh — pokok telah diteruskan ke merchant mitra. Cicilan Konsumen mengalir kembali ke dompet Anda begitu modul tagihan kredit barang diaktifkan (tahap berikutnya)."
-                  : f.statusKredit === "ditolak"
-                    ? "Pengajuan ditolak tim PINDAI — dana Anda dikembalikan ke dompet pada proses penutupan posisi."
-                    : "Menunggu pendanaan penuh dari Pendana lain; dana Anda terkunci pada posisi ini."}
+                {f.statusAlokasi === "selesai"
+                  ? "Posisi selesai — porsi pokok dan Imbal Hasil sudah cair ke dompet Anda."
+                  : f.statusKredit === "didanai"
+                    ? `Pendanaan penuh — pokok diteruskan ke merchant mitra. Setiap cicilan Konsumen (bulan ${f.dibayarBulan + 1} berikutnya) mengalirkan porsi pokok + Imbal Hasil ke dompet Anda.`
+                    : f.statusKredit === "ditolak"
+                      ? "Pengajuan ditolak tim PINDAI — dana Anda dikembalikan ke dompet pada proses penutupan posisi."
+                      : "Menunggu pendanaan penuh dari Pendana lain; dana Anda terkunci pada posisi ini."}
               </p>
             </li>
           ))}

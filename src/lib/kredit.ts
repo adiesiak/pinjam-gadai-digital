@@ -220,6 +220,72 @@ export function quoteKreditBarang(input: KreditBarangInput): KreditBarangQuote {
   };
 }
 
+/** Porsi satu cicilan milik seorang Pendana. */
+export interface PorsiCicilan {
+  /** Bagian pokok yang kembali ke Pendana ini. */
+  pokok: Rupiah;
+  /** Bagian Imbal Hasil bulan ini untuk Pendana ini. */
+  margin: Rupiah;
+  /** Total penerimaan Pendana bulan ini = pokok + margin. */
+  total: Rupiah;
+}
+
+/**
+ * Bagi satu cicilan (pokok + Imbal Hasil) ke porsi tiap Pendana secara
+ * proporsional terhadap Alokasi Dana mereka.
+ *
+ * Identitas yang dijamin (diuji di kredit.test.ts):
+ *  - Σ hasil.pokok = pokok          (tanpa kehilangan satu rupiah pun)
+ *  - Σ hasil.margin = margin
+ * Pembagian dibulatkan ke bawah per alokasi; selisih pembulatan (dust)
+ * diberikan ke alokasi terbesar — pemegang porsi terbesar menyerap dust,
+ * pola yang sama dengan distribusi pelunasan pinjaman tunai.
+ */
+export function bagiCicilanKePendana(
+  pokok: Rupiah,
+  margin: Rupiah,
+  pokokDibiayai: Rupiah,
+  alokasi: readonly Rupiah[],
+): PorsiCicilan[] {
+  if (!isRupiah(pokok) || pokok <= 0 || !isRupiah(margin) || margin < 0) {
+    throw new Error("Cicilan pokok & Imbal Hasil harus rupiah bulat (pokok > 0).");
+  }
+  if (!isRupiah(pokokDibiayai) || pokokDibiayai <= 0) {
+    throw new Error("Pokok dibiayai harus rupiah bulat positif.");
+  }
+  if (alokasi.length === 0) {
+    throw new Error("Tidak ada posisi Pendana untuk dibagi.");
+  }
+  if (alokasi.some((a) => !isRupiah(a) || a <= 0)) {
+    throw new Error("Setiap alokasi Pendana harus rupiah bulat positif.");
+  }
+  const totalAlokasi = alokasi.reduce((acc, a) => acc + a, 0);
+  if (totalAlokasi !== pokokDibiayai) {
+    throw new Error(
+      "Total Alokasi Dana Pendana tidak sama dengan pokok dibiayai — pendanaan belum penuh.",
+    );
+  }
+
+  const hasil: PorsiCicilan[] = alokasi.map((a) => ({
+    pokok: Math.floor((pokok * a) / pokokDibiayai),
+    margin: Math.floor((margin * a) / pokokDibiayai),
+    total: 0,
+  }));
+  const dustPokok = pokok - hasil.reduce((acc, x) => acc + x.pokok, 0);
+  const dustMargin = margin - hasil.reduce((acc, x) => acc + x.margin, 0);
+
+  // Alokasi terbesar menyerap dust (selalu >= 0 dan < jumlah Pendana).
+  let idxTerbesar = 0;
+  for (let i = 1; i < alokasi.length; i += 1) {
+    if (alokasi[i] > alokasi[idxTerbesar]) idxTerbesar = i;
+  }
+  hasil[idxTerbesar].pokok += dustPokok;
+  hasil[idxTerbesar].margin += dustMargin;
+
+  for (const x of hasil) x.total = x.pokok + x.margin;
+  return hasil;
+}
+
 /** Contoh barang merchant mitra untuk simulasi kalkulator. */
 export interface ContohBarang {
   nama: string;

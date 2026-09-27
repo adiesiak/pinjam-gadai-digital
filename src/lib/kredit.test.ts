@@ -3,6 +3,7 @@
  * Run: bun src/lib/kredit.test.ts
  */
 import {
+  bagiCicilanKePendana,
   KATALOG_CONTOH,
   KREDIT_ASUMSI_AWAL,
   KREDIT_PRICING,
@@ -194,6 +195,61 @@ throws(
       porsiPendanaPersen: 150,
     }),
   "porsi pendanaan di atas 100% ditolak",
+);
+
+// ---- Pembagian cicilan ke Pendana (bagiCicilanKePendana) ----
+const satu = bagiCicilanKePendana(666_666, 200_000, 8_000_000, [8_000_000]);
+eq(satu.length, 1, "satu Pendana → satu porsi");
+eq(satu[0].pokok, 666_666, "pokok cicilan penuh ke Pendana tunggal");
+eq(satu[0].margin, 200_000, "Imbal Hasil penuh ke Pendana tunggal");
+eq(satu[0].total, 866_666, "penerimaan Pendana tunggal bulan ini");
+
+const dua = bagiCicilanKePendana(666_666, 200_000, 8_000_000, [5_000_000, 3_000_000]);
+eq(dua.reduce((a, x) => a + x.pokok, 0), 666_666, "Σ pokok cicilan terbagi utuh");
+eq(dua.reduce((a, x) => a + x.margin, 0), 200_000, "Σ Imbal Hasil terbagi utuh");
+eq(dua[0].pokok, 416_667, "porsi 5jt menyerap selisih pembulatan pokok");
+eq(dua[1].pokok, 249_999, "porsi 3jt menerima pokok proporsional");
+eq(dua[0].margin, 125_000, "Imbal Hasil proporsional 5/8");
+eq(dua[1].margin, 75_000, "Imbal Hasil proporsional 3/8");
+eq(dua[0].total + dua[1].total, 866_666, "total penerimaan = cicilan bulan ini");
+
+const tiga = bagiCicilanKePendana(666_666, 200_000, 8_000_000, [2_000_000, 3_000_000, 3_000_000]);
+eq(tiga.reduce((a, x) => a + x.total, 0), 866_666, "tiga Pendana: total tetap sama");
+eq(tiga.every((x) => x.total > 0), true, "setiap Pendana menerima bagian");
+
+// ---- Simulasi lunas: 12 cicilan mengembalikan pokok & seluruh Imbal Hasil ----
+let pokokKembali = 0;
+let marginKembali = 0;
+for (const row of q.jadwal) {
+  const porsi = bagiCicilanKePendana(row.pokok, row.margin, q.pokokDibiayai, [
+    5_000_000,
+    3_000_000,
+  ]);
+  pokokKembali += porsi.reduce((a, x) => a + x.pokok, 0);
+  marginKembali += porsi.reduce((a, x) => a + x.margin, 0);
+}
+eq(pokokKembali, q.pokokDibiayai, "12 bulan mengembalikan seluruh pokok dibiayai");
+eq(marginKembali, q.marginTotal, "12 bulan membayar seluruh Imbal Hasil");
+
+throws(
+  () => bagiCicilanKePendana(100_000, 10_000, 8_000_000, []),
+  "pembagian tanpa posisi Pendana ditolak",
+);
+throws(
+  () => bagiCicilanKePendana(100_000, 10_000, 8_000_000, [5_000_000]),
+  "pembagian saat pendanaan belum penuh ditolak",
+);
+throws(
+  () => bagiCicilanKePendana(0, 10_000, 8_000_000, [8_000_000]),
+  "pokok cicilan nol ditolak",
+);
+throws(
+  () => bagiCicilanKePendana(100_000, -1, 8_000_000, [8_000_000]),
+  "Imbal Hasil negatif ditolak",
+);
+throws(
+  () => bagiCicilanKePendana(100_000, 10_000, 8_000_000, [4_000_000, 4_000_000, -1]),
+  "alokasi tidak positif ditolak",
 );
 
 // ---- Katalog contoh harus dapat dihitung dengan asumsi awal ----
