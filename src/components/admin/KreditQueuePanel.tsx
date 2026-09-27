@@ -18,12 +18,20 @@ const STATUS_LABEL: Record<string, string> = {
   disetujui: "Disetujui",
   ditolak: "Ditolak",
   didanai: "Didanai",
+  lunas: "Lunas",
 };
 
 function KreditStatusBadge({ status }: { status: string }) {
   if (status === "didanai") {
     return (
       <Badge className="gradient-primary border-0 text-primary-foreground">
+        {STATUS_LABEL[status] ?? status}
+      </Badge>
+    );
+  }
+  if (status === "lunas") {
+    return (
+      <Badge className="border-primary/30 bg-primary/10 text-accent-foreground">
         {STATUS_LABEL[status] ?? status}
       </Badge>
     );
