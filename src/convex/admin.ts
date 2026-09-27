@@ -502,25 +502,54 @@ export const rejectDeposit = mutation({
   },
 });
 
-/** Ringkasan ledger untuk kartu kesehatan sistem di panel admin. */
+/**
+ * Ringkasan ledger untuk kartu kesehatan sistem di panel admin.
+ * `pendapatanPlatform` = total entri debit `platform:FEE` berjenis platform_fee
+ * (seluruh pendapatan platform), `rincianSkema` memecahnya per lini usaha.
+ */
 export const ledgerSummary = query({
   args: {},
   handler: async (ctx) => {
     await requireAdmin(ctx);
     const totals = await ledgerTotals(ctx);
-    // Pendapatan platform = entri `platform_fee` pada akun platform:FEE:
-    // biaya admin & platform pinjaman, potongan muka gadai, dan biaya
-    // layanan Kredit Barang (Skema C).
+    // Pendapatan platform = setiap entri `platform_fee` pada akun
+    // platform:FEE (debit maupun kredit). Terdiri dari:
+    //  - pinjaman: biaya admin & platform 3% + 2% saat pendanaan penuh
+    //  - gadai: potongan muka 1% (pencairan) + sewa modal periodik (bayar gadai)
+    //  - kredit: biaya layanan 3% dari pokok dibiayai saat pendanaan penuh
     const entries = await ctx.db.query("ledger_entries").collect();
-    const pendapatanPlatform = entries
-      .filter(
-        (e) =>
-          e.jenis === "platform_fee" &&
-          e.akun === "platform:FEE" &&
-          e.arah === "debit",
-      )
-      .reduce((acc, e) => acc + e.jumlah, 0);
-    return { ...totals, pendapatanPlatform };
+    const rincianSkema = {
+      pinjaman: 0,
+      gadai: 0,
+      kredit: 0,
+      lainnya: 0,
+    };
+    let pendapatanPlatform = 0;
+    for (const e of entries) {
+      // Setiap jurnal platform_fee menyentuh platform:FEE tepat satu kali;
+      // jumlah entri itulah pendapatan yang diakui — arahnya bisa debit
+      // (biaya dipotong ke platform) atau kredit (sewa modal dibayar dari
+      // akun gadai: D gadai:<id> / K platform:FEE). Keduanya dihitung.
+      if (e.jenis !== "platform_fee" || e.akun !== "platform:FEE") {
+        continue;
+      }
+      pendapatanPlatform += e.jumlah;
+      // Klasifikasi dari keterangan jurnal yang ditulis saat penerimaan:
+      //  - "Biaya admin & platform <REF>" (pinjaman tunai)
+      //  - "Potongan muka 1% gadai <REF>" / "Sewa modal <REF>" (gadai)
+      //  - "Biaya layanan platform <REF> (Kredit Barang)"
+      const ket = e.keterangan.toLowerCase();
+      if (ket.includes("kredit barang")) {
+        rincianSkema.kredit += e.jumlah;
+      } else if (ket.includes("gadai") || ket.includes("sewa modal")) {
+        rincianSkema.gadai += e.jumlah;
+      } else if (ket.includes("biaya admin") || ket.includes("pinjaman")) {
+        rincianSkema.pinjaman += e.jumlah;
+      } else {
+        rincianSkema.lainnya += e.jumlah;
+      }
+    }
+    return { ...totals, pendapatanPlatform, rincianSkema };
   },
 });
 

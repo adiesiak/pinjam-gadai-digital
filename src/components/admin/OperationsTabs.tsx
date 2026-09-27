@@ -140,6 +140,7 @@ export function LedgerTab() {
   if (summary === undefined || rows === undefined) {
     return <div className="flex items-center gap-2 py-10 text-sm text-muted-foreground"><Loader2 className="size-4 animate-spin" /> Memuat…</div>;
   }
+  const rincian = summary.rincianSkema;
   const filtered = q.trim()
     ? rows.filter(
         (r) =>
@@ -164,6 +165,29 @@ export function LedgerTab() {
             </p>
           </div>
         ))}
+      </div>
+      {/* Pendapatan platform per lini usaha — dari entri platform:FEE. */}
+      <div className="rounded-2xl border border-slate-200 bg-white p-5">
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <h3 className="text-sm font-semibold text-navy">Pendapatan platform per skema</h3>
+          <p className="text-sm font-semibold tabular-nums text-navy">
+            {formatRupiah(summary.pendapatanPlatform)}
+          </p>
+        </div>
+        <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {([
+            ["Pinjaman tunai", rincian.pinjaman, "Biaya admin & platform 5% saat pendanaan penuh"],
+            ["Gadai (Skema B)", rincian.gadai, "Potongan muka 1% + sewa modal periodik"],
+            ["Kredit barang (Skema C)", rincian.kredit, "Biaya layanan 3% saat pendanaan penuh"],
+            ["Lainnya", rincian.lainnya, "Entri platform_fee di luar tiga skema utama"],
+          ] as const).map(([label, value, hint]) => (
+            <div key={label} className="rounded-xl border border-slate-100 bg-slate-50/60 px-4 py-3">
+              <p className="text-xs font-medium text-muted-foreground">{label}</p>
+              <p className="mt-1 text-sm font-semibold tabular-nums text-navy">{formatRupiah(value)}</p>
+              <p className="mt-1 text-[11px] leading-4 text-muted-foreground">{hint}</p>
+            </div>
+          ))}
+        </div>
       </div>
       <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Cari akun / grup / keterangan…" />
       <div className="max-h-[420px] overflow-y-auto rounded-2xl border border-slate-200 bg-white">
