@@ -10,6 +10,7 @@ import {
   Lock,
   MapPin,
   Megaphone,
+  Menu,
   Package,
   Scale,
   ShieldCheck,
@@ -17,7 +18,7 @@ import {
   Vault,
   X,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router";
 
 import { Button } from "@/components/ui/button";
@@ -324,6 +325,33 @@ export default function Landing() {
   const heroJudul1 = c(cms?.heroJudul, CMS_DEFAULTS.hero.judul1);
   const heroJudul2 = c(cms?.heroJudul2, CMS_DEFAULTS.hero.judul2);
 
+  const navItems = [
+    { href: "#pinjaman", label: c(cms?.nav1, "Pinjaman") },
+    { href: "#gadai", label: c(cms?.nav2, "Gadai") },
+    { href: "#simulasi", label: c(cms?.nav3, "Simulasi") },
+    { href: "#keamanan", label: c(cms?.nav4, "Keamanan") },
+  ];
+
+  const [menuOpen, setMenuOpen] = useState(false);
+  const headerRef = useRef<HTMLElement | null>(null);
+
+  /* Menu mobile: tutup dengan Esc atau klik di luar header. */
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setMenuOpen(false);
+    };
+    const onPointer = (e: PointerEvent) => {
+      if (!headerRef.current?.contains(e.target as Node)) setMenuOpen(false);
+    };
+    document.addEventListener("keydown", onKey);
+    document.addEventListener("pointerdown", onPointer);
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.removeEventListener("pointerdown", onPointer);
+    };
+  }, [menuOpen]);
+
   const scrollToCalculator = () => {
     document.getElementById("simulasi")?.scrollIntoView({ behavior: "smooth" });
   };
@@ -349,35 +377,79 @@ export default function Landing() {
   return (
     <div className="min-h-screen bg-white text-slate-900">
       {/* Navbar */}
-      <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/85 backdrop-blur">
+      <header
+        ref={headerRef}
+        className="sticky top-0 z-40 border-b border-slate-200 bg-white/85 backdrop-blur"
+      >
         <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between px-6">
           <Link to="/" className="flex items-center gap-2.5">
             <VaultLogo size={32} />
             <span className="text-base font-semibold tracking-tight">{logoTeks}</span>
           </Link>
           <nav className="hidden items-center gap-8 text-sm text-slate-600 md:flex">
-            <a href="#pinjaman" className="transition-colors hover:text-slate-900">
-              {c(cms?.nav1, "Pinjaman")}
-            </a>
-            <a href="#gadai" className="transition-colors hover:text-slate-900">
-              {c(cms?.nav2, "Gadai")}
-            </a>
-            <a href="#simulasi" className="transition-colors hover:text-slate-900">
-              {c(cms?.nav3, "Simulasi")}
-            </a>
-            <a href="#keamanan" className="transition-colors hover:text-slate-900">
-              {c(cms?.nav4, "Keamanan")}
-            </a>
+            {navItems.map(({ href, label }) => (
+              <a key={href} href={href} className="transition-colors hover:text-slate-900">
+                {label}
+              </a>
+            ))}
           </nav>
           <div className="flex items-center gap-2">
-            <Button asChild variant="ghost" className="text-slate-600 hover:text-slate-900">
+            <Button
+              asChild
+              variant="ghost"
+              className="hidden text-slate-600 hover:text-slate-900 md:inline-flex"
+            >
               <Link to="/auth">Masuk</Link>
             </Button>
             <Button asChild className="bg-primary text-white hover:bg-primary/90">
               <Link to="/auth">Daftar</Link>
             </Button>
+            <button
+              type="button"
+              onClick={() => setMenuOpen((v) => !v)}
+              aria-expanded={menuOpen}
+              aria-controls="nav-mobile"
+              aria-label={menuOpen ? "Tutup menu navigasi" : "Buka menu navigasi"}
+              className="-mr-2 inline-flex size-10 items-center justify-center rounded-lg text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900 md:hidden"
+            >
+              {menuOpen ? <X className="size-5" /> : <Menu className="size-5" />}
+            </button>
           </div>
         </div>
+
+        {/* Menu navigasi layar kecil — panel mengambang, tidak menggeser isi halaman */}
+        <AnimatePresence initial={false}>
+          {menuOpen && (
+            <motion.div
+              id="nav-mobile"
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: "auto", opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.18, ease: "easeOut" }}
+              className="absolute inset-x-0 top-full overflow-hidden border-b border-slate-200 bg-white shadow-lg md:hidden"
+            >
+              <nav className="grid gap-0.5 px-4 py-3">
+                {navItems.map(({ href, label }) => (
+                  <a
+                    key={href}
+                    href={href}
+                    onClick={() => setMenuOpen(false)}
+                    className="rounded-lg px-3 py-2.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-100 hover:text-slate-900"
+                  >
+                    {label}
+                  </a>
+                ))}
+                <Link
+                  to="/auth"
+                  onClick={() => setMenuOpen(false)}
+                  className="rounded-lg px-3 py-2.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-100 hover:text-slate-900"
+                >
+                  Masuk
+                </Link>
+              </nav>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </header>
 
       <main>
