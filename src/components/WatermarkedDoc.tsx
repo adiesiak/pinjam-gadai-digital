@@ -40,7 +40,7 @@ export function WatermarkedDoc({ src, label }: { src: string; label?: string }) 
             <svg width="100%" height="100%">
               <defs>
                 <pattern id="wm-grid" width="24" height="24" patternUnits="userSpaceOnUse">
-                  <text x="2" y="14" fontSize="7" fill="#0284C7" fontFamily="sans-serif">
+                  <text x="2" y="14" fontSize="7" fill="#1f6a62" fontFamily="sans-serif">
                     PINDAI
                   </text>
                 </pattern>

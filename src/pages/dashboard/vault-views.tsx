@@ -155,8 +155,8 @@ function VaultMapCard() {
         });
         L.circleMarker([DEFAULT_CONFIG.vaultLat, DEFAULT_CONFIG.vaultLng], {
           radius: 10,
-          color: "#2563eb",
-          fillColor: "#60a5fa",
+          color: "#0f3d3a",
+          fillColor: "#47847c",
           fillOpacity: 0.9,
           weight: 3,
         })

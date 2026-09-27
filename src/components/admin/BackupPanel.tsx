@@ -56,7 +56,7 @@ export function BackupPanel() {
     setBusy("pdf");
     try {
       const log = auditData.auditTerbaru;
-      const html = `<!doctype html><html><head><meta charset="utf-8"><title>Audit Trail PINDAI</title><style>body{font-family:system-ui,sans-serif;padding:32px;color:#0F172A}h1{font-size:20px}table{width:100%;border-collapse:collapse;font-size:12px}td,th{border:1px solid #e2e8f0;padding:6px 8px;text-align:left}</style></head><body><h1>Audit Trail — Pinjam Gadai Digital</h1><p>Dicetak: ${new Date().toLocaleString("id-ID")}</p><table><tr><th>Waktu</th><th>Aktor</th><th>Aksi</th><th>Target</th><th>Detail</th></tr>${log
+      const html = `<!doctype html><html><head><meta charset="utf-8"><title>Audit Trail PINDAI</title><style>body{font-family:system-ui,sans-serif;padding:32px;color:#1c1a15}h1{font-size:20px}table{width:100%;border-collapse:collapse;font-size:12px}td,th{border:1px solid #e3ddd0;padding:6px 8px;text-align:left}</style></head><body><h1>Audit Trail — Pinjam Gadai Digital</h1><p>Dicetak: ${new Date().toLocaleString("id-ID")}</p><table><tr><th>Waktu</th><th>Aktor</th><th>Aksi</th><th>Target</th><th>Detail</th></tr>${log
         .map((a) => `<tr><td>${new Date(a.waktu).toLocaleString("id-ID")}</td><td>${a.aktorLabel}</td><td>${a.aksi}</td><td>${a.target ?? "-"}</td><td>${a.detail ?? "-"}</td></tr>`)
         .join("")}</table></body></html>`;
       const w = window.open("", "_blank");

@@ -53,8 +53,8 @@ export function LiveLocationMap() {
       layer.clearLayers();
       L.circleMarker([vault.lat, vault.lng], {
         radius: 10,
-        color: "#0EA5E9",
-        fillColor: "#38BDF8",
+        color: "#1f6a62",
+        fillColor: "#6fa39b",
         fillOpacity: 0.9,
         weight: 3,
       })
@@ -66,8 +66,8 @@ export function LiveLocationMap() {
           : DEFAULT_CONFIG.gpsMismatchKm;
       L.circle([vault.lat, vault.lng], {
         radius: radiusKm * 1000,
-        color: "#38BDF8",
-        fillColor: "#38BDF8",
+        color: "#6fa39b",
+        fillColor: "#6fa39b",
         fillOpacity: 0.05,
         weight: 1,
         dashArray: "6 6",
@@ -76,7 +76,7 @@ export function LiveLocationMap() {
       for (const r of current?.rows ?? []) {
         if (!r.posisi || !validCoord(r.posisi.lat, r.posisi.lng)) continue;
         titikPeminjam.push([r.posisi.lat, r.posisi.lng]);
-        const warna = r.mismatch ? "#EF4444" : "#10B981";
+        const warna = r.mismatch ? "#a5303a" : "#17544e";
         L.circleMarker([r.posisi.lat, r.posisi.lng], {
           radius: 7,
           color: warna,

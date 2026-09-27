@@ -45,7 +45,7 @@ export function LoanForm({ onCreated }: { onCreated: (ref: string) => void }) {
     if (!canvas) return;
     const pad = new SignaturePad(canvas, {
       backgroundColor: "rgba(255,255,255,0)",
-      penColor: "#0f172a",
+      penColor: "#1c1a15",
       minWidth: 1.2,
       maxWidth: 2.4,
     });

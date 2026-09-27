@@ -332,7 +332,7 @@ function QrSim({ total }: { total: number }) {
               y={r * size}
               width={size}
               height={size}
-              fill="#0F172A"
+              fill="#1c1a15"
               rx={1.5}
             />
           ) : null,

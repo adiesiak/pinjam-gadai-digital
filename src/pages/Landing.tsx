@@ -44,12 +44,12 @@ function VaultLogo({ size = 36 }: { size?: number }) {
       fill="none"
       aria-label="Logo PINDAI"
     >
-      <rect x="8" y="10" width="48" height="44" rx="10" fill="#2563eb" />
+      <rect x="8" y="10" width="48" height="44" rx="10" fill="#0f3d3a" />
       <rect x="16" y="18" width="32" height="28" rx="6" fill="#ffffff" />
-      <circle cx="32" cy="32" r="7" fill="#2563eb" />
+      <circle cx="32" cy="32" r="7" fill="#0f3d3a" />
       <circle cx="32" cy="32" r="2.4" fill="#ffffff" />
-      <rect x="16" y="54" width="8" height="4" rx="2" fill="#1e40af" />
-      <rect x="40" y="54" width="8" height="4" rx="2" fill="#1e40af" />
+      <rect x="16" y="54" width="8" height="4" rx="2" fill="#0b2d2a" />
+      <rect x="40" y="54" width="8" height="4" rx="2" fill="#0b2d2a" />
     </svg>
   );
 }
@@ -111,7 +111,7 @@ function LiveCalculator() {
           max={SLIDER_STEPS}
           value={rupiahToSlider(amount)}
           onChange={(e) => setAmount(sliderToRupiah(Number(e.target.value)))}
-          className="mt-3 w-full accent-[#2563eb]"
+          className="mt-3 w-full accent-primary"
         />
         <div className="mt-3 flex flex-wrap gap-2">
           {QUICK_AMOUNTS.map((q) => (
@@ -121,7 +121,7 @@ function LiveCalculator() {
               onClick={() => setAmount(q)}
               className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
                 amount === q
-                  ? "bg-[#2563eb] text-white"
+                  ? "bg-primary text-white"
                   : "bg-slate-100 text-slate-600 hover:bg-slate-200"
               }`}
             >
@@ -141,7 +141,7 @@ function LiveCalculator() {
               onClick={() => setTenor(t)}
               className={`rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
                 tenor === t
-                  ? "border-[#2563eb] bg-[#eff6ff] text-[#1d4ed8]"
+                  ? "border-primary bg-primary/10 text-primary"
                   : "border-slate-200 text-slate-600 hover:bg-slate-50"
               }`}
             >
@@ -180,13 +180,13 @@ function LiveCalculator() {
       </dl>
 
       <div className="mt-4 h-2 w-full overflow-hidden rounded-full bg-slate-100">
-        <div className="h-full bg-[#2563eb]" style={{ width: "76.9%" }} />
+        <div className="h-full bg-primary" style={{ width: "76.9%" }} />
       </div>
       <p className="mt-2 text-[11px] text-slate-500">
         Dana bersih 95% dari pokok — sisanya potongan di muka yang ditampilkan terbuka.
       </p>
 
-      <Button asChild className="mt-5 w-full bg-[#2563eb] text-white hover:bg-[#1d4ed8]">
+      <Button asChild className="mt-5 w-full bg-primary text-white hover:bg-primary/90">
         <Link to="/auth">
           Ajukan pinjaman
           <ArrowRight className="ml-1.5 size-4" />
@@ -223,7 +223,7 @@ function AnnouncementModal({
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogContent className="max-w-md gap-0 overflow-hidden rounded-2xl border border-slate-200 p-0 sm:max-w-md">
         <div className="px-6 pb-2 pt-7">
-          <span className="inline-flex size-11 items-center justify-center rounded-xl bg-[#eff6ff] text-[#1d4ed8]">
+          <span className="inline-flex size-11 items-center justify-center rounded-xl bg-primary/10 text-primary">
             <Sparkles className="size-5" />
           </span>
           <DialogHeader className="mt-4 space-y-2 text-left">
@@ -235,7 +235,7 @@ function AnnouncementModal({
         </div>
         <div className="flex flex-col gap-2 px-6 pb-6 pt-4">
           <Button
-            className="w-full bg-[#2563eb] text-white hover:bg-[#1d4ed8]"
+            className="w-full bg-primary text-white hover:bg-primary/90"
             onClick={() => {
               setOpen(false);
               onOpenCta();
@@ -302,7 +302,7 @@ function FloatingWidget({
                 setExpanded(false);
                 onOpenCta();
               }}
-              className="mt-2.5 text-xs font-semibold text-[#2563eb] hover:text-[#1d4ed8]"
+              className="mt-2.5 text-xs font-semibold text-primary hover:text-primary"
             >
               {cta} →
             </button>
@@ -313,7 +313,7 @@ function FloatingWidget({
         type="button"
         onClick={() => setExpanded((v) => !v)}
         aria-label={expanded ? "Tutup pengumuman" : "Buka pengumuman"}
-        className="inline-flex size-12 items-center justify-center rounded-full bg-[#2563eb] text-white shadow-lg transition-colors hover:bg-[#1d4ed8]"
+        className="inline-flex size-12 items-center justify-center rounded-full bg-primary text-white shadow-lg transition-colors hover:bg-primary/90"
       >
         {expanded ? <X className="size-5" /> : <Megaphone className="size-5" />}
       </button>
@@ -378,7 +378,7 @@ export default function Landing() {
             <Button asChild variant="ghost" className="text-slate-600 hover:text-slate-900">
               <Link to="/auth">Masuk</Link>
             </Button>
-            <Button asChild className="bg-[#2563eb] text-white hover:bg-[#1d4ed8]">
+            <Button asChild className="bg-primary text-white hover:bg-primary/90">
               <Link to="/auth">Daftar</Link>
             </Button>
           </div>
@@ -391,11 +391,11 @@ export default function Landing() {
           <div className="grid items-center gap-14 lg:grid-cols-[1.05fr_0.95fr]">
             <div>
               <span className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-slate-600">
-                <Sparkles className="size-3.5 text-[#2563eb]" />
+                <Sparkles className="size-3.5 text-primary" />
                 {c(cms?.heroBadge, CMS_DEFAULTS.hero.badge)}
               </span>
               <h1 className="mt-6 text-4xl font-semibold leading-[1.1] tracking-tight text-slate-900 sm:text-5xl">
-                {heroJudul1} <span className="text-[#2563eb]">{heroJudul2}</span>
+                {heroJudul1} <span className="text-primary">{heroJudul2}</span>
               </h1>
               <p className="mt-5 max-w-xl text-base leading-7 text-slate-600">
                 {c(cms?.heroSub, CMS_DEFAULTS.hero.sub)}
@@ -403,7 +403,7 @@ export default function Landing() {
               <div className="mt-8 flex flex-wrap items-center gap-3">
                 <Button
                   asChild
-                  className="bg-[#2563eb] px-6 text-white hover:bg-[#1d4ed8]"
+                  className="bg-primary px-6 text-white hover:bg-primary/90"
                 >
                   <Link to="/auth">
                     {c(cms?.heroCta1, CMS_DEFAULTS.hero.cta1)}
@@ -420,13 +420,13 @@ export default function Landing() {
               </div>
               <ul className="mt-8 flex flex-wrap gap-x-6 gap-y-2 text-sm text-slate-500">
                 <li className="flex items-center gap-1.5">
-                  <BadgeCheck className="size-4 text-[#2563eb]" /> Verifikasi berjenjang
+                  <BadgeCheck className="size-4 text-primary" /> Verifikasi berjenjang
                 </li>
                 <li className="flex items-center gap-1.5">
-                  <MapPin className="size-4 text-[#2563eb]" /> Live location gadai
+                  <MapPin className="size-4 text-primary" /> Live location gadai
                 </li>
                 <li className="flex items-center gap-1.5">
-                  <Users className="size-4 text-[#2563eb]" /> Didanai Pendana terverifikasi
+                  <Users className="size-4 text-primary" /> Didanai Pendana terverifikasi
                 </li>
               </ul>
             </div>
@@ -439,7 +439,7 @@ export default function Landing() {
                   <p className="text-sm font-semibold text-slate-900">
                     {c(cms?.chip1Label, CMS_DEFAULTS.chips.chip1.label)}
                   </p>
-                  <p className="text-2xl font-semibold tracking-tight text-[#2563eb]">
+                  <p className="text-2xl font-semibold tracking-tight text-primary">
                     {c(cms?.chip1Nilai, CMS_DEFAULTS.chips.chip1.nilai)}
                   </p>
                 </div>
@@ -490,7 +490,7 @@ export default function Landing() {
                 <p className="mt-2 flex-1 text-sm leading-6 text-slate-600">
                   {c(cms?.pinjamanIsi, CMS_DEFAULTS.layanan.pinjamanIsi)}
                 </p>
-                <Button asChild variant="link" className="mt-4 self-start px-0 text-[#2563eb]">
+                <Button asChild variant="link" className="mt-4 self-start px-0 text-primary">
                   <Link to="/auth">
                     {c(cms?.pinjamanCta, CMS_DEFAULTS.layanan.pinjamanCta)}
                     <ArrowRight className="ml-1 size-4" />
@@ -511,7 +511,7 @@ export default function Landing() {
                 <p className="mt-2 flex-1 text-sm leading-6 text-slate-600">
                   {c(cms?.gadaiIsi, CMS_DEFAULTS.layanan.gadaiIsi)}
                 </p>
-                <Button asChild variant="link" className="mt-4 self-start px-0 text-[#2563eb]">
+                <Button asChild variant="link" className="mt-4 self-start px-0 text-primary">
                   <Link to="/auth">
                     {c(cms?.gadaiCta, CMS_DEFAULTS.layanan.gadaiCta)}
                     <ArrowRight className="ml-1 size-4" />
@@ -573,7 +573,7 @@ export default function Landing() {
             <div className="mt-10 grid gap-px overflow-hidden rounded-2xl border border-slate-200 bg-slate-200 sm:grid-cols-2 lg:grid-cols-3">
               {SECURITY.map(({ icon: Icon, label }) => (
                 <div key={label} className="flex items-center gap-3 bg-white p-5">
-                  <Icon className="size-5 shrink-0 text-[#2563eb]" strokeWidth={2} />
+                  <Icon className="size-5 shrink-0 text-primary" strokeWidth={2} />
                   <span className="text-sm font-medium text-slate-700">{label}</span>
                 </div>
               ))}
@@ -583,17 +583,17 @@ export default function Landing() {
 
         {/* CTA */}
         <section className="mx-auto w-full max-w-6xl px-6 py-20">
-          <div className="rounded-2xl bg-[#2563eb] px-8 py-12 text-center sm:px-12">
+          <div className="rounded-2xl bg-primary px-8 py-12 text-center sm:px-12">
             <h2 className="text-2xl font-semibold tracking-tight text-white sm:text-3xl">
               Mulai hari ini
             </h2>
-            <p className="mx-auto mt-3 max-w-lg text-sm leading-6 text-blue-50">
+            <p className="mx-auto mt-3 max-w-lg text-sm leading-6 text-primary-foreground/80">
               Buat akun untuk mengajukan pinjaman atau mendaftar sebagai Pendana.
             </p>
             <div className="mt-7 flex flex-wrap justify-center gap-3">
               <Button
                 asChild
-                className="border-0 bg-white px-6 text-[#1d4ed8] hover:bg-blue-50"
+                className="border-0 bg-white px-6 text-primary hover:bg-primary/10"
               >
                 <Link to="/auth">Daftar sebagai Peminjam</Link>
               </Button>
@@ -655,8 +655,8 @@ export default function Landing() {
                 </li>
                 <li className="flex items-center gap-2">
                   <span className="relative flex size-2">
-                    <span className="absolute inline-flex size-full animate-ping rounded-full bg-emerald-400 opacity-70" />
-                    <span className="relative inline-flex size-2 rounded-full bg-emerald-500" />
+                    <span className="absolute inline-flex size-full animate-ping rounded-full bg-sky-400 opacity-70" />
+                    <span className="relative inline-flex size-2 rounded-full bg-sky-500" />
                   </span>
                   <span className="text-slate-500">Semua sistem normal</span>
                 </li>

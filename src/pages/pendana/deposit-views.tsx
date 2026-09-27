@@ -192,7 +192,7 @@ function QrSim() {
       {grid.map((row, r) =>
         row.map((on, c) =>
           on ? (
-            <rect key={`${r}-${c}`} x={c * size} y={r * size} width={size} height={size} fill="#0F172A" rx={1.5} />
+            <rect key={`${r}-${c}`} x={c * size} y={r * size} width={size} height={size} fill="#1c1a15" rx={1.5} />
           ) : null,
         ),
       )}

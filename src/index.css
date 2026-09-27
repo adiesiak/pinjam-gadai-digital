@@ -40,71 +40,129 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
-  /* PINDAI tokens — aksen tunggal (biru) + netral abu. */
+  /* PINDAI tokens — aksen hijau tinta + netral kertas hangat. */
   --color-gold: var(--gold);
   --color-gold-foreground: var(--gold-foreground);
   --color-navy: var(--navy);
 }
 
 /*
- * Skala `sky-*` dipetakan ulang ke satu biru profesional. Semua komponen yang
- * memakai utilitas sky kini otomatis mengikuti bahasa warna tunggal ini.
+ * Bahasa warna tunggal "tinta & kuningan" — khas lembaga keuangan, bukan
+ * palet SaaS generik. Skala utilitas yang dipakai komponen dipetakan ulang di
+ * sini sehingga seluruh aplikasi otomatis memakai warna yang sama:
+ *   sky     → aksen hijau tinta tua (brand, aksi)
+ *   slate   → netral kertas hangat (latar, garis, teks)
+ *   emerald → kuningan (nilai uang & status positif)
+ *   amber   → oranye bata (peringatan)
+ *   red     → merah bata (bahaya)
  */
 @theme {
-  --color-sky-50: #eff6ff;
-  /* sky-100 dipakai hampir hanya untuk garis kartu → dibuat netral. */
-  --color-sky-100: #e2e8f0;
-  --color-sky-200: #bfdbfe;
-  --color-sky-300: #93c5fd;
-  --color-sky-400: #60a5fa;
-  --color-sky-500: #3b82f6;
-  --color-sky-600: #2563eb;
-  --color-sky-700: #1d4ed8;
-  --color-sky-800: #1e40af;
-  --color-sky-900: #1e3a8a;
-  --color-sky-950: #172554;
+  /* Aksen brand — hijau tinta tua (petrol). */
+  --color-sky-50: #eff5f4;
+  --color-sky-100: #dde9e7;
+  --color-sky-200: #c2d7d3;
+  --color-sky-300: #9cbfba;
+  --color-sky-400: #6fa39b;
+  --color-sky-500: #47847c;
+  --color-sky-600: #1f6a62;
+  --color-sky-700: #17544e;
+  --color-sky-800: #124340;
+  --color-sky-900: #0f3d3a;
+  --color-sky-950: #082724;
+
+  /* Netral "kertas" hangat — menggantikan abu dingin bawaan. */
+  --color-slate-50: #f8f6f1;
+  --color-slate-100: #f1ede3;
+  --color-slate-200: #e3ddd0;
+  --color-slate-300: #cdc5b3;
+  --color-slate-400: #a79e8b;
+  --color-slate-500: #827a68;
+  --color-slate-600: #655e4d;
+  --color-slate-700: #4a4538;
+  --color-slate-800: #333028;
+  --color-slate-900: #1c1a15;
+  --color-slate-950: #12110c;
+
+  /* Nilai uang & status positif — kuningan. */
+  --color-emerald-50: #faf5e6;
+  --color-emerald-100: #f4e8cb;
+  --color-emerald-200: #e8d39f;
+  --color-emerald-300: #d6b96b;
+  --color-emerald-400: #c19f43;
+  --color-emerald-500: #a68536;
+  --color-emerald-600: #8a6c2b;
+  --color-emerald-700: #6e5523;
+  --color-emerald-800: #55421d;
+  --color-emerald-900: #43341a;
+  --color-emerald-950: #261c0b;
+
+  /* Peringatan — oranye bata. */
+  --color-amber-50: #fdf5ee;
+  --color-amber-100: #fbe8d8;
+  --color-amber-200: #f6d0b0;
+  --color-amber-300: #eeae7c;
+  --color-amber-400: #e18548;
+  --color-amber-500: #c96b28;
+  --color-amber-600: #ab541d;
+  --color-amber-700: #8a4218;
+  --color-amber-800: #6f3617;
+  --color-amber-900: #5b2d16;
+  --color-amber-950: #30170a;
+
+  /* Bahaya — merah marun (digeser menjauh dari oranye peringatan). */
+  --color-red-50: #fdf3f3;
+  --color-red-100: #fbe3e4;
+  --color-red-200: #f6c7c9;
+  --color-red-300: #eca1a5;
+  --color-red-400: #dc757c;
+  --color-red-500: #c34d55;
+  --color-red-600: #a5303a;
+  --color-red-700: #882630;
+  --color-red-800: #6f2029;
+  --color-red-900: #5c1d25;
+  --color-red-950: #320b10;
 }
 
 /* CHANGE VALUES FOR THEME */
 :root {
   --radius: 0.625rem;
-  /* Permukaan netral: putih & abu, teks near-black. */
+  /* Permukaan kertas hangat, teks tinta. */
   --background: #ffffff;
-  --foreground: #0f172a;
+  --foreground: #1c1a15;
   --card: #ffffff;
-  --card-foreground: #0f172a;
+  --card-foreground: #1c1a15;
   --popover: #ffffff;
-  --popover-foreground: #0f172a;
-  /* Satu warna aksen: biru profesional. */
-  --primary: #2563eb;
-  --primary-foreground: #ffffff;
-  --secondary: #f1f5f9;
-  --secondary-foreground: #0f172a;
-  --muted: #f8fafc;
-  --muted-foreground: #64748b;
-  --accent: #f1f5f9;
-  --accent-foreground: #0f172a;
-  --destructive: #dc2626;
-  --border: #e2e8f0;
-  --input: #cbd5e1;
-  --ring: #2563eb;
-  /* Semantik sukses (bukan aksen kedua). */
-  --gold: #059669;
-  --gold-foreground: #065f46;
-  --navy: #0f172a;
-  --chart-1: #2563eb;
-  --chart-2: #0f172a;
-  --chart-3: #64748b;
-  --chart-4: #94a3b8;
-  --chart-5: #cbd5e1;
-  --sidebar: #f8fafc;
-  --sidebar-foreground: #0f172a;
-  --sidebar-primary: #2563eb;
-  --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #f1f5f9;
-  --sidebar-accent-foreground: #0f172a;
-  --sidebar-border: #e2e8f0;
-  --sidebar-ring: #2563eb;
+  --popover-foreground: #1c1a15;
+  /* Satu warna aksen: hijau tinta tua. */
+  --primary: #0f3d3a;
+  --primary-foreground: #f7f4ec;
+  --secondary: #f1ede3;
+  --secondary-foreground: #1c1a15;
+  --muted: #f8f6f1;
+  --muted-foreground: #6b6455;
+  --accent: #f1ede3;
+  --accent-foreground: #1c1a15;
+  --destructive: #a5303a;
+  --border: #e3ddd0;
+  --input: #cdc5b3;
+  --ring: #1f6a62;
+  /* Semantik nilai & status positif: kuningan. */
+  --gold: #9c7b3a;
+  --gold-foreground: #6e5523;
+  --navy: #0f3d3a;
+  --chart-1: #0f3d3a;
+  --chart-2: #9c7b3a;
+  --chart-3: #827a68;
+  --chart-4: #a79e8b;
+  --chart-5: #cdc5b3;
+  --sidebar: #f8f6f1;
+  --sidebar-foreground: #1c1a15;
+  --sidebar-primary: #0f3d3a;
+  --sidebar-primary-foreground: #f7f4ec;
+  --sidebar-accent: #f1ede3;
+  --sidebar-accent-foreground: #1c1a15;
+  --sidebar-border: #e3ddd0;
+  --sidebar-ring: #1f6a62;
 }
 
 .dark {
@@ -114,8 +172,8 @@
   --card-foreground: oklch(0.985 0 0);
   --popover: oklch(0.205 0 0);
   --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
+  --primary: oklch(0.78 0.05 180);
+  --primary-foreground: oklch(0.16 0.01 180);
   --secondary: oklch(0.269 0 0);
   --secondary-foreground: oklch(0.985 0 0);
   --muted: oklch(0.269 0 0);
@@ -125,15 +183,15 @@
   --destructive: oklch(0.704 0.191 22.216);
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.488 0.243 264.376);
-  --chart-2: oklch(0.696 0.17 162.48);
+  --ring: oklch(0.62 0.05 180);
+  --chart-1: oklch(0.78 0.05 180);
+  --chart-2: oklch(0.74 0.08 85);
   --chart-3: oklch(0.769 0.188 70.08);
   --chart-4: oklch(0.627 0.265 303.9);
   --chart-5: oklch(0.645 0.246 16.439);
   --sidebar: oklch(0.205 0 0);
   --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
+  --sidebar-primary: oklch(0.78 0.05 180);
   --sidebar-primary-foreground: oklch(0.985 0 0);
   --sidebar-accent: oklch(0.269 0 0);
   --sidebar-accent-foreground: oklch(0.985 0 0);
@@ -165,7 +223,7 @@
   }
   .gradient-primary:hover {
     background-image: none;
-    background-color: #1d4ed8;
+    background-color: #0b2d2a;
   }
   .gradient-gold {
     background-image: none;
@@ -181,8 +239,8 @@
   .shadow-glow-blue,
   .shadow-glow-gold {
     box-shadow:
-      0 1px 2px oklch(0.2 0.02 260 / 0.06),
-      0 10px 28px -16px oklch(0.2 0.02 260 / 0.22);
+      0 1px 2px oklch(0.3 0.02 75 / 0.07),
+      0 10px 28px -16px oklch(0.3 0.02 75 / 0.24);
   }
   .dot-texture {
     background-image: none;
@@ -196,8 +254,8 @@
   }
   .card-lift:hover {
     transform: translateY(-2px);
-    box-shadow: 0 12px 28px -18px oklch(0.2 0.02 260 / 0.24);
-    border-color: #cbd5e1;
+    box-shadow: 0 12px 28px -18px oklch(0.3 0.02 75 / 0.26);
+    border-color: #cdc5b3;
   }
   /* Bar pengumuman berjalan (marquee). */
   .animate-marquee {
@@ -238,8 +296,8 @@
     background: #ffffff;
     border: 1px solid var(--border);
     box-shadow:
-      0 1px 2px oklch(0.2 0.02 260 / 0.05),
-      0 10px 30px -22px oklch(0.2 0.02 260 / 0.2);
+      0 1px 2px oklch(0.3 0.02 75 / 0.06),
+      0 10px 30px -22px oklch(0.3 0.02 75 / 0.22);
   }
   .clay-inset {
     border-radius: 0.75rem;
@@ -253,16 +311,16 @@
     background-image: none;
     background-color: var(--primary);
     color: var(--primary-foreground);
-    box-shadow: 0 1px 2px oklch(0.2 0.02 260 / 0.12);
+    box-shadow: 0 1px 2px oklch(0.3 0.02 75 / 0.14);
     transition:
       background-color 0.16s ease,
       box-shadow 0.16s ease,
       transform 0.16s ease;
   }
   .clay-btn-blue:hover {
-    background-color: #1d4ed8;
+    background-color: #0b2d2a;
     transform: translateY(-1px);
-    box-shadow: 0 8px 18px -10px oklch(0.5 0.16 262 / 0.5);
+    box-shadow: 0 8px 18px -10px oklch(0.35 0.05 180 / 0.5);
   }
   .clay-btn-blue:active {
     transform: translateY(0);
@@ -274,40 +332,40 @@
     background-image: none;
     background-color: #ffffff;
     color: var(--foreground);
-    box-shadow: 0 1px 2px oklch(0.2 0.02 260 / 0.05);
+    box-shadow: 0 1px 2px oklch(0.3 0.02 75 / 0.06);
     transition:
       background-color 0.16s ease,
       border-color 0.16s ease;
   }
   .clay-btn-mint:hover {
     background-color: var(--muted);
-    border-color: #cbd5e1;
+    border-color: #cdc5b3;
   }
   /* Kotak ikon lembut. */
   .clay-icon-blue {
     border-radius: 0.625rem;
-    background-color: #eff6ff;
-    color: #1d4ed8;
-    box-shadow: inset 0 0 0 1px #dbeafe;
+    background-color: #eef5f3;
+    color: #17544e;
+    box-shadow: inset 0 0 0 1px #dde9e7;
   }
   .clay-icon-mint {
     border-radius: 0.625rem;
-    background-color: #f1f5f9;
-    color: #334155;
-    box-shadow: inset 0 0 0 1px #e2e8f0;
+    background-color: #f1ede3;
+    color: #4a4538;
+    box-shadow: inset 0 0 0 1px #e3ddd0;
   }
   /* Kilau glossy dimatikan — tampilan bersih. */
   .clay-shine::after {
     content: none;
   }
-  /* Latar hero: putih → abu sangat tipis. */
+  /* Latar hero: putih → kertas sangat tipis. */
   .clay-hero {
     background-color: #ffffff;
-    background-image: linear-gradient(180deg, #f8fafc 0%, #ffffff 42%);
+    background-image: linear-gradient(180deg, #f8f6f1 0%, #ffffff 42%);
   }
   /* Header modal pengumuman. */
   .gradient-hero-modal {
-    background: linear-gradient(180deg, #f8fafc 0%, #ffffff 100%);
+    background: linear-gradient(180deg, #f8f6f1 0%, #ffffff 100%);
   }
   /* Tab aktif — aksen solid. */
   [data-slot="tabs-trigger"][data-state="active"] {

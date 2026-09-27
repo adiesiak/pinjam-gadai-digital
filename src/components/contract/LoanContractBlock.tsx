@@ -30,7 +30,7 @@ export function LoanContractBlock({ loanId }: { loanId: Id<"loans"> }) {
     if (!canvas) return;
     const pad = new SignaturePad(canvas, {
       backgroundColor: "rgba(255,255,255,0)",
-      penColor: "#0F172A",
+      penColor: "#1c1a15",
       minWidth: 1.2,
       maxWidth: 2.4,
     });
