@@ -9,6 +9,7 @@ import { formatRupiah } from "@/lib/money";
 import { DepositSimDialog } from "./deposit-views";
 import { FundingContractsSection } from "./funding-contracts-views";
 import { HistorySection } from "./history-views";
+import { KreditBarangSection } from "./kredit-views";
 import { MarketplaceSection } from "./market-views";
 import { PendanaSidebar } from "./pendana-sidebar";
 import type { TabBadge } from "./pendana-tab-nav";
@@ -121,6 +122,10 @@ export function PendanaWorkspace({
           {/* ===== Konten tab ===== */}
           <TabsContent value="marketplace" className="mt-8">
             <MarketplaceSection />
+          </TabsContent>
+
+          <TabsContent value="kredit" className="mt-8">
+            <KreditBarangSection />
           </TabsContent>
 
           <TabsContent value="portofolio" className="mt-8">

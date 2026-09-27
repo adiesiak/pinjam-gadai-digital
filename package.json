@@ -9,7 +9,7 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "preview": "vite preview",
-    "test": "bun src/lib/financial.test.ts && bun src/lib/gadai.test.ts && bun src/lib/totp.test.ts"
+    "test": "bun src/lib/financial.test.ts && bun src/lib/gadai.test.ts && bun src/lib/kredit.test.ts && bun src/lib/totp.test.ts"
   },
   "dependencies": {
     "@convex-dev/auth": "^0.0.90",

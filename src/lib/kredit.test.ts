@@ -1,0 +1,212 @@
+/**
+ * Tests Skema C Kredit Barang — dependency-free (konvensi gadai.test.ts).
+ * Run: bun src/lib/kredit.test.ts
+ */
+import {
+  KATALOG_CONTOH,
+  KREDIT_ASUMSI_AWAL,
+  KREDIT_PRICING,
+  quoteKreditBarang,
+} from "./kredit";
+
+let passed = 0;
+let failed = 0;
+
+function eq(actual: unknown, expected: unknown, label: string) {
+  if (actual === expected) {
+    passed += 1;
+  } else {
+    failed += 1;
+    console.error(`FAIL ${label}: expected ${expected}, got ${actual}`);
+  }
+}
+
+function throws(fn: () => unknown, label: string) {
+  try {
+    fn();
+    failed += 1;
+    console.error(`FAIL ${label}: expected to throw`);
+  } catch {
+    passed += 1;
+  }
+}
+
+// ---- Quote dasar: 10jt, DP 20%, 12 bulan, Imbal Hasil 2,5%/bulan ----
+const q = quoteKreditBarang({
+  hargaBarang: 10_000_000,
+  dpPersen: 20,
+  tenorBulan: 12,
+  marginPersenPerBulan: 2.5,
+});
+eq(q.dp, 2_000_000, "DP 20% dari 10jt = 2jt");
+eq(q.pokokDibiayai, 8_000_000, "pokok dibiayai = 8jt");
+eq(q.biayaLayanan, 80_000, "biaya layanan 1% dari pokok = 80rb");
+eq(q.marginPerBulan, 200_000, "Imbal Hasil 2,5% dari 8jt = 200rb/bulan");
+eq(q.marginTotal, 2_400_000, "total Imbal Hasil 12 bulan = 2,4jt");
+eq(q.cicilanPerBulan, 866_666, "cicilan bulanan = 666.666 pokok + 200rb");
+eq(q.cicilanTerakhir, 866_674, "cicilan terakhir menyerap pembulatan");
+eq(q.totalDibayarKonsumen, 12_480_000, "total dibayar Konsumen");
+eq(q.porsiPendana, 8_000_000, "porsi pendanaan 100% = pokok");
+eq(q.imbalHasilPerBulan, 200_000, "Imbal Hasil Pendana per bulan");
+eq(q.imbalHasil, 2_400_000, "total Imbal Hasil Pendana");
+eq(q.totalDiterima, 10_400_000, "porsi + Imbal Hasil saat lunas");
+eq(q.persenImbalHasil, 30, "Imbal Hasil 30% dari porsi (12 bulan)");
+eq(q.persenImbalHasilTahunan, 30, "setara 30% per tahun");
+
+// ---- Identitas jadwal ----
+eq(q.jadwal.length, 12, "jadwal 12 bulan");
+eq(
+  q.jadwal.reduce((acc, row) => acc + row.pokok, 0),
+  q.pokokDibiayai,
+  "Σ cicilan pokok = pokok dibiayai",
+);
+eq(
+  q.jadwal.reduce((acc, row) => acc + row.margin, 0),
+  q.marginTotal,
+  "Σ Imbal Hasil = total Imbal Hasil",
+);
+eq(q.jadwal[q.jadwal.length - 1].sisaPokok, 0, "sisa pokok akhir = 0");
+eq(q.dp + q.pokokDibiayai, q.hargaBarang, "DP + pokok dibiayai = harga barang");
+
+// ---- Porsi pendanaan sebagian (Alokasi Dana bersama Pendana lain) ----
+const sebagian = quoteKreditBarang({
+  hargaBarang: 10_000_000,
+  dpPersen: 20,
+  tenorBulan: 12,
+  marginPersenPerBulan: 2.5,
+  porsiPendanaPersen: 50,
+});
+eq(sebagian.porsiPendana, 4_000_000, "porsi 50% = 4jt");
+eq(sebagian.imbalHasilPerBulan, 100_000, "Imbal Hasil proporsional 50%");
+eq(sebagian.imbalHasil, 1_200_000, "total Imbal Hasil 50% = 1,2jt");
+eq(sebagian.totalDiterima, 5_200_000, "total diterima porsi 50%");
+eq(sebagian.persenImbalHasil, 30, "persen Imbal Hasil tetap 30%");
+
+// ---- Tenor pendek & Imbal Hasil minimum ----
+const pendek = quoteKreditBarang({
+  hargaBarang: 10_000_000,
+  dpPersen: 20,
+  tenorBulan: 3,
+  marginPersenPerBulan: 1.5,
+});
+eq(pendek.marginPerBulan, 120_000, "Imbal Hasil 1,5% dari 8jt = 120rb");
+eq(pendek.marginTotal, 360_000, "total Imbal Hasil 3 bulan");
+eq(pendek.cicilanPerBulan, 2_786_666, "cicilan 3 bulan lebih besar");
+eq(pendek.persenImbalHasilTahunan, 18, "setara 18% per tahun (30% × 12/3)");
+eq(
+  pendek.jadwal.reduce((acc, row) => acc + row.pokok, 0),
+  pendek.pokokDibiayai,
+  "Σ pokok tenor 3 bulan tetap utuh",
+);
+
+// ---- Tenor panjang ----
+const panjang = quoteKreditBarang({
+  hargaBarang: 4_500_000,
+  dpPersen: 20,
+  tenorBulan: 24,
+  marginPersenPerBulan: 2.5,
+});
+eq(panjang.dp, 900_000, "DP 20% dari 4,5jt");
+eq(panjang.pokokDibiayai, 3_600_000, "pokok dibiayai 3,6jt");
+eq(panjang.cicilanPerBulan, 240_000, "cicilan 24 bulan = 150rb + 90rb");
+eq(panjang.persenImbalHasil, 60, "Imbal Hasil 60% untuk tenor 24 bulan");
+eq(panjang.persenImbalHasilTahunan, 30, "setara 30% per tahun");
+
+// ---- Validasi batas skema ----
+throws(
+  () =>
+    quoteKreditBarang({
+      hargaBarang: 10_000_000,
+      dpPersen: KREDIT_PRICING.dpMinPersen - 1,
+      tenorBulan: 12,
+      marginPersenPerBulan: 2.5,
+    }),
+  "DP di bawah minimum ditolak",
+);
+throws(
+  () =>
+    quoteKreditBarang({
+      hargaBarang: 10_000_000,
+      dpPersen: KREDIT_PRICING.dpMaxPersen + 10,
+      tenorBulan: 12,
+      marginPersenPerBulan: 2.5,
+    }),
+  "DP di atas maksimum ditolak",
+);
+throws(
+  () =>
+    quoteKreditBarang({
+      hargaBarang: 10_000_000,
+      dpPersen: 20,
+      tenorBulan: 5,
+      marginPersenPerBulan: 2.5,
+    }),
+  "tenor di luar pilihan ditolak",
+);
+throws(
+  () =>
+    quoteKreditBarang({
+      hargaBarang: 10_000_000,
+      dpPersen: 20,
+      tenorBulan: 12,
+      marginPersenPerBulan: KREDIT_PRICING.marginMaxPersenPerBulan + 0.5,
+    }),
+  "Imbal Hasil di atas maksimum ditolak",
+);
+throws(
+  () =>
+    quoteKreditBarang({
+      hargaBarang: KREDIT_PRICING.minHargaBarang - 1,
+      dpPersen: 20,
+      tenorBulan: 12,
+      marginPersenPerBulan: 2.5,
+    }),
+  "harga barang di bawah minimum ditolak",
+);
+throws(
+  () =>
+    quoteKreditBarang({
+      hargaBarang: KREDIT_PRICING.maxHargaBarang + 1,
+      dpPersen: 20,
+      tenorBulan: 12,
+      marginPersenPerBulan: 2.5,
+    }),
+  "harga barang di atas maksimum ditolak",
+);
+throws(
+  () =>
+    quoteKreditBarang({
+      hargaBarang: 10_000_000,
+      dpPersen: 20,
+      tenorBulan: 12,
+      marginPersenPerBulan: 2.5,
+      porsiPendanaPersen: KREDIT_PRICING.minPorsiPendanaPersen - 5,
+    }),
+  "porsi pendanaan di bawah minimum ditolak",
+);
+throws(
+  () =>
+    quoteKreditBarang({
+      hargaBarang: 10_000_000,
+      dpPersen: 20,
+      tenorBulan: 12,
+      marginPersenPerBulan: 2.5,
+      porsiPendanaPersen: 150,
+    }),
+  "porsi pendanaan di atas 100% ditolak",
+);
+
+// ---- Katalog contoh harus dapat dihitung dengan asumsi awal ----
+for (const barang of KATALOG_CONTOH) {
+  const contoh = quoteKreditBarang({
+    hargaBarang: barang.harga,
+    dpPersen: KREDIT_ASUMSI_AWAL.dpPersen,
+    tenorBulan: KREDIT_ASUMSI_AWAL.tenorBulan,
+    marginPersenPerBulan: KREDIT_ASUMSI_AWAL.marginPersenPerBulan,
+  });
+  eq(contoh.imbalHasil > 0, true, `contoh ${barang.nama}: Imbal Hasil > 0`);
+  eq(contoh.jadwal.length, KREDIT_ASUMSI_AWAL.tenorBulan, `contoh ${barang.nama}: 12 baris jadwal`);
+}
+
+console.log(`kredit tests: ${passed} passed, ${failed} failed`);
+if (failed > 0) process.exit(1);
