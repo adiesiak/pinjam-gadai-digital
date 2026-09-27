@@ -175,7 +175,7 @@ export function SetoranSection({
                 ["Total debit", formatRupiah(ledger.totalDebit)],
                 ["Total kredit", formatRupiah(ledger.totalKredit)],
                 ["Jumlah entri", `${ledger.entryCount}`],
-                ["Status", ledger.seimbang ? "Seimbang ✓" : "TIDAK SEIMBANG"],
+                ["Status", ledger.seimbang ? "Seimbang" : "Tidak seimbang"],
               ].map(([label, value]) => (
                 <div key={label}>
                   <p className="text-xs text-muted-foreground">{label}</p>

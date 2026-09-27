@@ -1,5 +1,5 @@
 import { useQuery } from "convex/react";
-import { Landmark } from "lucide-react";
+import { ArrowRight, Landmark } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { api } from "@/convex/_generated/api";
@@ -43,7 +43,9 @@ export function HistorySection() {
                   <FundingStatusBadge status={f.status} />
                 </div>
                 <p className="mt-1 truncate text-xs text-muted-foreground">
-                  {f.nomorReferensi} → {f.loanRef} · imbal hasil {formatRupiah(f.imbalHasil)}
+                  {f.nomorReferensi}{" "}
+                  <ArrowRight className="inline size-3 align-middle" aria-hidden />{" "}
+                  {f.loanRef} · imbal hasil {formatRupiah(f.imbalHasil)}
                 </p>
               </li>
             ))}

@@ -7,7 +7,7 @@ import {
   InputOTPSlot,
 } from "@/components/ui/input-otp";
 import { useMutation } from "convex/react";
-import { Loader2, ShieldCheck } from "lucide-react";
+import { Loader2, Lock, ShieldCheck } from "lucide-react";
 import { useMemo, useState } from "react";
 
 /**
@@ -46,8 +46,8 @@ export function TotpGate({ onVerified }: { onVerified: () => void }) {
     <div className="flex min-h-screen items-center justify-center bg-slate-50 p-6">
       <div className="w-full max-w-sm rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
         <div className="mb-4 flex items-center gap-3">
-          <div className="flex size-11 items-center justify-center rounded-2xl bg-sky-100 text-2xl">
-            🔒
+          <div className="flex size-11 items-center justify-center rounded-2xl bg-sky-100 text-sky-700">
+            <Lock className="size-5" strokeWidth={2} />
           </div>
           <div>
             <h1 className="text-lg font-semibold text-slate-900">Verifikasi 2FA</h1>

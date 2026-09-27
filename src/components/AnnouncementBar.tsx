@@ -1,4 +1,4 @@
-import { Megaphone, X } from "lucide-react";
+import { Megaphone, ShieldAlert, X } from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router";
 import { useQuery } from "convex/react";
@@ -53,10 +53,11 @@ export function AnnouncementBar() {
           </span>
           {sysStatus?.killSwitch && (
             <span className="mx-6 flex items-center gap-2 text-xs font-bold text-red-600">
-              🛑 Layanan pengajuan sementara dijeda — coba lagi nanti.
+              <ShieldAlert className="size-3.5 shrink-0" aria-hidden />
+              Layanan pengajuan sementara dijeda — coba lagi nanti.
             </span>
           )}
-          <span className="text-[8px] text-sky-300">✦</span>
+          <span aria-hidden className="size-1.5 shrink-0 rounded-full bg-sky-300" />
         </span>
       ))}
     </div>

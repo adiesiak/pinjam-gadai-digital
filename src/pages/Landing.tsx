@@ -13,7 +13,6 @@ import {
   Package,
   Scale,
   ShieldCheck,
-  Sparkles,
   Users,
   Vault,
   X,
@@ -224,7 +223,7 @@ function AnnouncementModal({
       <DialogContent className="max-w-md gap-0 overflow-hidden rounded-2xl border border-slate-200 p-0 sm:max-w-md">
         <div className="px-6 pb-2 pt-7">
           <span className="inline-flex size-11 items-center justify-center rounded-xl bg-primary/10 text-primary">
-            <Sparkles className="size-5" />
+            <Megaphone className="size-5" />
           </span>
           <DialogHeader className="mt-4 space-y-2 text-left">
             <DialogTitle className="text-lg font-semibold text-slate-900">{judul}</DialogTitle>
@@ -302,9 +301,10 @@ function FloatingWidget({
                 setExpanded(false);
                 onOpenCta();
               }}
-              className="mt-2.5 text-xs font-semibold text-primary hover:text-primary"
+              className="mt-2.5 inline-flex items-center gap-1 text-xs font-semibold text-primary hover:text-primary/80"
             >
-              {cta} →
+              {cta}
+              <ArrowRight className="size-3.5" aria-hidden />
             </button>
           </motion.div>
         )}
@@ -391,7 +391,7 @@ export default function Landing() {
           <div className="grid items-center gap-14 lg:grid-cols-[1.05fr_0.95fr]">
             <div>
               <span className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-slate-600">
-                <Sparkles className="size-3.5 text-primary" />
+                <ShieldCheck className="size-3.5 text-primary" />
                 {c(cms?.heroBadge, CMS_DEFAULTS.hero.badge)}
               </span>
               <h1 className="mt-6 text-4xl font-semibold leading-[1.1] tracking-tight text-slate-900 sm:text-5xl">
