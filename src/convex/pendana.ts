@@ -4,6 +4,7 @@ import type { Id } from "./_generated/dataModel";
 import { v } from "convex/values";
 import { ROLES } from "./schema";
 import { calculateRepayment, DEFAULT_TENOR_HARI, quoteLoan } from "../lib/loan";
+import { quoteKreditBarang } from "../lib/kredit";
 import { formatRupiah, type Rupiah } from "../lib/money";
 import { appendJournal, pendanaWalletBalance } from "./ledger";
 
@@ -53,6 +54,15 @@ async function requireWaOtpIfEnabled(
     .withIndex("by_user", (q) => q.eq("userId", userId))
     .first();
   if (mfa?.waOtpWajib !== true) return; // proteksi belum diaktifkan
+
+  // Jalur 1: dialog WaOtpDialog sudah memverifikasi kode (jendela 2 menit).
+  // Jendela langsung dihabiskan agar tidak bisa dipakai dua kali.
+  if ((mfa.waOtpTerverifikasiSampai ?? 0) > Date.now()) {
+    await ctx.db.patch(mfa._id, { waOtpTerverifikasiSampai: undefined });
+    return;
+  }
+
+  // Jalur 2: kode dikirim langsung bersama mutation (validasi sekali pakai).
   if (!kodeOtp) {
     throw new Error(
       "Transaksi memerlukan kode OTP WhatsApp. Minta kode lalu masukkan 6 digit.",
@@ -170,15 +180,25 @@ export const myWallet = query({
       .withIndex("by_pendana", (q) => q.eq("pendanaId", userId))
       .collect();
     const active = fundings.filter((f) => f.status === "dialokasikan");
-    const danaBekerja = active.reduce((acc, f) => acc + f.jumlahAlokasi, 0);
-    const imbalHasilDiharapkan = active.reduce(
-      (acc, f) => acc + f.imbalHasil,
-      0,
-    );
+
+    // Alokasi Kredit Barang (Skema C) dihitung pada ringkasan yang sama agar
+    // dana yang dipindahkan dari dompet tidak "hilang" dari total Pendana.
+    const kreditFundings = await ctx.db
+      .query("kreditFundings")
+      .withIndex("by_pendana", (q) => q.eq("pendanaId", userId))
+      .collect();
+    const kreditAktif = kreditFundings.filter((f) => f.status === "dialokasikan");
+
+    const danaBekerja =
+      active.reduce((acc, f) => acc + f.jumlahAlokasi, 0) +
+      kreditAktif.reduce((acc, f) => acc + f.jumlahAlokasi, 0);
+    const imbalHasilDiharapkan =
+      active.reduce((acc, f) => acc + f.imbalHasil, 0) +
+      kreditAktif.reduce((acc, f) => acc + f.imbalHasil, 0);
 
     return {
       saldo,
-      posisiAlokasi: active.length,
+      posisiAlokasi: active.length + kreditAktif.length,
       danaBekerja,
       imbalHasilDiharapkan,
     };
@@ -615,7 +635,10 @@ export const myFundingContracts = query({
   },
 });
 
-/** Riwayat alokasi milik Pendana. */
+/**
+ * Riwayat alokasi milik Pendana — mencakup pinjaman tunai DAN kredit barang,
+ * agar seluruh perpindahan dana dari dompet terlihat di satu tempat.
+ */
 export const myFundings = query({
   args: {},
   handler: async (ctx) => {
@@ -624,8 +647,18 @@ export const myFundings = query({
       .query("fundings")
       .withIndex("by_pendana", (q) => q.eq("pendanaId", userId))
       .collect();
-    const result = [];
-    for (const f of rows.sort((a, b) => b._creationTime - a._creationTime)) {
+    const result: Array<{
+      _id: Id<"fundings"> | Id<"kreditFundings">;
+      _creationTime: number;
+      nomorReferensi: string;
+      jumlahAlokasi: number;
+      imbalHasil: number;
+      status: string;
+      loanRef: string;
+      loanStatus: string;
+      jenis: "pinjaman" | "kredit";
+    }> = [];
+    for (const f of rows) {
       const loan = await ctx.db.get(f.loanId);
       result.push({
         _id: f._id,
@@ -636,8 +669,291 @@ export const myFundings = query({
         status: f.status,
         loanRef: loan?.nomorReferensi ?? "-",
         loanStatus: loan?.status ?? "-",
+        jenis: "pinjaman",
       });
     }
-    return result;
+    const kreditRows = await ctx.db
+      .query("kreditFundings")
+      .withIndex("by_pendana", (q) => q.eq("pendanaId", userId))
+      .collect();
+    for (const f of kreditRows) {
+      const kredit = await ctx.db.get(f.kreditId);
+      result.push({
+        _id: f._id,
+        _creationTime: f._creationTime,
+        nomorReferensi: f.nomorReferensi,
+        jumlahAlokasi: f.jumlahAlokasi,
+        imbalHasil: f.imbalHasil,
+        status: f.status,
+        loanRef: kredit?.nomorReferensi ?? "-",
+        loanStatus: kredit?.status ?? "-",
+        jenis: "kredit",
+      });
+    }
+    return result.sort((a, b) => b._creationTime - a._creationTime);
+  },
+});
+
+// =====================================================================
+// Kredit Barang (Skema C) — peluang pendanaan & Alokasi Dana
+// =====================================================================
+
+/** Inisial pemohon demi privasi (mis. "Budi Santoso" → "B. S."). */
+function inisialNama(nama: string): string {
+  return (
+    nama
+      .split(/\s+/)
+      .slice(0, 2)
+      .map((k) => `${k.charAt(0).toUpperCase()}.`)
+      .join(" ") || "—"
+  );
+}
+
+/** Akun ledger merchant tujuan pembayaran barang (mis. merchant:SHOPEE). */
+function akunMerchant(merchant: string): string {
+  const kode = merchant
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+  return `merchant:${kode || "MITRA"}`;
+}
+
+/**
+ * Peluang pendanaan Kredit Barang: pengajuan yang sudah disetujui tim dan
+ * belum terpenuhi penuh oleh Pendana. Sisa kebutuhan dihitung live dari
+ * alokasi aktif (Zero Fake Data) — identitas pemohon tetap privat (inisial).
+ */
+export const marketplaceKredit = query({
+  args: {},
+  handler: async (ctx) => {
+    await requirePendana(ctx);
+    const rows = await ctx.db
+      .query("kreditBarang")
+      .withIndex("by_status", (q) => q.eq("status", "disetujui"))
+      .collect();
+
+    const hasil = [];
+    for (const k of rows) {
+      let quote;
+      try {
+        quote = quoteKreditBarang({
+          hargaBarang: k.hargaBarang,
+          dpPersen: k.dpPersen,
+          tenorBulan: k.tenorBulan,
+          marginPersenPerBulan: k.marginPersenPerBulan,
+        });
+      } catch {
+        continue; // data warisan di luar rentang skema — lewati
+      }
+      const fundings = await ctx.db
+        .query("kreditFundings")
+        .withIndex("by_kredit", (q) => q.eq("kreditId", k._id))
+        .collect();
+      const terkumpul = fundings
+        .filter((f) => f.status === "dialokasikan")
+        .reduce((acc, f) => acc + f.jumlahAlokasi, 0);
+
+      hasil.push({
+        _id: k._id,
+        _creationTime: k._creationTime,
+        nomorReferensi: k.nomorReferensi,
+        namaBarang: k.namaBarang,
+        kategori: k.kategori,
+        merchant: k.merchant,
+        hargaBarang: quote.hargaBarang,
+        dp: quote.dp,
+        dpPersen: k.dpPersen,
+        pokokDibiayai: quote.pokokDibiayai,
+        tenorBulan: k.tenorBulan,
+        marginPersenPerBulan: k.marginPersenPerBulan,
+        cicilanPerBulan: quote.cicilanPerBulan,
+        imbalHasilTotal: quote.marginTotal,
+        persenImbalHasil: quote.persenImbalHasil,
+        persenImbalHasilTahunan: quote.persenImbalHasilTahunan,
+        pemohonInisial: inisialNama(k.namaLengkap),
+        terkumpul,
+        sisaKebutuhan: quote.pokokDibiayai - terkumpul,
+      });
+    }
+    return hasil.sort((a, b) => b._creationTime - a._creationTime);
+  },
+});
+
+/**
+ * Alokasikan Dana ke pengajuan Kredit Barang — ANTI-OVERFUNDING atomik:
+ * 1. Pengajuan harus berstatus Disetujui (belum penuh).
+ * 2. Sisa kebutuhan dihitung ulang DI DALAM mutation ini.
+ * 3. Saldo dompet dari ledger tidak boleh kurang.
+ * 4. Bila terpenuhi penuh: jurnal pencairan ke merchant mitra, bagi hak
+ *    Imbal Hasil proporsional, dan status pengajuan menjadi "didanai".
+ * Convex mengeksekusi mutation secara transaksional & serial sehingga dua
+ * Pendana yang berlomba tidak dapat melebihi sisa kebutuhan.
+ */
+export const alokasiKreditBarang = mutation({
+  args: {
+    kreditId: v.id("kreditBarang"),
+    jumlah: v.number(),
+    /** Kode OTP WA — wajib bila Pendana mengaktifkan proteksi transaksi. */
+    kodeOtp: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const { userId } = await requirePendana(ctx);
+    validateRupiahAmount(args.jumlah, "Jumlah alokasi");
+    await requireWaOtpIfEnabled(ctx, userId, args.kodeOtp);
+
+    const kredit = await ctx.db.get(args.kreditId);
+    if (kredit === null) throw new Error("Pengajuan kredit barang tidak ditemukan.");
+    if (kredit.status !== "disetujui") {
+      throw new Error(
+        "Hanya pengajuan kredit barang berstatus Disetujui yang dapat didanai.",
+      );
+    }
+
+    const quote = quoteKreditBarang({
+      hargaBarang: kredit.hargaBarang,
+      dpPersen: kredit.dpPersen,
+      tenorBulan: kredit.tenorBulan,
+      marginPersenPerBulan: kredit.marginPersenPerBulan,
+    });
+
+    const fundings = await ctx.db
+      .query("kreditFundings")
+      .withIndex("by_kredit", (q) => q.eq("kreditId", args.kreditId))
+      .collect();
+    const terkumpul = fundings
+      .filter((f) => f.status === "dialokasikan")
+      .reduce((acc, f) => acc + f.jumlahAlokasi, 0);
+    const sisa = quote.pokokDibiayai - terkumpul;
+    if (sisa <= 0) {
+      throw new Error("Pengajuan ini sudah terpenuhi penuh oleh Pendana lain.");
+    }
+    if (args.jumlah > sisa) {
+      throw new Error(
+        `Melebihi sisa kebutuhan. Sisa: ${formatRupiah(sisa)}. Kurangi jumlah alokasi Anda.`,
+      );
+    }
+
+    const saldo = await pendanaWalletBalance(ctx, userId);
+    if (saldo < args.jumlah) {
+      throw new Error(
+        `Saldo tidak cukup. Saldo: ${formatRupiah(saldo)}, alokasi: ${formatRupiah(args.jumlah)}.`,
+      );
+    }
+
+    // Hak Imbal Hasil proporsional porsi pokok yang didanai.
+    const imbalHasil = Math.floor(
+      (quote.marginTotal * args.jumlah) / quote.pokokDibiayai,
+    );
+    const ref = referenceNumber("KFD");
+    await ctx.db.insert("kreditFundings", {
+      kreditId: args.kreditId,
+      pendanaId: userId,
+      jumlahAlokasi: args.jumlah,
+      imbalHasil,
+      status: "dialokasikan",
+      nomorReferensi: ref,
+    });
+
+    // Jurnal: dana pindah dari dompet Pendana ke akun kredit barang.
+    await appendJournal(ctx, {
+      jenis: "disbursement",
+      keterangan: `Alokasi pendanaan ${ref} ke ${kredit.nomorReferensi} (Kredit Barang)`,
+      aktor: userId,
+      lines: [
+        { akun: `kredit:${args.kreditId}`, arah: "debit", jumlah: args.jumlah },
+        { akun: `pendana:WALLET:${userId}`, arah: "kredit", jumlah: args.jumlah },
+      ],
+    });
+
+    // Bila penuh: teruskan pokok ke merchant mitra & tandai didanai.
+    const terkumpulSetelah = terkumpul + args.jumlah;
+    if (terkumpulSetelah === quote.pokokDibiayai) {
+      await appendJournal(ctx, {
+        jenis: "disbursement",
+        keterangan: `Pencairan pokok ke ${kredit.merchant} untuk ${kredit.nomorReferensi}`,
+        aktor: "platform",
+        lines: [
+          {
+            akun: akunMerchant(kredit.merchant),
+            arah: "debit",
+            jumlah: quote.pokokDibiayai,
+          },
+          {
+            akun: `kredit:${args.kreditId}`,
+            arah: "kredit",
+            jumlah: quote.pokokDibiayai,
+          },
+        ],
+      });
+
+      // Bagi ulang hak Imbal Hasil proporsional agar identik dengan engine.
+      for (const f of fundings.filter((x) => x.status === "dialokasikan")) {
+        await ctx.db.patch(f._id, {
+          imbalHasil: Math.floor(
+            (quote.marginTotal * f.jumlahAlokasi) / quote.pokokDibiayai,
+          ),
+        });
+      }
+
+      await ctx.db.patch(kredit._id, {
+        status: "didanai",
+        didanaiPada: Date.now(),
+      });
+    }
+
+    return {
+      success: true,
+      nomorReferensi: ref,
+      terkumpulSetelah,
+      sisaSetelah: quote.pokokDibiayai - terkumpulSetelah,
+    };
+  },
+});
+
+/** Portofolio Alokasi Dana Kredit Barang milik Pendana. */
+export const myKreditFundings = query({
+  args: {},
+  handler: async (ctx) => {
+    const { userId } = await requirePendana(ctx);
+    const rows = await ctx.db
+      .query("kreditFundings")
+      .withIndex("by_pendana", (q) => q.eq("pendanaId", userId))
+      .collect();
+    const hasil = [];
+    for (const f of rows.sort((a, b) => b._creationTime - a._creationTime)) {
+      const kredit = await ctx.db.get(f.kreditId);
+      if (kredit === null) continue;
+      let quote = null;
+      try {
+        quote = quoteKreditBarang({
+          hargaBarang: kredit.hargaBarang,
+          dpPersen: kredit.dpPersen,
+          tenorBulan: kredit.tenorBulan,
+          marginPersenPerBulan: kredit.marginPersenPerBulan,
+        });
+      } catch {
+        quote = null;
+      }
+      hasil.push({
+        _id: f._id,
+        _creationTime: f._creationTime,
+        nomorReferensi: f.nomorReferensi,
+        kreditRef: kredit.nomorReferensi,
+        namaBarang: kredit.namaBarang,
+        kategori: kredit.kategori,
+        merchant: kredit.merchant,
+        statusKredit: kredit.status,
+        statusAlokasi: f.status,
+        jumlahAlokasi: f.jumlahAlokasi,
+        imbalHasil: f.imbalHasil,
+        totalDiterima: f.jumlahAlokasi + f.imbalHasil,
+        tenorBulan: kredit.tenorBulan,
+        marginPersenPerBulan: kredit.marginPersenPerBulan,
+        pokokDibiayai: quote?.pokokDibiayai ?? null,
+        cicilanPerBulan: quote?.cicilanPerBulan ?? null,
+        persenImbalHasil: quote?.persenImbalHasil ?? null,
+      });
+    }
+    return hasil;
   },
 });

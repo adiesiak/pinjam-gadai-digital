@@ -61,13 +61,15 @@ export type PawnStatusValue = Infer<typeof pawnStatusValidator>;
 
 /**
  * Status pengajuan Kredit Barang (Skema C) — elektronik/barang marketplace.
- * Alur: diajukan → sedang_ditinjau → disetujui | ditolak.
+ * Alur: diajukan → sedang_ditinjau → disetujui | ditolak; "didanai"
+ * ditetapkan otomatis oleh sistem saat pendanaan Pendana terpenuhi penuh.
  */
 export const kreditStatusValidator = v.union(
   v.literal("diajukan"),
   v.literal("sedang_ditinjau"),
   v.literal("disetujui"),
   v.literal("ditolak"),
+  v.literal("didanai"),
 );
 export type KreditStatusValue = Infer<typeof kreditStatusValidator>;
 
@@ -230,6 +232,12 @@ const schema = defineSchema(
       waOtpGagal: v.optional(v.number()),
       /** Setelah true, OTP WA wajib untuk setiap transaksi finansial. */
       waOtpWajib: v.optional(v.boolean()),
+      /**
+       * Jendela verifikasi OTP WA hasil dialog transaksi (epoch ms). Selama
+       * masih berlaku, mutation finansial boleh lanjut tanpa mengirim ulang
+       * kode — sekali pakai, langsung dihapus oleh mutation yang memakainya.
+       */
+      waOtpTerverifikasiSampai: v.optional(v.number()),
     }).index("by_user", ["userId"]),
 
     /**
@@ -438,9 +446,34 @@ const schema = defineSchema(
       /** Nomor WhatsApp aktif untuk pengingat cicilan. */
       nomorWhatsApp: v.string(),
       catatanPeminjam: v.optional(v.string()),
+      /** Terisi saat pendanaan penuh — dana pokok diteruskan ke merchant. */
+      didanaiPada: v.optional(v.number()),
     })
       .index("by_user", ["userId"])
       .index("by_status", ["status"]),
+
+    /**
+     * Alokasi Dana Pendana ke satu pengajuan Kredit Barang (Skema C) —
+     * analog `fundings` untuk pinjaman tunai. Satu pengajuan dapat didanai
+     * beberapa Pendana; anti-overfunding divalidasi atomik di server.
+     * Hak Imbal Hasil proporsional porsi pokok yang didanai.
+     */
+    kreditFundings: defineTable({
+      kreditId: v.id("kreditBarang"),
+      pendanaId: v.id("users"),
+      /** Rupiah bulat — porsi pokok dibiayai yang ditanggung Pendana ini. */
+      jumlahAlokasi: v.number(),
+      /** Hak Imbal Hasil Pendana untuk alokasi ini (rupiah bulat). */
+      imbalHasil: v.number(),
+      status: v.union(
+        v.literal("dialokasikan"),
+        v.literal("selesai"),
+        v.literal("dibatalkan"),
+      ),
+      nomorReferensi: v.string(),
+    })
+      .index("by_kredit", ["kreditId"])
+      .index("by_pendana", ["pendanaId"]),
 
     /**
      * Setoran dana Pendana. Dana baru dianggap tersedia setelah admin

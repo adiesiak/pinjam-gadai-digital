@@ -69,7 +69,7 @@ export type PawnRow = {
 /** Ringkasan pengajuan Kredit Barang (Skema C) untuk penghitung tab admin. */
 export type KreditRow = {
   _id: Id<"kreditBarang">;
-  status: "diajukan" | "sedang_ditinjau" | "disetujui" | "ditolak";
+  status: "diajukan" | "sedang_ditinjau" | "disetujui" | "ditolak" | "didanai";
 };
 
 export function formatDate(ts: number): string {

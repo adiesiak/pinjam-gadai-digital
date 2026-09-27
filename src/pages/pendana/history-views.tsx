@@ -45,7 +45,8 @@ export function HistorySection() {
                 <p className="mt-1 truncate text-xs text-muted-foreground">
                   {f.nomorReferensi}{" "}
                   <ArrowRight className="inline size-3 align-middle" aria-hidden />{" "}
-                  {f.loanRef} · imbal hasil {formatRupiah(f.imbalHasil)}
+                  {f.loanRef} ({f.jenis === "kredit" ? "Kredit Barang" : "Pinjaman"}) · imbal hasil{" "}
+                  {formatRupiah(f.imbalHasil)}
                 </p>
               </li>
             ))}

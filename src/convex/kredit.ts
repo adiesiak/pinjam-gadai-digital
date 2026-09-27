@@ -264,11 +264,30 @@ async function setKreditStatus(
   if (status === "diajukan") {
     throw new Error("Status tidak boleh dikembalikan ke diajukan.");
   }
+  if (status === "didanai") {
+    throw new Error(
+      "Status Didanai ditetapkan otomatis oleh sistem saat pendanaan Pendana terpenuhi penuh.",
+    );
+  }
   if (status === "ditolak" && (!catatan || catatan.trim().length === 0)) {
     throw new Error("Penolakan wajib menyertakan alasan.");
   }
   if (row.status === status) {
     throw new Error("Status pengajuan sudah sama dengan pilihan tersebut.");
+  }
+  if (status === "ditolak") {
+    // Jangan menolak pengajuan yang sudah menerima Alokasi Dana Pendana —
+    // dana terkunci di akun kredit barang sampai dikembalikan.
+    const fundings = await ctx.db
+      .query("kreditFundings")
+      .withIndex("by_kredit", (q) => q.eq("kreditId", kreditId))
+      .collect();
+    const danaAktif = fundings.filter((f) => f.status === "dialokasikan");
+    if (danaAktif.length > 0) {
+      throw new Error(
+        "Pengajuan sudah menerima Alokasi Dana Pendana — kembalikan dana tersebut sebelum menolak.",
+      );
+    }
   }
 
   await ctx.db.patch(kreditId, {

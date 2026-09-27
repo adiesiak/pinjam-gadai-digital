@@ -64,6 +64,12 @@ const STATUS_META: Record<string, { label: string; className: string; descriptio
     className: "",
     description: "Pengajuan tidak dapat dilanjutkan. Anda dapat mengajukan ulang.",
   },
+  didanai: {
+    label: "Didanai",
+    className: "gradient-primary border-0 text-primary-foreground",
+    description:
+      "Pendanaan penuh oleh Pendana — dana pokok diteruskan ke merchant mitra. Cicilan berjalan sesuai tenor setelah barang diterima.",
+  },
 };
 
 function StatusKreditBadge({ status }: { status: string }) {

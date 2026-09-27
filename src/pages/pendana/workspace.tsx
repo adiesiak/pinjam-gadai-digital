@@ -17,7 +17,7 @@ import { PortfolioSection } from "./portfolio-views";
 import { WalletSection } from "./wallet-views";
 
 /**
- * Workspace utama Pendana: profil + lima tab di sisi kiri, ringkasan saldo dan
+ * Workspace utama Pendana: profil + enam tab di sisi kiri, ringkasan saldo dan
  * konten tab di kolom kanan.
  */
 export function PendanaWorkspace({
@@ -31,6 +31,7 @@ export function PendanaWorkspace({
   const portfolio = useQuery(api.pendana.myPortfolio);
   const marketplace = useQuery(api.pendana.marketplace);
   const contracts = useQuery(api.pendana.myFundingContracts);
+  const peluangKredit = useQuery(api.pendana.marketplaceKredit);
   const [depositOpen, setDepositOpen] = useState(false);
   const [defaultTab, setDefaultTab] = useState("marketplace");
 
@@ -41,12 +42,14 @@ export function PendanaWorkspace({
   ).length;
   const posisiAlokasi = wallet?.posisiAlokasi ?? 0;
   const jumlahKontrak = contracts?.length ?? 0;
+  const peluangKreditBarang = peluangKredit?.length ?? 0;
 
   const tabBadges: Partial<Record<string, TabBadge>> = {};
   if (peluangPendanaan > 0) tabBadges.marketplace = { count: peluangPendanaan };
   if (pendanaanMenunggak > 0) tabBadges.portofolio = { count: pendanaanMenunggak, tone: "danger" };
   else if (posisiAlokasi > 0) tabBadges.portofolio = { count: posisiAlokasi };
   if (jumlahKontrak > 0) tabBadges.kontrak = { count: jumlahKontrak };
+  if (peluangKreditBarang > 0) tabBadges.kredit = { count: peluangKreditBarang };
 
   return (
     <>

@@ -17,9 +17,17 @@ const STATUS_LABEL: Record<string, string> = {
   sedang_ditinjau: "Sedang ditinjau",
   disetujui: "Disetujui",
   ditolak: "Ditolak",
+  didanai: "Didanai",
 };
 
 function KreditStatusBadge({ status }: { status: string }) {
+  if (status === "didanai") {
+    return (
+      <Badge className="gradient-primary border-0 text-primary-foreground">
+        {STATUS_LABEL[status] ?? status}
+      </Badge>
+    );
+  }
   if (status === "disetujui") {
     return (
       <Badge className="border-primary/30 bg-primary/10 text-accent-foreground">
@@ -66,7 +74,11 @@ export function KreditQueuePanel() {
   }
 
   const menunggu = rows.filter((r) => r.status === "diajukan" || r.status === "sedang_ditinjau");
-  const selesai = rows.filter((r) => r.status === "disetujui" || r.status === "ditolak");
+  // Riwayat = pengajuan yang sudah tidak menunggu keputusan (termasuk yang
+  // sudah didanai penuh oleh Pendana).
+  const selesai = rows.filter(
+    (r) => r.status !== "diajukan" && r.status !== "sedang_ditinjau",
+  );
 
   const jalankan = async (
     id: Id<"kreditBarang">,

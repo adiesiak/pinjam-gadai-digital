@@ -1,12 +1,33 @@
-import { Calculator, Package, ShoppingBag, TrendingUp } from "lucide-react";
+import { useMutation, useQuery } from "convex/react";
+import {
+  BadgeCheck,
+  Calculator,
+  Coins,
+  Loader2,
+  Package,
+  ShoppingBag,
+  TrendingUp,
+} from "lucide-react";
 import { useMemo, useState } from "react";
+import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import { Slider } from "@/components/ui/slider";
+import { WaOtpDialog } from "@/components/WaOtpDialog";
+import { api } from "@/convex/_generated/api";
+import { Id } from "@/convex/_generated/dataModel";
 import {
   KATALOG_CONTOH,
   KREDIT_ASUMSI_AWAL,
@@ -16,6 +37,8 @@ import {
 } from "@/lib/kredit";
 import { formatRupiah, parseRupiah } from "@/lib/money";
 import { cn } from "@/lib/utils";
+
+import { EmptyState, Loading } from "./feedback";
 
 /** Harga barang awal pada kalkulator (contoh umum elektronik). */
 const HARGA_AWAL = 10_000_000;
@@ -53,11 +76,25 @@ function Baris({
 }
 
 /**
- * Tab "Kredit Barang" — kalkulator pendanaan elektronik & marketplace mitra
- * (Skema C). Semua angka dihitung oleh engine `quoteKreditBarang` (integer
- * rupiah, HALF-UP) sehingga identik dengan perhitungan saat kontrak terbit.
+ * Tab "Kredit Barang": peluang pendanaan nyata (pengajuan yang disetujui tim),
+ * portofolio Alokasi Dana Pendana, lalu kalkulator simulasi.
  */
 export function KreditBarangSection() {
+  return (
+    <div className="flex flex-col gap-10">
+      <PeluangKreditSection />
+      <PortofolioKreditSection />
+      <KalkulatorKreditSection />
+    </div>
+  );
+}
+
+/**
+ * Kalkulator simulasi barang & Imbal Hasil (Skema C). Semua angka dihitung
+ * engine `quoteKreditBarang` (integer rupiah, HALF-UP) sehingga identik dengan
+ * perhitungan saat pengajuan/pendanaan terbit.
+ */
+function KalkulatorKreditSection() {
   const [hargaInput, setHargaInput] = useState(HARGA_AWAL.toLocaleString("id-ID"));
   const [namaTerpilih, setNamaTerpilih] = useState<string | null>(null);
   const [dpPersen, setDpPersen] = useState<number>(KREDIT_ASUMSI_AWAL.dpPersen);
@@ -120,11 +157,13 @@ export function KreditBarangSection() {
             Elektronik &amp; Marketplace
           </Badge>
         </div>
-        <h2 className="text-lg font-semibold tracking-tight">Kredit Barang</h2>
+        <h2 className="text-lg font-semibold tracking-tight">
+          Kalkulator Imbal Hasil Kredit Barang
+        </h2>
         <p className="max-w-2xl text-sm leading-6 text-muted-foreground">
-          Danai barang dari merchant mitra — marketplace maupun toko elektronik. Konsumen membayar
-          uang muka lalu mencicil sisa harga; Pendana menerima Imbal Hasil flat per bulan selama
-          tenor, proporsional dengan Alokasi Dana.
+          Simulasi barang dari merchant mitra — marketplace maupun toko elektronik. Konsumen
+          membayar uang muka lalu mencicil sisa harga; Pendana menerima Imbal Hasil flat per bulan
+          selama tenor, proporsional dengan Alokasi Dana.
         </p>
       </header>
 
@@ -466,5 +505,388 @@ export function KreditBarangSection() {
         </section>
       )}
     </div>
+  );
+}
+
+/** Kolom peluang kredit barang yang dipakai kartu Alokasi Dana. */
+type PeluangKredit = {
+  _id: Id<"kreditBarang">;
+  nomorReferensi: string;
+  namaBarang: string;
+  kategori: string;
+  merchant: string;
+  hargaBarang: number;
+  dp: number;
+  dpPersen: number;
+  pokokDibiayai: number;
+  tenorBulan: number;
+  marginPersenPerBulan: number;
+  cicilanPerBulan: number;
+  imbalHasilTotal: number;
+  persenImbalHasil: number;
+  persenImbalHasilTahunan: number;
+  pemohonInisial: string;
+  terkumpul: number;
+  sisaKebutuhan: number;
+};
+
+/**
+ * Peluang pendanaan kredit barang: pengajuan yang sudah lolos verifikasi tim
+ * PINDAI dan belum terpenuhi penuh. Alokasi Dana dicatat di jurnal ledger
+ * (debit akun kredit barang, kredit dompet Pendana).
+ */
+function PeluangKreditSection() {
+  const peluang = useQuery(api.pendana.marketplaceKredit);
+
+  return (
+    <section>
+      <div className="flex items-center gap-2">
+        <Badge className="border-0 bg-primary text-[10px] text-primary-foreground">Skema C</Badge>
+        <Badge className="border-0 bg-emerald-100 text-[10px] text-emerald-700 hover:bg-emerald-100">
+          <BadgeCheck className="mr-1 size-3" /> Terverifikasi tim PINDAI
+        </Badge>
+      </div>
+      <h2 className="mt-1.5 text-lg font-semibold tracking-tight">
+        Peluang Pendanaan Kredit Barang
+      </h2>
+      <p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">
+        Barang marketplace &amp; toko elektronik yang sudah disetujui tim PINDAI. Setelah pendanaan
+        penuh, pokok diteruskan ke merchant mitra dan hak Imbal Hasil Anda proporsional dengan porsi
+        pokok yang didanai.
+      </p>
+
+      {peluang === undefined ? (
+        <Loading />
+      ) : peluang.length === 0 ? (
+        <div className="mt-4">
+          <EmptyState
+            icon={ShoppingBag}
+            title="Belum ada peluang kredit barang"
+            body="Pengajuan kredit barang yang disetujui tim PINDAI akan tampil di sini beserta sisa kebutuhan pendanaannya."
+          />
+        </div>
+      ) : (
+        <div className="mt-4 grid gap-4 md:grid-cols-2">
+          {peluang.map((row) => (
+            <PeluangKreditCard key={row._id} row={row} />
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function PeluangKreditCard({ row }: { row: PeluangKredit }) {
+  const alokasi = useMutation(api.pendana.alokasiKreditBarang);
+  const waOtpStatus = useQuery(api.security.myWaOtpStatus, {});
+  const [open, setOpen] = useState(false);
+  const [otpOpen, setOtpOpen] = useState(false);
+  const [waNomorPendana, setWaNomorPendana] = useState("");
+  const [jumlah, setJumlah] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const parsed = useMemo(() => {
+    try {
+      return parseRupiah(jumlah);
+    } catch {
+      return null;
+    }
+  }, [jumlah]);
+
+  const full = row.sisaKebutuhan <= 0;
+  const pct = Math.min(100, Math.round((row.terkumpul / row.pokokDibiayai) * 100));
+  const estimasi =
+    parsed !== null && parsed > 0
+      ? Math.floor(
+          (row.imbalHasilTotal * Math.min(parsed, row.sisaKebutuhan)) / row.pokokDibiayai,
+        )
+      : 0;
+
+  const alokasikan = async () => {
+    setError(null);
+    if (parsed === null) {
+      setError("Masukkan jumlah rupiah bulat yang valid.");
+      return;
+    }
+    // OTP WA wajib (bila diaktifkan Pendana) — verifikasi dulu, lanjut di callback.
+    if (waOtpStatus?.aktif) {
+      if (waNomorPendana.replace(/\D/g, "").length < 8) {
+        setError("Masukkan nomor WhatsApp Anda (format 62…) untuk menerima kode OTP.");
+        return;
+      }
+      setOtpOpen(true);
+      return;
+    }
+    await eksekusi(null);
+  };
+
+  const eksekusi = async (kodeOtp: string | null) => {
+    setBusy(true);
+    try {
+      await alokasi({
+        kreditId: row._id,
+        jumlah: parsed!,
+        ...(kodeOtp !== null ? { kodeOtp } : {}),
+      });
+      toast.success("Alokasi Dana tercatat di jurnal pendanaan.");
+      setOpen(false);
+      setOtpOpen(false);
+      setJumlah("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Alokasi gagal.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <article className="card-lift rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="min-w-0">
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge className="border-0 bg-primary text-[10px] text-primary-foreground">
+            Kredit Barang
+          </Badge>
+          <Badge className="border-0 bg-slate-100 text-[10px] text-slate-700 hover:bg-slate-100">
+            {row.kategori}
+          </Badge>
+        </div>
+        <p className="mt-2 text-lg font-semibold">{row.namaBarang}</p>
+        <p className="mt-0.5 truncate text-xs text-muted-foreground">
+          {row.nomorReferensi} · {row.merchant} · Pemohon {row.pemohonInisial}
+        </p>
+      </div>
+
+      {/* Rincian transparansi */}
+      <dl className="mt-3 grid grid-cols-3 gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-center text-xs">
+        <div>
+          <dt className="text-muted-foreground">Harga barang</dt>
+          <dd className="mt-0.5 font-semibold tabular-nums">{formatRupiah(row.hargaBarang)}</dd>
+        </div>
+        <div>
+          <dt className="text-muted-foreground">Uang muka Konsumen</dt>
+          <dd className="mt-0.5 font-semibold tabular-nums">
+            {row.dpPersen}% · {formatRupiah(row.dp)}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-muted-foreground">Tenor</dt>
+          <dd className="mt-0.5 font-semibold tabular-nums">
+            {row.tenorBulan} bulan · {formatRupiah(row.cicilanPerBulan)}/bln
+          </dd>
+        </div>
+      </dl>
+
+      <dl className="mt-3 grid grid-cols-2 gap-3 text-xs">
+        <div className="rounded-xl border border-slate-200 px-3 py-2">
+          <dt className="text-muted-foreground">Pokok dibiayai</dt>
+          <dd className="mt-0.5 font-semibold tabular-nums">{formatRupiah(row.pokokDibiayai)}</dd>
+        </div>
+        <div className="rounded-xl border border-emerald-100 bg-emerald-50/60 px-3 py-2">
+          <dt className="text-emerald-800/80">Hak Imbal Hasil (100%)</dt>
+          <dd className="mt-0.5 font-semibold tabular-nums text-emerald-700">
+            {formatRupiah(row.imbalHasilTotal)} · {persenId(row.persenImbalHasil)}% (
+            {persenId(row.persenImbalHasilTahunan)}%/tahun)
+          </dd>
+        </div>
+      </dl>
+
+      {/* Progress pendanaan */}
+      <div className="mt-4">
+        <div className="flex items-baseline justify-between text-xs">
+          <span className="font-medium">Dana terkumpul</span>
+          <span className="tabular-nums text-muted-foreground">
+            {formatRupiah(row.terkumpul)} / {formatRupiah(row.pokokDibiayai)}
+          </span>
+        </div>
+        <Progress className="mt-1.5 h-2.5" value={pct} />
+        <p className="mt-1.5 text-xs tabular-nums text-muted-foreground">
+          Sisa kebutuhan {formatRupiah(row.sisaKebutuhan)} · margin Imbal Hasil{" "}
+          {persenId(row.marginPersenPerBulan)}%/bulan
+        </p>
+      </div>
+
+      {full ? (
+        <Badge className="mt-4 border-0 bg-emerald-100 text-emerald-700 hover:bg-emerald-100">
+          <BadgeCheck className="mr-1 size-3.5" /> Terpenuhi penuh oleh Pendana
+        </Badge>
+      ) : (
+        <Button className="mt-4 w-full" onClick={() => setOpen(true)}>
+          <Coins className="mr-1.5 size-4" />
+          Alokasikan Dana Sekarang
+        </Button>
+      )}
+
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Alokasikan Dana — Kredit Barang</DialogTitle>
+            <DialogDescription>
+              {row.nomorReferensi} · sisa kebutuhan {formatRupiah(row.sisaKebutuhan)}. Alokasi
+              melebihi sisa akan ditolak server (anti-overfunding).
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-2">
+              <Label htmlFor={`kredit-alo-${row.nomorReferensi}`}>Jumlah alokasi</Label>
+              <div className="relative">
+                <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
+                  Rp
+                </span>
+                <Input
+                  id={`kredit-alo-${row.nomorReferensi}`}
+                  inputMode="numeric"
+                  className="pl-9 tabular-nums"
+                  value={jumlah}
+                  onChange={(e) => setJumlah(e.target.value)}
+                  onBlur={() => {
+                    if (parsed !== null) setJumlah(formatRupiah(parsed).replace("Rp ", ""));
+                  }}
+                  placeholder={`Maks ${formatRupiah(row.sisaKebutuhan)}`}
+                  disabled={busy}
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Estimasi Imbal Hasil Anda:{" "}
+                <span className="font-semibold tabular-nums text-emerald-700">
+                  {formatRupiah(estimasi)}
+                </span>{" "}
+                (proporsional porsi pokok)
+              </p>
+            </div>
+            {error !== null && (
+              <p
+                role="alert"
+                className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive"
+              >
+                {error}
+              </p>
+            )}
+            {waOtpStatus?.aktif && (
+              <div className="space-y-2 rounded-xl border border-slate-200 bg-slate-50 p-3">
+                <Label htmlFor={`kredit-alo-wa-${row.nomorReferensi}`}>
+                  Nomor WhatsApp verifikasi (62…)
+                </Label>
+                <Input
+                  id={`kredit-alo-wa-${row.nomorReferensi}`}
+                  inputMode="tel"
+                  value={waNomorPendana}
+                  onChange={(e) => setWaNomorPendana(e.target.value)}
+                  placeholder="628123456789"
+                  disabled={busy}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Proteksi transaksi aktif — kode OTP dikirim ke nomor ini sebelum alokasi diproses
+                  (5 menit, sekali pakai).
+                </p>
+              </div>
+            )}
+            <Button className="w-full" disabled={busy || parsed === null} onClick={alokasikan}>
+              {busy ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
+              Konfirmasi Alokasi
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {waNomorPendana !== "" && (
+        <WaOtpDialog
+          open={otpOpen}
+          onOpenChange={setOtpOpen}
+          tujuan={waNomorPendana.replace(/\D/g, "")}
+          alasan={`Alokasi Dana Kredit Barang ${row.nomorReferensi}`}
+          onVerified={() => void eksekusi(null)}
+        />
+      )}
+    </article>
+  );
+}
+
+/** Portofolio Alokasi Dana kredit barang milik Pendana. */
+function PortofolioKreditSection() {
+  const rows = useQuery(api.pendana.myKreditFundings);
+
+  return (
+    <section>
+      <h2 className="text-lg font-semibold tracking-tight">Portofolio Kredit Barang Saya</h2>
+      <p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">
+        Setiap Alokasi Dana Anda ke kredit barang, beserta hak Imbal Hasil dan status pencairannya
+        ke merchant mitra.
+      </p>
+
+      {rows === undefined ? (
+        <Loading />
+      ) : rows.length === 0 ? (
+        <div className="mt-4">
+          <EmptyState
+            icon={TrendingUp}
+            title="Belum ada alokasi kredit barang"
+            body="Alokasikan Dana pada peluang di atas — posisi Anda tampil di sini lengkap dengan status pengajuan dan hak Imbal Hasilnya."
+          />
+        </div>
+      ) : (
+        <ul className="mt-4 space-y-3">
+          {rows.map((f) => (
+            <li
+              key={f._id}
+              className="card-lift rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
+            >
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold">{f.namaBarang}</p>
+                  <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                    <span className="font-mono">{f.nomorReferensi}</span> →{" "}
+                    <span className="font-mono">{f.kreditRef}</span> · {f.merchant} · {f.kategori}
+                  </p>
+                </div>
+                {f.statusAlokasi === "selesai" ? (
+                  <Badge className="border-0 bg-emerald-100 text-emerald-700 hover:bg-emerald-100">
+                    Imbal Hasil Cair
+                  </Badge>
+                ) : f.statusAlokasi === "dibatalkan" ? (
+                  <Badge variant="destructive">Dibatalkan</Badge>
+                ) : (
+                  <Badge className="border-0 bg-amber-100 text-amber-700 hover:bg-amber-100">
+                    Dalam Pendanaan
+                  </Badge>
+                )}
+              </div>
+
+              <dl className="mt-3 grid gap-x-8 gap-y-1.5 text-sm sm:grid-cols-2">
+                <div className="flex items-baseline justify-between gap-4">
+                  <dt className="text-muted-foreground">Dana dialokasikan</dt>
+                  <dd className="font-medium tabular-nums">{formatRupiah(f.jumlahAlokasi)}</dd>
+                </div>
+                <div className="flex items-baseline justify-between gap-4">
+                  <dt className="text-muted-foreground">Hak Imbal Hasil</dt>
+                  <dd className="font-medium tabular-nums text-emerald-700">
+                    {formatRupiah(f.imbalHasil)}
+                  </dd>
+                </div>
+                <div className="flex items-baseline justify-between gap-4">
+                  <dt className="text-muted-foreground">Total diterima saat lunas</dt>
+                  <dd className="font-medium tabular-nums">{formatRupiah(f.totalDiterima)}</dd>
+                </div>
+                <div className="flex items-baseline justify-between gap-4">
+                  <dt className="text-muted-foreground">Tenor &amp; cicilan</dt>
+                  <dd className="tabular-nums">
+                    {f.tenorBulan} bulan
+                    {f.cicilanPerBulan !== null ? ` · ${formatRupiah(f.cicilanPerBulan)}/bln` : ""}
+                  </dd>
+                </div>
+              </dl>
+
+              <p className="mt-3 rounded-xl bg-slate-50 px-3 py-2 text-xs leading-5 text-muted-foreground">
+                {f.statusKredit === "didanai"
+                  ? "Pendanaan penuh — pokok telah diteruskan ke merchant mitra. Cicilan Konsumen mengalir kembali ke dompet Anda begitu modul tagihan kredit barang diaktifkan (tahap berikutnya)."
+                  : f.statusKredit === "ditolak"
+                    ? "Pengajuan ditolak tim PINDAI — dana Anda dikembalikan ke dompet pada proses penutupan posisi."
+                    : "Menunggu pendanaan penuh dari Pendana lain; dana Anda terkunci pada posisi ini."}
+              </p>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
   );
 }

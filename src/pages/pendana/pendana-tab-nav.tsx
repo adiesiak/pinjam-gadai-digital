@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 /** Item navigasi tab: [nilai, label, ikon]. */
 const TABS: Array<[string, string, React.ReactNode]> = [
   ["marketplace", "Marketplace Pinjaman & Gadai", <Store key="i" className="size-4" />],
-  ["kredit", "Kredit Barang & Marketplace", <ShoppingBag key="i" className="size-4" />],
+  ["kredit", "Kredit Barang (Skema C)", <ShoppingBag key="i" className="size-4" />],
   ["portofolio", "Portofolio Pendanaan Saya", <Wallet key="i" className="size-4" />],
   ["kontrak", "E-Contract Pendanaan", <FileText key="i" className="size-4" />],
   ["dompet", "Dompet & Penarikan", <Coins key="i" className="size-4" />],

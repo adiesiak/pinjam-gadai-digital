@@ -647,6 +647,9 @@ export const verifyWaOtp = mutation({
         waOtpKode: undefined,
         waOtpKedaluwarsa: undefined,
         waOtpGagal: 0,
+        // Jendela 2 menit bagi mutation finansial untuk lanjut tanpa meminta
+        // kode lagi (sekali pakai — langsung dihabiskan mutation tersebut).
+        waOtpTerverifikasiSampai: Date.now() + 2 * 60 * 1000,
       });
     }
     await catatLogin(ctx, {
