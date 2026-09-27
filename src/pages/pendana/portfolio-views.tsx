@@ -52,7 +52,7 @@ export function PortfolioSection({ portfolio }: { portfolio: PortfolioRow[] | un
       {portfolio.map((f) => (
         <li
           key={f._id}
-          className={`rounded-2xl border bg-white p-5 shadow-sm ${
+          className={`card-lift rounded-2xl border bg-white p-5 shadow-sm ${
             f.statusPelunasan === "menunggak" ? "border-red-200" : "border-slate-200"
           }`}
         >

@@ -174,6 +174,7 @@ function ContractPreviewButton({ html }: { html: string }) {
     <Button
       size="sm"
       variant="outline"
+      className="rounded-full"
       onClick={() => {
         const w = window.open("", "_blank");
         if (!w) {
@@ -186,7 +187,7 @@ function ContractPreviewButton({ html }: { html: string }) {
         w.document.close();
       }}
     >
-      <FileText className="mr-1.5 size-3.5" /> Lihat
+      <FileText className="mr-1.5 size-4" /> Lihat
     </Button>
   );
 }

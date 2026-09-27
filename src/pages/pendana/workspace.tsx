@@ -70,7 +70,7 @@ export function PendanaWorkspace({
             <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-primary">
               Ruang Pendana
             </p>
-            <h1 className="text-2xl font-bold tracking-tight">Dompet &amp; Alokasi Pendanaan</h1>
+            <h1 className="text-2xl font-semibold tracking-tight">Dompet &amp; Alokasi Pendanaan</h1>
           </div>
 
           {/* ===== Ringkasan keuangan ===== */}
@@ -79,7 +79,7 @@ export function PendanaWorkspace({
               <div className="flex items-start justify-between">
                 <div>
                   <p className="text-xs text-muted-foreground">Total Saldo Dompet</p>
-                  <p className="mt-2 text-2xl font-bold tabular-nums text-primary">
+                  <p className="mt-2 text-2xl font-semibold tabular-nums text-primary">
                     {formatRupiah(wallet?.saldo ?? 0)}
                   </p>
                 </div>
@@ -93,7 +93,7 @@ export function PendanaWorkspace({
               <div className="flex items-start justify-between">
                 <div>
                   <p className="text-xs text-muted-foreground">Total Dana Dialokasikan</p>
-                  <p className="mt-2 text-2xl font-bold tabular-nums">
+                  <p className="mt-2 text-2xl font-semibold tabular-nums">
                     {formatRupiah(wallet?.danaBekerja ?? 0)}
                   </p>
                 </div>
@@ -106,8 +106,8 @@ export function PendanaWorkspace({
             <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
               <div className="flex items-start justify-between">
                 <div>
-                  <p className="text-xs text-muted-foreground">Estimasi Imbal Hasil Bunga</p>
-                  <p className="mt-2 text-2xl font-bold tabular-nums text-emerald-600">
+                  <p className="text-xs text-muted-foreground">Estimasi Imbal Hasil</p>
+                  <p className="mt-2 text-2xl font-semibold tabular-nums text-emerald-600">
                     {formatRupiah(wallet?.imbalHasilDiharapkan ?? 0)}
                   </p>
                 </div>

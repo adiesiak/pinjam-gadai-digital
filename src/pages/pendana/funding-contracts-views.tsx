@@ -1,5 +1,5 @@
 import { useQuery } from "convex/react";
-import { FileText, Loader2 } from "lucide-react";
+import { FileText } from "lucide-react";
 import { toast } from "sonner";
 
 import { ContractPrintButton } from "@/components/EContract";
@@ -9,7 +9,7 @@ import { judulContract, nomorContract } from "@/lib/contract";
 import { loanPurposeLabel } from "@/lib/loan";
 import { formatRupiah } from "@/lib/money";
 
-import { EmptyState } from "./feedback";
+import { EmptyState, Loading } from "./feedback";
 import { formatDate } from "./shared";
 
 /** Tab 3 — E-Contract Pendanaan. */
@@ -17,11 +17,7 @@ export function FundingContractsSection() {
   const contracts = useQuery(api.pendana.myFundingContracts);
 
   if (contracts === undefined) {
-    return (
-      <div className="flex items-center justify-center py-10 text-sm text-muted-foreground">
-        <Loader2 className="mr-2 size-4 animate-spin" /> Memuat dokumen…
-      </div>
-    );
+    return <Loading />;
   }
   if (contracts.length === 0) {
     return (
@@ -125,6 +121,7 @@ function ContractPreviewButton({ html }: { html: string }) {
     <Button
       size="sm"
       variant="outline"
+      className="rounded-full"
       onClick={() => {
         const w = window.open("", "_blank");
         if (!w) {
@@ -137,7 +134,7 @@ function ContractPreviewButton({ html }: { html: string }) {
         w.document.close();
       }}
     >
-      <FileText className="mr-1.5 size-3.5" /> Lihat E-Contract
+      <FileText className="mr-1.5 size-4" /> Lihat E-Contract
     </Button>
   );
 }

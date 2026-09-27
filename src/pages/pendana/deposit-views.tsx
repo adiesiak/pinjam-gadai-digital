@@ -103,7 +103,10 @@ export function DepositForm() {
         />
       </div>
       {error && (
-        <p className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+        <p
+          role="alert"
+          className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive"
+        >
           {error}
         </p>
       )}
@@ -144,7 +147,7 @@ export function DepositSimDialog({ open, onClose }: { open: boolean; onClose: ()
           <TabsContent value="va" className="mt-4">
             <div className="rounded-2xl border border-slate-200 p-4 text-center">
               <p className="text-xs text-muted-foreground">Nomor Virtual Account (simulasi)</p>
-              <p className="mt-1 font-mono text-lg font-bold tracking-wider">880801000000000</p>
+              <p className="mt-1 font-mono text-lg font-semibold tracking-wider">880801000000000</p>
               <Button
                 size="sm"
                 variant="outline"
