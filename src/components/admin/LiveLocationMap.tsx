@@ -198,7 +198,6 @@ export function LiveLocationMap() {
       </div>
       <div
         className="relative h-[420px] min-h-[420px] overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 shadow-sm"
-        style={{ height: 420, minHeight: 420 }}
       >
         <div
           ref={containerRef}

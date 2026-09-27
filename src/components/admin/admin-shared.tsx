@@ -131,17 +131,17 @@ export function SecurityBar({ seimbang, killSwitch }: { seimbang: boolean; killS
         {[0, 1].map((dup) => (
           <div key={dup} className="flex items-center gap-8 pr-8" aria-hidden={dup === 1}>
             <span className="flex items-center gap-1.5">
-              <ShieldCheck className="size-3.5 text-emerald-600" /> SSL Active
+              <ShieldCheck className="size-3.5 text-emerald-600" /> SSL Aktif
             </span>
             <span className="flex items-center gap-1.5">
               {seimbang ? (
-                <><Lock className="size-3.5 text-emerald-600" /> Ledger Balanced</>
+                <><Lock className="size-3.5 text-emerald-600" /> Ledger Seimbang</>
               ) : (
                 <><ShieldAlert className="size-3.5 animate-pulse text-amber-600" /> Ledger menunggu transaksi</>
               )}
             </span>
             <span className="flex items-center gap-1.5">
-              <Database className="size-3.5 text-sky-600" /> Backup Ready
+              <Database className="size-3.5 text-sky-600" /> Backup Siap
             </span>
             <span className="text-muted-foreground">
               Pengumuman sistem: semua aksi admin tercatat di audit trail.

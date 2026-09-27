@@ -51,7 +51,7 @@ export function SystemConfigPanel() {
             <Input id="cfg-ltv" type="number" min={1} max={100} value={form.maxLtvPersen} onChange={(e) => upd("maxLtvPersen", Math.min(100, Math.max(1, Number(e.target.value) || 1)))} className="tabular-nums" />
           </div>
           <div>
-            <Label htmlFor="cfg-session">Session timeout (menit, 0 = off)</Label>
+            <Label htmlFor="cfg-session">Batas waktu sesi (menit, 0 = nonaktif)</Label>
             <Input id="cfg-session" type="number" min={0} value={form.sessionTimeoutMenit} onChange={(e) => upd("sessionTimeoutMenit", Math.max(0, Number(e.target.value) || 0))} className="tabular-nums" />
           </div>
           <div>
@@ -65,7 +65,7 @@ export function SystemConfigPanel() {
         </div>
         <div className="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
           <div>
-            <p className="text-sm font-medium">Maintenance Mode</p>
+            <p className="text-sm font-medium">Mode perawatan</p>
             <p className="mt-0.5 text-xs text-muted-foreground">Situs menampilkan pengumuman perawatan untuk nasabah.</p>
           </div>
           <Switch checked={form.maintenanceMode} onCheckedChange={(v) => upd("maintenanceMode", v)} />
@@ -77,7 +77,14 @@ export function SystemConfigPanel() {
           </div>
           <Switch checked={form.killSwitch} onCheckedChange={(v) => upd("killSwitch", v)} />
         </div>
-        {error && <p className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">{error}</p>}
+        {error && (
+          <p
+            role="alert"
+            className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive"
+          >
+            {error}
+          </p>
+        )}
         <Button
           disabled={busy}
           onClick={async () => {

@@ -50,7 +50,7 @@ export function LoginSecurityPanel({ onOpenSetup }: { onOpenSetup: () => void })
       <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h3 className="text-sm font-semibold">Two-Factor Authentication (TOTP)</h3>
+            <h3 className="text-sm font-semibold">Autentikasi dua faktor (TOTP)</h3>
             <p className="mt-1 text-xs leading-5 text-muted-foreground">
               Wajib untuk Super Admin — kode 6 digit dari Google Authenticator/Authy
               diminta setiap sesi browser baru sebelum panel terbuka.
@@ -70,7 +70,7 @@ export function LoginSecurityPanel({ onOpenSetup }: { onOpenSetup: () => void })
 
       {/* Sesi aktif */}
       <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-        <h3 className="text-sm font-semibold">Sesi aktif (single active session)</h3>
+        <h3 className="text-sm font-semibold">Sesi aktif (satu sesi per akun)</h3>
         <p className="mt-1 text-xs leading-5 text-muted-foreground">
           Login di perangkat baru otomatis menggugurkan sesi lama. Admin dengan 2FA
           wajib lolos verifikasi TOTP untuk mengaktifkan sesi.

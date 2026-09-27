@@ -142,7 +142,12 @@ export function WhatsAppPanel() {
           <Switch checked={aktif} onCheckedChange={setAktif} />
         </div>
         {error && (
-          <p className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">{error}</p>
+          <p
+            role="alert"
+            className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive"
+          >
+            {error}
+          </p>
         )}
         <Button disabled={busy !== null} onClick={simpan}>
           {busy === "save" ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}

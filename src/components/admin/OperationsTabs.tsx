@@ -152,10 +152,10 @@ export function LedgerTab() {
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {([
-          ["Total Debit", formatRupiah(summary.totalDebit)],
-          ["Total Kredit", formatRupiah(summary.totalKredit)],
-          ["Jumlah Entri", `${summary.entryCount}`],
-          ["Status", summary.seimbang ? "SEIMBANG" : "TIDAK SEIMBANG"],
+          ["Total debit", formatRupiah(summary.totalDebit)],
+          ["Total kredit", formatRupiah(summary.totalKredit)],
+          ["Jumlah entri", `${summary.entryCount}`],
+          ["Status", summary.seimbang ? "Seimbang" : "Tidak seimbang"],
         ] as const).map(([label, value]) => (
           <div key={label} className="rounded-2xl border border-slate-200 bg-white px-4 py-3">
             <p className="text-xs text-muted-foreground">{label}</p>

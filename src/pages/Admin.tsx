@@ -118,7 +118,7 @@ export default function Admin() {
       await setKill({ aktif: next });
       toast.warning(
         next
-          ? "EMERGENCY KILL SWITCH DIAKTIFKAN — semua pengajuan diblokir."
+          ? "KILL SWITCH DARURAT DIAKTIFKAN — semua pengajuan diblokir."
           : "Kill switch dinonaktifkan — sistem normal.",
       );
       setKillConfirm(false);

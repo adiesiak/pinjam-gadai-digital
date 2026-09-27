@@ -24,7 +24,7 @@ export function LoanQueueSection({
     return <EmptyQueue icon={ClipboardList} title="Belum ada pengajuan pinjaman" />;
   }
   return (
-    <ul className="divide-y divide-sky-100 rounded-2xl border border-slate-200 bg-white">
+    <ul className="divide-y divide-slate-200 rounded-2xl border border-slate-200 bg-white">
       {loans.map((l) => (
         <li key={l._id}>
           <QueueRow
@@ -54,7 +54,7 @@ export function PawnQueueSection({
       {pawns.length === 0 ? (
         <EmptyQueue icon={Package} title="Belum ada pengajuan gadai" />
       ) : (
-        <ul className="divide-y divide-sky-100 rounded-2xl border border-slate-200 bg-white">
+        <ul className="divide-y divide-slate-200 rounded-2xl border border-slate-200 bg-white">
           {pawns.map((p) => (
             <li key={p._id}>
               <QueueRow

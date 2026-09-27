@@ -45,7 +45,7 @@ export function BackupPanel() {
         .join("\n");
       unduhFile(`pindai-ledger-${new Date().toISOString().slice(0, 10)}.csv`, `${head}\n${baris}`, "text/csv");
       await catat({ jenis: "ledger-csv" });
-      toast.success("Export CSV ledger terunduh.");
+      toast.success("Ekspor CSV ledger terunduh.");
     } finally {
       setBusy(null);
     }
@@ -76,20 +76,20 @@ export function BackupPanel() {
     <div className="grid gap-5 lg:grid-cols-2">
       <div className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5">
         <p className="flex items-center gap-2 text-sm font-semibold text-navy">
-          <Database className="size-4 text-primary" /> Backup Data 1-Click
+          <Database className="size-4 text-primary" /> Backup data sekali klik
         </p>
         <div className="space-y-2">
           <Button variant="outline" className="w-full justify-start" disabled={busy !== null || !snapshot} onClick={unduhJson}>
             {busy === "json" ? <Loader2 className="mr-2 size-4 animate-spin" /> : <FileDown className="mr-2 size-4 text-primary" />}
-            Download Database Snapshot (.JSON)
+            Unduh snapshot database (.JSON)
           </Button>
           <Button variant="outline" className="w-full justify-start" disabled={busy !== null || !ledgerRows} onClick={unduhCsv}>
             {busy === "csv" ? <Loader2 className="mr-2 size-4 animate-spin" /> : <FileDown className="mr-2 size-4 text-emerald-600" />}
-            Export Ledger & Mutasi (.CSV)
+            Ekspor ledger & mutasi (.CSV)
           </Button>
           <Button variant="outline" className="w-full justify-start" disabled={busy !== null || !auditData} onClick={unduhAuditPdf}>
             {busy === "pdf" ? <Loader2 className="mr-2 size-4 animate-spin" /> : <FileDown className="mr-2 size-4 text-amber-600" />}
-            Export Audit Log (.PDF)
+            Ekspor audit log (.PDF)
           </Button>
         </div>
         <p className="text-xs leading-5 text-muted-foreground">
@@ -101,17 +101,17 @@ export function BackupPanel() {
           <Lock className="size-4 text-emerald-600" /> Proteksi Data
         </p>
         <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
-          <p className="text-sm font-medium">Auto-Watermark KTP</p>
+          <p className="text-sm font-medium">Watermark otomatis KTP</p>
           <p className="mt-1 text-xs leading-5 text-muted-foreground">
             Setiap dokumen KYC yang dibuka reviewer diberi overlay transparan VERIFIKASI PINDAI — mencegah penyalahgunaan foto identitas.
           </p>
         </div>
         <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
-          <p className="text-sm font-medium">Session Timeout Admin</p>
-          <p className="mt-1 text-xs leading-5 text-muted-foreground">Logout otomatis saat admin pasif diatur di tab Pengaturan System (default 30 menit).</p>
+          <p className="text-sm font-medium">Batas waktu sesi admin</p>
+          <p className="mt-1 text-xs leading-5 text-muted-foreground">Logout otomatis saat admin pasif diatur di tab Pengaturan Sistem (default 30 menit).</p>
         </div>
         <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
-          <p className="text-sm font-medium">Backup Ready</p>
+          <p className="text-sm font-medium">Backup siap</p>
           <p className="mt-1 text-xs leading-5 text-emerald-700">
             Snapshot siap: {snapshot ? `${snapshot.jumlah.loans} pinjaman, ${snapshot.jumlah.pawns} gadai` : "—"} · database dapat dipulihkan dari file JSON.
           </p>

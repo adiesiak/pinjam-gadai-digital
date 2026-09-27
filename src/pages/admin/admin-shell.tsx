@@ -104,7 +104,7 @@ export function AdminHeader({
             <p className="truncate text-[11px] text-muted-foreground">PINDAI · Pinjam & Gadai Digital</p>
           </div>
           <Badge className="hidden bg-emerald-100 text-emerald-800 hover:bg-emerald-100 sm:inline-flex">
-            <ShieldCheck className="mr-1 size-3.5" /> Super Admin (Full Access)
+            <ShieldCheck className="mr-1 size-3.5" /> Super Admin (akses penuh)
           </Badge>
         </div>
         <div className="flex items-center gap-2">
@@ -127,7 +127,7 @@ export function AdminHeader({
               ? "Matikan Kill Switch"
               : killConfirm
                 ? "Klik lagi untuk konfirmasi!"
-                : "Emergency Kill Switch"}
+                : "Kill Switch Darurat"}
           </Button>
           <Link
             to="/dashboard"
@@ -154,7 +154,7 @@ export function AdminStats({ stats }: { stats: AdminStatsData }) {
         ["Antrean Pencairan", `${stats.antreanPencairan}`, "sky"],
         ["Wanprestasi / DPD", `${stats.pinjamanTerlambat}`, "red"],
         ["Taksiran Disetujui", formatRupiah(stats.nilaiTaksiranDisetujui), "mint"],
-        ["GPS Mismatch Alert", `${stats.gpsMismatch}`, stats.gpsMismatch > 0 ? "red" : "mint"],
+        ["Peringatan GPS Mismatch", `${stats.gpsMismatch}`, stats.gpsMismatch > 0 ? "red" : "mint"],
       ].map(([label, value, tone]) => (
         <div
           key={label as string}

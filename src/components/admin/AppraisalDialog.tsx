@@ -94,7 +94,7 @@ export function AppraisalDialog({
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Appraisal gadai</DialogTitle>
+          <DialogTitle>Penaksiran gadai</DialogTitle>
           <DialogDescription className="leading-relaxed">
             {pawn.deskripsiBarang}
           </DialogDescription>
@@ -173,7 +173,10 @@ export function AppraisalDialog({
         </div>
 
         {error && (
-          <p className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+          <p
+            role="alert"
+            className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive"
+          >
             {error}
           </p>
         )}

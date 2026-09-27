@@ -69,15 +69,14 @@ export function SetoranSection({
   const [wdReason, setWdReason] = useState("");
 
   return (
-    <>
-      {pendingDeposits === undefined ? (
+    <>        {pendingDeposits === undefined ? (
         <div className="flex items-center gap-2 py-8 text-sm text-muted-foreground">
           <Loader2 className="size-4 animate-spin" /> Memuat…
         </div>
       ) : pendingDeposits.length === 0 ? (
         <EmptyQueue icon={Wallet} title="Tidak ada setoran menunggu verifikasi" />
       ) : (
-        <ul className="divide-y divide-sky-100 rounded-2xl border border-slate-200 bg-white">
+        <ul className="divide-y divide-slate-200 rounded-2xl border border-slate-200 bg-white">
           {pendingDeposits.map((d) => (
             <li key={d._id} className="flex items-center justify-between gap-4 px-5 py-4">
               <div className="min-w-0">
@@ -125,7 +124,7 @@ export function SetoranSection({
       ) : pendingWd.length === 0 ? (
         <EmptyQueue icon={Wallet} title="Tidak ada penarikan menunggu diproses" />
       ) : (
-        <ul className="divide-y divide-sky-100 rounded-2xl border border-slate-200 bg-white">
+        <ul className="divide-y divide-slate-200 rounded-2xl border border-slate-200 bg-white">
           {pendingWd.map((w) => (
             <li key={w._id} className="flex items-center justify-between gap-4 px-5 py-4">
               <div className="min-w-0">
