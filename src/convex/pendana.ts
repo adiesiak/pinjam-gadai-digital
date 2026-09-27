@@ -393,7 +393,13 @@ export const allocateFunding = mutation({
       });
 
       // Potong porsi imbal hasil ke masing-masing Pendana sesuai alokasi.
-      for (const f of fundings.filter((x) => x.status === "dialokasikan")) {
+      // Baca ulang alokasi dari DB — snapshot lama tidak memuat baris yang
+      // baru di-insert mutation ini (bug yang sama dengan kredit barang).
+      const fundingsTerbaru = await ctx.db
+        .query("fundings")
+        .withIndex("by_loan", (q) => q.eq("loanId", loan._id))
+        .collect();
+      for (const f of fundingsTerbaru.filter((x) => x.status === "dialokasikan")) {
         await ctx.db.patch(f._id, { imbalHasil: Math.floor((quote.bunga * f.jumlahAlokasi) / loan.pokokPinjaman) });
       }
 
@@ -914,7 +920,14 @@ export const alokasiKreditBarang = mutation({
       // Selaraskan hak Imbal Hasil dengan engine: Σ hak = total Imbal Hasil
       // dan alokasi terbesar menyerap pembulatan — tepat seperti yang
       // diterima setiap bulan lewat bagiCicilanKePendana.
-      const aktif = fundings
+      // PENTING: baca ulang alokasi dari DB — snapshot `fundings` di atas
+      // belum memuat baris yang baru di-insert mutation ini; memakai snapshot
+      // membuat Σ hak < total Imbal Hasil dan alokasi terakhir selalu gagal.
+      const fundingsTerbaru = await ctx.db
+        .query("kreditFundings")
+        .withIndex("by_kredit", (q) => q.eq("kreditId", args.kreditId))
+        .collect();
+      const aktif = fundingsTerbaru
         .filter((x) => x.status === "dialokasikan")
         .sort(
           (a, b) =>

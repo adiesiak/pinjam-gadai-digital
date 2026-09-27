@@ -294,6 +294,9 @@ export const bayarCicilanKredit = mutation({
     const kredit = await ctx.db.get(args.kreditId);
     if (kredit === null) throw new Error("Pengajuan kredit barang tidak ditemukan.");
     if (kredit.userId !== userId) throw new Error("Bukan pengajuan kredit barang Anda.");
+    if (kredit.status === "lunas") {
+      throw new Error("Seluruh cicilan pengajuan ini sudah lunas.");
+    }
     if (kredit.status !== "didanai") {
       throw new Error(
         "Cicilan dapat dibayar setelah pendanaan penuh (status Didanai).",
