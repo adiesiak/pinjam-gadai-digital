@@ -47,7 +47,7 @@ export function TotpGate({ onVerified }: { onVerified: () => void }) {
       <div className="w-full max-w-sm rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
         <div className="mb-4 flex items-center gap-3">
           <div className="flex size-11 items-center justify-center rounded-2xl bg-sky-100 text-sky-700">
-            <Lock className="size-5" strokeWidth={2} />
+            <Lock className="size-5" />
           </div>
           <div>
             <h1 className="text-lg font-semibold text-slate-900">Verifikasi 2FA</h1>

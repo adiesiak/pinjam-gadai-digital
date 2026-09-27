@@ -99,7 +99,7 @@ export function SetoranSection({
                     }
                   }}
                 >
-                  <BadgeCheck className="mr-1 size-3.5" />
+                  <BadgeCheck className="mr-1 size-4" />
                   Verifikasi
                 </Button>
                 <Button
@@ -147,7 +147,7 @@ export function SetoranSection({
                     }
                   }}
                 >
-                  <BadgeCheck className="mr-1 size-3.5" />
+                  <BadgeCheck className="mr-1 size-4" />
                   Proses
                 </Button>
                 <Button

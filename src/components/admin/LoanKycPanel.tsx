@@ -109,7 +109,7 @@ export function LoanKycPanel({ row }: { row: LoanRow }) {
                 disabled={waBusy}
                 onClick={kirim}
               >
-                {waBusy ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Send className="mr-2 size-3.5" />}
+                {waBusy ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Send className="mr-2 size-4" />}
                 Kirim pengingat WhatsApp
               </Button>
               <a
@@ -120,7 +120,7 @@ export function LoanKycPanel({ row }: { row: LoanRow }) {
                 rel="noreferrer"
                 className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500 px-3 py-1.5 text-xs font-semibold text-white transition-transform hover:-translate-y-0.5 hover:bg-emerald-600"
               >
-                <Send className="size-3.5" /> Kirim Tagihan WA
+                <Send className="size-4" /> Kirim Tagihan WA
               </a>
             </div>
           )}

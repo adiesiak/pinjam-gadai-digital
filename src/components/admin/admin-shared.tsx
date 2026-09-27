@@ -3,6 +3,16 @@ import type { ComponentType, ReactNode } from "react";
 
 import { Id } from "@/convex/_generated/dataModel";
 
+/**
+ * Tipe & komponen bersama panel admin.
+ *
+ * Skala ikon panel admin — jaga agar tetap seragam:
+ * - `size-3.5` → inline di dalam teks, badge, marquee keamanan, item navigasi tab
+ * - `size-4`   → di dalam tombol/tautan aksi dan spinner baris "Memuat…"
+ * - `size-5`   → header kartu, empty state, dan layar gerbang (gate)
+ * Ketebalan mengikuti bawaan lucide (2) — jangan menambahkan `strokeWidth`.
+ */
+
 export type LoanRow = {
   _id: Id<"loans">;
   _creationTime: number;

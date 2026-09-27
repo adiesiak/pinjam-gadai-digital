@@ -58,11 +58,11 @@ export function LoginSecurityPanel({ onOpenSetup }: { onOpenSetup: () => void })
           </div>
           {totpStatus?.aktif ? (
             <Badge className="border-0 bg-emerald-100 text-emerald-700 hover:bg-emerald-100">
-              <ShieldCheck className="mr-1 size-3" /> 2FA Aktif
+              <ShieldCheck className="mr-1 size-3.5" /> 2FA Aktif
             </Badge>
           ) : (
             <Button size="sm" onClick={onOpenSetup}>
-              <ShieldCheck className="mr-1.5 size-3.5" /> Aktifkan 2FA
+              <ShieldCheck className="mr-1.5 size-4" /> Aktifkan 2FA
             </Button>
           )}
         </div>

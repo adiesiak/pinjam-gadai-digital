@@ -209,7 +209,7 @@ export function LiveLocationMap() {
         {data === undefined && (
           <div className="pointer-events-none absolute inset-x-0 top-3 z-10 flex justify-center">
             <span className="inline-flex items-center gap-2 rounded-full bg-white/90 px-3 py-1 text-xs text-muted-foreground shadow-sm">
-              <Loader2 className="size-3.5 animate-spin" /> Memuat titik lokasi…
+              <Loader2 className="size-4 animate-spin" /> Memuat titik lokasi…
             </span>
           </div>
         )}

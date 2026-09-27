@@ -34,7 +34,7 @@ export function WatermarkedDoc({ src, label }: { src: string; label?: string }) 
             {label}
           </div>
           <div className="absolute bottom-2 right-2 flex items-center gap-1 rounded-md bg-white/70 px-1.5 py-0.5 text-[9px] font-medium text-emerald-700">
-            <ShieldCheck className="size-3" /> TERPROTEKSI
+            <ShieldCheck className="size-3.5" /> TERPROTEKSI
           </div>
           <div className="absolute inset-0 opacity-[0.06]" aria-hidden>
             <svg width="100%" height="100%">

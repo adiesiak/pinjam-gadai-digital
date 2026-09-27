@@ -26,7 +26,7 @@ export function ContractPrintButton({
   };
   return (
     <Button size="sm" variant="outline" className="rounded-full" onClick={cetak}>
-      <FileDown className="mr-1.5 size-3.5" />
+      <FileDown className="mr-1.5 size-4" />
       {label}
     </Button>
   );

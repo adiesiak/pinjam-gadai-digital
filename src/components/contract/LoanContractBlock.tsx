@@ -157,7 +157,7 @@ export function LoanContractBlock({ loanId }: { loanId: Id<"loans"> }) {
             disabled={busy}
             onClick={simpanTtd}
           >
-            {busy ? <Loader2 className="mr-1.5 size-3.5 animate-spin" /> : null}
+            {busy ? <Loader2 className="mr-1.5 size-4 animate-spin" /> : null}
             Simpan tanda tangan
           </Button>
         </div>

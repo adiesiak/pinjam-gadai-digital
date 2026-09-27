@@ -104,7 +104,7 @@ export function AdminHeader({
             <p className="truncate text-[11px] text-muted-foreground">PINDAI · Pinjam & Gadai Digital</p>
           </div>
           <Badge className="hidden bg-emerald-100 text-emerald-800 hover:bg-emerald-100 sm:inline-flex">
-            <ShieldCheck className="mr-1 size-3" /> Super Admin (Full Access)
+            <ShieldCheck className="mr-1 size-3.5" /> Super Admin (Full Access)
           </Badge>
         </div>
         <div className="flex items-center gap-2">
