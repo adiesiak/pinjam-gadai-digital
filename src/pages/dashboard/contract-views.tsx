@@ -149,8 +149,8 @@ function LoanContractCard({
           <p className="text-sm font-semibold">{judulContract("pinjaman")}</p>
           <p className="mt-0.5 truncate text-xs text-muted-foreground">
             <span className="font-mono">{nomorContract("pinjaman", c.nomorReferensi)}</span> ·
-            pokok {formatRupiah(c.pokokPinjaman)} · net {formatRupiah(q.danaBersihDitransfer)} (95%)
-            · total {formatRupiah(q.totalKewajibanPelunasan)} (130%)
+            pokok {formatRupiah(c.pokokPinjaman)} · dana bersih {formatRupiah(q.danaBersihDitransfer)}{" "}
+            (95%) · total pelunasan {formatRupiah(q.totalKewajibanPelunasan)} (130%)
           </p>
           <p className="mt-0.5 text-xs text-muted-foreground">
             {c.lokasiAjukan

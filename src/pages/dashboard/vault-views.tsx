@@ -217,7 +217,6 @@ function VaultMapCard() {
       </div>
       <div
         className="relative mt-4 h-[260px] min-h-[260px] overflow-hidden rounded-2xl border border-slate-200 bg-slate-100"
-        style={{ height: 260, minHeight: 260 }}
       >
         <div
           ref={containerRef}

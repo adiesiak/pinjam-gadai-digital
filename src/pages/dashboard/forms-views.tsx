@@ -233,7 +233,7 @@ export function LoanForm({ onCreated }: { onCreated: (ref: string) => void }) {
       <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
         <div className="flex items-baseline justify-between">
           <Label>Nominal pinjaman</Label>
-          <span className="text-lg font-bold tabular-nums text-primary">{formatRupiah(pokok)}</span>
+          <span className="text-lg font-semibold tabular-nums text-primary">{formatRupiah(pokok)}</span>
         </div>
         <Slider
           className="mt-4"
@@ -261,7 +261,7 @@ export function LoanForm({ onCreated }: { onCreated: (ref: string) => void }) {
           ))}
           <div className="flex items-baseline justify-between bg-emerald-50 px-3 py-2.5 text-sm">
             <dt className="font-semibold text-emerald-800">Dana Bersih (95%)</dt>
-            <dd className="font-bold tabular-nums text-emerald-700">{formatRupiah(q.danaBersihDitransfer)}</dd>
+            <dd className="font-semibold tabular-nums text-emerald-700">{formatRupiah(q.danaBersihDitransfer)}</dd>
           </div>
           <div className="flex items-baseline justify-between bg-white px-3 py-2 text-sm">
             <dt className="text-muted-foreground">Bunga (30%)</dt>
@@ -269,7 +269,7 @@ export function LoanForm({ onCreated }: { onCreated: (ref: string) => void }) {
           </div>
           <div className="flex items-baseline justify-between bg-slate-50 px-3 py-2.5 text-sm">
             <dt className="font-semibold">Total Kewajiban (130%)</dt>
-            <dd className="font-bold tabular-nums">{formatRupiah(q.totalKewajibanPelunasan)}</dd>
+            <dd className="font-semibold tabular-nums">{formatRupiah(q.totalKewajibanPelunasan)}</dd>
           </div>
         </dl>
       </div>
@@ -427,7 +427,10 @@ export function LoanForm({ onCreated }: { onCreated: (ref: string) => void }) {
       </div>
 
       {error && (
-        <p className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+        <p
+          role="alert"
+          className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive"
+        >
           {error}
         </p>
       )}
@@ -560,7 +563,10 @@ export function PawnForm({ onCreated }: { onCreated: () => void }) {
         <Textarea id="catatan-gadai" value={catatanPeminjam} onChange={(e) => setCatatanPeminjam(e.target.value)} placeholder="Kondisi barang, kelengkapan, atau jadwal yang sesuai…" rows={2} disabled={submitting} />
       </div>
       {error && (
-        <p className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+        <p
+          role="alert"
+          className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive"
+        >
           {error}
         </p>
       )}

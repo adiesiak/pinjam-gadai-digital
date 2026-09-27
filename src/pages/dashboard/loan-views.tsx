@@ -21,22 +21,22 @@ import { formatRupiah } from "@/lib/money";
 import { EmptyState } from "./empty-state";
 import { formatDate, type LoanScheduleRow } from "./shared";
 
-/** Status pill (LUNAS / MENUNGGU / OVERDUE) sesuai semantik warna. */
+/** Status pill (Lunas / Menunggu / Terlambat) sesuai semantik warna. */
 function ScheduleBadge({ state }: { state: "lunas" | "menunggu" | "overdue" }) {
   if (state === "lunas") {
     return (
       <Badge className="border-0 bg-emerald-100 text-emerald-700 hover:bg-emerald-100">
-        LUNAS
+        Lunas
       </Badge>
     );
   }
   if (state === "overdue") {
     return (
-      <Badge className="border-0 bg-red-100 text-red-700 hover:bg-red-100">OVERDUE</Badge>
+      <Badge className="border-0 bg-red-100 text-red-700 hover:bg-red-100">Terlambat</Badge>
     );
   }
   return (
-    <Badge className="border-0 bg-amber-100 text-amber-700 hover:bg-amber-100">MENUNGGU</Badge>
+    <Badge className="border-0 bg-amber-100 text-amber-700 hover:bg-amber-100">Menunggu</Badge>
   );
 }
 
@@ -118,11 +118,11 @@ function ActiveLoanCard({
         <div className="flex items-center gap-2">
           {terlambat ? (
             <Badge className="border-0 bg-red-100 text-red-700 hover:bg-red-100">
-              JATUH TEMPO
+              Terlambat
             </Badge>
           ) : (
             <Badge className="border-0 bg-emerald-100 text-emerald-700 hover:bg-emerald-100">
-              AKTIF
+              Aktif
             </Badge>
           )}
           <Button size="sm" variant="ghost" className="rounded-full" onClick={() => onOpenDetail(loan._id)}>
@@ -133,9 +133,9 @@ function ActiveLoanCard({
 
       <dl className="mt-5 divide-y divide-slate-200 overflow-hidden rounded-2xl border border-slate-200">
         {[
-          ["Pokok Pengajuan", formatRupiah(q.pokok), ""],
-          ["Biaya Admin (3%)", `- ${formatRupiah(q.biayaAdmin)}`, "text-muted-foreground"],
-          ["Biaya Platform (2%)", `- ${formatRupiah(q.biayaPlatform)}`, "text-muted-foreground"],
+          ["Pokok pengajuan", formatRupiah(q.pokok), ""],
+          ["Biaya admin (3%)", `- ${formatRupiah(q.biayaAdmin)}`, "text-muted-foreground"],
+          ["Biaya platform (2%)", `- ${formatRupiah(q.biayaPlatform)}`, "text-muted-foreground"],
         ].map(([label, value, extra]) => (
           <div key={label} className="flex items-baseline justify-between gap-4 bg-white px-4 py-2.5">
             <dt className="text-sm text-muted-foreground">{label}</dt>

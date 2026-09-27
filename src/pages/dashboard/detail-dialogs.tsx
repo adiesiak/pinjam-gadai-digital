@@ -82,15 +82,15 @@ export function LoanDetailDialog({
               {[
                 ["Keperluan", loanPurposeLabel(loan.tujuan)],
                 ["Pokok pinjaman", formatRupiah(loan.quote.pokok)],
-                ["Biaya Admin (3%)", formatRupiah(loan.quote.biayaAdmin)],
-                ["Biaya Platform (2%)", formatRupiah(loan.quote.biayaPlatform)],
+                ["Biaya admin (3%)", formatRupiah(loan.quote.biayaAdmin)],
+                ["Biaya platform (2%)", formatRupiah(loan.quote.biayaPlatform)],
                 ["Dana bersih diterima", formatRupiah(loan.quote.danaBersihDitransfer)],
                 ["Bunga (30%)", formatRupiah(loan.quote.bunga)],
                 ["Total kewajiban pelunasan", formatRupiah(loan.quote.totalKewajibanPelunasan)],
               ].map(([label, value], index) => (
                 <div key={label} className="flex items-baseline justify-between gap-4 px-4 py-3">
                   <dt className="text-sm text-muted-foreground">{label}</dt>
-                  <dd className={`text-sm tabular-nums ${index === 2 || index === 6 ? "font-semibold" : ""}`}>
+                  <dd className={`text-sm tabular-nums ${index === 4 || index === 6 ? "font-semibold" : ""}`}>
                     {value}
                   </dd>
                 </div>

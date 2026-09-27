@@ -92,7 +92,7 @@ export function GadaiBillingSection({
                 <p className="mt-0.5 text-xs text-muted-foreground">{p.nomorReferensi}</p>
               </div>
               <Badge className="border-0 bg-emerald-500 text-white hover:bg-emerald-500">
-                SIAP DIAMBIL
+                Siap diambil
               </Badge>
             </div>
             <p className="mt-3 text-sm leading-6 text-emerald-800">
@@ -171,7 +171,7 @@ function GadaiBillingCard({
           <p className="mt-0.5 text-xs text-muted-foreground">{pawn.nomorReferensi}</p>
         </div>
         <Badge className="border-0 bg-emerald-100 text-emerald-700 hover:bg-emerald-100">
-          DALAM BRANKAS
+          Dalam brankas
         </Badge>
       </div>
 
@@ -218,7 +218,7 @@ function GadaiBillingCard({
             </p>
           )}
           {cicilSim === null && cicil.trim() !== "" && (
-            <p className="mt-1.5 text-xs text-destructive">
+            <p role="alert" className="mt-1.5 text-xs text-destructive">
               Masukkan rupiah bulat, maksimal sisa pokok {formatRupiah(sisa)}.
             </p>
           )}

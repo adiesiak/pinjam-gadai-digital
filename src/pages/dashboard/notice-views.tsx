@@ -112,7 +112,7 @@ export function LocationConsentCard() {
     status === undefined
       ? "Memuat status pelacakan…"
       : status.aktif
-        ? "AKTIF — posisi Anda dikirim berkala selama persetujuan berlaku. Nonaktifkan kapan saja."
+        ? "Aktif — posisi Anda dikirim berkala selama persetujuan berlaku. Nonaktifkan kapan saja."
         : "Belum aktif. Aktifkan jika Anda bersedia membagikan posisi secara berkala (dapat dicabut kapan saja).";
 
   return (
