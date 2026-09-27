@@ -17,17 +17,16 @@ import {
 import {
   assertPokokPinjamanValid,
   calculateRepayment,
+  pelunasanPinjaman,
   quoteLoan,
   TENOR_OPTIONS,
-  LATE_FEE_POLICY,
-  MAX_LATE_DAYS,
 } from "../lib/loan";
 import {
   assertSimulasiBulananValid,
   hitungSimulasiBulanan,
   TENOR_BULANAN_OPTIONS,
 } from "../lib/bulanan";
-import { formatRupiah, type Rupiah, percentOf } from "../lib/money";
+import { formatRupiah, type Rupiah } from "../lib/money";
 import { COLLATERAL_CATEGORIES } from "../lib/pawn";
 import { appendJournal } from "./ledger";
 import { getConfig, audit } from "./system";
@@ -51,9 +50,8 @@ export const MAX_POKOK = 500_000_000;
  */
 export const DEFAULT_TENOR_HARI = 30;
 
-/** Satu hari & satu bulan (30 hari) dalam milidetik — jatuh tempo skema bulanan. */
+/** Satu hari (30 hari = satu bulan skema bulanan) dalam milidetik. */
 const DAY_MS = 86_400_000;
-const BULAN_MS = 30 * DAY_MS;
 
 function validateRupiahAmount(amount: Rupiah, label: string): void {
   if (!Number.isSafeInteger(amount) || amount <= 0) {
@@ -288,47 +286,10 @@ export const createLoanApplication = mutation({
 
 /**
  * Turunan pelunasan live untuk satu pinjaman didanai: jatuh tempo, sisa hari,
- * hari terlambat, denda, dan total kewajiban saat ini. Dipakai UI nasabah,
- * panel admin, dan pengingat — satu sumber kebenaran dari lib/loan.ts.
+ * hari terlambat, denda, dan total kewajiban saat ini — satu sumber kebenaran
+ * dari lib/loan.ts (skema harian 130% dan skema bulanan).
  */
-function pelunasanInfo(loan: {
-  pokokPinjaman: number;
-  status: string;
-  tenorHari?: number;
-  tenorBulan?: number;
-  didanaiPada?: number;
-}, now: number) {
-  if (loan.status !== "didanai" || loan.didanaiPada === undefined) {
-    return null;
-  }
-  // Skema bulanan (tenorBulan diisi): kewajiban = Σ cicilan + denda flat.
-  if (loan.tenorBulan !== undefined) {
-    const sim = hitungSimulasiBulanan(loan.pokokPinjaman, loan.tenorBulan);
-    const jatuhTempoPada = loan.didanaiPada + loan.tenorBulan * BULAN_MS;
-    const sisaMs = jatuhTempoPada - now;
-    const sisaHari = Math.max(0, Math.ceil(sisaMs / DAY_MS));
-    const hariTerlambat = Math.max(0, Math.floor(-sisaMs / DAY_MS));
-    const dendaTerlambat =
-      hariTerlambat === 0
-        ? 0
-        : percentOf(
-            loan.pokokPinjaman,
-            Math.min(LATE_FEE_POLICY.percentPerDay * hariTerlambat, LATE_FEE_POLICY.maxPercent),
-          );
-    return {
-      jatuhTempoPada,
-      sisaHari,
-      hariTerlambat,
-      dendaTerlambat,
-      totalKewajibanDenganPenalti: sim.totalPengembalian + dendaTerlambat,
-      totalKewajibanPelunasan: sim.totalPengembalian,
-    };
-  }
-  // Data warisan pra-tenor memakai default 30 hari agar tetap bisa dilunasi
-  // dan tetap mendapat pengingat jatuh tempo.
-  const tenor = loan.tenorHari ?? DEFAULT_TENOR_HARI;
-  return calculateRepayment(loan.pokokPinjaman, tenor, loan.didanaiPada, now);
-}
+const pelunasanInfo = pelunasanPinjaman;
 
 /** Daftar pinjaman milik Peminjam — hanya miliknya. */
 export const listMyLoans = query({
@@ -442,6 +403,7 @@ export const myContracts = query({
           nomorReferensi: l.nomorReferensi,
           pokokPinjaman: l.pokokPinjaman,
           tenorHari: l.tenorHari ?? DEFAULT_TENOR_HARI,
+          tenorBulan: l.tenorBulan ?? null,
           status: l.status,
           tandaTanganAda: l.tandaTanganPeminjam !== undefined,
           tandaTanganPada: l.tandaTanganPada ?? null,
@@ -498,6 +460,10 @@ export const myLoanSchedule = query({
             l.tenorBulan !== undefined
               ? hitungSimulasiBulanan(l.pokokPinjaman, l.tenorBulan).bungaTotal
               : quoteLoan(l.pokokPinjaman).bunga,
+          totalKewajiban:
+            l.tenorBulan !== undefined
+              ? hitungSimulasiBulanan(l.pokokPinjaman, l.tenorBulan).totalPengembalian
+              : quoteLoan(l.pokokPinjaman).totalKewajibanPelunasan,
           pelunasan:
             info === null
               ? null

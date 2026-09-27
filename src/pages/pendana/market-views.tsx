@@ -56,7 +56,9 @@ function MarketCard({
     nomorReferensi: string;
     tujuan: string;
     pokokPinjaman: number;
-    tenorHari: number;
+    tenorHari: number | null;
+    tenorBulan: number | null;
+    cicilanPerBulan: number | null;
     terkumpul: number;
     sisaKebutuhan: number;
     danaBersih: number;
@@ -160,14 +162,18 @@ function MarketCard({
       <dl className="mt-3 grid grid-cols-3 gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-center text-xs">
         <div>
           <dt className="text-muted-foreground">Tenor</dt>
-          <dd className="mt-0.5 font-semibold tabular-nums">{row.tenorHari} hari</dd>
+          <dd className="mt-0.5 font-semibold tabular-nums">
+            {row.tenorBulan !== null ? `${row.tenorBulan} bulan` : `${row.tenorHari} hari`}
+          </dd>
         </div>
         <div>
           <dt className="text-muted-foreground">Verifikasi</dt>
           <dd className="mt-0.5 font-semibold text-emerald-600">Terverifikasi KYC</dd>
         </div>
         <div>
-          <dt className="text-muted-foreground">Hak bunga (30%)</dt>
+          <dt className="text-muted-foreground">
+            {row.tenorBulan !== null ? "Imbal Hasil total" : "Hak bunga (30%)"}
+          </dt>
           <dd className="mt-0.5 font-semibold tabular-nums text-emerald-700">
             {formatRupiah(row.bunga)}
           </dd>
@@ -184,8 +190,12 @@ function MarketCard({
         </div>
         <Progress className="mt-1.5 h-2.5" value={pct} />
         <p className="mt-1.5 text-xs tabular-nums text-muted-foreground">
-          Sisa kebutuhan {formatRupiah(row.sisaKebutuhan)} · dana bersih Peminjam{" "}
-          {formatRupiah(row.danaBersih)} (95%)
+          Sisa kebutuhan {formatRupiah(row.sisaKebutuhan)} ·{" "}
+          {row.tenorBulan !== null ? (
+            <>dana penuh ke Peminjam {formatRupiah(row.danaBersih)} (DP 0%)</>
+          ) : (
+            <>dana bersih Peminjam {formatRupiah(row.danaBersih)} (95%)</>
+          )}
         </p>
       </div>
 

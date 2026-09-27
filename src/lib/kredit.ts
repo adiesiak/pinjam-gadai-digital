@@ -128,6 +128,15 @@ function bulatDuaDesimal(v: number): number {
 }
 
 /**
+ * True bila tenor memakai skema bulanan (1/3/6 bulan): DP 0%, biaya layanan
+ * 3% diamortisasi rata, dan bunga menurun per tenor — input DP/margin manual
+ * diabaikan engine. Dipakai UI agar slider yang tidak berpengaruh disembunyikan.
+ */
+export function skemaBulananKredit(tenorBulan: number): boolean {
+  return (TENOR_BULANAN_OPTIONS as readonly number[]).includes(tenorBulan);
+}
+
+/**
  * Quote kredit barang — memvalidasi seluruh batas skema lalu menghitung
  * rincian Konsumen, jadwal cicilan, dan hak Imbal Hasil Pendana.
  *

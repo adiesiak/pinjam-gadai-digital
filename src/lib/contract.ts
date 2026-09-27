@@ -5,6 +5,7 @@
  * investor/investasi/ROI/return).
  */
 
+import type { SimulasiBulanan } from "./bulanan";
 import { formatRupiah } from "./money";
 import type { LoanQuote } from "./loan";
 
@@ -65,14 +66,46 @@ function fmtKoordinat(lokasi?: { lat: number; lng: number } | null): string {
   return `${lokasi.lat.toFixed(5)}, ${lokasi.lng.toFixed(5)}`;
 }
 
-/** Rangkai teks HTML perjanjian pinjaman. */
+/**
+ * Rangkai teks HTML perjanjian pinjaman.
+ *
+ * Dua skema didukung: harian (130%, potongan 5% di muka) dan bulanan
+ * (DP 0%, biaya layanan 3% diamortisasi, bunga menurun). Bila `bulanan`
+ * diisi, rincian Pasal 1–3 mengikuti skema bulanan sehingga angka pada
+ * akad selalu sama dengan engine lib/bulanan.ts.
+ */
 export function buildPinjamanContract(
   peminjam: ContractParty,
   quote: LoanQuote,
   meta: ContractMeta,
   tenorHari: number,
+  /** Simulasi skema bulanan — kosong berarti skema harian. */
+  bulanan: SimulasiBulanan | null = null,
 ): string {
   const tgl = fmtTanggal(meta.timestampPada);
+  const pasalTenor =
+    bulanan === null
+      ? `<li>Tenor: <strong>${tenorHari} hari</strong> sejak dana dicairkan.</li>`
+      : `<li>Tenor: <strong>${bulanan.tenorBulan} bulan</strong> sejak dana dicairkan (skema bulanan).</li>`;
+  const pasalFinansial =
+    bulanan === null
+      ? `
+      <li>Biaya admin: ${formatRupiah(quote.biayaAdmin)}.</li>
+      <li>Biaya platform: ${formatRupiah(quote.biayaPlatform)}.</li>
+      <li>Total potongan di muka: ${formatRupiah(quote.totalPotonganDiMuka)}.</li>
+      <li><strong>Dana bersih diterima Peminjam: ${formatRupiah(quote.danaBersihDitransfer)} (95% dari pokok)</strong>.</li>
+      <li>Bunga: ${formatRupiah(quote.bunga)}.</li>
+      <li><strong>Total kewajiban pelunasan: ${formatRupiah(quote.totalKewajibanPelunasan)} (130% dari pokok)</strong>.</li>`
+      : `
+      <li>Uang muka (DP): ${formatRupiah(bulanan.dp)} — 0% sehingga seluruh pokok dibiayai.</li>
+      <li>Biaya layanan platform 3% dari pokok: ${formatRupiah(bulanan.biayaLayananTotal)}, diamortisasi rata ${formatRupiah(bulanan.biayaLayananPerBulan)} per bulan.</li>
+      <li><strong>Dana diterima Peminjam: ${formatRupiah(bulanan.pokokDibiayai)} (100% pokok, tanpa potongan di muka)</strong>.</li>
+      <li>Bunga/margin menurun: ${bulanan.persenBungaPerBulan}% per bulan dari pokok; total bunga ${formatRupiah(bulanan.bungaTotal)}.</li>
+      <li><strong>Cicilan ${formatRupiah(bulanan.cicilanPerBulan)} per bulan selama ${bulanan.tenorBulan} bulan; total kewajiban pelunasan: ${formatRupiah(bulanan.totalPengembalian)}</strong>.</li>`;
+  const pasalKewajiban =
+    bulanan === null
+      ? `Peminjam wajib melunasi total kewajiban paling lambat pada hari ke-${tenorHari}. Keterlambatan dikenakan denda sesuai ketentuan Platform yang tercantum pada aplikasi.`
+      : `Peminjam wajib melunasi setiap cicilan bulanan tepat waktu, paling lambat pada akhir bulan ke-${bulanan.tenorBulan}. Pelunasan dipercepat dihitung dari sisa total kewajiban. Keterlambatan dikenakan denda sesuai ketentuan Platform yang tercantum pada aplikasi.`;
   return `
   <div class="contract">
     <h1>${judulContract("pinjaman")}</h1>
@@ -86,22 +119,16 @@ export function buildPinjamanContract(
     <h2> Pasal 1 — Objek Pendanaan</h2>
     <ol>
       <li>Pokok pinjaman: <strong>${formatRupiah(quote.pokok)}</strong>.</li>
-      <li>Tenor: <strong>${tenorHari} hari</strong> sejak dana dicairkan.</li>
+      ${pasalTenor}
       <li>Dana berasal dari Pendana terverifikasi melalui mekanisme pendanaan Platform.</li>
     </ol>
 
     <h2>Pasal 2 — Rincian Financial</h2>
-    <ol>
-      <li>Biaya admin: ${formatRupiah(quote.biayaAdmin)}.</li>
-      <li>Biaya platform: ${formatRupiah(quote.biayaPlatform)}.</li>
-      <li>Total potongan di muka: ${formatRupiah(quote.totalPotonganDiMuka)}.</li>
-      <li><strong>Dana bersih diterima Peminjam: ${formatRupiah(quote.danaBersihDitransfer)} (95% dari pokok)</strong>.</li>
-      <li>Bunga: ${formatRupiah(quote.bunga)}.</li>
-      <li><strong>Total kewajiban pelunasan: ${formatRupiah(quote.totalKewajibanPelunasan)} (130% dari pokok)</strong>.</li>
+    <ol>${pasalFinansial}
     </ol>
 
     <h2>Pasal 3 — Kewajiban Peminjam</h2>
-    <p>Peminjam wajib melunasi total kewajiban paling lambat pada hari ke-${tenorHari}. Keterlambatan dikenakan denda sesuai ketentuan Platform yang tercantum pada aplikasi.</p>
+    <p>${pasalKewajiban}</p>
 
     <h2>Pasal 4 — Keabsahan Digital</h2>
     <p>Perjanjian ini ditandatangani secara elektronik melalui kanvas tanda tangan digital di aplikasi, tercatat pada koordinat GPS <strong>${fmtKoordinat(meta.lokasi)}</strong>, dengan timestamp sistem <strong>${new Date(meta.timestampPada).toLocaleString("id-ID")}</strong>. Kedua belah pihak mengakui keabsahan tanda tangan elektronik ini.</p>

@@ -85,6 +85,8 @@ export function LoanContractBlock({ loanId }: { loanId: Id<"loans"> }) {
       timestampPada: ttdRow.ttdPada ?? detail._creationTime,
     },
     detail.tenorHari ?? 30,
+    // Skema bulanan: rincian akad mengikuti engine lib/bulanan.ts.
+    detail.bulanan ?? null,
   );
 
   const simpanTtd = async () => {

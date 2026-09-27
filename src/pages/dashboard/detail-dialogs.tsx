@@ -79,18 +79,37 @@ export function LoanDetailDialog({
             </p>
 
             <dl className="divide-y divide-slate-200 rounded-2xl border border-slate-200 bg-white">
-              {[
-                ["Keperluan", loanPurposeLabel(loan.tujuan)],
-                ["Pokok pinjaman", formatRupiah(loan.quote.pokok)],
-                ["Biaya admin (3%)", formatRupiah(loan.quote.biayaAdmin)],
-                ["Biaya platform (2%)", formatRupiah(loan.quote.biayaPlatform)],
-                ["Dana bersih diterima", formatRupiah(loan.quote.danaBersihDitransfer)],
-                ["Bunga (30%)", formatRupiah(loan.quote.bunga)],
-                ["Total kewajiban pelunasan", formatRupiah(loan.quote.totalKewajibanPelunasan)],
-              ].map(([label, value], index) => (
+              {(loan.tenorBulan !== null
+                ? [
+                    ["Keperluan", loanPurposeLabel(loan.tujuan)],
+                    ["Pokok pinjaman", formatRupiah(loan.pokokPinjaman)],
+                    ["Tenor", `${loan.tenorBulan} bulan`],
+                    ["Uang muka (DP 0%)", formatRupiah(0)],
+                    ["Dana diterima penuh", formatRupiah(loan.pokokPinjaman)],
+                    ["Bunga menurun (hak Pendana)", formatRupiah(loan.imbalHasilTotal)],
+                    ["Total pengembalian", formatRupiah(loan.totalKewajiban)],
+                  ]
+                : [
+                    ["Keperluan", loanPurposeLabel(loan.tujuan)],
+                    ["Pokok pinjaman", formatRupiah(loan.quote.pokok)],
+                    ["Biaya admin (3%)", formatRupiah(loan.quote.biayaAdmin)],
+                    ["Biaya platform (2%)", formatRupiah(loan.quote.biayaPlatform)],
+                    ["Dana bersih diterima", formatRupiah(loan.quote.danaBersihDitransfer)],
+                    ["Bunga (30%)", formatRupiah(loan.quote.bunga)],
+                    ["Total kewajiban pelunasan", formatRupiah(loan.quote.totalKewajibanPelunasan)],
+                  ]
+              ).map(([label, value], index, semua) => (
                 <div key={label} className="flex items-baseline justify-between gap-4 px-4 py-3">
                   <dt className="text-sm text-muted-foreground">{label}</dt>
-                  <dd className={`text-sm tabular-nums ${index === 4 || index === 6 ? "font-semibold" : ""}`}>
+                  <dd
+                    className={`text-sm tabular-nums ${
+                      label === "Dana diterima penuh" ||
+                      label === "Dana bersih diterima" ||
+                      index === semua.length - 1
+                        ? "font-semibold"
+                        : ""
+                    }`}
+                  >
                     {value}
                   </dd>
                 </div>

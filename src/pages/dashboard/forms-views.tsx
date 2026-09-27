@@ -19,6 +19,11 @@ import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { KYC_FILES, MAX_FILE_BYTES, validateKycInput, type KycFileKey } from "@/lib/kyc";
 import {
+  BULANAN_LIMITS,
+  hitungSimulasiBulanan,
+  TENOR_BULANAN_OPTIONS,
+} from "@/lib/bulanan";
+import {
   LOAN_LIMITS,
   LOAN_PURPOSE_OPTIONS,
   quoteLoan,
@@ -31,10 +36,26 @@ import {
   type CollateralCategory,
 } from "@/lib/pawn";
 
+/**
+ * Simulasi bulanan yang tidak melempar error saat input belum valid —
+ * slider bergerak cepat, jadi nilai di luar rentang cukup tampil kosong.
+ */
+function simulasiBulananAman(pokok: number, tenorBulan: number) {
+  try {
+    return hitungSimulasiBulanan(pokok, tenorBulan);
+  } catch {
+    return null;
+  }
+}
+
 /** Form pengajuan pinjaman (KYC + GPS + tanda tangan canvas). */
 export function LoanForm({ onCreated }: { onCreated: (ref: string) => void }) {
+  // Skema harian (1 jt / 30 hari) atau bulanan (1/3/6 bulan) — dua paket
+  // harga berbeda; formulir menampilkan rincian sesuai skema terpilih.
+  const [skema, setSkema] = useState<"harian" | "bulanan">("harian");
   const [pokok, setPokok] = useState<number>(LOAN_LIMITS.maxPokok);
   const [tenorHari, setTenorHari] = useState<string>("30");
+  const [tenorBulan, setTenorBulan] = useState<string>("3");
   const [tujuan, setTujuan] = useState<string>("");
   const [namaLengkap, setNamaLengkap] = useState("");
   const [nomorRekening, setNomorRekening] = useState("");
@@ -150,22 +171,43 @@ export function LoanForm({ onCreated }: { onCreated: (ref: string) => void }) {
     }
   };
 
+  const bulanan = skema === "bulanan";
+  const tenorBulanNum = Number(tenorBulan);
+  const sim = bulanan ? simulasiBulananAman(pokok, tenorBulanNum) : null;
   const q = quoteLoan(pokok);
-  // Batas pinjaman tunai (LOAN_LIMITS): Rp 100.000–Rp 1.000.000, tenor maks 30 hari.
-  const MIN = LOAN_LIMITS.minPokok;
-  const MAX = LOAN_LIMITS.maxPokok;
-  const STEP = 50_000;
+  // Batas per skema: harian 100 rb–1 jt / maks 30 hari; bulanan 100 rb–500 jt.
+  const MIN = bulanan ? BULANAN_LIMITS.minPokok : LOAN_LIMITS.minPokok;
+  const MAX = bulanan ? BULANAN_LIMITS.maxPokok : LOAN_LIMITS.maxPokok;
+  const STEP = bulanan ? 500_000 : 50_000;
+
+  // Saat berganti skema, nominal dijepit ke rentang skema baru agar slider
+  // tidak menampilkan nilai di luar batas.
+  const gantiSkema = (next: "harian" | "bulanan") => {
+    setSkema(next);
+    setError(null);
+    setPokok((p) =>
+      next === "bulanan"
+        ? Math.min(Math.max(p, BULANAN_LIMITS.minPokok), BULANAN_LIMITS.maxPokok)
+        : Math.min(Math.max(p, LOAN_LIMITS.minPokok), LOAN_LIMITS.maxPokok),
+    );
+  };
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError(null);
-    if (pokok < MIN || pokok > MAX || !Number.isInteger(pokok)) {
+    if (!bulanan && (pokok < MIN || pokok > MAX || !Number.isInteger(pokok))) {
       setError(
         `Nominal pinjaman harus antara ${formatRupiah(MIN)} dan ${formatRupiah(MAX)} (rupiah bulat) dengan tenor maksimal ${LOAN_LIMITS.maxTenorHari} hari.`,
       );
       return;
     }
-    if (!tenorHari) {
+    if (bulanan && sim === null) {
+      setError(
+        `Skema bulanan menerima pokok ${formatRupiah(BULANAN_LIMITS.minPokok)}–${formatRupiah(BULANAN_LIMITS.maxPokok)} dengan tenor ${TENOR_BULANAN_OPTIONS.join("/")} bulan.`,
+      );
+      return;
+    }
+    if (!bulanan && !tenorHari) {
       setError("Pilih tenor pinjaman.");
       return;
     }
@@ -207,7 +249,9 @@ export function LoanForm({ onCreated }: { onCreated: (ref: string) => void }) {
         : undefined;
       const result = await createLoan({
         pokokPinjaman: pokok,
-        tenorHari: Number(tenorHari),
+        // tenorHari tetap dikirim (diabaikan server) saat skema bulanan aktif.
+        tenorHari: bulanan ? 30 : Number(tenorHari),
+        tenorBulan: bulanan ? tenorBulanNum : undefined,
         tujuan,
         namaLengkap,
         nomorRekening,
@@ -239,7 +283,29 @@ export function LoanForm({ onCreated }: { onCreated: (ref: string) => void }) {
     <form onSubmit={handleSubmit} className="space-y-5">
       {/* Slider nominal */}
       <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <div className="flex items-baseline justify-between">
+        {/* Pemilih skema harga: harian 1 jt / 30 hari, atau bulanan 1/3/6 bulan. */}
+        <div className="grid grid-cols-2 gap-1 rounded-xl border border-slate-200 bg-slate-50 p-1">
+          {([
+            ["harian", "Harian · s.d. 1 jt"],
+            ["bulanan", "Bulanan · 1–6 bln"],
+          ] as const).map(([nilai, label]) => (
+            <button
+              key={nilai}
+              type="button"
+              onClick={() => gantiSkema(nilai)}
+              disabled={submitting}
+              className={`rounded-lg px-3 py-2 text-xs font-medium transition-colors ${
+                skema === nilai
+                  ? "bg-white text-primary shadow-sm"
+                  : "text-muted-foreground hover:text-slate-700"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
+        <div className="mt-4 flex items-baseline justify-between">
           <Label>Nominal pinjaman</Label>
           <span className="text-lg font-semibold tabular-nums text-primary">{formatRupiah(pokok)}</span>
         </div>
@@ -256,50 +322,95 @@ export function LoanForm({ onCreated }: { onCreated: (ref: string) => void }) {
           <span>{formatRupiah(MAX)}</span>
         </div>
         <p className="mt-2 text-xs leading-5 text-muted-foreground">
-          Pinjaman tunai dibatasi {formatRupiah(LOAN_LIMITS.minPokok)}–
-          {formatRupiah(LOAN_LIMITS.maxPokok)} dengan tenor maksimal{" "}
-          {LOAN_LIMITS.maxTenorHari} hari.
+          {bulanan
+            ? `Skema bulanan: uang muka 0%, biaya layanan 3% dari pokok (diamortisasi rata), bunga menurun per tenor. Pokok ${formatRupiah(BULANAN_LIMITS.minPokok)}–${formatRupiah(BULANAN_LIMITS.maxPokok)}.`
+            : `Pinjaman tunai dibatasi ${formatRupiah(LOAN_LIMITS.minPokok)}–${formatRupiah(LOAN_LIMITS.maxPokok)} dengan tenor maksimal ${LOAN_LIMITS.maxTenorHari} hari.`}
         </p>
 
-        {/* Live financial breakdown */}
-        <dl className="mt-4 divide-y divide-slate-200 overflow-hidden rounded-xl border border-slate-200">
-          {[
-            ["Potongan Admin (3%)", `- ${formatRupiah(q.biayaAdmin)}`],
-            ["Potongan Platform (2%)", `- ${formatRupiah(q.biayaPlatform)}`],
-          ].map(([label, value]) => (
-            <div key={label} className="flex items-baseline justify-between bg-white px-3 py-2 text-sm">
-              <dt className="text-muted-foreground">{label}</dt>
-              <dd className="tabular-nums">{value}</dd>
+        {/* Live financial breakdown — mengikuti skema terpilih. */}
+        {bulanan && sim !== null ? (
+          <dl className="mt-4 divide-y divide-slate-200 overflow-hidden rounded-xl border border-slate-200">
+            <div className="flex items-baseline justify-between bg-white px-3 py-2 text-sm">
+              <dt className="text-muted-foreground">Uang muka (DP 0%)</dt>
+              <dd className="tabular-nums">{formatRupiah(sim.dp)}</dd>
             </div>
-          ))}
-          <div className="flex items-baseline justify-between bg-emerald-50 px-3 py-2.5 text-sm">
-            <dt className="font-semibold text-emerald-800">Dana Bersih (95%)</dt>
-            <dd className="font-semibold tabular-nums text-emerald-700">{formatRupiah(q.danaBersihDitransfer)}</dd>
-          </div>
-          <div className="flex items-baseline justify-between bg-white px-3 py-2 text-sm">
-            <dt className="text-muted-foreground">Bunga (30%)</dt>
-            <dd className="tabular-nums">{formatRupiah(q.bunga)}</dd>
-          </div>
-          <div className="flex items-baseline justify-between bg-slate-50 px-3 py-2.5 text-sm">
-            <dt className="font-semibold">Total Kewajiban (130%)</dt>
-            <dd className="font-semibold tabular-nums">{formatRupiah(q.totalKewajibanPelunasan)}</dd>
-          </div>
-        </dl>
+            <div className="flex items-baseline justify-between bg-emerald-50 px-3 py-2.5 text-sm">
+              <dt className="font-semibold text-emerald-800">Dana diterima penuh</dt>
+              <dd className="font-semibold tabular-nums text-emerald-700">
+                {formatRupiah(sim.pokokDibiayai)}
+              </dd>
+            </div>
+            <div className="flex items-baseline justify-between bg-white px-3 py-2 text-sm">
+              <dt className="text-muted-foreground">
+                Biaya layanan 3% ({formatRupiah(sim.biayaLayananPerBulan)}/bln)
+              </dt>
+              <dd className="tabular-nums">{formatRupiah(sim.biayaLayananTotal)}</dd>
+            </div>
+            <div className="flex items-baseline justify-between bg-white px-3 py-2 text-sm">
+              <dt className="text-muted-foreground">
+                Bunga {sim.persenBungaPerBulan}%/bulan (menurun)
+              </dt>
+              <dd className="tabular-nums">{formatRupiah(sim.bungaTotal)}</dd>
+            </div>
+            <div className="flex items-baseline justify-between bg-slate-50 px-3 py-2.5 text-sm">
+              <dt className="font-semibold">Cicilan per bulan</dt>
+              <dd className="font-semibold tabular-nums">{formatRupiah(sim.cicilanPerBulan)}</dd>
+            </div>
+            <div className="flex items-baseline justify-between bg-slate-50 px-3 py-2.5 text-sm">
+              <dt className="font-semibold">Total pengembalian ({sim.tenorBulan} bln)</dt>
+              <dd className="font-semibold tabular-nums">{formatRupiah(sim.totalPengembalian)}</dd>
+            </div>
+          </dl>
+        ) : (
+          <dl className="mt-4 divide-y divide-slate-200 overflow-hidden rounded-xl border border-slate-200">
+            {[
+              ["Potongan Admin (3%)", `- ${formatRupiah(q.biayaAdmin)}`],
+              ["Potongan Platform (2%)", `- ${formatRupiah(q.biayaPlatform)}`],
+            ].map(([label, value]) => (
+              <div key={label} className="flex items-baseline justify-between bg-white px-3 py-2 text-sm">
+                <dt className="text-muted-foreground">{label}</dt>
+                <dd className="tabular-nums">{value}</dd>
+              </div>
+            ))}
+            <div className="flex items-baseline justify-between bg-emerald-50 px-3 py-2.5 text-sm">
+              <dt className="font-semibold text-emerald-800">Dana Bersih (95%)</dt>
+              <dd className="font-semibold tabular-nums text-emerald-700">{formatRupiah(q.danaBersihDitransfer)}</dd>
+            </div>
+            <div className="flex items-baseline justify-between bg-white px-3 py-2 text-sm">
+              <dt className="text-muted-foreground">Bunga (30%)</dt>
+              <dd className="tabular-nums">{formatRupiah(q.bunga)}</dd>
+            </div>
+            <div className="flex items-baseline justify-between bg-slate-50 px-3 py-2.5 text-sm">
+              <dt className="font-semibold">Total Kewajiban (130%)</dt>
+              <dd className="font-semibold tabular-nums">{formatRupiah(q.totalKewajibanPelunasan)}</dd>
+            </div>
+          </dl>
+        )}
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">
           <Label>Tenor pinjaman</Label>
-          <Select value={tenorHari} onValueChange={setTenorHari} disabled={submitting}>
+          <Select
+            value={bulanan ? tenorBulan : tenorHari}
+            onValueChange={(v) => (bulanan ? setTenorBulan(v) : setTenorHari(v))}
+            disabled={submitting}
+          >
             <SelectTrigger className="w-full">
               <SelectValue placeholder="Pilih tenor" />
             </SelectTrigger>
             <SelectContent>
-              {TENOR_OPTIONS.map((t) => (
-                <SelectItem key={t} value={String(t)}>
-                  {t} hari
-                </SelectItem>
-              ))}
+              {bulanan
+                ? TENOR_BULANAN_OPTIONS.map((t) => (
+                    <SelectItem key={t} value={String(t)}>
+                      {t} bulan
+                    </SelectItem>
+                  ))
+                : TENOR_OPTIONS.map((t) => (
+                    <SelectItem key={t} value={String(t)}>
+                      {t} hari
+                    </SelectItem>
+                  ))}
             </SelectContent>
           </Select>
         </div>

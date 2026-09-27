@@ -1,6 +1,7 @@
 import '@vly-ai/integrations';
 import { Toaster } from "@/components/ui/sonner";
 import { AnnouncementBar } from "@/components/AnnouncementBar";
+import { ErrorPage } from "@/components/ErrorPage";
 import { RequireAuth } from "@/components/RequireAuth";
 import { VlyToolbar } from "../vly-toolbar-readonly.tsx";
 import { ConvexAuthProvider } from "@convex-dev/auth/react";
@@ -46,42 +47,42 @@ class ToolbarErrorBoundary extends React.Component<
   }
 }
 
-/** Hard guard so runtime errors never leave the preview as a blank page. */
+/**
+ * Guard terakhir agar kesalahan runtime tidak pernah menyisakan halaman
+ * kosong. Detail teknis hanya dicatat ke console — pengunjung melihat error
+ * page generik PINDAI tanpa pesan server mentah.
+ */
 class RootErrorBoundary extends React.Component<
   { children: React.ReactNode },
-  { hasError: boolean; message: string; stack: string }
+  { hasError: boolean }
 > {
-  state = { hasError: false, message: "", stack: "" };
-  static getDerivedStateFromError(error: Error) {
-    return {
-      hasError: true,
-      message: error.message || "Unknown runtime error",
-      stack: error.stack || "",
-    };
+  state = { hasError: false };
+  static getDerivedStateFromError() {
+    return { hasError: true };
   }
-  componentDidCatch(err: Error) {
-    console.error("[WebContainer preview] Root crash:", err);
+  componentDidCatch(err: Error, info: React.ErrorInfo) {
+    console.error("[PINDAI] Kesalahan runtime:", err, info.componentStack);
   }
   render() {
     if (this.state.hasError) {
       return (
-        <div className="min-h-screen flex items-center justify-center bg-background text-foreground p-6">
-          <div className="max-w-lg text-center">
-            <p className="text-sm font-semibold">Preview runtime error</p>
-            <p className="mt-2 text-xs text-muted-foreground break-words">
-              {this.state.message}
-            </p>
-            {this.state.stack && (
-              <pre className="mt-3 text-left text-[10px] leading-4 text-muted-foreground/80 max-h-40 overflow-auto rounded border border-border/60 p-2">
-                {this.state.stack}
-              </pre>
-            )}
-          </div>
+        <div className="flex min-h-screen items-center justify-center bg-slate-50 px-6 py-16 text-slate-900">
+          <ErrorPage />
         </div>
       );
     }
     return this.props.children;
   }
+}
+
+/**
+ * Batas error per rute: kunci berubah saat path berganti sehingga kendala di
+ * satu halaman tidak membuat seluruh aplikasi macet — pengunjung bisa pindah
+ * halaman dan boundary mencoba render ulang dari awal.
+ */
+function RouteErrorBoundary({ children }: { children: React.ReactNode }) {
+  const location = useLocation();
+  return <RootErrorBoundary key={location.pathname}>{children}</RootErrorBoundary>;
 }
 
 const convex = new ConvexReactClient(import.meta.env.VITE_CONVEX_URL as string);
@@ -129,40 +130,42 @@ createRoot(document.getElementById("root")!).render(
           <AnnouncementBar />
           <SessionGuardBridge />
           <RouteSyncer />
-          <Suspense fallback={<RouteLoading />}>
-            <Routes>
-              <Route path="/" element={<Landing />} />
-              <Route
-                path="/auth"
-                element={<AuthPage redirectAfterAuth="/dashboard" />}
-              />
-              <Route
-                path="/dashboard"
-                element={
-                  <RequireAuth>
-                    <Dashboard />
-                  </RequireAuth>
-                }
-              />
-              <Route
-                path="/admin"
-                element={
-                  <RequireAuth>
-                    <Admin />
-                  </RequireAuth>
-                }
-              />
-              <Route
-                path="/pendana"
-                element={
-                  <RequireAuth>
-                    <Pendana />
-                  </RequireAuth>
-                }
-              />
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </Suspense>
+          <RouteErrorBoundary>
+            <Suspense fallback={<RouteLoading />}>
+              <Routes>
+                <Route path="/" element={<Landing />} />
+                <Route
+                  path="/auth"
+                  element={<AuthPage redirectAfterAuth="/dashboard" />}
+                />
+                <Route
+                  path="/dashboard"
+                  element={
+                    <RequireAuth>
+                      <Dashboard />
+                    </RequireAuth>
+                  }
+                />
+                <Route
+                  path="/admin"
+                  element={
+                    <RequireAuth>
+                      <Admin />
+                    </RequireAuth>
+                  }
+                />
+                <Route
+                  path="/pendana"
+                  element={
+                    <RequireAuth>
+                      <Pendana />
+                    </RequireAuth>
+                  }
+                />
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </Suspense>
+          </RouteErrorBoundary>
         </BrowserRouter>
         <Toaster />
       </ConvexAuthProvider>

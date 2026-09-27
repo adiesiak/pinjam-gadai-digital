@@ -40,6 +40,44 @@ function ScheduleBadge({ state }: { state: "lunas" | "menunggu" | "overdue" }) {
   );
 }
 
+/** Satu baris rincian biaya pinjaman (label kiri, nilai kanan). */
+function RincianBaris({
+  label,
+  value,
+  tone = "normal",
+}: {
+  label: string;
+  value: string;
+  tone?: "normal" | "muted" | "net" | "total";
+}) {
+  if (tone === "net") {
+    return (
+      <div className="flex items-baseline justify-between gap-4 bg-emerald-50 px-4 py-3">
+        <dt className="text-sm font-semibold text-emerald-800">{label}</dt>
+        <dd className="text-sm font-semibold tabular-nums text-emerald-700">{value}</dd>
+      </div>
+    );
+  }
+  if (tone === "total") {
+    return (
+      <div className="flex items-baseline justify-between gap-4 bg-slate-50 px-4 py-3">
+        <dt className="text-sm font-semibold">{label}</dt>
+        <dd className="text-sm font-semibold tabular-nums">{value}</dd>
+      </div>
+    );
+  }
+  return (
+    <div className="flex items-baseline justify-between gap-4 bg-white px-4 py-2.5">
+      <dt className="text-sm text-muted-foreground">{label}</dt>
+      <dd
+        className={`text-sm tabular-nums ${tone === "muted" ? "text-muted-foreground" : ""}`}
+      >
+        {value}
+      </dd>
+    </div>
+  );
+}
+
 /** Tab 1 — Pinjaman aktif dengan rincian transparansi finansial presisi. */
 export function ActiveLoanSection({
   schedule,
@@ -102,6 +140,7 @@ function ActiveLoanCard({
   onOpenDetail: (id: Id<"loans">) => void;
 }) {
   const q = loan.quote;
+  const bulanan = loan.tenorBulan !== null;
   const terlambat = (loan.pelunasan?.hariTerlambat ?? 0) > 0;
   const [payOpen, setPayOpen] = useState(false);
 
@@ -132,32 +171,58 @@ function ActiveLoanCard({
       </div>
 
       <dl className="mt-5 divide-y divide-slate-200 overflow-hidden rounded-2xl border border-slate-200">
-        {[
-          ["Pokok pengajuan", formatRupiah(q.pokok), ""],
-          ["Biaya admin (3%)", `- ${formatRupiah(q.biayaAdmin)}`, "text-muted-foreground"],
-          ["Biaya platform (2%)", `- ${formatRupiah(q.biayaPlatform)}`, "text-muted-foreground"],
-        ].map(([label, value, extra]) => (
-          <div key={label} className="flex items-baseline justify-between gap-4 bg-white px-4 py-2.5">
-            <dt className="text-sm text-muted-foreground">{label}</dt>
-            <dd className={`text-sm tabular-nums ${extra}`}>{value}</dd>
-          </div>
-        ))}
-        <div className="flex items-baseline justify-between gap-4 bg-emerald-50 px-4 py-3">
-          <dt className="text-sm font-semibold text-emerald-800">Dana bersih diterima (95%)</dt>
-          <dd className="text-sm font-semibold tabular-nums text-emerald-700">
-            {formatRupiah(q.danaBersihDitransfer)}
-          </dd>
-        </div>
-        <div className="flex items-baseline justify-between gap-4 bg-white px-4 py-2.5">
-          <dt className="text-sm text-muted-foreground">Bunga pinjaman (30%)</dt>
-          <dd className="text-sm tabular-nums">{formatRupiah(q.bunga)}</dd>
-        </div>
-        <div className="flex items-baseline justify-between gap-4 bg-slate-50 px-4 py-3">
-          <dt className="text-sm font-semibold">Total pelunasan (130%)</dt>
-          <dd className="text-sm font-semibold tabular-nums">
-            {formatRupiah(q.totalKewajibanPelunasan)}
-          </dd>
-        </div>
+        {bulanan ? (
+          <>
+            <RincianBaris label="Pokok pengajuan" value={formatRupiah(loan.pokokPinjaman)} />
+            <RincianBaris label="Uang muka (DP 0%)" value={formatRupiah(0)} tone="muted" />
+            <RincianBaris
+              label="Biaya layanan (3% dari pokok)"
+              value={formatRupiah(
+                loan.totalKewajiban - loan.pokokPinjaman - loan.imbalHasilTotal,
+              )}
+              tone="muted"
+            />
+            <RincianBaris
+              label="Dana diterima penuh"
+              value={formatRupiah(loan.pokokPinjaman)}
+              tone="net"
+            />
+            <RincianBaris
+              label="Bunga menurun (hak Pendana)"
+              value={formatRupiah(loan.imbalHasilTotal)}
+            />
+            <RincianBaris
+              label={`Total pengembalian (${loan.tenorBulan} bulan)`}
+              value={formatRupiah(loan.totalKewajiban)}
+              tone="total"
+            />
+          </>
+        ) : (
+          <>
+            <RincianBaris label="Pokok pengajuan" value={formatRupiah(q.pokok)} />
+            <RincianBaris
+              label="Biaya admin (3%)"
+              value={`- ${formatRupiah(q.biayaAdmin)}`}
+              tone="muted"
+            />
+            <RincianBaris
+              label="Biaya platform (2%)"
+              value={`- ${formatRupiah(q.biayaPlatform)}`}
+              tone="muted"
+            />
+            <RincianBaris
+              label="Dana bersih diterima (95%)"
+              value={formatRupiah(q.danaBersihDitransfer)}
+              tone="net"
+            />
+            <RincianBaris label="Bunga pinjaman (30%)" value={formatRupiah(q.bunga)} />
+            <RincianBaris
+              label="Total pelunasan (130%)"
+              value={formatRupiah(q.totalKewajibanPelunasan)}
+              tone="total"
+            />
+          </>
+        )}
       </dl>
 
       {loan.pelunasan && (
@@ -224,7 +289,7 @@ function ActiveLoanCard({
             <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-center">
               <p className="text-xs text-muted-foreground">Total kewajiban saat ini</p>
               <p className="mt-1 text-xl font-semibold tabular-nums">
-                {formatRupiah(loan.pelunasan?.totalKewajibanDenganPenalti ?? q.totalKewajibanPelunasan)}
+                {formatRupiah(loan.pelunasan?.totalKewajibanDenganPenalti ?? loan.totalKewajiban)}
               </p>
               {terlambat && (
                 <p className="mt-1 text-xs text-destructive">
@@ -233,7 +298,7 @@ function ActiveLoanCard({
               )}
             </div>
             <PaySimTabs
-              total={loan.pelunasan?.totalKewajibanDenganPenalti ?? q.totalKewajibanPelunasan}
+              total={loan.pelunasan?.totalKewajibanDenganPenalti ?? loan.totalKewajiban}
               loanRef={loan.nomorReferensi}
             />
           </div>
@@ -397,8 +462,10 @@ export function ScheduleSection({ schedule }: { schedule: LoanScheduleRow[] }) {
                   <span className="font-mono text-xs text-muted-foreground">{l.nomorReferensi}</span>
                 </p>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Pokok {formatRupiah(l.pokokPinjaman)} · Bunga (30%) {formatRupiah(l.quote.bunga)} ·
-                  tenor {l.tenorHari} hari
+                  Pokok {formatRupiah(l.pokokPinjaman)} · Bunga{" "}
+                  {l.tenorBulan !== null ? "menurun" : "(30%)"}{" "}
+                  {formatRupiah(l.imbalHasilTotal)} · tenor{" "}
+                  {l.tenorBulan !== null ? `${l.tenorBulan} bulan` : `${l.tenorHari} hari`}
                 </p>
               </div>
               <ScheduleBadge state={state} />
@@ -415,8 +482,8 @@ export function ScheduleSection({ schedule }: { schedule: LoanScheduleRow[] }) {
                 <dd className="font-semibold tabular-nums">
                   {formatRupiah(
                     lunas
-                      ? l.quote.totalKewajibanPelunasan
-                      : (l.pelunasan?.totalKewajibanDenganPenalti ?? l.quote.totalKewajibanPelunasan),
+                      ? l.totalKewajiban
+                      : (l.pelunasan?.totalKewajibanDenganPenalti ?? l.totalKewajiban),
                   )}
                 </dd>
               </div>

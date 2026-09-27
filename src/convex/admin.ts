@@ -2,11 +2,8 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 import { query, mutation, internalMutation, QueryCtx } from "./_generated/server";
 import { v } from "convex/values";
 import { ROLES } from "./schema";
-import {
-  calculateRepayment,
-  DEFAULT_TENOR_HARI,
-  quoteLoan,
-} from "../lib/loan";
+import { pelunasanPinjaman, quoteLoan } from "../lib/loan";
+import { hitungSimulasiBulanan, TENOR_BULANAN_OPTIONS } from "../lib/bulanan";
 import { appendJournal, ledgerTotals, pendanaWalletBalance } from "./ledger";
 import { formatRupiah } from "../lib/money";
 import { getConfig, audit } from "./system";
@@ -50,15 +47,14 @@ export const adminOverview = query({
         .sort((a, b) => b._creationTime - a._creationTime)
         .map(async (l) => {
           const borrower = await ctx.db.get(l.userId);
-          const pelunasan =
-            l.status === "didanai" && l.didanaiPada !== undefined
-              ? calculateRepayment(
-                  l.pokokPinjaman,
-                  l.tenorHari ?? DEFAULT_TENOR_HARI,
-                  l.didanaiPada,
-                  Date.now(),
-                )
+          const pelunasan = pelunasanPinjaman(l, Date.now());
+          // Skema bulanan (tenorBulan 1/3/6+): angka dari engine lib/bulanan —
+          // bukan 130% — agar tim menelaah kewajiban yang benar.
+          const bulanan =
+            l.tenorBulan !== undefined
+              ? hitungSimulasiBulanan(l.pokokPinjaman, l.tenorBulan)
               : null;
+          const harian = bulanan === null ? quoteLoan(l.pokokPinjaman) : null;
           return {
             _id: l._id,
             _creationTime: l._creationTime,
@@ -73,6 +69,11 @@ export const adminOverview = query({
             emailPeminjam: borrower?.email ?? null,
             userIdPeminjam: l.userId,
             tenorHari: l.tenorHari ?? null,
+            tenorBulan: l.tenorBulan ?? null,
+            cicilanPerBulan: bulanan?.cicilanPerBulan ?? null,
+            biayaLayananTotal: bulanan?.biayaLayananTotal ?? null,
+            imbalHasilTotal: bulanan?.bungaTotal ?? harian?.bunga ?? null,
+            totalKewajiban: bulanan?.totalPengembalian ?? harian?.totalKewajibanPelunasan ?? null,
             // KYC & lokasi (opsional untuk data warisan)
             nik: l.nik ?? null,
             nomorWhatsApp: l.nomorWhatsApp ?? null,
@@ -279,15 +280,7 @@ export const adminStats = query({
     let totalDendaBerjalan = 0;
     for (const l of loans) {
       if (l.status !== "didanai") continue;
-      const info =
-        l.didanaiPada !== undefined
-          ? calculateRepayment(
-              l.pokokPinjaman,
-              l.tenorHari ?? DEFAULT_TENOR_HARI,
-              l.didanaiPada,
-              Date.now(),
-            )
-          : null;
+      const info = pelunasanPinjaman(l, Date.now());
       if (info === null) continue;
       if (info.hariTerlambat > 0) {
         pinjamanTerlambat += 1;
@@ -332,9 +325,35 @@ export const adminStats = query({
 });
 
 // Re-quote helper dipakai ulang untuk tampilan admin (rincian biaya pinjaman).
+// tenorBulan diisi → rincian skema bulanan (DP 0%, biaya layanan 3%
+// diamortisasi, bunga menurun per tenor); kosong → skema harian 130%.
 export const adminLoanQuote = query({
-  args: { pokokPinjaman: v.number() },
-  handler: async (_ctx, args) => quoteLoan(args.pokokPinjaman),
+  args: { pokokPinjaman: v.number(), tenorBulan: v.optional(v.number()) },
+  handler: async (_ctx, args) => {
+    if (args.tenorBulan !== undefined) {
+      const sim = hitungSimulasiBulanan(args.pokokPinjaman, args.tenorBulan);
+      return {
+        skema: "bulanan" as const,
+        tenorBulan: args.tenorBulan,
+        tenorBulanTersedia: TENOR_BULANAN_OPTIONS,
+        pokokDibiayai: sim.pokokDibiayai,
+        dp: sim.dp,
+        biayaLayanan: sim.biayaLayananTotal,
+        biayaLayananPerBulan: sim.biayaLayananPerBulan,
+        persenBungaPerBulan: sim.persenBungaPerBulan,
+        bungaPerBulan: sim.bungaPerBulan,
+        imbalHasilTotal: sim.bungaTotal,
+        cicilanPerBulan: sim.cicilanPerBulan,
+        cicilanTerakhir: sim.cicilanTerakhir,
+        totalPengembalian: sim.totalPengembalian,
+        totalKeuntunganBersih: sim.totalKeuntunganBersih,
+        persentaseProfitTotal: sim.persentaseProfitTotal,
+        jadwal: sim.jadwal,
+        quote: quoteLoan(args.pokokPinjaman),
+      };
+    }
+    return { skema: "harian" as const, quote: quoteLoan(args.pokokPinjaman) };
+  },
 });
 
 // =====================================================================
@@ -677,7 +696,13 @@ export const contractDetail = query({
       nik: loan.nik ?? null,
       pokokPinjaman: loan.pokokPinjaman,
       tenorHari: loan.tenorHari,
+      tenorBulan: loan.tenorBulan ?? null,
       lokasiAjukan: loan.lokasiAjukan ?? null,
+      // Skema bulanan memakai engine lib/bulanan; skema harian 130%.
+      bulanan:
+        loan.tenorBulan !== undefined
+          ? hitungSimulasiBulanan(loan.pokokPinjaman, loan.tenorBulan)
+          : null,
       quote: quoteLoan(loan.pokokPinjaman),
     };
   },

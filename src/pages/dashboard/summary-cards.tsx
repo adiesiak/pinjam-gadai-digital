@@ -7,12 +7,19 @@ import type { LoanScheduleRow } from "./shared";
 
 /** Ringkasan keuangan: dana bersih, total kewajiban, dan sisa tagihan. */
 export function SummaryCards({ schedule }: { schedule: LoanScheduleRow[] }) {
+  // Dana diterima: 95% pada skema harian, 100% pada skema bulanan (DP 0%).
   const danaBersihTotal = useMemo(
-    () => schedule.reduce((acc, l) => acc + l.quote.danaBersihDitransfer, 0),
+    () =>
+      schedule.reduce(
+        (acc, l) =>
+          acc + (l.tenorBulan !== null ? l.pokokPinjaman : l.quote.danaBersihDitransfer),
+        0,
+      ),
     [schedule],
   );
+  // Kewajiban mengikuti skema pinjaman (130% atau Σ cicilan bulanan).
   const totalKewajiban = useMemo(
-    () => schedule.reduce((acc, l) => acc + l.quote.totalKewajibanPelunasan, 0),
+    () => schedule.reduce((acc, l) => acc + l.totalKewajiban, 0),
     [schedule],
   );
   const sisaTagihan = useMemo(() => {

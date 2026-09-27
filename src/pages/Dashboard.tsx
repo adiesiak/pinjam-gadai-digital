@@ -1,9 +1,10 @@
 import { useQuery } from "convex/react";
 import { Loader2 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
 import { toast } from "sonner";
 
+import { ErrorPage } from "@/components/ErrorPage";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { api } from "@/convex/_generated/api";
@@ -36,21 +37,52 @@ import { PawnVaultSection } from "./dashboard/vault-views";
 export default function Dashboard() {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
-  const loans = useQuery(api.loans.listMyLoans);
-  const summary = useQuery(api.loans.myLoanSummary);
-  const pawns = useQuery(api.loans.listMyPawns);
-  const dueReminder = useQuery(api.loans.dueReminder);
-  const schedule = useQuery(api.loans.myLoanSchedule);
-  const contracts = useQuery(api.loans.myContracts);
-  const kredit = useQuery(api.kredit.kreditSaya);
+  const role = user?.role;
+
+  // Query Peminjam ditolak server untuk akun Pendana. Kirim "skip" sampai
+  // peran diketahui (dan selama peran bukan Peminjam) supaya UI tidak pernah
+  // menerima error server mentah — pengunjung hanya melihat error page generik.
+  const argsPeminjam = role === undefined || role === "pendana" ? ("skip" as const) : {};
+  const loans = useQuery(api.loans.listMyLoans, argsPeminjam);
+  const summary = useQuery(api.loans.myLoanSummary, argsPeminjam);
+  const pawns = useQuery(api.loans.listMyPawns, argsPeminjam);
+  const dueReminder = useQuery(api.loans.dueReminder, argsPeminjam);
+  const schedule = useQuery(api.loans.myLoanSchedule, argsPeminjam);
+  const contracts = useQuery(api.loans.myContracts, argsPeminjam);
+  const kredit = useQuery(api.kredit.kreditSaya, argsPeminjam);
 
   const [loanDetailId, setLoanDetailId] = useState<Id<"loans"> | null>(null);
   const [pawnDetailId, setPawnDetailId] = useState<Id<"pawns"> | null>(null);
+
+  // Akun Pendana tidak dilayani di sini — arahkan ke ruang Pendana.
+  useEffect(() => {
+    if (role === "pendana") navigate("/pendana", { replace: true });
+  }, [role, navigate]);
 
   const handleSignOut = async () => {
     await signOut();
     navigate("/");
   };
+
+  if (role === "pendana") {
+    return (
+      <div className="flex min-h-screen flex-col bg-slate-50 text-slate-900">
+        <DashboardHeader />
+        <main className="mx-auto flex w-full max-w-3xl flex-1 items-center justify-center px-4 py-16 sm:px-6">
+          <ErrorPage
+            kode="Peran akun"
+            judul="Halaman ini untuk akun Peminjam"
+            deskripsi="Akun Anda terdaftar sebagai Pendana, jadi pengajuan pinjaman dan gadai tidak tersedia di sini. Kelola dana dan alokasi Anda di ruang Pendana."
+            primaryLabel="Buka ruang Pendana"
+            primaryHref="/pendana"
+            secondaryLabel="Beranda"
+            secondaryHref="/"
+          />
+        </main>
+        <DashboardFooter />
+      </div>
+    );
+  }
 
   const isLoading =
     loans === undefined ||

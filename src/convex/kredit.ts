@@ -331,6 +331,9 @@ export const bayarCicilanKredit = mutation({
     const pokokDibayar = jadwal.pokok;
     const marginDibayar = jadwal.margin;
     const totalDibayar = jadwal.total;
+    // Skema bulanan (tenor 1/3/6): cicilan memuat biaya layanan platform 3%
+    // yang diamortisasi rata per bulan — bagian platform, bukan hak Pendana.
+    const feeBulanan = Math.max(0, totalDibayar - pokokDibayar - marginDibayar);
 
     const fundings = await ctx.db
       .query("kreditFundings")
@@ -399,9 +402,23 @@ export const bayarCicilanKredit = mutation({
       });
       terdistribusi += payout;
     }
-    if (terdistribusi !== totalDibayar) {
+    // 2b. Bagian biaya layanan (skema bulanan) masuk pendapatan platform —
+    //     dijurnal dari akun kredit ke platform:FEE pada bulan itu saja.
+    if (feeBulanan > 0) {
+      await appendJournal(ctx, {
+        jenis: "platform_fee",
+        keterangan: `Biaya layanan cicilan ${kredit.nomorReferensi} bulan ${bulanKe}/${quote.jadwal.length}`,
+        aktor: "platform",
+        lines: [
+          { akun: "platform:FEE", arah: "debit", jumlah: feeBulanan },
+          { akun: `kredit:${args.kreditId}`, arah: "kredit", jumlah: feeBulanan },
+        ],
+      });
+    }
+
+    if (terdistribusi + feeBulanan !== totalDibayar) {
       throw new Error(
-        `Cicilan tidak seimbang: selisih ${totalDibayar - terdistribusi}. Transaksi dibatalkan.`,
+        `Cicilan tidak seimbang: selisih ${totalDibayar - terdistribusi - feeBulanan}. Transaksi dibatalkan.`,
       );
     }
 

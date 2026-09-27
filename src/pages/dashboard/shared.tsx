@@ -17,8 +17,14 @@ export type LoanScheduleRow = {
   pokokPinjaman: number;
   status: string;
   tenorHari: number;
+  /** Diisi (1/3/6 bln) bila pinjaman memakai skema bulanan. */
+  tenorBulan: number | null;
   didanaiPada: number | null;
   quote: ReturnType<typeof quoteLoan>;
+  /** Hak Imbal Hasil Pendana: 30% pokok (harian) atau Σ bunga bulanan. */
+  imbalHasilTotal: number;
+  /** Total kewajiban menurut skema pinjaman (130% atau Σ cicilan bulanan). */
+  totalKewajiban: number;
   pelunasan: {
     jatuhTempoPada: number;
     sisaHari: number;

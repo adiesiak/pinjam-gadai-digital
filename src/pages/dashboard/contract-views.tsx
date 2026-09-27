@@ -13,6 +13,7 @@ import {
   judulContract,
   nomorContract,
 } from "@/lib/contract";
+import { hitungSimulasiBulanan } from "@/lib/bulanan";
 import { quoteLoan } from "@/lib/loan";
 import { formatRupiah } from "@/lib/money";
 import { EmptyState } from "./empty-state";
@@ -28,6 +29,7 @@ export function MyContractsSection({
           nomorReferensi: string;
           pokokPinjaman: number;
           tenorHari: number;
+          tenorBulan: number | null;
           status: string;
           tandaTanganAda: boolean;
           tandaTanganPada: number | null;
@@ -116,6 +118,8 @@ function LoanContractCard({
     nomorReferensi: string;
     pokokPinjaman: number;
     tenorHari: number;
+    /** Diisi (1/3/6 bln) bila pinjaman memakai skema bulanan. */
+    tenorBulan: number | null;
     status: string;
     tandaTanganAda: boolean;
     tandaTanganPada: number | null;
@@ -127,6 +131,15 @@ function LoanContractCard({
   };
 }) {
   const q = quoteLoan(c.pokokPinjaman);
+  // Simulasi bulanan: data warisan di luar rentang skema dilewati dengan aman.
+  const bulanan = useMemo(() => {
+    if (c.tenorBulan === null) return null;
+    try {
+      return hitungSimulasiBulanan(c.pokokPinjaman, c.tenorBulan);
+    } catch {
+      return null;
+    }
+  }, [c.pokokPinjaman, c.tenorBulan]);
   const html = useMemo(
     () =>
       buildPinjamanContract(
@@ -138,8 +151,9 @@ function LoanContractCard({
           timestampPada: c.tandaTanganPada ?? c.createdAt,
         },
         c.tenorHari,
+        bulanan,
       ),
-    [c, q],
+    [c, q, bulanan],
   );
 
   return (
@@ -149,8 +163,19 @@ function LoanContractCard({
           <p className="text-sm font-semibold">{judulContract("pinjaman")}</p>
           <p className="mt-0.5 truncate text-xs text-muted-foreground">
             <span className="font-mono">{nomorContract("pinjaman", c.nomorReferensi)}</span> ·
-            pokok {formatRupiah(c.pokokPinjaman)} · dana bersih {formatRupiah(q.danaBersihDitransfer)}{" "}
-            (95%) · total pelunasan {formatRupiah(q.totalKewajibanPelunasan)} (130%)
+            pokok {formatRupiah(c.pokokPinjaman)} ·{" "}
+            {bulanan !== null ? (
+              <>
+                tenor {bulanan.tenorBulan} bulan · cicilan{" "}
+                {formatRupiah(bulanan.cicilanPerBulan)}/bulan · total pelunasan{" "}
+                {formatRupiah(bulanan.totalPengembalian)}
+              </>
+            ) : (
+              <>
+                dana bersih {formatRupiah(q.danaBersihDitransfer)} (95%) · total pelunasan{" "}
+                {formatRupiah(q.totalKewajibanPelunasan)} (130%)
+              </>
+            )}
           </p>
           <p className="mt-0.5 text-xs text-muted-foreground">
             {c.lokasiAjukan

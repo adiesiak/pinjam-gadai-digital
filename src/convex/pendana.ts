@@ -3,7 +3,8 @@ import { mutation, query, MutationCtx, QueryCtx } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { v } from "convex/values";
 import { ROLES } from "./schema";
-import { calculateRepayment, DEFAULT_TENOR_HARI, quoteLoan } from "../lib/loan";
+import { DEFAULT_TENOR_HARI, pelunasanPinjaman, quoteLoan } from "../lib/loan";
+import { hitungSimulasiBulanan, TENOR_BULANAN_OPTIONS } from "../lib/bulanan";
 import { hakImbalHasilPerAlokasi, quoteKreditBarang } from "../lib/kredit";
 import { formatRupiah, type Rupiah } from "../lib/money";
 import { appendJournal, pendanaWalletBalance } from "./ledger";
@@ -81,6 +82,45 @@ async function requireWaOtpIfEnabled(
     waOtpKedaluwarsa: undefined,
     waOtpGagal: 0,
   });
+}
+
+/**
+ * Ringkasan pinjaman untuk ditampilkan ke Pendana — SATU sumber kebenaran
+ * untuk skema harian (130% flat) dan skema bulanan (bunga menurun + biaya
+ * layanan diamortisasi). Imbal Hasil Pendana = 30% pokok (harian) atau
+ * Σ bunga bulanan (bulanan); biaya layanan adalah pendapatan platform.
+ */
+function ringkasPinjaman(loan: {
+  pokokPinjaman: number;
+  tenorHari?: number;
+  tenorBulan?: number;
+}) {
+  if (loan.tenorBulan !== undefined) {
+    const sim = hitungSimulasiBulanan(loan.pokokPinjaman, loan.tenorBulan);
+    return {
+      skemaBulanan: true as const,
+      // Ekuivalen hari (1 bulan = 30 hari) untuk tampilan warisan; UI skema
+      // bulanan menampilkan `tenorBulan` sebagai "N bulan".
+      tenorHari: loan.tenorBulan * 30,
+      tenorBulan: loan.tenorBulan,
+      imbalHasilTotal: sim.bungaTotal as number,
+      totalKewajiban: sim.totalPengembalian as number,
+      cicilanPerBulan: sim.cicilanPerBulan as number,
+      biayaLayananTotal: sim.biayaLayananTotal as number,
+      danaDiterimaPeminjam: loan.pokokPinjaman,
+    };
+  }
+  const q = quoteLoan(loan.pokokPinjaman);
+  return {
+    skemaBulanan: false as const,
+    tenorHari: loan.tenorHari ?? DEFAULT_TENOR_HARI,
+    tenorBulan: null as number | null,
+    imbalHasilTotal: q.bunga as number,
+    totalKewajiban: q.totalKewajibanPelunasan as number,
+    cicilanPerBulan: null,
+    biayaLayananTotal: 0 as number,
+    danaDiterimaPeminjam: q.danaBersihDitransfer as number,
+  };
 }
 
 function referenceNumber(prefix: string): string {
@@ -232,7 +272,7 @@ export const marketplace = query({
       const terkumpul = fundings
         .filter((f) => f.status === "dialokasikan")
         .reduce((acc, f) => acc + f.jumlahAlokasi, 0);
-      const quote = quoteLoan(loan.pokokPinjaman);
+      const ringkas = ringkasPinjaman(loan);
 
       // Info gadai terhubung (nilai taksiran/LTV/rak vault) — peminjam yang
       // sama + gadai tertaksir, untuk badge "Gadai Digital" di marketplace.
@@ -268,11 +308,11 @@ export const marketplace = query({
         nomorReferensi: loan.nomorReferensi,
         tujuan: loan.tujuan,
         pokokPinjaman: loan.pokokPinjaman,
-        tenorHari: loan.tenorHari ?? 30,
+        ...ringkas,
         terkumpul,
         sisaKebutuhan: loan.pokokPinjaman - terkumpul,
-        danaBersih: quote.danaBersihDitransfer,
-        bunga: quote.bunga,
+        danaBersih: ringkas.danaDiterimaPeminjam,
+        bunga: ringkas.imbalHasilTotal,
         gadai,
         _creationTime: loan._creationTime,
       });
@@ -338,10 +378,11 @@ export const allocateFunding = mutation({
       );
     }
 
-    // 4. Tulis posisi alokasi.
-    const quote = quoteLoan(loan.pokokPinjaman);
-    const imbalHasil = quote.bunga > 0
-      ? Math.floor((quote.bunga * args.jumlah) / loan.pokokPinjaman)
+    // 4. Tulis posisi alokasi. Imbal Hasil = porsi proporsional dari total hak
+    //    Pendana pinjaman ini (harian: 30% pokok; bulanan: Σ bunga bulanan).
+    const ringkas = ringkasPinjaman(loan);
+    const imbalHasil = ringkas.imbalHasilTotal > 0
+      ? Math.floor((ringkas.imbalHasilTotal * args.jumlah) / loan.pokokPinjaman)
       : 0;
     const fndRef = referenceNumber("FND");
     await ctx.db.insert("fundings", {
@@ -367,40 +408,70 @@ export const allocateFunding = mutation({
     // 6. Bila penuh: cairkan dana bersih + potong fee platform.
     const terkumpulSetelah = terkumpul + args.jumlah;
     if (terkumpulSetelah === loan.pokokPinjaman) {
-      const q = quoteLoan(loan.pokokPinjaman);
+      const ringkasPenuh = ringkasPinjaman(loan);
       const now = Date.now();
 
-      // Jurnal biaya: admin + platform fee dari akun pinjaman ke platform.
-      await appendJournal(ctx, {
-        jenis: "platform_fee",
-        keterangan: `Biaya admin & platform ${loan.nomorReferensi}`,
-        aktor: "platform",
-        lines: [
-          { akun: "platform:FEE", arah: "debit", jumlah: q.totalPotonganDiMuka },
-          { akun: `pinjaman:${args.loanId}`, arah: "kredit", jumlah: q.totalPotonganDiMuka },
-        ],
-      });
+      if (!ringkasPenuh.skemaBulanan) {
+        const q = quoteLoan(loan.pokokPinjaman);
+        // Jurnal biaya: admin + platform fee dari akun pinjaman ke platform.
+        await appendJournal(ctx, {
+          jenis: "platform_fee",
+          keterangan: `Biaya admin & platform ${loan.nomorReferensi}`,
+          aktor: "platform",
+          lines: [
+            { akun: "platform:FEE", arah: "debit", jumlah: q.totalPotonganDiMuka },
+            { akun: `pinjaman:${args.loanId}`, arah: "kredit", jumlah: q.totalPotonganDiMuka },
+          ],
+        });
+      }
 
-      // Jurnal pencairan dana bersih ke Peminjam.
+      // Jurnal pencairan ke Peminjam. Skema harian: 95% (admin & platform
+      // dipotong di muka). Skema bulanan: pokok 100% (DP 0%, tanpa potongan di
+      // muka) — biaya layanan 3% sudah termasuk cicilan bulanan dan dijurnal
+      // sebagai pendapatan platform saat pelunasan.
       await appendJournal(ctx, {
         jenis: "disbursement",
-        keterangan: `Pencairan dana bersih ${loan.nomorReferensi}`,
+        keterangan: ringkasPenuh.skemaBulanan
+          ? `Pencairan pokok penuh ${loan.nomorReferensi} (skema bulanan)`
+          : `Pencairan dana bersih ${loan.nomorReferensi}`,
         aktor: "platform",
         lines: [
-          { akun: `peminjam:${loan.userId}`, arah: "debit", jumlah: q.danaBersihDitransfer },
-          { akun: `pinjaman:${args.loanId}`, arah: "kredit", jumlah: q.danaBersihDitransfer },
+          {
+            akun: `peminjam:${loan.userId}`,
+            arah: "debit",
+            jumlah: ringkasPenuh.danaDiterimaPeminjam,
+          },
+          {
+            akun: `pinjaman:${args.loanId}`,
+            arah: "kredit",
+            jumlah: ringkasPenuh.danaDiterimaPeminjam,
+          },
         ],
       });
 
-      // Potong porsi imbal hasil ke masing-masing Pendana sesuai alokasi.
+      // Hak Imbal Hasil tiap Pendana: proporsional alokasi dengan alokasi
+      // terbesar menyerap dust pembulatan — SAMA PERSIS dengan distribusi saat
+      // pelunasan (lihat repayLoan di convex/loans.ts).
       // Baca ulang alokasi dari DB — snapshot lama tidak memuat baris yang
       // baru di-insert mutation ini (bug yang sama dengan kredit barang).
       const fundingsTerbaru = await ctx.db
         .query("fundings")
-        .withIndex("by_loan", (q) => q.eq("loanId", loan._id))
+        .withIndex("by_loan", (q2) => q2.eq("loanId", loan._id))
         .collect();
-      for (const f of fundingsTerbaru.filter((x) => x.status === "dialokasikan")) {
-        await ctx.db.patch(f._id, { imbalHasil: Math.floor((quote.bunga * f.jumlahAlokasi) / loan.pokokPinjaman) });
+      const aktif = fundingsTerbaru
+        .filter((x) => x.status === "dialokasikan")
+        .sort(
+          (a, b) =>
+            b.jumlahAlokasi - a.jumlahAlokasi ||
+            a.nomorReferensi.localeCompare(b.nomorReferensi),
+        );
+      const hak = hakImbalHasilPerAlokasi(
+        ringkasPenuh.imbalHasilTotal,
+        loan.pokokPinjaman,
+        aktif.map((f) => f.jumlahAlokasi),
+      );
+      for (let i = 0; i < aktif.length; i += 1) {
+        await ctx.db.patch(aktif[i]._id, { imbalHasil: hak[i] });
       }
 
       await ctx.db.patch(loan._id, { status: "didanai", didanaiPada: now });
@@ -520,15 +591,9 @@ export const myPortfolio = query({
       const loan = await ctx.db.get(f.loanId);
       if (loan === null) continue;
 
-      const rep =
-        loan.status === "didanai" && loan.didanaiPada !== undefined
-          ? calculateRepayment(
-              loan.pokokPinjaman,
-              loan.tenorHari ?? DEFAULT_TENOR_HARI,
-              loan.didanaiPada,
-              now,
-            )
-          : null;
+      // Satu sumber kebenaran pelunasan: skema harian & bulanan sekaligus.
+      const rep = pelunasanPinjaman(loan, now);
+      const ringkas = ringkasPinjaman(loan);
 
       // Status pelunasan dari sudut pandang Pendana.
       let statusPelunasan: "lancar" | "berjalan" | "menunggak";
@@ -586,7 +651,7 @@ export const myPortfolio = query({
         statusAlokasi: f.status,
         statusPinjaman: loan.status,
         statusPelunasan,
-        tenorHari: loan.tenorHari ?? DEFAULT_TENOR_HARI,
+        ...ringkas,
         pelunasan:
           rep === null
             ? null
@@ -632,7 +697,7 @@ export const myFundingContracts = query({
         imbalHasil: f.imbalHasil,
         statusAlokasi: f.status,
         statusPinjaman: loan.status,
-        tenorHari: loan.tenorHari ?? DEFAULT_TENOR_HARI,
+        ...ringkasPinjaman(loan),
         pokokPinjaman: loan.pokokPinjaman,
         createdAt: f._creationTime,
       });
@@ -901,21 +966,28 @@ export const alokasiKreditBarang = mutation({
         ],
       });
 
-      // Biaya layanan platform — margin platform, dibayar Konsumen di muka.
-      // Jurnal ini yang membuat pendapatan platform benar-benar tercatat.
-      await appendJournal(ctx, {
-        jenis: "platform_fee",
-        keterangan: `Biaya layanan platform ${kredit.nomorReferensi} (Kredit Barang)`,
-        aktor: "platform",
-        lines: [
-          { akun: "platform:FEE", arah: "debit", jumlah: quote.biayaLayanan },
-          {
-            akun: `peminjam:${kredit.userId}`,
-            arah: "kredit",
-            jumlah: quote.biayaLayanan,
-          },
-        ],
-      });
+      // Biaya layanan platform — margin platform. Skema tenor 12/24: ditagih
+      // di muka saat pendanaan penuh. Skema bulanan (tenor 1/3/6): 3% itu
+      // DIAMORTISASI dalam cicilan bulanan, jadi TIDAK dijurnal di sini —
+      // dijurnal bertahap di bayarCicilanKredit agar kas benar-benar masuk.
+      const bayarFeeDiMuka = !(
+        TENOR_BULANAN_OPTIONS as readonly number[]
+      ).includes(kredit.tenorBulan);
+      if (bayarFeeDiMuka) {
+        await appendJournal(ctx, {
+          jenis: "platform_fee",
+          keterangan: `Biaya layanan platform ${kredit.nomorReferensi} (Kredit Barang)`,
+          aktor: "platform",
+          lines: [
+            { akun: "platform:FEE", arah: "debit", jumlah: quote.biayaLayanan },
+            {
+              akun: `peminjam:${kredit.userId}`,
+              arah: "kredit",
+              jumlah: quote.biayaLayanan,
+            },
+          ],
+        });
+      }
 
       // Selaraskan hak Imbal Hasil dengan engine: Σ hak = total Imbal Hasil
       // dan alokasi terbesar menyerap pembulatan — tepat seperti yang

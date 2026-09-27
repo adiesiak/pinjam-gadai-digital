@@ -40,11 +40,13 @@ export function FundingContractsSection() {
                 <p className="text-sm font-semibold">{judulContract("pendanaan")}</p>
                 <p className="mt-0.5 truncate text-xs text-muted-foreground">
                   <span className="font-mono">{nomorContract("pendanaan", c.nomorReferensi)}</span> ·{" "}
-                  {loanPurposeLabel(c.tujuan)} · alokasi {formatRupiah(c.jumlahAlokasi)} · hak bunga{" "}
-                  {formatRupiah(c.imbalHasil)} (30%)
+                  {loanPurposeLabel(c.tujuan)} · alokasi {formatRupiah(c.jumlahAlokasi)} · hak Imbal Hasil{" "}
+                  {formatRupiah(c.imbalHasil)}
+                  {c.tenorBulan !== null ? " (skema bulanan)" : " (30%)"}
                 </p>
                 <p className="mt-0.5 text-xs text-muted-foreground">
-                  Pinjaman {c.loanRef} · pokok {formatRupiah(c.pokokPinjaman)} · tenor {c.tenorHari} hari ·{" "}
+                  Pinjaman {c.loanRef} · pokok {formatRupiah(c.pokokPinjaman)} · tenor{" "}
+                  {c.tenorBulan !== null ? `${c.tenorBulan} bulan` : `${c.tenorHari} hari`} ·{" "}
                   {formatDate(c.createdAt)}
                 </p>
               </div>
@@ -68,10 +70,13 @@ function buildFundingContractHtml(c: {
   jumlahAlokasi: number;
   imbalHasil: number;
   statusPinjaman: string;
-  tenorHari: number;
+  tenorHari: number | null;
+  tenorBulan: number | null;
   pokokPinjaman: number;
   createdAt: number;
 }): string {
+  const tenorLabel =
+    c.tenorBulan !== null ? `${c.tenorBulan} bulan` : `${c.tenorHari} hari`;
   const tgl = formatDate(c.createdAt);
   return `
   <div class="contract">
@@ -86,14 +91,24 @@ function buildFundingContractHtml(c: {
     <h2>Pasal 1 — Objek Pendanaan</h2>
     <ol>
       <li>Pendana menyediakan dana sebesar <strong>${formatRupiah(c.jumlahAlokasi)}</strong> untuk pinjaman ${c.loanRef} (tujuan: ${loanPurposeLabel(c.tujuan)}).</li>
-      <li>Pokok pinjaman: ${formatRupiah(c.pokokPinjaman)} · tenor ${c.tenorHari} hari.</li>
-      <li>Dana bersih (95% dari pokok) dicairkan ke Peminjam setelah pendanaan penuh.</li>
+      <li>Pokok pinjaman: ${formatRupiah(c.pokokPinjaman)} · tenor ${tenorLabel}.</li>
+      <li>${
+        c.tenorBulan !== null
+          ? "Pokok dicairkan penuh (DP 0%) ke Peminjam setelah pendanaan penuh; biaya layanan 3% tercakup dalam cicilan bulanan."
+          : "Dana bersih (95% dari pokok) dicairkan ke Peminjam setelah pendanaan penuh."
+      }</li>
     </ol>
 
     <h2>Pasal 2 — Hak Imbal Hasil</h2>
     <ol>
-      <li>Pendana menerima hak Imbal Hasil (Bunga) sebesar 30% dari porsi pokok yang didanai: <strong>${formatRupiah(c.imbalHasil)}</strong>.</li>
-      <li>Imbal hasil dibayarkan penuh saat Peminjam melunasi total kewajiban 130% dari pokok.</li>
+      <li>Pendana menerima hak Imbal Hasil ${
+        c.tenorBulan !== null
+          ? "berupa bunga bulanan menurun (tenor 1 bulan 10%/bulan, 3–5 bulan 8%/bulan, ≥ 6 bulan 7,5%/bulan) atas porsi pokok yang didanai"
+          : "(Bunga) sebesar 30% dari porsi pokok yang didanai"
+      }: <strong>${formatRupiah(c.imbalHasil)}</strong>.</li>
+      <li>Imbal hasil dibayarkan penuh saat Peminjam melunasi ${
+        c.tenorBulan !== null ? "seluruh cicilan skema bulanan" : "total kewajiban 130% dari pokok"
+      }.</li>
       <li>Total penerimaan Pendana saat pelunasan: <strong>${formatRupiah(c.jumlahAlokasi + c.imbalHasil)}</strong>.</li>
     </ol>
 

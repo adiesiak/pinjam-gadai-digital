@@ -20,7 +20,13 @@ import { Slider } from "@/components/ui/slider";
 import { Textarea } from "@/components/ui/textarea";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
-import { KREDIT_ASUMSI_AWAL, KREDIT_PRICING, quoteKreditBarang } from "@/lib/kredit";
+import { persenBungaPerBulan } from "@/lib/bulanan";
+import {
+  KREDIT_ASUMSI_AWAL,
+  KREDIT_PRICING,
+  quoteKreditBarang,
+  skemaBulananKredit,
+} from "@/lib/kredit";
 import { formatRupiah, parseRupiah } from "@/lib/money";
 import { cn } from "@/lib/utils";
 
@@ -294,24 +300,30 @@ export function KreditBarangForm({ onCreated }: { onCreated: (ref: string) => vo
         <div className="mt-4 flex items-baseline justify-between gap-3">
           <Label className="text-xs text-muted-foreground">Uang muka (DP)</Label>
           <span className="text-xs font-semibold tabular-nums">
-            {dpPersen}% · {formatRupiah(preview?.dp ?? 0)}
+            {bulanan ? 0 : dpPersen}% · {formatRupiah(preview?.dp ?? 0)}
           </span>
         </div>
-        <Slider
-          className="mt-3"
-          min={KREDIT_PRICING.dpMinPersen}
-          max={KREDIT_PRICING.dpMaxPersen}
-          step={5}
-          value={[dpPersen]}
-          onValueChange={(v) => setDpPersen(v[0] ?? KREDIT_PRICING.dpMinPersen)}
-          disabled={submitting}
-        />
+        {bulanan ? (
+          <p className="mt-2 rounded-xl border border-emerald-100 bg-emerald-50/60 px-3 py-2 text-xs leading-5 text-emerald-800">
+            Tenor {tenorBulan} bulan memakai DP 0% — seluruh harga barang dibiayai tanpa uang muka.
+          </p>
+        ) : (
+          <Slider
+            className="mt-3"
+            min={KREDIT_PRICING.dpMinPersen}
+            max={KREDIT_PRICING.dpMaxPersen}
+            step={5}
+            value={[dpPersen]}
+            onValueChange={(v) => setDpPersen(v[0] ?? KREDIT_PRICING.dpMinPersen)}
+            disabled={submitting}
+          />
+        )}
 
         <div className="mt-5 flex items-baseline justify-between gap-3">
           <Label className="text-xs text-muted-foreground">Tenor cicilan</Label>
           <span className="text-xs font-semibold tabular-nums">{tenorBulan} bulan</span>
         </div>
-        <div className="mt-2 grid grid-cols-4 gap-1.5">
+        <div className="mt-2 grid grid-cols-3 gap-1.5 sm:grid-cols-5">
           {KREDIT_PRICING.tenorBulanOptions.map((bulan) => {
             const aktif = bulan === tenorBulan;
             return (
@@ -337,24 +349,35 @@ export function KreditBarangForm({ onCreated }: { onCreated: (ref: string) => vo
         <div className="mt-5 flex items-baseline justify-between gap-3">
           <Label className="text-xs text-muted-foreground">Imbal Hasil Pendana per bulan</Label>
           <span className="text-xs font-semibold tabular-nums">
-            {marginPersenPerBulan.toLocaleString("id-ID", { maximumFractionDigits: 2 })}%
+            {bulanan
+              ? `${persenBungaPerBulan(tenorBulan).toLocaleString("id-ID", { maximumFractionDigits: 2 })}%`
+              : `${marginPersenPerBulan.toLocaleString("id-ID", { maximumFractionDigits: 2 })}%`}
           </span>
         </div>
-        <Slider
-          className="mt-3"
-          min={KREDIT_PRICING.marginMinPersenPerBulan}
-          max={KREDIT_PRICING.marginMaxPersenPerBulan}
-          step={0.25}
-          value={[marginPersenPerBulan]}
-          onValueChange={(v) =>
-            setMarginPersenPerBulan(v[0] ?? KREDIT_PRICING.marginMinPersenPerBulan)
-          }
-          disabled={submitting}
-        />
-        <p className="mt-1.5 text-xs leading-5 text-muted-foreground">
-          Rentang {KREDIT_PRICING.marginMinPersenPerBulan}–
-          {KREDIT_PRICING.marginMaxPersenPerBulan}% per bulan dari pokok dibiayai (hak Pendana).
-        </p>
+        {bulanan ? (
+          <p className="mt-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs leading-5 text-muted-foreground">
+            Bunga menurun otomatis: {persenBungaPerBulan(tenorBulan)}% per bulan — 10%/bln
+            (1 bulan), 8%/bln (3–5 bulan), 7,5%/bln (≥ 6 bulan).
+          </p>
+        ) : (
+          <>
+            <Slider
+              className="mt-3"
+              min={KREDIT_PRICING.marginMinPersenPerBulan}
+              max={KREDIT_PRICING.marginMaxPersenPerBulan}
+              step={0.25}
+              value={[marginPersenPerBulan]}
+              onValueChange={(v) =>
+                setMarginPersenPerBulan(v[0] ?? KREDIT_PRICING.marginMinPersenPerBulan)
+              }
+              disabled={submitting}
+            />
+            <p className="mt-1.5 text-xs leading-5 text-muted-foreground">
+              Rentang {KREDIT_PRICING.marginMinPersenPerBulan}–
+              {KREDIT_PRICING.marginMaxPersenPerBulan}% per bulan dari pokok dibiayai (hak Pendana).
+            </p>
+          </>
+        )}
 
         {/* ===== Pratinjau kredit ===== */}
         {preview === null ? (

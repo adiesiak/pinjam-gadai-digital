@@ -10,7 +10,8 @@ import {
 import { v } from "convex/values";
 import { api, internal } from "./_generated/api";
 import { ROLES } from "./schema";
-import { calculateRepayment, DEFAULT_TENOR_HARI } from "../lib/loan";
+import { BULAN_MS, pelunasanPinjaman } from "../lib/loan";
+import { hitungSimulasiBulanan } from "../lib/bulanan";
 import { formatRupiah } from "../lib/money";
 
 /**
@@ -162,6 +163,7 @@ export const _loanForMessage = internalQuery({
       nomorWhatsApp: loan.nomorWhatsApp,
       pokokPinjaman: loan.pokokPinjaman,
       tenorHari: loan.tenorHari,
+      tenorBulan: loan.tenorBulan,
       didanaiPada: loan.didanaiPada,
       status: loan.status,
     };
@@ -196,26 +198,28 @@ function pesanDariLoan(
     namaLengkap: string;
     nomorReferensi: string;
     pokokPinjaman: number;
-    tenorHari: number;
+    tenorHari?: number;
+    tenorBulan?: number;
     didanaiPada?: number;
     status: string;
   },
   now: number,
 ): { isi: string; denda: number; total: number } {
-  const pelunasan =
-    loan.status === "didanai" && loan.didanaiPada !== undefined
-      ? calculateRepayment(
-          loan.pokokPinjaman,
-          loan.tenorHari ?? DEFAULT_TENOR_HARI,
-          loan.didanaiPada,
-          now,
-        )
-      : null;
-  const total = pelunasan ? pelunasan.totalKewajibanDenganPenalti : Math.round(loan.pokokPinjaman * 1.3);
+  // Satu sumber kebenaran: skema harian (130%) dan skema bulanan sekaligus.
+  const pelunasan = pelunasanPinjaman(loan, now);
+  const totalKewajibanPenuh =
+    loan.tenorBulan !== undefined
+      ? hitungSimulasiBulanan(loan.pokokPinjaman, loan.tenorBulan).totalPengembalian
+      : Math.round(loan.pokokPinjaman * 1.3);
+  const total = pelunasan ? pelunasan.totalKewajibanDenganPenalti : totalKewajibanPenuh;
   const denda = pelunasan ? pelunasan.dendaTerlambat : 0;
   const jatuhTempo =
     loan.didanaiPada !== undefined
-      ? loan.didanaiPada + (loan.tenorHari ?? DEFAULT_TENOR_HARI) * 86400000
+      ? pelunasan?.jatuhTempoPada ??
+        loan.didanaiPada +
+          (loan.tenorBulan !== undefined
+            ? loan.tenorBulan * BULAN_MS
+            : (loan.tenorHari ?? 30) * 86400000)
       : now;
   const tanggal = new Date(jatuhTempo).toLocaleDateString("id-ID", {
     day: "numeric",
@@ -229,7 +233,11 @@ function pesanDariLoan(
     ref: loan.nomorReferensi,
     jumlah: formatRupiah(total),
     tanggal,
-    sisa: `${loan.tenorHari ?? DEFAULT_TENOR_HARI} hari`,
+    // Tenor skema bulanan tampil sebagai "6 bulan", skema harian "30 hari".
+    sisa:
+      loan.tenorBulan !== undefined
+        ? `${loan.tenorBulan} bulan`
+        : `${loan.tenorHari ?? 30} hari`,
     denda: dendaStr,
   });
   return { isi, denda, total };
@@ -249,7 +257,8 @@ export const previewMessage = query({
         namaLengkap: loan.namaLengkap,
         nomorReferensi: loan.nomorReferensi,
         pokokPinjaman: loan.pokokPinjaman,
-        tenorHari: loan.tenorHari ?? DEFAULT_TENOR_HARI,
+        tenorHari: loan.tenorHari,
+        tenorBulan: loan.tenorBulan,
         didanaiPada: loan.didanaiPada,
         status: loan.status,
       },
@@ -325,7 +334,8 @@ export const sendReminder = action({
           namaLengkap: loan.namaLengkap,
           nomorReferensi: loan.nomorReferensi,
           pokokPinjaman: loan.pokokPinjaman,
-          tenorHari: loan.tenorHari ?? DEFAULT_TENOR_HARI,
+          tenorHari: loan.tenorHari,
+          tenorBulan: loan.tenorBulan,
           didanaiPada: loan.didanaiPada,
           status: loan.status,
         },
