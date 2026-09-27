@@ -504,8 +504,9 @@ export const rejectDeposit = mutation({
 
 /**
  * Ringkasan ledger untuk kartu kesehatan sistem di panel admin.
- * `pendapatanPlatform` = total entri debit `platform:FEE` berjenis platform_fee
- * (seluruh pendapatan platform), `rincianSkema` memecahnya per lini usaha.
+ * `pendapatanPlatform` = total entri `platform_fee` pada akun platform:FEE
+ * (debit maupun kredit — sewa modal gadai dibayar dari arah kredit);
+ * `rincianSkema` memecahnya per lini usaha.
  */
 export const ledgerSummary = query({
   args: {},

@@ -484,6 +484,17 @@ async function setKreditStatus(
       "Status Didanai ditetapkan otomatis oleh sistem saat pendanaan Pendana terpenuhi penuh.",
     );
   }
+  if (status === "lunas") {
+    throw new Error(
+      "Status Lunas ditetapkan otomatis oleh sistem saat cicilan terakhir dibayar.",
+    );
+  }
+  // Catatan: "dibatalkan" bukan status pengajuan (hanya status alokasi di
+  // kreditFundings) dan tidak ada mutation yang menulisnya — pembatalan
+  // alokasi yang sudah dibayarkan akan membuat Σ alokasi aktif < pokok
+  // dibiayai sehingga seluruh cicilan berikutnya gagal. Pengembalian dana
+  // (bila suatu saat diperlukan) wajib lewat alur jurnal terpisah, bukan
+  // dengan mengubah status alokasi/pengajuan.
   if (status === "ditolak" && (!catatan || catatan.trim().length === 0)) {
     throw new Error("Penolakan wajib menyertakan alasan.");
   }
