@@ -446,6 +446,15 @@ export default function Landing() {
                 >
                   Masuk
                 </Link>
+                <Button
+                  asChild
+                  className="mt-2 h-11 w-full bg-primary text-white hover:bg-primary/90"
+                >
+                  <Link to="/auth" onClick={() => setMenuOpen(false)}>
+                    Daftar
+                    <ArrowRight className="ml-1.5 size-4" />
+                  </Link>
+                </Button>
               </nav>
             </motion.div>
           )}
