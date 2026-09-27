@@ -153,8 +153,6 @@ function LiveCalculator() {
       <dl className="mt-6 space-y-2 border-t border-slate-200 pt-5 text-sm">
         {(
           [
-            ["Biaya admin", formatRupiah(quote.biayaAdmin), false],
-            ["Biaya platform", formatRupiah(quote.biayaPlatform), false],
             ["Bunga (hak Pendana)", formatRupiah(quote.bunga), false],
             ["Dana bersih diterima", formatRupiah(quote.danaBersihDitransfer), true],
           ] as Array<[string, string, boolean?]>
