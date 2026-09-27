@@ -19,6 +19,7 @@ import { LoanDetailDialog, PawnDetailDialog } from "./dashboard/detail-dialogs";
 import { LoanForm, PawnForm } from "./dashboard/forms-views";
 import { GadaiBillingSection } from "./dashboard/gadai-views";
 import { HistorySection } from "./dashboard/history-views";
+import { KreditBarangSection } from "./dashboard/kredit-views";
 import { ActiveLoanSection, ScheduleSection } from "./dashboard/loan-views";
 import { DueReminderBanner, LocationConsentCard } from "./dashboard/notice-views";
 import { SummaryCards } from "./dashboard/summary-cards";
@@ -41,6 +42,7 @@ export default function Dashboard() {
   const dueReminder = useQuery(api.loans.dueReminder);
   const schedule = useQuery(api.loans.myLoanSchedule);
   const contracts = useQuery(api.loans.myContracts);
+  const kredit = useQuery(api.kredit.kreditSaya);
 
   const [loanDetailId, setLoanDetailId] = useState<Id<"loans"> | null>(null);
   const [pawnDetailId, setPawnDetailId] = useState<Id<"pawns"> | null>(null);
@@ -56,7 +58,8 @@ export default function Dashboard() {
     pawns === undefined ||
     dueReminder === undefined ||
     schedule === undefined ||
-    contracts === undefined;
+    contracts === undefined ||
+    kredit === undefined;
 
   const greetingName = user?.name ?? user?.email?.split("@")[0] ?? "Nasabah";
 
@@ -77,12 +80,18 @@ export default function Dashboard() {
     (p) => p.status === "aktif" || p.status === "menunggu_pelepasan",
   ).length;
   const jumlahKontrak = contracts ? contracts.pinjaman.length + contracts.gadai.length : 0;
+  const kreditMenunggu = (kredit ?? []).filter(
+    (k) => k.status === "diajukan" || k.status === "sedang_ditinjau",
+  ).length;
+  const kreditDisetujui = (kredit ?? []).filter((k) => k.status === "disetujui").length;
 
   const tabBadges: Partial<Record<string, TabBadge>> = {};
   if (pinjamanAktif > 0) tabBadges.pinjaman = { count: pinjamanAktif };
   if (tagihanTerlambat > 0) tabBadges.jadwal = { count: tagihanTerlambat, tone: "danger" };
   else if (tagihanDekat > 0) tabBadges.jadwal = { count: tagihanDekat, tone: "warning" };
   if (gadaiAktif > 0) tabBadges.gadai = { count: gadaiAktif };
+  if (kreditMenunggu > 0) tabBadges.kredit = { count: kreditMenunggu, tone: "warning" };
+  else if (kreditDisetujui > 0) tabBadges.kredit = { count: kreditDisetujui };
   if (jumlahKontrak > 0) tabBadges.kontrak = { count: jumlahKontrak };
 
   return (
@@ -146,12 +155,17 @@ export default function Dashboard() {
                   </div>
                 </TabsContent>
 
-                {/* ============ TAB 4: E-CONTRACT ============ */}
+                {/* ============ TAB 4: KREDIT BARANG (Skema C) ============ */}
+                <TabsContent value="kredit" className="mt-8">
+                  <KreditBarangSection />
+                </TabsContent>
+
+                {/* ============ TAB 5: E-CONTRACT ============ */}
                 <TabsContent value="kontrak" className="mt-8">
                   <MyContractsSection contracts={contracts} />
                 </TabsContent>
 
-                {/* ============ TAB 5: FORM PENGAJUAN ============ */}
+                {/* ============ TAB 6: FORM PENGAJUAN ============ */}
                 <TabsContent value="form" className="mt-8">
                   <div className="grid gap-8 lg:grid-cols-2">
                     <section>
@@ -177,7 +191,7 @@ export default function Dashboard() {
                   </div>
                 </TabsContent>
 
-                {/* ============ TAB 6: RIWAYAT ============ */}
+                {/* ============ TAB 7: RIWAYAT ============ */}
                 <TabsContent value="riwayat" className="mt-8">
                   <HistorySection
                     loans={loans ?? []}

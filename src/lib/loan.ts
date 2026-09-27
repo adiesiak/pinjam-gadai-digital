@@ -4,7 +4,7 @@
  * Rule 3 of the guardrails: no float money math. Every derived value is an
  * exact integer rupiah computed with BigInt half-up rounding.
  */
-import { percentOf, type Rupiah } from "./money";
+import { formatRupiah, percentOf, type Rupiah } from "./money";
 
 export const PINDAI_PRICING = {
   adminFeePercent: 3,
@@ -19,9 +19,36 @@ export const PINDAI_PRICING = {
   totalRepaymentPercent: 130,
 } as const;
 
-/** Tenor pinjaman dalam hari — dipilih nasabah saat mengajukan. */
-export const TENOR_OPTIONS = [30, 60, 90] as const;
+/**
+ * Batas bisnis pinjaman tunai (Skema A) — dipakai klien DAN server agar
+ * validasi tidak bisa dilewati dari UI.
+ */
+export const LOAN_LIMITS = {
+  minPokok: 100_000,
+  /** Pinjaman tunai baru dibatasi maksimum Rp 1 juta. */
+  maxPokok: 1_000_000,
+  /** Tenor pinjaman maksimum 30 hari. */
+  maxTenorHari: 30,
+} as const;
+
+/** Tenor pinjaman dalam hari — dipilih nasabah saat mengajukan (maks 30 hari). */
+export const TENOR_OPTIONS = [7, 14, 30] as const;
 export type Tenor = (typeof TENOR_OPTIONS)[number];
+
+/**
+ * Validasi pokok pinjaman terhadap batas bisnis — satu sumber kebenaran untuk
+ * form Peminjam dan mutation createLoanApplication.
+ */
+export function assertPokokPinjamanValid(pokok: Rupiah): void {
+  if (!Number.isSafeInteger(pokok) || pokok <= 0) {
+    throw new Error("Pokok pinjaman harus rupiah bulat positif (tanpa desimal).");
+  }
+  if (pokok < LOAN_LIMITS.minPokok || pokok > LOAN_LIMITS.maxPokok) {
+    throw new Error(
+      `Pokok pinjaman harus antara ${formatRupiah(LOAN_LIMITS.minPokok)} dan ${formatRupiah(LOAN_LIMITS.maxPokok)}.`,
+    );
+  }
+}
 
 /** Tenor default untuk data warisan (pinjaman pra-tenor). */
 /** Tenor default untuk data warisan (pinjaman pra-tenor). */

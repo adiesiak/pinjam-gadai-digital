@@ -4,6 +4,7 @@ import {
   Package,
   ScrollText,
   Send,
+  ShoppingBag,
   Wallet,
 } from "lucide-react";
 
@@ -15,6 +16,7 @@ const TABS: Array<[string, string, React.ReactNode]> = [
   ["pinjaman", "Pinjaman Aktif", <Wallet key="i" className="size-4" />],
   ["jadwal", "Jadwal Angsuran", <CalendarClock key="i" className="size-4" />],
   ["gadai", "Jaminan Gadai Saya", <Package key="i" className="size-4" />],
+  ["kredit", "Kredit Barang", <ShoppingBag key="i" className="size-4" />],
   ["kontrak", "E-Contract Saya", <FileText key="i" className="size-4" />],
   ["form", "Form Pengajuan Baru", <Send key="i" className="size-4" />],
   ["riwayat", "Riwayat Transaksi", <ScrollText key="i" className="size-4" />],

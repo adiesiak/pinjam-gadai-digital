@@ -50,7 +50,7 @@ export const DEFAULTS = {
     sub: "Keduanya memakai mesin perhitungan dan jurnal audit yang sama.",
     pinjamanJudul: "Pinjaman Tunai Digital",
     pinjamanIsi:
-      "Tanpa agunan, tenor 30/60/90 hari. Ajukan dari rumah, dana langsung ke rekening, dan pelunasan dipantau pengingat otomatis. Total pelunasan 130% dari pokok (Bunga 30% — hak Pendana).",
+      "Tanpa agunan, plafon sampai Rp 1 juta dengan tenor hingga 30 hari. Ajukan dari rumah, dana langsung ke rekening, dan pelunasan dipantau pengingat otomatis. Total pelunasan 130% dari pokok (Bunga 30% — hak Pendana).",
     pinjamanCta: "Ajukan sekarang",
     gadaiJudul: "Gadai Digital",
     gadaiIsi:

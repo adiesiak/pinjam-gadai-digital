@@ -12,6 +12,7 @@ import {
   Send,
   Settings2,
   ShieldCheck,
+  ShoppingBag,
   Wallet,
 } from "lucide-react";
 
@@ -19,11 +20,16 @@ import { AnnouncementCms } from "@/components/admin/AnnouncementCms";
 import { AuditTrailPanel } from "@/components/admin/AuditTrailPanel";
 import { BackupPanel } from "@/components/admin/BackupPanel";
 import { LiveLocationMap } from "@/components/admin/LiveLocationMap";
+import { KreditQueuePanel } from "@/components/admin/KreditQueuePanel";
 import { LoginSecurityPanel } from "@/components/admin/LoginSecurityPanel";
 import { DpdTab, LedgerTab, LelangTab, PencairanTab } from "@/components/admin/OperationsTabs";
 import { SystemConfigPanel } from "@/components/admin/SystemConfigPanel";
 import { WhatsAppPanel } from "@/components/admin/WhatsAppPanel";
-import { type LoanRow, type PawnRow } from "@/components/admin/admin-shared";
+import {
+  type KreditRow,
+  type LoanRow,
+  type PawnRow,
+} from "@/components/admin/admin-shared";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 import { LoanQueueSection, PawnQueueSection } from "./queue-views";
@@ -48,7 +54,7 @@ export function AdminTabs({
   onOpenPawn,
   onOpenSetup,
 }: {
-  overview: { loans: LoanRow[]; pawns: PawnRow[] };
+  overview: { loans: LoanRow[]; pawns: PawnRow[]; kredit: KreditRow[] };
   stats: AdminStatsData | undefined;
   ledger: LedgerSummary | undefined;
   pendingDeposits: PendingDeposit[] | undefined;
@@ -64,6 +70,7 @@ export function AdminTabs({
           [
             ["pinjaman", "Pinjaman", `${overview.loans.filter((l) => l.status === "diajukan").length}`, ClipboardList],
             ["gadai", "Gadai", `${overview.pawns.filter((p) => p.status === "diajukan" || p.status === "sedang_dinilai").length}`, Package],
+            ["kredit", "Kredit Barang", `${overview.kredit.filter((k) => k.status === "diajukan" || k.status === "sedang_ditinjau").length}`, ShoppingBag],
             ["lokasi", "Peta Live Location", null, MapIcon],
             ["pencairan", "Pencairan", stats ? `${stats.antreanPencairan}` : null, Wallet],
             ["dpd", "Penagihan / DPD", stats ? `${stats.pinjamanTerlambat}` : null, BellRing],
@@ -108,6 +115,10 @@ export function AdminTabs({
 
       <TabsContent value="gadai" className="min-w-0">
         <PawnQueueSection pawns={overview.pawns} onOpen={onOpenPawn} />
+      </TabsContent>
+
+      <TabsContent value="kredit" className="min-w-0">
+        <KreditQueuePanel />
       </TabsContent>
 
       <TabsContent value="setoran" className="min-w-0">

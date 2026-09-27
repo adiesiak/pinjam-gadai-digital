@@ -18,7 +18,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { KYC_FILES, MAX_FILE_BYTES, validateKycInput, type KycFileKey } from "@/lib/kyc";
-import { LOAN_PURPOSE_OPTIONS, quoteLoan, TENOR_OPTIONS } from "@/lib/loan";
+import {
+  LOAN_LIMITS,
+  LOAN_PURPOSE_OPTIONS,
+  quoteLoan,
+  TENOR_OPTIONS,
+} from "@/lib/loan";
 import { formatRupiah } from "@/lib/money";
 import {
   COLLATERAL_CATEGORIES,
@@ -28,7 +33,7 @@ import {
 
 /** Form pengajuan pinjaman (KYC + GPS + tanda tangan canvas). */
 export function LoanForm({ onCreated }: { onCreated: (ref: string) => void }) {
-  const [pokok, setPokok] = useState<number>(10_000_000);
+  const [pokok, setPokok] = useState<number>(LOAN_LIMITS.maxPokok);
   const [tenorHari, setTenorHari] = useState<string>("30");
   const [tujuan, setTujuan] = useState<string>("");
   const [namaLengkap, setNamaLengkap] = useState("");
@@ -146,15 +151,18 @@ export function LoanForm({ onCreated }: { onCreated: (ref: string) => void }) {
   };
 
   const q = quoteLoan(pokok);
-  const MIN = 100_000;
-  const MAX = 500_000_000;
-  const STEP = 100_000;
+  // Batas pinjaman tunai (LOAN_LIMITS): Rp 100.000–Rp 1.000.000, tenor maks 30 hari.
+  const MIN = LOAN_LIMITS.minPokok;
+  const MAX = LOAN_LIMITS.maxPokok;
+  const STEP = 50_000;
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError(null);
     if (pokok < MIN || pokok > MAX || !Number.isInteger(pokok)) {
-      setError("Nominal harus antara Rp 100.000 dan Rp 500.000.000 (rupiah bulat).");
+      setError(
+        `Nominal pinjaman harus antara ${formatRupiah(MIN)} dan ${formatRupiah(MAX)} (rupiah bulat) dengan tenor maksimal ${LOAN_LIMITS.maxTenorHari} hari.`,
+      );
       return;
     }
     if (!tenorHari) {
@@ -244,9 +252,14 @@ export function LoanForm({ onCreated }: { onCreated: (ref: string) => void }) {
           onValueChange={(v) => setPokok(v[0] ?? MIN)}
         />
         <div className="mt-1.5 flex justify-between text-[10px] text-muted-foreground">
-          <span>Rp 100 rb</span>
-          <span>Rp 500 jt</span>
+          <span>{formatRupiah(MIN)}</span>
+          <span>{formatRupiah(MAX)}</span>
         </div>
+        <p className="mt-2 text-xs leading-5 text-muted-foreground">
+          Pinjaman tunai dibatasi {formatRupiah(LOAN_LIMITS.minPokok)}–
+          {formatRupiah(LOAN_LIMITS.maxPokok)} dengan tenor maksimal{" "}
+          {LOAN_LIMITS.maxTenorHari} hari.
+        </p>
 
         {/* Live financial breakdown */}
         <dl className="mt-4 divide-y divide-slate-200 overflow-hidden rounded-xl border border-slate-200">
@@ -448,7 +461,8 @@ export function LoanForm({ onCreated }: { onCreated: (ref: string) => void }) {
       </Button>
       <p className="text-center text-xs leading-5 text-muted-foreground">
         Dengan mengirim, Anda menyatakan data benar dan menyetujui biaya: potongan 5%,
-        bunga 30%, total kewajiban 130%.
+        bunga 30%, total kewajiban 130%. Batas pinjaman {formatRupiah(LOAN_LIMITS.maxPokok)}
+        dengan tenor maksimal {LOAN_LIMITS.maxTenorHari} hari.
       </p>
     </form>
   );

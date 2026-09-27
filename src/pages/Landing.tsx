@@ -31,7 +31,7 @@ import {
 } from "@/components/ui/dialog";
 import { api } from "@/convex/_generated/api";
 import { CMS_DEFAULTS } from "@/lib/cms-defaults";
-import { quoteLoan, TENOR_OPTIONS, type LoanQuote } from "@/lib/loan";
+import { LOAN_LIMITS, quoteLoan, TENOR_OPTIONS, type LoanQuote } from "@/lib/loan";
 import { formatRupiah, type Rupiah } from "@/lib/money";
 
 /* Logo brankas — sederhana, dua warna. */
@@ -63,9 +63,10 @@ const SECURITY = [
   { icon: Eye, label: "Status pengajuan bisa dipantau" },
 ] as const;
 
-const QUICK_AMOUNTS = [1_000_000, 5_000_000, 10_000_000, 50_000_000];
-const MIN_SLIDER = 100_000;
-const MAX_SLIDER = 100_000_000;
+// Pinjaman tunai dibatasi Rp 1 juta dengan tenor maksimal 30 hari (LOAN_LIMITS).
+const QUICK_AMOUNTS = [100_000, 250_000, 500_000, 1_000_000];
+const MIN_SLIDER = LOAN_LIMITS.minPokok;
+const MAX_SLIDER = LOAN_LIMITS.maxPokok;
 const SLIDER_STEPS = 140;
 
 function sliderToRupiah(v: number): Rupiah {
@@ -82,7 +83,7 @@ function rupiahToSlider(r: Rupiah): number {
 }
 
 function LiveCalculator() {
-  const [amount, setAmount] = useState<Rupiah>(10_000_000);
+  const [amount, setAmount] = useState<Rupiah>(LOAN_LIMITS.maxPokok);
   const [tenor, setTenor] = useState<number>(30);
   const quote: LoanQuote = useMemo(() => quoteLoan(amount), [amount]);
 
@@ -522,7 +523,7 @@ export default function Landing() {
               </div>
               <dl className="mt-6 divide-y divide-slate-200 border-t border-slate-200">
                 {[
-                  ["Tenor pinjaman", "30 / 60 / 90 hari"],
+                  ["Tenor pinjaman", "7 / 14 / 30 hari"],
                   [
                     c(cms?.chip2Label, CMS_DEFAULTS.chips.chip2.label),
                     c(cms?.chip2Nilai, CMS_DEFAULTS.chips.chip2.nilai),

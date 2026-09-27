@@ -15,8 +15,8 @@ import {
   PawnStatusValue,
 } from "./schema";
 import {
+  assertPokokPinjamanValid,
   calculateRepayment,
-  LATE_FEE_POLICY,
   quoteLoan,
   TENOR_OPTIONS,
 } from "../lib/loan";
@@ -30,7 +30,10 @@ import { getConfig, audit } from "./system";
  * ke marketplace — sisa kebutuhan akan dihitung ulang otomatis.
  */
 
-/** Business range for pokok pinjaman / nilai taksiran (rupiah bulat). */
+/**
+ * Batas rupiah untuk nilai taksiran/harga pasar barang gadai. Pokok pinjaman
+ * tunai memakai batas sendiri di lib/loan.ts (LOAN_LIMITS).
+ */
 export const MIN_POKOK = 100_000;
 export const MAX_POKOK = 500_000_000;
 
@@ -139,11 +142,14 @@ export const createLoanApplication = mutation({
         "Pengajuan sementara dihentikan oleh sistem (kill switch aktif). Coba lagi nanti.",
       );
     }
-    validateRupiahAmount(args.pokokPinjaman, "Pokok pinjaman");
+    // Batas pinjaman tunai: Rp 100.000–Rp 1.000.000 (LOAN_LIMITS, lib/loan.ts).
+    assertPokokPinjamanValid(args.pokokPinjaman);
     // Server-side pricing engine — fee fields are never accepted from the client.
     const quote = quoteLoan(args.pokokPinjaman);
     if (!(TENOR_OPTIONS as readonly number[]).includes(args.tenorHari)) {
-      throw new Error("Tenor harus 30, 60, atau 90 hari.");
+      throw new Error(
+        `Tenor harus salah satu dari ${TENOR_OPTIONS.join(" / ")} hari (maksimal 30 hari).`,
+      );
     }
 
     const trimmedName = args.namaLengkap.trim();

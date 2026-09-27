@@ -59,6 +59,18 @@ export const pawnStatusValidator = v.union(
 );
 export type PawnStatusValue = Infer<typeof pawnStatusValidator>;
 
+/**
+ * Status pengajuan Kredit Barang (Skema C) — elektronik/barang marketplace.
+ * Alur: diajukan → sedang_ditinjau → disetujui | ditolak.
+ */
+export const kreditStatusValidator = v.union(
+  v.literal("diajukan"),
+  v.literal("sedang_ditinjau"),
+  v.literal("disetujui"),
+  v.literal("ditolak"),
+);
+export type KreditStatusValue = Infer<typeof kreditStatusValidator>;
+
 const schema = defineSchema(
   {
     // default auth tables using convex auth.
@@ -382,6 +394,53 @@ const schema = defineSchema(
     })
       .index("by_pawn", ["pawnId"])
       .index("by_user", ["userId"]),
+
+    /**
+     * Pengajuan Kredit Barang (Skema C) — Peminjam membeli elektronik/barang
+     * dari merchant mitra (marketplace/toko) dengan uang muka; sisa harga
+     * dibiayai Pendana dan dicicil bulanan.
+     *
+     * Semua nilai uang rupiah bulat. Rincian (DP, pokok dibiayai, biaya
+     * layanan, cicilan, Imbal Hasil) TIDAK disimpan — selalu diturunkan dari
+     * (hargaBarang, dpPersen, tenorBulan, marginPersenPerBulan) melalui
+     * quoteKreditBarang() di lib/kredit.ts, satu sumber kebenaran.
+     */
+    kreditBarang: defineTable({
+      /** Pemilik pengajuan (Peminjam). */
+      userId: v.id("users"),
+      nomorReferensi: v.string(),
+      /** Nama/deskripsi barang (mis. "Samsung Galaxy A55 8/256"). */
+      namaBarang: v.string(),
+      /** Kategori barang (Elektronik, Peralatan rumah, ...). */
+      kategori: v.string(),
+      /** Merchant/sumber barang: Shopee, Tokopedia, toko elektronik mitra, dll. */
+      merchant: v.string(),
+      /** Tautan produk di marketplace (opsional, untuk verifikasi harga). */
+      tautanBarang: v.optional(v.string()),
+      /** Harga barang di merchant — rupiah bulat. */
+      hargaBarang: v.number(),
+      /** Uang muka Konsumen, % dari harga barang (10–50). */
+      dpPersen: v.number(),
+      /** Tenor cicilan dalam bulan (3/6/12/24). */
+      tenorBulan: v.number(),
+      /** Imbal Hasil Pendana per bulan (% dari pokok dibiayai, 1,5–4). */
+      marginPersenPerBulan: v.number(),
+      status: kreditStatusValidator,
+      /** Catatan keputusan reviewer (wajib saat ditolak). */
+      catatanReview: v.optional(v.string()),
+      // ===== Data pemohon =====
+      /** Nama lengkap sesuai KTP. */
+      namaLengkap: v.string(),
+      /** NIK 16 digit sesuai KTP. */
+      nik: v.string(),
+      /** Nomor rekening tujuan/pencairan. */
+      nomorRekening: v.string(),
+      /** Nomor WhatsApp aktif untuk pengingat cicilan. */
+      nomorWhatsApp: v.string(),
+      catatanPeminjam: v.optional(v.string()),
+    })
+      .index("by_user", ["userId"])
+      .index("by_status", ["status"]),
 
     /**
      * Setoran dana Pendana. Dana baru dianggap tersedia setelah admin

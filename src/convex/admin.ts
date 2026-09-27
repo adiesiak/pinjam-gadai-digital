@@ -39,7 +39,7 @@ export const adminOverview = query({
 
     const isAdmin = me.role === ROLES.ADMIN;
     if (!isAdmin) {
-      return { isAdmin: false, loans: [], pawns: [] };
+      return { isAdmin: false, loans: [], pawns: [], kredit: [] };
     }
 
     const loans = await ctx.db.query("loans").collect();
@@ -122,7 +122,21 @@ export const adminOverview = query({
         }),
     );
 
-    return { isAdmin: true, loans: loanRows, pawns: pawnRows };
+    // Ringkasan pengajuan kredit barang (Skema C) untuk penghitung tab admin;
+    // rincian lengkap dibaca panel verifikasi lewat api.kredit.antreanKreditBarang.
+    const kreditRows = (await ctx.db.query("kreditBarang").collect())
+      .sort((a, b) => b._creationTime - a._creationTime)
+      .map((k) => ({
+        _id: k._id,
+        _creationTime: k._creationTime,
+        nomorReferensi: k.nomorReferensi,
+        namaBarang: k.namaBarang,
+        merchant: k.merchant,
+        hargaBarang: k.hargaBarang,
+        status: k.status,
+      }));
+
+    return { isAdmin: true, loans: loanRows, pawns: pawnRows, kredit: kreditRows };
   },
 });
 

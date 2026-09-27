@@ -66,6 +66,12 @@ export type PawnRow = {
   dicairkanPada?: number;
 };
 
+/** Ringkasan pengajuan Kredit Barang (Skema C) untuk penghitung tab admin. */
+export type KreditRow = {
+  _id: Id<"kreditBarang">;
+  status: "diajukan" | "sedang_ditinjau" | "disetujui" | "ditolak";
+};
+
 export function formatDate(ts: number): string {
   return new Date(ts).toLocaleDateString("id-ID", {
     day: "numeric",
