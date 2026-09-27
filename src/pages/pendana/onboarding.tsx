@@ -39,8 +39,9 @@ export function Onboarding() {
       </p>
       <h1 className="mt-2 text-2xl font-semibold tracking-tight">Sediakan dana, terima Imbal Hasil.</h1>
       <p className="mt-3 text-sm leading-7 text-muted-foreground">
-        Salurkan dana ke pinjaman yang sudah disetujui tim. Anda menerima Imbal
-        Hasil 30% dari porsi pokok yang didanai, dibayarkan saat Peminjam melunasi.
+        Salurkan dana ke pinjaman yang sudah disetujui tim. Imbal Hasil Anda 30%
+        dari porsi pokok pada skema harian, atau bunga menurun 10%/8%/7,5% per
+        bulan pada skema bulanan (1–6 bulan) — dibayarkan saat Peminjam melunasi.
       </p>
       <ul className="mt-6 space-y-3 text-sm">
         {[

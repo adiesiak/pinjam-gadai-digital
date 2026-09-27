@@ -9,7 +9,7 @@ export const CMS_DEFAULTS = {
   },
   popup: {
     judul: "Ajukan dari Rumah",
-    isi: "Ajukan pinjaman tanpa agunan atau gadai barang dalam beberapa menit. Barang gadai tersimpan di brankas custody, pengingat jatuh tempo berjalan otomatis.",
+    isi: "Ajukan pinjaman tanpa agunan — harian sampai Rp 1 juta atau bulanan sampai Rp 500 juta dengan uang muka 0% dan tenor 1–6 bulan — atau gadai barang dalam beberapa menit. Barang gadai tersimpan di brankas custody, pengingat jatuh tempo berjalan otomatis.",
     cta: "Coba simulasi",
   },
   float: {
@@ -34,7 +34,7 @@ export const CMS_DEFAULTS = {
     sub: "Keduanya memakai mesin perhitungan dan jurnal audit yang sama.",
     pinjamanJudul: "Pinjaman Tunai Digital",
     pinjamanIsi:
-      "Tanpa agunan, plafon sampai Rp 1 juta dengan tenor hingga 30 hari. Ajukan dari rumah, dana langsung ke rekening, dan pelunasan dipantau pengingat otomatis. Total pelunasan 130% dari pokok (Bunga 30% — hak Pendana).",
+      "Tanpa agunan, dua skema harga. Harian: plafon sampai Rp 1 juta, tenor 7–30 hari, total pelunasan 130% dari pokok (Bunga 30% — hak Pendana). Bulanan: tenor 1–6 bulan sampai Rp 500 juta dengan uang muka 0%, biaya layanan 3% diamortisasi rata setiap bulan, dan bunga menurun 10%/8%/7,5% per bulan. Dana langsung ke rekening dan pelunasan dipantau pengingat otomatis.",
     pinjamanCta: "Ajukan sekarang",
     gadaiJudul: "Gadai Digital",
     gadaiIsi:

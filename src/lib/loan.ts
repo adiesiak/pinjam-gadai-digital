@@ -319,7 +319,7 @@ export function loanStatusMeta(status: LoanStatus): {
       return {
         label: "Disetujui",
         description:
-          "Aplikasi disetujui. Pencairan dana bersih akan diproses ke rekening Anda.",
+          "Aplikasi disetujui. Pencairan dana akan diproses ke rekening Anda setelah pendanaan terpenuhi.",
       };
     case "ditolak":
       return {
@@ -330,7 +330,7 @@ export function loanStatusMeta(status: LoanStatus): {
       return {
         label: "Didanai",
         description:
-          "Pinjaman didanai penuh oleh Pendana dan dana bersih telah dicairkan. Lunasi total kewajiban 130% sebelum jatuh tempo — keterlambatan dikenakan denda 0,5% per hari dari pokok (maksimum 15%).",
+          "Pinjaman didanai penuh oleh Pendana dan dana telah dicairkan. Lunasi total kewajiban sesuai skema pinjaman Anda sebelum jatuh tempo — keterlambatan dikenakan denda 0,5% per hari dari pokok (maksimum 15%).",
       };
     case "lunas":
       return {

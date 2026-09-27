@@ -249,7 +249,9 @@ function MarketCard({
                       : 0,
                   )}
                 </span>{" "}
-                (30% proporsional)
+                {row.tenorBulan !== null
+                  ? "(bunga menurun, proporsional porsi)"
+                  : "(30% proporsional)"}
               </p>
             </div>
             {error && (

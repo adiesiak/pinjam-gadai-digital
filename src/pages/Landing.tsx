@@ -608,7 +608,7 @@ export default function Landing() {
               </div>
               <dl className="mt-6 divide-y divide-slate-200 border-t border-slate-200">
                 {[
-                  ["Tenor pinjaman", "7 / 14 / 30 hari"],
+                  ["Tenor pinjaman", "7–30 hari (harian) · 1–6 bulan (bulanan)"],
                   [
                     c(cms?.chip2Label, CMS_DEFAULTS.chips.chip2.label),
                     c(cms?.chip2Nilai, CMS_DEFAULTS.chips.chip2.nilai),
