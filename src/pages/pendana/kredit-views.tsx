@@ -28,11 +28,13 @@ import { Slider } from "@/components/ui/slider";
 import { WaOtpDialog } from "@/components/WaOtpDialog";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
+import { persenBungaPerBulan } from "@/lib/bulanan";
 import {
   KATALOG_CONTOH,
   KREDIT_ASUMSI_AWAL,
   KREDIT_PRICING,
   quoteKreditBarang,
+  skemaBulananKredit,
   type KreditBarangQuote,
 } from "@/lib/kredit";
 import { formatRupiah, parseRupiah } from "@/lib/money";
@@ -105,6 +107,10 @@ function KalkulatorKreditSection() {
   const [porsiPendanaPersen, setPorsiPendanaPersen] = useState<number>(
     KREDIT_ASUMSI_AWAL.porsiPendanaPersen,
   );
+
+  // Tenor 1/3/6 bulan memakai skema bulanan (DP 0%, bunga menurun) — slider DP
+  // dan margin tidak berpengaruh, jadi diganti keterangan otomatis engine.
+  const bulanan = skemaBulananKredit(tenorBulan);
 
   // ===== Validasi harga barang (rentang skema kredit barang) =====
   const { harga, hargaError } = useMemo(() => {
@@ -235,28 +241,36 @@ function KalkulatorKreditSection() {
           <div className="flex items-center justify-between gap-3">
             <Label className="text-xs text-muted-foreground">Uang muka (DP)</Label>
             <span className="text-xs font-semibold tabular-nums">
-              {persenId(dpPersen)}% · {formatRupiah(quote?.dp ?? 0)}
+              {bulanan ? 0 : persenId(dpPersen)}% · {formatRupiah(quote?.dp ?? 0)}
             </span>
           </div>
-          <Slider
-            className="mt-3"
-            min={KREDIT_PRICING.dpMinPersen}
-            max={KREDIT_PRICING.dpMaxPersen}
-            step={5}
-            value={[dpPersen]}
-            onValueChange={(v) => setDpPersen(v[0] ?? KREDIT_PRICING.dpMinPersen)}
-            aria-label="Persen uang muka"
-          />
-          <p className="mt-1.5 text-xs text-muted-foreground">
-            Rentang {KREDIT_PRICING.dpMinPersen}–{KREDIT_PRICING.dpMaxPersen}% dari harga barang.
-          </p>
+          {bulanan ? (
+            <p className="mt-2 rounded-xl border border-emerald-100 bg-emerald-50/60 px-3 py-2 text-xs leading-5 text-emerald-800">
+              Tenor {tenorBulan} bulan memakai DP 0% — pendanaan penuh, tanpa uang muka.
+            </p>
+          ) : (
+            <>
+              <Slider
+                className="mt-3"
+                min={KREDIT_PRICING.dpMinPersen}
+                max={KREDIT_PRICING.dpMaxPersen}
+                step={5}
+                value={[dpPersen]}
+                onValueChange={(v) => setDpPersen(v[0] ?? KREDIT_PRICING.dpMinPersen)}
+                aria-label="Persen uang muka"
+              />
+              <p className="mt-1.5 text-xs text-muted-foreground">
+                Rentang {KREDIT_PRICING.dpMinPersen}–{KREDIT_PRICING.dpMaxPersen}% dari harga barang.
+              </p>
+            </>
+          )}
 
           {/* Tenor */}
           <div className="mt-5 flex items-center justify-between gap-3">
             <Label className="text-xs text-muted-foreground">Tenor cicilan</Label>
             <span className="text-xs font-semibold tabular-nums">{tenorBulan} bulan</span>
           </div>
-          <div className="mt-2 grid grid-cols-4 gap-1.5">
+          <div className="mt-2 grid grid-cols-3 gap-1.5 sm:grid-cols-5">
             {KREDIT_PRICING.tenorBulanOptions.map((bulan) => {
               const aktif = bulan === tenorBulan;
               return (
@@ -282,25 +296,34 @@ function KalkulatorKreditSection() {
           <div className="mt-5 flex items-center justify-between gap-3">
             <Label className="text-xs text-muted-foreground">Imbal Hasil per bulan</Label>
             <span className="text-xs font-semibold tabular-nums">
-              {persenId(marginPersenPerBulan)}% ·
+              {persenId(bulanan ? persenBungaPerBulan(tenorBulan) : marginPersenPerBulan)}% ·
               {quote !== null ? ` ${formatRupiah(quote.marginPerBulan)}` : " —"}
             </span>
           </div>
-          <Slider
-            className="mt-3"
-            min={KREDIT_PRICING.marginMinPersenPerBulan}
-            max={KREDIT_PRICING.marginMaxPersenPerBulan}
-            step={0.25}
-            value={[marginPersenPerBulan]}
-            onValueChange={(v) =>
-              setMarginPersenPerBulan(v[0] ?? KREDIT_PRICING.marginMinPersenPerBulan)
-            }
-            aria-label="Persen Imbal Hasil per bulan"
-          />
-          <p className="mt-1.5 text-xs text-muted-foreground">
-            Rentang {persenId(KREDIT_PRICING.marginMinPersenPerBulan)}–
-            {persenId(KREDIT_PRICING.marginMaxPersenPerBulan)}% per bulan dari pokok dibiayai.
-          </p>
+          {bulanan ? (
+            <p className="mt-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs leading-5 text-muted-foreground">
+              Bunga menurun otomatis dari tenor: 10%/bln (1 bulan), 8%/bln (3–5 bulan), 7,5%/bln
+              (≥ 6 bulan) — hak Pendana, dibayar bersamaan cicilan bulanan.
+            </p>
+          ) : (
+            <>
+              <Slider
+                className="mt-3"
+                min={KREDIT_PRICING.marginMinPersenPerBulan}
+                max={KREDIT_PRICING.marginMaxPersenPerBulan}
+                step={0.25}
+                value={[marginPersenPerBulan]}
+                onValueChange={(v) =>
+                  setMarginPersenPerBulan(v[0] ?? KREDIT_PRICING.marginMinPersenPerBulan)
+                }
+                aria-label="Persen Imbal Hasil per bulan"
+              />
+              <p className="mt-1.5 text-xs text-muted-foreground">
+                Rentang {persenId(KREDIT_PRICING.marginMinPersenPerBulan)}–
+                {persenId(KREDIT_PRICING.marginMaxPersenPerBulan)}% per bulan dari pokok dibiayai.
+              </p>
+            </>
+          )}
 
           {/* Porsi pendanaan */}
           <div className="mt-5 flex items-center justify-between gap-3">
@@ -456,7 +479,7 @@ function KalkulatorKreditSection() {
           <div className="flex items-center justify-between gap-3">
             <h3 className="text-sm font-semibold">Jadwal Cicilan Konsumen</h3>
             <Badge className="border-0 bg-slate-100 text-[10px] text-slate-700 hover:bg-slate-100">
-              {tenorBulan} bulan · cicilan flat
+              {tenorBulan} bulan · {bulanan ? "bunga menurun" : "cicilan flat"}
             </Badge>
           </div>
           <div className="mt-4 max-h-72 overflow-y-auto">

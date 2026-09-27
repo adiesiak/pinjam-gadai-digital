@@ -131,10 +131,21 @@ export function LoanContractBlock({ loanId }: { loanId: Id<"loans"> }) {
       <div className="max-h-44 overflow-y-auto rounded-xl border border-sky-100 bg-secondary/40 p-3 text-[11px] leading-5 text-muted-foreground">
         <p className="font-semibold text-navy">{judulContract("pinjaman")}</p>
         <p className="mt-1">
-          Peminjam {detail.namaLengkap} · pokok {formatRupiah(detail.pokokPinjaman)} ·
-          dana bersih {formatRupiah(detail.quote.danaBersihDitransfer)} (95%) ·
-          total kewajiban {formatRupiah(detail.quote.totalKewajibanPelunasan)} (130%) ·
-          GPS {detail.lokasiAjukan ? `${detail.lokasiAjukan.lat.toFixed(4)}, ${detail.lokasiAjukan.lng.toFixed(4)}` : "—"} ·
+          Peminjam {detail.namaLengkap} · pokok {formatRupiah(detail.pokokPinjaman)} ·{" "}
+          {detail.bulanan !== null ? (
+            <>
+              tenor {detail.bulanan.tenorBulan} bulan · dana penuh{" "}
+              {formatRupiah(detail.bulanan.pokokDibiayai)} (DP 0%) · cicilan{" "}
+              {formatRupiah(detail.bulanan.cicilanPerBulan)}/bulan · total kewajiban{" "}
+              {formatRupiah(detail.bulanan.totalPengembalian)}
+            </>
+          ) : (
+            <>
+              dana bersih {formatRupiah(detail.quote.danaBersihDitransfer)} (95%) · total kewajiban{" "}
+              {formatRupiah(detail.quote.totalKewajibanPelunasan)} (130%)
+            </>
+          )}{" "}
+          · GPS {detail.lokasiAjukan ? `${detail.lokasiAjukan.lat.toFixed(4)}, ${detail.lokasiAjukan.lng.toFixed(4)}` : "—"} ·
           timestamp {new Date(ttdRow.ttdPada ?? detail._creationTime).toLocaleString("id-ID")}
         </p>
       </div>

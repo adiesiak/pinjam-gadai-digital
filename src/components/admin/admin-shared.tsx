@@ -27,6 +27,12 @@ export type LoanRow = {
   emailPeminjam: string | null;
   userIdPeminjam: Id<"users">;
   tenorHari: number | null;
+  /** Diisi (1/3/6 bln) bila pinjaman memakai skema bulanan. */
+  tenorBulan: number | null;
+  cicilanPerBulan: number | null;
+  biayaLayananTotal: number | null;
+  imbalHasilTotal: number | null;
+  totalKewajiban: number | null;
   nik: string | null;
   nomorWhatsApp: string | null;
   penghasilanBulanan: number | null;

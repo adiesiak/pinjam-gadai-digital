@@ -119,6 +119,10 @@ export function KreditBarangForm({ onCreated }: { onCreated: (ref: string) => vo
 
   const ajukan = useMutation(api.kredit.ajukanKreditBarang);
 
+  // Tenor 1/3/6 bulan memakai skema bulanan (DP 0%, bunga menurun) — slider DP
+  // dan margin tidak berpengaruh, jadi diganti keterangan otomatis engine.
+  const bulanan = skemaBulananKredit(tenorBulan);
+
   const preview = useMemo(() => {
     try {
       const harga = parseRupiah(hargaInput);

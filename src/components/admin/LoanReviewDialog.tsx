@@ -81,13 +81,40 @@ export function LoanReviewDialog({
             ["Email", row.emailPeminjam ?? "—"],
             ["Rekening tujuan", row.nomorRekening],
             ["Keperluan", loanPurposeLabel(row.tujuan)],
-            ["Tenor", row.tenorHari !== null ? `${row.tenorHari} hari` : "—"],
+            [
+              "Skema",
+              row.tenorBulan !== null
+                ? `Bulanan — ${row.tenorBulan} bulan`
+                : `Harian — ${row.tenorHari ?? 30} hari`,
+            ],
             ["Catatan pemohon", row.catatanPeminjam ?? "—"],
-            ["Biaya admin (3%)", formatRupiah(q.biayaAdmin)],
-            ["Biaya platform (2%)", formatRupiah(q.biayaPlatform)],
-            ["Dana bersih (95%)", formatRupiah(q.danaBersihDitransfer)],
-            ["Bunga (30%)", formatRupiah(q.bunga)],
-            ["Total kewajiban (130%)", formatRupiah(q.totalKewajibanPelunasan)],
+            ...(row.tenorBulan !== null
+              ? ([
+                  ["Uang muka (DP 0%)", formatRupiah(0)],
+                  ["Dana diterima penuh", formatRupiah(row.pokokPinjaman)],
+                  [
+                    "Biaya layanan (3% dari pokok)",
+                    formatRupiah(
+                      row.biayaLayananTotal ??
+                        Math.max(
+                          0,
+                          (row.totalKewajiban ?? 0) -
+                            row.pokokPinjaman -
+                            (row.imbalHasilTotal ?? 0),
+                        ),
+                    ),
+                  ],
+                  ["Bunga menurun (hak Pendana)", formatRupiah(row.imbalHasilTotal ?? 0)],
+                  ["Cicilan per bulan", formatRupiah(row.cicilanPerBulan ?? 0)],
+                  ["Total pengembalian", formatRupiah(row.totalKewajiban ?? 0)],
+                ] as Array<[string, string]>)
+              : ([
+                  ["Biaya admin (3%)", formatRupiah(q.biayaAdmin)],
+                  ["Biaya platform (2%)", formatRupiah(q.biayaPlatform)],
+                  ["Dana bersih (95%)", formatRupiah(q.danaBersihDitransfer)],
+                  ["Bunga (30%)", formatRupiah(q.bunga)],
+                  ["Total kewajiban (130%)", formatRupiah(q.totalKewajibanPelunasan)],
+                ] as Array<[string, string]>)),
           ].map(([label, value]) => (
             <div key={label} className="flex items-baseline justify-between gap-4 px-4 py-3">
               <dt className="shrink-0 text-sm text-muted-foreground">{label}</dt>

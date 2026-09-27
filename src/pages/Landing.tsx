@@ -31,6 +31,11 @@ import {
 } from "@/components/ui/dialog";
 import { api } from "@/convex/_generated/api";
 import { CMS_DEFAULTS } from "@/lib/cms-defaults";
+import {
+  BULANAN_LIMITS,
+  hitungSimulasiBulanan,
+  TENOR_BULANAN_OPTIONS,
+} from "@/lib/bulanan";
 import { LOAN_LIMITS, quoteLoan, TENOR_OPTIONS, type LoanQuote } from "@/lib/loan";
 import { formatRupiah, type Rupiah } from "@/lib/money";
 
@@ -63,29 +68,56 @@ const SECURITY = [
   { icon: Eye, label: "Status pengajuan bisa dipantau" },
 ] as const;
 
-// Pinjaman tunai dibatasi Rp 1 juta dengan tenor maksimal 30 hari (LOAN_LIMITS).
+// Skema harian: Rp 100 rb–1 jt / maks 30 hari. Skema bulanan: sampai Rp 500 jt
+// dengan tenor 1/3/6 bulan (DP 0%, biaya layanan 3% diamortisasi, bunga menurun).
 const QUICK_AMOUNTS = [100_000, 250_000, 500_000, 1_000_000];
+const QUICK_AMOUNTS_BULANAN = [1_000_000, 5_000_000, 25_000_000, 100_000_000, 250_000_000];
 const MIN_SLIDER = LOAN_LIMITS.minPokok;
 const MAX_SLIDER = LOAN_LIMITS.maxPokok;
 const SLIDER_STEPS = 140;
+const SLIDER_STEPS_BULANAN = 200;
 
-function sliderToRupiah(v: number): Rupiah {
-  const t = v / SLIDER_STEPS;
-  const raw = MIN_SLIDER * Math.pow(MAX_SLIDER / MIN_SLIDER, t);
-  return Math.round(raw / 50_000) * 50_000;
+function sliderToRupiah(v: number, min: number, max: number, steps: number, step: number): Rupiah {
+  const t = v / steps;
+  const raw = min * Math.pow(max / min, t);
+  return Math.round(raw / step) * step;
 }
 
-function rupiahToSlider(r: Rupiah): number {
-  const clamped = Math.min(MAX_SLIDER, Math.max(MIN_SLIDER, r));
-  return Math.round(
-    (Math.log(clamped / MIN_SLIDER) / Math.log(MAX_SLIDER / MIN_SLIDER)) * SLIDER_STEPS,
-  );
+function rupiahToSlider(r: Rupiah, min: number, max: number, steps: number): number {
+  const clamped = Math.min(max, Math.max(min, r));
+  return Math.round((Math.log(clamped / min) / Math.log(max / min)) * steps);
 }
 
 function LiveCalculator() {
+  const [skema, setSkema] = useState<"harian" | "bulanan">("harian");
+  const bulanan = skema === "bulanan";
   const [amount, setAmount] = useState<Rupiah>(LOAN_LIMITS.maxPokok);
   const [tenor, setTenor] = useState<number>(30);
+  const [tenorBulan, setTenorBulan] = useState<number>(3);
   const quote: LoanQuote = useMemo(() => quoteLoan(amount), [amount]);
+  const sim = useMemo(() => {
+    if (!bulanan) return null;
+    try {
+      return hitungSimulasiBulanan(amount, tenorBulan);
+    } catch {
+      return null;
+    }
+  }, [bulanan, amount, tenorBulan]);
+
+  const min = bulanan ? BULANAN_LIMITS.minPokok : MIN_SLIDER;
+  const max = bulanan ? BULANAN_LIMITS.maxPokok : MAX_SLIDER;
+  const steps = bulanan ? SLIDER_STEPS_BULANAN : SLIDER_STEPS;
+  const stepBulat = bulanan ? 500_000 : 50_000;
+  const cepat = bulanan ? QUICK_AMOUNTS_BULANAN : QUICK_AMOUNTS;
+
+  const gantiSkema = (next: "harian" | "bulanan") => {
+    setSkema(next);
+    setAmount((a) =>
+      next === "bulanan"
+        ? Math.min(Math.max(a, BULANAN_LIMITS.minPokok), BULANAN_LIMITS.maxPokok)
+        : Math.min(Math.max(a, MIN_SLIDER), MAX_SLIDER),
+    );
+  };
 
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-7">
@@ -96,7 +128,28 @@ function LiveCalculator() {
         <h3 className="text-base font-semibold text-slate-900">Simulasi pinjaman</h3>
       </div>
 
-      <div className="mt-6">
+      {/* Dua skema harga: harian (1 jt / 30 hari) atau bulanan (1–6 bulan). */}
+      <div className="mt-5 grid grid-cols-2 gap-1 rounded-xl border border-slate-200 bg-slate-50 p-1">
+        {([
+          ["harian", "Harian · s.d. 1 jt"],
+          ["bulanan", "Bulanan · s.d. 500 jt"],
+        ] as const).map(([nilai, label]) => (
+          <button
+            key={nilai}
+            type="button"
+            onClick={() => gantiSkema(nilai)}
+            className={`rounded-lg px-3 py-2 text-xs font-medium transition-colors ${
+              skema === nilai
+                ? "bg-white text-primary shadow-sm"
+                : "text-slate-500 hover:text-slate-800"
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      <div className="mt-5">
         <div className="flex items-baseline justify-between">
           <label htmlFor="calc-nominal" className="text-sm font-medium text-slate-700">
             Nominal
@@ -109,13 +162,15 @@ function LiveCalculator() {
           id="calc-nominal"
           type="range"
           min={0}
-          max={SLIDER_STEPS}
-          value={rupiahToSlider(amount)}
-          onChange={(e) => setAmount(sliderToRupiah(Number(e.target.value)))}
+          max={steps}
+          value={rupiahToSlider(amount, min, max, steps)}
+          onChange={(e) =>
+            setAmount(sliderToRupiah(Number(e.target.value), min, max, steps, stepBulat))
+          }
           className="mt-3 w-full accent-primary"
         />
         <div className="mt-3 flex flex-wrap gap-2">
-          {QUICK_AMOUNTS.map((q) => (
+          {cepat.map((q) => (
             <button
               key={q}
               type="button"
@@ -135,29 +190,59 @@ function LiveCalculator() {
       <div className="mt-5">
         <p className="text-sm font-medium text-slate-700">Tenor</p>
         <div className="mt-2 grid grid-cols-3 gap-2">
-          {TENOR_OPTIONS.map((t) => (
-            <button
-              key={t}
-              type="button"
-              onClick={() => setTenor(t)}
-              className={`rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
-                tenor === t
-                  ? "border-primary bg-primary/10 text-primary"
-                  : "border-slate-200 text-slate-600 hover:bg-slate-50"
-              }`}
-            >
-              {t} hari
-            </button>
-          ))}
+          {bulanan
+            ? TENOR_BULANAN_OPTIONS.map((t) => (
+                <button
+                  key={t}
+                  type="button"
+                  onClick={() => setTenorBulan(t)}
+                  className={`rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
+                    tenorBulan === t
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-slate-200 text-slate-600 hover:bg-slate-50"
+                  }`}
+                >
+                  {t} bulan
+                </button>
+              ))
+            : TENOR_OPTIONS.map((t) => (
+                <button
+                  key={t}
+                  type="button"
+                  onClick={() => setTenor(t)}
+                  className={`rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
+                    tenor === t
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-slate-200 text-slate-600 hover:bg-slate-50"
+                  }`}
+                >
+                  {t} hari
+                </button>
+              ))}
         </div>
       </div>
 
       <dl className="mt-6 space-y-2 border-t border-slate-200 pt-5 text-sm">
         {(
-          [
-            ["Bunga (hak Pendana)", formatRupiah(quote.bunga), false],
-            ["Dana bersih diterima", formatRupiah(quote.danaBersihDitransfer), true],
-          ] as Array<[string, string, boolean?]>
+          sim !== null
+            ? ([
+                [
+                  `Bunga ${sim.persenBungaPerBulan}%/bulan (menurun)`,
+                  formatRupiah(sim.bungaTotal),
+                  false,
+                ],
+                ["Biaya layanan 3% (diamortisasi)", formatRupiah(sim.biayaLayananTotal), false],
+                ["Dana diterima penuh (DP 0%)", formatRupiah(sim.pokokDibiayai), true],
+                [
+                  `Cicilan per bulan (${sim.tenorBulan} bulan)`,
+                  formatRupiah(sim.cicilanPerBulan),
+                  true,
+                ],
+              ] as Array<[string, string, boolean?]>)
+            : ([
+                ["Bunga (hak Pendana)", formatRupiah(quote.bunga), false],
+                ["Dana bersih diterima", formatRupiah(quote.danaBersihDitransfer), true],
+              ] as Array<[string, string, boolean?]>)
         ).map(([term, value, strong]) => (
           <div key={term} className="flex items-baseline justify-between gap-4">
             <dt className={strong ? "font-medium text-slate-900" : "text-slate-500"}>{term}</dt>
@@ -173,7 +258,7 @@ function LiveCalculator() {
         <div className="flex items-baseline justify-between gap-4 border-t border-slate-200 pt-2.5">
           <dt className="font-semibold text-slate-900">Total pelunasan</dt>
           <dd className="text-base font-semibold tabular-nums text-slate-900">
-            {formatRupiah(quote.totalKewajibanPelunasan)}
+            {formatRupiah(sim !== null ? sim.totalPengembalian : quote.totalKewajibanPelunasan)}
           </dd>
         </div>
       </dl>
@@ -631,9 +716,11 @@ export default function Landing() {
               </ol>
               <p className="mt-8 rounded-xl bg-slate-50 p-4 text-xs leading-5 text-slate-600">
                 Dana berasal dari <b className="font-semibold text-slate-900">Pendana</b>{" "}
-                terverifikasi yang menerima{" "}
-                <b className="font-semibold text-slate-900">Bunga / Imbal Hasil</b> 30%. Setiap
-                transaksi tercatat di jurnal audit dan kontraknya bertanda tangan digital.
+                terverifikasi. Skema harian memakai{" "}
+                <b className="font-semibold text-slate-900">Bunga / Imbal Hasil</b> 30% dari pokok;
+                skema bulanan (1/3/6 bulan, sampai Rp 500 juta) memakai uang muka 0%, biaya
+                layanan 3% yang diamortisasi rata, dan bunga menurun 10%/8%/7,5% per bulan.
+                Setiap transaksi tercatat di jurnal audit dan kontraknya bertanda tangan digital.
               </p>
             </div>
           </div>
