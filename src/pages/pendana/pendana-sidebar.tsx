@@ -3,7 +3,7 @@ import { ArrowLeft, BadgeCheck } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
-import { PendanaTabNav } from "./pendana-tab-nav";
+import { PendanaTabNav, type TabBadge } from "./pendana-tab-nav";
 
 /**
  * Sisi kiri ruang Pendana: kartu profil (sapaan, avatar, status verifikasi,
@@ -11,9 +11,11 @@ import { PendanaTabNav } from "./pendana-tab-nav";
  */
 export function PendanaSidebar({
   greetingName,
+  badges,
   onSignOut,
 }: {
   greetingName: string;
+  badges?: Partial<Record<string, TabBadge>>;
   onSignOut: () => void;
 }) {
   const initial = greetingName.charAt(0).toUpperCase();
@@ -43,7 +45,7 @@ export function PendanaSidebar({
         </Button>
       </div>
 
-      <PendanaTabNav />
+      <PendanaTabNav badges={badges} />
     </div>
   );
 }

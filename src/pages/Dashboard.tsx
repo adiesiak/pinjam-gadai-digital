@@ -14,6 +14,7 @@ import { MyContractsSection } from "./dashboard/contract-views";
 import { DashboardFooter } from "./dashboard/dashboard-footer";
 import { DashboardHeader } from "./dashboard/dashboard-header";
 import { DashboardSidebar } from "./dashboard/dashboard-sidebar";
+import type { TabBadge } from "./dashboard/dashboard-tab-nav";
 import { LoanDetailDialog, PawnDetailDialog } from "./dashboard/detail-dialogs";
 import { LoanForm, PawnForm } from "./dashboard/forms-views";
 import { GadaiBillingSection } from "./dashboard/gadai-views";
@@ -59,6 +60,31 @@ export default function Dashboard() {
 
   const greetingName = user?.name ?? user?.email?.split("@")[0] ?? "Nasabah";
 
+  // ===== Indikator jumlah pada item tab sidebar =====
+  const scheduleRows = schedule ?? [];
+  const pinjamanAktif = scheduleRows.filter((l) => l.status === "didanai").length;
+  const tagihanTerlambat = scheduleRows.filter(
+    (l) => (l.pelunasan?.hariTerlambat ?? 0) > 0,
+  ).length;
+  const tagihanDekat = scheduleRows.filter(
+    (l) =>
+      l.status === "didanai" &&
+      l.pelunasan !== null &&
+      l.pelunasan.hariTerlambat === 0 &&
+      l.pelunasan.sisaHari <= 7,
+  ).length;
+  const gadaiAktif = (pawns ?? []).filter(
+    (p) => p.status === "aktif" || p.status === "menunggu_pelepasan",
+  ).length;
+  const jumlahKontrak = contracts ? contracts.pinjaman.length + contracts.gadai.length : 0;
+
+  const tabBadges: Partial<Record<string, TabBadge>> = {};
+  if (pinjamanAktif > 0) tabBadges.pinjaman = { count: pinjamanAktif };
+  if (tagihanTerlambat > 0) tabBadges.jadwal = { count: tagihanTerlambat, tone: "danger" };
+  else if (tagihanDekat > 0) tabBadges.jadwal = { count: tagihanDekat, tone: "warning" };
+  if (gadaiAktif > 0) tabBadges.gadai = { count: gadaiAktif };
+  if (jumlahKontrak > 0) tabBadges.kontrak = { count: jumlahKontrak };
+
   return (
     <div className="flex min-h-screen flex-col bg-slate-50 text-slate-900">
       {/* Bar pengumuman global dirender di main.tsx (AnnouncementBar). */}
@@ -76,6 +102,7 @@ export default function Dashboard() {
             <DashboardSidebar
               greetingName={greetingName}
               role={user?.role}
+              badges={tabBadges}
               onSignOut={handleSignOut}
             />
           </aside>

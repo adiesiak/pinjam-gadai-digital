@@ -11,6 +11,7 @@ import { FundingContractsSection } from "./funding-contracts-views";
 import { HistorySection } from "./history-views";
 import { MarketplaceSection } from "./market-views";
 import { PendanaSidebar } from "./pendana-sidebar";
+import type { TabBadge } from "./pendana-tab-nav";
 import { PortfolioSection } from "./portfolio-views";
 import { WalletSection } from "./wallet-views";
 
@@ -27,8 +28,24 @@ export function PendanaWorkspace({
 }) {
   const wallet = useQuery(api.pendana.myWallet);
   const portfolio = useQuery(api.pendana.myPortfolio);
+  const marketplace = useQuery(api.pendana.marketplace);
+  const contracts = useQuery(api.pendana.myFundingContracts);
   const [depositOpen, setDepositOpen] = useState(false);
   const [defaultTab, setDefaultTab] = useState("marketplace");
+
+  // ===== Indikator jumlah pada item tab sidebar =====
+  const peluangPendanaan = marketplace?.length ?? 0;
+  const pendanaanMenunggak = (portfolio ?? []).filter(
+    (p) => p.statusPelunasan === "menunggak",
+  ).length;
+  const posisiAlokasi = wallet?.posisiAlokasi ?? 0;
+  const jumlahKontrak = contracts?.length ?? 0;
+
+  const tabBadges: Partial<Record<string, TabBadge>> = {};
+  if (peluangPendanaan > 0) tabBadges.marketplace = { count: peluangPendanaan };
+  if (pendanaanMenunggak > 0) tabBadges.portofolio = { count: pendanaanMenunggak, tone: "danger" };
+  else if (posisiAlokasi > 0) tabBadges.portofolio = { count: posisiAlokasi };
+  if (jumlahKontrak > 0) tabBadges.kontrak = { count: jumlahKontrak };
 
   return (
     <>
@@ -40,7 +57,11 @@ export function PendanaWorkspace({
       >
         {/* ===== Sisi kiri: profil + navigasi tab ===== */}
         <aside className="w-full shrink-0 lg:sticky lg:top-6 lg:w-64">
-          <PendanaSidebar greetingName={greetingName} onSignOut={onSignOut} />
+          <PendanaSidebar
+            greetingName={greetingName}
+            badges={tabBadges}
+            onSignOut={onSignOut}
+          />
         </aside>
 
         {/* ===== Kolom konten ===== */}

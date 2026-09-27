@@ -4,7 +4,7 @@ import { Link } from "react-router";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
-import { DashboardTabNav } from "./dashboard-tab-nav";
+import { DashboardTabNav, type TabBadge } from "./dashboard-tab-nav";
 
 /**
  * Sisi kiri dashboard nasabah: kartu profil (sapaan, avatar, status KTP,
@@ -13,10 +13,12 @@ import { DashboardTabNav } from "./dashboard-tab-nav";
 export function DashboardSidebar({
   greetingName,
   role,
+  badges,
   onSignOut,
 }: {
   greetingName: string;
   role?: string;
+  badges?: Partial<Record<string, TabBadge>>;
   onSignOut: () => void;
 }) {
   const initial = greetingName.charAt(0).toUpperCase();
@@ -75,7 +77,7 @@ export function DashboardSidebar({
         </Button>
       </div>
 
-      <DashboardTabNav />
+      <DashboardTabNav badges={badges} />
     </div>
   );
 }
