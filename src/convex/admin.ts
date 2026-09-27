@@ -500,12 +500,27 @@ export const rejectDeposit = mutation({
       catatanAdmin: args.reason.trim(),
     });
   },
-});/** Ringkasan ledger untuk kartu kesehatan sistem di panel admin. */
+});
+
+/** Ringkasan ledger untuk kartu kesehatan sistem di panel admin. */
 export const ledgerSummary = query({
   args: {},
   handler: async (ctx) => {
     await requireAdmin(ctx);
-    return ledgerTotals(ctx);
+    const totals = await ledgerTotals(ctx);
+    // Pendapatan platform = entri `platform_fee` pada akun platform:FEE:
+    // biaya admin & platform pinjaman, potongan muka gadai, dan biaya
+    // layanan Kredit Barang (Skema C).
+    const entries = await ctx.db.query("ledger_entries").collect();
+    const pendapatanPlatform = entries
+      .filter(
+        (e) =>
+          e.jenis === "platform_fee" &&
+          e.akun === "platform:FEE" &&
+          e.arah === "debit",
+      )
+      .reduce((acc, e) => acc + e.jumlah, 0);
+    return { ...totals, pendapatanPlatform };
   },
 });
 

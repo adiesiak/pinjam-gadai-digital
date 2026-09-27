@@ -300,12 +300,21 @@ export const bayarCicilanKredit = mutation({
       );
     }
 
-    const quote = quoteKreditBarang({
-      hargaBarang: kredit.hargaBarang,
-      dpPersen: kredit.dpPersen,
-      tenorBulan: kredit.tenorBulan,
-      marginPersenPerBulan: kredit.marginPersenPerBulan,
-    });
+    // Pengajuan lama bisa berada di luar rentang skema saat ini — beri pesan
+    // yang jelas, bukan error engine mentah.
+    let quote: KreditBarangQuote;
+    try {
+      quote = quoteKreditBarang({
+        hargaBarang: kredit.hargaBarang,
+        dpPersen: kredit.dpPersen,
+        tenorBulan: kredit.tenorBulan,
+        marginPersenPerBulan: kredit.marginPersenPerBulan,
+      });
+    } catch {
+      throw new Error(
+        "Rincian pengajuan ini di luar rentang skema kredit saat ini — hubungi tim PINDAI.",
+      );
+    }
 
     const payments = await ctx.db
       .query("kreditPayments")
@@ -324,9 +333,16 @@ export const bayarCicilanKredit = mutation({
       .query("kreditFundings")
       .withIndex("by_kredit", (q) => q.eq("kreditId", args.kreditId))
       .collect();
+    // Urutan baku (alokasi terbesar dulu, seri diputus nomor referensi) harus
+    // sama dengan saat hak diselaraskan ketika pendanaan penuh — hanya itu
+    // yang menjamin porsi penyerap pembulatan selalu orang yang sama.
     const aktif = fundings
       .filter((f) => f.status === "dialokasikan")
-      .sort((a, b) => b.jumlahAlokasi - a.jumlahAlokasi);
+      .sort(
+        (a, b) =>
+          b.jumlahAlokasi - a.jumlahAlokasi ||
+          a.nomorReferensi.localeCompare(b.nomorReferensi),
+      );
     if (aktif.length === 0) {
       throw new Error("Belum ada posisi Pendana aktif pada pengajuan ini.");
     }
@@ -344,11 +360,22 @@ export const bayarCicilanKredit = mutation({
 
     // 2. Bagi ke Pendana proporsional porsi pokok; dust ke alokasi terbesar.
     //    Pembagian dihitung engine lib/kredit.ts (identitas Σ = pokok + margin).
+    //    Konteks kumulatif menghapus drift: saat tenor selesai setiap Pendana
+    //    menerima pokok tepat sebesar Alokasi Dananya & Imbal Hasil tepat
+    //    sebesar hak yang tersimpan pada posisinya.
+    let pokokSebelumnya = 0;
+    for (const row of quote.jadwal) {
+      if (row.bulan < bulanKe) pokokSebelumnya += row.pokok;
+    }
     const porsi = bagiCicilanKePendana(
       pokokDibayar,
       marginDibayar,
       quote.pokokDibiayai,
       aktif.map((f) => f.jumlahAlokasi),
+      {
+        pokokSebelumnya,
+        marginSebelumnya: (bulanKe - 1) * quote.marginPerBulan,
+      },
     );
 
     let terdistribusi = 0;

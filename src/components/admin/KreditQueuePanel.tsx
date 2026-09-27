@@ -144,7 +144,7 @@ export function KreditQueuePanel() {
                   <KreditStatusBadge status={r.status} />
                 </div>
 
-                <div className="mt-4 grid grid-cols-2 gap-3 border-t border-slate-100 pt-4 text-xs sm:grid-cols-5">
+                <div className="mt-4 grid grid-cols-2 gap-3 border-t border-slate-100 pt-4 text-xs sm:grid-cols-3">
                   {(
                     [
                       ["Harga barang", formatRupiah(r.hargaBarang)],
@@ -152,6 +152,10 @@ export function KreditQueuePanel() {
                       [
                         "Pokok dibiayai",
                         r.pokokDibiayai !== null ? formatRupiah(r.pokokDibiayai) : "—",
+                      ],
+                      [
+                        "Biaya layanan platform",
+                        r.biayaLayanan !== null ? formatRupiah(r.biayaLayanan) : "—",
                       ],
                       [
                         `Cicilan / bulan`,

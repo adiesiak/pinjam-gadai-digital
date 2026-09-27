@@ -4,6 +4,7 @@
  */
 import {
   bagiCicilanKePendana,
+  hakImbalHasilPerAlokasi,
   KATALOG_CONTOH,
   KREDIT_ASUMSI_AWAL,
   KREDIT_PRICING,
@@ -41,12 +42,17 @@ const q = quoteKreditBarang({
 });
 eq(q.dp, 2_000_000, "DP 20% dari 10jt = 2jt");
 eq(q.pokokDibiayai, 8_000_000, "pokok dibiayai = 8jt");
-eq(q.biayaLayanan, 80_000, "biaya layanan 1% dari pokok = 80rb");
+eq(q.biayaLayanan, 240_000, "biaya layanan platform 3% dari pokok = 240rb");
 eq(q.marginPerBulan, 200_000, "Imbal Hasil 2,5% dari 8jt = 200rb/bulan");
 eq(q.marginTotal, 2_400_000, "total Imbal Hasil 12 bulan = 2,4jt");
 eq(q.cicilanPerBulan, 866_666, "cicilan bulanan = 666.666 pokok + 200rb");
 eq(q.cicilanTerakhir, 866_674, "cicilan terakhir menyerap pembulatan");
-eq(q.totalDibayarKonsumen, 12_480_000, "total dibayar Konsumen");
+eq(q.totalDibayarKonsumen, 12_640_000, "total dibayar Konsumen = 2jt + 240rb + 8jt + 2,4jt");
+eq(
+  q.totalDibayarKonsumen,
+  q.dp + q.biayaLayanan + q.pokokDibiayai + q.marginTotal,
+  "identitas: total Konsumen = DP + biaya layanan + pokok + Imbal Hasil",
+);
 eq(q.porsiPendana, 8_000_000, "porsi pendanaan 100% = pokok");
 eq(q.imbalHasilPerBulan, 200_000, "Imbal Hasil Pendana per bulan");
 eq(q.imbalHasil, 2_400_000, "total Imbal Hasil Pendana");
@@ -83,17 +89,18 @@ eq(sebagian.imbalHasil, 1_200_000, "total Imbal Hasil 50% = 1,2jt");
 eq(sebagian.totalDiterima, 5_200_000, "total diterima porsi 50%");
 eq(sebagian.persenImbalHasil, 30, "persen Imbal Hasil tetap 30%");
 
-// ---- Tenor pendek & Imbal Hasil minimum ----
+// ---- Tenor pendek pada Imbal Hasil minimum skema ----
 const pendek = quoteKreditBarang({
   hargaBarang: 10_000_000,
   dpPersen: 20,
   tenorBulan: 3,
-  marginPersenPerBulan: 1.5,
+  marginPersenPerBulan: KREDIT_PRICING.marginMinPersenPerBulan,
 });
-eq(pendek.marginPerBulan, 120_000, "Imbal Hasil 1,5% dari 8jt = 120rb");
-eq(pendek.marginTotal, 360_000, "total Imbal Hasil 3 bulan");
-eq(pendek.cicilanPerBulan, 2_786_666, "cicilan 3 bulan lebih besar");
-eq(pendek.persenImbalHasilTahunan, 18, "setara 18% per tahun (30% × 12/3)");
+eq(pendek.marginPerBulan, 200_000, "Imbal Hasil 2,5% dari 8jt = 200rb");
+eq(pendek.marginTotal, 600_000, "total Imbal Hasil 3 bulan");
+eq(pendek.cicilanPerBulan, 2_866_666, "cicilan 3 bulan lebih besar");
+eq(pendek.persenImbalHasil, 7.5, "Imbal Hasil 7,5% dari porsi (3 bulan)");
+eq(pendek.persenImbalHasilTahunan, 30, "setara 30% per tahun (7,5% × 12/3)");
 eq(
   pendek.jadwal.reduce((acc, row) => acc + row.pokok, 0),
   pendek.pokokDibiayai,
@@ -143,6 +150,16 @@ throws(
       marginPersenPerBulan: 2.5,
     }),
   "tenor di luar pilihan ditolak",
+);
+throws(
+  () =>
+    quoteKreditBarang({
+      hargaBarang: 10_000_000,
+      dpPersen: 20,
+      tenorBulan: 12,
+      marginPersenPerBulan: KREDIT_PRICING.marginMinPersenPerBulan - 0.5,
+    }),
+  "Imbal Hasil di bawah minimum ditolak",
 );
 throws(
   () =>
@@ -217,19 +234,52 @@ const tiga = bagiCicilanKePendana(666_666, 200_000, 8_000_000, [2_000_000, 3_000
 eq(tiga.reduce((a, x) => a + x.total, 0), 866_666, "tiga Pendana: total tetap sama");
 eq(tiga.every((x) => x.total > 0), true, "setiap Pendana menerima bagian");
 
-// ---- Simulasi lunas: 12 cicilan mengembalikan pokok & seluruh Imbal Hasil ----
+// ---- Hak Imbal Hasil per alokasi: hak tersimpan = hak yang diterima ----
+const alokasiSim = [4_500_000, 2_500_000, 1_000_000] as const;
+const hakSim = hakImbalHasilPerAlokasi(q.marginTotal, q.pokokDibiayai, alokasiSim);
+eq(hakSim.reduce((a, x) => a + x, 0), q.marginTotal, "Σ hak = total Imbal Hasil");
+eq(
+  hakSim[1],
+  Math.floor((q.marginTotal * 2_500_000) / 8_000_000),
+  "hak non-terbesar = floor proporsional",
+);
+eq(
+  hakSim[2],
+  Math.floor((q.marginTotal * 1_000_000) / 8_000_000),
+  "hak porsi kecil = floor proporsional",
+);
+eq(hakSim[0], q.marginTotal - hakSim[1] - hakSim[2], "hak terbesar = sisa (dust)");
+
+// ---- Simulasi 12 bulan: tiap Pendana menerima TEPAT porsi & haknya ----
+const pokokPerPendana = [0, 0, 0];
+const marginPerPendana = [0, 0, 0];
 let pokokKembali = 0;
 let marginKembali = 0;
 for (const row of q.jadwal) {
-  const porsi = bagiCicilanKePendana(row.pokok, row.margin, q.pokokDibiayai, [
-    5_000_000,
-    3_000_000,
-  ]);
-  pokokKembali += porsi.reduce((a, x) => a + x.pokok, 0);
-  marginKembali += porsi.reduce((a, x) => a + x.margin, 0);
+  const porsi = bagiCicilanKePendana(row.pokok, row.margin, q.pokokDibiayai, alokasiSim, {
+    pokokSebelumnya: pokokKembali,
+    marginSebelumnya: marginKembali,
+  });
+  eq(
+    porsi.reduce((a, x) => a + x.total, 0),
+    row.total,
+    `bulan ${row.bulan}: Σ pembagian = cicilan bulan itu`,
+  );
+  for (let i = 0; i < porsi.length; i += 1) {
+    pokokPerPendana[i] += porsi[i].pokok;
+    marginPerPendana[i] += porsi[i].margin;
+  }
+  pokokKembali += row.pokok;
+  marginKembali += row.margin;
 }
 eq(pokokKembali, q.pokokDibiayai, "12 bulan mengembalikan seluruh pokok dibiayai");
 eq(marginKembali, q.marginTotal, "12 bulan membayar seluruh Imbal Hasil");
+eq(pokokPerPendana[0], 4_500_000, "Pendana 4,5jt kembali TEPAT 4,5jt");
+eq(pokokPerPendana[1], 2_500_000, "Pendana 2,5jt kembali TEPAT 2,5jt");
+eq(pokokPerPendana[2], 1_000_000, "Pendana 1jt kembali TEPAT 1jt");
+eq(marginPerPendana[0], hakSim[0], "Imbal Hasil Pendana terbesar tepat haknya");
+eq(marginPerPendana[1], hakSim[1], "Imbal Hasil Pendana 2,5jt tepat haknya");
+eq(marginPerPendana[2], hakSim[2], "Imbal Hasil Pendana 1jt tepat haknya");
 
 throws(
   () => bagiCicilanKePendana(100_000, 10_000, 8_000_000, []),
@@ -250,6 +300,18 @@ throws(
 throws(
   () => bagiCicilanKePendana(100_000, 10_000, 8_000_000, [4_000_000, 4_000_000, -1]),
   "alokasi tidak positif ditolak",
+);
+throws(
+  () =>
+    bagiCicilanKePendana(100_000, 10_000, 8_000_000, [8_000_000], {
+      pokokSebelumnya: -1,
+      marginSebelumnya: 0,
+    }),
+  "konteks kumulatif negatif ditolak",
+);
+throws(
+  () => hakImbalHasilPerAlokasi(1_000_000, 8_000_000, [5_000_000]),
+  "hak Imbal Hasil saat pendanaan belum penuh ditolak",
 );
 
 // ---- Katalog contoh harus dapat dihitung dengan asumsi awal ----

@@ -40,6 +40,8 @@ export type LedgerSummary = {
   totalKredit: number;
   entryCount: number;
   seimbang: boolean;
+  /** Total biaya platform yang sudah dijurnal (platform:FEE, sisi debit). */
+  pendapatanPlatform: number;
 };
 
 /** Tab Setoran — verifikasi setoran/penarikan Pendana + kesehatan ledger. */
@@ -169,11 +171,12 @@ export function SetoranSection({
           <p className="mt-3 text-sm text-muted-foreground">Memuat…</p>
         ) : (
           <>
-            <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-4">
+            <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3">
               {[
                 ["Total debit", formatRupiah(ledger.totalDebit)],
                 ["Total kredit", formatRupiah(ledger.totalKredit)],
                 ["Jumlah entri", `${ledger.entryCount}`],
+                ["Pendapatan platform", formatRupiah(ledger.pendapatanPlatform)],
                 ["Status", ledger.seimbang ? "Seimbang" : "Tidak seimbang"],
               ].map(([label, value]) => (
                 <div key={label}>
@@ -183,7 +186,8 @@ export function SetoranSection({
               ))}
             </div>
             <p className="mt-4 text-xs leading-5 text-muted-foreground">
-              Jurnal append-only. Total debit selalu sama dengan total kredit.
+              Jurnal append-only. Total debit selalu sama dengan total kredit. Pendapatan
+              platform mencakup biaya pinjaman, potongan gadai, dan biaya layanan Kredit Barang.
             </p>
           </>
         )}

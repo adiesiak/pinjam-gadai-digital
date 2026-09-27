@@ -4,7 +4,7 @@ import type { Id } from "./_generated/dataModel";
 import { v } from "convex/values";
 import { ROLES } from "./schema";
 import { calculateRepayment, DEFAULT_TENOR_HARI, quoteLoan } from "../lib/loan";
-import { quoteKreditBarang } from "../lib/kredit";
+import { hakImbalHasilPerAlokasi, quoteKreditBarang } from "../lib/kredit";
 import { formatRupiah, type Rupiah } from "../lib/money";
 import { appendJournal, pendanaWalletBalance } from "./ledger";
 
@@ -809,12 +809,21 @@ export const alokasiKreditBarang = mutation({
       );
     }
 
-    const quote = quoteKreditBarang({
-      hargaBarang: kredit.hargaBarang,
-      dpPersen: kredit.dpPersen,
-      tenorBulan: kredit.tenorBulan,
-      marginPersenPerBulan: kredit.marginPersenPerBulan,
-    });
+    // Pengajuan lama bisa berada di luar rentang skema saat ini — tolak dengan
+    // pesan yang jelas, bukan error engine mentah.
+    let quote: ReturnType<typeof quoteKreditBarang>;
+    try {
+      quote = quoteKreditBarang({
+        hargaBarang: kredit.hargaBarang,
+        dpPersen: kredit.dpPersen,
+        tenorBulan: kredit.tenorBulan,
+        marginPersenPerBulan: kredit.marginPersenPerBulan,
+      });
+    } catch {
+      throw new Error(
+        "Rincian pengajuan ini di luar rentang skema kredit saat ini — hubungi tim PINDAI.",
+      );
+    }
 
     const fundings = await ctx.db
       .query("kreditFundings")
@@ -886,13 +895,39 @@ export const alokasiKreditBarang = mutation({
         ],
       });
 
-      // Bagi ulang hak Imbal Hasil proporsional agar identik dengan engine.
-      for (const f of fundings.filter((x) => x.status === "dialokasikan")) {
-        await ctx.db.patch(f._id, {
-          imbalHasil: Math.floor(
-            (quote.marginTotal * f.jumlahAlokasi) / quote.pokokDibiayai,
-          ),
-        });
+      // Biaya layanan platform — margin platform, dibayar Konsumen di muka.
+      // Jurnal ini yang membuat pendapatan platform benar-benar tercatat.
+      await appendJournal(ctx, {
+        jenis: "platform_fee",
+        keterangan: `Biaya layanan platform ${kredit.nomorReferensi} (Kredit Barang)`,
+        aktor: "platform",
+        lines: [
+          { akun: "platform:FEE", arah: "debit", jumlah: quote.biayaLayanan },
+          {
+            akun: `peminjam:${kredit.userId}`,
+            arah: "kredit",
+            jumlah: quote.biayaLayanan,
+          },
+        ],
+      });
+
+      // Selaraskan hak Imbal Hasil dengan engine: Σ hak = total Imbal Hasil
+      // dan alokasi terbesar menyerap pembulatan — tepat seperti yang
+      // diterima setiap bulan lewat bagiCicilanKePendana.
+      const aktif = fundings
+        .filter((x) => x.status === "dialokasikan")
+        .sort(
+          (a, b) =>
+            b.jumlahAlokasi - a.jumlahAlokasi ||
+            a.nomorReferensi.localeCompare(b.nomorReferensi),
+        );
+      const hak = hakImbalHasilPerAlokasi(
+        quote.marginTotal,
+        quote.pokokDibiayai,
+        aktif.map((f) => f.jumlahAlokasi),
+      );
+      for (let i = 0; i < aktif.length; i += 1) {
+        await ctx.db.patch(aktif[i]._id, { imbalHasil: hak[i] });
       }
 
       await ctx.db.patch(kredit._id, {

@@ -13,7 +13,9 @@
  *  - Imbal Hasil Pendana = margin flat per bulan (% dari pokok dibiayai),
  *    dibayarkan selama tenor; bagian Pendana proporsional dengan porsi
  *    pendanaannya (Alokasi Dana).
- *  - Biaya layanan platform 1% dari pokok dibiayai, dibayar Konsumen di muka.
+ *  - Biaya layanan platform (% dari pokok dibiayai) adalah margin platform,
+ *    dibayar Konsumen di muka dan dijurnal `platform_fee` saat pendanaan
+ *    penuh — satu-satunya pendapatan platform dari skema ini.
  */
 import { isRupiah, percentOf, type Rupiah } from "./money";
 
@@ -25,11 +27,14 @@ export const KREDIT_PRICING = {
   /** Pilihan tenor kredit barang (bulan). */
   tenorBulanOptions: [3, 6, 12, 24],
   /** Imbal Hasil minimum per bulan (% dari pokok dibiayai). */
-  marginMinPersenPerBulan: 1.5,
+  marginMinPersenPerBulan: 2.5,
   /** Imbal Hasil maksimum per bulan (% dari pokok dibiayai). */
-  marginMaxPersenPerBulan: 4,
-  /** Biaya layanan platform, % dari pokok dibiayai (dibayar Konsumen). */
-  biayaLayananPersen: 1,
+  marginMaxPersenPerBulan: 5,
+  /**
+   * Biaya layanan platform, % dari pokok dibiayai (margin platform) —
+   * dibayar Konsumen di muka, dikumpulkan saat pendanaan penuh.
+   */
+  biayaLayananPersen: 3,
   /** Harga barang terendah yang dapat dibiayai. */
   minHargaBarang: 1_000_000,
   /** Harga barang tertinggi yang dapat dibiayai. */
@@ -42,7 +47,7 @@ export const KREDIT_PRICING = {
 export const KREDIT_ASUMSI_AWAL = {
   dpPersen: 20,
   tenorBulan: 12,
-  marginPersenPerBulan: 2.5,
+  marginPersenPerBulan: 3.5,
   porsiPendanaPersen: 100,
 } as const;
 
@@ -230,26 +235,25 @@ export interface PorsiCicilan {
   total: Rupiah;
 }
 
-/**
- * Bagi satu cicilan (pokok + Imbal Hasil) ke porsi tiap Pendana secara
- * proporsional terhadap Alokasi Dana mereka.
- *
- * Identitas yang dijamin (diuji di kredit.test.ts):
- *  - Σ hasil.pokok = pokok          (tanpa kehilangan satu rupiah pun)
- *  - Σ hasil.margin = margin
- * Pembagian dibulatkan ke bawah per alokasi; selisih pembulatan (dust)
- * diberikan ke alokasi terbesar — pemegang porsi terbesar menyerap dust,
- * pola yang sama dengan distribusi pelunasan pinjaman tunai.
- */
-export function bagiCicilanKePendana(
-  pokok: Rupiah,
-  margin: Rupiah,
-  pokokDibiayai: Rupiah,
-  alokasi: readonly Rupiah[],
-): PorsiCicilan[] {
-  if (!isRupiah(pokok) || pokok <= 0 || !isRupiah(margin) || margin < 0) {
-    throw new Error("Cicilan pokok & Imbal Hasil harus rupiah bulat (pokok > 0).");
+/** Konteks kumulatif pembagian cicilan — dipakai untuk menghapus drift. */
+export interface KreditDistribusiKonteks {
+  /** Total pokok cicilan yang sudah dibagikan pada bulan-bulan sebelumnya. */
+  pokokSebelumnya: Rupiah;
+  /** Total Imbal Hasil yang sudah dibagikan pada bulan-bulan sebelumnya. */
+  marginSebelumnya: Rupiah;
+}
+
+/** Indeks alokasi terbesar — pemegang porsi ini menanggung pembulatan. */
+function indeksAlokasiTerbesar(alokasi: readonly Rupiah[]): number {
+  let idx = 0;
+  for (let i = 1; i < alokasi.length; i += 1) {
+    if (alokasi[i] > alokasi[idx]) idx = i;
   }
+  return idx;
+}
+
+/** Validasi umum: pokok dibiayai = Σ alokasi, semua rupiah bulat positif. */
+function validasiAlokasi(pokokDibiayai: Rupiah, alokasi: readonly Rupiah[]): void {
   if (!isRupiah(pokokDibiayai) || pokokDibiayai <= 0) {
     throw new Error("Pokok dibiayai harus rupiah bulat positif.");
   }
@@ -259,31 +263,104 @@ export function bagiCicilanKePendana(
   if (alokasi.some((a) => !isRupiah(a) || a <= 0)) {
     throw new Error("Setiap alokasi Pendana harus rupiah bulat positif.");
   }
-  const totalAlokasi = alokasi.reduce((acc, a) => acc + a, 0);
-  if (totalAlokasi !== pokokDibiayai) {
+  if (alokasi.reduce((acc, a) => acc + a, 0) !== pokokDibiayai) {
     throw new Error(
       "Total Alokasi Dana Pendana tidak sama dengan pokok dibiayai — pendanaan belum penuh.",
     );
   }
+}
 
-  const hasil: PorsiCicilan[] = alokasi.map((a) => ({
-    pokok: Math.floor((pokok * a) / pokokDibiayai),
-    margin: Math.floor((margin * a) / pokokDibiayai),
-    total: 0,
-  }));
-  const dustPokok = pokok - hasil.reduce((acc, x) => acc + x.pokok, 0);
-  const dustMargin = margin - hasil.reduce((acc, x) => acc + x.margin, 0);
-
-  // Alokasi terbesar menyerap dust (selalu >= 0 dan < jumlah Pendana).
-  let idxTerbesar = 0;
-  for (let i = 1; i < alokasi.length; i += 1) {
-    if (alokasi[i] > alokasi[idxTerbesar]) idxTerbesar = i;
+/**
+ * Bagi satu cicilan (pokok + Imbal Hasil) ke porsi tiap Pendana secara
+ * proporsional terhadap Alokasi Dana mereka.
+ *
+ * Identitas yang dijamin (diuji di kredit.test.ts):
+ *  - Σ hasil.pokok = pokok                       (tanpa kehilangan satu rupiah)
+ *  - Σ hasil.margin = margin
+ *  - bila `konteks` kumulatif disertakan: saat tenor selesai setiap Pendana
+ *    menerima pokok TEPAT sebesar Alokasi Dananya dan Imbal Hasil tepat
+ *    sebesar haknya — pembulatan per bulan tidak menumpuk jadi drift.
+ *
+ * Semua alokasi dibulatkan ke bawah (selisih floor kumulatif), lalu selisih
+ * pembulatan (dust) ditanggung alokasi terbesar — pola yang sama dengan
+ * distribusi pelunasan pinjaman tunai.
+ */
+export function bagiCicilanKePendana(
+  pokok: Rupiah,
+  margin: Rupiah,
+  pokokDibiayai: Rupiah,
+  alokasi: readonly Rupiah[],
+  konteks?: KreditDistribusiKonteks,
+): PorsiCicilan[] {
+  if (!isRupiah(pokok) || pokok <= 0 || !isRupiah(margin) || margin < 0) {
+    throw new Error("Cicilan pokok & Imbal Hasil harus rupiah bulat (pokok > 0).");
   }
-  hasil[idxTerbesar].pokok += dustPokok;
-  hasil[idxTerbesar].margin += dustMargin;
+  validasiAlokasi(pokokDibiayai, alokasi);
+
+  const sebelum = konteks ?? { pokokSebelumnya: 0, marginSebelumnya: 0 };
+  if (
+    !isRupiah(sebelum.pokokSebelumnya) ||
+    sebelum.pokokSebelumnya < 0 ||
+    !isRupiah(sebelum.marginSebelumnya) ||
+    sebelum.marginSebelumnya < 0
+  ) {
+    throw new Error("Konteks pembagian harus rupiah bulat non-negatif.");
+  }
+
+  const idxTerbesar = indeksAlokasiTerbesar(alokasi);
+  const bagianKumulatif = (cumSebelum: Rupiah, cumSesudah: Rupiah, i: number) =>
+    Math.floor((cumSesudah * alokasi[i]) / pokokDibiayai) -
+    Math.floor((cumSebelum * alokasi[i]) / pokokDibiayai);
+
+  const hasil: PorsiCicilan[] = alokasi.map((_, i) =>
+    i === idxTerbesar
+      ? { pokok: 0, margin: 0, total: 0 }
+      : {
+          pokok: bagianKumulatif(
+            sebelum.pokokSebelumnya,
+            sebelum.pokokSebelumnya + pokok,
+            i,
+          ),
+          margin: bagianKumulatif(
+            sebelum.marginSebelumnya,
+            sebelum.marginSebelumnya + margin,
+            i,
+          ),
+          total: 0,
+        },
+  );
+
+  // Alokasi terbesar = sisa cicilan bulan ini; selalu >= 0 karena hanya
+  // porsi terbesar yang porsinya tidak dibulatkan ke bawah.
+  hasil[idxTerbesar].pokok = pokok - hasil.reduce((acc, x) => acc + x.pokok, 0);
+  hasil[idxTerbesar].margin = margin - hasil.reduce((acc, x) => acc + x.margin, 0);
 
   for (const x of hasil) x.total = x.pokok + x.margin;
   return hasil;
+}
+
+/**
+ * Hak Imbal Hasil tiap alokasi atas seluruh Imbal Hasil satu pengajuan,
+ * memakai konvensi yang sama dengan bagiCicilanKePendana: semua alokasi
+ * dibulatkan ke bawah, alokasi terbesar menyerap selisih — sehingga
+ * Σ hak = marginTotal tepat dan hak tersimpan = hak yang diterima saat lunas.
+ */
+export function hakImbalHasilPerAlokasi(
+  marginTotal: Rupiah,
+  pokokDibiayai: Rupiah,
+  alokasi: readonly Rupiah[],
+): Rupiah[] {
+  if (!isRupiah(marginTotal) || marginTotal < 0) {
+    throw new Error("Total Imbal Hasil harus rupiah bulat non-negatif.");
+  }
+  validasiAlokasi(pokokDibiayai, alokasi);
+
+  const idxTerbesar = indeksAlokasiTerbesar(alokasi);
+  const hak = alokasi.map((a, i) =>
+    i === idxTerbesar ? 0 : Math.floor((marginTotal * a) / pokokDibiayai),
+  );
+  hak[idxTerbesar] = marginTotal - hak.reduce((acc, x) => acc + x, 0);
+  return hak;
 }
 
 /** Contoh barang merchant mitra untuk simulasi kalkulator. */
