@@ -1,5 +1,6 @@
 /** Konfigurasi sistem PINDAI — tipe + default bersama (server & client). */
 import { LOKASI_RETENSI } from "./lokasi";
+import { PLAFON_DEFAULT } from "./plafon";
 
 /**
  * Rentang retensi jejak lokasi yang boleh disimpan admin (hari). Batas bawah
@@ -32,6 +33,12 @@ export type SystemConfig = {
    * LOKASI_RETENSI.buktiPinjamanHari (400 hari), berapa pun nilai di sini.
    */
   retensiLokasiHari: number;
+  /**
+   * Plafon pinjaman DEFAULT semua Peminjam (rupiah bulat) — batas pokok
+   * pinjaman tunai & pokok dibiayai kredit barang. Nasabah tertentu bisa
+   * dinaikkan/diturunkan per orang lewat `users.plafonPinjaman` (admin).
+   */
+  plafonPinjaman: number;
 };
 
 export const DEFAULT_CONFIG: SystemConfig = {
@@ -50,4 +57,5 @@ export const DEFAULT_CONFIG: SystemConfig = {
   lokasiMaxUmurMenit: 10,
   wajibAplikasiNative: false,
   retensiLokasiHari: LOKASI_RETENSI.jejakHari,
+  plafonPinjaman: PLAFON_DEFAULT,
 };

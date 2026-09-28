@@ -12,6 +12,7 @@ import { ROLES } from "./schema";
 import { internal } from "./_generated/api";
 import { audit, getConfig } from "./system";
 import { jarakKm } from "../lib/geo";
+import { plafonPeminjam } from "../lib/plafon";
 import {
   bolehKirimPeringatanLokasi,
   INDONESIA_BOUNDS,
@@ -602,6 +603,20 @@ export const peringatanSaya = query({
       waStatus: belumDibaca.waStatus ?? null,
       waktu: belumDibaca.waktu,
     };
+  },
+});
+
+/**
+ * Plafon pinjaman nasabah ini — untuk slider & pesan di form pengajuan.
+ * Server memakai fungsi yang sama (lib/plafon.plafonPeminjam), jadi UI dan
+ * validasi tidak mungkin berbeda angka.
+ */
+export const plafonSaya = query({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await getAuthUserId(ctx);
+    if (userId === null) return null;
+    return await plafonPeminjam(ctx, userId);
   },
 });
 

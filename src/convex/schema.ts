@@ -89,6 +89,13 @@ const schema = defineSchema(
       isAnonymous: v.optional(v.boolean()), // is the user anonymous. do not remove
 
       role: v.optional(roleValidator), // role of the user. do not remove
+      /**
+       * Plafon pinjaman khusus pengguna ini (rupiah bulat) — diatur admin.
+       * Kosong = mengikuti default global `systemConfig.plafonPinjaman`.
+       * Berlaku untuk pokok pinjaman tunai (harian & bulanan) dan pokok
+       * dibiayai kredit barang. Rentang sah: lib/plafon.ts (100 rb–10 jt).
+       */
+      plafonPinjaman: v.optional(v.number()),
     }).index("email", ["email"]), // index for the email. do not remove or modify
 
     /**
@@ -404,6 +411,12 @@ const schema = defineSchema(
        * Titik milik pinjaman belum selesai tetap ditahan minimal 400 hari.
        */
       retensiLokasiHari: v.optional(v.number()),
+      /**
+       * Plafon pinjaman DEFAULT untuk semua Peminjam (rupiah bulat).
+       * Nasabah tertentu bisa dinaikkan/diturunkan per orang lewat
+       * `users.plafonPinjaman` (admin, lihat plafon.ts).
+       */
+      plafonPinjaman: v.optional(v.number()),
       /** Waktu terakhir konfigurasi diperbarui. */
       diperbaruiPada: v.number(),
     }).index("by_slot", ["slot"]),

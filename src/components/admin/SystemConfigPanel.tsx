@@ -8,6 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { api } from "@/convex/_generated/api";
+import { formatRupiah } from "@/lib/money";
+import { clampPlafon, PLAFON_BATAS } from "@/lib/plafon";
 import { DEFAULT_CONFIG, RETENSI_LOKASI_BATAS } from "@/lib/system-config";
 
 export function SystemConfigPanel() {
@@ -94,6 +96,25 @@ export function SystemConfigPanel() {
           />
           <p className="mt-1 text-xs leading-5 text-muted-foreground">
             Titik lebih tua dari batas ini → transaksi Peminjam ditolak server-side.
+          </p>
+        </div>
+        <div>
+          <Label htmlFor="cfg-plafon">Plafon pinjaman default (rupiah)</Label>
+          <Input
+            id="cfg-plafon"
+            inputMode="numeric"
+            value={form.plafonPinjaman}
+            onChange={(e) => {
+              const angka = Number(e.target.value.replace(/\D/g, "")) || 0;
+              upd("plafonPinjaman", clampPlafon(angka));
+            }}
+            className="tabular-nums"
+          />
+          <p className="mt-1 text-xs leading-5 text-muted-foreground">
+            Batas pokok pinjaman untuk SEMUA Peminjam (pinjaman tunai &amp; pokok
+            dibiayai kredit barang) — rentang {formatRupiah(PLAFON_BATAS.min)}–
+            {formatRupiah(PLAFON_BATAS.maks)}. Untuk menaikkan/turunkan batas
+            satu nasabah saja, gunakan panel Plafon Nasabah.
           </p>
         </div>
         <div>

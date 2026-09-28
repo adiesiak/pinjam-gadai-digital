@@ -1,4 +1,4 @@
-import { useMutation } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { ArrowRight, Loader2, MapPin } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import SignaturePad from "signature_pad";
@@ -175,21 +175,30 @@ export function LoanForm({ onCreated }: { onCreated: (ref: string) => void }) {
   const tenorBulanNum = Number(tenorBulan);
   const sim = bulanan ? simulasiBulananAman(pokok, tenorBulanNum) : null;
   const q = quoteLoan(pokok);
+  // Plafon nasabah (admin bisa naikkan/turunkan per orang) memotong sisi atas
+  // kedua skema. Nilai undefined saat memuat → pakai batas skema dulu supaya
+  // slider tidak melompat; server tetap menegakkan plafon yang sebenarnya.
+  const plafonQuery = useQuery(api.lokasi.plafonSaya, {});
+  const plafonSaya = plafonQuery ?? undefined;
   // Batas per skema: harian 100 rb–1 jt / maks 30 hari; bulanan 100 rb–500 jt.
   const MIN = bulanan ? BULANAN_LIMITS.minPokok : LOAN_LIMITS.minPokok;
-  const MAX = bulanan ? BULANAN_LIMITS.maxPokok : LOAN_LIMITS.maxPokok;
+  const BATAS_SKEMA = bulanan ? BULANAN_LIMITS.maxPokok : LOAN_LIMITS.maxPokok;
+  const MAX = Math.min(BATAS_SKEMA, plafonSaya ?? BATAS_SKEMA);
   const STEP = bulanan ? 500_000 : 50_000;
+  const melebihiPlafon = plafonSaya !== undefined && pokok > MAX;
 
-  // Saat berganti skema, nominal dijepit ke rentang skema baru agar slider
-  // tidak menampilkan nilai di luar batas.
+  // Saat berganti skema atau plafon, nominal dijepit ke rentang yang sah agar
+  // slider tidak menampilkan nilai di luar batas.
   const gantiSkema = (next: "harian" | "bulanan") => {
     setSkema(next);
     setError(null);
-    setPokok((p) =>
-      next === "bulanan"
-        ? Math.min(Math.max(p, BULANAN_LIMITS.minPokok), BULANAN_LIMITS.maxPokok)
-        : Math.min(Math.max(p, LOAN_LIMITS.minPokok), LOAN_LIMITS.maxPokok),
-    );
+    setPokok((p) => {
+      const batasAtas =
+        next === "bulanan"
+          ? Math.min(BULANAN_LIMITS.maxPokok, plafonSaya ?? BULANAN_LIMITS.maxPokok)
+          : Math.min(LOAN_LIMITS.maxPokok, plafonSaya ?? LOAN_LIMITS.maxPokok);
+      return Math.min(Math.max(p, LOAN_LIMITS.minPokok), batasAtas);
+    });
   };
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -204,6 +213,12 @@ export function LoanForm({ onCreated }: { onCreated: (ref: string) => void }) {
     if (bulanan && sim === null) {
       setError(
         `Skema bulanan menerima pokok ${formatRupiah(BULANAN_LIMITS.minPokok)}–${formatRupiah(BULANAN_LIMITS.maxPokok)} dengan tenor ${TENOR_BULANAN_OPTIONS.join("/")} bulan.`,
+      );
+      return;
+    }
+    if (plafonSaya !== undefined && pokok > plafonSaya) {
+      setError(
+        `Batas pinjaman Anda saat ini ${formatRupiah(plafonSaya)}. Ajukan di atas atau di bawah batas itu, atau hubungi tim PINDAI bila butuh penyesuaian plafon.`,
       );
       return;
     }
@@ -321,10 +336,12 @@ export function LoanForm({ onCreated }: { onCreated: (ref: string) => void }) {
           <span>{formatRupiah(MIN)}</span>
           <span>{formatRupiah(MAX)}</span>
         </div>
-        <p className="mt-2 text-xs leading-5 text-muted-foreground">
-          {bulanan
-            ? `Skema bulanan: uang muka 0%, biaya layanan 3% dari pokok (diamortisasi rata), bunga menurun per tenor. Pokok ${formatRupiah(BULANAN_LIMITS.minPokok)}–${formatRupiah(BULANAN_LIMITS.maxPokok)}.`
-            : `Pinjaman tunai dibatasi ${formatRupiah(LOAN_LIMITS.minPokok)}–${formatRupiah(LOAN_LIMITS.maxPokok)} dengan tenor maksimal ${LOAN_LIMITS.maxTenorHari} hari.`}
+        <p className={`mt-2 text-xs leading-5 ${melebihiPlafon ? "text-destructive" : "text-muted-foreground"}`}>
+          {melebihiPlafon && plafonSaya !== undefined
+            ? `Batas pinjaman Anda saat ini ${formatRupiah(plafonSaya)} — kurangi nominal atau hubungi tim PINDAI bila butuh penyesuaian plafon.`
+            : bulanan
+              ? `Skema bulanan: uang muka 0%, biaya layanan 3% dari pokok (diamortisasi rata), bunga menurun per tenor. Plafon Anda ${formatRupiah(MAX)}.`
+              : `Pinjaman tunai dibatasi ${formatRupiah(LOAN_LIMITS.minPokok)}–${formatRupiah(MAX)} dengan tenor maksimal ${LOAN_LIMITS.maxTenorHari} hari.`}
         </p>
 
         {/* Live financial breakdown — mengikuti skema terpilih. */}

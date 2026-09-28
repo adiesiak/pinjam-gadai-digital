@@ -10,6 +10,11 @@ import { ROLES, type KreditStatusValue } from "./schema";
 import { appendJournal } from "./ledger";
 import { audit, getConfig } from "./system";
 import { requireGerbangLokasi } from "./lokasi";
+import {
+  kreditDalamPlafon,
+  pesanPlafonTerlampaui,
+  plafonPeminjam,
+} from "../lib/plafon";
 import type { Doc, Id } from "./_generated/dataModel";
 import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 
@@ -182,6 +187,14 @@ export const ajukanKreditBarang = mutation({
       tenorBulan: args.tenorBulan,
       marginPersenPerBulan: args.marginPersenPerBulan,
     });
+
+    // Plafon nasabah memotong POKOK DIBIAYAI (bukan harga barang) — itu
+    // kewajiban yang menjadi risiko platform. Pesan menyebut plafon, bukan
+    // batas mesin, agar konsisten dengan yang tampil di UI nasabah.
+    const plafon = await plafonPeminjam(ctx, userId);
+    if (!kreditDalamPlafon(quote.pokokDibiayai, plafon)) {
+      throw new Error(pesanPlafonTerlampaui(plafon));
+    }
 
     const namaBarang = args.namaBarang.trim();
     if (namaBarang.length < 3) {

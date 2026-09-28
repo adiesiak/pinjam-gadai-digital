@@ -7,6 +7,7 @@ import {
   RETENSI_LOKASI_BATAS,
   type SystemConfig,
 } from "../lib/system-config";
+import { clampPlafon } from "../lib/plafon";
 
 /**
  * Konfigurasi sistem, kill switch, snapshot data, dan audit trail.
@@ -70,6 +71,7 @@ export async function getConfig(ctx: QueryCtx): Promise<SystemConfig> {
     lokasiMaxUmurMenit: row.lokasiMaxUmurMenit ?? DEFAULT_CONFIG.lokasiMaxUmurMenit,
     wajibAplikasiNative: row.wajibAplikasiNative ?? DEFAULT_CONFIG.wajibAplikasiNative,
     retensiLokasiHari: row.retensiLokasiHari ?? DEFAULT_CONFIG.retensiLokasiHari,
+    plafonPinjaman: row.plafonPinjaman ?? DEFAULT_CONFIG.plafonPinjaman,
   };
 }
 
@@ -124,6 +126,7 @@ export const saveConfig = mutation({
     lokasiMaxUmurMenit: v.number(),
     wajibAplikasiNative: v.boolean(),
     retensiLokasiHari: v.number(),
+    plafonPinjaman: v.number(),
   },
   handler: async (ctx, args) => {
     const { userId, user } = await requireAdmin(ctx);
@@ -145,6 +148,8 @@ export const saveConfig = mutation({
         `Retensi jejak lokasi harus ${RETENSI_LOKASI_BATAS.min}–${RETENSI_LOKASI_BATAS.maks} hari.`,
       );
     }
+    // Plafon global: disimpan ter-clamp (bukan ditolak) supaya tetap sah.
+    args.plafonPinjaman = clampPlafon(args.plafonPinjaman);
     const label = user.email ?? user.name ?? "admin";
     const prev = await getConfig(ctx);
     const existing = await ctx.db

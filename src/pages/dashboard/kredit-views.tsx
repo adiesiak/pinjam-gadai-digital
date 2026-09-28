@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Slider } from "@/components/ui/slider";
+import { hargaBarangMaksDariPlafon } from "@/lib/plafon";
 import { Textarea } from "@/components/ui/textarea";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
@@ -118,6 +119,13 @@ export function KreditBarangForm({ onCreated }: { onCreated: (ref: string) => vo
   const [error, setError] = useState<string | null>(null);
 
   const ajukan = useMutation(api.kredit.ajukanKreditBarang);
+  // Plafon nasabah memotong POKOK DIBIAYAI (bukan harga barang) — dihitung
+  // dari plafon dengan asumsi DP minimum 10% (lib/plafon.hargaBarangMaksDariPlafon).
+  const plafonQuery = useQuery(api.lokasi.plafonSaya, {});
+  const hargaMaksPlafon =
+    plafonQuery !== undefined && plafonQuery !== null
+      ? hargaBarangMaksDariPlafon(plafonQuery)
+      : KREDIT_PRICING.maxHargaBarang;
 
   // Tenor 1/3/6 bulan memakai skema bulanan (DP 0%, bunga menurun) — slider DP
   // dan margin tidak berpengaruh, jadi diganti keterangan otomatis engine.
@@ -126,7 +134,7 @@ export function KreditBarangForm({ onCreated }: { onCreated: (ref: string) => vo
   const preview = useMemo(() => {
     try {
       const harga = parseRupiah(hargaInput);
-      if (harga < KREDIT_PRICING.minHargaBarang || harga > KREDIT_PRICING.maxHargaBarang) {
+      if (harga < KREDIT_PRICING.minHargaBarang || harga > hargaMaksPlafon) {
         return null;
       }
       return quoteKreditBarang({
@@ -161,6 +169,12 @@ export function KreditBarangForm({ onCreated }: { onCreated: (ref: string) => vo
       if (harga < KREDIT_PRICING.minHargaBarang || harga > KREDIT_PRICING.maxHargaBarang) {
         setError(
           `Harga barang harus antara ${formatRupiah(KREDIT_PRICING.minHargaBarang)} dan ${formatRupiah(KREDIT_PRICING.maxHargaBarang)}.`,
+        );
+        return;
+      }
+      if (harga > hargaMaksPlafon) {
+        setError(
+          `Batas pinjaman Anda saat ini ${formatRupiah(plafonQuery ?? 0)} — kurangi harga barang/naikkan DP, atau hubungi tim PINDAI bila butuh penyesuaian plafon.`,
         );
         return;
       }
@@ -290,7 +304,11 @@ export function KreditBarangForm({ onCreated }: { onCreated: (ref: string) => vo
           />
           <p className="text-xs leading-5 text-muted-foreground">
             Rentang {formatRupiah(KREDIT_PRICING.minHargaBarang)}–
-            {formatRupiah(KREDIT_PRICING.maxHargaBarang)}.
+            {formatRupiah(hargaMaksPlafon)}
+            {hargaMaksPlafon < KREDIT_PRICING.maxHargaBarang
+              ? " (mengikuti plafon pinjaman Anda)"
+              : ""}
+            .
           </p>
         </div>
       </div>

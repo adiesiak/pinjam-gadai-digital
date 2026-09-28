@@ -8,6 +8,7 @@ import { appendJournal, ledgerTotals, pendanaWalletBalance } from "./ledger";
 import { formatRupiah } from "../lib/money";
 import { getConfig, audit } from "./system";
 import { jarakKm } from "../lib/geo";
+import { clampPlafon, plafonEfektif } from "../lib/plafon";
 
 /** Gerbang admin — semua query/mutation di file ini dijaga. */
 async function requireAdmin(ctx: QueryCtx) {
@@ -19,6 +20,107 @@ async function requireAdmin(ctx: QueryCtx) {
   }
   return { userId, user };
 }
+
+// ===== Plafon pinjaman per nasabah (lihat lib/plafon.ts) =====
+
+/**
+ * Daftar Peminjam + plafon efektifnya — untuk panel atur plafon.
+ * Menampilkan peminjam yang pernah bertransaksi (pernah mengajukan apa pun)
+ * ditambah pengguna dengan override; bukan seluruh tabel users.
+ */
+export const daftarPlafonPeminjam = query({
+  args: { cari: v.optional(v.string()) },
+  handler: async (ctx, { cari }) => {
+    await requireAdmin(ctx);
+    const cfg = await getConfig(ctx);
+    const kata = cari?.trim().toLowerCase() ?? "";
+
+    const loans = await ctx.db.query("loans").collect();
+    const kredits = await ctx.db.query("kreditBarang").collect();
+    const idPeminjam = new Set<string>();
+    for (const l of loans) idPeminjam.add(l.userId);
+    for (const k of kredits) idPeminjam.add(k.userId);
+
+    const hasil: Array<{
+      userId: string;
+      nama: string;
+      email: string | null;
+      plafonPribadi: number | null;
+      plafonEfektif: number;
+      jumlahPengajuan: number;
+      pinjamanAktif: number;
+    }> = [];
+    for (const id of idPeminjam) {
+      const user = (await ctx.db.get(id as never)) as
+        | {
+            name?: string;
+            email?: string;
+            role?: string;
+            plafonPinjaman?: number;
+          }
+        | null;
+      if (user === null) continue;
+      const pinjamanUser = loans.filter((l) => l.userId === id);
+      const kreditUser = kredits.filter((k) => k.userId === id);
+      const nama = (user.name ?? user.email ?? "Peminjam").toLowerCase();
+      if (kata !== "" && !nama.includes(kata) && !(user.email ?? "").toLowerCase().includes(kata)) {
+        continue;
+      }
+      hasil.push({
+        userId: id,
+        nama: user.name ?? user.email ?? "Peminjam",
+        email: user.email ?? null,
+        plafonPribadi: user.plafonPinjaman ?? null,
+        plafonEfektif: plafonEfektif(user.plafonPinjaman, cfg.plafonPinjaman),
+        jumlahPengajuan: pinjamanUser.length + kreditUser.length,
+        pinjamanAktif: pinjamanUser.filter((l) => l.status === "didanai").length,
+      });
+    }
+    hasil.sort((a, b) => b.jumlahPengajuan - a.jumlahPengajuan || a.nama.localeCompare(b.nama));
+    return { default: cfg.plafonPinjaman, rows: hasil.slice(0, 100) };
+  },
+});
+
+/**
+ * Naikkan/turunkan plafon satu nasabah — admin.
+ * `plafon: null` mengembalikan nasabah ke default global. Setiap perubahan
+ * masuk audit trail (append-only) karena ini keputusan kredit yang berdampak.
+ */
+export const setPlafonPeminjam = mutation({
+  args: {
+    userId: v.id("users"),
+    /** Rupiah bulat di rentang PLAFON_BATAS, atau null = ikut default. */
+    plafon: v.union(v.number(), v.null()),
+    /** Alasan keputusan (disarankan) — masuk audit trail. */
+    alasan: v.optional(v.string()),
+  },
+  handler: async (ctx, { userId, plafon, alasan }) => {
+    const { userId: adminId, user: admin } = await requireAdmin(ctx);
+    const target = await ctx.db.get(userId);
+    if (target === null) throw new Error("Pengguna tidak ditemukan.");
+    if (target.role === ROLES.ADMIN) {
+      throw new Error("Plafon tidak berlaku untuk akun tim (admin).");
+    }
+
+    const cfg = await getConfig(ctx);
+    const nilaiBaru = plafon === null ? null : clampPlafon(plafon);
+    const sebelumnya = plafonEfektif(target.plafonPinjaman, cfg.plafonPinjaman);
+    const sesudah = plafonEfektif(nilaiBaru, cfg.plafonPinjaman);
+
+    await ctx.db.patch(userId, { plafonPinjaman: nilaiBaru ?? undefined });
+    await audit(
+      ctx,
+      adminId,
+      admin.email ?? admin.name ?? "admin",
+      "ubah_plafon",
+      target.name ?? target.email ?? userId,
+      `Plafon ${formatRupiah(sebelumnya)} → ${formatRupiah(sesudah)}${
+        nilaiBaru === null ? " (kembali ke default global)" : " (khusus nasabah ini)"
+      }${alasan?.trim() ? ` — ${alasan.trim()}` : ""}`,
+    );
+    return { ok: true, plafonEfektif: sesudah };
+  },
+});
 
 /**
  * Query gabungan untuk halaman admin: profil sendiri (untuk deteksi halaman)

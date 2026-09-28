@@ -13,9 +13,8 @@ import {
   loanStatusValidator,
   LoanStatusValue,
   PawnStatusValue,
-} from "./schema";
-import {
-  assertPokokPinjamanValid,
+} from "./schema";import { pesanPlafonTerlampaui, plafonPeminjam, pokokDalamPlafon } from "../lib/plafon";
+import { assertPokokPinjamanValid,
   calculateRepayment,
   pelunasanPinjaman,
   quoteLoan,
@@ -164,9 +163,14 @@ export const createLoanApplication = mutation({
         "Pengajuan sementara dihentikan oleh sistem (kill switch aktif). Coba lagi nanti.",
       );
     }
-    // Batas pinjaman tunai: Rp 100.000–Rp 1.000.000 (LOAN_LIMITS, lib/loan.ts).
-    // Skema bulanan (tenorBulan diisi) berada di luar plafon itu — 100 rb s.d.
-    // 500 jt dengan DP 0% dan bunga menurun per tenor (lib/bulanan.ts).
+    // Batas pinjaman tunai: Rp 100.000 s.d. PLAFON NASABAH (default global
+    // 1 juta, admin bisa naikkan/turunkan per orang — lib/plafon.ts).
+    // Skema bulanan (tenorBulan diisi) memakai mesin yang sama dengan plafon
+    // yang sama; plafon hanya memotong sisi atas pokok.
+    const plafon = await plafonPeminjam(ctx, userId);
+    if (!pokokDalamPlafon(args.pokokPinjaman, plafon)) {
+      throw new Error(pesanPlafonTerlampaui(plafon));
+    }
     let tenorBulanSim: number | undefined;
     if (args.tenorBulan !== undefined) {
       if (!(TENOR_BULANAN_OPTIONS as readonly number[]).includes(args.tenorBulan)) {

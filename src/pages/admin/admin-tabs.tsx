@@ -10,6 +10,7 @@ import {
   MessageSquare,
   Package,
   Send,
+  SlidersHorizontal,
   Settings2,
   ShieldCheck,
   ShoppingBag,
@@ -24,6 +25,7 @@ import { KreditQueuePanel } from "@/components/admin/KreditQueuePanel";
 import { LoginSecurityPanel } from "@/components/admin/LoginSecurityPanel";
 import { DpdTab, LedgerTab, LelangTab, PencairanTab } from "@/components/admin/OperationsTabs";
 import { SystemConfigPanel } from "@/components/admin/SystemConfigPanel";
+import { PlafonPanel } from "@/components/admin/PlafonPanel";
 import { WhatsAppPanel } from "@/components/admin/WhatsAppPanel";
 import {
   type KreditRow,
@@ -81,6 +83,7 @@ export function AdminTabs({
             ["audit", "Audit Trail", null, Lock],
             ["loglogin", "Keamanan Login", null, ShieldCheck],
             ["setoran", "Setoran", `${pendingDeposits?.length ?? 0}`, Coins],
+            ["plafon", "Plafon Nasabah", null, SlidersHorizontal],
             ["pengumuman", "Pengumuman", null, MessageSquare],
             ["whatsapp", "WhatsApp", null, Send],
           ] as Array<[string, string, string | null, TabIcon]>
@@ -159,6 +162,10 @@ export function AdminTabs({
 
       <TabsContent value="config" className="min-w-0">
         <SystemConfigPanel />
+      </TabsContent>
+
+      <TabsContent value="plafon" className="min-w-0">
+        <PlafonPanel />
       </TabsContent>
 
       <TabsContent value="audit" className="min-w-0">
