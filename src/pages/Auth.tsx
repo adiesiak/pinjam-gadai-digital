@@ -46,12 +46,18 @@ function resolveRedirectAfterAuth(
 }
 
 function Auth({ redirectAfterAuth }: AuthProps = {}) {
-  const { isLoading: authLoading, isAuthenticated, signIn } = useAuth();
+  const { isLoading: authLoading, isAuthenticated, signIn, user } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const defaultDestination =
+    user?.role === "admin"
+      ? "/admin"
+      : user?.role === "pendana"
+        ? "/pendana"
+        : redirectAfterAuth;
   const redirect = resolveRedirectAfterAuth(
     searchParams.get("returnTo"),
-    redirectAfterAuth,
+    defaultDestination,
   );
   const [step, setStep] = useState<"signIn" | { email: string }>("signIn");
   const [otp, setOtp] = useState("");
@@ -124,7 +130,6 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
       } catch {
         /* logging gagal tidak boleh blokir UX */
       }
-      navigate(redirect);
     } catch (error) {
       console.error("OTP verification error:", error);
       setKegagalan((k) => k + 1);
@@ -158,7 +163,6 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
       } catch {
         /* ignore */
       }
-      navigate(redirect);
     } catch (error) {
       console.error("Guest login error:", error);
       setKegagalan((k) => k + 1);

@@ -163,8 +163,8 @@ export function Onboarding() {
           onClick={async () => {
             setBusy(true);
             try {
-              await becomePendana({});
-              toast.success("Selamat — Anda kini Pendana. Mulai dengan menyetor dana.");
+          await becomePendana({});
+          toast.success("Selamat — Anda kini Pendana. Mulai dengan menyetor dana.");
             } catch (err) {
               toast.error(err instanceof Error ? err.message : "Gagal mengubah peran.");
             } finally {

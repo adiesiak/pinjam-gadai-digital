@@ -30,6 +30,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { api } from "@/convex/_generated/api";
+import { RoleDashboardMenu } from "@/components/RoleDashboardMenu";
 import { CMS_DEFAULTS } from "@/lib/cms-defaults";
 import {
   BULANAN_LIMITS,
@@ -485,6 +486,7 @@ export default function Landing() {
             ))}
           </nav>
           <div className="flex items-center gap-2">
+            <RoleDashboardMenu />
             <Button
               asChild
               variant="ghost"

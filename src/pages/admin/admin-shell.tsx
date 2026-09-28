@@ -4,6 +4,7 @@ import { Link } from "react-router";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { formatRupiah } from "@/lib/money";
+import { RoleDashboardMenu } from "@/components/RoleDashboardMenu";
 
 export type AdminStatsData = {
   pinjamanBaru: number;
@@ -112,6 +113,7 @@ export function AdminHeader({
           </Badge>
         </div>
         <div className="flex items-center gap-2">
+          <RoleDashboardMenu />
           <Button
             size="sm"
             className={
@@ -133,13 +135,6 @@ export function AdminHeader({
                 ? "Klik lagi untuk konfirmasi!"
                 : "Kill Switch Darurat"}
           </Button>
-          <Link
-            to="/dashboard"
-            className="flex size-9 items-center justify-center rounded-full border border-slate-200 bg-slate-100 text-xs font-bold text-navy"
-            title="Profil & kembali ke ruang nasabah"
-          >
-            A
-          </Link>
         </div>
       </div>
     </header>

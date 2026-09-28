@@ -1,5 +1,7 @@
 import { Link } from "react-router";
 
+import { RoleDashboardMenu } from "@/components/RoleDashboardMenu";
+
 /** Bar atas dashboard nasabah: brand + penanda ruang. */
 export function DashboardHeader() {
   return (
@@ -14,9 +16,12 @@ export function DashboardHeader() {
           </span>
         </Link>
 
-        <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[10px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
-          Dashboard Nasabah
-        </span>
+        <div className="flex items-center gap-2">
+          <span className="hidden rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[10px] font-medium uppercase tracking-[0.16em] text-muted-foreground sm:inline-flex">
+            Dashboard Peminjam
+          </span>
+          <RoleDashboardMenu />
+        </div>
       </div>
     </header>
   );
