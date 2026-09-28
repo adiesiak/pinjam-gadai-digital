@@ -4,6 +4,7 @@ import {
   Calculator,
   Coins,
   Loader2,
+  MapPin,
   Package,
   ShoppingBag,
   TrendingUp,
@@ -48,6 +49,35 @@ const HARGA_AWAL = 10_000_000;
 /** Angka persen dengan desimal gaya Indonesia (2,5 → "2,5"). */
 function persenId(v: number): string {
   return v.toLocaleString("id-ID", { maximumFractionDigits: 2 });
+}
+
+/**
+ * Badge keamanan lokasi untuk kartu peluang pendanaan (pinjaman tunai &
+ * kredit barang). Menegaskan perlindungan yang sudah aktif di server: GPS
+ * Peminjam wajib hidup, titik palsu ditolak, koordinat mencurigakan ditandai.
+ * Versi verbose tampil di dalam dialog alokasi — momen keputusan Pendana.
+ */
+function BadgeLokasiTerpantau({ verbose = false }: { verbose?: boolean }) {
+  return (
+    <p
+      className={
+        verbose
+          ? "flex items-start gap-2 rounded-xl border border-emerald-100 bg-emerald-50/60 px-3 py-2.5 text-xs leading-5 text-emerald-800"
+          : "mt-2 flex items-center justify-center gap-1.5 text-center text-[11px] text-muted-foreground"
+      }
+    >
+      <MapPin className="size-3.5 shrink-0 text-emerald-600" />
+      {verbose ? (
+        <span>
+          Peminjam pinjaman ini wajib GPS aktif — server menolak transaksi tanpa
+          titik lokasi segar (maks 10 menit) serta titik dari aplikasi lokasi
+          palsu. Posisi yang mencurigakan ditandai dan ditindaklanjuti tim PINDAI.
+        </span>
+      ) : (
+        <span>Lokasi Peminjam dipantau &amp; diverifikasi server</span>
+      )}
+    </p>
+  );
 }
 
 /** Baris rincian label–nilai untuk kartu hasil. */
@@ -734,10 +764,13 @@ function PeluangKreditCard({ row }: { row: PeluangKredit }) {
           <BadgeCheck className="mr-1 size-3.5" /> Terpenuhi penuh oleh Pendana
         </Badge>
       ) : (
-        <Button className="mt-4 w-full" onClick={() => setOpen(true)}>
-          <Coins className="mr-1.5 size-4" />
-          Alokasikan Dana Sekarang
-        </Button>
+        <>
+          <Button className="mt-4 w-full" onClick={() => setOpen(true)}>
+            <Coins className="mr-1.5 size-4" />
+            Alokasikan Dana Sekarang
+          </Button>
+          <BadgeLokasiTerpantau />
+        </>
       )}
 
       <Dialog open={open} onOpenChange={setOpen}>
@@ -749,6 +782,7 @@ function PeluangKreditCard({ row }: { row: PeluangKredit }) {
               melebihi sisa akan ditolak server (anti-overfunding).
             </DialogDescription>
           </DialogHeader>
+          <BadgeLokasiTerpantau verbose />
           <div className="space-y-3">
             <div className="space-y-2">
               <Label htmlFor={`kredit-alo-${row.nomorReferensi}`}>Jumlah alokasi</Label>

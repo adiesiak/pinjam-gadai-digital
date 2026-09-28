@@ -1,5 +1,5 @@
 import { useMutation, useQuery } from "convex/react";
-import { BadgeCheck, Coins, Loader2, Package, Store } from "lucide-react";
+import { BadgeCheck, Coins, Loader2, MapPin, Package, Store } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
@@ -22,6 +22,38 @@ import { loanPurposeLabel } from "@/lib/loan";
 import { formatRupiah, parseRupiah, type Rupiah } from "@/lib/money";
 
 import { EmptyState, Loading } from "./feedback";
+
+/**
+ * Badge keamanan lokasi untuk kartu peluang pendanaan.
+ *
+ * Menegaskan perlindungan yang sudah aktif di server untuk pinjaman ini:
+ * Peminjam wajib GPS hidup (titik segar maks 10 menit), titik palsu ditolak,
+ * dan koordinat mencurigakan ditandai tim. Ditempatkan tepat di bawah tombol
+ * alokasi — momen keputusan Pendana — dan versi verbose muncul lagi di dalam
+ * dialog alokasi.
+ */
+function BadgeLokasiTerpantau({ verbose = false }: { verbose?: boolean }) {
+  return (
+    <p
+      className={
+        verbose
+          ? "flex items-start gap-2 rounded-xl border border-emerald-100 bg-emerald-50/60 px-3 py-2.5 text-xs leading-5 text-emerald-800"
+          : "mt-2 flex items-center justify-center gap-1.5 text-center text-[11px] text-muted-foreground"
+      }
+    >
+      <MapPin className="size-3.5 shrink-0 text-emerald-600" />
+      {verbose ? (
+        <span>
+          Peminjam pinjaman ini wajib GPS aktif — server menolak transaksi tanpa
+          titik lokasi segar (maks 10 menit) serta titik dari aplikasi lokasi
+          palsu. Posisi yang mencurigakan ditandai dan ditindaklanjuti tim PINDAI.
+        </span>
+      ) : (
+        <span>Lokasi Peminjam dipantau &amp; diverifikasi server</span>
+      )}
+    </p>
+  );
+}
 
 /** Tab 1 — Marketplace pinjaman & gadai. */
 export function MarketplaceSection() {
@@ -204,10 +236,13 @@ function MarketCard({
           <BadgeCheck className="mr-1 size-3.5" /> Terpenuhi penuh oleh Pendana
         </Badge>
       ) : (
-        <Button className="mt-4 w-full" onClick={() => setOpen(true)}>
-          <Coins className="mr-1.5 size-4" />
-          Alokasikan Dana Sekarang
-        </Button>
+        <>
+          <Button className="mt-4 w-full" onClick={() => setOpen(true)}>
+            <Coins className="mr-1.5 size-4" />
+            Alokasikan Dana Sekarang
+          </Button>
+          <BadgeLokasiTerpantau />
+        </>
       )}
 
       {/* Dialog alokasi — dilindungi anti-overfunding server-side */}
@@ -220,6 +255,7 @@ function MarketCard({
               melebihi sisa akan ditolak server (anti-overfunding).
             </DialogDescription>
           </DialogHeader>
+          <BadgeLokasiTerpantau verbose />
           <div className="space-y-3">
             <div className="space-y-2">
               <Label htmlFor="alo-jumlah">Jumlah alokasi</Label>
