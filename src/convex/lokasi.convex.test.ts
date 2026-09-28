@@ -40,6 +40,28 @@ async function siapkanPengguna(
   return t.withIdentity({ subject: userId, name: subject }) as never;
 }
 
+/** Nyalakan kebijakan "wajib aplikasi" lewat akun admin. */
+async function aktifkanKebijakan(t: ReturnType<typeof convexTest>, email: string) {
+  const asAdmin = await siapkanPengguna(t, "admin-app", { email, role: "admin" });
+  await asAdmin.mutation(api.system.saveConfig, {
+    ...DEFAULT_CONFIG,
+    wajibAplikasiNative: true,
+  });
+}
+
+/** Daftarkan perangkat aplikasi dan kembalikan tokennya. */
+async function daftarkanPerangkat(
+  sesi: ReturnType<ReturnType<typeof convexTest>["withIdentity"]>,
+  deviceId: string,
+): Promise<string> {
+  const hasil = await sesi.mutation(api.lokasi.daftarkanPerangkat, {
+    deviceId,
+    platform: "android",
+    versiApp: "1.0.0",
+  });
+  return hasil.token;
+}
+
 const PENGAJUAN = {
   namaBarang: "Kulkas dua pintu",
   kategori: "Elektronik",
@@ -212,17 +234,6 @@ describe("gerbang lokasi wajib", () => {
 });
 
 describe("kebijakan wajib aplikasi (transaksi hanya dari aplikasi)", () => {
-  async function aktifkanKebijakan(t: ReturnType<typeof convexTest>, email: string) {
-    const asAdmin = await siapkanPengguna(t, "admin-app", {
-      email,
-      role: "admin",
-    });
-    await asAdmin.mutation(api.system.saveConfig, {
-      ...DEFAULT_CONFIG,
-      wajibAplikasiNative: true,
-    });
-  }
-
   it("melayani transaksi setelah aplikasi native mengirim titik", async () => {
     const t = convexTest(schema, modules);
     await aktifkanKebijakan(t, "admin-app-1@pindai.test");
@@ -363,5 +374,126 @@ describe("kebijakan wajib aplikasi (transaksi hanya dari aplikasi)", () => {
     await expect(
       asPeminjam.mutation(api.kredit.ajukanKreditBarang, PENGAJUAN),
     ).rejects.toThrow("belum terdaftar");
+  });
+});
+
+describe("endpoint heartbeat native (POST /lokasi/heartbeat)", () => {
+  const HEARTBEAT = { lat: -6.2, lng: 106.816666, akurasi: 18 };
+
+  it("menerima titik dengan token perangkat tanpa sesi pengguna", async () => {
+    const t = convexTest(schema, modules);
+    await aktifkanKebijakan(t, "admin-http-1@pindai.test");
+    const asPeminjam = await siapkanPengguna(t, "peminjam-http-1", {
+      email: "http-1@pindai.test",
+      role: "peminjam",
+    });
+    const token = await daftarkanPerangkat(asPeminjam, "android-http-1");
+    expect(token.length).toBeGreaterThanOrEqual(16);
+
+    // Dikirim seperti foreground service: HTTP biasa, tanpa sesi Convex Auth.
+    const res = await t.fetch("/lokasi/heartbeat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify(HEARTBEAT),
+    });
+    expect(res.status).toBe(200);
+    await expect(res.json()).resolves.toMatchObject({ ok: true });
+
+    const status = await asPeminjam.query(api.lokasi.statusSaya, {});
+    expect(status.sumber).toBe("aplikasi");
+    expect(status.perangkatTerdaftar).toBe(true);
+    expect(status.segar).toBe(true);
+
+    // Satu-satunya jalur yang memenuhi kebijakan "wajib aplikasi" tanpa
+    // WebView: titik dari layanan native inilah yang membuka transaksi.
+    await expect(
+      asPeminjam.mutation(api.kredit.ajukanKreditBarang, PENGAJUAN),
+    ).resolves.toBeDefined();
+  });
+
+  it("menolak token kosong/asing (401) dan mengabaikan token di query", async () => {
+    const t = convexTest(schema, modules);
+    const asPeminjam = await siapkanPengguna(t, "peminjam-http-2", {
+      email: "http-2@pindai.test",
+      role: "peminjam",
+    });
+    await daftarkanPerangkat(asPeminjam, "android-http-2");
+
+    const tanpaToken = await t.fetch("/lokasi/heartbeat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(HEARTBEAT),
+    });
+    expect(tanpaToken.status).toBe(401);
+
+    const tokenPalsu = await t.fetch("/lokasi/heartbeat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: "Bearer token-palsu" },
+      body: JSON.stringify(HEARTBEAT),
+    });
+    expect(tokenPalsu.status).toBe(401);
+
+    const status = await asPeminjam.query(api.lokasi.statusSaya, {});
+    expect(status.sumber).toBe(null);
+  });
+
+  it("menolak body rusak dan titik tidak sah (400)", async () => {
+    const t = convexTest(schema, modules);
+    const asPeminjam = await siapkanPengguna(t, "peminjam-http-3", {
+      email: "http-3@pindai.test",
+      role: "peminjam",
+    });
+    const token = await daftarkanPerangkat(asPeminjam, "android-http-3");
+
+    const jsonRusak = await t.fetch("/lokasi/heartbeat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: "{bukan json",
+    });
+    expect(jsonRusak.status).toBe(400);
+
+    const koordinatHilang = await t.fetch("/lokasi/heartbeat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ lat: -6.2 }),
+    });
+    expect(koordinatHilang.status).toBe(400);
+
+    // Di luar wilayah Indonesia → ditolak `simpanTitik` dengan pesan siap pakai.
+    const luarNegeri = await t.fetch("/lokasi/heartbeat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ lat: 40.71, lng: -74.0, akurasi: 20 }),
+    });
+    expect(luarNegeri.status).toBe(400);
+
+    const status = await asPeminjam.query(api.lokasi.statusSaya, {});
+    expect(status.sumber).toBe(null);
+  });
+
+  it("memakai ulang token perangkat yang sama saat app dibuka kembali", async () => {
+    const t = convexTest(schema, modules);
+    const asPeminjam = await siapkanPengguna(t, "peminjam-http-4", {
+      email: "http-4@pindai.test",
+      role: "peminjam",
+    });
+    const pertama = await daftarkanPerangkat(asPeminjam, "android-http-4");
+    const kedua = await daftarkanPerangkat(asPeminjam, "android-http-4");
+    expect(kedua).toBe(pertama);
+  });
+
+  it("menolak platform perangkat selain android/ios", async () => {
+    const t = convexTest(schema, modules);
+    const asPeminjam = await siapkanPengguna(t, "peminjam-http-5", {
+      email: "http-5@pindai.test",
+      role: "peminjam",
+    });
+    await expect(
+      asPeminjam.mutation(api.lokasi.daftarkanPerangkat, {
+        deviceId: "browser-palsu",
+        platform: "web",
+        versiApp: "1.0.0",
+      }),
+    ).rejects.toThrow("Platform perangkat tidak dikenal");
   });
 });

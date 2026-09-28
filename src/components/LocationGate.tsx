@@ -7,13 +7,24 @@ import { api } from "@/convex/_generated/api";
 import { useAuth } from "@/hooks/use-auth";
 import { LOKASI_KEBIJAKAN, labelUmurLokasi } from "@/lib/lokasi";
 import {
+  bacaTokenPerangkat,
   idPerangkat,
+  kirimHeartbeatLatar,
   lingkunganNative,
   mulaiPelacakanLatar,
   pluginLokasiLatar,
+  simpanTokenPerangkat,
+  urlHeartbeatLokasi,
   versiAplikasi,
   type PelacakanLatar,
 } from "@/lib/native";
+
+/**
+ * URL deployment Convex — dipakai menurunkan endpoint HTTP heartbeat native.
+ * `VITE_CONVEX_SITE_URL` opsional bila tim ingin menunjuk domain situs lain.
+ */
+const URL_CONVEX = import.meta.env.VITE_CONVEX_URL as string | undefined;
+const URL_CONVEX_SITUS = import.meta.env.VITE_CONVEX_SITE_URL as string | undefined;
 
 /**
  * Gerbang lokasi wajib Peminjam.
@@ -76,8 +87,15 @@ export function LocationGate({
   // browser nilainya netral ("web"/null) sehingga perilaku web tidak berubah.
   const [perangkat] = useState(() => {
     const platform = lingkunganNative();
-    return { native: platform !== "web", platform, deviceId: idPerangkat() };
+    return {
+      native: platform !== "web",
+      platform,
+      deviceId: idPerangkat(),
+      token: bacaTokenPerangkat(),
+    };
   });
+  /** Token perangkat untuk endpoint HTTP heartbeat (diperbarui saat mendaftar). */
+  const tokenRef = useRef<string | null>(perangkat.token);
 
   // Browser tanpa layanan lokasi dideteksi saat render — bukan lewat efek,
   // sehingga efek di bawah murni memulai pemantauan tanpa setState.
@@ -89,19 +107,44 @@ export function LocationGate({
       const now = Date.now();
       if (now - kirimTerakhirRef.current < LOKASI_KEBIJAKAN.intervalDetik * 1000) return;
       kirimTerakhirRef.current = now;
-      void catatRef
-        .current({
-          lat,
-          lng,
-          akurasi: akurasiMeter,
-          sumber: perangkat.native ? "aplikasi" : "web",
-          platform: perangkat.platform,
-          versiApp: versiRef.current ?? undefined,
-          deviceId: perangkat.deviceId ?? undefined,
-        })
-        .catch((err: unknown) => {
-          setPesan(err instanceof Error ? err.message : "Gagal mengirim titik lokasi ke server.");
+
+      /** Jalur sesi (WebSocket Convex) — selalu tersedia. */
+      const kirimLewatSesi = () => {
+        void catatRef
+          .current({
+            lat,
+            lng,
+            akurasi: akurasiMeter,
+            sumber: perangkat.native ? "aplikasi" : "web",
+            platform: perangkat.platform,
+            versiApp: versiRef.current ?? undefined,
+            deviceId: perangkat.deviceId ?? undefined,
+          })
+          .catch((err: unknown) => {
+            setPesan(
+              err instanceof Error ? err.message : "Gagal mengirim titik lokasi ke server.",
+            );
+          });
+      };
+
+      // Aplikasi native: kirim lewat HTTP native lebih dulu. Permintaan dari
+      // WebView dibatasi Android setelah ±5 menit di latar belakang, sedangkan
+      // HTTP native tidak — inilah yang menjaga lokasi tetap mengalir saat
+      // layar terkunci. Bila gagal, titik tetap dikirim lewat jalur sesi.
+      const url = perangkat.native ? urlHeartbeatLokasi(URL_CONVEX, URL_CONVEX_SITUS) : null;
+      const token = tokenRef.current;
+      if (url !== null && token !== null) {
+        void kirimHeartbeatLatar(
+          url,
+          token,
+          { lat, lng, akurasi: akurasiMeter },
+          { platform: perangkat.platform, versiApp: versiRef.current },
+        ).then((hasil) => {
+          if (!hasil.ok) kirimLewatSesi();
         });
+        return;
+      }
+      kirimLewatSesi();
     },
     [perangkat],
   );
@@ -210,11 +253,16 @@ export function LocationGate({
     void (async () => {
       versiRef.current = await versiAplikasi();
       try {
-        await daftarkanRef.current({
+        const hasil = await daftarkanRef.current({
           deviceId,
           platform: perangkat.platform,
           versiApp: versiRef.current ?? "tidak diketahui",
         });
+        // Token dipakai mengirim titik tanpa sesi (layanan lokasi), termasuk
+        // saat aplikasi di latar belakang. Disimpan agar app tidak perlu
+        // mendaftar ulang setiap kali dibuka.
+        tokenRef.current = hasil.token;
+        simpanTokenPerangkat(hasil.token);
       } catch (err) {
         if (dibatalkan) return;
         setPesan(

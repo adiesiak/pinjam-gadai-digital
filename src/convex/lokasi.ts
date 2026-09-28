@@ -1,5 +1,11 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
-import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
+import {
+  internalMutation,
+  mutation,
+  query,
+  type MutationCtx,
+  type QueryCtx,
+} from "./_generated/server";
 import { v } from "convex/values";
 import type { Id } from "./_generated/dataModel";
 import { ROLES } from "./schema";
@@ -44,6 +50,27 @@ const PERAN_WAJIB_LOKASI: readonly string[] = [ROLES.PEMINJAM, ROLES.MEMBER];
  * "wajib aplikasi".
  */
 const MASA_PERANGKAT_DIPAKAI_MS = 24 * 60 * 60 * 1000;
+
+/** Platform yang diterima untuk pendaftaran perangkat aplikasi. */
+const PLATFORM_APLIKASI: readonly string[] = ["android", "ios"];
+
+/**
+ * Angka acak heksadesimal — kredensial perangkat.
+ * Memakai WebCrypto bila tersedia, dengan cadangan Math.random agar tidak
+ * bergantung pada ketersediaan API di runtime (mutasi tetap harus tuntas).
+ */
+function acakHex(panjangByte: number): string {
+  const bytes = new Uint8Array(panjangByte);
+  const webCrypto = typeof crypto === "undefined" ? undefined : crypto;
+  if (webCrypto !== undefined && typeof webCrypto.getRandomValues === "function") {
+    webCrypto.getRandomValues(bytes);
+  } else {
+    for (let i = 0; i < bytes.length; i += 1) {
+      bytes[i] = Math.floor(Math.random() * 256);
+    }
+  }
+  return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+}
 
 function pesanLokasiKedaluwarsa(umurMenit: number | null, batasMenit: number): string {
   const keadaan =
@@ -340,7 +367,11 @@ export const catatLokasi = mutation({
   },
 });
 
-/** Daftarkan perangkat aplikasi native (dipanggil sekali saat app dibuka). */
+/**
+ * Daftarkan perangkat aplikasi native (dipanggil saat app dibuka).
+ * Mengembalikan `token` perangkat: kredensial yang dipakai layanan lokasi di
+ * luar WebView untuk mengirim titik lewat `POST /lokasi/heartbeat`.
+ */
 export const daftarkanPerangkat = mutation({
   args: {
     deviceId: v.string(),
@@ -353,6 +384,10 @@ export const daftarkanPerangkat = mutation({
     if (deviceId.length < 6) {
       throw new Error("ID perangkat tidak valid.");
     }
+    const platform = args.platform.trim().toLowerCase();
+    if (!PLATFORM_APLIKASI.includes(platform)) {
+      throw new Error('Platform perangkat tidak dikenal (harus "android" atau "ios").');
+    }
     const now = Date.now();
     const lama = await ctx.db
       .query("perangkat")
@@ -361,16 +396,65 @@ export const daftarkanPerangkat = mutation({
     const baris = {
       userId,
       deviceId,
-      platform: args.platform,
+      platform,
       versiApp: args.versiApp,
       terakhirDilihat: now,
     };
     if (lama === null) {
-      await ctx.db.insert("perangkat", { ...baris, terdaftarPada: now });
-    } else {
-      await ctx.db.patch(lama._id, baris);
+      const token = acakHex(16);
+      await ctx.db.insert("perangkat", { ...baris, token, terdaftarPada: now });
+      return { ok: true, token };
     }
-    return { ok: true };
+    // Perangkat yang sama mendaftar ulang (app dibuka kembali): pertahankan
+    // token lama agar layanan lokasi yang sudah menyimpannya tidak kehilangan
+    // kredensial setiap kali app dijalankan.
+    const token = lama.token ?? acakHex(16);
+    await ctx.db.patch(lama._id, { ...baris, token });
+    return { ok: true, token };
+  },
+});
+
+/**
+ * Heartbeat lokasi TANPA sesi Convex Auth.
+ *
+ * Dipakai layanan lokasi yang berjalan di luar WebView (foreground service
+ * Android / Background Modes iOS) lewat `POST /lokasi/heartbeat`: lapisan itu
+ * tidak memegang sesi pengguna, dan permintaan jaringan dari WebView dibatasi
+ * Android setelah ±5 menit aplikasi di latar belakang.
+ *
+ * Perangkat dikenali dari token, sehingga sumber titik ditetapkan SERVER
+ * ("aplikasi") — bukan diklaim klien. Ini juga jangkar untuk attestation
+ * aplikasi (Play Integrity / App Attest) pada langkah berikutnya.
+ */
+export const heartbeatNative = internalMutation({
+  args: {
+    token: v.string(),
+    lat: v.number(),
+    lng: v.number(),
+    akurasi: v.number(),
+    platform: v.optional(v.string()),
+    versiApp: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const perangkat = await ctx.db
+      .query("perangkat")
+      .withIndex("by_token", (q) => q.eq("token", args.token))
+      .first();
+    if (perangkat === null) {
+      // Dikembalikan, bukan dilempar, agar rute HTTP bisa membalas 401 tanpa
+      // menebak dari teks galat.
+      return { ok: false as const, alasan: "token" as const };
+    }
+    const hasil = await simpanTitik(ctx, perangkat.userId, {
+      lat: args.lat,
+      lng: args.lng,
+      akurasi: args.akurasi,
+      sumber: "aplikasi",
+      platform: args.platform ?? perangkat.platform,
+      versiApp: args.versiApp ?? perangkat.versiApp,
+      deviceId: perangkat.deviceId,
+    });
+    return { ok: true as const, waktu: hasil.waktu };
   },
 });
 

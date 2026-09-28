@@ -39,6 +39,9 @@ fungsinya no-op, jadi bundel web tidak berubah.
 | `pluginLokasiLatar()` | Mencari plugin `BackgroundGeolocation` di `Capacitor.Plugins`. |
 | `pasangPluginLokasiLatar(p)` | Daftar manual via `registerPlugin(...)` — jaring pengaman bila `Capacitor.Plugins` tidak ada. |
 | `mulaiPelacakanLatar(onTitik, onGalat)` | Mulai watcher latar belakang; `null` bila plugin belum terpasang (bukan error). |
+| `simpanTokenPerangkat()` / `bacaTokenPerangkat()` | Menyimpan token perangkat dari pendaftaran (kredensial heartbeat HTTP). |
+| `urlHeartbeatLokasi(urlConvex, urlSitus?)` | Menurunkan `https://<deployment>.convex.site/lokasi/heartbeat`. |
+| `kirimHeartbeatLatar(url, token, titik)` | Kirim titik lewat `CapacitorHttp` (tidak ter-throttle WebView), fallback `fetch`. |
 
 ### Klien — `src/components/LocationGate.tsx`
 Sudah native-aware:
@@ -46,6 +49,8 @@ Sudah native-aware:
   `navigator.geolocation` bila tidak (atau bila `addWatcher` gagal).
 - Mengirim heartbeat dengan `sumber: "aplikasi"`, `platform` (`android`/`ios`),
   `versiApp`, dan `deviceId`.
+- Di aplikasi native, mengirim lewat `POST /lokasi/heartbeat` (HTTP native) lebih
+  dulu, lalu **jatuh kembali** ke `lokasi.catatLokasi` bila gagal.
 - **Mendaftarkan perangkat sendiri** saat berjalan di aplikasi native, sehingga
   pengguna aplikasi tidak pernah diminta "memasang aplikasi" oleh kebijakan
   `wajibAplikasiNative` (tanpa ini, mereka akan melihat layar blokir).
@@ -55,10 +60,12 @@ Sudah native-aware:
 ### Server — `src/convex/lokasi.ts`
 | Endpoint | Guna |
 |---|---|
-| `lokasi.daftarkanPerangkat({deviceId, platform, versiApp})` | Daftar perangkat native; masa berlaku 30 hari sejak heartbeat terakhir. |
-| `lokasi.catatLokasi({lat, lng, akurasi, sumber, platform, versiApp, deviceId})` | Heartbeat titik lokasi (validasi wilayah, akurasi, lompatan mustahil). |
-| `lokasi.statusSaya()` | Status gerbang untuk UI (`segar`, `umurMenit`, `perangkatTerdaftar`). |
+| `lokasi.daftarkanPerangkat({deviceId, platform, versiApp})` | Daftar perangkat native; mengembalikan `token`. Masa berlaku 24 jam sejak heartbeat terakhir. |
+| `lokasi.catatLokasi({lat, lng, akurasi, sumber, platform, versiApp, deviceId})` | Heartbeat titik lokasi dari dashboard (validasi wilayah, akurasi, lompatan mustahil). |
+| `lokasi.statusSaya()` | Status gerbang untuk UI (`segar`, `umurMenit`, `perangkatTerdaftar`, `sumber`). |
 | `requireGerbangLokasi(ctx, userId, user, titik?)` | Dipanggil pada semua aksi finansial Peminjam. |
+| `POST /lokasi/heartbeat` (`src/convex/http.ts`) | Heartbeat TANPA sesi pengguna, diautentikasi `perangkat.token` — dipakai layanan lokasi native. |
+| `lokasi.heartbeatNative` (internal) | Dipanggil rute HTTP di atas; memakai `simpanTitik` yang sama. |
 
 Server **sudah** menolak pengajuan pinjaman/gadai/kredit, cicilan, dan pelunasan
 tanpa titik segar. Yang belum ada hanyalah aplikasi native yang bisa memasok
@@ -268,33 +275,58 @@ aplikasi di latar belakang. Klien Convex berjalan di WebView (WebSocket), jadi
 heartbeat `lokasi.catatLokasi` bisa tertahan walau foreground service dan
 plugin lokasi tetap hidup.
 
-Rencana penanganannya:
+### Sudah diimplementasikan (server + klien web)
 
-1. **Endpoint HTTP di Convex** — tambahkan rute di `src/convex/http.ts`
-   (saat ini hanya memuat rute auth):
-   - `POST /lokasi/heartbeat` dengan body
-     `{ token, lat, lng, akurasi, deviceId, versiApp }`.
-   - Handler memverifikasi token perangkat lalu memanggil logika `simpanTitik`
-     yang sudah ada (satu sumber validasi).
-2. **Token perangkat** — ubah `lokasi.daftarkanPerangkat` agar mengembalikan
-   token acak sekali pakai (disimpan sebagai hash di tabel `perangkat`).
-   Aplikasi menyimpannya di Keychain (iOS) / EncryptedSharedPreferences
-   (Android) dan mengirimnya lewat header `Authorization`.
-3. **Pengiriman dari sisi native**, bukan dari WebView:
-   - Cara cepat: panggil endpoint itu dari *callback* plugin memakai
-     `CapacitorHttp` (HTTP native, tidak ter-throttle).
-   - Cara paling tahan lama: plugin native kecil milik PINDAI yang menjalankan
-     foreground service + POST sendiri. Ini yang dipakai aplikasi fintech pada
-     umumnya.
+1. **Endpoint HTTP** — `POST /lokasi/heartbeat` di `src/convex/http.ts`
+   (plus rute `OPTIONS` untuk preflight CORS):
+   - Body: `{ lat, lng, akurasi, versiApp?, platform? }`.
+   - Kredensial: header `Authorization: Bearer <token>` (field `token` di body
+     juga diterima sebagai cadangan).
+   - Balasan: `200 { ok, waktu }` · `400` untuk body/​titik tidak sah (pesan
+     validasi dari `simpanTitik` diteruskan apa adanya) · `401` token tidak
+     dikenal · `413` body terlalu besar.
+   - Rute ini memanggil `internal.lokasi.heartbeatNative` (internal mutation)
+     yang mencari perangkat lewat indeks `by_token`, lalu memakai `simpanTitik`
+     yang sama dengan jalur dashboard — **satu sumber validasi**.
+   - Karena perangkat dikenali dari token, sumber titik ditetapkan SERVER
+     sebagai `"aplikasi"`, bukan diklaim klien.
+2. **Token perangkat** — `lokasi.daftarkanPerangkat` sekarang mengembalikan
+   `{ ok, token }` (32 karakter heksadesimal, disimpan di `perangkat.token`,
+   indeks `by_token`). Token lama dipakai ulang saat perangkat mendaftar lagi,
+   sehingga layanan lokasi tidak kehilangan kredensial setiap app dibuka.
+   Endpoint ini juga menolak `platform` selain `android`/`ios`.
+3. **Pengiriman dari sisi native** — `src/lib/native.ts` menyediakan
+   `kirimHeartbeatLatar()`, yang memakai `CapacitorHttp` (HTTP native, tidak
+   terkena pembatasan WebView) dengan fallback ke `fetch`, dan
+   `urlHeartbeatLokasi()`, yang menurunkan domain `.convex.site` dari
+   `VITE_CONVEX_URL`. `LocationGate` mengirim lewat jalur ini lebih dulu dan
+   **jatuh kembali ke `lokasi.catatLokasi` bila gagal**, supaya titik lokasi
+   tidak pernah hilang.
+
+### Sisa pekerjaan
+
+1. **Layanan latar belakang sungguhan.** Saat ini pengiriman masih dipicu dari
+   callback plugin di dalam WebView. Itu sudah cukup untuk sesi-sesi di latar
+   belakang, tetapi yang paling tahan lama adalah plugin native kecil milik
+   PINDAI yang menjalankan foreground service + POST sendiri tanpa WebView.
+   Token perangkat dan endpoint HTTP di atas sudah menjadi fondasinya.
+2. **Token di penyimpanan aman.** Token masih disimpan di `localStorage`
+   WebView (`simpanTokenPerangkat`). Pindahkan ke Keychain (iOS) /
+   EncryptedSharedPreferences (Android) lewat plugin secure storage.
+3. **Attestation aplikasi.** Verifikasi Play Integrity (Android) / App Attest
+   (iOS) di endpoint heartbeat, lalu ikat hasilnya ke `perangkat.token`. Ini
+   yang membuat klaim "saya aplikasi resmi" **tidak bisa** dipalsukan klien —
+   prasyarat bila kebijakan `wajibAplikasiNative` ingin dianggap sebagai kontrol
+   keamanan, bukan sekadar kontrol alur.
 4. **Deteksi lokasi palsu di sisi native** — kirim juga `isFromMockProvider`
    dan `simulated` dari plugin, lalu tolak di `simpanTitik`.
 
-Sampai Fase 2 selesai, pemantauan latar belakang berfungsi untuk sesi-sesi
-pendek (±5 menit) dan **selalu segar kembali saat pengguna membuka aplikasi**
-(`LocationGate` mengirim titik baru setiap tab kembali aktif). Karena itu:
-**naikkan `lokasiMaxUmurMenit` ke 15–20 lewat /admin → Pengaturan Sistem**
-sebelum merilis aplikasi, agar nasabah tidak terblokir saat membuka aplikasi
-setelah lama menganggur.
+Sampai poin 1 selesai, pemantauan latar belakang andal untuk sesi menengah dan
+**selalu segar kembali saat pengguna membuka aplikasi** (`LocationGate`
+mengirim titik baru setiap tab kembali aktif). Karena itu: **naikkan
+`lokasiMaxUmurMenit` ke 15–20 lewat /admin → Pengaturan Sistem** sebelum
+merilis aplikasi, agar nasabah tidak terblokir saat membuka aplikasi setelah
+lama menganggur.
 
 ---
 
@@ -408,7 +440,11 @@ Urutan ini **tidak boleh dibalik**:
 - [ ] `lokasiMaxUmurMenit` dinaikkan ke 15–20
 - [ ] ≥95% Peminjam aktif terdaftar di tabel `perangkat`
 - [ ] Kanal bantuan untuk pelunasan manual sudah disiapkan
-- [ ] Fase 2 (heartbeat native/HTTP) minimal sudah diuji di staging
+- [ ] Fase 2 point 1 selesai: layanan latar belakang native yang POST sendiri
+      (bukan hanya callback plugin di WebView)
+- [ ] Token perangkat sudah dipindah ke penyimpanan aman perangkat
+- [ ] Kalau `wajibAplikasiNative` dianggap kontrol keamanan: attestation
+      (Play Integrity / App Attest) sudah terpasang di endpoint heartbeat
 
 **Toko**
 - [ ] Kebijakan privasi & syarat layanan tayang di URL publik

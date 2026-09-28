@@ -50,6 +50,7 @@ interface KapasitorLike {
 }
 
 const KUNCI_DEVICE = "pindai.deviceId";
+const KUNCI_TOKEN_PERANGKAT = "pindai.tokenPerangkat";
 
 /** Plugin yang didaftarkan manual lewat `pasangPluginLokasiLatar`. */
 let pluginManual: PluginPelacakLatar | null = null;
@@ -83,7 +84,51 @@ function penyimpanan(root: unknown): Storage | null {
   if (typeof root !== "object" || root === null) return null;
   const ls = (root as { localStorage?: unknown }).localStorage;
   if (typeof ls !== "object" || ls === null) return null;
-  return typeof (ls as Storage).getItem === "function" ? (ls as Storage) : null;
+  const kandidat = ls as Storage;
+  if (typeof kandidat.getItem !== "function" || typeof kandidat.setItem !== "function") {
+    return null;
+  }
+  return kandidat;
+}
+
+/**
+ * Simpan token perangkat hasil `lokasi.daftarkanPerangkat`.
+ *
+ * Token ini yang dipakai layanan lokasi untuk mengirim titik lewat
+ * `POST /lokasi/heartbeat` tanpa sesi pengguna. (Fase berikutnya: pindahkan ke
+ * Keychain iOS / EncryptedSharedPreferences Android.)
+ */
+export function simpanTokenPerangkat(token: string | null, root: unknown = globalThis): void {
+  const simpan = penyimpanan(root);
+  if (simpan === null) return;
+  if (token === null || token === "") {
+    if (typeof simpan.removeItem === "function") simpan.removeItem(KUNCI_TOKEN_PERANGKAT);
+    return;
+  }
+  simpan.setItem(KUNCI_TOKEN_PERANGKAT, token);
+}
+
+/** Token perangkat tersimpan, atau null bila perangkat belum pernah mendaftar. */
+export function bacaTokenPerangkat(root: unknown = globalThis): string | null {
+  const nilai = penyimpanan(root)?.getItem(KUNCI_TOKEN_PERANGKAT) ?? null;
+  return nilai === null || nilai === "" ? null : nilai;
+}
+
+/**
+ * URL endpoint heartbeat HTTP.
+ *
+ * HTTP action Convex hidup di domain `.convex.site`, sedangkan klien WebSocket
+ * memakai `.convex.cloud`. Karena itu URL diturunkan bila domain situs tidak
+ * disediakan lewat env.
+ */
+export function urlHeartbeatLokasi(
+  urlConvex: string | undefined,
+  urlSitus?: string | undefined,
+): string | null {
+  const dasar = (urlSitus && urlSitus !== "" ? urlSitus : urlConvex ?? "").trim();
+  if (dasar === "") return null;
+  const situs = dasar.replace(/\/+$/, "").replace(/\.convex\.cloud$/, ".convex.site");
+  return `${situs}/lokasi/heartbeat`;
 }
 
 /** Lingkungan saat ini: `web` di browser, `android`/`ios` di dalam aplikasi. */
@@ -196,6 +241,103 @@ export function pesanGalatLokasi(galat: unknown): string {
     if (typeof g.code === "string" && g.code !== "") return g.code;
   }
   return "Sinyal GPS tidak tersedia dari aplikasi.";
+}
+
+/** Hasil satu percobaan kirim titik lewat HTTP. */
+export interface HasilHeartbeat {
+  ok: boolean;
+  /** Status HTTP, atau null bila permintaan tidak sampai. */
+  status: number | null;
+  /** Pesan siap tampil, atau null bila tidak ada. */
+  pesan: string | null;
+}
+
+function pesanDariData(data: unknown): string | null {
+  if (typeof data === "object" && data !== null) {
+    const pesan = (data as { error?: unknown }).error;
+    if (typeof pesan === "string" && pesan !== "") return pesan;
+  }
+  return null;
+}
+
+function hasilDari(status: number, pesanServer: string | null): HasilHeartbeat {
+  if (status >= 200 && status < 300) return { ok: true, status, pesan: null };
+  if (status === 401) {
+    return {
+      ok: false,
+      status,
+      pesan: "Token perangkat tidak dikenal. Buka aplikasi PINDAI sekali lagi.",
+    };
+  }
+  return { ok: false, status, pesan: pesanServer };
+}
+
+/**
+ * Kirim satu titik lewat HTTP native (`CapacitorHttp`), bukan lewat WebView.
+ *
+ * Inilah yang membuat lokasi tetap mengalir saat aplikasi di latar belakang:
+ * Android membatasi permintaan jaringan yang berasal dari WebView setelah
+ * ±5 menit, sedangkan `CapacitorHttp` dikirim oleh lapisan native sehingga
+ * tidak terkena pembatasan itu. Jalur ini juga tidak butuh sesi Convex Auth —
+ * perangkat dikenali dari token perangkat.
+ *
+ * Pemanggil WAJIB punya fallback (mis. `lokasi.catatLokasi`) bila hasilnya
+ * tidak `ok`, supaya titik lokasi tidak pernah hilang begitu saja.
+ */
+export async function kirimHeartbeatLatar(
+  url: string,
+  token: string,
+  titik: TitikLokasi,
+  opsi: { platform?: string; versiApp?: string | null } = {},
+  root: unknown = globalThis,
+): Promise<HasilHeartbeat> {
+  const isi = {
+    lat: titik.lat,
+    lng: titik.lng,
+    akurasi: titik.akurasi,
+    platform: opsi.platform,
+    versiApp: opsi.versiApp ?? undefined,
+  };
+  const header = { "Content-Type": "application/json", Authorization: `Bearer ${token}` };
+  const kapasitorHttp = pluginKapasitor(root, "CapacitorHttp") as {
+    post?: (o: unknown) => Promise<{ status: number; data?: unknown }>;
+  } | null;
+
+  try {
+    if (kapasitorHttp !== null && typeof kapasitorHttp.post === "function") {
+      const res = await kapasitorHttp.post({
+        url,
+        headers: header,
+        data: isi,
+        connectTimeout: 15_000,
+        readTimeout: 15_000,
+      });
+      return hasilDari(res.status, pesanDariData(res.data));
+    }
+
+    const fetchFn = (root as { fetch?: unknown } | null)?.fetch;
+    if (typeof fetchFn !== "function") {
+      return { ok: false, status: null, pesan: "Pengiriman HTTP tidak tersedia di perangkat ini." };
+    }
+    const res = await (fetchFn as typeof fetch)(url, {
+      method: "POST",
+      headers: header,
+      body: JSON.stringify(isi),
+    });
+    let pesan: string | null = null;
+    try {
+      pesan = pesanDariData(await res.json());
+    } catch {
+      pesan = null;
+    }
+    return hasilDari(res.status, pesan);
+  } catch (err) {
+    return {
+      ok: false,
+      status: null,
+      pesan: err instanceof Error ? err.message : "Gagal mengirim titik lokasi lewat HTTP.",
+    };
+  }
 }
 
 /**

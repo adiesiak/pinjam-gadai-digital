@@ -4,8 +4,10 @@
  * (objek mirip `window`), jadi tidak butuh aplikasi native sungguhan.
  */
 import {
+  bacaTokenPerangkat,
   diAplikasiNative,
   idPerangkat,
+  kirimHeartbeatLatar,
   kodePlatform,
   lingkunganNative,
   mulaiPelacakanLatar,
@@ -13,6 +15,8 @@ import {
   PELACAKAN_LATAR_OPSI,
   pesanGalatLokasi,
   pluginLokasiLatar,
+  simpanTokenPerangkat,
+  urlHeartbeatLokasi,
   versiAplikasi,
   type TitikLokasi,
 } from "./native";
@@ -33,7 +37,7 @@ function ok(label: string, kondisi: boolean): void {
   eq(label, kondisi, true);
 }
 
-/** Penyimpanan lokal tiruan — cukup untuk `getItem`/`setItem`. */
+/** Penyimpanan lokal tiruan — cukup untuk `getItem`/`setItem`/`removeItem`. */
 function buatPenyimpanan(): { isi: Map<string, string>; api: unknown } {
   const isi = new Map<string, string>();
   return {
@@ -41,6 +45,7 @@ function buatPenyimpanan(): { isi: Map<string, string>; api: unknown } {
     api: {
       getItem: (k: string) => isi.get(k) ?? null,
       setItem: (k: string, v: string) => void isi.set(k, v),
+      removeItem: (k: string) => void isi.delete(k),
     },
   };
 }
@@ -337,6 +342,121 @@ eq(
 }
 pasangPluginLokasiLatar(null);
 eq("plugin manual bisa direset", pluginLokasiLatar(buatRoot({ platform: "android" })), null);
+
+// ===== Token perangkat =====
+eq("token kosong di awal", bacaTokenPerangkat(buatRoot({ penyimpanan: buatPenyimpanan().api })), null);
+{
+  const store = buatPenyimpanan();
+  const root = buatRoot({ platform: "android", penyimpanan: store.api });
+  simpanTokenPerangkat("token-uji-123456", root);
+  eq("token tersimpan & terbaca", bacaTokenPerangkat(root), "token-uji-123456");
+  simpanTokenPerangkat(null, root);
+  eq("token bisa dihapus", bacaTokenPerangkat(root), null);
+}
+{
+  const store = buatPenyimpanan();
+  simpanTokenPerangkat("", buatRoot({ penyimpanan: store.api }));
+  eq("token string kosong dianggap null", bacaTokenPerangkat(buatRoot({ penyimpanan: store.api })), null);
+}
+{
+  // Tanpa localStorage: tidak melempar, hanya tidak menyimpan.
+  simpanTokenPerangkat("token", {});
+  eq("tanpa penyimpanan → null", bacaTokenPerangkat({}), null);
+}
+
+// ===== URL endpoint heartbeat =====
+eq(
+  "URL cloud diturunkan ke domain .convex.site",
+  urlHeartbeatLokasi("https://dapper-goshawk-437.convex.cloud"),
+  "https://dapper-goshawk-437.convex.site/lokasi/heartbeat",
+);
+eq(
+  "garis miring di akhir dibuang",
+  urlHeartbeatLokasi("https://abc.convex.cloud/"),
+  "https://abc.convex.site/lokasi/heartbeat",
+);
+eq(
+  "domain situs eksplisit dipakai apa adanya",
+  urlHeartbeatLokasi("https://abc.convex.cloud", "https://situs.pindai.id"),
+  "https://situs.pindai.id/lokasi/heartbeat",
+);
+eq("tanpa URL → null", urlHeartbeatLokasi(undefined), null);
+eq("URL kosong → null", urlHeartbeatLokasi("   "), null);
+
+// ===== Heartbeat HTTP native =====
+const TITIK = { lat: -6.2, lng: 106.816666, akurasi: 12 };
+const URL_HB = "https://abc.convex.site/lokasi/heartbeat";
+{
+  const dipanggil: Record<string, unknown>[] = [];
+  const plugin = {
+    post: async (o: Record<string, unknown>) => {
+      dipanggil.push(o);
+      return { status: 200, data: { ok: true, waktu: 1 } };
+    },
+  };
+  const hasil = await kirimHeartbeatLatar(URL_HB, "tok-1", TITIK, { platform: "android", versiApp: "1.0.0" }, buatRoot({ platform: "android", plugins: { CapacitorHttp: plugin } }));
+  eq("HTTP native sukses", hasil.ok, true);
+  eq("status dilaporkan", hasil.status, 200);
+  eq("URL endpoint dipakai", dipanggil[0].url, URL_HB);
+  eq(
+    "token dikirim sebagai Bearer",
+    (dipanggil[0].headers as Record<string, string>).Authorization,
+    "Bearer tok-1",
+  );
+  eq("koordinat dikirim", (dipanggil[0].data as Record<string, number>).lat, -6.2);
+  eq(
+    "platform & versi ikut dikirim",
+    (dipanggil[0].data as Record<string, string>).versiApp,
+    "1.0.0",
+  );
+}
+{
+  const plugin = {
+    post: async () => ({ status: 401, data: { ok: false, error: "Token perangkat tidak dikenal." } }),
+  };
+  const hasil = await kirimHeartbeatLatar(URL_HB, "tok-lama", TITIK, {}, buatRoot({ platform: "android", plugins: { CapacitorHttp: plugin } }));
+  eq("401 ditandai gagal (pemanggil akan fallback)", hasil.ok, false);
+  eq("status 401 dipertahankan", hasil.status, 401);
+  ok("pesan 401 menjelaskan token", (hasil.pesan ?? "").includes("Token perangkat"));
+}
+{
+  const plugin = {
+    post: async () => ({ status: 400, data: { error: "Titik lokasi berada di luar wilayah Indonesia" } }),
+  };
+  const hasil = await kirimHeartbeatLatar(URL_HB, "tok", TITIK, {}, buatRoot({ platform: "android", plugins: { CapacitorHttp: plugin } }));
+  eq("pesan validasi server diteruskan", hasil.pesan, "Titik lokasi berada di luar wilayah Indonesia");
+}
+{
+  // Tanpa CapacitorHttp (mis. aplikasi belum memasangnya) → jalur fetch.
+  const dipanggil: string[] = [];
+  const root = {
+    fetch: async (url: string) => {
+      dipanggil.push(url);
+      return new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    },
+  };
+  const hasil = await kirimHeartbeatLatar(URL_HB, "tok", TITIK, {}, root);
+  eq("fallback fetch dipakai", hasil.ok, true);
+  eq("fetch dipanggil sekali", dipanggil.length, 1);
+}
+{
+  const hasil = await kirimHeartbeatLatar(URL_HB, "tok", TITIK, {}, {});
+  eq("tanpa jalur HTTP → gagal, bukan melempar", hasil.ok, false);
+  eq("status null tanpa pengiriman", hasil.status, null);
+  ok("ada pesan untuk pengguna", (hasil.pesan ?? "").length > 0);
+}
+{
+  const root = {
+    fetch: async () => {
+      throw new Error("jaringan putus");
+    },
+  };
+  const hasil = await kirimHeartbeatLatar(URL_HB, "tok", TITIK, {}, root);
+  eq("galat jaringan ditangkap", hasil.pesan, "jaringan putus");
+}
 
 console.log(`native tests: ${passed} passed, ${failed} failed`);
 if (failed > 0) process.exit(1);

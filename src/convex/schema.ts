@@ -328,11 +328,20 @@ const schema = defineSchema(
       deviceId: v.string(),
       platform: v.string(),
       versiApp: v.string(),
+      /**
+       * Token perangkat — kredensial untuk endpoint heartbeat HTTP
+       * (`POST /lokasi/heartbeat`). Layanan lokasi yang berjalan di luar
+       * WebView (foreground service Android) tidak punya sesi Convex Auth,
+       * jadi ia mengirim titik dengan token ini. Diterbitkan sekali oleh
+       * `lokasi.daftarkanPerangkat` dan dipakai ulang saat app dibuka kembali.
+       */
+      token: v.optional(v.string()),
       terdaftarPada: v.number(),
       terakhirDilihat: v.number(),
     })
       .index("by_user", ["userId"])
-      .index("by_device", ["deviceId"]),
+      .index("by_device", ["deviceId"])
+      .index("by_token", ["token"]),
 
     /**
      * Konfigurasi sistem — satu baris global (slot "global").
