@@ -23,7 +23,7 @@ import { GadaiBillingSection } from "./dashboard/gadai-views";
 import { HistorySection } from "./dashboard/history-views";
 import { KreditBarangSection } from "./dashboard/kredit-views";
 import { ActiveLoanSection, ScheduleSection } from "./dashboard/loan-views";
-import { DueReminderBanner } from "./dashboard/notice-views";
+import { DueReminderBanner, LokasiPeringatanBanner } from "./dashboard/notice-views";
 import { SummaryCards } from "./dashboard/summary-cards";
 import { PawnVaultSection } from "./dashboard/vault-views";
 
@@ -163,6 +163,10 @@ export default function Dashboard() {
               <>
                 {/* Pengingat jatuh tempo live */}
                 {dueReminder !== null && <DueReminderBanner reminder={dueReminder} />}
+
+                {/* Peringatan lokasi dicurigai — ditulis server saat titik
+                    lokasi nasabah ditandai (mis. koordinat beku berulang). */}
+                <LokasiPeringatanBanner />
 
                 {/* Status lokasi wajib tampil sebagai pil di kanan bawah —
                     gerbangnya sendiri membungkus seluruh dashboard. */}

@@ -9,9 +9,11 @@ import {
 import { v } from "convex/values";
 import type { Id } from "./_generated/dataModel";
 import { ROLES } from "./schema";
-import { getConfig } from "./system";
+import { internal } from "./_generated/api";
+import { audit, getConfig } from "./system";
 import { jarakKm } from "../lib/geo";
 import {
+  bolehKirimPeringatanLokasi,
   INDONESIA_BOUNDS,
   LOKASI_KEBIJAKAN,
   periksaLokasiPalsu,
@@ -199,6 +201,16 @@ export async function simpanTitik(
     });
   }
 
+  // Titik yang dicurigai (bukan yang ditolak): kabari nasabah & tim review.
+  if (tanda.length > 0) {
+    await catatPeringatanLokasi(ctx, userId, tanda, {
+      lat: input.lat,
+      lng: input.lng,
+      waktu: now,
+      loanId: input.loanId,
+    });
+  }
+
   // Perangkat aplikasi native: catat agar kebijakan "wajib aplikasi" bekerja.
   if (sumber === "aplikasi" && input.deviceId) {
     const deviceId = input.deviceId;
@@ -221,6 +233,57 @@ export async function simpanTitik(
   }
 
   return { waktu: now, jarakLompatKm, tanda };
+}
+
+/**
+ * Catat peringatan "lokasi dicurigai" untuk nasabah + tim review.
+ *
+ * Dipanggil hanya saat titik lokasi DITANDAI (mis. koordinat beku), bukan saat
+ * ditolak — titik yang ditolak sudah ditangani pesan galat langsung ke nasabah.
+ * Dibatasi satu peringatan per `LOKASI_PERINGATAN_JEDA_JAM` per nasabah supaya
+ * tidak menyerbu kotak masuk, lalu:
+ *  - baris `lokasiPeringatan` → banner di dashboard nasabah (query reaktif);
+ *  - entri auditLog → terlihat tim review tanpa membuka peta;
+ *  - action WhatsApp dijadwalkan (best-effort, hanya tercatat bila gateway
+ *    belum aktif — lihat whatsapp.kirimPeringatanLokasi).
+ */
+async function catatPeringatanLokasi(
+  ctx: MutationCtx,
+  userId: Id<"users">,
+  tanda: TandaLokasiPalsu[],
+  titik: { lat: number; lng: number; waktu: number; loanId?: Id<"loans"> },
+): Promise<void> {
+  const terakhir = await ctx.db
+    .query("lokasiPeringatan")
+    .withIndex("by_user", (q) => q.eq("userId", userId))
+    .order("desc")
+    .first();
+  if (!bolehKirimPeringatanLokasi(terakhir?.waktu ?? null, titik.waktu)) return;
+
+  const peringatanId = await ctx.db.insert("lokasiPeringatan", {
+    userId,
+    tanda,
+    loanId: titik.loanId,
+    lat: titik.lat,
+    lng: titik.lng,
+    jenis: terakhir === null ? "peringatan" : "peringatan_ulang",
+    waktu: titik.waktu,
+  });
+
+  await audit(
+    ctx,
+    userId,
+    "gerbang lokasi",
+    "peringatan_lokasi",
+    userId,
+    `Titik lokasi dicurigai: ${tanda.join(", ")}`,
+  );
+
+  // WhatsApp dikirim lewat action (butuh jaringan); dijadwalkan supaya
+  // heartbeat tidak ikut menunggu, dan aman bila gateway belum dikonfigurasi.
+  await ctx.scheduler.runAfter(0, internal.whatsapp.kirimPeringatanLokasi, {
+    peringatanId,
+  });
 }
 
 /** Titik lokasi terakhir pengguna (null bila belum pernah ada). */
@@ -511,5 +574,63 @@ export const statusSaya = query({
       perangkatTerdaftar: perangkat !== null,
       platformPerangkat: perangkat?.platform ?? null,
     };
+  },
+});
+
+/**
+ * Peringatan lokasi aktif untuk nasabah — peringatan terbaru yang belum
+ * diakui, atau null. Reaktif: banner dashboard hilang sendiri setelah nasabah
+ * menekan "sudah saya matikan", tanpa perlu muat ulang halaman.
+ */
+export const peringatanSaya = query({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await getAuthUserId(ctx);
+    if (userId === null) return null;
+    const terbaru = await ctx.db
+      .query("lokasiPeringatan")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .order("desc")
+      .take(5);
+    const belumDibaca = terbaru.find((p) => p.dibacaPada === undefined);
+    if (belumDibaca === undefined) return null;
+    return {
+      id: belumDibaca._id,
+      tanda: belumDibaca.tanda,
+      jenis: belumDibaca.jenis,
+      /** Status pengiriman WhatsApp: null = masih diproses/dijadwalkan. */
+      waStatus: belumDibaca.waStatus ?? null,
+      waktu: belumDibaca.waktu,
+    };
+  },
+});
+
+/** Nasabah menandai peringatan lokasi sudah ditindaklanjuti (banner hilang). */
+export const akuiPeringatan = mutation({
+  args: { id: v.id("lokasiPeringatan") },
+  handler: async (ctx, { id }) => {
+    const { userId } = await penggunaMasuk(ctx);
+    const row = await ctx.db.get(id);
+    if (row === null || row.userId !== userId) {
+      throw new Error("Peringatan lokasi tidak ditemukan.");
+    }
+    if (row.dibacaPada === undefined) {
+      await ctx.db.patch(id, { dibacaPada: Date.now() });
+    }
+    return { ok: true };
+  },
+});
+
+/** Status pengiriman WhatsApp untuk satu peringatan (dipanggil action WA). */
+export const _setWaStatus = internalMutation({
+  args: {
+    peringatanId: v.id("lokasiPeringatan"),
+    status: v.string(),
+    keterangan: v.optional(v.string()),
+  },
+  handler: async (ctx, { peringatanId, status, keterangan }) => {
+    const row = await ctx.db.get(peringatanId);
+    if (row === null) return;
+    await ctx.db.patch(peringatanId, { waStatus: status, waKeterangan: keterangan });
   },
 });

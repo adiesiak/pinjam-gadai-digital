@@ -19,7 +19,7 @@
  * Menjalankan: bunx vitest run src/convex
  */
 import { convexTest } from "convex-test";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
@@ -542,6 +542,219 @@ describe("deteksi lokasi palsu", () => {
     const peta = await asAdmin.query(api.admin.petaPeminjam, {});
     const baris = peta.rows.find((r) => r.namaLengkap === "Peminjam Dicurigai");
     expect(baris?.tanda).toContain("koordinat_identik");
+  });
+});
+
+describe("peringatan lokasi dicurigai (nasabah + admin)", () => {
+  const JAKARTA = { lat: -6.2, lng: 106.816666 };
+
+  /** Kirim titik identik berulang sampai heuristik menandainya. */
+  async function bekukan(
+    sesi: ReturnType<ReturnType<typeof convexTest>["withIdentity"]>,
+    jumlah = 6,
+    loanId?: Id<"loans">,
+  ): Promise<void> {
+    for (let i = 0; i < jumlah; i += 1) {
+      await sesi.mutation(api.lokasi.catatLokasi, {
+        ...JAKARTA,
+        akurasi: 6,
+        sumber: "web",
+        loanId,
+      });
+    }
+  }
+
+  it("menulis satu peringatan per 24 jam plus entri audit", async () => {
+    const t = convexTest(schema, modules);
+    const asPeminjam = await siapkanPengguna(t, "peminjam-peringatan", {
+      email: "peringatan@pindai.test",
+      role: "peminjam",
+    });
+
+    await bekukan(asPeminjam);
+    const pertama = await t.query(async (ctx) =>
+      ctx.db.query("lokasiPeringatan").collect(),
+    );
+    expect(pertama).toHaveLength(1);
+    expect(pertama[0].tanda).toContain("koordinat_identik");
+    expect(pertama[0].dibacaPada).toBeUndefined();
+
+    // Audit trail terlihat tim review tanpa membuka peta.
+    const audit = await t.query(async (ctx) => ctx.db.query("auditLog").collect());
+    expect(audit.some((a) => a.aksi === "peringatan_lokasi")).toBe(true);
+
+    // Titik beku berikutnya TIDAK menambah peringatan baru (anti-spam).
+    await bekukan(asPeminjam, 10);
+    const kedua = await t.query(async (ctx) =>
+      ctx.db.query("lokasiPeringatan").collect(),
+    );
+    expect(kedua).toHaveLength(1);
+  });
+
+  it("nasabah melihat peringatan dan bisa mengakuinya", async () => {
+    const t = convexTest(schema, modules);
+    const asPeminjam = await siapkanPengguna(t, "peminjam-peringatan-2", {
+      email: "peringatan-2@pindai.test",
+      role: "peminjam",
+    });
+    const asLain = await siapkanPengguna(t, "peminjam-lain", {
+      email: "lain@pindai.test",
+      role: "peminjam",
+    });
+
+    await bekukan(asPeminjam);
+    const tampil = await asPeminjam.query(api.lokasi.peringatanSaya, {});
+    expect(tampil?.tanda).toContain("koordinat_identik");
+
+    // Peringatan milik orang lain tidak bisa ditutup dari akun lain.
+    await expect(
+      asLain.mutation(api.lokasi.akuiPeringatan, { id: tampil!.id }),
+    ).rejects.toThrow("tidak ditemukan");
+
+    await asPeminjam.mutation(api.lokasi.akuiPeringatan, { id: tampil!.id });
+    await expect(
+      asPeminjam.query(api.lokasi.peringatanSaya, {}),
+    ).resolves.toBeNull();
+  });
+
+  it("mengirim WhatsApp bila gateway aktif, dan mencatat alasannya bila tidak", async () => {
+    const t = convexTest(schema, modules);
+    const asPeminjam = await siapkanPengguna(t, "peminjam-peringatan-wa", {
+      email: "peringatan-wa@pindai.test",
+      role: "peminjam",
+    });
+    const userId = await asPeminjam.query(async (ctx) => {
+      const users = await ctx.db.query("users").collect();
+      return users.find((u) => u.email === "peringatan-wa@pindai.test")!._id;
+    });
+    // Nomor WA ada di KYC pinjaman — sumber nomor tujuan peringatan.
+    const loanId = await t.mutation(async (ctx) =>
+      ctx.db.insert("loans", {
+        userId,
+        pokokPinjaman: 1_000_000,
+        tujuan: "Modal usaha",
+        namaLengkap: "Peminjam Peringatan",
+        nomorRekening: "1234567890",
+        status: "didanai",
+        nomorReferensi: "PJD-PERINGATAN",
+        tenorHari: 30,
+        nomorWhatsApp: "628123456799",
+      }),
+    );
+
+    await bekukan(asPeminjam, 6, loanId);
+    // Panggil action yang dijadwalkan `simpanTitik` secara langsung: dengan
+    // begitu logika kirim diuji deterministik, terpisah dari penjadwalannya.
+    const rows = await t.query(async (ctx) =>
+      ctx.db.query("lokasiPeringatan").collect(),
+    );
+    await t.action(internal.whatsapp.kirimPeringatanLokasi, {
+      peringatanId: rows[0]._id,
+    });
+
+    const log = await t.query(async (ctx) => ctx.db.query("waLogs").collect());
+    const kirim = log.find((l) => l.jenis === "lokasi_dicurigai");
+    expect(kirim).toBeDefined();
+    // Gateway belum dikonfigurasi di pengujian → status jujur, bukan diam-diam gagal.
+    expect(kirim?.status).toBe("dinonaktifkan");
+    expect(kirim?.nomorTujuan).toBe("628123456799");
+    expect(kirim?.isiPesan).toContain("lokasi palsu");
+
+    const peringatan = await t.query(async (ctx) =>
+      ctx.db.query("lokasiPeringatan").collect(),
+    );
+    expect(peringatan[0].waStatus).toBe("dinonaktifkan");
+  });
+
+  it("menandai tanpa_nomor bila nasabah belum punya nomor KYC", async () => {
+    const t = convexTest(schema, modules);
+    const asPeminjam = await siapkanPengguna(t, "peminjam-tanpa-nomor", {
+      email: "tanpa-nomor@pindai.test",
+      role: "peminjam",
+    });
+
+    await bekukan(asPeminjam);
+    const rows = await t.query(async (ctx) =>
+      ctx.db.query("lokasiPeringatan").collect(),
+    );
+    await t.action(internal.whatsapp.kirimPeringatanLokasi, {
+      peringatanId: rows[0]._id,
+    });
+
+    const peringatan = await t.query(async (ctx) =>
+      ctx.db.query("lokasiPeringatan").collect(),
+    );
+    expect(peringatan[0].waStatus).toBe("tanpa_nomor");
+  });
+
+  it("menjadwalkan pengiriman WhatsApp saat titik ditandai", async () => {
+    // Perilaku nyata: `simpanTitik` TIDAK menunggu jaringan — ia menjadwalkan
+    // action. Timer palsu dipakai agar penjadwalan itu benar-benar tereksekusi.
+    vi.useFakeTimers();
+    try {
+      const t = convexTest(schema, modules);
+      const asPeminjam = await siapkanPengguna(t, "peminjam-jadwal-wa", {
+        email: "jadwal-wa@pindai.test",
+        role: "peminjam",
+      });
+      const userId = await asPeminjam.query(async (ctx) => {
+        const users = await ctx.db.query("users").collect();
+        return users.find((u) => u.email === "jadwal-wa@pindai.test")!._id;
+      });
+      const loanId = await t.mutation(async (ctx) =>
+        ctx.db.insert("loans", {
+          userId,
+          pokokPinjaman: 1_000_000,
+          tujuan: "Modal usaha",
+          namaLengkap: "Peminjam Jadwal",
+          nomorRekening: "1234567890",
+          status: "didanai",
+          nomorReferensi: "PJD-JADWAL",
+          tenorHari: 30,
+          nomorWhatsApp: "628123456788",
+        }),
+      );
+
+      await bekukan(asPeminjam, 6, loanId);
+      await t.finishAllScheduledFunctions(vi.runAllTimers);
+
+      const log = await t.query(async (ctx) => ctx.db.query("waLogs").collect());
+      expect(log.some((l) => l.jenis === "lokasi_dicurigai")).toBe(true);
+      const peringatan = await t.query(async (ctx) =>
+        ctx.db.query("lokasiPeringatan").collect(),
+      );
+      expect(peringatan[0].waStatus).toBeDefined();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("menampilkan peringatan ke admin dengan status pengiriman", async () => {
+    const t = convexTest(schema, modules);
+    const asAdmin = await siapkanPengguna(t, "admin-peringatan", {
+      email: "admin-peringatan@pindai.test",
+      role: "admin",
+    });
+    const asPeminjam = await siapkanPengguna(t, "peminjam-peringatan-3", {
+      email: "peringatan-3@pindai.test",
+      role: "peminjam",
+    });
+
+    await bekukan(asPeminjam);
+
+    const daftar = await asAdmin.query(api.admin.peringatanLokasiTerbaru, {});
+    expect(daftar).toHaveLength(1);
+    expect(daftar[0].tanda).toContain("koordinat_identik");
+    expect(daftar[0].dibacaPada).toBeNull();
+
+    const stats = await asAdmin.query(api.admin.adminStats, {});
+    expect(stats.peringatanLokasiAktif).toBe(1);
+
+    // Setelah nasabah mengakui, angkanya turun — itulah yang dioperasikan tim.
+    const tampil = await asPeminjam.query(api.lokasi.peringatanSaya, {});
+    await asPeminjam.mutation(api.lokasi.akuiPeringatan, { id: tampil!.id });
+    const setelah = await asAdmin.query(api.admin.adminStats, {});
+    expect(setelah.peringatanLokasiAktif).toBe(0);
   });
 });
 

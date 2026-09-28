@@ -8,6 +8,9 @@ import {
   kecepatanKmJam,
   koordinatIndonesia,
   labelUmurLokasi,
+  bolehKirimPeringatanLokasi,
+  labelTandaLokasi,
+  LOKASI_PERINGATAN_JEDA_JAM,
   LOKASI_RETENSI,
   periksaLokasiPalsu,
   pesanLokasiPalsu,
@@ -149,6 +152,37 @@ const bergeser = periksaLokasiPalsu(
   T0,
 );
 eq("koordinat bergeser mereset hitungan", bergeser.identikBerturut, 1);
+
+// ===== Peringatan lokasi dicurigai (anti-spam + label admin) =====
+ok("peringatan pertama selalu boleh", bolehKirimPeringatanLokasi(null, T0));
+ok(
+  "peringatan 1 jam lalu ditahan",
+  !bolehKirimPeringatanLokasi(T0 - 3_600_000, T0),
+);
+ok(
+  "peringatan 25 jam lalu boleh lagi",
+  bolehKirimPeringatanLokasi(T0 - 25 * 3_600_000, T0),
+);
+ok(
+  "jeda bisa diatur (uji/manual)",
+  bolehKirimPeringatanLokasi(T0 - 2 * 3_600_000, T0, 1),
+);
+ok(
+  "jeda default = 24 jam",
+  LOKASI_PERINGATAN_JEDA_JAM === 24 &&
+    !bolehKirimPeringatanLokasi(T0 - 23 * 3_600_000, T0),
+);
+eq(
+  "label tanda beku",
+  labelTandaLokasi(TANDA_LOKASI_PALSU.koordinatIdentik),
+  "Koordinat beku berulang",
+);
+eq(
+  "label tanda mock",
+  labelTandaLokasi(TANDA_LOKASI_PALSU.mockDilaporkan),
+  "Perangkat melaporkan mock location",
+);
+eq("tanda tak dikenal ditampilkan apa adanya", labelTandaLokasi("tanda_baru"), "tanda_baru");
 
 // ===== Pesan galat → instruksi yang tepat di UI =====
 ok("pesan mock dikenali", pesanLokasiPalsu("Lokasi perangkat terdeteksi berasal dari aplikasi lokasi palsu (mock location)"));

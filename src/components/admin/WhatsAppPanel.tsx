@@ -27,6 +27,7 @@ export function WhatsAppPanel() {
   const [fieldPesan, setFieldPesan] = useState<string | null>(null);
   const [aktif, setAktif] = useState(false);
   const [template, setTemplate] = useState<string | null>(null);
+  const [templateLokasi, setTemplateLokasi] = useState<string | null>(null);
   const [nomorTes, setNomorTes] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -49,6 +50,7 @@ export function WhatsAppPanel() {
     setFieldPesan(cfg.fieldPesan ?? "message");
     setAktif(cfg.aktif === true);
     setTemplate(cfg.templatePengingat ?? "");
+    setTemplateLokasi(cfg.templateLokasi ?? "");
   }
   if (apiUrl === null) return null;
 
@@ -65,6 +67,7 @@ export function WhatsAppPanel() {
         fieldPesan,
         aktif,
         templatePengingat: template,
+        templateLokasi: templateLokasi ?? "",
       });
       toast.success("Konfigurasi WhatsApp tersimpan.");
     } catch (err) {
@@ -129,6 +132,23 @@ export function WhatsAppPanel() {
             />
             <p className="mt-1 text-xs text-muted-foreground">
               Placeholder: <code className="rounded bg-slate-100 px-1">{"{nama} {ref} {jumlah} {tanggal} {sisa} {denda}"}</code> — wajib memuat <code className="rounded bg-slate-100 px-1">{"{jumlah}"}</code>.
+            </p>
+          </div>
+          <div className="sm:col-span-2">
+            <Label htmlFor="wa-template-lokasi">Template peringatan lokasi dicurigai</Label>
+            <Textarea
+              id="wa-template-lokasi"
+              rows={4}
+              value={templateLokasi ?? ""}
+              onChange={(e) => setTemplateLokasi(e.target.value)}
+              placeholder="Kosongkan untuk memakai template bawaan"
+            />
+            <p className="mt-1 text-xs leading-5 text-muted-foreground">
+              Dikirim otomatis maksimum 1×/24 jam per nasabah saat titik lokasinya
+              ditandai (mis. koordinat beku berulang). Placeholder:{" "}
+              <code className="rounded bg-slate-100 px-1">{"{nama} {ref}"}</code> — wajib memuat{" "}
+              <code className="rounded bg-slate-100 px-1">{"{nama}"}</code>. Kosong = pakai template bawaan
+              (nada menolong, tanpa ancaman sanksi).
             </p>
           </div>
         </div>

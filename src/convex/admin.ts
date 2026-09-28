@@ -338,6 +338,12 @@ export const adminStats = query({
     // jadi angka ini adalah yang perlu ditinjau manusia, bukan pelanggaran.
     const titikDicurigai = statusLokasi.filter((s) => (s.tanda?.length ?? 0) > 0).length;
 
+    // Peringatan lokasi yang belum diakui nasabah di dashboard — yang benar
+    // benar belum sampai ke orangnya dan mungkin perlu ditelepon.
+    const peringatanLokasiAktif = (
+      await ctx.db.query("lokasiPeringatan").collect()
+    ).filter((p) => p.dibacaPada === undefined).length;
+
     return {
       pinjamanBaru: pendingLoans,
       gadaiProses: pendingPawns,
@@ -352,6 +358,8 @@ export const adminStats = query({
       pinjamanTanpaLokasi,
       /** Peminjam dengan titik lokasi terakhir yang dicurigai palsu. */
       titikDicurigai,
+      /** Peringatan lokasi yang belum diakui nasabah di dashboard. */
+      peringatanLokasiAktif,
     };
   },
 });
@@ -713,6 +721,42 @@ export const petaPeminjam = query({
       });
     }
     return { vault, gpsMismatchKm: cfg.gpsMismatchKm, rows };
+  },
+});
+
+/**
+ * Peringatan "lokasi dicurigai" terbaru untuk tim review.
+ *
+ * Berbeda dari kartu peta (yang hanya melihat titik TERAKHIR), daftar ini
+ * menyimpan riwayat: siapa, kapan, tanda apa, dan apakah pesan WhatsApp-nya
+ * benar-benar sampai — termasuk bila gateway WA belum diaktifkan.
+ */
+export const peringatanLokasiTerbaru = query({
+  args: { limit: v.optional(v.number()) },
+  handler: async (ctx, { limit }) => {
+    await requireAdmin(ctx);
+    const rows = await ctx.db
+      .query("lokasiPeringatan")
+      .withIndex("by_waktu")
+      .order("desc")
+      .take(Math.min(limit ?? 40, 100));
+    const hasil = [];
+    for (const r of rows) {
+      const user = await ctx.db.get(r.userId);
+      const loan = r.loanId === undefined ? null : await ctx.db.get(r.loanId);
+      hasil.push({
+        _id: r._id,
+        nama: user?.name ?? user?.email ?? "Nasabah",
+        nomorReferensi: loan?.nomorReferensi ?? null,
+        tanda: r.tanda,
+        jenis: r.jenis,
+        waStatus: r.waStatus ?? null,
+        waKeterangan: r.waKeterangan ?? null,
+        dibacaPada: r.dibacaPada ?? null,
+        waktu: r.waktu,
+      });
+    }
+    return hasil;
   },
 });
 

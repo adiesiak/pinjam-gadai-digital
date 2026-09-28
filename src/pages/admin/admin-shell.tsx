@@ -17,6 +17,7 @@ export type AdminStatsData = {
   /** Pinjaman aktif yang titik GPS-nya kedaluwarsa (lokasi dimatikan). */
   pinjamanTanpaLokasi: number;
   titikDicurigai: number;
+  peringatanLokasiAktif: number;
 };
 
 /** Layar bootstrap admin pertama. */
@@ -167,6 +168,11 @@ export function AdminStats({ stats }: { stats: AdminStatsData }) {
           "Titik Lokasi Dicurigai",
           `${stats.titikDicurigai}`,
           stats.titikDicurigai > 0 ? "red" : "mint",
+        ],
+        [
+          "Peringatan Lokasi Belum Diakui",
+          `${stats.peringatanLokasiAktif}`,
+          stats.peringatanLokasiAktif > 0 ? "amber" : "mint",
         ],
       ].map(([label, value, tone]) => (
         <div

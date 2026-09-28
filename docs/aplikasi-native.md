@@ -369,7 +369,9 @@ plugin lokasi tetap hidup.
    yang membuat klaim "saya aplikasi resmi" **tidak bisa** dipalsukan klien —
    prasyarat bila kebijakan `wajibAplikasiNative` ingin dianggap sebagai kontrol
    keamanan, bukan sekadar kontrol alur.
-3. ~~**Deteksi lokasi palsu di sisi native**~~ — **sudah dikerjakan.** Layanan
+3. ~~**Deteksi lokasi palsu di sisi native**~~ — **sudah dikerjakan** (termasuk
+   peringatan otomatis ke nasabah via banner dashboard + WhatsApp, serta
+   daftar "Peringatan lokasi terbaru" untuk tim review di /admin). Rinciannya: Layanan
    native memeriksa flag mock sebelum mengirim (`Location.isMock` /
    `isFromMockProvider` di Android, `CLLocation.sourceInformation` di iOS) dan
    tidak membuang kuota untuk titik yang pasti ditolak server. Sisi web juga
@@ -399,7 +401,7 @@ lama menganggur.
 | Lokasi dimatikan di Setelan | Pengajuan/cicilan ditolak server; dashboard menampilkan layar blokir. |
 | Aplikasi di-force stop, lalu lokasi dimatikan | Transaksi ditolak (titik kedaluwarsa). |
 | Fake GPS (aplikasi mock location) | Titik ditolak saat dikirim, dan layar blokir menampilkan "Matikan aplikasi lokasi palsu" — bukan instruksi "nyalakan GPS". |
-| Aplikasi yang membekukan koordinat (tidak melaporkan flag mock) | Titik tetap dilayani, tetapi masuk daftar "Lokasi Dicurigai" di /admin setelah ±5 titik identik berturut-turut. |
+| Aplikasi yang membekukan koordinat (tidak melaporkan flag mock) | Titik tetap dilayani, tetapi masuk daftar "Lokasi Dicurigai" di /admin setelah ±5 titik identik berturut-turut; nasabah menerima banner peringatan di dashboard **dan** pesan WhatsApp (maks 1×/24 jam), dan peringatannya tercatat di audit trail. |
 | Perangkat tanpa GPS / browser lama | Fallback `navigator.geolocation` + pesan diagnosis yang benar. |
 | `wajibAplikasiNative` dinyalakan (di staging) | Pengguna web terblokir; pengguna app native lolos tanpa melihat layar "pasang aplikasi". |
 

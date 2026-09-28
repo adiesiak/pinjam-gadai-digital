@@ -182,6 +182,12 @@ const schema = defineSchema(
       aktif: v.optional(v.boolean()),
       /** Template pesan pengingat — pakai placeholder {nama} {ref} {jumlah} {tanggal} {sisa} {denda}. */
       templatePengingat: v.optional(v.string()),
+      /**
+       * Template pesan peringatan lokasi dicurigai — placeholder {nama} dan
+       * {ref}. Dikirim otomatis (maks 1×/24 jam per nasabah) saat titik
+       * lokasinya ditandai, dan tidak pernah menagih uang.
+       */
+      templateLokasi: v.optional(v.string()),
       diperbaruiPada: v.optional(v.number()),
     }).index("by_slot", ["slot"]),
 
@@ -691,6 +697,35 @@ const schema = defineSchema(
     })
       .index("by_loan", ["loanId"])
       .index("by_tanggal", ["tanggal"]),
+
+    /**
+     * Peringatan "lokasi dicurigai" untuk nasabah + tim review.
+     *
+     * Ditulis otomatis saat `simpanTitik` menandai sebuah titik (mis. koordinat
+     * beku berulang). Maksimum satu peringatan per nasabah per 24 jam
+     * (`LOKASI_PERINGATAN_JEDA_JAM`), karena titik yang ditandai bisa datang
+     * setiap menit. `dibacaPada` diisi saat nasabah mengakuinya di dashboard.
+     */
+    lokasiPeringatan: defineTable({
+      userId: v.id("users"),
+      /** Tanda yang memicu (mis. "koordinat_identik"). */
+      tanda: v.array(v.string()),
+      /** Pinjaman yang sedang berjalan saat itu (bila ada) — sumber nomor WA. */
+      loanId: v.optional(v.id("loans")),
+      lat: v.number(),
+      lng: v.number(),
+      /** "peringatan" | "peringatan_ulang" — boleh diluaskan. */
+      jenis: v.string(),
+      /** Status pengiriman WhatsApp terakhir: "terkirim" | "gagal" | "dinonaktifkan" | "tanpa_nomor". */
+      waStatus: v.optional(v.string()),
+      /** Keterangan kegagalan WA untuk diagnosis admin. */
+      waKeterangan: v.optional(v.string()),
+      /** Terisi saat nasabah menekan "sudah saya matikan" di dashboard. */
+      dibacaPada: v.optional(v.number()),
+      waktu: v.number(),
+    })
+      .index("by_user", ["userId"])
+      .index("by_waktu", ["waktu"]),
 
     /**
      * CMS konten situs — satu baris global (slot "global") yang diedit tim

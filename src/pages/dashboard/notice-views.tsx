@@ -63,6 +63,73 @@ export function DueReminderBanner({
   );
 }
 
+/**
+ * Banner peringatan lokasi dicurigai (server yang menulis peringatannya).
+ *
+ * Muncul saat titik lokasi nasabah ditandai heuristik — mis. koordinat yang
+ * persis sama berulang kali, tanda khas aplikasi lokasi palsu. Nadanya menolong
+ * (banyak kasus berasal dari penghemat baterai/aplikasi pihak ketiga), dan
+ * hilang sendiri setelah diakui karena query-nya reaktif.
+ */
+export function LokasiPeringatanBanner() {
+  const peringatan = useQuery(api.lokasi.peringatanSaya);
+  const akui = useMutation(api.lokasi.akuiPeringatan);
+  const [busy, setBusy] = useState(false);
+
+  if (peringatan === undefined || peringatan === null) return null;
+
+  const waTerkirim = peringatan.waStatus === "terkirim";
+
+  return (
+    <section className="mt-6 rounded-2xl border border-amber-200 bg-amber-50/70 px-5 py-4 shadow-sm">
+      <p className="flex items-center gap-2 text-[11px] font-medium uppercase tracking-[0.18em] text-amber-700">
+        <MapPin className="size-3.5" /> Lokasi dicurigai
+      </p>
+      <p className="mt-1 text-sm font-semibold text-amber-900">
+        Lokasi perangkat Anda tampak dikirim aplikasi pihak ketiga
+      </p>
+      <p className="mt-1 max-w-2xl text-sm leading-6 text-amber-900/90">
+        PINDAI mendeteksi koordinat Anda persis sama berulang kali — tanda khas
+        aplikasi pengubah lokasi (fake GPS). Selama ini terjadi, transaksi Anda
+        bisa ditolak oleh server. Matikan aplikasi tersebut, lalu biarkan PINDAI
+        mengirim lokasi asli.
+      </p>
+      <ol className="mt-3 list-decimal space-y-1 pl-5 text-xs leading-5 text-amber-900/90">
+        <li>Hapus atau matikan aplikasi pengubah lokasi di HP ini.</li>
+        <li>Android: Setelan → Opsi pengembang → matikan “Pilih aplikasi lokasi palsu”.</li>
+        <li>Buka PINDAI dengan layanan lokasi aktif, lalu tekan tombol di bawah.</li>
+      </ol>
+      <p className="mt-3 text-xs leading-5 text-amber-900/80">
+        {waTerkirim
+          ? "Peringatan ini juga sudah kami kirim ke WhatsApp Anda."
+          : peringatan.waStatus === "tanpa_nomor"
+            ? "Kami belum bisa mengirim peringatan ini ke WhatsApp karena nomor Anda belum lengkap di data KYC."
+            : "Peringatan ini juga kami catat untuk tim PINDAI."}
+      </p>
+      <div className="mt-4 flex flex-wrap gap-2">
+        <Button
+          size="sm"
+          disabled={busy}
+          onClick={async () => {
+            setBusy(true);
+            try {
+              await akui({ id: peringatan.id });
+              toast.success("Terima kasih — peringatan ditutup.");
+            } catch (e) {
+              toast.error(e instanceof Error ? e.message : "Gagal menutup peringatan.");
+            } finally {
+              setBusy(false);
+            }
+          }}
+        >
+          {busy ? <Loader2 className="mr-1.5 size-4 animate-spin" /> : null}
+          Sudah saya matikan
+        </Button>
+      </div>
+    </section>
+  );
+}
+
 /** Persetujuan pelacakan lokasi berkelanjutan (opt-in, dapat dicabut). */
 export function LocationConsentCard() {
   const status = useQuery(api.tracking.getStatus);

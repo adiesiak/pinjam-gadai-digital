@@ -1,6 +1,7 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
 import {
   action,
+  internalAction,
   internalMutation,
   internalQuery,
   mutation,
@@ -30,6 +31,21 @@ export const DEFAULT_TEMPLATE =
   "Jatuh tempo {tanggal} — total kewajiban Anda saat ini {jumlah}{denda}. " +
   "Mohon lakukan pelunasan tepat waktu agar status kredit tetap baik. Terima kasih.";
 
+/**
+ * Template peringatan lokasi dicurigai — dikirim OTOMATIS (bukan oleh admin),
+ * maksimum sekali per 24 jam per nasabah.
+ *
+ * Nadanya sengaja menolong, bukan menuduh: koordinat beku juga bisa terjadi
+ * pada perangkat dengan penghemat baterai agresif. Karena itu pesannya meminta
+ * nasabah membuka aplikasi PINDAI, bukan mengancam sanksi.
+ */
+export const DEFAULT_TEMPLATE_LOKASI =
+  "Halo {nama}, PINDAI mendeteksi lokasi perangkat Anda dikirim oleh aplikasi " +
+  "pihak ketiga (lokasi palsu/dibekukan), sehingga transaksi PINDAI bisa ditolak. " +
+  "Mohon hapus atau matikan aplikasi pengubah lokasi, lalu buka aplikasi PINDAI " +
+  "agar lokasi asli terkirim. Bila Anda memang memakai lokasi khusus atas " +
+  "persetujuan petugas PINDAI, abaikan pesan ini. Terima kasih.";
+
 export type WaSettings = {
   apiUrl?: string;
   authHeader?: string;
@@ -38,6 +54,7 @@ export type WaSettings = {
   fieldPesan?: string;
   aktif?: boolean;
   templatePengingat?: string;
+  templateLokasi?: string;
 };
 
 async function requireAdmin(ctx: QueryCtx) {
@@ -88,6 +105,8 @@ export const saveConfig = mutation({
     fieldPesan: v.string(),
     aktif: v.boolean(),
     templatePengingat: v.string(),
+    /** Template peringatan lokasi — opsional, kosong = pakai template bawaan. */
+    templateLokasi: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const { userId } = await requireAdmin(ctx);
@@ -105,6 +124,12 @@ export const saveConfig = mutation({
     if (!template.includes("{jumlah}")) {
       throw new Error("Template wajib memuat placeholder {jumlah}.");
     }
+    // Template peringatan lokasi tidak menagih uang, jadi syaratnya beda:
+    // cukup menyapa nama nasabah (dan boleh dikosongkan untuk pakai bawaan).
+    const templateLokasi = args.templateLokasi?.trim() ?? "";
+    if (templateLokasi !== "" && !templateLokasi.includes("{nama}")) {
+      throw new Error("Template peringatan lokasi wajib memuat placeholder {nama}.");
+    }
     const existing = await ctx.db
       .query("waSettings")
       .withIndex("by_slot", (q) => q.eq("slot", SLOT))
@@ -117,6 +142,7 @@ export const saveConfig = mutation({
       fieldPesan,
       aktif: args.aktif,
       templatePengingat: template,
+      templateLokasi: templateLokasi === "" ? undefined : templateLokasi,
       diperbaruiPada: Date.now(),
     };
     if (existing === null) {
@@ -406,5 +432,101 @@ export const sendTest = action({
       throw new Error(respon);
     }
     return { ok: true };
+  },
+});
+
+// ===== Peringatan lokasi dicurigai (otomatis dari gerbang lokasi) =====
+
+/**
+ * Data untuk merangkai pesan peringatan lokasi (internal — dipanggil action).
+ *
+ * Nomor WhatsApp diambil dari KYC: pinjaman yang memicu peringatan lebih
+ * dulu, lalu pinjaman terbaru nasabah yang punya nomor — peringatan lokasi
+ * bisa terjadi bahkan saat nasabah belum/tidak punya pinjaman aktif.
+ */
+export const _dataPeringatanLokasi = internalQuery({
+  args: { peringatanId: v.id("lokasiPeringatan") },
+  handler: async (ctx, { peringatanId }) => {
+    const peringatan = await ctx.db.get(peringatanId);
+    if (peringatan === null) return null;
+    const user = await ctx.db.get(peringatan.userId);
+    const loans = await ctx.db
+      .query("loans")
+      .withIndex("by_user", (q) => q.eq("userId", peringatan.userId))
+      .order("desc")
+      .collect();
+    const sumber =
+      loans.find((l) => l._id === peringatan.loanId && l.nomorWhatsApp) ??
+      loans.find((l) => l.nomorWhatsApp) ??
+      null;
+    return {
+      nama: sumber?.namaLengkap ?? user?.name ?? "Nasabah PINDAI",
+      nomorWhatsApp: sumber?.nomorWhatsApp ?? null,
+      nomorReferensi: sumber?.nomorReferensi ?? null,
+      tanda: peringatan.tanda,
+      waktu: peringatan.waktu,
+    };
+  },
+});
+
+/**
+ * Kirim peringatan "lokasi dicurigai" ke nasabah — dijadwalkan oleh
+ * `simpanTitik`, jadi bukan aksi admin dan tanpa gerbang sesi.
+ *
+ * TIDAK PERNAH melempar: heartbeat nasabah tidak boleh gagal hanya karena
+ * gateway WhatsApp bermasalah. Setiap percobaan tetap tercatat (waLogs + kolom
+ * `waStatus` pada peringatannya) supaya tim bisa melihat kenapa pesan tidak
+ * sampai — termasuk kasus paling umum: integrasi WA belum diaktifkan.
+ */
+export const kirimPeringatanLokasi = internalAction({
+  args: { peringatanId: v.id("lokasiPeringatan") },
+  handler: async (ctx, { peringatanId }): Promise<{ status: string }> => {
+    const data = await ctx.runQuery(internal.whatsapp._dataPeringatanLokasi, {
+      peringatanId,
+    });
+    if (data === null) return { status: "tidak_ada" };
+
+    const settings: WaSettings = await ctx.runQuery(internal.whatsapp._getSettings, {});
+    const template = settings.templateLokasi?.trim() || DEFAULT_TEMPLATE_LOKASI;
+    const isi = renderTemplate(template, {
+      nama: data.nama,
+      ref: data.nomorReferensi ?? "—",
+      jumlah: "—",
+      tanggal: "—",
+      sisa: "—",
+      denda: "",
+    });
+
+    const apiKey = process.env.WHATSAPP_API_KEY ?? "";
+    let status: string;
+    let respon: string;
+    if (data.nomorWhatsApp === null) {
+      status = "tanpa_nomor";
+      respon = "Nasabah belum punya nomor WhatsApp di data KYC.";
+    } else if (settings.aktif !== true || !settings.apiUrl) {
+      status = "dinonaktifkan";
+      respon = "Integrasi WhatsApp belum aktif — pesan hanya dicatat.";
+    } else if (!apiKey) {
+      status = "gagal";
+      respon = "WHATSAPP_API_KEY belum diisi di environment.";
+    } else {
+      const hasil = await kirimViaGateway(apiKey, settings, data.nomorWhatsApp, isi);
+      status = hasil.ok ? "terkirim" : "gagal";
+      respon = hasil.respon;
+    }
+
+    await ctx.runMutation(internal.whatsapp._appendLog, {
+      nomorTujuan: data.nomorWhatsApp ?? "-",
+      jenis: "lokasi_dicurigai",
+      isiPesan: isi,
+      status,
+      respon,
+    });
+    await ctx.runMutation(internal.lokasi._setWaStatus, {
+      peringatanId,
+      status,
+      keterangan: respon,
+    });
+    return { status };
   },
 });

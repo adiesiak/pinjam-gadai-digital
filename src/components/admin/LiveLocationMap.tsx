@@ -5,6 +5,7 @@ import { useEffect, useRef } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { api } from "@/convex/_generated/api";
+import { labelTandaLokasi } from "@/lib/lokasi";
 import { DEFAULT_CONFIG } from "@/lib/system-config";
 
 import "leaflet/dist/leaflet.css";
@@ -222,6 +223,7 @@ export function LiveLocationMap() {
           </div>
         )}
       </div>
+      <PeringatanLokasiTerbaru />
       {data !== undefined && (
         <ul className="divide-y divide-slate-200 rounded-2xl border border-slate-200 bg-white">
           {data.rows
@@ -255,6 +257,78 @@ export function LiveLocationMap() {
           )}
         </ul>
       )}
+      <PeringatanLokasiTerbaru />
+    </div>
+  );
+}
+
+/**
+ * Riwayat peringatan "lokasi dicurigai" — termasuk status pengiriman
+ * WhatsApp-nya, sehingga tim tahu bila pesan tidak sampai karena gateway WA
+ * belum diaktifkan atau nomor nasabah belum lengkap di KYC.
+ */
+function PeringatanLokasiTerbaru() {
+  const rows = useQuery(api.admin.peringatanLokasiTerbaru, {});
+  if (rows === undefined) {
+    return (
+      <p className="flex items-center gap-2 text-sm text-muted-foreground">
+        <Loader2 className="size-4 animate-spin" /> Memuat peringatan lokasi…
+      </p>
+    );
+  }
+  if (rows.length === 0) return null;
+  return (
+    <div className="rounded-2xl border border-amber-200 bg-white">
+      <p className="border-b border-amber-100 bg-amber-50/70 px-5 py-3 text-sm font-medium text-amber-900">
+        Peringatan lokasi terbaru (dikirim otomatis ke nasabah)
+      </p>
+      <ul className="divide-y divide-slate-200">
+        {rows.map((r) => (
+          <li
+            key={r._id}
+            className="flex flex-wrap items-center justify-between gap-3 px-5 py-3 text-sm"
+          >
+            <span className="min-w-0">
+              <span className="font-medium">{r.nama}</span>
+              {r.nomorReferensi !== null && (
+                <span className="text-muted-foreground"> · {r.nomorReferensi}</span>
+              )}
+              <span className="mt-1 block text-xs text-muted-foreground">
+                {r.tanda.map(labelTandaLokasi).join(", ")} ·{" "}
+                {new Date(r.waktu).toLocaleString("id-ID")}
+              </span>
+            </span>
+            <span className="flex shrink-0 flex-wrap items-center gap-2">
+              <Badge
+                className={
+                  r.waStatus === "terkirim"
+                    ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-100"
+                    : "bg-slate-100 text-slate-600 hover:bg-slate-100"
+                }
+              >
+                {r.waStatus === "terkirim"
+                  ? "WA terkirim"
+                  : r.waStatus === "tanpa_nomor"
+                    ? "WA: nomor belum ada"
+                    : r.waStatus === "dinonaktifkan"
+                      ? "WA: belum diaktifkan"
+                      : r.waStatus === "gagal"
+                        ? "WA gagal"
+                        : "WA: menunggu"}
+              </Badge>
+              <Badge
+                className={
+                  r.dibacaPada === null
+                    ? "bg-amber-100 text-amber-800 hover:bg-amber-100"
+                    : "bg-slate-100 text-slate-600 hover:bg-slate-100"
+                }
+              >
+                {r.dibacaPada === null ? "Belum diakui nasabah" : "Sudah diakui"}
+              </Badge>
+            </span>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }

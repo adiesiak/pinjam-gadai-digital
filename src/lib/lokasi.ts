@@ -185,6 +185,39 @@ export function periksaLokasiPalsu(
   return hasil;
 }
 
+/** Label manusiawi untuk tanda kecurigaan (dipakai panel admin). */
+export function labelTandaLokasi(tanda: string): string {
+  switch (tanda) {
+    case TANDA_LOKASI_PALSU.mockDilaporkan:
+      return "Perangkat melaporkan mock location";
+    case TANDA_LOKASI_PALSU.akurasiTidakWajar:
+      return "Akurasi GPS tidak wajar";
+    case TANDA_LOKASI_PALSU.koordinatIdentik:
+      return "Koordinat beku berulang";
+    default:
+      return tanda;
+  }
+}
+
+/**
+ * Jeda minimum antar peringatan lokasi dicurigai untuk satu nasabah (jam).
+ *
+ * Koordinat yang dibekukan akan ditandai di SETIAP heartbeat, jadi tanpa jeda
+ * ini nasabah akan menerima puluhan pesan peringatan dalam sejam — dan
+ * peringatan yang terlalu sering justru diabaikan.
+ */
+export const LOKASI_PERINGATAN_JEDA_JAM = 24;
+
+/** Sudah boleh kirim peringatan lagi? (`peringatanTerakhir` epoch ms/null). */
+export function bolehKirimPeringatanLokasi(
+  peringatanTerakhir: number | null,
+  sekarang: number,
+  jedaJam: number = LOKASI_PERINGATAN_JEDA_JAM,
+): boolean {
+  if (peringatanTerakhir === null) return true;
+  return sekarang - peringatanTerakhir >= jedaJam * 3_600_000;
+}
+
 /**
  * Apakah pesan galat dari server berarti lokasi perangkat palsu?
  *
