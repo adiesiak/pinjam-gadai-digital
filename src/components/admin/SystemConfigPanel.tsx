@@ -100,9 +100,13 @@ export function SystemConfigPanel() {
           <div>
             <p className="text-sm font-medium">Wajib aplikasi (lokasi latar belakang)</p>
             <p className="mt-0.5 text-xs leading-5 text-muted-foreground">
-              Aktifkan HANYA setelah aplikasi Android/iOS dirilis: transaksi jadi terbatas pada
-              perangkat yang pernah membuka PINDAI dari aplikasi. Browser tidak bisa melacak
-              lokasi saat tab ditutup, jadi menyalakan ini lebih awal akan memblokir semua nasabah web.
+              Transaksi hanya dilayani bila titik lokasi <strong>terakhir</strong> datang dari
+              aplikasi resmi, dan perangkatnya mengirim heartbeat dalam 24 jam terakhir.
+              Nasabah yang membuka PINDAI di browser akan ditolak walau sudah pernah memasang
+              aplikasi — termasuk bila tab browser dibiarkan terbuka, karena tab itu terus
+              mengirim titik dari browser. Browser tidak bisa melacak lokasi saat tab ditutup,
+              jadi menyalakan ini sebelum aplikasi Android/iOS dirilis akan memblokir semua
+              nasabah web.
             </p>
           </div>
           <Switch

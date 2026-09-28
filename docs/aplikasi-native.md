@@ -64,6 +64,35 @@ Server **sudah** menolak pengajuan pinjaman/gadai/kredit, cicilan, dan pelunasan
 tanpa titik segar. Yang belum ada hanyalah aplikasi native yang bisa memasok
 titik itu saat aplikasi tertutup.
 
+### Kebijakan "wajib aplikasi" — apa yang sudah ditegakkan server
+
+`requireAplikasiNative` (dipanggil dari `requireGerbangLokasi`) menolak transaksi
+Peminjam kecuali **kedua** syarat ini terpenuhi:
+
+1. titik lokasi **terakhir** di server bertanda `sumber: "aplikasi"`, dan
+2. ada baris `perangkat` milik pengguna itu yang mengirim heartbeat dalam
+   **24 jam** terakhir.
+
+Konsekuensinya — dan ini memang disengaja:
+
+- Nasabah yang memasang aplikasi sebulan lalu tetapi kini bertransaksi dari
+  browser akan **ditolak**, karena dashboard web juga mengirim heartbeat dan
+  setiap heartbeat menimpa sumber titik terakhir.
+- Karena itu **jangan biarkan tab browser PINDAI terbuka** ketika aplikasi
+  dipakai: tab itu terus mengirim titik dari browser dan menahan transaksi
+  sampai aplikasi mengirim titik berikutnya (≤60 detik). UI web menampilkan
+  layar "Buka PINDAI dari aplikasi" untuk kasus ini, jadi nasabah tidak perlu
+  menebak.
+- `catatLokasi` menurunkan klaim `sumber: "aplikasi"` yang tidak disertai
+  `deviceId` menjadi `"web"`, sehingga invarian "aplikasi ⇒ ada perangkat"
+  tidak bisa dilanggar dari klien biasa.
+
+**Batas jujur:** `sumber` tetap dikirim klien, jadi ini bukan batas
+kriptografis — klien yang menulis ulang permintaannya bisa mengaku sebagai
+aplikasi. Penutup penuh butuh attestation aplikasi (Play Integrity API untuk
+Android, App Attest untuk iOS) yang diverifikasi di server; itu bagian dari
+Fase 2 bersama token perangkat.
+
 ---
 
 ## 2. Batas yang jujur (jangan dijanjikan berlebihan ke manajemen/OJK)
@@ -308,6 +337,11 @@ Urutan ini **tidak boleh dibalik**:
 5. **Nyalakan `wajibAplikasiNative`** hanya setelah ≥95% Peminjam aktif
    terdaftar. Siapkan jalur bantuan: nasabah yang belum bisa memasang aplikasi
    harus tetap bisa melunasi lewat kanal manual (transfer + verifikasi admin).
+6. **Bekali tim CS** dengan tiga penyebab penolakan yang akan mereka terima:
+   perangkat belum terdaftar, titik terakhir datang dari browser (biasanya tab
+   web masih terbuka di desktop), atau perangkat sudah 24 jam tidak mengirim
+   heartbeat. Semuanya pulih sendiri setelah aplikasi mengirim titik lokasi
+   berikutnya — tidak ada yang perlu diubah admin.
 
 > Setiap perubahan konfigurasi ini diaudit di /admin → Pengaturan Sistem.
 > Saklar bersifat global dan langsung berlaku ke seluruh pengguna.
@@ -364,6 +398,11 @@ Urutan ini **tidak boleh dibalik**:
 - [ ] Lokasi mengalir saat layar terkunci
 - [ ] Fallback browser tetap jalan bila plugin tidak ada
 - [ ] Pengguna app native tidak pernah melihat layar "pasang aplikasi"
+- [ ] Nasabah web **ditolak** server saat `wajibAplikasiNative` menyala
+      (bukan hanya belum pernah memasang aplikasi)
+- [ ] Layar "Buka PINDAI dari aplikasi" muncul untuk nasabah yang sudah punya
+      aplikasi tetapi titik terakhirnya dari browser
+- [ ] Menutup tab browser diikuti heartbeat dari aplikasi memulihkan transaksi
 
 **Sebelum menyalakan `wajibAplikasiNative`**
 - [ ] `lokasiMaxUmurMenit` dinaikkan ke 15–20

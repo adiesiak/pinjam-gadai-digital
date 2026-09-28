@@ -35,6 +35,16 @@ async function penggunaMasuk(ctx: QueryCtx) {
 /** Rentang aksi finansial Peminjam — pendana/admin tidak perlu lokasi. */
 const PERAN_WAJIB_LOKASI: readonly string[] = [ROLES.PEMINJAM, ROLES.MEMBER];
 
+/**
+ * Perangkat dianggap masih dipakai selama ini (ms).
+ *
+ * Jauh lebih ketat daripada "pernah terdaftar": perangkat yang berhenti
+ * mengirim heartbeat dianggap tidak aktif lagi, sehingga nasabah yang memasang
+ * aplikasi sebulan lalu tetapi kini kembali ke browser tidak lolos kebijakan
+ * "wajib aplikasi".
+ */
+const MASA_PERANGKAT_DIPAKAI_MS = 24 * 60 * 60 * 1000;
+
 function pesanLokasiKedaluwarsa(umurMenit: number | null, batasMenit: number): string {
   const keadaan =
     umurMenit === null
@@ -113,6 +123,11 @@ export async function simpanTitik(
     );
   }
 
+  // Sumber titik: klaim "aplikasi" hanya sah bila disertai ID perangkat.
+  // Tanpa penjagaan ini, invarian "aplikasi ⇒ ada perangkat" jebol dan
+  // kebijakan "wajib aplikasi" bisa dipenuhi dari browser.
+  const sumber = input.sumber === "aplikasi" && input.deviceId ? "aplikasi" : "web";
+
   await ctx.db.insert("lokasiJejak", {
     userId,
     loanId: input.loanId,
@@ -127,7 +142,7 @@ export async function simpanTitik(
     lng: input.lng,
     akurasi: input.akurasi,
     waktu: now,
-    sumber: input.sumber,
+    sumber,
     platform: input.platform,
     versiApp: input.versiApp,
   };
@@ -158,7 +173,7 @@ export async function simpanTitik(
   }
 
   // Perangkat aplikasi native: catat agar kebijakan "wajib aplikasi" bekerja.
-  if (input.sumber === "aplikasi" && input.deviceId) {
+  if (sumber === "aplikasi" && input.deviceId) {
     const deviceId = input.deviceId;
     const lama = await ctx.db
       .query("perangkat")
@@ -229,9 +244,37 @@ export async function requireLokasiSegar(
 }
 
 /**
+ * Cek keaktifan perangkat aplikasi milik pengguna.
+ * Memakai `collect()` + `some()` supaya nasabah dengan lebih dari satu
+ * perangkat tidak tertolak hanya karena `first()` mengambil perangkat lama.
+ */
+export async function perangkatAktifUntuk(
+  ctx: QueryCtx,
+  userId: Id<"users">,
+): Promise<{ platform: string } | null> {
+  const daftar = await ctx.db
+    .query("perangkat")
+    .withIndex("by_user", (q) => q.eq("userId", userId))
+    .collect();
+  const now = Date.now();
+  const aktif = daftar.find((p) => now - p.terakhirDilihat < MASA_PERANGKAT_DIPAKAI_MS);
+  return aktif === undefined ? null : { platform: aktif.platform };
+}
+
+/**
  * Kebijakan "wajib aplikasi": bila admin menyalakannya, transaksi hanya
- * dilayani untuk pengguna yang perangkatnya pernah mengirim heartbeat dari
- * aplikasi native (lokasi latar belakang berjalan di sana).
+ * dilayani bila titik lokasi TERAKHIR datang dari aplikasi native.
+ *
+ * Kenapa memeriksa sumber titik terakhir, bukan sekadar "pernah terdaftar":
+ * dashboard web juga mengirim heartbeat, dan setiap heartbeat menimpa sumber
+ * titik terakhir. Jadi begitu nasabah bertransaksi dari browser, titik
+ * terakhirnya menjadi "web" dan transaksinya ditolak — kebijakan ini tidak
+ * bisa dipenuhi hanya dengan memasang aplikasi sekali lalu kembali ke web.
+ *
+ * Batas jujur: `sumber` dikirim klien, jadi ini bukan batas kriptografis —
+ * klien yang menulis ulang permintaannya bisa mengaku sebagai aplikasi.
+ * Penutup penuh baru tercapai dengan attestation aplikasi (Play Integrity /
+ * App Attest) pada Fase 2 — lihat docs/aplikasi-native.md.
  */
 export async function requireAplikasiNative(
   ctx: QueryCtx,
@@ -239,18 +282,20 @@ export async function requireAplikasiNative(
 ): Promise<void> {
   const cfg = await getConfig(ctx);
   if (!cfg.wajibAplikasiNative) return;
-  const perangkat = await ctx.db
-    .query("perangkat")
-    .withIndex("by_user", (q) => q.eq("userId", userId))
-    .first();
-  const segar =
-    perangkat !== null &&
-    Date.now() - perangkat.terakhirDilihat < 30 * 24 * 60 * 60 * 1000;
-  if (!segar) {
-    throw new Error(
-      "Transaksi kini hanya bisa dari aplikasi PINDAI. Pasang aplikasi Android/iOS agar lokasi dapat berjalan di latar belakang, lalu buka PINDAI dari aplikasi tersebut.",
-    );
-  }
+
+  const perangkat = await perangkatAktifUntuk(ctx, userId);
+  const status = await titikTerakhir(ctx, userId);
+  const dariAplikasi = status !== null && status.sumber === "aplikasi";
+  if (perangkat !== null && dariAplikasi) return;
+
+  const alasan =
+    perangkat === null
+      ? "Perangkat ini belum terdaftar di aplikasi PINDAI."
+      : "Titik lokasi terakhir dikirim dari browser, bukan dari aplikasi PINDAI.";
+  throw new Error(
+    `Transaksi kini hanya bisa dari aplikasi PINDAI. ${alasan} ` +
+      "Buka PINDAI dari aplikasi Android/iOS dengan akun yang sama — lokasi akan berjalan di latar belakang dan transaksi tersedia kembali setelah titik lokasi pertama terkirim.",
+  );
 }
 
 /** Gerbang lengkap untuk aksi finansial Peminjam: perangkat + lokasi segar. */
@@ -340,10 +385,7 @@ export const statusSaya = query({
     if (userId === null) throw new Error("Harus masuk terlebih dahulu.");
     const cfg = await getConfig(ctx);
     const status = await titikTerakhir(ctx, userId);
-    const perangkat = await ctx.db
-      .query("perangkat")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
-      .first();
+    const perangkat = await perangkatAktifUntuk(ctx, userId);
     const now = Date.now();
     return {
       /** Gerbang menyala — diatur tim PINDAI (Pengaturan Sistem). */
@@ -355,6 +397,11 @@ export const statusSaya = query({
       lng: status?.lng ?? null,
       akurasi: status?.akurasi ?? null,
       waktu: status?.waktu ?? null,
+      /**
+       * "aplikasi" | "web" | null.
+       * UI memakai nilai ini untuk memblokir lebih awal saat kebijakan
+       * "wajib aplikasi" menyala — server akan menolak transaksinya.
+       */
       sumber: status?.sumber ?? null,
       umurMenit:
         status === null ? null : Math.floor((now - status.waktu) / 60_000),
@@ -364,9 +411,7 @@ export const statusSaya = query({
       batasMenit: Math.max(1, cfg.lokasiMaxUmurMenit),
       intervalDetik: LOKASI_KEBIJAKAN.intervalDetik,
       maxAkurasiMeter: LOKASI_KEBIJAKAN.maxAkurasiMeter,
-      perangkatTerdaftar:
-        perangkat !== null &&
-        Date.now() - perangkat.terakhirDilihat < 30 * 24 * 60 * 60 * 1000,
+      perangkatTerdaftar: perangkat !== null,
       platformPerangkat: perangkat?.platform ?? null,
     };
   },

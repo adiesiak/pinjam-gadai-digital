@@ -10,6 +10,9 @@
  *  3. Setelah heartbeat (titik Jakarta) → pengajuan dilayani.
  *  4. Titik kedaluwarsa (lebih tua dari batas menit) → ditolak.
  *  5. Gerbang dimatikan admin (lokasiWajib: false) → pengajuan tetap dilayani.
+ *  6. Titik jauh setelah jeda panjang diterima (bukan lokasi palsu).
+ *  7. Kebijakan "wajib aplikasi": transaksi hanya bila titik terakhir datang
+ *     dari aplikasi native — browser ditolak walau perangkat pernah terdaftar.
  *
  * Menjalankan: bunx vitest run src/convex
  */
@@ -205,5 +208,160 @@ describe("gerbang lokasi wajib", () => {
     await expect(
       asPeminjam.mutation(api.kredit.ajukanKreditBarang, PENGAJUAN),
     ).resolves.toBeDefined();
+  });
+});
+
+describe("kebijakan wajib aplikasi (transaksi hanya dari aplikasi)", () => {
+  async function aktifkanKebijakan(t: ReturnType<typeof convexTest>, email: string) {
+    const asAdmin = await siapkanPengguna(t, "admin-app", {
+      email,
+      role: "admin",
+    });
+    await asAdmin.mutation(api.system.saveConfig, {
+      ...DEFAULT_CONFIG,
+      wajibAplikasiNative: true,
+    });
+  }
+
+  it("melayani transaksi setelah aplikasi native mengirim titik", async () => {
+    const t = convexTest(schema, modules);
+    await aktifkanKebijakan(t, "admin-app-1@pindai.test");
+    const asPeminjam = await siapkanPengguna(t, "peminjam-app-1", {
+      email: "app-1@pindai.test",
+      role: "peminjam",
+    });
+
+    await asPeminjam.mutation(api.lokasi.daftarkanPerangkat, {
+      deviceId: "android-abcdef",
+      platform: "android",
+      versiApp: "1.0.0",
+    });
+    await asPeminjam.mutation(api.lokasi.catatLokasi, {
+      lat: -6.2,
+      lng: 106.816666,
+      akurasi: 20,
+      sumber: "aplikasi",
+      platform: "android",
+      versiApp: "1.0.0",
+      deviceId: "android-abcdef",
+    });
+
+    const status = await asPeminjam.query(api.lokasi.statusSaya, {});
+    expect(status.wajibAplikasiNative).toBe(true);
+    expect(status.perangkatTerdaftar).toBe(true);
+    expect(status.sumber).toBe("aplikasi");
+
+    await expect(
+      asPeminjam.mutation(api.kredit.ajukanKreditBarang, PENGAJUAN),
+    ).resolves.toBeDefined();
+  });
+
+  it("menolak transaksi dari browser walau perangkat pernah terdaftar", async () => {
+    const t = convexTest(schema, modules);
+    await aktifkanKebijakan(t, "admin-app-2@pindai.test");
+    const asPeminjam = await siapkanPengguna(t, "peminjam-app-2", {
+      email: "app-2@pindai.test",
+      role: "peminjam",
+    });
+
+    // Nasabah sudah memasang aplikasi dan pernah bertransaksi dari sana.
+    await asPeminjam.mutation(api.lokasi.daftarkanPerangkat, {
+      deviceId: "android-abcdef",
+      platform: "android",
+      versiApp: "1.0.0",
+    });
+    await asPeminjam.mutation(api.lokasi.catatLokasi, {
+      lat: -6.2,
+      lng: 106.816666,
+      akurasi: 20,
+      sumber: "aplikasi",
+      deviceId: "android-abcdef",
+    });
+    await expect(
+      asPeminjam.mutation(api.kredit.ajukanKreditBarang, PENGAJUAN),
+    ).resolves.toBeDefined();
+
+    // Lalu kembali ke PINDAI lewat browser: titik terakhir menjadi "web",
+    // sehingga perangkat yang masih terdaftar pun tidak lagi cukup.
+    await asPeminjam.mutation(api.lokasi.catatLokasi, {
+      lat: -6.2,
+      lng: 106.816666,
+      akurasi: 20,
+      sumber: "web",
+    });
+
+    const status = await asPeminjam.query(api.lokasi.statusSaya, {});
+    expect(status.perangkatTerdaftar).toBe(true);
+    expect(status.sumber).toBe("web");
+
+    await expect(
+      asPeminjam.mutation(api.kredit.ajukanKreditBarang, PENGAJUAN),
+    ).rejects.toThrow("hanya bisa dari aplikasi PINDAI");
+  });
+
+  it("tidak menghitung klaim aplikasi tanpa ID perangkat", async () => {
+    const t = convexTest(schema, modules);
+    await aktifkanKebijakan(t, "admin-app-3@pindai.test");
+    const asPeminjam = await siapkanPengguna(t, "peminjam-app-3", {
+      email: "app-3@pindai.test",
+      role: "peminjam",
+    });
+
+    // Klaim "aplikasi" tanpa perangkat diturunkan menjadi "web" oleh server,
+    // sehingga kebijakan tidak bisa dipenuhi hanya dengan menulis ulang field.
+    await asPeminjam.mutation(api.lokasi.catatLokasi, {
+      lat: -6.2,
+      lng: 106.816666,
+      akurasi: 20,
+      sumber: "aplikasi",
+    });
+
+    const status = await asPeminjam.query(api.lokasi.statusSaya, {});
+    expect(status.sumber).toBe("web");
+    expect(status.perangkatTerdaftar).toBe(false);
+    await expect(
+      asPeminjam.mutation(api.kredit.ajukanKreditBarang, PENGAJUAN),
+    ).rejects.toThrow("hanya bisa dari aplikasi PINDAI");
+  });
+
+  it("menolak bila perangkat tidak lagi mengirim heartbeat (lebih dari 24 jam)", async () => {
+    const t = convexTest(schema, modules);
+    await aktifkanKebijakan(t, "admin-app-4@pindai.test");
+    const asPeminjam = await siapkanPengguna(t, "peminjam-app-4", {
+      email: "app-4@pindai.test",
+      role: "peminjam",
+    });
+    const userId = await asPeminjam.query(async (ctx) => {
+      const users = await ctx.db.query("users").collect();
+      return users[0]._id;
+    });
+
+    const now = Date.now();
+    await t.mutation(async (ctx) => {
+      // Perangkat terdaftar lama & berhenti mengirim heartbeat > 24 jam.
+      await ctx.db.insert("perangkat", {
+        userId,
+        deviceId: "android-lama",
+        platform: "android",
+        versiApp: "1.0.0",
+        terdaftarPada: now - 40 * 60 * 60_000,
+        terakhirDilihat: now - 25 * 60 * 60_000,
+      });
+      // Titik terakhir tetap segar dan mengaku dari aplikasi.
+      await ctx.db.insert("lokasiStatus", {
+        userId,
+        lat: -6.2,
+        lng: 106.816666,
+        akurasi: 20,
+        waktu: now,
+        sumber: "aplikasi",
+      });
+    });
+
+    const status = await asPeminjam.query(api.lokasi.statusSaya, {});
+    expect(status.perangkatTerdaftar).toBe(false);
+    await expect(
+      asPeminjam.mutation(api.kredit.ajukanKreditBarang, PENGAJUAN),
+    ).rejects.toThrow("belum terdaftar");
   });
 });

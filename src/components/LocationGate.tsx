@@ -32,6 +32,12 @@ import {
  *    mengenalinya — tanpa pendaftaran itu, pengguna aplikasi justru akan
  *    diminta "memasang aplikasi".
  *
+ * Kebijakan "wajib aplikasi" (`wajibAplikasiNative`) diperiksa lebih dulu
+ * daripada gerbang lokasi, mengikuti aturan server: transaksi hanya dilayani
+ * bila titik lokasi TERAKHIR datang dari aplikasi. Karena itu nasabah yang
+ * membuka PINDAI di browser ditahan di sini, bukan dibiarkan menekan tombol
+ * lalu menerima error dari server.
+ *
  * Batas yang ditampilkan jujur ke pengguna: browser tidak bisa memaksa tombol
  * GPS menyala dan tidak bisa melacak saat tab ditutup. Itu keterbatasan
  * platform, bukan pengaturan PINDAI.
@@ -166,7 +172,15 @@ export function LocationGate({
     });
   }, [kirimTitik, mulaiWatchBrowser, perangkat.native]);
 
-  const gerbangAktif = aktif && didukung && status !== undefined && status.wajib !== false;
+  // Gerbang dianggap aktif bila salah satu kebijakan menyala. "Wajib aplikasi"
+  // ikut dihitung walau gerbang lokasi dimatikan admin: server tetap menuntut
+  // titik dari aplikasi, jadi pemantauan harus tetap berjalan agar transaksi
+  // pengguna aplikasi tidak ditolak tanpa sebab yang terlihat.
+  const gerbangAktif =
+    aktif &&
+    didukung &&
+    status !== undefined &&
+    (status.wajib !== false || status.wajibAplikasiNative);
 
   /** Tombol “Coba lagi” & saat kembali ke tab: reset lalu pantau ulang. */
   const cobaLagi = useCallback(() => {
@@ -261,13 +275,13 @@ export function LocationGate({
     );
   }
 
-  if (status.wajib === false) return <>{children}</>;
-
-  // Kebijakan "wajib aplikasi" (diaktifkan setelah aplikasi native dirilis).
-  if (status.wajibAplikasiNative && !status.perangkatTerdaftar) {
-    // Pengguna yang SUDAH memakai aplikasi native tidak boleh diminta memasang
-    // aplikasi — pendaftaran perangkatnya baru saja dikirim ke server.
-    if (perangkat.native) {
+  // Kebijakan "wajib aplikasi" diperiksa LEBIH DULU daripada gerbang lokasi:
+  // server menolak transaksi berdasarkan kebijakan ini walau gerbang lokasi
+  // dimatikan admin, sehingga UI tidak boleh membiarkan nasabah masuk ke
+  // dashboard yang transaksinya pasti gagal.
+  if (status.wajibAplikasiNative) {
+    // Sudah memakai aplikasi native, pendaftaran perangkat sedang diproses.
+    if (perangkat.native && !status.perangkatTerdaftar) {
       return (
         <LayarPenuh>
           <div className="flex flex-col items-center gap-3 text-center">
@@ -295,30 +309,69 @@ export function LocationGate({
         </LayarPenuh>
       );
     }
-    return (
-      <LayarPenuh>
-        <Kartu
-          ikon={<Smartphone className="size-5" />}
-          kode="Wajib aplikasi PINDAI"
-          judul="Pasang aplikasi untuk melanjutkan"
-          deskripsi="Transaksi PINDAI kini hanya dilayani dari aplikasi resmi, karena hanya aplikasi yang dapat memantau lokasi di latar belakang saat layar terkunci atau berpindah aplikasi."
-        >
-          <DaftarLangkah
-            langkah={[
-              "Pasang aplikasi PINDAI dari Play Store / App Store (tautan diberikan tim PINDAI).",
-              "Buka PINDAI dari aplikasi tersebut, lalu masuk dengan akun yang sama.",
-              "Saat diminta, izinkan lokasi dengan pilihan \"Selalu\" agar pemantauan berjalan di latar belakang.",
-            ]}
-          />
-          <p className="mt-4 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs leading-5 text-muted-foreground">
-            Situs web tidak dapat memantau lokasi setelah tab ditutup. Itu keterbatasan
-            browser, bukan pengaturan PINDAI.
-          </p>
-          <TombolKeluar onKeluar={() => void signOut()} />
-        </Kartu>
-      </LayarPenuh>
-    );
+
+    if (!perangkat.native) {
+      // Belum pernah memasang aplikasi → ajak memasang.
+      if (!status.perangkatTerdaftar) {
+        return (
+          <LayarPenuh>
+            <Kartu
+              ikon={<Smartphone className="size-5" />}
+              kode="Wajib aplikasi PINDAI"
+              judul="Pasang aplikasi untuk melanjutkan"
+              deskripsi="Transaksi PINDAI kini hanya dilayani dari aplikasi resmi, karena hanya aplikasi yang dapat memantau lokasi di latar belakang saat layar terkunci atau berpindah aplikasi."
+            >
+              <DaftarLangkah
+                langkah={[
+                  "Pasang aplikasi PINDAI dari Play Store / App Store (tautan diberikan tim PINDAI).",
+                  "Buka PINDAI dari aplikasi tersebut, lalu masuk dengan akun yang sama.",
+                  "Saat diminta, izinkan lokasi dengan pilihan \"Selalu\" agar pemantauan berjalan di latar belakang.",
+                ]}
+              />
+              <p className="mt-4 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs leading-5 text-muted-foreground">
+                Situs web tidak dapat memantau lokasi setelah tab ditutup. Itu keterbatasan
+                browser, bukan pengaturan PINDAI.
+              </p>
+              <TombolKeluar onKeluar={() => void signOut()} />
+            </Kartu>
+          </LayarPenuh>
+        );
+      }
+
+      // Perangkat sudah pernah terdaftar, tetapi titik lokasi terakhir datang
+      // dari browser. Server menolak transaksi dari sumber ini, jadi halaman
+      // ini menahan lebih awal alih-alih membiarkan nasabah menekan tombol dan
+      // menerima error.
+      if (status.sumber === "web") {
+        return (
+          <LayarPenuh>
+            <Kartu
+              ikon={<Smartphone className="size-5" />}
+              kode="Transaksi hanya dari aplikasi"
+              judul="Buka PINDAI dari aplikasi"
+              deskripsi="Perangkat ini sudah terdaftar di aplikasi PINDAI, tetapi aktivitas lokasi terakhir tercatat dari browser. PINDAI hanya melayani transaksi yang disertai pemantauan lokasi dari aplikasi resmi."
+            >
+              <DaftarLangkah
+                langkah={[
+                  "Buka aplikasi PINDAI di HP dengan akun yang sama.",
+                  "Tutup tab PINDAI di browser ini — tab yang masih terbuka terus mengirim titik lokasi dari browser dan menahan transaksi Anda.",
+                  "Setelah aplikasi mengirim titik lokasi (≤60 detik), halaman ini terbuka sendiri.",
+                ]}
+              />
+              <p className="mt-4 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs leading-5 text-muted-foreground">
+                Lokasi hanya dapat dipantau di latar belakang oleh aplikasi resmi, sehingga
+                transaksi harus berasal dari sana. Itu keterbatasan browser, bukan pengaturan
+                PINDAI.
+              </p>
+              <TombolKeluar onKeluar={() => void signOut()} />
+            </Kartu>
+          </LayarPenuh>
+        );
+      }
+    }
   }
+
+  if (status.wajib === false) return <>{children}</>;
 
   if (izin === "siap") {
     return (
