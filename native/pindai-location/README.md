@@ -131,6 +131,59 @@ Keamanan → Layanan Lokasi → PINDAI → **Selalu**. Plugin akan **reject** `m
 sampai izin itu ada, dan UI otomatis memakai jalur cadangan — jadi tidak ada
 status "lokasi aktif" yang menyesatkan.
 
+### Peluncuran ulang di latar belakang (wajib dipasang)
+
+iOS bisa **menghentikan** aplikasi, lalu **menjalankannya ulang di latar
+belakang** saat ada peristiwa lokasi — tetapi hanya bila izinnya "Selalu" dan
+hanya untuk *significant location change* / *visits* / *region monitoring*.
+Tanpa penanganan, aplikasi yang dijalankan ulang itu tidak punya konfigurasi
+apa pun (endpoint & token hanya ada di memori), sehingga titik lokasi berhenti
+terkirim tanpa pesan galat.
+
+Pasang di `AppDelegate.swift`:
+
+```swift
+import UIKit
+
+@main
+class AppDelegate: UIResponder, UIApplicationDelegate {
+    func application(
+        _ application: UIApplication,
+        didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
+    ) -> Bool {
+        // `launchOptions[.location] != nil` berarti sistem menjalankan aplikasi
+        // karena peristiwa lokasi — bukan karena pengguna membukanya.
+        PindaiLocationManager.shared.pulihkanSaatPeluncuran(
+            diluncurkanKarenaLokasi: launchOptions?[.location] != nil
+        )
+        return true
+    }
+}
+```
+
+Yang dilakukan `pulihkanSaatPeluncuran()`:
+
+- membaca ulang `endpoint`/`interval`/`jarak` dari `UserDefaults` dan **token
+dari Keychain** (`kSecAttrAccessibleAfterFirstUnlock`, karena peluncuran ulang
+sering terjadi saat layar terkunci — dengan `WhenUnlocked` default, token tidak
+bisa dibaca dan pemulihan ini gagal);
+- memasang ulang `startMonitoringSignificantLocationChanges()` — Apple
+mensyaratkan ini: *"Upon relaunch, you must still configure a location manager
+object and call this method to continue receiving location events."*
+- **tidak** memanggil `startUpdatingLocation()`. Permintaan pembaruan lokasi
+kontinu yang dimulai dari latar belakang **gagal** menurut dokumentasi Apple;
+pemantauan kontinu dipasang lagi oleh `mulai()` saat dashboard dibuka.
+
+Praktisnya: aplikasi yang dijalankan ulang di latar belakang tetap mengirim
+titik saat pengguna **bergerak**. Saat pengguna berhenti dan kemudian membuka
+aplikasi, `mulai()` memasang lagi pemantauan kontinu - dan kalau penggunanya
+tidak membuka aplikasi, ia juga tidak bertransaksi, jadi tidak ada celah yang
+terbuka.
+
+`hentikan()` menghapus konfigurasi tersimpan, sehingga layanan yang dihentikan
+(dari UI maupun saat keluar akun) **tidak** dihidupkan kembali oleh peluncuran
+ulang berikutnya.
+
 ---
 
 ## 5. Kontrak API
@@ -153,6 +206,11 @@ await PindaiLocation.hentikan();
 
 await PindaiLocation.status();
 // → { aktif: boolean, jumlahTerkirim: number, terakhirTerkirimMs?: number, galatTerakhir?: string }
+
+// Buka Setelan aplikasi — jalan keluar dari jebakan izin di iOS
+// (mis. pengguna memilih "Izinkan Sekali": permintaan "Selalu" berikutnya
+// diabaikan sistem, jadi "Coba lagi" tidak akan pernah berhasil).
+await PindaiLocation.bukaSetelan();
 ```
 
 `url` dan `token` adalah kredensial yang sama dengan yang dipakai
@@ -194,6 +252,23 @@ cd ios/App && xcodebuild -scheme App -configuration Debug
 - [ ] Izin "Selalu" diberikan → indikator lokasi biru muncul di status bar
 - [ ] Kunci layar 15 menit → titik tetap terkirim
 - [ ] Belum ada izin "Selalu" → `mulai()` reject dan aplikasi tetap terlacak lewat jalur cadangan
+- [ ] Tombol "Buka Setelan" muncul di layar blokir dan membuka Setelan PINDAI
+
+**Uji peluncuran ulang di latar belakang** (simulator, Xcode):
+
+1. Buka dashboard (layanan menyala, izin "Selalu").
+2. Simulator → Features → Location → **Freeway Drive**, lalu tekan tombol Home.
+3. Xcode → Debug → **Simulate Location** tidak cukup; gunakan
+   `xcrun simctl location <udid> start --speed=20 --interval=5` bila perlu, dan
+   pastikan `lokasiJejak` di Convex masih bertambah saat aplikasi di latar belakang.
+4. Terminate aplikasi (double-tap Home / swipe), lalu tetap bergerak.
+   Aplikasi harus **dijalankan ulang oleh sistem** (lihat AppDelegate dipanggil
+   di konsol) dan `lokasiJejak` bertambah lagi.
+5. Buka aplikasi → pemantauan kontinu kembali aktif tanpa langkah manual.
+
+Catatan: langkah 4 **tidak** berhasil bila aplikasi dihentikan dengan *force
+quit* dari app switcher — iOS sengaja tidak menjalankan ulang aplikasi dalam
+kondisi itu. Itu batas platform, bukan bug plugin.
 
 ---
 
@@ -203,11 +278,13 @@ cd ios/App && xcodebuild -scheme App -configuration Debug
    saat pengguna melakukan *force stop* pada aplikasi. Setelah itu titik terakhir
    kedaluwarsa dan transaksi ditolak server — perilaku yang memang diinginkan,
    tapi tim CS perlu tahu penyebabnya.
-2. **iOS: aplikasi bisa dijalankan ulang di latar belakang** oleh sistem saat ada
-   peristiwa lokasi (`UIApplicationLaunchOptionsLocationKey`). Pengelola saat ini
-   menyimpan state di memori, jadi pada peluncuran ulang itu pemantauan perlu
-   dipasang kembali (simpan `endpoint`/`token` di `UserDefaults` dan re-arm dari
-   `didFinishLaunchingWithOptions`). Belum dikerjakan.
+2. **iOS: peluncuran ulang di latar belakang sudah ditangani** — konfigurasi
+   disimpan (token di Keychain), `AppDelegate` memanggil
+   `pulihkanSaatPeluncuran()`, dan significant-change dipasang ulang. Yang tetap
+   di luar jangkauan: *force quit* oleh pengguna, dan kecepatan titik saat
+   pengguna diam — significant-change memang tidak melaporkan apa pun selama
+   perangkat tidak bergerak jauh. Itu perilaku sistem, bukan sesuatu yang bisa
+   dipaksakan plugin.
 3. **Deteksi lokasi palsu belum dikirim.** `Location.isFromMockProvider` (Android)
    dan `CLLocation.sourceInformation` (iOS) belum disertakan di body heartbeat;
    server juga belum menerima field tersebut.

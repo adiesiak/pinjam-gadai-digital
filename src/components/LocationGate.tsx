@@ -1,5 +1,13 @@
 import { useMutation, useQuery } from "convex/react";
-import { CheckCircle2, Loader2, MapPin, RefreshCw, ShieldAlert, Smartphone } from "lucide-react";
+import {
+  CheckCircle2,
+  Loader2,
+  MapPin,
+  RefreshCw,
+  Settings,
+  ShieldAlert,
+  Smartphone,
+} from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -7,6 +15,7 @@ import { api } from "@/convex/_generated/api";
 import { useAuth } from "@/hooks/use-auth";
 import { LOKASI_KEBIJAKAN, labelUmurLokasi } from "@/lib/lokasi";
 import {
+  bukaSetelanAplikasi,
   hentikanLayananLokasi,
   idPerangkat,
   kirimHeartbeatLatar,
@@ -311,6 +320,21 @@ export function LocationGate({
     if (layanan !== null) void hentikanLayananLokasi(layanan);
     void signOut();
   }, [signOut]);
+
+  /**
+   * Buka Setelan perangkat. Perlu tombol, bukan hanya instruksi tertulis:
+   * ada kondisi di mana menekan "Coba lagi" tidak akan pernah berhasil —
+   * di iOS, memilih "Izinkan Sekali" membuat permintaan izin "Selalu"
+   * berikutnya diabaikan sistem.
+   */
+  const bukaSetelan = useCallback(() => {
+    const layanan = pluginLayananLokasi();
+    if (layanan === null) return;
+    void bukaSetelanAplikasi(layanan);
+  }, []);
+
+  // Tombol Setelan hanya berguna bila plugin layanan PINDAI ikut dibangun.
+  const adaTombolSetelan = perangkat.native && pluginLayananLokasi() !== null;
 
   // Aplikasi native mendaftarkan perangkatnya agar kebijakan "wajib aplikasi"
   // mengenali perangkat ini.
@@ -617,6 +641,11 @@ export function LocationGate({
           <Button className="h-11" onClick={cobaLagi}>
             <RefreshCw className="mr-1.5 size-4" /> Coba lagi
           </Button>
+          {adaTombolSetelan && (
+            <Button variant="outline" className="h-11" onClick={bukaSetelan}>
+              <Settings className="mr-1.5 size-4" /> Buka Setelan
+            </Button>
+          )}
           <Button variant="outline" className="h-11" onClick={keluar}>
             Keluar dari akun
           </Button>

@@ -53,6 +53,7 @@ fungsinya no-op, jadi bundel web tidak berubah.
 | `kirimHeartbeatLatar(url, token, titik)` | Kirim titik lewat `CapacitorHttp` (tidak ter-throttle WebView), fallback `fetch`. |
 | `pluginLayananLokasi()` | Menemukan plugin PINDAI sendiri (`PindaiLocation`) di `Capacitor.Plugins`. |
 | `mulaiLayananLokasi()` / `hentikanLayananLokasi()` | Menyalakan/menghentikan *foreground service* yang mengirim titik tanpa WebView. |
+| `bukaSetelanAplikasi()` | Membuka Setelan aplikasi — jalan keluar dari jebakan izin (khususnya iOS "Izinkan Sekali"). |
 
 ### Klien — `src/components/LocationGate.tsx`
 Sudah native-aware:
@@ -128,6 +129,7 @@ Fase 2 bersama token perangkat.
 | Blokir transaksi saat lokasi mati | ✅ Sudah jalan | Server-side, tidak bisa dilewati dari HP pengguna. |
 | Lokasi jalan saat layar terkunci / app di latar belakang | ✅ Dengan app native | Butuh *foreground service* (Android) / Background Modes (iOS) + izin "Selalu". |
 | Lokasi jalan saat aplikasi **benar-benar ditutup paksa (force stop)** | ❌ | Android menghentikan foreground service saat app di-force stop. Titik terakhir tetap dipakai sampai kedaluwarsa, lalu transaksi diblokir. |
+| Lokasi jalan setelah iOS menghentikan aplikasi di latar belakang | ✅ dengan penanganan khusus | Hanya bila izin "Selalu" dan lewat *significant location change*; `AppDelegate` memulihkan konfigurasi saat sistem menjalankan ulang aplikasi. Rinciannya di `native/pindai-location/README.md`. |
 | Mencegah pengguna mematikan tombol GPS | ❌ | Hanya bisa lewat perangkat terkelola (Android device owner / MDM). Aplikasi biasa tidak punya wewenang itu — aturan OS dan toko aplikasi. |
 | Menyontek GPS (fake GPS) | ⚠️ Sebagian | Server sudah menolak lompatan mustahil. Untuk deteksi penuh, aktifkan `isFromMockProvider` di sisi native pada Fase 2. |
 
@@ -357,7 +359,9 @@ plugin lokasi tetap hidup.
    Yang belum: **kode itu belum pernah dikompilasi** — tidak ada Android SDK /
    Xcode di lingkungan tempat sumber ini ditulis. Perlu dijalankan
    `./gradlew assembleDebug` dan `xcodebuild` di mesin/CI yang punya keduanya,
-   lalu menelusuri daftar periksa di README tersebut.
+   lalu menelusuri daftar periksa di README tersebut — termasuk uji peluncuran
+   ulang aplikasi iOS di latar belakang, yang memerlukan kaitan `AppDelegate`
+   (snippet-nya ada di README).
    Selama plugin belum dibangun, aplikasi otomatis memakai jalur nomor 2 — tidak
    ada langkah UI yang perlu diubah.
 2. **Attestation aplikasi.** Verifikasi Play Integrity (Android) / App Attest

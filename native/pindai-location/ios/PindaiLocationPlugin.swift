@@ -1,5 +1,6 @@
 import Capacitor
 import Foundation
+import UIKit
 
 /// Plugin Capacitor PINDAI untuk iOS — jembatan tipis ke `PindaiLocationManager`.
 ///
@@ -19,6 +20,7 @@ public class PindaiLocationPlugin: CAPPlugin, CAPBridgedPlugin {
     CAPPluginMethod(name: "mulai", returnType: CAPPluginReturnPromise),
     CAPPluginMethod(name: "hentikan", returnType: CAPPluginReturnPromise),
     CAPPluginMethod(name: "status", returnType: CAPPluginReturnPromise),
+    CAPPluginMethod(name: "bukaSetelan", returnType: CAPPluginReturnPromise),
   ]
 
   @objc func mulai(_ call: CAPPluginCall) {
@@ -49,6 +51,24 @@ public class PindaiLocationPlugin: CAPPlugin, CAPBridgedPlugin {
 
   @objc func hentikan(_ call: CAPPluginCall) {
     PindaiLocationManager.shared.hentikan()
+    call.resolve()
+  }
+
+  /// Buka Setelan aplikasi ini.
+  ///
+  /// Dipakai UI untuk jalan keluar dari jebakan izin iOS: bila pengguna
+  /// memilih **"Izinkan Sekali"**, Core Location mengabaikan permintaan
+  /// "Selalu" berikutnya dan izinnya kembali menjadi *Not Determined* saat
+  /// aplikasi tidak lagi dipakai. Menekan "Coba lagi" tidak akan pernah
+  /// berhasil di kondisi itu — satu-satunya jalan adalah Setelan.
+  @objc func bukaSetelan(_ call: CAPPluginCall) {
+    guard let url = URL(string: UIApplication.openSettingsURLString) else {
+      call.reject("Tidak dapat membuka Setelan.")
+      return
+    }
+    DispatchQueue.main.async {
+      UIApplication.shared.open(url, options: [:], completionHandler: nil)
+    }
     call.resolve()
   }
 

@@ -495,6 +495,7 @@ export interface LayananLokasi {
   }) => Promise<{ aktif?: unknown }>;
   hentikan: () => Promise<unknown>;
   status?: () => Promise<{ aktif?: unknown; jumlahTerkirim?: unknown; galatTerakhir?: unknown }>;
+  bukaSetelan?: () => Promise<unknown>;
 }
 
 /** Plugin layanan lokasi PINDAI, bila ikut dibangun di aplikasi native. */
@@ -538,6 +539,24 @@ export async function hentikanLayananLokasi(plugin: LayananLokasi): Promise<void
     await plugin.hentikan();
   } catch {
     // Layanan mungkin sudah berhenti sendiri (izin dicabut / proses dihentikan).
+  }
+}
+
+/**
+ * Buka halaman Setelan aplikasi (Android/iOS).
+ *
+ * Dibutuhkan karena ada kondisi di mana mengulang dari aplikasi TIDAK akan
+ * pernah berhasil: di iOS, memilih "Izinkan Sekali" membuat Core Location
+ * mengabaikan permintaan "Selalu" berikutnya, dan izinnya kembali menjadi
+ * *Not Determined*. Satu-satunya jalan keluar adalah Setelan.
+ */
+export async function bukaSetelanAplikasi(plugin: LayananLokasi): Promise<boolean> {
+  if (typeof plugin.bukaSetelan !== "function") return false;
+  try {
+    await plugin.bukaSetelan();
+    return true;
+  } catch {
+    return false;
   }
 }
 

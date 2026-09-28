@@ -4,6 +4,7 @@
  * (objek mirip `window`), jadi tidak butuh aplikasi native sungguhan.
  */
 import {
+  bukaSetelanAplikasi,
   diAplikasiNative,
   idPerangkat,
   kirimHeartbeatLatar,
@@ -672,6 +673,41 @@ eq(
     melempar = true;
   }
   eq("galat hentikan ditelan", melempar, false);
+}
+
+// ===== Buka Setelan perangkat =====
+{
+  // Plugin versi lama / tanpa method ini → UI tidak menampilkan tombolnya.
+  const plugin = { mulai: async () => ({ aktif: true }), hentikan: async () => undefined };
+  eq("tanpa bukaSetelan → false", await bukaSetelanAplikasi(plugin), false);
+}
+{
+  let dibuka = 0;
+  const plugin = {
+    mulai: async () => ({ aktif: true }),
+    hentikan: async () => undefined,
+    bukaSetelan: async () => {
+      dibuka += 1;
+    },
+  };
+  eq("bukaSetelan dipanggil", await bukaSetelanAplikasi(plugin), true);
+  eq("jumlah panggilan", dibuka, 1);
+}
+{
+  const plugin = {
+    mulai: async () => ({ aktif: true }),
+    hentikan: async () => undefined,
+    bukaSetelan: async () => {
+      throw new Error("Setelan tidak bisa dibuka");
+    },
+  };
+  let melempar = false;
+  try {
+    eq("gagal buka Setelan → false", await bukaSetelanAplikasi(plugin), false);
+  } catch {
+    melempar = true;
+  }
+  eq("galat buka Setelan ditelan", melempar, false);
 }
 
 console.log(`native tests: ${passed} passed, ${failed} failed`);

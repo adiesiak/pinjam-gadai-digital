@@ -2,6 +2,8 @@ package id.pindai.location
 
 import android.Manifest
 import android.content.Intent
+import android.net.Uri
+import android.provider.Settings
 import com.getcapacitor.JSObject
 import com.getcapacitor.PermissionState
 import com.getcapacitor.Plugin
@@ -97,6 +99,28 @@ class PindaiLocationPlugin : Plugin() {
     }
     context.stopService(intent)
     call.resolve()
+  }
+
+  /**
+   * Buka halaman Setelan aplikasi ini.
+   *
+   * Beberapa vendor (Xiaomi/Oppo/Vivo) menyembunyikan izin "sepanjang waktu"
+   * dan pembatasan baterai beberapa lapis di dalam Setelan; mengarahkan
+   * pengguna langsung ke halaman aplikasi jauh lebih efektif daripada
+   * menjelaskannya lewat teks.
+   */
+  @PluginMethod
+  fun bukaSetelan(call: PluginCall) {
+    try {
+      val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+        data = Uri.fromParts("package", context.packageName, null)
+        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+      }
+      context.startActivity(intent)
+      call.resolve()
+    } catch (galat: Exception) {
+      call.reject(galat.message ?: "Tidak dapat membuka Setelan.")
+    }
   }
 
   @PluginMethod
