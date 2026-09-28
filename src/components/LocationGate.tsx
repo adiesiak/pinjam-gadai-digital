@@ -6,6 +6,14 @@ import { Button } from "@/components/ui/button";
 import { api } from "@/convex/_generated/api";
 import { useAuth } from "@/hooks/use-auth";
 import { LOKASI_KEBIJAKAN, labelUmurLokasi } from "@/lib/lokasi";
+import {
+  idPerangkat,
+  lingkunganNative,
+  mulaiPelacakanLatar,
+  pluginLokasiLatar,
+  versiAplikasi,
+  type PelacakanLatar,
+} from "@/lib/native";
 
 /**
  * Gerbang lokasi wajib Peminjam.
@@ -16,10 +24,17 @@ import { LOKASI_KEBIJAKAN, labelUmurLokasi } from "@/lib/lokasi";
  * bila titik terakhir kedaluwarsa. Jadi mematikan lokasi = tidak bisa
  * bertransaksi — bukan sekadar peringatan.
  *
- * Batas platform yang ditampilkan jujur ke pengguna: browser tidak bisa
- * memaksa tombol GPS menyala, dan tidak bisa melacak saat tab ditutup. Karena
- * itu ada mode "wajib aplikasi" (setelah aplikasi Android/iOS dirilis) yang
- * memanfaatkan layanan lokasi latar belakang milik aplikasi native.
+ * Dua jalur pemantauan:
+ *  - Browser (`navigator.geolocation`): hanya mengalir selagi tab terbuka.
+ *  - Aplikasi native (Capacitor, lihat `src/lib/native.ts`): memakai layanan
+ *    lokasi latar belakang sehingga titik tetap terkirim saat layar terkunci.
+ *    Perangkat juga mendaftarkan diri agar kebijakan `wajibAplikasiNative`
+ *    mengenalinya — tanpa pendaftaran itu, pengguna aplikasi justru akan
+ *    diminta "memasang aplikasi".
+ *
+ * Batas yang ditampilkan jujur ke pengguna: browser tidak bisa memaksa tombol
+ * GPS menyala dan tidak bisa melacak saat tab ditutup. Itu keterbatasan
+ * platform, bukan pengaturan PINDAI.
  */
 type StatusIzin = "memeriksa" | "siap" | "ditolak" | "mati";
 
@@ -32,51 +47,65 @@ export function LocationGate({
 }) {
   const status = useQuery(api.lokasi.statusSaya);
   const catat = useMutation(api.lokasi.catatLokasi);
+  const daftarkan = useMutation(api.lokasi.daftarkanPerangkat);
   const { signOut } = useAuth();
   const [izin, setIzin] = useState<StatusIzin>("memeriksa");
   const [pesan, setPesan] = useState<string | null>(null);
   const [akurasi, setAkurasi] = useState<number | null>(null);
   const watchRef = useRef<number | null>(null);
+  const pelacakanRef = useRef<PelacakanLatar | null>(null);
   const kirimTerakhirRef = useRef(0);
+  const versiRef = useRef<string | null>(null);
+  const sudahDaftarRef = useRef(false);
   const catatRef = useRef(catat);
+  const daftarkanRef = useRef(daftarkan);
   useEffect(() => {
     catatRef.current = catat;
-  }, [catat]);
+    daftarkanRef.current = daftarkan;
+  }, [catat, daftarkan]);
+
+  // Lingkungan native & identitas perangkat dihitung sekali saat mount. Di
+  // browser nilainya netral ("web"/null) sehingga perilaku web tidak berubah.
+  const [perangkat] = useState(() => {
+    const platform = lingkunganNative();
+    return { native: platform !== "web", platform, deviceId: idPerangkat() };
+  });
 
   // Browser tanpa layanan lokasi dideteksi saat render — bukan lewat efek,
   // sehingga efek di bawah murni memulai pemantauan tanpa setState.
   const didukung = typeof navigator !== "undefined" && Boolean(navigator.geolocation);
 
-  /** Mulai memantau posisi — state hanya ditulis dari callback GPS. */
-  const mulaiWatch = useCallback(() => {
+  /** Kirim satu titik ke server — dibatasi interval agar hemat kuota. */
+  const kirimTitik = useCallback(
+    (lat: number, lng: number, akurasiMeter: number) => {
+      const now = Date.now();
+      if (now - kirimTerakhirRef.current < LOKASI_KEBIJAKAN.intervalDetik * 1000) return;
+      kirimTerakhirRef.current = now;
+      void catatRef
+        .current({
+          lat,
+          lng,
+          akurasi: akurasiMeter,
+          sumber: perangkat.native ? "aplikasi" : "web",
+          platform: perangkat.platform,
+          versiApp: versiRef.current ?? undefined,
+          deviceId: perangkat.deviceId ?? undefined,
+        })
+        .catch((err: unknown) => {
+          setPesan(err instanceof Error ? err.message : "Gagal mengirim titik lokasi ke server.");
+        });
+    },
+    [perangkat],
+  );
+
+  /** Jalur browser — hanya mengalir selama tab terbuka. */
+  const mulaiWatchBrowser = useCallback(() => {
     if (typeof navigator === "undefined" || !navigator.geolocation) return;
-    if (watchRef.current !== null) {
-      navigator.geolocation.clearWatch(watchRef.current);
-      watchRef.current = null;
-    }
     watchRef.current = navigator.geolocation.watchPosition(
       (pos) => {
         setIzin("siap");
         setAkurasi(pos.coords.accuracy);
-        const now = Date.now();
-        // Kirim ke server maksimal sekali per interval — hemat kuota.
-        if (now - kirimTerakhirRef.current < LOKASI_KEBIJAKAN.intervalDetik * 1000) {
-          return;
-        }
-        kirimTerakhirRef.current = now;
-        void catatRef
-          .current({
-            lat: pos.coords.latitude,
-            lng: pos.coords.longitude,
-            akurasi: pos.coords.accuracy,
-            sumber: "web",
-            platform: navigator.userAgent.slice(0, 120),
-          })
-          .catch((err: unknown) => {
-            setPesan(
-              err instanceof Error ? err.message : "Gagal mengirim titik lokasi ke server.",
-            );
-          });
+        kirimTitik(pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy);
       },
       (err) => {
         // 1 = izin ditolak/blokir, 2 = posisi tidak tersedia (GPS mati), 3 = timeout.
@@ -84,7 +113,44 @@ export function LocationGate({
       },
       { enableHighAccuracy: true, maximumAge: 15_000, timeout: 30_000 },
     );
-  }, []);
+  }, [kirimTitik]);
+
+  /**
+   * Mulai memantau posisi: pakai layanan latar belakang aplikasi native bila
+   * tersedia, kalau tidak jatuh ke `navigator.geolocation`. State hanya ditulis
+   * dari callback GPS, bukan dari badan efek.
+   */
+  const mulaiWatch = useCallback(() => {
+    if (watchRef.current !== null && typeof navigator !== "undefined" && navigator.geolocation) {
+      navigator.geolocation.clearWatch(watchRef.current);
+      watchRef.current = null;
+    }
+    if (pelacakanRef.current !== null) {
+      const lama = pelacakanRef.current;
+      pelacakanRef.current = null;
+      void lama.hentikan().catch(() => undefined);
+    }
+    if (!perangkat.native || pluginLokasiLatar() === null) {
+      mulaiWatchBrowser();
+      return;
+    }
+    void mulaiPelacakanLatar(
+      (titik) => {
+        setIzin("siap");
+        setAkurasi(titik.akurasi);
+        kirimTitik(titik.lat, titik.lng, titik.akurasi);
+      },
+      () => setIzin("mati"),
+    ).then((pelacakan) => {
+      if (pelacakan === null) {
+        // Plugin ada tetapi gagal start — jangan biarkan pengguna tanpa
+        // pemantauan sama sekali; jalur browser tetap lebih baik daripada nol.
+        mulaiWatchBrowser();
+        return;
+      }
+      pelacakanRef.current = pelacakan;
+    });
+  }, [kirimTitik, mulaiWatchBrowser, perangkat.native]);
 
   const gerbangAktif = aktif && didukung && status !== undefined && status.wajib !== false;
 
@@ -95,6 +161,30 @@ export function LocationGate({
     mulaiWatch();
   }, [mulaiWatch]);
 
+  // Aplikasi native mendaftarkan perangkatnya sekali agar kebijakan "wajib
+  // aplikasi" mengenali perangkat ini sebelum kebijakan itu dinyalakan.
+  useEffect(() => {
+    if (!gerbangAktif || !perangkat.native) return;
+    const deviceId = perangkat.deviceId;
+    if (deviceId === null || sudahDaftarRef.current) return;
+    sudahDaftarRef.current = true;
+    void (async () => {
+      versiRef.current = await versiAplikasi();
+      try {
+        await daftarkanRef.current({
+          deviceId,
+          platform: perangkat.platform,
+          versiApp: versiRef.current ?? "tidak diketahui",
+        });
+      } catch (err) {
+        sudahDaftarRef.current = false; // biarkan dicoba lagi pada render berikutnya
+        setPesan(
+          err instanceof Error ? err.message : "Gagal mendaftarkan perangkat aplikasi.",
+        );
+      }
+    })();
+  }, [gerbangAktif, perangkat]);
+
   useEffect(() => {
     if (!gerbangAktif) return;
     // Memulai pemantauan tanpa setState langsung di badan effect.
@@ -103,6 +193,11 @@ export function LocationGate({
       if (watchRef.current !== null && typeof navigator !== "undefined" && navigator.geolocation) {
         navigator.geolocation.clearWatch(watchRef.current);
         watchRef.current = null;
+      }
+      if (pelacakanRef.current !== null) {
+        const lama = pelacakanRef.current;
+        pelacakanRef.current = null;
+        void lama.hentikan().catch(() => undefined);
       }
     };
   }, [gerbangAktif, mulaiWatch]);
@@ -136,8 +231,27 @@ export function LocationGate({
 
   if (status.wajib === false) return <>{children}</>;
 
-  // Kebijakan "wajib aplikasi" (aktif setelah aplikasi native dirilis).
+  // Kebijakan "wajib aplikasi" (diaktifkan setelah aplikasi native dirilis).
   if (status.wajibAplikasiNative && !status.perangkatTerdaftar) {
+    // Pengguna yang SUDAH memakai aplikasi native tidak boleh diminta memasang
+    // aplikasi — pendaftaran perangkatnya baru saja dikirim ke server.
+    if (perangkat.native) {
+      return (
+        <LayarPenuh>
+          <div className="flex flex-col items-center gap-3 text-center">
+            <Loader2 className="size-5 animate-spin text-muted-foreground" />
+            <p className="text-xs text-muted-foreground">
+              Mendaftarkan perangkat aplikasi PINDAI…
+            </p>
+            {pesan && (
+              <p className="max-w-xs rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive">
+                {pesan}
+              </p>
+            )}
+          </div>
+        </LayarPenuh>
+      );
+    }
     return (
       <LayarPenuh>
         <Kartu
@@ -167,7 +281,12 @@ export function LocationGate({
     return (
       <>
         {children}
-        <PilLokasi akurasi={akurasi} segar={status.segar} umurMenit={status.umurMenit} />
+        <PilLokasi
+          akurasi={akurasi}
+          segar={status.segar}
+          umurMenit={status.umurMenit}
+          latarBelakang={perangkat.native}
+        />
       </>
     );
   }
@@ -178,7 +297,9 @@ export function LocationGate({
       : izin === "memeriksa"
         ? "Menunggu izin & sinyal GPS dari perangkat…"
         : izin === "ditolak"
-          ? "Izin lokasi untuk situs ini diblokir/ditolak."
+          ? perangkat.native
+            ? "Izin lokasi aplikasi PINDAI ditolak/blokir."
+            : "Izin lokasi untuk situs ini diblokir/ditolak."
           : "GPS perangkat tampak tidak aktif atau sinyal tidak ditemukan.";
 
   return (
@@ -201,13 +322,24 @@ export function LocationGate({
           )}
         </p>
         <DaftarLangkah
-          langkah={[
-            "Android: Setelan → Lokasi → Aktifkan, lalu izinkan lokasi untuk browser ini.",
-            "iPhone: Setelan → Privasi & Keamanan → Layanan Lokasi → (Safari/Chrome) → Saat Menggunakan App.",
-            "Ketuk “Coba lagi”, lalu biarkan halaman ini terbuka saat bertransaksi.",
-          ]}
+          langkah={
+            perangkat.native
+              ? [
+                  "Buka Setelan HP → Lokasi → Aktifkan.",
+                  "Setelan → Aplikasi → PINDAI → Izin → Lokasi → pilih “Izinkan sepanjang waktu”.",
+                  "Kembali ke aplikasi, lalu ketuk “Coba lagi”.",
+                ]
+              : [
+                  "Android: Setelan → Lokasi → Aktifkan, lalu izinkan lokasi untuk browser ini.",
+                  "iPhone: Setelan → Privasi & Keamanan → Layanan Lokasi → (Safari/Chrome) → Saat Menggunakan App.",
+                  "Ketuk “Coba lagi”, lalu biarkan halaman ini terbuka saat bertransaksi.",
+                ]
+          }
         />
         <p className="mt-4 text-xs leading-5 text-muted-foreground">
+          {perangkat.native
+            ? "Setelah izin “sepanjang waktu” diberikan, lokasi tetap terkirim walau layar terkunci atau Anda berpindah aplikasi."
+            : "Di browser, lokasi hanya terkirim selama halaman ini terbuka. Pasang aplikasi PINDAI untuk pemantauan latar belakang."}{" "}
           Dengan mengaktifkan lokasi, Anda menyetujui pemantauan posisi selama pinjaman
           aktif — hanya untuk verifikasi data dan penagihan, tidak dibagikan ke pihak lain.
         </p>
@@ -238,10 +370,12 @@ function PilLokasi({
   akurasi,
   segar,
   umurMenit,
+  latarBelakang,
 }: {
   akurasi: number | null;
   segar: boolean;
   umurMenit: number | null;
+  latarBelakang: boolean;
 }) {
   return (
     <div className="pointer-events-none fixed bottom-4 right-4 z-50 flex items-center gap-2 rounded-full border border-slate-200 bg-white/95 px-3 py-1.5 text-[11px] shadow-sm backdrop-blur">
@@ -252,7 +386,9 @@ function PilLokasi({
       )}
       <span className={segar ? "text-emerald-700" : "text-amber-700"}>
         {segar
-          ? "Lokasi aktif"
+          ? latarBelakang
+            ? "Lokasi aktif (latar belakang)"
+            : "Lokasi aktif"
           : umurMenit === null
             ? "Mengirim lokasi…"
             : `Titik terakhir ${labelUmurLokasi(umurMenit)}`}
