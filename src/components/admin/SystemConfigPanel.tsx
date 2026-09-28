@@ -111,10 +111,10 @@ export function SystemConfigPanel() {
             className="tabular-nums"
           />
           <p className="mt-1 text-xs leading-5 text-muted-foreground">
-            Batas pokok pinjaman untuk SEMUA Peminjam (pinjaman tunai &amp; pokok
-            dibiayai kredit barang) — rentang {formatRupiah(PLAFON_BATAS.min)}–
-            {formatRupiah(PLAFON_BATAS.maks)}. Untuk menaikkan/turunkan batas
-            satu nasabah saja, gunakan panel Plafon Nasabah.
+            Plafon awal pinjaman tunai sebelum nasabah melunasi pinjaman tunai pokok minimal Rp1 juta.
+            Setelah lunas penuh, plafon dasar otomatis menjadi Rp10 juta kecuali ada override admin
+            per nasabah. Rentang {formatRupiah(PLAFON_BATAS.min)}–{formatRupiah(PLAFON_BATAS.maks)}.
+            Batas kredit barang terpisah: pokok maksimal Rp10 juta dan tenor pengajuan maksimal 6 bulan.
           </p>
         </div>
         <div>

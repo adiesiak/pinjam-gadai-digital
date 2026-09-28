@@ -34,9 +34,9 @@ export type SystemConfig = {
    */
   retensiLokasiHari: number;
   /**
-   * Plafon pinjaman DEFAULT semua Peminjam (rupiah bulat) — batas pokok
-   * pinjaman tunai & pokok dibiayai kredit barang. Nasabah tertentu bisa
-   * dinaikkan/diturunkan per orang lewat `users.plafonPinjaman` (admin).
+   * Plafon awal pinjaman tunai semua Peminjam (rupiah bulat) — nasabah yang
+   * melunasi pokok tunai minimal Rp1 juta naik otomatis ke Rp10 juta. Kredit
+   * barang memiliki batas pokok terpisah. Admin dapat mengatur override.
    */
   plafonPinjaman: number;
 };

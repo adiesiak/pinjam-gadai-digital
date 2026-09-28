@@ -33,7 +33,9 @@ import { persenBungaPerBulan } from "@/lib/bulanan";
 import {
   KATALOG_CONTOH,
   KREDIT_ASUMSI_AWAL,
+  KREDIT_BARANG_POKOK_MAKS,
   KREDIT_PRICING,
+  KREDIT_TENOR_PENGAJUAN_OPTIONS,
   quoteKreditBarang,
   skemaBulananKredit,
   type KreditBarangQuote,
@@ -151,11 +153,11 @@ function KalkulatorKreditSection() {
       const nilai = parseRupiah(hargaInput);
       if (
         nilai < KREDIT_PRICING.minHargaBarang ||
-        nilai > KREDIT_PRICING.maxHargaBarang
+        nilai > KREDIT_BARANG_POKOK_MAKS
       ) {
         return {
           harga: null,
-          hargaError: `Harga barang harus antara ${formatRupiah(KREDIT_PRICING.minHargaBarang)} dan ${formatRupiah(KREDIT_PRICING.maxHargaBarang)}.`,
+          hargaError: `Harga barang untuk pengajuan baru harus antara ${formatRupiah(KREDIT_PRICING.minHargaBarang)} dan ${formatRupiah(KREDIT_BARANG_POKOK_MAKS)}.`,
         };
       }
       return { harga: nilai, hargaError: null };
@@ -197,9 +199,9 @@ function KalkulatorKreditSection() {
           Kalkulator Imbal Hasil Kredit Barang
         </h2>
         <p className="max-w-2xl text-sm leading-6 text-muted-foreground">
-          Simulasi barang dari merchant mitra — marketplace maupun toko elektronik. Konsumen
-          membayar uang muka lalu mencicil sisa harga; Pendana menerima Imbal Hasil flat per bulan
-          selama tenor, proporsional dengan Alokasi Dana.
+          Simulasi barang dari merchant mitra. Pengajuan baru memiliki pokok maksimal{" "}
+          {formatRupiah(KREDIT_BARANG_POKOK_MAKS)} dan tenor 1, 3, atau 6 bulan; kontrak lama
+          tetap ditampilkan sesuai ketentuan saat diterbitkan.
         </p>
       </header>
 
@@ -240,7 +242,7 @@ function KalkulatorKreditSection() {
               Pilih dari contoh barang
             </p>
             <div className="mt-2 flex flex-wrap gap-1.5">
-              {KATALOG_CONTOH.map((item) => {
+              {KATALOG_CONTOH.filter((item) => item.harga <= KREDIT_BARANG_POKOK_MAKS).map((item) => {
                 const aktif = namaTerpilih === item.nama;
                 return (
                   <button
@@ -300,8 +302,8 @@ function KalkulatorKreditSection() {
             <Label className="text-xs text-muted-foreground">Tenor cicilan</Label>
             <span className="text-xs font-semibold tabular-nums">{tenorBulan} bulan</span>
           </div>
-          <div className="mt-2 grid grid-cols-3 gap-1.5 sm:grid-cols-5">
-            {KREDIT_PRICING.tenorBulanOptions.map((bulan) => {
+          <div className="mt-2 grid grid-cols-3 gap-1.5">
+            {KREDIT_TENOR_PENGAJUAN_OPTIONS.map((bulan) => {
               const aktif = bulan === tenorBulan;
               return (
                 <button
@@ -388,7 +390,7 @@ function KalkulatorKreditSection() {
               <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-muted-foreground">
                 Harga barang yang bisa didanai adalah{" "}
                 {formatRupiah(KREDIT_PRICING.minHargaBarang)} sampai{" "}
-                {formatRupiah(KREDIT_PRICING.maxHargaBarang)}.
+                {formatRupiah(KREDIT_BARANG_POKOK_MAKS)}.
               </p>
             </div>
           ) : (
@@ -414,7 +416,7 @@ function KalkulatorKreditSection() {
                   <Baris
                     label="Pokok dibiayai"
                     value={formatRupiah(quote.pokokDibiayai)}
-                    hint="Sisa harga setelah DP — bagian yang didanai Pendana"
+                    hint={`Batas pokok pengajuan baru ${formatRupiah(KREDIT_BARANG_POKOK_MAKS)}`}
                   />
                   <Baris
                     label={`Biaya layanan (${persenId(KREDIT_PRICING.biayaLayananPersen)}%)`}

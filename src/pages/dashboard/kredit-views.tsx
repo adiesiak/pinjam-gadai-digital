@@ -17,14 +17,15 @@ import {
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Slider } from "@/components/ui/slider";
-import { hargaBarangMaksDariPlafon } from "@/lib/plafon";
 import { Textarea } from "@/components/ui/textarea";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { persenBungaPerBulan } from "@/lib/bulanan";
 import {
   KREDIT_ASUMSI_AWAL,
+  KREDIT_BARANG_POKOK_MAKS,
   KREDIT_PRICING,
+  KREDIT_TENOR_PENGAJUAN_OPTIONS,
   quoteKreditBarang,
   skemaBulananKredit,
 } from "@/lib/kredit";
@@ -119,13 +120,9 @@ export function KreditBarangForm({ onCreated }: { onCreated: (ref: string) => vo
   const [error, setError] = useState<string | null>(null);
 
   const ajukan = useMutation(api.kredit.ajukanKreditBarang);
-  // Plafon nasabah memotong POKOK DIBIAYAI (bukan harga barang) — dihitung
-  // dari plafon dengan asumsi DP minimum 10% (lib/plafon.hargaBarangMaksDariPlafon).
-  const plafonQuery = useQuery(api.lokasi.plafonSaya, {});
-  const hargaMaksPlafon =
-    plafonQuery !== undefined && plafonQuery !== null
-      ? hargaBarangMaksDariPlafon(plafonQuery)
-      : KREDIT_PRICING.maxHargaBarang;
+  // Batas kredit barang terpisah dari plafon pinjaman tunai: tenor baru
+  // 1/3/6 bulan memakai DP 0%, sehingga harga = pokok dibiayai.
+  const hargaMaksPlafon = KREDIT_BARANG_POKOK_MAKS;
 
   // Tenor 1/3/6 bulan memakai skema bulanan (DP 0%, bunga menurun) — slider DP
   // dan margin tidak berpengaruh, jadi diganti keterangan otomatis engine.
@@ -166,15 +163,9 @@ export function KreditBarangForm({ onCreated }: { onCreated: (ref: string) => vo
     let harga: number;
     try {
       harga = parseRupiah(hargaInput);
-      if (harga < KREDIT_PRICING.minHargaBarang || harga > KREDIT_PRICING.maxHargaBarang) {
+      if (harga < KREDIT_PRICING.minHargaBarang || harga > hargaMaksPlafon) {
         setError(
-          `Harga barang harus antara ${formatRupiah(KREDIT_PRICING.minHargaBarang)} dan ${formatRupiah(KREDIT_PRICING.maxHargaBarang)}.`,
-        );
-        return;
-      }
-      if (harga > hargaMaksPlafon) {
-        setError(
-          `Batas pinjaman Anda saat ini ${formatRupiah(plafonQuery ?? 0)} — kurangi harga barang/naikkan DP, atau hubungi tim PINDAI bila butuh penyesuaian plafon.`,
+          `Harga/pokok kredit barang harus antara ${formatRupiah(KREDIT_PRICING.minHargaBarang)} dan ${formatRupiah(hargaMaksPlafon)}.`,
         );
         return;
       }
@@ -305,10 +296,7 @@ export function KreditBarangForm({ onCreated }: { onCreated: (ref: string) => vo
           <p className="text-xs leading-5 text-muted-foreground">
             Rentang {formatRupiah(KREDIT_PRICING.minHargaBarang)}–
             {formatRupiah(hargaMaksPlafon)}
-            {hargaMaksPlafon < KREDIT_PRICING.maxHargaBarang
-              ? " (mengikuti plafon pinjaman Anda)"
-              : ""}
-            .
+            . Batas ini terpisah dari plafon pinjaman tunai.
           </p>
         </div>
       </div>
@@ -345,8 +333,8 @@ export function KreditBarangForm({ onCreated }: { onCreated: (ref: string) => vo
           <Label className="text-xs text-muted-foreground">Tenor cicilan</Label>
           <span className="text-xs font-semibold tabular-nums">{tenorBulan} bulan</span>
         </div>
-        <div className="mt-2 grid grid-cols-3 gap-1.5 sm:grid-cols-5">
-          {KREDIT_PRICING.tenorBulanOptions.map((bulan) => {
+        <div className="mt-2 grid grid-cols-3 gap-1.5">
+          {KREDIT_TENOR_PENGAJUAN_OPTIONS.map((bulan) => {
             const aktif = bulan === tenorBulan;
             return (
               <button
@@ -534,8 +522,9 @@ export function KreditBarangForm({ onCreated }: { onCreated: (ref: string) => vo
         )}
       </Button>
       <p className="text-center text-xs leading-5 text-muted-foreground">
-        Tim PINDAI memverifikasi barang &amp; harga di merchant mitra sebelum pengajuan disetujui.
-        Cicilan mengikuti skema yang dihitung mesin PINDAI (integer rupiah, HALF-UP).
+        Plafon pokok kredit barang maksimal {formatRupiah(KREDIT_BARANG_POKOK_MAKS)} dengan
+        tenor pengajuan 1, 3, atau maksimal 6 bulan. Aturan ini terpisah dari plafon pinjaman tunai.
+        Tim PINDAI memverifikasi barang &amp; harga di merchant sebelum pengajuan disetujui.
       </p>
     </form>
   );

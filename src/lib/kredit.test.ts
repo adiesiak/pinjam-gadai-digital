@@ -7,7 +7,10 @@ import {
   hakImbalHasilPerAlokasi,
   KATALOG_CONTOH,
   KREDIT_ASUMSI_AWAL,
+  KREDIT_BARANG_POKOK_MAKS,
   KREDIT_PRICING,
+  KREDIT_TENOR_PENGAJUAN_OPTIONS,
+  pokokKreditBarangDalamBatas,
   quoteKreditBarang,
 } from "./kredit";
 
@@ -330,6 +333,13 @@ throws(
   "hak Imbal Hasil saat pendanaan belum penuh ditolak",
 );
 
+// ---- Batas pengajuan baru terpisah dari dukungan quote kontrak lama ----
+eq(KREDIT_BARANG_POKOK_MAKS, 10_000_000, "batas pokok kredit barang Rp10 juta");
+eq(KREDIT_TENOR_PENGAJUAN_OPTIONS.join(","), "1,3,6", "tenor pengajuan baru 1/3/6 bulan");
+eq(pokokKreditBarangDalamBatas(10_000_000), true, "pokok tepat Rp10 juta diterima");
+eq(pokokKreditBarangDalamBatas(10_000_001), false, "pokok di atas Rp10 juta ditolak");
+eq(pokokKreditBarangDalamBatas(1.5), false, "pokok pecahan rupiah ditolak");
+
 // ---- Katalog contoh harus dapat dihitung dengan asumsi awal ----
 for (const barang of KATALOG_CONTOH) {
   const contoh = quoteKreditBarang({
@@ -339,7 +349,7 @@ for (const barang of KATALOG_CONTOH) {
     marginPersenPerBulan: KREDIT_ASUMSI_AWAL.marginPersenPerBulan,
   });
   eq(contoh.imbalHasil > 0, true, `contoh ${barang.nama}: Imbal Hasil > 0`);
-  eq(contoh.jadwal.length, KREDIT_ASUMSI_AWAL.tenorBulan, `contoh ${barang.nama}: 12 baris jadwal`);
+  eq(contoh.jadwal.length, KREDIT_ASUMSI_AWAL.tenorBulan, `contoh ${barang.nama}: jadwal tenor awal`);
 }
 
 console.log(`kredit tests: ${passed} passed, ${failed} failed`);

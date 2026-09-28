@@ -1,28 +1,15 @@
 /**
- * Test integrasi Convex — Plafon pinjaman per nasabah (convex-test + vitest).
+ * Tes kebijakan plafon tunai dan batas kredit barang (convex-test + vitest).
  *
- * Membuktikan janji ke user: batas kredit tidak lagi ratusan juta. Default
- * platform Rp 1 juta, dan angka yang boleh disimpan admin maksimal Rp 10 juta
- * — ditegakkan di SERVER, bukan sekadar slider di UI. Admin juga bisa
- * menaikkan/menurunkan plafon per orang.
+ * Tunai mulai dari Rp1 juta; setelah pelunasan penuh pinjaman tunai pokok
+ * minimal Rp1 juta, plafon otomatis menjadi Rp10 juta. Override admin tetap
+ * didahulukan. Kredit barang memiliki batas pokok Rp10 juta sendiri dan tenor
+ * pengajuan 1/3/6 bulan, tanpa mewarisi plafon tunai.
  *
- * Cakupan:
- *  1. Default global 1 juta; pinjaman tunai & kredit barang di atasnya ditolak
- *     dengan pesan yang menyebut plafon nasabah.
- *  2. Admin menaikkan plafon → pengajuan yang sama langsung dilayani.
- *  3. Nilai di luar rentang di-clamp (bukan ditolak) ke 100 ribu / 10 juta.
- *  4. `plafon: null` mengembalikan nasabah ke default global.
- *  5. Non-admin tidak boleh mengubah plafon siapa pun.
- *  6. Kredit barang mengukur POKOK DIBIAYAI, bukan harga barang.
- *  7. Default global di Pengaturan Sistem juga di-clamp, dan setiap
- *     perubahan tercatat di audit trail.
+ * Tes repayment menanam pinjaman didanai langsung ke DB agar tidak bergantung
+ * pada storageGetMetadata yang belum didukung convexTest untuk pengajuan KYC.
  *
- * Pinjaman tunai yang LOLOS butuh dokumen KYC di storage, sedangkan
- * `convexTest` belum mendukung syscall `storageGetMetadata` — jadi jalur sukses
- * dibuktikan lewat kredit barang (tanpa storage), sedangkan jalur penolakan
- * diuji memakai storage id KYC asli dari `t.run` (argumen wajibnya tetap sah).
- *
- * Menjalankan: bunx vitest run src/convex
+ * Menjalankan: bunx vitest run src/convex/plafon.convex.test.ts
  */
 import { convexTest } from "convex-test";
 import { describe, expect, it } from "vitest";
@@ -67,16 +54,16 @@ async function unggahKyc(t: Tx) {
     selfie: await ctx.storage.store(new Blob(["selfie"])),
     slip: await ctx.storage.store(new Blob(["slip gaji"])),
   }));
-}
-
-/**
- * Pengajuan kredit barang. Pokok dibiayai = harga × (1 − DP/100), jadi harga
- * 9 juta DP 10% → pokok 8,1 juta; harga 12 juta DP 20% → pokok 9,6 juta.
+}/**
+ * Pengajuan kredit barang; DP 0% pada tenor 1/3/6 berarti harga = pokok
+ * dibiayai. Tenor lama tetap dapat dibaca engine, tetapi tidak boleh diterbitkan.
  */
+
 async function ajukanKredit(
   sesi: Sesi,
   hargaBarang: number,
   dpPersen: number,
+  tenorBulan = 6,
 ) {
   return sesi.mutation(api.kredit.ajukanKreditBarang, {
     namaBarang: "Kulkas dua pintu",
@@ -84,7 +71,7 @@ async function ajukanKredit(
     merchant: "Tokopedia",
     hargaBarang,
     dpPersen,
-    tenorBulan: 12,
+    tenorBulan,
     marginPersenPerBulan: 3,
     namaLengkap: "Rani Peminjam",
     nik: "3201234567890003",
@@ -117,8 +104,53 @@ async function ajukanTunai(
   });
 }
 
+/** Seed pinjaman tunai didanai dan posisi Pendana untuk mengetes pelunasan. */
+async function siapkanPinjamanTunaiDidanai(
+  t: Tx,
+  userId: Id<"users">,
+  pokokPinjaman: number,
+): Promise<Id<"loans">> {
+  return t.run(async (ctx) => {
+    const now = Date.now();
+    const pendanaId = await ctx.db.insert("users", {
+      email: `pendana-${pokokPinjaman}@pindai.test`,
+      name: "Pendana seed",
+      emailVerificationTime: now,
+      role: "pendana",
+    });
+    await ctx.db.insert("lokasiStatus", {
+      userId,
+      lat: TITIK.lat,
+      lng: TITIK.lng,
+      akurasi: TITIK.akurasi,
+      waktu: now,
+      sumber: "web",
+    });
+    const loanId = await ctx.db.insert("loans", {
+      userId,
+      pokokPinjaman,
+      tujuan: "Modal usaha kecil",
+      namaLengkap: "Rani Peminjam",
+      nomorRekening: "1234567890",
+      status: "didanai",
+      nomorReferensi: `PGD-SEED-${pokokPinjaman}`,
+      tenorHari: 30,
+      didanaiPada: now,
+    });
+    await ctx.db.insert("fundings", {
+      loanId,
+      pendanaId,
+      jumlahAlokasi: pokokPinjaman,
+      imbalHasil: Math.round(pokokPinjaman * 0.3),
+      status: "dialokasikan",
+      nomorReferensi: `FND-SEED-${pokokPinjaman}`,
+    });
+    return loanId;
+  });
+}
+
 describe("plafon pinjaman per nasabah", () => {
-  it("default global Rp 1 juta dan pengajuan di atasnya ditolak server", async () => {
+  it("default tunai Rp1 juta; kredit barang memakai batas terpisah Rp10 juta", async () => {
     const t = convexTest(schema, modules);
     const { sesi: peminjam } = await siapkanPengguna(t, "rani", {
       email: "rani@pindai.test",
@@ -130,15 +162,80 @@ describe("plafon pinjaman per nasabah", () => {
     expect(PLAFON_DEFAULT).toBe(1_000_000);
     expect(await peminjam.query(api.lokasi.plafonSaya, {})).toBe(PLAFON_DEFAULT);
 
-    // Pinjaman tunai 5 juta: ditolak karena plafon Default, dengan pesan
-    // yang menyebut angka plafon (bukan batas mesin).
+    // Tunai di atas plafon awal tetap ditolak di server.
     await expect(ajukanTunai(peminjam, kyc, 5_000_000)).rejects.toThrow(
       /Batas pinjaman Anda saat ini Rp 1\.000\.000/,
     );
-    // Kredit barang: pokok dibiayai 8,1 juta (harga 9 juta, DP 10%).
-    await expect(ajukanKredit(peminjam, 9_000_000, 10)).rejects.toThrow(
-      /Batas pinjaman Anda saat ini Rp 1\.000\.000/,
+    // Kredit barang tidak mewarisi plafon tunai: pokok Rp10 juta lolos.
+    await expect(ajukanKredit(peminjam, 10_000_000, 0)).resolves.toBeDefined();
+    await expect(ajukanKredit(peminjam, 10_000_001, 0)).rejects.toThrow(
+      /Pokok dibiayai kredit barang maksimal Rp 10\.000\.000/,
     );
+    await expect(ajukanKredit(peminjam, 2_000_000, 0, 7)).rejects.toThrow(
+      /Tenor kredit barang baru harus 1 \/ 3 \/ 6 bulan/,
+    );
+    await expect(ajukanKredit(peminjam, 2_000_000, 0, 12)).rejects.toThrow(
+      /Tenor kredit barang baru harus 1 \/ 3 \/ 6 bulan/,
+    );
+  });
+
+  it("menaikkan plafon otomatis setelah pinjaman tunai Rp1 juta lunas penuh", async () => {
+    const t = convexTest(schema, modules);
+    const { sesi: peminjam, userId } = await siapkanPengguna(t, "lina", {
+      email: "lina@pindai.test",
+      role: "peminjam",
+    });
+    const loanId = await siapkanPinjamanTunaiDidanai(t, userId, 1_000_000);
+
+    expect(await peminjam.query(api.lokasi.plafonSaya, {})).toBe(PLAFON_DEFAULT);
+    const hasil = await peminjam.mutation(api.loans.repayLoan, { loanId });
+
+    expect(hasil.totalDibayar).toBe(1_300_000);
+    expect(await peminjam.query(api.lokasi.plafonSaya, {})).toBe(10_000_000);
+    const keadaan = await t.run(async (ctx) => ({
+      user: await ctx.db.get(userId),
+      loan: await ctx.db.get(loanId),
+      audit: await ctx.db.query("auditLog").collect(),
+    }));
+    expect(keadaan.user?.plafonPinjamanNaikPada).toBeDefined();
+    expect(keadaan.loan?.status).toBe("lunas");
+    expect(keadaan.audit.some((row) => row.aksi === "plafon_naik_otomatis")).toBe(true);
+  });
+
+  it("pelunasan pinjaman di bawah Rp1 juta tidak menaikkan plafon", async () => {
+    const t = convexTest(schema, modules);
+    const { sesi: peminjam, userId } = await siapkanPengguna(t, "maya", {
+      email: "maya@pindai.test",
+      role: "peminjam",
+    });
+    const loanId = await siapkanPinjamanTunaiDidanai(t, userId, 999_999);
+
+    await peminjam.mutation(api.loans.repayLoan, { loanId });
+
+    expect(await peminjam.query(api.lokasi.plafonSaya, {})).toBe(PLAFON_DEFAULT);
+    const user = await t.run((ctx) => ctx.db.get(userId));
+    expect(user?.plafonPinjamanNaikPada).toBeUndefined();
+  });
+
+  it("override admin tetap berlaku sesudah pelunasan, reset kembali ke otomatis Rp10 juta", async () => {
+    const t = convexTest(schema, modules);
+    const { sesi: peminjam, userId } = await siapkanPengguna(t, "nina", {
+      email: "nina@pindai.test",
+      role: "peminjam",
+    });
+    const { sesi: admin } = await siapkanPengguna(t, "admin-override", {
+      email: "admin-override@pindai.test",
+      role: "admin",
+    });
+    const loanId = await siapkanPinjamanTunaiDidanai(t, userId, 1_000_000);
+
+    await admin.mutation(api.admin.setPlafonPeminjam, { userId, plafon: 4_000_000 });
+    await peminjam.mutation(api.loans.repayLoan, { loanId });
+    expect(await peminjam.query(api.lokasi.plafonSaya, {})).toBe(4_000_000);
+
+    const reset = await admin.mutation(api.admin.setPlafonPeminjam, { userId, plafon: null });
+    expect(reset.plafonEfektif).toBe(10_000_000);
+    expect(await peminjam.query(api.lokasi.plafonSaya, {})).toBe(10_000_000);
   });
 
   it("admin menaikkan plafon → pengajuan yang sama dilayani", async () => {
@@ -161,11 +258,10 @@ describe("plafon pinjaman per nasabah", () => {
     expect(hasil.plafonEfektif).toBe(8_200_000);
     expect(await peminjam.query(api.lokasi.plafonSaya, {})).toBe(8_200_000);
 
-    // Pokok 8,1 juta kini di bawah plafon 8,2 juta → dilayani.
-    await expect(ajukanKredit(peminjam, 9_000_000, 10)).resolves.toBeDefined();
-    // Pokok 9,6 juta masih di atas plafon → ditolak dengan angka terbaru.
-    await expect(ajukanKredit(peminjam, 12_000_000, 20)).rejects.toThrow(
-      /Batas pinjaman Anda saat ini Rp 8\.200\.000/,
+    // Kredit barang tetap tunduk pada batas tetapnya, bukan override tunai.
+    await expect(ajukanKredit(peminjam, 10_000_000, 0)).resolves.toBeDefined();
+    await expect(ajukanKredit(peminjam, 10_000_001, 0)).rejects.toThrow(
+      /Pokok dibiayai kredit barang maksimal Rp 10\.000\.000/,
     );
 
     // Daftar admin ikut menyesuaikan: override per orang vs default global.

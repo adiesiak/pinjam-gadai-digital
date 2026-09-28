@@ -90,12 +90,13 @@ const schema = defineSchema(
 
       role: v.optional(roleValidator), // role of the user. do not remove
       /**
-       * Plafon pinjaman khusus pengguna ini (rupiah bulat) — diatur admin.
-       * Kosong = mengikuti default global `systemConfig.plafonPinjaman`.
-       * Berlaku untuk pokok pinjaman tunai (harian & bulanan) dan pokok
-       * dibiayai kredit barang. Rentang sah: lib/plafon.ts (100 rb–10 jt).
+       * Plafon pinjaman tunai khusus pengguna ini (rupiah bulat) — diatur admin.
+       * Kosong = default global sebelum kualifikasi, atau plafon otomatis
+       * setelah pinjaman tunai minimal Rp1 juta lunas penuh.
        */
       plafonPinjaman: v.optional(v.number()),
+      /** Waktu pinjaman tunai pokok ≥ Rp1 juta pertama kali dilunasi penuh. */
+      plafonPinjamanNaikPada: v.optional(v.number()),
     }).index("email", ["email"]), // index for the email. do not remove or modify
 
     /**
@@ -412,9 +413,9 @@ const schema = defineSchema(
        */
       retensiLokasiHari: v.optional(v.number()),
       /**
-       * Plafon pinjaman DEFAULT untuk semua Peminjam (rupiah bulat).
-       * Nasabah tertentu bisa dinaikkan/diturunkan per orang lewat
-       * `users.plafonPinjaman` (admin, lihat plafon.ts).
+       * Plafon awal pinjaman tunai untuk semua Peminjam (rupiah bulat).
+       * Kredit barang memakai batas pokok tersendiri; pelunasan tunai ≥Rp1 jt
+       * menaikkan plafon otomatis kecuali admin menetapkan override pribadi.
        */
       plafonPinjaman: v.optional(v.number()),
       /** Waktu terakhir konfigurasi diperbarui. */
@@ -529,7 +530,7 @@ const schema = defineSchema(
       hargaBarang: v.number(),
       /** Uang muka Konsumen, % dari harga barang (10–50). */
       dpPersen: v.number(),
-      /** Tenor cicilan dalam bulan (3/6/12/24). */
+      /** Tenor cicilan baru 1/3/6 bulan; kontrak lama 12/24 tetap didukung. */
       tenorBulan: v.number(),
       /** Imbal Hasil Pendana per bulan (% dari pokok dibiayai, 1,5–4). */
       marginPersenPerBulan: v.number(),

@@ -13,7 +13,13 @@ import {
   loanStatusValidator,
   LoanStatusValue,
   PawnStatusValue,
-} from "./schema";import { pesanPlafonTerlampaui, plafonPeminjam, pokokDalamPlafon } from "../lib/plafon";
+} from "./schema";
+import {
+  pesanPlafonTerlampaui,
+  PLAFON_POKOK_MINIMUM_LUNAS,
+  plafonPeminjam,
+  pokokDalamPlafon,
+} from "../lib/plafon";
 import { assertPokokPinjamanValid,
   calculateRepayment,
   pelunasanPinjaman,
@@ -967,6 +973,25 @@ export const repayLoan = mutation({
         ? { dendaTerlambat: pelunasan.dendaTerlambat }
         : {}),
     });
+
+    // Kualifikasi naik plafon hanya saat pelunasan penuh pinjaman tunai
+    // minimal Rp1 juta. Simpan penanda terpisah agar override admin tetap
+    // berlaku dan reset override kelak kembali ke plafon otomatis Rp10 juta.
+    if (
+      loan.pokokPinjaman >= PLAFON_POKOK_MINIMUM_LUNAS &&
+      user.plafonPinjamanNaikPada === undefined
+    ) {
+      await ctx.db.patch(userId, { plafonPinjamanNaikPada: now });
+      await audit(
+        ctx,
+        userId,
+        user.email ?? user.name ?? "peminjam",
+        "plafon_naik_otomatis",
+        loan.nomorReferensi,
+        `Pinjaman tunai ${formatRupiah(loan.pokokPinjaman)} lunas penuh; plafon dasar naik menjadi Rp10.000.000. Override admin, bila ada, tetap berlaku.`,
+      );
+    }
+
     return {
       totalDibayar: totalKasMasuk,
       dendaTerlambat: pelunasan.dendaTerlambat,

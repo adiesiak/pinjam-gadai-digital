@@ -30,7 +30,7 @@ import {
   TENOR_OPTIONS,
 } from "@/lib/loan";
 import { formatRupiah } from "@/lib/money";
-import { pesanPlafonTerlampaui } from "@/lib/plafon";
+import { pesanPlafonTerlampaui, PLAFON_DEFAULT } from "@/lib/plafon";
 import {
   COLLATERAL_CATEGORIES,
   LTV_HINTS,
@@ -176,18 +176,32 @@ export function LoanForm({ onCreated }: { onCreated: (ref: string) => void }) {
   const tenorBulanNum = Number(tenorBulan);
   const sim = bulanan ? simulasiBulananAman(pokok, tenorBulanNum) : null;
   const q = quoteLoan(pokok);
-  // Plafon nasabah (admin bisa naikkan/turunkan per orang) memotong sisi atas
-  // kedua skema. Nilai undefined saat memuat → pakai batas skema dulu supaya
-  // slider tidak melompat; server tetap menegakkan plafon yang sebenarnya.
+  // Plafon efektif memotong sisi atas kedua skema. Selama query memuat,
+  // gunakan plafon awal global agar slider tidak sementara melebihi kebijakan.
   const plafonQuery = useQuery(api.lokasi.plafonSaya, {});
-  const plafonSaya = plafonQuery ?? undefined;
-  // Batas per skema: harian 100 rb–1 jt / maks 30 hari; bulanan 100 rb–mesin
-  // skema, lalu dipotong plafon nasabah (maks 10 jt).
+  const plafonSaya = plafonQuery ?? PLAFON_DEFAULT;
+  // Batas per skema: harian 100 rb–1 jt / bulanan 100 rb–mesin skema,
+  // keduanya dipotong plafon tunai efektif (maks. Rp10 jt setelah kualifikasi).
   const MIN = bulanan ? BULANAN_LIMITS.minPokok : LOAN_LIMITS.minPokok;
   const BATAS_SKEMA = bulanan ? BULANAN_LIMITS.maxPokok : LOAN_LIMITS.maxPokok;
   const MAX = Math.min(BATAS_SKEMA, plafonSaya ?? BATAS_SKEMA);
-  const STEP = bulanan ? 500_000 : 50_000;
+  const STEP = bulanan ? 100_000 : 50_000;
   const melebihiPlafon = plafonSaya !== undefined && pokok > MAX;
+
+  // Query plafon dapat datang terlambat atau berubah akibat override admin.
+  // Jepit nominal agar slider dan simulasi selalu mengikuti batas efektif.
+  useEffect(() => {
+    const batasAtas = Math.min(BATAS_SKEMA, plafonSaya);
+    let batal = false;
+    queueMicrotask(() => {
+      if (!batal) {
+        setPokok((sebelumnya) => Math.min(Math.max(sebelumnya, MIN), batasAtas));
+      }
+    });
+    return () => {
+      batal = true;
+    };
+  }, [plafonSaya, BATAS_SKEMA, MIN]);
 
   // Saat berganti skema atau plafon, nominal dijepit ke rentang yang sah agar
   // slider tidak menampilkan nilai di luar batas.
@@ -341,8 +355,8 @@ export function LoanForm({ onCreated }: { onCreated: (ref: string) => void }) {
           {melebihiPlafon && plafonSaya !== undefined
             ? `Batas pinjaman Anda saat ini ${formatRupiah(plafonSaya)} — kurangi nominal atau hubungi tim PINDAI bila butuh penyesuaian plafon.`
             : bulanan
-              ? `Skema bulanan: uang muka 0%, biaya layanan 3% dari pokok (diamortisasi rata), bunga menurun per tenor. Plafon Anda ${formatRupiah(MAX)}.`
-              : `Pinjaman tunai dibatasi ${formatRupiah(LOAN_LIMITS.minPokok)}–${formatRupiah(MAX)} dengan tenor maksimal ${LOAN_LIMITS.maxTenorHari} hari.`}
+              ? `Skema bulanan: uang muka 0%, biaya layanan 3% (diamortisasi), bunga menurun. Plafon tunai efektif ${formatRupiah(MAX)}; plafon otomatis dapat naik hingga Rp10 juta setelah pinjaman pokok Rp1 juta lunas penuh.`
+              : `Pinjaman tunai harian dibatasi ${formatRupiah(LOAN_LIMITS.minPokok)}–${formatRupiah(MAX)} dengan tenor maksimal ${LOAN_LIMITS.maxTenorHari} hari. Plafon dapat naik hingga Rp10 juta setelah pinjaman pokok Rp1 juta lunas penuh.`}
         </p>
 
         {/* Live financial breakdown — mengikuti skema terpilih. */}
@@ -589,9 +603,21 @@ export function LoanForm({ onCreated }: { onCreated: (ref: string) => void }) {
         )}
       </Button>
       <p className="text-center text-xs leading-5 text-muted-foreground">
-        Dengan mengirim, Anda menyatakan data benar dan menyetujui biaya: potongan 5%,
-        bunga 30%, total kewajiban 130%. Batas pinjaman {formatRupiah(LOAN_LIMITS.maxPokok)}
-        dengan tenor maksimal {LOAN_LIMITS.maxTenorHari} hari.
+        {bulanan ? (
+          <>
+            Dengan mengirim, Anda menyatakan data benar dan menyetujui skema bulanan: uang muka
+            0%, biaya layanan 3%, dan bunga sesuai tenor. Plafon tunai efektif saat ini{" "}
+            {formatRupiah(MAX)}; setelah pinjaman tunai pokok Rp1 juta lunas penuh, plafon otomatis
+            naik menjadi Rp10 juta.
+          </>
+        ) : (
+          <>
+            Dengan mengirim, Anda menyatakan data benar dan menyetujui skema harian: potongan 5%,
+            bunga 30%, total kewajiban 130%. Batas skema harian {formatRupiah(LOAN_LIMITS.maxPokok)}
+            dengan tenor maksimal {LOAN_LIMITS.maxTenorHari} hari. Plafon tunai bulanan dapat naik
+            hingga Rp10 juta setelah pinjaman pokok Rp1 juta lunas penuh.
+          </>
+        )}
       </p>
     </form>
   );

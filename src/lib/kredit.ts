@@ -24,6 +24,18 @@ import {
   type CicilanBulananRow,
 } from "./bulanan";
 
+/** Batas pokok dibiayai untuk setiap pengajuan baru kredit barang. */
+export const KREDIT_BARANG_POKOK_MAKS = 10_000_000 as Rupiah;
+
+/** Tenor yang boleh dipilih untuk pengajuan baru; kontrak 12/24 bulan lama tetap didukung engine. */
+export const KREDIT_TENOR_PENGAJUAN_OPTIONS = [1, 3, 6] as const;
+export const KREDIT_TENOR_MAKS_BULAN = 6;
+
+/** Apakah pokok kredit barang baru rupiah bulat positif dan dalam batas tetap. */
+export function pokokKreditBarangDalamBatas(pokok: number): boolean {
+  return Number.isSafeInteger(pokok) && pokok > 0 && pokok <= KREDIT_BARANG_POKOK_MAKS;
+}
+
 export const KREDIT_PRICING = {
   /** Uang muka minimum (% dari harga barang). */
   dpMinPersen: 10,
@@ -54,8 +66,8 @@ export const KREDIT_PRICING = {
 
 /** Asumsi awal yang dipakai tampilan & contoh katalog. */
 export const KREDIT_ASUMSI_AWAL = {
-  dpPersen: 20,
-  tenorBulan: 12,
+  dpPersen: 0,
+  tenorBulan: 6,
   marginPersenPerBulan: 3.5,
   porsiPendanaPersen: 100,
 } as const;

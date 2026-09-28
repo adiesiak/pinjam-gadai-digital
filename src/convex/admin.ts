@@ -47,6 +47,7 @@ export const daftarPlafonPeminjam = query({
       email: string | null;
       plafonPribadi: number | null;
       plafonEfektif: number;
+      plafonNaikPada: number | null;
       jumlahPengajuan: number;
       pinjamanAktif: number;
     }> = [];
@@ -57,6 +58,7 @@ export const daftarPlafonPeminjam = query({
             email?: string;
             role?: string;
             plafonPinjaman?: number;
+            plafonPinjamanNaikPada?: number;
           }
         | null;
       if (user === null) continue;
@@ -71,7 +73,12 @@ export const daftarPlafonPeminjam = query({
         nama: user.name ?? user.email ?? "Peminjam",
         email: user.email ?? null,
         plafonPribadi: user.plafonPinjaman ?? null,
-        plafonEfektif: plafonEfektif(user.plafonPinjaman, cfg.plafonPinjaman),
+        plafonEfektif: plafonEfektif(
+          user.plafonPinjaman,
+          cfg.plafonPinjaman,
+          user.plafonPinjamanNaikPada !== undefined,
+        ),
+        plafonNaikPada: user.plafonPinjamanNaikPada ?? null,
         jumlahPengajuan: pinjamanUser.length + kreditUser.length,
         pinjamanAktif: pinjamanUser.filter((l) => l.status === "didanai").length,
       });
@@ -83,13 +90,14 @@ export const daftarPlafonPeminjam = query({
 
 /**
  * Naikkan/turunkan plafon satu nasabah — admin.
- * `plafon: null` mengembalikan nasabah ke default global. Setiap perubahan
- * masuk audit trail (append-only) karena ini keputusan kredit yang berdampak.
+ * `plafon: null` mengembalikan nasabah ke default dasar yang berlaku: global
+ * sebelum kualifikasi, atau Rp10 juta setelah pelunasan tunai Rp1 juta. Setiap
+ * perubahan masuk audit trail (append-only) karena ini keputusan kredit.
  */
 export const setPlafonPeminjam = mutation({
   args: {
     userId: v.id("users"),
-    /** Rupiah bulat di rentang PLAFON_BATAS, atau null = ikut default. */
+    /** Rupiah bulat di rentang PLAFON_BATAS, atau null = kembali ke plafon dasar. */
     plafon: v.union(v.number(), v.null()),
     /** Alasan keputusan (disarankan) — masuk audit trail. */
     alasan: v.optional(v.string()),
@@ -104,8 +112,9 @@ export const setPlafonPeminjam = mutation({
 
     const cfg = await getConfig(ctx);
     const nilaiBaru = plafon === null ? null : clampPlafon(plafon);
-    const sebelumnya = plafonEfektif(target.plafonPinjaman, cfg.plafonPinjaman);
-    const sesudah = plafonEfektif(nilaiBaru, cfg.plafonPinjaman);
+    const sudahNaik = target.plafonPinjamanNaikPada !== undefined;
+    const sebelumnya = plafonEfektif(target.plafonPinjaman, cfg.plafonPinjaman, sudahNaik);
+    const sesudah = plafonEfektif(nilaiBaru, cfg.plafonPinjaman, sudahNaik);
 
     await ctx.db.patch(userId, { plafonPinjaman: nilaiBaru ?? undefined });
     await audit(
@@ -115,7 +124,11 @@ export const setPlafonPeminjam = mutation({
       "ubah_plafon",
       target.name ?? target.email ?? userId,
       `Plafon ${formatRupiah(sebelumnya)} → ${formatRupiah(sesudah)}${
-        nilaiBaru === null ? " (kembali ke default global)" : " (khusus nasabah ini)"
+        nilaiBaru === null
+          ? sudahNaik
+            ? " (kembali ke plafon otomatis setelah lunas)"
+            : " (kembali ke default global)"
+          : " (khusus nasabah ini)"
       }${alasan?.trim() ? ` — ${alasan.trim()}` : ""}`,
     );
     return { ok: true, plafonEfektif: sesudah };
@@ -678,7 +691,7 @@ export const ledgerSummary = query({
     // platform:FEE (debit maupun kredit). Terdiri dari:
     //  - pinjaman: biaya admin & platform 3% + 2% saat pendanaan penuh
     //  - gadai: potongan muka 1% (pencairan) + sewa modal periodik (bayar gadai)
-    //  - kredit: biaya layanan 3% dari pokok dibiayai saat pendanaan penuh
+    //  - kredit: biaya layanan 3% dari pokok dibiayai, diakui sepanjang cicilan dibayar.
     const entries = await ctx.db.query("ledger_entries").collect();
     const rincianSkema = {
       pinjaman: 0,
@@ -700,8 +713,12 @@ export const ledgerSummary = query({
       //  - "Biaya admin & platform <REF>" (pinjaman tunai)
       //  - "Potongan muka 1% gadai <REF>" / "Sewa modal <REF>" (gadai)
       //  - "Biaya layanan platform <REF> (Kredit Barang)"
+      //  - "Biaya layanan cicilan <REF> bulan n/tenor"
       const ket = e.keterangan.toLowerCase();
-      if (ket.includes("kredit barang")) {
+      if (
+        ket.includes("kredit barang") ||
+        ket.includes("biaya layanan cicilan")
+      ) {
         rincianSkema.kredit += e.jumlah;
       } else if (ket.includes("gadai") || ket.includes("sewa modal")) {
         rincianSkema.gadai += e.jumlah;

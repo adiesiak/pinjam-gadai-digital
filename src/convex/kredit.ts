@@ -3,6 +3,9 @@ import { v } from "convex/values";
 
 import {
   bagiCicilanKePendana,
+  KREDIT_BARANG_POKOK_MAKS,
+  KREDIT_TENOR_PENGAJUAN_OPTIONS,
+  pokokKreditBarangDalamBatas,
   quoteKreditBarang,
   type KreditBarangQuote,
 } from "../lib/kredit";
@@ -10,11 +13,7 @@ import { ROLES, type KreditStatusValue } from "./schema";
 import { appendJournal } from "./ledger";
 import { audit, getConfig } from "./system";
 import { requireGerbangLokasi } from "./lokasi";
-import {
-  kreditDalamPlafon,
-  pesanPlafonTerlampaui,
-  plafonPeminjam,
-} from "../lib/plafon";
+import { formatRupiah } from "../lib/money";
 import type { Doc, Id } from "./_generated/dataModel";
 import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 
@@ -180,6 +179,14 @@ export const ajukanKreditBarang = mutation({
       );
     }
 
+    // Kebijakan penerbitan kredit barang baru: tenor maksimal 6 bulan,
+    // terpisah dari dukungan quote 12/24 bulan untuk kontrak warisan.
+    if (!(KREDIT_TENOR_PENGAJUAN_OPTIONS as readonly number[]).includes(args.tenorBulan)) {
+      throw new Error(
+        `Tenor kredit barang baru harus ${KREDIT_TENOR_PENGAJUAN_OPTIONS.join(" / ")} bulan (maksimal 6 bulan).`,
+      );
+    }
+
     // Validasi batas skema + hitung rincian (melempar pesan Indonesia yang jelas).
     const quote = quoteKreditBarang({
       hargaBarang: args.hargaBarang,
@@ -188,12 +195,12 @@ export const ajukanKreditBarang = mutation({
       marginPersenPerBulan: args.marginPersenPerBulan,
     });
 
-    // Plafon nasabah memotong POKOK DIBIAYAI (bukan harga barang) — itu
-    // kewajiban yang menjadi risiko platform. Pesan menyebut plafon, bukan
-    // batas mesin, agar konsisten dengan yang tampil di UI nasabah.
-    const plafon = await plafonPeminjam(ctx, userId);
-    if (!kreditDalamPlafon(quote.pokokDibiayai, plafon)) {
-      throw new Error(pesanPlafonTerlampaui(plafon));
+    // Kredit barang mempunyai batas pokok dibiayai mandiri yang tidak
+    // dipengaruhi plafon pinjaman tunai maupun override nasabah.
+    if (!pokokKreditBarangDalamBatas(quote.pokokDibiayai)) {
+      throw new Error(
+        `Pokok dibiayai kredit barang maksimal ${formatRupiah(KREDIT_BARANG_POKOK_MAKS)}.`,
+      );
     }
 
     const namaBarang = args.namaBarang.trim();
