@@ -17,6 +17,7 @@ import {
 import { useAuth } from "@/hooks/use-auth";
 import { api } from "@/convex/_generated/api";
 import { getClientIp, getUserAgent } from "@/lib/session";
+import { ADMIN_ROUTE } from "@/lib/routes";
 import {
   ArrowRight,
   BadgeCheck,
@@ -25,7 +26,6 @@ import {
   Loader2,
   Mail,
   ShieldAlert,
-  ShieldCheck,
   UserX,
   Vault,
   Wallet,
@@ -51,12 +51,6 @@ const PORTAL_OPTIONS = [
     detail: "Kelola setoran dan alokasi dana.",
     icon: Wallet,
   },
-  {
-    href: "/admin",
-    label: "Admin",
-    detail: "Khusus tim PINDAI; perlu akun dengan akses admin.",
-    icon: ShieldCheck,
-  },
 ] as const;
 
 function PortalPicker({
@@ -66,13 +60,15 @@ function PortalPicker({
   selectedPath: string;
   onSelect: (path: string) => void;
 }) {
-  const selectedPortal =
-    PORTAL_OPTIONS.find(({ href }) => selectedPath.startsWith(href)) ?? PORTAL_OPTIONS[0];
+  const selectedPortal = PORTAL_OPTIONS.find(({ href }) =>
+    selectedPath.startsWith(href),
+  );
+  if (!selectedPortal) return null;
 
   return (
     <section className="px-6" aria-label="Pilih dashboard">
       <p className="text-xs font-medium text-foreground">Pilih ruang yang ingin dibuka</p>
-      <div className="mt-2 grid grid-cols-3 gap-2" role="group" aria-label="Pilihan dashboard">
+      <div className="mt-2 grid grid-cols-2 gap-2" role="group" aria-label="Pilihan dashboard">
         {PORTAL_OPTIONS.map(({ href, label, icon: Icon }) => {
           const active = selectedPortal.href === href;
           return (
@@ -116,7 +112,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
   const [searchParams, setSearchParams] = useSearchParams();
   const defaultDestination =
     user?.role === "admin"
-      ? "/admin"
+      ? ADMIN_ROUTE
       : user?.role === "pendana"
         ? "/pendana"
         : redirectAfterAuth;
@@ -285,7 +281,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                 <CardHeader className="text-center">
                   <CardTitle className="text-xl">Masuk atau buat akun</CardTitle>
                   <CardDescription>
-                    Masuk sesuai ruang Peminjam, Pendana, atau Admin
+                    Masuk sesuai ruang Peminjam atau Pendana
                   </CardDescription>
                 </CardHeader>
                 <PortalPicker selectedPath={redirect} onSelect={selectPortal} />

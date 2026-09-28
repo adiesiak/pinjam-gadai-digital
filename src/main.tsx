@@ -11,6 +11,7 @@ import { createRoot } from "react-dom/client";
 import { BrowserRouter, Route, Routes, useLocation } from "react-router";
 import "./index.css";
 import { useSessionGuard } from "@/hooks/use-session-guard";
+import { ADMIN_ROUTE } from "@/lib/routes";
 
 // Lazy load route components for better code splitting
 const Landing = lazy(() => import("./pages/Landing.tsx"));
@@ -147,7 +148,7 @@ createRoot(document.getElementById("root")!).render(
                   }
                 />
                 <Route
-                  path="/admin"
+                  path={ADMIN_ROUTE}
                   element={
                     <RequireAuth>
                       <Admin />

@@ -3,6 +3,7 @@ import { Link } from "react-router";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ADMIN_ROUTE } from "@/lib/routes";
 
 import { DashboardTabNav, type TabBadge } from "./dashboard-tab-nav";
 
@@ -47,7 +48,7 @@ export function DashboardSidebar({
                 size="sm"
                 className="justify-start gap-2 text-xs text-muted-foreground"
               >
-                <Link to="/admin">
+                <Link to={ADMIN_ROUTE}>
                   <LayoutDashboard className="size-3.5" /> Panel Admin
                 </Link>
               </Button>

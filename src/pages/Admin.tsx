@@ -12,6 +12,7 @@ import { SecurityBar, type LoanRow, type PawnRow } from "@/components/admin/admi
 import { api } from "@/convex/_generated/api";
 import { useAuth } from "@/hooks/use-auth";
 import { getSessionId } from "@/lib/session";
+import { ADMIN_ROUTE } from "@/lib/routes";
 
 import {
   AdminHeader,
@@ -68,9 +69,9 @@ export default function Admin() {
     );
   }
 
-  // Belum login → wajib masuk dengan returnTo ke /admin
+  // Belum login → pertahankan tujuan menuju jalur admin tersembunyi.
   if (!isAuthenticated) {
-    navigate("/auth?returnTo=%2Fadmin");
+    navigate(`/auth?returnTo=${encodeURIComponent(ADMIN_ROUTE)}`);
     return null;
   }
 

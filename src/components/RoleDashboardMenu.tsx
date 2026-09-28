@@ -2,6 +2,7 @@ import { ChevronDown, LayoutDashboard, ShieldCheck, Wallet } from "lucide-react"
 import { Link } from "react-router";
 
 import { useAuth } from "@/hooks/use-auth";
+import { ADMIN_ROUTE } from "@/lib/routes";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -20,7 +21,7 @@ export function RoleDashboardMenu() {
     role === "admin"
       ? [
           {
-            href: "/admin",
+            href: ADMIN_ROUTE,
             label: "Panel Admin",
             description: "Operasional dan pengelolaan sistem",
             icon: ShieldCheck,
