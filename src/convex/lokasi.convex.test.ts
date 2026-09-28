@@ -95,6 +95,46 @@ describe("gerbang lokasi wajib", () => {
     ).rejects.toThrow("melompat tidak wajar");
   });
 
+  it("menerima titik jauh setelah jeda panjang (perjalanan luar kota)", async () => {
+    const t = convexTest(schema, modules);
+    const asPeminjam = await siapkanPengguna(t, "peminjam-perjalanan-jauh", {
+      email: "perjalanan@pindai.test",
+      role: "peminjam",
+    });
+
+    // Titik terakhir: Jakarta, 3 jam lalu. Nasabah sudah tiba di Surabaya
+    // (±670 km) — rata-rata ±223 km/jam bila dibandingkan tanpa batas jendela,
+    // yang akan salah dianggap lokasi palsu dan memblokir transaksi.
+    const userId = await asPeminjam.query(async (ctx) => {
+      const users = await ctx.db.query("users").collect();
+      return users[0]._id;
+    });
+    await t.mutation(async (ctx) => {
+      await ctx.db.insert("lokasiStatus", {
+        userId,
+        lat: -6.2,
+        lng: 106.816666,
+        akurasi: 30,
+        waktu: Date.now() - 3 * 60 * 60_000,
+        sumber: "web",
+      });
+    });
+
+    await expect(
+      asPeminjam.mutation(api.lokasi.catatLokasi, {
+        lat: -7.2575,
+        lng: 112.7521,
+        akurasi: 25,
+        sumber: "web",
+      }),
+    ).resolves.toBeDefined();
+
+    // Titik segar terbaru membuat pengajuan tetap dilayani.
+    await expect(
+      asPeminjam.mutation(api.kredit.ajukanKreditBarang, PENGAJUAN),
+    ).resolves.toBeDefined();
+  });
+
   it("melayani pengajuan setelah heartbeat GPS diterima", async () => {
     const t = convexTest(schema, modules);
     const asPeminjam = await siapkanPengguna(t, "peminjam-lokasi", {

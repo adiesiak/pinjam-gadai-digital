@@ -52,11 +52,13 @@ export function LocationGate({
   const [izin, setIzin] = useState<StatusIzin>("memeriksa");
   const [pesan, setPesan] = useState<string | null>(null);
   const [akurasi, setAkurasi] = useState<number | null>(null);
+  const [percobaanDaftar, setPercobaanDaftar] = useState(0);
   const watchRef = useRef<number | null>(null);
   const pelacakanRef = useRef<PelacakanLatar | null>(null);
   const kirimTerakhirRef = useRef(0);
   const versiRef = useRef<string | null>(null);
-  const sudahDaftarRef = useRef(false);
+  // Nomor urut pemanggilan pemantauan — membuang watcher yang sudah usang.
+  const generasiRef = useRef(0);
   const catatRef = useRef(catat);
   const daftarkanRef = useRef(daftarkan);
   useEffect(() => {
@@ -121,6 +123,7 @@ export function LocationGate({
    * dari callback GPS, bukan dari badan efek.
    */
   const mulaiWatch = useCallback(() => {
+    const generasi = (generasiRef.current += 1);
     if (watchRef.current !== null && typeof navigator !== "undefined" && navigator.geolocation) {
       navigator.geolocation.clearWatch(watchRef.current);
       watchRef.current = null;
@@ -140,8 +143,19 @@ export function LocationGate({
         setAkurasi(titik.akurasi);
         kirimTitik(titik.lat, titik.lng, titik.akurasi);
       },
-      () => setIzin("mati"),
+      (pesanGalat) => {
+        // Bedakan izin ditolak dari GPS mati — instruksi perbaikannya berbeda.
+        setIzin(/NOT_AUTHORIZED|PERMISSION|DENIED/i.test(pesanGalat) ? "ditolak" : "mati");
+      },
     ).then((pelacakan) => {
+      // `visibilitychange` dan `focus` sering memicu dua kali beruntun. Bila
+      // panggilan yang lebih baru sudah menggantikan yang ini, watcher lama
+      // WAJIB dihentikan — kalau tidak, dua pemantauan berjalan bersamaan dan
+      // menguras baterai sampai komponen dilepas.
+      if (generasi !== generasiRef.current) {
+        if (pelacakan !== null) void pelacakan.hentikan().catch(() => undefined);
+        return;
+      }
       if (pelacakan === null) {
         // Plugin ada tetapi gagal start — jangan biarkan pengguna tanpa
         // pemantauan sama sekali; jalur browser tetap lebih baik daripada nol.
@@ -161,13 +175,24 @@ export function LocationGate({
     mulaiWatch();
   }, [mulaiWatch]);
 
-  // Aplikasi native mendaftarkan perangkatnya sekali agar kebijakan "wajib
-  // aplikasi" mengenali perangkat ini sebelum kebijakan itu dinyalakan.
+  /** Ulangi pendaftaran perangkat bila gagal (mis. jaringan terputus). */
+  const cobaLagiDaftar = useCallback(() => {
+    setPesan(null);
+    setPercobaanDaftar((n) => n + 1);
+  }, []);
+
+  // Aplikasi native mendaftarkan perangkatnya agar kebijakan "wajib aplikasi"
+  // mengenali perangkat ini.
+  //
+  // PENTING: pendaftaran TIDAK boleh bergantung pada `gerbangAktif`. Bila admin
+  // mematikan `lokasiWajib` sementara `wajibAplikasiNative` menyala, pengguna
+  // aplikasi akan terjebak selamanya di layar "mendaftarkan perangkat" —
+  // layar itu muncul dari keadaan server, sedangkan pendaftarannya di-skip.
   useEffect(() => {
-    if (!gerbangAktif || !perangkat.native) return;
+    if (!aktif || !perangkat.native) return;
     const deviceId = perangkat.deviceId;
-    if (deviceId === null || sudahDaftarRef.current) return;
-    sudahDaftarRef.current = true;
+    if (deviceId === null) return;
+    let dibatalkan = false;
     void (async () => {
       versiRef.current = await versiAplikasi();
       try {
@@ -177,19 +202,26 @@ export function LocationGate({
           versiApp: versiRef.current ?? "tidak diketahui",
         });
       } catch (err) {
-        sudahDaftarRef.current = false; // biarkan dicoba lagi pada render berikutnya
+        if (dibatalkan) return;
         setPesan(
           err instanceof Error ? err.message : "Gagal mendaftarkan perangkat aplikasi.",
         );
       }
     })();
-  }, [gerbangAktif, perangkat]);
+    return () => {
+      dibatalkan = true;
+    };
+  }, [aktif, perangkat, percobaanDaftar]);
 
   useEffect(() => {
     if (!gerbangAktif) return;
     // Memulai pemantauan tanpa setState langsung di badan effect.
     mulaiWatch();
     return () => {
+      // Batalkan panggilan yang masih berjalan: bila `addWatcher` belum selesai
+      // saat komponen dilepas, hasilnya harus dibuang dan dihentikan — kalau
+      // tidak, layanan lokasi latar belakang terus hidup tanpa pemilik.
+      generasiRef.current += 1;
       if (watchRef.current !== null && typeof navigator !== "undefined" && navigator.geolocation) {
         navigator.geolocation.clearWatch(watchRef.current);
         watchRef.current = null;
@@ -239,14 +271,25 @@ export function LocationGate({
       return (
         <LayarPenuh>
           <div className="flex flex-col items-center gap-3 text-center">
-            <Loader2 className="size-5 animate-spin text-muted-foreground" />
+            {pesan === null ? (
+              <Loader2 className="size-5 animate-spin text-muted-foreground" />
+            ) : (
+              <ShieldAlert className="size-5 text-destructive" />
+            )}
             <p className="text-xs text-muted-foreground">
-              Mendaftarkan perangkat aplikasi PINDAI…
+              {pesan === null
+                ? "Mendaftarkan perangkat aplikasi PINDAI…"
+                : "Perangkat belum berhasil didaftarkan"}
             </p>
             {pesan && (
               <p className="max-w-xs rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive">
                 {pesan}
               </p>
+            )}
+            {pesan !== null && (
+              <Button className="h-11" onClick={cobaLagiDaftar}>
+                <RefreshCw className="mr-1.5 size-4" /> Coba lagi
+              </Button>
             )}
           </div>
         </LayarPenuh>

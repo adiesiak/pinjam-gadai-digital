@@ -88,17 +88,24 @@ export async function simpanTitik(
     .withIndex("by_user", (q) => q.eq("userId", userId))
     .first();
 
-  // Anti-spoof ringan: lompatan mustahil antar titik ditolak.
+  // Anti-spoof ringan: lompatan mustahil antar titik ditolak — tetapi HANYA
+  // bila dua titik berdekatan waktu. Setelah jeda panjang, kecepatan rata-rata
+  // tidak lagi bermakna: tanpa batas jendela, nasabah yang menempuh perjalanan
+  // jauh (luar kota, ponsel mati beberapa jam) akan ditolak berulang kali
+  // karena rata-ratanya melebihi ambang, sampai waktu berjalan cukup lama.
   let jarakLompatKm: number | null = null;
   if (sebelumnya !== null) {
-    const kecepatan = kecepatanKmJam(
-      { lat: sebelumnya.lat, lng: sebelumnya.lng, waktu: sebelumnya.waktu },
-      { lat: input.lat, lng: input.lng, waktu: now },
-    );
-    if (kecepatan > LOKASI_KEBIJAKAN.kecepatanMaksKmJam) {
-      throw new Error(
-        "Lokasi terdeteksi melompat tidak wajar. Matikan aplikasi lokasi palsu, lalu kirim ulang dari perangkat asli.",
+    const jedaDetik = (now - sebelumnya.waktu) / 1000;
+    if (jedaDetik <= LOKASI_KEBIJAKAN.jendelaKecepatanDetik) {
+      const kecepatan = kecepatanKmJam(
+        { lat: sebelumnya.lat, lng: sebelumnya.lng, waktu: sebelumnya.waktu },
+        { lat: input.lat, lng: input.lng, waktu: now },
       );
+      if (kecepatan > LOKASI_KEBIJAKAN.kecepatanMaksKmJam) {
+        throw new Error(
+          "Lokasi terdeteksi melompat tidak wajar. Matikan aplikasi lokasi palsu, lalu kirim ulang dari perangkat asli.",
+        );
+      }
     }
     jarakLompatKm = jarakKm(
       { lat: sebelumnya.lat, lng: sebelumnya.lng },

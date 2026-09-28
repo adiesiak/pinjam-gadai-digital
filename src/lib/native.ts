@@ -183,6 +183,22 @@ export interface PelacakanLatar {
 }
 
 /**
+ * Pesan galat dari plugin lokasi.
+ * Plugin mengirim objek `{ code, message }` (mis. `NOT_AUTHORIZED`), bukan
+ * string. Kode izin HARUS ikut terbaca agar UI bisa membedakan "izin ditolak"
+ * dari "GPS mati" — dua masalah dengan instruksi perbaikan yang berbeda.
+ */
+export function pesanGalatLokasi(galat: unknown): string {
+  if (typeof galat === "string" && galat !== "") return galat;
+  if (typeof galat === "object" && galat !== null) {
+    const g = galat as { message?: unknown; code?: unknown };
+    if (typeof g.message === "string" && g.message !== "") return g.message;
+    if (typeof g.code === "string" && g.code !== "") return g.code;
+  }
+  return "Sinyal GPS tidak tersedia dari aplikasi.";
+}
+
+/**
  * Mulai pemantauan lokasi latar belakang di aplikasi native.
  * Mengembalikan null di browser ATAU bila plugin belum terpasang — pemanggil
  * harus punya fallback ke `navigator.geolocation`, bukan menganggap gagal total.
@@ -205,9 +221,7 @@ export async function mulaiPelacakanLatar(
       },
       (posisi, galat) => {
         if (galat !== undefined || posisi === null) {
-          onGalat(
-            typeof galat === "string" ? galat : "Sinyal GPS tidak tersedia dari aplikasi.",
-          );
+          onGalat(pesanGalatLokasi(galat));
           return;
         }
         onTitik({

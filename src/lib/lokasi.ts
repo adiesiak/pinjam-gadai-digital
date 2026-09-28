@@ -26,6 +26,14 @@ export const LOKASI_KEBIJAKAN = {
   intervalDetik: 60,
   /** Kecepatan antar titik yang masih wajar (km/jam) — deteksi lokasi palsu. */
   kecepatanMaksKmJam: 200,
+  /**
+   * Jeda maksimum antar titik (detik) yang masih boleh dibandingkan
+   * kecepatannya. Setelah jeda lebih panjang (perjalanan luar kota, ponsel
+   * mati), kecepatan rata-rata tidak lagi bermakna: tanpa batas ini, nasabah
+   * yang menempuh jarak jauh akan ditolak berjam-jam karena dianggap memakai
+   * lokasi palsu.
+   */
+  jendelaKecepatanDetik: 1_800,
   /** Toleransi jarak titik yang dikirim bersama pengajuan vs titik server (km). */
   toleransiJarakKm: 5,
 } as const;

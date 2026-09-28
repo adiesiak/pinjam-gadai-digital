@@ -11,6 +11,7 @@ import {
   mulaiPelacakanLatar,
   pasangPluginLokasiLatar,
   PELACAKAN_LATAR_OPSI,
+  pesanGalatLokasi,
   pluginLokasiLatar,
   versiAplikasi,
   type TitikLokasi,
@@ -183,6 +184,18 @@ eq(
   );
 }
 
+// ===== Pesan galat plugin =====
+eq("galat string dipakai apa adanya", pesanGalatLokasi("GPS mati"), "GPS mati");
+eq("string kosong diabaikan", pesanGalatLokasi("").length > 0, true);
+eq(
+  "objek memakai message",
+  pesanGalatLokasi({ code: "NOT_AUTHORIZED", message: "izin ditolak" }),
+  "izin ditolak",
+);
+eq("objek tanpa message memakai code", pesanGalatLokasi({ code: "NOT_AUTHORIZED" }), "NOT_AUTHORIZED");
+eq("objek kosong diberi teks bawaan", pesanGalatLokasi({}).length > 0, true);
+eq("null diberi teks bawaan", pesanGalatLokasi(null).length > 0, true);
+
 // ===== Pemantauan latar belakang =====
 const titik: TitikLokasi[] = [];
 const galat: string[] = [];
@@ -254,8 +267,15 @@ eq(
     eq("galat string diteruskan", galat[galat.length - 1], "izin lokasi ditolak");
     eq("titik tidak ditambah saat galat", titik.length, sebelum + 1);
 
+    // Plugin mengirim objek { code, message }, bukan string — kode izin harus
+    // ikut terbaca agar UI bisa membedakan "izin ditolak" dari "GPS mati".
+    terimaBalik[0].balik(null, { code: "NOT_AUTHORIZED", message: "izin belum diberikan" });
+    eq("galat objek memakai message", galat[galat.length - 1], "izin belum diberikan");
+    terimaBalik[0].balik(null, { code: "NOT_AUTHORIZED" });
+    eq("galat objek tanpa message memakai code", galat[galat.length - 1], "NOT_AUTHORIZED");
+
     terimaBalik[0].balik(null, undefined);
-    eq("galat tanpa pesan diberi teks bawaan", galat.length, galatSebelum + 2);
+    eq("galat tanpa pesan diberi teks bawaan", galat.length, galatSebelum + 4);
     ok("teks galat bawaan tidak kosong", (galat[galat.length - 1] ?? "").length > 0);
 
     await hasil.hentikan();
