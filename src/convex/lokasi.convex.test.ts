@@ -65,11 +65,17 @@ async function daftarkanPerangkat(
   return hasil.token;
 }
 
+/**
+ * Pengajuan tetap yang dipakai semua tes gerbang lokasi. Nominal sengaja
+ * 1 juta dengan DP 20% → pokok dibiayai 800 ribu, DI BAWAH plafon default
+ * platform 1 juta (lib/plafon.ts) supaya tes ini murni menguji lokasi, bukan
+ * plafon. Batas plafon diuji terpisah di plafon.convex.test.ts.
+ */
 const PENGAJUAN = {
   namaBarang: "Kulkas dua pintu",
   kategori: "Elektronik",
   merchant: "Tokopedia",
-  hargaBarang: 8_000_000,
+  hargaBarang: 1_000_000,
   dpPersen: 20,
   tenorBulan: 12,
   marginPersenPerBulan: 3,

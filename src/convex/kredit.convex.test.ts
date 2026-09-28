@@ -22,6 +22,8 @@ import { api } from "./_generated/api";
 import schema from "./schema";
 import { modules } from "./test.setup";
 import { quoteKreditBarang } from "../lib/kredit";
+import { PLAFON_BATAS } from "../lib/plafon";
+import { DEFAULT_CONFIG } from "../lib/system-config";
 
 const HARGA = 10_000_000;
 const DP_PERSEN = 20;
@@ -52,6 +54,14 @@ async function pengajuanDisetujui(
   asPeminjam: ReturnType<ReturnType<typeof convexTest>["withIdentity"]>,
   asAdmin: ReturnType<ReturnType<typeof convexTest>["withIdentity"]>,
 ) {
+  // Plafon default platform 1 juta, sedangkan skenario lifecycle ini memakai
+  // pokok 8 juta. Admin menaikkan plafon global ke batas atas operasional
+  // dulu; perilaku plafon itu sendiri diuji di plafon.convex.test.ts.
+  await asAdmin.mutation(api.system.saveConfig, {
+    ...DEFAULT_CONFIG,
+    plafonPinjaman: PLAFON_BATAS.maks,
+  });
+
   // Gerbang lokasi wajib: perangkat harus sudah mengirim heartbeat GPS
   // (di sini titik Jakarta) sebelum pengajuan/pembayaran dilayani server.
   await asPeminjam.mutation(api.lokasi.catatLokasi, {

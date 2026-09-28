@@ -38,6 +38,7 @@ import {
 } from "@/lib/bulanan";
 import { LOAN_LIMITS, quoteLoan, TENOR_OPTIONS, type LoanQuote } from "@/lib/loan";
 import { formatRupiah, type Rupiah } from "@/lib/money";
+import { PLAFON_BATAS } from "@/lib/plafon";
 
 /* Logo brankas — sederhana, dua warna. */
 function VaultLogo({ size = 36 }: { size?: number }) {
@@ -68,12 +69,16 @@ const SECURITY = [
   { icon: Eye, label: "Status pengajuan bisa dipantau" },
 ] as const;
 
-// Skema harian: Rp 100 rb–1 jt / maks 30 hari. Skema bulanan: sampai Rp 500 jt
-// dengan tenor 1/3/6 bulan (DP 0%, biaya layanan 3% diamortisasi, bunga menurun).
+// Skema harian: Rp 100 rb–1 jt / maks 30 hari. Skema bulanan: sampai plafon
+// tertinggi yang boleh disimpan admin (Rp 10 jt) dengan tenor 1/3/6 bulan
+// (DP 0%, biaya layanan 3% diamortisasi, bunga menurun). Angka di bawah ini
+// sengaja tidak lebih besar dari plafon — lihat lib/plafon.ts.
 const QUICK_AMOUNTS = [100_000, 250_000, 500_000, 1_000_000];
-const QUICK_AMOUNTS_BULANAN = [1_000_000, 5_000_000, 25_000_000, 100_000_000, 250_000_000];
+const QUICK_AMOUNTS_BULANAN = [500_000, 1_000_000, 2_500_000, 5_000_000, 10_000_000];
 const MIN_SLIDER = LOAN_LIMITS.minPokok;
 const MAX_SLIDER = LOAN_LIMITS.maxPokok;
+/** Plafon tertinggi per nasabah — batas atas slider bulanan di landing. */
+const MAX_SLIDER_BULANAN = Math.min(BULANAN_LIMITS.maxPokok, PLAFON_BATAS.maks);
 const SLIDER_STEPS = 140;
 const SLIDER_STEPS_BULANAN = 200;
 
@@ -105,7 +110,7 @@ function LiveCalculator() {
   }, [bulanan, amount, tenorBulan]);
 
   const min = bulanan ? BULANAN_LIMITS.minPokok : MIN_SLIDER;
-  const max = bulanan ? BULANAN_LIMITS.maxPokok : MAX_SLIDER;
+  const max = bulanan ? MAX_SLIDER_BULANAN : MAX_SLIDER;
   const steps = bulanan ? SLIDER_STEPS_BULANAN : SLIDER_STEPS;
   const stepBulat = bulanan ? 500_000 : 50_000;
   const cepat = bulanan ? QUICK_AMOUNTS_BULANAN : QUICK_AMOUNTS;
@@ -114,7 +119,7 @@ function LiveCalculator() {
     setSkema(next);
     setAmount((a) =>
       next === "bulanan"
-        ? Math.min(Math.max(a, BULANAN_LIMITS.minPokok), BULANAN_LIMITS.maxPokok)
+        ? Math.min(Math.max(a, BULANAN_LIMITS.minPokok), MAX_SLIDER_BULANAN)
         : Math.min(Math.max(a, MIN_SLIDER), MAX_SLIDER),
     );
   };
@@ -132,7 +137,7 @@ function LiveCalculator() {
       <div className="mt-5 grid grid-cols-2 gap-1 rounded-xl border border-slate-200 bg-slate-50 p-1">
         {([
           ["harian", "Harian · s.d. 1 jt"],
-          ["bulanan", "Bulanan · s.d. 500 jt"],
+          ["bulanan", "Bulanan · s.d. 10 jt"],
         ] as const).map(([nilai, label]) => (
           <button
             key={nilai}
@@ -718,7 +723,7 @@ export default function Landing() {
                 Dana berasal dari <b className="font-semibold text-slate-900">Pendana</b>{" "}
                 terverifikasi. Skema harian memakai{" "}
                 <b className="font-semibold text-slate-900">Bunga / Imbal Hasil</b> 30% dari pokok;
-                skema bulanan (1/3/6 bulan, sampai Rp 500 juta) memakai uang muka 0%, biaya
+                skema bulanan (1/3/6 bulan, sampai Rp 10 juta per nasabah) memakai uang muka 0%, biaya
                 layanan 3% yang diamortisasi rata, dan bunga menurun 10%/8%/7,5% per bulan.
                 Setiap transaksi tercatat di jurnal audit dan kontraknya bertanda tangan digital.
               </p>

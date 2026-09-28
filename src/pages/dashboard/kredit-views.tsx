@@ -146,7 +146,7 @@ export function KreditBarangForm({ onCreated }: { onCreated: (ref: string) => vo
     } catch {
       return null;
     }
-  }, [hargaInput, dpPersen, tenorBulan, marginPersenPerBulan]);
+  }, [hargaInput, dpPersen, tenorBulan, marginPersenPerBulan, hargaMaksPlafon]);
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();

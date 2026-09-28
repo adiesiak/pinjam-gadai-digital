@@ -73,12 +73,19 @@ eq(
   hargaBarangMaksDariPlafon(9_000_000),
   Math.floor(9_000_000 / 0.9),
 );
-// Pokok dibiayai pada harga maksimum dengan DP 10% tepat plafon:
+// Pokok dibiayai pada harga maksimum dengan DP 10% tidak boleh melewati plafon.
+// (Plafon atas 10 jt di-clamp ke PLAFON_BATAS.maks, jadi harga maks ikut
+// 10 jt dan pokoknya 9 jt — di bawah plafon, bukan tepat di atasnya.)
 const hargaMaks = hargaBarangMaksDariPlafon(PLAFON_BATAS.maks);
+ok(
+  "pokok pada harga maks (DP 10%) tetap di bawah plafon",
+  Math.floor(hargaMaks * 0.9) <= PLAFON_BATAS.maks,
+);
+// Plafon 9 jt: harga maks tepat 10 jt (tidak kena clamp), pokoknya 9 jt = plafon.
 eq(
-  "pokok pada harga maks (DP 10%) tepat plafon atas",
-  Math.floor(hargaMaks * 0.9),
-  PLAFON_BATAS.maks,
+  "pokok pada harga maks plafon 9 jt tepat sama dengan plafon",
+  Math.floor(hargaBarangMaksDariPlafon(9_000_000) * 0.9),
+  9_000_000,
 );
 ok(
   "harga maks tidak melebihi batas mesin kredit",

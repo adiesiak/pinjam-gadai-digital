@@ -30,6 +30,7 @@ import {
   TENOR_OPTIONS,
 } from "@/lib/loan";
 import { formatRupiah } from "@/lib/money";
+import { pesanPlafonTerlampaui } from "@/lib/plafon";
 import {
   COLLATERAL_CATEGORIES,
   LTV_HINTS,
@@ -180,7 +181,8 @@ export function LoanForm({ onCreated }: { onCreated: (ref: string) => void }) {
   // slider tidak melompat; server tetap menegakkan plafon yang sebenarnya.
   const plafonQuery = useQuery(api.lokasi.plafonSaya, {});
   const plafonSaya = plafonQuery ?? undefined;
-  // Batas per skema: harian 100 rb–1 jt / maks 30 hari; bulanan 100 rb–500 jt.
+  // Batas per skema: harian 100 rb–1 jt / maks 30 hari; bulanan 100 rb–mesin
+  // skema, lalu dipotong plafon nasabah (maks 10 jt).
   const MIN = bulanan ? BULANAN_LIMITS.minPokok : LOAN_LIMITS.minPokok;
   const BATAS_SKEMA = bulanan ? BULANAN_LIMITS.maxPokok : LOAN_LIMITS.maxPokok;
   const MAX = Math.min(BATAS_SKEMA, plafonSaya ?? BATAS_SKEMA);
@@ -217,9 +219,8 @@ export function LoanForm({ onCreated }: { onCreated: (ref: string) => void }) {
       return;
     }
     if (plafonSaya !== undefined && pokok > plafonSaya) {
-      setError(
-        `Batas pinjaman Anda saat ini ${formatRupiah(plafonSaya)}. Ajukan di atas atau di bawah batas itu, atau hubungi tim PINDAI bila butuh penyesuaian plafon.`,
-      );
+      // Pesan yang sama persis dengan penolakan server (lib/plafon.ts).
+      setError(pesanPlafonTerlampaui(plafonSaya));
       return;
     }
     if (!bulanan && !tenorHari) {
