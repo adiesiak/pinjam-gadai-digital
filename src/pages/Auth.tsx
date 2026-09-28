@@ -21,11 +21,14 @@ import {
   ArrowRight,
   BadgeCheck,
   CalendarClock,
+  LayoutDashboard,
   Loader2,
   Mail,
   ShieldAlert,
+  ShieldCheck,
   UserX,
   Vault,
+  Wallet,
 } from "lucide-react";
 import { Suspense, useEffect, useState } from "react";
 import { useMutation } from "convex/react";
@@ -33,6 +36,68 @@ import { Link, useNavigate, useSearchParams } from "react-router";
 
 interface AuthProps {
   redirectAfterAuth?: string;
+}
+
+const PORTAL_OPTIONS = [
+  {
+    href: "/dashboard",
+    label: "Peminjam",
+    detail: "Ajukan dan pantau pinjaman atau gadai.",
+    icon: LayoutDashboard,
+  },
+  {
+    href: "/pendana",
+    label: "Pendana",
+    detail: "Kelola setoran dan alokasi dana.",
+    icon: Wallet,
+  },
+  {
+    href: "/admin",
+    label: "Admin",
+    detail: "Khusus tim PINDAI; perlu akun dengan akses admin.",
+    icon: ShieldCheck,
+  },
+] as const;
+
+function PortalPicker({
+  selectedPath,
+  onSelect,
+}: {
+  selectedPath: string;
+  onSelect: (path: string) => void;
+}) {
+  const selectedPortal =
+    PORTAL_OPTIONS.find(({ href }) => selectedPath.startsWith(href)) ?? PORTAL_OPTIONS[0];
+
+  return (
+    <section className="px-6" aria-label="Pilih dashboard">
+      <p className="text-xs font-medium text-foreground">Pilih ruang yang ingin dibuka</p>
+      <div className="mt-2 grid grid-cols-3 gap-2" role="group" aria-label="Pilihan dashboard">
+        {PORTAL_OPTIONS.map(({ href, label, icon: Icon }) => {
+          const active = selectedPortal.href === href;
+          return (
+            <button
+              key={href}
+              type="button"
+              aria-pressed={active}
+              onClick={() => onSelect(href)}
+              className={`flex min-h-[68px] min-w-0 flex-col items-center justify-center gap-1.5 rounded-lg border px-2 py-2 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${
+                active
+                  ? "border-primary bg-primary/5 text-primary"
+                  : "border-border bg-background text-muted-foreground hover:bg-muted hover:text-foreground"
+              }`}
+            >
+              <Icon className="size-4" aria-hidden="true" />
+              <span>{label}</span>
+            </button>
+          );
+        })}
+      </div>
+      <p className="mt-2 text-[11px] leading-4 text-muted-foreground">
+        {selectedPortal.detail} Pilihan ini menentukan tujuan setelah masuk, bukan mengubah peran atau hak akses akun.
+      </p>
+    </section>
+  );
 }
 
 function resolveRedirectAfterAuth(
@@ -48,7 +113,7 @@ function resolveRedirectAfterAuth(
 function Auth({ redirectAfterAuth }: AuthProps = {}) {
   const { isLoading: authLoading, isAuthenticated, signIn, user } = useAuth();
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const defaultDestination =
     user?.role === "admin"
       ? "/admin"
@@ -59,6 +124,13 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
     searchParams.get("returnTo"),
     defaultDestination,
   );
+  const selectPortal = (path: string) => {
+    setSearchParams((current) => {
+      const next = new URLSearchParams(current);
+      next.set("returnTo", path);
+      return next;
+    });
+  };
   const [step, setStep] = useState<"signIn" | { email: string }>("signIn");
   const [otp, setOtp] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -213,9 +285,10 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                 <CardHeader className="text-center">
                   <CardTitle className="text-xl">Masuk atau buat akun</CardTitle>
                   <CardDescription>
-                    Ajukan pinjaman atau gadai dari satu akun
+                    Masuk sesuai ruang Peminjam, Pendana, atau Admin
                   </CardDescription>
                 </CardHeader>
+                <PortalPicker selectedPath={redirect} onSelect={selectPortal} />
                 <form onSubmit={handleEmailSubmit}>
                   <CardContent>
                     <div className="relative flex items-center gap-2">
@@ -306,6 +379,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                     Kami mengirim kode verifikasi ke {step.email}
                   </CardDescription>
                 </CardHeader>
+                <PortalPicker selectedPath={redirect} onSelect={selectPortal} />
                 <form onSubmit={handleOtpSubmit}>
                   <CardContent className="pb-4">
                     <input type="hidden" name="email" value={step.email} />
