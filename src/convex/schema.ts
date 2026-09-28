@@ -382,6 +382,11 @@ const schema = defineSchema(
       lokasiMaxUmurMenit: v.optional(v.number()),
       /** Wajib transaksi dari aplikasi native (pelacakan latar belakang). */
       wajibAplikasiNative: v.optional(v.boolean()),
+      /**
+       * Retensi jejak lokasi (hari) untuk job cron `retensi-lokasi-jejak`.
+       * Titik milik pinjaman belum selesai tetap ditahan minimal 400 hari.
+       */
+      retensiLokasiHari: v.optional(v.number()),
       /** Waktu terakhir konfigurasi diperbarui. */
       diperbaruiPada: v.number(),
     }).index("by_slot", ["slot"]),

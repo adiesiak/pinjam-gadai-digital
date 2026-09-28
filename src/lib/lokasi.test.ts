@@ -11,6 +11,7 @@ import {
   LOKASI_RETENSI,
   titikBolehDihapus,
 } from "./lokasi";
+import { DEFAULT_CONFIG, RETENSI_LOKASI_BATAS } from "./system-config";
 
 let passed = 0;
 let failed = 0;
@@ -114,6 +115,22 @@ ok(
 ok(
   "batas bukti lebih panjang dari retensi biasa",
   LOKASI_RETENSI.buktiPinjamanHari > LOKASI_RETENSI.jejakHari,
+);
+// Default harus sah menurut batas yang divalidasi server — kalau tidak,
+// menyimpan Pengaturan Sistem akan gagal walau admin tidak mengubah apa pun.
+eq(
+  "default retensi mengikuti kebijakan lokasi",
+  DEFAULT_CONFIG.retensiLokasiHari,
+  LOKASI_RETENSI.jejakHari,
+);
+ok(
+  "default retensi di dalam batas yang diizinkan",
+  DEFAULT_CONFIG.retensiLokasiHari >= RETENSI_LOKASI_BATAS.min &&
+    DEFAULT_CONFIG.retensiLokasiHari <= RETENSI_LOKASI_BATAS.maks,
+);
+ok(
+  "batas atas retensi menutupi masa bukti pinjaman",
+  RETENSI_LOKASI_BATAS.maks > LOKASI_RETENSI.buktiPinjamanHari,
 );
 
 console.log(`lokasi tests: ${passed} passed, ${failed} failed`);

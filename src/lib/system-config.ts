@@ -1,4 +1,13 @@
 /** Konfigurasi sistem PINDAI — tipe + default bersama (server & client). */
+import { LOKASI_RETENSI } from "./lokasi";
+
+/**
+ * Rentang retensi jejak lokasi yang boleh disimpan admin (hari). Batas bawah
+ * mencegah penghapusan agresif yang menghilangkan bukti audit yang masih segar;
+ * batas atas menjaga penyimpanan tetap wajar.
+ */
+export const RETENSI_LOKASI_BATAS = { min: 7, maks: 730 } as const;
+
 export type SystemConfig = {
   killSwitch: boolean;
   maintenanceMode: boolean;
@@ -17,6 +26,12 @@ export type SystemConfig = {
   lokasiMaxUmurMenit: number;
   /** Wajib transaksi dari aplikasi native — aktifkan setelah app dirilis. */
   wajibAplikasiNative: boolean;
+  /**
+   * Retensi jejak lokasi (hari) — job cron harian menghapus titik yang lebih
+   * tua dari ini. Titik milik pinjaman belum selesai selalu ditahan minimal
+   * LOKASI_RETENSI.buktiPinjamanHari (400 hari), berapa pun nilai di sini.
+   */
+  retensiLokasiHari: number;
 };
 
 export const DEFAULT_CONFIG: SystemConfig = {
@@ -34,4 +49,5 @@ export const DEFAULT_CONFIG: SystemConfig = {
   lokasiWajib: true,
   lokasiMaxUmurMenit: 10,
   wajibAplikasiNative: false,
+  retensiLokasiHari: LOKASI_RETENSI.jejakHari,
 };

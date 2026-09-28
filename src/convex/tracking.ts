@@ -3,6 +3,7 @@ import { internalMutation, mutation, query, QueryCtx } from "./_generated/server
 import { v } from "convex/values";
 import { ROLES } from "./schema";
 import { simpanTitik } from "./lokasi";
+import { getConfig } from "./system";
 import { batasRetensiMs, LOKASI_RETENSI, titikBolehDihapus } from "../lib/lokasi";
 import type { LoanStatus } from "../lib/loan";
 
@@ -181,10 +182,11 @@ export const riwayatAdmin = query({
  * Retensi jejak lokasi — dipanggil cron harian di crons.ts.
  *
  * Titik lokasi lama dihapus agar (a) penyimpanan tidak tumbuh tanpa batas dan
- * (b) sesuai minimalisasi data UU PDP. Yang DIHAPUS hanya titik lebih tua dari
- * `LOKASI_RETENSI.jejakHari` (default 90 hari). Titik yang menempel pada
- * pinjaman yang masih berjalan ditahan sampai `buktiPinjamanHari` (400 hari)
- * karena masih berfungsi sebagai bukti audit.
+ * (b) sesuai minimalisasi data UU PDP. Umur retensinya dibaca dari Pengaturan
+ * Sistem (`retensiLokasiHari`, admin bisa ubah; default 90 hari). Titik yang
+ * menempel pada pinjaman yang masih berjalan ditahan minimal
+ * `LOKASI_RETENSI.buktiPinjamanHari` (400 hari) karena masih menjadi bukti
+ * audit — nilai admin yang lebih besar tetap dihormati.
  *
  * Dikerjakan per batch dari yang TERTUA (index `by_waktu`) supaya satu
  * transaksi tetap ringan; berhenti lebih awal bila sisa baris lama semuanya
@@ -199,7 +201,8 @@ export const bersihkanLokasiLama = internalMutation({
   },
   handler: async (ctx, { batasHari, maksBaris }) => {
     const sekarang = Date.now();
-    const hari = batasHari ?? LOKASI_RETENSI.jejakHari;
+    // Umur retensi = kebijakan admin; `batasHari` hanya untuk uji/jalan manual.
+    const hari = batasHari ?? (await getConfig(ctx)).retensiLokasiHari;
     const batas = batasRetensiMs(sekarang, hari);
     const perBatch = Math.min(Math.max(maksBaris ?? LOKASI_RETENSI.batchBaris, 1), 500);
 

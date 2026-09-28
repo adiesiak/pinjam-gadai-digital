@@ -426,6 +426,19 @@ describe("retensi jejak lokasi (job cron harian)", () => {
     return t.query(async (ctx) => ctx.db.query("lokasiJejak").collect());
   }
 
+  /** Ubah retensi lokasi lewat Pengaturan Sistem (jalur yang dipakai admin). */
+  async function aturRetensi(t: ReturnType<typeof convexTest>, hari: number) {
+    urutan += 1;
+    const asAdmin = await siapkanPengguna(t, `admin-retensi-${urutan}`, {
+      email: `admin-retensi-${urutan}@pindai.test`,
+      role: "admin",
+    });
+    await asAdmin.mutation(api.system.saveConfig, {
+      ...DEFAULT_CONFIG,
+      retensiLokasiHari: hari,
+    });
+  }
+
   it("menghapus titik lebih tua dari masa retensi dan menyimpan yang segar", async () => {
     const t = convexTest(schema, modules);
     await siapkanJejak(t, { hari: 120 });
@@ -475,6 +488,59 @@ describe("retensi jejak lokasi (job cron harian)", () => {
     });
     expect(hasil).toMatchObject({ ok: true, dihapus: 1, dipertahankan: 0 });
     await expect(jumlahJejak(t)).resolves.toHaveLength(1);
+  });
+
+  it("memakai retensi dari Pengaturan Sistem", async () => {
+    const t = convexTest(schema, modules);
+    await siapkanJejak(t, { hari: 60 });
+    await siapkanJejak(t, { hari: 10 });
+
+    // Default 90 hari tidak akan menyentuh titik 60 hari — jadi hasil ini
+    // membuktikan nilai admin benar-benar dipakai job.
+    await aturRetensi(t, 30);
+    const hasil = await t.mutation(internal.tracking.bersihkanLokasiLama, {});
+    expect(hasil).toMatchObject({ ok: true, dihapus: 1, dipertahankan: 0 });
+    await expect(jumlahJejak(t)).resolves.toHaveLength(1);
+  });
+
+  it("tetap menahan bukti pinjaman berjalan walau retensi admin pendek", async () => {
+    const t = convexTest(schema, modules);
+    await siapkanJejak(t, { hari: 120, statusPinjaman: "didanai" });
+    await siapkanJejak(t, { hari: 120 });
+
+    await aturRetensi(t, 30);
+    const hasil = await t.mutation(internal.tracking.bersihkanLokasiLama, {});
+    expect(hasil).toMatchObject({ ok: true, dihapus: 1, dipertahankan: 1 });
+    await expect(jumlahJejak(t)).resolves.toHaveLength(1);
+  });
+
+  it("menolak nilai retensi di luar batas yang wajar", async () => {
+    const t = convexTest(schema, modules);
+    const asAdmin = await siapkanPengguna(t, "admin-retensi-batas", {
+      email: "admin-retensi-batas@pindai.test",
+      role: "admin",
+    });
+
+    await expect(
+      asAdmin.mutation(api.system.saveConfig, {
+        ...DEFAULT_CONFIG,
+        retensiLokasiHari: 1,
+      }),
+    ).rejects.toThrow("Retensi jejak lokasi harus");
+    await expect(
+      asAdmin.mutation(api.system.saveConfig, {
+        ...DEFAULT_CONFIG,
+        retensiLokasiHari: 5_000,
+      }),
+    ).rejects.toThrow("Retensi jejak lokasi harus");
+
+    // Nilai sah tetap tersimpan dan terbaca kembali oleh admin.
+    await asAdmin.mutation(api.system.saveConfig, {
+      ...DEFAULT_CONFIG,
+      retensiLokasiHari: 120,
+    });
+    const data = await asAdmin.query(api.system.getConfigAdmin, {});
+    expect(data.config.retensiLokasiHari).toBe(120);
   });
 
   it("memproses beberapa batch dalam satu kali jalan", async () => {

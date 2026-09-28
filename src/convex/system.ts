@@ -2,7 +2,11 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 import { mutation, query, MutationCtx, QueryCtx } from "./_generated/server";
 import { v } from "convex/values";
 import { ROLES } from "./schema";
-import { DEFAULT_CONFIG, type SystemConfig } from "../lib/system-config";
+import {
+  DEFAULT_CONFIG,
+  RETENSI_LOKASI_BATAS,
+  type SystemConfig,
+} from "../lib/system-config";
 
 /**
  * Konfigurasi sistem, kill switch, snapshot data, dan audit trail.
@@ -65,6 +69,7 @@ export async function getConfig(ctx: QueryCtx): Promise<SystemConfig> {
     lokasiWajib: row.lokasiWajib ?? DEFAULT_CONFIG.lokasiWajib,
     lokasiMaxUmurMenit: row.lokasiMaxUmurMenit ?? DEFAULT_CONFIG.lokasiMaxUmurMenit,
     wajibAplikasiNative: row.wajibAplikasiNative ?? DEFAULT_CONFIG.wajibAplikasiNative,
+    retensiLokasiHari: row.retensiLokasiHari ?? DEFAULT_CONFIG.retensiLokasiHari,
   };
 }
 
@@ -118,6 +123,7 @@ export const saveConfig = mutation({
     lokasiWajib: v.boolean(),
     lokasiMaxUmurMenit: v.number(),
     wajibAplikasiNative: v.boolean(),
+    retensiLokasiHari: v.number(),
   },
   handler: async (ctx, args) => {
     const { userId, user } = await requireAdmin(ctx);
@@ -129,6 +135,15 @@ export const saveConfig = mutation({
     }
     if (args.maxLtvPersen <= 0 || args.maxLtvPersen > 100) {
       throw new Error("LTV maksimum harus di antara 1–100%.");
+    }
+    if (
+      !Number.isSafeInteger(args.retensiLokasiHari) ||
+      args.retensiLokasiHari < RETENSI_LOKASI_BATAS.min ||
+      args.retensiLokasiHari > RETENSI_LOKASI_BATAS.maks
+    ) {
+      throw new Error(
+        `Retensi jejak lokasi harus ${RETENSI_LOKASI_BATAS.min}–${RETENSI_LOKASI_BATAS.maks} hari.`,
+      );
     }
     const label = user.email ?? user.name ?? "admin";
     const prev = await getConfig(ctx);

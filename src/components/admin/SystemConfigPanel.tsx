@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { api } from "@/convex/_generated/api";
-import { DEFAULT_CONFIG } from "@/lib/system-config";
+import { DEFAULT_CONFIG, RETENSI_LOKASI_BATAS } from "@/lib/system-config";
 
 export function SystemConfigPanel() {
   const data = useQuery(api.system.getConfigAdmin);
@@ -94,6 +94,34 @@ export function SystemConfigPanel() {
           />
           <p className="mt-1 text-xs leading-5 text-muted-foreground">
             Titik lebih tua dari batas ini → transaksi Peminjam ditolak server-side.
+          </p>
+        </div>
+        <div>
+          <Label htmlFor="cfg-retensi-lokasi">Retensi jejak lokasi (hari)</Label>
+          <Input
+            id="cfg-retensi-lokasi"
+            type="number"
+            min={RETENSI_LOKASI_BATAS.min}
+            max={RETENSI_LOKASI_BATAS.maks}
+            value={form.retensiLokasiHari}
+            onChange={(e) =>
+              upd(
+                "retensiLokasiHari",
+                Math.min(
+                  RETENSI_LOKASI_BATAS.maks,
+                  Math.max(
+                    RETENSI_LOKASI_BATAS.min,
+                    Math.round(Number(e.target.value) || RETENSI_LOKASI_BATAS.min),
+                  ),
+                ),
+              )
+            }
+            className="tabular-nums"
+          />
+          <p className="mt-1 text-xs leading-5 text-muted-foreground">
+            Job harian (00:30 WIB) menghapus titik lokasi lebih tua dari {form.retensiLokasiHari} hari —
+            minimalisasi data UU PDP. Titik milik pinjaman yang belum selesai selalu ditahan minimal 400
+            hari sebagai bukti audit, jadi nilai lebih kecil tidak menghapus bukti pinjaman berjalan.
           </p>
         </div>
         <div className="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
