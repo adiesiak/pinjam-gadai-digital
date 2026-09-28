@@ -14,6 +14,9 @@ import {
   pasangPluginLokasiLatar,
   PELACAKAN_LATAR_OPSI,
   pesanGalatLokasi,
+  hentikanLayananLokasi,
+  mulaiLayananLokasi,
+  pluginLayananLokasi,
   pluginLokasiLatar,
   penyimpananAman,
   simpanTokenPerangkat,
@@ -580,6 +583,95 @@ const URL_HB = "https://abc.convex.site/lokasi/heartbeat";
   };
   const hasil = await kirimHeartbeatLatar(URL_HB, "tok", TITIK, {}, root);
   eq("galat jaringan ditangkap", hasil.pesan, "jaringan putus");
+}
+
+// ===== Layanan lokasi PINDAI (foreground service) =====
+eq("layanan tidak ada → null", pluginLayananLokasi(buatRoot({ platform: "android" })), null);
+eq(
+  "plugin tanpa hentikan diabaikan",
+  pluginLayananLokasi(
+    buatRoot({ platform: "android", plugins: { PindaiLocation: { mulai: async () => ({}) } } }),
+  ),
+  null,
+);
+{
+  const plugin = { mulai: async () => ({ aktif: true }), hentikan: async () => undefined };
+  ok(
+    "plugin layanan terdeteksi",
+    pluginLayananLokasi(buatRoot({ platform: "android", plugins: { PindaiLocation: plugin } })) ===
+      plugin,
+  );
+}
+{
+  // Kredensial & interval harus diteruskan apa adanya ke lapisan native.
+  const dipanggil: Record<string, unknown>[] = [];
+  const plugin = {
+    mulai: async (o: Record<string, unknown>) => {
+      dipanggil.push(o);
+      return { aktif: true };
+    },
+    hentikan: async () => undefined,
+  };
+  const hasil = await mulaiLayananLokasi(plugin, {
+    url: "https://abc.convex.site/lokasi/heartbeat",
+    token: "tok-aman",
+    intervalDetik: 60,
+    jarakMeter: 50,
+  });
+  eq("layanan menyala", hasil.aktif, true);
+  eq("tanpa pesan galat", hasil.pesan, null);
+  eq("URL diteruskan", dipanggil[0].url, "https://abc.convex.site/lokasi/heartbeat");
+  eq("token diteruskan", dipanggil[0].token, "tok-aman");
+  eq("interval diteruskan", dipanggil[0].intervalDetik, 60);
+}
+{
+  // Izin "Selalu" belum ada (iOS) / foreground service ditolak (Android).
+  const plugin = {
+    mulai: async () => {
+      throw new Error('Izin lokasi "Selalu" belum diberikan.');
+    },
+    hentikan: async () => undefined,
+  };
+  const hasil = await mulaiLayananLokasi(plugin, { url: "https://x", token: "tok" });
+  eq("penolakan layanan bukan sukses", hasil.aktif, false);
+  eq("sebab ditampilkan ke pengguna", hasil.pesan, 'Izin lokasi "Selalu" belum diberikan.');
+}
+{
+  // Layanan menjawab tanpa galat tetapi tidak menyala.
+  const plugin = {
+    mulai: async () => ({ aktif: false }),
+    hentikan: async () => undefined,
+  };
+  const hasil = await mulaiLayananLokasi(plugin, { url: "https://x", token: "tok" });
+  eq("aktif false diteruskan", hasil.aktif, false);
+  eq("tidak ada pesan palsu", hasil.pesan, null);
+}
+{
+  let dihentikan = 0;
+  const plugin = {
+    mulai: async () => ({ aktif: true }),
+    hentikan: async () => {
+      dihentikan += 1;
+    },
+  };
+  await hentikanLayananLokasi(plugin);
+  eq("hentikan dipanggil", dihentikan, 1);
+}
+{
+  // Layanan mungkin sudah berhenti sendiri — jangan sampai melempar.
+  const plugin = {
+    mulai: async () => ({ aktif: true }),
+    hentikan: async () => {
+      throw new Error("layanan sudah berhenti");
+    },
+  };
+  let melempar = false;
+  try {
+    await hentikanLayananLokasi(plugin);
+  } catch {
+    melempar = true;
+  }
+  eq("galat hentikan ditelan", melempar, false);
 }
 
 console.log(`native tests: ${passed} passed, ${failed} failed`);

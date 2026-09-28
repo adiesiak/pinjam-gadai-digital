@@ -480,6 +480,67 @@ export async function kirimHeartbeatLatar(
   }
 }
 
+// ===== Layanan lokasi PINDAI (foreground service Android / Background Modes iOS) =====
+
+/**
+ * Kontrak plugin native PINDAI — sumbernya ada di `native/pindai-location/`.
+ * Plugin ini yang memegang lokasi dan mengirim heartbeat SENDIRI, tanpa WebView.
+ */
+export interface LayananLokasi {
+  mulai: (opsi: {
+    url: string;
+    token: string;
+    intervalDetik?: number;
+    jarakMeter?: number;
+  }) => Promise<{ aktif?: unknown }>;
+  hentikan: () => Promise<unknown>;
+  status?: () => Promise<{ aktif?: unknown; jumlahTerkirim?: unknown; galatTerakhir?: unknown }>;
+}
+
+/** Plugin layanan lokasi PINDAI, bila ikut dibangun di aplikasi native. */
+export function pluginLayananLokasi(root: unknown = globalThis): LayananLokasi | null {
+  const plugin = pluginKapasitor(root, "PindaiLocation") as Partial<LayananLokasi> | null;
+  if (plugin === null) return null;
+  if (typeof plugin.mulai !== "function") return null;
+  if (typeof plugin.hentikan !== "function") return null;
+  return plugin as LayananLokasi;
+}
+
+/**
+ * Nyalakan layanan lokasi + heartbeat native.
+ *
+ * Setelah ini menyala, titik lokasi TIDAK lagi dikirim dari WebView: layanan
+ * inilah yang memegang GPS dan mem-POST ke `POST /lokasi/heartbeat`. Itulah
+ * bedanya dengan jalur `CapacitorHttp` — layanan tetap berjalan walau WebView
+ * di-pause Android.
+ *
+ * `{ aktif: false }` berarti pemanggil harus memakai jalur cadangan di dalam
+ * aplikasi (plugin lokasi biasa + `lokasi.catatLokasi`).
+ */
+export async function mulaiLayananLokasi(
+  plugin: LayananLokasi,
+  opsi: { url: string; token: string; intervalDetik?: number; jarakMeter?: number },
+): Promise<{ aktif: boolean; pesan: string | null }> {
+  try {
+    const hasil = await plugin.mulai(opsi);
+    return { aktif: hasil?.aktif === true, pesan: null };
+  } catch (err) {
+    return {
+      aktif: false,
+      pesan: err instanceof Error ? err.message : "Layanan lokasi native gagal dinyalakan.",
+    };
+  }
+}
+
+/** Hentikan layanan lokasi native — mengabaikan galat bila sudah berhenti. */
+export async function hentikanLayananLokasi(plugin: LayananLokasi): Promise<void> {
+  try {
+    await plugin.hentikan();
+  } catch {
+    // Layanan mungkin sudah berhenti sendiri (izin dicabut / proses dihentikan).
+  }
+}
+
 /**
  * Mulai pemantauan lokasi latar belakang di aplikasi native.
  * Mengembalikan null di browser ATAU bila plugin belum terpasang — pemanggil

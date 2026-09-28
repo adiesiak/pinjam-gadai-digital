@@ -27,6 +27,14 @@ native.
 
 Tidak perlu ditulis lagi — cukup dipakai dari aplikasi native.
 
+### Sumber plugin native PINDAI — `native/pindai-location/`
+Kotlin (`PindaiLocationService` + `PindaiLocationPlugin`) dan Swift
+(`PindaiLocationManager` + `PindaiLocationPlugin`) yang memegang GPS dan
+mem-POST heartbeat sendiri. Tanpa dependensi tambahan: `LocationManager` +
+`HttpURLConnection` di Android, `CoreLocation` + `URLSession` di iOS.
+Panduan pemasangan, kontrak API, dan daftar periksa uji ada di
+**`native/pindai-location/README.md`**.
+
 ### Klien — `src/lib/native.ts`
 Jembatan native yang **tidak menambah dependency apa pun**. Di browser semua
 fungsinya no-op, jadi bundel web tidak berubah.
@@ -43,6 +51,8 @@ fungsinya no-op, jadi bundel web tidak berubah.
 | `muatTokenPerangkat()` / `simpanTokenPerangkat()` | Baca/tulis token perangkat ke penyimpanan aman, dengan migrasi satu kali dari `localStorage`. |
 | `urlHeartbeatLokasi(urlConvex, urlSitus?)` | Menurunkan `https://<deployment>.convex.site/lokasi/heartbeat`. |
 | `kirimHeartbeatLatar(url, token, titik)` | Kirim titik lewat `CapacitorHttp` (tidak ter-throttle WebView), fallback `fetch`. |
+| `pluginLayananLokasi()` | Menemukan plugin PINDAI sendiri (`PindaiLocation`) di `Capacitor.Plugins`. |
+| `mulaiLayananLokasi()` / `hentikanLayananLokasi()` | Menyalakan/menghentikan *foreground service* yang mengirim titik tanpa WebView. |
 
 ### Klien — `src/components/LocationGate.tsx`
 Sudah native-aware:
@@ -52,6 +62,14 @@ Sudah native-aware:
   `versiApp`, dan `deviceId`.
 - Di aplikasi native, mengirim lewat `POST /lokasi/heartbeat` (HTTP native) lebih
   dulu, lalu **jatuh kembali** ke `lokasi.catatLokasi` bila gagal.
+- **Urutan sumber titik:** (1) layanan native PINDAI bila ikut dibangun —
+  WebView tidak lagi mengirim apa pun; (2) plugin lokasi latar belakang +
+  `CapacitorHttp`; (3) `navigator.geolocation` di browser biasa.
+- **Pemeriksa kesehatan layanan:** layanan bisa mati diam-diam (izin dicabut,
+  proses dihentikan sistem). Setiap 30 detik status server diperiksa; bila titik
+  terakhir sudah lewat batas (setelah tenggang 2 menit), layanan dihentikan dan
+  jalur cadangan dinyalakan — jadi tidak ada nasabah yang terkunci tanpa jalan
+  keluar. Layanan juga dihentikan saat pengguna keluar dari akun.
 - **Mendaftarkan perangkat sendiri** saat berjalan di aplikasi native, sehingga
   pengguna aplikasi tidak pernah diminta "memasang aplikasi" oleh kebijakan
   `wajibAplikasiNative` (tanpa ini, mereka akan melihat layar blokir).
@@ -332,11 +350,16 @@ plugin lokasi tetap hidup.
 
 ### Sisa pekerjaan
 
-1. **Layanan latar belakang sungguhan.** Saat ini pengiriman masih dipicu dari
-   callback plugin di dalam WebView. Itu sudah cukup untuk sesi-sesi di latar
-   belakang, tetapi yang paling tahan lama adalah plugin native kecil milik
-   PINDAI yang menjalankan foreground service + POST sendiri tanpa WebView.
-   Token perangkat dan endpoint HTTP di atas sudah menjadi fondasinya.
+1. **Bangun & verifikasi layanan native.** Sumber plugin PINDAI sudah ada di
+   `native/pindai-location/` (Kotlin *foreground service* + Swift
+   `CLLocationManager`, keduanya mem-POST sendiri tanpa WebView) beserta panduan
+   pemasangan dan daftar periksa uji di `native/pindai-location/README.md`.
+   Yang belum: **kode itu belum pernah dikompilasi** — tidak ada Android SDK /
+   Xcode di lingkungan tempat sumber ini ditulis. Perlu dijalankan
+   `./gradlew assembleDebug` dan `xcodebuild` di mesin/CI yang punya keduanya,
+   lalu menelusuri daftar periksa di README tersebut.
+   Selama plugin belum dibangun, aplikasi otomatis memakai jalur nomor 2 — tidak
+   ada langkah UI yang perlu diubah.
 2. **Attestation aplikasi.** Verifikasi Play Integrity (Android) / App Attest
    (iOS) di endpoint heartbeat, lalu ikat hasilnya ke `perangkat.token`. Ini
    yang membuat klaim "saya aplikasi resmi" **tidak bisa** dipalsukan klien —
@@ -464,8 +487,8 @@ Urutan ini **tidak boleh dibalik**:
 - [ ] `lokasiMaxUmurMenit` dinaikkan ke 15–20
 - [ ] ≥95% Peminjam aktif terdaftar di tabel `perangkat`
 - [ ] Kanal bantuan untuk pelunasan manual sudah disiapkan
-- [ ] Fase 2 point 1 selesai: layanan latar belakang native yang POST sendiri
-      (bukan hanya callback plugin di WebView)
+- [ ] Layanan native dibangun & lolos daftar periksa uji
+      (`native/pindai-location/README.md`)
 - [ ] Plugin penyimpanan aman terpasang & token terbaca dari Keychain/
       EncryptedSharedPreferences (bukan lagi dari `localStorage`)
 - [ ] Kalau `wajibAplikasiNative` dianggap kontrol keamanan: attestation

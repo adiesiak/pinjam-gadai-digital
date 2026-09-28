@@ -7,15 +7,20 @@ import { api } from "@/convex/_generated/api";
 import { useAuth } from "@/hooks/use-auth";
 import { LOKASI_KEBIJAKAN, labelUmurLokasi } from "@/lib/lokasi";
 import {
+  hentikanLayananLokasi,
   idPerangkat,
   kirimHeartbeatLatar,
   lingkunganNative,
+  mulaiLayananLokasi,
   mulaiPelacakanLatar,
   muatTokenPerangkat,
+  PELACAKAN_LATAR_OPSI,
+  pluginLayananLokasi,
   pluginLokasiLatar,
   simpanTokenPerangkat,
   urlHeartbeatLokasi,
   versiAplikasi,
+  type LayananLokasi,
   type PelacakanLatar,
 } from "@/lib/native";
 
@@ -25,6 +30,15 @@ import {
  */
 const URL_CONVEX = import.meta.env.VITE_CONVEX_URL as string | undefined;
 const URL_CONVEX_SITUS = import.meta.env.VITE_CONVEX_SITE_URL as string | undefined;
+
+/**
+ * Tenggang sebelum layanan native dianggap mati diam-diam (ms). Dua kali
+ * interval heartbeat ditambah kelonggaran untuk fix GPS pertama.
+ */
+const TENGGANG_LAYANAN_MS = 120_000;
+
+/** Selang pemeriksaan kesehatan layanan native (ms). */
+const PERIKSA_LAYANAN_MS = 30_000;
 
 /**
  * Gerbang lokasi wajib Peminjam.
@@ -76,6 +90,13 @@ export function LocationGate({
   const versiRef = useRef<string | null>(null);
   // Nomor urut pemanggilan pemantauan — membuang watcher yang sudah usang.
   const generasiRef = useRef(0);
+  /** Layanan lokasi native yang sedang jadi sumber titik (null = jalur lain). */
+  const layananRef = useRef<LayananLokasi | null>(null);
+  const layananMulaiRef = useRef(0);
+  /** Salinan status server untuk pemeriksaan berkala (tanpa setState). */
+  const statusRef = useRef<{ segar: boolean; umurMenit: number | null; batasMenit: number } | null>(
+    null,
+  );
   const catatRef = useRef(catat);
   const daftarkanRef = useRef(daftarkan);
   useEffect(() => {
@@ -165,22 +186,11 @@ export function LocationGate({
     );
   }, [kirimTitik]);
 
-  /**
-   * Mulai memantau posisi: pakai layanan latar belakang aplikasi native bila
-   * tersedia, kalau tidak jatuh ke `navigator.geolocation`. State hanya ditulis
-   * dari callback GPS, bukan dari badan efek.
-   */
-  const mulaiWatch = useCallback(() => {
-    const generasi = (generasiRef.current += 1);
-    if (watchRef.current !== null && typeof navigator !== "undefined" && navigator.geolocation) {
-      navigator.geolocation.clearWatch(watchRef.current);
-      watchRef.current = null;
-    }
-    if (pelacakanRef.current !== null) {
-      const lama = pelacakanRef.current;
-      pelacakanRef.current = null;
-      void lama.hentikan().catch(() => undefined);
-    }
+  /** Jalur cadangan: plugin lokasi latar belakang + heartbeat dari WebView. */
+  const mulaiWatchDalamAplikasi = useCallback(() => {
+    // Dibaca tanpa menaikkan nomor urut: `mulaiWatch` sudah menaikkannya, dan
+    // jalur pemulihan memanggil fungsi ini di luar `mulaiWatch`.
+    const generasi = generasiRef.current;
     if (!perangkat.native || pluginLokasiLatar() === null) {
       mulaiWatchBrowser();
       return;
@@ -214,6 +224,59 @@ export function LocationGate({
     });
   }, [kirimTitik, mulaiWatchBrowser, perangkat.native]);
 
+  /**
+   * Mulai memantau posisi. Urutan pilihan:
+   *  1. **Layanan lokasi PINDAI** (foreground service Android / Background
+   *     Modes iOS) — memegang GPS dan mengirim heartbeat SENDIRI, jadi tetap
+   *     jalan walau WebView di-pause Android.
+   *  2. Plugin lokasi latar belakang + heartbeat dari WebView (CapacitorHttp).
+   *  3. `navigator.geolocation` di browser biasa.
+   * State hanya ditulis dari callback, bukan dari badan efek.
+   */
+  const mulaiWatch = useCallback(() => {
+    const generasi = (generasiRef.current += 1);
+    if (watchRef.current !== null && typeof navigator !== "undefined" && navigator.geolocation) {
+      navigator.geolocation.clearWatch(watchRef.current);
+      watchRef.current = null;
+    }
+    if (pelacakanRef.current !== null) {
+      const lama = pelacakanRef.current;
+      pelacakanRef.current = null;
+      void lama.hentikan().catch(() => undefined);
+    }
+
+    const layanan = perangkat.native ? pluginLayananLokasi() : null;
+    const url = perangkat.native ? urlHeartbeatLokasi(URL_CONVEX, URL_CONVEX_SITUS) : null;
+    const token = tokenRef.current;
+    if (layanan !== null && url !== null && token !== null) {
+      void mulaiLayananLokasi(layanan, {
+        url,
+        token,
+        intervalDetik: LOKASI_KEBIJAKAN.intervalDetik,
+        jarakMeter: PELACAKAN_LATAR_OPSI.filterJarakMeter,
+      }).then((hasil) => {
+        if (generasi !== generasiRef.current) {
+          // Sudah digantikan pemanggilan yang lebih baru — jangan tinggalkan
+          // layanan tanpa pemilik.
+          if (hasil.aktif) void hentikanLayananLokasi(layanan);
+          return;
+        }
+        if (hasil.aktif) {
+          layananRef.current = layanan;
+          layananMulaiRef.current = Date.now();
+          setIzin("siap");
+          return;
+        }
+        // Layanan menolak menyala (izin "Selalu" belum diberikan, plugin belum
+        // dibangun, dsb) → pakai jalur cadangan supaya nasabah tetap terlacak.
+        if (hasil.pesan !== null) setPesan(hasil.pesan);
+        mulaiWatchDalamAplikasi();
+      });
+      return;
+    }
+    mulaiWatchDalamAplikasi();
+  }, [mulaiWatchDalamAplikasi, perangkat.native]);
+
   // Gerbang dianggap aktif bila salah satu kebijakan menyala. "Wajib aplikasi"
   // ikut dihitung walau gerbang lokasi dimatikan admin: server tetap menuntut
   // titik dari aplikasi, jadi pemantauan harus tetap berjalan agar transaksi
@@ -236,6 +299,18 @@ export function LocationGate({
     setPesan(null);
     setPercobaanDaftar((n) => n + 1);
   }, []);
+
+  /**
+   * Keluar dari akun: hentikan layanan native dulu.
+   * Layanan membawa token akun yang sedang masuk — membiarkannya hidup setelah
+   * keluar berarti perangkat terus melapor atas nama akun lama.
+   */
+  const keluar = useCallback(() => {
+    const layanan = layananRef.current;
+    layananRef.current = null;
+    if (layanan !== null) void hentikanLayananLokasi(layanan);
+    void signOut();
+  }, [signOut]);
 
   // Aplikasi native mendaftarkan perangkatnya agar kebijakan "wajib aplikasi"
   // mengenali perangkat ini.
@@ -278,6 +353,14 @@ export function LocationGate({
     };
   }, [aktif, perangkat, percobaanDaftar]);
 
+  // Salinan status server untuk pemeriksaan layanan berkala di bawah.
+  useEffect(() => {
+    statusRef.current =
+      status === undefined
+        ? null
+        : { segar: status.segar, umurMenit: status.umurMenit, batasMenit: status.batasMenit };
+  }, [status]);
+
   useEffect(() => {
     if (!gerbangAktif) return;
     // Memulai pemantauan tanpa setState langsung di badan effect.
@@ -315,6 +398,41 @@ export function LocationGate({
       window.removeEventListener("focus", onVisible);
     };
   }, [gerbangAktif, cobaLagi]);
+
+  // Layanan native hidup selama gerbang menyala. Sengaja TIDAK dihentikan saat
+  // komponen dilepas: justru itu intinya — titik tetap terkirim walau aplikasi
+  // di latar belakang atau halaman ditutup.
+  useEffect(() => {
+    if (gerbangAktif) return;
+    const layanan = layananRef.current;
+    if (layanan === null) return;
+    layananRef.current = null;
+    void hentikanLayananLokasi(layanan);
+  }, [gerbangAktif]);
+
+  /**
+   * Layanan native bisa berhenti diam-diam (izin lokasi dicabut, proses
+   * dihentikan sistem, atau plugin belum ikut dibangun). Karena WebView tidak
+   * lagi mengirim titik saat layanan aktif, matinya layanan harus dideteksi —
+   * kalau tidak, nasabah hanya melihat pil "titik terakhir …" tanpa tahu
+   * kenapa transaksinya ditolak. Setelah tenggang, jalur cadangan dinyalakan
+   * sehingga tidak ada nasabah yang terkunci tanpa jalan keluar.
+   */
+  useEffect(() => {
+    if (!gerbangAktif) return;
+    const periksa = window.setInterval(() => {
+      const layanan = layananRef.current;
+      if (layanan === null) return;
+      if (Date.now() - layananMulaiRef.current < TENGGANG_LAYANAN_MS) return;
+      const server = statusRef.current;
+      if (server === null || server.segar) return;
+      if (server.umurMenit === null || server.umurMenit <= server.batasMenit) return;
+      layananRef.current = null;
+      void hentikanLayananLokasi(layanan);
+      mulaiWatchDalamAplikasi();
+    }, PERIKSA_LAYANAN_MS);
+    return () => window.clearInterval(periksa);
+  }, [gerbangAktif, mulaiWatchDalamAplikasi]);
 
   if (!aktif) return <>{children}</>;
 
@@ -383,7 +501,7 @@ export function LocationGate({
                 Situs web tidak dapat memantau lokasi setelah tab ditutup. Itu keterbatasan
                 browser, bukan pengaturan PINDAI.
               </p>
-              <TombolKeluar onKeluar={() => void signOut()} />
+              <TombolKeluar onKeluar={keluar} />
             </Kartu>
           </LayarPenuh>
         );
@@ -414,7 +532,7 @@ export function LocationGate({
                 transaksi harus berasal dari sana. Itu keterbatasan browser, bukan pengaturan
                 PINDAI.
               </p>
-              <TombolKeluar onKeluar={() => void signOut()} />
+              <TombolKeluar onKeluar={keluar} />
             </Kartu>
           </LayarPenuh>
         );
@@ -499,11 +617,7 @@ export function LocationGate({
           <Button className="h-11" onClick={cobaLagi}>
             <RefreshCw className="mr-1.5 size-4" /> Coba lagi
           </Button>
-          <Button
-            variant="outline"
-            className="h-11"
-            onClick={() => void signOut()}
-          >
+          <Button variant="outline" className="h-11" onClick={keluar}>
             Keluar dari akun
           </Button>
         </div>
