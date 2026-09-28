@@ -4,17 +4,18 @@
  * (objek mirip `window`), jadi tidak butuh aplikasi native sungguhan.
  */
 import {
-  bacaTokenPerangkat,
   diAplikasiNative,
   idPerangkat,
   kirimHeartbeatLatar,
   kodePlatform,
   lingkunganNative,
   mulaiPelacakanLatar,
+  muatTokenPerangkat,
   pasangPluginLokasiLatar,
   PELACAKAN_LATAR_OPSI,
   pesanGalatLokasi,
   pluginLokasiLatar,
+  penyimpananAman,
   simpanTokenPerangkat,
   urlHeartbeatLokasi,
   versiAplikasi,
@@ -49,6 +50,49 @@ function buatPenyimpanan(): { isi: Map<string, string>; api: unknown } {
     },
   };
 }
+
+/** Penyimpanan aman tiruan bentuk objek ({ key } / { key, value }). */
+function buatPluginAmanObjek(opts: { gagalGet?: boolean; gagalSet?: boolean } = {}): {
+  isi: Map<string, string>;
+  api: unknown;
+} {
+  const isi = new Map<string, string>();
+  return {
+    isi,
+    api: {
+      get: async (o: { key: string }) => {
+        if (opts.gagalGet) throw new Error("keychain terkunci");
+        return { value: isi.get(o.key) ?? null };
+      },
+      set: async (o: { key: string; value: string }) => {
+        if (opts.gagalSet) throw new Error("penyimpanan aman menolak");
+        isi.set(o.key, o.value);
+      },
+      remove: async (o: { key: string }) => {
+        isi.delete(o.key);
+      },
+    },
+  };
+}
+
+/** Penyimpanan aman tiruan bentuk posisi (get(key) / set(key, value)). */
+function buatPluginAmanPosisi(): { isi: Map<string, string>; api: unknown } {
+  const isi = new Map<string, string>();
+  return {
+    isi,
+    api: {
+      get: async (kunci: string) => isi.get(kunci) ?? null,
+      set: async (kunci: string, nilai: string) => {
+        isi.set(kunci, nilai);
+      },
+      remove: async (kunci: string) => {
+        isi.delete(kunci);
+      },
+    },
+  };
+}
+
+const KUNCI_TOKEN = "pindai.tokenPerangkat";
 
 /** Root tiruan: browser biasa, aplikasi native, atau Capacitor web. */
 function buatRoot(opts: {
@@ -343,25 +387,105 @@ eq(
 pasangPluginLokasiLatar(null);
 eq("plugin manual bisa direset", pluginLokasiLatar(buatRoot({ platform: "android" })), null);
 
-// ===== Token perangkat =====
-eq("token kosong di awal", bacaTokenPerangkat(buatRoot({ penyimpanan: buatPenyimpanan().api })), null);
+// ===== Token perangkat: penyimpanan aman (Keychain / EncryptedSharedPreferences) =====
+eq("tanpa plugin → tidak ada penyimpanan aman", penyimpananAman(buatRoot({ platform: "android" })), null);
+eq("plugin tanpa remove diabaikan", penyimpananAman(
+  buatRoot({
+    platform: "android",
+    plugins: { SecureStoragePlugin: { get: async () => null, set: async () => undefined } },
+  }),
+), null);
 {
+  // Cadangan: plugin belum terpasang → localStorage (pengembangan di browser).
   const store = buatPenyimpanan();
   const root = buatRoot({ platform: "android", penyimpanan: store.api });
-  simpanTokenPerangkat("token-uji-123456", root);
-  eq("token tersimpan & terbaca", bacaTokenPerangkat(root), "token-uji-123456");
-  simpanTokenPerangkat(null, root);
-  eq("token bisa dihapus", bacaTokenPerangkat(root), null);
+  eq("token kosong di awal", await muatTokenPerangkat(root), null);
+  await simpanTokenPerangkat("token-cadangan-1", root);
+  eq("tersimpan di localStorage", store.isi.get(KUNCI_TOKEN), "token-cadangan-1");
+  eq("terbaca kembali", await muatTokenPerangkat(root), "token-cadangan-1");
+  await simpanTokenPerangkat(null, root);
+  eq("bisa dihapus", await muatTokenPerangkat(root), null);
 }
 {
+  // Plugin terpasang: token masuk Keychain/EncryptedSharedPreferences.
   const store = buatPenyimpanan();
-  simpanTokenPerangkat("", buatRoot({ penyimpanan: store.api }));
-  eq("token string kosong dianggap null", bacaTokenPerangkat(buatRoot({ penyimpanan: store.api })), null);
+  const plugin = buatPluginAmanObjek();
+  const root = buatRoot({
+    platform: "ios",
+    plugins: { SecureStoragePlugin: plugin.api },
+    penyimpanan: store.api,
+  });
+  await simpanTokenPerangkat("token-aman-1", root);
+  eq("tersimpan di penyimpanan aman", plugin.isi.get(KUNCI_TOKEN), "token-aman-1");
+  eq("TIDAK disimpan di localStorage", store.isi.get(KUNCI_TOKEN), undefined);
+  eq("terbaca dari penyimpanan aman", await muatTokenPerangkat(root), "token-aman-1");
+  await simpanTokenPerangkat(null, root);
+  eq("dihapus dari penyimpanan aman", plugin.isi.get(KUNCI_TOKEN), undefined);
 }
 {
-  // Tanpa localStorage: tidak melempar, hanya tidak menyimpan.
-  simpanTokenPerangkat("token", {});
-  eq("tanpa penyimpanan → null", bacaTokenPerangkat({}), null);
+  // Migrasi satu kali dari cara penyimpanan lama.
+  const store = buatPenyimpanan();
+  store.isi.set(KUNCI_TOKEN, "token-lama-9");
+  const plugin = buatPluginAmanObjek();
+  const root = buatRoot({
+    platform: "android",
+    plugins: { SecureStoragePlugin: plugin.api },
+    penyimpanan: store.api,
+  });
+  eq("token lama tetap terbaca", await muatTokenPerangkat(root), "token-lama-9");
+  eq("tersalin ke penyimpanan aman", plugin.isi.get(KUNCI_TOKEN), "token-lama-9");
+  eq("salinan localStorage dibersihkan", store.isi.has(KUNCI_TOKEN), false);
+}
+{
+  // Penyimpanan aman sudah berisi → salinan lama dibuang, bukan dipakai.
+  const store = buatPenyimpanan();
+  store.isi.set(KUNCI_TOKEN, "token-basi");
+  const plugin = buatPluginAmanObjek();
+  plugin.isi.set(KUNCI_TOKEN, "token-aman-baru");
+  const root = buatRoot({
+    platform: "android",
+    plugins: { SecureStoragePlugin: plugin.api },
+    penyimpanan: store.api,
+  });
+  eq("nilai penyimpanan aman menang", await muatTokenPerangkat(root), "token-aman-baru");
+  eq("salinan lama dibuang", store.isi.has(KUNCI_TOKEN), false);
+}
+{
+  // Bentuk API posisi (@aparajita/capacitor-secure-storage).
+  const plugin = buatPluginAmanPosisi();
+  const root = buatRoot({ platform: "ios", plugins: { SecureStorage: plugin.api } });
+  await simpanTokenPerangkat("token-posisi", root);
+  eq("bentuk posisi didukung", plugin.isi.get(KUNCI_TOKEN), "token-posisi");
+  eq("terbaca lewat bentuk posisi", await muatTokenPerangkat(root), "token-posisi");
+}
+{
+  // Keychain terkunci / kunci Android tidak berlaku → pakai cadangan.
+  const store = buatPenyimpanan();
+  store.isi.set(KUNCI_TOKEN, "token-cadangan-2");
+  const plugin = buatPluginAmanObjek({ gagalGet: true });
+  const root = buatRoot({
+    platform: "ios",
+    plugins: { SecureStoragePlugin: plugin.api },
+    penyimpanan: store.api,
+  });
+  eq("gagal baca → cadangan dipakai", await muatTokenPerangkat(root), "token-cadangan-2");
+}
+{
+  // Gagal tulis ke penyimpanan aman → jangan jatuh ke localStorage.
+  const store = buatPenyimpanan();
+  const plugin = buatPluginAmanObjek({ gagalSet: true });
+  const root = buatRoot({
+    platform: "ios",
+    plugins: { SecureStoragePlugin: plugin.api },
+    penyimpanan: store.api,
+  });
+  await simpanTokenPerangkat("token-rahasia", root);
+  eq("tidak ditulis ke localStorage saat penyimpanan aman gagal", store.isi.has(KUNCI_TOKEN), false);
+}
+{
+  // Tanpa penyimpanan apa pun: tidak melempar.
+  await simpanTokenPerangkat("token", {});
+  eq("tanpa penyimpanan → null", await muatTokenPerangkat({}), null);
 }
 
 // ===== URL endpoint heartbeat =====

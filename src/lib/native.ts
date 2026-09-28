@@ -92,26 +92,166 @@ function penyimpanan(root: unknown): Storage | null {
 }
 
 /**
- * Simpan token perangkat hasil `lokasi.daftarkanPerangkat`.
+ * Penyimpanan aman perangkat: Keychain (iOS) / EncryptedSharedPreferences
+ * (Android) lewat plugin Capacitor.
  *
- * Token ini yang dipakai layanan lokasi untuk mengirim titik lewat
- * `POST /lokasi/heartbeat` tanpa sesi pengguna. (Fase berikutnya: pindahkan ke
- * Keychain iOS / EncryptedSharedPreferences Android.)
+ * Token perangkat TIDAK disimpan di `localStorage`: nilai di sana bisa dibaca
+ * skrip mana pun yang berjalan di WebView dan ikut tersalin ke cadangan
+ * perangkat. `localStorage` hanya dipakai sebagai cadangan saat plugin belum
+ * terpasang (mis. saat pengembangan di browser).
  */
-export function simpanTokenPerangkat(token: string | null, root: unknown = globalThis): void {
-  const simpan = penyimpanan(root);
-  if (simpan === null) return;
-  if (token === null || token === "") {
-    if (typeof simpan.removeItem === "function") simpan.removeItem(KUNCI_TOKEN_PERANGKAT);
-    return;
-  }
-  simpan.setItem(KUNCI_TOKEN_PERANGKAT, token);
+interface PenyimpananAman {
+  get: (kunci: string) => Promise<string | null>;
+  set: (kunci: string, nilai: string) => Promise<void>;
+  remove: (kunci: string) => Promise<void>;
 }
 
-/** Token perangkat tersimpan, atau null bila perangkat belum pernah mendaftar. */
-export function bacaTokenPerangkat(root: unknown = globalThis): string | null {
-  const nilai = penyimpanan(root)?.getItem(KUNCI_TOKEN_PERANGKAT) ?? null;
-  return nilai === null || nilai === "" ? null : nilai;
+interface PluginAmanObjek {
+  get: (o: { key: string }) => Promise<{ value?: unknown } | null>;
+  set: (o: { key: string; value: string }) => Promise<unknown>;
+  remove: (o: { key: string }) => Promise<unknown>;
+}
+
+interface PluginAmanPosisi {
+  get: (kunci: string) => Promise<unknown>;
+  set: (kunci: string, nilai: string) => Promise<unknown>;
+  remove: (kunci: string) => Promise<unknown>;
+}
+
+function pluginAmanObjek(root: unknown, nama: string): PluginAmanObjek | null {
+  const plugin = pluginKapasitor(root, nama) as Partial<PluginAmanObjek> | null;
+  if (plugin === null) return null;
+  if (typeof plugin.get !== "function") return null;
+  if (typeof plugin.set !== "function") return null;
+  if (typeof plugin.remove !== "function") return null;
+  return plugin as PluginAmanObjek;
+}
+
+function pluginAmanPosisi(root: unknown): PluginAmanPosisi | null {
+  const plugin = pluginKapasitor(root, "SecureStorage") as Partial<PluginAmanPosisi> | null;
+  if (plugin === null) return null;
+  if (typeof plugin.get !== "function") return null;
+  if (typeof plugin.set !== "function") return null;
+  if (typeof plugin.remove !== "function") return null;
+  return plugin as PluginAmanPosisi;
+}
+
+function hapusCadangan(root: unknown): void {
+  const simpan = penyimpanan(root);
+  if (simpan !== null && typeof simpan.removeItem === "function") {
+    simpan.removeItem(KUNCI_TOKEN_PERANGKAT);
+  }
+}
+
+/**
+ * Penyimpanan aman dari plugin Capacitor, bila terpasang.
+ *
+ * Dua bentuk API yang lazim dinormalkan di sini:
+ *  - bentuk objek `{ key }` / `{ key, value }` — `capacitor-secure-storage-plugin`
+ *    (plugin `SecureStoragePlugin`) dan Capawesome Secure Preferences;
+ *  - bentuk posisi `get(key)` / `set(key, value)` —
+ *    `@aparajita/capacitor-secure-storage` (plugin `SecureStorage`).
+ *
+ * Tidak ada paket yang diimpor: plugin ditemukan lewat `Capacitor.Plugins`,
+ * sehingga bundel web tetap ringan dan pilihan plugin ditentukan saat aplikasi
+ * native dibangun.
+ */
+export function penyimpananAman(root: unknown = globalThis): PenyimpananAman | null {
+  for (const nama of ["SecureStoragePlugin", "SecurePreferences"]) {
+    const plugin = pluginAmanObjek(root, nama);
+    if (plugin === null) continue;
+    return {
+      get: async (kunci) => {
+        const hasil = await plugin.get({ key: kunci });
+        const nilai = hasil?.value;
+        return typeof nilai === "string" && nilai !== "" ? nilai : null;
+      },
+      set: async (kunci, nilai) => {
+        await plugin.set({ key: kunci, value: nilai });
+      },
+      remove: async (kunci) => {
+        await plugin.remove({ key: kunci });
+      },
+    };
+  }
+
+  const posisional = pluginAmanPosisi(root);
+  if (posisional !== null) {
+    return {
+      get: async (kunci) => {
+        const nilai = await posisional.get(kunci);
+        return typeof nilai === "string" && nilai !== "" ? nilai : null;
+      },
+      set: async (kunci, nilai) => {
+        await posisional.set(kunci, nilai);
+      },
+      remove: async (kunci) => {
+        await posisional.remove(kunci);
+      },
+    };
+  }
+  return null;
+}
+
+/**
+ * Muat token perangkat: penyimpanan aman lebih dulu, lalu migrasi satu kali
+ * dari `localStorage` (cara penyimpanan versi lama) dan bersihkan sisa lama itu.
+ */
+export async function muatTokenPerangkat(root: unknown = globalThis): Promise<string | null> {
+  const cadangan = penyimpanan(root)?.getItem(KUNCI_TOKEN_PERANGKAT) ?? null;
+  const aman = penyimpananAman(root);
+  if (aman === null) return cadangan === "" ? null : cadangan;
+  try {
+    const tersimpan = await aman.get(KUNCI_TOKEN_PERANGKAT);
+    if (tersimpan !== null) {
+      if (cadangan !== null) hapusCadangan(root);
+      return tersimpan;
+    }
+    if (cadangan !== null && cadangan !== "") {
+      await aman.set(KUNCI_TOKEN_PERANGKAT, cadangan);
+      hapusCadangan(root);
+      return cadangan;
+    }
+    return null;
+  } catch {
+    // Keychain terkunci atau kunci enkripsi Android sudah tidak berlaku:
+    // jangan sampai kredensial hilang — pakai cadangan apa adanya.
+    return cadangan === "" ? null : cadangan;
+  }
+}
+
+/**
+ * Simpan token perangkat (penyimpanan aman bila ada, `localStorage` bila tidak).
+ *
+ * Bila penyimpanan aman menolak (mis. layar perangkat terkunci), token sengaja
+ * TIDAK ditulis ke `localStorage`: cadangan tak terenkripsi justru menghapus
+ * manfaat penyimpanan aman, dan token bisa didaftarkan ulang bila hilang.
+ */
+export async function simpanTokenPerangkat(
+  token: string | null,
+  root: unknown = globalThis,
+): Promise<void> {
+  const nilai = token === null || token === "" ? null : token;
+  const aman = penyimpananAman(root);
+  if (aman === null) {
+    const simpan = penyimpanan(root);
+    if (simpan === null) return;
+    try {
+      if (nilai === null) hapusCadangan(root);
+      else simpan.setItem(KUNCI_TOKEN_PERANGKAT, nilai);
+    } catch {
+      // Kuota localStorage habis (mode privat). Konteks pemanggil tidak boleh
+      // gagal hanya karena pencadangan token tidak berhasil.
+    }
+    return;
+  }
+  try {
+    if (nilai === null) await aman.remove(KUNCI_TOKEN_PERANGKAT);
+    else await aman.set(KUNCI_TOKEN_PERANGKAT, nilai);
+  } catch {
+    return;
+  }
+  hapusCadangan(root);
 }
 
 /**

@@ -39,7 +39,8 @@ fungsinya no-op, jadi bundel web tidak berubah.
 | `pluginLokasiLatar()` | Mencari plugin `BackgroundGeolocation` di `Capacitor.Plugins`. |
 | `pasangPluginLokasiLatar(p)` | Daftar manual via `registerPlugin(...)` — jaring pengaman bila `Capacitor.Plugins` tidak ada. |
 | `mulaiPelacakanLatar(onTitik, onGalat)` | Mulai watcher latar belakang; `null` bila plugin belum terpasang (bukan error). |
-| `simpanTokenPerangkat()` / `bacaTokenPerangkat()` | Menyimpan token perangkat dari pendaftaran (kredensial heartbeat HTTP). |
+| `penyimpananAman()` | Menemukan plugin penyimpanan aman (Keychain/EncryptedSharedPreferences) dari `Capacitor.Plugins`. |
+| `muatTokenPerangkat()` / `simpanTokenPerangkat()` | Baca/tulis token perangkat ke penyimpanan aman, dengan migrasi satu kali dari `localStorage`. |
 | `urlHeartbeatLokasi(urlConvex, urlSitus?)` | Menurunkan `https://<deployment>.convex.site/lokasi/heartbeat`. |
 | `kirimHeartbeatLatar(url, token, titik)` | Kirim titik lewat `CapacitorHttp` (tidak ter-throttle WebView), fallback `fetch`. |
 
@@ -133,6 +134,12 @@ Kesimpulan yang bisa dijual: **"mati lokasi = tidak bisa bertransaksi"**, bukan
 ```bash
 # dari salinan repo web PINDAI
 bun add @capacitor/core @capacitor/app @capacitor-community/background-geolocation
+# Penyimpanan aman token perangkat (Keychain iOS / EncryptedSharedPreferences
+# Android). Pilih salah satu — jembatan di `src/lib/native.ts` mendeteksi
+# keduanya secara otomatis:
+#   bun add capacitor-secure-storage-plugin      # gratis, MIT, plugin "SecureStoragePlugin"
+#   bun add @aparajita/capacitor-secure-storage  # gratis, MIT, plugin "SecureStorage"
+bun add capacitor-secure-storage-plugin
 bun add -d @capacitor/cli
 
 bunx cap init "PINDAI" "id.pindai.app" --web-dir dist
@@ -295,6 +302,26 @@ plugin lokasi tetap hidup.
    indeks `by_token`). Token lama dipakai ulang saat perangkat mendaftar lagi,
    sehingga layanan lokasi tidak kehilangan kredensial setiap app dibuka.
    Endpoint ini juga menolak `platform` selain `android`/`ios`.
+
+   **Penyimpanan aman (selesai).** Token tidak lagi disimpan di `localStorage`:
+   `muatTokenPerangkat()` / `simpanTokenPerangkat()` memakai plugin
+   penyimpanan aman bila terpasang — Keychain di iOS,
+   EncryptedSharedPreferences di Android. `localStorage` kini hanya cadangan
+   saat plugin belum ada (pengembangan di browser), dan token lama di sana
+   **dimigrasikan otomatis sekali** lalu salinannya dihapus.
+
+   Perilaku saat gagal sengaja dipilih hati-hati:
+   - Baca gagal (Keychain terkunci, kunci Android tidak berlaku) → pakai nilai
+     cadangan. Kredensial tidak boleh hilang.
+   - Tulis gagal → token **tidak** ditulis ke `localStorage`; token tetap hidup
+     di memori sesi dan bisa didaftarkan ulang bila perlu. Cadangan tak
+     terenkripsi akan menghapus manfaat penyimpanan aman.
+
+   Jembatan ini menormalkan dua bentuk API plugin yang lazim (objek
+   `{ key }`/`{ key, value }` dan posisi `get(key)`), jadi pilihan plugin tidak
+   terkunci pada satu vendor. Perlu diingat: di iOS **Keychain tidak terhapus
+   saat app di-uninstall** — bersihkan store saat pemasangan pertama bila itu
+   tidak diinginkan.
 3. **Pengiriman dari sisi native** — `src/lib/native.ts` menyediakan
    `kirimHeartbeatLatar()`, yang memakai `CapacitorHttp` (HTTP native, tidak
    terkena pembatasan WebView) dengan fallback ke `fetch`, dan
@@ -310,15 +337,12 @@ plugin lokasi tetap hidup.
    belakang, tetapi yang paling tahan lama adalah plugin native kecil milik
    PINDAI yang menjalankan foreground service + POST sendiri tanpa WebView.
    Token perangkat dan endpoint HTTP di atas sudah menjadi fondasinya.
-2. **Token di penyimpanan aman.** Token masih disimpan di `localStorage`
-   WebView (`simpanTokenPerangkat`). Pindahkan ke Keychain (iOS) /
-   EncryptedSharedPreferences (Android) lewat plugin secure storage.
-3. **Attestation aplikasi.** Verifikasi Play Integrity (Android) / App Attest
+2. **Attestation aplikasi.** Verifikasi Play Integrity (Android) / App Attest
    (iOS) di endpoint heartbeat, lalu ikat hasilnya ke `perangkat.token`. Ini
    yang membuat klaim "saya aplikasi resmi" **tidak bisa** dipalsukan klien —
    prasyarat bila kebijakan `wajibAplikasiNative` ingin dianggap sebagai kontrol
    keamanan, bukan sekadar kontrol alur.
-4. **Deteksi lokasi palsu di sisi native** — kirim juga `isFromMockProvider`
+3. **Deteksi lokasi palsu di sisi native** — kirim juga `isFromMockProvider`
    dan `simulated` dari plugin, lalu tolak di `simpanTitik`.
 
 Sampai poin 1 selesai, pemantauan latar belakang andal untuk sesi menengah dan
@@ -442,7 +466,8 @@ Urutan ini **tidak boleh dibalik**:
 - [ ] Kanal bantuan untuk pelunasan manual sudah disiapkan
 - [ ] Fase 2 point 1 selesai: layanan latar belakang native yang POST sendiri
       (bukan hanya callback plugin di WebView)
-- [ ] Token perangkat sudah dipindah ke penyimpanan aman perangkat
+- [ ] Plugin penyimpanan aman terpasang & token terbaca dari Keychain/
+      EncryptedSharedPreferences (bukan lagi dari `localStorage`)
 - [ ] Kalau `wajibAplikasiNative` dianggap kontrol keamanan: attestation
       (Play Integrity / App Attest) sudah terpasang di endpoint heartbeat
 

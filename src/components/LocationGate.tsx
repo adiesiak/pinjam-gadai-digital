@@ -7,11 +7,11 @@ import { api } from "@/convex/_generated/api";
 import { useAuth } from "@/hooks/use-auth";
 import { LOKASI_KEBIJAKAN, labelUmurLokasi } from "@/lib/lokasi";
 import {
-  bacaTokenPerangkat,
   idPerangkat,
   kirimHeartbeatLatar,
   lingkunganNative,
   mulaiPelacakanLatar,
+  muatTokenPerangkat,
   pluginLokasiLatar,
   simpanTokenPerangkat,
   urlHeartbeatLokasi,
@@ -87,15 +87,14 @@ export function LocationGate({
   // browser nilainya netral ("web"/null) sehingga perilaku web tidak berubah.
   const [perangkat] = useState(() => {
     const platform = lingkunganNative();
-    return {
-      native: platform !== "web",
-      platform,
-      deviceId: idPerangkat(),
-      token: bacaTokenPerangkat(),
-    };
+    return { native: platform !== "web", platform, deviceId: idPerangkat() };
   });
-  /** Token perangkat untuk endpoint HTTP heartbeat (diperbarui saat mendaftar). */
-  const tokenRef = useRef<string | null>(perangkat.token);
+  /**
+   * Token perangkat untuk endpoint HTTP heartbeat. Diisi dari penyimpanan aman
+   * perangkat (Keychain/EncryptedSharedPreferences) oleh efek pendaftaran, lalu
+   * diperbarui dengan token terbaru dari server — pembacaannya asinkron.
+   */
+  const tokenRef = useRef<string | null>(null);
 
   // Browser tanpa layanan lokasi dideteksi saat render — bukan lewat efek,
   // sehingga efek di bawah murni memulai pemantauan tanpa setState.
@@ -252,6 +251,10 @@ export function LocationGate({
     let dibatalkan = false;
     void (async () => {
       versiRef.current = await versiAplikasi();
+      // Token tersimpan dimuat lebih dulu supaya heartbeat bisa lewat HTTP
+      // native walau pendaftaran ulang belum selesai (mis. jaringan lambat).
+      tokenRef.current = await muatTokenPerangkat();
+      if (dibatalkan) return;
       try {
         const hasil = await daftarkanRef.current({
           deviceId,
@@ -259,10 +262,10 @@ export function LocationGate({
           versiApp: versiRef.current ?? "tidak diketahui",
         });
         // Token dipakai mengirim titik tanpa sesi (layanan lokasi), termasuk
-        // saat aplikasi di latar belakang. Disimpan agar app tidak perlu
-        // mendaftar ulang setiap kali dibuka.
+        // saat aplikasi di latar belakang. Disimpan di penyimpanan aman
+        // perangkat agar app tidak perlu mendaftar ulang setiap kali dibuka.
         tokenRef.current = hasil.token;
-        simpanTokenPerangkat(hasil.token);
+        await simpanTokenPerangkat(hasil.token);
       } catch (err) {
         if (dibatalkan) return;
         setPesan(
