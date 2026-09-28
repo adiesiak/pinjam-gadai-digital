@@ -40,10 +40,10 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const role = user?.role;
 
-  // Query Peminjam ditolak server untuk akun Pendana. Kirim "skip" sampai
-  // peran diketahui (dan selama peran bukan Peminjam) supaya UI tidak pernah
-  // menerima error server mentah — pengunjung hanya melihat error page generik.
-  const argsPeminjam = role === undefined || role === "pendana" ? ("skip" as const) : {};
+  // Lewati query hanya saat profil pengguna masih dimuat atau pengguna adalah
+  // Pendana. Akun tamu/pengguna baru memang belum punya role; endpoint Peminjam
+  // mendukung role kosong, jadi menunggu role terisi akan membuat spinner abadi.
+  const argsPeminjam = user === undefined || role === "pendana" ? ("skip" as const) : {};
   const loans = useQuery(api.loans.listMyLoans, argsPeminjam);
   const summary = useQuery(api.loans.myLoanSummary, argsPeminjam);
   const pawns = useQuery(api.loans.listMyPawns, argsPeminjam);
