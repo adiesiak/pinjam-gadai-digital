@@ -288,6 +288,8 @@ export const dokumenKycUrls = query({
 export const adminExists = query({
   args: {},
   handler: async (ctx) => {
+    const userId = await getAuthUserId(ctx);
+    if (userId === null) throw new Error("Harus masuk terlebih dahulu.");
     const all = await ctx.db.query("users").collect();
     return all.some((u) => u.role === ROLES.ADMIN);
   },
@@ -312,7 +314,11 @@ export const bootstrapFirstAdmin = mutation({
         "Admin sudah ada. Promosi admin berikutnya dilakukan oleh admin yang ada.",
       );
     }
-    if (me.isAnonymous === true || !me.email) {
+    if (
+      me.isAnonymous === true ||
+      !me.email ||
+      me.emailVerificationTime === undefined
+    ) {
       throw new Error(
         "Bootstrap admin wajib memakai akun email terverifikasi, bukan akun tamu.",
       );
@@ -484,7 +490,8 @@ export const adminStats = query({
 // diamortisasi, bunga menurun per tenor); kosong → skema harian 130%.
 export const adminLoanQuote = query({
   args: { pokokPinjaman: v.number(), tenorBulan: v.optional(v.number()) },
-  handler: async (_ctx, args) => {
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx);
     if (args.tenorBulan !== undefined) {
       const sim = hitungSimulasiBulanan(args.pokokPinjaman, args.tenorBulan);
       return {

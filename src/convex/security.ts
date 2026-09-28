@@ -49,6 +49,15 @@ async function getUser(ctx: QueryCtx) {
   return ctx.db.get(userId);
 }
 
+async function requireAdmin(ctx: QueryCtx) {
+  const user = await getUser(ctx);
+  if (user === null) throw new Error("Harus masuk terlebih dahulu.");
+  if (user.role !== ROLES.ADMIN) {
+    throw new Error("2FA TOTP khusus Super Admin.");
+  }
+  return user;
+}
+
 async function getMfa(ctx: QueryCtx, userId: Id<"users">) {
   return ctx.db
     .query("mfaSettings")
@@ -194,8 +203,7 @@ export const _guardLogin = internalMutation({
 export const myTotpStatus = query({
   args: {},
   handler: async (ctx) => {
-    const user = await getUser(ctx);
-    if (user === null) throw new Error("Harus masuk terlebih dahulu.");
+    const user = await requireAdmin(ctx);
     const mfa = await getMfa(ctx, user._id);
     return {
       aktif: mfa?.totpSecret !== undefined,
@@ -208,11 +216,7 @@ export const myTotpStatus = query({
 export const startTotpSetup = mutation({
   args: {},
   handler: async (ctx) => {
-    const user = await getUser(ctx);
-    if (user === null) throw new Error("Harus masuk terlebih dahulu.");
-    if (user.role !== ROLES.ADMIN) {
-      throw new Error("2FA TOTP khusus Super Admin.");
-    }
+    const user = await requireAdmin(ctx);
     const secret = generateTotpSecret();
     const existing = await getMfa(ctx, user._id);
     if (existing === null) {
@@ -244,11 +248,7 @@ function otpauthUriPublic(secret: string, account: string): string {
 export const confirmTotpSetup = mutation({
   args: { kode: v.string() },
   handler: async (ctx, { kode }) => {
-    const user = await getUser(ctx);
-    if (user === null) throw new Error("Harus masuk terlebih dahulu.");
-    if (user.role !== ROLES.ADMIN) {
-      throw new Error("2FA TOTP khusus Super Admin.");
-    }
+    const user = await requireAdmin(ctx);
     const mfa = await getMfa(ctx, user._id);
     if (mfa?.totpPendingSecret === undefined) {
       throw new Error("Setup TOTP belum dimulai.");
@@ -278,8 +278,7 @@ export const confirmTotpSetup = mutation({
 export const verifyTotp = mutation({
   args: { kode: v.string(), sessionId: v.string(), perangkat: v.string(), ip: v.string() },
   handler: async (ctx, { kode, sessionId, perangkat, ip }) => {
-    const user = await getUser(ctx);
-    if (user === null) throw new Error("Harus masuk terlebih dahulu.");
+    const user = await requireAdmin(ctx);
     const mfa = await getMfa(ctx, user._id);
     const secret = mfa?.totpSecret;
     if (secret === undefined) return { ok: true, butuh: false }; // 2FA belum aktif
@@ -317,8 +316,7 @@ export const verifyTotp = mutation({
 export const disableTotp = mutation({
   args: { kode: v.string() },
   handler: async (ctx, { kode }) => {
-    const user = await getUser(ctx);
-    if (user === null) throw new Error("Harus masuk terlebih dahulu.");
+    const user = await requireAdmin(ctx);
     const mfa = await getMfa(ctx, user._id);
     if (mfa?.totpSecret === undefined) throw new Error("2FA belum aktif.");
     const ok = await verifyTotpCode(mfa.totpSecret, kode);
@@ -343,8 +341,7 @@ export const disableTotp = mutation({
 export const totpGateStatus = query({
   args: { sessionId: v.string() },
   handler: async (ctx, { sessionId }) => {
-    const user = await getUser(ctx);
-    if (user === null) return { butuh: false, aktif: false };
+    const user = await requireAdmin(ctx);
     const mfa = await getMfa(ctx, user._id);
     if (mfa?.totpSecret === undefined) return { butuh: false, aktif: false };
     const sesi = await ctx.db
@@ -600,6 +597,9 @@ export const verifyWaOtp = mutation({
   handler: async (ctx, { kode, ip, userAgent }) => {
     const user = await getUser(ctx);
     if (user === null) throw new Error("Harus masuk terlebih dahulu.");
+    if (user.role !== ROLES.PENDANA && user.role !== ROLES.ADMIN) {
+      throw new Error("OTP WhatsApp khusus akun Pendana.");
+    }
     const mfa = await getMfa(ctx, user._id);
     const gagal = await ctx.runQuery(internal.security.assertNotRateLimited, {
       identifier: user.email ?? "pendana",
@@ -673,6 +673,9 @@ export const setWaOtpRequired = mutation({
   handler: async (ctx, { wajib }) => {
     const user = await getUser(ctx);
     if (user === null) throw new Error("Harus masuk terlebih dahulu.");
+    if (user.role !== ROLES.PENDANA) {
+      throw new Error("Pengaturan OTP WhatsApp khusus akun Pendana.");
+    }
     const mfa = await getMfa(ctx, user._id);
     if (mfa === null) {
       await ctx.db.insert("mfaSettings", { userId: user._id, waOtpWajib: wajib });
