@@ -2,6 +2,7 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 import { mutation, query, QueryCtx } from "./_generated/server";
 import { v } from "convex/values";
 import { ROLES } from "./schema";
+import { simpanTitik } from "./lokasi";
 
 /** Gerbang admin untuk pembacaan riwayat lokasi oleh tim review. */
 async function requireAdmin(ctx: QueryCtx) {
@@ -86,7 +87,14 @@ export const cabut = mutation({
   },
 });
 
-/** Push satu titik GPS (device memanggil tiap beberapa menit saat aktif). */
+/**
+ * Push satu titik GPS (perangkat memanggil tiap ±60 detik).
+ *
+ * Sejak gerbang lokasi wajib berlaku, jalur ini menumpang pemrosesan yang
+ * sama dengan lokasi.catatLokasi: validasi wilayah Indonesia, cek akurasi,
+ * proteksi lompatan mustahil, penulisan jejak, dan penyegaran status lokasi.
+ * Persetujuan pemantauan kini tercatat otomatis (bukan lagi opt-in).
+ */
 export const pushTitik = mutation({
   args: {
     lat: v.number(),
@@ -97,26 +105,7 @@ export const pushTitik = mutation({
   handler: async (ctx, { lat, lng, akurasi, loanId }) => {
     const userId = await getAuthUserId(ctx);
     if (userId === null) throw new Error("Harus masuk terlebih dahulu.");
-    const consent = await ctx.db
-      .query("trackingConsents")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
-      .first();
-    if (!consent?.aktif) {
-      throw new Error("Pelacakan lokasi tidak aktif — beri persetujuan dulu.");
-    }
-    const valid =
-      lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180 && akurasi >= 0;
-    if (!valid) {
-      throw new Error("Titik lokasi tidak valid.");
-    }
-    await ctx.db.insert("lokasiJejak", {
-      userId,
-      loanId,
-      lat,
-      lng,
-      akurasi,
-      waktu: Date.now(),
-    });
+    await simpanTitik(ctx, userId, { lat, lng, akurasi, sumber: "web", loanId });
     return { ok: true };
   },
 });

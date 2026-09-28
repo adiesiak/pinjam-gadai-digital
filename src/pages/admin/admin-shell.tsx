@@ -14,6 +14,8 @@ export type AdminStatsData = {
   pinjamanTerlambat: number;
   nilaiTaksiranDisetujui: number;
   gpsMismatch: number;
+  /** Pinjaman aktif yang titik GPS-nya kedaluwarsa (lokasi dimatikan). */
+  pinjamanTanpaLokasi: number;
 };
 
 /** Layar bootstrap admin pertama. */
@@ -155,6 +157,11 @@ export function AdminStats({ stats }: { stats: AdminStatsData }) {
         ["Wanprestasi / DPD", `${stats.pinjamanTerlambat}`, "red"],
         ["Taksiran Disetujui", formatRupiah(stats.nilaiTaksiranDisetujui), "mint"],
         ["Peringatan GPS Mismatch", `${stats.gpsMismatch}`, stats.gpsMismatch > 0 ? "red" : "mint"],
+        [
+          "Lokasi Tidak Mengalir",
+          `${stats.pinjamanTanpaLokasi}`,
+          stats.pinjamanTanpaLokasi > 0 ? "red" : "mint",
+        ],
       ].map(([label, value, tone]) => (
         <div
           key={label as string}

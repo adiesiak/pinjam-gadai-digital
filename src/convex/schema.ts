@@ -300,6 +300,41 @@ const schema = defineSchema(
     }).index("by_user", ["userId"]),
 
     /**
+     * Status lokasi TERKINI per pengguna — dasar gerbang "lokasi wajib aktif".
+     * Setiap aksi finansial (pengajuan, cicilan, pelunasan) hanya dilayani
+     * bila titik terakhir masih segar, sehingga perangkat yang mematikan GPS
+     * otomatis tidak bisa bertransaksi.
+     */
+    lokasiStatus: defineTable({
+      userId: v.id("users"),
+      lat: v.number(),
+      lng: v.number(),
+      /** Akurasi GPS dalam meter (dari perangkat). */
+      akurasi: v.number(),
+      waktu: v.number(),
+      /** "web" (browser) atau "aplikasi" (aplikasi native terpasang). */
+      sumber: v.string(),
+      platform: v.optional(v.string()),
+      versiApp: v.optional(v.string()),
+    }).index("by_user", ["userId"]),
+
+    /**
+     * Perangkat aplikasi native terdaftar — dasar kebijakan "wajib aplikasi":
+     * transaksi hanya dilayani bila perangkat ini pernah mengirim heartbeat
+     * (dipakai setelah aplikasi Android/iOS dirilis).
+     */
+    perangkat: defineTable({
+      userId: v.id("users"),
+      deviceId: v.string(),
+      platform: v.string(),
+      versiApp: v.string(),
+      terdaftarPada: v.number(),
+      terakhirDilihat: v.number(),
+    })
+      .index("by_user", ["userId"])
+      .index("by_device", ["deviceId"]),
+
+    /**
      * Konfigurasi sistem — satu baris global (slot "global").
      * Diubah dari /admin → Pengaturan System; kill switch menghentikan
      * seluruh pengajuan baru (pinjaman & gadai) seketika.
@@ -325,6 +360,12 @@ const schema = defineSchema(
       gpsMismatchKm: v.optional(v.number()),
       /** Jarak maks pencairan dari vault (km, default 75). */
       pencairanMaxKm: v.optional(v.number()),
+      /** Gerbang lokasi wajib: transaksi Peminjam butuh titik GPS segar. */
+      lokasiWajib: v.optional(v.boolean()),
+      /** Umur maksimum titik lokasi yang masih dianggap segar (menit). */
+      lokasiMaxUmurMenit: v.optional(v.number()),
+      /** Wajib transaksi dari aplikasi native (pelacakan latar belakang). */
+      wajibAplikasiNative: v.optional(v.boolean()),
       /** Waktu terakhir konfigurasi diperbarui. */
       diperbaruiPada: v.number(),
     }).index("by_slot", ["slot"]),

@@ -70,6 +70,46 @@ export function SystemConfigPanel() {
           </div>
           <Switch checked={form.maintenanceMode} onCheckedChange={(v) => upd("maintenanceMode", v)} />
         </div>
+        <div className="flex items-center justify-between gap-3 rounded-2xl border border-emerald-100 bg-emerald-50/60 px-4 py-3">
+          <div>
+            <p className="text-sm font-medium text-emerald-900">Gerbang lokasi wajib</p>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              Peminjam tidak bisa mengajukan, membayar cicilan, atau melunasi tanpa titik GPS
+              segar di server. Dashboard memblokir layar sampai lokasi mengalir.
+            </p>
+          </div>
+          <Switch checked={form.lokasiWajib} onCheckedChange={(v) => upd("lokasiWajib", v)} />
+        </div>
+        <div>
+          <Label htmlFor="cfg-lokasi-umur">Batas umur titik lokasi (menit)</Label>
+          <Input
+            id="cfg-lokasi-umur"
+            type="number"
+            min={1}
+            value={form.lokasiMaxUmurMenit}
+            onChange={(e) =>
+              upd("lokasiMaxUmurMenit", Math.max(1, Number(e.target.value) || 1))
+            }
+            className="tabular-nums"
+          />
+          <p className="mt-1 text-xs leading-5 text-muted-foreground">
+            Titik lebih tua dari batas ini → transaksi Peminjam ditolak server-side.
+          </p>
+        </div>
+        <div className="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+          <div>
+            <p className="text-sm font-medium">Wajib aplikasi (lokasi latar belakang)</p>
+            <p className="mt-0.5 text-xs leading-5 text-muted-foreground">
+              Aktifkan HANYA setelah aplikasi Android/iOS dirilis: transaksi jadi terbatas pada
+              perangkat yang pernah membuka PINDAI dari aplikasi. Browser tidak bisa melacak
+              lokasi saat tab ditutup, jadi menyalakan ini lebih awal akan memblokir semua nasabah web.
+            </p>
+          </div>
+          <Switch
+            checked={form.wajibAplikasiNative}
+            onCheckedChange={(v) => upd("wajibAplikasiNative", v)}
+          />
+        </div>
         <div className="flex items-center justify-between gap-3 rounded-2xl border border-red-100 bg-red-50/60 px-4 py-3">
           <div>
             <p className="text-sm font-medium text-red-700">Kill Switch</p>

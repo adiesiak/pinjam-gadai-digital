@@ -62,6 +62,9 @@ export async function getConfig(ctx: QueryCtx): Promise<SystemConfig> {
     vaultLng: row.vaultLng ?? DEFAULT_CONFIG.vaultLng,
     gpsMismatchKm: row.gpsMismatchKm ?? DEFAULT_CONFIG.gpsMismatchKm,
     pencairanMaxKm: row.pencairanMaxKm ?? DEFAULT_CONFIG.pencairanMaxKm,
+    lokasiWajib: row.lokasiWajib ?? DEFAULT_CONFIG.lokasiWajib,
+    lokasiMaxUmurMenit: row.lokasiMaxUmurMenit ?? DEFAULT_CONFIG.lokasiMaxUmurMenit,
+    wajibAplikasiNative: row.wajibAplikasiNative ?? DEFAULT_CONFIG.wajibAplikasiNative,
   };
 }
 
@@ -72,7 +75,14 @@ export const getStatusPublic = query({
     const userId = await getAuthUserId(ctx);
     if (userId === null) return null;
     const cfg = await getConfig(ctx);
-    return { killSwitch: cfg.killSwitch, maintenanceMode: cfg.maintenanceMode };
+    return {
+      killSwitch: cfg.killSwitch,
+      maintenanceMode: cfg.maintenanceMode,
+      // Gerbang lokasi dibaca dashboard Peminjam sebelum meminta GPS.
+      lokasiWajib: cfg.lokasiWajib,
+      lokasiMaxUmurMenit: cfg.lokasiMaxUmurMenit,
+      wajibAplikasiNative: cfg.wajibAplikasiNative,
+    };
   },
 });
 
@@ -105,11 +115,17 @@ export const saveConfig = mutation({
     vaultLng: v.number(),
     gpsMismatchKm: v.number(),
     pencairanMaxKm: v.number(),
+    lokasiWajib: v.boolean(),
+    lokasiMaxUmurMenit: v.number(),
+    wajibAplikasiNative: v.boolean(),
   },
   handler: async (ctx, args) => {
     const { userId, user } = await requireAdmin(ctx);
     if (args.persenAdmin < 0 || args.persenPlatform < 0 || args.persenBunga < 0) {
       throw new Error("Persentase biaya/bunga tidak boleh negatif.");
+    }
+    if (!Number.isSafeInteger(args.lokasiMaxUmurMenit) || args.lokasiMaxUmurMenit < 1) {
+      throw new Error("Batas umur lokasi harus minimal 1 menit.");
     }
     if (args.maxLtvPersen <= 0 || args.maxLtvPersen > 100) {
       throw new Error("LTV maksimum harus di antara 1–100%.");

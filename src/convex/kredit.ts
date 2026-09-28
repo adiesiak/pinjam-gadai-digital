@@ -9,6 +9,7 @@ import {
 import { ROLES, type KreditStatusValue } from "./schema";
 import { appendJournal } from "./ledger";
 import { audit, getConfig } from "./system";
+import { requireGerbangLokasi } from "./lokasi";
 import type { Doc, Id } from "./_generated/dataModel";
 import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 
@@ -163,6 +164,8 @@ export const ajukanKreditBarang = mutation({
   },
   handler: async (ctx, args) => {
     const { userId, user } = await peminjamMasuk(ctx);
+    // Gerbang lokasi: pengajuan kredit hanya dilayani dengan GPS aktif & segar.
+    await requireGerbangLokasi(ctx, userId, user);
 
     // Kill switch: blokir seluruh pengajuan baru saat darurat.
     const sys = await getConfig(ctx);
@@ -290,7 +293,9 @@ export const kreditSaya = query({
 export const bayarCicilanKredit = mutation({
   args: { kreditId: v.id("kreditBarang") },
   handler: async (ctx, args) => {
-    const { userId } = await peminjamMasuk(ctx);
+    const { userId, user } = await peminjamMasuk(ctx);
+    // Gerbang lokasi: pembayaran cicilan juga butuh GPS aktif & segar.
+    await requireGerbangLokasi(ctx, userId, user);
     const kredit = await ctx.db.get(args.kreditId);
     if (kredit === null) throw new Error("Pengajuan kredit barang tidak ditemukan.");
     if (kredit.userId !== userId) throw new Error("Bukan pengajuan kredit barang Anda.");

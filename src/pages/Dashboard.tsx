@@ -5,6 +5,7 @@ import { useNavigate } from "react-router";
 import { toast } from "sonner";
 
 import { ErrorPage } from "@/components/ErrorPage";
+import { LocationGate } from "@/components/LocationGate";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { api } from "@/convex/_generated/api";
@@ -22,7 +23,7 @@ import { GadaiBillingSection } from "./dashboard/gadai-views";
 import { HistorySection } from "./dashboard/history-views";
 import { KreditBarangSection } from "./dashboard/kredit-views";
 import { ActiveLoanSection, ScheduleSection } from "./dashboard/loan-views";
-import { DueReminderBanner, LocationConsentCard } from "./dashboard/notice-views";
+import { DueReminderBanner } from "./dashboard/notice-views";
 import { SummaryCards } from "./dashboard/summary-cards";
 import { PawnVaultSection } from "./dashboard/vault-views";
 
@@ -127,8 +128,11 @@ export default function Dashboard() {
   if (jumlahKontrak > 0) tabBadges.kontrak = { count: jumlahKontrak };
 
   return (
-    <div className="flex min-h-screen flex-col bg-slate-50 text-slate-900">
-      {/* Bar pengumuman global dirender di main.tsx (AnnouncementBar). */}
+    // Gerbang lokasi wajib: Peminjam tidak bisa memakai dashboard tanpa GPS
+    // aktif (heartbeat ke server). Admin dikecualikan agar tim tetap bisa masuk.
+    <LocationGate aktif={role !== "admin"}>
+      <div className="flex min-h-screen flex-col bg-slate-50 text-slate-900">
+        {/* Bar pengumuman global dirender di main.tsx (AnnouncementBar). */}
 
       {/* ===== Bar atas ===== */}
       <DashboardHeader />
@@ -160,8 +164,8 @@ export default function Dashboard() {
                 {/* Pengingat jatuh tempo live */}
                 {dueReminder !== null && <DueReminderBanner reminder={dueReminder} />}
 
-                {/* Persetujuan pelacakan lokasi (opt-in, dapat dicabut) */}
-                <LocationConsentCard />
+                {/* Status lokasi wajib tampil sebagai pil di kanan bawah —
+                    gerbangnya sendiri membungkus seluruh dashboard. */}
 
                 {/* ===== Ringkasan keuangan ===== */}
                 <SummaryCards schedule={schedule ?? []} />
@@ -238,10 +242,11 @@ export default function Dashboard() {
         </Tabs>
       </main>
 
-      <LoanDetailDialog loanId={loanDetailId} onClose={() => setLoanDetailId(null)} />
-      <PawnDetailDialog pawnId={pawnDetailId} onClose={() => setPawnDetailId(null)} />
+        <LoanDetailDialog loanId={loanDetailId} onClose={() => setLoanDetailId(null)} />
+        <PawnDetailDialog pawnId={pawnDetailId} onClose={() => setPawnDetailId(null)} />
 
-      <DashboardFooter />
-    </div>
+        <DashboardFooter />
+      </div>
+    </LocationGate>
   );
 }

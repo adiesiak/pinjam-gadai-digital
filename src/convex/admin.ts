@@ -310,6 +310,30 @@ export const adminStats = query({
       }
     }
 
+    // Gerbang lokasi wajib: pinjaman aktif yang titik GPS-nya tidak mengalir
+    // (= Peminjam mematikan lokasi). Angka ini yang perlu ditindak penagihan.
+    const batasLokasiMs = Math.max(1, cfg.lokasiMaxUmurMenit) * 60_000;
+    const waktuLokasiPerPeminjam = new Map<string, number | null>();
+    let pinjamanTanpaLokasi = 0;
+    if (cfg.lokasiWajib) {
+      for (const l of loans) {
+        if (l.status !== "didanai") continue;
+        const kunci = l.userId as string;
+        let waktu = waktuLokasiPerPeminjam.get(kunci);
+        if (waktu === undefined) {
+          const statusLokasi = await ctx.db
+            .query("lokasiStatus")
+            .withIndex("by_user", (q2) => q2.eq("userId", l.userId))
+            .first();
+          waktu = statusLokasi?.waktu ?? null;
+          waktuLokasiPerPeminjam.set(kunci, waktu);
+        }
+        if (waktu === null || Date.now() - waktu > batasLokasiMs) {
+          pinjamanTanpaLokasi += 1;
+        }
+      }
+    }
+
     return {
       pinjamanBaru: pendingLoans,
       gadaiProses: pendingPawns,
@@ -320,6 +344,8 @@ export const adminStats = query({
       totalDendaBerjalan,
       antreanPencairan,
       gpsMismatch,
+      /** Pinjaman aktif tanpa titik lokasi segar (gerbang lokasi wajib). */
+      pinjamanTanpaLokasi,
     };
   },
 });

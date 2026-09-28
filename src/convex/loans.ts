@@ -30,6 +30,7 @@ import { formatRupiah, type Rupiah } from "../lib/money";
 import { COLLATERAL_CATEGORIES } from "../lib/pawn";
 import { appendJournal } from "./ledger";
 import { getConfig, audit } from "./system";
+import { requireGerbangLokasi } from "./lokasi";
 
 /**
  * Saat pinjaman dilunasi, pinjaman baru (belum pernah didanai) bisa kembali
@@ -153,6 +154,9 @@ export const createLoanApplication = mutation({
   returns: v.object({ appId: v.id("loans"), nomorReferensi: v.string() }),
   handler: async (ctx, args) => {
     const { userId, user } = await requirePeminjam(ctx);
+    // Gerbang lokasi: titik GPS segar wajib ada di server, dan koordinat yang
+    // dikirim bersama pengajuan harus cocok dengan lokasi perangkat tercatat.
+    await requireGerbangLokasi(ctx, userId, user, args.lokasiAjukan);
     // Kill switch: blokir seluruh pengajuan baru saat darurat.
     const sys = await getConfig(ctx);
     if (sys.killSwitch) {
@@ -547,6 +551,8 @@ export const createPawnApplication = mutation({
   },
   handler: async (ctx, args) => {
     const { userId, user } = await requirePeminjam(ctx);
+    // Gerbang lokasi: gadai juga hanya dilayani dengan GPS aktif & segar.
+    await requireGerbangLokasi(ctx, userId, user);
     // Kill switch: blokir seluruh pengajuan baru saat darurat.
     const sys = await getConfig(ctx);
     if (sys.killSwitch) {
@@ -821,7 +827,9 @@ export const rejectPawn = mutation({
 export const repayLoan = mutation({
   args: { loanId: v.id("loans") },
   handler: async (ctx, args) => {
-    const { userId } = await requirePeminjam(ctx);
+    const { userId, user } = await requirePeminjam(ctx);
+    // Gerbang lokasi: pelunasan hanya dilayani dengan GPS aktif & segar.
+    await requireGerbangLokasi(ctx, userId, user);
     const loan = await ctx.db.get(args.loanId);
     if (loan === null) throw new Error("Pinjaman tidak ditemukan.");
     if (loan.userId !== userId) throw new Error("Bukan pinjaman Anda.");

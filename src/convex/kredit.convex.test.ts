@@ -6,7 +6,9 @@
  *     penolakan wajib alasan, pengajuan yang menerima Alokasi Dana tidak
  *     boleh ditolak, dan pengajuan yang sudah didanai tidak dapat berstatus
  *     lain (jurnalnya sudah mengalir).
- *  2. Alur cicilan penuh: pengajuan → disetujui → Alokasi Dana 2 Pendana →
+ *  2. Gerbang lokasi wajib: pengajuan & cicilan hanya dilayani setelah ada
+ *     titik GPS segar di server (perangkat mematikan lokasi = ditolak).
+ *  3. Alur cicilan penuh: pengajuan → disetujui → Alokasi Dana 2 Pendana →
  *     pendanaan penuh (fee platform + jurnal merchant) → 12× cicilan →
  *     lunas. Kontrak utama: setiap Pendana menerima TEPAT alokasi + hak
  *     Imbal Hasilnya, ledger selalu seimbang, cicilan harus berurutan.
@@ -50,6 +52,14 @@ async function pengajuanDisetujui(
   asPeminjam: ReturnType<ReturnType<typeof convexTest>["withIdentity"]>,
   asAdmin: ReturnType<ReturnType<typeof convexTest>["withIdentity"]>,
 ) {
+  // Gerbang lokasi wajib: perangkat harus sudah mengirim heartbeat GPS
+  // (di sini titik Jakarta) sebelum pengajuan/pembayaran dilayani server.
+  await asPeminjam.mutation(api.lokasi.catatLokasi, {
+    lat: -6.2,
+    lng: 106.816666,
+    akurasi: 25,
+    sumber: "web",
+  });
   await asPeminjam.mutation(api.kredit.ajukanKreditBarang, {
     namaBarang: "Smartphone kelas menengah",
     kategori: "Elektronik",
