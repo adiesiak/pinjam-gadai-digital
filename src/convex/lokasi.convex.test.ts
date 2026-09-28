@@ -13,13 +13,16 @@
  *  6. Titik jauh setelah jeda panjang diterima (bukan lokasi palsu).
  *  7. Kebijakan "wajib aplikasi": transaksi hanya bila titik terakhir datang
  *     dari aplikasi native — browser ditolak walau perangkat pernah terdaftar.
+ *  8. Retensi jejak lokasi (cron harian): titik lama dihapus, titik milik
+ *     pinjaman berjalan ditahan, dan batas bukti tetap mengakhiri penahanan.
  *
  * Menjalankan: bunx vitest run src/convex
  */
 import { convexTest } from "convex-test";
 import { describe, expect, it } from "vitest";
 
-import { api } from "./_generated/api";
+import { api, internal } from "./_generated/api";
+import type { Id } from "./_generated/dataModel";
 import schema from "./schema";
 import { modules } from "./test.setup";
 import { DEFAULT_CONFIG } from "../lib/system-config";
@@ -374,6 +377,118 @@ describe("kebijakan wajib aplikasi (transaksi hanya dari aplikasi)", () => {
     await expect(
       asPeminjam.mutation(api.kredit.ajukanKreditBarang, PENGAJUAN),
     ).rejects.toThrow("belum terdaftar");
+  });
+});
+
+describe("retensi jejak lokasi (job cron harian)", () => {
+  const HARI = 86_400_000;
+  let urutan = 0;
+
+  /** Satu titik jejak berumur `hari` hari, opsional terikat pinjaman. */
+  async function siapkanJejak(
+    t: ReturnType<typeof convexTest>,
+    opts: { hari: number; statusPinjaman?: "didanai" | "lunas" },
+  ): Promise<void> {
+    urutan += 1;
+    const nomor = urutan;
+    const waktu = Date.now() - opts.hari * HARI;
+    await t.mutation(async (ctx) => {
+      const userId = await ctx.db.insert("users", {
+        email: `jejak-${nomor}@pindai.test`,
+        name: `Peminjam Jejak ${nomor}`,
+        role: "peminjam",
+      });
+      let loanId: Id<"loans"> | undefined;
+      if (opts.statusPinjaman !== undefined) {
+        loanId = await ctx.db.insert("loans", {
+          userId,
+          pokokPinjaman: 1_000_000,
+          tujuan: "Modal usaha",
+          namaLengkap: `Peminjam Jejak ${nomor}`,
+          nomorRekening: "1234567890",
+          status: opts.statusPinjaman,
+          nomorReferensi: `PJD-${nomor}`,
+          tenorHari: 30,
+        });
+      }
+      await ctx.db.insert("lokasiJejak", {
+        userId,
+        loanId,
+        lat: -6.2,
+        lng: 106.816666,
+        akurasi: 20,
+        waktu,
+      });
+    });
+  }
+
+  function jumlahJejak(t: ReturnType<typeof convexTest>) {
+    return t.query(async (ctx) => ctx.db.query("lokasiJejak").collect());
+  }
+
+  it("menghapus titik lebih tua dari masa retensi dan menyimpan yang segar", async () => {
+    const t = convexTest(schema, modules);
+    await siapkanJejak(t, { hari: 120 });
+    await siapkanJejak(t, { hari: 5 });
+
+    const hasil = await t.mutation(internal.tracking.bersihkanLokasiLama, {});
+    expect(hasil).toMatchObject({ ok: true, dihapus: 1, dipertahankan: 0 });
+
+    const sisa = await jumlahJejak(t);
+    expect(sisa).toHaveLength(1);
+    // Yang tersisa adalah titik 5 hari lalu, bukan titik lama.
+    expect(Date.now() - sisa[0].waktu).toBeLessThan(6 * HARI);
+  });
+
+  it("menahan bukti lokasi pinjaman berjalan, menghapus milik pinjaman lunas", async () => {
+    const t = convexTest(schema, modules);
+    await siapkanJejak(t, { hari: 120, statusPinjaman: "didanai" });
+    await siapkanJejak(t, { hari: 120, statusPinjaman: "lunas" });
+
+    const hasil = await t.mutation(internal.tracking.bersihkanLokasiLama, {});
+    expect(hasil).toMatchObject({ ok: true, dihapus: 1, dipertahankan: 1 });
+
+    const sisa = await jumlahJejak(t);
+    expect(sisa).toHaveLength(1);
+    // Jejak pinjaman lunas-lah yang hilang; jejak pinjaman berjalan ditahan.
+    const pinjaman = await t.query(async (ctx) => ctx.db.query("loans").collect());
+    const berjalan = pinjaman.find((l) => l.status === "didanai")!;
+    expect(sisa[0].loanId).toBe(berjalan._id);
+  });
+
+  it("melepas penahanan setelah batas bukti (400 hari) terlewati", async () => {
+    const t = convexTest(schema, modules);
+    await siapkanJejak(t, { hari: 401, statusPinjaman: "didanai" });
+
+    const hasil = await t.mutation(internal.tracking.bersihkanLokasiLama, {});
+    expect(hasil).toMatchObject({ ok: true, dihapus: 1, dipertahankan: 0 });
+    await expect(jumlahJejak(t)).resolves.toHaveLength(0);
+  });
+
+  it("mendukung batas retensi khusus (manual/uji)", async () => {
+    const t = convexTest(schema, modules);
+    await siapkanJejak(t, { hari: 40 });
+    await siapkanJejak(t, { hari: 20 });
+
+    const hasil = await t.mutation(internal.tracking.bersihkanLokasiLama, {
+      batasHari: 30,
+    });
+    expect(hasil).toMatchObject({ ok: true, dihapus: 1, dipertahankan: 0 });
+    await expect(jumlahJejak(t)).resolves.toHaveLength(1);
+  });
+
+  it("memproses beberapa batch dalam satu kali jalan", async () => {
+    const t = convexTest(schema, modules);
+    await siapkanJejak(t, { hari: 200 });
+    await siapkanJejak(t, { hari: 201 });
+    await siapkanJejak(t, { hari: 202 });
+
+    // Batch 1 baris memaksa putaran berulang; ketiganya tetap terhapus.
+    const hasil = await t.mutation(internal.tracking.bersihkanLokasiLama, {
+      maksBaris: 1,
+    });
+    expect(hasil).toMatchObject({ ok: true, dihapus: 3, dipertahankan: 0 });
+    await expect(jumlahJejak(t)).resolves.toHaveLength(0);
   });
 });
 

@@ -209,6 +209,11 @@ const schema = defineSchema(
      * Jejak lokasi berkelanjutan Peminjam (opt-in, dengan persetujuan).
      * Satu baris per titik GPS yang dikirim device secara batch.
      */
+    /**
+     * Jejak titik GPS berkala. Disimpan append-only, lalu dibersihkan job
+     * retensi harian (LOKASI_RETENSI: 90 hari biasa, 400 hari untuk titik
+     * yang terikat pinjaman belum selesai).
+     */
     lokasiJejak: defineTable({
       userId: v.id("users"),
       loanId: v.optional(v.id("loans")),
@@ -219,7 +224,9 @@ const schema = defineSchema(
       waktu: v.number(),
     })
       .index("by_user", ["userId"])
-      .index("by_loan", ["loanId"]),
+      .index("by_loan", ["loanId"])
+      // Dipakai job retensi (crons.ts) untuk mengambil titik tertua lebih dulu.
+      .index("by_waktu", ["waktu"]),
 
     /**
      * Proteksi otentikasi (2FA TOTP admin & OTP WA Pendana) — satu baris per

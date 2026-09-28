@@ -1,5 +1,6 @@
 /**
- * Kebijakan lokasi PINDAI — lokasi WAJIB aktif bagi Peminjam.
+ * Kebijakan lokasi PINDAI — lokasi WAJIB aktif bagi Peminjam, plus retensi
+ * jejak lokasinya (lihat `LOKASI_RETENSI` di bawah).
  *
  * Cara kerja gerbang ini: perangkat mengirim titik GPS berkala ke server
  * (heartbeat). Setiap aksi finansial — pengajuan pinjaman/gadai/kredit,
@@ -37,6 +38,58 @@ export const LOKASI_KEBIJAKAN = {
   /** Toleransi jarak titik yang dikirim bersama pengajuan vs titik server (km). */
   toleransiJarakKm: 5,
 } as const;
+
+/**
+ * Retensi jejak lokasi (`lokasiJejak`) — dijalankan cron harian di crons.ts.
+ *
+ * Titik lokasi adalah data pribadi: disimpan sesingkat mungkin (minimalisasi
+ * UU PDP), tetapi titik yang masih menempel pada pinjaman berjalan ditahan
+ * lebih lama karena berfungsi sebagai bukti audit bila terjadi sengketa.
+ */
+export const LOKASI_RETENSI = {
+  /** Titik lokasi biasa disimpan selama ini (hari). */
+  jejakHari: 90,
+  /**
+   * Titik yang terikat pinjaman BELUM selesai dipertahankan sampai batas ini
+   * (hari). Skema bulanan terpanjang 6 bulan, jadi batas ini selalu menutupi
+   * masa pinjaman berjalan.
+   */
+  buktiPinjamanHari: 400,
+  /** Jumlah baris yang diperiksa per batch. */
+  batchBaris: 200,
+  /** Maksimum batch per jalannya cron (menjaga satu transaksi tetap ringan). */
+  maksBatch: 5,
+} as const;
+
+const HARI_MS = 86_400_000;
+
+/** Batas waktu (epoch ms): titik yang lebih tua dari ini sudah kedaluwarsa. */
+export function batasRetensiMs(
+  sekarang: number,
+  hari: number = LOKASI_RETENSI.jejakHari,
+): number {
+  return sekarang - hari * HARI_MS;
+}
+
+/**
+ * Titik lokasi boleh dihapus? Hanya titik yang lebih tua dari `jejakHari`,
+ * kecuali titik milik pinjaman yang masih berjalan — itu ditahan sampai
+ * `buktiPinjamanHari` supaya bukti audit tidak hilang saat masih diperlukan.
+ */
+export function titikBolehDihapus(
+  titik: { waktu: number; pinjamanAktif: boolean },
+  sekarang: number,
+  jejakHari: number = LOKASI_RETENSI.jejakHari,
+): boolean {
+  const batas = batasRetensiMs(sekarang, jejakHari);
+  // Belum kedaluwarsa — masih dipakai gerbang lokasi & pembacaan riwayat.
+  if (titik.waktu >= batas) return false;
+  if (titik.pinjamanAktif) {
+    const batasBukti = batasRetensiMs(sekarang, LOKASI_RETENSI.buktiPinjamanHari);
+    if (titik.waktu >= batasBukti) return false;
+  }
+  return true;
+}
 
 /** Bounding box Indonesia — titik di luar ini dianggap tidak sah. */
 export const INDONESIA_BOUNDS = {

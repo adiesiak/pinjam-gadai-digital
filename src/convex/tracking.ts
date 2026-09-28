@@ -1,8 +1,22 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
-import { mutation, query, QueryCtx } from "./_generated/server";
+import { internalMutation, mutation, query, QueryCtx } from "./_generated/server";
 import { v } from "convex/values";
 import { ROLES } from "./schema";
 import { simpanTitik } from "./lokasi";
+import { batasRetensiMs, LOKASI_RETENSI, titikBolehDihapus } from "../lib/lokasi";
+import type { LoanStatus } from "../lib/loan";
+
+/**
+ * Status pinjaman yang menahan bukti lokasinya: pinjaman belum selesai bisa
+ * dipertanyakan (sengketa/audit), jadi jejaknya jangan dihapus dulu.
+ * `lunas` dan `ditolak` tidak menahan apa pun.
+ */
+const STATUS_MENAHAN_BUKTI: ReadonlySet<LoanStatus> = new Set<LoanStatus>([
+  "diajukan",
+  "sedang_direview",
+  "disetujui",
+  "didanai",
+]);
 
 /** Gerbang admin untuk pembacaan riwayat lokasi oleh tim review. */
 async function requireAdmin(ctx: QueryCtx) {
@@ -160,5 +174,79 @@ export const riwayatAdmin = query({
       akurasi: r.akurasi,
       waktu: r.waktu,
     }));
+  },
+});
+
+/**
+ * Retensi jejak lokasi — dipanggil cron harian di crons.ts.
+ *
+ * Titik lokasi lama dihapus agar (a) penyimpanan tidak tumbuh tanpa batas dan
+ * (b) sesuai minimalisasi data UU PDP. Yang DIHAPUS hanya titik lebih tua dari
+ * `LOKASI_RETENSI.jejakHari` (default 90 hari). Titik yang menempel pada
+ * pinjaman yang masih berjalan ditahan sampai `buktiPinjamanHari` (400 hari)
+ * karena masih berfungsi sebagai bukti audit.
+ *
+ * Dikerjakan per batch dari yang TERTUA (index `by_waktu`) supaya satu
+ * transaksi tetap ringan; berhenti lebih awal bila sisa baris lama semuanya
+ * ditahan, sehingga cron tidak mengulang-ulang baris yang sama tiap hari.
+ */
+export const bersihkanLokasiLama = internalMutation({
+  args: {
+    /** Override umur retensi (hari) — untuk uji/manual. Default kebijakan. */
+    batasHari: v.optional(v.number()),
+    /** Override ukuran batch (baris per putaran). */
+    maksBaris: v.optional(v.number()),
+  },
+  handler: async (ctx, { batasHari, maksBaris }) => {
+    const sekarang = Date.now();
+    const hari = batasHari ?? LOKASI_RETENSI.jejakHari;
+    const batas = batasRetensiMs(sekarang, hari);
+    const perBatch = Math.min(Math.max(maksBaris ?? LOKASI_RETENSI.batchBaris, 1), 500);
+
+    let diperiksa = 0;
+    let dihapus = 0;
+    let dipertahankan = 0;
+
+    for (let putaran = 0; putaran < LOKASI_RETENSI.maksBatch; putaran += 1) {
+      const baris = await ctx.db
+        .query("lokasiJejak")
+        .withIndex("by_waktu", (q) => q.lt("waktu", batas))
+        .order("asc")
+        .take(perBatch);
+      if (baris.length === 0) break;
+
+      // Sekali baca per pinjaman yang disebut batch ini — hemat, dan cukup
+      // karena keputusan menahan hanya bergantung pada status pinjaman.
+      const idPinjaman = [
+        ...new Set(baris.map((b) => b.loanId).filter((id) => id !== undefined)),
+      ];
+      const menahan = new Set<string>();
+      for (const id of idPinjaman) {
+        const loan = await ctx.db.get(id);
+        if (loan !== null && STATUS_MENAHAN_BUKTI.has(loan.status)) {
+          menahan.add(id);
+        }
+      }
+
+      let dihapusPutaran = 0;
+      for (const b of baris) {
+        diperiksa += 1;
+        const pinjamanAktif = b.loanId !== undefined && menahan.has(b.loanId);
+        if (!titikBolehDihapus({ waktu: b.waktu, pinjamanAktif }, sekarang, hari)) {
+          dipertahankan += 1;
+          continue;
+        }
+        await ctx.db.delete(b._id);
+        dihapus += 1;
+        dihapusPutaran += 1;
+      }
+
+      // Sisa baris lama semuanya ditahan pinjaman berjalan: berhenti daripada
+      // membaca batch yang sama berulang-ulang.
+      if (dihapusPutaran === 0) break;
+      if (baris.length < perBatch) break;
+    }
+
+    return { ok: true, diperiksa, dihapus, dipertahankan };
   },
 });

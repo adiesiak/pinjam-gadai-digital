@@ -2,7 +2,15 @@
  * Uji kebijakan lokasi: batas wilayah Indonesia, deteksi lompatan mustahil
  * (anti lokasi palsu), dan label umur titik.
  */
-import { INDONESIA_BOUNDS, kecepatanKmJam, koordinatIndonesia, labelUmurLokasi } from "./lokasi";
+import {
+  batasRetensiMs,
+  INDONESIA_BOUNDS,
+  kecepatanKmJam,
+  koordinatIndonesia,
+  labelUmurLokasi,
+  LOKASI_RETENSI,
+  titikBolehDihapus,
+} from "./lokasi";
 
 let passed = 0;
 let failed = 0;
@@ -63,6 +71,50 @@ eq("baru saja", labelUmurLokasi(0), "baru saja");
 eq("negatif dianggap baru", labelUmurLokasi(-3), "baru saja");
 eq("menit", labelUmurLokasi(7), "7 menit lalu");
 eq("jam", labelUmurLokasi(185), "3 jam lalu");
+
+// ===== Retensi jejak lokasi (job cron harian) =====
+const SEKARANG = 1_800_000_000_000;
+const hariLalu = (hari: number): number => SEKARANG - hari * 86_400_000;
+
+// Titik lama tanpa pinjaman: dihapus setelah lewat 90 hari.
+ok(
+  "titik biasa 91 hari dihapus",
+  titikBolehDihapus({ waktu: hariLalu(91), pinjamanAktif: false }, SEKARANG),
+);
+ok(
+  "titik biasa 89 hari dipertahankan",
+  !titikBolehDihapus({ waktu: hariLalu(89), pinjamanAktif: false }, SEKARANG),
+);
+ok(
+  "titik tepat di batas 90 hari dipertahankan",
+  !titikBolehDihapus(
+    { waktu: batasRetensiMs(SEKARANG, LOKASI_RETENSI.jejakHari), pinjamanAktif: false },
+    SEKARANG,
+  ),
+);
+// Pinjaman berjalan menahan bukti lokasinya lebih lama.
+ok(
+  "titik pinjaman berjalan 120 hari ditahan",
+  !titikBolehDihapus({ waktu: hariLalu(120), pinjamanAktif: true }, SEKARANG),
+);
+ok(
+  "titik pinjaman berjalan 401 hari dihapus",
+  titikBolehDihapus({ waktu: hariLalu(401), pinjamanAktif: true }, SEKARANG),
+);
+ok(
+  "titik pinjaman lunas 120 hari dihapus",
+  titikBolehDihapus({ waktu: hariLalu(120), pinjamanAktif: false }, SEKARANG),
+);
+// Batas retensi bisa di-override (dipakai cron/manual).
+eq("batas 30 hari", batasRetensiMs(SEKARANG, 30), SEKARANG - 30 * 86_400_000);
+ok(
+  "override 7 hari menghapus titik 10 hari",
+  titikBolehDihapus({ waktu: hariLalu(10), pinjamanAktif: false }, SEKARANG, 7),
+);
+ok(
+  "batas bukti lebih panjang dari retensi biasa",
+  LOKASI_RETENSI.buktiPinjamanHari > LOKASI_RETENSI.jejakHari,
+);
 
 console.log(`lokasi tests: ${passed} passed, ${failed} failed`);
 if (failed > 0) process.exit(1);
