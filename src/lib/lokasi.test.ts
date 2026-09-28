@@ -9,7 +9,11 @@ import {
   koordinatIndonesia,
   labelUmurLokasi,
   LOKASI_RETENSI,
+  periksaLokasiPalsu,
+  pesanLokasiPalsu,
+  TANDA_LOKASI_PALSU,
   titikBolehDihapus,
+  type TitikDiperiksa,
 } from "./lokasi";
 import { DEFAULT_CONFIG, RETENSI_LOKASI_BATAS } from "./system-config";
 
@@ -72,6 +76,86 @@ eq("baru saja", labelUmurLokasi(0), "baru saja");
 eq("negatif dianggap baru", labelUmurLokasi(-3), "baru saja");
 eq("menit", labelUmurLokasi(7), "7 menit lalu");
 eq("jam", labelUmurLokasi(185), "3 jam lalu");
+
+// ===== Deteksi lokasi palsu =====
+const T0 = 1_800_000_000_000;
+const titikDi = (
+  lat: number,
+  lng: number,
+  akurasi: number,
+  menitLalu: number,
+  extra: Partial<TitikDiperiksa> = {},
+): TitikDiperiksa => ({ lat, lng, akurasi, waktu: T0 - menitLalu * 60_000, ...extra });
+
+// 1. Perangkat melaporkan sendiri titiknya dari mock location.
+const mock = periksaLokasiPalsu({ lat: -6.2, lng: 106.816666, akurasi: 5, mock: true }, null, T0);
+ok("mock location ditolak", mock.palsu);
+ok("pesan mock menyebut lokasi palsu", (mock.alasan ?? "").includes("lokasi palsu"));
+
+// 2. Akurasi di bawah kemampuan sensor GPS konsumen.
+const sempurna = periksaLokasiPalsu({ lat: -6.2, lng: 106.816666, akurasi: 0 }, null, T0);
+ok("akurasi 0 m ditolak", sempurna.palsu);
+ok("pesan akurasi menyebut 1 meter", (sempurna.alasan ?? "").includes("1 meter"));
+const nyata = periksaLokasiPalsu({ lat: -6.2, lng: 106.816666, akurasi: 8 }, null, T0);
+ok("akurasi normal diterima", !nyata.palsu);
+eq("titik pertama tanpa tanda", nyata.tanda.length, 0);
+eq("titik pertama tanpa jarak lompat", nyata.jarakLompatKm, null);
+
+// 3. Lompatan mustahil tetap ditolak lewat jalur baru ini.
+const sebelumnyaJakarta = titikDi(-6.2, 106.816666, 10, 1);
+const lompat = periksaLokasiPalsu(
+  { lat: -6.6, lng: 106.816666, akurasi: 10 },
+  sebelumnyaJakarta,
+  T0,
+);
+ok("lompatan 44 km dalam 1 menit ditolak", lompat.palsu);
+ok("pesan lompatan dipertahankan", (lompat.alasan ?? "").includes("melompat tidak wajar"));
+ok("jarak lompat dilaporkan", (lompat.jarakLompatKm ?? 0) > 40);
+
+// 4. Jarak jauh setelah jeda panjang = perjalanan nyata, bukan lompatan.
+const perjalanan = periksaLokasiPalsu(
+  { lat: -7.2575, lng: 112.7521, akurasi: 25 },
+  titikDi(-6.2, 106.816666, 20, 180),
+  T0,
+);
+ok("Jakarta → Surabaya dalam 3 jam bukan lokasi palsu", !perjalanan.palsu);
+
+// 5. Koordinat persis sama berulang-ulang → dicatat (titik tetap diterima).
+const beku = titikDi(-6.2, 106.816666, 6, 1, { identikBerturut: 4 });
+const lanjutBeku = periksaLokasiPalsu({ lat: -6.2, lng: 106.816666, akurasi: 6 }, beku, T0);
+ok("titik identik ke-5 tidak ditolak", !lanjutBeku.palsu);
+eq("hitungan identik bertambah", lanjutBeku.identikBerturut, 5);
+ok(
+  "titik identik ke-5 ditandai perlu ditinjau",
+  lanjutBeku.tanda.includes(TANDA_LOKASI_PALSU.koordinatIdentik),
+);
+const baruEmpat = periksaLokasiPalsu(
+  { lat: -6.2, lng: 106.816666, akurasi: 6 },
+  titikDi(-6.2, 106.816666, 6, 1, { identikBerturut: 3 }),
+  T0,
+);
+eq("titik identik ke-4 belum ditandai", baruEmpat.tanda.length, 0);
+// Akurasi buruk memang boleh berulang persis (posisi jaringan yang di-cache).
+const bekuAkurasiBuruk = periksaLokasiPalsu(
+  { lat: -6.2, lng: 106.816666, akurasi: 800 },
+  titikDi(-6.2, 106.816666, 800, 1, { identikBerturut: 9 }),
+  T0,
+);
+eq("identik dengan akurasi buruk tidak ditandai", bekuAkurasiBuruk.tanda.length, 0);
+// Koordinat bergeser → hitungan direset.
+const bergeser = periksaLokasiPalsu(
+  { lat: -6.20002, lng: 106.816666, akurasi: 6 },
+  titikDi(-6.2, 106.816666, 6, 1, { identikBerturut: 9 }),
+  T0,
+);
+eq("koordinat bergeser mereset hitungan", bergeser.identikBerturut, 1);
+
+// ===== Pesan galat → instruksi yang tepat di UI =====
+ok("pesan mock dikenali", pesanLokasiPalsu("Lokasi perangkat terdeteksi berasal dari aplikasi lokasi palsu (mock location)"));
+ok("pesan lompatan dikenali", pesanLokasiPalsu("Lokasi terdeteksi melompat tidak wajar."));
+ok("pesan akurasi mustahil dikenali", pesanLokasiPalsu("Akurasi GPS yang dilaporkan tidak wajar (di bawah 1 meter)"));
+eq("pesan GPS kedaluwarsa bukan lokasi palsu", pesanLokasiPalsu("Lokasi wajib aktif untuk transaksi ini"), false);
+eq("pesan akurasi buruk bukan lokasi palsu", pesanLokasiPalsu("Akurasi GPS terlalu rendah (±900 m)"), false);
 
 // ===== Retensi jejak lokasi (job cron harian) =====
 const SEKARANG = 1_800_000_000_000;

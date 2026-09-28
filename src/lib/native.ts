@@ -26,6 +26,12 @@ export interface TitikLokasi {
   lng: number;
   /** Akurasi dalam meter. */
   akurasi: number;
+  /**
+   * Perangkat melaporkan titik ini berasal dari mock location. Server menolak
+   * titik seperti ini, jadi nilainya diteruskan apa adanya — lebih baik
+   * nasabah melihat sebabnya daripada titiknya hilang tanpa penjelasan.
+   */
+  mock?: boolean;
 }
 
 /** Kontrak minimum plugin lokasi latar belakang Capacitor. */
@@ -41,6 +47,16 @@ interface PosisiPlugin {
   latitude: number;
   longitude: number;
   accuracy: number;
+  /**
+   * Penanda mock location antar-plugin (namanya berbeda-beda):
+   *  - `@capacitor-community/background-geolocation` meneruskan `mock`
+   *    (`Location.isMock` Android / `isSimulatedBySoftware` iOS).
+   *  - Plugin lama memakai `isFromMockProvider` (Android) atau `simulated`.
+   */
+  mock?: unknown;
+  isFromMockProvider?: unknown;
+  isMock?: unknown;
+  simulated?: unknown;
 }
 
 interface KapasitorLike {
@@ -431,13 +447,16 @@ export async function kirimHeartbeatLatar(
   opsi: { platform?: string; versiApp?: string | null } = {},
   root: unknown = globalThis,
 ): Promise<HasilHeartbeat> {
-  const isi = {
+  const isi: Record<string, unknown> = {
     lat: titik.lat,
     lng: titik.lng,
     akurasi: titik.akurasi,
     platform: opsi.platform,
     versiApp: opsi.versiApp ?? undefined,
   };
+  // Field hanya dikirim saat benar-benar mock: body tetap bersih untuk titik
+  // normal, dan server tidak perlu menebak nilai `undefined`.
+  if (titik.mock === true) isi.mock = true;
   const header = { "Content-Type": "application/json", Authorization: `Bearer ${token}` };
   const kapasitorHttp = pluginKapasitor(root, "CapacitorHttp") as {
     post?: (o: unknown) => Promise<{ status: number; data?: unknown }>;
@@ -561,6 +580,26 @@ export async function bukaSetelanAplikasi(plugin: LayananLokasi): Promise<boolea
 }
 
 /**
+ * Apakah plugin melaporkan titik ini dari mock location?
+ *
+ * Nama fieldnya berbeda antar-plugin, jadi semuanya diperiksa — nilai yang
+ * tidak dikenali dianggap `false` (bukan tuduhan palsu ke perangkat).
+ */
+export function lokasiDariMock(posisi: {
+  mock?: unknown;
+  isFromMockProvider?: unknown;
+  isMock?: unknown;
+  simulated?: unknown;
+}): boolean {
+  return (
+    posisi.mock === true ||
+    posisi.isFromMockProvider === true ||
+    posisi.isMock === true ||
+    posisi.simulated === true
+  );
+}
+
+/**
  * Mulai pemantauan lokasi latar belakang di aplikasi native.
  * Mengembalikan null di browser ATAU bila plugin belum terpasang — pemanggil
  * harus punya fallback ke `navigator.geolocation`, bukan menganggap gagal total.
@@ -590,6 +629,7 @@ export async function mulaiPelacakanLatar(
           lat: posisi.latitude,
           lng: posisi.longitude,
           akurasi: posisi.accuracy,
+          mock: lokasiDariMock(posisi),
         });
       },
     );

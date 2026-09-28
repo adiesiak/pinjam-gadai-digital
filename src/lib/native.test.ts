@@ -10,6 +10,7 @@ import {
   kirimHeartbeatLatar,
   kodePlatform,
   lingkunganNative,
+  lokasiDariMock,
   mulaiPelacakanLatar,
   muatTokenPerangkat,
   pasangPluginLokasiLatar,
@@ -514,6 +515,51 @@ eq("URL kosong → null", urlHeartbeatLokasi("   "), null);
 // ===== Heartbeat HTTP native =====
 const TITIK = { lat: -6.2, lng: 106.816666, akurasi: 12 };
 const URL_HB = "https://abc.convex.site/lokasi/heartbeat";
+
+// ===== Deteksi mock location dari plugin =====
+ok("field mock true terdeteksi", lokasiDariMock({ mock: true }));
+ok("isFromMockProvider (plugin lama) terdeteksi", lokasiDariMock({ isFromMockProvider: true }));
+ok("isMock terdeteksi", lokasiDariMock({ isMock: true }));
+ok("simulated terdeteksi", lokasiDariMock({ simulated: true }));
+eq("tanpa penanda → bukan mock", lokasiDariMock({}), false);
+eq("penanda berupa string diabaikan", lokasiDariMock({ mock: "true" }), false);
+eq("penanda null diabaikan", lokasiDariMock({ mock: null, isMock: undefined }), false);
+{
+  // Titik dari mock location tetap diteruskan ke server APA ADANYA: server
+  // yang menolaknya, dan nasabah perlu melihat sebabnya.
+  const dipanggil: Record<string, unknown>[] = [];
+  const plugin = {
+    post: async (o: Record<string, unknown>) => {
+      dipanggil.push(o);
+      return { status: 400, data: { error: "mock location" } };
+    },
+  };
+  await kirimHeartbeatLatar(
+    URL_HB,
+    "tok-mock",
+    { ...TITIK, mock: true },
+    {},
+    buatRoot({ platform: "android", plugins: { CapacitorHttp: plugin } }),
+  );
+  eq("penanda mock ikut dikirim", (dipanggil[0].data as Record<string, unknown>).mock, true);
+}
+{
+  const dipanggil: Record<string, unknown>[] = [];
+  const plugin = {
+    post: async (o: Record<string, unknown>) => {
+      dipanggil.push(o);
+      return { status: 200, data: { ok: true } };
+    },
+  };
+  await kirimHeartbeatLatar(
+    URL_HB,
+    "tok-asli",
+    TITIK,
+    {},
+    buatRoot({ platform: "ios", plugins: { CapacitorHttp: plugin } }),
+  );
+  eq("titik normal tidak mengirim penanda mock", "mock" in (dipanggil[0].data as object), false);
+}
 {
   const dipanggil: Record<string, unknown>[] = [];
   const plugin = {

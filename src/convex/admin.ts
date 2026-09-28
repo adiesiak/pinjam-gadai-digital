@@ -310,29 +310,33 @@ export const adminStats = query({
       }
     }
 
+    // Satu baca untuk seluruh status lokasi: dipakai menghitung pinjaman yang
+    // lokasinya tidak mengalir sekaligus titik yang ditandai mencurigakan
+    // (indikasi lokasi palsu). Tabel ini satu baris per pengguna.
+    const statusLokasi = await ctx.db.query("lokasiStatus").collect();
+    const waktuLokasiPerPeminjam = new Map<string, number>();
+    for (const s of statusLokasi) {
+      waktuLokasiPerPeminjam.set(s.userId as string, s.waktu);
+    }
+
     // Gerbang lokasi wajib: pinjaman aktif yang titik GPS-nya tidak mengalir
     // (= Peminjam mematikan lokasi). Angka ini yang perlu ditindak penagihan.
     const batasLokasiMs = Math.max(1, cfg.lokasiMaxUmurMenit) * 60_000;
-    const waktuLokasiPerPeminjam = new Map<string, number | null>();
     let pinjamanTanpaLokasi = 0;
     if (cfg.lokasiWajib) {
       for (const l of loans) {
         if (l.status !== "didanai") continue;
-        const kunci = l.userId as string;
-        let waktu = waktuLokasiPerPeminjam.get(kunci);
-        if (waktu === undefined) {
-          const statusLokasi = await ctx.db
-            .query("lokasiStatus")
-            .withIndex("by_user", (q2) => q2.eq("userId", l.userId))
-            .first();
-          waktu = statusLokasi?.waktu ?? null;
-          waktuLokasiPerPeminjam.set(kunci, waktu);
-        }
+        const waktu = waktuLokasiPerPeminjam.get(l.userId as string) ?? null;
         if (waktu === null || Date.now() - waktu > batasLokasiMs) {
           pinjamanTanpaLokasi += 1;
         }
       }
     }
+
+    // Lokasi palsu: titik terakhir yang ditandai heuristik (mis. koordinat
+    // beku berulang). Titik yang JELAS palsu sudah ditolak sebelum disimpan,
+    // jadi angka ini adalah yang perlu ditinjau manusia, bukan pelanggaran.
+    const titikDicurigai = statusLokasi.filter((s) => (s.tanda?.length ?? 0) > 0).length;
 
     return {
       pinjamanBaru: pendingLoans,
@@ -346,6 +350,8 @@ export const adminStats = query({
       gpsMismatch,
       /** Pinjaman aktif tanpa titik lokasi segar (gerbang lokasi wajib). */
       pinjamanTanpaLokasi,
+      /** Peminjam dengan titik lokasi terakhir yang dicurigai palsu. */
+      titikDicurigai,
     };
   },
 });
@@ -676,6 +682,8 @@ export const petaPeminjam = query({
       posisi: { lat: number; lng: number; waktu: number; sumber: string } | null;
       jarakVaultKm: number | null;
       mismatch: boolean;
+      /** Tanda kecurigaan lokasi palsu pada titik terakhir (kosong = normal). */
+      tanda: string[];
     }> = [];
     const seen = new Set<string>();
     for (const l of loans) {
@@ -701,6 +709,7 @@ export const petaPeminjam = query({
         posisi,
         jarakVaultKm: jarak,
         mismatch: jarak !== null && jarak > cfg.gpsMismatchKm,
+        tanda: titik?.tanda ?? [],
       });
     }
     return { vault, gpsMismatchKm: cfg.gpsMismatchKm, rows };

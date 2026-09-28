@@ -170,11 +170,27 @@ class PindaiLocationService : Service(), LocationListener {
       // Titik terlalu kasar untuk dipakai server; tunggu fix yang lebih baik.
       return
     }
+    if (lokasiDariMock(lokasi)) {
+      // Server menolak titik mock (lokasi palsu) — jangan buang kuota dan
+      // baterai untuk titik yang pasti gagal; cukup laporkan sebabnya agar UI
+      // menampilkan instruksi "matikan aplikasi lokasi palsu".
+      galatTerakhir = "Lokasi terdeteksi berasal dari aplikasi lokasi palsu (mock location)."
+      return
+    }
     val sekarang = System.currentTimeMillis()
     if (sekarang - terakhirKirimMs < intervalMs) return
     terakhirKirimMs = sekarang
     kirim(lokasi)
   }
+
+  /** Android 12+ memakai `isMock`; versi lama `isFromMockProvider`. */
+  @Suppress("DEPRECATION")
+  private fun lokasiDariMock(lokasi: Location): Boolean =
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+      lokasi.isMock
+    } else {
+      lokasi.isFromMockProvider
+    }
 
   override fun onProviderDisabled(penyedia: String) {
     galatTerakhir = "Penyedia lokasi ($penyedia) dimatikan."

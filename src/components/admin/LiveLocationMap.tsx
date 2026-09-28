@@ -76,7 +76,9 @@ export function LiveLocationMap() {
       for (const r of current?.rows ?? []) {
         if (!r.posisi || !validCoord(r.posisi.lat, r.posisi.lng)) continue;
         titikPeminjam.push([r.posisi.lat, r.posisi.lng]);
-        const warna = r.mismatch ? "#a5303a" : "#17544e";
+        // Titik yang dicurigai palsu dibedakan warnanya: merah tetap untuk
+        // mismatch (di luar radius), karena itu masalah operasional lain.
+        const warna = r.tanda.length > 0 ? "#b45309" : r.mismatch ? "#a5303a" : "#17544e";
         L.circleMarker([r.posisi.lat, r.posisi.lng], {
           radius: 7,
           color: warna,
@@ -86,7 +88,13 @@ export function LiveLocationMap() {
         })
           .bindTooltip(
             `<strong>${r.namaLengkap}</strong><br/>${r.nomorReferensi} · ${r.statusPinjaman}<br/>` +
-              (r.mismatch ? "GPS MISMATCH" : r.jarakVaultKm !== null ? `${r.jarakVaultKm.toFixed(1)} km dari vault` : ""),
+              (r.tanda.length > 0 ? "LOKASI DICURIGAI" : "") +
+              (r.tanda.length > 0 && r.jarakVaultKm !== null ? " · " : "") +
+              (r.mismatch
+                ? "GPS MISMATCH"
+                : r.jarakVaultKm !== null
+                  ? `${r.jarakVaultKm.toFixed(1)} km dari vault`
+                  : ""),
             { direction: "top" },
           )
           .addTo(layer);
@@ -194,6 +202,7 @@ export function LiveLocationMap() {
         <div className="flex items-center gap-2 text-xs">
           <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100">Dalam radius</Badge>
           <Badge className="bg-red-100 text-red-700 hover:bg-red-100">GPS Mismatch</Badge>
+          <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-100">Lokasi Dicurigai</Badge>
         </div>
       </div>
       <div
@@ -215,19 +224,34 @@ export function LiveLocationMap() {
       </div>
       {data !== undefined && (
         <ul className="divide-y divide-slate-200 rounded-2xl border border-slate-200 bg-white">
-          {data.rows.filter((r) => r.mismatch).map((r) => (
-            <li key={r.userId} className="flex items-center justify-between gap-3 px-5 py-3 text-sm">
-              <span className="min-w-0 truncate">
-                <Badge className="mr-2 bg-red-100 text-red-700 hover:bg-red-100">GPS Mismatch</Badge>
-                {r.namaLengkap} · {r.nomorReferensi}
-              </span>
-              <span className="shrink-0 tabular-nums text-muted-foreground">
-                {r.jarakVaultKm !== null ? `${r.jarakVaultKm.toFixed(1)} km dari vault` : ""}
-              </span>
+          {data.rows
+            .filter((r) => r.mismatch || r.tanda.length > 0)
+            .map((r) => (
+              <li key={r.userId} className="flex items-center justify-between gap-3 px-5 py-3 text-sm">
+                <span className="min-w-0 truncate">
+                  {r.mismatch && (
+                    <Badge className="mr-2 bg-red-100 text-red-700 hover:bg-red-100">GPS Mismatch</Badge>
+                  )}
+                  {r.tanda.length > 0 && (
+                    <Badge className="mr-2 bg-amber-100 text-amber-800 hover:bg-amber-100">
+                      Lokasi dicurigai
+                    </Badge>
+                  )}
+                  {r.namaLengkap} · {r.nomorReferensi}
+                </span>
+                <span className="shrink-0 tabular-nums text-muted-foreground">
+                  {r.tanda.length > 0
+                    ? "koordinat beku berulang"
+                    : r.jarakVaultKm !== null
+                      ? `${r.jarakVaultKm.toFixed(1)} km dari vault`
+                      : ""}
+                </span>
+              </li>
+            ))}
+          {data.rows.every((r) => !r.mismatch && r.tanda.length === 0) && (
+            <li className="px-5 py-3 text-sm text-muted-foreground">
+              Tidak ada peminjam di luar radius dan tidak ada titik lokasi yang dicurigai.
             </li>
-          ))}
-          {data.rows.every((r) => !r.mismatch) && (
-            <li className="px-5 py-3 text-sm text-muted-foreground">Tidak ada peminjam di luar radius — semua posisi aman.</li>
           )}
         </ul>
       )}

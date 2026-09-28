@@ -222,6 +222,13 @@ const schema = defineSchema(
       /** Akurasi GPS dalam meter. */
       akurasi: v.number(),
       waktu: v.number(),
+      /**
+       * Tanda kecurigaan lokasi palsu yang TETAP diterima (mis. koordinat
+       * identik berulang) — titik yang ditolak tidak pernah disimpan.
+       */
+      tanda: v.optional(v.array(v.string())),
+      /** Perangkat melaporkan titik dari mock location. */
+      mock: v.optional(v.boolean()),
     })
       .index("by_user", ["userId"])
       .index("by_loan", ["loanId"])
@@ -323,6 +330,10 @@ const schema = defineSchema(
       sumber: v.string(),
       platform: v.optional(v.string()),
       versiApp: v.optional(v.string()),
+      /** Tanda kecurigaan lokasi palsu pada titik terakhir (mis. terbekukan). */
+      tanda: v.optional(v.array(v.string())),
+      /** Koordinat persis sama berturut-turut — untuk mendeteksi posisi beku. */
+      identikBerturut: v.optional(v.number()),
     }).index("by_user", ["userId"]),
 
     /**

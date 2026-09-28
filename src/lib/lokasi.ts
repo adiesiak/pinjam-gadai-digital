@@ -37,7 +37,166 @@ export const LOKASI_KEBIJAKAN = {
   jendelaKecepatanDetik: 1_800,
   /** Toleransi jarak titik yang dikirim bersama pengajuan vs titik server (km). */
   toleransiJarakKm: 5,
+  /**
+   * Akurasi di bawah ini mustahil datang dari sensor GPS konsumen — indikasi
+   * kuat titik dibuat aplikasi lokasi palsu (mock location).
+   */
+  akurasiTerlaluSempurnaMeter: 1,
+  /**
+   * Koordinat baru dicurigai "dibekukan" bila akurasi yang diklaim kedua titik
+   * ≤ ini (meter). Titik dengan akurasi buruk memang boleh berulang persis.
+   */
+  identikAkurasiMaksMeter: 100,
+  /**
+   * Berapa titik identik BERTURUT-TURUT sebelum dicatat sebagai kecurigaan.
+   * GPS asli selalu bergeser beberapa meter; koordinat yang persis sama
+   * berulang kali menandakan posisi dibekukan aplikasi pihak ketiga.
+   */
+  identikBerturutMaks: 5,
 } as const;
+
+/** Tanda kecurigaan lokasi palsu yang dicatat & ditampilkan ke tim review. */
+export const TANDA_LOKASI_PALSU = {
+  /** Perangkat sendiri melaporkan titik berasal dari mock location. */
+  mockDilaporkan: "mock_dilaporkan",
+  /** Akurasi terlalu sempurna untuk sensor GPS nyata. */
+  akurasiTidakWajar: "akurasi_tidak_wajar",
+  /** Koordinat persis sama berulang-ulang padahal akurasi diklaim bagus. */
+  koordinatIdentik: "koordinat_identik",
+} as const;
+
+/** Daftar tanda yang mungkin dicatat pada satu titik. */
+export type TandaLokasiPalsu =
+  (typeof TANDA_LOKASI_PALSU)[keyof typeof TANDA_LOKASI_PALSU];
+
+/** Titik lokasi netral yang dipakai pemeriksa kecurangan. */
+export interface TitikDiperiksa {
+  lat: number;
+  lng: number;
+  akurasi: number;
+  waktu: number;
+  /** Perangkat melaporkan titik dari mock location (bila informasi tersedia). */
+  mock?: boolean;
+  /** Sudah berapa kali koordinat persis sama berturut-turut (termasuk ini). */
+  identikBerturut?: number;
+}
+
+export interface HasilPeriksaLokasi {
+  /** Titik ditolak — cirinya kuat dan deterministik. */
+  palsu: boolean;
+  /** Pesan siap tampil ke pengguna bila `palsu`. */
+  alasan: string | null;
+  /** Kecurigaan yang tetap dicatat walau titik diterima (untuk review admin). */
+  tanda: TandaLokasiPalsu[];
+  /** Jarak dari titik sebelumnya (km), null bila ini titik pertama. */
+  jarakLompatKm: number | null;
+  /** Hitungan koordinat identik berturut-turut untuk titik ini. */
+  identikBerturut: number;
+}
+
+const PESAN_MOCK =
+  "Lokasi perangkat terdeteksi berasal dari aplikasi lokasi palsu (mock location), " +
+  "sehingga tidak dapat dipakai untuk transaksi. Matikan aplikasi tersebut, lalu matikan " +
+  "pilihan \"Pilih aplikasi lokasi palsu\" di Setelan Pengembang, kemudian coba lagi.";
+
+const PESAN_AKURASI_SEMPURNA =
+  "Akurasi GPS yang dilaporkan tidak wajar (di bawah 1 meter) — presisi sebesar itu tidak " +
+  "mungkin datang dari sensor GPS perangkat. Matikan aplikasi lokasi palsu lalu kirim ulang.";
+
+const PESAN_LOMPATAN =
+  "Lokasi terdeteksi melompat tidak wajar. Matikan aplikasi lokasi palsu, lalu kirim ulang dari perangkat asli.";
+
+/**
+ * Deteksi lokasi palsu — satu sumber aturan, dipakai jalur dashboard maupun
+ * layanan native.
+ *
+ * Sifat pemeriksaannya sengaja dibedakan:
+ *  - **Ditolak (`palsu: true`)**: ciri kuat & deterministik — perangkat mengaku
+ *    mock location, akurasi di bawah kemampuan sensor, atau lompatan mustahil
+ *    antar titik yang berdekatan waktu. Titik seperti ini tidak disimpan.
+ *  - **Dicatat (`tanda`, titik tetap diterima)**: koordinat yang persis sama
+ *    berkali-kali. Bisa saja perangkat diam di tempat atau memakai posisi
+ *    terakhir yang di-cache, jadi menolaknya akan mengunci nasabah yang jujur;
+ *    admin tetap perlu melihatnya untuk review.
+ *
+ * Batas jujur: `mock` datang dari perangkat, jadi klien yang menulis ulang
+ * permintaannya bisa menyembunyikannya. Yang tidak bisa dielakkan klien adalah
+ * heuristik waktu/akurasi/lompatan di atas, dan penutup penuh tetap butuh
+ * attestation aplikasi (Play Integrity / App Attest) — lihat
+ * `docs/aplikasi-native.md`.
+ */
+export function periksaLokasiPalsu(
+  titik: { lat: number; lng: number; akurasi: number; mock?: boolean },
+  sebelumnya: TitikDiperiksa | null,
+  now: number,
+): HasilPeriksaLokasi {
+  const hasil: HasilPeriksaLokasi = {
+    palsu: false,
+    alasan: null,
+    tanda: [],
+    jarakLompatKm: null,
+    identikBerturut: 1,
+  };
+
+  // 1. Perangkat melaporkan sendiri titiknya dari mock location.
+  if (titik.mock === true) {
+    hasil.palsu = true;
+    hasil.alasan = PESAN_MOCK;
+    return hasil;
+  }
+
+  // 2. Akurasi di bawah kemampuan sensor GPS konsumen.
+  if (titik.akurasi < LOKASI_KEBIJAKAN.akurasiTerlaluSempurnaMeter) {
+    hasil.palsu = true;
+    hasil.alasan = PESAN_AKURASI_SEMPURNA;
+    return hasil;
+  }
+
+  if (sebelumnya === null) return hasil;
+
+  const jedaDetik = (now - sebelumnya.waktu) / 1000;
+  hasil.jarakLompatKm = jarakKm(sebelumnya, titik);
+
+  // 3. Lompatan mustahil — HANYA bila dua titik berdekatan waktu. Setelah jeda
+  //    panjang, kecepatan rata-rata tidak lagi bermakna (perjalanan luar kota,
+  //    ponsel mati beberapa jam), sehingga tanpa batas jendela nasabah yang
+  //    bergerak jauh akan ditolak berjam-jam.
+  if (jedaDetik <= LOKASI_KEBIJAKAN.jendelaKecepatanDetik) {
+    const kecepatan = kecepatanKmJam(sebelumnya, { lat: titik.lat, lng: titik.lng, waktu: now });
+    if (kecepatan > LOKASI_KEBIJAKAN.kecepatanMaksKmJam) {
+      hasil.palsu = true;
+      hasil.alasan = PESAN_LOMPATAN;
+      return hasil;
+    }
+  }
+
+  // 4. Koordinat persis sama berulang-ulang dengan akurasi yang diklaim bagus.
+  const identik = sebelumnya.lat === titik.lat && sebelumnya.lng === titik.lng;
+  if (identik) {
+    hasil.identikBerturut = (sebelumnya.identikBerturut ?? 1) + 1;
+    const akurasiBagus =
+      titik.akurasi <= LOKASI_KEBIJAKAN.identikAkurasiMaksMeter &&
+      sebelumnya.akurasi <= LOKASI_KEBIJAKAN.identikAkurasiMaksMeter;
+    if (akurasiBagus && hasil.identikBerturut >= LOKASI_KEBIJAKAN.identikBerturutMaks) {
+      hasil.tanda.push(TANDA_LOKASI_PALSU.koordinatIdentik);
+    }
+  }
+
+  return hasil;
+}
+
+/**
+ * Apakah pesan galat dari server berarti lokasi perangkat palsu?
+ *
+ * Dipakai UI untuk menampilkan instruksi yang tepat (matikan aplikasi lokasi
+ * palsu) alih-alih "nyalakan GPS" — dua masalah itu terlihat sama dari sisi
+ * nasabah: titik lokasi tidak mengalir. Pola di sini HARUS sejalan dengan
+ * pesan di `periksaLokasiPalsu`; keduanya ada di berkas yang sama supaya tidak
+ * menyimpang tanpa terlihat.
+ */
+export function pesanLokasiPalsu(pesan: string): boolean {
+  return /lokasi palsu|melompat tidak wajar|tidak wajar \(di bawah 1 meter\)/i.test(pesan);
+}
 
 /**
  * Retensi jejak lokasi (`lokasiJejak`) — dijalankan cron harian di crons.ts.

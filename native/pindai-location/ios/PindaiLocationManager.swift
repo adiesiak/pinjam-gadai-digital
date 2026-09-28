@@ -182,6 +182,14 @@ final class PindaiLocationManager: NSObject, CLLocationManagerDelegate {
     // Akurasi buruk tidak dipakai server (batas 1500 m di `simpanTitik`).
     guard terbaru.horizontalAccuracy > 0, terbaru.horizontalAccuracy <= 1500 else { return }
 
+    // Lokasi simulasi (simulator, `simctl location`, atau tweak jailbreak):
+    // server menolaknya, jadi jangan buang kuota — cukup laporkan sebabnya
+    // supaya UI menampilkan instruksi yang benar, bukan "nyalakan GPS".
+    if lokasiDariMock(terbaru) {
+      galatTerakhir = "Lokasi terdeteksi berasal dari aplikasi lokasi palsu (mock location)."
+      return
+    }
+
     let sekarang = Date()
     let jeda = sekarang.timeIntervalSince(terakhirKirim)
     // Titik dari significant-change bisa datang jarang dan jauh; kirim saja
@@ -215,6 +223,20 @@ final class PindaiLocationManager: NSObject, CLLocationManagerDelegate {
     default:
       break
     }
+  }
+
+  /**
+   * Apakah titik ini dibuat perangkat lunak, bukan sensor?
+   * `sourceInformation` tersedia sejak iOS 15 dan merupakan satu-satunya cara
+   * resmi mengetahuinya — iOS tidak punya flag mock seperti Android.
+   */
+  private func lokasiDariMock(_ lokasi: CLLocation) -> Bool {
+    if #available(iOS 15.0, *) {
+      if let sumber = lokasi.sourceInformation {
+        return sumber.isSimulatedBySoftware || sumber.isProducedByAccessory
+      }
+    }
+    return false
   }
 
   // MARK: - Pengiriman

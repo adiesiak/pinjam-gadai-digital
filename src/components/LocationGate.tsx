@@ -13,7 +13,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { api } from "@/convex/_generated/api";
 import { useAuth } from "@/hooks/use-auth";
-import { LOKASI_KEBIJAKAN, labelUmurLokasi } from "@/lib/lokasi";
+import { LOKASI_KEBIJAKAN, labelUmurLokasi, pesanLokasiPalsu } from "@/lib/lokasi";
 import {
   bukaSetelanAplikasi,
   hentikanLayananLokasi,
@@ -76,7 +76,7 @@ const PERIKSA_LAYANAN_MS = 30_000;
  * GPS menyala dan tidak bisa melacak saat tab ditutup. Itu keterbatasan
  * platform, bukan pengaturan PINDAI.
  */
-type StatusIzin = "memeriksa" | "siap" | "ditolak" | "mati";
+type StatusIzin = "memeriksa" | "siap" | "ditolak" | "mati" | "palsu";
 
 export function LocationGate({
   children,
@@ -132,7 +132,7 @@ export function LocationGate({
 
   /** Kirim satu titik ke server — dibatasi interval agar hemat kuota. */
   const kirimTitik = useCallback(
-    (lat: number, lng: number, akurasiMeter: number) => {
+    (lat: number, lng: number, akurasiMeter: number, mock?: boolean) => {
       const now = Date.now();
       if (now - kirimTerakhirRef.current < LOKASI_KEBIJAKAN.intervalDetik * 1000) return;
       kirimTerakhirRef.current = now;
@@ -148,11 +148,16 @@ export function LocationGate({
             platform: perangkat.platform,
             versiApp: versiRef.current ?? undefined,
             deviceId: perangkat.deviceId ?? undefined,
+            mock: mock === true ? true : undefined,
           })
           .catch((err: unknown) => {
-            setPesan(
-              err instanceof Error ? err.message : "Gagal mengirim titik lokasi ke server.",
-            );
+            const teks =
+              err instanceof Error ? err.message : "Gagal mengirim titik lokasi ke server.";
+            // Server menolak titik dari mock location; bedakan dari GPS mati
+            // supaya instruksi yang tampil benar (matikan aplikasi lokasi
+            // palsu, bukan "nyalakan GPS").
+            if (pesanLokasiPalsu(teks)) setIzin("palsu");
+            setPesan(teks);
           });
       };
 
@@ -166,7 +171,7 @@ export function LocationGate({
         void kirimHeartbeatLatar(
           url,
           token,
-          { lat, lng, akurasi: akurasiMeter },
+          { lat, lng, akurasi: akurasiMeter, mock },
           { platform: perangkat.platform, versiApp: versiRef.current },
         ).then((hasil) => {
           if (!hasil.ok) kirimLewatSesi();
@@ -178,7 +183,12 @@ export function LocationGate({
     [perangkat],
   );
 
-  /** Jalur browser — hanya mengalir selama tab terbuka. */
+  /**
+   * Jalur browser — hanya mengalir selama tab terbuka.
+   * API `navigator.geolocation` tidak melaporkan mock location, jadi penipuan
+   * di sini hanya bisa ditangkap heuristik server (akurasi mustahil, lompatan
+   * tidak wajar, koordinat beku).
+   */
   const mulaiWatchBrowser = useCallback(() => {
     if (typeof navigator === "undefined" || !navigator.geolocation) return;
     watchRef.current = navigator.geolocation.watchPosition(
@@ -208,7 +218,7 @@ export function LocationGate({
       (titik) => {
         setIzin("siap");
         setAkurasi(titik.akurasi);
-        kirimTitik(titik.lat, titik.lng, titik.akurasi);
+        kirimTitik(titik.lat, titik.lng, titik.akurasi, titik.mock);
       },
       (pesanGalat) => {
         // Bedakan izin ditolak dari GPS mati — instruksi perbaikannya berbeda.
@@ -577,6 +587,46 @@ export function LocationGate({
           latarBelakang={perangkat.native}
         />
       </>
+    );
+  }
+
+  // Lokasi terdeteksi berasal dari aplikasi lokasi palsu: instruksinya sama
+  // sekali berbeda dari "nyalakan GPS", jadi layarnya dipisah.
+  if (izin === "palsu") {
+    return (
+      <LayarPenuh>
+        <Kartu
+          ikon={<ShieldAlert className="size-5" />}
+          kode="Lokasi tidak sah"
+          judul="Matikan aplikasi lokasi palsu"
+          deskripsi="PINDAI menolak titik lokasi yang dibuat perangkat lunak (mock location), karena lokasi dipakai untuk memverifikasi bahwa pengajuan benar-benar dilakukan di tempat Anda berada."
+        >
+          <DaftarLangkah
+            langkah={[
+              "Hapus atau matikan aplikasi pengubah lokasi (fake GPS) di HP ini.",
+              "Android: Setelan → Opsi pengembang → matikan “Pilih aplikasi lokasi palsu”.",
+              "Nyalakan ulang HP bila perlu, lalu ketuk “Coba lagi” di halaman ini.",
+            ]}
+          />
+          <p className="mt-4 text-xs leading-5 text-muted-foreground">
+            Satu titik lokasi asli sudah cukup untuk membuka kembali dashboard. Lokasi hanya
+            dipakai untuk verifikasi pengajuan dan penagihan, tidak dibagikan ke pihak lain.
+          </p>
+          {pesan && (
+            <p className="mt-3 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive">
+              {pesan}
+            </p>
+          )}
+          <div className="mt-5 flex flex-col gap-2 sm:flex-row">
+            <Button className="h-11" onClick={cobaLagi}>
+              <RefreshCw className="mr-1.5 size-4" /> Coba lagi
+            </Button>
+            <Button variant="outline" className="h-11" onClick={keluar}>
+              Keluar dari akun
+            </Button>
+          </div>
+        </Kartu>
+      </LayarPenuh>
     );
   }
 

@@ -18,7 +18,8 @@ auth.addHttpRoutes(http);
  * memegang sesi Convex Auth, jadi ia mengirim titik dengan token perangkat.
  *
  * Alur: klien native → POST /lokasi/heartbeat (token) → `heartbeatNative`
- * (internal mutation) → `simpanTitik` (validasi wilayah, akurasi, lompatan).
+ * (internal mutation) → `simpanTitik` (validasi wilayah, akurasi, lompatan,
+ * dan deteksi mock location dari field `mock`).
  * Sumber titik ditetapkan SERVER sebagai "aplikasi", bukan diklaim klien.
  */
 
@@ -107,6 +108,10 @@ http.route({
         akurasi,
         platform: typeof isi.platform === "string" ? isi.platform : undefined,
         versiApp: typeof isi.versiApp === "string" ? isi.versiApp : undefined,
+        // Perangkat yang jujur melaporkan mock location-nya sendiri; titik itu
+        // ditolak `simpanTitik` (yang juga punya heuristik tanpa kerja sama
+        // klien: akurasi mustahil & lompatan tidak wajar).
+        mock: isi.mock === true ? true : undefined,
       });
       if (!hasil.ok) {
         return balas(401, { ok: false, error: "Token perangkat tidak dikenal." });

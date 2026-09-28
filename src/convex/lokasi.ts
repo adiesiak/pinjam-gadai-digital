@@ -14,8 +14,9 @@ import { jarakKm } from "../lib/geo";
 import {
   INDONESIA_BOUNDS,
   LOKASI_KEBIJAKAN,
-  kecepatanKmJam,
+  periksaLokasiPalsu,
   koordinatIndonesia,
+  type TandaLokasiPalsu,
 } from "../lib/lokasi";
 
 /**
@@ -102,8 +103,14 @@ export async function simpanTitik(
     loanId?: Id<"loans">;
     /** Waktu di perangkat (opsional) — server selalu memakai jam sendiri. */
     waktuPerangkat?: number;
+    /**
+     * Perangkat melaporkan titik berasal dari mock location (Android
+     * `Location.isMock`, iOS `sourceInformation.isSimulatedBySoftware`).
+     * Titik seperti ini DITOLAK, bukan sekadar dicatat.
+     */
+    mock?: boolean;
   },
-): Promise<{ waktu: number; jarakLompatKm: number | null }> {
+): Promise<{ waktu: number; jarakLompatKm: number | null; tanda: TandaLokasiPalsu[] }> {
   if (!koordinatIndonesia(input.lat, input.lng)) {
     throw new Error(
       "Titik lokasi berada di luar wilayah Indonesia atau tidak valid. Periksa GPS perangkat Anda.",
@@ -125,30 +132,19 @@ export async function simpanTitik(
     .withIndex("by_user", (q) => q.eq("userId", userId))
     .first();
 
-  // Anti-spoof ringan: lompatan mustahil antar titik ditolak — tetapi HANYA
-  // bila dua titik berdekatan waktu. Setelah jeda panjang, kecepatan rata-rata
-  // tidak lagi bermakna: tanpa batas jendela, nasabah yang menempuh perjalanan
-  // jauh (luar kota, ponsel mati beberapa jam) akan ditolak berulang kali
-  // karena rata-ratanya melebihi ambang, sampai waktu berjalan cukup lama.
-  let jarakLompatKm: number | null = null;
-  if (sebelumnya !== null) {
-    const jedaDetik = (now - sebelumnya.waktu) / 1000;
-    if (jedaDetik <= LOKASI_KEBIJAKAN.jendelaKecepatanDetik) {
-      const kecepatan = kecepatanKmJam(
-        { lat: sebelumnya.lat, lng: sebelumnya.lng, waktu: sebelumnya.waktu },
-        { lat: input.lat, lng: input.lng, waktu: now },
-      );
-      if (kecepatan > LOKASI_KEBIJAKAN.kecepatanMaksKmJam) {
-        throw new Error(
-          "Lokasi terdeteksi melompat tidak wajar. Matikan aplikasi lokasi palsu, lalu kirim ulang dari perangkat asli.",
-        );
-      }
-    }
-    jarakLompatKm = jarakKm(
-      { lat: sebelumnya.lat, lng: sebelumnya.lng },
-      { lat: input.lat, lng: input.lng },
-    );
+  // Deteksi lokasi palsu: mock location dari perangkat, akurasi di bawah
+  // kemampuan sensor, dan lompatan mustahil. Aturannya ada di
+  // `periksaLokasiPalsu` (lib/lokasi.ts) supaya jalur dashboard, layanan
+  // native, dan pengujian memakai definisi yang sama.
+  const periksa = periksaLokasiPalsu(
+    { lat: input.lat, lng: input.lng, akurasi: input.akurasi, mock: input.mock },
+    sebelumnya,
+    now,
+  );
+  if (periksa.palsu) {
+    throw new Error(periksa.alasan ?? "Lokasi perangkat terdeteksi tidak sah.");
   }
+  const { jarakLompatKm, tanda } = periksa;
 
   // Sumber titik: klaim "aplikasi" hanya sah bila disertai ID perangkat.
   // Tanpa penjagaan ini, invarian "aplikasi ⇒ ada perangkat" jebol dan
@@ -162,6 +158,8 @@ export async function simpanTitik(
     lng: input.lng,
     akurasi: input.akurasi,
     waktu: now,
+    tanda: tanda.length > 0 ? tanda : undefined,
+    mock: input.mock === true ? true : undefined,
   });
 
   const patch = {
@@ -172,6 +170,8 @@ export async function simpanTitik(
     sumber,
     platform: input.platform,
     versiApp: input.versiApp,
+    tanda,
+    identikBerturut: periksa.identikBerturut,
   };
   if (sebelumnya === null) {
     await ctx.db.insert("lokasiStatus", { userId, ...patch });
@@ -220,7 +220,7 @@ export async function simpanTitik(
     }
   }
 
-  return { waktu: now, jarakLompatKm };
+  return { waktu: now, jarakLompatKm, tanda };
 }
 
 /** Titik lokasi terakhir pengguna (null bila belum pernah ada). */
@@ -351,6 +351,8 @@ export const catatLokasi = mutation({
     versiApp: v.optional(v.string()),
     deviceId: v.optional(v.string()),
     loanId: v.optional(v.id("loans")),
+    /** Perangkat melaporkan titik dari mock location (lihat `simpanTitik`). */
+    mock: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     const { userId } = await penggunaMasuk(ctx);
@@ -363,6 +365,7 @@ export const catatLokasi = mutation({
       versiApp: args.versiApp,
       deviceId: args.deviceId,
       loanId: args.loanId,
+      mock: args.mock,
     });
   },
 });
@@ -434,6 +437,8 @@ export const heartbeatNative = internalMutation({
     akurasi: v.number(),
     platform: v.optional(v.string()),
     versiApp: v.optional(v.string()),
+    /** Perangkat melaporkan titik dari mock location. */
+    mock: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     const perangkat = await ctx.db
@@ -453,6 +458,7 @@ export const heartbeatNative = internalMutation({
       platform: args.platform ?? perangkat.platform,
       versiApp: args.versiApp ?? perangkat.versiApp,
       deviceId: perangkat.deviceId,
+      mock: args.mock,
     });
     return { ok: true as const, waktu: hasil.waktu };
   },
@@ -495,6 +501,13 @@ export const statusSaya = query({
       batasMenit: Math.max(1, cfg.lokasiMaxUmurMenit),
       intervalDetik: LOKASI_KEBIJAKAN.intervalDetik,
       maxAkurasiMeter: LOKASI_KEBIJAKAN.maxAkurasiMeter,
+      /**
+       * Tanda kecurigaan lokasi palsu pada titik terakhir (biasanya kosong).
+       * UI menampilkannya sebagai peringatan agar nasabah bisa membersihkan
+       * aplikasi lokasi palsu sebelum transaksinya ditahan.
+       */
+      tanda: status?.tanda ?? [],
+      identikBerturut: status?.identikBerturut ?? 0,
       perangkatTerdaftar: perangkat !== null,
       platformPerangkat: perangkat?.platform ?? null,
     };

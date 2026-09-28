@@ -369,8 +369,16 @@ plugin lokasi tetap hidup.
    yang membuat klaim "saya aplikasi resmi" **tidak bisa** dipalsukan klien —
    prasyarat bila kebijakan `wajibAplikasiNative` ingin dianggap sebagai kontrol
    keamanan, bukan sekadar kontrol alur.
-3. **Deteksi lokasi palsu di sisi native** — kirim juga `isFromMockProvider`
-   dan `simulated` dari plugin, lalu tolak di `simpanTitik`.
+3. ~~**Deteksi lokasi palsu di sisi native**~~ — **sudah dikerjakan.** Layanan
+   native memeriksa flag mock sebelum mengirim (`Location.isMock` /
+   `isFromMockProvider` di Android, `CLLocation.sourceInformation` di iOS) dan
+   tidak membuang kuota untuk titik yang pasti ditolak server. Sisi web juga
+   sudah meneruskan `mock` dari plugin lokasi, dan `simpanTitik` menolak titik
+   mock plus dua heuristik yang tidak butuh kerja sama klien: akurasi di bawah 1
+   meter dan lompatan tidak wajar. Koordinat yang persis sama berulang kali
+   hanya **ditandai** (bukan ditolak) dan tampil di /admin sebagai "Lokasi
+   Dicurigai". Yang tetap butuh attestation (poin 2) adalah jaminan bahwa flag
+   mock itu sendiri tidak bisa disembunyikan klien yang menulis ulang request.
 
 Sampai poin 1 selesai, pemantauan latar belakang andal untuk sesi menengah dan
 **selalu segar kembali saat pengguna membuka aplikasi** (`LocationGate`
@@ -390,7 +398,8 @@ lama menganggur.
 | Layar dikunci 10 menit | Titik tetap bertambah di /admin → peta/audit lokasi. |
 | Lokasi dimatikan di Setelan | Pengajuan/cicilan ditolak server; dashboard menampilkan layar blokir. |
 | Aplikasi di-force stop, lalu lokasi dimatikan | Transaksi ditolak (titik kedaluwarsa). |
-| Fake GPS | Titik ditolak (akurasi/lompatan mustahil). |
+| Fake GPS (aplikasi mock location) | Titik ditolak saat dikirim, dan layar blokir menampilkan "Matikan aplikasi lokasi palsu" — bukan instruksi "nyalakan GPS". |
+| Aplikasi yang membekukan koordinat (tidak melaporkan flag mock) | Titik tetap dilayani, tetapi masuk daftar "Lokasi Dicurigai" di /admin setelah ±5 titik identik berturut-turut. |
 | Perangkat tanpa GPS / browser lama | Fallback `navigator.geolocation` + pesan diagnosis yang benar. |
 | `wajibAplikasiNative` dinyalakan (di staging) | Pengguna web terblokir; pengguna app native lolos tanpa melihat layar "pasang aplikasi". |
 

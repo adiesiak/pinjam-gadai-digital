@@ -380,6 +380,171 @@ describe("kebijakan wajib aplikasi (transaksi hanya dari aplikasi)", () => {
   });
 });
 
+describe("deteksi lokasi palsu", () => {
+  const JAKARTA = { lat: -6.2, lng: 106.816666 };
+
+  it("menolak titik yang dilaporkan berasal dari mock location", async () => {
+    const t = convexTest(schema, modules);
+    const asPeminjam = await siapkanPengguna(t, "peminjam-mock", {
+      email: "mock@pindai.test",
+      role: "peminjam",
+    });
+
+    await expect(
+      asPeminjam.mutation(api.lokasi.catatLokasi, {
+        ...JAKARTA,
+        akurasi: 5,
+        sumber: "web",
+        mock: true,
+      }),
+    ).rejects.toThrow("lokasi palsu");
+
+    // Titik yang ditolak tidak meninggalkan jejak maupun status: gerbang tetap
+    // tertutup, jadi memakai fake GPS tidak membuka transaksi sama sekali.
+    const jejak = await t.query(async (ctx) => ctx.db.query("lokasiJejak").collect());
+    expect(jejak).toHaveLength(0);
+    const status = await asPeminjam.query(api.lokasi.statusSaya, {});
+    expect(status.lat).toBeNull();
+    await expect(
+      asPeminjam.mutation(api.kredit.ajukanKreditBarang, PENGAJUAN),
+    ).rejects.toThrow("Lokasi wajib aktif");
+  });
+
+  it("menolak akurasi di bawah kemampuan sensor GPS", async () => {
+    const t = convexTest(schema, modules);
+    const asPeminjam = await siapkanPengguna(t, "peminjam-akurasi-ajaib", {
+      email: "akurasi-ajaib@pindai.test",
+      role: "peminjam",
+    });
+
+    // Akurasi 0 m adalah angka bawaan banyak aplikasi lokasi palsu.
+    await expect(
+      asPeminjam.mutation(api.lokasi.catatLokasi, {
+        ...JAKARTA,
+        akurasi: 0,
+        sumber: "web",
+      }),
+    ).rejects.toThrow("tidak wajar");
+
+    // Titik berikutnya yang wajar tetap dilayani — satu titik buruk tidak
+    // mengunci nasabah yang perangkatnya sekadar salah melaporkan akurasi.
+    await expect(
+      asPeminjam.mutation(api.lokasi.catatLokasi, {
+        ...JAKARTA,
+        akurasi: 12,
+        sumber: "web",
+      }),
+    ).resolves.toBeDefined();
+  });
+
+  it("menandai koordinat beku berulang tanpa menghalangi transaksi", async () => {
+    const t = convexTest(schema, modules);
+    const asPeminjam = await siapkanPengguna(t, "peminjam-beku", {
+      email: "beku@pindai.test",
+      role: "peminjam",
+    });
+
+    // GPS asli selalu bergeser beberapa meter; koordinat yang persis sama
+    // berulang kali menandakan posisi dibekukan aplikasi pihak ketiga.
+    for (let i = 0; i < 5; i += 1) {
+      await asPeminjam.mutation(api.lokasi.catatLokasi, {
+        ...JAKARTA,
+        akurasi: 6,
+        sumber: "web",
+      });
+    }
+
+    const status = await asPeminjam.query(api.lokasi.statusSaya, {});
+    expect(status.tanda).toContain("koordinat_identik");
+    expect(status.segar).toBe(true);
+
+    // Tanda = untuk ditinjau manusia, bukan penghalang: perangkat yang benar
+    // benar diam di tempat tidak boleh terkunci dari transaksi.
+    await expect(
+      asPeminjam.mutation(api.kredit.ajukanKreditBarang, PENGAJUAN),
+    ).resolves.toBeDefined();
+  });
+
+  it("menolak mock location lewat endpoint heartbeat native", async () => {
+    const t = convexTest(schema, modules);
+    const asPeminjam = await siapkanPengguna(t, "peminjam-mock-http", {
+      email: "mock-http@pindai.test",
+      role: "peminjam",
+    });
+    const token = await daftarkanPerangkat(asPeminjam, "android-mock");
+
+    const res = await t.fetch("/lokasi/heartbeat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ ...JAKARTA, akurasi: 5, mock: true }),
+    });
+    expect(res.status).toBe(400);
+    await expect(res.json()).resolves.toMatchObject({
+      ok: false,
+      error: expect.stringContaining("lokasi palsu"),
+    });
+
+    const status = await asPeminjam.query(api.lokasi.statusSaya, {});
+    expect(status.sumber).toBeNull();
+  });
+
+  it("menghitung titik dicurigai untuk tim review", async () => {
+    const t = convexTest(schema, modules);
+    const asAdmin = await siapkanPengguna(t, "admin-dicurigai", {
+      email: "admin-dicurigai@pindai.test",
+      role: "admin",
+    });
+    const asPeminjam = await siapkanPengguna(t, "peminjam-dicurigai", {
+      email: "dicurigai@pindai.test",
+      role: "peminjam",
+    });
+    const userId = await asPeminjam.query(async (ctx) => {
+      const users = await ctx.db.query("users").collect();
+      return users.find((u) => u.email === "dicurigai@pindai.test")!._id;
+    });
+
+    const now = Date.now();
+    await t.mutation(async (ctx) => {
+      await ctx.db.insert("loans", {
+        userId,
+        pokokPinjaman: 1_000_000,
+        tujuan: "Modal usaha",
+        namaLengkap: "Peminjam Dicurigai",
+        nomorRekening: "1234567890",
+        status: "didanai",
+        nomorReferensi: "PJD-DICURIGAI",
+        tenorHari: 30,
+        didanaiPada: now,
+      });
+      await ctx.db.insert("lokasiJejak", {
+        userId,
+        lat: JAKARTA.lat,
+        lng: JAKARTA.lng,
+        akurasi: 6,
+        waktu: now,
+        tanda: ["koordinat_identik"],
+      });
+      await ctx.db.insert("lokasiStatus", {
+        userId,
+        lat: JAKARTA.lat,
+        lng: JAKARTA.lng,
+        akurasi: 6,
+        waktu: now,
+        sumber: "web",
+        tanda: ["koordinat_identik"],
+        identikBerturut: 5,
+      });
+    });
+
+    const stats = await asAdmin.query(api.admin.adminStats, {});
+    expect(stats.titikDicurigai).toBe(1);
+
+    const peta = await asAdmin.query(api.admin.petaPeminjam, {});
+    const baris = peta.rows.find((r) => r.namaLengkap === "Peminjam Dicurigai");
+    expect(baris?.tanda).toContain("koordinat_identik");
+  });
+});
+
 describe("retensi jejak lokasi (job cron harian)", () => {
   const HARI = 86_400_000;
   let urutan = 0;
