@@ -40,6 +40,7 @@ import {
 import { LOAN_LIMITS, quoteLoan, TENOR_OPTIONS, type LoanQuote } from "@/lib/loan";
 import { formatRupiah, type Rupiah } from "@/lib/money";
 import { PLAFON_BATAS } from "@/lib/plafon";
+import { ADMIN_ROUTE } from "@/lib/routes";
 
 /* Logo brankas — sederhana, dua warna. */
 function VaultLogo({ size = 36 }: { size?: number }) {
@@ -425,7 +426,39 @@ export default function Landing() {
   ];
 
   const [menuOpen, setMenuOpen] = useState(false);
+  const [showAdminShortcut, setShowAdminShortcut] = useState(false);
   const headerRef = useRef<HTMLElement | null>(null);
+  const adminLogoClickCountRef = useRef(0);
+  const adminLogoClickTimerRef = useRef<number | null>(null);
+
+  const handleBrandClick = () => {
+    if (showAdminShortcut) return;
+    if (adminLogoClickTimerRef.current !== null) {
+      window.clearTimeout(adminLogoClickTimerRef.current);
+    }
+    adminLogoClickCountRef.current += 1;
+
+    if (adminLogoClickCountRef.current >= 5) {
+      adminLogoClickCountRef.current = 0;
+      adminLogoClickTimerRef.current = null;
+      setShowAdminShortcut(true);
+      if (window.matchMedia("(max-width: 767px)").matches) setMenuOpen(true);
+      return;
+    }
+
+    adminLogoClickTimerRef.current = window.setTimeout(() => {
+      adminLogoClickCountRef.current = 0;
+      adminLogoClickTimerRef.current = null;
+    }, 3000);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (adminLogoClickTimerRef.current !== null) {
+        window.clearTimeout(adminLogoClickTimerRef.current);
+      }
+    };
+  }, []);
 
   /* Menu mobile: tutup dengan Esc atau klik di luar header. */
   useEffect(() => {
@@ -474,7 +507,12 @@ export default function Landing() {
         className="sticky top-0 z-40 border-b border-slate-200 bg-white/85 backdrop-blur"
       >
         <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between px-6">
-          <Link to="/" className="flex items-center gap-2.5">
+          {showAdminShortcut && (
+            <span className="sr-only" role="status" aria-live="polite">
+              Akses panel admin tersedia.
+            </span>
+          )}
+          <Link to="/" onClick={handleBrandClick} className="flex items-center gap-2.5">
             <VaultLogo size={32} />
             <span className="text-base font-semibold tracking-tight">{logoTeks}</span>
           </Link>
@@ -487,6 +525,18 @@ export default function Landing() {
           </nav>
           <div className="flex items-center gap-2">
             <RoleDashboardMenu />
+            {showAdminShortcut && (
+              <Button
+                asChild
+                variant="ghost"
+                className="hidden text-slate-600 hover:text-slate-900 md:inline-flex"
+              >
+                <Link to={ADMIN_ROUTE}>
+                  <ShieldCheck className="size-4" aria-hidden="true" />
+                  Admin
+                </Link>
+              </Button>
+            )}
             <Button
               asChild
               variant="ghost"
@@ -522,6 +572,16 @@ export default function Landing() {
               className="absolute inset-x-0 top-full overflow-hidden border-b border-slate-200 bg-white shadow-lg md:hidden"
             >
               <nav className="grid gap-0.5 px-4 py-3">
+                {showAdminShortcut && (
+                  <Link
+                    to={ADMIN_ROUTE}
+                    onClick={() => setMenuOpen(false)}
+                    className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium text-primary transition-colors hover:bg-primary/5"
+                  >
+                    <ShieldCheck className="size-4" aria-hidden="true" />
+                    Akses admin
+                  </Link>
+                )}
                 {navItems.map(({ href, label }) => (
                   <a
                     key={href}
