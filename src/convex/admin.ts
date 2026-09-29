@@ -6,6 +6,7 @@ import { pelunasanPinjaman, quoteLoan } from "../lib/loan";
 import { hitungSimulasiBulanan, TENOR_BULANAN_OPTIONS } from "../lib/bulanan";
 import { appendJournal, ledgerTotals, pendanaWalletBalance } from "./ledger";
 import { formatRupiah } from "../lib/money";
+import { CONTRACT_TERMS_VERSION } from "../lib/contract";
 import { getConfig, audit } from "./system";
 import { jarakKm } from "../lib/geo";
 import { clampPlafon, plafonEfektif } from "../lib/plafon";
@@ -897,6 +898,7 @@ export const contractDetail = query({
       _creationTime: loan._creationTime,
       nomorReferensi: loan.nomorReferensi,
       namaLengkap: loan.namaLengkap,
+      status: loan.status,
       nomorRekening: loan.nomorRekening,
       nik: loan.nik ?? null,
       pokokPinjaman: loan.pokokPinjaman,
@@ -931,6 +933,13 @@ export const contractDetailPawn = query({
       hargaPasar: pawn.hargaPasar ?? null,
       kondisiFisik: pawn.kondisiFisik ?? null,
       kodeRakVault: pawn.kodeRakVault ?? null,
+      pokokGadai: pawn.pokokGadai ?? null,
+      persenSewaModal: pawn.persenSewaModal ?? null,
+      status: pawn.status,
+      ttdPeminjam: pawn.tandaTanganPeminjam ?? null,
+      ttdPada: pawn.tandaTanganPada ?? null,
+      persetujuanPada: pawn.persetujuanSyaratPada ?? null,
+      persetujuanVersi: pawn.persetujuanSyaratVersi ?? null,
     };
   },
 });
@@ -945,34 +954,115 @@ export const contractData = query({
     return {
       ttdPeminjam: loan.tandaTanganPeminjam ?? null,
       ttdPada: loan.tandaTanganPada ?? null,
+      persetujuanPada: loan.persetujuanSyaratPada ?? null,
+      persetujuanVersi: loan.persetujuanSyaratVersi ?? null,
     };
   },
 });
 
-/** Simpan tanda tangan canvas peminjam (data URL PNG) — admin. */
+function validasiDataTandaTangan(dataUrl: string) {
+  const prefix = "data:image/png;base64,";
+  if (!/^data:image\/png;base64,[A-Za-z0-9+/]+={0,2}$/.test(dataUrl)) {
+    throw new Error("Format tanda tangan tidak valid.");
+  }
+  if (dataUrl.length > 200_000) {
+    throw new Error("Data tanda tangan terlalu besar.");
+  }
+  if (dataUrl.length <= prefix.length + 16) {
+    throw new Error("Tanda tangan masih kosong.");
+  }
+}
+
+/**
+ * Simpan persetujuan syarat dan tanda tangan Peminjam sekaligus — admin
+ * memfasilitasi pengisian di hadapan Peminjam; sistem tidak memverifikasi
+ * identitas fisik orang yang menggunakan kanvas.
+ */
 export const simpanTandaTangan = mutation({
-  args: { loanId: v.id("loans"), dataUrl: v.string() },
+  args: {
+    loanId: v.id("loans"),
+    dataUrl: v.string(),
+    persetujuanPeminjam: v.literal(true),
+  },
   handler: async (ctx, { loanId, dataUrl }) => {
     const { userId, user } = await requireAdmin(ctx);
-    if (!dataUrl.startsWith("data:image/png;base64,")) {
-      throw new Error("Format tanda tangan tidak valid.");
+    validasiDataTandaTangan(dataUrl);
+    const loan = await ctx.db.get(loanId);
+    if (loan === null) throw new Error("Pengajuan pinjaman tidak ditemukan.");
+    if (loan.status === "ditolak") {
+      throw new Error("Kontrak pinjaman yang ditolak tidak dapat ditandatangani.");
     }
-    if (dataUrl.length > 200_000) {
-      throw new Error("Data tanda tangan terlalu besar.");
+    if (
+      loan.tandaTanganPeminjam !== undefined &&
+      loan.persetujuanSyaratPada !== undefined &&
+      loan.persetujuanSyaratVersi === CONTRACT_TERMS_VERSION
+    ) {
+      throw new Error("Kontrak ini sudah disetujui dan ditandatangani.");
     }
+
+    const now = Date.now();
     await ctx.db.patch(loanId, {
       tandaTanganPeminjam: dataUrl,
-      tandaTanganPada: Date.now(),
+      tandaTanganPada: now,
+      persetujuanSyaratPada: now,
+      persetujuanSyaratVersi: CONTRACT_TERMS_VERSION,
     });
-    const loan = await ctx.db.get(loanId);
     await audit(
       ctx,
       userId,
       user.email ?? user.name ?? "admin",
-      "tanda_tangan",
-      loan?.nomorReferensi ?? loanId,
-      "Tanda tangan elektronik peminjam tersimpan",
+      "kontrak_pinjaman_disetujui",
+      loan.nomorReferensi,
+      `Peminjam menyetujui syarat ${CONTRACT_TERMS_VERSION} dan menandatangani melalui alur yang difasilitasi admin; identitas penanda tangan tidak diverifikasi sistem.`,
     );
-    return { ok: true };
+    return { ok: true, waktu: now, versi: CONTRACT_TERMS_VERSION };
+  },
+});
+
+/** Simpan persetujuan dan tanda tangan Peminjam pada akad gadai secara atomik. */
+export const simpanTandaTanganGadai = mutation({
+  args: {
+    pawnId: v.id("pawns"),
+    dataUrl: v.string(),
+    persetujuanPeminjam: v.literal(true),
+  },
+  handler: async (ctx, { pawnId, dataUrl }) => {
+    const { userId, user } = await requireAdmin(ctx);
+    validasiDataTandaTangan(dataUrl);
+    const pawn = await ctx.db.get(pawnId);
+    if (pawn === null) throw new Error("Pengajuan gadai tidak ditemukan.");
+    if (pawn.status === "ditolak") {
+      throw new Error("Akad gadai yang ditolak tidak dapat ditandatangani.");
+    }
+    if (pawn.nilaiTaksiran === undefined) {
+      throw new Error("Akad gadai belum memiliki nilai taksiran.");
+    }
+    if (pawn.pokokGadai === undefined || pawn.persenSewaModal === undefined) {
+      throw new Error("Tetapkan pokok gadai dan sewa modal sebelum meminta persetujuan.");
+    }
+    if (
+      pawn.tandaTanganPeminjam !== undefined &&
+      pawn.persetujuanSyaratPada !== undefined &&
+      pawn.persetujuanSyaratVersi === CONTRACT_TERMS_VERSION
+    ) {
+      throw new Error("Akad gadai ini sudah disetujui dan ditandatangani.");
+    }
+
+    const now = Date.now();
+    await ctx.db.patch(pawnId, {
+      tandaTanganPeminjam: dataUrl,
+      tandaTanganPada: now,
+      persetujuanSyaratPada: now,
+      persetujuanSyaratVersi: CONTRACT_TERMS_VERSION,
+    });
+    await audit(
+      ctx,
+      userId,
+      user.email ?? user.name ?? "admin",
+      "kontrak_gadai_disetujui",
+      pawn.nomorReferensi,
+      `Peminjam menyetujui syarat ${CONTRACT_TERMS_VERSION} dan menandatangani melalui alur yang difasilitasi admin; identitas penanda tangan tidak diverifikasi sistem.`,
+    );
+    return { ok: true, waktu: now, versi: CONTRACT_TERMS_VERSION };
   },
 });

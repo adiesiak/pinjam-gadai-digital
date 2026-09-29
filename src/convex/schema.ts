@@ -152,8 +152,12 @@ const schema = defineSchema(
       dokSlipGajiId: v.optional(v.id("_storage")),
       /** Tanda tangan elektronik Peminjam (data URL PNG dari canvas). */
       tandaTanganPeminjam: v.optional(v.string()),
-      /** Waktu tanda tangan elektronik. */
+      /** Waktu tanda tangan elektronik Peminjam. */
       tandaTanganPada: v.optional(v.number()),
+      /** Waktu Peminjam menyetujui syarat dan ketentuan akad. */
+      persetujuanSyaratPada: v.optional(v.number()),
+      /** Versi syarat dan ketentuan yang disetujui. */
+      persetujuanSyaratVersi: v.optional(v.string()),
       /** Lokasi real (GPS) saat pengajuan dikirim — wajib ada. */
       lokasiAjukan: v.optional(
         v.object({
@@ -478,6 +482,14 @@ const schema = defineSchema(
       sisaPokok: v.optional(v.number()),
       /** Terisi saat admin mencairkan dana bersih 99% ke Peminjam. */
       dicairkanPada: v.optional(v.number()),
+      /** Tanda tangan elektronik Peminjam pada akad gadai (data URL PNG). */
+      tandaTanganPeminjam: v.optional(v.string()),
+      /** Waktu tanda tangan elektronik Peminjam. */
+      tandaTanganPada: v.optional(v.number()),
+      /** Waktu Peminjam menyetujui syarat dan ketentuan akad gadai. */
+      persetujuanSyaratPada: v.optional(v.number()),
+      /** Versi syarat dan ketentuan yang disetujui. */
+      persetujuanSyaratVersi: v.optional(v.string()),
     })
       .index("by_user", ["userId"])
       .index("by_status", ["status"]),

@@ -1,13 +1,17 @@
 /**
  * Pembuat teks e-contract (surat perjanjian) untuk pinjaman & gadai.
- * Teks render ke HTML untuk preview + cetak PDF via window.print().
+ * Teks dirender ke HTML untuk pratinjau dan cetak PDF via window.print().
  * Terminologi resmi: Peminjam, Pendana, Bunga/Imbal Hasil (tanpa kata
  * investor/investasi/ROI/return).
  */
 
 import type { SimulasiBulanan } from "./bulanan";
+import { quoteGadai } from "./gadai";
 import { formatRupiah } from "./money";
 import type { LoanQuote } from "./loan";
+
+/** Naikkan versi setiap kali syarat akad berubah secara material. */
+export const CONTRACT_TERMS_VERSION = "v1.0";
 
 export type ContractParty = {
   namaLengkap: string;
@@ -21,6 +25,12 @@ export type ContractMeta = {
   /** Titik koordinat & waktu tanda tangan/pengajuan. */
   lokasi?: { lat: number; lng: number } | null;
   timestampPada: number;
+  /** Bukti persetujuan dan tanda tangan Peminjam yang sudah tersimpan. */
+  tandaTanganPeminjam?: {
+    dataUrl: string;
+    tandaTanganPada: number;
+    persetujuanSyaratPada: number;
+  };
   /** Blok klausul khusus gadai. */
   gadai?: {
     deskripsiBarang: string;
@@ -30,8 +40,23 @@ export type ContractMeta = {
     ltvPersen: number;
     kodeRakVault: string;
     kondisiFisik: string;
+    pokokGadai?: number;
+    persenSewaModal?: number;
   };
 };
+
+function escapeHtml(value: string): string {
+  return value.replace(/[&<>"']/g, (character) => {
+    const entities: Record<string, string> = {
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      '"': "&quot;",
+      "'": "&#39;",
+    };
+    return entities[character] ?? character;
+  });
+}
 
 export function judulContract(jenis: "pinjaman" | "gadai" | "pendanaan"): string {
   if (jenis === "pendanaan") return "SURAT PERJANJIAN PENDANAAN DIGITAL";
@@ -64,6 +89,35 @@ function fmtTanggal(ts: number): string {
 function fmtKoordinat(lokasi?: { lat: number; lng: number } | null): string {
   if (!lokasi) return "tidak tersedia";
   return `${lokasi.lat.toFixed(5)}, ${lokasi.lng.toFixed(5)}`;
+}
+
+function blokTandaTanganPeminjam(
+  nama: string,
+  peran: string,
+  meta: ContractMeta,
+): string {
+  const bukti = meta.tandaTanganPeminjam;
+  const tampilanTandaTangan = bukti
+    ? `<img class="signature" src="${escapeHtml(bukti.dataUrl)}" alt="Tanda tangan Peminjam"/>`
+    : `<div class="signature-placeholder">Menunggu tanda tangan Peminjam</div>`;
+  const statusPersetujuan = bukti
+    ? `Persetujuan syarat dan tanda tangan dicatat ${new Date(bukti.persetujuanSyaratPada).toLocaleString("id-ID")} · ${CONTRACT_TERMS_VERSION}.`
+    : "Dokumen ini belum disetujui atau ditandatangani Peminjam.";
+
+  return `<div>
+    ${tampilanTandaTangan}
+    <p class="garis">${escapeHtml(nama)}</p>
+    <p>${escapeHtml(peran)}</p>
+    <p class="persetujuan">${escapeHtml(statusPersetujuan)}</p>
+  </div>`;
+}
+
+function blokPlatform(): string {
+  return `<div>
+    <div class="signature-placeholder">Ruang tanda tangan Platform</div>
+    <p class="garis">Pinjam Gadai Digital</p>
+    <p>Platform</p>
+  </div>`;
 }
 
 /**
@@ -109,39 +163,36 @@ export function buildPinjamanContract(
   return `
   <div class="contract">
     <h1>${judulContract("pinjaman")}</h1>
-    <p class="nomor">Nomor: ${nomorContract("pinjaman", meta.nomorReferensi)}</p>
+    <p class="nomor">Nomor: ${escapeHtml(nomorContract("pinjaman", meta.nomorReferensi))} · Syarat ${CONTRACT_TERMS_VERSION}</p>
 
     <p>Perjanjian ini dibuat pada tanggal <strong>${tgl}</strong> antara:</p>
     <p><strong>PINJAM GADAI DIGITAL ("Platform")</strong> — penyelenggara layanan pinjam-gadai digital, selaku pengelola pendanaan dari para <strong>Pendana</strong> terverifikasi;</p>
     <p>dan</p>
-    <p><strong>${peminjam.namaLengkap.toUpperCase()} ("Peminjam")</strong>${peminjam.nik ? `, NIK ${peminjam.nik}` : ""}${peminjam.email ? `, email ${peminjam.email}` : ""}, rekening tujuan pencairan ${peminjam.nomorRekening}.</p>
+    <p><strong>${escapeHtml(peminjam.namaLengkap.toUpperCase())} ("Peminjam")</strong>${peminjam.nik ? `, NIK ${escapeHtml(peminjam.nik)}` : ""}${peminjam.email ? `, email ${escapeHtml(peminjam.email)}` : ""}, rekening tujuan pencairan ${escapeHtml(peminjam.nomorRekening)}.</p>
 
-    <h2> Pasal 1 — Objek Pendanaan</h2>
+    <h2>Pasal 1 — Objek Pendanaan</h2>
     <ol>
       <li>Pokok pinjaman: <strong>${formatRupiah(quote.pokok)}</strong>.</li>
       ${pasalTenor}
       <li>Dana berasal dari Pendana terverifikasi melalui mekanisme pendanaan Platform.</li>
     </ol>
 
-    <h2>Pasal 2 — Rincian Financial</h2>
+    <h2>Pasal 2 — Rincian Keuangan</h2>
     <ol>${pasalFinansial}
     </ol>
 
     <h2>Pasal 3 — Kewajiban Peminjam</h2>
     <p>${pasalKewajiban}</p>
 
-    <h2>Pasal 4 — Keabsahan Digital</h2>
-    <p>Perjanjian ini ditandatangani secara elektronik melalui kanvas tanda tangan digital di aplikasi, tercatat pada koordinat GPS <strong>${fmtKoordinat(meta.lokasi)}</strong>, dengan timestamp sistem <strong>${new Date(meta.timestampPada).toLocaleString("id-ID")}</strong>. Kedua belah pihak mengakui keabsahan tanda tangan elektronik ini.</p>
+    <h2>Pasal 4 — Persetujuan Syarat dan Ketentuan</h2>
+    <p>Peminjam menyatakan telah membaca dan memeriksa rincian pinjaman, biaya, tenor, serta kewajiban pada dokumen ini, dan menyetujui syarat dan ketentuan yang tercantum. Persetujuan dicatat dengan versi <strong>${CONTRACT_TERMS_VERSION}</strong>.</p>
+
+    <h2>Pasal 5 — Catatan Persetujuan Digital</h2>
+    <p>Persetujuan dan tanda tangan Peminjam direkam melalui kanvas digital dengan timestamp sistem <strong>${new Date(meta.timestampPada).toLocaleString("id-ID")}</strong>${meta.lokasi ? ` dan koordinat pengajuan <strong>${fmtKoordinat(meta.lokasi)}</strong>` : ""}. Catatan ini merekam tindakan pada aplikasi dan tidak dengan sendirinya memverifikasi identitas penanda tangan.</p>
 
     <div class="ttd">
-      <div>
-        <p class="garis">${peminjam.namaLengkap}</p>
-        <p>Peminjam</p>
-      </div>
-      <div>
-        <p class="garis">Pinjam Gadai Digital</p>
-        <p>Platform</p>
-      </div>
+      ${blokTandaTanganPeminjam(peminjam.namaLengkap, "Peminjam", meta)}
+      ${blokPlatform()}
     </div>
   </div>`;
 }
@@ -154,49 +205,58 @@ export function buildGadaiContract(
 ): string {
   const tgl = fmtTanggal(meta.timestampPada);
   const ltv = gadai.hargaPasar > 0 ? Math.round((gadai.nilaiTaksiran / gadai.hargaPasar) * 100) : 0;
+  const quote =
+    gadai.pokokGadai !== undefined && gadai.persenSewaModal !== undefined
+      ? quoteGadai(gadai.pokokGadai, gadai.persenSewaModal)
+      : null;
+  const rincianPokok =
+    quote === null
+      ? `<li>Pokok gadai dan sewa modal belum ditetapkan pada saat dokumen ini dibuat; angka final perlu diperiksa pada tahap pendanaan.</li>`
+      : `<li>Pokok gadai: <strong>${formatRupiah(quote.pokok)}</strong>.</li>
+      <li>Potongan muka 1%: ${formatRupiah(quote.potonganDiMuka)}; dana bersih 99%: <strong>${formatRupiah(quote.danaBersihDitransfer)}</strong>.</li>
+      <li>Sewa modal ${gadai.persenSewaModal}% per 30 hari dari sisa pokok; perkiraan periode pertama ${formatRupiah(quote.sewaModalPeriode)}. Pembayaran berikutnya mengikuti sisa pokok.</li>`;
+
   return `
   <div class="contract">
     <h1>${judulContract("gadai")}</h1>
-    <p class="nomor">Nomor: ${nomorContract("gadai", meta.nomorReferensi)}</p>
+    <p class="nomor">Nomor: ${escapeHtml(nomorContract("gadai", meta.nomorReferensi))} · Syarat ${CONTRACT_TERMS_VERSION}</p>
 
     <p>Akad gadai ini dibuat pada tanggal <strong>${tgl}</strong> antara:</p>
     <p><strong>PINJAM GADAI DIGITAL ("Platform")</strong> — pengelola gudang brankas dan layanan gadai digital;</p>
     <p>dan</p>
-    <p><strong>${peminjam.namaLengkap.toUpperCase()} ("Penggadai/Peminjam")</strong>${peminjam.nik ? `, NIK ${peminjam.nik}` : ""}, rekening tujuan pencairan ${peminjam.nomorRekening}.</p>
+    <p><strong>${escapeHtml(peminjam.namaLengkap.toUpperCase())} ("Penggadai/Peminjam")</strong>${peminjam.nik ? `, NIK ${escapeHtml(peminjam.nik)}` : ""}, rekening tujuan pencairan ${escapeHtml(peminjam.nomorRekening)}.</p>
 
     <h2>Pasal 1 — Objek Gadai</h2>
     <ol>
-      <li>Deskripsi barang: <strong>${gadai.deskripsiBarang}</strong>.</li>
-      <li>Kategori: ${gadai.kategori}.</li>
-      <li>Kondisi fisik: ${gadai.kondisiFisik || "dinilai petugas"}.</li>
-      <li>Disimpan di gudang brankas, kode rak <strong>${gadai.kodeRakVault}</strong>.</li>
+      <li>Deskripsi barang: <strong>${escapeHtml(gadai.deskripsiBarang)}</strong>.</li>
+      <li>Kategori: ${escapeHtml(gadai.kategori)}.</li>
+      <li>Kondisi fisik: ${escapeHtml(gadai.kondisiFisik || "dinilai petugas")}.</li>
+      <li>Disimpan di gudang brankas, kode rak <strong>${escapeHtml(gadai.kodeRakVault)}</strong>.</li>
     </ol>
 
-    <h2>Pasal 2 — Penilaian & LTV</h2>
+    <h2>Pasal 2 — Penilaian, LTV, dan Rincian Pendanaan</h2>
     <ol>
       <li>Harga pasar: ${formatRupiah(gadai.hargaPasar)}.</li>
       <li>Nilai taksiran: <strong>${formatRupiah(gadai.nilaiTaksiran)}</strong> (LTV ${ltv}%, maksimum ${gadai.ltvPersen}%).</li>
+      ${rincianPokok}
     </ol>
 
-    <h2>Pasal 3 — Hak & Kewajiban</h2>
+    <h2>Pasal 3 — Hak dan Kewajiban</h2>
     <ol>
-      <li>Barang disimpan aman di brankas Platform dan diasuransikan selama masa gadai.</li>
-      <li>Barang dikembalikan setelah seluruh kewajiban (pokok + imbal hasil Pendana) dilunasi.</li>
-      <li>Bila kewajiban tidak diselesaikan, barang dapat dilelang sesuai ketentuan dan sisa hasil lelang setelah pemenuhan kewajiban dikembalikan kepada Penggadai.</li>
+      <li>Barang disimpan di tempat penyimpanan Platform sesuai proses yang berlaku selama masa gadai.</li>
+      <li>Barang dikembalikan setelah seluruh kewajiban (pokok dan sewa modal) dilunasi.</li>
+      <li>Bila kewajiban tidak diselesaikan, barang dapat diproses sesuai ketentuan yang berlaku; perhitungan hasilnya mengikuti rincian penyelesaian pada aplikasi.</li>
     </ol>
 
-    <h2>Pasal 4 — Keabsahan Digital</h2>
-    <p>Akad ini ditandatangani secara elektronik, tercatat pada koordinat GPS <strong>${fmtKoordinat(meta.lokasi)}</strong>, timestamp <strong>${new Date(meta.timestampPada).toLocaleString("id-ID")}</strong>.</p>
+    <h2>Pasal 4 — Persetujuan Syarat dan Ketentuan</h2>
+    <p>Peminjam menyatakan telah membaca dan memeriksa data barang, nilai taksiran, serta rincian pokok dan sewa modal yang tersedia pada dokumen ini, dan menyetujui syarat dan ketentuan yang tercantum. Persetujuan dicatat dengan versi <strong>${CONTRACT_TERMS_VERSION}</strong>.</p>
+
+    <h2>Pasal 5 — Catatan Persetujuan Digital</h2>
+    <p>Persetujuan dan tanda tangan Peminjam direkam melalui kanvas digital dengan timestamp sistem <strong>${new Date(meta.timestampPada).toLocaleString("id-ID")}</strong>. Catatan ini merekam tindakan pada aplikasi dan tidak dengan sendirinya memverifikasi identitas penanda tangan.</p>
 
     <div class="ttd">
-      <div>
-        <p class="garis">${peminjam.namaLengkap}</p>
-        <p>Penggadai</p>
-      </div>
-      <div>
-        <p class="garis">Pinjam Gadai Digital</p>
-        <p>Platform</p>
-      </div>
+      ${blokTandaTanganPeminjam(peminjam.namaLengkap, "Penggadai / Peminjam", meta)}
+      ${blokPlatform()}
     </div>
   </div>`;
 }

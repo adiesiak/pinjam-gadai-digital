@@ -9,8 +9,10 @@ p,li{font-size:12px;line-height:1.65;margin:4px 0}
 ol{padding-left:18px}
 .nomor{text-align:center;font-size:11px;color:#655e4d;margin-bottom:14px}
 .ttd{display:flex;justify-content:space-between;margin-top:36px;gap:24px}
-.ttd>div{flex:1;text-align:center;font-size:12px}
-.garis{border-top:1px solid #1c1a15;margin-top:48px;padding-top:4px;font-weight:600}
+.ttd>div{flex:1;text-align:center;font-size:12px} .garis{border-top:1px solid #1c1a15;margin-top:14px;padding-top:4px;font-weight:600}
+.signature{display:block;object-fit:contain;width:100%;height:68px;margin:8px auto 0}
+.signature-placeholder{display:grid;place-items:center;width:100%;height:68px;margin:8px auto 0;border:1px dashed #a8b2bd;color:#64748b;font:11px ui-sans-serif,system-ui,sans-serif}
+.persetujuan{font:10px/1.5 ui-sans-serif,system-ui,sans-serif;color:#475569;margin-top:8px}
 @media print{.no-print{display:none}}`;
 
 export function wrapContractHtml(inner: string): string {

@@ -1,65 +1,35 @@
-import SignaturePad from "signature_pad";
-
+import { useMutation, useQuery } from "convex/react";
+import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { useQuery, useMutation } from "convex/react";
-import { useEffect, useRef, useState } from "react";
 import { Loader2, PenLine } from "lucide-react";
-import { toast } from "sonner";
 
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
-import { buildPinjamanContract, judulContract, nomorContract } from "@/lib/contract";
+import {
+  buildPinjamanContract,
+  CONTRACT_TERMS_VERSION,
+  nomorContract,
+} from "@/lib/contract";
 import { formatRupiah } from "@/lib/money";
 
-import { ContractPrintButton } from "./ContractPrintButton";
-import { wrapContractHtml } from "./contract-doc";
+import { ContractSigningDialog } from "./ContractSigningDialog";
 
-/** Blok e-contract untuk pinjaman: preview ringkas, tanda tangan, unduh PDF. */
+/** Widget akad pinjaman: preview, persetujuan, dan tanda tangan Peminjam. */
 export function LoanContractBlock({ loanId }: { loanId: Id<"loans"> }) {
+  const [open, setOpen] = useState(false);
   const save = useMutation(api.admin.simpanTandaTangan);
   const detail = useQuery(api.admin.contractDetail, { loanId });
-  const ttdRow = useQuery(api.admin.contractData, { loanId });
+  const contractData = useQuery(api.admin.contractData, { loanId });
 
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const padRef = useRef<SignaturePad | null>(null);
-  const [busy, setBusy] = useState(false);
-
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const pad = new SignaturePad(canvas, {
-      backgroundColor: "rgba(255,255,255,0)",
-      penColor: "#1c1a15",
-      minWidth: 1.2,
-      maxWidth: 2.4,
-    });
-    padRef.current = pad;
-    const resize = () => {
-      const ratio = Math.max(window.devicePixelRatio || 1, 1);
-      const data = pad.toData();
-      canvas.width = canvas.offsetWidth * ratio;
-      canvas.height = canvas.offsetHeight * ratio;
-      canvas.getContext("2d")?.scale(ratio, ratio);
-      pad.clear();
-      pad.fromData(data);
-    };
-    resize();
-    window.addEventListener("resize", resize);
-    return () => {
-      window.removeEventListener("resize", resize);
-      pad.off();
-    };
-  }, []);
-
-  if (detail === undefined || ttdRow === undefined || ttdRow === null) {
+  if (detail === undefined || contractData === undefined) {
     return (
       <p className="flex items-center gap-2 py-3 text-sm text-muted-foreground">
         <Loader2 className="size-4 animate-spin" /> Memuat data kontrak…
       </p>
     );
   }
-  if (detail === null) {
+  if (detail === null || contractData === null) {
     return <p className="text-sm text-muted-foreground">Data kontrak tidak tersedia.</p>;
   }
 
@@ -82,106 +52,79 @@ export function LoanContractBlock({ loanId }: { loanId: Id<"loans"> }) {
     {
       nomorReferensi: detail.nomorReferensi,
       lokasi: detail.lokasiAjukan,
-      timestampPada: ttdRow.ttdPada ?? detail._creationTime,
+      timestampPada:
+        contractData.ttdPada ?? contractData.persetujuanPada ?? detail._creationTime,
+      ...(contractData.ttdPeminjam &&
+      contractData.ttdPada !== null &&
+      contractData.persetujuanPada !== null
+        ? {
+            tandaTanganPeminjam: {
+              dataUrl: contractData.ttdPeminjam,
+              tandaTanganPada: contractData.ttdPada,
+              persetujuanSyaratPada: contractData.persetujuanPada,
+            },
+          }
+        : {}),
     },
     detail.tenorHari ?? 30,
-    // Skema bulanan: rincian akad mengikuti engine lib/bulanan.ts.
     detail.bulanan ?? null,
   );
 
-  const simpanTtd = async () => {
-    const pad = padRef.current;
-    if (!pad || pad.isEmpty()) {
-      toast.error("Tanda tangan masih kosong — gambar terlebih dahulu.");
-      return;
-    }
-    setBusy(true);
-    try {
-      await save({ loanId, dataUrl: pad.toDataURL("image/png") });
-      pad.clear();
-      toast.success("Tanda tangan digital tersimpan.");
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Gagal menyimpan tanda tangan.");
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const lihat = () => {
-    const w = window.open("", "_blank");
-    if (!w) {
-      toast.error("Popup diblokir browser — izinkan popup untuk melihat kontrak.");
-      return;
-    }
-    w.document.write(wrapContractHtml(html));
-    w.document.close();
-  };
+  const signed =
+    contractData.ttdPeminjam !== null &&
+    contractData.ttdPada !== null &&
+    contractData.persetujuanPada !== null &&
+    contractData.persetujuanVersi === CONTRACT_TERMS_VERSION;
 
   return (
-    <div className="space-y-3 rounded-2xl border border-sky-100 bg-white p-4">
-      <div className="flex items-center justify-between gap-3">
-        <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
-          E-Contract & legal dokumen
-        </p>
-        <Badge variant="outline" className="text-[10px] tabular-nums">
-          {nomorContract("pinjaman", detail.nomorReferensi)}
-        </Badge>
-      </div>
-
-      <div className="max-h-44 overflow-y-auto rounded-xl border border-sky-100 bg-secondary/40 p-3 text-[11px] leading-5 text-muted-foreground">
-        <p className="font-semibold text-navy">{judulContract("pinjaman")}</p>
-        <p className="mt-1">
-          Peminjam {detail.namaLengkap} · pokok {formatRupiah(detail.pokokPinjaman)} ·{" "}
-          {detail.bulanan !== null ? (
-            <>
-              tenor {detail.bulanan.tenorBulan} bulan · dana penuh{" "}
-              {formatRupiah(detail.bulanan.pokokDibiayai)} (DP 0%) · cicilan{" "}
-              {formatRupiah(detail.bulanan.cicilanPerBulan)}/bulan · total kewajiban{" "}
-              {formatRupiah(detail.bulanan.totalPengembalian)}
-            </>
-          ) : (
-            <>
-              dana bersih {formatRupiah(detail.quote.danaBersihDitransfer)} (95%) · total kewajiban{" "}
-              {formatRupiah(detail.quote.totalKewajibanPelunasan)} (130%)
-            </>
-          )}{" "}
-          · GPS {detail.lokasiAjukan ? `${detail.lokasiAjukan.lat.toFixed(4)}, ${detail.lokasiAjukan.lng.toFixed(4)}` : "—"} ·
-          timestamp {new Date(ttdRow.ttdPada ?? detail._creationTime).toLocaleString("id-ID")}
-        </p>
-      </div>
-
-      {ttdRow.ttdPeminjam ? (
-        <div className="rounded-xl border border-sky-100 bg-secondary/40 p-3">
-          <p className="mb-1.5 text-xs font-medium">Tanda tangan elektronik Peminjam</p>
-          <img src={ttdRow.ttdPeminjam} alt="Tanda tangan peminjam" className="h-16 rounded-lg bg-white" />
-        </div>
-      ) : (
-        <div className="rounded-xl border border-dashed border-sky-200 p-3">
-          <p className="mb-2 flex items-center gap-1.5 text-xs font-medium">
-            <PenLine className="size-3.5 text-primary" /> Tanda tangan peminjam (canvas)
-          </p>
-          <canvas
-            ref={canvasRef}
-            className="h-20 w-full rounded-lg border border-sky-100 bg-white touch-none"
-          />
-          <Button
-            size="sm"
-            className="gradient-primary mt-2 rounded-full border-0"
-            disabled={busy}
-            onClick={simpanTtd}
+    <>
+      <div className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
+              E-Contract · pinjaman
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Peminjam membaca syarat, menyetujui, lalu menandatangani sendiri.
+            </p>
+          </div>
+          <Badge
+            variant="outline"
+            className={signed ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "text-muted-foreground"}
           >
-            {busy ? <Loader2 className="mr-1.5 size-4 animate-spin" /> : null}
-            Simpan tanda tangan
+            {signed ? "Sudah disetujui" : "Menunggu persetujuan"}
+          </Badge>
+        </div>
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-3">
+          <span className="text-[11px] tabular-nums text-muted-foreground">
+            {nomorContract("pinjaman", detail.nomorReferensi)} · Pokok {formatRupiah(detail.pokokPinjaman)}
+          </span>
+          <Button size="sm" className="gradient-primary rounded-full border-0" onClick={() => setOpen(true)}>
+            <PenLine className="mr-1.5 size-4" /> {signed ? "Lihat akad" : "Buka & minta persetujuan"}
           </Button>
         </div>
-      )}
-
-      <div className="flex flex-wrap gap-2">
-        <Button size="sm" variant="outline" className="rounded-full" onClick={lihat}>
-          Lihat E-Contract
-        </Button>
-        <ContractPrintButton html={html} />
       </div>
-    </div>
+
+      <ContractSigningDialog
+        open={open}
+        onOpenChange={setOpen}
+        title="Akad Pinjaman Digital"
+        reference={detail.nomorReferensi}
+        borrowerName={detail.namaLengkap}
+        html={html}
+        signature={contractData.ttdPeminjam}
+        signedAt={contractData.ttdPada}
+        consentAt={contractData.persetujuanPada}
+        consentVersion={contractData.persetujuanVersi}
+        signingDisabledReason={
+          detail.status === "ditolak"
+            ? "Pengajuan berstatus ditolak. Persetujuan dan tanda tangan akad dinonaktifkan."
+            : null
+        }
+        onSign={async (dataUrl) => {
+          await save({ loanId, dataUrl, persetujuanPeminjam: true });
+        }}
+      />
+    </>
   );
 }
