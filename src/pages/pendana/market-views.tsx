@@ -1,5 +1,5 @@
 import { useMutation, useQuery } from "convex/react";
-import { BadgeCheck, Coins, Loader2, MapPin, Package, Store } from "lucide-react";
+import { BadgeCheck, Coins, Loader2, Store } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
@@ -23,34 +23,11 @@ import { formatRupiah, parseRupiah, type Rupiah } from "@/lib/money";
 
 import { EmptyState, Loading } from "./feedback";
 
-/**
- * Badge keamanan lokasi untuk kartu peluang pendanaan.
- *
- * Menegaskan perlindungan yang sudah aktif di server untuk pinjaman ini:
- * Peminjam wajib GPS hidup (titik segar maks 10 menit), titik palsu ditolak,
- * dan koordinat mencurigakan ditandai tim. Ditempatkan tepat di bawah tombol
- * alokasi — momen keputusan Pendana — dan versi verbose muncul lagi di dalam
- * dialog alokasi.
- */
-function BadgeLokasiTerpantau({ verbose = false }: { verbose?: boolean }) {
+/** Wilayah umum tidak dibagikan; alamat dan lokasi rinci tetap privat. */
+function KeteranganWilayah() {
   return (
-    <p
-      className={
-        verbose
-          ? "flex items-start gap-2 rounded-xl border border-emerald-100 bg-emerald-50/60 px-3 py-2.5 text-xs leading-5 text-emerald-800"
-          : "mt-2 flex items-center justify-center gap-1.5 text-center text-[11px] text-muted-foreground"
-      }
-    >
-      <MapPin className="size-3.5 shrink-0 text-emerald-600" />
-      {verbose ? (
-        <span>
-          Peminjam pinjaman ini wajib GPS aktif — server menolak transaksi tanpa
-          titik lokasi segar (maks 10 menit) serta titik dari aplikasi lokasi
-          palsu. Posisi yang mencurigakan ditandai dan ditindaklanjuti tim PINDAI.
-        </span>
-      ) : (
-        <span>Lokasi Peminjam dipantau &amp; diverifikasi server</span>
-      )}
+    <p className="mt-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs leading-5 text-muted-foreground">
+      Wilayah umum tidak dibagikan; alamat dan lokasi rinci hanya dapat diakses tim berwenang.
     </p>
   );
 }
@@ -67,7 +44,7 @@ export function MarketplaceSection() {
         <EmptyState
           icon={Store}
           title="Belum ada peluang pendanaan"
-          body="Pinjaman yang telah disetujui tim akan tampil di sini beserta sisa kebutuhan pendanaannya. Semua peminjam sudah lolos verifikasi KYC."
+          body="Peluang yang disetujui tim PINDAI tampil dengan kode peminjam, rincian biaya, jadwal, dan sisa kebutuhan pendanaan."
         />
       ) : (
         <div className="grid gap-4 md:grid-cols-2">
@@ -86,22 +63,43 @@ function MarketCard({
   row: {
     _id: Id<"loans">;
     nomorReferensi: string;
+    kodePeminjam: string;
+    statusVerifikasi: string;
     tujuan: string;
     pokokPinjaman: number;
-    tenorHari: number | null;
+    skemaBulanan: boolean;
+    tenorHari: number;
     tenorBulan: number | null;
     cicilanPerBulan: number | null;
+    imbalHasilTotal: number;
+    totalKewajiban: number;
+    biayaAdmin: number;
+    biayaPlatform: number;
+    totalPotonganDiMuka: number;
+    biayaLayananTotal: number;
+    jadwalPelunasan: Array<{
+      bulan: number | null;
+      hariKe: number | null;
+      pokok: number;
+      imbalHasil: number;
+      biayaLayanan: number;
+      total: number;
+      sisaPokok: number;
+    }>;
+    simulasiCicilanBulanan: Array<{
+      bulan: number | null;
+      hariKe: number | null;
+      pokok: number;
+      imbalHasil: number;
+      biayaLayanan: number;
+      total: number;
+      sisaPokok: number;
+    }>;
+    catatanJadwal: string;
     terkumpul: number;
     sisaKebutuhan: number;
     danaBersih: number;
     bunga: number;
-    gadai: {
-      deskripsiBarang: string;
-      kategori: string;
-      nilaiTaksiran: number;
-      ltvPersen: number;
-      kodeRakVault: string | null;
-    } | null;
   };
 }) {
   const allocateFunding = useMutation(api.pendana.allocateFunding);

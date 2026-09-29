@@ -97,7 +97,11 @@ const schema = defineSchema(
       plafonPinjaman: v.optional(v.number()),
       /** Waktu pinjaman tunai pokok ≥ Rp1 juta pertama kali dilunasi penuh. */
       plafonPinjamanNaikPada: v.optional(v.number()),
-    }).index("email", ["email"]), // index for the email. do not remove or modify
+      /** Kode pseudonim acak yang stabil; tidak berasal dari data identitas. */
+      kodePeminjam: v.optional(v.string()),
+    })
+      .index("email", ["email"]) // index for the email. do not remove or modify
+      .index("by_kodePeminjam", ["kodePeminjam"]),
 
     /**
      * Aplikasi pinjaman tunai Peminjam.

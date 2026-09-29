@@ -11,6 +11,7 @@ import { CONTRACT_TERMS_VERSION } from "../lib/contract";
 import { getConfig, audit } from "./system";
 import { jarakKm } from "../lib/geo";
 import { clampPlafon, plafonEfektif } from "../lib/plafon";
+import { ensureKodePeminjam } from "./peminjamCode";
 
 /** Gerbang admin — semua query/mutation di file ini dijaga. */
 async function requireAdmin(ctx: QueryCtx) {
@@ -240,6 +241,36 @@ export const adminOverview = query({
       }));
 
     return { isAdmin: true, loans: loanRows, pawns: pawnRows, kredit: kreditRows };
+  },
+});
+
+/**
+ * Isi kode pseudonim yang belum ada pada maksimal 50 akun per pemanggilan.
+ * Cursor memungkinkan migrasi data lama berjalan bertahap di panel admin.
+ */
+export const backfillKodePeminjam = mutation({
+  args: { cursor: v.union(v.string(), v.null()) },
+  handler: async (ctx, { cursor }) => {
+    await requireAdmin(ctx);
+    const page = await ctx.db.query("users").order("asc").paginate({
+      numItems: 50,
+      cursor,
+    });
+    let diterbitkan = 0;
+
+    for (const user of page.page) {
+      if (user.kodePeminjam !== undefined) continue;
+      const [loan, pawn, kredit] = await Promise.all([
+        ctx.db.query("loans").withIndex("by_user", (q) => q.eq("userId", user._id)).first(),
+        ctx.db.query("pawns").withIndex("by_user", (q) => q.eq("userId", user._id)).first(),
+        ctx.db.query("kreditBarang").withIndex("by_user", (q) => q.eq("userId", user._id)).first(),
+      ]);
+      if (loan === null && pawn === null && kredit === null) continue;
+      await ensureKodePeminjam(ctx, user._id);
+      diterbitkan += 1;
+    }
+
+    return { cursor: page.continueCursor, selesai: page.isDone, diterbitkan };
   },
 });
 

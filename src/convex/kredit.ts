@@ -14,6 +14,7 @@ import { requireAdminSession } from "./adminAuthz";
 import { appendJournal } from "./ledger";
 import { audit, getConfig } from "./system";
 import { requireGerbangLokasi } from "./lokasi";
+import { ensureKodePeminjam } from "./peminjamCode";
 import { formatRupiah } from "../lib/money";
 import type { Doc, Id } from "./_generated/dataModel";
 import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
@@ -240,6 +241,7 @@ export const ajukanKreditBarang = mutation({
     if (user.role === undefined) {
       await ctx.db.patch(userId, { role: ROLES.PEMINJAM });
     }
+    await ensureKodePeminjam(ctx, userId);
 
     const now = Date.now();
     const referensi = nomorReferensiKredit(now);
@@ -558,6 +560,9 @@ async function setKreditStatus(
     }
   }
 
+  if (status === "disetujui") {
+    await ensureKodePeminjam(ctx, row.userId);
+  }
   await ctx.db.patch(kreditId, {
     status,
     catatanReview: catatan?.trim() || undefined,

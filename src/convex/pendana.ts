@@ -90,37 +90,115 @@ async function requireWaOtpIfEnabled(
  * layanan diamortisasi). Imbal Hasil Pendana = 30% pokok (harian) atau
  * Σ bunga bulanan (bulanan); biaya layanan adalah pendapatan platform.
  */
+type BarisJadwalPendana = {
+  bulan: number | null;
+  hariKe: number | null;
+  pokok: number;
+  imbalHasil: number;
+  biayaLayanan: number;
+  total: number;
+  sisaPokok: number;
+};
+
+type RingkasanPinjaman = {
+  skemaBulanan: boolean;
+  tenorHari: number;
+  tenorBulan: number | null;
+  imbalHasilTotal: number;
+  totalKewajiban: number;
+  cicilanPerBulan: number | null;
+  biayaAdmin: number;
+  biayaPlatform: number;
+  totalPotonganDiMuka: number;
+  biayaLayananTotal: number;
+  danaDiterimaPeminjam: number;
+  jadwalPelunasan: BarisJadwalPendana[];
+  simulasiCicilanBulanan: BarisJadwalPendana[];
+  catatanJadwal: string;
+};
+
 function ringkasPinjaman(loan: {
   pokokPinjaman: number;
   tenorHari?: number;
   tenorBulan?: number;
-}) {
+}): RingkasanPinjaman {
   if (loan.tenorBulan !== undefined) {
     const sim = hitungSimulasiBulanan(loan.pokokPinjaman, loan.tenorBulan);
+    const tenorHari = loan.tenorBulan * 30;
     return {
-      skemaBulanan: true as const,
-      // Ekuivalen hari (1 bulan = 30 hari) untuk tampilan warisan; UI skema
-      // bulanan menampilkan `tenorBulan` sebagai "N bulan".
-      tenorHari: loan.tenorBulan * 30,
+      skemaBulanan: true,
+      tenorHari,
       tenorBulan: loan.tenorBulan,
-      imbalHasilTotal: sim.bungaTotal as number,
-      totalKewajiban: sim.totalPengembalian as number,
-      cicilanPerBulan: sim.cicilanPerBulan as number,
-      biayaLayananTotal: sim.biayaLayananTotal as number,
+      imbalHasilTotal: sim.bungaTotal,
+      totalKewajiban: sim.totalPengembalian,
+      cicilanPerBulan: sim.cicilanPerBulan,
+      biayaAdmin: 0,
+      biayaPlatform: 0,
+      totalPotonganDiMuka: 0,
+      biayaLayananTotal: sim.biayaLayananTotal,
       danaDiterimaPeminjam: loan.pokokPinjaman,
+      // Backend saat ini mencatat satu pelunasan penuh di akhir tenor.
+      jadwalPelunasan: [
+        {
+          bulan: loan.tenorBulan,
+          hariKe: tenorHari,
+          pokok: loan.pokokPinjaman,
+          imbalHasil: sim.bungaTotal,
+          biayaLayanan: sim.biayaLayananTotal,
+          total: sim.totalPengembalian,
+          sisaPokok: 0,
+        },
+      ],
+      // Simulasi terpisah agar tidak disalahartikan sebagai cicilan yang sudah ditagih.
+      simulasiCicilanBulanan: sim.jadwal.map((c) => ({
+        bulan: c.bulan,
+        hariKe: null,
+        pokok: c.pokok,
+        imbalHasil: c.bunga,
+        biayaLayanan: c.biayaLayanan,
+        total: c.total,
+        sisaPokok: c.sisaPokok,
+      })),
+      catatanJadwal:
+        "Pelunasan aktual dicatat sekaligus pada akhir tenor; rincian bulanan hanya simulasi.",
     };
   }
   const q = quoteLoan(loan.pokokPinjaman);
+  const tenorHari = loan.tenorHari ?? DEFAULT_TENOR_HARI;
   return {
-    skemaBulanan: false as const,
-    tenorHari: loan.tenorHari ?? DEFAULT_TENOR_HARI,
-    tenorBulan: null as number | null,
-    imbalHasilTotal: q.bunga as number,
-    totalKewajiban: q.totalKewajibanPelunasan as number,
+    skemaBulanan: false,
+    tenorHari,
+    tenorBulan: null,
+    imbalHasilTotal: q.bunga,
+    totalKewajiban: q.totalKewajibanPelunasan,
     cicilanPerBulan: null,
-    biayaLayananTotal: 0 as number,
-    danaDiterimaPeminjam: q.danaBersihDitransfer as number,
+    biayaAdmin: q.biayaAdmin,
+    biayaPlatform: q.biayaPlatform,
+    totalPotonganDiMuka: q.totalPotonganDiMuka,
+    biayaLayananTotal: 0,
+    danaDiterimaPeminjam: q.danaBersihDitransfer,
+    jadwalPelunasan: [
+      {
+        bulan: null,
+        hariKe: tenorHari,
+        pokok: loan.pokokPinjaman,
+        imbalHasil: q.bunga,
+        biayaLayanan: 0,
+        total: q.totalKewajibanPelunasan,
+        sisaPokok: 0,
+      },
+    ],
+    simulasiCicilanBulanan: [],
+    catatanJadwal: "Satu kali pelunasan penuh pada akhir tenor.",
   };
+}
+
+function statusPersetujuanTim(status: string): string {
+  if (status === "disetujui" || status === "didanai" || status === "lunas") {
+    return "Disetujui tim PINDAI";
+  }
+  if (status === "ditolak") return "Tidak disetujui tim PINDAI";
+  return "Menunggu review tim PINDAI";
 }
 
 function referenceNumber(prefix: string): string {
@@ -265,6 +343,11 @@ export const marketplace = query({
 
     const rows = [];
     for (const loan of loans) {
+      const peminjam = await ctx.db.get(loan.userId);
+      // Jangan tampilkan data warisan yang belum memiliki kode pseudonim.
+      // Admin dapat menerbitkannya bertahap lewat panel Backup & Keamanan.
+      if (peminjam?.kodePeminjam === undefined) continue;
+
       const fundings = await ctx.db
         .query("fundings")
         .withIndex("by_loan", (q) => q.eq("loanId", loan._id))
@@ -274,38 +357,11 @@ export const marketplace = query({
         .reduce((acc, f) => acc + f.jumlahAlokasi, 0);
       const ringkas = ringkasPinjaman(loan);
 
-      // Info gadai terhubung (nilai taksiran/LTV/rak vault) — peminjam yang
-      // sama + gadai tertaksir, untuk badge "Gadai Digital" di marketplace.
-      let gadai: {
-        deskripsiBarang: string;
-        kategori: string;
-        nilaiTaksiran: number;
-        ltvPersen: number;
-        kodeRakVault: string | null;
-      } | null = null;
-      const pawns = await ctx.db
-        .query("pawns")
-        .withIndex("by_user", (q) => q.eq("userId", loan.userId))
-        .collect();
-      const pawnMatch = pawns.find(
-        (p) => p.namaLengkap === loan.namaLengkap && p.nilaiTaksiran !== undefined,
-      );
-      if (pawnMatch && pawnMatch.nilaiTaksiran !== undefined) {
-        gadai = {
-          deskripsiBarang: pawnMatch.deskripsiBarang,
-          kategori: pawnMatch.kategori,
-          nilaiTaksiran: pawnMatch.nilaiTaksiran,
-          ltvPersen:
-            pawnMatch.hargaPasar && pawnMatch.hargaPasar > 0
-              ? Math.round((pawnMatch.nilaiTaksiran / pawnMatch.hargaPasar) * 100)
-              : 70,
-          kodeRakVault: pawnMatch.kodeRakVault ?? null,
-        };
-      }
-
       rows.push({
         _id: loan._id,
         nomorReferensi: loan.nomorReferensi,
+        kodePeminjam: peminjam.kodePeminjam,
+        statusVerifikasi: "Disetujui tim PINDAI",
         tujuan: loan.tujuan,
         pokokPinjaman: loan.pokokPinjaman,
         ...ringkas,
@@ -313,7 +369,6 @@ export const marketplace = query({
         sisaKebutuhan: loan.pokokPinjaman - terkumpul,
         danaBersih: ringkas.danaDiterimaPeminjam,
         bunga: ringkas.imbalHasilTotal,
-        gadai,
         _creationTime: loan._creationTime,
       });
     }
@@ -572,9 +627,9 @@ export const myWithdrawals = query({
 });
 
 /**
- * Portofolio Pendana: setiap alokasi aktif dengan status pelunasan live dari
- * data pinjaman (lancar / berjalan / menunggak), privasi peminjam dijaga
- * (hanya inisial nama), plus info jaminan gadai bila terhubung.
+ * Portofolio Pendana: status pelunasan live dan kode peminjam pseudonim.
+ * Data identitas, alamat, koordinat, serta lokasi penyimpanan jaminan tidak
+ * disertakan dalam payload ini.
  */
 export const myPortfolio = query({
   args: {},
@@ -590,6 +645,9 @@ export const myPortfolio = query({
       if (f.status !== "dialokasikan") continue;
       const loan = await ctx.db.get(f.loanId);
       if (loan === null) continue;
+
+      const peminjam = await ctx.db.get(loan.userId);
+      if (peminjam?.kodePeminjam === undefined) continue;
 
       // Satu sumber kebenaran pelunasan: skema harian & bulanan sekaligus.
       const rep = pelunasanPinjaman(loan, now);
@@ -607,45 +665,15 @@ export const myPortfolio = query({
         statusPelunasan = "berjalan";
       }
 
-      // Inisial peminjam demi privasi (mis. "Budi Santoso" → "B. S.").
-      const inisial = loan.namaLengkap
-        .split(/\s+/)
-        .slice(0, 2)
-        .map((k) => `${k.charAt(0).toUpperCase()}.`)
-        .join(" ");
-
-      // Jaminan gadai dengan deskripsi cocok nama peminjam + kategori.
-      let jaminan: {
-        deskripsiBarang: string;
-        kategori: string;
-        nilaiTaksiran: number | null;
-        kodeRakVault: string | null;
-      } | null = null;
-      if (loan.namaLengkap) {
-        const pawns = await ctx.db
-          .query("pawns")
-          .withIndex("by_user", (q) => q.eq("userId", loan.userId))
-          .collect();
-        const match = pawns.find(
-          (p) => p.namaLengkap === loan.namaLengkap && p.nilaiTaksiran !== undefined,
-        );
-        if (match) {
-          jaminan = {
-            deskripsiBarang: match.deskripsiBarang,
-            kategori: match.kategori,
-            nilaiTaksiran: match.nilaiTaksiran ?? null,
-            kodeRakVault: match.kodeRakVault ?? null,
-          };
-        }
-      }
-
       result.push({
         _id: f._id,
         nomorReferensi: f.nomorReferensi,
         loanId: loan._id,
         loanRef: loan.nomorReferensi,
+        kodePeminjam: peminjam.kodePeminjam,
+        statusVerifikasi: "Disetujui tim PINDAI",
         tujuan: loan.tujuan,
-        peminjamInisial: inisial || "—",
+        pokokPinjaman: loan.pokokPinjaman,
         jumlahAlokasi: f.jumlahAlokasi,
         imbalHasil: f.imbalHasil,
         statusAlokasi: f.status,
@@ -660,8 +688,9 @@ export const myPortfolio = query({
                 sisaHari: rep.sisaHari,
                 hariTerlambat: rep.hariTerlambat,
                 dendaTerlambat: rep.dendaTerlambat,
+                totalKewajibanPelunasan: rep.totalKewajibanPelunasan,
+                totalKewajibanDenganPenalti: rep.totalKewajibanDenganPenalti,
               },
-        jaminan,
       });
     }
     return result;
@@ -769,17 +798,6 @@ export const myFundings = query({
 // Kredit Barang (Skema C) — peluang pendanaan & Alokasi Dana
 // =====================================================================
 
-/** Inisial pemohon demi privasi (mis. "Budi Santoso" → "B. S."). */
-function inisialNama(nama: string): string {
-  return (
-    nama
-      .split(/\s+/)
-      .slice(0, 2)
-      .map((k) => `${k.charAt(0).toUpperCase()}.`)
-      .join(" ") || "—"
-  );
-}
-
 /** Akun ledger merchant tujuan pembayaran barang (mis. merchant:SHOPEE). */
 function akunMerchant(merchant: string): string {
   const kode = merchant
@@ -792,7 +810,7 @@ function akunMerchant(merchant: string): string {
 /**
  * Peluang pendanaan Kredit Barang: pengajuan yang sudah disetujui tim dan
  * belum terpenuhi penuh oleh Pendana. Sisa kebutuhan dihitung live dari
- * alokasi aktif (Zero Fake Data) — identitas pemohon tetap privat (inisial).
+ * alokasi aktif (Zero Fake Data); identitas hanya berupa kode peminjam.
  */
 export const marketplaceKredit = query({
   args: {},
@@ -805,6 +823,9 @@ export const marketplaceKredit = query({
 
     const hasil = [];
     for (const k of rows) {
+      const peminjam = await ctx.db.get(k.userId);
+      if (peminjam?.kodePeminjam === undefined) continue;
+
       let quote;
       try {
         quote = quoteKreditBarang({
@@ -823,11 +844,27 @@ export const marketplaceKredit = query({
       const terkumpul = fundings
         .filter((f) => f.status === "dialokasikan")
         .reduce((acc, f) => acc + f.jumlahAlokasi, 0);
+      const simulasiBulanan = (
+        TENOR_BULANAN_OPTIONS as readonly number[]
+      ).includes(k.tenorBulan)
+        ? hitungSimulasiBulanan(quote.pokokDibiayai, k.tenorBulan)
+        : null;
+      const jadwalPembayaran = quote.jadwal.map((c, index) => ({
+        bulan: c.bulan,
+        pokok: c.pokok,
+        imbalHasil: c.margin,
+        biayaLayanan: simulasiBulanan?.jadwal[index]?.biayaLayanan ?? 0,
+        total: c.total,
+        sisaPokok: c.sisaPokok,
+      }));
+      const biayaLayananDiMuka = simulasiBulanan === null ? quote.biayaLayanan : 0;
 
       hasil.push({
         _id: k._id,
         _creationTime: k._creationTime,
         nomorReferensi: k.nomorReferensi,
+        kodePeminjam: peminjam.kodePeminjam,
+        statusVerifikasi: "Disetujui tim PINDAI",
         namaBarang: k.namaBarang,
         kategori: k.kategori,
         merchant: k.merchant,
@@ -841,7 +878,15 @@ export const marketplaceKredit = query({
         imbalHasilTotal: quote.marginTotal,
         persenImbalHasil: quote.persenImbalHasil,
         persenImbalHasilTahunan: quote.persenImbalHasilTahunan,
-        pemohonInisial: inisialNama(k.namaLengkap),
+        biayaLayanan: quote.biayaLayanan,
+        biayaLayananDiMuka,
+        biayaLayananPerBulan: simulasiBulanan?.biayaLayananPerBulan ?? 0,
+        totalDibayarKonsumen: quote.totalDibayarKonsumen,
+        jadwalPembayaran,
+        catatanJadwal:
+          simulasiBulanan === null
+            ? "Biaya layanan dibayar di muka dan tidak termasuk dalam jumlah cicilan bulanan."
+            : "Biaya layanan sudah diamortisasi ke setiap cicilan bulanan.",
         terkumpul,
         sisaKebutuhan: quote.pokokDibiayai - terkumpul,
       });
@@ -1043,6 +1088,8 @@ export const myKreditFundings = query({
     for (const f of rows.sort((a, b) => b._creationTime - a._creationTime)) {
       const kredit = await ctx.db.get(f.kreditId);
       if (kredit === null) continue;
+      const peminjam = await ctx.db.get(kredit.userId);
+      if (peminjam?.kodePeminjam === undefined) continue;
       // Progres cicilan bulanan: jumlah pembayaran tercatat (berurutan).
       const payments = await ctx.db
         .query("kreditPayments")
@@ -1059,11 +1106,28 @@ export const myKreditFundings = query({
       } catch {
         quote = null;
       }
+      const simulasiBulanan =
+        quote !== null &&
+        (TENOR_BULANAN_OPTIONS as readonly number[]).includes(kredit.tenorBulan)
+          ? hitungSimulasiBulanan(quote.pokokDibiayai, kredit.tenorBulan)
+          : null;
+      const jadwalPembayaran =
+        quote?.jadwal.map((c, index) => ({
+          bulan: c.bulan,
+          pokok: c.pokok,
+          imbalHasil: c.margin,
+          biayaLayanan: simulasiBulanan?.jadwal[index]?.biayaLayanan ?? 0,
+          total: c.total,
+          sisaPokok: c.sisaPokok,
+        })) ?? [];
+
       hasil.push({
         _id: f._id,
         _creationTime: f._creationTime,
         nomorReferensi: f.nomorReferensi,
         kreditRef: kredit.nomorReferensi,
+        kodePeminjam: peminjam.kodePeminjam,
+        statusPersetujuanTim: statusPersetujuanTim(kredit.status),
         namaBarang: kredit.namaBarang,
         kategori: kredit.kategori,
         merchant: kredit.merchant,
@@ -1078,6 +1142,11 @@ export const myKreditFundings = query({
         pokokDibiayai: quote?.pokokDibiayai ?? null,
         cicilanPerBulan: quote?.cicilanPerBulan ?? null,
         persenImbalHasil: quote?.persenImbalHasil ?? null,
+        biayaLayanan: quote?.biayaLayanan ?? null,
+        biayaLayananDiMuka: simulasiBulanan === null ? quote?.biayaLayanan ?? null : 0,
+        biayaLayananPerBulan: simulasiBulanan?.biayaLayananPerBulan ?? 0,
+        totalDibayarKonsumen: quote?.totalDibayarKonsumen ?? null,
+        jadwalPembayaran,
       });
     }
     return hasil;

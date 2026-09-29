@@ -37,6 +37,7 @@ import { appendJournal } from "./ledger";
 import { getConfig, audit } from "./system";
 import { requireGerbangLokasi } from "./lokasi";
 import { requireAdminSession } from "./adminAuthz";
+import { ensureKodePeminjam } from "./peminjamCode";
 
 /**
  * Saat pinjaman dilunasi, pinjaman baru (belum pernah didanai) bisa kembali
@@ -270,6 +271,7 @@ export const createLoanApplication = mutation({
     if (user.role === undefined) {
       await ctx.db.patch(userId, { role: ROLES.PEMINJAM });
     }
+    await ensureKodePeminjam(ctx, userId);
 
     const now = Date.now();
     const nomorReferensi = referenceNumber(now);
@@ -600,6 +602,7 @@ export const createPawnApplication = mutation({
       await ctx.db.patch(userId, { role: ROLES.PEMINJAM });
     }
 
+    await ensureKodePeminjam(ctx, userId);
     await ctx.db.insert("pawns", {
       userId,
       deskripsiBarang: deskripsi,
@@ -698,6 +701,9 @@ async function setLoanStatus(
   }
   if (status === "ditolak" && (!catatan || catatan.trim().length === 0)) {
     throw new Error("Penolakan wajib menyertakan alasan.");
+  }
+  if (status === "disetujui") {
+    await ensureKodePeminjam(ctx, loan.userId);
   }
   await ctx.db.patch(loanId, {
     status,
