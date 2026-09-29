@@ -44,7 +44,7 @@ export type LedgerSummary = {
   pendapatanPlatform: number;
 };
 
-/** Tab Setoran — verifikasi setoran/penarikan Pendana + kesehatan ledger. */
+/** Tab catatan saldo — tinjauan entri setoran/penarikan dan kesehatan ledger internal. */
 export function SetoranSection({
   pendingDeposits,
   pendingWd,
@@ -71,12 +71,16 @@ export function SetoranSection({
   const [wdReason, setWdReason] = useState("");
 
   return (
-    <>        {pendingDeposits === undefined ? (
+    <>
+      <p className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900">
+        Semua nominal dan saldo di sini adalah catatan ledger simulasi. Tindakan admin hanya mengubah status internal; aplikasi tidak memeriksa rekening/bukti bank dan tidak mengirim atau menerima transfer.
+      </p>
+      {pendingDeposits === undefined ? (
         <div className="flex items-center gap-2 py-8 text-sm text-muted-foreground">
           <Loader2 className="size-4 animate-spin" /> Memuat…
         </div>
       ) : pendingDeposits.length === 0 ? (
-        <EmptyQueue icon={Wallet} title="Tidak ada setoran menunggu verifikasi" />
+        <EmptyQueue icon={Wallet} title="Tidak ada catatan setoran menunggu tinjauan" />
       ) : (
         <ul className="divide-y divide-slate-200 rounded-2xl border border-slate-200 bg-white">
           {pendingDeposits.map((d) => (
@@ -94,14 +98,14 @@ export function SetoranSection({
                   onClick={async () => {
                     try {
                       await confirmDeposit({ depositId: d._id });
-                      toast.success("Setoran terverifikasi & tercatat di jurnal.");
+                      toast.success("Status setoran ditandai pada ledger; bank dan transfer tidak diverifikasi.");
                     } catch (err) {
                       toast.error(err instanceof Error ? err.message : "Gagal konfirmasi.");
                     }
                   }}
                 >
                   <BadgeCheck className="mr-1 size-4" />
-                  Verifikasi
+                  Tandai di ledger
                 </Button>
                 <Button
                   size="sm"
@@ -118,13 +122,13 @@ export function SetoranSection({
       )}
 
       {/* Antrean penarikan Pendana */}
-      <h3 className="mt-10 text-sm font-semibold text-navy">Antrean penarikan dana</h3>
+      <h3 className="mt-10 text-sm font-semibold text-navy">Catatan permintaan penarikan</h3>
       {pendingWd === undefined ? (
         <div className="flex items-center gap-2 py-6 text-sm text-muted-foreground">
           <Loader2 className="size-4 animate-spin" /> Memuat…
         </div>
       ) : pendingWd.length === 0 ? (
-        <EmptyQueue icon={Wallet} title="Tidak ada penarikan menunggu diproses" />
+        <EmptyQueue icon={Wallet} title="Tidak ada catatan penarikan menunggu tinjauan" />
       ) : (
         <ul className="divide-y divide-slate-200 rounded-2xl border border-slate-200 bg-white">
           {pendingWd.map((w) => (
@@ -142,14 +146,14 @@ export function SetoranSection({
                   onClick={async () => {
                     try {
                       await processWd({ withdrawalId: w._id });
-                      toast.success("Penarikan diproses & tercatat di jurnal.");
+                      toast.success("Status penarikan ditandai pada ledger; tidak ada transfer yang diproses.");
                     } catch (err) {
                       toast.error(err instanceof Error ? err.message : "Gagal memproses.");
                     }
                   }}
                 >
                   <BadgeCheck className="mr-1 size-4" />
-                  Proses
+                  Tandai di ledger
                 </Button>
                 <Button
                   size="sm"
@@ -166,7 +170,7 @@ export function SetoranSection({
       )}
 
       <div className="clay-card mt-10 p-6">
-        <h3 className="text-sm font-semibold text-navy">Kesehatan ledger (double-entry)</h3>
+        <h3 className="text-sm font-semibold text-navy">Keseimbangan jurnal internal (double-entry)</h3>
         {ledger === undefined ? (
           <p className="mt-3 text-sm text-muted-foreground">Memuat…</p>
         ) : (
@@ -176,7 +180,7 @@ export function SetoranSection({
                 ["Total debit", formatRupiah(ledger.totalDebit)],
                 ["Total kredit", formatRupiah(ledger.totalKredit)],
                 ["Jumlah entri", `${ledger.entryCount}`],
-                ["Pendapatan platform", formatRupiah(ledger.pendapatanPlatform)],
+                ["Biaya platform pada ledger", formatRupiah(ledger.pendapatanPlatform)],
                 ["Status", ledger.seimbang ? "Seimbang" : "Tidak seimbang"],
               ].map(([label, value]) => (
                 <div key={label}>
@@ -186,8 +190,7 @@ export function SetoranSection({
               ))}
             </div>
             <p className="mt-4 text-xs leading-5 text-muted-foreground">
-              Jurnal append-only. Total debit selalu sama dengan total kredit. Pendapatan
-              platform mencakup biaya pinjaman, potongan gadai, dan biaya layanan Kredit Barang.
+              Jurnal internal append-only. Keseimbangan debit/kredit hanya memeriksa entri ledger, bukan transaksi bank. Nilai biaya pinjaman, potongan gadai, dan layanan Kredit Barang adalah catatan simulasi, bukan pendapatan yang diterima.
             </p>
           </>
         )}
@@ -197,21 +200,21 @@ export function SetoranSection({
       <Dialog open={rejectingDeposit !== null} onOpenChange={(open) => !open && setRejectingDeposit(null)}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Tolak setoran</DialogTitle>
+            <DialogTitle>Tolak catatan setoran</DialogTitle>
             <DialogDescription>
-              {rejectingDeposit?.ref} — alasan wajib diisi dan akan tercatat.
+              {rejectingDeposit?.ref} — alasan wajib diisi dan akan tercatat. Tindakan ini hanya mengubah status ledger; bukan pemeriksaan bukti bank.
             </DialogDescription>
           </DialogHeader>
           <Textarea
             id="reject-deposit-reason"
-            aria-label="Alasan penolakan setoran"
+            aria-label="Alasan penolakan catatan setoran"
             required
             aria-required="true"
             aria-invalid={!depositReason.trim()}
             rows={3}
             value={depositReason}
             onChange={(e) => setDepositReason(e.target.value)}
-            placeholder="Contoh: bukti transfer tidak dapat diverifikasi…"
+            placeholder="Contoh: informasi yang dikirim belum sesuai dengan catatan aplikasi…"
           />
           <DialogFooter className="gap-2">
             <Button variant="ghost" onClick={() => setRejectingDeposit(null)}>
@@ -224,7 +227,7 @@ export function SetoranSection({
                 if (!rejectingDeposit) return;
                 try {
                   await rejectDeposit({ depositId: rejectingDeposit.id, reason: depositReason });
-                  toast.success("Setoran ditolak.");
+                  toast.success("Catatan setoran ditolak pada ledger.");
                   setRejectingDeposit(null);
                   setDepositReason("");
                 } catch (err) {
@@ -232,7 +235,7 @@ export function SetoranSection({
                 }
               }}
             >
-              Tolak setoran
+              Tolak catatan setoran
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -242,14 +245,14 @@ export function SetoranSection({
       <Dialog open={rejectingWd !== null} onOpenChange={(open) => !open && setRejectingWd(null)}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Tolak penarikan</DialogTitle>
+            <DialogTitle>Tolak catatan permintaan penarikan</DialogTitle>
             <DialogDescription>
-              {rejectingWd?.ref} — alasan wajib diisi dan akan tercatat di audit.
+              {rejectingWd?.ref} — alasan wajib diisi dan akan tercatat di audit. Tindakan ini hanya mengubah status internal; tidak mengirim atau membatalkan transfer bank.
             </DialogDescription>
           </DialogHeader>
           <Textarea
             id="reject-withdrawal-reason"
-            aria-label="Alasan penolakan penarikan"
+            aria-label="Alasan penolakan catatan permintaan penarikan"
             required
             aria-required="true"
             aria-invalid={!wdReason.trim()}
@@ -269,7 +272,7 @@ export function SetoranSection({
                 if (!rejectingWd) return;
                 try {
                   await rejectWd({ withdrawalId: rejectingWd.id, reason: wdReason });
-                  toast.success("Penarikan ditolak.");
+                  toast.success("Catatan permintaan penarikan ditolak pada ledger.");
                   setRejectingWd(null);
                   setWdReason("");
                 } catch (err) {
@@ -277,7 +280,7 @@ export function SetoranSection({
                 }
               }}
             >
-              Tolak penarikan
+              Tolak catatan penarikan
             </Button>
           </DialogFooter>
         </DialogContent>

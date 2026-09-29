@@ -5,10 +5,10 @@ import { Button } from "@/components/ui/button";
 
 import { wrapContractHtml } from "./contract-doc";
 
-/** Tombol unduh dokumen kontrak via dialog cetak browser. */
+/** Tombol cetak/cetak-ke-PDF catatan HTML via dialog browser. */
 export function ContractPrintButton({
   html,
-  label = "Unduh Dokumen PDF",
+  label = "Cetak catatan / simpan PDF",
 }: {
   html: string;
   label?: string;
@@ -16,7 +16,7 @@ export function ContractPrintButton({
   const cetak = () => {
     const w = window.open("", "_blank");
     if (!w) {
-      toast.error("Popup diblokir browser — izinkan popup untuk mengunduh PDF.");
+      toast.error("Popup diblokir browser — izinkan popup untuk mencetak catatan.");
       return;
     }
     w.document.write(wrapContractHtml(html));

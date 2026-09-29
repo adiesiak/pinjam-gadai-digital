@@ -8,7 +8,7 @@ import { formatRupiah } from "@/lib/money";
 import { EmptyState, Loading } from "./feedback";
 import { DepositBadge, WithdrawalBadge } from "./wallet-views";
 
-/** Tab 5 — Riwayat transaksi Pendana. */
+/** Tab 5 — riwayat catatan ledger Pendana. */
 export function HistorySection() {
   const fundings = useQuery(api.pendana.myFundings);
   const deposits = useQuery(api.pendana.myDeposits);
@@ -109,10 +109,11 @@ function FundingStatusBadge({ status }: { status: string }) {
     );
   }
   if (status === "dibatalkan") {
-    return <Badge variant="destructive">Dibatalkan</Badge>;
+    return <Badge variant="destructive">Dibatalkan pada ledger</Badge>;
   }
   return (
-    <Badge className="border-0 bg-amber-100 text-amber-700 hover:bg-amber-100">        Catatan berjalan
+    <Badge className="border-0 bg-amber-100 text-amber-700 hover:bg-amber-100">
+      Catatan berjalan di ledger
     </Badge>
   );
 }

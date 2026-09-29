@@ -22,7 +22,7 @@ function parseCicilan(raw: string): Rupiah | null {
   return Number.isSafeInteger(v) && v > 0 ? v : null;
 }
 
-/** Tab 3a — Tagihan gadai (Skema B): sewa modal menurun + cicil pokok. */
+/** Tab 3a — simulasi sewa modal dan entri pokok gadai pada ledger. */
 export function GadaiBillingSection({
   pawns,
 }: {
@@ -78,7 +78,7 @@ export function GadaiBillingSection({
 
   return (
     <section>
-      <h2 className="text-lg font-semibold">Tagihan Gadai</h2>
+      <h2 className="text-lg font-semibold">Catatan simulasi gadai</h2>
       <Separator className="my-4" />
       <div className="space-y-4">
         {siapDiambil.map((p) => (
@@ -180,7 +180,7 @@ function GadaiBillingCard({
           <dd className="font-semibold tabular-nums">{formatRupiah(sisa)}</dd>
         </div>
         <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4">
-          <dt className="text-muted-foreground">Sewa modal berikutnya</dt>
+          <dt className="text-muted-foreground">Sewa modal berikutnya (simulasi)</dt>
           <dd className="tabular-nums">
             {formatRupiah(sewaSekarang)}{" "}
             <span className="text-xs text-muted-foreground">({persen}% × sisa pokok / 30 hari)</span>
@@ -200,7 +200,7 @@ function GadaiBillingCard({
 
       <div className="mt-4 grid gap-3 sm:grid-cols-2">
         <div>
-          <Label htmlFor={`cicil-${pawn._id}`}>Cicil pokok (opsional)</Label>
+          <Label htmlFor={`cicil-${pawn._id}`}>Pokok simulasi untuk dicatat (opsional)</Label>
           <Input
             id={`cicil-${pawn._id}`}
             inputMode="numeric"

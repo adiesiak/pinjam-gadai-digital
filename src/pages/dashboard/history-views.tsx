@@ -8,7 +8,7 @@ import { formatRupiah } from "@/lib/money";
 import { EmptyState } from "./empty-state";
 import { formatDate } from "./shared";
 
-/** Tab 6 — Riwayat transaksi pinjaman & gadai. */
+/** Tab 6 — riwayat catatan pinjaman dan gadai pada aplikasi. */
 export function HistorySection({
   loans,
   pawns,
@@ -38,15 +38,18 @@ export function HistorySection({
     return (
       <EmptyState
         icon={Landmark}
-        title="Belum ada transaksi"
-        body="Pengajuan pinjaman dan gadai Anda tercatat di sini, termasuk yang sudah selesai."
+        title="Belum ada catatan ledger"
+        body="Status pengajuan pinjaman dan gadai yang tersimpan di aplikasi akan tampil di sini. Catatan ini bukan bukti transfer, pembayaran, atau penitipan barang."
       />
     );
   }
   return (
     <div className="grid gap-8 lg:grid-cols-2">
+      <section className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-900 lg:col-span-2">
+        Riwayat ini hanya menampilkan data dan status pada aplikasi. Nilai dan status ledger bukan bukti pencairan, pembayaran, pemeriksaan, atau penitipan barang.
+      </section>
       <section>
-        <h3 className="text-sm font-semibold">Pinjaman</h3>
+        <h3 className="text-sm font-semibold">Catatan pinjaman</h3>
         {loans.length === 0 ? (
           <p className="mt-3 text-xs text-muted-foreground">Belum ada.</p>
         ) : (
@@ -72,7 +75,7 @@ export function HistorySection({
         )}
       </section>
       <section>
-        <h3 className="text-sm font-semibold">Gadai</h3>
+        <h3 className="text-sm font-semibold">Catatan gadai</h3>
         {pawns.length === 0 ? (
           <p className="mt-3 text-xs text-muted-foreground">Belum ada.</p>
         ) : (

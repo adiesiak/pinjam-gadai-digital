@@ -12,7 +12,7 @@ import { formatRupiah } from "@/lib/money";
 import { type LoanRow } from "./admin-shared";
 
 /**
- * Panel KYC + lokasi pengajuan + kirim pengingat WhatsApp.
+ * Panel data pengajuan, koordinat perangkat, dan pesan WhatsApp terkait catatan aplikasi.
  */
 export function LoanKycPanel({ row }: { row: LoanRow }) {
   const urls = useQuery(api.admin.dokumenKycUrls, { loanId: row._id });
@@ -28,7 +28,7 @@ export function LoanKycPanel({ row }: { row: LoanRow }) {
     setWaBusy(true);
     try {
       await sendWa({ loanId: row._id });
-      toast.success("Pengingat WhatsApp terkirim & tercatat di log.");
+      toast.success("Pesan WhatsApp terkirim; log aplikasi diperbarui.");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Gagal mengirim pengingat.");
     } finally {
@@ -106,25 +106,26 @@ export function LoanKycPanel({ row }: { row: LoanRow }) {
           </div>
           <RiwayatLokasiMini userId={row.userIdPeminjam} />
           {row.nomorWhatsApp && (
-            <div className="flex flex-wrap gap-2">
-              <Button
-                size="sm"
-                disabled={waBusy}
-                onClick={kirim}
-              >
-                {waBusy ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Send className="mr-2 size-4" />}
-                Kirim pengingat WhatsApp
-              </Button>
-              <a
-                href={`https://wa.me/${row.nomorWhatsApp}?text=${encodeURIComponent(
-                  `Halo ${row.namaLengkap}, kami dari PINDAI (Pinjam & Gadai Digital). Pinjaman Anda ${row.nomorReferensi} memiliki total kewajiban ${formatRupiah(row.totalKewajibanDenganPenalti ?? 0)}${(row.hariTerlambat ?? 0) > 0 ? ` (termasuk denda keterlambatan ${formatRupiah(row.dendaTerlambat ?? 0)})` : ""}. Mohon lakukan pelunasan tepat waktu. Terima kasih.`,
-                )}`}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500 px-3 py-1.5 text-xs font-semibold text-white transition-transform hover:-translate-y-0.5 hover:bg-emerald-600"
-              >
-                <Send className="size-4" /> Kirim Tagihan WA
-              </a>
+            <div className="space-y-2">
+              <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900">
+                Tombol ini langsung mengirim template aktif ke nomor yang tersimpan (tidak menampilkan draf terlebih dahulu). Periksa dan ubah template di tab WhatsApp sebelum mengirim; nomor dan identitas tidak diverifikasi. Nilai/tanggal ledger hanya simulasi internal, bukan tagihan atau tunggakan terverifikasi.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <Button size="sm" disabled={waBusy} onClick={kirim}>
+                  {waBusy ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Send className="mr-2 size-4" />}
+                  Kirim template WhatsApp
+                </Button>
+                <a
+                  href={`https://wa.me/${row.nomorWhatsApp}?text=${encodeURIComponent(
+                    `Halo. Pesan ini merujuk pada catatan aplikasi PINDAI ${row.nomorReferensi}: angka kewajiban simulasi ${formatRupiah(row.totalKewajibanDenganPenalti ?? 0)}${(row.hariTerlambat ?? 0) > 0 ? ` dan denda simulasi ${formatRupiah(row.dendaTerlambat ?? 0)} dengan tanggal acuan terlewati ${row.hariTerlambat ?? 0} hari` : ""}. Angka dan status ini hanya catatan ledger internal; bukan tagihan, tunggakan terverifikasi, bukti transfer, atau kewajiban pembayaran aktual. Untuk pertanyaan, gunakan kanal resmi PINDAI yang sudah Anda konfirmasi.`,
+                  )}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500 px-3 py-1.5 text-xs font-semibold text-white transition-transform hover:-translate-y-0.5 hover:bg-emerald-600"
+                >
+                  <Send className="size-4" /> Tinjau draf WA
+                </a>
+              </div>
             </div>
           )}
         </>

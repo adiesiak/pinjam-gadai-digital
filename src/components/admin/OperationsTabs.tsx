@@ -26,23 +26,28 @@ export function PencairanTab({ onOpen }: { onOpen: (l: LoanRow) => void }) {
   }
   const antrean = overview.loans.filter((l) => l.status === "disetujui");
   if (antrean.length === 0) {
-    return <EmptyQueue icon={Wallet} title="Tidak ada catatan pinjaman menunggu pembaruan status" />;
+    return <EmptyQueue icon={Wallet} title="Tidak ada catatan pinjaman menunggu tinjauan ledger" />;
   }
   return (
-    <ul className="divide-y divide-slate-200 rounded-2xl border border-slate-200 bg-white">
-      {antrean.map((l) => (
-        <li key={l._id}>
-          <QueueRow
-            reference={l.nomorReferensi}
-            date={formatDate(l._creationTime)}
-            title={formatRupiah(l.pokokPinjaman)}
-            subtitle={`${l.namaLengkap} · nilai bersih simulasi ${formatRupiah(Math.round(l.pokokPinjaman * 0.95))} · rekening tujuan yang dicatat ${l.nomorRekening}`}
-            status={<StatusBadge status={l.status} kind="loan" />}
-            onOpen={() => onOpen(l)}
-          />
-        </li>
-      ))}
-    </ul>
+    <div className="space-y-3">
+      <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900">
+        Status disetujui hanya status aplikasi. Baris di bawah menampilkan hitungan simulasi dan data rekening yang dimasukkan; tidak ada pencairan atau transfer dari tindakan ini.
+      </p>
+      <ul className="divide-y divide-slate-200 rounded-2xl border border-slate-200 bg-white">
+        {antrean.map((l) => (
+          <li key={l._id}>
+            <QueueRow
+              reference={l.nomorReferensi}
+              date={formatDate(l._creationTime)}
+              title={formatRupiah(l.pokokPinjaman)}
+              subtitle={`${l.namaLengkap} · nilai bersih simulasi ${formatRupiah(Math.round(l.pokokPinjaman * 0.95))} (tidak ditransfer) · rekening yang dimasukkan ${l.nomorRekening} (tidak diverifikasi)`}
+              status={<StatusBadge status={l.status} kind="loan" />}
+              onOpen={() => onOpen(l)}
+            />
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
 
@@ -53,40 +58,45 @@ export function DpdTab() {
   }
   const terlambat = overview.loans.filter((l) => l.status === "didanai" && (l.hariTerlambat ?? 0) > 0);
   if (terlambat.length === 0) {
-    return <EmptyQueue icon={BellRing} title="Tidak ada pinjaman terlambat — koleksi bersih" />;
+    return <EmptyQueue icon={BellRing} title="Tidak ada tanggal acuan simulasi yang terlewati" />;
   }
   return (
-    <ul className="divide-y divide-slate-200 rounded-2xl border border-slate-200 bg-white">
-      {terlambat.map((l) => {
-        const waText = encodeURIComponent(
-          `Halo ${l.namaLengkap}, catatan internal PINDAI untuk referensi pinjaman ${l.nomorReferensi} menunjukkan simulasi kewajiban ${formatRupiah(l.totalKewajibanDenganPenalti ?? 0)} (${l.hariTerlambat ?? 0} hari melewati tanggal acuan; denda simulasi ${formatRupiah(l.dendaTerlambat ?? 0)}). Angka ini bukan bukti pembayaran atau tagihan terverifikasi. Silakan periksa langsung melalui kanal resmi yang telah Anda konfirmasi.`,
-        );
-        const waNomor = l.nomorWhatsApp ?? "";
-        return (
-          <li key={l._id} className="flex flex-wrap items-center justify-between gap-3 px-5 py-4">
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-medium">{l.namaLengkap} — {formatRupiah(l.pokokPinjaman)}</p>
-              <p className="mt-1 truncate text-xs text-muted-foreground">
-                {l.nomorReferensi} · terlambat <span className="font-semibold text-red-600">{l.hariTerlambat} hari</span> · denda {formatRupiah(l.dendaTerlambat ?? 0)} · total {formatRupiah(l.totalKewajibanDenganPenalti ?? 0)}
-              </p>
-            </div>
-            <div className="flex shrink-0 items-center gap-2">
-              {waNomor && (
-                <a
-                  href={`https://wa.me/${waNomor}?text=${waText}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500 px-3 py-1.5 text-xs font-semibold text-white transition-transform hover:-translate-y-0.5 hover:bg-emerald-600"
-                >
-                  <Send className="size-4" /> Tinjau pesan WA
-                </a>
-              )}
-              <StatusBadge status={l.status} kind="loan" />
-            </div>
-          </li>
-        );
-      })}
-    </ul>
+    <div className="space-y-3">
+      <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900">
+        Daftar ini memuat tanggal acuan yang dihitung aplikasi, bukan tunggakan/tagihan terverifikasi. Tautan WhatsApp membuka draf untuk ditinjau; pastikan isi pesan dan penerima sebelum mengirim.
+      </p>
+      <ul className="divide-y divide-slate-200 rounded-2xl border border-slate-200 bg-white">
+        {terlambat.map((l) => {
+          const waText = encodeURIComponent(
+            `Halo. Catatan aplikasi PINDAI ${l.nomorReferensi} menampilkan tanggal acuan simulasi yang terlewati ${l.hariTerlambat ?? 0} hari, dengan kewajiban simulasi ${formatRupiah(l.totalKewajibanDenganPenalti ?? 0)} dan denda simulasi ${formatRupiah(l.dendaTerlambat ?? 0)}. Ini hanya catatan ledger internal, bukan tagihan, tunggakan terverifikasi, bukti pembayaran, atau kewajiban aktual. Untuk pertanyaan, gunakan kanal resmi yang telah Anda konfirmasi.`,
+          );
+          const waNomor = l.nomorWhatsApp ?? "";
+          return (
+            <li key={l._id} className="flex flex-wrap items-center justify-between gap-3 px-5 py-4">
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-medium">Data pemohon: {l.namaLengkap} — pokok acuan simulasi {formatRupiah(l.pokokPinjaman)}</p>
+                <p className="mt-1 truncate text-xs text-muted-foreground">
+                  {l.nomorReferensi} · tanggal acuan terlewati {l.hariTerlambat} hari · denda simulasi {formatRupiah(l.dendaTerlambat ?? 0)} · kewajiban simulasi {formatRupiah(l.totalKewajibanDenganPenalti ?? 0)}
+                </p>
+              </div>
+              <div className="flex shrink-0 items-center gap-2">
+                {waNomor && (
+                  <a
+                    href={`https://wa.me/${waNomor}?text=${waText}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500 px-3 py-1.5 text-xs font-semibold text-white transition-transform hover:-translate-y-0.5 hover:bg-emerald-600"
+                  >
+                    <Send className="size-4" /> Tinjau pesan WA
+                  </a>
+                )}
+                <StatusBadge status={l.status} kind="loan" />
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
   );
 }
 
@@ -100,7 +110,7 @@ export function LelangTab() {
   return (
     <div className="space-y-4">
       <p className="text-sm text-muted-foreground">
-        Kalkulator hipotetis: masukkan angka contoh untuk membandingkan dengan kewajiban simulasi ledger. Tidak ada lelang, penjualan barang, pelunasan, atau pengembalian surplus/dana melalui tampilan ini.
+        Kalkulator hipotetis: masukkan angka contoh untuk dibandingkan dengan kewajiban simulasi ledger. Harga/nilai barang dan kode rak yang tampil tidak membuktikan inspeksi atau penitipan. Tampilan ini tidak melaksanakan lelang, penjualan, pelunasan, ataupun pengembalian barang/dana.
       </p>
       {kandidat.length === 0 ? (
         <EmptyQueue icon={Gavel} title="Belum ada barang gadai aktif untuk simulasi lelang" />
@@ -123,18 +133,18 @@ export function LelangTab() {
                   <div className="min-w-0">
                     <p className="truncate text-sm font-medium">{p.deskripsiBarang}</p>
                     <p className="mt-1 truncate text-xs text-muted-foreground">
-                      {p.nomorReferensi} · {p.kategori} · taksiran {formatRupiah(p.nilaiTaksiran ?? 0)} · rak {p.kodeRakVault ?? "—"}
+                      {p.nomorReferensi} · {p.kategori} · nilai taksiran internal {formatRupiah(p.nilaiTaksiran ?? 0)} · kode lokasi aplikasi {p.kodeRakVault ?? "—"}
                     </p>
                   </div>
                   <Label htmlFor={`harga-lelang-${p._id}`} className="sr-only">
-                    Harga lelang untuk {p.nomorReferensi}
+                    Angka harga hipotetis untuk simulasi lelang {p.nomorReferensi}
                   </Label>
                   <Input
                     id={`harga-lelang-${p._id}`}
                     inputMode="numeric"
                     value={input}
                     onChange={(e) => setNilaiLelang((m) => ({ ...m, [p._id]: e.target.value }))}
-                    placeholder="Harga lelang (mis. 8.000.000)"
+                    placeholder="Angka contoh untuk simulasi (mis. 8.000.000)"
                     className="w-56"
                   />
                 </div>
@@ -149,7 +159,7 @@ export function LelangTab() {
 }
 
 /**
- * Grafik tren pendapatan platform per bulan (12 bulan terakhir).
+ * Grafik tren nilai biaya platform pada ledger per bulan (12 bulan terakhir).
  * Recharts langsung (Area) — warna dari token tema `--primary` agar selaras
  * dengan "tinta & kuningan"; axis ringkas, tooltip rupiah penuh.
  */
@@ -173,7 +183,7 @@ function TrenPendapatanChart({
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-5">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h3 className="text-sm font-semibold text-navy">Tren biaya platform tercatat — 12 bulan terakhir</h3>
+        <h3 className="text-sm font-semibold text-navy">Tren biaya simulasi pada ledger — 12 bulan terakhir</h3>
         <p className="text-sm font-semibold tabular-nums text-navy">{formatRupiah(total)}</p>
       </div>
       <div className="mt-4 h-56 w-full">
@@ -271,14 +281,14 @@ export function LedgerTab() {
       {/* Nilai biaya platform internal per skema — dari entri platform:FEE. */}
       <div className="rounded-2xl border border-slate-200 bg-white p-5">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <h3 className="text-sm font-semibold text-navy">Biaya platform pada ledger per skema</h3>
+          <h3 className="text-sm font-semibold text-navy">Nilai biaya simulasi pada ledger per skema</h3>
           <p className="text-sm font-semibold tabular-nums text-navy">
             {formatRupiah(summary.pendapatanPlatform)}
           </p>
         </div>
         <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
           {([
-            ["Pinjaman tunai", rincian.pinjaman, "Nilai simulasi biaya 5% pada ledger"],
+            ["Pinjaman tunai", rincian.pinjaman, "Nilai simulasi biaya 5% pada ledger; bukan penerimaan aktual"],
             ["Gadai (Skema B)", rincian.gadai, "Nilai simulasi potongan 1% + sewa modal"],
             ["Kredit barang (Skema C)", rincian.kredit, "Nilai simulasi biaya layanan 3%"],
             ["Lainnya", rincian.lainnya, "Entri biaya internal di luar tiga skema utama"],

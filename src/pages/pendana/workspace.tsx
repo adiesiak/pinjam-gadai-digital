@@ -74,17 +74,20 @@ export function PendanaWorkspace({
         <div className="min-w-0 flex-1">
           <div className="flex flex-col gap-1">
             <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-primary">
-              Ruang Pendana
+              Ruang Pendana · catatan internal
             </p>
-            <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">Dompet &amp; Alokasi Pendanaan</h1>
+            <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">Ledger internal Pendana</h1>
           </div>
 
-          {/* ===== Ringkasan keuangan ===== */}
-          <section className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3 xl:gap-4">
+          {/* ===== Ringkasan ledger ===== */}
+          <p className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-900">
+            Seluruh saldo, alokasi, dan imbal hasil di ruang ini adalah angka simulasi ledger internal. Catatan setoran/penarikan tidak menunjukkan dana masuk atau keluar; tidak ada transfer eksternal yang diproses atau diverifikasi.
+          </p>
+          <section className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3 xl:gap-4">
             <div className="min-w-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
               <div className="flex items-start justify-between">
                 <div>
-                  <p className="text-xs text-muted-foreground">Total Saldo Dompet</p>
+                  <p className="text-xs text-muted-foreground">Saldo ledger (simulasi)</p>
                   <p className="mt-2 break-words text-xl font-semibold tabular-nums text-primary sm:text-2xl">
                     {formatRupiah(wallet?.saldo ?? 0)}
                   </p>
@@ -98,7 +101,7 @@ export function PendanaWorkspace({
             <div className="min-w-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
               <div className="flex items-start justify-between">
                 <div>
-                  <p className="text-xs text-muted-foreground">Total Dana Dialokasikan</p>
+                  <p className="text-xs text-muted-foreground">Total alokasi simulasi</p>
                   <p className="mt-2 break-words text-xl font-semibold tabular-nums sm:text-2xl">
                     {formatRupiah(wallet?.danaBekerja ?? 0)}
                   </p>
@@ -112,7 +115,7 @@ export function PendanaWorkspace({
             <div className="min-w-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
               <div className="flex items-start justify-between">
                 <div>
-                  <p className="text-xs text-muted-foreground">Estimasi Imbal Hasil</p>
+                  <p className="text-xs text-muted-foreground">Estimasi Imbal Hasil simulasi</p>
                   <p className="mt-2 break-words text-xl font-semibold tabular-nums text-emerald-600 sm:text-2xl">
                     {formatRupiah(wallet?.imbalHasilDiharapkan ?? 0)}
                   </p>

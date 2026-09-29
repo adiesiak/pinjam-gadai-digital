@@ -97,7 +97,8 @@ export function WalletSection({ onDepositRequested }: { onDepositRequested: () =
       </section>
 
       {/* ===== Penarikan ===== */}
-      <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">          <h3 className="text-sm font-semibold">Catat permintaan penarikan simulasi</h3>
+      <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
+        <h3 className="text-sm font-semibold">Catat permintaan penarikan simulasi</h3>
         <Separator className="my-4" />
         <form onSubmit={ajukanPenarikan} className="space-y-4">
           <div className="space-y-2">
@@ -126,7 +127,7 @@ export function WalletSection({ onDepositRequested }: { onDepositRequested: () =
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="wd-bank">Nama bank</Label>
+              <Label htmlFor="wd-bank">Nama bank (informasi tujuan saja)</Label>
               <Input
                 id="wd-bank"
                 value={namaBank}
@@ -141,7 +142,7 @@ export function WalletSection({ onDepositRequested }: { onDepositRequested: () =
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="wd-rek">Nomor rekening</Label>
+              <Label htmlFor="wd-rek">Nomor rekening (tidak diverifikasi)</Label>
               <Input
                 id="wd-rek"
                 inputMode="numeric"
@@ -173,7 +174,7 @@ export function WalletSection({ onDepositRequested }: { onDepositRequested: () =
           )}
           <Button type="submit" className="w-full" disabled={busy}>
             {busy ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
-            Catat permintaan penarikan
+            Simpan catatan permintaan penarikan
           </Button>
           <p className="text-xs leading-5 text-muted-foreground">
             Nama bank dan nomor rekening hanya disimpan sebagai informasi tujuan. Status proses tidak mengirim dana dan perubahan saldo ledger bukan bukti transfer.
@@ -214,7 +215,7 @@ export function WalletSection({ onDepositRequested }: { onDepositRequested: () =
 
       {/*          Riwayat setoran simulasi */}
       <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6 xl:col-span-2">
-        <h3 className="text-sm font-semibold">Riwayat setoran</h3>
+        <h3 className="text-sm font-semibold">Riwayat setoran simulasi</h3>
         <Separator className="my-4" />
         {deposits === undefined ? (
           <Loading />
@@ -252,7 +253,7 @@ export function WaOtpProtectionCard() {
       await setWajib({ wajib });
       toast.success(
         wajib
-          ? "Proteksi OTP WhatsApp aktif — setiap alokasi/penarikan wajib verifikasi."
+          ? "Proteksi OTP WhatsApp aktif — pencatatan alokasi dan permintaan penarikan memerlukan OTP."
           : "Proteksi OTP WhatsApp dinonaktifkan.",
       );
     } catch (err) {
@@ -269,11 +270,9 @@ export function WaOtpProtectionCard() {
           <ShieldCheck className="size-5" />
         </div>
         <div>
-          <h3 className="text-sm font-semibold">Proteksi transaksi — OTP WhatsApp</h3>
+          <h3 className="text-sm font-semibold">Proteksi tindakan akun — OTP WhatsApp</h3>
           <p className="mt-1 max-w-xl text-xs leading-5 text-muted-foreground">
-            Aktifkan agar setiap alokasi dana dan penarikan meminta kode 6 digit
-            yang dikirim ke WhatsApp Anda (berlaku 5 menit, sekali pakai).
-            Percobaan verifikasi terbatas 5x per 15 menit.
+            Aktifkan agar pencatatan alokasi dan permintaan penarikan meminta kode 6 digit yang dikirim ke WhatsApp Anda (berlaku 5 menit, sekali pakai). OTP hanya melindungi tindakan akun; tidak memverifikasi dana atau transfer. Percobaan dibatasi 5× per 15 menit.
           </p>
         </div>
       </div>
@@ -294,15 +293,16 @@ export function WithdrawalBadge({ status }: { status: string }) {
   if (status === "diproses") {
     return (
       <Badge className="border-0 bg-emerald-100 text-emerald-700 hover:bg-emerald-100">
-        Status diproses (ledger saja)
+        Status ditandai diproses di ledger (tanpa transfer)
       </Badge>
     );
   }
   if (status === "ditolak") {
-    return <Badge variant="destructive">Dibatalkan / Ditolak</Badge>;
+    return <Badge variant="destructive">Permintaan ditolak pada ledger</Badge>;
   }
-  return (      <Badge className="border-0 bg-amber-100 text-amber-700 hover:bg-amber-100">
-        Menunggu status internal
+  return (
+    <Badge className="border-0 bg-amber-100 text-amber-700 hover:bg-amber-100">
+      Menunggu tinjauan internal
     </Badge>
   );
 }
@@ -316,10 +316,11 @@ export function DepositBadge({ status }: { status: string }) {
     );
   }
   if (status === "ditolak") {
-    return <Badge variant="destructive">Ditolak</Badge>;
+    return <Badge variant="destructive">Catatan setoran ditolak</Badge>;
   }
-  return (      <Badge className="border-0 bg-amber-100 text-amber-700 hover:bg-amber-100">
-        Menunggu tinjauan internal
+  return (
+    <Badge className="border-0 bg-amber-100 text-amber-700 hover:bg-amber-100">
+      Menunggu tinjauan internal
     </Badge>
   );
 }

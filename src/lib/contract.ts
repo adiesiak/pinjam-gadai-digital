@@ -65,7 +65,7 @@ export function judulContract(jenis: "pinjaman" | "gadai" | "pendanaan"): string
     : "CATATAN SIMULASI GADAI INTERNAL";
 }
 
-/** Nomor dokumen kontrak: PGC/PGA/PGD/<ref>/<yyyymmdd>. */
+/** Nomor referensi catatan aplikasi: PGC/PGA/PGD/<ref>/<yyyymmdd>. */
 export function nomorContract(
   jenis: "pinjaman" | "gadai" | "pendanaan",
   nomorReferensi: string,
@@ -126,12 +126,11 @@ function blokBatasTransaksi(): string {
 }
 
 /**
- * Rangkai teks HTML perjanjian pinjaman.
+ * Rangkai HTML ringkasan simulasi pinjaman pada ledger internal.
  *
  * Dua skema didukung: harian (130%, potongan 5% di muka) dan bulanan
  * (DP 0%, biaya layanan 3% diamortisasi, bunga menurun). Bila `bulanan`
- * diisi, rincian Pasal 1–3 mengikuti skema bulanan sehingga angka pada
- * akad selalu sama dengan engine lib/bulanan.ts.
+ * diisi, rincian simulasi mengikuti skema bulanan dan angka dari engine lib/bulanan.ts.
  */
 export function buildPinjamanContract(
   peminjam: ContractParty,
@@ -144,8 +143,8 @@ export function buildPinjamanContract(
   const tgl = fmtTanggal(meta.timestampPada);
   const pasalTenor =
     bulanan === null
-      ? `<li>Tenor perhitungan simulasi: <strong>${tenorHari} hari</strong> sejak tanggal status pendanaan dicatat di aplikasi.</li>`
-      : `<li>Tenor perhitungan simulasi: <strong>${bulanan.tenorBulan} bulan</strong> (1 bulan = 30 hari) sejak tanggal status pendanaan dicatat di aplikasi.</li>`;
+      ? `<li>Periode acuan simulasi: <strong>${tenorHari} hari</strong> sejak tanggal status alokasi dicatat di aplikasi; bukan bukti pencairan.</li>`
+      : `<li>Periode acuan simulasi: <strong>${bulanan.tenorBulan} bulan</strong> (1 bulan = 30 hari) sejak tanggal status alokasi dicatat di aplikasi; bukan bukti pencairan.</li>`;
   const pasalFinansial =
     bulanan === null
       ? `
@@ -154,56 +153,55 @@ export function buildPinjamanContract(
       <li>Total potongan di muka: ${formatRupiah(quote.totalPotonganDiMuka)}.</li>
       <li><strong>Perhitungan dana bersih pada simulasi: ${formatRupiah(quote.danaBersihDitransfer)} (95% dari pokok)</strong>; bukan bukti dana ditransfer atau diterima.</li>
       <li>Bunga: ${formatRupiah(quote.bunga)}.</li>
-      <li><strong>Total kewajiban pelunasan: ${formatRupiah(quote.totalKewajibanPelunasan)} (130% dari pokok)</strong>.</li>`
+      <li><strong>Total kewajiban simulasi: ${formatRupiah(quote.totalKewajibanPelunasan)} (130% dari pokok)</strong>; bukan tagihan.</li>`
       : `
-      <li>Uang muka (DP): ${formatRupiah(bulanan.dp)} — 0% sehingga seluruh pokok dibiayai.</li>
-      <li>Biaya layanan platform 3% dari pokok: ${formatRupiah(bulanan.biayaLayananTotal)}, diamortisasi rata ${formatRupiah(bulanan.biayaLayananPerBulan)} per bulan.</li>
-      <li><strong>Perhitungan dana bersih pada simulasi: ${formatRupiah(bulanan.pokokDibiayai)} (100% pokok, tanpa potongan di muka)</strong>; bukan bukti dana ditransfer atau diterima.</li>
-      <li>Bunga/margin menurun: ${bulanan.persenBungaPerBulan}% per bulan dari pokok; total bunga ${formatRupiah(bulanan.bungaTotal)}.</li>
-      <li><strong>Ilustrasi cicilan ${formatRupiah(bulanan.cicilanPerBulan)} per bulan selama ${bulanan.tenorBulan} bulan; total simulasi: ${formatRupiah(bulanan.totalPengembalian)}</strong>. Jadwal bulanan hanya ilustrasi; aplikasi saat ini mencatat pelunasan penuh sekaligus pada akhir tenor, bukan cicilan bulanan atau pembayaran sebagian.</li>`;
+      <li>Uang muka pada simulasi: ${formatRupiah(bulanan.dp)} — 0% dari pokok acuan.</li>
+      <li>Biaya layanan simulasi 3% dari pokok acuan: ${formatRupiah(bulanan.biayaLayananTotal)}, dibagi rata ${formatRupiah(bulanan.biayaLayananPerBulan)} per bulan pada model.</li>
+      <li><strong>Nilai bersih pada simulasi: ${formatRupiah(bulanan.pokokDibiayai)} (100% pokok, tanpa potongan di muka)</strong>; tidak ditransfer dan bukan bukti dana diterima.</li>
+      <li>Bunga/margin pada simulasi menurun: ${bulanan.persenBungaPerBulan}% per bulan dari pokok acuan; total simulasi ${formatRupiah(bulanan.bungaTotal)}.</li>
+      <li><strong>Ilustrasi cicilan ${formatRupiah(bulanan.cicilanPerBulan)} per bulan selama ${bulanan.tenorBulan} bulan; total simulasi: ${formatRupiah(bulanan.totalPengembalian)}</strong>. Jadwal bulanan hanya ilustrasi; perubahan status lunas di aplikasi adalah entri ledger, bukan bukti cicilan atau pembayaran sebagian.</li>`;
   const pasalKewajiban =
     bulanan === null
-      ? `Dalam simulasi ini, pelunasan penuh dicatat sekaligus paling lambat pada hari ke-${tenorHari} dari tanggal status pendanaan dicatat. Aplikasi tidak memproses atau memverifikasi transfer uang. Denda keterlambatan yang ditampilkan merupakan perhitungan ledger internal sesuai ketentuan yang terlihat di aplikasi.`
-      : `Jadwal cicilan bulanan merupakan ilustrasi perhitungan, bukan jadwal pembayaran yang dapat diproses aplikasi. Sistem saat ini hanya mencatat pelunasan penuh sekaligus pada akhir tenor ${bulanan.tenorBulan} bulan; tidak ada pencatatan cicilan sebagian. Denda keterlambatan yang ditampilkan merupakan perhitungan ledger internal sesuai ketentuan yang terlihat di aplikasi.`;
+      ? `Model aplikasi dapat mencatat perubahan status pada hari ke-${tenorHari} dari tanggal acuan status alokasi. Ini bukan bukti pelunasan. Aplikasi tidak memproses atau memverifikasi transfer uang. Denda simulasi adalah hitungan ledger internal, bukan tunggakan atau tagihan terverifikasi.`
+      : `Jadwal cicilan bulanan merupakan ilustrasi perhitungan, bukan jadwal pembayaran yang dapat diproses aplikasi. Sistem hanya mencatat perubahan status ledger; status lunas dan denda simulasi bukan bukti cicilan dibayar, tunggakan, atau tagihan terverifikasi.`;
   return `
   <div class="contract">
     <h1>${judulContract("pinjaman")}</h1>
     <p class="nomor">Nomor: ${escapeHtml(nomorContract("pinjaman", meta.nomorReferensi))} · Syarat ${CONTRACT_TERMS_VERSION}</p>
     ${blokBatasTransaksi()}
 
-    <p>Dokumen catatan pinjaman ini dibuat pada tanggal <strong>${tgl}</strong> antara:</p>
-    <p><strong>PINJAM GADAI DIGITAL ("Platform")</strong> — aplikasi untuk pengajuan dan pencatatan internal;</p>
-    <p>dan</p>
-    <p><strong>${escapeHtml(peminjam.namaLengkap.toUpperCase())} ("Peminjam")</strong>${peminjam.nik ? `, NIK ${escapeHtml(peminjam.nik)}` : ""}${peminjam.email ? `, email ${escapeHtml(peminjam.email)}` : ""}, bank/e-wallet dan rekening/akun tujuan yang dicatat: <strong>${peminjam.namaBank ? `${escapeHtml(peminjam.namaBank)} · ` : ""}${escapeHtml(peminjam.nomorRekening)}</strong>. Data tujuan bukan bukti transfer.</p>
+    <p>Ringkasan ini menampilkan masukan yang tersimpan pada <strong>${tgl}</strong>; bukan dokumen kesepakatan para pihak.</p>
+    <p><strong>Nama aplikasi:</strong> Pinjam Gadai Digital (PINDAI) — pencatatan internal saja, bukan pihak kontrak.</p>
+    <p><strong>Nama dan data pada pengajuan:</strong> ${escapeHtml(peminjam.namaLengkap.toUpperCase())}${peminjam.nik ? `, NIK ${escapeHtml(peminjam.nik)}` : ""}${peminjam.email ? `, email ${escapeHtml(peminjam.email)}` : ""}; informasi bank/e-wallet dan rekening/akun yang dimasukkan: <strong>${peminjam.namaBank ? `${escapeHtml(peminjam.namaBank)} · ` : ""}${escapeHtml(peminjam.nomorRekening)}</strong>. Data ini tidak diverifikasi dan bukan bukti transfer.</p>
 
-    <h2>Pasal 1 — Parameter Simulasi</h2>
+    <h2>Bagian 1 — Parameter Simulasi</h2>
     <ol>
-      <li>Pokok pinjaman: <strong>${formatRupiah(quote.pokok)}</strong>.</li>
+      <li>Pokok acuan simulasi: <strong>${formatRupiah(quote.pokok)}</strong>; bukan dana yang ditransfer.</li>
       ${pasalTenor}
-      <li>Status pendanaan yang tampil di aplikasi merupakan pencatatan internal dan tidak memverifikasi identitas atau sumber dana Pendana maupun terjadinya transfer.</li>
+      <li>Status alokasi yang tampil di aplikasi adalah pencatatan internal; tidak memverifikasi identitas/sumber dana Pendana atau terjadinya transfer.</li>
     </ol>
 
-    <h2>Pasal 2 — Rincian Perhitungan</h2>
+    <h2>Bagian 2 — Rincian Perhitungan Simulasi</h2>
     <ol>${pasalFinansial}
     </ol>
 
-    <h2>Pasal 3 — Ilustrasi Pelunasan Ledger</h2>
+    <h2>Bagian 3 — Ilustrasi Status Ledger</h2>
     <p>${pasalKewajiban}</p>
 
-    <h2>Pasal 4 — Catatan Interaksi Aplikasi</h2>
+    <h2>Bagian 4 — Catatan Interaksi Aplikasi</h2>
     <p>Checkbox dan gambar pada kanvas, bila diisi, hanya merekam tindakan/input di aplikasi pada syarat versi <strong>${CONTRACT_TERMS_VERSION}</strong>. Tindakan itu bukan persetujuan kontrak yang terverifikasi atau konfirmasi kewajiban hukum.</p>
 
-    <h2>Pasal 5 — Metadata Aplikasi</h2>
+    <h2>Bagian 5 — Metadata Aplikasi</h2>
     <p>Timestamp sistem <strong>${new Date(meta.timestampPada).toLocaleString("id-ID")}</strong>${meta.lokasi ? ` dan koordinat perangkat yang dikirim <strong>${fmtKoordinat(meta.lokasi)}</strong>` : ""} ditampilkan sebagai metadata masukan. Sistem tidak memverifikasi identitas orang, keaslian tanda tangan, atau kebenaran lokasi.</p>
 
     <div class="ttd">
-      ${blokTandaTanganPeminjam(peminjam.namaLengkap, "Peminjam", meta)}
+      ${blokTandaTanganPeminjam(peminjam.namaLengkap, "Nama pada pengajuan", meta)}
       ${blokPlatform()}
     </div>
   </div>`;
 }
 
-/** Rangkai teks HTML akad gadai. */
+/** Rangkai HTML ringkasan simulasi gadai pada ledger internal. */
 export function buildGadaiContract(
   peminjam: ContractParty,
   gadai: NonNullable<ContractMeta["gadai"]>,
@@ -217,10 +215,10 @@ export function buildGadaiContract(
       : null;
   const rincianPokok =
     quote === null
-      ? `<li>Pokok gadai dan sewa modal belum ditetapkan pada saat dokumen ini dibuat; angka final perlu diperiksa pada tahap pendanaan.</li>`
-      : `<li>Pokok gadai: <strong>${formatRupiah(quote.pokok)}</strong>.</li>
-      <li>Potongan muka 1%: ${formatRupiah(quote.potonganDiMuka)}; perhitungan dana bersih pada simulasi (99%): <strong>${formatRupiah(quote.danaBersihDitransfer)}</strong>; bukan bukti transfer atau penerimaan dana.</li>
-      <li>Sewa modal ${gadai.persenSewaModal}% per 30 hari dari sisa pokok; perkiraan periode pertama ${formatRupiah(quote.sewaModalPeriode)}. Pembayaran berikutnya mengikuti sisa pokok.</li>`;
+      ? `<li>Pokok gadai dan sewa modal belum ditetapkan pada saat ringkasan dibuat; belum ada hitungan yang dapat ditampilkan.</li>`
+      : `<li>Pokok acuan pada simulasi gadai: <strong>${formatRupiah(quote.pokok)}</strong>; bukan pencairan.</li>
+      <li>Potongan simulasi 1%: ${formatRupiah(quote.potonganDiMuka)}; nilai bersih pada simulasi (99%): <strong>${formatRupiah(quote.danaBersihDitransfer)}</strong>; tidak ditransfer dan bukan bukti dana diterima.</li>
+      <li>Perhitungan sewa modal simulasi ${gadai.persenSewaModal}% per 30 hari dari sisa pokok; ilustrasi periode pertama ${formatRupiah(quote.sewaModalPeriode)}. Ini bukan tagihan atau pembayaran aktual.</li>`;
 
   return `
   <div class="contract">
@@ -228,12 +226,10 @@ export function buildGadaiContract(
     <p class="nomor">Nomor: ${escapeHtml(nomorContract("gadai", meta.nomorReferensi))} · Syarat ${CONTRACT_TERMS_VERSION}</p>
 
     ${blokBatasTransaksi()}
-    <p>Dokumen catatan gadai ini dibuat pada tanggal <strong>${tgl}</strong> antara:</p>
-    <p><strong>PINJAM GADAI DIGITAL ("Platform")</strong> — aplikasi untuk pengajuan dan pencatatan internal gadai;</p>
-    <p>dan</p>
-    <p><strong>${escapeHtml(peminjam.namaLengkap.toUpperCase())} ("Penggadai/Peminjam")</strong>${peminjam.nik ? `, NIK ${escapeHtml(peminjam.nik)}` : ""}, bank/e-wallet dan rekening/akun tujuan yang dicatat: <strong>${peminjam.namaBank ? `${escapeHtml(peminjam.namaBank)} · ` : ""}${escapeHtml(peminjam.nomorRekening)}</strong>. Data tujuan bukan bukti transfer.</p>
+    <p>Ringkasan ini menampilkan masukan dan hitungan yang tersimpan pada <strong>${tgl}</strong>; bukan akad atau kesepakatan para pihak.</p>
+    <p><strong>Nama dan data pada pengajuan:</strong> ${escapeHtml(peminjam.namaLengkap.toUpperCase())}${peminjam.nik ? `, NIK ${escapeHtml(peminjam.nik)}` : ""}; informasi rekening yang dimasukkan: <strong>${peminjam.namaBank ? `${escapeHtml(peminjam.namaBank)} · ` : ""}${escapeHtml(peminjam.nomorRekening)}</strong>. Data ini tidak diverifikasi dan bukan bukti transfer.</p>
 
-    <h2>Pasal 1 — Data Barang yang Dicatat</h2>
+    <h2>Bagian 1 — Data Barang yang Dicatat</h2>
     <ol>
       <li>Deskripsi barang yang dimasukkan: <strong>${escapeHtml(gadai.deskripsiBarang)}</strong>.</li>
       <li>Kategori yang dipilih: ${escapeHtml(gadai.kategori)}.</li>
@@ -241,28 +237,28 @@ export function buildGadaiContract(
       <li>Kode/referensi lokasi yang dicatat aplikasi: <strong>${escapeHtml(gadai.kodeRakVault)}</strong>. Kode ini bukan tanda terima atau bukti bahwa barang telah diterima maupun dititipkan secara fisik.</li>
     </ol>
 
-    <h2>Pasal 2 — Catatan Taksiran dan Simulasi LTV</h2>
+    <h2>Bagian 2 — Nilai Masukan dan Simulasi LTV</h2>
     <ol>
-      <li>Harga pasar: ${formatRupiah(gadai.hargaPasar)}.</li>
-      <li>Nilai taksiran yang dicatat: <strong>${formatRupiah(gadai.nilaiTaksiran)}</strong> (perhitungan LTV ${ltv}%, batas aplikasi ${gadai.ltvPersen}%); bukan verifikasi harga pasar atau nilai fisik.</li>
+      <li>Harga pasar yang dimasukkan/dicatat: ${formatRupiah(gadai.hargaPasar)}; tidak diverifikasi.</li>
+      <li>Nilai taksiran pada ledger: <strong>${formatRupiah(gadai.nilaiTaksiran)}</strong> (perhitungan simulasi LTV ${ltv}%, batas aplikasi ${gadai.ltvPersen}%); bukan verifikasi harga pasar atau nilai fisik.</li>
       ${rincianPokok}
     </ol>
 
-    <h2>Pasal 3 — Batas Catatan Gadai</h2>
+    <h2>Bagian 3 — Batas Catatan Gadai</h2>
     <ol>
       <li>Status, kondisi, dan kode lokasi dalam aplikasi adalah catatan internal; aplikasi tidak memverifikasi penerimaan, lokasi fisik, atau keamanan penyimpanan barang.</li>
       <li>Penyerahan, penitipan, dan pengembalian perlu dikonfirmasi langsung dengan pihak yang bertanggung jawab serta didukung tanda terima terpisah. Status lunas/siap diambil di aplikasi bukan bukti barang telah dikembalikan.</li>
       <li>Perhitungan penyelesaian atau lelang di aplikasi hanya simulasi; bukan pelaksanaan lelang, keputusan hukum, maupun jaminan hasil atau pengembalian barang.</li>
     </ol>
 
-    <h2>Pasal 4 — Catatan Interaksi Aplikasi</h2>
+    <h2>Bagian 4 — Catatan Interaksi Aplikasi</h2>
     <p>Checkbox dan gambar pada kanvas, bila diisi, hanya merekam tindakan/input di aplikasi pada syarat versi <strong>${CONTRACT_TERMS_VERSION}</strong>. Tindakan itu bukan persetujuan kontrak yang terverifikasi atau konfirmasi kewajiban hukum.</p>
 
-    <h2>Pasal 5 — Metadata Aplikasi</h2>
+    <h2>Bagian 5 — Metadata Aplikasi</h2>
     <p>Timestamp sistem <strong>${new Date(meta.timestampPada).toLocaleString("id-ID")}</strong> dan koordinat yang ditampilkan pada aplikasi adalah metadata yang dikirim, bukan bukti identitas atau lokasi yang telah diverifikasi.</p>
 
     <div class="ttd">
-      ${blokTandaTanganPeminjam(peminjam.namaLengkap, "Penggadai / Peminjam", meta)}
+      ${blokTandaTanganPeminjam(peminjam.namaLengkap, "Nama pada pengajuan", meta)}
       ${blokPlatform()}
     </div>
   </div>`;

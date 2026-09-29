@@ -18,7 +18,7 @@ import { quoteLoan } from "@/lib/loan";
 import { formatRupiah } from "@/lib/money";
 import { EmptyState } from "./empty-state";
 
-/** Tab 4 — E-Contract Saya. */
+/** Tab 4 — catatan simulasi dan lampiran aplikasi. */
 export function MyContractsSection({
   contracts,
 }: {
@@ -55,7 +55,7 @@ export function MyContractsSection({
   if (contracts === undefined) {
     return (
       <div className="flex items-center justify-center py-10 text-sm text-muted-foreground">
-        <Loader2 className="mr-2 size-4 animate-spin" /> Memuat dokumen…
+        <Loader2 className="mr-2 size-4 animate-spin" /> Memuat catatan…
       </div>
     );
   }
@@ -64,8 +64,8 @@ export function MyContractsSection({
     return (
       <EmptyState
         icon={ScrollText}
-        title="Belum ada dokumen perjanjian"
-        body="Surat perjanjian dan akad gadai tampil di sini setelah pengajuan Anda disetujui tim."
+        title="Belum ada catatan simulasi"
+        body="Ringkasan data dan hitungan internal akan tampil di sini jika tersedia. Catatan ini bukan kontrak, bukti transaksi, atau tanda tangan terverifikasi."
       />
     );
   }
@@ -73,7 +73,7 @@ export function MyContractsSection({
     <div className="space-y-6">
       {contracts.pinjaman.length > 0 && (
         <section>
-          <h3 className="text-sm font-semibold">Surat Perjanjian Pinjaman</h3>
+          <h3 className="text-sm font-semibold">Catatan simulasi pinjaman</h3>
           <ul className="mt-3 space-y-3">
             {contracts.pinjaman.map((c) => (
               <li key={c._id}>
@@ -85,7 +85,7 @@ export function MyContractsSection({
       )}
       {contracts.gadai.length > 0 && (
         <section>
-          <h3 className="text-sm font-semibold">Akad Gadai Digital</h3>
+          <h3 className="text-sm font-semibold">Catatan simulasi gadai</h3>
           <ul className="mt-3 space-y-3">
             {contracts.gadai.map((c) => (
               <li
@@ -96,7 +96,7 @@ export function MyContractsSection({
                   <div className="min-w-0">
                     <p className="truncate text-sm font-semibold">{c.deskripsiBarang}</p>
                     <p className="mt-0.5 text-xs text-muted-foreground">
-                      Akad {c.nomorReferensi} · taksiran{" "}
+                      Catatan {c.nomorReferensi} · taksiran pada ledger{" "}
                       {c.nilaiTaksiran !== undefined ? formatRupiah(c.nilaiTaksiran) : "—"}
                     </p>
                   </div>
@@ -165,29 +165,29 @@ function LoanContractCard({
           <p className="text-sm font-semibold">{judulContract("pinjaman")}</p>
           <p className="mt-0.5 truncate text-xs text-muted-foreground">
             <span className="font-mono">{nomorContract("pinjaman", c.nomorReferensi)}</span> ·
-            pokok {formatRupiah(c.pokokPinjaman)} ·{" "}
+            pokok acuan simulasi {formatRupiah(c.pokokPinjaman)} ·{" "}
             {bulanan !== null ? (
               <>
-                tenor {bulanan.tenorBulan} bulan · cicilan{" "}
-                {formatRupiah(bulanan.cicilanPerBulan)}/bulan · total pelunasan{" "}
+                simulasi tenor {bulanan.tenorBulan} bulan · cicilan simulasi{" "}
+                {formatRupiah(bulanan.cicilanPerBulan)}/bulan · total simulasi{" "}
                 {formatRupiah(bulanan.totalPengembalian)}
               </>
             ) : (
               <>
-                dana bersih {formatRupiah(q.danaBersihDitransfer)} (95%) · total pelunasan{" "}
-                {formatRupiah(q.totalKewajibanPelunasan)} (130%)
+                nilai bersih simulasi {formatRupiah(q.danaBersihDitransfer)} (tidak ditransfer) · total kewajiban simulasi{" "}
+                {formatRupiah(q.totalKewajibanPelunasan)} (tidak ditagihkan)
               </>
             )}
           </p>
           <p className="mt-0.5 text-xs text-muted-foreground">
             {c.lokasiAjukan
-              ? `GPS ${c.lokasiAjukan.lat.toFixed(4)}, ${c.lokasiAjukan.lng.toFixed(4)}`
-              : "GPS —"}{" "}
-            · {c.tandaTanganAda ? "ditandatangani elektronik" : "menunggu tanda tangan"}
+              ? `Koordinat perangkat yang dikirim ${c.lokasiAjukan.lat.toFixed(4)}, ${c.lokasiAjukan.lng.toFixed(4)} (tidak diverifikasi)`
+              : "Koordinat perangkat —"}{" "}
+            · {c.tandaTanganAda ? "gambar tanda tangan tercatat (tidak terverifikasi)" : "belum ada gambar yang tercatat"}
           </p>
         </div>
         <div className="flex shrink-0 gap-2">
-          <ContractPrintButton html={html} label="Unduh PDF" />
+          <ContractPrintButton html={html} label="Cetak catatan" />
           <ContractPreviewButton html={html} />
         </div>
       </div>
@@ -195,7 +195,7 @@ function LoanContractCard({
   );
 }
 
-/** Preview kontrak di tab baru (HTML) — tanpa renderer PDF eksternal. */
+/** Buka pratinjau catatan HTML di tab baru — tanpa renderer PDF eksternal. */
 function ContractPreviewButton({ html }: { html: string }) {
   return (
     <Button
@@ -209,7 +209,7 @@ function ContractPreviewButton({ html }: { html: string }) {
           return;
         }
         w.document.write(
-          `<!doctype html><html lang="id"><head><meta charset="utf-8"/><title>Dokumen PINDAI</title></head><body>${html}</body></html>`,
+          `<!doctype html><html lang="id"><head><meta charset="utf-8"/><title>Catatan simulasi PINDAI</title></head><body>${html}</body></html>`,
         );
         w.document.close();
       }}
@@ -225,19 +225,19 @@ function PawnContractActions({ pawnId, pawnRef }: { pawnId: Id<"pawns">; pawnRef
     return <Loader2 className="size-4 animate-spin text-muted-foreground" />;
   }
   if (detail === null || detail.nilaiTaksiran === undefined) {
-    return        <span className="text-xs text-muted-foreground">Menunggu catatan taksiran</span>;
+    return <span className="text-xs text-muted-foreground">Menunggu catatan taksiran</span>;
   }
   const html = buildGadaiContractMilikSendiri(detail);
   return (
     <div className="flex shrink-0 gap-2">
-      <ContractPrintButton html={html} label="Unduh Akad" />
+      <ContractPrintButton html={html} label="Cetak catatan" />
       <ContractPreviewButton html={html} />
       <span className="sr-only">{pawnRef}</span>
     </div>
   );
 }
 
-/** Rangkai akad gadai dari data milik peminjam sendiri. */
+/** Rangkai catatan simulasi gadai dari data yang tersimpan untuk peminjam. */
 function buildGadaiContractMilikSendiri(detail: {
   nomorReferensi: string;
   namaLengkap: string;

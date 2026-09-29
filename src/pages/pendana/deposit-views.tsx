@@ -78,7 +78,7 @@ export function DepositForm() {
       }}
     >
       <div className="space-y-2">
-        <Label htmlFor="dep-jumlah">Jumlah setoran</Label>
+        <Label htmlFor="dep-jumlah">Jumlah setoran simulasi</Label>
         <div className="relative">
           <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
             Rp
@@ -133,7 +133,7 @@ export function DepositForm() {
       <Button type="submit" className="w-full" disabled={busy}>
         {busy ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
         <Plus className="mr-1 size-4" />
-        Ajukan setoran
+        Simpan catatan setoran
       </Button>
     </form>
   );

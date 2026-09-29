@@ -53,7 +53,7 @@ export function FundingContractsSection() {
               </div>
               <div className="flex shrink-0 gap-2">
                 <ContractPreviewButton html={html} />
-                <ContractPrintButton html={html} label="Simpan PDF" />
+                <ContractPrintButton html={html} label="Cetak catatan" />
               </div>
             </div>
           </li>
@@ -133,7 +133,7 @@ function ContractPreviewButton({ html }: { html: string }) {
           return;
         }
         w.document.write(
-          `<!doctype html><html lang="id"><head><meta charset="utf-8"/><title>Dokumen PINDAI</title></head><body>${html}</body></html>`,
+          `<!doctype html><html lang="id"><head><meta charset="utf-8"/><title>Catatan simulasi PINDAI</title></head><body>${html}</body></html>`,
         );
         w.document.close();
       }}

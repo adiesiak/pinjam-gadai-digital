@@ -635,8 +635,8 @@ export function LoanForm({ onCreated }: { onCreated: (ref: string) => void }) {
 
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">
-          <Label htmlFor="nama">Nama lengkap (sesuai dokumen yang Anda masukkan)</Label>
-          <Input id="nama" value={namaLengkap} onChange={(e) => setNamaLengkap(e.target.value)} placeholder="Nama sesuai dokumen yang Anda masukkan" autoComplete="name" required aria-required="true" minLength={3} aria-invalid={error !== null && namaLengkap.trim().length < 3} aria-describedby={error !== null && namaLengkap.trim().length < 3 ? "loan-form-error" : undefined} disabled={submitting} />
+          <Label htmlFor="nama">Nama yang dicatat (tidak diverifikasi)</Label>
+          <Input id="nama" value={namaLengkap} onChange={(e) => setNamaLengkap(e.target.value)} placeholder="Nama yang Anda masukkan" autoComplete="name" required aria-required="true" minLength={3} aria-invalid={error !== null && namaLengkap.trim().length < 3} aria-describedby={error !== null && namaLengkap.trim().length < 3 ? "loan-form-error" : undefined} disabled={submitting} />
         </div>
         <div className="space-y-2">
           <Label htmlFor="bank-tujuan">Bank / e-wallet (informasi yang dicatat)</Label>
@@ -734,8 +734,8 @@ export function LoanForm({ onCreated }: { onCreated: (ref: string) => void }) {
                       {dok[key].busy
                         ? "Mengunggah foto…"
                         : dok[key].id
-                          ? "Foto berhasil diunggah"
-                          : "Wajib diambil langsung dengan kamera · Maks. 5 MB"}
+                          ? "Foto berhasil diunggah; identitas belum diverifikasi"
+                          : "Wajib diambil langsung dengan kamera · Foto tidak memverifikasi identitas · Maks. 5 MB"}
                     </p>
                   </div>
                   {!kameraAktif && (
@@ -842,7 +842,7 @@ export function LoanForm({ onCreated }: { onCreated: (ref: string) => void }) {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="min-w-0 flex-1">
             <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
-              Koordinat perangkat saat pengajuan (wajib; tidak diverifikasi)
+              Koordinat perangkat saat pengajuan (wajib; bukan verifikasi lokasi)
             </p>
             {lokasi ? (
               <p role="status" aria-live="polite" className="mt-1 text-sm tabular-nums">
@@ -976,8 +976,11 @@ export function PawnForm({ onCreated }: { onCreated: () => void }) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
+      <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-900">
+        Form ini menyimpan data yang Anda masukkan pada ledger internal. Nama dan alamat tidak diverifikasi; aplikasi tidak memastikan kunjungan, pemeriksaan, kepemilikan, penerimaan atau penitipan barang, dan tidak memproses transfer dana.
+      </p>
       <div className="space-y-2">
-        <Label htmlFor="barang">Deskripsi barang</Label>
+        <Label htmlFor="barang">Deskripsi barang yang Anda laporkan</Label>
         <Textarea id="barang" value={deskripsiBarang} onChange={(e) => setDeskripsiBarang(e.target.value)} placeholder="Contoh: iPhone 14 Pro 256 GB, warna titanium, dus lengkap…" rows={3} required aria-required="true" minLength={10} aria-invalid={error !== null && deskripsiBarang.trim().length < 10} aria-describedby={error !== null && deskripsiBarang.trim().length < 10 ? "pawn-form-error" : undefined} disabled={submitting} />
       </div>
       <div className="space-y-2">
@@ -1003,20 +1006,21 @@ export function PawnForm({ onCreated }: { onCreated: () => void }) {
         </Select>
         {kategori && (
           <p className="text-xs text-muted-foreground">
-            Perkiraan plafon dana: {LTV_HINTS[kategori as CollateralCategory]}.
+            Perkiraan plafon simulasi: {LTV_HINTS[kategori as CollateralCategory]}; bukan persetujuan atau dana tersedia.
           </p>
         )}
       </div>
       <div className="space-y-2">
-        <Label htmlFor="alamat">Alamat lokasi barang</Label>
-        <Textarea id="alamat" value={alamatPenilaian} onChange={(e) => setAlamatPenilaian(e.target.value)} placeholder="Alamat lengkap tempat barang berada saat pemeriksaan…" rows={2} required aria-required="true" minLength={10} aria-invalid={error !== null && alamatPenilaian.trim().length < 10} aria-describedby={error !== null && alamatPenilaian.trim().length < 10 ? "pawn-form-error" : undefined} disabled={submitting} />          <p className="text-xs leading-5 text-muted-foreground">
-            Alamat ini dicatat sebagai informasi yang Anda masukkan. Aplikasi tidak menjadwalkan atau mengonfirmasi kunjungan, pemeriksaan fisik, maupun lokasi barang.
-          </p>
+        <Label htmlFor="alamat">Alamat yang Anda laporkan untuk lokasi barang</Label>
+        <Textarea id="alamat" value={alamatPenilaian} onChange={(e) => setAlamatPenilaian(e.target.value)} placeholder="Alamat yang Anda laporkan untuk lokasi barang…" rows={2} required aria-required="true" minLength={10} aria-invalid={error !== null && alamatPenilaian.trim().length < 10} aria-describedby={error !== null && alamatPenilaian.trim().length < 10 ? "pawn-form-error" : undefined} disabled={submitting} />
+        <p className="text-xs leading-5 text-muted-foreground">
+          Alamat ini dicatat sebagai informasi yang Anda masukkan. Aplikasi tidak menjadwalkan atau mengonfirmasi kunjungan, pemeriksaan fisik, maupun lokasi barang.
+        </p>
       </div>
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">
-          <Label htmlFor="nama-gadai">Nama lengkap (sesuai dokumen yang Anda masukkan)</Label>
-          <Input id="nama-gadai" value={namaLengkap} onChange={(e) => setNamaLengkap(e.target.value)} placeholder="Nama sesuai dokumen yang Anda masukkan" autoComplete="name" required aria-required="true" minLength={3} aria-invalid={error !== null && namaLengkap.trim().length < 3} aria-describedby={error !== null && namaLengkap.trim().length < 3 ? "pawn-form-error" : undefined} disabled={submitting} />
+          <Label htmlFor="nama-gadai">Nama yang dicatat (tidak diverifikasi)</Label>
+          <Input id="nama-gadai" value={namaLengkap} onChange={(e) => setNamaLengkap(e.target.value)} placeholder="Nama yang Anda masukkan" autoComplete="name" required aria-required="true" minLength={3} aria-invalid={error !== null && namaLengkap.trim().length < 3} aria-describedby={error !== null && namaLengkap.trim().length < 3 ? "pawn-form-error" : undefined} disabled={submitting} />
         </div>
         <div className="space-y-2">
           <Label htmlFor="bank-gadai">Bank / e-wallet (informasi yang dicatat)</Label>

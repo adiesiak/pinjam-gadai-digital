@@ -100,7 +100,7 @@ export function PortfolioSection({ portfolio }: { portfolio: PortfolioRow[] | un
               value={f.tenorBulan !== null ? `${f.tenorBulan} bulan` : `${f.tenorHari} hari`}
             />
             <InfoRow
-              label="Jatuh tempo"
+              label="Tanggal acuan simulasi"
               value={
                 f.pelunasan !== null
                   ? formatDate(f.pelunasan.jatuhTempoPada)
@@ -159,7 +159,7 @@ export function PortfolioSection({ portfolio }: { portfolio: PortfolioRow[] | un
 
           {f.pelunasan !== null && f.pelunasan.hariTerlambat > 0 && (
             <p className="mt-3 rounded-xl border border-red-100 bg-red-50 px-3 py-2 text-xs leading-5 text-red-700">
-              Terlambat {f.pelunasan.hariTerlambat} hari — denda berjalan {formatRupiah(f.pelunasan.dendaTerlambat)}; total kewajiban dengan denda {formatRupiah(f.pelunasan.totalKewajibanDenganPenalti)}.
+              Tanggal acuan simulasi terlewati {f.pelunasan.hariTerlambat} hari — denda simulasi {formatRupiah(f.pelunasan.dendaTerlambat)}; total kewajiban simulasi termasuk denda {formatRupiah(f.pelunasan.totalKewajibanDenganPenalti)}. Ini bukan tagihan atau tunggakan yang diverifikasi.
             </p>
           )}
 
@@ -192,10 +192,10 @@ function PortfolioStatusBadge({
     return <Badge className="border-0 bg-emerald-100 text-emerald-700 hover:bg-emerald-100">Lunas (ledger)</Badge>;
   }
   if (state === "menunggak") {
-    return <Badge className="border-0 bg-red-100 text-red-700 hover:bg-red-100">Melewati tanggal acuan</Badge>;
+    return <Badge className="border-0 bg-red-100 text-red-700 hover:bg-red-100">Tanggal acuan simulasi terlewati</Badge>;
   }
   if (state === "lancar") {
-    return <Badge className="border-0 bg-emerald-100 text-emerald-700 hover:bg-emerald-100">Sesuai tanggal acuan</Badge>;
+    return <Badge className="border-0 bg-emerald-100 text-emerald-700 hover:bg-emerald-100">Dalam tanggal acuan simulasi</Badge>;
   }
   return <Badge className="border-0 bg-amber-100 text-amber-700 hover:bg-amber-100">Berjalan di ledger</Badge>;
 }

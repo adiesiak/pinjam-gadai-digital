@@ -122,7 +122,7 @@ export function WhatsAppPanel() {
             <Input id="wa-fpesan" value={fieldPesan ?? ""} onChange={(e) => setFieldPesan(e.target.value)} placeholder="message" />
           </div>
           <div className="sm:col-span-2">
-            <Label htmlFor="wa-template">Template pengingat penagihan</Label>
+            <Label htmlFor="wa-template">Template pesan untuk catatan simulasi (dikirim via WhatsApp)</Label>
             <Textarea
               id="wa-template"
               rows={4}
@@ -130,12 +130,12 @@ export function WhatsAppPanel() {
               onChange={(e) => setTemplate(e.target.value)}
               placeholder="{nama}, {ref}, {jumlah}, {tanggal}, {sisa}, {denda}"
             />
-            <p className="mt-1 text-xs text-muted-foreground">
-              Placeholder: <code className="rounded bg-slate-100 px-1">{"{nama} {ref} {jumlah} {tanggal} {sisa} {denda}"}</code> — wajib memuat <code className="rounded bg-slate-100 px-1">{"{jumlah}"}</code>.
+            <p className="mt-1 text-xs leading-5 text-muted-foreground">
+              Placeholder: <code className="rounded bg-slate-100 px-1">{"{nama} {ref} {jumlah} {tanggal} {sisa} {denda}"}</code> — wajib memuat <code className="rounded bg-slate-100 px-1">{"{jumlah}"}</code>. Nilainya berasal dari ledger internal dan tidak membuktikan tagihan, tunggakan, atau pembayaran. Tulis pesan netral; jangan meminta pelunasan berdasarkan angka simulasi.
             </p>
           </div>
           <div className="sm:col-span-2">
-            <Label htmlFor="wa-template-lokasi">Template peringatan lokasi dicurigai</Label>
+            <Label htmlFor="wa-template-lokasi">Template pesan metadata koordinat perangkat</Label>
             <Textarea
               id="wa-template-lokasi"
               rows={4}
@@ -144,11 +144,10 @@ export function WhatsAppPanel() {
               placeholder="Kosongkan untuk memakai template bawaan"
             />
             <p className="mt-1 text-xs leading-5 text-muted-foreground">
-              Dikirim otomatis maksimum 1×/24 jam per nasabah saat titik lokasinya
-              ditandai (mis. koordinat beku berulang). Placeholder:{" "}
+              Template ini dapat dikirim otomatis maksimum 1×/24 jam saat catatan koordinat perangkat ditandai. Koordinat tidak memverifikasi lokasi atau identitas pemohon. Placeholder:{" "}
               <code className="rounded bg-slate-100 px-1">{"{nama} {ref}"}</code> — wajib memuat{" "}
               <code className="rounded bg-slate-100 px-1">{"{nama}"}</code>. Kosong = pakai template bawaan
-              (nada menolong, tanpa ancaman sanksi).
+              (nada netral; data lokasi yang dikirim bukan lokasi terverifikasi).
             </p>
           </div>
         </div>
@@ -156,7 +155,7 @@ export function WhatsAppPanel() {
           <div>
             <p className="text-sm font-medium">Aktifkan pengiriman</p>
             <p className="mt-0.5 text-xs text-muted-foreground">
-              Saat nonaktif, percobaan kirim tetap tercatat di log dengan status gagal.
+              Pesan aktif dikirim lewat gateway yang dikonfigurasi. Saat nonaktif, percobaan kirim tetap tercatat di log dengan status gagal.
             </p>
           </div>
           <Switch checked={aktif} onCheckedChange={setAktif} />

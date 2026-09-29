@@ -226,7 +226,10 @@ export function KreditBarangForm({ onCreated }: { onCreated: (ref: string) => vo
       {/* ===== Barang ===== */}
       <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
         <p className="flex items-center gap-2 text-sm font-semibold">
-          <ShoppingBag className="size-4 text-primary" /> Barang dari marketplace / toko
+          <ShoppingBag className="size-4 text-primary" /> Barang yang dicantumkan (simulasi)
+        </p>
+        <p className="mt-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900">
+          Informasi barang, tautan, merchant, dan harga adalah masukan pengguna yang tidak diverifikasi. Pengajuan hanya mencatat simulasi internal; tidak ada pembelian atau pembayaran ke merchant.
         </p>
         <div className="mt-4 space-y-2">
           <Label htmlFor="kredit-nama-barang">Nama barang</Label>
@@ -278,12 +281,13 @@ export function KreditBarangForm({ onCreated }: { onCreated: (ref: string) => vo
             onChange={(e) => setTautan(e.target.value)}
             placeholder="https://shopee.co.id/…"
             disabled={submitting}
-          />            <p className="text-xs leading-5 text-muted-foreground">
+          />
+          <p className="text-xs leading-5 text-muted-foreground">
               Tautan dicatat sebagai referensi; aplikasi tidak memeriksa tautan atau memverifikasi harga di merchant.
             </p>
         </div>
         <div className="mt-4 space-y-2">
-          <Label htmlFor="kredit-harga">Harga barang</Label>
+          <Label htmlFor="kredit-harga">Harga acuan barang (tidak diverifikasi)</Label>
           <Input
             id="kredit-harga"
             inputMode="numeric"
@@ -303,7 +307,7 @@ export function KreditBarangForm({ onCreated }: { onCreated: (ref: string) => vo
       {/* ===== Skema kredit ===== */}
       <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
         <p className="flex items-center gap-2 text-sm font-semibold">
-          <TrendingUp className="size-4 text-emerald-600" /> Skema kredit
+          <TrendingUp className="size-4 text-emerald-600" /> Skema simulasi kredit
         </p>
 
         <div className="mt-4 flex items-baseline justify-between gap-3">
@@ -314,7 +318,7 @@ export function KreditBarangForm({ onCreated }: { onCreated: (ref: string) => vo
         </div>
         {bulanan ? (
           <p className="mt-2 rounded-xl border border-emerald-100 bg-emerald-50/60 px-3 py-2 text-xs leading-5 text-emerald-800">
-            Tenor {tenorBulan} bulan memakai DP 0% — seluruh harga barang dibiayai tanpa uang muka.
+            Simulasi tenor {tenorBulan} bulan memakai DP 0%; angka ini bukan bukti pembiayaan atau pembelian barang.
           </p>
         ) : (
           <Slider
@@ -383,7 +387,7 @@ export function KreditBarangForm({ onCreated }: { onCreated: (ref: string) => vo
             />
             <p className="mt-1.5 text-xs leading-5 text-muted-foreground">
               Rentang {KREDIT_PRICING.marginMinPersenPerBulan}–
-              {KREDIT_PRICING.marginMaxPersenPerBulan}% per bulan dari pokok dibiayai (hak Pendana).
+              {KREDIT_PRICING.marginMaxPersenPerBulan}% per bulan dari pokok acuan simulasi; bukan hak atau janji pembayaran.
             </p>
           </>
         )}
@@ -401,7 +405,7 @@ export function KreditBarangForm({ onCreated }: { onCreated: (ref: string) => vo
             {(
               [
                 ["Uang muka (DP)", formatRupiah(preview.dp)],
-                ["Pokok dibiayai Pendana", formatRupiah(preview.pokokDibiayai)],
+                ["Pokok acuan simulasi (tidak ditransfer)", formatRupiah(preview.pokokDibiayai)],
                 [`Biaya layanan (${KREDIT_PRICING.biayaLayananPersen}%)`, formatRupiah(preview.biayaLayanan)],
                 ["Imbal Hasil / bulan", formatRupiah(preview.marginPerBulan)],
               ] as const
@@ -416,14 +420,14 @@ export function KreditBarangForm({ onCreated }: { onCreated: (ref: string) => vo
             ))}
             <div className="flex items-baseline justify-between bg-emerald-50 px-3 py-2.5 text-sm">
               <dt className="font-semibold text-emerald-800">
-                Cicilan per bulan ({tenorBulan} bulan)
+                Cicilan simulasi per bulan ({tenorBulan} bulan)
               </dt>
               <dd className="font-semibold tabular-nums text-emerald-700">
                 {formatRupiah(preview.cicilanPerBulan)}
               </dd>
             </div>
             <div className="flex items-baseline justify-between bg-slate-50 px-3 py-2.5 text-sm">
-              <dt className="font-semibold">Total dibayar</dt>
+              <dt className="font-semibold">Total pembayaran simulasi</dt>
               <dd className="font-semibold tabular-nums">
                 {formatRupiah(preview.totalDibayarKonsumen)}
               </dd>
@@ -435,21 +439,21 @@ export function KreditBarangForm({ onCreated }: { onCreated: (ref: string) => vo
       {/* ===== Data pemohon ===== */}
       <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
         <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
-          Data pemohon (wajib)
+          Data pemohon (wajib; tidak diverifikasi otomatis)
         </p>
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
           <div className="space-y-2">
-            <Label htmlFor="kredit-nama">Nama lengkap (sesuai KTP)</Label>
+            <Label htmlFor="kredit-nama">Nama yang dicatat (tidak diverifikasi)</Label>
             <Input
               id="kredit-nama"
               value={namaLengkap}
               onChange={(e) => setNamaLengkap(e.target.value)}
-              placeholder="Nama sesuai identitas"
+              placeholder="Nama yang Anda masukkan"
               disabled={submitting}
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="kredit-nik">NIK (16 digit)</Label>
+            <Label htmlFor="kredit-nik">NIK (16 digit; data masukan)</Label>
             <Input
               id="kredit-nik"
               inputMode="numeric"
@@ -462,7 +466,7 @@ export function KreditBarangForm({ onCreated }: { onCreated: (ref: string) => vo
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="kredit-rekening">Nomor rekening</Label>
+            <Label htmlFor="kredit-rekening">Nomor rekening (informasi yang dicatat)</Label>
             <Input
               id="kredit-rekening"
               inputMode="numeric"
@@ -474,7 +478,7 @@ export function KreditBarangForm({ onCreated }: { onCreated: (ref: string) => vo
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="kredit-wa">Nomor WhatsApp</Label>
+            <Label htmlFor="kredit-wa">Nomor WhatsApp (informasi yang dicatat)</Label>
             <Input
               id="kredit-wa"
               inputMode="numeric"
@@ -494,7 +498,7 @@ export function KreditBarangForm({ onCreated }: { onCreated: (ref: string) => vo
           id="kredit-catatan"
           value={catatanPeminjam}
           onChange={(e) => setCatatanPeminjam(e.target.value)}
-          placeholder="Warna/varian barang, alamat pengiriman, atau keterangan lain…"
+          placeholder="Warna/varian barang atau informasi lain untuk catatan reviewer…"
           rows={2}
           disabled={submitting}
         />
@@ -521,9 +525,9 @@ export function KreditBarangForm({ onCreated }: { onCreated: (ref: string) => vo
         )}
       </Button>
       <p className="text-center text-xs leading-5 text-muted-foreground">
-        Simulasi pokok kredit barang maksimal {formatRupiah(KREDIT_BARANG_POKOK_MAKS)} dengan
-        tenor 1, 3, atau maksimal 6 bulan. Batas ini terpisah dari plafon simulasi pinjaman tunai.
-        Data barang, tautan, dan harga yang dimasukkan tidak diverifikasi dengan merchant; status review hanya catatan internal.
+        Pokok kredit barang maksimal {formatRupiah(KREDIT_BARANG_POKOK_MAKS)} dan tenor 1, 3,
+        atau maksimal 6 bulan dalam model simulasi. Batas ini terpisah dari plafon simulasi pinjaman tunai.
+        Data pemohon, barang, tautan, dan harga yang dimasukkan tidak diverifikasi otomatis; status review hanya catatan internal. Tidak ada pembayaran ke merchant.
       </p>
     </form>
   );
@@ -563,7 +567,7 @@ export function KreditSayaSection() {
               <div className="min-w-0">
                 <p className="text-sm font-semibold">{k.namaBarang}</p>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  {k.nomorReferensi} · {k.merchant} · {k.kategori} ·{" "}
+                  {k.nomorReferensi} · sumber barang yang dicantumkan {k.merchant} · {k.kategori} ·{" "}
                   {new Date(k._creationTime).toLocaleDateString("id-ID", {
                     day: "numeric",
                     month: "long",
@@ -577,10 +581,10 @@ export function KreditSayaSection() {
             <div className="mt-4 grid grid-cols-2 gap-3 border-t border-slate-100 pt-4 sm:grid-cols-4">
               {(
                 [
-                  ["Harga barang", formatRupiah(k.hargaBarang)],
-                  ["Uang muka", k.dp !== null ? formatRupiah(k.dp) : "—"],
-                  ["Pokok dibiayai", k.pokokDibiayai !== null ? formatRupiah(k.pokokDibiayai) : "—"],
-                  ["Cicilan / bulan", k.cicilanPerBulan !== null ? formatRupiah(k.cicilanPerBulan) : "—"],
+                  ["Harga acuan barang", formatRupiah(k.hargaBarang)],
+                  ["DP pada simulasi", k.dp !== null ? formatRupiah(k.dp) : "—"],
+                  ["Pokok acuan simulasi", k.pokokDibiayai !== null ? formatRupiah(k.pokokDibiayai) : "—"],
+                  ["Cicilan simulasi / bulan", k.cicilanPerBulan !== null ? formatRupiah(k.cicilanPerBulan) : "—"],
                 ] as const
               ).map(([label, value]) => (
                 <div key={label}>
@@ -599,7 +603,7 @@ export function KreditSayaSection() {
                 {k.imbalHasilPendana !== null && (
                   <span className="inline-flex items-center gap-1.5">
                     <TrendingUp className="size-3.5 text-emerald-600" />
-                    Imbal Hasil Pendana {formatRupiah(k.imbalHasilPendana)}
+                    Imbal Hasil simulasi Pendana {formatRupiah(k.imbalHasilPendana)}
                   </span>
                 )}
               </p>
@@ -639,16 +643,16 @@ export function KreditBarangSection() {
       <KreditBillingSection />
       <div className="grid gap-8 lg:grid-cols-2">
         <section>
-          <h2 className="text-lg font-semibold">Ajukan Kredit Barang</h2>
+          <h2 className="text-lg font-semibold">Buat catatan simulasi kredit barang</h2>
           <Separator className="my-4" />
           <KreditBarangForm
             onCreated={(ref) =>
-              toast.success(`Pengajuan kredit barang terkirim — nomor referensi ${ref}`)
+              toast.success(`Catatan pengajuan simulasi tersimpan — referensi ${ref}. Tidak ada pembelian atau pembayaran ke merchant.`)
             }
           />
         </section>
         <section>
-          <h2 className="text-lg font-semibold">Pengajuan Kredit Barang Saya</h2>
+          <h2 className="text-lg font-semibold">Catatan simulasi kredit barang saya</h2>
           <Separator className="my-4" />
           <KreditSayaSection />
         </section>
@@ -691,8 +695,7 @@ export function KreditBillingSection() {
   };
 
   return (
-    <section>
-      <h2 className="text-lg font-semibold">Simulasi pencatatan cicilan kredit barang</h2>
+    <section>        <h2 className="text-lg font-semibold">Simulasi entri cicilan kredit barang</h2>
       <Separator className="my-4" />
       <div className="space-y-4">
         {berjalan.map((k) => {
@@ -716,18 +719,18 @@ export function KreditBillingSection() {
                 </div>
                 {k.status === "lunas" ? (
                   <Badge className="border-primary/30 bg-primary/10 text-accent-foreground">
-                    Lunas
+                    Lunas (ledger)
                   </Badge>
                 ) : (
                   <Badge className="border-0 bg-emerald-100 text-emerald-700 hover:bg-emerald-100">
-                    Cicilan {k.dibayarBulan}/{totalBulan}
+                    Entri simulasi {k.dibayarBulan}/{totalBulan}
                   </Badge>
                 )}
               </div>
 
               <dl className="mt-3 grid gap-x-8 gap-y-1.5 text-sm sm:grid-cols-2">
                 <div className="flex items-baseline justify-between gap-4">
-                  <dt className="text-muted-foreground">Sisa pokok dibiayai</dt>
+                  <dt className="text-muted-foreground">Sisa pokok pada simulasi</dt>
                   <dd className="font-semibold tabular-nums">
                     {formatRupiah(k.sisaPokokKredit)}
                   </dd>

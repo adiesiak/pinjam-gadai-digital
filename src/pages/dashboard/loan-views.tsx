@@ -35,7 +35,7 @@ function ScheduleBadge({ state }: { state: "lunas" | "menunggu" | "overdue" }) {
   }
   if (state === "overdue") {
     return (
-      <Badge className="border-0 bg-red-100 text-red-700 hover:bg-red-100">Melewati tanggal acuan</Badge>
+      <Badge className="border-0 bg-red-100 text-red-700 hover:bg-red-100">Melewati tanggal acuan simulasi</Badge>
     );
   }
   return (
@@ -96,8 +96,8 @@ export function ActiveLoanSection({
     return (
       <EmptyState
         icon={Wallet}
-        title="Belum ada pinjaman berjalan"
-        body="Catatan pinjaman yang status ledger-nya aktif akan tampil di sini. Angka pendanaan dan pelunasan adalah simulasi internal."
+        title="Belum ada catatan pinjaman aktif di ledger"
+        body="Catatan dengan status internal aktif akan tampil di sini. Angka alokasi dan pelunasan merupakan simulasi; tidak ada transfer atau pembayaran eksternal."
       />
     );
   }
@@ -109,7 +109,7 @@ export function ActiveLoanSection({
       ))}
       {lainnya.length > 0 && (
         <section>
-          <h3 className="text-sm font-semibold">Sedang diproses</h3>
+          <h3 className="text-sm font-semibold">Status catatan lainnya</h3>
           <ul className="mt-3 divide-y divide-slate-200 rounded-2xl border border-slate-200 bg-white">
             {lainnya.map((l) => (
               <li key={l._id}>
@@ -310,8 +310,8 @@ function RepaymentSimulationAction({
       const hasil = await repayLoan({ loanId });
       toast.success(
         hasil.dendaTerlambat > 0
-          ? `Pelunasan simulasi tercatat ${formatRupiah(hasil.totalDibayar)}, termasuk denda ${formatRupiah(hasil.dendaTerlambat)}.`
-          : `Pelunasan simulasi tercatat ${formatRupiah(hasil.totalDibayar)}.`,
+          ? `Status pelunasan simulasi diperbarui di ledger (${formatRupiah(hasil.totalDibayar)}, termasuk denda ${formatRupiah(hasil.dendaTerlambat)}). Tidak ada pembayaran eksternal.`
+          : `Status pelunasan simulasi diperbarui di ledger (${formatRupiah(hasil.totalDibayar)}). Tidak ada pembayaran eksternal.`,
       );
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Pencatatan simulasi gagal.");
@@ -350,7 +350,7 @@ function RepaymentSimulationAction({
   );
 }
 
-/** Tab 2 — Jadwal angsuran. */
+/** Tab 2 — Jadwal kewajiban simulasi. */
 export function ScheduleSection({ schedule }: { schedule: LoanScheduleRow[] }) {
   if (schedule.length === 0) {
     return (
@@ -386,7 +386,7 @@ export function ScheduleSection({ schedule }: { schedule: LoanScheduleRow[] }) {
                   <span className="font-mono text-xs text-muted-foreground">{l.nomorReferensi}</span>
                 </p>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Pokok {formatRupiah(l.pokokPinjaman)} · Bunga{" "}
+                  Pokok acuan simulasi {formatRupiah(l.pokokPinjaman)} · Bunga{" "}
                   {l.tenorBulan !== null ? "menurun (simulasi)" : "flat (30%)"}{" "}
                   {formatRupiah(l.imbalHasilTotal)} · tenor{" "}
                   {l.tenorBulan !== null ? `${l.tenorBulan} bulan` : `${l.tenorHari} hari`}
@@ -401,7 +401,7 @@ export function ScheduleSection({ schedule }: { schedule: LoanScheduleRow[] }) {
             </div>
             <dl className="mt-3 grid gap-x-8 gap-y-1.5 text-sm sm:grid-cols-2">
               <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4">
-                <dt className="text-muted-foreground">Tanggal acuan</dt>
+                <dt className="text-muted-foreground">Tanggal acuan simulasi</dt>
                 <dd className="tabular-nums">
                   {l.pelunasan ? formatDate(l.pelunasan.jatuhTempoPada) : "—"}
                 </dd>
