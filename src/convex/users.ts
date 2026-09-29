@@ -1,5 +1,27 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
-import { query, QueryCtx } from "./_generated/server";
+import { internalQuery, query, QueryCtx } from "./_generated/server";
+import { v } from "convex/values";
+import { ROLES } from "./schema";
+
+/**
+ * Otorisasi internal untuk aktivasi/login/reset password Super Admin.
+ * Email harus cocok persis dan menunjuk satu akun admin dengan email terverifikasi.
+ */
+export const isAdminEmailForPasswordAuth = internalQuery({
+  args: { email: v.string() },
+  handler: async (ctx, { email }) => {
+    const users = await ctx.db
+      .query("users")
+      .withIndex("email", (q) => q.eq("email", email))
+      .take(2);
+    return (
+      users.length === 1 &&
+      users[0].role === ROLES.ADMIN &&
+      users[0].emailVerificationTime !== undefined &&
+      users[0].isAnonymous !== true
+    );
+  },
+});
 
 /**
  * Role akun saat ini (untuk guard di dalam action yang tidak punya ctx.db).

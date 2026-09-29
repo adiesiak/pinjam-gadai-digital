@@ -2,7 +2,7 @@
 import { convexTest } from "convex-test";
 import { describe, expect, it } from "vitest";
 
-import { api } from "./_generated/api";
+import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { CONTRACT_TERMS_VERSION } from "../lib/contract";
 import schema from "./schema";
@@ -39,6 +39,67 @@ async function buatPengguna(
 }
 
 describe("otorisasi endpoint admin", () => {
+  it("hanya admin unik dengan email terverifikasi yang dapat memakai password admin", async () => {
+    const t = convexTest(schema, modules);
+    await buatPengguna(t, "Admin belum verifikasi", {
+      email: "admin-belum-verifikasi@pindai.test",
+      role: "admin",
+    });
+    await buatPengguna(t, "Admin anonim", {
+      email: "admin-anonim@pindai.test",
+      emailVerificationTime: Date.now(),
+      isAnonymous: true,
+      role: "admin",
+    });
+    await buatPengguna(t, "Peminjam", {
+      email: "bukan-admin@pindai.test",
+      emailVerificationTime: Date.now(),
+      role: "peminjam",
+    });
+    await buatPengguna(t, "Admin sah", {
+      email: "admin-sah@pindai.test",
+      emailVerificationTime: Date.now(),
+      role: "admin",
+    });
+
+    await expect(
+      t.query(internal.users.isAdminEmailForPasswordAuth, {
+        email: "admin-belum-verifikasi@pindai.test",
+      }),
+    ).resolves.toBe(false);
+    await expect(
+      t.query(internal.users.isAdminEmailForPasswordAuth, {
+        email: "admin-anonim@pindai.test",
+      }),
+    ).resolves.toBe(false);
+    await expect(
+      t.query(internal.users.isAdminEmailForPasswordAuth, {
+        email: "bukan-admin@pindai.test",
+      }),
+    ).resolves.toBe(false);
+    await expect(
+      t.query(internal.users.isAdminEmailForPasswordAuth, {
+        email: "admin-sah@pindai.test",
+      }),
+    ).resolves.toBe(true);
+    await expect(
+      t.query(internal.users.isAdminEmailForPasswordAuth, {
+        email: "ADMIN-SAH@pindai.test",
+      }),
+    ).resolves.toBe(false);
+
+    await buatPengguna(t, "Duplikat admin", {
+      email: "admin-sah@pindai.test",
+      emailVerificationTime: Date.now(),
+      role: "admin",
+    });
+    await expect(
+      t.query(internal.users.isAdminEmailForPasswordAuth, {
+        email: "admin-sah@pindai.test",
+      }),
+    ).resolves.toBe(false);
+  });
+
   it("adminExists mewajibkan login, tetapi tetap mendukung alur bootstrap", async () => {
     const t = convexTest(schema, modules);
     await expect(t.query(api.admin.adminExists, {})).rejects.toThrow(/masuk/i);
