@@ -736,10 +736,12 @@ export function LoanForm({ onCreated }: { onCreated: (ref: string) => void }) {
                 {kameraAktif && (
                   <div className="mt-3 space-y-3" aria-labelledby={`dok-label-${key}`}>
                     <p id={`camera-instructions-${key}`} className="text-xs leading-5 text-muted-foreground">
-                      {instruksi}
+                      {key === "ktp"
+                        ? `${instruksi} Sejajarkan kartu mengikuti bingkai pada pratinjau.`
+                        : instruksi}
                     </p>
                     {cameraStream ? (
-                      <div className="overflow-hidden rounded-lg bg-slate-950">
+                      <div className="relative overflow-hidden rounded-lg bg-slate-950">
                         <video
                           ref={cameraVideoRef}
                           autoPlay
@@ -755,6 +757,16 @@ export function LoanForm({ onCreated }: { onCreated: (ref: string) => void }) {
                           }}
                           className="aspect-video max-h-80 w-full object-contain"
                         />
+                        {key === "ktp" && (
+                          <div
+                            aria-hidden="true"
+                            className="pointer-events-none absolute left-1/2 top-1/2 aspect-[85.6/54] w-[78%] -translate-x-1/2 -translate-y-1/2 rounded-xl border-2 border-dashed border-white shadow-[0_0_0_9999px_rgba(0,0,0,0.28)]"
+                          >
+                            <span className="absolute -top-6 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-black/60 px-2 py-1 text-[10px] font-medium text-white">
+                              Sesuaikan KTP di dalam bingkai
+                            </span>
+                          </div>
+                        )}
                       </div>
                     ) : (
                       <div className="flex aspect-video max-h-80 items-center justify-center rounded-lg bg-slate-900 px-4 text-center text-sm text-white/80">
