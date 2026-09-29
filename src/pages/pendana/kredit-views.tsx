@@ -97,12 +97,12 @@ function Baris({
   return (
     <div className="flex items-baseline justify-between gap-3 py-2">
       <div className="min-w-0">
-        <p className={cn("text-xs", strong ? "text-slate-900" : "text-muted-foreground")}>
+        <p className={cn("min-w-0 text-xs", strong ? "text-slate-900" : "text-muted-foreground")}>
           {label}
         </p>
         {hint !== undefined && <p className="text-xs text-muted-foreground">{hint}</p>}
       </div>
-      <p className={cn("shrink-0 tabular-nums", strong ? "text-sm font-semibold" : "text-sm")}>
+      <p className={cn("min-w-0 break-words text-right tabular-nums", strong ? "text-sm font-semibold" : "text-sm")}>
         {value}
       </p>
     </div>
@@ -216,10 +216,13 @@ function KalkulatorKreditSection() {
             </Label>
             <Input
               id="kredit-harga"
+              required
+              aria-required="true"
               inputMode="numeric"
               placeholder="10.000.000"
               value={hargaInput}
               aria-invalid={hargaError !== null}
+              aria-describedby={hargaError !== null ? "kredit-harga-error" : undefined}
               onChange={(e) => {
                 setHargaInput(e.target.value);
                 setNamaTerpilih(null);
@@ -227,7 +230,7 @@ function KalkulatorKreditSection() {
               className="tabular-nums"
             />
             {hargaError !== null && (
-              <p role="alert" className="text-xs text-red-600">
+              <p id="kredit-harga-error" role="alert" aria-live="assertive" className="text-xs text-red-600">
                 {hargaError}
               </p>
             )}
@@ -237,11 +240,11 @@ function KalkulatorKreditSection() {
           </div>
 
           <div className="mt-3">
-            <p className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+            <p id="kredit-catalog-label" className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
               <Package className="size-3.5" />
               Pilih dari contoh barang
             </p>
-            <div className="mt-2 flex flex-wrap gap-1.5">
+            <div role="group" aria-labelledby="kredit-catalog-label" className="mt-2 flex flex-wrap gap-1.5">
               {KATALOG_CONTOH.filter((item) => item.harga <= KREDIT_BARANG_POKOK_MAKS).map((item) => {
                 const aktif = namaTerpilih === item.nama;
                 return (
@@ -254,7 +257,7 @@ function KalkulatorKreditSection() {
                       setNamaTerpilih(item.nama);
                     }}
                     className={cn(
-                      "rounded-full border px-3 py-1 text-xs transition-colors",
+                      "rounded-full border px-3 py-1 text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2",
                       aktif
                         ? "border-primary bg-primary text-primary-foreground"
                         : "border-slate-200 bg-white text-slate-600 hover:border-primary hover:text-primary",
@@ -290,8 +293,10 @@ function KalkulatorKreditSection() {
                 value={[dpPersen]}
                 onValueChange={(v) => setDpPersen(v[0] ?? KREDIT_PRICING.dpMinPersen)}
                 aria-label="Persen uang muka"
+                aria-describedby="kredit-dp-help"
+                aria-valuetext={`${persenId(dpPersen)} persen`}
               />
-              <p className="mt-1.5 text-xs text-muted-foreground">
+              <p id="kredit-dp-help" className="mt-1.5 text-xs text-muted-foreground">
                 Rentang {KREDIT_PRICING.dpMinPersen}–{KREDIT_PRICING.dpMaxPersen}% dari harga barang.
               </p>
             </>
@@ -302,7 +307,7 @@ function KalkulatorKreditSection() {
             <Label className="text-xs text-muted-foreground">Tenor cicilan</Label>
             <span className="text-xs font-semibold tabular-nums">{tenorBulan} bulan</span>
           </div>
-          <div className="mt-2 grid grid-cols-3 gap-1.5">
+          <div role="group" aria-label="Pilih tenor cicilan" className="mt-2 grid grid-cols-3 gap-1.5">
             {KREDIT_TENOR_PENGAJUAN_OPTIONS.map((bulan) => {
               const aktif = bulan === tenorBulan;
               return (
@@ -312,7 +317,7 @@ function KalkulatorKreditSection() {
                   aria-pressed={aktif}
                   onClick={() => setTenorBulan(bulan)}
                   className={cn(
-                    "rounded-xl border px-3 py-2 text-xs font-medium tabular-nums transition-colors",
+                    "rounded-xl border px-3 py-2 text-xs font-medium tabular-nums transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2",
                     aktif
                       ? "border-primary bg-primary text-primary-foreground"
                       : "border-slate-200 bg-white text-slate-600 hover:border-primary hover:text-primary",
@@ -349,8 +354,10 @@ function KalkulatorKreditSection() {
                   setMarginPersenPerBulan(v[0] ?? KREDIT_PRICING.marginMinPersenPerBulan)
                 }
                 aria-label="Persen Imbal Hasil per bulan"
+                aria-describedby="kredit-margin-help"
+                aria-valuetext={`${persenId(marginPersenPerBulan)} persen per bulan`}
               />
-              <p className="mt-1.5 text-xs text-muted-foreground">
+              <p id="kredit-margin-help" className="mt-1.5 text-xs text-muted-foreground">
                 Rentang {persenId(KREDIT_PRICING.marginMinPersenPerBulan)}–
                 {persenId(KREDIT_PRICING.marginMaxPersenPerBulan)}% per bulan dari pokok dibiayai.
               </p>
@@ -374,8 +381,10 @@ function KalkulatorKreditSection() {
               setPorsiPendanaPersen(v[0] ?? KREDIT_PRICING.minPorsiPendanaPersen)
             }
             aria-label="Porsi pendanaan"
+            aria-describedby="kredit-porsi-help"
+            aria-valuetext={`${persenId(porsiPendanaPersen)} persen`}
           />
-          <p className="mt-1.5 text-xs text-muted-foreground">
+          <p id="kredit-porsi-help" className="mt-1.5 text-xs text-muted-foreground">
             Minimum {KREDIT_PRICING.minPorsiPendanaPersen}% dari pokok dibiayai; sisanya dapat
             didanai Pendana lain.
           </p>

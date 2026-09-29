@@ -116,6 +116,8 @@ export function AppraisalDialog({
                     if (parsedPasar !== null) setHargaPasar(formatRupiah(parsedPasar).replace("Rp ", ""));
                   }}
                   placeholder="12.000.000"
+                  aria-invalid={hargaPasar.trim() !== "" && parsedPasar === null || ltvMelebihi}
+                  aria-describedby={ltvMelebihi ? "appraisal-ltv-status" : hargaPasar.trim() !== "" && parsedPasar === null ? "appraisal-error" : undefined}
                   disabled={busy}
                 />
               </div>
@@ -134,13 +136,17 @@ export function AppraisalDialog({
                     if (parsed !== null) setTaksiran(formatRupiah(parsed).replace("Rp ", ""));
                   }}
                   placeholder="8.000.000"
+                  required
+                  aria-required="true"
+                  aria-invalid={taksiran.trim() !== "" && parsed === null || ltvMelebihi}
+                  aria-describedby={ltvMelebihi ? "appraisal-ltv-status" : error ? "appraisal-error" : undefined}
                   disabled={busy}
                 />
               </div>
             </div>
           </div>
           {ltvPersen !== null && (
-            <p className={ltvMelebihi ? "text-xs font-medium text-destructive" : "text-xs font-medium text-emerald-600"}>
+            <p id="appraisal-ltv-status" role="status" aria-live="polite" className={ltvMelebihi ? "text-xs font-medium text-destructive" : "text-xs font-medium text-emerald-600"}>
               LTV otomatis: {ltvPersen}% dari harga pasar (maksimum 70%).
             </p>
           )}
@@ -174,7 +180,10 @@ export function AppraisalDialog({
 
         {error && (
           <p
+            id="appraisal-error"
             role="alert"
+            aria-live="assertive"
+            aria-atomic="true"
             className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive"
           >
             {error}

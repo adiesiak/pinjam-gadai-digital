@@ -269,14 +269,18 @@ function MarketCard({
                   className="pl-9 tabular-nums"
                   value={jumlah}
                   onChange={(e) => setJumlah(e.target.value)}
+                  aria-invalid={jumlah.trim() !== "" && parsed === null}
+                  aria-describedby={error ? "alokasi-error" : "alokasi-hint"}
                   onBlur={() => {
                     if (parsed !== null) setJumlah(formatRupiah(parsed).replace("Rp ", ""));
                   }}
                   placeholder={`Maks ${formatRupiah(row.sisaKebutuhan)}`}
+                  required
+                  aria-required="true"
                   disabled={busy}
                 />
               </div>
-              <p className="text-xs text-muted-foreground">
+              <p id="alokasi-hint" className="text-xs text-muted-foreground">
                 Estimasi imbal hasil Anda:{" "}
                 <span className="font-semibold tabular-nums text-emerald-700">
                   {formatRupiah(
@@ -292,7 +296,9 @@ function MarketCard({
             </div>
             {error && (
               <p
+                id="alokasi-error"
                 role="alert"
+                aria-live="assertive"
                 className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive"
               >
                 {error}
@@ -307,6 +313,10 @@ function MarketCard({
                   value={waNomorPendana}
                   onChange={(e) => setWaNomorPendana(e.target.value)}
                   placeholder="628123456789"
+                  required
+                  aria-required="true"
+                  autoComplete="tel"
+                  aria-invalid={waNomorPendana.trim() !== "" && waNomorPendana.replace(/\D/g, "").length < 8}
                   disabled={busy}
                 />
                 <p className="text-xs text-muted-foreground">

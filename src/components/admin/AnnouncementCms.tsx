@@ -113,7 +113,7 @@ export function AnnouncementCms() {
         <p className="text-sm font-medium">{label}</p>
         <p className="text-xs text-muted-foreground">{hint}</p>
       </div>
-      <Switch checked={val} onCheckedChange={(v) => set(key, v)} />
+      <Switch aria-label={label} checked={val} onCheckedChange={(v) => set(key, v)} />
     </div>
   );
 

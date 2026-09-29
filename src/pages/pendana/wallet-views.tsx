@@ -1,6 +1,6 @@
 import { useMutation, useQuery } from "convex/react";
 import { Loader2, QrCode, ShieldCheck, Wallet } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
@@ -26,6 +26,11 @@ export function WalletSection({ onDepositRequested }: { onDepositRequested: () =
   const [nomorRekening, setNomorRekening] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const errorRef = useRef<HTMLParagraphElement | null>(null);
+
+  useEffect(() => {
+    if (error) errorRef.current?.focus();
+  }, [error]);
 
   const parsed = useMemo<Rupiah | null>(() => {
     try {
@@ -114,6 +119,10 @@ export function WalletSection({ onDepositRequested }: { onDepositRequested: () =
                   if (parsed !== null) setJumlah(formatRupiah(parsed).replace("Rp ", ""));
                 }}
                 placeholder="2.500.000"
+                required
+                aria-required="true"
+                aria-invalid={error !== null && parsed === null}
+                aria-describedby={error && parsed === null ? "wd-error" : undefined}
                 disabled={busy}
               />
             </div>
@@ -126,6 +135,11 @@ export function WalletSection({ onDepositRequested }: { onDepositRequested: () =
                 value={namaBank}
                 onChange={(e) => setNamaBank(e.target.value)}
                 placeholder="BCA"
+                autoComplete="organization"
+                required
+                aria-required="true"
+                aria-invalid={error !== null && namaBank.trim().length < 2}
+                aria-describedby={error && namaBank.trim().length < 2 ? "wd-error" : undefined}
                 disabled={busy}
               />
             </div>
@@ -138,13 +152,23 @@ export function WalletSection({ onDepositRequested }: { onDepositRequested: () =
                 onChange={(e) => setNomorRekening(e.target.value)}
                 placeholder="1234567890"
                 className="tabular-nums"
+                autoComplete="off"
+                required
+                aria-required="true"
+                aria-invalid={error !== null && !/^\d{6,20}$/.test(nomorRekening.trim().replace(/\s+/g, ""))}
+                aria-describedby={error && !/^\d{6,20}$/.test(nomorRekening.trim().replace(/\s+/g, "")) ? "wd-error" : undefined}
                 disabled={busy}
               />
             </div>
           </div>
           {error && (
             <p
+              ref={errorRef}
+              id="wd-error"
+              tabIndex={-1}
               role="alert"
+              aria-live="assertive"
+              aria-atomic="true"
               className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive"
             >
               {error}

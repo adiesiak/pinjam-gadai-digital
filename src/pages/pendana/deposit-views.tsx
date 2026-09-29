@@ -1,6 +1,6 @@
 import { useMutation } from "convex/react";
 import { Loader2, Plus } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -36,6 +36,11 @@ export function DepositForm() {
   const [referensi, setReferensi] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const errorRef = useRef<HTMLParagraphElement | null>(null);
+
+  useEffect(() => {
+    if (error) errorRef.current?.focus();
+  }, [error]);
 
   const parsed = useMemo<Rupiah | null>(() => {
     try {
@@ -88,6 +93,11 @@ export function DepositForm() {
               if (parsed !== null) setJumlah(formatRupiah(parsed).replace("Rp ", ""));
             }}
             placeholder="5.000.000"
+            autoComplete="off"
+            required
+            aria-required="true"
+            aria-invalid={error !== null && parsed === null}
+            aria-describedby={error && parsed === null ? "dep-error" : undefined}
             disabled={busy}
           />
         </div>
@@ -99,12 +109,22 @@ export function DepositForm() {
           value={referensi}
           onChange={(e) => setReferensi(e.target.value)}
           placeholder="Contoh: BCAX0012345678"
+          autoComplete="off"
+          required
+          aria-required="true"
+          aria-invalid={error !== null && referensi.trim().length < 4}
+          aria-describedby={error && referensi.trim().length < 4 ? "dep-error" : undefined}
           disabled={busy}
         />
       </div>
       {error && (
         <p
+          ref={errorRef}
+          id="dep-error"
+          tabIndex={-1}
           role="alert"
+          aria-live="assertive"
+          aria-atomic="true"
           className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive"
         >
           {error}

@@ -63,6 +63,11 @@ export function LoanForm({ onCreated }: { onCreated: (ref: string) => void }) {
   const [catatanPeminjam, setCatatanPeminjam] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const errorRef = useRef<HTMLParagraphElement | null>(null);
+
+  useEffect(() => {
+    if (error) errorRef.current?.focus();
+  }, [error]);
 
   // ===== Tanda tangan canvas =====
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -314,7 +319,7 @@ export function LoanForm({ onCreated }: { onCreated: (ref: string) => void }) {
       {/* Slider nominal */}
       <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
         {/* Pemilih skema harga: harian 1 jt / 30 hari, atau bulanan 1/3/6 bulan. */}
-        <div className="grid grid-cols-2 gap-1 rounded-xl border border-slate-200 bg-slate-50 p-1">
+        <div role="group" aria-label="Pilih skema pinjaman" className="grid grid-cols-2 gap-1 rounded-xl border border-slate-200 bg-slate-50 p-1">
           {([
             ["harian", "Harian · s.d. 1 jt"],
             ["bulanan", "Bulanan · 1–6 bln"],
@@ -322,30 +327,32 @@ export function LoanForm({ onCreated }: { onCreated: (ref: string) => void }) {
             <button
               key={nilai}
               type="button"
+              aria-pressed={skema === nilai}
               onClick={() => gantiSkema(nilai)}
               disabled={submitting}
-              className={`rounded-lg px-3 py-2 text-xs font-medium transition-colors ${
+              className={`rounded-lg px-3 py-2 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${
                 skema === nilai
                   ? "bg-white text-primary shadow-sm"
                   : "text-muted-foreground hover:text-slate-700"
               }`}
             >
               {label}
-            </button>
-          ))}
+            </button>          ))}
         </div>
-
         <div className="mt-4 flex flex-wrap items-baseline justify-between gap-2">
-          <Label>Nominal pinjaman</Label>
+          <span id="nominal-pinjaman-label" className="text-sm font-medium">Nominal pinjaman</span>
           <span className="text-lg font-semibold tabular-nums text-primary">{formatRupiah(pokok)}</span>
-        </div>
-        <Slider
+        </div>        <Slider
           className="mt-4"
           value={[pokok]}
           min={MIN}
           max={MAX}
           step={STEP}
           onValueChange={(v) => setPokok(v[0] ?? MIN)}
+          id="nominal-pinjaman"
+          aria-label="Nominal pinjaman dalam rupiah"
+          aria-labelledby="nominal-pinjaman-label"
+          aria-valuetext={formatRupiah(pokok)}
         />
         <div className="mt-1.5 flex justify-between text-[10px] text-muted-foreground">
           <span>{formatRupiah(MIN)}</span>
@@ -422,13 +429,20 @@ export function LoanForm({ onCreated }: { onCreated: (ref: string) => void }) {
 
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">
-          <Label>Tenor pinjaman</Label>
+          <Label htmlFor="loan-tenor-trigger">Tenor pinjaman</Label>
           <Select
             value={bulanan ? tenorBulan : tenorHari}
             onValueChange={(v) => (bulanan ? setTenorBulan(v) : setTenorHari(v))}
             disabled={submitting}
           >
-            <SelectTrigger className="w-full">
+            <SelectTrigger
+              id="loan-tenor-trigger"
+              aria-label="Tenor pinjaman"
+              aria-required="true"
+              aria-invalid={error !== null && !tenorHari && !bulanan}
+              aria-describedby={error !== null && !tenorHari && !bulanan ? "loan-form-error" : undefined}
+              className="w-full"
+            >
               <SelectValue placeholder="Pilih tenor" />
             </SelectTrigger>
             <SelectContent>
@@ -447,9 +461,16 @@ export function LoanForm({ onCreated }: { onCreated: (ref: string) => void }) {
           </Select>
         </div>
         <div className="space-y-2">
-          <Label>Keperluan</Label>
+          <Label htmlFor="loan-purpose-trigger">Keperluan</Label>
           <Select value={tujuan} onValueChange={setTujuan} disabled={submitting}>
-            <SelectTrigger className="w-full">
+            <SelectTrigger
+              id="loan-purpose-trigger"
+              aria-label="Keperluan pinjaman"
+              aria-required="true"
+              aria-invalid={error !== null && !tujuan}
+              aria-describedby={error !== null && !tujuan ? "loan-form-error" : undefined}
+              className="w-full"
+            >
               <SelectValue placeholder="Pilih keperluan pinjaman" />
             </SelectTrigger>
             <SelectContent>
@@ -466,11 +487,11 @@ export function LoanForm({ onCreated }: { onCreated: (ref: string) => void }) {
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">
           <Label htmlFor="nama">Nama lengkap (sesuai KTP)</Label>
-          <Input id="nama" value={namaLengkap} onChange={(e) => setNamaLengkap(e.target.value)} placeholder="Nama sesuai identitas" disabled={submitting} />
+          <Input id="nama" value={namaLengkap} onChange={(e) => setNamaLengkap(e.target.value)} placeholder="Nama sesuai identitas" autoComplete="name" required aria-required="true" minLength={3} aria-invalid={error !== null && namaLengkap.trim().length < 3} aria-describedby={error !== null && namaLengkap.trim().length < 3 ? "loan-form-error" : undefined} disabled={submitting} />
         </div>
         <div className="space-y-2">
           <Label htmlFor="rekening">Nomor rekening tujuan</Label>
-          <Input id="rekening" inputMode="numeric" value={nomorRekening} onChange={(e) => setNomorRekening(e.target.value)} placeholder="1234567890" className="tabular-nums" disabled={submitting} />
+          <Input id="rekening" inputMode="numeric" value={nomorRekening} onChange={(e) => setNomorRekening(e.target.value)} placeholder="1234567890" className="tabular-nums" autoComplete="off" required aria-required="true" aria-invalid={error !== null && !/^\d{6,20}$/.test(nomorRekening.trim().replace(/\s+/g, ""))} aria-describedby={error !== null && !/^\d{6,20}$/.test(nomorRekening.trim().replace(/\s+/g, "")) ? "loan-form-error" : undefined} disabled={submitting} />
         </div>
       </div>
 
@@ -484,12 +505,18 @@ export function LoanForm({ onCreated }: { onCreated: (ref: string) => void }) {
         <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
           Tanda tangan digital (canvas)
         </p>
+        <p id="signature-help" className="mt-2 text-xs leading-5 text-muted-foreground">
+          Opsional. Gambar tanda tangan dengan sentuhan atau mouse; formulir tetap dapat dikirim tanpa tanda tangan.
+        </p>
         <canvas
           ref={canvasRef}
+          role="img"
+          aria-label="Area gambar tanda tangan digital, opsional"
+          aria-describedby="signature-help"
           className="mt-2 h-24 w-full touch-none rounded-xl border border-dashed border-slate-300 bg-white"
         />
         <div className="mt-2 flex justify-end">
-          <Button type="button" size="sm" variant="ghost" onClick={() => padRef.current?.clear()}>
+          <Button type="button" size="sm" variant="ghost" aria-label="Bersihkan tanda tangan" onClick={() => padRef.current?.clear()}>
             Bersihkan
           </Button>
         </div>
@@ -503,29 +530,33 @@ export function LoanForm({ onCreated }: { onCreated: (ref: string) => void }) {
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
           <div>
             <Label htmlFor="nik">NIK (16 digit)</Label>
-            <Input id="nik" inputMode="numeric" maxLength={16} value={nik} onChange={(e) => setNik(e.target.value.replace(/\D/g, ""))} placeholder="3204xxxxxxxxxxxx" className="tabular-nums" disabled={submitting} />
+            <Input id="nik" inputMode="numeric" maxLength={16} required aria-required="true" aria-invalid={error !== null && nik.length !== 16} aria-describedby={error !== null && nik.length !== 16 ? "loan-form-error" : undefined} value={nik} onChange={(e) => setNik(e.target.value.replace(/\D/g, ""))} placeholder="3204xxxxxxxxxxxx" className="tabular-nums" disabled={submitting} />
           </div>
           <div>
             <Label htmlFor="wa">Nomor WhatsApp</Label>
-            <Input id="wa" inputMode="numeric" value={nomorWhatsApp} onChange={(e) => setNomorWhatsApp(e.target.value.replace(/[^\d+]/g, ""))} placeholder="6281234567890" className="tabular-nums" disabled={submitting} />
+            <Input id="wa" inputMode="tel" autoComplete="tel" required aria-required="true" aria-invalid={error !== null && nomorWhatsApp.replace(/\D/g, "").length < 8} aria-describedby={error !== null && nomorWhatsApp.replace(/\D/g, "").length < 8 ? "loan-form-error" : undefined} value={nomorWhatsApp} onChange={(e) => setNomorWhatsApp(e.target.value.replace(/[^\d+]/g, ""))} placeholder="6281234567890" className="tabular-nums" disabled={submitting} />
           </div>
           <div>
-            <Label>Penghasilan per bulan</Label>
+            <p id="penghasilan-label" className="text-sm font-medium">Penghasilan per bulan</p>
             <Slider
               className="mt-3"
+              aria-labelledby="penghasilan-label"
+              aria-label="Penghasilan per bulan dalam rupiah"
+              aria-describedby="penghasilan-value"
+              aria-valuetext={formatRupiah(penghasilan)}
               value={[penghasilan]}
               min={500_000}
               max={100_000_000}
               step={100_000}
               onValueChange={(v) => setPenghasilan(v[0] ?? 500_000)}
             />
-            <p className="mt-1 text-sm font-semibold tabular-nums text-primary">
+            <p id="penghasilan-value" className="mt-1 text-sm font-semibold tabular-nums text-primary">
               {formatRupiah(penghasilan)}
             </p>
           </div>
           <div>
             <Label htmlFor="sumber">Sumber penghasilan</Label>
-            <Input id="sumber" value={sumberPenghasilan} onChange={(e) => setSumberPenghasilan(e.target.value)} placeholder="Gaji, usaha, dll." disabled={submitting} />
+            <Input id="sumber" value={sumberPenghasilan} required aria-required="true" aria-invalid={error !== null && sumberPenghasilan.trim().length === 0} aria-describedby={error !== null && sumberPenghasilan.trim().length === 0 ? "loan-form-error" : undefined} onChange={(e) => setSumberPenghasilan(e.target.value)} placeholder="Gaji, usaha, dll." disabled={submitting} />
           </div>
         </div>
         <div className="mt-4 space-y-3">
@@ -534,11 +565,11 @@ export function LoanForm({ onCreated }: { onCreated: (ref: string) => void }) {
               <div className="flex items-center justify-between gap-3">
                 <div className="min-w-0">
                   <Label htmlFor={`dok-${key}`}>{label}</Label>
-                  <p className="mt-0.5 truncate text-xs text-muted-foreground">
-                    {dok[key].busy ? "Mengunggah…" : dok[key].name ? dok[key].name : "Maks. 5 MB — gambar atau PDF"}
+                  <p id={`dok-status-${key}`} role="status" aria-live="polite" className="mt-0.5 truncate text-xs text-muted-foreground">
+                    {dok[key].busy ? "Mengunggah…" : dok[key].name ? `Terpilih: ${dok[key].name}` : "Maks. 5 MB — gambar atau PDF"}
                   </p>
                 </div>
-                <Button type="button" variant="outline" size="sm" disabled={submitting || dok[key].busy} onClick={() => document.getElementById(`dok-${key}`)?.click()}>
+                <Button type="button" variant="outline" size="sm" aria-label={`Pilih berkas ${label}`} disabled={submitting || dok[key].busy} onClick={() => document.getElementById(`dok-${key}`)?.click()}>
                   {dok[key].busy ? <Loader2 className="size-3.5 animate-spin" /> : "Pilih file"}
                 </Button>
               </div>
@@ -546,6 +577,7 @@ export function LoanForm({ onCreated }: { onCreated: (ref: string) => void }) {
                 id={`dok-${key}`}
                 type="file"
                 accept={accept}
+                aria-describedby={`dok-status-${key}`}
                 className="hidden"
                 onChange={(e) => {
                   const f = e.target.files?.[0];
@@ -566,25 +598,35 @@ export function LoanForm({ onCreated }: { onCreated: (ref: string) => void }) {
               Lokasi saat pengajuan (GPS wajib)
             </p>
             {lokasi ? (
-              <p className="mt-1 text-sm tabular-nums">
+              <p role="status" aria-live="polite" className="mt-1 text-sm tabular-nums">
                 <MapPin className="mr-1 inline size-4 text-emerald-600" />
                 {lokasi.lat.toFixed(5)}, {lokasi.lng.toFixed(5)} · ±{Math.round(lokasi.akurasi)} m
               </p>
             ) : (
-              <p className="mt-1 text-xs text-muted-foreground">
+              <p role="status" aria-live="polite" className="mt-1 text-xs text-muted-foreground">
                 {lokBusy ? "Mengunci posisi GPS…" : "Belum terkunci — izinkan akses lokasi di browser."}
               </p>
             )}
           </div>
-          <Button type="button" variant="outline" disabled={lokBusy || submitting} onClick={captureLokasi}>
+          <Button
+            type="button"
+            variant="outline"
+            aria-label={lokBusy ? "Sedang mengambil lokasi GPS" : "Ambil lokasi GPS"}
+            disabled={lokBusy || submitting}
+            onClick={captureLokasi}
+          >
             {lokBusy ? <Loader2 className="size-4 animate-spin" /> : "Ambil lokasi"}
           </Button>
         </div>
       </div>
-
       {error && (
         <p
+          ref={errorRef}
+          id="loan-form-error"
+          tabIndex={-1}
           role="alert"
+          aria-live="assertive"
+          aria-atomic="true"
           className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive"
         >
           {error}
@@ -633,6 +675,11 @@ export function PawnForm({ onCreated }: { onCreated: () => void }) {
   const [catatanPeminjam, setCatatanPeminjam] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const errorRef = useRef<HTMLParagraphElement | null>(null);
+
+  useEffect(() => {
+    if (error) errorRef.current?.focus();
+  }, [error]);
 
   const createPawn = useMutation(api.loans.createPawnApplication);
 
@@ -687,12 +734,19 @@ export function PawnForm({ onCreated }: { onCreated: () => void }) {
     <form onSubmit={handleSubmit} className="space-y-5">
       <div className="space-y-2">
         <Label htmlFor="barang">Deskripsi barang</Label>
-        <Textarea id="barang" value={deskripsiBarang} onChange={(e) => setDeskripsiBarang(e.target.value)} placeholder="Contoh: iPhone 14 Pro 256 GB, warna titanium, dus lengkap…" rows={3} disabled={submitting} />
+        <Textarea id="barang" value={deskripsiBarang} onChange={(e) => setDeskripsiBarang(e.target.value)} placeholder="Contoh: iPhone 14 Pro 256 GB, warna titanium, dus lengkap…" rows={3} required aria-required="true" minLength={10} aria-invalid={error !== null && deskripsiBarang.trim().length < 10} aria-describedby={error !== null && deskripsiBarang.trim().length < 10 ? "pawn-form-error" : undefined} disabled={submitting} />
       </div>
       <div className="space-y-2">
-        <Label>Kategori</Label>
+        <Label htmlFor="pawn-category-trigger">Kategori</Label>
         <Select value={kategori} onValueChange={setKategori} disabled={submitting}>
-          <SelectTrigger className="w-full">
+          <SelectTrigger
+            id="pawn-category-trigger"
+            aria-label="Kategori barang gadai"
+            aria-required="true"
+            aria-invalid={error !== null && !kategori}
+            aria-describedby={error !== null && !kategori ? "pawn-form-error" : undefined}
+            className="w-full"
+          >
             <SelectValue placeholder="Pilih kategori barang" />
           </SelectTrigger>
           <SelectContent>
@@ -711,7 +765,7 @@ export function PawnForm({ onCreated }: { onCreated: () => void }) {
       </div>
       <div className="space-y-2">
         <Label htmlFor="alamat">Alamat lokasi barang</Label>
-        <Textarea id="alamat" value={alamatPenilaian} onChange={(e) => setAlamatPenilaian(e.target.value)} placeholder="Alamat lengkap tempat barang berada saat pemeriksaan…" rows={2} disabled={submitting} />
+        <Textarea id="alamat" value={alamatPenilaian} onChange={(e) => setAlamatPenilaian(e.target.value)} placeholder="Alamat lengkap tempat barang berada saat pemeriksaan…" rows={2} required aria-required="true" minLength={10} aria-invalid={error !== null && alamatPenilaian.trim().length < 10} aria-describedby={error !== null && alamatPenilaian.trim().length < 10 ? "pawn-form-error" : undefined} disabled={submitting} />
         <p className="text-xs leading-5 text-muted-foreground">
           Pemeriksaan dilakukan petugas di lokasi dengan pencatatan lokasi langsung
           (live location).
@@ -720,11 +774,11 @@ export function PawnForm({ onCreated }: { onCreated: () => void }) {
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">
           <Label htmlFor="nama-gadai">Nama lengkap (sesuai KTP)</Label>
-          <Input id="nama-gadai" value={namaLengkap} onChange={(e) => setNamaLengkap(e.target.value)} placeholder="Nama sesuai identitas" disabled={submitting} />
+          <Input id="nama-gadai" value={namaLengkap} onChange={(e) => setNamaLengkap(e.target.value)} placeholder="Nama sesuai identitas" autoComplete="name" required aria-required="true" minLength={3} aria-invalid={error !== null && namaLengkap.trim().length < 3} aria-describedby={error !== null && namaLengkap.trim().length < 3 ? "pawn-form-error" : undefined} disabled={submitting} />
         </div>
         <div className="space-y-2">
           <Label htmlFor="rekening-gadai">Nomor rekening tujuan</Label>
-          <Input id="rekening-gadai" inputMode="numeric" value={nomorRekening} onChange={(e) => setNomorRekening(e.target.value)} placeholder="1234567890" className="tabular-nums" disabled={submitting} />
+          <Input id="rekening-gadai" inputMode="numeric" value={nomorRekening} onChange={(e) => setNomorRekening(e.target.value)} placeholder="1234567890" className="tabular-nums" autoComplete="off" required aria-required="true" aria-invalid={error !== null && !/^\d{6,20}$/.test(nomorRekening.trim().replace(/\s+/g, ""))} aria-describedby={error !== null && !/^\d{6,20}$/.test(nomorRekening.trim().replace(/\s+/g, "")) ? "pawn-form-error" : undefined} disabled={submitting} />
         </div>
       </div>
       <div className="space-y-2">
@@ -733,7 +787,12 @@ export function PawnForm({ onCreated }: { onCreated: () => void }) {
       </div>
       {error && (
         <p
+          ref={errorRef}
+          id="pawn-form-error"
+          tabIndex={-1}
           role="alert"
+          aria-live="assertive"
+          aria-atomic="true"
           className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive"
         >
           {error}

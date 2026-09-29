@@ -70,6 +70,7 @@ export function PlafonPanel() {
         <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
         <Input
           className="pl-9"
+          aria-label="Cari nasabah berdasarkan nama atau email"
           placeholder="Cari nama atau email…"
           value={cari}
           onChange={(e) => setCari(e.target.value)}

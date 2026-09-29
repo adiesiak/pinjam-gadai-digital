@@ -203,6 +203,11 @@ export function SetoranSection({
             </DialogDescription>
           </DialogHeader>
           <Textarea
+            id="reject-deposit-reason"
+            aria-label="Alasan penolakan setoran"
+            required
+            aria-required="true"
+            aria-invalid={!depositReason.trim()}
             rows={3}
             value={depositReason}
             onChange={(e) => setDepositReason(e.target.value)}
@@ -243,6 +248,11 @@ export function SetoranSection({
             </DialogDescription>
           </DialogHeader>
           <Textarea
+            id="reject-withdrawal-reason"
+            aria-label="Alasan penolakan penarikan"
+            required
+            aria-required="true"
+            aria-invalid={!wdReason.trim()}
             rows={3}
             value={wdReason}
             onChange={(e) => setWdReason(e.target.value)}

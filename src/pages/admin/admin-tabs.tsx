@@ -103,7 +103,8 @@ export function AdminTabs({
             id="admin-tab-select"
             value={activeTab}
             onChange={(event) => setActiveTab(event.target.value)}
-            className="h-11 w-full appearance-none rounded-xl border border-slate-200 bg-white px-3 pr-10 text-sm font-semibold text-navy outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
+            aria-label="Menu operasional admin"
+            className="h-11 w-full appearance-none rounded-xl border border-slate-200 bg-white px-3 pr-10 text-sm font-semibold text-navy outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
           >
             {tabItems.map(([value, label, badge]) => (
               <option key={value} value={value}>
@@ -115,12 +116,12 @@ export function AdminTabs({
         </div>
       </div>
 
-      <TabsList className="hidden lg:sticky lg:top-20 lg:z-30 lg:flex lg:max-h-[calc(100vh-6rem)] lg:w-60 lg:shrink-0 lg:flex-col lg:items-stretch lg:gap-1 lg:overflow-y-auto lg:rounded-2xl lg:border lg:border-slate-200 lg:bg-white lg:p-2">
+      <TabsList aria-label="Navigasi panel admin" className="hidden lg:sticky lg:top-20 lg:z-30 lg:flex lg:max-h-[calc(100vh-6rem)] lg:w-60 lg:shrink-0 lg:flex-col lg:items-stretch lg:gap-1 lg:overflow-y-auto lg:rounded-2xl lg:border lg:border-slate-200 lg:bg-white lg:p-2">
         {tabItems.map(([value, label, badge, Icon]) => (
           <TabsTrigger
             key={value}
             value={value}
-            className="h-10 w-full justify-start gap-2.5 rounded-xl px-3 text-left text-xs font-medium text-navy shadow-none transition-colors hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-primary/30 data-[state=active]:gradient-primary data-[state=active]:text-white data-[state=active]:shadow-none data-[state=active]:hover:bg-none"
+            className="h-10 w-full justify-start gap-2.5 rounded-xl px-3 text-left text-xs font-medium text-navy shadow-none transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 data-[state=active]:gradient-primary data-[state=active]:text-white data-[state=active]:shadow-none data-[state=active]:hover:bg-none"
           >
             <Icon className="size-3.5 shrink-0" />
             <span className="min-w-0 flex-1 truncate">{label}</span>

@@ -52,7 +52,7 @@ export function PendanaTabNav({
           Menu dashboard
         </p>
         <Select value={activeTab} onValueChange={onTabChange}>
-          <SelectTrigger className="h-11 w-full rounded-xl bg-slate-50 text-sm">
+          <SelectTrigger aria-label="Menu dashboard Pendana" className="h-11 w-full rounded-xl bg-slate-50 text-sm">
             <SelectValue placeholder="Pilih menu" />
           </SelectTrigger>
           <SelectContent>
@@ -64,14 +64,14 @@ export function PendanaTabNav({
           </SelectContent>
         </Select>
       </div>
-      <TabsList className="hidden h-auto w-full flex-col items-stretch justify-start gap-1 overflow-visible rounded-2xl border border-slate-200 bg-white p-1.5 shadow-sm lg:flex">
+      <TabsList aria-label="Navigasi dashboard Pendana" className="hidden h-auto w-full flex-col items-stretch justify-start gap-1 overflow-visible rounded-2xl border border-slate-200 bg-white p-1.5 shadow-sm lg:flex">
         {TABS.map(([value, label, icon]) => {
           const badge = badges?.[value];
           return (
             <TabsTrigger
               key={value}
               value={value}
-              className="group h-auto w-auto flex-none shrink-0 justify-start gap-2.5 rounded-xl px-3 py-2.5 text-xs font-medium text-slate-600 transition-all hover:bg-slate-50 hover:text-slate-900 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm lg:w-full"
+              className="group h-auto w-auto flex-none shrink-0 justify-start gap-2.5 rounded-xl px-3 py-2.5 text-xs font-medium text-slate-600 transition-all hover:bg-slate-50 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm lg:w-full"
             >
               <span className="inline-flex align-middle">{icon}</span>
               <span className="whitespace-nowrap lg:whitespace-normal lg:text-left">{label}</span>

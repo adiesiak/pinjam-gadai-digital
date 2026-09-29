@@ -66,21 +66,21 @@ export function SystemConfigPanel() {
           </div>
         </div>
         <div className="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
-          <div>
+          <div id="cfg-maintenance-label">
             <p className="text-sm font-medium">Mode perawatan</p>
             <p className="mt-0.5 text-xs text-muted-foreground">Situs menampilkan pengumuman perawatan untuk nasabah.</p>
           </div>
-          <Switch checked={form.maintenanceMode} onCheckedChange={(v) => upd("maintenanceMode", v)} />
+          <Switch aria-labelledby="cfg-maintenance-label" aria-label="Mode perawatan" checked={form.maintenanceMode} onCheckedChange={(v) => upd("maintenanceMode", v)} />
         </div>
         <div className="flex items-center justify-between gap-3 rounded-2xl border border-emerald-100 bg-emerald-50/60 px-4 py-3">
-          <div>
+          <div id="cfg-location-gate-label">
             <p className="text-sm font-medium text-emerald-900">Gerbang lokasi wajib</p>
             <p className="mt-0.5 text-xs text-muted-foreground">
               Peminjam tidak bisa mengajukan, membayar cicilan, atau melunasi tanpa titik GPS
               segar di server. Dashboard memblokir layar sampai lokasi mengalir.
             </p>
           </div>
-          <Switch checked={form.lokasiWajib} onCheckedChange={(v) => upd("lokasiWajib", v)} />
+          <Switch aria-labelledby="cfg-location-gate-label" aria-label="Gerbang lokasi wajib" checked={form.lokasiWajib} onCheckedChange={(v) => upd("lokasiWajib", v)} />
         </div>
         <div>
           <Label htmlFor="cfg-lokasi-umur">Batas umur titik lokasi (menit)</Label>
@@ -146,7 +146,7 @@ export function SystemConfigPanel() {
           </p>
         </div>
         <div className="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
-          <div>
+          <div id="cfg-native-location-label">
             <p className="text-sm font-medium">Wajib aplikasi (lokasi latar belakang)</p>
             <p className="mt-0.5 text-xs leading-5 text-muted-foreground">
               Transaksi hanya dilayani bila titik lokasi <strong>terakhir</strong> datang dari
@@ -159,16 +159,18 @@ export function SystemConfigPanel() {
             </p>
           </div>
           <Switch
+            aria-labelledby="cfg-native-location-label"
+            aria-label="Wajib aplikasi native untuk lokasi latar belakang"
             checked={form.wajibAplikasiNative}
             onCheckedChange={(v) => upd("wajibAplikasiNative", v)}
           />
         </div>
         <div className="flex items-center justify-between gap-3 rounded-2xl border border-red-100 bg-red-50/60 px-4 py-3">
-          <div>
+          <div id="cfg-kill-switch-label">
             <p className="text-sm font-medium text-red-700">Kill Switch</p>
             <p className="mt-0.5 text-xs text-muted-foreground">Memblokir seluruh pengajuan pinjaman & gadai seketika.</p>
           </div>
-          <Switch checked={form.killSwitch} onCheckedChange={(v) => upd("killSwitch", v)} />
+          <Switch aria-labelledby="cfg-kill-switch-label" aria-label="Kill Switch" checked={form.killSwitch} onCheckedChange={(v) => upd("killSwitch", v)} />
         </div>
         {error && (
           <p

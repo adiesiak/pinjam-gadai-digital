@@ -109,16 +109,23 @@ export function PawnReviewDialog({
               <Label htmlFor="alasan-gadai">Alasan (wajib untuk penolakan)</Label>
               <Textarea
                 id="alasan-gadai"
+                aria-invalid={reason.trim().length === 0}
+                aria-describedby="alasan-gadai-help"
                 rows={2}
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
                 placeholder="Contoh: barang tidak dapat diverifikasi kepemilikannya…"
               />
+              <p id="alasan-gadai-help" className="text-xs text-muted-foreground">
+                Isi alasan sebelum memilih Tolak; alasan akan dicatat bersama keputusan.
+              </p>
             </div>
 
             {error && (
               <p
                 role="alert"
+                aria-live="assertive"
+                aria-atomic="true"
                 className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive"
               >
                 {error}

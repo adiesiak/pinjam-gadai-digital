@@ -13,6 +13,7 @@ import {
 
 import { StatusBadge } from "@/components/StatusBadge";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { api } from "@/convex/_generated/api";
 import { formatRupiah, parseRupiah } from "@/lib/money";
 
@@ -125,7 +126,12 @@ export function LelangTab() {
                       {p.nomorReferensi} · {p.kategori} · taksiran {formatRupiah(p.nilaiTaksiran ?? 0)} · rak {p.kodeRakVault ?? "—"}
                     </p>
                   </div>
+                  <Label htmlFor={`harga-lelang-${p._id}`} className="sr-only">
+                    Harga lelang untuk {p.nomorReferensi}
+                  </Label>
                   <Input
+                    id={`harga-lelang-${p._id}`}
+                    inputMode="numeric"
                     value={input}
                     onChange={(e) => setNilaiLelang((m) => ({ ...m, [p._id]: e.target.value }))}
                     placeholder="Harga lelang (mis. 8.000.000)"
@@ -285,7 +291,7 @@ export function LedgerTab() {
           ))}
         </div>
       </div>
-      <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Cari akun / grup / keterangan…" />
+      <Input aria-label="Cari akun, grup, atau keterangan ledger" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Cari akun / grup / keterangan…" />
       <div className="max-h-[420px] overflow-y-auto rounded-2xl border border-slate-200 bg-white">
         <table className="w-full text-left text-xs">
           <thead className="sticky top-0 bg-slate-100 text-[11px] uppercase tracking-wide text-muted-foreground">

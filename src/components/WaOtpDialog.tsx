@@ -122,7 +122,15 @@ export function WaOtpDialog({
           </Button>
 
           <div className="flex justify-center">
-            <InputOTP value={kode} onChange={setKode} maxLength={6}>
+            <InputOTP
+              value={kode}
+              onChange={setKode}
+              maxLength={6}
+              aria-label="Kode OTP WhatsApp 6 digit"
+              aria-describedby={error ? "wa-otp-error" : undefined}
+              aria-invalid={error !== null}
+              autoComplete="one-time-code"
+            >
               <InputOTPGroup>
                 {Array.from({ length: 6 }).map((_, i) => (
                   <InputOTPSlot key={i} index={i} />
@@ -131,7 +139,7 @@ export function WaOtpDialog({
             </InputOTP>
           </div>
 
-          {error && <p className="text-center text-sm text-destructive">{error}</p>}
+          {error && <p id="wa-otp-error" role="alert" aria-live="assertive" className="text-center text-sm text-destructive">{error}</p>}
           {modeUji && (
             <p className="rounded-lg bg-amber-50 border border-amber-200 p-2 text-center text-xs text-amber-700">
               Mode uji: kode tercatat di log WhatsApp admin (tab Pengaturan/WhatsApp).
