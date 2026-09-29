@@ -75,7 +75,8 @@ export function PawnReviewDialog({
           {[
             ["Pemohon", row.namaLengkap],
             ["Email", row.emailPeminjam ?? "—"],
-            ["Rekening tujuan", row.nomorRekening],
+            ["Bank / e-wallet tujuan", row.namaBank ?? "Tidak dicatat (data lama)"],
+            ["Rekening / akun tujuan", row.nomorRekening],
             ["Kategori", row.kategori],
             ["Alamat penilaian", row.alamatPenilaian],
             ["Catatan pemohon", row.catatanPeminjam ?? "—"],

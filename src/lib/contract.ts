@@ -11,10 +11,11 @@ import { formatRupiah } from "./money";
 import type { LoanQuote } from "./loan";
 
 /** Naikkan versi setiap kali syarat akad berubah secara material. */
-export const CONTRACT_TERMS_VERSION = "v1.0";
+export const CONTRACT_TERMS_VERSION = "v1.1";
 
 export type ContractParty = {
   namaLengkap: string;
+  namaBank?: string | null;
   nomorRekening: string;
   nik?: string | null;
   email?: string | null;
@@ -120,6 +121,11 @@ function blokPlatform(): string {
   </div>`;
 }
 
+/** Catatan yang berlaku untuk kontrak pinjaman dan gadai. */
+function blokBatasTransaksi(): string {
+  return `<p><strong>Catatan penggunaan:</strong> Dokumen ini merekam data dan persetujuan yang dimasukkan ke aplikasi PINDAI serta perhitungan pada ledger internal. Dokumen/status aplikasi ini bukan bukti transfer atau penerimaan dana, pembayaran ke merchant, penyerahan/penitipan/pengembalian barang, verifikasi Pendana atau pihak lain, maupun bukti izin dan kepatuhan hukum. Transfer, penyerahan barang, status perizinan, dan keabsahan perjanjian perlu diverifikasi secara terpisah.</p>`;
+}
+
 /**
  * Rangkai teks HTML perjanjian pinjaman.
  *
@@ -139,49 +145,50 @@ export function buildPinjamanContract(
   const tgl = fmtTanggal(meta.timestampPada);
   const pasalTenor =
     bulanan === null
-      ? `<li>Tenor: <strong>${tenorHari} hari</strong> sejak dana dicairkan.</li>`
-      : `<li>Tenor: <strong>${bulanan.tenorBulan} bulan</strong> sejak dana dicairkan (skema bulanan).</li>`;
+      ? `<li>Tenor perhitungan simulasi: <strong>${tenorHari} hari</strong> sejak tanggal status pendanaan dicatat di aplikasi.</li>`
+      : `<li>Tenor perhitungan simulasi: <strong>${bulanan.tenorBulan} bulan</strong> (1 bulan = 30 hari) sejak tanggal status pendanaan dicatat di aplikasi.</li>`;
   const pasalFinansial =
     bulanan === null
       ? `
       <li>Biaya admin: ${formatRupiah(quote.biayaAdmin)}.</li>
       <li>Biaya platform: ${formatRupiah(quote.biayaPlatform)}.</li>
       <li>Total potongan di muka: ${formatRupiah(quote.totalPotonganDiMuka)}.</li>
-      <li><strong>Dana bersih diterima Peminjam: ${formatRupiah(quote.danaBersihDitransfer)} (95% dari pokok)</strong>.</li>
+      <li><strong>Perhitungan dana bersih pada simulasi: ${formatRupiah(quote.danaBersihDitransfer)} (95% dari pokok)</strong>; bukan bukti dana ditransfer atau diterima.</li>
       <li>Bunga: ${formatRupiah(quote.bunga)}.</li>
       <li><strong>Total kewajiban pelunasan: ${formatRupiah(quote.totalKewajibanPelunasan)} (130% dari pokok)</strong>.</li>`
       : `
       <li>Uang muka (DP): ${formatRupiah(bulanan.dp)} — 0% sehingga seluruh pokok dibiayai.</li>
       <li>Biaya layanan platform 3% dari pokok: ${formatRupiah(bulanan.biayaLayananTotal)}, diamortisasi rata ${formatRupiah(bulanan.biayaLayananPerBulan)} per bulan.</li>
-      <li><strong>Dana diterima Peminjam: ${formatRupiah(bulanan.pokokDibiayai)} (100% pokok, tanpa potongan di muka)</strong>.</li>
+      <li><strong>Perhitungan dana bersih pada simulasi: ${formatRupiah(bulanan.pokokDibiayai)} (100% pokok, tanpa potongan di muka)</strong>; bukan bukti dana ditransfer atau diterima.</li>
       <li>Bunga/margin menurun: ${bulanan.persenBungaPerBulan}% per bulan dari pokok; total bunga ${formatRupiah(bulanan.bungaTotal)}.</li>
-      <li><strong>Cicilan ${formatRupiah(bulanan.cicilanPerBulan)} per bulan selama ${bulanan.tenorBulan} bulan; total kewajiban pelunasan: ${formatRupiah(bulanan.totalPengembalian)}</strong>.</li>`;
+      <li><strong>Ilustrasi cicilan ${formatRupiah(bulanan.cicilanPerBulan)} per bulan selama ${bulanan.tenorBulan} bulan; total simulasi: ${formatRupiah(bulanan.totalPengembalian)}</strong>. Jadwal bulanan hanya ilustrasi; aplikasi saat ini mencatat pelunasan penuh sekaligus pada akhir tenor, bukan cicilan bulanan atau pembayaran sebagian.</li>`;
   const pasalKewajiban =
     bulanan === null
-      ? `Peminjam wajib melunasi total kewajiban paling lambat pada hari ke-${tenorHari}. Keterlambatan dikenakan denda sesuai ketentuan Platform yang tercantum pada aplikasi.`
-      : `Peminjam wajib melunasi setiap cicilan bulanan tepat waktu, paling lambat pada akhir bulan ke-${bulanan.tenorBulan}. Pelunasan dipercepat dihitung dari sisa total kewajiban. Keterlambatan dikenakan denda sesuai ketentuan Platform yang tercantum pada aplikasi.`;
+      ? `Dalam simulasi ini, pelunasan penuh dicatat sekaligus paling lambat pada hari ke-${tenorHari} dari tanggal status pendanaan dicatat. Aplikasi tidak memproses atau memverifikasi transfer uang. Denda keterlambatan yang ditampilkan merupakan perhitungan ledger internal sesuai ketentuan yang terlihat di aplikasi.`
+      : `Jadwal cicilan bulanan merupakan ilustrasi perhitungan, bukan jadwal pembayaran yang dapat diproses aplikasi. Sistem saat ini hanya mencatat pelunasan penuh sekaligus pada akhir tenor ${bulanan.tenorBulan} bulan; tidak ada pencatatan cicilan sebagian. Denda keterlambatan yang ditampilkan merupakan perhitungan ledger internal sesuai ketentuan yang terlihat di aplikasi.`;
   return `
   <div class="contract">
     <h1>${judulContract("pinjaman")}</h1>
     <p class="nomor">Nomor: ${escapeHtml(nomorContract("pinjaman", meta.nomorReferensi))} · Syarat ${CONTRACT_TERMS_VERSION}</p>
+    ${blokBatasTransaksi()}
 
-    <p>Perjanjian ini dibuat pada tanggal <strong>${tgl}</strong> antara:</p>
-    <p><strong>PINJAM GADAI DIGITAL ("Platform")</strong> — penyelenggara layanan pinjam-gadai digital, selaku pengelola pendanaan dari para <strong>Pendana</strong> terverifikasi;</p>
+    <p>Dokumen catatan pinjaman ini dibuat pada tanggal <strong>${tgl}</strong> antara:</p>
+    <p><strong>PINJAM GADAI DIGITAL ("Platform")</strong> — aplikasi untuk pengajuan dan pencatatan internal;</p>
     <p>dan</p>
-    <p><strong>${escapeHtml(peminjam.namaLengkap.toUpperCase())} ("Peminjam")</strong>${peminjam.nik ? `, NIK ${escapeHtml(peminjam.nik)}` : ""}${peminjam.email ? `, email ${escapeHtml(peminjam.email)}` : ""}, rekening tujuan pencairan ${escapeHtml(peminjam.nomorRekening)}.</p>
+    <p><strong>${escapeHtml(peminjam.namaLengkap.toUpperCase())} ("Peminjam")</strong>${peminjam.nik ? `, NIK ${escapeHtml(peminjam.nik)}` : ""}${peminjam.email ? `, email ${escapeHtml(peminjam.email)}` : ""}, bank/e-wallet dan rekening/akun tujuan yang dicatat: <strong>${peminjam.namaBank ? `${escapeHtml(peminjam.namaBank)} · ` : ""}${escapeHtml(peminjam.nomorRekening)}</strong>. Data tujuan bukan bukti transfer.</p>
 
     <h2>Pasal 1 — Objek Pendanaan</h2>
     <ol>
       <li>Pokok pinjaman: <strong>${formatRupiah(quote.pokok)}</strong>.</li>
       ${pasalTenor}
-      <li>Dana berasal dari Pendana terverifikasi melalui mekanisme pendanaan Platform.</li>
+      <li>Status pendanaan yang tampil di aplikasi merupakan pencatatan internal dan tidak memverifikasi identitas atau sumber dana Pendana maupun terjadinya transfer.</li>
     </ol>
 
     <h2>Pasal 2 — Rincian Keuangan</h2>
     <ol>${pasalFinansial}
     </ol>
 
-    <h2>Pasal 3 — Kewajiban Peminjam</h2>
+    <h2>Pasal 3 — Catatan Pelunasan</h2>
     <p>${pasalKewajiban}</p>
 
     <h2>Pasal 4 — Persetujuan Syarat dan Ketentuan</h2>
@@ -221,17 +228,18 @@ export function buildGadaiContract(
     <h1>${judulContract("gadai")}</h1>
     <p class="nomor">Nomor: ${escapeHtml(nomorContract("gadai", meta.nomorReferensi))} · Syarat ${CONTRACT_TERMS_VERSION}</p>
 
-    <p>Akad gadai ini dibuat pada tanggal <strong>${tgl}</strong> antara:</p>
-    <p><strong>PINJAM GADAI DIGITAL ("Platform")</strong> — pengelola gudang brankas dan layanan gadai digital;</p>
+    ${blokBatasTransaksi()}
+    <p>Dokumen catatan gadai ini dibuat pada tanggal <strong>${tgl}</strong> antara:</p>
+    <p><strong>PINJAM GADAI DIGITAL ("Platform")</strong> — aplikasi untuk pengajuan dan pencatatan internal gadai;</p>
     <p>dan</p>
-    <p><strong>${escapeHtml(peminjam.namaLengkap.toUpperCase())} ("Penggadai/Peminjam")</strong>${peminjam.nik ? `, NIK ${escapeHtml(peminjam.nik)}` : ""}, rekening tujuan pencairan ${escapeHtml(peminjam.nomorRekening)}.</p>
+    <p><strong>${escapeHtml(peminjam.namaLengkap.toUpperCase())} ("Penggadai/Peminjam")</strong>${peminjam.nik ? `, NIK ${escapeHtml(peminjam.nik)}` : ""}, bank/e-wallet dan rekening/akun tujuan yang dicatat: <strong>${peminjam.namaBank ? `${escapeHtml(peminjam.namaBank)} · ` : ""}${escapeHtml(peminjam.nomorRekening)}</strong>. Data tujuan bukan bukti transfer.</p>
 
     <h2>Pasal 1 — Objek Gadai</h2>
     <ol>
       <li>Deskripsi barang: <strong>${escapeHtml(gadai.deskripsiBarang)}</strong>.</li>
       <li>Kategori: ${escapeHtml(gadai.kategori)}.</li>
       <li>Kondisi fisik: ${escapeHtml(gadai.kondisiFisik || "dinilai petugas")}.</li>
-      <li>Disimpan di gudang brankas, kode rak <strong>${escapeHtml(gadai.kodeRakVault)}</strong>.</li>
+      <li>Kode/referensi lokasi yang dicatat aplikasi: <strong>${escapeHtml(gadai.kodeRakVault)}</strong>. Kode ini bukan tanda terima atau bukti bahwa barang telah diterima maupun dititipkan secara fisik.</li>
     </ol>
 
     <h2>Pasal 2 — Penilaian, LTV, dan Rincian Pendanaan</h2>
@@ -243,9 +251,9 @@ export function buildGadaiContract(
 
     <h2>Pasal 3 — Hak dan Kewajiban</h2>
     <ol>
-      <li>Barang disimpan di tempat penyimpanan Platform sesuai proses yang berlaku selama masa gadai.</li>
-      <li>Barang dikembalikan setelah seluruh kewajiban (pokok dan sewa modal) dilunasi.</li>
-      <li>Bila kewajiban tidak diselesaikan, barang dapat diproses sesuai ketentuan yang berlaku; perhitungan hasilnya mengikuti rincian penyelesaian pada aplikasi.</li>
+      <li>Status, kondisi, dan kode lokasi dalam aplikasi adalah catatan internal; aplikasi tidak memverifikasi penerimaan, lokasi fisik, atau keamanan penyimpanan barang.</li>
+      <li>Penyerahan, penitipan, dan pengembalian perlu dikonfirmasi langsung dengan pihak yang bertanggung jawab serta didukung tanda terima terpisah. Status lunas/siap diambil di aplikasi bukan bukti barang telah dikembalikan.</li>
+      <li>Simulasi penyelesaian atau lelang di aplikasi bukan pelaksanaan lelang, keputusan hukum, maupun jaminan hasil/ pengembalian barang.</li>
     </ol>
 
     <h2>Pasal 4 — Persetujuan Syarat dan Ketentuan</h2>

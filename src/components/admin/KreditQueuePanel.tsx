@@ -1,6 +1,6 @@
 import { useMutation, useQuery } from "convex/react";
-import { CheckCircle2, Loader2, Send, ShoppingBag, XCircle } from "lucide-react";
-import { useState } from "react";
+import { CheckCircle2, Loader2, Search, Send, ShoppingBag, XCircle } from "lucide-react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
@@ -72,6 +72,25 @@ export function KreditQueuePanel() {
   const tolak = useMutation(api.kredit.tolakKreditBarang);
   const [alasan, setAlasan] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
+  const filteredRows = useMemo(() => {
+    const needle = search.trim().toLowerCase();
+    if (!needle) return rows ?? [];
+    return (rows ?? []).filter((row) =>
+      [
+        row.namaLengkap,
+        row.emailPemohon ?? "",
+        row.nomorReferensi,
+        row.namaBarang,
+        row.merchant,
+        row.kategori,
+        row.catatanPeminjam ?? "",
+        row.catatanReview ?? "",
+        row.nomorRekening,
+        row.nik,
+      ].some((value) => value.toLowerCase().includes(needle)),
+    );
+  }, [rows, search]);
 
   if (rows === undefined) {
     return (
@@ -81,10 +100,9 @@ export function KreditQueuePanel() {
     );
   }
 
-  const menunggu = rows.filter((r) => r.status === "diajukan" || r.status === "sedang_ditinjau");
-  // Riwayat = pengajuan yang sudah tidak menunggu keputusan (termasuk yang
-  // sudah didanai penuh oleh Pendana).
-  const selesai = rows.filter(
+  const menunggu = filteredRows.filter((r) => r.status === "diajukan" || r.status === "sedang_ditinjau");
+  // Riwayat = pengajuan yang sudah tidak menunggu keputusan.
+  const selesai = filteredRows.filter(
     (r) => r.status !== "diajukan" && r.status !== "sedang_ditinjau",
   );
 
@@ -127,11 +145,28 @@ export function KreditQueuePanel() {
 
   return (
     <div className="space-y-8">
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          aria-label="Cari pengajuan kredit barang"
+          value={search}
+          onChange={(event) => setSearch(event.target.value)}
+          placeholder="Cari nama pemohon, email, referensi, barang, merchant, atau catatan…"
+          className="pl-9"
+        />
+      </div>
+      {filteredRows.length === 0 ? (
+        <p className="rounded-2xl border border-dashed border-slate-200 bg-white px-5 py-8 text-center text-sm text-muted-foreground">
+          Tidak ada pengajuan yang cocok dengan pencarian.
+        </p>
+      ) : (
+      <>
       <section>
         <h2 className="text-sm font-semibold">Menunggu keputusan ({menunggu.length})</h2>
         <p className="mt-1 text-xs leading-5 text-muted-foreground">
-          Periksa barang, harga di merchant, uang muka, dan tenor sebelum menyetujui. Persetujuan
-          meneruskan proses pembayaran ke merchant mitra.
+          Tinjau pemohon, barang, tautan, harga, uang muka, dan tenor. Persetujuan hanya mencatat
+          keputusan internal PINDAI; pembelian barang, pembayaran ke merchant, dan transfer dana
+          tidak dijalankan atau diverifikasi oleh aplikasi.
         </p>
         {menunggu.length === 0 ? (
           <p className="mt-4 rounded-2xl border border-dashed border-slate-200 bg-white/60 px-5 py-8 text-center text-sm text-muted-foreground">
@@ -143,10 +178,9 @@ export function KreditQueuePanel() {
               <li key={r._id} className="rounded-2xl border border-slate-200 bg-white p-5">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="text-sm font-semibold">{r.namaBarang}</p>
+                    <p className="text-sm font-semibold">{r.namaLengkap}</p>
                     <p className="mt-1 text-xs text-muted-foreground">
-                      {r.nomorReferensi} · {formatDate(r._creationTime)} · {r.merchant} ·{" "}
-                      {r.kategori}
+                      {r.emailPemohon ?? "tanpa email"} · {r.nomorReferensi} · {r.namaBarang} · {r.merchant} · {r.kategori} · {formatDate(r._creationTime)}
                     </p>
                   </div>
                   <KreditStatusBadge status={r.status} />
@@ -195,7 +229,7 @@ export function KreditQueuePanel() {
                     NIK: <span className="tabular-nums text-navy">{r.nik}</span>
                   </p>
                   <p>
-                    Rekening: <span className="tabular-nums text-navy">{r.nomorRekening}</span>
+                    Rekening tujuan tercatat: <span className="tabular-nums text-navy">{r.nomorRekening}</span>
                   </p>
                   <p>
                     WhatsApp: <span className="tabular-nums text-navy">{r.nomorWhatsApp}</span>
@@ -273,10 +307,10 @@ export function KreditQueuePanel() {
               >
                 <div className="min-w-0">
                   <p className="truncate text-sm font-medium">
-                    {r.namaBarang} — {formatRupiah(r.hargaBarang)}
+                    {r.namaLengkap} — {r.namaBarang} ({formatRupiah(r.hargaBarang)})
                   </p>
                   <p className="mt-1 truncate text-xs text-muted-foreground">
-                    {r.nomorReferensi} · {r.namaLengkap} · {r.merchant} · tenor {r.tenorBulan} bulan
+                    {r.nomorReferensi} · {r.emailPemohon ?? "tanpa email"} · {r.merchant} · tenor {r.tenorBulan} bulan
                     {r.status !== "disetujui" && ` · cicilan ${r.dibayarBulan}/${r.totalBulan}`}
                     {r.catatanReview !== null && ` · ${r.catatanReview}`}
                   </p>
@@ -287,6 +321,8 @@ export function KreditQueuePanel() {
           </ul>
         )}
       </section>
+      </>
+      )}
     </div>
   );
 }

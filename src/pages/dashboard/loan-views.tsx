@@ -1,5 +1,5 @@
 import { useMutation } from "convex/react";
-import { ArrowRight, CalendarClock, Loader2, Send, Wallet } from "lucide-react";
+import { AlertCircle, ArrowRight, CalendarClock, Loader2, Send, Wallet } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -7,14 +7,17 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Progress } from "@/components/ui/progress";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { formatRupiah } from "@/lib/money";
@@ -142,8 +145,6 @@ function ActiveLoanCard({
   const q = loan.quote;
   const bulanan = loan.tenorBulan !== null;
   const terlambat = (loan.pelunasan?.hariTerlambat ?? 0) > 0;
-  const [payOpen, setPayOpen] = useState(false);
-
   return (
     <article className="card-lift rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -225,6 +226,12 @@ function ActiveLoanCard({
         )}
       </dl>
 
+      {bulanan && (
+        <p className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-900">
+          Jadwal cicilan bulanan ini hanya simulasi. Sistem saat ini mencatat seluruh pelunasan sekaligus pada akhir tenor; tidak ada pembayaran parsial atau transfer bank/e-wallet terhubung.
+        </p>
+      )}
+
       {loan.pelunasan && (
         <div className="mt-5">
           <div className="flex flex-wrap items-baseline justify-between gap-2 text-xs">
@@ -262,10 +269,12 @@ function ActiveLoanCard({
       )}
 
       <div className="mt-5 flex flex-wrap gap-2">
-        <Button onClick={() => setPayOpen(true)}>
-          <Wallet className="mr-1.5 size-4" />
-          Bayar Angsuran / Pelunasan
-        </Button>
+        <RepaymentSimulationAction
+          loanId={loan._id}
+          total={loan.pelunasan?.totalKewajibanDenganPenalti ?? loan.totalKewajiban}
+          denda={loan.pelunasan?.dendaTerlambat ?? 0}
+          variant="default"
+        />
         <Button asChild variant="outline">
           <a
             href="https://wa.me/6281234567890?text=Halo%20CS%20PINDAI%2C%20saya%20ingin%20bertanya%20tentang%20pinjaman%20saya."
@@ -277,157 +286,74 @@ function ActiveLoanCard({
         </Button>
       </div>
 
-      <Dialog open={payOpen} onOpenChange={setPayOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Bayar Angsuran / Pelunasan</DialogTitle>
-            <DialogDescription>
-              Pilih metode pembayaran simulasi — QRIS atau Virtual Account.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-3">
-            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-center">
-              <p className="text-xs text-muted-foreground">Total kewajiban saat ini</p>
-              <p className="mt-1 text-xl font-semibold tabular-nums">
-                {formatRupiah(loan.pelunasan?.totalKewajibanDenganPenalti ?? loan.totalKewajiban)}
-              </p>
-              {terlambat && (
-                <p className="mt-1 text-xs text-destructive">
-                  termasuk denda {formatRupiah(loan.pelunasan?.dendaTerlambat ?? 0)}
-                </p>
-              )}
-            </div>
-            <PaySimTabs
-              total={loan.pelunasan?.totalKewajibanDenganPenalti ?? loan.totalKewajiban}
-              loanRef={loan.nomorReferensi}
-            />
-          </div>
-        </DialogContent>
-      </Dialog>
+
     </article>
   );
 }
 
-/** Simulasi pembayaran: QRIS + Virtual Account (angka simulasi, tanpa aset). */
-function PaySimTabs({ total, loanRef }: { total: number; loanRef: string }) {
-  const vaNumber = `8808${loanRef.replace(/\D/g, "").slice(-8).padStart(8, "0")}`;
-  return (
-    <Tabs defaultValue="qris">
-      <TabsList className="grid w-full grid-cols-2 rounded-full bg-slate-100 p-1">
-        <TabsTrigger value="qris" className="rounded-full text-xs">
-          QRIS
-        </TabsTrigger>
-        <TabsTrigger value="va" className="rounded-full text-xs">
-          Virtual Account
-        </TabsTrigger>
-      </TabsList>
-      <TabsContent value="qris" className="mt-4">
-        <div className="flex flex-col items-center gap-2 rounded-2xl border border-slate-200 p-5">
-          <QrSim total={total} />
-          <p className="text-xs text-muted-foreground">
-            Pindai QR simulasi ini — pembayaran nyata dicatat saat tim mengonfirmasi.
-          </p>
-        </div>
-      </TabsContent>
-      <TabsContent value="va" className="mt-4">
-        <div className="rounded-2xl border border-slate-200 p-4 text-center">
-          <p className="text-xs text-muted-foreground">Nomor Virtual Account (simulasi)</p>
-          <p className="mt-1 font-mono text-lg font-semibold tracking-wider">{vaNumber}</p>
-          <Button
-            size="sm"
-            variant="outline"
-            className="mt-3"
-            onClick={() => {
-              void navigator.clipboard.writeText(vaNumber);
-              toast.success("Nomor VA disalin.");
-            }}
-          >
-            Salin nomor
-          </Button>
-        </div>
-      </TabsContent>
-    </Tabs>
-  );
-}
+/** Tombol konfirmasi pencatatan pelunasan simulasi internal PINDAI. */
+function RepaymentSimulationAction({
+  loanId,
+  total,
+  denda,
+  variant = "outline",
+}: {
+  loanId: Id<"loans">;
+  total: number;
+  denda: number;
+  variant?: "default" | "outline";
+}) {
+  const repayLoan = useMutation(api.loans.repayLoan);
+  const [busy, setBusy] = useState(false);
 
-/** Deret pseudo-acak deterministik (LCG) — murni, tanpa state global. */
-function pseudoRandomGrid(rows: number, cols: number, seed: number): boolean[][] {
-  let state = seed;
-  const rand = () => {
-    state = (state * 48271) % 2147483647;
-    return state / 2147483647;
+  const catatPelunasan = async () => {
+    setBusy(true);
+    try {
+      const hasil = await repayLoan({ loanId });
+      toast.success(
+        hasil.dendaTerlambat > 0
+          ? `Pelunasan simulasi tercatat ${formatRupiah(hasil.totalDibayar)}, termasuk denda ${formatRupiah(hasil.dendaTerlambat)}.`
+          : `Pelunasan simulasi tercatat ${formatRupiah(hasil.totalDibayar)}.`,
+      );
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Pencatatan simulasi gagal.");
+    } finally {
+      setBusy(false);
+    }
   };
-  return Array.from({ length: rows }, () =>
-    Array.from({ length: cols }, () => rand() > 0.5),
-  );
-}
 
-/** QR dekoratif deterministik (simulasi) — murni visual, tanpa pustaka eksternal. */
-function QrSim({ total }: { total: number }) {
-  const cells = 21;
-  const seed = total % 2147483647 || 1;
-  const grid = pseudoRandomGrid(cells, cells, seed);
-  const finder = (r0: number, c0: number) => {
-    for (let r = 0; r < 7; r++)
-      for (let c = 0; c < 7; c++) {
-        const edge = r === 0 || r === 6 || c === 0 || c === 6;
-        const core = r >= 2 && r <= 4 && c >= 2 && c <= 4;
-        grid[r0 + r][c0 + c] = edge || core;
-      }
-  };
-  finder(0, 0);
-  finder(0, cells - 7);
-  finder(cells - 7, 0);
-  const size = 9;
   return (
-    <svg
-      width={216}
-      height={216}
-      viewBox={`0 0 ${cells * size} ${cells * size}`}
-      className="rounded-xl bg-white p-1"
-      role="img"
-      aria-label="QRIS simulasi"
-    >
-      {grid.map((row, r) =>
-        row.map((on, c) =>
-          on ? (
-            <rect
-              key={`${r}-${c}`}
-              x={c * size}
-              y={r * size}
-              width={size}
-              height={size}
-              fill="#1c1a15"
-              rx={1.5}
-            />
-          ) : null,
-        ),
-      )}
-    </svg>
+    <AlertDialog>
+      <AlertDialogTrigger asChild>
+        <Button size="sm" variant={variant} disabled={busy}>
+          <Wallet className="mr-1.5 size-4" /> Catat pelunasan simulasi
+        </Button>
+      </AlertDialogTrigger>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Konfirmasi pelunasan simulasi</AlertDialogTitle>
+          <AlertDialogDescription>
+            Ini hanya mengubah status dan jurnal internal PINDAI. Tidak ada transfer bank/e-wallet, QRIS, atau Virtual Account yang dilakukan atau diverifikasi. Tombol ini mencatat seluruh kewajiban sekaligus — bukan cicilan sebagian.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
+          <p className="flex items-center gap-2 font-semibold"><AlertCircle className="size-4 shrink-0" /> Aksi simulasi — bukan bukti pembayaran</p>
+          <p className="mt-2">Jumlah yang akan dicatat: <strong className="tabular-nums">{formatRupiah(total)}</strong>{denda > 0 ? ` (termasuk denda ${formatRupiah(denda)})` : ""}.</p>
+        </div>
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={busy}>Batal</AlertDialogCancel>
+          <AlertDialogAction disabled={busy} onClick={(event) => { event.preventDefault(); void catatPelunasan(); }}>
+            {busy && <Loader2 className="mr-2 size-4 animate-spin" />}
+            Ya, catat pelunasan simulasi
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 }
 
 /** Tab 2 — Jadwal angsuran. */
 export function ScheduleSection({ schedule }: { schedule: LoanScheduleRow[] }) {
-  const repayLoan = useMutation(api.loans.repayLoan);
-  const [busyId, setBusyId] = useState<Id<"loans"> | null>(null);
-
-  const bayar = async (id: Id<"loans">) => {
-    setBusyId(id);
-    try {
-      const r = await repayLoan({ loanId: id });
-      toast.success(
-        r.dendaTerlambat > 0
-          ? `Pelunasan tercatat — total dibayar ${formatRupiah(r.totalDibayar)} (termasuk denda ${formatRupiah(r.dendaTerlambat)}).`
-          : `Pelunasan tercatat — total dibayar ${formatRupiah(r.totalDibayar)}. Terima kasih!`,
-      );
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Pelunasan gagal.");
-    } finally {
-      setBusyId(null);
-    }
-  };
-
   if (schedule.length === 0) {
     return (
       <EmptyState
@@ -458,15 +384,20 @@ export function ScheduleSection({ schedule }: { schedule: LoanScheduleRow[] }) {
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
                 <p className="text-sm font-semibold">
-                  Angsuran #{idx + 1} —{" "}
+                  Pinjaman #{idx + 1} —{" "}
                   <span className="font-mono text-xs text-muted-foreground">{l.nomorReferensi}</span>
                 </p>
                 <p className="mt-1 text-xs text-muted-foreground">
                   Pokok {formatRupiah(l.pokokPinjaman)} · Bunga{" "}
-                  {l.tenorBulan !== null ? "menurun" : "(30%)"}{" "}
+                  {l.tenorBulan !== null ? "menurun (simulasi)" : "flat (30%)"}{" "}
                   {formatRupiah(l.imbalHasilTotal)} · tenor{" "}
                   {l.tenorBulan !== null ? `${l.tenorBulan} bulan` : `${l.tenorHari} hari`}
                 </p>
+                {l.tenorBulan !== null && (
+                  <p className="mt-1 max-w-xl text-xs leading-5 text-amber-800">
+                    Jadwal cicilan bulanan yang ditampilkan adalah ilustrasi. Sistem saat ini hanya mencatat pelunasan penuh sekaligus saat jatuh tempo.
+                  </p>
+                )}
               </div>
               <ScheduleBadge state={state} />
             </div>
@@ -505,15 +436,13 @@ export function ScheduleSection({ schedule }: { schedule: LoanScheduleRow[] }) {
               )}
             </dl>
             {!lunas && (
-              <Button
-                size="sm"
-                className="mt-4"
-                disabled={busyId !== null}
-                onClick={() => void bayar(l._id)}
-              >
-                {busyId === l._id ? <Loader2 className="mr-1.5 size-3.5 animate-spin" /> : null}
-                Bayar Sekarang
-              </Button>
+              <div className="mt-4">
+                <RepaymentSimulationAction
+                  loanId={l._id}
+                  total={l.pelunasan?.totalKewajibanDenganPenalti ?? l.totalKewajiban}
+                  denda={l.pelunasan?.dendaTerlambat ?? 0}
+                />
+              </div>
             )}
           </li>
         );

@@ -1,9 +1,9 @@
 /**
  * Tes kebijakan plafon tunai dan batas kredit barang (convex-test + vitest).
  *
- * Tunai mulai dari Rp1 juta; setelah pelunasan penuh pinjaman tunai pokok
- * minimal Rp1 juta, plafon otomatis menjadi Rp10 juta. Override admin tetap
- * didahulukan. Kredit barang memiliki batas pokok Rp10 juta sendiri dan tenor
+ * Tunai mulai dari Rp1 juta; setiap pelunasan penuh pinjaman tunai pokok
+ * minimal Rp1 juta yang tepat waktu menambah plafon Rp1 juta hingga Rp10 juta.
+ * Override admin tetap didahulukan. Kredit barang memiliki batas pokok Rp10 juta sendiri dan tenor
  * pengajuan 1/3/6 bulan, tanpa mewarisi plafon tunai.
  *
  * Tes repayment menanam pinjaman didanai langsung ke DB agar tidak bergantung
@@ -31,15 +31,28 @@ async function siapkanPengguna(
   subject: string,
   opts: { email: string; role: "peminjam" | "admin" },
 ): Promise<{ sesi: Sesi; userId: Id<"users"> }> {
-  const userId = await t.mutation(async (ctx) => {
-    return ctx.db.insert("users", {
+  const { userId, authSessionId } = await t.mutation(async (ctx) => {
+    const userId = await ctx.db.insert("users", {
       email: opts.email,
       name: subject,
       emailVerificationTime: Date.now(),
       role: opts.role,
     });
+    if (opts.role !== "admin") return { userId, authSessionId: null };
+
+    const authSessionId = await ctx.db.insert("authSessions", {
+      userId,
+      expirationTime: Date.now() + 30 * 86_400_000,
+    });
+    await ctx.db.insert("mfaSettings", {
+      userId,
+      totpSecret: "test-secret",
+      totpVerifiedAuthSessionIds: [authSessionId],
+    });
+    return { userId, authSessionId };
   });
-  return { sesi: t.withIdentity({ subject: userId, name: subject }) as never, userId };
+  const identitySubject = authSessionId === null ? userId : `${userId}|${authSessionId}`;
+  return { sesi: t.withIdentity({ subject: identitySubject, name: subject }) as never, userId };
 }
 
 /** Titik Jakarta — gerbang lokasi wajib harus lolos sebelum plafon dicek. */
@@ -90,6 +103,7 @@ async function ajukanTunai(
     pokokPinjaman,
     tujuan: "Modal usaha kecil",
     namaLengkap: "Rani Peminjam",
+    namaBank: "BCA",
     nomorRekening: "1234567890",
     tenorHari: 30,
     tenorBulan: 3,
@@ -109,6 +123,7 @@ async function siapkanPinjamanTunaiDidanai(
   t: Tx,
   userId: Id<"users">,
   pokokPinjaman: number,
+  hariLalu = 0,
 ): Promise<Id<"loans">> {
   return t.run(async (ctx) => {
     const now = Date.now();
@@ -131,11 +146,12 @@ async function siapkanPinjamanTunaiDidanai(
       pokokPinjaman,
       tujuan: "Modal usaha kecil",
       namaLengkap: "Rani Peminjam",
+      namaBank: "BCA",
       nomorRekening: "1234567890",
       status: "didanai",
       nomorReferensi: `PGD-SEED-${pokokPinjaman}`,
       tenorHari: 30,
-      didanaiPada: now,
+      didanaiPada: now - hariLalu * 86_400_000,
     });
     await ctx.db.insert("fundings", {
       loanId,
@@ -179,7 +195,7 @@ describe("plafon pinjaman per nasabah", () => {
     );
   });
 
-  it("menaikkan plafon otomatis setelah pinjaman tunai Rp1 juta lunas penuh", async () => {
+  it("menaikkan plafon Rp1 juta setelah pinjaman tunai Rp1 juta lunas tepat waktu", async () => {
     const t = convexTest(schema, modules);
     const { sesi: peminjam, userId } = await siapkanPengguna(t, "lina", {
       email: "lina@pindai.test",
@@ -191,15 +207,30 @@ describe("plafon pinjaman per nasabah", () => {
     const hasil = await peminjam.mutation(api.loans.repayLoan, { loanId });
 
     expect(hasil.totalDibayar).toBe(1_300_000);
-    expect(await peminjam.query(api.lokasi.plafonSaya, {})).toBe(10_000_000);
+    expect(await peminjam.query(api.lokasi.plafonSaya, {})).toBe(2_000_000);
     const keadaan = await t.run(async (ctx) => ({
       user: await ctx.db.get(userId),
       loan: await ctx.db.get(loanId),
       audit: await ctx.db.query("auditLog").collect(),
     }));
-    expect(keadaan.user?.plafonPinjamanNaikPada).toBeDefined();
+    expect(keadaan.user?.plafonPinjamanNaikPada).toBeUndefined();
     expect(keadaan.loan?.status).toBe("lunas");
     expect(keadaan.audit.some((row) => row.aksi === "plafon_naik_otomatis")).toBe(true);
+  });
+
+  it("pelunasan setelah jatuh tempo tidak menaikkan plafon", async () => {
+    const t = convexTest(schema, modules);
+    const { sesi: peminjam, userId } = await siapkanPengguna(t, "maya-lambat", {
+      email: "maya-lambat@pindai.test",
+      role: "peminjam",
+    });
+    const loanId = await siapkanPinjamanTunaiDidanai(t, userId, 1_000_000, 31);
+
+    await peminjam.mutation(api.loans.repayLoan, { loanId });
+
+    expect(await peminjam.query(api.lokasi.plafonSaya, {})).toBe(PLAFON_DEFAULT);
+    const user = await t.run((ctx) => ctx.db.get(userId));
+    expect(user?.plafonPinjamanNaikPada).toBeUndefined();
   });
 
   it("pelunasan pinjaman di bawah Rp1 juta tidak menaikkan plafon", async () => {
@@ -217,7 +248,7 @@ describe("plafon pinjaman per nasabah", () => {
     expect(user?.plafonPinjamanNaikPada).toBeUndefined();
   });
 
-  it("override admin tetap berlaku sesudah pelunasan, reset kembali ke otomatis Rp10 juta", async () => {
+  it("override admin tetap berlaku sesudah pelunasan, reset kembali ke plafon progresif", async () => {
     const t = convexTest(schema, modules);
     const { sesi: peminjam, userId } = await siapkanPengguna(t, "nina", {
       email: "nina@pindai.test",
@@ -234,8 +265,8 @@ describe("plafon pinjaman per nasabah", () => {
     expect(await peminjam.query(api.lokasi.plafonSaya, {})).toBe(4_000_000);
 
     const reset = await admin.mutation(api.admin.setPlafonPeminjam, { userId, plafon: null });
-    expect(reset.plafonEfektif).toBe(10_000_000);
-    expect(await peminjam.query(api.lokasi.plafonSaya, {})).toBe(10_000_000);
+    expect(reset.plafonEfektif).toBe(2_000_000);
+    expect(await peminjam.query(api.lokasi.plafonSaya, {})).toBe(2_000_000);
   });
 
   it("admin menaikkan plafon → pengajuan yang sama dilayani", async () => {

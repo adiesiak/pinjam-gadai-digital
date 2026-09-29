@@ -343,6 +343,31 @@ export const listMyLoans = query({
   },
 });
 
+/** Detail progres plafon tunai dari riwayat pinjaman milik sendiri. */
+export const myLoanCreditHistory = query({
+  args: {},
+  handler: async (ctx) => {
+    const { userId } = await requirePeminjam(ctx);
+    const loans = await ctx.db
+      .query("loans")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .collect();
+    const qualified = loans
+      .filter(apakahPelunasanTepatWaktu)
+      .sort((a, b) => (b.lunasPada ?? 0) - (a.lunasPada ?? 0));
+
+    return {
+      plafonEfektif: await plafonPeminjam(ctx, userId),
+      jumlahPelunasanTepatWaktu: qualified.length,
+      riwayat: qualified.map((loan) => ({
+        nomorReferensi: loan.nomorReferensi,
+        pokokPinjaman: loan.pokokPinjaman,
+        lunasPada: loan.lunasPada ?? null,
+      })),
+    };
+  },
+});
+
 /** Detail satu pinjaman milik sendiri, dengan quote turunannya. */
 export const getMyLoan = query({
   args: { loanId: v.id("loans") },
@@ -438,6 +463,7 @@ export const myContracts = query({
           createdAt: l._creationTime,
           nik: l.nik ?? null,
           namaLengkap: l.namaLengkap,
+          namaBank: l.namaBank ?? null,
           nomorRekening: l.nomorRekening,
           lokasiAjukan: l.lokasiAjukan ?? null,
         })),

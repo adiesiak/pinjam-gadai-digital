@@ -22,6 +22,7 @@ export type LoanRow = {
   status: "diajukan" | "sedang_direview" | "disetujui" | "ditolak" | "didanai" | "lunas";
   catatanReview?: string;
   namaLengkap: string;
+  namaBank: string | null;
   nomorRekening: string;
   catatanPeminjam?: string;
   emailPeminjam: string | null;
@@ -62,6 +63,7 @@ export type PawnRow = {
   kodeRakVault: string | null;
   catatanReview?: string;
   namaLengkap: string;
+  namaBank: string | null;
   nomorRekening: string;
   catatanPeminjam?: string;
   emailPeminjam: string | null;

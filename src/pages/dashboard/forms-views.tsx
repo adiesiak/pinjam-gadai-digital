@@ -59,6 +59,7 @@ export function LoanForm({ onCreated }: { onCreated: (ref: string) => void }) {
   const [tenorBulan, setTenorBulan] = useState<string>("3");
   const [tujuan, setTujuan] = useState<string>("");
   const [namaLengkap, setNamaLengkap] = useState("");
+  const [namaBank, setNamaBank] = useState("");
   const [nomorRekening, setNomorRekening] = useState("");
   const [catatanPeminjam, setCatatanPeminjam] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -391,8 +392,12 @@ export function LoanForm({ onCreated }: { onCreated: (ref: string) => void }) {
       setError("Nama lengkap wajib diisi (minimal 3 karakter).");
       return;
     }
+    if (namaBank.trim().length < 2 || namaBank.trim().length > 60) {
+      setError("Nama bank atau e-wallet tujuan harus 2–60 karakter.");
+      return;
+    }
     if (!/^\d{6,20}$/.test(nomorRekening.trim().replace(/\s+/g, ""))) {
-      setError("Nomor rekening harus 6–20 digit angka.");
+      setError("Nomor rekening/akun e-wallet harus 6–20 digit angka.");
       return;
     }
     const kycError = validateKycInput({
@@ -426,6 +431,7 @@ export function LoanForm({ onCreated }: { onCreated: (ref: string) => void }) {
         tenorBulan: bulanan ? tenorBulanNum : undefined,
         tujuan,
         namaLengkap,
+        namaBank,
         nomorRekening,
         catatanPeminjam: catatanPeminjam.trim() ? catatanPeminjam : undefined,
         tandaTangan: ttdDataUrl,
@@ -441,6 +447,7 @@ export function LoanForm({ onCreated }: { onCreated: (ref: string) => void }) {
       onCreated(result.nomorReferensi);
       setTujuan("");
       setNamaLengkap("");
+      setNamaBank("");
       setNomorRekening("");
       setCatatanPeminjam("");
       padRef.current?.clear();
@@ -627,7 +634,11 @@ export function LoanForm({ onCreated }: { onCreated: (ref: string) => void }) {
           <Input id="nama" value={namaLengkap} onChange={(e) => setNamaLengkap(e.target.value)} placeholder="Nama sesuai identitas" autoComplete="name" required aria-required="true" minLength={3} aria-invalid={error !== null && namaLengkap.trim().length < 3} aria-describedby={error !== null && namaLengkap.trim().length < 3 ? "loan-form-error" : undefined} disabled={submitting} />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="rekening">Nomor rekening tujuan</Label>
+          <Label htmlFor="bank-tujuan">Bank / e-wallet tujuan</Label>
+          <Input id="bank-tujuan" value={namaBank} onChange={(e) => setNamaBank(e.target.value)} placeholder="BCA, Mandiri, DANA, OVO, GoPay" autoComplete="off" required aria-required="true" minLength={2} maxLength={60} aria-invalid={error !== null && (namaBank.trim().length < 2 || namaBank.trim().length > 60)} aria-describedby={error !== null && (namaBank.trim().length < 2 || namaBank.trim().length > 60) ? "loan-form-error" : undefined} disabled={submitting} />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="rekening">Nomor rekening / akun e-wallet tujuan</Label>
           <Input id="rekening" inputMode="numeric" value={nomorRekening} onChange={(e) => setNomorRekening(e.target.value)} placeholder="1234567890" className="tabular-nums" autoComplete="off" required aria-required="true" aria-invalid={error !== null && !/^\d{6,20}$/.test(nomorRekening.trim().replace(/\s+/g, ""))} aria-describedby={error !== null && !/^\d{6,20}$/.test(nomorRekening.trim().replace(/\s+/g, "")) ? "loan-form-error" : undefined} disabled={submitting} />
         </div>
       </div>
@@ -877,21 +888,7 @@ export function LoanForm({ onCreated }: { onCreated: (ref: string) => void }) {
         )}
       </Button>
       <p className="text-center text-xs leading-5 text-muted-foreground">
-        {bulanan ? (
-          <>
-            Dengan mengirim, Anda menyatakan data benar dan menyetujui skema bulanan: uang muka
-            0%, biaya layanan 3%, dan bunga sesuai tenor. Plafon tunai efektif saat ini{" "}
-            {formatRupiah(MAX)}; setelah pinjaman tunai pokok Rp1 juta lunas penuh, plafon otomatis
-            naik menjadi Rp10 juta.
-          </>
-        ) : (
-          <>
-            Dengan mengirim, Anda menyatakan data benar dan menyetujui skema harian: potongan 5%,
-            bunga 30%, total kewajiban 130%. Batas skema harian {formatRupiah(LOAN_LIMITS.maxPokok)}
-            dengan tenor maksimal {LOAN_LIMITS.maxTenorHari} hari. Plafon tunai bulanan dapat naik
-            hingga Rp10 juta setelah pinjaman pokok Rp1 juta lunas penuh.
-          </>
-        )}
+        Setiap pinjaman tunai pokok minimal Rp1 juta yang tercatat lunas penuh pada atau sebelum jatuh tempo menambah plafon dasar Rp1 juta, maksimal Rp10 juta; pembayaran terlambat tidak menambah plafon. Plafon efektif saat ini {formatRupiah(MAX)}. {bulanan ? "Skema bulanan memakai uang muka 0%, biaya layanan 3%, dan bunga menurun sesuai tenor. Jadwal cicilan merupakan simulasi; pelunasan yang dicatat saat ini sekaligus pada akhir tenor." : `Skema harian memakai potongan biaya 5% dan bunga flat 30% dengan tenor maksimal ${LOAN_LIMITS.maxTenorHari} hari.`} Pengajuan/catatan aplikasi bukan bukti transfer dana nyata.
       </p>
     </form>
   );
@@ -903,6 +900,7 @@ export function PawnForm({ onCreated }: { onCreated: () => void }) {
   const [kategori, setKategori] = useState<string>("");
   const [alamatPenilaian, setAlamatPenilaian] = useState("");
   const [namaLengkap, setNamaLengkap] = useState("");
+  const [namaBank, setNamaBank] = useState("");
   const [nomorRekening, setNomorRekening] = useState("");
   const [catatanPeminjam, setCatatanPeminjam] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -934,8 +932,12 @@ export function PawnForm({ onCreated }: { onCreated: () => void }) {
       setError("Nama lengkap wajib diisi (minimal 3 karakter).");
       return;
     }
+    if (namaBank.trim().length < 2 || namaBank.trim().length > 60) {
+      setError("Nama bank atau e-wallet tujuan harus 2–60 karakter.");
+      return;
+    }
     if (!/^\d{6,20}$/.test(nomorRekening.trim().replace(/\s+/g, ""))) {
-      setError("Nomor rekening harus 6–20 digit angka.");
+      setError("Nomor rekening/akun e-wallet harus 6–20 digit angka.");
       return;
     }
     setSubmitting(true);
@@ -945,6 +947,7 @@ export function PawnForm({ onCreated }: { onCreated: () => void }) {
         kategori,
         alamatPenilaian,
         namaLengkap,
+        namaBank,
         nomorRekening,
         catatanPeminjam: catatanPeminjam.trim() ? catatanPeminjam : undefined,
       });
@@ -953,6 +956,7 @@ export function PawnForm({ onCreated }: { onCreated: () => void }) {
       setKategori("");
       setAlamatPenilaian("");
       setNamaLengkap("");
+      setNamaBank("");
       setNomorRekening("");
       setCatatanPeminjam("");
     } catch (err) {
@@ -1009,7 +1013,11 @@ export function PawnForm({ onCreated }: { onCreated: () => void }) {
           <Input id="nama-gadai" value={namaLengkap} onChange={(e) => setNamaLengkap(e.target.value)} placeholder="Nama sesuai identitas" autoComplete="name" required aria-required="true" minLength={3} aria-invalid={error !== null && namaLengkap.trim().length < 3} aria-describedby={error !== null && namaLengkap.trim().length < 3 ? "pawn-form-error" : undefined} disabled={submitting} />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="rekening-gadai">Nomor rekening tujuan</Label>
+          <Label htmlFor="bank-gadai">Bank / e-wallet tujuan pencairan</Label>
+          <Input id="bank-gadai" value={namaBank} onChange={(e) => setNamaBank(e.target.value)} placeholder="BCA, Mandiri, DANA, OVO, GoPay" autoComplete="off" required aria-required="true" minLength={2} maxLength={60} aria-invalid={error !== null && (namaBank.trim().length < 2 || namaBank.trim().length > 60)} aria-describedby={error !== null && (namaBank.trim().length < 2 || namaBank.trim().length > 60) ? "pawn-form-error" : undefined} disabled={submitting} />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="rekening-gadai">Nomor rekening / akun e-wallet tujuan</Label>
           <Input id="rekening-gadai" inputMode="numeric" value={nomorRekening} onChange={(e) => setNomorRekening(e.target.value)} placeholder="1234567890" className="tabular-nums" autoComplete="off" required aria-required="true" aria-invalid={error !== null && !/^\d{6,20}$/.test(nomorRekening.trim().replace(/\s+/g, ""))} aria-describedby={error !== null && !/^\d{6,20}$/.test(nomorRekening.trim().replace(/\s+/g, "")) ? "pawn-form-error" : undefined} disabled={submitting} />
         </div>
       </div>
@@ -1042,8 +1050,7 @@ export function PawnForm({ onCreated }: { onCreated: () => void }) {
         )}
       </Button>
       <p className="text-center text-xs leading-5 text-muted-foreground">
-        Nilai taksiran ditetapkan petugas saat pemeriksaan. Barang tersimpan aman
-        hingga pelunasan.
+        Taksiran baru ditetapkan saat pemeriksaan. Pengajuan dan kode lokasi/rak yang dicatat aplikasi bukan bukti barang sudah diterima atau dititipkan; status penitipan, tanda terima, lokasi, dan proses pengembalian perlu dikonfirmasi langsung kepada tim yang bertanggung jawab.
       </p>
     </form>
   );

@@ -1,8 +1,10 @@
 import { useQuery } from "convex/react";
-import { Loader2 } from "lucide-react";
+import { Loader2, TrendingUp } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { Button } from "@/components/ui/button";
+import { formatRupiah } from "@/lib/money";
+import type { FunctionReturnType } from "convex/server";
 import { toast } from "sonner";
 
 import { ErrorPage } from "@/components/ErrorPage";
@@ -28,6 +30,47 @@ import { DueReminderBanner, LokasiPeringatanBanner } from "./dashboard/notice-vi
 import { SummaryCards } from "./dashboard/summary-cards";
 import { PawnVaultSection } from "./dashboard/vault-views";
 
+type CreditHistory = FunctionReturnType<typeof api.loans.myLoanCreditHistory>;
+
+function CreditProgressCard({ history }: { history: CreditHistory }) {
+  return (
+    <section className="mt-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+      <div className="flex items-start gap-3">
+        <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+          <TrendingUp className="size-5" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <h2 className="text-sm font-semibold">Riwayat progres plafon tunai</h2>
+            <span className="text-xs tabular-nums text-muted-foreground">
+              {history.jumlahPelunasanTepatWaktu} pelunasan memenuhi syarat
+            </span>
+          </div>
+          <p className="mt-1 text-lg font-semibold tabular-nums text-primary">
+            Plafon tercatat {formatRupiah(history.plafonEfektif)}
+          </p>
+          <p className="mt-1 text-xs leading-5 text-muted-foreground">
+            Setiap pinjaman tunai pokok minimal Rp1 juta yang lunas penuh pada atau sebelum jatuh tempo menambah Rp1 juta, hingga Rp10 juta.
+            Riwayat internal PINDAI ini bukan skor biro kredit dan bukan jaminan pengajuan disetujui.
+          </p>
+          {history.riwayat.length > 0 && (
+            <ul className="mt-3 flex flex-wrap gap-2">
+              {history.riwayat.slice(0, 3).map((loan) => (
+                <li key={loan.nomorReferensi} className="rounded-lg bg-slate-50 px-3 py-2 text-xs">
+                  <span className="font-medium tabular-nums">{formatRupiah(loan.pokokPinjaman)}</span>
+                  <span className="ml-2 text-muted-foreground">
+                    {loan.lunasPada ? new Date(loan.lunasPada).toLocaleDateString("id-ID") : ""}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 /**
  * Dashboard nasabah — PINDAI.
  * Hanya merangkai modul di ./dashboard/*; tiap bagian hidup di file sendiri
@@ -47,6 +90,7 @@ export default function Dashboard() {
   const argsPeminjam = user === undefined || isAnonymous || role === "pendana" ? ("skip" as const) : {};
   const loans = useQuery(api.loans.listMyLoans, argsPeminjam);
   const summary = useQuery(api.loans.myLoanSummary, argsPeminjam);
+  const creditHistory = useQuery(api.loans.myLoanCreditHistory, argsPeminjam);
   const pawns = useQuery(api.loans.listMyPawns, argsPeminjam);
   const dueReminder = useQuery(api.loans.dueReminder, argsPeminjam);
   const schedule = useQuery(api.loans.myLoanSchedule, argsPeminjam);
@@ -128,6 +172,7 @@ export default function Dashboard() {
   const isLoading =
     loans === undefined ||
     summary === undefined ||
+    creditHistory === undefined ||
     pawns === undefined ||
     dueReminder === undefined ||
     schedule === undefined ||
@@ -216,6 +261,7 @@ export default function Dashboard() {
 
                 {/* ===== Ringkasan keuangan ===== */}
                 <SummaryCards schedule={schedule ?? []} />
+                {creditHistory && <CreditProgressCard history={creditHistory} />}
 
                 {/* ============ TAB 1: PINJAMAN AKTIF ============ */}
                 <TabsContent value="pinjaman" className="mt-8">

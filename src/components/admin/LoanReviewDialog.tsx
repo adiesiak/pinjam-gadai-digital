@@ -79,7 +79,8 @@ export function LoanReviewDialog({
           {[
             ["Pemohon", row.namaLengkap],
             ["Email", row.emailPeminjam ?? "—"],
-            ["Rekening tujuan", row.nomorRekening],
+            ["Bank / e-wallet tujuan", row.namaBank ?? "Tidak dicatat (data lama)"],
+            ["Rekening / akun tujuan", row.nomorRekening],
             ["Keperluan", loanPurposeLabel(row.tujuan)],
             [
               "Skema",

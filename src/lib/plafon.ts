@@ -110,13 +110,11 @@ export function plafonDasarDariRiwayat(
 export function plafonEfektif(
   override: number | null | undefined,
   globalDefault: number,
-  jumlahPelunasanTepatWaktu: number | boolean = 0,
+  jumlahPelunasanTepatWaktu = 0,
 ): Rupiah {
-  // Boolean tetap diterima sementara untuk pemanggil lama selama migrasi kode.
-  const jumlah = typeof jumlahPelunasanTepatWaktu === "boolean"
-    ? Number(jumlahPelunasanTepatWaktu)
-    : jumlahPelunasanTepatWaktu;
-  return clampPlafon(override ?? plafonDasarDariRiwayat(globalDefault, jumlah));
+  return clampPlafon(
+    override ?? plafonDasarDariRiwayat(globalDefault, jumlahPelunasanTepatWaktu),
+  );
 }
 
 /** Jepit nilai ke rentang yang sah — dipakai UI, server, dan penyimpanan. */

@@ -38,7 +38,7 @@ function ok(label: string, kondisi: boolean): void {
 
 eq("default tunai = Rp1 juta", PLAFON_DEFAULT, 1_000_000);
 eq("trigger kenaikan = pokok Rp1 juta", PLAFON_POKOK_MINIMUM_LUNAS, 1_000_000);
-eq("plafon otomatis setelah lunas = Rp10 juta", PLAFON_NAIK_SETELAH_LUNAS, 10_000_000);
+eq("batas maksimum plafon otomatis = Rp10 juta", PLAFON_NAIK_SETELAH_LUNAS, 10_000_000);
 eq("batas maksimum admin = Rp10 juta", PLAFON_BATAS.maks, 10_000_000);
 eq("batas minimum admin = Rp100 ribu", PLAFON_BATAS.min, 100_000);
 eq("clamp nol ke minimum", clampPlafon(0), PLAFON_BATAS.min);

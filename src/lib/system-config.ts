@@ -38,9 +38,9 @@ export type SystemConfig = {
    */
   retensiLokasiHari: number;
   /**
-   * Plafon awal pinjaman tunai semua Peminjam (rupiah bulat) — tiap pinjaman
-   * pokok minimal Rp1 juta yang lunas tepat waktu menaikkan plafon dasar Rp1
-   * juta, maksimal Rp10 juta. Kredit barang punya batas terpisah.
+   * Plafon awal pinjaman tunai semua Peminjam (rupiah bulat) — setiap pinjaman
+   * pokok minimal Rp1 juta yang lunas penuh paling lambat saat jatuh tempo
+   * menaikkan plafon dasar Rp1 juta, maksimal Rp10 juta. Kredit barang punya batas terpisah.
    */
   plafonPinjaman: number;
 };

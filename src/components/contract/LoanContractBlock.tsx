@@ -49,6 +49,7 @@ export function LoanContractBlock({ loanId }: { loanId: Id<"loans"> }) {
   const html = buildPinjamanContract(
     {
       namaLengkap: detail.namaLengkap,
+      namaBank: detail.namaBank,
       nomorRekening: detail.nomorRekening,
       nik: detail.nik,
       email: null,
