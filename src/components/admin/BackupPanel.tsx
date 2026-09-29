@@ -11,7 +11,9 @@ export function BackupPanel() {
   const ledgerRows = useQuery(api.admin.ledgerRows);
   const auditData = useQuery(api.system.getConfigAdmin);
   const catat = useMutation(api.system.catatBackup);
+  const backfillKode = useMutation(api.admin.backfillKodePeminjam);
   const [busy, setBusy] = useState<string | null>(null);
+  const [kodePeminjamDiterbitkan, setKodePeminjamDiterbitkan] = useState<number | null>(null);
 
   const unduhFile = (nama: string, isi: string, mime: string) => {
     const blob = new Blob([isi], { type: mime });
@@ -46,6 +48,27 @@ export function BackupPanel() {
       unduhFile(`pindai-ledger-${new Date().toISOString().slice(0, 10)}.csv`, `${head}\n${baris}`, "text/csv");
       await catat({ jenis: "ledger-csv" });
       toast.success("Ekspor CSV ledger terunduh.");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const migrasiKodePeminjam = async () => {
+    setBusy("kode-peminjam");
+    setKodePeminjamDiterbitkan(0);
+    let cursor: string | null = null;
+    let totalDiterbitkan = 0;
+    try {
+      while (true) {
+        const hasil: { cursor: string; selesai: boolean; diterbitkan: number } = await backfillKode({ cursor });
+        totalDiterbitkan += hasil.diterbitkan;
+        setKodePeminjamDiterbitkan(totalDiterbitkan);
+        if (hasil.selesai) break;
+        cursor = hasil.cursor;
+      }
+      toast.success(`${totalDiterbitkan} kode peminjam baru diterbitkan. Data identitas tidak diubah.`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Migrasi kode peminjam gagal.");
     } finally {
       setBusy(null);
     }
@@ -115,6 +138,26 @@ export function BackupPanel() {
           <p className="mt-1 text-xs leading-5 text-emerald-700">
             Snapshot siap: {snapshot ? `${snapshot.jumlah.loans} pinjaman, ${snapshot.jumlah.pawns} gadai` : "—"} · database dapat dipulihkan dari file JSON.
           </p>
+        </div>
+        <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+          <p className="text-sm font-medium">Kode pseudonim untuk pengajuan lama</p>
+          <p className="mt-1 text-xs leading-5 text-muted-foreground">
+            Terbitkan kode acak permanen untuk akun yang memiliki pengajuan kas, gadai, atau kredit. Proses bertahap dan hanya mengisi kode yang belum ada.
+          </p>
+          {kodePeminjamDiterbitkan !== null && (
+            <p className="mt-2 text-xs font-medium text-emerald-700" aria-live="polite">
+              {busy === "kode-peminjam" ? "Sedang memproses" : "Terakhir selesai"}: {kodePeminjamDiterbitkan} kode diterbitkan.
+            </p>
+          )}
+          <Button
+            variant="outline"
+            className="mt-3 w-full justify-start"
+            disabled={busy !== null}
+            onClick={() => void migrasiKodePeminjam()}
+          >
+            {busy === "kode-peminjam" ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Lock className="mr-2 size-4 text-emerald-600" />}
+            {busy === "kode-peminjam" ? "Memproses kode lama…" : "Backfill kode peminjam lama"}
+          </Button>
         </div>
       </div>
     </div>

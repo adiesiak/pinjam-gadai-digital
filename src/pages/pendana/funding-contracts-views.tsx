@@ -39,6 +39,7 @@ export function FundingContractsSection() {
               <div className="min-w-0">
                 <p className="text-sm font-semibold">{judulContract("pendanaan")}</p>
                 <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                  <span className="font-mono">Kode peminjam {c.kodePeminjam}</span> ·{" "}
                   <span className="font-mono">{nomorContract("pendanaan", c.nomorReferensi)}</span> ·{" "}
                   {loanPurposeLabel(c.tujuan)} · alokasi {formatRupiah(c.jumlahAlokasi)} · hak Imbal Hasil{" "}
                   {formatRupiah(c.imbalHasil)}
@@ -66,6 +67,7 @@ export function FundingContractsSection() {
 function buildFundingContractHtml(c: {
   nomorReferensi: string;
   loanRef: string;
+  kodePeminjam: string;
   tujuan: string;
   jumlahAlokasi: number;
   imbalHasil: number;
@@ -87,6 +89,7 @@ function buildFundingContractHtml(c: {
     <p><strong>PINJAM GADAI DIGITAL ("Platform")</strong> — penyelenggara layanan pinjam-gadai digital;</p>
     <p>dan</p>
     <p><strong>PENDANA</strong> pemegang nomor alokasi <strong>${c.nomorReferensi}</strong> ("Pendana").</p>
+    <p>Pembiayaan terkait kode peminjam pseudonim <strong>${c.kodePeminjam}</strong>; identitas pribadi tidak dicantumkan dalam dokumen Pendana ini.</p>
 
     <h2>Pasal 1 — Objek Pendanaan</h2>
     <ol>

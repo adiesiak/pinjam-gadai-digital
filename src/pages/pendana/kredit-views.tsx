@@ -4,7 +4,6 @@ import {
   Calculator,
   Coins,
   Loader2,
-  MapPin,
   Package,
   ShoppingBag,
   TrendingUp,
@@ -53,31 +52,11 @@ function persenId(v: number): string {
   return v.toLocaleString("id-ID", { maximumFractionDigits: 2 });
 }
 
-/**
- * Badge keamanan lokasi untuk kartu peluang pendanaan (pinjaman tunai &
- * kredit barang). Menegaskan perlindungan yang sudah aktif di server: GPS
- * Peminjam wajib hidup, titik palsu ditolak, koordinat mencurigakan ditandai.
- * Versi verbose tampil di dalam dialog alokasi — momen keputusan Pendana.
- */
-function BadgeLokasiTerpantau({ verbose = false }: { verbose?: boolean }) {
+/** Lokasi spesifik tidak termasuk informasi yang dibagikan kepada Pendana. */
+function KeteranganWilayah() {
   return (
-    <p
-      className={
-        verbose
-          ? "flex items-start gap-2 rounded-xl border border-emerald-100 bg-emerald-50/60 px-3 py-2.5 text-xs leading-5 text-emerald-800"
-          : "mt-2 flex items-center justify-center gap-1.5 text-center text-[11px] text-muted-foreground"
-      }
-    >
-      <MapPin className="size-3.5 shrink-0 text-emerald-600" />
-      {verbose ? (
-        <span>
-          Peminjam pinjaman ini wajib GPS aktif — server menolak transaksi tanpa
-          titik lokasi segar (maks 10 menit) serta titik dari aplikasi lokasi
-          palsu. Posisi yang mencurigakan ditandai dan ditindaklanjuti tim PINDAI.
-        </span>
-      ) : (
-        <span>Lokasi Peminjam dipantau &amp; diverifikasi server</span>
-      )}
+    <p className="mt-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs leading-5 text-muted-foreground">
+      Wilayah umum belum tersedia untuk dibagikan; alamat dan koordinat tidak ditampilkan. Dokumen identitas dan dokumen asli hanya dapat diakses admin berwenang.
     </p>
   );
 }
@@ -573,9 +552,20 @@ function KalkulatorKreditSection() {
 }
 
 /** Kolom peluang kredit barang yang dipakai kartu Alokasi Dana. */
+type JadwalKredit = {
+  bulan: number;
+  pokok: number;
+  imbalHasil: number;
+  biayaLayanan: number;
+  total: number;
+  sisaPokok: number;
+};
+
 type PeluangKredit = {
   _id: Id<"kreditBarang">;
   nomorReferensi: string;
+  kodePeminjam: string;
+  statusVerifikasi: string;
   namaBarang: string;
   kategori: string;
   merchant: string;
@@ -589,14 +579,19 @@ type PeluangKredit = {
   imbalHasilTotal: number;
   persenImbalHasil: number;
   persenImbalHasilTahunan: number;
-  pemohonInisial: string;
+  biayaLayanan: number;
+  biayaLayananDiMuka: number;
+  biayaLayananPerBulan: number;
+  totalDibayarKonsumen: number;
+  jadwalPembayaran: JadwalKredit[];
+  catatanJadwal: string;
   terkumpul: number;
   sisaKebutuhan: number;
 };
 
 /**
- * Peluang pendanaan kredit barang: pengajuan yang sudah lolos verifikasi tim
- * PINDAI dan belum terpenuhi penuh. Alokasi Dana dicatat di jurnal ledger
+ * Peluang pendanaan kredit barang: pengajuan yang sudah disetujui tim PINDAI
+ * dan belum terpenuhi penuh. Alokasi Dana dicatat di jurnal ledger
  * (debit akun kredit barang, kredit dompet Pendana).
  */
 function PeluangKreditSection() {
@@ -607,7 +602,7 @@ function PeluangKreditSection() {
       <div className="flex items-center gap-2">
         <Badge className="border-0 bg-primary text-[10px] text-primary-foreground">Skema C</Badge>
         <Badge className="border-0 bg-emerald-100 text-[10px] text-emerald-700 hover:bg-emerald-100">
-          <BadgeCheck className="mr-1 size-3" /> Terverifikasi tim PINDAI
+          <BadgeCheck className="mr-1 size-3" /> Disetujui tim PINDAI
         </Badge>
       </div>
       <h2 className="mt-1.5 text-lg font-semibold tracking-tight">
@@ -709,51 +704,69 @@ function PeluangKreditCard({ row }: { row: PeluangKredit }) {
       <div className="min-w-0">
         <div className="flex flex-wrap items-center gap-2">
           <Badge className="border-0 bg-primary text-[10px] text-primary-foreground">
-            Kredit Barang
+            Kredit Barang · {row.kategori}
           </Badge>
-          <Badge className="border-0 bg-slate-100 text-[10px] text-slate-700 hover:bg-slate-100">
-            {row.kategori}
+          <Badge className="border-0 bg-emerald-100 text-[10px] text-emerald-700 hover:bg-emerald-100">
+            <BadgeCheck className="mr-1 size-3" /> {row.statusVerifikasi}
           </Badge>
         </div>
+        <p className="mt-3 text-xs text-muted-foreground">Kode peminjam</p>
+        <p className="font-mono text-sm font-semibold tracking-wide">{row.kodePeminjam}</p>
         <p className="mt-2 text-lg font-semibold">{row.namaBarang}</p>
         <p className="mt-0.5 truncate text-xs text-muted-foreground">
-          {row.nomorReferensi} · {row.merchant} · Pemohon {row.pemohonInisial}
+          {row.nomorReferensi} · kategori {row.kategori} · merchant {row.merchant}
         </p>
       </div>
 
-      {/* Rincian transparansi */}
-      <dl className="mt-3 grid grid-cols-3 gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-center text-xs">
+      <dl className="mt-4 grid grid-cols-2 gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-center text-xs sm:grid-cols-4">
         <div>
           <dt className="text-muted-foreground">Harga barang</dt>
           <dd className="mt-0.5 font-semibold tabular-nums">{formatRupiah(row.hargaBarang)}</dd>
         </div>
         <div>
-          <dt className="text-muted-foreground">Uang muka Konsumen</dt>
-          <dd className="mt-0.5 font-semibold tabular-nums">
-            {row.dpPersen}% · {formatRupiah(row.dp)}
-          </dd>
+          <dt className="text-muted-foreground">DP Konsumen</dt>
+          <dd className="mt-0.5 font-semibold tabular-nums">{row.dpPersen}% · {formatRupiah(row.dp)}</dd>
         </div>
         <div>
-          <dt className="text-muted-foreground">Tenor</dt>
-          <dd className="mt-0.5 font-semibold tabular-nums">
-            {row.tenorBulan} bulan · {formatRupiah(row.cicilanPerBulan)}/bln
-          </dd>
-        </div>
-      </dl>
-
-      <dl className="mt-3 grid grid-cols-2 gap-3 text-xs">
-        <div className="rounded-xl border border-slate-200 px-3 py-2">
           <dt className="text-muted-foreground">Pokok dibiayai</dt>
           <dd className="mt-0.5 font-semibold tabular-nums">{formatRupiah(row.pokokDibiayai)}</dd>
         </div>
-        <div className="rounded-xl border border-emerald-100 bg-emerald-50/60 px-3 py-2">
-          <dt className="text-emerald-800/80">Hak Imbal Hasil (100%)</dt>
-          <dd className="mt-0.5 font-semibold tabular-nums text-emerald-700">
-            {formatRupiah(row.imbalHasilTotal)} · {persenId(row.persenImbalHasil)}% (
-            {persenId(row.persenImbalHasilTahunan)}%/tahun)
-          </dd>
+        <div>
+          <dt className="text-muted-foreground">Tenor</dt>
+          <dd className="mt-0.5 font-semibold tabular-nums">{row.tenorBulan} bulan</dd>
         </div>
       </dl>
+
+      <section className="mt-3 rounded-xl border border-slate-200 px-3 py-3 text-xs">
+        <h3 className="font-semibold">Rincian biaya dan kewajiban</h3>
+        <dl className="mt-2 space-y-1.5">
+          <Baris label="Biaya layanan total" value={formatRupiah(row.biayaLayanan)} />
+          <Baris
+            label={row.biayaLayananDiMuka > 0 ? "Biaya layanan dibayar di muka" : "Biaya layanan per bulan (rata-rata)"}
+            value={formatRupiah(row.biayaLayananDiMuka > 0 ? row.biayaLayananDiMuka : row.biayaLayananPerBulan)}
+          />
+          <Baris label="Hak Imbal Hasil total" value={`${formatRupiah(row.imbalHasilTotal)} · ${persenId(row.persenImbalHasil)}% (${persenId(row.persenImbalHasilTahunan)}%/tahun)`} />
+          <Baris label="Total dibayar Konsumen" value={formatRupiah(row.totalDibayarKonsumen)} strong />
+        </dl>
+        <p className="mt-2 border-t border-slate-100 pt-2 text-muted-foreground">{row.catatanJadwal}</p>
+      </section>
+
+      <section className="mt-3 rounded-xl border border-slate-200 px-3 py-3 text-xs">
+        <h3 className="font-semibold">Jadwal pembayaran</h3>
+        <ul className="mt-2 divide-y divide-slate-100">
+          {row.jadwalPembayaran.map((cicilan) => (
+            <li key={cicilan.bulan} className="py-2">
+              <div className="flex justify-between gap-3">
+                <span>Bulan {cicilan.bulan}</span>
+                <span className="font-semibold tabular-nums">{formatRupiah(cicilan.total)}</span>
+              </div>
+              <p className="mt-1 text-right text-muted-foreground">
+                Pokok {formatRupiah(cicilan.pokok)} · Imbal Hasil {formatRupiah(cicilan.imbalHasil)} · layanan {formatRupiah(cicilan.biayaLayanan)}
+              </p>
+            </li>
+          ))}
+        </ul>
+      </section>
 
       {/* Progress pendanaan */}
       <div className="mt-4">
@@ -765,8 +778,7 @@ function PeluangKreditCard({ row }: { row: PeluangKredit }) {
         </div>
         <Progress className="mt-1.5 h-2.5" value={pct} />
         <p className="mt-1.5 text-xs tabular-nums text-muted-foreground">
-          Sisa kebutuhan {formatRupiah(row.sisaKebutuhan)} · margin Imbal Hasil{" "}
-          {persenId(row.marginPersenPerBulan)}%/bulan
+          Sisa kebutuhan {formatRupiah(row.sisaKebutuhan)} · margin Imbal Hasil {persenId(row.marginPersenPerBulan)}%/bulan
         </p>
       </div>
 
@@ -780,7 +792,7 @@ function PeluangKreditCard({ row }: { row: PeluangKredit }) {
             <Coins className="mr-1.5 size-4" />
             Alokasikan Dana Sekarang
           </Button>
-          <BadgeLokasiTerpantau />
+          <KeteranganWilayah />
         </>
       )}
 
@@ -793,7 +805,7 @@ function PeluangKreditCard({ row }: { row: PeluangKredit }) {
               melebihi sisa akan ditolak server (anti-overfunding).
             </DialogDescription>
           </DialogHeader>
-          <BadgeLokasiTerpantau verbose />
+          <KeteranganWilayah />
           <div className="space-y-3">
             <div className="space-y-2">
               <Label htmlFor={`kredit-alo-${row.nomorReferensi}`}>Jumlah alokasi</Label>
@@ -901,21 +913,25 @@ function PortofolioKreditSection() {
             >
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <p className="text-sm font-semibold">{f.namaBarang}</p>
+                  <p className="font-mono text-sm font-semibold tracking-wide">{f.kodePeminjam}</p>
+                  <p className="mt-1 text-sm font-semibold">{f.namaBarang} · {f.kategori}</p>
                   <p className="mt-0.5 truncate text-xs text-muted-foreground">
                     <span className="font-mono">{f.nomorReferensi}</span> →{" "}
-                    <span className="font-mono">{f.kreditRef}</span> · {f.merchant} · {f.kategori}
+                    <span className="font-mono">{f.kreditRef}</span> · merchant {f.merchant}
                   </p>
+                  <p className="mt-1 text-xs text-muted-foreground">{f.statusPersetujuanTim}</p>
                 </div>
                 {f.statusAlokasi === "selesai" ? (
                   <Badge className="border-0 bg-emerald-100 text-emerald-700 hover:bg-emerald-100">
-                    Imbal Hasil Cair
+                    Lunas
                   </Badge>
                 ) : f.statusAlokasi === "dibatalkan" ? (
                   <Badge variant="destructive">Dibatalkan</Badge>
+                ) : f.statusKredit === "didanai" ? (
+                  <Badge className="border-0 bg-sky-100 text-sky-700 hover:bg-sky-100">Pembayaran berjalan</Badge>
                 ) : (
                   <Badge className="border-0 bg-amber-100 text-amber-700 hover:bg-amber-100">
-                    Dalam Pendanaan
+                    Dalam pendanaan
                   </Badge>
                 )}
               </div>
@@ -943,22 +959,68 @@ function PortofolioKreditSection() {
                   </dd>
                 </div>
                 <div className="flex items-baseline justify-between gap-4">
-                  <dt className="text-muted-foreground">Progres cicilan Konsumen</dt>
+                  <dt className="text-muted-foreground">Pembayaran tercatat</dt>
                   <dd className="tabular-nums">
                     {f.dibayarBulan}/{f.tenorBulan} bulan
                   </dd>
                 </div>
+                <div className="flex items-baseline justify-between gap-4">
+                  <dt className="text-muted-foreground">Biaya layanan total</dt>
+                  <dd className="tabular-nums">{f.biayaLayanan !== null ? formatRupiah(f.biayaLayanan) : "Tidak tersedia"}</dd>
+                </div>
+                <div className="flex items-baseline justify-between gap-4">
+                  <dt className="text-muted-foreground">Total dibayar Konsumen</dt>
+                  <dd className="tabular-nums">{f.totalDibayarKonsumen !== null ? formatRupiah(f.totalDibayarKonsumen) : "Tidak tersedia"}</dd>
+                </div>
               </dl>
+
+              <div className="mt-4">
+                <div className="flex justify-between gap-3 text-xs">
+                  <span className="font-medium">Progres pembayaran terkonfirmasi</span>
+                  <span className="tabular-nums text-muted-foreground">{f.dibayarBulan} dari {f.tenorBulan} cicilan</span>
+                </div>
+                <Progress className="mt-2 h-2.5" value={Math.min(100, Math.round((f.dibayarBulan / f.tenorBulan) * 100))} />
+              </div>
+              <p className="mt-2 text-xs text-muted-foreground">
+                Catatan: “Pembayaran tercatat” menunjukkan transaksi yang tersimpan, bukan verifikasi bahwa cicilan telah diterima penuh oleh Pendana.
+              </p>
+
+              <section className="mt-4 rounded-xl border border-slate-200 px-3 py-3 text-xs">
+                <h3 className="font-semibold">Jadwal pembayaran dan rincian</h3>
+                <p className="mt-1 text-muted-foreground">
+                  {f.biayaLayananDiMuka !== null && f.biayaLayananDiMuka > 0
+                    ? `Biaya layanan ${formatRupiah(f.biayaLayananDiMuka)} dibayar di muka dan tidak masuk ke cicilan.`
+                    : `Biaya layanan per bulan rata-rata ${formatRupiah(f.biayaLayananPerBulan)} sudah termasuk pada tiap cicilan.`}
+                </p>
+                <ul className="mt-2 divide-y divide-slate-100">
+                  {f.jadwalPembayaran.map((cicilan, index) => (
+                    <li key={cicilan.bulan} className="py-2">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <span className="font-medium">Bulan {cicilan.bulan}</span>
+                        <span className={index < f.dibayarBulan ? "text-emerald-700" : "text-muted-foreground"}>
+                          {index < f.dibayarBulan ? "Pembayaran tercatat" : "Belum tercatat"}
+                        </span>
+                      </div>
+                      <div className="mt-1 flex justify-between gap-3">
+                        <span className="text-muted-foreground">Pokok {formatRupiah(cicilan.pokok)} · Imbal Hasil {formatRupiah(cicilan.imbalHasil)}</span>
+                        <span className="shrink-0 font-semibold tabular-nums">{formatRupiah(cicilan.total)}</span>
+                      </div>
+                      <p className="mt-1 text-right text-muted-foreground">Biaya layanan {formatRupiah(cicilan.biayaLayanan)}</p>
+                    </li>
+                  ))}
+                </ul>
+              </section>
 
               <p className="mt-3 rounded-xl bg-slate-50 px-3 py-2 text-xs leading-5 text-muted-foreground">
                 {f.statusAlokasi === "selesai"
-                  ? "Posisi selesai — porsi pokok dan Imbal Hasil sudah cair ke dompet Anda."
+                  ? "Posisi selesai — pelunasan tercatat dan porsi pokok serta Imbal Hasil sudah dicairkan ke dompet Anda."
                   : f.statusKredit === "didanai"
-                    ? `Pendanaan penuh — pokok diteruskan ke merchant mitra. Setiap cicilan Konsumen (bulan ${f.dibayarBulan + 1} berikutnya) mengalirkan porsi pokok + Imbal Hasil ke dompet Anda.`
+                    ? "Pendanaan penuh dan pokok diteruskan ke merchant mitra. Progres di atas dihitung dari pembayaran yang tercatat di sistem."
                     : f.statusKredit === "ditolak"
-                      ? "Pengajuan ditolak tim PINDAI — dana Anda dikembalikan ke dompet pada proses penutupan posisi."
-                      : "Menunggu pendanaan penuh dari Pendana lain; dana Anda terkunci pada posisi ini."}
+                      ? "Pengajuan ditolak tim PINDAI — lihat status pengembalian dana pada riwayat dompet Anda."
+                      : "Menunggu pendanaan penuh dari Pendana lain; belum ada jadwal pembayaran aktual yang berjalan."}
               </p>
+              <KeteranganWilayah />
             </li>
           ))}
         </ul>

@@ -162,34 +162,19 @@ function MarketCard({
           <Badge className="border-0 bg-primary text-[10px] text-primary-foreground">
             Pinjaman Tunai
           </Badge>
-          {row.gadai && (
-            <Badge className="border-0 bg-emerald-100 text-[10px] text-emerald-700 hover:bg-emerald-100">
-              Gadai Digital — {row.gadai.kategori}
-            </Badge>
-          )}
+          <Badge className="border-0 bg-emerald-100 text-[10px] text-emerald-700 hover:bg-emerald-100">
+            <BadgeCheck className="mr-1 size-3" /> {row.statusVerifikasi}
+          </Badge>
         </div>
+        <p className="mt-3 text-xs text-muted-foreground">Kode peminjam</p>
+        <p className="font-mono text-sm font-semibold tracking-wide">{row.kodePeminjam}</p>
         <p className="mt-2 text-lg font-semibold tabular-nums">{formatRupiah(row.pokokPinjaman)}</p>
         <p className="mt-0.5 truncate text-xs text-muted-foreground">
-          {row.nomorReferensi} · {loanPurposeLabel(row.tujuan)}
+          {row.nomorReferensi} · Tujuan: {loanPurposeLabel(row.tujuan)}
         </p>
       </div>
 
-      {/* Info jaminan gadai bila ada */}
-      {row.gadai && (
-        <div className="mt-3 flex items-start gap-3 rounded-xl border border-emerald-100 bg-emerald-50/60 px-3 py-2.5">
-          <Package className="mt-0.5 size-4 shrink-0 text-emerald-600" strokeWidth={2} />
-          <div className="min-w-0 text-xs">
-            <p className="truncate font-medium text-emerald-900">{row.gadai.deskripsiBarang}</p>
-            <p className="mt-0.5 tabular-nums text-emerald-700">
-              Taksiran {formatRupiah(row.gadai.nilaiTaksiran)} · LTV {row.gadai.ltvPersen}%
-              {row.gadai.kodeRakVault ? ` · rak ${row.gadai.kodeRakVault}` : ""}
-            </p>
-          </div>
-        </div>
-      )}
-
-      {/* Rincian transparansi */}
-      <dl className="mt-3 grid grid-cols-2 gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-center text-xs sm:grid-cols-3">
+      <dl className="mt-4 grid grid-cols-2 gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-center text-xs sm:grid-cols-3">
         <div>
           <dt className="text-muted-foreground">Tenor</dt>
           <dd className="mt-0.5 font-semibold tabular-nums">
@@ -197,18 +182,81 @@ function MarketCard({
           </dd>
         </div>
         <div>
-          <dt className="text-muted-foreground">Verifikasi</dt>
-          <dd className="mt-0.5 font-semibold text-emerald-600">Terverifikasi KYC</dd>
-        </div>
-        <div className="col-span-2 sm:col-span-1">
-          <dt className="text-muted-foreground">
-            {row.tenorBulan !== null ? "Imbal Hasil total" : "Hak bunga (30%)"}
-          </dt>
+          <dt className="text-muted-foreground">Hak Imbal Hasil</dt>
           <dd className="mt-0.5 font-semibold tabular-nums text-emerald-700">
-            {formatRupiah(row.bunga)}
+            {formatRupiah(row.imbalHasilTotal)}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-muted-foreground">Total kewajiban</dt>
+          <dd className="mt-0.5 font-semibold tabular-nums">
+            {formatRupiah(row.totalKewajiban)}
           </dd>
         </div>
       </dl>
+
+      <section className="mt-3 rounded-xl border border-slate-200 px-3 py-3 text-xs">
+        <h3 className="font-semibold">Rincian biaya dan pencairan</h3>
+        {row.skemaBulanan ? (
+          <dl className="mt-2 space-y-1.5">
+            <div className="flex justify-between gap-3">
+              <dt className="text-muted-foreground">Biaya layanan platform (total)</dt>
+              <dd className="font-medium tabular-nums">{formatRupiah(row.biayaLayananTotal)}</dd>
+            </div>
+            <div className="flex justify-between gap-3">
+              <dt className="text-muted-foreground">Potongan di muka</dt>
+              <dd className="font-medium tabular-nums">{formatRupiah(row.totalPotonganDiMuka)}</dd>
+            </div>
+          </dl>
+        ) : (
+          <dl className="mt-2 space-y-1.5">
+            <div className="flex justify-between gap-3">
+              <dt className="text-muted-foreground">Biaya admin</dt>
+              <dd className="font-medium tabular-nums">{formatRupiah(row.biayaAdmin)}</dd>
+            </div>
+            <div className="flex justify-between gap-3">
+              <dt className="text-muted-foreground">Biaya platform</dt>
+              <dd className="font-medium tabular-nums">{formatRupiah(row.biayaPlatform)}</dd>
+            </div>
+            <div className="flex justify-between gap-3 border-t border-slate-100 pt-1.5">
+              <dt className="text-muted-foreground">Total potongan di muka</dt>
+              <dd className="font-medium tabular-nums">{formatRupiah(row.totalPotonganDiMuka)}</dd>
+            </div>
+          </dl>
+        )}
+        <p className="mt-2 border-t border-slate-100 pt-2 text-muted-foreground">
+          Dana bersih diterima Peminjam: <span className="font-semibold tabular-nums text-foreground">{formatRupiah(row.danaBersih)}</span>
+        </p>
+      </section>
+
+      <section className="mt-3 rounded-xl border border-slate-200 px-3 py-3 text-xs">
+        <h3 className="font-semibold">Jadwal pelunasan aktual</h3>
+        <p className="mt-1 text-muted-foreground">{row.catatanJadwal}</p>
+        <ul className="mt-2 divide-y divide-slate-100">
+          {row.jadwalPelunasan.map((cicilan, index) => (
+            <li key={`${cicilan.bulan ?? cicilan.hariKe}-${index}`} className="flex flex-wrap justify-between gap-x-3 gap-y-1 py-2">
+              <span>{cicilan.bulan !== null ? `Bulan ke-${cicilan.bulan}` : `Hari ke-${cicilan.hariKe}`}</span>
+              <span className="text-right font-semibold tabular-nums">{formatRupiah(cicilan.total)}</span>
+            </li>
+          ))}
+        </ul>
+      </section>
+
+      {row.simulasiCicilanBulanan.length > 0 && (
+        <details className="mt-3 rounded-xl border border-amber-200 bg-amber-50/50 px-3 py-2.5 text-xs">
+          <summary className="cursor-pointer font-medium">Lihat simulasi cicilan bulanan (bukan tagihan aktual)</summary>
+          <p className="mt-2 text-muted-foreground">Rincian berikut hanya simulasi; pelunasan yang dicatat sistem tetap sekaligus pada akhir tenor.</p>
+          <ul className="mt-2 divide-y divide-amber-100">
+            {row.simulasiCicilanBulanan.map((cicilan, index) => (
+              <li key={`${cicilan.bulan}-${index}`} className="flex justify-between gap-3 py-1.5">
+                <span>Bulan {cicilan.bulan}</span>
+                <span className="font-medium tabular-nums">{formatRupiah(cicilan.total)}</span>
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
+      <KeteranganWilayah />
 
       {/* Progress pendanaan */}
       <div className="mt-4">
@@ -220,12 +268,7 @@ function MarketCard({
         </div>
         <Progress className="mt-1.5 h-2.5" value={pct} />
         <p className="mt-1.5 break-words text-xs leading-5 tabular-nums text-muted-foreground">
-          Sisa kebutuhan {formatRupiah(row.sisaKebutuhan)} ·{" "}
-          {row.tenorBulan !== null ? (
-            <>dana penuh ke Peminjam {formatRupiah(row.danaBersih)} (DP 0%)</>
-          ) : (
-            <>dana bersih Peminjam {formatRupiah(row.danaBersih)} (95%)</>
-          )}
+          Sisa kebutuhan {formatRupiah(row.sisaKebutuhan)}
         </p>
       </div>
 
@@ -239,7 +282,6 @@ function MarketCard({
             <Coins className="mr-1.5 size-4" />
             Alokasikan Dana Sekarang
           </Button>
-          <BadgeLokasiTerpantau />
         </>
       )}
 
@@ -253,7 +295,7 @@ function MarketCard({
               melebihi sisa akan ditolak server (anti-overfunding).
             </DialogDescription>
           </DialogHeader>
-          <BadgeLokasiTerpantau verbose />
+          <KeteranganWilayah />
           <div className="space-y-3">
             <div className="space-y-2">
               <Label htmlFor="alo-jumlah">Jumlah alokasi</Label>

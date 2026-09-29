@@ -200,6 +200,87 @@ describe("otorisasi endpoint admin", () => {
     );
   });
 
+  it("dokumen identitas pinjaman hanya dapat dibuka admin dengan TOTP pada sesi aktif", async () => {
+    const t = convexTest(schema, modules);
+    const { userId: borrowerId } = await buatPengguna(t, "Peminjam KYC", {
+      email: "peminjam-kyc-authz@pindai.test",
+      role: "peminjam",
+    });
+    const { sesi: admin, userId: adminId, authSessionId } = await buatPengguna(
+      t,
+      "Admin KYC",
+      { email: "admin-kyc-authz@pindai.test", role: "admin" },
+    );
+    const loanId = await t.run((ctx) =>
+      ctx.db.insert("loans", {
+        userId: borrowerId,
+        pokokPinjaman: 500_000,
+        tujuan: "pendidikan",
+        namaLengkap: "Nama Rahasia",
+        nomorRekening: "12345678",
+        status: "diajukan",
+        nomorReferensi: "LON-KYC-AUTHZ",
+        tenorHari: 30,
+        nik: "3201234567890001",
+        nomorWhatsApp: "6281234567890",
+        penghasilanBulanan: 5_000_000,
+        sumberPenghasilan: "usaha",
+        lokasiAjukan: { lat: -6.2, lng: 106.816666, akurasi: 25, waktu: Date.now() },
+      }),
+    );
+
+    await expect(t.query(api.admin.dokumenKycUrls, { loanId })).rejects.toThrow(/masuk/i);
+    const { sesi: peminjam } = await buatPengguna(t, "Peminjam lain", {
+      email: "peminjam-lain-kyc@pindai.test",
+      role: "peminjam",
+    });
+    await expect(peminjam.query(api.admin.dokumenKycUrls, { loanId })).rejects.toThrow(/admin/i);
+    await expect(admin.query(api.admin.dokumenKycUrls, { loanId })).rejects.toThrow(/TOTP/i);
+
+    await aktifkanTotpUntukSesi(t, adminId, authSessionId);
+    await expect(admin.query(api.admin.dokumenKycUrls, { loanId })).resolves.toMatchObject({
+      nik: "3201234567890001",
+      nomorWhatsApp: "6281234567890",
+      penghasilanBulanan: 5_000_000,
+      sumberPenghasilan: "usaha",
+      lokasiAjukan: { lat: -6.2, lng: 106.816666 },
+      ktpUrl: null,
+      selfieUrl: null,
+      slipUrl: null,
+    });
+  });
+
+  it("backfill kode pseudonim hanya dapat dijalankan admin dan memproses data lama bertahap", async () => {
+    const t = convexTest(schema, modules);
+    const { userId: borrowerId } = await buatPengguna(t, "Peminjam warisan", {
+      email: "peminjam-backfill@pindai.test",
+      role: "peminjam",
+    });
+    await t.run((ctx) =>
+      ctx.db.insert("loans", {
+        userId: borrowerId,
+        pokokPinjaman: 500_000,
+        tujuan: "pendidikan",
+        namaLengkap: "Nama Rahasia",
+        nomorRekening: "12345678",
+        status: "disetujui",
+        nomorReferensi: "LON-BACKFILL",
+        tenorHari: 30,
+      }),
+    );
+    const { sesi: admin, userId: adminId, authSessionId } = await buatPengguna(
+      t,
+      "Admin migrasi",
+      { email: "admin-backfill@pindai.test", role: "admin" },
+    );
+    await expect(t.mutation(api.admin.backfillKodePeminjam, { cursor: null })).rejects.toThrow(/masuk/i);
+    await aktifkanTotpUntukSesi(t, adminId, authSessionId);
+    const hasil = await admin.mutation(api.admin.backfillKodePeminjam, { cursor: null });
+    expect(hasil.diterbitkan).toBe(1);
+    const user = await t.run((ctx) => ctx.db.get(borrowerId));
+    expect(user?.kodePeminjam).toMatch(/^PMN-[A-F0-9]{20}$/);
+  });
+
   it("adminLoanQuote hanya dapat dipanggil oleh admin", async () => {
     const t = convexTest(schema, modules);
     const args = { pokokPinjaman: 1_000_000 };

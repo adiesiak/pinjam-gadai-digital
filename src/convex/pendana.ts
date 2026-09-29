@@ -642,7 +642,7 @@ export const myPortfolio = query({
     const now = Date.now();
     const result = [];
     for (const f of fundings.sort((a, b) => b._creationTime - a._creationTime)) {
-      if (f.status !== "dialokasikan") continue;
+      if (f.status !== "dialokasikan" && f.status !== "selesai") continue;
       const loan = await ctx.db.get(f.loanId);
       if (loan === null) continue;
 
@@ -717,10 +717,13 @@ export const myFundingContracts = query({
       if (loan.status === "diajukan" || loan.status === "sedang_direview" || loan.status === "ditolak") {
         continue;
       }
+      const peminjam = await ctx.db.get(loan.userId);
+      if (peminjam?.kodePeminjam === undefined) continue;
       result.push({
         _id: f._id,
         nomorReferensi: f.nomorReferensi,
         loanRef: loan.nomorReferensi,
+        kodePeminjam: peminjam.kodePeminjam,
         tujuan: loan.tujuan,
         jumlahAlokasi: f.jumlahAlokasi,
         imbalHasil: f.imbalHasil,

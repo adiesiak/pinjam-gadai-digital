@@ -1,4 +1,4 @@
-import { Package, TrendingUp } from "lucide-react";
+import { TrendingUp } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import type { Id } from "@/convex/_generated/dataModel";
@@ -8,29 +8,50 @@ import { formatRupiah } from "@/lib/money";
 import { EmptyState, Loading } from "./feedback";
 import { formatDate } from "./shared";
 
+type JadwalPendanaan = {
+  bulan: number | null;
+  hariKe: number | null;
+  pokok: number;
+  imbalHasil: number;
+  biayaLayanan: number;
+  total: number;
+  sisaPokok: number;
+};
+
 type PortfolioRow = {
   _id: Id<"fundings">;
   nomorReferensi: string;
   loanRef: string;
+  kodePeminjam: string;
+  statusVerifikasi: string;
   tujuan: string;
-  peminjamInisial: string;
+  pokokPinjaman: number;
   jumlahAlokasi: number;
   imbalHasil: number;
   statusAlokasi: string;
   statusPinjaman: string;
   statusPelunasan: "lancar" | "berjalan" | "menunggak";
+  skemaBulanan: boolean;
   tenorHari: number;
+  tenorBulan: number | null;
+  imbalHasilTotal: number;
+  totalKewajiban: number;
+  cicilanPerBulan: number | null;
+  biayaAdmin: number;
+  biayaPlatform: number;
+  totalPotonganDiMuka: number;
+  biayaLayananTotal: number;
+  danaDiterimaPeminjam: number;
+  jadwalPelunasan: JadwalPendanaan[];
+  simulasiCicilanBulanan: JadwalPendanaan[];
+  catatanJadwal: string;
   pelunasan: {
     jatuhTempoPada: number;
     sisaHari: number;
     hariTerlambat: number;
     dendaTerlambat: number;
-  } | null;
-  jaminan: {
-    deskripsiBarang: string;
-    kategori: string;
-    nilaiTaksiran: number | null;
-    kodeRakVault: string | null;
+    totalKewajibanPelunasan: number;
+    totalKewajibanDenganPenalti: number;
   } | null;
 };
 
@@ -42,7 +63,7 @@ export function PortfolioSection({ portfolio }: { portfolio: PortfolioRow[] | un
       <EmptyState
         icon={TrendingUp}
         title="Belum ada posisi pendanaan"
-        body="Alokasikan dana di Marketplace — posisi pinjaman yang Anda danai tampil di sini lengkap dengan status pelunasannya."
+        body="Alokasikan dana di Marketplace — posisi pinjaman yang Anda danai tampil di sini dengan kode peminjam, rincian biaya, jadwal, dan progres pelunasan."
       />
     );
   }
@@ -58,78 +79,123 @@ export function PortfolioSection({ portfolio }: { portfolio: PortfolioRow[] | un
         >
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="min-w-0">
-              <p className="text-sm font-semibold">
-                Peminjam {f.peminjamInisial}{" "}
-                <span className="font-mono text-xs font-normal text-muted-foreground">
-                  · {f.loanRef} / {f.nomorReferensi}
-                </span>
+              <p className="font-mono text-sm font-semibold tracking-wide">{f.kodePeminjam}</p>
+              <p className="mt-0.5 font-mono text-xs text-muted-foreground">
+                {f.loanRef} · alokasi {f.nomorReferensi}
               </p>
-              <p className="mt-0.5 text-xs text-muted-foreground">
-                {loanPurposeLabel(f.tujuan)} · tenor {f.tenorHari} hari
+              <p className="mt-1 text-xs text-muted-foreground">
+                Tujuan: {loanPurposeLabel(f.tujuan)} · {f.statusVerifikasi}
               </p>
             </div>
-            <PortfolioStatusBadge state={f.statusPelunasan} />
+            <PortfolioStatusBadge state={f.statusPelunasan} isPaid={f.statusPinjaman === "lunas"} />
           </div>
 
-          <dl className="mt-3 grid gap-x-8 gap-y-1.5 text-sm sm:grid-cols-3">
-            <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4">
-              <dt className="text-muted-foreground">Dana dialokasikan</dt>
-              <dd className="font-medium tabular-nums">{formatRupiah(f.jumlahAlokasi)}</dd>
-            </div>
-            <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4">
-              <dt className="text-muted-foreground">Estimasi imbal hasil</dt>
-              <dd className="font-medium tabular-nums text-emerald-700">{formatRupiah(f.imbalHasil)}</dd>
-            </div>
-            <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4">
-              <dt className="text-muted-foreground">Jatuh tempo</dt>
-              <dd className={`tabular-nums ${f.statusPelunasan === "menunggak" ? "text-red-600" : ""}`}>
-                {f.pelunasan ? formatDate(f.pelunasan.jatuhTempoPada) : "Menunggu pendanaan penuh"}
-              </dd>
-            </div>
+          <dl className="mt-4 grid gap-x-8 gap-y-2 text-sm sm:grid-cols-2">
+            <InfoRow label="Pokok pinjaman" value={formatRupiah(f.pokokPinjaman)} />
+            <InfoRow label="Dana dialokasikan" value={formatRupiah(f.jumlahAlokasi)} />
+            <InfoRow label="Hak Imbal Hasil Pendana" value={formatRupiah(f.imbalHasil)} />
+            <InfoRow label="Total kewajiban Peminjam" value={formatRupiah(f.totalKewajiban)} />
+            <InfoRow
+              label="Tenor"
+              value={f.tenorBulan !== null ? `${f.tenorBulan} bulan` : `${f.tenorHari} hari`}
+            />
+            <InfoRow
+              label="Jatuh tempo"
+              value={
+                f.pelunasan !== null
+                  ? formatDate(f.pelunasan.jatuhTempoPada)
+                  : f.statusPinjaman === "lunas"
+                    ? "Lunas"
+                    : "Menunggu pendanaan penuh"
+              }
+            />
           </dl>
 
-          {f.pelunasan && f.pelunasan.hariTerlambat > 0 && (
-            <p className="mt-2 text-xs text-red-600">
-              Terlambat {f.pelunasan.hariTerlambat} hari — denda berjalan{" "}
-              {formatRupiah(f.pelunasan.dendaTerlambat)} ditambahkan ke kewajiban Peminjam.
+          <section className="mt-4 rounded-xl border border-slate-200 px-3 py-3 text-xs">
+            <h3 className="font-semibold">Rincian biaya dan pencairan</h3>
+            {f.skemaBulanan ? (
+              <dl className="mt-2 space-y-1.5">
+                <InfoRow label="Biaya layanan platform (total)" value={formatRupiah(f.biayaLayananTotal)} />
+                <InfoRow label="Potongan di muka" value={formatRupiah(f.totalPotonganDiMuka)} />
+                <InfoRow label="Dana bersih diterima Peminjam" value={formatRupiah(f.danaDiterimaPeminjam)} />
+              </dl>
+            ) : (
+              <dl className="mt-2 space-y-1.5">
+                <InfoRow label="Biaya admin" value={formatRupiah(f.biayaAdmin)} />
+                <InfoRow label="Biaya platform" value={formatRupiah(f.biayaPlatform)} />
+                <InfoRow label="Total potongan di muka" value={formatRupiah(f.totalPotonganDiMuka)} />
+                <InfoRow label="Dana bersih diterima Peminjam" value={formatRupiah(f.danaDiterimaPeminjam)} />
+              </dl>
+            )}
+          </section>
+
+          <section className="mt-3 rounded-xl border border-slate-200 px-3 py-3 text-xs">
+            <h3 className="font-semibold">Jadwal kewajiban tercatat</h3>
+            <p className="mt-1 text-muted-foreground">{f.catatanJadwal}</p>
+            <ul className="mt-2 divide-y divide-slate-100">
+              {f.jadwalPelunasan.map((cicilan, index) => (
+                <li key={`${cicilan.bulan ?? cicilan.hariKe}-${index}`} className="flex flex-wrap justify-between gap-x-3 gap-y-1 py-2">
+                  <span>{cicilan.bulan !== null ? `Bulan ke-${cicilan.bulan}` : `Hari ke-${cicilan.hariKe}`}</span>
+                  <span className="font-semibold tabular-nums">{formatRupiah(cicilan.total)}</span>
+                </li>
+              ))}
+            </ul>
+          </section>
+
+          {f.simulasiCicilanBulanan.length > 0 && (
+            <details className="mt-3 rounded-xl border border-amber-200 bg-amber-50/50 px-3 py-2.5 text-xs">
+              <summary className="cursor-pointer font-medium">Lihat simulasi cicilan bulanan (bukan tagihan aktual)</summary>
+              <p className="mt-2 text-muted-foreground">Simulasi ini bukan riwayat pembayaran; sistem mencatat pelunasan pinjaman tunai sekaligus pada akhir tenor.</p>
+              <ul className="mt-2 divide-y divide-amber-100">
+                {f.simulasiCicilanBulanan.map((cicilan, index) => (
+                  <li key={`${cicilan.bulan}-${index}`} className="flex justify-between gap-3 py-1.5">
+                    <span>Bulan {cicilan.bulan}</span>
+                    <span className="font-medium tabular-nums">{formatRupiah(cicilan.total)}</span>
+                  </li>
+                ))}
+              </ul>
+            </details>
+          )}
+
+          {f.pelunasan !== null && f.pelunasan.hariTerlambat > 0 && (
+            <p className="mt-3 rounded-xl border border-red-100 bg-red-50 px-3 py-2 text-xs leading-5 text-red-700">
+              Terlambat {f.pelunasan.hariTerlambat} hari — denda berjalan {formatRupiah(f.pelunasan.dendaTerlambat)}; total kewajiban dengan denda {formatRupiah(f.pelunasan.totalKewajibanDenganPenalti)}.
             </p>
           )}
 
-          {/* Widget pelacakan jaminan gadai */}
-          {f.jaminan && (
-            <div className="mt-3 flex items-start gap-3 rounded-xl border border-emerald-100 bg-emerald-50/60 px-3 py-2.5">
-              <Package className="mt-0.5 size-4 shrink-0 text-emerald-600" strokeWidth={2} />
-              <div className="min-w-0 text-xs">
-                <p className="font-medium text-emerald-900">
-                  Jaminan: {f.jaminan.deskripsiBarang}
-                </p>
-                <p className="mt-0.5 text-emerald-700">
-                  {f.jaminan.kategori} · taksiran{" "}
-                  {f.jaminan.nilaiTaksiran !== null ? formatRupiah(f.jaminan.nilaiTaksiran) : "—"} ·
-                  tersimpan di Gudang Brankas PINDAI
-                  {f.jaminan.kodeRakVault ? `, rak ${f.jaminan.kodeRakVault}` : ""} — terisolasi aman.
-                </p>
-              </div>
-            </div>
-          )}
+          <p className="mt-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs leading-5 text-muted-foreground">
+            Wilayah umum tidak dibagikan; alamat dan koordinat lokasi tidak ditampilkan. Dokumen identitas dan dokumen asli hanya dapat diakses admin berwenang.
+          </p>
         </li>
       ))}
     </ul>
   );
 }
 
-function PortfolioStatusBadge({ state }: { state: "lancar" | "berjalan" | "menunggak" }) {
-  if (state === "lancar") {
-    return (
-      <Badge className="border-0 bg-emerald-100 text-emerald-700 hover:bg-emerald-100">Lancar</Badge>
-    );
+function InfoRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-baseline justify-between gap-4">
+      <dt className="text-muted-foreground">{label}</dt>
+      <dd className="text-right font-medium tabular-nums">{value}</dd>
+    </div>
+  );
+}
+
+function PortfolioStatusBadge({
+  state,
+  isPaid,
+}: {
+  state: "lancar" | "berjalan" | "menunggak";
+  isPaid: boolean;
+}) {
+  if (isPaid) {
+    return <Badge className="border-0 bg-emerald-100 text-emerald-700 hover:bg-emerald-100">Lunas</Badge>;
   }
   if (state === "menunggak") {
-    return (
-      <Badge className="border-0 bg-red-100 text-red-700 hover:bg-red-100">Menunggak</Badge>
-    );
+    return <Badge className="border-0 bg-red-100 text-red-700 hover:bg-red-100">Menunggak</Badge>;
   }
-  return (
-    <Badge className="border-0 bg-amber-100 text-amber-700 hover:bg-amber-100">Berjalan</Badge>
-  );
+  if (state === "lancar") {
+    return <Badge className="border-0 bg-emerald-100 text-emerald-700 hover:bg-emerald-100">Lancar</Badge>;
+  }
+  return <Badge className="border-0 bg-amber-100 text-amber-700 hover:bg-amber-100">Berjalan</Badge>;
 }

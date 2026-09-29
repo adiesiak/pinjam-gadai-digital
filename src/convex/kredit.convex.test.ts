@@ -23,6 +23,8 @@ import schema from "./schema";
 import { modules } from "./test.setup";
 import { quoteKreditBarang } from "../lib/kredit";
 
+const TEST_TOTP_SECRET = "JBSWY3DPEHPK3PXP";
+
 const HARGA = 8_000_000;
 const DP_PERSEN = 0;
 const TENOR = 6;
@@ -44,7 +46,22 @@ async function siapkanPengguna(
       role: opts.role,
     });
   });
-  return t.withIdentity({ subject: userId, name: subject }) as never;
+  const authSessionId = await t.run((ctx) =>
+    ctx.db.insert("authSessions", {
+      userId,
+      expirationTime: Date.now() + 60 * 60 * 1000,
+    }),
+  );
+  if (opts.role === "admin") {
+    await t.run((ctx) =>
+      ctx.db.insert("mfaSettings", {
+        userId,
+        totpSecret: TEST_TOTP_SECRET,
+        totpVerifiedAuthSessionIds: [authSessionId],
+      }),
+    );
+  }
+  return t.withIdentity({ subject: `${userId}|${authSessionId}`, name: subject }) as never;
 }
 /** Pengajuan + persetujuan admin; mengembalikan id dan quote-nya. */
 async function pengajuanDisetujui(
@@ -159,6 +176,40 @@ describe("kredit barang — alur cicilan penuh", () => {
 
     const { kreditId } = await pengajuanDisetujui(t, asPeminjam, asAdmin);
 
+    const [peluang] = await asPendanaA.query(api.pendana.marketplaceKredit, {});
+    const kodePeminjam = await t.run(async (ctx) => {
+      const kredit = await ctx.db.get(kreditId);
+      return kredit === null ? undefined : (await ctx.db.get(kredit.userId))?.kodePeminjam;
+    });
+    expect(kodePeminjam).toMatch(/^PMN-[A-F0-9]{20}$/);
+    expect(peluang).toMatchObject({
+      kodePeminjam,
+      statusVerifikasi: "Disetujui tim PINDAI",
+      kategori: "Elektronik",
+      pokokDibiayai: quoteKreditBarang({
+        hargaBarang: HARGA,
+        dpPersen: DP_PERSEN,
+        tenorBulan: TENOR,
+        marginPersenPerBulan: MARGIN,
+      }).pokokDibiayai,
+      tenorBulan: TENOR,
+      biayaLayanan: 240_000,
+      biayaLayananDiMuka: 0,
+      totalDibayarKonsumen: quoteKreditBarang({
+        hargaBarang: HARGA,
+        dpPersen: DP_PERSEN,
+        tenorBulan: TENOR,
+        marginPersenPerBulan: MARGIN,
+      }).totalDibayarKonsumen,
+      catatanJadwal: "Biaya layanan sudah diamortisasi ke setiap cicilan bulanan.",
+      jadwalPembayaran: expect.arrayContaining([
+        expect.objectContaining({ bulan: 1, biayaLayanan: 40_000 }),
+      ]),
+    });
+    for (const field of ["namaLengkap", "pemohonInisial", "nik", "nomorWhatsApp", "nomorRekening", "penghasilanBulanan", "dokKtpId", "dokSelfieKtpId", "dokSlipGajiId", "lokasiAjukan", "lat", "lng", "alamat", "kodeRakVault"]) {
+      expect(peluang).not.toHaveProperty(field);
+    }
+
     // ===== Alokasi Dana: saldo 10jt per Pendana (jurnal deposit) =====
     for (const asPendana of [asPendanaA, asPendanaB]) {
       await asPendana.mutation(api.pendana.requestDeposit, {
@@ -224,6 +275,13 @@ describe("kredit barang — alur cicilan penuh", () => {
     expect(posisiA.statusAlokasi).toBe("selesai");
     expect(posisiB.statusAlokasi).toBe("selesai");
     expect(posisiA.statusKredit).toBe("lunas");
+    expect(posisiA.kodePeminjam).toBe(kodePeminjam);
+    expect(posisiA.statusPersetujuanTim).toBe("Disetujui tim PINDAI");
+    expect(posisiA.dibayarBulan).toBe(TENOR);
+    expect(posisiA.jadwalPembayaran).toHaveLength(TENOR);
+    for (const field of ["namaLengkap", "pemohonInisial", "nik", "nomorWhatsApp", "nomorRekening", "lokasiAjukan", "lat", "lng", "alamat", "kodeRakVault"]) {
+      expect(posisiA).not.toHaveProperty(field);
+    }
 
     // ===== Kontrak utama: penerimaan = alokasi + hak Imbal Hasil =====
     // Σ imbalHasil kedua posisi harus sama dengan total Imbal Hasil engine
