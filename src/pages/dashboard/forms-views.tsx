@@ -1,5 +1,5 @@
 import { useMutation, useQuery } from "convex/react";
-import { ArrowRight, Loader2, MapPin } from "lucide-react";
+import { ArrowRight, Camera, Loader2, MapPin } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import SignaturePad from "signature_pad";
 
@@ -105,12 +105,47 @@ export function LoanForm({ onCreated }: { onCreated: (ref: string) => void }) {
   const [penghasilan, setPenghasilan] = useState<number>(5_000_000);
   const [sumberPenghasilan, setSumberPenghasilan] = useState("");
   const [dok, setDok] = useState<
-    Record<KycFileKey, { id: Id<"_storage"> | null; name: string; busy: boolean }>
+    Record<KycFileKey, { id: Id<"_storage"> | null; busy: boolean }>
   >({
-    ktp: { id: null, name: "", busy: false },
-    selfie: { id: null, name: "", busy: false },
-    slip: { id: null, name: "", busy: false },
+    ktp: { id: null, busy: false },
+    selfie: { id: null, busy: false },
+    slip: { id: null, busy: false },
   });
+  const [cameraDoc, setCameraDoc] = useState<{ key: KycFileKey; label: string } | null>(null);
+  const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
+  const [cameraLoading, setCameraLoading] = useState(false);
+  const [cameraReady, setCameraReady] = useState(false);
+  const [cameraCapturing, setCameraCapturing] = useState(false);
+  const [cameraError, setCameraError] = useState<string | null>(null);
+  const cameraVideoRef = useRef<HTMLVideoElement | null>(null);
+  const cameraStreamRef = useRef<MediaStream | null>(null);
+  const cameraRequestRef = useRef(0);
+
+  useEffect(() => {
+    const video = cameraVideoRef.current;
+    if (!video || !cameraStream) return;
+    video.srcObject = cameraStream;
+    void video.play().catch(() => {
+      if (cameraStreamRef.current === cameraStream) {
+        cameraStream.getTracks().forEach((track) => track.stop());
+        cameraStreamRef.current = null;
+        setCameraStream(null);
+        setCameraReady(false);
+        setCameraError("Pratinjau kamera tidak dapat diputar. Coba buka kamera kembali.");
+      }
+    });
+    return () => {
+      if (video.srcObject === cameraStream) video.srcObject = null;
+    };
+  }, [cameraStream]);
+
+  useEffect(() => {
+    return () => {
+      cameraRequestRef.current += 1;
+      cameraStreamRef.current?.getTracks().forEach((track) => track.stop());
+      cameraStreamRef.current = null;
+    };
+  }, []);
 
   // ===== Lokasi real (GPS) =====
   const [lokasi, setLokasi] = useState<{
@@ -160,7 +195,7 @@ export function LoanForm({ onCreated }: { onCreated: (ref: string) => void }) {
       setError(`${label} maksimal 5 MB.`);
       return;
     }
-    setDok((p) => ({ ...p, [key]: { ...p[key], busy: true, name: file.name } }));
+    setDok((p) => ({ ...p, [key]: { ...p[key], busy: true } }));
     try {
       const url = await generateUploadUrl();
       const res = await fetch(url, {
@@ -170,11 +205,105 @@ export function LoanForm({ onCreated }: { onCreated: (ref: string) => void }) {
       });
       const json = (await res.json()) as { storageId?: Id<"_storage"> };
       if (!res.ok || !json.storageId) throw new Error(`Unggah ${label} gagal.`);
-      setDok((p) => ({ ...p, [key]: { id: json.storageId ?? null, name: file.name, busy: false } }));
+      setDok((p) => ({ ...p, [key]: { id: json.storageId ?? null, busy: false } }));
     } catch (err) {
       setError(err instanceof Error ? err.message : `Unggah ${label} gagal.`);
       setDok((p) => ({ ...p, [key]: { ...p[key], busy: false } }));
     }
+  };
+
+  const stopCamera = () => {
+    cameraRequestRef.current += 1;
+    cameraStreamRef.current?.getTracks().forEach((track) => track.stop());
+    cameraStreamRef.current = null;
+    setCameraStream(null);
+    setCameraDoc(null);
+    setCameraLoading(false);
+    setCameraReady(false);
+    setCameraCapturing(false);
+    setCameraError(null);
+  };
+
+  const startCamera = async (key: KycFileKey, label: string) => {
+    const requestId = ++cameraRequestRef.current;
+    cameraStreamRef.current?.getTracks().forEach((track) => track.stop());
+    cameraStreamRef.current = null;
+    setCameraStream(null);
+    setCameraDoc({ key, label });
+    setCameraLoading(true);
+    setCameraReady(false);
+    setCameraCapturing(false);
+    setCameraError(null);
+    setError(null);
+
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setCameraLoading(false);
+      setCameraError("Kamera tidak tersedia. Buka dashboard melalui HTTPS pada perangkat yang memiliki kamera.");
+      return;
+    }
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: key === "selfie" ? "user" : "environment" } },
+        audio: false,
+      });
+      if (cameraRequestRef.current !== requestId) {
+        stream.getTracks().forEach((track) => track.stop());
+        return;
+      }
+      cameraStreamRef.current = stream;
+      setCameraStream(stream);
+      setCameraLoading(false);
+    } catch (err) {
+      if (cameraRequestRef.current !== requestId) return;
+      const name = err instanceof Error ? err.name : "";
+      setCameraError(
+        name === "NotAllowedError" || name === "PermissionDeniedError" || name === "SecurityError"
+          ? "Izin kamera ditolak. Izinkan akses kamera di pengaturan browser, lalu coba lagi."
+          : name === "NotFoundError" || name === "DevicesNotFoundError"
+            ? "Kamera tidak ditemukan pada perangkat ini."
+            : "Gagal membuka kamera. Periksa perangkat dan izin kamera, lalu coba lagi.",
+      );
+      setCameraLoading(false);
+    }
+  };
+
+  const captureCameraPhoto = () => {
+    const video = cameraVideoRef.current;
+    const activeDoc = cameraDoc;
+    if (!activeDoc) return;
+    if (!video || !cameraReady || video.videoWidth === 0 || video.videoHeight === 0) {
+      setCameraError("Tunggu sampai pratinjau kamera siap sebelum mengambil foto.");
+      return;
+    }
+
+    const requestId = cameraRequestRef.current;
+    const canvas = document.createElement("canvas");
+    const scale = Math.min(1, 1920 / Math.max(video.videoWidth, video.videoHeight));
+    canvas.width = Math.max(1, Math.round(video.videoWidth * scale));
+    canvas.height = Math.max(1, Math.round(video.videoHeight * scale));
+    const context = canvas.getContext("2d");
+    if (!context) {
+      setCameraError("Foto tidak dapat diproses. Coba buka kamera kembali.");
+      return;
+    }
+    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+    setCameraCapturing(true);
+    canvas.toBlob(
+      (blob) => {
+        if (cameraRequestRef.current !== requestId) return;
+        if (!blob) {
+          setCameraCapturing(false);
+          setCameraError("Foto tidak berhasil diambil. Silakan coba lagi.");
+          return;
+        }
+        const photo = new File([blob], `${activeDoc.key}-${Date.now()}.jpg`, { type: "image/jpeg" });
+        stopCamera();
+        void handleFile(activeDoc.key, activeDoc.label, photo);
+      },
+      "image/jpeg",
+      0.9,
+    );
   };
 
   const bulanan = skema === "bulanan";
@@ -225,6 +354,14 @@ export function LoanForm({ onCreated }: { onCreated: (ref: string) => void }) {
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError(null);
+    if (cameraDoc !== null) {
+      setError("Selesaikan atau batalkan pengambilan foto dengan kamera sebelum mengirim pengajuan.");
+      return;
+    }
+    if (Object.values(dok).some((file) => file.busy)) {
+      setError("Tunggu sampai semua foto selesai diunggah sebelum mengirim pengajuan.");
+      return;
+    }
     if (!bulanan && (pokok < MIN || pokok > MAX || !Number.isInteger(pokok))) {
       setError(
         `Nominal pinjaman harus antara ${formatRupiah(MIN)} dan ${formatRupiah(MAX)} (rupiah bulat) dengan tenor maksimal ${LOAN_LIMITS.maxTenorHari} hari.`,
@@ -560,33 +697,112 @@ export function LoanForm({ onCreated }: { onCreated: (ref: string) => void }) {
           </div>
         </div>
         <div className="mt-4 space-y-3">
-          {KYC_FILES.map(({ key, label, accept }) => (
-            <div key={key} className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
-              <div className="flex items-center justify-between gap-3">
-                <div className="min-w-0">
-                  <Label htmlFor={`dok-${key}`}>{label}</Label>
-                  <p id={`dok-status-${key}`} role="status" aria-live="polite" className="mt-0.5 truncate text-xs text-muted-foreground">
-                    {dok[key].busy ? "Mengunggah…" : dok[key].name ? `Terpilih: ${dok[key].name}` : "Maks. 5 MB — gambar atau PDF"}
-                  </p>
+          {KYC_FILES.map(({ key, label }) => {
+            const kameraAktif = cameraDoc?.key === key;
+            const instruksi =
+              key === "selfie"
+                ? "Pastikan wajah dan KTP terlihat jelas di dalam bingkai."
+                : key === "ktp"
+                  ? "Ambil foto sisi depan KTP dengan tulisan terlihat jelas."
+                  : "Pastikan bukti penghasilan tidak terpotong dan tulisannya terbaca.";
+
+            return (
+              <div key={key} className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p id={`dok-label-${key}`} className="text-sm font-medium">{label}</p>
+                    <p id={`dok-status-${key}`} role="status" aria-live="polite" className="mt-0.5 truncate text-xs text-muted-foreground">
+                      {dok[key].busy
+                        ? "Mengunggah foto…"
+                        : dok[key].id
+                          ? "Foto berhasil diunggah"
+                          : "Wajib diambil langsung dengan kamera · Maks. 5 MB"}
+                    </p>
+                  </div>
+                  {!kameraAktif && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      aria-label={`${dok[key].id ? "Ambil ulang" : "Buka kamera untuk"} ${label}`}
+                      disabled={submitting || dok[key].busy || cameraLoading || cameraDoc !== null}
+                      onClick={() => void startCamera(key, label)}
+                    >
+                      {dok[key].busy ? <Loader2 className="size-3.5 animate-spin" /> : <Camera className="size-3.5" />}
+                      {dok[key].busy ? "Mengunggah…" : dok[key].id ? "Ambil ulang" : "Buka kamera"}
+                    </Button>
+                  )}
                 </div>
-                <Button type="button" variant="outline" size="sm" aria-label={`Pilih berkas ${label}`} disabled={submitting || dok[key].busy} onClick={() => document.getElementById(`dok-${key}`)?.click()}>
-                  {dok[key].busy ? <Loader2 className="size-3.5 animate-spin" /> : "Pilih file"}
-                </Button>
+                {kameraAktif && (
+                  <div className="mt-3 space-y-3" aria-labelledby={`dok-label-${key}`}>
+                    <p id={`camera-instructions-${key}`} className="text-xs leading-5 text-muted-foreground">
+                      {instruksi}
+                    </p>
+                    {cameraStream ? (
+                      <div className="overflow-hidden rounded-lg bg-slate-950">
+                        <video
+                          ref={cameraVideoRef}
+                          autoPlay
+                          playsInline
+                          muted
+                          aria-label={`Pratinjau kamera untuk ${label}`}
+                          aria-describedby={`camera-instructions-${key}`}
+                          onCanPlay={() => {
+                            if (cameraStreamRef.current) {
+                              setCameraReady(true);
+                              setCameraError(null);
+                            }
+                          }}
+                          className="aspect-video max-h-80 w-full object-contain"
+                        />
+                      </div>
+                    ) : (
+                      <div className="flex aspect-video max-h-80 items-center justify-center rounded-lg bg-slate-900 px-4 text-center text-sm text-white/80">
+                        {cameraLoading ? "Menunggu izin kamera…" : "Pratinjau kamera belum tersedia."}
+                      </div>
+                    )}
+                    <p role="status" aria-live="polite" className="text-xs text-muted-foreground">
+                      {cameraLoading
+                        ? "Meminta izin kamera…"
+                        : cameraError
+                          ? "Kamera belum siap. Periksa pesan di bawah."
+                          : cameraReady
+                            ? "Kamera siap. Pastikan foto jelas sebelum mengambil gambar."
+                            : "Menyiapkan kamera…"}
+                    </p>
+                    {cameraError && (
+                      <p role="alert" aria-live="assertive" className="text-sm text-destructive">
+                        {cameraError}
+                      </p>
+                    )}
+                    <div className="flex flex-wrap gap-2">
+                      {cameraError && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          disabled={cameraLoading}
+                          onClick={() => void startCamera(key, label)}
+                        >
+                          Coba lagi
+                        </Button>
+                      )}
+                      <Button
+                        type="button"
+                        disabled={!cameraReady || cameraLoading || cameraCapturing || dok[key].busy}
+                        onClick={captureCameraPhoto}
+                      >
+                        {cameraCapturing ? <Loader2 className="size-4 animate-spin" /> : <Camera className="size-4" />}
+                        {cameraCapturing ? "Memproses foto…" : "Ambil foto"}
+                      </Button>
+                      <Button type="button" variant="outline" onClick={stopCamera}>
+                        Batalkan kamera
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </div>
-              <input
-                id={`dok-${key}`}
-                type="file"
-                accept={accept}
-                aria-describedby={`dok-status-${key}`}
-                className="hidden"
-                onChange={(e) => {
-                  const f = e.target.files?.[0];
-                  e.target.value = "";
-                  void handleFile(key, label, f);
-                }}
-              />
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 
@@ -633,7 +849,11 @@ export function LoanForm({ onCreated }: { onCreated: (ref: string) => void }) {
         </p>
       )}
 
-      <Button type="submit" className="w-full" disabled={submitting}>
+      <Button
+        type="submit"
+        className="w-full"
+        disabled={submitting || cameraDoc !== null || Object.values(dok).some((file) => file.busy)}
+      >
         {submitting ? (
           <>
             <Loader2 className="mr-2 size-4 animate-spin" /> Mengirim…

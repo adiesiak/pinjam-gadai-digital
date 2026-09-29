@@ -7,14 +7,14 @@
 /** Batas ukuran file dokumen: 5 MB. */
 export const MAX_FILE_BYTES = 5 * 1024 * 1024;
 
-/** Jenis file yang diterima untuk setiap dokumen KYC. */
+/** Jenis gambar kamera yang diterima untuk setiap dokumen KYC. */
 export const KYC_FILES = [
   { key: "ktp", label: "Foto KTP", accept: "image/*", max: MAX_FILE_BYTES },
   { key: "selfie", label: "Selfie dengan KTP", accept: "image/*", max: MAX_FILE_BYTES },
   {
     key: "slip",
     label: "Slip gaji / bukti penghasilan",
-    accept: "image/*,application/pdf",
+    accept: "image/*",
     max: MAX_FILE_BYTES,
   },
 ] as const;
