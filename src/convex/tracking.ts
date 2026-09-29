@@ -1,7 +1,7 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { internalMutation, mutation, query, QueryCtx } from "./_generated/server";
 import { v } from "convex/values";
-import { ROLES } from "./schema";
+import { requireAdminSession } from "./adminAuthz";
 import { simpanTitik } from "./lokasi";
 import { getConfig } from "./system";
 import { batasRetensiMs, LOKASI_RETENSI, titikBolehDihapus } from "../lib/lokasi";
@@ -21,12 +21,7 @@ const STATUS_MENAHAN_BUKTI: ReadonlySet<LoanStatus> = new Set<LoanStatus>([
 
 /** Gerbang admin untuk pembacaan riwayat lokasi oleh tim review. */
 async function requireAdmin(ctx: QueryCtx) {
-  const adminId = await getAuthUserId(ctx);
-  if (adminId === null) throw new Error("Harus masuk terlebih dahulu.");
-  const admin = await ctx.db.get(adminId);
-  if (admin === null || admin.role !== ROLES.ADMIN) {
-    throw new Error("Akses khusus tim Pinjam Gadai Digital (admin).");
-  }
+  await requireAdminSession(ctx);
 }
 
 /**

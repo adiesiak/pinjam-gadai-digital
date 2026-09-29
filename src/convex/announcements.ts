@@ -2,16 +2,11 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 import { mutation, query, type QueryCtx } from "./_generated/server";
 import { v } from "convex/values";
 import type { Doc } from "./_generated/dataModel";
-import { ROLES } from "./schema";
+import { requireAdminSession } from "./adminAuthz";
 
 /** Gerbang admin untuk CMS. */
 async function requireAdmin(ctx: QueryCtx) {
-  const userId = await getAuthUserId(ctx);
-  if (userId === null) throw new Error("Harus masuk terlebih dahulu.");
-  const user = await ctx.db.get(userId);
-  if (user === null || user.role !== ROLES.ADMIN) {
-    throw new Error("Akses khusus tim Pinjam Gadai Digital (admin).");
-  }
+  const { userId } = await requireAdminSession(ctx);
   return { userId };
 }
 
@@ -119,10 +114,7 @@ export const getPublic = query({
 export const getCmsRow = query({
   args: {},
   handler: async (ctx) => {
-    const userId = await getAuthUserId(ctx);
-    if (userId === null) return null;
-    const me = await ctx.db.get(userId);
-    if (me === null || me.role !== ROLES.ADMIN) return null;
+    await requireAdmin(ctx);
     const row = await ctx.db
       .query("pengumuman")
       .withIndex("by_slot", (q) => q.eq("slot", SLOT))

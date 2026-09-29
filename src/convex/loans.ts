@@ -36,6 +36,7 @@ import { COLLATERAL_CATEGORIES } from "../lib/pawn";
 import { appendJournal } from "./ledger";
 import { getConfig, audit } from "./system";
 import { requireGerbangLokasi } from "./lokasi";
+import { requireAdminSession } from "./adminAuthz";
 
 /**
  * Saat pinjaman dilunasi, pinjaman baru (belum pernah didanai) bisa kembali
@@ -680,15 +681,7 @@ export const myPawnSummary = query({
 
 /** Hanya admin boleh memindahkan status aplikasi. */
 async function requireAdmin(ctx: MutationCtx) {
-  const userId = await getAuthUserId(ctx);
-  if (userId === null) throw new Error("Harus masuk terlebih dahulu.");
-  const user = await ctx.db.get(userId);
-  if (user === null || user.role !== ROLES.ADMIN) {
-    throw new Error(
-      "Hanya tim Pinjam Gadai Digital (admin) yang dapat mengubah status aplikasi.",
-    );
-  }
-  return userId;
+  return (await requireAdminSession(ctx)).userId;
 }
 
 async function setLoanStatus(

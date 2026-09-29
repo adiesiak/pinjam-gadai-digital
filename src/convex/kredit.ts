@@ -10,6 +10,7 @@ import {
   type KreditBarangQuote,
 } from "../lib/kredit";
 import { ROLES, type KreditStatusValue } from "./schema";
+import { requireAdminSession } from "./adminAuthz";
 import { appendJournal } from "./ledger";
 import { audit, getConfig } from "./system";
 import { requireGerbangLokasi } from "./lokasi";
@@ -47,11 +48,7 @@ async function peminjamMasuk(ctx: QueryCtx) {
 
 /** Gate: admin (tim PINDAI) — untuk verifikasi pengajuan kredit barang. */
 async function adminMasuk(ctx: QueryCtx) {
-  const { userId, user } = await penggunaMasuk(ctx);
-  if (user.role !== ROLES.ADMIN) {
-    throw new Error("Hanya tim PINDAI (admin) yang dapat memverifikasi pengajuan.");
-  }
-  return userId;
+  return (await requireAdminSession(ctx)).userId;
 }
 
 /** Nomor referensi kredit barang — mis. KRD-20260927-7QK2. */

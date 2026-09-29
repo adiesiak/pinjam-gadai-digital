@@ -1,5 +1,5 @@
 import { api } from "@/convex/_generated/api";
-import { getSessionId, getClientIp, getUserAgent, deviceLabelFromUa } from "@/lib/session";
+import { getClientIp, getUserAgent, deviceLabelFromUa } from "@/lib/session";
 import { Button } from "@/components/ui/button";
 import {
   InputOTP,
@@ -8,18 +8,17 @@ import {
 } from "@/components/ui/input-otp";
 import { useMutation } from "convex/react";
 import { Loader2, Lock, ShieldCheck } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 
 /**
  * Fullscreen gate — tampil tiap sesi browser baru sebelum panel admin.
  * Anti replay per kode 30 detik, diverifikasi di server.
  */
-export function TotpGate({ onVerified }: { onVerified: () => void }) {
+export function TotpGate() {
   const verify = useMutation(api.security.verifyTotp);
   const [kode, setKode] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const sessionId = useMemo(() => getSessionId(), []);
 
   const handleSubmit = async () => {
     setBusy(true);
@@ -29,11 +28,9 @@ export function TotpGate({ onVerified }: { onVerified: () => void }) {
       const ua = getUserAgent();
       await verify({
         kode,
-        sessionId,
         perangkat: deviceLabelFromUa(ua),
         ip,
       });
-      onVerified();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Kode salah.");
       setKode("");

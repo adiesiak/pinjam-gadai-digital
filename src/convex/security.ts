@@ -268,8 +268,10 @@ export const confirmTotpSetup = mutation({
       totpSecret: mfa.totpPendingSecret,
       totpPendingSecret: undefined,
       totpLastCounter: Math.floor(Date.now() / 30_000),
+      // Keep existing verified sessions during an active-secret rotation, but
+      // never revive stale proofs when TOTP is being activated again.
       totpVerifiedAuthSessionIds: addVerifiedAuthSession(
-        mfa.totpVerifiedAuthSessionIds,
+        mfa.totpSecret !== undefined ? mfa.totpVerifiedAuthSessionIds : undefined,
         authSessionId,
       ),
     });
@@ -347,6 +349,7 @@ export const disableTotp = mutation({
       totpSecret: undefined,
       totpPendingSecret: undefined,
       totpLastCounter: undefined,
+      totpVerifiedAuthSessionIds: undefined,
     });
     await ctx.db.insert("auditLog", {
       aktorUserId: user._id,

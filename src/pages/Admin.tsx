@@ -1,6 +1,6 @@
 import { useMutation, useQuery } from "convex/react";
 import { Activity, Loader2, ShieldCheck } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router";
 import { toast } from "sonner";
 
@@ -11,7 +11,6 @@ import { PawnReviewDialog } from "@/components/admin/PawnReviewDialog";
 import { SecurityBar, type LoanRow, type PawnRow } from "@/components/admin/admin-shared";
 import { api } from "@/convex/_generated/api";
 import { useAuth } from "@/hooks/use-auth";
-import { getSessionId } from "@/lib/session";
 import { ADMIN_ROUTE } from "@/lib/routes";
 
 import {
@@ -21,6 +20,7 @@ import {
   NotAdminView,
 } from "./admin/admin-shell";
 import { AdminTabs } from "./admin/admin-tabs";
+import { Button } from "@/components/ui/button";
 
 /**
  * Panel admin — PINDAI.
@@ -30,26 +30,28 @@ import { AdminTabs } from "./admin/admin-tabs";
 export default function Admin() {
   const { isLoading, isAuthenticated } = useAuth();
   const navigate = useNavigate();
-  const overview = useQuery(api.admin.adminOverview);
-  const sessionId = useMemo(() => getSessionId(), []);
   const gate = useQuery(
     api.security.totpGateStatus,
-    overview?.isAdmin ? { sessionId } : "skip",
+    isAuthenticated ? {} : "skip",
   );
-  const [gateVerified, setGateVerified] = useState(false);
+  const adminExistsQ = useQuery(
+    api.admin.adminExists,
+    isAuthenticated ? {} : "skip",
+  );
+  const adminVerified = gate?.isAdmin === true && gate.verified;
+  const overview = useQuery(api.admin.adminOverview, adminVerified ? {} : "skip");
   const [totpSetupOpen, setTotpSetupOpen] = useState(false);
-  const stats = useQuery(api.admin.adminStats, overview?.isAdmin ? {} : "skip");
-  const adminExistsQ = useQuery(api.admin.adminExists);
+  const stats = useQuery(api.admin.adminStats, adminVerified ? {} : "skip");
   const pendingDeposits = useQuery(
     api.admin.pendingDeposits,
-    overview?.isAdmin ? {} : "skip",
+    adminVerified ? {} : "skip",
   );
   const pendingWd = useQuery(
     api.admin.pendingWithdrawals,
-    overview?.isAdmin ? {} : "skip",
+    adminVerified ? {} : "skip",
   );
-  const ledger = useQuery(api.admin.ledgerSummary, overview?.isAdmin ? {} : "skip");
-  const sysCfg = useQuery(api.system.getStatusPublic, overview?.isAdmin ? {} : "skip");
+  const ledger = useQuery(api.admin.ledgerSummary, adminVerified ? {} : "skip");
+  const sysCfg = useQuery(api.system.getStatusPublic, adminVerified ? {} : "skip");
   const setKill = useMutation(api.system.setKillSwitch);
   const [killBusy, setKillBusy] = useState(false);
   const [killConfirm, setKillConfirm] = useState(false);
@@ -61,7 +63,10 @@ export default function Admin() {
   const bootstrapAdmin = useMutation(api.admin.bootstrapFirstAdmin);
   const [booting, setBooting] = useState(false);
 
-  if (isLoading || overview === undefined || adminExistsQ === undefined) {
+  if (
+    isLoading ||
+    (isAuthenticated && (gate === undefined || adminExistsQ === undefined))
+  ) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-background">
         <Loader2 className="size-5 animate-spin text-muted-foreground" />
@@ -76,7 +81,7 @@ export default function Admin() {
   }
 
   // Bootstrap admin pertama: belum ada admin + akun ini email terverifikasi
-  if (!overview.isAdmin && adminExistsQ === false) {
+  if (!gate?.isAdmin && adminExistsQ === false) {
     return (
       <BootstrapAdminView
         busy={booting}
@@ -98,13 +103,41 @@ export default function Admin() {
   }
 
   // Bukan admin (dan admin sudah ada) → tolak dengan jelas
-  if (!overview.isAdmin) {
+  if (!gate?.isAdmin) {
     return <NotAdminView />;
   }
 
-  // 2FA TOTP gate — sesi browser baru wajib satu kali verifikasi.
-  if (gate !== undefined && gate.aktif && gate.butuh && !gateVerified) {
-    return <TotpGate onVerified={() => setGateVerified(true)} />;
+  // TOTP wajib sebelum data admin diminta. Admin pertama hanya memperoleh
+  // akses setup; operasi admin tetap tertutup sampai setup mengikat sesi Auth.
+  if (!gate.aktif) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-slate-50 px-6">
+        <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+          <ShieldCheck className="size-6 text-primary" />
+          <h1 className="mt-4 text-xl font-semibold tracking-tight text-slate-900">
+            Aktifkan verifikasi TOTP
+          </h1>
+          <p className="mt-2 text-sm leading-6 text-muted-foreground">
+            TOTP wajib sebelum data operasional atau tindakan admin dapat diakses.
+            Siapkan aplikasi authenticator untuk melanjutkan.
+          </p>
+          <Button className="mt-6 w-full rounded-full" onClick={() => setTotpSetupOpen(true)}>
+            Siapkan autentikasi dua faktor
+          </Button>
+        </div>
+        <TotpSetupDialog open={totpSetupOpen} onOpenChange={setTotpSetupOpen} />
+      </main>
+    );
+  }
+  if (!gate.verified) {
+    return <TotpGate />;
+  }
+  if (overview === undefined) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-background">
+        <Loader2 className="size-5 animate-spin text-muted-foreground" />
+      </main>
+    );
   }
 
   const handleToggleKill = async () => {

@@ -5,11 +5,35 @@ import { describe, expect, it } from "vitest";
 import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { CONTRACT_TERMS_VERSION } from "../lib/contract";
+import { totpNow } from "../lib/totp";
 import schema from "./schema";
 import { modules } from "./test.setup";
 
-type Tx = ReturnType<typeof convexTest>;
+type Tx = ReturnType<typeof convexTest<typeof schema.tables>>;
 type Sesi = ReturnType<Tx["withIdentity"]>;
+const TEST_TOTP_SECRET = "JBSWY3DPEHPK3PXP";
+
+async function aktifkanTotpUntukSesi(
+  t: Tx,
+  userId: Id<"users">,
+  authSessionId: Id<"authSessions">,
+) {
+  await t.mutation(async (ctx) => {
+    const existing = await ctx.db
+      .query("mfaSettings")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .first();
+    const patch = {
+      totpSecret: TEST_TOTP_SECRET,
+      totpVerifiedAuthSessionIds: [authSessionId],
+    };
+    if (existing === null) {
+      await ctx.db.insert("mfaSettings", { userId, ...patch });
+    } else {
+      await ctx.db.patch(existing._id, patch);
+    }
+  });
+}
 
 async function buatPengguna(
   t: Tx,
@@ -20,7 +44,11 @@ async function buatPengguna(
     isAnonymous?: boolean;
     role?: "admin" | "pendana" | "peminjam";
   } = {},
-): Promise<{ sesi: Sesi; userId: Id<"users"> }> {
+): Promise<{
+  sesi: Sesi;
+  userId: Id<"users">;
+  authSessionId: Id<"authSessions">;
+}> {
   const userId = await t.mutation((ctx) =>
     ctx.db.insert("users", {
       ...(opsi.email !== undefined ? { email: opsi.email } : {}),
@@ -32,9 +60,16 @@ async function buatPengguna(
       ...(opsi.role !== undefined ? { role: opsi.role } : {}),
     }),
   );
+  const authSessionId = await t.run((ctx) =>
+    ctx.db.insert("authSessions", {
+      userId,
+      expirationTime: Date.now() + 60 * 60 * 1000,
+    }),
+  );
   return {
     userId,
-    sesi: t.withIdentity({ subject: userId, name: nama }) as never,
+    authSessionId,
+    sesi: t.withIdentity({ subject: `${userId}|${authSessionId}`, name: nama }) as never,
   };
 }
 
@@ -176,10 +211,15 @@ describe("otorisasi endpoint admin", () => {
     });
     await expect(peminjam.query(api.admin.adminLoanQuote, args)).rejects.toThrow(/admin/i);
 
-    const { sesi: admin } = await buatPengguna(t, "Admin", {
-      email: "admin-quote@pindai.test",
-      role: "admin",
-    });
+    const { sesi: admin, userId: adminId, authSessionId } = await buatPengguna(
+      t,
+      "Admin",
+      {
+        email: "admin-quote@pindai.test",
+        role: "admin",
+      },
+    );
+    await aktifkanTotpUntukSesi(t, adminId, authSessionId);
     await expect(admin.query(api.admin.adminLoanQuote, args)).resolves.toMatchObject({
       skema: "harian",
     });
@@ -197,10 +237,12 @@ describe("persetujuan dan tanda tangan akad Peminjam", () => {
       "Peminjam akad",
       { email: "peminjam-akad@pindai.test", role: "peminjam" },
     );
-    const { sesi: admin } = await buatPengguna(t, "Admin akad", {
-      email: "admin-akad@pindai.test",
-      role: "admin",
-    });
+    const { sesi: admin, userId: adminId, authSessionId } = await buatPengguna(
+      t,
+      "Admin akad",
+      { email: "admin-akad@pindai.test", role: "admin" },
+    );
+    await aktifkanTotpUntukSesi(t, adminId, authSessionId);
     const loanId = await t.run((ctx) =>
       ctx.db.insert("loans", {
         userId: borrowerId,
@@ -259,10 +301,12 @@ describe("persetujuan dan tanda tangan akad Peminjam", () => {
       "Peminjam gadai",
       { email: "peminjam-gadai-akad@pindai.test", role: "peminjam" },
     );
-    const { sesi: admin } = await buatPengguna(t, "Admin gadai akad", {
-      email: "admin-gadai-akad@pindai.test",
-      role: "admin",
-    });
+    const { sesi: admin, userId: adminId, authSessionId } = await buatPengguna(
+      t,
+      "Admin gadai akad",
+      { email: "admin-gadai-akad@pindai.test", role: "admin" },
+    );
+    await aktifkanTotpUntukSesi(t, adminId, authSessionId);
     const loanId = await t.run((ctx) =>
       ctx.db.insert("loans", {
         userId: borrowerId,
@@ -351,9 +395,10 @@ describe("otorisasi MFA backend", () => {
 
     await expect(t.query(api.security.myTotpStatus, {})).rejects.toThrow(/masuk/i);
     await expect(peminjam.query(api.security.myTotpStatus, {})).rejects.toThrow(/admin/i);
-    await expect(
-      peminjam.query(api.security.totpGateStatus, { sessionId: "sesi-peminjam" }),
-    ).rejects.toThrow(/admin/i);
+    await expect(peminjam.query(api.security.totpGateStatus, {})).resolves.toMatchObject({
+      isAdmin: false,
+      verified: false,
+    });
     await expect(peminjam.mutation(api.security.startTotpSetup, {})).rejects.toThrow(/admin/i);
     await expect(
       peminjam.mutation(api.security.confirmTotpSetup, { kode: "000000" }),
@@ -361,7 +406,6 @@ describe("otorisasi MFA backend", () => {
     await expect(
       peminjam.mutation(api.security.verifyTotp, {
         kode: "000000",
-        sessionId: "sesi-peminjam",
         perangkat: "browser",
         ip: "127.0.0.1",
       }),
@@ -374,6 +418,178 @@ describe("otorisasi MFA backend", () => {
       aktif: false,
       setupBerlangsung: false,
     });
+  });
+
+  it("TOTP bootstrap mengikat bukti ke sesi Auth dan menolak ID localStorage palsu", async () => {
+    const t = convexTest(schema, modules);
+    const { sesi: admin, userId: adminId, authSessionId } = await buatPengguna(
+      t,
+      "Admin TOTP",
+      { email: "admin-totp-proof@pindai.test", role: "admin" },
+    );
+
+    await expect(admin.query(api.admin.adminOverview, {})).rejects.toThrow(/aktifkan TOTP/i);
+    await expect(admin.query(api.security.totpGateStatus, {})).resolves.toMatchObject({
+      isAdmin: true,
+      aktif: false,
+      butuh: true,
+      verified: false,
+    });
+
+    await t.run((ctx) =>
+      ctx.db.insert("mfaSettings", {
+        userId: adminId,
+        totpSecret: TEST_TOTP_SECRET,
+        // localStorage session ID must never count as a verified Auth session.
+        totpVerifiedAuthSessionIds: ["pindai.sessionId.fake"],
+      }),
+    );
+    await expect(admin.query(api.security.totpGateStatus, {})).resolves.toMatchObject({
+      aktif: true,
+      butuh: true,
+      verified: false,
+    });
+    await expect(admin.query(api.admin.adminOverview, {})).rejects.toThrow(/TOTP/i);
+
+    const kode = await totpNow(TEST_TOTP_SECRET);
+    await expect(
+      admin.mutation(api.security.verifyTotp, {
+        kode,
+        perangkat: "browser",
+        ip: "127.0.0.1",
+      }),
+    ).resolves.toMatchObject({ ok: true });
+    await expect(admin.query(api.security.totpGateStatus, {})).resolves.toMatchObject({
+      aktif: true,
+      butuh: false,
+      verified: true,
+    });
+    await expect(admin.query(api.admin.adminOverview, {})).resolves.toMatchObject({
+      isAdmin: true,
+      loans: [],
+      pawns: [],
+      kredit: [],
+    });
+
+    const otherSessionId = await t.run((ctx) =>
+      ctx.db.insert("authSessions", {
+        userId: adminId,
+        expirationTime: Date.now() + 60 * 60 * 1000,
+      }),
+    );
+    const sesiLain = t.withIdentity({
+      subject: `${adminId}|${otherSessionId}`,
+      name: "Admin TOTP",
+    }) as never as Sesi;
+    await expect(sesiLain.query(api.security.totpGateStatus, {})).resolves.toMatchObject({
+      aktif: true,
+      butuh: true,
+      verified: false,
+    });
+    await expect(sesiLain.query(api.admin.adminOverview, {})).rejects.toThrow(/TOTP/i);
+    expect(authSessionId).not.toBe(otherSessionId);
+  });
+
+  it("admin bootstrap dapat mengaktifkan TOTP sebelum akses operasional", async () => {
+    const t = convexTest(schema, modules);
+    const { sesi: firstAdmin, userId, authSessionId } = await buatPengguna(
+      t,
+      "Admin bootstrap TOTP",
+      {
+        email: "admin-bootstrap-totp@pindai.test",
+        emailVerificationTime: Date.now(),
+      },
+    );
+
+    await expect(firstAdmin.mutation(api.admin.bootstrapFirstAdmin, {})).resolves.toEqual({
+      success: true,
+    });
+    const setup = await firstAdmin.mutation(api.security.startTotpSetup, {});
+    const kode = await totpNow(setup.secret);
+    await expect(
+      firstAdmin.mutation(api.security.confirmTotpSetup, { kode }),
+    ).resolves.toEqual({ ok: true });
+    await expect(firstAdmin.query(api.security.totpGateStatus, {})).resolves.toMatchObject({
+      isAdmin: true,
+      aktif: true,
+      butuh: false,
+      verified: true,
+    });
+    await expect(firstAdmin.query(api.admin.adminOverview, {})).resolves.toMatchObject({
+      isAdmin: true,
+    });
+    expect(userId).toBeDefined();
+    expect(authSessionId).toBeDefined();
+  });
+
+  it("menghapus bukti sesi lama saat TOTP dinonaktifkan dan diaktifkan ulang", async () => {
+    const t = convexTest(schema, modules);
+    const { sesi: admin, userId, authSessionId } = await buatPengguna(
+      t,
+      "Admin rotasi TOTP",
+      { email: "admin-rotasi-totp@pindai.test", role: "admin" },
+    );
+    const authSessionLain = await t.run((ctx) =>
+      ctx.db.insert("authSessions", {
+        userId,
+        expirationTime: Date.now() + 60 * 60 * 1000,
+      }),
+    );
+    const adminSesiLain = t.withIdentity({
+      subject: `${userId}|${authSessionLain}`,
+      name: "Admin rotasi TOTP",
+    }) as never as Sesi;
+    await t.run((ctx) =>
+      ctx.db.insert("mfaSettings", {
+        userId,
+        totpSecret: TEST_TOTP_SECRET,
+        totpVerifiedAuthSessionIds: [authSessionId, authSessionLain],
+      }),
+    );
+
+    await expect(adminSesiLain.query(api.security.totpGateStatus, {})).resolves.toMatchObject({
+      aktif: true,
+      verified: true,
+    });
+
+    const rotasi = await admin.mutation(api.security.startTotpSetup, {});
+    await expect(
+      admin.mutation(api.security.confirmTotpSetup, {
+        kode: await totpNow(rotasi.secret),
+      }),
+    ).resolves.toEqual({ ok: true });
+    await expect(adminSesiLain.query(api.security.totpGateStatus, {})).resolves.toMatchObject({
+      aktif: true,
+      verified: true,
+    });
+
+    await expect(
+      admin.mutation(api.security.disableTotp, {
+        kode: await totpNow(rotasi.secret),
+      }),
+    ).resolves.toEqual({ ok: true });
+    await expect(admin.query(api.security.totpGateStatus, {})).resolves.toMatchObject({
+      aktif: false,
+      verified: false,
+    });
+
+    const setup = await admin.mutation(api.security.startTotpSetup, {});
+    await expect(
+      admin.mutation(api.security.confirmTotpSetup, {
+        kode: await totpNow(setup.secret),
+      }),
+    ).resolves.toEqual({ ok: true });
+    await expect(admin.query(api.security.totpGateStatus, {})).resolves.toMatchObject({
+      aktif: true,
+      verified: true,
+    });
+    await expect(
+      adminSesiLain.query(api.security.totpGateStatus, {}),
+    ).resolves.toMatchObject({
+      aktif: true,
+      verified: false,
+    });
+    await expect(adminSesiLain.query(api.admin.adminOverview, {})).rejects.toThrow(/TOTP/i);
   });
 
   it("pengaturan OTP hanya untuk Pendana dan verifikasi OTP menolak role lain", async () => {
