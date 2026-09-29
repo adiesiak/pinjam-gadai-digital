@@ -29,7 +29,7 @@ export function HistorySection() {
   }
 
   return (
-    <div className="grid gap-8 lg:grid-cols-3">
+    <div className="grid gap-8 xl:grid-cols-3">
       <section>
         <h3 className="text-sm font-semibold">Alokasi pendanaan</h3>
         {fundings.length === 0 ? (
@@ -38,7 +38,7 @@ export function HistorySection() {
           <ul className="mt-3 divide-y divide-slate-200 rounded-2xl border border-slate-200 bg-white">
             {fundings.map((f) => (
               <li key={f._id} className="px-5 py-4">
-                <div className="flex items-center justify-between gap-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
                   <p className="text-sm font-medium tabular-nums">{formatRupiah(f.jumlahAlokasi)}</p>
                   <FundingStatusBadge status={f.status} />
                 </div>
@@ -61,7 +61,7 @@ export function HistorySection() {
           <ul className="mt-3 divide-y divide-slate-200 rounded-2xl border border-slate-200 bg-white">
             {deposits.map((d) => (
               <li key={d._id} className="px-5 py-4">
-                <div className="flex items-center justify-between gap-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
                   <p className="text-sm font-medium tabular-nums">{formatRupiah(d.jumlah)}</p>
                   <DepositBadge status={d.status} />
                 </div>
@@ -81,7 +81,7 @@ export function HistorySection() {
           <ul className="mt-3 divide-y divide-slate-200 rounded-2xl border border-slate-200 bg-white">
             {withdrawals.map((w) => (
               <li key={w._id} className="px-5 py-4">
-                <div className="flex items-center justify-between gap-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
                   <p className="text-sm font-medium tabular-nums">{formatRupiah(w.jumlah)}</p>
                   <WithdrawalBadge status={w.status} />
                 </div>

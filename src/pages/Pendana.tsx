@@ -38,7 +38,7 @@ export default function Pendana() {
       {/* Bar pengumuman global dirender di main.tsx (AnnouncementBar). */}
       <PendanaHeader />
 
-      <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-8 sm:px-6">
+      <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-5 sm:px-6 sm:py-8">
         {role === "pendana" ? (
           <PendanaWorkspace greetingName={greetingName} onSignOut={handleSignOut} />
         ) : role === "admin" ? (

@@ -9,6 +9,13 @@ import {
 } from "lucide-react";
 
 import { TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 
 /** Item navigasi tab: [nilai, label, ikon]. */
@@ -40,36 +47,59 @@ function badgeToneClass(tone: TabBadge["tone"]): string {
  */
 export function DashboardTabNav({
   badges,
+  activeTab,
+  onTabChange,
 }: {
   badges?: Partial<Record<string, TabBadge>>;
+  activeTab: string;
+  onTabChange: (value: string) => void;
 }) {
   return (
-    <TabsList className="flex h-auto w-full flex-row items-stretch justify-start gap-1 overflow-x-auto rounded-2xl border border-slate-200 bg-white p-1.5 shadow-sm lg:flex-col lg:overflow-visible">
-      {TABS.map(([value, label, icon]) => {
-        const badge = badges?.[value];
-        return (
-          <TabsTrigger
-            key={value}
-            value={value}
-            className="group h-auto w-auto flex-none shrink-0 justify-start gap-2.5 rounded-xl px-3 py-2.5 text-xs font-medium text-slate-600 transition-all hover:bg-slate-50 hover:text-slate-900 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm lg:w-full"
-          >
-            <span className="inline-flex align-middle">{icon}</span>
-            <span className="whitespace-nowrap lg:whitespace-normal lg:text-left">{label}</span>
-            {badge !== undefined && badge.count > 0 && (
-              <span
-                aria-label={`${badge.count} item`}
-                className={cn(
-                  "ml-auto inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[10px] font-semibold tabular-nums",
-                  badgeToneClass(badge.tone),
-                  "group-data-[state=active]:bg-white/25 group-data-[state=active]:text-primary-foreground",
-                )}
-              >
-                {badge.count > 99 ? "99+" : badge.count}
-              </span>
-            )}
-          </TabsTrigger>
-        );
-      })}
-    </TabsList>
+    <>
+      <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm lg:hidden">
+        <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+          Menu dashboard
+        </p>
+        <Select value={activeTab} onValueChange={onTabChange}>
+          <SelectTrigger className="h-11 w-full rounded-xl bg-slate-50 text-sm">
+            <SelectValue placeholder="Pilih menu" />
+          </SelectTrigger>
+          <SelectContent>
+            {TABS.map(([value, label]) => (
+              <SelectItem key={value} value={value}>
+                {label}{badges?.[value]?.count ? ` · ${badges[value].count}` : ""}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      <TabsList className="hidden h-auto w-full flex-col items-stretch justify-start gap-1 overflow-visible rounded-2xl border border-slate-200 bg-white p-1.5 shadow-sm lg:flex">
+        {TABS.map(([value, label, icon]) => {
+          const badge = badges?.[value];
+          return (
+            <TabsTrigger
+              key={value}
+              value={value}
+              className="group h-auto w-auto flex-none shrink-0 justify-start gap-2.5 rounded-xl px-3 py-2.5 text-xs font-medium text-slate-600 transition-all hover:bg-slate-50 hover:text-slate-900 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm lg:w-full"
+            >
+              <span className="inline-flex align-middle">{icon}</span>
+              <span className="whitespace-nowrap lg:whitespace-normal lg:text-left">{label}</span>
+              {badge !== undefined && badge.count > 0 && (
+                <span
+                  aria-label={`${badge.count} item`}
+                  className={cn(
+                    "ml-auto inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[10px] font-semibold tabular-nums",
+                    badgeToneClass(badge.tone),
+                    "group-data-[state=active]:bg-white/25 group-data-[state=active]:text-primary-foreground",
+                  )}
+                >
+                  {badge.count > 99 ? "99+" : badge.count}
+                </span>
+              )}
+            </TabsTrigger>
+          );
+        })}
+      </TabsList>
+    </>
   );
 }

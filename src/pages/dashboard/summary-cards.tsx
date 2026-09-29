@@ -35,12 +35,12 @@ export function SummaryCards({ schedule }: { schedule: LoanScheduleRow[] }) {
   }, [schedule]);
 
   return (
-    <section className="mt-6 grid gap-4 md:grid-cols-3">
-      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+    <section className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3 xl:gap-4">
+      <div className="min-w-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
         <div className="flex items-start justify-between">
           <div>
             <p className="text-xs text-muted-foreground">Dana Bersih Diterima</p>
-            <p className="mt-2 text-2xl font-semibold tabular-nums text-emerald-600">
+            <p className="mt-2 break-words text-xl font-semibold tabular-nums text-emerald-600 sm:text-2xl">
               {formatRupiah(danaBersihTotal)}
             </p>
           </div>
@@ -50,11 +50,11 @@ export function SummaryCards({ schedule }: { schedule: LoanScheduleRow[] }) {
         </div>
       </div>
 
-      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="min-w-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
         <div className="flex items-start justify-between">
           <div>
             <p className="text-xs text-muted-foreground">Total Kewajiban Pelunasan</p>
-            <p className="mt-2 text-2xl font-semibold tabular-nums">
+            <p className="mt-2 break-words text-xl font-semibold tabular-nums sm:text-2xl">
               {formatRupiah(totalKewajiban)}
             </p>
           </div>
@@ -64,11 +64,11 @@ export function SummaryCards({ schedule }: { schedule: LoanScheduleRow[] }) {
         </div>
       </div>
 
-      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="min-w-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
         <div className="flex items-start justify-between">
           <div>
             <p className="text-xs text-muted-foreground">Sisa Tagihan Berjalan</p>
-            <p className="mt-2 text-2xl font-semibold tabular-nums text-destructive">
+            <p className="mt-2 break-words text-xl font-semibold tabular-nums text-destructive sm:text-2xl">
               {formatRupiah(sisaTagihan)}
             </p>
           </div>

@@ -191,7 +191,7 @@ function MarketCard({
       )}
 
       {/* Rincian transparansi */}
-      <dl className="mt-3 grid grid-cols-3 gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-center text-xs">
+      <dl className="mt-3 grid grid-cols-2 gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-center text-xs sm:grid-cols-3">
         <div>
           <dt className="text-muted-foreground">Tenor</dt>
           <dd className="mt-0.5 font-semibold tabular-nums">
@@ -202,7 +202,7 @@ function MarketCard({
           <dt className="text-muted-foreground">Verifikasi</dt>
           <dd className="mt-0.5 font-semibold text-emerald-600">Terverifikasi KYC</dd>
         </div>
-        <div>
+        <div className="col-span-2 sm:col-span-1">
           <dt className="text-muted-foreground">
             {row.tenorBulan !== null ? "Imbal Hasil total" : "Hak bunga (30%)"}
           </dt>
@@ -216,12 +216,12 @@ function MarketCard({
       <div className="mt-4">
         <div className="flex items-baseline justify-between text-xs">
           <span className="font-medium">Dana terkumpul</span>
-          <span className="tabular-nums text-muted-foreground">
+          <span className="text-right tabular-nums text-muted-foreground">
             {formatRupiah(row.terkumpul)} / {formatRupiah(row.pokokPinjaman)}
           </span>
         </div>
         <Progress className="mt-1.5 h-2.5" value={pct} />
-        <p className="mt-1.5 text-xs tabular-nums text-muted-foreground">
+        <p className="mt-1.5 break-words text-xs leading-5 tabular-nums text-muted-foreground">
           Sisa kebutuhan {formatRupiah(row.sisaKebutuhan)} ·{" "}
           {row.tenorBulan !== null ? (
             <>dana penuh ke Peminjam {formatRupiah(row.danaBersih)} (DP 0%)</>

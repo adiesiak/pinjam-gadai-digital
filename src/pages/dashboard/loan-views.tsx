@@ -52,25 +52,25 @@ function RincianBaris({
 }) {
   if (tone === "net") {
     return (
-      <div className="flex items-baseline justify-between gap-4 bg-emerald-50 px-4 py-3">
+      <div className="flex flex-col gap-1 bg-emerald-50 px-4 py-3 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4">
         <dt className="text-sm font-semibold text-emerald-800">{label}</dt>
-        <dd className="text-sm font-semibold tabular-nums text-emerald-700">{value}</dd>
+        <dd className="break-words text-left text-sm font-semibold tabular-nums text-emerald-700 sm:text-right">{value}</dd>
       </div>
     );
   }
   if (tone === "total") {
     return (
-      <div className="flex items-baseline justify-between gap-4 bg-slate-50 px-4 py-3">
+      <div className="flex flex-col gap-1 bg-slate-50 px-4 py-3 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4">
         <dt className="text-sm font-semibold">{label}</dt>
-        <dd className="text-sm font-semibold tabular-nums">{value}</dd>
+        <dd className="break-words text-left text-sm font-semibold tabular-nums sm:text-right">{value}</dd>
       </div>
     );
   }
   return (
-    <div className="flex items-baseline justify-between gap-4 bg-white px-4 py-2.5">
+    <div className="flex flex-col gap-1 bg-white px-4 py-2.5 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4">
       <dt className="text-sm text-muted-foreground">{label}</dt>
       <dd
-        className={`text-sm tabular-nums ${tone === "muted" ? "text-muted-foreground" : ""}`}
+        className={`break-words text-left text-sm tabular-nums sm:text-right ${tone === "muted" ? "text-muted-foreground" : ""}`}
       >
         {value}
       </dd>
@@ -145,7 +145,7 @@ function ActiveLoanCard({
   const [payOpen, setPayOpen] = useState(false);
 
   return (
-    <article className="card-lift rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+    <article className="card-lift rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="text-xs text-muted-foreground">
@@ -227,7 +227,7 @@ function ActiveLoanCard({
 
       {loan.pelunasan && (
         <div className="mt-5">
-          <div className="flex items-baseline justify-between text-xs">
+          <div className="flex flex-wrap items-baseline justify-between gap-2 text-xs">
             <span className="font-medium">
               {terlambat
                 ? `Terlambat ${loan.pelunasan.hariTerlambat} hari`
@@ -451,7 +451,7 @@ export function ScheduleSection({ schedule }: { schedule: LoanScheduleRow[] }) {
         return (
           <li
             key={l._id}
-            className={`card-lift rounded-2xl border bg-white p-5 shadow-sm ${
+            className={`card-lift rounded-2xl border bg-white p-4 shadow-sm sm:p-5 ${
               overdue ? "border-red-200" : "border-slate-200"
             }`}
           >
@@ -471,13 +471,13 @@ export function ScheduleSection({ schedule }: { schedule: LoanScheduleRow[] }) {
               <ScheduleBadge state={state} />
             </div>
             <dl className="mt-3 grid gap-x-8 gap-y-1.5 text-sm sm:grid-cols-2">
-              <div className="flex items-baseline justify-between gap-4">
+              <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4">
                 <dt className="text-muted-foreground">Jatuh tempo</dt>
                 <dd className="tabular-nums">
                   {l.pelunasan ? formatDate(l.pelunasan.jatuhTempoPada) : "—"}
                 </dd>
               </div>
-              <div className="flex items-baseline justify-between gap-4">
+              <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4">
                 <dt className="text-muted-foreground">Total pembayaran</dt>
                 <dd className="font-semibold tabular-nums">
                   {formatRupiah(
@@ -488,7 +488,7 @@ export function ScheduleSection({ schedule }: { schedule: LoanScheduleRow[] }) {
                 </dd>
               </div>
               {!lunas && l.pelunasan && l.pelunasan.dendaTerlambat > 0 && (
-                <div className="flex items-baseline justify-between gap-4">
+                <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4">
                   <dt className="text-destructive">Denda keterlambatan</dt>
                   <dd className="tabular-nums text-destructive">
                     +{formatRupiah(l.pelunasan.dendaTerlambat)}
@@ -496,7 +496,7 @@ export function ScheduleSection({ schedule }: { schedule: LoanScheduleRow[] }) {
                 </div>
               )}
               {!lunas && l.pelunasan && !overdue && (
-                <div className="flex items-baseline justify-between gap-4">
+                <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4">
                   <dt className="text-muted-foreground">Sisa waktu</dt>
                   <dd className="tabular-nums">
                     {l.pelunasan.sisaHari === 0 ? "Hari ini" : `${l.pelunasan.sisaHari} hari`}

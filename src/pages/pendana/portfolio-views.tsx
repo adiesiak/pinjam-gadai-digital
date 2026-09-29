@@ -52,7 +52,7 @@ export function PortfolioSection({ portfolio }: { portfolio: PortfolioRow[] | un
       {portfolio.map((f) => (
         <li
           key={f._id}
-          className={`card-lift rounded-2xl border bg-white p-5 shadow-sm ${
+          className={`card-lift rounded-2xl border bg-white p-4 shadow-sm sm:p-5 ${
             f.statusPelunasan === "menunggak" ? "border-red-200" : "border-slate-200"
           }`}
         >
@@ -72,15 +72,15 @@ export function PortfolioSection({ portfolio }: { portfolio: PortfolioRow[] | un
           </div>
 
           <dl className="mt-3 grid gap-x-8 gap-y-1.5 text-sm sm:grid-cols-3">
-            <div className="flex items-baseline justify-between gap-4">
+            <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4">
               <dt className="text-muted-foreground">Dana dialokasikan</dt>
               <dd className="font-medium tabular-nums">{formatRupiah(f.jumlahAlokasi)}</dd>
             </div>
-            <div className="flex items-baseline justify-between gap-4">
+            <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4">
               <dt className="text-muted-foreground">Estimasi imbal hasil</dt>
               <dd className="font-medium tabular-nums text-emerald-700">{formatRupiah(f.imbalHasil)}</dd>
             </div>
-            <div className="flex items-baseline justify-between gap-4">
+            <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4">
               <dt className="text-muted-foreground">Jatuh tempo</dt>
               <dd className={`tabular-nums ${f.statusPelunasan === "menunggak" ? "text-red-600" : ""}`}>
                 {f.pelunasan ? formatDate(f.pelunasan.jatuhTempoPada) : "Menunggu pendanaan penuh"}

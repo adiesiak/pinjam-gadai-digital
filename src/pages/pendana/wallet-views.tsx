@@ -69,9 +69,9 @@ export function WalletSection({ onDepositRequested }: { onDepositRequested: () =
   };
 
   return (
-    <div className="grid gap-8 lg:grid-cols-2">
+    <div className="grid gap-8 xl:grid-cols-2">
       {/* ===== Setor / tambah saldo ===== */}
-      <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+      <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
         <div className="flex items-center justify-between">
           <h3 className="text-sm font-semibold">Tambah Saldo (Deposit)</h3>
           <Badge className="border-0 bg-emerald-100 text-emerald-700 hover:bg-emerald-100">
@@ -94,7 +94,7 @@ export function WalletSection({ onDepositRequested }: { onDepositRequested: () =
       </section>
 
       {/* ===== Penarikan ===== */}
-      <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+      <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
         <h3 className="text-sm font-semibold">Penarikan Dana ke Rekening Pribadi</h3>
         <Separator className="my-4" />
         <form onSubmit={ajukanPenarikan} className="space-y-4">
@@ -188,12 +188,12 @@ export function WalletSection({ onDepositRequested }: { onDepositRequested: () =
       </section>
 
       {/* Proteksi transaksi — OTP WhatsApp */}
-      <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm lg:col-span-2">
+      <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6 xl:col-span-2">
         <WaOtpProtectionCard />
       </section>
 
       {/* Riwayat setoran */}
-      <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm lg:col-span-2">
+      <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6 xl:col-span-2">
         <h3 className="text-sm font-semibold">Riwayat setoran</h3>
         <Separator className="my-4" />
         {deposits === undefined ? (

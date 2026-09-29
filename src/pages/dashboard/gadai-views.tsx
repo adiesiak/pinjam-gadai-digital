@@ -164,7 +164,7 @@ function GadaiBillingCard({
   );
 
   return (
-    <div className="card-lift rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+    <div className="card-lift rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="truncate text-sm font-semibold">{pawn.deskripsiBarang}</p>
@@ -176,11 +176,11 @@ function GadaiBillingCard({
       </div>
 
       <dl className="mt-3 grid gap-x-8 gap-y-1.5 text-sm sm:grid-cols-2">
-        <div className="flex items-baseline justify-between gap-4">
+        <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4">
           <dt className="text-muted-foreground">Sisa pokok berjalan</dt>
           <dd className="font-semibold tabular-nums">{formatRupiah(sisa)}</dd>
         </div>
-        <div className="flex items-baseline justify-between gap-4">
+        <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4">
           <dt className="text-muted-foreground">Sewa modal berikutnya</dt>
           <dd className="tabular-nums">
             {formatRupiah(sewaSekarang)}{" "}
@@ -190,7 +190,7 @@ function GadaiBillingCard({
       </dl>
 
       <div className="mt-3">
-        <div className="flex items-baseline justify-between text-xs text-muted-foreground">
+        <div className="flex flex-wrap items-baseline justify-between gap-2 text-xs text-muted-foreground">
           <span>Pokok tercicil</span>
           <span className="tabular-nums">
             {formatRupiah(tercicil)} / {formatRupiah(pawn.pokokGadai)}

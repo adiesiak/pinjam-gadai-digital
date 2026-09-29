@@ -54,6 +54,7 @@ export default function Dashboard() {
 
   const [loanDetailId, setLoanDetailId] = useState<Id<"loans"> | null>(null);
   const [pawnDetailId, setPawnDetailId] = useState<Id<"pawns"> | null>(null);
+  const [activeTab, setActiveTab] = useState("pinjaman");
 
   // Akun Pendana tidak dilayani di sini — arahkan ke ruang Pendana.
   useEffect(() => {
@@ -137,10 +138,11 @@ export default function Dashboard() {
       {/* ===== Bar atas ===== */}
       <DashboardHeader />
 
-      <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-8 sm:px-6">
+      <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-5 sm:px-6 sm:py-8">
         <Tabs
-          defaultValue="pinjaman"
-          className="flex flex-col gap-6 lg:flex-row lg:items-start lg:gap-8"
+          value={activeTab}
+          onValueChange={setActiveTab}
+          className="flex flex-col gap-5 lg:flex-row lg:items-start lg:gap-8"
         >
           {/* ===== Sisi kiri: profil + navigasi tab ===== */}
           <aside className="w-full shrink-0 lg:sticky lg:top-6 lg:w-64">
@@ -148,6 +150,8 @@ export default function Dashboard() {
               greetingName={greetingName}
               role={user?.role}
               badges={tabBadges}
+              activeTab={activeTab}
+              onTabChange={setActiveTab}
               onSignOut={handleSignOut}
             />
           </aside>
@@ -207,7 +211,7 @@ export default function Dashboard() {
 
                 {/* ============ TAB 6: FORM PENGAJUAN ============ */}
                 <TabsContent value="form" className="mt-8">
-                  <div className="grid gap-8 lg:grid-cols-2">
+                  <div className="grid gap-8 xl:grid-cols-2">
                     <section>
                       <h2 className="text-lg font-semibold">Form Pengajuan Pinjaman</h2>
                       <Separator className="my-4" />

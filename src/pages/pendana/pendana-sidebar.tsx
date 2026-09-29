@@ -12,10 +12,14 @@ import { PendanaTabNav, type TabBadge } from "./pendana-tab-nav";
 export function PendanaSidebar({
   greetingName,
   badges,
+  activeTab,
+  onTabChange,
   onSignOut,
 }: {
   greetingName: string;
   badges?: Partial<Record<string, TabBadge>>;
+  activeTab: string;
+  onTabChange: (value: string) => void;
   onSignOut: () => void;
 }) {
   const initial = greetingName.charAt(0).toUpperCase();
@@ -45,7 +49,7 @@ export function PendanaSidebar({
         </Button>
       </div>
 
-      <PendanaTabNav badges={badges} />
+      <PendanaTabNav badges={badges} activeTab={activeTab} onTabChange={onTabChange} />
     </div>
   );
 }

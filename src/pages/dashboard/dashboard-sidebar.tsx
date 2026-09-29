@@ -15,11 +15,15 @@ export function DashboardSidebar({
   greetingName,
   role,
   badges,
+  activeTab,
+  onTabChange,
   onSignOut,
 }: {
   greetingName: string;
   role?: string;
   badges?: Partial<Record<string, TabBadge>>;
+  activeTab: string;
+  onTabChange: (value: string) => void;
   onSignOut: () => void;
 }) {
   const initial = greetingName.charAt(0).toUpperCase();
@@ -78,7 +82,7 @@ export function DashboardSidebar({
         </Button>
       </div>
 
-      <DashboardTabNav badges={badges} />
+      <DashboardTabNav badges={badges} activeTab={activeTab} onTabChange={onTabChange} />
     </div>
   );
 }

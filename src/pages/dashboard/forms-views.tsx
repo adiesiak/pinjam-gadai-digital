@@ -312,7 +312,7 @@ export function LoanForm({ onCreated }: { onCreated: (ref: string) => void }) {
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
       {/* Slider nominal */}
-      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
         {/* Pemilih skema harga: harian 1 jt / 30 hari, atau bulanan 1/3/6 bulan. */}
         <div className="grid grid-cols-2 gap-1 rounded-xl border border-slate-200 bg-slate-50 p-1">
           {([
@@ -335,7 +335,7 @@ export function LoanForm({ onCreated }: { onCreated: (ref: string) => void }) {
           ))}
         </div>
 
-        <div className="mt-4 flex items-baseline justify-between">
+        <div className="mt-4 flex flex-wrap items-baseline justify-between gap-2">
           <Label>Nominal pinjaman</Label>
           <span className="text-lg font-semibold tabular-nums text-primary">{formatRupiah(pokok)}</span>
         </div>
@@ -362,33 +362,33 @@ export function LoanForm({ onCreated }: { onCreated: (ref: string) => void }) {
         {/* Live financial breakdown — mengikuti skema terpilih. */}
         {bulanan && sim !== null ? (
           <dl className="mt-4 divide-y divide-slate-200 overflow-hidden rounded-xl border border-slate-200">
-            <div className="flex items-baseline justify-between bg-white px-3 py-2 text-sm">
+            <div className="flex flex-col gap-1 bg-white px-3 py-2 text-sm sm:flex-row sm:items-baseline sm:justify-between">
               <dt className="text-muted-foreground">Uang muka (DP 0%)</dt>
               <dd className="tabular-nums">{formatRupiah(sim.dp)}</dd>
             </div>
-            <div className="flex items-baseline justify-between bg-emerald-50 px-3 py-2.5 text-sm">
+            <div className="flex flex-col gap-1 bg-emerald-50 px-3 py-2.5 text-sm sm:flex-row sm:items-baseline sm:justify-between">
               <dt className="font-semibold text-emerald-800">Dana diterima penuh</dt>
               <dd className="font-semibold tabular-nums text-emerald-700">
                 {formatRupiah(sim.pokokDibiayai)}
               </dd>
             </div>
-            <div className="flex items-baseline justify-between bg-white px-3 py-2 text-sm">
+            <div className="flex flex-col gap-1 bg-white px-3 py-2 text-sm sm:flex-row sm:items-baseline sm:justify-between">
               <dt className="text-muted-foreground">
                 Biaya layanan 3% ({formatRupiah(sim.biayaLayananPerBulan)}/bln)
               </dt>
               <dd className="tabular-nums">{formatRupiah(sim.biayaLayananTotal)}</dd>
             </div>
-            <div className="flex items-baseline justify-between bg-white px-3 py-2 text-sm">
+            <div className="flex flex-col gap-1 bg-white px-3 py-2 text-sm sm:flex-row sm:items-baseline sm:justify-between">
               <dt className="text-muted-foreground">
                 Bunga {sim.persenBungaPerBulan}%/bulan (menurun)
               </dt>
               <dd className="tabular-nums">{formatRupiah(sim.bungaTotal)}</dd>
             </div>
-            <div className="flex items-baseline justify-between bg-slate-50 px-3 py-2.5 text-sm">
+            <div className="flex flex-col gap-1 bg-slate-50 px-3 py-2.5 text-sm sm:flex-row sm:items-baseline sm:justify-between">
               <dt className="font-semibold">Cicilan per bulan</dt>
               <dd className="font-semibold tabular-nums">{formatRupiah(sim.cicilanPerBulan)}</dd>
             </div>
-            <div className="flex items-baseline justify-between bg-slate-50 px-3 py-2.5 text-sm">
+            <div className="flex flex-col gap-1 bg-slate-50 px-3 py-2.5 text-sm sm:flex-row sm:items-baseline sm:justify-between">
               <dt className="font-semibold">Total pengembalian ({sim.tenorBulan} bln)</dt>
               <dd className="font-semibold tabular-nums">{formatRupiah(sim.totalPengembalian)}</dd>
             </div>
@@ -399,20 +399,20 @@ export function LoanForm({ onCreated }: { onCreated: (ref: string) => void }) {
               ["Potongan Admin (3%)", `- ${formatRupiah(q.biayaAdmin)}`],
               ["Potongan Platform (2%)", `- ${formatRupiah(q.biayaPlatform)}`],
             ].map(([label, value]) => (
-              <div key={label} className="flex items-baseline justify-between bg-white px-3 py-2 text-sm">
+              <div key={label} className="flex flex-col gap-1 bg-white px-3 py-2 text-sm sm:flex-row sm:items-baseline sm:justify-between">
                 <dt className="text-muted-foreground">{label}</dt>
                 <dd className="tabular-nums">{value}</dd>
               </div>
             ))}
-            <div className="flex items-baseline justify-between bg-emerald-50 px-3 py-2.5 text-sm">
+            <div className="flex flex-col gap-1 bg-emerald-50 px-3 py-2.5 text-sm sm:flex-row sm:items-baseline sm:justify-between">
               <dt className="font-semibold text-emerald-800">Dana Bersih (95%)</dt>
               <dd className="font-semibold tabular-nums text-emerald-700">{formatRupiah(q.danaBersihDitransfer)}</dd>
             </div>
-            <div className="flex items-baseline justify-between bg-white px-3 py-2 text-sm">
+            <div className="flex flex-col gap-1 bg-white px-3 py-2 text-sm sm:flex-row sm:items-baseline sm:justify-between">
               <dt className="text-muted-foreground">Bunga (30%)</dt>
               <dd className="tabular-nums">{formatRupiah(q.bunga)}</dd>
             </div>
-            <div className="flex items-baseline justify-between bg-slate-50 px-3 py-2.5 text-sm">
+            <div className="flex flex-col gap-1 bg-slate-50 px-3 py-2.5 text-sm sm:flex-row sm:items-baseline sm:justify-between">
               <dt className="font-semibold">Total Kewajiban (130%)</dt>
               <dd className="font-semibold tabular-nums">{formatRupiah(q.totalKewajibanPelunasan)}</dd>
             </div>
@@ -560,8 +560,8 @@ export function LoanForm({ onCreated }: { onCreated: (ref: string) => void }) {
 
       {/* Lokasi real */}
       <div className="rounded-2xl border border-slate-200 bg-white p-4">
-        <div className="flex items-center justify-between gap-3">
-          <div>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="min-w-0 flex-1">
             <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
               Lokasi saat pengajuan (GPS wajib)
             </p>
