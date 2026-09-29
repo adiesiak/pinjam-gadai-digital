@@ -2,6 +2,7 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 import { query, mutation, internalMutation, QueryCtx } from "./_generated/server";
 import { v } from "convex/values";
 import { ROLES } from "./schema";
+import { requireAdminSession } from "./adminAuthz";
 import { pelunasanPinjaman, quoteLoan } from "../lib/loan";
 import { hitungSimulasiBulanan, TENOR_BULANAN_OPTIONS } from "../lib/bulanan";
 import { appendJournal, ledgerTotals, pendanaWalletBalance } from "./ledger";
@@ -13,13 +14,7 @@ import { clampPlafon, plafonEfektif } from "../lib/plafon";
 
 /** Gerbang admin — semua query/mutation di file ini dijaga. */
 async function requireAdmin(ctx: QueryCtx) {
-  const userId = await getAuthUserId(ctx);
-  if (userId === null) throw new Error("Harus masuk terlebih dahulu.");
-  const user = await ctx.db.get(userId);
-  if (user === null || user.role !== ROLES.ADMIN) {
-    throw new Error("Akses khusus tim Pinjam Gadai Digital (admin).");
-  }
-  return { userId, user };
+  return requireAdminSession(ctx);
 }
 
 // ===== Plafon pinjaman per nasabah (lihat lib/plafon.ts) =====
@@ -145,16 +140,7 @@ export const setPlafonPeminjam = mutation({
 export const adminOverview = query({
   args: {},
   handler: async (ctx) => {
-    const userId = await getAuthUserId(ctx);
-    if (userId === null) throw new Error("Harus masuk terlebih dahulu.");
-    const me = await ctx.db.get(userId);
-    if (me === null) throw new Error("Pengguna tidak ditemukan.");
-
-    const isAdmin = me.role === ROLES.ADMIN;
-    if (!isAdmin) {
-      return { isAdmin: false, loans: [], pawns: [], kredit: [] };
-    }
-
+    await requireAdminSession(ctx);
     const loans = await ctx.db.query("loans").collect();
     const pawns = await ctx.db.query("pawns").collect();
 

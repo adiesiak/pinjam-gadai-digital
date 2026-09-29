@@ -2,6 +2,7 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 import { mutation, query, MutationCtx, QueryCtx } from "./_generated/server";
 import { v } from "convex/values";
 import { ROLES } from "./schema";
+import { requireAdminSession } from "./adminAuthz";
 import {
   DEFAULT_CONFIG,
   RETENSI_LOKASI_BATAS,
@@ -20,13 +21,7 @@ export { DEFAULT_CONFIG };
 export type { SystemConfig };
 
 async function requireAdmin(ctx: QueryCtx) {
-  const userId = await getAuthUserId(ctx);
-  if (userId === null) throw new Error("Harus masuk terlebih dahulu.");
-  const user = await ctx.db.get(userId);
-  if (user === null || user.role !== ROLES.ADMIN) {
-    throw new Error("Akses khusus tim Pinjam Gadai Digital (admin).");
-  }
-  return { userId, user };
+  return requireAdminSession(ctx);
 }
 
 /** Tulis satu baris audit trail (append-only). */

@@ -3,6 +3,7 @@ import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/s
 import { v } from "convex/values";
 import { Id } from "./_generated/dataModel";
 import { ROLES } from "./schema";
+import { requireAdminSession } from "./adminAuthz";
 import { appendJournal } from "./ledger";
 import { audit } from "./system";
 import {
@@ -35,13 +36,7 @@ function referenceNumber(now: number): string {
 }
 
 async function requireAdmin(ctx: MutationCtx) {
-  const userId = await getAuthUserId(ctx);
-  if (userId === null) throw new Error("Harus masuk terlebih dahulu.");
-  const user = await ctx.db.get(userId);
-  if (user === null || user.role !== ROLES.ADMIN) {
-    throw new Error("Akses khusus tim Pinjam Gadai Digital (admin).");
-  }
-  return { userId, user };
+  return requireAdminSession(ctx);
 }
 
 async function requirePeminjam(ctx: QueryCtx) {

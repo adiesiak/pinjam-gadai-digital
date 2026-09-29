@@ -265,6 +265,8 @@ const schema = defineSchema(
       totpPendingSecret: v.optional(v.string()),
       /** Counter TOTP terakhir yang berhasil — cegah replay dalam 1 step. */
       totpLastCounter: v.optional(v.number()),
+      /** Convex Auth session IDs that completed the TOTP gate (never client IDs). */
+      totpVerifiedAuthSessionIds: v.optional(v.array(v.string())),
       /** OTP WA terakhir yang benar (hash-ish) untuk login/transaksi baru. */
       waOtpKode: v.optional(v.string()),
       waOtpKedaluwarsa: v.optional(v.number()),

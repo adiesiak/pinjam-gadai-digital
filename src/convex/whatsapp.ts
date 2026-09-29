@@ -11,6 +11,7 @@ import {
 import { v } from "convex/values";
 import { api, internal } from "./_generated/api";
 import { ROLES } from "./schema";
+import { requireAdminSession } from "./adminAuthz";
 import { BULAN_MS, pelunasanPinjaman } from "../lib/loan";
 import { hitungSimulasiBulanan } from "../lib/bulanan";
 import { formatRupiah } from "../lib/money";
@@ -58,13 +59,7 @@ export type WaSettings = {
 };
 
 async function requireAdmin(ctx: QueryCtx) {
-  const userId = await getAuthUserId(ctx);
-  if (userId === null) throw new Error("Harus masuk terlebih dahulu.");
-  const user = await ctx.db.get(userId);
-  if (user === null || user.role !== ROLES.ADMIN) {
-    throw new Error("Akses khusus tim Pinjam Gadai Digital (admin).");
-  }
-  return { userId, user };
+  return requireAdminSession(ctx);
 }
 
 async function getSettings(ctx: QueryCtx): Promise<WaSettings> {
@@ -340,10 +335,7 @@ export const sendReminder = action({
   handler: async (ctx, { loanId, isiPesan }): Promise<{ ok: boolean; isi: string }> => {
     const userId = await getAuthUserId(ctx);
     if (userId === null) throw new Error("Harus masuk terlebih dahulu.");
-    const me = await ctx.runQuery(api.users.currentRole, {});
-    if (me === null || me.role !== ROLES.ADMIN) {
-      throw new Error("Akses khusus tim Pinjam Gadai Digital (admin).");
-    }
+    await ctx.runQuery(api.security.assertAdminSession, {});
 
     const settings: WaSettings = await ctx.runQuery(internal.whatsapp._getSettings, {});
     const loan = await ctx.runQuery(internal.whatsapp._loanForMessage, { loanId });
@@ -403,10 +395,7 @@ export const sendTest = action({
   handler: async (ctx, { nomorTujuan, isiPesan }): Promise<{ ok: boolean }> => {
     const userId = await getAuthUserId(ctx);
     if (userId === null) throw new Error("Harus masuk terlebih dahulu.");
-    const me = await ctx.runQuery(api.users.currentRole, {});
-    if (me === null || me.role !== ROLES.ADMIN) {
-      throw new Error("Akses khusus tim Pinjam Gadai Digital (admin).");
-    }
+    await ctx.runQuery(api.security.assertAdminSession, {});
     const settings: WaSettings = await ctx.runQuery(internal.whatsapp._getSettings, {});
     const apiKey = process.env.WHATSAPP_API_KEY ?? "";
     let status = "gagal";

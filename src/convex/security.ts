@@ -13,6 +13,13 @@ import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { ROLES } from "./schema";
 import { generateTotpSecret, verifyTotpCode } from "../lib/totp";
+import {
+  addVerifiedAuthSession,
+  getAdminGateStatus,
+  requireAdminRole,
+  requireAdminSession,
+  getCurrentAuthSessionId,
+} from "./adminAuthz";
 
 /**
  * Proteksi otentikasi & login PINDAI:
@@ -50,11 +57,7 @@ async function getUser(ctx: QueryCtx) {
 }
 
 async function requireAdmin(ctx: QueryCtx) {
-  const user = await getUser(ctx);
-  if (user === null) throw new Error("Harus masuk terlebih dahulu.");
-  if (user.role !== ROLES.ADMIN) {
-    throw new Error("2FA TOTP khusus Super Admin.");
-  }
+  const { user } = await requireAdminRole(ctx);
   return user;
 }
 
@@ -92,10 +95,7 @@ export async function catatLogin(
 export const getLoginLogs = query({
   args: {},
   handler: async (ctx) => {
-    const user = await getUser(ctx);
-    if (user === null || user.role !== ROLES.ADMIN) {
-      throw new Error("Akses khusus admin.");
-    }
+    await requireAdminSession(ctx);
     return ctx.db.query("loginLogs").withIndex("by_waktu").order("desc").take(100);
   },
 });
@@ -104,10 +104,7 @@ export const getLoginLogs = query({
 export const getSecurityOverview = query({
   args: {},
   handler: async (ctx) => {
-    const user = await getUser(ctx);
-    if (user === null || user.role !== ROLES.ADMIN) {
-      throw new Error("Akses khusus admin.");
-    }
+    await requireAdminSession(ctx);
     const since = Date.now() - 24 * 60 * 60 * 1000;
     const logs = await ctx.db
       .query("loginLogs")
@@ -217,8 +214,11 @@ export const startTotpSetup = mutation({
   args: {},
   handler: async (ctx) => {
     const user = await requireAdmin(ctx);
-    const secret = generateTotpSecret();
     const existing = await getMfa(ctx, user._id);
+    if (existing?.totpSecret !== undefined) {
+      await requireAdminSession(ctx);
+    }
+    const secret = generateTotpSecret();
     if (existing === null) {
       await ctx.db.insert("mfaSettings", {
         userId: user._id,
@@ -249,9 +249,16 @@ export const confirmTotpSetup = mutation({
   args: { kode: v.string() },
   handler: async (ctx, { kode }) => {
     const user = await requireAdmin(ctx);
+    const authSessionId = await getCurrentAuthSessionId(ctx, user._id);
+    if (authSessionId === null) {
+      throw new Error("Sesi autentikasi tidak valid. Silakan masuk kembali.");
+    }
     const mfa = await getMfa(ctx, user._id);
     if (mfa?.totpPendingSecret === undefined) {
       throw new Error("Setup TOTP belum dimulai.");
+    }
+    if (mfa.totpSecret !== undefined) {
+      await requireAdminSession(ctx);
     }
     const ok = await verifyTotpCode(mfa.totpPendingSecret, kode);
     if (!ok) {
@@ -261,6 +268,10 @@ export const confirmTotpSetup = mutation({
       totpSecret: mfa.totpPendingSecret,
       totpPendingSecret: undefined,
       totpLastCounter: Math.floor(Date.now() / 30_000),
+      totpVerifiedAuthSessionIds: addVerifiedAuthSession(
+        mfa.totpVerifiedAuthSessionIds,
+        authSessionId,
+      ),
     });
     await ctx.db.insert("auditLog", {
       aktorUserId: user._id,
@@ -276,12 +287,18 @@ export const confirmTotpSetup = mutation({
 
 /** Verifikasi kode TOTP saat sesi admin dibuka (gate klien per sesi). */
 export const verifyTotp = mutation({
-  args: { kode: v.string(), sessionId: v.string(), perangkat: v.string(), ip: v.string() },
-  handler: async (ctx, { kode, sessionId, perangkat, ip }) => {
+  args: { kode: v.string(), perangkat: v.string(), ip: v.string() },
+  handler: async (ctx, { kode, perangkat, ip }) => {
     const user = await requireAdmin(ctx);
+    const authSessionId = await getCurrentAuthSessionId(ctx, user._id);
+    if (authSessionId === null) {
+      throw new Error("Sesi autentikasi tidak valid. Silakan masuk kembali.");
+    }
     const mfa = await getMfa(ctx, user._id);
     const secret = mfa?.totpSecret;
-    if (secret === undefined) return { ok: true, butuh: false }; // 2FA belum aktif
+    if (secret === undefined || mfa === null) {
+      throw new Error("Aktifkan TOTP terlebih dahulu.");
+    }
     const ok = await verifyTotpCode(secret, kode);
     if (!ok) {
       await catatLogin(ctx, {
@@ -299,8 +316,13 @@ export const verifyTotp = mutation({
     if (mfa?.totpLastCounter !== undefined && counter <= mfa.totpLastCounter) {
       throw new Error("Kode TOTP sudah terpakai — tunggu kode berikutnya.");
     }
-    await ctx.db.patch(mfa!._id, { totpLastCounter: counter });
-    await ensureSession(ctx, user._id, sessionId, perangkat, ip);
+    await ctx.db.patch(mfa._id, {
+      totpLastCounter: counter,
+      totpVerifiedAuthSessionIds: addVerifiedAuthSession(
+        mfa.totpVerifiedAuthSessionIds,
+        authSessionId,
+      ),
+    });
     await catatLogin(ctx, {
       userId: user._id,
       status: "berhasil",
@@ -316,7 +338,7 @@ export const verifyTotp = mutation({
 export const disableTotp = mutation({
   args: { kode: v.string() },
   handler: async (ctx, { kode }) => {
-    const user = await requireAdmin(ctx);
+    const { user } = await requireAdminSession(ctx);
     const mfa = await getMfa(ctx, user._id);
     if (mfa?.totpSecret === undefined) throw new Error("2FA belum aktif.");
     const ok = await verifyTotpCode(mfa.totpSecret, kode);
@@ -337,19 +359,18 @@ export const disableTotp = mutation({
   },
 });
 
-/** Apakah pengguna saat ini perlu menyelesaikan TOTP gate untuk sesi ini? */
+/** Minimal status admin/TOTP; Auth session proof stays server-side. */
 export const totpGateStatus = query({
-  args: { sessionId: v.string() },
-  handler: async (ctx, { sessionId }) => {
-    const user = await requireAdmin(ctx);
-    const mfa = await getMfa(ctx, user._id);
-    if (mfa?.totpSecret === undefined) return { butuh: false, aktif: false };
-    const sesi = await ctx.db
-      .query("sessions")
-      .withIndex("by_user", (q) => q.eq("userId", user._id))
-      .collect();
-    const aktif = sesi.find((s) => s.sessionId === sessionId && s.waktuBerakhir === undefined);
-    return { butuh: aktif === undefined, aktif: true };
+  args: {},
+  handler: async (ctx) => getAdminGateStatus(ctx),
+});
+
+/** Public action-side assertion for admin mutations performed in actions. */
+export const assertAdminSession = query({
+  args: {},
+  handler: async (ctx) => {
+    await requireAdminSession(ctx);
+    return { ok: true };
   },
 });
 
