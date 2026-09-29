@@ -11,7 +11,7 @@
  *  - Sewa modal 5%-10% per 30 hari, dihitung DINAMIS dari sisa pokok
  *    terbaru (decreasing principal basis): cicil pokok → sewa bulan
  *    berikutnya otomatis turun.
- *  - Sisa pokok = Rp0 → status barang di Vault Custody: SIAP_DIAMBIL.
+ *  - Sisa pokok = Rp0 → status internal SIAP_DIAMBIL (bukan bukti penyimpanan/pengembalian barang).
  */
 import { percentOf, type Rupiah } from "./money";
 
@@ -80,7 +80,7 @@ export function quoteGadai(pokok: Rupiah, persenSewaModal: number): GadaiQuote {
 /**
  * Sewa modal periode berikutnya — DECREASING PRINCIPAL BASIS:
  * dihitung dari sisa pokok TERBARU, bukan pokok awal. Cicil pokok,
- * sewa otomatis menurun. Sisa pokok 0 → sewa 0 (barang SIAP_DIAMBIL).
+ * sewa otomatis menurun. Sisa pokok 0 → sewa 0 (status simulasi lunas).
  */
 export function sewaModalBerikutnya(
   sisaPokok: Rupiah,
@@ -102,7 +102,7 @@ export function sewaModalBerikutnya(
   return percentOf(sisaPokok, persenSewaModal);
 }
 
-/** Status barang gadai di Vault Custody setelah pembayaran. */
+/** Penanda status ledger gadai setelah perhitungan pembayaran; bukan status fisik barang. */
 export type GadaiCustodyStatus =
   | "DALAM_VAULT" // masih ada sisa pokok
   | "SIAP_DIAMBIL"; // sisa pokok = Rp0
@@ -122,7 +122,7 @@ export interface GadaiBayarResult {
   sisaPokokSetelah: Rupiah;
   /** Sewa modal periode berikutnya (dari sisa pokok terbaru). */
   sewaModalBerikut: Rupiah;
-  /** Status custody setelah pembayaran. */
+  /** Penanda ledger setelah pencatatan simulasi; bukan bukti custody fisik. */
   custody: GadaiCustodyStatus;
 }
 
@@ -142,7 +142,7 @@ export function rencanaBayarGadai(
     throw new Error("Sisa pokok tidak valid.");
   }
   if (sisaPokok === 0) {
-    throw new Error("Pokok sudah lunas — barang SIAP_DIAMBIL di Vault Custody.");
+    throw new Error("Pokok simulasi sudah lunas; status ledger tidak membuktikan penyimpanan atau pengembalian barang.");
   }
   const sewa = sewaModalBerikutnya(sisaPokok, persenSewaModal);
 
@@ -154,7 +154,7 @@ export function rencanaBayarGadai(
     }
     if (minta > sisaPokok) {
       throw new Error(
-        `Cicilan melebihi sisa pokok ${sisaPokok}. Maksimal cicil ${sisaPokok} (setelah itu barang SIAP_DIAMBIL).`,
+        `Cicilan melebihi sisa pokok simulasi ${sisaPokok}. Maksimal pencatatan ${sisaPokok}.`,
       );
     }
     cicil = minta;

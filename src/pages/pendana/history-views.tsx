@@ -30,8 +30,11 @@ export function HistorySection() {
 
   return (
     <div className="grid gap-8 xl:grid-cols-3">
+      <section className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-900 xl:col-span-3">
+        Riwayat ini menunjukkan catatan ledger internal saja. Setoran, penarikan, alokasi, dan Imbal Hasil tidak mewakili transfer atau pembayaran aktual; tanda status admin bukan verifikasi bank.
+      </section>
       <section>
-        <h3 className="text-sm font-semibold">Alokasi pendanaan</h3>
+        <h3 className="text-sm font-semibold">Alokasi simulasi</h3>
         {fundings.length === 0 ? (
           <p className="mt-3 text-xs text-muted-foreground">Belum ada.</p>
         ) : (
@@ -45,7 +48,7 @@ export function HistorySection() {
                 <p className="mt-1 truncate text-xs text-muted-foreground">
                   {f.nomorReferensi}{" "}
                   <ArrowRight className="inline size-3 align-middle" aria-hidden />{" "}
-                  {f.loanRef} ({f.jenis === "kredit" ? "Kredit Barang" : "Pinjaman"}) · imbal hasil{" "}
+                  {f.loanRef} ({f.jenis === "kredit" ? "Kredit Barang" : "Pinjaman"}) · Imbal Hasil simulasi{" "}
                   {formatRupiah(f.imbalHasil)}
                 </p>
               </li>
@@ -101,7 +104,7 @@ function FundingStatusBadge({ status }: { status: string }) {
   if (status === "selesai") {
     return (
       <Badge className="border-0 bg-emerald-100 text-emerald-700 hover:bg-emerald-100">
-        Imbal Hasil Cair
+        Selesai di ledger
       </Badge>
     );
   }
@@ -109,8 +112,7 @@ function FundingStatusBadge({ status }: { status: string }) {
     return <Badge variant="destructive">Dibatalkan</Badge>;
   }
   return (
-    <Badge className="border-0 bg-amber-100 text-amber-700 hover:bg-amber-100">
-      Dalam Pendanaan Berjalan
+    <Badge className="border-0 bg-amber-100 text-amber-700 hover:bg-amber-100">        Catatan berjalan
     </Badge>
   );
 }

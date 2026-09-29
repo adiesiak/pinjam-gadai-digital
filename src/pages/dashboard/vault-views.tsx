@@ -18,7 +18,7 @@ const OSM_ATTRIBUTION = "&copy; OpenStreetMap contributors";
 /** Basemap cadangan bila tile OSM tidak dapat dimuat dari jaringan pengguna. */
 const FALLBACK_TILE_URL = "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png";
 
-/** Tab 3 — Jaminan gadai (vault custody monitor) + peta vault Leaflet. */
+/** Tab 3 — Catatan status gadai + peta titik referensi konfigurasi (bukan lokasi barang). */
 export function PawnVaultSection({
   pawns,
   onOpenDetail,
@@ -43,7 +43,7 @@ export function PawnVaultSection({
       <EmptyState
         icon={Package}
         title="Belum ada jaminan gadai"
-        body="Ajukan barang melalui tab Form Pengajuan Baru. Petugas memeriksa di lokasi dengan pencatatan live location."
+        body="Ajukan catatan gadai melalui tab Form Pengajuan Baru. Aplikasi tidak memverifikasi lokasi atau kondisi fisik barang."
       />
     );
   }
@@ -76,8 +76,7 @@ export function PawnVaultSection({
                   <dt className="text-muted-foreground">Status barang</dt>
                   <dd className="text-right">{meta.label}</dd>
                 </div>
-                <div className="flex items-baseline justify-between gap-4">
-                  <dt className="text-muted-foreground">Nilai taksiran resmi</dt>
+                <div className="flex items-baseline justify-between gap-4">                    <dt className="text-muted-foreground">Catatan taksiran internal</dt>
                   <dd className="tabular-nums">
                     {p.nilaiTaksiran !== undefined
                       ? formatRupiah(p.nilaiTaksiran)
@@ -86,7 +85,7 @@ export function PawnVaultSection({
                 </div>
                 {p.nilaiTaksiran !== undefined && (
                   <div className="flex items-baseline justify-between gap-4">
-                    <dt className="text-muted-foreground">Maksimal limit (LTV 70%)</dt>
+                    <dt className="text-muted-foreground">Batas simulasi (LTV 70%)</dt>
                     <dd className="font-medium tabular-nums text-emerald-700">
                       {formatRupiah(Math.round(p.nilaiTaksiran * 0.7))}
                     </dd>
@@ -94,13 +93,13 @@ export function PawnVaultSection({
                 )}
                 {dalamVault && (
                   <div className="flex items-baseline justify-between gap-4">
-                    <dt className="text-muted-foreground">Lokasi penyimpanan</dt>
-                    <dd>Brankas Custody PINDAI</dd>
+                    <dt className="text-muted-foreground">Status ledger</dt>
+                    <dd>Aktif (bukan status lokasi barang)</dd>
                   </div>
                 )}
               </dl>
               <Button size="sm" variant="ghost" className="mt-3" onClick={() => onOpenDetail(p._id)}>
-                Detail & pelepasan <ArrowRight className="ml-1 size-3.5" />
+                Detail status internal <ArrowRight className="ml-1 size-3.5" />
               </Button>
             </li>
           );
@@ -160,7 +159,7 @@ function VaultMapCard() {
           fillOpacity: 0.9,
           weight: 3,
         })
-          .bindTooltip("Brankas Custody PINDAI — barang jaminan tersimpan di sini", {
+          .bindTooltip(            "Titik referensi konfigurasi PINDAI — tidak menunjukkan lokasi barang", {
             direction: "top",
           })
           .addTo(map);
@@ -206,13 +205,13 @@ function VaultMapCard() {
     <section className="card-lift rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <h3 className="text-sm font-semibold">Lokasi Gudang Brankas</h3>
+          <h3 className="text-sm font-semibold">Titik referensi konfigurasi</h3>
           <p className="mt-0.5 text-xs text-muted-foreground">
-            Barang jaminan disimpan terisolasi di brankas custody.
+            Koordinat statis dari konfigurasi sistem; bukan pelacakan GPS atau lokasi gudang/barang.
           </p>
         </div>
         <Badge className="border-0 bg-emerald-100 text-emerald-700 hover:bg-emerald-100">
-          <Package className="mr-1 size-3" /> Brankas Custody
+          <Package className="mr-1 size-3" /> Referensi saja
         </Badge>
       </div>
       <div
@@ -221,10 +220,13 @@ function VaultMapCard() {
         <div
           ref={containerRef}
           role="region"
-          aria-label="Peta lokasi gudang brankas"
+          aria-label="Peta titik referensi konfigurasi sistem"
           className="absolute inset-0 z-0 bg-[#ddd]"
         />
       </div>
+      <p className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-900">
+        Peta hanya menampilkan koordinat referensi yang dikonfigurasi. Peta dan status ledger tidak membuktikan adanya gudang, penguasaan fisik, penitipan, atau pengembalian barang.
+      </p>
     </section>
   );
 }

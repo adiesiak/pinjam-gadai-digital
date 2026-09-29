@@ -44,19 +44,19 @@ export function pawnStatusMeta(status: PawnStatus): {
       return {
         label: "Diajukan",
         description:
-          "Pengajuan gadai Anda tercatat dan menunggu penjadwalan penilaian.",
+          "Pengajuan gadai Anda tercatat dan menunggu pembaruan tahap tinjauan internal.",
       };
     case "sedang_dinilai":
       return {
         label: "Sedang Dinilai",
         description:
-          "Petugas berwenang akan mengunjungi lokasi barang untuk pemeriksaan dan taksiran nilai.",
+          "Pengajuan berada pada tahap pencatatan taksiran internal. Status ini tidak menandakan kunjungan, pemeriksaan fisik, atau verifikasi barang.",
       };
     case "disetujui":
       return {
         label: "Disetujui",
         description:
-          "Gadai disetujui. Dana pinjaman akan dicairkan setelah dokumen penyerahan barang selesai.",
+          "Pengajuan disetujui secara internal. Status ini tidak membuktikan barang diserahkan atau dana dicairkan.",
       };
     case "ditolak":
       return {
@@ -68,19 +68,19 @@ export function pawnStatusMeta(status: PawnStatus): {
       return {
         label: "Aktif",
         description:
-          "Gadai aktif dan barang disimpan dengan aman. Barang dilepas setelah kewajiban dilunasi dan pelepasan disetujui tim.",
+          "Status gadai aktif tercatat pada ledger internal. Catatan ini bukan bukti barang diterima, disimpan, atau berada dalam penguasaan PINDAI.",
       };
     case "menunggu_pelepasan":
       return {
         label: "Menunggu Pelepasan",
         description:
-          "Permintaan pelepasan Anda tercatat. Petugas akan mengonfirmasi pengembalian barang.",
+          "Permintaan perubahan status tercatat pada ledger. Status ini bukan konfirmasi pengembalian barang secara fisik.",
       };
     case "lunas_dilepas":
       return {
-        label: "Lunas & Dilepas",
+        label: "Status Lunas",
         description:
-          "Kewajiban lunas dan barang telah dikembalikan ke Anda. Terima kasih telah mempercayakan layanan kami.",
+          "Kewajiban simulasi ditandai lunas pada ledger internal. Catatan ini tidak membuktikan barang pernah dititipkan atau telah dikembalikan.",
       };
   }
 }

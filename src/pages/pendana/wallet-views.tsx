@@ -62,7 +62,7 @@ export function WalletSection({ onDepositRequested }: { onDepositRequested: () =
         namaBank,
         nomorRekening,
       });
-      toast.success("Permintaan penarikan terkirim — tim akan memprosesnya segera.");
+      toast.success("Permintaan penarikan simulasi tercatat di ledger. Tidak ada transfer ke rekening.");
       setJumlah("");
       setNamaBank("");
       setNomorRekening("");
@@ -78,29 +78,27 @@ export function WalletSection({ onDepositRequested }: { onDepositRequested: () =
       {/* ===== Setor / tambah saldo ===== */}
       <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
         <div className="flex items-center justify-between">
-          <h3 className="text-sm font-semibold">Tambah Saldo (Deposit)</h3>
+          <h3 className="text-sm font-semibold">Catat setoran simulasi</h3>
           <Badge className="border-0 bg-emerald-100 text-emerald-700 hover:bg-emerald-100">
-            <Wallet className="mr-1 size-3" /> Saldo {formatRupiah(wallet?.saldo ?? 0)}
+            <Wallet className="mr-1 size-3" /> Ledger {formatRupiah(wallet?.saldo ?? 0)}
           </Badge>
         </div>
         <Separator className="my-4" />
         <p className="text-xs leading-5 text-muted-foreground">
-          Transfer ke rekening platform sesuai instruksi tim, atau gunakan simulasi
-          QRIS / Virtual Account di bawah. Lalu ajukan setoran dengan nomor
-          referensi bank — dana masuk dompet setelah diverifikasi tim.
+          Form ini hanya menambahkan catatan setoran pada simulasi. Tidak ada rekening pembayaran, QRIS/VA aktif, transfer, pengecekan referensi bank, atau dana yang masuk. Saldo yang ditampilkan adalah angka ledger internal.
         </p>
         <div className="mt-4">
           <DepositForm />
         </div>
         <Separator className="my-5" />
         <Button variant="outline" className="w-full" onClick={onDepositRequested}>
-          <QrCode className="mr-1.5 size-4" /> Lihat simulasi QRIS / Virtual Account
+          <QrCode className="mr-1.5 size-4" /> Lihat ilustrasi QR / VA nonaktif
         </Button>
       </section>
 
       {/* ===== Penarikan ===== */}
       <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
-        <h3 className="text-sm font-semibold">Penarikan Dana ke Rekening Pribadi</h3>
+        <h3 className="text-sm font-semibold">Catat permintaan penarikan simulasi</h3>
         <Separator className="my-4" />
         <form onSubmit={ajukanPenarikan} className="space-y-4">
           <div className="space-y-2">
@@ -179,15 +177,14 @@ export function WalletSection({ onDepositRequested }: { onDepositRequested: () =
             Ajukan Penarikan
           </Button>
           <p className="text-xs leading-5 text-muted-foreground">
-            Dana diterima ke rekening Anda setelah tim memproses permintaan. Saldo
-            dipotong dari ledger saat diproses — bukan saat diajukan.
+            Nama bank dan nomor rekening hanya disimpan sebagai informasi tujuan. Status proses tidak mengirim dana dan perubahan saldo ledger bukan bukti transfer.
           </p>
         </form>
 
         {/* Riwayat penarikan */}
         <Separator className="my-5" />
         <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          Riwayat penarikan
+          Riwayat penarikan simulasi
         </h4>
         {withdrawals === undefined ? (
           <Loading />
@@ -216,7 +213,7 @@ export function WalletSection({ onDepositRequested }: { onDepositRequested: () =
         <WaOtpProtectionCard />
       </section>
 
-      {/* Riwayat setoran */}
+      {/*          Riwayat setoran simulasi */}
       <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6 xl:col-span-2">
         <h3 className="text-sm font-semibold">Riwayat setoran</h3>
         <Separator className="my-4" />
@@ -298,7 +295,7 @@ export function WithdrawalBadge({ status }: { status: string }) {
   if (status === "diproses") {
     return (
       <Badge className="border-0 bg-emerald-100 text-emerald-700 hover:bg-emerald-100">
-        Diproses
+        Status diproses (ledger saja)
       </Badge>
     );
   }
@@ -306,8 +303,7 @@ export function WithdrawalBadge({ status }: { status: string }) {
     return <Badge variant="destructive">Dibatalkan / Ditolak</Badge>;
   }
   return (
-    <Badge className="border-0 bg-amber-100 text-amber-700 hover:bg-amber-100">
-      Menunggu Diproses
+    <Badge className="border-0 bg-amber-100 text-amber-700 hover:bg-amber-100">        Menunggu status internal
     </Badge>
   );
 }
@@ -316,7 +312,7 @@ export function DepositBadge({ status }: { status: string }) {
   if (status === "terverifikasi") {
     return (
       <Badge className="border-0 bg-emerald-100 text-emerald-700 hover:bg-emerald-100">
-        Terverifikasi
+        Ditandai admin (bukan verifikasi bank)
       </Badge>
     );
   }
@@ -324,8 +320,7 @@ export function DepositBadge({ status }: { status: string }) {
     return <Badge variant="destructive">Ditolak</Badge>;
   }
   return (
-    <Badge className="border-0 bg-amber-100 text-amber-700 hover:bg-amber-100">
-      Menunggu Verifikasi
+    <Badge className="border-0 bg-amber-100 text-amber-700 hover:bg-amber-100">        Menunggu tinjauan internal
     </Badge>
   );
 }

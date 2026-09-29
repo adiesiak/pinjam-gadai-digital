@@ -6,6 +6,16 @@ import { toast } from "sonner";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Button } from "@/components/ui/button";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -31,6 +41,7 @@ export function LoanDetailDialog({
   const loan = useQuery(api.loans.getMyLoan, loanId ? { loanId } : "skip");
   const repayLoan = useMutation(api.loans.repayLoan);
   const [repaying, setRepaying] = useState(false);
+  const [confirmRepayOpen, setConfirmRepayOpen] = useState(false);
 
   const handleRepay = async () => {
     if (!loan) return;
@@ -39,9 +50,10 @@ export function LoanDetailDialog({
       const r = await repayLoan({ loanId: loan._id });
       toast.success(
         r.dendaTerlambat > 0
-          ? `Pelunasan tercatat — total dibayar ${formatRupiah(r.totalDibayar)} (termasuk denda ${formatRupiah(r.dendaTerlambat)} untuk ${r.hariTerlambat} hari keterlambatan).`
-          : `Pelunasan tercatat — total dibayar ${formatRupiah(r.totalDibayar)}. Terima kasih!`,
+          ? `Nilai pelunasan simulasi ${formatRupiah(r.totalDibayar)} tercatat di ledger internal, termasuk denda ${formatRupiah(r.dendaTerlambat)}. Tidak ada pembayaran eksternal.`
+          : `Nilai pelunasan simulasi ${formatRupiah(r.totalDibayar)} tercatat di ledger internal. Tidak ada pembayaran eksternal.`,
       );
+      setConfirmRepayOpen(false);
       onClose();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Pelunasan gagal.");
@@ -85,26 +97,26 @@ export function LoanDetailDialog({
                     ["Pokok pinjaman", formatRupiah(loan.pokokPinjaman)],
                     ["Tenor", `${loan.tenorBulan} bulan`],
                     ["Uang muka (DP 0%)", formatRupiah(0)],
-                    ["Dana diterima penuh", formatRupiah(loan.pokokPinjaman)],
-                    ["Bunga menurun (hak Pendana)", formatRupiah(loan.imbalHasilTotal)],
-                    ["Total pengembalian", formatRupiah(loan.totalKewajiban)],
+                    ["Pokok acuan simulasi (DP 0%)", formatRupiah(loan.pokokPinjaman)],
+                    ["Bunga menurun simulasi", formatRupiah(loan.imbalHasilTotal)],
+                    ["Total kewajiban simulasi", formatRupiah(loan.totalKewajiban)],
                   ]
                 : [
                     ["Keperluan", loanPurposeLabel(loan.tujuan)],
                     ["Pokok pinjaman", formatRupiah(loan.quote.pokok)],
                     ["Biaya admin (3%)", formatRupiah(loan.quote.biayaAdmin)],
                     ["Biaya platform (2%)", formatRupiah(loan.quote.biayaPlatform)],
-                    ["Dana bersih diterima", formatRupiah(loan.quote.danaBersihDitransfer)],
-                    ["Bunga (30%)", formatRupiah(loan.quote.bunga)],
-                    ["Total kewajiban pelunasan", formatRupiah(loan.quote.totalKewajibanPelunasan)],
+                    ["Nilai bersih simulasi (95%; tidak ditransfer)", formatRupiah(loan.quote.danaBersihDitransfer)],
+                    ["Bunga simulasi (30%)", formatRupiah(loan.quote.bunga)],
+                    ["Total kewajiban simulasi", formatRupiah(loan.quote.totalKewajibanPelunasan)],
                   ]
               ).map(([label, value], index, semua) => (
                 <div key={label} className="flex items-baseline justify-between gap-4 px-4 py-3">
                   <dt className="text-sm text-muted-foreground">{label}</dt>
                   <dd
                     className={`text-sm tabular-nums ${
-                      label === "Dana diterima penuh" ||
-                      label === "Dana bersih diterima" ||
+                      label === "Pokok acuan simulasi (DP 0%)" ||
+                      label === "Nilai bersih simulasi (95%; tidak ditransfer)" ||
                       index === semua.length - 1
                         ? "font-semibold"
                         : ""
@@ -129,7 +141,7 @@ export function LoanDetailDialog({
                   loan.pelunasan.hariTerlambat > 0 ? "border-red-200 bg-red-50/60" : "border-slate-200"
                 }`}
               >
-                <p className="text-sm font-medium">Lunasi pinjaman</p>
+                <p className="text-sm font-medium">Pelunasan pada simulasi ledger</p>
                 <dl className="mt-3 space-y-1.5 text-sm">
                   <div className="flex items-baseline justify-between gap-4">
                     <dt className="text-muted-foreground">Jatuh tempo</dt>
@@ -150,18 +162,34 @@ export function LoanDetailDialog({
                   )}
                 </dl>
                 <p className="mt-3 text-xs leading-5 text-muted-foreground">
-                  Pembayaran menutup pokok, imbal hasil Pendana, dan denda (bila terlambat).
-                  Aksi ini tidak dapat dibatalkan.
+                  Aksi ini hanya mencatat perubahan status dan nilai kewajiban pada ledger internal. Tidak ada uang yang dibayarkan, ditransfer, atau diverifikasi; pelunasan dicatat sekaligus, tanpa cicilan parsial.
                 </p>
-                <Button className="mt-3 w-full" disabled={repaying} onClick={handleRepay}>
-                  {repaying ? (
-                    <>
-                      <Loader2 className="mr-2 size-4 animate-spin" /> Memproses…
-                    </>
-                  ) : (
-                    `Lunasi ${formatRupiah(loan.pelunasan.totalKewajibanDenganPenalti)}`
-                  )}
-                </Button>
+                <AlertDialog open={confirmRepayOpen} onOpenChange={setConfirmRepayOpen}>
+                  <Button className="mt-3 w-full" disabled={repaying} onClick={() => setConfirmRepayOpen(true)}>
+                    Catat pelunasan simulasi {formatRupiah(loan.pelunasan.totalKewajibanDenganPenalti)}
+                  </Button>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Konfirmasi pencatatan simulasi</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Ini akan menandai kewajiban sebagai lunas di ledger internal PINDAI. Tidak ada pembayaran aktual, transfer bank/e-wallet, atau bukti pembayaran yang dibuat. Seluruh nilai dicatat sekaligus.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel disabled={repaying}>Batal</AlertDialogCancel>
+                      <AlertDialogAction
+                        disabled={repaying}
+                        onClick={(event) => {
+                          event.preventDefault();
+                          void handleRepay();
+                        }}
+                      >
+                        {repaying ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
+                        Ya, catat simulasi
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
               </div>
             )}
           </>
@@ -188,7 +216,7 @@ export function PawnDetailDialog({
     setRequesting(true);
     try {
       await requestPawnRelease({ pawnId: pawn._id });
-      toast.success("Permintaan pelepasan terkirim — petugas akan mengonfirmasi.");
+      toast.success("Permintaan perubahan status gadai tercatat di ledger internal.");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Gagal mengirim permintaan.");
     } finally {
@@ -229,10 +257,10 @@ export function PawnDetailDialog({
                 ["Kategori", pawn.kategori],
                 ["Alamat penilaian", pawn.alamatPenilaian],
                 [
-                  "Nilai taksiran",
+                  "Nilai taksiran internal",
                   pawn.nilaiTaksiran !== undefined
                     ? formatRupiah(pawn.nilaiTaksiran)
-                    : "Menunggu pemeriksaan petugas",
+                    : "Menunggu catatan taksiran",
                 ],
               ].map(([label, value]) => (
                 <div key={label} className="flex items-baseline justify-between gap-4 px-4 py-3">
@@ -251,10 +279,9 @@ export function PawnDetailDialog({
 
             {pawn.status === "aktif" && (
               <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                <p className="text-sm font-medium">Ajukan pelepasan barang</p>
+                <p className="text-sm font-medium">Ajukan pembaruan status gadai</p>
                 <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                  Setelah kewajiban gadai lunas, ajukan pelepasan dan petugas akan
-                  mengonfirmasi pengembalian barang.
+                  Setelah kewajiban simulasi lunas, Anda dapat meminta pembaruan status. Perubahan status tidak membuktikan barang pernah dititipkan atau telah dikembalikan.
                 </p>
                 <Button className="mt-3 w-full" disabled={requesting} onClick={handleRequestRelease}>
                   {requesting ? (
@@ -262,7 +289,7 @@ export function PawnDetailDialog({
                       <Loader2 className="mr-2 size-4 animate-spin" /> Mengirim…
                     </>
                   ) : (
-                    "Ajukan pelepasan"
+                    "Ajukan pembaruan status"
                   )}
                 </Button>
               </div>

@@ -29,7 +29,7 @@ function pseudoRandomGrid(rows: number, cols: number, seed: number): boolean[][]
   );
 }
 
-/** Form pengajuan setoran (verifikasi admin). */
+/** Form pencatatan setoran pada ledger simulasi internal. */
 export function DepositForm() {
   const requestDeposit = useMutation(api.pendana.requestDeposit);
   const [jumlah, setJumlah] = useState("");
@@ -61,13 +61,13 @@ export function DepositForm() {
           return;
         }
         if (referensi.trim().length < 4) {
-          setError("Nomor referensi transfer wajib diisi.");
+          setError("Isi referensi catatan minimal 4 karakter.");
           return;
         }
         setBusy(true);
         try {
           await requestDeposit({ jumlah: parsed, referensiTransfer: referensi });
-          toast.success("Setoran diajukan — menunggu verifikasi tim.");
+          toast.success("Catatan setoran simulasi dibuat. Tidak ada transfer atau saldo eksternal yang diverifikasi.");
           setJumlah("");
           setReferensi("");
         } catch (err) {
@@ -103,7 +103,7 @@ export function DepositForm() {
         </div>
       </div>
       <div className="space-y-2">
-        <Label htmlFor="dep-ref">Nomor referensi transfer</Label>
+        <Label htmlFor="dep-ref">Referensi catatan (opsional)</Label>
         <Input
           id="dep-ref"
           value={referensi}
@@ -139,34 +139,33 @@ export function DepositForm() {
   );
 }
 
-/** Dialog simulasi QRIS / VA untuk deposit — murni visual, tanpa aset eksternal. */
+/** Dialog dekoratif QR / VA contoh — tidak terhubung ke pembayaran dan tidak dapat memproses dana. */
 export function DepositSimDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Simulasi Deposit — QRIS / Virtual Account</DialogTitle>
+          <DialogTitle>Ilustrasi QR / Virtual Account</DialogTitle>
           <DialogDescription>
-            Salurkan dana lewat salah satu saluran simulasi, lalu ajukan setoran
-            dengan nomor referensi transfer Anda.
+            Contoh visual saja: kode QR ini tidak dapat dipindai untuk pembayaran, dan nomor VA tidak aktif. Tidak ada gateway pembayaran atau konfirmasi transfer.
           </DialogDescription>
         </DialogHeader>
         <Tabs defaultValue="qris">
           <TabsList className="grid w-full grid-cols-2 rounded-full bg-slate-100 p-1">
-            <TabsTrigger value="qris" className="rounded-full text-xs">QRIS</TabsTrigger>
-            <TabsTrigger value="va" className="rounded-full text-xs">Virtual Account</TabsTrigger>
+            <TabsTrigger value="qris" className="rounded-full text-xs">Ilustrasi QR</TabsTrigger>
+            <TabsTrigger value="va" className="rounded-full text-xs">Contoh VA</TabsTrigger>
           </TabsList>
           <TabsContent value="qris" className="mt-4">
             <div className="flex flex-col items-center gap-2 rounded-2xl border border-slate-200 p-5">
               <QrSim />
               <p className="text-xs text-muted-foreground">
-                Pindai QR simulasi — dana masuk dompet setelah tim memverifikasi transfer.
+                QR dekoratif — tidak dapat dipindai dan tidak memicu pembayaran.
               </p>
             </div>
           </TabsContent>
           <TabsContent value="va" className="mt-4">
             <div className="rounded-2xl border border-slate-200 p-4 text-center">
-              <p className="text-xs text-muted-foreground">Nomor Virtual Account (simulasi)</p>
+              <p className="text-xs text-muted-foreground">Nomor VA contoh (tidak aktif)</p>
               <p className="mt-1 font-mono text-lg font-semibold tracking-wider">880801000000000</p>
               <Button
                 size="sm"
@@ -174,7 +173,7 @@ export function DepositSimDialog({ open, onClose }: { open: boolean; onClose: ()
                 className="mt-3"
                 onClick={() => {
                   void navigator.clipboard.writeText("880801000000000");
-                  toast.success("Nomor VA disalin.");
+                  toast.success("Nomor contoh disalin — bukan rekening pembayaran aktif.");
                 }}
               >
                 Salin nomor
@@ -210,7 +209,7 @@ function QrSim() {
       viewBox={`0 0 ${cells * size} ${cells * size}`}
       className="rounded-xl bg-white p-1"
       role="img"
-      aria-label="QRIS simulasi"
+      aria-label="QR dekoratif; tidak dapat dipindai untuk pembayaran"
     >
       {grid.map((row, r) =>
         row.map((on, c) =>

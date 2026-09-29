@@ -1,16 +1,28 @@
 import { useMutation, useQuery } from "convex/react";
-import { Loader2, MapPin, Settings2 } from "lucide-react";
+import { Loader2, MapPin, Palette, Settings2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { api } from "@/convex/_generated/api";
 import { formatRupiah } from "@/lib/money";
 import { clampPlafon, PLAFON_BATAS } from "@/lib/plafon";
-import { DEFAULT_CONFIG, RETENSI_LOKASI_BATAS } from "@/lib/system-config";
+import {
+  DEFAULT_CONFIG,
+  RETENSI_LOKASI_BATAS,
+  THEME_PRESETS,
+  type ThemePreset,
+} from "@/lib/system-config";
 
 export function SystemConfigPanel() {
   const data = useQuery(api.system.getConfigAdmin);
@@ -32,6 +44,31 @@ export function SystemConfigPanel() {
         <p className="flex items-center gap-2 text-sm font-semibold text-navy">
           <Settings2 className="size-4 text-primary" /> Persentase Biaya & Bunga
         </p>
+        <div className="space-y-2">
+          <Label htmlFor="cfg-theme" className="flex items-center gap-2">
+            <Palette className="size-4 text-primary" /> Tema aplikasi
+          </Label>
+          <Select
+            value={form.tema}
+            onValueChange={(value) => {
+              if (THEME_PRESETS.includes(value as ThemePreset)) {
+                upd("tema", value as ThemePreset);
+              }
+            }}
+          >
+            <SelectTrigger id="cfg-theme" className="w-full">
+              <SelectValue placeholder="Pilih tema" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="tinta">Tinta · hijau tua & kuningan</SelectItem>
+              <SelectItem value="pesisir">Pesisir · biru laut</SelectItem>
+              <SelectItem value="terakota">Terakota · tanah hangat</SelectItem>
+            </SelectContent>
+          </Select>
+          <p className="text-xs leading-5 text-muted-foreground">
+            Pilihan ini diterapkan kepada semua pengunjung dan pengguna aplikasi.
+          </p>
+        </div>
         <div className="grid grid-cols-3 gap-3">
           {(["persenAdmin", "persenPlatform", "persenBunga"] as const).map((k) => (
             <div key={k}>
@@ -111,10 +148,11 @@ export function SystemConfigPanel() {
             className="tabular-nums"
           />
           <p className="mt-1 text-xs leading-5 text-muted-foreground">
-            Plafon awal pinjaman tunai sebelum nasabah melunasi pinjaman tunai pokok minimal Rp1 juta.
-            Setelah lunas penuh, plafon dasar otomatis menjadi Rp10 juta kecuali ada override admin
-            per nasabah. Rentang {formatRupiah(PLAFON_BATAS.min)}–{formatRupiah(PLAFON_BATAS.maks)}.
-            Batas kredit barang terpisah: pokok maksimal Rp10 juta dan tenor pengajuan maksimal 6 bulan.
+            Plafon awal pinjaman tunai. Setiap pelunasan penuh yang tercatat tepat waktu untuk
+            pinjaman tunai berpokok minimal Rp1 juta menaikkan plafon dasar Rp1 juta, hingga
+            Rp10 juta; pelunasan terlambat tidak menambah plafon. Override admin per nasabah
+            didahulukan. Rentang {formatRupiah(PLAFON_BATAS.min)}–{formatRupiah(PLAFON_BATAS.maks)}.
+            Batas kredit barang terpisah: pokok maksimal Rp10 juta, tenor pengajuan maksimal 6 bulan.
           </p>
         </div>
         <div>
@@ -214,7 +252,8 @@ export function SystemConfigPanel() {
           </div>
         </div>
         <p className="text-xs leading-5 text-muted-foreground">
-          Koordinat ini menjadi pusat peta Live Location dan acuan perhitungan jarak GPS mismatch peminjam.
+          Koordinat ini hanya titik referensi konfigurasi untuk peta dan perhitungan jarak GPS;
+          bukan bukti adanya gudang, lokasi fisik barang, atau penitipan/custody.
         </p>
         <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
           <p className="text-xs text-muted-foreground">Terakhir diubah oleh</p>

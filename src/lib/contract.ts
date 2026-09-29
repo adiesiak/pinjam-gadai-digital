@@ -220,7 +220,7 @@ export function buildGadaiContract(
     quote === null
       ? `<li>Pokok gadai dan sewa modal belum ditetapkan pada saat dokumen ini dibuat; angka final perlu diperiksa pada tahap pendanaan.</li>`
       : `<li>Pokok gadai: <strong>${formatRupiah(quote.pokok)}</strong>.</li>
-      <li>Potongan muka 1%: ${formatRupiah(quote.potonganDiMuka)}; dana bersih 99%: <strong>${formatRupiah(quote.danaBersihDitransfer)}</strong>.</li>
+      <li>Potongan muka 1%: ${formatRupiah(quote.potonganDiMuka)}; perhitungan dana bersih pada simulasi (99%): <strong>${formatRupiah(quote.danaBersihDitransfer)}</strong>; bukan bukti transfer atau penerimaan dana.</li>
       <li>Sewa modal ${gadai.persenSewaModal}% per 30 hari dari sisa pokok; perkiraan periode pertama ${formatRupiah(quote.sewaModalPeriode)}. Pembayaran berikutnya mengikuti sisa pokok.</li>`;
 
   return `
@@ -253,7 +253,7 @@ export function buildGadaiContract(
     <ol>
       <li>Status, kondisi, dan kode lokasi dalam aplikasi adalah catatan internal; aplikasi tidak memverifikasi penerimaan, lokasi fisik, atau keamanan penyimpanan barang.</li>
       <li>Penyerahan, penitipan, dan pengembalian perlu dikonfirmasi langsung dengan pihak yang bertanggung jawab serta didukung tanda terima terpisah. Status lunas/siap diambil di aplikasi bukan bukti barang telah dikembalikan.</li>
-      <li>Simulasi penyelesaian atau lelang di aplikasi bukan pelaksanaan lelang, keputusan hukum, maupun jaminan hasil/ pengembalian barang.</li>
+      <li>Perhitungan penyelesaian atau lelang di aplikasi hanya simulasi; bukan pelaksanaan lelang, keputusan hukum, maupun jaminan hasil atau pengembalian barang.</li>
     </ol>
 
     <h2>Pasal 4 — Persetujuan Syarat dan Ketentuan</h2>

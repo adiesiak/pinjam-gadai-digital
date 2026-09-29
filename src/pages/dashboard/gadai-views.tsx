@@ -59,10 +59,9 @@ export function GadaiBillingSection({
     try {
       const r = await bayarGadai({ pawnId, cicilPokok, bayarHanyaSewa });
       if (r.custody === "SIAP_DIAMBIL") {
-        toast.success("Lunas! Sisa pokok Rp0 — barang Anda siap diambil dari Brankas Custody.");
-      } else {
-        toast.success(
-          `Bayar ${formatRupiah(r.totalBayar)} — sisa pokok ${formatRupiah(r.sisaPokokSetelah)}, sewa berikutnya ${formatRupiah(r.sewaModalBerikut)}.`,
+        toast.success("Pokok simulasi tercatat Rp0 pada ledger. Tidak ada pembayaran atau pengembalian barang yang dikonfirmasi.");
+      } else {          toast.success(
+          `Pencatatan simulasi ${formatRupiah(r.totalBayar)} — sisa pokok ledger ${formatRupiah(r.sisaPokokSetelah)}, sewa simulasi berikutnya ${formatRupiah(r.sewaModalBerikut)}. Tidak ada pembayaran eksternal.`,
         );
       }
       return true;
@@ -92,12 +91,11 @@ export function GadaiBillingSection({
                 <p className="mt-0.5 text-xs text-muted-foreground">{p.nomorReferensi}</p>
               </div>
               <Badge className="border-0 bg-emerald-500 text-white hover:bg-emerald-500">
-                Siap diambil
+                Pokok simulasi lunas
               </Badge>
             </div>
             <p className="mt-3 text-sm leading-6 text-emerald-800">
-              Sisa pokok <b>Rp0</b> — seluruh kewajiban lunas. Ajukan pelepasan pada kartu di bawah
-              dan petugas akan mengonfirmasi pengembalian.
+              Sisa pokok simulasi <b>Rp0</b> pada ledger. Status ini bukan bukti pelunasan aktual, penitipan, atau pengembalian barang.
             </p>
           </div>
         ))}
@@ -171,13 +169,13 @@ function GadaiBillingCard({
           <p className="mt-0.5 text-xs text-muted-foreground">{pawn.nomorReferensi}</p>
         </div>
         <Badge className="border-0 bg-emerald-100 text-emerald-700 hover:bg-emerald-100">
-          Dalam brankas
+          Status internal: aktif
         </Badge>
       </div>
 
       <dl className="mt-3 grid gap-x-8 gap-y-1.5 text-sm sm:grid-cols-2">
         <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4">
-          <dt className="text-muted-foreground">Sisa pokok berjalan</dt>
+          <dt className="text-muted-foreground">Sisa pokok simulasi</dt>
           <dd className="font-semibold tabular-nums">{formatRupiah(sisa)}</dd>
         </div>
         <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4">
@@ -191,7 +189,7 @@ function GadaiBillingCard({
 
       <div className="mt-3">
         <div className="flex flex-wrap items-baseline justify-between gap-2 text-xs text-muted-foreground">
-          <span>Pokok tercicil</span>
+          <span>Pokok tercatat di ledger</span>
           <span className="tabular-nums">
             {formatRupiah(tercicil)} / {formatRupiah(pawn.pokokGadai)}
           </span>
@@ -234,7 +232,7 @@ function GadaiBillingCard({
             }}
           >
             {busy ? <Loader2 className="mr-1.5 size-3.5 animate-spin" /> : null}
-            Bayar Cicilan + Sewa{" "}
+            Catat cicilan + sewa simulasi{" "}
             <span className="tabular-nums">({formatRupiah((cicilSim ?? 0) + sewaSekarang)})</span>
           </Button>
           <Button
@@ -242,7 +240,7 @@ function GadaiBillingCard({
             disabled={busy}
             onClick={() => void onBayar(pawn._id, 0, true)}
           >
-            Perpanjang tenor — sewa saja ({formatRupiah(sewaSekarang)})
+            Catat simulasi sewa saja ({formatRupiah(sewaSekarang)})
           </Button>
         </div>
       </div>
@@ -250,7 +248,7 @@ function GadaiBillingCard({
       {proyeksi.length > 1 && (
         <div className="mt-4 rounded-xl bg-slate-50 p-3">
           <p className="text-xs font-semibold">
-            Proyeksi sewa menurun bila konsisten cicil {formatRupiah(cicilSim ?? 0)}/periode:
+            Ilustrasi sewa menurun bila pokok simulasi dicatat {formatRupiah(cicilSim ?? 0)}/periode:
           </p>
           <div className="mt-1.5 flex flex-wrap gap-1.5">
             {proyeksi.map((row) => (

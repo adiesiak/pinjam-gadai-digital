@@ -36,6 +36,7 @@ export function MyContractsSection({
           createdAt: number;
           nik: string | null;
           namaLengkap: string;
+          namaBank: string | null;
           nomorRekening: string;
           lokasiAjukan: { lat: number; lng: number } | null;
         }>;
@@ -126,6 +127,7 @@ function LoanContractCard({
     createdAt: number;
     nik: string | null;
     namaLengkap: string;
+    namaBank: string | null;
     nomorRekening: string;
     lokasiAjukan: { lat: number; lng: number } | null;
   };
@@ -143,7 +145,7 @@ function LoanContractCard({
   const html = useMemo(
     () =>
       buildPinjamanContract(
-        { namaLengkap: c.namaLengkap, nomorRekening: c.nomorRekening, nik: c.nik, email: null },
+        { namaLengkap: c.namaLengkap, namaBank: c.namaBank, nomorRekening: c.nomorRekening, nik: c.nik, email: null },
         q,
         {
           nomorReferensi: c.nomorReferensi,
@@ -223,7 +225,7 @@ function PawnContractActions({ pawnId, pawnRef }: { pawnId: Id<"pawns">; pawnRef
     return <Loader2 className="size-4 animate-spin text-muted-foreground" />;
   }
   if (detail === null || detail.nilaiTaksiran === undefined) {
-    return <span className="text-xs text-muted-foreground">Menunggu taksiran resmi</span>;
+    return        <span className="text-xs text-muted-foreground">Menunggu catatan taksiran</span>;
   }
   const html = buildGadaiContractMilikSendiri(detail);
   return (
@@ -239,6 +241,7 @@ function PawnContractActions({ pawnId, pawnRef }: { pawnId: Id<"pawns">; pawnRef
 function buildGadaiContractMilikSendiri(detail: {
   nomorReferensi: string;
   namaLengkap: string;
+  namaBank?: string | null;
   nomorRekening: string;
   deskripsiBarang: string;
   kategori: string;
@@ -251,6 +254,7 @@ function buildGadaiContractMilikSendiri(detail: {
   return buildGadaiContract(
     {
       namaLengkap: detail.namaLengkap,
+      namaBank: detail.namaBank ?? null,
       nomorRekening: detail.nomorRekening,
       nik: null,
       email: null,

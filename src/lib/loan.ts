@@ -308,18 +308,18 @@ export function loanStatusMeta(status: LoanStatus): {
     case "diajukan":
       return {
         label: "Diajukan",
-        description: "Aplikasi Anda masuk antrean review tim PINDAI.",
+        description: "Pengajuan tercatat dalam antrean tinjauan internal PINDAI. Data yang dimasukkan bukan verifikasi identitas eksternal.",
       };
     case "sedang_direview":
       return {
         label: "Sedang Direview",
-        description: "Tim PINDAI sedang menelaah dokumen dan data aplikasi Anda.",
+        description: "Tim PINDAI sedang menelaah catatan pengajuan. Dokumen atau data yang diunggah tidak otomatis terverifikasi oleh pihak eksternal.",
       };
     case "disetujui":
       return {
         label: "Disetujui",
         description:
-          "Aplikasi disetujui. Pencairan dana akan diproses ke rekening Anda setelah pendanaan terpenuhi.",
+          "Pengajuan disetujui secara internal. Status ini tidak memicu pencairan; informasi rekening hanya tersimpan sebagai catatan dan tidak terhubung ke transfer.",
       };
     case "ditolak":
       return {
@@ -330,13 +330,13 @@ export function loanStatusMeta(status: LoanStatus): {
       return {
         label: "Didanai",
         description:
-          "Pinjaman didanai penuh oleh Pendana dan dana telah dicairkan. Lunasi total kewajiban sesuai skema pinjaman Anda sebelum jatuh tempo — keterlambatan dikenakan denda 0,5% per hari dari pokok (maksimum 15%).",
+          "Target pendanaan tercatat terpenuhi pada ledger simulasi internal; tidak ada dana yang dikirim atau diterima. Tombol pelunasan hanya mencatat perubahan status dan seluruh kewajiban sekaligus, bukan pembayaran aktual. Keterlambatan mengubah perhitungan denda simulasi 0,5% per hari dari pokok (maksimum 15%).",
       };
     case "lunas":
       return {
         label: "Lunas",
         description:
-          "Total kewajiban telah dibayar penuh. Pendana telah menerima pokok dan imbal hasilnya.",
+          "Status kewajiban ditandai selesai di ledger internal. Ini bukan bukti pembayaran aktual atau bukti Pendana menerima pokok maupun imbal hasil.",
       };
   }
 }

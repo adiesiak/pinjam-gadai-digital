@@ -43,42 +43,36 @@ export function Notice({ title, body }: { title: string; body: string }) {
 const KEAMANAN = [
   {
     ikon: ShieldCheck,
-    judul: "Keamanan dana",
+    judul: "Batas saldo dan pendanaan",
     poin: [
-      "Jurnal keuangan append-only dan berpasangan (double-entry) — saldo tidak bisa diubah atau dihapus diam-diam.",
-      "Setoran Anda diverifikasi tim terlebih dahulu; dana baru masuk dompet setelah transfer terkonfirmasi.",
-      "Satu alokasi dicatat satu kali per pinjaman — dana tidak bisa dialokasikan ganda.",
-      "Hak Imbal Hasil Anda tercatat per alokasi sejak hari pertama dan dibayarkan otomatis saat pelunasan.",
+      "Saldo, setoran, penarikan, dan alokasi adalah angka pada ledger simulasi PINDAI; aplikasi tidak memindahkan uang.",
+      "Status setoran yang ditandai admin adalah status internal, bukan konfirmasi bank atau bukti dana masuk.",
+      "Nilai pokok dan Imbal Hasil merupakan perhitungan simulasi, bukan pendapatan aktual atau hasil yang dijamin.",
     ],
   },
   {
     ikon: KeyRound,
-    judul: "Keamanan akun & transaksi",
+    judul: "Aksi di aplikasi",
     poin: [
-      "Proteksi OTP WhatsApp: setiap alokasi dana dan penarikan wajib verifikasi kode ke nomor Anda.",
-      "Autentikasi dua faktor (TOTP) opsional, batas 5 percobaan login per 15 menit per akun.",
-      "Log login append-only — IP, perangkat, dan waktu setiap masuk tercatat.",
-      "Anda bisa melihat dan mencabut sesi login di perangkat lain kapan saja.",
+      "Tombol alokasi, setoran, penarikan, dan pelunasan memperbarui catatan internal; aksi tersebut bukan instruksi pembayaran atau transfer.",
+      "Jika verifikasi kode ditampilkan, kode hanya terkait alur aplikasi dan bukan verifikasi pembayaran, identitas, atau ketersediaan dana.",
     ],
   },
   {
     ikon: MapPin,
-    judul: "Verifikasi lokasi (live location)",
+    judul: "Data pengajuan dan lokasi",
     poin: [
-      "Peminjam wajib GPS aktif: server menolak pengajuan, cicilan, dan pelunasan tanpa titik lokasi segar (batas 10 menit).",
-      "Anti-lokasi palsu: titik dari aplikasi fake GPS, akurasi mustahil (<1 m), dan lompatan kecepatan ditolak server.",
-      "Koordinat yang dibekukan berulang kali ditandai — nasabah diberi peringatan, tim PINDAI menerima laporannya.",
-      "Posisi Peminjam tampil di peta live admin dengan radius mismatch gudang — lokasi janggal terlihat cepat.",
+      "Nama, NIK, rekening, alamat, tautan produk, dan catatan barang adalah informasi yang dimasukkan pengguna; PINDAI tidak menyatakan telah memverifikasinya secara eksternal.",
+      "Titik peta yang tampil adalah referensi konfigurasi, bukan GPS live, lokasi gudang, atau bukti barang berada di tempat tertentu.",
     ],
   },
   {
     ikon: Eye,
-    judul: "Transparansi & akuntabilitas",
+    judul: "Catatan dan dokumen",
     poin: [
-      "Audit trail mencatat setiap keputusan review dan perubahan konfigurasi — bisa ditinjau kapan saja.",
-      "Kontrak digital bertanda tangan elektronik mengatur objek pendanaan, hak Imbal Hasil, dan pencatatan.",
-      "Pengingat jatuh tempo dan penagihan berjalan otomatis dan tercatat di log.",
-      "Data lokasi dihapus otomatis setelah 90 hari (lebih lama hanya untuk bukti pinjaman berjalan) — prinsip minimalisasi UU PDP.",
+      "Status, rincian biaya, jadwal, dan perubahan pengajuan adalah catatan aplikasi, bukan bukti transaksi eksternal.",
+      "Tampilan kontrak atau persetujuan elektronik di aplikasi tidak otomatis menjadi tanda tangan digital yang diverifikasi atau bukti pencairan.",
+      "Simulasi Imbal Hasil bergantung pada angka masukan dan tidak menjamin pembayaran maupun pengembalian dana.",
     ],
   },
 ] as const;
@@ -91,8 +85,7 @@ function PanelKepercayaan() {
         Mengapa dana Anda aman di PINDAI
       </h2>
       <p className="mt-2 text-sm leading-6 text-muted-foreground">
-        Kepercayaan tidak diminta — dibangun di atas mekanisme. Ini yang aktif
-        di platform hari ini, ditegakkan di server (bukan sekadar janji di layar):
+        Halaman ini menjelaskan dengan terbuka apa yang dicatat PINDAI dan batasnya: ini adalah simulasi ledger internal, bukan platform untuk menempatkan atau menarik dana.
       </p>
       <div className="mt-6 space-y-6">
         {KEAMANAN.map(({ ikon: Ikon, judul, poin }) => (
@@ -112,10 +105,7 @@ function PanelKepercayaan() {
         ))}
       </div>
       <p className="mt-6 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs leading-5 text-muted-foreground">
-        PINDAI memitigasi risiko dengan KYC, verifikasi lokasi, dan kontrak
-        digital — namun Imbal Hasil mengikuti kinerja pelunasan Peminjam dan
-        bukan merupakan jaminan. Setiap pergerakan dana tetap dapat Anda audit
-        sendiri dari riwayat dan kontrak di akun Anda.
+        PINDAI tidak menerima, menyimpan, mengalokasikan, atau mengirim dana sungguhan. Tidak ada KYC/validasi identitas, verifikasi lokasi live, pengiriman barang, tanda tangan kontrak terverifikasi, atau pembayaran imbal hasil melalui fitur simulasi ini.
       </p>
     </section>
   );
@@ -135,17 +125,15 @@ export function Onboarding() {
         <p className="mt-4 text-[11px] font-medium uppercase tracking-[0.2em] text-muted-foreground">
           Peran Pendana
         </p>
-        <h1 className="mt-2 text-2xl font-semibold tracking-tight">Sediakan dana, terima Imbal Hasil.</h1>
+        <h1 className="mt-2 text-2xl font-semibold tracking-tight">Jelajahi ledger simulasi Pendana.</h1>
         <p className="mt-3 text-sm leading-7 text-muted-foreground">
-          Salurkan dana ke pinjaman yang sudah disetujui tim. Imbal Hasil Anda 30%
-          dari porsi pokok pada skema harian, atau bunga menurun 10%/8%/7,5% per
-          bulan pada skema bulanan (1–6 bulan) — dibayarkan saat Peminjam melunasi.
+          Lihat contoh pencatatan alokasi, jadwal, dan perhitungan Imbal Hasil. Tidak ada dana sungguhan yang disetor atau dialokasikan, dan tidak ada pembayaran atau hasil investasi yang dijanjikan.
         </p>
         <ul className="mt-6 space-y-3 text-sm">
           {[
-            ["Setoran terverifikasi", "Dana Anda masuk dompet setelah tim memverifikasi transfer."],
-            ["Alokasi transparan", "Anda melihat sisa kebutuhan tiap pinjaman — tidak ada alokasi ganda."],
-            ["Pencatatan ganda", "Setiap pergerakan dana tercatat berpasangan di jurnal append-only."],
+            ["Saldo simulasi", "Angka dompet hanya catatan internal, bukan saldo bank atau uang yang dapat dicairkan."],
+            ["Alokasi contoh", "Tombol alokasi mengubah ledger simulasi dan tidak mengirim uang kepada peminjam."],
+            ["Tanpa pembayaran", "Tidak ada integrasi transfer, pembayaran, atau pencairan dana eksternal."],
           ].map(([t, b]) => (
             <li key={t} className="flex gap-3">
               <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-primary" />
@@ -164,7 +152,7 @@ export function Onboarding() {
             setBusy(true);
             try {
           await becomePendana({});
-          toast.success("Selamat — Anda kini Pendana. Mulai dengan menyetor dana.");
+          toast.success("Mode Pendana simulasi aktif. Tidak ada dana sungguhan yang dipindahkan.");
             } catch (err) {
               toast.error(err instanceof Error ? err.message : "Gagal mengubah peran.");
             } finally {
@@ -173,7 +161,7 @@ export function Onboarding() {
           }}
         >
           {busy ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
-          Jadi Pendana
+          Buka mode simulasi
           <ArrowRight className="ml-1 size-4" />
         </Button>
       </div>

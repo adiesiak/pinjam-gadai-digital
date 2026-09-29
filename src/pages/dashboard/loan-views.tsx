@@ -97,7 +97,7 @@ export function ActiveLoanSection({
       <EmptyState
         icon={Wallet}
         title="Belum ada pinjaman berjalan"
-        body="Pinjaman yang sudah didanai Pendana akan tampil di sini. Mulai dari tab Form Pengajuan Baru."
+        body="Catatan pinjaman yang status ledger-nya aktif akan tampil di sini. Angka pendanaan dan pelunasan adalah simulasi internal."
       />
     );
   }
@@ -184,7 +184,7 @@ function ActiveLoanCard({
               tone="muted"
             />
             <RincianBaris
-              label="Dana diterima penuh"
+              label="Pokok acuan simulasi (tidak ditransfer)"
               value={formatRupiah(loan.pokokPinjaman)}
               tone="net"
             />
@@ -212,7 +212,7 @@ function ActiveLoanCard({
               tone="muted"
             />
             <RincianBaris
-              label="Dana bersih diterima (95%)"
+              label="Nilai bersih simulasi (95%; tidak ditransfer)"
               value={formatRupiah(q.danaBersihDitransfer)}
               tone="net"
             />
@@ -226,21 +226,18 @@ function ActiveLoanCard({
         )}
       </dl>
 
-      {bulanan && (
-        <p className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-900">
-          Jadwal cicilan bulanan ini hanya simulasi. Sistem saat ini mencatat seluruh pelunasan sekaligus pada akhir tenor; tidak ada pembayaran parsial atau transfer bank/e-wallet terhubung.
-        </p>
-      )}
+      <p className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-900">
+        Semua nominal, status aktif, dana bersih, dan pelunasan di halaman ini adalah simulasi ledger internal; tidak ada transfer atau pembayaran eksternal. {bulanan ? "Jadwal cicilan bulanan hanya ilustrasi dan sistem mencatat pelunasan penuh sekaligus pada akhir tenor, tanpa pembayaran parsial." : "Tombol pelunasan hanya mencatat kewajiban penuh sekaligus, bukan menerima atau memverifikasi pembayaran."}
+      </p>
 
       {loan.pelunasan && (
         <div className="mt-5">
-          <div className="flex flex-wrap items-baseline justify-between gap-2 text-xs">
-            <span className="font-medium">
+          <div className="flex flex-wrap items-baseline justify-between gap-2 text-xs">              <span className="font-medium">
               {terlambat
-                ? `Terlambat ${loan.pelunasan.hariTerlambat} hari`
+                ? `Simulasi terlambat ${loan.pelunasan.hariTerlambat} hari`
                 : loan.pelunasan.sisaHari === 0
-                  ? "Jatuh tempo hari ini"
-                  : `${loan.pelunasan.sisaHari} hari menuju jatuh tempo`}
+                  ? "Simulasi jatuh tempo hari ini"
+                  : `${loan.pelunasan.sisaHari} hari menuju jatuh tempo simulasi`}
             </span>
             <span className="tabular-nums text-muted-foreground">
               {formatDate(loan.pelunasan.jatuhTempoPada)}
@@ -262,7 +259,7 @@ function ActiveLoanCard({
           />
           {terlambat && (
             <p className="mt-2 text-xs text-destructive">
-              Denda berjalan: {formatRupiah(loan.pelunasan.dendaTerlambat)} (0,5%/hari, maks 15%)
+              Denda simulasi: {formatRupiah(loan.pelunasan.dendaTerlambat)} (0,5%/hari, maks 15%)
             </p>
           )}
         </div>

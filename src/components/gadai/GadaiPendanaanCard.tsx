@@ -12,7 +12,7 @@ import { formatRupiah, parseRupiah } from "@/lib/money";
 
 import type { GadaiPendanaanRow } from "./types";
 
-/** Kartu penetapan pokok + sewa modal dan pencairan dana bersih 99%. */
+/** Kartu pencatatan pokok + sewa modal pada ledger internal; angka bersih 99% hanya simulasi. */
 export function GadaiPendanaanCard({ pawn }: { pawn: GadaiPendanaanRow }) {
   const setPendanaan = useMutation(api.gadai.setPendanaanGadai);
   const cairkan = useMutation(api.gadai.cairkanGadai);
@@ -71,7 +71,7 @@ export function GadaiPendanaanCard({ pawn }: { pawn: GadaiPendanaanRow }) {
       }
       await activatePawn({ pawnId: pawn._id });
       toast.success(
-        "Pendanaan ditetapkan, dana bersih 99% dicairkan, dan gadai aktif.",
+        "Nilai simulasi dan status gadai tercatat pada ledger internal; tidak ada transfer dana atau konfirmasi penitipan barang.",
       );
     } catch (e) {
       setError(e instanceof Error ? e.message : "Gagal memproses pendanaan gadai.");
@@ -151,7 +151,7 @@ export function GadaiPendanaanCard({ pawn }: { pawn: GadaiPendanaanRow }) {
 
           {quote !== null && (
             <p className="text-xs leading-5 text-emerald-800">
-              Dana bersih diterima nasabah{" "}
+              Nilai bersih simulasi (tidak ditransfer){" "}
               <b className="tabular-nums">
                 {formatRupiah(quote.danaBersihDitransfer)}
               </b>{" "}
@@ -171,14 +171,14 @@ export function GadaiPendanaanCard({ pawn }: { pawn: GadaiPendanaanRow }) {
         </div>
       ) : (
         <p className="mt-4 text-xs leading-5 text-emerald-800">
-          Pokok{" "}
+          Pokok simulasi{" "}
           <b className="tabular-nums">{formatRupiah(pawn.pokokGadai ?? 0)}</b> · sewa
           modal{" "}
           <b>{pawn.persenSewaModal ?? GADAI_PRICING.sewaModalMinPercent}%</b>/30 hari ·{" "}
           {pawn.dicairkanPada !== undefined
-            ? "dana sudah dicairkan"
-            : "dana belum dicairkan"}
-          .
+            ? "aktivasi ledger tercatat"
+            : "aktivasi ledger belum tercatat"}
+          . Data ini bukan bukti transfer atau penitipan fisik.
         </p>
       )}
 
@@ -199,8 +199,8 @@ export function GadaiPendanaanCard({ pawn }: { pawn: GadaiPendanaanRow }) {
         >
           {busy ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
           {pawn.dicairkanPada !== undefined
-            ? "Tandai aktif (dana cair)"
-            : "Cairkan dana bersih 99% & aktifkan"}
+            ? "Catat status aktif"
+            : "Catat aktivasi simulasi"}
         </Button>
       </div>
     </div>

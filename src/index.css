@@ -165,6 +165,127 @@
   --sidebar-ring: #1f6a62;
 }
 
+/* Preset tema: ubah semantic tokens dan palet utilitas bersama tanpa
+ * menghapus fondasi Tailwind. :where menjaga spesifisitas setara .dark,
+ * sehingga token dark mode tetap menang ketika class .dark diterapkan. */
+:root:where([data-theme="pesisir"]) {
+  --background: #f5fafb;
+  --foreground: #17313b;
+  --card: #ffffff;
+  --card-foreground: #17313b;
+  --popover: #ffffff;
+  --popover-foreground: #17313b;
+  --primary: #14586e;
+  --primary-foreground: #f4fafb;
+  --secondary: #e5f0f3;
+  --secondary-foreground: #183744;
+  --muted: #eef5f6;
+  --muted-foreground: #5d747c;
+  --accent: #dfedf0;
+  --accent-foreground: #183744;
+  --destructive: #a63f49;
+  --border: #d5e3e7;
+  --input: #c5d7dc;
+  --ring: #2d8096;
+  --gold: #b98743;
+  --gold-foreground: #68491e;
+  --navy: #143d50;
+  --chart-1: #14586e;
+  --chart-2: #b98743;
+  --chart-3: #3b8791;
+  --chart-4: #76aeb2;
+  --chart-5: #a8c7ca;
+  --sidebar: #eef5f6;
+  --sidebar-foreground: #17313b;
+  --sidebar-primary: #14586e;
+  --sidebar-primary-foreground: #f4fafb;
+  --sidebar-accent: #dfedf0;
+  --sidebar-accent-foreground: #183744;
+  --sidebar-border: #d5e3e7;
+  --sidebar-ring: #2d8096;
+  --color-sky-50: #eef7f9;
+  --color-sky-100: #dceef2;
+  --color-sky-200: #c3e0e7;
+  --color-sky-300: #9fcbd6;
+  --color-sky-400: #72afc0;
+  --color-sky-500: #478fa4;
+  --color-sky-600: #28758b;
+  --color-sky-700: #1c6075;
+  --color-sky-800: #174e60;
+  --color-sky-900: #143f4e;
+  --color-sky-950: #0b2934;
+  --color-slate-50: #f5fafb;
+  --color-slate-100: #eef5f6;
+  --color-slate-200: #dce7e9;
+  --color-slate-300: #c5d4d8;
+  --color-slate-400: #9aadb2;
+  --color-slate-500: #71858b;
+  --color-slate-600: #586d74;
+  --color-slate-700: #405860;
+  --color-slate-800: #2b4149;
+  --color-slate-900: #1b3038;
+  --color-slate-950: #102229;
+}
+
+:root:where([data-theme="terakota"]) {
+  --background: #fcf8f4;
+  --foreground: #3b2821;
+  --card: #ffffff;
+  --card-foreground: #3b2821;
+  --popover: #ffffff;
+  --popover-foreground: #3b2821;
+  --primary: #81432f;
+  --primary-foreground: #fff8f3;
+  --secondary: #f2e6dd;
+  --secondary-foreground: #452e25;
+  --muted: #faf2ec;
+  --muted-foreground: #786357;
+  --accent: #efdfd4;
+  --accent-foreground: #452e25;
+  --destructive: #a23d3e;
+  --border: #e7d7cc;
+  --input: #d7c3b5;
+  --ring: #a65e43;
+  --gold: #a4793a;
+  --gold-foreground: #65451e;
+  --navy: #513328;
+  --chart-1: #81432f;
+  --chart-2: #a4793a;
+  --chart-3: #b66b4d;
+  --chart-4: #d19573;
+  --chart-5: #e4c2aa;
+  --sidebar: #faf2ec;
+  --sidebar-foreground: #3b2821;
+  --sidebar-primary: #81432f;
+  --sidebar-primary-foreground: #fff8f3;
+  --sidebar-accent: #efdfd4;
+  --sidebar-accent-foreground: #452e25;
+  --sidebar-border: #e7d7cc;
+  --sidebar-ring: #a65e43;
+  --color-sky-50: #fcf2ed;
+  --color-sky-100: #f5e2d8;
+  --color-sky-200: #ebc8b7;
+  --color-sky-300: #dba88e;
+  --color-sky-400: #c78465;
+  --color-sky-500: #ad674a;
+  --color-sky-600: #914f37;
+  --color-sky-700: #773f2e;
+  --color-sky-800: #60352a;
+  --color-sky-900: #4e2d25;
+  --color-sky-950: #2b1712;
+  --color-slate-50: #fcf8f4;
+  --color-slate-100: #f5eee8;
+  --color-slate-200: #e9ded5;
+  --color-slate-300: #d7c8bd;
+  --color-slate-400: #b6a295;
+  --color-slate-500: #927b6e;
+  --color-slate-600: #725d52;
+  --color-slate-700: #57463d;
+  --color-slate-800: #40332d;
+  --color-slate-900: #302721;
+  --color-slate-950: #201915;
+}
+
 .dark {
   --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);
@@ -223,7 +344,7 @@
   }
   .gradient-primary:hover {
     background-image: none;
-    background-color: #0b2d2a;
+    filter: brightness(0.9);
   }
   .gradient-gold {
     background-image: none;
@@ -255,7 +376,7 @@
   .card-lift:hover {
     transform: translateY(-2px);
     box-shadow: 0 12px 28px -18px oklch(0.3 0.02 75 / 0.26);
-    border-color: #cdc5b3;
+    border-color: var(--border);
   }
   /* Bar pengumuman berjalan (marquee). */
   .animate-marquee {
@@ -293,7 +414,7 @@
   /* ===== Kartu & panel (dahulu claymorphism, kini flat & rapi) ===== */
   .clay-card {
     border-radius: 1rem;
-    background: #ffffff;
+    background: var(--card);
     border: 1px solid var(--border);
     box-shadow:
       0 1px 2px oklch(0.3 0.02 75 / 0.06),
@@ -318,7 +439,8 @@
       transform 0.16s ease;
   }
   .clay-btn-blue:hover {
-    background-color: #0b2d2a;
+    background-color: var(--primary);
+    filter: brightness(0.9);
     transform: translateY(-1px);
     box-shadow: 0 8px 18px -10px oklch(0.35 0.05 180 / 0.5);
   }
@@ -330,7 +452,7 @@
     border-radius: 0.625rem;
     border: 1px solid var(--border);
     background-image: none;
-    background-color: #ffffff;
+    background-color: var(--card);
     color: var(--foreground);
     box-shadow: 0 1px 2px oklch(0.3 0.02 75 / 0.06);
     transition:
@@ -339,20 +461,20 @@
   }
   .clay-btn-mint:hover {
     background-color: var(--muted);
-    border-color: #cdc5b3;
+    border-color: var(--border);
   }
   /* Kotak ikon lembut. */
   .clay-icon-blue {
     border-radius: 0.625rem;
-    background-color: #eef5f3;
-    color: #17544e;
-    box-shadow: inset 0 0 0 1px #dde9e7;
+    background-color: var(--secondary);
+    color: var(--primary);
+    box-shadow: inset 0 0 0 1px var(--border);
   }
   .clay-icon-mint {
     border-radius: 0.625rem;
-    background-color: #f1ede3;
-    color: #4a4538;
-    box-shadow: inset 0 0 0 1px #e3ddd0;
+    background-color: var(--accent);
+    color: var(--accent-foreground);
+    box-shadow: inset 0 0 0 1px var(--border);
   }
   /* Kilau glossy dimatikan — tampilan bersih. */
   .clay-shine::after {
@@ -360,12 +482,12 @@
   }
   /* Latar hero: putih → kertas sangat tipis. */
   .clay-hero {
-    background-color: #ffffff;
-    background-image: linear-gradient(180deg, #f8f6f1 0%, #ffffff 42%);
+    background-color: var(--background);
+    background-image: linear-gradient(180deg, var(--muted) 0%, var(--background) 42%);
   }
   /* Header modal pengumuman. */
   .gradient-hero-modal {
-    background: linear-gradient(180deg, #f8f6f1 0%, #ffffff 100%);
+    background: linear-gradient(180deg, var(--muted) 0%, var(--background) 100%);
   }
   /* Tab aktif — aksen solid. */
   [data-slot="tabs-trigger"][data-state="active"] {

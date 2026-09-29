@@ -15,41 +15,41 @@ const SLOT = "global";
 /** Teks default (kondisi kalah/opsional) — dipakai saat admin belum menyimpan. */
 export const DEFAULTS = {
   bar: {
-    teks: "Ajukan pinjaman tunai atau gadai digital dari rumah. Daftar gratis dan mulai hari ini.",
+    teks: "Simulasi pinjaman, gadai, dan alokasi dicatat di ledger internal — tanpa transfer eksternal.",
     tautan: "/auth",
   },
   popup: {
-    judul: "Ajukan dari Rumah",
-    isi: "Ajukan pinjaman tanpa agunan — harian sampai Rp 1 juta atau bulanan sampai Rp 10 juta dengan uang muka 0% dan tenor 1–6 bulan — atau gadai barang dalam beberapa menit. Plafon berlaku per nasabah dan bisa dinaikkan tim kami bila riwayat pembayaran Anda baik. Barang gadai tersimpan di brankas custody, pengingat jatuh tempo berjalan otomatis.",
-    cta: "Coba simulasi",
+    judul: "Jelajahi simulasi PINDAI",
+    isi: "Lihat perhitungan pinjaman dan gadai serta catatan status di dashboard. Angka dan aksi hanya memperbarui ledger internal: tidak ada transfer bank/e-wallet, pembayaran eksternal, verifikasi Pendana, atau penitipan fisik barang.",
+    cta: "Lihat simulasi",
   },
   float: {
     judul: "Pengajuan cepat",
-    isi: "Unggah dokumen dari rumah dan pantau status pengajuan langsung dari dashboard.",
+    isi: "Catat informasi simulasi dan pantau status internal melalui dashboard akun Anda.",
     cta: "Mulai pengajuan",
   },
   hero: {
-    badge: "Pinjaman & gadai digital — didanai Pendana terverifikasi",
+    badge: "Simulasi pinjaman & ledger internal",
     judul: "Pinjam & Gadai Digital",
     judul2: "Transparan",
-    sub: "Ajukan pinjaman tanpa agunan atau gadai barang dari rumah: taksiran resmi petugas, barang tersimpan di Brankas Custody, dan pengingat jatuh tempo otomatis.",
+    sub: "Jelajahi perhitungan pinjaman, gadai, dan alokasi pendanaan dalam ledger simulasi. Persetujuan, saldo, dan status bukan bukti transfer, pembayaran eksternal, verifikasi identitas, atau penitipan barang.",
     cta1: "Ajukan Pinjaman",
     cta2: "Gadaikan Barang",
   },
   chips: {
     chip1: { label: "Pinjaman tunai", nilai: "Tanpa agunan" },
-    chip2: { label: "Barang gadai", nilai: "Brankas custody" },
+    chip2: { label: "Barang gadai", nilai: "Catatan simulasi" },
   },
   layanan: {
-    judul: "Dua layanan, satu standar",
-    sub: "Keduanya memakai mesin perhitungan dan jurnal audit yang sama.",
+    judul: "Dua fitur, satu ledger internal",
+    sub: "Semua nominal, skema biaya, dan status yang terlihat adalah pencatatan simulasi PINDAI.",
     pinjamanJudul: "Pinjaman Tunai Digital",
     pinjamanIsi:
-      "Tanpa agunan, dua skema harga. Harian: plafon sampai Rp 1 juta, tenor 7–30 hari, total pelunasan 130% dari pokok (Bunga 30% — hak Pendana). Bulanan: tenor 1–6 bulan sampai Rp 10 juta dengan uang muka 0%, biaya layanan 3% diamortisasi rata setiap bulan, dan bunga menurun 10%/8%/7,5% per bulan. Plafon ditetapkan per nasabah: default Rp 1 juta, dan tim kami bisa menaikkannya sampai Rp 10 juta bila riwayat pembayaran Anda baik. Dana langsung ke rekening dan pelunasan dipantau pengingat otomatis.",
+      "Perhitungan harian: potongan admin 3% + platform 2%, bunga 30%, dan total kewajiban 130% dari pokok; plafon serta tenor mengikuti pengaturan aplikasi. Skema bulanan 1–6 bulan memakai DP 0%, biaya layanan 3% diamortisasi, dan bunga menurun 10%/8%/7,5% per bulan. Angka bersifat simulasi; aplikasi tidak mengirim dana. Jadwal angsuran bulanan hanya ilustrasi dan ledger mencatat pelunasan penuh sekaligus saat jatuh tempo.",
     pinjamanCta: "Ajukan sekarang",
     gadaiJudul: "Gadai Digital",
     gadaiIsi:
-      "Elektronik, kendaraan, perhiasan, hingga properti. Petugas menaksir resmi di lokasi Anda, pantau lewat live location, dan barang tersimpan di Brankas Custody. Sewa modal 5–10% per 30 hari dari sisa pokok terbaru. Sisa pokok Rp0, barang siap diambil.",
+      "Catat informasi barang dan nilai taksiran untuk simulasi gadai. Perhitungan sewa modal 5–10% per 30 hari menggunakan sisa pokok. Status dan pembayaran hanya tercatat di ledger internal; aplikasi tidak membuktikan pemeriksaan fisik, penitipan barang, transfer, atau pengembalian barang.",
     gadaiCta: "Gadaikan barang",
   },
 } as const;

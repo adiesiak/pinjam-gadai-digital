@@ -60,6 +60,7 @@ export function PawnContractBlock({ pawnId, pawnRef }: { pawnId: Id<"pawns">; pa
   const html = buildGadaiContract(
     {
       namaLengkap: detail.namaLengkap,
+      namaBank: detail.namaBank,
       nomorRekening: detail.nomorRekening,
       email: null,
     },

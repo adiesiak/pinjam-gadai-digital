@@ -8,13 +8,11 @@ import {
   Eye,
   Landmark,
   Lock,
-  MapPin,
   Megaphone,
   Menu,
   Package,
   Scale,
   ShieldCheck,
-  Users,
   Vault,
   X,
 } from "lucide-react";
@@ -63,12 +61,12 @@ function VaultLogo({ size = 36 }: { size?: number }) {
 }
 
 const SECURITY = [
-  { icon: Lock, label: "Enkripsi SSL 256-bit" },
-  { icon: Scale, label: "Jurnal debit–kredit seimbang" },
-  { icon: Vault, label: "Barang gadai di brankas custody" },
-  { icon: ShieldCheck, label: "Callback pembayaran bertanda tangan" },
-  { icon: Calculator, label: "Rupiah bulat, tanpa error float" },
-  { icon: Eye, label: "Status pengajuan bisa dipantau" },
+  { icon: Lock, label: "Riwayat pengajuan hanya untuk akun terkait" },
+  { icon: Scale, label: "Rincian biaya dan bunga ditampilkan terpisah" },
+  { icon: Vault, label: "Status gadai bukan bukti penitipan fisik" },
+  { icon: ShieldCheck, label: "Persetujuan aplikasi bukan jaminan pendanaan" },
+  { icon: Calculator, label: "Angka merupakan perhitungan simulasi" },
+  { icon: Eye, label: "Status dashboard adalah catatan internal" },
 ] as const;
 
 // Skema harian: Rp 100 rb–1 jt / maks 30 hari. Skema bulanan: sampai plafon
@@ -239,7 +237,7 @@ function LiveCalculator() {
                   false,
                 ],
                 ["Biaya layanan 3% (diamortisasi)", formatRupiah(sim.biayaLayananTotal), false],
-                ["Dana diterima penuh (DP 0%)", formatRupiah(sim.pokokDibiayai), true],
+                ["Pokok perhitungan (DP 0%)", formatRupiah(sim.pokokDibiayai), true],
                 [
                   `Cicilan per bulan (${sim.tenorBulan} bulan)`,
                   formatRupiah(sim.cicilanPerBulan),
@@ -247,8 +245,8 @@ function LiveCalculator() {
                 ],
               ] as Array<[string, string, boolean?]>)
             : ([
-                ["Bunga (hak Pendana)", formatRupiah(quote.bunga), false],
-                ["Dana bersih diterima", formatRupiah(quote.danaBersihDitransfer), true],
+                ["Bunga simulasi (30%)", formatRupiah(quote.bunga), false],
+                ["Nilai bersih simulasi (95%; tidak ditransfer)", formatRupiah(quote.danaBersihDitransfer), true],
               ] as Array<[string, string, boolean?]>)
         ).map(([term, value, strong]) => (
           <div key={term} className="flex items-baseline justify-between gap-4">
@@ -263,7 +261,7 @@ function LiveCalculator() {
           </div>
         ))}
         <div className="flex items-baseline justify-between gap-4 border-t border-slate-200 pt-2.5">
-          <dt className="font-semibold text-slate-900">Total pelunasan</dt>
+          <dt className="font-semibold text-slate-900">Total pelunasan simulasi</dt>
           <dd className="text-base font-semibold tabular-nums text-slate-900">
             {formatRupiah(sim !== null ? sim.totalPengembalian : quote.totalKewajibanPelunasan)}
           </dd>
@@ -271,12 +269,11 @@ function LiveCalculator() {
       </dl>
 
       <p className="mt-4 text-xs leading-5 text-slate-500">
-        Angka dihitung mesin PINDAI dan dipakai sama persis saat pengajuan dibuat.
+        Ini simulasi perhitungan, bukan persetujuan atau pencairan dana. Skema bulanan menampilkan ilustrasi angsuran; pencatatan pelunasan di sistem dilakukan sekaligus saat jatuh tempo. Tidak ada transfer bank/e-wallet atau pembayaran eksternal.
       </p>
 
-      <Button asChild className="mt-5 h-11 w-full bg-primary text-white hover:bg-primary/90">
-        <Link to="/auth">
-          Ajukan pinjaman
+      <Button asChild className="mt-5 h-11 w-full bg-primary text-white hover:bg-primary/90">              <Link to="/auth">
+          Buka simulasi di akun
           <ArrowRight className="ml-1.5 size-4" />
         </Link>
       </Button>
@@ -484,18 +481,18 @@ export default function Landing() {
   const steps = [
     {
       icon: Landmark,
-      title: "Ajukan",
-      body: "Pilih nominal dan tenor, unggah dokumen dari rumah, lalu kirim pengajuan.",
+      title: "Isi data",
+      body: "Masukkan parameter simulasi dan informasi pengajuan yang ingin dicatat di akun Anda.",
     },
     {
       icon: ShieldCheck,
-      title: "Verifikasi",
-      body: "Tim menelaah pengajuan. Barang gadai dinilai petugas di lokasi Anda.",
+      title: "Tinjau rincian",
+      body: "Lihat perhitungan biaya, bunga, dan status review internal. Data yang diisi bukan verifikasi identitas atau pemeriksaan fisik.",
     },
     {
       icon: Banknote,
-      title: "Cair",
-      body: "Dana cair ke rekening. Pantau jatuh tempo dengan pengingat otomatis.",
+      title: "Pantau ledger",
+      body: "Ikuti perubahan status dan riwayat di dashboard. PINDAI tidak mengirim dana atau menyimpan barang.",
     },
   ];
 
@@ -649,13 +646,13 @@ export default function Landing() {
               </div>
               <ul className="mt-8 flex flex-wrap gap-x-6 gap-y-2 text-sm text-slate-500">
                 <li className="flex items-center gap-1.5">
-                  <BadgeCheck className="size-4 text-primary" /> Verifikasi berjenjang
+                  <BadgeCheck className="size-4 text-primary" /> Rincian biaya terbuka
                 </li>
                 <li className="flex items-center gap-1.5">
-                  <MapPin className="size-4 text-primary" /> Live location gadai
+                  <Lock className="size-4 text-primary" /> Riwayat per akun
                 </li>
                 <li className="flex items-center gap-1.5">
-                  <Users className="size-4 text-primary" /> Didanai Pendana terverifikasi
+                  <Calculator className="size-4 text-primary" /> Ledger simulasi internal
                 </li>
               </ul>
             </div>
@@ -680,8 +677,8 @@ export default function Landing() {
                     c(cms?.chip2Label, CMS_DEFAULTS.chips.chip2.label),
                     c(cms?.chip2Nilai, CMS_DEFAULTS.chips.chip2.nilai),
                   ],
-                  ["Penaksiran gadai", "Petugas ke lokasi + live location"],
-                  ["Pengingat jatuh tempo", "Otomatis"],
+                  ["Taksiran gadai", "Catatan internal"],
+                  ["Status transaksi", "Riwayat di dashboard"],
                 ].map(([k, v]) => (
                   <div key={k} className="flex items-center justify-between py-3 text-sm">
                     <dt className="text-slate-500">{k}</dt>
@@ -690,7 +687,7 @@ export default function Landing() {
                 ))}
               </dl>
               <p className="mt-4 text-xs leading-5 text-slate-500">
-                Satu mesin perhitungan untuk pengajuan, kontrak, dan pelunasan.
+                Semua angka dan status di aplikasi merupakan catatan simulasi; bukan bukti transfer, pembayaran, atau penitipan barang.
               </p>
             </div>
           </div>
@@ -782,12 +779,7 @@ export default function Landing() {
                 ))}
               </ol>
               <p className="mt-8 rounded-xl bg-slate-50 p-4 text-xs leading-5 text-slate-600">
-                Dana berasal dari <b className="font-semibold text-slate-900">Pendana</b>{" "}
-                terverifikasi. Skema harian memakai{" "}
-                <b className="font-semibold text-slate-900">Bunga / Imbal Hasil</b> 30% dari pokok;
-                skema bulanan (1/3/6 bulan, sampai Rp 10 juta per nasabah) memakai uang muka 0%, biaya
-                layanan 3% yang diamortisasi rata, dan bunga menurun 10%/8%/7,5% per bulan.
-                Setiap transaksi tercatat di jurnal audit dan kontraknya bertanda tangan digital.
+                Seluruh angka berikut adalah <b className="font-semibold text-slate-900">simulasi ledger internal</b>, bukan dana dari Pendana terverifikasi atau bukti pendanaan. Skema harian menghitung nilai bersih 95% dan total kewajiban 130%; tidak ada pencairan atau transfer. Skema bulanan (1/3/6 bulan, hingga Rp 10 juta) menampilkan uang muka 0%, biaya layanan 3% yang diamortisasi, dan bunga menurun 10%/8%/7,5% per bulan. Status dan rincian kontrak hanya catatan aplikasi, bukan tanda tangan digital atau transaksi eksternal.
               </p>
             </div>
           </div>
@@ -798,10 +790,10 @@ export default function Landing() {
           <div className="mx-auto w-full max-w-6xl px-6 py-20">
             <div className="max-w-2xl">
               <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">
-                Keamanan &amp; transparansi
+                Pencatatan &amp; batas simulasi
               </h2>
               <p className="mt-3 text-base leading-7 text-slate-600">
-                Enam hal yang berlaku di setiap transaksi.
+                Ketahui apa yang dicatat aplikasi dan apa yang tidak dijalankan secara eksternal.
               </p>
             </div>
             <div className="mt-10 grid gap-px overflow-hidden rounded-2xl border border-slate-200 bg-slate-200 sm:grid-cols-2 lg:grid-cols-3">
@@ -822,20 +814,20 @@ export default function Landing() {
               Mulai hari ini
             </h2>
             <p className="mx-auto mt-3 max-w-lg text-sm leading-6 text-primary-foreground/80">
-              Buat akun untuk mengajukan pinjaman atau mendaftar sebagai Pendana.
+              Buat akun untuk mencatat simulasi pengajuan, atau jelajahi tampilan ledger Pendana. Tidak ada dana yang dikirim atau dikelola melalui aplikasi.
             </p>
             <div className="mt-7 flex flex-wrap justify-center gap-3">
               <Button
                 asChild
                 className="h-11 border-0 bg-white px-6 text-primary hover:bg-secondary"
               >
-                <Link to="/auth">Daftar sebagai Peminjam</Link>
+                <Link to="/auth">Buka akun simulasi</Link>
               </Button>
               <Button
                 asChild
                 className="h-11 border border-white/40 bg-transparent px-6 text-white hover:bg-white/10"
               >
-                <Link to="/pendana">Jadi Pendana</Link>
+                <Link to="/pendana">Lihat mode Pendana</Link>
               </Button>
             </div>
           </div>
@@ -852,7 +844,7 @@ export default function Landing() {
                 <span className="text-sm font-semibold">{logoTeks}</span>
               </div>
               <p className="mt-3 max-w-xs text-xs leading-5 text-slate-500">
-                Pinjam &amp; Gadai Digital — menghubungkan Peminjam dengan Pendana terverifikasi.
+                PINDAI adalah aplikasi pencatatan simulasi pinjaman, gadai, dan alokasi ledger internal.
               </p>
             </div>
             <div>
@@ -892,14 +884,14 @@ export default function Landing() {
                     <span className="absolute inline-flex size-full animate-ping rounded-full bg-sky-400 opacity-70" />
                     <span className="relative inline-flex size-2 rounded-full bg-sky-500" />
                   </span>
-                  <span className="text-slate-500">Semua sistem normal</span>
+                  <span className="text-slate-500">Simulasi ledger internal</span>
                 </li>
               </ul>
             </div>
           </div>
           <div className="mt-8 flex flex-col items-center justify-between gap-2 border-t border-slate-200 pt-6 text-xs text-slate-500 sm:flex-row">
             <span>© 2026 {logoTeks}. Seluruh hak cipta.</span>
-            <span>Tanpa agunan · Brankas custody · Pengingat jatuh tempo</span>
+            <span>Perhitungan transparan · Status internal · Tanpa transfer eksternal</span>
           </div>
         </div>
       </footer>
