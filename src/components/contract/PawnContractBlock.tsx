@@ -45,6 +45,18 @@ export function PawnContractBlock({ pawnId, pawnRef }: { pawnId: Id<"pawns">; pa
     persetujuanPada: detail.persetujuanPada,
     persetujuanVersi: detail.persetujuanVersi,
   };
+  const tandaTanganPeminjam =
+    detail.ttdPeminjam !== null &&
+    detail.ttdPada !== null &&
+    detail.persetujuanPada !== null &&
+    detail.persetujuanVersi === CONTRACT_TERMS_VERSION
+      ? {
+          dataUrl: detail.ttdPeminjam,
+          tandaTanganPada: detail.ttdPada,
+          persetujuanSyaratPada: detail.persetujuanPada,
+        }
+      : undefined;
+  const signed = tandaTanganPeminjam !== undefined;
   const html = buildGadaiContract(
     {
       namaLengkap: detail.namaLengkap,
@@ -69,25 +81,10 @@ export function PawnContractBlock({ pawnId, pawnRef }: { pawnId: Id<"pawns">; pa
     {
       nomorReferensi: detail.nomorReferensi,
       lokasi: null,
-      timestampPada:
-        detail.ttdPada ?? detail.persetujuanPada ?? detail._creationTime,
-      ...(detail.ttdPeminjam && detail.ttdPada !== null && detail.persetujuanPada !== null
-        ? {
-            tandaTanganPeminjam: {
-              dataUrl: detail.ttdPeminjam,
-              tandaTanganPada: detail.ttdPada,
-              persetujuanSyaratPada: detail.persetujuanPada,
-            },
-          }
-        : {}),
+      timestampPada: tandaTanganPeminjam?.tandaTanganPada ?? detail._creationTime,
+      ...(tandaTanganPeminjam ? { tandaTanganPeminjam } : {}),
     },
   );
-
-  const signed =
-    contractData.ttdPeminjam !== null &&
-    contractData.ttdPada !== null &&
-    contractData.persetujuanPada !== null &&
-    contractData.persetujuanVersi === CONTRACT_TERMS_VERSION;
 
   return (
     <>

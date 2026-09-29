@@ -33,6 +33,19 @@ export function LoanContractBlock({ loanId }: { loanId: Id<"loans"> }) {
     return <p className="text-sm text-muted-foreground">Data kontrak tidak tersedia.</p>;
   }
 
+  const tandaTanganPeminjam =
+    contractData.ttdPeminjam !== null &&
+    contractData.ttdPada !== null &&
+    contractData.persetujuanPada !== null &&
+    contractData.persetujuanVersi === CONTRACT_TERMS_VERSION
+      ? {
+          dataUrl: contractData.ttdPeminjam,
+          tandaTanganPada: contractData.ttdPada,
+          persetujuanSyaratPada: contractData.persetujuanPada,
+        }
+      : undefined;
+  const signed = tandaTanganPeminjam !== undefined;
+
   const html = buildPinjamanContract(
     {
       namaLengkap: detail.namaLengkap,
@@ -52,29 +65,12 @@ export function LoanContractBlock({ loanId }: { loanId: Id<"loans"> }) {
     {
       nomorReferensi: detail.nomorReferensi,
       lokasi: detail.lokasiAjukan,
-      timestampPada:
-        contractData.ttdPada ?? contractData.persetujuanPada ?? detail._creationTime,
-      ...(contractData.ttdPeminjam &&
-      contractData.ttdPada !== null &&
-      contractData.persetujuanPada !== null
-        ? {
-            tandaTanganPeminjam: {
-              dataUrl: contractData.ttdPeminjam,
-              tandaTanganPada: contractData.ttdPada,
-              persetujuanSyaratPada: contractData.persetujuanPada,
-            },
-          }
-        : {}),
+      timestampPada: tandaTanganPeminjam?.tandaTanganPada ?? detail._creationTime,
+      ...(tandaTanganPeminjam ? { tandaTanganPeminjam } : {}),
     },
     detail.tenorHari ?? 30,
     detail.bulanan ?? null,
   );
-
-  const signed =
-    contractData.ttdPeminjam !== null &&
-    contractData.ttdPada !== null &&
-    contractData.persetujuanPada !== null &&
-    contractData.persetujuanVersi === CONTRACT_TERMS_VERSION;
 
   return (
     <>

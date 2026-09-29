@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 
 import { api } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
+import { CONTRACT_TERMS_VERSION } from "../lib/contract";
 import schema from "./schema";
 import { modules } from "./test.setup";
 
@@ -121,6 +122,157 @@ describe("otorisasi endpoint admin", () => {
     await expect(admin.query(api.admin.adminLoanQuote, args)).resolves.toMatchObject({
       skema: "harian",
     });
+  });
+});
+
+describe("persetujuan dan tanda tangan akad Peminjam", () => {
+  const tandaTanganValid =
+    "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/fMkAAAAASUVORK5CYII=";
+
+  it("menyimpan persetujuan pinjaman dan tanda tangan secara atomik hanya melalui admin", async () => {
+    const t = convexTest(schema, modules);
+    const { userId: borrowerId, sesi: peminjam } = await buatPengguna(
+      t,
+      "Peminjam akad",
+      { email: "peminjam-akad@pindai.test", role: "peminjam" },
+    );
+    const { sesi: admin } = await buatPengguna(t, "Admin akad", {
+      email: "admin-akad@pindai.test",
+      role: "admin",
+    });
+    const loanId = await t.run((ctx) =>
+      ctx.db.insert("loans", {
+        userId: borrowerId,
+        pokokPinjaman: 500_000,
+        tujuan: "pendidikan",
+        namaLengkap: "Peminjam akad",
+        nomorRekening: "12345678",
+        status: "disetujui",
+        nomorReferensi: "LON-AKAD-01",
+        tenorHari: 30,
+      }),
+    );
+    const args = {
+      loanId,
+      dataUrl: tandaTanganValid,
+      persetujuanPeminjam: true as const,
+    };
+
+    await expect(t.mutation(api.admin.simpanTandaTangan, args)).rejects.toThrow(/masuk/i);
+    await expect(peminjam.mutation(api.admin.simpanTandaTangan, args)).rejects.toThrow(
+      /admin/i,
+    );
+    await expect(
+      admin.mutation(api.admin.simpanTandaTangan, {
+        ...args,
+        dataUrl: "data:image/png;base64,AAAA",
+      }),
+    ).rejects.toThrow(/kosong/i);
+
+    await expect(admin.mutation(api.admin.simpanTandaTangan, args)).resolves.toMatchObject({
+      ok: true,
+      versi: CONTRACT_TERMS_VERSION,
+    });
+    const stored = await admin.query(api.admin.contractData, { loanId });
+    expect(stored).toMatchObject({
+      ttdPeminjam: tandaTanganValid,
+      persetujuanVersi: CONTRACT_TERMS_VERSION,
+    });
+    expect(stored?.ttdPada).toEqual(stored?.persetujuanPada);
+    await expect(admin.mutation(api.admin.simpanTandaTangan, args)).rejects.toThrow(
+      /sudah disetujui/i,
+    );
+    expect(
+      await t.run((ctx) =>
+        ctx.db.query("auditLog").collect().then((rows) =>
+          rows.filter((row) => row.aksi === "kontrak_pinjaman_disetujui").length,
+        ),
+      ),
+    ).toBe(1);
+  });
+
+  it("menolak tanda tangan pinjaman yang ditolak dan mencatat akad gadai yang sudah lengkap", async () => {
+    const t = convexTest(schema, modules);
+    const { userId: borrowerId, sesi: peminjam } = await buatPengguna(
+      t,
+      "Peminjam gadai",
+      { email: "peminjam-gadai-akad@pindai.test", role: "peminjam" },
+    );
+    const { sesi: admin } = await buatPengguna(t, "Admin gadai akad", {
+      email: "admin-gadai-akad@pindai.test",
+      role: "admin",
+    });
+    const loanId = await t.run((ctx) =>
+      ctx.db.insert("loans", {
+        userId: borrowerId,
+        pokokPinjaman: 500_000,
+        tujuan: "pendidikan",
+        namaLengkap: "Peminjam gadai",
+        nomorRekening: "12345678",
+        status: "ditolak",
+        nomorReferensi: "LON-DITOLAK-01",
+        tenorHari: 30,
+      }),
+    );
+    const pawnId = await t.run((ctx) =>
+      ctx.db.insert("pawns", {
+        userId: borrowerId,
+        deskripsiBarang: "Cincin emas",
+        kategori: "perhiasan",
+        alamatPenilaian: "Jakarta",
+        namaLengkap: "Peminjam gadai",
+        nomorRekening: "12345678",
+        status: "disetujui",
+        nomorReferensi: "PAW-AKAD-01",
+        nilaiTaksiran: 2_000_000,
+        hargaPasar: 2_500_000,
+        pokokGadai: 1_200_000,
+        persenSewaModal: 5,
+      }),
+    );
+
+    await expect(
+      admin.mutation(api.admin.simpanTandaTangan, {
+        loanId,
+        dataUrl: tandaTanganValid,
+        persetujuanPeminjam: true,
+      }),
+    ).rejects.toThrow(/ditolak/i);
+    await expect(
+      peminjam.mutation(api.admin.simpanTandaTanganGadai, {
+        pawnId,
+        dataUrl: tandaTanganValid,
+        persetujuanPeminjam: true,
+      }),
+    ).rejects.toThrow(/admin/i);
+
+    await expect(
+      admin.mutation(api.admin.simpanTandaTanganGadai, {
+        pawnId,
+        dataUrl: tandaTanganValid,
+        persetujuanPeminjam: true,
+      }),
+    ).resolves.toMatchObject({ ok: true, versi: CONTRACT_TERMS_VERSION });
+    await expect(admin.query(api.admin.contractDetailPawn, { pawnId })).resolves.toMatchObject({
+      ttdPeminjam: tandaTanganValid,
+      persetujuanVersi: CONTRACT_TERMS_VERSION,
+      pokokGadai: 1_200_000,
+      persenSewaModal: 5,
+    });
+    await expect(
+      admin.mutation(api.admin.simpanTandaTanganGadai, {
+        pawnId,
+        dataUrl: tandaTanganValid,
+        persetujuanPeminjam: true,
+      }),
+    ).rejects.toThrow(/sudah disetujui/i);
+    expect(
+      await t.run((ctx) =>
+        ctx.db.query("auditLog").collect().then((rows) =>
+          rows.filter((row) => row.aksi === "kontrak_gadai_disetujui").length,
+        ),
+      ),
+    ).toBe(1);
   });
 });
 

@@ -66,8 +66,8 @@ export function AdminTabs({
   onOpenSetup: () => void;
 }) {
   return (
-    <Tabs defaultValue="pinjaman" className="mt-8 flex flex-col gap-6 lg:flex-row lg:items-start lg:gap-8">
-      <TabsList className="sticky top-20 z-30 -mx-6 h-auto w-auto flex flex-row flex-wrap items-center gap-2 overflow-x-auto rounded-none border-y border-slate-200 bg-white/90 px-6 py-2 backdrop-blur lg:mx-0 lg:w-64 lg:flex-col lg:items-stretch lg:gap-1 lg:overflow-visible lg:rounded-2xl lg:border lg:border-slate-200 lg:px-2 lg:py-2 lg:shadow-sm">
+    <Tabs defaultValue="pinjaman" className="mt-6 flex min-w-0 flex-col gap-5 lg:flex-row lg:items-start lg:gap-7">
+      <TabsList className="sticky top-20 z-30 -mx-4 h-auto w-auto flex-nowrap justify-start gap-1.5 overflow-x-auto rounded-none border-y border-slate-200 bg-white/95 px-4 py-2 backdrop-blur sm:-mx-6 sm:px-6 lg:mx-0 lg:max-h-[calc(100vh-6rem)] lg:w-60 lg:shrink-0 lg:flex-col lg:items-stretch lg:gap-1 lg:overflow-y-auto lg:rounded-2xl lg:border lg:px-2 lg:py-2">
         {(
           [
             ["pinjaman", "Pinjaman", `${overview.loans.filter((l) => l.status === "diajukan").length}`, ClipboardList],
@@ -91,7 +91,7 @@ export function AdminTabs({
           <TabsTrigger
             key={value}
             value={value}
-            className="h-9 w-auto flex-none justify-start gap-2.5 rounded-xl px-3.5 text-left text-xs font-medium text-navy shadow-none transition-colors hover:bg-slate-50 data-[state=active]:gradient-primary data-[state=active]:text-white data-[state=active]:shadow-none data-[state=active]:hover:bg-none lg:w-full"
+            className="h-9 w-auto flex-none justify-start gap-2.5 rounded-xl px-3 text-left text-xs font-medium text-navy shadow-none transition-colors hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-primary/30 data-[state=active]:gradient-primary data-[state=active]:text-white data-[state=active]:shadow-none data-[state=active]:hover:bg-none lg:w-full"
           >
             <Icon className="size-3.5" />
             {label}
@@ -112,67 +112,67 @@ export function AdminTabs({
         ))}
       </TabsList>
 
-      <TabsContent value="pinjaman" className="min-w-0">
+      <TabsContent value="pinjaman" className="min-w-0 flex-1">
         <LoanQueueSection loans={overview.loans} onOpen={onOpenLoan} />
       </TabsContent>
 
-      <TabsContent value="gadai" className="min-w-0">
+      <TabsContent value="gadai" className="min-w-0 flex-1">
         <PawnQueueSection pawns={overview.pawns} onOpen={onOpenPawn} />
       </TabsContent>
 
-      <TabsContent value="kredit" className="min-w-0">
+      <TabsContent value="kredit" className="min-w-0 flex-1">
         <KreditQueuePanel />
       </TabsContent>
 
-      <TabsContent value="setoran" className="min-w-0">
+      <TabsContent value="setoran" className="min-w-0 flex-1">
         <SetoranSection pendingDeposits={pendingDeposits} pendingWd={pendingWd} ledger={ledger} />
       </TabsContent>
 
-      <TabsContent value="pengumuman" className="min-w-0">
+      <TabsContent value="pengumuman" className="min-w-0 flex-1">
         <AnnouncementCms />
       </TabsContent>
 
-      <TabsContent value="whatsapp" className="min-w-0">
+      <TabsContent value="whatsapp" className="min-w-0 flex-1">
         <WhatsAppPanel />
       </TabsContent>
 
-      <TabsContent value="lokasi" className="min-w-0">
+      <TabsContent value="lokasi" className="min-w-0 flex-1">
         <LiveLocationMap />
       </TabsContent>
 
-      <TabsContent value="pencairan" className="min-w-0">
+      <TabsContent value="pencairan" className="min-w-0 flex-1">
         <PencairanTab onOpen={onOpenLoan} />
       </TabsContent>
 
-      <TabsContent value="dpd" className="min-w-0">
+      <TabsContent value="dpd" className="min-w-0 flex-1">
         <DpdTab />
       </TabsContent>
 
-      <TabsContent value="lelang" className="min-w-0">
+      <TabsContent value="lelang" className="min-w-0 flex-1">
         <LelangTab />
       </TabsContent>
 
-      <TabsContent value="ledger" className="min-w-0">
+      <TabsContent value="ledger" className="min-w-0 flex-1">
         <LedgerTab />
       </TabsContent>
 
-      <TabsContent value="backup" className="min-w-0">
+      <TabsContent value="backup" className="min-w-0 flex-1">
         <BackupPanel />
       </TabsContent>
 
-      <TabsContent value="config" className="min-w-0">
+      <TabsContent value="config" className="min-w-0 flex-1">
         <SystemConfigPanel />
       </TabsContent>
 
-      <TabsContent value="plafon" className="min-w-0">
+      <TabsContent value="plafon" className="min-w-0 flex-1">
         <PlafonPanel />
       </TabsContent>
 
-      <TabsContent value="audit" className="min-w-0">
+      <TabsContent value="audit" className="min-w-0 flex-1">
         <AuditTrailPanel />
       </TabsContent>
 
-      <TabsContent value="loglogin" className="min-w-0">
+      <TabsContent value="loglogin" className="min-w-0 flex-1">
         <LoginSecurityPanel onOpenSetup={onOpenSetup} />
       </TabsContent>
     </Tabs>

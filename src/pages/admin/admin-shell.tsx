@@ -1,4 +1,19 @@
-import { ArrowLeft, BadgeCheck, Loader2, ShieldAlert, ShieldCheck } from "lucide-react";
+import {
+  ArrowLeft,
+  BadgeCheck,
+  BellRing,
+  CircleDollarSign,
+  ClipboardList,
+  Clock3,
+  Database,
+  Landmark,
+  Loader2,
+  MapPin,
+  Package,
+  ShieldAlert,
+  ShieldCheck,
+  TriangleAlert,
+} from "lucide-react";
 import { Link } from "react-router";
 
 import { Badge } from "@/components/ui/badge";
@@ -98,42 +113,46 @@ export function AdminHeader({
   onToggleKill: () => void;
 }) {
   return (
-    <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/80 backdrop-blur">
-      <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between gap-3 px-6">
+    <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/95 backdrop-blur">
+      <div className="mx-auto flex min-h-16 w-full max-w-7xl items-center justify-between gap-3 px-4 py-2 sm:px-6">
         <div className="flex min-w-0 items-center gap-3">
-          <span className="flex size-8 items-center justify-center rounded-lg bg-primary text-sm font-bold text-primary-foreground">
+          <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-emerald-700 text-base font-bold text-primary-foreground">
             P
           </span>
           <div className="min-w-0">
-            <p className="truncate text-sm font-semibold tracking-[0.14em] text-navy">PANEL ADMIN</p>
+            <p className="truncate text-sm font-bold tracking-[0.12em] text-navy">PANEL ADMIN</p>
             <p className="truncate text-[11px] text-muted-foreground">PINDAI · Pinjam & Gadai Digital</p>
           </div>
-          <Badge className="hidden bg-emerald-100 text-emerald-800 hover:bg-emerald-100 sm:inline-flex">
-            <ShieldCheck className="mr-1 size-3.5" /> Super Admin (akses penuh)
+          <Badge className="hidden border border-emerald-200 bg-emerald-50 text-emerald-800 hover:bg-emerald-50 md:inline-flex">
+            <ShieldCheck className="mr-1 size-3.5" /> Admin terverifikasi
           </Badge>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex shrink-0 items-center gap-2">
           <RoleDashboardMenu />
           <Button
             size="sm"
+            aria-label={killSwitch ? "Matikan kill switch" : killConfirm ? "Konfirmasi aktivasi kill switch" : "Aktifkan kill switch darurat"}
             className={
               killConfirm
-                ? "rounded-full border-0 bg-red-600 text-white hover:bg-red-700"
-                : "rounded-full border-0 bg-red-500/95 text-white hover:bg-red-600"
+                ? "rounded-full border-0 bg-red-700 text-white hover:bg-red-800"
+                : "rounded-full border-0 bg-red-600 text-white hover:bg-red-700"
             }
             disabled={killBusy || !ready}
             onClick={onToggleKill}
           >
             {killBusy ? (
-              <Loader2 className="mr-2 size-4 animate-spin" />
+              <Loader2 className="size-4 animate-spin sm:mr-2" />
             ) : (
-              <ShieldAlert className="mr-2 size-4" />
+              <ShieldAlert className="size-4 sm:mr-2" />
             )}
-            {killSwitch
-              ? "Matikan Kill Switch"
-              : killConfirm
-                ? "Klik lagi untuk konfirmasi!"
-                : "Kill Switch Darurat"}
+            <span className="hidden sm:inline">
+              {killSwitch
+                ? "Matikan Kill Switch"
+                : killConfirm
+                  ? "Klik lagi untuk konfirmasi!"
+                  : "Kill Switch Darurat"}
+            </span>
+            <span className="sm:hidden">{killSwitch ? "Matikan" : killConfirm ? "Konfirmasi" : "Darurat"}</span>
           </Button>
         </div>
       </div>
@@ -143,50 +162,42 @@ export function AdminHeader({
 
 /** Grid statistik ringkas sistem. */
 export function AdminStats({ stats }: { stats: AdminStatsData }) {
+  const items = [
+    { label: "Pinjaman baru", value: `${stats.pinjamanBaru}`, tone: "amber", Icon: ClipboardList },
+    { label: "Gadai diproses", value: `${stats.gadaiProses}`, tone: "amber", Icon: Package },
+    { label: "Total pinjaman", value: `${stats.totalPinjaman}`, tone: "sky", Icon: Landmark },
+    { label: "Total gadai", value: `${stats.totalGadai}`, tone: "sky", Icon: Database },
+    { label: "Antrean pencairan", value: `${stats.antreanPencairan}`, tone: "sky", Icon: CircleDollarSign },
+    { label: "Wanprestasi / DPD", value: `${stats.pinjamanTerlambat}`, tone: stats.pinjamanTerlambat > 0 ? "red" : "mint", Icon: Clock3 },
+    { label: "Taksiran disetujui", value: formatRupiah(stats.nilaiTaksiranDisetujui), tone: "mint", Icon: CircleDollarSign },
+    { label: "GPS mismatch", value: `${stats.gpsMismatch}`, tone: stats.gpsMismatch > 0 ? "red" : "mint", Icon: MapPin },
+    { label: "Lokasi tidak mengalir", value: `${stats.pinjamanTanpaLokasi}`, tone: stats.pinjamanTanpaLokasi > 0 ? "red" : "mint", Icon: MapPin },
+    { label: "Titik lokasi dicurigai", value: `${stats.titikDicurigai}`, tone: stats.titikDicurigai > 0 ? "red" : "mint", Icon: TriangleAlert },
+    { label: "Peringatan belum diakui", value: `${stats.peringatanLokasiAktif}`, tone: stats.peringatanLokasiAktif > 0 ? "amber" : "mint", Icon: BellRing },
+  ] as const;
+
+  const toneClass = {
+    red: "text-red-700 bg-red-50 border-red-100",
+    amber: "text-amber-700 bg-amber-50 border-amber-100",
+    mint: "text-emerald-700 bg-emerald-50 border-emerald-100",
+    sky: "text-sky-700 bg-sky-50 border-sky-100",
+  } as const;
+
   return (
-    <section className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-4">
-      {[
-        ["Pinjaman Baru", `${stats.pinjamanBaru}`, "amber"],
-        ["Gadai Diproses", `${stats.gadaiProses}`, "amber"],
-        ["Total Pinjaman", `${stats.totalPinjaman}`, "sky"],
-        ["Total Gadai", `${stats.totalGadai}`, "sky"],
-        ["Antrean Pencairan", `${stats.antreanPencairan}`, "sky"],
-        ["Wanprestasi / DPD", `${stats.pinjamanTerlambat}`, "red"],
-        ["Taksiran Disetujui", formatRupiah(stats.nilaiTaksiranDisetujui), "mint"],
-        ["Peringatan GPS Mismatch", `${stats.gpsMismatch}`, stats.gpsMismatch > 0 ? "red" : "mint"],
-        [
-          "Lokasi Tidak Mengalir",
-          `${stats.pinjamanTanpaLokasi}`,
-          stats.pinjamanTanpaLokasi > 0 ? "red" : "mint",
-        ],
-        [
-          "Titik Lokasi Dicurigai",
-          `${stats.titikDicurigai}`,
-          stats.titikDicurigai > 0 ? "red" : "mint",
-        ],
-        [
-          "Peringatan Lokasi Belum Diakui",
-          `${stats.peringatanLokasiAktif}`,
-          stats.peringatanLokasiAktif > 0 ? "amber" : "mint",
-        ],
-      ].map(([label, value, tone]) => (
+    <section aria-label="Statistik operasional" className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
+      {items.map(({ label, value, tone, Icon }) => (
         <div
-          key={label as string}
-          className="rounded-2xl border border-slate-200 bg-white px-4 py-4 shadow-sm"
+          key={label}
+          className="group rounded-2xl border border-slate-200 bg-white p-4 transition-colors hover:border-slate-300 sm:p-5"
         >
-          <p className="text-xs text-muted-foreground">{label as string}</p>
-          <p
-            className={`mt-2 text-lg font-semibold tabular-nums ${
-              tone === "red"
-                ? "text-red-600"
-                : tone === "mint"
-                  ? "text-emerald-600"
-                  : tone === "amber"
-                    ? "text-amber-600"
-                    : "text-navy"
-            }`}
-          >
-            {value as string}
+          <div className="flex items-start justify-between gap-2">
+            <p className="text-xs font-medium leading-5 text-muted-foreground">{label}</p>
+            <span className={`flex size-8 shrink-0 items-center justify-center rounded-xl border ${toneClass[tone]}`}>
+              <Icon className="size-4" />
+            </span>
+          </div>
+          <p className="mt-3 break-words text-xl font-bold tracking-tight tabular-nums text-navy sm:text-2xl">
+            {value}
           </p>
         </div>
       ))}
