@@ -1,5 +1,7 @@
+import { useState } from "react";
 import {
   BellRing,
+  ChevronDown,
   ClipboardList,
   Coins,
   Database,
@@ -44,6 +46,7 @@ import {
 import { type AdminStatsData } from "./admin-shell";
 
 type TabIcon = typeof ClipboardList;
+type AdminTabItem = [value: string, label: string, badge: string | null, Icon: TabIcon];
 
 /** Tab navigasi + seluruh konten tab panel admin. */
 export function AdminTabs({
@@ -65,39 +68,65 @@ export function AdminTabs({
   onOpenPawn: (p: PawnRow) => void;
   onOpenSetup: () => void;
 }) {
+  const [activeTab, setActiveTab] = useState("pinjaman");
+  const tabItems: AdminTabItem[] = [
+    ["pinjaman", "Pinjaman", `${overview.loans.filter((l) => l.status === "diajukan").length}`, ClipboardList],
+    ["gadai", "Gadai", `${overview.pawns.filter((p) => p.status === "diajukan" || p.status === "sedang_dinilai").length}`, Package],
+    ["kredit", "Kredit Barang", `${overview.kredit.filter((k) => k.status === "diajukan" || k.status === "sedang_ditinjau").length}`, ShoppingBag],
+    ["lokasi", "Peta Live Location", null, MapIcon],
+    ["pencairan", "Pencairan", stats ? `${stats.antreanPencairan}` : null, Wallet],
+    ["dpd", "Penagihan / DPD", stats ? `${stats.pinjamanTerlambat}` : null, BellRing],
+    ["lelang", "Lelang Jaminan", null, Gavel],
+    ["ledger", "Ledger & Keuangan", ledger?.seimbang ? "OK" : "!", Landmark],
+    ["backup", "Backup & Keamanan", null, Database],
+    ["config", "Pengaturan Sistem", null, Settings2],
+    ["audit", "Audit Trail", null, Lock],
+    ["loglogin", "Keamanan Login", null, ShieldCheck],
+    ["setoran", "Setoran", `${pendingDeposits?.length ?? 0}`, Coins],
+    ["plafon", "Plafon Nasabah", null, SlidersHorizontal],
+    ["pengumuman", "Pengumuman", null, MessageSquare],
+    ["whatsapp", "WhatsApp", null, Send],
+  ];
+
   return (
-    <Tabs defaultValue="pinjaman" className="mt-6 flex min-w-0 flex-col gap-5 lg:flex-row lg:items-start lg:gap-7">
-      <TabsList className="sticky top-20 z-30 -mx-4 h-auto w-auto flex-nowrap justify-start gap-1.5 overflow-x-auto rounded-none border-y border-slate-200 bg-white/95 px-4 py-2 backdrop-blur sm:-mx-6 sm:px-6 lg:mx-0 lg:max-h-[calc(100vh-6rem)] lg:w-60 lg:shrink-0 lg:flex-col lg:items-stretch lg:gap-1 lg:overflow-y-auto lg:rounded-2xl lg:border lg:px-2 lg:py-2">
-        {(
-          [
-            ["pinjaman", "Pinjaman", `${overview.loans.filter((l) => l.status === "diajukan").length}`, ClipboardList],
-            ["gadai", "Gadai", `${overview.pawns.filter((p) => p.status === "diajukan" || p.status === "sedang_dinilai").length}`, Package],
-            ["kredit", "Kredit Barang", `${overview.kredit.filter((k) => k.status === "diajukan" || k.status === "sedang_ditinjau").length}`, ShoppingBag],
-            ["lokasi", "Peta Live Location", null, MapIcon],
-            ["pencairan", "Pencairan", stats ? `${stats.antreanPencairan}` : null, Wallet],
-            ["dpd", "Penagihan / DPD", stats ? `${stats.pinjamanTerlambat}` : null, BellRing],
-            ["lelang", "Lelang Jaminan", null, Gavel],
-            ["ledger", "Ledger & Keuangan", ledger?.seimbang ? "OK" : "!", Landmark],
-            ["backup", "Backup & Keamanan", null, Database],
-            ["config", "Pengaturan Sistem", null, Settings2],
-            ["audit", "Audit Trail", null, Lock],
-            ["loglogin", "Keamanan Login", null, ShieldCheck],
-            ["setoran", "Setoran", `${pendingDeposits?.length ?? 0}`, Coins],
-            ["plafon", "Plafon Nasabah", null, SlidersHorizontal],
-            ["pengumuman", "Pengumuman", null, MessageSquare],
-            ["whatsapp", "WhatsApp", null, Send],
-          ] as Array<[string, string, string | null, TabIcon]>
-        ).map(([value, label, badge, Icon]) => (
+    <Tabs
+      value={activeTab}
+      onValueChange={setActiveTab}
+      className="mt-4 flex min-w-0 flex-col gap-4 sm:mt-6 sm:gap-5 lg:flex-row lg:items-start lg:gap-7"
+    >
+      <div className="sticky top-16 z-30 -mx-3 border-y border-slate-200 bg-white/95 px-3 py-2.5 backdrop-blur sm:-mx-6 sm:px-6 lg:hidden">
+        <label htmlFor="admin-tab-select" className="mb-1.5 block text-[11px] font-medium text-muted-foreground">
+          Menu operasional
+        </label>
+        <div className="relative">
+          <select
+            id="admin-tab-select"
+            value={activeTab}
+            onChange={(event) => setActiveTab(event.target.value)}
+            className="h-11 w-full appearance-none rounded-xl border border-slate-200 bg-white px-3 pr-10 text-sm font-semibold text-navy outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
+          >
+            {tabItems.map(([value, label, badge]) => (
+              <option key={value} value={value}>
+                {label}{badge !== null && badge !== "0" ? ` · ${badge}` : ""}
+              </option>
+            ))}
+          </select>
+          <ChevronDown className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+        </div>
+      </div>
+
+      <TabsList className="hidden lg:sticky lg:top-20 lg:z-30 lg:flex lg:max-h-[calc(100vh-6rem)] lg:w-60 lg:shrink-0 lg:flex-col lg:items-stretch lg:gap-1 lg:overflow-y-auto lg:rounded-2xl lg:border lg:border-slate-200 lg:bg-white lg:p-2">
+        {tabItems.map(([value, label, badge, Icon]) => (
           <TabsTrigger
             key={value}
             value={value}
-            className="h-9 w-auto flex-none justify-start gap-2.5 rounded-xl px-3 text-left text-xs font-medium text-navy shadow-none transition-colors hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-primary/30 data-[state=active]:gradient-primary data-[state=active]:text-white data-[state=active]:shadow-none data-[state=active]:hover:bg-none lg:w-full"
+            className="h-10 w-full justify-start gap-2.5 rounded-xl px-3 text-left text-xs font-medium text-navy shadow-none transition-colors hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-primary/30 data-[state=active]:gradient-primary data-[state=active]:text-white data-[state=active]:shadow-none data-[state=active]:hover:bg-none"
           >
-            <Icon className="size-3.5" />
-            {label}
+            <Icon className="size-3.5 shrink-0" />
+            <span className="min-w-0 flex-1 truncate">{label}</span>
             {badge !== null && badge !== undefined && badge !== "0" && (
               <span
-                className={`ml-auto inline-flex min-w-5 items-center justify-center rounded-full px-1.5 py-0.5 text-[10px] font-bold tabular-nums ${
+                className={`inline-flex min-w-5 shrink-0 items-center justify-center rounded-full px-1.5 py-0.5 text-[10px] font-bold tabular-nums ${
                   badge === "OK"
                     ? "bg-emerald-100 text-emerald-700"
                     : badge === "!"

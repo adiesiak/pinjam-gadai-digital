@@ -141,22 +141,22 @@ export default function Admin() {
         onToggleKill={() => void handleToggleKill()}
       />
 
-      <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-6 sm:py-9">
-        <section className="relative overflow-hidden rounded-3xl border border-slate-200 bg-white p-6 sm:p-8">
+      <main className="mx-auto w-full max-w-7xl flex-1 px-3 py-4 sm:px-6 sm:py-8">
+        <section className="relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-4 sm:rounded-3xl sm:p-8">
           <div className="absolute right-0 top-0 h-full w-1/3 bg-gradient-to-l from-emerald-50/80 to-transparent" aria-hidden="true" />
           <div className="relative flex flex-col justify-between gap-6 sm:flex-row sm:items-end">
             <div className="max-w-2xl">
               <p className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-primary">
                 <ShieldCheck className="size-4" /> Ruang Operasional Tim
               </p>
-              <h1 className="mt-3 text-2xl font-semibold tracking-tight text-navy sm:text-3xl">
+              <h1 className="mt-3 text-xl font-semibold tracking-tight text-navy sm:text-3xl">
                 Ringkasan sistem hari ini
               </h1>
               <p className="mt-2 text-sm leading-6 text-muted-foreground">
                 Tindak pengajuan, pantau lokasi, dan kelola pencairan dalam satu ruang kerja.
               </p>
             </div>
-            <div className="flex w-fit items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-medium text-emerald-800">
+            <div className="flex w-fit items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-2 text-[11px] font-medium text-emerald-800 sm:text-xs">
               <Activity className="size-3.5" />
               <span className="size-1.5 animate-pulse rounded-full bg-emerald-500" />
               Data operasional live

@@ -92,7 +92,7 @@ export function AppraisalDialog({
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="max-h-[90dvh] overflow-y-auto p-4 sm:max-w-lg sm:p-6">
         <DialogHeader>
           <DialogTitle>Penaksiran gadai</DialogTitle>
           <DialogDescription className="leading-relaxed">
@@ -181,7 +181,7 @@ export function AppraisalDialog({
           </p>
         )}
 
-        <DialogFooter className="gap-2">
+        <DialogFooter className="gap-2 sm:flex-row">
           <Button variant="ghost" onClick={onClose} disabled={busy}>
             Batal
           </Button>

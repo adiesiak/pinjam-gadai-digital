@@ -105,15 +105,15 @@ export function QueueRow({
     <button
       type="button"
       onClick={onOpen}
-      className="flex w-full items-center justify-between gap-4 px-5 py-4 text-left transition-colors hover:bg-muted/50"
+      className="flex w-full items-start justify-between gap-3 px-3 py-4 text-left transition-colors hover:bg-muted/50 sm:items-center sm:gap-4 sm:px-5"
     >
       <div className="min-w-0">
         <p className="truncate text-sm font-medium">{title}</p>
-        <p className="mt-1 truncate text-xs text-muted-foreground">
+        <p className="mt-1 line-clamp-2 text-xs leading-5 text-muted-foreground sm:truncate sm:leading-normal">
           {reference} · {date} · {subtitle}
         </p>
       </div>
-      <div className="flex shrink-0 items-center gap-3">{status}</div>
+      <div className="shrink-0 pt-0.5 sm:flex sm:items-center sm:gap-3">{status}</div>
     </button>
   );
 }

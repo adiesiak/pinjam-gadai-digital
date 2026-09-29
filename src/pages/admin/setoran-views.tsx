@@ -80,17 +80,17 @@ export function SetoranSection({
       ) : (
         <ul className="divide-y divide-slate-200 rounded-2xl border border-slate-200 bg-white">
           {pendingDeposits.map((d) => (
-            <li key={d._id} className="flex items-center justify-between gap-4 px-5 py-4">
+            <li key={d._id} className="flex flex-col gap-3 px-3 py-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:px-5">
               <div className="min-w-0">
                 <p className="text-sm font-medium tabular-nums">{formatRupiah(d.jumlah)}</p>
                 <p className="mt-1 truncate text-xs text-muted-foreground">
                   {d.nomorReferensi} · {d.emailPendana ?? "tanpa email"} · ref transfer: {d.referensiTransfer}
                 </p>
               </div>
-              <div className="flex shrink-0 items-center gap-2">
+              <div className="flex w-full shrink-0 gap-2 sm:w-auto">
                 <Button
                   size="sm"
-                  className="gradient-primary rounded-full border-0"
+                  className="gradient-primary min-w-0 flex-1 rounded-full border-0 sm:flex-none"
                   onClick={async () => {
                     try {
                       await confirmDeposit({ depositId: d._id });
@@ -106,7 +106,7 @@ export function SetoranSection({
                 <Button
                   size="sm"
                   variant="outline"
-                  className="rounded-full"
+                  className="min-w-0 flex-1 rounded-full sm:flex-none"
                   onClick={() => setRejectingDeposit({ id: d._id, ref: d.nomorReferensi })}
                 >
                   Tolak
@@ -128,17 +128,17 @@ export function SetoranSection({
       ) : (
         <ul className="divide-y divide-slate-200 rounded-2xl border border-slate-200 bg-white">
           {pendingWd.map((w) => (
-            <li key={w._id} className="flex items-center justify-between gap-4 px-5 py-4">
+            <li key={w._id} className="flex flex-col gap-3 px-3 py-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:px-5">
               <div className="min-w-0">
                 <p className="text-sm font-medium tabular-nums">{formatRupiah(w.jumlah)}</p>
                 <p className="mt-1 truncate text-xs text-muted-foreground">
                   {w.nomorReferensi} · {w.emailPendana ?? "tanpa email"} · {w.namaBank} {w.nomorRekening}
                 </p>
               </div>
-              <div className="flex shrink-0 items-center gap-2">
+              <div className="flex w-full shrink-0 gap-2 sm:w-auto">
                 <Button
                   size="sm"
-                  className="gradient-primary rounded-full border-0"
+                  className="gradient-primary min-w-0 flex-1 rounded-full border-0 sm:flex-none"
                   onClick={async () => {
                     try {
                       await processWd({ withdrawalId: w._id });
@@ -154,7 +154,7 @@ export function SetoranSection({
                 <Button
                   size="sm"
                   variant="outline"
-                  className="rounded-full"
+                  className="min-w-0 flex-1 rounded-full sm:flex-none"
                   onClick={() => setRejectingWd({ id: w._id, ref: w.nomorReferensi })}
                 >
                   Tolak

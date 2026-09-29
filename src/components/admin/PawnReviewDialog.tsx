@@ -58,7 +58,7 @@ export function PawnReviewDialog({
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg">
+      <DialogContent className="max-h-[90dvh] overflow-y-auto p-4 sm:max-w-lg sm:p-6">
         <DialogHeader>
           <div className="flex items-center justify-between gap-3">
             <DialogTitle className="max-w-72 text-base leading-snug">
@@ -86,9 +86,9 @@ export function PawnReviewDialog({
                 : "Belum dinilai",
             ],
           ].map(([label, value]) => (
-            <div key={label} className="flex items-baseline justify-between gap-4 px-4 py-3">
-              <dt className="shrink-0 text-sm text-muted-foreground">{label}</dt>
-              <dd className="text-right text-sm">{value}</dd>
+            <div key={label} className="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-2 px-3 py-3 sm:gap-4 sm:px-4">
+              <dt className="min-w-0 text-xs leading-5 text-muted-foreground sm:text-sm">{label}</dt>
+              <dd className="min-w-0 break-words text-right text-xs leading-5 sm:text-sm">{value}</dd>
             </div>
           ))}
         </dl>
@@ -125,7 +125,7 @@ export function PawnReviewDialog({
               </p>
             )}
 
-            <div className="flex flex-wrap gap-2">
+            <div className="grid grid-cols-1 gap-2 min-[420px]:flex min-[420px]:flex-wrap">
               {pending && (
                 <Button
                   variant="outline"

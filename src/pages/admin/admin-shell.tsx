@@ -114,20 +114,20 @@ export function AdminHeader({
 }) {
   return (
     <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/95 backdrop-blur">
-      <div className="mx-auto flex min-h-16 w-full max-w-7xl items-center justify-between gap-3 px-4 py-2 sm:px-6">
-        <div className="flex min-w-0 items-center gap-3">
-          <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-emerald-700 text-base font-bold text-primary-foreground">
+      <div className="mx-auto flex min-h-14 w-full max-w-7xl items-center justify-between gap-2 px-3 py-2 sm:min-h-16 sm:gap-3 sm:px-6">
+        <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+          <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-emerald-700 text-base font-bold text-primary-foreground sm:size-10">
             P
           </span>
           <div className="min-w-0">
-            <p className="truncate text-sm font-bold tracking-[0.12em] text-navy">PANEL ADMIN</p>
-            <p className="truncate text-[11px] text-muted-foreground">PINDAI · Pinjam & Gadai Digital</p>
+            <p className="truncate text-xs font-bold tracking-[0.1em] text-navy sm:text-sm sm:tracking-[0.12em]">PANEL ADMIN</p>
+            <p className="hidden truncate text-[11px] text-muted-foreground min-[360px]:block">PINDAI · Pinjam & Gadai Digital</p>
           </div>
           <Badge className="hidden border border-emerald-200 bg-emerald-50 text-emerald-800 hover:bg-emerald-50 md:inline-flex">
             <ShieldCheck className="mr-1 size-3.5" /> Admin terverifikasi
           </Badge>
         </div>
-        <div className="flex shrink-0 items-center gap-2">
+        <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
           <RoleDashboardMenu />
           <Button
             size="sm"
@@ -184,11 +184,11 @@ export function AdminStats({ stats }: { stats: AdminStatsData }) {
   } as const;
 
   return (
-    <section aria-label="Statistik operasional" className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
+    <section aria-label="Statistik operasional" className="mt-4 grid grid-cols-2 gap-2 sm:mt-5 sm:grid-cols-3 sm:gap-3 xl:grid-cols-4">
       {items.map(({ label, value, tone, Icon }) => (
         <div
           key={label}
-          className="group rounded-2xl border border-slate-200 bg-white p-4 transition-colors hover:border-slate-300 sm:p-5"
+          className="group rounded-xl border border-slate-200 bg-white p-3 transition-colors hover:border-slate-300 min-[380px]:rounded-2xl min-[380px]:p-4 sm:p-5"
         >
           <div className="flex items-start justify-between gap-2">
             <p className="text-xs font-medium leading-5 text-muted-foreground">{label}</p>
@@ -196,7 +196,7 @@ export function AdminStats({ stats }: { stats: AdminStatsData }) {
               <Icon className="size-4" />
             </span>
           </div>
-          <p className="mt-3 break-words text-xl font-bold tracking-tight tabular-nums text-navy sm:text-2xl">
+          <p className="mt-2 break-words text-lg font-bold tracking-tight tabular-nums text-navy min-[380px]:mt-3 min-[380px]:text-xl sm:text-2xl">
             {value}
           </p>
         </div>
