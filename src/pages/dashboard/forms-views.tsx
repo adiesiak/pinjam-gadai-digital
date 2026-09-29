@@ -393,11 +393,11 @@ export function LoanForm({ onCreated }: { onCreated: (ref: string) => void }) {
       return;
     }
     if (namaBank.trim().length < 2 || namaBank.trim().length > 60) {
-      setError("Nama bank atau e-wallet tujuan harus 2–60 karakter.");
+      setError("Nama bank atau e-wallet yang dicatat harus 2–60 karakter.");
       return;
     }
     if (!/^\d{6,20}$/.test(nomorRekening.trim().replace(/\s+/g, ""))) {
-      setError("Nomor rekening/akun e-wallet harus 6–20 digit angka.");
+      setError("Nomor rekening/akun e-wallet untuk catatan harus 6–20 digit angka.");
       return;
     }
     const kycError = validateKycInput({
@@ -415,7 +415,7 @@ export function LoanForm({ onCreated }: { onCreated: (ref: string) => void }) {
       return;
     }
     if (lokasi === null) {
-      setError("Lokasi belum terkunci — izinkan akses GPS lalu klik 'Ambil lokasi'.");
+      setError("Koordinat perangkat belum tercatat — izinkan akses lokasi lalu klik 'Ambil lokasi'.");
       return;
     }
 
@@ -460,6 +460,9 @@ export function LoanForm({ onCreated }: { onCreated: (ref: string) => void }) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
+      <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-900">
+        Form ini mencatat pengajuan dan perhitungan pada ledger internal. Data, dokumen, gambar tanda tangan, dan koordinat yang dikirim adalah masukan aplikasi; PINDAI tidak memverifikasi identitas atau lokasi dan tidak mengirim atau menerima dana.
+      </p>
       {/* Slider nominal */}
       <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
         {/* Pemilih skema harga: harian 1 jt / 30 hari, atau bulanan 1/3/6 bulan. */}
@@ -481,12 +484,14 @@ export function LoanForm({ onCreated }: { onCreated: (ref: string) => void }) {
               }`}
             >
               {label}
-            </button>          ))}
+            </button>
+          ))}
         </div>
         <div className="mt-4 flex flex-wrap items-baseline justify-between gap-2">
           <span id="nominal-pinjaman-label" className="text-sm font-medium">Nominal pinjaman</span>
           <span className="text-lg font-semibold tabular-nums text-primary">{formatRupiah(pokok)}</span>
-        </div>        <Slider
+        </div>
+        <Slider
           className="mt-4"
           value={[pokok]}
           min={MIN}
@@ -506,8 +511,8 @@ export function LoanForm({ onCreated }: { onCreated: (ref: string) => void }) {
           {melebihiPlafon && plafonSaya !== undefined
             ? `Batas pinjaman Anda saat ini ${formatRupiah(plafonSaya)} — kurangi nominal atau hubungi tim PINDAI bila butuh penyesuaian plafon.`
             : bulanan
-              ? `Skema bulanan: uang muka 0%, biaya layanan 3% (diamortisasi), bunga menurun. Plafon tunai efektif ${formatRupiah(MAX)}; plafon otomatis dapat naik hingga Rp10 juta setelah pinjaman pokok Rp1 juta lunas penuh.`
-              : `Pinjaman tunai harian dibatasi ${formatRupiah(LOAN_LIMITS.minPokok)}–${formatRupiah(MAX)} dengan tenor maksimal ${LOAN_LIMITS.maxTenorHari} hari. Plafon dapat naik hingga Rp10 juta setelah pinjaman pokok Rp1 juta lunas penuh.`}
+              ? `Skema simulasi bulanan: uang muka 0%, biaya layanan 3% (diamortisasi), bunga menurun. Batas ledger saat ini ${formatRupiah(MAX)}; catatan berstatus lunas dapat memengaruhi batas internal hingga Rp10 juta.`
+              : `Skema simulasi harian dibatasi ${formatRupiah(LOAN_LIMITS.minPokok)}–${formatRupiah(MAX)} dengan tenor maksimal ${LOAN_LIMITS.maxTenorHari} hari. Catatan berstatus lunas dapat memengaruhi batas internal hingga Rp10 juta.`}
         </p>
 
         {/* Live financial breakdown — mengikuti skema terpilih. */}
@@ -518,7 +523,7 @@ export function LoanForm({ onCreated }: { onCreated: (ref: string) => void }) {
               <dd className="tabular-nums">{formatRupiah(sim.dp)}</dd>
             </div>
             <div className="flex flex-col gap-1 bg-emerald-50 px-3 py-2.5 text-sm sm:flex-row sm:items-baseline sm:justify-between">
-              <dt className="font-semibold text-emerald-800">Dana diterima penuh</dt>
+              <dt className="font-semibold text-emerald-800">Pokok simulasi (DP 0%)</dt>
               <dd className="font-semibold tabular-nums text-emerald-700">
                 {formatRupiah(sim.pokokDibiayai)}
               </dd>
@@ -556,7 +561,7 @@ export function LoanForm({ onCreated }: { onCreated: (ref: string) => void }) {
               </div>
             ))}
             <div className="flex flex-col gap-1 bg-emerald-50 px-3 py-2.5 text-sm sm:flex-row sm:items-baseline sm:justify-between">
-              <dt className="font-semibold text-emerald-800">Dana Bersih (95%)</dt>
+              <dt className="font-semibold text-emerald-800">Nilai bersih simulasi (95%; tidak ditransfer)</dt>
               <dd className="font-semibold tabular-nums text-emerald-700">{formatRupiah(q.danaBersihDitransfer)}</dd>
             </div>
             <div className="flex flex-col gap-1 bg-white px-3 py-2 text-sm sm:flex-row sm:items-baseline sm:justify-between">
@@ -564,7 +569,7 @@ export function LoanForm({ onCreated }: { onCreated: (ref: string) => void }) {
               <dd className="tabular-nums">{formatRupiah(q.bunga)}</dd>
             </div>
             <div className="flex flex-col gap-1 bg-slate-50 px-3 py-2.5 text-sm sm:flex-row sm:items-baseline sm:justify-between">
-              <dt className="font-semibold">Total Kewajiban (130%)</dt>
+              <dt className="font-semibold">Total kewajiban simulasi (130%)</dt>
               <dd className="font-semibold tabular-nums">{formatRupiah(q.totalKewajibanPelunasan)}</dd>
             </div>
           </dl>
@@ -630,15 +635,15 @@ export function LoanForm({ onCreated }: { onCreated: (ref: string) => void }) {
 
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">
-          <Label htmlFor="nama">Nama lengkap (sesuai KTP)</Label>
-          <Input id="nama" value={namaLengkap} onChange={(e) => setNamaLengkap(e.target.value)} placeholder="Nama sesuai identitas" autoComplete="name" required aria-required="true" minLength={3} aria-invalid={error !== null && namaLengkap.trim().length < 3} aria-describedby={error !== null && namaLengkap.trim().length < 3 ? "loan-form-error" : undefined} disabled={submitting} />
+          <Label htmlFor="nama">Nama lengkap (sesuai dokumen yang Anda masukkan)</Label>
+          <Input id="nama" value={namaLengkap} onChange={(e) => setNamaLengkap(e.target.value)} placeholder="Nama sesuai dokumen yang Anda masukkan" autoComplete="name" required aria-required="true" minLength={3} aria-invalid={error !== null && namaLengkap.trim().length < 3} aria-describedby={error !== null && namaLengkap.trim().length < 3 ? "loan-form-error" : undefined} disabled={submitting} />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="bank-tujuan">Bank / e-wallet tujuan</Label>
+          <Label htmlFor="bank-tujuan">Bank / e-wallet (informasi yang dicatat)</Label>
           <Input id="bank-tujuan" value={namaBank} onChange={(e) => setNamaBank(e.target.value)} placeholder="BCA, Mandiri, DANA, OVO, GoPay" autoComplete="off" required aria-required="true" minLength={2} maxLength={60} aria-invalid={error !== null && (namaBank.trim().length < 2 || namaBank.trim().length > 60)} aria-describedby={error !== null && (namaBank.trim().length < 2 || namaBank.trim().length > 60) ? "loan-form-error" : undefined} disabled={submitting} />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="rekening">Nomor rekening / akun e-wallet tujuan</Label>
+          <Label htmlFor="rekening">Nomor rekening / akun e-wallet (informasi yang dicatat)</Label>
           <Input id="rekening" inputMode="numeric" value={nomorRekening} onChange={(e) => setNomorRekening(e.target.value)} placeholder="1234567890" className="tabular-nums" autoComplete="off" required aria-required="true" aria-invalid={error !== null && !/^\d{6,20}$/.test(nomorRekening.trim().replace(/\s+/g, ""))} aria-describedby={error !== null && !/^\d{6,20}$/.test(nomorRekening.trim().replace(/\s+/g, "")) ? "loan-form-error" : undefined} disabled={submitting} />
         </div>
       </div>
@@ -651,15 +656,15 @@ export function LoanForm({ onCreated }: { onCreated: (ref: string) => void }) {
       {/* Tanda tangan canvas */}
       <div className="rounded-2xl border border-slate-200 bg-white p-4">
         <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
-          Tanda tangan digital (canvas)
+          Gambar tanda tangan (opsional; tidak terverifikasi)
         </p>
         <p id="signature-help" className="mt-2 text-xs leading-5 text-muted-foreground">
-          Opsional. Gambar tanda tangan dengan sentuhan atau mouse; formulir tetap dapat dikirim tanpa tanda tangan.
+          Opsional. Gambar dengan sentuhan atau mouse; gambar ini hanya masukan aplikasi, bukan tanda tangan digital terverifikasi atau bukti identitas. Formulir tetap dapat dikirim tanpa tanda tangan.
         </p>
         <canvas
           ref={canvasRef}
           role="img"
-          aria-label="Area gambar tanda tangan digital, opsional"
+          aria-label="Area gambar tanda tangan, opsional dan tidak terverifikasi"
           aria-describedby="signature-help"
           className="mt-2 h-24 w-full touch-none rounded-xl border border-dashed border-slate-300 bg-white"
         />
@@ -673,11 +678,14 @@ export function LoanForm({ onCreated }: { onCreated: (ref: string) => void }) {
       {/* KYC */}
       <div className="rounded-2xl border border-slate-200 bg-white p-4">
         <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
-          Verifikasi identitas (wajib)
+          Data pemohon &amp; dokumen (wajib; tidak diverifikasi otomatis)
+        </p>
+        <p className="mt-2 text-xs leading-5 text-muted-foreground">
+          NIK dan dokumen diunggah sebagai data pengajuan. Pengisian atau pengunggahan tidak membuktikan identitas, keaslian dokumen, maupun kelayakan pemohon.
         </p>
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
           <div>
-            <Label htmlFor="nik">NIK (16 digit)</Label>
+            <Label htmlFor="nik">NIK (16 digit; masukan pemohon)</Label>
             <Input id="nik" inputMode="numeric" maxLength={16} required aria-required="true" aria-invalid={error !== null && nik.length !== 16} aria-describedby={error !== null && nik.length !== 16 ? "loan-form-error" : undefined} value={nik} onChange={(e) => setNik(e.target.value.replace(/\D/g, ""))} placeholder="3204xxxxxxxxxxxx" className="tabular-nums" disabled={submitting} />
           </div>
           <div>
@@ -834,7 +842,7 @@ export function LoanForm({ onCreated }: { onCreated: (ref: string) => void }) {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="min-w-0 flex-1">
             <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
-              Lokasi saat pengajuan (GPS wajib)
+              Koordinat perangkat saat pengajuan (wajib; tidak diverifikasi)
             </p>
             {lokasi ? (
               <p role="status" aria-live="polite" className="mt-1 text-sm tabular-nums">
@@ -843,7 +851,7 @@ export function LoanForm({ onCreated }: { onCreated: (ref: string) => void }) {
               </p>
             ) : (
               <p role="status" aria-live="polite" className="mt-1 text-xs text-muted-foreground">
-                {lokBusy ? "Mengunci posisi GPS…" : "Belum terkunci — izinkan akses lokasi di browser."}
+                {lokBusy ? "Mengambil koordinat perangkat…" : "Belum tercatat — izinkan akses lokasi di browser."}
               </p>
             )}
           </div>
@@ -888,7 +896,7 @@ export function LoanForm({ onCreated }: { onCreated: (ref: string) => void }) {
         )}
       </Button>
       <p className="text-center text-xs leading-5 text-muted-foreground">
-        Setiap pinjaman tunai pokok minimal Rp1 juta yang tercatat lunas penuh pada atau sebelum jatuh tempo menambah plafon dasar Rp1 juta, maksimal Rp10 juta; pembayaran terlambat tidak menambah plafon. Plafon efektif saat ini {formatRupiah(MAX)}. {bulanan ? "Skema bulanan memakai uang muka 0%, biaya layanan 3%, dan bunga menurun sesuai tenor. Jadwal cicilan merupakan simulasi; pelunasan yang dicatat saat ini sekaligus pada akhir tenor." : `Skema harian memakai potongan biaya 5% dan bunga flat 30% dengan tenor maksimal ${LOAN_LIMITS.maxTenorHari} hari.`} Pengajuan/catatan aplikasi bukan bukti transfer dana nyata.
+        Aturan plafon internal: pinjaman pokok minimal Rp1 juta yang berstatus lunas pada ledger sebelum atau saat tanggal acuan dapat menambah plafon dasar Rp1 juta, maksimal Rp10 juta. Status lunas/terlambat adalah catatan aplikasi, bukan bukti pembayaran. Plafon simulasi saat ini {formatRupiah(MAX)}. {bulanan ? "Skema bulanan menghitung uang muka 0%, biaya layanan 3%, dan bunga menurun sesuai tenor. Jadwal cicilan adalah ilustrasi; sistem mencatat status lunas sekaligus pada akhir tenor." : `Skema harian menghitung potongan biaya 5% dan bunga flat 30% dengan tenor maksimal ${LOAN_LIMITS.maxTenorHari} hari.`} Tidak ada transfer dana eksternal.
       </p>
     </form>
   );
@@ -925,7 +933,7 @@ export function PawnForm({ onCreated }: { onCreated: () => void }) {
       return;
     }
     if (alamatPenilaian.trim().length < 10) {
-      setError("Alamat lokasi barang wajib diisi untuk penjadwalan pemeriksaan.");
+      setError("Alamat yang dilaporkan untuk lokasi barang wajib diisi (minimal 10 karakter).");
       return;
     }
     if (namaLengkap.trim().length < 3) {
@@ -933,11 +941,11 @@ export function PawnForm({ onCreated }: { onCreated: () => void }) {
       return;
     }
     if (namaBank.trim().length < 2 || namaBank.trim().length > 60) {
-      setError("Nama bank atau e-wallet tujuan harus 2–60 karakter.");
+      setError("Nama bank atau e-wallet yang dicatat harus 2–60 karakter.");
       return;
     }
     if (!/^\d{6,20}$/.test(nomorRekening.trim().replace(/\s+/g, ""))) {
-      setError("Nomor rekening/akun e-wallet harus 6–20 digit angka.");
+      setError("Nomor rekening/akun e-wallet untuk catatan harus 6–20 digit angka.");
       return;
     }
     setSubmitting(true);
@@ -1001,23 +1009,21 @@ export function PawnForm({ onCreated }: { onCreated: () => void }) {
       </div>
       <div className="space-y-2">
         <Label htmlFor="alamat">Alamat lokasi barang</Label>
-        <Textarea id="alamat" value={alamatPenilaian} onChange={(e) => setAlamatPenilaian(e.target.value)} placeholder="Alamat lengkap tempat barang berada saat pemeriksaan…" rows={2} required aria-required="true" minLength={10} aria-invalid={error !== null && alamatPenilaian.trim().length < 10} aria-describedby={error !== null && alamatPenilaian.trim().length < 10 ? "pawn-form-error" : undefined} disabled={submitting} />
-        <p className="text-xs leading-5 text-muted-foreground">
-          Pemeriksaan dilakukan petugas di lokasi dengan pencatatan lokasi langsung
-          (live location).
-        </p>
+        <Textarea id="alamat" value={alamatPenilaian} onChange={(e) => setAlamatPenilaian(e.target.value)} placeholder="Alamat lengkap tempat barang berada saat pemeriksaan…" rows={2} required aria-required="true" minLength={10} aria-invalid={error !== null && alamatPenilaian.trim().length < 10} aria-describedby={error !== null && alamatPenilaian.trim().length < 10 ? "pawn-form-error" : undefined} disabled={submitting} />          <p className="text-xs leading-5 text-muted-foreground">
+            Alamat ini dicatat sebagai informasi yang Anda masukkan. Aplikasi tidak menjadwalkan atau mengonfirmasi kunjungan, pemeriksaan fisik, maupun lokasi barang.
+          </p>
       </div>
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">
-          <Label htmlFor="nama-gadai">Nama lengkap (sesuai KTP)</Label>
-          <Input id="nama-gadai" value={namaLengkap} onChange={(e) => setNamaLengkap(e.target.value)} placeholder="Nama sesuai identitas" autoComplete="name" required aria-required="true" minLength={3} aria-invalid={error !== null && namaLengkap.trim().length < 3} aria-describedby={error !== null && namaLengkap.trim().length < 3 ? "pawn-form-error" : undefined} disabled={submitting} />
+          <Label htmlFor="nama-gadai">Nama lengkap (sesuai dokumen yang Anda masukkan)</Label>
+          <Input id="nama-gadai" value={namaLengkap} onChange={(e) => setNamaLengkap(e.target.value)} placeholder="Nama sesuai dokumen yang Anda masukkan" autoComplete="name" required aria-required="true" minLength={3} aria-invalid={error !== null && namaLengkap.trim().length < 3} aria-describedby={error !== null && namaLengkap.trim().length < 3 ? "pawn-form-error" : undefined} disabled={submitting} />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="bank-gadai">Bank / e-wallet tujuan pencairan</Label>
+          <Label htmlFor="bank-gadai">Bank / e-wallet (informasi yang dicatat)</Label>
           <Input id="bank-gadai" value={namaBank} onChange={(e) => setNamaBank(e.target.value)} placeholder="BCA, Mandiri, DANA, OVO, GoPay" autoComplete="off" required aria-required="true" minLength={2} maxLength={60} aria-invalid={error !== null && (namaBank.trim().length < 2 || namaBank.trim().length > 60)} aria-describedby={error !== null && (namaBank.trim().length < 2 || namaBank.trim().length > 60) ? "pawn-form-error" : undefined} disabled={submitting} />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="rekening-gadai">Nomor rekening / akun e-wallet tujuan</Label>
+          <Label htmlFor="rekening-gadai">Nomor rekening / akun e-wallet (informasi yang dicatat)</Label>
           <Input id="rekening-gadai" inputMode="numeric" value={nomorRekening} onChange={(e) => setNomorRekening(e.target.value)} placeholder="1234567890" className="tabular-nums" autoComplete="off" required aria-required="true" aria-invalid={error !== null && !/^\d{6,20}$/.test(nomorRekening.trim().replace(/\s+/g, ""))} aria-describedby={error !== null && !/^\d{6,20}$/.test(nomorRekening.trim().replace(/\s+/g, "")) ? "pawn-form-error" : undefined} disabled={submitting} />
         </div>
       </div>
@@ -1050,7 +1056,7 @@ export function PawnForm({ onCreated }: { onCreated: () => void }) {
         )}
       </Button>
       <p className="text-center text-xs leading-5 text-muted-foreground">
-        Taksiran baru ditetapkan saat pemeriksaan. Pengajuan dan kode lokasi/rak yang dicatat aplikasi bukan bukti barang sudah diterima atau dititipkan; status penitipan, tanda terima, lokasi, dan proses pengembalian perlu dikonfirmasi langsung kepada tim yang bertanggung jawab.
+        Nilai taksiran, kondisi, dan kode lokasi/rak merupakan catatan internal yang dapat diisi kemudian; bukan verifikasi harga, pemeriksaan fisik, penerimaan atau penitipan barang. Status aplikasi juga bukan bukti barang dikembalikan. Tidak ada pencairan dana melalui aplikasi.
       </p>
     </form>
   );

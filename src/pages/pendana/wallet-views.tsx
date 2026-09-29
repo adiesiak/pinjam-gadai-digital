@@ -97,12 +97,11 @@ export function WalletSection({ onDepositRequested }: { onDepositRequested: () =
       </section>
 
       {/* ===== Penarikan ===== */}
-      <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
-        <h3 className="text-sm font-semibold">Catat permintaan penarikan simulasi</h3>
+      <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">          <h3 className="text-sm font-semibold">Catat permintaan penarikan simulasi</h3>
         <Separator className="my-4" />
         <form onSubmit={ajukanPenarikan} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="wd-jumlah">Jumlah penarikan</Label>
+            <Label htmlFor="wd-jumlah">Jumlah permintaan penarikan simulasi</Label>
             <div className="relative">
               <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
                 Rp
@@ -174,7 +173,7 @@ export function WalletSection({ onDepositRequested }: { onDepositRequested: () =
           )}
           <Button type="submit" className="w-full" disabled={busy}>
             {busy ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
-            Ajukan Penarikan
+            Catat permintaan penarikan
           </Button>
           <p className="text-xs leading-5 text-muted-foreground">
             Nama bank dan nomor rekening hanya disimpan sebagai informasi tujuan. Status proses tidak mengirim dana dan perubahan saldo ledger bukan bukti transfer.
@@ -302,8 +301,8 @@ export function WithdrawalBadge({ status }: { status: string }) {
   if (status === "ditolak") {
     return <Badge variant="destructive">Dibatalkan / Ditolak</Badge>;
   }
-  return (
-    <Badge className="border-0 bg-amber-100 text-amber-700 hover:bg-amber-100">        Menunggu status internal
+  return (      <Badge className="border-0 bg-amber-100 text-amber-700 hover:bg-amber-100">
+        Menunggu status internal
     </Badge>
   );
 }
@@ -319,8 +318,8 @@ export function DepositBadge({ status }: { status: string }) {
   if (status === "ditolak") {
     return <Badge variant="destructive">Ditolak</Badge>;
   }
-  return (
-    <Badge className="border-0 bg-amber-100 text-amber-700 hover:bg-amber-100">        Menunggu tinjauan internal
+  return (      <Badge className="border-0 bg-amber-100 text-amber-700 hover:bg-amber-100">
+        Menunggu tinjauan internal
     </Badge>
   );
 }

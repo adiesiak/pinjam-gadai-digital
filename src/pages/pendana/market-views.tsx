@@ -32,7 +32,7 @@ function KeteranganWilayah() {
   );
 }
 
-/** Tab 1 — Marketplace pinjaman & gadai. */
+/** Tab 1 — daftar catatan simulasi pinjaman & gadai. */
 export function MarketplaceSection() {
   const marketplace = useQuery(api.pendana.marketplace);
 
@@ -43,8 +43,8 @@ export function MarketplaceSection() {
       ) : marketplace.length === 0 ? (
         <EmptyState
           icon={Store}
-          title="Belum ada peluang pendanaan"
-          body="Peluang yang disetujui tim PINDAI tampil dengan kode peminjam, rincian biaya, jadwal, dan sisa kebutuhan pendanaan."
+          title="Belum ada catatan peluang simulasi"
+          body="Catatan berstatus disetujui pada aplikasi tampil dengan kode referensi, rincian perhitungan, jadwal simulasi, dan target ledger yang tersisa."
         />
       ) : (
         <div className="grid gap-4 md:grid-cols-2">
@@ -163,7 +163,7 @@ function MarketCard({
             Pinjaman Tunai
           </Badge>
           <Badge className="border-0 bg-emerald-100 text-[10px] text-emerald-700 hover:bg-emerald-100">
-            <BadgeCheck className="mr-1 size-3" /> {row.statusVerifikasi}
+            <BadgeCheck className="mr-1 size-3" /> Status aplikasi: {row.statusVerifikasi}
           </Badge>
         </div>
         <p className="mt-3 text-xs text-muted-foreground">Kode peminjam</p>
@@ -182,13 +182,13 @@ function MarketCard({
           </dd>
         </div>
         <div>
-          <dt className="text-muted-foreground">Hak Imbal Hasil</dt>
+          <dt className="text-muted-foreground">Imbal hasil simulasi</dt>
           <dd className="mt-0.5 font-semibold tabular-nums text-emerald-700">
             {formatRupiah(row.imbalHasilTotal)}
           </dd>
         </div>
         <div>
-          <dt className="text-muted-foreground">Total kewajiban</dt>
+          <dt className="text-muted-foreground">Total kewajiban simulasi</dt>
           <dd className="mt-0.5 font-semibold tabular-nums">
             {formatRupiah(row.totalKewajiban)}
           </dd>
@@ -196,7 +196,7 @@ function MarketCard({
       </dl>
 
       <section className="mt-3 rounded-xl border border-slate-200 px-3 py-3 text-xs">
-        <h3 className="font-semibold">Rincian biaya dan pencairan</h3>
+        <h3 className="font-semibold">Rincian perhitungan simulasi</h3>
         {row.skemaBulanan ? (
           <dl className="mt-2 space-y-1.5">
             <div className="flex justify-between gap-3">
@@ -225,13 +225,13 @@ function MarketCard({
           </dl>
         )}
         <p className="mt-2 border-t border-slate-100 pt-2 text-muted-foreground">
-          Dana bersih diterima Peminjam: <span className="font-semibold tabular-nums text-foreground">{formatRupiah(row.danaBersih)}</span>
+          Nilai bersih pada simulasi (tidak ditransfer): <span className="font-semibold tabular-nums text-foreground">{formatRupiah(row.danaBersih)}</span>
         </p>
       </section>
 
       <section className="mt-3 rounded-xl border border-slate-200 px-3 py-3 text-xs">
-        <h3 className="font-semibold">Jadwal pelunasan aktual</h3>
-        <p className="mt-1 text-muted-foreground">{row.catatanJadwal}</p>
+        <h3 className="font-semibold">Jadwal simulasi pelunasan</h3>
+        <p className="mt-1 text-muted-foreground">Catatan aplikasi: {row.catatanJadwal} Jadwal ini bukan tagihan dan tidak mencatat pembayaran aktual.</p>
         <ul className="mt-2 divide-y divide-slate-100">
           {row.jadwalPelunasan.map((cicilan, index) => (
             <li key={`${cicilan.bulan ?? cicilan.hariKe}-${index}`} className="flex flex-wrap justify-between gap-x-3 gap-y-1 py-2">
@@ -261,26 +261,26 @@ function MarketCard({
       {/* Progress pendanaan */}
       <div className="mt-4">
         <div className="flex items-baseline justify-between text-xs">
-          <span className="font-medium">Dana terkumpul</span>
+          <span className="font-medium">Alokasi tercatat di ledger simulasi</span>
           <span className="text-right tabular-nums text-muted-foreground">
             {formatRupiah(row.terkumpul)} / {formatRupiah(row.pokokPinjaman)}
           </span>
         </div>
         <Progress className="mt-1.5 h-2.5" value={pct} />
         <p className="mt-1.5 break-words text-xs leading-5 tabular-nums text-muted-foreground">
-          Sisa kebutuhan {formatRupiah(row.sisaKebutuhan)}
+          Sisa target ledger {formatRupiah(row.sisaKebutuhan)}
         </p>
       </div>
 
       {full ? (
         <Badge className="mt-4 border-0 bg-emerald-100 text-emerald-700 hover:bg-emerald-100">
-          <BadgeCheck className="mr-1 size-3.5" /> Terpenuhi penuh oleh Pendana
+          <BadgeCheck className="mr-1 size-3.5" /> Target simulasi tercapai
         </Badge>
       ) : (
         <>
           <Button className="mt-4 w-full" onClick={() => setOpen(true)}>
             <Coins className="mr-1.5 size-4" />
-            Alokasikan Dana Sekarang
+            Catat alokasi simulasi
           </Button>
         </>
       )}
@@ -289,10 +289,9 @@ function MarketCard({
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Alokasikan Dana</DialogTitle>
+            <DialogTitle>Catat alokasi simulasi</DialogTitle>
             <DialogDescription>
-              {row.nomorReferensi} · sisa kebutuhan {formatRupiah(row.sisaKebutuhan)}. Alokasi
-              melebihi sisa akan ditolak server (anti-overfunding).
+              Ini hanya mengubah ledger internal; tidak ada dana yang dikirim, diterima, atau diverifikasi. {row.nomorReferensi} · sisa target ledger {formatRupiah(row.sisaKebutuhan)}.
             </DialogDescription>
           </DialogHeader>
           <KeteranganWilayah />
@@ -321,7 +320,7 @@ function MarketCard({
                 />
               </div>
               <p id="alokasi-hint" className="text-xs text-muted-foreground">
-                Estimasi imbal hasil Anda:{" "}
+                Estimasi imbal hasil simulasi:{" "}
                 <span className="font-semibold tabular-nums text-emerald-700">
                   {formatRupiah(
                     parsed !== null && parsed > 0
@@ -360,14 +359,13 @@ function MarketCard({
                   disabled={busy}
                 />
                 <p className="text-xs text-muted-foreground">
-                  Proteksi transaksi aktif — kode OTP dikirim ke nomor ini sebelum
-                  alokasi diproses (5 menit, sekali pakai).
+                  Kode OTP melindungi tindakan akun sebelum catatan alokasi simulasi disimpan (5 menit, sekali pakai); kode ini tidak memverifikasi dana atau transfer.
                 </p>
               </div>
             )}
             <Button className="w-full" disabled={busy || parsed === null} onClick={alokasikan}>
               {busy ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
-              Konfirmasi Alokasi
+              Simpan catatan alokasi
             </Button>
           </div>
         </DialogContent>

@@ -42,7 +42,7 @@ export function pawnStatusMeta(status: PawnStatus): {
   switch (status) {
     case "diajukan":
       return {
-        label: "Diajukan",
+        label: "Diajukan (catatan internal)",
         description:
           "Pengajuan gadai Anda tercatat dan menunggu pembaruan tahap tinjauan internal.",
       };
@@ -54,31 +54,31 @@ export function pawnStatusMeta(status: PawnStatus): {
       };
     case "disetujui":
       return {
-        label: "Disetujui",
+        label: "Disetujui internal",
         description:
           "Pengajuan disetujui secara internal. Status ini tidak membuktikan barang diserahkan atau dana dicairkan.",
       };
     case "ditolak":
       return {
-        label: "Ditolak",
+        label: "Ditolak internal",
         description:
-          "Pengajuan gadai tidak dapat dilanjutkan. Anda dapat mengajukan ulang dengan barang lain.",
+          "Pengajuan gadai tidak dilanjutkan dalam alur aplikasi. Anda dapat membuat catatan baru.",
       };
     case "aktif":
       return {
-        label: "Aktif",
+        label: "Aktif (ledger)",
         description:
           "Status gadai aktif tercatat pada ledger internal. Catatan ini bukan bukti barang diterima, disimpan, atau berada dalam penguasaan PINDAI.",
       };
     case "menunggu_pelepasan":
       return {
-        label: "Menunggu Pelepasan",
+        label: "Menunggu pembaruan status",
         description:
           "Permintaan perubahan status tercatat pada ledger. Status ini bukan konfirmasi pengembalian barang secara fisik.",
       };
     case "lunas_dilepas":
       return {
-        label: "Status Lunas",
+        label: "Lunas (ledger)",
         description:
           "Kewajiban simulasi ditandai lunas pada ledger internal. Catatan ini tidak membuktikan barang pernah dititipkan atau telah dikembalikan.",
       };

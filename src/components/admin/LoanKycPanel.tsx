@@ -39,7 +39,10 @@ export function LoanKycPanel({ row }: { row: LoanRow }) {
   return (
     <div className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4">
       <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
-        Data KYC peminjam
+        Data pengajuan peminjam (tidak diverifikasi otomatis)
+      </p>
+      <p className="text-xs leading-5 text-muted-foreground">
+        NIK, foto, selfie, slip, dan koordinat adalah data yang diunggah/dikirim ke aplikasi. PINDAI tidak otomatis memverifikasi identitas, keaslian dokumen, penghasilan, atau lokasi.
       </p>
       {urls === undefined ? (
         <div className="flex items-center gap-2 py-2 text-sm text-muted-foreground">
@@ -83,11 +86,11 @@ export function LoanKycPanel({ row }: { row: LoanRow }) {
           </div>
           <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5">
             <p className="flex items-center gap-1.5 text-xs font-medium">
-              <MapPin className="size-3.5 text-primary" /> Lokasi saat pengajuan
+              <MapPin className="size-3.5 text-primary" /> Koordinat perangkat yang dicatat saat pengajuan
             </p>
             {lokasi ? (
               <p className="mt-1 text-xs tabular-nums text-muted-foreground">
-                {lokasi.lat.toFixed(5)}, {lokasi.lng.toFixed(5)} · ±{Math.round(lokasi.akurasi)} m
+                {lokasi.lat.toFixed(5)}, {lokasi.lng.toFixed(5)} · ±{Math.round(lokasi.akurasi)} m · tidak diverifikasi sebagai lokasi pemohon
                 {petaHref && (
                   <>
                     {" · "}
@@ -143,7 +146,7 @@ function RiwayatLokasiMini({ userId }: { userId: Id<"users"> }) {
   }
   return (
     <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5">
-      <p className="text-xs font-medium">Jejak lokasi terakhir ({riwayat.length})</p>
+      <p className="text-xs font-medium">Koordinat perangkat yang tercatat ({riwayat.length})</p>
       <ul className="mt-1.5 space-y-1">
         {riwayat.map((t) => (
           <li key={t._id} className="text-xs tabular-nums text-muted-foreground">

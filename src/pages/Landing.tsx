@@ -272,7 +272,8 @@ function LiveCalculator() {
         Ini simulasi perhitungan, bukan persetujuan atau pencairan dana. Skema bulanan menampilkan ilustrasi angsuran; pencatatan pelunasan di sistem dilakukan sekaligus saat jatuh tempo. Tidak ada transfer bank/e-wallet atau pembayaran eksternal.
       </p>
 
-      <Button asChild className="mt-5 h-11 w-full bg-primary text-white hover:bg-primary/90">              <Link to="/auth">
+      <Button asChild className="mt-5 h-11 w-full bg-primary text-white hover:bg-primary/90">
+        <Link to="/auth">
           Buka simulasi di akun
           <ArrowRight className="ml-1.5 size-4" />
         </Link>

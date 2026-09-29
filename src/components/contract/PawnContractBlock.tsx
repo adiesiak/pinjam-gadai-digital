@@ -11,7 +11,7 @@ import { quoteGadai } from "@/lib/gadai";
 
 import { ContractSigningDialog } from "./ContractSigningDialog";
 
-/** Widget akad gadai: tersedia setelah appraisal dan pendanaan ditetapkan. */
+/** Widget catatan simulasi gadai, tersedia setelah angka dicatat di aplikasi. */
 export function PawnContractBlock({ pawnId, pawnRef }: { pawnId: Id<"pawns">; pawnRef: string }) {
   const [open, setOpen] = useState(false);
   const detail = useQuery(api.admin.contractDetailPawn, { pawnId });
@@ -20,14 +20,14 @@ export function PawnContractBlock({ pawnId, pawnRef }: { pawnId: Id<"pawns">; pa
   if (detail === undefined) {
     return (
       <p className="flex items-center gap-2 py-3 text-sm text-muted-foreground">
-        <Loader2 className="size-4 animate-spin" /> Memuat akad…
+        <Loader2 className="size-4 animate-spin" /> Memuat catatan simulasi…
       </p>
     );
   }
   if (detail === null || detail.nilaiTaksiran === undefined) {
     return (
       <p className="text-sm text-muted-foreground">
-        Akad gadai tersedia setelah taksiran ditetapkan.
+Catatan simulasi gadai tersedia setelah nilai taksiran dimasukkan ke aplikasi.
       </p>
     );
   }
@@ -93,25 +93,25 @@ export function PawnContractBlock({ pawnId, pawnRef }: { pawnId: Id<"pawns">; pa
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
-              E-Contract · gadai
+              Catatan simulasi · gadai
             </p>
             <p className="mt-1 text-xs text-muted-foreground">
-              Akad memuat objek, appraisal, dan {quote ? "rincian pokok serta sewa modal." : "rincian pendanaan setelah ditetapkan."}
+              Data barang dan nilai adalah catatan aplikasi, bukan bukti inspeksi, penitipan, kontrak, atau tanda tangan digital terverifikasi.
             </p>
           </div>
           <Badge
             variant="outline"
             className={signed ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "text-muted-foreground"}
           >
-            {signed ? "Sudah disetujui" : "Menunggu persetujuan"}
+            {signed ? "Catatan interaksi tersimpan" : "Belum ada catatan interaksi"}
           </Badge>
         </div>
         <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-3">
           <span className="text-[11px] tabular-nums text-muted-foreground">
-            {nomorContract("gadai", pawnRef)} · Nilai taksiran tercatat
+            {nomorContract("gadai", pawnRef)} · nilai taksiran pada ledger
           </span>
           <Button size="sm" className="gradient-primary rounded-full border-0" onClick={() => setOpen(true)}>
-            <PenLine className="mr-1.5 size-4" /> {signed ? "Lihat akad" : "Buka & minta persetujuan"}
+            <PenLine className="mr-1.5 size-4" /> {signed ? "Lihat catatan" : "Lihat & catat interaksi"}
           </Button>
         </div>
       </div>
@@ -119,7 +119,7 @@ export function PawnContractBlock({ pawnId, pawnRef }: { pawnId: Id<"pawns">; pa
       <ContractSigningDialog
         open={open}
         onOpenChange={setOpen}
-        title="Akad Gadai Digital"
+        title="Catatan Simulasi Gadai"
         reference={detail.nomorReferensi}
         borrowerName={detail.namaLengkap}
         html={html}
@@ -129,9 +129,9 @@ export function PawnContractBlock({ pawnId, pawnRef }: { pawnId: Id<"pawns">; pa
         consentVersion={contractData.persetujuanVersi}
         signingDisabledReason={
           detail.status === "ditolak"
-            ? "Pengajuan gadai berstatus ditolak. Persetujuan dan tanda tangan akad dinonaktifkan."
+            ? "Pengajuan gadai berstatus ditolak. Pencatatan interaksi aplikasi dinonaktifkan."
             : !detailSiap
-              ? "Tetapkan pokok gadai dan persentase sewa modal terlebih dahulu agar Peminjam dapat memeriksa angka kewajiban final."
+              ? "Masukkan pokok simulasi dan persentase sewa modal terlebih dahulu agar rincian ledger dapat ditampilkan."
               : null
         }
         onSign={async (dataUrl) => {

@@ -12,12 +12,12 @@ import { cn } from "@/lib/utils";
 
 /** Item navigasi tab: [nilai, label, ikon]. */
 const TABS: Array<[string, string, React.ReactNode]> = [
-  ["marketplace", "Marketplace Pinjaman & Gadai", <Store key="i" className="size-4" />],
-  ["kredit", "Kredit Barang (Skema C)", <ShoppingBag key="i" className="size-4" />],
-  ["portofolio", "Portofolio Pendanaan Saya", <Wallet key="i" className="size-4" />],
-  ["kontrak", "E-Contract Pendanaan", <FileText key="i" className="size-4" />],
-  ["dompet", "Dompet & Penarikan", <Coins key="i" className="size-4" />],
-  ["riwayat", "Riwayat Transaksi", <ScrollText key="i" className="size-4" />],
+  ["marketplace", "Simulasi Marketplace", <Store key="i" className="size-4" />],
+  ["kredit", "Simulasi Kredit Barang", <ShoppingBag key="i" className="size-4" />],
+  ["portofolio", "Alokasi Ledger Saya", <Wallet key="i" className="size-4" />],
+  ["kontrak", "Catatan Alokasi", <FileText key="i" className="size-4" />],
+  ["dompet", "Saldo & Permintaan Simulasi", <Coins key="i" className="size-4" />],
+  ["riwayat", "Riwayat Ledger", <ScrollText key="i" className="size-4" />],
 ];
 
 /**

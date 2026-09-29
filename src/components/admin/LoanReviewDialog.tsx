@@ -67,7 +67,7 @@ export function LoanReviewDialog({
             <StatusBadge status={row.status} kind="loan" />
           </div>
           <DialogDescription className="tabular-nums">
-            {row.nomorReferensi} · {formatDate(row._creationTime)}
+            Catatan pengajuan internal · {row.nomorReferensi} · {formatDate(row._creationTime)}
           </DialogDescription>
         </DialogHeader>
 
@@ -79,8 +79,8 @@ export function LoanReviewDialog({
           {[
             ["Pemohon", row.namaLengkap],
             ["Email", row.emailPeminjam ?? "—"],
-            ["Bank / e-wallet tujuan", row.namaBank ?? "Tidak dicatat (data lama)"],
-            ["Rekening / akun tujuan", row.nomorRekening],
+            ["Bank / e-wallet yang dicatat", row.namaBank ?? "Tidak dicatat (data lama)"],
+            ["Rekening / akun yang dicatat", row.nomorRekening],
             ["Keperluan", loanPurposeLabel(row.tujuan)],
             [
               "Skema",
@@ -91,8 +91,8 @@ export function LoanReviewDialog({
             ["Catatan pemohon", row.catatanPeminjam ?? "—"],
             ...(row.tenorBulan !== null
               ? ([
-                  ["Uang muka (DP 0%)", formatRupiah(0)],
-                  ["Dana diterima penuh", formatRupiah(row.pokokPinjaman)],
+                  ["Uang muka pada simulasi (DP 0%)", formatRupiah(0)],
+                  ["Pokok simulasi (tidak ditransfer)", formatRupiah(row.pokokPinjaman)],
                   [
                     "Biaya layanan (3% dari pokok)",
                     formatRupiah(
@@ -105,16 +105,16 @@ export function LoanReviewDialog({
                         ),
                     ),
                   ],
-                  ["Bunga menurun (hak Pendana)", formatRupiah(row.imbalHasilTotal ?? 0)],
-                  ["Cicilan per bulan", formatRupiah(row.cicilanPerBulan ?? 0)],
-                  ["Total pengembalian", formatRupiah(row.totalKewajiban ?? 0)],
+                  ["Bunga menurun pada simulasi", formatRupiah(row.imbalHasilTotal ?? 0)],
+                  ["Cicilan per bulan (ilustrasi)", formatRupiah(row.cicilanPerBulan ?? 0)],
+                  ["Total pengembalian simulasi", formatRupiah(row.totalKewajiban ?? 0)],
                 ] as Array<[string, string]>)
               : ([
                   ["Biaya admin (3%)", formatRupiah(q.biayaAdmin)],
                   ["Biaya platform (2%)", formatRupiah(q.biayaPlatform)],
-                  ["Dana bersih (95%)", formatRupiah(q.danaBersihDitransfer)],
-                  ["Bunga (30%)", formatRupiah(q.bunga)],
-                  ["Total kewajiban (130%)", formatRupiah(q.totalKewajibanPelunasan)],
+                  ["Nilai bersih simulasi (95%; tidak ditransfer)", formatRupiah(q.danaBersihDitransfer)],
+                  ["Bunga simulasi (30%)", formatRupiah(q.bunga)],
+                  ["Total kewajiban simulasi (130%)", formatRupiah(q.totalKewajibanPelunasan)],
                 ] as Array<[string, string]>)),
           ].map(([label, value]) => (
             <div key={label} className="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-2 px-3 py-3 sm:gap-4 sm:px-4">
@@ -140,13 +140,13 @@ export function LoanReviewDialog({
               }`}
             >
               {(row.hariTerlambat ?? 0) > 0
-                ? `Terlambat ${row.hariTerlambat} hari`
+                ? `Melewati tanggal acuan ${row.hariTerlambat} hari`
                 : (row.sisaHari ?? 0) === 0
-                  ? "Jatuh tempo hari ini"
-                  : `Jatuh tempo ${row.sisaHari} hari lagi`}
+                  ? "Tanggal acuan hari ini"
+                  : `Tanggal acuan dalam ${row.sisaHari} hari`}
             </p>
             <p className="mt-1 text-sm">
-              Batas {formatDate(row.jatuhTempoPada)} · total dengan denda{" "}
+              Tanggal acuan {formatDate(row.jatuhTempoPada)} · total simulasi dengan denda{" "}
               <span className="font-semibold tabular-nums">
                 {formatRupiah(row.totalKewajibanDenganPenalti ?? 0)}
               </span>
@@ -164,7 +164,7 @@ export function LoanReviewDialog({
           <>
             <div className="space-y-2">
               <Label htmlFor="alasan-pinjaman">
-                Alasan (wajib untuk penolakan)
+                Catatan alasan (wajib untuk penolakan internal)
               </Label>
               <Textarea
                 id="alasan-pinjaman"
@@ -173,10 +173,10 @@ export function LoanReviewDialog({
                 rows={2}
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
-                placeholder="Contoh: verifikasi dokumen belum lengkap…"
+                placeholder="Contoh: informasi/dokumen yang dimasukkan belum lengkap…"
               />
               <p id="alasan-pinjaman-help" className="text-xs text-muted-foreground">
-                Isi alasan sebelum memilih Tolak; alasan akan dicatat bersama keputusan.
+                Isi alasan sebelum memilih Tolak; alasan akan dicatat sebagai bagian dari keputusan internal.
               </p>
             </div>
 
@@ -209,7 +209,7 @@ export function LoanReviewDialog({
                 onClick={() => run("approve", () => approve({ loanId: row._id }))}
               >
                 {busy === "approve" ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
-                Setujui
+                Setujui (status aplikasi)
               </Button>
               <Button
                 variant="destructive"

@@ -33,7 +33,7 @@ type Props = {
   onSign: (dataUrl: string) => Promise<void>;
 };
 
-/** Popup persetujuan akad dan kanvas tanda tangan Peminjam. */
+/** Dialog pencatatan checkbox dan gambar tanda tangan pada ledger internal. */
 export function ContractSigningDialog({
   open,
   onOpenChange,
@@ -121,7 +121,7 @@ export function ContractSigningDialog({
     setError(null);
     try {
       await onSign(pad.toDataURL("image/png"));
-      toast.success("Persetujuan dan tanda tangan Peminjam tersimpan.");
+      toast.success("Catatan persetujuan aplikasi dan gambar tanda tangan tersimpan.");
       onOpenChange(false);
     } catch (cause) {
       const message = cause instanceof Error ? cause.message : "Gagal menyimpan akad.";
@@ -139,7 +139,7 @@ export function ContractSigningDialog({
           <div className="flex flex-wrap items-center gap-2">
             <Badge variant="outline" className="border-primary/25 bg-primary/5 text-primary">
               {fullySigned ? <BadgeCheck className="size-3.5" /> : <PenLine className="size-3.5" />}
-              {fullySigned ? "Disetujui Peminjam" : "Persetujuan Peminjam"}
+              {fullySigned ? "Catatan tersimpan" : "Catat interaksi"}
             </Badge>
             <span className="text-xs tabular-nums text-muted-foreground">Syarat {CONTRACT_TERMS_VERSION}</span>
           </div>
@@ -147,7 +147,7 @@ export function ContractSigningDialog({
             {title}
           </DialogTitle>
           <DialogDescription className="text-left tabular-nums">
-            {reference} · Penanda tangan: {borrowerName}
+            {reference} · Nama yang dicatat: {borrowerName}
           </DialogDescription>
         </DialogHeader>
 
@@ -155,9 +155,9 @@ export function ContractSigningDialog({
           <section aria-label="Pratinjau syarat dan ketentuan" className="space-y-2">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div>
-                <h3 className="text-sm font-semibold text-navy">Dokumen dan syarat akad</h3>
+                <h3 className="text-sm font-semibold text-navy">Catatan dan rincian simulasi</h3>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Periksa semua pihak, angka, biaya, tenor, dan kewajiban sebelum menyetujui.
+                  Tinjau nama dan angka yang dicatat. Dokumen ini bukan kontrak atau bukti kewajiban hukum.
                 </p>
               </div>
               <ContractPrintButton html={html} label="Cetak / simpan PDF" />
@@ -175,21 +175,21 @@ export function ContractSigningDialog({
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
                   <p className="flex items-center gap-2 text-sm font-semibold text-emerald-900">
-                    <BadgeCheck className="size-4" /> Persetujuan dan tanda tangan tercatat
+                    <BadgeCheck className="size-4" /> Catatan checkbox dan gambar tersimpan
                   </p>
                   <p className="mt-1 text-xs leading-5 text-emerald-800">
-                    Versi syarat {consentVersion} · {new Date(consentAt).toLocaleString("id-ID")}
+                    Versi tampilan {consentVersion} · {new Date(consentAt).toLocaleString("id-ID")}
                   </p>
                 </div>
                 <Badge className="bg-emerald-700 text-white hover:bg-emerald-700">Peminjam</Badge>
               </div>
               <img
                 src={signature}
-                alt={`Tanda tangan Peminjam ${borrowerName}`}
+                alt={`Gambar tanda tangan yang dicatat untuk nama ${borrowerName}`}
                 className="h-20 max-w-full rounded-lg border border-emerald-100 bg-white object-contain p-2"
               />
               <p className="text-xs text-emerald-800">
-                Tanda tangan dicatat pada {new Date(signedAt).toLocaleString("id-ID")}.
+                Gambar dicatat pada {new Date(signedAt).toLocaleString("id-ID")}; tidak ada verifikasi identitas atau tanda tangan digital.
               </p>
             </section>
           ) : signingDisabledReason !== null ? (
@@ -202,27 +202,23 @@ export function ContractSigningDialog({
               <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50/80 p-4">
                 <ShieldAlert className="mt-0.5 size-4 shrink-0 text-amber-700" />
                 <p className="text-xs leading-5 text-amber-900">
-                  Admin hanya memfasilitasi. Serahkan perangkat kepada Peminjam agar Peminjam
-                  sendiri membaca, menyetujui, dan menggambar tanda tangannya. Jangan
-                  menandatangani atas nama Peminjam. Sesi aplikasi yang tercatat adalah sesi
-                  admin dan sistem tidak memverifikasi identitas orang di depan layar.
+                  Form ini hanya mencatat tindakan di aplikasi, bukan menandatangani kontrak. Jika digunakan, serahkan perangkat kepada orang yang bersangkutan untuk mengisi sendiri; jangan mengisi atas nama orang lain. Sesi yang tercatat adalah sesi admin dan sistem tidak memverifikasi identitas, persetujuan hukum, atau keaslian tanda tangan digital.
                 </p>
               </div>
 
               {signature !== null && consentVersion !== CONTRACT_TERMS_VERSION && (
                 <p className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs leading-5 text-muted-foreground">
-                  Terdapat tanda tangan lama tanpa persetujuan syarat versi {CONTRACT_TERMS_VERSION}.
-                  Minta Peminjam memeriksa akad versi ini dan menandatangani ulang.
+                  Ada gambar lama tanpa catatan checkbox untuk tampilan versi {CONTRACT_TERMS_VERSION}. Gambar itu tidak diverifikasi; pemeriksaan ulang hanya memperbarui catatan aplikasi.
                 </p>
               )}
 
               <section className="space-y-2" aria-labelledby="signature-heading">
                 <div>
                   <h3 id="signature-heading" className="text-sm font-semibold text-navy">
-                    Tanda tangan Peminjam
+                    Gambar tanda tangan (tidak terverifikasi)
                   </h3>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    Peminjam menggambar tanda tangannya pada area berikut.
+                    Area ini hanya menyimpan goresan sebagai gambar; bukan tanda tangan digital terverifikasi atau bukti identitas.
                   </p>
                 </div>
                 <div className="relative overflow-hidden rounded-xl border border-slate-200 bg-white">
@@ -233,7 +229,7 @@ export function ContractSigningDialog({
                   />
                   <span className="pointer-events-none absolute inset-x-4 bottom-8 border-b border-dashed border-slate-200" />
                   <span className="pointer-events-none absolute bottom-2 right-3 text-[10px] text-slate-400">
-                    Peminjam · {borrowerName}
+                    Nama pada catatan · {borrowerName}
                   </span>
                 </div>
                 <Button
@@ -268,10 +264,10 @@ export function ContractSigningDialog({
                 />
                 <span>
                   <span className="font-medium text-navy">
-                    Saya, Peminjam, telah membaca dan memahami isi akad di atas serta menyetujui
-                    syarat dan ketentuan versi {CONTRACT_TERMS_VERSION}.
+                    Saya telah melihat rincian simulasi yang ditampilkan pada aplikasi PINDAI
+                    (versi tampilan {CONTRACT_TERMS_VERSION}).
                   </span>{" "}
-                  Saya mengisi tanda tangan sendiri dan memahami rincian kewajiban yang tercantum.
+                  Checkbox ini hanya dicatat sebagai interaksi aplikasi; bukan persetujuan kontrak yang terverifikasi. Gambar yang dibuat tidak membuktikan identitas atau menjadi tanda tangan digital terverifikasi.
                 </span>
               </label>
             </>
@@ -288,8 +284,8 @@ export function ContractSigningDialog({
           <div className="flex flex-col-reverse gap-2 border-t border-slate-200 bg-slate-50/70 px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
             <p className="text-xs text-muted-foreground">
               {consentChecked && hasSignature
-                ? "Persetujuan dan tanda tangan siap disimpan bersama."
-                : "Centang persetujuan dan minta Peminjam mengisi tanda tangan."}
+                ? "Catatan checkbox dan gambar siap disimpan di ledger internal."
+                : "Centang untuk mencatat interaksi dan isi gambar opsional."}
             </p>
             <Button
               type="button"
@@ -298,7 +294,7 @@ export function ContractSigningDialog({
               onClick={() => void submit()}
             >
               {busy ? <Loader2 className="mr-2 size-4 animate-spin" /> : <PenLine className="mr-2 size-4" />}
-              {busy ? "Menyimpan…" : "Setujui & tanda tangani"}
+              {busy ? "Menyimpan…" : "Simpan catatan aplikasi"}
             </Button>
           </div>
         )}

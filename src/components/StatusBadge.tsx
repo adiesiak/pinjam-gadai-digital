@@ -12,14 +12,14 @@ export function StatusBadge({
   if (kind === "loan" && status === "didanai") {
     return (
       <Badge className="gradient-primary border-0 text-primary-foreground">
-        Didanai
+        Target tercapai (ledger)
       </Badge>
     );
   }
   if (kind === "loan" && status === "lunas") {
     return (
       <Badge className="border-primary/30 bg-primary/10 text-accent-foreground">
-        Lunas
+        Lunas (ledger)
       </Badge>
     );
   }

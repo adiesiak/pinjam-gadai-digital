@@ -5,9 +5,9 @@ import { formatRupiah } from "@/lib/money";
 
 import type { LoanScheduleRow } from "./shared";
 
-/** Ringkasan keuangan: dana bersih, total kewajiban, dan sisa tagihan. */
+/** Ringkasan simulasi ledger internal: nilai bersih hitungan dan kewajiban simulasi. */
 export function SummaryCards({ schedule }: { schedule: LoanScheduleRow[] }) {
-  // Dana diterima: 95% pada skema harian, 100% pada skema bulanan (DP 0%).
+  // Nilai bersih pada simulasi: 95% pada skema harian, 100% pada bulanan (DP 0%).
   const danaBersihTotal = useMemo(
     () =>
       schedule.reduce(
@@ -17,12 +17,12 @@ export function SummaryCards({ schedule }: { schedule: LoanScheduleRow[] }) {
       ),
     [schedule],
   );
-  // Kewajiban mengikuti skema pinjaman (130% atau Σ cicilan bulanan).
+  // Total kewajiban pada simulasi (130% atau Σ cicilan bulanan).
   const totalKewajiban = useMemo(
     () => schedule.reduce((acc, l) => acc + l.totalKewajiban, 0),
     [schedule],
   );
-  const sisaTagihan = useMemo(() => {
+  const sisaSimulasi = useMemo(() => {
     const aktif = schedule.filter((l) => l.status === "didanai");
     return aktif.reduce((acc, l) => acc + (l.pelunasan?.totalKewajibanDenganPenalti ?? 0), 0);
   }, [schedule]);
@@ -39,7 +39,7 @@ export function SummaryCards({ schedule }: { schedule: LoanScheduleRow[] }) {
       <div className="min-w-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
         <div className="flex items-start justify-between">
           <div>
-            <p className="text-xs text-muted-foreground">Dana Bersih Diterima</p>
+            <p className="text-xs text-muted-foreground">Nilai Bersih Simulasi (tidak ditransfer)</p>
             <p className="mt-2 break-words text-xl font-semibold tabular-nums text-emerald-600 sm:text-2xl">
               {formatRupiah(danaBersihTotal)}
             </p>
@@ -53,7 +53,7 @@ export function SummaryCards({ schedule }: { schedule: LoanScheduleRow[] }) {
       <div className="min-w-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
         <div className="flex items-start justify-between">
           <div>
-            <p className="text-xs text-muted-foreground">Total Kewajiban Pelunasan</p>
+            <p className="text-xs text-muted-foreground">Total Kewajiban Simulasi</p>
             <p className="mt-2 break-words text-xl font-semibold tabular-nums sm:text-2xl">
               {formatRupiah(totalKewajiban)}
             </p>
@@ -67,9 +67,9 @@ export function SummaryCards({ schedule }: { schedule: LoanScheduleRow[] }) {
       <div className="min-w-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
         <div className="flex items-start justify-between">
           <div>
-            <p className="text-xs text-muted-foreground">Sisa Tagihan Berjalan</p>
+            <p className="text-xs text-muted-foreground">Sisa Kewajiban Simulasi</p>
             <p className="mt-2 break-words text-xl font-semibold tabular-nums text-destructive sm:text-2xl">
-              {formatRupiah(sisaTagihan)}
+              {formatRupiah(sisaSimulasi)}
             </p>
           </div>
           <span className="flex size-10 items-center justify-center rounded-xl bg-slate-100 text-slate-600">
@@ -78,8 +78,8 @@ export function SummaryCards({ schedule }: { schedule: LoanScheduleRow[] }) {
         </div>
         <p className="mt-3 text-xs leading-5 text-muted-foreground">
           {jatuhTempoTerdekat
-            ? `Jatuh tempo ${jatuhTempoTerdekat.pelunasan?.hariTerlambat && jatuhTempoTerdekat.pelunasan.hariTerlambat > 0 ? `terlambat ${jatuhTempoTerdekat.pelunasan.hariTerlambat} hari` : `${jatuhTempoTerdekat.pelunasan?.sisaHari ?? 0} hari lagi`}`
-            : "Tidak ada tagihan aktif saat ini."}
+            ? `Tanggal acuan simulasi ${jatuhTempoTerdekat.pelunasan?.hariTerlambat && jatuhTempoTerdekat.pelunasan.hariTerlambat > 0 ? `terlampaui ${jatuhTempoTerdekat.pelunasan.hariTerlambat} hari` : `dalam ${jatuhTempoTerdekat.pelunasan?.sisaHari ?? 0} hari`}`
+            : "Tidak ada catatan kewajiban simulasi aktif."}
         </p>
       </div>
     </section>

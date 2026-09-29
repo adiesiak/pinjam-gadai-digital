@@ -94,7 +94,7 @@ export function LoanDetailDialog({
               {(loan.tenorBulan !== null
                 ? [
                     ["Keperluan", loanPurposeLabel(loan.tujuan)],
-                    ["Pokok pinjaman", formatRupiah(loan.pokokPinjaman)],
+                    ["Pokok pinjaman pada simulasi", formatRupiah(loan.pokokPinjaman)],
                     ["Tenor", `${loan.tenorBulan} bulan`],
                     ["Uang muka (DP 0%)", formatRupiah(0)],
                     ["Pokok acuan simulasi (DP 0%)", formatRupiah(loan.pokokPinjaman)],
@@ -144,17 +144,17 @@ export function LoanDetailDialog({
                 <p className="text-sm font-medium">Pelunasan pada simulasi ledger</p>
                 <dl className="mt-3 space-y-1.5 text-sm">
                   <div className="flex items-baseline justify-between gap-4">
-                    <dt className="text-muted-foreground">Jatuh tempo</dt>
+                    <dt className="text-muted-foreground">Tanggal acuan simulasi</dt>
                     <dd className="tabular-nums">{formatDate(loan.pelunasan.jatuhTempoPada)}</dd>
                   </div>
                   {loan.pelunasan.hariTerlambat > 0 ? (
                     <div className="flex items-baseline justify-between gap-4">
-                      <dt className="text-red-600">Terlambat {loan.pelunasan.hariTerlambat} hari</dt>
+                      <dt className="text-red-600">Tanggal acuan terlampaui {loan.pelunasan.hariTerlambat} hari</dt>
                       <dd className="tabular-nums text-red-600">+{formatRupiah(loan.pelunasan.dendaTerlambat)}</dd>
                     </div>
                   ) : (
                     <div className="flex items-baseline justify-between gap-4">
-                      <dt className="text-muted-foreground">Sisa waktu</dt>
+                      <dt className="text-muted-foreground">Sisa waktu pada simulasi</dt>
                       <dd className="tabular-nums">
                         {loan.pelunasan.sisaHari === 0 ? "Hari ini" : `${loan.pelunasan.sisaHari} hari`}
                       </dd>
@@ -244,7 +244,7 @@ export function PawnDetailDialog({
                 <StatusBadge status={pawn.status} kind="pawn" />
               </div>
               <DialogDescription className="tabular-nums">
-                {pawn.nomorReferensi} · {formatDate(pawn._creationTime)}
+                Catatan gadai internal · {pawn.nomorReferensi} · {formatDate(pawn._creationTime)}
               </DialogDescription>
             </DialogHeader>
 
@@ -254,8 +254,8 @@ export function PawnDetailDialog({
 
             <dl className="divide-y divide-slate-200 rounded-2xl border border-slate-200 bg-white">
               {[
-                ["Kategori", pawn.kategori],
-                ["Alamat penilaian", pawn.alamatPenilaian],
+                ["Kategori yang dipilih", pawn.kategori],
+                ["Alamat yang dilaporkan pemohon", pawn.alamatPenilaian],
                 [
                   "Nilai taksiran internal",
                   pawn.nilaiTaksiran !== undefined
@@ -272,7 +272,7 @@ export function PawnDetailDialog({
 
             {pawn.catatanReview && (
               <div className="rounded-md border border-slate-200 bg-slate-50 px-4 py-3">
-                <p className="text-xs font-medium text-muted-foreground">Catatan penilaian</p>
+                <p className="text-xs font-medium text-muted-foreground">Catatan internal penilaian (bukan verifikasi fisik)</p>
                 <p className="mt-1 text-sm">{pawn.catatanReview}</p>
               </div>
             )}

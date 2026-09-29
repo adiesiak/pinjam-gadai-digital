@@ -89,8 +89,7 @@ function Baris({
 }
 
 /**
- * Tab "Kredit Barang": peluang pendanaan nyata (pengajuan yang disetujui tim),
- * portofolio Alokasi Dana Pendana, lalu kalkulator simulasi.
+ * Tab "Kredit Barang": catatan pengajuan dan alokasi simulasi internal, lalu kalkulator.
  */
 export function KreditBarangSection() {
   return (
@@ -103,7 +102,7 @@ export function KreditBarangSection() {
 }
 
 /**
- * Kalkulator simulasi barang & Imbal Hasil (Skema C). Semua angka dihitung
+ * Kalkulator simulasi barang & imbal hasil hipotetis (Skema C). Semua angka dihitung
  * engine `quoteKreditBarang` (integer rupiah, HALF-UP) sehingga identik dengan
  * perhitungan saat pengajuan/pendanaan terbit.
  */
@@ -590,9 +589,8 @@ type PeluangKredit = {
 };
 
 /**
- * Peluang pendanaan kredit barang: pengajuan yang sudah disetujui tim PINDAI
- * dan belum terpenuhi penuh. Alokasi Dana dicatat di jurnal ledger
- * (debit akun kredit barang, kredit dompet Pendana).
+ * Catatan kredit barang yang berstatus disetujui di aplikasi dan belum mencapai
+ * target alokasi ledger simulasi; tidak ada perpindahan dana eksternal.
  */
 function PeluangKreditSection() {
   const peluang = useQuery(api.pendana.marketplaceKredit);
@@ -602,16 +600,14 @@ function PeluangKreditSection() {
       <div className="flex items-center gap-2">
         <Badge className="border-0 bg-primary text-[10px] text-primary-foreground">Skema C</Badge>
         <Badge className="border-0 bg-emerald-100 text-[10px] text-emerald-700 hover:bg-emerald-100">
-          <BadgeCheck className="mr-1 size-3" /> Disetujui tim PINDAI
+          <BadgeCheck className="mr-1 size-3" />          Status aplikasi
         </Badge>
       </div>
       <h2 className="mt-1.5 text-lg font-semibold tracking-tight">
-        Peluang Pendanaan Kredit Barang
+        Simulasi Alokasi Kredit Barang
       </h2>
       <p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">
-        Barang marketplace &amp; toko elektronik yang sudah disetujui tim PINDAI. Setelah pendanaan
-        penuh, pokok diteruskan ke merchant mitra dan hak Imbal Hasil Anda proporsional dengan porsi
-        pokok yang didanai.
+        Parameter barang dan status review dicatat pada aplikasi. Slider dan tombol alokasi hanya memperbarui ledger simulasi internal; tidak ada dana yang dikirim ke merchant atau Peminjam, dan angka imbal hasil bukan janji pembayaran.
       </p>
 
       {peluang === undefined ? (
@@ -620,8 +616,8 @@ function PeluangKreditSection() {
         <div className="mt-4">
           <EmptyState
             icon={ShoppingBag}
-            title="Belum ada peluang kredit barang"
-            body="Pengajuan kredit barang yang disetujui tim PINDAI akan tampil di sini beserta sisa kebutuhan pendanaannya."
+            title="Belum ada catatan kredit barang"
+            body="Catatan pengajuan yang berstatus disetujui di aplikasi akan tampil di sini dengan target simulasi ledger."
           />
         </div>
       ) : (
@@ -738,7 +734,7 @@ function PeluangKreditCard({ row }: { row: PeluangKredit }) {
       </dl>
 
       <section className="mt-3 rounded-xl border border-slate-200 px-3 py-3 text-xs">
-        <h3 className="font-semibold">Rincian biaya dan kewajiban</h3>
+        <h3 className="font-semibold">Rincian perhitungan simulasi</h3>
         <dl className="mt-2 space-y-1.5">
           <Baris label="Biaya layanan total" value={formatRupiah(row.biayaLayanan)} />
           <Baris
@@ -746,13 +742,13 @@ function PeluangKreditCard({ row }: { row: PeluangKredit }) {
             value={formatRupiah(row.biayaLayananDiMuka > 0 ? row.biayaLayananDiMuka : row.biayaLayananPerBulan)}
           />
           <Baris label="Hak Imbal Hasil total" value={`${formatRupiah(row.imbalHasilTotal)} · ${persenId(row.persenImbalHasil)}% (${persenId(row.persenImbalHasilTahunan)}%/tahun)`} />
-          <Baris label="Total dibayar Konsumen" value={formatRupiah(row.totalDibayarKonsumen)} strong />
+          <Baris label="Total simulasi pembayaran Konsumen" value={formatRupiah(row.totalDibayarKonsumen)} strong />
         </dl>
         <p className="mt-2 border-t border-slate-100 pt-2 text-muted-foreground">{row.catatanJadwal}</p>
       </section>
 
       <section className="mt-3 rounded-xl border border-slate-200 px-3 py-3 text-xs">
-        <h3 className="font-semibold">Jadwal pembayaran</h3>
+        <h3 className="font-semibold">Ilustrasi jadwal simulasi</h3>
         <ul className="mt-2 divide-y divide-slate-100">
           {row.jadwalPembayaran.map((cicilan) => (
             <li key={cicilan.bulan} className="py-2">
@@ -771,7 +767,7 @@ function PeluangKreditCard({ row }: { row: PeluangKredit }) {
       {/* Progress pendanaan */}
       <div className="mt-4">
         <div className="flex items-baseline justify-between text-xs">
-          <span className="font-medium">Dana terkumpul</span>
+          <span className="font-medium">Alokasi tercatat di ledger simulasi</span>
           <span className="tabular-nums text-muted-foreground">
             {formatRupiah(row.terkumpul)} / {formatRupiah(row.pokokDibiayai)}
           </span>
@@ -784,13 +780,13 @@ function PeluangKreditCard({ row }: { row: PeluangKredit }) {
 
       {full ? (
         <Badge className="mt-4 border-0 bg-emerald-100 text-emerald-700 hover:bg-emerald-100">
-          <BadgeCheck className="mr-1 size-3.5" /> Terpenuhi penuh oleh Pendana
+          <BadgeCheck className="mr-1 size-3.5" /> Target simulasi tercapai
         </Badge>
       ) : (
         <>
           <Button className="mt-4 w-full" onClick={() => setOpen(true)}>
             <Coins className="mr-1.5 size-4" />
-            Alokasikan Dana Sekarang
+            Catat alokasi simulasi
           </Button>
           <KeteranganWilayah />
         </>
@@ -799,10 +795,9 @@ function PeluangKreditCard({ row }: { row: PeluangKredit }) {
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Alokasikan Dana — Kredit Barang</DialogTitle>
+            <DialogTitle>Catat alokasi simulasi — Kredit Barang</DialogTitle>
             <DialogDescription>
-              {row.nomorReferensi} · sisa kebutuhan {formatRupiah(row.sisaKebutuhan)}. Alokasi
-              melebihi sisa akan ditolak server (anti-overfunding).
+              {row.nomorReferensi} · target ledger tersisa {formatRupiah(row.sisaKebutuhan)}. Nilai yang dicatat melebihi sisa akan ditolak.
             </DialogDescription>
           </DialogHeader>
           <KeteranganWilayah />
@@ -827,7 +822,7 @@ function PeluangKreditCard({ row }: { row: PeluangKredit }) {
                 />
               </div>
               <p className="text-xs text-muted-foreground">
-                Estimasi Imbal Hasil Anda:{" "}
+                Estimasi imbal hasil simulasi:{" "}
                 <span className="font-semibold tabular-nums text-emerald-700">
                   {formatRupiah(estimasi)}
                 </span>{" "}
@@ -856,14 +851,13 @@ function PeluangKreditCard({ row }: { row: PeluangKredit }) {
                   disabled={busy}
                 />
                 <p className="text-xs text-muted-foreground">
-                  Proteksi transaksi aktif — kode OTP dikirim ke nomor ini sebelum alokasi diproses
-                  (5 menit, sekali pakai).
+                  Verifikasi OTP melindungi tindakan akun sebelum catatan alokasi simulasi disimpan (5 menit, sekali pakai); tidak memverifikasi dana atau transfer.
                 </p>
               </div>
             )}
             <Button className="w-full" disabled={busy || parsed === null} onClick={alokasikan}>
               {busy ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
-              Konfirmasi Alokasi
+              Simpan catatan alokasi
             </Button>
           </div>
         </DialogContent>
@@ -882,7 +876,7 @@ function PeluangKreditCard({ row }: { row: PeluangKredit }) {
   );
 }
 
-/** Portofolio Alokasi Dana kredit barang milik Pendana. */
+/* * Riwayat catatan alokasi simulasi kredit barang milik Pendana. */
 function PortofolioKreditSection() {
   const rows = useQuery(api.pendana.myKreditFundings);
 
@@ -890,8 +884,7 @@ function PortofolioKreditSection() {
     <section>
       <h2 className="text-lg font-semibold tracking-tight">Portofolio Kredit Barang Saya</h2>
       <p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">
-        Setiap Alokasi Dana Anda ke kredit barang, beserta hak Imbal Hasil dan status pencairannya
-        ke merchant mitra.
+        Catatan alokasi dan perhitungan imbal hasil simulasi pada ledger internal. Tidak ada pencairan ke merchant.
       </p>
 
       {rows === undefined ? (
@@ -901,7 +894,7 @@ function PortofolioKreditSection() {
           <EmptyState
             icon={TrendingUp}
             title="Belum ada alokasi kredit barang"
-            body="Alokasikan Dana pada peluang di atas — posisi Anda tampil di sini lengkap dengan status pengajuan dan hak Imbal Hasilnya."
+            body="Catatan alokasi simulasi akan tampil di sini bersama status internal dan rincian perhitungannya."
           />
         </div>
       ) : (
@@ -923,43 +916,43 @@ function PortofolioKreditSection() {
                 </div>
                 {f.statusAlokasi === "selesai" ? (
                   <Badge className="border-0 bg-emerald-100 text-emerald-700 hover:bg-emerald-100">
-                    Lunas
+                    Lunas (ledger)
                   </Badge>
                 ) : f.statusAlokasi === "dibatalkan" ? (
                   <Badge variant="destructive">Dibatalkan</Badge>
                 ) : f.statusKredit === "didanai" ? (
-                  <Badge className="border-0 bg-sky-100 text-sky-700 hover:bg-sky-100">Pembayaran berjalan</Badge>
+                  <Badge className="border-0 bg-sky-100 text-sky-700 hover:bg-sky-100">Catatan berjalan</Badge>
                 ) : (
                   <Badge className="border-0 bg-amber-100 text-amber-700 hover:bg-amber-100">
-                    Dalam pendanaan
+                    Dalam simulasi alokasi
                   </Badge>
                 )}
               </div>
 
               <dl className="mt-3 grid gap-x-8 gap-y-1.5 text-sm sm:grid-cols-2">
                 <div className="flex items-baseline justify-between gap-4">
-                  <dt className="text-muted-foreground">Dana dialokasikan</dt>
+                  <dt className="text-muted-foreground">Alokasi tercatat di ledger</dt>
                   <dd className="font-medium tabular-nums">{formatRupiah(f.jumlahAlokasi)}</dd>
                 </div>
                 <div className="flex items-baseline justify-between gap-4">
-                  <dt className="text-muted-foreground">Hak Imbal Hasil</dt>
+                  <dt className="text-muted-foreground">Imbal hasil simulasi</dt>
                   <dd className="font-medium tabular-nums text-emerald-700">
                     {formatRupiah(f.imbalHasil)}
                   </dd>
                 </div>
                 <div className="flex items-baseline justify-between gap-4">
-                  <dt className="text-muted-foreground">Total diterima saat lunas</dt>
+                  <dt className="text-muted-foreground">Total hipotetis pada status lunas</dt>
                   <dd className="font-medium tabular-nums">{formatRupiah(f.totalDiterima)}</dd>
                 </div>
                 <div className="flex items-baseline justify-between gap-4">
-                  <dt className="text-muted-foreground">Tenor &amp; cicilan</dt>
+                  <dt className="text-muted-foreground">Tenor &amp; cicilan simulasi</dt>
                   <dd className="tabular-nums">
                     {f.tenorBulan} bulan
                     {f.cicilanPerBulan !== null ? ` · ${formatRupiah(f.cicilanPerBulan)}/bln` : ""}
                   </dd>
                 </div>
                 <div className="flex items-baseline justify-between gap-4">
-                  <dt className="text-muted-foreground">Pembayaran tercatat</dt>
+                  <dt className="text-muted-foreground">Entri simulasi tercatat</dt>
                   <dd className="tabular-nums">
                     {f.dibayarBulan}/{f.tenorBulan} bulan
                   </dd>
@@ -969,28 +962,28 @@ function PortofolioKreditSection() {
                   <dd className="tabular-nums">{f.biayaLayanan !== null ? formatRupiah(f.biayaLayanan) : "Tidak tersedia"}</dd>
                 </div>
                 <div className="flex items-baseline justify-between gap-4">
-                  <dt className="text-muted-foreground">Total dibayar Konsumen</dt>
+                  <dt className="text-muted-foreground">Total simulasi Konsumen</dt>
                   <dd className="tabular-nums">{f.totalDibayarKonsumen !== null ? formatRupiah(f.totalDibayarKonsumen) : "Tidak tersedia"}</dd>
                 </div>
               </dl>
 
               <div className="mt-4">
                 <div className="flex justify-between gap-3 text-xs">
-                  <span className="font-medium">Progres pembayaran terkonfirmasi</span>
+                  <span className="font-medium">Progres entri ledger simulasi</span>
                   <span className="tabular-nums text-muted-foreground">{f.dibayarBulan} dari {f.tenorBulan} cicilan</span>
                 </div>
                 <Progress className="mt-2 h-2.5" value={Math.min(100, Math.round((f.dibayarBulan / f.tenorBulan) * 100))} />
               </div>
               <p className="mt-2 text-xs text-muted-foreground">
-                Catatan: “Pembayaran tercatat” menunjukkan transaksi yang tersimpan, bukan verifikasi bahwa cicilan telah diterima penuh oleh Pendana.
+                Catatan: entri ledger hanya menunjukkan perubahan data tersimpan; bukan bukti cicilan dibayar atau diterima Pendana.
               </p>
 
               <section className="mt-4 rounded-xl border border-slate-200 px-3 py-3 text-xs">
-                <h3 className="font-semibold">Jadwal pembayaran dan rincian</h3>
+                <h3 className="font-semibold">Ilustrasi jadwal dan perincian</h3>
                 <p className="mt-1 text-muted-foreground">
                   {f.biayaLayananDiMuka !== null && f.biayaLayananDiMuka > 0
-                    ? `Biaya layanan ${formatRupiah(f.biayaLayananDiMuka)} dibayar di muka dan tidak masuk ke cicilan.`
-                    : `Biaya layanan per bulan rata-rata ${formatRupiah(f.biayaLayananPerBulan)} sudah termasuk pada tiap cicilan.`}
+                    ? `Biaya layanan simulasi ${formatRupiah(f.biayaLayananDiMuka)} dihitung di muka dalam model; tidak ada penagihan.`
+                    : `Biaya layanan simulasi per bulan rata-rata ${formatRupiah(f.biayaLayananPerBulan)} dihitung dalam model; tidak ada penagihan.`}
                 </p>
                 <ul className="mt-2 divide-y divide-slate-100">
                   {f.jadwalPembayaran.map((cicilan, index) => (
@@ -998,7 +991,7 @@ function PortofolioKreditSection() {
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <span className="font-medium">Bulan {cicilan.bulan}</span>
                         <span className={index < f.dibayarBulan ? "text-emerald-700" : "text-muted-foreground"}>
-                          {index < f.dibayarBulan ? "Pembayaran tercatat" : "Belum tercatat"}
+                          {index < f.dibayarBulan ? "Entri simulasi tercatat" : "Belum ada entri"}
                         </span>
                       </div>
                       <div className="mt-1 flex justify-between gap-3">
@@ -1013,12 +1006,12 @@ function PortofolioKreditSection() {
 
               <p className="mt-3 rounded-xl bg-slate-50 px-3 py-2 text-xs leading-5 text-muted-foreground">
                 {f.statusAlokasi === "selesai"
-                  ? "Posisi selesai — pelunasan tercatat dan porsi pokok serta Imbal Hasil sudah dicairkan ke dompet Anda."
+                  ? "Status alokasi selesai tercatat di ledger internal. Ini bukan bukti pelunasan atau pencairan dana ke dompet Anda."
                   : f.statusKredit === "didanai"
-                    ? "Pendanaan penuh dan pokok diteruskan ke merchant mitra. Progres di atas dihitung dari pembayaran yang tercatat di sistem."
+                    ? "Target alokasi ledger tercapai. Tidak ada dana yang diteruskan ke merchant; progres hanya berdasarkan entri internal."
                     : f.statusKredit === "ditolak"
-                      ? "Pengajuan ditolak tim PINDAI — lihat status pengembalian dana pada riwayat dompet Anda."
-                      : "Menunggu pendanaan penuh dari Pendana lain; belum ada jadwal pembayaran aktual yang berjalan."}
+                      ? "Status pengajuan ditolak tercatat di aplikasi; tidak ada pengembalian dana eksternal yang diproses."
+                      : "Target alokasi ledger belum tercapai; jadwal yang ditampilkan hanya simulasi dan tidak ada pembayaran aktual."}
               </p>
               <KeteranganWilayah />
             </li>

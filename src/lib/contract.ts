@@ -1,8 +1,7 @@
 /**
- * Pembuat teks e-contract (surat perjanjian) untuk pinjaman & gadai.
- * Teks dirender ke HTML untuk pratinjau dan cetak PDF via window.print().
- * Terminologi resmi: Peminjam, Pendana, Bunga/Imbal Hasil (tanpa kata
- * investor/investasi/ROI/return).
+ * Pembuat catatan simulasi aplikasi untuk pinjaman & gadai.
+ * HTML hanya menyajikan data dan hitungan pada ledger internal; bukan kontrak
+ * atau bukti persetujuan digital terverifikasi.
  */
 
 import type { SimulasiBulanan } from "./bulanan";
@@ -26,7 +25,7 @@ export type ContractMeta = {
   /** Titik koordinat & waktu tanda tangan/pengajuan. */
   lokasi?: { lat: number; lng: number } | null;
   timestampPada: number;
-  /** Bukti persetujuan dan tanda tangan Peminjam yang sudah tersimpan. */
+  /** Catatan checkbox dan gambar tanda tangan yang tersimpan di aplikasi. */
   tandaTanganPeminjam?: {
     dataUrl: string;
     tandaTanganPada: number;
@@ -60,10 +59,10 @@ function escapeHtml(value: string): string {
 }
 
 export function judulContract(jenis: "pinjaman" | "gadai" | "pendanaan"): string {
-  if (jenis === "pendanaan") return "SURAT PERJANJIAN PENDANAAN DIGITAL";
+  if (jenis === "pendanaan") return "CATATAN ALOKASI SIMULASI INTERNAL";
   return jenis === "pinjaman"
-    ? "SURAT PERJANJIAN PINJAMAN DIGITAL"
-    : "SURAT AKAD GADAI DIGITAL";
+    ? "CATATAN SIMULASI PINJAMAN INTERNAL"
+    : "CATATAN SIMULASI GADAI INTERNAL";
 }
 
 /** Nomor dokumen kontrak: PGC/PGA/PGD/<ref>/<yyyymmdd>. */
@@ -99,11 +98,11 @@ function blokTandaTanganPeminjam(
 ): string {
   const bukti = meta.tandaTanganPeminjam;
   const tampilanTandaTangan = bukti
-    ? `<img class="signature" src="${escapeHtml(bukti.dataUrl)}" alt="Tanda tangan Peminjam"/>`
-    : `<div class="signature-placeholder">Menunggu tanda tangan Peminjam</div>`;
+    ? `<img class="signature" src="${escapeHtml(bukti.dataUrl)}" alt="Gambar tanda tangan yang dicatat aplikasi"/>`
+    : `<div class="signature-placeholder">Belum ada gambar tanda tangan yang dicatat</div>`;
   const statusPersetujuan = bukti
-    ? `Persetujuan syarat dan tanda tangan dicatat ${new Date(bukti.persetujuanSyaratPada).toLocaleString("id-ID")} · ${CONTRACT_TERMS_VERSION}.`
-    : "Dokumen ini belum disetujui atau ditandatangani Peminjam.";
+    ? `Tindakan persetujuan aplikasi dan gambar dicatat ${new Date(bukti.persetujuanSyaratPada).toLocaleString("id-ID")} · ${CONTRACT_TERMS_VERSION}. Ini bukan verifikasi identitas, tanda tangan digital terverifikasi, atau konfirmasi kontrak mengikat.`
+    : "Belum ada tindakan persetujuan aplikasi yang dicatat.";
 
   return `<div>
     ${tampilanTandaTangan}
@@ -115,15 +114,15 @@ function blokTandaTanganPeminjam(
 
 function blokPlatform(): string {
   return `<div>
-    <div class="signature-placeholder">Ruang tanda tangan Platform</div>
+    <div class="signature-placeholder">Tidak ada tanda tangan Platform terverifikasi</div>
     <p class="garis">Pinjam Gadai Digital</p>
-    <p>Platform</p>
+    <p>Nama aplikasi</p>
   </div>`;
 }
 
 /** Catatan yang berlaku untuk kontrak pinjaman dan gadai. */
 function blokBatasTransaksi(): string {
-  return `<p><strong>Catatan penggunaan:</strong> Dokumen ini merekam data dan persetujuan yang dimasukkan ke aplikasi PINDAI serta perhitungan pada ledger internal. Dokumen/status aplikasi ini bukan bukti transfer atau penerimaan dana, pembayaran ke merchant, penyerahan/penitipan/pengembalian barang, verifikasi Pendana atau pihak lain, maupun bukti izin dan kepatuhan hukum. Transfer, penyerahan barang, status perizinan, dan keabsahan perjanjian perlu diverifikasi secara terpisah.</p>`;
+  return `<p><strong>Batas dokumen:</strong> Ini adalah catatan simulasi data dan perhitungan pada ledger internal PINDAI, bukan penawaran, perjanjian, atau instrumen hukum. Status, persetujuan checkbox, timestamp, dan gambar pada aplikasi tidak membuktikan transfer/penerimaan dana, pembayaran ke merchant, identitas atau sumber dana, kondisi/lokasi barang, penyerahan/penitipan/pengembalian barang, tanda tangan digital terverifikasi, maupun kepatuhan hukum. Semua hal tersebut memerlukan verifikasi terpisah oleh pihak yang berwenang.</p>`;
 }
 
 /**
@@ -177,25 +176,25 @@ export function buildPinjamanContract(
     <p>dan</p>
     <p><strong>${escapeHtml(peminjam.namaLengkap.toUpperCase())} ("Peminjam")</strong>${peminjam.nik ? `, NIK ${escapeHtml(peminjam.nik)}` : ""}${peminjam.email ? `, email ${escapeHtml(peminjam.email)}` : ""}, bank/e-wallet dan rekening/akun tujuan yang dicatat: <strong>${peminjam.namaBank ? `${escapeHtml(peminjam.namaBank)} · ` : ""}${escapeHtml(peminjam.nomorRekening)}</strong>. Data tujuan bukan bukti transfer.</p>
 
-    <h2>Pasal 1 — Objek Pendanaan</h2>
+    <h2>Pasal 1 — Parameter Simulasi</h2>
     <ol>
       <li>Pokok pinjaman: <strong>${formatRupiah(quote.pokok)}</strong>.</li>
       ${pasalTenor}
       <li>Status pendanaan yang tampil di aplikasi merupakan pencatatan internal dan tidak memverifikasi identitas atau sumber dana Pendana maupun terjadinya transfer.</li>
     </ol>
 
-    <h2>Pasal 2 — Rincian Keuangan</h2>
+    <h2>Pasal 2 — Rincian Perhitungan</h2>
     <ol>${pasalFinansial}
     </ol>
 
-    <h2>Pasal 3 — Catatan Pelunasan</h2>
+    <h2>Pasal 3 — Ilustrasi Pelunasan Ledger</h2>
     <p>${pasalKewajiban}</p>
 
-    <h2>Pasal 4 — Persetujuan Syarat dan Ketentuan</h2>
-    <p>Peminjam menyatakan telah membaca dan memeriksa rincian pinjaman, biaya, tenor, serta kewajiban pada dokumen ini, dan menyetujui syarat dan ketentuan yang tercantum. Persetujuan dicatat dengan versi <strong>${CONTRACT_TERMS_VERSION}</strong>.</p>
+    <h2>Pasal 4 — Catatan Interaksi Aplikasi</h2>
+    <p>Checkbox dan gambar pada kanvas, bila diisi, hanya merekam tindakan/input di aplikasi pada syarat versi <strong>${CONTRACT_TERMS_VERSION}</strong>. Tindakan itu bukan persetujuan kontrak yang terverifikasi atau konfirmasi kewajiban hukum.</p>
 
-    <h2>Pasal 5 — Catatan Persetujuan Digital</h2>
-    <p>Persetujuan dan tanda tangan Peminjam direkam melalui kanvas digital dengan timestamp sistem <strong>${new Date(meta.timestampPada).toLocaleString("id-ID")}</strong>${meta.lokasi ? ` dan koordinat pengajuan <strong>${fmtKoordinat(meta.lokasi)}</strong>` : ""}. Catatan ini merekam tindakan pada aplikasi dan tidak dengan sendirinya memverifikasi identitas penanda tangan.</p>
+    <h2>Pasal 5 — Metadata Aplikasi</h2>
+    <p>Timestamp sistem <strong>${new Date(meta.timestampPada).toLocaleString("id-ID")}</strong>${meta.lokasi ? ` dan koordinat perangkat yang dikirim <strong>${fmtKoordinat(meta.lokasi)}</strong>` : ""} ditampilkan sebagai metadata masukan. Sistem tidak memverifikasi identitas orang, keaslian tanda tangan, atau kebenaran lokasi.</p>
 
     <div class="ttd">
       ${blokTandaTanganPeminjam(peminjam.namaLengkap, "Peminjam", meta)}
@@ -234,33 +233,33 @@ export function buildGadaiContract(
     <p>dan</p>
     <p><strong>${escapeHtml(peminjam.namaLengkap.toUpperCase())} ("Penggadai/Peminjam")</strong>${peminjam.nik ? `, NIK ${escapeHtml(peminjam.nik)}` : ""}, bank/e-wallet dan rekening/akun tujuan yang dicatat: <strong>${peminjam.namaBank ? `${escapeHtml(peminjam.namaBank)} · ` : ""}${escapeHtml(peminjam.nomorRekening)}</strong>. Data tujuan bukan bukti transfer.</p>
 
-    <h2>Pasal 1 — Objek Gadai</h2>
+    <h2>Pasal 1 — Data Barang yang Dicatat</h2>
     <ol>
-      <li>Deskripsi barang: <strong>${escapeHtml(gadai.deskripsiBarang)}</strong>.</li>
-      <li>Kategori: ${escapeHtml(gadai.kategori)}.</li>
-      <li>Kondisi fisik: ${escapeHtml(gadai.kondisiFisik || "dinilai petugas")}.</li>
+      <li>Deskripsi barang yang dimasukkan: <strong>${escapeHtml(gadai.deskripsiBarang)}</strong>.</li>
+      <li>Kategori yang dipilih: ${escapeHtml(gadai.kategori)}.</li>
+      <li>Catatan kondisi fisik: ${escapeHtml(gadai.kondisiFisik || "belum dicatat")}; bukan hasil inspeksi yang diverifikasi aplikasi.</li>
       <li>Kode/referensi lokasi yang dicatat aplikasi: <strong>${escapeHtml(gadai.kodeRakVault)}</strong>. Kode ini bukan tanda terima atau bukti bahwa barang telah diterima maupun dititipkan secara fisik.</li>
     </ol>
 
-    <h2>Pasal 2 — Penilaian, LTV, dan Rincian Pendanaan</h2>
+    <h2>Pasal 2 — Catatan Taksiran dan Simulasi LTV</h2>
     <ol>
       <li>Harga pasar: ${formatRupiah(gadai.hargaPasar)}.</li>
-      <li>Nilai taksiran: <strong>${formatRupiah(gadai.nilaiTaksiran)}</strong> (LTV ${ltv}%, maksimum ${gadai.ltvPersen}%).</li>
+      <li>Nilai taksiran yang dicatat: <strong>${formatRupiah(gadai.nilaiTaksiran)}</strong> (perhitungan LTV ${ltv}%, batas aplikasi ${gadai.ltvPersen}%); bukan verifikasi harga pasar atau nilai fisik.</li>
       ${rincianPokok}
     </ol>
 
-    <h2>Pasal 3 — Hak dan Kewajiban</h2>
+    <h2>Pasal 3 — Batas Catatan Gadai</h2>
     <ol>
       <li>Status, kondisi, dan kode lokasi dalam aplikasi adalah catatan internal; aplikasi tidak memverifikasi penerimaan, lokasi fisik, atau keamanan penyimpanan barang.</li>
       <li>Penyerahan, penitipan, dan pengembalian perlu dikonfirmasi langsung dengan pihak yang bertanggung jawab serta didukung tanda terima terpisah. Status lunas/siap diambil di aplikasi bukan bukti barang telah dikembalikan.</li>
       <li>Perhitungan penyelesaian atau lelang di aplikasi hanya simulasi; bukan pelaksanaan lelang, keputusan hukum, maupun jaminan hasil atau pengembalian barang.</li>
     </ol>
 
-    <h2>Pasal 4 — Persetujuan Syarat dan Ketentuan</h2>
-    <p>Peminjam menyatakan telah membaca dan memeriksa data barang, nilai taksiran, serta rincian pokok dan sewa modal yang tersedia pada dokumen ini, dan menyetujui syarat dan ketentuan yang tercantum. Persetujuan dicatat dengan versi <strong>${CONTRACT_TERMS_VERSION}</strong>.</p>
+    <h2>Pasal 4 — Catatan Interaksi Aplikasi</h2>
+    <p>Checkbox dan gambar pada kanvas, bila diisi, hanya merekam tindakan/input di aplikasi pada syarat versi <strong>${CONTRACT_TERMS_VERSION}</strong>. Tindakan itu bukan persetujuan kontrak yang terverifikasi atau konfirmasi kewajiban hukum.</p>
 
-    <h2>Pasal 5 — Catatan Persetujuan Digital</h2>
-    <p>Persetujuan dan tanda tangan Peminjam direkam melalui kanvas digital dengan timestamp sistem <strong>${new Date(meta.timestampPada).toLocaleString("id-ID")}</strong>. Catatan ini merekam tindakan pada aplikasi dan tidak dengan sendirinya memverifikasi identitas penanda tangan.</p>
+    <h2>Pasal 5 — Metadata Aplikasi</h2>
+    <p>Timestamp sistem <strong>${new Date(meta.timestampPada).toLocaleString("id-ID")}</strong> dan koordinat yang ditampilkan pada aplikasi adalah metadata yang dikirim, bukan bukti identitas atau lokasi yang telah diverifikasi.</p>
 
     <div class="ttd">
       ${blokTandaTanganPeminjam(peminjam.namaLengkap, "Penggadai / Peminjam", meta)}

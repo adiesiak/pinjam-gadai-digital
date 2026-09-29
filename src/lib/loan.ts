@@ -307,7 +307,7 @@ export function loanStatusMeta(status: LoanStatus): {
   switch (status) {
     case "diajukan":
       return {
-        label: "Diajukan",
+        label: "Diajukan (catatan internal)",
         description: "Pengajuan tercatat dalam antrean tinjauan internal PINDAI. Data yang dimasukkan bukan verifikasi identitas eksternal.",
       };
     case "sedang_direview":
@@ -317,24 +317,24 @@ export function loanStatusMeta(status: LoanStatus): {
       };
     case "disetujui":
       return {
-        label: "Disetujui",
+        label: "Disetujui internal",
         description:
           "Pengajuan disetujui secara internal. Status ini tidak memicu pencairan; informasi rekening hanya tersimpan sebagai catatan dan tidak terhubung ke transfer.",
       };
     case "ditolak":
       return {
-        label: "Ditolak",
-        description: "Aplikasi tidak dapat dilanjutkan. Anda dapat mengajukan ulang.",
+        label: "Ditolak internal",
+        description: "Catatan pengajuan tidak dilanjutkan dalam alur aplikasi. Anda dapat membuat catatan baru.",
       };
     case "didanai":
       return {
-        label: "Didanai",
+        label: "Target tercapai (ledger)",
         description:
           "Target pendanaan tercatat terpenuhi pada ledger simulasi internal; tidak ada dana yang dikirim atau diterima. Tombol pelunasan hanya mencatat perubahan status dan seluruh kewajiban sekaligus, bukan pembayaran aktual. Keterlambatan mengubah perhitungan denda simulasi 0,5% per hari dari pokok (maksimum 15%).",
       };
     case "lunas":
       return {
-        label: "Lunas",
+        label: "Lunas (ledger)",
         description:
           "Status kewajiban ditandai selesai di ledger internal. Ini bukan bukti pembayaran aktual atau bukti Pendana menerima pokok maupun imbal hasil.",
       };

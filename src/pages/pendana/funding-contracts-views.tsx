@@ -12,7 +12,7 @@ import { formatRupiah } from "@/lib/money";
 import { EmptyState, Loading } from "./feedback";
 import { formatDate } from "./shared";
 
-/** Tab 3 — E-Contract Pendanaan. */
+/** Tab 3 — catatan alokasi simulasi Pendana. */
 export function FundingContractsSection() {
   const contracts = useQuery(api.pendana.myFundingContracts);
 
@@ -23,8 +23,8 @@ export function FundingContractsSection() {
     return (
       <EmptyState
         icon={FileText}
-        title="Belum ada perjanjian pendanaan"
-        body="Perjanjian pendanaan digital tampil di sini setelah alokasi Anda tercatat pada pinjaman yang disetujui."
+        title="Belum ada catatan alokasi"
+        body="Catatan alokasi ledger internal tampil di sini setelah Anda mengalokasikan simulasi pada pinjaman."
       />
     );
   }
@@ -39,21 +39,21 @@ export function FundingContractsSection() {
               <div className="min-w-0">
                 <p className="text-sm font-semibold">{judulContract("pendanaan")}</p>
                 <p className="mt-0.5 truncate text-xs text-muted-foreground">
-                  <span className="font-mono">Kode peminjam {c.kodePeminjam}</span> ·{" "}
+                  <span className="font-mono">Kode peminjam tercatat {c.kodePeminjam}</span> ·{" "}
                   <span className="font-mono">{nomorContract("pendanaan", c.nomorReferensi)}</span> ·{" "}
-                  {loanPurposeLabel(c.tujuan)} · alokasi {formatRupiah(c.jumlahAlokasi)} · hak Imbal Hasil{" "}
+                  {loanPurposeLabel(c.tujuan)} · alokasi ledger {formatRupiah(c.jumlahAlokasi)} · imbal hasil simulasi{" "}
                   {formatRupiah(c.imbalHasil)}
                   {c.tenorBulan !== null ? " (skema bulanan)" : " (30%)"}
                 </p>
                 <p className="mt-0.5 text-xs text-muted-foreground">
-                  Pinjaman {c.loanRef} · pokok {formatRupiah(c.pokokPinjaman)} · tenor{" "}
+                  Referensi pinjaman {c.loanRef} · pokok simulasi {formatRupiah(c.pokokPinjaman)} · tenor{" "}
                   {c.tenorBulan !== null ? `${c.tenorBulan} bulan` : `${c.tenorHari} hari`} ·{" "}
                   {formatDate(c.createdAt)}
                 </p>
               </div>
               <div className="flex shrink-0 gap-2">
                 <ContractPreviewButton html={html} />
-                <ContractPrintButton html={html} label="Unduh PDF" />
+                <ContractPrintButton html={html} label="Simpan PDF" />
               </div>
             </div>
           </li>
@@ -63,7 +63,7 @@ export function FundingContractsSection() {
   );
 }
 
-/** Rangkai HTML perjanjian pendanaan dari data milik Pendana sendiri. */
+/** Rangkai HTML catatan alokasi internal dari data Pendana sendiri. */
 function buildFundingContractHtml(c: {
   nomorReferensi: string;
   loanRef: string;
@@ -85,52 +85,38 @@ function buildFundingContractHtml(c: {
     <h1>${judulContract("pendanaan")}</h1>
     <p class="nomor">Nomor: ${nomorContract("pendanaan", c.nomorReferensi)}</p>
 
-    <p>Perjanjian penyediaan dana ini dibuat pada tanggal <strong>${tgl}</strong> antara:</p>
-    <p><strong>PINJAM GADAI DIGITAL ("Platform")</strong> — penyelenggara layanan pinjam-gadai digital;</p>
-    <p>dan</p>
-    <p><strong>PENDANA</strong> pemegang nomor alokasi <strong>${c.nomorReferensi}</strong> ("Pendana").</p>
-    <p>Pembiayaan terkait kode peminjam pseudonim <strong>${c.kodePeminjam}</strong>; identitas pribadi tidak dicantumkan dalam dokumen Pendana ini.</p>
+    <p><strong>Catatan penggunaan:</strong> Dokumen ini hanya menampilkan data dan perhitungan ledger internal PINDAI. Bukan penawaran, perjanjian pendanaan, atau instrumen hukum; tidak membuktikan identitas, ketersediaan/sumber dana, transfer, pembayaran, atau tanda tangan digital terverifikasi.</p>
+    <p>Catatan alokasi internal dibuat pada <strong>${tgl}</strong>. Nama peran, kode peminjam, dan referensi di bawah adalah metadata aplikasi, bukan verifikasi pihak.</p>
+    <p><strong>PINJAM GADAI DIGITAL</strong> — nama aplikasi pencatatan internal.</p>
+    <p>Pengguna berlabel Pendana · nomor referensi alokasi <strong>${c.nomorReferensi}</strong> · kode peminjam yang dicatat <strong>${c.kodePeminjam}</strong>.</p>
 
-    <h2>Pasal 1 — Objek Pendanaan</h2>
+    <h2>Bagian 1 — Parameter Ledger</h2>
     <ol>
-      <li>Pendana menyediakan dana sebesar <strong>${formatRupiah(c.jumlahAlokasi)}</strong> untuk pinjaman ${c.loanRef} (tujuan: ${loanPurposeLabel(c.tujuan)}).</li>
-      <li>Pokok pinjaman: ${formatRupiah(c.pokokPinjaman)} · tenor ${tenorLabel}.</li>
+      <li>Nilai alokasi yang tercatat pada ledger internal: <strong>${formatRupiah(c.jumlahAlokasi)}</strong> untuk referensi ${c.loanRef} (tujuan yang dicantumkan: ${loanPurposeLabel(c.tujuan)}). Ini bukan bukti dana disediakan atau dipindahkan.</li>
+      <li>Pokok dan tenor simulasi yang tercatat: ${formatRupiah(c.pokokPinjaman)} · ${tenorLabel}.</li>
       <li>${
         c.tenorBulan !== null
-          ? "Pokok dicairkan penuh (DP 0%) ke Peminjam setelah pendanaan penuh; biaya layanan 3% tercakup dalam cicilan bulanan."
-          : "Dana bersih (95% dari pokok) dicairkan ke Peminjam setelah pendanaan penuh."
+          ? "Perhitungan pokok simulasi menggunakan DP 0% dan biaya layanan 3%; tidak ada pembayaran ke Peminjam atau merchant."
+          : "Perhitungan nilai bersih simulasi menggunakan 95% dari pokok; tidak ada pencairan ke Peminjam."
       }</li>
     </ol>
 
-    <h2>Pasal 2 — Hak Imbal Hasil</h2>
+    <h2>Bagian 2 — Ilustrasi Imbal Hasil</h2>
     <ol>
-      <li>Pendana menerima hak Imbal Hasil ${
+      <li>Perhitungan imbal hasil simulasi ${
         c.tenorBulan !== null
-          ? "berupa bunga bulanan menurun (tenor 1 bulan 10%/bulan, 3–5 bulan 8%/bulan, ≥ 6 bulan 7,5%/bulan) atas porsi pokok yang didanai"
-          : "(Bunga) sebesar 30% dari porsi pokok yang didanai"
+          ? "menggunakan bunga menurun (tenor 1 bulan 10%/bulan, 3–5 bulan 8%/bulan, ≥ 6 bulan 7,5%/bulan) atas porsi pokok pada ledger"
+          : "menggunakan bunga 30% atas porsi pokok pada ledger"
       }: <strong>${formatRupiah(c.imbalHasil)}</strong>.</li>
-      <li>Imbal hasil dibayarkan penuh saat Peminjam melunasi ${
-        c.tenorBulan !== null ? "seluruh cicilan skema bulanan" : "total kewajiban 130% dari pokok"
-      }.</li>
-      <li>Total penerimaan Pendana saat pelunasan: <strong>${formatRupiah(c.jumlahAlokasi + c.imbalHasil)}</strong>.</li>
+      <li>Angka tersebut adalah ilustrasi internal; tidak menjamin atau membuktikan adanya pembayaran imbal hasil maupun pengembalian pokok.</li>
+      <li>Jumlah pokok + imbal hasil dalam simulasi: <strong>${formatRupiah(c.jumlahAlokasi + c.imbalHasil)}</strong>; bukan jumlah yang telah diterima atau dapat ditarik.</li>
     </ol>
 
-    <h2>Pasal 3 — Pencatatan</h2>
-    <p>Setiap pergerakan dana dicatat berpasangan pada jurnal append-only Platform dan dapat diaudit kapan saja. Status perjanjian ini mengikuti status pinjaman: <strong>${c.statusPinjaman}</strong>.</p>
+    <h2>Bagian 3 — Status Catatan</h2>
+    <p>Baris ledger dan status pinjaman adalah data aplikasi internal, bukan bukti pergerakan dana atau audit independen. Status terkait yang tercatat: <strong>${c.statusPinjaman}</strong>.</p>
 
-    <h2>Pasal 4 — Keabsahan Digital</h2>
-    <p>Perjanjian ini dihasilkan otomatis oleh sistem dengan timestamp <strong>${new Date(c.createdAt).toLocaleString("id-ID")}</strong> dan dianggap sah oleh kedua belah pihak.</p>
-
-    <div class="ttd">
-      <div>
-        <p class="garis">Pendana ${c.nomorReferensi}</p>
-        <p>Pendana</p>
-      </div>
-      <div>
-        <p class="garis">Pinjam Gadai Digital</p>
-        <p>Platform</p>
-      </div>
-    </div>
+    <h2>Bagian 4 — Metadata Dokumen</h2>
+    <p>HTML ini dihasilkan otomatis dengan timestamp sistem <strong>${new Date(c.createdAt).toLocaleString("id-ID")}</strong>. Timestamp, nama, nomor referensi, dan tampilan dokumen tidak menjadikannya perjanjian yang mengikat atau tanda tangan terverifikasi.</p>
   </div>`;
 }
 
@@ -152,7 +138,7 @@ function ContractPreviewButton({ html }: { html: string }) {
         w.document.close();
       }}
     >
-      <FileText className="mr-1.5 size-4" /> Lihat E-Contract
+      <FileText className="mr-1.5 size-4" /> Lihat catatan
     </Button>
   );
 }

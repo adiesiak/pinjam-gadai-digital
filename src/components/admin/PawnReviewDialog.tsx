@@ -67,7 +67,7 @@ export function PawnReviewDialog({
             <StatusBadge status={row.status} kind="pawn" />
           </div>
           <DialogDescription className="tabular-nums">
-            {row.nomorReferensi} · {formatDate(row._creationTime)}
+            Catatan pengajuan internal · {row.nomorReferensi} · {formatDate(row._creationTime)}
           </DialogDescription>
         </DialogHeader>
 
@@ -75,10 +75,10 @@ export function PawnReviewDialog({
           {[
             ["Pemohon", row.namaLengkap],
             ["Email", row.emailPeminjam ?? "—"],
-            ["Bank / e-wallet tujuan", row.namaBank ?? "Tidak dicatat (data lama)"],
-            ["Rekening / akun tujuan", row.nomorRekening],
-            ["Kategori", row.kategori],
-            ["Alamat penilaian", row.alamatPenilaian],
+            ["Bank / e-wallet yang dicatat", row.namaBank ?? "Tidak dicatat (data lama)"],
+            ["Rekening / akun yang dicatat", row.nomorRekening],
+            ["Kategori yang dipilih", row.kategori],
+            ["Alamat yang dilaporkan pemohon", row.alamatPenilaian],
             ["Catatan pemohon", row.catatanPeminjam ?? "—"],
             [
               "Nilai taksiran",
@@ -96,11 +96,10 @@ export function PawnReviewDialog({
 
         <EContractWidget kind="pawn" pawnId={row._id} pawnRef={row.nomorReferensi} />
 
-        <div className="flex items-start gap-2 rounded-md border border-slate-200 bg-slate-50 px-4 py-3">
-          <MapPin className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
-          <p className="text-xs leading-5 text-muted-foreground">
-            Pemeriksaan wajib dilakukan di lokasi dengan pencatatan live
-            location. Catat hasil kunjungan sebelum menetapkan taksiran.
+        <div className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-4 py-3">
+          <MapPin className="mt-0.5 size-4 shrink-0 text-amber-700" />
+          <p className="text-xs leading-5 text-amber-900">
+            Alamat berasal dari masukan pemohon. Status atau catatan aplikasi tidak mengonfirmasi kunjungan, koordinat, pemeriksaan fisik, kepemilikan, maupun penitipan barang. Pemeriksaan nyata perlu dikonfirmasi terpisah.
           </p>
         </div>
 
@@ -115,7 +114,7 @@ export function PawnReviewDialog({
                 rows={2}
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
-                placeholder="Contoh: barang tidak dapat diverifikasi kepemilikannya…"
+                placeholder="Contoh: informasi barang atau dokumen belum lengkap…"
               />
               <p id="alasan-gadai-help" className="text-xs text-muted-foreground">
                 Isi alasan sebelum memilih Tolak; alasan akan dicatat bersama keputusan.
@@ -160,7 +159,7 @@ export function PawnReviewDialog({
                   }
                 >
                   {busy === "release" ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
-                  Rilis barang
+                  Catat status pelepasan (ledger)
                 </Button>
               )}
               <Button
@@ -177,7 +176,7 @@ export function PawnReviewDialog({
 
         {row.catatanReview && (
           <div className="rounded-md border border-slate-200 bg-slate-50 px-4 py-3">
-            <p className="text-xs font-medium text-muted-foreground">Catatan penilaian</p>
+            <p className="text-xs font-medium text-muted-foreground">Catatan internal penilaian (bukan verifikasi fisik)</p>
             <p className="mt-1 text-sm">{row.catatanReview}</p>
           </div>
         )}

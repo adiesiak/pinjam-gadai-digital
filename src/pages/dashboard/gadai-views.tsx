@@ -60,7 +60,8 @@ export function GadaiBillingSection({
       const r = await bayarGadai({ pawnId, cicilPokok, bayarHanyaSewa });
       if (r.custody === "SIAP_DIAMBIL") {
         toast.success("Pokok simulasi tercatat Rp0 pada ledger. Tidak ada pembayaran atau pengembalian barang yang dikonfirmasi.");
-      } else {          toast.success(
+      } else {
+        toast.success(
           `Pencatatan simulasi ${formatRupiah(r.totalBayar)} — sisa pokok ledger ${formatRupiah(r.sisaPokokSetelah)}, sewa simulasi berikutnya ${formatRupiah(r.sewaModalBerikut)}. Tidak ada pembayaran eksternal.`,
         );
       }

@@ -76,7 +76,8 @@ export function PawnVaultSection({
                   <dt className="text-muted-foreground">Status barang</dt>
                   <dd className="text-right">{meta.label}</dd>
                 </div>
-                <div className="flex items-baseline justify-between gap-4">                    <dt className="text-muted-foreground">Catatan taksiran internal</dt>
+                <div className="flex items-baseline justify-between gap-4">
+                  <dt className="text-muted-foreground">Catatan taksiran internal</dt>
                   <dd className="tabular-nums">
                     {p.nilaiTaksiran !== undefined
                       ? formatRupiah(p.nilaiTaksiran)
@@ -159,7 +160,7 @@ function VaultMapCard() {
           fillOpacity: 0.9,
           weight: 3,
         })
-          .bindTooltip(            "Titik referensi konfigurasi PINDAI — tidak menunjukkan lokasi barang", {
+          .bindTooltip("Titik referensi konfigurasi PINDAI — tidak menunjukkan lokasi barang", {
             direction: "top",
           })
           .addTo(map);

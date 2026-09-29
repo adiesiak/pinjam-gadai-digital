@@ -55,15 +55,15 @@ type PortfolioRow = {
   } | null;
 };
 
-/** Tab 2 — Portofolio pendanaan saya. */
+/** Tab 2 — ringkasan alokasi pada ledger simulasi internal. */
 export function PortfolioSection({ portfolio }: { portfolio: PortfolioRow[] | undefined }) {
   if (portfolio === undefined) return <Loading />;
   if (portfolio.length === 0) {
     return (
       <EmptyState
         icon={TrendingUp}
-        title="Belum ada posisi pendanaan"
-        body="Alokasikan dana di Marketplace — posisi pinjaman yang Anda danai tampil di sini dengan kode peminjam, rincian biaya, jadwal, dan progres pelunasan."
+        title="Belum ada catatan alokasi"
+        body="Catatan alokasi simulasi yang Anda buat akan tampil di sini bersama kode referensi, rincian hitungan, dan status ledger internal."
       />
     );
   }
@@ -79,7 +79,7 @@ export function PortfolioSection({ portfolio }: { portfolio: PortfolioRow[] | un
         >
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="min-w-0">
-              <p className="font-mono text-sm font-semibold tracking-wide">{f.kodePeminjam}</p>
+              <p className="font-mono text-sm font-semibold tracking-wide">Kode peminjam tercatat: {f.kodePeminjam}</p>
               <p className="mt-0.5 font-mono text-xs text-muted-foreground">
                 {f.loanRef} · alokasi {f.nomorReferensi}
               </p>
@@ -91,10 +91,10 @@ export function PortfolioSection({ portfolio }: { portfolio: PortfolioRow[] | un
           </div>
 
           <dl className="mt-4 grid gap-x-8 gap-y-2 text-sm sm:grid-cols-2">
-            <InfoRow label="Pokok pinjaman" value={formatRupiah(f.pokokPinjaman)} />
-            <InfoRow label="Dana dialokasikan" value={formatRupiah(f.jumlahAlokasi)} />
-            <InfoRow label="Hak Imbal Hasil Pendana" value={formatRupiah(f.imbalHasil)} />
-            <InfoRow label="Total kewajiban Peminjam" value={formatRupiah(f.totalKewajiban)} />
+            <InfoRow label="Pokok pada simulasi" value={formatRupiah(f.pokokPinjaman)} />
+            <InfoRow label="Alokasi tercatat di ledger" value={formatRupiah(f.jumlahAlokasi)} />
+            <InfoRow label="Imbal hasil simulasi" value={formatRupiah(f.imbalHasil)} />
+            <InfoRow label="Total kewajiban simulasi" value={formatRupiah(f.totalKewajiban)} />
             <InfoRow
               label="Tenor"
               value={f.tenorBulan !== null ? `${f.tenorBulan} bulan` : `${f.tenorHari} hari`}
@@ -105,33 +105,33 @@ export function PortfolioSection({ portfolio }: { portfolio: PortfolioRow[] | un
                 f.pelunasan !== null
                   ? formatDate(f.pelunasan.jatuhTempoPada)
                   : f.statusPinjaman === "lunas"
-                    ? "Lunas"
-                    : "Menunggu pendanaan penuh"
+                    ? "Status lunas (ledger)"
+                    : "Menunggu target ledger"
               }
             />
           </dl>
 
           <section className="mt-4 rounded-xl border border-slate-200 px-3 py-3 text-xs">
-            <h3 className="font-semibold">Rincian biaya dan pencairan</h3>
+            <h3 className="font-semibold">Rincian simulasi biaya dan nilai bersih</h3>
             {f.skemaBulanan ? (
               <dl className="mt-2 space-y-1.5">
                 <InfoRow label="Biaya layanan platform (total)" value={formatRupiah(f.biayaLayananTotal)} />
                 <InfoRow label="Potongan di muka" value={formatRupiah(f.totalPotonganDiMuka)} />
-                <InfoRow label="Dana bersih diterima Peminjam" value={formatRupiah(f.danaDiterimaPeminjam)} />
+                <InfoRow label="Nilai bersih simulasi (tidak ditransfer)" value={formatRupiah(f.danaDiterimaPeminjam)} />
               </dl>
             ) : (
               <dl className="mt-2 space-y-1.5">
                 <InfoRow label="Biaya admin" value={formatRupiah(f.biayaAdmin)} />
                 <InfoRow label="Biaya platform" value={formatRupiah(f.biayaPlatform)} />
                 <InfoRow label="Total potongan di muka" value={formatRupiah(f.totalPotonganDiMuka)} />
-                <InfoRow label="Dana bersih diterima Peminjam" value={formatRupiah(f.danaDiterimaPeminjam)} />
+                <InfoRow label="Nilai bersih simulasi (tidak ditransfer)" value={formatRupiah(f.danaDiterimaPeminjam)} />
               </dl>
             )}
           </section>
 
           <section className="mt-3 rounded-xl border border-slate-200 px-3 py-3 text-xs">
-            <h3 className="font-semibold">Jadwal kewajiban tercatat</h3>
-            <p className="mt-1 text-muted-foreground">{f.catatanJadwal}</p>
+            <h3 className="font-semibold">Jadwal simulasi kewajiban</h3>
+            <p className="mt-1 text-muted-foreground">Catatan aplikasi: {f.catatanJadwal} Ini bukan tagihan atau bukti pembayaran.</p>
             <ul className="mt-2 divide-y divide-slate-100">
               {f.jadwalPelunasan.map((cicilan, index) => (
                 <li key={`${cicilan.bulan ?? cicilan.hariKe}-${index}`} className="flex flex-wrap justify-between gap-x-3 gap-y-1 py-2">
@@ -189,13 +189,13 @@ function PortfolioStatusBadge({
   isPaid: boolean;
 }) {
   if (isPaid) {
-    return <Badge className="border-0 bg-emerald-100 text-emerald-700 hover:bg-emerald-100">Lunas</Badge>;
+    return <Badge className="border-0 bg-emerald-100 text-emerald-700 hover:bg-emerald-100">Lunas (ledger)</Badge>;
   }
   if (state === "menunggak") {
-    return <Badge className="border-0 bg-red-100 text-red-700 hover:bg-red-100">Menunggak</Badge>;
+    return <Badge className="border-0 bg-red-100 text-red-700 hover:bg-red-100">Melewati tanggal acuan</Badge>;
   }
   if (state === "lancar") {
-    return <Badge className="border-0 bg-emerald-100 text-emerald-700 hover:bg-emerald-100">Lancar</Badge>;
+    return <Badge className="border-0 bg-emerald-100 text-emerald-700 hover:bg-emerald-100">Sesuai tanggal acuan</Badge>;
   }
-  return <Badge className="border-0 bg-amber-100 text-amber-700 hover:bg-amber-100">Berjalan</Badge>;
+  return <Badge className="border-0 bg-amber-100 text-amber-700 hover:bg-amber-100">Berjalan di ledger</Badge>;
 }

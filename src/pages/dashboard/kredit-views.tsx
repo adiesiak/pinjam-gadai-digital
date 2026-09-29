@@ -57,34 +57,34 @@ const STATUS_META: Record<string, { label: string; className: string; descriptio
   diajukan: {
     label: "Diajukan",
     className: "border-0 bg-slate-100 text-slate-700 hover:bg-slate-100",
-    description: "Pengajuan masuk antrean verifikasi tim PINDAI.",
+    description: "Catatan pengajuan masuk antrean review internal PINDAI.",
   },
   sedang_ditinjau: {
     label: "Sedang ditinjau",
     className: "border-gold/40 bg-gold/15 text-gold-foreground",
-    description: "Tim PINDAI menelaah barang, merchant, dan data Anda.",
+    description: "Tim PINDAI meninjau data barang dan merchant yang dicantumkan; ini bukan verifikasi eksternal.",
   },
   disetujui: {
-    label: "Disetujui",
+    label: "Disetujui (status aplikasi)",
     className: "border-primary/30 bg-primary/10 text-accent-foreground",
-    description: "Pengajuan disetujui — pembayaran ke merchant mitra diproses.",
+    description: "Status pengajuan pada ledger internal berubah menjadi disetujui. Tidak ada pembayaran ke merchant.",
   },
   ditolak: {
     label: "Ditolak",
     className: "",
-    description: "Pengajuan tidak dapat dilanjutkan. Anda dapat mengajukan ulang.",
+    description: "Catatan pengajuan tidak dilanjutkan dalam alur aplikasi. Anda dapat membuat catatan baru.",
   },
   didanai: {
-    label: "Didanai",
+    label: "Terpenuhi (ledger)",
     className: "gradient-primary border-0 text-primary-foreground",
     description:
-      "Pendanaan penuh oleh Pendana — dana pokok diteruskan ke merchant mitra. Cicilan bulanan dibayar dari kartu Tagihan Cicilan di bawah.",
+      "Alokasi simulasi pada ledger mencapai jumlah yang ditetapkan. Tidak ada dana yang dikirim ke merchant atau Peminjam; tombol di bawah hanya menambah catatan pembayaran simulasi.",
   },
   lunas: {
-    label: "Lunas",
+    label: "Lunas (ledger)",
     className: "border-primary/30 bg-primary/10 text-accent-foreground",
     description:
-      "Seluruh cicilan sudah dibayar — porsi pokok dan Imbal Hasil Pendana telah diteruskan ke dompet Pendana.",
+      "Status lunas tercatat pada ledger internal. Ini bukan bukti cicilan dibayar atau dana diteruskan ke Pendana.",
   },
 };
 
@@ -278,10 +278,9 @@ export function KreditBarangForm({ onCreated }: { onCreated: (ref: string) => vo
             onChange={(e) => setTautan(e.target.value)}
             placeholder="https://shopee.co.id/…"
             disabled={submitting}
-          />
-          <p className="text-xs leading-5 text-muted-foreground">
-            Tautan membantu tim memverifikasi harga barang di merchant.
-          </p>
+          />            <p className="text-xs leading-5 text-muted-foreground">
+              Tautan dicatat sebagai referensi; aplikasi tidak memeriksa tautan atau memverifikasi harga di merchant.
+            </p>
         </div>
         <div className="mt-4 space-y-2">
           <Label htmlFor="kredit-harga">Harga barang</Label>
@@ -522,9 +521,9 @@ export function KreditBarangForm({ onCreated }: { onCreated: (ref: string) => vo
         )}
       </Button>
       <p className="text-center text-xs leading-5 text-muted-foreground">
-        Plafon pokok kredit barang maksimal {formatRupiah(KREDIT_BARANG_POKOK_MAKS)} dengan
-        tenor pengajuan 1, 3, atau maksimal 6 bulan. Aturan ini terpisah dari plafon pinjaman tunai.
-        Tim PINDAI memverifikasi barang &amp; harga di merchant sebelum pengajuan disetujui.
+        Simulasi pokok kredit barang maksimal {formatRupiah(KREDIT_BARANG_POKOK_MAKS)} dengan
+        tenor 1, 3, atau maksimal 6 bulan. Batas ini terpisah dari plafon simulasi pinjaman tunai.
+        Data barang, tautan, dan harga yang dimasukkan tidak diverifikasi dengan merchant; status review hanya catatan internal.
       </p>
     </form>
   );
@@ -546,7 +545,7 @@ export function KreditSayaSection() {
       <EmptyState
         icon={ShoppingBag}
         title="Belum ada pengajuan kredit barang"
-        body="Ajukan pembelian elektronik atau barang marketplace — sisa harga setelah uang muka akan didanai Pendana dan dicicil bulanan."
+        body="Buat catatan simulasi barang, uang muka, tenor, dan perhitungan cicilan. Pengajuan ini tidak memproses pembelian, pendanaan, atau pembayaran."
       />
     );
   }
@@ -659,9 +658,8 @@ export function KreditBarangSection() {
 }
 
 /**
- * Tagihan cicilan bulanan: hanya tampil untuk pengajuan yang sudah didanai
- * penuh (atau lunas). Pembayaran dicatat di jurnal: kas masuk dari Konsumen,
- * lalu porsi pokok + Imbal Hasil dialirkan ke dompet tiap Pendana.
+ * Ilustrasi pencatatan cicilan bulanan untuk pengajuan yang status ledger-nya
+ * terpenuhi penuh (atau lunas); tidak memproses pembayaran eksternal.
  */
 export function KreditBillingSection() {
   const kredit = useQuery(api.kredit.kreditSaya);
@@ -678,15 +676,15 @@ export function KreditBillingSection() {
       const r = await bayar({ kreditId: id });
       if (r.lunas) {
         toast.success(
-          "Cicilan terakhir dibayar — kredit barang lunas. Pendana menerima porsi pokok + Imbal Hasilnya.",
+          "Status lunas tercatat pada ledger internal. Ini bukan bukti pembayaran atau penerimaan dana oleh Pendana.",
         );
       } else {
         toast.success(
-          `Cicilan bulan ${r.bulanKe} dibayar ${formatRupiah(r.totalDibayar)} — sisa pokok ${formatRupiah(r.sisaPokokSetelah)}.`,
+          `Catatan simulasi bulan ${r.bulanKe}: ${formatRupiah(r.totalDibayar)} — sisa pokok pada ledger ${formatRupiah(r.sisaPokokSetelah)}. Tidak ada pembayaran eksternal.`,
         );
       }
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Pembayaran cicilan gagal.");
+      toast.error(err instanceof Error ? err.message : "Pencatatan simulasi cicilan gagal.");
     } finally {
       setBusyId(null);
     }
@@ -694,7 +692,7 @@ export function KreditBillingSection() {
 
   return (
     <section>
-      <h2 className="text-lg font-semibold">Tagihan Cicilan Kredit Barang</h2>
+      <h2 className="text-lg font-semibold">Simulasi pencatatan cicilan kredit barang</h2>
       <Separator className="my-4" />
       <div className="space-y-4">
         {berjalan.map((k) => {
@@ -735,14 +733,14 @@ export function KreditBillingSection() {
                   </dd>
                 </div>
                 <div className="flex items-baseline justify-between gap-4">
-                  <dt className="text-muted-foreground">Sisa kewajiban</dt>
+                  <dt className="text-muted-foreground">Sisa simulasi kewajiban</dt>
                   <dd className="tabular-nums">{formatRupiah(k.kewajibanSisa)}</dd>
                 </div>
               </dl>
 
               <div className="mt-3">
                 <div className="flex items-baseline justify-between text-xs text-muted-foreground">
-                  <span>Progres cicilan</span>
+                  <span>Progres catatan simulasi</span>
                   <span className="tabular-nums">
                     {k.dibayarBulan} / {totalBulan} bulan
                   </span>
@@ -752,8 +750,7 @@ export function KreditBillingSection() {
 
               {k.status === "lunas" ? (
                 <p className="mt-3 rounded-xl bg-emerald-50/70 px-3 py-2 text-xs leading-5 text-emerald-800">
-                  Seluruh cicilan sudah dibayar — porsi pokok dan Imbal Hasil Pendana telah cair ke
-                  dompet masing-masing Pendana.
+                  Status lunas tercatat pada ledger internal; ini bukan bukti cicilan dibayar atau dana diteruskan ke Pendana.
                 </p>
               ) : (
                 k.cicilanBerikut !== null && (
@@ -767,7 +764,7 @@ export function KreditBillingSection() {
                     ) : (
                       <PackageCheck className="mr-1.5 size-4" />
                     )}
-                    Bayar cicilan bulan {k.cicilanBerikut.bulan} (
+                    Catat simulasi bulan {k.cicilanBerikut.bulan} (
                     {formatRupiah(k.cicilanBerikut.total)})
                   </Button>
                 )
@@ -775,9 +772,8 @@ export function KreditBillingSection() {
 
               {k.cicilanBerikut !== null && k.status !== "lunas" && (
                 <p className="mt-2 text-xs leading-5 text-muted-foreground">
-                  Rincian bulan {k.cicilanBerikut.bulan}: pokok {formatRupiah(k.cicilanBerikut.pokok)} +
-                  Imbal Hasil Pendana {formatRupiah(k.cicilanBerikut.margin)} (dibagi proporsional ke
-                  Pendana yang mendanai).
+                  Ilustrasi bulan {k.cicilanBerikut.bulan}: pokok {formatRupiah(k.cicilanBerikut.pokok)} +
+                  Imbal Hasil simulasi {formatRupiah(k.cicilanBerikut.margin)} (pembagian internal proporsional; bukan janji pembayaran ke Pendana).
                 </p>
               )}
             </article>

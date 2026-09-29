@@ -22,8 +22,8 @@ export function HistorySection() {
     return (
       <EmptyState
         icon={Landmark}
-        title="Belum ada transaksi"
-        body="Semua alokasi, setoran, dan penarikan Anda tercatat di sini."
+        title="Belum ada catatan ledger"
+        body="Catatan alokasi, setoran simulasi, dan permintaan penarikan tampil di sini; tidak ada transaksi dana eksternal."
       />
     );
   }
@@ -42,7 +42,7 @@ export function HistorySection() {
             {fundings.map((f) => (
               <li key={f._id} className="px-5 py-4">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <p className="text-sm font-medium tabular-nums">{formatRupiah(f.jumlahAlokasi)}</p>
+                  <p className="text-sm font-medium tabular-nums">Alokasi ledger {formatRupiah(f.jumlahAlokasi)}</p>
                   <FundingStatusBadge status={f.status} />
                 </div>
                 <p className="mt-1 truncate text-xs text-muted-foreground">
@@ -57,7 +57,7 @@ export function HistorySection() {
         )}
       </section>
       <section>
-        <h3 className="text-sm font-semibold">Setoran</h3>
+        <h3 className="text-sm font-semibold">Catatan setoran simulasi</h3>
         {deposits.length === 0 ? (
           <p className="mt-3 text-xs text-muted-foreground">Belum ada.</p>
         ) : (
@@ -77,7 +77,7 @@ export function HistorySection() {
         )}
       </section>
       <section>
-        <h3 className="text-sm font-semibold">Penarikan</h3>
+        <h3 className="text-sm font-semibold">Permintaan penarikan simulasi</h3>
         {withdrawals.length === 0 ? (
           <p className="mt-3 text-xs text-muted-foreground">Belum ada.</p>
         ) : (
