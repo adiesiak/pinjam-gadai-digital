@@ -15,9 +15,9 @@ import { clampPlafon, PLAFON_BATAS, PLAFON_LANGKAH } from "@/lib/plafon";
 /**
  * Panel Plafon Nasabah — naikkan/turunkan batas pinjaman satu orang.
  *
- * Panel ini mengatur pinjaman tunai. Pengajuan tunai ≥Rp1 juta yang lunas
- * penuh menaikkan plafon dasar otomatis ke Rp10 juta; override admin tetap
- * menang. Kredit barang punya batas pokok dan tenor tersendiri.
+ * Panel ini mengatur pinjaman tunai. Setiap pinjaman pokok ≥Rp1 juta yang
+ * lunas tepat waktu menaikkan plafon dasar Rp1 juta hingga maksimum Rp10 juta;
+ * override admin tetap menang. Kredit barang punya batas tersendiri.
  */
 export function PlafonPanel() {
   const [cari, setCari] = useState("");
@@ -59,10 +59,10 @@ export function PlafonPanel() {
         <p className="mt-1 text-xs leading-5 text-muted-foreground">
           Untuk pinjaman tunai, default awal{" "}
           <strong className="tabular-nums">{formatRupiah(data.default)}</strong> (Pengaturan Sistem).
-          Setelah pinjaman tunai pokok minimal Rp1 juta lunas penuh, plafon dasar otomatis naik
-          menjadi Rp10 juta. Override admin tetap berlaku; reset mengembalikan ke plafon dasar
-          yang sesuai. Kredit barang terpisah: pokok maksimal Rp10 juta, tenor baru maksimal 6 bulan.
-          Rentang override tunai {formatRupiah(PLAFON_BATAS.min)}–{formatRupiah(PLAFON_BATAS.maks)}.
+          Setiap pinjaman tunai pokok minimal Rp1 juta yang lunas tepat waktu menambah Rp1 juta,
+          hingga maksimum Rp10 juta; pelunasan terlambat tidak menambah plafon. Override admin tetap
+          berlaku; reset kembali ke plafon progresif. Kredit barang terpisah: pokok maksimal Rp10 juta,
+          tenor baru maksimal 6 bulan. Rentang override tunai {formatRupiah(PLAFON_BATAS.min)}–{formatRupiah(PLAFON_BATAS.maks)}.
         </p>
       </div>
 
@@ -95,13 +95,13 @@ export function PlafonPanel() {
                     {r.pinjamanAktif} aktif
                   </p>
                   {r.plafonPribadi === null ? (
-                    r.plafonNaikPada === null ? (
+                    r.jumlahPelunasanTepatWaktu === 0 ? (
                       <Badge className="mt-1.5 bg-slate-100 text-slate-600 hover:bg-slate-100">
-                        ikut default global
+                        ikut default global · belum ada pelunasan tepat waktu
                       </Badge>
                     ) : (
                       <Badge className="mt-1.5 bg-emerald-100 text-emerald-700 hover:bg-emerald-100">
-                        otomatis setelah lunas · {new Date(r.plafonNaikPada).toLocaleDateString("id-ID")}
+                        progresif · {r.jumlahPelunasanTepatWaktu} pelunasan tepat waktu
                       </Badge>
                     )
                   ) : (
@@ -147,7 +147,7 @@ export function PlafonPanel() {
                       disabled={busyId === r.userId}
                       onClick={() => void simpan(r.userId as Id<"users">, "", true)}
                     >
-                      {r.plafonNaikPada === null ? "Ke default global" : "Ke plafon otomatis"}
+                      {r.jumlahPelunasanTepatWaktu === 0 ? "Ke default global" : "Ke plafon progresif"}
                     </Button>
                   )}
                 </div>

@@ -39,6 +39,9 @@ async function penggunaMasuk(ctx: QueryCtx) {
   if (userId === null) throw new Error("Harus masuk terlebih dahulu.");
   const user = await ctx.db.get(userId);
   if (user === null) throw new Error("Pengguna tidak ditemukan.");
+  if (user.isAnonymous === true) {
+    throw new Error("Akun tamu hanya dapat melihat informasi. Masuk dengan akun terverifikasi untuk mengakses fitur ini.");
+  }
   return { userId, user };
 }
 
@@ -537,6 +540,11 @@ export const statusSaya = query({
   handler: async (ctx) => {
     const userId = await getAuthUserId(ctx);
     if (userId === null) throw new Error("Harus masuk terlebih dahulu.");
+    const user = await ctx.db.get(userId);
+    if (user === null) throw new Error("Pengguna tidak ditemukan.");
+    if (user.isAnonymous === true) {
+      throw new Error("Akun tamu hanya dapat melihat informasi. Masuk dengan akun terverifikasi untuk mengakses fitur ini.");
+    }
     const cfg = await getConfig(ctx);
     const status = await titikTerakhir(ctx, userId);
     const perangkat = await perangkatAktifUntuk(ctx, userId);
@@ -588,6 +596,8 @@ export const peringatanSaya = query({
   handler: async (ctx) => {
     const userId = await getAuthUserId(ctx);
     if (userId === null) return null;
+    const user = await ctx.db.get(userId);
+    if (user === null || user.isAnonymous === true) return null;
     const terbaru = await ctx.db
       .query("lokasiPeringatan")
       .withIndex("by_user", (q) => q.eq("userId", userId))
@@ -616,6 +626,8 @@ export const plafonSaya = query({
   handler: async (ctx) => {
     const userId = await getAuthUserId(ctx);
     if (userId === null) return null;
+    const user = await ctx.db.get(userId);
+    if (user === null || user.isAnonymous === true) return null;
     return await plafonPeminjam(ctx, userId);
   },
 });

@@ -1,7 +1,8 @@
 import { useQuery } from "convex/react";
 import { Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router";
+import { Link, useNavigate } from "react-router";
+import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 
 import { ErrorPage } from "@/components/ErrorPage";
@@ -36,14 +37,14 @@ import { PawnVaultSection } from "./dashboard/vault-views";
  * menumpuk ke bawah pada layar sempit.
  */
 export default function Dashboard() {
-  const { user, signOut } = useAuth();
+  const { user, isAnonymous, signOut } = useAuth();
   const navigate = useNavigate();
   const role = user?.role;
 
   // Lewati query hanya saat profil pengguna masih dimuat atau pengguna adalah
   // Pendana. Akun tamu/pengguna baru memang belum punya role; endpoint Peminjam
   // mendukung role kosong, jadi menunggu role terisi akan membuat spinner abadi.
-  const argsPeminjam = user === undefined || role === "pendana" ? ("skip" as const) : {};
+  const argsPeminjam = user === undefined || isAnonymous || role === "pendana" ? ("skip" as const) : {};
   const loans = useQuery(api.loans.listMyLoans, argsPeminjam);
   const summary = useQuery(api.loans.myLoanSummary, argsPeminjam);
   const pawns = useQuery(api.loans.listMyPawns, argsPeminjam);
@@ -65,6 +66,44 @@ export default function Dashboard() {
     await signOut();
     navigate("/");
   };
+
+  const handleCreateAccount = async () => {
+    await signOut();
+    navigate("/auth?returnTo=%2Fdashboard");
+  };
+
+  if (isAnonymous) {
+    return (
+      <div className="flex min-h-screen flex-col bg-slate-50 text-slate-900">
+        <DashboardHeader />
+        <main className="mx-auto flex w-full max-w-4xl flex-1 items-center px-4 py-12 sm:px-6">
+          <section className="w-full rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-10">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">Mode tamu · baca saja</p>
+            <h1 className="mt-3 text-3xl font-semibold tracking-tight">Kenali PINDAI sebelum membuat akun.</h1>
+            <p className="mt-4 max-w-2xl text-sm leading-7 text-muted-foreground">
+              Sebagai tamu, Anda dapat membaca informasi umum. Data pribadi, pengajuan, pembayaran, pendanaan, dan perubahan akun hanya tersedia setelah masuk dengan email terverifikasi.
+            </p>
+            <div className="mt-7 grid gap-3 sm:grid-cols-2">
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <h2 className="text-sm font-semibold">Pinjaman harian</h2>
+                <p className="mt-2 text-sm leading-6 text-muted-foreground">Biaya admin 3% dan platform 2% dipotong di muka; bunga flat 30%, dilunasi sekaligus pada akhir tenor.</p>
+              </div>
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <h2 className="text-sm font-semibold">Pinjaman bulanan</h2>
+                <p className="mt-2 text-sm leading-6 text-muted-foreground">Biaya layanan 3% dan bunga menurun mengikuti tenor. Jadwal bulanan yang ditampilkan adalah simulasi; pelunasan aktual saat ini sekaligus pada akhir tenor.</p>
+              </div>
+            </div>
+            <div className="mt-7 flex flex-wrap gap-3">
+              <Button onClick={() => void handleCreateAccount()}>Masuk / buat akun dengan email OTP</Button>
+              <Button asChild variant="outline"><Link to="/">Baca informasi layanan</Link></Button>
+            </div>
+            <p className="mt-5 text-xs leading-5 text-muted-foreground">Kelayakan dan status perizinan layanan perlu dikonfirmasi sebelum transaksi; informasi ini bukan penawaran atau jaminan pendanaan.</p>
+          </section>
+        </main>
+        <DashboardFooter />
+      </div>
+    );
+  }
 
   if (role === "pendana") {
     return (

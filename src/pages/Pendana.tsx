@@ -1,5 +1,6 @@
 import { Loader2 } from "lucide-react";
-import { useNavigate } from "react-router";
+import { Link, useNavigate } from "react-router";
+import { Button } from "@/components/ui/button";
 
 import { useAuth } from "@/hooks/use-auth";
 
@@ -14,7 +15,7 @@ import { PendanaWorkspace } from "./pendana/workspace";
  * mudah disunting dan dirawat.
  */
 export default function Pendana() {
-  const { user, isLoading, signOut } = useAuth();
+  const { user, isLoading, isAnonymous, signOut } = useAuth();
   const navigate = useNavigate();
   const role = user?.role;
 
@@ -32,6 +33,10 @@ export default function Pendana() {
   };
 
   const greetingName = user?.name ?? user?.email?.split("@")[0] ?? "Pendana";
+  const handleCreateAccount = async () => {
+    await signOut();
+    navigate("/auth?returnTo=%2Fpendana");
+  };
 
   return (
     <div className="flex min-h-screen flex-col bg-slate-50 text-slate-900">
@@ -39,7 +44,16 @@ export default function Pendana() {
       <PendanaHeader />
 
       <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-5 sm:px-6 sm:py-8">
-        {role === "pendana" ? (
+        {isAnonymous ? (
+          <div className="mx-auto max-w-xl rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm">
+            <h1 className="text-xl font-semibold">Ruang Pendana hanya untuk akun terverifikasi</h1>
+            <p className="mt-3 text-sm leading-6 text-muted-foreground">Mode tamu bersifat baca-saja. Untuk mendaftar sebagai Pendana, masuk atau buat akun menggunakan email OTP terlebih dahulu.</p>
+            <div className="mt-6 flex flex-wrap justify-center gap-3">
+              <Button onClick={() => void handleCreateAccount()}>Masuk / buat akun</Button>
+              <Button asChild variant="outline"><Link to="/dashboard">Lihat informasi tamu</Link></Button>
+            </div>
+          </div>
+        ) : role === "pendana" ? (
           <PendanaWorkspace greetingName={greetingName} onSignOut={handleSignOut} />
         ) : role === "admin" ? (
           <Notice

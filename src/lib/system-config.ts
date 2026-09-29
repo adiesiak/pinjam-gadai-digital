@@ -9,7 +9,11 @@ import { PLAFON_DEFAULT } from "./plafon";
  */
 export const RETENSI_LOKASI_BATAS = { min: 7, maks: 730 } as const;
 
+export const THEME_PRESETS = ["tinta", "pesisir", "terakota"] as const;
+export type ThemePreset = (typeof THEME_PRESETS)[number];
+
 export type SystemConfig = {
+  tema: ThemePreset;
   killSwitch: boolean;
   maintenanceMode: boolean;
   persenAdmin: number;
@@ -34,14 +38,15 @@ export type SystemConfig = {
    */
   retensiLokasiHari: number;
   /**
-   * Plafon awal pinjaman tunai semua Peminjam (rupiah bulat) — nasabah yang
-   * melunasi pokok tunai minimal Rp1 juta naik otomatis ke Rp10 juta. Kredit
-   * barang memiliki batas pokok terpisah. Admin dapat mengatur override.
+   * Plafon awal pinjaman tunai semua Peminjam (rupiah bulat) — tiap pinjaman
+   * pokok minimal Rp1 juta yang lunas tepat waktu menaikkan plafon dasar Rp1
+   * juta, maksimal Rp10 juta. Kredit barang punya batas terpisah.
    */
   plafonPinjaman: number;
 };
 
 export const DEFAULT_CONFIG: SystemConfig = {
+  tema: "tinta",
   killSwitch: false,
   maintenanceMode: false,
   persenAdmin: 3,

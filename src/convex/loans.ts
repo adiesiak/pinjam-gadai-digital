@@ -15,8 +15,10 @@ import {
   PawnStatusValue,
 } from "./schema";
 import {
+  apakahPelunasanTepatWaktu,
   pesanPlafonTerlampaui,
-  PLAFON_POKOK_MINIMUM_LUNAS,
+  PLAFON_KENAIKAN_PER_PELUNASAN,
+  PLAFON_NAIK_SETELAH_LUNAS,
   plafonPeminjam,
   pokokDalamPlafon,
 } from "../lib/plafon";
@@ -78,6 +80,9 @@ async function requireUser(ctx: QueryCtx) {
   if (userId === null) throw new Error("Harus masuk terlebih dahulu.");
   const user = await ctx.db.get(userId);
   if (user === null) throw new Error("Pengguna tidak ditemukan.");
+  if (user.isAnonymous === true) {
+    throw new Error("Akun tamu hanya dapat melihat informasi. Masuk dengan akun terverifikasi untuk mengakses data dan transaksi.");
+  }
   return { userId, user };
 }
 
@@ -127,6 +132,7 @@ export const createLoanApplication = mutation({
     pokokPinjaman: v.number(),
     tujuan: v.string(),
     namaLengkap: v.string(),
+    namaBank: v.string(),
     nomorRekening: v.string(),
     catatanPeminjam: v.optional(v.string()),
     /** Tanda tangan digital peminjam (canvas → data URL PNG, opsional). */
@@ -200,12 +206,16 @@ export const createLoanApplication = mutation({
     }
 
     const trimmedName = args.namaLengkap.trim();
+    const namaBank = args.namaBank.trim();
     const trimmedAccount = args.nomorRekening.trim().replace(/\s+/g, "");
     if (trimmedName.length < 3) {
       throw new Error("Nama lengkap wajib diisi (minimal 3 karakter).");
     }
+    if (namaBank.length < 2 || namaBank.length > 60) {
+      throw new Error("Nama bank atau e-wallet tujuan harus 2–60 karakter.");
+    }
     if (!/^\d{6,20}$/.test(trimmedAccount)) {
-      throw new Error("Nomor rekening harus 6–20 digit angka.");
+      throw new Error("Nomor rekening/akun e-wallet harus 6–20 digit angka.");
     }
     if (args.tujuan.trim().length === 0) {
       throw new Error("Pilih keperluan pinjaman.");
@@ -281,6 +291,7 @@ export const createLoanApplication = mutation({
       tujuan: args.tujuan.trim(),
       catatanPeminjam: args.catatanPeminjam?.trim() || undefined,
       namaLengkap: trimmedName,
+      namaBank,
       nomorRekening: trimmedAccount,
       status: "diajukan",
       nomorReferensi,
@@ -559,6 +570,7 @@ export const createPawnApplication = mutation({
     kategori: v.string(),
     alamatPenilaian: v.string(),
     namaLengkap: v.string(),
+    namaBank: v.string(),
     nomorRekening: v.string(),
     catatanPeminjam: v.optional(v.string()),
   },
@@ -593,9 +605,13 @@ export const createPawnApplication = mutation({
     if (nama.length < 3) {
       throw new Error("Nama lengkap wajib diisi (minimal 3 karakter).");
     }
+    const namaBank = args.namaBank.trim();
+    if (namaBank.length < 2 || namaBank.length > 60) {
+      throw new Error("Nama bank atau e-wallet tujuan harus 2–60 karakter.");
+    }
     const rekening = args.nomorRekening.trim().replace(/\s+/g, "");
     if (!/^\d{6,20}$/.test(rekening)) {
-      throw new Error("Nomor rekening harus 6–20 digit angka.");
+      throw new Error("Nomor rekening/akun e-wallet harus 6–20 digit angka.");
     }
 
     if (user.role === undefined) {
@@ -609,6 +625,7 @@ export const createPawnApplication = mutation({
       kategori: args.kategori,
       alamatPenilaian: alamat,
       namaLengkap: nama,
+      namaBank,
       nomorRekening: rekening,
       catatanPeminjam: args.catatanPeminjam?.trim() || undefined,
       status: "diajukan",
@@ -973,21 +990,22 @@ export const repayLoan = mutation({
         : {}),
     });
 
-    // Kualifikasi naik plafon hanya saat pelunasan penuh pinjaman tunai
-    // minimal Rp1 juta. Simpan penanda terpisah agar override admin tetap
-    // berlaku dan reset override kelak kembali ke plafon otomatis Rp10 juta.
-    if (
-      loan.pokokPinjaman >= PLAFON_POKOK_MINIMUM_LUNAS &&
-      user.plafonPinjamanNaikPada === undefined
-    ) {
-      await ctx.db.patch(userId, { plafonPinjamanNaikPada: now });
+    // Hanya pinjaman tunai pokok ≥Rp1 juta yang lunas paling lambat saat
+    // jatuh tempo menghasilkan satu tahap kenaikan. Plafon diturunkan dari
+    // riwayat loan yang sebenarnya; penanda warisan bukan bukti kelayakan.
+    const lunasUntukPlafon = {
+      ...loan,
+      status: "lunas",
+      lunasPada: now,
+    };
+    if (apakahPelunasanTepatWaktu(lunasUntukPlafon)) {
       await audit(
         ctx,
         userId,
         user.email ?? user.name ?? "peminjam",
         "plafon_naik_otomatis",
         loan.nomorReferensi,
-        `Pinjaman tunai ${formatRupiah(loan.pokokPinjaman)} lunas penuh; plafon dasar naik menjadi Rp10.000.000. Override admin, bila ada, tetap berlaku.`,
+        `Pinjaman tunai ${formatRupiah(loan.pokokPinjaman)} lunas tepat waktu; plafon dasar bertambah ${formatRupiah(PLAFON_KENAIKAN_PER_PELUNASAN)} hingga maksimum ${formatRupiah(PLAFON_NAIK_SETELAH_LUNAS)}. Override admin tetap berlaku.`,
       );
     }
 

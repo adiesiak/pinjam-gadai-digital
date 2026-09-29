@@ -89,13 +89,9 @@ const schema = defineSchema(
       isAnonymous: v.optional(v.boolean()), // is the user anonymous. do not remove
 
       role: v.optional(roleValidator), // role of the user. do not remove
-      /**
-       * Plafon pinjaman tunai khusus pengguna ini (rupiah bulat) — diatur admin.
-       * Kosong = default global sebelum kualifikasi, atau plafon otomatis
-       * setelah pinjaman tunai minimal Rp1 juta lunas penuh.
-       */
+      /** Plafon pinjaman tunai khusus pengguna ini (rupiah bulat) — diatur admin. */
       plafonPinjaman: v.optional(v.number()),
-      /** Waktu pinjaman tunai pokok ≥ Rp1 juta pertama kali dilunasi penuh. */
+      /** Penanda warisan: waktu kenaikan plafon pertama; bukan sumber kelayakan saat ini. */
       plafonPinjamanNaikPada: v.optional(v.number()),
       /** Kode pseudonim acak yang stabil; tidak berasal dari data identitas. */
       kodePeminjam: v.optional(v.string()),
@@ -120,7 +116,9 @@ const schema = defineSchema(
       catatanPeminjam: v.optional(v.string()),
       /** Nama lengkap sesuai KTP. */
       namaLengkap: v.string(),
-      /** Nomor rekening tujuan dana bersih (95%). */
+      /** Nama bank/e-wallet tujuan pencairan (opsional untuk data lama). */
+      namaBank: v.optional(v.string()),
+      /** Nomor rekening/akun tujuan dana bersih (95%). */
       nomorRekening: v.string(),
       status: loanStatusValidator,
       /** Catatan keputusan reviewer (wajib saat ditolak). */
@@ -422,12 +420,10 @@ const schema = defineSchema(
        * Titik milik pinjaman belum selesai tetap ditahan minimal 400 hari.
        */
       retensiLokasiHari: v.optional(v.number()),
-      /**
-       * Plafon awal pinjaman tunai untuk semua Peminjam (rupiah bulat).
-       * Kredit barang memakai batas pokok tersendiri; pelunasan tunai ≥Rp1 jt
-       * menaikkan plafon otomatis kecuali admin menetapkan override pribadi.
-       */
+      /** Plafon awal pinjaman tunai untuk semua Peminjam (rupiah bulat). */
       plafonPinjaman: v.optional(v.number()),
+      /** Preset tema aman dari whitelist; tidak menerima CSS arbitrer. */
+      tema: v.optional(v.union(v.literal("tinta"), v.literal("pesisir"), v.literal("terakota"))),
       /** Waktu terakhir konfigurasi diperbarui. */
       diperbaruiPada: v.number(),
     }).index("by_slot", ["slot"]),
@@ -462,7 +458,9 @@ const schema = defineSchema(
       alamatPenilaian: v.string(),
       /** Nama lengkap sesuai KTP. */
       namaLengkap: v.string(),
-      /** Nomor rekening tujuan pencairan. */
+      /** Nama bank/e-wallet tujuan pencairan (opsional untuk data lama). */
+      namaBank: v.optional(v.string()),
+      /** Nomor rekening/akun tujuan pencairan. */
       nomorRekening: v.string(),
       catatanPeminjam: v.optional(v.string()),
       status: pawnStatusValidator,

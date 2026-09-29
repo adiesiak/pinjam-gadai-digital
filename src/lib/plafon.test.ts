@@ -3,12 +3,16 @@ import { LOAN_LIMITS } from "./loan";
 import {
   clampPlafon,
   pesanPlafonTerlampaui,
+  apakahPelunasanTepatWaktu,
   PLAFON_BATAS,
   PLAFON_DEFAULT,
+  PLAFON_KENAIKAN_PER_PELUNASAN,
   PLAFON_NAIK_SETELAH_LUNAS,
   PLAFON_POKOK_MINIMUM_LUNAS,
+  plafonDasarDariRiwayat,
   plafonEfektif,
   pokokDalamPlafon,
+  tanggalJatuhTempoPinjaman,
 } from "./plafon";
 import {
   KREDIT_BARANG_POKOK_MAKS,
@@ -42,13 +46,35 @@ eq("clamp di atas maksimum", clampPlafon(99_000_000), PLAFON_BATAS.maks);
 eq("clamp NaN ke default", clampPlafon(Number.NaN), PLAFON_DEFAULT);
 eq("clamp nilai dalam rentang", clampPlafon(5_000_000), 5_000_000);
 
-// Plafon sebelum/sesudah kualifikasi pelunasan penuh.
-eq("global berlaku sebelum pinjaman 1 juta lunas", plafonEfektif(undefined, 1_000_000), 1_000_000);
-eq("kualifikasi lunas menaikkan plafon dasar ke 10 juta", plafonEfektif(undefined, 1_000_000, true), 10_000_000);
-eq("override admin menang sebelum lunas", plafonEfektif(3_000_000, 1_000_000), 3_000_000);
-eq("override admin tetap menang setelah lunas", plafonEfektif(4_000_000, 1_000_000, true), 4_000_000);
-eq("reset override sesudah lunas kembali ke 10 juta", plafonEfektif(null, 1_000_000, true), 10_000_000);
-eq("reset override sebelum lunas kembali ke global", plafonEfektif(null, 2_000_000), 2_000_000);
+// Plafon bertambah Rp1 juta per pinjaman yang lunas tepat waktu.
+eq("kenaikan per pelunasan tepat waktu = Rp1 juta", PLAFON_KENAIKAN_PER_PELUNASAN, 1_000_000);
+eq("global berlaku sebelum pinjaman lunas", plafonEfektif(undefined, 1_000_000), 1_000_000);
+eq("satu pelunasan menaikkan plafon satu tahap", plafonEfektif(undefined, 1_000_000, 1), 2_000_000);
+eq("empat pelunasan menaikkan plafon empat tahap", plafonEfektif(undefined, 1_000_000, 4), 5_000_000);
+eq("plafon progresif berhenti di Rp10 juta", plafonEfektif(undefined, 1_000_000, 20), 10_000_000);
+eq("dasar progresif bertahap", plafonDasarDariRiwayat(1_000_000, 3), 4_000_000);
+eq("jumlah negatif dianggap nol", plafonDasarDariRiwayat(1_000_000, -3), 1_000_000);
+eq("override admin menang sebelum pelunasan", plafonEfektif(3_000_000, 1_000_000), 3_000_000);
+eq("override admin tetap menang sesudah pelunasan", plafonEfektif(4_000_000, 1_000_000, 5), 4_000_000);
+eq("reset override kembali ke progres sesuai riwayat", plafonEfektif(null, 1_000_000, 2), 3_000_000);
+eq("reset override tanpa riwayat kembali ke global", plafonEfektif(null, 2_000_000), 2_000_000);
+
+const pendanaanPada = 1_700_000_000_000;
+const jatuhTempo = pendanaanPada + 30 * 86_400_000;
+const lunasTepatWaktu = {
+  status: "lunas",
+  pokokPinjaman: 1_000_000,
+  didanaiPada: pendanaanPada,
+  lunasPada: jatuhTempo,
+  tenorHari: 30,
+};
+eq("tanggal jatuh tempo 30 hari dihitung dari pendanaan", tanggalJatuhTempoPinjaman(lunasTepatWaktu), jatuhTempo);
+ok("lunas persis saat jatuh tempo memenuhi syarat", apakahPelunasanTepatWaktu(lunasTepatWaktu));
+ok("lunas satu milidetik terlambat tidak memenuhi syarat", !apakahPelunasanTepatWaktu({ ...lunasTepatWaktu, lunasPada: jatuhTempo + 1 }));
+ok("pelunasan pokok di bawah minimum tidak memenuhi syarat", !apakahPelunasanTepatWaktu({ ...lunasTepatWaktu, pokokPinjaman: 999_999 }));
+ok("status selain lunas tidak memenuhi syarat", !apakahPelunasanTepatWaktu({ ...lunasTepatWaktu, status: "didanai" }));
+ok("data tanpa waktu pendanaan tidak memenuhi syarat", !apakahPelunasanTepatWaktu({ ...lunasTepatWaktu, didanaiPada: undefined }));
+ok("tenor bulanan dihitung sebagai 30 hari per bulan", apakahPelunasanTepatWaktu({ ...lunasTepatWaktu, tenorHari: undefined, tenorBulan: 3, lunasPada: pendanaanPada + 90 * 86_400_000 }));
 
 ok("pokok tunai dalam plafon diterima", pokokDalamPlafon(900_000, 1_000_000));
 ok("pokok tunai tepat plafon diterima", pokokDalamPlafon(1_000_000, 1_000_000));

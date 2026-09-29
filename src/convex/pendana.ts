@@ -29,6 +29,9 @@ async function requireUser(ctx: QueryCtx) {
   if (userId === null) throw new Error("Harus masuk terlebih dahulu.");
   const user = await ctx.db.get(userId);
   if (user === null) throw new Error("Pengguna tidak ditemukan.");
+  if (user.isAnonymous === true) {
+    throw new Error("Akun tamu hanya dapat melihat informasi. Masuk dengan akun terverifikasi untuk mengakses ruang Pendana.");
+  }
   return { userId, user };
 }
 

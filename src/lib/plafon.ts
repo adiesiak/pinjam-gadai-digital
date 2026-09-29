@@ -1,30 +1,40 @@
 /**
  * Plafon pinjaman tunai per nasabah.
  *
- * Plafon awal mengikuti konfigurasi global (default Rp1 juta). Setelah pokok
- * pinjaman tunai minimal Rp1 juta lunas penuh, plafon otomatis menjadi Rp10
- * juta. Override pribadi admin selalu menang atas nilai otomatis tersebut.
- * Kebijakan kredit barang memiliki batas tersendiri di lib/kredit.ts.
+ * Plafon dasar mengikuti konfigurasi global (default Rp1 juta). Setiap
+ * pinjaman tunai pokok minimal Rp1 juta yang dilunasi penuh paling lambat pada
+ * tanggal jatuh tempo menaikkan plafon dasar Rp1 juta, hingga maksimum Rp10
+ * juta. Penanda warisan di users tidak menjadi bukti kelayakan. Override
+ * pribadi admin tetap menang atas plafon turunan ini.
  */
 import { formatRupiah, type Rupiah } from "./money";
 import { LOAN_LIMITS } from "./loan";
 import type { QueryCtx } from "../convex/_generated/server";
 import type { Id } from "../convex/_generated/dataModel";
 
-/**
- * Plafon efektif Peminjam — override admin menang; tanpa override, nasabah
- * mengikuti default global sampai kualifikasi pelunasan penuh tercatat.
- */
+const DAY_MS = 86_400_000;
+
+export type RiwayatPinjamanPlafon = {
+  status: string;
+  pokokPinjaman: number;
+  didanaiPada?: number;
+  lunasPada?: number;
+  tenorHari?: number;
+  tenorBulan?: number;
+};
+
+/** Plafon efektif Peminjam — override admin menang atas hasil riwayat. */
 export async function plafonPeminjam(
   ctx: QueryCtx,
   userId: Id<"users">,
 ): Promise<Rupiah> {
-  const [user, cfg] = await Promise.all([ctx.db.get(userId), getConfigServer(ctx)]);
-  return plafonEfektif(
-    user?.plafonPinjaman,
-    cfg,
-    user?.plafonPinjamanNaikPada !== undefined,
-  );
+  const [user, cfg, loans] = await Promise.all([
+    ctx.db.get(userId),
+    getConfigServer(ctx),
+    ctx.db.query("loans").withIndex("by_user", (q) => q.eq("userId", userId)).collect(),
+  ]);
+  const jumlahPelunasanTepatWaktu = loans.filter(apakahPelunasanTepatWaktu).length;
+  return plafonEfektif(user?.plafonPinjaman, cfg, jumlahPelunasanTepatWaktu);
 }
 
 /** Baca default global dari systemConfig tanpa menarik dependensi convex/system. */
@@ -39,10 +49,11 @@ async function getConfigServer(ctx: QueryCtx): Promise<number> {
 /** Plafon awal pinjaman tunai — sama dengan batas skema tunai harian. */
 export const PLAFON_DEFAULT = LOAN_LIMITS.maxPokok as Rupiah;
 
-/** Pokok pinjaman minimum yang harus lunas penuh untuk kenaikan otomatis. */
+/** Pokok minimum dan nilai kenaikan untuk setiap pelunasan yang memenuhi syarat. */
 export const PLAFON_POKOK_MINIMUM_LUNAS = 1_000_000 as Rupiah;
+export const PLAFON_KENAIKAN_PER_PELUNASAN = 1_000_000 as Rupiah;
 
-/** Plafon otomatis setelah pinjaman tunai Rp1 juta (atau lebih) lunas penuh. */
+/** Plafon maksimum turunan maupun override admin. */
 export const PLAFON_NAIK_SETELAH_LUNAS = 10_000_000 as Rupiah;
 
 /** Rentang plafon tunai yang boleh disimpan admin (rupiah bulat). */
@@ -54,16 +65,58 @@ export const PLAFON_BATAS = {
 /** Langkah slider kelipatan (rupiah). */
 export const PLAFON_LANGKAH = 100_000;
 
-/** Plafon efektif: override admin, lalu plafon otomatis atau default global. */
+/** Hitung tanggal jatuh tempo berdasarkan tenor tersimpan; null untuk data tidak valid. */
+export function tanggalJatuhTempoPinjaman(
+  loan: Pick<RiwayatPinjamanPlafon, "didanaiPada" | "tenorHari" | "tenorBulan">,
+): number | null {
+  if (!Number.isSafeInteger(loan.didanaiPada) || (loan.didanaiPada ?? 0) <= 0) return null;
+  const tenorHari = loan.tenorBulan !== undefined
+    ? loan.tenorBulan * 30
+    : loan.tenorHari ?? 30;
+  if (!Number.isSafeInteger(tenorHari) || tenorHari <= 0) return null;
+  return loan.didanaiPada! + tenorHari * DAY_MS;
+}
+
+/** Bukti kelayakan kenaikan: pokok tunai ≥Rp1 juta, lunas, dan waktu pelunasan tidak melewati jatuh tempo. */
+export function apakahPelunasanTepatWaktu(loan: RiwayatPinjamanPlafon): boolean {
+  if (
+    loan.status !== "lunas" ||
+    !Number.isSafeInteger(loan.pokokPinjaman) ||
+    loan.pokokPinjaman < PLAFON_POKOK_MINIMUM_LUNAS ||
+    !Number.isSafeInteger(loan.lunasPada)
+  ) {
+    return false;
+  }
+  const jatuhTempo = tanggalJatuhTempoPinjaman(loan);
+  return jatuhTempo !== null && (loan.lunasPada ?? Infinity) <= jatuhTempo;
+}
+
+/** Plafon dasar = global + Rp1 jt per pelunasan tepat waktu, dibatasi maksimum. */
+export function plafonDasarDariRiwayat(
+  globalDefault: number,
+  jumlahPelunasanTepatWaktu: number,
+): Rupiah {
+  const jumlah = Number.isSafeInteger(jumlahPelunasanTepatWaktu)
+    ? Math.max(0, jumlahPelunasanTepatWaktu)
+    : 0;
+  const dasar = clampPlafon(globalDefault);
+  return Math.min(
+    PLAFON_NAIK_SETELAH_LUNAS,
+    dasar + jumlah * PLAFON_KENAIKAN_PER_PELUNASAN,
+  ) as Rupiah;
+}
+
+/** Plafon efektif: override admin, lalu plafon progresif hasil riwayat, lalu default global. */
 export function plafonEfektif(
   override: number | null | undefined,
   globalDefault: number,
-  sudahNaikSetelahLunas = false,
+  jumlahPelunasanTepatWaktu: number | boolean = 0,
 ): Rupiah {
-  const defaultEfektif = sudahNaikSetelahLunas
-    ? PLAFON_NAIK_SETELAH_LUNAS
-    : globalDefault;
-  return clampPlafon(override ?? defaultEfektif);
+  // Boolean tetap diterima sementara untuk pemanggil lama selama migrasi kode.
+  const jumlah = typeof jumlahPelunasanTepatWaktu === "boolean"
+    ? Number(jumlahPelunasanTepatWaktu)
+    : jumlahPelunasanTepatWaktu;
+  return clampPlafon(override ?? plafonDasarDariRiwayat(globalDefault, jumlah));
 }
 
 /** Jepit nilai ke rentang yang sah — dipakai UI, server, dan penyimpanan. */

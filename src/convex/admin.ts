@@ -10,7 +10,11 @@ import { formatRupiah } from "../lib/money";
 import { CONTRACT_TERMS_VERSION } from "../lib/contract";
 import { getConfig, audit } from "./system";
 import { jarakKm } from "../lib/geo";
-import { clampPlafon, plafonEfektif } from "../lib/plafon";
+import {
+  apakahPelunasanTepatWaktu,
+  clampPlafon,
+  plafonEfektif,
+} from "../lib/plafon";
 import { ensureKodePeminjam } from "./peminjamCode";
 
 /** Gerbang admin — semua query/mutation di file ini dijaga. */
@@ -34,6 +38,14 @@ export const daftarPlafonPeminjam = query({
 
     const loans = await ctx.db.query("loans").collect();
     const kredits = await ctx.db.query("kreditBarang").collect();
+    const pelunasanTepatWaktuPerUser = new Map<string, number>();
+    for (const loan of loans) {
+      if (!apakahPelunasanTepatWaktu(loan)) continue;
+      pelunasanTepatWaktuPerUser.set(
+        loan.userId,
+        (pelunasanTepatWaktuPerUser.get(loan.userId) ?? 0) + 1,
+      );
+    }
     const idPeminjam = new Set<string>();
     for (const l of loans) idPeminjam.add(l.userId);
     for (const k of kredits) idPeminjam.add(k.userId);
@@ -44,7 +56,7 @@ export const daftarPlafonPeminjam = query({
       email: string | null;
       plafonPribadi: number | null;
       plafonEfektif: number;
-      plafonNaikPada: number | null;
+      jumlahPelunasanTepatWaktu: number;
       jumlahPengajuan: number;
       pinjamanAktif: number;
     }> = [];
@@ -55,7 +67,6 @@ export const daftarPlafonPeminjam = query({
             email?: string;
             role?: string;
             plafonPinjaman?: number;
-            plafonPinjamanNaikPada?: number;
           }
         | null;
       if (user === null) continue;
@@ -73,9 +84,9 @@ export const daftarPlafonPeminjam = query({
         plafonEfektif: plafonEfektif(
           user.plafonPinjaman,
           cfg.plafonPinjaman,
-          user.plafonPinjamanNaikPada !== undefined,
+          pelunasanTepatWaktuPerUser.get(id) ?? 0,
         ),
-        plafonNaikPada: user.plafonPinjamanNaikPada ?? null,
+        jumlahPelunasanTepatWaktu: pelunasanTepatWaktuPerUser.get(id) ?? 0,
         jumlahPengajuan: pinjamanUser.length + kreditUser.length,
         pinjamanAktif: pinjamanUser.filter((l) => l.status === "didanai").length,
       });
@@ -87,8 +98,8 @@ export const daftarPlafonPeminjam = query({
 
 /**
  * Naikkan/turunkan plafon satu nasabah — admin.
- * `plafon: null` mengembalikan nasabah ke default dasar yang berlaku: global
- * sebelum kualifikasi, atau Rp10 juta setelah pelunasan tunai Rp1 juta. Setiap
+ * `plafon: null` mengembalikan nasabah ke default progresif berdasarkan
+ * pelunasan tunai tepat waktu. Setiap
  * perubahan masuk audit trail (append-only) karena ini keputusan kredit.
  */
 export const setPlafonPeminjam = mutation({
@@ -109,9 +120,21 @@ export const setPlafonPeminjam = mutation({
 
     const cfg = await getConfig(ctx);
     const nilaiBaru = plafon === null ? null : clampPlafon(plafon);
-    const sudahNaik = target.plafonPinjamanNaikPada !== undefined;
-    const sebelumnya = plafonEfektif(target.plafonPinjaman, cfg.plafonPinjaman, sudahNaik);
-    const sesudah = plafonEfektif(nilaiBaru, cfg.plafonPinjaman, sudahNaik);
+    const loans = await ctx.db
+      .query("loans")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .collect();
+    const jumlahPelunasanTepatWaktu = loans.filter(apakahPelunasanTepatWaktu).length;
+    const sebelumnya = plafonEfektif(
+      target.plafonPinjaman,
+      cfg.plafonPinjaman,
+      jumlahPelunasanTepatWaktu,
+    );
+    const sesudah = plafonEfektif(
+      nilaiBaru,
+      cfg.plafonPinjaman,
+      jumlahPelunasanTepatWaktu,
+    );
 
     await ctx.db.patch(userId, { plafonPinjaman: nilaiBaru ?? undefined });
     await audit(
@@ -122,8 +145,8 @@ export const setPlafonPeminjam = mutation({
       target.name ?? target.email ?? userId,
       `Plafon ${formatRupiah(sebelumnya)} → ${formatRupiah(sesudah)}${
         nilaiBaru === null
-          ? sudahNaik
-            ? " (kembali ke plafon otomatis setelah lunas)"
+          ? jumlahPelunasanTepatWaktu > 0
+            ? " (kembali ke plafon progresif berdasarkan pelunasan tepat waktu)"
             : " (kembali ke default global)"
           : " (khusus nasabah ini)"
       }${alasan?.trim() ? ` — ${alasan.trim()}` : ""}`,
@@ -168,6 +191,7 @@ export const adminOverview = query({
             catatanReview: l.catatanReview,
             namaLengkap: l.namaLengkap,
             nomorRekening: l.nomorRekening,
+            namaBank: l.namaBank ?? null,
             catatanPeminjam: l.catatanPeminjam,
             emailPeminjam: borrower?.email ?? null,
             userIdPeminjam: l.userId,
@@ -215,6 +239,7 @@ export const adminOverview = query({
             catatanReview: p.catatanReview,
             namaLengkap: p.namaLengkap,
             nomorRekening: p.nomorRekening,
+            namaBank: p.namaBank ?? null,
             catatanPeminjam: p.catatanPeminjam,
             emailPeminjam: borrower?.email ?? null,
             // Skema B: pendanaan & sisa pokok berjalan (decreasing principal).
@@ -917,6 +942,7 @@ export const contractDetail = query({
       namaLengkap: loan.namaLengkap,
       status: loan.status,
       nomorRekening: loan.nomorRekening,
+      namaBank: loan.namaBank ?? null,
       nik: loan.nik ?? null,
       pokokPinjaman: loan.pokokPinjaman,
       tenorHari: loan.tenorHari,
@@ -944,6 +970,7 @@ export const contractDetailPawn = query({
       nomorReferensi: pawn.nomorReferensi,
       namaLengkap: pawn.namaLengkap,
       nomorRekening: pawn.nomorRekening,
+      namaBank: pawn.namaBank ?? null,
       deskripsiBarang: pawn.deskripsiBarang,
       kategori: pawn.kategori,
       nilaiTaksiran: pawn.nilaiTaksiran,

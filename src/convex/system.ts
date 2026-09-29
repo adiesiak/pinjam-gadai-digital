@@ -51,6 +51,7 @@ export async function getConfig(ctx: QueryCtx): Promise<SystemConfig> {
     .first();
   if (row === null) return { ...DEFAULT_CONFIG };
   return {
+    tema: row.tema ?? DEFAULT_CONFIG.tema,
     killSwitch: row.killSwitch ?? DEFAULT_CONFIG.killSwitch,
     maintenanceMode: row.maintenanceMode ?? DEFAULT_CONFIG.maintenanceMode,
     persenAdmin: row.persenAdmin ?? DEFAULT_CONFIG.persenAdmin,
@@ -69,6 +70,12 @@ export async function getConfig(ctx: QueryCtx): Promise<SystemConfig> {
     plafonPinjaman: row.plafonPinjaman ?? DEFAULT_CONFIG.plafonPinjaman,
   };
 }
+
+/** Preset tema publik saja; tidak mengekspos konfigurasi operasional. */
+export const getThemePublic = query({
+  args: {},
+  handler: async (ctx) => ({ tema: (await getConfig(ctx)).tema }),
+});
 
 /** Konfigurasi untuk semua pengguna ter-autentikasi (status kill switch & maintenance). */
 export const getStatusPublic = query({
@@ -106,6 +113,7 @@ export const getConfigAdmin = query({
 /** Simpan konfigurasi — mencatat audit + deteksi perubahan kill switch. */
 export const saveConfig = mutation({
   args: {
+    tema: v.union(v.literal("tinta"), v.literal("pesisir"), v.literal("terakota")),
     killSwitch: v.boolean(),
     maintenanceMode: v.boolean(),
     persenAdmin: v.number(),

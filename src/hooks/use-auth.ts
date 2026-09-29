@@ -13,6 +13,7 @@ export function useAuth() {
   return {
     isLoading,
     isAuthenticated,
+    isAnonymous: user?.isAnonymous === true,
     user,
     signIn,
     signOut,
