@@ -8,12 +8,12 @@ h2{font-size:13px;margin:16px 0 6px}
 p,li{font-size:12px;line-height:1.65;margin:4px 0}
 ol{padding-left:18px}
 .nomor{text-align:center;font-size:11px;color:#655e4d;margin-bottom:14px}
-.ttd{display:flex;justify-content:space-between;margin-top:36px;gap:24px}
-.ttd>div{flex:1;text-align:center;font-size:12px} .garis{border-top:1px solid #1c1a15;margin-top:14px;padding-top:4px;font-weight:600}
-.signature{display:block;object-fit:contain;width:100%;height:68px;margin:8px auto 0}
-.signature-placeholder{display:grid;place-items:center;width:100%;height:68px;margin:8px auto 0;border:1px dashed #a8b2bd;color:#64748b;font:11px ui-sans-serif,system-ui,sans-serif}
-.persetujuan{font:10px/1.5 ui-sans-serif,system-ui,sans-serif;color:#475569;margin-top:8px}
-.cap-slot{display:grid;place-items:center;min-height:68px;margin:8px auto 0}
+.ttd{display:flex;justify-content:space-between;align-items:flex-start;margin-top:36px;gap:24px}
+.ttd>div{flex:1;text-align:center;font-size:12px}
+.garis{border-top:1px solid #1c1a15;margin-top:14px;padding-top:4px;font-weight:600}
+.ttd-slot{display:grid;place-items:center;height:112px}
+.signature{display:block;object-fit:contain;max-width:100%;height:68px}
+.signature-placeholder{display:grid;place-items:center;width:100%;height:68px;border:1px dashed #a8b2bd;color:#64748b;font:11px ui-sans-serif,system-ui,sans-serif}
 .pindai-stamp{display:grid;justify-items:center;align-content:center;gap:1px;width:104px;height:104px;padding:8px;border:3px double #8b493d;border-radius:50%;color:#8b493d;text-align:center;font:9px/1.25 ui-sans-serif,system-ui,sans-serif;transform:rotate(-6deg)}
 .cap-brankas{width:30px;height:30px;margin-bottom:2px}
 .pindai-stamp strong{font-size:11px;letter-spacing:.1em}.pindai-stamp small{font-size:8px;letter-spacing:.06em;font-weight:700}

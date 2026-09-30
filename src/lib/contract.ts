@@ -98,27 +98,14 @@ function blokTandaTanganPeminjam(
   meta: ContractMeta,
 ): string {
   const bukti = meta.tandaTanganPeminjam;
-  const persetujuanVersiKini =
-    bukti?.persetujuanSyaratPada != null &&
-    bukti.persetujuanSyaratVersi === CONTRACT_TERMS_VERSION;
-  const waktuTandaTangan =
-    bukti?.tandaTanganPada != null
-      ? ` · gambar dicatat ${new Date(bukti.tandaTanganPada).toLocaleString("id-ID")}`
-      : "";
   const tampilanTandaTangan = bukti
     ? `<img class="signature" src="${escapeHtml(bukti.dataUrl)}" alt="Gambar tanda tangan yang dicatat aplikasi"/>`
     : `<div class="signature-placeholder">Belum ada gambar tanda tangan yang dicatat</div>`;
-  const statusPersetujuan = !bukti
-    ? "Belum ada gambar tanda tangan atau tindakan persetujuan aplikasi yang dicatat."
-    : persetujuanVersiKini
-      ? `Tindakan checkbox aplikasi dicatat ${new Date(bukti.persetujuanSyaratPada!).toLocaleString("id-ID")} · ${CONTRACT_TERMS_VERSION}${waktuTandaTangan}. Ini bukan verifikasi identitas, tanda tangan digital terverifikasi, atau konfirmasi kontrak mengikat.`
-      : `Gambar tanda tangan tercatat${waktuTandaTangan}. Catatan checkbox versi ${CONTRACT_TERMS_VERSION} tidak tersedia; gambar ini bukan verifikasi identitas, tanda tangan digital terverifikasi, atau konfirmasi kontrak mengikat.`;
 
   return `<div>
-    ${tampilanTandaTangan}
+    <div class="ttd-slot">${tampilanTandaTangan}</div>
     <p class="garis">${escapeHtml(nama)}</p>
     <p>${escapeHtml(peran)}</p>
-    <p class="persetujuan">${escapeHtml(statusPersetujuan)}</p>
   </div>`;
 }
 
@@ -133,18 +120,16 @@ const BRANKAS_SVG = `<svg class="cap-brankas" viewBox="0 0 48 48" role="img" ari
 
 /** Cap PINDAI dengan logo brankas pada bagian tanda tangan Platform. */
 function blokStempelPindai(): string {
-  return `<div class="cap-slot">
-    <div class="pindai-stamp" aria-label="Cap PINDAI dengan logo brankas">
+  return `<div class="pindai-stamp" aria-label="Cap PINDAI dengan logo brankas">
       ${BRANKAS_SVG}
       <strong>CAP PINDAI</strong>
       <small>PINJAM GADAI DIGITAL</small>
-    </div>
-  </div>`;
+    </div>`;
 }
 
 function blokPlatform(): string {
   return `<div>
-    ${blokStempelPindai()}
+    <div class="ttd-slot">${blokStempelPindai()}</div>
     <p class="garis">Pinjam Gadai Digital</p>
     <p>Nama aplikasi</p>
   </div>`;
