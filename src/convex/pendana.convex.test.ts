@@ -157,6 +157,9 @@ describe("alur Pendana — pinjaman tunai", () => {
       pendana.mutation(api.pendana.requestDeposit, {
         jumlah: 2_000_000,
         referensiTransfer: "TRF-ALUR-002",
+        metodePembayaran: "transfer",
+        tanggalTransfer: Date.now(),
+        buktiPembayaranId: await t.run((ctx) => ctx.storage.store(new Blob(["bukti"]))),
       }),
     ).rejects.toThrow("penyedia pembayaran belum dipilih atau terintegrasi");
     await expect(

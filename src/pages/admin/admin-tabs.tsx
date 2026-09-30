@@ -11,6 +11,7 @@ import {
   Map as MapIcon,
   MessageSquare,
   Package,
+  ReceiptText,
   Send,
   SlidersHorizontal,
   Settings2,
@@ -26,6 +27,7 @@ import { BackupPanel } from "@/components/admin/BackupPanel";
 import { LiveLocationMap } from "@/components/admin/LiveLocationMap";
 import { KreditQueuePanel } from "@/components/admin/KreditQueuePanel";
 import { LoginSecurityPanel } from "@/components/admin/LoginSecurityPanel";
+import { ManualEvidenceQueue } from "@/components/admin/ManualEvidenceQueue";
 import { DpdTab, LedgerTab, LelangTab, LoanAllocationQueueTab } from "@/components/admin/OperationsTabs";
 import { SystemConfigPanel } from "@/components/admin/SystemConfigPanel";
 import { PlafonPanel } from "@/components/admin/PlafonPanel";
@@ -86,6 +88,7 @@ export function AdminTabs({
     ["audit", "Audit Trail", null, Lock],
     ["loglogin", "Keamanan Login", null, ShieldCheck],
     ["setoran", "Saldo & setoran simulasi", `${pendingDeposits?.length ?? 0}`, Coins],
+    ["bukti", "Pencocokan bukti manual", null, ReceiptText],
     ["plafon", "Plafon Nasabah", null, SlidersHorizontal],
     ["pengumuman", "Pengumuman", null, MessageSquare],
     ["whatsapp", "WhatsApp", null, Send],
@@ -159,6 +162,10 @@ export function AdminTabs({
 
       <TabsContent value="setoran" className="min-w-0 flex-1">
         <SetoranSection pendingDeposits={pendingDeposits} pendingWd={pendingWd} ledger={ledger} />
+      </TabsContent>
+
+      <TabsContent value="bukti" className="min-w-0 flex-1">
+        <ManualEvidenceQueue />
       </TabsContent>
 
       <TabsContent value="pengumuman" className="min-w-0 flex-1">

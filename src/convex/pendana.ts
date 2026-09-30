@@ -237,27 +237,54 @@ export const becomePendana = mutation({
 // Setoran dana
 // =====================================================================
 
-/** Ajukan setoran dana (Pendana) — menunggu verifikasi admin. */
+/** URL unggahan bukti setoran; hanya akun Pendana yang dapat memintanya. */
+export const generateDepositUploadUrl = mutation({
+  args: {},
+  handler: async (ctx) => {
+    await requirePendana(ctx);
+    return await ctx.storage.generateUploadUrl();
+  },
+});
+
+/** Ajukan setoran dana (Pendana) — menunggu pencocokan manual, tanpa kredit saldo. */
 export const requestDeposit = mutation({
   args: {
     jumlah: v.number(),
     referensiTransfer: v.string(),
+    metodePembayaran: v.union(v.literal("qris"), v.literal("transfer")),
+    tanggalTransfer: v.number(),
+    buktiPembayaranId: v.id("_storage"),
   },
   handler: async (ctx, args) => {
     const { userId } = await requirePendana(ctx);
-    rejectUnverifiedMoneyMovement();
-
+    const config = await ctx.db
+      .query("systemConfig")
+      .withIndex("by_slot", (q) => q.eq("slot", "global"))
+      .first();
+    if (config?.manualDepositEnabled !== true) {
+      throw new Error("Penerimaan setoran Pendana belum diaktifkan tim operasional.");
+    }
+    validateRupiahAmount(args.jumlah, "Jumlah setoran");
     const ref = args.referensiTransfer.trim();
-    if (ref.length < 4) {
-      throw new Error(
-        "Nomor referensi transfer wajib diisi (minimal 4 karakter).",
-      );
+    if (ref.length < 4 || ref.length > 120) {
+      throw new Error("Nomor referensi/berita transfer wajib diisi (4–120 karakter).");
+    }
+    if (!Number.isSafeInteger(args.tanggalTransfer) || args.tanggalTransfer > Date.now() + 5 * 60_000) {
+      throw new Error("Tanggal transfer tidak valid.");
+    }
+    const metadata = await ctx.storage.getMetadata(args.buktiPembayaranId);
+    if (!metadata || metadata.size > 5_000_000 ||
+      !["image/jpeg", "image/png", "image/webp", "application/pdf"].includes(metadata.contentType ?? "")) {
+      throw new Error("Bukti harus berupa JPG, PNG, WebP, atau PDF maksimal 5 MB.");
     }
 
     await ctx.db.insert("deposits", {
       pendanaId: userId,
       jumlah: args.jumlah,
       referensiTransfer: ref,
+      metodePembayaran: args.metodePembayaran,
+      tanggalTransfer: args.tanggalTransfer,
+      buktiPembayaranId: args.buktiPembayaranId,
       status: "menunggu_verifikasi",
       nomorReferensi: referenceNumber("DEP"),
     });
@@ -281,7 +308,10 @@ export const myDeposits = query({
         jumlah: d.jumlah,
         referensiTransfer: d.referensiTransfer,
         status: d.status,
-        catatanAdmin: d.catatanAdmin,
+        statusPencocokan: d.statusPencocokan ?? null,
+        metodePembayaran: d.metodePembayaran ?? null,
+        tanggalTransfer: d.tanggalTransfer ?? null,
+        catatanAdmin: d.catatanAdmin ?? null,
         nomorReferensi: d.nomorReferensi,
       }));
   },

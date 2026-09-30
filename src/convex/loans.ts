@@ -128,6 +128,122 @@ export const generateKycUploadUrl = mutation({
   },
 });
 
+/** URL unggah bukti pembayaran manual untuk Peminjam yang masuk. */
+export const generatePaymentReceiptUploadUrl = mutation({
+  args: {},
+  returns: v.string(),
+  handler: async (ctx) => {
+    await requirePeminjam(ctx);
+    return await ctx.storage.generateUploadUrl();
+  },
+});
+
+/** Simpan bukti pembayaran sebagai antrean rekonsiliasi; tidak menyentuh ledger. */
+export const submitManualPaymentReceipt = mutation({
+  args: {
+    jenis: v.union(v.literal("pinjaman"), v.literal("kredit_barang"), v.literal("gadai")),
+    loanId: v.optional(v.id("loans")),
+    kreditId: v.optional(v.id("kreditBarang")),
+    pawnId: v.optional(v.id("pawns")),
+    jumlah: v.number(),
+    metodePembayaran: v.union(v.literal("qris"), v.literal("transfer")),
+    tanggalTransfer: v.number(),
+    referensiTransfer: v.string(),
+    buktiPembayaranId: v.id("_storage"),
+  },
+  returns: v.object({ nomorReferensi: v.string() }),
+  handler: async (ctx, args) => {
+    const { userId } = await requirePeminjam(ctx);
+    if (!Number.isSafeInteger(args.jumlah) || args.jumlah <= 0 || args.jumlah > MAX_POKOK) {
+      throw new Error("Jumlah pembayaran harus rupiah bulat positif dan tidak melebihi batas sistem.");
+    }
+    if (!Number.isSafeInteger(args.tanggalTransfer) || args.tanggalTransfer > Date.now() + 5 * 60_000) {
+      throw new Error("Tanggal transfer tidak valid.");
+    }
+    const reference = args.referensiTransfer.trim();
+    if (reference.length < 4 || reference.length > 120) {
+      throw new Error("Referensi pembayaran wajib 4–120 karakter.");
+    }
+    const targets = [args.loanId, args.kreditId, args.pawnId].filter((target) => target !== undefined);
+    if (targets.length !== 1 ||
+      (args.jenis === "pinjaman" && (!args.loanId || args.kreditId || args.pawnId)) ||
+      (args.jenis === "kredit_barang" && (!args.kreditId || args.loanId || args.pawnId)) ||
+      (args.jenis === "gadai" && (!args.pawnId || args.loanId || args.kreditId))) {
+      throw new Error("Pilih tepat satu catatan pembayaran dengan jenis yang sesuai.");
+    }
+    if (args.jenis === "pinjaman") {
+      const loan = args.loanId ? await ctx.db.get(args.loanId) : null;
+      if (!loan || loan.userId !== userId || loan.status !== "didanai") throw new Error("Pinjaman aktif milik Anda tidak ditemukan.");
+    } else if (args.jenis === "kredit_barang") {
+      const kredit = args.kreditId ? await ctx.db.get(args.kreditId) : null;
+      if (!kredit || kredit.userId !== userId || kredit.status !== "didanai") throw new Error("Kredit barang aktif milik Anda tidak ditemukan.");
+    } else {
+      const pawn = args.pawnId ? await ctx.db.get(args.pawnId) : null;
+      if (!pawn || pawn.userId !== userId || pawn.status !== "aktif" || (pawn.sisaPokok ?? 0) <= 0) throw new Error("Gadai aktif milik Anda tidak ditemukan.");
+    }
+    const metadata = await ctx.storage.getMetadata(args.buktiPembayaranId);
+    if (!metadata || metadata.size > 5_000_000 ||
+      !["image/jpeg", "image/png", "image/webp", "application/pdf"].includes(metadata.contentType ?? "")) {
+      throw new Error("Bukti harus berupa JPG, PNG, WebP, atau PDF maksimal 5 MB.");
+    }
+    const nomorReferensi = referenceNumber(Date.now());
+    await ctx.db.insert("manualPaymentReceipts", {
+      userId,
+      jenis: args.jenis,
+      loanId: args.loanId,
+      kreditId: args.kreditId,
+      pawnId: args.pawnId,
+      jumlah: args.jumlah,
+      metodePembayaran: args.metodePembayaran,
+      tanggalTransfer: args.tanggalTransfer,
+      referensiTransfer: reference,
+      buktiPembayaranId: args.buktiPembayaranId,
+      status: "menunggu_pencocokan",
+      nomorReferensi,
+    });
+    return { nomorReferensi };
+  },
+});
+
+/** Riwayat bukti unggahan milik sendiri; statusnya tidak menyelesaikan pembayaran. */
+export const myManualPaymentReceipts = query({
+  args: {},
+  handler: async (ctx) => {
+    const { userId } = await requirePeminjam(ctx);
+    const rows = await ctx.db.query("manualPaymentReceipts")
+      .withIndex("by_user", (q) => q.eq("userId", userId)).collect();
+    return rows.sort((a, b) => b._creationTime - a._creationTime).map((row) => ({
+      _id: row._id,
+      nomorReferensi: row.nomorReferensi,
+      jenis: row.jenis,
+      jumlah: row.jumlah,
+      metodePembayaran: row.metodePembayaran,
+      loanId: row.loanId ?? null,
+      kreditId: row.kreditId ?? null,
+      pawnId: row.pawnId ?? null,
+      status: row.status,
+      catatanAdmin: row.catatanAdmin ?? null,
+      referensiMutasi: row.referensiMutasi ?? null,
+      dibuatPada: row._creationTime,
+    }));
+  },
+});
+
+/** API status review bukti untuk pencocokan admin, tanpa informasi sensitif. */
+export const statusManualPaymentReceipts = query({
+  args: {},
+  handler: async (ctx) => {
+    const { userId } = await requirePeminjam(ctx);
+    const rows = await ctx.db.query("manualPaymentReceipts")
+      .withIndex("by_user", (q) => q.eq("userId", userId)).collect();
+    return rows.sort((a, b) => b._creationTime - a._creationTime).map((row) => ({
+      _id: row._id,
+      status: row.status,
+      catatanAdmin: row.catatanAdmin ?? null,
+    }));
+  },
+});
+
 export const createLoanApplication = mutation({
   args: {
     pokokPinjaman: v.number(),
@@ -321,6 +437,7 @@ export const createLoanApplication = mutation({
 const pelunasanInfo = pelunasanPinjaman;
 
 /** Daftar pinjaman milik Peminjam — hanya miliknya. */
+
 export const listMyLoans = query({
   args: {},
   handler: async (ctx) => {

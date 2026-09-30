@@ -1,5 +1,5 @@
 import { useMutation, useQuery } from "convex/react";
-import { Loader2, MapPin, Settings2 } from "lucide-react";
+import { Loader2, MapPin, QrCode, Settings2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -18,8 +18,10 @@ import {
 export function SystemConfigPanel() {
   const data = useQuery(api.system.getConfigAdmin);
   const save = useMutation(api.system.saveConfig);
+  const generateUploadUrl = useMutation(api.system.generatePaymentAssetUploadUrl);
   const [form, setForm] = useState<typeof DEFAULT_CONFIG | null>(null);
   const [busy, setBusy] = useState(false);
+  const [uploadingQr, setUploadingQr] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   if (data === undefined) {
@@ -168,6 +170,53 @@ export function SystemConfigPanel() {
           </div>
           <Switch aria-labelledby="cfg-kill-switch-label" aria-label="Kill Switch" checked={form.killSwitch} onCheckedChange={(v) => upd("killSwitch", v)} />
         </div>
+        <section className="space-y-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+          <p className="flex items-center gap-2 text-sm font-semibold"><QrCode className="size-4 text-primary" /> Instruksi penerima &amp; QRIS</p>
+          <p className="text-xs leading-5 text-muted-foreground">Instruksi hanya untuk pengiriman bukti. Bukti dan pencocokan manual tidak mengubah saldo, tagihan, atau status transaksi.</p>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div><Label htmlFor="cfg-payee">Nama pemilik rekening</Label><Input id="cfg-payee" value={form.rekeningUsahaNama} onChange={(e) => upd("rekeningUsahaNama", e.target.value)} /></div>
+            <div><Label htmlFor="cfg-bank">Bank</Label><Input id="cfg-bank" value={form.rekeningUsahaBank} onChange={(e) => upd("rekeningUsahaBank", e.target.value)} /></div>
+            <div><Label htmlFor="cfg-account">Nomor rekening</Label><Input id="cfg-account" inputMode="numeric" value={form.rekeningUsahaNomor} onChange={(e) => upd("rekeningUsahaNomor", e.target.value.replace(/\\D/g, ""))} /></div>
+            <div><Label htmlFor="cfg-qris-merchant">Nama merchant QRIS</Label><Input id="cfg-qris-merchant" value={form.qrisMerchantNama} onChange={(e) => upd("qrisMerchantNama", e.target.value)} /></div>
+          </div>
+          {data.qrisUrl && <img src={data.qrisUrl} alt="QRIS yang diunggah admin" className="max-h-56 rounded-xl border border-slate-200 bg-white object-contain p-2" />}
+          <div className="flex flex-wrap items-center gap-3">
+            <Label htmlFor="cfg-qris-file" className="sr-only">Unggah gambar QRIS</Label>
+            <Input id="cfg-qris-file" type="file" accept="image/png,image/jpeg,image/webp" disabled={uploadingQr} onChange={async (event) => {
+              const file = event.target.files?.[0];
+              if (!file) return;
+              if (!["image/jpeg", "image/png", "image/webp"].includes(file.type) || file.size > 5_000_000) {
+                setError("QRIS harus berupa gambar maksimal 5 MB.");
+                event.target.value = "";
+                return;
+              }
+              setUploadingQr(true);
+              setError(null);
+              try {
+                const url = await generateUploadUrl();
+                const response = await fetch(url, { method: "POST", headers: { "Content-Type": file.type }, body: file });
+                const result = (await response.json()) as { storageId?: typeof form.qrisImageId };
+                if (!response.ok || !result.storageId) throw new Error("Gambar QRIS gagal diunggah.");
+                upd("qrisImageId", result.storageId);
+                toast.success("QRIS terunggah; simpan konfigurasi untuk menerbitkannya.");
+              } catch (err) {
+                setError(err instanceof Error ? err.message : "Gagal mengunggah QRIS.");
+              } finally {
+                setUploadingQr(false);
+                event.target.value = "";
+              }
+            }} />
+            {uploadingQr && <Loader2 className="size-4 animate-spin" />}
+            {form.qrisImageId && <Button type="button" variant="outline" size="sm" onClick={() => upd("qrisImageId", null)}>Hapus QRIS</Button>}
+          </div>
+          <div className="flex items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-3">
+            <div id="cfg-deposit-gate-label">
+              <p className="text-sm font-medium">Izinkan Pendana mengirim bukti setoran</p>
+              <p className="mt-0.5 text-xs leading-5 text-amber-900">Hanya membuka unggah bukti ke antrean manual. Saldo tidak dikreditkan.</p>
+            </div>
+            <Switch aria-labelledby="cfg-deposit-gate-label" aria-label="Izinkan pengiriman bukti setoran Pendana" checked={form.manualDepositEnabled} onCheckedChange={(v) => upd("manualDepositEnabled", v)} />
+          </div>
+        </section>
         {error && (
           <p
             role="alert"
@@ -177,7 +226,7 @@ export function SystemConfigPanel() {
           </p>
         )}
         <Button
-          disabled={busy}
+          disabled={busy || uploadingQr}
           onClick={async () => {
             setBusy(true);
             setError(null);

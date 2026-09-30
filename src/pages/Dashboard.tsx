@@ -9,6 +9,7 @@ import { toast } from "sonner";
 
 import { ErrorPage } from "@/components/ErrorPage";
 import { LocationGate } from "@/components/LocationGate";
+import { ManualPaymentEvidenceHistory } from "@/components/ManualPaymentEvidenceForm";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { api } from "@/convex/_generated/api";
@@ -321,12 +322,15 @@ export default function Dashboard() {
 
                 {/* ============ TAB 7: RIWAYAT ============ */}
                 <TabsContent value="riwayat" className="mt-8">
-                  <HistorySection
-                    loans={loans ?? []}
-                    pawns={pawns ?? []}
-                    onOpenLoan={setLoanDetailId}
-                    onOpenPawn={setPawnDetailId}
-                  />
+                  <div className="space-y-6">
+                    <HistorySection
+                      loans={loans ?? []}
+                      pawns={pawns ?? []}
+                      onOpenLoan={setLoanDetailId}
+                      onOpenPawn={setPawnDetailId}
+                    />
+                    <ManualPaymentEvidenceHistory />
+                  </div>
                 </TabsContent>
               </>
             )}

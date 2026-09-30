@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 
+import { ManualPaymentEvidenceForm } from "@/components/ManualPaymentEvidenceForm";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
@@ -132,6 +133,12 @@ function GadaiProjectionCard({
           ))}
         </div>
       </div>
+      <ManualPaymentEvidenceForm
+        jenis="gadai"
+        targetId={pawn._id}
+        reference={pawn.nomorReferensi}
+        suggestedAmount={sewa + rencanaPokokPerPeriode}
+      />
     </article>
   );
 }

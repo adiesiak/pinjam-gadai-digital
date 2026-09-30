@@ -6,6 +6,7 @@ import { Separator } from "@/components/ui/separator";
 import { api } from "@/convex/_generated/api";
 import { formatRupiah } from "@/lib/money";
 
+import { DepositForm } from "./deposit-views";
 import { Loading } from "./feedback";
 
 /** Tab dompet pendana: transaksi dinonaktifkan, riwayat hanya-baca. */
@@ -16,17 +17,15 @@ export function WalletSection() {
 
   return (
     <div className="grid gap-8 xl:grid-cols-2">
-      <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
+      <section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-4 sm:p-6">
         <div className="flex items-center justify-between gap-3">
-          <h3 className="text-sm font-semibold">Setoran belum tersedia</h3>
+          <h3 className="text-sm font-semibold">Dompet Pendana</h3>
           <Badge className="border-0 bg-slate-100 text-slate-700 hover:bg-slate-100">
-            <Wallet className="mr-1 size-3" /> Ledger {formatRupiah(wallet?.saldo ?? 0)}
+            <Wallet className="mr-1 size-3" /> Saldo ledger {formatRupiah(wallet?.saldo ?? 0)}
           </Badge>
         </div>
-        <Separator className="my-4" />
-        <p className="text-xs leading-5 text-muted-foreground">
-          Belum ada izin atau penyedia pembayaran yang dipilih/diintegrasikan. Persetujuan admin maupun referensi manual bukan bukti dana masuk; saldo ini hanya catatan ledger internal, bukan dana tersedia.
-        </p>
+        <p className="text-xs leading-5 text-muted-foreground">Saldo di sini hanya catatan ledger internal, bukan dana tersedia. Pengiriman bukti atau pencocokan admin tidak menambah saldo.</p>
+        <DepositForm />
       </section>
 
       <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
@@ -78,7 +77,7 @@ export function WalletSection() {
                     {d.nomorReferensi} · referensi yang dicatat: {d.referensiTransfer}
                   </p>
                 </div>
-                <DepositBadge status={d.status} />
+                <DepositBadge status={d.status} statusPencocokan={d.statusPencocokan} />
               </li>
             ))}
           </ul>
@@ -104,11 +103,14 @@ export function WithdrawalBadge({ status }: { status: string }) {
   );
 }
 
-export function DepositBadge({ status }: { status: string }) {
+export function DepositBadge({ status, statusPencocokan }: { status: string; statusPencocokan?: string | null }) {
+  if (statusPencocokan === "dicocokkan") {
+    return <Badge className="border-0 bg-sky-100 text-sky-800 hover:bg-sky-100">Mutasi dicocokkan · saldo tidak berubah</Badge>;
+  }
   if (status === "terverifikasi") {
     return (
       <Badge className="border-0 bg-slate-100 text-slate-700 hover:bg-slate-100">
-        Ditandai admin (bukan verifikasi bank)
+        Status lama pada catatan (bukan bukti bank)
       </Badge>
     );
   }

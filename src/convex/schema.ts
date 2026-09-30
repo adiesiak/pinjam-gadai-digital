@@ -422,6 +422,14 @@ const schema = defineSchema(
       retensiLokasiHari: v.optional(v.number()),
       /** Plafon awal pinjaman tunai untuk semua Peminjam (rupiah bulat). */
       plafonPinjaman: v.optional(v.number()),
+      /** Informasi pembayaran manual yang ditampilkan ke pengguna masuk. */
+      rekeningUsahaNama: v.optional(v.string()),
+      rekeningUsahaBank: v.optional(v.string()),
+      rekeningUsahaNomor: v.optional(v.string()),
+      qrisMerchantNama: v.optional(v.string()),
+      qrisImageId: v.optional(v.union(v.id("_storage"), v.null())),
+      /** Gate off until downstream allocations, disbursements, and withdrawals are ready. */
+      manualDepositEnabled: v.optional(v.boolean()),
       /** Preset tema aman dari whitelist; tidak menerima CSS arbitrer. */
       tema: v.optional(v.union(v.literal("tinta"), v.literal("pesisir"), v.literal("terakota"))),
       /** Waktu terakhir konfigurasi diperbarui. */
@@ -634,10 +642,48 @@ const schema = defineSchema(
       ),
       /** Wajib diisi admin saat menolak. */
       catatanAdmin: v.optional(v.string()),
+      /** Bukti transaksi manual; submit tidak mengubah saldo ledger. */
+      metodePembayaran: v.optional(v.union(v.literal("qris"), v.literal("transfer"))),
+      tanggalTransfer: v.optional(v.number()),
+      buktiPembayaranId: v.optional(v.id("_storage")),
+      statusPencocokan: v.optional(v.union(v.literal("dicocokkan"), v.literal("ditolak"))),
+      referensiMutasi: v.optional(v.string()),
+      jumlahMutasi: v.optional(v.number()),
+      dicocokkanPada: v.optional(v.number()),
+      dicocokkanOleh: v.optional(v.id("users")),
       nomorReferensi: v.string(),
     })
       .index("by_pendana", ["pendanaId"])
       .index("by_status", ["status"]),
+
+    /**
+     * Bukti pembayaran manual peminjam; pencocokan tidak menulis jurnal,
+     * mencatat cicilan, atau mengubah status pinjaman menjadi lunas.
+     */
+    manualPaymentReceipts: defineTable({
+      userId: v.id("users"),
+      jenis: v.union(v.literal("pinjaman"), v.literal("kredit_barang"), v.literal("gadai")),
+      loanId: v.optional(v.id("loans")),
+      kreditId: v.optional(v.id("kreditBarang")),
+      pawnId: v.optional(v.id("pawns")),
+      jumlah: v.number(),
+      metodePembayaran: v.union(v.literal("qris"), v.literal("transfer")),
+      tanggalTransfer: v.number(),
+      referensiTransfer: v.string(),
+      buktiPembayaranId: v.id("_storage"),
+      status: v.union(v.literal("menunggu_pencocokan"), v.literal("dicocokkan"), v.literal("ditolak")),
+      referensiMutasi: v.optional(v.string()),
+      jumlahMutasi: v.optional(v.number()),
+      dicocokkanPada: v.optional(v.number()),
+      dicocokkanOleh: v.optional(v.id("users")),
+      catatanAdmin: v.optional(v.string()),
+      nomorReferensi: v.string(),
+    })
+      .index("by_user", ["userId"])
+      .index("by_status", ["status"])
+      .index("by_loan", ["loanId"])
+      .index("by_kredit", ["kreditId"])
+      .index("by_pawn", ["pawnId"]),
 
     /**
      * Alokasi dana Pendana ke satu pinjaman. Satu pinjaman bisa didanai

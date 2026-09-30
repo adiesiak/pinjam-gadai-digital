@@ -105,6 +105,9 @@ describe("manual review and unverified money movement", () => {
       asPendana.mutation(api.pendana.requestDeposit, {
         jumlah: 1_000_000,
         referensiTransfer: "MANUAL-REF-002",
+        metodePembayaran: "transfer",
+        tanggalTransfer: Date.now(),
+        buktiPembayaranId: await t.run((ctx) => ctx.storage.store(new Blob(["bukti"]))),
       }),
     ).rejects.toThrow(guardMessage);
     await expect(

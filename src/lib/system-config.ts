@@ -1,6 +1,7 @@
 /** Konfigurasi sistem PINDAI — tipe + default bersama (server & client). */
 import { LOKASI_RETENSI } from "./lokasi";
 import { PLAFON_DEFAULT } from "./plafon";
+import type { Id } from "../convex/_generated/dataModel";
 
 /**
  * Rentang retensi jejak lokasi yang boleh disimpan admin (hari). Batas bawah
@@ -43,6 +44,12 @@ export type SystemConfig = {
    * menaikkan plafon dasar Rp1 juta, maksimal Rp10 juta. Kredit barang punya batas terpisah.
    */
   plafonPinjaman: number;
+  rekeningUsahaNama: string;
+  rekeningUsahaBank: string;
+  rekeningUsahaNomor: string;
+  qrisMerchantNama: string;
+  qrisImageId: Id<"_storage"> | null;
+  manualDepositEnabled: boolean;
 };
 
 export const DEFAULT_CONFIG: SystemConfig = {
@@ -63,4 +70,10 @@ export const DEFAULT_CONFIG: SystemConfig = {
   wajibAplikasiNative: false,
   retensiLokasiHari: LOKASI_RETENSI.jejakHari,
   plafonPinjaman: PLAFON_DEFAULT,
+  rekeningUsahaNama: "Chatur Surya Carel Ramadhan",
+  rekeningUsahaBank: "BNI",
+  rekeningUsahaNomor: "1324167013",
+  qrisMerchantNama: "Toko koedoes",
+  qrisImageId: null,
+  manualDepositEnabled: false,
 };

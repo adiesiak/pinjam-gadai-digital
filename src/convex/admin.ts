@@ -563,10 +563,110 @@ export const adminLoanQuote = query({
 });
 
 // =====================================================================
-// Verifikasi setoran Pendana
+// Pencocokan manual pembayaran masuk (tidak mengubah ledger/status transaksi)
 // =====================================================================
 
-/** Antrean setoran Pendana yang menunggu verifikasi. */
+export const pendingManualPaymentReceipts = query({
+  args: {},
+  handler: async (ctx) => {
+    await requireAdmin(ctx);
+    const rows = await ctx.db.query("manualPaymentReceipts").collect();
+    const pending = rows.filter((row) => row.status === "menunggu_pencocokan")
+      .sort((a, b) => b._creationTime - a._creationTime);
+    const result = [];
+    for (const row of pending) {
+      const user = await ctx.db.get(row.userId);
+      const buktiUrl = await ctx.storage.getUrl(row.buktiPembayaranId);
+      const metadata = await ctx.storage.getMetadata(row.buktiPembayaranId);
+      result.push({ ...row, emailPemohon: user?.email ?? null, buktiUrl, fileContentType: metadata?.contentType ?? null });
+    }
+    return result;
+  },
+});
+
+export const matchManualPaymentReceipt = mutation({
+  args: {
+    receiptId: v.id("manualPaymentReceipts"),
+    referensiMutasi: v.string(),
+    jumlahMutasi: v.number(),
+  },
+  handler: async (ctx, args) => {
+    const { userId, user: admin } = await requireAdmin(ctx);
+    const receipt = await ctx.db.get(args.receiptId);
+    if (!receipt || receipt.status !== "menunggu_pencocokan") {
+      throw new Error("Bukti pembayaran tidak ada di antrean pencocokan.");
+    }
+    const reference = args.referensiMutasi.trim();
+    if (reference.length < 4 || reference.length > 120) {
+      throw new Error("Referensi mutasi wajib 4–120 karakter.");
+    }
+    if (!Number.isSafeInteger(args.jumlahMutasi) || args.jumlahMutasi !== receipt.jumlah) {
+      throw new Error("Nominal mutasi wajib sama persis dengan nominal bukti.");
+    }
+    await ctx.db.patch(receipt._id, {
+      status: "dicocokkan",
+      referensiMutasi: reference,
+      jumlahMutasi: args.jumlahMutasi,
+      dicocokkanPada: Date.now(),
+      dicocokkanOleh: userId,
+      catatanAdmin: "Mutasi dicocokkan. Status cicilan/ledger tidak berubah; pencocokan bukan settlement terintegrasi.",
+    });
+    await audit(ctx, userId, admin.email ?? admin.name ?? "admin", "pembayaran_manual_dicocokkan", receipt.nomorReferensi, `${receipt.jenis} · ${reference} · ${args.jumlahMutasi}; pencocokan metadata saja, bukan settlement.`);
+    return { ok: true };
+  },
+});
+
+export const rejectManualPaymentReceipt = mutation({
+  args: { receiptId: v.id("manualPaymentReceipts"), reason: v.string() },
+  handler: async (ctx, args) => {
+    const { userId, user: admin } = await requireAdmin(ctx);
+    const receipt = await ctx.db.get(args.receiptId);
+    if (!receipt || receipt.status !== "menunggu_pencocokan") {
+      throw new Error("Bukti pembayaran tidak ada di antrean pencocokan.");
+    }
+    const reason = args.reason.trim();
+    if (!reason) throw new Error("Alasan penolakan wajib diisi.");
+    await ctx.db.patch(receipt._id, {
+      status: "ditolak",
+      catatanAdmin: reason,
+      dicocokkanPada: Date.now(),
+      dicocokkanOleh: userId,
+    });
+    await audit(ctx, userId, admin.email ?? admin.name ?? "admin", "bukti_pembayaran_manual_ditolak", receipt.nomorReferensi, reason);
+    return { ok: true };
+  },
+});
+
+/** Antrean bukti setoran Pendana untuk pencocokan metadata saja. */
+export const pendingDepositEvidence = query({
+  args: {},
+  handler: async (ctx) => {
+    await requireAdmin(ctx);
+    const rows = await ctx.db
+      .query("deposits")
+      .withIndex("by_status", (q) => q.eq("status", "menunggu_verifikasi"))
+      .collect();
+    const result = [];
+    for (const deposit of rows.filter((row) => row.buktiPembayaranId && row.statusPencocokan === undefined).sort((a, b) => b._creationTime - a._creationTime)) {
+      const pendana = await ctx.db.get(deposit.pendanaId);
+      const metadata = await ctx.storage.getMetadata(deposit.buktiPembayaranId!);
+      result.push({
+        _id: deposit._id,
+        nomorReferensi: deposit.nomorReferensi,
+        jumlah: deposit.jumlah,
+        referensiTransfer: deposit.referensiTransfer,
+        metodePembayaran: deposit.metodePembayaran ?? null,
+        tanggalTransfer: deposit.tanggalTransfer ?? null,
+        buktiUrl: await ctx.storage.getUrl(deposit.buktiPembayaranId!),
+        fileContentType: metadata?.contentType ?? null,
+        emailPendana: pendana?.email ?? null,
+      });
+    }
+    return result;
+  },
+});
+
+/** Antrean setoran Pendana lama tanpa bukti unggahan. */
 export const pendingDeposits = query({
   args: {},
   handler: async (ctx) => {
@@ -576,7 +676,7 @@ export const pendingDeposits = query({
       .withIndex("by_status", (q) => q.eq("status", "menunggu_verifikasi"))
       .collect();
     const result = [];
-    for (const d of rows.sort((a, b) => b._creationTime - a._creationTime)) {
+    for (const d of rows.filter((row) => !row.buktiPembayaranId).sort((a, b) => b._creationTime - a._creationTime)) {
       const pendana = await ctx.db.get(d.pendanaId);
       result.push({
         _id: d._id,
@@ -584,6 +684,12 @@ export const pendingDeposits = query({
         nomorReferensi: d.nomorReferensi,
         jumlah: d.jumlah,
         referensiTransfer: d.referensiTransfer,
+        metodePembayaran: d.metodePembayaran ?? null,
+        tanggalTransfer: d.tanggalTransfer ?? null,
+        statusPencocokan: d.statusPencocokan ?? null,
+        referensiMutasi: d.referensiMutasi ?? null,
+        jumlahMutasi: d.jumlahMutasi ?? null,
+        buktiUrl: d.buktiPembayaranId ? await ctx.storage.getUrl(d.buktiPembayaranId) : null,
         emailPendana: pendana?.email ?? null,
       });
     }
@@ -657,9 +763,38 @@ export const rejectWithdrawal = mutation({
 });
 
 /**
- * Konfirmasi setoran — menulis jurnal deposit seimbang ke ledger:
- * debit kas platform, kredit dompet Pendana.
+ * Kompatibilitas API lama: sekarang hanya mencocokkan bukti, saldo tetap tidak berubah.
  */
+export const matchDepositEvidence = mutation({
+  args: {
+    depositId: v.id("deposits"),
+    referensiMutasi: v.string(),
+    jumlahMutasi: v.number(),
+  },
+  handler: async (ctx, args) => {
+    const { userId, user: admin } = await requireAdmin(ctx);
+    const deposit = await ctx.db.get(args.depositId);
+    if (!deposit || deposit.status !== "menunggu_verifikasi" || deposit.statusPencocokan !== undefined) {
+      throw new Error("Setoran tidak ada di antrean pencocokan.");
+    }
+    if (!deposit.buktiPembayaranId) throw new Error("Setoran ini tidak memiliki bukti unggahan untuk dicocokkan.");
+    const reference = args.referensiMutasi.trim();
+    if (reference.length < 4 || reference.length > 120) throw new Error("Referensi mutasi wajib 4–120 karakter.");
+    if (!Number.isSafeInteger(args.jumlahMutasi) || args.jumlahMutasi !== deposit.jumlah) {
+      throw new Error("Nominal mutasi wajib sama persis dengan nominal setoran.");
+    }
+    await ctx.db.patch(deposit._id, {
+      statusPencocokan: "dicocokkan",
+      referensiMutasi: reference,
+      jumlahMutasi: args.jumlahMutasi,
+      dicocokkanPada: Date.now(),
+      dicocokkanOleh: userId,
+    });
+    await audit(ctx, userId, admin.email ?? admin.name ?? "admin", "setoran_pendana_dicocokkan", deposit.nomorReferensi, `${reference} · ${args.jumlahMutasi}; pencocokan metadata saja, saldo tidak berubah dan bukan settlement.`);
+  },
+});
+
+/** Alias lama tetap tertutup: konfirmasi tidak boleh mengkreditkan saldo. */
 export const confirmDeposit = mutation({
   args: { depositId: v.id("deposits") },
   handler: async (ctx) => {
@@ -672,10 +807,10 @@ export const confirmDeposit = mutation({
 export const rejectDeposit = mutation({
   args: { depositId: v.id("deposits"), reason: v.string() },
   handler: async (ctx, args) => {
-    await requireAdmin(ctx);
+    const { userId: adminId } = await requireAdmin(ctx);
     const deposit = await ctx.db.get(args.depositId);
     if (deposit === null) throw new Error("Setoran tidak ditemukan.");
-    if (deposit.status !== "menunggu_verifikasi") {
+    if (deposit.status !== "menunggu_verifikasi" || deposit.statusPencocokan !== undefined) {
       throw new Error("Setoran ini sudah diputuskan.");
     }
     if (!args.reason.trim()) {
@@ -683,8 +818,12 @@ export const rejectDeposit = mutation({
     }
     await ctx.db.patch(args.depositId, {
       status: "ditolak",
+      statusPencocokan: "ditolak",
       catatanAdmin: args.reason.trim(),
+      dicocokkanPada: Date.now(),
+      dicocokkanOleh: adminId,
     });
+    await audit(ctx, adminId, "setoran_pendana_ditolak", deposit.nomorReferensi, args.reason.trim());
   },
 });
 

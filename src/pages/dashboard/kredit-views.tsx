@@ -3,6 +3,7 @@ import { Link2, Loader2, PackageCheck, Send, ShoppingBag, TrendingUp } from "luc
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
+import { ManualPaymentEvidenceForm } from "@/components/ManualPaymentEvidenceForm";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -676,6 +677,14 @@ export function KreditBillingSection() {
                   ? "Status lunas adalah catatan ledger internal, bukan bukti pembayaran."
                   : "Pembayaran cicilan belum tersedia karena belum ada penyedia pembayaran terintegrasi atau settlement terverifikasi."}
               </p>
+              {k.status === "didanai" && (
+                <ManualPaymentEvidenceForm
+                  jenis="kredit_barang"
+                  targetId={k._id}
+                  reference={k.nomorReferensi}
+                  suggestedAmount={k.kewajibanSisa}
+                />
+              )}
             </article>
           );
         })}

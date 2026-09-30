@@ -70,8 +70,41 @@ export async function getConfig(ctx: QueryCtx): Promise<SystemConfig> {
     wajibAplikasiNative: row.wajibAplikasiNative ?? DEFAULT_CONFIG.wajibAplikasiNative,
     retensiLokasiHari: row.retensiLokasiHari ?? DEFAULT_CONFIG.retensiLokasiHari,
     plafonPinjaman: row.plafonPinjaman ?? DEFAULT_CONFIG.plafonPinjaman,
+    rekeningUsahaNama: row.rekeningUsahaNama ?? DEFAULT_CONFIG.rekeningUsahaNama,
+    rekeningUsahaBank: row.rekeningUsahaBank ?? DEFAULT_CONFIG.rekeningUsahaBank,
+    rekeningUsahaNomor: row.rekeningUsahaNomor ?? DEFAULT_CONFIG.rekeningUsahaNomor,
+    qrisMerchantNama: row.qrisMerchantNama ?? DEFAULT_CONFIG.qrisMerchantNama,
+    qrisImageId: row.qrisImageId ?? null,
+    manualDepositEnabled: row.manualDepositEnabled ?? DEFAULT_CONFIG.manualDepositEnabled,
   };
 }
+
+/** Instruksi penerimaan manual untuk pengguna terautentikasi; tidak menyertakan rahasia. */
+export const getPaymentInstructions = query({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await getAuthUserId(ctx);
+    if (userId === null) throw new Error("Harus masuk terlebih dahulu.");
+    const row = await ctx.db
+      .query("systemConfig")
+      .withIndex("by_slot", (q) => q.eq("slot", SYSTEM_SLOT))
+      .first();
+    const namaRekening = row?.rekeningUsahaNama ?? DEFAULT_CONFIG.rekeningUsahaNama;
+    const namaBank = row?.rekeningUsahaBank ?? DEFAULT_CONFIG.rekeningUsahaBank;
+    const nomorRekening = row?.rekeningUsahaNomor ?? DEFAULT_CONFIG.rekeningUsahaNomor;
+    const qrisUrl = row?.qrisImageId ? await ctx.storage.getUrl(row.qrisImageId) : null;
+    const pendanaDepositEnabled = row?.manualDepositEnabled === true;
+    return {
+      namaRekening,
+      namaBank,
+      nomorRekening,
+      namaMerchantQris: row?.qrisMerchantNama ?? DEFAULT_CONFIG.qrisMerchantNama,
+      qrisUrl,
+      tersedia: Boolean(namaRekening && namaBank && nomorRekening),
+      pendanaDepositEnabled,
+    };
+  },
+});
 
 /** Preset tema publik saja; tidak mengekspos konfigurasi operasional. */
 export const getThemePublic = query({
@@ -105,6 +138,7 @@ export const getConfigAdmin = query({
     const cfg = await getConfig(ctx);
     return {
       config: cfg,
+      qrisUrl: cfg.qrisImageId ? await ctx.storage.getUrl(cfg.qrisImageId) : null,
       auditTerbaru: await ctx.db.query("auditLog").withIndex("by_waktu").order("desc").take(10),
       diperbaruiOleh: user.email ?? user.name ?? "admin",
       _me: userId,
@@ -132,6 +166,12 @@ export const saveConfig = mutation({
     wajibAplikasiNative: v.boolean(),
     retensiLokasiHari: v.number(),
     plafonPinjaman: v.number(),
+    rekeningUsahaNama: v.optional(v.string()),
+    rekeningUsahaBank: v.optional(v.string()),
+    rekeningUsahaNomor: v.optional(v.string()),
+    qrisMerchantNama: v.optional(v.string()),
+    qrisImageId: v.optional(v.union(v.id("_storage"), v.null())),
+    manualDepositEnabled: v.boolean(),
   },
   handler: async (ctx, args) => {
     const { userId, user } = await requireAdmin(ctx);
@@ -155,6 +195,15 @@ export const saveConfig = mutation({
     }
     // Plafon global: disimpan ter-clamp (bukan ditolak) supaya tetap sah.
     args.plafonPinjaman = clampPlafon(args.plafonPinjaman);
+    const nomorUsaha = (args.rekeningUsahaNomor ?? "").trim();
+    const digitsOnly = Array.from(nomorUsaha).every((character) => character >= "0" && character <= "9");
+    if (nomorUsaha !== "" && (nomorUsaha.length < 6 || nomorUsaha.length > 20 || !digitsOnly)) {
+      throw new Error("Nomor rekening usaha harus 6–20 digit angka.");
+    }
+    args.rekeningUsahaNama = args.rekeningUsahaNama?.trim() ?? "";
+    args.rekeningUsahaBank = args.rekeningUsahaBank?.trim() ?? "";
+    args.rekeningUsahaNomor = nomorUsaha;
+    args.qrisMerchantNama = args.qrisMerchantNama?.trim() ?? "";
     const label = user.email ?? user.name ?? "admin";
     const prev = await getConfig(ctx);
     const existing = await ctx.db
@@ -178,6 +227,15 @@ export const saveConfig = mutation({
         : "Konfigurasi sistem diperbarui",
     );
     return { ok: true };
+  },
+});
+
+/** URL unggahan gambar QRIS; hanya admin aktif yang dapat memintanya. */
+export const generatePaymentAssetUploadUrl = mutation({
+  args: {},
+  handler: async (ctx) => {
+    await requireAdmin(ctx);
+    return await ctx.storage.generateUploadUrl();
   },
 });
 

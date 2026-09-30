@@ -1,6 +1,7 @@
 import { AlertTriangle, ArrowRight, CalendarClock, Send, Wallet } from "lucide-react";
 
 import { StatusBadge } from "@/components/StatusBadge";
+import { ManualPaymentEvidenceForm } from "@/components/ManualPaymentEvidenceForm";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -225,6 +226,13 @@ function ActiveLoanCard({
           )}
         </div>
       )}
+
+      <ManualPaymentEvidenceForm
+        jenis="pinjaman"
+        targetId={loan._id}
+        reference={loan.nomorReferensi}
+        suggestedAmount={loan.pelunasan?.totalKewajibanDenganPenalti ?? loan.totalKewajiban}
+      />
 
       <div className="mt-5 flex flex-wrap gap-2">
         <Button asChild variant="outline">
