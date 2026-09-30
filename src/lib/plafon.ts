@@ -140,6 +140,6 @@ export function pokokDalamPlafon(pokok: Rupiah, plafon: Rupiah): boolean {
 export function pesanPlafonTerlampaui(plafon: Rupiah): string {
   return (
     `Batas pinjaman Anda saat ini ${formatRupiah(plafon)}. ` +
-    "Ajukan nominal yang sesuai atau hubungi tim PINDAI bila membutuhkan penyesuaian plafon."
+    "Kurangi jumlah pinjaman atau hubungi tim PINDAI jika ingin menanyakan perubahan batas."
   );
 }

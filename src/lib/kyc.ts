@@ -13,7 +13,7 @@ export const KYC_FILES = [
   { key: "selfie", label: "Selfie dengan KTP", accept: "image/*", max: MAX_FILE_BYTES },
   {
     key: "slip",
-    label: "Slip gaji / bukti penghasilan",
+    label: "Bukti penghasilan (contoh: slip gaji)",
     accept: "image/*",
     max: MAX_FILE_BYTES,
   },
@@ -29,17 +29,17 @@ export function validateKycInput(input: {
   sumberPenghasilan: string;
 }): string | null {
   if (!/^\d{16}$/.test(input.nik.replace(/\s+/g, ""))) {
-    return "NIK harus 16 digit angka sesuai KTP.";
+    return "Nomor KTP harus terdiri dari 16 angka.";
   }
   const wa = input.nomorWhatsApp.replace(/[\s-]/g, "");
   if (!/^62\d{8,13}$/.test(wa)) {
-    return "Nomor WhatsApp format internasional tanpa +, diawali 62 (mis. 6281234567890).";
+    return "Masukkan nomor WhatsApp yang diawali 62, tanpa tanda +. Contoh: 6281234567890.";
   }
   if (!Number.isInteger(input.penghasilanBulanan) || input.penghasilanBulanan <= 0) {
-    return "Penghasilan bulanan harus angka rupiah bulat yang valid.";
+    return "Masukkan jumlah penghasilan per bulan dalam angka rupiah yang benar.";
   }
   if (input.sumberPenghasilan.trim().length < 3) {
-    return "Isi sumber penghasilan (mis. gaji, usaha).";
+    return "Ceritakan sumber penghasilan Anda (minimal 3 karakter), misalnya gaji atau usaha.";
   }
   return null;
 }

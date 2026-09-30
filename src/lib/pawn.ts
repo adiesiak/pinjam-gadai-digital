@@ -16,11 +16,11 @@ export type CollateralCategory = (typeof COLLATERAL_CATEGORIES)[number];
 
 /** Rasio Loan-to-Value awal per kategori — acuan reviewer saat menaksir. */
 export const LTV_HINTS: Record<CollateralCategory, string> = {
-  Elektronik: "hingga 70% dari nilai taksiran",
-  Kendaraan: "hingga 80% dari nilai taksiran",
-  Perhiasan: "hingga 75% dari nilai taksiran",
-  Properti: "hingga 50% dari nilai taksiran",
-  Lainnya: "hingga 60% dari nilai taksiran",
+  Elektronik: "hingga 70% dari perkiraan harga barang",
+  Kendaraan: "hingga 80% dari perkiraan harga barang",
+  Perhiasan: "hingga 75% dari perkiraan harga barang",
+  Properti: "hingga 50% dari perkiraan harga barang",
+  Lainnya: "hingga 60% dari perkiraan harga barang",
 };
 
 export const PAWN_STATUS_FLOW = [
