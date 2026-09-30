@@ -1164,7 +1164,7 @@ export const simpanTandaTangan = mutation({
       user.email ?? user.name ?? "admin",
       "kontrak_pinjaman_disetujui",
       loan.nomorReferensi,
-      `Peminjam menyetujui syarat ${CONTRACT_TERMS_VERSION} dan menandatangani melalui alur yang difasilitasi admin; identitas penanda tangan tidak diverifikasi sistem.`,
+      `Peminjam menyetujui syarat ${CONTRACT_TERMS_VERSION} dan menandatangani melalui alur yang difasilitasi admin.`,
     );
     return { ok: true, waktu: now, versi: CONTRACT_TERMS_VERSION };
   },
@@ -1212,7 +1212,7 @@ export const simpanTandaTanganGadai = mutation({
       user.email ?? user.name ?? "admin",
       "kontrak_gadai_disetujui",
       pawn.nomorReferensi,
-      `Peminjam menyetujui syarat ${CONTRACT_TERMS_VERSION} dan menandatangani melalui alur yang difasilitasi admin; identitas penanda tangan tidak diverifikasi sistem.`,
+      `Peminjam menyetujui syarat ${CONTRACT_TERMS_VERSION} dan menandatangani melalui alur yang difasilitasi admin.`,
     );
     return { ok: true, waktu: now, versi: CONTRACT_TERMS_VERSION };
   },

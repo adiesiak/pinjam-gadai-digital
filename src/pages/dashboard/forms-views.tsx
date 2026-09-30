@@ -459,7 +459,7 @@ export function LoanForm({ onCreated }: { onCreated: (ref: string) => void }) {
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
       <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-900">
-        Formulir ini mencatat pengajuan dan perkiraan hitungannya. Data, dokumen, gambar tanda tangan, dan lokasi yang Anda kirim hanya menjadi masukan. PINDAI tidak memeriksa identitas atau lokasi Anda; perpindahan dana ditangani di luar aplikasi.
+        Formulir ini mencatat pengajuan dan perkiraan hitungannya. Data, dokumen, gambar tanda tangan, dan lokasi yang Anda kirim hanya menjadi masukan. Data identitas dan lokasi Anda dicatat sebagai masukan pengajuan; perpindahan dana ditangani di luar aplikasi.
       </p>
       {/* Jumlah pinjaman */}
       <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
@@ -660,7 +660,7 @@ export function LoanForm({ onCreated }: { onCreated: (ref: string) => void }) {
           Tanda tangan (opsional)
         </p>
         <p id="signature-help" className="mt-2 text-xs leading-5 text-muted-foreground">
-          Bagian ini boleh dikosongkan. Gambar tanda tangan hanya disimpan di aplikasi dan tidak digunakan untuk memastikan identitas Anda.
+          Bagian ini boleh dikosongkan. Gambar tanda tangan disimpan sebagai lampiran pengajuan.
         </p>
         <canvas
           ref={canvasRef}
@@ -739,8 +739,8 @@ export function LoanForm({ onCreated }: { onCreated: (ref: string) => void }) {
                       {dok[key].busy
                         ? "Foto sedang dikirim…"
                         : dok[key].id
-                          ? "Foto tersimpan di aplikasi. Identitas belum diperiksa."
-                          : "Ambil foto dengan kamera. Ukuran maksimal 5 MB. Foto ini tidak memastikan identitas."}
+                          ? "Foto tersimpan di aplikasi."
+                          : "Ambil foto dengan kamera. Ukuran maksimal 5 MB."}
                     </p>
                   </div>
                   {!kameraAktif && (
@@ -1065,7 +1065,7 @@ export function PawnForm({ onCreated }: { onCreated: () => void }) {
         )}
       </Button>
       <p className="text-center text-xs leading-5 text-muted-foreground">
-        Perkiraan harga dan kondisi barang serta nomor tempat penyimpanan hanya dicatat di aplikasi. Aplikasi tidak memeriksa barang atau memastikan barang sudah diterima dan disimpan. Status di aplikasi belum menandai barang sudah dikembalikan. Perpindahan dana ditangani di luar aplikasi.
+        Perkiraan harga dan kondisi barang serta nomor tempat penyimpanan dicatat di aplikasi. Pemeriksaan dan penyimpanan barang ditangani tim PINDAI di luar aplikasi. Status di aplikasi belum menandai barang sudah dikembalikan. Perpindahan dana ditangani di luar aplikasi.
       </p>
     </form>
   );

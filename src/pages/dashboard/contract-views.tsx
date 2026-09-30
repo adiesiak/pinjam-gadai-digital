@@ -198,9 +198,9 @@ function LoanContractCard({
           </p>
           <p className="mt-0.5 text-xs text-muted-foreground">
             {c.lokasiAjukan
-              ? `Koordinat perangkat yang dikirim ${c.lokasiAjukan.lat.toFixed(4)}, ${c.lokasiAjukan.lng.toFixed(4)} (tidak diverifikasi)`
+              ? `Koordinat perangkat yang dikirim ${c.lokasiAjukan.lat.toFixed(4)}, ${c.lokasiAjukan.lng.toFixed(4)}`
               : "Koordinat perangkat —"}{" "}
-            · {c.tandaTanganAda ? "gambar tanda tangan tercatat (tidak terverifikasi)" : "belum ada gambar yang tercatat"}
+            · {c.tandaTanganAda ? "gambar tanda tangan tercatat" : "belum ada gambar yang tercatat"}
           </p>
         </div>
         <div className="flex shrink-0 gap-2">

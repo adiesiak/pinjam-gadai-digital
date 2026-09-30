@@ -90,7 +90,7 @@ export function PortfolioSection({ portfolio }: { portfolio: PortfolioRow[] | un
                 {f.loanRef} · alokasi {f.nomorReferensi}
               </p>
               <p className="mt-1 text-xs text-muted-foreground">
-                Tujuan: {loanPurposeLabel(f.tujuan)} · Status aplikasi: {f.statusVerifikasi} (bukan verifikasi eksternal)
+                Tujuan: {loanPurposeLabel(f.tujuan)} · Status aplikasi: {f.statusVerifikasi}
               </p>
               {f.tenorBulan !== null && (
                 <p className="mt-1 text-xs text-muted-foreground">

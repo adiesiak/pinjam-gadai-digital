@@ -68,7 +68,7 @@ export function PawnReviewDialog({
     setError(null);
     try {
       await fn();
-      toast.success("Perubahan status atau catatan internal tersimpan; ini bukan verifikasi fisik atau bukti penitipan barang.");
+      toast.success("Perubahan status atau catatan internal tersimpan pada ledger.");
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Gagal menyimpan keputusan.");
@@ -116,7 +116,7 @@ export function PawnReviewDialog({
         </dl>
 
         <p className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-900">
-          Persetujuan atau status aplikasi tidak membuktikan pencairan maupun penitipan fisik. Pelepasan barang hanya dapat dikonfirmasi terpisah dengan bukti serah-terima; fitur pelepasan dinonaktifkan.
+          Pelepasan barang dikonfirmasi terpisah dengan bukti serah-terima; fitur pelepasan dinonaktifkan.
         </p>
 
         <EContractWidget kind="pawn" pawnId={row._id} pawnRef={row.nomorReferensi} />
@@ -124,7 +124,7 @@ export function PawnReviewDialog({
         <div className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-4 py-3">
           <MapPin className="mt-0.5 size-4 shrink-0 text-amber-700" />
           <p className="text-xs leading-5 text-amber-900">
-            Alamat berasal dari masukan pemohon. Status atau catatan aplikasi tidak mengonfirmasi kunjungan, koordinat, pemeriksaan fisik, kepemilikan, maupun penitipan barang. Pemeriksaan nyata perlu dikonfirmasi terpisah.
+            Alamat berasal dari masukan pemohon. Status dan catatan aplikasi mengikuti pencatatan internal; kunjungan dan pemeriksaan fisik dikonfirmasi terpisah oleh tim PINDAI.
           </p>
         </div>
 
@@ -214,8 +214,7 @@ export function PawnReviewDialog({
         </div>
 
         {row.catatanReview && (
-          <div className="rounded-md border border-slate-200 bg-slate-50 px-4 py-3">
-            <p className="text-xs font-medium text-muted-foreground">Catatan internal penilaian (bukan verifikasi fisik)</p>
+          <div className="rounded-md border border-slate-200 bg-slate-50 px-4 py-3">              <p className="text-xs font-medium text-muted-foreground">Catatan internal penilaian</p>
             <p className="mt-1 text-sm">{row.catatanReview}</p>
           </div>
         )}

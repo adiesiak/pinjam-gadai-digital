@@ -56,7 +56,7 @@ export function pawnStatusMeta(status: PawnStatus): {
       return {
         label: "Disetujui internal",
         description:
-          "Pengajuan disetujui secara internal. Status ini tidak membuktikan barang diserahkan atau dana dicairkan.",
+          "Pengajuan disetujui secara internal.",
       };
     case "ditolak":
       return {
@@ -68,7 +68,7 @@ export function pawnStatusMeta(status: PawnStatus): {
       return {
         label: "Aktif (ledger)",
         description:
-          "Status gadai aktif tercatat pada ledger internal. Catatan ini bukan bukti barang diterima, disimpan, atau berada dalam penguasaan PINDAI.",
+          "Status gadai aktif tercatat pada ledger internal.",
       };
     case "menunggu_pelepasan":
       return {
@@ -80,7 +80,7 @@ export function pawnStatusMeta(status: PawnStatus): {
       return {
         label: "Lunas (ledger)",
         description:
-          "Kewajiban ditandai lunas pada ledger internal. Catatan ini tidak membuktikan barang pernah dititipkan atau telah dikembalikan.",
+          "Kewajiban ditandai lunas pada ledger internal.",
       };
   }
 }

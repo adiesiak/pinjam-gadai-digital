@@ -141,7 +141,7 @@ export function rencanaBayarGadai(
     throw new Error("Sisa pokok tidak valid.");
   }
   if (sisaPokok === 0) {
-    throw new Error("Pokok sudah habis pada hitungan; status ledger tidak membuktikan pembayaran, penyimpanan, atau pengembalian barang.");
+    throw new Error("Pokok sudah habis pada hitungan; perbarui data pengajuan untuk melanjutkan.");
   }
   const sewa = sewaModalBerikutnya(sisaPokok, persenSewaModal);
 

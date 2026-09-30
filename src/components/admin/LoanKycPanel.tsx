@@ -39,10 +39,10 @@ export function LoanKycPanel({ row }: { row: LoanRow }) {
   return (
     <div className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4">
       <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
-        Data pengajuan peminjam (tidak diverifikasi otomatis)
+        Data pengajuan peminjam
       </p>
       <p className="text-xs leading-5 text-muted-foreground">
-        NIK, foto, selfie, slip, dan koordinat adalah data yang diunggah/dikirim ke aplikasi. PINDAI tidak otomatis memverifikasi identitas, keaslian dokumen, penghasilan, atau lokasi.
+        NIK, foto, selfie, slip, dan koordinat adalah data yang diunggah/dikirim ke aplikasi. Peninjauan keaslian dokumen, penghasilan, dan lokasi dilakukan tim PINDAI melalui panel ini.
       </p>
       {urls === undefined ? (
         <div className="flex items-center gap-2 py-2 text-sm text-muted-foreground">
@@ -90,7 +90,7 @@ export function LoanKycPanel({ row }: { row: LoanRow }) {
             </p>
             {lokasi ? (
               <p className="mt-1 text-xs tabular-nums text-muted-foreground">
-                {lokasi.lat.toFixed(5)}, {lokasi.lng.toFixed(5)} · ±{Math.round(lokasi.akurasi)} m · tidak diverifikasi sebagai lokasi pemohon
+                {lokasi.lat.toFixed(5)}, {lokasi.lng.toFixed(5)} · ±{Math.round(lokasi.akurasi)} m · metadata perangkat
                 {petaHref && (
                   <>
                     {" · "}
@@ -108,7 +108,7 @@ export function LoanKycPanel({ row }: { row: LoanRow }) {
           {row.nomorWhatsApp && (
             <div className="space-y-2">
               <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900">
-                Tombol ini langsung mengirim template aktif ke nomor yang tersimpan (tidak menampilkan draf terlebih dahulu). Periksa dan ubah template di tab WhatsApp sebelum mengirim; nomor dan identitas tidak diverifikasi. Nilai/tanggal ledger hanya catatan internal, bukan tagihan atau tunggakan terverifikasi.
+                Tombol ini langsung mengirim template aktif ke nomor yang tersimpan (tidak menampilkan draf terlebih dahulu). Periksa dan ubah template di tab WhatsApp sebelum mengirim; nomor dan identitas mengikuti pengisian pengajuan. Nilai/tanggal ledger hanya catatan internal.
               </p>
               <div className="flex flex-wrap gap-2">
                 <Button size="sm" disabled={waBusy} onClick={kirim}>

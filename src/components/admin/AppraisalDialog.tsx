@@ -103,7 +103,7 @@ export function AppraisalDialog({
         <div className="space-y-4">
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="harga-pasar">Harga pasar yang dicantumkan (tidak diverifikasi)</Label>
+              <Label htmlFor="harga-pasar">Harga pasar yang dicantumkan</Label>
               <div className="relative">
                 <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">Rp</span>
                 <Input
@@ -147,12 +147,12 @@ export function AppraisalDialog({
           </div>
           {ltvPersen !== null && (
             <p id="appraisal-ltv-status" role="status" aria-live="polite" className={ltvMelebihi ? "text-xs font-medium text-destructive" : "text-xs font-medium text-emerald-600"}>
-              Perhitungan LTV pada ledger: {ltvPersen}% dari harga yang dimasukkan (maksimum aplikasi 70%); bukan verifikasi nilai pasar.
+              Perhitungan LTV pada ledger: {ltvPersen}% dari harga yang dimasukkan (maksimum aplikasi 70%); nilai pasar mengikuti masukan pengajuan.
             </p>
           )}
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="kondisi">Catatan kondisi fisik (tidak diverifikasi aplikasi)</Label>
+              <Label htmlFor="kondisi">Catatan kondisi fisik</Label>
               <Input
                 id="kondisi"
                 value={kondisi}
@@ -162,7 +162,7 @@ export function AppraisalDialog({
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="rak">Kode referensi rak (bukan bukti penitipan)</Label>
+              <Label htmlFor="rak">Kode referensi rak</Label>
               <Input
                 id="rak"
                 value={rak}
@@ -173,7 +173,7 @@ export function AppraisalDialog({
             </div>
           </div>
           <p className="text-xs leading-5 text-muted-foreground">
-            Acuan perhitungan kategori {pawn.kategori}: {hint}. Nilai pasar, taksiran, kondisi, dan kode rak yang dicatat tidak membuktikan inspeksi, lokasi, penerimaan, atau penitipan fisik. Menyimpan taksiran memperbarui status pengajuan pada ledger internal.
+            Acuan perhitungan kategori {pawn.kategori}: {hint}. Nilai pasar, taksiran, kondisi, dan kode rak mengikuti pencatatan internal pada ledger. Menyimpan taksiran memperbarui status pengajuan pada ledger internal.
           </p>
         </div>
 

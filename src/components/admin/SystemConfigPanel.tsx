@@ -71,7 +71,7 @@ export function SystemConfigPanel() {
           </div>
         </div>
         <p className="text-xs leading-5 text-muted-foreground">
-          Ambang jarak dan pola hanya dihitung dari koordinat yang dilaporkan perangkat; bukan verifikasi lokasi fisik atau identitas.
+          Ambang jarak dan pola dihitung dari koordinat yang dilaporkan perangkat.
         </p>
         <div className="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
           <div id="cfg-maintenance-label">
@@ -84,7 +84,7 @@ export function SystemConfigPanel() {
           <div id="cfg-location-gate-label">
             <p className="text-sm font-medium text-emerald-900">Gerbang lokasi wajib</p>
             <p className="mt-0.5 text-xs text-muted-foreground">
-              Akses ke dashboard dan aksi pencatatan dapat dibatasi bila koordinat terbaru belum diterima server. Titik yang dilaporkan perangkat bukan verifikasi lokasi atau identitas.
+              Akses ke dashboard dan aksi pencatatan dapat dibatasi bila koordinat terbaru belum diterima server. Titik yang dilaporkan perangkat dicatat sebagai metadata.
             </p>
           </div>
           <Switch aria-labelledby="cfg-location-gate-label" aria-label="Gerbang lokasi wajib" checked={form.lokasiWajib} onCheckedChange={(v) => upd("lokasiWajib", v)} />
@@ -153,7 +153,7 @@ export function SystemConfigPanel() {
           <div id="cfg-native-location-label">
             <p className="text-sm font-medium">Wajib aplikasi (lokasi latar belakang)</p>
             <p className="mt-0.5 text-xs leading-5 text-muted-foreground">
-              Akses ke fitur ini dapat dibatasi kecuali titik lokasi terakhir dilaporkan aplikasi resmi dan perangkat mengirim heartbeat dalam 24 jam terakhir. Titik perangkat bukan verifikasi lokasi fisik atau identitas. Pengguna browser akan ditolak walau pernah memasang aplikasi; tab browser yang dibiarkan terbuka tetap melaporkan titik dari browser. Browser tidak melacak lokasi setelah tab ditutup, jadi menyalakan kebijakan ini sebelum aplikasi Android/iOS dirilis akan memblokir akses pengguna web.
+              Akses ke fitur ini dapat dibatasi kecuali titik lokasi terakhir dilaporkan aplikasi resmi dan perangkat mengirim heartbeat dalam 24 jam terakhir. Titik perangkat dicatat sebagai metadata. Pengguna browser akan ditolak walau pernah memasang aplikasi; tab browser yang dibiarkan terbuka tetap melaporkan titik dari browser. Browser tidak melacak lokasi setelah tab ditutup, jadi menyalakan kebijakan ini sebelum aplikasi Android/iOS dirilis akan memblokir akses pengguna web.
             </p>
           </div>
           <Switch
@@ -259,8 +259,8 @@ export function SystemConfigPanel() {
           </div>
         </div>
         <p className="text-xs leading-5 text-muted-foreground">
-          Koordinat ini hanya titik referensi konfigurasi untuk peta dan perhitungan jarak GPS;
-          bukan bukti adanya gudang, lokasi fisik barang, atau penitipan/custody.
+          Koordinat ini adalah titik referensi konfigurasi untuk peta dan perhitungan jarak GPS,
+          dipakai untuk membandingkan koordinat yang dilaporkan perangkat.
         </p>
         <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
           <p className="text-xs text-muted-foreground">Terakhir diubah oleh</p>

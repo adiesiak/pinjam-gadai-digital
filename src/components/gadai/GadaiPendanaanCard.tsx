@@ -63,7 +63,7 @@ export function GadaiPendanaanCard({ pawn }: { pawn: GadaiPendanaanRow }) {
         persenSewaModal: persenNum,
       });
       toast.success(
-        "Hitungan internal gadai tersimpan. Ini tidak mencairkan dana, mengaktifkan transaksi, atau mengonfirmasi penitipan barang.",
+        "Hitungan internal gadai tersimpan pada ledger internal.",
       );
     } catch (e) {
       setError(
@@ -86,7 +86,7 @@ export function GadaiPendanaanCard({ pawn }: { pawn: GadaiPendanaanRow }) {
           </p>
         </div>
         <p className="text-xs text-muted-foreground">
-          Taksiran internal (tidak diverifikasi){" "}
+          Taksiran internal{" "}
           <span className="tabular-nums">
             {pawn.nilaiTaksiran !== undefined
               ? formatRupiah(pawn.nilaiTaksiran)

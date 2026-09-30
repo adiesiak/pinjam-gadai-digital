@@ -71,7 +71,7 @@ export function SetoranSection({
   return (
     <>
       <p className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900">
-        Semua nominal dan saldo adalah catatan ledger internal. Admin hanya dapat meninjau atau menolak catatan; persetujuan manual tidak memverifikasi transfer dan tidak boleh dianggap sebagai dana masuk/keluar. Konfirmasi setoran dan pemrosesan penarikan dinonaktifkan.
+        Semua nominal dan saldo adalah catatan ledger internal. Admin hanya dapat meninjau atau menolak catatan; persetujuan manual dicatat pada ledger internal. Konfirmasi setoran dan pemrosesan penarikan dinonaktifkan.
       </p>
       {pendingDeposits === undefined ? (
         <div className="flex items-center gap-2 py-8 text-sm text-muted-foreground">

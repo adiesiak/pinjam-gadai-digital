@@ -40,7 +40,7 @@ export function LoanAllocationQueueTab({ onOpen }: { onOpen: (l: LoanRow) => voi
               reference={l.nomorReferensi}
               date={formatDate(l._creationTime)}
               title={formatRupiah(l.pokokPinjaman)}
-              subtitle={`${l.namaLengkap} · nilai bersih ${formatRupiah(Math.round(l.pokokPinjaman * 0.95))} · rekening yang dimasukkan ${l.nomorRekening} (tidak diverifikasi)`}
+              subtitle={`${l.namaLengkap} · nilai bersih ${formatRupiah(Math.round(l.pokokPinjaman * 0.95))} · rekening yang dimasukkan ${l.nomorRekening}`}
               status={<StatusBadge status={l.status} kind="loan" />}
               onOpen={() => onOpen(l)}
             />
@@ -110,7 +110,7 @@ export function LelangTab() {
   return (
     <div className="space-y-4">
       <p className="text-sm text-muted-foreground">
-        Kalkulator hipotetis: masukkan angka contoh untuk dibandingkan dengan kewajiban pada ledger. Harga/nilai barang dan kode rak yang tampil tidak membuktikan inspeksi atau penitipan. Tampilan ini tidak melaksanakan lelang, penjualan, pelunasan, ataupun pengembalian barang/dana.
+        Kalkulator hipotetis: masukkan angka contoh untuk dibandingkan dengan kewajiban pada ledger. Harga/nilai barang dan kode rak mengikuti pencatatan internal. Tampilan ini tidak melaksanakan lelang, penjualan, pelunasan, ataupun pengembalian barang/dana.
       </p>
       {kandidat.length === 0 ? (
         <EmptyQueue icon={Gavel} title="Belum ada barang gadai aktif untuk kalkulator lelang" />

@@ -166,7 +166,7 @@ function KalkulatorKreditSection() {
         </div>
         <h2 className="text-lg font-semibold tracking-tight">Kalkulator Imbal Hasil Kredit Barang</h2>
         <p className="max-w-2xl text-sm leading-6 text-muted-foreground">
-          Ilustrasi perhitungan barang dari merchant yang dicantumkan. Data, harga, dan merchant tidak diverifikasi; pembelian dan pembayaran barang ditangani di luar aplikasi. Pengajuan baru memiliki pokok maksimal{" "}
+          Ilustrasi perhitungan barang dari merchant yang dicantumkan. Data, harga, dan merchant berasal dari pengajuan; pembelian dan pembayaran barang ditangani di luar aplikasi. Pengajuan baru memiliki pokok maksimal{" "}
           {formatRupiah(KREDIT_BARANG_POKOK_MAKS)} dan tenor 1, 3, atau 6 bulan; catatan lama tetap ditampilkan sebagai data ledger.
         </p>
       </header>
@@ -178,7 +178,7 @@ function KalkulatorKreditSection() {
 
           <div className="mt-4 flex flex-col gap-2">
             <Label htmlFor="kredit-harga" className="text-xs text-muted-foreground">
-              Harga acuan barang yang dicantumkan (tidak diverifikasi)
+              Harga acuan barang yang dicantumkan
             </Label>
             <Input
               id="kredit-harga"
@@ -381,7 +381,7 @@ function KalkulatorKreditSection() {
                   </Badge>
                 </div>
                 <div className="mt-3 divide-y divide-slate-100">
-                  <Baris label="Harga acuan barang (tidak diverifikasi)" value={formatRupiah(quote.hargaBarang)} strong />
+                  <Baris label="Harga acuan barang" value={formatRupiah(quote.hargaBarang)} strong />
                   <Baris
                     label="Uang muka (DP)"
                     value={formatRupiah(quote.dp)}
@@ -673,7 +673,7 @@ function PeluangKreditCard({ row }: { row: PeluangKredit }) {
 
       <dl className="mt-4 grid grid-cols-2 gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-center text-xs sm:grid-cols-4">
         <div>
-          <dt className="text-muted-foreground">Harga acuan (tidak diverifikasi)</dt>
+          <dt className="text-muted-foreground">Harga acuan</dt>
           <dd className="mt-0.5 font-semibold tabular-nums">{formatRupiah(row.hargaBarang)}</dd>
         </div>
         <div>

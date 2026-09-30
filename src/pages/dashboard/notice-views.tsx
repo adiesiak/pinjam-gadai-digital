@@ -92,12 +92,12 @@ export function LokasiPeringatanBanner() {
         Koordinat perangkat yang sama tercatat berulang kali
       </p>
       <p className="mt-1 max-w-2xl text-sm leading-6 text-amber-900/90">
-        Pemeriksaan otomatis menemukan koordinat perangkat yang sama berulang kali. Ini hanya pemicu berbasis pola; bukan bukti penggunaan aplikasi lokasi palsu dan bukan verifikasi bahwa koordinat mencerminkan lokasi fisik Anda. Jika koordinat tampak tidak sesuai, periksa izin dan pengaturan lokasi perangkat.
+        Pemeriksaan otomatis menemukan koordinat perangkat yang sama berulang kali. Ini hanya pemicu berbasis pola pada koordinat yang dilaporkan perangkat. Jika koordinat tampak tidak sesuai, periksa izin dan pengaturan lokasi perangkat.
       </p>
       <ol className="mt-3 list-decimal space-y-1 pl-5 text-xs leading-5 text-amber-900/90">
         <li>Periksa izin lokasi PINDAI di browser dan pengaturan perangkat.</li>
         <li>Jika Anda memakai aplikasi atau pengaturan lokasi khusus, tinjau apakah masih aktif.</li>
-        <li>Koordinat yang dilaporkan perangkat dapat berbeda dari lokasi fisik; peringatan ini tidak memverifikasinya.</li>
+        <li>Koordinat yang dilaporkan perangkat dicatat sebagai metadata masukan.</li>
       </ol>
       <p className="mt-3 text-xs leading-5 text-amber-900/80">
         {waTerkirim
@@ -179,7 +179,7 @@ export function LocationConsentCard() {
     status === undefined
       ? "Memuat status pelacakan…"
       : status.aktif
-        ? "Aktif — aplikasi mengirim koordinat yang dilaporkan perangkat secara berkala selama persetujuan berlaku. Ini bukan verifikasi lokasi; nonaktifkan kapan saja."
+        ? "Aktif — aplikasi mengirim koordinat yang dilaporkan perangkat secara berkala selama persetujuan berlaku. Nonaktifkan kapan saja."
         : "Belum aktif. Aktifkan jika Anda bersedia membagikan koordinat yang dilaporkan perangkat secara berkala (dapat dicabut kapan saja).";
 
   return (

@@ -201,13 +201,13 @@ export function PawnDetailDialog({
 
             {pawn.catatanReview && (
               <div className="rounded-md border border-slate-200 bg-slate-50 px-4 py-3">
-                <p className="text-xs font-medium text-muted-foreground">Catatan internal penilaian (bukan verifikasi fisik)</p>
+                <p className="text-xs font-medium text-muted-foreground">Catatan internal penilaian</p>
                 <p className="mt-1 text-sm">{pawn.catatanReview}</p>
               </div>
             )}
 
             <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900">
-              Status ini hanya catatan aplikasi. Pembayaran gadai dan perubahan status terkait pelepasan dinonaktifkan; data ledger tidak membuktikan penitipan atau pengembalian barang.
+              Status ini mengikuti pencatatan ledger internal. Pembayaran gadai dan perubahan status terkait pelepasan dinonaktifkan.
             </p>
           </>
         )}

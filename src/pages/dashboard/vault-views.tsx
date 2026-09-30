@@ -43,7 +43,7 @@ export function PawnVaultSection({
       <EmptyState
         icon={Package}
         title="Belum ada jaminan gadai"
-        body="Ajukan catatan gadai melalui tab Form Pengajuan Baru. Aplikasi tidak memverifikasi lokasi atau kondisi fisik barang."
+        body="Ajukan catatan gadai melalui tab Form Pengajuan Baru. Lokasi dan kondisi barang dicatat dari masukan pengajuan."
       />
     );
   }
@@ -226,7 +226,7 @@ function VaultMapCard() {
         />
       </div>
       <p className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-900">
-        Peta hanya menampilkan koordinat referensi yang dikonfigurasi. Peta dan status ledger tidak membuktikan adanya gudang, penguasaan fisik, penitipan, atau pengembalian barang.
+        Peta hanya menampilkan koordinat referensi yang dikonfigurasi. Peta dan status ledger mengikuti pencatatan internal PINDAI.
       </p>
     </section>
   );

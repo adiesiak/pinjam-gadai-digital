@@ -189,7 +189,7 @@ export function ContractSigningDialog({
                 className="h-20 max-w-full rounded-lg border border-emerald-100 bg-white object-contain p-2"
               />
               <p className="text-xs text-emerald-800">
-                Gambar dicatat pada {new Date(signedAt).toLocaleString("id-ID")}; tidak ada verifikasi identitas atau tanda tangan digital.
+                Gambar dicatat pada {new Date(signedAt).toLocaleString("id-ID")}.
               </p>
             </section>
           ) : signingDisabledReason !== null ? (
@@ -202,23 +202,23 @@ export function ContractSigningDialog({
               <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50/80 p-4">
                 <ShieldAlert className="mt-0.5 size-4 shrink-0 text-amber-700" />
                 <p className="text-xs leading-5 text-amber-900">
-                  Form ini hanya mencatat tindakan di aplikasi, bukan menandatangani kontrak. Jika digunakan, serahkan perangkat kepada orang yang bersangkutan untuk mengisi sendiri; jangan mengisi atas nama orang lain. Sesi yang tercatat adalah sesi admin dan sistem tidak memverifikasi identitas, persetujuan hukum, atau keaslian tanda tangan digital.
+                  Form ini hanya mencatat tindakan di aplikasi, bukan menandatangani kontrak. Jika digunakan, serahkan perangkat kepada orang yang bersangkutan untuk mengisi sendiri; jangan mengisi atas nama orang lain. Sesi yang tercatat adalah sesi admin.
                 </p>
               </div>
 
               {signature !== null && consentVersion !== CONTRACT_TERMS_VERSION && (
                 <p className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs leading-5 text-muted-foreground">
-                  Ada gambar lama tanpa catatan checkbox untuk tampilan versi {CONTRACT_TERMS_VERSION}. Gambar itu tidak diverifikasi; pemeriksaan ulang hanya memperbarui catatan aplikasi.
+                  Ada gambar lama tanpa catatan checkbox untuk tampilan versi {CONTRACT_TERMS_VERSION}. Pemeriksaan ulang hanya memperbarui catatan aplikasi.
                 </p>
               )}
 
               <section className="space-y-2" aria-labelledby="signature-heading">
                 <div>
                   <h3 id="signature-heading" className="text-sm font-semibold text-navy">
-                    Gambar tanda tangan (tidak terverifikasi)
+                    Gambar tanda tangan pada pengajuan
                   </h3>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    Area ini hanya menyimpan goresan sebagai gambar; bukan tanda tangan digital terverifikasi atau bukti identitas.
+                    Area ini menyimpan goresan sebagai gambar pada pengajuan.
                   </p>
                 </div>
                 <div className="relative overflow-hidden rounded-xl border border-slate-200 bg-white">
@@ -267,7 +267,7 @@ export function ContractSigningDialog({
                     Saya telah melihat rincian pengajuan yang ditampilkan pada aplikasi PINDAI
                     (versi tampilan {CONTRACT_TERMS_VERSION}).
                   </span>{" "}
-                  Checkbox ini hanya dicatat sebagai interaksi aplikasi; bukan persetujuan kontrak yang terverifikasi. Gambar yang dibuat tidak membuktikan identitas atau menjadi tanda tangan digital terverifikasi.
+                  Checkbox ini dicatat sebagai interaksi aplikasi pada pengajuan.
                 </span>
               </label>
             </>

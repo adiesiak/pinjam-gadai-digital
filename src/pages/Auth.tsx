@@ -503,7 +503,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
             </li>
             <li className="flex items-center gap-1.5">
               <Vault className="size-3.5 text-primary" />
-              Tanpa penitipan barang
+              Pencatatan gadai
             </li>
             <li className="flex items-center gap-1.5">
               <CalendarClock className="size-3.5 text-primary" />

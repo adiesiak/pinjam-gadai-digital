@@ -81,7 +81,7 @@ export function WaOtpDialog({
     try {
       const ip = await getClientIp();
       await verifyOtp({ kode, ip, userAgent: getUserAgent() });
-      toast.success("Kode OTP cocok. Tindakan akun dapat dilanjutkan; dana dan pembayaran tidak diverifikasi.");
+      toast.success("Kode OTP cocok. Tindakan akun dapat dilanjutkan.");
       setKode("");
       onVerified();
       onOpenChange(false);
@@ -102,7 +102,7 @@ export function WaOtpDialog({
             Konfirmasi WhatsApp untuk tindakan akun
           </DialogTitle>
           <DialogDescription>
-            Kode 6 digit untuk {alasan} dikirim ke WhatsApp Anda (berlaku 5 menit, sekali pakai). Kode hanya mengonfirmasi tindakan akun pada ledger internal; bukan verifikasi saldo, transfer, setoran, penarikan, atau pembayaran.
+            Kode 6 digit untuk {alasan} dikirim ke WhatsApp Anda (berlaku 5 menit, sekali pakai). Kode mengonfirmasi tindakan akun pada ledger internal.
           </DialogDescription>
         </DialogHeader>
 

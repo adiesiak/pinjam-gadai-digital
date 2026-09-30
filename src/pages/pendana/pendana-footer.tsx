@@ -7,7 +7,7 @@ export function PendanaFooter() {
           PINDAI Pendana adalah pencatatan pada ledger internal. Nominal alokasi, pokok, dan Imbal Hasil adalah hasil perhitungan/pencatatan aplikasi; bukan dana yang ditempatkan, bunga yang diterima, atau hasil investasi.
         </p>
         <p className="mt-2">
-          Tidak ada integrasi pembayaran, transfer masuk/keluar, verifikasi saldo bank, KYC/identitas, GPS live, atau pembayaran Imbal Hasil. Status transaksi hanya menggambarkan catatan internal PINDAI.
+          Status transaksi menggambarkan catatan internal PINDAI; perpindahan dana dan pemeriksaan di luar aplikasi ditangani tim PINDAI.
         </p>
       </div>
     </footer>

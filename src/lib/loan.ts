@@ -308,7 +308,7 @@ export function loanStatusMeta(status: LoanStatus): {
     case "diajukan":
       return {
         label: "Diajukan (catatan internal)",
-        description: "Pengajuan tercatat dalam antrean tinjauan internal PINDAI. Data yang dimasukkan bukan verifikasi identitas eksternal.",
+        description: "Pengajuan tercatat dalam antrean tinjauan internal PINDAI.",
       };
     case "sedang_direview":
       return {

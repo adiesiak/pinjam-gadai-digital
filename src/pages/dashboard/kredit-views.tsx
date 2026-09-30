@@ -60,7 +60,7 @@ const STATUS_META: Record<string, { label: string; className: string; descriptio
   sedang_ditinjau: {
     label: "Sedang ditinjau",
     className: "border-gold/40 bg-gold/15 text-gold-foreground",
-    description: "Tim PINDAI meninjau data barang dan merchant yang dicantumkan; ini bukan verifikasi eksternal.",
+    description: "Tim PINDAI meninjau data barang dan merchant yang dicantumkan.",
   },
   disetujui: {
     label: "Disetujui (status aplikasi)",
@@ -227,7 +227,7 @@ export function KreditBarangForm({ onCreated }: { onCreated: (ref: string) => vo
           <ShoppingBag className="size-4 text-primary" /> Barang yang dicantumkan
         </p>
         <p className="mt-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900">
-          Informasi barang, tautan, merchant, dan harga adalah masukan pengguna yang tidak diverifikasi. Pengajuan mencatat data pada ledger internal; pembelian dan pembayaran ke merchant ditangani di luar aplikasi.
+          Informasi barang, tautan, merchant, dan harga berasal dari masukan pengguna. Pengajuan mencatat data pada ledger internal; pembelian dan pembayaran ke merchant ditangani di luar aplikasi.
         </p>
         <div className="mt-4 space-y-2">
           <Label htmlFor="kredit-nama-barang">Nama barang</Label>
@@ -281,11 +281,11 @@ export function KreditBarangForm({ onCreated }: { onCreated: (ref: string) => vo
             disabled={submitting}
           />
           <p className="text-xs leading-5 text-muted-foreground">
-              Tautan dicatat sebagai referensi; aplikasi tidak memeriksa tautan atau memverifikasi harga di merchant.
+              Tautan dicatat sebagai referensi pada pengajuan.
             </p>
         </div>
         <div className="mt-4 space-y-2">
-          <Label htmlFor="kredit-harga">Harga acuan barang (tidak diverifikasi)</Label>
+          <Label htmlFor="kredit-harga">Harga acuan barang</Label>
           <Input
             id="kredit-harga"
             inputMode="numeric"
@@ -414,11 +414,11 @@ export function KreditBarangForm({ onCreated }: { onCreated: (ref: string) => vo
       {/* ===== Data pemohon ===== */}
       <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
         <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
-          Data pemohon (wajib; tidak diverifikasi otomatis)
+          Data pemohon (wajib)
         </p>
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
           <div className="space-y-2">
-            <Label htmlFor="kredit-nama">Nama yang dicatat (tidak diverifikasi)</Label>
+            <Label htmlFor="kredit-nama">Nama yang dicatat</Label>
             <Input
               id="kredit-nama"
               value={namaLengkap}
@@ -502,7 +502,7 @@ export function KreditBarangForm({ onCreated }: { onCreated: (ref: string) => vo
       <p className="text-center text-xs leading-5 text-muted-foreground">
         Pokok kredit barang maksimal {formatRupiah(KREDIT_BARANG_POKOK_MAKS)} dan tenor 1, 3,
         atau maksimal 6 bulan dalam model kredit barang. Batas ini terpisah dari plafon pinjaman tunai.
-        Data pemohon, barang, tautan, dan harga yang dimasukkan tidak diverifikasi otomatis; status review hanya catatan internal. Tidak ada pembayaran ke merchant.
+        Data pemohon, barang, tautan, dan harga mengikuti pengisian pengajuan; status review tercatat pada ledger internal.
       </p>
     </form>
   );

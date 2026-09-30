@@ -97,7 +97,7 @@ Catatan gadai tersedia setelah nilai taksiran dimasukkan ke aplikasi.
               Catatan pengajuan · gadai
             </p>
             <p className="mt-1 text-xs text-muted-foreground">
-              Data barang dan nilai adalah catatan aplikasi, bukan bukti inspeksi, penitipan, kontrak, atau tanda tangan digital terverifikasi.
+              Data barang dan nilai adalah catatan aplikasi pada ledger internal.
             </p>
           </div>
           <Badge

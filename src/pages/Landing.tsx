@@ -104,7 +104,7 @@ function BrandWordmark({ name, compact = false }: { name: string; compact?: bool
 const SECURITY = [
   { icon: Lock, label: "Riwayat pengajuan hanya untuk akun terkait" },
   { icon: Scale, label: "Rincian biaya dan bunga ditampilkan terpisah" },
-  { icon: Vault, label: "Status gadai bukan bukti penitipan fisik" },
+  { icon: Vault, label: "Status gadai tercatat pada ledger" },
   { icon: ShieldCheck, label: "Persetujuan aplikasi bukan jaminan pendanaan" },
   { icon: Calculator, label: "Angka merupakan perhitungan aplikasi" },
   { icon: Eye, label: "Status dashboard adalah catatan internal" },
@@ -554,7 +554,7 @@ export default function Landing() {
     {
       icon: ShieldCheck,
       title: "Tinjau rincian",
-      body: "Lihat perhitungan biaya, bunga, dan status review internal. Data yang diisi bukan verifikasi identitas atau pemeriksaan fisik.",
+      body: "Lihat perhitungan biaya, bunga, dan status review internal. Data yang diisi tercatat pada ledger internal.",
     },
     {
       icon: Banknote,

@@ -32,7 +32,7 @@ export function DepositForm() {
   const [busy, setBusy] = useState(false);
 
   if (instructions === undefined) return <p className="text-sm text-muted-foreground">Memuat instruksi…</p>;
-  if (!instructions.pendanaDepositEnabled) return <section className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-900">Pengiriman bukti setoran belum dibuka oleh tim operasional. Bukti atau pencocokan admin tidak membuktikan dana masuk dan tidak mengkreditkan saldo.</section>;
+  if (!instructions.pendanaDepositEnabled) return <section className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-900">Pengiriman bukti setoran belum dibuka oleh tim operasional. Pencocokan admin tidak mengkreditkan saldo.</section>;
 
   return (
     <section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-4 sm:p-6">

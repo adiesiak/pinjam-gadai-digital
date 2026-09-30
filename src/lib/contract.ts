@@ -201,7 +201,7 @@ export function buildPinjamanContract(
     <ol>
       <li>Pokok acuan: <strong>${formatRupiah(quote.pokok)}</strong>; bukan dana yang ditransfer.</li>
       ${pasalTenor}
-      <li>Status alokasi yang tampil di aplikasi adalah pencatatan internal; tidak memverifikasi identitas/sumber dana Pendana atau terjadinya transfer.</li>
+      <li>Status alokasi yang tampil di aplikasi adalah pencatatan internal pada ledger.</li>
     </ol>
 
     <h2>Bagian 2 — Rincian Perhitungan</h2>
@@ -212,10 +212,10 @@ export function buildPinjamanContract(
     <p>${pasalKewajiban}</p>
 
     <h2>Bagian 4 — Catatan Interaksi Aplikasi</h2>
-    <p>Checkbox dan gambar pada kanvas, bila diisi, hanya merekam tindakan/input di aplikasi pada syarat versi <strong>${CONTRACT_TERMS_VERSION}</strong>. Tindakan itu bukan persetujuan kontrak yang terverifikasi atau konfirmasi kewajiban hukum.</p>
+    <p>Checkbox dan gambar pada kanvas, bila diisi, merekam tindakan/input di aplikasi pada syarat versi <strong>${CONTRACT_TERMS_VERSION}</strong>.</p>
 
     <h2>Bagian 5 — Metadata Aplikasi</h2>
-    <p>Timestamp sistem <strong>${new Date(meta.timestampPada).toLocaleString("id-ID")}</strong>${meta.lokasi ? ` dan koordinat perangkat yang dikirim <strong>${fmtKoordinat(meta.lokasi)}</strong>` : ""} ditampilkan sebagai metadata masukan. Sistem tidak memverifikasi identitas orang, keaslian tanda tangan, atau kebenaran lokasi.</p>
+    <p>Timestamp sistem <strong>${new Date(meta.timestampPada).toLocaleString("id-ID")}</strong>${meta.lokasi ? ` dan koordinat perangkat yang dikirim <strong>${fmtKoordinat(meta.lokasi)}</strong>` : ""} ditampilkan sebagai metadata masukan pengajuan.</p>
 
     <div class="ttd">
       ${blokTandaTanganPeminjam(peminjam.namaLengkap, "Nama pada pengajuan", meta)}
@@ -255,29 +255,29 @@ export function buildGadaiContract(
     <ol>
       <li>Deskripsi barang yang dimasukkan: <strong>${escapeHtml(gadai.deskripsiBarang)}</strong>.</li>
       <li>Kategori yang dipilih: ${escapeHtml(gadai.kategori)}.</li>
-      <li>Catatan kondisi fisik: ${escapeHtml(gadai.kondisiFisik || "belum dicatat")}; bukan hasil inspeksi yang diverifikasi aplikasi.</li>
+      <li>Catatan kondisi fisik: ${escapeHtml(gadai.kondisiFisik || "belum dicatat")}; dicatat dari masukan pengajuan.</li>
       <li>Kode/referensi lokasi yang dicatat aplikasi: <strong>${escapeHtml(gadai.kodeRakVault)}</strong>. Kode ini bukan tanda terima atau bukti bahwa barang telah diterima maupun dititipkan secara fisik.</li>
     </ol>
 
     <h2>Bagian 2 — Nilai Masukan dan Batas LTV</h2>
     <ol>
-      <li>Harga pasar yang dimasukkan/dicatat: ${formatRupiah(gadai.hargaPasar)}; tidak diverifikasi.</li>
-      <li>Nilai taksiran pada ledger: <strong>${formatRupiah(gadai.nilaiTaksiran)}</strong> (perhitungan LTV ${ltv}%, batas aplikasi ${gadai.ltvPersen}%); bukan verifikasi harga pasar atau nilai fisik.</li>
+      <li>Harga pasar yang dimasukkan/dicatat: ${formatRupiah(gadai.hargaPasar)}; sesuai masukan pengajuan.</li>
+      <li>Nilai taksiran pada ledger: <strong>${formatRupiah(gadai.nilaiTaksiran)}</strong> (perhitungan LTV ${ltv}%, batas aplikasi ${gadai.ltvPersen}%); nilai taksiran diisi oleh tim PINDAI.</li>
       ${rincianPokok}
     </ol>
 
     <h2>Bagian 3 — Batas Catatan Gadai</h2>
     <ol>
-      <li>Status, kondisi, dan kode lokasi dalam aplikasi adalah catatan internal; aplikasi tidak memverifikasi penerimaan, lokasi fisik, atau keamanan penyimpanan barang.</li>
-      <li>Penyerahan, penitipan, dan pengembalian perlu dikonfirmasi langsung dengan pihak yang bertanggung jawab serta didukung tanda terima terpisah. Status lunas/siap diambil di aplikasi bukan bukti barang telah dikembalikan.</li>
+      <li>Status, kondisi, dan kode lokasi dalam aplikasi adalah catatan internal; penerimaan dan penyimpanan barang ditangani di luar aplikasi.</li>
+      <li>Penyerahan, penitipan, dan pengembalian perlu dikonfirmasi langsung dengan pihak yang bertanggung jawab serta didukung tanda terima terpisah. Status lunas/siap diambil di aplikasi menandai selesainya pencatatan pada ledger.</li>
       <li>Perhitungan penyelesaian atau lelang di aplikasi adalah hitungan internal; bukan pelaksanaan lelang, keputusan hukum, maupun jaminan hasil atau pengembalian barang.</li>
     </ol>
 
     <h2>Bagian 4 — Catatan Interaksi Aplikasi</h2>
-    <p>Checkbox dan gambar pada kanvas, bila diisi, hanya merekam tindakan/input di aplikasi pada syarat versi <strong>${CONTRACT_TERMS_VERSION}</strong>. Tindakan itu bukan persetujuan kontrak yang terverifikasi atau konfirmasi kewajiban hukum.</p>
+    <p>Checkbox dan gambar pada kanvas, bila diisi, merekam tindakan/input di aplikasi pada syarat versi <strong>${CONTRACT_TERMS_VERSION}</strong>.</p>
 
     <h2>Bagian 5 — Metadata Aplikasi</h2>
-    <p>Timestamp sistem <strong>${new Date(meta.timestampPada).toLocaleString("id-ID")}</strong> dan koordinat yang ditampilkan pada aplikasi adalah metadata yang dikirim, bukan bukti identitas atau lokasi yang telah diverifikasi.</p>
+    <p>Timestamp sistem <strong>${new Date(meta.timestampPada).toLocaleString("id-ID")}</strong> dan koordinat yang tampil pada aplikasi adalah metadata yang dicatat pada pengajuan.</p>
 
     <div class="ttd">
       ${blokTandaTanganPeminjam(peminjam.namaLengkap, "Nama pada pengajuan", meta)}

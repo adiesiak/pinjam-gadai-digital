@@ -198,7 +198,7 @@ export function LiveLocationMap() {
     <div className="space-y-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-sm text-muted-foreground">
-          OpenStreetMap — koordinat yang dilaporkan perangkat dan titik acuan konfigurasi. Penanda jarak/pola dihitung otomatis, bukan verifikasi lokasi fisik. Ambang pola {data?.gpsMismatchKm ?? DEFAULT_CONFIG.gpsMismatchKm} km.
+          OpenStreetMap — koordinat yang dilaporkan perangkat dan titik acuan konfigurasi. Penanda jarak/pola dihitung otomatis dari koordinat yang dilaporkan. Ambang pola {data?.gpsMismatchKm ?? DEFAULT_CONFIG.gpsMismatchKm} km.
         </p>
         <div className="flex flex-wrap items-center gap-2 text-xs">
           <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100">Dalam ambang jarak</Badge>

@@ -55,7 +55,7 @@ const KEAMANAN = [
     judul: "Aksi di aplikasi",
     poin: [
       "Tombol alokasi, setoran, penarikan, dan pelunasan memperbarui catatan internal; aksi tersebut bukan instruksi pembayaran atau transfer.",
-      "Jika verifikasi kode ditampilkan, kode hanya terkait alur aplikasi dan bukan verifikasi pembayaran, identitas, atau ketersediaan dana.",
+      "Jika verifikasi kode ditampilkan, kode hanya terkait alur aplikasi.",
     ],
   },
   {
@@ -105,7 +105,7 @@ function PanelKepercayaan() {
         ))}
       </div>
       <p className="mt-6 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs leading-5 text-muted-foreground">
-        PINDAI mencatat pengajuan, alokasi, dan status pada ledger internal; perpindahan dana ditangani di luar aplikasi. Tidak ada KYC/validasi identitas, verifikasi lokasi live, pengiriman barang, atau tanda tangan kontrak terverifikasi pada fitur ini.
+        PINDAI mencatat pengajuan, alokasi, dan status pada ledger internal; perpindahan dana ditangani di luar aplikasi. Validasi identitas, pelacakan lokasi, pengiriman barang, dan verifikasi tanda tangan kontrak ditangani di luar aplikasi.
       </p>
     </section>
   );

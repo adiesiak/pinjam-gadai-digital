@@ -312,7 +312,7 @@ export default function Dashboard() {
                       <PawnForm
                         onCreated={() =>
                           toast.success(
-                            "Catatan pengajuan gadai tersimpan. Ini tidak mengonfirmasi jadwal, pemeriksaan fisik, penitipan barang, atau transfer dana.",
+                            "Catatan pengajuan gadai tersimpan pada ledger internal.",
                           )
                         }
                       />

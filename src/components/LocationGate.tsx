@@ -522,7 +522,7 @@ export function LocationGate({
               ikon={<Smartphone className="size-5" />}
               kode="Wajib aplikasi PINDAI"
               judul="Pasang aplikasi untuk melanjutkan"
-              deskripsi="Akses ke fitur ini mensyaratkan aplikasi native sesuai pengaturan akun. Aplikasi dapat mengirim koordinat di latar belakang, tetapi koordinat tersebut bukan verifikasi lokasi fisik atau identitas."
+              deskripsi="Akses ke fitur ini mensyaratkan aplikasi native sesuai pengaturan akun. Aplikasi dapat mengirim koordinat di latar belakang sebagai metadata perangkat."
             >
               <DaftarLangkah
                 langkah={[
@@ -552,7 +552,7 @@ export function LocationGate({
               ikon={<Smartphone className="size-5" />}
               kode="Akses melalui aplikasi"
               judul="Buka PINDAI dari aplikasi"
-              deskripsi="Perangkat ini tercatat pernah didaftarkan, tetapi titik terakhir dilaporkan dari browser. Gerbang akses ini meminta titik baru melalui aplikasi; koordinat yang dilaporkan bukan bukti lokasi fisik."
+              deskripsi="Perangkat ini tercatat pernah didaftarkan, tetapi titik terakhir dilaporkan dari browser. Gerbang akses ini meminta titik baru melalui aplikasi sebagai metadata perangkat."
             >
               <DaftarLangkah
                 langkah={[
@@ -562,7 +562,7 @@ export function LocationGate({
                 ]}
               />
               <p className="mt-4 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs leading-5 text-muted-foreground">
-                Aplikasi dapat mengirim koordinat di latar belakang; aturan ini hanya mengatur akses ke fitur ini. Koordinat yang dilaporkan tidak memverifikasi lokasi fisik atau identitas. Itu keterbatasan browser, bukan pengaturan PINDAI.
+                Aplikasi dapat mengirim koordinat di latar belakang; aturan ini hanya mengatur akses ke fitur ini. Koordinat yang dilaporkan dicatat sebagai metadata perangkat. Itu keterbatasan browser, bukan pengaturan PINDAI.
               </p>
               <TombolKeluar onKeluar={keluar} />
             </Kartu>
@@ -597,7 +597,7 @@ export function LocationGate({
           ikon={<ShieldAlert className="size-5" />}
           kode="Koordinat perlu diperiksa"
           judul="Periksa setelan lokasi perangkat"
-          deskripsi="Gerbang dapat menolak koordinat yang ditandai perangkat sebagai mock location atau pola tertentu. Ini pemeriksaan metadata otomatis, bukan bukti lokasi fisik atau identitas."
+          deskripsi="Gerbang dapat menolak koordinat yang ditandai perangkat sebagai mock location atau pola tertentu. Ini pemeriksaan metadata otomatis pada koordinat yang dilaporkan."
         >
           <DaftarLangkah
             langkah={[
@@ -607,7 +607,7 @@ export function LocationGate({
             ]}
           />
           <p className="mt-4 text-xs leading-5 text-muted-foreground">
-            Titik baru dapat memperbarui status gerbang akses. Koordinat yang dilaporkan bukan verifikasi lokasi, identitas, pengajuan, penagihan, atau bukti transaksi.
+            Titik baru dapat memperbarui status gerbang akses. Koordinat yang dilaporkan dicatat sebagai metadata perangkat.
           </p>
           {pesan && (
             <p className="mt-3 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive">
@@ -644,7 +644,7 @@ export function LocationGate({
         ikon={<MapPin className="size-5" />}
         kode="Lokasi wajib aktif"
         judul="Nyalakan lokasi untuk melanjutkan"
-        deskripsi="Untuk membuka dashboard, gerbang ini meminta koordinat terbaru yang dilaporkan perangkat. Gerbang tidak memastikan lokasi fisik atau identitas."
+        deskripsi="Untuk membuka dashboard, gerbang ini meminta koordinat terbaru yang dilaporkan perangkat. Gerbang hanya memeriksa kebaruan koordinat yang dilaporkan perangkat."
       >
         <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-800">
           <ShieldAlert className="mr-1.5 inline size-3.5 align-[-2px]" />
@@ -676,7 +676,7 @@ export function LocationGate({
           {perangkat.native
             ? "Setelah izin “sepanjang waktu” diberikan, lokasi tetap terkirim walau layar terkunci atau Anda berpindah aplikasi."
             : "Di browser, lokasi hanya terkirim selama halaman ini terbuka. Pasang aplikasi PINDAI untuk pemantauan latar belakang."}{" "}
-          Izin lokasi memungkinkan perangkat mengirim koordinat agar status gerbang akses dapat diperbarui. Koordinat yang dilaporkan bukan verifikasi lokasi fisik, identitas, pembayaran, atau penagihan.
+          Izin lokasi memungkinkan perangkat mengirim koordinat agar status gerbang akses dapat diperbarui. Koordinat yang dilaporkan dicatat sebagai metadata perangkat.
         </p>
         {pesan && (
           <p className="mt-3 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive">

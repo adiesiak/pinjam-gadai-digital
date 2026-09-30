@@ -109,7 +109,7 @@ function MarketCard({
         </div>
         <p className="mt-3 text-xs text-muted-foreground">Kode peminjam</p>
         <p className="font-mono text-sm font-semibold tracking-wide">{row.kodePeminjam}</p>
-        <p className="mt-2 text-xs text-muted-foreground">Pokok yang tercatat pada pengajuan (tidak membuktikan pencairan)</p>
+        <p className="mt-2 text-xs text-muted-foreground">Pokok yang tercatat pada pengajuan</p>
         <p className="text-lg font-semibold tabular-nums">{formatRupiah(row.pokokPinjaman)}</p>
         <p className="mt-0.5 truncate text-xs text-muted-foreground">
           {row.nomorReferensi} · Tujuan yang dicatat: {loanPurposeLabel(row.tujuan)}
@@ -117,7 +117,7 @@ function MarketCard({
       </div>
 
       <p className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900">
-        Data pemohon dan status review berasal dari aplikasi, bukan verifikasi eksternal. Kartu ini hanya menampilkan hitungan aplikasi; alokasi tercatat pada ledger internal.
+        Data pemohon dan status review berasal dari aplikasi. Kartu ini hanya menampilkan hitungan aplikasi; alokasi tercatat pada ledger internal.
       </p>
 
       <dl className="mt-4 grid grid-cols-2 gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-center text-xs sm:grid-cols-3">

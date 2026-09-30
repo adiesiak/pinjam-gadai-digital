@@ -22,8 +22,8 @@ export function GadaiPendanaanPanel({ pawns }: { pawns: GadaiPendanaanRow[] }) {
         </h3>
         <p className="mt-1 text-xs leading-5 text-muted-foreground">
           Catat pokok ≤ LTV 70% &amp; sewa modal 5–10% per 30 hari.
-          Nilai bersih 99% adalah hasil hitung, bukan transfer; aktivasi status
-          tidak membuktikan penitipan barang atau dana diterima.
+          Nilai bersih 99% adalah hasil hitung aplikasi; perubahan status dicatat
+          pada ledger internal.
         </p>
       </div>
       <div className="space-y-4">

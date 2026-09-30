@@ -302,7 +302,7 @@ export function ScheduleSection({ schedule }: { schedule: LoanScheduleRow[] }) {
                   <p className="mt-1 max-w-xl text-xs leading-5 text-amber-800">
                     {l.tenorBulan === 3 || l.tenorBulan === 6
                       ? "Biaya admin 5% + platform 2% diamortisasi ke cicilan; dana tidak dipotong di muka. Jadwal bersifat ilustrasi."
-                      : "Biaya layanan 3% diamortisasi ke cicilan. Jadwal hanya ilustrasi."} Status ledger tidak membuktikan pembayaran.
+                      : "Biaya layanan 3% diamortisasi ke cicilan. Jadwal hanya ilustrasi."}
                   </p>
                 )}
               </div>
