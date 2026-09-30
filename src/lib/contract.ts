@@ -133,6 +133,7 @@ function blokStempelPindai(): string {
 function blokPlatform(): string {
   return `<div>
     <div class="signature-placeholder">Tidak ada tanda tangan Platform terverifikasi</div>
+    ${blokStempelPindai()}
     <p class="garis">Pinjam Gadai Digital</p>
     <p>Nama aplikasi</p>
   </div>`;
@@ -186,7 +187,6 @@ export function buildPinjamanContract(
   <div class="contract">
     <h1>${judulContract("pinjaman")}</h1>
     <p class="nomor">Nomor: ${escapeHtml(nomorContract("pinjaman", meta.nomorReferensi))} · Syarat ${CONTRACT_TERMS_VERSION}</p>
-    ${blokStempelPindai()}
     ${blokBatasTransaksi()}
 
     <p>Ringkasan ini menampilkan masukan yang tersimpan pada <strong>${tgl}</strong>; bukan dokumen kesepakatan para pihak.</p>
@@ -243,8 +243,6 @@ export function buildGadaiContract(
   <div class="contract">
     <h1>${judulContract("gadai")}</h1>
     <p class="nomor">Nomor: ${escapeHtml(nomorContract("gadai", meta.nomorReferensi))} · Syarat ${CONTRACT_TERMS_VERSION}</p>
-    ${blokStempelPindai()}
-
     ${blokBatasTransaksi()}
     <p>Ringkasan ini menampilkan masukan dan hitungan yang tersimpan pada <strong>${tgl}</strong>; bukan akad atau kesepakatan para pihak.</p>
     <p><strong>Nama dan data pada pengajuan:</strong> ${escapeHtml(peminjam.namaLengkap.toUpperCase())}${peminjam.nik ? `, NIK ${escapeHtml(peminjam.nik)}` : ""}; informasi rekening yang dimasukkan: <strong>${peminjam.namaBank ? `${escapeHtml(peminjam.namaBank)} · ` : ""}${escapeHtml(peminjam.nomorRekening)}</strong>. Data ini tidak diverifikasi dan bukan bukti transfer.</p>
