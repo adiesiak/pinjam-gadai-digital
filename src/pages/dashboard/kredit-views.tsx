@@ -369,7 +369,7 @@ export function KreditBarangForm({ onCreated }: { onCreated: (ref: string) => vo
         ) : (
           <>
           <dl className="mt-4 divide-y divide-slate-200 overflow-hidden rounded-xl border border-slate-200">
-            <div className="flex items-baseline justify-between bg-emerald-50 px-3 py-2.5 text-sm">
+            <div className="flex flex-col gap-1 bg-emerald-50 px-3 py-2.5 text-sm sm:flex-row sm:items-baseline sm:justify-between">
               <dt className="font-semibold text-emerald-800">Nilai barang (tidak dicairkan)</dt>
               <dd className="font-semibold tabular-nums text-emerald-700">
                 {formatRupiah(preview.pokokDibiayai)}
@@ -377,32 +377,32 @@ export function KreditBarangForm({ onCreated }: { onCreated: (ref: string) => vo
             </div>
             {KREDIT_TENOR_BIAYA_ADMIN_PLATFORM.includes(tenorBulan) ? (
               <>
-                <div className="flex items-baseline justify-between px-3 py-2 text-sm">
+                <div className="flex flex-col gap-1 px-3 py-2 text-sm sm:flex-row sm:items-baseline sm:justify-between">
                   <dt className="text-muted-foreground">Biaya admin (2%, dipotong di muka)</dt>
                   <dd className="tabular-nums">{formatRupiah(preview.biayaAdmin)}</dd>
                 </div>
-                <div className="flex items-baseline justify-between px-3 py-2 text-sm">
+                <div className="flex flex-col gap-1 px-3 py-2 text-sm sm:flex-row sm:items-baseline sm:justify-between">
                   <dt className="text-muted-foreground">Biaya platform (3%, dipotong di muka)</dt>
                   <dd className="tabular-nums">{formatRupiah(preview.biayaPlatform)}</dd>
                 </div>
-                <div className="flex items-baseline justify-between bg-slate-50 px-3 py-2.5 text-sm">
+                <div className="flex flex-col gap-1 bg-slate-50 px-3 py-2.5 text-sm sm:flex-row sm:items-baseline sm:justify-between">
                   <dt className="font-semibold">Total biaya tenor perkiraan (5%)</dt>
                   <dd className="font-semibold tabular-nums">{formatRupiah(preview.biayaLayanan)}</dd>
                 </div>
                 {(tenorBulan === 3 || tenorBulan === 6) && (
-                  <div className="flex items-baseline justify-between px-3 py-2 text-sm">
+                  <div className="flex flex-col gap-1 px-3 py-2 text-sm sm:flex-row sm:items-baseline sm:justify-between">
                     <dt className="text-muted-foreground">Biaya admin cicilan (2% per bayar)</dt>
                     <dd className="tabular-nums">{formatRupiah(preview.biayaAdminCicilanTotal)}</dd>
                   </div>
                 )}
               </>
             ) : (
-              <div className="flex items-baseline justify-between px-3 py-2 text-sm">
+              <div className="flex flex-col gap-1 px-3 py-2 text-sm sm:flex-row sm:items-baseline sm:justify-between">
                 <dt className="text-muted-foreground">Biaya layanan kontrak lama (3%, dipotong di muka)</dt>
                 <dd className="tabular-nums">{formatRupiah(preview.biayaLayanan)}</dd>
               </div>
             )}
-            <div className="flex items-baseline justify-between bg-slate-50 px-3 py-2.5 text-sm">
+            <div className="flex flex-col gap-1 bg-slate-50 px-3 py-2.5 text-sm sm:flex-row sm:items-baseline sm:justify-between">
               <dt className="font-semibold">Total pembayaran perkiraan ({tenorBulan} bulan)</dt>
               <dd className="font-semibold tabular-nums">
                 {formatRupiah(preview.totalDibayarKonsumen)}
@@ -563,17 +563,17 @@ export function KreditSayaSection() {
             </div>
 
             <dl className="mt-4 space-y-2 border-t border-slate-100 pt-4 text-sm">
-              <div className="flex items-baseline justify-between gap-3">
+              <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between sm:gap-3">
                 <dt className="text-muted-foreground">Harga barang tersimpan pada pengajuan</dt>
                 <dd className="font-semibold tabular-nums">{formatRupiah(k.hargaBarang)}</dd>
               </div>
               {k.dp !== null && (
-                <div className="flex items-baseline justify-between gap-3">
+                <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between sm:gap-3">
                   <dt className="text-muted-foreground">DP perkiraan ({k.dpPersen}%)</dt>
                   <dd className="tabular-nums">{formatRupiah(k.dp)}</dd>
                 </div>
               )}
-              <div className="flex items-baseline justify-between gap-3">
+              <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between sm:gap-3">
                 <dt className="text-muted-foreground">Pokok pembiayaan</dt>
                 <dd className="font-semibold tabular-nums">
                   {k.pokokDibiayai !== null ? formatRupiah(k.pokokDibiayai) : "—"}
@@ -581,52 +581,52 @@ export function KreditSayaSection() {
               </div>
               {KREDIT_TENOR_BIAYA_ADMIN_PLATFORM.includes(k.tenorBulan) && (
                 <>
-                  <div className="flex items-baseline justify-between gap-3">
+                  <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between sm:gap-3">
                     <dt className="text-muted-foreground">Biaya admin (2%, dipotong di muka)</dt>
                     <dd className="tabular-nums">{k.biayaAdmin !== null ? formatRupiah(k.biayaAdmin) : "—"}</dd>
                   </div>
-                  <div className="flex items-baseline justify-between gap-3">
+                  <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between sm:gap-3">
                     <dt className="text-muted-foreground">Biaya platform (3%, dipotong di muka)</dt>
                     <dd className="tabular-nums">{k.biayaPlatform !== null ? formatRupiah(k.biayaPlatform) : "—"}</dd>
                   </div>
                   {(k.tenorBulan === 3 || k.tenorBulan === 6) && (
-                    <div className="flex items-baseline justify-between gap-3">
+                    <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between sm:gap-3">
                       <dt className="text-muted-foreground">Biaya admin cicilan (2% per bayar)</dt>
                       <dd className="tabular-nums">
                         {k.biayaAdminCicilanTotal !== null ? formatRupiah(k.biayaAdminCicilanTotal) : "—"}
                       </dd>
                     </div>
                   )}
-                  <div className="flex items-baseline justify-between gap-3">
+                  <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between sm:gap-3">
                     <dt className="text-muted-foreground">Total biaya admin + platform (5%)</dt>
                     <dd className="tabular-nums">{k.biayaLayanan !== null ? formatRupiah(k.biayaLayanan) : "—"}</dd>
                   </div>
                 </>
               )}
               {!KREDIT_TENOR_BIAYA_ADMIN_PLATFORM.includes(k.tenorBulan) && (
-                <div className="flex items-baseline justify-between gap-3">
+                <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between sm:gap-3">
                   <dt className="text-muted-foreground">Biaya layanan kontrak lama (3%, dipotong di muka)</dt>
                   <dd className="tabular-nums">{k.biayaLayanan !== null ? formatRupiah(k.biayaLayanan) : "—"}</dd>
                 </div>
               )}
-              <div className="flex items-baseline justify-between gap-3">
+              <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between sm:gap-3">
                 <dt className="text-muted-foreground">Total pembayaran peminjam (estimasi)</dt>
                 <dd className="font-semibold tabular-nums">
                   {k.totalDibayarKonsumen !== null ? formatRupiah(k.totalDibayarKonsumen) : "—"}
                 </dd>
               </div>
-              <div className="flex items-baseline justify-between gap-3 border-t border-slate-100 pt-2">
+              <div className="flex flex-col gap-1 border-t border-slate-100 pt-2 sm:flex-row sm:items-baseline sm:justify-between sm:gap-3">
                 <dt className="text-muted-foreground">Pokok pendanaan (estimasi)</dt>
                 <dd className="tabular-nums">{k.pokokDibiayai !== null ? formatRupiah(k.pokokDibiayai) : "—"}</dd>
               </div>
               {k.totalDiterimaPendana !== null && (
-                <div className="flex items-baseline justify-between gap-3">
+                <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between sm:gap-3">
                   <dt className="text-muted-foreground">Total pokok + imbal hasil pendana (estimasi)</dt>
                   <dd className="font-semibold tabular-nums">{formatRupiah(k.totalDiterimaPendana)}</dd>
                 </div>
               )}
               {k.imbalHasilPendana !== null && (
-                <div className="flex items-baseline justify-between gap-3">
+                <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between sm:gap-3">
                   <dt className="text-muted-foreground">Imbal hasil pendana (estimasi)</dt>
                   <dd className="tabular-nums">{formatRupiah(k.imbalHasilPendana)}</dd>
                 </div>

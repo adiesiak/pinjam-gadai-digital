@@ -72,11 +72,11 @@ export function PawnVaultSection({
                 <StatusBadge status={p.status} kind="pawn" />
               </div>
               <dl className="mt-3 grid gap-x-8 gap-y-1.5 text-sm sm:grid-cols-2">
-                <div className="flex items-baseline justify-between gap-4">
+                <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4">
                   <dt className="text-muted-foreground">Status barang</dt>
-                  <dd className="text-right">{meta.label}</dd>
+                  <dd className="sm:text-right">{meta.label}</dd>
                 </div>
-                <div className="flex items-baseline justify-between gap-4">
+                <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4">
                   <dt className="text-muted-foreground">Catatan taksiran internal</dt>
                   <dd className="tabular-nums">
                     {p.nilaiTaksiran !== undefined
@@ -85,7 +85,7 @@ export function PawnVaultSection({
                   </dd>
                 </div>
                 {p.nilaiTaksiran !== undefined && (
-                  <div className="flex items-baseline justify-between gap-4">
+                  <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4">
                     <dt className="text-muted-foreground">Batas pinjaman (LTV 70%)</dt>
                     <dd className="font-medium tabular-nums text-emerald-700">
                       {formatRupiah(Math.round(p.nilaiTaksiran * 0.7))}
@@ -93,7 +93,7 @@ export function PawnVaultSection({
                   </div>
                 )}
                 {dalamVault && (
-                  <div className="flex items-baseline justify-between gap-4">
+                  <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4">
                     <dt className="text-muted-foreground">Status ledger</dt>
                     <dd>Aktif (bukan status lokasi barang)</dd>
                   </div>

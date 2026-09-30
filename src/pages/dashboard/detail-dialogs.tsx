@@ -86,10 +86,13 @@ export function LoanDetailDialog({
                     ["Total kewajiban perkiraan", formatRupiah(loan.quote.totalKewajibanPelunasan)],
                   ]
               ).map(([label, value], index, semua) => (
-                <div key={label} className="flex items-baseline justify-between gap-4 px-4 py-3">
+                <div
+                  key={label}
+                  className="flex flex-col gap-1 px-4 py-3 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4"
+                >
                   <dt className="text-sm text-muted-foreground">{label}</dt>
                   <dd
-                    className={`text-sm tabular-nums ${
+                    className={`text-sm tabular-nums sm:text-right ${
                       label.startsWith("Perkiraan nilai bersih") ||
                       index === semua.length - 1
                         ? "font-semibold"
@@ -117,17 +120,17 @@ export function LoanDetailDialog({
               >
                 <p className="text-sm font-medium">Pelunasan pada ledger</p>
                 <dl className="mt-3 space-y-1.5 text-sm">
-                  <div className="flex items-baseline justify-between gap-4">
+                  <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4">
                     <dt className="text-muted-foreground">Tanggal acuan</dt>
                     <dd className="tabular-nums">{formatDate(loan.pelunasan.jatuhTempoPada)}</dd>
                   </div>
                   {loan.pelunasan.hariTerlambat > 0 ? (
-                    <div className="flex items-baseline justify-between gap-4">
+                    <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4">
                       <dt className="text-red-600">Tanggal acuan terlampaui {loan.pelunasan.hariTerlambat} hari</dt>
                       <dd className="tabular-nums text-red-600">+{formatRupiah(loan.pelunasan.dendaTerlambat)}</dd>
                     </div>
                   ) : (
-                    <div className="flex items-baseline justify-between gap-4">
+                    <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4">
                       <dt className="text-muted-foreground">Sisa waktu</dt>
                       <dd className="tabular-nums">
                         {loan.pelunasan.sisaHari === 0 ? "Hari ini" : `${loan.pelunasan.sisaHari} hari`}
@@ -196,9 +199,12 @@ export function PawnDetailDialog({
                     : "Menunggu catatan taksiran",
                 ],
               ].map(([label, value]) => (
-                <div key={label} className="flex items-baseline justify-between gap-4 px-4 py-3">
-                  <dt className="shrink-0 text-sm text-muted-foreground">{label}</dt>
-                  <dd className="text-right text-sm">{value}</dd>
+                <div
+                  key={label}
+                  className="flex flex-col gap-1 px-4 py-3 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4"
+                >
+                  <dt className="text-sm text-muted-foreground">{label}</dt>
+                  <dd className="break-words text-sm sm:text-right">{value}</dd>
                 </div>
               ))}
             </dl>

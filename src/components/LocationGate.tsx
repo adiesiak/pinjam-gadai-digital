@@ -714,7 +714,7 @@ function PilLokasi({
   latarBelakang: boolean;
 }) {
   return (
-    <div className="pointer-events-none fixed bottom-4 right-4 z-50 flex items-center gap-2 rounded-full border border-slate-200 bg-white/95 px-3 py-1.5 text-[11px] shadow-sm backdrop-blur">
+    <div className="pointer-events-none fixed bottom-3 right-3 z-50 flex max-w-[calc(100vw-1.5rem)] flex-wrap items-center justify-end gap-x-2 gap-y-0.5 rounded-2xl border border-slate-200 bg-white/95 px-3 py-2 text-[11px] leading-4 shadow-sm backdrop-blur sm:bottom-4 sm:right-4 sm:rounded-full sm:py-1.5">
       {segar ? (
         <CheckCircle2 className="size-3.5 text-emerald-600" />
       ) : (
@@ -738,7 +738,7 @@ function PilLokasi({
 
 function LayarPenuh({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-50 px-6 py-16 text-slate-900">
+    <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4 py-12 text-slate-900 sm:px-6 sm:py-16">
       {children}
     </div>
   );
@@ -758,7 +758,7 @@ function Kartu({
   children: React.ReactNode;
 }) {
   return (
-    <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm">
+    <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-sm sm:p-8">
       <span className="clay-icon-blue inline-flex size-11 items-center justify-center">
         {ikon}
       </span>
