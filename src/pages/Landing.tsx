@@ -40,7 +40,7 @@ import { formatRupiah, type Rupiah } from "@/lib/money";
 import { PLAFON_BATAS } from "@/lib/plafon";
 import { ADMIN_ROUTE } from "@/lib/routes";
 
-/* Logo brankas — sederhana, dua warna. */
+/* Ikon brankas PINDAI — proporsi kokoh dengan detail dial yang tetap terbaca kecil. */
 function VaultLogo({ size = 36 }: { size?: number }) {
   return (
     <svg
@@ -50,12 +50,26 @@ function VaultLogo({ size = 36 }: { size?: number }) {
       fill="none"
       aria-hidden="true"
     >
-      <rect x="8" y="10" width="48" height="44" rx="10" fill="#0f3d3a" />
-      <rect x="16" y="18" width="32" height="28" rx="6" fill="#ffffff" />
-      <circle cx="32" cy="32" r="7" fill="#0f3d3a" />
-      <circle cx="32" cy="32" r="2.4" fill="#ffffff" />
-      <rect x="16" y="54" width="8" height="4" rx="2" fill="#0b2d2a" />
-      <rect x="40" y="54" width="8" height="4" rx="2" fill="#0b2d2a" />
+      <rect
+        x="5"
+        y="6"
+        width="54"
+        height="50"
+        rx="12"
+        fill="#0f3d3a"
+        stroke="#b99b62"
+        strokeWidth="2"
+      />
+      <path d="M15 10h34" stroke="#ffffff" strokeOpacity=".18" strokeWidth="2" strokeLinecap="round" />
+      <rect x="11" y="12" width="42" height="38" rx="7" fill="#f5f2e9" />
+      <rect x="14" y="15" width="36" height="32" rx="5" stroke="#d9d2c1" strokeWidth="1.5" />
+      <rect x="7" y="19" width="5" height="7" rx="2.5" fill="#cbb47e" />
+      <rect x="7" y="36" width="5" height="7" rx="2.5" fill="#cbb47e" />
+      <circle cx="31" cy="31" r="10" fill="#0f3d3a" />
+      <circle cx="31" cy="31" r="7.2" stroke="#cbb47e" strokeWidth="1.5" />
+      <path d="M31 31l7-5M31 24v2M38 31h-2M31 38v-2M24 31h2" stroke="#f5f2e9" strokeWidth="1.7" strokeLinecap="round" />
+      <circle cx="31" cy="31" r="2.2" fill="#cbb47e" />
+      <path d="M20 57h8M36 57h8" stroke="#0b2d2a" strokeWidth="3" strokeLinecap="round" />
     </svg>
   );
 }
