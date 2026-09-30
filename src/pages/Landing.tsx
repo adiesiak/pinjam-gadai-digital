@@ -108,7 +108,7 @@ function BrandWordmark({ name, compact = false }: { name: string; compact?: bool
         <span className="size-1.5 shrink-0 rounded-full bg-[#b99b62]" aria-hidden="true" />
       </span>
       <span
-        className={`flex items-center gap-1.5 font-semibold uppercase leading-none tracking-[0.13em] text-slate-400 ${
+        className={`hidden items-center gap-1.5 font-semibold uppercase leading-none tracking-[0.13em] text-slate-400 sm:flex ${
           compact ? "text-[8px]" : "text-[9px]"
         }`}
       >
@@ -305,7 +305,7 @@ function SchemeCard({
 }) {
   return (
     <Reveal delay={delay} className="h-full">
-      <article className="card-lift group relative flex h-full flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white p-6 sm:p-7">
+      <article className="card-lift group relative flex h-full flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white p-5 sm:p-7">
         <div
           aria-hidden="true"
           className="pointer-events-none absolute -right-20 -top-24 size-52 rounded-full bg-primary/5 blur-2xl transition-transform duration-500 group-hover:scale-125"
@@ -319,7 +319,7 @@ function SchemeCard({
 
         <dl className="mt-5 divide-y divide-slate-100 border-y border-slate-100">
           {rows.map((row) => (
-            <div key={row.label} className="flex items-baseline justify-between gap-4 py-2.5">
+            <div key={row.label} className="flex items-baseline justify-between gap-3 py-2.5 sm:gap-4">
               <dt className="text-xs leading-5 text-slate-500">{row.label}</dt>
               <dd className="shrink-0 text-sm font-semibold tabular-nums text-slate-900">
                 {row.value}
@@ -330,8 +330,8 @@ function SchemeCard({
 
         <div className="mt-5 grid grid-cols-3 gap-px overflow-hidden rounded-xl bg-slate-200">
           {stats.map((stat) => (
-            <div key={stat.label} className="bg-slate-50/80 px-3 py-3 text-center">
-              <p className="text-lg font-semibold tracking-tight text-primary">
+            <div key={stat.label} className="bg-slate-50/80 px-1.5 py-2.5 text-center sm:px-3 sm:py-3">
+              <p className="text-base font-semibold tracking-tight text-primary sm:text-lg">
                 <CountUp to={stat.to} decimals={stat.decimals ?? 0} suffix={stat.suffix} />
               </p>
               <p className="mt-1 text-[10px] uppercase leading-4 tracking-[0.1em] text-slate-500">
@@ -432,10 +432,10 @@ function LiveCalculator() {
   };
 
   return (
-    <div className="overflow-hidden rounded-[1.5rem] border border-slate-200 bg-white p-6 sm:p-7">
-      <div className="-mx-6 -mt-6 mb-6 border-b border-slate-200 bg-slate-50/80 px-6 py-5 sm:-mx-7 sm:-mt-7 sm:px-7">
-        <div className="flex items-center justify-between gap-3">
-          <span className="inline-flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-primary"><Calculator className="size-3.5" /> Kalkulator interaktif</span>
+    <div className="overflow-hidden rounded-[1.5rem] border border-slate-200 bg-white p-5 sm:p-7">
+      <div className="-mx-5 -mt-5 mb-5 border-b border-slate-200 bg-slate-50/80 px-5 py-5 sm:-mx-7 sm:-mt-7 sm:mb-6 sm:px-7">
+        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5">
+          <span className="inline-flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-primary sm:tracking-[0.16em]"><Calculator className="size-3.5" /> Kalkulator interaktif</span>
           <span className="rounded-full border border-primary/15 bg-white px-2.5 py-1 text-[10px] font-medium text-primary">Hasil langsung</span>
         </div>
         <h3 className="mt-2 text-lg font-semibold text-slate-900">Kalkulator pinjaman</h3>
@@ -452,7 +452,7 @@ function LiveCalculator() {
             key={nilai}
             type="button"
             onClick={() => gantiSkema(nilai)}
-            className="relative rounded-lg px-3 py-2 text-xs font-medium transition-colors"
+            className="relative rounded-lg px-2 py-2 text-center text-xs font-medium leading-4 transition-colors sm:px-3"
           >
             {skema === nilai && (
               <motion.span
@@ -488,7 +488,7 @@ function LiveCalculator() {
           }
           className="mt-3 w-full accent-primary"
         />
-        <div className="mt-3 flex flex-wrap gap-2">
+        <div className="mt-3 flex flex-wrap gap-1.5 sm:gap-2">
           {cepat.map((q) => (
             <button
               key={q}
@@ -555,7 +555,7 @@ function LiveCalculator() {
         </div>
       </div>
 
-      <dl className="mt-6 space-y-2 border-t border-slate-200 pt-5 text-sm">
+      <dl className="mt-6 space-y-2.5 border-t border-slate-200 pt-5 text-sm sm:space-y-2">
         {(
           sim !== null
             ? ([
@@ -592,10 +592,10 @@ function LiveCalculator() {
                 ["Nilai bersih (95% dari pokok)", formatRupiah(quote.danaBersihDitransfer), true],
               ] as Array<[string, string, boolean?]>)
         ).map(([term, value, strong]) => (
-          <div key={term} className="flex items-baseline justify-between gap-4">
+          <div key={term} className="flex flex-col gap-0.5 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4">
             <dt className={strong ? "font-medium text-slate-900" : "text-slate-500"}>{term}</dt>
             <dd
-              className={`tabular-nums ${
+              className={`tabular-nums sm:text-right ${
                 strong ? "font-semibold text-slate-900" : "font-medium text-slate-700"
               }`}
             >
@@ -603,7 +603,7 @@ function LiveCalculator() {
             </dd>
           </div>
         ))}
-        <div className="flex items-baseline justify-between gap-4 border-t border-slate-200 pt-2.5">
+        <div className="flex items-baseline justify-between gap-3 border-t border-slate-200 pt-2.5 sm:gap-4">
           <dt className="font-semibold text-slate-900">Total pelunasan</dt>
           <AnimatePresence mode="popLayout" initial={false}>
             <motion.dd
@@ -723,7 +723,7 @@ function FloatingWidget({
 
   return (
     <div
-      className="fixed right-5 z-50 flex flex-col items-end gap-3"
+      className="fixed right-4 z-50 flex flex-col items-end gap-3 sm:right-5"
       style={{ bottom: "max(1.25rem, env(safe-area-inset-bottom))" }}
     >
       <AnimatePresence>
@@ -907,7 +907,7 @@ export default function Landing() {
             : "border-slate-200/70 bg-white/80"
         }`}
       >
-        <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between px-6">
+        <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between px-4 sm:px-6">
           {showAdminShortcut && (
             <span className="sr-only" role="status" aria-live="polite">
               Akses panel admin tersedia.
@@ -951,7 +951,11 @@ export default function Landing() {
                 <Link to="/auth">Masuk</Link>
               </Button>
             )}
-            <Button asChild disabled={isLoading} className="bg-primary text-white hover:bg-primary/90">
+            <Button
+              asChild
+              disabled={isLoading}
+              className={`bg-primary text-white hover:bg-primary/90 ${isAuthenticated ? "hidden sm:inline-flex" : ""}`}
+            >
               <Link to={accountHref}>{isAuthenticated ? "Dashboard" : isLoading ? "Memuat…" : "Daftar"}</Link>
             </Button>
             <button
@@ -1030,7 +1034,7 @@ export default function Landing() {
           <GlowField />
           <div aria-hidden="true" className="pointer-events-none absolute -right-32 top-16 size-80 rounded-full border border-primary/10 sm:size-[30rem]" />
           <div aria-hidden="true" className="animate-spin-slow pointer-events-none absolute -right-20 top-28 size-56 rounded-full border border-dashed border-[#b99b62]/25 sm:size-96" />
-          <div className="relative mx-auto grid w-full max-w-7xl items-center gap-12 px-6 py-16 sm:px-8 sm:py-24 lg:grid-cols-[1.05fr_0.95fr] lg:gap-16 lg:py-28">
+          <div className="relative mx-auto grid w-full max-w-7xl items-center gap-10 px-4 py-14 sm:gap-12 sm:px-8 sm:py-24 lg:grid-cols-[1.05fr_0.95fr] lg:gap-16 lg:py-28">
             <motion.div
               variants={heroContainer}
               initial="hidden"
@@ -1049,7 +1053,7 @@ export default function Landing() {
               </motion.span>
               <motion.h1
                 variants={heroItem}
-                className="mt-7 max-w-3xl text-[2.65rem] font-semibold leading-[1.04] tracking-[-0.045em] text-slate-950 sm:text-6xl lg:text-[4.5rem]"
+                className="mt-6 max-w-3xl text-[2.1rem] font-semibold leading-[1.08] tracking-[-0.04em] text-slate-950 min-[480px]:text-[2.65rem] sm:mt-7 sm:leading-[1.04] sm:tracking-[-0.045em] sm:text-6xl lg:text-[4.5rem]"
               >
                 {heroJudul1}<br />
                 <span className="font-serif font-medium italic text-primary">{heroJudul2}</span>
@@ -1103,24 +1107,24 @@ export default function Landing() {
                 aria-hidden="true"
                 className="animate-spin-slow pointer-events-none absolute -right-8 -top-10 size-32 rounded-full border border-dashed border-[#b99b62]/30"
               />
-              <div className="relative overflow-hidden rounded-[1.75rem] bg-[#0f3d3a] p-6 text-[#f7f4ec] sm:p-8">
+              <div className="relative overflow-hidden rounded-[1.75rem] bg-[#0f3d3a] p-5 text-[#f7f4ec] sm:p-8">
                 <div className="absolute -right-16 -top-24 size-64 rounded-full border border-white/10" aria-hidden="true" />
                 <div className="absolute -right-6 -top-14 size-44 rounded-full border border-[#cbb47e]/20" aria-hidden="true" />
                 <div className="relative">
-                  <div className="flex items-center justify-between gap-4">
-                    <div className="flex items-center gap-3">
+                  <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+                    <div className="flex min-w-0 items-center gap-3">
                       <VaultLogo size={46} />
-                      <div>
-                        <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-white/55">Ruang catatan PINDAI</p>
+                      <div className="min-w-0">
+                        <p className="truncate text-[10px] font-semibold uppercase tracking-[0.2em] text-white/55">Ruang catatan PINDAI</p>
                         <p className="mt-1 text-sm font-semibold">{c(cms?.chip1Label, CMS_DEFAULTS.chips.chip1.label)}</p>
                       </div>
                     </div>
                     <span className="rounded-full border border-[#d8c28c]/35 bg-[#d8c28c]/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#e6d3a5]">Kalkulator</span>
                   </div>
-                  <div className="mt-8 rounded-2xl border border-white/10 bg-white/[0.07] p-5 backdrop-blur-sm sm:p-6">
+                  <div className="mt-6 rounded-2xl border border-white/10 bg-white/[0.07] p-4 backdrop-blur-sm sm:mt-8 sm:p-6">
                     <p className="text-xs text-white/60">{c(cms?.chip2Label, CMS_DEFAULTS.chips.chip2.label)}</p>
                     <p className="mt-1 text-3xl font-semibold tracking-tight text-white sm:text-4xl">{c(cms?.chip2Nilai, CMS_DEFAULTS.chips.chip2.nilai)}</p>
-                    <div className="mt-5 grid grid-cols-2 gap-3">
+                    <div className="mt-4 grid grid-cols-2 gap-2.5 sm:mt-5 sm:gap-3">
                       <div className="rounded-xl border border-white/10 bg-black/10 p-3">
                         <p className="text-[10px] uppercase tracking-[0.13em] text-white/50">Hitung biaya</p>
                         <p className="mt-1 text-sm font-medium">Terbuka di awal</p>
@@ -1175,7 +1179,7 @@ export default function Landing() {
 
         {/* Layanan */}
         <section className="relative border-t border-slate-200 bg-slate-50/60">
-          <div className="mx-auto w-full max-w-6xl px-6 py-20">
+          <div className="mx-auto w-full max-w-6xl px-4 py-16 sm:px-6 sm:py-20">
             <Reveal className="max-w-2xl">
               <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#9c7b3a]">
                 Tiga skema
@@ -1188,14 +1192,14 @@ export default function Landing() {
               </p>
             </Reveal>
 
-            <div className="mt-10 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            <div className="mt-8 grid gap-5 sm:gap-6 md:grid-cols-2 lg:grid-cols-3">
               <motion.article
                 id="pinjaman"
                 initial={{ opacity: 0, y: 18 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true, amount: 0.25 }}
                 transition={{ duration: 0.45 }}
-                className="card-lift group flex scroll-mt-24 flex-col rounded-2xl border border-slate-200 bg-white p-7"
+                className="card-lift group flex scroll-mt-24 flex-col rounded-2xl border border-slate-200 bg-white p-6 sm:p-7"
               >
                 <span className="clay-icon-blue inline-flex size-10 items-center justify-center transition-transform duration-300 group-hover:-rotate-6 group-hover:scale-110">
                   <Banknote className="size-5" strokeWidth={2} />
@@ -1220,7 +1224,7 @@ export default function Landing() {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true, amount: 0.25 }}
                 transition={{ duration: 0.45, delay: 0.1 }}
-                className="card-lift group flex scroll-mt-24 flex-col rounded-2xl border border-slate-200 bg-white p-7"
+                className="card-lift group flex scroll-mt-24 flex-col rounded-2xl border border-slate-200 bg-white p-6 sm:p-7"
               >
                 <span className="clay-icon-mint inline-flex size-10 items-center justify-center transition-transform duration-300 group-hover:rotate-6 group-hover:scale-110">
                   <Package className="size-5" strokeWidth={2} />
@@ -1245,7 +1249,7 @@ export default function Landing() {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true, amount: 0.25 }}
                 transition={{ duration: 0.45, delay: 0.2 }}
-                className="card-lift group flex scroll-mt-24 flex-col rounded-2xl border border-slate-200 bg-white p-7"
+                className="card-lift group flex scroll-mt-24 flex-col rounded-2xl border border-slate-200 bg-white p-6 sm:p-7"
               >
                 <span className="clay-icon-blue inline-flex size-10 items-center justify-center transition-transform duration-300 group-hover:scale-110">
                   <Wallet className="size-5" strokeWidth={2} />
@@ -1267,7 +1271,7 @@ export default function Landing() {
 
         {/* Pratinjau catatan ledger */}
         <section className="relative overflow-hidden border-t border-slate-200">
-          <div className="mx-auto grid w-full max-w-6xl items-center gap-10 px-6 py-20 lg:grid-cols-2 lg:gap-16">
+          <div className="mx-auto grid w-full max-w-6xl items-center gap-8 px-4 py-16 sm:gap-10 sm:px-6 sm:py-20 lg:grid-cols-2 lg:gap-16">
             <Reveal>
               <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#9c7b3a]">
                 Catatan internal
@@ -1314,7 +1318,7 @@ export default function Landing() {
                       whileInView={{ opacity: 1, y: 0 }}
                       viewport={{ once: true, amount: 0.6 }}
                       transition={{ duration: 0.4, delay: i * 0.08, ease: EASE_OUT }}
-                      className="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-3 border-b border-slate-100 px-4 py-3 last:border-b-0"
+                      className="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-2 border-b border-slate-100 px-4 py-3 last:border-b-0 sm:gap-3"
                     >
                       <span className="text-xs text-slate-500">{row.label}</span>
                       <span className="text-right text-xs font-semibold tabular-nums text-slate-800">
@@ -1336,7 +1340,7 @@ export default function Landing() {
           id="biaya"
           className="relative scroll-mt-24 overflow-hidden border-t border-slate-200 bg-slate-50/60"
         >
-          <div className="mx-auto w-full max-w-6xl px-6 py-20">
+          <div className="mx-auto w-full max-w-6xl px-4 py-16 sm:px-6 sm:py-20">
             <Reveal className="max-w-2xl">
               <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#9c7b3a]">
                 Rincian biaya
@@ -1349,7 +1353,7 @@ export default function Landing() {
               </p>
             </Reveal>
 
-            <div className="mt-10 grid gap-6 lg:grid-cols-2">
+            <div className="mt-8 grid gap-5 sm:mt-10 sm:gap-6 lg:grid-cols-2">
               <SchemeCard
                 badge="Skema harian"
                 title="7–30 hari · Rp 100 rb–1 jt"
@@ -1393,7 +1397,7 @@ export default function Landing() {
         </section>
 
         {/* Kalkulator + langkah */}
-        <section id="kalkulator" className="mx-auto w-full max-w-6xl scroll-mt-24 px-6 py-20">
+        <section id="kalkulator" className="mx-auto w-full max-w-6xl scroll-mt-24 px-4 py-16 sm:px-6 sm:py-20">
           <div className="grid gap-10 lg:grid-cols-2">
             <Reveal>
               <LiveCalculator />
@@ -1452,7 +1456,7 @@ export default function Landing() {
 
         {/* Keamanan */}
         <section id="keamanan" className="relative scroll-mt-24 border-t border-slate-200 bg-slate-50/60">
-          <div className="mx-auto w-full max-w-6xl px-6 py-20">
+          <div className="mx-auto w-full max-w-6xl px-4 py-16 sm:px-6 sm:py-20">
             <Reveal className="max-w-2xl">
               <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#9c7b3a]">
                 Batas yang jelas
@@ -1469,7 +1473,7 @@ export default function Landing() {
               whileInView="show"
               viewport={{ once: true, amount: 0.2 }}
               variants={{ hidden: {}, show: { transition: { staggerChildren: 0.06 } } }}
-              className="mt-10 grid gap-px overflow-hidden rounded-2xl border border-slate-200 bg-slate-200 sm:grid-cols-2 lg:grid-cols-3"
+              className="mt-8 grid gap-px overflow-hidden rounded-2xl border border-slate-200 bg-slate-200 sm:mt-10 sm:grid-cols-2 lg:grid-cols-3"
             >
               {SECURITY.map(({ icon: Icon, label }) => (
                 <motion.div
@@ -1493,7 +1497,7 @@ export default function Landing() {
 
         {/* Tanya jawab */}
         <section id="tanya" className="relative scroll-mt-24 border-t border-slate-200">
-          <div className="mx-auto w-full max-w-3xl px-6 py-20">
+          <div className="mx-auto w-full max-w-3xl px-4 py-16 sm:px-6 sm:py-20">
             <Reveal>
               <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#9c7b3a]">
                 Tanya jawab
@@ -1512,7 +1516,7 @@ export default function Landing() {
                 className="overflow-hidden rounded-2xl border border-slate-200 bg-white"
               >
                 {FAQ_ITEMS.map((item) => (
-                  <AccordionItem key={item.q} value={item.q} className="px-5 last:border-b-0 sm:px-6">
+                  <AccordionItem key={item.q} value={item.q} className="px-4 last:border-b-0 sm:px-6">
                     <AccordionTrigger className="text-left text-sm font-semibold text-slate-900 hover:text-primary hover:no-underline">
                       {item.q}
                     </AccordionTrigger>
@@ -1527,13 +1531,13 @@ export default function Landing() {
         </section>
 
         {/* CTA */}
-        <section className="mx-auto w-full max-w-6xl px-6 py-20">
+        <section className="mx-auto w-full max-w-6xl px-4 py-16 sm:px-6 sm:py-20">
           <motion.div
             initial={{ opacity: 0, y: 26 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, amount: 0.3 }}
             transition={{ duration: 0.6, ease: EASE_OUT }}
-            className="relative isolate overflow-hidden rounded-[1.75rem] bg-[#0f3d3a] px-8 py-14 text-center sm:px-12"
+            className="relative isolate overflow-hidden rounded-[1.75rem] bg-[#0f3d3a] px-5 py-12 text-center sm:px-12 sm:py-14"
           >
             <div aria-hidden="true" className="animate-drift pointer-events-none absolute -left-24 -top-24 size-72 rounded-full bg-[#cbb47e]/25 blur-3xl" />
             <div aria-hidden="true" className="animate-drift-reverse pointer-events-none absolute -bottom-28 -right-20 size-80 rounded-full bg-white/10 blur-3xl" />
@@ -1572,7 +1576,7 @@ export default function Landing() {
 
       {/* Footer */}
       <footer className="border-t border-slate-200 bg-white">
-        <div className="mx-auto w-full max-w-6xl px-6 py-12">
+        <div className="mx-auto w-full max-w-6xl px-4 py-12 sm:px-6">
           <div className="grid gap-8 sm:grid-cols-3">
             <div>
               <div className="flex items-center gap-3">
