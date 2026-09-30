@@ -529,7 +529,7 @@ export default function Landing() {
             </span>
           )}
           <Link to="/" onClick={handleBrandClick} className="flex items-center gap-2.5">
-            <VaultLogo size={32} />
+            <VaultLogo size={40} />
             <span className="text-base font-semibold tracking-tight">{logoTeks}</span>
           </Link>
           <nav className="hidden items-center gap-8 text-sm text-slate-600 md:flex">
@@ -679,7 +679,7 @@ export default function Landing() {
             {/* Sorotan produk — pengganti ilustrasi berat */}
             <div className="card-lift rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
               <div className="flex items-center gap-3">
-                <VaultLogo size={44} />
+                <VaultLogo size={60} />
                 <div>
                   <p className="text-sm font-semibold text-slate-900">
                     {c(cms?.chip1Label, CMS_DEFAULTS.chips.chip1.label)}
@@ -859,7 +859,7 @@ export default function Landing() {
           <div className="grid gap-8 sm:grid-cols-3">
             <div>
               <div className="flex items-center gap-2.5">
-                <VaultLogo size={28} />
+                <VaultLogo size={36} />
                 <span className="text-sm font-semibold">{logoTeks}</span>
               </div>
               <p className="mt-3 max-w-xs text-xs leading-5 text-slate-500">
