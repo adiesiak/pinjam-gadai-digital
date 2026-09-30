@@ -20,7 +20,6 @@ import { Slider } from "@/components/ui/slider";
 import { Textarea } from "@/components/ui/textarea";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
-import { persenBungaPerBulan } from "@/lib/bulanan";
 import {
   KREDIT_ASUMSI_AWAL,
   KREDIT_BARANG_POKOK_MAKS,
@@ -84,7 +83,7 @@ const STATUS_META: Record<string, { label: string; className: string; descriptio
     label: "Lunas (ledger)",
     className: "border-primary/30 bg-primary/10 text-accent-foreground",
     description:
-      "Status lunas tercatat pada ledger internal. Ini bukan bukti cicilan dibayar atau dana diteruskan ke Pendana.",
+      "Status lunas tercatat pada ledger internal. Ini bukan bukti pembayaran aktual atau pembelian barang.",
   },
 };
 
@@ -97,8 +96,8 @@ function StatusKreditBadge({ status }: { status: string }) {
 }
 
 /**
- * Form pengajuan kredit barang: barang dari merchant mitra + uang muka, tenor,
- * dan margin Imbal Hasil. Angka final selalu dihitung ulang server-side.
+ * Form pengajuan kredit barang: barang dari merchant mitra, tenor, dan ringkasan
+ * pembayaran simulasi. Angka final selalu dihitung ulang server-side.
  */
 export function KreditBarangForm({ onCreated }: { onCreated: (ref: string) => void }) {
   const [namaBarang, setNamaBarang] = useState("");
@@ -359,39 +358,6 @@ export function KreditBarangForm({ onCreated }: { onCreated: (ref: string) => vo
           })}
         </div>
 
-        <div className="mt-5 flex items-baseline justify-between gap-3">
-          <Label className="text-xs text-muted-foreground">Imbal Hasil simulasi Pendana per bulan</Label>
-          <span className="text-xs font-semibold tabular-nums">
-            {bulanan
-              ? `${persenBungaPerBulan(tenorBulan).toLocaleString("id-ID", { maximumFractionDigits: 2 })}%`
-              : `${marginPersenPerBulan.toLocaleString("id-ID", { maximumFractionDigits: 2 })}%`}
-          </span>
-        </div>
-        {bulanan ? (
-          <p className="mt-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs leading-5 text-muted-foreground">
-            Bunga simulasi menurun otomatis: {persenBungaPerBulan(tenorBulan)}% per bulan — 10%/bln
-            (1 bulan), 8%/bln (3–5 bulan), 7,5%/bln (≥ 6 bulan).
-          </p>
-        ) : (
-          <>
-            <Slider
-              className="mt-3"
-              min={KREDIT_PRICING.marginMinPersenPerBulan}
-              max={KREDIT_PRICING.marginMaxPersenPerBulan}
-              step={0.25}
-              value={[marginPersenPerBulan]}
-              onValueChange={(v) =>
-                setMarginPersenPerBulan(v[0] ?? KREDIT_PRICING.marginMinPersenPerBulan)
-              }
-              disabled={submitting}
-            />
-            <p className="mt-1.5 text-xs leading-5 text-muted-foreground">
-              Rentang {KREDIT_PRICING.marginMinPersenPerBulan}–
-              {KREDIT_PRICING.marginMaxPersenPerBulan}% per bulan dari pokok acuan simulasi; bukan hak atau janji pembayaran.
-            </p>
-          </>
-        )}
-
         {/* ===== Pratinjau kredit ===== */}
         {preview === null ? (
           <p
@@ -401,38 +367,25 @@ export function KreditBarangForm({ onCreated }: { onCreated: (ref: string) => vo
             Isi harga barang yang valid untuk melihat pratinjau cicilan.
           </p>
         ) : (
+          <>
           <dl className="mt-4 divide-y divide-slate-200 overflow-hidden rounded-xl border border-slate-200">
-            {(
-              [
-                ["Uang muka simulasi (DP)", formatRupiah(preview.dp)],
-                ["Pokok acuan simulasi (tidak ditransfer)", formatRupiah(preview.pokokDibiayai)],
-                [`Biaya layanan simulasi (${KREDIT_PRICING.biayaLayananPersen}%)`, formatRupiah(preview.biayaLayanan)],
-                ["Imbal Hasil simulasi / bulan", formatRupiah(preview.marginPerBulan)],
-              ] as const
-            ).map(([label, value]) => (
-              <div
-                key={label}
-                className="flex items-baseline justify-between bg-white px-3 py-2 text-sm"
-              >
-                <dt className="text-muted-foreground">{label}</dt>
-                <dd className="tabular-nums">{value}</dd>
-              </div>
-            ))}
             <div className="flex items-baseline justify-between bg-emerald-50 px-3 py-2.5 text-sm">
-              <dt className="font-semibold text-emerald-800">
-                Cicilan simulasi per bulan ({tenorBulan} bulan)
-              </dt>
+              <dt className="font-semibold text-emerald-800">Nilai barang dalam simulasi (tidak dicairkan)</dt>
               <dd className="font-semibold tabular-nums text-emerald-700">
-                {formatRupiah(preview.cicilanPerBulan)}
+                {formatRupiah(preview.pokokDibiayai)}
               </dd>
             </div>
             <div className="flex items-baseline justify-between bg-slate-50 px-3 py-2.5 text-sm">
-              <dt className="font-semibold">Total kewajiban simulasi</dt>
+              <dt className="font-semibold">Total pembayaran simulasi ({tenorBulan} bulan)</dt>
               <dd className="font-semibold tabular-nums">
                 {formatRupiah(preview.totalDibayarKonsumen)}
               </dd>
             </div>
           </dl>
+          <p className="mt-2 text-xs leading-5 text-muted-foreground">
+            Kredit barang ini bukan pencairan uang tunai; PINDAI tidak membeli barang atau mengirim dana ke merchant.
+          </p>
+          </>
         )}
       </div>
 
@@ -578,34 +531,25 @@ export function KreditSayaSection() {
               <StatusKreditBadge status={k.status} />
             </div>
 
-            <div className="mt-4 grid grid-cols-2 gap-3 border-t border-slate-100 pt-4 sm:grid-cols-4">
-              {(
-                [
-                  ["Harga acuan (masukan pengguna)", formatRupiah(k.hargaBarang)],
-                  ["Uang muka simulasi (DP)", k.dp !== null ? formatRupiah(k.dp) : "—"],
-                  ["Pokok acuan simulasi", k.pokokDibiayai !== null ? formatRupiah(k.pokokDibiayai) : "—"],
-                  ["Cicilan simulasi / bulan", k.cicilanPerBulan !== null ? formatRupiah(k.cicilanPerBulan) : "—"],
-                ] as const
-              ).map(([label, value]) => (
-                <div key={label}>
-                  <p className="text-xs text-muted-foreground">{label}</p>
-                  <p className="mt-1 text-sm font-semibold tabular-nums">{value}</p>
-                </div>
-              ))}
-            </div>
+            <dl className="mt-4 space-y-2 border-t border-slate-100 pt-4 text-sm">
+              <div className="flex items-baseline justify-between gap-3">
+                <dt className="text-muted-foreground">Nilai barang dalam simulasi (tidak dicairkan)</dt>
+                <dd className="font-semibold tabular-nums">
+                  {k.pokokDibiayai !== null ? formatRupiah(k.pokokDibiayai) : "—"}
+                </dd>
+              </div>
+              <div className="flex items-baseline justify-between gap-3">
+                <dt className="text-muted-foreground">Total pembayaran simulasi</dt>
+                <dd className="font-semibold tabular-nums">
+                  {k.totalDibayarKonsumen !== null ? formatRupiah(k.totalDibayarKonsumen) : "—"}
+                </dd>
+              </div>
+            </dl>
 
-            {(k.cicilanPerBulan !== null || k.imbalHasilPendana !== null) && (
-              <p className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
-                <span className="inline-flex items-center gap-1.5">
-                  <PackageCheck className="size-3.5 text-primary" />
-                  Tenor simulasi {k.tenorBulan} bulan · DP simulasi {k.dpPersen}%
-                </span>
-                {k.imbalHasilPendana !== null && (
-                  <span className="inline-flex items-center gap-1.5">
-                    <TrendingUp className="size-3.5 text-emerald-600" />
-                    Imbal Hasil simulasi Pendana {formatRupiah(k.imbalHasilPendana)}
-                  </span>
-                )}
+            {k.cicilanPerBulan !== null && (
+              <p className="mt-3 inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+                <PackageCheck className="size-3.5 text-primary" />
+                Tenor simulasi {k.tenorBulan} bulan · DP simulasi {k.dpPersen}%
               </p>
             )}
 
@@ -680,11 +624,11 @@ export function KreditBillingSection() {
       const r = await bayar({ kreditId: id });
       if (r.lunas) {
         toast.success(
-          "Status lunas tercatat pada ledger internal. Ini bukan bukti pembayaran atau penerimaan dana oleh Pendana.",
+          "Status lunas simulasi tercatat pada ledger internal. Tidak ada pembayaran eksternal yang diproses.",
         );
       } else {
         toast.success(
-          `Catatan simulasi bulan ${r.bulanKe}: ${formatRupiah(r.totalDibayar)} — sisa pokok pada ledger ${formatRupiah(r.sisaPokokSetelah)}. Tidak ada pembayaran eksternal.`,
+          `Catatan simulasi bulan ${r.bulanKe}: total ${formatRupiah(r.totalDibayar)}. Tidak ada pembayaran eksternal.`,
         );
       }
     } catch (err) {
@@ -735,13 +679,13 @@ export function KreditBillingSection() {
 
               <dl className="mt-3 grid gap-x-8 gap-y-1.5 text-sm sm:grid-cols-2">
                 <div className="flex items-baseline justify-between gap-4">
-                  <dt className="text-muted-foreground">Sisa pokok pada simulasi</dt>
+                  <dt className="text-muted-foreground">Total pembayaran simulasi</dt>
                   <dd className="font-semibold tabular-nums">
-                    {formatRupiah(k.sisaPokokKredit)}
+                    {k.totalDibayarKonsumen !== null ? formatRupiah(k.totalDibayarKonsumen) : "—"}
                   </dd>
                 </div>
                 <div className="flex items-baseline justify-between gap-4">
-                  <dt className="text-muted-foreground">Sisa simulasi kewajiban</dt>
+                  <dt className="text-muted-foreground">Sisa pembayaran simulasi</dt>
                   <dd className="tabular-nums">{formatRupiah(k.kewajibanSisa)}</dd>
                 </div>
               </dl>
@@ -758,7 +702,7 @@ export function KreditBillingSection() {
 
               {k.status === "lunas" ? (
                 <p className="mt-3 rounded-xl bg-emerald-50/70 px-3 py-2 text-xs leading-5 text-emerald-800">
-                  Status lunas tercatat pada ledger internal; ini bukan bukti cicilan dibayar atau dana diteruskan ke Pendana.
+                  Status lunas simulasi tercatat pada ledger internal; ini bukan bukti pembayaran aktual. Tidak ada pembayaran eksternal yang diproses.
                 </p>
               ) : (
                 k.cicilanBerikut !== null && (
@@ -780,8 +724,7 @@ export function KreditBillingSection() {
 
               {k.cicilanBerikut !== null && k.status !== "lunas" && (
                 <p className="mt-2 text-xs leading-5 text-muted-foreground">
-                  Ilustrasi bulan {k.cicilanBerikut.bulan}: pokok simulasi {formatRupiah(k.cicilanBerikut.pokok)} +
-                  Imbal Hasil simulasi {formatRupiah(k.cicilanBerikut.margin)} (pembagian internal proporsional; bukan janji pembayaran ke Pendana).
+                  Nilai cicilan simulasi bulan {k.cicilanBerikut.bulan}: {formatRupiah(k.cicilanBerikut.total)}. Tombol ini hanya mencatat simulasi dan tidak memproses pembayaran.
                 </p>
               )}
             </article>

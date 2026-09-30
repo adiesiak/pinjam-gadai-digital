@@ -173,51 +173,26 @@ function ActiveLoanCard({
       <dl className="mt-5 divide-y divide-slate-200 overflow-hidden rounded-2xl border border-slate-200">
         {bulanan ? (
           <>
-            <RincianBaris label="Pokok acuan simulasi" value={formatRupiah(loan.pokokPinjaman)} />
-            <RincianBaris label="Uang muka simulasi (DP 0%)" value={formatRupiah(0)} tone="muted" />
             <RincianBaris
-              label="Biaya layanan simulasi (3% dari pokok)"
-              value={formatRupiah(
-                loan.totalKewajiban - loan.pokokPinjaman - loan.imbalHasilTotal,
-              )}
-              tone="muted"
-            />
-            <RincianBaris
-              label="Pokok acuan simulasi (tidak ditransfer)"
+              label="Nilai bersih simulasi (belum dicairkan)"
               value={formatRupiah(loan.pokokPinjaman)}
               tone="net"
             />
             <RincianBaris
-              label="Imbal hasil simulasi (ledger)"
-              value={formatRupiah(loan.imbalHasilTotal)}
-            />
-            <RincianBaris
-              label={`Total kewajiban simulasi (${loan.tenorBulan} bulan)`}
+              label={`Total pembayaran simulasi (${loan.tenorBulan} bulan)`}
               value={formatRupiah(loan.totalKewajiban)}
               tone="total"
             />
           </>
         ) : (
           <>
-            <RincianBaris label="Pokok acuan simulasi" value={formatRupiah(q.pokok)} />
             <RincianBaris
-              label="Biaya admin simulasi (3%)"
-              value={`- ${formatRupiah(q.biayaAdmin)}`}
-              tone="muted"
-            />
-            <RincianBaris
-              label="Biaya platform simulasi (2%)"
-              value={`- ${formatRupiah(q.biayaPlatform)}`}
-              tone="muted"
-            />
-            <RincianBaris
-              label="Nilai bersih simulasi (95%; tidak ditransfer)"
+              label="Nilai bersih simulasi (belum ditransfer)"
               value={formatRupiah(q.danaBersihDitransfer)}
               tone="net"
             />
-            <RincianBaris label="Bunga simulasi (30%)" value={formatRupiah(q.bunga)} />
             <RincianBaris
-              label="Total kewajiban simulasi (130%)"
+              label="Total pembayaran simulasi"
               value={formatRupiah(q.totalKewajibanPelunasan)}
               tone="total"
             />
@@ -389,9 +364,7 @@ export function ScheduleSection({ schedule }: { schedule: LoanScheduleRow[] }) {
                   <span className="font-mono text-xs text-muted-foreground">{l.nomorReferensi}</span>
                 </p>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Pokok acuan simulasi {formatRupiah(l.pokokPinjaman)} · Bunga simulasi{" "}
-                  {l.tenorBulan !== null ? "menurun" : "flat 30%"}{" "}
-                  {formatRupiah(l.imbalHasilTotal)} · tenor{" "}
+                  Nilai bersih simulasi {formatRupiah(l.tenorBulan !== null ? l.pokokPinjaman : l.quote.danaBersihDitransfer)} · tenor{" "}
                   {l.tenorBulan !== null ? `${l.tenorBulan} bulan` : `${l.tenorHari} hari`}
                 </p>
                 {l.tenorBulan !== null && (
@@ -410,7 +383,7 @@ export function ScheduleSection({ schedule }: { schedule: LoanScheduleRow[] }) {
                 </dd>
               </div>
               <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4">
-                <dt className="text-muted-foreground">Total kewajiban simulasi</dt>
+                <dt className="text-muted-foreground">Total pembayaran simulasi</dt>
                 <dd className="font-semibold tabular-nums">
                   {formatRupiah(
                     lunas

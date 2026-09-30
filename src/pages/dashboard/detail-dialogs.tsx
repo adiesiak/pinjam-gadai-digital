@@ -78,7 +78,7 @@ export function LoanDetailDialog({
           <>
             <DialogHeader>
               <div className="flex items-center justify-between gap-3">
-                <DialogTitle className="tabular-nums">Pokok simulasi · {formatRupiah(loan.pokokPinjaman)}</DialogTitle>
+                <DialogTitle>Rincian simulasi pinjaman tunai</DialogTitle>
                 <StatusBadge status={loan.status} kind="loan" />
               </div>
               <DialogDescription className="tabular-nums">
@@ -94,29 +94,21 @@ export function LoanDetailDialog({
               {(loan.tenorBulan !== null
                 ? [
                     ["Keperluan", loanPurposeLabel(loan.tujuan)],
-                    ["Pokok pinjaman pada simulasi", formatRupiah(loan.pokokPinjaman)],
                     ["Tenor simulasi", `${loan.tenorBulan} bulan`],
-                    ["Uang muka simulasi (DP 0%)", formatRupiah(0)],
-                    ["Pokok acuan simulasi (DP 0%)", formatRupiah(loan.pokokPinjaman)],
-                    ["Bunga menurun simulasi", formatRupiah(loan.imbalHasilTotal)],
-                    ["Total kewajiban simulasi", formatRupiah(loan.totalKewajiban)],
+                    ["Nilai bersih simulasi (belum dicairkan)", formatRupiah(loan.pokokPinjaman)],
+                    ["Total pembayaran simulasi", formatRupiah(loan.totalKewajiban)],
                   ]
                 : [
                     ["Keperluan", loanPurposeLabel(loan.tujuan)],
-                    ["Pokok simulasi pinjaman", formatRupiah(loan.quote.pokok)],
-                    ["Biaya admin simulasi (3%)", formatRupiah(loan.quote.biayaAdmin)],
-                    ["Biaya platform simulasi (2%)", formatRupiah(loan.quote.biayaPlatform)],
-                    ["Nilai bersih simulasi (95%; tidak ditransfer)", formatRupiah(loan.quote.danaBersihDitransfer)],
-                    ["Bunga simulasi (30%)", formatRupiah(loan.quote.bunga)],
-                    ["Total kewajiban simulasi", formatRupiah(loan.quote.totalKewajibanPelunasan)],
+                    ["Nilai bersih simulasi (belum ditransfer)", formatRupiah(loan.quote.danaBersihDitransfer)],
+                    ["Total pembayaran simulasi", formatRupiah(loan.quote.totalKewajibanPelunasan)],
                   ]
               ).map(([label, value], index, semua) => (
                 <div key={label} className="flex items-baseline justify-between gap-4 px-4 py-3">
                   <dt className="text-sm text-muted-foreground">{label}</dt>
                   <dd
                     className={`text-sm tabular-nums ${
-                      label === "Pokok acuan simulasi (DP 0%)" ||
-                      label === "Nilai bersih simulasi (95%; tidak ditransfer)" ||
+                      label.startsWith("Nilai bersih simulasi") ||
                       index === semua.length - 1
                         ? "font-semibold"
                         : ""

@@ -511,65 +511,32 @@ export function LoanForm({ onCreated }: { onCreated: (ref: string) => void }) {
           {melebihiPlafon && plafonSaya !== undefined
             ? `Batas pinjaman Anda saat ini ${formatRupiah(plafonSaya)} — kurangi nominal atau hubungi tim PINDAI bila butuh penyesuaian plafon.`
             : bulanan
-              ? `Skema simulasi bulanan: uang muka 0%, biaya layanan 3% (diamortisasi), dan bunga menurun. Batas ledger saat ini ${formatRupiah(MAX)}; catatan simulasi berstatus lunas dapat memengaruhi batas internal hingga Rp10 juta, bukan sebagai verifikasi pembayaran.`
+              ? `Skema simulasi bulanan tanpa uang muka. Batas ledger saat ini ${formatRupiah(MAX)}; catatan simulasi berstatus lunas dapat memengaruhi batas internal hingga Rp10 juta, bukan sebagai verifikasi pembayaran.`
               : `Skema simulasi harian dibatasi ${formatRupiah(LOAN_LIMITS.minPokok)}–${formatRupiah(MAX)} dengan tenor maksimal ${LOAN_LIMITS.maxTenorHari} hari. Catatan simulasi berstatus lunas dapat memengaruhi batas internal hingga Rp10 juta, bukan sebagai verifikasi pembayaran.`}
         </p>
 
-        {/* Live financial breakdown — mengikuti skema terpilih. */}
+        {/* Ringkasan peminjam: nilai bersih simulasi dan total pembayaran. */}
         {bulanan && sim !== null ? (
           <dl className="mt-4 divide-y divide-slate-200 overflow-hidden rounded-xl border border-slate-200">
-            <div className="flex flex-col gap-1 bg-white px-3 py-2 text-sm sm:flex-row sm:items-baseline sm:justify-between">
-              <dt className="text-muted-foreground">Uang muka simulasi (DP 0%)</dt>
-              <dd className="tabular-nums">{formatRupiah(sim.dp)}</dd>
-            </div>
             <div className="flex flex-col gap-1 bg-emerald-50 px-3 py-2.5 text-sm sm:flex-row sm:items-baseline sm:justify-between">
-              <dt className="font-semibold text-emerald-800">Pokok simulasi (DP 0%)</dt>
+              <dt className="font-semibold text-emerald-800">Nilai bersih simulasi (belum dicairkan)</dt>
               <dd className="font-semibold tabular-nums text-emerald-700">
                 {formatRupiah(sim.pokokDibiayai)}
               </dd>
             </div>
-            <div className="flex flex-col gap-1 bg-white px-3 py-2 text-sm sm:flex-row sm:items-baseline sm:justify-between">
-              <dt className="text-muted-foreground">
-                Biaya layanan simulasi 3% ({formatRupiah(sim.biayaLayananPerBulan)}/bln)
-              </dt>
-              <dd className="tabular-nums">{formatRupiah(sim.biayaLayananTotal)}</dd>
-            </div>
-            <div className="flex flex-col gap-1 bg-white px-3 py-2 text-sm sm:flex-row sm:items-baseline sm:justify-between">
-              <dt className="text-muted-foreground">
-                Bunga simulasi {sim.persenBungaPerBulan}%/bulan (menurun)
-              </dt>
-              <dd className="tabular-nums">{formatRupiah(sim.bungaTotal)}</dd>
-            </div>
             <div className="flex flex-col gap-1 bg-slate-50 px-3 py-2.5 text-sm sm:flex-row sm:items-baseline sm:justify-between">
-              <dt className="font-semibold">Cicilan simulasi per bulan</dt>
-              <dd className="font-semibold tabular-nums">{formatRupiah(sim.cicilanPerBulan)}</dd>
-            </div>
-            <div className="flex flex-col gap-1 bg-slate-50 px-3 py-2.5 text-sm sm:flex-row sm:items-baseline sm:justify-between">
-              <dt className="font-semibold">Total kewajiban simulasi ({sim.tenorBulan} bln)</dt>
+              <dt className="font-semibold">Total pembayaran simulasi ({sim.tenorBulan} bln)</dt>
               <dd className="font-semibold tabular-nums">{formatRupiah(sim.totalPengembalian)}</dd>
             </div>
           </dl>
         ) : (
           <dl className="mt-4 divide-y divide-slate-200 overflow-hidden rounded-xl border border-slate-200">
-            {[
-              ["Potongan admin simulasi (3%)", `- ${formatRupiah(q.biayaAdmin)}`],
-              ["Potongan platform simulasi (2%)", `- ${formatRupiah(q.biayaPlatform)}`],
-            ].map(([label, value]) => (
-              <div key={label} className="flex flex-col gap-1 bg-white px-3 py-2 text-sm sm:flex-row sm:items-baseline sm:justify-between">
-                <dt className="text-muted-foreground">{label}</dt>
-                <dd className="tabular-nums">{value}</dd>
-              </div>
-            ))}
             <div className="flex flex-col gap-1 bg-emerald-50 px-3 py-2.5 text-sm sm:flex-row sm:items-baseline sm:justify-between">
-              <dt className="font-semibold text-emerald-800">Nilai bersih simulasi (95%; tidak ditransfer)</dt>
+              <dt className="font-semibold text-emerald-800">Nilai bersih simulasi (belum ditransfer)</dt>
               <dd className="font-semibold tabular-nums text-emerald-700">{formatRupiah(q.danaBersihDitransfer)}</dd>
             </div>
-            <div className="flex flex-col gap-1 bg-white px-3 py-2 text-sm sm:flex-row sm:items-baseline sm:justify-between">
-              <dt className="text-muted-foreground">Bunga simulasi (30%)</dt>
-              <dd className="tabular-nums">{formatRupiah(q.bunga)}</dd>
-            </div>
             <div className="flex flex-col gap-1 bg-slate-50 px-3 py-2.5 text-sm sm:flex-row sm:items-baseline sm:justify-between">
-              <dt className="font-semibold">Total kewajiban simulasi (130%)</dt>
+              <dt className="font-semibold">Total pembayaran simulasi</dt>
               <dd className="font-semibold tabular-nums">{formatRupiah(q.totalKewajibanPelunasan)}</dd>
             </div>
           </dl>
@@ -896,7 +863,7 @@ export function LoanForm({ onCreated }: { onCreated: (ref: string) => void }) {
         )}
       </Button>
       <p className="text-center text-xs leading-5 text-muted-foreground">
-        Aturan plafon internal: catatan pinjaman simulasi dengan pokok minimal Rp1 juta dan status lunas pada ledger sebelum atau saat tanggal acuan dapat memengaruhi plafon dasar Rp1 juta, maksimal Rp10 juta. Status lunas/terlambat adalah catatan aplikasi, bukan bukti pembayaran. Plafon simulasi saat ini {formatRupiah(MAX)}. {bulanan ? "Skema bulanan menghitung uang muka 0%, biaya layanan simulasi 3%, dan bunga menurun sesuai tenor. Jadwal cicilan adalah ilustrasi; pada akhir tenor status dapat ditandai lunas sekaligus di ledger, bukan sebagai bukti pembayaran aktual." : `Skema harian menghitung potongan biaya simulasi 5% dan bunga simulasi flat 30% dengan tenor maksimal ${LOAN_LIMITS.maxTenorHari} hari.`} Tidak ada transfer dana eksternal.
+        Aturan plafon internal: catatan pinjaman simulasi dengan pokok minimal Rp1 juta dan status lunas pada ledger sebelum atau saat tanggal acuan dapat memengaruhi plafon dasar Rp1 juta, maksimal Rp10 juta. Status lunas/terlambat adalah catatan aplikasi, bukan bukti pembayaran. Plafon simulasi saat ini {formatRupiah(MAX)}. {bulanan ? "Jadwal cicilan hanya ilustrasi; pada akhir tenor status dapat ditandai lunas sekaligus di ledger, bukan sebagai bukti pembayaran aktual." : `Simulasi harian memakai tenor maksimal ${LOAN_LIMITS.maxTenorHari} hari.`} Tidak ada transfer dana eksternal.
       </p>
     </form>
   );
