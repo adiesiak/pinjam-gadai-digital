@@ -71,7 +71,7 @@ export function DepositForm() {
           setJumlah("");
           setReferensi("");
         } catch (err) {
-          setError(err instanceof Error ? err.message : "Gagal mengirim setoran.");
+          setError(err instanceof Error ? err.message : "Gagal mencatat setoran simulasi. Tidak ada transfer yang diproses.");
         } finally {
           setBusy(false);
         }

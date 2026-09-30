@@ -157,7 +157,7 @@ function LiveCalculator() {
       <div className="mt-5">
         <div className="flex items-baseline justify-between">
           <label htmlFor="calc-nominal" className="text-sm font-medium text-slate-700">
-            Nominal
+            Pokok simulasi
           </label>
           <span className="text-sm font-semibold tabular-nums text-slate-900">
             {formatRupiah(amount)}
@@ -193,7 +193,7 @@ function LiveCalculator() {
       </div>
 
       <div className="mt-5">
-        <p className="text-sm font-medium text-slate-700">Tenor</p>
+        <p className="text-sm font-medium text-slate-700">Tenor simulasi</p>
         <div className="mt-2 grid grid-cols-3 gap-2">
           {bulanan
             ? TENOR_BULANAN_OPTIONS.map((t) => (

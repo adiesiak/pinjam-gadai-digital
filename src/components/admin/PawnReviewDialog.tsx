@@ -47,7 +47,7 @@ export function PawnReviewDialog({
     setError(null);
     try {
       await fn();
-      toast.success("Keputusan tersimpan.");
+      toast.success("Perubahan status atau catatan internal tersimpan; ini bukan verifikasi fisik atau bukti penitipan barang.");
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Gagal menyimpan keputusan.");
@@ -81,10 +81,10 @@ export function PawnReviewDialog({
             ["Alamat yang dilaporkan pemohon", row.alamatPenilaian],
             ["Catatan pemohon", row.catatanPeminjam ?? "—"],
             [
-              "Nilai taksiran",
+              "Nilai taksiran internal",
               row.nilaiTaksiran !== undefined
                 ? formatRupiah(row.nilaiTaksiran)
-                : "Belum dinilai",
+                : "Belum ada catatan taksiran",
             ],
           ].map(([label, value]) => (
             <div key={label} className="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-2 px-3 py-3 sm:gap-4 sm:px-4">
@@ -142,13 +142,13 @@ export function PawnReviewDialog({
                   }
                 >
                   {busy === "appraisal" ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
-                  Jadwalkan penilaian
+                  Tandai untuk penilaian
                 </Button>
               )}
               {inAppraisal && (
                 <Button onClick={onAppraise}>
                   <ClipboardList className="mr-2 size-4" />
-                  Input taksiran
+                  Catat taksiran internal
                 </Button>
               )}
               {row.status === "menunggu_pelepasan" && (

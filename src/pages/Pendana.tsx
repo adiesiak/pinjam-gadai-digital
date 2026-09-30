@@ -46,7 +46,7 @@ export default function Pendana() {
       <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-5 sm:px-6 sm:py-8">
         {isAnonymous ? (
           <div className="mx-auto max-w-xl rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm">
-            <h1 className="text-xl font-semibold">Ruang Pendana hanya untuk akun terverifikasi</h1>
+            <h1 className="text-xl font-semibold">Ruang Pendana tersedia setelah masuk dengan akun</h1>
             <p className="mt-3 text-sm leading-6 text-muted-foreground">Mode tamu bersifat baca-saja. Untuk mendaftar sebagai Pendana, masuk atau buat akun menggunakan email OTP terlebih dahulu.</p>
             <div className="mt-6 flex flex-wrap justify-center gap-3">
               <Button onClick={() => void handleCreateAccount()}>Masuk / buat akun</Button>
@@ -58,7 +58,7 @@ export default function Pendana() {
         ) : role === "admin" ? (
           <Notice
             title="Akun tim tidak dapat menjadi Pendana"
-            body="Panel admin dan peran Pendana dipisahkan demi kepatuhan. Gunakan akun terpisah untuk mendanai."
+            body="Panel admin dan peran Pendana dipisahkan. Gunakan akun terpisah untuk melihat dan mencatat simulasi ledger Pendana; tidak ada dana yang dialokasikan atau ditransfer."
           />
         ) : (
           <Onboarding />

@@ -38,7 +38,7 @@ export function DashboardSidebar({
           <div className="min-w-0">
             <p className="truncate text-sm font-semibold">Halo, {greetingName}</p>
             <Badge className="mt-1 border-0 bg-emerald-100 text-[10px] text-emerald-700 hover:bg-emerald-100">
-              <ShieldCheck className="mr-1 size-3" /> KTP Terverifikasi
+              <ShieldCheck className="mr-1 size-3" /> Identitas tidak diverifikasi
             </Badge>
           </div>
         </div>

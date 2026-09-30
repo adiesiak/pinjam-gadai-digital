@@ -15,10 +15,10 @@ import { EmptyQueue, formatDate } from "./admin-shared";
 const STATUS_LABEL: Record<string, string> = {
   diajukan: "Diajukan",
   sedang_ditinjau: "Sedang ditinjau",
-  disetujui: "Disetujui",
+  disetujui: "Disetujui (status aplikasi)",
   ditolak: "Ditolak",
-  didanai: "Didanai",
-  lunas: "Lunas",
+  didanai: "Target tercapai (ledger)",
+  lunas: "Lunas (ledger)",
 };
 
 function KreditStatusBadge({ status }: { status: string }) {
@@ -117,7 +117,7 @@ export function KreditQueuePanel() {
         toast.success("Pengajuan ditandai sedang ditinjau.");
       } else if (aksi === "setujui") {
         await setujui({ kreditId: id });
-        toast.success("Pengajuan kredit barang disetujui.");
+        toast.success("Status aplikasi kredit barang disetujui; tidak ada pembelian atau pembayaran yang diproses.");
       } else {
         const reason = (alasan[id] ?? "").trim();
         if (reason.length === 0) {
@@ -164,9 +164,10 @@ export function KreditQueuePanel() {
       <section>
         <h2 className="text-sm font-semibold">Menunggu keputusan ({menunggu.length})</h2>
         <p className="mt-1 text-xs leading-5 text-muted-foreground">
-          Tinjau pemohon, barang, tautan, harga, uang muka, dan tenor. Persetujuan hanya mencatat
-          keputusan internal PINDAI; pembelian barang, pembayaran ke merchant, dan transfer dana
-          tidak dijalankan atau diverifikasi oleh aplikasi.
+          Tinjau data yang dimasukkan dan hitungan simulasi. Persetujuan hanya mencatat keputusan
+          internal PINDAI; pembelian barang, pembayaran ke merchant, dan transfer dana tidak
+          dijalankan atau diverifikasi. Status alokasi/pelunasan di riwayat adalah status ledger,
+          bukan bukti pembayaran aktual.
         </p>
         {menunggu.length === 0 ? (
           <p className="mt-4 rounded-2xl border border-dashed border-slate-200 bg-white/60 px-5 py-8 text-center text-sm text-muted-foreground">
@@ -189,24 +190,24 @@ export function KreditQueuePanel() {
                 <div className="mt-4 grid grid-cols-2 gap-3 border-t border-slate-100 pt-4 text-xs sm:grid-cols-3">
                   {(
                     [
-                      ["Harga barang", formatRupiah(r.hargaBarang)],
-                      ["Uang muka", r.dp !== null ? `${r.dpPersen}% · ${formatRupiah(r.dp)}` : `${r.dpPersen}%`],
+                      ["Harga barang (simulasi)", formatRupiah(r.hargaBarang)],
+                      ["Uang muka simulasi", r.dp !== null ? `${r.dpPersen}% · ${formatRupiah(r.dp)}` : `${r.dpPersen}%`],
                       [
-                        "Pokok dibiayai",
+                        "Pokok simulasi",
                         r.pokokDibiayai !== null ? formatRupiah(r.pokokDibiayai) : "—",
                       ],
                       [
-                        "Biaya layanan platform",
+                        "Biaya layanan platform simulasi",
                         r.biayaLayanan !== null ? formatRupiah(r.biayaLayanan) : "—",
                       ],
                       [
-                        `Cicilan / bulan`,
+                        `Cicilan simulasi / bulan`,
                         r.cicilanPerBulan !== null
                           ? `${formatRupiah(r.cicilanPerBulan)} × ${r.tenorBulan} bln`
                           : `${r.tenorBulan} bln`,
                       ],
                       [
-                        "Imbal Hasil Pendana",
+                        "Imbal Hasil Pendana (simulasi)",
                         r.imbalHasilPendana !== null
                           ? `${formatRupiah(r.imbalHasilPendana)} (${r.marginPersenPerBulan}%/bln)`
                           : `${r.marginPersenPerBulan}%/bln`,
@@ -307,11 +308,11 @@ export function KreditQueuePanel() {
               >
                 <div className="min-w-0">
                   <p className="truncate text-sm font-medium">
-                    {r.namaLengkap} — {r.namaBarang} ({formatRupiah(r.hargaBarang)})
+                    {r.namaLengkap} — {r.namaBarang} (harga simulasi {formatRupiah(r.hargaBarang)})
                   </p>
                   <p className="mt-1 truncate text-xs text-muted-foreground">
                     {r.nomorReferensi} · {r.emailPemohon ?? "tanpa email"} · {r.merchant} · tenor {r.tenorBulan} bulan
-                    {r.status !== "disetujui" && ` · cicilan ${r.dibayarBulan}/${r.totalBulan}`}
+                    {r.status !== "disetujui" && ` · status cicilan ledger ${r.dibayarBulan}/${r.totalBulan} (bukan bukti pembayaran)`}
                     {r.catatanReview !== null && ` · ${r.catatanReview}`}
                   </p>
                 </div>

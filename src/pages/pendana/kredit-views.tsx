@@ -249,7 +249,7 @@ function KalkulatorKreditSection() {
 
           {/* Uang muka */}
           <div className="flex items-center justify-between gap-3">
-            <Label className="text-xs text-muted-foreground">DP pada simulasi</Label>
+            <Label className="text-xs text-muted-foreground">Uang muka simulasi (DP)</Label>
             <span className="text-xs font-semibold tabular-nums">
               {bulanan ? 0 : persenId(dpPersen)}% · {formatRupiah(quote?.dp ?? 0)}
             </span>
@@ -392,7 +392,7 @@ function KalkulatorKreditSection() {
                 <div className="mt-3 divide-y divide-slate-100">
                   <Baris label="Harga acuan barang (tidak diverifikasi)" value={formatRupiah(quote.hargaBarang)} strong />
                   <Baris
-                    label="DP pada simulasi"
+                    label="Uang muka simulasi (DP)"
                     value={formatRupiah(quote.dp)}
                     hint={`${persenId(dpPersen)}% dari harga barang`}
                   />
@@ -683,7 +683,11 @@ function PeluangKreditCard({ row }: { row: PeluangKredit }) {
       setOtpOpen(false);
       setJumlah("");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Alokasi gagal.");
+      setError(
+        err instanceof Error
+          ? `Pencatatan alokasi simulasi gagal: ${err.message}. Tidak ada transfer yang diproses.`
+          : "Pencatatan alokasi simulasi gagal. Tidak ada transfer yang diproses.",
+      );
     } finally {
       setBusy(false);
     }
@@ -714,7 +718,7 @@ function PeluangKreditCard({ row }: { row: PeluangKredit }) {
           <dd className="mt-0.5 font-semibold tabular-nums">{formatRupiah(row.hargaBarang)}</dd>
         </div>
         <div>
-          <dt className="text-muted-foreground">DP pada simulasi</dt>
+          <dt className="text-muted-foreground">Uang muka simulasi (DP)</dt>
           <dd className="mt-0.5 font-semibold tabular-nums">{row.dpPersen}% · {formatRupiah(row.dp)}</dd>
         </div>
         <div>

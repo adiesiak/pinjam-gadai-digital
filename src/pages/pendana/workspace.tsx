@@ -74,9 +74,9 @@ export function PendanaWorkspace({
         <div className="min-w-0 flex-1">
           <div className="flex flex-col gap-1">
             <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-primary">
-              Ruang Pendana · catatan internal
+              Ruang Pendana · simulasi ledger internal
             </p>
-            <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">Ledger internal Pendana</h1>
+            <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">Ledger simulasi Pendana</h1>
           </div>
 
           {/* ===== Ringkasan ledger ===== */}

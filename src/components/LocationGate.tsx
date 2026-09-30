@@ -522,7 +522,7 @@ export function LocationGate({
               ikon={<Smartphone className="size-5" />}
               kode="Wajib aplikasi PINDAI"
               judul="Pasang aplikasi untuk melanjutkan"
-              deskripsi="Transaksi PINDAI kini hanya dilayani dari aplikasi resmi, karena hanya aplikasi yang dapat memantau lokasi di latar belakang saat layar terkunci atau berpindah aplikasi."
+              deskripsi="Akses ke fitur simulasi ini mensyaratkan aplikasi native sesuai pengaturan akun. Aplikasi dapat mengirim koordinat di latar belakang, tetapi koordinat tersebut bukan verifikasi lokasi fisik atau identitas."
             >
               <DaftarLangkah
                 langkah={[
@@ -550,21 +550,19 @@ export function LocationGate({
           <LayarPenuh>
             <Kartu
               ikon={<Smartphone className="size-5" />}
-              kode="Transaksi hanya dari aplikasi"
+              kode="Akses simulasi melalui aplikasi"
               judul="Buka PINDAI dari aplikasi"
-              deskripsi="Perangkat ini sudah terdaftar di aplikasi PINDAI, tetapi aktivitas lokasi terakhir tercatat dari browser. PINDAI hanya melayani transaksi yang disertai pemantauan lokasi dari aplikasi resmi."
+              deskripsi="Perangkat ini tercatat pernah didaftarkan, tetapi titik terakhir dilaporkan dari browser. Gerbang akses ini meminta titik baru melalui aplikasi; koordinat yang dilaporkan bukan bukti lokasi fisik."
             >
               <DaftarLangkah
                 langkah={[
                   "Buka aplikasi PINDAI di HP dengan akun yang sama.",
-                  "Tutup tab PINDAI di browser ini — tab yang masih terbuka terus mengirim titik lokasi dari browser dan menahan transaksi Anda.",
-                  "Setelah aplikasi mengirim titik lokasi (≤60 detik), halaman ini terbuka sendiri.",
+                  "Tutup tab PINDAI di browser ini agar tab tersebut tidak terus memperbarui koordinat dari browser.",
+                  "Setelah aplikasi melaporkan titik koordinat baru (≤60 detik), status gerbang akses diperbarui.",
                 ]}
               />
               <p className="mt-4 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs leading-5 text-muted-foreground">
-                Lokasi hanya dapat dipantau di latar belakang oleh aplikasi resmi, sehingga
-                transaksi harus berasal dari sana. Itu keterbatasan browser, bukan pengaturan
-                PINDAI.
+                Aplikasi dapat mengirim koordinat di latar belakang; aturan ini hanya mengatur akses ke fitur simulasi. Koordinat yang dilaporkan tidak memverifikasi lokasi fisik atau identitas. Itu keterbatasan browser, bukan pengaturan PINDAI.
               </p>
               <TombolKeluar onKeluar={keluar} />
             </Kartu>
@@ -597,20 +595,19 @@ export function LocationGate({
       <LayarPenuh>
         <Kartu
           ikon={<ShieldAlert className="size-5" />}
-          kode="Lokasi tidak sah"
-          judul="Matikan aplikasi lokasi palsu"
-          deskripsi="PINDAI menolak titik lokasi yang dibuat perangkat lunak (mock location), karena lokasi dipakai untuk memverifikasi bahwa pengajuan benar-benar dilakukan di tempat Anda berada."
+          kode="Koordinat perlu diperiksa"
+          judul="Periksa setelan lokasi perangkat"
+          deskripsi="Gerbang dapat menolak koordinat yang ditandai perangkat sebagai mock location atau pola tertentu. Ini pemeriksaan metadata otomatis, bukan bukti lokasi fisik atau identitas."
         >
           <DaftarLangkah
             langkah={[
-              "Hapus atau matikan aplikasi pengubah lokasi (fake GPS) di HP ini.",
+              "Pastikan tidak ada aplikasi pengubah lokasi (fake GPS) yang aktif di HP ini.",
               "Android: Setelan → Opsi pengembang → matikan “Pilih aplikasi lokasi palsu”.",
               "Nyalakan ulang HP bila perlu, lalu ketuk “Coba lagi” di halaman ini.",
             ]}
           />
           <p className="mt-4 text-xs leading-5 text-muted-foreground">
-            Satu titik lokasi asli sudah cukup untuk membuka kembali dashboard. Lokasi hanya
-            dipakai untuk verifikasi pengajuan dan penagihan, tidak dibagikan ke pihak lain.
+            Titik baru dapat memperbarui status gerbang akses. Koordinat yang dilaporkan bukan verifikasi lokasi, identitas, pengajuan, penagihan, atau bukti transaksi.
           </p>
           {pesan && (
             <p className="mt-3 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive">
@@ -647,7 +644,7 @@ export function LocationGate({
         ikon={<MapPin className="size-5" />}
         kode="Lokasi wajib aktif"
         judul="Nyalakan lokasi untuk melanjutkan"
-        deskripsi="PINDAI hanya melayani pengajuan, cicilan, dan pelunasan saat lokasi perangkat aktif. Ini melindungi Anda dan Pendana dari pengajuan oleh pihak lain."
+        deskripsi="Untuk membuka dashboard simulasi, gerbang ini meminta koordinat terbaru yang dilaporkan perangkat. Gerbang tidak memastikan lokasi fisik atau identitas dan tidak memverifikasi pembayaran maupun perpindahan dana."
       >
         <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-800">
           <ShieldAlert className="mr-1.5 inline size-3.5 align-[-2px]" />
@@ -655,7 +652,7 @@ export function LocationGate({
           {status.umurMenit !== null && (
             <>
               {" "}
-              Titik terakhir diterima server {labelUmurLokasi(status.umurMenit)} (batas{" "}
+              Koordinat terakhir diterima server {labelUmurLokasi(status.umurMenit)} (batas{" "}
               {status.batasMenit} menit).
             </>
           )}
@@ -671,7 +668,7 @@ export function LocationGate({
               : [
                   "Android: Setelan → Lokasi → Aktifkan, lalu izinkan lokasi untuk browser ini.",
                   "iPhone: Setelan → Privasi & Keamanan → Layanan Lokasi → (Safari/Chrome) → Saat Menggunakan App.",
-                  "Ketuk “Coba lagi”, lalu biarkan halaman ini terbuka saat bertransaksi.",
+                  "Ketuk “Coba lagi”, lalu biarkan halaman ini terbuka saat menggunakan dashboard simulasi.",
                 ]
           }
         />
@@ -679,8 +676,7 @@ export function LocationGate({
           {perangkat.native
             ? "Setelah izin “sepanjang waktu” diberikan, lokasi tetap terkirim walau layar terkunci atau Anda berpindah aplikasi."
             : "Di browser, lokasi hanya terkirim selama halaman ini terbuka. Pasang aplikasi PINDAI untuk pemantauan latar belakang."}{" "}
-          Dengan mengaktifkan lokasi, Anda menyetujui pemantauan posisi selama pinjaman
-          aktif — hanya untuk verifikasi data dan penagihan, tidak dibagikan ke pihak lain.
+          Izin lokasi memungkinkan perangkat mengirim koordinat agar status gerbang akses dapat diperbarui. Koordinat yang dilaporkan bukan verifikasi lokasi fisik, identitas, pembayaran, atau penagihan.
         </p>
         {pesan && (
           <p className="mt-3 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive">
@@ -727,14 +723,14 @@ function PilLokasi({
       <span className={segar ? "text-emerald-700" : "text-amber-700"}>
         {segar
           ? latarBelakang
-            ? "Lokasi aktif (latar belakang)"
-            : "Lokasi aktif"
+            ? "Perangkat melaporkan koordinat · aplikasi"
+            : "Perangkat melaporkan koordinat"
           : umurMenit === null
-            ? "Mengirim lokasi…"
-            : `Titik terakhir ${labelUmurLokasi(umurMenit)}`}
+            ? "Mengirim koordinat…"
+            : `Koordinat terakhir dilaporkan ${labelUmurLokasi(umurMenit)}`}
       </span>
       {akurasi !== null && (
-        <span className="tabular-nums text-muted-foreground">± {Math.round(akurasi)} m</span>
+        <span className="tabular-nums text-muted-foreground">akurasi dilaporkan ± {Math.round(akurasi)} m</span>
       )}
     </div>
   );

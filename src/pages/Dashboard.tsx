@@ -43,15 +43,14 @@ function CreditProgressCard({ history }: { history: CreditHistory }) {
           <div className="flex flex-wrap items-baseline justify-between gap-2">
             <h2 className="text-sm font-semibold">Riwayat progres plafon tunai</h2>
             <span className="text-xs tabular-nums text-muted-foreground">
-              {history.jumlahPelunasanTepatWaktu} pelunasan memenuhi syarat
+              {history.jumlahPelunasanTepatWaktu} entri status lunas tepat waktu pada ledger
             </span>
           </div>
           <p className="mt-1 text-lg font-semibold tabular-nums text-primary">
             Plafon tercatat {formatRupiah(history.plafonEfektif)}
           </p>
           <p className="mt-1 text-xs leading-5 text-muted-foreground">
-            Setiap pinjaman tunai pokok minimal Rp1 juta yang lunas penuh pada atau sebelum jatuh tempo menambah Rp1 juta, hingga Rp10 juta.
-            Riwayat internal PINDAI ini bukan skor biro kredit dan bukan jaminan pengajuan disetujui.
+            Catatan pinjaman tunai minimal Rp1 juta yang berstatus lunas di ledger pada atau sebelum tanggal acuan dapat menambah plafon internal Rp1 juta, hingga Rp10 juta. Status dan tanggal ini bukan bukti pembayaran aktual, skor biro kredit, atau jaminan pengajuan disetujui.
           </p>
           {history.riwayat.length > 0 && (
             <ul className="mt-3 flex flex-wrap gap-2">
@@ -59,7 +58,7 @@ function CreditProgressCard({ history }: { history: CreditHistory }) {
                 <li key={loan.nomorReferensi} className="rounded-lg bg-slate-50 px-3 py-2 text-xs">
                   <span className="font-medium tabular-nums">{formatRupiah(loan.pokokPinjaman)}</span>
                   <span className="ml-2 text-muted-foreground">
-                    {loan.lunasPada ? new Date(loan.lunasPada).toLocaleDateString("id-ID") : ""}
+                    Status lunas (ledger){loan.lunasPada ? ` · ${new Date(loan.lunasPada).toLocaleDateString("id-ID")}` : ""}
                   </span>
                 </li>
               ))}
@@ -125,23 +124,23 @@ export default function Dashboard() {
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">Mode tamu · baca saja</p>
             <h1 className="mt-3 text-3xl font-semibold tracking-tight">Kenali PINDAI sebelum membuat akun.</h1>
             <p className="mt-4 max-w-2xl text-sm leading-7 text-muted-foreground">
-              Sebagai tamu, Anda dapat membaca informasi umum. Data pribadi, pengajuan, pembayaran, pendanaan, dan perubahan akun hanya tersedia setelah masuk dengan email terverifikasi.
+              Sebagai tamu, Anda dapat membaca informasi umum. Setelah masuk dengan email, Anda dapat mengelola data akun dan catatan pengajuan pada ledger simulasi; PINDAI tidak memproses transfer dana atau pembayaran eksternal.
             </p>
             <div className="mt-7 grid gap-3 sm:grid-cols-2">
               <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
                 <h2 className="text-sm font-semibold">Pinjaman harian</h2>
-                <p className="mt-2 text-sm leading-6 text-muted-foreground">Biaya admin 3% dan platform 2% dipotong di muka; bunga flat 30%, dilunasi sekaligus pada akhir tenor.</p>
+                <p className="mt-2 text-sm leading-6 text-muted-foreground">Ilustrasi ledger: asumsi biaya admin 3%, platform 2%, dan bunga flat 30%. Angka ini bukan pencairan atau tagihan; status lunas hanya perubahan catatan internal.</p>
               </div>
               <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
                 <h2 className="text-sm font-semibold">Pinjaman bulanan</h2>
-                <p className="mt-2 text-sm leading-6 text-muted-foreground">Biaya layanan 3% dan bunga menurun mengikuti tenor. Jadwal bulanan yang ditampilkan adalah simulasi; pelunasan aktual saat ini sekaligus pada akhir tenor.</p>
+                <p className="mt-2 text-sm leading-6 text-muted-foreground">Ilustrasi ledger: asumsi biaya layanan 3% dan bunga menurun mengikuti tenor. Jadwal dan status lunas hanya simulasi internal; tidak ada pembayaran aktual.</p>
               </div>
             </div>
             <div className="mt-7 flex flex-wrap gap-3">
               <Button onClick={() => void handleCreateAccount()}>Masuk / buat akun dengan email OTP</Button>
               <Button asChild variant="outline"><Link to="/">Baca informasi layanan</Link></Button>
             </div>
-            <p className="mt-5 text-xs leading-5 text-muted-foreground">Kelayakan dan status perizinan layanan perlu dikonfirmasi sebelum transaksi; informasi ini bukan penawaran atau jaminan pendanaan.</p>
+            <p className="mt-5 text-xs leading-5 text-muted-foreground">PINDAI di halaman ini hanya menyediakan catatan dan simulasi internal. Informasi ini bukan penawaran, bukti transaksi, atau jaminan pendanaan.</p>
           </section>
         </main>
         <DashboardFooter />
@@ -157,7 +156,7 @@ export default function Dashboard() {
           <ErrorPage
             kode="Peran akun"
             judul="Halaman ini untuk akun Peminjam"
-            deskripsi="Akun Anda terdaftar sebagai Pendana, jadi pengajuan pinjaman dan gadai tidak tersedia di sini. Kelola dana dan alokasi Anda di ruang Pendana."
+            deskripsi="Akun Anda terdaftar sebagai Pendana, jadi pengajuan pinjaman dan gadai tidak tersedia di sini. Lihat saldo dan alokasi simulasi pada ledger internal di ruang Pendana."
             primaryLabel="Buka ruang Pendana"
             primaryHref="/pendana"
             secondaryLabel="Beranda"
@@ -302,7 +301,7 @@ export default function Dashboard() {
                       <Separator className="my-4" />
                       <LoanForm
                         onCreated={(ref) =>
-                          toast.success(`Pengajuan terkirim — nomor referensi ${ref}`)
+                          toast.success(`Catatan pengajuan simulasi tersimpan — referensi ${ref}. Tidak ada pencairan atau transfer dana.`)
                         }
                       />
                     </section>
@@ -312,7 +311,7 @@ export default function Dashboard() {
                       <PawnForm
                         onCreated={() =>
                           toast.success(
-                            "Pengajuan gadai terkirim — tim kami akan menghubungi Anda untuk penjadwalan pemeriksaan.",
+                            "Catatan pengajuan gadai tersimpan. Ini tidak mengonfirmasi jadwal, pemeriksaan fisik, penitipan barang, atau transfer dana.",
                           )
                         }
                       />

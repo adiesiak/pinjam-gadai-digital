@@ -67,7 +67,11 @@ export function GadaiBillingSection({
       }
       return true;
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Pembayaran gadai gagal.");
+      toast.error(
+        e instanceof Error
+          ? `Pencatatan simulasi gadai gagal: ${e.message}. Tidak ada pembayaran eksternal atau pengembalian barang yang diproses.`
+          : "Pencatatan simulasi gadai gagal. Tidak ada pembayaran eksternal atau pengembalian barang yang diproses.",
+      );
       return false;
     } finally {
       setBusyId(null);
@@ -92,7 +96,7 @@ export function GadaiBillingSection({
                 <p className="mt-0.5 text-xs text-muted-foreground">{p.nomorReferensi}</p>
               </div>
               <Badge className="border-0 bg-emerald-500 text-white hover:bg-emerald-500">
-                Pokok simulasi lunas
+                Sisa pokok simulasi Rp0
               </Badge>
             </div>
             <p className="mt-3 text-sm leading-6 text-emerald-800">
@@ -224,6 +228,7 @@ function GadaiBillingCard({
         </div>
         <div className="flex flex-col justify-end gap-2">
           <Button
+            aria-label={`Catat simulasi cicilan pokok dan sewa, bukan pembayaran aktual${cicilSim !== null ? `, ${formatRupiah(cicilSim + sewaSekarang)}` : ""}`}
             disabled={busy || cicilSim === null}
             onClick={() => {
               if (cicilSim === null) return;
@@ -238,6 +243,7 @@ function GadaiBillingCard({
           </Button>
           <Button
             variant="outline"
+            aria-label={`Catat simulasi sewa saja, bukan pembayaran aktual, ${formatRupiah(sewaSekarang)}`}
             disabled={busy}
             onClick={() => void onBayar(pawn._id, 0, true)}
           >

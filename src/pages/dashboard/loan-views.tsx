@@ -93,10 +93,9 @@ export function ActiveLoanSection({
   const lainnya = schedule.filter((l) => l.status !== "didanai" && l.status !== "lunas");
 
   if (aktif.length === 0) {
-    return (
-      <EmptyState
-        icon={Wallet}
-        title="Belum ada catatan pinjaman aktif di ledger"
+    return (        <EmptyState
+          icon={Wallet}
+          title="Belum ada catatan pinjaman aktif di ledger"
         body="Catatan dengan status internal aktif akan tampil di sini. Angka alokasi dan pelunasan merupakan simulasi; tidak ada transfer atau pembayaran eksternal."
       />
     );
@@ -174,10 +173,10 @@ function ActiveLoanCard({
       <dl className="mt-5 divide-y divide-slate-200 overflow-hidden rounded-2xl border border-slate-200">
         {bulanan ? (
           <>
-            <RincianBaris label="Pokok pengajuan" value={formatRupiah(loan.pokokPinjaman)} />
-            <RincianBaris label="Uang muka (DP 0%)" value={formatRupiah(0)} tone="muted" />
+            <RincianBaris label="Pokok acuan simulasi" value={formatRupiah(loan.pokokPinjaman)} />
+            <RincianBaris label="Uang muka simulasi (DP 0%)" value={formatRupiah(0)} tone="muted" />
             <RincianBaris
-              label="Biaya layanan (3% dari pokok)"
+              label="Biaya layanan simulasi (3% dari pokok)"
               value={formatRupiah(
                 loan.totalKewajiban - loan.pokokPinjaman - loan.imbalHasilTotal,
               )}
@@ -200,14 +199,14 @@ function ActiveLoanCard({
           </>
         ) : (
           <>
-            <RincianBaris label="Pokok pengajuan" value={formatRupiah(q.pokok)} />
+            <RincianBaris label="Pokok acuan simulasi" value={formatRupiah(q.pokok)} />
             <RincianBaris
-              label="Biaya admin (3%)"
+              label="Biaya admin simulasi (3%)"
               value={`- ${formatRupiah(q.biayaAdmin)}`}
               tone="muted"
             />
             <RincianBaris
-              label="Biaya platform (2%)"
+              label="Biaya platform simulasi (2%)"
               value={`- ${formatRupiah(q.biayaPlatform)}`}
               tone="muted"
             />
@@ -227,7 +226,7 @@ function ActiveLoanCard({
       </dl>
 
       <p className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-900">
-        Semua nominal, status aktif, dana bersih, dan pelunasan di halaman ini adalah simulasi ledger internal; tidak ada transfer atau pembayaran eksternal. {bulanan ? "Jadwal cicilan bulanan hanya ilustrasi dan sistem mencatat pelunasan penuh sekaligus pada akhir tenor, tanpa pembayaran parsial." : "Tombol pelunasan hanya mencatat kewajiban penuh sekaligus, bukan menerima atau memverifikasi pembayaran."}
+        Semua nominal, status aktif, dana bersih, dan status pelunasan di halaman ini adalah simulasi ledger internal; tidak ada transfer atau pembayaran eksternal. {bulanan ? "Jadwal cicilan bulanan hanya ilustrasi; pada akhir tenor status dapat ditandai lunas sekaligus di ledger, bukan sebagai bukti pembayaran aktual atau cicilan parsial." : "Tombol pelunasan hanya mencatat status kewajiban penuh sekaligus di ledger, bukan menerima atau memverifikasi pembayaran."}
       </p>
 
       {loan.pelunasan && (
@@ -235,10 +234,10 @@ function ActiveLoanCard({
           <div className="flex flex-wrap items-baseline justify-between gap-2 text-xs">
             <span className="font-medium">
               {terlambat
-                ? `Simulasi terlambat ${loan.pelunasan.hariTerlambat} hari`
+                ? `Tanggal acuan simulasi terlewati ${loan.pelunasan.hariTerlambat} hari`
                 : loan.pelunasan.sisaHari === 0
-                  ? "Simulasi jatuh tempo hari ini"
-                  : `${loan.pelunasan.sisaHari} hari menuju jatuh tempo simulasi`}
+                  ? "Tanggal acuan simulasi: hari ini"
+                  : `${loan.pelunasan.sisaHari} hari menuju tanggal acuan simulasi`}
             </span>
             <span className="tabular-nums text-muted-foreground">
               {formatDate(loan.pelunasan.jatuhTempoPada)}
@@ -314,7 +313,11 @@ function RepaymentSimulationAction({
           : `Status pelunasan simulasi diperbarui di ledger (${formatRupiah(hasil.totalDibayar)}). Tidak ada pembayaran eksternal.`,
       );
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Pencatatan simulasi gagal.");
+      toast.error(
+        error instanceof Error
+          ? `Pencatatan status simulasi gagal: ${error.message}. Tidak ada pembayaran eksternal yang diproses.`
+          : "Pencatatan status simulasi gagal. Tidak ada pembayaran eksternal yang diproses.",
+      );
     } finally {
       setBusy(false);
     }
@@ -386,14 +389,14 @@ export function ScheduleSection({ schedule }: { schedule: LoanScheduleRow[] }) {
                   <span className="font-mono text-xs text-muted-foreground">{l.nomorReferensi}</span>
                 </p>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Pokok acuan simulasi {formatRupiah(l.pokokPinjaman)} · Bunga{" "}
-                  {l.tenorBulan !== null ? "menurun (simulasi)" : "flat (30%)"}{" "}
+                  Pokok acuan simulasi {formatRupiah(l.pokokPinjaman)} · Bunga simulasi{" "}
+                  {l.tenorBulan !== null ? "menurun" : "flat 30%"}{" "}
                   {formatRupiah(l.imbalHasilTotal)} · tenor{" "}
                   {l.tenorBulan !== null ? `${l.tenorBulan} bulan` : `${l.tenorHari} hari`}
                 </p>
                 {l.tenorBulan !== null && (
                   <p className="mt-1 max-w-xl text-xs leading-5 text-amber-800">
-                    Jadwal cicilan bulanan yang ditampilkan adalah ilustrasi. Sistem saat ini hanya mencatat pelunasan penuh sekaligus saat jatuh tempo.
+                    Jadwal cicilan bulanan ini hanya ilustrasi; pada akhir tenor status dapat ditandai lunas sekaligus di ledger. Ini bukan bukti pembayaran aktual.
                   </p>
                 )}
               </div>

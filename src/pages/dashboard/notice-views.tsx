@@ -36,35 +36,38 @@ export function DueReminderBanner({
         <div>
           <p className={`text-[11px] font-medium uppercase tracking-[0.18em] ${terlambat ? "text-red-600" : "text-muted-foreground"}`}>
             {terlambat
-              ? `Terlambat ${reminder.hariTerlambat} hari — denda berjalan`
+              ? `Tanggal acuan simulasi terlewati ${reminder.hariTerlambat} hari — denda simulasi`
               : reminder.sisaHari === 0
-                ? "Jatuh tempo hari ini"
-                : `Jatuh tempo ${reminder.sisaHari} hari lagi`}
+                ? "Tanggal acuan simulasi hari ini"
+                : `Tanggal acuan simulasi dalam ${reminder.sisaHari} hari`}
           </p>
           <p className="mt-1 text-sm leading-6 text-muted-foreground">
-            Pinjaman {reminder.nomorReferensi} wajib dilunasi paling lambat{" "}
+            Catatan pinjaman {reminder.nomorReferensi} memakai tanggal acuan simulasi{" "}
             <span className="font-medium text-foreground">{formatDate(reminder.jatuhTempoPada)}</span>.
-            Denda 0,5% per hari dari pokok (maksimum 15%).
+            {terlambat ? " Denda yang tampil merupakan hitungan simulasi, bukan tagihan." : " Tanggal ini bukan tagihan atau bukti transaksi."}
           </p>
         </div>
         <div className="text-right">
-          <p className="text-xs text-muted-foreground">Total kewajiban saat ini</p>
+          <p className="text-xs text-muted-foreground">Total kewajiban simulasi · bukan tagihan</p>
           <p className="mt-1 text-xl font-semibold tabular-nums">
             {formatRupiah(reminder.totalKewajibanDenganPenalti)}
           </p>
           {terlambat && (
             <p className="mt-0.5 text-xs tabular-nums text-red-600">
-              termasuk denda {formatRupiah(reminder.dendaTerlambat)}
+              denda simulasi {formatRupiah(reminder.dendaTerlambat)}
             </p>
           )}
         </div>
       </div>
+      <p className="mt-3 text-xs leading-5 text-muted-foreground">
+        Tanggal, status, dan nominal berasal dari perhitungan ledger internal; bukan bukti keterlambatan atau pelunasan aktual. PINDAI tidak memproses pembayaran atau transfer.
+      </p>
     </section>
   );
 }
 
 /**
- * Banner peringatan lokasi dicurigai (server yang menulis peringatannya).
+ * Banner peringatan pola koordinat perangkat (server yang menulis peringatannya).
  *
  * Muncul saat titik lokasi nasabah ditandai heuristik — mis. koordinat yang
  * persis sama berulang kali, tanda khas aplikasi lokasi palsu. Nadanya menolong
@@ -83,21 +86,18 @@ export function LokasiPeringatanBanner() {
   return (
     <section className="mt-6 rounded-2xl border border-amber-200 bg-amber-50/70 px-5 py-4 shadow-sm">
       <p className="flex items-center gap-2 text-[11px] font-medium uppercase tracking-[0.18em] text-amber-700">
-        <MapPin className="size-3.5" /> Lokasi dicurigai
+        <MapPin className="size-3.5" /> Peringatan pola koordinat
       </p>
       <p className="mt-1 text-sm font-semibold text-amber-900">
-        Lokasi perangkat Anda tampak dikirim aplikasi pihak ketiga
+        Koordinat perangkat yang sama tercatat berulang kali
       </p>
       <p className="mt-1 max-w-2xl text-sm leading-6 text-amber-900/90">
-        PINDAI mendeteksi koordinat Anda persis sama berulang kali — tanda khas
-        aplikasi pengubah lokasi (fake GPS). Selama ini terjadi, transaksi Anda
-        bisa ditolak oleh server. Matikan aplikasi tersebut, lalu biarkan PINDAI
-        mengirim lokasi asli.
+        Pemeriksaan otomatis menemukan koordinat perangkat yang sama berulang kali. Ini hanya pemicu berbasis pola; bukan bukti penggunaan aplikasi lokasi palsu dan bukan verifikasi bahwa koordinat mencerminkan lokasi fisik Anda. Jika koordinat tampak tidak sesuai, periksa izin dan pengaturan lokasi perangkat.
       </p>
       <ol className="mt-3 list-decimal space-y-1 pl-5 text-xs leading-5 text-amber-900/90">
-        <li>Hapus atau matikan aplikasi pengubah lokasi di HP ini.</li>
-        <li>Android: Setelan → Opsi pengembang → matikan “Pilih aplikasi lokasi palsu”.</li>
-        <li>Buka PINDAI dengan layanan lokasi aktif, lalu tekan tombol di bawah.</li>
+        <li>Periksa izin lokasi PINDAI di browser dan pengaturan perangkat.</li>
+        <li>Jika Anda memakai aplikasi atau pengaturan lokasi khusus, tinjau apakah masih aktif.</li>
+        <li>Koordinat yang dilaporkan perangkat dapat berbeda dari lokasi fisik; peringatan ini tidak memverifikasinya.</li>
       </ol>
       <p className="mt-3 text-xs leading-5 text-amber-900/80">
         {waTerkirim
@@ -123,7 +123,7 @@ export function LokasiPeringatanBanner() {
           }}
         >
           {busy ? <Loader2 className="mr-1.5 size-4 animate-spin" /> : null}
-          Sudah saya matikan
+          Tutup peringatan
         </Button>
       </div>
     </section>
@@ -179,8 +179,8 @@ export function LocationConsentCard() {
     status === undefined
       ? "Memuat status pelacakan…"
       : status.aktif
-        ? "Aktif — posisi Anda dikirim berkala selama persetujuan berlaku. Nonaktifkan kapan saja."
-        : "Belum aktif. Aktifkan jika Anda bersedia membagikan posisi secara berkala (dapat dicabut kapan saja).";
+        ? "Aktif — aplikasi mengirim koordinat yang dilaporkan perangkat secara berkala selama persetujuan berlaku. Ini bukan verifikasi lokasi; nonaktifkan kapan saja."
+        : "Belum aktif. Aktifkan jika Anda bersedia membagikan koordinat yang dilaporkan perangkat secara berkala (dapat dicabut kapan saja).";
 
   return (
     <section className="mt-6 flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white px-5 py-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
@@ -216,7 +216,7 @@ export function LocationConsentCard() {
             setBusy(true);
             try {
               await setuju();
-              toast.success("Terima kasih — pelacakan lokasi kini aktif.");
+              toast.success("Pencatatan koordinat perangkat diaktifkan.");
             } catch (e) {
               toast.error(e instanceof Error ? e.message : "Gagal mengaktifkan.");
             } finally {

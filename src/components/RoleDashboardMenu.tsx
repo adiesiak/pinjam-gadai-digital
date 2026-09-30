@@ -23,13 +23,13 @@ export function RoleDashboardMenu() {
           {
             href: ADMIN_ROUTE,
             label: "Panel Admin",
-            description: "Operasional dan pengelolaan sistem",
+            description: "Tinjau catatan internal dan pengaturan sistem",
             icon: ShieldCheck,
           },
           {
             href: "/dashboard",
             label: "Dashboard Peminjam",
-            description: "Pantau pinjaman dan pengajuan",
+            description: "Lihat catatan simulasi pinjaman dan pengajuan",
             icon: LayoutDashboard,
           },
         ]
@@ -38,7 +38,7 @@ export function RoleDashboardMenu() {
             {
               href: "/pendana",
               label: "Dashboard Pendana",
-              description: "Kelola dana, setoran, dan alokasi",
+              description: "Lihat saldo simulasi dan catat alokasi di ledger",
               icon: Wallet,
             },
           ]
@@ -46,13 +46,13 @@ export function RoleDashboardMenu() {
             {
               href: "/dashboard",
               label: "Dashboard Peminjam",
-              description: "Pantau pinjaman dan pengajuan",
+              description: "Lihat catatan simulasi pinjaman dan pengajuan",
               icon: LayoutDashboard,
             },
             {
               href: "/pendana",
-              label: "Daftar sebagai Pendana",
-              description: "Buka ruang khusus pengelolaan dana",
+              label: "Jelajahi mode Pendana simulasi",
+              description: "Buka ruang simulasi ledger Pendana",
               icon: Wallet,
             },
           ];

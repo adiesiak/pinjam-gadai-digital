@@ -69,7 +69,11 @@ export function PortfolioSection({ portfolio }: { portfolio: PortfolioRow[] | un
   }
 
   return (
-    <ul className="space-y-3">
+    <div className="space-y-3">
+      <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-900">
+        Semua angka, jadwal, dan status di bawah adalah simulasi ledger internal. Status lunas bukan bukti pembayaran; alokasi dan pelunasan tidak memindahkan atau memverifikasi dana.
+      </p>
+      <ul className="space-y-3">
       {portfolio.map((f) => (
         <li
           key={f._id}
@@ -84,7 +88,7 @@ export function PortfolioSection({ portfolio }: { portfolio: PortfolioRow[] | un
                 {f.loanRef} · alokasi {f.nomorReferensi}
               </p>
               <p className="mt-1 text-xs text-muted-foreground">
-                Tujuan: {loanPurposeLabel(f.tujuan)} · {f.statusVerifikasi}
+                Tujuan: {loanPurposeLabel(f.tujuan)} · Status aplikasi: {f.statusVerifikasi} (bukan verifikasi eksternal)
               </p>
             </div>
             <PortfolioStatusBadge state={f.statusPelunasan} isPaid={f.statusPinjaman === "lunas"} />
@@ -94,9 +98,9 @@ export function PortfolioSection({ portfolio }: { portfolio: PortfolioRow[] | un
             <InfoRow label="Pokok pada simulasi" value={formatRupiah(f.pokokPinjaman)} />
             <InfoRow label="Alokasi tercatat di ledger" value={formatRupiah(f.jumlahAlokasi)} />
             <InfoRow label="Imbal hasil simulasi" value={formatRupiah(f.imbalHasil)} />
-            <InfoRow label="Total kewajiban simulasi" value={formatRupiah(f.totalKewajiban)} />
+            <InfoRow label="Total kewajiban simulasi (bukan tagihan)" value={formatRupiah(f.totalKewajiban)} />
             <InfoRow
-              label="Tenor"
+              label="Tenor simulasi"
               value={f.tenorBulan !== null ? `${f.tenorBulan} bulan` : `${f.tenorHari} hari`}
             />
             <InfoRow
@@ -115,15 +119,15 @@ export function PortfolioSection({ portfolio }: { portfolio: PortfolioRow[] | un
             <h3 className="font-semibold">Rincian simulasi biaya dan nilai bersih</h3>
             {f.skemaBulanan ? (
               <dl className="mt-2 space-y-1.5">
-                <InfoRow label="Biaya layanan platform (total)" value={formatRupiah(f.biayaLayananTotal)} />
-                <InfoRow label="Potongan di muka" value={formatRupiah(f.totalPotonganDiMuka)} />
+                <InfoRow label="Biaya layanan simulasi (total)" value={formatRupiah(f.biayaLayananTotal)} />
+                <InfoRow label="Potongan simulasi di muka" value={formatRupiah(f.totalPotonganDiMuka)} />
                 <InfoRow label="Nilai bersih simulasi (tidak ditransfer)" value={formatRupiah(f.danaDiterimaPeminjam)} />
               </dl>
             ) : (
               <dl className="mt-2 space-y-1.5">
-                <InfoRow label="Biaya admin" value={formatRupiah(f.biayaAdmin)} />
-                <InfoRow label="Biaya platform" value={formatRupiah(f.biayaPlatform)} />
-                <InfoRow label="Total potongan di muka" value={formatRupiah(f.totalPotonganDiMuka)} />
+                <InfoRow label="Biaya admin simulasi" value={formatRupiah(f.biayaAdmin)} />
+                <InfoRow label="Biaya platform simulasi" value={formatRupiah(f.biayaPlatform)} />
+                <InfoRow label="Total potongan simulasi di muka" value={formatRupiah(f.totalPotonganDiMuka)} />
                 <InfoRow label="Nilai bersih simulasi (tidak ditransfer)" value={formatRupiah(f.danaDiterimaPeminjam)} />
               </dl>
             )}
@@ -131,11 +135,11 @@ export function PortfolioSection({ portfolio }: { portfolio: PortfolioRow[] | un
 
           <section className="mt-3 rounded-xl border border-slate-200 px-3 py-3 text-xs">
             <h3 className="font-semibold">Jadwal simulasi kewajiban</h3>
-            <p className="mt-1 text-muted-foreground">Catatan aplikasi: {f.catatanJadwal} Ini bukan tagihan atau bukti pembayaran.</p>
+            <p className="mt-1 text-muted-foreground">Catatan jadwal pada aplikasi: {f.catatanJadwal} Ini bukan tagihan, riwayat pembayaran, atau bukti cicilan dibayar.</p>
             <ul className="mt-2 divide-y divide-slate-100">
               {f.jadwalPelunasan.map((cicilan, index) => (
                 <li key={`${cicilan.bulan ?? cicilan.hariKe}-${index}`} className="flex flex-wrap justify-between gap-x-3 gap-y-1 py-2">
-                  <span>{cicilan.bulan !== null ? `Bulan ke-${cicilan.bulan}` : `Hari ke-${cicilan.hariKe}`}</span>
+                  <span>{cicilan.bulan !== null ? `Bulan simulasi ke-${cicilan.bulan}` : `Hari simulasi ke-${cicilan.hariKe}`}</span>
                   <span className="font-semibold tabular-nums">{formatRupiah(cicilan.total)}</span>
                 </li>
               ))}
@@ -145,11 +149,11 @@ export function PortfolioSection({ portfolio }: { portfolio: PortfolioRow[] | un
           {f.simulasiCicilanBulanan.length > 0 && (
             <details className="mt-3 rounded-xl border border-amber-200 bg-amber-50/50 px-3 py-2.5 text-xs">
               <summary className="cursor-pointer font-medium">Lihat simulasi cicilan bulanan (bukan tagihan aktual)</summary>
-              <p className="mt-2 text-muted-foreground">Simulasi ini bukan riwayat pembayaran; sistem mencatat pelunasan pinjaman tunai sekaligus pada akhir tenor.</p>
+              <p className="mt-2 text-muted-foreground">Simulasi ini bukan riwayat pembayaran; pada akhir tenor status pinjaman dapat ditandai lunas sekaligus di ledger. Ini bukan pembayaran yang diverifikasi.</p>
               <ul className="mt-2 divide-y divide-amber-100">
                 {f.simulasiCicilanBulanan.map((cicilan, index) => (
                   <li key={`${cicilan.bulan}-${index}`} className="flex justify-between gap-3 py-1.5">
-                    <span>Bulan {cicilan.bulan}</span>
+                    <span>Bulan simulasi {cicilan.bulan}</span>
                     <span className="font-medium tabular-nums">{formatRupiah(cicilan.total)}</span>
                   </li>
                 ))}
@@ -168,7 +172,8 @@ export function PortfolioSection({ portfolio }: { portfolio: PortfolioRow[] | un
           </p>
         </li>
       ))}
-    </ul>
+      </ul>
+    </div>
   );
 }
 
@@ -189,7 +194,7 @@ function PortfolioStatusBadge({
   isPaid: boolean;
 }) {
   if (isPaid) {
-    return <Badge className="border-0 bg-emerald-100 text-emerald-700 hover:bg-emerald-100">Lunas (ledger)</Badge>;
+    return <Badge className="border-0 bg-emerald-100 text-emerald-700 hover:bg-emerald-100">Status lunas (ledger)</Badge>;
   }
   if (state === "menunggak") {
     return <Badge className="border-0 bg-red-100 text-red-700 hover:bg-red-100">Tanggal acuan simulasi terlewati</Badge>;

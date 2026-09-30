@@ -67,7 +67,7 @@ export function WalletSection({ onDepositRequested }: { onDepositRequested: () =
       setNamaBank("");
       setNomorRekening("");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Gagal mengirim permintaan penarikan.");
+      setError(err instanceof Error ? err.message : "Gagal mencatat permintaan penarikan simulasi. Tidak ada transfer yang diproses.");
     } finally {
       setBusy(false);
     }

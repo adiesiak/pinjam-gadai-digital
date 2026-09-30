@@ -57,7 +57,7 @@ export function GadaiPendanaanCard({ pawn }: { pawn: GadaiPendanaanRow }) {
         }
         if (pokokMelebihiLtv && batasLtv !== null) {
           throw new Error(
-            `Pokok melebihi LTV 70% (${formatRupiah(batasLtv)}) dari harga pasar ${formatRupiah(pawn.hargaPasar ?? 0)}.`,
+            `Pokok melebihi batas hitung aplikasi 70% (${formatRupiah(batasLtv)}) dari harga yang dicantumkan ${formatRupiah(pawn.hargaPasar ?? 0)}.`,
           );
         }
         await setPendanaan({
@@ -74,7 +74,11 @@ export function GadaiPendanaanCard({ pawn }: { pawn: GadaiPendanaanRow }) {
         "Nilai simulasi dan status gadai tercatat pada ledger internal; tidak ada transfer dana atau konfirmasi penitipan barang.",
       );
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Gagal memproses pendanaan gadai.");
+      setError(
+        e instanceof Error
+          ? `Pencatatan simulasi gadai gagal: ${e.message}. Tidak ada transfer atau penitipan barang yang dikonfirmasi.`
+          : "Pencatatan simulasi gadai gagal. Tidak ada transfer atau penitipan barang yang dikonfirmasi.",
+      );
     } finally {
       setBusy(false);
     }
@@ -90,7 +94,7 @@ export function GadaiPendanaanCard({ pawn }: { pawn: GadaiPendanaanRow }) {
           </p>
         </div>
         <p className="text-xs text-muted-foreground">
-          Taksiran{" "}
+          Taksiran internal (tidak diverifikasi){" "}
           <span className="tabular-nums">
             {pawn.nilaiTaksiran !== undefined
               ? formatRupiah(pawn.nilaiTaksiran)
@@ -99,7 +103,7 @@ export function GadaiPendanaanCard({ pawn }: { pawn: GadaiPendanaanRow }) {
           {batasLtv !== null ? (
             <>
               {" "}
-              · batas LTV 70%{" "}
+              · batas hitung simulasi 70%{" "}
               <span className="tabular-nums">{formatRupiah(batasLtv)}</span>
             </>
           ) : null}
@@ -110,7 +114,7 @@ export function GadaiPendanaanCard({ pawn }: { pawn: GadaiPendanaanRow }) {
         <div className="mt-4 space-y-3">
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor={`pokok-${pawn._id}`}>Pokok gadai (rupiah bulat)</Label>
+              <Label htmlFor={`pokok-${pawn._id}`}>Pokok simulasi gadai (rupiah bulat)</Label>
               <div className="relative">
                 <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
                   Rp
@@ -136,7 +140,7 @@ export function GadaiPendanaanCard({ pawn }: { pawn: GadaiPendanaanRow }) {
               </div>
             </div>
             <div className="space-y-2">
-              <Label htmlFor={`persen-${pawn._id}`}>Sewa modal (% per 30 hari)</Label>
+              <Label htmlFor={`persen-${pawn._id}`}>Sewa modal simulasi (% per 30 hari)</Label>
               <Input
                 id={`persen-${pawn._id}`}
                 inputMode="decimal"
@@ -164,7 +168,7 @@ export function GadaiPendanaanCard({ pawn }: { pawn: GadaiPendanaanRow }) {
 
           {pokokMelebihiLtv && batasLtv !== null && (
             <p className="text-xs font-medium text-destructive">
-              Pokok melebihi LTV 70% ({formatRupiah(batasLtv)}) dari harga pasar{" "}
+              Pokok melebihi batas hitung aplikasi 70% ({formatRupiah(batasLtv)}) dari harga yang dicantumkan{" "}
               {formatRupiah(pawn.hargaPasar ?? 0)}.
             </p>
           )}

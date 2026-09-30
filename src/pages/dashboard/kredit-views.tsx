@@ -78,7 +78,7 @@ const STATUS_META: Record<string, { label: string; className: string; descriptio
     label: "Terpenuhi (ledger)",
     className: "gradient-primary border-0 text-primary-foreground",
     description:
-      "Alokasi simulasi pada ledger mencapai jumlah yang ditetapkan. Tidak ada dana yang dikirim ke merchant atau Peminjam; tombol di bawah hanya menambah catatan pembayaran simulasi.",
+      "Alokasi simulasi pada ledger mencapai jumlah yang ditetapkan. Tidak ada dana yang dikirim ke merchant atau Peminjam; tombol di bawah hanya menambah entri cicilan simulasi di ledger.",
   },
   lunas: {
     label: "Lunas (ledger)",
@@ -311,7 +311,7 @@ export function KreditBarangForm({ onCreated }: { onCreated: (ref: string) => vo
         </p>
 
         <div className="mt-4 flex items-baseline justify-between gap-3">
-          <Label className="text-xs text-muted-foreground">Uang muka (DP)</Label>
+          <Label className="text-xs text-muted-foreground">Uang muka simulasi (DP)</Label>
           <span className="text-xs font-semibold tabular-nums">
             {bulanan ? 0 : dpPersen}% · {formatRupiah(preview?.dp ?? 0)}
           </span>
@@ -333,7 +333,7 @@ export function KreditBarangForm({ onCreated }: { onCreated: (ref: string) => vo
         )}
 
         <div className="mt-5 flex items-baseline justify-between gap-3">
-          <Label className="text-xs text-muted-foreground">Tenor cicilan</Label>
+          <Label className="text-xs text-muted-foreground">Tenor cicilan simulasi</Label>
           <span className="text-xs font-semibold tabular-nums">{tenorBulan} bulan</span>
         </div>
         <div className="mt-2 grid grid-cols-3 gap-1.5">
@@ -360,7 +360,7 @@ export function KreditBarangForm({ onCreated }: { onCreated: (ref: string) => vo
         </div>
 
         <div className="mt-5 flex items-baseline justify-between gap-3">
-          <Label className="text-xs text-muted-foreground">Imbal Hasil Pendana per bulan</Label>
+          <Label className="text-xs text-muted-foreground">Imbal Hasil simulasi Pendana per bulan</Label>
           <span className="text-xs font-semibold tabular-nums">
             {bulanan
               ? `${persenBungaPerBulan(tenorBulan).toLocaleString("id-ID", { maximumFractionDigits: 2 })}%`
@@ -369,7 +369,7 @@ export function KreditBarangForm({ onCreated }: { onCreated: (ref: string) => vo
         </div>
         {bulanan ? (
           <p className="mt-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs leading-5 text-muted-foreground">
-            Bunga menurun otomatis: {persenBungaPerBulan(tenorBulan)}% per bulan — 10%/bln
+            Bunga simulasi menurun otomatis: {persenBungaPerBulan(tenorBulan)}% per bulan — 10%/bln
             (1 bulan), 8%/bln (3–5 bulan), 7,5%/bln (≥ 6 bulan).
           </p>
         ) : (
@@ -404,10 +404,10 @@ export function KreditBarangForm({ onCreated }: { onCreated: (ref: string) => vo
           <dl className="mt-4 divide-y divide-slate-200 overflow-hidden rounded-xl border border-slate-200">
             {(
               [
-                ["Uang muka (DP)", formatRupiah(preview.dp)],
+                ["Uang muka simulasi (DP)", formatRupiah(preview.dp)],
                 ["Pokok acuan simulasi (tidak ditransfer)", formatRupiah(preview.pokokDibiayai)],
-                [`Biaya layanan (${KREDIT_PRICING.biayaLayananPersen}%)`, formatRupiah(preview.biayaLayanan)],
-                ["Imbal Hasil / bulan", formatRupiah(preview.marginPerBulan)],
+                [`Biaya layanan simulasi (${KREDIT_PRICING.biayaLayananPersen}%)`, formatRupiah(preview.biayaLayanan)],
+                ["Imbal Hasil simulasi / bulan", formatRupiah(preview.marginPerBulan)],
               ] as const
             ).map(([label, value]) => (
               <div
@@ -427,7 +427,7 @@ export function KreditBarangForm({ onCreated }: { onCreated: (ref: string) => vo
               </dd>
             </div>
             <div className="flex items-baseline justify-between bg-slate-50 px-3 py-2.5 text-sm">
-              <dt className="font-semibold">Total pembayaran simulasi</dt>
+              <dt className="font-semibold">Total kewajiban simulasi</dt>
               <dd className="font-semibold tabular-nums">
                 {formatRupiah(preview.totalDibayarKonsumen)}
               </dd>
@@ -549,7 +549,7 @@ export function KreditSayaSection() {
       <EmptyState
         icon={ShoppingBag}
         title="Belum ada pengajuan kredit barang"
-        body="Buat catatan simulasi barang, uang muka, tenor, dan perhitungan cicilan. Pengajuan ini tidak memproses pembelian, pendanaan, atau pembayaran."
+        body="Buat catatan simulasi barang, uang muka, tenor, dan perhitungan cicilan simulasi. Pengajuan ini tidak memproses pembelian, pendanaan, atau pembayaran."
       />
     );
   }
@@ -581,8 +581,8 @@ export function KreditSayaSection() {
             <div className="mt-4 grid grid-cols-2 gap-3 border-t border-slate-100 pt-4 sm:grid-cols-4">
               {(
                 [
-                  ["Harga acuan barang", formatRupiah(k.hargaBarang)],
-                  ["DP pada simulasi", k.dp !== null ? formatRupiah(k.dp) : "—"],
+                  ["Harga acuan (masukan pengguna)", formatRupiah(k.hargaBarang)],
+                  ["Uang muka simulasi (DP)", k.dp !== null ? formatRupiah(k.dp) : "—"],
                   ["Pokok acuan simulasi", k.pokokDibiayai !== null ? formatRupiah(k.pokokDibiayai) : "—"],
                   ["Cicilan simulasi / bulan", k.cicilanPerBulan !== null ? formatRupiah(k.cicilanPerBulan) : "—"],
                 ] as const
@@ -598,7 +598,7 @@ export function KreditSayaSection() {
               <p className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
                 <span className="inline-flex items-center gap-1.5">
                   <PackageCheck className="size-3.5 text-primary" />
-                  Tenor {k.tenorBulan} bulan · DP {k.dpPersen}%
+                  Tenor simulasi {k.tenorBulan} bulan · DP simulasi {k.dpPersen}%
                 </span>
                 {k.imbalHasilPendana !== null && (
                   <span className="inline-flex items-center gap-1.5">
@@ -688,14 +688,19 @@ export function KreditBillingSection() {
         );
       }
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Pencatatan simulasi cicilan gagal.");
+      toast.error(
+        err instanceof Error
+          ? `Pencatatan simulasi cicilan gagal: ${err.message}. Tidak ada pembayaran eksternal yang diproses.`
+          : "Pencatatan simulasi cicilan gagal. Tidak ada pembayaran eksternal yang diproses.",
+      );
     } finally {
       setBusyId(null);
     }
   };
 
   return (
-    <section>        <h2 className="text-lg font-semibold">Simulasi entri cicilan kredit barang</h2>
+    <section>
+      <h2 className="text-lg font-semibold">Simulasi entri cicilan kredit barang</h2>
       <Separator className="my-4" />
       <div className="space-y-4">
         {berjalan.map((k) => {
@@ -713,8 +718,8 @@ export function KreditBillingSection() {
                 <div className="min-w-0">
                   <p className="truncate text-sm font-semibold">{k.namaBarang}</p>
                   <p className="mt-0.5 text-xs text-muted-foreground">
-                    {k.nomorReferensi} · {k.merchant} · cicilan {formatRupiah(k.cicilanPerBulan ?? 0)
-                    }/bulan
+                    {k.nomorReferensi} ·                    {k.merchant} · cicilan simulasi {formatRupiah(k.cicilanPerBulan ?? 0)
+                    }/bulan (bukan tagihan)
                   </p>
                 </div>
                 {k.status === "lunas" ? (
@@ -775,7 +780,7 @@ export function KreditBillingSection() {
 
               {k.cicilanBerikut !== null && k.status !== "lunas" && (
                 <p className="mt-2 text-xs leading-5 text-muted-foreground">
-                  Ilustrasi bulan {k.cicilanBerikut.bulan}: pokok {formatRupiah(k.cicilanBerikut.pokok)} +
+                  Ilustrasi bulan {k.cicilanBerikut.bulan}: pokok simulasi {formatRupiah(k.cicilanBerikut.pokok)} +
                   Imbal Hasil simulasi {formatRupiah(k.cicilanBerikut.margin)} (pembagian internal proporsional; bukan janji pembayaran ke Pendana).
                 </p>
               )}

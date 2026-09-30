@@ -103,7 +103,7 @@ export function AppraisalDialog({
         <div className="space-y-4">
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="harga-pasar">Harga pasar yang dicatat (rupiah bulat)</Label>
+              <Label htmlFor="harga-pasar">Harga pasar yang dicantumkan (tidak diverifikasi)</Label>
               <div className="relative">
                 <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">Rp</span>
                 <Input

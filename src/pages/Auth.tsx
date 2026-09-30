@@ -52,13 +52,13 @@ const PORTAL_OPTIONS = [
   {
     href: "/dashboard",
     label: "Peminjam",
-    detail: "Ajukan dan pantau pinjaman atau gadai.",
+    detail: "Catat simulasi pengajuan pinjaman atau gadai.",
     icon: LayoutDashboard,
   },
   {
     href: "/pendana",
     label: "Pendana",
-    detail: "Kelola setoran dan alokasi dana.",
+    detail: "Lihat simulasi saldo dan alokasi ledger.",
     icon: Wallet,
   },
 ] as const;
@@ -499,15 +499,15 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
           <ul className="mt-4 flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-xs text-muted-foreground">
             <li className="flex items-center gap-1.5">
               <BadgeCheck className="size-3.5 text-primary" />
-              Tanpa agunan
+              Tanpa transfer dana
             </li>
             <li className="flex items-center gap-1.5">
               <Vault className="size-3.5 text-primary" />
-              Brankas custody
+              Tanpa penitipan barang
             </li>
             <li className="flex items-center gap-1.5">
               <CalendarClock className="size-3.5 text-primary" />
-              Pengingat jatuh tempo
+              Jadwal simulasi
             </li>
           </ul>
 

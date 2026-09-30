@@ -163,16 +163,16 @@ export function AdminHeader({
 /** Grid statistik ringkas sistem. */
 export function AdminStats({ stats }: { stats: AdminStatsData }) {
   const items = [
-    { label: "Pinjaman baru", value: `${stats.pinjamanBaru}`, tone: "amber", Icon: ClipboardList },
-    { label: "Gadai diproses", value: `${stats.gadaiProses}`, tone: "amber", Icon: Package },
-    { label: "Total pinjaman", value: `${stats.totalPinjaman}`, tone: "sky", Icon: Landmark },
-    { label: "Total gadai", value: `${stats.totalGadai}`, tone: "sky", Icon: Database },
-    { label: "Antrean pencairan", value: `${stats.antreanPencairan}`, tone: "sky", Icon: CircleDollarSign },
-    { label: "Wanprestasi / DPD", value: `${stats.pinjamanTerlambat}`, tone: stats.pinjamanTerlambat > 0 ? "red" : "mint", Icon: Clock3 },
-    { label: "Taksiran disetujui", value: formatRupiah(stats.nilaiTaksiranDisetujui), tone: "mint", Icon: CircleDollarSign },
-    { label: "GPS mismatch", value: `${stats.gpsMismatch}`, tone: stats.gpsMismatch > 0 ? "red" : "mint", Icon: MapPin },
-    { label: "Lokasi tidak mengalir", value: `${stats.pinjamanTanpaLokasi}`, tone: stats.pinjamanTanpaLokasi > 0 ? "red" : "mint", Icon: MapPin },
-    { label: "Titik lokasi dicurigai", value: `${stats.titikDicurigai}`, tone: stats.titikDicurigai > 0 ? "red" : "mint", Icon: TriangleAlert },
+    { label: "Pengajuan pinjaman baru", value: `${stats.pinjamanBaru}`, tone: "amber", Icon: ClipboardList },
+    { label: "Pengajuan gadai diproses", value: `${stats.gadaiProses}`, tone: "amber", Icon: Package },
+    { label: "Catatan pinjaman", value: `${stats.totalPinjaman}`, tone: "sky", Icon: Landmark },
+    { label: "Catatan gadai", value: `${stats.totalGadai}`, tone: "sky", Icon: Database },
+    { label: "Antrean alokasi simulasi", value: `${stats.antreanPencairan}`, tone: "sky", Icon: CircleDollarSign },
+    { label: "Tanggal acuan terlewati (simulasi)", value: `${stats.pinjamanTerlambat}`, tone: stats.pinjamanTerlambat > 0 ? "red" : "mint", Icon: Clock3 },
+    { label: "Nilai taksiran internal (tidak diverifikasi)", value: formatRupiah(stats.nilaiTaksiranDisetujui), tone: "mint", Icon: CircleDollarSign },
+    { label: "Pola koordinat untuk ditinjau", value: `${stats.gpsMismatch}`, tone: stats.gpsMismatch > 0 ? "red" : "mint", Icon: MapPin },
+    { label: "Koordinat perangkat tidak tersedia", value: `${stats.pinjamanTanpaLokasi}`, tone: stats.pinjamanTanpaLokasi > 0 ? "red" : "mint", Icon: MapPin },
+    { label: "Pola lokasi untuk ditinjau", value: `${stats.titikDicurigai}`, tone: stats.titikDicurigai > 0 ? "red" : "mint", Icon: TriangleAlert },
     { label: "Peringatan belum diakui", value: `${stats.peringatanLokasiAktif}`, tone: stats.peringatanLokasiAktif > 0 ? "amber" : "mint", Icon: BellRing },
   ] as const;
 

@@ -42,7 +42,7 @@ export function PlafonPanel() {
         plafon: resetKeDefault ? null : clampPlafon(Number(nilai.replace(/\D/g, "")) || 0),
         alasan: undefined,
       });
-      toast.success(`Plafon diperbarui: ${formatRupiah(hasil.plafonEfektif)}`);
+      toast.success(`Plafon simulasi internal diperbarui: ${formatRupiah(hasil.plafonEfektif)}`);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Gagal menyimpan plafon.");
     } finally {
@@ -54,13 +54,13 @@ export function PlafonPanel() {
     <div className="space-y-4">
       <div>
         <p className="flex items-center gap-2 text-sm font-semibold">
-          <SlidersHorizontal className="size-4 text-primary" /> Plafon Nasabah
+          <SlidersHorizontal className="size-4 text-primary" /> Plafon simulasi nasabah
         </p>
         <p className="mt-1 text-xs leading-5 text-muted-foreground">
           Untuk pinjaman tunai, default awal{" "}
           <strong className="tabular-nums">{formatRupiah(data.default)}</strong> (Pengaturan Sistem).
-          Setiap pinjaman tunai pokok minimal Rp1 juta yang lunas tepat waktu menambah Rp1 juta,
-          hingga maksimum Rp10 juta; pelunasan terlambat tidak menambah plafon. Override admin tetap
+          Setiap pinjaman tunai dengan pokok minimal Rp1 juta dan status lunas tepat waktu pada ledger internal dapat menambah Rp1 juta,
+          hingga maksimum Rp10 juta. Status lunas/tanggal adalah entri aplikasi, bukan bukti pembayaran yang diterima atau diverifikasi. Override admin tetap
           berlaku; reset kembali ke plafon progresif. Kredit barang terpisah: pokok maksimal Rp10 juta,
           tenor baru maksimal 6 bulan. Rentang override tunai {formatRupiah(PLAFON_BATAS.min)}–{formatRupiah(PLAFON_BATAS.maks)}.
         </p>
@@ -91,29 +91,29 @@ export function PlafonPanel() {
                 <div className="min-w-0">
                   <p className="truncate text-sm font-medium">{r.nama}</p>
                   <p className="mt-0.5 text-xs text-muted-foreground">
-                    {r.email ?? "tanpa email"} · {r.jumlahPengajuan} pengajuan ·{" "}
-                    {r.pinjamanAktif} aktif
+                    {r.email ?? "tanpa email"} · {r.jumlahPengajuan} pengajuan aplikasi ·{" "}
+                    {r.pinjamanAktif} status aktif di ledger
                   </p>
                   {r.plafonPribadi === null ? (
                     r.jumlahPelunasanTepatWaktu === 0 ? (
                       <Badge className="mt-1.5 bg-slate-100 text-slate-600 hover:bg-slate-100">
-                        ikut default global · belum ada pelunasan tepat waktu
+                        ikut default global · belum ada status lunas tepat waktu di ledger
                       </Badge>
                     ) : (
                       <Badge className="mt-1.5 bg-emerald-100 text-emerald-700 hover:bg-emerald-100">
-                        progresif · {r.jumlahPelunasanTepatWaktu} pelunasan tepat waktu
+                        progresif (berdasarkan status ledger) · {r.jumlahPelunasanTepatWaktu} entri lunas tepat waktu
                       </Badge>
                     )
                   ) : (
                     <Badge className="mt-1.5 bg-emerald-100 text-emerald-700 hover:bg-emerald-100">
-                      plafon khusus: {formatRupiah(r.plafonPribadi)}
+                      plafon simulasi khusus: {formatRupiah(r.plafonPribadi)}
                     </Badge>
                   )}
                 </div>
                 <div className="flex items-end gap-2">
                   <div>
                     <Label htmlFor={`plafon-${r.userId}`} className="text-[11px] text-muted-foreground">
-                      Plafon efektif
+                      Plafon simulasi efektif
                     </Label>
                     <Input
                       id={`plafon-${r.userId}`}

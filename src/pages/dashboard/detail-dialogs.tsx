@@ -56,7 +56,7 @@ export function LoanDetailDialog({
       setConfirmRepayOpen(false);
       onClose();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Pelunasan gagal.");
+      toast.error(err instanceof Error ? err.message : "Pencatatan pelunasan simulasi gagal.");
     } finally {
       setRepaying(false);
     }
@@ -78,7 +78,7 @@ export function LoanDetailDialog({
           <>
             <DialogHeader>
               <div className="flex items-center justify-between gap-3">
-                <DialogTitle className="tabular-nums">{formatRupiah(loan.pokokPinjaman)}</DialogTitle>
+                <DialogTitle className="tabular-nums">Pokok simulasi · {formatRupiah(loan.pokokPinjaman)}</DialogTitle>
                 <StatusBadge status={loan.status} kind="loan" />
               </div>
               <DialogDescription className="tabular-nums">
@@ -95,17 +95,17 @@ export function LoanDetailDialog({
                 ? [
                     ["Keperluan", loanPurposeLabel(loan.tujuan)],
                     ["Pokok pinjaman pada simulasi", formatRupiah(loan.pokokPinjaman)],
-                    ["Tenor", `${loan.tenorBulan} bulan`],
-                    ["Uang muka (DP 0%)", formatRupiah(0)],
+                    ["Tenor simulasi", `${loan.tenorBulan} bulan`],
+                    ["Uang muka simulasi (DP 0%)", formatRupiah(0)],
                     ["Pokok acuan simulasi (DP 0%)", formatRupiah(loan.pokokPinjaman)],
                     ["Bunga menurun simulasi", formatRupiah(loan.imbalHasilTotal)],
                     ["Total kewajiban simulasi", formatRupiah(loan.totalKewajiban)],
                   ]
                 : [
                     ["Keperluan", loanPurposeLabel(loan.tujuan)],
-                    ["Pokok pinjaman", formatRupiah(loan.quote.pokok)],
-                    ["Biaya admin (3%)", formatRupiah(loan.quote.biayaAdmin)],
-                    ["Biaya platform (2%)", formatRupiah(loan.quote.biayaPlatform)],
+                    ["Pokok simulasi pinjaman", formatRupiah(loan.quote.pokok)],
+                    ["Biaya admin simulasi (3%)", formatRupiah(loan.quote.biayaAdmin)],
+                    ["Biaya platform simulasi (2%)", formatRupiah(loan.quote.biayaPlatform)],
                     ["Nilai bersih simulasi (95%; tidak ditransfer)", formatRupiah(loan.quote.danaBersihDitransfer)],
                     ["Bunga simulasi (30%)", formatRupiah(loan.quote.bunga)],
                     ["Total kewajiban simulasi", formatRupiah(loan.quote.totalKewajibanPelunasan)],
@@ -149,7 +149,7 @@ export function LoanDetailDialog({
                   </div>
                   {loan.pelunasan.hariTerlambat > 0 ? (
                     <div className="flex items-baseline justify-between gap-4">
-                      <dt className="text-red-600">Tanggal acuan terlampaui {loan.pelunasan.hariTerlambat} hari</dt>
+                      <dt className="text-red-600">Tanggal acuan simulasi terlampaui {loan.pelunasan.hariTerlambat} hari</dt>
                       <dd className="tabular-nums text-red-600">+{formatRupiah(loan.pelunasan.dendaTerlambat)}</dd>
                     </div>
                   ) : (

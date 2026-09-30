@@ -59,7 +59,7 @@ export function LiveLocationMap() {
         fillOpacity: 0.9,
         weight: 3,
       })
-        .bindTooltip("Gudang Brankas PINDAI", { direction: "top" })
+        .bindTooltip("Titik acuan konfigurasi (bukan posisi gudang terverifikasi)", { direction: "top" })
         .addTo(layer);
       const radiusKm =
         current !== undefined && Number.isFinite(current.gpsMismatchKm)
@@ -88,13 +88,13 @@ export function LiveLocationMap() {
           weight: 2,
         })
           .bindTooltip(
-            `<strong>${r.namaLengkap}</strong><br/>${r.nomorReferensi} · ${r.statusPinjaman}<br/>` +
-              (r.tanda.length > 0 ? "LOKASI DICURIGAI" : "") +
+            `<strong>${r.namaLengkap}</strong><br/>${r.nomorReferensi} · status ledger: ${r.statusPinjaman}<br/>` +
+              (r.tanda.length > 0 ? "POLA KOORDINAT DICURIGAI (OTOMATIS)" : "") +
               (r.tanda.length > 0 && r.jarakVaultKm !== null ? " · " : "") +
               (r.mismatch
-                ? "GPS MISMATCH"
+                ? "DI LUAR AMBANG JARAK (OTOMATIS)"
                 : r.jarakVaultKm !== null
-                  ? `${r.jarakVaultKm.toFixed(1)} km dari vault`
+                  ? `${r.jarakVaultKm.toFixed(1)} km dari titik acuan`
                   : ""),
             { direction: "top" },
           )
@@ -198,12 +198,12 @@ export function LiveLocationMap() {
     <div className="space-y-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-sm text-muted-foreground">
-          Peta live OpenStreetMap (gratis) — posisi peminjam, gudang brankas, dan radius mismatch {data?.gpsMismatchKm ?? DEFAULT_CONFIG.gpsMismatchKm} km.
+          OpenStreetMap — koordinat yang dilaporkan perangkat dan titik acuan konfigurasi. Penanda jarak/pola dihitung otomatis, bukan verifikasi lokasi fisik. Ambang pola {data?.gpsMismatchKm ?? DEFAULT_CONFIG.gpsMismatchKm} km.
         </p>
         <div className="flex flex-wrap items-center gap-2 text-xs">
-          <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100">Dalam radius</Badge>
-          <Badge className="bg-red-100 text-red-700 hover:bg-red-100">GPS Mismatch</Badge>
-          <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-100">Lokasi Dicurigai</Badge>
+          <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100">Dalam ambang jarak</Badge>
+          <Badge className="bg-red-100 text-red-700 hover:bg-red-100">Di luar ambang jarak</Badge>
+          <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-100">Pola koordinat ditandai</Badge>
         </div>
       </div>
       <div
@@ -212,7 +212,7 @@ export function LiveLocationMap() {
         <div
           ref={containerRef}
           role="region"
-          aria-label="Peta lokasi peminjam"
+          aria-label="Peta koordinat yang dilaporkan perangkat"
           className="absolute inset-0 z-0 bg-[#ddd]"
         />
         {data === undefined && (
@@ -231,27 +231,25 @@ export function LiveLocationMap() {
               <li key={r.userId} className="flex flex-col items-start justify-between gap-2 px-3 py-3 text-sm sm:flex-row sm:items-center sm:gap-3 sm:px-5">
                 <span className="min-w-0">
                   {r.mismatch && (
-                    <Badge className="mr-2 bg-red-100 text-red-700 hover:bg-red-100">GPS Mismatch</Badge>
+                    <Badge className="mr-2 bg-red-100 text-red-700 hover:bg-red-100">Di luar ambang jarak</Badge>
                   )}
                   {r.tanda.length > 0 && (
-                    <Badge className="mr-2 bg-amber-100 text-amber-800 hover:bg-amber-100">
-                      Lokasi dicurigai
-                    </Badge>
+                    <Badge className="mr-2 bg-amber-100 text-amber-800 hover:bg-amber-100">Pola koordinat ditandai</Badge>
                   )}
                   {r.namaLengkap} · {r.nomorReferensi}
                 </span>
                 <span className="shrink-0 tabular-nums text-xs text-muted-foreground sm:text-sm">
                   {r.tanda.length > 0
-                    ? "koordinat beku berulang"
+                    ? "koordinat berulang (indikator otomatis)"
                     : r.jarakVaultKm !== null
-                      ? `${r.jarakVaultKm.toFixed(1)} km dari vault`
+                      ? `${r.jarakVaultKm.toFixed(1)} km dari titik acuan`
                       : ""}
                 </span>
               </li>
             ))}
           {data.rows.every((r) => !r.mismatch && r.tanda.length === 0) && (
             <li className="px-5 py-3 text-sm text-muted-foreground">
-              Tidak ada peminjam di luar radius dan tidak ada titik lokasi yang dicurigai.
+              Tidak ada koordinat yang melampaui ambang pola saat ini. Hasil otomatis ini bukan konfirmasi lokasi fisik.
             </li>
           )}
         </ul>

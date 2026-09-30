@@ -77,12 +77,12 @@ const KEAMANAN = [
   },
 ] as const;
 
-/** Panel kepercayaan: apa yang PINDAI lakukan untuk melindungi Pendana. */
+/** Ringkasan batas ledger simulasi untuk calon Pendana. */
 function PanelKepercayaan() {
   return (
     <section className="mx-auto mt-6 max-w-xl rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
       <h2 className="text-lg font-semibold tracking-tight">
-        Mengapa dana Anda aman di PINDAI
+        Batas saldo dan pendanaan di PINDAI
       </h2>
       <p className="mt-2 text-sm leading-6 text-muted-foreground">
         Halaman ini menjelaskan dengan terbuka apa yang dicatat PINDAI dan batasnya: ini adalah simulasi ledger internal, bukan platform untuk menempatkan atau menarik dana.
@@ -151,8 +151,8 @@ export function Onboarding() {
           onClick={async () => {
             setBusy(true);
             try {
-          await becomePendana({});
-          toast.success("Mode Pendana simulasi aktif. Tidak ada dana sungguhan yang dipindahkan.");
+              await becomePendana({});
+              toast.success("Mode Pendana simulasi aktif. Tidak ada dana sungguhan yang dipindahkan.");
             } catch (err) {
               toast.error(err instanceof Error ? err.message : "Gagal mengubah peran.");
             } finally {

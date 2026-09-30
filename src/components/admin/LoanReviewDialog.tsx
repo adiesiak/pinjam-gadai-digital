@@ -47,7 +47,7 @@ export function LoanReviewDialog({
     setError(null);
     try {
       await fn();
-      toast.success("Keputusan tersimpan.");
+      toast.success("Perubahan status internal tersimpan; tidak ada pencairan atau transfer dana.");
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Gagal menyimpan keputusan.");
@@ -62,7 +62,7 @@ export function LoanReviewDialog({
         <DialogHeader>
           <div className="flex items-center justify-between gap-3">
             <DialogTitle className="tabular-nums">
-              {formatRupiah(row.pokokPinjaman)}
+              Pokok simulasi · {formatRupiah(row.pokokPinjaman)}
             </DialogTitle>
             <StatusBadge status={row.status} kind="loan" />
           </div>
@@ -72,6 +72,10 @@ export function LoanReviewDialog({
         </DialogHeader>
 
         <LoanKycPanel row={row} />
+
+        <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-900">
+          Nominal, tanggal acuan, alokasi, dan status lunas di panel ini adalah catatan simulasi ledger internal. Tidak ada dana yang ditransfer, dan status tidak memverifikasi pembayaran.
+        </p>
 
         <EContractWidget kind="loan" loanId={row._id} />
 
@@ -85,8 +89,8 @@ export function LoanReviewDialog({
             [
               "Skema",
               row.tenorBulan !== null
-                ? `Bulanan — ${row.tenorBulan} bulan`
-                : `Harian — ${row.tenorHari ?? 30} hari`,
+                ? `Bulanan (simulasi) — ${row.tenorBulan} bulan`
+                : `Harian (simulasi) — ${row.tenorHari ?? 30} hari`,
             ],
             ["Catatan pemohon", row.catatanPeminjam ?? "—"],
             ...(row.tenorBulan !== null
@@ -94,7 +98,7 @@ export function LoanReviewDialog({
                   ["Uang muka pada simulasi (DP 0%)", formatRupiah(0)],
                   ["Pokok simulasi (tidak ditransfer)", formatRupiah(row.pokokPinjaman)],
                   [
-                    "Biaya layanan (3% dari pokok)",
+                    "Biaya layanan simulasi (3% dari pokok)",
                     formatRupiah(
                       row.biayaLayananTotal ??
                         Math.max(
@@ -110,8 +114,8 @@ export function LoanReviewDialog({
                   ["Total pengembalian simulasi", formatRupiah(row.totalKewajiban ?? 0)],
                 ] as Array<[string, string]>)
               : ([
-                  ["Biaya admin (3%)", formatRupiah(q.biayaAdmin)],
-                  ["Biaya platform (2%)", formatRupiah(q.biayaPlatform)],
+                  ["Biaya admin simulasi (3%)", formatRupiah(q.biayaAdmin)],
+                  ["Biaya platform simulasi (2%)", formatRupiah(q.biayaPlatform)],
                   ["Nilai bersih simulasi (95%; tidak ditransfer)", formatRupiah(q.danaBersihDitransfer)],
                   ["Bunga simulasi (30%)", formatRupiah(q.bunga)],
                   ["Total kewajiban simulasi (130%)", formatRupiah(q.totalKewajibanPelunasan)],
@@ -140,20 +144,20 @@ export function LoanReviewDialog({
               }`}
             >
               {(row.hariTerlambat ?? 0) > 0
-                ? `Melewati tanggal acuan ${row.hariTerlambat} hari`
+                ? `Tanggal acuan simulasi terlewati ${row.hariTerlambat} hari`
                 : (row.sisaHari ?? 0) === 0
-                  ? "Tanggal acuan hari ini"
-                  : `Tanggal acuan dalam ${row.sisaHari} hari`}
+                  ? "Tanggal acuan simulasi hari ini"
+                  : `Tanggal acuan simulasi dalam ${row.sisaHari} hari`}
             </p>
             <p className="mt-1 text-sm">
-              Tanggal acuan {formatDate(row.jatuhTempoPada)} · total simulasi dengan denda{" "}
+              Tanggal acuan simulasi {formatDate(row.jatuhTempoPada)} · total simulasi dengan denda{" "}
               <span className="font-semibold tabular-nums">
                 {formatRupiah(row.totalKewajibanDenganPenalti ?? 0)}
               </span>
               {(row.dendaTerlambat ?? 0) > 0 && (
                 <span className="tabular-nums text-destructive">
                   {" "}
-                  (denda {formatRupiah(row.dendaTerlambat ?? 0)})
+                  (denda simulasi {formatRupiah(row.dendaTerlambat ?? 0)})
                 </span>
               )}
             </p>
