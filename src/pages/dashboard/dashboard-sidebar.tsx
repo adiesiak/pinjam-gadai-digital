@@ -1,15 +1,18 @@
+import { motion } from "framer-motion";
 import { LayoutDashboard, LogOut, ShieldCheck, Wallet } from "lucide-react";
 import { Link } from "react-router";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { fadeUpItem, staggerContainer } from "@/lib/motion";
 import { ADMIN_ROUTE } from "@/lib/routes";
 
 import { DashboardTabNav, type TabBadge } from "./dashboard-tab-nav";
 
 /**
  * Sisi kiri dashboard nasabah: kartu profil (sapaan, avatar, status KTP,
- * tautan peran, keluar) lalu navigasi tab vertikal.
+ * tautan peran, keluar) lalu navigasi tab vertikal. Keduanya masuk berurutan
+ * dengan tempo yang sama seperti animasi landing.
  */
 export function DashboardSidebar({
   greetingName,
@@ -29,8 +32,16 @@ export function DashboardSidebar({
   const initial = greetingName.charAt(0).toUpperCase();
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+    <motion.div
+      variants={staggerContainer}
+      initial="hidden"
+      animate="show"
+      className="flex flex-col gap-4"
+    >
+      <motion.div
+        variants={fadeUpItem}
+        className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
+      >
         <div className="flex items-center gap-3">
           <div className="flex size-11 shrink-0 items-center justify-center rounded-full bg-primary text-base font-bold text-primary-foreground">
             {initial}
@@ -80,9 +91,11 @@ export function DashboardSidebar({
         >
           <LogOut className="size-3.5" /> Keluar
         </Button>
-      </div>
+      </motion.div>
 
-      <DashboardTabNav badges={badges} activeTab={activeTab} onTabChange={onTabChange} />
-    </div>
+      <motion.div variants={fadeUpItem}>
+        <DashboardTabNav badges={badges} activeTab={activeTab} onTabChange={onTabChange} />
+      </motion.div>
+    </motion.div>
   );
 }

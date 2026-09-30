@@ -28,7 +28,7 @@ export function DueReminderBanner({
   const terlambat = reminder.hariTerlambat > 0;
   return (
     <section
-      className={`mt-6 rounded-2xl border px-5 py-4 shadow-sm ${
+      className={`animate-masuk mt-6 rounded-2xl border px-5 py-4 shadow-sm ${
         terlambat ? "border-red-200 bg-red-50/70" : "border-slate-200 bg-white"
       }`}
     >
@@ -84,7 +84,7 @@ export function LokasiPeringatanBanner() {
   const waTerkirim = peringatan.waStatus === "terkirim";
 
   return (
-    <section className="mt-6 rounded-2xl border border-amber-200 bg-amber-50/70 px-5 py-4 shadow-sm">
+    <section className="animate-masuk mt-6 rounded-2xl border border-amber-200 bg-amber-50/70 px-5 py-4 shadow-sm">
       <p className="flex items-center gap-2 text-[11px] font-medium uppercase tracking-[0.18em] text-amber-700">
         <MapPin className="size-3.5" /> Peringatan pola koordinat
       </p>

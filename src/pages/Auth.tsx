@@ -14,6 +14,7 @@ import {
   InputOTPSlot,
 } from "@/components/ui/input-otp";
 
+import { FadeIn } from "@/components/Reveal";
 import { useAuth } from "@/hooks/use-auth";
 import { api } from "@/convex/_generated/api";
 import { getClientIp, getUserAgent } from "@/lib/session";
@@ -479,10 +480,16 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
 
   const isAdminCodeStep = typeof adminStep !== "string";
 
+  /* Kunci animasi masuk kartu: satu transisi halus setiap langkah berganti. */
+  const langkahKey =
+    authMode === "client"
+      ? `client-${typeof clientStep === "string" ? clientStep : "kode"}`
+      : `admin-${typeof adminStep === "string" ? adminStep : `kode-${adminStep.purpose}`}`;
+
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground">
       <div className="flex-1" />
-      <div className="flex items-center justify-center px-4 py-8 sm:px-6">
+      <FadeIn className="flex items-center justify-center px-4 py-8 sm:px-6">
         <div className="flex w-full max-w-sm flex-col items-center">
           <Link
             to="/"
@@ -511,7 +518,10 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
             </li>
           </ul>
 
-          <Card className="mt-8 w-full gap-6 rounded-xl border-border/60 shadow-none">
+          <Card
+            key={langkahKey}
+            className="animate-masuk mt-8 w-full gap-6 rounded-xl border-border/60 shadow-none"
+          >
             {authMode === "client" ? (
               clientStep === "signIn" ? (
                 <>
@@ -1082,7 +1092,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
             )}
           </Card>
         </div>
-      </div>
+      </FadeIn>
       <div className="flex-1" />
     </div>
   );

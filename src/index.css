@@ -577,6 +577,23 @@
     }
   }
 
+  /* Muncul halus saat elemen baru dirender — dipakai untuk langkah auth, panel
+     tab dashboard, header, dan banner. Easing serta jaraknya selaras dengan
+     animasi masuk landing. */
+  .animate-masuk {
+    animation: pindai-masuk 0.36s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+  @keyframes pindai-masuk {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
   /* Garis bawah judul yang tumbuh saat disorot. */
   .link-underline {
     position: relative;
@@ -603,7 +620,8 @@
     .animate-drift,
     .animate-drift-reverse,
     .animate-grid-pan,
-    .animate-spin-slow {
+    .animate-spin-slow,
+    .animate-masuk {
       animation: none;
     }
   }

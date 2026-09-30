@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import { ErrorPage } from "@/components/ErrorPage";
 import { LocationGate } from "@/components/LocationGate";
 import { ManualPaymentEvidenceHistory } from "@/components/ManualPaymentEvidenceForm";
+import { FadeIn } from "@/components/Reveal";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { api } from "@/convex/_generated/api";
@@ -241,7 +242,7 @@ export default function Dashboard() {
           </aside>
 
           {/* ===== Kolom konten ===== */}
-          <div className="min-w-0 flex-1">
+          <FadeIn className="min-w-0 flex-1">
             {isLoading ? (
               <div className="mt-20 flex items-center justify-center gap-2 text-sm text-muted-foreground">
                 <Loader2 className="size-4 animate-spin" />
@@ -264,7 +265,7 @@ export default function Dashboard() {
                 {creditHistory && <CreditProgressCard history={creditHistory} />}
 
                 {/* ============ TAB 1: PINJAMAN AKTIF ============ */}
-                <TabsContent value="pinjaman" className="mt-8">
+                <TabsContent value="pinjaman" className="mt-8 animate-masuk">
                   <ActiveLoanSection
                     schedule={schedule ?? []}
                     onOpenDetail={setLoanDetailId}
@@ -272,12 +273,12 @@ export default function Dashboard() {
                 </TabsContent>
 
                 {/* ============ TAB 2: JADWAL ANGSURAN ============ */}
-                <TabsContent value="jadwal" className="mt-8">
+                <TabsContent value="jadwal" className="mt-8 animate-masuk">
                   <ScheduleSection schedule={schedule ?? []} />
                 </TabsContent>
 
                 {/* ============ TAB 3: JAMINAN GADAI ============ */}
-                <TabsContent value="gadai" className="mt-8">
+                <TabsContent value="gadai" className="mt-8 animate-masuk">
                   <div className="space-y-8">
                     <GadaiBillingSection pawns={pawns ?? []} />
                     <PawnVaultSection pawns={pawns ?? []} onOpenDetail={setPawnDetailId} />
@@ -285,17 +286,17 @@ export default function Dashboard() {
                 </TabsContent>
 
                 {/* ============ TAB 4: KREDIT BARANG (Skema C) ============ */}
-                <TabsContent value="kredit" className="mt-8">
+                <TabsContent value="kredit" className="mt-8 animate-masuk">
                   <KreditBarangSection />
                 </TabsContent>
 
                 {/* ============ TAB 5: E-CONTRACT ============ */}
-                <TabsContent value="kontrak" className="mt-8">
+                <TabsContent value="kontrak" className="mt-8 animate-masuk">
                   <MyContractsSection contracts={contracts} />
                 </TabsContent>
 
                 {/* ============ TAB 6: FORM PENGAJUAN ============ */}
-                <TabsContent value="form" className="mt-8">
+                <TabsContent value="form" className="mt-8 animate-masuk">
                   <div className="grid gap-8 xl:grid-cols-2">
                     <section>
                       <h2 className="text-lg font-semibold">Form Pengajuan Pinjaman</h2>
@@ -321,7 +322,7 @@ export default function Dashboard() {
                 </TabsContent>
 
                 {/* ============ TAB 7: RIWAYAT ============ */}
-                <TabsContent value="riwayat" className="mt-8">
+                <TabsContent value="riwayat" className="mt-8 animate-masuk">
                   <div className="space-y-6">
                     <HistorySection
                       loans={loans ?? []}
@@ -334,7 +335,7 @@ export default function Dashboard() {
                 </TabsContent>
               </>
             )}
-          </div>
+          </FadeIn>
         </Tabs>
       </main>
 

@@ -28,7 +28,7 @@ import {
   Wallet,
   X,
 } from "lucide-react";
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router";
 
 import { useAuth } from "@/hooks/use-auth";
@@ -49,6 +49,7 @@ import {
 } from "@/components/ui/dialog";
 import { api } from "@/convex/_generated/api";
 import { RoleDashboardMenu } from "@/components/RoleDashboardMenu";
+import { Reveal } from "@/components/Reveal";
 import { CMS_DEFAULTS } from "@/lib/cms-defaults";
 import {
   BULANAN_LIMITS,
@@ -57,6 +58,7 @@ import {
 } from "@/lib/bulanan";
 import { LOAN_LIMITS, quoteLoan, TENOR_OPTIONS, type LoanQuote } from "@/lib/loan";
 import { formatRupiah, type Rupiah } from "@/lib/money";
+import { EASE_OUT } from "@/lib/motion";
 import { PLAFON_BATAS } from "@/lib/plafon";
 import { ADMIN_ROUTE } from "@/lib/routes";
 
@@ -128,9 +130,6 @@ const SECURITY = [
   { icon: Eye, label: "Status dashboard adalah catatan internal" },
 ] as const;
 
-/** Kurva easing lembut yang dipakai semua animasi landing. */
-const EASE_OUT: [number, number, number, number] = [0.22, 1, 0.36, 1];
-
 const heroContainer: Variants = {
   hidden: {},
   show: { transition: { staggerChildren: 0.09, delayChildren: 0.04 } },
@@ -140,32 +139,6 @@ const heroItem: Variants = {
   hidden: { opacity: 0, y: 18 },
   show: { opacity: 1, y: 0, transition: { duration: 0.62, ease: EASE_OUT } },
 };
-
-/** Animasi masuk saat bagian masuk viewport (hanya sekali). */
-function Reveal({
-  children,
-  delay = 0,
-  y = 22,
-  className,
-}: {
-  children: ReactNode;
-  delay?: number;
-  y?: number;
-  className?: string;
-}) {
-  const reduce = useReducedMotion();
-  return (
-    <motion.div
-      initial={reduce ? { opacity: 0 } : { opacity: 0, y }}
-      whileInView={reduce ? { opacity: 1 } : { opacity: 1, y: 0 }}
-      viewport={{ once: true, amount: 0.2 }}
-      transition={{ duration: 0.55, delay, ease: EASE_OUT }}
-      className={className}
-    >
-      {children}
-    </motion.div>
-  );
-}
 
 /** Angka yang menghitung naik saat terlihat — mati saat reduced-motion. */
 function CountUp({
