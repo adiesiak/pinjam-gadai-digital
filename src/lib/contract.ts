@@ -122,17 +122,28 @@ function blokTandaTanganPeminjam(
   </div>`;
 }
 
+/** Ikon brankas (vault) untuk cap PINDAI — SVG inline agar ikut tercetak. */
+const BRANKAS_SVG = `<svg class="cap-brankas" viewBox="0 0 48 48" role="img" aria-label="Logo brankas PINDAI" xmlns="http://www.w3.org/2000/svg">
+  <rect x="5" y="9" width="38" height="30" rx="4" fill="none" stroke="currentColor" stroke-width="2.5"/>
+  <circle cx="22" cy="24" r="8" fill="none" stroke="currentColor" stroke-width="2.5"/>
+  <circle cx="22" cy="24" r="1.8" fill="currentColor"/>
+  <path d="M22 13.5v3M22 31.5v3M11.5 24h3M29.5 24h3" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+  <path d="M35 19h4M35 24h4M35 29h4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+</svg>`;
+
+/** Cap PINDAI dengan logo brankas pada bagian tanda tangan Platform. */
 function blokStempelPindai(): string {
-  return `<div class="pindai-stamp" aria-label="Stempel visual PINDAI, bukan e-meterai">
-    <strong>PINDAI · DIGITAL</strong>
-    <span>CATATAN APLIKASI</span>
-    <small>Bukan e-meterai atau sertifikasi</small>
+  return `<div class="cap-slot">
+    <div class="pindai-stamp" aria-label="Cap PINDAI dengan logo brankas">
+      ${BRANKAS_SVG}
+      <strong>CAP PINDAI</strong>
+      <small>PINJAM GADAI DIGITAL</small>
+    </div>
   </div>`;
 }
 
 function blokPlatform(): string {
   return `<div>
-    <div class="signature-placeholder">Tidak ada tanda tangan Platform terverifikasi</div>
     ${blokStempelPindai()}
     <p class="garis">Pinjam Gadai Digital</p>
     <p>Nama aplikasi</p>
