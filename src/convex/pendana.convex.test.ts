@@ -306,12 +306,12 @@ describe("alur Pendana — pinjaman tunai", () => {
       biayaLayananTotal: 50_000,
       totalPotonganDiMuka: 50_000,
       danaBersih: 950_000,
-      jadwalPelunasan: [{ bulan: 3, hariKe: 90, total: 1_750_000 }],
+      jadwalPelunasan: [{ bulan: 3, hariKe: 90, total: 1_785_001 }],
       simulasiCicilanBulanan: expect.arrayContaining([
         expect.objectContaining({ bulan: 1 }),
       ]),
       catatanJadwal:
-        "Biaya admin 2% dan platform 3% untuk tenor 3/6 bulan (atau biaya layanan 3% untuk tenor 1) dipotong di muka dari dana yang diterima; cicilan bulanan hanya berisi pokok dan bunga.",
+        "Biaya admin 2% dan platform 3% untuk tenor 3/6 bulan (atau biaya layanan 3% untuk tenor 1) dipotong di muka dari dana yang diterima; tenor 3 dan 6 bulan dikenai tambahan biaya admin 2% dari nominal cicilan yang dibayar bersama setiap cicilan.",
     });
     expect(peluang.jadwalPelunasan).toHaveLength(1);
     expect(peluang.simulasiCicilanBulanan).toHaveLength(3);

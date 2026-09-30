@@ -66,6 +66,10 @@ export function LoanDetailDialog({
                           ["Biaya admin perkiraan (2%, dipotong di muka)", formatRupiah(loan.simulasiBulanan.biayaAdminTotal)],
                           ["Biaya platform perkiraan (3%, dipotong di muka)", formatRupiah(loan.simulasiBulanan.biayaPlatformTotal)],
                           ["Total biaya tenor perkiraan (5%)", formatRupiah(loan.simulasiBulanan.biayaLayananTotal)],
+                          [
+                            "Biaya admin cicilan perkiraan (2% per bayar)",
+                            formatRupiah(loan.simulasiBulanan.biayaAdminCicilanTotal),
+                          ],
                         ]
                       : loan.simulasiBulanan !== null
                         ? [["Biaya layanan perkiraan (3%, dipotong di muka)", formatRupiah(loan.simulasiBulanan.biayaLayananTotal)]]

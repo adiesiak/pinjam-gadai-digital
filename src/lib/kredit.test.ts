@@ -107,8 +107,10 @@ eq(pendek.marginTotal, 7_500_000, "total Imbal Hasil flat 25% × 3 bulan = 7,5jt
 eq(pendek.biayaAdmin, 200_000, "biaya admin 2% dari 10jt (dipotong di muka)");
 eq(pendek.biayaPlatform, 300_000, "biaya platform 3% dari 10jt (dipotong di muka)");
 eq(pendek.biayaLayanan, 500_000, "total biaya tenor 5% dari 10jt (dipotong di muka)");
-eq(pendek.cicilanPerBulan, 5_833_333, "cicilan 3 bulan pertama = pokok + Imbal Hasil");
-eq(pendek.cicilanTerakhir, 5_833_334, "cicilan terakhir menyerap sisa pokok (cicilan rata)");
+eq(pendek.cicilanPerBulan, 5_950_000, "cicilan 3 bulan pertama = pokok + Imbal Hasil + admin 2%");
+eq(pendek.cicilanTerakhir, 5_950_001, "cicilan terakhir menyerap sisa pokok (cicilan rata)");
+eq(pendek.biayaAdminCicilanTotal, 350_001, "biaya admin cicilan 2% × 3 bulan");
+eq(pendek.jadwal[0].biayaAdmin, 116_667, "biaya admin cicilan baris pertama (2% × 5.833.333)");
 eq(pendek.persenImbalHasil, 75, "Imbal Hasil 75% dari pokok penuh (3 bulan)");
 eq(pendek.persenImbalHasilTahunan, 300, "setara 300% per tahun (75% × 12/3)");
 eq(

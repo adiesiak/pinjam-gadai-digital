@@ -164,7 +164,8 @@ export function buildPinjamanContract(
     bulanan !== null && (bulanan.tenorBulan === 3 || bulanan.tenorBulan === 6)
       ? `<li>Biaya admin 2%: ${formatRupiah(bulanan.biayaAdminTotal)}.</li>
       <li>Biaya platform 3%: ${formatRupiah(bulanan.biayaPlatformTotal)}.</li>
-      <li>Total biaya tenor 5% (${formatRupiah(bulanan.biayaLayananTotal)}) dipotong di muka dari dana yang diterima.</li>`
+      <li>Total biaya tenor 5% (${formatRupiah(bulanan.biayaLayananTotal)}) dipotong di muka dari dana yang diterima.</li>
+      <li>Biaya admin layanan cicilan 2% dari nominal cicilan: ${formatRupiah(bulanan.biayaAdminCicilanTotal)} selama ${bulanan.tenorBulan} bulan (bulan pertama ${formatRupiah(bulanan.biayaAdminCicilanPerBulan)}), dibayar bersama setiap cicilan.</li>`
       : bulanan !== null
         ? `<li>Biaya layanan 3% dari pokok acuan: ${formatRupiah(bulanan.biayaLayananTotal)}, dipotong di muka dari dana yang diterima.</li>`
         : "";
@@ -182,7 +183,7 @@ export function buildPinjamanContract(
       ${rincianBiayaBulanan}
       <li><strong>Dana bersih yang diterima: ${formatRupiah(bulanan.danaDiterima)} (pokok ${formatRupiah(bulanan.pokokDibiayai)} setelah potongan di muka ${formatRupiah(bulanan.potonganDiMuka)})</strong>; dana diteruskan sesuai proses pencairan.</li>
       <li>Bunga/margin sebesar ${bulanan.persenBungaPerBulan}% per bulan dari POKOK ACUAN (flat, tidak menurun dari sisa pokok); total ${formatRupiah(bulanan.bungaTotal)}.</li>
-      <li><strong>Ilustrasi cicilan rata: bulan pertama ${formatRupiah(bulanan.cicilanPerBulan)}, bulan terakhir ${formatRupiah(bulanan.cicilanTerakhir)}; total ${formatRupiah(bulanan.totalPengembalian)} untuk ${bulanan.tenorBulan} bulan (cicilan hanya pokok dan bunga).</strong> Rincian per bulan: ${bulanan.jadwal.map((angsuran) => `bulan ${angsuran.bulan} ${formatRupiah(angsuran.total)}`).join("; ")}. Jadwal bersifat ilustrasi; perubahan status lunas di aplikasi dicatat sebagai entri ledger.</li>`;
+      <li><strong>Ilustrasi cicilan rata: bulan pertama ${formatRupiah(bulanan.cicilanPerBulan)}, bulan terakhir ${formatRupiah(bulanan.cicilanTerakhir)}; total ${formatRupiah(bulanan.totalPengembalian)} untuk ${bulanan.tenorBulan} bulan (sudah termasuk pokok, bunga, dan biaya admin cicilan).</strong> Rincian per bulan: ${bulanan.jadwal.map((angsuran) => `bulan ${angsuran.bulan} ${formatRupiah(angsuran.total)}`).join("; ")}. Jadwal bersifat ilustrasi; perubahan status lunas di aplikasi dicatat sebagai entri ledger.</li>`;
   const pasalKewajiban =
     bulanan === null
       ? `Kewajiban dilunasi dalam ${tenorHari} hari sejak tanggal pencairan. Pelunasan ditangani di luar aplikasi dan statusnya dicatat tim PINDAI pada ledger internal. Denda keterlambatan 0,5% per hari dari pokok, maksimum 15%.`

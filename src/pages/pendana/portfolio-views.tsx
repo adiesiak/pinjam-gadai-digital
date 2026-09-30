@@ -43,6 +43,7 @@ type PortfolioRow = {
   biayaPlatform: number;
   totalPotonganDiMuka: number;
   biayaLayananTotal: number;
+  biayaAdminCicilanTotal: number;
   danaDiterimaPeminjam: number;
   jadwalPelunasan: JadwalPendanaan[];
   simulasiCicilanBulanan: JadwalPendanaan[];
@@ -95,7 +96,7 @@ export function PortfolioSection({ portfolio }: { portfolio: PortfolioRow[] | un
               {f.tenorBulan !== null && (
                 <p className="mt-1 text-xs text-muted-foreground">
                   {f.tenorBulan === 3 || f.tenorBulan === 6
-                    ? `Biaya admin 2% (${formatRupiah(f.biayaAdmin)}) + platform 3% (${formatRupiah(f.biayaPlatform)}), dipotong di muka dari dana yang diterima.`
+                    ? `Biaya admin 2% (${formatRupiah(f.biayaAdmin)}) + platform 3% (${formatRupiah(f.biayaPlatform)}) dipotong di muka dari dana yang diterima; setiap cicilan ditambah biaya admin 2% dari nominal cicilan (${formatRupiah(f.biayaAdminCicilanTotal)} selama tenor).`
                     : `Biaya layanan 3% (${formatRupiah(f.biayaLayananTotal)}), dipotong di muka dari dana yang diterima.`}
                 </p>
               )}
@@ -133,6 +134,10 @@ export function PortfolioSection({ portfolio }: { portfolio: PortfolioRow[] | un
                     <InfoRow label="Biaya admin 2% (dipotong di muka)" value={formatRupiah(f.biayaAdmin)} />
                     <InfoRow label="Biaya platform 3% (dipotong di muka)" value={formatRupiah(f.biayaPlatform)} />
                     <InfoRow label="Total biaya tenor 5%" value={formatRupiah(f.biayaLayananTotal)} />
+                    <InfoRow
+                      label="Biaya admin cicilan 2% per bayar"
+                      value={formatRupiah(f.biayaAdminCicilanTotal)}
+                    />
                   </>
                 ) : (
                   <InfoRow label="Biaya layanan tenor 1 bulan (3%)" value={formatRupiah(f.biayaLayananTotal)} />

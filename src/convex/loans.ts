@@ -1137,9 +1137,11 @@ export const repayLoan = mutation({
     const totalPokokPendana = loan.pokokPinjaman;
     const totalImbalPendana = simBulanan !== null ? simBulanan.bungaTotal : q.bunga;
     const totalKewajibanPendana = totalPokokPendana + totalImbalPendana;
-    // Biaya sudah dipotong di muka — tidak ada fee yang dijurnal saat pelunasan.
+    // Biaya tenor (admin 2% + platform 3%) sudah dipotong di muka saat
+    // pencairan. Yang tersisa di pelunasan hanya biaya admin cicilan 2% untuk
+    // tenor 3/6 bulan, yang memang dibayar bersama cicilan.
     const feePlatform = 0;
-    const feeAdmin = 0;
+    const feeAdmin = simBulanan !== null ? simBulanan.biayaAdminCicilanTotal : 0;
 
     const fundings = await ctx.db
       .query("fundings")
@@ -1210,16 +1212,18 @@ export const repayLoan = mutation({
       terdistribusi += payout;
     }
 
-    // 3. Fee platform dipotong di muka saat pencairan (convex/pendana.ts) —
-    //    tidak ada fee tersisa untuk dijurnal pada pelunasan.
+    // 3. Biaya tenor dipotong di muka saat pencairan (convex/pendana.ts);
+    //    yang dijurnal di sini hanya biaya admin cicilan tenor 3/6 (feePlatform
+    //    selalu nol). Jurnal dibuat seimbang: debit platform:FEE, kredit akun
+    //    pinjaman yang menanggung biaya.
     if (feePlatform + feeAdmin > 0) {
       await appendJournal(ctx, {
         jenis: "platform_fee",
-        keterangan: `Biaya admin dan platform ${loan.nomorReferensi} (skema bulanan)`,
+        keterangan: `Biaya admin cicilan ${loan.nomorReferensi} (skema bulanan)`,
         aktor: "platform",
         lines: [
           { akun: "platform:FEE", arah: "debit", jumlah: feePlatform + feeAdmin },
-          { akun: `pinjaman:${args.loanId}`, arah: "kredit", jumlah: feePlatform },
+          { akun: `pinjaman:${args.loanId}`, arah: "kredit", jumlah: feePlatform + feeAdmin },
         ],
       });
     }

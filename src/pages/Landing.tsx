@@ -289,8 +289,17 @@ function LiveCalculator() {
                   false,
                 ],
                 ["Pokok perhitungan (DP 0%)", formatRupiah(sim.pokokDibiayai), true],
+                ...(sim.biayaAdminCicilanTotal > 0
+                  ? ([
+                      [
+                        `Biaya admin cicilan 2% (${sim.tenorBulan} kali bayar)`,
+                        formatRupiah(sim.biayaAdminCicilanTotal),
+                        false,
+                      ],
+                    ] as Array<[string, string, boolean?]>)
+                  : []),
                 [
-                  `Cicilan per bulan (${sim.tenorBulan} bulan)`,
+                  `Total bayar per bulan (${sim.tenorBulan} bulan)`,
                   formatRupiah(sim.cicilanPerBulan),
                   true,
                 ],

@@ -119,6 +119,8 @@ type RingkasanPinjaman = {
   biayaPlatform: number;
   totalPotonganDiMuka: number;
   biayaLayananTotal: number;
+  /** Biaya admin 2% per cicilan (tenor 3/6; nol untuk tenor lain). */
+  biayaAdminCicilanTotal: number;
   danaDiterimaPeminjam: number;
   jadwalPelunasan: BarisJadwalPendana[];
   simulasiCicilanBulanan: BarisJadwalPendana[];
@@ -144,6 +146,7 @@ function ringkasPinjaman(loan: {
       biayaPlatform: sim.biayaPlatformTotal,
       totalPotonganDiMuka: sim.potonganDiMuka,
       biayaLayananTotal: sim.biayaLayananTotal,
+      biayaAdminCicilanTotal: sim.biayaAdminCicilanTotal,
       danaDiterimaPeminjam: sim.danaDiterima,
       // Backend saat ini mencatat satu pelunasan penuh di akhir tenor.
       jadwalPelunasan: [
@@ -152,9 +155,10 @@ function ringkasPinjaman(loan: {
           hariKe: tenorHari,
           pokok: loan.pokokPinjaman,
           imbalHasil: sim.bungaTotal,
-          // Biaya tenor sudah dipotong di muka — baris pelunasan hanya pokok + bunga.
+          // Biaya tenor dipotong di muka; tenor 3/6 menambahkan biaya admin 2%
+          // per cicilan yang dibayar bersama cicilan.
           biayaLayanan: 0,
-          biayaAdmin: 0,
+          biayaAdmin: sim.biayaAdminCicilanTotal,
           biayaPlatform: 0,
           total: sim.totalPengembalian,
           sisaPokok: 0,
@@ -167,13 +171,13 @@ function ringkasPinjaman(loan: {
         pokok: c.pokok,
         imbalHasil: c.bunga,
         biayaLayanan: c.biayaLayanan,
-        biayaAdmin: c.biayaAdmin,
+        biayaAdmin: c.biayaAdminCicilan,
         biayaPlatform: c.biayaPlatform,
         total: c.total,
         sisaPokok: c.sisaPokok,
       })),
       catatanJadwal:
-        "Biaya admin 2% dan platform 3% untuk tenor 3/6 bulan (atau biaya layanan 3% untuk tenor 1) dipotong di muka dari dana yang diterima; cicilan bulanan hanya berisi pokok dan bunga.",
+        "Biaya admin 2% dan platform 3% untuk tenor 3/6 bulan (atau biaya layanan 3% untuk tenor 1) dipotong di muka dari dana yang diterima; tenor 3 dan 6 bulan dikenai tambahan biaya admin 2% dari nominal cicilan yang dibayar bersama setiap cicilan.",
     };
   }
   const q = quoteLoan(loan.pokokPinjaman);
@@ -189,6 +193,7 @@ function ringkasPinjaman(loan: {
     biayaPlatform: q.biayaPlatform,
     totalPotonganDiMuka: q.totalPotonganDiMuka,
     biayaLayananTotal: 0,
+    biayaAdminCicilanTotal: 0,
     danaDiterimaPeminjam: q.danaBersihDitransfer,
     jadwalPelunasan: [
       {
@@ -938,6 +943,7 @@ export const marketplaceKredit = query({
         biayaLayanan: quote.biayaLayanan,
         biayaAdmin: quote.biayaAdmin,
         biayaPlatform: quote.biayaPlatform,
+        biayaAdminCicilanTotal: quote.biayaAdminCicilanTotal,
         biayaLayananDiMuka,
         biayaLayananPerBulan: simulasiBulanan?.biayaLayananPerBulan ?? 0,
         totalDibayarKonsumen: quote.totalDibayarKonsumen,
@@ -945,7 +951,7 @@ export const marketplaceKredit = query({
         catatanJadwal:
           simulasiBulanan === null
             ? "Biaya layanan dibayar di muka dan tidak termasuk dalam jumlah cicilan bulanan."
-            : "Biaya admin 2% + platform 3% (tenor 3/6) atau layanan 3% (tenor 1) dipotong di muka; cicilan bulanan hanya berisi pokok dan bunga.",
+            : "Biaya admin 2% + platform 3% (tenor 3/6) atau layanan 3% (tenor 1) dipotong di muka; tenor 3 dan 6 bulan dikenai tambahan biaya admin 2% dari nominal cicilan yang dibayar bersama setiap cicilan.",
         terkumpul,
         sisaKebutuhan: quote.pokokDibiayai - terkumpul,
       });
@@ -1205,6 +1211,7 @@ export const myKreditFundings = query({
         biayaLayanan: quote?.biayaLayanan ?? null,
         biayaAdmin: quote?.biayaAdmin ?? 0,
         biayaPlatform: quote?.biayaPlatform ?? 0,
+        biayaAdminCicilanTotal: quote?.biayaAdminCicilanTotal ?? 0,
         biayaLayananDiMuka: simulasiBulanan === null ? quote?.biayaLayanan ?? null : 0,
         biayaLayananPerBulan: simulasiBulanan?.biayaLayananPerBulan ?? 0,
         totalDibayarKonsumen: quote?.totalDibayarKonsumen ?? null,

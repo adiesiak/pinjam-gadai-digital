@@ -58,8 +58,9 @@ export const KREDIT_PRICING = {
    * Pilihan tenor kredit barang (bulan) = KREDIT_TENOR_PENGAJUAN_OPTIONS:
    * 1/3/6 bulan dengan skema bulanan (DP 0%, biaya admin 2% + platform 3%
    * tenor 3/6 atau layanan 3% tenor 1, seluruhnya dipotong di muka; bunga
-   * FLAT dari pokok penuh 30%/25%/20% per bulan sesuai tenor. Tenor 12/24
-   * bulan tidak ditawarkan lagi.
+   * FLAT dari pokok penuh 30%/25%/20% per bulan sesuai tenor; TAMBAHAN biaya
+   * admin cicilan 2% dari nominal cicilan pada tenor 3/6). Tenor 12/24 bulan
+   * tidak ditawarkan lagi.
    */
   tenorBulanOptions: KREDIT_TENOR_PENGAJUAN_OPTIONS,
   /** Imbal Hasil minimum per bulan (% dari pokok dibiayai). */
@@ -109,7 +110,10 @@ export interface KreditBarangJadwalRow {
   margin: Rupiah;
   /** Biaya layanan tenor pada baris ini — selalu nol (biaya dipotong di muka). */
   biayaLayanan: Rupiah;
-  /** Porsi biaya admin pada baris ini (tenor 3/6) — nol, dipotong di muka. */
+  /**
+   * Biaya admin cicilan 2% dari nominal cicilan baris ini — dibayar bersama
+   * cicilan pada tenor 3 dan 6 bulan; nol pada tenor lain.
+   */
   biayaAdmin: Rupiah;
   /** Porsi biaya platform pada baris ini (tenor 3/6) — nol, dipotong di muka. */
   biayaPlatform: Rupiah;
@@ -129,6 +133,8 @@ export interface KreditBarangQuote {
   biayaAdmin: Rupiah;
   /** Total platform tenor 3/6 (3%); nol untuk tenor lain. Dipotong di muka. */
   biayaPlatform: Rupiah;
+  /** Total biaya admin cicilan 2% (tenor 3/6); nol untuk tenor lain. */
+  biayaAdminCicilanTotal: Rupiah;
   /** Imbal Hasil bulan pertama (skema bulanan) atau margin bulanan flat. */
   marginPerBulan: Rupiah;
   /** Total Imbal Hasil selama tenor. */
@@ -236,7 +242,7 @@ export function quoteKreditBarang(input: KreditBarangInput): KreditBarangQuote {
         pokok: r.pokok,
         margin: r.bunga,
         biayaLayanan: r.biayaLayanan,
-        biayaAdmin: r.biayaAdmin,
+        biayaAdmin: r.biayaAdminCicilan,
         biayaPlatform: r.biayaPlatform,
         total: r.total,
         sisaPokok: r.sisaPokok,
@@ -260,6 +266,7 @@ export function quoteKreditBarang(input: KreditBarangInput): KreditBarangQuote {
       biayaLayanan: sim.biayaLayananTotal,
       biayaAdmin: sim.biayaAdminTotal,
       biayaPlatform: sim.biayaPlatformTotal,
+      biayaAdminCicilanTotal: sim.biayaAdminCicilanTotal,
       marginPerBulan: sim.bungaPerBulan,
       marginTotal: sim.bungaTotal,
       cicilanPerBulan: sim.cicilanPerBulan,
@@ -330,6 +337,7 @@ export function quoteKreditBarang(input: KreditBarangInput): KreditBarangQuote {
     biayaLayanan,
     biayaAdmin: 0,
     biayaPlatform: 0,
+    biayaAdminCicilanTotal: 0,
     marginPerBulan,
     marginTotal,
     cicilanPerBulan: pokokPerBulan + marginPerBulan,

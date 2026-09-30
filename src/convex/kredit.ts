@@ -109,6 +109,7 @@ function ringkasKredit(row: Doc<"kreditBarang">, dibayarBulan = 0) {
     biayaLayanan: quote?.biayaLayanan ?? null,
     biayaAdmin: quote?.biayaAdmin ?? null,
     biayaPlatform: quote?.biayaPlatform ?? null,
+    biayaAdminCicilanTotal: quote?.biayaAdminCicilanTotal ?? null,
     cicilanPerBulan: quote?.cicilanPerBulan ?? null,
     cicilanTerakhir: quote?.cicilanTerakhir ?? null,
     imbalHasilPendana: quote?.marginTotal ?? null,

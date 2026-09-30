@@ -64,6 +64,7 @@ function MarketCard({
     biayaPlatform: number;
     totalPotonganDiMuka: number;
     biayaLayananTotal: number;
+    biayaAdminCicilanTotal: number;
     jadwalPelunasan: Array<{
       bulan: number | null;
       hariKe: number | null;
@@ -158,6 +159,10 @@ function MarketCard({
                 <div className="flex justify-between gap-3 border-t border-slate-100 pt-1.5">
                   <dt className="text-muted-foreground">Total biaya tenor 5%</dt>
                   <dd className="font-medium tabular-nums">{formatRupiah(row.biayaLayananTotal)}</dd>
+                </div>
+                <div className="flex justify-between gap-3">
+                  <dt className="text-muted-foreground">Biaya admin cicilan 2% per bayar</dt>
+                  <dd className="font-medium tabular-nums">{formatRupiah(row.biayaAdminCicilanTotal)}</dd>
                 </div>
               </>
             ) : (

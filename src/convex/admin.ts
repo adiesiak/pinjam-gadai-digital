@@ -548,6 +548,7 @@ export const adminLoanQuote = query({
         biayaLayanan: sim.biayaLayananTotal,
         potonganDiMuka: sim.potonganDiMuka,
         danaDiterima: sim.danaDiterima,
+        biayaAdminCicilanTotal: sim.biayaAdminCicilanTotal,
         biayaLayananPerBulan: sim.biayaLayananPerBulan,
         persenBungaPerBulan: sim.persenBungaPerBulan,
         bungaPerBulan: sim.bungaPerBulan,

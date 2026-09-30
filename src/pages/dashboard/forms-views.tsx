@@ -546,6 +546,12 @@ export function LoanForm({ onCreated }: { onCreated: (ref: string) => void }) {
                   <dt className="font-medium text-slate-700">Total biaya tenor 5% (dipotong di muka)</dt>
                   <dd className="font-medium tabular-nums">{formatRupiah(sim.biayaLayananTotal)}</dd>
                 </div>
+                <div className="flex flex-col gap-1 bg-white px-3 py-2 text-sm sm:flex-row sm:items-baseline sm:justify-between">
+                  <dt className="font-medium text-slate-700">
+                    Biaya admin cicilan 2% dari nominal cicilan ({sim.tenorBulan} kali bayar)
+                  </dt>
+                  <dd className="font-medium tabular-nums">{formatRupiah(sim.biayaAdminCicilanTotal)}</dd>
+                </div>
               </>
             ) : (
               <div className="flex flex-col gap-1 bg-white px-3 py-2 text-sm sm:flex-row sm:items-baseline sm:justify-between">

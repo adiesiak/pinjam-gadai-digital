@@ -95,17 +95,27 @@ throws(() => metodeBungaBulanan(2.5), "metode: tenor pecahan ditolak");
   eq(q.jadwal[5].bunga, 1_000_000, "5jt/6bln: bunga bulan keenam tetap 1jt");
   eq(
     q.jadwal.map((r) => r.total).join(","),
-    "1833333,1833333,1833333,1833333,1833333,1833335",
-    "5jt/6bln: cicilan rata karena bunga flat dari pokok penuh",
+    "1870000,1870000,1870000,1870000,1870000,1870002",
+    "5jt/6bln: total bayar rata = cicilan + biaya admin cicilan 2%",
   );
   eq(q.jadwal[0].pokok, 833_333, "5jt/6bln: pokok/bln 833.333");
-  eq(q.cicilanPerBulan, 1_833_333, "5jt/6bln: cicilan bulan pertama = pokok + bunga");
+  eq(q.biayaAdminCicilanPerBulan, 36_667, "5jt/6bln: biaya admin cicilan 2% dari 1.833.333");
+  eq(q.biayaAdminCicilanTotal, 220_002, "5jt/6bln: total biaya admin cicilan 6 bulan");
+  eq(
+    q.cicilanPerBulan,
+    1_870_000,
+    "5jt/6bln: bayar bulan pertama = pokok + bunga + admin 2%",
+  );
   // Bulan terakhir menyerap sisa: 833.333×5 = 4.166.665 → terakhir 833.335.
   eq(q.jadwal[5].pokok, 833_335, "5jt/6bln: pokok bulan terakhir 833.335");
-  eq(q.cicilanTerakhir, 1_833_335, "5jt/6bln: cicilan terakhir = sisa pokok + bunga flat");
-  eq(q.totalPengembalian, 11_000_000, "5jt/6bln: total cicilan = pokok + bunga flat 6×1jt");
-  eq(q.totalKeuntunganBersih, 6_250_000, "5jt/6bln: biaya total = potongan di muka + bunga");
-  eq(q.persentaseProfitTotal, 125, "5jt/6bln: biaya total 125% dari pokok");
+  eq(q.cicilanTerakhir, 1_870_002, "5jt/6bln: bayar bulan terakhir termasuk sisa pokok");
+  eq(q.totalPengembalian, 11_220_002, "5jt/6bln: total bayar = bunga 6jt + biaya cicilan");
+  eq(
+    q.totalKeuntunganBersih,
+    6_470_002,
+    "5jt/6bln: biaya total = potongan di muka + bunga + admin cicilan",
+  );
+  eq(q.persentaseProfitTotal, 129.4, "5jt/6bln: biaya total 129,4% dari pokok");
   eq(q.bungaTotal, 6_000_000, "5jt/6bln: bunga total flat 20% × 6 bulan");
   // Identitas: Σ pokok jadwal = pokok dibiayai.
   eq(
@@ -159,15 +169,21 @@ throws(() => metodeBungaBulanan(2.5), "metode: tenor pecahan ditolak");
   eq(q.biayaPlatformTotal, 30_000, "1jt/3bln: biaya platform 3% = 30rb");
   eq(q.biayaLayananTotal, 50_000, "1jt/3bln: total biaya 5% = 50rb");
   eq(q.danaDiterima, 950_000, "1jt/3bln: dana diterima 950rb");
-  eq(q.cicilanPerBulan, 583_333, "1jt/3bln: cicilan pertama = pokok + bunga");
-  eq(q.jadwal[1].total, 583_333, "1jt/3bln: cicilan kedua rata");
-  eq(q.jadwal[2].total, 583_334, "1jt/3bln: cicilan terakhir menyerap sisa pokok");
-  eq(q.totalPengembalian, 1_750_000, "1jt/3bln: total = pokok + 3 × bunga flat");
+  eq(q.biayaAdminCicilanPerBulan, 11_667, "1jt/3bln: biaya admin cicilan 2% dari 583.333");
+  eq(q.biayaAdminCicilanTotal, 35_001, "1jt/3bln: total biaya admin cicilan 3 bulan");
+  eq(q.cicilanPerBulan, 595_000, "1jt/3bln: bayar bulan pertama = 583.333 + 2%");
+  eq(q.jadwal[1].total, 595_000, "1jt/3bln: bayar bulan kedua rata");
+  eq(q.jadwal[2].total, 595_001, "1jt/3bln: bayar bulan terakhir menyerap sisa pokok");
+  eq(q.totalPengembalian, 1_785_001, "1jt/3bln: total = bunga flat + biaya admin cicilan");
   eq(q.bungaTotal, 750_000, "1jt/3bln: bunga total = 25% × 3 bulan");
-  eq(q.persentaseProfitTotal, 80, "1jt/3bln: biaya total 80%");
-  // Identitas tiap baris jadwal.
+  eq(q.persentaseProfitTotal, 83.5, "1jt/3bln: biaya total 83,5%");
+  // Identitas tiap baris jadwal: total = pokok + bunga + biaya admin cicilan.
   for (const r of q.jadwal) {
-    eq(r.total, r.pokok + r.bunga + r.biayaLayanan, `1jt/3bln bulan ${r.bulan}: total = komponen`);
+    eq(
+      r.total,
+      r.pokok + r.bunga + r.biayaAdminCicilan,
+      `1jt/3bln bulan ${r.bulan}: total = komponen`,
+    );
   }
 }
 
@@ -220,9 +236,27 @@ for (const pokok of POKOK_LIST) {
     );
     eq(
       q.totalKeuntunganBersih,
-      q.potonganDiMuka + q.bungaTotal,
-      `${pokok}/${tenor}bln: biaya total = potongan di muka + bunga`,
+      q.potonganDiMuka + q.bungaTotal + q.biayaAdminCicilanTotal,
+      `${pokok}/${tenor}bln: biaya total = potongan di muka + bunga + admin cicilan`,
     );
+    // Biaya admin cicilan hanya untuk tenor 3 dan 6 bulan.
+    if (tenor === 3 || tenor === 6) {
+      ok(
+        q.jadwal.every((r) => r.biayaAdminCicilan > 0),
+        `${pokok}/${tenor}bln: setiap bulan dikenai biaya admin cicilan 2%`,
+      );
+      eq(
+        q.biayaAdminCicilanTotal,
+        q.jadwal.reduce((a, r) => a + r.biayaAdminCicilan, 0),
+        `${pokok}/${tenor}bln: Σ biaya admin cicilan = totalnya`,
+      );
+    } else {
+      eq(
+        q.biayaAdminCicilanTotal,
+        0,
+        `${pokok}/${tenor}bln: tenor ini tanpa biaya admin cicilan`,
+      );
+    }
     ok(
       q.persentaseProfitTotal < BULANAN_PRICING.maxProfitTotalPersen,
       `${pokok}/${tenor}bln: biaya total < batas profit`,
