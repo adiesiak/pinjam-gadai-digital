@@ -11,12 +11,12 @@
  *  - Biaya layanan platform 3% dari pokok, diamortisasi rata per bulan
  *    (= pendapatan platform, bukan hak Pendana).
  *  - Bunga/margin per bulan menurun berdasarkan tenor (hak Pendana):
- *      tenor 1 bulan  → 10% / bulan
- *      tenor 3–5 bln  → 8% / bulan
- *      tenor ≥ 6 bln  → 7,5% / bulan
+ *      tenor 1 bulan  → 30% / bulan
+ *      tenor 3–5 bln  → 25% / bulan
+ *      tenor ≥ 6 bln  → 20% / bulan
  *  - Cicilan per bulan = angsuran pokok + bunga bulan + biaya layanan bulan.
- *  - Profit total platform < 50% — dijaga otomatis karena 3% + bunga×tenor
- *    terkecil (1 bln × 10%) sudah < 50% dan profil menurun per tenor.
+ *  - Profit total pada tenor resmi maksimal 123% dari pokok (tenor 6 bulan:
+ *    bunga 20% × 6 + biaya layanan 3%).
  *
  * Guardrail Rule 3: semua uang integer rupiah — pembagian pokok memakai
  * pola floor-split (bulan terakhir menyerap sisa) sehingga Σ jadwal TEPAT
@@ -33,13 +33,13 @@ export const BULANAN_PRICING = {
   /** Biaya layanan platform 3% dari pokok (diamortisasi rata per bulan). */
   biayaLayananPersen: 3,
   /** Bunga tenor 1 bulan (%/bulan). */
-  bungaTenor1PersenPerBulan: 10,
+  bungaTenor1PersenPerBulan: 30,
   /** Bunga tenor 3–5 bulan (%/bulan). */
-  bungaTenor3_5PersenPerBulan: 8,
+  bungaTenor3_5PersenPerBulan: 25,
   /** Bunga tenor ≥ 6 bulan (%/bulan). */
-  bungaMin6PersenPerBulan: 7.5,
-  /** Batas profit total terhadap pokok (formula dijamin di bawah ini). */
-  maxProfitTotalPersen: 50,
+  bungaMin6PersenPerBulan: 20,
+  /** Batas profit total terhadap pokok untuk tenor resmi. */
+  maxProfitTotalPersen: 125,
 } as const;
 
 /** Batas pokok/harga untuk skema bulanan (di luar skema 1 jt/30 hari). */
