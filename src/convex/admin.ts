@@ -948,7 +948,8 @@ export const contractDetail = query({
       tenorHari: loan.tenorHari,
       tenorBulan: loan.tenorBulan ?? null,
       lokasiAjukan: loan.lokasiAjukan ?? null,
-      // Skema bulanan memakai engine lib/bulanan; skema harian 130%.
+      // Skema bulanan memakai jadwal bunga saldo menurun dari lib/bulanan;
+      // perubahan versi syarat di lib/contract harus ikut dipush bersama fungsi ini.
       bulanan:
         loan.tenorBulan !== undefined
           ? hitungSimulasiBulanan(loan.pokokPinjaman, loan.tenorBulan)

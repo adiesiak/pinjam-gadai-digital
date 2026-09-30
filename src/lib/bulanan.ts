@@ -10,13 +10,12 @@
  *  - Angsuran pokok per bulan = pokok ÷ tenor (bulan terakhir menyerap sisa).
  *  - Biaya layanan platform 3% dari pokok, diamortisasi rata per bulan
  *    (= pendapatan platform, bukan hak Pendana).
- *  - Bunga/margin per bulan menurun berdasarkan tenor (hak Pendana):
+ *  - Bunga/margin dihitung dari sisa pokok pada awal setiap bulan (hak Pendana):
  *      tenor 1 bulan  → 30% / bulan
  *      tenor 3–5 bln  → 25% / bulan
  *      tenor ≥ 6 bln  → 20% / bulan
- *  - Cicilan per bulan = angsuran pokok + bunga bulan + biaya layanan bulan.
- *  - Profit total pada tenor resmi maksimal 123% dari pokok (tenor 6 bulan:
- *    bunga 20% × 6 + biaya layanan 3%).
+ *  - Cicilan menurun = angsuran pokok + bunga atas sisa pokok + biaya layanan.
+ *  - Tenor 6 bulan menghasilkan total bunga sekitar 70% pokok + biaya layanan 3%.
  *
  * Guardrail Rule 3: semua uang integer rupiah — pembagian pokok memakai
  * pola floor-split (bulan terakhir menyerap sisa) sehingga Σ jadwal TEPAT
@@ -48,7 +47,7 @@ export const BULANAN_LIMITS = {
   maxPokok: 500_000_000,
 } as const;
 
-/** Bunga per bulan (% dari pokok dibiayai) sesuai tenor — formula user. */
+/** Tarif bunga per bulan (% dari sisa pokok) sesuai tenor. */
 export function persenBungaPerBulan(tenorBulan: number): number {
   if (!Number.isSafeInteger(tenorBulan) || tenorBulan <= 0) {
     throw new Error("Tenor harus bilangan bulan positif.");
@@ -83,17 +82,17 @@ export interface SimulasiBulanan {
   pokokDibiayai: Rupiah;
   /** Tenor dalam bulan. */
   tenorBulan: number;
-  /** Bunga per bulan (% dari pokok) sesuai tenor. */
+  /** Tarif bunga per bulan (% dari sisa pokok) sesuai tenor. */
   persenBungaPerBulan: number;
   /** Total biaya layanan platform (3% dari pokok). */
   biayaLayananTotal: Rupiah;
   /** Biaya layanan per bulan (diamortisasi rata; bulan terakhir menyerap sisa). */
   biayaLayananPerBulan: Rupiah;
-  /** Bunga per bulan normal (floor-split: bulan terakhir menyerap sisa). */
+  /** Bunga bulan pertama, dihitung atas seluruh pokok. */
   bungaPerBulan: Rupiah;
-  /** Cicilan bulan normal = pokok/tenor + bunga + biaya layanan. */
+  /** Cicilan bulan pertama (terbesar pada jadwal pokok tetap). */
   cicilanPerBulan: Rupiah;
-  /** Cicilan terakhir (menyerap sisa pembulatan). */
+  /** Cicilan bulan terakhir (termasuk sisa pembulatan pokok/layanan). */
   cicilanTerakhir: Rupiah;
   /** Bunga/margin total selama tenor (hak Pendana). */
   bungaTotal: Rupiah;
@@ -123,7 +122,8 @@ export function assertSimulasiBulananValid(pokok: Rupiah, tenorBulan: number): v
  *  - dp = 0 dan pokokDibiayai = pokok
  *  - Σ jadwal.pokok = pokokDibiayai
  *  - Σ jadwal.bunga = bungaTotal, Σ jadwal.biayaLayanan = biayaLayananTotal
- *  - Σ jadwal.total = totalPengembalian = cicilanPerBulan × (tenor − 1) + cicilanTerakhir
+ *  - Σ jadwal.total = totalPengembalian
+ *  - cicilanPerBulan = cicilan bulan pertama; cicilanTerakhir = cicilan terakhir
  *  - totalKeuntunganBersih = totalPengembalian − pokok
  */
 export function hitungSimulasiBulanan(
@@ -151,20 +151,17 @@ export function hitungSimulasiBulanan(
   const bungaPerBulan = percentOf(pokokDibiayai, persen);
   const biayaLayananTotal = percentOf(pokokDibiayai, BULANAN_PRICING.biayaLayananPersen);
   const biayaLayananPerBulan = Math.floor(biayaLayananTotal / tenorBulan);
-  const cicilanPerBulan = pokokPerBulan + bungaPerBulan + biayaLayananPerBulan;
 
-  // ===== Jadwal: floor-split — bulan terakhir menyerap seluruh sisa =====
+  // ===== Jadwal: bunga atas saldo awal bulan; pokok/biaya terakhir menyerap sisa =====
   const jadwal: CicilanBulananRow[] = [];
   let sisaPokok = pokokDibiayai;
-  let sisaBunga = bungaPerBulan * tenorBulan;
   let sisaLayanan = biayaLayananTotal;
   for (let bulan = 1; bulan <= tenorBulan; bulan += 1) {
     const terakhir = bulan === tenorBulan;
     const rowPokok = terakhir ? sisaPokok : pokokPerBulan;
-    const rowBunga = terakhir ? sisaBunga : bungaPerBulan;
+    const rowBunga = percentOf(sisaPokok, persen);
     const rowLayanan = terakhir ? sisaLayanan : biayaLayananPerBulan;
     sisaPokok -= rowPokok;
-    sisaBunga -= rowBunga;
     sisaLayanan -= rowLayanan;
     jadwal.push({
       bulan,
@@ -176,6 +173,7 @@ export function hitungSimulasiBulanan(
     });
   }
 
+  const cicilanPerBulan = jadwal[0].total;
   const cicilanTerakhir = jadwal[jadwal.length - 1].total;
   const totalPengembalian = jadwal.reduce((acc, r) => acc + r.total, 0);
   const bungaTotal = jadwal.reduce((acc, r) => acc + r.bunga, 0);

@@ -522,16 +522,21 @@ export function LoanForm({ onCreated }: { onCreated: (ref: string) => void }) {
                 {formatRupiah(sim.pokokDibiayai)}
               </dd>
             </div>
-            <div className="flex flex-col gap-1 bg-sky-50 px-3 py-2.5 text-sm sm:flex-row sm:items-baseline sm:justify-between">
-              <dt className="font-semibold text-sky-900">Perkiraan cicilan per bulan</dt>
-              <dd className="font-semibold tabular-nums text-sky-800">{formatRupiah(sim.cicilanPerBulan)}</dd>
+            <div className="bg-sky-50 px-3 py-2.5 text-sm">
+              <dt className="font-semibold text-sky-900">
+                Jadwal angsuran menurun · bunga {sim.persenBungaPerBulan}%/bulan dari sisa pokok
+              </dt>
+              <dd className="mt-2">
+                <ol className="grid grid-cols-1 gap-x-4 gap-y-1.5 sm:grid-cols-2">
+                  {sim.jadwal.map((angsuran) => (
+                    <li key={angsuran.bulan} className="flex items-baseline justify-between gap-3 text-xs">
+                      <span className="text-sky-900">Bulan {angsuran.bulan}</span>
+                      <span className="font-semibold tabular-nums text-sky-800">{formatRupiah(angsuran.total)}</span>
+                    </li>
+                  ))}
+                </ol>
+              </dd>
             </div>
-            {sim.cicilanTerakhir !== sim.cicilanPerBulan && (
-              <div className="flex flex-col gap-1 bg-slate-50 px-3 py-2.5 text-sm sm:flex-row sm:items-baseline sm:justify-between">
-                <dt className="font-semibold">Cicilan bulan terakhir</dt>
-                <dd className="font-semibold tabular-nums">{formatRupiah(sim.cicilanTerakhir)}</dd>
-              </div>
-            )}
             <div className="flex flex-col gap-1 bg-slate-50 px-3 py-2.5 text-sm sm:flex-row sm:items-baseline sm:justify-between">
               <dt className="font-semibold">Total pembayaran ({sim.tenorBulan} bulan)</dt>
               <dd className="font-semibold tabular-nums">{formatRupiah(sim.totalPengembalian)}</dd>

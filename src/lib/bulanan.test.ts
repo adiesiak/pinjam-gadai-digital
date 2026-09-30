@@ -56,7 +56,7 @@ throws(() => persenBungaPerBulan(-3), "tenor negatif ditolak");
 throws(() => persenBungaPerBulan(1.5), "tenor pecahan ditolak");
 
 // ============================================================
-// 2. Contoh: Rp 5 jt / 6 bulan dengan bunga 20% per bulan
+// 2. Contoh: Rp 5 jt / 6 bulan, bunga 20%/bulan dari sisa pokok
 // ============================================================
 {
   const q = hitungSimulasiBulanan(5_000_000, 6);
@@ -65,16 +65,26 @@ throws(() => persenBungaPerBulan(1.5), "tenor pecahan ditolak");
   eq(q.persenBungaPerBulan, 20, "5jt/6bln: bunga 20%/bln");
   eq(q.biayaLayananTotal, 150_000, "5jt/6bln: layanan total 3% = 150rb");
   eq(q.biayaLayananPerBulan, 25_000, "5jt/6bln: layanan/bln 25rb");
-  eq(q.bungaPerBulan, 1_000_000, "5jt/6bln: bunga/bln 1jt");
+  eq(q.bungaPerBulan, 1_000_000, "5jt/6bln: bunga bulan pertama 1jt");
+  eq(q.jadwal[1].bunga, 833_333, "5jt/6bln: bunga bulan kedua atas sisa pokok");
+  eq(q.jadwal[2].bunga, 666_667, "5jt/6bln: bunga bulan ketiga atas sisa pokok");
+  eq(q.jadwal[3].bunga, 500_000, "5jt/6bln: bunga bulan keempat atas sisa pokok");
+  eq(q.jadwal[4].bunga, 333_334, "5jt/6bln: bunga bulan kelima dibulatkan HALF-UP");
+  eq(q.jadwal[5].bunga, 166_667, "5jt/6bln: bunga bulan keenam atas sisa pokok");
+  eq(
+    q.jadwal.map((r) => r.total).join(","),
+    "1858333,1691666,1525000,1358333,1191667,1025002",
+    "5jt/6bln: seluruh cicilan menurun sesuai saldo pokok",
+  );
   eq(q.jadwal[0].pokok, 833_333, "5jt/6bln: pokok/bln 833.333");
-  eq(q.cicilanPerBulan, 1_858_333, "5jt/6bln: cicilan normal 1.858.333");
+  eq(q.cicilanPerBulan, 1_858_333, "5jt/6bln: cicilan bulan pertama 1.858.333");
   // Bulan terakhir menyerap sisa: 833.333×5 = 4.166.665 → terakhir 833.335.
   eq(q.jadwal[5].pokok, 833_335, "5jt/6bln: pokok bulan terakhir 833.335");
-  eq(q.cicilanTerakhir, 1_858_335, "5jt/6bln: cicilan terakhir menyerap sisa");
-  eq(q.totalPengembalian, 11_150_000, "5jt/6bln: total 11,15jt");
-  eq(q.totalKeuntunganBersih, 6_150_000, "5jt/6bln: profit 6,15jt");
-  eq(q.persentaseProfitTotal, 123, "5jt/6bln: profit 123%");
-  eq(q.bungaTotal, 6_000_000, "5jt/6bln: bunga total 6×1jt");
+  eq(q.cicilanTerakhir, 1_025_002, "5jt/6bln: cicilan terakhir dari sisa pokok");
+  eq(q.totalPengembalian, 8_650_001, "5jt/6bln: total dengan bunga saldo menurun");
+  eq(q.totalKeuntunganBersih, 3_650_001, "5jt/6bln: keuntungan termasuk layanan");
+  eq(q.persentaseProfitTotal, 73, "5jt/6bln: profit 73%");
+  eq(q.bungaTotal, 3_500_001, "5jt/6bln: bunga total saldo menurun");
   // Identitas: Σ pokok jadwal = pokok dibiayai.
   eq(
     q.jadwal.reduce((a, r) => a + r.pokok, 0),
@@ -110,12 +120,16 @@ throws(() => persenBungaPerBulan(1.5), "tenor pecahan ditolak");
 {
   const q = hitungSimulasiBulanan(1_000_000, 3);
   eq(q.persenBungaPerBulan, 25, "1jt/3bln: bunga 25% per bulan");
-  eq(q.bungaPerBulan, 250_000, "1jt/3bln: bunga/bln 250.000");
+  eq(q.bungaPerBulan, 250_000, "1jt/3bln: bunga bulan pertama 250.000");
+  eq(q.jadwal[1].bunga, 166_667, "1jt/3bln: bunga bulan kedua dari sisa pokok");
+  eq(q.jadwal[2].bunga, 83_334, "1jt/3bln: bunga bulan ketiga dibulatkan HALF-UP");
   eq(q.jadwal[0].pokok, 333_333, "1jt/3bln: pokok/bln 333.333");
   eq(q.jadwal[2].pokok, 333_334, "1jt/3bln: bulan terakhir 333.334");
-  eq(q.cicilanPerBulan, 333_333 + 250_000 + 10_000, "1jt/3bln: cicilan 593.333");
-  eq(q.totalPengembalian, 1_780_000, "1jt/3bln: total 1.780.000");
-  eq(q.persentaseProfitTotal, 78, "1jt/3bln: profit 78%");
+  eq(q.cicilanPerBulan, 333_333 + 250_000 + 10_000, "1jt/3bln: cicilan pertama 593.333");
+  eq(q.jadwal[1].total, 510_000, "1jt/3bln: cicilan kedua menurun");
+  eq(q.jadwal[2].total, 426_668, "1jt/3bln: cicilan terakhir menurun");
+  eq(q.totalPengembalian, 1_530_001, "1jt/3bln: total bunga saldo menurun");
+  eq(q.persentaseProfitTotal, 53, "1jt/3bln: profit 53%");
   // Identitas tiap baris jadwal.
   for (const r of q.jadwal) {
     eq(r.total, r.pokok + r.bunga + r.biayaLayanan, `1jt/3bln bulan ${r.bulan}: total = komponen`);
@@ -151,10 +165,9 @@ for (const pokok of POKOK_LIST) {
       q.totalPengembalian,
       `${pokok}/${tenor}bln: Σ total = totalPengembalian`,
     );
-    eq(
-      q.totalPengembalian,
-      q.cicilanPerBulan * (tenor - 1) + q.cicilanTerakhir,
-      `${pokok}/${tenor}bln: total = (n−1)×cicilan + cicilan terakhir`,
+    ok(
+      q.jadwal[0].total >= q.cicilanTerakhir,
+      `${pokok}/${tenor}bln: cicilan pertama ≥ cicilan terakhir`,
     );
     eq(
       q.totalKeuntunganBersih,

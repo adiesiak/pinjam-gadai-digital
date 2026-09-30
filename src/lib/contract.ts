@@ -10,7 +10,7 @@ import { formatRupiah } from "./money";
 import type { LoanQuote } from "./loan";
 
 /** Naikkan versi setiap kali syarat akad berubah secara material. */
-export const CONTRACT_TERMS_VERSION = "v1.1";
+export const CONTRACT_TERMS_VERSION = "v1.2";
 
 export type ContractParty = {
   namaLengkap: string;
@@ -176,8 +176,8 @@ export function buildPinjamanContract(
       <li>Uang muka pada simulasi: ${formatRupiah(bulanan.dp)} — 0% dari pokok acuan.</li>
       <li>Biaya layanan simulasi 3% dari pokok acuan: ${formatRupiah(bulanan.biayaLayananTotal)}, dibagi rata ${formatRupiah(bulanan.biayaLayananPerBulan)} per bulan pada model.</li>
       <li><strong>Nilai bersih pada simulasi: ${formatRupiah(bulanan.pokokDibiayai)} (100% pokok, tanpa potongan di muka)</strong>; tidak ditransfer dan bukan bukti dana diterima.</li>
-      <li>Bunga/margin pada simulasi menurun: ${bulanan.persenBungaPerBulan}% per bulan dari pokok acuan; total simulasi ${formatRupiah(bulanan.bungaTotal)}.</li>
-      <li><strong>Ilustrasi cicilan ${formatRupiah(bulanan.cicilanPerBulan)} per bulan selama ${bulanan.tenorBulan} bulan; total simulasi: ${formatRupiah(bulanan.totalPengembalian)}</strong>. Jadwal bulanan hanya ilustrasi; perubahan status lunas di aplikasi adalah entri ledger, bukan bukti cicilan atau pembayaran sebagian.</li>`;
+      <li>Bunga/margin pada simulasi sebesar ${bulanan.persenBungaPerBulan}% per bulan dari sisa pokok pada awal setiap bulan; total simulasi ${formatRupiah(bulanan.bungaTotal)}.</li>
+      <li><strong>Ilustrasi cicilan menurun: bulan pertama ${formatRupiah(bulanan.cicilanPerBulan)}, bulan terakhir ${formatRupiah(bulanan.cicilanTerakhir)}; total simulasi ${formatRupiah(bulanan.totalPengembalian)} untuk ${bulanan.tenorBulan} bulan.</strong> Rincian per bulan: ${bulanan.jadwal.map((angsuran) => `bulan ${angsuran.bulan} ${formatRupiah(angsuran.total)}`).join("; ")}. Jadwal hanya ilustrasi; perubahan status lunas di aplikasi adalah entri ledger, bukan bukti cicilan atau pembayaran sebagian.</li>`;
   const pasalKewajiban =
     bulanan === null
       ? `Model aplikasi dapat mencatat perubahan status pada hari ke-${tenorHari} dari tanggal acuan status alokasi. Ini bukan bukti pelunasan. Aplikasi tidak memproses atau memverifikasi transfer uang. Denda simulasi adalah hitungan ledger internal, bukan tunggakan atau tagihan terverifikasi.`

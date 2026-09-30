@@ -185,8 +185,8 @@ function LoanContractCard({
             pokok acuan simulasi {formatRupiah(c.pokokPinjaman)} ·{" "}
             {bulanan !== null ? (
               <>
-                simulasi tenor {bulanan.tenorBulan} bulan · cicilan simulasi{" "}
-                {formatRupiah(bulanan.cicilanPerBulan)}/bulan · total simulasi{" "}
+                simulasi tenor {bulanan.tenorBulan} bulan · cicilan menurun dari{" "}
+                {formatRupiah(bulanan.cicilanPerBulan)} ke {formatRupiah(bulanan.cicilanTerakhir)} · total simulasi{" "}
                 {formatRupiah(bulanan.totalPengembalian)}
               </>
             ) : (
