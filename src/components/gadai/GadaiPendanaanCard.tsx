@@ -50,7 +50,7 @@ export function GadaiPendanaanCard({ pawn }: { pawn: GadaiPendanaanRow }) {
     setError(null);
     try {
       if (parsedPokok === null || !persenValid) {
-        throw new Error("Isi pokok acuan dan sewa modal simulasi 5–10% yang valid.");
+        throw new Error("Isi pokok acuan dan sewa modal 5–10% yang valid.");
       }
       if (pokokMelebihiLtv && batasLtv !== null) {
         throw new Error(
@@ -95,7 +95,7 @@ export function GadaiPendanaanCard({ pawn }: { pawn: GadaiPendanaanRow }) {
           {batasLtv !== null ? (
             <>
               {" "}
-              · batas hitung simulasi 70%{" "}
+              · batas hitung 70%{" "}
               <span className="tabular-nums">{formatRupiah(batasLtv)}</span>
             </>
           ) : null}
@@ -106,7 +106,7 @@ export function GadaiPendanaanCard({ pawn }: { pawn: GadaiPendanaanRow }) {
         <div className="mt-4 space-y-3">
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor={`pokok-${pawn._id}`}>Pokok simulasi gadai (rupiah bulat)</Label>
+              <Label htmlFor={`pokok-${pawn._id}`}>Pokok gadai (rupiah bulat)</Label>
               <div className="relative">
                 <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
                   Rp
@@ -132,7 +132,7 @@ export function GadaiPendanaanCard({ pawn }: { pawn: GadaiPendanaanRow }) {
               </div>
             </div>
             <div className="space-y-2">
-              <Label htmlFor={`persen-${pawn._id}`}>Sewa modal simulasi (% per 30 hari)</Label>
+              <Label htmlFor={`persen-${pawn._id}`}>Sewa modal (% per 30 hari)</Label>
               <Input
                 id={`persen-${pawn._id}`}
                 inputMode="decimal"
@@ -147,7 +147,7 @@ export function GadaiPendanaanCard({ pawn }: { pawn: GadaiPendanaanRow }) {
 
           {quote !== null && (
             <p className="text-xs leading-5 text-emerald-800">
-              Nilai bersih simulasi (tidak ditransfer){" "}
+              Nilai bersih (tidak ditransfer){" "}
               <b className="tabular-nums">
                 {formatRupiah(quote.danaBersihDitransfer)}
               </b>{" "}
@@ -169,7 +169,7 @@ export function GadaiPendanaanCard({ pawn }: { pawn: GadaiPendanaanRow }) {
         <p className="mt-4 text-xs leading-5 text-emerald-800">
           Pokok acuan internal{" "}
           <b className="tabular-nums">{formatRupiah(pawn.pokokGadai ?? 0)}</b> · sewa
-          modal simulasi{" "}
+          modal{" "}
           <b>{pawn.persenSewaModal ?? GADAI_PRICING.sewaModalMinPercent}%</b>/30 hari. Data ini bukan bukti transfer atau penitipan fisik.
         </p>
       )}

@@ -31,7 +31,7 @@ export function LoanAllocationQueueTab({ onOpen }: { onOpen: (l: LoanRow) => voi
   return (
     <div className="space-y-3">
       <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900">
-        Daftar ini hanya menampilkan keputusan review internal dan hitungan simulasi. Persetujuan admin bukan instruksi atau bukti pembayaran; tidak ada pencairan maupun transfer yang diproses.
+        Daftar ini hanya menampilkan keputusan review internal dan hitungan aplikasi. Persetujuan admin bukan instruksi atau bukti pembayaran; tidak ada pencairan maupun transfer yang diproses.
       </p>
       <ul className="divide-y divide-slate-200 rounded-2xl border border-slate-200 bg-white">
         {pinjamanDisetujui.map((l) => (
@@ -40,7 +40,7 @@ export function LoanAllocationQueueTab({ onOpen }: { onOpen: (l: LoanRow) => voi
               reference={l.nomorReferensi}
               date={formatDate(l._creationTime)}
               title={formatRupiah(l.pokokPinjaman)}
-              subtitle={`${l.namaLengkap} · nilai bersih simulasi ${formatRupiah(Math.round(l.pokokPinjaman * 0.95))} (tidak ditransfer) · rekening yang dimasukkan ${l.nomorRekening} (tidak diverifikasi)`}
+              subtitle={`${l.namaLengkap} · nilai bersih ${formatRupiah(Math.round(l.pokokPinjaman * 0.95))} (tidak ditransfer) · rekening yang dimasukkan ${l.nomorRekening} (tidak diverifikasi)`}
               status={<StatusBadge status={l.status} kind="loan" />}
               onOpen={() => onOpen(l)}
             />
@@ -58,7 +58,7 @@ export function DpdTab() {
   }
   const terlambat = overview.loans.filter((l) => l.status === "didanai" && (l.hariTerlambat ?? 0) > 0);
   if (terlambat.length === 0) {
-    return <EmptyQueue icon={BellRing} title="Tidak ada tanggal acuan simulasi yang terlewati" />;
+    return <EmptyQueue icon={BellRing} title="Tidak ada tanggal acuan yang terlewati" />;
   }
   return (
     <div className="space-y-3">
@@ -68,15 +68,15 @@ export function DpdTab() {
       <ul className="divide-y divide-slate-200 rounded-2xl border border-slate-200 bg-white">
         {terlambat.map((l) => {
           const waText = encodeURIComponent(
-            `Halo. Catatan aplikasi PINDAI ${l.nomorReferensi} menampilkan tanggal acuan simulasi yang terlewati ${l.hariTerlambat ?? 0} hari, dengan kewajiban simulasi ${formatRupiah(l.totalKewajibanDenganPenalti ?? 0)} dan denda simulasi ${formatRupiah(l.dendaTerlambat ?? 0)}. Ini hanya catatan ledger internal, bukan tagihan, tunggakan terverifikasi, bukti pembayaran, atau kewajiban aktual. Untuk pertanyaan, gunakan kanal resmi yang telah Anda konfirmasi.`,
+            `Halo. Catatan aplikasi PINDAI ${l.nomorReferensi} menampilkan tanggal acuan yang terlewati ${l.hariTerlambat ?? 0} hari, dengan kewajiban ${formatRupiah(l.totalKewajibanDenganPenalti ?? 0)} dan denda ${formatRupiah(l.dendaTerlambat ?? 0)}. Ini hanya catatan ledger internal, bukan tagihan, tunggakan terverifikasi, bukti pembayaran, atau kewajiban aktual. Untuk pertanyaan, gunakan kanal resmi yang telah Anda konfirmasi.`,
           );
           const waNomor = l.nomorWhatsApp ?? "";
           return (
             <li key={l._id} className="flex flex-wrap items-center justify-between gap-3 px-5 py-4">
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium">Data pemohon: {l.namaLengkap} — pokok acuan simulasi {formatRupiah(l.pokokPinjaman)}</p>
+                <p className="truncate text-sm font-medium">Data pemohon: {l.namaLengkap} — pokok pinjaman {formatRupiah(l.pokokPinjaman)}</p>
                 <p className="mt-1 truncate text-xs text-muted-foreground">
-                  {l.nomorReferensi} · tanggal acuan terlewati {l.hariTerlambat} hari · denda simulasi {formatRupiah(l.dendaTerlambat ?? 0)} · kewajiban simulasi {formatRupiah(l.totalKewajibanDenganPenalti ?? 0)}
+                  {l.nomorReferensi} · tanggal acuan terlewati {l.hariTerlambat} hari · denda {formatRupiah(l.dendaTerlambat ?? 0)} · kewajiban {formatRupiah(l.totalKewajibanDenganPenalti ?? 0)}
                 </p>
               </div>
               <div className="flex shrink-0 items-center gap-2">
@@ -110,10 +110,10 @@ export function LelangTab() {
   return (
     <div className="space-y-4">
       <p className="text-sm text-muted-foreground">
-        Kalkulator hipotetis: masukkan angka contoh untuk dibandingkan dengan kewajiban simulasi ledger. Harga/nilai barang dan kode rak yang tampil tidak membuktikan inspeksi atau penitipan. Tampilan ini tidak melaksanakan lelang, penjualan, pelunasan, ataupun pengembalian barang/dana.
+        Kalkulator hipotetis: masukkan angka contoh untuk dibandingkan dengan kewajiban pada ledger. Harga/nilai barang dan kode rak yang tampil tidak membuktikan inspeksi atau penitipan. Tampilan ini tidak melaksanakan lelang, penjualan, pelunasan, ataupun pengembalian barang/dana.
       </p>
       {kandidat.length === 0 ? (
-        <EmptyQueue icon={Gavel} title="Belum ada barang gadai aktif untuk simulasi lelang" />
+        <EmptyQueue icon={Gavel} title="Belum ada barang gadai aktif untuk kalkulator lelang" />
       ) : (
         <ul className="space-y-3">
           {kandidat.map((p) => {
@@ -123,7 +123,7 @@ export function LelangTab() {
               const v = input.trim() === "" ? 0 : parseRupiah(input);
               const kewajiban = Math.round((p.nilaiTaksiran ?? 0) * 1.3);
               const sisa = v - kewajiban;
-              hasil = v <= 0 ? null : sisa >= 0 ? `Selisih hipotetis pada simulasi: ${formatRupiah(sisa)} (tidak dibayarkan atau dikembalikan).` : `Selisih hipotetis: ${formatRupiah(-sisa)}; ini bukan penagihan atau kewajiban terverifikasi.`;
+              hasil = v <= 0 ? null : sisa >= 0 ? `Selisih hipotetis: ${formatRupiah(sisa)} (tidak dibayarkan atau dikembalikan).` : `Selisih hipotetis: ${formatRupiah(-sisa)}; ini bukan penagihan atau kewajiban terverifikasi.`;
             } catch {
               hasil = "Nominal tidak valid.";
             }
@@ -137,14 +137,14 @@ export function LelangTab() {
                     </p>
                   </div>
                   <Label htmlFor={`harga-lelang-${p._id}`} className="sr-only">
-                    Angka harga hipotetis untuk simulasi lelang {p.nomorReferensi}
+                    Angka harga hipotetis untuk kalkulator lelang {p.nomorReferensi}
                   </Label>
                   <Input
                     id={`harga-lelang-${p._id}`}
                     inputMode="numeric"
                     value={input}
                     onChange={(e) => setNilaiLelang((m) => ({ ...m, [p._id]: e.target.value }))}
-                    placeholder="Angka contoh untuk simulasi (mis. 8.000.000)"
+                    placeholder="Angka contoh (mis. 8.000.000)"
                     className="w-56"
                   />
                 </div>
@@ -183,7 +183,7 @@ function TrenPendapatanChart({
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-5">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h3 className="text-sm font-semibold text-navy">Tren biaya simulasi pada ledger — 12 bulan terakhir</h3>
+        <h3 className="text-sm font-semibold text-navy">Tren biaya pada ledger — 12 bulan terakhir</h3>
         <p className="text-sm font-semibold tabular-nums text-navy">{formatRupiah(total)}</p>
       </div>
       <div className="mt-4 h-56 w-full">
@@ -281,16 +281,16 @@ export function LedgerTab() {
       {/* Nilai biaya platform internal per skema — dari entri platform:FEE. */}
       <div className="rounded-2xl border border-slate-200 bg-white p-5">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <h3 className="text-sm font-semibold text-navy">Nilai biaya simulasi pada ledger per skema</h3>
+          <h3 className="text-sm font-semibold text-navy">Nilai biaya pada ledger per skema</h3>
           <p className="text-sm font-semibold tabular-nums text-navy">
             {formatRupiah(summary.pendapatanPlatform)}
           </p>
         </div>
         <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
           {([
-            ["Pinjaman tunai", rincian.pinjaman, "Biaya simulasi pinjaman harian 5%; tenor bulanan 7% untuk 3/6 bulan dan 3% untuk 1 bulan"],
-            ["Gadai (Skema B)", rincian.gadai, "Nilai simulasi potongan 1% + sewa modal"],
-            ["Kredit barang (Skema C)", rincian.kredit, "Biaya simulasi tenor 12/24 bulan 3%; tenor 3/6 bulan admin 5% + platform 2%"],
+            ["Pinjaman tunai", rincian.pinjaman, "Biaya pinjaman harian 5%; tenor bulanan 7% untuk 3/6 bulan dan 3% untuk 1 bulan"],
+            ["Gadai (Skema B)", rincian.gadai, "Nilai potongan 1% + sewa modal"],
+            ["Kredit barang (Skema C)", rincian.kredit, "Biaya tenor 12/24 bulan 3%; tenor 3/6 bulan admin 5% + platform 2%"],
             ["Lainnya", rincian.lainnya, "Entri biaya internal di luar tiga skema utama"],
           ] as const).map(([label, value, hint]) => (
             <div key={label} className="rounded-xl border border-slate-100 bg-slate-50/60 px-4 py-3">

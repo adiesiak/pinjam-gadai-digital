@@ -5,9 +5,9 @@ import { formatRupiah } from "@/lib/money";
 
 import type { LoanScheduleRow } from "./shared";
 
-/** Ringkasan simulasi ledger internal: nilai bersih hitungan dan kewajiban simulasi. */
+/** Ringkasan ledger internal: nilai bersih hitungan dan total kewajiban. */
 export function SummaryCards({ schedule }: { schedule: LoanScheduleRow[] }) {
-  // Nilai bersih pada simulasi: 95% pada skema harian, 100% pada bulanan (DP 0%).
+  // Nilai bersih: 95% pada skema harian, 100% pada bulanan (DP 0%).
   const danaBersihTotal = useMemo(
     () =>
       schedule.reduce(
@@ -17,7 +17,7 @@ export function SummaryCards({ schedule }: { schedule: LoanScheduleRow[] }) {
       ),
     [schedule],
   );
-  // Total kewajiban pada simulasi (130% atau Σ cicilan bulanan).
+  // Total kewajiban (130% atau Σ cicilan bulanan).
   const totalKewajiban = useMemo(
     () => schedule.reduce((acc, l) => acc + l.totalKewajiban, 0),
     [schedule],
@@ -39,7 +39,7 @@ export function SummaryCards({ schedule }: { schedule: LoanScheduleRow[] }) {
       <div className="min-w-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
         <div className="flex items-start justify-between">
           <div>
-            <p className="text-xs text-muted-foreground">Nilai Bersih Simulasi (tidak ditransfer)</p>
+            <p className="text-xs text-muted-foreground">Nilai Bersih (tidak ditransfer)</p>
             <p className="mt-2 break-words text-xl font-semibold tabular-nums text-emerald-600 sm:text-2xl">
               {formatRupiah(danaBersihTotal)}
             </p>
@@ -53,7 +53,7 @@ export function SummaryCards({ schedule }: { schedule: LoanScheduleRow[] }) {
       <div className="min-w-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
         <div className="flex items-start justify-between">
           <div>
-            <p className="text-xs text-muted-foreground">Total kewajiban simulasi (bukan tagihan)</p>
+            <p className="text-xs text-muted-foreground">Total kewajiban (bukan tagihan)</p>
             <p className="mt-2 break-words text-xl font-semibold tabular-nums sm:text-2xl">
               {formatRupiah(totalKewajiban)}
             </p>
@@ -67,7 +67,7 @@ export function SummaryCards({ schedule }: { schedule: LoanScheduleRow[] }) {
       <div className="min-w-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
         <div className="flex items-start justify-between">
           <div>
-            <p className="text-xs text-muted-foreground">Sisa simulasi · bukan tagihan atau tunggakan</p>
+            <p className="text-xs text-muted-foreground">Sisa kewajiban · bukan tagihan atau tunggakan</p>
             <p className="mt-2 break-words text-xl font-semibold tabular-nums text-destructive sm:text-2xl">
               {formatRupiah(sisaSimulasi)}
             </p>
@@ -78,8 +78,8 @@ export function SummaryCards({ schedule }: { schedule: LoanScheduleRow[] }) {
         </div>
         <p className="mt-3 text-xs leading-5 text-muted-foreground">
           {jatuhTempoTerdekat
-            ? `Tanggal acuan simulasi ${jatuhTempoTerdekat.pelunasan?.hariTerlambat && jatuhTempoTerdekat.pelunasan.hariTerlambat > 0 ? `terlampaui ${jatuhTempoTerdekat.pelunasan.hariTerlambat} hari` : `dalam ${jatuhTempoTerdekat.pelunasan?.sisaHari ?? 0} hari`}`
-            : "Tidak ada catatan kewajiban simulasi aktif."}
+            ? `Tanggal acuan ${jatuhTempoTerdekat.pelunasan?.hariTerlambat && jatuhTempoTerdekat.pelunasan.hariTerlambat > 0 ? `terlampaui ${jatuhTempoTerdekat.pelunasan.hariTerlambat} hari` : `dalam ${jatuhTempoTerdekat.pelunasan?.sisaHari ?? 0} hari`}`
+            : "Tidak ada catatan kewajiban aktif."}
         </p>
       </div>
     </section>

@@ -86,7 +86,7 @@ export function PawnVaultSection({
                 </div>
                 {p.nilaiTaksiran !== undefined && (
                   <div className="flex items-baseline justify-between gap-4">
-                    <dt className="text-muted-foreground">Batas simulasi (LTV 70%)</dt>
+                    <dt className="text-muted-foreground">Batas pinjaman (LTV 70%)</dt>
                     <dd className="font-medium tabular-nums text-emerald-700">
                       {formatRupiah(Math.round(p.nilaiTaksiran * 0.7))}
                     </dd>

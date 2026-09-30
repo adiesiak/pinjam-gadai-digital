@@ -11,7 +11,7 @@ import { quoteGadai } from "@/lib/gadai";
 
 import { ContractSigningDialog } from "./ContractSigningDialog";
 
-/** Widget catatan simulasi gadai, tersedia setelah angka dicatat di aplikasi. */
+/** Widget catatan pengajuan gadai, tersedia setelah angka dicatat di aplikasi. */
 export function PawnContractBlock({ pawnId, pawnRef }: { pawnId: Id<"pawns">; pawnRef: string }) {
   const [open, setOpen] = useState(false);
   const detail = useQuery(api.admin.contractDetailPawn, { pawnId });
@@ -20,14 +20,14 @@ export function PawnContractBlock({ pawnId, pawnRef }: { pawnId: Id<"pawns">; pa
   if (detail === undefined) {
     return (
       <p className="flex items-center gap-2 py-3 text-sm text-muted-foreground">
-        <Loader2 className="size-4 animate-spin" /> Memuat catatan simulasi…
+        <Loader2 className="size-4 animate-spin" /> Memuat catatan pengajuan…
       </p>
     );
   }
   if (detail === null || detail.nilaiTaksiran === undefined) {
     return (
       <p className="text-sm text-muted-foreground">
-Catatan simulasi gadai tersedia setelah nilai taksiran dimasukkan ke aplikasi.
+Catatan gadai tersedia setelah nilai taksiran dimasukkan ke aplikasi.
       </p>
     );
   }
@@ -94,7 +94,7 @@ Catatan simulasi gadai tersedia setelah nilai taksiran dimasukkan ke aplikasi.
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
-              Catatan simulasi · gadai
+              Catatan pengajuan · gadai
             </p>
             <p className="mt-1 text-xs text-muted-foreground">
               Data barang dan nilai adalah catatan aplikasi, bukan bukti inspeksi, penitipan, kontrak, atau tanda tangan digital terverifikasi.
@@ -120,7 +120,7 @@ Catatan simulasi gadai tersedia setelah nilai taksiran dimasukkan ke aplikasi.
       <ContractSigningDialog
         open={open}
         onOpenChange={setOpen}
-        title="Catatan Simulasi Gadai"
+        title="Catatan Gadai"
         reference={detail.nomorReferensi}
         borrowerName={detail.namaLengkap}
         html={html}
@@ -132,7 +132,7 @@ Catatan simulasi gadai tersedia setelah nilai taksiran dimasukkan ke aplikasi.
           detail.status === "ditolak"
             ? "Pengajuan gadai berstatus ditolak. Pencatatan interaksi aplikasi dinonaktifkan."
             : !detailSiap
-              ? "Masukkan pokok simulasi dan persentase sewa modal terlebih dahulu agar rincian ledger dapat ditampilkan."
+              ? "Masukkan pokok gadai dan persentase sewa modal terlebih dahulu agar rincian ledger dapat ditampilkan."
               : null
         }
         onSign={async (dataUrl) => {

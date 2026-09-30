@@ -155,7 +155,7 @@ export function ContractSigningDialog({
           <section aria-label="Pratinjau syarat dan ketentuan" className="space-y-2">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div>
-                <h3 className="text-sm font-semibold text-navy">Catatan dan rincian simulasi</h3>
+                <h3 className="text-sm font-semibold text-navy">Catatan dan rincian pengajuan</h3>
                 <p className="mt-1 text-xs text-muted-foreground">
                   Tinjau nama dan angka yang dicatat. Dokumen ini bukan kontrak atau bukti kewajiban hukum.
                 </p>
@@ -264,7 +264,7 @@ export function ContractSigningDialog({
                 />
                 <span>
                   <span className="font-medium text-navy">
-                    Saya telah melihat rincian simulasi yang ditampilkan pada aplikasi PINDAI
+                    Saya telah melihat rincian pengajuan yang ditampilkan pada aplikasi PINDAI
                     (versi tampilan {CONTRACT_TERMS_VERSION}).
                   </span>{" "}
                   Checkbox ini hanya dicatat sebagai interaksi aplikasi; bukan persetujuan kontrak yang terverifikasi. Gambar yang dibuat tidak membuktikan identitas atau menjadi tanda tangan digital terverifikasi.

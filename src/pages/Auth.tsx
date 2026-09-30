@@ -52,13 +52,13 @@ const PORTAL_OPTIONS = [
   {
     href: "/dashboard",
     label: "Peminjam",
-    detail: "Catat simulasi pengajuan pinjaman atau gadai.",
+    detail: "Catat pengajuan pinjaman atau gadai.",
     icon: LayoutDashboard,
   },
   {
     href: "/pendana",
     label: "Pendana",
-    detail: "Lihat simulasi saldo dan alokasi ledger.",
+    detail: "Lihat saldo dan alokasi ledger.",
     icon: Wallet,
   },
 ] as const;
@@ -507,7 +507,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
             </li>
             <li className="flex items-center gap-1.5">
               <CalendarClock className="size-3.5 text-primary" />
-              Jadwal simulasi
+              Jadwal angsuran
             </li>
           </ul>
 

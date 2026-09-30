@@ -125,7 +125,7 @@ export default function Dashboard() {
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">Mode tamu · baca saja</p>
             <h1 className="mt-3 text-3xl font-semibold tracking-tight">Kenali PINDAI sebelum membuat akun.</h1>
             <p className="mt-4 max-w-2xl text-sm leading-7 text-muted-foreground">
-              Sebagai tamu, Anda dapat membaca informasi umum. Setelah masuk dengan email, Anda dapat mengelola data akun dan catatan pengajuan pada ledger simulasi; PINDAI tidak memproses transfer dana atau pembayaran eksternal.
+              Sebagai tamu, Anda dapat membaca informasi umum. Setelah masuk dengan email, Anda dapat mengelola data akun dan catatan pengajuan pada ledger internal; PINDAI tidak memproses transfer dana atau pembayaran eksternal.
             </p>
             <div className="mt-7 grid gap-3 sm:grid-cols-2">
               <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
@@ -134,14 +134,14 @@ export default function Dashboard() {
               </div>
               <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
                 <h2 className="text-sm font-semibold">Pinjaman bulanan</h2>
-                <p className="mt-2 text-sm leading-6 text-muted-foreground">Ilustrasi ledger: asumsi biaya layanan 3% dan bunga menurun mengikuti tenor. Jadwal dan status lunas hanya simulasi internal; tidak ada pembayaran aktual.</p>
+                <p className="mt-2 text-sm leading-6 text-muted-foreground">Ilustrasi ledger: asumsi biaya layanan 3% dan bunga menurun mengikuti tenor. Jadwal dan status lunas hanya catatan internal; tidak ada pembayaran aktual.</p>
               </div>
             </div>
             <div className="mt-7 flex flex-wrap gap-3">
               <Button onClick={() => void handleCreateAccount()}>Masuk / buat akun dengan email OTP</Button>
               <Button asChild variant="outline"><Link to="/">Baca informasi layanan</Link></Button>
             </div>
-            <p className="mt-5 text-xs leading-5 text-muted-foreground">PINDAI di halaman ini hanya menyediakan catatan dan simulasi internal. Informasi ini bukan penawaran, bukti transaksi, atau jaminan pendanaan.</p>
+            <p className="mt-5 text-xs leading-5 text-muted-foreground">PINDAI di halaman ini hanya menyediakan catatan internal. Informasi ini bukan penawaran, bukti transaksi, atau jaminan pendanaan.</p>
           </section>
         </main>
         <DashboardFooter />
@@ -157,7 +157,7 @@ export default function Dashboard() {
           <ErrorPage
             kode="Peran akun"
             judul="Halaman ini untuk akun Peminjam"
-            deskripsi="Akun Anda terdaftar sebagai Pendana, jadi pengajuan pinjaman dan gadai tidak tersedia di sini. Lihat saldo dan alokasi simulasi pada ledger internal di ruang Pendana."
+            deskripsi="Akun Anda terdaftar sebagai Pendana, jadi pengajuan pinjaman dan gadai tidak tersedia di sini. Lihat saldo dan alokasi pada ledger internal di ruang Pendana."
             primaryLabel="Buka ruang Pendana"
             primaryHref="/pendana"
             secondaryLabel="Beranda"
@@ -302,7 +302,7 @@ export default function Dashboard() {
                       <Separator className="my-4" />
                       <LoanForm
                         onCreated={(ref) =>
-                          toast.success(`Catatan pengajuan simulasi tersimpan — referensi ${ref}. Tidak ada pencairan atau transfer dana.`)
+                          toast.success(`Catatan pengajuan tersimpan — referensi ${ref}. Tidak ada pencairan atau transfer dana.`)
                         }
                       />
                     </section>

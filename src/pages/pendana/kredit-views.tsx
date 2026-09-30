@@ -80,7 +80,7 @@ function Baris({
 }
 
 /**
- * Tab "Kredit Barang": catatan pengajuan dan alokasi simulasi internal, lalu kalkulator.
+ * Tab "Kredit Barang": catatan pengajuan dan alokasi internal, lalu kalkulator.
  */
 export function KreditBarangSection() {
   return (
@@ -93,7 +93,7 @@ export function KreditBarangSection() {
 }
 
 /**
- * Kalkulator simulasi barang & imbal hasil hipotetis (Skema C). Semua angka dihitung
+ * Kalkulator barang & imbal hasil hipotetis (Skema C). Semua angka dihitung
  * engine `quoteKreditBarang` (integer rupiah, HALF-UP) sebagai ilustrasi internal
  * yang sama dengan perhitungan aplikasi; bukan bukti pengajuan atau pendanaan.
  */
@@ -164,17 +164,17 @@ function KalkulatorKreditSection() {
             Elektronik &amp; Marketplace
           </Badge>
         </div>
-        <h2 className="text-lg font-semibold tracking-tight">Kalkulator simulasi Imbal Hasil Kredit Barang</h2>
+        <h2 className="text-lg font-semibold tracking-tight">Kalkulator Imbal Hasil Kredit Barang</h2>
         <p className="max-w-2xl text-sm leading-6 text-muted-foreground">
-          Ilustrasi perhitungan barang dari merchant yang dicantumkan. Data, harga, dan merchant tidak diverifikasi; aplikasi tidak memproses pembelian atau pembayaran barang. Pengajuan baru memiliki pokok simulasi maksimal{" "}
+          Ilustrasi perhitungan barang dari merchant yang dicantumkan. Data, harga, dan merchant tidak diverifikasi; aplikasi tidak memproses pembelian atau pembayaran barang. Pengajuan baru memiliki pokok maksimal{" "}
           {formatRupiah(KREDIT_BARANG_POKOK_MAKS)} dan tenor 1, 3, atau 6 bulan; catatan lama tetap ditampilkan sebagai data ledger.
         </p>
       </header>
 
       <div className="grid gap-6 lg:grid-cols-2">
-        {/* ===== Panel input simulasi ===== */}
+        {/* ===== Panel input barang ===== */}
         <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <h3 className="text-sm font-semibold">Simulasi Barang</h3>
+          <h3 className="text-sm font-semibold">Kalkulator Barang</h3>
 
           <div className="mt-4 flex flex-col gap-2">
             <Label htmlFor="kredit-harga" className="text-xs text-muted-foreground">
@@ -240,14 +240,14 @@ function KalkulatorKreditSection() {
 
           {/* Uang muka */}
           <div className="flex items-center justify-between gap-3">
-            <Label className="text-xs text-muted-foreground">Uang muka simulasi (DP)</Label>
+            <Label className="text-xs text-muted-foreground">Uang muka (DP)</Label>
             <span className="text-xs font-semibold tabular-nums">
               {bulanan ? 0 : persenId(dpPersen)}% · {formatRupiah(quote?.dp ?? 0)}
             </span>
           </div>
           {bulanan ? (
             <p className="mt-2 rounded-xl border border-emerald-100 bg-emerald-50/60 px-3 py-2 text-xs leading-5 text-emerald-800">
-              Model simulasi tenor {tenorBulan} bulan memakai DP 0%; ini bukan bukti pendanaan atau pembelian barang.
+              Model tenor {tenorBulan} bulan memakai DP 0%; ini bukan bukti pendanaan atau pembelian barang.
             </p>
           ) : (
             <>
@@ -270,10 +270,10 @@ function KalkulatorKreditSection() {
 
           {/* Tenor */}
           <div className="mt-5 flex items-center justify-between gap-3">
-            <Label className="text-xs text-muted-foreground">Tenor simulasi</Label>
+            <Label className="text-xs text-muted-foreground">Tenor</Label>
             <span className="text-xs font-semibold tabular-nums">{tenorBulan} bulan</span>
           </div>
-          <div role="group" aria-label="Pilih tenor simulasi" className="mt-2 grid grid-cols-3 gap-1.5">
+          <div role="group" aria-label="Pilih tenor" className="mt-2 grid grid-cols-3 gap-1.5">
             {KREDIT_TENOR_PENGAJUAN_OPTIONS.map((bulan) => {
               const aktif = bulan === tenorBulan;
               return (
@@ -297,7 +297,7 @@ function KalkulatorKreditSection() {
 
           {/* Imbal Hasil */}
           <div className="mt-5 flex items-center justify-between gap-3">
-            <Label className="text-xs text-muted-foreground">Imbal Hasil simulasi per bulan</Label>
+            <Label className="text-xs text-muted-foreground">Imbal Hasil per bulan</Label>
             <span className="text-xs font-semibold tabular-nums">
               {persenId(bulanan ? persenBungaPerBulan(tenorBulan) : marginPersenPerBulan)}% ·
               {quote !== null ? ` ${formatRupiah(quote.marginPerBulan)}` : " —"}
@@ -305,7 +305,7 @@ function KalkulatorKreditSection() {
           </div>
           {bulanan ? (
             <p className="mt-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs leading-5 text-muted-foreground">
-              Bunga simulasi mengikuti tenor: 30%/bln (1 bulan), 25%/bln (3–5 bulan), 20%/bln
+              Bunga mengikuti tenor: 30%/bln (1 bulan), 25%/bln (3–5 bulan), 20%/bln
               (≥ 6 bulan). Ini perhitungan internal, bukan janji atau bukti pembayaran kepada Pendana.
             </p>
           ) : (
@@ -319,7 +319,7 @@ function KalkulatorKreditSection() {
                 onValueChange={(v) =>
                   setMarginPersenPerBulan(v[0] ?? KREDIT_PRICING.marginMinPersenPerBulan)
                 }
-                aria-label="Persen Imbal Hasil simulasi per bulan"
+                aria-label="Persen Imbal Hasil per bulan"
                 aria-describedby="kredit-margin-help"
                 aria-valuetext={`${persenId(marginPersenPerBulan)} persen per bulan`}
               />
@@ -332,7 +332,7 @@ function KalkulatorKreditSection() {
 
           {/* Porsi pendanaan */}
           <div className="mt-5 flex items-center justify-between gap-3">
-            <Label className="text-xs text-muted-foreground">Porsi alokasi simulasi</Label>
+            <Label className="text-xs text-muted-foreground">Porsi alokasi</Label>
             <span className="text-xs font-semibold tabular-nums">
               {persenId(porsiPendanaPersen)}%
             </span>
@@ -346,12 +346,12 @@ function KalkulatorKreditSection() {
             onValueChange={(v) =>
               setPorsiPendanaPersen(v[0] ?? KREDIT_PRICING.minPorsiPendanaPersen)
             }
-            aria-label="Porsi alokasi simulasi"
+            aria-label="Porsi alokasi"
             aria-describedby="kredit-porsi-help"
             aria-valuetext={`${persenId(porsiPendanaPersen)} persen`}
           />
           <p id="kredit-porsi-help" className="mt-1.5 text-xs text-muted-foreground">
-            Persentase ini hanya membagi target pada ledger simulasi; bukan komitmen pendanaan atau bukti dana tersedia.
+            Persentase ini hanya membagi target pada ledger internal; bukan komitmen pendanaan atau bukti dana tersedia.
           </p>
         </section>
 
@@ -362,7 +362,7 @@ function KalkulatorKreditSection() {
               <Calculator className="mx-auto size-5 text-slate-400" />
               <p className="mt-4 text-sm font-medium">Masukkan harga barang yang valid</p>
               <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-muted-foreground">
-                Rentang harga barang untuk model simulasi adalah{" "}
+                Rentang harga barang untuk model aplikasi adalah{" "}
                 {formatRupiah(KREDIT_PRICING.minHargaBarang)} sampai{" "}
                 {formatRupiah(KREDIT_BARANG_POKOK_MAKS)}.
               </p>
@@ -374,7 +374,7 @@ function KalkulatorKreditSection() {
                 <div className="flex items-center justify-between gap-3">
                   <h3 className="flex items-center gap-2 text-sm font-semibold">
                     <ShoppingBag className="size-4 text-slate-500" />
-                    Rincian simulasi Konsumen
+                    Rincian Konsumen
                   </h3>
                   <Badge className="border-0 bg-slate-100 text-[10px] text-slate-700 hover:bg-slate-100">
                     Tenor {tenorBulan} bulan
@@ -383,50 +383,50 @@ function KalkulatorKreditSection() {
                 <div className="mt-3 divide-y divide-slate-100">
                   <Baris label="Harga acuan barang (tidak diverifikasi)" value={formatRupiah(quote.hargaBarang)} strong />
                   <Baris
-                    label="Uang muka simulasi (DP)"
+                    label="Uang muka (DP)"
                     value={formatRupiah(quote.dp)}
                     hint={`${persenId(dpPersen)}% dari harga barang`}
                   />
                   <Baris
-                    label="Pokok acuan simulasi (tidak ditransfer)"
+                    label="Pokok acuan (tidak ditransfer)"
                     value={formatRupiah(quote.pokokDibiayai)}
                     hint={`Batas pokok pada model pengajuan baru ${formatRupiah(KREDIT_BARANG_POKOK_MAKS)}`}
                   />
                   {tenorBulan === 3 || tenorBulan === 6 ? (
                     <>
-                      <Baris label="Biaya admin simulasi (5%)" value={formatRupiah(quote.biayaAdmin)} hint="Diamortisasi dalam cicilan; tanpa potongan di muka" />
-                      <Baris label="Biaya platform simulasi (2%)" value={formatRupiah(quote.biayaPlatform)} hint="Diamortisasi dalam cicilan; tanpa potongan di muka" />
-                      <Baris label="Total biaya tenor simulasi (7%)" value={formatRupiah(quote.biayaLayanan)} hint="Asumsi perhitungan; bukan bukti pembayaran" />
+                      <Baris label="Biaya admin (5%)" value={formatRupiah(quote.biayaAdmin)} hint="Diamortisasi dalam cicilan; tanpa potongan di muka" />
+                      <Baris label="Biaya platform (2%)" value={formatRupiah(quote.biayaPlatform)} hint="Diamortisasi dalam cicilan; tanpa potongan di muka" />
+                      <Baris label="Total biaya tenor (7%)" value={formatRupiah(quote.biayaLayanan)} hint="Asumsi perhitungan; bukan bukti pembayaran" />
                     </>
                   ) : (
                     <Baris
                     label={tenorBulan === 1
-                      ? "Biaya layanan simulasi (3%, diamortisasi)"
-                      : `Biaya layanan simulasi (${persenId(KREDIT_PRICING.biayaLayananPersen)}%, di muka)`}
+                      ? "Biaya layanan (3%, diamortisasi)"
+                      : `Biaya layanan (${persenId(KREDIT_PRICING.biayaLayananPersen)}%, di muka)`}
                     value={formatRupiah(quote.biayaLayanan)}
                     hint="Asumsi perhitungan; bukan bukti pembayaran"
                     />
                   )}
                   <Baris
-                    label="Imbal Hasil simulasi per bulan"
+                    label="Imbal Hasil per bulan"
                     value={formatRupiah(quote.marginPerBulan)}
-                    hint={`${persenId(marginPersenPerBulan)}% dari pokok acuan simulasi`}
+                    hint={`${persenId(marginPersenPerBulan)}% dari pokok acuan`}
                   />
                   <Baris
-                    label="Cicilan simulasi per bulan"
+                    label="Cicilan per bulan"
                     value={formatRupiah(quote.cicilanPerBulan)}
-                    hint={`Pokok acuan ÷ ${tenorBulan} + Imbal Hasil simulasi bulanan`}
+                    hint={`Pokok acuan ÷ ${tenorBulan} + Imbal Hasil bulanan`}
                     strong
                   />
                   {quote.cicilanTerakhir !== quote.cicilanPerBulan && (
                     <Baris
-                      label="Cicilan simulasi terakhir"
+                      label="Cicilan terakhir"
                       value={formatRupiah(quote.cicilanTerakhir)}
                       hint="Menyesuaikan selisih pembulatan dalam model"
                     />
                   )}
                   <Baris
-                    label="Total kewajiban simulasi Konsumen"
+                    label="Total kewajiban Konsumen"
                     value={formatRupiah(quote.totalDibayarKonsumen)}
                     hint="Penjumlahan komponen dalam model; bukan pembayaran aktual"
                     strong
@@ -441,25 +441,25 @@ function KalkulatorKreditSection() {
                     <span className="flex size-7 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700">
                       <TrendingUp className="size-4" />
                     </span>
-                    Imbal Hasil simulasi Pendana
+                    Imbal Hasil Pendana
                   </h3>
                 </div>
                 <div className="mt-4 rounded-xl bg-emerald-50/70 px-4 py-3">
-                  <p className="text-xs text-emerald-800/80">Total hipotetis pada model simulasi</p>
+                  <p className="text-xs text-emerald-800/80">Total hipotetis pada model aplikasi</p>
                   <p className="mt-1 text-2xl font-semibold tabular-nums text-emerald-700">
                     {formatRupiah(quote.totalDiterima)}
                   </p>
                   <p className="mt-1 text-xs text-emerald-800/80">
-                    Pokok acuan simulasi {formatRupiah(quote.porsiPendana)} + Imbal Hasil simulasi{" "}
+                    Pokok acuan {formatRupiah(quote.porsiPendana)} + Imbal Hasil{" "}
                     {formatRupiah(quote.imbalHasil)}; tidak ditransfer
                   </p>
                 </div>
 
                 <div className="mt-4">
                   <div className="flex items-center justify-between gap-3 text-xs text-muted-foreground">
-                    <span>Porsi alokasi simulasi Anda</span>
+                    <span>Porsi alokasi Anda</span>
                     <span className="tabular-nums">
-                      {persenId(quote.porsiPendanaPersen)}% dari pokok acuan simulasi
+                      {persenId(quote.porsiPendanaPersen)}% dari pokok acuan
                     </span>
                   </div>
                   <Progress className="mt-2" value={quote.porsiPendanaPersen} />
@@ -467,21 +467,21 @@ function KalkulatorKreditSection() {
 
                 <div className="mt-3 divide-y divide-slate-100">
                   <Baris
-                    label="Imbal Hasil simulasi bulan pertama"
+                    label="Imbal Hasil bulan pertama"
                     value={formatRupiah(quote.imbalHasilPerBulan)}
                     hint={bulanan
                       ? "Ilustrasi berdasarkan saldo pokok awal; bunga bulanan menurun"
-                      : "Ilustrasi proporsional dengan porsi alokasi simulasi"}
+                      : "Ilustrasi proporsional dengan porsi alokasi"}
                   />
                   <Baris
-                    label={`Total Imbal Hasil simulasi × ${tenorBulan} bulan`}
+                    label={`Total Imbal Hasil × ${tenorBulan} bulan`}
                     value={formatRupiah(quote.imbalHasil)}
                     strong
                   />
                   <Baris
-                    label="Persentase Imbal Hasil simulasi"
+                    label="Persentase Imbal Hasil"
                     value={`${persenId(quote.persenImbalHasil)}%`}
-                    hint={`Setara ${persenId(quote.persenImbalHasilTahunan)}% per tahun dari porsi alokasi simulasi`}
+                    hint={`Setara ${persenId(quote.persenImbalHasilTahunan)}% per tahun dari porsi alokasi`}
                     strong
                   />
                 </div>
@@ -495,7 +495,7 @@ function KalkulatorKreditSection() {
       {quote !== null && (
         <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
           <div className="flex items-center justify-between gap-3">
-            <h3 className="text-sm font-semibold">Jadwal simulasi cicilan Konsumen</h3>
+            <h3 className="text-sm font-semibold">Jadwal cicilan Konsumen</h3>
             <Badge className="border-0 bg-slate-100 text-[10px] text-slate-700 hover:bg-slate-100">
               {tenorBulan} bulan · {bulanan ? "bunga menurun" : "cicilan flat"}
             </Badge>
@@ -508,10 +508,10 @@ function KalkulatorKreditSection() {
                     Bulan
                   </th>
                   <th scope="col" className="pb-2 text-right font-medium">
-                    Pokok simulasi
+                    Pokok
                   </th>
                   <th scope="col" className="pb-2 text-right font-medium">
-                    Imbal Hasil simulasi
+                    Imbal Hasil
                   </th>
                   {bulanan && (tenorBulan === 3 || tenorBulan === 6) ? (
                     <>
@@ -522,10 +522,10 @@ function KalkulatorKreditSection() {
                     <th scope="col" className="pb-2 text-right font-medium">Biaya layanan</th>
                   ) : null}
                   <th scope="col" className="pb-2 text-right font-medium">
-                    Cicilan simulasi
+                    Cicilan
                   </th>
                   <th scope="col" className="pb-2 text-right font-medium">
-                    Sisa pokok simulasi
+                    Sisa pokok
                   </th>
                 </tr>
               </thead>
@@ -555,7 +555,7 @@ function KalkulatorKreditSection() {
             </table>
           </div>
           <p className="mt-3 text-xs text-muted-foreground">
-            Angka dihitung mesin simulasi PINDAI (rupiah bulat, pembulatan HALF-UP) untuk ilustrasi saja. Tampilan, slider, atau status aplikasi bukan kontrak, persetujuan, komitmen pendanaan, maupun janji pembayaran.
+            Angka dihitung mesin PINDAI (rupiah bulat, pembulatan HALF-UP) untuk ilustrasi saja. Tampilan, slider, atau status aplikasi bukan kontrak, persetujuan, komitmen pendanaan, maupun janji pembayaran.
           </p>
         </section>
       )}
@@ -607,7 +607,7 @@ type PeluangKredit = {
 
 /**
  * Catatan kredit barang yang berstatus disetujui di aplikasi dan belum mencapai
- * target alokasi ledger simulasi; tidak ada perpindahan dana eksternal.
+ * target alokasi ledger internal; tidak ada perpindahan dana eksternal.
  */
 function PeluangKreditSection() {
   const peluang = useQuery(api.pendana.marketplaceKredit);
@@ -634,7 +634,7 @@ function PeluangKreditSection() {
           <EmptyState
             icon={ShoppingBag}
             title="Belum ada catatan kredit barang"
-            body="Catatan pengajuan yang berstatus disetujui di aplikasi akan tampil di sini dengan target simulasi ledger."
+            body="Catatan pengajuan yang berstatus disetujui di aplikasi akan tampil di sini dengan target ledger."
           />
         </div>
       ) : (
@@ -677,15 +677,15 @@ function PeluangKreditCard({ row }: { row: PeluangKredit }) {
           <dd className="mt-0.5 font-semibold tabular-nums">{formatRupiah(row.hargaBarang)}</dd>
         </div>
         <div>
-          <dt className="text-muted-foreground">Uang muka simulasi (DP)</dt>
+          <dt className="text-muted-foreground">Uang muka (DP)</dt>
           <dd className="mt-0.5 font-semibold tabular-nums">{row.dpPersen}% · {formatRupiah(row.dp)}</dd>
         </div>
         <div>
-          <dt className="text-muted-foreground">Pokok acuan simulasi</dt>
+          <dt className="text-muted-foreground">Pokok acuan</dt>
           <dd className="mt-0.5 font-semibold tabular-nums">{formatRupiah(row.pokokDibiayai)}</dd>
         </div>
         <div>
-          <dt className="text-muted-foreground">Tenor simulasi</dt>
+          <dt className="text-muted-foreground">Tenor</dt>
           <dd className="mt-0.5 font-semibold tabular-nums">{row.tenorBulan} bulan</dd>
         </div>
       </dl>
@@ -702,15 +702,15 @@ function PeluangKreditCard({ row }: { row: PeluangKredit }) {
             </>
           ) : (
             <>
-              <Baris label="Total biaya layanan simulasi" value={formatRupiah(row.biayaLayanan)} />
+              <Baris label="Total biaya layanan" value={formatRupiah(row.biayaLayanan)} />
               <Baris
-                label={row.biayaLayananDiMuka > 0 ? "Asumsi potongan biaya layanan simulasi di muka" : "Biaya layanan simulasi per bulan (rata-rata)"}
+                label={row.biayaLayananDiMuka > 0 ? "Asumsi potongan biaya layanan di muka" : "Biaya layanan per bulan (rata-rata)"}
                 value={formatRupiah(row.biayaLayananDiMuka > 0 ? row.biayaLayananDiMuka : row.biayaLayananPerBulan)}
               />
             </>
           )}
-          <Baris label="Imbal Hasil simulasi total" value={`${formatRupiah(row.imbalHasilTotal)} · ${persenId(row.persenImbalHasil)}% (${persenId(row.persenImbalHasilTahunan)}%/tahun)`} />
-          <Baris label="Total kewajiban simulasi Konsumen" value={formatRupiah(row.totalDibayarKonsumen)} hint="Bukan tagihan atau bukti pembayaran" strong />
+          <Baris label="Imbal Hasil total" value={`${formatRupiah(row.imbalHasilTotal)} · ${persenId(row.persenImbalHasil)}% (${persenId(row.persenImbalHasilTahunan)}%/tahun)`} />
+          <Baris label="Total kewajiban Konsumen" value={formatRupiah(row.totalDibayarKonsumen)} hint="Bukan tagihan atau bukti pembayaran" strong />
         </dl>
         <p className="mt-2 border-t border-slate-100 pt-2 text-muted-foreground">Catatan aplikasi (bukan tagihan atau bukti transaksi): {row.catatanJadwal}</p>
       </section>
@@ -721,11 +721,11 @@ function PeluangKreditCard({ row }: { row: PeluangKredit }) {
           {row.jadwalPembayaran.map((cicilan) => (
             <li key={cicilan.bulan} className="py-2">
               <div className="flex justify-between gap-3">
-                <span>Bulan simulasi {cicilan.bulan}</span>
+                <span>Bulan {cicilan.bulan}</span>
                 <span className="font-semibold tabular-nums">{formatRupiah(cicilan.total)}</span>
               </div>
               <p className="mt-1 text-right text-muted-foreground">
-                Pokok simulasi {formatRupiah(cicilan.pokok)} · Imbal Hasil simulasi {formatRupiah(cicilan.imbalHasil)}
+                Pokok {formatRupiah(cicilan.pokok)} · Imbal Hasil {formatRupiah(cicilan.imbalHasil)}
                 {row.tenorBulan === 3 || row.tenorBulan === 6
                   ? ` · admin ${formatRupiah(cicilan.biayaAdmin)} · platform ${formatRupiah(cicilan.biayaPlatform)}`
                   : ` · layanan ${formatRupiah(cicilan.biayaLayanan)}`}
@@ -745,7 +745,7 @@ function PeluangKreditCard({ row }: { row: PeluangKredit }) {
         </div>
         <Progress className="mt-1.5 h-2.5" value={pct} />
         <p className="mt-1.5 text-xs tabular-nums text-muted-foreground">
-          Sisa target alokasi simulasi {formatRupiah(row.sisaKebutuhan)} · margin simulasi {persenId(row.marginPersenPerBulan)}%/bulan
+          Sisa target alokasi {formatRupiah(row.sisaKebutuhan)} · margin {persenId(row.marginPersenPerBulan)}%/bulan
         </p>
       </div>
 
@@ -763,15 +763,15 @@ function PeluangKreditCard({ row }: { row: PeluangKredit }) {
   );
 }
 
-/** Riwayat catatan alokasi simulasi kredit barang milik Pendana. */
+/** Riwayat catatan alokasi kredit barang milik Pendana. */
 function PortofolioKreditSection() {
   const rows = useQuery(api.pendana.myKreditFundings);
 
   return (
     <section>
-      <h2 className="text-lg font-semibold tracking-tight">Catatan alokasi simulasi Kredit Barang saya</h2>
+      <h2 className="text-lg font-semibold tracking-tight">Catatan alokasi Kredit Barang saya</h2>
       <p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">
-        Catatan alokasi dan perhitungan imbal hasil simulasi pada ledger internal. Tidak ada pencairan ke merchant.
+        Catatan alokasi dan perhitungan imbal hasil pada ledger internal. Tidak ada pencairan ke merchant.
       </p>
 
       {rows === undefined ? (
@@ -781,7 +781,7 @@ function PortofolioKreditSection() {
           <EmptyState
             icon={TrendingUp}
             title="Belum ada alokasi kredit barang"
-            body="Catatan alokasi simulasi akan tampil di sini bersama status internal dan rincian perhitungannya."
+            body="Catatan alokasi akan tampil di sini bersama status internal dan rincian perhitungannya."
           />
         </div>
       ) : (
@@ -811,7 +811,7 @@ function PortofolioKreditSection() {
                   <Badge className="border-0 bg-sky-100 text-sky-700 hover:bg-sky-100">Catatan berjalan di ledger</Badge>
                 ) : (
                   <Badge className="border-0 bg-amber-100 text-amber-700 hover:bg-amber-100">
-                    Dalam simulasi alokasi
+                    Dalam alokasi
                   </Badge>
                 )}
               </div>
@@ -822,41 +822,41 @@ function PortofolioKreditSection() {
                   <dd className="font-medium tabular-nums">{formatRupiah(f.jumlahAlokasi)}</dd>
                 </div>
                 <div className="flex items-baseline justify-between gap-4">
-                  <dt className="text-muted-foreground">Imbal hasil simulasi</dt>
+                  <dt className="text-muted-foreground">Imbal hasil</dt>
                   <dd className="font-medium tabular-nums text-emerald-700">
                     {formatRupiah(f.imbalHasil)}
                   </dd>
                 </div>
                 <div className="flex items-baseline justify-between gap-4">
-                  <dt className="text-muted-foreground">Total simulasi jika status ledger lunas</dt>
+                  <dt className="text-muted-foreground">Total jika status ledger lunas</dt>
                   <dd className="font-medium tabular-nums">{formatRupiah(f.totalDiterima)}</dd>
                 </div>
                 <div className="flex items-baseline justify-between gap-4">
-                  <dt className="text-muted-foreground">Tenor &amp; cicilan simulasi</dt>
+                  <dt className="text-muted-foreground">Tenor &amp; cicilan</dt>
                   <dd className="tabular-nums">
                     {f.tenorBulan} bulan
                     {f.cicilanPerBulan !== null ? ` · ${formatRupiah(f.cicilanPerBulan)}/bln` : ""}
                   </dd>
                 </div>
                 <div className="flex items-baseline justify-between gap-4">
-                  <dt className="text-muted-foreground">Entri simulasi tercatat</dt>
+                  <dt className="text-muted-foreground">Entri ledger tercatat</dt>
                   <dd className="tabular-nums">
                     {f.dibayarBulan}/{f.tenorBulan} bulan
                   </dd>
                 </div>
                 <div className="flex items-baseline justify-between gap-4">
-                  <dt className="text-muted-foreground">{f.tenorBulan === 3 || f.tenorBulan === 6 ? "Total biaya tenor (admin 5% + platform 2%)" : "Total biaya layanan simulasi"}</dt>
+                  <dt className="text-muted-foreground">{f.tenorBulan === 3 || f.tenorBulan === 6 ? "Total biaya tenor (admin 5% + platform 2%)" : "Total biaya layanan"}</dt>
                   <dd className="tabular-nums">{f.biayaLayanan !== null ? formatRupiah(f.biayaLayanan) : "Tidak tersedia"}</dd>
                 </div>
                 <div className="flex items-baseline justify-between gap-4">
-                  <dt className="text-muted-foreground">Total kewajiban simulasi Konsumen</dt>
+                  <dt className="text-muted-foreground">Total kewajiban Konsumen</dt>
                   <dd className="tabular-nums">{f.totalDibayarKonsumen !== null ? formatRupiah(f.totalDibayarKonsumen) : "Tidak tersedia"}</dd>
                 </div>
               </dl>
 
               <div className="mt-4">
                 <div className="flex justify-between gap-3 text-xs">
-                  <span className="font-medium">Progres entri ledger simulasi</span>
+                  <span className="font-medium">Progres entri ledger</span>
                   <span className="tabular-nums text-muted-foreground">{f.dibayarBulan} dari {f.tenorBulan} cicilan</span>
                 </div>
                 <Progress className="mt-2 h-2.5" value={Math.min(100, Math.round((f.dibayarBulan / f.tenorBulan) * 100))} />
@@ -871,26 +871,26 @@ function PortofolioKreditSection() {
                   {f.tenorBulan === 3 || f.tenorBulan === 6
                     ? `Biaya admin 5% (${formatRupiah(f.biayaAdmin)}) dan platform 2% (${formatRupiah(f.biayaPlatform)}) diamortisasi dalam cicilan; tidak ada potongan di muka.`
                     : f.biayaLayananDiMuka !== null && f.biayaLayananDiMuka > 0
-                      ? `Biaya layanan simulasi ${formatRupiah(f.biayaLayananDiMuka)} dihitung di muka dalam model; tidak ada penagihan.`
-                      : `Biaya layanan simulasi per bulan rata-rata ${formatRupiah(f.biayaLayananPerBulan)} dihitung dalam model; tidak ada penagihan.`}
+                      ? `Biaya layanan ${formatRupiah(f.biayaLayananDiMuka)} dihitung di muka dalam model; tidak ada penagihan.`
+                      : `Biaya layanan per bulan rata-rata ${formatRupiah(f.biayaLayananPerBulan)} dihitung dalam model; tidak ada penagihan.`}
                 </p>
                 <ul className="mt-2 divide-y divide-slate-100">
                   {f.jadwalPembayaran.map((cicilan, index) => (
                     <li key={cicilan.bulan} className="py-2">
                       <div className="flex flex-wrap items-center justify-between gap-2">
-                        <span className="font-medium">Bulan simulasi {cicilan.bulan}</span>
+                        <span className="font-medium">Bulan {cicilan.bulan}</span>
                         <span className={index < f.dibayarBulan ? "text-emerald-700" : "text-muted-foreground"}>
-                          {index < f.dibayarBulan ? "Entri simulasi tercatat" : "Belum ada entri"}
+                          {index < f.dibayarBulan ? "Entri ledger tercatat" : "Belum ada entri"}
                         </span>
                       </div>
                       <div className="mt-1 flex justify-between gap-3">
-                        <span className="text-muted-foreground">Pokok simulasi {formatRupiah(cicilan.pokok)} · Imbal Hasil simulasi {formatRupiah(cicilan.imbalHasil)}</span>
+                        <span className="text-muted-foreground">Pokok {formatRupiah(cicilan.pokok)} · Imbal Hasil {formatRupiah(cicilan.imbalHasil)}</span>
                         <span className="shrink-0 font-semibold tabular-nums">{formatRupiah(cicilan.total)}</span>
                       </div>
                       <p className="mt-1 text-right text-muted-foreground">
                         {f.tenorBulan === 3 || f.tenorBulan === 6
                           ? `Biaya admin ${formatRupiah(cicilan.biayaAdmin)} · platform ${formatRupiah(cicilan.biayaPlatform)}`
-                          : `Biaya layanan simulasi ${formatRupiah(cicilan.biayaLayanan)}`}
+                          : `Biaya layanan ${formatRupiah(cicilan.biayaLayanan)}`}
                       </p>
                     </li>
                   ))}
@@ -904,7 +904,7 @@ function PortofolioKreditSection() {
                     ? "Target alokasi ledger tercapai. Tidak ada dana yang diteruskan ke merchant; progres hanya berdasarkan entri internal."
                     : f.statusKredit === "ditolak"
                       ? "Status pengajuan ditolak tercatat di aplikasi; tidak ada pengembalian dana eksternal yang diproses."
-                      : "Target alokasi ledger belum tercapai; jadwal yang ditampilkan hanya simulasi dan tidak ada pembayaran aktual."}
+                      : "Target alokasi ledger belum tercapai; jadwal yang ditampilkan hanya ilustrasi dan tidak ada pembayaran aktual."}
               </p>
               <KeteranganWilayah />
             </li>

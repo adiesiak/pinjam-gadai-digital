@@ -12,7 +12,7 @@ import { formatRupiah } from "@/lib/money";
 import { EmptyState, Loading } from "./feedback";
 import { formatDate } from "./shared";
 
-/** Tab 3 — catatan alokasi simulasi Pendana. */
+/** Tab 3 — catatan alokasi Pendana. */
 export function FundingContractsSection() {
   const contracts = useQuery(api.pendana.myFundingContracts);
 
@@ -24,7 +24,7 @@ export function FundingContractsSection() {
       <EmptyState
         icon={FileText}
         title="Belum ada catatan alokasi"
-        body="Catatan alokasi ledger internal tampil di sini setelah Anda mengalokasikan simulasi pada pinjaman."
+        body="Catatan alokasi ledger internal tampil di sini setelah Anda melakukan alokasi pada pinjaman."
       />
     );
   }
@@ -41,12 +41,12 @@ export function FundingContractsSection() {
                 <p className="mt-0.5 truncate text-xs text-muted-foreground">
                   <span className="font-mono">Kode peminjam tercatat {c.kodePeminjam}</span> ·{" "}
                   <span className="font-mono">{nomorContract("pendanaan", c.nomorReferensi)}</span> ·{" "}
-                  {loanPurposeLabel(c.tujuan)} · alokasi ledger {formatRupiah(c.jumlahAlokasi)} · imbal hasil simulasi{" "}
+                  {loanPurposeLabel(c.tujuan)} · alokasi ledger {formatRupiah(c.jumlahAlokasi)} · imbal hasil{" "}
                   {formatRupiah(c.imbalHasil)}
                   {c.tenorBulan !== null ? " (skema bulanan)" : " (30%)"}
                 </p>
                 <p className="mt-0.5 text-xs text-muted-foreground">
-                  Referensi pinjaman {c.loanRef} · pokok simulasi {formatRupiah(c.pokokPinjaman)} · tenor{" "}
+                  Referensi pinjaman {c.loanRef} · pokok {formatRupiah(c.pokokPinjaman)} · tenor{" "}
                   {c.tenorBulan !== null ? `${c.tenorBulan} bulan` : `${c.tenorHari} hari`} ·{" "}
                   {formatDate(c.createdAt)}
                 </p>
@@ -93,23 +93,23 @@ function buildFundingContractHtml(c: {
     <h2>Bagian 1 — Parameter Ledger</h2>
     <ol>
       <li>Nilai alokasi yang tercatat pada ledger internal: <strong>${formatRupiah(c.jumlahAlokasi)}</strong> untuk referensi ${c.loanRef} (tujuan yang dicantumkan: ${loanPurposeLabel(c.tujuan)}). Ini bukan bukti dana disediakan atau dipindahkan.</li>
-      <li>Pokok dan tenor simulasi yang tercatat: ${formatRupiah(c.pokokPinjaman)} · ${tenorLabel}.</li>
+      <li>Pokok dan tenor yang tercatat: ${formatRupiah(c.pokokPinjaman)} · ${tenorLabel}.</li>
       <li>${
         c.tenorBulan !== null
-          ? "Perhitungan pokok simulasi menggunakan DP 0% dan biaya layanan 3%; tidak ada pembayaran ke Peminjam atau merchant."
-          : "Perhitungan nilai bersih simulasi menggunakan 95% dari pokok; tidak ada pencairan ke Peminjam."
+          ? "Perhitungan pokok menggunakan DP 0% dan biaya layanan 3%; tidak ada pembayaran ke Peminjam atau merchant."
+          : "Perhitungan nilai bersih menggunakan 95% dari pokok; tidak ada pencairan ke Peminjam."
       }</li>
     </ol>
 
     <h2>Bagian 2 — Ilustrasi Imbal Hasil</h2>
     <ol>
-      <li>Perhitungan imbal hasil simulasi ${
+      <li>Perhitungan imbal hasil ${
         c.tenorBulan !== null
           ? "menggunakan bunga menurun (tenor 1 bulan 10%/bulan, 3–5 bulan 8%/bulan, ≥ 6 bulan 7,5%/bulan) atas porsi pokok pada ledger"
           : "menggunakan bunga 30% atas porsi pokok pada ledger"
       }: <strong>${formatRupiah(c.imbalHasil)}</strong>.</li>
       <li>Angka tersebut adalah ilustrasi internal; tidak menjamin atau membuktikan adanya pembayaran imbal hasil maupun pengembalian pokok.</li>
-      <li>Jumlah pokok + imbal hasil dalam simulasi: <strong>${formatRupiah(c.jumlahAlokasi + c.imbalHasil)}</strong>; bukan jumlah yang telah diterima atau dapat ditarik.</li>
+      <li>Jumlah pokok + imbal hasil: <strong>${formatRupiah(c.jumlahAlokasi + c.imbalHasil)}</strong>; bukan jumlah yang telah diterima atau dapat ditarik.</li>
     </ol>
 
     <h2>Bagian 3 — Status Catatan</h2>
@@ -133,7 +133,7 @@ function ContractPreviewButton({ html }: { html: string }) {
           return;
         }
         w.document.write(
-          `<!doctype html><html lang="id"><head><meta charset="utf-8"/><title>Catatan simulasi PINDAI</title></head><body>${html}</body></html>`,
+          `<!doctype html><html lang="id"><head><meta charset="utf-8"/><title>Catatan PINDAI</title></head><body>${html}</body></html>`,
         );
         w.document.close();
       }}

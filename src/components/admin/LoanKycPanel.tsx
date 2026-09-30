@@ -108,7 +108,7 @@ export function LoanKycPanel({ row }: { row: LoanRow }) {
           {row.nomorWhatsApp && (
             <div className="space-y-2">
               <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900">
-                Tombol ini langsung mengirim template aktif ke nomor yang tersimpan (tidak menampilkan draf terlebih dahulu). Periksa dan ubah template di tab WhatsApp sebelum mengirim; nomor dan identitas tidak diverifikasi. Nilai/tanggal ledger hanya simulasi internal, bukan tagihan atau tunggakan terverifikasi.
+                Tombol ini langsung mengirim template aktif ke nomor yang tersimpan (tidak menampilkan draf terlebih dahulu). Periksa dan ubah template di tab WhatsApp sebelum mengirim; nomor dan identitas tidak diverifikasi. Nilai/tanggal ledger hanya catatan internal, bukan tagihan atau tunggakan terverifikasi.
               </p>
               <div className="flex flex-wrap gap-2">
                 <Button size="sm" disabled={waBusy} onClick={kirim}>
@@ -117,7 +117,7 @@ export function LoanKycPanel({ row }: { row: LoanRow }) {
                 </Button>
                 <a
                   href={`https://wa.me/${row.nomorWhatsApp}?text=${encodeURIComponent(
-                    `Halo. Pesan ini merujuk pada catatan aplikasi PINDAI ${row.nomorReferensi}: angka kewajiban simulasi ${formatRupiah(row.totalKewajibanDenganPenalti ?? 0)}${(row.hariTerlambat ?? 0) > 0 ? ` dan denda simulasi ${formatRupiah(row.dendaTerlambat ?? 0)} dengan tanggal acuan terlewati ${row.hariTerlambat ?? 0} hari` : ""}. Angka dan status ini hanya catatan ledger internal; bukan tagihan, tunggakan terverifikasi, bukti transfer, atau kewajiban pembayaran aktual. Untuk pertanyaan, gunakan kanal resmi PINDAI yang sudah Anda konfirmasi.`,
+                    `Halo. Pesan ini merujuk pada catatan aplikasi PINDAI ${row.nomorReferensi}: angka kewajiban ${formatRupiah(row.totalKewajibanDenganPenalti ?? 0)}${(row.hariTerlambat ?? 0) > 0 ? ` dan denda ${formatRupiah(row.dendaTerlambat ?? 0)} dengan tanggal acuan terlewati ${row.hariTerlambat ?? 0} hari` : ""}. Angka dan status ini hanya catatan ledger internal; bukan tagihan, tunggakan terverifikasi, bukti transfer, atau kewajiban pembayaran aktual. Untuk pertanyaan, gunakan kanal resmi PINDAI yang sudah Anda konfirmasi.`,
                   )}`}
                   target="_blank"
                   rel="noreferrer"

@@ -168,7 +168,7 @@ export function AdminStats({ stats }: { stats: AdminStatsData }) {
     { label: "Catatan pinjaman", value: `${stats.totalPinjaman}`, tone: "sky", Icon: Landmark },
     { label: "Catatan gadai", value: `${stats.totalGadai}`, tone: "sky", Icon: Database },
     { label: "Pinjaman disetujui (status internal)", value: `${stats.pinjamanDisetujui}`, tone: "sky", Icon: CircleDollarSign },
-    { label: "Tanggal acuan terlewati (simulasi)", value: `${stats.pinjamanTerlambat}`, tone: stats.pinjamanTerlambat > 0 ? "red" : "mint", Icon: Clock3 },
+    { label: "Tanggal acuan terlewati", value: `${stats.pinjamanTerlambat}`, tone: stats.pinjamanTerlambat > 0 ? "red" : "mint", Icon: Clock3 },
     { label: "Nilai taksiran internal (tidak diverifikasi)", value: formatRupiah(stats.nilaiTaksiranDisetujui), tone: "mint", Icon: CircleDollarSign },
     { label: "Pola koordinat untuk ditinjau", value: `${stats.gpsMismatch}`, tone: stats.gpsMismatch > 0 ? "red" : "mint", Icon: MapPin },
     { label: "Koordinat perangkat tidak tersedia", value: `${stats.pinjamanTanpaLokasi}`, tone: stats.pinjamanTanpaLokasi > 0 ? "red" : "mint", Icon: MapPin },

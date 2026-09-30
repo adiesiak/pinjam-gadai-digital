@@ -40,7 +40,7 @@ export function SystemConfigPanel() {
         <div className="grid grid-cols-3 gap-3">
           {(["persenAdmin", "persenPlatform", "persenBunga"] as const).map((k) => (
             <div key={k}>
-              <Label htmlFor={`cfg-${k}`}>{k === "persenAdmin" ? "Biaya admin simulasi %" : k === "persenPlatform" ? "Biaya platform simulasi %" : "Bunga simulasi %"}</Label>
+              <Label htmlFor={`cfg-${k}`}>{k === "persenAdmin" ? "Biaya admin %" : k === "persenPlatform" ? "Biaya platform %" : "Bunga %"}</Label>
               <Input
                 id={`cfg-${k}`}
                 type="number"
@@ -54,7 +54,7 @@ export function SystemConfigPanel() {
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <Label htmlFor="cfg-ltv">Maks LTV gadai simulasi (%)</Label>
+            <Label htmlFor="cfg-ltv">Maks LTV gadai (%)</Label>
             <Input id="cfg-ltv" type="number" min={1} max={100} value={form.maxLtvPersen} onChange={(e) => upd("maxLtvPersen", Math.min(100, Math.max(1, Number(e.target.value) || 1)))} className="tabular-nums" />
           </div>
           <div>
@@ -66,7 +66,7 @@ export function SystemConfigPanel() {
             <Input id="cfg-mismatch" type="number" min={1} value={form.gpsMismatchKm} onChange={(e) => upd("gpsMismatchKm", Math.max(1, Number(e.target.value) || 1))} className="tabular-nums" />
           </div>
           <div>
-            <Label htmlFor="cfg-vaultkm">Ambang jarak akses simulasi (km)</Label>
+            <Label htmlFor="cfg-vaultkm">Ambang jarak akses (km)</Label>
             <Input id="cfg-vaultkm" type="number" min={1} value={form.pencairanMaxKm} onChange={(e) => upd("pencairanMaxKm", Math.max(1, Number(e.target.value) || 1))} className="tabular-nums" />
           </div>
         </div>
@@ -84,7 +84,7 @@ export function SystemConfigPanel() {
           <div id="cfg-location-gate-label">
             <p className="text-sm font-medium text-emerald-900">Gerbang lokasi wajib</p>
             <p className="mt-0.5 text-xs text-muted-foreground">
-              Akses ke dashboard dan aksi pencatatan simulasi dapat dibatasi bila koordinat terbaru belum diterima server. Titik yang dilaporkan perangkat bukan verifikasi lokasi atau identitas; fitur ini tidak memproses pembayaran.
+              Akses ke dashboard dan aksi pencatatan dapat dibatasi bila koordinat terbaru belum diterima server. Titik yang dilaporkan perangkat bukan verifikasi lokasi atau identitas; fitur ini tidak memproses pembayaran.
             </p>
           </div>
           <Switch aria-labelledby="cfg-location-gate-label" aria-label="Gerbang lokasi wajib" checked={form.lokasiWajib} onCheckedChange={(v) => upd("lokasiWajib", v)} />
@@ -102,11 +102,11 @@ export function SystemConfigPanel() {
             className="tabular-nums"
           />
           <p className="mt-1 text-xs leading-5 text-muted-foreground">
-            Titik lebih tua dari batas ini → aksi aplikasi Peminjam ditolak server-side. Ini batas akses/pencatatan simulasi, bukan konfirmasi pembayaran atau transaksi eksternal.
+            Titik lebih tua dari batas ini → aksi aplikasi Peminjam ditolak server-side. Ini batas akses/pencatatan, bukan konfirmasi pembayaran atau transaksi eksternal.
           </p>
         </div>
         <div>
-          <Label htmlFor="cfg-plafon">Plafon simulasi pinjaman default (rupiah)</Label>
+          <Label htmlFor="cfg-plafon">Plafon pinjaman default (rupiah)</Label>
           <Input
             id="cfg-plafon"
             inputMode="numeric"
@@ -118,7 +118,7 @@ export function SystemConfigPanel() {
             className="tabular-nums"
           />
           <p className="mt-1 text-xs leading-5 text-muted-foreground">
-            Plafon awal simulasi pinjaman tunai. Status lunas tepat waktu pada ledger untuk catatan pinjaman dengan pokok minimal Rp1 juta dapat menaikkan plafon simulasi dasar Rp1 juta, hingga Rp10 juta; status dan tanggal ini bukan bukti pembayaran aktual atau verifikasi eksternal. Override admin per nasabah didahulukan. Rentang {formatRupiah(PLAFON_BATAS.min)}–{formatRupiah(PLAFON_BATAS.maks)}. Batas kredit barang terpisah: pokok maksimal Rp10 juta, tenor pengajuan maksimal 6 bulan.
+            Plafon awal pinjaman tunai. Status lunas tepat waktu pada ledger untuk catatan pinjaman dengan pokok minimal Rp1 juta dapat menaikkan plafon dasar Rp1 juta, hingga Rp10 juta; status dan tanggal ini bukan bukti pembayaran aktual atau verifikasi eksternal. Override admin per nasabah didahulukan. Rentang {formatRupiah(PLAFON_BATAS.min)}–{formatRupiah(PLAFON_BATAS.maks)}. Batas kredit barang terpisah: pokok maksimal Rp10 juta, tenor pengajuan maksimal 6 bulan.
           </p>
         </div>
         <div>
@@ -153,7 +153,7 @@ export function SystemConfigPanel() {
           <div id="cfg-native-location-label">
             <p className="text-sm font-medium">Wajib aplikasi (lokasi latar belakang)</p>
             <p className="mt-0.5 text-xs leading-5 text-muted-foreground">
-              Akses ke fitur simulasi dapat dibatasi kecuali titik lokasi terakhir dilaporkan aplikasi resmi dan perangkat mengirim heartbeat dalam 24 jam terakhir. Titik perangkat bukan verifikasi lokasi fisik atau identitas dan kebijakan ini tidak memproses pembayaran. Pengguna browser akan ditolak walau pernah memasang aplikasi; tab browser yang dibiarkan terbuka tetap melaporkan titik dari browser. Browser tidak melacak lokasi setelah tab ditutup, jadi menyalakan kebijakan ini sebelum aplikasi Android/iOS dirilis akan memblokir akses pengguna web.
+              Akses ke fitur ini dapat dibatasi kecuali titik lokasi terakhir dilaporkan aplikasi resmi dan perangkat mengirim heartbeat dalam 24 jam terakhir. Titik perangkat bukan verifikasi lokasi fisik atau identitas dan kebijakan ini tidak memproses pembayaran. Pengguna browser akan ditolak walau pernah memasang aplikasi; tab browser yang dibiarkan terbuka tetap melaporkan titik dari browser. Browser tidak melacak lokasi setelah tab ditutup, jadi menyalakan kebijakan ini sebelum aplikasi Android/iOS dirilis akan memblokir akses pengguna web.
             </p>
           </div>
           <Switch

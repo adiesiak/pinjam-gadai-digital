@@ -158,7 +158,7 @@ export function SetoranSection({
               ))}
             </div>
             <p className="mt-4 text-xs leading-5 text-muted-foreground">
-              Jurnal internal append-only. Keseimbangan debit/kredit hanya memeriksa entri ledger, bukan transaksi bank. Nilai biaya pinjaman, potongan gadai, dan layanan Kredit Barang adalah catatan simulasi, bukan pendapatan yang diterima.
+              Jurnal internal append-only. Keseimbangan debit/kredit hanya memeriksa entri ledger, bukan transaksi bank. Nilai biaya pinjaman, potongan gadai, dan layanan Kredit Barang adalah catatan internal, bukan pendapatan yang diterima.
             </p>
           </>
         )}

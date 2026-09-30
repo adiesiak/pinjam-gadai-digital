@@ -112,7 +112,7 @@ function GadaiProjectionCard({
           <dd className="font-semibold tabular-nums">{formatRupiah(pawn.sisa)}</dd>
         </div>
         <div className="flex justify-between gap-3">
-          <dt className="text-muted-foreground">Sewa periode berikutnya (simulasi)</dt>
+          <dt className="text-muted-foreground">Sewa periode berikutnya</dt>
           <dd className="tabular-nums">{formatRupiah(sewa)} · {pawn.persen}%</dd>
         </div>
       </dl>

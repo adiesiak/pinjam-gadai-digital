@@ -84,7 +84,7 @@ export function LoanReviewDialog({
         <DialogHeader>
           <div className="flex items-center justify-between gap-3">
             <DialogTitle className="tabular-nums">
-              Pokok simulasi · {formatRupiah(row.pokokPinjaman)}
+              Pokok pinjaman · {formatRupiah(row.pokokPinjaman)}
             </DialogTitle>
             <StatusBadge status={row.status} kind="loan" />
           </div>
@@ -96,7 +96,7 @@ export function LoanReviewDialog({
         <LoanKycPanel row={row} />
 
         <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-900">
-          Nominal, tanggal acuan, alokasi, dan status lunas di panel ini adalah catatan simulasi ledger internal. Tidak ada dana yang ditransfer, dan status tidak memverifikasi pembayaran.
+          Nominal, tanggal acuan, alokasi, dan status lunas di panel ini adalah catatan ledger internal. Tidak ada dana yang ditransfer, dan status tidak memverifikasi pembayaran.
         </p>
 
         <EContractWidget kind="loan" loanId={row._id} />
@@ -111,16 +111,16 @@ export function LoanReviewDialog({
             [
               "Skema",
               row.tenorBulan !== null
-                ? `Bulanan (simulasi) — ${row.tenorBulan} bulan`
-                : `Harian (simulasi) — ${row.tenorHari ?? 30} hari`,
+                ? `Bulanan — ${row.tenorBulan} bulan`
+                : `Harian — ${row.tenorHari ?? 30} hari`,
             ],
             ["Catatan pemohon", row.catatanPeminjam ?? "—"],
             ...(row.tenorBulan !== null
               ? ([
-                  ["Uang muka pada simulasi (DP 0%)", formatRupiah(0)],
-                  ["Pokok simulasi (tidak ditransfer)", formatRupiah(row.pokokPinjaman)],
+                  ["Uang muka (DP 0%)", formatRupiah(0)],
+                  ["Pokok pinjaman (tidak ditransfer)", formatRupiah(row.pokokPinjaman)],
                   [
-                    "Biaya layanan simulasi (3% dari pokok)",
+                    "Biaya layanan (3% dari pokok)",
                     formatRupiah(
                       row.biayaLayananTotal ??
                         Math.max(
@@ -131,16 +131,16 @@ export function LoanReviewDialog({
                         ),
                     ),
                   ],
-                  ["Bunga menurun pada simulasi", formatRupiah(row.imbalHasilTotal ?? 0)],
+                  ["Bunga menurun", formatRupiah(row.imbalHasilTotal ?? 0)],
                   ["Cicilan per bulan (ilustrasi)", formatRupiah(row.cicilanPerBulan ?? 0)],
-                  ["Total pengembalian simulasi", formatRupiah(row.totalKewajiban ?? 0)],
+                  ["Total pengembalian", formatRupiah(row.totalKewajiban ?? 0)],
                 ] as Array<[string, string]>)
               : ([
-                  ["Biaya admin simulasi (3%)", formatRupiah(q.biayaAdmin)],
-                  ["Biaya platform simulasi (2%)", formatRupiah(q.biayaPlatform)],
-                  ["Nilai bersih simulasi (95%; tidak ditransfer)", formatRupiah(q.danaBersihDitransfer)],
-                  ["Bunga simulasi (30%)", formatRupiah(q.bunga)],
-                  ["Total kewajiban simulasi (130%)", formatRupiah(q.totalKewajibanPelunasan)],
+                  ["Biaya admin (3%)", formatRupiah(q.biayaAdmin)],
+                  ["Biaya platform (2%)", formatRupiah(q.biayaPlatform)],
+                  ["Nilai bersih (95%; tidak ditransfer)", formatRupiah(q.danaBersihDitransfer)],
+                  ["Bunga (30%)", formatRupiah(q.bunga)],
+                  ["Total kewajiban (130%)", formatRupiah(q.totalKewajibanPelunasan)],
                 ] as Array<[string, string]>)),
           ].map(([label, value]) => (
             <div key={label} className="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-2 px-3 py-3 sm:gap-4 sm:px-4">
@@ -166,20 +166,20 @@ export function LoanReviewDialog({
               }`}
             >
               {(row.hariTerlambat ?? 0) > 0
-                ? `Tanggal acuan simulasi terlewati ${row.hariTerlambat} hari`
+                ? `Tanggal acuan terlewati ${row.hariTerlambat} hari`
                 : (row.sisaHari ?? 0) === 0
-                  ? "Tanggal acuan simulasi hari ini"
-                  : `Tanggal acuan simulasi dalam ${row.sisaHari} hari`}
+                  ? "Tanggal acuan hari ini"
+                  : `Tanggal acuan dalam ${row.sisaHari} hari`}
             </p>
             <p className="mt-1 text-sm">
-              Tanggal acuan simulasi {formatDate(row.jatuhTempoPada)} · total simulasi dengan denda{" "}
+              Tanggal acuan {formatDate(row.jatuhTempoPada)} · total dengan denda{" "}
               <span className="font-semibold tabular-nums">
                 {formatRupiah(row.totalKewajibanDenganPenalti ?? 0)}
               </span>
               {(row.dendaTerlambat ?? 0) > 0 && (
                 <span className="tabular-nums text-destructive">
                   {" "}
-                  (denda simulasi {formatRupiah(row.dendaTerlambat ?? 0)})
+                  (denda {formatRupiah(row.dendaTerlambat ?? 0)})
                 </span>
               )}
             </p>

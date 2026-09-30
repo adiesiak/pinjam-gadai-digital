@@ -86,7 +86,7 @@ export function LoanDetailDialog({
                   <dt className="text-sm text-muted-foreground">{label}</dt>
                   <dd
                     className={`text-sm tabular-nums ${
-                      label.startsWith("Nilai bersih simulasi") ||
+                      label.startsWith("Perkiraan nilai bersih") ||
                       index === semua.length - 1
                         ? "font-semibold"
                         : ""
@@ -111,20 +111,20 @@ export function LoanDetailDialog({
                   loan.pelunasan.hariTerlambat > 0 ? "border-red-200 bg-red-50/60" : "border-slate-200"
                 }`}
               >
-                <p className="text-sm font-medium">Pelunasan pada simulasi ledger</p>
+                <p className="text-sm font-medium">Pelunasan pada ledger</p>
                 <dl className="mt-3 space-y-1.5 text-sm">
                   <div className="flex items-baseline justify-between gap-4">
-                    <dt className="text-muted-foreground">Tanggal acuan simulasi</dt>
+                    <dt className="text-muted-foreground">Tanggal acuan</dt>
                     <dd className="tabular-nums">{formatDate(loan.pelunasan.jatuhTempoPada)}</dd>
                   </div>
                   {loan.pelunasan.hariTerlambat > 0 ? (
                     <div className="flex items-baseline justify-between gap-4">
-                      <dt className="text-red-600">Tanggal acuan simulasi terlampaui {loan.pelunasan.hariTerlambat} hari</dt>
+                      <dt className="text-red-600">Tanggal acuan terlampaui {loan.pelunasan.hariTerlambat} hari</dt>
                       <dd className="tabular-nums text-red-600">+{formatRupiah(loan.pelunasan.dendaTerlambat)}</dd>
                     </div>
                   ) : (
                     <div className="flex items-baseline justify-between gap-4">
-                      <dt className="text-muted-foreground">Sisa waktu pada simulasi</dt>
+                      <dt className="text-muted-foreground">Sisa waktu</dt>
                       <dd className="tabular-nums">
                         {loan.pelunasan.sisaHari === 0 ? "Hari ini" : `${loan.pelunasan.sisaHari} hari`}
                       </dd>

@@ -29,7 +29,7 @@ export function RoleDashboardMenu() {
           {
             href: "/dashboard",
             label: "Dashboard Peminjam",
-            description: "Lihat catatan simulasi pinjaman dan pengajuan",
+            description: "Lihat catatan pinjaman dan pengajuan",
             icon: LayoutDashboard,
           },
         ]
@@ -38,7 +38,7 @@ export function RoleDashboardMenu() {
             {
               href: "/pendana",
               label: "Dashboard Pendana",
-              description: "Lihat saldo simulasi dan catat alokasi di ledger",
+              description: "Lihat saldo dan catat alokasi di ledger",
               icon: Wallet,
             },
           ]
@@ -46,13 +46,13 @@ export function RoleDashboardMenu() {
             {
               href: "/dashboard",
               label: "Dashboard Peminjam",
-              description: "Lihat catatan simulasi pinjaman dan pengajuan",
+              description: "Lihat catatan pinjaman dan pengajuan",
               icon: LayoutDashboard,
             },
             {
               href: "/pendana",
-              label: "Jelajahi mode Pendana simulasi",
-              description: "Buka ruang simulasi ledger Pendana",
+              label: "Jelajahi mode Pendana",
+              description: "Buka ruang ledger Pendana",
               icon: Wallet,
             },
           ];

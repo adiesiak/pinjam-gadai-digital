@@ -36,25 +36,25 @@ export function DueReminderBanner({
         <div>
           <p className={`text-[11px] font-medium uppercase tracking-[0.18em] ${terlambat ? "text-red-600" : "text-muted-foreground"}`}>
             {terlambat
-              ? `Tanggal acuan simulasi terlewati ${reminder.hariTerlambat} hari — denda simulasi`
+              ? `Tanggal acuan terlewati ${reminder.hariTerlambat} hari — denda`
               : reminder.sisaHari === 0
-                ? "Tanggal acuan simulasi hari ini"
-                : `Tanggal acuan simulasi dalam ${reminder.sisaHari} hari`}
+                ? "Tanggal acuan hari ini"
+                : `Tanggal acuan dalam ${reminder.sisaHari} hari`}
           </p>
           <p className="mt-1 text-sm leading-6 text-muted-foreground">
-            Catatan pinjaman {reminder.nomorReferensi} memakai tanggal acuan simulasi{" "}
+            Catatan pinjaman {reminder.nomorReferensi} memakai tanggal acuan{" "}
             <span className="font-medium text-foreground">{formatDate(reminder.jatuhTempoPada)}</span>.
-            {terlambat ? " Denda yang tampil merupakan hitungan simulasi, bukan tagihan." : " Tanggal ini bukan tagihan atau bukti transaksi."}
+            {terlambat ? " Denda yang tampil merupakan hitungan internal, bukan tagihan." : " Tanggal ini bukan tagihan atau bukti transaksi."}
           </p>
         </div>
         <div className="text-right">
-          <p className="text-xs text-muted-foreground">Total kewajiban simulasi · bukan tagihan</p>
+          <p className="text-xs text-muted-foreground">Total kewajiban · bukan tagihan</p>
           <p className="mt-1 text-xl font-semibold tabular-nums">
             {formatRupiah(reminder.totalKewajibanDenganPenalti)}
           </p>
           {terlambat && (
             <p className="mt-0.5 text-xs tabular-nums text-red-600">
-              denda simulasi {formatRupiah(reminder.dendaTerlambat)}
+              denda {formatRupiah(reminder.dendaTerlambat)}
             </p>
           )}
         </div>

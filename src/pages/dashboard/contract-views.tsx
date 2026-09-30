@@ -19,7 +19,7 @@ import { quoteLoan } from "@/lib/loan";
 import { formatRupiah } from "@/lib/money";
 import { EmptyState } from "./empty-state";
 
-/** Tab 4 — catatan simulasi dan lampiran aplikasi. */
+/** Tab 4 — catatan pengajuan dan lampiran aplikasi. */
 export function MyContractsSection({
   contracts,
 }: {
@@ -68,7 +68,7 @@ export function MyContractsSection({
     return (
       <EmptyState
         icon={ScrollText}
-        title="Belum ada catatan simulasi"
+        title="Belum ada catatan pengajuan"
         body="Ringkasan data dan hitungan internal akan tampil di sini jika tersedia. Catatan ini bukan kontrak, bukti transaksi, atau tanda tangan terverifikasi."
       />
     );
@@ -77,7 +77,7 @@ export function MyContractsSection({
     <div className="space-y-6">
       {contracts.pinjaman.length > 0 && (
         <section>
-          <h3 className="text-sm font-semibold">Catatan simulasi pinjaman</h3>
+          <h3 className="text-sm font-semibold">Catatan pinjaman</h3>
           <ul className="mt-3 space-y-3">
             {contracts.pinjaman.map((c) => (
               <li key={c._id}>
@@ -89,7 +89,7 @@ export function MyContractsSection({
       )}
       {contracts.gadai.length > 0 && (
         <section>
-          <h3 className="text-sm font-semibold">Catatan simulasi gadai</h3>
+          <h3 className="text-sm font-semibold">Catatan gadai</h3>
           <ul className="mt-3 space-y-3">
             {contracts.gadai.map((c) => (
               <li
@@ -140,7 +140,7 @@ function LoanContractCard({
   };
 }) {
   const q = quoteLoan(c.pokokPinjaman);
-  // Simulasi bulanan: data warisan di luar rentang skema dilewati dengan aman.
+  // Ringkasan bulanan: data warisan di luar rentang skema dilewati dengan aman.
   const bulanan = useMemo(() => {
     if (c.tenorBulan === null) return null;
     try {
@@ -182,16 +182,16 @@ function LoanContractCard({
           <p className="text-sm font-semibold">{judulContract("pinjaman")}</p>
           <p className="mt-0.5 truncate text-xs text-muted-foreground">
             <span className="font-mono">{nomorContract("pinjaman", c.nomorReferensi)}</span> ·
-            pokok acuan simulasi {formatRupiah(c.pokokPinjaman)} ·{" "}
+            pokok {formatRupiah(c.pokokPinjaman)} ·{" "}
             {bulanan !== null ? (
               <>
-                simulasi tenor {bulanan.tenorBulan} bulan · cicilan menurun dari{" "}
-                {formatRupiah(bulanan.cicilanPerBulan)} ke {formatRupiah(bulanan.cicilanTerakhir)} · total simulasi{" "}
+                tenor {bulanan.tenorBulan} bulan · cicilan menurun dari{" "}
+                {formatRupiah(bulanan.cicilanPerBulan)} ke {formatRupiah(bulanan.cicilanTerakhir)} · total{" "}
                 {formatRupiah(bulanan.totalPengembalian)}
               </>
             ) : (
               <>
-                nilai bersih simulasi {formatRupiah(q.danaBersihDitransfer)} (tidak ditransfer) · total kewajiban simulasi{" "}
+                nilai bersih {formatRupiah(q.danaBersihDitransfer)} (tidak ditransfer) · total kewajiban{" "}
                 {formatRupiah(q.totalKewajibanPelunasan)} (tidak ditagihkan)
               </>
             )}
@@ -252,7 +252,7 @@ function PawnContractActions({ pawnId, pawnRef }: { pawnId: Id<"pawns">; pawnRef
   );
 }
 
-/** Rangkai catatan simulasi gadai dari data yang tersimpan untuk peminjam. */
+/** Rangkai catatan gadai dari data yang tersimpan untuk peminjam. */
 function buildGadaiContractMilikSendiri(detail: {
   nomorReferensi: string;
   tandaTanganPeminjam?: string;

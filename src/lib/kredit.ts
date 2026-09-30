@@ -469,7 +469,7 @@ export function hakImbalHasilPerAlokasi(
   return hak;
 }
 
-/** Contoh barang merchant mitra untuk simulasi kalkulator. */
+/** Contoh barang merchant mitra untuk kalkulator. */
 export interface ContohBarang {
   nama: string;
   kategori: string;

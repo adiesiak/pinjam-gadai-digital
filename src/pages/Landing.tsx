@@ -106,7 +106,7 @@ const SECURITY = [
   { icon: Scale, label: "Rincian biaya dan bunga ditampilkan terpisah" },
   { icon: Vault, label: "Status gadai bukan bukti penitipan fisik" },
   { icon: ShieldCheck, label: "Persetujuan aplikasi bukan jaminan pendanaan" },
-  { icon: Calculator, label: "Angka merupakan perhitungan simulasi" },
+  { icon: Calculator, label: "Angka merupakan perhitungan aplikasi" },
   { icon: Eye, label: "Status dashboard adalah catatan internal" },
 ] as const;
 
@@ -172,7 +172,7 @@ function LiveCalculator() {
           <span className="inline-flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-primary"><Calculator className="size-3.5" /> Kalkulator interaktif</span>
           <span className="rounded-full border border-primary/15 bg-white px-2.5 py-1 text-[10px] font-medium text-primary">Hasil langsung</span>
         </div>
-        <h3 className="mt-2 text-lg font-semibold text-slate-900">Simulasi pinjaman</h3>
+        <h3 className="mt-2 text-lg font-semibold text-slate-900">Kalkulator pinjaman</h3>
         <p className="mt-1 text-xs leading-5 text-slate-500">Ubah nominal dan tenor untuk melihat perhitungan sebelum masuk.</p>
       </div>
 
@@ -200,7 +200,7 @@ function LiveCalculator() {
       <div className="mt-5">
         <div className="flex items-baseline justify-between">
           <label htmlFor="calc-nominal" className="text-sm font-medium text-slate-700">
-            Pokok simulasi
+            Pokok pinjaman
           </label>
           <span className="text-sm font-semibold tabular-nums text-slate-900">
             {formatRupiah(amount)}
@@ -236,7 +236,7 @@ function LiveCalculator() {
       </div>
 
       <div className="mt-5">
-        <p className="text-sm font-medium text-slate-700">Tenor simulasi</p>
+        <p className="text-sm font-medium text-slate-700">Tenor</p>
         <div className="mt-2 grid grid-cols-3 gap-2">
           {bulanan
             ? TENOR_BULANAN_OPTIONS.map((t) => (
@@ -294,8 +294,8 @@ function LiveCalculator() {
                 ],
               ] as Array<[string, string, boolean?]>)
             : ([
-                ["Bunga simulasi (30%)", formatRupiah(quote.bunga), false],
-                ["Nilai bersih simulasi (95%; tidak ditransfer)", formatRupiah(quote.danaBersihDitransfer), true],
+                ["Bunga (30%)", formatRupiah(quote.bunga), false],
+                ["Nilai bersih (95%; tidak ditransfer)", formatRupiah(quote.danaBersihDitransfer), true],
               ] as Array<[string, string, boolean?]>)
         ).map(([term, value, strong]) => (
           <div key={term} className="flex items-baseline justify-between gap-4">
@@ -310,7 +310,7 @@ function LiveCalculator() {
           </div>
         ))}
         <div className="flex items-baseline justify-between gap-4 border-t border-slate-200 pt-2.5">
-          <dt className="font-semibold text-slate-900">Total pelunasan simulasi</dt>
+          <dt className="font-semibold text-slate-900">Total pelunasan</dt>
           <dd className="text-base font-semibold tabular-nums text-slate-900">
             {formatRupiah(sim !== null ? sim.totalPengembalian : quote.totalKewajibanPelunasan)}
           </dd>
@@ -318,12 +318,12 @@ function LiveCalculator() {
       </dl>
 
       <p className="mt-4 text-xs leading-5 text-slate-500">
-        Ini simulasi perhitungan, bukan persetujuan atau pencairan dana. Skema bulanan menampilkan ilustrasi angsuran; pencatatan pelunasan di sistem dilakukan sekaligus saat jatuh tempo. Tidak ada transfer bank/e-wallet atau pembayaran eksternal.
+        Ini perhitungan aplikasi, bukan persetujuan atau pencairan dana. Skema bulanan menampilkan ilustrasi angsuran; pencatatan pelunasan di sistem dilakukan sekaligus saat jatuh tempo. Tidak ada transfer bank/e-wallet atau pembayaran eksternal.
       </p>
 
       <Button asChild className="mt-5 h-11 w-full bg-primary text-white hover:bg-primary/90">
         <Link to="/auth">
-          Buat akun untuk mencatat simulasi
+          Buat akun untuk mengajukan
           <ArrowRight className="ml-1.5 size-4" />
         </Link>
       </Button>
@@ -485,7 +485,7 @@ export default function Landing() {
   const navItems = [
     { href: "#pinjaman", label: c(cms?.nav1, "Pinjaman") },
     { href: "#gadai", label: c(cms?.nav2, "Gadai") },
-    { href: "#simulasi", label: c(cms?.nav3, "Simulasi") },
+    { href: "#kalkulator", label: c(cms?.nav3, "Kalkulator") },
     { href: "#keamanan", label: c(cms?.nav4, "Keamanan") },
   ];
 
@@ -542,14 +542,14 @@ export default function Landing() {
   }, [menuOpen]);
 
   const scrollToCalculator = () => {
-    document.getElementById("simulasi")?.scrollIntoView({ behavior: "smooth" });
+    document.getElementById("kalkulator")?.scrollIntoView({ behavior: "smooth" });
   };
 
   const steps = [
     {
       icon: Landmark,
       title: "Isi data",
-      body: "Masukkan parameter simulasi dan informasi pengajuan yang ingin dicatat di akun Anda.",
+      body: "Masukkan parameter pinjaman dan informasi pengajuan yang ingin dicatat di akun Anda.",
     },
     {
       icon: ShieldCheck,
@@ -718,13 +718,13 @@ export default function Landing() {
                   onClick={scrollToCalculator}
                   className="h-12 rounded-full border-slate-300 bg-white/70 px-6 text-slate-700 hover:bg-white"
                 >
-                  Lihat simulasi
+                  Lihat kalkulator
                 </Button>
               </div>
               <div className="mt-9 flex flex-wrap items-center gap-x-6 gap-y-3 border-t border-slate-300/70 pt-5 text-xs font-medium text-slate-600 sm:text-sm">
                 <span className="flex items-center gap-2"><BadgeCheck className="size-4 text-primary" />Rincian biaya terbuka</span>
                 <span className="flex items-center gap-2"><Lock className="size-4 text-primary" />Riwayat per akun</span>
-                <span className="flex items-center gap-2"><Calculator className="size-4 text-primary" />Angka simulasi</span>
+                <span className="flex items-center gap-2"><Calculator className="size-4 text-primary" />Angka kalkulator</span>
               </div>
             </motion.div>
 
@@ -747,7 +747,7 @@ export default function Landing() {
                         <p className="mt-1 text-sm font-semibold">{c(cms?.chip1Label, CMS_DEFAULTS.chips.chip1.label)}</p>
                       </div>
                     </div>
-                    <span className="rounded-full border border-[#d8c28c]/35 bg-[#d8c28c]/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#e6d3a5]">Simulasi</span>
+                    <span className="rounded-full border border-[#d8c28c]/35 bg-[#d8c28c]/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#e6d3a5]">Kalkulator</span>
                   </div>
                   <div className="mt-8 rounded-2xl border border-white/10 bg-white/[0.07] p-5 backdrop-blur-sm sm:p-6">
                     <p className="text-xs text-white/60">{c(cms?.chip2Label, CMS_DEFAULTS.chips.chip2.label)}</p>
@@ -846,8 +846,8 @@ export default function Landing() {
           </div>
         </section>
 
-        {/* Simulasi + langkah */}
-        <section id="simulasi" className="mx-auto w-full max-w-6xl scroll-mt-24 px-6 py-20">
+        {/* Kalkulator + langkah */}
+        <section id="kalkulator" className="mx-auto w-full max-w-6xl scroll-mt-24 px-6 py-20">
           <div className="grid gap-10 lg:grid-cols-2">
             <LiveCalculator />
             <div>
@@ -855,7 +855,7 @@ export default function Landing() {
                 Tiga langkah
               </h2>
               <p className="mt-3 text-base leading-7 text-slate-600">
-                Proses ringkas dengan angka yang sama seperti yang Anda lihat di simulasi.
+                Proses ringkas dengan angka yang sama seperti yang Anda lihat di kalkulator.
               </p>
               <ol className="mt-8 space-y-6">
                 {steps.map(({ icon: Icon, title, body }, i) => (
@@ -874,7 +874,7 @@ export default function Landing() {
                 ))}
               </ol>
               <p className="mt-8 rounded-xl bg-slate-50 p-4 text-xs leading-5 text-slate-600">
-                Seluruh angka berikut adalah <b className="font-semibold text-slate-900">simulasi ledger internal</b>, bukan dana dari Pendana terverifikasi atau bukti pendanaan. Skema harian menghitung nilai bersih 95% dan total kewajiban 130%; tidak ada pencairan atau transfer. Skema bulanan (1/3/6 bulan, hingga Rp 10 juta) menampilkan DP 0%, biaya admin 5% + platform 2% untuk tenor 3/6 bulan (atau biaya layanan 3% untuk tenor 1 bulan), semuanya dimodelkan dalam cicilan tanpa potongan di muka; bunga menurun 30%/25%/20% per bulan sesuai tenor. Status dan rincian kontrak hanya catatan aplikasi, bukan tanda tangan digital atau transaksi eksternal.
+                Seluruh angka berikut adalah <b className="font-semibold text-slate-900">perhitungan ledger internal</b>, bukan dana dari Pendana terverifikasi atau bukti pendanaan. Skema harian menghitung nilai bersih 95% dan total kewajiban 130%; tidak ada pencairan atau transfer. Skema bulanan (1/3/6 bulan, hingga Rp 10 juta) menampilkan DP 0%, biaya admin 5% + platform 2% untuk tenor 3/6 bulan (atau biaya layanan 3% untuk tenor 1 bulan), semuanya dimodelkan dalam cicilan tanpa potongan di muka; bunga menurun 30%/25%/20% per bulan sesuai tenor. Status dan rincian kontrak hanya catatan aplikasi, bukan tanda tangan digital atau transaksi eksternal.
               </p>
             </div>
           </div>
@@ -885,7 +885,7 @@ export default function Landing() {
           <div className="mx-auto w-full max-w-6xl px-6 py-20">
             <div className="max-w-2xl">
               <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">
-                Pencatatan &amp; batas simulasi
+                Pencatatan &amp; batas ledger
               </h2>
               <p className="mt-3 text-base leading-7 text-slate-600">
                 Ketahui apa yang dicatat aplikasi dan apa yang tidak dijalankan secara eksternal.
@@ -909,14 +909,14 @@ export default function Landing() {
               Mulai hari ini
             </h2>
             <p className="mx-auto mt-3 max-w-lg text-sm leading-6 text-primary-foreground/80">
-              Buat akun untuk mencatat simulasi pengajuan, atau jelajahi tampilan ledger Pendana. Tidak ada dana yang dikirim atau dikelola melalui aplikasi.
+              Buat akun untuk mencatat pengajuan, atau jelajahi tampilan ledger Pendana. Tidak ada dana yang dikirim atau dikelola melalui aplikasi.
             </p>
             <div className="mt-7 flex flex-wrap justify-center gap-3">
               <Button
                 asChild
                 className="h-11 border-0 bg-white px-6 text-primary hover:bg-secondary"
               >
-                <Link to={accountHref}>{isAuthenticated ? "Buka dashboard" : "Buka akun simulasi"}</Link>
+                <Link to={accountHref}>{isAuthenticated ? "Buka dashboard" : "Buka akun"}</Link>
               </Button>
               {!isAuthenticated && (
                 <Button
@@ -941,7 +941,7 @@ export default function Landing() {
                 <BrandWordmark name={logoTeks} compact />
               </div>
               <p className="mt-3 max-w-xs text-xs leading-5 text-slate-500">
-                PINDAI adalah aplikasi pencatatan simulasi pinjaman, gadai, dan alokasi ledger internal.
+                PINDAI adalah aplikasi pencatatan pinjaman, gadai, dan alokasi ledger internal.
               </p>
             </div>
             <div>
@@ -960,8 +960,8 @@ export default function Landing() {
                   </a>
                 </li>
                 <li>
-                  <a href="#simulasi" className="hover:text-slate-900">
-                    Simulasi
+                  <a href="#kalkulator" className="hover:text-slate-900">
+                    Kalkulator
                   </a>
                 </li>
               </ul>
@@ -981,7 +981,7 @@ export default function Landing() {
                     <span className="absolute inline-flex size-full animate-ping rounded-full bg-sky-400 opacity-70" />
                     <span className="relative inline-flex size-2 rounded-full bg-sky-500" />
                   </span>
-                  <span className="text-slate-500">Simulasi ledger internal</span>
+                  <span className="text-slate-500">Perhitungan ledger internal</span>
                 </li>
               </ul>
             </div>

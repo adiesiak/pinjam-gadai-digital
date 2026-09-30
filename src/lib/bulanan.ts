@@ -1,7 +1,7 @@
 /**
  * PINDAI — Skema Bulanan: KREDIT & PINJAMAN DI LUAR 1 JT / 30 HARI.
  *
- * Formula simulasi kredit bulanan (tenor 1, 3, 6 bulan — dst) dengan
+ * Formula kredit bulanan (tenor 1, 3, 6 bulan — dst) dengan
  * pembulatan integer rupiah HALF-UP. Dipakai untuk kredit barang maupun
  * pinjaman tunai yang tenornya bukan skema 1 juta / 30 hari.
  *
@@ -131,7 +131,7 @@ export function assertSimulasiBulananValid(pokok: Rupiah, tenorBulan: number): v
 }
 
 /**
- * Simulasi kredit/pinjaman bulanan — mesin yang sama dipakai kalkulator,
+ * Ringkasan kredit/pinjaman bulanan — mesin yang sama dipakai kalkulator,
  * form pengajuan, dan backend (angka tidak pernah diinput klien).
  *
  * Identitas yang dijamin (diuji di bulanan.test.ts):

@@ -80,7 +80,7 @@ export function pawnStatusMeta(status: PawnStatus): {
       return {
         label: "Lunas (ledger)",
         description:
-          "Kewajiban simulasi ditandai lunas pada ledger internal. Catatan ini tidak membuktikan barang pernah dititipkan atau telah dikembalikan.",
+          "Kewajiban ditandai lunas pada ledger internal. Catatan ini tidak membuktikan barang pernah dititipkan atau telah dikembalikan.",
       };
   }
 }

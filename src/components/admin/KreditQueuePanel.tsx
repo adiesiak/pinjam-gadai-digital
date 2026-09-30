@@ -184,7 +184,7 @@ export function KreditQueuePanel() {
       <section>
         <h2 className="text-sm font-semibold">Menunggu keputusan ({menunggu.length})</h2>
         <p className="mt-1 text-xs leading-5 text-muted-foreground">
-          Tinjau data yang dimasukkan dan hitungan simulasi. Persetujuan hanya mencatat keputusan
+          Tinjau data yang dimasukkan dan hitungan aplikasi. Persetujuan hanya mencatat keputusan
           internal PINDAI; pembelian barang, pembayaran ke merchant, dan transfer dana tidak
           dijalankan atau diverifikasi. Status alokasi/pelunasan di riwayat adalah status ledger,
           bukan bukti pembayaran aktual.
@@ -210,24 +210,24 @@ export function KreditQueuePanel() {
                 <div className="mt-4 grid grid-cols-2 gap-3 border-t border-slate-100 pt-4 text-xs sm:grid-cols-3">
                   {(
                     [
-                      ["Harga barang (simulasi)", formatRupiah(r.hargaBarang)],
-                      ["Uang muka simulasi", r.dp !== null ? `${r.dpPersen}% · ${formatRupiah(r.dp)}` : `${r.dpPersen}%`],
+                      ["Harga barang", formatRupiah(r.hargaBarang)],
+                      ["Uang muka", r.dp !== null ? `${r.dpPersen}% · ${formatRupiah(r.dp)}` : `${r.dpPersen}%`],
                       [
-                        "Pokok simulasi",
+                        "Pokok pembiayaan",
                         r.pokokDibiayai !== null ? formatRupiah(r.pokokDibiayai) : "—",
                       ],
                       [
-                        "Biaya layanan platform simulasi",
+                        "Biaya layanan platform",
                         r.biayaLayanan !== null ? formatRupiah(r.biayaLayanan) : "—",
                       ],
                       [
-                        `Cicilan simulasi / bulan`,
+                        `Cicilan per bulan`,
                         r.cicilanPerBulan !== null
                           ? `${formatRupiah(r.cicilanPerBulan)} × ${r.tenorBulan} bln`
                           : `${r.tenorBulan} bln`,
                       ],
                       [
-                        "Imbal Hasil Pendana (simulasi)",
+                        "Imbal Hasil Pendana",
                         r.imbalHasilPendana !== null
                           ? `${formatRupiah(r.imbalHasilPendana)} (${r.marginPersenPerBulan}%/bln)`
                           : `${r.marginPersenPerBulan}%/bln`,
@@ -345,7 +345,7 @@ export function KreditQueuePanel() {
               >
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium">
-                    {r.namaLengkap} — {r.namaBarang} (harga simulasi {formatRupiah(r.hargaBarang)})
+                    {r.namaLengkap} — {r.namaBarang} (harga {formatRupiah(r.hargaBarang)})
                   </p>
                   <p className="mt-1 truncate text-xs text-muted-foreground">
                     {r.nomorReferensi} · {r.emailPemohon ?? "tanpa email"} · {r.merchant} · tenor {r.tenorBulan} bulan

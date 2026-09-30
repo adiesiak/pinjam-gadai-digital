@@ -122,7 +122,7 @@ export function WhatsAppPanel() {
             <Input id="wa-fpesan" value={fieldPesan ?? ""} onChange={(e) => setFieldPesan(e.target.value)} placeholder="message" />
           </div>
           <div className="sm:col-span-2">
-            <Label htmlFor="wa-template">Template pesan untuk catatan simulasi (dikirim via WhatsApp)</Label>
+            <Label htmlFor="wa-template">Template pesan untuk catatan pinjaman (dikirim via WhatsApp)</Label>
             <Textarea
               id="wa-template"
               rows={4}
@@ -131,7 +131,7 @@ export function WhatsAppPanel() {
               placeholder="{nama}, {ref}, {jumlah}, {tanggal}, {sisa}, {denda}"
             />
             <p className="mt-1 text-xs leading-5 text-muted-foreground">
-              Placeholder: <code className="rounded bg-slate-100 px-1">{"{nama} {ref} {jumlah} {tanggal} {sisa} {denda}"}</code> — wajib memuat <code className="rounded bg-slate-100 px-1">{"{jumlah}"}</code>. Nilainya berasal dari ledger internal dan tidak membuktikan tagihan, tunggakan, atau pembayaran. Tulis pesan netral; jangan meminta pelunasan berdasarkan angka simulasi.
+              Placeholder: <code className="rounded bg-slate-100 px-1">{"{nama} {ref} {jumlah} {tanggal} {sisa} {denda}"}</code> — wajib memuat <code className="rounded bg-slate-100 px-1">{"{jumlah}"}</code>. Nilainya berasal dari ledger internal dan tidak membuktikan tagihan, tunggakan, atau pembayaran. Tulis pesan netral; jangan meminta pelunasan berdasarkan angka ledger internal.
             </p>
           </div>
           <div className="sm:col-span-2">

@@ -38,7 +38,7 @@ import {
 } from "@/lib/pawn";
 
 /**
- * Simulasi bulanan yang tidak melempar error saat input belum valid —
+ * Ringkasan bulanan yang tidak melempar error saat input belum valid —
  * slider bergerak cepat, jadi nilai di luar rentang cukup tampil kosong.
  */
 function simulasiBulananAman(pokok: number, tenorBulan: number) {
@@ -513,7 +513,7 @@ export function LoanForm({ onCreated }: { onCreated: (ref: string) => void }) {
               : `Ini hanya perkiraan, bukan persetujuan pinjaman. Jumlah pinjaman harian ${formatRupiah(LOAN_LIMITS.minPokok)} sampai ${formatRupiah(MAX)}, paling lama ${LOAN_LIMITS.maxTenorHari} hari. Catatan pinjaman yang ditandai lunas tepat waktu di aplikasi dapat menaikkan batas hingga Rp10 juta. Catatan ini bukan bukti pembayaran.`}
         </p>
 
-        {/* Ringkasan peminjam: nilai bersih simulasi dan total pembayaran. */}
+        {/* Ringkasan peminjam: nilai bersih dan total pembayaran. */}
         {bulanan && sim !== null ? (
           <dl className="mt-4 divide-y divide-slate-200 overflow-hidden rounded-xl border border-slate-200">
             <div className="flex flex-col gap-1 bg-emerald-50 px-3 py-2.5 text-sm sm:flex-row sm:items-baseline sm:justify-between">
@@ -525,11 +525,11 @@ export function LoanForm({ onCreated }: { onCreated: (ref: string) => void }) {
             {sim.tenorBulan === 3 || sim.tenorBulan === 6 ? (
               <>
                 <div className="flex flex-col gap-1 bg-white px-3 py-2 text-sm sm:flex-row sm:items-baseline sm:justify-between">
-                  <dt className="font-medium text-slate-700">Biaya admin simulasi 5% (diamortisasi)</dt>
+                  <dt className="font-medium text-slate-700">Biaya admin 5% (diamortisasi)</dt>
                   <dd className="font-medium tabular-nums">{formatRupiah(sim.biayaAdminTotal)}</dd>
                 </div>
                 <div className="flex flex-col gap-1 bg-white px-3 py-2 text-sm sm:flex-row sm:items-baseline sm:justify-between">
-                  <dt className="font-medium text-slate-700">Biaya platform simulasi 2% (diamortisasi)</dt>
+                  <dt className="font-medium text-slate-700">Biaya platform 2% (diamortisasi)</dt>
                   <dd className="font-medium tabular-nums">{formatRupiah(sim.biayaPlatformTotal)}</dd>
                 </div>
                 <div className="flex flex-col gap-1 bg-white px-3 py-2 text-sm sm:flex-row sm:items-baseline sm:justify-between">

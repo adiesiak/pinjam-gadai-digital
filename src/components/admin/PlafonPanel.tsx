@@ -42,7 +42,7 @@ export function PlafonPanel() {
         plafon: resetKeDefault ? null : clampPlafon(Number(nilai.replace(/\D/g, "")) || 0),
         alasan: undefined,
       });
-      toast.success(`Plafon simulasi internal diperbarui: ${formatRupiah(hasil.plafonEfektif)}`);
+      toast.success(`Plafon internal diperbarui: ${formatRupiah(hasil.plafonEfektif)}`);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Gagal menyimpan plafon.");
     } finally {
@@ -54,7 +54,7 @@ export function PlafonPanel() {
     <div className="space-y-4">
       <div>
         <p className="flex items-center gap-2 text-sm font-semibold">
-          <SlidersHorizontal className="size-4 text-primary" /> Plafon simulasi nasabah
+          <SlidersHorizontal className="size-4 text-primary" /> Plafon nasabah
         </p>
         <p className="mt-1 text-xs leading-5 text-muted-foreground">
           Untuk pinjaman tunai, default awal{" "}
@@ -106,14 +106,14 @@ export function PlafonPanel() {
                     )
                   ) : (
                     <Badge className="mt-1.5 bg-emerald-100 text-emerald-700 hover:bg-emerald-100">
-                      plafon simulasi khusus: {formatRupiah(r.plafonPribadi)}
+                      plafon khusus: {formatRupiah(r.plafonPribadi)}
                     </Badge>
                   )}
                 </div>
                 <div className="flex items-end gap-2">
                   <div>
                     <Label htmlFor={`plafon-${r.userId}`} className="text-[11px] text-muted-foreground">
-                      Plafon simulasi efektif
+                      Plafon efektif
                     </Label>
                     <Input
                       id={`plafon-${r.userId}`}

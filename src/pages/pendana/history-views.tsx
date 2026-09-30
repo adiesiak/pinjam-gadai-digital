@@ -24,7 +24,7 @@ export function HistorySection() {
       <EmptyState
         icon={Landmark}
         title="Belum ada catatan ledger"
-        body="Catatan alokasi, setoran simulasi, dan permintaan penarikan tampil di sini; tidak ada transaksi dana eksternal."
+        body="Catatan alokasi, setoran, dan permintaan penarikan tampil di sini; tidak ada transaksi dana eksternal."
       />
     );
   }
@@ -35,7 +35,7 @@ export function HistorySection() {
         Riwayat ini menunjukkan catatan ledger internal saja. Setoran, penarikan, alokasi, dan Imbal Hasil tidak mewakili transfer atau pembayaran aktual; tanda status admin bukan verifikasi bank.
       </section>
       <section>
-        <h3 className="text-sm font-semibold">Alokasi simulasi</h3>
+        <h3 className="text-sm font-semibold">Alokasi</h3>
         {fundings.length === 0 ? (
           <p className="mt-3 text-xs text-muted-foreground">Belum ada.</p>
         ) : (
@@ -49,7 +49,7 @@ export function HistorySection() {
                 <p className="mt-1 truncate text-xs text-muted-foreground">
                   {f.nomorReferensi}{" "}
                   <ArrowRight className="inline size-3 align-middle" aria-hidden />{" "}
-                  {f.loanRef} ({f.jenis === "kredit" ? "Kredit Barang" : "Pinjaman"}) · Imbal Hasil simulasi{" "}
+                  {f.loanRef} ({f.jenis === "kredit" ? "Kredit Barang" : "Pinjaman"}) · Imbal Hasil{" "}
                   {formatRupiah(f.imbalHasil)}
                 </p>
               </li>
@@ -58,7 +58,7 @@ export function HistorySection() {
         )}
       </section>
       <section>
-        <h3 className="text-sm font-semibold">Catatan setoran simulasi</h3>
+        <h3 className="text-sm font-semibold">Catatan setoran</h3>
         {deposits.length === 0 ? (
           <p className="mt-3 text-xs text-muted-foreground">Belum ada.</p>
         ) : (
@@ -78,7 +78,7 @@ export function HistorySection() {
         )}
       </section>
       <section>
-        <h3 className="text-sm font-semibold">Permintaan penarikan simulasi</h3>
+        <h3 className="text-sm font-semibold">Permintaan penarikan</h3>
         {withdrawals.length === 0 ? (
           <p className="mt-3 text-xs text-muted-foreground">Belum ada.</p>
         ) : (

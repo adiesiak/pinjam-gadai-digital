@@ -15,7 +15,7 @@ import { formatRupiah } from "@/lib/money";
 
 import { ContractSigningDialog } from "./ContractSigningDialog";
 
-/** Widget catatan simulasi pinjaman dan interaksi yang tersimpan di aplikasi. */
+/** Widget catatan pengajuan pinjaman dan interaksi yang tersimpan di aplikasi. */
 export function LoanContractBlock({ loanId }: { loanId: Id<"loans"> }) {
   const [open, setOpen] = useState(false);
   const save = useMutation(api.admin.simpanTandaTangan);
@@ -80,7 +80,7 @@ export function LoanContractBlock({ loanId }: { loanId: Id<"loans"> }) {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
-              Catatan simulasi · pinjaman
+              Catatan pengajuan · pinjaman
             </p>
             <p className="mt-1 text-xs text-muted-foreground">
               Rincian dan checkbox/gambar opsional hanya dicatat di aplikasi; bukan kontrak atau tanda tangan digital terverifikasi.
@@ -106,7 +106,7 @@ export function LoanContractBlock({ loanId }: { loanId: Id<"loans"> }) {
       <ContractSigningDialog
         open={open}
         onOpenChange={setOpen}
-        title="Catatan Simulasi Pinjaman"
+        title="Catatan Pinjaman"
         reference={detail.nomorReferensi}
         borrowerName={detail.namaLengkap}
         html={html}

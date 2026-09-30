@@ -99,10 +99,10 @@ export function WaOtpDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <MessageCircle className="size-5 text-sky-600" />
-            Konfirmasi WhatsApp untuk tindakan simulasi
+            Konfirmasi WhatsApp untuk tindakan akun
           </DialogTitle>
           <DialogDescription>
-            Kode 6 digit untuk {alasan} dikirim ke WhatsApp Anda (berlaku 5 menit, sekali pakai). Kode hanya mengonfirmasi tindakan akun pada ledger simulasi; bukan verifikasi saldo, transfer, setoran, penarikan, atau pembayaran.
+            Kode 6 digit untuk {alasan} dikirim ke WhatsApp Anda (berlaku 5 menit, sekali pakai). Kode hanya mengonfirmasi tindakan akun pada ledger internal; bukan verifikasi saldo, transfer, setoran, penarikan, atau pembayaran.
           </DialogDescription>
         </DialogHeader>
 

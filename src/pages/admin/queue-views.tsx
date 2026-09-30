@@ -44,7 +44,7 @@ export function LoanQueueSection({
   return (
     <div className="space-y-3">
       <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-900">
-        Nominal dan status pinjaman yang ditampilkan adalah catatan simulasi ledger internal; tidak ada transfer atau pembayaran yang diproses maupun diverifikasi.
+        Nominal dan status pinjaman yang ditampilkan adalah catatan ledger internal; tidak ada transfer atau pembayaran yang diproses maupun diverifikasi.
       </p>
       <div className="relative">
         <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -60,7 +60,7 @@ export function LoanQueueSection({
             reference={l.nomorReferensi}
             date={formatDate(l._creationTime)}
             title={l.namaLengkap}
-            subtitle={`${l.emailPeminjam ?? "tanpa email"} · ${l.nomorReferensi} · pokok simulasi ${formatRupiah(l.pokokPinjaman)} · ${loanPurposeLabel(l.tujuan)}`}
+            subtitle={`${l.emailPeminjam ?? "tanpa email"} · ${l.nomorReferensi} · pokok ${formatRupiah(l.pokokPinjaman)} · ${loanPurposeLabel(l.tujuan)}`}
             status={<StatusBadge status={l.status} kind="loan" />}
             onOpen={() => onOpen(l)}
           />

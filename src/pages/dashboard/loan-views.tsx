@@ -22,7 +22,7 @@ function ScheduleBadge({ state }: { state: "lunas" | "menunggu" | "overdue" }) {
   }
   if (state === "overdue") {
     return (
-      <Badge className="border-0 bg-red-100 text-red-700 hover:bg-red-100">Melewati tanggal acuan simulasi</Badge>
+      <Badge className="border-0 bg-red-100 text-red-700 hover:bg-red-100">Melewati tanggal acuan</Badge>
     );
   }
   return (
@@ -83,7 +83,7 @@ export function ActiveLoanSection({
     return (        <EmptyState
           icon={Wallet}
           title="Belum ada catatan pinjaman aktif di ledger"
-        body="Catatan dengan status internal aktif akan tampil di sini. Angka alokasi dan pelunasan merupakan simulasi; tidak ada transfer atau pembayaran eksternal."
+        body="Catatan dengan status internal aktif akan tampil di sini. Angka alokasi dan pelunasan merupakan pencatatan internal; tidak ada transfer atau pembayaran eksternal."
       />
     );
   }
@@ -139,12 +139,12 @@ function ActiveLoanCard({
             Nomor Referensi{" "}
             <span className="font-mono font-semibold text-navy">{loan.nomorReferensi}</span>
           </p>
-          <h3 className="mt-1 text-lg font-semibold">Catatan simulasi pinjaman tunai</h3>
+          <h3 className="mt-1 text-lg font-semibold">Catatan pinjaman tunai</h3>
         </div>
         <div className="flex items-center gap-2">
           {terlambat ? (
             <Badge className="border-0 bg-red-100 text-red-700 hover:bg-red-100">
-              Melewati tanggal acuan simulasi
+              Melewati tanggal acuan
             </Badge>
           ) : (
             <Badge className="border-0 bg-emerald-100 text-emerald-700 hover:bg-emerald-100">
@@ -161,20 +161,20 @@ function ActiveLoanCard({
         {bulanan ? (
           <>
             <RincianBaris
-              label="Nilai bersih simulasi (belum dicairkan; tanpa potongan di muka)"
+              label="Nilai bersih (belum dicairkan; tanpa potongan di muka)"
               value={formatRupiah(loan.pokokPinjaman)}
               tone="net"
             />
             {loan.simulasiBulanan !== null && (loan.tenorBulan === 3 || loan.tenorBulan === 6) ? (
               <>
-                <RincianBaris label="Biaya admin simulasi (5%, diamortisasi)" value={formatRupiah(loan.simulasiBulanan.biayaAdminTotal)} />
-                <RincianBaris label="Biaya platform simulasi (2%, diamortisasi)" value={formatRupiah(loan.simulasiBulanan.biayaPlatformTotal)} />
+                <RincianBaris label="Biaya admin (5%, diamortisasi)" value={formatRupiah(loan.simulasiBulanan.biayaAdminTotal)} />
+                <RincianBaris label="Biaya platform (2%, diamortisasi)" value={formatRupiah(loan.simulasiBulanan.biayaPlatformTotal)} />
               </>
             ) : loan.simulasiBulanan !== null ? (
-              <RincianBaris label="Biaya layanan simulasi (3%, diamortisasi)" value={formatRupiah(loan.simulasiBulanan.biayaLayananTotal)} />
+              <RincianBaris label="Biaya layanan (3%, diamortisasi)" value={formatRupiah(loan.simulasiBulanan.biayaLayananTotal)} />
             ) : null}
             <RincianBaris
-              label={`Total pembayaran simulasi (${loan.tenorBulan} bulan)`}
+              label={`Total pembayaran (${loan.tenorBulan} bulan)`}
               value={formatRupiah(loan.totalKewajiban)}
               tone="total"
             />
@@ -182,12 +182,12 @@ function ActiveLoanCard({
         ) : (
           <>
             <RincianBaris
-              label="Nilai bersih simulasi (belum ditransfer)"
+              label="Nilai bersih (belum ditransfer)"
               value={formatRupiah(q.danaBersihDitransfer)}
               tone="net"
             />
             <RincianBaris
-              label="Total pembayaran simulasi"
+              label="Total pembayaran"
               value={formatRupiah(q.totalKewajibanPelunasan)}
               tone="total"
             />
@@ -196,7 +196,7 @@ function ActiveLoanCard({
       </dl>
 
       <p className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-900">
-        Semua nominal, status aktif, dana bersih, dan status pelunasan di halaman ini adalah catatan internal; bukan bukti pencairan atau pembayaran. Belum ada izin maupun penyedia pembayaran terintegrasi, sehingga pelunasan hanya dapat ditinjau manual dan belum dapat diproses atau dinyatakan selesai. {bulanan ? "Jadwal bulanan hanya ilustrasi." : "Nilai kewajiban hanya perhitungan simulasi."}
+        Semua nominal, status aktif, dana bersih, dan status pelunasan di halaman ini adalah catatan internal; bukan bukti pencairan atau pembayaran. Belum ada izin maupun penyedia pembayaran terintegrasi, sehingga pelunasan hanya dapat ditinjau manual dan belum dapat diproses atau dinyatakan selesai. {bulanan ? "Jadwal bulanan hanya ilustrasi." : "Nilai kewajiban adalah perhitungan aplikasi."}
       </p>
 
       {loan.pelunasan && (
@@ -204,10 +204,10 @@ function ActiveLoanCard({
           <div className="flex flex-wrap items-baseline justify-between gap-2 text-xs">
             <span className="font-medium">
               {terlambat
-                ? `Tanggal acuan simulasi terlewati ${loan.pelunasan.hariTerlambat} hari`
+                ? `Tanggal acuan terlewati ${loan.pelunasan.hariTerlambat} hari`
                 : loan.pelunasan.sisaHari === 0
-                  ? "Tanggal acuan simulasi: hari ini"
-                  : `${loan.pelunasan.sisaHari} hari menuju tanggal acuan simulasi`}
+                  ? "Tanggal acuan: hari ini"
+                  : `${loan.pelunasan.sisaHari} hari menuju tanggal acuan`}
             </span>
             <span className="tabular-nums text-muted-foreground">
               {formatDate(loan.pelunasan.jatuhTempoPada)}
@@ -229,7 +229,7 @@ function ActiveLoanCard({
           />
           {terlambat && (
             <p className="mt-2 text-xs text-destructive">
-              Denda simulasi: {formatRupiah(loan.pelunasan.dendaTerlambat)} (0,5%/hari, maks 15%)
+              Denda: {formatRupiah(loan.pelunasan.dendaTerlambat)} (0,5%/hari, maks 15%)
             </p>
           )}
         </div>
@@ -259,14 +259,14 @@ function ActiveLoanCard({
   );
 }
 
-/** Tab 2 — Jadwal kewajiban simulasi. */
+/** Tab 2 — Jadwal kewajiban pinjaman. */
 export function ScheduleSection({ schedule }: { schedule: LoanScheduleRow[] }) {
   if (schedule.length === 0) {
     return (
       <EmptyState
         icon={CalendarClock}
-        title="Belum ada jadwal simulasi"
-        body="Jadwal simulasi dan tanggal acuan tampil berdasarkan status ledger; ini bukan tagihan atau bukti pendanaan."
+        title="Belum ada jadwal angsuran"
+        body="Jadwal angsuran dan tanggal acuan tampil berdasarkan status ledger; ini bukan tagihan atau bukti pendanaan."
       />
     );
   }
@@ -295,13 +295,13 @@ export function ScheduleSection({ schedule }: { schedule: LoanScheduleRow[] }) {
                   <span className="font-mono text-xs text-muted-foreground">{l.nomorReferensi}</span>
                 </p>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Nilai bersih simulasi {formatRupiah(l.tenorBulan !== null ? l.pokokPinjaman : l.quote.danaBersihDitransfer)} · tenor{" "}
+                  Nilai bersih {formatRupiah(l.tenorBulan !== null ? l.pokokPinjaman : l.quote.danaBersihDitransfer)} · tenor{" "}
                   {l.tenorBulan !== null ? `${l.tenorBulan} bulan` : `${l.tenorHari} hari`}
                 </p>
                 {l.tenorBulan !== null && (
                   <p className="mt-1 max-w-xl text-xs leading-5 text-amber-800">
                     {l.tenorBulan === 3 || l.tenorBulan === 6
-                      ? "Biaya admin 5% + platform 2% diamortisasi ke cicilan; dana pada simulasi tidak dipotong di muka. Jadwal hanya ilustrasi."
+                      ? "Biaya admin 5% + platform 2% diamortisasi ke cicilan; dana tidak dipotong di muka. Jadwal bersifat ilustrasi."
                       : "Biaya layanan 3% diamortisasi ke cicilan. Jadwal hanya ilustrasi."} Status ledger tidak membuktikan pembayaran.
                   </p>
                 )}
@@ -310,13 +310,13 @@ export function ScheduleSection({ schedule }: { schedule: LoanScheduleRow[] }) {
             </div>
             <dl className="mt-3 grid gap-x-8 gap-y-1.5 text-sm sm:grid-cols-2">
               <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4">
-                <dt className="text-muted-foreground">Tanggal acuan simulasi</dt>
+                <dt className="text-muted-foreground">Tanggal acuan</dt>
                 <dd className="tabular-nums">
                   {l.pelunasan ? formatDate(l.pelunasan.jatuhTempoPada) : "—"}
                 </dd>
               </div>
               <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4">
-                <dt className="text-muted-foreground">Total pembayaran simulasi</dt>
+                <dt className="text-muted-foreground">Total pembayaran</dt>
                 <dd className="font-semibold tabular-nums">
                   {formatRupiah(
                     lunas
@@ -333,7 +333,7 @@ export function ScheduleSection({ schedule }: { schedule: LoanScheduleRow[] }) {
               )}
               {!lunas && l.pelunasan && l.pelunasan.dendaTerlambat > 0 && (
                 <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4">
-                  <dt className="text-destructive">Denda simulasi</dt>
+                  <dt className="text-destructive">Denda</dt>
                   <dd className="tabular-nums text-destructive">
                     +{formatRupiah(l.pelunasan.dendaTerlambat)}
                   </dd>
@@ -341,16 +341,16 @@ export function ScheduleSection({ schedule }: { schedule: LoanScheduleRow[] }) {
               )}
               {!lunas && l.pelunasan && !overdue && (
                 <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4">
-                  <dt className="text-muted-foreground">Sisa waktu pada simulasi</dt>
+                  <dt className="text-muted-foreground">Sisa waktu</dt>
                   <dd className="tabular-nums">
-                    {l.pelunasan.sisaHari === 0 ? "Hari ini" : `${l.pelunasan.sisaHari} hari`} · simulasi
+                    {l.pelunasan.sisaHari === 0 ? "Hari ini" : `${l.pelunasan.sisaHari} hari`}
                   </dd>
                 </div>
               )}
             </dl>
             {!lunas && (
               <p className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900">
-                Pembayaran belum tersedia. Belum ada penyedia terintegrasi atau konfirmasi settlement; tanggal dan nilai di atas hanya acuan simulasi.
+                Pembayaran belum tersedia. Belum ada penyedia terintegrasi atau konfirmasi settlement; tanggal dan nilai di atas hanya acuan internal.
               </p>
             )}
           </li>

@@ -96,7 +96,7 @@ function StatusKreditBadge({ status }: { status: string }) {
 
 /**
  * Form pengajuan kredit barang: barang dari merchant mitra, tenor, dan ringkasan
- * pembayaran simulasi. Angka final selalu dihitung ulang server-side.
+ * pembayaran. Angka final selalu dihitung ulang server-side.
  */
 export function KreditBarangForm({ onCreated }: { onCreated: (ref: string) => void }) {
   const [namaBarang, setNamaBarang] = useState("");
@@ -224,10 +224,10 @@ export function KreditBarangForm({ onCreated }: { onCreated: (ref: string) => vo
       {/* ===== Barang ===== */}
       <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
         <p className="flex items-center gap-2 text-sm font-semibold">
-          <ShoppingBag className="size-4 text-primary" /> Barang yang dicantumkan (simulasi)
+          <ShoppingBag className="size-4 text-primary" /> Barang yang dicantumkan
         </p>
         <p className="mt-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900">
-          Informasi barang, tautan, merchant, dan harga adalah masukan pengguna yang tidak diverifikasi. Pengajuan hanya mencatat simulasi internal; tidak ada pembelian atau pembayaran ke merchant.
+          Informasi barang, tautan, merchant, dan harga adalah masukan pengguna yang tidak diverifikasi. Pengajuan hanya mencatat data internal; tidak ada pembelian atau pembayaran ke merchant.
         </p>
         <div className="mt-4 space-y-2">
           <Label htmlFor="kredit-nama-barang">Nama barang</Label>
@@ -305,18 +305,18 @@ export function KreditBarangForm({ onCreated }: { onCreated: (ref: string) => vo
       {/* ===== Skema kredit ===== */}
       <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
         <p className="flex items-center gap-2 text-sm font-semibold">
-          <TrendingUp className="size-4 text-emerald-600" /> Skema simulasi kredit
+          <TrendingUp className="size-4 text-emerald-600" /> Skema kredit
         </p>
 
         <div className="mt-4 flex items-baseline justify-between gap-3">
-          <Label className="text-xs text-muted-foreground">Uang muka simulasi (DP)</Label>
+          <Label className="text-xs text-muted-foreground">Uang muka (DP)</Label>
           <span className="text-xs font-semibold tabular-nums">
             {bulanan ? 0 : dpPersen}% · {formatRupiah(preview?.dp ?? 0)}
           </span>
         </div>
         {bulanan ? (
           <p className="mt-2 rounded-xl border border-emerald-100 bg-emerald-50/60 px-3 py-2 text-xs leading-5 text-emerald-800">
-            Simulasi tenor {tenorBulan} bulan memakai DP 0%; angka ini bukan bukti pembiayaan atau pembelian barang.
+            Tenor {tenorBulan} bulan memakai DP 0%; angka ini bukan bukti pembiayaan atau pembelian barang.
           </p>
         ) : (
           <Slider
@@ -331,7 +331,7 @@ export function KreditBarangForm({ onCreated }: { onCreated: (ref: string) => vo
         )}
 
         <div className="mt-5 flex items-baseline justify-between gap-3">
-          <Label className="text-xs text-muted-foreground">Tenor cicilan simulasi</Label>
+          <Label className="text-xs text-muted-foreground">Tenor cicilan</Label>
           <span className="text-xs font-semibold tabular-nums">{tenorBulan} bulan</span>
         </div>
         <div className="mt-2 grid grid-cols-3 gap-1.5">
@@ -369,7 +369,7 @@ export function KreditBarangForm({ onCreated }: { onCreated: (ref: string) => vo
           <>
           <dl className="mt-4 divide-y divide-slate-200 overflow-hidden rounded-xl border border-slate-200">
             <div className="flex items-baseline justify-between bg-emerald-50 px-3 py-2.5 text-sm">
-              <dt className="font-semibold text-emerald-800">Nilai barang dalam simulasi (tidak dicairkan)</dt>
+              <dt className="font-semibold text-emerald-800">Nilai barang (tidak dicairkan)</dt>
               <dd className="font-semibold tabular-nums text-emerald-700">
                 {formatRupiah(preview.pokokDibiayai)}
               </dd>
@@ -377,11 +377,11 @@ export function KreditBarangForm({ onCreated }: { onCreated: (ref: string) => vo
             {tenorBulan === 3 || tenorBulan === 6 ? (
               <>
                 <div className="flex items-baseline justify-between px-3 py-2 text-sm">
-                  <dt className="text-muted-foreground">Biaya admin simulasi (5%, diamortisasi)</dt>
+                  <dt className="text-muted-foreground">Biaya admin (5%, diamortisasi)</dt>
                   <dd className="tabular-nums">{formatRupiah(preview.biayaAdmin)}</dd>
                 </div>
                 <div className="flex items-baseline justify-between px-3 py-2 text-sm">
-                  <dt className="text-muted-foreground">Biaya platform simulasi (2%, diamortisasi)</dt>
+                  <dt className="text-muted-foreground">Biaya platform (2%, diamortisasi)</dt>
                   <dd className="tabular-nums">{formatRupiah(preview.biayaPlatform)}</dd>
                 </div>
                 <div className="flex items-baseline justify-between bg-slate-50 px-3 py-2.5 text-sm">
@@ -391,7 +391,7 @@ export function KreditBarangForm({ onCreated }: { onCreated: (ref: string) => vo
               </>
             ) : tenorBulan === 1 ? (
               <div className="flex items-baseline justify-between px-3 py-2 text-sm">
-                <dt className="text-muted-foreground">Biaya layanan simulasi (3%, diamortisasi)</dt>
+                <dt className="text-muted-foreground">Biaya layanan (3%, diamortisasi)</dt>
                 <dd className="tabular-nums">{formatRupiah(preview.biayaLayanan)}</dd>
               </div>
             ) : null}
@@ -501,7 +501,7 @@ export function KreditBarangForm({ onCreated }: { onCreated: (ref: string) => vo
       </Button>
       <p className="text-center text-xs leading-5 text-muted-foreground">
         Pokok kredit barang maksimal {formatRupiah(KREDIT_BARANG_POKOK_MAKS)} dan tenor 1, 3,
-        atau maksimal 6 bulan dalam model simulasi. Batas ini terpisah dari plafon simulasi pinjaman tunai.
+        atau maksimal 6 bulan dalam model kredit barang. Batas ini terpisah dari plafon pinjaman tunai.
         Data pemohon, barang, tautan, dan harga yang dimasukkan tidak diverifikasi otomatis; status review hanya catatan internal. Tidak ada pembayaran ke merchant.
       </p>
     </form>
@@ -524,7 +524,7 @@ export function KreditSayaSection() {
       <EmptyState
         icon={ShoppingBag}
         title="Belum ada pengajuan kredit barang"
-        body="Buat catatan simulasi barang, uang muka, tenor, dan perhitungan cicilan simulasi. Pengajuan ini tidak memproses pembelian, pendanaan, atau pembayaran."
+        body="Buat catatan pengajuan barang, uang muka, tenor, dan perhitungan cicilan. Pengajuan ini tidak memproses pembelian, pendanaan, atau pembayaran."
       />
     );
   }
@@ -565,7 +565,7 @@ export function KreditSayaSection() {
                 </div>
               )}
               <div className="flex items-baseline justify-between gap-3">
-                <dt className="text-muted-foreground">Pokok pembiayaan simulasi</dt>
+                <dt className="text-muted-foreground">Pokok pembiayaan</dt>
                 <dd className="font-semibold tabular-nums">
                   {k.pokokDibiayai !== null ? formatRupiah(k.pokokDibiayai) : "—"}
                 </dd>
@@ -573,24 +573,24 @@ export function KreditSayaSection() {
               {(k.tenorBulan === 3 || k.tenorBulan === 6) && (
                 <>
                   <div className="flex items-baseline justify-between gap-3">
-                    <dt className="text-muted-foreground">Biaya admin simulasi (5%, diamortisasi)</dt>
+                    <dt className="text-muted-foreground">Biaya admin (5%, diamortisasi)</dt>
                     <dd className="tabular-nums">{k.biayaAdmin !== null ? formatRupiah(k.biayaAdmin) : "—"}</dd>
                   </div>
                   <div className="flex items-baseline justify-between gap-3">
-                    <dt className="text-muted-foreground">Biaya platform simulasi (2%, diamortisasi)</dt>
+                    <dt className="text-muted-foreground">Biaya platform (2%, diamortisasi)</dt>
                     <dd className="tabular-nums">{k.biayaPlatform !== null ? formatRupiah(k.biayaPlatform) : "—"}</dd>
                   </div>
                 </>
               )}
               {k.tenorBulan === 1 && (
                 <div className="flex items-baseline justify-between gap-3">
-                  <dt className="text-muted-foreground">Biaya layanan simulasi (3%, diamortisasi)</dt>
+                  <dt className="text-muted-foreground">Biaya layanan (3%, diamortisasi)</dt>
                   <dd className="tabular-nums">{k.biayaLayanan !== null ? formatRupiah(k.biayaLayanan) : "—"}</dd>
                 </div>
               )}
               {(k.tenorBulan === 3 || k.tenorBulan === 6) && (
                 <div className="flex items-baseline justify-between gap-3">
-                  <dt className="text-muted-foreground">Total biaya admin + platform simulasi (7%)</dt>
+                  <dt className="text-muted-foreground">Total biaya admin + platform (7%)</dt>
                   <dd className="tabular-nums">{k.biayaLayanan !== null ? formatRupiah(k.biayaLayanan) : "—"}</dd>
                 </div>
               )}
@@ -634,7 +634,7 @@ export function KreditSayaSection() {
             )}
             <p className="mt-3 inline-flex items-center gap-1.5 text-xs text-muted-foreground">
               <PackageCheck className="size-3.5 text-primary" />
-              Tenor simulasi {k.tenorBulan} bulan · DP tersimpan {k.dpPersen}%
+              Tenor {k.tenorBulan} bulan · DP tersimpan {k.dpPersen}%
             </p>
 
             <p className="mt-3 rounded-xl bg-slate-50 px-3 py-2 text-xs leading-5 text-muted-foreground">
@@ -670,16 +670,16 @@ export function KreditBarangSection() {
     <div className="flex flex-col gap-8">
       <div className="grid gap-8 lg:grid-cols-2">
         <section>
-          <h2 className="text-lg font-semibold">Buat catatan simulasi kredit barang</h2>
+          <h2 className="text-lg font-semibold">Buat catatan pengajuan kredit barang</h2>
           <Separator className="my-4" />
           <KreditBarangForm
             onCreated={(ref) =>
-              toast.success(`Catatan pengajuan simulasi tersimpan — referensi ${ref}. Tidak ada pembelian atau pembayaran ke merchant.`)
+              toast.success(`Catatan pengajuan tersimpan — referensi ${ref}. Tidak ada pembelian atau pembayaran ke merchant.`)
             }
           />
         </section>
         <section>
-          <h2 className="text-lg font-semibold">Catatan simulasi kredit barang saya</h2>
+          <h2 className="text-lg font-semibold">Catatan pengajuan kredit barang saya</h2>
           <Separator className="my-4" />
           <KreditSayaSection />
         </section>

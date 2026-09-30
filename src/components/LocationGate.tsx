@@ -522,7 +522,7 @@ export function LocationGate({
               ikon={<Smartphone className="size-5" />}
               kode="Wajib aplikasi PINDAI"
               judul="Pasang aplikasi untuk melanjutkan"
-              deskripsi="Akses ke fitur simulasi ini mensyaratkan aplikasi native sesuai pengaturan akun. Aplikasi dapat mengirim koordinat di latar belakang, tetapi koordinat tersebut bukan verifikasi lokasi fisik atau identitas."
+              deskripsi="Akses ke fitur ini mensyaratkan aplikasi native sesuai pengaturan akun. Aplikasi dapat mengirim koordinat di latar belakang, tetapi koordinat tersebut bukan verifikasi lokasi fisik atau identitas."
             >
               <DaftarLangkah
                 langkah={[
@@ -550,7 +550,7 @@ export function LocationGate({
           <LayarPenuh>
             <Kartu
               ikon={<Smartphone className="size-5" />}
-              kode="Akses simulasi melalui aplikasi"
+              kode="Akses melalui aplikasi"
               judul="Buka PINDAI dari aplikasi"
               deskripsi="Perangkat ini tercatat pernah didaftarkan, tetapi titik terakhir dilaporkan dari browser. Gerbang akses ini meminta titik baru melalui aplikasi; koordinat yang dilaporkan bukan bukti lokasi fisik."
             >
@@ -562,7 +562,7 @@ export function LocationGate({
                 ]}
               />
               <p className="mt-4 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs leading-5 text-muted-foreground">
-                Aplikasi dapat mengirim koordinat di latar belakang; aturan ini hanya mengatur akses ke fitur simulasi. Koordinat yang dilaporkan tidak memverifikasi lokasi fisik atau identitas. Itu keterbatasan browser, bukan pengaturan PINDAI.
+                Aplikasi dapat mengirim koordinat di latar belakang; aturan ini hanya mengatur akses ke fitur ini. Koordinat yang dilaporkan tidak memverifikasi lokasi fisik atau identitas. Itu keterbatasan browser, bukan pengaturan PINDAI.
               </p>
               <TombolKeluar onKeluar={keluar} />
             </Kartu>
@@ -644,7 +644,7 @@ export function LocationGate({
         ikon={<MapPin className="size-5" />}
         kode="Lokasi wajib aktif"
         judul="Nyalakan lokasi untuk melanjutkan"
-        deskripsi="Untuk membuka dashboard simulasi, gerbang ini meminta koordinat terbaru yang dilaporkan perangkat. Gerbang tidak memastikan lokasi fisik atau identitas dan tidak memverifikasi pembayaran maupun perpindahan dana."
+        deskripsi="Untuk membuka dashboard, gerbang ini meminta koordinat terbaru yang dilaporkan perangkat. Gerbang tidak memastikan lokasi fisik atau identitas dan tidak memverifikasi pembayaran maupun perpindahan dana."
       >
         <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-800">
           <ShieldAlert className="mr-1.5 inline size-3.5 align-[-2px]" />
@@ -668,7 +668,7 @@ export function LocationGate({
               : [
                   "Android: Setelan → Lokasi → Aktifkan, lalu izinkan lokasi untuk browser ini.",
                   "iPhone: Setelan → Privasi & Keamanan → Layanan Lokasi → (Safari/Chrome) → Saat Menggunakan App.",
-                  "Ketuk “Coba lagi”, lalu biarkan halaman ini terbuka saat menggunakan dashboard simulasi.",
+                  "Ketuk “Coba lagi”, lalu biarkan halaman ini terbuka saat menggunakan dashboard.",
                 ]
           }
         />

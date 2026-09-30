@@ -158,7 +158,7 @@ function ringkasPinjaman(loan: {
           sisaPokok: 0,
         },
       ],
-      // Simulasi terpisah agar tidak disalahartikan sebagai cicilan yang sudah ditagih.
+      // Ringkasan terpisah agar tidak disalahartikan sebagai cicilan yang sudah ditagih.
       simulasiCicilanBulanan: sim.jadwal.map((c) => ({
         bulan: c.bulan,
         hariKe: null,
@@ -171,7 +171,7 @@ function ringkasPinjaman(loan: {
         sisaPokok: c.sisaPokok,
       })),
       catatanJadwal:
-        "Biaya admin 5% dan platform 2% untuk tenor 3/6 bulan (atau layanan 3% untuk tenor 1) diamortisasi ke cicilan pada simulasi; tidak ada potongan di muka dan ini bukan tagihan.",
+        "Biaya admin 5% dan platform 2% untuk tenor 3/6 bulan (atau layanan 3% untuk tenor 1) diamortisasi ke cicilan; tidak ada potongan di muka dan ini bukan tagihan.",
     };
   }
   const q = quoteLoan(loan.pokokPinjaman);
@@ -202,7 +202,7 @@ function ringkasPinjaman(loan: {
       },
     ],
     simulasiCicilanBulanan: [],
-    catatanJadwal: "Proyeksi satu kali pelunasan simulasi pada akhir tenor; bukan tagihan atau bukti transaksi.",
+    catatanJadwal: "Proyeksi satu kali pelunasan pada akhir tenor; bukan tagihan atau bukti transaksi.",
   };
 }
 

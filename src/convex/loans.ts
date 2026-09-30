@@ -1128,7 +1128,7 @@ export const repayLoan = mutation({
     }
 
     // Skema bulanan: bunga = hak Pendana; admin/platform tenor 3/6 dan
-    // layanan tenor 1 diamortisasi pada simulasi jadwal cicilan.
+    // layanan tenor 1 diamortisasi pada jadwal cicilan.
     // Skema harian: bunga 30% dari quoteLoan (fee sudah dipotong di muka).
     const simBulanan =
       loan.tenorBulan !== undefined
@@ -1426,7 +1426,7 @@ export const myRemindersToday = query({
 
 /**
  * QA/dev helper: mundurkan tanggal pendanaan pinjaman `hariLalu` hari
- * (simulasi hari berjalan tanpa menunggu tenor). Internal — hanya via CLI
+ * (hari berjalan tanpa menunggu tenor). Internal — hanya via CLI
  * Convex (`bunx convex run loans:qaBackdateDidanai '{"loanId":"...","hariLalu":31}'`).
  */
 export const qaBackdateDidanai = internalMutation({

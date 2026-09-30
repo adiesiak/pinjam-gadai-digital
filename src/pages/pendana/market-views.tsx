@@ -19,7 +19,7 @@ function KeteranganWilayah() {
   );
 }
 
-/** Tab 1 — daftar catatan simulasi pinjaman & gadai. */
+/** Tab 1 — daftar catatan pinjaman & gadai. */
 export function MarketplaceSection() {
   const marketplace = useQuery(api.pendana.marketplace);
 
@@ -30,8 +30,8 @@ export function MarketplaceSection() {
       ) : marketplace.length === 0 ? (
         <EmptyState
           icon={Store}
-          title="Belum ada catatan peluang simulasi"
-          body="Catatan berstatus disetujui pada aplikasi tampil dengan kode referensi, rincian perhitungan, jadwal simulasi, dan target ledger yang tersisa."
+          title="Belum ada catatan peluang"
+          body="Catatan berstatus disetujui pada aplikasi tampil dengan kode referensi, rincian perhitungan, jadwal angsuran, dan target ledger yang tersisa."
         />
       ) : (
         <div className="grid gap-4 md:grid-cols-2">
@@ -117,18 +117,18 @@ function MarketCard({
       </div>
 
       <p className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900">
-        Data pemohon dan status review berasal dari aplikasi, bukan verifikasi eksternal. Kartu ini hanya menampilkan hitungan simulasi; alokasi tidak mengirim atau menerima dana.
+        Data pemohon dan status review berasal dari aplikasi, bukan verifikasi eksternal. Kartu ini hanya menampilkan hitungan aplikasi; alokasi tidak mengirim atau menerima dana.
       </p>
 
       <dl className="mt-4 grid grid-cols-2 gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-center text-xs sm:grid-cols-3">
         <div>
-          <dt className="text-muted-foreground">Tenor simulasi</dt>
+          <dt className="text-muted-foreground">Tenor</dt>
           <dd className="mt-0.5 font-semibold tabular-nums">
             {row.tenorBulan !== null ? `${row.tenorBulan} bulan` : `${row.tenorHari} hari`}
           </dd>
         </div>
         <div>
-          <dt className="text-muted-foreground">Imbal hasil simulasi</dt>
+          <dt className="text-muted-foreground">Imbal hasil</dt>
           <dd className="mt-0.5 font-semibold tabular-nums text-emerald-700">
             {formatRupiah(row.imbalHasilTotal)}
           </dd>
@@ -167,28 +167,28 @@ function MarketCard({
               </div>
             )}
             <div className="flex justify-between gap-3">
-              <dt className="text-muted-foreground">Potongan simulasi di muka</dt>
+              <dt className="text-muted-foreground">Potongan di muka</dt>
               <dd className="font-medium tabular-nums">{formatRupiah(row.totalPotonganDiMuka)}</dd>
             </div>
           </dl>
         ) : (
           <dl className="mt-2 space-y-1.5">
             <div className="flex justify-between gap-3">
-              <dt className="text-muted-foreground">Biaya admin simulasi</dt>
+              <dt className="text-muted-foreground">Biaya admin</dt>
               <dd className="font-medium tabular-nums">{formatRupiah(row.biayaAdmin)}</dd>
             </div>
             <div className="flex justify-between gap-3">
-              <dt className="text-muted-foreground">Biaya platform simulasi</dt>
+              <dt className="text-muted-foreground">Biaya platform</dt>
               <dd className="font-medium tabular-nums">{formatRupiah(row.biayaPlatform)}</dd>
             </div>
             <div className="flex justify-between gap-3 border-t border-slate-100 pt-1.5">
-              <dt className="text-muted-foreground">Total potongan simulasi di muka</dt>
+              <dt className="text-muted-foreground">Total potongan di muka</dt>
               <dd className="font-medium tabular-nums">{formatRupiah(row.totalPotonganDiMuka)}</dd>
             </div>
           </dl>
         )}
         <p className="mt-2 border-t border-slate-100 pt-2 text-muted-foreground">
-          Nilai bersih pada simulasi (tidak ditransfer): <span className="font-semibold tabular-nums text-foreground">{formatRupiah(row.danaBersih)}</span>
+          Nilai bersih (tidak ditransfer): <span className="font-semibold tabular-nums text-foreground">{formatRupiah(row.danaBersih)}</span>
         </p>
       </section>
 
@@ -200,7 +200,7 @@ function MarketCard({
         <ul className="mt-2 divide-y divide-slate-100">
           {row.jadwalPelunasan.map((cicilan, index) => (
             <li key={`${cicilan.bulan ?? cicilan.hariKe}-${index}`} className="flex flex-wrap justify-between gap-x-3 gap-y-1 py-2">
-              <span>{cicilan.bulan !== null ? `Bulan simulasi ke-${cicilan.bulan}` : `Hari simulasi ke-${cicilan.hariKe}`}</span>
+              <span>{cicilan.bulan !== null ? `Bulan ke-${cicilan.bulan}` : `Hari ke-${cicilan.hariKe}`}</span>
               <span className="text-right font-semibold tabular-nums">{formatRupiah(cicilan.total)}</span>
             </li>
           ))}
@@ -209,12 +209,12 @@ function MarketCard({
 
       {row.simulasiCicilanBulanan.length > 0 && (
         <details className="mt-3 rounded-xl border border-amber-200 bg-amber-50/50 px-3 py-2.5 text-xs">
-          <summary className="cursor-pointer font-medium">Lihat simulasi cicilan bulanan (bukan tagihan aktual)</summary>
-          <p className="mt-2 text-muted-foreground">Rincian ini hanya simulasi; pada akhir tenor status dapat ditandai lunas sekaligus di ledger. Itu bukan konfirmasi pembayaran aktual.</p>
+          <summary className="cursor-pointer font-medium">Lihat cicilan bulanan (bukan tagihan aktual)</summary>
+          <p className="mt-2 text-muted-foreground">Rincian ini hanya ilustrasi; pada akhir tenor status dapat ditandai lunas sekaligus di ledger. Itu bukan konfirmasi pembayaran aktual.</p>
           <ul className="mt-2 divide-y divide-amber-100">
             {row.simulasiCicilanBulanan.map((cicilan, index) => (
               <li key={`${cicilan.bulan}-${index}`} className="flex flex-wrap justify-between gap-3 py-1.5">
-                <span>Bulan simulasi {cicilan.bulan}</span>
+                <span>Bulan {cicilan.bulan}</span>
                 <span className="font-medium tabular-nums">{formatRupiah(cicilan.total)}</span>
                 <span className="w-full text-right text-muted-foreground">
                   Pokok {formatRupiah(cicilan.pokok)} · bunga {formatRupiah(cicilan.imbalHasil)}
@@ -232,7 +232,7 @@ function MarketCard({
       {/* Progress pendanaan */}
       <div className="mt-4">
         <div className="flex items-baseline justify-between text-xs">
-          <span className="font-medium">Alokasi simulasi tercatat di ledger</span>
+          <span className="font-medium">Alokasi tercatat di ledger</span>
           <span className="text-right tabular-nums text-muted-foreground">
             {formatRupiah(row.terkumpul)} / {formatRupiah(row.pokokPinjaman)}
           </span>
