@@ -863,6 +863,101 @@ export const rejectPawn = mutation({
     setPawnStatus(ctx, args.pawnId, "ditolak", { catatan: args.reason }),
 });
 
+/** Super Admin menghapus pengajuan pinjaman yang salah input, tanpa jejak transaksi. */
+export const hapusPinjaman = mutation({
+  args: { loanId: v.id("loans"), reason: v.string() },
+  handler: async (ctx, { loanId, reason }) => {
+    const { userId, user } = await requireAdminSession(ctx);
+    const alasan = reason.trim();
+    if (alasan.length < 10 || alasan.length > 500) {
+      throw new Error("Alasan penghapusan wajib 10–500 karakter.");
+    }
+    const loan = await ctx.db.get(loanId);
+    if (loan === null) throw new Error("Data pinjaman tidak ditemukan.");
+    if (
+      loan.status === "didanai" || loan.status === "lunas" ||
+      loan.didanaiPada !== undefined || loan.lunasPada !== undefined ||
+      loan.persetujuanSyaratPada !== undefined || loan.tandaTanganPeminjam !== undefined
+    ) {
+      throw new Error("Pinjaman ini sudah masuk siklus pendanaan/pelunasan atau memiliki persetujuan tercatat; tidak dapat dihapus.");
+    }
+
+    const [fundings, reminders, waLogs, locationTrail, locationWarnings, ledger] = await Promise.all([
+      ctx.db.query("fundings").withIndex("by_loan", (q) => q.eq("loanId", loanId)).collect(),
+      ctx.db.query("pengingat").withIndex("by_loan", (q) => q.eq("loanId", loanId)).collect(),
+      ctx.db.query("waLogs").withIndex("by_loan", (q) => q.eq("loanId", loanId)).collect(),
+      ctx.db.query("lokasiJejak").withIndex("by_loan", (q) => q.eq("loanId", loanId)).collect(),
+      ctx.db.query("lokasiPeringatan").withIndex("by_loan", (q) => q.eq("loanId", loanId)).collect(),
+      ctx.db.query("ledger_entries").withIndex("by_akun", (q) => q.eq("akun", `pinjaman:${loanId}`)).first(),
+    ]);
+    const hasRelatedRecord =
+      fundings.length > 0 || reminders.length > 0 || waLogs.length > 0 ||
+      locationTrail.length > 0 || locationWarnings.length > 0 || ledger !== null;
+    if (hasRelatedRecord) {
+      throw new Error("Data pinjaman memiliki alokasi, jurnal, pengingat, atau catatan operasional terkait; tidak dihapus agar riwayat tetap utuh.");
+    }
+
+    await audit(
+      ctx,
+      userId,
+      user.email ?? user.name ?? "admin",
+      "loan_delete",
+      loan.nomorReferensi,
+      `${loan.namaLengkap} — pokok ${formatRupiah(loan.pokokPinjaman)}, status ${loan.status}; alasan: ${alasan}`,
+    );
+    await ctx.db.delete(loanId);
+    for (const storageId of [loan.dokKtpId, loan.dokSelfieKtpId, loan.dokSlipGajiId]) {
+      if (storageId !== undefined && await ctx.storage.getMetadata(storageId) !== null) {
+        await ctx.storage.delete(storageId);
+      }
+    }
+    return { ok: true };
+  },
+});
+
+/** Super Admin menghapus pengajuan gadai yang salah input, tanpa jejak transaksi. */
+export const hapusGadai = mutation({
+  args: { pawnId: v.id("pawns"), reason: v.string() },
+  handler: async (ctx, { pawnId, reason }) => {
+    const { userId, user } = await requireAdminSession(ctx);
+    const alasan = reason.trim();
+    if (alasan.length < 10 || alasan.length > 500) {
+      throw new Error("Alasan penghapusan wajib 10–500 karakter.");
+    }
+    const pawn = await ctx.db.get(pawnId);
+    if (pawn === null) throw new Error("Data gadai tidak ditemukan.");
+    if (
+      pawn.dicairkanPada !== undefined || pawn.kodeRakVault !== undefined ||
+      pawn.persetujuanSyaratPada !== undefined || pawn.tandaTanganPeminjam !== undefined ||
+      pawn.status === "aktif" || pawn.status === "menunggu_pelepasan" || pawn.status === "lunas_dilepas"
+    ) {
+      throw new Error("Gadai ini sudah masuk siklus pencairan, penitipan, atau memiliki persetujuan tercatat; tidak dapat dihapus.");
+    }
+
+    const [payments, ledger] = await Promise.all([
+      ctx.db.query("pawnPayments").withIndex("by_pawn", (q) => q.eq("pawnId", pawnId)).collect(),
+      ctx.db.query("ledger_entries").withIndex("by_akun", (q) => q.eq("akun", `gadai:${pawnId}`)).first(),
+    ]);
+    if (payments.length > 0 || ledger !== null) {
+      throw new Error("Data gadai memiliki pembayaran atau jurnal terkait; tidak dihapus agar riwayat tetap utuh.");
+    }
+
+    await audit(
+      ctx,
+      userId,
+      user.email ?? user.name ?? "admin",
+      "pawn_delete",
+      pawn.nomorReferensi,
+      `${pawn.namaLengkap} — ${pawn.deskripsiBarang}, status ${pawn.status}; alasan: ${alasan}`,
+    );
+    await ctx.db.delete(pawnId);
+    if (pawn.fotoBarangId !== undefined && await ctx.storage.getMetadata(pawn.fotoBarangId) !== null) {
+      await ctx.storage.delete(pawn.fotoBarangId);
+    }
+    return { ok: true };
+  },
+});
+
 // =====================================================================
 // Pelunasan (repayment) & pelepasan barang gadai
 // =====================================================================

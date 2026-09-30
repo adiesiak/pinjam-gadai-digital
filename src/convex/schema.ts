@@ -706,7 +706,9 @@ const schema = defineSchema(
       /** Subjek transaksi (userId atau "platform"). */
       aktor: v.string(),
       waktu: v.number(),
-    }).index("by_group", ["groupId"]),
+    })
+      .index("by_group", ["groupId"])
+      .index("by_akun", ["akun"]),
 
     /**
      * Pengingat jatuh tempo pelunasan — APPEND-ONLY, idempoten per
@@ -755,6 +757,7 @@ const schema = defineSchema(
       waktu: v.number(),
     })
       .index("by_user", ["userId"])
+      .index("by_loan", ["loanId"])
       .index("by_waktu", ["waktu"]),
 
     /**

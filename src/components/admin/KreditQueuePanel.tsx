@@ -1,5 +1,5 @@
 import { useMutation, useQuery } from "convex/react";
-import { CheckCircle2, Loader2, Search, Send, ShoppingBag, XCircle } from "lucide-react";
+import { CheckCircle2, Loader2, Search, Send, ShoppingBag, Trash2, XCircle } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
@@ -70,7 +70,9 @@ export function KreditQueuePanel() {
   const tandai = useMutation(api.kredit.tandaiKreditDitinjau);
   const setujui = useMutation(api.kredit.setujuiKreditBarang);
   const tolak = useMutation(api.kredit.tolakKreditBarang);
+  const hapus = useMutation(api.kredit.hapusKreditBarang);
   const [alasan, setAlasan] = useState<Record<string, string>>({});
+  const [alasanHapus, setAlasanHapus] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const filteredRows = useMemo(() => {
@@ -129,6 +131,24 @@ export function KreditQueuePanel() {
       }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Aksi gagal diproses.");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const jalankanHapus = async (id: Id<"kreditBarang">, reference: string) => {
+    const reason = (alasanHapus[id] ?? "").trim();
+    if (reason.length < 10) {
+      toast.error("Alasan penghapusan wajib minimal 10 karakter.");
+      return;
+    }
+    if (!window.confirm(`Hapus permanen kredit ${reference}? Audit Trail tetap tersimpan. Data dengan transaksi terkait akan ditolak.`)) return;
+    setBusy(id);
+    try {
+      await hapus({ kreditId: id, reason });
+      toast.success("Data kredit dihapus dan tercatat di Audit Trail.");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Gagal menghapus data kredit.");
     } finally {
       setBusy(null);
     }
@@ -285,6 +305,22 @@ export function KreditQueuePanel() {
                   >
                     <XCircle className="mr-1.5 size-4" /> Tolak
                   </Button>
+                  <Input
+                    value={alasanHapus[r._id] ?? ""}
+                    onChange={(event) => setAlasanHapus((current) => ({ ...current, [r._id]: event.target.value }))}
+                    placeholder="Alasan hapus (wajib, min. 10 karakter)"
+                    className="w-full sm:w-72"
+                    maxLength={500}
+                    aria-label={`Alasan penghapusan ${r.nomorReferensi}`}
+                  />
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    disabled={busy === r._id || (alasanHapus[r._id] ?? "").trim().length < 10}
+                    onClick={() => void jalankanHapus(r._id, r.nomorReferensi)}
+                  >
+                    <Trash2 className="mr-1.5 size-4" /> Hapus data
+                  </Button>
                   {busy === r._id && <Loader2 className="size-4 animate-spin text-muted-foreground" />}
                 </div>
               </li>
@@ -295,6 +331,7 @@ export function KreditQueuePanel() {
 
       <section>
         <h2 className="text-sm font-semibold">Riwayat keputusan ({selesai.length})</h2>
+        <p className="mt-1 text-xs text-muted-foreground">Penghapusan hanya berhasil bila belum ada alokasi dana, pembayaran, atau jurnal ledger terkait.</p>
         {selesai.length === 0 ? (
           <p className="mt-4 rounded-2xl border border-dashed border-slate-200 bg-white/60 px-5 py-8 text-center text-sm text-muted-foreground">
             Belum ada keputusan untuk pengajuan kredit barang.
@@ -306,7 +343,7 @@ export function KreditQueuePanel() {
                 key={r._id}
                 className="flex flex-wrap items-center justify-between gap-3 px-5 py-4"
               >
-                <div className="min-w-0">
+                <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium">
                     {r.namaLengkap} — {r.namaBarang} (harga simulasi {formatRupiah(r.hargaBarang)})
                   </p>
@@ -316,7 +353,29 @@ export function KreditQueuePanel() {
                     {r.catatanReview !== null && ` · ${r.catatanReview}`}
                   </p>
                 </div>
-                <KreditStatusBadge status={r.status} />
+                <div className="flex shrink-0 flex-wrap items-center gap-2">
+                  <KreditStatusBadge status={r.status} />
+                </div>
+                <div className="mt-3 flex w-full flex-wrap items-center gap-2">
+                  <Input
+                    value={alasanHapus[r._id] ?? ""}
+                    onChange={(event) => setAlasanHapus((current) => ({ ...current, [r._id]: event.target.value }))}
+                    placeholder="Alasan hapus (wajib, min. 10 karakter)"
+                    className="w-full sm:w-72"
+                    maxLength={500}
+                    aria-label={`Alasan penghapusan ${r.nomorReferensi}`}
+                  />
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    disabled={busy === r._id || (alasanHapus[r._id] ?? "").trim().length < 10}
+                    onClick={() => void jalankanHapus(r._id, r.nomorReferensi)}
+                  >
+                    <Trash2 className="mr-1.5 size-4" /> Hapus data
+                  </Button>
+                  {busy === r._id && <Loader2 className="size-4 animate-spin text-muted-foreground" />}
+                </div>
+
               </li>
             ))}
           </ul>

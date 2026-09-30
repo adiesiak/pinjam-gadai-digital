@@ -596,3 +596,41 @@ export const tolakKreditBarang = mutation({
   args: { kreditId: v.id("kreditBarang"), reason: v.string() },
   handler: (ctx, args) => setKreditStatus(ctx, args.kreditId, "ditolak", args.reason),
 });
+
+/** Super Admin menghapus pengajuan kredit barang yang salah input tanpa jejak transaksi. */
+export const hapusKreditBarang = mutation({
+  args: { kreditId: v.id("kreditBarang"), reason: v.string() },
+  handler: async (ctx, { kreditId, reason }) => {
+    const adminId = await adminMasuk(ctx);
+    const alasan = reason.trim();
+    if (alasan.length < 10 || alasan.length > 500) {
+      throw new Error("Alasan penghapusan wajib 10–500 karakter.");
+    }
+    const row = await ctx.db.get(kreditId);
+    if (row === null) throw new Error("Data kredit barang tidak ditemukan.");
+    if (row.status === "didanai" || row.status === "lunas" || row.didanaiPada !== undefined || row.lunasPada !== undefined) {
+      throw new Error("Kredit ini sudah masuk siklus pendanaan/pelunasan dan tidak dapat dihapus.");
+    }
+
+    const [payments, fundings, ledger] = await Promise.all([
+      ctx.db.query("kreditPayments").withIndex("by_kredit", (q) => q.eq("kreditId", kreditId)).collect(),
+      ctx.db.query("kreditFundings").withIndex("by_kredit", (q) => q.eq("kreditId", kreditId)).collect(),
+      ctx.db.query("ledger_entries").withIndex("by_akun", (q) => q.eq("akun", `kredit:${kreditId}`)).first(),
+    ]);
+    if (payments.length > 0 || fundings.length > 0 || ledger !== null) {
+      throw new Error("Data kredit memiliki alokasi, pembayaran, atau jurnal terkait; tidak dihapus agar riwayat tetap utuh.");
+    }
+
+    const admin = await ctx.db.get(adminId);
+    await audit(
+      ctx,
+      adminId,
+      admin?.email ?? admin?.name ?? "admin",
+      "kredit_delete",
+      row.nomorReferensi,
+      `${row.namaLengkap} — ${row.namaBarang} (${row.merchant}), status ${row.status}; alasan: ${alasan}`,
+    );
+    await ctx.db.delete(kreditId);
+    return { ok: true };
+  },
+});

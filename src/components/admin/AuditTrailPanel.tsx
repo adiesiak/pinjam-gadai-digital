@@ -6,13 +6,17 @@ import { api } from "@/convex/_generated/api";
 
 export function AuditTrailPanel() {
   const data = useQuery(api.system.getConfigAdmin);
+  const isDeletion = (aksi: string) => ["loan_delete", "kredit_delete", "pawn_delete"].includes(aksi);
   if (data === undefined) {
     return <div className="flex items-center gap-2 py-10 text-sm text-muted-foreground"><Loader2 className="size-4 animate-spin" /> Memuat…</div>;
   }
   return (
     <div className="rounded-2xl border border-slate-200 bg-white">
       <div className="flex items-center justify-between px-5 py-4">
-        <p className="text-sm font-semibold text-navy">Rekam jejak aktivitas admin</p>
+        <div>
+          <p className="text-sm font-semibold text-navy">Rekam jejak aktivitas admin</p>
+          <p className="mt-1 text-xs text-muted-foreground">Termasuk penghapusan data yang disertai alasan; entri audit tetap dipertahankan.</p>
+        </div>
         <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100">{data.auditTerbaru.length} entri terbaru</Badge>
       </div>
       <ul className="divide-y divide-slate-100">
@@ -21,7 +25,7 @@ export function AuditTrailPanel() {
             <div className="flex flex-wrap items-center justify-between gap-2">
               <p className="text-sm">
                 <span className="font-semibold text-navy">{a.aktorLabel}</span>{" "}
-                <Badge variant="outline" className="mx-1 text-[10px] uppercase">{a.aksi}</Badge>{" "}
+                <Badge variant={isDeletion(a.aksi) ? "destructive" : "outline"} className="mx-1 text-[10px] uppercase">{isDeletion(a.aksi) ? `HAPUS · ${a.aksi.replace("_delete", "")}` : a.aksi}</Badge>{" "}
                 <span className="text-muted-foreground">{a.target ?? ""}</span>
               </p>
               <span className="text-xs tabular-nums text-muted-foreground">{new Date(a.waktu).toLocaleString("id-ID")}</span>

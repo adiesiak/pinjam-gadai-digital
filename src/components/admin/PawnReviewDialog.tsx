@@ -1,5 +1,5 @@
 import { useMutation } from "convex/react";
-import { ClipboardList, Loader2, MapPin } from "lucide-react";
+import { ClipboardList, Loader2, MapPin, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -32,8 +32,10 @@ export function PawnReviewDialog({
   const markInAppraisal = useMutation(api.loans.markPawnInAppraisal);
   const reject = useMutation(api.loans.rejectPawn);
   const releasePawn = useMutation(api.loans.releasePawn);
+  const deletePawn = useMutation(api.loans.hapusGadai);
 
   const [reason, setReason] = useState("");
+  const [deleteReason, setDeleteReason] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -41,6 +43,26 @@ export function PawnReviewDialog({
   const pending = row.status === "diajukan";
   const inAppraisal = row.status === "sedang_dinilai";
   const decided = row.status === "disetujui" || row.status === "ditolak";
+
+  const runDelete = async () => {
+    const trimmedReason = deleteReason.trim();
+    if (trimmedReason.length < 10) {
+      setError("Alasan penghapusan wajib minimal 10 karakter.");
+      return;
+    }
+    if (!window.confirm(`Hapus permanen gadai ${row.nomorReferensi}? Audit Trail tetap tersimpan. Data dengan transaksi terkait akan ditolak.`)) return;
+    setBusy("delete");
+    setError(null);
+    try {
+      await deletePawn({ pawnId: row._id, reason: trimmedReason });
+      toast.success("Data gadai dihapus dan tercatat di Audit Trail.");
+      onClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Gagal menghapus data gadai.");
+    } finally {
+      setBusy(null);
+    }
+  };
 
   const run = async (label: string, fn: () => Promise<unknown>) => {
     setBusy(label);
@@ -173,6 +195,31 @@ export function PawnReviewDialog({
             </div>
           </>
         )}
+
+        {decided && error && (
+          <p role="alert" aria-live="assertive" className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+            {error}
+          </p>
+        )}
+
+        <div className="space-y-2 border-t border-slate-200 pt-4">
+          <Label htmlFor="alasan-hapus-gadai">Hapus data salah input</Label>
+          <Textarea
+            id="alasan-hapus-gadai"
+            rows={2}
+            maxLength={500}
+            value={deleteReason}
+            onChange={(event) => setDeleteReason(event.target.value)}
+            placeholder="Alasan penghapusan wajib (minimal 10 karakter)…"
+          />
+          <p className="text-xs leading-5 text-muted-foreground">
+            Hanya data tanpa pencairan, pembayaran, penitipan atau jurnal terkait yang bisa dihapus. Audit Trail tetap tersimpan.
+          </p>
+          <Button variant="destructive" disabled={busy !== null || deleteReason.trim().length < 10} onClick={() => void runDelete()}>
+            {busy === "delete" ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Trash2 className="mr-2 size-4" />}
+            Hapus gadai
+          </Button>
+        </div>
 
         {row.catatanReview && (
           <div className="rounded-md border border-slate-200 bg-slate-50 px-4 py-3">
