@@ -92,7 +92,7 @@ export function AdminTabs({
     <Tabs
       value={activeTab}
       onValueChange={setActiveTab}
-      className="mt-4 flex min-w-0 flex-col gap-4 sm:mt-6 sm:gap-5 lg:flex-col lg:gap-5"
+      className="mt-4 flex min-w-0 flex-col gap-4 sm:mt-6 sm:gap-5 lg:flex-row lg:items-start lg:gap-6"
     >
       <div className="sticky top-16 z-30 -mx-3 border-y border-slate-200 bg-white/95 px-3 py-2.5 backdrop-blur sm:-mx-6 sm:px-6 lg:hidden">
         <label htmlFor="admin-tab-select" className="mb-1.5 block text-[11px] font-medium text-muted-foreground">
@@ -116,12 +116,12 @@ export function AdminTabs({
         </div>
       </div>
 
-      <TabsList aria-label="Navigasi panel admin" className="hidden lg:grid lg:h-auto lg:w-full lg:grid-cols-4 lg:items-stretch lg:gap-2 lg:rounded-2xl lg:border lg:border-slate-200 lg:bg-white lg:p-2">
+      <TabsList aria-label="Navigasi panel admin" className="hidden lg:sticky lg:top-20 lg:z-30 lg:flex lg:h-auto lg:w-64 lg:shrink-0 lg:flex-col lg:items-stretch lg:gap-1 lg:self-start lg:rounded-2xl lg:border lg:border-slate-200 lg:bg-white lg:p-2">
         {tabItems.map(([value, label, badge, Icon]) => (
           <TabsTrigger
             key={value}
             value={value}
-            className="h-10 w-full justify-start gap-2.5 rounded-xl px-3 text-left text-xs font-medium text-navy shadow-none transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 data-[state=active]:gradient-primary data-[state=active]:text-white data-[state=active]:shadow-none data-[state=active]:hover:bg-none lg:h-auto lg:min-h-12 lg:text-sm"
+            className="h-10 w-full justify-start gap-2.5 rounded-xl px-3 text-left text-xs font-medium text-navy shadow-none transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 data-[state=active]:gradient-primary data-[state=active]:text-white data-[state=active]:shadow-none data-[state=active]:hover:bg-none lg:min-h-10 lg:text-sm"
           >
             <Icon className="size-3.5 shrink-0" />
             <span className="min-w-0 flex-1 whitespace-normal break-words text-left leading-5">{label}</span>
