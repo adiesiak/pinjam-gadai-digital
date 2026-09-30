@@ -830,6 +830,24 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                           )}
                           Kirim token aktivasi
                         </Button>
+                        <p className="text-center text-xs text-muted-foreground">
+                          Setelah token dikirim, kolom verifikasi akan terbuka. Jika token sudah ada di email tetapi layar belum berpindah:
+                        </p>
+                        <Button
+                          type="button"
+                          variant="link"
+                          className="w-full whitespace-normal text-center text-xs"
+                          onClick={() =>
+                            setAdminFlow({
+                              kind: "code",
+                              email: adminEmail.trim(),
+                              purpose: "activation",
+                            })
+                          }
+                          disabled={isLoading || !adminEmail.trim()}
+                        >
+                          Saya sudah menerima token — buka kolom verifikasi
+                        </Button>
                       </CardContent>
                       <CardFooter>
                         <Button
@@ -925,24 +943,33 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                         {adminStep.purpose === "reset" ? "Verifikasi reset password" : "Verifikasi aktivasi password"}
                       </CardTitle>
                       <CardDescription>
-                        Token 32 karakter alfanumerik dikirim ke {adminStep.email}. Token ini hanya berlaku untuk aktivasi atau reset admin.
+                        Tempel token 32 karakter alfanumerik yang dikirim ke {adminStep.email}. Berlaku 15 menit; perhatikan huruf besar/kecil.
                       </CardDescription>
                     </CardHeader>
                     <form onSubmit={handleAdminCodeSubmit}>
                       <CardContent className="space-y-4">
-                        <Input
-                          aria-label="Token verifikasi admin 32 karakter"
-                          autoComplete="one-time-code"
-                          className="font-mono tracking-wider"
-                          maxLength={32}
-                          placeholder="Tempel token 32 karakter dari email"
-                          value={adminOtp}
-                          onChange={(event) =>
-                            setAdminOtp(event.target.value.replace(/[^a-zA-Z0-9]/g, "").slice(0, 32))
-                          }
-                          disabled={isLoading}
-                          required
-                        />
+                        <div className="space-y-2">
+                          <label htmlFor="admin-verification-token" className="text-sm font-medium">
+                            Token verifikasi (32 karakter)
+                          </label>
+                          <Input
+                            id="admin-verification-token"
+                            aria-label="Token verifikasi admin 32 karakter"
+                            autoComplete="one-time-code"
+                            className="h-12 font-mono text-center text-base tracking-wider"
+                            maxLength={32}
+                            placeholder="Tempel token dari email di sini"
+                            value={adminOtp}
+                            onChange={(event) =>
+                              setAdminOtp(event.target.value.replace(/[^a-zA-Z0-9]/g, "").slice(0, 32))
+                            }
+                            disabled={isLoading}
+                            required
+                          />
+                          <p className="text-xs text-muted-foreground">
+                            {adminOtp.length}/32 karakter · huruf besar dan kecil harus sama seperti di email.
+                          </p>
+                        </div>
                         {adminStep.purpose === "reset" && (
                           <>
                             <div className="space-y-2">
