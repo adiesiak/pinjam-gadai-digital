@@ -204,6 +204,13 @@ export const saveConfig = mutation({
     args.rekeningUsahaBank = args.rekeningUsahaBank?.trim() ?? "";
     args.rekeningUsahaNomor = nomorUsaha;
     args.qrisMerchantNama = args.qrisMerchantNama?.trim() ?? "";
+    if (args.qrisImageId) {
+      const metadata = await ctx.storage.getMetadata(args.qrisImageId);
+      if (!metadata || metadata.size > 5_000_000 ||
+        !["image/jpeg", "image/png", "image/webp"].includes(metadata.contentType ?? "")) {
+        throw new Error("QRIS harus berupa gambar JPG, PNG, atau WebP maksimal 5 MB.");
+      }
+    }
     const label = user.email ?? user.name ?? "admin";
     const prev = await getConfig(ctx);
     const existing = await ctx.db

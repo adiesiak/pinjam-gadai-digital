@@ -176,7 +176,7 @@ export function SystemConfigPanel() {
           <div className="grid gap-3 sm:grid-cols-2">
             <div><Label htmlFor="cfg-payee">Nama pemilik rekening</Label><Input id="cfg-payee" value={form.rekeningUsahaNama} onChange={(e) => upd("rekeningUsahaNama", e.target.value)} /></div>
             <div><Label htmlFor="cfg-bank">Bank</Label><Input id="cfg-bank" value={form.rekeningUsahaBank} onChange={(e) => upd("rekeningUsahaBank", e.target.value)} /></div>
-            <div><Label htmlFor="cfg-account">Nomor rekening</Label><Input id="cfg-account" inputMode="numeric" value={form.rekeningUsahaNomor} onChange={(e) => upd("rekeningUsahaNomor", e.target.value.replace(/\\D/g, ""))} /></div>
+            <div><Label htmlFor="cfg-account">Nomor rekening</Label><Input id="cfg-account" inputMode="numeric" value={form.rekeningUsahaNomor} onChange={(e) => upd("rekeningUsahaNomor", e.target.value.replace(/\D/g, ""))} /></div>
             <div><Label htmlFor="cfg-qris-merchant">Nama merchant QRIS</Label><Input id="cfg-qris-merchant" value={form.qrisMerchantNama} onChange={(e) => upd("qrisMerchantNama", e.target.value)} /></div>
           </div>
           {data.qrisUrl && <img src={data.qrisUrl} alt="QRIS yang diunggah admin" className="max-h-56 rounded-xl border border-slate-200 bg-white object-contain p-2" />}

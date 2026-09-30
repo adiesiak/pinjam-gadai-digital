@@ -264,6 +264,10 @@ export const requestDeposit = mutation({
     if (config?.manualDepositEnabled !== true) {
       throw new Error("Penerimaan setoran Pendana belum diaktifkan tim operasional.");
     }
+    if (args.metodePembayaran === "qris" &&
+      (!config.qrisImageId || !(await ctx.storage.getUrl(config.qrisImageId)))) {
+      throw new Error("QRIS belum tersedia; pilih transfer atau hubungi admin.");
+    }
     validateRupiahAmount(args.jumlah, "Jumlah setoran");
     const ref = args.referensiTransfer.trim();
     if (ref.length < 4 || ref.length > 120) {

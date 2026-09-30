@@ -114,7 +114,7 @@ describe("alur Pendana — pinjaman tunai", () => {
       "disetujui",
     );
 
-    // Pengajuan deposit baru dan semua perintah transaksi ditolak tanpa ledger.
+    // Penerimaan bukti deposit tetap tertutup sampai gerbang admin dibuka; semua perintah uang ditolak tanpa ledger.
     const [depositId, withdrawalId, pawnId] = await t.run(async (ctx) => {
       const pendanaId = (await ctx.db.query("users").collect()).find(
         (user) => user.email === "pendana-alur@pindai.test",
@@ -161,7 +161,7 @@ describe("alur Pendana — pinjaman tunai", () => {
         tanggalTransfer: Date.now(),
         buktiPembayaranId: await t.run((ctx) => ctx.storage.store(new Blob(["bukti"]))),
       }),
-    ).rejects.toThrow("penyedia pembayaran belum dipilih atau terintegrasi");
+    ).rejects.toThrow("Penerimaan setoran Pendana belum diaktifkan tim operasional.");
     await expect(
       admin.mutation(api.admin.confirmDeposit, { depositId }),
     ).rejects.toThrow("penyedia pembayaran belum dipilih atau terintegrasi");
@@ -228,6 +228,46 @@ describe("alur Pendana — pinjaman tunai", () => {
       entryCount: ledgerCountBefore,
       seimbang: true,
     });
+  });
+
+  it("mencatat penolakan bukti setoran hanya sebagai metadata, tanpa mengubah status atau ledger", async () => {
+    const t = convexTest(schema, modules);
+    const { userId: pendanaId } = await siapkanPengguna(
+      t,
+      "pendana-bukti-ditolak",
+      "pendana-bukti-ditolak@pindai.test",
+      "pendana",
+    );
+    const { sesi: admin } = await siapkanPengguna(
+      t,
+      "admin-bukti-ditolak",
+      "admin-bukti-ditolak@pindai.test",
+      "admin",
+    );
+    const depositId = await t.run((ctx) =>
+      ctx.db.insert("deposits", {
+        pendanaId,
+        jumlah: 250_000,
+        referensiTransfer: "TRF-BUKTI-001",
+        status: "menunggu_verifikasi",
+        nomorReferensi: "DEP-BUKTI-001",
+      }),
+    );
+
+    await admin.mutation(api.admin.rejectDeposit, {
+      depositId,
+      reason: "Referensi bukti tidak sesuai.",
+    });
+
+    const deposit = await t.run((ctx) => ctx.db.get(depositId));
+    const ledger = await t.run((ctx) => ctx.db.query("ledger_entries").collect());
+    expect(deposit).toMatchObject({
+      status: "menunggu_verifikasi",
+      statusPencocokan: "ditolak",
+      catatanAdmin: "Referensi bukti tidak sesuai.",
+      dicocokkanOleh: expect.any(String),
+    });
+    expect(ledger).toHaveLength(0);
   });
 
   it("menampilkan jadwal pinjaman bulanan sebagai proyeksi internal, bukan pembayaran aktual", async () => {

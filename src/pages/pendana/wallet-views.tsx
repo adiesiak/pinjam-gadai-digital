@@ -104,6 +104,9 @@ export function WithdrawalBadge({ status }: { status: string }) {
 }
 
 export function DepositBadge({ status, statusPencocokan }: { status: string; statusPencocokan?: string | null }) {
+  if (statusPencocokan === "ditolak") {
+    return <Badge variant="destructive">Bukti ditolak pada catatan internal</Badge>;
+  }
   if (statusPencocokan === "dicocokkan") {
     return <Badge className="border-0 bg-sky-100 text-sky-800 hover:bg-sky-100">Mutasi dicocokkan · saldo tidak berubah</Badge>;
   }

@@ -181,6 +181,12 @@ export const submitManualPaymentReceipt = mutation({
       const pawn = args.pawnId ? await ctx.db.get(args.pawnId) : null;
       if (!pawn || pawn.userId !== userId || pawn.status !== "aktif" || (pawn.sisaPokok ?? 0) <= 0) throw new Error("Gadai aktif milik Anda tidak ditemukan.");
     }
+    if (args.metodePembayaran === "qris") {
+      const config = await getConfig(ctx);
+      if (!config.qrisImageId || !(await ctx.storage.getUrl(config.qrisImageId))) {
+        throw new Error("QRIS belum tersedia; pilih transfer atau hubungi admin.");
+      }
+    }
     const metadata = await ctx.storage.getMetadata(args.buktiPembayaranId);
     if (!metadata || metadata.size > 5_000_000 ||
       !["image/jpeg", "image/png", "image/webp", "application/pdf"].includes(metadata.contentType ?? "")) {

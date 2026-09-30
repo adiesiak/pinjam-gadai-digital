@@ -24,7 +24,9 @@ export function DepositForm() {
   const requestDeposit = useMutation(api.pendana.requestDeposit);
   const [amount, setAmount] = useState("");
   const [reference, setReference] = useState("");
-  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [date, setDate] = useState(
+    new Date(Date.now() - new Date().getTimezoneOffset() * 60_000).toISOString().slice(0, 10),
+  );
   const [method, setMethod] = useState<"transfer" | "qris">("transfer");
   const [file, setFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
@@ -50,7 +52,7 @@ export function DepositForm() {
           const response = await fetch(url, { method: "POST", headers: { "Content-Type": file.type }, body: file });
           const result = (await response.json()) as { storageId?: Id<"_storage"> };
           if (!response.ok || !result.storageId) throw new Error("Bukti gagal diunggah.");
-          await requestDeposit({ jumlah: rupiah, referensiTransfer: reference, metodePembayaran: method, tanggalTransfer: new Date(`${date}T12:00:00`).getTime(), buktiPembayaranId: result.storageId });
+          await requestDeposit({ jumlah: rupiah, referensiTransfer: reference, metodePembayaran: method, tanggalTransfer: new Date(`${date}T00:00:00`).getTime(), buktiPembayaranId: result.storageId });
           toast.success("Bukti masuk antrean pencocokan. Saldo tidak berubah.");
           setAmount(""); setReference(""); setFile(null);
         } catch (error) {
@@ -58,7 +60,7 @@ export function DepositForm() {
         } finally { setBusy(false); }
       }}>
         <div><Label htmlFor="deposit-amount">Nominal yang diklaim</Label><Input id="deposit-amount" type="number" min="100000" step="1" value={amount} onChange={(e) => setAmount(e.target.value)} /></div>
-        <div><Label htmlFor="deposit-method">Metode</Label><select id="deposit-method" className="h-10 w-full rounded-xl border border-input bg-white px-3 text-sm" value={method} onChange={(e) => setMethod(e.target.value as "transfer" | "qris")}><option value="transfer">Transfer bank</option><option value="qris">QRIS</option></select></div>
+        <div><Label htmlFor="deposit-method">Metode</Label><select id="deposit-method" className="h-10 w-full rounded-xl border border-input bg-white px-3 text-sm" value={method} onChange={(e) => setMethod(e.target.value as "transfer" | "qris")}><option value="transfer">Transfer bank</option><option value="qris" disabled={!instructions.qrisUrl}>{instructions.qrisUrl ? "QRIS" : "QRIS (belum tersedia)"}</option></select></div>
         <div><Label htmlFor="deposit-date">Tanggal transfer</Label><Input id="deposit-date" type="date" value={date} onChange={(e) => setDate(e.target.value)} /></div>
         <div><Label htmlFor="deposit-reference">Referensi transfer</Label><Input id="deposit-reference" value={reference} onChange={(e) => setReference(e.target.value)} maxLength={120} /></div>
         <div className="sm:col-span-2"><Label htmlFor="deposit-file">Bukti unggahan (maks. 5 MB)</Label><Input id="deposit-file" type="file" accept="image/jpeg,image/png,image/webp,application/pdf" onChange={(e) => setFile(e.target.files?.[0] ?? null)} /></div>

@@ -26,7 +26,9 @@ export function ManualPaymentEvidenceForm({
   const submit = useMutation(api.loans.submitManualPaymentReceipt);
   const [amount, setAmount] = useState(String(Math.max(1, Math.round(suggestedAmount))));
   const [method, setMethod] = useState<"transfer" | "qris">("transfer");
-  const [transferDate, setTransferDate] = useState(new Date().toISOString().slice(0, 10));
+  const [transferDate, setTransferDate] = useState(
+    new Date(Date.now() - new Date().getTimezoneOffset() * 60_000).toISOString().slice(0, 10),
+  );
   const [bankReference, setBankReference] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
@@ -54,7 +56,7 @@ export function ManualPaymentEvidenceForm({
           const result = (await response.json()) as { storageId?: Id<"_storage"> };
           if (!response.ok || !result.storageId) throw new Error("Bukti gagal diunggah.");
           const target = jenis === "pinjaman" ? { loanId: targetId as Id<"loans"> } : jenis === "kredit_barang" ? { kreditId: targetId as Id<"kreditBarang"> } : { pawnId: targetId as Id<"pawns"> };
-          const saved = await submit({ jenis, ...target, jumlah: rupiah, metodePembayaran: method, tanggalTransfer: new Date(`${transferDate}T12:00:00`).getTime(), referensiTransfer: bankReference, buktiPembayaranId: result.storageId });
+          const saved = await submit({ jenis, ...target, jumlah: rupiah, metodePembayaran: method, tanggalTransfer: new Date(`${transferDate}T00:00:00`).getTime(), referensiTransfer: bankReference, buktiPembayaranId: result.storageId });
           toast.success(`Bukti ${saved.nomorReferensi} masuk antrean pencocokan manual.`);
           setBankReference("");
           setFile(null);
@@ -65,7 +67,7 @@ export function ManualPaymentEvidenceForm({
         }
       }}>
         <div><Label htmlFor={`receipt-amount-${targetId}`}>Nominal yang diklaim</Label><Input id={`receipt-amount-${targetId}`} type="number" min="1" step="1" value={amount} onChange={(e) => setAmount(e.target.value)} /></div>
-        <div><Label htmlFor={`receipt-method-${targetId}`}>Metode</Label><select id={`receipt-method-${targetId}`} className="h-10 w-full rounded-xl border border-input bg-white px-3 text-sm" value={method} onChange={(e) => setMethod(e.target.value as "transfer" | "qris")}><option value="transfer">Transfer bank</option><option value="qris">QRIS</option></select></div>
+        <div><Label htmlFor={`receipt-method-${targetId}`}>Metode</Label><select id={`receipt-method-${targetId}`} className="h-10 w-full rounded-xl border border-input bg-white px-3 text-sm" value={method} onChange={(e) => setMethod(e.target.value as "transfer" | "qris")}><option value="transfer">Transfer bank</option><option value="qris" disabled={!instructions?.qrisUrl}>{instructions?.qrisUrl ? "QRIS" : "QRIS (belum tersedia)"}</option></select></div>
         <div><Label htmlFor={`receipt-date-${targetId}`}>Tanggal transfer</Label><Input id={`receipt-date-${targetId}`} type="date" value={transferDate} onChange={(e) => setTransferDate(e.target.value)} /></div>
         <div><Label htmlFor={`receipt-reference-${targetId}`}>Referensi transfer</Label><Input id={`receipt-reference-${targetId}`} value={bankReference} onChange={(e) => setBankReference(e.target.value)} maxLength={120} placeholder="Nomor referensi dari aplikasi bank" /></div>
         <div className="sm:col-span-2"><Label htmlFor={`receipt-file-${targetId}`}>Bukti unggahan (maks. 5 MB)</Label><Input id={`receipt-file-${targetId}`} type="file" accept="image/jpeg,image/png,image/webp,application/pdf" onChange={(e) => setFile(e.target.files?.[0] ?? null)} /></div>
