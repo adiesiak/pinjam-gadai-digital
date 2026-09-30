@@ -375,6 +375,27 @@ export function KreditBarangForm({ onCreated }: { onCreated: (ref: string) => vo
                 {formatRupiah(preview.pokokDibiayai)}
               </dd>
             </div>
+            {tenorBulan === 3 || tenorBulan === 6 ? (
+              <>
+                <div className="flex items-baseline justify-between px-3 py-2 text-sm">
+                  <dt className="text-muted-foreground">Biaya admin simulasi (5%, diamortisasi)</dt>
+                  <dd className="tabular-nums">{formatRupiah(preview.biayaAdmin)}</dd>
+                </div>
+                <div className="flex items-baseline justify-between px-3 py-2 text-sm">
+                  <dt className="text-muted-foreground">Biaya platform simulasi (2%, diamortisasi)</dt>
+                  <dd className="tabular-nums">{formatRupiah(preview.biayaPlatform)}</dd>
+                </div>
+                <div className="flex items-baseline justify-between bg-slate-50 px-3 py-2.5 text-sm">
+                  <dt className="font-semibold">Total biaya tenor (7%)</dt>
+                  <dd className="font-semibold tabular-nums">{formatRupiah(preview.biayaLayanan)}</dd>
+                </div>
+              </>
+            ) : tenorBulan === 1 ? (
+              <div className="flex items-baseline justify-between px-3 py-2 text-sm">
+                <dt className="text-muted-foreground">Biaya layanan simulasi (3%, diamortisasi)</dt>
+                <dd className="tabular-nums">{formatRupiah(preview.biayaLayanan)}</dd>
+              </div>
+            ) : null}
             <div className="flex items-baseline justify-between bg-slate-50 px-3 py-2.5 text-sm">
               <dt className="font-semibold">Total pembayaran simulasi ({tenorBulan} bulan)</dt>
               <dd className="font-semibold tabular-nums">
@@ -538,6 +559,24 @@ export function KreditSayaSection() {
                   {k.pokokDibiayai !== null ? formatRupiah(k.pokokDibiayai) : "—"}
                 </dd>
               </div>
+              {(k.tenorBulan === 3 || k.tenorBulan === 6) && (
+                <>
+                  <div className="flex items-baseline justify-between gap-3">
+                    <dt className="text-muted-foreground">Biaya admin simulasi (5%, diamortisasi)</dt>
+                    <dd className="tabular-nums">{k.biayaAdmin !== null ? formatRupiah(k.biayaAdmin) : "—"}</dd>
+                  </div>
+                  <div className="flex items-baseline justify-between gap-3">
+                    <dt className="text-muted-foreground">Biaya platform simulasi (2%, diamortisasi)</dt>
+                    <dd className="tabular-nums">{k.biayaPlatform !== null ? formatRupiah(k.biayaPlatform) : "—"}</dd>
+                  </div>
+                </>
+              )}
+              {k.tenorBulan === 1 && (
+                <div className="flex items-baseline justify-between gap-3">
+                  <dt className="text-muted-foreground">Biaya layanan simulasi (3%, diamortisasi)</dt>
+                  <dd className="tabular-nums">{k.biayaLayanan !== null ? formatRupiah(k.biayaLayanan) : "—"}</dd>
+                </div>
+              )}
               <div className="flex items-baseline justify-between gap-3">
                 <dt className="text-muted-foreground">Total pembayaran simulasi</dt>
                 <dd className="font-semibold tabular-nums">

@@ -288,9 +288,9 @@ export function LedgerTab() {
         </div>
         <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
           {([
-            ["Pinjaman tunai", rincian.pinjaman, "Nilai simulasi biaya 5% pada ledger; bukan penerimaan aktual"],
+            ["Pinjaman tunai", rincian.pinjaman, "Biaya simulasi pinjaman harian 5%; tenor bulanan 7% untuk 3/6 bulan dan 3% untuk 1 bulan"],
             ["Gadai (Skema B)", rincian.gadai, "Nilai simulasi potongan 1% + sewa modal"],
-            ["Kredit barang (Skema C)", rincian.kredit, "Nilai simulasi biaya layanan 3%"],
+            ["Kredit barang (Skema C)", rincian.kredit, "Biaya simulasi tenor 12/24 bulan 3%; tenor 3/6 bulan admin 5% + platform 2%"],
             ["Lainnya", rincian.lainnya, "Entri biaya internal di luar tiga skema utama"],
           ] as const).map(([label, value, hint]) => (
             <div key={label} className="rounded-xl border border-slate-100 bg-slate-50/60 px-4 py-3">

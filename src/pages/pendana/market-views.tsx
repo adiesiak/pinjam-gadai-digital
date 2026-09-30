@@ -70,6 +70,8 @@ function MarketCard({
       pokok: number;
       imbalHasil: number;
       biayaLayanan: number;
+      biayaAdmin: number;
+      biayaPlatform: number;
       total: number;
       sisaPokok: number;
     }>;
@@ -79,6 +81,8 @@ function MarketCard({
       pokok: number;
       imbalHasil: number;
       biayaLayanan: number;
+      biayaAdmin: number;
+      biayaPlatform: number;
       total: number;
       sisaPokok: number;
     }>;
@@ -141,10 +145,27 @@ function MarketCard({
         <h3 className="font-semibold">Rincian perhitungan simulasi</h3>
         {row.skemaBulanan ? (
           <dl className="mt-2 space-y-1.5">
-            <div className="flex justify-between gap-3">
-              <dt className="text-muted-foreground">Biaya layanan simulasi (total)</dt>
-              <dd className="font-medium tabular-nums">{formatRupiah(row.biayaLayananTotal)}</dd>
-            </div>
+            {row.tenorBulan === 3 || row.tenorBulan === 6 ? (
+              <>
+                <div className="flex justify-between gap-3">
+                  <dt className="text-muted-foreground">Biaya admin 5% (diamortisasi)</dt>
+                  <dd className="font-medium tabular-nums">{formatRupiah(row.biayaAdmin)}</dd>
+                </div>
+                <div className="flex justify-between gap-3">
+                  <dt className="text-muted-foreground">Biaya platform 2% (diamortisasi)</dt>
+                  <dd className="font-medium tabular-nums">{formatRupiah(row.biayaPlatform)}</dd>
+                </div>
+                <div className="flex justify-between gap-3 border-t border-slate-100 pt-1.5">
+                  <dt className="text-muted-foreground">Total biaya tenor 7%</dt>
+                  <dd className="font-medium tabular-nums">{formatRupiah(row.biayaLayananTotal)}</dd>
+                </div>
+              </>
+            ) : (
+              <div className="flex justify-between gap-3">
+                <dt className="text-muted-foreground">Biaya layanan tenor 1 bulan (3%)</dt>
+                <dd className="font-medium tabular-nums">{formatRupiah(row.biayaLayananTotal)}</dd>
+              </div>
+            )}
             <div className="flex justify-between gap-3">
               <dt className="text-muted-foreground">Potongan simulasi di muka</dt>
               <dd className="font-medium tabular-nums">{formatRupiah(row.totalPotonganDiMuka)}</dd>

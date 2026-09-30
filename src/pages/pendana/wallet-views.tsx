@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { api } from "@/convex/_generated/api";
 import { formatRupiah } from "@/lib/money";
+import { BIAYA_PENCAIRAN_PERSEN } from "@/lib/withdrawal";
 
 import { DepositForm } from "./deposit-views";
 import { Loading } from "./feedback";
@@ -32,7 +33,7 @@ export function WalletSection() {
         <h3 className="text-sm font-semibold">Penarikan belum tersedia</h3>
         <Separator className="my-4" />
         <p className="text-xs leading-5 text-muted-foreground">
-          Transfer keluar dinonaktifkan sampai ada penyedia dan konfirmasi transfer yang dapat diverifikasi. Halaman ini tidak mengumpulkan rekening tujuan.
+          Penarikan tetap dinonaktifkan sampai ada penyedia dan konfirmasi transfer yang dapat diverifikasi. Jika kelak diproses, model memperkirakan potongan {BIAYA_PENCAIRAN_PERSEN}% dari bruto (neto 95%); ini belum dipotong atau ditransfer.
         </p>
         <Separator className="my-5" />
         <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
@@ -47,7 +48,10 @@ export function WalletSection() {
             {withdrawals.map((w) => (
               <li key={w._id} className="flex items-center justify-between gap-3 py-3">
                 <div className="min-w-0">
-                  <p className="text-sm font-medium tabular-nums">{formatRupiah(w.jumlah)}</p>
+                  <p className="text-sm font-medium tabular-nums">Bruto tercatat {formatRupiah(w.jumlah)}</p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">
+                    Estimasi potongan 5% {formatRupiah(w.biayaPencairan)} · neto perkiraan {formatRupiah(w.jumlahBersih)}; belum dibayar
+                  </p>
                   <p className="mt-0.5 truncate text-xs text-muted-foreground">
                     {w.nomorReferensi} · {w.namaBank} {w.nomorRekening}
                     {w.catatanAdmin ? ` · ${w.catatanAdmin}` : ""}

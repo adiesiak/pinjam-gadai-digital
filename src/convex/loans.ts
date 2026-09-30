@@ -266,8 +266,9 @@ export const createLoanApplication = mutation({
      */
     tenorHari: v.number(),
     /**
-     * Tenor bulanan (skema bulanan: DP 0%, layanan 3%, bunga 10/8/7,5% per
-     * bulan) — pinjaman DI LUAR plafon 1 jt / 30 hari. Bila diisi, `tenorHari`
+     * Tenor bulanan (DP 0%, biaya 3% untuk tenor 1 atau admin 5% + platform
+     * 2% untuk tenor 3/6; bunga menurun 30/25/20% per bulan sesuai tenor) —
+     * pinjaman DI LUAR plafon 1 jt / 30 hari. Bila diisi, `tenorHari`
      * diabaikan.
      */
     tenorBulan: v.optional(v.number()),
@@ -634,8 +635,12 @@ export const myLoanSchedule = query({
           pokokPinjaman: l.pokokPinjaman,
           status: l.status,
           tenorHari: l.tenorHari ?? DEFAULT_TENOR_HARI,
-          tenorBulan: l.tenorBulan ?? null,
-          didanaiPada: l.didanaiPada ?? null,
+      tenorBulan: l.tenorBulan ?? null,
+      didanaiPada: l.didanaiPada ?? null,
+      simulasiBulanan:
+        l.tenorBulan !== undefined
+          ? hitungSimulasiBulanan(l.pokokPinjaman, l.tenorBulan)
+          : null,
           quote: quoteLoan(l.pokokPinjaman),
           imbalHasilTotal:
             l.tenorBulan !== undefined
@@ -1121,7 +1126,8 @@ export const repayLoan = mutation({
       throw new Error("Kewajiban pelunasan tidak dapat dihitung untuk pinjaman ini.");
     }
 
-    // Skema bulanan: fee platform = biaya layanan 3%; bunga = hak Pendana.
+    // Skema bulanan: bunga = hak Pendana; admin/platform tenor 3/6 dan
+    // layanan tenor 1 diamortisasi pada simulasi jadwal cicilan.
     // Skema harian: bunga 30% dari quoteLoan (fee sudah dipotong di muka).
     const simBulanan =
       loan.tenorBulan !== undefined
@@ -1132,7 +1138,8 @@ export const repayLoan = mutation({
     const totalImbalPendana = simBulanan !== null ? simBulanan.bungaTotal : q.bunga;
     const totalKewajibanPendana = totalPokokPendana + totalImbalPendana;
     const feePlatform =
-      simBulanan !== null ? simBulanan.biayaLayananTotal : q.totalKewajibanPelunasan - q.pokok - q.bunga;
+      simBulanan !== null ? simBulanan.biayaPlatformTotal + simBulanan.biayaLayananTotal : q.totalKewajibanPelunasan - q.pokok - q.bunga;
+    const feeAdmin = simBulanan?.biayaAdminTotal ?? 0;
 
     const fundings = await ctx.db
       .query("fundings")
@@ -1153,7 +1160,7 @@ export const repayLoan = mutation({
       {
         akun: "platform:CASH",
         arah: "debit",
-        jumlah: totalKewajibanPendana + feePlatform,
+        jumlah: totalKewajibanPendana + feePlatform + feeAdmin,
       },
       { akun: `pinjaman:${args.loanId}`, arah: "kredit", jumlah: totalKewajibanPendana },
     ];
@@ -1205,13 +1212,13 @@ export const repayLoan = mutation({
 
     // 3. Fee platform dijurnal dari akun pinjaman ke platform:FEE. Skema
     //    harian: totalPotonganDiMuka sudah dipotong saat pencairan (fee = 0).
-    if (feePlatform > 0) {
+    if (feePlatform + feeAdmin > 0) {
       await appendJournal(ctx, {
         jenis: "platform_fee",
-        keterangan: `Biaya layanan platform ${loan.nomorReferensi} (skema bulanan)`,
+        keterangan: `Biaya admin dan platform ${loan.nomorReferensi} (skema bulanan)`,
         aktor: "platform",
         lines: [
-          { akun: "platform:FEE", arah: "debit", jumlah: feePlatform },
+          { akun: "platform:FEE", arah: "debit", jumlah: feePlatform + feeAdmin },
           { akun: `pinjaman:${args.loanId}`, arah: "kredit", jumlah: feePlatform },
         ],
       });
@@ -1219,10 +1226,10 @@ export const repayLoan = mutation({
 
     // 4. Sanity: total kas masuk (kewajiban + denda) = kewajiban ke akun
     //    pinjaman (payout Pendana + fee) + denda. Gagal = rollback penuh.
-    const totalKasMasuk = totalKewajibanPendana + feePlatform + pelunasan.dendaTerlambat;
-    if (totalKasMasuk !== terdistribusi + feePlatform + pelunasan.dendaTerlambat) {
+    const totalKasMasuk = totalKewajibanPendana + feePlatform + feeAdmin + pelunasan.dendaTerlambat;
+    if (totalKasMasuk !== terdistribusi + feePlatform + feeAdmin + pelunasan.dendaTerlambat) {
       throw new Error(
-        `Pelunasan tidak seimbang: selisih ${totalKasMasuk - terdistribusi - feePlatform - pelunasan.dendaTerlambat}. Transaksi dibatalkan.`,
+        `Pelunasan tidak seimbang: selisih ${totalKasMasuk - terdistribusi - feePlatform - feeAdmin - pelunasan.dendaTerlambat}. Transaksi dibatalkan.`,
       );
     }
 

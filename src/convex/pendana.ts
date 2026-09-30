@@ -7,6 +7,7 @@ import { DEFAULT_TENOR_HARI, pelunasanPinjaman, quoteLoan } from "../lib/loan";
 import { hitungSimulasiBulanan, TENOR_BULANAN_OPTIONS } from "../lib/bulanan";
 import { hakImbalHasilPerAlokasi, quoteKreditBarang } from "../lib/kredit";
 import { formatRupiah, type Rupiah } from "../lib/money";
+import { hitungBiayaPencairan } from "../lib/withdrawal";
 import { appendJournal, pendanaWalletBalance } from "./ledger";
 import { rejectUnverifiedMoneyMovement } from "./paymentGuard";
 
@@ -91,8 +92,8 @@ async function requireWaOtpIfEnabled(
 /**
  * Ringkasan pinjaman untuk ditampilkan ke Pendana — SATU sumber kebenaran
  * untuk skema harian (130% flat) dan skema bulanan (bunga menurun + biaya
- * layanan diamortisasi). Imbal Hasil Pendana = 30% pokok (harian) atau
- * Σ bunga bulanan (bulanan); biaya layanan adalah pendapatan platform.
+ * diamortisasi). Imbal Hasil Pendana = 30% pokok (harian) atau Σ bunga
+ * bulanan; biaya tenor 3/6 memisahkan admin 5% dan platform 2%.
  */
 type BarisJadwalPendana = {
   bulan: number | null;
@@ -100,6 +101,8 @@ type BarisJadwalPendana = {
   pokok: number;
   imbalHasil: number;
   biayaLayanan: number;
+  biayaAdmin: number;
+  biayaPlatform: number;
   total: number;
   sisaPokok: number;
 };
@@ -136,8 +139,8 @@ function ringkasPinjaman(loan: {
       imbalHasilTotal: sim.bungaTotal,
       totalKewajiban: sim.totalPengembalian,
       cicilanPerBulan: sim.cicilanPerBulan,
-      biayaAdmin: 0,
-      biayaPlatform: 0,
+      biayaAdmin: sim.biayaAdminTotal,
+      biayaPlatform: sim.biayaPlatformTotal,
       totalPotonganDiMuka: 0,
       biayaLayananTotal: sim.biayaLayananTotal,
       danaDiterimaPeminjam: loan.pokokPinjaman,
@@ -149,6 +152,8 @@ function ringkasPinjaman(loan: {
           pokok: loan.pokokPinjaman,
           imbalHasil: sim.bungaTotal,
           biayaLayanan: sim.biayaLayananTotal,
+          biayaAdmin: sim.biayaAdminTotal,
+          biayaPlatform: sim.biayaPlatformTotal,
           total: sim.totalPengembalian,
           sisaPokok: 0,
         },
@@ -160,11 +165,13 @@ function ringkasPinjaman(loan: {
         pokok: c.pokok,
         imbalHasil: c.bunga,
         biayaLayanan: c.biayaLayanan,
+        biayaAdmin: c.biayaAdmin,
+        biayaPlatform: c.biayaPlatform,
         total: c.total,
         sisaPokok: c.sisaPokok,
       })),
       catatanJadwal:
-        "Proyeksi internal mengasumsikan pelunasan sekaligus pada akhir tenor; seluruh rincian hanya simulasi dan bukan tagihan.",
+        "Biaya admin 5% dan platform 2% untuk tenor 3/6 bulan (atau layanan 3% untuk tenor 1) diamortisasi ke cicilan pada simulasi; tidak ada potongan di muka dan ini bukan tagihan.",
     };
   }
   const q = quoteLoan(loan.pokokPinjaman);
@@ -188,6 +195,8 @@ function ringkasPinjaman(loan: {
         pokok: loan.pokokPinjaman,
         imbalHasil: q.bunga,
         biayaLayanan: 0,
+        biayaAdmin: 0,
+        biayaPlatform: 0,
         total: q.totalKewajibanPelunasan,
         sisaPokok: 0,
       },
@@ -657,6 +666,7 @@ export const myWithdrawals = query({
         _creationTime: w._creationTime,
         nomorReferensi: w.nomorReferensi,
         jumlah: w.jumlah,
+        ...hitungBiayaPencairan(w.jumlah),
         namaBank: w.namaBank,
         nomorRekening: w.nomorRekening,
         status: w.status,
@@ -896,6 +906,8 @@ export const marketplaceKredit = query({
         pokok: c.pokok,
         imbalHasil: c.margin,
         biayaLayanan: simulasiBulanan?.jadwal[index]?.biayaLayanan ?? 0,
+        biayaAdmin: simulasiBulanan?.jadwal[index]?.biayaAdmin ?? 0,
+        biayaPlatform: simulasiBulanan?.jadwal[index]?.biayaPlatform ?? 0,
         total: c.total,
         sisaPokok: c.sisaPokok,
       }));
@@ -921,6 +933,8 @@ export const marketplaceKredit = query({
         persenImbalHasil: quote.persenImbalHasil,
         persenImbalHasilTahunan: quote.persenImbalHasilTahunan,
         biayaLayanan: quote.biayaLayanan,
+        biayaAdmin: simulasiBulanan?.biayaAdminTotal ?? 0,
+        biayaPlatform: simulasiBulanan?.biayaPlatformTotal ?? 0,
         biayaLayananDiMuka,
         biayaLayananPerBulan: simulasiBulanan?.biayaLayananPerBulan ?? 0,
         totalDibayarKonsumen: quote.totalDibayarKonsumen,
@@ -928,7 +942,7 @@ export const marketplaceKredit = query({
         catatanJadwal:
           simulasiBulanan === null
             ? "Biaya layanan dibayar di muka dan tidak termasuk dalam jumlah cicilan bulanan."
-            : "Biaya layanan sudah diamortisasi ke setiap cicilan bulanan.",
+            : "Biaya admin 5% + platform 2% (tenor 3/6) atau layanan 3% (tenor 1) diamortisasi ke cicilan bulanan.",
         terkumpul,
         sisaKebutuhan: quote.pokokDibiayai - terkumpul,
       });
@@ -1055,8 +1069,8 @@ export const alokasiKreditBarang = mutation({
       });
 
       // Biaya layanan platform — margin platform. Skema tenor 12/24: ditagih
-      // di muka saat pendanaan penuh. Skema bulanan (tenor 1/3/6): 3% itu
-      // DIAMORTISASI dalam cicilan bulanan, jadi TIDAK dijurnal di sini —
+      // di muka saat pendanaan penuh. Skema bulanan: biaya tenor 3% (tenor 1)
+      // atau admin 5% + platform 2% (tenor 3/6) DIAMORTISASI dalam cicilan, jadi TIDAK dijurnal di sini —
       // dijurnal bertahap di bayarCicilanKredit agar kas benar-benar masuk.
       const bayarFeeDiMuka = !(
         TENOR_BULANAN_OPTIONS as readonly number[]
@@ -1160,6 +1174,8 @@ export const myKreditFundings = query({
           pokok: c.pokok,
           imbalHasil: c.margin,
           biayaLayanan: simulasiBulanan?.jadwal[index]?.biayaLayanan ?? 0,
+          biayaAdmin: simulasiBulanan?.jadwal[index]?.biayaAdmin ?? 0,
+          biayaPlatform: simulasiBulanan?.jadwal[index]?.biayaPlatform ?? 0,
           total: c.total,
           sisaPokok: c.sisaPokok,
         })) ?? [];
@@ -1186,6 +1202,8 @@ export const myKreditFundings = query({
         cicilanPerBulan: quote?.cicilanPerBulan ?? null,
         persenImbalHasil: quote?.persenImbalHasil ?? null,
         biayaLayanan: quote?.biayaLayanan ?? null,
+        biayaAdmin: simulasiBulanan?.biayaAdminTotal ?? 0,
+        biayaPlatform: simulasiBulanan?.biayaPlatformTotal ?? 0,
         biayaLayananDiMuka: simulasiBulanan === null ? quote?.biayaLayanan ?? null : 0,
         biayaLayananPerBulan: simulasiBulanan?.biayaLayananPerBulan ?? 0,
         totalDibayarKonsumen: quote?.totalDibayarKonsumen ?? null,

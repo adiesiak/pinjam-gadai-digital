@@ -4,6 +4,7 @@ import { ArrowRight, Landmark } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { api } from "@/convex/_generated/api";
 import { formatRupiah } from "@/lib/money";
+import { BIAYA_PENCAIRAN_PERSEN } from "@/lib/withdrawal";
 
 import { EmptyState, Loading } from "./feedback";
 import { DepositBadge, WithdrawalBadge } from "./wallet-views";
@@ -85,9 +86,12 @@ export function HistorySection() {
             {withdrawals.map((w) => (
               <li key={w._id} className="px-5 py-4">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <p className="text-sm font-medium tabular-nums">{formatRupiah(w.jumlah)}</p>
+                  <p className="text-sm font-medium tabular-nums">Bruto tercatat {formatRupiah(w.jumlah)}</p>
                   <WithdrawalBadge status={w.status} />
                 </div>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Estimasi potongan {BIAYA_PENCAIRAN_PERSEN}% {formatRupiah(w.biayaPencairan)} · neto perkiraan {formatRupiah(w.jumlahBersih)}; belum dibayar
+                </p>
                 <p className="mt-1 truncate text-xs text-muted-foreground">
                   {w.nomorReferensi} · {w.namaBank} {w.nomorRekening}
                 </p>

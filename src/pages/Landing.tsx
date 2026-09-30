@@ -279,7 +279,13 @@ function LiveCalculator() {
                   formatRupiah(sim.bungaTotal),
                   false,
                 ],
-                ["Biaya layanan 3% (diamortisasi)", formatRupiah(sim.biayaLayananTotal), false],
+                [
+                  sim.tenorBulan === 3 || sim.tenorBulan === 6
+                    ? "Admin 5% + platform 2% (diamortisasi)"
+                    : "Biaya layanan 3% (diamortisasi)",
+                  formatRupiah(sim.biayaLayananTotal),
+                  false,
+                ],
                 ["Pokok perhitungan (DP 0%)", formatRupiah(sim.pokokDibiayai), true],
                 [
                   `Cicilan per bulan (${sim.tenorBulan} bulan)`,

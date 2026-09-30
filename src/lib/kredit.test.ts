@@ -92,22 +92,24 @@ eq(sebagian.imbalHasil, 1_200_000, "total Imbal Hasil 50% = 1,2jt");
 eq(sebagian.totalDiterima, 5_200_000, "total diterima porsi 50%");
 eq(sebagian.persenImbalHasil, 30, "persen Imbal Hasil tetap 30%");
 
-// ---- Tenor 3 bulan: skema bulanan (DP 0%, bunga 8%/bln dari pokok penuh) ----
+// ---- Tenor 3 bulan: skema bulanan (DP 0%, bunga 25%/bln dari saldo pokok) ----
 const pendek = quoteKreditBarang({
   hargaBarang: 10_000_000,
   dpPersen: 0,
   tenorBulan: 3,
-  // Diabaikan skema bulanan — bunga mengikuti tenor (3–5 bln = 8%/bln).
+  // Diabaikan skema bulanan — bunga mengikuti tenor (3–5 bln = 25%/bln).
   marginPersenPerBulan: KREDIT_PRICING.marginMinPersenPerBulan,
 });
 eq(pendek.dp, 0, "tenor 3 bulan: DP 0 (skema bulanan)");
 eq(pendek.pokokDibiayai, 10_000_000, "tenor 3 bulan: pokok dibiayai = harga barang");
-eq(pendek.marginPerBulan, 800_000, "Imbal Hasil 8% dari 10jt = 800rb");
-eq(pendek.marginTotal, 2_400_000, "total Imbal Hasil 3 bulan");
-eq(pendek.biayaLayanan, 300_000, "biaya layanan 3% dari 10jt (diamortisasi)");
-eq(pendek.cicilanPerBulan, 3_333_333 + 800_000 + 100_000, "cicilan 3 bulan 4.233.333");
-eq(pendek.persenImbalHasil, 24, "Imbal Hasil 24% dari pokok penuh (3 bulan)");
-eq(pendek.persenImbalHasilTahunan, 96, "setara 96% per tahun (24% × 12/3)");
+eq(pendek.marginPerBulan, 2_500_000, "Imbal Hasil 25% dari 10jt = 2,5jt");
+eq(pendek.marginTotal, 5_000_001, "total Imbal Hasil saldo menurun selama 3 bulan");
+eq(pendek.biayaAdmin, 500_000, "biaya admin 5% dari 10jt (diamortisasi)");
+eq(pendek.biayaPlatform, 200_000, "biaya platform 2% dari 10jt (diamortisasi)");
+eq(pendek.biayaLayanan, 700_000, "total biaya tenor 7% dari 10jt (diamortisasi)");
+eq(pendek.cicilanPerBulan, 6_066_665, "cicilan 3 bulan pertama termasuk biaya tenor 7%");
+eq(pendek.persenImbalHasil, 50, "Imbal Hasil 50% dari pokok penuh (3 bulan)");
+eq(pendek.persenImbalHasilTahunan, 200, "setara 200% per tahun (50% × 12/3)");
 eq(
   pendek.jadwal.reduce((acc, row) => acc + row.pokok, 0),
   pendek.pokokDibiayai,

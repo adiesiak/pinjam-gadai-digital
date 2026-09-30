@@ -10,7 +10,7 @@ import { formatRupiah } from "./money";
 import type { LoanQuote } from "./loan";
 
 /** Naikkan versi setiap kali syarat akad berubah secara material. */
-export const CONTRACT_TERMS_VERSION = "v1.2";
+export const CONTRACT_TERMS_VERSION = "v1.3";
 
 export type ContractParty = {
   namaLengkap: string;
@@ -148,7 +148,7 @@ function blokBatasTransaksi(): string {
  * Rangkai HTML ringkasan simulasi pinjaman pada ledger internal.
  *
  * Dua skema didukung: harian (130%, potongan 5% di muka) dan bulanan
- * (DP 0%, biaya layanan 3% diamortisasi, bunga menurun). Bila `bulanan`
+ * (DP 0%, biaya diamortisasi, bunga menurun). Bila `bulanan`
  * diisi, rincian simulasi mengikuti skema bulanan dan angka dari engine lib/bulanan.ts.
  */
 export function buildPinjamanContract(
@@ -164,6 +164,14 @@ export function buildPinjamanContract(
     bulanan === null
       ? `<li>Periode acuan simulasi: <strong>${tenorHari} hari</strong> sejak tanggal status alokasi dicatat di aplikasi; bukan bukti pencairan.</li>`
       : `<li>Periode acuan simulasi: <strong>${bulanan.tenorBulan} bulan</strong> (1 bulan = 30 hari) sejak tanggal status alokasi dicatat di aplikasi; bukan bukti pencairan.</li>`;
+  const rincianBiayaBulanan =
+    bulanan !== null && (bulanan.tenorBulan === 3 || bulanan.tenorBulan === 6)
+      ? `<li>Biaya admin simulasi 5%: ${formatRupiah(bulanan.biayaAdminTotal)}.</li>
+      <li>Biaya platform simulasi 2%: ${formatRupiah(bulanan.biayaPlatformTotal)}.</li>
+      <li>Total biaya tenor 7% (${formatRupiah(bulanan.biayaLayananTotal)}) diamortisasi ke cicilan; tanpa potongan di muka.</li>`
+      : bulanan !== null
+        ? `<li>Biaya layanan simulasi 3% dari pokok acuan: ${formatRupiah(bulanan.biayaLayananTotal)}, diamortisasi ke cicilan bulanan.</li>`
+        : "";
   const pasalFinansial =
     bulanan === null
       ? `
@@ -175,7 +183,7 @@ export function buildPinjamanContract(
       <li><strong>Total kewajiban simulasi: ${formatRupiah(quote.totalKewajibanPelunasan)} (130% dari pokok)</strong>; bukan tagihan.</li>`
       : `
       <li>Uang muka pada simulasi: ${formatRupiah(bulanan.dp)} — 0% dari pokok acuan.</li>
-      <li>Biaya layanan simulasi 3% dari pokok acuan: ${formatRupiah(bulanan.biayaLayananTotal)}, dibagi rata ${formatRupiah(bulanan.biayaLayananPerBulan)} per bulan pada model.</li>
+      ${rincianBiayaBulanan}
       <li><strong>Nilai bersih pada simulasi: ${formatRupiah(bulanan.pokokDibiayai)} (100% pokok, tanpa potongan di muka)</strong>; tidak ditransfer dan bukan bukti dana diterima.</li>
       <li>Bunga/margin pada simulasi sebesar ${bulanan.persenBungaPerBulan}% per bulan dari sisa pokok pada awal setiap bulan; total simulasi ${formatRupiah(bulanan.bungaTotal)}.</li>
       <li><strong>Ilustrasi cicilan menurun: bulan pertama ${formatRupiah(bulanan.cicilanPerBulan)}, bulan terakhir ${formatRupiah(bulanan.cicilanTerakhir)}; total simulasi ${formatRupiah(bulanan.totalPengembalian)} untuk ${bulanan.tenorBulan} bulan.</strong> Rincian per bulan: ${bulanan.jadwal.map((angsuran) => `bulan ${angsuran.bulan} ${formatRupiah(angsuran.total)}`).join("; ")}. Jadwal hanya ilustrasi; perubahan status lunas di aplikasi adalah entri ledger, bukan bukti cicilan atau pembayaran sebagian.</li>`;

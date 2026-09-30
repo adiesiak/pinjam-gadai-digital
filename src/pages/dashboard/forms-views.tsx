@@ -522,6 +522,14 @@ export function LoanForm({ onCreated }: { onCreated: (ref: string) => void }) {
                 {formatRupiah(sim.pokokDibiayai)}
               </dd>
             </div>
+            <div className="flex flex-col gap-1 bg-white px-3 py-2 text-sm sm:flex-row sm:items-baseline sm:justify-between">
+              <dt className="font-medium text-slate-700">
+                {sim.tenorBulan === 3 || sim.tenorBulan === 6
+                  ? "Admin 5% + platform 2% (diamortisasi)"
+                  : "Biaya layanan 3% (diamortisasi)"}
+              </dt>
+              <dd className="font-medium tabular-nums">{formatRupiah(sim.biayaLayananTotal)}</dd>
+            </div>
             <div className="bg-sky-50 px-3 py-2.5 text-sm">
               <dt className="font-semibold text-sky-900">
                 Jadwal angsuran menurun · bunga {sim.persenBungaPerBulan}%/bulan dari sisa pokok

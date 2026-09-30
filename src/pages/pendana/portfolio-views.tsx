@@ -14,6 +14,8 @@ type JadwalPendanaan = {
   pokok: number;
   imbalHasil: number;
   biayaLayanan: number;
+  biayaAdmin: number;
+  biayaPlatform: number;
   total: number;
   sisaPokok: number;
 };
@@ -119,7 +121,15 @@ export function PortfolioSection({ portfolio }: { portfolio: PortfolioRow[] | un
             <h3 className="font-semibold">Rincian simulasi biaya dan nilai bersih</h3>
             {f.skemaBulanan ? (
               <dl className="mt-2 space-y-1.5">
-                <InfoRow label="Biaya layanan simulasi (total)" value={formatRupiah(f.biayaLayananTotal)} />
+                {f.tenorBulan === 3 || f.tenorBulan === 6 ? (
+                  <>
+                    <InfoRow label="Biaya admin 5% simulasi (diamortisasi)" value={formatRupiah(f.biayaAdmin)} />
+                    <InfoRow label="Biaya platform 2% simulasi (diamortisasi)" value={formatRupiah(f.biayaPlatform)} />
+                    <InfoRow label="Total biaya tenor 7%" value={formatRupiah(f.biayaLayananTotal)} />
+                  </>
+                ) : (
+                  <InfoRow label="Biaya layanan simulasi tenor 1 bulan (3%)" value={formatRupiah(f.biayaLayananTotal)} />
+                )}
                 <InfoRow label="Potongan simulasi di muka" value={formatRupiah(f.totalPotonganDiMuka)} />
                 <InfoRow label="Nilai bersih simulasi (tidak ditransfer)" value={formatRupiah(f.danaDiterimaPeminjam)} />
               </dl>

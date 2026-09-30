@@ -1,5 +1,6 @@
 /**
- * Tests engine simulasi bulanan (DP 0%, layanan 3%, bunga 30/25/20 per bulan) —
+ * Tests engine simulasi bulanan (DP 0%, fee 5% admin + 2% platform tenor 3/6,
+ * tenor lain layanan 3%, bunga 30/25/20 per bulan) —
  * dependency-free (konvensi kredit.test.ts / financial.test.ts).
  * Run: bun src/lib/bulanan.test.ts
  */
@@ -63,8 +64,14 @@ throws(() => persenBungaPerBulan(1.5), "tenor pecahan ditolak");
   eq(q.dp, 0, "5jt/6bln: DP 0");
   eq(q.pokokDibiayai, 5_000_000, "5jt/6bln: pokok dibiayai = pokok");
   eq(q.persenBungaPerBulan, 20, "5jt/6bln: bunga 20%/bln");
-  eq(q.biayaLayananTotal, 150_000, "5jt/6bln: layanan total 3% = 150rb");
-  eq(q.biayaLayananPerBulan, 25_000, "5jt/6bln: layanan/bln 25rb");
+  eq(q.biayaAdminTotal, 250_000, "5jt/6bln: biaya admin 5% = 250rb");
+  eq(q.biayaPlatformTotal, 100_000, "5jt/6bln: biaya platform 2% = 100rb");
+  eq(q.biayaLayananTotal, 350_000, "5jt/6bln: total biaya tenor 7% = 350rb");
+  eq(q.biayaLayananPerBulan, 58_333, "5jt/6bln: rata-rata biaya tenor/bln dibulatkan bawah");
+  eq(q.jadwal[0].biayaAdmin, 41_666, "5jt/6bln: admin bulan pertama");
+  eq(q.jadwal[0].biayaPlatform, 16_666, "5jt/6bln: platform bulan pertama");
+  eq(q.jadwal[5].biayaAdmin, 41_670, "5jt/6bln: admin bulan terakhir menyerap sisa");
+  eq(q.jadwal[5].biayaPlatform, 16_670, "5jt/6bln: platform bulan terakhir menyerap sisa");
   eq(q.bungaPerBulan, 1_000_000, "5jt/6bln: bunga bulan pertama 1jt");
   eq(q.jadwal[1].bunga, 833_333, "5jt/6bln: bunga bulan kedua atas sisa pokok");
   eq(q.jadwal[2].bunga, 666_667, "5jt/6bln: bunga bulan ketiga atas sisa pokok");
@@ -73,17 +80,17 @@ throws(() => persenBungaPerBulan(1.5), "tenor pecahan ditolak");
   eq(q.jadwal[5].bunga, 166_667, "5jt/6bln: bunga bulan keenam atas sisa pokok");
   eq(
     q.jadwal.map((r) => r.total).join(","),
-    "1858333,1691666,1525000,1358333,1191667,1025002",
+    "1891665,1724998,1558332,1391665,1224999,1058342",
     "5jt/6bln: seluruh cicilan menurun sesuai saldo pokok",
   );
   eq(q.jadwal[0].pokok, 833_333, "5jt/6bln: pokok/bln 833.333");
-  eq(q.cicilanPerBulan, 1_858_333, "5jt/6bln: cicilan bulan pertama 1.858.333");
+  eq(q.cicilanPerBulan, 1_891_665, "5jt/6bln: cicilan bulan pertama termasuk biaya 7%");
   // Bulan terakhir menyerap sisa: 833.333×5 = 4.166.665 → terakhir 833.335.
   eq(q.jadwal[5].pokok, 833_335, "5jt/6bln: pokok bulan terakhir 833.335");
-  eq(q.cicilanTerakhir, 1_025_002, "5jt/6bln: cicilan terakhir dari sisa pokok");
-  eq(q.totalPengembalian, 8_650_001, "5jt/6bln: total dengan bunga saldo menurun");
-  eq(q.totalKeuntunganBersih, 3_650_001, "5jt/6bln: keuntungan termasuk layanan");
-  eq(q.persentaseProfitTotal, 73, "5jt/6bln: profit 73%");
+  eq(q.cicilanTerakhir, 1_058_342, "5jt/6bln: cicilan terakhir dari sisa pokok dan biaya");
+  eq(q.totalPengembalian, 8_850_001, "5jt/6bln: total dengan bunga saldo menurun dan biaya 7%");
+  eq(q.totalKeuntunganBersih, 3_850_001, "5jt/6bln: keuntungan termasuk biaya admin/platform");
+  eq(q.persentaseProfitTotal, 77, "5jt/6bln: profit 77%");
   eq(q.bungaTotal, 3_500_001, "5jt/6bln: bunga total saldo menurun");
   // Identitas: Σ pokok jadwal = pokok dibiayai.
   eq(
@@ -107,7 +114,9 @@ throws(() => persenBungaPerBulan(1.5), "tenor pecahan ditolak");
   const q = hitungSimulasiBulanan(1_000_000, 1);
   eq(q.persenBungaPerBulan, 30, "1jt/1bln: bunga 30% per bulan");
   eq(q.bungaPerBulan, 300_000, "1jt/1bln: bunga 300rb");
-  eq(q.biayaLayananTotal, 30_000, "1jt/1bln: layanan 30rb");
+  eq(q.biayaLayananTotal, 30_000, "1jt/1bln: layanan tenor pendek tetap 3% = 30rb");
+  eq(q.biayaAdminTotal, 0, "1jt/1bln: tidak ada biaya admin baru");
+  eq(q.biayaPlatformTotal, 0, "1jt/1bln: tidak ada biaya platform baru");
   eq(q.cicilanPerBulan, 1_330_000, "1jt/1bln: cicilan 1.330.000");
   eq(q.cicilanTerakhir, 1_330_000, "1jt/1bln: cicilan tunggal = terakhir");
   eq(q.totalPengembalian, 1_330_000, "1jt/1bln: total 133%");
@@ -125,11 +134,14 @@ throws(() => persenBungaPerBulan(1.5), "tenor pecahan ditolak");
   eq(q.jadwal[2].bunga, 83_334, "1jt/3bln: bunga bulan ketiga dibulatkan HALF-UP");
   eq(q.jadwal[0].pokok, 333_333, "1jt/3bln: pokok/bln 333.333");
   eq(q.jadwal[2].pokok, 333_334, "1jt/3bln: bulan terakhir 333.334");
-  eq(q.cicilanPerBulan, 333_333 + 250_000 + 10_000, "1jt/3bln: cicilan pertama 593.333");
-  eq(q.jadwal[1].total, 510_000, "1jt/3bln: cicilan kedua menurun");
-  eq(q.jadwal[2].total, 426_668, "1jt/3bln: cicilan terakhir menurun");
-  eq(q.totalPengembalian, 1_530_001, "1jt/3bln: total bunga saldo menurun");
-  eq(q.persentaseProfitTotal, 53, "1jt/3bln: profit 53%");
+  eq(q.biayaAdminTotal, 50_000, "1jt/3bln: biaya admin 5% = 50rb");
+  eq(q.biayaPlatformTotal, 20_000, "1jt/3bln: biaya platform 2% = 20rb");
+  eq(q.biayaLayananTotal, 70_000, "1jt/3bln: total biaya 7% = 70rb");
+  eq(q.cicilanPerBulan, 606_665, "1jt/3bln: cicilan pertama termasuk biaya tenor 7%");
+  eq(q.jadwal[1].total, 523_332, "1jt/3bln: cicilan kedua menurun");
+  eq(q.jadwal[2].total, 440_004, "1jt/3bln: cicilan terakhir menyerap sisa biaya");
+  eq(q.totalPengembalian, 1_570_001, "1jt/3bln: total bunga saldo menurun + biaya 7%");
+  eq(q.persentaseProfitTotal, 57, "1jt/3bln: profit 57%");
   // Identitas tiap baris jadwal.
   for (const r of q.jadwal) {
     eq(r.total, r.pokok + r.bunga + r.biayaLayanan, `1jt/3bln bulan ${r.bulan}: total = komponen`);
@@ -156,9 +168,19 @@ for (const pokok of POKOK_LIST) {
       `${pokok}/${tenor}bln: Σ bunga = bungaTotal`,
     );
     eq(
+      q.jadwal.reduce((a, r) => a + r.biayaAdmin, 0),
+      q.biayaAdminTotal,
+      `${pokok}/${tenor}bln: Σ admin = adminTotal`,
+    );
+    eq(
+      q.jadwal.reduce((a, r) => a + r.biayaPlatform, 0),
+      q.biayaPlatformTotal,
+      `${pokok}/${tenor}bln: Σ platform = platformTotal`,
+    );
+    eq(
       q.jadwal.reduce((a, r) => a + r.biayaLayanan, 0),
       q.biayaLayananTotal,
-      `${pokok}/${tenor}bln: Σ layanan = layananTotal`,
+      `${pokok}/${tenor}bln: Σ biaya tenor = biayaTotal`,
     );
     eq(
       q.jadwal.reduce((a, r) => a + r.total, 0),
@@ -183,6 +205,8 @@ for (const pokok of POKOK_LIST) {
       ok(
         Number.isInteger(r.pokok) &&
           Number.isInteger(r.bunga) &&
+          Number.isInteger(r.biayaAdmin) &&
+          Number.isInteger(r.biayaPlatform) &&
           Number.isInteger(r.biayaLayanan) &&
           Number.isInteger(r.total) &&
           Number.isInteger(r.sisaPokok),

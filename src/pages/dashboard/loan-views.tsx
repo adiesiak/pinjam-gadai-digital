@@ -161,10 +161,18 @@ function ActiveLoanCard({
         {bulanan ? (
           <>
             <RincianBaris
-              label="Nilai bersih simulasi (belum dicairkan)"
+              label="Nilai bersih simulasi (belum dicairkan; tanpa potongan di muka)"
               value={formatRupiah(loan.pokokPinjaman)}
               tone="net"
             />
+            {loan.simulasiBulanan !== null && (loan.tenorBulan === 3 || loan.tenorBulan === 6) ? (
+              <>
+                <RincianBaris label="Biaya admin simulasi (5%, diamortisasi)" value={formatRupiah(loan.simulasiBulanan.biayaAdminTotal)} />
+                <RincianBaris label="Biaya platform simulasi (2%, diamortisasi)" value={formatRupiah(loan.simulasiBulanan.biayaPlatformTotal)} />
+              </>
+            ) : loan.simulasiBulanan !== null ? (
+              <RincianBaris label="Biaya layanan simulasi (3%, diamortisasi)" value={formatRupiah(loan.simulasiBulanan.biayaLayananTotal)} />
+            ) : null}
             <RincianBaris
               label={`Total pembayaran simulasi (${loan.tenorBulan} bulan)`}
               value={formatRupiah(loan.totalKewajiban)}
@@ -292,7 +300,9 @@ export function ScheduleSection({ schedule }: { schedule: LoanScheduleRow[] }) {
                 </p>
                 {l.tenorBulan !== null && (
                   <p className="mt-1 max-w-xl text-xs leading-5 text-amber-800">
-                    Jadwal cicilan bulanan ini hanya ilustrasi; status akhir ledger tidak membuktikan pembayaran.
+                    {l.tenorBulan === 3 || l.tenorBulan === 6
+                      ? "Biaya admin 5% + platform 2% diamortisasi ke cicilan; dana pada simulasi tidak dipotong di muka. Jadwal hanya ilustrasi."
+                      : "Biaya layanan 3% diamortisasi ke cicilan. Jadwal hanya ilustrasi."} Status ledger tidak membuktikan pembayaran.
                   </p>
                 )}
               </div>
@@ -315,6 +325,12 @@ export function ScheduleSection({ schedule }: { schedule: LoanScheduleRow[] }) {
                   )}
                 </dd>
               </div>
+              {l.simulasiBulanan !== null && (l.tenorBulan === 3 || l.tenorBulan === 6) && (
+                <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4">
+                  <dt className="text-muted-foreground">Biaya admin 5% + platform 2% (diamortisasi)</dt>
+                  <dd className="tabular-nums">{formatRupiah(l.simulasiBulanan.biayaLayananTotal)}</dd>
+                </div>
+              )}
               {!lunas && l.pelunasan && l.pelunasan.dendaTerlambat > 0 && (
                 <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4">
                   <dt className="text-destructive">Denda simulasi</dt>
