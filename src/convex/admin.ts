@@ -1110,3 +1110,27 @@ export const simpanTandaTanganGadai = mutation({
     return { ok: true, waktu: now, versi: CONTRACT_TERMS_VERSION };
   },
 });
+
+/** Reset eksplisit untuk development: hapus semua pinjaman dan seluruh ledger. */
+export const resetDevelopmentLoansAndLedger = internalMutation({
+  args: {
+    confirmation: v.literal("RESET_DEVELOPMENT_LOANS_AND_LEDGER"),
+  },
+  handler: async (ctx) => {
+    const [loans, entries] = await Promise.all([
+      ctx.db.query("loans").collect(),
+      ctx.db.query("ledger_entries").collect(),
+    ]);
+    const total = loans.length + entries.length;
+    if (total > 400) {
+      throw new Error(
+        `Reset dihentikan: ${total} dokumen melebihi batas aman 400. Gunakan prosedur batch khusus.`,
+      );
+    }
+
+    for (const loan of loans) await ctx.db.delete(loan._id);
+    for (const entry of entries) await ctx.db.delete(entry._id);
+
+    return { deletedLoans: loans.length, deletedLedgerEntries: entries.length };
+  },
+});
