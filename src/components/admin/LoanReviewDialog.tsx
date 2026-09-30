@@ -120,7 +120,7 @@ export function LoanReviewDialog({
                   ["Uang muka (DP 0%)", formatRupiah(0)],
                   ["Pokok pinjaman (dasar hitungan)", formatRupiah(row.pokokPinjaman)],
                   [
-                    "Biaya layanan (3% dari pokok)",
+                    `Biaya layanan (${row.tenorBulan === 3 || row.tenorBulan === 6 ? "5%" : "3%"} dari pokok, dipotong di muka)`,
                     formatRupiah(
                       row.biayaLayananTotal ??
                         Math.max(
@@ -136,8 +136,8 @@ export function LoanReviewDialog({
                   ["Total pengembalian", formatRupiah(row.totalKewajiban ?? 0)],
                 ] as Array<[string, string]>)
               : ([
-                  ["Biaya admin (3%)", formatRupiah(q.biayaAdmin)],
-                  ["Biaya platform (2%)", formatRupiah(q.biayaPlatform)],
+                  ["Biaya admin (2%)", formatRupiah(q.biayaAdmin)],
+                  ["Biaya platform (3%)", formatRupiah(q.biayaPlatform)],
                   ["Nilai bersih (95% dari pokok)", formatRupiah(q.danaBersihDitransfer)],
                   ["Bunga (30%)", formatRupiah(q.bunga)],
                   ["Total kewajiban (130%)", formatRupiah(q.totalKewajibanPelunasan)],

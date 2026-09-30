@@ -377,21 +377,21 @@ export function KreditBarangForm({ onCreated }: { onCreated: (ref: string) => vo
             {tenorBulan === 3 || tenorBulan === 6 ? (
               <>
                 <div className="flex items-baseline justify-between px-3 py-2 text-sm">
-                  <dt className="text-muted-foreground">Biaya admin (5%, diamortisasi)</dt>
+                  <dt className="text-muted-foreground">Biaya admin (2%, dipotong di muka)</dt>
                   <dd className="tabular-nums">{formatRupiah(preview.biayaAdmin)}</dd>
                 </div>
                 <div className="flex items-baseline justify-between px-3 py-2 text-sm">
-                  <dt className="text-muted-foreground">Biaya platform (2%, diamortisasi)</dt>
+                  <dt className="text-muted-foreground">Biaya platform (3%, dipotong di muka)</dt>
                   <dd className="tabular-nums">{formatRupiah(preview.biayaPlatform)}</dd>
                 </div>
                 <div className="flex items-baseline justify-between bg-slate-50 px-3 py-2.5 text-sm">
-                  <dt className="font-semibold">Total biaya tenor perkiraan (7%)</dt>
+                  <dt className="font-semibold">Total biaya tenor perkiraan (5%)</dt>
                   <dd className="font-semibold tabular-nums">{formatRupiah(preview.biayaLayanan)}</dd>
                 </div>
               </>
             ) : tenorBulan === 1 ? (
               <div className="flex items-baseline justify-between px-3 py-2 text-sm">
-                <dt className="text-muted-foreground">Biaya layanan (3%, diamortisasi)</dt>
+                <dt className="text-muted-foreground">Biaya layanan (3%, dipotong di muka)</dt>
                 <dd className="tabular-nums">{formatRupiah(preview.biayaLayanan)}</dd>
               </div>
             ) : null}
@@ -404,7 +404,7 @@ export function KreditBarangForm({ onCreated }: { onCreated: (ref: string) => vo
           </dl>
           <p className="mt-2 text-xs leading-5 text-muted-foreground">
             {tenorBulan === 3 || tenorBulan === 6
-              ? "Biaya admin 5% dan platform 2% dimasukkan ke cicilan tanpa potongan di muka."
+              ? "Biaya admin 2% dan platform 3% dipotong di muka dari dana yang diterima; cicilan berisi pokok dan bunga."
               : "Biaya layanan 3% dimodelkan dalam skema tenor ini."} Kredit barang ini bukan pencairan uang tunai; PINDAI tidak membeli barang atau mengirim dana ke merchant.
           </p>
           </>
@@ -573,18 +573,18 @@ export function KreditSayaSection() {
               {(k.tenorBulan === 3 || k.tenorBulan === 6) && (
                 <>
                   <div className="flex items-baseline justify-between gap-3">
-                    <dt className="text-muted-foreground">Biaya admin (5%, diamortisasi)</dt>
+                    <dt className="text-muted-foreground">Biaya admin (2%, dipotong di muka)</dt>
                     <dd className="tabular-nums">{k.biayaAdmin !== null ? formatRupiah(k.biayaAdmin) : "—"}</dd>
                   </div>
                   <div className="flex items-baseline justify-between gap-3">
-                    <dt className="text-muted-foreground">Biaya platform (2%, diamortisasi)</dt>
+                    <dt className="text-muted-foreground">Biaya platform (3%, dipotong di muka)</dt>
                     <dd className="tabular-nums">{k.biayaPlatform !== null ? formatRupiah(k.biayaPlatform) : "—"}</dd>
                   </div>
                 </>
               )}
               {k.tenorBulan === 1 && (
                 <div className="flex items-baseline justify-between gap-3">
-                  <dt className="text-muted-foreground">Biaya layanan (3%, diamortisasi)</dt>
+                  <dt className="text-muted-foreground">Biaya layanan (3%, dipotong di muka)</dt>
                   <dd className="tabular-nums">{k.biayaLayanan !== null ? formatRupiah(k.biayaLayanan) : "—"}</dd>
                 </div>
               )}

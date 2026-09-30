@@ -8,9 +8,9 @@ import { hitungSimulasiBulanan } from "./bulanan";
 import { formatRupiah, percentOf, type Rupiah } from "./money";
 
 export const PINDAI_PRICING = {
-  adminFeePercent: 3,
-  platformFeePercent: 2,
-  /** Total upfront deduction = Admin 3% + Platform 2% = 5%. */
+  adminFeePercent: 2,
+  platformFeePercent: 3,
+  /** Total upfront deduction = Admin 2% + Platform 3% = 5%. */
   upfrontDeductionPercent: 5,
   /** Net disbursement is 95% of principal. */
   netDisbursementPercent: 95,
@@ -76,9 +76,9 @@ const DAY_MS = 86_400_000;
 export interface LoanQuote {
   /** Pokok Pinjaman */
   pokok: Rupiah;
-  /** Biaya Admin — 3% dari pokok */
+  /** Biaya Admin — 2% dari pokok */
   biayaAdmin: Rupiah;
-  /** Biaya Layanan Platform — 2% dari pokok */
+  /** Biaya Layanan Platform — 3% dari pokok */
   biayaPlatform: Rupiah;
   /** Total Potongan di Muka — 5% */
   totalPotonganDiMuka: Rupiah;
@@ -196,7 +196,8 @@ export function calculateRepayment(
 /**
  * Ringkasan pelunasan satu pinjaman — SATU sumber kebenaran untuk kedua
  * skema: harian (130% flat) maupun bulanan (bunga menurun + biaya layanan
- * diamortisasi). Dipakai UI nasabah, portofolio Pendana, panel admin, dan
+ * dengan biaya dipotong di muka). Dipakai UI nasabah, portofolio Pendana,
+ * panel admin, dan
  * pengingat WhatsApp agar angka yang dilihat semua pihak selalu sama.
  */
 export interface PelunasanPinjaman {

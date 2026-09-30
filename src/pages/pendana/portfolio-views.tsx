@@ -95,8 +95,8 @@ export function PortfolioSection({ portfolio }: { portfolio: PortfolioRow[] | un
               {f.tenorBulan !== null && (
                 <p className="mt-1 text-xs text-muted-foreground">
                   {f.tenorBulan === 3 || f.tenorBulan === 6
-                    ? `Biaya admin 5% (${formatRupiah(f.biayaAdmin)}) + platform 2% (${formatRupiah(f.biayaPlatform)}), diamortisasi; tanpa potongan di muka.`
-                    : `Biaya layanan 3% (${formatRupiah(f.biayaLayananTotal)}), diamortisasi; tanpa potongan di muka.`}
+                    ? `Biaya admin 2% (${formatRupiah(f.biayaAdmin)}) + platform 3% (${formatRupiah(f.biayaPlatform)}), dipotong di muka dari dana yang diterima.`
+                    : `Biaya layanan 3% (${formatRupiah(f.biayaLayananTotal)}), dipotong di muka dari dana yang diterima.`}
                 </p>
               )}
             </div>
@@ -130,9 +130,9 @@ export function PortfolioSection({ portfolio }: { portfolio: PortfolioRow[] | un
               <dl className="mt-2 space-y-1.5">
                 {f.tenorBulan === 3 || f.tenorBulan === 6 ? (
                   <>
-                    <InfoRow label="Biaya admin 5% (diamortisasi)" value={formatRupiah(f.biayaAdmin)} />
-                    <InfoRow label="Biaya platform 2% (diamortisasi)" value={formatRupiah(f.biayaPlatform)} />
-                    <InfoRow label="Total biaya tenor 7%" value={formatRupiah(f.biayaLayananTotal)} />
+                    <InfoRow label="Biaya admin 2% (dipotong di muka)" value={formatRupiah(f.biayaAdmin)} />
+                    <InfoRow label="Biaya platform 3% (dipotong di muka)" value={formatRupiah(f.biayaPlatform)} />
+                    <InfoRow label="Total biaya tenor 5%" value={formatRupiah(f.biayaLayananTotal)} />
                   </>
                 ) : (
                   <InfoRow label="Biaya layanan tenor 1 bulan (3%)" value={formatRupiah(f.biayaLayananTotal)} />

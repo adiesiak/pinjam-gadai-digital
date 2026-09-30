@@ -8,14 +8,15 @@
  * Aturan skema:
  *  - Uang muka (DP) 0% → pokok dibiayai = harga/pokok penuh.
  *  - Angsuran pokok per bulan = pokok ÷ tenor (bulan terakhir menyerap sisa).
- *  - Tenor 3 dan 6 bulan: biaya admin 5% + platform 2% dari pokok,
- *    diamortisasi ke cicilan. Tenor lain tetap memakai biaya layanan 3%.
+ *  - Tenor 3 dan 6 bulan: biaya admin 2% + platform 3% dari pokok,
+ *    DIPOTONG DI MUKA dari dana yang diterima (tidak diamortisasi ke cicilan).
+ *    Tenor lain memakai biaya layanan 3%, juga dipotong di muka.
  *  - Bunga/margin dihitung dari sisa pokok pada awal setiap bulan (hak Pendana):
  *      tenor 1 bulan  → 30% / bulan
  *      tenor 3–5 bln  → 25% / bulan
  *      tenor ≥ 6 bln  → 20% / bulan
- *  - Cicilan menurun = angsuran pokok + bunga atas sisa pokok + biaya layanan.
- *  - Biaya ditambahkan ke cicilan tanpa mengurangi pokok yang diasumsikan diterima.
+ *  - Cicilan menurun = angsuran pokok + bunga atas sisa pokok (tanpa biaya).
+ *  - Dana diterima Peminjam = pokok − potongan di muka.
  *
  * Guardrail Rule 3: semua uang integer rupiah — pembagian pokok memakai
  * pola floor-split (bulan terakhir menyerap sisa) sehingga Σ jadwal TEPAT
@@ -29,12 +30,14 @@ export const TENOR_BULANAN_OPTIONS = [1, 3, 6] as const;
 export const BULANAN_PRICING = {
   /** Uang muka 0% — seluruh harga/pokok dibiayai. */
   dpPersen: 0,
-  /** Biaya layanan lama untuk tenor selain 3 dan 6 bulan. */
+  /** Biaya layanan untuk tenor selain 3 dan 6 bulan (dipotong di muka). */
   biayaLayananPersen: 3,
-  /** Biaya admin untuk tenor 3 dan 6 bulan. */
-  biayaAdminPersenTenor3_6: 5,
-  /** Biaya platform untuk tenor 3 dan 6 bulan. */
-  biayaPlatformPersenTenor3_6: 2,
+  /** Biaya admin untuk tenor 3 dan 6 bulan (dipotong di muka). */
+  biayaAdminPersenTenor3_6: 2,
+  /** Biaya platform untuk tenor 3 dan 6 bulan (dipotong di muka). */
+  biayaPlatformPersenTenor3_6: 3,
+  /** Total biaya tenor 3/6 = admin 2% + platform 3% = 5%, dipotong di muka. */
+  biayaTenor3_6Persen: 5,
   /** Bunga tenor 1 bulan (%/bulan). */
   bungaTenor1PersenPerBulan: 30,
   /** Bunga tenor 3–5 bulan (%/bulan). */
@@ -69,13 +72,13 @@ export interface CicilanBulananRow {
   pokok: Rupiah;
   /** Bunga/margin bulan ini (hak Pendana). */
   bunga: Rupiah;
-  /** Biaya admin bulan ini; nol di luar tenor 3 dan 6 bulan. */
+  /** Porsi biaya admin pada baris ini — selalu nol (biaya dipotong di muka). */
   biayaAdmin: Rupiah;
-  /** Biaya platform bulan ini; nol di luar tenor 3 dan 6 bulan. */
+  /** Porsi biaya platform pada baris ini — selalu nol (biaya dipotong di muka). */
   biayaPlatform: Rupiah;
-  /** Total biaya tenor bulan ini (dipertahankan untuk konsumen lama). */
+  /** Porsi biaya tenor pada baris ini — selalu nol (biaya dipotong di muka). */
   biayaLayanan: Rupiah;
-  /** Cicilan bulan ini = pokok + bunga + seluruh biaya tenor. */
+  /** Cicilan bulan ini = pokok + bunga. */
   total: Rupiah;
   /** Sisa pokok setelah cicilan bulan ini. */
   sisaPokok: Rupiah;
@@ -92,31 +95,35 @@ export interface SimulasiBulanan {
   tenorBulan: number;
   /** Tarif bunga per bulan (% dari sisa pokok) sesuai tenor. */
   persenBungaPerBulan: number;
-  /** Total biaya admin (5% pada tenor 3/6; nol selainnya). */
+  /** Total biaya admin (2% pada tenor 3/6; nol selainnya) — dipotong di muka. */
   biayaAdminTotal: Rupiah;
-  /** Total biaya platform (2% pada tenor 3/6; nol selainnya). */
+  /** Total biaya platform (3% pada tenor 3/6; nol selainnya) — dipotong di muka. */
   biayaPlatformTotal: Rupiah;
-  /** Total biaya tenor: admin + platform (3/6) atau layanan lama (tenor lain). */
+  /** Total biaya tenor: admin + platform (3/6) atau layanan (tenor lain). */
   biayaLayananTotal: Rupiah;
-  /** Perkiraan pembagian total biaya per bulan; bulan terakhir menyerap sisa. */
+  /** Biaya yang dipotong di muka dari dana yang diterima = biayaLayananTotal. */
+  potonganDiMuka: Rupiah;
+  /** Dana yang diterima Peminjam = pokok − potonganDiMuka. */
+  danaDiterima: Rupiah;
+  /** Porsi biaya tenor per bulan — nol: biaya dipotong di muka, bukan diangsur. */
   biayaLayananPerBulan: Rupiah;
-  /** Perkiraan pembagian biaya admin per bulan. */
+  /** Porsi biaya admin per bulan — nol: biaya dipotong di muka. */
   biayaAdminPerBulan: Rupiah;
-  /** Perkiraan pembagian biaya platform per bulan. */
+  /** Porsi biaya platform per bulan — nol: biaya dipotong di muka. */
   biayaPlatformPerBulan: Rupiah;
   /** Bunga bulan pertama, dihitung atas seluruh pokok. */
   bungaPerBulan: Rupiah;
   /** Cicilan bulan pertama (terbesar pada jadwal pokok tetap). */
   cicilanPerBulan: Rupiah;
-  /** Cicilan bulan terakhir (termasuk sisa pembulatan pokok/layanan). */
+  /** Cicilan bulan terakhir (termasuk sisa pembulatan pokok). */
   cicilanTerakhir: Rupiah;
   /** Bunga/margin total selama tenor (hak Pendana). */
   bungaTotal: Rupiah;
-  /** Total yang dibayar Konsumen/Peminjam = Σ cicilan. */
+  /** Total cicilan yang dibayar Peminjam = Σ cicilan = pokok + bunga. */
   totalPengembalian: Rupiah;
-  /** totalPengembalian − pokok (bunga + biaya layanan). */
+  /** Total biaya Peminjam = potongan di muka + bunga (di luar pengembalian pokok). */
   totalKeuntunganBersih: Rupiah;
-  /** Keuntungan bersih sebagai persen pokok (1 desimal, gaya Indonesia). */
+  /** Biaya total sebagai persen pokok (1 desimal, gaya Indonesia). */
   persentaseProfitTotal: number;
   /** Jadwal cicilan per bulan — Σ pokok = pokokDibiayai, Σ total = totalPengembalian. */
   jadwal: CicilanBulananRow[];
@@ -137,11 +144,11 @@ export function assertSimulasiBulananValid(pokok: Rupiah, tenorBulan: number): v
  * Identitas yang dijamin (diuji di bulanan.test.ts):
  *  - dp = 0 dan pokokDibiayai = pokok
  *  - Σ jadwal.pokok = pokokDibiayai
- *  - Σ jadwal.bunga = bungaTotal, Σ setiap komponen biaya = totalnya
- *  - Tenor 3/6 mengenakan admin 5% + platform 2%; tenor lain layanan 3%
- *  - Σ jadwal.total = totalPengembalian
+ *  - Tenor 3/6 mengenakan admin 2% + platform 3% (total 5%), tenor lain 3%
+ *  - Seluruh biaya dipotong di muka: danaDiterima = pokok − potonganDiMuka
+ *  - Jadwal hanya berisi pokok + bunga (Σ jadwal.total = totalPengembalian)
  *  - cicilanPerBulan = cicilan bulan pertama; cicilanTerakhir = cicilan terakhir
- *  - totalKeuntunganBersih = totalPengembalian − pokok
+ *  - totalKeuntunganBersih = potonganDiMuka + bungaTotal
  */
 export function hitungSimulasiBulanan(
   pokok: Rupiah,
@@ -163,7 +170,8 @@ export function hitungSimulasiBulanan(
   const pokokDibiayai = pokok - dp;
   const persen = persenBungaPerBulan(tenorBulan);
 
-  // Komponen bulanan — semua HALF-UP per rupiah via percentOf (BigInt).
+  // Komponen biaya — semua HALF-UP per rupiah via percentOf (BigInt), dan
+  // seluruhnya dipotong di muka (tidak pernah masuk ke cicilan).
   const pokokPerBulan = Math.floor(pokokDibiayai / tenorBulan);
   const bungaPerBulan = percentOf(pokokDibiayai, persen);
   const tenorAdminPlatform = tenorBulan === 3 || tenorBulan === 6;
@@ -176,40 +184,25 @@ export function hitungSimulasiBulanan(
   const biayaLayananTotal = tenorAdminPlatform
     ? biayaAdminTotal + biayaPlatformTotal
     : percentOf(pokokDibiayai, BULANAN_PRICING.biayaLayananPersen);
-  const biayaAdminPerBulan = Math.floor(biayaAdminTotal / tenorBulan);
-  const biayaPlatformPerBulan = Math.floor(biayaPlatformTotal / tenorBulan);
-  const biayaLayananPerBulan = Math.floor(biayaLayananTotal / tenorBulan);
+  const potonganDiMuka = biayaLayananTotal;
+  const danaDiterima = pokokDibiayai - potonganDiMuka;
 
-  // ===== Jadwal: bunga atas saldo awal bulan; setiap biaya terakhir menyerap sisa =====
+  // ===== Jadwal: bunga atas saldo awal bulan; hanya pokok + bunga =====
   const jadwal: CicilanBulananRow[] = [];
   let sisaPokok = pokokDibiayai;
-  let sisaAdmin = biayaAdminTotal;
-  let sisaPlatform = biayaPlatformTotal;
-  let sisaLayanan = tenorAdminPlatform ? 0 : biayaLayananTotal;
   for (let bulan = 1; bulan <= tenorBulan; bulan += 1) {
     const terakhir = bulan === tenorBulan;
     const rowPokok = terakhir ? sisaPokok : pokokPerBulan;
     const rowBunga = percentOf(sisaPokok, persen);
-    const rowAdmin = terakhir ? sisaAdmin : biayaAdminPerBulan;
-    const rowPlatform = terakhir ? sisaPlatform : biayaPlatformPerBulan;
-    const rowLayananLama = terakhir
-      ? sisaLayanan
-      : tenorAdminPlatform
-        ? 0
-        : biayaLayananPerBulan;
-    const rowLayanan = rowAdmin + rowPlatform + rowLayananLama;
     sisaPokok -= rowPokok;
-    sisaAdmin -= rowAdmin;
-    sisaPlatform -= rowPlatform;
-    sisaLayanan -= rowLayananLama;
     jadwal.push({
       bulan,
       pokok: rowPokok,
       bunga: rowBunga,
-      biayaAdmin: rowAdmin,
-      biayaPlatform: rowPlatform,
-      biayaLayanan: rowLayanan,
-      total: rowPokok + rowBunga + rowLayanan,
+      biayaAdmin: 0,
+      biayaPlatform: 0,
+      biayaLayanan: 0,
+      total: rowPokok + rowBunga,
       sisaPokok,
     });
   }
@@ -218,7 +211,8 @@ export function hitungSimulasiBulanan(
   const cicilanTerakhir = jadwal[jadwal.length - 1].total;
   const totalPengembalian = jadwal.reduce((acc, r) => acc + r.total, 0);
   const bungaTotal = jadwal.reduce((acc, r) => acc + r.bunga, 0);
-  const totalKeuntunganBersih = totalPengembalian - pokok;
+  // Seluruh biaya peminjam = potongan di muka + bunga selama tenor.
+  const totalKeuntunganBersih = potonganDiMuka + bungaTotal;
   // Satu desimal (48.0 bukan 48) — mengikuti output formula referensi.
   const persentaseProfitTotal =
     Math.round((totalKeuntunganBersih / pokok) * 1000) / 10;
@@ -232,9 +226,11 @@ export function hitungSimulasiBulanan(
     biayaAdminTotal,
     biayaPlatformTotal,
     biayaLayananTotal,
-    biayaLayananPerBulan,
-    biayaAdminPerBulan,
-    biayaPlatformPerBulan,
+    potonganDiMuka,
+    danaDiterima,
+    biayaLayananPerBulan: 0,
+    biayaAdminPerBulan: 0,
+    biayaPlatformPerBulan: 0,
     bungaPerBulan,
     cicilanPerBulan,
     cicilanTerakhir,

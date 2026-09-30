@@ -40,7 +40,11 @@ export function LoanAllocationQueueTab({ onOpen }: { onOpen: (l: LoanRow) => voi
               reference={l.nomorReferensi}
               date={formatDate(l._creationTime)}
               title={formatRupiah(l.pokokPinjaman)}
-              subtitle={`${l.namaLengkap} · nilai bersih ${formatRupiah(Math.round(l.pokokPinjaman * 0.95))} · rekening yang dimasukkan ${l.nomorRekening}`}
+              subtitle={`${l.namaLengkap} · dana bersih ${formatRupiah(
+                l.tenorBulan !== null
+                  ? l.pokokPinjaman - (l.biayaLayananTotal ?? 0)
+                  : Math.round(l.pokokPinjaman * 0.95),
+              )} · rekening yang dimasukkan ${l.nomorRekening}`}
               status={<StatusBadge status={l.status} kind="loan" />}
               onOpen={() => onOpen(l)}
             />
@@ -288,9 +292,9 @@ export function LedgerTab() {
         </div>
         <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
           {([
-            ["Pinjaman tunai", rincian.pinjaman, "Biaya pinjaman harian 5%; tenor bulanan 7% untuk 3/6 bulan dan 3% untuk 1 bulan"],
+            ["Pinjaman tunai", rincian.pinjaman, "Biaya pinjaman harian 5% (admin 2% + platform 3%); tenor bulanan 5% untuk 3/6 bulan dan 3% untuk 1 bulan, dipotong di muka"],
             ["Gadai (Skema B)", rincian.gadai, "Nilai potongan 1% + sewa modal"],
-            ["Kredit barang (Skema C)", rincian.kredit, "Biaya tenor 12/24 bulan 3%; tenor 3/6 bulan admin 5% + platform 2%"],
+            ["Kredit barang (Skema C)", rincian.kredit, "Biaya tenor 12/24 bulan 3%; tenor 3/6 bulan admin 2% + platform 3%"],
             ["Lainnya", rincian.lainnya, "Entri biaya internal di luar tiga skema utama"],
           ] as const).map(([label, value, hint]) => (
             <div key={label} className="rounded-xl border border-slate-100 bg-slate-50/60 px-4 py-3">

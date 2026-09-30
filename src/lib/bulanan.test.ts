@@ -1,6 +1,7 @@
 /**
- * Tests engine simulasi bulanan (DP 0%, fee 5% admin + 2% platform tenor 3/6,
- * tenor lain layanan 3%, bunga 30/25/20 per bulan) —
+ * Tests engine simulasi bulanan (DP 0%, fee 2% admin + 3% platform tenor 3/6,
+ * tenor lain layanan 3%, SELURUHNYA dipotong di muka, bunga 30/25/20 per
+ * bulan) —
  * dependency-free (konvensi kredit.test.ts / financial.test.ts).
  * Run: bun src/lib/bulanan.test.ts
  */
@@ -64,14 +65,16 @@ throws(() => persenBungaPerBulan(1.5), "tenor pecahan ditolak");
   eq(q.dp, 0, "5jt/6bln: DP 0");
   eq(q.pokokDibiayai, 5_000_000, "5jt/6bln: pokok dibiayai = pokok");
   eq(q.persenBungaPerBulan, 20, "5jt/6bln: bunga 20%/bln");
-  eq(q.biayaAdminTotal, 250_000, "5jt/6bln: biaya admin 5% = 250rb");
-  eq(q.biayaPlatformTotal, 100_000, "5jt/6bln: biaya platform 2% = 100rb");
-  eq(q.biayaLayananTotal, 350_000, "5jt/6bln: total biaya tenor 7% = 350rb");
-  eq(q.biayaLayananPerBulan, 58_333, "5jt/6bln: rata-rata biaya tenor/bln dibulatkan bawah");
-  eq(q.jadwal[0].biayaAdmin, 41_666, "5jt/6bln: admin bulan pertama");
-  eq(q.jadwal[0].biayaPlatform, 16_666, "5jt/6bln: platform bulan pertama");
-  eq(q.jadwal[5].biayaAdmin, 41_670, "5jt/6bln: admin bulan terakhir menyerap sisa");
-  eq(q.jadwal[5].biayaPlatform, 16_670, "5jt/6bln: platform bulan terakhir menyerap sisa");
+  eq(q.biayaAdminTotal, 100_000, "5jt/6bln: biaya admin 2% = 100rb");
+  eq(q.biayaPlatformTotal, 150_000, "5jt/6bln: biaya platform 3% = 150rb");
+  eq(q.biayaLayananTotal, 250_000, "5jt/6bln: total biaya tenor 5% = 250rb");
+  eq(q.potonganDiMuka, 250_000, "5jt/6bln: seluruh biaya dipotong di muka");
+  eq(q.danaDiterima, 4_750_000, "5jt/6bln: dana diterima = pokok − 5%");
+  eq(q.biayaLayananPerBulan, 0, "5jt/6bln: biaya tidak diangsur (0 per bulan)");
+  eq(q.jadwal[0].biayaAdmin, 0, "5jt/6bln: admin tidak masuk cicilan");
+  eq(q.jadwal[0].biayaPlatform, 0, "5jt/6bln: platform tidak masuk cicilan");
+  eq(q.jadwal[5].biayaAdmin, 0, "5jt/6bln: admin bulan terakhir juga nol");
+  eq(q.jadwal[5].biayaPlatform, 0, "5jt/6bln: platform bulan terakhir juga nol");
   eq(q.bungaPerBulan, 1_000_000, "5jt/6bln: bunga bulan pertama 1jt");
   eq(q.jadwal[1].bunga, 833_333, "5jt/6bln: bunga bulan kedua atas sisa pokok");
   eq(q.jadwal[2].bunga, 666_667, "5jt/6bln: bunga bulan ketiga atas sisa pokok");
@@ -80,17 +83,17 @@ throws(() => persenBungaPerBulan(1.5), "tenor pecahan ditolak");
   eq(q.jadwal[5].bunga, 166_667, "5jt/6bln: bunga bulan keenam atas sisa pokok");
   eq(
     q.jadwal.map((r) => r.total).join(","),
-    "1891665,1724998,1558332,1391665,1224999,1058342",
+    "1833333,1666666,1500000,1333333,1166667,1000002",
     "5jt/6bln: seluruh cicilan menurun sesuai saldo pokok",
   );
   eq(q.jadwal[0].pokok, 833_333, "5jt/6bln: pokok/bln 833.333");
-  eq(q.cicilanPerBulan, 1_891_665, "5jt/6bln: cicilan bulan pertama termasuk biaya 7%");
+  eq(q.cicilanPerBulan, 1_833_333, "5jt/6bln: cicilan bulan pertama = pokok + bunga");
   // Bulan terakhir menyerap sisa: 833.333×5 = 4.166.665 → terakhir 833.335.
   eq(q.jadwal[5].pokok, 833_335, "5jt/6bln: pokok bulan terakhir 833.335");
-  eq(q.cicilanTerakhir, 1_058_342, "5jt/6bln: cicilan terakhir dari sisa pokok dan biaya");
-  eq(q.totalPengembalian, 8_850_001, "5jt/6bln: total dengan bunga saldo menurun dan biaya 7%");
-  eq(q.totalKeuntunganBersih, 3_850_001, "5jt/6bln: keuntungan termasuk biaya admin/platform");
-  eq(q.persentaseProfitTotal, 77, "5jt/6bln: profit 77%");
+  eq(q.cicilanTerakhir, 1_000_002, "5jt/6bln: cicilan terakhir dari sisa pokok dan bunga");
+  eq(q.totalPengembalian, 8_500_001, "5jt/6bln: total cicilan (pokok + bunga menurun)");
+  eq(q.totalKeuntunganBersih, 3_750_001, "5jt/6bln: biaya total = potongan di muka + bunga");
+  eq(q.persentaseProfitTotal, 75, "5jt/6bln: profit 75%");
   eq(q.bungaTotal, 3_500_001, "5jt/6bln: bunga total saldo menurun");
   // Identitas: Σ pokok jadwal = pokok dibiayai.
   eq(
@@ -117,10 +120,12 @@ throws(() => persenBungaPerBulan(1.5), "tenor pecahan ditolak");
   eq(q.biayaLayananTotal, 30_000, "1jt/1bln: layanan tenor pendek tetap 3% = 30rb");
   eq(q.biayaAdminTotal, 0, "1jt/1bln: tidak ada biaya admin baru");
   eq(q.biayaPlatformTotal, 0, "1jt/1bln: tidak ada biaya platform baru");
-  eq(q.cicilanPerBulan, 1_330_000, "1jt/1bln: cicilan 1.330.000");
-  eq(q.cicilanTerakhir, 1_330_000, "1jt/1bln: cicilan tunggal = terakhir");
-  eq(q.totalPengembalian, 1_330_000, "1jt/1bln: total 133%");
-  eq(q.persentaseProfitTotal, 33, "1jt/1bln: profit 33%");
+  eq(q.potonganDiMuka, 30_000, "1jt/1bln: layanan 3% dipotong di muka");
+  eq(q.danaDiterima, 970_000, "1jt/1bln: dana diterima 970rb");
+  eq(q.cicilanPerBulan, 1_300_000, "1jt/1bln: cicilan 1.300.000 (pokok + bunga)");
+  eq(q.cicilanTerakhir, 1_300_000, "1jt/1bln: cicilan tunggal = terakhir");
+  eq(q.totalPengembalian, 1_300_000, "1jt/1bln: total cicilan = pokok + bunga 30%");
+  eq(q.persentaseProfitTotal, 33, "1jt/1bln: biaya total 33% (bunga 30% + layanan 3%)");
 }
 
 // ============================================================
@@ -134,14 +139,15 @@ throws(() => persenBungaPerBulan(1.5), "tenor pecahan ditolak");
   eq(q.jadwal[2].bunga, 83_334, "1jt/3bln: bunga bulan ketiga dibulatkan HALF-UP");
   eq(q.jadwal[0].pokok, 333_333, "1jt/3bln: pokok/bln 333.333");
   eq(q.jadwal[2].pokok, 333_334, "1jt/3bln: bulan terakhir 333.334");
-  eq(q.biayaAdminTotal, 50_000, "1jt/3bln: biaya admin 5% = 50rb");
-  eq(q.biayaPlatformTotal, 20_000, "1jt/3bln: biaya platform 2% = 20rb");
-  eq(q.biayaLayananTotal, 70_000, "1jt/3bln: total biaya 7% = 70rb");
-  eq(q.cicilanPerBulan, 606_665, "1jt/3bln: cicilan pertama termasuk biaya tenor 7%");
-  eq(q.jadwal[1].total, 523_332, "1jt/3bln: cicilan kedua menurun");
-  eq(q.jadwal[2].total, 440_004, "1jt/3bln: cicilan terakhir menyerap sisa biaya");
-  eq(q.totalPengembalian, 1_570_001, "1jt/3bln: total bunga saldo menurun + biaya 7%");
-  eq(q.persentaseProfitTotal, 57, "1jt/3bln: profit 57%");
+  eq(q.biayaAdminTotal, 20_000, "1jt/3bln: biaya admin 2% = 20rb");
+  eq(q.biayaPlatformTotal, 30_000, "1jt/3bln: biaya platform 3% = 30rb");
+  eq(q.biayaLayananTotal, 50_000, "1jt/3bln: total biaya 5% = 50rb");
+  eq(q.danaDiterima, 950_000, "1jt/3bln: dana diterima 950rb");
+  eq(q.cicilanPerBulan, 583_333, "1jt/3bln: cicilan pertama = pokok + bunga");
+  eq(q.jadwal[1].total, 500_000, "1jt/3bln: cicilan kedua menurun");
+  eq(q.jadwal[2].total, 416_668, "1jt/3bln: cicilan terakhir menyerap sisa pokok");
+  eq(q.totalPengembalian, 1_500_001, "1jt/3bln: total bunga saldo menurun (tanpa biaya)");
+  eq(q.persentaseProfitTotal, 55, "1jt/3bln: biaya total 55%");
   // Identitas tiap baris jadwal.
   for (const r of q.jadwal) {
     eq(r.total, r.pokok + r.bunga + r.biayaLayanan, `1jt/3bln bulan ${r.bulan}: total = komponen`);
@@ -168,19 +174,21 @@ for (const pokok of POKOK_LIST) {
       `${pokok}/${tenor}bln: Σ bunga = bungaTotal`,
     );
     eq(
-      q.jadwal.reduce((a, r) => a + r.biayaAdmin, 0),
-      q.biayaAdminTotal,
-      `${pokok}/${tenor}bln: Σ admin = adminTotal`,
+      q.potonganDiMuka,
+      tenor === 1
+        ? q.biayaLayananTotal
+        : q.biayaAdminTotal + q.biayaPlatformTotal,
+      `${pokok}/${tenor}bln: potongan di muka = admin + platform (atau layanan)`,
     );
     eq(
-      q.jadwal.reduce((a, r) => a + r.biayaPlatform, 0),
-      q.biayaPlatformTotal,
-      `${pokok}/${tenor}bln: Σ platform = platformTotal`,
+      q.danaDiterima,
+      pokok - q.potonganDiMuka,
+      `${pokok}/${tenor}bln: dana diterima = pokok − potongan di muka`,
     );
     eq(
       q.jadwal.reduce((a, r) => a + r.biayaLayanan, 0),
-      q.biayaLayananTotal,
-      `${pokok}/${tenor}bln: Σ biaya tenor = biayaTotal`,
+      0,
+      `${pokok}/${tenor}bln: tidak ada biaya di dalam cicilan`,
     );
     eq(
       q.jadwal.reduce((a, r) => a + r.total, 0),
@@ -193,8 +201,8 @@ for (const pokok of POKOK_LIST) {
     );
     eq(
       q.totalKeuntunganBersih,
-      q.totalPengembalian - pokok,
-      `${pokok}/${tenor}bln: profit = total − pokok`,
+      q.potonganDiMuka + q.bungaTotal,
+      `${pokok}/${tenor}bln: biaya total = potongan di muka + bunga`,
     );
     ok(
       q.persentaseProfitTotal < BULANAN_PRICING.maxProfitTotalPersen,

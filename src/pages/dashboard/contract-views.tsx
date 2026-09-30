@@ -185,7 +185,8 @@ function LoanContractCard({
             pokok {formatRupiah(c.pokokPinjaman)} ·{" "}
             {bulanan !== null ? (
               <>
-                tenor {bulanan.tenorBulan} bulan · cicilan menurun dari{" "}
+                dana bersih {formatRupiah(bulanan.danaDiterima)} · tenor {bulanan.tenorBulan} bulan ·
+                cicilan menurun dari{" "}
                 {formatRupiah(bulanan.cicilanPerBulan)} ke {formatRupiah(bulanan.cicilanTerakhir)} · total{" "}
                 {formatRupiah(bulanan.totalPengembalian)}
               </>

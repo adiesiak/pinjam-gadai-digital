@@ -148,15 +148,15 @@ function MarketCard({
             {row.tenorBulan === 3 || row.tenorBulan === 6 ? (
               <>
                 <div className="flex justify-between gap-3">
-                  <dt className="text-muted-foreground">Biaya admin 5% (diamortisasi)</dt>
+                  <dt className="text-muted-foreground">Biaya admin 2% (dipotong di muka)</dt>
                   <dd className="font-medium tabular-nums">{formatRupiah(row.biayaAdmin)}</dd>
                 </div>
                 <div className="flex justify-between gap-3">
-                  <dt className="text-muted-foreground">Biaya platform 2% (diamortisasi)</dt>
+                  <dt className="text-muted-foreground">Biaya platform 3% (dipotong di muka)</dt>
                   <dd className="font-medium tabular-nums">{formatRupiah(row.biayaPlatform)}</dd>
                 </div>
                 <div className="flex justify-between gap-3 border-t border-slate-100 pt-1.5">
-                  <dt className="text-muted-foreground">Total biaya tenor 7%</dt>
+                  <dt className="text-muted-foreground">Total biaya tenor 5%</dt>
                   <dd className="font-medium tabular-nums">{formatRupiah(row.biayaLayananTotal)}</dd>
                 </div>
               </>

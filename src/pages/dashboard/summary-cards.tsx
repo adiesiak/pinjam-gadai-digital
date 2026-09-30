@@ -7,12 +7,16 @@ import type { LoanScheduleRow } from "./shared";
 
 /** Ringkasan ledger internal: nilai bersih hitungan dan total kewajiban. */
 export function SummaryCards({ schedule }: { schedule: LoanScheduleRow[] }) {
-  // Nilai bersih: 95% pada skema harian, 100% pada bulanan (DP 0%).
+  // Dana bersih: 95% pada skema harian; pada bulanan pokok − biaya di muka
+  // (admin 2% + platform 3% untuk tenor 3/6, layanan 3% untuk tenor 1).
   const danaBersihTotal = useMemo(
     () =>
       schedule.reduce(
         (acc, l) =>
-          acc + (l.tenorBulan !== null ? l.pokokPinjaman : l.quote.danaBersihDitransfer),
+          acc +
+          (l.tenorBulan !== null
+            ? (l.simulasiBulanan?.danaDiterima ?? l.pokokPinjaman)
+            : l.quote.danaBersihDitransfer),
         0,
       ),
     [schedule],

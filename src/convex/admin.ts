@@ -530,8 +530,9 @@ export const adminStats = query({
 });
 
 // Re-quote helper dipakai ulang untuk tampilan admin (rincian biaya pinjaman).
-// tenorBulan diisi → rincian skema bulanan (DP 0%, biaya layanan 3%
-// diamortisasi, bunga menurun per tenor); kosong → skema harian 130%.
+// tenorBulan diisi → rincian skema bulanan (DP 0%, biaya 5% tenor 3/6 atau
+// 3% tenor 1 dipotong di muka, bunga menurun per tenor); kosong → skema
+// harian 130%.
 export const adminLoanQuote = query({
   args: { pokokPinjaman: v.number(), tenorBulan: v.optional(v.number()) },
   handler: async (ctx, args) => {
@@ -545,6 +546,8 @@ export const adminLoanQuote = query({
         pokokDibiayai: sim.pokokDibiayai,
         dp: sim.dp,
         biayaLayanan: sim.biayaLayananTotal,
+        potonganDiMuka: sim.potonganDiMuka,
+        danaDiterima: sim.danaDiterima,
         biayaLayananPerBulan: sim.biayaLayananPerBulan,
         persenBungaPerBulan: sim.persenBungaPerBulan,
         bungaPerBulan: sim.bungaPerBulan,
@@ -845,9 +848,9 @@ export const ledgerSummary = query({
     const totals = await ledgerTotals(ctx);
     // Pendapatan platform = setiap entri `platform_fee` pada akun
     // platform:FEE (debit maupun kredit). Terdiri dari:
-    //  - pinjaman: biaya admin & platform 3% + 2% saat pendanaan penuh
+    //  - pinjaman: biaya admin & platform 2% + 3% dipotong di muka saat pendanaan penuh
     //  - gadai: potongan muka 1% (pencairan) + sewa modal periodik (bayar gadai)
-    //  - kredit: biaya layanan 3% dari pokok dibiayai, diakui sepanjang cicilan dibayar.
+    //  - kredit: biaya layanan dari pokok dibiayai, diakui saat pendanaan penuh (dipotong di muka).
     const entries = await ctx.db.query("ledger_entries").collect();
     const rincianSkema = {
       pinjaman: 0,

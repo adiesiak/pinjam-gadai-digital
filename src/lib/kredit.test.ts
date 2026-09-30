@@ -104,10 +104,10 @@ eq(pendek.dp, 0, "tenor 3 bulan: DP 0 (skema bulanan)");
 eq(pendek.pokokDibiayai, 10_000_000, "tenor 3 bulan: pokok dibiayai = harga barang");
 eq(pendek.marginPerBulan, 2_500_000, "Imbal Hasil 25% dari 10jt = 2,5jt");
 eq(pendek.marginTotal, 5_000_001, "total Imbal Hasil saldo menurun selama 3 bulan");
-eq(pendek.biayaAdmin, 500_000, "biaya admin 5% dari 10jt (diamortisasi)");
-eq(pendek.biayaPlatform, 200_000, "biaya platform 2% dari 10jt (diamortisasi)");
-eq(pendek.biayaLayanan, 700_000, "total biaya tenor 7% dari 10jt (diamortisasi)");
-eq(pendek.cicilanPerBulan, 6_066_665, "cicilan 3 bulan pertama termasuk biaya tenor 7%");
+eq(pendek.biayaAdmin, 200_000, "biaya admin 2% dari 10jt (dipotong di muka)");
+eq(pendek.biayaPlatform, 300_000, "biaya platform 3% dari 10jt (dipotong di muka)");
+eq(pendek.biayaLayanan, 500_000, "total biaya tenor 5% dari 10jt (dipotong di muka)");
+eq(pendek.cicilanPerBulan, 5_833_333, "cicilan 3 bulan pertama = pokok + Imbal Hasil");
 eq(pendek.persenImbalHasil, 50, "Imbal Hasil 50% dari pokok penuh (3 bulan)");
 eq(pendek.persenImbalHasilTahunan, 200, "setara 200% per tahun (50% × 12/3)");
 eq(

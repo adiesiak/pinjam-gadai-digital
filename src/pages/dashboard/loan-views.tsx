@@ -161,17 +161,17 @@ function ActiveLoanCard({
         {bulanan ? (
           <>
             <RincianBaris
-              label="Nilai bersih (belum dicairkan; tanpa potongan di muka)"
-              value={formatRupiah(loan.pokokPinjaman)}
+              label="Dana bersih setelah potongan di muka (belum dicairkan)"
+              value={formatRupiah(loan.simulasiBulanan?.danaDiterima ?? loan.pokokPinjaman)}
               tone="net"
             />
             {loan.simulasiBulanan !== null && (loan.tenorBulan === 3 || loan.tenorBulan === 6) ? (
               <>
-                <RincianBaris label="Biaya admin (5%, diamortisasi)" value={formatRupiah(loan.simulasiBulanan.biayaAdminTotal)} />
-                <RincianBaris label="Biaya platform (2%, diamortisasi)" value={formatRupiah(loan.simulasiBulanan.biayaPlatformTotal)} />
+                <RincianBaris label="Biaya admin (2%, dipotong di muka)" value={formatRupiah(loan.simulasiBulanan.biayaAdminTotal)} />
+                <RincianBaris label="Biaya platform (3%, dipotong di muka)" value={formatRupiah(loan.simulasiBulanan.biayaPlatformTotal)} />
               </>
             ) : loan.simulasiBulanan !== null ? (
-              <RincianBaris label="Biaya layanan (3%, diamortisasi)" value={formatRupiah(loan.simulasiBulanan.biayaLayananTotal)} />
+              <RincianBaris label="Biaya layanan (3%, dipotong di muka)" value={formatRupiah(loan.simulasiBulanan.biayaLayananTotal)} />
             ) : null}
             <RincianBaris
               label={`Total pembayaran (${loan.tenorBulan} bulan)`}
@@ -295,14 +295,20 @@ export function ScheduleSection({ schedule }: { schedule: LoanScheduleRow[] }) {
                   <span className="font-mono text-xs text-muted-foreground">{l.nomorReferensi}</span>
                 </p>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Nilai bersih {formatRupiah(l.tenorBulan !== null ? l.pokokPinjaman : l.quote.danaBersihDitransfer)} · tenor{" "}
+                  Nilai bersih{" "}
+                  {formatRupiah(
+                    l.tenorBulan !== null
+                      ? (l.simulasiBulanan?.danaDiterima ?? l.pokokPinjaman)
+                      : l.quote.danaBersihDitransfer,
+                  )}{" "}
+                  · tenor{" "}
                   {l.tenorBulan !== null ? `${l.tenorBulan} bulan` : `${l.tenorHari} hari`}
                 </p>
                 {l.tenorBulan !== null && (
                   <p className="mt-1 max-w-xl text-xs leading-5 text-amber-800">
                     {l.tenorBulan === 3 || l.tenorBulan === 6
-                      ? "Biaya admin 5% + platform 2% diamortisasi ke cicilan; dana tidak dipotong di muka. Jadwal bersifat ilustrasi."
-                      : "Biaya layanan 3% diamortisasi ke cicilan. Jadwal hanya ilustrasi."}
+                      ? "Biaya admin 2% + platform 3% dipotong di muka dari dana yang diterima; cicilan berisi pokok dan bunga. Jadwal bersifat ilustrasi."
+                      : "Biaya layanan 3% dipotong di muka dari dana yang diterima. Jadwal hanya ilustrasi."}
                   </p>
                 )}
               </div>
@@ -327,7 +333,7 @@ export function ScheduleSection({ schedule }: { schedule: LoanScheduleRow[] }) {
               </div>
               {l.simulasiBulanan !== null && (l.tenorBulan === 3 || l.tenorBulan === 6) && (
                 <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4">
-                  <dt className="text-muted-foreground">Biaya admin 5% + platform 2% (diamortisasi)</dt>
+                  <dt className="text-muted-foreground">Biaya admin 2% + platform 3% (dipotong di muka)</dt>
                   <dd className="tabular-nums">{formatRupiah(l.simulasiBulanan.biayaLayananTotal)}</dd>
                 </div>
               )}

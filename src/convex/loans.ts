@@ -266,8 +266,9 @@ export const createLoanApplication = mutation({
      */
     tenorHari: v.number(),
     /**
-     * Tenor bulanan (DP 0%, biaya 3% untuk tenor 1 atau admin 5% + platform
-     * 2% untuk tenor 3/6; bunga menurun 30/25/20% per bulan sesuai tenor) —
+     * Tenor bulanan (DP 0%, biaya 3% untuk tenor 1 atau admin 2% + platform
+     * 3% untuk tenor 3/6, seluruhnya dipotong di muka; bunga menurun
+     * 30/25/20% per bulan sesuai tenor) —
      * pinjaman DI LUAR plafon 1 jt / 30 hari. Bila diisi, `tenorHari`
      * diabaikan.
      */
@@ -1127,9 +1128,10 @@ export const repayLoan = mutation({
       throw new Error("Kewajiban pelunasan tidak dapat dihitung untuk pinjaman ini.");
     }
 
-    // Skema bulanan: bunga = hak Pendana; admin/platform tenor 3/6 dan
-    // layanan tenor 1 diamortisasi pada jadwal cicilan.
-    // Skema harian: bunga 30% dari quoteLoan (fee sudah dipotong di muka).
+    // Skema bulanan: bunga = hak Pendana; skema harian: bunga 30% dari
+    // quoteLoan. Kedua skema memotong biaya admin & platform DI MUKA saat
+    // pencairan (jurnalnya di convex/pendana.ts), jadi pelunasan tidak
+    // memuat biaya tambahan. simBulanan tetap dipakai untuk total Imbal Hasil.
     const simBulanan =
       loan.tenorBulan !== undefined
         ? hitungSimulasiBulanan(loan.pokokPinjaman, loan.tenorBulan)
@@ -1138,9 +1140,9 @@ export const repayLoan = mutation({
     const totalPokokPendana = loan.pokokPinjaman;
     const totalImbalPendana = simBulanan !== null ? simBulanan.bungaTotal : q.bunga;
     const totalKewajibanPendana = totalPokokPendana + totalImbalPendana;
-    const feePlatform =
-      simBulanan !== null ? simBulanan.biayaPlatformTotal + simBulanan.biayaLayananTotal : q.totalKewajibanPelunasan - q.pokok - q.bunga;
-    const feeAdmin = simBulanan?.biayaAdminTotal ?? 0;
+    // Biaya sudah dipotong di muka — tidak ada fee yang dijurnal saat pelunasan.
+    const feePlatform = 0;
+    const feeAdmin = 0;
 
     const fundings = await ctx.db
       .query("fundings")
@@ -1211,8 +1213,8 @@ export const repayLoan = mutation({
       terdistribusi += payout;
     }
 
-    // 3. Fee platform dijurnal dari akun pinjaman ke platform:FEE. Skema
-    //    harian: totalPotonganDiMuka sudah dipotong saat pencairan (fee = 0).
+    // 3. Fee platform dipotong di muka saat pencairan (convex/pendana.ts) —
+    //    tidak ada fee tersisa untuk dijurnal pada pelunasan.
     if (feePlatform + feeAdmin > 0) {
       await appendJournal(ctx, {
         jenis: "platform_fee",

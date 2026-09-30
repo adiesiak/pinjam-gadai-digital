@@ -303,14 +303,15 @@ describe("alur Pendana — pinjaman tunai", () => {
     const [peluang] = await pendana.query(api.pendana.marketplace, {});
     expect(peluang).toMatchObject({
       kodePeminjam: "PMN-1234567890ABCDEF1234",
-      biayaLayananTotal: 30_000,
-      totalPotonganDiMuka: 0,
-      danaBersih: 1_000_000,
-      jadwalPelunasan: [{ bulan: 3, hariKe: 90, total: 1_530_001 }],
+      biayaLayananTotal: 50_000,
+      totalPotonganDiMuka: 50_000,
+      danaBersih: 950_000,
+      jadwalPelunasan: [{ bulan: 3, hariKe: 90, total: 1_500_001 }],
       simulasiCicilanBulanan: expect.arrayContaining([
         expect.objectContaining({ bulan: 1 }),
       ]),
-      catatanJadwal: "Proyeksi internal mengasumsikan pelunasan sekaligus pada akhir tenor; seluruh rincian hanya simulasi dan bukan tagihan.",
+      catatanJadwal:
+        "Biaya admin 2% dan platform 3% untuk tenor 3/6 bulan (atau biaya layanan 3% untuk tenor 1) dipotong di muka dari dana yang diterima; cicilan bulanan hanya berisi pokok dan bunga.",
     });
     expect(peluang.jadwalPelunasan).toHaveLength(1);
     expect(peluang.simulasiCicilanBulanan).toHaveLength(3);

@@ -517,29 +517,29 @@ export function LoanForm({ onCreated }: { onCreated: (ref: string) => void }) {
         {bulanan && sim !== null ? (
           <dl className="mt-4 divide-y divide-slate-200 overflow-hidden rounded-xl border border-slate-200">
             <div className="flex flex-col gap-1 bg-emerald-50 px-3 py-2.5 text-sm sm:flex-row sm:items-baseline sm:justify-between">
-              <dt className="font-semibold text-emerald-800">Perkiraan pokok bersih pada model (belum dikirim; tanpa potongan di muka)</dt>
+              <dt className="font-semibold text-emerald-800">Perkiraan dana bersih setelah potongan di muka (belum dicairkan)</dt>
               <dd className="font-semibold tabular-nums text-emerald-700">
-                {formatRupiah(sim.pokokDibiayai)}
+                {formatRupiah(sim.danaDiterima)}
               </dd>
             </div>
             {sim.tenorBulan === 3 || sim.tenorBulan === 6 ? (
               <>
                 <div className="flex flex-col gap-1 bg-white px-3 py-2 text-sm sm:flex-row sm:items-baseline sm:justify-between">
-                  <dt className="font-medium text-slate-700">Biaya admin 5% (diamortisasi)</dt>
+                  <dt className="font-medium text-slate-700">Biaya admin 2% (dipotong di muka)</dt>
                   <dd className="font-medium tabular-nums">{formatRupiah(sim.biayaAdminTotal)}</dd>
                 </div>
                 <div className="flex flex-col gap-1 bg-white px-3 py-2 text-sm sm:flex-row sm:items-baseline sm:justify-between">
-                  <dt className="font-medium text-slate-700">Biaya platform 2% (diamortisasi)</dt>
+                  <dt className="font-medium text-slate-700">Biaya platform 3% (dipotong di muka)</dt>
                   <dd className="font-medium tabular-nums">{formatRupiah(sim.biayaPlatformTotal)}</dd>
                 </div>
                 <div className="flex flex-col gap-1 bg-white px-3 py-2 text-sm sm:flex-row sm:items-baseline sm:justify-between">
-                  <dt className="font-medium text-slate-700">Total biaya tenor 7%</dt>
+                  <dt className="font-medium text-slate-700">Total biaya tenor 5% (dipotong di muka)</dt>
                   <dd className="font-medium tabular-nums">{formatRupiah(sim.biayaLayananTotal)}</dd>
                 </div>
               </>
             ) : (
               <div className="flex flex-col gap-1 bg-white px-3 py-2 text-sm sm:flex-row sm:items-baseline sm:justify-between">
-                <dt className="font-medium text-slate-700">Biaya layanan 3% (diamortisasi)</dt>
+                <dt className="font-medium text-slate-700">Biaya layanan 3% (dipotong di muka)</dt>
                 <dd className="font-medium tabular-nums">{formatRupiah(sim.biayaLayananTotal)}</dd>
               </div>
             )}

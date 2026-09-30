@@ -394,14 +394,14 @@ function KalkulatorKreditSection() {
                   />
                   {tenorBulan === 3 || tenorBulan === 6 ? (
                     <>
-                      <Baris label="Biaya admin (5%)" value={formatRupiah(quote.biayaAdmin)} hint="Diamortisasi dalam cicilan; tanpa potongan di muka" />
-                      <Baris label="Biaya platform (2%)" value={formatRupiah(quote.biayaPlatform)} hint="Diamortisasi dalam cicilan; tanpa potongan di muka" />
-                      <Baris label="Total biaya tenor (7%)" value={formatRupiah(quote.biayaLayanan)} hint="Asumsi perhitungan aplikasi" />
+                      <Baris label="Biaya admin (2%)" value={formatRupiah(quote.biayaAdmin)} hint="Dipotong di muka dari dana yang diterima" />
+                      <Baris label="Biaya platform (3%)" value={formatRupiah(quote.biayaPlatform)} hint="Dipotong di muka dari dana yang diterima" />
+                      <Baris label="Total biaya tenor (5%)" value={formatRupiah(quote.biayaLayanan)} hint="Asumsi perhitungan aplikasi" />
                     </>
                   ) : (
                     <Baris
                     label={tenorBulan === 1
-                      ? "Biaya layanan (3%, diamortisasi)"
+                      ? "Biaya layanan (3%, di muka)"
                       : `Biaya layanan (${persenId(KREDIT_PRICING.biayaLayananPersen)}%, di muka)`}
                     value={formatRupiah(quote.biayaLayanan)}
                     hint="Asumsi perhitungan aplikasi"
@@ -695,10 +695,10 @@ function PeluangKreditCard({ row }: { row: PeluangKredit }) {
         <dl className="mt-2 space-y-1.5">
           {row.tenorBulan === 3 || row.tenorBulan === 6 ? (
             <>
-              <Baris label="Biaya admin 5% (diamortisasi)" value={formatRupiah(row.biayaAdmin)} />
-              <Baris label="Biaya platform 2% (diamortisasi)" value={formatRupiah(row.biayaPlatform)} />
-              <Baris label="Total biaya tenor 7%" value={formatRupiah(row.biayaLayanan)} />
-              <Baris label="Biaya tenor per bulan (rata-rata)" value={formatRupiah(row.biayaLayananPerBulan)} hint="Tanpa potongan di muka" />
+              <Baris label="Biaya admin 2% (dipotong di muka)" value={formatRupiah(row.biayaAdmin)} />
+              <Baris label="Biaya platform 3% (dipotong di muka)" value={formatRupiah(row.biayaPlatform)} />
+              <Baris label="Total biaya tenor 5%" value={formatRupiah(row.biayaLayanan)} />
+              <Baris label="Biaya tenor per bulan" value={formatRupiah(row.biayaLayananPerBulan)} hint="Nol: biaya tidak diangsur, dipotong di muka" />
             </>
           ) : (
             <>
@@ -845,7 +845,7 @@ function PortofolioKreditSection() {
                   </dd>
                 </div>
                 <div className="flex items-baseline justify-between gap-4">
-                  <dt className="text-muted-foreground">{f.tenorBulan === 3 || f.tenorBulan === 6 ? "Total biaya tenor (admin 5% + platform 2%)" : "Total biaya layanan"}</dt>
+                  <dt className="text-muted-foreground">{f.tenorBulan === 3 || f.tenorBulan === 6 ? "Total biaya tenor (admin 2% + platform 3%)" : "Total biaya layanan"}</dt>
                   <dd className="tabular-nums">{f.biayaLayanan !== null ? formatRupiah(f.biayaLayanan) : "Tidak tersedia"}</dd>
                 </div>
                 <div className="flex items-baseline justify-between gap-4">
@@ -869,7 +869,7 @@ function PortofolioKreditSection() {
                 <h3 className="font-semibold">Ilustrasi jadwal dan perincian</h3>
                 <p className="mt-1 text-muted-foreground">
                   {f.tenorBulan === 3 || f.tenorBulan === 6
-                    ? `Biaya admin 5% (${formatRupiah(f.biayaAdmin)}) dan platform 2% (${formatRupiah(f.biayaPlatform)}) diamortisasi dalam cicilan; tidak ada potongan di muka.`
+                    ? `Biaya admin 2% (${formatRupiah(f.biayaAdmin)}) dan platform 3% (${formatRupiah(f.biayaPlatform)}) dipotong di muka dari dana yang diterima.`
                     : f.biayaLayananDiMuka !== null && f.biayaLayananDiMuka > 0
                       ? `Biaya layanan ${formatRupiah(f.biayaLayananDiMuka)} dihitung di muka dalam model; tidak ada penagihan.`
                       : `Biaya layanan per bulan rata-rata ${formatRupiah(f.biayaLayananPerBulan)} dihitung dalam model; tidak ada penagihan.`}

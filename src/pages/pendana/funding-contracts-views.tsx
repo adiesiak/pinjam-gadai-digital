@@ -96,7 +96,7 @@ function buildFundingContractHtml(c: {
       <li>Pokok dan tenor yang tercatat: ${formatRupiah(c.pokokPinjaman)} · ${tenorLabel}.</li>
       <li>${
         c.tenorBulan !== null
-          ? "Perhitungan pokok menggunakan DP 0% dan biaya layanan 3%; tidak ada pembayaran ke Peminjam atau merchant."
+          ? "Perhitungan pokok menggunakan DP 0% dengan biaya admin 2% + platform 3% (tenor 3/6) atau layanan 3% (tenor 1) yang dipotong di muka; tidak ada pembayaran ke Peminjam atau merchant."
           : "Perhitungan nilai bersih menggunakan 95% dari pokok; pencairan ke Peminjam ditangani di luar aplikasi."
       }</li>
     </ol>
