@@ -85,9 +85,9 @@ function buildFundingContractHtml(c: {
     <h1>${judulContract("pendanaan")}</h1>
     <p class="nomor">Nomor: ${nomorContract("pendanaan", c.nomorReferensi)}</p>
 
-    <p><strong>Catatan penggunaan:</strong> Dokumen ini hanya menampilkan data dan perhitungan ledger internal PINDAI. Bukan penawaran, perjanjian pendanaan, atau instrumen hukum.</p>
-    <p>Catatan alokasi internal dibuat pada <strong>${tgl}</strong>. Nama peran, kode peminjam, dan referensi di bawah adalah metadata aplikasi.</p>
-    <p><strong>PINJAM GADAI DIGITAL</strong> — nama aplikasi pencatatan internal.</p>
+    <p><strong>Para Pihak:</strong> Kesepakatan alokasi ini dibuat antara <strong>Pinjam Gadai Digital (PINDAI)</strong> sebagai Pihak Pertama dan Pendana sebagai Pihak Kedua, atas data alokasi yang tercantum di bawah.</p>
+    <p>Kesepakatan ini dibuat pada <strong>${tgl}</strong>. Nama peran, kode peminjam, dan referensi di bawah adalah metadata aplikasi.</p>
+    <p><strong>PINJAM GADAI DIGITAL</strong> — Pihak Pertama.</p>
     <p>Pengguna berlabel Pendana · nomor referensi alokasi <strong>${c.nomorReferensi}</strong> · kode peminjam yang dicatat <strong>${c.kodePeminjam}</strong>.</p>
 
     <h2>Bagian 1 — Parameter Ledger</h2>

@@ -139,7 +139,7 @@ export function ContractSigningDialog({
           <div className="flex flex-wrap items-center gap-2">
             <Badge variant="outline" className="border-primary/25 bg-primary/5 text-primary">
               {fullySigned ? <BadgeCheck className="size-3.5" /> : <PenLine className="size-3.5" />}
-              {fullySigned ? "Catatan tersimpan" : "Catat interaksi"}
+              {fullySigned ? "Perjanjian tersimpan" : "Tanda tangan"}
             </Badge>
             <span className="text-xs tabular-nums text-muted-foreground">Syarat {CONTRACT_TERMS_VERSION}</span>
           </div>
@@ -147,7 +147,7 @@ export function ContractSigningDialog({
             {title}
           </DialogTitle>
           <DialogDescription className="text-left tabular-nums">
-            {reference} · Nama yang dicatat: {borrowerName}
+            {reference} · Peminjam: {borrowerName}
           </DialogDescription>
         </DialogHeader>
 
@@ -155,9 +155,9 @@ export function ContractSigningDialog({
           <section aria-label="Pratinjau syarat dan ketentuan" className="space-y-2">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div>
-                <h3 className="text-sm font-semibold text-navy">Catatan dan rincian pengajuan</h3>
+                <h3 className="text-sm font-semibold text-navy">Perjanjian dan rincian pengajuan</h3>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Tinjau nama dan angka yang dicatat. Dokumen ini bukan kontrak atau bukti kewajiban hukum.
+                  Tinjau nama, angka, dan ketentuan sebelum peminjam menandatangani.
                 </p>
               </div>
               <ContractPrintButton html={html} label="Cetak / simpan PDF" />
@@ -175,7 +175,7 @@ export function ContractSigningDialog({
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
                   <p className="flex items-center gap-2 text-sm font-semibold text-emerald-900">
-                    <BadgeCheck className="size-4" /> Catatan checkbox dan gambar tersimpan
+                    <BadgeCheck className="size-4" /> Persetujuan dan tanda tangan tersimpan
                   </p>
                   <p className="mt-1 text-xs leading-5 text-emerald-800">
                     Versi tampilan {consentVersion} · {new Date(consentAt).toLocaleString("id-ID")}
@@ -202,7 +202,7 @@ export function ContractSigningDialog({
               <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50/80 p-4">
                 <ShieldAlert className="mt-0.5 size-4 shrink-0 text-amber-700" />
                 <p className="text-xs leading-5 text-amber-900">
-                  Form ini hanya mencatat tindakan di aplikasi, bukan menandatangani kontrak. Jika digunakan, serahkan perangkat kepada orang yang bersangkutan untuk mengisi sendiri; jangan mengisi atas nama orang lain. Sesi yang tercatat adalah sesi admin.
+                  Serahkan perangkat kepada peminjam untuk membaca dan menandatangani sendiri; jangan mengisi atas nama orang lain. Sesi yang tercatat adalah sesi admin.
                 </p>
               </div>
 
@@ -229,7 +229,7 @@ export function ContractSigningDialog({
                   />
                   <span className="pointer-events-none absolute inset-x-4 bottom-8 border-b border-dashed border-slate-200" />
                   <span className="pointer-events-none absolute bottom-2 right-3 text-[10px] text-slate-400">
-                    Nama pada catatan · {borrowerName}
+                    Peminjam · {borrowerName}
                   </span>
                 </div>
                 <Button
@@ -264,10 +264,10 @@ export function ContractSigningDialog({
                 />
                 <span>
                   <span className="font-medium text-navy">
-                    Saya telah melihat rincian pengajuan yang ditampilkan pada aplikasi PINDAI
-                    (versi tampilan {CONTRACT_TERMS_VERSION}).
+                    Saya telah membaca dan menyetujui isi perjanjian ini
+                    (versi {CONTRACT_TERMS_VERSION}).
                   </span>{" "}
-                  Checkbox ini dicatat sebagai interaksi aplikasi pada pengajuan.
+                  Penandatanganan ini dicatat pada perjanjian.
                 </span>
               </label>
             </>
@@ -284,8 +284,8 @@ export function ContractSigningDialog({
           <div className="flex flex-col-reverse gap-2 border-t border-slate-200 bg-slate-50/70 px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
             <p className="text-xs text-muted-foreground">
               {consentChecked && hasSignature
-                ? "Catatan checkbox dan gambar siap disimpan di ledger internal."
-                : "Centang untuk mencatat interaksi dan isi gambar opsional."}
+                ? "Persetujuan dan tanda tangan siap disimpan pada perjanjian."
+                : "Centang persetujuan dan bubuhkan tanda tangan untuk melanjutkan."}
             </p>
             <Button
               type="button"
@@ -294,7 +294,7 @@ export function ContractSigningDialog({
               onClick={() => void submit()}
             >
               {busy ? <Loader2 className="mr-2 size-4 animate-spin" /> : <PenLine className="mr-2 size-4" />}
-              {busy ? "Menyimpan…" : "Simpan catatan aplikasi"}
+              {busy ? "Menyimpan…" : "Simpan perjanjian"}
             </Button>
           </div>
         )}

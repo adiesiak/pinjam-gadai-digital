@@ -24,7 +24,7 @@ const TABS: Array<[string, string, React.ReactNode]> = [
   ["jadwal", "Jadwal Angsuran", <CalendarClock key="i" className="size-4" />],
   ["gadai", "Catatan Gadai", <Package key="i" className="size-4" />],
   ["kredit", "Kredit Barang", <ShoppingBag key="i" className="size-4" />],
-  ["kontrak", "Dokumen Catatan", <FileText key="i" className="size-4" />],
+  ["kontrak", "Dokumen Perjanjian", <FileText key="i" className="size-4" />],
   ["form", "Form Pengajuan", <Send key="i" className="size-4" />],
   ["riwayat", "Riwayat Ledger", <ScrollText key="i" className="size-4" />],
 ];

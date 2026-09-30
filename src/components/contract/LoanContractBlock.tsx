@@ -15,7 +15,7 @@ import { formatRupiah } from "@/lib/money";
 
 import { ContractSigningDialog } from "./ContractSigningDialog";
 
-/** Widget catatan pengajuan pinjaman dan interaksi yang tersimpan di aplikasi. */
+/** Widget perjanjian pinjaman dan interaksi tanda tangan yang tersimpan di aplikasi. */
 export function LoanContractBlock({ loanId }: { loanId: Id<"loans"> }) {
   const [open, setOpen] = useState(false);
   const save = useMutation(api.admin.simpanTandaTangan);
@@ -80,17 +80,17 @@ export function LoanContractBlock({ loanId }: { loanId: Id<"loans"> }) {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
-              Catatan pengajuan · pinjaman
+              Perjanjian · pinjaman
             </p>
             <p className="mt-1 text-xs text-muted-foreground">
-              Rincian dan checkbox/gambar opsional hanya dicatat di aplikasi; bukan kontrak atau tanda tangan digital terverifikasi.
+              Rincian, checkbox persetujuan, dan gambar tanda tangan dicatat pada perjanjian ini.
             </p>
           </div>
           <Badge
             variant="outline"
             className={signed ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "text-muted-foreground"}
           >
-            {signed ? "Catatan interaksi tersimpan" : "Belum ada catatan interaksi"}
+            {signed ? "Perjanjian tertanda tangan" : "Belum ditandatangani"}
           </Badge>
         </div>
         <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-3">
@@ -98,7 +98,7 @@ export function LoanContractBlock({ loanId }: { loanId: Id<"loans"> }) {
             {nomorContract("pinjaman", detail.nomorReferensi)} · Pokok {formatRupiah(detail.pokokPinjaman)}
           </span>
           <Button size="sm" className="gradient-primary rounded-full border-0" onClick={() => setOpen(true)}>
-            <PenLine className="mr-1.5 size-4" /> {signed ? "Lihat catatan" : "Lihat & catat interaksi"}
+            <PenLine className="mr-1.5 size-4" /> {signed ? "Lihat perjanjian" : "Lihat & tanda tangan"}
           </Button>
         </div>
       </div>
@@ -106,7 +106,7 @@ export function LoanContractBlock({ loanId }: { loanId: Id<"loans"> }) {
       <ContractSigningDialog
         open={open}
         onOpenChange={setOpen}
-        title="Catatan Pinjaman"
+        title="Perjanjian Pinjaman"
         reference={detail.nomorReferensi}
         borrowerName={detail.namaLengkap}
         html={html}
@@ -116,7 +116,7 @@ export function LoanContractBlock({ loanId }: { loanId: Id<"loans"> }) {
         consentVersion={contractData.persetujuanVersi}
         signingDisabledReason={
           detail.status === "ditolak"
-            ? "Pengajuan berstatus ditolak. Pencatatan interaksi aplikasi dinonaktifkan."
+            ? "Pengajuan berstatus ditolak. Penandatanganan perjanjian dinonaktifkan."
             : null
         }
         onSign={async (dataUrl) => {

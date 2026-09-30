@@ -11,7 +11,7 @@ import { quoteGadai } from "@/lib/gadai";
 
 import { ContractSigningDialog } from "./ContractSigningDialog";
 
-/** Widget catatan pengajuan gadai, tersedia setelah angka dicatat di aplikasi. */
+/** Widget perjanjian gadai, tersedia setelah angka dicatat di aplikasi. */
 export function PawnContractBlock({ pawnId, pawnRef }: { pawnId: Id<"pawns">; pawnRef: string }) {
   const [open, setOpen] = useState(false);
   const detail = useQuery(api.admin.contractDetailPawn, { pawnId });
@@ -20,14 +20,14 @@ export function PawnContractBlock({ pawnId, pawnRef }: { pawnId: Id<"pawns">; pa
   if (detail === undefined) {
     return (
       <p className="flex items-center gap-2 py-3 text-sm text-muted-foreground">
-        <Loader2 className="size-4 animate-spin" /> Memuat catatan pengajuan…
+        <Loader2 className="size-4 animate-spin" /> Memuat perjanjian…
       </p>
     );
   }
   if (detail === null || detail.nilaiTaksiran === undefined) {
     return (
       <p className="text-sm text-muted-foreground">
-Catatan gadai tersedia setelah nilai taksiran dimasukkan ke aplikasi.
+Perjanjian gadai tersedia setelah nilai taksiran dimasukkan ke aplikasi.
       </p>
     );
   }
@@ -94,17 +94,17 @@ Catatan gadai tersedia setelah nilai taksiran dimasukkan ke aplikasi.
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
-              Catatan pengajuan · gadai
+              Perjanjian · gadai
             </p>
             <p className="mt-1 text-xs text-muted-foreground">
-              Data barang dan nilai adalah catatan aplikasi pada ledger internal.
+              Data barang dan nilai tercatat pada perjanjian ini.
             </p>
           </div>
           <Badge
             variant="outline"
             className={signed ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "text-muted-foreground"}
           >
-            {signed ? "Catatan interaksi tersimpan" : "Belum ada catatan interaksi"}
+            {signed ? "Akad tertanda tangan" : "Belum ditandatangani"}
           </Badge>
         </div>
         <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-3">
@@ -112,7 +112,7 @@ Catatan gadai tersedia setelah nilai taksiran dimasukkan ke aplikasi.
             {nomorContract("gadai", pawnRef)} · nilai taksiran pada ledger
           </span>
           <Button size="sm" className="gradient-primary rounded-full border-0" onClick={() => setOpen(true)}>
-            <PenLine className="mr-1.5 size-4" /> {signed ? "Lihat catatan" : "Lihat & catat interaksi"}
+            <PenLine className="mr-1.5 size-4" /> {signed ? "Lihat akad" : "Lihat & tanda tangan"}
           </Button>
         </div>
       </div>
@@ -120,7 +120,7 @@ Catatan gadai tersedia setelah nilai taksiran dimasukkan ke aplikasi.
       <ContractSigningDialog
         open={open}
         onOpenChange={setOpen}
-        title="Catatan Gadai"
+        title="Perjanjian Gadai"
         reference={detail.nomorReferensi}
         borrowerName={detail.namaLengkap}
         html={html}
@@ -130,7 +130,7 @@ Catatan gadai tersedia setelah nilai taksiran dimasukkan ke aplikasi.
         consentVersion={contractData.persetujuanVersi}
         signingDisabledReason={
           detail.status === "ditolak"
-            ? "Pengajuan gadai berstatus ditolak. Pencatatan interaksi aplikasi dinonaktifkan."
+            ? "Pengajuan gadai berstatus ditolak. Penandatanganan akad dinonaktifkan."
             : !detailSiap
               ? "Masukkan pokok gadai dan persentase sewa modal terlebih dahulu agar rincian ledger dapat ditampilkan."
               : null

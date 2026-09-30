@@ -59,7 +59,7 @@ export function MyContractsSection({
   if (contracts === undefined) {
     return (
       <div className="flex items-center justify-center py-10 text-sm text-muted-foreground">
-        <Loader2 className="mr-2 size-4 animate-spin" /> Memuat catatan…
+        <Loader2 className="mr-2 size-4 animate-spin" /> Memuat perjanjian…
       </div>
     );
   }
@@ -68,8 +68,8 @@ export function MyContractsSection({
     return (
       <EmptyState
         icon={ScrollText}
-        title="Belum ada catatan pengajuan"
-        body="Ringkasan data dan hitungan internal akan tampil di sini jika tersedia. Catatan ini bukan kontrak, bukti transaksi, atau tanda tangan terverifikasi."
+        title="Belum ada perjanjian"
+        body="Perjanjian pinjaman dan gadai yang tersimpan di aplikasi akan tampil di sini bersama status tanda tangannya."
       />
     );
   }
@@ -77,7 +77,7 @@ export function MyContractsSection({
     <div className="space-y-6">
       {contracts.pinjaman.length > 0 && (
         <section>
-          <h3 className="text-sm font-semibold">Catatan pinjaman</h3>
+          <h3 className="text-sm font-semibold">Perjanjian pinjaman</h3>
           <ul className="mt-3 space-y-3">
             {contracts.pinjaman.map((c) => (
               <li key={c._id}>
@@ -89,7 +89,7 @@ export function MyContractsSection({
       )}
       {contracts.gadai.length > 0 && (
         <section>
-          <h3 className="text-sm font-semibold">Catatan gadai</h3>
+          <h3 className="text-sm font-semibold">Perjanjian gadai</h3>
           <ul className="mt-3 space-y-3">
             {contracts.gadai.map((c) => (
               <li

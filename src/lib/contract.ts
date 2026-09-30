@@ -1,7 +1,6 @@
 /**
  * Pembuat catatan pengajuan pinjaman & gadai pada aplikasi.
- * HTML hanya menyajikan data dan hitungan pada ledger internal; bukan kontrak
- * atau bukti persetujuan digital terverifikasi.
+ * HTML memuat para pihak, ketentuan pokok, dan blok tanda tangan kedua pihak.
  */
 
 import type { SimulasiBulanan } from "./bulanan";
@@ -60,10 +59,10 @@ function escapeHtml(value: string): string {
 }
 
 export function judulContract(jenis: "pinjaman" | "gadai" | "pendanaan"): string {
-  if (jenis === "pendanaan") return "CATATAN ALOKASI INTERNAL";
+  if (jenis === "pendanaan") return "SURAT KESEPAKATAN ALOKASI PENDANAAN";
   return jenis === "pinjaman"
-    ? "CATATAN PINJAMAN INTERNAL"
-    : "CATATAN GADAI INTERNAL";
+    ? "SURAT PERJANJIAN PINJAMAN"
+    : "SURAT PERJANJIAN GADAI";
 }
 
 /** Nomor referensi catatan aplikasi: PGC/PGA/PGD/<ref>/<yyyymmdd>. */
@@ -131,13 +130,13 @@ function blokPlatform(): string {
   return `<div>
     <div class="ttd-slot">${blokStempelPindai()}</div>
     <p class="garis">Pinjam Gadai Digital</p>
-    <p>Nama aplikasi</p>
+    <p>PINDAI — Pihak Pertama</p>
   </div>`;
 }
 
-/** Catatan yang berlaku untuk kontrak pinjaman dan gadai. */
-function blokBatasTransaksi(): string {
-  return `<p><strong>Batas dokumen:</strong> Ini adalah catatan data dan perhitungan pada ledger internal PINDAI, bukan penawaran, perjanjian, atau instrumen hukum. Status, persetujuan checkbox, timestamp, dan gambar pada aplikasi mengikuti pencatatan pada ledger aplikasi. Pencairan dana, pembayaran ke merchant, serta inspeksi, penyerahan, dan penitipan barang ditangani di luar aplikasi.</p>`;
+/** Blok para pihak yang dipakai perjanjian pinjaman dan gadai. */
+function blokParaPihak(): string {
+  return `<p><strong>Para Pihak:</strong> Perjanjian ini dibuat dan disetujui oleh <strong>Pinjam Gadai Digital (PINDAI)</strong> sebagai Pihak Pertama dan pihak yang datanya tercantum di bawah sebagai Pihak Kedua. Nilai, jadwal, dan setiap perubahan status mengikuti pencatatan pada ledger internal aplikasi. Pencairan dana, pembayaran ke merchant, serta inspeksi, penyerahan, dan penitipan barang ditangani di luar aplikasi.</p>`;
 }
 
 /**
@@ -185,40 +184,40 @@ export function buildPinjamanContract(
       <li><strong>Ilustrasi cicilan menurun: bulan pertama ${formatRupiah(bulanan.cicilanPerBulan)}, bulan terakhir ${formatRupiah(bulanan.cicilanTerakhir)}; total ${formatRupiah(bulanan.totalPengembalian)} untuk ${bulanan.tenorBulan} bulan.</strong> Rincian per bulan: ${bulanan.jadwal.map((angsuran) => `bulan ${angsuran.bulan} ${formatRupiah(angsuran.total)}`).join("; ")}. Jadwal bersifat ilustrasi; perubahan status lunas di aplikasi dicatat sebagai entri ledger.</li>`;
   const pasalKewajiban =
     bulanan === null
-      ? `Model aplikasi dapat mencatat perubahan status pada hari ke-${tenorHari} dari tanggal acuan status alokasi. Pelunasan ditangani di luar aplikasi dan statusnya dicatat tim PINDAI pada ledger internal. Denda mengikuti perhitungan ledger internal.`
-      : `Jadwal cicilan bulanan merupakan ilustrasi perhitungan. Sistem mencatat setiap perubahan status pada ledger internal.`;
+      ? `Kewajiban dilunasi dalam ${tenorHari} hari sejak tanggal pencairan. Pelunasan ditangani di luar aplikasi dan statusnya dicatat tim PINDAI pada ledger internal. Denda keterlambatan 0,5% per hari dari pokok, maksimum 15%.`
+      : `Cicilan bulanan dibayar sesuai jadwal pada Pasal 2. Setiap perubahan status dicatat pada ledger internal aplikasi. Denda keterlambatan 0,5% per hari dari pokok, maksimum 15%.`;
   return `
   <div class="contract">
     <h1>${judulContract("pinjaman")}</h1>
     <p class="nomor">Nomor: ${escapeHtml(nomorContract("pinjaman", meta.nomorReferensi))} · Syarat ${CONTRACT_TERMS_VERSION}</p>
-    ${blokBatasTransaksi()}
+    ${blokParaPihak()}
 
-    <p>Ringkasan ini menampilkan masukan yang tersimpan pada <strong>${tgl}</strong>; bukan dokumen kesepakatan para pihak.</p>
-    <p><strong>Nama aplikasi:</strong> Pinjam Gadai Digital (PINDAI) — pencatatan internal saja, bukan pihak kontrak.</p>
-    <p><strong>Nama dan data pada pengajuan:</strong> ${escapeHtml(peminjam.namaLengkap.toUpperCase())}${peminjam.nik ? `, NIK ${escapeHtml(peminjam.nik)}` : ""}${peminjam.email ? `, email ${escapeHtml(peminjam.email)}` : ""}; informasi bank/e-wallet dan rekening/akun yang dimasukkan: <strong>${peminjam.namaBank ? `${escapeHtml(peminjam.namaBank)} · ` : ""}${escapeHtml(peminjam.nomorRekening)}</strong>. Data ini berasal dari pengisian pada pengajuan.</p>
+    <p>Perjanjian ini dibuat dan disetujui pada <strong>${tgl}</strong> atas data pengajuan yang tersimpan di aplikasi PINDAI.</p>
+    <p><strong>Pihak Pertama:</strong> Pinjam Gadai Digital (PINDAI).</p>
+    <p><strong>Pihak Kedua:</strong> ${escapeHtml(peminjam.namaLengkap.toUpperCase())}${peminjam.nik ? `, NIK ${escapeHtml(peminjam.nik)}` : ""}${peminjam.email ? `, email ${escapeHtml(peminjam.email)}` : ""}; informasi bank/e-wallet dan rekening/akun yang dimasukkan: <strong>${peminjam.namaBank ? `${escapeHtml(peminjam.namaBank)} · ` : ""}${escapeHtml(peminjam.nomorRekening)}</strong>. Data ini berasal dari pengisian pada pengajuan.</p>
 
-    <h2>Bagian 1 — Parameter Pengajuan</h2>
+    <h2>Pasal 1 — Pokok, Tenor, dan Status</h2>
     <ol>
-      <li>Pokok acuan: <strong>${formatRupiah(quote.pokok)}</strong>; bukan dana yang ditransfer.</li>
+      <li>Pokok pinjaman: <strong>${formatRupiah(quote.pokok)}</strong>.</li>
       ${pasalTenor}
-      <li>Status alokasi yang tampil di aplikasi adalah pencatatan internal pada ledger.</li>
+      <li>Status pinjaman mengikuti pencatatan pada ledger internal aplikasi.</li>
     </ol>
 
-    <h2>Bagian 2 — Rincian Perhitungan</h2>
+    <h2>Pasal 2 — Biaya, Bunga, dan Total Kewajiban</h2>
     <ol>${pasalFinansial}
     </ol>
 
-    <h2>Bagian 3 — Ilustrasi Status Ledger</h2>
+    <h2>Pasal 3 — Cara dan Waktu Pelunasan</h2>
     <p>${pasalKewajiban}</p>
 
-    <h2>Bagian 4 — Catatan Interaksi Aplikasi</h2>
-    <p>Checkbox dan gambar pada kanvas, bila diisi, merekam tindakan/input di aplikasi pada syarat versi <strong>${CONTRACT_TERMS_VERSION}</strong>.</p>
+    <h2>Pasal 4 — Persetujuan dan Tanda Tangan</h2>
+    <p>Persetujuan dinyatakan dengan menandai checkbox dan membubuhkan tanda tangan pada kanvas, dan dicatat aplikasi pada syarat versi <strong>${CONTRACT_TERMS_VERSION}</strong>.</p>
 
-    <h2>Bagian 5 — Metadata Aplikasi</h2>
+    <h2>Pasal 5 — Data, Lokasi, dan Waktu</h2>
     <p>Timestamp sistem <strong>${new Date(meta.timestampPada).toLocaleString("id-ID")}</strong>${meta.lokasi ? ` dan koordinat perangkat yang dikirim <strong>${fmtKoordinat(meta.lokasi)}</strong>` : ""} ditampilkan sebagai metadata masukan pengajuan.</p>
 
     <div class="ttd">
-      ${blokTandaTanganPeminjam(peminjam.namaLengkap, "Nama pada pengajuan", meta)}
+      ${blokTandaTanganPeminjam(peminjam.namaLengkap, "Peminjam — Pihak Kedua", meta)}
       ${blokPlatform()}
     </div>
   </div>`;
@@ -238,8 +237,8 @@ export function buildGadaiContract(
       : null;
   const rincianPokok =
     quote === null
-      ? `<li>Pokok gadai dan sewa modal belum ditetapkan pada saat ringkasan dibuat; belum ada hitungan yang dapat ditampilkan.</li>`
-      : `<li>Pokok acuan gadai: <strong>${formatRupiah(quote.pokok)}</strong>; bukan pencairan.</li>
+      ? `<li>Pokok gadai dan sewa modal belum ditetapkan; belum ada hitungan yang dapat ditampilkan.</li>`
+      : `<li>Pokok gadai: <strong>${formatRupiah(quote.pokok)}</strong>.</li>
       <li>Potongan 1%: ${formatRupiah(quote.potonganDiMuka)}; nilai bersih (99%): <strong>${formatRupiah(quote.danaBersihDitransfer)}</strong>; dana diteruskan sesuai proses pencairan.</li>
       <li>Perhitungan sewa modal ${gadai.persenSewaModal}% per 30 hari dari sisa pokok; ilustrasi periode pertama ${formatRupiah(quote.sewaModalPeriode)}; nominal mengikuti perhitungan aplikasi.</li>`;
 
@@ -247,40 +246,41 @@ export function buildGadaiContract(
   <div class="contract">
     <h1>${judulContract("gadai")}</h1>
     <p class="nomor">Nomor: ${escapeHtml(nomorContract("gadai", meta.nomorReferensi))} · Syarat ${CONTRACT_TERMS_VERSION}</p>
-    ${blokBatasTransaksi()}
-    <p>Ringkasan ini menampilkan masukan dan hitungan yang tersimpan pada <strong>${tgl}</strong>; bukan akad atau kesepakatan para pihak.</p>
-    <p><strong>Nama dan data pada pengajuan:</strong> ${escapeHtml(peminjam.namaLengkap.toUpperCase())}${peminjam.nik ? `, NIK ${escapeHtml(peminjam.nik)}` : ""}; informasi rekening yang dimasukkan: <strong>${peminjam.namaBank ? `${escapeHtml(peminjam.namaBank)} · ` : ""}${escapeHtml(peminjam.nomorRekening)}</strong>. Data ini berasal dari pengisian pada pengajuan.</p>
+    ${blokParaPihak()}
+    <p>Akad ini dibuat dan disetujui pada <strong>${tgl}</strong> atas data pengajuan yang tersimpan di aplikasi PINDAI.</p>
+    <p><strong>Pihak Pertama:</strong> Pinjam Gadai Digital (PINDAI).</p>
+    <p><strong>Pihak Kedua:</strong> ${escapeHtml(peminjam.namaLengkap.toUpperCase())}${peminjam.nik ? `, NIK ${escapeHtml(peminjam.nik)}` : ""}; informasi rekening yang dimasukkan: <strong>${peminjam.namaBank ? `${escapeHtml(peminjam.namaBank)} · ` : ""}${escapeHtml(peminjam.nomorRekening)}</strong>. Data ini berasal dari pengisian pada pengajuan.</p>
 
-    <h2>Bagian 1 — Data Barang yang Dicatat</h2>
+    <h2>Pasal 1 — Data Barang dan Lokasi Penyimpanan</h2>
     <ol>
-      <li>Deskripsi barang yang dimasukkan: <strong>${escapeHtml(gadai.deskripsiBarang)}</strong>.</li>
-      <li>Kategori yang dipilih: ${escapeHtml(gadai.kategori)}.</li>
-      <li>Catatan kondisi fisik: ${escapeHtml(gadai.kondisiFisik || "belum dicatat")}; dicatat dari masukan pengajuan.</li>
-      <li>Kode/referensi lokasi yang dicatat aplikasi: <strong>${escapeHtml(gadai.kodeRakVault)}</strong>. Kode ini bukan tanda terima atau bukti bahwa barang telah diterima maupun dititipkan secara fisik.</li>
+      <li>Deskripsi barang: <strong>${escapeHtml(gadai.deskripsiBarang)}</strong>.</li>
+      <li>Kategori barang: ${escapeHtml(gadai.kategori)}.</li>
+      <li>Catatan kondisi fisik: ${escapeHtml(gadai.kondisiFisik || "belum dicatat")}.</li>
+      <li>Kode/referensi lokasi penyimpanan: <strong>${escapeHtml(gadai.kodeRakVault)}</strong>; dipakai sebagai acuan penyimpanan barang pada akad ini.</li>
     </ol>
 
-    <h2>Bagian 2 — Nilai Masukan dan Batas LTV</h2>
+    <h2>Pasal 2 — Nilai Taksiran dan Pokok Gadai</h2>
     <ol>
-      <li>Harga pasar yang dimasukkan/dicatat: ${formatRupiah(gadai.hargaPasar)}; sesuai masukan pengajuan.</li>
-      <li>Nilai taksiran pada ledger: <strong>${formatRupiah(gadai.nilaiTaksiran)}</strong> (perhitungan LTV ${ltv}%, batas aplikasi ${gadai.ltvPersen}%); nilai taksiran diisi oleh tim PINDAI.</li>
+      <li>Harga pasar yang dicantumkan: ${formatRupiah(gadai.hargaPasar)}.</li>
+      <li>Nilai taksiran: <strong>${formatRupiah(gadai.nilaiTaksiran)}</strong> (LTV ${ltv}%, batas aplikasi ${gadai.ltvPersen}%); nilai taksiran ditetapkan tim PINDAI.</li>
       ${rincianPokok}
     </ol>
 
-    <h2>Bagian 3 — Batas Catatan Gadai</h2>
+    <h2>Pasal 3 — Penyimpanan dan Penyelesaian</h2>
     <ol>
-      <li>Status, kondisi, dan kode lokasi dalam aplikasi adalah catatan internal; penerimaan dan penyimpanan barang ditangani di luar aplikasi.</li>
-      <li>Penyerahan, penitipan, dan pengembalian perlu dikonfirmasi langsung dengan pihak yang bertanggung jawab serta didukung tanda terima terpisah. Status lunas/siap diambil di aplikasi menandai selesainya pencatatan pada ledger.</li>
-      <li>Perhitungan penyelesaian atau lelang di aplikasi adalah hitungan internal; bukan pelaksanaan lelang, keputusan hukum, maupun jaminan hasil atau pengembalian barang.</li>
+      <li>Barang disimpan sesuai kode lokasi pada Pasal 1, dan serah terima barang dinyatakan dengan tanda terima terpisah.</li>
+      <li>Pengembalian barang dilakukan setelah kewajiban dilunasi dan dikonfirmasi langsung dengan petugas PINDAI. Status siap diambil pada aplikasi menandai selesainya pencatatan pada ledger.</li>
+      <li>Penyelesaian atau lelang jaminan dilaksanakan sesuai ketentuan yang berlaku; angka pada aplikasi menjadi acuan perhitungan.</li>
     </ol>
 
-    <h2>Bagian 4 — Catatan Interaksi Aplikasi</h2>
-    <p>Checkbox dan gambar pada kanvas, bila diisi, merekam tindakan/input di aplikasi pada syarat versi <strong>${CONTRACT_TERMS_VERSION}</strong>.</p>
+    <h2>Pasal 4 — Persetujuan dan Tanda Tangan</h2>
+    <p>Persetujuan dinyatakan dengan menandai checkbox dan membubuhkan tanda tangan pada kanvas, dan dicatat aplikasi pada syarat versi <strong>${CONTRACT_TERMS_VERSION}</strong>.</p>
 
-    <h2>Bagian 5 — Metadata Aplikasi</h2>
+    <h2>Pasal 5 — Data, Lokasi, dan Waktu</h2>
     <p>Timestamp sistem <strong>${new Date(meta.timestampPada).toLocaleString("id-ID")}</strong> dan koordinat yang tampil pada aplikasi adalah metadata yang dicatat pada pengajuan.</p>
 
     <div class="ttd">
-      ${blokTandaTanganPeminjam(peminjam.namaLengkap, "Nama pada pengajuan", meta)}
+      ${blokTandaTanganPeminjam(peminjam.namaLengkap, "Peminjam — Pihak Kedua", meta)}
       ${blokPlatform()}
     </div>
   </div>`;
