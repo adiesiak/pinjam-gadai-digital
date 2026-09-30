@@ -1,12 +1,11 @@
 import { useQuery } from "convex/react";
-import { Store, TrendingUp, Wallet } from "lucide-react";
 import { useState } from "react";
+import { Store, TrendingUp, Wallet } from "lucide-react";
 
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { api } from "@/convex/_generated/api";
 import { formatRupiah } from "@/lib/money";
 
-import { DepositSimDialog } from "./deposit-views";
 import { FundingContractsSection } from "./funding-contracts-views";
 import { HistorySection } from "./history-views";
 import { KreditBarangSection } from "./kredit-views";
@@ -32,7 +31,6 @@ export function PendanaWorkspace({
   const marketplace = useQuery(api.pendana.marketplace);
   const contracts = useQuery(api.pendana.myFundingContracts);
   const peluangKredit = useQuery(api.pendana.marketplaceKredit);
-  const [depositOpen, setDepositOpen] = useState(false);
   const [defaultTab, setDefaultTab] = useState("marketplace");
 
   // ===== Indikator jumlah pada item tab sidebar =====
@@ -145,7 +143,7 @@ export function PendanaWorkspace({
           </TabsContent>
 
           <TabsContent value="dompet" className="mt-8">
-            <WalletSection onDepositRequested={() => setDepositOpen(true)} />
+            <WalletSection />
           </TabsContent>
 
           <TabsContent value="riwayat" className="mt-8">
@@ -154,8 +152,6 @@ export function PendanaWorkspace({
         </div>
       </Tabs>
 
-      {/* Dialog deposit simulasi (dibuka dari tombol di dalam tab dompet) */}
-      <DepositSimDialog open={depositOpen} onClose={() => setDepositOpen(false)} />
     </>
   );
 }

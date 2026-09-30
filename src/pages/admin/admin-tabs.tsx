@@ -26,7 +26,7 @@ import { BackupPanel } from "@/components/admin/BackupPanel";
 import { LiveLocationMap } from "@/components/admin/LiveLocationMap";
 import { KreditQueuePanel } from "@/components/admin/KreditQueuePanel";
 import { LoginSecurityPanel } from "@/components/admin/LoginSecurityPanel";
-import { DpdTab, LedgerTab, LelangTab, PencairanTab } from "@/components/admin/OperationsTabs";
+import { DpdTab, LedgerTab, LelangTab, LoanAllocationQueueTab } from "@/components/admin/OperationsTabs";
 import { SystemConfigPanel } from "@/components/admin/SystemConfigPanel";
 import { PlafonPanel } from "@/components/admin/PlafonPanel";
 import { WhatsAppPanel } from "@/components/admin/WhatsAppPanel";
@@ -76,7 +76,7 @@ export function AdminTabs({
     ["gadai", "Gadai", `${overview.pawns.filter((p) => p.status === "diajukan" || p.status === "sedang_dinilai").length}`, Package],
     ["kredit", "Kredit Barang", `${overview.kredit.filter((k) => k.status === "diajukan" || k.status === "sedang_ditinjau").length}`, ShoppingBag],
     ["lokasi", "Peta Live Location", null, MapIcon],
-    ["pencairan", "Alokasi pinjaman (ledger)", stats ? `${stats.antreanPencairan}` : null, Wallet],
+    ["alokasi", "Pinjaman disetujui (internal)", stats ? `${stats.pinjamanDisetujui}` : null, Wallet],
     ["dpd", "Tanggal acuan simulasi", stats ? `${stats.pinjamanTerlambat}` : null, BellRing],
     ["lelang", "Simulasi lelang jaminan", null, Gavel],
     ["ledger", "Ledger internal", ledger?.seimbang ? "OK" : "!", Landmark],
@@ -173,8 +173,8 @@ export function AdminTabs({
         <LiveLocationMap />
       </TabsContent>
 
-      <TabsContent value="pencairan" className="min-w-0 flex-1">
-        <PencairanTab onOpen={onOpenLoan} />
+      <TabsContent value="alokasi" className="min-w-0 flex-1">
+        <LoanAllocationQueueTab onOpen={onOpenLoan} />
       </TabsContent>
 
       <TabsContent value="dpd" className="min-w-0 flex-1">

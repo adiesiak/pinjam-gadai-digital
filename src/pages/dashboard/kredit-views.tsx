@@ -74,10 +74,9 @@ const STATUS_META: Record<string, { label: string; className: string; descriptio
     description: "Catatan pengajuan tidak dilanjutkan dalam alur aplikasi. Anda dapat membuat catatan baru.",
   },
   didanai: {
-    label: "Terpenuhi (ledger)",
-    className: "gradient-primary border-0 text-primary-foreground",
-    description:
-      "Alokasi simulasi pada ledger mencapai jumlah yang ditetapkan. Tidak ada dana yang dikirim ke merchant atau Peminjam; tombol di bawah hanya menambah entri cicilan simulasi di ledger.",
+    label: "Alokasi historis (ledger)",
+    className: "gradient-primary border-0 text-primary-foreground",        description:
+      "Status historis pada ledger mencatat alokasi yang pernah dimasukkan. Tidak ada transfer yang terverifikasi ke merchant atau Peminjam, dan tidak ada tindakan cicilan yang tersedia.",
   },
   lunas: {
     label: "Lunas (ledger)",
@@ -611,36 +610,9 @@ export function KreditBarangSection() {
  */
 export function KreditBillingSection() {
   const kredit = useQuery(api.kredit.kreditSaya);
-  const bayar = useMutation(api.kredit.bayarCicilanKredit);
-  const [busyId, setBusyId] = useState<Id<"kreditBarang"> | null>(null);
-
   if (kredit === undefined) return null;
   const berjalan = kredit.filter((k) => k.status === "didanai" || k.status === "lunas");
   if (berjalan.length === 0) return null;
-
-  const handleBayar = async (id: Id<"kreditBarang">) => {
-    setBusyId(id);
-    try {
-      const r = await bayar({ kreditId: id });
-      if (r.lunas) {
-        toast.success(
-          "Status lunas simulasi tercatat pada ledger internal. Tidak ada pembayaran eksternal yang diproses.",
-        );
-      } else {
-        toast.success(
-          `Catatan simulasi bulan ${r.bulanKe}: total ${formatRupiah(r.totalDibayar)}. Tidak ada pembayaran eksternal.`,
-        );
-      }
-    } catch (err) {
-      toast.error(
-        err instanceof Error
-          ? `Pencatatan simulasi cicilan gagal: ${err.message}. Tidak ada pembayaran eksternal yang diproses.`
-          : "Pencatatan simulasi cicilan gagal. Tidak ada pembayaran eksternal yang diproses.",
-      );
-    } finally {
-      setBusyId(null);
-    }
-  };
 
   return (
     <section>
@@ -662,8 +634,8 @@ export function KreditBillingSection() {
                 <div className="min-w-0">
                   <p className="truncate text-sm font-semibold">{k.namaBarang}</p>
                   <p className="mt-0.5 text-xs text-muted-foreground">
-                    {k.nomorReferensi} ·                    {k.merchant} · cicilan simulasi {formatRupiah(k.cicilanPerBulan ?? 0)
-                    }/bulan (bukan tagihan)
+                    {k.nomorReferensi} · {k.merchant} · cicilan simulasi{" "}
+                    {formatRupiah(k.cicilanPerBulan ?? 0)}/bulan (bukan tagihan)
                   </p>
                 </div>
                 {k.status === "lunas" ? (
@@ -672,7 +644,7 @@ export function KreditBillingSection() {
                   </Badge>
                 ) : (
                   <Badge className="border-0 bg-emerald-100 text-emerald-700 hover:bg-emerald-100">
-                    Entri simulasi {k.dibayarBulan}/{totalBulan}
+                    Entri ledger {k.dibayarBulan}/{totalBulan} (tidak terverifikasi)
                   </Badge>
                 )}
               </div>
@@ -699,34 +671,11 @@ export function KreditBillingSection() {
                 </div>
                 <Progress className="mt-1.5" value={persen} />
               </div>
-
-              {k.status === "lunas" ? (
-                <p className="mt-3 rounded-xl bg-emerald-50/70 px-3 py-2 text-xs leading-5 text-emerald-800">
-                  Status lunas simulasi tercatat pada ledger internal; ini bukan bukti pembayaran aktual. Tidak ada pembayaran eksternal yang diproses.
-                </p>
-              ) : (
-                k.cicilanBerikut !== null && (
-                  <Button
-                    className="mt-3 w-full"
-                    disabled={busyId === k._id}
-                    onClick={() => void handleBayar(k._id)}
-                  >
-                    {busyId === k._id ? (
-                      <Loader2 className="mr-1.5 size-4 animate-spin" />
-                    ) : (
-                      <PackageCheck className="mr-1.5 size-4" />
-                    )}
-                    Catat simulasi bulan {k.cicilanBerikut.bulan} (
-                    {formatRupiah(k.cicilanBerikut.total)})
-                  </Button>
-                )
-              )}
-
-              {k.cicilanBerikut !== null && k.status !== "lunas" && (
-                <p className="mt-2 text-xs leading-5 text-muted-foreground">
-                  Nilai cicilan simulasi bulan {k.cicilanBerikut.bulan}: {formatRupiah(k.cicilanBerikut.total)}. Tombol ini hanya mencatat simulasi dan tidak memproses pembayaran.
-                </p>
-              )}
+              <p className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900">
+                {k.status === "lunas"
+                  ? "Status lunas adalah catatan ledger internal, bukan bukti pembayaran."
+                  : "Pembayaran cicilan belum tersedia karena belum ada penyedia pembayaran terintegrasi atau settlement terverifikasi."}
+              </p>
             </article>
           );
         })}

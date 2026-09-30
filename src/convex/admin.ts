@@ -453,8 +453,8 @@ export const adminStats = query({
       }
     }
 
-    // Antrean pencairan: pinjaman disetujui menunggu pendanaan penuh.
-    const antreanPencairan = loans.filter((l) => l.status === "disetujui").length;
+    // Hitung pinjaman berstatus disetujui (keputusan review internal saja).
+    const pinjamanDisetujui = loans.filter((l) => l.status === "disetujui").length;
 
     // GPS mismatch: posisi terakhir peminjam aktif vs gudang brankas.
     const cfg = await getConfig(ctx);
@@ -517,7 +517,7 @@ export const adminStats = query({
       nilaiTaksiranDisetujui: taksiranTotal,
       pinjamanTerlambat,
       totalDendaBerjalan,
-      antreanPencairan,
+      pinjamanDisetujui,
       gpsMismatch,
       /** Pinjaman aktif tanpa titik lokasi segar (gerbang lokasi wajib). */
       pinjamanTanpaLokasi,

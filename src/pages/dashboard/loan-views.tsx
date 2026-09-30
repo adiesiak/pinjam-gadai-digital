@@ -1,22 +1,8 @@
-import { useMutation } from "convex/react";
-import { AlertCircle, ArrowRight, CalendarClock, Loader2, Send, Wallet } from "lucide-react";
-import { useState } from "react";
-import { toast } from "sonner";
+import { AlertTriangle, ArrowRight, CalendarClock, Send, Wallet } from "lucide-react";
 
 import { StatusBadge } from "@/components/StatusBadge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
 import { Progress } from "@/components/ui/progress";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
@@ -201,7 +187,7 @@ function ActiveLoanCard({
       </dl>
 
       <p className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-900">
-        Semua nominal, status aktif, dana bersih, dan status pelunasan di halaman ini adalah simulasi ledger internal; tidak ada transfer atau pembayaran eksternal. {bulanan ? "Jadwal cicilan bulanan hanya ilustrasi; pada akhir tenor status dapat ditandai lunas sekaligus di ledger, bukan sebagai bukti pembayaran aktual atau cicilan parsial." : "Tombol pelunasan hanya mencatat status kewajiban penuh sekaligus di ledger, bukan menerima atau memverifikasi pembayaran."}
+        Semua nominal, status aktif, dana bersih, dan status pelunasan di halaman ini adalah catatan internal; bukan bukti pencairan atau pembayaran. Belum ada izin maupun penyedia pembayaran terintegrasi, sehingga pelunasan hanya dapat ditinjau manual dan belum dapat diproses atau dinyatakan selesai. {bulanan ? "Jadwal bulanan hanya ilustrasi." : "Nilai kewajiban hanya perhitungan simulasi."}
       </p>
 
       {loan.pelunasan && (
@@ -241,12 +227,6 @@ function ActiveLoanCard({
       )}
 
       <div className="mt-5 flex flex-wrap gap-2">
-        <RepaymentSimulationAction
-          loanId={loan._id}
-          total={loan.pelunasan?.totalKewajibanDenganPenalti ?? loan.totalKewajiban}
-          denda={loan.pelunasan?.dendaTerlambat ?? 0}
-          variant="default"
-        />
         <Button asChild variant="outline">
           <a
             href="https://wa.me/6281234567890?text=Halo%20CS%20PINDAI%2C%20saya%20ingin%20bertanya%20tentang%20pinjaman%20saya."
@@ -260,71 +240,6 @@ function ActiveLoanCard({
 
 
     </article>
-  );
-}
-
-/** Tombol konfirmasi pencatatan pelunasan simulasi internal PINDAI. */
-function RepaymentSimulationAction({
-  loanId,
-  total,
-  denda,
-  variant = "outline",
-}: {
-  loanId: Id<"loans">;
-  total: number;
-  denda: number;
-  variant?: "default" | "outline";
-}) {
-  const repayLoan = useMutation(api.loans.repayLoan);
-  const [busy, setBusy] = useState(false);
-
-  const catatPelunasan = async () => {
-    setBusy(true);
-    try {
-      const hasil = await repayLoan({ loanId });
-      toast.success(
-        hasil.dendaTerlambat > 0
-          ? `Status pelunasan simulasi diperbarui di ledger (${formatRupiah(hasil.totalDibayar)}, termasuk denda ${formatRupiah(hasil.dendaTerlambat)}). Tidak ada pembayaran eksternal.`
-          : `Status pelunasan simulasi diperbarui di ledger (${formatRupiah(hasil.totalDibayar)}). Tidak ada pembayaran eksternal.`,
-      );
-    } catch (error) {
-      toast.error(
-        error instanceof Error
-          ? `Pencatatan status simulasi gagal: ${error.message}. Tidak ada pembayaran eksternal yang diproses.`
-          : "Pencatatan status simulasi gagal. Tidak ada pembayaran eksternal yang diproses.",
-      );
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  return (
-    <AlertDialog>
-      <AlertDialogTrigger asChild>
-        <Button size="sm" variant={variant} disabled={busy}>
-          <Wallet className="mr-1.5 size-4" /> Catat pelunasan simulasi
-        </Button>
-      </AlertDialogTrigger>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>Konfirmasi pelunasan simulasi</AlertDialogTitle>
-          <AlertDialogDescription>
-            Ini hanya mengubah status dan jurnal internal PINDAI. Tidak ada transfer bank/e-wallet, QRIS, atau Virtual Account yang dilakukan atau diverifikasi. Tombol ini mencatat seluruh kewajiban sekaligus — bukan cicilan sebagian.
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
-          <p className="flex items-center gap-2 font-semibold"><AlertCircle className="size-4 shrink-0" /> Aksi simulasi — bukan bukti pembayaran</p>
-          <p className="mt-2">Jumlah yang akan dicatat: <strong className="tabular-nums">{formatRupiah(total)}</strong>{denda > 0 ? ` (termasuk denda ${formatRupiah(denda)})` : ""}.</p>
-        </div>
-        <AlertDialogFooter>
-          <AlertDialogCancel disabled={busy}>Batal</AlertDialogCancel>
-          <AlertDialogAction disabled={busy} onClick={(event) => { event.preventDefault(); void catatPelunasan(); }}>
-            {busy && <Loader2 className="mr-2 size-4 animate-spin" />}
-            Ya, catat pelunasan simulasi
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
   );
 }
 
@@ -369,7 +284,7 @@ export function ScheduleSection({ schedule }: { schedule: LoanScheduleRow[] }) {
                 </p>
                 {l.tenorBulan !== null && (
                   <p className="mt-1 max-w-xl text-xs leading-5 text-amber-800">
-                    Jadwal cicilan bulanan ini hanya ilustrasi; pada akhir tenor status dapat ditandai lunas sekaligus di ledger. Ini bukan bukti pembayaran aktual.
+                    Jadwal cicilan bulanan ini hanya ilustrasi; status akhir ledger tidak membuktikan pembayaran.
                   </p>
                 )}
               </div>
@@ -410,13 +325,9 @@ export function ScheduleSection({ schedule }: { schedule: LoanScheduleRow[] }) {
               )}
             </dl>
             {!lunas && (
-              <div className="mt-4">
-                <RepaymentSimulationAction
-                  loanId={l._id}
-                  total={l.pelunasan?.totalKewajibanDenganPenalti ?? l.totalKewajiban}
-                  denda={l.pelunasan?.dendaTerlambat ?? 0}
-                />
-              </div>
+              <p className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900">
+                Pembayaran belum tersedia. Belum ada penyedia terintegrasi atau konfirmasi settlement; tanggal dan nilai di atas hanya acuan simulasi.
+              </p>
             )}
           </li>
         );

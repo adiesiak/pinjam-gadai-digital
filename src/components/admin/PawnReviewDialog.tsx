@@ -31,7 +31,6 @@ export function PawnReviewDialog({
 }) {
   const markInAppraisal = useMutation(api.loans.markPawnInAppraisal);
   const reject = useMutation(api.loans.rejectPawn);
-  const releasePawn = useMutation(api.loans.releasePawn);
   const deletePawn = useMutation(api.loans.hapusGadai);
 
   const [reason, setReason] = useState("");
@@ -116,6 +115,10 @@ export function PawnReviewDialog({
           ))}
         </dl>
 
+        <p className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-900">
+          Persetujuan atau status aplikasi tidak membuktikan pencairan maupun penitipan fisik. Pelepasan barang hanya dapat dikonfirmasi terpisah dengan bukti serah-terima; fitur pelepasan dinonaktifkan.
+        </p>
+
         <EContractWidget kind="pawn" pawnId={row._id} pawnRef={row.nomorReferensi} />
 
         <div className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-4 py-3">
@@ -171,17 +174,6 @@ export function PawnReviewDialog({
                 <Button onClick={onAppraise}>
                   <ClipboardList className="mr-2 size-4" />
                   Catat taksiran internal
-                </Button>
-              )}
-              {row.status === "menunggu_pelepasan" && (
-                <Button
-                  disabled={busy !== null}
-                  onClick={() =>
-                    run("release", () => releasePawn({ pawnId: row._id }))
-                  }
-                >
-                  {busy === "release" ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
-                  Catat status pelepasan (ledger)
                 </Button>
               )}
               <Button

@@ -1,8 +1,7 @@
-import { useMutation, useQuery } from "convex/react";
+import { useQuery } from "convex/react";
 import {
   BadgeCheck,
   Calculator,
-  Coins,
   Loader2,
   Package,
   ShoppingBag,
@@ -13,19 +12,11 @@ import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import { Slider } from "@/components/ui/slider";
-import { WaOtpDialog } from "@/components/WaOtpDialog";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { persenBungaPerBulan } from "@/lib/bulanan";
@@ -626,72 +617,8 @@ function PeluangKreditSection() {
 }
 
 function PeluangKreditCard({ row }: { row: PeluangKredit }) {
-  const alokasi = useMutation(api.pendana.alokasiKreditBarang);
-  const waOtpStatus = useQuery(api.security.myWaOtpStatus, {});
-  const [open, setOpen] = useState(false);
-  const [otpOpen, setOtpOpen] = useState(false);
-  const [waNomorPendana, setWaNomorPendana] = useState("");
-  const [jumlah, setJumlah] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const parsed = useMemo(() => {
-    try {
-      return parseRupiah(jumlah);
-    } catch {
-      return null;
-    }
-  }, [jumlah]);
-
   const full = row.sisaKebutuhan <= 0;
   const pct = Math.min(100, Math.round((row.terkumpul / row.pokokDibiayai) * 100));
-  const estimasi =
-    parsed !== null && parsed > 0
-      ? Math.floor(
-          (row.imbalHasilTotal * Math.min(parsed, row.sisaKebutuhan)) / row.pokokDibiayai,
-        )
-      : 0;
-
-  const alokasikan = async () => {
-    setError(null);
-    if (parsed === null) {
-      setError("Masukkan jumlah rupiah bulat yang valid.");
-      return;
-    }
-    // OTP WA wajib (bila diaktifkan Pendana) — verifikasi dulu, lanjut di callback.
-    if (waOtpStatus?.aktif) {
-      if (waNomorPendana.replace(/\D/g, "").length < 8) {
-        setError("Masukkan nomor WhatsApp Anda (format 62…) untuk menerima kode OTP.");
-        return;
-      }
-      setOtpOpen(true);
-      return;
-    }
-    await eksekusi(null);
-  };
-
-  const eksekusi = async (kodeOtp: string | null) => {
-    setBusy(true);
-    try {
-      await alokasi({
-        kreditId: row._id,
-        jumlah: parsed!,
-        ...(kodeOtp !== null ? { kodeOtp } : {}),
-      });
-      toast.success("Catatan alokasi simulasi tersimpan di ledger internal. Tidak ada dana yang ditransfer.");
-      setOpen(false);
-      setOtpOpen(false);
-      setJumlah("");
-    } catch (err) {
-      setError(
-        err instanceof Error
-          ? `Pencatatan alokasi simulasi gagal: ${err.message}. Tidak ada transfer yang diproses.`
-          : "Pencatatan alokasi simulasi gagal. Tidak ada transfer yang diproses.",
-      );
-    } finally {
-      setBusy(false);
-    }
-  };
 
   return (
     <article className="card-lift rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -765,7 +692,7 @@ function PeluangKreditCard({ row }: { row: PeluangKredit }) {
       {/* Progress pendanaan */}
       <div className="mt-4">
         <div className="flex items-baseline justify-between text-xs">
-          <span className="font-medium">Alokasi tercatat di ledger simulasi</span>
+          <span className="font-medium">Alokasi lama tercatat di ledger internal</span>
           <span className="tabular-nums text-muted-foreground">
             {formatRupiah(row.terkumpul)} / {formatRupiah(row.pokokDibiayai)}
           </span>
@@ -778,98 +705,14 @@ function PeluangKreditCard({ row }: { row: PeluangKredit }) {
 
       {full ? (
         <Badge className="mt-4 border-0 bg-emerald-100 text-emerald-700 hover:bg-emerald-100">
-          <BadgeCheck className="mr-1 size-3.5" /> Target simulasi tercapai
+          <BadgeCheck className="mr-1 size-3.5" /> Target ledger historis tercapai (bukan dana terverifikasi)
         </Badge>
       ) : (
-        <>
-          <Button className="mt-4 w-full" onClick={() => setOpen(true)}>
-            <Coins className="mr-1.5 size-4" />
-            Catat alokasi simulasi
-          </Button>
-          <KeteranganWilayah />
-        </>
+        <p className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900">
+          Alokasi baru dinonaktifkan. Status persetujuan admin dan progres ledger bukan bukti dana; belum ada izin, penyedia pembayaran, atau settlement terverifikasi.
+        </p>
       )}
-
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Catat alokasi simulasi — Kredit Barang</DialogTitle>
-            <DialogDescription>
-              {row.nomorReferensi} · target alokasi simulasi yang tersisa {formatRupiah(row.sisaKebutuhan)}. Nilai yang dicatat melebihi sisa akan ditolak.
-            </DialogDescription>
-          </DialogHeader>
-          <KeteranganWilayah />
-          <div className="space-y-3">
-            <div className="space-y-2">
-              <Label htmlFor={`kredit-alo-${row.nomorReferensi}`}>Jumlah alokasi pada ledger simulasi</Label>
-              <div className="relative">
-                <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
-                  Rp
-                </span>
-                <Input
-                  id={`kredit-alo-${row.nomorReferensi}`}
-                  inputMode="numeric"
-                  className="pl-9 tabular-nums"
-                  value={jumlah}
-                  onChange={(e) => setJumlah(e.target.value)}
-                  onBlur={() => {
-                    if (parsed !== null) setJumlah(formatRupiah(parsed).replace("Rp ", ""));
-                  }}
-                  placeholder={`Maks ${formatRupiah(row.sisaKebutuhan)}`}
-                  disabled={busy}
-                />
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Estimasi imbal hasil simulasi:{" "}
-                <span className="font-semibold tabular-nums text-emerald-700">
-                  {formatRupiah(estimasi)}
-                </span>{" "}
-                (proporsional porsi pokok)
-              </p>
-            </div>
-            {error !== null && (
-              <p
-                role="alert"
-                className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive"
-              >
-                {error}
-              </p>
-            )}
-            {waOtpStatus?.aktif && (
-              <div className="space-y-2 rounded-xl border border-slate-200 bg-slate-50 p-3">
-                <Label htmlFor={`kredit-alo-wa-${row.nomorReferensi}`}>
-                  Nomor WhatsApp verifikasi (62…)
-                </Label>
-                <Input
-                  id={`kredit-alo-wa-${row.nomorReferensi}`}
-                  inputMode="tel"
-                  value={waNomorPendana}
-                  onChange={(e) => setWaNomorPendana(e.target.value)}
-                  placeholder="628123456789"
-                  disabled={busy}
-                />
-                <p className="text-xs text-muted-foreground">
-                  Verifikasi OTP melindungi tindakan akun sebelum catatan alokasi simulasi disimpan (5 menit, sekali pakai); tidak memverifikasi dana atau transfer.
-                </p>
-              </div>
-            )}
-            <Button className="w-full" disabled={busy || parsed === null} onClick={alokasikan}>
-              {busy ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
-              Simpan catatan alokasi
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {waNomorPendana !== "" && (
-        <WaOtpDialog
-          open={otpOpen}
-          onOpenChange={setOtpOpen}
-          tujuan={waNomorPendana.replace(/\D/g, "")}
-          alasan={`Alokasi Dana Kredit Barang ${row.nomorReferensi}`}
-          onVerified={() => void eksekusi(null)}
-        />
-      )}
+      <KeteranganWilayah />
     </article>
   );
 }

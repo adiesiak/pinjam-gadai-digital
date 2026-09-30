@@ -1,20 +1,7 @@
-import { useMutation, useQuery } from "convex/react";
+import { useQuery } from "convex/react";
 import { Loader2 } from "lucide-react";
-import { useState } from "react";
-import { toast } from "sonner";
 
 import { StatusBadge } from "@/components/StatusBadge";
-import { Button } from "@/components/ui/button";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 import {
   Dialog,
   DialogContent,
@@ -39,28 +26,6 @@ export function LoanDetailDialog({
   onClose: () => void;
 }) {
   const loan = useQuery(api.loans.getMyLoan, loanId ? { loanId } : "skip");
-  const repayLoan = useMutation(api.loans.repayLoan);
-  const [repaying, setRepaying] = useState(false);
-  const [confirmRepayOpen, setConfirmRepayOpen] = useState(false);
-
-  const handleRepay = async () => {
-    if (!loan) return;
-    setRepaying(true);
-    try {
-      const r = await repayLoan({ loanId: loan._id });
-      toast.success(
-        r.dendaTerlambat > 0
-          ? `Nilai pelunasan simulasi ${formatRupiah(r.totalDibayar)} tercatat di ledger internal, termasuk denda ${formatRupiah(r.dendaTerlambat)}. Tidak ada pembayaran eksternal.`
-          : `Nilai pelunasan simulasi ${formatRupiah(r.totalDibayar)} tercatat di ledger internal. Tidak ada pembayaran eksternal.`,
-      );
-      setConfirmRepayOpen(false);
-      onClose();
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Pencatatan pelunasan simulasi gagal.");
-    } finally {
-      setRepaying(false);
-    }
-  };
 
   return (
     <Dialog open={loanId !== null} onOpenChange={(open) => !open && onClose()}>
@@ -153,35 +118,9 @@ export function LoanDetailDialog({
                     </div>
                   )}
                 </dl>
-                <p className="mt-3 text-xs leading-5 text-muted-foreground">
-                  Aksi ini hanya mencatat perubahan status dan nilai kewajiban pada ledger internal. Tidak ada uang yang dibayarkan, ditransfer, atau diverifikasi; pelunasan dicatat sekaligus, tanpa cicilan parsial.
+                <p className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900">
+                  Pelunasan dinonaktifkan karena belum ada izin maupun penyedia pembayaran terintegrasi. Status/jadwal ledger tidak membuktikan pembayaran; persetujuan admin tidak menggantikannya.
                 </p>
-                <AlertDialog open={confirmRepayOpen} onOpenChange={setConfirmRepayOpen}>
-                  <Button className="mt-3 w-full" disabled={repaying} onClick={() => setConfirmRepayOpen(true)}>
-                    Catat pelunasan simulasi {formatRupiah(loan.pelunasan.totalKewajibanDenganPenalti)}
-                  </Button>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>Konfirmasi pencatatan simulasi</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        Ini akan menandai kewajiban sebagai lunas di ledger internal PINDAI. Tidak ada pembayaran aktual, transfer bank/e-wallet, atau bukti pembayaran yang dibuat. Seluruh nilai dicatat sekaligus.
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel disabled={repaying}>Batal</AlertDialogCancel>
-                      <AlertDialogAction
-                        disabled={repaying}
-                        onClick={(event) => {
-                          event.preventDefault();
-                          void handleRepay();
-                        }}
-                      >
-                        {repaying ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
-                        Ya, catat simulasi
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
               </div>
             )}
           </>
@@ -191,7 +130,7 @@ export function LoanDetailDialog({
   );
 }
 
-/** Dialog rincian gadai + aksi pengajuan pelepasan. */
+/** Dialog rincian status gadai internal; tidak mengajukan atau mengonfirmasi pelepasan fisik. */
 export function PawnDetailDialog({
   pawnId,
   onClose,
@@ -200,21 +139,6 @@ export function PawnDetailDialog({
   onClose: () => void;
 }) {
   const pawn = useQuery(api.loans.getMyPawn, pawnId ? { pawnId } : "skip");
-  const requestPawnRelease = useMutation(api.loans.requestPawnRelease);
-  const [requesting, setRequesting] = useState(false);
-
-  const handleRequestRelease = async () => {
-    if (!pawn) return;
-    setRequesting(true);
-    try {
-      await requestPawnRelease({ pawnId: pawn._id });
-      toast.success("Permintaan perubahan status gadai tercatat di ledger internal.");
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Gagal mengirim permintaan.");
-    } finally {
-      setRequesting(false);
-    }
-  };
 
   return (
     <Dialog open={pawnId !== null} onOpenChange={(open) => !open && onClose()}>
@@ -269,23 +193,9 @@ export function PawnDetailDialog({
               </div>
             )}
 
-            {pawn.status === "aktif" && (
-              <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                <p className="text-sm font-medium">Ajukan pembaruan status gadai</p>
-                <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                  Setelah kewajiban simulasi lunas, Anda dapat meminta pembaruan status. Perubahan status tidak membuktikan barang pernah dititipkan atau telah dikembalikan.
-                </p>
-                <Button className="mt-3 w-full" disabled={requesting} onClick={handleRequestRelease}>
-                  {requesting ? (
-                    <>
-                      <Loader2 className="mr-2 size-4 animate-spin" /> Mengirim…
-                    </>
-                  ) : (
-                    "Ajukan pembaruan status"
-                  )}
-                </Button>
-              </div>
-            )}
+            <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900">
+              Status ini hanya catatan aplikasi. Pembayaran gadai dan perubahan status terkait pelepasan dinonaktifkan; data ledger tidak membuktikan penitipan atau pengembalian barang.
+            </p>
           </>
         )}
       </DialogContent>

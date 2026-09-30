@@ -54,7 +54,7 @@ async function siapkanPengguna(
 }
 
 describe("alur Pendana — pinjaman tunai", () => {
-  it("setor, danai marketplace, terima pelunasan, lalu tarik saldo", async () => {
+  it("menolak setoran, alokasi, pelunasan, dan penarikan tanpa mengubah ledger atau status", async () => {
     const t = convexTest(schema, modules);
     const { sesi: admin } = await siapkanPengguna(
       t,
@@ -114,111 +114,120 @@ describe("alur Pendana — pinjaman tunai", () => {
       "disetujui",
     );
 
-    // Setoran baru belum masuk saldo sampai diverifikasi admin.
-    await pendana.mutation(api.pendana.requestDeposit, {
-      jumlah: 2_000_000,
-      referensiTransfer: "TRF-ALUR-001",
+    // Pengajuan deposit baru dan semua perintah transaksi ditolak tanpa ledger.
+    const [depositId, withdrawalId, pawnId] = await t.run(async (ctx) => {
+      const pendanaId = (await ctx.db.query("users").collect()).find(
+        (user) => user.email === "pendana-alur@pindai.test",
+      )?._id;
+      if (pendanaId === undefined) throw new Error("Pendana uji tidak ditemukan.");
+      const depositId = await ctx.db.insert("deposits", {
+        pendanaId,
+        jumlah: 2_000_000,
+        referensiTransfer: "TRF-ALUR-001",
+        status: "menunggu_verifikasi",
+        nomorReferensi: "DEP-ALUR-001",
+      });
+      const withdrawalId = await ctx.db.insert("withdrawals", {
+        pendanaId,
+        jumlah: 500_000,
+        namaBank: "BCA",
+        nomorRekening: "1234567890",
+        status: "menunggu_proses",
+        nomorReferensi: "WDR-ALUR-001",
+      });
+      const pawnId = await ctx.db.insert("pawns", {
+        userId: peminjamId,
+        deskripsiBarang: "Barang uji gadai",
+        kategori: "Elektronik",
+        alamatPenilaian: "Alamat yang dicantumkan pemohon",
+        namaLengkap: "Rani Peminjam",
+        nomorRekening: "1234567890",
+        status: "aktif",
+        nomorReferensi: "PGD-GADAI-UJI",
+        pokokGadai: 100_000,
+        sisaPokok: 100_000,
+        persenSewaModal: 5,
+      });
+      return [depositId, withdrawalId, pawnId] as const;
     });
-    const [setoran] = await pendana.query(api.pendana.myDeposits, {});
-    expect(setoran.status).toBe("menunggu_verifikasi");
-    expect(await pendana.query(api.pendana.myWallet, {})).toMatchObject({ saldo: 0 });
-    const [setoranAdmin] = await admin.query(api.admin.pendingDeposits, {});
-    expect(setoranAdmin._id).toBe(setoran._id);
-    await admin.mutation(api.admin.confirmDeposit, { depositId: setoran._id });
-    expect(await pendana.query(api.pendana.myWallet, {})).toMatchObject({ saldo: 2_000_000 });
+    const ledgerCountBefore = await t.run(async (ctx) =>
+      (await ctx.db.query("ledger_entries").collect()).length,
+    );
+    await expect(
+      pendana.mutation(api.pendana.requestDeposit, {
+        jumlah: 2_000_000,
+        referensiTransfer: "TRF-ALUR-002",
+      }),
+    ).rejects.toThrow("penyedia pembayaran belum dipilih atau terintegrasi");
+    await expect(
+      admin.mutation(api.admin.confirmDeposit, { depositId }),
+    ).rejects.toThrow("penyedia pembayaran belum dipilih atau terintegrasi");
+    await expect(
+      pendana.mutation(api.pendana.allocateFunding, {
+        loanId,
+        jumlah: 1_000_000,
+      }),
+    ).rejects.toThrow("penyedia pembayaran belum dipilih atau terintegrasi");
+    await expect(
+      peminjam.mutation(api.loans.repayLoan, { loanId }),
+    ).rejects.toThrow("penyedia pembayaran belum dipilih atau terintegrasi");
+    await expect(
+      pendana.mutation(api.pendana.requestWithdrawal, {
+        jumlah: 500_000,
+        namaBank: "BCA",
+        nomorRekening: "1234567890",
+      }),
+    ).rejects.toThrow("penyedia pembayaran belum dipilih atau terintegrasi");
+    await expect(
+      admin.mutation(api.admin.processWithdrawal, { withdrawalId }),
+    ).rejects.toThrow("penyedia pembayaran belum dipilih atau terintegrasi");
+    await expect(
+      peminjam.mutation(api.gadai.bayarGadai, {
+        pawnId,
+        cicilPokok: 100_000,
+      }),
+    ).rejects.toThrow("penyedia pembayaran belum dipilih atau terintegrasi");
+    await expect(
+      peminjam.mutation(api.loans.requestPawnRelease, { pawnId }),
+    ).rejects.toThrow("penyedia pembayaran belum dipilih atau terintegrasi");
+    await expect(
+      admin.mutation(api.gadai.cairkanGadai, { pawnId }),
+    ).rejects.toThrow("penyedia pembayaran belum dipilih atau terintegrasi");
+    await expect(
+      admin.mutation(api.loans.activatePawn, { pawnId }),
+    ).rejects.toThrow("penyedia pembayaran belum dipilih atau terintegrasi");
+    await expect(
+      admin.mutation(api.loans.releasePawn, { pawnId }),
+    ).rejects.toThrow("penyedia pembayaran belum dipilih atau terintegrasi");
 
-    // Marketplace hanya memuat kode pseudonim dan detail finansial yang aman.
-    const [peluang] = await pendana.query(api.pendana.marketplace, {});
-    const kodeTersimpan = await t.run(async (ctx) => (await ctx.db.get(peminjamId))?.kodePeminjam);
-    expect(kodeTersimpan).toMatch(/^PMN-[A-F0-9]{20}$/);
-    expect(peluang).toMatchObject({
-      _id: loanId,
-      kodePeminjam: kodeTersimpan,
-      statusVerifikasi: "Disetujui tim PINDAI",
-      tujuan: "modal_usaha",
-      pokokPinjaman: 1_000_000,
-      tenorHari: 30,
-      biayaAdmin: 30_000,
-      biayaPlatform: 20_000,
-      totalPotonganDiMuka: 50_000,
-      danaBersih: 950_000,
-      totalKewajiban: 1_300_000,
-      jadwalPelunasan: [{ hariKe: 30, total: 1_300_000 }],
-      sisaKebutuhan: 1_000_000,
-    });
-    for (const field of [
-      "namaLengkap", "name", "peminjamInisial", "nik", "nomorWhatsApp",
-      "penghasilanBulanan", "sumberPenghasilan", "nomorRekening", "dokKtpId",
-      "dokSelfieKtpId", "dokSlipGajiId", "lokasiAjukan", "lat", "lng",
-      "alamat", "alamatPenilaian", "kodeRakVault", "jaminan",
-    ]) {
-      expect(peluang).not.toHaveProperty(field);
-    }
-    await pendana.mutation(api.pendana.allocateFunding, {
-      loanId,
-      jumlah: 1_000_000,
-    });
+    const ledgerCountAfter = await t.run(async (ctx) =>
+      (await ctx.db.query("ledger_entries").collect()).length,
+    );
+    const depositAfter = await t.run((ctx) => ctx.db.get(depositId));
+    const withdrawalAfter = await t.run((ctx) => ctx.db.get(withdrawalId));
+    const pawnAfter = await t.run((ctx) => ctx.db.get(pawnId));
+    const pawnPaymentsAfter = await t.run((ctx) =>
+      ctx.db.query("pawnPayments").withIndex("by_pawn", (q) => q.eq("pawnId", pawnId)).collect(),
+    );
+    expect(ledgerCountAfter).toBe(ledgerCountBefore);
+    expect(depositAfter?.status).toBe("menunggu_verifikasi");
+    expect(withdrawalAfter?.status).toBe("menunggu_proses");
+    expect(pawnAfter?.status).toBe("aktif");
+    expect(pawnAfter?.sisaPokok).toBe(100_000);
+    expect(pawnPaymentsAfter).toHaveLength(0);
+    expect((await peminjam.query(api.loans.listMyLoans, {}))[0]?.status).toBe("disetujui");
+    expect(await pendana.query(api.pendana.myFundings, {})).toHaveLength(0);
     expect(await pendana.query(api.pendana.myWallet, {})).toMatchObject({
-      saldo: 1_000_000,
-      danaBekerja: 1_000_000,
-      imbalHasilDiharapkan: 300_000,
-    });
-    const [posisi] = await pendana.query(api.pendana.myPortfolio, {});
-    expect(posisi).toMatchObject({
-      loanId,
-      kodePeminjam: kodeTersimpan,
-      statusVerifikasi: "Disetujui tim PINDAI",
-      statusPinjaman: "didanai",
-      jumlahAlokasi: 1_000_000,
-      biayaAdmin: 30_000,
-      biayaPlatform: 20_000,
-      totalPotonganDiMuka: 50_000,
-      danaDiterimaPeminjam: 950_000,
-      jadwalPelunasan: [{ total: 1_300_000 }],
-    });
-    for (const field of ["namaLengkap", "peminjamInisial", "nik", "nomorRekening", "lokasiAjukan", "lat", "lng", "kodeRakVault", "jaminan"]) {
-      expect(posisi).not.toHaveProperty(field);
-    }
-
-    // Peminjam melunasi pinjaman Rp1 juta; hak Pendana masuk ke dompet dan
-    // plafon tunai Peminjam memenuhi aturan kenaikan setelah lunas penuh.
-    const pelunasan = await peminjam.mutation(api.loans.repayLoan, { loanId });
-    expect(pelunasan.totalDibayar).toBe(1_300_000);
-    expect(await peminjam.query(api.lokasi.plafonSaya, {})).toBe(10_000_000);
-    expect(await pendana.query(api.pendana.myFundings, {})).toMatchObject([
-      { loanStatus: "lunas", status: "selesai", jenis: "pinjaman" },
-    ]);
-    expect(await pendana.query(api.pendana.myWallet, {})).toMatchObject({
-      saldo: 2_300_000,
+      saldo: 0,
       danaBekerja: 0,
     });
-
-    // Penarikan menunggu proses sampai admin mengirimkannya.
-    await pendana.mutation(api.pendana.requestWithdrawal, {
-      jumlah: 500_000,
-      namaBank: "BCA",
-      nomorRekening: "1234567890",
+    expect(await admin.query(api.admin.ledgerSummary, {})).toMatchObject({
+      entryCount: ledgerCountBefore,
+      seimbang: true,
     });
-    const [penarikan] = await pendana.query(api.pendana.myWithdrawals, {});
-    expect(penarikan.status).toBe("menunggu_proses");
-    const [penarikanAdmin] = await admin.query(api.admin.pendingWithdrawals, {});
-    expect(penarikanAdmin._id).toBe(penarikan._id);
-    await admin.mutation(api.admin.processWithdrawal, {
-      withdrawalId: penarikan._id,
-    });
-    expect((await pendana.query(api.pendana.myWithdrawals, {}))[0].status).toBe(
-      "diproses",
-    );
-    expect(await pendana.query(api.pendana.myWallet, {})).toMatchObject({
-      saldo: 1_800_000,
-    });
-
-    const ledger = await admin.query(api.admin.ledgerSummary, {});
-    expect(ledger.seimbang).toBe(true);
-    expect(ledger.rincianSkema.pinjaman).toBe(50_000);
   });
 
-  it("membedakan jadwal pelunasan aktual dari simulasi bulanan pinjaman tunai", async () => {
+  it("menampilkan jadwal pinjaman bulanan sebagai proyeksi internal, bukan pembayaran aktual", async () => {
     const t = convexTest(schema, modules);
     const peminjamId = await t.mutation((ctx) =>
       ctx.db.insert("users", {
@@ -254,11 +263,11 @@ describe("alur Pendana — pinjaman tunai", () => {
       biayaLayananTotal: 30_000,
       totalPotonganDiMuka: 0,
       danaBersih: 1_000_000,
-      jadwalPelunasan: [{ bulan: 3, hariKe: 90, total: 1_270_000 }],
+      jadwalPelunasan: [{ bulan: 3, hariKe: 90, total: 1_530_001 }],
       simulasiCicilanBulanan: expect.arrayContaining([
         expect.objectContaining({ bulan: 1 }),
       ]),
-      catatanJadwal: "Pelunasan aktual dicatat sekaligus pada akhir tenor; rincian bulanan hanya simulasi.",
+      catatanJadwal: "Proyeksi internal mengasumsikan pelunasan sekaligus pada akhir tenor; seluruh rincian hanya simulasi dan bukan tagihan.",
     });
     expect(peluang.jadwalPelunasan).toHaveLength(1);
     expect(peluang.simulasiCicilanBulanan).toHaveLength(3);

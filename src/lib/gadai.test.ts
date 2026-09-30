@@ -69,7 +69,7 @@ eq(sewaOnly.sewaDibayar, 500_000, "sewa saja: bayar 500rb");
 eq(sewaOnly.totalBayar, 500_000, "total bayar = sewa");
 eq(sewaOnly.sisaPokokSetelah, 10_000_000, "sisa pokok tetap 10jt");
 eq(sewaOnly.sewaModalBerikut, 500_000, "sewa berikutnya tetap 500rb");
-eq(sewaOnly.custody, "DALAM_VAULT", "masih dalam vault");
+eq(sewaOnly.custody, "DALAM_VAULT", "status ledger berlabel vault (bukan bukti penitipan)");
 
 // ---- cicil pokok: sewa berikutnya otomatis turun ----
 const cicil3jt = rencanaBayarGadai(10_000_000, 5, { cicilPokok: 3_000_000 });
@@ -77,13 +77,13 @@ eq(cicil3jt.pokokDicicil, 3_000_000, "cicil 3jt tercatat");
 eq(cicil3jt.totalBayar, 3_500_000, "total = cicil + sewa (3,5jt)");
 eq(cicil3jt.sisaPokokSetelah, 7_000_000, "sisa pokok 7jt");
 eq(cicil3jt.sewaModalBerikut, 350_000, "sewa berikutnya 5% × 7jt = 350rb (OTOMATIS TURUN)");
-eq(cicil3jt.custody, "DALAM_VAULT", "7jt sisa → masih vault");
+eq(cicil3jt.custody, "DALAM_VAULT", "7jt sisa → label ledger vault, bukan bukti custody");
 
 // ---- lunas penuh: SIAP_DIAMBIL ----
 const lunas = rencanaBayarGadai(10_000_000, 5, { cicilPokok: 10_000_000 });
 eq(lunas.sisaPokokSetelah, 0, "sisa pokok Rp0");
 eq(lunas.sewaModalBerikut, 0, "sewa berikutnya Rp0");
-eq(lunas.custody, "SIAP_DIAMBIL", "status SIAP_DIAMBIL");
+eq(lunas.custody, "SIAP_DIAMBIL", "status ledger siap diambil (bukan bukti pelunasan fisik)");
 
 throws(
   () => rencanaBayarGadai(10_000_000, 5, { cicilPokok: 10_000_001 }),
@@ -92,8 +92,8 @@ throws(
 throws(() => rencanaBayarGadai(0, 5, {}), "bayar saat sudah lunas ditolak");
 
 // ---- statusCustody ----
-eq(statusCustody(0), "SIAP_DIAMBIL", "0 → SIAP_DIAMBIL");
-eq(statusCustody(1), "DALAM_VAULT", "1 → DALAM_VAULT");
+eq(statusCustody(0), "SIAP_DIAMBIL", "0 → label ledger siap diambil");
+eq(statusCustody(1), "DALAM_VAULT", "1 → label ledger vault");
 
 // ---- proyeksi jadwal: sewa menurun tiap periode ----
 const jadwal = proyeksiJadwalGadai(12_000_000, 5, 4_000_000);
@@ -101,7 +101,7 @@ eq(jadwal.length, 3, "12jt cicil 4jt/periode = 3 periode");
 eq(jadwal[0].sewaModal, 600_000, "periode 1: 5% × 12jt");
 eq(jadwal[1].sewaModal, 400_000, "periode 2: 5% × 8jt (menurun)");
 eq(jadwal[2].sewaModal, 200_000, "periode 3: 5% × 4jt (menurun)");
-eq(jadwal[2].custody, "SIAP_DIAMBIL", "periode akhir SIAP_DIAMBIL");
+eq(jadwal[2].custody, "SIAP_DIAMBIL", "periode akhir label ledger siap diambil");
 // Total sewa menurun < sewa flat: bukti decreasing principal menghemat
 const totalSewa = jadwal.reduce((a, r) => a + r.sewaModal, 0);
 const sewaFlat = 3 * percentOf(12_000_000, 5);

@@ -1,5 +1,5 @@
 import { useMutation } from "convex/react";
-import { BadgeCheck, Loader2, Wallet } from "lucide-react";
+import { Loader2, Wallet } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -54,8 +54,6 @@ export function SetoranSection({
   pendingWd: PendingWithdrawal[] | undefined;
   ledger: LedgerSummary | undefined;
 }) {
-  const confirmDeposit = useMutation(api.admin.confirmDeposit);
-  const processWd = useMutation(api.admin.processWithdrawal);
   const rejectDeposit = useMutation(api.admin.rejectDeposit);
   const rejectWd = useMutation(api.admin.rejectWithdrawal);
 
@@ -73,7 +71,7 @@ export function SetoranSection({
   return (
     <>
       <p className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900">
-        Semua nominal dan saldo di sini adalah catatan ledger simulasi. Tindakan admin hanya mengubah status internal; aplikasi tidak memeriksa rekening/bukti bank dan tidak mengirim atau menerima transfer.
+        Semua nominal dan saldo adalah catatan ledger internal. Admin hanya dapat meninjau atau menolak catatan; persetujuan manual tidak memverifikasi transfer dan tidak boleh dianggap sebagai dana masuk/keluar. Konfirmasi setoran dan pemrosesan penarikan dinonaktifkan.
       </p>
       {pendingDeposits === undefined ? (
         <div className="flex items-center gap-2 py-8 text-sm text-muted-foreground">
@@ -88,32 +86,17 @@ export function SetoranSection({
               <div className="min-w-0">
                 <p className="text-sm font-medium tabular-nums">{formatRupiah(d.jumlah)}</p>
                 <p className="mt-1 truncate text-xs text-muted-foreground">
-                  {d.nomorReferensi} · {d.emailPendana ?? "tanpa email"} · ref transfer: {d.referensiTransfer}
+                  {d.nomorReferensi} · {d.emailPendana ?? "tanpa email"} · referensi yang dicantumkan: {d.referensiTransfer}
                 </p>
               </div>
-              <div className="flex w-full shrink-0 gap-2 sm:w-auto">
-                <Button
-                  size="sm"
-                  className="gradient-primary min-w-0 flex-1 rounded-full border-0 sm:flex-none"
-                  onClick={async () => {
-                    try {
-                      await confirmDeposit({ depositId: d._id });
-                      toast.success("Status setoran ditandai pada ledger; bank dan transfer tidak diverifikasi.");
-                    } catch (err) {
-                      toast.error(err instanceof Error ? err.message : "Gagal konfirmasi.");
-                    }
-                  }}
-                >
-                  <BadgeCheck className="mr-1 size-4" />
-                  Tandai di ledger
-                </Button>
+              <div className="flex w-full shrink-0 sm:w-auto">
                 <Button
                   size="sm"
                   variant="outline"
-                  className="min-w-0 flex-1 rounded-full sm:flex-none"
+                  className="w-full rounded-full sm:w-auto"
                   onClick={() => setRejectingDeposit({ id: d._id, ref: d.nomorReferensi })}
                 >
-                  Tolak
+                  Tolak catatan
                 </Button>
               </div>
             </li>
@@ -139,29 +122,14 @@ export function SetoranSection({
                   {w.nomorReferensi} · {w.emailPendana ?? "tanpa email"} · {w.namaBank} {w.nomorRekening}
                 </p>
               </div>
-              <div className="flex w-full shrink-0 gap-2 sm:w-auto">
-                <Button
-                  size="sm"
-                  className="gradient-primary min-w-0 flex-1 rounded-full border-0 sm:flex-none"
-                  onClick={async () => {
-                    try {
-                      await processWd({ withdrawalId: w._id });
-                      toast.success("Status penarikan ditandai pada ledger; tidak ada transfer yang diproses.");
-                    } catch (err) {
-                      toast.error(err instanceof Error ? err.message : "Gagal memproses.");
-                    }
-                  }}
-                >
-                  <BadgeCheck className="mr-1 size-4" />
-                  Tandai di ledger
-                </Button>
+              <div className="flex w-full shrink-0 sm:w-auto">
                 <Button
                   size="sm"
                   variant="outline"
-                  className="min-w-0 flex-1 rounded-full sm:flex-none"
+                  className="w-full rounded-full sm:w-auto"
                   onClick={() => setRejectingWd({ id: w._id, ref: w.nomorReferensi })}
                 >
-                  Tolak
+                  Tolak catatan
                 </Button>
               </div>
             </li>

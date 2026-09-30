@@ -1143,20 +1143,12 @@ export const repayLoan = mutation({
   },
 });
 
-/** Peminjam mengajukan pelepasan barang gadai yang sudah aktif. */
+/** Perubahan status terkait pelepasan ditutup sampai pembayaran dan serah-terima terverifikasi. */
 export const requestPawnRelease = mutation({
   args: { pawnId: v.id("pawns") },
-  handler: async (ctx, args) => {
-    const { userId } = await requirePeminjam(ctx);
-    const pawn = await ctx.db.get(args.pawnId);
-    if (pawn === null) throw new Error("Pengajuan gadai tidak ditemukan.");
-    if (pawn.userId !== userId) throw new Error("Bukan pengajuan Anda.");
-    if (pawn.status !== "aktif") {
-      throw new Error(
-        "Hanya gadai berstatus Aktif yang dapat diajukan pelepasan.",
-      );
-    }
-    await ctx.db.patch(args.pawnId, { status: "menunggu_pelepasan" });
+  handler: async (ctx) => {
+    await requirePeminjam(ctx);
+    rejectUnverifiedMoneyMovement();
   },
 });
 

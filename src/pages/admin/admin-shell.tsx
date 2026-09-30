@@ -26,7 +26,7 @@ export type AdminStatsData = {
   gadaiProses: number;
   totalPinjaman: number;
   totalGadai: number;
-  antreanPencairan: number;
+  pinjamanDisetujui: number;
   pinjamanTerlambat: number;
   nilaiTaksiranDisetujui: number;
   gpsMismatch: number;
@@ -167,7 +167,7 @@ export function AdminStats({ stats }: { stats: AdminStatsData }) {
     { label: "Pengajuan gadai diproses", value: `${stats.gadaiProses}`, tone: "amber", Icon: Package },
     { label: "Catatan pinjaman", value: `${stats.totalPinjaman}`, tone: "sky", Icon: Landmark },
     { label: "Catatan gadai", value: `${stats.totalGadai}`, tone: "sky", Icon: Database },
-    { label: "Antrean alokasi simulasi", value: `${stats.antreanPencairan}`, tone: "sky", Icon: CircleDollarSign },
+    { label: "Pinjaman disetujui (status internal)", value: `${stats.pinjamanDisetujui}`, tone: "sky", Icon: CircleDollarSign },
     { label: "Tanggal acuan terlewati (simulasi)", value: `${stats.pinjamanTerlambat}`, tone: stats.pinjamanTerlambat > 0 ? "red" : "mint", Icon: Clock3 },
     { label: "Nilai taksiran internal (tidak diverifikasi)", value: formatRupiah(stats.nilaiTaksiranDisetujui), tone: "mint", Icon: CircleDollarSign },
     { label: "Pola koordinat untuk ditinjau", value: `${stats.gpsMismatch}`, tone: stats.gpsMismatch > 0 ? "red" : "mint", Icon: MapPin },

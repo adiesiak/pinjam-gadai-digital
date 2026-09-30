@@ -12,11 +12,9 @@ import { formatRupiah, parseRupiah } from "@/lib/money";
 
 import type { GadaiPendanaanRow } from "./types";
 
-/** Kartu pencatatan pokok + sewa modal pada ledger internal; angka bersih 99% hanya simulasi. */
+/** Kartu penetapan hitungan gadai internal; tidak mencatat pencairan, pembayaran, atau penitipan. */
 export function GadaiPendanaanCard({ pawn }: { pawn: GadaiPendanaanRow }) {
   const setPendanaan = useMutation(api.gadai.setPendanaanGadai);
-  const cairkan = useMutation(api.gadai.cairkanGadai);
-  const activatePawn = useMutation(api.loans.activatePawn);
 
   const [pokok, setPokok] = useState("");
   const [persen, setPersen] = useState(String(GADAI_PRICING.sewaModalMinPercent));
@@ -51,33 +49,27 @@ export function GadaiPendanaanCard({ pawn }: { pawn: GadaiPendanaanRow }) {
     setBusy(true);
     setError(null);
     try {
-      if (belumPendanaan) {
-        if (parsedPokok === null || !persenValid) {
-          throw new Error("Isi pokok gadai dan sewa modal 5–10% yang valid.");
-        }
-        if (pokokMelebihiLtv && batasLtv !== null) {
-          throw new Error(
-            `Pokok melebihi batas hitung aplikasi 70% (${formatRupiah(batasLtv)}) dari harga yang dicantumkan ${formatRupiah(pawn.hargaPasar ?? 0)}.`,
-          );
-        }
-        await setPendanaan({
-          pawnId: pawn._id,
-          pokokGadai: parsedPokok,
-          persenSewaModal: persenNum,
-        });
+      if (parsedPokok === null || !persenValid) {
+        throw new Error("Isi pokok acuan dan sewa modal simulasi 5–10% yang valid.");
       }
-      if (pawn.dicairkanPada === undefined) {
-        await cairkan({ pawnId: pawn._id });
+      if (pokokMelebihiLtv && batasLtv !== null) {
+        throw new Error(
+          `Pokok melebihi batas hitung aplikasi 70% (${formatRupiah(batasLtv)}) dari harga yang dicantumkan ${formatRupiah(pawn.hargaPasar ?? 0)}.`,
+        );
       }
-      await activatePawn({ pawnId: pawn._id });
+      await setPendanaan({
+        pawnId: pawn._id,
+        pokokGadai: parsedPokok,
+        persenSewaModal: persenNum,
+      });
       toast.success(
-        "Nilai simulasi dan status gadai tercatat pada ledger internal; tidak ada transfer dana atau konfirmasi penitipan barang.",
+        "Hitungan internal gadai tersimpan. Ini tidak mencairkan dana, mengaktifkan transaksi, atau mengonfirmasi penitipan barang.",
       );
     } catch (e) {
       setError(
         e instanceof Error
-          ? `Pencatatan simulasi gadai gagal: ${e.message}. Tidak ada transfer atau penitipan barang yang dikonfirmasi.`
-          : "Pencatatan simulasi gadai gagal. Tidak ada transfer atau penitipan barang yang dikonfirmasi.",
+          ? `Penyimpanan hitungan internal gagal: ${e.message}. Tidak ada transfer atau penitipan barang yang dikonfirmasi.`
+          : "Penyimpanan hitungan internal gagal. Tidak ada transfer atau penitipan barang yang dikonfirmasi.",
       );
     } finally {
       setBusy(false);
@@ -175,14 +167,10 @@ export function GadaiPendanaanCard({ pawn }: { pawn: GadaiPendanaanRow }) {
         </div>
       ) : (
         <p className="mt-4 text-xs leading-5 text-emerald-800">
-          Pokok simulasi{" "}
+          Pokok acuan internal{" "}
           <b className="tabular-nums">{formatRupiah(pawn.pokokGadai ?? 0)}</b> · sewa
-          modal{" "}
-          <b>{pawn.persenSewaModal ?? GADAI_PRICING.sewaModalMinPercent}%</b>/30 hari ·{" "}
-          {pawn.dicairkanPada !== undefined
-            ? "aktivasi ledger tercatat"
-            : "aktivasi ledger belum tercatat"}
-          . Data ini bukan bukti transfer atau penitipan fisik.
+          modal simulasi{" "}
+          <b>{pawn.persenSewaModal ?? GADAI_PRICING.sewaModalMinPercent}%</b>/30 hari. Data ini bukan bukti transfer atau penitipan fisik.
         </p>
       )}
 
@@ -192,21 +180,18 @@ export function GadaiPendanaanCard({ pawn }: { pawn: GadaiPendanaanRow }) {
         </p>
       )}
 
-      <div className="mt-4 flex flex-wrap items-center gap-3">
-        <Button
-          className="gradient-primary rounded-full border-0"
-          disabled={
-            busy ||
-            (belumPendanaan && (parsedPokok === null || !persenValid || pokokMelebihiLtv))
-          }
-          onClick={() => void jalankan()}
-        >
-          {busy ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
-          {pawn.dicairkanPada !== undefined
-            ? "Catat status aktif"
-            : "Catat aktivasi simulasi"}
-        </Button>
-      </div>
+      {belumPendanaan && (
+        <div className="mt-4 flex flex-wrap items-center gap-3">
+          <Button
+            className="gradient-primary rounded-full border-0"
+            disabled={busy || parsedPokok === null || !persenValid || pokokMelebihiLtv}
+            onClick={() => void jalankan()}
+          >
+            {busy ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
+            Simpan hitungan internal
+          </Button>
+        </div>
+      )}
     </div>
   );
 }

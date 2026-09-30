@@ -1,14 +1,14 @@
 /**
- * PINDAI — Engine Skema B: GADAI DIGITAL (Berjaminan / LTV 70%).
+ * PINDAI — Kalkulator skema gadai internal (jaminan / LTV simulasi 70%).
  *
  * Guardrail Rule 3: semua uang integer rupiah, pembulatan HALF-UP via
  * percentOf (BigInt) — tanpa floating-point error.
  *
  * Aturan bisnis (MASTER PROMPT §2 SKEMA B):
  *  - Batas pinjaman = LTV maks 70% dari harga pasar second.
- *  - Potongan muka Admin/Platform HANYA 1% (bukan 5% seperti Skema A).
- *  - Dana bersih diterima = 99% dari pokok gadai.
- *  - Sewa modal 5%-10% per 30 hari, dihitung DINAMIS dari sisa pokok
+ *  - Potongan muka simulasi 1% (bukan penerimaan atau biaya aktual).
+ *  - Nilai bersih simulasi = 99% dari pokok acuan gadai.
+ *  - Sewa modal simulasi 5%-10% per 30 hari, dihitung dari sisa pokok
  *    terbaru (decreasing principal basis): cicil pokok → sewa bulan
  *    berikutnya otomatis turun.
  *  - Sisa pokok = Rp0 → status internal SIAP_DIAMBIL (bukan bukti penyimpanan/pengembalian barang).
@@ -16,9 +16,9 @@
 import { percentOf, type Rupiah } from "./money";
 
 export const GADAI_PRICING = {
-  /** Potongan muka gabungan admin+platform untuk gadai: 1%. */
+  /** Potongan muka simulasi internal: 1%. */
   upfrontDeductionPercent: 1,
-  /** Dana bersih diterima: 99% dari pokok gadai. */
+  /** Nilai bersih simulasi: 99% dari pokok acuan. */
   netDisbursementPercent: 99,
   /** Sewa modal minimum per 30 hari (% dari sisa pokok). */
   sewaModalMinPercent: 5,
@@ -30,27 +30,27 @@ export const GADAI_PRICING = {
   periodeHari: 30,
 } as const;
 
-/** Batas maksimal pinjaman gadai = 70% harga pasar (integer rupiah). */
+/** Batas hitung internal gadai = 70% harga pasar yang dicantumkan (rupiah bulat). */
 export function limitPinjamanGadai(hargaPasar: Rupiah): Rupiah {
   return percentOf(hargaPasar, GADAI_PRICING.ltvMaxPercent);
 }
 
 export interface GadaiQuote {
-  /** Pokok gadai (jumlah dana yang dipinjam dengan jaminan). */
+  /** Pokok acuan simulasi gadai. */
   pokok: Rupiah;
-  /** Potongan muka 1% (admin + platform). */
+  /** Potongan muka simulasi 1%. */
   potonganDiMuka: Rupiah;
-  /** Dana bersih diterima: 99%. */
+  /** Nilai bersih simulasi: 99%. */
   danaBersihDitransfer: Rupiah;
-  /** Sewa modal periode pertama: persen sewa × pokok. */
+  /** Sewa modal simulasi periode pertama: persen × pokok acuan. */
   sewaModalPeriode: Rupiah;
   /** Persen sewa modal yang dipakai (5–10). */
   persenSewaModal: number;
-  /** Total kewajiban awal = pokok + sewa modal periode pertama. */
+  /** Total kewajiban simulasi awal = pokok acuan + sewa modal periode pertama. */
   totalKewajibanAwal: Rupiah;
 }
 
-/** Quote awal gadai — validasi persen sewa 5–10 & pokok positif. */
+/** Quote simulasi gadai — validasi persen sewa 5–10 & pokok positif. */
 export function quoteGadai(pokok: Rupiah, persenSewaModal: number): GadaiQuote {
   if (!Number.isSafeInteger(pokok) || pokok <= 0) {
     throw new Error("Pokok gadai harus rupiah bulat positif.");
@@ -102,36 +102,35 @@ export function sewaModalBerikutnya(
   return percentOf(sisaPokok, persenSewaModal);
 }
 
-/** Penanda status ledger gadai setelah perhitungan pembayaran; bukan status fisik barang. */
+/** Status turunan perhitungan ledger; bukan status penitipan atau kondisi fisik barang. */
 export type GadaiCustodyStatus =
-  | "DALAM_VAULT" // masih ada sisa pokok
-  | "SIAP_DIAMBIL"; // sisa pokok = Rp0
+  | "DALAM_VAULT" // label historis: masih ada sisa pokok tercatat
+  | "SIAP_DIAMBIL"; // label historis saat sisa pokok tercatat Rp0
 
 export function statusCustody(sisaPokok: Rupiah): GadaiCustodyStatus {
   return sisaPokok <= 0 ? "SIAP_DIAMBIL" : "DALAM_VAULT";
 }
 
 export interface GadaiBayarResult {
-  /** Pokok yang dicicil pembayaran ini. */
+  /** Pokok simulasi yang diasumsikan dicicil pada periode ini. */
   pokokDicicil: Rupiah;
-  /** Sewa modal yang dibayar pembayaran ini. */
+  /** Sewa modal simulasi pada periode ini. */
   sewaDibayar: Rupiah;
-  /** Total rupiah pembayaran ini. */
+  /** Total rupiah dalam simulasi periode ini. */
   totalBayar: Rupiah;
   /** Sisa pokok setelah pembayaran. */
   sisaPokokSetelah: Rupiah;
   /** Sewa modal periode berikutnya (dari sisa pokok terbaru). */
   sewaModalBerikut: Rupiah;
-  /** Penanda ledger setelah pencatatan simulasi; bukan bukti custody fisik. */
+  /** Penanda hasil simulasi ledger; bukan bukti pembayaran atau custody fisik. */
   custody: GadaiCustodyStatus;
 }
 
 /**
- * Rencana pembayaran satu periode gadai:
- * - Bila `bayarHanyaSewa`: bayar sewa modal saja + perpanjang tenor.
- * - Selain itu: `cicilPokok` ditambah sewa modal wajib.
- * Validasi: total cicil pokok tidak boleh melebihi sisa pokok;
- * sewa modal wajib dibayar penuh (half-up rupiah).
+ * Kalkulasi satu periode simulasi gadai (bukan mutasi atau bukti pembayaran):
+ * - Bila `bayarHanyaSewa`: ilustrasikan sewa modal saja + perpanjangan tenor.
+ * - Selain itu: ilustrasikan cicil pokok ditambah sewa modal.
+ * Validasi: cicilan simulasi tidak melebihi sisa pokok tercatat.
  */
 export function rencanaBayarGadai(
   sisaPokok: Rupiah,
@@ -142,7 +141,7 @@ export function rencanaBayarGadai(
     throw new Error("Sisa pokok tidak valid.");
   }
   if (sisaPokok === 0) {
-    throw new Error("Pokok simulasi sudah lunas; status ledger tidak membuktikan penyimpanan atau pengembalian barang.");
+    throw new Error("Pokok simulasi sudah habis pada hitungan; status ledger tidak membuktikan pembayaran, penyimpanan, atau pengembalian barang.");
   }
   const sewa = sewaModalBerikutnya(sisaPokok, persenSewaModal);
 
@@ -154,7 +153,7 @@ export function rencanaBayarGadai(
     }
     if (minta > sisaPokok) {
       throw new Error(
-        `Cicilan melebihi sisa pokok simulasi ${sisaPokok}. Maksimal pencatatan ${sisaPokok}.`,
+        `Cicilan melebihi sisa pokok simulasi ${sisaPokok}. Maksimal simulasi ${sisaPokok}.`,
       );
     }
     cicil = minta;
@@ -171,7 +170,7 @@ export function rencanaBayarGadai(
   };
 }
 
-/** Simulasi tabel angsuran (untuk widget kalkulator & jadwal): N periode. */
+/** Proyeksi tabel simulasi (untuk kalkulator/jadwal): N periode, tanpa mutasi ledger. */
 export interface GadaiJadwalRow {
   periode: number;
   sisaPokokAwal: Rupiah;
@@ -182,9 +181,9 @@ export interface GadaiJadwalRow {
 }
 
 /**
- * Proyeksi jadwal bila Peminjam mencicil pokok `cicilPerPeriode` setiap
- * 30 hari (berhenti saat lunas). Untuk tampilan edukasi — keputusan nyata
- * tetap per periode nyata oleh Peminjam.
+ * Proyeksi jadwal jika pokok `cicilPerPeriode` diasumsikan berkurang setiap
+ * 30 hari (berhenti saat habis). Hanya ilustrasi; bukan tagihan atau rencana
+ * pembayaran yang diproses.
  */
 export function proyeksiJadwalGadai(
   pokok: Rupiah,

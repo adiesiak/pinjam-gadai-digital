@@ -62,7 +62,7 @@ export const setPendanaanGadai = mutation({
   },
 });
 
-/** Dana gadai belum dapat dicairkan sampai Xendit terintegrasi dan settlement diverifikasi. */
+/** Pencairan gadai ditutup sampai ada izin dan settlement terverifikasi. */
 export const cairkanGadai = mutation({
   args: { pawnId: v.id("pawns") },
   handler: async (ctx) => {
@@ -71,7 +71,7 @@ export const cairkanGadai = mutation({
   },
 });
 
-/** Ringkasan kewajiban gadai dan riwayat yang sudah ada. */
+/** Ringkasan historis ledger gadai; angka/status turunan tidak membuktikan transaksi atau custody fisik. */
 export const myGadaiBilling = query({
   args: { pawnId: v.id("pawns") },
   handler: async (ctx, args) => {
@@ -88,7 +88,8 @@ export const myGadaiBilling = query({
       persenSewaModal: persen,
       sisaPokok: sisa,
       sewaModalBerikut: sewaModalBerikutnya(sisa, persen),
-      custody: sisa <= 0 ? ("SIAP_DIAMBIL" as const) : ("DALAM_VAULT" as const),
+      custody: "TIDAK_DIVERIFIKASI" as const,
+      statusTurunanLedger: sisa <= 0 ? ("SIAP_DIAMBIL" as const) : ("DALAM_VAULT" as const),
       statusPawn: pawn.status,
       dicairkanPada: pawn.dicairkanPada ?? null,
       danaBersihDiterima: quote.danaBersihDitransfer,
@@ -119,7 +120,7 @@ export const bayarGadai = mutation({
   },
 });
 
-/** Kalkulator murni; hasilnya ilustrasi, bukan pembayaran atau perubahan custody. */
+/** Kalkulator murni; hasilnya ilustrasi ledger, bukan pembayaran atau bukti custody fisik. */
 export const simulasiCicilGadai = query({
   args: {
     pawnId: v.id("pawns"),
@@ -142,7 +143,8 @@ export const simulasiCicilGadai = query({
       totalBayar: cicil + sewa,
       sisaPokokSetelah: sisaSetelah,
       sewaSetelah: sewaModalBerikutnya(sisaSetelah, persen),
-      custody: sisaSetelah <= 0 ? ("SIAP_DIAMBIL" as const) : ("DALAM_VAULT" as const),
+      custody: "TIDAK_DIVERIFIKASI" as const,
+      statusTurunanLedger: sisaSetelah <= 0 ? ("SIAP_DIAMBIL" as const) : ("DALAM_VAULT" as const),
     };
   },
 });

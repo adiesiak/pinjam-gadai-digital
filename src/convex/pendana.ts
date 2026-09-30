@@ -164,7 +164,7 @@ function ringkasPinjaman(loan: {
         sisaPokok: c.sisaPokok,
       })),
       catatanJadwal:
-        "Pelunasan aktual dicatat sekaligus pada akhir tenor; rincian bulanan hanya simulasi.",
+        "Proyeksi internal mengasumsikan pelunasan sekaligus pada akhir tenor; seluruh rincian hanya simulasi dan bukan tagihan.",
     };
   }
   const q = quoteLoan(loan.pokokPinjaman);
@@ -193,7 +193,7 @@ function ringkasPinjaman(loan: {
       },
     ],
     simulasiCicilanBulanan: [],
-    catatanJadwal: "Satu kali pelunasan penuh pada akhir tenor.",
+    catatanJadwal: "Proyeksi satu kali pelunasan simulasi pada akhir tenor; bukan tagihan atau bukti transaksi.",
   };
 }
 

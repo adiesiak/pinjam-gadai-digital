@@ -443,18 +443,17 @@ const schema = defineSchema(
     }).index("by_waktu", ["waktu"]),
 
     /**
-     * Pengajuan penggadaian barang.
-     * Barang dinilai petugas berwenang melalui kunjungan dengan live location
-     * wajib; nilai taksiran dan keputusan diisi oleh reviewer (admin), bukan
-     * oleh Peminjam.
+     * Catatan pengajuan penggadaian barang. Taksiran dan keputusan disimpan
+     * sebagai input/review internal dan bukan verifikasi lokasi, kondisi,
+     * kepemilikan, penerimaan, atau penitipan fisik.
      */
     pawns: defineTable({
       userId: v.id("users"),
-      /** Deskripsi barang yang digadaikan. */
+      /** Deskripsi barang yang dicantumkan pemohon (tidak otomatis diverifikasi). */
       deskripsiBarang: v.string(),
       /** Kategori barang. */
       kategori: v.string(),
-      /** Alamat lokasi barang saat pemeriksaan. */
+      /** Alamat yang dilaporkan pemohon; bukan lokasi yang terverifikasi. */
       alamatPenilaian: v.string(),
       /** Nama lengkap sesuai KTP. */
       namaLengkap: v.string(),
@@ -468,9 +467,9 @@ const schema = defineSchema(
       nilaiTaksiran: v.optional(v.number()),
       /** Harga pasar barang untuk kalkulasi LTV (maks 70%). */
       hargaPasar: v.optional(v.number()),
-      /** Kondisi fisik barang menurut petugas penilai. */
+      /** Catatan kondisi fisik yang dimasukkan reviewer; bukan bukti pemeriksaan aplikasi. */
       kondisiFisik: v.optional(v.string()),
-      /** Kode rak penyimpanan di gudang brankas (mis. "A-12"). */
+      /** Kode referensi lokasi internal; bukan bukti gudang atau penitipan fisik. */
       kodeRakVault: v.optional(v.string()),
       /** Foto barang dari petugas (Convex storage). */
       fotoBarangId: v.optional(v.id("_storage")),
@@ -484,7 +483,7 @@ const schema = defineSchema(
       persenSewaModal: v.optional(v.number()),
       /** Sisa pokok berjalan (decreasing principal) — rupiah bulat. */
       sisaPokok: v.optional(v.number()),
-      /** Terisi saat admin mencairkan dana bersih 99% ke Peminjam. */
+      /** Timestamp legacy; nilainya bukan bukti pencairan atau settlement. */
       dicairkanPada: v.optional(v.number()),
       /** Tanda tangan elektronik Peminjam pada akad gadai (data URL PNG). */
       tandaTanganPeminjam: v.optional(v.string()),
@@ -499,9 +498,9 @@ const schema = defineSchema(
       .index("by_status", ["status"]),
 
     /**
-     * Pembayaran gadai (cicil pokok / sewa modal per 30 hari) — APPEND-ONLY.
-     * Satu baris per pembayaran; sisa pokok dihitung dari akumulasi baris ini.
-     * Sisa pokok mencapai Rp0 → barang berstatus SIAP_DIAMBIL dari Vault.
+     * Catatan historis cicilan gadai — APPEND-ONLY. Baris lama dipertahankan
+     * sebagai jejak ledger internal; tidak membuktikan settlement atau status
+     * penitipan/pengembalian barang secara fisik.
      */
     pawnPayments: defineTable({
       pawnId: v.id("pawns"),

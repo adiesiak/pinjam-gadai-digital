@@ -19,22 +19,22 @@ import { formatRupiah, parseRupiah } from "@/lib/money";
 
 import { EmptyQueue, QueueRow, formatDate, type LoanRow } from "./admin-shared";
 
-export function PencairanTab({ onOpen }: { onOpen: (l: LoanRow) => void }) {
+export function LoanAllocationQueueTab({ onOpen }: { onOpen: (l: LoanRow) => void }) {
   const overview = useQuery(api.admin.adminOverview);
   if (overview === undefined) {
     return <div className="flex items-center gap-2 py-10 text-sm text-muted-foreground"><Loader2 className="size-4 animate-spin" /> Memuat…</div>;
   }
-  const antrean = overview.loans.filter((l) => l.status === "disetujui");
-  if (antrean.length === 0) {
-    return <EmptyQueue icon={Wallet} title="Tidak ada catatan pinjaman menunggu tinjauan ledger" />;
+  const pinjamanDisetujui = overview.loans.filter((l) => l.status === "disetujui");
+  if (pinjamanDisetujui.length === 0) {
+    return <EmptyQueue icon={Wallet} title="Tidak ada pengajuan berstatus disetujui internal" />;
   }
   return (
     <div className="space-y-3">
       <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900">
-        Status disetujui hanya status aplikasi. Baris di bawah menampilkan hitungan simulasi dan data rekening yang dimasukkan; tidak ada pencairan atau transfer dari tindakan ini.
+        Daftar ini hanya menampilkan keputusan review internal dan hitungan simulasi. Persetujuan admin bukan instruksi atau bukti pembayaran; tidak ada pencairan maupun transfer yang diproses.
       </p>
       <ul className="divide-y divide-slate-200 rounded-2xl border border-slate-200 bg-white">
-        {antrean.map((l) => (
+        {pinjamanDisetujui.map((l) => (
           <li key={l._id}>
             <QueueRow
               reference={l.nomorReferensi}
