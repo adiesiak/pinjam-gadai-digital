@@ -16,6 +16,7 @@ import {
   Settings2,
   ShieldCheck,
   ShoppingBag,
+  PanelsTopLeft,
   Wallet,
 } from "lucide-react";
 
@@ -29,6 +30,7 @@ import { DpdTab, LedgerTab, LelangTab, PencairanTab } from "@/components/admin/O
 import { SystemConfigPanel } from "@/components/admin/SystemConfigPanel";
 import { PlafonPanel } from "@/components/admin/PlafonPanel";
 import { WhatsAppPanel } from "@/components/admin/WhatsAppPanel";
+import { WebsiteTemplatePanel } from "@/components/admin/WebsiteTemplatePanel";
 import {
   type KreditRow,
   type LoanRow,
@@ -79,6 +81,7 @@ export function AdminTabs({
     ["lelang", "Simulasi lelang jaminan", null, Gavel],
     ["ledger", "Ledger internal", ledger?.seimbang ? "OK" : "!", Landmark],
     ["backup", "Backup & Keamanan", null, Database],
+    ["template", "Template Website", null, PanelsTopLeft],
     ["config", "Pengaturan Sistem", null, Settings2],
     ["audit", "Audit Trail", null, Lock],
     ["loglogin", "Keamanan Login", null, ShieldCheck],
@@ -188,6 +191,10 @@ export function AdminTabs({
 
       <TabsContent value="backup" className="min-w-0 flex-1">
         <BackupPanel />
+      </TabsContent>
+
+      <TabsContent value="template" className="min-w-0 flex-1">
+        <WebsiteTemplatePanel />
       </TabsContent>
 
       <TabsContent value="config" className="min-w-0 flex-1">

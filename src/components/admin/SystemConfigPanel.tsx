@@ -1,18 +1,11 @@
 import { useMutation, useQuery } from "convex/react";
-import { Loader2, MapPin, Palette, Settings2 } from "lucide-react";
+import { Loader2, MapPin, Settings2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { api } from "@/convex/_generated/api";
 import { formatRupiah } from "@/lib/money";
@@ -20,8 +13,6 @@ import { clampPlafon, PLAFON_BATAS } from "@/lib/plafon";
 import {
   DEFAULT_CONFIG,
   RETENSI_LOKASI_BATAS,
-  THEME_PRESETS,
-  type ThemePreset,
 } from "@/lib/system-config";
 
 export function SystemConfigPanel() {
@@ -44,31 +35,6 @@ export function SystemConfigPanel() {
         <p className="flex items-center gap-2 text-sm font-semibold text-navy">
           <Settings2 className="size-4 text-primary" /> Asumsi Perhitungan &amp; Pengaturan Akses
         </p>
-        <div className="space-y-2">
-          <Label htmlFor="cfg-theme" className="flex items-center gap-2">
-            <Palette className="size-4 text-primary" /> Tema aplikasi
-          </Label>
-          <Select
-            value={form.tema}
-            onValueChange={(value) => {
-              if (THEME_PRESETS.includes(value as ThemePreset)) {
-                upd("tema", value as ThemePreset);
-              }
-            }}
-          >
-            <SelectTrigger id="cfg-theme" className="w-full">
-              <SelectValue placeholder="Pilih tema" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="tinta">Tinta · hijau tua & kuningan</SelectItem>
-              <SelectItem value="pesisir">Pesisir · biru laut</SelectItem>
-              <SelectItem value="terakota">Terakota · tanah hangat</SelectItem>
-            </SelectContent>
-          </Select>
-          <p className="text-xs leading-5 text-muted-foreground">
-            Pilihan ini diterapkan kepada semua pengunjung dan pengguna aplikasi.
-          </p>
-        </div>
         <div className="grid grid-cols-3 gap-3">
           {(["persenAdmin", "persenPlatform", "persenBunga"] as const).map((k) => (
             <div key={k}>

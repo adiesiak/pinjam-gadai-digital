@@ -6,7 +6,9 @@ import { requireAdminSession } from "./adminAuthz";
 import {
   DEFAULT_CONFIG,
   RETENSI_LOKASI_BATAS,
+  THEME_PRESETS,
   type SystemConfig,
+  type ThemePreset,
 } from "../lib/system-config";
 import { clampPlafon } from "../lib/plafon";
 
@@ -174,6 +176,39 @@ export const saveConfig = mutation({
       args.killSwitch !== prev.killSwitch
         ? `Kill switch ${args.killSwitch ? "DIAKTIFKAN" : "DINONAKTIFKAN"}`
         : "Konfigurasi sistem diperbarui",
+    );
+    return { ok: true };
+  },
+});
+
+/** Pilih template/tema visual website untuk seluruh pengunjung. */
+export const setWebsiteTemplate = mutation({
+  args: { tema: v.union(v.literal("tinta"), v.literal("pesisir"), v.literal("terakota")) },
+  handler: async (ctx, { tema }) => {
+    const { userId, user } = await requireAdmin(ctx);
+    if (!(THEME_PRESETS as readonly string[]).includes(tema)) {
+      throw new Error("Template website tidak valid.");
+    }
+    const existing = await ctx.db
+      .query("systemConfig")
+      .withIndex("by_slot", (q) => q.eq("slot", SYSTEM_SLOT))
+      .first();
+    if (existing === null) {
+      await ctx.db.insert("systemConfig", {
+        slot: SYSTEM_SLOT,
+        tema: tema as ThemePreset,
+        diperbaruiPada: Date.now(),
+      });
+    } else {
+      await ctx.db.patch(existing._id, { tema: tema as ThemePreset, diperbaruiPada: Date.now() });
+    }
+    await audit(
+      ctx,
+      userId,
+      user.email ?? user.name ?? "admin",
+      "template_website",
+      "Website publik",
+      `Template warna website diubah menjadi ${tema}.`,
     );
     return { ok: true };
   },
