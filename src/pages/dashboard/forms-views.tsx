@@ -659,22 +659,27 @@ export function LoanForm({ onCreated }: { onCreated: (ref: string) => void }) {
             <Label htmlFor="wa">Nomor WhatsApp</Label>
             <Input id="wa" inputMode="tel" autoComplete="tel" required aria-required="true" aria-invalid={error !== null && nomorWhatsApp.replace(/\D/g, "").length < 8} aria-describedby={error !== null && nomorWhatsApp.replace(/\D/g, "").length < 8 ? "loan-form-error" : undefined} value={nomorWhatsApp} onChange={(e) => setNomorWhatsApp(e.target.value.replace(/[^\d+]/g, ""))} placeholder="6281234567890" className="tabular-nums" disabled={submitting} />
           </div>
-          <div>
-            <p id="penghasilan-label" className="text-sm font-medium">Penghasilan per bulan</p>
-            <Slider
-              className="mt-3"
-              aria-labelledby="penghasilan-label"
-              aria-label="Penghasilan per bulan dalam rupiah"
-              aria-describedby="penghasilan-value"
-              aria-valuetext={formatRupiah(penghasilan)}
-              value={[penghasilan]}
+          <div className="space-y-2">
+            <Label htmlFor="penghasilan">Penghasilan per bulan</Label>
+            <Input
+              id="penghasilan"
+              type="number"
+              inputMode="numeric"
               min={500_000}
               max={100_000_000}
-              step={100_000}
-              onValueChange={(v) => setPenghasilan(v[0] ?? 500_000)}
+              step={1}
+              value={penghasilan}
+              onChange={(e) => setPenghasilan(e.target.value === "" ? 0 : Number(e.target.value))}
+              placeholder="5000000"
+              className="tabular-nums"
+              required
+              aria-required="true"
+              aria-invalid={error !== null && (!Number.isSafeInteger(penghasilan) || penghasilan < 500_000 || penghasilan > 100_000_000)}
+              aria-describedby="penghasilan-value"
+              disabled={submitting}
             />
-            <p id="penghasilan-value" className="mt-1 text-sm font-semibold tabular-nums text-primary">
-              {formatRupiah(penghasilan)}
+            <p id="penghasilan-value" className="text-xs text-muted-foreground">
+              Masukkan nominal rupiah.              {penghasilan > 0 && Number.isSafeInteger(penghasilan) ? formatRupiah(penghasilan) : ""}
             </p>
           </div>
           <div>
