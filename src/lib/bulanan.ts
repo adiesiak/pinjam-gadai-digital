@@ -31,22 +31,36 @@ import { isRupiah, percentOf, type Rupiah } from "./money";
 /** Pilihan tenor bulanan resmi skema ini (bulan). */
 export const TENOR_BULANAN_OPTIONS = [1, 3, 6] as const;
 
+/**
+ * Tenor default yang memakai biaya admin 2% + platform 3% dari pokok
+ * (dipotong di muka). Tenor di luar daftar ini memakai biaya layanan 3%.
+ * Skema kredit barang menyeragamkan seluruh tenor resminya lewat opsi
+ * `tenorBiayaAdminPlatform` pada hitungSimulasiBulanan.
+ */
+export const TENOR_BIAYA_ADMIN_PLATFORM_DEFAULT = [3, 6] as const;
+
+/** Opsi biaya skema bulanan (dipakai skema kredit barang). */
+export interface OpsiBiayaBulanan {
+  /** Tenor yang memakai biaya admin 2% + platform 3% dipotong di muka. */
+  tenorBiayaAdminPlatform?: readonly number[];
+}
+
 export const BULANAN_PRICING = {
   /** Uang muka 0% — seluruh harga/pokok dibiayai. */
   dpPersen: 0,
   /** Biaya layanan untuk tenor selain 3 dan 6 bulan (dipotong di muka). */
   biayaLayananPersen: 3,
-  /** Biaya admin untuk tenor 3 dan 6 bulan (dipotong di muka). */
-  biayaAdminPersenTenor3_6: 2,
-  /** Biaya platform untuk tenor 3 dan 6 bulan (dipotong di muka). */
-  biayaPlatformPersenTenor3_6: 3,
-  /** Total biaya tenor 3/6 = admin 2% + platform 3% = 5%, dipotong di muka. */
+  /** Total biaya tenor yang memakai admin + platform = 2% + 3% = 5%. */
   biayaTenor3_6Persen: 5,
   /**
    * Biaya admin layanan yang dibayar bersama SETIAP cicilan (% dari nominal
    * cicilan pokok + bunga). Berlaku pada tenor 3 dan 6 bulan.
    */
   biayaAdminCicilanPersen: 2,
+  /** Biaya admin (% pokok) pada tenor yang memakai admin + platform di muka. */
+  biayaAdminPersen: 2,
+  /** Biaya platform (% pokok) pada tenor yang memakai admin + platform di muka. */
+  biayaPlatformPersen: 3,
   /** Bunga tenor 1 bulan (%/bulan, flat dari pokok penuh). */
   bungaTenor1PersenPerBulan: 30,
   /** Bunga tenor 3–5 bulan (%/bulan, flat dari pokok penuh). */
@@ -204,6 +218,7 @@ export function assertSimulasiBulananValid(pokok: Rupiah, tenorBulan: number): v
 export function hitungSimulasiBulanan(
   pokok: Rupiah,
   tenorBulan: number,
+  opsi: OpsiBiayaBulanan = {},
 ): SimulasiBulanan {
   if (!isRupiah(pokok) || pokok <= 0) {
     throw new Error("Pokok harus rupiah bulat positif (tanpa desimal).");
@@ -228,12 +243,14 @@ export function hitungSimulasiBulanan(
   // Tenor flat: bunga selalu dihitung dari pokok penuh.
   const bungaPerBulan = percentOf(pokokDibiayai, persen);
   const bungaFlatPerBulan = metode === "flat" ? bungaPerBulan : 0;
-  const tenorAdminPlatform = tenorBulan === 3 || tenorBulan === 6;
+  const tenorAdminPlatform = (
+    opsi.tenorBiayaAdminPlatform ?? TENOR_BIAYA_ADMIN_PLATFORM_DEFAULT
+  ).includes(tenorBulan);
   const biayaAdminTotal = tenorAdminPlatform
-    ? percentOf(pokokDibiayai, BULANAN_PRICING.biayaAdminPersenTenor3_6)
+    ? percentOf(pokokDibiayai, BULANAN_PRICING.biayaAdminPersen)
     : 0;
   const biayaPlatformTotal = tenorAdminPlatform
-    ? percentOf(pokokDibiayai, BULANAN_PRICING.biayaPlatformPersenTenor3_6)
+    ? percentOf(pokokDibiayai, BULANAN_PRICING.biayaPlatformPersen)
     : 0;
   const biayaLayananTotal = tenorAdminPlatform
     ? biayaAdminTotal + biayaPlatformTotal

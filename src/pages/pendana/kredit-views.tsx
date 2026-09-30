@@ -25,6 +25,7 @@ import {
   KREDIT_ASUMSI_AWAL,
   KREDIT_BARANG_POKOK_MAKS,
   KREDIT_PRICING,
+  KREDIT_TENOR_BIAYA_ADMIN_PLATFORM,
   KREDIT_TENOR_PENGAJUAN_OPTIONS,
   quoteKreditBarang,
   skemaBulananKredit,
@@ -392,24 +393,24 @@ function KalkulatorKreditSection() {
                     value={formatRupiah(quote.pokokDibiayai)}
                     hint={`Batas pokok pada model pengajuan baru ${formatRupiah(KREDIT_BARANG_POKOK_MAKS)}`}
                   />
-                  {tenorBulan === 3 || tenorBulan === 6 ? (
+                  {KREDIT_TENOR_BIAYA_ADMIN_PLATFORM.includes(tenorBulan) ? (
                     <>
                       <Baris label="Biaya admin (2%)" value={formatRupiah(quote.biayaAdmin)} hint="Dipotong di muka dari dana yang diterima" />
                       <Baris label="Biaya platform (3%)" value={formatRupiah(quote.biayaPlatform)} hint="Dipotong di muka dari dana yang diterima" />
                       <Baris label="Total biaya tenor (5%)" value={formatRupiah(quote.biayaLayanan)} hint="Asumsi perhitungan aplikasi" />
-                      <Baris
-                        label="Biaya admin cicilan (2% per bayar)"
-                        value={formatRupiah(quote.biayaAdminCicilanTotal)}
-                        hint="Dibayar bersama setiap cicilan"
-                      />
+                      {(tenorBulan === 3 || tenorBulan === 6) && (
+                        <Baris
+                          label="Biaya admin cicilan (2% per bayar)"
+                          value={formatRupiah(quote.biayaAdminCicilanTotal)}
+                          hint="Dibayar bersama setiap cicilan"
+                        />
+                      )}
                     </>
                   ) : (
                     <Baris
-                    label={tenorBulan === 1
-                      ? "Biaya layanan (3%, di muka)"
-                      : `Biaya layanan (${persenId(KREDIT_PRICING.biayaLayananPersen)}%, di muka)`}
+                    label={`Biaya layanan (${persenId(KREDIT_PRICING.biayaLayananPersen)}%, di muka)`}
                     value={formatRupiah(quote.biayaLayanan)}
-                    hint="Asumsi perhitungan aplikasi"
+                    hint="Asumsi perhitungan aplikasi (kontrak lama)"
                     />
                   )}
                   <Baris
@@ -523,8 +524,6 @@ function KalkulatorKreditSection() {
                       <th scope="col" className="pb-2 text-right font-medium">Admin</th>
                       <th scope="col" className="pb-2 text-right font-medium">Platform</th>
                     </>
-                  ) : bulanan ? (
-                    <th scope="col" className="pb-2 text-right font-medium">Biaya layanan</th>
                   ) : null}
                   <th scope="col" className="pb-2 text-right font-medium">
                     Cicilan
@@ -547,8 +546,6 @@ function KalkulatorKreditSection() {
                         <td className="py-2 text-right">{formatRupiah(row.biayaAdmin)}</td>
                         <td className="py-2 text-right">{formatRupiah(row.biayaPlatform)}</td>
                       </>
-                    ) : bulanan ? (
-                      <td className="py-2 text-right">{formatRupiah(row.biayaLayanan)}</td>
                     ) : null}
                     <td className="py-2 text-right font-medium">{formatRupiah(row.total)}</td>
                     <td className="py-2 text-right text-muted-foreground">
@@ -699,21 +696,23 @@ function PeluangKreditCard({ row }: { row: PeluangKredit }) {
       <section className="mt-3 rounded-xl border border-slate-200 px-3 py-3 text-xs">
         <h3 className="font-semibold">Perkiraan biaya dan kewajiban pengajuan</h3>
         <dl className="mt-2 space-y-1.5">
-          {row.tenorBulan === 3 || row.tenorBulan === 6 ? (
+          {KREDIT_TENOR_BIAYA_ADMIN_PLATFORM.includes(row.tenorBulan) ? (
             <>
               <Baris label="Biaya admin 2% (dipotong di muka)" value={formatRupiah(row.biayaAdmin)} />
               <Baris label="Biaya platform 3% (dipotong di muka)" value={formatRupiah(row.biayaPlatform)} />
               <Baris label="Total biaya tenor 5%" value={formatRupiah(row.biayaLayanan)} />
-              <Baris
-                label="Biaya admin cicilan 2% per bayar"
-                value={formatRupiah(row.biayaAdminCicilanTotal)}
-                hint="Dibayar bersama setiap cicilan; nominalnya sudah termasuk di kolom cicilan"
-              />
+              {(row.tenorBulan === 3 || row.tenorBulan === 6) && (
+                <Baris
+                  label="Biaya admin cicilan 2% per bayar"
+                  value={formatRupiah(row.biayaAdminCicilanTotal)}
+                  hint="Dibayar bersama setiap cicilan; nominalnya sudah termasuk di kolom cicilan"
+                />
+              )}
               <Baris label="Biaya tenor per bulan" value={formatRupiah(row.biayaLayananPerBulan)} hint="Nol: biaya tidak diangsur, dipotong di muka" />
             </>
           ) : (
             <>
-              <Baris label="Total biaya layanan" value={formatRupiah(row.biayaLayanan)} />
+              <Baris label="Total biaya layanan (kontrak lama)" value={formatRupiah(row.biayaLayanan)} />
               <Baris
                 label={row.biayaLayananDiMuka > 0 ? "Asumsi potongan biaya layanan di muka" : "Biaya layanan per bulan (rata-rata)"}
                 value={formatRupiah(row.biayaLayananDiMuka > 0 ? row.biayaLayananDiMuka : row.biayaLayananPerBulan)}
@@ -737,9 +736,9 @@ function PeluangKreditCard({ row }: { row: PeluangKredit }) {
               </div>
               <p className="mt-1 text-right text-muted-foreground">
                 Pokok {formatRupiah(cicilan.pokok)} · Imbal Hasil {formatRupiah(cicilan.imbalHasil)}
-                {row.tenorBulan === 3 || row.tenorBulan === 6
-                  ? ` · admin ${formatRupiah(cicilan.biayaAdmin)} · platform ${formatRupiah(cicilan.biayaPlatform)}`
-                  : ` · layanan ${formatRupiah(cicilan.biayaLayanan)}`}
+                {cicilan.biayaAdmin > 0
+                  ? ` · admin cicilan ${formatRupiah(cicilan.biayaAdmin)}`
+                  : ""}
               </p>
             </li>
           ))}
@@ -856,7 +855,11 @@ function PortofolioKreditSection() {
                   </dd>
                 </div>
                 <div className="flex items-baseline justify-between gap-4">
-                  <dt className="text-muted-foreground">{f.tenorBulan === 3 || f.tenorBulan === 6 ? "Total biaya tenor (admin 2% + platform 3%)" : "Total biaya layanan"}</dt>
+                  <dt className="text-muted-foreground">
+                    {KREDIT_TENOR_BIAYA_ADMIN_PLATFORM.includes(f.tenorBulan)
+                      ? "Total biaya tenor (admin 2% + platform 3%)"
+                      : "Total biaya layanan (kontrak lama)"}
+                  </dt>
                   <dd className="tabular-nums">{f.biayaLayanan !== null ? formatRupiah(f.biayaLayanan) : "Tidak tersedia"}</dd>
                 </div>
                 <div className="flex items-baseline justify-between gap-4">
@@ -879,8 +882,8 @@ function PortofolioKreditSection() {
               <section className="mt-4 rounded-xl border border-slate-200 px-3 py-3 text-xs">
                 <h3 className="font-semibold">Ilustrasi jadwal dan perincian</h3>
                 <p className="mt-1 text-muted-foreground">
-                  {f.tenorBulan === 3 || f.tenorBulan === 6
-                    ? `Biaya admin 2% (${formatRupiah(f.biayaAdmin)}) dan platform 3% (${formatRupiah(f.biayaPlatform)}) dipotong di muka; setiap cicilan ditambah biaya admin 2% dari nominal cicilan (${formatRupiah(f.biayaAdminCicilanTotal)} selama tenor).`
+                  {KREDIT_TENOR_BIAYA_ADMIN_PLATFORM.includes(f.tenorBulan)
+                    ? `Biaya admin 2% (${formatRupiah(f.biayaAdmin)}) dan platform 3% (${formatRupiah(f.biayaPlatform)}) dipotong di muka${f.biayaAdminCicilanTotal > 0 ? `; setiap cicilan ditambah biaya admin 2% dari nominal cicilan (${formatRupiah(f.biayaAdminCicilanTotal)} selama tenor)` : ""}.`
                     : f.biayaLayananDiMuka !== null && f.biayaLayananDiMuka > 0
                       ? `Biaya layanan ${formatRupiah(f.biayaLayananDiMuka)} dihitung di muka dalam model; tidak ada penagihan.`
                       : `Biaya layanan per bulan rata-rata ${formatRupiah(f.biayaLayananPerBulan)} dihitung dalam model; tidak ada penagihan.`}
@@ -899,9 +902,9 @@ function PortofolioKreditSection() {
                         <span className="shrink-0 font-semibold tabular-nums">{formatRupiah(cicilan.total)}</span>
                       </div>
                       <p className="mt-1 text-right text-muted-foreground">
-                        {f.tenorBulan === 3 || f.tenorBulan === 6
-                          ? `Biaya admin ${formatRupiah(cicilan.biayaAdmin)} · platform ${formatRupiah(cicilan.biayaPlatform)}`
-                          : `Biaya layanan ${formatRupiah(cicilan.biayaLayanan)}`}
+                        {cicilan.biayaAdmin > 0
+                          ? `Biaya admin cicilan 2% ${formatRupiah(cicilan.biayaAdmin)}`
+                          : "Biaya tenor dipotong di muka; tanpa biaya tambahan per cicilan."}
                       </p>
                     </li>
                   ))}

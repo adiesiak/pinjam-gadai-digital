@@ -5,7 +5,11 @@ import { v } from "convex/values";
 import { ROLES } from "./schema";
 import { DEFAULT_TENOR_HARI, pelunasanPinjaman, quoteLoan } from "../lib/loan";
 import { hitungSimulasiBulanan, TENOR_BULANAN_OPTIONS } from "../lib/bulanan";
-import { hakImbalHasilPerAlokasi, quoteKreditBarang } from "../lib/kredit";
+import {
+  hakImbalHasilPerAlokasi,
+  KREDIT_TENOR_BIAYA_ADMIN_PLATFORM,
+  quoteKreditBarang,
+} from "../lib/kredit";
 import { formatRupiah, type Rupiah } from "../lib/money";
 import { hitungBiayaPencairan } from "../lib/withdrawal";
 import { appendJournal, pendanaWalletBalance } from "./ledger";
@@ -906,7 +910,9 @@ export const marketplaceKredit = query({
       const simulasiBulanan = (
         TENOR_BULANAN_OPTIONS as readonly number[]
       ).includes(k.tenorBulan)
-        ? hitungSimulasiBulanan(quote.pokokDibiayai, k.tenorBulan)
+        ? hitungSimulasiBulanan(quote.pokokDibiayai, k.tenorBulan, {
+            tenorBiayaAdminPlatform: KREDIT_TENOR_BIAYA_ADMIN_PLATFORM,
+          })
         : null;
       const jadwalPembayaran = quote.jadwal.map((c) => ({
         bulan: c.bulan,
@@ -951,7 +957,7 @@ export const marketplaceKredit = query({
         catatanJadwal:
           simulasiBulanan === null
             ? "Biaya layanan dibayar di muka dan tidak termasuk dalam jumlah cicilan bulanan."
-            : "Biaya admin 2% + platform 3% (tenor 3/6) atau layanan 3% (tenor 1) dipotong di muka; tenor 3 dan 6 bulan dikenai tambahan biaya admin 2% dari nominal cicilan yang dibayar bersama setiap cicilan.",
+            : "Biaya admin 2% + platform 3% dari pokok dipotong di muka untuk seluruh tenor 1/3/6 bulan; tenor 3 dan 6 bulan dikenai tambahan biaya admin 2% dari nominal cicilan yang dibayar bersama setiap cicilan.",
         terkumpul,
         sisaKebutuhan: quote.pokokDibiayai - terkumpul,
       });
@@ -1078,8 +1084,8 @@ export const alokasiKreditBarang = mutation({
       });
 
       // Biaya layanan platform — margin platform, dibayar DI MUKA pada semua
-      // tenor: tenor 12/24 layanan 3% dari pokok dibiayai; tenor bulanan
-      // 1/3/6 admin 2% + platform 3% (tenor 3/6) atau layanan 3% (tenor 1).
+      // tenor: kontrak warisan 12/24 layanan 3% dari pokok dibiayai; tenor
+      // resmi 1/3/6 admin 2% + platform 3% dari pokok.
       // Tidak ada biaya yang diamortisasi ke cicilan.
       const bayarFeeDiMuka = true;
       if (bayarFeeDiMuka) {
@@ -1173,7 +1179,9 @@ export const myKreditFundings = query({
       const simulasiBulanan =
         quote !== null &&
         (TENOR_BULANAN_OPTIONS as readonly number[]).includes(kredit.tenorBulan)
-          ? hitungSimulasiBulanan(quote.pokokDibiayai, kredit.tenorBulan)
+          ? hitungSimulasiBulanan(quote.pokokDibiayai, kredit.tenorBulan, {
+              tenorBiayaAdminPlatform: KREDIT_TENOR_BIAYA_ADMIN_PLATFORM,
+            })
           : null;
       const jadwalPembayaran =
         quote?.jadwal.map((c) => ({

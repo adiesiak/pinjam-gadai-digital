@@ -119,6 +119,24 @@ eq(
   "Σ pokok tenor 3 bulan tetap utuh",
 );
 
+// ---- Tenor 1 bulan: admin 2% + platform 3% dipotong di muka, tanpa admin cicilan ----
+const singkat = quoteKreditBarang({
+  hargaBarang: 10_000_000,
+  dpPersen: 0,
+  tenorBulan: 1,
+  marginPersenPerBulan: KREDIT_PRICING.marginMinPersenPerBulan,
+});
+eq(singkat.dp, 0, "tenor 1 bulan: DP 0 (skema bulanan)");
+eq(singkat.pokokDibiayai, 10_000_000, "tenor 1 bulan: pokok dibiayai = harga barang");
+eq(singkat.biayaAdmin, 200_000, "tenor 1 bulan: biaya admin 2% dari 10jt (dipotong di muka)");
+eq(singkat.biayaPlatform, 300_000, "tenor 1 bulan: biaya platform 3% dari 10jt (dipotong di muka)");
+eq(singkat.biayaLayanan, 500_000, "tenor 1 bulan: total biaya tenor 5% dari 10jt");
+eq(singkat.marginPerBulan, 3_000_000, "tenor 1 bulan: Imbal Hasil 30% dari 10jt");
+eq(singkat.marginTotal, 3_000_000, "tenor 1 bulan: total Imbal Hasil = bunga sebulan");
+eq(singkat.biayaAdminCicilanTotal, 0, "tenor 1 bulan: tanpa biaya admin cicilan");
+eq(singkat.cicilanPerBulan, 13_000_000, "tenor 1 bulan: cicilan = pokok + Imbal Hasil");
+eq(singkat.totalDibayarKonsumen, 13_500_000, "tenor 1 bulan: total Konsumen = 13jt + biaya 5% di muka");
+eq(singkat.jadwal.length, 1, "tenor 1 bulan: satu baris jadwal");
 // ---- Tenor 12 bulan pada Imbal Hasil minimum skema (DP + margin flat) ----
 const flatMin = quoteKreditBarang({
   hargaBarang: 10_000_000,
