@@ -84,7 +84,7 @@ export function SystemConfigPanel() {
           <div id="cfg-location-gate-label">
             <p className="text-sm font-medium text-emerald-900">Gerbang lokasi wajib</p>
             <p className="mt-0.5 text-xs text-muted-foreground">
-              Akses ke dashboard dan aksi pencatatan dapat dibatasi bila koordinat terbaru belum diterima server. Titik yang dilaporkan perangkat bukan verifikasi lokasi atau identitas; fitur ini tidak memproses pembayaran.
+              Akses ke dashboard dan aksi pencatatan dapat dibatasi bila koordinat terbaru belum diterima server. Titik yang dilaporkan perangkat bukan verifikasi lokasi atau identitas.
             </p>
           </div>
           <Switch aria-labelledby="cfg-location-gate-label" aria-label="Gerbang lokasi wajib" checked={form.lokasiWajib} onCheckedChange={(v) => upd("lokasiWajib", v)} />
@@ -118,7 +118,7 @@ export function SystemConfigPanel() {
             className="tabular-nums"
           />
           <p className="mt-1 text-xs leading-5 text-muted-foreground">
-            Plafon awal pinjaman tunai. Status lunas tepat waktu pada ledger untuk catatan pinjaman dengan pokok minimal Rp1 juta dapat menaikkan plafon dasar Rp1 juta, hingga Rp10 juta; status dan tanggal ini bukan bukti pembayaran aktual atau verifikasi eksternal. Override admin per nasabah didahulukan. Rentang {formatRupiah(PLAFON_BATAS.min)}–{formatRupiah(PLAFON_BATAS.maks)}. Batas kredit barang terpisah: pokok maksimal Rp10 juta, tenor pengajuan maksimal 6 bulan.
+            Plafon awal pinjaman tunai. Status lunas tepat waktu pada ledger untuk catatan pinjaman dengan pokok minimal Rp1 juta dapat menaikkan plafon dasar Rp1 juta, hingga Rp10 juta; status dan tanggal ini mengikuti pencatatan ledger internal. Override admin per nasabah didahulukan. Rentang {formatRupiah(PLAFON_BATAS.min)}–{formatRupiah(PLAFON_BATAS.maks)}. Batas kredit barang terpisah: pokok maksimal Rp10 juta, tenor pengajuan maksimal 6 bulan.
           </p>
         </div>
         <div>
@@ -153,7 +153,7 @@ export function SystemConfigPanel() {
           <div id="cfg-native-location-label">
             <p className="text-sm font-medium">Wajib aplikasi (lokasi latar belakang)</p>
             <p className="mt-0.5 text-xs leading-5 text-muted-foreground">
-              Akses ke fitur ini dapat dibatasi kecuali titik lokasi terakhir dilaporkan aplikasi resmi dan perangkat mengirim heartbeat dalam 24 jam terakhir. Titik perangkat bukan verifikasi lokasi fisik atau identitas dan kebijakan ini tidak memproses pembayaran. Pengguna browser akan ditolak walau pernah memasang aplikasi; tab browser yang dibiarkan terbuka tetap melaporkan titik dari browser. Browser tidak melacak lokasi setelah tab ditutup, jadi menyalakan kebijakan ini sebelum aplikasi Android/iOS dirilis akan memblokir akses pengguna web.
+              Akses ke fitur ini dapat dibatasi kecuali titik lokasi terakhir dilaporkan aplikasi resmi dan perangkat mengirim heartbeat dalam 24 jam terakhir. Titik perangkat bukan verifikasi lokasi fisik atau identitas. Pengguna browser akan ditolak walau pernah memasang aplikasi; tab browser yang dibiarkan terbuka tetap melaporkan titik dari browser. Browser tidak melacak lokasi setelah tab ditutup, jadi menyalakan kebijakan ini sebelum aplikasi Android/iOS dirilis akan memblokir akses pengguna web.
             </p>
           </div>
           <Switch

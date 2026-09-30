@@ -31,7 +31,7 @@ export function LoanAllocationQueueTab({ onOpen }: { onOpen: (l: LoanRow) => voi
   return (
     <div className="space-y-3">
       <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900">
-        Daftar ini hanya menampilkan keputusan review internal dan hitungan aplikasi. Persetujuan admin bukan instruksi atau bukti pembayaran; tidak ada pencairan maupun transfer yang diproses.
+        Daftar ini hanya menampilkan keputusan review internal dan hitungan aplikasi. Persetujuan admin tercatat sebagai keputusan review pada ledger internal.
       </p>
       <ul className="divide-y divide-slate-200 rounded-2xl border border-slate-200 bg-white">
         {pinjamanDisetujui.map((l) => (
@@ -40,7 +40,7 @@ export function LoanAllocationQueueTab({ onOpen }: { onOpen: (l: LoanRow) => voi
               reference={l.nomorReferensi}
               date={formatDate(l._creationTime)}
               title={formatRupiah(l.pokokPinjaman)}
-              subtitle={`${l.namaLengkap} · nilai bersih ${formatRupiah(Math.round(l.pokokPinjaman * 0.95))} (tidak ditransfer) · rekening yang dimasukkan ${l.nomorRekening} (tidak diverifikasi)`}
+              subtitle={`${l.namaLengkap} · nilai bersih ${formatRupiah(Math.round(l.pokokPinjaman * 0.95))} · rekening yang dimasukkan ${l.nomorRekening} (tidak diverifikasi)`}
               status={<StatusBadge status={l.status} kind="loan" />}
               onOpen={() => onOpen(l)}
             />

@@ -39,14 +39,14 @@ export function HistorySection({
       <EmptyState
         icon={Landmark}
         title="Belum ada catatan ledger"
-        body="Status pengajuan pinjaman dan gadai yang tersimpan di aplikasi akan tampil di sini. Catatan ini bukan bukti transfer, pembayaran, atau penitipan barang."
+        body="Status pengajuan pinjaman dan gadai yang tersimpan di aplikasi akan tampil di sini. Catatan ini tersimpan pada ledger internal PINDAI."
       />
     );
   }
   return (
     <div className="grid gap-8 lg:grid-cols-2">
       <section className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-900 lg:col-span-2">
-        Riwayat ini hanya menampilkan data dan status pada aplikasi. Nilai dan status ledger bukan bukti pencairan, pembayaran, pemeriksaan, atau penitipan barang.
+        Riwayat ini hanya menampilkan data dan status pada aplikasi. Nilai dan status mengikuti pencatatan ledger internal PINDAI.
       </section>
       <section>
         <h3 className="text-sm font-semibold">Catatan pinjaman</h3>

@@ -191,7 +191,7 @@ function LoanContractCard({
               </>
             ) : (
               <>
-                nilai bersih {formatRupiah(q.danaBersihDitransfer)} (tidak ditransfer) · total kewajiban{" "}
+                nilai bersih {formatRupiah(q.danaBersihDitransfer)} · total kewajiban{" "}
                 {formatRupiah(q.totalKewajibanPelunasan)} (tidak ditagihkan)
               </>
             )}

@@ -612,9 +612,9 @@ export const matchManualPaymentReceipt = mutation({
       jumlahMutasi: args.jumlahMutasi,
       dicocokkanPada: Date.now(),
       dicocokkanOleh: userId,
-      catatanAdmin: "Mutasi dicocokkan. Status cicilan/ledger tidak berubah; pencocokan bukan settlement terintegrasi.",
+      catatanAdmin: "Mutasi dicocokkan. Status cicilan/ledger tidak berubah.",
     });
-    await audit(ctx, userId, admin.email ?? admin.name ?? "admin", "pembayaran_manual_dicocokkan", receipt.nomorReferensi, `${receipt.jenis} · ${reference} · ${args.jumlahMutasi}; pencocokan metadata saja, bukan settlement.`);
+    await audit(ctx, userId, admin.email ?? admin.name ?? "admin", "pembayaran_manual_dicocokkan", receipt.nomorReferensi, `${receipt.jenis} · ${reference} · ${args.jumlahMutasi}; pencocokan metadata saja.`);
     return { ok: true };
   },
 });
@@ -796,7 +796,7 @@ export const matchDepositEvidence = mutation({
       dicocokkanPada: Date.now(),
       dicocokkanOleh: userId,
     });
-    await audit(ctx, userId, admin.email ?? admin.name ?? "admin", "setoran_pendana_dicocokkan", deposit.nomorReferensi, `${reference} · ${args.jumlahMutasi}; pencocokan metadata saja, saldo tidak berubah dan bukan settlement.`);
+    await audit(ctx, userId, admin.email ?? admin.name ?? "admin", "setoran_pendana_dicocokkan", deposit.nomorReferensi, `${reference} · ${args.jumlahMutasi}; pencocokan metadata saja, saldo tidak berubah.`);
   },
 });
 

@@ -295,7 +295,7 @@ function LiveCalculator() {
               ] as Array<[string, string, boolean?]>)
             : ([
                 ["Bunga (30%)", formatRupiah(quote.bunga), false],
-                ["Nilai bersih (95%; tidak ditransfer)", formatRupiah(quote.danaBersihDitransfer), true],
+                ["Nilai bersih (95% dari pokok)", formatRupiah(quote.danaBersihDitransfer), true],
               ] as Array<[string, string, boolean?]>)
         ).map(([term, value, strong]) => (
           <div key={term} className="flex items-baseline justify-between gap-4">
@@ -318,7 +318,7 @@ function LiveCalculator() {
       </dl>
 
       <p className="mt-4 text-xs leading-5 text-slate-500">
-        Ini perhitungan aplikasi, bukan persetujuan atau pencairan dana. Skema bulanan menampilkan ilustrasi angsuran; pencatatan pelunasan di sistem dilakukan sekaligus saat jatuh tempo. Tidak ada transfer bank/e-wallet atau pembayaran eksternal.
+        Ini perhitungan aplikasi, bukan persetujuan pinjaman. Skema bulanan menampilkan ilustrasi angsuran; pencatatan pelunasan di sistem dilakukan sekaligus saat jatuh tempo. Perpindahan dana ditangani di luar aplikasi.
       </p>
 
       <Button asChild className="mt-5 h-11 w-full bg-primary text-white hover:bg-primary/90">
@@ -559,7 +559,7 @@ export default function Landing() {
     {
       icon: Banknote,
       title: "Pantau ledger",
-      body: "Ikuti perubahan status dan riwayat di dashboard. PINDAI tidak mengirim dana atau menyimpan barang.",
+      body: "Ikuti perubahan status dan riwayat di dashboard. PINDAI mencatat setiap perubahan pada ledger internal.",
     },
   ];
 
@@ -765,7 +765,7 @@ export default function Landing() {
                   </div>
                   <div className="mt-5 flex items-start gap-3 border-t border-white/15 pt-4">
                     <Eye className="mt-0.5 size-4 shrink-0 text-[#d8c28c]" />
-                    <p className="text-xs leading-5 text-white/65">Bukan bukti transfer, pembayaran, persetujuan pendanaan, atau penitipan barang.</p>
+                    <p className="text-xs leading-5 text-white/65">Tercatat pada ledger internal PINDAI.</p>
                   </div>
                 </div>
               </div>
@@ -874,7 +874,7 @@ export default function Landing() {
                 ))}
               </ol>
               <p className="mt-8 rounded-xl bg-slate-50 p-4 text-xs leading-5 text-slate-600">
-                Seluruh angka berikut adalah <b className="font-semibold text-slate-900">perhitungan ledger internal</b>, bukan dana dari Pendana terverifikasi atau bukti pendanaan. Skema harian menghitung nilai bersih 95% dan total kewajiban 130%; tidak ada pencairan atau transfer. Skema bulanan (1/3/6 bulan, hingga Rp 10 juta) menampilkan DP 0%, biaya admin 5% + platform 2% untuk tenor 3/6 bulan (atau biaya layanan 3% untuk tenor 1 bulan), semuanya dimodelkan dalam cicilan tanpa potongan di muka; bunga menurun 30%/25%/20% per bulan sesuai tenor. Status dan rincian kontrak hanya catatan aplikasi, bukan tanda tangan digital atau transaksi eksternal.
+                Seluruh angka berikut adalah <b className="font-semibold text-slate-900">perhitungan ledger internal</b> dari pencatatan PINDAI. Skema harian menghitung nilai bersih 95% dan total kewajiban 130%; perpindahan dana ditangani di luar aplikasi. Skema bulanan (1/3/6 bulan, hingga Rp 10 juta) menampilkan DP 0%, biaya admin 5% + platform 2% untuk tenor 3/6 bulan (atau biaya layanan 3% untuk tenor 1 bulan), semuanya dimodelkan dalam cicilan tanpa potongan di muka; bunga menurun 30%/25%/20% per bulan sesuai tenor. Status dan rincian kontrak mengikuti pencatatan pada ledger internal.
               </p>
             </div>
           </div>
@@ -909,7 +909,7 @@ export default function Landing() {
               Mulai hari ini
             </h2>
             <p className="mx-auto mt-3 max-w-lg text-sm leading-6 text-primary-foreground/80">
-              Buat akun untuk mencatat pengajuan, atau jelajahi tampilan ledger Pendana. Tidak ada dana yang dikirim atau dikelola melalui aplikasi.
+              Buat akun untuk mencatat pengajuan, atau jelajahi tampilan ledger Pendana. Perpindahan dana ditangani di luar aplikasi.
             </p>
             <div className="mt-7 flex flex-wrap justify-center gap-3">
               <Button
@@ -988,7 +988,7 @@ export default function Landing() {
           </div>
           <div className="mt-8 flex flex-col items-center justify-between gap-2 border-t border-slate-200 pt-6 text-xs text-slate-500 sm:flex-row">
             <span>© 2026 {logoTeks}. Seluruh hak cipta.</span>
-            <span>Perhitungan transparan · Status internal · Tanpa transfer eksternal</span>
+            <span>Perhitungan transparan · Status ledger internal</span>
           </div>
         </div>
       </footer>

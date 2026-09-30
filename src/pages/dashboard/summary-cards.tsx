@@ -39,7 +39,7 @@ export function SummaryCards({ schedule }: { schedule: LoanScheduleRow[] }) {
       <div className="min-w-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
         <div className="flex items-start justify-between">
           <div>
-            <p className="text-xs text-muted-foreground">Nilai Bersih (tidak ditransfer)</p>
+            <p className="text-xs text-muted-foreground">Nilai Bersih</p>
             <p className="mt-2 break-words text-xl font-semibold tabular-nums text-emerald-600 sm:text-2xl">
               {formatRupiah(danaBersihTotal)}
             </p>

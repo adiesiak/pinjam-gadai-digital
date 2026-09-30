@@ -24,7 +24,7 @@ export function HistorySection() {
       <EmptyState
         icon={Landmark}
         title="Belum ada catatan ledger"
-        body="Catatan alokasi, setoran, dan permintaan penarikan tampil di sini; tidak ada transaksi dana eksternal."
+        body="Catatan alokasi, setoran, dan permintaan penarikan tampil di sini."
       />
     );
   }

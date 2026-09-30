@@ -93,7 +93,7 @@ export function WithdrawalBadge({ status }: { status: string }) {
   if (status === "diproses") {
     return (
       <Badge className="border-0 bg-slate-100 text-slate-700 hover:bg-slate-100">
-        Ditandai diproses di ledger (bukan bukti transfer)
+        Ditandai diproses di ledger
       </Badge>
     );
   }
@@ -115,7 +115,7 @@ export function DepositBadge({ status, statusPencocokan }: { status: string; sta
   if (status === "terverifikasi") {
     return (
       <Badge className="border-0 bg-slate-100 text-slate-700 hover:bg-slate-100">
-        Status lama pada catatan (bukan bukti bank)
+        Status lama pada catatan
       </Badge>
     );
   }

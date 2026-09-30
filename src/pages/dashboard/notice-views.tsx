@@ -60,7 +60,7 @@ export function DueReminderBanner({
         </div>
       </div>
       <p className="mt-3 text-xs leading-5 text-muted-foreground">
-        Tanggal, status, dan nominal berasal dari perhitungan ledger internal; bukan bukti keterlambatan atau pelunasan aktual. PINDAI tidak memproses pembayaran atau transfer.
+        Tanggal, status, dan nominal berasal dari perhitungan ledger internal PINDAI.
       </p>
     </section>
   );

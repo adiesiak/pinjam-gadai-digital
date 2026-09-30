@@ -132,7 +132,7 @@ export function LoanDetailDialog({
                   )}
                 </dl>
                 <p className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900">
-                  Pelunasan dinonaktifkan karena belum ada izin maupun penyedia pembayaran terintegrasi. Status/jadwal ledger tidak membuktikan pembayaran; persetujuan admin tidak menggantikannya.
+                  Pelunasan belum tersedia di aplikasi; status pelunasan diperbarui oleh tim PINDAI pada ledger internal.
                 </p>
               </div>
             )}

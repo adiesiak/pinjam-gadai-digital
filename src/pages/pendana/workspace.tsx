@@ -78,7 +78,7 @@ export function PendanaWorkspace({
 
           {/* ===== Ringkasan ledger ===== */}
           <p className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-900">
-            Seluruh saldo, alokasi, dan imbal hasil di ruang ini adalah angka pada ledger internal. Catatan setoran/penarikan tidak menunjukkan dana masuk atau keluar; tidak ada transfer eksternal yang diproses atau diverifikasi.
+            Seluruh saldo, alokasi, dan imbal hasil di ruang ini adalah angka pada ledger internal. Catatan setoran/penarikan mengikuti ledger internal; perpindahan dana ditangani di luar aplikasi.
           </p>
           <section className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3 xl:gap-4">
             <div className="min-w-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">

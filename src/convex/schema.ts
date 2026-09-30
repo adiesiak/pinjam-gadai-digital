@@ -491,7 +491,7 @@ const schema = defineSchema(
       persenSewaModal: v.optional(v.number()),
       /** Sisa pokok berjalan (decreasing principal) — rupiah bulat. */
       sisaPokok: v.optional(v.number()),
-      /** Timestamp legacy; nilainya bukan bukti pencairan atau settlement. */
+      /** Timestamp legacy; pencatatan pencairan dan settlement ditangani terpisah. */
       dicairkanPada: v.optional(v.number()),
       /** Tanda tangan elektronik Peminjam pada akad gadai (data URL PNG). */
       tandaTanganPeminjam: v.optional(v.string()),

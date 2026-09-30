@@ -499,7 +499,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
           <ul className="mt-4 flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-xs text-muted-foreground">
             <li className="flex items-center gap-1.5">
               <BadgeCheck className="size-3.5 text-primary" />
-              Tanpa transfer dana
+              Pencatatan ledger
             </li>
             <li className="flex items-center gap-1.5">
               <Vault className="size-3.5 text-primary" />

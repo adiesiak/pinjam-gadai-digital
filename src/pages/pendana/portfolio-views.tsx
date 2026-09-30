@@ -73,7 +73,7 @@ export function PortfolioSection({ portfolio }: { portfolio: PortfolioRow[] | un
   return (
     <div className="space-y-3">
       <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-900">
-        Rincian biaya dan jadwal di bawah dihitung dari data pinjaman tersimpan di Convex. Ini perkiraan berdasarkan pengajuan, bukan bukti pencairan, pembayaran, atau settlement; status ledger tetap catatan aplikasi.
+        Rincian biaya dan jadwal di bawah dihitung dari data pinjaman tersimpan di Convex. Ini perkiraan berdasarkan pengajuan; status mengikuti pencatatan ledger internal.
       </p>
       <ul className="space-y-3">
       {portfolio.map((f) => (
@@ -138,14 +138,14 @@ export function PortfolioSection({ portfolio }: { portfolio: PortfolioRow[] | un
                   <InfoRow label="Biaya layanan tenor 1 bulan (3%)" value={formatRupiah(f.biayaLayananTotal)} />
                 )}
                 <InfoRow label="Potongan di muka" value={formatRupiah(f.totalPotonganDiMuka)} />
-                <InfoRow label="Nilai bersih (tidak ditransfer)" value={formatRupiah(f.danaDiterimaPeminjam)} />
+                <InfoRow label="Nilai bersih" value={formatRupiah(f.danaDiterimaPeminjam)} />
               </dl>
             ) : (
               <dl className="mt-2 space-y-1.5">
                 <InfoRow label="Biaya admin" value={formatRupiah(f.biayaAdmin)} />
                 <InfoRow label="Biaya platform" value={formatRupiah(f.biayaPlatform)} />
                 <InfoRow label="Total potongan di muka" value={formatRupiah(f.totalPotonganDiMuka)} />
-                <InfoRow label="Nilai bersih (tidak ditransfer)" value={formatRupiah(f.danaDiterimaPeminjam)} />
+                <InfoRow label="Nilai bersih" value={formatRupiah(f.danaDiterimaPeminjam)} />
               </dl>
             )}
           </section>
@@ -166,7 +166,7 @@ export function PortfolioSection({ portfolio }: { portfolio: PortfolioRow[] | un
           {f.simulasiCicilanBulanan.length > 0 && (
             <details className="mt-3 rounded-xl border border-amber-200 bg-amber-50/50 px-3 py-2.5 text-xs">
               <summary className="cursor-pointer font-medium">Lihat cicilan bulanan (bukan tagihan aktual)</summary>
-              <p className="mt-2 text-muted-foreground">Jadwal ini bukan riwayat pembayaran; pada akhir tenor status pinjaman dapat ditandai lunas sekaligus di ledger. Ini bukan pembayaran yang diverifikasi.</p>
+              <p className="mt-2 text-muted-foreground">Jadwal ini mengikuti model cicilan; pada akhir tenor status pinjaman dapat ditandai lunas sekaligus di ledger.</p>
               <ul className="mt-2 divide-y divide-amber-100">
                 {f.simulasiCicilanBulanan.map((cicilan, index) => (
                   <li key={`${cicilan.bulan}-${index}`} className="flex flex-wrap justify-between gap-3 py-1.5">

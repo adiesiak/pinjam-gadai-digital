@@ -44,7 +44,7 @@ export function LoanQueueSection({
   return (
     <div className="space-y-3">
       <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-900">
-        Nominal dan status pinjaman yang ditampilkan adalah catatan ledger internal; tidak ada transfer atau pembayaran yang diproses maupun diverifikasi.
+        Nominal dan status pinjaman yang ditampilkan mengikuti catatan ledger internal.
       </p>
       <div className="relative">
         <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />

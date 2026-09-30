@@ -215,7 +215,7 @@ export function SetoranSection({
           <DialogHeader>
             <DialogTitle>Tolak catatan permintaan penarikan</DialogTitle>
             <DialogDescription>
-              {rejectingWd?.ref} — alasan wajib diisi dan akan tercatat di audit. Tindakan ini hanya mengubah status internal; tidak mengirim atau membatalkan transfer bank.
+              {rejectingWd?.ref} — alasan wajib diisi dan akan tercatat di audit. Tindakan ini hanya mengubah status internal pada ledger.
             </DialogDescription>
           </DialogHeader>
           <Textarea

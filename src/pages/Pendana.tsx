@@ -58,7 +58,7 @@ export default function Pendana() {
         ) : role === "admin" ? (
           <Notice
             title="Akun tim tidak dapat menjadi Pendana"
-            body="Panel admin dan peran Pendana dipisahkan. Gunakan akun terpisah untuk melihat dan mencatat ledger Pendana; tidak ada dana yang dialokasikan atau ditransfer."
+            body="Panel admin dan peran Pendana dipisahkan. Gunakan akun terpisah untuk melihat dan mencatat ledger Pendana; perpindahan dana ditangani di luar aplikasi."
           />
         ) : (
           <Onboarding />

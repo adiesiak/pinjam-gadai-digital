@@ -122,7 +122,7 @@ export interface GadaiBayarResult {
   sisaPokokSetelah: Rupiah;
   /** Sewa modal periode berikutnya (dari sisa pokok terbaru). */
   sewaModalBerikut: Rupiah;
-  /** Penanda status ledger; bukan bukti pembayaran atau custody fisik. */
+  /** Penanda status ledger. */
   custody: GadaiCustodyStatus;
 }
 

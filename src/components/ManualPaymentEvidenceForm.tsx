@@ -73,7 +73,7 @@ export function ManualPaymentEvidenceForm({
         <div className="sm:col-span-2"><Label htmlFor={`receipt-file-${targetId}`}>Bukti unggahan (maks. 5 MB)</Label><Input id={`receipt-file-${targetId}`} type="file" accept="image/jpeg,image/png,image/webp,application/pdf" onChange={(e) => setFile(e.target.files?.[0] ?? null)} /></div>
         <Button type="submit" size="sm" disabled={busy} className="sm:col-span-2">{busy ? <Loader2 className="mr-2 size-4 animate-spin" /> : <FileUp className="mr-2 size-4" />}Kirim bukti saja</Button>
       </form>
-      <p className="mt-2 text-[11px] text-muted-foreground">Jumlah contoh {formatRupiah(suggestedAmount)} · pencocokan internal bukan bukti settlement bank.</p>
+      <p className="mt-2 text-[11px] text-muted-foreground">Jumlah contoh {formatRupiah(suggestedAmount)} · pencocokan dilakukan manual oleh tim PINDAI.</p>
     </section>
   );
 }

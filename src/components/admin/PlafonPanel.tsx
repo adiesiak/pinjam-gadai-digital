@@ -60,7 +60,7 @@ export function PlafonPanel() {
           Untuk pinjaman tunai, default awal{" "}
           <strong className="tabular-nums">{formatRupiah(data.default)}</strong> (Pengaturan Sistem).
           Setiap pinjaman tunai dengan pokok minimal Rp1 juta dan status lunas tepat waktu pada ledger internal dapat menambah Rp1 juta,
-          hingga maksimum Rp10 juta. Status lunas/tanggal adalah entri aplikasi, bukan bukti pembayaran yang diterima atau diverifikasi. Override admin tetap
+          hingga maksimum Rp10 juta. Status lunas/tanggal mengikuti entri ledger internal PINDAI. Override admin tetap
           berlaku; reset kembali ke plafon progresif. Kredit barang terpisah: pokok maksimal Rp10 juta,
           tenor baru maksimal 6 bulan. Rentang override tunai {formatRupiah(PLAFON_BATAS.min)}–{formatRupiah(PLAFON_BATAS.maks)}.
         </p>

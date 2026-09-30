@@ -76,13 +76,13 @@ const STATUS_META: Record<string, { label: string; className: string; descriptio
     label: "Alokasi historis (ledger)",
     className: "gradient-primary border-0 text-primary-foreground",
     description:
-      "Status historis pada ledger mencatat alokasi yang pernah dimasukkan. Tidak ada transfer yang terverifikasi ke merchant atau Peminjam, dan tidak ada tindakan cicilan yang tersedia.",
+      "Status historis pada ledger mencatat alokasi yang pernah dimasukkan. Cicilan ditangani di luar aplikasi dan belum tersedia sebagai tindakan di sini.",
   },
   lunas: {
     label: "Lunas (ledger)",
     className: "border-primary/30 bg-primary/10 text-accent-foreground",
     description:
-      "Status lunas tercatat pada ledger internal. Ini bukan bukti pembayaran aktual atau pembelian barang.",
+      "Status lunas tercatat pada ledger internal.",
   },
 };
 
@@ -227,7 +227,7 @@ export function KreditBarangForm({ onCreated }: { onCreated: (ref: string) => vo
           <ShoppingBag className="size-4 text-primary" /> Barang yang dicantumkan
         </p>
         <p className="mt-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900">
-          Informasi barang, tautan, merchant, dan harga adalah masukan pengguna yang tidak diverifikasi. Pengajuan hanya mencatat data internal; tidak ada pembelian atau pembayaran ke merchant.
+          Informasi barang, tautan, merchant, dan harga adalah masukan pengguna yang tidak diverifikasi. Pengajuan mencatat data pada ledger internal; pembelian dan pembayaran ke merchant ditangani di luar aplikasi.
         </p>
         <div className="mt-4 space-y-2">
           <Label htmlFor="kredit-nama-barang">Nama barang</Label>
@@ -316,7 +316,7 @@ export function KreditBarangForm({ onCreated }: { onCreated: (ref: string) => vo
         </div>
         {bulanan ? (
           <p className="mt-2 rounded-xl border border-emerald-100 bg-emerald-50/60 px-3 py-2 text-xs leading-5 text-emerald-800">
-            Tenor {tenorBulan} bulan memakai DP 0%; angka ini bukan bukti pembiayaan atau pembelian barang.
+            Tenor {tenorBulan} bulan memakai DP 0%; angka mengikuti skema kredit barang.
           </p>
         ) : (
           <Slider
@@ -524,7 +524,7 @@ export function KreditSayaSection() {
       <EmptyState
         icon={ShoppingBag}
         title="Belum ada pengajuan kredit barang"
-        body="Buat catatan pengajuan barang, uang muka, tenor, dan perhitungan cicilan. Pengajuan ini tidak memproses pembelian, pendanaan, atau pembayaran."
+        body="Buat catatan pengajuan barang, uang muka, tenor, dan perhitungan cicilan. Pembelian, pendanaan, dan pembayaran ditangani di luar aplikasi."
       />
     );
   }
@@ -674,7 +674,7 @@ export function KreditBarangSection() {
           <Separator className="my-4" />
           <KreditBarangForm
             onCreated={(ref) =>
-              toast.success(`Catatan pengajuan tersimpan — referensi ${ref}. Tidak ada pembelian atau pembayaran ke merchant.`)
+              toast.success(`Catatan pengajuan tersimpan — referensi ${ref}.`)
             }
           />
         </section>

@@ -15,12 +15,12 @@ const SLOT = "global";
 /** Teks default (kondisi kalah/opsional) — dipakai saat admin belum menyimpan. */
 export const DEFAULTS = {
   bar: {
-    teks: "Pinjaman, gadai, dan alokasi dicatat di ledger internal — tanpa transfer eksternal.",
+    teks: "Pinjaman, gadai, dan alokasi dicatat di ledger internal PINDAI.",
     tautan: "/auth",
   },
   popup: {
     judul: "Jelajahi PINDAI",
-    isi: "Lihat perhitungan pinjaman dan gadai serta catatan status di dashboard. Angka dan aksi hanya memperbarui ledger internal: tidak ada transfer bank/e-wallet, pembayaran eksternal, verifikasi Pendana, atau penitipan fisik barang.",
+    isi: "Lihat perhitungan pinjaman dan gadai serta catatan status di dashboard. Angka dan aksi memperbarui ledger internal PINDAI; perpindahan dana ditangani di luar aplikasi.",
     cta: "Lihat kalkulator",
   },
   float: {
@@ -32,7 +32,7 @@ export const DEFAULTS = {
     badge: "Pinjaman & ledger internal",
     judul: "Pinjam & Gadai Digital",
     judul2: "Transparan",
-    sub: "Jelajahi perhitungan pinjaman, gadai, dan alokasi pendanaan dalam ledger internal. Persetujuan, saldo, dan status bukan bukti transfer, pembayaran eksternal, verifikasi identitas, atau penitipan barang.",
+    sub: "Jelajahi perhitungan pinjaman, gadai, dan alokasi pendanaan dalam ledger internal. Persetujuan, saldo, dan status tercatat pada ledger internal PINDAI.",
     cta1: "Ajukan Pinjaman",
     cta2: "Gadaikan Barang",
   },
@@ -49,7 +49,7 @@ export const DEFAULTS = {
     pinjamanCta: "Ajukan sekarang",
     gadaiJudul: "Gadai Digital",
     gadaiIsi:
-      "Catat informasi barang dan nilai taksiran untuk pengajuan gadai. Perhitungan sewa modal 5–10% per 30 hari menggunakan sisa pokok. Status dan pembayaran hanya tercatat di ledger internal; aplikasi tidak membuktikan pemeriksaan fisik, penitipan barang, transfer, atau pengembalian barang.",
+      "Catat informasi barang dan nilai taksiran untuk pengajuan gadai. Perhitungan sewa modal 5–10% per 30 hari menggunakan sisa pokok. Status dan pembayaran tercatat di ledger internal; pemeriksaan fisik dan penitipan barang ditangani di luar aplikasi.",
     gadaiCta: "Gadaikan barang",
   },
 } as const;

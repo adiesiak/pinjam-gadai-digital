@@ -644,7 +644,7 @@ export function LocationGate({
         ikon={<MapPin className="size-5" />}
         kode="Lokasi wajib aktif"
         judul="Nyalakan lokasi untuk melanjutkan"
-        deskripsi="Untuk membuka dashboard, gerbang ini meminta koordinat terbaru yang dilaporkan perangkat. Gerbang tidak memastikan lokasi fisik atau identitas dan tidak memverifikasi pembayaran maupun perpindahan dana."
+        deskripsi="Untuk membuka dashboard, gerbang ini meminta koordinat terbaru yang dilaporkan perangkat. Gerbang tidak memastikan lokasi fisik atau identitas."
       >
         <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-800">
           <ShieldAlert className="mr-1.5 inline size-3.5 align-[-2px]" />

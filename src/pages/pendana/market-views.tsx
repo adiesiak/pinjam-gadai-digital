@@ -117,7 +117,7 @@ function MarketCard({
       </div>
 
       <p className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900">
-        Data pemohon dan status review berasal dari aplikasi, bukan verifikasi eksternal. Kartu ini hanya menampilkan hitungan aplikasi; alokasi tidak mengirim atau menerima dana.
+        Data pemohon dan status review berasal dari aplikasi, bukan verifikasi eksternal. Kartu ini hanya menampilkan hitungan aplikasi; alokasi tercatat pada ledger internal.
       </p>
 
       <dl className="mt-4 grid grid-cols-2 gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-center text-xs sm:grid-cols-3">
@@ -188,7 +188,7 @@ function MarketCard({
           </dl>
         )}
         <p className="mt-2 border-t border-slate-100 pt-2 text-muted-foreground">
-          Nilai bersih (tidak ditransfer): <span className="font-semibold tabular-nums text-foreground">{formatRupiah(row.danaBersih)}</span>
+          Nilai bersih: <span className="font-semibold tabular-nums text-foreground">{formatRupiah(row.danaBersih)}</span>
         </p>
       </section>
 
@@ -249,7 +249,7 @@ function MarketCard({
         </Badge>
       ) : (
         <p className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900">
-          Alokasi baru belum tersedia. Belum ada izin atau penyedia pembayaran terintegrasi; angka progres di atas hanya catatan ledger internal.
+          Alokasi baru belum tersedia; angka progres di atas mengikuti pencatatan ledger internal.
         </p>
       )}
 

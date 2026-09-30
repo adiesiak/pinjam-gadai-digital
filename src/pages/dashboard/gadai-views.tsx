@@ -37,7 +37,7 @@ export function GadaiBillingSection({
       <h2 className="text-lg font-semibold">Proyeksi gadai dan catatan internal</h2>
       <Separator className="my-4" />
       <p className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-900">
-        Pembayaran belum tersedia: belum ada izin atau penyedia terintegrasi. Saldo pokok dan status ledger bukan bukti pembayaran, penitipan, maupun pengembalian barang.
+        Pembayaran belum tersedia di aplikasi; statusnya diperbarui oleh tim PINDAI. Saldo pokok dan status mengikuti pencatatan ledger internal.
       </p>
       <div className="space-y-4">
         {berjalan.map((pawn) => (
@@ -61,7 +61,7 @@ export function GadaiBillingSection({
                 <p className="text-xs text-muted-foreground">{pawn.nomorReferensi}</p>
               </div>
               <Badge className="border-0 bg-slate-200 text-slate-700 hover:bg-slate-200">
-                Pokok ledger Rp0 — bukan bukti pelunasan
+                Pokok ledger Rp0 — belum ada pelunasan tercatat
               </Badge>
             </div>
             <p className="mt-3 text-xs leading-5 text-muted-foreground">

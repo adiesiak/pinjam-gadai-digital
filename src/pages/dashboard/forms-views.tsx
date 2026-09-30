@@ -459,7 +459,7 @@ export function LoanForm({ onCreated }: { onCreated: (ref: string) => void }) {
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
       <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-900">
-        Formulir ini mencatat pengajuan dan perkiraan hitungannya. Data, dokumen, gambar tanda tangan, dan lokasi yang Anda kirim hanya menjadi masukan. PINDAI tidak memeriksa identitas atau lokasi Anda, dan tidak mengirim atau menerima uang.
+        Formulir ini mencatat pengajuan dan perkiraan hitungannya. Data, dokumen, gambar tanda tangan, dan lokasi yang Anda kirim hanya menjadi masukan. PINDAI tidak memeriksa identitas atau lokasi Anda; perpindahan dana ditangani di luar aplikasi.
       </p>
       {/* Jumlah pinjaman */}
       <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
@@ -509,8 +509,8 @@ export function LoanForm({ onCreated }: { onCreated: (ref: string) => void }) {
           {melebihiPlafon && plafonSaya !== undefined
             ? `Batas pinjaman Anda ${formatRupiah(plafonSaya)}. Kurangi jumlah pinjaman agar tidak melebihi batas.`
             : bulanan
-              ? `Ini hanya perkiraan, bukan persetujuan pinjaman. Batas pinjaman Anda ${formatRupiah(MAX)}. Catatan pinjaman yang ditandai lunas tepat waktu di aplikasi dapat menaikkan batas hingga Rp10 juta. Catatan ini bukan bukti pembayaran.`
-              : `Ini hanya perkiraan, bukan persetujuan pinjaman. Jumlah pinjaman harian ${formatRupiah(LOAN_LIMITS.minPokok)} sampai ${formatRupiah(MAX)}, paling lama ${LOAN_LIMITS.maxTenorHari} hari. Catatan pinjaman yang ditandai lunas tepat waktu di aplikasi dapat menaikkan batas hingga Rp10 juta. Catatan ini bukan bukti pembayaran.`}
+              ? `Ini hanya perkiraan, bukan persetujuan pinjaman. Batas pinjaman Anda ${formatRupiah(MAX)}. Catatan pinjaman yang ditandai lunas tepat waktu di aplikasi dapat menaikkan batas hingga Rp10 juta. Catatan ini tersimpan pada ledger internal PINDAI.`
+              : `Ini hanya perkiraan, bukan persetujuan pinjaman. Jumlah pinjaman harian ${formatRupiah(LOAN_LIMITS.minPokok)} sampai ${formatRupiah(MAX)}, paling lama ${LOAN_LIMITS.maxTenorHari} hari. Catatan pinjaman yang ditandai lunas tepat waktu di aplikasi dapat menaikkan batas hingga Rp10 juta. Catatan ini tersimpan pada ledger internal PINDAI.`}
         </p>
 
         {/* Ringkasan peminjam: nilai bersih dan total pembayaran. */}
@@ -901,7 +901,7 @@ export function LoanForm({ onCreated }: { onCreated: (ref: string) => void }) {
         )}
       </Button>
       <p className="text-center text-xs leading-5 text-muted-foreground">
-        Batas awal pinjaman adalah Rp1 juta. Jika pinjaman minimal Rp1 juta tercatat lunas tepat waktu di aplikasi, batas dapat naik hingga Rp10 juta. Catatan aplikasi bukan bukti pembayaran. Batas pinjaman Anda saat ini {formatRupiah(MAX)}. {bulanan ? "Jumlah cicilan ini hanya perkiraan. Aplikasi dapat mencatat pinjaman lunas sekaligus setelah masa pinjaman berakhir; catatan ini bukan bukti pembayaran." : `Pinjaman harian paling lama ${LOAN_LIMITS.maxTenorHari} hari.`} Aplikasi tidak mengirim atau menerima uang.
+        Batas awal pinjaman adalah Rp1 juta. Jika pinjaman minimal Rp1 juta tercatat lunas tepat waktu di aplikasi, batas dapat naik hingga Rp10 juta. Catatan aplikasi tersimpan pada ledger internal PINDAI. Batas pinjaman Anda saat ini {formatRupiah(MAX)}. {bulanan ? "Jumlah cicilan ini hanya perkiraan. Aplikasi dapat mencatat pinjaman lunas sekaligus setelah masa pinjaman berakhir; catatan ini tersimpan pada ledger internal PINDAI." : `Pinjaman harian paling lama ${LOAN_LIMITS.maxTenorHari} hari.`} Perpindahan dana ditangani di luar aplikasi.
       </p>
     </form>
   );
@@ -982,7 +982,7 @@ export function PawnForm({ onCreated }: { onCreated: () => void }) {
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
       <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-900">
-        Formulir ini hanya mencatat informasi yang Anda isi. Aplikasi belum memeriksa nama, alamat, atau barang Anda. Aplikasi juga tidak menjamin akan ada kunjungan, pemeriksaan, atau penyimpanan barang, dan tidak mengirim atau menerima uang.
+        Formulir ini hanya mencatat informasi yang Anda isi. Aplikasi belum memeriksa nama, alamat, atau barang Anda. Aplikasi juga tidak menjamin akan ada kunjungan, pemeriksaan, atau penyimpanan barang, dan perpindahan dana ditangani di luar aplikasi.
       </p>
       <div className="space-y-2">
         <Label htmlFor="barang">Jelaskan barang yang Anda ajukan</Label>
@@ -1065,7 +1065,7 @@ export function PawnForm({ onCreated }: { onCreated: () => void }) {
         )}
       </Button>
       <p className="text-center text-xs leading-5 text-muted-foreground">
-        Perkiraan harga dan kondisi barang serta nomor tempat penyimpanan hanya dicatat di aplikasi. Aplikasi tidak memeriksa barang atau memastikan barang sudah diterima dan disimpan. Status di aplikasi bukan bukti barang sudah dikembalikan. Uang tidak dikirim lewat aplikasi.
+        Perkiraan harga dan kondisi barang serta nomor tempat penyimpanan hanya dicatat di aplikasi. Aplikasi tidak memeriksa barang atau memastikan barang sudah diterima dan disimpan. Status di aplikasi belum menandai barang sudah dikembalikan. Perpindahan dana ditangani di luar aplikasi.
       </p>
     </form>
   );

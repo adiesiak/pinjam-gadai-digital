@@ -92,12 +92,12 @@ function buildFundingContractHtml(c: {
 
     <h2>Bagian 1 — Parameter Ledger</h2>
     <ol>
-      <li>Nilai alokasi yang tercatat pada ledger internal: <strong>${formatRupiah(c.jumlahAlokasi)}</strong> untuk referensi ${c.loanRef} (tujuan yang dicantumkan: ${loanPurposeLabel(c.tujuan)}). Ini bukan bukti dana disediakan atau dipindahkan.</li>
+      <li>Nilai alokasi yang tercatat pada ledger internal: <strong>${formatRupiah(c.jumlahAlokasi)}</strong> untuk referensi ${c.loanRef} (tujuan yang dicantumkan: ${loanPurposeLabel(c.tujuan)}). Alokasi ini tercatat pada ledger internal PINDAI.</li>
       <li>Pokok dan tenor yang tercatat: ${formatRupiah(c.pokokPinjaman)} · ${tenorLabel}.</li>
       <li>${
         c.tenorBulan !== null
           ? "Perhitungan pokok menggunakan DP 0% dan biaya layanan 3%; tidak ada pembayaran ke Peminjam atau merchant."
-          : "Perhitungan nilai bersih menggunakan 95% dari pokok; tidak ada pencairan ke Peminjam."
+          : "Perhitungan nilai bersih menggunakan 95% dari pokok; pencairan ke Peminjam ditangani di luar aplikasi."
       }</li>
     </ol>
 
@@ -113,7 +113,7 @@ function buildFundingContractHtml(c: {
     </ol>
 
     <h2>Bagian 3 — Status Catatan</h2>
-    <p>Baris ledger dan status pinjaman adalah data aplikasi internal, bukan bukti pergerakan dana atau audit independen. Status terkait yang tercatat: <strong>${c.statusPinjaman}</strong>.</p>
+    <p>Baris ledger dan status pinjaman mengikuti pencatatan aplikasi internal PINDAI. Status terkait yang tercatat: <strong>${c.statusPinjaman}</strong>.</p>
 
     <h2>Bagian 4 — Metadata Dokumen</h2>
     <p>HTML ini dihasilkan otomatis dengan timestamp sistem <strong>${new Date(c.createdAt).toLocaleString("id-ID")}</strong>. Timestamp, nama, nomor referensi, dan tampilan dokumen tidak menjadikannya perjanjian yang mengikat atau tanda tangan terverifikasi.</p>

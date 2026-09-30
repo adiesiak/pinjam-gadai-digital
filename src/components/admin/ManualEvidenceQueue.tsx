@@ -55,7 +55,7 @@ export function ManualEvidenceQueue() {
   return (
     <section className="space-y-8">
       <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-950">
-        Antrean ini hanya untuk membandingkan bukti unggahan dengan mutasi yang diperiksa operator. “Dicocokkan” bukan settlement terintegrasi: tindakan di sini tidak membuat cicilan, tidak mengubah status pinjaman/gadai, dan tidak mengkredit saldo atau ledger.
+        Antrean ini hanya untuk membandingkan bukti unggahan dengan mutasi yang diperiksa operator. Tindakan di sini tidak membuat cicilan, tidak mengubah status pinjaman/gadai, dan tidak mengkredit saldo atau ledger.
       </p>
       <EvidenceList title="Bukti pembayaran Peminjam" loading={loading} empty={!loading && (receipts?.length ?? 0) === 0}>
         {receipts?.map((row) => (

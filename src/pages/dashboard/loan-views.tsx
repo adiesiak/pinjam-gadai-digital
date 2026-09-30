@@ -83,7 +83,7 @@ export function ActiveLoanSection({
     return (        <EmptyState
           icon={Wallet}
           title="Belum ada catatan pinjaman aktif di ledger"
-        body="Catatan dengan status internal aktif akan tampil di sini. Angka alokasi dan pelunasan merupakan pencatatan internal; tidak ada transfer atau pembayaran eksternal."
+        body="Catatan dengan status internal aktif akan tampil di sini. Angka alokasi dan pelunasan mengikuti pencatatan ledger internal."
       />
     );
   }
@@ -196,7 +196,7 @@ function ActiveLoanCard({
       </dl>
 
       <p className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-900">
-        Semua nominal, status aktif, dana bersih, dan status pelunasan di halaman ini adalah catatan internal; bukan bukti pencairan atau pembayaran. Belum ada izin maupun penyedia pembayaran terintegrasi, sehingga pelunasan hanya dapat ditinjau manual dan belum dapat diproses atau dinyatakan selesai. {bulanan ? "Jadwal bulanan hanya ilustrasi." : "Nilai kewajiban adalah perhitungan aplikasi."}
+        Semua nominal, status aktif, dana bersih, dan status pelunasan di halaman ini mengikuti pencatatan ledger internal PINDAI. Pelunasan ditangani di luar aplikasi dan statusnya diperbarui oleh tim PINDAI. {bulanan ? "Jadwal bulanan bersifat ilustrasi." : "Nilai kewajiban mengikuti perhitungan aplikasi."}
       </p>
 
       {loan.pelunasan && (
@@ -350,7 +350,7 @@ export function ScheduleSection({ schedule }: { schedule: LoanScheduleRow[] }) {
             </dl>
             {!lunas && (
               <p className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900">
-                Pembayaran belum tersedia. Belum ada penyedia terintegrasi atau konfirmasi settlement; tanggal dan nilai di atas hanya acuan internal.
+                Pembayaran belum tersedia di aplikasi; statusnya diperbarui oleh tim PINDAI. Tanggal dan nilai di atas mengikuti pencatatan ledger internal.
               </p>
             )}
           </li>

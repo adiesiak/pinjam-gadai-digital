@@ -173,7 +173,7 @@ export function AppraisalDialog({
             </div>
           </div>
           <p className="text-xs leading-5 text-muted-foreground">
-            Acuan perhitungan kategori {pawn.kategori}: {hint}. Nilai pasar, taksiran, kondisi, dan kode rak yang dicatat tidak membuktikan inspeksi, lokasi, penerimaan, atau penitipan fisik. Menyimpan taksiran hanya memperbarui status aplikasi; tidak ada dana yang dicairkan.
+            Acuan perhitungan kategori {pawn.kategori}: {hint}. Nilai pasar, taksiran, kondisi, dan kode rak yang dicatat tidak membuktikan inspeksi, lokasi, penerimaan, atau penitipan fisik. Menyimpan taksiran memperbarui status pengajuan pada ledger internal.
           </p>
         </div>
 

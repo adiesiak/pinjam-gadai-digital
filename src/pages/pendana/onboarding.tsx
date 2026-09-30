@@ -70,7 +70,7 @@ const KEAMANAN = [
     ikon: Eye,
     judul: "Catatan dan dokumen",
     poin: [
-      "Status, rincian biaya, jadwal, dan perubahan pengajuan adalah catatan aplikasi, bukan bukti transaksi eksternal.",
+      "Status, rincian biaya, jadwal, dan perubahan pengajuan tercatat pada ledger internal PINDAI.",
       "Tampilan kontrak atau persetujuan elektronik di aplikasi tidak otomatis menjadi tanda tangan digital yang diverifikasi atau bukti pencairan.",
       "Perhitungan Imbal Hasil bergantung pada angka masukan dan tidak menjamin pembayaran maupun pengembalian dana.",
     ],
@@ -105,7 +105,7 @@ function PanelKepercayaan() {
         ))}
       </div>
       <p className="mt-6 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs leading-5 text-muted-foreground">
-        PINDAI tidak menerima, menyimpan, mengalokasikan, atau mengirim dana sungguhan. Tidak ada KYC/validasi identitas, verifikasi lokasi live, pengiriman barang, tanda tangan kontrak terverifikasi, atau pembayaran imbal hasil melalui fitur ini.
+        PINDAI mencatat pengajuan, alokasi, dan status pada ledger internal; perpindahan dana ditangani di luar aplikasi. Tidak ada KYC/validasi identitas, verifikasi lokasi live, pengiriman barang, atau tanda tangan kontrak terverifikasi pada fitur ini.
       </p>
     </section>
   );
@@ -127,12 +127,12 @@ export function Onboarding() {
         </p>
         <h1 className="mt-2 text-2xl font-semibold tracking-tight">Jelajahi ledger Pendana.</h1>
         <p className="mt-3 text-sm leading-7 text-muted-foreground">
-          Lihat contoh pencatatan alokasi, jadwal, dan perhitungan Imbal Hasil. Tidak ada dana sungguhan yang disetor atau dialokasikan, dan tidak ada pembayaran atau hasil investasi yang dijanjikan.
+          Lihat contoh pencatatan alokasi, jadwal, dan perhitungan Imbal Hasil. Pencatatan mengikuti ledger internal PINDAI dan tidak ada hasil investasi yang dijamin.
         </p>
         <ul className="mt-6 space-y-3 text-sm">
           {[
             ["Saldo ledger", "Angka dompet hanya catatan internal, bukan saldo bank atau uang yang dapat dicairkan."],
-            ["Alokasi contoh", "Tombol alokasi mengubah ledger internal dan tidak mengirim uang kepada peminjam."],
+            ["Alokasi contoh", "Tombol alokasi memperbarui ledger internal PINDAI."],
             ["Tanpa pembayaran", "Tidak ada integrasi transfer, pembayaran, atau pencairan dana eksternal."],
           ].map(([t, b]) => (
             <li key={t} className="flex gap-3">
@@ -152,7 +152,7 @@ export function Onboarding() {
             setBusy(true);
             try {
               await becomePendana({});
-              toast.success("Mode Pendana aktif. Tidak ada dana sungguhan yang dipindahkan.");
+              toast.success("Mode Pendana aktif. Pencatatan tersimpan pada ledger internal.");
             } catch (err) {
               toast.error(err instanceof Error ? err.message : "Gagal mengubah peran.");
             } finally {

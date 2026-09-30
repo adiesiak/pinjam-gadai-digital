@@ -166,7 +166,7 @@ function KalkulatorKreditSection() {
         </div>
         <h2 className="text-lg font-semibold tracking-tight">Kalkulator Imbal Hasil Kredit Barang</h2>
         <p className="max-w-2xl text-sm leading-6 text-muted-foreground">
-          Ilustrasi perhitungan barang dari merchant yang dicantumkan. Data, harga, dan merchant tidak diverifikasi; aplikasi tidak memproses pembelian atau pembayaran barang. Pengajuan baru memiliki pokok maksimal{" "}
+          Ilustrasi perhitungan barang dari merchant yang dicantumkan. Data, harga, dan merchant tidak diverifikasi; pembelian dan pembayaran barang ditangani di luar aplikasi. Pengajuan baru memiliki pokok maksimal{" "}
           {formatRupiah(KREDIT_BARANG_POKOK_MAKS)} dan tenor 1, 3, atau 6 bulan; catatan lama tetap ditampilkan sebagai data ledger.
         </p>
       </header>
@@ -247,7 +247,7 @@ function KalkulatorKreditSection() {
           </div>
           {bulanan ? (
             <p className="mt-2 rounded-xl border border-emerald-100 bg-emerald-50/60 px-3 py-2 text-xs leading-5 text-emerald-800">
-              Model tenor {tenorBulan} bulan memakai DP 0%; ini bukan bukti pendanaan atau pembelian barang.
+              Model tenor {tenorBulan} bulan memakai DP 0%; angka mengikuti skema kredit barang.
             </p>
           ) : (
             <>
@@ -388,7 +388,7 @@ function KalkulatorKreditSection() {
                     hint={`${persenId(dpPersen)}% dari harga barang`}
                   />
                   <Baris
-                    label="Pokok acuan (tidak ditransfer)"
+                    label="Pokok acuan (dasar hitungan)"
                     value={formatRupiah(quote.pokokDibiayai)}
                     hint={`Batas pokok pada model pengajuan baru ${formatRupiah(KREDIT_BARANG_POKOK_MAKS)}`}
                   />
@@ -396,7 +396,7 @@ function KalkulatorKreditSection() {
                     <>
                       <Baris label="Biaya admin (5%)" value={formatRupiah(quote.biayaAdmin)} hint="Diamortisasi dalam cicilan; tanpa potongan di muka" />
                       <Baris label="Biaya platform (2%)" value={formatRupiah(quote.biayaPlatform)} hint="Diamortisasi dalam cicilan; tanpa potongan di muka" />
-                      <Baris label="Total biaya tenor (7%)" value={formatRupiah(quote.biayaLayanan)} hint="Asumsi perhitungan; bukan bukti pembayaran" />
+                      <Baris label="Total biaya tenor (7%)" value={formatRupiah(quote.biayaLayanan)} hint="Asumsi perhitungan aplikasi" />
                     </>
                   ) : (
                     <Baris
@@ -404,7 +404,7 @@ function KalkulatorKreditSection() {
                       ? "Biaya layanan (3%, diamortisasi)"
                       : `Biaya layanan (${persenId(KREDIT_PRICING.biayaLayananPersen)}%, di muka)`}
                     value={formatRupiah(quote.biayaLayanan)}
-                    hint="Asumsi perhitungan; bukan bukti pembayaran"
+                    hint="Asumsi perhitungan aplikasi"
                     />
                   )}
                   <Baris
@@ -428,7 +428,7 @@ function KalkulatorKreditSection() {
                   <Baris
                     label="Total kewajiban Konsumen"
                     value={formatRupiah(quote.totalDibayarKonsumen)}
-                    hint="Penjumlahan komponen dalam model; bukan pembayaran aktual"
+                    hint="Penjumlahan komponen dalam model"
                     strong
                   />
                 </div>
@@ -451,7 +451,7 @@ function KalkulatorKreditSection() {
                   </p>
                   <p className="mt-1 text-xs text-emerald-800/80">
                     Pokok acuan {formatRupiah(quote.porsiPendana)} + Imbal Hasil{" "}
-                    {formatRupiah(quote.imbalHasil)}; tidak ditransfer
+                    {formatRupiah(quote.imbalHasil)}
                   </p>
                 </div>
 
@@ -624,7 +624,7 @@ function PeluangKreditSection() {
         Pengajuan Kredit Barang · Perkiraan biaya dan imbal hasil
       </h2>
       <p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">
-        Rincian biaya dan imbal hasil dihitung dari pengajuan tersimpan di Convex. Angka menunjukkan perkiraan sesuai harga, tenor, dan parameter pengajuan; bukan bukti pembelian, pencairan ke merchant, atau pembayaran kepada Pendana.
+        Rincian biaya dan imbal hasil dihitung dari pengajuan tersimpan di Convex. Angka menunjukkan perkiraan sesuai harga, tenor, dan parameter pengajuan; mengikuti pencatatan ledger internal.
       </p>
 
       {peluang === undefined ? (
@@ -755,7 +755,7 @@ function PeluangKreditCard({ row }: { row: PeluangKredit }) {
         </Badge>
       ) : (
         <p className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900">
-          Alokasi baru dinonaktifkan. Status persetujuan admin dan progres ledger bukan bukti dana; belum ada izin, penyedia pembayaran, atau settlement terverifikasi.
+          Alokasi baru dinonaktifkan; status persetujuan admin dan progres mengikuti pencatatan ledger internal.
         </p>
       )}
       <KeteranganWilayah />
@@ -771,7 +771,7 @@ function PortofolioKreditSection() {
     <section>
       <h2 className="text-lg font-semibold tracking-tight">Catatan alokasi Kredit Barang saya</h2>
       <p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">
-        Catatan alokasi dan perhitungan imbal hasil pada ledger internal. Tidak ada pencairan ke merchant.
+        Catatan alokasi dan perhitungan imbal hasil pada ledger internal; pencairan ke merchant ditangani di luar aplikasi.
       </p>
 
       {rows === undefined ? (
@@ -862,7 +862,7 @@ function PortofolioKreditSection() {
                 <Progress className="mt-2 h-2.5" value={Math.min(100, Math.round((f.dibayarBulan / f.tenorBulan) * 100))} />
               </div>
               <p className="mt-2 text-xs text-muted-foreground">
-                Catatan: entri ledger hanya menunjukkan perubahan data tersimpan; bukan bukti cicilan dibayar atau dana diterima Pendana.
+                Catatan: entri ledger menunjukkan perubahan data yang tersimpan pada ledger internal.
               </p>
 
               <section className="mt-4 rounded-xl border border-slate-200 px-3 py-3 text-xs">
@@ -899,12 +899,12 @@ function PortofolioKreditSection() {
 
               <p className="mt-3 rounded-xl bg-slate-50 px-3 py-2 text-xs leading-5 text-muted-foreground">
                 {f.statusAlokasi === "selesai"
-                  ? "Status alokasi selesai tercatat di ledger internal. Ini bukan bukti pelunasan atau pencairan dana ke dompet Anda."
+                  ? "Status alokasi selesai tercatat di ledger internal; pencairan ke dompet ditangani di luar aplikasi."
                   : f.statusKredit === "didanai"
-                    ? "Target alokasi ledger tercapai. Tidak ada dana yang diteruskan ke merchant; progres hanya berdasarkan entri internal."
+                    ? "Target alokasi ledger tercapai; progres mengikuti entri internal."
                     : f.statusKredit === "ditolak"
-                      ? "Status pengajuan ditolak tercatat di aplikasi; tidak ada pengembalian dana eksternal yang diproses."
-                      : "Target alokasi ledger belum tercapai; jadwal yang ditampilkan hanya ilustrasi dan tidak ada pembayaran aktual."}
+                      ? "Status pengajuan ditolak tercatat di aplikasi."
+                      : "Target alokasi ledger belum tercapai; jadwal yang ditampilkan bersifat ilustrasi."}
               </p>
               <KeteranganWilayah />
             </li>

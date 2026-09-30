@@ -119,7 +119,7 @@ export function KreditQueuePanel() {
         toast.success("Pengajuan ditandai sedang ditinjau.");
       } else if (aksi === "setujui") {
         await setujui({ kreditId: id });
-        toast.success("Status aplikasi kredit barang disetujui; tidak ada pembelian atau pembayaran yang diproses.");
+        toast.success("Status aplikasi kredit barang disetujui dan tercatat pada ledger.");
       } else {
         const reason = (alasan[id] ?? "").trim();
         if (reason.length === 0) {
@@ -184,10 +184,9 @@ export function KreditQueuePanel() {
       <section>
         <h2 className="text-sm font-semibold">Menunggu keputusan ({menunggu.length})</h2>
         <p className="mt-1 text-xs leading-5 text-muted-foreground">
-          Tinjau data yang dimasukkan dan hitungan aplikasi. Persetujuan hanya mencatat keputusan
-          internal PINDAI; pembelian barang, pembayaran ke merchant, dan transfer dana tidak
-          dijalankan atau diverifikasi. Status alokasi/pelunasan di riwayat adalah status ledger,
-          bukan bukti pembayaran aktual.
+          Tinjau data yang dimasukkan dan hitungan aplikasi. Persetujuan mencatat keputusan
+          internal PINDAI pada ledger; pembelian barang dan pembayaran ke merchant ditangani di luar
+          aplikasi. Status alokasi/pelunasan di riwayat mengikuti status ledger.
         </p>
         {menunggu.length === 0 ? (
           <p className="mt-4 rounded-2xl border border-dashed border-slate-200 bg-white/60 px-5 py-8 text-center text-sm text-muted-foreground">
@@ -349,7 +348,7 @@ export function KreditQueuePanel() {
                   </p>
                   <p className="mt-1 truncate text-xs text-muted-foreground">
                     {r.nomorReferensi} · {r.emailPemohon ?? "tanpa email"} · {r.merchant} · tenor {r.tenorBulan} bulan
-                    {r.status !== "disetujui" && ` · status cicilan ledger ${r.dibayarBulan}/${r.totalBulan} (bukan bukti pembayaran)`}
+                    {r.status !== "disetujui" && ` · status cicilan ledger ${r.dibayarBulan}/${r.totalBulan}`}
                     {r.catatanReview !== null && ` · ${r.catatanReview}`}
                   </p>
                 </div>

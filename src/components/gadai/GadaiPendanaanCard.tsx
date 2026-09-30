@@ -68,8 +68,8 @@ export function GadaiPendanaanCard({ pawn }: { pawn: GadaiPendanaanRow }) {
     } catch (e) {
       setError(
         e instanceof Error
-          ? `Penyimpanan hitungan internal gagal: ${e.message}. Tidak ada transfer atau penitipan barang yang dikonfirmasi.`
-          : "Penyimpanan hitungan internal gagal. Tidak ada transfer atau penitipan barang yang dikonfirmasi.",
+          ? `Penyimpanan hitungan internal gagal: ${e.message}.`
+          : "Penyimpanan hitungan internal gagal.",
       );
     } finally {
       setBusy(false);
@@ -147,7 +147,7 @@ export function GadaiPendanaanCard({ pawn }: { pawn: GadaiPendanaanRow }) {
 
           {quote !== null && (
             <p className="text-xs leading-5 text-emerald-800">
-              Nilai bersih (tidak ditransfer){" "}
+              Nilai bersih{" "}
               <b className="tabular-nums">
                 {formatRupiah(quote.danaBersihDitransfer)}
               </b>{" "}
@@ -170,7 +170,7 @@ export function GadaiPendanaanCard({ pawn }: { pawn: GadaiPendanaanRow }) {
           Pokok acuan internal{" "}
           <b className="tabular-nums">{formatRupiah(pawn.pokokGadai ?? 0)}</b> · sewa
           modal{" "}
-          <b>{pawn.persenSewaModal ?? GADAI_PRICING.sewaModalMinPercent}%</b>/30 hari. Data ini bukan bukti transfer atau penitipan fisik.
+          <b>{pawn.persenSewaModal ?? GADAI_PRICING.sewaModalMinPercent}%</b>/30 hari. Data ini mengikuti pencatatan ledger internal.
         </p>
       )}
 

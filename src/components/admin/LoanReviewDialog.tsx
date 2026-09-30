@@ -69,7 +69,7 @@ export function LoanReviewDialog({
     setError(null);
     try {
       await fn();
-      toast.success("Perubahan status internal tersimpan; tidak ada pencairan atau transfer dana.");
+      toast.success("Perubahan status internal tersimpan pada ledger.");
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Gagal menyimpan keputusan.");
@@ -96,7 +96,7 @@ export function LoanReviewDialog({
         <LoanKycPanel row={row} />
 
         <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-900">
-          Nominal, tanggal acuan, alokasi, dan status lunas di panel ini adalah catatan ledger internal. Tidak ada dana yang ditransfer, dan status tidak memverifikasi pembayaran.
+          Nominal, tanggal acuan, alokasi, dan status lunas di panel ini mengikuti catatan ledger internal; perpindahan dana ditangani di luar aplikasi.
         </p>
 
         <EContractWidget kind="loan" loanId={row._id} />
@@ -118,7 +118,7 @@ export function LoanReviewDialog({
             ...(row.tenorBulan !== null
               ? ([
                   ["Uang muka (DP 0%)", formatRupiah(0)],
-                  ["Pokok pinjaman (tidak ditransfer)", formatRupiah(row.pokokPinjaman)],
+                  ["Pokok pinjaman (dasar hitungan)", formatRupiah(row.pokokPinjaman)],
                   [
                     "Biaya layanan (3% dari pokok)",
                     formatRupiah(
@@ -138,7 +138,7 @@ export function LoanReviewDialog({
               : ([
                   ["Biaya admin (3%)", formatRupiah(q.biayaAdmin)],
                   ["Biaya platform (2%)", formatRupiah(q.biayaPlatform)],
-                  ["Nilai bersih (95%; tidak ditransfer)", formatRupiah(q.danaBersihDitransfer)],
+                  ["Nilai bersih (95% dari pokok)", formatRupiah(q.danaBersihDitransfer)],
                   ["Bunga (30%)", formatRupiah(q.bunga)],
                   ["Total kewajiban (130%)", formatRupiah(q.totalKewajibanPelunasan)],
                 ] as Array<[string, string]>)),

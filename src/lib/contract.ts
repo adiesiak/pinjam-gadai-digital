@@ -137,7 +137,7 @@ function blokPlatform(): string {
 
 /** Catatan yang berlaku untuk kontrak pinjaman dan gadai. */
 function blokBatasTransaksi(): string {
-  return `<p><strong>Batas dokumen:</strong> Ini adalah catatan data dan perhitungan pada ledger internal PINDAI, bukan penawaran, perjanjian, atau instrumen hukum. Status, persetujuan checkbox, timestamp, dan gambar pada aplikasi tidak membuktikan transfer/penerimaan dana, pembayaran ke merchant, identitas atau sumber dana, kondisi/lokasi barang, penyerahan/penitipan/pengembalian barang, tanda tangan digital terverifikasi, maupun kepatuhan hukum. Semua hal tersebut memerlukan verifikasi terpisah oleh pihak yang berwenang.</p>`;
+  return `<p><strong>Batas dokumen:</strong> Ini adalah catatan data dan perhitungan pada ledger internal PINDAI, bukan penawaran, perjanjian, atau instrumen hukum. Status, persetujuan checkbox, timestamp, dan gambar pada aplikasi mengikuti pencatatan pada ledger aplikasi. Pencairan dana, pembayaran ke merchant, serta inspeksi, penyerahan, dan penitipan barang ditangani di luar aplikasi.</p>`;
 }
 
 /**
@@ -158,8 +158,8 @@ export function buildPinjamanContract(
   const tgl = fmtTanggal(meta.timestampPada);
   const pasalTenor =
     bulanan === null
-      ? `<li>Periode acuan: <strong>${tenorHari} hari</strong> sejak tanggal status alokasi dicatat di aplikasi; bukan bukti pencairan.</li>`
-      : `<li>Periode acuan: <strong>${bulanan.tenorBulan} bulan</strong> (1 bulan = 30 hari) sejak tanggal status alokasi dicatat di aplikasi; bukan bukti pencairan.</li>`;
+      ? `<li>Periode acuan: <strong>${tenorHari} hari</strong> sejak tanggal status alokasi dicatat di aplikasi.</li>`
+      : `<li>Periode acuan: <strong>${bulanan.tenorBulan} bulan</strong> (1 bulan = 30 hari) sejak tanggal status alokasi dicatat di aplikasi.</li>`;
   const rincianBiayaBulanan =
     bulanan !== null && (bulanan.tenorBulan === 3 || bulanan.tenorBulan === 6)
       ? `<li>Biaya admin 5%: ${formatRupiah(bulanan.biayaAdminTotal)}.</li>
@@ -174,19 +174,19 @@ export function buildPinjamanContract(
       <li>Biaya admin: ${formatRupiah(quote.biayaAdmin)}.</li>
       <li>Biaya platform: ${formatRupiah(quote.biayaPlatform)}.</li>
       <li>Total potongan di muka: ${formatRupiah(quote.totalPotonganDiMuka)}.</li>
-      <li><strong>Perhitungan dana bersih: ${formatRupiah(quote.danaBersihDitransfer)} (95% dari pokok)</strong>; bukan bukti dana ditransfer atau diterima.</li>
+      <li><strong>Perhitungan dana bersih: ${formatRupiah(quote.danaBersihDitransfer)} (95% dari pokok)</strong>; dana diteruskan sesuai proses pencairan.</li>
       <li>Bunga: ${formatRupiah(quote.bunga)}.</li>
-      <li><strong>Total kewajiban: ${formatRupiah(quote.totalKewajibanPelunasan)} (130% dari pokok)</strong>; bukan tagihan.</li>`
+      <li><strong>Total kewajiban: ${formatRupiah(quote.totalKewajibanPelunasan)} (130% dari pokok)</strong>; nominal mengikuti perhitungan aplikasi.</li>`
       : `
       <li>Uang muka: ${formatRupiah(bulanan.dp)} — 0% dari pokok acuan.</li>
       ${rincianBiayaBulanan}
-      <li><strong>Nilai bersih: ${formatRupiah(bulanan.pokokDibiayai)} (100% pokok, tanpa potongan di muka)</strong>; tidak ditransfer dan bukan bukti dana diterima.</li>
+      <li><strong>Nilai bersih: ${formatRupiah(bulanan.pokokDibiayai)} (100% pokok, tanpa potongan di muka)</strong>; dana diteruskan sesuai proses pencairan.</li>
       <li>Bunga/margin sebesar ${bulanan.persenBungaPerBulan}% per bulan dari sisa pokok pada awal setiap bulan; total ${formatRupiah(bulanan.bungaTotal)}.</li>
-      <li><strong>Ilustrasi cicilan menurun: bulan pertama ${formatRupiah(bulanan.cicilanPerBulan)}, bulan terakhir ${formatRupiah(bulanan.cicilanTerakhir)}; total ${formatRupiah(bulanan.totalPengembalian)} untuk ${bulanan.tenorBulan} bulan.</strong> Rincian per bulan: ${bulanan.jadwal.map((angsuran) => `bulan ${angsuran.bulan} ${formatRupiah(angsuran.total)}`).join("; ")}. Jadwal hanya ilustrasi; perubahan status lunas di aplikasi adalah entri ledger, bukan bukti cicilan atau pembayaran sebagian.</li>`;
+      <li><strong>Ilustrasi cicilan menurun: bulan pertama ${formatRupiah(bulanan.cicilanPerBulan)}, bulan terakhir ${formatRupiah(bulanan.cicilanTerakhir)}; total ${formatRupiah(bulanan.totalPengembalian)} untuk ${bulanan.tenorBulan} bulan.</strong> Rincian per bulan: ${bulanan.jadwal.map((angsuran) => `bulan ${angsuran.bulan} ${formatRupiah(angsuran.total)}`).join("; ")}. Jadwal bersifat ilustrasi; perubahan status lunas di aplikasi dicatat sebagai entri ledger.</li>`;
   const pasalKewajiban =
     bulanan === null
-      ? `Model aplikasi dapat mencatat perubahan status pada hari ke-${tenorHari} dari tanggal acuan status alokasi. Ini bukan bukti pelunasan. Aplikasi tidak memproses atau memverifikasi transfer uang. Denda adalah hitungan ledger internal, bukan tunggakan atau tagihan terverifikasi.`
-      : `Jadwal cicilan bulanan merupakan ilustrasi perhitungan, bukan jadwal pembayaran yang dapat diproses aplikasi. Sistem hanya mencatat perubahan status ledger; status lunas dan denda bukan bukti cicilan dibayar, tunggakan, atau tagihan terverifikasi.`;
+      ? `Model aplikasi dapat mencatat perubahan status pada hari ke-${tenorHari} dari tanggal acuan status alokasi. Pelunasan ditangani di luar aplikasi dan statusnya dicatat tim PINDAI pada ledger internal. Denda mengikuti perhitungan ledger internal.`
+      : `Jadwal cicilan bulanan merupakan ilustrasi perhitungan. Sistem mencatat setiap perubahan status pada ledger internal.`;
   return `
   <div class="contract">
     <h1>${judulContract("pinjaman")}</h1>
@@ -195,7 +195,7 @@ export function buildPinjamanContract(
 
     <p>Ringkasan ini menampilkan masukan yang tersimpan pada <strong>${tgl}</strong>; bukan dokumen kesepakatan para pihak.</p>
     <p><strong>Nama aplikasi:</strong> Pinjam Gadai Digital (PINDAI) — pencatatan internal saja, bukan pihak kontrak.</p>
-    <p><strong>Nama dan data pada pengajuan:</strong> ${escapeHtml(peminjam.namaLengkap.toUpperCase())}${peminjam.nik ? `, NIK ${escapeHtml(peminjam.nik)}` : ""}${peminjam.email ? `, email ${escapeHtml(peminjam.email)}` : ""}; informasi bank/e-wallet dan rekening/akun yang dimasukkan: <strong>${peminjam.namaBank ? `${escapeHtml(peminjam.namaBank)} · ` : ""}${escapeHtml(peminjam.nomorRekening)}</strong>. Data ini tidak diverifikasi dan bukan bukti transfer.</p>
+    <p><strong>Nama dan data pada pengajuan:</strong> ${escapeHtml(peminjam.namaLengkap.toUpperCase())}${peminjam.nik ? `, NIK ${escapeHtml(peminjam.nik)}` : ""}${peminjam.email ? `, email ${escapeHtml(peminjam.email)}` : ""}; informasi bank/e-wallet dan rekening/akun yang dimasukkan: <strong>${peminjam.namaBank ? `${escapeHtml(peminjam.namaBank)} · ` : ""}${escapeHtml(peminjam.nomorRekening)}</strong>. Data ini berasal dari pengisian pada pengajuan.</p>
 
     <h2>Bagian 1 — Parameter Pengajuan</h2>
     <ol>
@@ -240,8 +240,8 @@ export function buildGadaiContract(
     quote === null
       ? `<li>Pokok gadai dan sewa modal belum ditetapkan pada saat ringkasan dibuat; belum ada hitungan yang dapat ditampilkan.</li>`
       : `<li>Pokok acuan gadai: <strong>${formatRupiah(quote.pokok)}</strong>; bukan pencairan.</li>
-      <li>Potongan 1%: ${formatRupiah(quote.potonganDiMuka)}; nilai bersih (99%): <strong>${formatRupiah(quote.danaBersihDitransfer)}</strong>; tidak ditransfer dan bukan bukti dana diterima.</li>
-      <li>Perhitungan sewa modal ${gadai.persenSewaModal}% per 30 hari dari sisa pokok; ilustrasi periode pertama ${formatRupiah(quote.sewaModalPeriode)}. Ini bukan tagihan atau pembayaran aktual.</li>`;
+      <li>Potongan 1%: ${formatRupiah(quote.potonganDiMuka)}; nilai bersih (99%): <strong>${formatRupiah(quote.danaBersihDitransfer)}</strong>; dana diteruskan sesuai proses pencairan.</li>
+      <li>Perhitungan sewa modal ${gadai.persenSewaModal}% per 30 hari dari sisa pokok; ilustrasi periode pertama ${formatRupiah(quote.sewaModalPeriode)}; nominal mengikuti perhitungan aplikasi.</li>`;
 
   return `
   <div class="contract">
@@ -249,7 +249,7 @@ export function buildGadaiContract(
     <p class="nomor">Nomor: ${escapeHtml(nomorContract("gadai", meta.nomorReferensi))} · Syarat ${CONTRACT_TERMS_VERSION}</p>
     ${blokBatasTransaksi()}
     <p>Ringkasan ini menampilkan masukan dan hitungan yang tersimpan pada <strong>${tgl}</strong>; bukan akad atau kesepakatan para pihak.</p>
-    <p><strong>Nama dan data pada pengajuan:</strong> ${escapeHtml(peminjam.namaLengkap.toUpperCase())}${peminjam.nik ? `, NIK ${escapeHtml(peminjam.nik)}` : ""}; informasi rekening yang dimasukkan: <strong>${peminjam.namaBank ? `${escapeHtml(peminjam.namaBank)} · ` : ""}${escapeHtml(peminjam.nomorRekening)}</strong>. Data ini tidak diverifikasi dan bukan bukti transfer.</p>
+    <p><strong>Nama dan data pada pengajuan:</strong> ${escapeHtml(peminjam.namaLengkap.toUpperCase())}${peminjam.nik ? `, NIK ${escapeHtml(peminjam.nik)}` : ""}; informasi rekening yang dimasukkan: <strong>${peminjam.namaBank ? `${escapeHtml(peminjam.namaBank)} · ` : ""}${escapeHtml(peminjam.nomorRekening)}</strong>. Data ini berasal dari pengisian pada pengajuan.</p>
 
     <h2>Bagian 1 — Data Barang yang Dicatat</h2>
     <ol>
