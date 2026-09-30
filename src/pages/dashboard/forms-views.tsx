@@ -517,19 +517,32 @@ export function LoanForm({ onCreated }: { onCreated: (ref: string) => void }) {
         {bulanan && sim !== null ? (
           <dl className="mt-4 divide-y divide-slate-200 overflow-hidden rounded-xl border border-slate-200">
             <div className="flex flex-col gap-1 bg-emerald-50 px-3 py-2.5 text-sm sm:flex-row sm:items-baseline sm:justify-between">
-              <dt className="font-semibold text-emerald-800">Perkiraan uang yang diterima (belum dikirim)</dt>
+              <dt className="font-semibold text-emerald-800">Perkiraan pokok bersih pada model (belum dikirim; tanpa potongan di muka)</dt>
               <dd className="font-semibold tabular-nums text-emerald-700">
                 {formatRupiah(sim.pokokDibiayai)}
               </dd>
             </div>
-            <div className="flex flex-col gap-1 bg-white px-3 py-2 text-sm sm:flex-row sm:items-baseline sm:justify-between">
-              <dt className="font-medium text-slate-700">
-                {sim.tenorBulan === 3 || sim.tenorBulan === 6
-                  ? "Admin 5% + platform 2% (diamortisasi)"
-                  : "Biaya layanan 3% (diamortisasi)"}
-              </dt>
-              <dd className="font-medium tabular-nums">{formatRupiah(sim.biayaLayananTotal)}</dd>
-            </div>
+            {sim.tenorBulan === 3 || sim.tenorBulan === 6 ? (
+              <>
+                <div className="flex flex-col gap-1 bg-white px-3 py-2 text-sm sm:flex-row sm:items-baseline sm:justify-between">
+                  <dt className="font-medium text-slate-700">Biaya admin simulasi 5% (diamortisasi)</dt>
+                  <dd className="font-medium tabular-nums">{formatRupiah(sim.biayaAdminTotal)}</dd>
+                </div>
+                <div className="flex flex-col gap-1 bg-white px-3 py-2 text-sm sm:flex-row sm:items-baseline sm:justify-between">
+                  <dt className="font-medium text-slate-700">Biaya platform simulasi 2% (diamortisasi)</dt>
+                  <dd className="font-medium tabular-nums">{formatRupiah(sim.biayaPlatformTotal)}</dd>
+                </div>
+                <div className="flex flex-col gap-1 bg-white px-3 py-2 text-sm sm:flex-row sm:items-baseline sm:justify-between">
+                  <dt className="font-medium text-slate-700">Total biaya tenor 7%</dt>
+                  <dd className="font-medium tabular-nums">{formatRupiah(sim.biayaLayananTotal)}</dd>
+                </div>
+              </>
+            ) : (
+              <div className="flex flex-col gap-1 bg-white px-3 py-2 text-sm sm:flex-row sm:items-baseline sm:justify-between">
+                <dt className="font-medium text-slate-700">Biaya layanan 3% (diamortisasi)</dt>
+                <dd className="font-medium tabular-nums">{formatRupiah(sim.biayaLayananTotal)}</dd>
+              </div>
+            )}
             <div className="bg-sky-50 px-3 py-2.5 text-sm">
               <dt className="font-semibold text-sky-900">
                 Jadwal angsuran menurun · bunga {sim.persenBungaPerBulan}%/bulan dari sisa pokok

@@ -213,9 +213,15 @@ function MarketCard({
           <p className="mt-2 text-muted-foreground">Rincian ini hanya simulasi; pada akhir tenor status dapat ditandai lunas sekaligus di ledger. Itu bukan konfirmasi pembayaran aktual.</p>
           <ul className="mt-2 divide-y divide-amber-100">
             {row.simulasiCicilanBulanan.map((cicilan, index) => (
-              <li key={`${cicilan.bulan}-${index}`} className="flex justify-between gap-3 py-1.5">
+              <li key={`${cicilan.bulan}-${index}`} className="flex flex-wrap justify-between gap-3 py-1.5">
                 <span>Bulan simulasi {cicilan.bulan}</span>
                 <span className="font-medium tabular-nums">{formatRupiah(cicilan.total)}</span>
+                <span className="w-full text-right text-muted-foreground">
+                  Pokok {formatRupiah(cicilan.pokok)} · bunga {formatRupiah(cicilan.imbalHasil)}
+                  {row.tenorBulan === 3 || row.tenorBulan === 6
+                    ? ` · admin ${formatRupiah(cicilan.biayaAdmin)} · platform ${formatRupiah(cicilan.biayaPlatform)}`
+                    : ` · layanan ${formatRupiah(cicilan.biayaLayanan)}`}
+                </span>
               </li>
             ))}
           </ul>

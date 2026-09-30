@@ -635,12 +635,12 @@ export const myLoanSchedule = query({
           pokokPinjaman: l.pokokPinjaman,
           status: l.status,
           tenorHari: l.tenorHari ?? DEFAULT_TENOR_HARI,
-      tenorBulan: l.tenorBulan ?? null,
-      didanaiPada: l.didanaiPada ?? null,
-      simulasiBulanan:
-        l.tenorBulan !== undefined
-          ? hitungSimulasiBulanan(l.pokokPinjaman, l.tenorBulan)
-          : null,
+          tenorBulan: l.tenorBulan ?? null,
+          didanaiPada: l.didanaiPada ?? null,
+          simulasiBulanan:
+            l.tenorBulan !== undefined
+              ? hitungSimulasiBulanan(l.pokokPinjaman, l.tenorBulan)
+              : null,
           quote: quoteLoan(l.pokokPinjaman),
           imbalHasilTotal:
             l.tenorBulan !== undefined

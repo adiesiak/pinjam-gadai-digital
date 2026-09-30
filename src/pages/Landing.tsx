@@ -281,7 +281,7 @@ function LiveCalculator() {
                 ],
                 [
                   sim.tenorBulan === 3 || sim.tenorBulan === 6
-                    ? "Admin 5% + platform 2% (diamortisasi)"
+                    ? `Admin 5% (${formatRupiah(sim.biayaAdminTotal)}) + platform 2% (${formatRupiah(sim.biayaPlatformTotal)}), diamortisasi`
                     : "Biaya layanan 3% (diamortisasi)",
                   formatRupiah(sim.biayaLayananTotal),
                   false,
@@ -874,7 +874,7 @@ export default function Landing() {
                 ))}
               </ol>
               <p className="mt-8 rounded-xl bg-slate-50 p-4 text-xs leading-5 text-slate-600">
-                Seluruh angka berikut adalah <b className="font-semibold text-slate-900">simulasi ledger internal</b>, bukan dana dari Pendana terverifikasi atau bukti pendanaan. Skema harian menghitung nilai bersih 95% dan total kewajiban 130%; tidak ada pencairan atau transfer. Skema bulanan (1/3/6 bulan, hingga Rp 10 juta) menampilkan uang muka 0%, biaya layanan 3% yang diamortisasi, dan bunga menurun 10%/8%/7,5% per bulan. Status dan rincian kontrak hanya catatan aplikasi, bukan tanda tangan digital atau transaksi eksternal.
+                Seluruh angka berikut adalah <b className="font-semibold text-slate-900">simulasi ledger internal</b>, bukan dana dari Pendana terverifikasi atau bukti pendanaan. Skema harian menghitung nilai bersih 95% dan total kewajiban 130%; tidak ada pencairan atau transfer. Skema bulanan (1/3/6 bulan, hingga Rp 10 juta) menampilkan DP 0%, biaya admin 5% + platform 2% untuk tenor 3/6 bulan (atau biaya layanan 3% untuk tenor 1 bulan), semuanya dimodelkan dalam cicilan tanpa potongan di muka; bunga menurun 30%/25%/20% per bulan sesuai tenor. Status dan rincian kontrak hanya catatan aplikasi, bukan tanda tangan digital atau transaksi eksternal.
               </p>
             </div>
           </div>

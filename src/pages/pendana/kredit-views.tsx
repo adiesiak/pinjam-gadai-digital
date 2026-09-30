@@ -400,9 +400,11 @@ function KalkulatorKreditSection() {
                     </>
                   ) : (
                     <Baris
-                      label={`Biaya layanan simulasi (${persenId(KREDIT_PRICING.biayaLayananPersen)}%)`}
-                      value={formatRupiah(quote.biayaLayanan)}
-                      hint="Asumsi perhitungan; bukan bukti pembayaran"
+                    label={tenorBulan === 1
+                      ? "Biaya layanan simulasi (3%, diamortisasi)"
+                      : `Biaya layanan simulasi (${persenId(KREDIT_PRICING.biayaLayananPersen)}%, di muka)`}
+                    value={formatRupiah(quote.biayaLayanan)}
+                    hint="Asumsi perhitungan; bukan bukti pembayaran"
                     />
                   )}
                   <Baris
@@ -465,9 +467,11 @@ function KalkulatorKreditSection() {
 
                 <div className="mt-3 divide-y divide-slate-100">
                   <Baris
-                    label="Imbal Hasil simulasi per bulan"
+                    label="Imbal Hasil simulasi bulan pertama"
                     value={formatRupiah(quote.imbalHasilPerBulan)}
-                    hint="Ilustrasi proporsional dengan porsi alokasi simulasi"
+                    hint={bulanan
+                      ? "Ilustrasi berdasarkan saldo pokok awal; bunga bulanan menurun"
+                      : "Ilustrasi proporsional dengan porsi alokasi simulasi"}
                   />
                   <Baris
                     label={`Total Imbal Hasil simulasi × ${tenorBulan} bulan`}
@@ -509,6 +513,14 @@ function KalkulatorKreditSection() {
                   <th scope="col" className="pb-2 text-right font-medium">
                     Imbal Hasil simulasi
                   </th>
+                  {bulanan && (tenorBulan === 3 || tenorBulan === 6) ? (
+                    <>
+                      <th scope="col" className="pb-2 text-right font-medium">Admin</th>
+                      <th scope="col" className="pb-2 text-right font-medium">Platform</th>
+                    </>
+                  ) : bulanan ? (
+                    <th scope="col" className="pb-2 text-right font-medium">Biaya layanan</th>
+                  ) : null}
                   <th scope="col" className="pb-2 text-right font-medium">
                     Cicilan simulasi
                   </th>
@@ -525,6 +537,14 @@ function KalkulatorKreditSection() {
                     <td className="py-2 text-right text-emerald-700">
                       {formatRupiah(row.margin)}
                     </td>
+                    {bulanan && (tenorBulan === 3 || tenorBulan === 6) ? (
+                      <>
+                        <td className="py-2 text-right">{formatRupiah(row.biayaAdmin)}</td>
+                        <td className="py-2 text-right">{formatRupiah(row.biayaPlatform)}</td>
+                      </>
+                    ) : bulanan ? (
+                      <td className="py-2 text-right">{formatRupiah(row.biayaLayanan)}</td>
+                    ) : null}
                     <td className="py-2 text-right font-medium">{formatRupiah(row.total)}</td>
                     <td className="py-2 text-right text-muted-foreground">
                       {formatRupiah(row.sisaPokok)}
@@ -698,17 +718,18 @@ function PeluangKreditCard({ row }: { row: PeluangKredit }) {
       <section className="mt-3 rounded-xl border border-slate-200 px-3 py-3 text-xs">
         <h3 className="font-semibold">Ilustrasi jadwal simulasi</h3>
         <ul className="mt-2 divide-y divide-slate-100">
-          {row.jadwalPembayaran.map((cicilan) => (              <li key={cicilan.bulan} className="py-2">
-                <div className="flex justify-between gap-3">
-                  <span>Bulan simulasi {cicilan.bulan}</span>
-                  <span className="font-semibold tabular-nums">{formatRupiah(cicilan.total)}</span>
-                </div>
-                <p className="mt-1 text-right text-muted-foreground">
-                  Pokok simulasi {formatRupiah(cicilan.pokok)} · Imbal Hasil simulasi {formatRupiah(cicilan.imbalHasil)}
-                  {tenorBulan === 3 || tenorBulan === 6
-                    ? ` · admin ${formatRupiah(sim?.jadwal[cicilan.bulan - 1]?.biayaAdmin ?? 0)} · platform ${formatRupiah(sim?.jadwal[cicilan.bulan - 1]?.biayaPlatform ?? 0)}`
-                    : ` · layanan ${formatRupiah(sim?.jadwal[cicilan.bulan - 1]?.biayaLayanan ?? 0)}`}
-                </p>
+          {row.jadwalPembayaran.map((cicilan) => (
+            <li key={cicilan.bulan} className="py-2">
+              <div className="flex justify-between gap-3">
+                <span>Bulan simulasi {cicilan.bulan}</span>
+                <span className="font-semibold tabular-nums">{formatRupiah(cicilan.total)}</span>
+              </div>
+              <p className="mt-1 text-right text-muted-foreground">
+                Pokok simulasi {formatRupiah(cicilan.pokok)} · Imbal Hasil simulasi {formatRupiah(cicilan.imbalHasil)}
+                {row.tenorBulan === 3 || row.tenorBulan === 6
+                  ? ` · admin ${formatRupiah(cicilan.biayaAdmin)} · platform ${formatRupiah(cicilan.biayaPlatform)}`
+                  : ` · layanan ${formatRupiah(cicilan.biayaLayanan)}`}
+              </p>
             </li>
           ))}
         </ul>

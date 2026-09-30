@@ -901,13 +901,13 @@ export const marketplaceKredit = query({
       ).includes(k.tenorBulan)
         ? hitungSimulasiBulanan(quote.pokokDibiayai, k.tenorBulan)
         : null;
-      const jadwalPembayaran = quote.jadwal.map((c, index) => ({
+      const jadwalPembayaran = quote.jadwal.map((c) => ({
         bulan: c.bulan,
         pokok: c.pokok,
         imbalHasil: c.margin,
-        biayaLayanan: simulasiBulanan?.jadwal[index]?.biayaLayanan ?? 0,
-        biayaAdmin: simulasiBulanan?.jadwal[index]?.biayaAdmin ?? 0,
-        biayaPlatform: simulasiBulanan?.jadwal[index]?.biayaPlatform ?? 0,
+        biayaLayanan: c.biayaLayanan,
+        biayaAdmin: c.biayaAdmin,
+        biayaPlatform: c.biayaPlatform,
         total: c.total,
         sisaPokok: c.sisaPokok,
       }));
@@ -933,8 +933,8 @@ export const marketplaceKredit = query({
         persenImbalHasil: quote.persenImbalHasil,
         persenImbalHasilTahunan: quote.persenImbalHasilTahunan,
         biayaLayanan: quote.biayaLayanan,
-        biayaAdmin: simulasiBulanan?.biayaAdminTotal ?? 0,
-        biayaPlatform: simulasiBulanan?.biayaPlatformTotal ?? 0,
+        biayaAdmin: quote.biayaAdmin,
+        biayaPlatform: quote.biayaPlatform,
         biayaLayananDiMuka,
         biayaLayananPerBulan: simulasiBulanan?.biayaLayananPerBulan ?? 0,
         totalDibayarKonsumen: quote.totalDibayarKonsumen,
@@ -1069,9 +1069,9 @@ export const alokasiKreditBarang = mutation({
       });
 
       // Biaya layanan platform — margin platform. Skema tenor 12/24: ditagih
-      // di muka saat pendanaan penuh. Skema bulanan: biaya tenor 3% (tenor 1)
-      // atau admin 5% + platform 2% (tenor 3/6) DIAMORTISASI dalam cicilan, jadi TIDAK dijurnal di sini —
-      // dijurnal bertahap di bayarCicilanKredit agar kas benar-benar masuk.
+      // di muka saat pendanaan penuh. Skema bulanan: layanan 3% (tenor 1)
+      // atau admin 5% + platform 2% (tenor 3/6), DIAMORTISASI dalam cicilan.
+      // Tidak dijurnal di sini; settlement cicilan tetap tertutup oleh payment guard.
       const bayarFeeDiMuka = !(
         TENOR_BULANAN_OPTIONS as readonly number[]
       ).includes(kredit.tenorBulan);
@@ -1169,13 +1169,13 @@ export const myKreditFundings = query({
           ? hitungSimulasiBulanan(quote.pokokDibiayai, kredit.tenorBulan)
           : null;
       const jadwalPembayaran =
-        quote?.jadwal.map((c, index) => ({
+        quote?.jadwal.map((c) => ({
           bulan: c.bulan,
           pokok: c.pokok,
           imbalHasil: c.margin,
-          biayaLayanan: simulasiBulanan?.jadwal[index]?.biayaLayanan ?? 0,
-          biayaAdmin: simulasiBulanan?.jadwal[index]?.biayaAdmin ?? 0,
-          biayaPlatform: simulasiBulanan?.jadwal[index]?.biayaPlatform ?? 0,
+          biayaLayanan: c.biayaLayanan,
+          biayaAdmin: c.biayaAdmin,
+          biayaPlatform: c.biayaPlatform,
           total: c.total,
           sisaPokok: c.sisaPokok,
         })) ?? [];
@@ -1202,8 +1202,8 @@ export const myKreditFundings = query({
         cicilanPerBulan: quote?.cicilanPerBulan ?? null,
         persenImbalHasil: quote?.persenImbalHasil ?? null,
         biayaLayanan: quote?.biayaLayanan ?? null,
-        biayaAdmin: simulasiBulanan?.biayaAdminTotal ?? 0,
-        biayaPlatform: simulasiBulanan?.biayaPlatformTotal ?? 0,
+        biayaAdmin: quote?.biayaAdmin ?? 0,
+        biayaPlatform: quote?.biayaPlatform ?? 0,
         biayaLayananDiMuka: simulasiBulanan === null ? quote?.biayaLayanan ?? null : 0,
         biayaLayananPerBulan: simulasiBulanan?.biayaLayananPerBulan ?? 0,
         totalDibayarKonsumen: quote?.totalDibayarKonsumen ?? null,

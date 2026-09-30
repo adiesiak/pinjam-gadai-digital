@@ -9,10 +9,11 @@
  * Aturan skema (dipakai kalkulator pendanaan):
  *  - Konsumen membeli barang dari merchant mitra (marketplace / toko
  *    elektronik) dengan uang muka (DP) 10–50% dari harga barang.
- *  - Sisa harga dibiayai Pendana = pokok dibiayai; skema bulanan mengikuti mesin pokok tetap/bunga menurun.
- *  - Imbal Hasil Pendana = margin flat per bulan (% dari pokok dibiayai),
- *    dibayarkan selama tenor; bagian Pendana proporsional dengan porsi
- *    pendanaannya (Alokasi Dana).
+ *  - Sisa harga dibiayai Pendana = pokok dibiayai; skema bulanan memakai
+ *    angsuran pokok tetap dan bunga menurun.
+ *  - Imbal Hasil Pendana pada skema bulanan mengikuti bunga menurun dari
+ *    saldo pokok; tenor 12/24 memakai margin flat per bulan. Bagian Pendana
+ *    proporsional dengan porsi pendanaannya (Alokasi Dana).
  *  - Tenor 3/6 bulan memakai biaya admin 5% + platform 2% dari pokok yang
  *    diangsur; tenor 1 bulan tetap layanan 3%. Tenor 12/24 tetap biaya layanan
  *    3% di muka.
@@ -93,6 +94,12 @@ export interface KreditBarangJadwalRow {
   pokok: Rupiah;
   /** Imbal Hasil bulan ini. */
   margin: Rupiah;
+  /** Biaya layanan/admin tenor pada baris ini, bila diamortisasi. */
+  biayaLayanan: Rupiah;
+  /** Porsi biaya admin yang diamortisasi (tenor 3/6). */
+  biayaAdmin: Rupiah;
+  /** Porsi biaya platform yang diamortisasi (tenor 3/6). */
+  biayaPlatform: Rupiah;
   /** Total cicilan bulan ini. */
   total: Rupiah;
   /** Sisa pokok dibiayai setelah cicilan bulan ini. */
@@ -109,7 +116,7 @@ export interface KreditBarangQuote {
   biayaAdmin: Rupiah;
   /** Total platform tenor 3/6 (2%); nol untuk tenor lain. */
   biayaPlatform: Rupiah;
-  /** Imbal Hasil per bulan (flat). */
+  /** Imbal Hasil bulan pertama (skema bulanan) atau margin bulanan flat. */
   marginPerBulan: Rupiah;
   /** Total Imbal Hasil selama tenor. */
   marginTotal: Rupiah;
@@ -125,9 +132,9 @@ export interface KreditBarangQuote {
   porsiPendanaPersen: number;
   /** Pokok yang didanai Pendana pada alokasi ini. */
   porsiPendana: Rupiah;
-  /** Imbal Hasil bulanan milik Pendana (proporsional porsi). */
+  /** Imbal Hasil bulan pertama milik Pendana (proporsional porsi). */
   imbalHasilPerBulan: Rupiah;
-  /** Total Imbal Hasil milik Pendana selama tenor. */
+  /** Total Imbal Hasil milik Pendana selama tenor (proporsional bunga total). */
   imbalHasil: Rupiah;
   /** Porsi pokok + total Imbal Hasil yang diterima Pendana. */
   totalDiterima: Rupiah;
@@ -158,7 +165,7 @@ export function skemaBulananKredit(tenorBulan: number): boolean {
  * Identitas yang dijamin (diuji di kredit.test.ts):
  *  - dp + pokokDibiayai = hargaBarang
  *  - Σ jadwal.pokok = pokokDibiayai · Σ jadwal.margin = marginTotal
- *  - imbalHasil = imbalHasilPerBulan × tenorBulan
+ *  - imbalHasil = porsi Pendana × Σ Imbal Hasil pada jadwal (bunga menurun)
  *  - totalDiterima = porsiPendana + imbalHasil
  */
 export function quoteKreditBarang(input: KreditBarangInput): KreditBarangQuote {
@@ -212,6 +219,9 @@ export function quoteKreditBarang(input: KreditBarangInput): KreditBarangQuote {
         bulan: r.bulan,
         pokok: r.pokok,
         margin: r.bunga,
+        biayaLayanan: r.biayaLayanan,
+        biayaAdmin: r.biayaAdmin,
+        biayaPlatform: r.biayaPlatform,
         total: r.total,
         sisaPokok: r.sisaPokok,
       }),
@@ -221,7 +231,7 @@ export function quoteKreditBarang(input: KreditBarangInput): KreditBarangQuote {
     // (DP 0% → pokok dibiayai = harga barang.)
     const porsiPendanaBulanan = percentOf(hargaBarang, porsiPendanaPersen);
     const imbalHasilPerBulanBulanan = percentOf(sim.bungaPerBulan, porsiPendanaPersen);
-    const imbalHasilBulanan = imbalHasilPerBulanBulanan * tenorBulan;
+    const imbalHasilBulanan = percentOf(sim.bungaTotal, porsiPendanaPersen);
     const persenImbalHasilBulanan =
       porsiPendanaBulanan > 0
         ? bulatDuaDesimal((imbalHasilBulanan / porsiPendanaBulanan) * 100)
@@ -281,6 +291,9 @@ export function quoteKreditBarang(input: KreditBarangInput): KreditBarangQuote {
       bulan,
       pokok,
       margin: marginPerBulan,
+      biayaLayanan: 0,
+      biayaAdmin: 0,
+      biayaPlatform: 0,
       total: pokok + marginPerBulan,
       sisaPokok: sisa,
     });

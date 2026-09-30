@@ -92,6 +92,13 @@ export function PortfolioSection({ portfolio }: { portfolio: PortfolioRow[] | un
               <p className="mt-1 text-xs text-muted-foreground">
                 Tujuan: {loanPurposeLabel(f.tujuan)} · Status aplikasi: {f.statusVerifikasi} (bukan verifikasi eksternal)
               </p>
+              {f.tenorBulan !== null && (
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {f.tenorBulan === 3 || f.tenorBulan === 6
+                    ? `Biaya admin 5% (${formatRupiah(f.biayaAdmin)}) + platform 2% (${formatRupiah(f.biayaPlatform)}), diamortisasi; tanpa potongan di muka.`
+                    : `Biaya layanan 3% (${formatRupiah(f.biayaLayananTotal)}), diamortisasi; tanpa potongan di muka.`}
+                </p>
+              )}
             </div>
             <PortfolioStatusBadge state={f.statusPelunasan} isPaid={f.statusPinjaman === "lunas"} />
           </div>
@@ -144,8 +151,7 @@ export function PortfolioSection({ portfolio }: { portfolio: PortfolioRow[] | un
           </section>
 
           <section className="mt-3 rounded-xl border border-slate-200 px-3 py-3 text-xs">
-            <h3 className="font-semibold">Jadwal simulasi kewajiban</h3>
-            <p className="mt-1 text-muted-foreground">Catatan jadwal pada aplikasi: {f.catatanJadwal} Ini bukan tagihan, riwayat pembayaran, atau bukti cicilan dibayar.</p>
+            <h3 className="font-semibold">Jadwal simulasi kewajiban</h3>              <p className="mt-1 text-muted-foreground">Catatan jadwal pada aplikasi: {f.catatanJadwal} Ini bukan tagihan, riwayat pembayaran, atau bukti cicilan dibayar.</p>
             <ul className="mt-2 divide-y divide-slate-100">
               {f.jadwalPelunasan.map((cicilan, index) => (
                 <li key={`${cicilan.bulan ?? cicilan.hariKe}-${index}`} className="flex flex-wrap justify-between gap-x-3 gap-y-1 py-2">
@@ -162,9 +168,15 @@ export function PortfolioSection({ portfolio }: { portfolio: PortfolioRow[] | un
               <p className="mt-2 text-muted-foreground">Simulasi ini bukan riwayat pembayaran; pada akhir tenor status pinjaman dapat ditandai lunas sekaligus di ledger. Ini bukan pembayaran yang diverifikasi.</p>
               <ul className="mt-2 divide-y divide-amber-100">
                 {f.simulasiCicilanBulanan.map((cicilan, index) => (
-                  <li key={`${cicilan.bulan}-${index}`} className="flex justify-between gap-3 py-1.5">
+                  <li key={`${cicilan.bulan}-${index}`} className="flex flex-wrap justify-between gap-3 py-1.5">
                     <span>Bulan simulasi {cicilan.bulan}</span>
                     <span className="font-medium tabular-nums">{formatRupiah(cicilan.total)}</span>
+                    <span className="w-full text-right text-muted-foreground">
+                      Pokok {formatRupiah(cicilan.pokok)} · bunga {formatRupiah(cicilan.imbalHasil)}
+                      {f.tenorBulan === 3 || f.tenorBulan === 6
+                        ? ` · admin ${formatRupiah(cicilan.biayaAdmin)} · platform ${formatRupiah(cicilan.biayaPlatform)}`
+                        : ` · layanan ${formatRupiah(cicilan.biayaLayanan)}`}
+                    </span>
                   </li>
                 ))}
               </ul>

@@ -404,7 +404,9 @@ export function KreditBarangForm({ onCreated }: { onCreated: (ref: string) => vo
             </div>
           </dl>
           <p className="mt-2 text-xs leading-5 text-muted-foreground">
-            Kredit barang ini bukan pencairan uang tunai; PINDAI tidak membeli barang atau mengirim dana ke merchant.
+            {tenorBulan === 3 || tenorBulan === 6
+              ? "Biaya admin 5% dan platform 2% dimasukkan ke cicilan tanpa potongan di muka."
+              : "Biaya layanan 3% dimodelkan dalam skema tenor ini."} Kredit barang ini bukan pencairan uang tunai; PINDAI tidak membeli barang atau mengirim dana ke merchant.
           </p>
           </>
         )}
