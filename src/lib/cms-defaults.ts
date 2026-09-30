@@ -34,7 +34,7 @@ export const CMS_DEFAULTS = {
     sub: "Semua nominal, skema biaya, dan status yang terlihat adalah pencatatan internal PINDAI.",
     pinjamanJudul: "Pinjaman Tunai Digital",
     pinjamanIsi:
-      "Perhitungan harian: potongan admin 2% + platform 3%, bunga 30%, dan total kewajiban 130% dari pokok; plafon serta tenor mengikuti pengaturan aplikasi. Skema bulanan 1–6 bulan memakai DP 0%, biaya admin 2% + platform 3% (tenor 3/6) atau biaya layanan 3% (tenor 1) yang dipotong di muka, dan bunga 30%/25% menurun dari sisa pokok (tenor 1–5 bulan) atau 20% flat dari pokok penuh (tenor 6 bulan). Angka dihitung aplikasi dari data pengajuan dan dana tidak dikirim ke mana pun. Jadwal angsuran bulanan bersifat ilustrasi dan ledger mencatat pelunasan penuh sekaligus saat jatuh tempo.",
+      "Perhitungan harian: potongan admin 2% + platform 3%, bunga 30%, dan total kewajiban 130% dari pokok; plafon serta tenor mengikuti pengaturan aplikasi. Skema bulanan 1–6 bulan memakai DP 0%, biaya admin 2% + platform 3% (tenor 3/6) atau biaya layanan 3% (tenor 1) yang dipotong di muka, dan bunga flat dari pokok penuh — 30% per bulan (tenor 1 bulan), 25% (tenor 3 bulan), 20% (tenor 6 bulan). Angka dihitung aplikasi dari data pengajuan dan dana tidak dikirim ke mana pun. Jadwal angsuran bulanan bersifat ilustrasi dan ledger mencatat pelunasan penuh sekaligus saat jatuh tempo.",
     pinjamanCta: "Ajukan sekarang",
     gadaiJudul: "Gadai Digital",
     gadaiIsi:

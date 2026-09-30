@@ -11,12 +11,14 @@
  *  - Tenor 3 dan 6 bulan: biaya admin 2% + platform 3% dari pokok,
  *    DIPOTONG DI MUKA dari dana yang diterima (tidak diamortisasi ke cicilan).
  *    Tenor lain memakai biaya layanan 3%, juga dipotong di muka.
- *  - Bunga/margin (hak Pendana):
- *      tenor 1 bulan  → 30% / bulan, menurun dari sisa pokok
- *      tenor 3–5 bln  → 25% / bulan, menurun dari sisa pokok
- *      tenor ≥ 6 bln  → 20% / bulan FLAT dari pokok penuh (tidak menurun)
- *  - Cicilan = angsuran pokok + bunga bulan itu (tanpa biaya). Pada tenor
- *    flat, cicilan bulanan rata karena bunga tidak menurun.
+ *  - Bunga/margin (hak Pendana) — FLAT dari pokok penuh, sama besar setiap
+ *    bulan (tidak menurun dari sisa pokok):
+ *      tenor 1 bulan  → 30% / bulan
+ *      tenor 3 bulan  → 25% / bulan
+ *      tenor ≥ 6 bln  → 20% / bulan
+ *  - Cicilan = angsuran pokok + bunga bulan itu (tanpa biaya). Karena bunga
+ *    flat, cicilan bulanan rata (bulan terakhir hanya menyerap pembulatan
+ *    pokok).
  *  - Dana diterima Peminjam = pokok − potongan di muka.
  *
  * Guardrail Rule 3: semua uang integer rupiah — pembagian pokok memakai
@@ -39,9 +41,9 @@ export const BULANAN_PRICING = {
   biayaPlatformPersenTenor3_6: 3,
   /** Total biaya tenor 3/6 = admin 2% + platform 3% = 5%, dipotong di muka. */
   biayaTenor3_6Persen: 5,
-  /** Bunga tenor 1 bulan (%/bulan). */
+  /** Bunga tenor 1 bulan (%/bulan, flat dari pokok penuh). */
   bungaTenor1PersenPerBulan: 30,
-  /** Bunga tenor 3–5 bulan (%/bulan). */
+  /** Bunga tenor 3–5 bulan (%/bulan, flat dari pokok penuh). */
   bungaTenor3_5PersenPerBulan: 25,
   /** Bunga tenor ≥ 6 bulan (%/bulan, flat dari pokok penuh). */
   bungaMin6PersenPerBulan: 20,
@@ -66,17 +68,19 @@ export function persenBungaPerBulan(tenorBulan: number): number {
 }
 
 /**
- * Metode bunga menurut tenor:
- *  - `menurun` (tenor 1–5 bulan): bunga dihitung dari sisa pokok awal bulan,
- *    sehingga cicilan mengecil setiap bulan;
- *  - `flat` (tenor ≥ 6 bulan): bunga 20% per bulan dihitung dari POKOK PENUH
- *    dan sama besar setiap bulan.
+ * Metode bunga menurut tenor. Seluruh tenor resmi (1, 3, dan 6 bulan) memakai
+ * bunga FLAT dari pokok penuh — 30%/25%/20% per bulan sesuai tenor — sehingga
+ * cicilan rata dan bukan menurun dari sisa pokok.
+ *
+ * Fungsi ini tetap ada sebagai satu titik kebijakan: bila suatu saat ada tenor
+ * yang kembali memakai bunga menurun dari sisa pokok, cukup ubah nilai balik
+ * di sini (mesin jadwal sudah menangani kedua metode).
  */
 export function metodeBungaBulanan(tenorBulan: number): "menurun" | "flat" {
   if (!Number.isSafeInteger(tenorBulan) || tenorBulan <= 0) {
     throw new Error("Tenor harus bilangan bulan positif.");
   }
-  return tenorBulan >= 6 ? "flat" : "menurun";
+  return "flat";
 }
 
 /** Satu baris jadwal cicilan bulanan. */
@@ -128,7 +132,7 @@ export interface SimulasiBulanan {
   biayaAdminPerBulan: Rupiah;
   /** Porsi biaya platform per bulan — nol: biaya dipotong di muka. */
   biayaPlatformPerBulan: Rupiah;
-  /** Bunga bulan pertama (pada tenor flat: bunga setiap bulan). */
+  /** Bunga setiap bulan — tetap sama karena bunga flat dari pokok penuh. */
   bungaPerBulan: Rupiah;
   /** Cicilan bulan pertama (terbesar pada jadwal pokok tetap). */
   cicilanPerBulan: Rupiah;
@@ -164,8 +168,8 @@ export function assertSimulasiBulananValid(pokok: Rupiah, tenorBulan: number): v
  *  - Tenor 3/6 mengenakan admin 2% + platform 3% (total 5%), tenor lain 3%
  *  - Seluruh biaya dipotong di muka: danaDiterima = pokok − potonganDiMuka
  *  - Jadwal hanya berisi pokok + bunga (Σ jadwal.total = totalPengembalian)
- *  - menurun (tenor 1–5) memakai bunga atas sisa pokok; flat (tenor ≥6) memakai
- *    20% dari pokok penuh setiap bulan sehingga cicilan rata
+ *  - seluruh tenor resmi memakai bunga flat dari pokok penuh (30%/25%/20%
+ *    per bulan sesuai tenor) sehingga cicilan rata
  *  - cicilanPerBulan = cicilan bulan pertama; cicilanTerakhir = cicilan terakhir
  *  - totalKeuntunganBersih = potonganDiMuka + bungaTotal
  */

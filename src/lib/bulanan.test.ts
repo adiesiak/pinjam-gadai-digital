@@ -59,10 +59,10 @@ throws(() => persenBungaPerBulan(-3), "tenor negatif ditolak");
 throws(() => persenBungaPerBulan(1.5), "tenor pecahan ditolak");
 
 // ============================================================
-// 1b. Metode bunga per tenor — flat hanya untuk tenor ≥ 6 bulan
-eq(metodeBungaBulanan(1), "menurun", "tenor 1 bln: bunga menurun dari sisa pokok");
-eq(metodeBungaBulanan(3), "menurun", "tenor 3 bln: bunga menurun dari sisa pokok");
-eq(metodeBungaBulanan(5), "menurun", "tenor 5 bln: bunga menurun dari sisa pokok");
+// 1b. Metode bunga per tenor — FLAT dari pokok penuh untuk semua tenor
+eq(metodeBungaBulanan(1), "flat", "tenor 1 bln: bunga flat dari pokok penuh");
+eq(metodeBungaBulanan(3), "flat", "tenor 3 bln: bunga flat dari pokok penuh");
+eq(metodeBungaBulanan(5), "flat", "tenor 5 bln: bunga flat dari pokok penuh");
 eq(metodeBungaBulanan(6), "flat", "tenor 6 bln: bunga flat dari pokok penuh");
 eq(metodeBungaBulanan(12), "flat", "tenor 12 bln: bunga flat dari pokok penuh");
 throws(() => metodeBungaBulanan(0), "metode: tenor 0 ditolak");
@@ -144,14 +144,15 @@ throws(() => metodeBungaBulanan(2.5), "metode: tenor pecahan ditolak");
 }
 
 // ============================================================
-// 4. Tenor 3 bulan (bunga 25% per bulan) — pembulatan tidak rata
+// 4. Tenor 3 bulan (bunga 25% flat dari pokok penuh)
 // ============================================================
 {
   const q = hitungSimulasiBulanan(1_000_000, 3);
   eq(q.persenBungaPerBulan, 25, "1jt/3bln: bunga 25% per bulan");
-  eq(q.bungaPerBulan, 250_000, "1jt/3bln: bunga bulan pertama 250.000");
-  eq(q.jadwal[1].bunga, 166_667, "1jt/3bln: bunga bulan kedua dari sisa pokok");
-  eq(q.jadwal[2].bunga, 83_334, "1jt/3bln: bunga bulan ketiga dibulatkan HALF-UP");
+  eq(q.metodeBunga, "flat", "1jt/3bln: metode bunga flat dari pokok penuh");
+  eq(q.bungaPerBulan, 250_000, "1jt/3bln: bunga bulan pertama 250.000 (25% pokok penuh)");
+  eq(q.jadwal[1].bunga, 250_000, "1jt/3bln: bunga bulan kedua tetap 250.000");
+  eq(q.jadwal[2].bunga, 250_000, "1jt/3bln: bunga bulan ketiga tetap 250.000");
   eq(q.jadwal[0].pokok, 333_333, "1jt/3bln: pokok/bln 333.333");
   eq(q.jadwal[2].pokok, 333_334, "1jt/3bln: bulan terakhir 333.334");
   eq(q.biayaAdminTotal, 20_000, "1jt/3bln: biaya admin 2% = 20rb");
@@ -159,10 +160,11 @@ throws(() => metodeBungaBulanan(2.5), "metode: tenor pecahan ditolak");
   eq(q.biayaLayananTotal, 50_000, "1jt/3bln: total biaya 5% = 50rb");
   eq(q.danaDiterima, 950_000, "1jt/3bln: dana diterima 950rb");
   eq(q.cicilanPerBulan, 583_333, "1jt/3bln: cicilan pertama = pokok + bunga");
-  eq(q.jadwal[1].total, 500_000, "1jt/3bln: cicilan kedua menurun");
-  eq(q.jadwal[2].total, 416_668, "1jt/3bln: cicilan terakhir menyerap sisa pokok");
-  eq(q.totalPengembalian, 1_500_001, "1jt/3bln: total bunga saldo menurun (tanpa biaya)");
-  eq(q.persentaseProfitTotal, 55, "1jt/3bln: biaya total 55%");
+  eq(q.jadwal[1].total, 583_333, "1jt/3bln: cicilan kedua rata");
+  eq(q.jadwal[2].total, 583_334, "1jt/3bln: cicilan terakhir menyerap sisa pokok");
+  eq(q.totalPengembalian, 1_750_000, "1jt/3bln: total = pokok + 3 × bunga flat");
+  eq(q.bungaTotal, 750_000, "1jt/3bln: bunga total = 25% × 3 bulan");
+  eq(q.persentaseProfitTotal, 80, "1jt/3bln: biaya total 80%");
   // Identitas tiap baris jadwal.
   for (const r of q.jadwal) {
     eq(r.total, r.pokok + r.bunga + r.biayaLayanan, `1jt/3bln bulan ${r.bulan}: total = komponen`);
@@ -210,19 +212,12 @@ for (const pokok of POKOK_LIST) {
       q.totalPengembalian,
       `${pokok}/${tenor}bln: Σ total = totalPengembalian`,
     );
-    if (tenor >= 6) {
-      // Bunga flat: cicilan rata; bulan terakhir hanya menyerap pembulatan pokok.
-      ok(
-        q.cicilanTerakhir >= q.cicilanPerBulan &&
-          q.cicilanTerakhir - q.cicilanPerBulan < tenor,
-        `${pokok}/${tenor}bln: cicilan rata (selisih hanya pembulatan pokok)`,
-      );
-    } else {
-      ok(
-        q.jadwal[0].total >= q.cicilanTerakhir,
-        `${pokok}/${tenor}bln: cicilan pertama ≥ cicilan terakhir`,
-      );
-    }
+    // Bunga flat: cicilan rata; bulan terakhir hanya menyerap pembulatan pokok.
+    ok(
+      q.cicilanTerakhir >= q.cicilanPerBulan &&
+        q.cicilanTerakhir - q.cicilanPerBulan < tenor,
+      `${pokok}/${tenor}bln: cicilan rata (selisih hanya pembulatan pokok)`,
+    );
     eq(
       q.totalKeuntunganBersih,
       q.potonganDiMuka + q.bungaTotal,
@@ -232,21 +227,17 @@ for (const pokok of POKOK_LIST) {
       q.persentaseProfitTotal < BULANAN_PRICING.maxProfitTotalPersen,
       `${pokok}/${tenor}bln: biaya total < batas profit`,
     );
-    // Tenor ≥6 bulan memakai bunga flat: setiap baris sama besar.
-    if (tenor >= 6) {
-      eq(q.metodeBunga, "flat", `${pokok}/${tenor}bln: metode bunga flat`);
-      ok(
-        q.jadwal.every((r) => r.bunga === q.bungaPerBulan),
-        `${pokok}/${tenor}bln: bunga setiap bulan sama (flat dari pokok penuh)`,
-      );
-      eq(
-        q.bungaTotal,
-        q.bungaPerBulan * tenor,
-        `${pokok}/${tenor}bln: bunga total = bunga bulanan × tenor`,
-      );
-    } else {
-      eq(q.metodeBunga, "menurun", `${pokok}/${tenor}bln: metode bunga menurun`);
-    }
+    // Seluruh tenor memakai bunga flat: setiap baris sama besar.
+    eq(q.metodeBunga, "flat", `${pokok}/${tenor}bln: metode bunga flat`);
+    ok(
+      q.jadwal.every((r) => r.bunga === q.bungaPerBulan),
+      `${pokok}/${tenor}bln: bunga setiap bulan sama (flat dari pokok penuh)`,
+    );
+    eq(
+      q.bungaTotal,
+      q.bungaPerBulan * tenor,
+      `${pokok}/${tenor}bln: bunga total = bunga bulanan × tenor`,
+    );
     // Setiap komponen rupiah bulat.
     for (const r of q.jadwal) {
       ok(

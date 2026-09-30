@@ -112,8 +112,8 @@ const SECURITY = [
 
 // Skema harian: Rp 100 rb–1 jt / maks 30 hari. Skema bulanan: sampai plafon
 // tertinggi yang boleh disimpan admin (Rp 10 jt) dengan tenor 1/3/6 bulan
-// (DP 0%, biaya 5% tenor 3/6 atau 3% tenor 1, dipotong di muka; bunga 30%/25%
-// menurun untuk tenor 1–5 bulan dan 20% flat dari pokok untuk tenor ≥6 bulan).
+// (DP 0%, biaya 5% tenor 3/6 atau 3% tenor 1, dipotong di muka; bunga FLAT dari
+// pokok penuh — 30% (tenor 1), 25% (tenor 3), 20% (tenor 6) per bulan).
 // Angka di bawah ini
 // sengaja tidak lebih besar dari plafon — lihat lib/plafon.ts.
 const QUICK_AMOUNTS = [100_000, 250_000, 500_000, 1_000_000];
@@ -277,7 +277,7 @@ function LiveCalculator() {
           sim !== null
             ? ([
                 [
-                  `Bunga ${sim.persenBungaPerBulan}%/bulan (${sim.metodeBunga === "flat" ? "flat dari pokok" : "menurun"})`,
+                  `Bunga ${sim.persenBungaPerBulan}%/bulan (flat dari pokok)`,
                   formatRupiah(sim.bungaTotal),
                   false,
                 ],
@@ -876,7 +876,7 @@ export default function Landing() {
                 ))}
               </ol>
               <p className="mt-8 rounded-xl bg-slate-50 p-4 text-xs leading-5 text-slate-600">
-                Seluruh angka berikut adalah <b className="font-semibold text-slate-900">perhitungan ledger internal</b> dari pencatatan PINDAI. Skema harian menghitung nilai bersih 95% dan total kewajiban 130%; perpindahan dana ditangani di luar aplikasi. Skema bulanan (1/3/6 bulan, hingga Rp 10 juta) menampilkan DP 0%, biaya admin 2% + platform 3% untuk tenor 3/6 bulan (atau biaya layanan 3% untuk tenor 1 bulan) yang dipotong di muka dari dana yang diterima, sehingga cicilan berisi pokok dan bunga saja; bunga 30%/25% per bulan menurun dari sisa pokok (tenor 1–5 bulan) atau 20% per bulan flat dari pokok penuh (tenor 6 bulan). Status dan rincian kontrak mengikuti pencatatan pada ledger internal.
+                Seluruh angka berikut adalah <b className="font-semibold text-slate-900">perhitungan ledger internal</b> dari pencatatan PINDAI. Skema harian menghitung nilai bersih 95% dan total kewajiban 130%; perpindahan dana ditangani di luar aplikasi. Skema bulanan (1/3/6 bulan, hingga Rp 10 juta) menampilkan DP 0%, biaya admin 2% + platform 3% untuk tenor 3/6 bulan (atau biaya layanan 3% untuk tenor 1 bulan) yang dipotong di muka dari dana yang diterima, sehingga cicilan berisi pokok dan bunga saja; bunga flat dari pokok penuh sebesar 30% per bulan (tenor 1 bulan), 25% (tenor 3 bulan), dan 20% (tenor 6 bulan), jadi cicilannya rata dan tidak menurun. Status dan rincian kontrak mengikuti pencatatan pada ledger internal.
               </p>
             </div>
           </div>

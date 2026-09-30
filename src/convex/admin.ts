@@ -531,7 +531,7 @@ export const adminStats = query({
 
 // Re-quote helper dipakai ulang untuk tampilan admin (rincian biaya pinjaman).
 // tenorBulan diisi → rincian skema bulanan (DP 0%, biaya 5% tenor 3/6 atau
-// 3% tenor 1 dipotong di muka, bunga menurun/flat per tenor); kosong → skema
+// 3% tenor 1 dipotong di muka, bunga flat per tenor); kosong → skema
 // harian 130%.
 export const adminLoanQuote = query({
   args: { pokokPinjaman: v.number(), tenorBulan: v.optional(v.number()) },
@@ -1057,8 +1057,8 @@ export const contractDetail = query({
       tenorHari: loan.tenorHari,
       tenorBulan: loan.tenorBulan ?? null,
       lokasiAjukan: loan.lokasiAjukan ?? null,
-      // Skema bulanan memakai jadwal bunga dari lib/bulanan (menurun untuk
-      // tenor 1–5 bulan, flat dari pokok penuh untuk tenor ≥6 bulan);
+      // Skema bulanan memakai jadwal bunga dari lib/bulanan (flat dari
+      // pokok penuh sehingga cicilannya rata);
       // perubahan versi syarat di lib/contract harus ikut dipush bersama fungsi ini.
       bulanan:
         loan.tenorBulan !== undefined

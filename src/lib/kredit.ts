@@ -10,12 +10,11 @@
  *  - Konsumen membeli barang dari merchant mitra (marketplace / toko
  *    elektronik) dengan uang muka (DP) 10–50% dari harga barang.
  *  - Sisa harga dibiayai Pendana = pokok dibiayai; skema bulanan memakai
- *    angsuran pokok tetap dan bunga menurun (tenor 1–5 bulan) atau bunga flat
- *    dari pokok penuh (tenor ≥6 bulan).
- *  - Imbal Hasil Pendana pada skema bulanan: tenor 1–5 bulan menurun dari
- *    saldo pokok, tenor ≥6 bulan 20% flat dari pokok penuh. Skema DP + margin
- *    flat 12/24 bulan hanya untuk kontrak warisan (tidak ditawarkan lagi).
- *    Bagian Pendana proporsional dengan porsi pendanaannya (Alokasi Dana).
+ *    angsuran pokok tetap dan bunga flat dari pokok penuh (cicilan rata).
+ *  - Imbal Hasil Pendana pada skema bulanan dihitung FLAT dari pokok penuh
+ *    (30% tenor 1 bulan, 25% tenor 3 bulan, 20% tenor 6 bulan per bulan).
+ *    Skema DP + margin flat 12/24 bulan hanya untuk kontrak warisan (tidak
+ *    ditawarkan lagi). Bagian Pendana proporsional dengan porsi pendanaannya.
  *  - Tenor 3/6 bulan memakai biaya admin 2% + platform 3% dari pokok,
  *    DIPOTONG DI MUKA; tenor 1 bulan tetap layanan 3% dipotong di muka.
  *    Kontrak lama 12/24 tetap biaya layanan 3% di muka.
@@ -59,8 +58,8 @@ export const KREDIT_PRICING = {
    * Pilihan tenor kredit barang (bulan) = KREDIT_TENOR_PENGAJUAN_OPTIONS:
    * 1/3/6 bulan dengan skema bulanan (DP 0%, biaya admin 2% + platform 3%
    * tenor 3/6 atau layanan 3% tenor 1, seluruhnya dipotong di muka; bunga
-   * 30%/25% menurun pada tenor 1–5 bulan dan 20% flat dari pokok penuh pada
-   * tenor 6 bulan). Tenor 12/24 bulan tidak ditawarkan lagi.
+   * FLAT dari pokok penuh 30%/25%/20% per bulan sesuai tenor. Tenor 12/24
+   * bulan tidak ditawarkan lagi.
    */
   tenorBulanOptions: KREDIT_TENOR_PENGAJUAN_OPTIONS,
   /** Imbal Hasil minimum per bulan (% dari pokok dibiayai). */

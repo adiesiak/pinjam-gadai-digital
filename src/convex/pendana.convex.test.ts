@@ -306,7 +306,7 @@ describe("alur Pendana — pinjaman tunai", () => {
       biayaLayananTotal: 50_000,
       totalPotonganDiMuka: 50_000,
       danaBersih: 950_000,
-      jadwalPelunasan: [{ bulan: 3, hariKe: 90, total: 1_500_001 }],
+      jadwalPelunasan: [{ bulan: 3, hariKe: 90, total: 1_750_000 }],
       simulasiCicilanBulanan: expect.arrayContaining([
         expect.objectContaining({ bulan: 1 }),
       ]),

@@ -131,12 +131,7 @@ export function LoanReviewDialog({
                         ),
                     ),
                   ],
-                  [
-                    row.tenorBulan !== null && row.tenorBulan >= 6
-                      ? "Bunga flat dari pokok penuh"
-                      : "Bunga menurun dari sisa pokok",
-                    formatRupiah(row.imbalHasilTotal ?? 0),
-                  ],
+                  ["Bunga flat dari pokok penuh", formatRupiah(row.imbalHasilTotal ?? 0)],
                   ["Cicilan per bulan (ilustrasi)", formatRupiah(row.cicilanPerBulan ?? 0)],
                   ["Total pengembalian", formatRupiah(row.totalKewajiban ?? 0)],
                 ] as Array<[string, string]>)

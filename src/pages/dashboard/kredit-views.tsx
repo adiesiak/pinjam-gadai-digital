@@ -122,7 +122,7 @@ export function KreditBarangForm({ onCreated }: { onCreated: (ref: string) => vo
   // 1/3/6 bulan memakai DP 0%, sehingga harga = pokok dibiayai.
   const hargaMaksPlafon = KREDIT_BARANG_POKOK_MAKS;
 
-  // Tenor 1/3/6 bulan memakai skema bulanan (DP 0%, bunga menurun) — slider DP
+  // Tenor 1/3/6 bulan memakai skema bulanan (DP 0%, bunga flat) — slider DP
   // dan margin tidak berpengaruh, jadi diganti keterangan otomatis engine.
   const bulanan = skemaBulananKredit(tenorBulan);
 

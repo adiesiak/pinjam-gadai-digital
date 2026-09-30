@@ -109,7 +109,7 @@ function KalkulatorKreditSection() {
     KREDIT_ASUMSI_AWAL.porsiPendanaPersen,
   );
 
-  // Tenor 1/3/6 bulan memakai skema bulanan (DP 0%, bunga menurun/flat) — slider DP
+  // Tenor 1/3/6 bulan memakai skema bulanan (DP 0%, bunga flat) — slider DP
   // dan margin tidak berpengaruh, jadi diganti keterangan otomatis engine.
   const bulanan = skemaBulananKredit(tenorBulan);
 
@@ -470,9 +470,7 @@ function KalkulatorKreditSection() {
                     label="Imbal Hasil bulan pertama"
                     value={formatRupiah(quote.imbalHasilPerBulan)}
                     hint={bulanan
-                      ? (tenorBulan >= 6
-                          ? "Ilustrasi bunga flat 20% dari pokok penuh setiap bulan"
-                          : "Ilustrasi berdasarkan saldo pokok awal; bunga bulanan menurun")
+                      ? "Ilustrasi bunga flat dari pokok penuh setiap bulan; cicilan rata"
                       : "Ilustrasi proporsional dengan porsi alokasi"}
                   />
                   <Baris
@@ -499,8 +497,7 @@ function KalkulatorKreditSection() {
           <div className="flex items-center justify-between gap-3">
             <h3 className="text-sm font-semibold">Jadwal cicilan Konsumen</h3>
             <Badge className="border-0 bg-slate-100 text-[10px] text-slate-700 hover:bg-slate-100">
-              {tenorBulan} bulan ·{" "}
-              {bulanan ? (tenorBulan >= 6 ? "bunga flat dari pokok" : "bunga menurun") : "cicilan flat"}
+              {tenorBulan} bulan · {bulanan ? "bunga flat dari pokok" : "cicilan flat"}
             </Badge>
           </div>
           <div className="mt-4 max-h-72 overflow-y-auto">

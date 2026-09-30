@@ -92,7 +92,7 @@ eq(sebagian.imbalHasil, 1_200_000, "total Imbal Hasil 50% = 1,2jt");
 eq(sebagian.totalDiterima, 5_200_000, "total diterima porsi 50%");
 eq(sebagian.persenImbalHasil, 30, "persen Imbal Hasil tetap 30%");
 
-// ---- Tenor 3 bulan: skema bulanan (DP 0%, bunga 25%/bln dari saldo pokok) ----
+// ---- Tenor 3 bulan: skema bulanan (DP 0%, bunga 25%/bln FLAT dari pokok) ----
 const pendek = quoteKreditBarang({
   hargaBarang: 10_000_000,
   dpPersen: 0,
@@ -103,13 +103,14 @@ const pendek = quoteKreditBarang({
 eq(pendek.dp, 0, "tenor 3 bulan: DP 0 (skema bulanan)");
 eq(pendek.pokokDibiayai, 10_000_000, "tenor 3 bulan: pokok dibiayai = harga barang");
 eq(pendek.marginPerBulan, 2_500_000, "Imbal Hasil 25% dari 10jt = 2,5jt");
-eq(pendek.marginTotal, 5_000_001, "total Imbal Hasil saldo menurun selama 3 bulan");
+eq(pendek.marginTotal, 7_500_000, "total Imbal Hasil flat 25% × 3 bulan = 7,5jt");
 eq(pendek.biayaAdmin, 200_000, "biaya admin 2% dari 10jt (dipotong di muka)");
 eq(pendek.biayaPlatform, 300_000, "biaya platform 3% dari 10jt (dipotong di muka)");
 eq(pendek.biayaLayanan, 500_000, "total biaya tenor 5% dari 10jt (dipotong di muka)");
 eq(pendek.cicilanPerBulan, 5_833_333, "cicilan 3 bulan pertama = pokok + Imbal Hasil");
-eq(pendek.persenImbalHasil, 50, "Imbal Hasil 50% dari pokok penuh (3 bulan)");
-eq(pendek.persenImbalHasilTahunan, 200, "setara 200% per tahun (50% × 12/3)");
+eq(pendek.cicilanTerakhir, 5_833_334, "cicilan terakhir menyerap sisa pokok (cicilan rata)");
+eq(pendek.persenImbalHasil, 75, "Imbal Hasil 75% dari pokok penuh (3 bulan)");
+eq(pendek.persenImbalHasilTahunan, 300, "setara 300% per tahun (75% × 12/3)");
 eq(
   pendek.jadwal.reduce((acc, row) => acc + row.pokok, 0),
   pendek.pokokDibiayai,
