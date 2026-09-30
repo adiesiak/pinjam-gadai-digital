@@ -1134,3 +1134,31 @@ export const resetDevelopmentLoansAndLedger = internalMutation({
     return { deletedLoans: loans.length, deletedLedgerEntries: entries.length };
   },
 });
+
+/** Reset eksplisit untuk development: hapus semua gadai dan seluruh ledger. */
+export const resetDevelopmentPawns = internalMutation({
+  args: { confirmation: v.literal("RESET_DEVELOPMENT_PAWNS") },
+  handler: async (ctx) => {
+    const [pawns, payments, entries] = await Promise.all([
+      ctx.db.query("pawns").collect(),
+      ctx.db.query("pawnPayments").collect(),
+      ctx.db.query("ledger_entries").collect(),
+    ]);
+    const total = pawns.length + payments.length + entries.length;
+    if (total > 400) {
+      throw new Error(
+        `Reset dihentikan: ${total} dokumen melebihi batas aman 400. Gunakan prosedur batch khusus.`,
+      );
+    }
+
+    for (const payment of payments) await ctx.db.delete(payment._id);
+    for (const pawn of pawns) await ctx.db.delete(pawn._id);
+    for (const entry of entries) await ctx.db.delete(entry._id);
+
+    return {
+      deletedPawns: pawns.length,
+      deletedPawnPayments: payments.length,
+      deletedLedgerEntries: entries.length,
+    };
+  },
+});
