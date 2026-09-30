@@ -235,7 +235,8 @@ export function LoanForm({ onCreated }: { onCreated: (ref: string) => void }) {
     setCameraReady(false);
     setCameraCapturing(false);
     setCameraError(null);
-    setError(null);    if (!navigator.mediaDevices?.getUserMedia) {
+    setError(null);
+    if (!navigator.mediaDevices?.getUserMedia) {
       setCameraLoading(false);
       setCameraError("Kamera tidak tersedia. Buka aplikasi ini di perangkat yang memiliki kamera.");
       return;
@@ -365,7 +366,8 @@ export function LoanForm({ onCreated }: { onCreated: (ref: string) => void }) {
         `Jumlah pinjaman harus antara ${formatRupiah(MIN)} dan ${formatRupiah(MAX)}. Masukkan jumlah rupiah tanpa pecahan. Lama pinjaman paling lama ${LOAN_LIMITS.maxTenorHari} hari.`,
       );
       return;
-    }        if (bulanan && sim === null) {
+    }
+    if (bulanan && sim === null) {
       setError(
         `Jumlah pinjaman bulanan harus antara ${formatRupiah(BULANAN_LIMITS.minPokok)} dan ${formatRupiah(BULANAN_LIMITS.maxPokok)}. Pilih lama pinjaman: ${TENOR_BULANAN_OPTIONS.join(", ")} bulan.`,
       );
@@ -410,7 +412,8 @@ export function LoanForm({ onCreated }: { onCreated: (ref: string) => void }) {
       setError("Ambil foto KTP, selfie sambil memegang KTP, dan bukti penghasilan.");
       return;
     }
-    if (lokasi === null) {        setError("Lokasi Anda belum tercatat. Izinkan akses lokasi, lalu pilih 'Ambil lokasi'.");
+    if (lokasi === null) {
+      setError("Lokasi Anda belum tercatat. Izinkan akses lokasi, lalu pilih 'Ambil lokasi'.");
       return;
     }
 
@@ -454,7 +457,8 @@ export function LoanForm({ onCreated }: { onCreated: (ref: string) => void }) {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-5">      <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-900">
+    <form onSubmit={handleSubmit} className="space-y-5">
+      <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-900">
         Formulir ini mencatat pengajuan dan perkiraan hitungannya. Data, dokumen, gambar tanda tangan, dan lokasi yang Anda kirim hanya menjadi masukan. PINDAI tidak memeriksa identitas atau lokasi Anda, dan tidak mengirim atau menerima uang.
       </p>
       {/* Jumlah pinjaman */}
@@ -502,7 +506,8 @@ export function LoanForm({ onCreated }: { onCreated: (ref: string) => void }) {
           <span>{formatRupiah(MAX)}</span>
         </div>
         <p className={`mt-2 text-xs leading-5 ${melebihiPlafon ? "text-destructive" : "text-muted-foreground"}`}>
-          {melebihiPlafon && plafonSaya !== undefined              ? `Batas pinjaman Anda ${formatRupiah(plafonSaya)}. Kurangi jumlah pinjaman agar tidak melebihi batas.`
+          {melebihiPlafon && plafonSaya !== undefined
+            ? `Batas pinjaman Anda ${formatRupiah(plafonSaya)}. Kurangi jumlah pinjaman agar tidak melebihi batas.`
             : bulanan
               ? `Ini hanya perkiraan, bukan persetujuan pinjaman. Batas pinjaman Anda ${formatRupiah(MAX)}. Catatan pinjaman yang ditandai lunas tepat waktu di aplikasi dapat menaikkan batas hingga Rp10 juta. Catatan ini bukan bukti pembayaran.`
               : `Ini hanya perkiraan, bukan persetujuan pinjaman. Jumlah pinjaman harian ${formatRupiah(LOAN_LIMITS.minPokok)} sampai ${formatRupiah(MAX)}, paling lama ${LOAN_LIMITS.maxTenorHari} hari. Catatan pinjaman yang ditandai lunas tepat waktu di aplikasi dapat menaikkan batas hingga Rp10 juta. Catatan ini bukan bukti pembayaran.`}
@@ -517,8 +522,18 @@ export function LoanForm({ onCreated }: { onCreated: (ref: string) => void }) {
                 {formatRupiah(sim.pokokDibiayai)}
               </dd>
             </div>
+            <div className="flex flex-col gap-1 bg-sky-50 px-3 py-2.5 text-sm sm:flex-row sm:items-baseline sm:justify-between">
+              <dt className="font-semibold text-sky-900">Perkiraan cicilan per bulan</dt>
+              <dd className="font-semibold tabular-nums text-sky-800">{formatRupiah(sim.cicilanPerBulan)}</dd>
+            </div>
+            {sim.cicilanTerakhir !== sim.cicilanPerBulan && (
+              <div className="flex flex-col gap-1 bg-slate-50 px-3 py-2.5 text-sm sm:flex-row sm:items-baseline sm:justify-between">
+                <dt className="font-semibold">Cicilan bulan terakhir</dt>
+                <dd className="font-semibold tabular-nums">{formatRupiah(sim.cicilanTerakhir)}</dd>
+              </div>
+            )}
             <div className="flex flex-col gap-1 bg-slate-50 px-3 py-2.5 text-sm sm:flex-row sm:items-baseline sm:justify-between">
-              <dt className="font-semibold">Perkiraan total pembayaran ({sim.tenorBulan} bulan)</dt>
+              <dt className="font-semibold">Total pembayaran ({sim.tenorBulan} bulan)</dt>
               <dd className="font-semibold tabular-nums">{formatRupiah(sim.totalPengembalian)}</dd>
             </div>
           </dl>
