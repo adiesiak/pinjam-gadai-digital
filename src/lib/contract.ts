@@ -28,8 +28,9 @@ export type ContractMeta = {
   /** Catatan checkbox dan gambar tanda tangan yang tersimpan di aplikasi. */
   tandaTanganPeminjam?: {
     dataUrl: string;
-    tandaTanganPada: number;
-    persetujuanSyaratPada: number;
+    tandaTanganPada?: number | null;
+    persetujuanSyaratPada?: number | null;
+    persetujuanSyaratVersi?: string | null;
   };
   /** Blok klausul khusus gadai. */
   gadai?: {
@@ -97,18 +98,35 @@ function blokTandaTanganPeminjam(
   meta: ContractMeta,
 ): string {
   const bukti = meta.tandaTanganPeminjam;
+  const persetujuanVersiKini =
+    bukti?.persetujuanSyaratPada != null &&
+    bukti.persetujuanSyaratVersi === CONTRACT_TERMS_VERSION;
+  const waktuTandaTangan =
+    bukti?.tandaTanganPada != null
+      ? ` · gambar dicatat ${new Date(bukti.tandaTanganPada).toLocaleString("id-ID")}`
+      : "";
   const tampilanTandaTangan = bukti
     ? `<img class="signature" src="${escapeHtml(bukti.dataUrl)}" alt="Gambar tanda tangan yang dicatat aplikasi"/>`
     : `<div class="signature-placeholder">Belum ada gambar tanda tangan yang dicatat</div>`;
-  const statusPersetujuan = bukti
-    ? `Tindakan persetujuan aplikasi dan gambar dicatat ${new Date(bukti.persetujuanSyaratPada).toLocaleString("id-ID")} · ${CONTRACT_TERMS_VERSION}. Ini bukan verifikasi identitas, tanda tangan digital terverifikasi, atau konfirmasi kontrak mengikat.`
-    : "Belum ada tindakan persetujuan aplikasi yang dicatat.";
+  const statusPersetujuan = !bukti
+    ? "Belum ada gambar tanda tangan atau tindakan persetujuan aplikasi yang dicatat."
+    : persetujuanVersiKini
+      ? `Tindakan checkbox aplikasi dicatat ${new Date(bukti.persetujuanSyaratPada!).toLocaleString("id-ID")} · ${CONTRACT_TERMS_VERSION}${waktuTandaTangan}. Ini bukan verifikasi identitas, tanda tangan digital terverifikasi, atau konfirmasi kontrak mengikat.`
+      : `Gambar tanda tangan tercatat${waktuTandaTangan}. Catatan checkbox versi ${CONTRACT_TERMS_VERSION} tidak tersedia; gambar ini bukan verifikasi identitas, tanda tangan digital terverifikasi, atau konfirmasi kontrak mengikat.`;
 
   return `<div>
     ${tampilanTandaTangan}
     <p class="garis">${escapeHtml(nama)}</p>
     <p>${escapeHtml(peran)}</p>
     <p class="persetujuan">${escapeHtml(statusPersetujuan)}</p>
+  </div>`;
+}
+
+function blokStempelPindai(): string {
+  return `<div class="pindai-stamp" aria-label="Stempel visual PINDAI, bukan e-meterai">
+    <strong>PINDAI · DIGITAL</strong>
+    <span>CATATAN APLIKASI</span>
+    <small>Bukan e-meterai atau sertifikasi</small>
   </div>`;
 }
 
@@ -168,6 +186,7 @@ export function buildPinjamanContract(
   <div class="contract">
     <h1>${judulContract("pinjaman")}</h1>
     <p class="nomor">Nomor: ${escapeHtml(nomorContract("pinjaman", meta.nomorReferensi))} · Syarat ${CONTRACT_TERMS_VERSION}</p>
+    ${blokStempelPindai()}
     ${blokBatasTransaksi()}
 
     <p>Ringkasan ini menampilkan masukan yang tersimpan pada <strong>${tgl}</strong>; bukan dokumen kesepakatan para pihak.</p>
@@ -224,6 +243,7 @@ export function buildGadaiContract(
   <div class="contract">
     <h1>${judulContract("gadai")}</h1>
     <p class="nomor">Nomor: ${escapeHtml(nomorContract("gadai", meta.nomorReferensi))} · Syarat ${CONTRACT_TERMS_VERSION}</p>
+    ${blokStempelPindai()}
 
     ${blokBatasTransaksi()}
     <p>Ringkasan ini menampilkan masukan dan hitungan yang tersimpan pada <strong>${tgl}</strong>; bukan akad atau kesepakatan para pihak.</p>

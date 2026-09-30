@@ -13,6 +13,8 @@ ol{padding-left:18px}
 .signature{display:block;object-fit:contain;width:100%;height:68px;margin:8px auto 0}
 .signature-placeholder{display:grid;place-items:center;width:100%;height:68px;margin:8px auto 0;border:1px dashed #a8b2bd;color:#64748b;font:11px ui-sans-serif,system-ui,sans-serif}
 .persetujuan{font:10px/1.5 ui-sans-serif,system-ui,sans-serif;color:#475569;margin-top:8px}
+.pindai-stamp{display:grid;justify-items:center;gap:2px;width:max-content;max-width:100%;margin:14px auto 18px;padding:7px 16px;border:3px double #8b493d;border-radius:10px;color:#8b493d;text-align:center;font:10px/1.35 ui-sans-serif,system-ui,sans-serif;transform:rotate(-1deg)}
+.pindai-stamp strong{font-size:12px;letter-spacing:.12em}.pindai-stamp span{font-weight:700;letter-spacing:.08em}.pindai-stamp small{font-size:9px}
 @media print{.no-print{display:none}}`;
 
 export function wrapContractHtml(inner: string): string {

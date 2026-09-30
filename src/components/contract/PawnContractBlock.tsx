@@ -46,17 +46,18 @@ Catatan simulasi gadai tersedia setelah nilai taksiran dimasukkan ke aplikasi.
     persetujuanVersi: detail.persetujuanVersi,
   };
   const tandaTanganPeminjam =
-    detail.ttdPeminjam !== null &&
-    detail.ttdPada !== null &&
-    detail.persetujuanPada !== null &&
-    detail.persetujuanVersi === CONTRACT_TERMS_VERSION
+    detail.ttdPeminjam !== null
       ? {
           dataUrl: detail.ttdPeminjam,
           tandaTanganPada: detail.ttdPada,
           persetujuanSyaratPada: detail.persetujuanPada,
+          persetujuanSyaratVersi: detail.persetujuanVersi,
         }
       : undefined;
-  const signed = tandaTanganPeminjam !== undefined;
+  const signed =
+    tandaTanganPeminjam !== undefined &&
+    tandaTanganPeminjam.persetujuanSyaratPada !== null &&
+    tandaTanganPeminjam.persetujuanSyaratVersi === CONTRACT_TERMS_VERSION;
   const html = buildGadaiContract(
     {
       namaLengkap: detail.namaLengkap,

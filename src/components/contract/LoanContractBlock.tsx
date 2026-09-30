@@ -34,17 +34,18 @@ export function LoanContractBlock({ loanId }: { loanId: Id<"loans"> }) {
   }
 
   const tandaTanganPeminjam =
-    contractData.ttdPeminjam !== null &&
-    contractData.ttdPada !== null &&
-    contractData.persetujuanPada !== null &&
-    contractData.persetujuanVersi === CONTRACT_TERMS_VERSION
+    contractData.ttdPeminjam !== null
       ? {
           dataUrl: contractData.ttdPeminjam,
           tandaTanganPada: contractData.ttdPada,
           persetujuanSyaratPada: contractData.persetujuanPada,
+          persetujuanSyaratVersi: contractData.persetujuanVersi,
         }
       : undefined;
-  const signed = tandaTanganPeminjam !== undefined;
+  const signed =
+    tandaTanganPeminjam !== undefined &&
+    tandaTanganPeminjam.persetujuanSyaratPada !== null &&
+    tandaTanganPeminjam.persetujuanSyaratVersi === CONTRACT_TERMS_VERSION;
 
   const html = buildPinjamanContract(
     {

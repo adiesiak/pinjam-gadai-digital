@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import { toast } from "sonner";
 
 import { ContractPrintButton } from "@/components/EContract";
+import { wrapContractHtml } from "@/components/contract/contract-doc";
 import { Button } from "@/components/ui/button";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
@@ -32,7 +33,10 @@ export function MyContractsSection({
           tenorBulan: number | null;
           status: string;
           tandaTanganAda: boolean;
+          tandaTanganDataUrl: string | null;
           tandaTanganPada: number | null;
+          persetujuanSyaratPada: number | null;
+          persetujuanSyaratVersi: string | null;
           createdAt: number;
           nik: string | null;
           namaLengkap: string;
@@ -123,7 +127,10 @@ function LoanContractCard({
     tenorBulan: number | null;
     status: string;
     tandaTanganAda: boolean;
+    tandaTanganDataUrl: string | null;
     tandaTanganPada: number | null;
+    persetujuanSyaratPada: number | null;
+    persetujuanSyaratVersi: string | null;
     createdAt: number;
     nik: string | null;
     namaLengkap: string;
@@ -151,6 +158,16 @@ function LoanContractCard({
           nomorReferensi: c.nomorReferensi,
           lokasi: c.lokasiAjukan,
           timestampPada: c.tandaTanganPada ?? c.createdAt,
+          ...(c.tandaTanganDataUrl
+            ? {
+                tandaTanganPeminjam: {
+                  dataUrl: c.tandaTanganDataUrl,
+                  tandaTanganPada: c.tandaTanganPada,
+                  persetujuanSyaratPada: c.persetujuanSyaratPada,
+                  persetujuanSyaratVersi: c.persetujuanSyaratVersi,
+                },
+              }
+            : {}),
         },
         c.tenorHari,
         bulanan,
@@ -208,9 +225,7 @@ function ContractPreviewButton({ html }: { html: string }) {
           toast.error("Popup diblokir browser — izinkan popup untuk melihat dokumen.");
           return;
         }
-        w.document.write(
-          `<!doctype html><html lang="id"><head><meta charset="utf-8"/><title>Catatan simulasi PINDAI</title></head><body>${html}</body></html>`,
-        );
+        w.document.write(wrapContractHtml(html));
         w.document.close();
       }}
     >
@@ -240,6 +255,10 @@ function PawnContractActions({ pawnId, pawnRef }: { pawnId: Id<"pawns">; pawnRef
 /** Rangkai catatan simulasi gadai dari data yang tersimpan untuk peminjam. */
 function buildGadaiContractMilikSendiri(detail: {
   nomorReferensi: string;
+  tandaTanganPeminjam?: string;
+  tandaTanganPada?: number;
+  persetujuanSyaratPada?: number;
+  persetujuanSyaratVersi?: string;
   namaLengkap: string;
   namaBank?: string | null;
   nomorRekening: string;
@@ -271,7 +290,17 @@ function buildGadaiContractMilikSendiri(detail: {
     {
       nomorReferensi: detail.nomorReferensi,
       lokasi: null,
-      timestampPada: detail._creationTime,
+      timestampPada: detail.tandaTanganPada ?? detail._creationTime,
+      ...(detail.tandaTanganPeminjam
+        ? {
+            tandaTanganPeminjam: {
+              dataUrl: detail.tandaTanganPeminjam,
+              tandaTanganPada: detail.tandaTanganPada,
+              persetujuanSyaratPada: detail.persetujuanSyaratPada,
+              persetujuanSyaratVersi: detail.persetujuanSyaratVersi,
+            },
+          }
+        : {}),
     },
   );
 }
