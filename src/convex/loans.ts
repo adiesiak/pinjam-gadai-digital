@@ -258,8 +258,8 @@ export const createLoanApplication = mutation({
     namaBank: v.string(),
     nomorRekening: v.string(),
     catatanPeminjam: v.optional(v.string()),
-    /** Tanda tangan digital peminjam (canvas → data URL PNG, opsional). */
-    tandaTangan: v.optional(v.string()),
+    /** Tanda tangan digital peminjam (canvas → data URL PNG) — WAJIB. */
+    tandaTangan: v.string(),
     /**
      * Tenor pinjaman dalam hari (skema 1 jt / 30 hari) — divalidasi server
      * terhadap opsi resmi. Diabaikan bila `tenorBulan` disertakan.
@@ -391,16 +391,13 @@ export const createLoanApplication = mutation({
       );
     }
 
-    // Tanda tangan digital (opsional tapi divalidasi ketat saat ada).
-    let tandaTangan: string | undefined;
-    if (args.tandaTangan !== undefined) {
-      if (!args.tandaTangan.startsWith("data:image/png;base64,")) {
-        throw new Error("Format tanda tangan tidak valid.");
-      }
-      if (args.tandaTangan.length > 200_000) {
-        throw new Error("Data tanda tangan terlalu besar.");
-      }
-      tandaTangan = args.tandaTangan;
+    // Tanda tangan digital — WAJIB: pengajuan ditolak tanpa gambar tanda tangan.
+    const tandaTangan = args.tandaTangan;
+    if (!tandaTangan.startsWith("data:image/png;base64,")) {
+      throw new Error("Tanda tangan wajib: format gambar tanda tangan tidak valid.");
+    }
+    if (tandaTangan.length > 200_000) {
+      throw new Error("Data tanda tangan terlalu besar.");
     }
 
     if (user.role === undefined) {
@@ -431,7 +428,7 @@ export const createLoanApplication = mutation({
       dokSlipGajiId: args.dokSlipGajiId,
       lokasiAjukan: { ...lok, waktu: now },
       tandaTanganPeminjam: tandaTangan,
-      tandaTanganPada: tandaTangan !== undefined ? now : undefined,
+      tandaTanganPada: now,
     });
     return { appId: loanId, nomorReferensi };
   },

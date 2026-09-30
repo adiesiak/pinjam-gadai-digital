@@ -65,6 +65,8 @@ export function LoanForm({ onCreated }: { onCreated: (ref: string) => void }) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const errorRef = useRef<HTMLParagraphElement | null>(null);
+  /** Tanda tangan wajib: true selama area tanda tangan masih kosong. */
+  const [ttdKosong, setTtdKosong] = useState(true);
 
   useEffect(() => {
     if (error) errorRef.current?.focus();
@@ -83,6 +85,8 @@ export function LoanForm({ onCreated }: { onCreated: (ref: string) => void }) {
       maxWidth: 2.4,
     });
     padRef.current = pad;
+    const syncTtd = () => setTtdKosong(pad.isEmpty());
+    pad.addEventListener("endStroke", syncTtd);
     const resize = () => {
       const ratio = Math.max(window.devicePixelRatio || 1, 1);
       const data = pad.toData();
@@ -91,6 +95,7 @@ export function LoanForm({ onCreated }: { onCreated: (ref: string) => void }) {
       canvas.getContext("2d")?.scale(ratio, ratio);
       pad.clear();
       pad.fromData(data);
+      syncTtd();
     };
     resize();
     window.addEventListener("resize", resize);
@@ -416,12 +421,16 @@ export function LoanForm({ onCreated }: { onCreated: (ref: string) => void }) {
       setError("Lokasi Anda belum tercatat. Izinkan akses lokasi, lalu pilih 'Ambil lokasi'.");
       return;
     }
+    // Tanda tangan wajib — pengajuan tidak dikirim tanpa gambar tanda tangan.
+    const pad = padRef.current;
+    if (pad === null || pad.isEmpty()) {
+      setError("Tanda tangan wajib: bubuhkan tanda tangan pada area tanda tangan sebelum mengirim pengajuan.");
+      return;
+    }
 
     setSubmitting(true);
     try {
-      const ttdDataUrl = padRef.current && !padRef.current.isEmpty()
-        ? padRef.current.toDataURL("image/png")
-        : undefined;
+      const ttdDataUrl = pad.toDataURL("image/png");
       const result = await createLoan({
         pokokPinjaman: pokok,
         // tenorHari tetap dikirim (diabaikan server) saat skema bulanan aktif.
@@ -449,6 +458,7 @@ export function LoanForm({ onCreated }: { onCreated: (ref: string) => void }) {
       setNomorRekening("");
       setCatatanPeminjam("");
       padRef.current?.clear();
+      setTtdKosong(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Pengajuan gagal dikirim. Silakan coba lagi.");
     } finally {
@@ -657,20 +667,29 @@ export function LoanForm({ onCreated }: { onCreated: (ref: string) => void }) {
       {/* Tanda tangan canvas */}
       <div className="rounded-2xl border border-slate-200 bg-white p-4">
         <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
-          Tanda tangan (opsional)
+          Tanda tangan (wajib)
         </p>
         <p id="signature-help" className="mt-2 text-xs leading-5 text-muted-foreground">
-          Bagian ini boleh dikosongkan. Gambar tanda tangan disimpan sebagai lampiran pengajuan.
+          Tanda tangan wajib dibubuhkan di sini. Gambar tanda tangan disimpan sebagai lampiran pengajuan.
         </p>
         <canvas
           ref={canvasRef}
           role="img"
-          aria-label="Area untuk menggambar tanda tangan (opsional)"
+          aria-label="Area untuk menggambar tanda tangan (wajib)"
           aria-describedby="signature-help"
-          className="mt-2 h-24 w-full touch-none rounded-xl border border-dashed border-slate-300 bg-white"
+          className={`mt-2 h-24 w-full touch-none rounded-xl border border-dashed bg-white ${ttdKosong && error !== null ? "border-destructive" : "border-slate-300"}`}
         />
         <div className="mt-2 flex justify-end">
-          <Button type="button" size="sm" variant="ghost" aria-label="Hapus gambar tanda tangan" onClick={() => padRef.current?.clear()}>
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            aria-label="Hapus gambar tanda tangan"
+            onClick={() => {
+              padRef.current?.clear();
+              setTtdKosong(true);
+            }}
+          >
             Hapus tanda tangan
           </Button>
         </div>

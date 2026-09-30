@@ -115,6 +115,9 @@ async function ajukanTunai(
     dokSelfieKtpId: kyc.selfie,
     dokSlipGajiId: kyc.slip,
     lokasiAjukan: { ...TITIK, waktu: Date.now() },
+    // Tanda tangan wajib pada pengajuan pinjaman.
+    tandaTangan:
+      "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/fMkAAAAASUVORK5CYII=",
   });
 }
 
