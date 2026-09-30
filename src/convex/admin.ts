@@ -16,6 +16,7 @@ import {
   plafonEfektif,
 } from "../lib/plafon";
 import { ensureKodePeminjam } from "./peminjamCode";
+import { rejectUnverifiedMoneyMovement } from "./paymentGuard";
 
 /** Gerbang admin — semua query/mutation di file ini dijaga. */
 async function requireAdmin(ctx: QueryCtx) {
@@ -622,30 +623,9 @@ export const pendingWithdrawals = query({
  */
 export const processWithdrawal = mutation({
   args: { withdrawalId: v.id("withdrawals") },
-  handler: async (ctx, args) => {
-    const { userId: adminId } = await requireAdmin(ctx);
-    const w = await ctx.db.get(args.withdrawalId);
-    if (w === null) throw new Error("Permintaan penarikan tidak ditemukan.");
-    if (w.status !== "menunggu_proses") {
-      throw new Error("Permintaan penarikan ini sudah diputuskan.");
-    }
-    const saldo = await pendanaWalletBalance(ctx, w.pendanaId);
-    if (saldo < w.jumlah) {
-      throw new Error(
-        `Saldo Pendana tidak cukup (saldo: ${formatRupiah(saldo)}). Tolak permintaan ini atau minta Pendana membatalkan.`,
-      );
-    }
-    await appendJournal(ctx, {
-      jenis: "withdrawal",
-      keterangan: `Penarikan ${w.nomorReferensi} ke ${w.namaBank} ${w.nomorRekening}`,
-      aktor: adminId,
-      lines: [
-        { akun: "platform:CASH", arah: "debit", jumlah: w.jumlah },
-        { akun: `pendana:WALLET:${w.pendanaId}`, arah: "kredit", jumlah: w.jumlah },
-      ],
-    });
-    await ctx.db.patch(args.withdrawalId, { status: "diproses" });
-    return { success: true };
+  handler: async (ctx) => {
+    await requireAdmin(ctx);
+    rejectUnverifiedMoneyMovement();
   },
 });
 
@@ -682,27 +662,9 @@ export const rejectWithdrawal = mutation({
  */
 export const confirmDeposit = mutation({
   args: { depositId: v.id("deposits") },
-  handler: async (ctx, args) => {
-    const { userId: adminId } = await requireAdmin(ctx);
-    const deposit = await ctx.db.get(args.depositId);
-    if (deposit === null) throw new Error("Setoran tidak ditemukan.");
-    if (deposit.status !== "menunggu_verifikasi") {
-      throw new Error("Setoran ini sudah diputuskan.");
-    }
-
-    await appendJournal(ctx, {
-      jenis: "deposit",
-      keterangan: `Setoran ${deposit.nomorReferensi} terverifikasi (ref transfer: ${deposit.referensiTransfer})`,
-      aktor: adminId,
-      lines: [
-        // Debit menaikkan saldo dompet Pendana; kredit mencatat kas platform.
-        { akun: `pendana:WALLET:${deposit.pendanaId}`, arah: "debit", jumlah: deposit.jumlah },
-        { akun: "platform:CASH", arah: "kredit", jumlah: deposit.jumlah },
-      ],
-    });
-
-    await ctx.db.patch(args.depositId, { status: "terverifikasi" });
-    return { success: true };
+  handler: async (ctx) => {
+    await requireAdmin(ctx);
+    rejectUnverifiedMoneyMovement();
   },
 });
 

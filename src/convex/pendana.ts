@@ -8,6 +8,7 @@ import { hitungSimulasiBulanan, TENOR_BULANAN_OPTIONS } from "../lib/bulanan";
 import { hakImbalHasilPerAlokasi, quoteKreditBarang } from "../lib/kredit";
 import { formatRupiah, type Rupiah } from "../lib/money";
 import { appendJournal, pendanaWalletBalance } from "./ledger";
+import { rejectUnverifiedMoneyMovement } from "./paymentGuard";
 
 /** Rentang bisnis alokasi pendanaan per transaksi. */
 export const MIN_ALOKASI = 100_000;
@@ -244,7 +245,7 @@ export const requestDeposit = mutation({
   },
   handler: async (ctx, args) => {
     const { userId } = await requirePendana(ctx);
-    validateRupiahAmount(args.jumlah, "Jumlah setoran");
+    rejectUnverifiedMoneyMovement();
 
     const ref = args.referensiTransfer.trim();
     if (ref.length < 4) {
@@ -398,6 +399,7 @@ export const allocateFunding = mutation({
   },
   handler: async (ctx, args) => {
     const { userId } = await requirePendana(ctx);
+    rejectUnverifiedMoneyMovement();
     validateRupiahAmount(args.jumlah, "Jumlah alokasi");
     await requireWaOtpIfEnabled(ctx, userId, args.kodeOtp);
 
@@ -555,7 +557,7 @@ export const requestWithdrawal = mutation({
   returns: v.object({ nomorReferensi: v.string() }),
   handler: async (ctx, args) => {
     const { userId } = await requirePendana(ctx);
-    validateRupiahAmount(args.jumlah, "Jumlah penarikan");
+    rejectUnverifiedMoneyMovement();
     await requireWaOtpIfEnabled(ctx, userId, args.kodeOtp);
 
     const bank = args.namaBank.trim();
@@ -920,6 +922,7 @@ export const alokasiKreditBarang = mutation({
   },
   handler: async (ctx, args) => {
     const { userId } = await requirePendana(ctx);
+    rejectUnverifiedMoneyMovement();
     validateRupiahAmount(args.jumlah, "Jumlah alokasi");
     await requireWaOtpIfEnabled(ctx, userId, args.kodeOtp);
 
