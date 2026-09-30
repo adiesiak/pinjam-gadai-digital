@@ -621,10 +621,10 @@ function PeluangKreditSection() {
         </Badge>
       </div>
       <h2 className="mt-1.5 text-lg font-semibold tracking-tight">
-        Simulasi Alokasi Kredit Barang
+        Pengajuan Kredit Barang · Perkiraan biaya dan imbal hasil
       </h2>
       <p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">
-        Parameter barang dan status review dicatat pada aplikasi. Slider dan tombol alokasi hanya memperbarui ledger simulasi internal; tidak ada dana yang dikirim ke merchant atau Peminjam, dan angka imbal hasil bukan janji pembayaran.
+        Rincian biaya dan imbal hasil dihitung dari pengajuan tersimpan di Convex. Angka menunjukkan perkiraan sesuai harga, tenor, dan parameter pengajuan; bukan bukti pembelian, pencairan ke merchant, atau pembayaran kepada Pendana.
       </p>
 
       {peluang === undefined ? (
@@ -691,7 +691,7 @@ function PeluangKreditCard({ row }: { row: PeluangKredit }) {
       </dl>
 
       <section className="mt-3 rounded-xl border border-slate-200 px-3 py-3 text-xs">
-        <h3 className="font-semibold">Rincian perhitungan simulasi</h3>
+        <h3 className="font-semibold">Perkiraan biaya dan kewajiban pengajuan</h3>
         <dl className="mt-2 space-y-1.5">
           {row.tenorBulan === 3 || row.tenorBulan === 6 ? (
             <>
@@ -716,7 +716,7 @@ function PeluangKreditCard({ row }: { row: PeluangKredit }) {
       </section>
 
       <section className="mt-3 rounded-xl border border-slate-200 px-3 py-3 text-xs">
-        <h3 className="font-semibold">Ilustrasi jadwal simulasi</h3>
+        <h3 className="font-semibold">Perkiraan jadwal cicilan</h3>
         <ul className="mt-2 divide-y divide-slate-100">
           {row.jadwalPembayaran.map((cicilan) => (
             <li key={cicilan.bulan} className="py-2">

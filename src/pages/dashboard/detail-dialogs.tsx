@@ -43,7 +43,7 @@ export function LoanDetailDialog({
           <>
             <DialogHeader>
               <div className="flex items-center justify-between gap-3">
-                <DialogTitle>Rincian simulasi pinjaman tunai</DialogTitle>
+                <DialogTitle>Rincian pengajuan pinjaman tunai</DialogTitle>
                 <StatusBadge status={loan.status} kind="loan" />
               </div>
               <DialogDescription className="tabular-nums">
@@ -59,14 +59,27 @@ export function LoanDetailDialog({
               {(loan.tenorBulan !== null
                 ? [
                     ["Keperluan", loanPurposeLabel(loan.tujuan)],
-                    ["Tenor simulasi", `${loan.tenorBulan} bulan`],
-                    ["Nilai bersih simulasi (belum dicairkan)", formatRupiah(loan.pokokPinjaman)],
-                    ["Total pembayaran simulasi", formatRupiah(loan.totalKewajiban)],
+                    ["Tenor pengajuan", `${loan.tenorBulan} bulan`],
+                    ["Pokok pengajuan tersimpan di Convex", formatRupiah(loan.pokokPinjaman)],
+                    ...(loan.simulasiBulanan !== null && (loan.tenorBulan === 3 || loan.tenorBulan === 6)
+                      ? [
+                          ["Biaya admin perkiraan (5%, diamortisasi)", formatRupiah(loan.simulasiBulanan.biayaAdminTotal)],
+                          ["Biaya platform perkiraan (2%, diamortisasi)", formatRupiah(loan.simulasiBulanan.biayaPlatformTotal)],
+                          ["Total biaya tenor perkiraan (7%)", formatRupiah(loan.simulasiBulanan.biayaLayananTotal)],
+                        ]
+                      : loan.simulasiBulanan !== null
+                        ? [["Biaya layanan perkiraan (3%, diamortisasi)", formatRupiah(loan.simulasiBulanan.biayaLayananTotal)]]
+                        : []),
+                    ["Total kewajiban perkiraan", formatRupiah(loan.totalKewajiban)],
                   ]
                 : [
                     ["Keperluan", loanPurposeLabel(loan.tujuan)],
-                    ["Nilai bersih simulasi (belum ditransfer)", formatRupiah(loan.quote.danaBersihDitransfer)],
-                    ["Total pembayaran simulasi", formatRupiah(loan.quote.totalKewajibanPelunasan)],
+                    ["Pokok pengajuan tersimpan di Convex", formatRupiah(loan.pokokPinjaman)],
+                    ["Biaya admin perkiraan (3%)", formatRupiah(loan.quote.biayaAdmin)],
+                    ["Biaya platform perkiraan (2%)", formatRupiah(loan.quote.biayaPlatform)],
+                    ["Perkiraan potongan di muka (5%)", formatRupiah(loan.quote.totalPotonganDiMuka)],
+                    ["Perkiraan nilai bersih (95%)", formatRupiah(loan.quote.danaBersihDitransfer)],
+                    ["Total kewajiban perkiraan", formatRupiah(loan.quote.totalKewajibanPelunasan)],
                   ]
               ).map(([label, value], index, semua) => (
                 <div key={label} className="flex items-baseline justify-between gap-4 px-4 py-3">

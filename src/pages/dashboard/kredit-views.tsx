@@ -3,12 +3,10 @@ import { Link2, Loader2, PackageCheck, Send, ShoppingBag, TrendingUp } from "luc
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
-import { ManualPaymentEvidenceForm } from "@/components/ManualPaymentEvidenceForm";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Progress } from "@/components/ui/progress";
 import {
   Select,
   SelectContent,
@@ -76,7 +74,8 @@ const STATUS_META: Record<string, { label: string; className: string; descriptio
   },
   didanai: {
     label: "Alokasi historis (ledger)",
-    className: "gradient-primary border-0 text-primary-foreground",        description:
+    className: "gradient-primary border-0 text-primary-foreground",
+    description:
       "Status historis pada ledger mencatat alokasi yang pernah dimasukkan. Tidak ada transfer yang terverifikasi ke merchant atau Peminjam, dan tidak ada tindakan cicilan yang tersedia.",
   },
   lunas: {
@@ -386,7 +385,7 @@ export function KreditBarangForm({ onCreated }: { onCreated: (ref: string) => vo
                   <dd className="tabular-nums">{formatRupiah(preview.biayaPlatform)}</dd>
                 </div>
                 <div className="flex items-baseline justify-between bg-slate-50 px-3 py-2.5 text-sm">
-                  <dt className="font-semibold">Total biaya tenor (7%)</dt>
+                  <dt className="font-semibold">Total biaya tenor perkiraan (7%)</dt>
                   <dd className="font-semibold tabular-nums">{formatRupiah(preview.biayaLayanan)}</dd>
                 </div>
               </>
@@ -397,7 +396,7 @@ export function KreditBarangForm({ onCreated }: { onCreated: (ref: string) => vo
               </div>
             ) : null}
             <div className="flex items-baseline justify-between bg-slate-50 px-3 py-2.5 text-sm">
-              <dt className="font-semibold">Total pembayaran simulasi ({tenorBulan} bulan)</dt>
+              <dt className="font-semibold">Total pembayaran perkiraan ({tenorBulan} bulan)</dt>
               <dd className="font-semibold tabular-nums">
                 {formatRupiah(preview.totalDibayarKonsumen)}
               </dd>
@@ -556,7 +555,17 @@ export function KreditSayaSection() {
 
             <dl className="mt-4 space-y-2 border-t border-slate-100 pt-4 text-sm">
               <div className="flex items-baseline justify-between gap-3">
-                <dt className="text-muted-foreground">Nilai barang dalam simulasi (tidak dicairkan)</dt>
+                <dt className="text-muted-foreground">Harga barang tersimpan pada pengajuan</dt>
+                <dd className="font-semibold tabular-nums">{formatRupiah(k.hargaBarang)}</dd>
+              </div>
+              {k.dp !== null && (
+                <div className="flex items-baseline justify-between gap-3">
+                  <dt className="text-muted-foreground">DP perkiraan ({k.dpPersen}%)</dt>
+                  <dd className="tabular-nums">{formatRupiah(k.dp)}</dd>
+                </div>
+              )}
+              <div className="flex items-baseline justify-between gap-3">
+                <dt className="text-muted-foreground">Pokok pembiayaan simulasi</dt>
                 <dd className="font-semibold tabular-nums">
                   {k.pokokDibiayai !== null ? formatRupiah(k.pokokDibiayai) : "—"}
                 </dd>
@@ -579,20 +588,54 @@ export function KreditSayaSection() {
                   <dd className="tabular-nums">{k.biayaLayanan !== null ? formatRupiah(k.biayaLayanan) : "—"}</dd>
                 </div>
               )}
+              {(k.tenorBulan === 3 || k.tenorBulan === 6) && (
+                <div className="flex items-baseline justify-between gap-3">
+                  <dt className="text-muted-foreground">Total biaya admin + platform simulasi (7%)</dt>
+                  <dd className="tabular-nums">{k.biayaLayanan !== null ? formatRupiah(k.biayaLayanan) : "—"}</dd>
+                </div>
+              )}
               <div className="flex items-baseline justify-between gap-3">
-                <dt className="text-muted-foreground">Total pembayaran simulasi</dt>
+                <dt className="text-muted-foreground">Total pembayaran peminjam (estimasi)</dt>
                 <dd className="font-semibold tabular-nums">
                   {k.totalDibayarKonsumen !== null ? formatRupiah(k.totalDibayarKonsumen) : "—"}
                 </dd>
               </div>
+              <div className="flex items-baseline justify-between gap-3 border-t border-slate-100 pt-2">
+                <dt className="text-muted-foreground">Pokok pendanaan (estimasi)</dt>
+                <dd className="tabular-nums">{k.pokokDibiayai !== null ? formatRupiah(k.pokokDibiayai) : "—"}</dd>
+              </div>
+              {k.totalDiterimaPendana !== null && (
+                <div className="flex items-baseline justify-between gap-3">
+                  <dt className="text-muted-foreground">Total pokok + imbal hasil pendana (estimasi)</dt>
+                  <dd className="font-semibold tabular-nums">{formatRupiah(k.totalDiterimaPendana)}</dd>
+                </div>
+              )}
+              {k.imbalHasilPendana !== null && (
+                <div className="flex items-baseline justify-between gap-3">
+                  <dt className="text-muted-foreground">Imbal hasil pendana (estimasi)</dt>
+                  <dd className="tabular-nums">{formatRupiah(k.imbalHasilPendana)}</dd>
+                </div>
+              )}
             </dl>
 
-            {k.cicilanPerBulan !== null && (
-              <p className="mt-3 inline-flex items-center gap-1.5 text-xs text-muted-foreground">
-                <PackageCheck className="size-3.5 text-primary" />
-                Tenor simulasi {k.tenorBulan} bulan · DP simulasi {k.dpPersen}%
-              </p>
+            {k.jadwal.length > 0 && (
+              <section className="mt-3 rounded-xl border border-slate-200 px-3 py-2.5 text-xs">
+                <h3 className="font-medium">Perkiraan cicilan per bulan</h3>
+                <ul className="mt-2 divide-y divide-slate-100">
+                  {k.jadwal.map((cicilan) => (
+                    <li key={cicilan.bulan} className="flex flex-wrap justify-between gap-2 py-2">
+                      <span>Bulan {cicilan.bulan}: pokok {formatRupiah(cicilan.pokok)} · imbal hasil {formatRupiah(cicilan.margin)}</span>
+                      <span className="font-semibold tabular-nums">{formatRupiah(cicilan.total)}</span>
+                    </li>
+                  ))}
+                </ul>
+                <p className="mt-2 text-muted-foreground">Estimasi dihitung dari data pengajuan yang tersimpan; bukan tagihan atau bukti pembayaran aktual.</p>
+              </section>
             )}
+            <p className="mt-3 inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+              <PackageCheck className="size-3.5 text-primary" />
+              Tenor simulasi {k.tenorBulan} bulan · DP tersimpan {k.dpPersen}%
+            </p>
 
             <p className="mt-3 rounded-xl bg-slate-50 px-3 py-2 text-xs leading-5 text-muted-foreground">
               {meta.description}
@@ -621,11 +664,10 @@ export function KreditSayaSection() {
   );
 }
 
-/** Tab Kredit Barang: tagihan cicilan + form pengajuan + daftar pengajuan. */
+/** Tab kredit barang berfokus pada formulir pengajuan dan estimasi tersimpan. */
 export function KreditBarangSection() {
   return (
     <div className="flex flex-col gap-8">
-      <KreditBillingSection />
       <div className="grid gap-8 lg:grid-cols-2">
         <section>
           <h2 className="text-lg font-semibold">Buat catatan simulasi kredit barang</h2>
@@ -646,90 +688,3 @@ export function KreditBarangSection() {
   );
 }
 
-/**
- * Ilustrasi pencatatan cicilan bulanan untuk pengajuan yang status ledger-nya
- * terpenuhi penuh (atau lunas); tidak memproses pembayaran eksternal.
- */
-export function KreditBillingSection() {
-  const kredit = useQuery(api.kredit.kreditSaya);
-  if (kredit === undefined) return null;
-  const berjalan = kredit.filter((k) => k.status === "didanai" || k.status === "lunas");
-  if (berjalan.length === 0) return null;
-
-  return (
-    <section>
-      <h2 className="text-lg font-semibold">Simulasi entri cicilan kredit barang</h2>
-      <Separator className="my-4" />
-      <div className="space-y-4">
-        {berjalan.map((k) => {
-          const totalBulan = k.totalBulan || 1;
-          const persen = Math.min(100, Math.round((k.dibayarBulan / totalBulan) * 100));
-          return (
-            <article
-              key={k._id}
-              className={cn(
-                "card-lift rounded-2xl border bg-white p-5 shadow-sm",
-                k.status === "lunas" ? "border-emerald-200" : "border-slate-200",
-              )}
-            >
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-semibold">{k.namaBarang}</p>
-                  <p className="mt-0.5 text-xs text-muted-foreground">
-                    {k.nomorReferensi} · {k.merchant} · cicilan simulasi{" "}
-                    {formatRupiah(k.cicilanPerBulan ?? 0)}/bulan (bukan tagihan)
-                  </p>
-                </div>
-                {k.status === "lunas" ? (
-                  <Badge className="border-primary/30 bg-primary/10 text-accent-foreground">
-                    Lunas (ledger)
-                  </Badge>
-                ) : (
-                  <Badge className="border-0 bg-emerald-100 text-emerald-700 hover:bg-emerald-100">
-                    Entri ledger {k.dibayarBulan}/{totalBulan} (tidak terverifikasi)
-                  </Badge>
-                )}
-              </div>
-
-              <dl className="mt-3 grid gap-x-8 gap-y-1.5 text-sm sm:grid-cols-2">
-                <div className="flex items-baseline justify-between gap-4">
-                  <dt className="text-muted-foreground">Total pembayaran simulasi</dt>
-                  <dd className="font-semibold tabular-nums">
-                    {k.totalDibayarKonsumen !== null ? formatRupiah(k.totalDibayarKonsumen) : "—"}
-                  </dd>
-                </div>
-                <div className="flex items-baseline justify-between gap-4">
-                  <dt className="text-muted-foreground">Sisa pembayaran simulasi</dt>
-                  <dd className="tabular-nums">{formatRupiah(k.kewajibanSisa)}</dd>
-                </div>
-              </dl>
-
-              <div className="mt-3">
-                <div className="flex items-baseline justify-between text-xs text-muted-foreground">
-                  <span>Progres catatan simulasi</span>
-                  <span className="tabular-nums">
-                    {k.dibayarBulan} / {totalBulan} bulan
-                  </span>
-                </div>
-                <Progress className="mt-1.5" value={persen} />
-              </div>
-              <p className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900">
-                {k.status === "lunas"
-                  ? "Status lunas adalah catatan ledger internal, bukan bukti pembayaran."
-                  : "Pembayaran cicilan belum tersedia karena belum ada penyedia pembayaran terintegrasi atau settlement terverifikasi."}
-              </p>
-              {k.status === "didanai" && (
-                <ManualPaymentEvidenceForm
-                  jenis="kredit_barang"
-                  targetId={k._id}
-                  reference={k.nomorReferensi}
-                  suggestedAmount={k.kewajibanSisa}
-                />
-              )}
-            </article>
-          );
-        })}
-      </div>
-    </section>
-  );
-}

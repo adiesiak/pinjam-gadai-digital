@@ -62,7 +62,7 @@ export function HistorySection({
                   className="flex w-full items-center justify-between gap-4 px-5 py-4 text-left transition-colors hover:bg-slate-50"
                 >
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-medium tabular-nums">{formatRupiah(l.pokokPinjaman)}</p>
+                    <p className="truncate text-sm font-medium tabular-nums">Pokok tersimpan {formatRupiah(l.pokokPinjaman)}</p>
                     <p className="mt-1 truncate text-xs text-muted-foreground">
                       {l.nomorReferensi} · {loanPurposeLabel(l.tujuan)} · {formatDate(l._creationTime)}
                     </p>

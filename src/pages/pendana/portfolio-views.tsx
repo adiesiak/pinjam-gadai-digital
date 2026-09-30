@@ -73,7 +73,7 @@ export function PortfolioSection({ portfolio }: { portfolio: PortfolioRow[] | un
   return (
     <div className="space-y-3">
       <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-900">
-        Semua angka, jadwal, dan status di bawah adalah simulasi ledger internal. Status lunas bukan bukti pembayaran; alokasi dan pelunasan tidak memindahkan atau memverifikasi dana.
+        Rincian biaya dan jadwal di bawah dihitung dari data pinjaman tersimpan di Convex. Ini perkiraan berdasarkan pengajuan, bukan bukti pencairan, pembayaran, atau settlement; status ledger tetap catatan aplikasi.
       </p>
       <ul className="space-y-3">
       {portfolio.map((f) => (
@@ -125,7 +125,7 @@ export function PortfolioSection({ portfolio }: { portfolio: PortfolioRow[] | un
           </dl>
 
           <section className="mt-4 rounded-xl border border-slate-200 px-3 py-3 text-xs">
-            <h3 className="font-semibold">Rincian simulasi biaya dan nilai bersih</h3>
+            <h3 className="font-semibold">Perkiraan biaya dari data pengajuan Convex</h3>
             {f.skemaBulanan ? (
               <dl className="mt-2 space-y-1.5">
                 {f.tenorBulan === 3 || f.tenorBulan === 6 ? (
@@ -151,7 +151,8 @@ export function PortfolioSection({ portfolio }: { portfolio: PortfolioRow[] | un
           </section>
 
           <section className="mt-3 rounded-xl border border-slate-200 px-3 py-3 text-xs">
-            <h3 className="font-semibold">Jadwal simulasi kewajiban</h3>              <p className="mt-1 text-muted-foreground">Catatan jadwal pada aplikasi: {f.catatanJadwal} Ini bukan tagihan, riwayat pembayaran, atau bukti cicilan dibayar.</p>
+            <h3 className="font-semibold">Perkiraan jadwal kewajiban</h3>
+            <p className="mt-1 text-muted-foreground">Catatan jadwal pada aplikasi: {f.catatanJadwal} Ini bukan tagihan, riwayat pembayaran, atau bukti cicilan dibayar.</p>
             <ul className="mt-2 divide-y divide-slate-100">
               {f.jadwalPelunasan.map((cicilan, index) => (
                 <li key={`${cicilan.bulan ?? cicilan.hariKe}-${index}`} className="flex flex-wrap justify-between gap-x-3 gap-y-1 py-2">

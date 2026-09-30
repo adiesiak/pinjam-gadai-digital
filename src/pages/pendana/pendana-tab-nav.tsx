@@ -14,9 +14,9 @@ import { cn } from "@/lib/utils";
 const TABS: Array<[string, string, React.ReactNode]> = [
   ["marketplace", "Simulasi Marketplace", <Store key="i" className="size-4" />],
   ["kredit", "Simulasi Kredit Barang", <ShoppingBag key="i" className="size-4" />],
-  ["portofolio", "Alokasi Ledger Saya", <Wallet key="i" className="size-4" />],
+  ["portofolio", "Portofolio & Estimasi", <Wallet key="i" className="size-4" />],
   ["kontrak", "Catatan Alokasi", <FileText key="i" className="size-4" />],
-  ["dompet", "Saldo & Permintaan Simulasi", <Coins key="i" className="size-4" />],
+  ["dompet", "Saldo & Arsip", <Coins key="i" className="size-4" />],
   ["riwayat", "Riwayat Ledger", <ScrollText key="i" className="size-4" />],
 ];
 

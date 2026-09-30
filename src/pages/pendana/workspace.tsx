@@ -16,8 +16,7 @@ import { PortfolioSection } from "./portfolio-views";
 import { WalletSection } from "./wallet-views";
 
 /**
- * Workspace utama Pendana: profil + enam tab di sisi kiri, ringkasan saldo dan
- * konten tab di kolom kanan.
+ * Workspace Pendana: navigasi pengajuan, estimasi, dan arsip akun.
  */
 export function PendanaWorkspace({
   greetingName,
@@ -72,9 +71,9 @@ export function PendanaWorkspace({
         <div className="min-w-0 flex-1">
           <div className="flex flex-col gap-1">
             <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-primary">
-              Ruang Pendana · simulasi ledger internal
+              Ruang Pendana · pengajuan dan estimasi
             </p>
-            <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">Ledger simulasi Pendana</h1>
+            <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">Ringkasan pengajuan pendanaan</h1>
           </div>
 
           {/* ===== Ringkasan ledger ===== */}

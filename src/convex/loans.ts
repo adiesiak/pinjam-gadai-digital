@@ -524,6 +524,7 @@ export const getMyLoan = query({
       catatanReview: loan.catatanReview,
       tenorHari: loan.tenorHari ?? null,
       tenorBulan: loan.tenorBulan ?? null,
+      simulasiBulanan: sim,
       quote: quoteLoan(loan.pokokPinjaman),
       imbalHasilTotal: sim !== null ? sim.bungaTotal : quoteLoan(loan.pokokPinjaman).bunga,
       totalKewajiban: sim !== null ? sim.totalPengembalian : quoteLoan(loan.pokokPinjaman).totalKewajibanPelunasan,

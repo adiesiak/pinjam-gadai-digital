@@ -113,6 +113,8 @@ function ringkasKredit(row: Doc<"kreditBarang">, dibayarBulan = 0) {
     cicilanTerakhir: quote?.cicilanTerakhir ?? null,
     imbalHasilPendana: quote?.marginTotal ?? null,
     totalDibayarKonsumen: quote?.totalDibayarKonsumen ?? null,
+    jadwal: quote?.jadwal ?? [],
+    totalDiterimaPendana: quote?.totalDiterima ?? null,
     persenImbalHasil: quote?.persenImbalHasil ?? null,
   };
 }

@@ -7,7 +7,6 @@ import { api } from "@/convex/_generated/api";
 import { formatRupiah } from "@/lib/money";
 import { BIAYA_PENCAIRAN_PERSEN } from "@/lib/withdrawal";
 
-import { DepositForm } from "./deposit-views";
 import { Loading } from "./feedback";
 
 /** Tab dompet pendana: transaksi dinonaktifkan, riwayat hanya-baca. */
@@ -25,8 +24,7 @@ export function WalletSection() {
             <Wallet className="mr-1 size-3" /> Saldo ledger {formatRupiah(wallet?.saldo ?? 0)}
           </Badge>
         </div>
-        <p className="text-xs leading-5 text-muted-foreground">Saldo di sini hanya catatan ledger internal, bukan dana tersedia. Pengiriman bukti atau pencocokan admin tidak menambah saldo.</p>
-        <DepositForm />
+        <p className="text-xs leading-5 text-muted-foreground">PINDAI berfokus pada pencatatan pengajuan dan estimasi. Saldo ini hanya catatan internal, bukan dana tersedia; fitur setoran dan penarikan tidak disediakan.</p>
       </section>
 
       <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
@@ -65,7 +63,7 @@ export function WalletSection() {
       </section>
 
       <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6 xl:col-span-2">
-        <h3 className="text-sm font-semibold">Riwayat setoran (catatan internal)</h3>
+        <h3 className="text-sm font-semibold">Arsip catatan setoran terdahulu</h3>
         <Separator className="my-4" />
         {deposits === undefined ? (
           <Loading />

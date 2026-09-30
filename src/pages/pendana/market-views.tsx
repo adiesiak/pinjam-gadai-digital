@@ -101,7 +101,7 @@ function MarketCard({
       <div className="min-w-0">
         <div className="flex flex-wrap items-center gap-2">
           <Badge className="border-0 bg-primary text-[10px] text-primary-foreground">
-            Simulasi Pinjaman Tunai
+            Pengajuan Pinjaman Tunai · Convex
           </Badge>
           <Badge className="border-0 bg-emerald-100 text-[10px] text-emerald-700 hover:bg-emerald-100">
             <BadgeCheck className="mr-1 size-3" /> Status aplikasi: {row.statusVerifikasi}
@@ -109,7 +109,7 @@ function MarketCard({
         </div>
         <p className="mt-3 text-xs text-muted-foreground">Kode peminjam</p>
         <p className="font-mono text-sm font-semibold tracking-wide">{row.kodePeminjam}</p>
-        <p className="mt-2 text-xs text-muted-foreground">Pokok acuan simulasi (tidak ditransfer)</p>
+        <p className="mt-2 text-xs text-muted-foreground">Pokok yang tercatat pada pengajuan (tidak membuktikan pencairan)</p>
         <p className="text-lg font-semibold tabular-nums">{formatRupiah(row.pokokPinjaman)}</p>
         <p className="mt-0.5 truncate text-xs text-muted-foreground">
           {row.nomorReferensi} · Tujuan yang dicatat: {loanPurposeLabel(row.tujuan)}
@@ -134,7 +134,7 @@ function MarketCard({
           </dd>
         </div>
         <div>
-          <dt className="text-muted-foreground">Total kewajiban simulasi (bukan tagihan)</dt>
+          <dt className="text-muted-foreground">Total kewajiban perkiraan (bukan tagihan)</dt>
           <dd className="mt-0.5 font-semibold tabular-nums">
             {formatRupiah(row.totalKewajiban)}
           </dd>
@@ -142,7 +142,7 @@ function MarketCard({
       </dl>
 
       <section className="mt-3 rounded-xl border border-slate-200 px-3 py-3 text-xs">
-        <h3 className="font-semibold">Rincian perhitungan simulasi</h3>
+        <h3 className="font-semibold">Perkiraan biaya dan kewajiban dari pengajuan</h3>
         {row.skemaBulanan ? (
           <dl className="mt-2 space-y-1.5">
             {row.tenorBulan === 3 || row.tenorBulan === 6 ? (
@@ -193,7 +193,7 @@ function MarketCard({
       </section>
 
       <section className="mt-3 rounded-xl border border-slate-200 px-3 py-3 text-xs">
-        <h3 className="font-semibold">Jadwal simulasi kewajiban</h3>
+        <h3 className="font-semibold">Perkiraan jadwal kewajiban dari pengajuan</h3>
         <p className="mt-1 text-muted-foreground">
           Catatan aplikasi (bukan tagihan atau bukti pembayaran): {row.catatanJadwal} Jadwal ini tidak mencatat atau memverifikasi pembayaran aktual.
         </p>
