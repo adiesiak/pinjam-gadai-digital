@@ -1,41 +1,14 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import { v } from "convex/values";
-import { Id } from "./_generated/dataModel";
 import { ROLES } from "./schema";
 import { requireAdminSession } from "./adminAuthz";
-import { appendJournal } from "./ledger";
 import { audit } from "./system";
-import {
-  GADAI_PRICING,
-  quoteGadai,
-  rencanaBayarGadai,
-  sewaModalBerikutnya,
-  type GadaiBayarResult,
-} from "../lib/gadai";
-import { formatRupiah, percentOf, type Rupiah } from "../lib/money";
+import { GADAI_PRICING, quoteGadai, sewaModalBerikutnya } from "../lib/gadai";
+import { formatRupiah, percentOf } from "../lib/money";
+import { rejectUnverifiedMoneyMovement } from "./paymentGuard";
 
-/**
- * MODUL SKEMA B — GADAI DIGITAL (berjaminan / LTV 70%).
- *
- * Bedanya dengan Skema A (pinjaman tunai):
- *  - Potongan muka HANYA 1% → dana bersih diterima Peminjam 99%.
- *  - Sewa modal 5–10% per 30 hari dihitung DINAMIS dari SISA POKOK terbaru
- *    (decreasing principal basis): cicil pokok → sewa berikutnya otomatis turun.
- *  - Sisa pokok = Rp0 → barang berstatus "SIAP_DIAMBIL" dari Vault Custody.
- *
- * Semua uang integer rupiah; jurnal double-entry append-only (ΣD = ΣC).
- */
-
-function referenceNumber(now: number): string {
-  const date = new Date(now).toISOString().slice(0, 10).replace(/-/g, "");
-  const suffix = Array.from({ length: 4 }, () =>
-    "ABCDEFGHJKLMNPQRSTUVWXYZ23456789".charAt(Math.floor(Math.random() * 32)),
-  ).join("");
-  return `GBY-${date}-${suffix}`;
-}
-
-async function requireAdmin(ctx: MutationCtx) {
+function requireAdmin(ctx: MutationCtx) {
   return requireAdminSession(ctx);
 }
 
@@ -50,15 +23,7 @@ async function requirePeminjam(ctx: QueryCtx) {
   return { userId, user };
 }
 
-// =====================================================================
-// Admin: persetujuan pendanaan gadai (set pokok ≤ LTV 70% + sewa modal)
-// =====================================================================
-
-/**
- * Admin menetapkan pokok gadai & persen sewa modal saat approval.
- * Validasi server: pokok ≤ 70% harga pasar, sewa 5–10%.
- * (Pencairan dilakukan lewat aksi `cairkanGadai` setelah ini.)
- */
+/** Admin menetapkan pokok dan sewa gadai setelah penilaian; ini bukan pencairan. */
 export const setPendanaanGadai = mutation({
   args: {
     pawnId: v.id("pawns"),
@@ -69,151 +34,53 @@ export const setPendanaanGadai = mutation({
     const { userId, user } = await requireAdmin(ctx);
     const pawn = await ctx.db.get(args.pawnId);
     if (pawn === null) throw new Error("Pengajuan gadai tidak ditemukan.");
-    if (
-      pawn.status !== "disetujui" &&
-      pawn.status !== "sedang_dinilai" &&
-      pawn.status !== "aktif"
-    ) {
-      throw new Error("Pendanaan hanya untuk gadai yang disetujui/dinilai.");
+    if (pawn.status !== "disetujui" && pawn.status !== "sedang_dinilai" && pawn.status !== "aktif") {
+      throw new Error("Penilaian hanya untuk gadai yang disetujui/dinilai.");
     }
     if (!Number.isSafeInteger(args.pokokGadai) || args.pokokGadai <= 0) {
       throw new Error("Pokok gadai harus rupiah bulat positif.");
     }
-    if (
-      !Number.isFinite(args.persenSewaModal) ||
-      args.persenSewaModal < GADAI_PRICING.sewaModalMinPercent ||
-      args.persenSewaModal > GADAI_PRICING.sewaModalMaxPercent
-    ) {
-      throw new Error(
-        `Sewa modal harus ${GADAI_PRICING.sewaModalMinPercent}–${GADAI_PRICING.sewaModalMaxPercent}% per 30 hari.`,
-      );
+    if (!Number.isFinite(args.persenSewaModal) || args.persenSewaModal < GADAI_PRICING.sewaModalMinPercent || args.persenSewaModal > GADAI_PRICING.sewaModalMaxPercent) {
+      throw new Error(`Sewa modal harus ${GADAI_PRICING.sewaModalMinPercent}–${GADAI_PRICING.sewaModalMaxPercent}% per 30 hari.`);
     }
-    // LTV hard cap 70% dari harga pasar (bila harga pasar tercatat).
     if (pawn.hargaPasar !== undefined && pawn.hargaPasar > 0) {
       const limit = percentOf(pawn.hargaPasar, GADAI_PRICING.ltvMaxPercent);
       if (args.pokokGadai > limit) {
-        throw new Error(
-          `Pokok ${formatRupiah(args.pokokGadai)} melebihi LTV maks 70% (${formatRupiah(limit)}) dari harga pasar ${formatRupiah(pawn.hargaPasar)}.`,
-        );
+        throw new Error(`Pokok ${formatRupiah(args.pokokGadai)} melebihi LTV maks 70% (${formatRupiah(limit)}) dari harga pasar ${formatRupiah(pawn.hargaPasar)}.`);
       }
     }
-    // Pokok juga tidak boleh melebihi nilai taksiran.
-    if (
-      pawn.nilaiTaksiran !== undefined &&
-      args.pokokGadai > pawn.nilaiTaksiran
-    ) {
-      throw new Error(
-        `Pokok ${formatRupiah(args.pokokGadai)} melebihi nilai taksiran ${formatRupiah(pawn.nilaiTaksiran)}.`,
-      );
+    if (pawn.nilaiTaksiran !== undefined && args.pokokGadai > pawn.nilaiTaksiran) {
+      throw new Error(`Pokok ${formatRupiah(args.pokokGadai)} melebihi nilai taksiran ${formatRupiah(pawn.nilaiTaksiran)}.`);
     }
-
     await ctx.db.patch(args.pawnId, {
       pokokGadai: args.pokokGadai,
       persenSewaModal: args.persenSewaModal,
       sisaPokok: args.pokokGadai,
     });
-    await audit(
-      ctx,
-      userId,
-      user?.email ?? user?.name ?? "admin",
-      "gadai_pendanaan",
-      pawn.nomorReferensi,
-      `Pokok ${formatRupiah(args.pokokGadai)} (LTV ≤70%), sewa modal ${args.persenSewaModal}%/30 hari`,
-    );
+    await audit(ctx, userId, user.email ?? user.name ?? "admin", "gadai_pendanaan", pawn.nomorReferensi, `Pokok ${formatRupiah(args.pokokGadai)} (LTV ≤70%), sewa modal ${args.persenSewaModal}%/30 hari`);
     return { ok: true };
   },
 });
 
-// =====================================================================
-// Admin: pencairan dana bersih 99% (Skema B)
-// =====================================================================
-
-/**
- * Cairkan dana bersih 99% dari pokok gadai ke Peminjam (jurnal):
- *   D platform:FEE      1%  | K gadai:<pawnId>  1%   (potongan muka)
- *   D peminjam:<userId> 99% | K gadai:<pawnId> 99%   (kas keluar)
- * Wajib: status disetujui, pokokGadai tersedia, belum pernah dicairkan.
- */
+/** Dana gadai belum dapat dicairkan sampai Xendit terintegrasi dan settlement diverifikasi. */
 export const cairkanGadai = mutation({
   args: { pawnId: v.id("pawns") },
-  handler: async (ctx, args) => {
-    const { userId, user } = await requireAdmin(ctx);
-    const pawn = await ctx.db.get(args.pawnId);
-    if (pawn === null) throw new Error("Pengajuan gadai tidak ditemukan.");
-    if (pawn.status !== "disetujui") {
-      throw new Error("Hanya gadai berstatus Disetujui yang dapat dicairkan.");
-    }
-    if (pawn.pokokGadai === undefined || pawn.pokokGadai <= 0) {
-      throw new Error("Pokok gadai belum ditetapkan (set pendanaan dulu).");
-    }
-    if (pawn.dicairkanPada !== undefined) {
-      throw new Error("Gadai ini sudah pernah dicairkan (idempoten).");
-    }
-
-    const quote = quoteGadai(pawn.pokokGadai, pawn.persenSewaModal ?? 5);
-    const now = Date.now();
-
-    // 1. Potongan muka 1% → platform.
-    await appendJournal(ctx, {
-      jenis: "platform_fee",
-      keterangan: `Potongan muka 1% gadai ${pawn.nomorReferensi}`,
-      aktor: "platform",
-      lines: [
-        { akun: "platform:FEE", arah: "debit", jumlah: quote.potonganDiMuka },
-        { akun: `gadai:${args.pawnId}`, arah: "kredit", jumlah: quote.potonganDiMuka },
-      ],
-    });
-
-    // 2. Dana bersih 99% ke Peminjam.
-    await appendJournal(ctx, {
-      jenis: "disbursement",
-      keterangan: `Pencairan dana bersih 99% gadai ${pawn.nomorReferensi}`,
-      aktor: userId,
-      lines: [
-        { akun: `peminjam:${pawn.userId}`, arah: "debit", jumlah: quote.danaBersihDitransfer },
-        { akun: `gadai:${args.pawnId}`, arah: "kredit", jumlah: quote.danaBersihDitransfer },
-      ],
-    });
-
-    await ctx.db.patch(args.pawnId, { dicairkanPada: now });
-    await audit(
-      ctx,
-      userId,
-      user?.email ?? user?.name ?? "admin",
-      "gadai_cair",
-      pawn.nomorReferensi,
-      `Dana bersih ${formatRupiah(quote.danaBersihDitransfer)} (99%), potongan ${formatRupiah(quote.potonganDiMuka)} (1%)`,
-    );
-    return {
-      danaBersih: quote.danaBersihDitransfer,
-      potongan: quote.potonganDiMuka,
-      sewaModalPeriode: quote.sewaModalPeriode,
-    };
+  handler: async (ctx) => {
+    await requireAdmin(ctx);
+    rejectUnverifiedMoneyMovement();
   },
 });
 
-// =====================================================================
-// Peminjam: lihat kewajiban gadai + bayar cicil pokok / sewa modal
-// =====================================================================
-
-/**
- * Ringkasan kewajiban gadai milik Peminjam untuk satu barang:
- * sisa pokok, sewa modal berikutnya (dari sisa terbaru), status custody,
- * dan riwayat pembayaran append-only. Jujur null bila belum ada pokok.
- */
+/** Ringkasan kewajiban gadai dan riwayat yang sudah ada. */
 export const myGadaiBilling = query({
   args: { pawnId: v.id("pawns") },
   handler: async (ctx, args) => {
     const { userId } = await requirePeminjam(ctx);
     const pawn = await ctx.db.get(args.pawnId);
-    if (pawn === null || pawn.userId !== userId) return null;
-    if (pawn.pokokGadai === undefined) return null;
+    if (pawn === null || pawn.userId !== userId || pawn.pokokGadai === undefined) return null;
     const sisa = pawn.sisaPokok ?? pawn.pokokGadai;
     const persen = pawn.persenSewaModal ?? GADAI_PRICING.sewaModalMinPercent;
-    const payments = await ctx.db
-      .query("pawnPayments")
-      .withIndex("by_pawn", (q) => q.eq("pawnId", args.pawnId))
-      .collect();
+    const payments = await ctx.db.query("pawnPayments").withIndex("by_pawn", (q) => q.eq("pawnId", args.pawnId)).collect();
     payments.sort((a, b) => b.waktu - a.waktu);
     const quote = quoteGadai(pawn.pokokGadai, persen);
     return {
@@ -239,107 +106,20 @@ export const myGadaiBilling = query({
   },
 });
 
-/**
- * Bayar gadai: sewa modal wajib + cicilan pokok sukarela.
- * Decreasing principal: sewa periode berikutnya = persen × sisa pokok terbaru.
- * Jurnal (satu mutation transaksional, append-only):
- *   D platform:CASH (cicil+sewa) | K gadai:<pawnId> (cicil+sewa)
- *   D gadai:<pawnId> sewa        | K platform:FEE  sewa
- * Sisa pokok 0 → status pawn "menunggu_pelepasan" (SIAP_DIAMBIL di Vault).
- */
+/** Pembayaran gadai tidak dicatat sebelum ada konfirmasi settlement yang sah. */
 export const bayarGadai = mutation({
   args: {
     pawnId: v.id("pawns"),
-    /** Cicilan pokok sukarela (rupiah bulat, 0 = sewa saja). */
     cicilPokok: v.number(),
-    /** true = bayar sewa saja untuk perpanjang tenor (cicilPokok diabaikan). */
     bayarHanyaSewa: v.optional(v.boolean()),
   },
-  handler: async (ctx, args) => {
-    const { userId } = await requirePeminjam(ctx);
-    const pawn = await ctx.db.get(args.pawnId);
-    if (pawn === null) throw new Error("Gadai tidak ditemukan.");
-    if (pawn.userId !== userId) throw new Error("Bukan gadai Anda.");
-    if (pawn.status !== "aktif") {
-      throw new Error(
-        "Hanya gadai berstatus Aktif (sudah dicairkan) yang dapat dibayar.",
-      );
-    }
-    if (pawn.pokokGadai === undefined || pawn.pokokGadai <= 0) {
-      throw new Error("Gadai ini belum memiliki pokok yang sah.");
-    }
-    const persen = pawn.persenSewaModal ?? GADAI_PRICING.sewaModalMinPercent;
-    const sisa = pawn.sisaPokok ?? pawn.pokokGadai;
-
-    // Hitung rencana bayar dari engine (validasi & presisi dijamin).
-    let plan: GadaiBayarResult;
-    try {
-      plan = rencanaBayarGadai(sisa, persen, {
-        cicilPokok: args.bayarHanyaSewa ? 0 : Math.max(0, args.cicilPokok),
-        bayarHanyaSewa: args.bayarHanyaSewa,
-      });
-    } catch (e) {
-      throw new Error(
-        e instanceof Error ? e.message : "Rencana pembayaran tidak valid.",
-      );
-    }
-
-    const now = Date.now();
-
-    // 1. Kas masuk: cicil pokok + sewa modal.
-    await appendJournal(ctx, {
-      jenis: "repayment",
-      keterangan: `Bayar gadai ${pawn.nomorReferensi} — cicil ${formatRupiah(plan.pokokDicicil)} + sewa ${formatRupiah(plan.sewaDibayar)}`,
-      aktor: userId,
-      lines: [
-        { akun: "platform:CASH", arah: "debit", jumlah: plan.totalBayar },
-        { akun: `gadai:${args.pawnId}`, arah: "kredit", jumlah: plan.totalBayar },
-      ],
-    });
-
-    // 2. Sewa modal diakui sebagai pendapatan platform.
-    await appendJournal(ctx, {
-      jenis: "platform_fee",
-      keterangan: `Sewa modal ${pawn.nomorReferensi} (${persen}% × sisa ${formatRupiah(sisa)})`,
-      aktor: "platform",
-      lines: [
-        { akun: `gadai:${args.pawnId}`, arah: "debit", jumlah: plan.sewaDibayar },
-        { akun: "platform:FEE", arah: "kredit", jumlah: plan.sewaDibayar },
-      ],
-    });
-
-    // 3. Catat pembayaran append-only + update sisa pokok berjalan.
-    await ctx.db.insert("pawnPayments", {
-      pawnId: args.pawnId,
-      pokokDicicil: plan.pokokDicicil,
-      sewaDibayar: plan.sewaDibayar,
-      sisaPokokSetelah: plan.sisaPokokSetelah,
-      sewaModalBerikut: plan.sewaModalBerikut,
-      userId,
-      waktu: now,
-    });
-    await ctx.db.patch(args.pawnId, { sisaPokok: plan.sisaPokokSetelah });
-
-    // 4. Sisa pokok Rp0 → SIAP_DIAMBIL: ajukan pelepasan barang otomatis.
-    if (plan.custody === "SIAP_DIAMBIL" && pawn.status === "aktif") {
-      await ctx.db.patch(args.pawnId, { status: "menunggu_pelepasan" });
-    }
-
-    return {
-      totalBayar: plan.totalBayar,
-      pokokDicicil: plan.pokokDicicil,
-      sewaDibayar: plan.sewaDibayar,
-      sisaPokokSetelah: plan.sisaPokokSetelah,
-      sewaModalBerikut: plan.sewaModalBerikut,
-      custody: plan.custody,
-    };
+  handler: async (ctx) => {
+    await requirePeminjam(ctx);
+    rejectUnverifiedMoneyMovement();
   },
 });
 
-/**
- * Simulasi cicil pokok untuk widget kalkulator Peminjam: bila mencicil X,
- * berapa sewa modal periode berikutnya dan kapan SIAP_DIAMBIL.
- */
+/** Kalkulator murni; hasilnya ilustrasi, bukan pembayaran atau perubahan custody. */
 export const simulasiCicilGadai = query({
   args: {
     pawnId: v.id("pawns"),
@@ -348,8 +128,7 @@ export const simulasiCicilGadai = query({
   handler: async (ctx, args) => {
     const { userId } = await requirePeminjam(ctx);
     const pawn = await ctx.db.get(args.pawnId);
-    if (pawn === null || pawn.userId !== userId) return null;
-    if (pawn.pokokGadai === undefined) return null;
+    if (pawn === null || pawn.userId !== userId || pawn.pokokGadai === undefined) return null;
     const persen = pawn.persenSewaModal ?? GADAI_PRICING.sewaModalMinPercent;
     const sisa = pawn.sisaPokok ?? pawn.pokokGadai;
     const cicil = Math.min(Math.max(0, args.cicilPokok), sisa);
@@ -363,8 +142,7 @@ export const simulasiCicilGadai = query({
       totalBayar: cicil + sewa,
       sisaPokokSetelah: sisaSetelah,
       sewaSetelah: sewaModalBerikutnya(sisaSetelah, persen),
-      custody:
-        sisaSetelah <= 0 ? ("SIAP_DIAMBIL" as const) : ("DALAM_VAULT" as const),
+      custody: sisaSetelah <= 0 ? ("SIAP_DIAMBIL" as const) : ("DALAM_VAULT" as const),
     };
   },
 });

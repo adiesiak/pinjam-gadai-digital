@@ -11,23 +11,13 @@ import {
 } from "../lib/kredit";
 import { ROLES, type KreditStatusValue } from "./schema";
 import { requireAdminSession } from "./adminAuthz";
-import { appendJournal } from "./ledger";
 import { audit, getConfig } from "./system";
 import { requireGerbangLokasi } from "./lokasi";
 import { ensureKodePeminjam } from "./peminjamCode";
 import { formatRupiah } from "../lib/money";
+import { rejectUnverifiedMoneyMovement } from "./paymentGuard";
 import type { Doc, Id } from "./_generated/dataModel";
 import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
-
-/**
- * PINDAI — Skema C: KREDIT BARANG (elektronik & barang marketplace).
- *
- * Peminjam mengajukan pembelian barang dari merchant mitra (Shopee,
- * Tokopedia, toko elektronik, dll); sisa harga setelah uang muka dibiayai
- * Pendana dan dicicil bulanan. Rincian uang tidak pernah disimpan ganda —
- * selalu diturunkan dari (hargaBarang, dpPersen, tenorBulan,
- * marginPersenPerBulan) melalui quoteKreditBarang() di lib/kredit.ts.
- */
 
 /** Gate: pengguna yang sudah masuk (sesi valid). */
 async function penggunaMasuk(ctx: QueryCtx) {
@@ -64,10 +54,7 @@ function nomorReferensiKredit(now: number): string {
   return `KRD-${tanggal}-${suffix}`;
 }
 
-/**
- * Ringkasan satu pengajuan kredit barang + rincian harga yang diturunkan.
- * `dibayarBulan` = jumlah cicilan yang sudah tercatat (1..tenorBulan).
- */
+/** Ringkasan satu pengajuan kredit barang + rincian yang diturunkan dari pricing engine. */
 function ringkasKredit(row: Doc<"kreditBarang">, dibayarBulan = 0) {
   let quote: KreditBarangQuote | null = null;
   try {
@@ -78,19 +65,12 @@ function ringkasKredit(row: Doc<"kreditBarang">, dibayarBulan = 0) {
       marginPersenPerBulan: row.marginPersenPerBulan,
     });
   } catch {
-    // Baris warisan di luar rentang skema saat ini: tampilkan tanpa rincian.
     quote = null;
   }
 
-  // ===== Progres cicilan: sisa pokok & kewajiban diturunkan dari jadwal =====
   let sisaPokokKredit = 0;
   let kewajibanSisa = 0;
-  let cicilanBerikut: {
-    bulan: number;
-    pokok: number;
-    margin: number;
-    total: number;
-  } | null = null;
+  let cicilanBerikut: { bulan: number; pokok: number; margin: number; total: number } | null = null;
   if (quote !== null) {
     for (const r of quote.jadwal) {
       if (r.bulan > dibayarBulan) {
@@ -100,12 +80,7 @@ function ringkasKredit(row: Doc<"kreditBarang">, dibayarBulan = 0) {
     }
     const berikut = quote.jadwal[dibayarBulan];
     if (berikut !== undefined) {
-      cicilanBerikut = {
-        bulan: berikut.bulan,
-        pokok: berikut.pokok,
-        margin: berikut.margin,
-        total: berikut.total,
-      };
+      cicilanBerikut = { bulan: berikut.bulan, pokok: berikut.pokok, margin: berikut.margin, total: berikut.total };
     }
   }
 
@@ -124,13 +99,11 @@ function ringkasKredit(row: Doc<"kreditBarang">, dibayarBulan = 0) {
     status: row.status,
     catatanReview: row.catatanReview ?? null,
     catatanPeminjam: row.catatanPeminjam ?? null,
-    // ===== Progres cicilan =====
     dibayarBulan,
     totalBulan: row.tenorBulan,
     sisaPokokKredit,
     kewajibanSisa,
     cicilanBerikut,
-    // ===== Rincian turunan (engine yang sama dengan kalkulator Pendana) =====
     dp: quote?.dp ?? null,
     pokokDibiayai: quote?.pokokDibiayai ?? null,
     biayaLayanan: quote?.biayaLayanan ?? null,
@@ -146,10 +119,7 @@ function ringkasKredit(row: Doc<"kreditBarang">, dibayarBulan = 0) {
 // Sisi Peminjam
 // =====================================================================
 
-/**
- * Ajukan kredit barang. Validasi harga, DP, tenor, dan margin memakai engine
- * yang sama dengan kalkulator Pendana — angka tidak pernah diterima dari klien.
- */
+/** Ajukan kredit barang. Nilai final selalu divalidasi dan dihitung server-side. */
 export const ajukanKreditBarang = mutation({
   args: {
     namaBarang: v.string(),
@@ -160,7 +130,6 @@ export const ajukanKreditBarang = mutation({
     dpPersen: v.number(),
     tenorBulan: v.number(),
     marginPersenPerBulan: v.number(),
-    // ===== Data pemohon =====
     namaLengkap: v.string(),
     nik: v.string(),
     nomorRekening: v.string(),
@@ -169,83 +138,42 @@ export const ajukanKreditBarang = mutation({
   },
   handler: async (ctx, args) => {
     const { userId, user } = await peminjamMasuk(ctx);
-    // Gerbang lokasi: pengajuan kredit hanya dilayani dengan GPS aktif & segar.
     await requireGerbangLokasi(ctx, userId, user);
-
-    // Kill switch: blokir seluruh pengajuan baru saat darurat.
     const sys = await getConfig(ctx);
-    if (sys.killSwitch) {
-      throw new Error(
-        "Pengajuan sementara dihentikan oleh sistem (kill switch aktif). Coba lagi nanti.",
-      );
-    }
-
-    // Kebijakan penerbitan kredit barang baru: tenor maksimal 6 bulan,
-    // terpisah dari dukungan quote 12/24 bulan untuk kontrak warisan.
+    if (sys.killSwitch) throw new Error("Pengajuan sementara dihentikan oleh sistem (kill switch aktif). Coba lagi nanti.");
     if (!(KREDIT_TENOR_PENGAJUAN_OPTIONS as readonly number[]).includes(args.tenorBulan)) {
-      throw new Error(
-        `Tenor kredit barang baru harus ${KREDIT_TENOR_PENGAJUAN_OPTIONS.join(" / ")} bulan (maksimal 6 bulan).`,
-      );
+      throw new Error(`Tenor kredit barang baru harus ${KREDIT_TENOR_PENGAJUAN_OPTIONS.join(" / ")} bulan (maksimal 6 bulan).`);
     }
-
-    // Validasi batas skema + hitung rincian (melempar pesan Indonesia yang jelas).
     const quote = quoteKreditBarang({
       hargaBarang: args.hargaBarang,
       dpPersen: args.dpPersen,
       tenorBulan: args.tenorBulan,
       marginPersenPerBulan: args.marginPersenPerBulan,
     });
-
-    // Kredit barang mempunyai batas pokok dibiayai mandiri yang tidak
-    // dipengaruhi plafon pinjaman tunai maupun override nasabah.
     if (!pokokKreditBarangDalamBatas(quote.pokokDibiayai)) {
-      throw new Error(
-        `Pokok dibiayai kredit barang maksimal ${formatRupiah(KREDIT_BARANG_POKOK_MAKS)}.`,
-      );
+      throw new Error(`Pokok dibiayai kredit barang maksimal ${formatRupiah(KREDIT_BARANG_POKOK_MAKS)}.`);
     }
-
     const namaBarang = args.namaBarang.trim();
-    if (namaBarang.length < 3) {
-      throw new Error("Nama barang wajib diisi (minimal 3 karakter).");
-    }
+    if (namaBarang.length < 3) throw new Error("Nama barang wajib diisi (minimal 3 karakter).");
     const merchant = args.merchant.trim();
-    if (merchant.length < 3) {
-      throw new Error("Isi sumber barang, mis. Shopee, Tokopedia, atau toko mitra.");
-    }
+    if (merchant.length < 3) throw new Error("Isi sumber barang, mis. Shopee, Tokopedia, atau toko mitra.");
     let tautan: string | undefined;
     if (args.tautanBarang !== undefined && args.tautanBarang.trim() !== "") {
       const t = args.tautanBarang.trim();
-      if (!/^https?:\/\/\S+$/i.test(t)) {
-        throw new Error("Tautan barang harus diawali http:// atau https://.");
-      }
+      if (!/^https?:\/\/\S+$/i.test(t)) throw new Error("Tautan barang harus diawali http:// atau https://.");
       tautan = t;
     }
-
     const nama = args.namaLengkap.trim();
-    if (nama.length < 3) {
-      throw new Error("Nama lengkap wajib diisi (minimal 3 karakter).");
-    }
+    if (nama.length < 3) throw new Error("Nama lengkap wajib diisi (minimal 3 karakter).");
     const nik = args.nik.replace(/\s+/g, "");
-    if (!/^\d{16}$/.test(nik)) {
-      throw new Error("NIK harus 16 digit angka sesuai KTP.");
-    }
+    if (!/^\d{16}$/.test(nik)) throw new Error("NIK harus 16 digit angka sesuai KTP.");
     const rekening = args.nomorRekening.trim().replace(/\s+/g, "");
-    if (!/^\d{6,20}$/.test(rekening)) {
-      throw new Error("Nomor rekening harus 6–20 digit angka.");
-    }
+    if (!/^\d{6,20}$/.test(rekening)) throw new Error("Nomor rekening harus 6–20 digit angka.");
     const wa = args.nomorWhatsApp.replace(/[\s+-]/g, "");
-    if (!/^62\d{8,13}$/.test(wa)) {
-      throw new Error(
-        "Nomor WhatsApp wajib format internasional 62… (mis. 6281234567890).",
-      );
-    }
+    if (!/^62\d{8,13}$/.test(wa)) throw new Error("Nomor WhatsApp wajib format internasional 62… (mis. 6281234567890).");
 
-    // Peminjam tanpa role eksplisit dipromosikan seperti pada pengajuan pinjaman.
-    if (user.role === undefined) {
-      await ctx.db.patch(userId, { role: ROLES.PEMINJAM });
-    }
+    if (user.role === undefined) await ctx.db.patch(userId, { role: ROLES.PEMINJAM });
     await ensureKodePeminjam(ctx, userId);
-
     const now = Date.now();
     const referensi = nomorReferensiKredit(now);
     const kreditId = await ctx.db.insert("kreditBarang", {
@@ -266,7 +194,6 @@ export const ajukanKreditBarang = mutation({
       nomorWhatsApp: wa,
       catatanPeminjam: args.catatanPeminjam?.trim() || undefined,
     });
-
     return {
       appId: kreditId,
       nomorReferensi: referensi,
@@ -283,209 +210,24 @@ export const kreditSaya = query({
   args: {},
   handler: async (ctx) => {
     const { userId } = await peminjamMasuk(ctx);
-    const rows = await ctx.db
-      .query("kreditBarang")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
-      .collect();
+    const rows = await ctx.db.query("kreditBarang").withIndex("by_user", (q) => q.eq("userId", userId)).collect();
     const hasil = [];
     for (const row of rows.sort((a, b) => b._creationTime - a._creationTime)) {
-      const payments = await ctx.db
-        .query("kreditPayments")
-        .withIndex("by_kredit", (q) => q.eq("kreditId", row._id))
-        .collect();
+      const payments = await ctx.db.query("kreditPayments").withIndex("by_kredit", (q) => q.eq("kreditId", row._id)).collect();
       hasil.push(ringkasKredit(row, payments.length));
     }
     return hasil;
   },
 });
 
-/**
- * Konsumen (Peminjam) membayar cicilan bulanan kredit barang.
- *
- * Jurnal (satu mutation transaksional, append-only):
- *   1. D platform:CASH (pokok+Imbal Hasil) | K kredit:<id> (jumlah sama)
- *   2. D kredit:<id> porsi tiap Pendana      | K pendana:WALLET:<id>
- * Pembagian dibulatkan ke bawah per alokasi; selisih (dust) diberikan ke
- * alokasi terbesar sehingga akun kredit tepat nol setiap bulan.
- *
- * Cicilan berurutan: bulan ke-n = jumlah pembayaran tercatat + 1. Setelah
- * bulan terakhir dibayar, pengajuan berstatus "lunas" dan seluruh posisi
- * Pendana ditutup (status "selesai") sehingga Imbal Hasil cair.
- */
+/** Cicilan tidak dicatat sebelum settlement pembayaran yang tervalidasi. */
 export const bayarCicilanKredit = mutation({
   args: { kreditId: v.id("kreditBarang") },
-  handler: async (ctx, args) => {
-    const { userId, user } = await peminjamMasuk(ctx);
-    // Gerbang lokasi: pembayaran cicilan juga butuh GPS aktif & segar.
-    await requireGerbangLokasi(ctx, userId, user);
-    const kredit = await ctx.db.get(args.kreditId);
-    if (kredit === null) throw new Error("Pengajuan kredit barang tidak ditemukan.");
-    if (kredit.userId !== userId) throw new Error("Bukan pengajuan kredit barang Anda.");
-    if (kredit.status === "lunas") {
-      throw new Error("Seluruh cicilan pengajuan ini sudah lunas.");
-    }
-    if (kredit.status !== "didanai") {
-      throw new Error(
-        "Cicilan dapat dibayar setelah pendanaan penuh (status Didanai).",
-      );
-    }
-
-    // Pengajuan lama bisa berada di luar rentang skema saat ini — beri pesan
-    // yang jelas, bukan error engine mentah.
-    let quote: KreditBarangQuote;
-    try {
-      quote = quoteKreditBarang({
-        hargaBarang: kredit.hargaBarang,
-        dpPersen: kredit.dpPersen,
-        tenorBulan: kredit.tenorBulan,
-        marginPersenPerBulan: kredit.marginPersenPerBulan,
-      });
-    } catch {
-      throw new Error(
-        "Rincian pengajuan ini di luar rentang skema kredit saat ini — hubungi tim PINDAI.",
-      );
-    }
-
-    const payments = await ctx.db
-      .query("kreditPayments")
-      .withIndex("by_kredit", (q) => q.eq("kreditId", args.kreditId))
-      .collect();
-    const bulanKe = payments.length + 1;
-    if (bulanKe > quote.jadwal.length) {
-      throw new Error("Seluruh cicilan pengajuan ini sudah lunas.");
-    }
-    const jadwal = quote.jadwal[bulanKe - 1];
-    const pokokDibayar = jadwal.pokok;
-    const marginDibayar = jadwal.margin;
-    const totalDibayar = jadwal.total;
-    // Skema bulanan (tenor 1/3/6): cicilan memuat biaya layanan platform 3%
-    // yang diamortisasi rata per bulan — bagian platform, bukan hak Pendana.
-    const feeBulanan = Math.max(0, totalDibayar - pokokDibayar - marginDibayar);
-
-    const fundings = await ctx.db
-      .query("kreditFundings")
-      .withIndex("by_kredit", (q) => q.eq("kreditId", args.kreditId))
-      .collect();
-    // Urutan baku (alokasi terbesar dulu, seri diputus nomor referensi) harus
-    // sama dengan saat hak diselaraskan ketika pendanaan penuh — hanya itu
-    // yang menjamin porsi penyerap pembulatan selalu orang yang sama.
-    const aktif = fundings
-      .filter((f) => f.status === "dialokasikan")
-      .sort(
-        (a, b) =>
-          b.jumlahAlokasi - a.jumlahAlokasi ||
-          a.nomorReferensi.localeCompare(b.nomorReferensi),
-      );
-    if (aktif.length === 0) {
-      throw new Error("Belum ada posisi Pendana aktif pada pengajuan ini.");
-    }
-
-    // 1. Kas masuk dari Konsumen.
-    await appendJournal(ctx, {
-      jenis: "repayment",
-      keterangan: `Cicilan kredit barang ${kredit.nomorReferensi} bulan ${bulanKe}/${quote.jadwal.length}`,
-      aktor: userId,
-      lines: [
-        { akun: "platform:CASH", arah: "debit", jumlah: totalDibayar },
-        { akun: `kredit:${args.kreditId}`, arah: "kredit", jumlah: totalDibayar },
-      ],
-    });
-
-    // 2. Bagi ke Pendana proporsional porsi pokok; dust ke alokasi terbesar.
-    //    Pembagian dihitung engine lib/kredit.ts (identitas Σ = pokok + margin).
-    //    Konteks kumulatif menghapus drift: saat tenor selesai setiap Pendana
-    //    menerima pokok tepat sebesar Alokasi Dananya & Imbal Hasil tepat
-    //    sebesar hak yang tersimpan pada posisinya.
-    let pokokSebelumnya = 0;
-    for (const row of quote.jadwal) {
-      if (row.bulan < bulanKe) pokokSebelumnya += row.pokok;
-    }
-    const porsi = bagiCicilanKePendana(
-      pokokDibayar,
-      marginDibayar,
-      quote.pokokDibiayai,
-      aktif.map((f) => f.jumlahAlokasi),
-      {
-        pokokSebelumnya,
-        marginSebelumnya: (bulanKe - 1) * quote.marginPerBulan,
-      },
-    );
-
-    let terdistribusi = 0;
-    for (let i = 0; i < aktif.length; i += 1) {
-      const p = porsi[i];
-      const payout = p.total;
-      if (payout <= 0) {
-        throw new Error("Porsi alokasi terlalu kecil untuk cicilan bulan ini.");
-      }
-      await appendJournal(ctx, {
-        jenis: "payout",
-        keterangan: `Cicilan kredit barang ${kredit.nomorReferensi} bulan ${bulanKe} — pembayaran ke ${aktif[i].nomorReferensi}`,
-        aktor: "platform",
-        lines: [
-          { akun: `pendana:WALLET:${aktif[i].pendanaId}`, arah: "debit", jumlah: payout },
-          { akun: `kredit:${args.kreditId}`, arah: "kredit", jumlah: payout },
-        ],
-      });
-      terdistribusi += payout;
-    }
-    // 2b. Bagian biaya layanan (skema bulanan) masuk pendapatan platform —
-    //     dijurnal dari akun kredit ke platform:FEE pada bulan itu saja.
-    if (feeBulanan > 0) {
-      await appendJournal(ctx, {
-        jenis: "platform_fee",
-        keterangan: `Biaya layanan cicilan ${kredit.nomorReferensi} bulan ${bulanKe}/${quote.jadwal.length}`,
-        aktor: "platform",
-        lines: [
-          { akun: "platform:FEE", arah: "debit", jumlah: feeBulanan },
-          { akun: `kredit:${args.kreditId}`, arah: "kredit", jumlah: feeBulanan },
-        ],
-      });
-    }
-
-    if (terdistribusi + feeBulanan !== totalDibayar) {
-      throw new Error(
-        `Cicilan tidak seimbang: selisih ${totalDibayar - terdistribusi - feeBulanan}. Transaksi dibatalkan.`,
-      );
-    }
-
-    // 3. Catat pembayaran (append-only) — sisa pokok diambil dari jadwal engine.
-    const now = Date.now();
-    await ctx.db.insert("kreditPayments", {
-      kreditId: args.kreditId,
-      userId,
-      bulanKe,
-      pokokDibayar,
-      marginDibayar,
-      totalDibayar,
-      sisaPokokSetelah: jadwal.sisaPokok,
-      waktu: now,
-    });
-
-    // 4. Bulan terakhir → lunas; seluruh posisi Pendana ditutup.
-    const lunas = bulanKe === quote.jadwal.length;
-    if (lunas) {
-      for (const f of aktif) {
-        await ctx.db.patch(f._id, { status: "selesai" });
-      }
-      await ctx.db.patch(args.kreditId, { status: "lunas", lunasPada: now });
-    }
-
-    return {
-      bulanKe,
-      pokokDibayar,
-      marginDibayar,
-      totalDibayar,
-      sisaPokokSetelah: jadwal.sisaPokok,
-      jumlahPendana: aktif.length,
-      lunas,
-    };
+  handler: async (ctx) => {
+    await peminjamMasuk(ctx);
+    rejectUnverifiedMoneyMovement();
   },
 });
-
-// =====================================================================
-// Sisi Admin — verifikasi pengajuan
-// =====================================================================
 
 /** Seluruh pengajuan kredit barang + identitas pemohon (khusus admin). */
 export const antreanKreditBarang = query({
@@ -496,10 +238,7 @@ export const antreanKreditBarang = query({
     const hasil = [];
     for (const row of rows.sort((a, b) => b._creationTime - a._creationTime)) {
       const pemohon = await ctx.db.get(row.userId);
-      const payments = await ctx.db
-        .query("kreditPayments")
-        .withIndex("by_kredit", (q) => q.eq("kreditId", row._id))
-        .collect();
+      const payments = await ctx.db.query("kreditPayments").withIndex("by_kredit", (q) => q.eq("kreditId", row._id)).collect();
       hasil.push({
         ...ringkasKredit(row, payments.length),
         namaLengkap: row.namaLengkap,
@@ -514,88 +253,30 @@ export const antreanKreditBarang = query({
 });
 
 /** Pindahkan status pengajuan kredit barang — hanya admin, tercatat di audit. */
-async function setKreditStatus(
-  ctx: MutationCtx,
-  kreditId: Id<"kreditBarang">,
-  status: KreditStatusValue,
-  catatan?: string,
-) {
+async function setKreditStatus(ctx: MutationCtx, kreditId: Id<"kreditBarang">, status: KreditStatusValue, catatan?: string) {
   const adminId = await adminMasuk(ctx);
   const row = await ctx.db.get(kreditId);
   if (row === null) throw new Error("Pengajuan kredit barang tidak ditemukan.");
-  if (status === "diajukan") {
-    throw new Error("Status tidak boleh dikembalikan ke diajukan.");
-  }
-  if (status === "didanai") {
-    throw new Error(
-      "Status Didanai ditetapkan otomatis oleh sistem saat pendanaan Pendana terpenuhi penuh.",
-    );
-  }
-  if (status === "lunas") {
-    throw new Error(
-      "Status Lunas ditetapkan otomatis oleh sistem saat cicilan terakhir dibayar.",
-    );
-  }
-  // Catatan: "dibatalkan" bukan status pengajuan (hanya status alokasi di
-  // kreditFundings) dan tidak ada mutation yang menulisnya — pembatalan
-  // alokasi yang sudah dibayarkan akan membuat Σ alokasi aktif < pokok
-  // dibiayai sehingga seluruh cicilan berikutnya gagal. Pengembalian dana
-  // (bila suatu saat diperlukan) wajib lewat alur jurnal terpisah, bukan
-  // dengan mengubah status alokasi/pengajuan.
-  if (status === "ditolak" && (!catatan || catatan.trim().length === 0)) {
-    throw new Error("Penolakan wajib menyertakan alasan.");
-  }
-  if (row.status === status) {
-    throw new Error("Status pengajuan sudah sama dengan pilihan tersebut.");
-  }
+  if (status === "diajukan") throw new Error("Status tidak boleh dikembalikan ke diajukan.");
+  if (status === "didanai") throw new Error("Status Didanai ditetapkan otomatis oleh sistem saat pendanaan Pendana terpenuhi penuh.");
+  if (status === "lunas") throw new Error("Status Lunas ditetapkan otomatis oleh sistem saat cicilan terakhir dibayar.");
+  if (status === "ditolak" && (!catatan || catatan.trim().length === 0)) throw new Error("Penolakan wajib menyertakan alasan.");
+  if (row.status === status) throw new Error("Status pengajuan sudah sama dengan pilihan tersebut.");
   if (status === "ditolak") {
-    // Jangan menolak pengajuan yang sudah menerima Alokasi Dana Pendana —
-    // dana terkunci di akun kredit barang sampai dikembalikan.
-    const fundings = await ctx.db
-      .query("kreditFundings")
-      .withIndex("by_kredit", (q) => q.eq("kreditId", kreditId))
-      .collect();
-    const danaAktif = fundings.filter((f) => f.status === "dialokasikan");
-    if (danaAktif.length > 0) {
-      throw new Error(
-        "Pengajuan sudah menerima Alokasi Dana Pendana — kembalikan dana tersebut sebelum menolak.",
-      );
+    const fundings = await ctx.db.query("kreditFundings").withIndex("by_kredit", (q) => q.eq("kreditId", kreditId)).collect();
+    if (fundings.some((f) => f.status === "dialokasikan")) {
+      throw new Error("Pengajuan sudah menerima Alokasi Dana Pendana — kembalikan dana tersebut sebelum menolak.");
     }
   }
-
-  if (status === "disetujui") {
-    await ensureKodePeminjam(ctx, row.userId);
-  }
-  await ctx.db.patch(kreditId, {
-    status,
-    catatanReview: catatan?.trim() || undefined,
-  });
-
+  if (status === "disetujui") await ensureKodePeminjam(ctx, row.userId);
+  await ctx.db.patch(kreditId, { status, catatanReview: catatan?.trim() || undefined });
   const admin = await ctx.db.get(adminId);
-  await audit(
-    ctx,
-    adminId,
-    admin?.email ?? admin?.name ?? "admin",
-    `kredit_${status}`,
-    row.nomorReferensi,
-    `${row.namaLengkap} — ${row.namaBarang} (${row.merchant}) — ${status}${catatan ? `: ${catatan}` : ""}`,
-  );
+  await audit(ctx, adminId, admin?.email ?? admin?.name ?? "admin", `kredit_${status}`, row.nomorReferensi, `${row.namaLengkap} — ${row.namaBarang} (${row.merchant}) — ${status}${catatan ? `: ${catatan}` : ""}`);
 }
 
-export const tandaiKreditDitinjau = mutation({
-  args: { kreditId: v.id("kreditBarang") },
-  handler: (ctx, args) => setKreditStatus(ctx, args.kreditId, "sedang_ditinjau"),
-});
-
-export const setujuiKreditBarang = mutation({
-  args: { kreditId: v.id("kreditBarang") },
-  handler: (ctx, args) => setKreditStatus(ctx, args.kreditId, "disetujui"),
-});
-
-export const tolakKreditBarang = mutation({
-  args: { kreditId: v.id("kreditBarang"), reason: v.string() },
-  handler: (ctx, args) => setKreditStatus(ctx, args.kreditId, "ditolak", args.reason),
-});
+export const tandaiKreditDitinjau = mutation({ args: { kreditId: v.id("kreditBarang") }, handler: (ctx, args) => setKreditStatus(ctx, args.kreditId, "sedang_ditinjau") });
+export const setujuiKreditBarang = mutation({ args: { kreditId: v.id("kreditBarang") }, handler: (ctx, args) => setKreditStatus(ctx, args.kreditId, "disetujui") });
+export const tolakKreditBarang = mutation({ args: { kreditId: v.id("kreditBarang"), reason: v.string() }, handler: (ctx, args) => setKreditStatus(ctx, args.kreditId, "ditolak", args.reason) });
 
 /** Super Admin menghapus pengajuan kredit barang yang salah input tanpa jejak transaksi. */
 export const hapusKreditBarang = mutation({
@@ -603,33 +284,20 @@ export const hapusKreditBarang = mutation({
   handler: async (ctx, { kreditId, reason }) => {
     const adminId = await adminMasuk(ctx);
     const alasan = reason.trim();
-    if (alasan.length < 10 || alasan.length > 500) {
-      throw new Error("Alasan penghapusan wajib 10–500 karakter.");
-    }
+    if (alasan.length < 10 || alasan.length > 500) throw new Error("Alasan penghapusan wajib 10–500 karakter.");
     const row = await ctx.db.get(kreditId);
     if (row === null) throw new Error("Data kredit barang tidak ditemukan.");
     if (row.status === "didanai" || row.status === "lunas" || row.didanaiPada !== undefined || row.lunasPada !== undefined) {
       throw new Error("Kredit ini sudah masuk siklus pendanaan/pelunasan dan tidak dapat dihapus.");
     }
-
     const [payments, fundings, ledger] = await Promise.all([
       ctx.db.query("kreditPayments").withIndex("by_kredit", (q) => q.eq("kreditId", kreditId)).collect(),
       ctx.db.query("kreditFundings").withIndex("by_kredit", (q) => q.eq("kreditId", kreditId)).collect(),
       ctx.db.query("ledger_entries").withIndex("by_akun", (q) => q.eq("akun", `kredit:${kreditId}`)).first(),
     ]);
-    if (payments.length > 0 || fundings.length > 0 || ledger !== null) {
-      throw new Error("Data kredit memiliki alokasi, pembayaran, atau jurnal terkait; tidak dihapus agar riwayat tetap utuh.");
-    }
-
+    if (payments.length > 0 || fundings.length > 0 || ledger !== null) throw new Error("Data kredit memiliki alokasi, pembayaran, atau jurnal terkait; tidak dihapus agar riwayat tetap utuh.");
     const admin = await ctx.db.get(adminId);
-    await audit(
-      ctx,
-      adminId,
-      admin?.email ?? admin?.name ?? "admin",
-      "kredit_delete",
-      row.nomorReferensi,
-      `${row.namaLengkap} — ${row.namaBarang} (${row.merchant}), status ${row.status}; alasan: ${alasan}`,
-    );
+    await audit(ctx, adminId, admin?.email ?? admin?.name ?? "admin", "kredit_delete", row.nomorReferensi, `${row.namaLengkap} — ${row.namaBarang} (${row.merchant}), status ${row.status}; alasan: ${alasan}`);
     await ctx.db.delete(kreditId);
     return { ok: true };
   },

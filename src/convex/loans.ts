@@ -40,6 +40,7 @@ import { getConfig, audit } from "./system";
 import { requireGerbangLokasi } from "./lokasi";
 import { requireAdminSession } from "./adminAuthz";
 import { ensureKodePeminjam } from "./peminjamCode";
+import { rejectUnverifiedMoneyMovement } from "./paymentGuard";
 
 /**
  * Saat pinjaman dilunasi, pinjaman baru (belum pernah didanai) bisa kembali
@@ -978,6 +979,7 @@ export const repayLoan = mutation({
   args: { loanId: v.id("loans") },
   handler: async (ctx, args) => {
     const { userId, user } = await requirePeminjam(ctx);
+    rejectUnverifiedMoneyMovement();
     // Gerbang lokasi: pelunasan hanya dilayani dengan GPS aktif & segar.
     await requireGerbangLokasi(ctx, userId, user);
     const loan = await ctx.db.get(args.loanId);
@@ -1164,32 +1166,18 @@ export const requestPawnRelease = mutation({
  */
 export const activatePawn = mutation({
   args: { pawnId: v.id("pawns") },
-  handler: async (ctx, args) => {
+  handler: async (ctx) => {
     await requireAdmin(ctx);
-    const pawn = await ctx.db.get(args.pawnId);
-    if (pawn === null) throw new Error("Pengajuan gadai tidak ditemukan.");
-    if (pawn.status !== "disetujui") {
-      throw new Error(
-        "Hanya gadai berstatus Disetujui yang dapat diaktifkan.",
-      );
-    }
-    await ctx.db.patch(args.pawnId, { status: "aktif" });
+    rejectUnverifiedMoneyMovement();
   },
 });
 
 /** Admin melepas barang — menandai gadai selesai sepenuhnya. */
 export const releasePawn = mutation({
   args: { pawnId: v.id("pawns") },
-  handler: async (ctx, args) => {
+  handler: async (ctx) => {
     await requireAdmin(ctx);
-    const pawn = await ctx.db.get(args.pawnId);
-    if (pawn === null) throw new Error("Pengajuan gadai tidak ditemukan.");
-    if (pawn.status !== "menunggu_pelepasan") {
-      throw new Error(
-        "Pelepasan hanya untuk gadai berstatus Menunggu Pelepasan.",
-      );
-    }
-    await ctx.db.patch(args.pawnId, { status: "lunas_dilepas" });
+    rejectUnverifiedMoneyMovement();
   },
 });
 

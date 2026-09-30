@@ -58,6 +58,7 @@ export function GadaiBillingSection({
     setBusyId(pawnId);
     try {
       const r = await bayarGadai({ pawnId, cicilPokok, bayarHanyaSewa });
+      if (r === null) return false;
       if (r.custody === "SIAP_DIAMBIL") {
         toast.success("Pokok simulasi tercatat Rp0 pada ledger. Tidak ada pembayaran atau pengembalian barang yang dikonfirmasi.");
       } else {
