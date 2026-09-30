@@ -19,6 +19,8 @@ import {
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router";
 
+import { useAuth } from "@/hooks/use-auth";
+
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -164,12 +166,14 @@ function LiveCalculator() {
   };
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-7">
-      <div className="flex items-center gap-2.5">
-        <span className="clay-icon-blue inline-flex size-9 items-center justify-center">
-          <Calculator className="size-4" strokeWidth={2} />
-        </span>
-        <h3 className="text-base font-semibold text-slate-900">Simulasi pinjaman</h3>
+    <div className="overflow-hidden rounded-[1.5rem] border border-slate-200 bg-white p-6 sm:p-7">
+      <div className="-mx-6 -mt-6 mb-6 border-b border-slate-200 bg-slate-50/80 px-6 py-5 sm:-mx-7 sm:-mt-7 sm:px-7">
+        <div className="flex items-center justify-between gap-3">
+          <span className="inline-flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-primary"><Calculator className="size-3.5" /> Kalkulator interaktif</span>
+          <span className="rounded-full border border-primary/15 bg-white px-2.5 py-1 text-[10px] font-medium text-primary">Hasil langsung</span>
+        </div>
+        <h3 className="mt-2 text-lg font-semibold text-slate-900">Simulasi pinjaman</h3>
+        <p className="mt-1 text-xs leading-5 text-slate-500">Ubah nominal dan tenor untuk melihat perhitungan sebelum masuk.</p>
       </div>
 
       {/* Dua skema harga: harian (1 jt / 30 hari) atau bulanan (1–6 bulan). */}
@@ -313,7 +317,7 @@ function LiveCalculator() {
 
       <Button asChild className="mt-5 h-11 w-full bg-primary text-white hover:bg-primary/90">
         <Link to="/auth">
-          Buka simulasi di akun
+          Buat akun untuk mencatat simulasi
           <ArrowRight className="ml-1.5 size-4" />
         </Link>
       </Button>
@@ -453,7 +457,20 @@ function FloatingWidget({
 
 export default function Landing() {
   const cms = useQuery(api.announcements.getPublic);
+  const { isAuthenticated, isLoading, user } = useAuth();
   const c = (v: string | undefined, fallback: string) => v ?? fallback;
+  const accountHref = isLoading || !isAuthenticated
+    ? "/auth"
+    : user?.role === "admin"
+      ? ADMIN_ROUTE
+      : user?.role === "pendana"
+        ? "/pendana"
+        : "/dashboard";
+  const accountCta = isLoading
+    ? "Memuat ruang…"
+    : isAuthenticated
+      ? "Buka dashboard"
+      : c(cms?.heroCta1, CMS_DEFAULTS.hero.cta1);
 
   const logoTeks = c(cms?.logoTeks, "PINDAI");
   const heroJudul1 = c(cms?.heroJudul, CMS_DEFAULTS.hero.judul1);
@@ -578,15 +595,17 @@ export default function Landing() {
                 </Link>
               </Button>
             )}
-            <Button
-              asChild
-              variant="ghost"
-              className="hidden text-slate-600 hover:text-slate-900 md:inline-flex"
-            >
-              <Link to="/auth">Masuk</Link>
-            </Button>
-            <Button asChild className="bg-primary text-white hover:bg-primary/90">
-              <Link to="/auth">Daftar</Link>
+            {!isAuthenticated && (
+              <Button
+                asChild
+                variant="ghost"
+                className="hidden text-slate-600 hover:text-slate-900 md:inline-flex"
+              >
+                <Link to="/auth">Masuk</Link>
+              </Button>
+            )}
+            <Button asChild disabled={isLoading} className="bg-primary text-white hover:bg-primary/90">
+              <Link to={accountHref}>{isAuthenticated ? "Dashboard" : isLoading ? "Memuat…" : "Daftar"}</Link>
             </Button>
             <button
               type="button"
@@ -633,19 +652,21 @@ export default function Landing() {
                     {label}
                   </a>
                 ))}
-                <Link
-                  to="/auth"
-                  onClick={() => setMenuOpen(false)}
-                  className="rounded-lg px-3 py-2.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-100 hover:text-slate-900"
-                >
-                  Masuk
-                </Link>
+                {!isAuthenticated && (
+                  <Link
+                    to="/auth"
+                    onClick={() => setMenuOpen(false)}
+                    className="rounded-lg px-3 py-2.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-100 hover:text-slate-900"
+                  >
+                    Masuk
+                  </Link>
+                )}
                 <Button
                   asChild
                   className="mt-2 h-11 w-full bg-primary text-white hover:bg-primary/90"
                 >
-                  <Link to="/auth" onClick={() => setMenuOpen(false)}>
-                    Daftar
+                  <Link to={accountHref} onClick={() => setMenuOpen(false)}>
+                    {isAuthenticated ? "Dashboard" : "Daftar"}
                     <ArrowRight className="ml-1.5 size-4" />
                   </Link>
                 </Button>
@@ -656,84 +677,100 @@ export default function Landing() {
       </header>
 
       <main>
-        {/* Hero */}
-        <section className="mx-auto w-full max-w-6xl px-6 pb-20 pt-16 sm:pt-24">
-          <div className="grid items-center gap-14 lg:grid-cols-[1.05fr_0.95fr]">
-            <div>
-              <span className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-slate-600">
-                <ShieldCheck className="size-3.5 text-primary" />
+        {/* Hero — nuansa arsip finansial, tinta dan kertas. */}
+        <section className="relative isolate overflow-hidden border-b border-slate-200 bg-[radial-gradient(ellipse_at_18%_0%,#edf4f0_0%,transparent_42%),linear-gradient(135deg,#fbfaf6_0%,#ffffff_52%,#f5f1e8_100%)]">
+          <div aria-hidden="true" className="pointer-events-none absolute -right-32 top-16 size-80 rounded-full border border-primary/10 sm:size-[30rem]" />
+          <div aria-hidden="true" className="pointer-events-none absolute -right-20 top-28 size-56 rounded-full border border-[#b99b62]/20 sm:size-96" />
+          <div className="mx-auto grid w-full max-w-7xl items-center gap-12 px-6 py-16 sm:px-8 sm:py-24 lg:grid-cols-[1.05fr_0.95fr] lg:gap-16 lg:py-28">
+            <motion.div
+              initial={{ opacity: 0, y: 18 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, ease: "easeOut" }}
+              className="relative z-10"
+            >
+              <span className="inline-flex items-center gap-2 rounded-full border border-primary/15 bg-white/80 px-3.5 py-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-primary">
+                <span className="size-1.5 rounded-full bg-[#b99b62]" />
                 {c(cms?.heroBadge, CMS_DEFAULTS.hero.badge)}
               </span>
-              <h1 className="mt-6 text-4xl font-semibold leading-[1.1] tracking-tight text-slate-900 sm:text-5xl">
-                {heroJudul1} <span className="text-primary">{heroJudul2}</span>
+              <h1 className="mt-7 max-w-3xl text-[2.65rem] font-semibold leading-[1.04] tracking-[-0.045em] text-slate-950 sm:text-6xl lg:text-[4.5rem]">
+                {heroJudul1}<br />
+                <span className="font-serif font-medium italic text-primary">{heroJudul2}</span>
               </h1>
-              <p className="mt-5 max-w-xl text-base leading-7 text-slate-600">
+              <p className="mt-6 max-w-xl text-base leading-7 text-slate-600 sm:text-lg sm:leading-8">
                 {c(cms?.heroSub, CMS_DEFAULTS.hero.sub)}
               </p>
               <div className="mt-8 flex flex-wrap items-center gap-3">
-                <Button
-                  asChild
-                  className="h-11 bg-primary px-6 text-white hover:bg-primary/90"
-                >
-                  <Link to="/auth">
-                    {c(cms?.heroCta1, CMS_DEFAULTS.hero.cta1)}
-                    <ArrowRight className="ml-1.5 size-4" />
+                <Button asChild disabled={isLoading} className="h-12 rounded-full bg-primary px-6 text-white hover:bg-primary/90">
+                  <Link to={accountHref}>
+                    {accountCta}
+                    <ArrowRight className="ml-2 size-4" />
                   </Link>
                 </Button>
                 <Button
-                  asChild
+                  type="button"
                   variant="outline"
-                  className="h-11 border-slate-200 px-6 text-slate-700"
+                  onClick={scrollToCalculator}
+                  className="h-12 rounded-full border-slate-300 bg-white/70 px-6 text-slate-700 hover:bg-white"
                 >
-                  <Link to="/auth">{c(cms?.heroCta2, CMS_DEFAULTS.hero.cta2)}</Link>
+                  Lihat simulasi
                 </Button>
               </div>
-              <ul className="mt-8 flex flex-wrap gap-x-6 gap-y-2 text-sm text-slate-500">
-                <li className="flex items-center gap-1.5">
-                  <BadgeCheck className="size-4 text-primary" /> Rincian biaya terbuka
-                </li>
-                <li className="flex items-center gap-1.5">
-                  <Lock className="size-4 text-primary" /> Riwayat per akun
-                </li>
-                <li className="flex items-center gap-1.5">
-                  <Calculator className="size-4 text-primary" /> Ledger simulasi internal
-                </li>
-              </ul>
-            </div>
+              <div className="mt-9 flex flex-wrap items-center gap-x-6 gap-y-3 border-t border-slate-300/70 pt-5 text-xs font-medium text-slate-600 sm:text-sm">
+                <span className="flex items-center gap-2"><BadgeCheck className="size-4 text-primary" />Rincian biaya terbuka</span>
+                <span className="flex items-center gap-2"><Lock className="size-4 text-primary" />Riwayat per akun</span>
+                <span className="flex items-center gap-2"><Calculator className="size-4 text-primary" />Angka simulasi</span>
+              </div>
+            </motion.div>
 
-            {/* Sorotan produk — pengganti ilustrasi berat */}
-            <div className="card-lift rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
-              <div className="flex items-center gap-3">
-                <VaultLogo size={60} />
-                <div>
-                  <p className="text-sm font-semibold text-slate-900">
-                    {c(cms?.chip1Label, CMS_DEFAULTS.chips.chip1.label)}
-                  </p>
-                  <p className="text-2xl font-semibold tracking-tight text-primary">
-                    {c(cms?.chip1Nilai, CMS_DEFAULTS.chips.chip1.nilai)}
-                  </p>
+            <motion.div
+              initial={{ opacity: 0, y: 24, rotate: 1.5 }}
+              animate={{ opacity: 1, y: 0, rotate: 0 }}
+              transition={{ duration: 0.7, delay: 0.12, ease: "easeOut" }}
+              className="relative mx-auto w-full max-w-lg"
+            >
+              <div className="absolute -inset-3 rounded-[2rem] border border-[#b99b62]/35" aria-hidden="true" />
+              <div className="relative overflow-hidden rounded-[1.75rem] bg-[#0f3d3a] p-6 text-[#f7f4ec] sm:p-8">
+                <div className="absolute -right-16 -top-24 size-64 rounded-full border border-white/10" aria-hidden="true" />
+                <div className="absolute -right-6 -top-14 size-44 rounded-full border border-[#cbb47e]/20" aria-hidden="true" />
+                <div className="relative">
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-3">
+                      <VaultLogo size={46} />
+                      <div>
+                        <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-white/55">Ruang catatan PINDAI</p>
+                        <p className="mt-1 text-sm font-semibold">{c(cms?.chip1Label, CMS_DEFAULTS.chips.chip1.label)}</p>
+                      </div>
+                    </div>
+                    <span className="rounded-full border border-[#d8c28c]/35 bg-[#d8c28c]/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#e6d3a5]">Simulasi</span>
+                  </div>
+                  <div className="mt-8 rounded-2xl border border-white/10 bg-white/[0.07] p-5 backdrop-blur-sm sm:p-6">
+                    <p className="text-xs text-white/60">{c(cms?.chip2Label, CMS_DEFAULTS.chips.chip2.label)}</p>
+                    <p className="mt-1 text-3xl font-semibold tracking-tight text-white sm:text-4xl">{c(cms?.chip2Nilai, CMS_DEFAULTS.chips.chip2.nilai)}</p>
+                    <div className="mt-5 grid grid-cols-2 gap-3">
+                      <div className="rounded-xl border border-white/10 bg-black/10 p-3">
+                        <p className="text-[10px] uppercase tracking-[0.13em] text-white/50">Hitung biaya</p>
+                        <p className="mt-1 text-sm font-medium">Terbuka di awal</p>
+                      </div>
+                      <div className="rounded-xl border border-white/10 bg-black/10 p-3">
+                        <p className="text-[10px] uppercase tracking-[0.13em] text-white/50">Status</p>
+                        <p className="mt-1 text-sm font-medium">Catatan internal</p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="mt-5 flex items-start gap-3 border-t border-white/15 pt-4">
+                    <Eye className="mt-0.5 size-4 shrink-0 text-[#d8c28c]" />
+                    <p className="text-xs leading-5 text-white/65">Bukan bukti transfer, pembayaran, persetujuan pendanaan, atau penitipan barang.</p>
+                  </div>
                 </div>
               </div>
-              <dl className="mt-6 divide-y divide-slate-200 border-t border-slate-200">
-                {[
-                  ["Tenor pinjaman", "7–30 hari (harian) · 1–6 bulan (bulanan)"],
-                  [
-                    c(cms?.chip2Label, CMS_DEFAULTS.chips.chip2.label),
-                    c(cms?.chip2Nilai, CMS_DEFAULTS.chips.chip2.nilai),
-                  ],
-                  ["Taksiran gadai", "Catatan internal"],
-                  ["Status transaksi", "Riwayat di dashboard"],
-                ].map(([k, v]) => (
-                  <div key={k} className="flex items-center justify-between py-3 text-sm">
-                    <dt className="text-slate-500">{k}</dt>
-                    <dd className="font-medium tabular-nums text-slate-900">{v}</dd>
-                  </div>
-                ))}
-              </dl>
-              <p className="mt-4 text-xs leading-5 text-slate-500">
-                Semua angka dan status di aplikasi merupakan catatan simulasi; bukan bukti transfer, pembayaran, atau penitipan barang.
-              </p>
-            </div>
+              <motion.div
+                animate={{ y: [0, -5, 0] }}
+                transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
+                className="absolute -bottom-5 -left-2 flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2.5 text-xs font-semibold text-slate-700 sm:-left-7"
+              >
+                <ShieldCheck className="size-4 text-primary" /> Transparan sejak awal
+              </motion.div>
+            </motion.div>
           </div>
         </section>
 
@@ -750,9 +787,13 @@ export default function Landing() {
             </div>
 
             <div className="mt-10 grid gap-6 md:grid-cols-2">
-              <article
+              <motion.article
                 id="pinjaman"
-                className="card-lift flex scroll-mt-24 flex-col rounded-2xl border border-slate-200 bg-white p-7 shadow-sm"
+                initial={{ opacity: 0, y: 18 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, amount: 0.25 }}
+                transition={{ duration: 0.45 }}
+                className="card-lift flex scroll-mt-24 flex-col rounded-2xl border border-slate-200 bg-white p-7"
               >
                 <span className="clay-icon-blue inline-flex size-10 items-center justify-center">
                   <Banknote className="size-5" strokeWidth={2} />
@@ -764,16 +805,20 @@ export default function Landing() {
                   {c(cms?.pinjamanIsi, CMS_DEFAULTS.layanan.pinjamanIsi)}
                 </p>
                 <Button asChild variant="link" className="mt-4 self-start px-0 text-primary">
-                  <Link to="/auth">
-                    {c(cms?.pinjamanCta, CMS_DEFAULTS.layanan.pinjamanCta)}
+                  <Link to={accountHref}>
+                    {isAuthenticated ? "Buka dashboard" : c(cms?.pinjamanCta, CMS_DEFAULTS.layanan.pinjamanCta)}
                     <ArrowRight className="ml-1 size-4" />
                   </Link>
                 </Button>
-              </article>
+              </motion.article>
 
-              <article
+              <motion.article
                 id="gadai"
-                className="card-lift flex scroll-mt-24 flex-col rounded-2xl border border-slate-200 bg-white p-7 shadow-sm"
+                initial={{ opacity: 0, y: 18 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, amount: 0.25 }}
+                transition={{ duration: 0.45, delay: 0.1 }}
+                className="card-lift flex scroll-mt-24 flex-col rounded-2xl border border-slate-200 bg-white p-7"
               >
                 <span className="clay-icon-mint inline-flex size-10 items-center justify-center">
                   <Package className="size-5" strokeWidth={2} />
@@ -785,12 +830,12 @@ export default function Landing() {
                   {c(cms?.gadaiIsi, CMS_DEFAULTS.layanan.gadaiIsi)}
                 </p>
                 <Button asChild variant="link" className="mt-4 self-start px-0 text-primary">
-                  <Link to="/auth">
-                    {c(cms?.gadaiCta, CMS_DEFAULTS.layanan.gadaiCta)}
+                  <Link to={accountHref}>
+                    {isAuthenticated ? "Buka dashboard" : c(cms?.gadaiCta, CMS_DEFAULTS.layanan.gadaiCta)}
                     <ArrowRight className="ml-1 size-4" />
                   </Link>
                 </Button>
-              </article>
+              </motion.article>
             </div>
           </div>
         </section>
@@ -865,14 +910,16 @@ export default function Landing() {
                 asChild
                 className="h-11 border-0 bg-white px-6 text-primary hover:bg-secondary"
               >
-                <Link to="/auth">Buka akun simulasi</Link>
+                <Link to={accountHref}>{isAuthenticated ? "Buka dashboard" : "Buka akun simulasi"}</Link>
               </Button>
-              <Button
-                asChild
-                className="h-11 border border-white/40 bg-transparent px-6 text-white hover:bg-white/10"
-              >
-                <Link to="/pendana">Lihat mode Pendana</Link>
-              </Button>
+              {!isAuthenticated && (
+                <Button
+                  asChild
+                  className="h-11 border border-white/40 bg-transparent px-6 text-white hover:bg-white/10"
+                >
+                  <Link to="/pendana">Lihat mode Pendana</Link>
+                </Button>
+              )}
             </div>
           </div>
         </section>
