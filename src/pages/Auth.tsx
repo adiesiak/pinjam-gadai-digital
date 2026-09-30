@@ -437,7 +437,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
         ...(adminStep.purpose === "reset" ? { newPassword } : {}),
       });
       if (!result.signingIn) {
-        throw new Error("Kode verifikasi tidak valid.");
+        throw new Error("Token verifikasi tidak valid.");
       }
       await recordSuccessfulLogin(
         adminStep.purpose === "reset" ? "password_reset" : "password_activation",
@@ -448,7 +448,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
       console.error("Admin OTP verification error:", error);
       setKegagalan((k) => k + 1);
       await recordFailedAttempt(adminStep.email.toLowerCase());
-      setError("Kode verifikasi salah atau kedaluwarsa. Periksa email dan coba lagi.");
+      setError("Token verifikasi salah atau kedaluwarsa. Periksa email dan coba lagi.");
       setAdminOtp("");
     } finally {
       setIsLoading(false);
@@ -759,7 +759,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                       </div>
                       <CardTitle className="text-xl">Aktivasi password admin</CardTitle>
                       <CardDescription>
-                        OTP email hanya untuk mengaktifkan password Super Admin yang sudah terdaftar.
+                        Token alfanumerik 32 karakter dikirim ke email terverifikasi untuk mengaktifkan password Super Admin.
                       </CardDescription>
                     </CardHeader>
                     <form onSubmit={handleAdminSubmit}>
@@ -828,7 +828,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                           ) : (
                             <Mail className="mr-2 size-4" />
                           )}
-                          Kirim kode aktivasi
+                          Kirim token aktivasi
                         </Button>
                       </CardContent>
                       <CardFooter>
@@ -854,7 +854,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                       </div>
                       <CardTitle className="text-xl">Reset kata sandi admin</CardTitle>
                       <CardDescription>
-                        Kode email hanya untuk mengganti kata sandi akun Super Admin.
+                        Token alfanumerik 32 karakter dikirim ke email terdaftar untuk mengganti kata sandi Super Admin.
                       </CardDescription>
                     </CardHeader>
                     <form onSubmit={handleAdminSubmit}>
@@ -893,7 +893,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                           ) : (
                             <Mail className="mr-2 size-4" />
                           )}
-                          Kirim kode reset
+                          Kirim token reset
                         </Button>
                       </CardContent>
                       <CardFooter>
@@ -925,15 +925,23 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                         {adminStep.purpose === "reset" ? "Verifikasi reset password" : "Verifikasi aktivasi password"}
                       </CardTitle>
                       <CardDescription>
-                        Kode enam digit dikirim ke {adminStep.email}. OTP ini hanya berlaku untuk aktivasi atau reset admin.
+                        Token 32 karakter alfanumerik dikirim ke {adminStep.email}. Token ini hanya berlaku untuk aktivasi atau reset admin.
                       </CardDescription>
                     </CardHeader>
                     <form onSubmit={handleAdminCodeSubmit}>
                       <CardContent className="space-y-4">
-                        <VerificationCodeField
+                        <Input
+                          aria-label="Token verifikasi admin 32 karakter"
+                          autoComplete="one-time-code"
+                          className="font-mono tracking-wider"
+                          maxLength={32}
+                          placeholder="Tempel token 32 karakter dari email"
                           value={adminOtp}
-                          onChange={setAdminOtp}
+                          onChange={(event) =>
+                            setAdminOtp(event.target.value.replace(/[^a-zA-Z0-9]/g, "").slice(0, 32))
+                          }
                           disabled={isLoading}
+                          required
                         />
                         {adminStep.purpose === "reset" && (
                           <>
@@ -987,7 +995,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                         <Button
                           type="submit"
                           className="w-full"
-                          disabled={isLoading || adminOtp.length !== 6}
+                          disabled={isLoading || adminOtp.length !== 32}
                         >
                           {isLoading ? (
                             <Loader2 className="mr-2 size-4 animate-spin" />
