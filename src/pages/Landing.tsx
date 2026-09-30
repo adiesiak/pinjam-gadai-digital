@@ -74,6 +74,31 @@ function VaultLogo({ size = 36 }: { size?: number }) {
   );
 }
 
+function BrandWordmark({ name, compact = false }: { name: string; compact?: boolean }) {
+  return (
+    <span className="flex min-w-0 flex-col gap-1">
+      <span className="flex items-baseline gap-1.5 leading-none">
+        <span
+          className={`truncate font-black uppercase text-primary ${
+            compact ? "text-sm tracking-[0.16em]" : "text-lg tracking-[0.2em]"
+          }`}
+        >
+          {name}
+        </span>
+        <span className="size-1.5 shrink-0 rounded-full bg-[#b99b62]" aria-hidden="true" />
+      </span>
+      <span
+        className={`flex items-center gap-1.5 font-semibold uppercase leading-none tracking-[0.13em] text-slate-400 ${
+          compact ? "text-[8px]" : "text-[9px]"
+        }`}
+      >
+        <span className="h-px w-3 shrink-0 bg-[#b99b62]" aria-hidden="true" />
+        Pinjam · Gadai Digital
+      </span>
+    </span>
+  );
+}
+
 const SECURITY = [
   { icon: Lock, label: "Riwayat pengajuan hanya untuk akun terkait" },
   { icon: Scale, label: "Rincian biaya dan bunga ditampilkan terpisah" },
@@ -528,9 +553,9 @@ export default function Landing() {
               Akses panel admin tersedia.
             </span>
           )}
-          <Link to="/" onClick={handleBrandClick} className="flex items-center gap-2.5">
+          <Link to="/" onClick={handleBrandClick} className="flex items-center gap-3">
             <VaultLogo size={40} />
-            <span className="text-base font-semibold tracking-tight">{logoTeks}</span>
+            <BrandWordmark name={logoTeks} />
           </Link>
           <nav className="hidden items-center gap-8 text-sm text-slate-600 md:flex">
             {navItems.map(({ href, label }) => (
@@ -858,9 +883,9 @@ export default function Landing() {
         <div className="mx-auto w-full max-w-6xl px-6 py-12">
           <div className="grid gap-8 sm:grid-cols-3">
             <div>
-              <div className="flex items-center gap-2.5">
+              <div className="flex items-center gap-3">
                 <VaultLogo size={36} />
-                <span className="text-sm font-semibold">{logoTeks}</span>
+                <BrandWordmark name={logoTeks} compact />
               </div>
               <p className="mt-3 max-w-xs text-xs leading-5 text-slate-500">
                 PINDAI adalah aplikasi pencatatan simulasi pinjaman, gadai, dan alokasi ledger internal.
