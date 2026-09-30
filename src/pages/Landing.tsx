@@ -370,7 +370,10 @@ function FloatingWidget({
   if (!aktif || !revealed) return null;
 
   return (
-    <div className="fixed bottom-5 right-5 z-50 flex flex-col items-end gap-3">
+    <div
+      className="fixed right-5 z-50 flex flex-col items-end gap-3"
+      style={{ bottom: "max(1.25rem, env(safe-area-inset-bottom))" }}
+    >
       <AnimatePresence>
         {expanded && (
           <motion.div
@@ -378,7 +381,8 @@ function FloatingWidget({
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 10, scale: 0.96 }}
             transition={{ duration: 0.2 }}
-            className="w-72 rounded-2xl border border-slate-200 bg-white p-4 shadow-lg"
+            className="w-72 overflow-y-auto overscroll-contain rounded-2xl border border-slate-200 bg-white p-4 shadow-lg"
+            style={{ maxHeight: "min(24rem, calc(100dvh - 7rem))" }}
           >
             <p className="text-sm font-semibold text-slate-900">{judul}</p>
             <p className="mt-1 text-xs leading-5 text-slate-600">{isi}</p>
