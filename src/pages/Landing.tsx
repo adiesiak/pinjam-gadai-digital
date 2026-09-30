@@ -1,5 +1,14 @@
 import { useQuery } from "convex/react";
-import { AnimatePresence, motion } from "framer-motion";
+import {
+  AnimatePresence,
+  motion,
+  useInView,
+  useMotionValueEvent,
+  useReducedMotion,
+  useScroll,
+  useSpring,
+  type Variants,
+} from "framer-motion";
 import {
   ArrowRight,
   BadgeCheck,
@@ -11,16 +20,25 @@ import {
   Megaphone,
   Menu,
   Package,
+  Percent,
   Scale,
   ShieldCheck,
+  Sparkles,
   Vault,
+  Wallet,
   X,
 } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router";
 
 import { useAuth } from "@/hooks/use-auth";
 
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -110,6 +128,251 @@ const SECURITY = [
   { icon: Eye, label: "Status dashboard adalah catatan internal" },
 ] as const;
 
+/** Kurva easing lembut yang dipakai semua animasi landing. */
+const EASE_OUT: [number, number, number, number] = [0.22, 1, 0.36, 1];
+
+const heroContainer: Variants = {
+  hidden: {},
+  show: { transition: { staggerChildren: 0.09, delayChildren: 0.04 } },
+};
+
+const heroItem: Variants = {
+  hidden: { opacity: 0, y: 18 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.62, ease: EASE_OUT } },
+};
+
+/** Animasi masuk saat bagian masuk viewport (hanya sekali). */
+function Reveal({
+  children,
+  delay = 0,
+  y = 22,
+  className,
+}: {
+  children: ReactNode;
+  delay?: number;
+  y?: number;
+  className?: string;
+}) {
+  const reduce = useReducedMotion();
+  return (
+    <motion.div
+      initial={reduce ? { opacity: 0 } : { opacity: 0, y }}
+      whileInView={reduce ? { opacity: 1 } : { opacity: 1, y: 0 }}
+      viewport={{ once: true, amount: 0.2 }}
+      transition={{ duration: 0.55, delay, ease: EASE_OUT }}
+      className={className}
+    >
+      {children}
+    </motion.div>
+  );
+}
+
+/** Angka yang menghitung naik saat terlihat — mati saat reduced-motion. */
+function CountUp({
+  to,
+  decimals = 0,
+  suffix = "",
+  prefix = "",
+  duration = 1.3,
+}: {
+  to: number;
+  decimals?: number;
+  suffix?: string;
+  prefix?: string;
+  duration?: number;
+}) {
+  const ref = useRef<HTMLSpanElement | null>(null);
+  const inView = useInView(ref, { once: true, amount: 0.5 });
+  const reduce = useReducedMotion();
+  const [value, setValue] = useState(0);
+
+  useEffect(() => {
+    if (!inView || reduce) return;
+    const start = performance.now();
+    let frame = 0;
+    const tick = (now: number) => {
+      const t = Math.min(1, (now - start) / (duration * 1000));
+      setValue(to * (1 - Math.pow(1 - t, 3)));
+      if (t < 1) frame = requestAnimationFrame(tick);
+    };
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
+  }, [inView, reduce, to, duration]);
+
+  const shown = reduce ? to : value;
+  return (
+    <span ref={ref} className="tabular-nums">
+      {prefix}
+      {shown.toLocaleString("id-ID", {
+        minimumFractionDigits: decimals,
+        maximumFractionDigits: decimals,
+      })}
+      {suffix}
+    </span>
+  );
+}
+
+/** Lapisan cahaya latar: dua bola lembut yang mengapung perlahan. */
+function GlowField() {
+  return (
+    <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden">
+      <div className="animate-drift absolute -left-24 top-[-6rem] size-[24rem] rounded-full bg-primary/10 blur-3xl" />
+      <div className="animate-drift-reverse absolute -right-24 bottom-[-9rem] size-[30rem] rounded-full bg-[#cbb47e]/20 blur-3xl" />
+    </div>
+  );
+}
+
+/** Latar berpetak bergaya buku besar yang bergeser sangat lambat. */
+function LedgerGrid({ className = "" }: { className?: string }) {
+  const mask =
+    "radial-gradient(ellipse 75% 65% at 50% 0%, #000 30%, transparent 100%)";
+  return (
+    <div
+      aria-hidden="true"
+      className={`animate-grid-pan pointer-events-none absolute inset-0 ${className}`}
+      style={{
+        backgroundImage:
+          "linear-gradient(to right, rgba(15,61,58,0.08) 1px, transparent 1px), linear-gradient(to bottom, rgba(15,61,58,0.08) 1px, transparent 1px)",
+        backgroundSize: "48px 48px",
+        maskImage: mask,
+        WebkitMaskImage: mask,
+      }}
+    />
+  );
+}
+
+/** Kolom contoh catatan ledger pada pratinjau (angka ilustrasi). */
+const CATATAN_CONTOH = [
+  { label: "Nomor referensi", value: "PDI-••••-••" },
+  { label: "Skema", value: "Bulanan · 3 bulan" },
+  { label: "Pokok perhitungan", value: "Rp 5.000.000" },
+  { label: "Biaya admin + platform", value: "5% · dipotong di muka" },
+  { label: "Biaya admin cicilan", value: "2% per bayar" },
+  { label: "Status", value: "Sedang Direview" },
+] as const;
+
+/** Fakta ringkas yang berjalan (marquee) di bawah hero. */
+const HERO_FACTS = [
+  "Skema harian 7–30 hari · nilai bersih 95% · kewajiban 130%",
+  "Skema bulanan tenor 1/3/6 bulan · biaya 5% dipotong di muka",
+  "Bunga flat dari pokok penuh · 30% / 25% / 20% per bulan",
+  "Kredit barang hingga Rp 10 juta · biaya admin cicilan 2% pada tenor 3/6",
+  "Semua angka adalah perhitungan ledger internal PINDAI",
+] as const;
+
+function FactRibbon() {
+  const mask =
+    "linear-gradient(to right, transparent 0%, #000 8%, #000 92%, transparent 100%)";
+  return (
+    <div
+      className="marquee-paused relative overflow-hidden border-t border-slate-200/80 bg-white/70 py-3.5"
+      style={{ maskImage: mask, WebkitMaskImage: mask }}
+    >
+      <div className="animate-marquee flex w-max items-center whitespace-nowrap">
+        {[0, 1].map((dup) => (
+          <div key={dup} className="flex items-center gap-10 pr-10" aria-hidden={dup === 1}>
+            {HERO_FACTS.map((fact) => (
+              <span
+                key={fact}
+                className="flex items-center gap-3 text-[11px] font-medium uppercase tracking-[0.14em] text-slate-500"
+              >
+                <span className="size-1.5 rounded-full bg-[#b99b62]" aria-hidden="true" />
+                {fact}
+              </span>
+            ))}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/** Kartu skema biaya: daftar potongan + tiga angka yang menghitung naik. */
+function SchemeCard({
+  badge,
+  title,
+  body,
+  rows,
+  stats,
+  delay = 0,
+}: {
+  badge: string;
+  title: string;
+  body: string;
+  rows: ReadonlyArray<{ label: string; value: string }>;
+  stats: ReadonlyArray<{ to: number; suffix: string; label: string; decimals?: number }>;
+  delay?: number;
+}) {
+  return (
+    <Reveal delay={delay} className="h-full">
+      <article className="card-lift group relative flex h-full flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white p-6 sm:p-7">
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute -right-20 -top-24 size-52 rounded-full bg-primary/5 blur-2xl transition-transform duration-500 group-hover:scale-125"
+        />
+        <span className="inline-flex w-fit items-center gap-2 rounded-full border border-primary/15 bg-primary/5 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-primary">
+          <Percent className="size-3.5" />
+          {badge}
+        </span>
+        <h3 className="mt-4 text-lg font-semibold text-slate-900">{title}</h3>
+        <p className="mt-2 text-sm leading-6 text-slate-600">{body}</p>
+
+        <dl className="mt-5 divide-y divide-slate-100 border-y border-slate-100">
+          {rows.map((row) => (
+            <div key={row.label} className="flex items-baseline justify-between gap-4 py-2.5">
+              <dt className="text-xs leading-5 text-slate-500">{row.label}</dt>
+              <dd className="shrink-0 text-sm font-semibold tabular-nums text-slate-900">
+                {row.value}
+              </dd>
+            </div>
+          ))}
+        </dl>
+
+        <div className="mt-5 grid grid-cols-3 gap-px overflow-hidden rounded-xl bg-slate-200">
+          {stats.map((stat) => (
+            <div key={stat.label} className="bg-slate-50/80 px-3 py-3 text-center">
+              <p className="text-lg font-semibold tracking-tight text-primary">
+                <CountUp to={stat.to} decimals={stat.decimals ?? 0} suffix={stat.suffix} />
+              </p>
+              <p className="mt-1 text-[10px] uppercase leading-4 tracking-[0.1em] text-slate-500">
+                {stat.label}
+              </p>
+            </div>
+          ))}
+        </div>
+      </article>
+    </Reveal>
+  );
+}
+
+/** Tanya jawab ringkas — memakai Accordion bawaan proyek. */
+const FAQ_ITEMS = [
+  {
+    q: "Apakah PINDAI mengirim uang ke rekening saya?",
+    a: "Tidak. PINDAI mencatat pengajuan, perhitungan, dan status pada ledger internal. Perpindahan dana ditangani di luar aplikasi, dan belum ada penyedia pembayaran yang terhubung.",
+  },
+  {
+    q: "Dari mana angka cicilan di kalkulator berasal?",
+    a: "Seluruh angka dihitung aplikasi dari nominal dan tenor yang Anda pilih — bukan nilai yang diketik manual. Skema harian memakai 5% dipotong di muka dan bunga 30%; skema bulanan memakai bunga flat dari pokok penuh 30% (tenor 1 bulan), 25% (tenor 3 bulan), dan 20% (tenor 6 bulan).",
+  },
+  {
+    q: "Kapan biaya dipotong?",
+    a: "Biaya tenor dipotong di muka dari dana yang diterima, bukan diangsur. Tenor 3 dan 6 bulan juga dikenai biaya admin cicilan 2% dari nominal cicilan yang dibayar bersama setiap cicilan.",
+  },
+  {
+    q: "Apa yang dicatat untuk gadai?",
+    a: "Deskripsi barang, nilai taksiran, pokok gadai, sewa modal, dan kode rak vault dicatat sebagai data internal. PINDAI belum menjalankan pemeriksaan fisik, penyimpanan, atau pelelangan barang.",
+  },
+  {
+    q: "Bagaimana status pengajuan ditentukan?",
+    a: "Tim PINDAI meninjau pengajuan dan mengubah statusnya di panel admin — tercatat pada audit log. Persetujuan pengajuan bukan jaminan pendanaan, dan status di dashboard adalah catatan internal.",
+  },
+  {
+    q: "Apakah data saya dibagikan ke Pendana?",
+    a: "Halaman Pendana hanya menampilkan kode peminjam dan rincian alokasi tanpa identitas lengkap. Riwayat pengajuan hanya dapat dibuka oleh akun terkait dan tim PINDAI.",
+  },
+] as const;
+
 // Skema harian: Rp 100 rb–1 jt / maks 30 hari. Skema bulanan: sampai plafon
 // tertinggi yang boleh disimpan admin (Rp 10 jt) dengan tenor 1/3/6 bulan
 // (DP 0%, biaya 5% tenor 3/6 atau 3% tenor 1, dipotong di muka; bunga FLAT dari
@@ -157,6 +420,7 @@ function LiveCalculator() {
   const steps = bulanan ? SLIDER_STEPS_BULANAN : SLIDER_STEPS;
   const stepBulat = bulanan ? 500_000 : 50_000;
   const cepat = bulanan ? QUICK_AMOUNTS_BULANAN : QUICK_AMOUNTS;
+  const totalPelunasan = sim !== null ? sim.totalPengembalian : quote.totalKewajibanPelunasan;
 
   const gantiSkema = (next: "harian" | "bulanan") => {
     setSkema(next);
@@ -188,13 +452,18 @@ function LiveCalculator() {
             key={nilai}
             type="button"
             onClick={() => gantiSkema(nilai)}
-            className={`rounded-lg px-3 py-2 text-xs font-medium transition-colors ${
-              skema === nilai
-                ? "bg-white text-primary shadow-sm"
-                : "text-slate-500 hover:text-slate-800"
-            }`}
+            className="relative rounded-lg px-3 py-2 text-xs font-medium transition-colors"
           >
-            {label}
+            {skema === nilai && (
+              <motion.span
+                layoutId="calc-skema"
+                className="absolute inset-0 rounded-lg bg-white shadow-sm"
+                transition={{ type: "spring", stiffness: 380, damping: 32 }}
+              />
+            )}
+            <span className={`relative ${skema === nilai ? "text-primary" : "text-slate-500 hover:text-slate-800"}`}>
+              {label}
+            </span>
           </button>
         ))}
       </div>
@@ -246,13 +515,20 @@ function LiveCalculator() {
                   key={t}
                   type="button"
                   onClick={() => setTenorBulan(t)}
-                  className={`rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
+                  className={`relative rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
                     tenorBulan === t
-                      ? "border-primary bg-primary/10 text-primary"
+                      ? "border-primary text-primary"
                       : "border-slate-200 text-slate-600 hover:bg-slate-50"
                   }`}
                 >
-                  {t} bulan
+                  {tenorBulan === t && (
+                    <motion.span
+                      layoutId="calc-tenor"
+                      className="absolute inset-0 rounded-lg bg-primary/10"
+                      transition={{ type: "spring", stiffness: 380, damping: 32 }}
+                    />
+                  )}
+                  <span className="relative">{t} bulan</span>
                 </button>
               ))
             : TENOR_OPTIONS.map((t) => (
@@ -260,13 +536,20 @@ function LiveCalculator() {
                   key={t}
                   type="button"
                   onClick={() => setTenor(t)}
-                  className={`rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
+                  className={`relative rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
                     tenor === t
-                      ? "border-primary bg-primary/10 text-primary"
+                      ? "border-primary text-primary"
                       : "border-slate-200 text-slate-600 hover:bg-slate-50"
                   }`}
                 >
-                  {t} hari
+                  {tenor === t && (
+                    <motion.span
+                      layoutId="calc-tenor"
+                      className="absolute inset-0 rounded-lg bg-primary/10"
+                      transition={{ type: "spring", stiffness: 380, damping: 32 }}
+                    />
+                  )}
+                  <span className="relative">{t} hari</span>
                 </button>
               ))}
         </div>
@@ -322,9 +605,18 @@ function LiveCalculator() {
         ))}
         <div className="flex items-baseline justify-between gap-4 border-t border-slate-200 pt-2.5">
           <dt className="font-semibold text-slate-900">Total pelunasan</dt>
-          <dd className="text-base font-semibold tabular-nums text-slate-900">
-            {formatRupiah(sim !== null ? sim.totalPengembalian : quote.totalKewajibanPelunasan)}
-          </dd>
+          <AnimatePresence mode="popLayout" initial={false}>
+            <motion.dd
+              key={totalPelunasan}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.22, ease: EASE_OUT }}
+              className="text-base font-semibold tabular-nums text-slate-900"
+            >
+              {formatRupiah(totalPelunasan)}
+            </motion.dd>
+          </AnimatePresence>
         </div>
       </dl>
 
@@ -332,7 +624,7 @@ function LiveCalculator() {
         Ini perhitungan aplikasi, bukan persetujuan pinjaman. Skema bulanan menampilkan ilustrasi angsuran; pencatatan pelunasan di sistem dilakukan sekaligus saat jatuh tempo. Perpindahan dana ditangani di luar aplikasi.
       </p>
 
-      <Button asChild className="mt-5 h-11 w-full bg-primary text-white hover:bg-primary/90">
+      <Button asChild className="animate-sheen mt-5 h-11 w-full bg-primary text-white transition-transform hover:-translate-y-0.5 hover:bg-primary/90">
         <Link to="/auth">
           Buat akun untuk mengajukan
           <ArrowRight className="ml-1.5 size-4" />
@@ -496,13 +788,36 @@ export default function Landing() {
   const navItems = [
     { href: "#pinjaman", label: c(cms?.nav1, "Pinjaman") },
     { href: "#gadai", label: c(cms?.nav2, "Gadai") },
+    { href: "#biaya", label: "Biaya" },
     { href: "#kalkulator", label: c(cms?.nav3, "Kalkulator") },
     { href: "#keamanan", label: c(cms?.nav4, "Keamanan") },
+    { href: "#tanya", label: "Tanya" },
   ];
 
   const [menuOpen, setMenuOpen] = useState(false);
   const [showAdminShortcut, setShowAdminShortcut] = useState(false);
   const headerRef = useRef<HTMLElement | null>(null);
+
+  const [scrolled, setScrolled] = useState(false);
+
+  /* Bilah kemajuan baca di atas + garis langkah yang tumbuh saat digulir. */
+  const { scrollY, scrollYProgress } = useScroll();
+  useMotionValueEvent(scrollY, "change", (v) => setScrolled(v > 12));
+  const progressBar = useSpring(scrollYProgress, {
+    stiffness: 120,
+    damping: 26,
+    mass: 0.24,
+  });
+  const stepsRef = useRef<HTMLOListElement | null>(null);
+  const { scrollYProgress: stepsScroll } = useScroll({
+    target: stepsRef,
+    offset: ["start 0.85", "end 0.5"],
+  });
+  const stepProgress = useSpring(stepsScroll, {
+    stiffness: 110,
+    damping: 28,
+    mass: 0.3,
+  });
   const adminLogoClickCountRef = useRef(0);
   const adminLogoClickTimerRef = useRef<number | null>(null);
 
@@ -576,10 +891,21 @@ export default function Landing() {
 
   return (
     <div className="min-h-screen bg-white text-slate-900">
+      {/* Bilah kemajuan baca */}
+      <motion.div
+        aria-hidden="true"
+        style={{ scaleX: progressBar }}
+        className="fixed inset-x-0 top-0 z-50 h-0.5 origin-left bg-gradient-to-r from-primary via-primary to-[#b99b62]"
+      />
+
       {/* Navbar */}
       <header
         ref={headerRef}
-        className="sticky top-0 z-40 border-b border-slate-200 bg-white/85 backdrop-blur"
+        className={`sticky top-0 z-40 border-b backdrop-blur transition-[background-color,border-color,box-shadow] duration-300 ${
+          scrolled
+            ? "border-slate-200 bg-white/95 shadow-[0_10px_30px_-24px_rgba(15,61,58,0.55)]"
+            : "border-slate-200/70 bg-white/80"
+        }`}
       >
         <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between px-6">
           {showAdminShortcut && (
@@ -591,9 +917,13 @@ export default function Landing() {
             <VaultLogo size={40} />
             <BrandWordmark name={logoTeks} />
           </Link>
-          <nav className="hidden items-center gap-8 text-sm text-slate-600 md:flex">
+          <nav className="hidden items-center gap-8 text-sm text-slate-600 lg:flex">
             {navItems.map(({ href, label }) => (
-              <a key={href} href={href} className="transition-colors hover:text-slate-900">
+              <a
+                key={href}
+                href={href}
+                className="link-underline transition-colors hover:text-slate-900"
+              >
                 {label}
               </a>
             ))}
@@ -604,7 +934,7 @@ export default function Landing() {
               <Button
                 asChild
                 variant="ghost"
-                className="hidden text-slate-600 hover:text-slate-900 md:inline-flex"
+                className="hidden text-slate-600 hover:text-slate-900 lg:inline-flex"
               >
                 <Link to={ADMIN_ROUTE}>
                   <ShieldCheck className="size-4" aria-hidden="true" />
@@ -616,7 +946,7 @@ export default function Landing() {
               <Button
                 asChild
                 variant="ghost"
-                className="hidden text-slate-600 hover:text-slate-900 md:inline-flex"
+                className="hidden text-slate-600 hover:text-slate-900 lg:inline-flex"
               >
                 <Link to="/auth">Masuk</Link>
               </Button>
@@ -630,7 +960,7 @@ export default function Landing() {
               aria-expanded={menuOpen}
               aria-controls="nav-mobile"
               aria-label={menuOpen ? "Tutup menu navigasi" : "Buka menu navigasi"}
-              className="-mr-2 inline-flex size-10 items-center justify-center rounded-lg text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900 md:hidden"
+              className="-mr-2 inline-flex size-10 items-center justify-center rounded-lg text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900 lg:hidden"
             >
               {menuOpen ? <X className="size-5" /> : <Menu className="size-5" />}
             </button>
@@ -646,7 +976,7 @@ export default function Landing() {
               animate={{ height: "auto", opacity: 1 }}
               exit={{ height: 0, opacity: 0 }}
               transition={{ duration: 0.18, ease: "easeOut" }}
-              className="absolute inset-x-0 top-full overflow-hidden border-b border-slate-200 bg-white shadow-lg md:hidden"
+              className="absolute inset-x-0 top-full overflow-hidden border-b border-slate-200 bg-white shadow-lg lg:hidden"
             >
               <nav className="grid gap-0.5 px-4 py-3">
                 {showAdminShortcut && (
@@ -696,28 +1026,46 @@ export default function Landing() {
       <main>
         {/* Hero — nuansa arsip finansial, tinta dan kertas. */}
         <section className="relative isolate overflow-hidden border-b border-slate-200 bg-[radial-gradient(ellipse_at_18%_0%,#edf4f0_0%,transparent_42%),linear-gradient(135deg,#fbfaf6_0%,#ffffff_52%,#f5f1e8_100%)]">
+          <LedgerGrid />
+          <GlowField />
           <div aria-hidden="true" className="pointer-events-none absolute -right-32 top-16 size-80 rounded-full border border-primary/10 sm:size-[30rem]" />
-          <div aria-hidden="true" className="pointer-events-none absolute -right-20 top-28 size-56 rounded-full border border-[#b99b62]/20 sm:size-96" />
-          <div className="mx-auto grid w-full max-w-7xl items-center gap-12 px-6 py-16 sm:px-8 sm:py-24 lg:grid-cols-[1.05fr_0.95fr] lg:gap-16 lg:py-28">
+          <div aria-hidden="true" className="animate-spin-slow pointer-events-none absolute -right-20 top-28 size-56 rounded-full border border-dashed border-[#b99b62]/25 sm:size-96" />
+          <div className="relative mx-auto grid w-full max-w-7xl items-center gap-12 px-6 py-16 sm:px-8 sm:py-24 lg:grid-cols-[1.05fr_0.95fr] lg:gap-16 lg:py-28">
             <motion.div
-              initial={{ opacity: 0, y: 18 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, ease: "easeOut" }}
+              variants={heroContainer}
+              initial="hidden"
+              animate="show"
               className="relative z-10"
             >
-              <span className="inline-flex items-center gap-2 rounded-full border border-primary/15 bg-white/80 px-3.5 py-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-primary">
-                <span className="size-1.5 rounded-full bg-[#b99b62]" />
+              <motion.span
+                variants={heroItem}
+                className="inline-flex items-center gap-2 rounded-full border border-primary/15 bg-white/80 px-3.5 py-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-primary backdrop-blur"
+              >
+                <span className="relative flex size-2">
+                  <span className="absolute inline-flex size-full animate-ping rounded-full bg-[#b99b62]/70" />
+                  <span className="relative inline-flex size-2 rounded-full bg-[#b99b62]" />
+                </span>
                 {c(cms?.heroBadge, CMS_DEFAULTS.hero.badge)}
-              </span>
-              <h1 className="mt-7 max-w-3xl text-[2.65rem] font-semibold leading-[1.04] tracking-[-0.045em] text-slate-950 sm:text-6xl lg:text-[4.5rem]">
+              </motion.span>
+              <motion.h1
+                variants={heroItem}
+                className="mt-7 max-w-3xl text-[2.65rem] font-semibold leading-[1.04] tracking-[-0.045em] text-slate-950 sm:text-6xl lg:text-[4.5rem]"
+              >
                 {heroJudul1}<br />
                 <span className="font-serif font-medium italic text-primary">{heroJudul2}</span>
-              </h1>
-              <p className="mt-6 max-w-xl text-base leading-7 text-slate-600 sm:text-lg sm:leading-8">
+              </motion.h1>
+              <motion.p
+                variants={heroItem}
+                className="mt-6 max-w-xl text-base leading-7 text-slate-600 sm:text-lg sm:leading-8"
+              >
                 {c(cms?.heroSub, CMS_DEFAULTS.hero.sub)}
-              </p>
-              <div className="mt-8 flex flex-wrap items-center gap-3">
-                <Button asChild disabled={isLoading} className="h-12 rounded-full bg-primary px-6 text-white hover:bg-primary/90">
+              </motion.p>
+              <motion.div variants={heroItem} className="mt-8 flex flex-wrap items-center gap-3">
+                <Button
+                  asChild
+                  disabled={isLoading}
+                  className="animate-sheen h-12 rounded-full bg-primary px-6 text-white transition-transform hover:-translate-y-0.5 hover:bg-primary/90"
+                >
                   <Link to={accountHref}>
                     {accountCta}
                     <ArrowRight className="ml-2 size-4" />
@@ -727,25 +1075,34 @@ export default function Landing() {
                   type="button"
                   variant="outline"
                   onClick={scrollToCalculator}
-                  className="h-12 rounded-full border-slate-300 bg-white/70 px-6 text-slate-700 hover:bg-white"
+                  className="group h-12 rounded-full border-slate-300 bg-white/70 px-6 text-slate-700 hover:bg-white"
                 >
                   Lihat kalkulator
+                  <ArrowRight className="ml-2 size-4 transition-transform group-hover:translate-x-0.5" />
                 </Button>
-              </div>
-              <div className="mt-9 flex flex-wrap items-center gap-x-6 gap-y-3 border-t border-slate-300/70 pt-5 text-xs font-medium text-slate-600 sm:text-sm">
+              </motion.div>
+              <motion.div
+                variants={heroItem}
+                className="mt-9 flex flex-wrap items-center gap-x-6 gap-y-3 border-t border-slate-300/70 pt-5 text-xs font-medium text-slate-600 sm:text-sm"
+              >
                 <span className="flex items-center gap-2"><BadgeCheck className="size-4 text-primary" />Rincian biaya terbuka</span>
                 <span className="flex items-center gap-2"><Lock className="size-4 text-primary" />Riwayat per akun</span>
                 <span className="flex items-center gap-2"><Calculator className="size-4 text-primary" />Angka kalkulator</span>
-              </div>
+              </motion.div>
             </motion.div>
 
             <motion.div
               initial={{ opacity: 0, y: 24, rotate: 1.5 }}
               animate={{ opacity: 1, y: 0, rotate: 0 }}
-              transition={{ duration: 0.7, delay: 0.12, ease: "easeOut" }}
+              transition={{ duration: 0.7, delay: 0.12, ease: EASE_OUT }}
+              whileHover={{ y: -4 }}
               className="relative mx-auto w-full max-w-lg"
             >
               <div className="absolute -inset-3 rounded-[2rem] border border-[#b99b62]/35" aria-hidden="true" />
+              <div
+                aria-hidden="true"
+                className="animate-spin-slow pointer-events-none absolute -right-8 -top-10 size-32 rounded-full border border-dashed border-[#b99b62]/30"
+              />
               <div className="relative overflow-hidden rounded-[1.75rem] bg-[#0f3d3a] p-6 text-[#f7f4ec] sm:p-8">
                 <div className="absolute -right-16 -top-24 size-64 rounded-full border border-white/10" aria-hidden="true" />
                 <div className="absolute -right-6 -top-14 size-44 rounded-full border border-[#cbb47e]/20" aria-hidden="true" />
@@ -774,6 +1131,30 @@ export default function Landing() {
                       </div>
                     </div>
                   </div>
+                  <motion.ul
+                    initial="hidden"
+                    animate="show"
+                    variants={{ hidden: {}, show: { transition: { staggerChildren: 0.12, delayChildren: 0.55 } } }}
+                    className="mt-4 space-y-2"
+                  >
+                    {[
+                      ["Biaya tenor", "dipotong di muka"],
+                      ["Bunga", "flat dari pokok penuh"],
+                      ["Status", "catatan ledger internal"],
+                    ].map(([label, value]) => (
+                      <motion.li
+                        key={label}
+                        variants={{
+                          hidden: { opacity: 0, x: -10 },
+                          show: { opacity: 1, x: 0, transition: { duration: 0.45, ease: EASE_OUT } },
+                        }}
+                        className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-black/10 px-3.5 py-2 text-xs"
+                      >
+                        <span className="text-white/55">{label}</span>
+                        <span className="font-medium text-white/85">{value}</span>
+                      </motion.li>
+                    ))}
+                  </motion.ul>
                   <div className="mt-5 flex items-start gap-3 border-t border-white/15 pt-4">
                     <Eye className="mt-0.5 size-4 shrink-0 text-[#d8c28c]" />
                     <p className="text-xs leading-5 text-white/65">Tercatat pada ledger internal PINDAI.</p>
@@ -789,30 +1170,34 @@ export default function Landing() {
               </motion.div>
             </motion.div>
           </div>
+          <FactRibbon />
         </section>
 
         {/* Layanan */}
-        <section className="border-t border-slate-200 bg-slate-50/60">
+        <section className="relative border-t border-slate-200 bg-slate-50/60">
           <div className="mx-auto w-full max-w-6xl px-6 py-20">
-            <div className="max-w-2xl">
-              <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">
+            <Reveal className="max-w-2xl">
+              <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#9c7b3a]">
+                Tiga skema
+              </span>
+              <h2 className="mt-3 text-2xl font-semibold tracking-tight sm:text-3xl">
                 {c(cms?.layananJudul, CMS_DEFAULTS.layanan.judul)}
               </h2>
               <p className="mt-3 text-base leading-7 text-slate-600">
                 {c(cms?.layananSub, CMS_DEFAULTS.layanan.sub)}
               </p>
-            </div>
+            </Reveal>
 
-            <div className="mt-10 grid gap-6 md:grid-cols-2">
+            <div className="mt-10 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
               <motion.article
                 id="pinjaman"
                 initial={{ opacity: 0, y: 18 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true, amount: 0.25 }}
                 transition={{ duration: 0.45 }}
-                className="card-lift flex scroll-mt-24 flex-col rounded-2xl border border-slate-200 bg-white p-7"
+                className="card-lift group flex scroll-mt-24 flex-col rounded-2xl border border-slate-200 bg-white p-7"
               >
-                <span className="clay-icon-blue inline-flex size-10 items-center justify-center">
+                <span className="clay-icon-blue inline-flex size-10 items-center justify-center transition-transform duration-300 group-hover:-rotate-6 group-hover:scale-110">
                   <Banknote className="size-5" strokeWidth={2} />
                 </span>
                 <h3 className="mt-4 text-lg font-semibold">
@@ -824,7 +1209,7 @@ export default function Landing() {
                 <Button asChild variant="link" className="mt-4 self-start px-0 text-primary">
                   <Link to={accountHref}>
                     {isAuthenticated ? "Buka dashboard" : c(cms?.pinjamanCta, CMS_DEFAULTS.layanan.pinjamanCta)}
-                    <ArrowRight className="ml-1 size-4" />
+                    <ArrowRight className="ml-1 size-4 transition-transform group-hover:translate-x-1" />
                   </Link>
                 </Button>
               </motion.article>
@@ -835,9 +1220,9 @@ export default function Landing() {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true, amount: 0.25 }}
                 transition={{ duration: 0.45, delay: 0.1 }}
-                className="card-lift flex scroll-mt-24 flex-col rounded-2xl border border-slate-200 bg-white p-7"
+                className="card-lift group flex scroll-mt-24 flex-col rounded-2xl border border-slate-200 bg-white p-7"
               >
-                <span className="clay-icon-mint inline-flex size-10 items-center justify-center">
+                <span className="clay-icon-mint inline-flex size-10 items-center justify-center transition-transform duration-300 group-hover:rotate-6 group-hover:scale-110">
                   <Package className="size-5" strokeWidth={2} />
                 </span>
                 <h3 className="mt-4 text-lg font-semibold">
@@ -849,7 +1234,30 @@ export default function Landing() {
                 <Button asChild variant="link" className="mt-4 self-start px-0 text-primary">
                   <Link to={accountHref}>
                     {isAuthenticated ? "Buka dashboard" : c(cms?.gadaiCta, CMS_DEFAULTS.layanan.gadaiCta)}
-                    <ArrowRight className="ml-1 size-4" />
+                    <ArrowRight className="ml-1 size-4 transition-transform group-hover:translate-x-1" />
+                  </Link>
+                </Button>
+              </motion.article>
+
+              <motion.article
+                id="kredit"
+                initial={{ opacity: 0, y: 18 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, amount: 0.25 }}
+                transition={{ duration: 0.45, delay: 0.2 }}
+                className="card-lift group flex scroll-mt-24 flex-col rounded-2xl border border-slate-200 bg-white p-7"
+              >
+                <span className="clay-icon-blue inline-flex size-10 items-center justify-center transition-transform duration-300 group-hover:scale-110">
+                  <Wallet className="size-5" strokeWidth={2} />
+                </span>
+                <h3 className="mt-4 text-lg font-semibold">Kredit barang</h3>
+                <p className="mt-2 flex-1 text-sm leading-6 text-slate-600">
+                  Barang elektronik dan marketplace mitra dengan DP 0%, tenor 1/3/6 bulan, biaya admin 2% + platform 3% dipotong di muka, dan cicilan rata dari pokok penuh.
+                </p>
+                <Button asChild variant="link" className="mt-4 self-start px-0 text-primary">
+                  <Link to={accountHref}>
+                    {isAuthenticated ? "Buka dashboard" : "Ajukan kredit barang"}
+                    <ArrowRight className="ml-1 size-4 transition-transform group-hover:translate-x-1" />
                   </Link>
                 </Button>
               </motion.article>
@@ -857,88 +1265,308 @@ export default function Landing() {
           </div>
         </section>
 
+        {/* Pratinjau catatan ledger */}
+        <section className="relative overflow-hidden border-t border-slate-200">
+          <div className="mx-auto grid w-full max-w-6xl items-center gap-10 px-6 py-20 lg:grid-cols-2 lg:gap-16">
+            <Reveal>
+              <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#9c7b3a]">
+                Catatan internal
+              </span>
+              <h2 className="mt-3 text-2xl font-semibold tracking-tight sm:text-3xl">
+                Catatan yang bisa Anda periksa
+              </h2>
+              <p className="mt-3 text-base leading-7 text-slate-600">
+                Setiap pengajuan menyimpan parameter yang dipakai menghitung angkanya — nominal, tenor, biaya, dan status. Tidak ada kolom tersembunyi, dan tidak ada perpindahan dana di dalam aplikasi.
+              </p>
+              <ul className="mt-6 space-y-3">
+                {[
+                  "Parameter perhitungan berasal dari data pengajuan yang tersimpan",
+                  "Riwayat pengajuan hanya dapat dibuka oleh akun terkait",
+                  "Perubahan status oleh tim PINDAI tercatat pada audit log",
+                ].map((item) => (
+                  <li key={item} className="flex items-start gap-3 text-sm leading-6 text-slate-600">
+                    <BadgeCheck className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden="true" />
+                    {item}
+                  </li>
+                ))}
+              </ul>
+            </Reveal>
+
+            <Reveal delay={0.12}>
+              <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_18px_40px_-32px_rgba(15,61,58,0.5)]">
+                <div className="flex items-center justify-between gap-3 border-b border-slate-200 bg-slate-50/80 px-4 py-3">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+                    Contoh catatan
+                  </p>
+                  <span className="inline-flex items-center gap-2 text-[10px] font-medium uppercase tracking-[0.14em] text-slate-500">
+                    <span className="relative flex size-2">
+                      <span className="absolute inline-flex size-full animate-ping rounded-full bg-primary/60" />
+                      <span className="relative inline-flex size-2 rounded-full bg-primary" />
+                    </span>
+                    Ledger internal
+                  </span>
+                </div>
+                <ul>
+                  {CATATAN_CONTOH.map((row, i) => (
+                    <motion.li
+                      key={row.label}
+                      initial={{ opacity: 0, y: 10 }}
+                      whileInView={{ opacity: 1, y: 0 }}
+                      viewport={{ once: true, amount: 0.6 }}
+                      transition={{ duration: 0.4, delay: i * 0.08, ease: EASE_OUT }}
+                      className="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-3 border-b border-slate-100 px-4 py-3 last:border-b-0"
+                    >
+                      <span className="text-xs text-slate-500">{row.label}</span>
+                      <span className="text-right text-xs font-semibold tabular-nums text-slate-800">
+                        {row.value}
+                      </span>
+                    </motion.li>
+                  ))}
+                </ul>
+                <p className="border-t border-slate-100 bg-slate-50/60 px-4 py-3 text-[11px] leading-5 text-slate-500">
+                  Contoh ilustrasi tampilan. Angka sebenarnya dihitung aplikasi dari data pengajuan Anda dan bukan tagihan atau bukti pembayaran.
+                </p>
+              </div>
+            </Reveal>
+          </div>
+        </section>
+
+        {/* Rincian biaya — angka terbuka sejak awal. */}
+        <section
+          id="biaya"
+          className="relative scroll-mt-24 overflow-hidden border-t border-slate-200 bg-slate-50/60"
+        >
+          <div className="mx-auto w-full max-w-6xl px-6 py-20">
+            <Reveal className="max-w-2xl">
+              <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#9c7b3a]">
+                Rincian biaya
+              </span>
+              <h2 className="mt-3 text-2xl font-semibold tracking-tight sm:text-3xl">
+                Angka terbuka sejak awal
+              </h2>
+              <p className="mt-3 text-base leading-7 text-slate-600">
+                Setiap potongan dihitung aplikasi dari nominal dan tenor yang Anda pilih. Tidak ada biaya tersembunyi — dan perpindahan dana tetap ditangani di luar aplikasi.
+              </p>
+            </Reveal>
+
+            <div className="mt-10 grid gap-6 lg:grid-cols-2">
+              <SchemeCard
+                badge="Skema harian"
+                title="7–30 hari · Rp 100 rb–1 jt"
+                body="Cocok untuk kebutuhan jangka pendek. Satu kali pelunasan pada akhir tenor dan semua potongan terlihat sejak awal."
+                rows={[
+                  { label: "Biaya admin 2% + platform 3%", value: "5% dari pokok" },
+                  { label: "Nilai bersih diterima", value: "95% dari pokok" },
+                  { label: "Bunga flat", value: "30% dari pokok" },
+                ]}
+                stats={[
+                  { to: 5, suffix: "%", label: "potongan di muka" },
+                  { to: 30, suffix: "%", label: "bunga" },
+                  { to: 130, suffix: "%", label: "total kewajiban" },
+                ]}
+              />
+              <SchemeCard
+                delay={0.12}
+                badge="Skema bulanan"
+                title="1/3/6 bulan · hingga Rp 10 jt"
+                body="Cicilan rata dari pokok penuh: angsurannya berisi pokok dan bunga saja, karena biaya tenor dipotong di muka."
+                rows={[
+                  { label: "Biaya admin 2% + platform 3%", value: "5% dipotong di muka" },
+                  { label: "Biaya admin cicilan (tenor 3 & 6)", value: "2% per bayar" },
+                  { label: "Bunga flat per bulan (1/3/6 bulan)", value: "30% / 25% / 20%" },
+                ]}
+                stats={[
+                  { to: 5, suffix: "%", label: "biaya di muka" },
+                  { to: 25, suffix: "%", label: "bunga tenor 3" },
+                  { to: 2, suffix: "%", label: "admin cicilan 3/6" },
+                ]}
+              />
+            </div>
+
+            <Reveal delay={0.1} className="mt-6">
+              <p className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-2xl border border-slate-200 bg-white px-5 py-4 text-xs leading-5 text-slate-600">
+                <Sparkles className="size-4 shrink-0 text-[#b99b62]" aria-hidden="true" />
+                Kredit barang memakai tenor 1/3/6 bulan dengan pola biaya yang sama; seluruh angka pada halaman ini adalah perhitungan ledger internal PINDAI, bukan tagihan atau bukti pembayaran.
+              </p>
+            </Reveal>
+          </div>
+        </section>
+
         {/* Kalkulator + langkah */}
         <section id="kalkulator" className="mx-auto w-full max-w-6xl scroll-mt-24 px-6 py-20">
           <div className="grid gap-10 lg:grid-cols-2">
-            <LiveCalculator />
+            <Reveal>
+              <LiveCalculator />
+            </Reveal>
             <div>
-              <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">
-                Tiga langkah
-              </h2>
-              <p className="mt-3 text-base leading-7 text-slate-600">
-                Proses ringkas dengan angka yang sama seperti yang Anda lihat di kalkulator.
-              </p>
-              <ol className="mt-8 space-y-6">
-                {steps.map(({ icon: Icon, title, body }, i) => (
-                  <li key={title} className="flex gap-4">
-                    <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-700">
-                      <Icon className="size-5" strokeWidth={2} />
-                    </span>
-                    <div>
-                      <p className="text-sm font-semibold text-slate-900">
-                        <span className="mr-1.5 text-slate-400">0{i + 1}</span>
-                        {title}
-                      </p>
-                      <p className="mt-1 text-sm leading-6 text-slate-600">{body}</p>
-                    </div>
-                  </li>
-                ))}
-              </ol>
-              <p className="mt-8 rounded-xl bg-slate-50 p-4 text-xs leading-5 text-slate-600">
-                Seluruh angka berikut adalah <b className="font-semibold text-slate-900">perhitungan ledger internal</b> dari pencatatan PINDAI. Skema harian menghitung nilai bersih 95% dan total kewajiban 130%; perpindahan dana ditangani di luar aplikasi. Skema bulanan (1/3/6 bulan, hingga Rp 10 juta) menampilkan DP 0%, biaya admin 2% + platform 3% untuk tenor 3/6 bulan (atau biaya layanan 3% untuk tenor 1 bulan) yang dipotong di muka dari dana yang diterima, sehingga cicilan berisi pokok dan bunga saja; bunga flat dari pokok penuh sebesar 30% per bulan (tenor 1 bulan), 25% (tenor 3 bulan), dan 20% (tenor 6 bulan), jadi cicilannya rata dan tidak menurun. Status dan rincian kontrak mengikuti pencatatan pada ledger internal.
-              </p>
+              <Reveal>
+                <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#9c7b3a]">
+                  Alur pengajuan
+                </span>
+                <h2 className="mt-3 text-2xl font-semibold tracking-tight sm:text-3xl">
+                  Tiga langkah
+                </h2>
+                <p className="mt-3 text-base leading-7 text-slate-600">
+                  Proses ringkas dengan angka yang sama seperti yang Anda lihat di kalkulator.
+                </p>
+              </Reveal>
+              <div className="relative mt-8">
+                <div aria-hidden="true" className="absolute bottom-3 left-5 top-3 w-px bg-slate-200" />
+                <motion.div
+                  aria-hidden="true"
+                  style={{ scaleY: stepProgress }}
+                  className="absolute bottom-3 left-5 top-3 w-px origin-top bg-primary"
+                />
+                <ol ref={stepsRef} className="space-y-6">
+                  {steps.map(({ icon: Icon, title, body }, i) => (
+                    <motion.li
+                      key={title}
+                      initial={{ opacity: 0, x: -14 }}
+                      whileInView={{ opacity: 1, x: 0 }}
+                      viewport={{ once: true, amount: 0.5 }}
+                      transition={{ duration: 0.45, delay: i * 0.08, ease: EASE_OUT }}
+                      className="relative flex gap-4"
+                    >
+                      <span className="relative z-10 flex size-10 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-primary shadow-sm">
+                        <Icon className="size-5" strokeWidth={2} />
+                      </span>
+                      <div>
+                        <p className="text-sm font-semibold text-slate-900">
+                          <span className="mr-1.5 text-slate-400">0{i + 1}</span>
+                          {title}
+                        </p>
+                        <p className="mt-1 text-sm leading-6 text-slate-600">{body}</p>
+                      </div>
+                    </motion.li>
+                  ))}
+                </ol>
+              </div>
+              <Reveal delay={0.1}>
+                <p className="mt-8 rounded-xl bg-slate-50 p-4 text-xs leading-5 text-slate-600">
+                  Seluruh angka berikut adalah <b className="font-semibold text-slate-900">perhitungan ledger internal</b> dari pencatatan PINDAI. Skema harian menghitung nilai bersih 95% dan total kewajiban 130%; perpindahan dana ditangani di luar aplikasi. Skema bulanan (1/3/6 bulan, hingga Rp 10 juta) menampilkan DP 0%, biaya admin 2% + platform 3% untuk tenor 3/6 bulan (atau biaya layanan 3% untuk tenor 1 bulan) yang dipotong di muka dari dana yang diterima, sehingga cicilan berisi pokok dan bunga saja; bunga flat dari pokok penuh sebesar 30% per bulan (tenor 1 bulan), 25% (tenor 3 bulan), dan 20% (tenor 6 bulan), jadi cicilannya rata dan tidak menurun. Status dan rincian kontrak mengikuti pencatatan pada ledger internal.
+                </p>
+              </Reveal>
             </div>
           </div>
         </section>
 
         {/* Keamanan */}
-        <section id="keamanan" className="scroll-mt-24 border-t border-slate-200 bg-slate-50/60">
+        <section id="keamanan" className="relative scroll-mt-24 border-t border-slate-200 bg-slate-50/60">
           <div className="mx-auto w-full max-w-6xl px-6 py-20">
-            <div className="max-w-2xl">
-              <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">
+            <Reveal className="max-w-2xl">
+              <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#9c7b3a]">
+                Batas yang jelas
+              </span>
+              <h2 className="mt-3 text-2xl font-semibold tracking-tight sm:text-3xl">
                 Pencatatan &amp; batas ledger
               </h2>
               <p className="mt-3 text-base leading-7 text-slate-600">
                 Ketahui apa yang dicatat aplikasi dan apa yang tidak dijalankan secara eksternal.
               </p>
-            </div>
-            <div className="mt-10 grid gap-px overflow-hidden rounded-2xl border border-slate-200 bg-slate-200 sm:grid-cols-2 lg:grid-cols-3">
+            </Reveal>
+            <motion.div
+              initial="hidden"
+              whileInView="show"
+              viewport={{ once: true, amount: 0.2 }}
+              variants={{ hidden: {}, show: { transition: { staggerChildren: 0.06 } } }}
+              className="mt-10 grid gap-px overflow-hidden rounded-2xl border border-slate-200 bg-slate-200 sm:grid-cols-2 lg:grid-cols-3"
+            >
               {SECURITY.map(({ icon: Icon, label }) => (
-                <div key={label} className="flex items-center gap-3 bg-white p-5">
-                  <Icon className="size-5 shrink-0 text-primary" strokeWidth={2} />
+                <motion.div
+                  key={label}
+                  variants={{
+                    hidden: { opacity: 0, y: 10 },
+                    show: { opacity: 1, y: 0, transition: { duration: 0.4, ease: EASE_OUT } },
+                  }}
+                  className="group flex items-center gap-3 bg-white p-5 transition-colors hover:bg-primary/[0.03]"
+                >
+                  <Icon
+                    className="size-5 shrink-0 text-primary transition-transform duration-300 group-hover:scale-110"
+                    strokeWidth={2}
+                  />
                   <span className="text-sm font-medium text-slate-700">{label}</span>
-                </div>
+                </motion.div>
               ))}
-            </div>
+            </motion.div>
+          </div>
+        </section>
+
+        {/* Tanya jawab */}
+        <section id="tanya" className="relative scroll-mt-24 border-t border-slate-200">
+          <div className="mx-auto w-full max-w-3xl px-6 py-20">
+            <Reveal>
+              <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#9c7b3a]">
+                Tanya jawab
+              </span>
+              <h2 className="mt-3 text-2xl font-semibold tracking-tight sm:text-3xl">
+                Pertanyaan yang sering muncul
+              </h2>
+              <p className="mt-3 text-base leading-7 text-slate-600">
+                Jawaban singkat tentang apa yang dihitung, dicatat, dan tidak dijalankan aplikasi.
+              </p>
+            </Reveal>
+            <Reveal delay={0.08} className="mt-8">
+              <Accordion
+                type="single"
+                collapsible
+                className="overflow-hidden rounded-2xl border border-slate-200 bg-white"
+              >
+                {FAQ_ITEMS.map((item) => (
+                  <AccordionItem key={item.q} value={item.q} className="px-5 last:border-b-0 sm:px-6">
+                    <AccordionTrigger className="text-left text-sm font-semibold text-slate-900 hover:text-primary hover:no-underline">
+                      {item.q}
+                    </AccordionTrigger>
+                    <AccordionContent className="text-sm leading-6 text-slate-600">
+                      {item.a}
+                    </AccordionContent>
+                  </AccordionItem>
+                ))}
+              </Accordion>
+            </Reveal>
           </div>
         </section>
 
         {/* CTA */}
         <section className="mx-auto w-full max-w-6xl px-6 py-20">
-          <div className="rounded-2xl bg-primary px-8 py-12 text-center sm:px-12">
-            <h2 className="text-2xl font-semibold tracking-tight text-white sm:text-3xl">
-              Mulai hari ini
-            </h2>
-            <p className="mx-auto mt-3 max-w-lg text-sm leading-6 text-primary-foreground/80">
-              Buat akun untuk mencatat pengajuan, atau jelajahi tampilan ledger Pendana. Perpindahan dana ditangani di luar aplikasi.
-            </p>
-            <div className="mt-7 flex flex-wrap justify-center gap-3">
-              <Button
-                asChild
-                className="h-11 border-0 bg-white px-6 text-primary hover:bg-secondary"
-              >
-                <Link to={accountHref}>{isAuthenticated ? "Buka dashboard" : "Buka akun"}</Link>
-              </Button>
-              {!isAuthenticated && (
+          <motion.div
+            initial={{ opacity: 0, y: 26 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, amount: 0.3 }}
+            transition={{ duration: 0.6, ease: EASE_OUT }}
+            className="relative isolate overflow-hidden rounded-[1.75rem] bg-[#0f3d3a] px-8 py-14 text-center sm:px-12"
+          >
+            <div aria-hidden="true" className="animate-drift pointer-events-none absolute -left-24 -top-24 size-72 rounded-full bg-[#cbb47e]/25 blur-3xl" />
+            <div aria-hidden="true" className="animate-drift-reverse pointer-events-none absolute -bottom-28 -right-20 size-80 rounded-full bg-white/10 blur-3xl" />
+            <div aria-hidden="true" className="animate-spin-slow pointer-events-none absolute -right-16 -top-16 size-64 rounded-full border border-dashed border-white/15" />
+            <div className="relative">
+              <span className="inline-flex items-center gap-2 rounded-full border border-[#d8c28c]/35 bg-[#d8c28c]/10 px-3.5 py-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-[#e6d3a5]">
+                <Sparkles className="size-3.5" aria-hidden="true" />
+                Rincian biaya terbuka sejak awal
+              </span>
+              <h2 className="mt-6 text-2xl font-semibold tracking-tight text-white sm:text-3xl">
+                Mulai hari ini
+              </h2>
+              <p className="mx-auto mt-3 max-w-lg text-sm leading-6 text-primary-foreground/80">
+                Buat akun untuk mencatat pengajuan, atau jelajahi tampilan ledger Pendana. Perpindahan dana ditangani di luar aplikasi.
+              </p>
+              <div className="mt-7 flex flex-wrap justify-center gap-3">
                 <Button
                   asChild
-                  className="h-11 border border-white/40 bg-transparent px-6 text-white hover:bg-white/10"
+                  className="animate-sheen h-11 border-0 bg-white px-6 text-primary transition-transform hover:-translate-y-0.5 hover:bg-secondary"
                 >
-                  <Link to="/pendana">Lihat mode Pendana</Link>
+                  <Link to={accountHref}>{isAuthenticated ? "Buka dashboard" : "Buka akun"}</Link>
                 </Button>
-              )}
+                {!isAuthenticated && (
+                  <Button
+                    asChild
+                    className="h-11 border border-white/40 bg-transparent px-6 text-white hover:bg-white/10"
+                  >
+                    <Link to="/pendana">Lihat mode Pendana</Link>
+                  </Button>
+                )}
+              </div>
             </div>
-          </div>
+          </motion.div>
         </section>
       </main>
 
@@ -961,17 +1589,27 @@ export default function Landing() {
               </p>
               <ul className="mt-3 space-y-2 text-sm text-slate-600">
                 <li>
-                  <a href="#pinjaman" className="hover:text-slate-900">
+                  <a href="#pinjaman" className="link-underline hover:text-slate-900">
                     Pinjaman Tunai
                   </a>
                 </li>
                 <li>
-                  <a href="#gadai" className="hover:text-slate-900">
+                  <a href="#gadai" className="link-underline hover:text-slate-900">
                     Gadai Digital
                   </a>
                 </li>
                 <li>
-                  <a href="#kalkulator" className="hover:text-slate-900">
+                  <a href="#kredit" className="link-underline hover:text-slate-900">
+                    Kredit Barang
+                  </a>
+                </li>
+                <li>
+                  <a href="#biaya" className="link-underline hover:text-slate-900">
+                    Rincian Biaya
+                  </a>
+                </li>
+                <li>
+                  <a href="#kalkulator" className="link-underline hover:text-slate-900">
                     Kalkulator
                   </a>
                 </li>
@@ -983,8 +1621,13 @@ export default function Landing() {
               </p>
               <ul className="mt-3 space-y-2 text-sm text-slate-600">
                 <li>
-                  <a href="#keamanan" className="hover:text-slate-900">
+                  <a href="#keamanan" className="link-underline hover:text-slate-900">
                     Keamanan
+                  </a>
+                </li>
+                <li>
+                  <a href="#tanya" className="link-underline hover:text-slate-900">
+                    Tanya Jawab
                   </a>
                 </li>
                 <li className="flex items-center gap-2">
