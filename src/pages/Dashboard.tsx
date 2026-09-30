@@ -134,7 +134,7 @@ export default function Dashboard() {
               </div>
               <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
                 <h2 className="text-sm font-semibold">Pinjaman bulanan</h2>
-                <p className="mt-2 text-sm leading-6 text-muted-foreground">Ilustrasi ledger: asumsi biaya layanan 5% (tenor 3/6) atau 3% (tenor 1) dipotong di muka dan bunga menurun mengikuti tenor. Jadwal dan status lunas hanya catatan internal; tidak ada pembayaran aktual.</p>
+                <p className="mt-2 text-sm leading-6 text-muted-foreground">Ilustrasi ledger: asumsi biaya layanan 5% (tenor 3/6) atau 3% (tenor 1) dipotong di muka, bunga 30%/25% menurun untuk tenor pendek, dan 20% flat dari pokok untuk tenor 6 bulan. Jadwal dan status lunas hanya catatan internal; tidak ada pembayaran aktual.</p>
               </div>
             </div>
             <div className="mt-7 flex flex-wrap gap-3">

@@ -143,7 +143,8 @@ function blokParaPihak(): string {
  * Rangkai HTML ringkasan pengajuan pinjaman pada ledger internal.
  *
  * Dua skema didukung: harian (130%, potongan 5% di muka) dan bulanan
- * (DP 0%, biaya dipotong di muka, bunga menurun). Bila `bulanan`
+ * (DP 0%, biaya dipotong di muka, bunga menurun atau flat per tenor). Bila
+ * `bulanan`
  * diisi, rincian mengikuti skema bulanan dan angka dari engine lib/bulanan.ts.
  */
 export function buildPinjamanContract(
@@ -180,8 +181,12 @@ export function buildPinjamanContract(
       <li>Uang muka: ${formatRupiah(bulanan.dp)} — 0% dari pokok acuan.</li>
       ${rincianBiayaBulanan}
       <li><strong>Dana bersih yang diterima: ${formatRupiah(bulanan.danaDiterima)} (pokok ${formatRupiah(bulanan.pokokDibiayai)} setelah potongan di muka ${formatRupiah(bulanan.potonganDiMuka)})</strong>; dana diteruskan sesuai proses pencairan.</li>
-      <li>Bunga/margin sebesar ${bulanan.persenBungaPerBulan}% per bulan dari sisa pokok pada awal setiap bulan; total ${formatRupiah(bulanan.bungaTotal)}.</li>
-      <li><strong>Ilustrasi cicilan menurun: bulan pertama ${formatRupiah(bulanan.cicilanPerBulan)}, bulan terakhir ${formatRupiah(bulanan.cicilanTerakhir)}; total ${formatRupiah(bulanan.totalPengembalian)} untuk ${bulanan.tenorBulan} bulan (cicilan hanya pokok dan bunga).</strong> Rincian per bulan: ${bulanan.jadwal.map((angsuran) => `bulan ${angsuran.bulan} ${formatRupiah(angsuran.total)}`).join("; ")}. Jadwal bersifat ilustrasi; perubahan status lunas di aplikasi dicatat sebagai entri ledger.</li>`;
+      <li>${
+        bulanan.metodeBunga === "flat"
+          ? `Bunga/margin sebesar ${bulanan.persenBungaPerBulan}% per bulan dari POKOK ACUAN (flat, tidak menurun); total ${formatRupiah(bulanan.bungaTotal)}.`
+          : `Bunga/margin sebesar ${bulanan.persenBungaPerBulan}% per bulan dari sisa pokok pada awal setiap bulan (menurun); total ${formatRupiah(bulanan.bungaTotal)}.`
+      }</li>
+      <li><strong>Ilustrasi cicilan ${bulanan.metodeBunga === "flat" ? "rata" : "menurun"}: bulan pertama ${formatRupiah(bulanan.cicilanPerBulan)}, bulan terakhir ${formatRupiah(bulanan.cicilanTerakhir)}; total ${formatRupiah(bulanan.totalPengembalian)} untuk ${bulanan.tenorBulan} bulan (cicilan hanya pokok dan bunga).</strong> Rincian per bulan: ${bulanan.jadwal.map((angsuran) => `bulan ${angsuran.bulan} ${formatRupiah(angsuran.total)}`).join("; ")}. Jadwal bersifat ilustrasi; perubahan status lunas di aplikasi dicatat sebagai entri ledger.</li>`;
   const pasalKewajiban =
     bulanan === null
       ? `Kewajiban dilunasi dalam ${tenorHari} hari sejak tanggal pencairan. Pelunasan ditangani di luar aplikasi dan statusnya dicatat tim PINDAI pada ledger internal. Denda keterlambatan 0,5% per hari dari pokok, maksimum 15%.`

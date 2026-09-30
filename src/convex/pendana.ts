@@ -91,7 +91,8 @@ async function requireWaOtpIfEnabled(
 
 /**
  * Ringkasan pinjaman untuk ditampilkan ke Pendana — SATU sumber kebenaran
- * untuk skema harian (130% flat) dan skema bulanan (bunga menurun). Imbal
+ * untuk skema harian (130% flat) dan skema bulanan (bunga menurun/flat
+ * per tenor). Imbal
  * Hasil Pendana = 30% pokok (harian) atau Σ bunga bulanan; biaya tenor 3/6
  * memisahkan admin 2% dan platform 3%, dan SELURUH biaya dipotong di muka.
  */

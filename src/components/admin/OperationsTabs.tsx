@@ -294,7 +294,7 @@ export function LedgerTab() {
           {([
             ["Pinjaman tunai", rincian.pinjaman, "Biaya pinjaman harian 5% (admin 2% + platform 3%); tenor bulanan 5% untuk 3/6 bulan dan 3% untuk 1 bulan, dipotong di muka"],
             ["Gadai (Skema B)", rincian.gadai, "Nilai potongan 1% + sewa modal"],
-            ["Kredit barang (Skema C)", rincian.kredit, "Biaya tenor 12/24 bulan 3%; tenor 3/6 bulan admin 2% + platform 3%"],
+            ["Kredit barang (Skema C)", rincian.kredit, "Tenor 1/3/6 bulan: admin 2% + platform 3% (tenor 3/6) atau layanan 3% (tenor 1), dipotong di muka; kontrak lama 12/24 tetap terhitung"],
             ["Lainnya", rincian.lainnya, "Entri biaya internal di luar tiga skema utama"],
           ] as const).map(([label, value, hint]) => (
             <div key={label} className="rounded-xl border border-slate-100 bg-slate-50/60 px-4 py-3">

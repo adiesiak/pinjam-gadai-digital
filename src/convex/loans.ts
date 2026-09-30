@@ -268,7 +268,8 @@ export const createLoanApplication = mutation({
     /**
      * Tenor bulanan (DP 0%, biaya 3% untuk tenor 1 atau admin 2% + platform
      * 3% untuk tenor 3/6, seluruhnya dipotong di muka; bunga menurun
-     * 30/25/20% per bulan sesuai tenor) —
+     * 30%/25% per bulan untuk tenor 1–5 bulan dan 20% flat dari pokok penuh
+     * untuk tenor ≥6 bulan) —
      * pinjaman DI LUAR plafon 1 jt / 30 hari. Bila diisi, `tenorHari`
      * diabaikan.
      */

@@ -105,7 +105,7 @@ function buildFundingContractHtml(c: {
     <ol>
       <li>Perhitungan imbal hasil ${
         c.tenorBulan !== null
-          ? "menggunakan bunga menurun (tenor 1 bulan 10%/bulan, 3–5 bulan 8%/bulan, ≥ 6 bulan 7,5%/bulan) atas porsi pokok pada ledger"
+          ? "menggunakan bunga 30%/bulan (tenor 1 bulan) atau 25%/bulan menurun (tenor 3 bulan) atas porsi pokok pada ledger"
           : "menggunakan bunga 30% atas porsi pokok pada ledger"
       }: <strong>${formatRupiah(c.imbalHasil)}</strong>.</li>
       <li>Angka tersebut adalah ilustrasi internal; tidak menjamin atau membuktikan adanya pembayaran imbal hasil maupun pengembalian pokok.</li>

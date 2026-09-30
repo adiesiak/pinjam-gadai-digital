@@ -10,13 +10,15 @@
  *  - Konsumen membeli barang dari merchant mitra (marketplace / toko
  *    elektronik) dengan uang muka (DP) 10–50% dari harga barang.
  *  - Sisa harga dibiayai Pendana = pokok dibiayai; skema bulanan memakai
- *    angsuran pokok tetap dan bunga menurun.
- *  - Imbal Hasil Pendana pada skema bulanan mengikuti bunga menurun dari
- *    saldo pokok; tenor 12/24 memakai margin flat per bulan. Bagian Pendana
- *    proporsional dengan porsi pendanaannya (Alokasi Dana).
+ *    angsuran pokok tetap dan bunga menurun (tenor 1–5 bulan) atau bunga flat
+ *    dari pokok penuh (tenor ≥6 bulan).
+ *  - Imbal Hasil Pendana pada skema bulanan: tenor 1–5 bulan menurun dari
+ *    saldo pokok, tenor ≥6 bulan 20% flat dari pokok penuh. Skema DP + margin
+ *    flat 12/24 bulan hanya untuk kontrak warisan (tidak ditawarkan lagi).
+ *    Bagian Pendana proporsional dengan porsi pendanaannya (Alokasi Dana).
  *  - Tenor 3/6 bulan memakai biaya admin 2% + platform 3% dari pokok,
  *    DIPOTONG DI MUKA; tenor 1 bulan tetap layanan 3% dipotong di muka.
- *    Tenor 12/24 tetap biaya layanan 3% di muka.
+ *    Kontrak lama 12/24 tetap biaya layanan 3% di muka.
  */
 import { isRupiah, percentOf, type Rupiah } from "./money";
 import {
@@ -28,9 +30,20 @@ import {
 /** Batas pokok dibiayai untuk setiap pengajuan baru kredit barang. */
 export const KREDIT_BARANG_POKOK_MAKS = 10_000_000 as Rupiah;
 
-/** Tenor yang boleh dipilih untuk pengajuan baru; kontrak 12/24 bulan lama tetap didukung engine. */
+/**
+ * Tenor yang boleh dipilih untuk pengajuan baru — 1/3/6 bulan. Pilihan 12/24
+ * bulan DIHAPUS; kontrak lama tetap bisa dihitung engine (lihat
+ * KREDIT_TENOR_DIDUKUNG_ENGINE) agar data warisan tidak rusak.
+ */
 export const KREDIT_TENOR_PENGAJUAN_OPTIONS = [1, 3, 6] as const;
 export const KREDIT_TENOR_MAKS_BULAN = 6;
+
+/**
+ * Tenor yang masih dihitung engine demi kompatibilitas data warisan
+ * (kontrak 12/24 bulan sebelum pilihan itu dihapus). Tidak ditawarkan lagi
+ * pada pengajuan baru.
+ */
+export const KREDIT_TENOR_DIDUKUNG_ENGINE = [1, 3, 6, 12, 24] as const;
 
 /** Apakah pokok kredit barang baru rupiah bulat positif dan dalam batas tetap. */
 export function pokokKreditBarangDalamBatas(pokok: number): boolean {
@@ -43,12 +56,13 @@ export const KREDIT_PRICING = {
   /** Uang muka maksimum (% dari harga barang). */
   dpMaxPersen: 50,
   /**
-   * Pilihan tenor kredit barang (bulan) — tenor 1/3/6 bulan memakai skema
-   * bulanan (DP 0%, biaya 7% pada tenor 3/6 dan layanan 3% tenor 1, bunga
-   * 30/25/20% per bulan sesuai tenor dari saldo pokok); tenor 12/24 bulan
-   * memakai skema DP + margin flat.
+   * Pilihan tenor kredit barang (bulan) = KREDIT_TENOR_PENGAJUAN_OPTIONS:
+   * 1/3/6 bulan dengan skema bulanan (DP 0%, biaya admin 2% + platform 3%
+   * tenor 3/6 atau layanan 3% tenor 1, seluruhnya dipotong di muka; bunga
+   * 30%/25% menurun pada tenor 1–5 bulan dan 20% flat dari pokok penuh pada
+   * tenor 6 bulan). Tenor 12/24 bulan tidak ditawarkan lagi.
    */
-  tenorBulanOptions: [1, ...TENOR_BULANAN_OPTIONS.slice(1), 12, 24],
+  tenorBulanOptions: KREDIT_TENOR_PENGAJUAN_OPTIONS,
   /** Imbal Hasil minimum per bulan (% dari pokok dibiayai). */
   marginMinPersenPerBulan: 2.5,
   /** Imbal Hasil maksimum per bulan (% dari pokok dibiayai). */
@@ -76,12 +90,12 @@ export interface KreditBarangInput {
   hargaBarang: Rupiah;
   /** Uang muka Konsumen (% harga barang, 10–50). */
   dpPersen: number;
-  /** Tenor cicilan dalam bulan (3/6/12/24). */
+  /** Tenor cicilan dalam bulan (1/3/6 untuk pengajuan baru; 12/24 warisan). */
   tenorBulan: number;
   /**
    * Imbal Hasil Pendana per bulan (% dari pokok dibiayai) — hanya dipakai
-   * tenor 12/24 bulan (skema DP + margin flat). Tenor 1/3/6 bulan (skema
-   * bulanan) mengabaikan nilai ini: bunga mengikuti tenor secara otomatis.
+   * kontrak warisan 12/24 bulan (skema DP + margin flat). Tenor 1/3/6 bulan
+   * (skema bulanan) mengabaikan nilai ini: bunga mengikuti tenor otomatis.
    */
   marginPersenPerBulan: number;
   /** Porsi pokok yang didanai Pendana (%, 10–100). Default 100. */
@@ -166,7 +180,7 @@ export function skemaBulananKredit(tenorBulan: number): boolean {
  * Identitas yang dijamin (diuji di kredit.test.ts):
  *  - dp + pokokDibiayai = hargaBarang
  *  - Σ jadwal.pokok = pokokDibiayai · Σ jadwal.margin = marginTotal
- *  - imbalHasil = porsi Pendana × Σ Imbal Hasil pada jadwal (bunga menurun)
+ *  - imbalHasil = porsi Pendana × Σ Imbal Hasil pada jadwal (menurun/flat)
  *  - totalDiterima = porsiPendana + imbalHasil
  */
 export function quoteKreditBarang(input: KreditBarangInput): KreditBarangQuote {
@@ -183,7 +197,7 @@ export function quoteKreditBarang(input: KreditBarangInput): KreditBarangQuote {
     );
   }
   // Tenor 1/3/6 bulan (skema bulanan) tidak memakai DP & margin flat —
-  // validasi keduanya dilewati; skema DP + margin (12/24 bulan) tetap ketat.
+  // validasi keduanya dilewati; skema DP + margin (warisan 12/24) tetap ketat.
   const skemaBulanan = (TENOR_BULANAN_OPTIONS as readonly number[]).includes(tenorBulan);
   if (
     !skemaBulanan &&
@@ -195,9 +209,11 @@ export function quoteKreditBarang(input: KreditBarangInput): KreditBarangQuote {
       `Uang muka (DP) harus ${KREDIT_PRICING.dpMinPersen}–${KREDIT_PRICING.dpMaxPersen}% dari harga barang.`,
     );
   }
-  if (!(KREDIT_PRICING.tenorBulanOptions as readonly number[]).includes(tenorBulan)) {
+  if (
+    !(KREDIT_TENOR_DIDUKUNG_ENGINE as readonly number[]).includes(tenorBulan)
+  ) {
     throw new Error(
-      `Tenor harus salah satu dari ${KREDIT_PRICING.tenorBulanOptions.join(" / ")} bulan.`,
+      `Tenor harus salah satu dari ${KREDIT_TENOR_DIDUKUNG_ENGINE.join(" / ")} bulan.`,
     );
   }
   if (

@@ -195,7 +195,7 @@ export function calculateRepayment(
 
 /**
  * Ringkasan pelunasan satu pinjaman — SATU sumber kebenaran untuk kedua
- * skema: harian (130% flat) maupun bulanan (bunga menurun + biaya layanan
+ * skema: harian (130% flat) maupun bulanan (bunga menurun/flat + biaya
  * dengan biaya dipotong di muka). Dipakai UI nasabah, portofolio Pendana,
  * panel admin, dan
  * pengingat WhatsApp agar angka yang dilihat semua pihak selalu sama.

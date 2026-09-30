@@ -555,7 +555,9 @@ export function LoanForm({ onCreated }: { onCreated: (ref: string) => void }) {
             )}
             <div className="bg-sky-50 px-3 py-2.5 text-sm">
               <dt className="font-semibold text-sky-900">
-                Jadwal angsuran menurun · bunga {sim.persenBungaPerBulan}%/bulan dari sisa pokok
+                {sim.metodeBunga === "flat"
+                  ? `Jadwal angsuran rata · bunga ${sim.persenBungaPerBulan}%/bulan flat dari pokok penuh`
+                  : `Jadwal angsuran menurun · bunga ${sim.persenBungaPerBulan}%/bulan dari sisa pokok`}
               </dt>
               <dd className="mt-2">
                 <ol className="grid grid-cols-1 gap-x-4 gap-y-1.5 sm:grid-cols-2">
