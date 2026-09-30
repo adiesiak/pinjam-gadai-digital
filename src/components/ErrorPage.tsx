@@ -1,7 +1,5 @@
 import { motion } from "framer-motion";
 import { ArrowLeft, RotateCcw, ShieldAlert } from "lucide-react";
-import { Link } from "react-router";
-
 import { Button } from "@/components/ui/button";
 
 /**
@@ -57,7 +55,7 @@ export function ErrorPage({
       <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:justify-center">
         {primaryHref !== undefined ? (
           <Button asChild className="h-11">
-            <Link to={primaryHref}>{labelUtama}</Link>
+            <a href={primaryHref}>{labelUtama}</a>
           </Button>
         ) : (
           <Button
@@ -70,10 +68,10 @@ export function ErrorPage({
         )}
         {secondaryLabel !== null && secondaryHref !== undefined && (
           <Button asChild variant="outline" className="h-11">
-            <Link to={secondaryHref}>
+            <a href={secondaryHref}>
               <ArrowLeft className="mr-1.5 size-4" />
               {secondaryLabel}
-            </Link>
+            </a>
           </Button>
         )}
       </div>
