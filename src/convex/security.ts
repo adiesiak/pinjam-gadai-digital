@@ -13,6 +13,7 @@ import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { ROLES } from "./schema";
 import { generateTotpSecret, verifyTotpCode } from "../lib/totp";
+import { validasiGatewayUrl } from "../lib/waUrl";
 import {
   addVerifiedAuthSession,
   getAdminGateStatus,
@@ -782,9 +783,15 @@ export const requestWaOtp = action({
     const settings = await ctx.runQuery(internal.whatsapp._getSettings, {});
     let status = "gagal";
     let respon = "";
+    // Fail-closed anti-SSRF: URL gateway divalidasi ulang sebelum fetch —
+    // konfigurasi lama yang tidak lolos aturan tidak boleh dihubungi.
+    const cekUrl =
+      settings.apiUrl === undefined ? null : validasiGatewayUrl(settings.apiUrl);
     if (settings.aktif !== true || !settings.apiUrl) {
       respon = "Integrasi WhatsApp belum aktif — kode hanya dicatat di log (mode uji).";
       status = "dinonaktifkan";
+    } else if (cekUrl !== null && !cekUrl.ok) {
+      respon = `Endpoint gateway ditolak: ${cekUrl.alasan}`;
     } else {
       const apiKey = process.env.WHATSAPP_API_KEY ?? "";
       if (!apiKey) {
@@ -799,6 +806,8 @@ export const requestWaOtp = action({
           const prefix = settings.authPrefix ?? "";
           const res = await fetch(settings.apiUrl, {
             method: "POST",
+            // Tanpa mengikuti redirect: cegah redirect-based SSRF.
+            redirect: "error",
             headers: {
               "Content-Type": "application/json",
               [header]: `${prefix}${apiKey}`,

@@ -14,6 +14,7 @@ import { requireAdminSession } from "./adminAuthz";
 import { BULAN_MS, pelunasanPinjaman } from "../lib/loan";
 import { hitungSimulasiBulanan } from "../lib/bulanan";
 import { formatRupiah } from "../lib/money";
+import { validasiGatewayUrl } from "../lib/waUrl";
 
 /**
  * Integrasi WhatsApp untuk pengingat penagihan.
@@ -105,8 +106,11 @@ export const saveConfig = mutation({
   handler: async (ctx, args) => {
     const { userId } = await requireAdmin(ctx);
     const apiUrl = args.apiUrl.trim();
-    if (!/^https:\/\/.+/.test(apiUrl)) {
-      throw new Error("Endpoint harus URL https yang valid.");
+    // Anti-SSRF: endpoint harus HTTPS, hostname domain publik, tanpa IP
+    // literal/internal, port 443, dan tanpa kredensial di URL.
+    const cekApiUrl = validasiGatewayUrl(apiUrl);
+    if (!cekApiUrl.ok) {
+      throw new Error(`Endpoint gateway tidak valid: ${cekApiUrl.alasan}`);
     }
     const authHeader = args.authHeader.trim();
     const fieldNomor = args.fieldNomor.trim();
@@ -295,6 +299,12 @@ async function kirimViaGateway(
   nomor: string,
   isi: string,
 ): Promise<{ ok: boolean; respon: string }> {
+  // Fail-closed: validasi ULANG saat kirim — konfigurasi lama yang tersimpan
+  // sebelum aturan ini ada tetap tidak boleh di-fetch bila tidak lolos.
+  const cekUrl = validasiGatewayUrl(settings.apiUrl ?? "");
+  if (!cekUrl.ok) {
+    return { ok: false, respon: `Endpoint gateway ditolak: ${cekUrl.alasan}` };
+  }
   const header = settings.authHeader ?? "Authorization";
   const prefix = settings.authPrefix ?? "";
   const body = JSON.stringify({
@@ -304,6 +314,9 @@ async function kirimViaGateway(
   try {
     const res = await fetch(settings.apiUrl ?? "", {
       method: "POST",
+      // Tanpa mengikuti redirect: URL publik yang mengalihkan ke alamat
+      // internal tidak boleh ikut dikejar (redirect-based SSRF).
+      redirect: "error",
       headers: {
         "Content-Type": "application/json",
         [header]: `${prefix}${apiKey}`,
