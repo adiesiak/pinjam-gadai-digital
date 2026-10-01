@@ -17,7 +17,8 @@ import { Label } from "@/components/ui/label";
 import { api } from "@/convex/_generated/api";
 import { formatRupiah, parseRupiah } from "@/lib/money";
 
-import { EmptyQueue, QueueRow, formatDate, type LoanRow } from "./admin-shared";
+import { formatDate } from "./admin-format";
+import { EmptyQueue, QueueRow, type LoanRow } from "./admin-shared";
 
 export function LoanAllocationQueueTab({ onOpen }: { onOpen: (l: LoanRow) => void }) {
   const overview = useQuery(api.admin.adminOverview);

@@ -80,14 +80,6 @@ export type KreditRow = {
   status: "diajukan" | "sedang_ditinjau" | "disetujui" | "ditolak" | "didanai" | "lunas";
 };
 
-export function formatDate(ts: number): string {
-  return new Date(ts).toLocaleDateString("id-ID", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
-}
-
 export function QueueRow({
   reference,
   date,

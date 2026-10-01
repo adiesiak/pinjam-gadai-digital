@@ -18,7 +18,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { api } from "@/convex/_generated/api";
 import { formatRupiah } from "@/lib/money";
 
-import { formatDate, type PawnRow } from "./admin-shared";
+import { formatDate } from "./admin-format";
+import { type PawnRow } from "./admin-shared";
 
 export function PawnReviewDialog({
   row,

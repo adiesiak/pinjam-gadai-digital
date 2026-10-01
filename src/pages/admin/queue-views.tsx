@@ -3,10 +3,10 @@ import { useMemo, useState } from "react";
 
 import { GadaiPendanaanPanel } from "@/components/GadaiPendanaanPanel";
 import { StatusBadge } from "@/components/StatusBadge";
+import { formatDate } from "@/components/admin/admin-format";
 import {
   EmptyQueue,
   QueueRow,
-  formatDate,
   type LoanRow,
   type PawnRow,
 } from "@/components/admin/admin-shared";

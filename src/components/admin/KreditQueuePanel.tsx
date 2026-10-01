@@ -10,7 +10,8 @@ import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { formatRupiah } from "@/lib/money";
 
-import { EmptyQueue, formatDate } from "./admin-shared";
+import { formatDate } from "./admin-format";
+import { EmptyQueue } from "./admin-shared";
 
 const STATUS_LABEL: Record<string, string> = {
   diajukan: "Diajukan",

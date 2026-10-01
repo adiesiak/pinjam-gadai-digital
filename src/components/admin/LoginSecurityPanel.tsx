@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { api } from "@/convex/_generated/api";
 
-import { formatDate } from "./admin-shared";
+import { formatDate } from "./admin-format";
 
 /**
  * Panel Keamanan Login — log login append-only + sesi aktif + 2FA admin.

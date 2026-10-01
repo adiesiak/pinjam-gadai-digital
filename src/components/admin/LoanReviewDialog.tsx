@@ -19,7 +19,8 @@ import { api } from "@/convex/_generated/api";
 import { loanPurposeLabel, quoteLoan } from "@/lib/loan";
 import { formatRupiah } from "@/lib/money";
 
-import { formatDate, type LoanRow } from "./admin-shared";
+import { formatDate } from "./admin-format";
+import { type LoanRow } from "./admin-shared";
 import { LoanKycPanel } from "./LoanKycPanel";
 
 export function LoanReviewDialog({
