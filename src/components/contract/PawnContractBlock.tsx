@@ -7,7 +7,6 @@ import { Loader2, PenLine } from "lucide-react";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { buildGadaiContract, CONTRACT_TERMS_VERSION, nomorContract } from "@/lib/contract";
-import { quoteGadai } from "@/lib/gadai";
 
 import { ContractSigningDialog } from "./ContractSigningDialog";
 
@@ -35,10 +34,6 @@ Perjanjian gadai tersedia setelah nilai taksiran dimasukkan ke aplikasi.
   const pokokGadai = detail.pokokGadai ?? undefined;
   const persenSewaModal = detail.persenSewaModal ?? undefined;
   const detailSiap = pokokGadai !== undefined && persenSewaModal !== undefined;
-  const quote =
-    pokokGadai !== undefined && persenSewaModal !== undefined
-      ? quoteGadai(pokokGadai, persenSewaModal)
-      : null;
   const contractData = {
     ttdPeminjam: detail.ttdPeminjam,
     ttdPada: detail.ttdPada,
