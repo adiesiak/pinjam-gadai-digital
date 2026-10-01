@@ -226,6 +226,13 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
     searchParams.get("returnTo"),
     defaultDestination,
   );
+  /**
+   * Pintu admin hanya ditampilkan bila pengunjung SUDAH berada di jalur admin
+   * — yaitu datang lewat klik 5x logo di landing (`returnTo` = ADMIN_ROUTE).
+   * Halaman auth publik karena itu tidak menawarkan tautan admin sama sekali.
+   */
+  const jalurAdmin =
+    authMode === "admin" || searchParams.get("returnTo") === ADMIN_ROUTE;
   const selectPortal = (path: string) => {
     setSearchParams((current) => {
       const next = new URLSearchParams(current);
@@ -286,24 +293,16 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
     setError(null);
   };
 
+  /**
+   * Pindah tab login. Selama pengunjung berada di jalur admin, tujuan
+   * `returnTo` admin dipertahankan: itulah yang membuat calon Super Admin
+   * pertama bisa membuat akun lewat OTP email lalu tetap mendarat di panel
+   * admin untuk bootstrap, bukan terlempar ke /dashboard.
+   */
   const switchAuthMode = (nextMode: "client" | "admin") => {
     setAuthMode(nextMode);
     setError(null);
-    setSearchParams((current) => {
-      const next = new URLSearchParams(current);
-      if (nextMode === "admin") {
-        next.set("returnTo", ADMIN_ROUTE);
-      } else if (next.get("returnTo") === ADMIN_ROUTE) {
-        next.set("returnTo", "/dashboard");
-      }
-      return next;
-    });
-  };
-
-  const beginFirstAdminSetup = () => {
-    setAuthMode("client");
-    setClientStep("signIn");
-    setError(null);
+    if (nextMode !== "admin") return;
     setSearchParams((current) => {
       const next = new URLSearchParams(current);
       next.set("returnTo", ADMIN_ROUTE);
@@ -1085,39 +1084,33 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
               </>
             )}
 
-            {((authMode === "client" && clientStep === "signIn") ||
-              (authMode === "admin" && adminStep === "signIn")) && (
-              <div className="px-6 pb-6">
-                <div className="relative">
-                  <div className="absolute inset-0 flex items-center">
-                    <span className="w-full border-t" />
+            {/* Jalur admin tidak pernah ditawarkan di halaman auth publik — hanya
+                tampil bila pengunjung datang lewat pintu tersembunyi. */}
+            {jalurAdmin &&
+              ((authMode === "client" && clientStep === "signIn") ||
+                (authMode === "admin" && adminStep === "signIn")) && (
+                <div className="px-6 pb-6">
+                  <div className="relative">
+                    <div className="absolute inset-0 flex items-center">
+                      <span className="w-full border-t" />
+                    </div>
+                    <div className="relative flex justify-center text-xs uppercase">
+                      <span className="bg-card px-2 text-muted-foreground">jalur admin</span>
+                    </div>
                   </div>
-                  <div className="relative flex justify-center text-xs uppercase">
-                    <span className="bg-card px-2 text-muted-foreground">akses lainnya</span>
-                  </div>
-                </div>
-                <Button
-                  type="button"
-                  variant="link"
-                  className="mt-2 w-full text-xs"
-                  onClick={() => switchAuthMode(authMode === "client" ? "admin" : "client")}
-                  disabled={isLoading}
-                >
-                  {authMode === "client" ? "Masuk sebagai Super Admin" : "Masuk sebagai Peminjam atau Pendana"}
-                </Button>
-                {authMode === "admin" && (
                   <Button
                     type="button"
-                    variant="ghost"
-                    className="mt-1 w-full text-xs text-muted-foreground"
-                    onClick={beginFirstAdminSetup}
+                    variant="link"
+                    className="mt-2 w-full text-xs"
+                    onClick={() => switchAuthMode(authMode === "client" ? "admin" : "client")}
                     disabled={isLoading}
                   >
-                    Setup admin pertama dengan OTP email
+                    {authMode === "client"
+                      ? "Masuk sebagai Super Admin"
+                      : "Belum punya kata sandi? Masuk / buat akun dengan OTP email"}
                   </Button>
-                )}
-              </div>
-            )}
+                </div>
+              )}
           </Card>
         </div>
       </FadeIn>
