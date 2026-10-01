@@ -40,6 +40,7 @@ const AuthPage = lazy(denganPercobaan(() => import("./pages/Auth.tsx")));
 const Dashboard = lazy(denganPercobaan(() => import("./pages/Dashboard.tsx")));
 const Admin = lazy(denganPercobaan(() => import("./pages/Admin.tsx")));
 const PenyediaDana = lazy(denganPercobaan(() => import("./pages/PenyediaDana.tsx")));
+const AksesBersama = lazy(denganPercobaan(() => import("./pages/AksesBersama.tsx")));
 const NotFound = lazy(denganPercobaan(() => import("./pages/NotFound.tsx")));
 
 // Simple loading fallback for route transitions
@@ -236,6 +237,11 @@ createRoot(document.getElementById("root")!).render(
                     </RequireAuth>
                   }
                 />
+                {/* Pintu publik pemantau: kode akses bersama (lihat saja).
+                    Sengaja di luar RequireAuth — halamannya sendiri yang
+                    membuka sesi tamu sebelum memverifikasi kode. */}
+                <Route path="/akses-bersama" element={<AksesBersama />} />
+
                 {/* Ruang penyedia dana (baca saja) untuk akun yang diberi akses
                     admin; tautan lama /pendana diarahkan ke sana. */}
                 <Route

@@ -537,6 +537,20 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                           <UserX className="mr-2 size-4" />
                           Lanjut sebagai tamu
                         </Button>
+
+                        {/* Pintu khusus pemantau penyedia dana — satu kode
+                            bersama, akses lihat saja. */}
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          className="mt-1.5 w-full text-xs text-muted-foreground"
+                          asChild
+                        >
+                          <Link to="/akses-bersama">
+                            <KeyRound className="mr-2 size-3.5" />
+                            Punya kode akses bersama? Masuk di sini
+                          </Link>
+                        </Button>
                       </div>
                     </CardContent>
                   </form>

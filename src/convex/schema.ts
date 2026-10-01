@@ -23,6 +23,13 @@ export const ROLES = {
   /** Dana — peran penyedia dana yang masih tersimpan pada dokumen lama. */
   DANA: "dana",
   MEMBER: "member",
+  /**
+   * Pemantau lihat-saja — akun bersama penyedia dana (login dengan kode
+   * akses bersama, lihat `convex/aksesBersama.ts`). Sengaja dipisah dari
+   * `dana`: peran ini TIDAK membuka satu pun mutation alokasi/transaksi —
+   * hanya query baca di `convex/penyediaDana.ts` yang menerimanya.
+   */
+  PENGAMAT: "pengamat",
 } as const;
 
 export const roleValidator = v.union(
@@ -30,6 +37,7 @@ export const roleValidator = v.union(
   v.literal(ROLES.PEMINJAM),
   v.literal(ROLES.DANA),
   v.literal(ROLES.MEMBER),
+  v.literal(ROLES.PENGAMAT),
 );
 export type Role = Infer<typeof roleValidator>;
 
@@ -95,6 +103,14 @@ const schema = defineSchema(
       plafonPinjamanNaikPada: v.optional(v.number()),
       /** Kode pseudonim acak yang stabil; tidak berasal dari data identitas. */
       kodePeminjam: v.optional(v.string()),
+      /**
+       * Versi kode akses bersama yang sedang dipakai akun ini (peran
+       * `pengamat`). Rotasi/nonaktif kode menaikkan versi sehingga pemakaian
+       * lama langsung diputus walau token sesinya masih berlaku.
+       */
+      aksesBersamaVersi: v.optional(v.number()),
+      /** Waktu sesi tamu terakhir diaktifkan dengan kode akses bersama. */
+      aksesBersamaPada: v.optional(v.number()),
     })
       .index("email", ["email"]) // index for the email. do not remove or modify
       .index("by_kodePeminjam", ["kodePeminjam"]),
@@ -409,6 +425,31 @@ const schema = defineSchema(
       .index("by_user", ["userId"])
       .index("by_device", ["deviceId"])
       .index("by_token", ["token"]),
+
+    /**
+     * Kode akses bersama penyedia dana — satu baris global (slot "global").
+     *
+     * Kode disimpan HANYA sebagai hash SHA-256: nilai aslinya ditampilkan
+     * sekali saat admin menerbitkannya, dan tidak pernah dapat dibaca lagi
+     * dari basis data. `versi` naik setiap penerbitan/nonaktif, sehingga
+     * seluruh pemakai lama terputus seketika tanpa perlu menghapus apa pun.
+     */
+    aksesBersama: defineTable({
+      /** Selalu "global" — hanya ada satu baris. */
+      slot: v.string(),
+      /** SHA-256 dari kode (hex) — bukan kode aslinya. */
+      kodeHash: v.optional(v.string()),
+      /** Flag aktif; matikan tanpa menghapus baris. */
+      aktif: v.optional(v.boolean()),
+      /** Naik pada setiap penerbitan/nonaktif — pemutus seluruh pemakai lama. */
+      versi: v.number(),
+      diterbitkanPada: v.optional(v.number()),
+      diperbaruiPada: v.number(),
+      /** Waktu percobaan gagal dalam jendela berjalan (maks 2× batas). */
+      gagalTerakhir: v.optional(v.array(v.number())),
+      /** Sampai kapan percobaan dibekukan (epoch ms). */
+      blokirSampai: v.optional(v.number()),
+    }).index("by_slot", ["slot"]),
 
     /**
      * Konfigurasi sistem — satu baris global (slot "global").

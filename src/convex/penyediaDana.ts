@@ -21,6 +21,7 @@ import { v } from "convex/values";
 
 import type { Id } from "./_generated/dataModel";
 import { mutation, query, type QueryCtx } from "./_generated/server";
+import { SLOT_AKSES_BERSAMA } from "./aksesBersama";
 import { requireAdminSession } from "./adminAuthz";
 import { ROLES } from "./schema";
 import { audit } from "./system";
@@ -84,6 +85,32 @@ async function requirePengamat(ctx: QueryCtx) {
 
   const user = await ctx.db.get(userId);
   if (user === null) throw new Error("Pengguna tidak ditemukan.");
+
+  /**
+   * Pemantau akun bersama: sesi tamu yang diaktifkan kode akses bersama.
+   * Aksesnya harus masih memakai versi kode yang berlaku — rotasi atau
+   * nonaktif kode langsung memutusnya, walau sesinya masih hidup.
+   */
+  if (user.role === ROLES.PENGAMAT) {
+    // Fail-closed: kalau akunnya berubah menjadi akun email, akses bersama
+    // ditutup supaya tidak ikut mewarisi hak tulis sebuah akun biasa.
+    if (user.isAnonymous !== true) {
+      throw new Error(
+        "Akses bersama berakhir karena akun ini kini memakai identitas email. Minta akses dari admin.",
+      );
+    }
+    const baris = await ctx.db
+      .query("aksesBersama")
+      .withIndex("by_slot", (q) => q.eq("slot", SLOT_AKSES_BERSAMA))
+      .first();
+    if (baris?.aktif !== true || user.aksesBersamaVersi !== baris.versi) {
+      throw new Error(
+        "Akses bersama sudah diputus admin. Minta kode terbaru lalu masuk lagi lewat /akses-bersama.",
+      );
+    }
+    return { userId, user };
+  }
+
   if (user.isAnonymous === true) {
     throw new Error(
       "Akun tamu tidak memiliki akses ruang penyedia dana. Masuk dengan akun terverifikasi.",
@@ -218,16 +245,28 @@ export const daftarAkses = query({
     await requireAdminSession(ctx);
 
     const pengguna = await ctx.db.query("users").take(BATAS_AKUN + 1);
+    const baris = await ctx.db
+      .query("aksesBersama")
+      .withIndex("by_slot", (q) => q.eq("slot", SLOT_AKSES_BERSAMA))
+      .first();
+    const versiAktif = baris?.versi ?? 0;
     const rows = pengguna
-      .filter((u) => u.role === ROLES.DANA)
+      .filter((u) => u.role === ROLES.DANA || u.role === ROLES.PENGAMAT)
       .slice(0, BATAS_AKUN)
       .map((u) => ({
         userId: u._id,
-        nama: u.name ?? "Penyedia dana",
+        nama: u.name ?? (u.role === ROLES.PENGAMAT ? "Pemantau bersama" : "Penyedia dana"),
         email: u.email ?? null,
         kodePeminjam: u.kodePeminjam ?? null,
         emailTerverifikasi: u.emailVerificationTime !== undefined,
-      }));
+        /** Akun bersama dari kode akses — dikelola lewat terbit/nonaktif kode. */
+        akunBersama: u.role === ROLES.PENGAMAT,
+        /** Sesi bersama yang masih memakai versi kode berlaku. */
+        aksesAktif:
+          u.role !== ROLES.PENGAMAT ||
+          (baris?.aktif === true && u.aksesBersamaVersi === versiAktif),
+      }))
+      .sort((a, b) => Number(a.akunBersama) - Number(b.akunBersama));
 
     return { batas: BATAS_AKUN, terpotong: pengguna.length > BATAS_AKUN, rows };
   },

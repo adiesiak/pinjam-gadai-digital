@@ -1,6 +1,7 @@
 import { useQuery } from "convex/react";
 import {
   Eye,
+  KeyRound,
   Loader2,
   Lock,
   Package,
@@ -131,11 +132,19 @@ function AksesTerbatas() {
         Akses lihat saja hanya diberikan admin PINDAI kepada akun tertentu. Akun Anda belum
         terdaftar; hubungi tim operasional bila Anda membutuhkan akses ini.
       </p>
+      <p className="mx-auto mt-4 max-w-md rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs leading-5 text-muted-foreground">
+        <KeyRound className="mr-1.5 inline size-3.5 align-[-2px] text-primary" />
+        Tim pemantau memakai <strong>kode akses bersama</strong> dari admin — masuk lewat
+        halaman kode akses, bukan lewat akun email.
+      </p>
       <div className="mt-6 flex flex-wrap justify-center gap-3">
         <Button asChild>
-          <Link to="/dashboard">Buka dashboard Peminjam</Link>
+          <Link to="/akses-bersama">Masuk dengan kode akses bersama</Link>
         </Button>
         <Button asChild variant="outline">
+          <Link to="/dashboard">Buka dashboard Peminjam</Link>
+        </Button>
+        <Button asChild variant="ghost">
           <Link to="/">Kembali ke beranda</Link>
         </Button>
       </div>
@@ -148,7 +157,8 @@ export default function PenyediaDana() {
   const [tab, setTab] = useState("pinjaman");
 
   const role = user?.role;
-  const bolehLihat = role === "dana" || role === "admin";
+  // `pengamat` = sesi tamu yang diaktifkan kode akses bersama (lihat saja).
+  const bolehLihat = role === "dana" || role === "admin" || role === "pengamat";
   // Query tidak dipanggil sebelum peran diketahui atau tanpa akses; server tetap
   // penjaga utama karena gerbangnya juga dijalankan di sisi Convex.
   const data = useQuery(
@@ -168,7 +178,10 @@ export default function PenyediaDana() {
           </Link>
           <div className="flex items-center gap-2">
             <span className="hidden items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[10px] font-medium uppercase tracking-[0.16em] text-muted-foreground sm:inline-flex">
-              <Eye className="size-3" /> Ruang penyedia dana · lihat saja
+              <Eye className="size-3" />
+              {role === "pengamat"
+                ? "Pemantau akun bersama · lihat saja"
+                : "Ruang penyedia dana · lihat saja"}
             </span>
             <RoleDashboardMenu />
           </div>

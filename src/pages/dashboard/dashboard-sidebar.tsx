@@ -54,7 +54,7 @@ export function DashboardSidebar({
           </div>
         </div>
 
-        {(role === "admin" || role === "dana") && (
+        {(role === "admin" || role === "dana" || role === "pengamat") && (
           <div className="mt-3 flex flex-col gap-1 border-t border-slate-100 pt-3">
             {role === "admin" && (
               <Button

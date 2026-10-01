@@ -23,7 +23,10 @@ export function RoleDashboardMenu() {
     description: "Lihat catatan pinjaman dan pengajuan",
     icon: LayoutDashboard,
   };
-  /** Akses lihat saja: akun penyedia dana dan admin (untuk pratinjau). */
+  /**
+   * Akses lihat saja: akun penyedia dana, pemantau akun bersama (kode akses),
+   * dan admin (untuk pratinjau).
+   */
   const ruangPenyediaDana = {
     href: "/penyedia-dana",
     label: "Ruang Penyedia Dana",
@@ -42,7 +45,7 @@ export function RoleDashboardMenu() {
           ruangPenyediaDana,
           dashboardPeminjam,
         ]
-      : role === "dana"
+      : role === "dana" || role === "pengamat"
         ? [ruangPenyediaDana, dashboardPeminjam]
         : [dashboardPeminjam];
 
