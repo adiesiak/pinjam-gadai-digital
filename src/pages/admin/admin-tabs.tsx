@@ -100,7 +100,7 @@ export function AdminTabs({
       onValueChange={setActiveTab}
       className="mt-4 flex min-w-0 flex-col gap-4 sm:mt-6 sm:gap-5 lg:flex-row lg:items-start lg:gap-6"
     >
-      <div className="sticky top-16 z-30 -mx-3 border-y border-slate-200 bg-white/95 px-3 py-2.5 backdrop-blur sm:-mx-6 sm:px-6 lg:hidden">
+      <div className="animate-masuk sticky top-16 z-30 -mx-3 border-y border-slate-200 bg-white/95 px-3 py-2.5 backdrop-blur sm:-mx-6 sm:px-6 lg:hidden">
         <label htmlFor="admin-tab-select" className="mb-1.5 block text-[11px] font-medium text-muted-foreground">
           Menu operasional
         </label>
@@ -122,7 +122,7 @@ export function AdminTabs({
         </div>
       </div>
 
-      <TabsList aria-label="Navigasi panel admin" className="hidden lg:sticky lg:top-20 lg:z-30 lg:flex lg:h-auto lg:w-64 lg:shrink-0 lg:flex-col lg:items-stretch lg:gap-1 lg:self-start lg:rounded-2xl lg:border lg:border-slate-200 lg:bg-white lg:p-2">
+      <TabsList aria-label="Navigasi panel admin" className="animate-masuk hidden lg:sticky lg:top-20 lg:z-30 lg:flex lg:h-auto lg:w-64 lg:shrink-0 lg:flex-col lg:items-stretch lg:gap-1 lg:self-start lg:rounded-2xl lg:border lg:border-slate-200 lg:bg-white lg:p-2">
         {tabItems.map(([value, label, badge, Icon]) => (
           <TabsTrigger
             key={value}
@@ -148,75 +148,75 @@ export function AdminTabs({
         ))}
       </TabsList>
 
-      <TabsContent value="pinjaman" className="min-w-0 flex-1">
+      <TabsContent value="pinjaman" className="min-w-0 flex-1 animate-masuk">
         <LoanQueueSection loans={overview.loans} onOpen={onOpenLoan} />
       </TabsContent>
 
-      <TabsContent value="gadai" className="min-w-0 flex-1">
+      <TabsContent value="gadai" className="min-w-0 flex-1 animate-masuk">
         <PawnQueueSection pawns={overview.pawns} onOpen={onOpenPawn} />
       </TabsContent>
 
-      <TabsContent value="kredit" className="min-w-0 flex-1">
+      <TabsContent value="kredit" className="min-w-0 flex-1 animate-masuk">
         <KreditQueuePanel />
       </TabsContent>
 
-      <TabsContent value="setoran" className="min-w-0 flex-1">
+      <TabsContent value="setoran" className="min-w-0 flex-1 animate-masuk">
         <SetoranSection pendingDeposits={pendingDeposits} pendingWd={pendingWd} ledger={ledger} />
       </TabsContent>
 
-      <TabsContent value="bukti" className="min-w-0 flex-1">
+      <TabsContent value="bukti" className="min-w-0 flex-1 animate-masuk">
         <ManualEvidenceQueue />
       </TabsContent>
 
-      <TabsContent value="pengumuman" className="min-w-0 flex-1">
+      <TabsContent value="pengumuman" className="min-w-0 flex-1 animate-masuk">
         <AnnouncementCms />
       </TabsContent>
 
-      <TabsContent value="whatsapp" className="min-w-0 flex-1">
+      <TabsContent value="whatsapp" className="min-w-0 flex-1 animate-masuk">
         <WhatsAppPanel />
       </TabsContent>
 
-      <TabsContent value="lokasi" className="min-w-0 flex-1">
+      <TabsContent value="lokasi" className="min-w-0 flex-1 animate-masuk">
         <LiveLocationMap />
       </TabsContent>
 
-      <TabsContent value="alokasi" className="min-w-0 flex-1">
+      <TabsContent value="alokasi" className="min-w-0 flex-1 animate-masuk">
         <LoanAllocationQueueTab onOpen={onOpenLoan} />
       </TabsContent>
 
-      <TabsContent value="dpd" className="min-w-0 flex-1">
+      <TabsContent value="dpd" className="min-w-0 flex-1 animate-masuk">
         <DpdTab />
       </TabsContent>
 
-      <TabsContent value="lelang" className="min-w-0 flex-1">
+      <TabsContent value="lelang" className="min-w-0 flex-1 animate-masuk">
         <LelangTab />
       </TabsContent>
 
-      <TabsContent value="ledger" className="min-w-0 flex-1">
+      <TabsContent value="ledger" className="min-w-0 flex-1 animate-masuk">
         <LedgerTab />
       </TabsContent>
 
-      <TabsContent value="backup" className="min-w-0 flex-1">
+      <TabsContent value="backup" className="min-w-0 flex-1 animate-masuk">
         <BackupPanel />
       </TabsContent>
 
-      <TabsContent value="template" className="min-w-0 flex-1">
+      <TabsContent value="template" className="min-w-0 flex-1 animate-masuk">
         <WebsiteTemplatePanel />
       </TabsContent>
 
-      <TabsContent value="config" className="min-w-0 flex-1">
+      <TabsContent value="config" className="min-w-0 flex-1 animate-masuk">
         <SystemConfigPanel />
       </TabsContent>
 
-      <TabsContent value="plafon" className="min-w-0 flex-1">
+      <TabsContent value="plafon" className="min-w-0 flex-1 animate-masuk">
         <PlafonPanel />
       </TabsContent>
 
-      <TabsContent value="audit" className="min-w-0 flex-1">
+      <TabsContent value="audit" className="min-w-0 flex-1 animate-masuk">
         <AuditTrailPanel />
       </TabsContent>
 
-      <TabsContent value="loglogin" className="min-w-0 flex-1">
+      <TabsContent value="loglogin" className="min-w-0 flex-1 animate-masuk">
         <LoginSecurityPanel onOpenSetup={onOpenSetup} />
       </TabsContent>
     </Tabs>

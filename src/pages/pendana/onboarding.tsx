@@ -20,7 +20,7 @@ import { api } from "@/convex/_generated/api";
 /** Kartu informasi untuk peran yang tidak dapat menjadi Pendana. */
 export function Notice({ title, body }: { title: string; body: string }) {
   return (
-    <div className="mx-auto max-w-md rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm">
+    <div className="animate-masuk mx-auto max-w-md rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm">
       <Coins className="mx-auto size-5 text-slate-400" />
       <h1 className="mt-4 text-lg font-semibold">{title}</h1>
       <p className="mt-2 text-sm leading-6 text-muted-foreground">{body}</p>
@@ -117,7 +117,7 @@ export function Onboarding() {
   const [busy, setBusy] = useState(false);
 
   return (
-    <div className="space-y-6">
+    <div className="animate-masuk space-y-6">
       <div className="mx-auto max-w-xl rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
         <span className="flex size-11 items-center justify-center rounded-xl bg-slate-100 text-slate-700">
           <Landmark className="size-5" strokeWidth={2} />

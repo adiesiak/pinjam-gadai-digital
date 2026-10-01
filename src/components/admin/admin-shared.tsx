@@ -140,7 +140,7 @@ export function EmptyQueue({
 
 export function SecurityBar({ seimbang, killSwitch }: { seimbang: boolean; killSwitch: boolean }) {
   return (
-    <div className={`overflow-hidden border-b ${killSwitch ? "border-red-200 bg-red-50" : "border-slate-200 bg-slate-50"}`}>
+    <div className={`animate-masuk overflow-hidden border-b ${killSwitch ? "border-red-200 bg-red-50" : "border-slate-200 bg-slate-50"}`}>
       <div className="animate-marquee flex w-max items-center gap-8 py-1.5 text-[11px] font-medium text-navy">
         {[0, 1].map((dup) => (
           <div key={dup} className="flex items-center gap-8 pr-8" aria-hidden={dup === 1}>

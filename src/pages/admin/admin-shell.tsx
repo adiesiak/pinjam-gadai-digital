@@ -1,3 +1,4 @@
+import { motion } from "framer-motion";
 import {
   ArrowLeft,
   BadgeCheck,
@@ -19,6 +20,7 @@ import { Link } from "react-router";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { formatRupiah } from "@/lib/money";
+import { fadeUpItem, staggerContainer } from "@/lib/motion";
 import { RoleDashboardMenu } from "@/components/RoleDashboardMenu";
 
 export type AdminStatsData = {
@@ -46,7 +48,7 @@ export function BootstrapAdminView({
 }) {
   return (
     <main className="flex min-h-screen items-center justify-center bg-background px-6">
-      <div className="w-full max-w-md rounded-lg border border-border/60 p-8">
+      <div className="animate-masuk w-full max-w-md rounded-lg border border-border/60 p-8">
         <ShieldCheck className="size-5 text-muted-foreground" />
         <h1 className="mt-4 text-xl font-semibold tracking-tight">Setup tim PINDAI</h1>
         <p className="mt-2 text-sm leading-6 text-muted-foreground">
@@ -80,7 +82,7 @@ export function BootstrapAdminView({
 export function NotAdminView() {
   return (
     <main className="flex min-h-screen items-center justify-center bg-background px-6">
-      <div className="max-w-md text-center">
+      <div className="animate-masuk max-w-md text-center">
         <ShieldCheck className="mx-auto size-5 text-muted-foreground" />
         <h1 className="mt-4 text-xl font-semibold tracking-tight">Akses khusus tim</h1>
         <p className="mt-2 text-sm leading-6 text-muted-foreground">
@@ -113,7 +115,7 @@ export function AdminHeader({
   onToggleKill: () => void;
 }) {
   return (
-    <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/95 backdrop-blur">
+    <header className="animate-masuk sticky top-0 z-40 border-b border-slate-200 bg-white/95 backdrop-blur">
       <div className="mx-auto flex min-h-14 w-full max-w-7xl items-center justify-between gap-2 px-3 py-2 sm:min-h-16 sm:gap-3 sm:px-6">
         <div className="flex min-w-0 items-center gap-2 sm:gap-3">
           <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-emerald-700 text-base font-bold text-primary-foreground sm:size-10">
@@ -184,10 +186,17 @@ export function AdminStats({ stats }: { stats: AdminStatsData }) {
   } as const;
 
   return (
-    <section aria-label="Statistik operasional" className="mt-4 grid grid-cols-2 gap-2 sm:mt-5 sm:grid-cols-3 sm:gap-3 xl:grid-cols-4">
+    <motion.section
+      aria-label="Statistik operasional"
+      variants={staggerContainer}
+      initial="hidden"
+      animate="show"
+      className="mt-4 grid grid-cols-2 gap-2 sm:mt-5 sm:grid-cols-3 sm:gap-3 xl:grid-cols-4"
+    >
       {items.map(({ label, value, tone, Icon }) => (
-        <div
+        <motion.div
           key={label}
+          variants={fadeUpItem}
           className="group rounded-xl border border-slate-200 bg-white p-3 transition-colors hover:border-slate-300 min-[380px]:rounded-2xl min-[380px]:p-4 sm:p-5"
         >
           <div className="flex items-start justify-between gap-2">
@@ -199,8 +208,8 @@ export function AdminStats({ stats }: { stats: AdminStatsData }) {
           <p className="mt-2 break-words text-lg font-bold tracking-tight tabular-nums text-navy min-[380px]:mt-3 min-[380px]:text-xl sm:text-2xl">
             {value}
           </p>
-        </div>
+        </motion.div>
       ))}
-    </section>
+    </motion.section>
   );
 }

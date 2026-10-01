@@ -112,7 +112,7 @@ export default function Admin() {
   if (!gate.aktif) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-slate-50 px-6">
-        <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+        <div className="animate-masuk w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
           <ShieldCheck className="size-6 text-primary" />
           <h1 className="mt-4 text-xl font-semibold tracking-tight text-slate-900">
             Aktifkan verifikasi TOTP
@@ -175,7 +175,7 @@ export default function Admin() {
       />
 
       <main className="mx-auto w-full max-w-7xl flex-1 px-3 py-4 sm:px-6 sm:py-8">
-        <section className="relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-4 sm:rounded-3xl sm:p-8">
+        <section className="animate-masuk relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-4 sm:rounded-3xl sm:p-8">
           <div className="absolute right-0 top-0 h-full w-1/3 bg-gradient-to-l from-emerald-50/80 to-transparent" aria-hidden="true" />
           <div className="relative flex flex-col justify-between gap-6 sm:flex-row sm:items-end">
             <div className="max-w-2xl">

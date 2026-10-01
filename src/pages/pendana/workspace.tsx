@@ -2,6 +2,7 @@ import { useQuery } from "convex/react";
 import { useState } from "react";
 import { Store, TrendingUp, Wallet } from "lucide-react";
 
+import { FadeIn } from "@/components/Reveal";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { api } from "@/convex/_generated/api";
 import { formatRupiah } from "@/lib/money";
@@ -68,7 +69,7 @@ export function PendanaWorkspace({
         </aside>
 
         {/* ===== Kolom konten ===== */}
-        <div className="min-w-0 flex-1">
+        <FadeIn className="min-w-0 flex-1">
           <div className="flex flex-col gap-1">
             <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-primary">
               Ruang Pendana · pengajuan dan estimasi
@@ -125,30 +126,30 @@ export function PendanaWorkspace({
           </section>
 
           {/* ===== Konten tab ===== */}
-          <TabsContent value="marketplace" className="mt-8">
+          <TabsContent value="marketplace" className="mt-8 animate-masuk">
             <MarketplaceSection />
           </TabsContent>
 
-          <TabsContent value="kredit" className="mt-8">
+          <TabsContent value="kredit" className="mt-8 animate-masuk">
             <KreditBarangSection />
           </TabsContent>
 
-          <TabsContent value="portofolio" className="mt-8">
+          <TabsContent value="portofolio" className="mt-8 animate-masuk">
             <PortfolioSection portfolio={portfolio} />
           </TabsContent>
 
-          <TabsContent value="kontrak" className="mt-8">
+          <TabsContent value="kontrak" className="mt-8 animate-masuk">
             <FundingContractsSection />
           </TabsContent>
 
-          <TabsContent value="dompet" className="mt-8">
+          <TabsContent value="dompet" className="mt-8 animate-masuk">
             <WalletSection />
           </TabsContent>
 
-          <TabsContent value="riwayat" className="mt-8">
+          <TabsContent value="riwayat" className="mt-8 animate-masuk">
             <HistorySection />
           </TabsContent>
-        </div>
+        </FadeIn>
       </Tabs>
 
     </>
