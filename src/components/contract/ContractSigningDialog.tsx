@@ -54,19 +54,24 @@ export function ContractSigningDialog({
   const [hasSignature, setHasSignature] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [prevOpen, setPrevOpen] = useState(open);
+
+  // Reset state setiap kali dialog dibuka memakai pola "adjusting state during
+  // render" — menghindari setState di dalam efek yang memicu cascading render.
+  if (open !== prevOpen) {
+    setPrevOpen(open);
+    if (open) {
+      setConsentChecked(false);
+      setHasSignature(false);
+      setError(null);
+    }
+  }
 
   const fullySigned =
     signature !== null &&
     signedAt !== null &&
     consentAt !== null &&
     consentVersion === CONTRACT_TERMS_VERSION;
-
-  useEffect(() => {
-    if (!open) return;
-    setConsentChecked(false);
-    setHasSignature(false);
-    setError(null);
-  }, [open]);
 
   useEffect(() => {
     if (!open || fullySigned || signingDisabledReason !== null) return;
