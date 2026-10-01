@@ -1,11 +1,10 @@
-import { AlertTriangle, ArrowRight, CalendarClock, Send, Wallet } from "lucide-react";
+import { ArrowRight, CalendarClock, Send, Wallet } from "lucide-react";
 
 import { StatusBadge } from "@/components/StatusBadge";
 import { ManualPaymentEvidenceForm } from "@/components/ManualPaymentEvidenceForm";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { formatRupiah } from "@/lib/money";
 import { EmptyState } from "./empty-state";

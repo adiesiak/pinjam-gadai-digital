@@ -181,7 +181,7 @@ export function LoanForm({ onCreated }: { onCreated: (ref: string) => void }) {
         });
         setLokBusy(false);
       },
-      (err) => {
+      () => {
         setError("Lokasi gagal diambil. Izinkan akses lokasi pada browser, lalu coba lagi.");
         setLokBusy(false);
       },

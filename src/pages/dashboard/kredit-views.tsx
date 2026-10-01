@@ -18,7 +18,6 @@ import { Separator } from "@/components/ui/separator";
 import { Slider } from "@/components/ui/slider";
 import { Textarea } from "@/components/ui/textarea";
 import { api } from "@/convex/_generated/api";
-import { Id } from "@/convex/_generated/dataModel";
 import {
   KREDIT_ASUMSI_AWAL,
   KREDIT_BARANG_POKOK_MAKS,
@@ -107,9 +106,9 @@ export function KreditBarangForm({ onCreated }: { onCreated: (ref: string) => vo
   const [hargaInput, setHargaInput] = useState("5.000.000");
   const [dpPersen, setDpPersen] = useState<number>(KREDIT_ASUMSI_AWAL.dpPersen);
   const [tenorBulan, setTenorBulan] = useState<number>(KREDIT_ASUMSI_AWAL.tenorBulan);
-  const [marginPersenPerBulan, setMarginPersenPerBulan] = useState<number>(
-    KREDIT_ASUMSI_AWAL.marginPersenPerBulan,
-  );
+  // Margin selalu memakai asumsi awal engine — tidak ada kontrol UI untuk
+  // mengubahnya pada alur kredit barang ini, jadi disimpan sebagai konstanta.
+  const marginPersenPerBulan = KREDIT_ASUMSI_AWAL.marginPersenPerBulan;
   const [namaLengkap, setNamaLengkap] = useState("");
   const [nik, setNik] = useState("");
   const [nomorRekening, setNomorRekening] = useState("");
