@@ -93,11 +93,17 @@ function Carousel({
 
   React.useEffect(() => {
     if (!api) return
-    onSelect(api)
+    // Sinkronisasi awal dijadwalkan sebagai microtask agar tidak memanggil
+    // setState langsung di dalam tubuh efek.
+    let cancelled = false
+    queueMicrotask(() => {
+      if (!cancelled) onSelect(api)
+    })
     api.on("reInit", onSelect)
     api.on("select", onSelect)
 
     return () => {
+      cancelled = true
       api?.off("select", onSelect)
     }
   }, [api, onSelect])
