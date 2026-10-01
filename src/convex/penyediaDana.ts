@@ -7,10 +7,11 @@
  * membaca, tidak pernah mengubah catatan.
  *
  * Privasi (whitelist, bukan spread dokumen mentah): baris yang dikirim ke
- * klien hanya berisi field operasional yang aman. NIK, nomor rekening, nomor
- * WhatsApp, nama lengkap, alamat, tanda tangan, dan dokumen KYC tidak pernah
- * keluar dari server — identitas pemohon direpresentasikan oleh `kodePeminjam`
- * (pseudonim acak yang diterbitkan `peminjamCode.ts`).
+ * klien hanya berisi field operasional yang aman. Nama lengkap pemohon
+ * ditampilkan untuk ruang pemantau (keputusan admin), sedangkan NIK, nomor
+ * rekening, nomor WhatsApp, alamat, penghasilan, tanda tangan, dan dokumen KYC
+ * tidak pernah keluar dari server. Setiap baris tetap membawa `kodePeminjam`
+ * (pseudonim acak dari `peminjamCode.ts`) sebagai kunci stabil antar-ruang.
  *
  * Akses ditentukan peran akun: `dana` (penyedia dana) atau `admin` untuk
  * pratinjau. Admin memberi/mencabut akses lewat `ubahAkses` di bawah, dan
@@ -35,6 +36,8 @@ const BATAS_AKUN = 200;
 export type BarisPinjaman = {
   _id: Id<"loans">;
   nomorReferensi: string;
+  /** Nama lengkap pemohon (ditampilkan; NIK/rekening/WA tetap di server). */
+  namaLengkap: string;
   kodePeminjam: string | null;
   pokokPinjaman: number;
   tenorHari: number;
@@ -43,22 +46,36 @@ export type BarisPinjaman = {
   status: string;
   /** Waktu pengajuan tercatat (convex `_creationTime`). */
   diajukanPada: number;
+  /** Waktu pendanaan penuh — null bila belum didanai. */
+  didanaiPada: number | null;
+  /** Nama penyedia dana yang mencatat alokasi — null bila belum didanai. */
+  pendana: string | null;
 };
 
 export type BarisGadai = {
   _id: Id<"pawns">;
   nomorReferensi: string;
+  /** Nama lengkap pemohon (ditampilkan; NIK/rekening/dokumen tetap di server). */
+  namaLengkap: string;
   kodePeminjam: string | null;
   kategori: string;
   deskripsiBarang: string;
   nilaiTaksiran: number | null;
   status: string;
   diajukanPada: number;
+  /** Pokok gadai yang disetujui admin (Skema B) — null bila belum ada. */
+  pokokGadai: number | null;
+  /** Sewa modal per 30 hari dalam persen (Skema B). */
+  persenSewaModal: number | null;
+  /** Sisa pokok berjalan gadai (Skema B). */
+  sisaPokok: number | null;
 };
 
 export type BarisKredit = {
   _id: Id<"kreditBarang">;
   nomorReferensi: string;
+  /** Nama lengkap pemohon (ditampilkan; NIK/rekening/WA tetap di server). */
+  namaLengkap: string;
   kodePeminjam: string | null;
   namaBarang: string;
   kategori: string;
@@ -69,6 +86,10 @@ export type BarisKredit = {
   marginPersenPerBulan: number;
   status: string;
   diajukanPada: number;
+  /** Waktu pendanaan penuh — null bila belum didanai. */
+  didanaiPada: number | null;
+  /** Nama penyedia dana yang mencatat alokasi — null bila belum didanai. */
+  pendana: string | null;
 };
 
 const MENUNGGU_PINJAMAN = new Set(["diajukan", "sedang_direview"]);
@@ -146,6 +167,41 @@ export const daftarPengajuan = query({
       return kode;
     }
 
+    // Nama penyedia dana untuk kolom "Pendana". Dibaca hanya pada baris yang
+    // sudah didanai supaya tidak ada pembacaan tabel alokasi per baris kosong;
+    // nama akun di-cache agar satu pembacaan per penyedia, bukan per baris.
+    const namaCache = new Map<Id<"users">, string | null>();
+    async function namaPenyedia(userId: Id<"users">): Promise<string | null> {
+      const cached = namaCache.get(userId);
+      if (cached !== undefined) return cached;
+      const penyedia = await ctx.db.get(userId);
+      const nama = penyedia?.name ?? null;
+      namaCache.set(userId, nama);
+      return nama;
+    }
+    async function rangkaiPendana(ids: Id<"users">[]): Promise<string | null> {
+      if (ids.length === 0) return null;
+      const nama: string[] = [];
+      for (const id of ids) {
+        nama.push((await namaPenyedia(id)) ?? "Penyedia dana");
+      }
+      return [...new Set(nama)].join(", ");
+    }
+    async function pendanaPinjaman(loanId: Id<"loans">): Promise<string | null> {
+      const alokasi = await ctx.db
+        .query("fundings")
+        .withIndex("by_loan", (q) => q.eq("loanId", loanId))
+        .collect();
+      return rangkaiPendana(alokasi.map((a) => a.danaId));
+    }
+    async function pendanaKredit(kreditId: Id<"kreditBarang">): Promise<string | null> {
+      const alokasi = await ctx.db
+        .query("kreditFundings")
+        .withIndex("by_kredit", (q) => q.eq("kreditId", kreditId))
+        .collect();
+      return rangkaiPendana(alokasi.map((a) => a.danaId));
+    }
+
     const pinjamanMentah = await ctx.db
       .query("loans")
       .order("desc")
@@ -164,6 +220,7 @@ export const daftarPengajuan = query({
       pinjaman.push({
         _id: loan._id,
         nomorReferensi: loan.nomorReferensi,
+        namaLengkap: loan.namaLengkap,
         kodePeminjam: await kodeUntuk(loan.userId),
         pokokPinjaman: loan.pokokPinjaman,
         tenorHari: loan.tenorHari,
@@ -171,6 +228,9 @@ export const daftarPengajuan = query({
         tujuan: loan.tujuan,
         status: loan.status,
         diajukanPada: loan._creationTime,
+        didanaiPada: loan.didanaiPada ?? null,
+        pendana:
+          loan.didanaiPada === undefined ? null : await pendanaPinjaman(loan._id),
       });
     }
 
@@ -179,12 +239,16 @@ export const daftarPengajuan = query({
       gadai.push({
         _id: pawn._id,
         nomorReferensi: pawn.nomorReferensi,
+        namaLengkap: pawn.namaLengkap,
         kodePeminjam: await kodeUntuk(pawn.userId),
         kategori: pawn.kategori,
         deskripsiBarang: pawn.deskripsiBarang,
         nilaiTaksiran: pawn.nilaiTaksiran ?? null,
         status: pawn.status,
         diajukanPada: pawn._creationTime,
+        pokokGadai: pawn.pokokGadai ?? null,
+        persenSewaModal: pawn.persenSewaModal ?? null,
+        sisaPokok: pawn.sisaPokok ?? null,
       });
     }
 
@@ -193,6 +257,7 @@ export const daftarPengajuan = query({
       kredit.push({
         _id: item._id,
         nomorReferensi: item.nomorReferensi,
+        namaLengkap: item.namaLengkap,
         kodePeminjam: await kodeUntuk(item.userId),
         namaBarang: item.namaBarang,
         kategori: item.kategori,
@@ -203,6 +268,9 @@ export const daftarPengajuan = query({
         marginPersenPerBulan: item.marginPersenPerBulan,
         status: item.status,
         diajukanPada: item._creationTime,
+        didanaiPada: item.didanaiPada ?? null,
+        pendana:
+          item.didanaiPada === undefined ? null : await pendanaKredit(item._id),
       });
     }
 

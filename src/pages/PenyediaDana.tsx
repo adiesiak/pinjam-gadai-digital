@@ -16,19 +16,44 @@ import { RoleDashboardMenu } from "@/components/RoleDashboardMenu";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { api } from "@/convex/_generated/api";
+import type {
+  BarisGadai,
+  BarisKredit,
+  BarisPinjaman,
+} from "@/convex/penyediaDana";
 import { useAuth } from "@/hooks/use-auth";
+import { hitungSimulasiBulanan } from "@/lib/bulanan";
+import { quoteKreditBarang } from "@/lib/kredit";
+import { BULAN_MS, quoteLoan } from "@/lib/loan";
 import { formatRupiah } from "@/lib/money";
 
 /**
  * Ruang Penyedia Dana — HANYA BACA.
  *
  * Menampilkan catatan pengajuan Peminjam (pinjaman tunai, gadai, kredit barang)
- * kepada akun yang diberi akses lihat saja oleh admin. Halaman ini tidak pernah
- * memanggil mutation apa pun; seluruh pengubahan data tetap di panel admin.
- * Identitas pemohon tampil sebagai kode pseudonim — NIK, nomor rekening, dan
- * dokumen tidak pernah dikirim ke klien (lihat convex/penyediaDana.ts).
+ * sebagai tabel per kategori kepada akun yang diberi akses lihat saja oleh
+ * admin, termasuk pemantau yang masuk dengan kode akses bersama. Halaman ini
+ * tidak pernah memanggil mutation apa pun; seluruh pengubahan data tetap di
+ * panel admin. Nama lengkap pemohon ditampilkan, tetapi NIK, nomor rekening,
+ * nomor WhatsApp, alamat, penghasilan, dan dokumen tidak pernah dikirim ke
+ * klien (lihat convex/penyediaDana.ts).
  */
 
 function tanggalRingkas(ms: number): string {
@@ -38,6 +63,18 @@ function tanggalRingkas(ms: number): string {
     year: "numeric",
   });
 }
+
+/** Jalankan perhitungan kuotasi tanpa pernah merobohkan halaman (data warisan). */
+function coba<T>(fn: () => T): T | null {
+  try {
+    return fn();
+  } catch {
+    return null;
+  }
+}
+
+/** Satu bulan = 30 hari, mengikuti lib/loan (BULAN_MS). */
+const HARI_MS = BULAN_MS / 30;
 
 const LABEL_KREDIT: Record<string, { label: string; kelas: string }> = {
   diajukan: { label: "Menunggu review", kelas: "bg-slate-100 text-slate-600 hover:bg-slate-100" },
@@ -118,6 +155,213 @@ function CatatanTerpotong({ terpotong, batas }: { terpotong: boolean; batas: num
   );
 }
 
+/** Kerangka tabel yang bisa digulir mendatar di layar sempit. */
+function Tabel({ head, children }: { head: string[]; children: React.ReactNode }) {
+  return (
+    <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white">
+      <Table>
+        <TableHeader>
+          <TableRow className="bg-slate-50/80">
+            {head.map((judul) => (
+              <TableHead
+                key={judul}
+                className="whitespace-nowrap text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500"
+              >
+                {judul}
+              </TableHead>
+            ))}
+          </TableRow>
+        </TableHeader>
+        <TableBody>{children}</TableBody>
+      </Table>
+    </div>
+  );
+}
+
+/** Sel nama pemohon + kode pseudonim sebagai kunci stabil. */
+function SelNama({ nama, kode }: { nama: string; kode: string | null }) {
+  return (
+    <TableCell className="min-w-[190px] align-top">
+      <p className="font-medium text-slate-900">{nama}</p>
+      <div className="mt-1">
+        <BadgePseudonim kode={kode} />
+      </div>
+    </TableCell>
+  );
+}
+
+function SelPendana({ pendana }: { pendana: string | null }) {
+  if (pendana === null) {
+    return <TableCell className="align-top text-slate-400">—</TableCell>;
+  }
+  return (
+    <TableCell className="align-top">
+      <span className="inline-flex items-center gap-1.5 rounded-full border border-gold/40 bg-gold/10 px-2.5 py-1 text-xs font-medium text-gold-foreground">
+        <Wallet className="size-3" aria-hidden /> {pendana}
+      </span>
+    </TableCell>
+  );
+}
+
+function BarisDetail({ label, nilai }: { label: string; nilai: React.ReactNode }) {
+  return (
+    <div className="flex items-start justify-between gap-4 border-b border-slate-100 py-2.5 last:border-0">
+      <dt className="text-xs text-muted-foreground">{label}</dt>
+      <dd className="text-right text-sm font-medium text-slate-900">{nilai}</dd>
+    </div>
+  );
+}
+
+function DetailPinjaman({ row }: { row: BarisPinjaman }) {
+  const tenorBulan = row.tenorBulan;
+  const harian = tenorBulan === null ? coba(() => quoteLoan(row.pokokPinjaman)) : null;
+  const bulanan =
+    tenorBulan === null
+      ? null
+      : coba(() => hitungSimulasiBulanan(row.pokokPinjaman, tenorBulan));
+  const imbalHasil = harian?.bunga ?? bulanan?.bungaTotal ?? null;
+  const totalPelunasan = harian?.totalKewajibanPelunasan ?? bulanan?.totalPengembalian ?? null;
+  const potongan = harian?.totalPotonganDiMuka ?? bulanan?.potonganDiMuka ?? null;
+  const danaBersih = harian?.danaBersihDitransfer ?? bulanan?.danaDiterima ?? null;
+  // Jatuh tempo dihitung dari tanggal pendanaan + tenor (bukan dari waktu
+  // sekarang) supaya render tetap murni dan tidak bergantung jam perangkat.
+  const jatuhTempo =
+    row.didanaiPada === null
+      ? null
+      : row.didanaiPada +
+        (tenorBulan === null ? row.tenorHari * HARI_MS : tenorBulan * BULAN_MS);
+
+  return (
+    <>
+      <BarisDetail label="Nama lengkap" nilai={row.namaLengkap} />
+      <BarisDetail label="Kode peminjam" nilai={row.kodePeminjam ?? "belum terbit"} />
+      <BarisDetail label="No. referensi" nilai={row.nomorReferensi} />
+      <BarisDetail label="Jumlah pinjaman" nilai={formatRupiah(row.pokokPinjaman)} />
+      <BarisDetail
+        label="Skema"
+        nilai={row.tenorBulan === null ? "Harian" : `Bulanan ${row.tenorBulan} bulan`}
+      />
+      <BarisDetail
+        label="Imbal Hasil (estimasi)"
+        nilai={imbalHasil === null ? "—" : formatRupiah(imbalHasil)}
+      />
+      <BarisDetail
+        label="Total pelunasan (estimasi)"
+        nilai={totalPelunasan === null ? "—" : formatRupiah(totalPelunasan)}
+      />
+      <BarisDetail
+        label="Potongan di muka"
+        nilai={potongan === null ? "—" : formatRupiah(potongan)}
+      />
+      <BarisDetail
+        label="Dana bersih diterima"
+        nilai={danaBersih === null ? "—" : formatRupiah(danaBersih)}
+      />
+      <BarisDetail
+        label="Tenor"
+        nilai={row.tenorBulan === null ? `${row.tenorHari} hari` : `${row.tenorBulan} bulan`}
+      />
+      <BarisDetail
+        label="Jatuh tempo"
+        nilai={jatuhTempo === null ? "belum didanai" : tanggalRingkas(jatuhTempo)}
+      />
+      <BarisDetail label="Keperluan" nilai={row.tujuan} />
+      <BarisDetail label="Pendana" nilai={row.pendana ?? "belum tercatat"} />
+      <BarisDetail label="Tanggal pengajuan" nilai={tanggalRingkas(row.diajukanPada)} />
+      <BarisDetail label="Status" nilai={<StatusBadge status={row.status} kind="loan" />} />
+    </>
+  );
+}
+
+function DetailGadai({ row }: { row: BarisGadai }) {
+  return (
+    <>
+      <BarisDetail label="Nama lengkap" nilai={row.namaLengkap} />
+      <BarisDetail label="Kode peminjam" nilai={row.kodePeminjam ?? "belum terbit"} />
+      <BarisDetail label="No. referensi" nilai={row.nomorReferensi} />
+      <BarisDetail label="Kategori" nilai={row.kategori} />
+      <BarisDetail label="Barang" nilai={row.deskripsiBarang} />
+      <BarisDetail
+        label="Nilai taksiran"
+        nilai={row.nilaiTaksiran === null ? "belum ditaksir" : formatRupiah(row.nilaiTaksiran)}
+      />
+      <BarisDetail
+        label="Pokok gadai disetujui"
+        nilai={row.pokokGadai === null ? "—" : formatRupiah(row.pokokGadai)}
+      />
+      <BarisDetail
+        label="Sewa modal"
+        nilai={row.persenSewaModal === null ? "—" : `${row.persenSewaModal}% / 30 hari`}
+      />
+      <BarisDetail
+        label="Sisa pokok berjalan"
+        nilai={row.sisaPokok === null ? "—" : formatRupiah(row.sisaPokok)}
+      />
+      <BarisDetail label="Tanggal pengajuan" nilai={tanggalRingkas(row.diajukanPada)} />
+      <BarisDetail label="Status" nilai={<StatusBadge status={row.status} kind="pawn" />} />
+    </>
+  );
+}
+
+function DetailKredit({ row }: { row: BarisKredit }) {
+  const quote = coba(() =>
+    quoteKreditBarang({
+      hargaBarang: row.hargaBarang,
+      dpPersen: row.dpPersen,
+      tenorBulan: row.tenorBulan,
+      marginPersenPerBulan: row.marginPersenPerBulan,
+    }),
+  );
+  const jatuhTempo =
+    row.didanaiPada === null ? null : row.didanaiPada + row.tenorBulan * BULAN_MS;
+
+  return (
+    <>
+      <BarisDetail label="Nama lengkap" nilai={row.namaLengkap} />
+      <BarisDetail label="Kode peminjam" nilai={row.kodePeminjam ?? "belum terbit"} />
+      <BarisDetail label="No. referensi" nilai={row.nomorReferensi} />
+      <BarisDetail label="Barang" nilai={`${row.namaBarang} · ${row.kategori}`} />
+      <BarisDetail label="Merchant" nilai={row.merchant} />
+      <BarisDetail label="Harga barang" nilai={formatRupiah(row.hargaBarang)} />
+      <BarisDetail
+        label="Uang muka"
+        nilai={
+          quote === null ? `${row.dpPersen}%` : `${row.dpPersen}% · ${formatRupiah(quote.dp)}`
+        }
+      />
+      <BarisDetail
+        label="Pokok dibiayai"
+        nilai={quote === null ? "—" : formatRupiah(quote.pokokDibiayai)}
+      />
+      <BarisDetail
+        label="Cicilan per bulan (estimasi)"
+        nilai={quote === null ? "—" : formatRupiah(quote.cicilanPerBulan)}
+      />
+      <BarisDetail
+        label="Total Imbal Hasil (estimasi)"
+        nilai={quote === null ? "—" : formatRupiah(quote.marginTotal)}
+      />
+      <BarisDetail
+        label="Total dibayar konsumen"
+        nilai={quote === null ? "—" : formatRupiah(quote.totalDibayarKonsumen)}
+      />
+      <BarisDetail label="Tenor" nilai={`${row.tenorBulan} bulan`} />
+      <BarisDetail
+        label="Jatuh tempo"
+        nilai={jatuhTempo === null ? "belum didanai" : tanggalRingkas(jatuhTempo)}
+      />
+      <BarisDetail label="Pendana" nilai={row.pendana ?? "belum tercatat"} />
+      <BarisDetail label="Tanggal pengajuan" nilai={tanggalRingkas(row.diajukanPada)} />
+      <BarisDetail label="Status" nilai={<BadgeKredit status={row.status} />} />
+    </>
+  );
+}
+
+type IsiDetail =
+  | { jenis: "pinjaman"; row: BarisPinjaman }
+  | { jenis: "gadai"; row: BarisGadai }
+  | { jenis: "kredit"; row: BarisKredit };
+
 /** Layar untuk akun yang belum diberi akses lihat saja. */
 function AksesTerbatas() {
   return (
@@ -155,6 +399,7 @@ function AksesTerbatas() {
 export default function PenyediaDana() {
   const { user } = useAuth();
   const [tab, setTab] = useState("pinjaman");
+  const [detail, setDetail] = useState<IsiDetail | null>(null);
 
   const role = user?.role;
   // `pengamat` = sesi tamu yang diaktifkan kode akses bersama (lihat saja).
@@ -203,7 +448,7 @@ export default function PenyediaDana() {
                   <Eye className="mr-1 size-3" /> Akses lihat saja
                 </Badge>
                 <Badge variant="outline" className="border-slate-200 text-muted-foreground">
-                  Identitas ditampilkan sebagai kode pseudonim
+                  Nama pemohon ditampilkan · NIK &amp; dokumen tetap tertutup
                 </Badge>
               </div>
               <h1 className="mt-3 text-2xl font-semibold tracking-tight sm:text-3xl">
@@ -212,8 +457,8 @@ export default function PenyediaDana() {
               <p className="mt-3 max-w-3xl text-sm leading-7 text-muted-foreground">
                 Catatan internal PINDAI untuk pinjaman tunai, gadai, dan kredit barang. Anda hanya
                 dapat membaca: tidak ada tindakan alokasi, pencairan, maupun pengubahan status dari
-                ruang ini. Nomor rekening, NIK, nomor WhatsApp, dan dokumen tidak pernah
-                ditampilkan.
+                ruang ini. Nama lengkap pemohon ditampilkan; NIK, nomor rekening, nomor WhatsApp,
+                alamat, penghasilan, dan dokumen tidak pernah ditampilkan.
               </p>
             </section>
 
@@ -283,43 +528,57 @@ export default function PenyediaDana() {
                 {data.pinjaman.length === 0 ? (
                   <KeadaanKosong pesan="Belum ada pengajuan pinjaman tunai yang tercatat." />
                 ) : (
-                  <ul className="divide-y divide-slate-200 rounded-2xl border border-slate-200 bg-white">
-                    {data.pinjaman.map((row) => (
-                      <li
-                        key={row._id}
-                        className="flex flex-wrap items-start justify-between gap-3 px-5 py-4"
-                      >
-                        <div className="min-w-0">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <span className="text-sm font-semibold tabular-nums">
-                              {row.nomorReferensi}
-                            </span>
-                            <BadgePseudonim kode={row.kodePeminjam} />
-                          </div>
-                          <p className="mt-1.5 text-sm">{row.tujuan}</p>
-                          <p className="mt-0.5 text-xs text-muted-foreground">
-                            Tenor{" "}
-                            {row.tenorBulan !== null
-                              ? `${row.tenorBulan} bulan`
-                              : `${row.tenorHari} hari`}{" "}
-                            · diajukan {tanggalRingkas(row.diajukanPada)}
-                          </p>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-sm font-semibold tabular-nums">
+                  <>
+                    <Tabel
+                      head={[
+                        "No. Ref",
+                        "Nama",
+                        "Pinjaman",
+                        "Tenor",
+                        "Tanggal",
+                        "Status",
+                        "Pendana",
+                        "Aksi",
+                      ]}
+                    >
+                      {data.pinjaman.map((row) => (
+                        <TableRow key={row._id}>
+                          <TableCell className="whitespace-nowrap align-top font-mono text-xs text-slate-500">
+                            {row.nomorReferensi}
+                          </TableCell>
+                          <SelNama nama={row.namaLengkap} kode={row.kodePeminjam} />
+                          <TableCell className="whitespace-nowrap align-top font-semibold tabular-nums">
                             {formatRupiah(row.pokokPinjaman)}
-                          </p>
-                          <div className="mt-1.5 flex justify-end">
+                          </TableCell>
+                          <TableCell className="whitespace-nowrap align-top text-slate-600">
+                            {row.tenorBulan === null
+                              ? `${row.tenorHari} hari`
+                              : `${row.tenorBulan} bulan`}
+                          </TableCell>
+                          <TableCell className="whitespace-nowrap align-top text-slate-600">
+                            {tanggalRingkas(row.diajukanPada)}
+                          </TableCell>
+                          <TableCell className="align-top">
                             <StatusBadge status={row.status} kind="loan" />
-                          </div>
-                        </div>
-                      </li>
-                    ))}
+                          </TableCell>
+                          <SelPendana pendana={row.pendana} />
+                          <TableCell className="align-top">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setDetail({ jenis: "pinjaman", row })}
+                            >
+                              <Eye className="mr-1.5 size-3.5" aria-hidden /> Detail
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </Tabel>
                     <CatatanTerpotong
                       terpotong={data.terpotong.pinjaman}
                       batas={data.batas}
                     />
-                  </ul>
+                  </>
                 )}
               </TabsContent>
 
@@ -328,41 +587,45 @@ export default function PenyediaDana() {
                 {data.gadai.length === 0 ? (
                   <KeadaanKosong pesan="Belum ada pengajuan gadai yang tercatat." />
                 ) : (
-                  <ul className="divide-y divide-slate-200 rounded-2xl border border-slate-200 bg-white">
-                    {data.gadai.map((row) => (
-                      <li
-                        key={row._id}
-                        className="flex flex-wrap items-start justify-between gap-3 px-5 py-4"
-                      >
-                        <div className="min-w-0">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <span className="text-sm font-semibold tabular-nums">
-                              {row.nomorReferensi}
-                            </span>
-                            <BadgePseudonim kode={row.kodePeminjam} />
-                          </div>
-                          <p className="mt-1.5 text-sm">
-                            {row.kategori} · {row.deskripsiBarang}
-                          </p>
-                          <p className="mt-0.5 text-xs text-muted-foreground">
-                            diajukan {tanggalRingkas(row.diajukanPada)} · nilai taksiran mengikuti
-                            catatan reviewer
-                          </p>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-sm font-semibold tabular-nums">
+                  <>
+                    <Tabel
+                      head={["No. Ref", "Nama", "Barang", "Taksiran", "Tanggal", "Status", "Aksi"]}
+                    >
+                      {data.gadai.map((row) => (
+                        <TableRow key={row._id}>
+                          <TableCell className="whitespace-nowrap align-top font-mono text-xs text-slate-500">
+                            {row.nomorReferensi}
+                          </TableCell>
+                          <SelNama nama={row.namaLengkap} kode={row.kodePeminjam} />
+                          <TableCell className="min-w-[200px] align-top">
+                            <p className="text-slate-900">{row.deskripsiBarang}</p>
+                            <p className="mt-0.5 text-xs text-muted-foreground">{row.kategori}</p>
+                          </TableCell>
+                          <TableCell className="whitespace-nowrap align-top font-semibold tabular-nums">
                             {row.nilaiTaksiran === null
                               ? "belum ditaksir"
                               : formatRupiah(row.nilaiTaksiran)}
-                          </p>
-                          <div className="mt-1.5 flex justify-end">
+                          </TableCell>
+                          <TableCell className="whitespace-nowrap align-top text-slate-600">
+                            {tanggalRingkas(row.diajukanPada)}
+                          </TableCell>
+                          <TableCell className="align-top">
                             <StatusBadge status={row.status} kind="pawn" />
-                          </div>
-                        </div>
-                      </li>
-                    ))}
+                          </TableCell>
+                          <TableCell className="align-top">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setDetail({ jenis: "gadai", row })}
+                            >
+                              <Eye className="mr-1.5 size-3.5" aria-hidden /> Detail
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </Tabel>
                     <CatatanTerpotong terpotong={data.terpotong.gadai} batas={data.batas} />
-                  </ul>
+                  </>
                 )}
               </TabsContent>
 
@@ -371,40 +634,59 @@ export default function PenyediaDana() {
                 {data.kredit.length === 0 ? (
                   <KeadaanKosong pesan="Belum ada pengajuan kredit barang yang tercatat." />
                 ) : (
-                  <ul className="divide-y divide-slate-200 rounded-2xl border border-slate-200 bg-white">
-                    {data.kredit.map((row) => (
-                      <li
-                        key={row._id}
-                        className="flex flex-wrap items-start justify-between gap-3 px-5 py-4"
-                      >
-                        <div className="min-w-0">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <span className="text-sm font-semibold tabular-nums">
-                              {row.nomorReferensi}
-                            </span>
-                            <BadgePseudonim kode={row.kodePeminjam} />
-                          </div>
-                          <p className="mt-1.5 text-sm">
-                            {row.namaBarang} · {row.merchant}
-                          </p>
-                          <p className="mt-0.5 text-xs text-muted-foreground">
-                            {row.kategori} · DP {row.dpPersen}% · {row.tenorBulan} bulan ·
-                            Imbal Hasil {row.marginPersenPerBulan}%/bulan · diajukan{" "}
-                            {tanggalRingkas(row.diajukanPada)}
-                          </p>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-sm font-semibold tabular-nums">
+                  <>
+                    <Tabel
+                      head={[
+                        "No. Ref",
+                        "Nama",
+                        "Barang",
+                        "Harga",
+                        "Tenor",
+                        "Tanggal",
+                        "Status",
+                        "Pendana",
+                        "Aksi",
+                      ]}
+                    >
+                      {data.kredit.map((row) => (
+                        <TableRow key={row._id}>
+                          <TableCell className="whitespace-nowrap align-top font-mono text-xs text-slate-500">
+                            {row.nomorReferensi}
+                          </TableCell>
+                          <SelNama nama={row.namaLengkap} kode={row.kodePeminjam} />
+                          <TableCell className="min-w-[190px] align-top">
+                            <p className="text-slate-900">{row.namaBarang}</p>
+                            <p className="mt-0.5 text-xs text-muted-foreground">
+                              {row.kategori} · {row.merchant}
+                            </p>
+                          </TableCell>
+                          <TableCell className="whitespace-nowrap align-top font-semibold tabular-nums">
                             {formatRupiah(row.hargaBarang)}
-                          </p>
-                          <div className="mt-1.5 flex justify-end">
+                          </TableCell>
+                          <TableCell className="whitespace-nowrap align-top text-slate-600">
+                            {row.tenorBulan} bulan
+                          </TableCell>
+                          <TableCell className="whitespace-nowrap align-top text-slate-600">
+                            {tanggalRingkas(row.diajukanPada)}
+                          </TableCell>
+                          <TableCell className="align-top">
                             <BadgeKredit status={row.status} />
-                          </div>
-                        </div>
-                      </li>
-                    ))}
+                          </TableCell>
+                          <SelPendana pendana={row.pendana} />
+                          <TableCell className="align-top">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setDetail({ jenis: "kredit", row })}
+                            >
+                              <Eye className="mr-1.5 size-3.5" aria-hidden /> Detail
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </Tabel>
                     <CatatanTerpotong terpotong={data.terpotong.kredit} batas={data.batas} />
-                  </ul>
+                  </>
                 )}
               </TabsContent>
             </Tabs>
@@ -416,6 +698,29 @@ export default function PenyediaDana() {
           </>
         )}
       </main>
+
+      <Dialog open={detail !== null} onOpenChange={(open) => (open ? undefined : setDetail(null))}>
+        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>
+              {detail?.jenis === "pinjaman"
+                ? "Detail pinjaman tunai"
+                : detail?.jenis === "gadai"
+                  ? "Detail gadai"
+                  : "Detail kredit barang"}
+            </DialogTitle>
+            <DialogDescription>
+              Catatan internal PINDAI — ruang lihat saja. NIK, nomor rekening, nomor WhatsApp,
+              alamat, penghasilan, dan dokumen pemohon tidak ditampilkan di sini.
+            </DialogDescription>
+          </DialogHeader>
+          <dl className="mt-1">
+            {detail?.jenis === "pinjaman" && <DetailPinjaman row={detail.row} />}
+            {detail?.jenis === "gadai" && <DetailGadai row={detail.row} />}
+            {detail?.jenis === "kredit" && <DetailKredit row={detail.row} />}
+          </dl>
+        </DialogContent>
+      </Dialog>
 
       <footer className="border-t border-slate-200 bg-white">
         <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-2 px-4 py-5 text-xs text-muted-foreground sm:px-6">

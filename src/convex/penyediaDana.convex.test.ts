@@ -4,7 +4,8 @@
  * Yang dijaga di sini:
  * - Gerbang akses di server: tamu, akun biasa, dan akun tanpa peran ditolak.
  * - Privasi: payload hanya berisi field whitelist; NIK, nomor rekening, nomor
- *   WhatsApp, dan nama lengkap tidak pernah ikut terkirim.
+ *   WhatsApp, alamat, dan dokumen tidak pernah ikut terkirim. Nama lengkap
+ *   pemohon memang ditampilkan (keputusan admin ruang pemantau).
  * - Batas baris per kategori + penanda `terpotong`.
  * - Pemberian/pencabutan akses hanya oleh admin, idempoten, dan ber-audit.
  *
@@ -25,8 +26,10 @@ const RAHASIA = {
   nik: "3201234567890003",
   nomorRekening: "1234567890",
   nomorWhatsApp: "628123456791",
-  namaLengkap: "Rani Peminjam",
 };
+
+/** Nama lengkap pemohon — ditampilkan di ruang pemantau, bukan rahasia. */
+const NAMA_PEMOHON = "Rani Peminjam";
 
 const KODE_PEMINJAM = "PMN-UJICOBA12345678";
 
@@ -39,7 +42,7 @@ async function seedPengajuan(t: KonteksUji, userId: Id<"users">) {
       userId,
       pokokPinjaman: 2_500_000,
       tujuan: "Modal usaha warung",
-      namaLengkap: RAHASIA.namaLengkap,
+      namaLengkap: NAMA_PEMOHON,
       nomorRekening: RAHASIA.nomorRekening,
       nik: RAHASIA.nik,
       nomorWhatsApp: RAHASIA.nomorWhatsApp,
@@ -52,7 +55,7 @@ async function seedPengajuan(t: KonteksUji, userId: Id<"users">) {
       deskripsiBarang: "Kalung emas 10 gram",
       kategori: "Emas",
       alamatPenilaian: "Jl. Contoh No. 1",
-      namaLengkap: RAHASIA.namaLengkap,
+      namaLengkap: NAMA_PEMOHON,
       nomorRekening: RAHASIA.nomorRekening,
       status: "sedang_dinilai",
       nomorReferensi: "PGD-UJI-2",
@@ -71,7 +74,7 @@ async function seedPengajuan(t: KonteksUji, userId: Id<"users">) {
       tenorBulan: 6,
       marginPersenPerBulan: 3,
       status: "disetujui",
-      namaLengkap: RAHASIA.namaLengkap,
+      namaLengkap: NAMA_PEMOHON,
       nik: RAHASIA.nik,
       nomorRekening: RAHASIA.nomorRekening,
       nomorWhatsApp: RAHASIA.nomorWhatsApp,
@@ -98,7 +101,7 @@ describe("ruang penyedia dana (lihat saja)", () => {
     ).rejects.toThrow(/akses lihat saja/i);
   });
 
-  it("penyedia dana melihat pengajuan pseudonim tanpa data identitas", async () => {
+  it("penyedia dana melihat nama pemohon tanpa data identitas lain", async () => {
     const t = convexTest(schema, modules);
     const { userId } = await siapkanPengguna(t, "rani", {
       email: "rani@pindai.test",
@@ -115,25 +118,32 @@ describe("ruang penyedia dana (lihat saja)", () => {
     expect(hasil.pinjaman).toHaveLength(1);
     expect(hasil.pinjaman[0]).toMatchObject({
       nomorReferensi: "PGD-UJI-1",
+      namaLengkap: NAMA_PEMOHON,
       kodePeminjam: KODE_PEMINJAM,
       pokokPinjaman: 2_500_000,
       tenorHari: 30,
       status: "diajukan",
+      didanaiPada: null,
+      pendana: null,
     });
     expect(hasil.gadai[0]).toMatchObject({
       nomorReferensi: "PGD-UJI-2",
+      namaLengkap: NAMA_PEMOHON,
       kategori: "Emas",
       nilaiTaksiran: 3_500_000,
       status: "sedang_dinilai",
     });
     expect(hasil.kredit[0]).toMatchObject({
       nomorReferensi: "PGD-UJI-3",
+      namaLengkap: NAMA_PEMOHON,
       namaBarang: "Kulkas dua pintu",
       merchant: "Tokopedia",
       hargaBarang: 6_000_000,
       dpPersen: 20,
       tenorBulan: 6,
       status: "disetujui",
+      didanaiPada: null,
+      pendana: null,
     });
 
     // Tidak ada nilai identitas sensitif yang ikut terkirim.
@@ -147,11 +157,13 @@ describe("ruang penyedia dana (lihat saja)", () => {
         "nik",
         "nomorRekening",
         "nomorWhatsApp",
-        "namaLengkap",
         "alamatPenilaian",
         "kodeRakVault",
         "hargaPasar",
         "tandaTanganPeminjam",
+        "dokKtpId",
+        "dokSelfieKtpId",
+        "dokSlipGajiId",
       ]) {
         expect(baris).not.toHaveProperty(kunci);
       }
@@ -209,7 +221,7 @@ describe("ruang penyedia dana (lihat saja)", () => {
           userId,
           pokokPinjaman: 1_000_000,
           tujuan: `Pengajuan uji ${i}`,
-          namaLengkap: RAHASIA.namaLengkap,
+          namaLengkap: NAMA_PEMOHON,
           nomorRekening: RAHASIA.nomorRekening,
           status: "diajukan",
           nomorReferensi: `PGD-BANJIR-${i}`,
@@ -223,6 +235,79 @@ describe("ruang penyedia dana (lihat saja)", () => {
     expect(hasil.pinjaman).toHaveLength(BATAS_BARIS);
     expect(hasil.terpotong.pinjaman).toBe(true);
     expect(hasil.ringkasan.jumlahPinjaman).toBe(BATAS_BARIS);
+  });
+
+  it("menampilkan nama penyedia dana pada baris yang sudah didanai", async () => {
+    const t = convexTest(schema, modules);
+    const { userId } = await siapkanPengguna(t, "rani", {
+      email: "rani@pindai.test",
+      role: "peminjam",
+    });
+    const { sesi: dana, userId: danaId } = await siapkanPengguna(t, "Robert", {
+      email: "robert@pindai.test",
+      role: "dana",
+    });
+
+    await t.run(async (ctx) => {
+      const loanId = await ctx.db.insert("loans", {
+        userId,
+        pokokPinjaman: 1_000_000,
+        tujuan: "Modal usaha",
+        namaLengkap: NAMA_PEMOHON,
+        nomorRekening: RAHASIA.nomorRekening,
+        status: "didanai",
+        nomorReferensi: "PGD-DANAI-1",
+        tenorHari: 30,
+        didanaiPada: Date.now(),
+      });
+      await ctx.db.insert("fundings", {
+        loanId,
+        danaId,
+        jumlahAlokasi: 1_000_000,
+        imbalHasil: 300_000,
+        status: "dialokasikan",
+        nomorReferensi: "FND-UJI-1",
+      });
+      const kreditId = await ctx.db.insert("kreditBarang", {
+        userId,
+        nomorReferensi: "PGD-DANAI-2",
+        namaBarang: "Laptop",
+        kategori: "Elektronik",
+        merchant: "Tokopedia",
+        hargaBarang: 5_000_000,
+        dpPersen: 20,
+        tenorBulan: 6,
+        marginPersenPerBulan: 3,
+        status: "didanai",
+        namaLengkap: NAMA_PEMOHON,
+        nik: RAHASIA.nik,
+        nomorRekening: RAHASIA.nomorRekening,
+        nomorWhatsApp: RAHASIA.nomorWhatsApp,
+        didanaiPada: Date.now(),
+      });
+      await ctx.db.insert("kreditFundings", {
+        kreditId,
+        danaId,
+        jumlahAlokasi: 4_000_000,
+        imbalHasil: 240_000,
+        status: "dialokasikan",
+        nomorReferensi: "FND-UJI-2",
+      });
+    });
+
+    const hasil = await dana.query(api.penyediaDana.daftarPengajuan, {});
+    const pinjaman = hasil.pinjaman.find((b) => b.nomorReferensi === "PGD-DANAI-1");
+    const kredit = hasil.kredit.find((b) => b.nomorReferensi === "PGD-DANAI-2");
+    expect(pinjaman?.pendana).toBe("Robert");
+    expect(pinjaman?.didanaiPada).not.toBeNull();
+    expect(kredit?.pendana).toBe("Robert");
+
+    // Nama penyedia dana tampil, identitas sensitif pemohon tetap di server.
+    const mentah = JSON.stringify(hasil);
+    expect(mentah).toContain("Robert");
+    for (const rahasia of Object.values(RAHASIA)) {
+      expect(mentah).not.toContain(rahasia);
+    }
   });
 
   it("akses hanya diberikan/dicabut admin, idempoten, dan tercatat di audit", async () => {
