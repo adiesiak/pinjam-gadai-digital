@@ -888,4 +888,74 @@ describe("penutupan enumerasi akun Super Admin", () => {
       t.query(internal.users.statusAkunKataSandi, { email: "belum-ada@pindai.test" }),
     ).resolves.toEqual({ admin: false, punyaKataSandi: false });
   });
+
+  it("membuka batas percobaan kata sandi dengan kode TOTP admin", async () => {
+    const t = convexTest(schema, modules);
+    const email = "admin-pulih@pindai.test";
+    const { userId, authSessionId } = await buatPengguna(t, "Admin pemulihan", {
+      email,
+      emailVerificationTime: Date.now(),
+      role: "admin",
+    });
+    await aktifkanTotpUntukSesi(t, userId, authSessionId, []);
+
+    // Penyerang menghabiskan batas 5 percobaan per 15 menit.
+    for (let ke = 1; ke <= 5; ke += 1) {
+      await t.mutation(internal.security.catatPercobaanKataSandiAdmin, {
+        email,
+        admin: true,
+      });
+    }
+    await expect(
+      t.mutation(internal.security.catatPercobaanKataSandiAdmin, {
+        email,
+        admin: true,
+      }),
+    ).resolves.toMatchObject({ blocked: true });
+
+    const kode = await totpNow(TEST_TOTP_SECRET);
+    const kodeSalah = kode === "000000" ? "111111" : "000000";
+    await expect(
+      t.mutation(internal.security.bukaBatasKataSandiDenganTotp, {
+        email,
+        kode: kodeSalah,
+      }),
+    ).resolves.toEqual({ ok: false });
+    // Kode salah tidak membuka apa pun: catatan percobaan tetap ada (lima
+    // baris; percobaan keenam yang sudah diblokir memang tidak menambah baris).
+    await expect(
+      t.run(async (ctx) => (await ctx.db.query("adminLoginAttempts").collect()).length),
+    ).resolves.toBe(5);
+
+    await expect(
+      t.mutation(internal.security.bukaBatasKataSandiDenganTotp, { email, kode }),
+    ).resolves.toEqual({ ok: true });
+    // Hitungan dibuang sehingga percobaan berikutnya (dengan kata sandi yang
+    // benar) tidak ikut terblokir.
+    await expect(
+      t.run(async (ctx) => (await ctx.db.query("adminLoginAttempts").collect()).length),
+    ).resolves.toBe(0);
+    await expect(
+      t.mutation(internal.security.catatPercobaanKataSandiAdmin, {
+        email,
+        admin: true,
+      }),
+    ).resolves.toEqual({ blocked: false, sisaDetik: 0 });
+
+    // Anti-replay: kode yang sama tidak bisa dipakai dua kali.
+    await expect(
+      t.mutation(internal.security.bukaBatasKataSandiDenganTotp, { email, kode }),
+    ).resolves.toEqual({ ok: false });
+    // Pemulihan tercatat agar terlihat tim di panel keamanan + audit trail.
+    const audit = await t.run((ctx) => ctx.db.query("auditLog").collect());
+    expect(audit.map((a) => a.aksi)).toContain("admin_batas_kata_sandi_dibuka");
+
+    // Alamat yang bukan admin ber-TOTP tidak punya jalur pemulihan ini.
+    await expect(
+      t.mutation(internal.security.bukaBatasKataSandiDenganTotp, {
+        email: "bukan-admin-pulih@pindai.test",
+        kode,
+      }),
+    ).resolves.toEqual({ ok: false });
+  });
 });

@@ -268,6 +268,94 @@ export const catatPercobaanKataSandiAdmin = internalMutation({
   },
 });
 
+/**
+ * Jalur pemulihan batas percobaan kata sandi: Super Admin yang memegang kode
+ * TOTP tidak perlu menunggu 15 menit.
+ *
+ * Kode TOTP diperiksa lebih dulu (HMAC, murah) supaya jalur ini tidak bisa
+ * dipakai penyerang untuk memaksa server menghitung hash kata sandi berulang
+ * kali. Kata sandi TETAP diverifikasi seperti biasa setelah pemulihan: kode
+ * TOTP saja tidak pernah cukup untuk masuk, jadi menebak-nebak kode TOTP tidak
+ * memberi jalan pintas — pemulihan hanya membuang hitungan percobaan supaya
+ * kata sandi yang benar milik admin tidak ikut terkunci.
+ *
+ * Karena hanya alamat admin ber-TOTP yang bisa memulihkan, balasan untuk
+ * alamat lain tetap sama persis: pesan batas percobaan (enumerasi tetap
+ * tertutup).
+ */
+export const bukaBatasKataSandiDenganTotp = internalMutation({
+  args: { email: v.string(), kode: v.string() },
+  returns: v.object({ ok: v.boolean() }),
+  handler: async (ctx, { email, kode }) => {
+    const pemilik = await ctx.db
+      .query("users")
+      .withIndex("email", (q) => q.eq("email", email))
+      .first();
+    if (
+      pemilik === null ||
+      pemilik.role !== ROLES.ADMIN ||
+      pemilik.emailVerificationTime === undefined ||
+      pemilik.isAnonymous === true
+    ) {
+      return { ok: false };
+    }
+    const mfa = await getMfa(ctx, pemilik._id);
+    const secret = mfa?.totpSecret;
+    if (mfa === null || secret === undefined) return { ok: false };
+
+    const bersih = email.trim().toLowerCase().slice(0, 160);
+    const counter = Math.floor(Date.now() / 30_000);
+    const benar = await verifyTotpCode(secret, kode);
+    // Anti-replay sama seperti gate panel: satu kode hanya berlaku sekali.
+    if (
+      benar &&
+      mfa.totpLastCounter !== undefined &&
+      counter <= mfa.totpLastCounter
+    ) {
+      return { ok: false };
+    }
+    if (!benar) {
+      await catatLogin(ctx, {
+        userId: pemilik._id,
+        status: "gagal",
+        metode: "totp",
+        ip: "tidak diketahui",
+        userAgent: "tidak diketahui",
+        keterangan: "Kode TOTP pemulihan batas kata sandi salah",
+      });
+      return { ok: false };
+    }
+
+    await ctx.db.patch(mfa._id, { totpLastCounter: counter });
+    // Buang hitungan percobaan: percobaan masuk berikutnya (dengan kata sandi
+    // yang benar) tidak ikut terblokir.
+    const percobaan = await ctx.db
+      .query("adminLoginAttempts")
+      .withIndex("by_email", (q) => q.eq("email", bersih))
+      .collect();
+    for (const baris of percobaan) {
+      await ctx.db.delete(baris._id);
+    }
+    await catatLogin(ctx, {
+      userId: pemilik._id,
+      status: "berhasil",
+      metode: "totp",
+      ip: "tidak diketahui",
+      userAgent: "tidak diketahui",
+      keterangan: "Batas percobaan kata sandi dibuka dengan kode TOTP",
+    });
+    await ctx.db.insert("auditLog", {
+      aktorUserId: pemilik._id,
+      aktorLabel: pemilik.email ?? pemilik.name ?? "admin",
+      aksi: "admin_batas_kata_sandi_dibuka",
+      target: bersih,
+      detail: "Batas percobaan kata sandi dibuka dengan kode TOTP",
+      waktu: Date.now(),
+    });
+    return { ok: true };
+  },
+});
+
 // =====================================================================
 // MFA TOTP — Super Admin
 // =====================================================================

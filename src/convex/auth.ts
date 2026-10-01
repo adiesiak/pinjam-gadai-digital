@@ -54,12 +54,28 @@ const adminPassword: typeof passwordProvider = {
         { email, admin: status.admin },
       );
       if (batas.blocked) {
-        throw new Error(
-          `Terlalu banyak percobaan masuk. Coba lagi dalam ${Math.max(
-            1,
-            Math.ceil(batas.sisaDetik / 60),
-          )} menit.`,
-        );
+        // Pemulihan: Super Admin yang memegang kode TOTP tidak perlu menunggu
+        // 15 menit. Kata sandi tetap diverifikasi setelahnya, jadi ini hanya
+        // membuka hitungan percobaan — bukan jalan masuk tanpa kata sandi.
+        const kodeTotp =
+          typeof params.kodeTotp === "string" ? params.kodeTotp : "";
+        const pulih =
+          status.admin &&
+          kodeTotp !== "" &&
+          (
+            await ctx.runMutation(
+              internal.security.bukaBatasKataSandiDenganTotp,
+              { email, kode: kodeTotp },
+            )
+          ).ok;
+        if (!pulih) {
+          throw new Error(
+            `Terlalu banyak percobaan masuk. Coba lagi dalam ${Math.max(
+              1,
+              Math.ceil(batas.sisaDetik / 60),
+            )} menit, atau isi kode TOTP aplikasi autentikator untuk masuk sekarang.`,
+          );
+        }
       }
     }
 

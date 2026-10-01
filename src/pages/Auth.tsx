@@ -220,6 +220,9 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
   const [adminOtp, setAdminOtp] = useState("");
   const [adminEmail, setAdminEmail] = useState("");
   const [adminPassword, setAdminPassword] = useState("");
+  /** Pemulihan batas percobaan kata sandi: kode TOTP aplikasi autentikator. */
+  const [adminTotp, setAdminTotp] = useState("");
+  const [butuhTotp, setButuhTotp] = useState(false);
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -264,6 +267,8 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
   const setAdminFlow = (next: AdminStep) => {
     setAdminStep(next);
     setAdminOtp("");
+    setAdminTotp("");
+    setButuhTotp(false);
     setError(null);
   };
 
@@ -348,6 +353,8 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
           flow: "signIn",
           email: adminEmail,
           password: adminPassword,
+          // Kode TOTP hanya dipakai saat batas percobaan aktif (pemulihan).
+          ...(adminTotp.trim() !== "" ? { kodeTotp: adminTotp.trim() } : {}),
         });
         if (result.signingIn) {
           await recordSuccessfulLogin("password");
@@ -394,8 +401,12 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
       } else if (/account.*exist|already exists/i.test(message)) {
         setError("Password sudah aktif. Silakan masuk atau gunakan Lupa kata sandi.");
       } else if (/terlalu banyak percobaan masuk/i.test(message)) {
+        // Jalur pemulihan: admin yang memegang kode TOTP tidak perlu menunggu
+        // 15 menit — kata sandi tetap wajib benar.
+        setButuhTotp(true);
+        setAdminTotp("");
         setError(
-          "Terlalu banyak percobaan masuk. Tunggu beberapa menit sebelum mencoba lagi.",
+          "Terlalu banyak percobaan masuk. Tunggu beberapa menit, atau isi kode TOTP aplikasi autentikator untuk masuk sekarang.",
         );
       } else if (/account.*not found|could not find/i.test(message)) {
         setError("Password belum diaktifkan atau akun tidak ditemukan. Gunakan Aktivasi password.");
@@ -711,6 +722,27 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                             required
                           />
                         </div>
+                        {butuhTotp && (
+                          <div className="space-y-2">
+                            <label htmlFor="admin-totp" className="text-sm font-medium">
+                              Kode TOTP (pemulihan)
+                            </label>
+                            <Input
+                              id="admin-totp"
+                              inputMode="numeric"
+                              autoComplete="one-time-code"
+                              maxLength={6}
+                              placeholder="123456"
+                              value={adminTotp}
+                              onChange={(event) => setAdminTotp(event.target.value)}
+                              disabled={isLoading}
+                            />
+                            <p className="text-xs leading-5 text-muted-foreground">
+                              Batas percobaan sedang aktif. Isi kode dari aplikasi
+                              autentikator untuk masuk sekarang — kata sandi tetap wajib benar.
+                            </p>
+                          </div>
+                        )}
                         {error && (
                           <p role="alert" className="text-sm text-destructive">
                             {error}
