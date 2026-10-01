@@ -1,19 +1,24 @@
 import { useQuery } from "convex/react";
 import {
   Eye,
+  ExternalLink,
+  FileText,
   KeyRound,
   Loader2,
   Lock,
+  MapPin,
   Package,
   ShoppingBag,
   RotateCcw,
   Timer,
+  TriangleAlert,
   Wallet,
 } from "lucide-react";
-import { Component, useState, type ReactNode } from "react";
+import { Component, useEffect, useState, type ReactNode } from "react";
 import { Link } from "react-router";
 
 import { RoleDashboardMenu } from "@/components/RoleDashboardMenu";
+import { PetaLokasiPeminjam } from "@/components/penyediaDana/PetaLokasiPeminjam";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -38,6 +43,7 @@ import type {
   BarisGadai,
   BarisKredit,
   BarisPinjaman,
+  LokasiTitik,
 } from "@/convex/penyediaDana";
 import { useAuth } from "@/hooks/use-auth";
 import { hitungSimulasiBulanan } from "@/lib/bulanan";
@@ -52,9 +58,17 @@ import { formatRupiah } from "@/lib/money";
  * sebagai tabel per kategori kepada akun yang diberi akses lihat saja oleh
  * admin, termasuk pemantau yang masuk dengan kode akses bersama. Halaman ini
  * tidak pernah memanggil mutation apa pun; seluruh pengubahan data tetap di
- * panel admin. Nama lengkap pemohon ditampilkan, tetapi NIK, nomor rekening,
- * nomor WhatsApp, alamat, penghasilan, dan dokumen tidak pernah dikirim ke
- * klien (lihat convex/penyediaDana.ts).
+ * panel admin.
+ *
+ * Atas keputusan admin, ruang ini juga menampilkan (1) berkas pengajuan — KTP,
+ * selfie, slip penghasilan, foto barang, tanda tangan — yang diambil hanya saat
+ * dialog Detail dibuka, dan (2) titik lokasi terakhir peminjam beserta peta
+ * live. NIK, nomor rekening, nomor WhatsApp, dan alamat tetap tidak dikirim
+ * sebagai kolom terpisah; NIK hanya terbaca pada gambar KTP bila dibuka.
+ *
+ * Batas yang harus jujur disampaikan: titik lokasi hanya diperbarui selama
+ * dashboard peminjam terbuka (±60 detik). Pelacakan saat aplikasi ditutup butuh
+ * aplikasi native, jadi yang tampil di sini selalu "terakhir dikirim kapan".
  */
 
 function tanggalRingkas(ms: number): string {
@@ -88,6 +102,70 @@ function rupiah(nilai: number): string {
 
 /** Satu bulan = 30 hari, mengikuti lib/loan (BULAN_MS). */
 const HARI_MS = BULAN_MS / 30;
+
+/**
+ * Umur titik lokasi dalam bahasa manusia. Selalu relatif terhadap waktu
+ * sekarang, sehingga klaim "live" tidak pernah menyesatkan: titik yang berhenti
+ * dikirim akan terlihat makin tua sendiri.
+ */
+function labelUmur(waktu: number, sekarang: number): string {
+  const detik = Math.max(0, Math.round((sekarang - waktu) / 1000));
+  if (detik < 90) return "baru saja";
+  const menit = Math.round(detik / 60);
+  if (menit < 60) return `${menit} menit lalu`;
+  const jam = Math.round(menit / 60);
+  if (jam < 24) return `${jam} jam lalu`;
+  return `${Math.round(jam / 24)} hari lalu`;
+}
+
+/**
+ * Jam berjalan untuk label umur lokasi. Tanpa ini, label "3 menit lalu" akan
+ * membeku di layar ketika tidak ada data baru yang masuk (Convex hanya
+ * merender ulang saat data berubah).
+ */
+function useJamBerjalan(intervalMs = 60_000): number {
+  const [sekarang, setSekarang] = useState(() => Date.now());
+  useEffect(() => {
+    const id = window.setInterval(() => setSekarang(Date.now()), intervalMs);
+    return () => window.clearInterval(id);
+  }, [intervalMs]);
+  return sekarang;
+}
+
+/** Tautan peta eksternal + embed OpenStreetMap untuk satu koordinat. */
+function tautanPeta(lat: number, lng: number): { embed: string; penuh: string } {
+  const d = 0.008;
+  return {
+    embed: `https://www.openstreetmap.org/export/embed.html?bbox=${lng - d}%2C${lat - d}%2C${
+      lng + d
+    }%2C${lat + d}&layer=mapnik&marker=${lat}%2C${lng}`,
+    penuh: `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lng}#map=16/${lat}/${lng}`,
+  };
+}
+
+/** Sel lokasi: umur titik terakhir atau tanda belum ada titik. */
+function SelLokasi({ lokasi, sekarang }: { lokasi: LokasiTitik | null; sekarang: number }) {
+  if (lokasi === null) {
+    return (
+      <TableCell className="whitespace-nowrap align-top text-xs text-slate-400">
+        belum ada titik
+      </TableCell>
+    );
+  }
+  return (
+    <TableCell className="whitespace-nowrap align-top text-xs text-slate-600">
+      <span className="inline-flex items-center gap-1.5">
+        <MapPin className="size-3.5 text-primary" aria-hidden />
+        {labelUmur(lokasi.waktu, sekarang)}
+      </span>
+      {lokasi.tanda.length > 0 && (
+        <span className="mt-1 block text-[10px] font-medium text-amber-700">
+          pola koordinat ditandai
+        </span>
+      )}
+    </TableCell>
+  );
+}
 
 const LABEL_KREDIT: Record<string, { label: string; kelas: string }> = {
   diajukan: { label: "Menunggu review", kelas: "bg-slate-100 text-slate-600 hover:bg-slate-100" },
@@ -370,10 +448,200 @@ function DetailKredit({ row }: { row: BarisKredit }) {
   );
 }
 
+const LABEL_SUMBER: Record<string, string> = {
+  web: "Perangkat (browser)",
+  aplikasi: "Perangkat (aplikasi)",
+  jejak: "Jejak terakhir",
+  pengajuan: "Saat pengajuan dikirim",
+};
+
+/**
+ * Titik lokasi terakhir peminjam pada dialog Detail: koordinat apa adanya,
+ * umur titik, peta OpenStreetMap, dan penanda pola koordinat otomatis.
+ */
+function BagianLokasi({ lokasi, nama }: { lokasi: LokasiTitik | null; nama: string }) {
+  const sekarang = useJamBerjalan();
+
+  if (lokasi === null) {
+    return (
+      <section className="mt-4 rounded-2xl border border-dashed border-slate-200 bg-slate-50/70 p-4">
+        <p className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">
+          <MapPin className="size-3.5" aria-hidden /> Lokasi terakhir
+        </p>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Belum ada titik lokasi yang pernah dikirim perangkat peminjam ini.
+        </p>
+      </section>
+    );
+  }
+
+  const peta = tautanPeta(lokasi.lat, lokasi.lng);
+  return (
+    <section className="mt-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">
+          <MapPin className="size-3.5" aria-hidden /> Lokasi terakhir
+        </p>
+        <Badge className="border-0 bg-primary/10 text-accent-foreground">
+          {labelUmur(lokasi.waktu, sekarang)}
+        </Badge>
+      </div>
+      <div className="mt-2 overflow-hidden rounded-2xl border border-slate-200 bg-slate-100">
+        <iframe
+          title={`Peta lokasi terakhir ${nama}`}
+          src={peta.embed}
+          loading="lazy"
+          className="h-52 w-full border-0"
+        />
+      </div>
+      <dl className="mt-2 grid grid-cols-2 gap-2 text-xs">
+        <div className="rounded-xl border border-slate-200 bg-white px-3 py-2">
+          <dt className="text-muted-foreground">Koordinat</dt>
+          <dd className="mt-0.5 font-mono tabular-nums">
+            {lokasi.lat.toFixed(5)}, {lokasi.lng.toFixed(5)}
+          </dd>
+        </div>
+        <div className="rounded-xl border border-slate-200 bg-white px-3 py-2">
+          <dt className="text-muted-foreground">Akurasi dilaporkan</dt>
+          <dd className="mt-0.5 tabular-nums">± {Math.round(lokasi.akurasi)} m</dd>
+        </div>
+        <div className="rounded-xl border border-slate-200 bg-white px-3 py-2">
+          <dt className="text-muted-foreground">Sumber</dt>
+          <dd className="mt-0.5">{LABEL_SUMBER[lokasi.sumber] ?? lokasi.sumber}</dd>
+        </div>
+        <div className="rounded-xl border border-slate-200 bg-white px-3 py-2">
+          <dt className="text-muted-foreground">Diterima server</dt>
+          <dd className="mt-0.5">
+            {new Date(lokasi.waktu).toLocaleString("id-ID", {
+              day: "numeric",
+              month: "short",
+              hour: "2-digit",
+              minute: "2-digit",
+            })}
+          </dd>
+        </div>
+      </dl>
+      {lokasi.tanda.length > 0 && (
+        <p className="mt-2 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900">
+          <TriangleAlert className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+          Sistem menandai pola koordinat ini secara otomatis — indikator, bukan bukti
+          manipulasi. Buka peta untuk menilai sendiri.
+        </p>
+      )}
+      <a
+        href={peta.penuh}
+        target="_blank"
+        rel="noreferrer"
+        className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:underline"
+      >
+        Buka peta lebih besar <ExternalLink className="size-3" aria-hidden />
+      </a>
+    </section>
+  );
+}
+
+/**
+ * Berkas pengajuan pada dialog Detail: KTP, selfie, slip, foto barang, dan
+ * tanda tangan elektronik. Diminta hanya saat dialog dibuka.
+ */
+function BagianBerkas({ jenis, id }: { jenis: IsiDetail["jenis"]; id: string }) {
+  const data = useQuery(api.penyediaDana.berkasPengajuan, { jenis, id });
+
+  return (
+    <section className="mt-5 border-t border-slate-200 pt-4">
+      <p className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">
+        <FileText className="size-3.5" aria-hidden /> Berkas pengajuan
+      </p>
+      {data === undefined ? (
+        <p className="mt-2 flex items-center gap-2 text-sm text-muted-foreground">
+          <Loader2 className="size-4 animate-spin" /> Memuat berkas…
+        </p>
+      ) : data === null ? (
+        <p className="mt-2 text-sm text-muted-foreground">
+          Berkas pengajuan ini tidak ditemukan.
+        </p>
+      ) : (
+        <>
+          {data.catatan !== null && (
+            <p className="mt-2 rounded-xl border border-dashed border-slate-200 bg-slate-50 px-3 py-2 text-xs leading-5 text-muted-foreground">
+              {data.catatan}
+            </p>
+          )}
+          {data.berkas.length > 0 && (
+            <div className="mt-2 grid gap-3 sm:grid-cols-2">
+              {data.berkas.map((b) => (
+                <a
+                  key={b.label}
+                  href={b.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="group overflow-hidden rounded-2xl border border-slate-200 bg-white transition hover:border-primary/40"
+                >
+                  <img
+                    src={b.url}
+                    alt={`Berkas ${b.label}`}
+                    className="h-32 w-full bg-slate-50 object-contain"
+                  />
+                  <span className="flex items-center justify-between gap-2 border-t border-slate-100 px-3 py-2 text-xs font-medium">
+                    {b.label}
+                    <ExternalLink
+                      className="size-3 text-muted-foreground group-hover:text-primary"
+                      aria-hidden
+                    />
+                  </span>
+                </a>
+              ))}
+            </div>
+          )}
+          {data.tandaTangan !== null && (
+            <div className="mt-3 rounded-2xl border border-slate-200 bg-white p-3">
+              <p className="text-xs text-muted-foreground">
+                Tanda tangan elektronik peminjam
+                {data.tandaTanganPada === null
+                  ? ""
+                  : ` · ${tanggalRingkas(data.tandaTanganPada)}`}
+              </p>
+              <img
+                src={data.tandaTangan}
+                alt="Tanda tangan elektronik peminjam"
+                className="mt-2 h-24 w-full bg-slate-50 object-contain"
+              />
+            </div>
+          )}
+          <p className="mt-3 flex items-start gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-[11px] leading-5 text-muted-foreground">
+            <TriangleAlert className="mt-0.5 size-3.5 shrink-0 text-amber-600" aria-hidden />
+            Berkas memuat data pribadi peminjam (termasuk NIK pada KTP). Gunakan hanya untuk
+            penilaian pendanaan dan jangan dibagikan ke luar tim.
+          </p>
+        </>
+      )}
+    </section>
+  );
+}
+
 type IsiDetail =
   | { jenis: "pinjaman"; row: BarisPinjaman }
   | { jenis: "gadai"; row: BarisGadai }
   | { jenis: "kredit"; row: BarisKredit };
+
+/**
+ * Isi dialog Detail: angka pengajuan, titik lokasi terakhir, lalu berkas.
+ * Dipisah sebagai komponen sendiri supaya query berkas hanya dibuat saat
+ * dialog benar-benar terbuka (aturan hooks melarang pemanggilan bersyarat).
+ */
+function IsiDialog({ detail }: { detail: IsiDetail }) {
+  return (
+    <>
+      <dl className="mt-1">
+        {detail.jenis === "pinjaman" && <DetailPinjaman row={detail.row} />}
+        {detail.jenis === "gadai" && <DetailGadai row={detail.row} />}
+        {detail.jenis === "kredit" && <DetailKredit row={detail.row} />}
+      </dl>
+      <BagianLokasi lokasi={detail.row.lokasi} nama={detail.row.namaLengkap} />
+      <BagianBerkas jenis={detail.jenis} id={detail.row._id} />
+    </>
+  );
+}
 
 /** Layar untuk akun yang belum diberi akses lihat saja. */
 function AksesTerbatas() {
@@ -472,6 +740,7 @@ function IsiRuang() {
   const { user } = useAuth();
   const [tab, setTab] = useState("pinjaman");
   const [detail, setDetail] = useState<IsiDetail | null>(null);
+  const sekarang = useJamBerjalan();
 
   const role = user?.role;
   // `pengamat` = sesi tamu yang diaktifkan kode akses bersama (lihat saja).
@@ -481,6 +750,13 @@ function IsiRuang() {
   const data = useQuery(
     api.penyediaDana.daftarPengajuan,
     user === undefined || !bolehLihat ? ("skip" as const) : {},
+  );
+  // Titik lokasi live hanya diminta saat tab peta benar-benar dibuka, supaya
+  // pembacaan lokasi tidak ikut berjalan untuk pengunjung yang hanya melihat
+  // tabel pengajuan.
+  const titik = useQuery(
+    api.penyediaDana.titikPeminjam,
+    user === undefined || !bolehLihat || tab !== "lokasi" ? ("skip" as const) : {},
   );
 
   return (
@@ -520,7 +796,7 @@ function IsiRuang() {
                   <Eye className="mr-1 size-3" /> Akses lihat saja
                 </Badge>
                 <Badge variant="outline" className="border-slate-200 text-muted-foreground">
-                  Nama pemohon ditampilkan · NIK &amp; dokumen tetap tertutup
+                  Berkas &amp; lokasi terakhir ditampilkan
                 </Badge>
               </div>
               <h1 className="mt-3 text-2xl font-semibold tracking-tight sm:text-3xl">
@@ -529,8 +805,10 @@ function IsiRuang() {
               <p className="mt-3 max-w-3xl text-sm leading-7 text-muted-foreground">
                 Catatan internal PINDAI untuk pinjaman tunai, gadai, dan kredit barang. Anda hanya
                 dapat membaca: tidak ada tindakan alokasi, pencairan, maupun pengubahan status dari
-                ruang ini. Nama lengkap pemohon ditampilkan; NIK, nomor rekening, nomor WhatsApp,
-                alamat, penghasilan, dan dokumen tidak pernah ditampilkan.
+                ruang ini. Tombol <strong>Detail</strong> membuka berkas pengajuan (KTP, selfie,
+                slip, foto barang, tanda tangan) dan titik lokasi terakhir peminjam. NIK, nomor
+                rekening, nomor WhatsApp, dan alamat tidak dikirim sebagai kolom terpisah — NIK
+                tetap terbaca pada gambar KTP yang Anda buka.
               </p>
             </section>
 
@@ -593,6 +871,17 @@ function IsiRuang() {
                     {data.ringkasan.jumlahKredit}
                   </span>
                 </TabsTrigger>
+                <TabsTrigger
+                  value="lokasi"
+                  className="group h-9 flex-none gap-2 rounded-xl px-3 text-xs font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+                >
+                  <MapPin className="size-3.5" /> Lokasi live
+                  {titik !== undefined && (
+                    <span className="tabular-nums text-muted-foreground group-data-[state=active]:text-primary-foreground">
+                      {titik.jumlahTitik}
+                    </span>
+                  )}
+                </TabsTrigger>
               </TabsList>
 
               {/* ===== Pinjaman tunai ===== */}
@@ -610,6 +899,7 @@ function IsiRuang() {
                         "Tanggal",
                         "Status",
                         "Pendana",
+                        "Lokasi",
                         "Aksi",
                       ]}
                     >
@@ -634,6 +924,7 @@ function IsiRuang() {
                             <StatusBadge status={row.status} kind="loan" />
                           </TableCell>
                           <SelPendana pendana={row.pendana} />
+                          <SelLokasi lokasi={row.lokasi} sekarang={sekarang} />
                           <TableCell className="align-top">
                             <Button
                               variant="outline"
@@ -661,7 +952,16 @@ function IsiRuang() {
                 ) : (
                   <>
                     <Tabel
-                      head={["No. Ref", "Nama", "Barang", "Taksiran", "Tanggal", "Status", "Aksi"]}
+                      head={[
+                        "No. Ref",
+                        "Nama",
+                        "Barang",
+                        "Taksiran",
+                        "Tanggal",
+                        "Status",
+                        "Lokasi",
+                        "Aksi",
+                      ]}
                     >
                       {data.gadai.map((row) => (
                         <TableRow key={row._id}>
@@ -684,6 +984,7 @@ function IsiRuang() {
                           <TableCell className="align-top">
                             <StatusBadge status={row.status} kind="pawn" />
                           </TableCell>
+                          <SelLokasi lokasi={row.lokasi} sekarang={sekarang} />
                           <TableCell className="align-top">
                             <Button
                               variant="outline"
@@ -717,6 +1018,7 @@ function IsiRuang() {
                         "Tanggal",
                         "Status",
                         "Pendana",
+                        "Lokasi",
                         "Aksi",
                       ]}
                     >
@@ -745,6 +1047,7 @@ function IsiRuang() {
                             <BadgeKredit status={row.status} />
                           </TableCell>
                           <SelPendana pendana={row.pendana} />
+                          <SelLokasi lokasi={row.lokasi} sekarang={sekarang} />
                           <TableCell className="align-top">
                             <Button
                               variant="outline"
@@ -761,6 +1064,100 @@ function IsiRuang() {
                   </>
                 )}
               </TabsContent>
+
+              {/* ===== Lokasi live ===== */}
+              <TabsContent value="lokasi" className="mt-4 space-y-4">
+                {titik === undefined ? (
+                  <p className="flex items-center justify-center gap-2 py-24 text-sm text-muted-foreground">
+                    <Loader2 className="size-4 animate-spin" /> Memuat titik lokasi…
+                  </p>
+                ) : (
+                  <>
+                    <div className="animate-masuk rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Badge className="border-0 bg-primary/10 text-accent-foreground">
+                          <MapPin className="mr-1 size-3" /> {titik.jumlahTitik} titik terakhir
+                        </Badge>
+                        <Badge
+                          variant="outline"
+                          className="border-slate-200 text-muted-foreground"
+                        >
+                          {titik.tanpaTitik} peminjam belum pernah mengirim titik
+                        </Badge>
+                        {titik.terpotong && (
+                          <Badge
+                            variant="outline"
+                            className="border-slate-200 text-muted-foreground"
+                          >
+                            menampilkan {titik.batas} pengajuan terbaru per kategori
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="mt-3 max-w-3xl text-xs leading-6 text-muted-foreground">
+                        Peta ini memakai koordinat yang <strong>dilaporkan perangkat peminjam</strong>
+                        . Titik diperbarui otomatis selama dashboard peminjam terbuka (±60 detik);
+                        pelacakan saat aplikasi ditutup memerlukan aplikasi native, sehingga label
+                        umur di bawah selalu menunjukkan kapan titik terakhir benar-benar diterima.
+                      </p>
+                    </div>
+
+                    <PetaLokasiPeminjam rows={titik.rows} vault={titik.vault} />
+
+                    {titik.rows.length === 0 ? (
+                      <KeadaanKosong pesan="Belum ada titik lokasi yang terkirim dari perangkat peminjam. Titik muncul setelah peminjam membuka dashboard dengan GPS aktif." />
+                    ) : (
+                      <ul className="animate-masuk divide-y divide-slate-200 overflow-hidden rounded-2xl border border-slate-200 bg-white">
+                        {[...titik.rows]
+                          .sort((a, b) => b.posisi.waktu - a.posisi.waktu)
+                          .map((r) => (
+                            <li
+                              key={r.userId}
+                              className="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:px-5"
+                            >
+                              <span className="min-w-0">
+                                <span className="flex flex-wrap items-center gap-2">
+                                  <span className="font-medium text-slate-900">
+                                    {r.namaLengkap}
+                                  </span>
+                                  <BadgePseudonim kode={r.kodePeminjam} />
+                                  {r.posisi.tanda.length > 0 && (
+                                    <Badge className="border-0 bg-amber-100 text-amber-800 hover:bg-amber-100">
+                                      pola koordinat ditandai
+                                    </Badge>
+                                  )}
+                                </span>
+                                <span className="mt-1 flex flex-wrap items-center gap-2">
+                                  <span className="font-mono text-[11px] text-slate-500">
+                                    {r.nomorReferensi}
+                                  </span>
+                                  {r.kategori === "pinjaman" ? (
+                                    <StatusBadge status={r.status} kind="loan" />
+                                  ) : r.kategori === "gadai" ? (
+                                    <StatusBadge status={r.status} kind="pawn" />
+                                  ) : (
+                                    <BadgeKredit status={r.status} />
+                                  )}
+                                </span>
+                              </span>
+                              <span className="shrink-0 text-left text-xs text-muted-foreground sm:text-right">
+                                <span className="block font-medium text-slate-700">
+                                  {labelUmur(r.posisi.waktu, sekarang)}
+                                </span>
+                                <span className="block font-mono tabular-nums">
+                                  {r.posisi.lat.toFixed(5)}, {r.posisi.lng.toFixed(5)}
+                                </span>
+                                <span className="block">
+                                  ± {Math.round(r.posisi.akurasi)} m ·{" "}
+                                  {LABEL_SUMBER[r.posisi.sumber] ?? r.posisi.sumber}
+                                </span>
+                              </span>
+                            </li>
+                          ))}
+                      </ul>
+                    )}
+                  </>
+                )}
+              </TabsContent>
             </Tabs>
 
             <p className="mt-6 rounded-2xl border border-slate-200 bg-white px-5 py-4 text-xs leading-6 text-muted-foreground">
@@ -772,7 +1169,7 @@ function IsiRuang() {
       </main>
 
       <Dialog open={detail !== null} onOpenChange={(open) => (open ? undefined : setDetail(null))}>
-        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg">
+        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-xl">
           <DialogHeader>
             <DialogTitle>
               {detail?.jenis === "pinjaman"
@@ -782,15 +1179,12 @@ function IsiRuang() {
                   : "Detail kredit barang"}
             </DialogTitle>
             <DialogDescription>
-              Catatan internal PINDAI — ruang lihat saja. NIK, nomor rekening, nomor WhatsApp,
-              alamat, penghasilan, dan dokumen pemohon tidak ditampilkan di sini.
+              Catatan internal PINDAI — ruang lihat saja. Berkas pengajuan dan titik lokasi
+              terakhir ditampilkan untuk penilaian pendanaan; NIK, nomor rekening, nomor WhatsApp,
+              dan alamat tidak dikirim sebagai kolom terpisah (NIK terbaca pada gambar KTP).
             </DialogDescription>
           </DialogHeader>
-          <dl className="mt-1">
-            {detail?.jenis === "pinjaman" && <DetailPinjaman row={detail.row} />}
-            {detail?.jenis === "gadai" && <DetailGadai row={detail.row} />}
-            {detail?.jenis === "kredit" && <DetailKredit row={detail.row} />}
-          </dl>
+          {detail !== null && <IsiDialog detail={detail} />}
         </DialogContent>
       </Dialog>
 

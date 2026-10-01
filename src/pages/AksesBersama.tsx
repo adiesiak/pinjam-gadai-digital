@@ -168,8 +168,10 @@ export default function AksesBersama() {
                 </p>
                 <p className="mt-1">
                   Akses ini membuka daftar pengajuan (pinjaman, gadai, kredit barang) tanpa
-                  kemampuan mengubah data. Nama pemohon ditampilkan; NIK, nomor rekening,
-                  nomor WhatsApp, alamat, dan dokumen tidak ditampilkan.
+                  kemampuan mengubah data. Nama pemohon, berkas pengajuan (KTP, selfie, slip, foto
+                  barang, tanda tangan), dan titik lokasi terakhir peminjam ditampilkan untuk
+                  penilaian pendanaan; NIK, nomor rekening, nomor WhatsApp, dan alamat tidak
+                  dikirim sebagai kolom terpisah.
                 </p>
               </div>
             </CardContent>

@@ -7,10 +7,13 @@
  * membaca, tidak pernah mengubah catatan.
  *
  * Privasi (whitelist, bukan spread dokumen mentah): baris yang dikirim ke
- * klien hanya berisi field operasional yang aman. Nama lengkap pemohon
- * ditampilkan untuk ruang pemantau (keputusan admin), sedangkan NIK, nomor
- * rekening, nomor WhatsApp, alamat, penghasilan, tanda tangan, dan dokumen KYC
- * tidak pernah keluar dari server. Setiap baris tetap membawa `kodePeminjam`
+ * klien hanya berisi field operasional yang dibutuhkan ruang ini. Nama lengkap
+ * pemohon ditampilkan untuk ruang pemantau (keputusan admin), NIK, nomor
+ * rekening, nomor WhatsApp, alamat, dan penghasilan tetap TIDAK pernah keluar
+ * sebagai teks. Dua hal dibuka atas keputusan admin: (1) berkas pengajuan
+ * (KTP, selfie, slip, foto barang) lewat `berkasPengajuan` yang hanya dipanggil
+ * saat dialog Detail dibuka, dan (2) titik lokasi terakhir peminjam lewat
+ * `lokasi`/`titikPeminjam`. Setiap baris tetap membawa `kodePeminjam`
  * (pseudonim acak dari `peminjamCode.ts`) sebagai kunci stabil antar-ruang.
  *
  * Akses ditentukan peran akun: `dana` (penyedia dana) atau `admin` untuk
@@ -25,13 +28,75 @@ import { mutation, query, type QueryCtx } from "./_generated/server";
 import { SLOT_AKSES_BERSAMA } from "./aksesBersama";
 import { requireAdminSession } from "./adminAuthz";
 import { ROLES } from "./schema";
-import { audit } from "./system";
+import { audit, getConfig } from "./system";
 
 /** Batas baris per kategori; daftar selalu diurutkan dari yang terbaru. */
 export const BATAS_BARIS = 200;
 
 /** Batas jumlah akun penyedia dana yang dikembalikan ke panel admin. */
 const BATAS_AKUN = 200;
+
+/**
+ * Titik lokasi terakhir yang diketahui untuk satu peminjam.
+ *
+ * Sumbernya bertingkat, dari yang paling baru:
+ *  - `lokasiStatus`  — titik terkini yang dikirim perangkat (heartbeat ±60 detik,
+ *                      lihat `convex/lokasi.ts`); ini yang membuat peta "live".
+ *  - jejak terakhir  — `lokasiJejak` paling baru bila status terkini belum ada.
+ *  - titik pengajuan — `loans.lokasiAjukan`, titik saat pengajuan dikirim.
+ *
+ * Titik hanya diperbarui selama aplikasi/dashboard peminjam terbuka: pelacakan
+ * saat aplikasi ditutup butuh aplikasi native (lihat catatan di lib/lokasi.ts),
+ * jadi ruang ini selalu menampilkan "terakhir dikirim kapan", bukan klaim
+ * posisi saat ini.
+ */
+export type LokasiTitik = {
+  lat: number;
+  lng: number;
+  /** Akurasi GPS yang dilaporkan perangkat (meter). */
+  akurasi: number;
+  /** Waktu server saat titik diterima. */
+  waktu: number;
+  /** "web" | "aplikasi" | "jejak" | "pengajuan". */
+  sumber: string;
+  /** Tanda kecurigaan koordinat otomatis (kosong = normal). */
+  tanda: string[];
+};
+
+/** Titik terkini dari status/jejak perangkat — null bila belum pernah ada. */
+async function lokasiPerangkat(
+  ctx: QueryCtx,
+  userId: Id<"users">,
+): Promise<LokasiTitik | null> {
+  const status = await ctx.db
+    .query("lokasiStatus")
+    .withIndex("by_user", (q) => q.eq("userId", userId))
+    .first();
+  if (status !== null) {
+    return {
+      lat: status.lat,
+      lng: status.lng,
+      akurasi: status.akurasi,
+      waktu: status.waktu,
+      sumber: status.sumber,
+      tanda: status.tanda ?? [],
+    };
+  }
+  const jejak = await ctx.db
+    .query("lokasiJejak")
+    .withIndex("by_user", (q) => q.eq("userId", userId))
+    .order("desc")
+    .first();
+  if (jejak === null) return null;
+  return {
+    lat: jejak.lat,
+    lng: jejak.lng,
+    akurasi: jejak.akurasi,
+    waktu: jejak.waktu,
+    sumber: "jejak",
+    tanda: jejak.tanda ?? [],
+  };
+}
 
 export type BarisPinjaman = {
   _id: Id<"loans">;
@@ -50,6 +115,8 @@ export type BarisPinjaman = {
   didanaiPada: number | null;
   /** Nama penyedia dana yang mencatat alokasi — null bila belum didanai. */
   pendana: string | null;
+  /** Titik lokasi terakhir yang diketahui — null bila belum pernah terkirim. */
+  lokasi: LokasiTitik | null;
 };
 
 export type BarisGadai = {
@@ -69,6 +136,8 @@ export type BarisGadai = {
   persenSewaModal: number | null;
   /** Sisa pokok berjalan gadai (Skema B). */
   sisaPokok: number | null;
+  /** Titik lokasi terakhir yang diketahui — null bila belum pernah terkirim. */
+  lokasi: LokasiTitik | null;
 };
 
 export type BarisKredit = {
@@ -90,6 +159,8 @@ export type BarisKredit = {
   didanaiPada: number | null;
   /** Nama penyedia dana yang mencatat alokasi — null bila belum didanai. */
   pendana: string | null;
+  /** Titik lokasi terakhir yang diketahui — null bila belum pernah terkirim. */
+  lokasi: LokasiTitik | null;
 };
 
 const MENUNGGU_PINJAMAN = new Set(["diajukan", "sedang_direview"]);
@@ -213,6 +284,17 @@ export const daftarPengajuan = query({
       return rangkaiPendana(alokasi.map((a) => idPendana(a)));
     }
 
+    // Titik lokasi terakhir per peminjam — satu pembacaan per orang, bukan
+    // per baris pengajuan. Kegagalan pembacaan tidak pernah menghentikan
+    // daftar: titik ditampilkan sebagai "belum ada" saja.
+    const lokasiCache = new Map<Id<"users">, LokasiTitik | null>();
+    async function lokasiUntuk(userId: Id<"users">): Promise<LokasiTitik | null> {
+      if (lokasiCache.has(userId)) return lokasiCache.get(userId) ?? null;
+      const titik = await lokasiPerangkat(ctx, userId);
+      lokasiCache.set(userId, titik);
+      return titik;
+    }
+
     const pinjamanMentah = await ctx.db
       .query("loans")
       .order("desc")
@@ -242,6 +324,20 @@ export const daftarPengajuan = query({
         didanaiPada: loan.didanaiPada ?? null,
         pendana:
           loan.didanaiPada === undefined ? null : await pendanaPinjaman(loan._id),
+        // Pinjaman menyimpan titik GPS saat pengajuan dikirim — dipakai sebagai
+        // cadangan bila perangkat belum pernah mengirim heartbeat.
+        lokasi:
+          (await lokasiUntuk(loan.userId)) ??
+          (loan.lokasiAjukan === undefined
+            ? null
+            : {
+                lat: loan.lokasiAjukan.lat,
+                lng: loan.lokasiAjukan.lng,
+                akurasi: loan.lokasiAjukan.akurasi,
+                waktu: loan.lokasiAjukan.waktu,
+                sumber: "pengajuan",
+                tanda: [],
+              }),
       });
     }
 
@@ -260,6 +356,7 @@ export const daftarPengajuan = query({
         pokokGadai: pawn.pokokGadai ?? null,
         persenSewaModal: pawn.persenSewaModal ?? null,
         sisaPokok: pawn.sisaPokok ?? null,
+        lokasi: await lokasiUntuk(pawn.userId),
       });
     }
 
@@ -282,6 +379,7 @@ export const daftarPengajuan = query({
         didanaiPada: item.didanaiPada ?? null,
         pendana:
           item.didanaiPada === undefined ? null : await pendanaKredit(item._id),
+        lokasi: await lokasiUntuk(item.userId),
       });
     }
 
@@ -310,6 +408,183 @@ export const daftarPengajuan = query({
       pinjaman,
       gadai,
       kredit,
+    };
+  },
+});
+
+/**
+ * Satu baris peta: peminjam + titik terakhir yang diketahui.
+ * Hanya berisi identitas tampil (nama, kode pseudonim, nomor referensi) dan
+ * koordinat — tanpa NIK, rekening, WhatsApp, atau alamat.
+ */
+export type TitikPeminjam = {
+  userId: Id<"users">;
+  namaLengkap: string;
+  kodePeminjam: string | null;
+  nomorReferensi: string;
+  kategori: "pinjaman" | "gadai" | "kredit";
+  status: string;
+  posisi: LokasiTitik;
+};
+
+/** Batas baris per kategori untuk peta live (satu peminjam dihitung sekali). */
+const BATAS_PETA = 150;
+
+/**
+ * Titik lokasi peminjam untuk peta live ruang penyedia dana.
+ *
+ * Satu baris per peminjam (pengajuan terbaru dipakai sebagai keterangan),
+ * berisi hanya peminjam yang sudah pernah mengirim titik GPS. Query ini reaktif:
+ * setiap heartbeat perangkat peminjam (±60 detik) langsung memperbarui peta.
+ */
+export const titikPeminjam = query({
+  args: {},
+  handler: async (ctx) => {
+    await requirePengamat(ctx);
+    const cfg = await getConfig(ctx);
+
+    const [loans, pawns, kredit] = await Promise.all([
+      ctx.db.query("loans").order("desc").take(BATAS_PETA + 1),
+      ctx.db.query("pawns").order("desc").take(BATAS_PETA + 1),
+      ctx.db.query("kreditBarang").order("desc").take(BATAS_PETA + 1),
+    ]);
+
+    const rows: TitikPeminjam[] = [];
+    const sudah = new Set<string>();
+    let tanpaTitik = 0;
+
+    async function tambah(
+      userId: Id<"users">,
+      namaLengkap: string,
+      nomorReferensi: string,
+      kategori: TitikPeminjam["kategori"],
+      status: string,
+    ): Promise<void> {
+      if (sudah.has(userId) || rows.length >= BATAS_PETA) return;
+      sudah.add(userId);
+      const posisi = await lokasiPerangkat(ctx, userId);
+      if (posisi === null) {
+        tanpaTitik += 1;
+        return;
+      }
+      const peminjam = await ctx.db.get(userId);
+      rows.push({
+        userId,
+        namaLengkap,
+        kodePeminjam: peminjam?.kodePeminjam ?? null,
+        nomorReferensi,
+        kategori,
+        status,
+        posisi,
+      });
+    }
+
+    for (const l of loans.slice(0, BATAS_PETA)) {
+      await tambah(l.userId, l.namaLengkap, l.nomorReferensi, "pinjaman", l.status);
+    }
+    for (const p of pawns.slice(0, BATAS_PETA)) {
+      await tambah(p.userId, p.namaLengkap, p.nomorReferensi, "gadai", p.status);
+    }
+    for (const k of kredit.slice(0, BATAS_PETA)) {
+      await tambah(k.userId, k.namaLengkap, k.nomorReferensi, "kredit", k.status);
+    }
+
+    // Titik acuan konfigurasi (kantor) — penanda orientasi peta, sama seperti
+    // peta admin: bukan posisi gudang terverifikasi.
+    return {
+      vault: { lat: cfg.vaultLat, lng: cfg.vaultLng },
+      batas: BATAS_PETA,
+      terpotong:
+        loans.length > BATAS_PETA || pawns.length > BATAS_PETA || kredit.length > BATAS_PETA,
+      jumlahTitik: rows.length,
+      tanpaTitik,
+      rows,
+    };
+  },
+});
+
+/**
+ * Berkas pengajuan (KTP, selfie KTP, slip penghasilan, foto barang, tanda
+ * tangan) untuk dialog Detail.
+ *
+ * Sengaja dipisah dari `daftarPengajuan` supaya payload daftar tetap ringan dan
+ * berkas hanya diambil saat benar-benar dibuka. `ctx.storage.getUrl` memakai
+ * URL penyimpanan Convex yang tidak dapat ditebak; hanya sesi dengan akses
+ * ruang ini yang bisa memintanya.
+ */
+export type BerkasPengajuan = {
+  jenis: "pinjaman" | "gadai" | "kredit";
+  berkas: { label: string; url: string }[];
+  /** Tanda tangan elektronik peminjam (data URL PNG) bila ada. */
+  tandaTangan: string | null;
+  tandaTanganPada: number | null;
+  catatan: string | null;
+};
+
+export const berkasPengajuan = query({
+  args: {
+    jenis: v.union(v.literal("pinjaman"), v.literal("gadai"), v.literal("kredit")),
+    id: v.string(),
+  },
+  handler: async (ctx, { jenis, id }): Promise<BerkasPengajuan | null> => {
+    await requirePengamat(ctx);
+
+    if (jenis === "kredit") {
+      // Pengajuan kredit barang tidak menyimpan berkas gambar di sistem.
+      const kreditId = ctx.db.normalizeId("kreditBarang", id);
+      if (kreditId === null || (await ctx.db.get(kreditId)) === null) return null;
+      return {
+        jenis,
+        berkas: [],
+        tandaTangan: null,
+        tandaTanganPada: null,
+        catatan:
+          "Pengajuan kredit barang tidak menyimpan berkas gambar di PINDAI — hanya data pemohon dan rincian barang.",
+      };
+    }
+
+    if (jenis === "gadai") {
+      const pawnId = ctx.db.normalizeId("pawns", id);
+      if (pawnId === null) return null;
+      const pawn = await ctx.db.get(pawnId);
+      if (pawn === null) return null;
+      const foto = pawn.fotoBarangId ? await ctx.storage.getUrl(pawn.fotoBarangId) : null;
+      const berkas = foto === null ? [] : [{ label: "Foto barang", url: foto }];
+      return {
+        jenis,
+        berkas,
+        tandaTangan: pawn.tandaTanganPeminjam ?? null,
+        tandaTanganPada: pawn.tandaTanganPada ?? null,
+        catatan:
+          berkas.length === 0
+            ? "Belum ada foto barang yang tersimpan untuk pengajuan gadai ini."
+            : null,
+      };
+    }
+
+    const loanId = ctx.db.normalizeId("loans", id);
+    if (loanId === null) return null;
+    const loan = await ctx.db.get(loanId);
+    if (loan === null) return null;
+    const [ktp, selfie, slip] = await Promise.all([
+      loan.dokKtpId ? ctx.storage.getUrl(loan.dokKtpId) : null,
+      loan.dokSelfieKtpId ? ctx.storage.getUrl(loan.dokSelfieKtpId) : null,
+      loan.dokSlipGajiId ? ctx.storage.getUrl(loan.dokSlipGajiId) : null,
+    ]);
+    const berkas = [
+      { label: "KTP", url: ktp },
+      { label: "Selfie dengan KTP", url: selfie },
+      { label: "Slip penghasilan", url: slip },
+    ].filter((b): b is { label: string; url: string } => b.url !== null);
+    return {
+      jenis,
+      berkas,
+      tandaTangan: loan.tandaTanganPeminjam ?? null,
+      tandaTanganPada: loan.tandaTanganPada ?? null,
+      catatan:
+        berkas.length === 0
+          ? "Belum ada berkas yang tersimpan untuk pengajuan pinjaman ini."
+          : null,
     };
   },
 });

@@ -2,10 +2,12 @@
  * Tes ruang penyedia dana (lihat saja) — convex-test + vitest.
  *
  * Yang dijaga di sini:
- * - Gerbang akses di server: tamu, akun biasa, dan akun tanpa peran ditolak.
- * - Privasi: payload hanya berisi field whitelist; NIK, nomor rekening, nomor
- *   WhatsApp, alamat, dan dokumen tidak pernah ikut terkirim. Nama lengkap
- *   pemohon memang ditampilkan (keputusan admin ruang pemantau).
+ * - Gerbang akses di server: tamu, akun biasa, dan akun tanpa peran ditolak —
+ *   termasuk untuk `titikPeminjam` dan `berkasPengajuan`.
+ * - Privasi: NIK, nomor rekening, dan nomor WhatsApp tidak pernah terkirim
+ *   sebagai teks. Nama lengkap pemohon, titik lokasi terakhir, serta berkas
+ *   pengajuan memang ditampilkan atas keputusan admin ruang pemantau — berkas
+ *   hanya diberikan lewat query terpisah saat dialog Detail dibuka.
  * - Batas baris per kategori + penanda `terpotong`.
  * - Pemberian/pencabutan akses hanya oleh admin, idempoten, dan ber-audit.
  *
@@ -461,5 +463,201 @@ describe("ruang penyedia dana (lihat saja)", () => {
     // Tidak ada akun yang berubah peran oleh percobaan gagal di atas.
     const semua = await t.run((ctx) => ctx.db.query("users").collect());
     expect(semua.filter((u) => u.role === "dana")).toHaveLength(0);
+  });
+});
+
+describe("lokasi & berkas peminjam di ruang penyedia dana", () => {
+  it("titikPeminjam menolak akun tanpa akses dan hanya berisi titik yang dilaporkan", async () => {
+    const t = convexTest(schema, modules);
+    const { userId } = await siapkanPengguna(t, "rani", {
+      email: "rani@pindai.test",
+      role: "peminjam",
+    });
+    const { sesi: dana } = await siapkanPengguna(t, "penyedia", {
+      email: "penyedia@pindai.test",
+      role: "dana",
+    });
+    await seedPengajuan(t, userId);
+
+    // Sebelum ada titik: peminjam tetap muncul sebagai "belum ada titik".
+    const kosong = await dana.query(api.penyediaDana.titikPeminjam, {});
+    expect(kosong.rows).toHaveLength(0);
+    expect(kosong.tanpaTitik).toBe(1);
+
+    await t.run(async (ctx) => {
+      await ctx.db.insert("lokasiStatus", {
+        userId,
+        lat: -6.2,
+        lng: 106.816666,
+        akurasi: 24,
+        waktu: Date.now(),
+        sumber: "web",
+      });
+    });
+
+    const hasil = await dana.query(api.penyediaDana.titikPeminjam, {});
+    expect(hasil.rows).toHaveLength(1);
+    expect(hasil.rows[0].namaLengkap).toBe(NAMA_PEMOHON);
+    expect(hasil.rows[0].posisi.lat).toBeCloseTo(-6.2);
+    expect(hasil.rows[0].posisi.sumber).toBe("web");
+    expect(hasil.rows[0].kodePeminjam).toBe(KODE_PEMINJAM);
+    // Identitas sensitif tidak ikut pada payload peta.
+    const mentah = JSON.stringify(hasil);
+    for (const rahasia of Object.values(RAHASIA)) {
+      expect(mentah).not.toContain(rahasia);
+    }
+
+    // Gerbang server: akun tanpa akses lihat-saja ditolak.
+    const { sesi: peminjam } = await siapkanPengguna(t, "rani-dua", {
+      email: "rani-dua@pindai.test",
+      role: "peminjam",
+    });
+    await expect(
+      peminjam.query(api.penyediaDana.titikPeminjam, {}),
+    ).rejects.toThrow(/akses lihat saja/i);
+  });
+
+  it("baris daftar membawa lokasi terakhir dari status, jejak, atau titik pengajuan", async () => {
+    const t = convexTest(schema, modules);
+    const { userId } = await siapkanPengguna(t, "rani", {
+      email: "rani@pindai.test",
+      role: "peminjam",
+    });
+    const { sesi: dana } = await siapkanPengguna(t, "penyedia", {
+      email: "penyedia@pindai.test",
+      role: "dana",
+    });
+    await seedPengajuan(t, userId);
+
+    // Tanpa heartbeat: pinjaman jatuh ke titik GPS saat pengajuan dikirim.
+    await t.run((ctx) =>
+      ctx.db.insert("loans", {
+        userId,
+        pokokPinjaman: 1_000_000,
+        tujuan: "Modal usaha",
+        namaLengkap: NAMA_PEMOHON,
+        nomorRekening: RAHASIA.nomorRekening,
+        status: "diajukan",
+        nomorReferensi: "PGD-LOKASI-1",
+        tenorHari: 30,
+        lokasiAjukan: { lat: -6.9, lng: 107.6, akurasi: 30, waktu: 1_700_000_000_000 },
+      }),
+    );
+    const awal = await dana.query(api.penyediaDana.daftarPengajuan, {});
+    const barisAwal = awal.pinjaman.find((b) => b.nomorReferensi === "PGD-LOKASI-1");
+    expect(barisAwal?.lokasi?.sumber).toBe("pengajuan");
+    expect(barisAwal?.lokasi?.lat).toBeCloseTo(-6.9);
+
+    // Setelah perangkat mengirim titik: status terkini menang atas titik pengajuan.
+    await t.run((ctx) =>
+      ctx.db.insert("lokasiStatus", {
+        userId,
+        lat: -6.175392,
+        lng: 106.827153,
+        akurasi: 12,
+        waktu: 1_800_000_000_000,
+        sumber: "aplikasi",
+        tanda: ["koordinat_berulang"],
+      }),
+    );
+    const akhir = await dana.query(api.penyediaDana.daftarPengajuan, {});
+    const barisAkhir = akhir.pinjaman.find((b) => b.nomorReferensi === "PGD-LOKASI-1");
+    expect(barisAkhir?.lokasi?.sumber).toBe("aplikasi");
+    expect(barisAkhir?.lokasi?.tanda).toEqual(["koordinat_berulang"]);
+    // Gadai & kredit ikut memakai titik yang sama (satu peminjam).
+    expect(akhir.gadai[0]?.lokasi?.lat).toBeCloseTo(-6.175392);
+    expect(akhir.kredit[0]?.lokasi?.lat).toBeCloseTo(-6.175392);
+  });
+
+  it("berkasPengajuan hanya untuk sesi ber-akses dan memuat URL berkas tersimpan", async () => {
+    const t = convexTest(schema, modules);
+    const { userId } = await siapkanPengguna(t, "rani", {
+      email: "rani@pindai.test",
+      role: "peminjam",
+    });
+    const { sesi: dana } = await siapkanPengguna(t, "penyedia", {
+      email: "penyedia@pindai.test",
+      role: "dana",
+    });
+    const { loanId, pawnId, kreditId } = await seedPengajuan(t, userId);
+
+    const [ktp, selfie, fotoBarang] = await t.run(async (ctx) => [
+      await ctx.storage.store(new Blob(["ktp"])),
+      await ctx.storage.store(new Blob(["selfie"])),
+      await ctx.storage.store(new Blob(["foto barang"])),
+    ]);
+    await t.run((ctx) =>
+      ctx.db.patch(loanId, {
+        dokKtpId: ktp,
+        dokSelfieKtpId: selfie,
+        tandaTanganPeminjam: "data:image/png;base64,AAAA",
+        tandaTanganPada: 1_700_000_000_000,
+      }),
+    );
+    await t.run((ctx) => ctx.db.patch(pawnId, { fotoBarangId: fotoBarang }));
+
+    const pinjaman = await dana.query(api.penyediaDana.berkasPengajuan, {
+      jenis: "pinjaman",
+      id: loanId,
+    });
+    expect(pinjaman?.berkas.map((b) => b.label)).toEqual(["KTP", "Selfie dengan KTP"]);
+    expect(pinjaman?.berkas.every((b) => b.url.startsWith("http"))).toBe(true);
+    expect(pinjaman?.catatan).toBeNull();
+    expect(pinjaman?.tandaTangan).toBe("data:image/png;base64,AAAA");
+    expect(pinjaman?.tandaTanganPada).toBe(1_700_000_000_000);
+
+    const gadai = await dana.query(api.penyediaDana.berkasPengajuan, {
+      jenis: "gadai",
+      id: pawnId,
+    });
+    expect(gadai?.berkas.map((b) => b.label)).toEqual(["Foto barang"]);
+
+    // Kredit barang memang tidak menyimpan berkas gambar — dijelaskan, bukan dikosongkan diam-diam.
+    const kredit = await dana.query(api.penyediaDana.berkasPengajuan, {
+      jenis: "kredit",
+      id: kreditId,
+    });
+    expect(kredit?.berkas).toHaveLength(0);
+    expect(kredit?.catatan).toMatch(/tidak menyimpan berkas/i);
+
+    // Tanpa berkas tersimpan: catatan jelas, bukan galat.
+    const kosong = await t.run((ctx) =>
+      ctx.db.insert("loans", {
+        userId,
+        pokokPinjaman: 500_000,
+        tujuan: "Usaha",
+        namaLengkap: NAMA_PEMOHON,
+        nomorRekening: RAHASIA.nomorRekening,
+        status: "diajukan",
+        nomorReferensi: "PGD-BERKAS-KOSONG",
+        tenorHari: 30,
+      }),
+    );
+    const tanpaBerkas = await dana.query(api.penyediaDana.berkasPengajuan, {
+      jenis: "pinjaman",
+      id: kosong,
+    });
+    expect(tanpaBerkas?.berkas).toHaveLength(0);
+    expect(tanpaBerkas?.catatan).toMatch(/belum ada berkas/i);
+
+    // Id tidak valid & id dari tabel lain tidak pernah membocorkan dokumen.
+    expect(
+      await dana.query(api.penyediaDana.berkasPengajuan, {
+        jenis: "pinjaman",
+        id: "bukan-id",
+      }),
+    ).toBeNull();
+    expect(
+      await dana.query(api.penyediaDana.berkasPengajuan, { jenis: "gadai", id: loanId }),
+    ).toBeNull();
+
+    // Gerbang server: akun biasa tidak boleh meminta berkas sama sekali.
+    const { sesi: peminjam } = await siapkanPengguna(t, "rani-dua", {
+      email: "rani-dua@pindai.test",
+      role: "peminjam",
+    });
+    await expect(
+      peminjam.query(api.penyediaDana.berkasPengajuan, { jenis: "pinjaman", id: loanId }),
+    ).rejects.toThrow(/akses lihat saja/i);
   });
 });
