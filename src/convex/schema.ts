@@ -311,6 +311,20 @@ const schema = defineSchema(
     }).index("by_email", ["email"]),
 
     /**
+     * Pembatas permintaan token aktivasi/reset kata sandi Super Admin —
+     * pencatat yang dihitung server, diisi di dalam `adminPassword.authorize`
+     * SEBELUM provider kata sandi membuat kode verifikasi dan mengirim email.
+     * Tanpa batas ini alamat admin bisa dibanjiri email token oleh penyerang.
+     * 3 permintaan / 15 menit per alamat; berlaku untuk semua alamat supaya
+     * balasan blokir tidak menandai alamat admin.
+     */
+    adminTokenRequests: defineTable({
+      /** Email tujuan (lowercase). */
+      email: v.string(),
+      waktu: v.number(),
+    }).index("by_email", ["email"]),
+
+    /**
      * Log login append-only (Rule Audit Trail) — status, IP, UA, timestamp.
      * Ditulis lewat action (butuh fetch WA) lalu mutation internal.
      */

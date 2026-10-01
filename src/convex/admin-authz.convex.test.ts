@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 
 import { api, internal } from "./_generated/api";
 import {
+  alurPermintaanToken,
   alurVerifikasiKode,
   PESAN_KREDENSIAL_SALAH,
   PESAN_KODE_RESET_SALAH,
@@ -887,6 +888,85 @@ describe("penutupan enumerasi akun Super Admin", () => {
     await expect(
       t.query(internal.users.statusAkunKataSandi, { email: "belum-ada@pindai.test" }),
     ).resolves.toEqual({ admin: false, punyaKataSandi: false });
+  });
+
+  it("membatasi permintaan token aktivasi/reset sebelum email dikirim", async () => {
+    // Hanya flow aktivasi/reset yang mengirim token; verifikasi kode tidak.
+    expect(alurPermintaanToken("signUp")).toBe(true);
+    expect(alurPermintaanToken("reset")).toBe(true);
+    expect(alurPermintaanToken("signIn")).toBe(false);
+    expect(alurPermintaanToken("reset-verification")).toBe(false);
+    expect(alurPermintaanToken("email-verification")).toBe(false);
+    expect(alurPermintaanToken("activate")).toBe(false);
+
+    const t = convexTest(schema, modules);
+    const email = "admin-token@pindai.test";
+    const { userId } = await buatPengguna(t, "Admin token", {
+      email,
+      emailVerificationTime: Date.now(),
+      role: "admin",
+    });
+
+    // Tiga permintaan pertama lolos; permintaan keempat ditolak SEBELUM
+    // provider membuat kode baru — token yang sudah terkirim tetap berlaku.
+    for (let ke = 1; ke <= 3; ke += 1) {
+      await expect(
+        t.mutation(internal.security.catatPermintaanTokenAdmin, {
+          email,
+          admin: true,
+        }),
+      ).resolves.toEqual({ blocked: false, sisaDetik: 0 });
+    }
+    const keempat = await t.mutation(
+      internal.security.catatPermintaanTokenAdmin,
+      { email, admin: true },
+    );
+    expect(keempat.blocked).toBe(true);
+    expect(keempat.sisaDetik).toBeGreaterThan(0);
+    await expect(
+      t.run((ctx) => ctx.db.query("adminTokenRequests").collect()),
+    ).resolves.toHaveLength(3);
+
+    // Jejak keamanan ditulis untuk alamat admin...
+    const log = await t.run((ctx) => ctx.db.query("loginLogs").collect());
+    expect(log).toHaveLength(1);
+    expect(log[0]).toMatchObject({
+      userId,
+      status: "diblokir",
+      metode: "password_token",
+    });
+    const audit = await t.run((ctx) => ctx.db.query("auditLog").collect());
+    expect(audit.map((a) => a.aksi)).toContain("admin_token_diblokir");
+
+    // ...dan batas token tidak mengunci batas percobaan kata sandi: keduanya
+    // pencatat terpisah.
+    await expect(
+      t.mutation(internal.security.catatPercobaanKataSandiAdmin, {
+        email,
+        admin: true,
+      }),
+    ).resolves.toEqual({ blocked: false, sisaDetik: 0 });
+
+    // Alamat biasa dikenai batas yang sama persis (tidak hanya admin) supaya
+    // balasan blokir tidak menandai alamat admin — tanpa log palsu.
+    const emailBiasa = "bukan-admin-token@pindai.test";
+    for (let ke = 1; ke <= 4; ke += 1) {
+      const hasil = await t.mutation(
+        internal.security.catatPermintaanTokenAdmin,
+        { email: emailBiasa, admin: false },
+      );
+      expect(hasil.blocked).toBe(ke === 4);
+    }
+    expect(await t.run((ctx) => ctx.db.query("loginLogs").collect())).toHaveLength(1);
+    expect(await t.run((ctx) => ctx.db.query("auditLog").collect())).toHaveLength(1);
+
+    // Kuota dihitung per alamat.
+    await expect(
+      t.mutation(internal.security.catatPermintaanTokenAdmin, {
+        email: "admin-token-lain@pindai.test",
+        admin: true,
+      }),
+    ).resolves.toEqual({ blocked: false, sisaDetik: 0 });
   });
 
   it("membuka batas percobaan kata sandi dengan kode TOTP admin", async () => {

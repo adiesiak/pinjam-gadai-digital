@@ -400,6 +400,10 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
         setError("Email atau kata sandi Super Admin tidak sesuai.");
       } else if (/account.*exist|already exists/i.test(message)) {
         setError("Password sudah aktif. Silakan masuk atau gunakan Lupa kata sandi.");
+      } else if (/terlalu banyak permintaan token/i.test(message)) {
+        setError(
+          "Terlalu banyak permintaan token dalam 15 menit. Coba lagi nanti — token yang sudah dikirim sebelumnya tetap berlaku sampai kedaluwarsa.",
+        );
       } else if (/terlalu banyak percobaan masuk/i.test(message)) {
         // Jalur pemulihan: admin yang memegang kode TOTP tidak perlu menunggu
         // 15 menit — kata sandi tetap wajib benar.
@@ -797,7 +801,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                       </div>
                       <CardTitle className="text-xl">Aktivasi password admin</CardTitle>
                       <CardDescription>
-                        Token alfanumerik 32 karakter dikirim ke email terverifikasi untuk mengaktifkan password Super Admin.
+                        Aktivasi hanya berlaku untuk akun yang belum punya kata sandi. Token 32 karakter dikirim ke email terverifikasi; kalau kata sandi sudah pernah aktif, tidak ada token yang dikirim — kembali dan gunakan Masuk atau Lupa kata sandi.
                       </CardDescription>
                     </CardHeader>
                     <form onSubmit={handleAdminSubmit}>
@@ -910,7 +914,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                       </div>
                       <CardTitle className="text-xl">Reset kata sandi admin</CardTitle>
                       <CardDescription>
-                        Token alfanumerik 32 karakter dikirim ke email terdaftar untuk mengganti kata sandi Super Admin.
+                        Token 32 karakter dikirim ke email terdaftar kalau kata sandi sudah pernah diaktifkan. Kalau belum, kembali dan gunakan Aktivasi password lebih dulu.
                       </CardDescription>
                     </CardHeader>
                     <form onSubmit={handleAdminSubmit}>
@@ -981,7 +985,9 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                         {adminStep.purpose === "reset" ? "Verifikasi reset password" : "Verifikasi aktivasi password"}
                       </CardTitle>
                       <CardDescription>
-                        Tempel token 32 karakter alfanumerik yang dikirim ke {adminStep.email}. Berlaku 15 menit; perhatikan huruf besar/kecil.
+                        {adminStep.purpose === "reset"
+                          ? `Tempel token 32 karakter alfanumerik yang dikirim ke ${adminStep.email} apabila kata sandi sudah pernah diaktifkan. Berlaku 15 menit; perhatikan huruf besar/kecil.`
+                          : `Kalau kata sandi belum pernah aktif, token 32 karakter dikirim ke ${adminStep.email} dan berlaku 15 menit. Kalau sudah aktif, tidak ada token yang dikirim — kembali dan gunakan Masuk atau Lupa kata sandi.`}
                       </CardDescription>
                     </CardHeader>
                     <form onSubmit={handleAdminCodeSubmit}>
@@ -1076,7 +1082,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                           onClick={() => setAdminFlow("signIn")}
                           disabled={isLoading}
                         >
-                          <ArrowLeft className="mr-2 size-4" /> Batalkan
+                          <ArrowLeft className="mr-2 size-4" /> Kembali ke masuk admin
                         </Button>
                       </CardFooter>
                     </form>

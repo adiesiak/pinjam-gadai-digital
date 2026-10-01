@@ -41,6 +41,9 @@ const BLOCK_MS = 15 * 60 * 1000;
 /** Batas percobaan kata sandi Super Admin — ditegakkan server, bukan klien. */
 const ADMIN_RATE_MAX_PERCOBAAN = 5;
 const ADMIN_RATE_WINDOW_MS = 15 * 60 * 1000;
+/** Batas permintaan token aktivasi/reset — di atas batas, email tidak dikirim. */
+const ADMIN_TOKEN_MAX_PERMOHONAN = 3;
+const ADMIN_TOKEN_WINDOW_MS = 15 * 60 * 1000;
 
 /** Nama perangkat ringkas dari user agent. */
 export function deviceLabel(ua: string): string {
@@ -264,6 +267,83 @@ export const catatPercobaanKataSandiAdmin = internalMutation({
     }
 
     await ctx.db.insert("adminLoginAttempts", { email: bersih, waktu: Date.now() });
+    return { blocked: false, sisaDetik: 0 };
+  },
+});
+
+/**
+ * Catat satu permintaan token aktivasi/reset kata sandi dan tegakkan batas
+ * 3 permintaan per 15 menit per alamat.
+ *
+ * Dipanggil dari `adminPassword.authorize` SEBELUM provider kata sandi
+ * membuat kode verifikasi dan mengirim email, jadi permintaan di atas batas
+ * tidak mengirim email apa pun — dan tidak menghapus token yang sudah
+ * terkirim sebelumnya. Batas ini berlaku untuk SEMUA alamat, bukan hanya
+ * alamat admin: kalau hanya alamat admin yang dibatasi, munculnya balasan
+ * "terlalu banyak permintaan" itu sendiri sudah mengonfirmasi alamat mana
+ * yang Super Admin. Argumen `admin` hanya menentukan apakah kejadiannya
+ * ditulis ke loginLogs + auditLog — jejak keamanan tidak boleh bisa dipenuhi
+ * baris palsu dari alamat sembarangan.
+ */
+export const catatPermintaanTokenAdmin = internalMutation({
+  args: { email: v.string(), admin: v.boolean() },
+  returns: v.object({ blocked: v.boolean(), sisaDetik: v.number() }),
+  handler: async (ctx, { email, admin }) => {
+    const bersih = email.trim().toLowerCase().slice(0, 160);
+    const sejak = Date.now() - ADMIN_TOKEN_WINDOW_MS;
+    const semua = await ctx.db
+      .query("adminTokenRequests")
+      .withIndex("by_email", (q) => q.eq("email", bersih))
+      .collect();
+
+    // Catatan di luar jendela dibuang sekaligus supaya tabel tidak menumpuk.
+    let dalamJendela = 0;
+    let tertua = Date.now();
+    for (const baris of semua) {
+      if (baris.waktu < sejak) {
+        await ctx.db.delete(baris._id);
+      } else {
+        dalamJendela += 1;
+        if (baris.waktu < tertua) tertua = baris.waktu;
+      }
+    }
+
+    if (dalamJendela >= ADMIN_TOKEN_MAX_PERMOHONAN) {
+      if (admin) {
+        const pemilik = await ctx.db
+          .query("users")
+          .withIndex("email", (q) => q.eq("email", bersih))
+          .first();
+        const keterangan = `Permintaan token kata sandi Super Admin melebihi ${ADMIN_TOKEN_MAX_PERMOHONAN}x dalam 15 menit — email tidak dikirim.`;
+        await catatLogin(ctx, {
+          userId: pemilik?._id,
+          status: "diblokir",
+          metode: "password_token",
+          ip: "tidak diketahui",
+          userAgent: "tidak diketahui",
+          keterangan,
+        });
+        await ctx.db.insert("auditLog", {
+          aktorLabel: "Permintaan token Super Admin",
+          aksi: "admin_token_diblokir",
+          target: bersih,
+          detail: keterangan,
+          waktu: Date.now(),
+        });
+      }
+      return {
+        blocked: true,
+        sisaDetik: Math.max(
+          1,
+          Math.ceil((tertua + ADMIN_TOKEN_WINDOW_MS - Date.now()) / 1000),
+        ),
+      };
+    }
+
+    await ctx.db.insert("adminTokenRequests", {
+      email: bersih,
+      waktu: Date.now(),
+    });
     return { blocked: false, sisaDetik: 0 };
   },
 });

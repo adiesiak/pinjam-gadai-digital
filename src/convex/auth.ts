@@ -7,6 +7,7 @@ import { convexAuth } from "@convex-dev/auth/server";
 import { adminPasswordOtp } from "./auth/adminPasswordOtp";
 import {
   alurKataSandiDikenal,
+  alurPermintaanToken,
   alurVerifikasiKode,
   pesanBlokirOtpAdmin,
   pesanKodeSalah,
@@ -46,8 +47,9 @@ const adminPassword: typeof passwordProvider = {
     // Batas percobaan ditegakkan di server, sebelum kata sandi diverifikasi,
     // dan berlaku untuk SEMUA alamat — kalau hanya alamat admin yang dibatasi,
     // balasan "terlalu banyak percobaan" itu sendiri sudah mengonfirmasi
-    // alamat mana yang Super Admin. Hanya flow masuk yang dibatasi: itulah
-    // permukaan brute force-nya, sedangkan aktivasi/reset dijaga token email.
+    // alamat mana yang Super Admin. Hanya flow masuk yang dibatasi di sini:
+    // itulah permukaan brute force-nya, sedangkan aktivasi/reset punya batas
+    // sendiri (permintaan token) tepat di bawah.
     if (flow === "signIn") {
       const batas = await ctx.runMutation(
         internal.security.catatPercobaanKataSandiAdmin,
@@ -76,6 +78,27 @@ const adminPassword: typeof passwordProvider = {
             )} menit, atau isi kode TOTP aplikasi autentikator untuk masuk sekarang.`,
           );
         }
+      }
+    }
+
+    // Permintaan token aktivasi/reset mengirim email ke alamat yang diminta.
+    // Tanpa batas, kotak masuk admin bisa dibanjiri token oleh penyerang.
+    // Batas ini berlaku untuk SEMUA alamat supaya balasan "terlalu banyak
+    // permintaan" tidak menandai alamat admin, dan ditegakkan SEBELUM provider
+    // membuat kode baru — permintaan di atas batas karena itu juga tidak
+    // menghapus token yang sudah terkirim sebelumnya.
+    if (alurPermintaanToken(flow)) {
+      const token = await ctx.runMutation(
+        internal.security.catatPermintaanTokenAdmin,
+        { email, admin: status.admin },
+      );
+      if (token.blocked) {
+        throw new Error(
+          `Terlalu banyak permintaan token. Coba lagi dalam ${Math.max(
+            1,
+            Math.ceil(token.sisaDetik / 60),
+          )} menit.`,
+        );
       }
     }
 

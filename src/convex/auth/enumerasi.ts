@@ -27,6 +27,14 @@ export function alurVerifikasiKode(flow: string): boolean {
   return flow === "reset-verification" || flow === "email-verification";
 }
 
+/**
+ * True untuk flow yang benar-benar mengirim token email (aktivasi/reset).
+ * Flow verifikasi kode hanya memeriksa token, bukan mengirimkannya.
+ */
+export function alurPermintaanToken(flow: string): boolean {
+  return flow === "signUp" || flow === "reset";
+}
+
 /** True untuk flow yang memang dikenal provider Password Convex Auth. */
 export function alurKataSandiDikenal(flow: string): boolean {
   return (
