@@ -92,7 +92,7 @@ export const getPaymentInstructions = query({
     const namaBank = row?.rekeningUsahaBank ?? DEFAULT_CONFIG.rekeningUsahaBank;
     const nomorRekening = row?.rekeningUsahaNomor ?? DEFAULT_CONFIG.rekeningUsahaNomor;
     const qrisUrl = row?.qrisImageId ? await ctx.storage.getUrl(row.qrisImageId) : null;
-    const pendanaDepositEnabled = row?.manualDepositEnabled === true;
+    const setoranManualAktif = row?.manualDepositEnabled === true;
     return {
       namaRekening,
       namaBank,
@@ -100,7 +100,7 @@ export const getPaymentInstructions = query({
       namaMerchantQris: row?.qrisMerchantNama ?? DEFAULT_CONFIG.qrisMerchantNama,
       qrisUrl,
       tersedia: Boolean(namaRekening && namaBank && nomorRekening),
-      pendanaDepositEnabled,
+      setoranManualAktif,
     };
   },
 });

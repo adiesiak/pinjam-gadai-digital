@@ -104,7 +104,7 @@ async function siapkanPinjamanTunaiDidanai(
     const now = Date.now();
     const pendanaId = await ctx.db.insert("users", {
       email: `pendana-${pokokPinjaman}@pindai.test`,
-      name: "Pendana seed",
+      name: "Penyedia dana seed",
       emailVerificationTime: now,
       role: "pendana",
     });

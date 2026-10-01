@@ -23,7 +23,7 @@ async function requirePeminjam(ctx: QueryCtx) {
 }
 
 /** Admin menetapkan pokok dan sewa gadai setelah penilaian; ini bukan pencairan. */
-export const setPendanaanGadai = mutation({
+export const setDanaGadai = mutation({
   args: {
     pawnId: v.id("pawns"),
     pokokGadai: v.number(),

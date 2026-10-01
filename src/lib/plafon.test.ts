@@ -59,12 +59,12 @@ eq("override admin tetap menang sesudah pelunasan", plafonEfektif(4_000_000, 1_0
 eq("reset override kembali ke progres sesuai riwayat", plafonEfektif(null, 1_000_000, 2), 3_000_000);
 eq("reset override tanpa riwayat kembali ke global", plafonEfektif(null, 2_000_000), 2_000_000);
 
-const pendanaanPada = 1_700_000_000_000;
-const jatuhTempo = pendanaanPada + 30 * 86_400_000;
+const waktuDanaPada = 1_700_000_000_000;
+const jatuhTempo = waktuDanaPada + 30 * 86_400_000;
 const lunasTepatWaktu = {
   status: "lunas",
   pokokPinjaman: 1_000_000,
-  didanaiPada: pendanaanPada,
+  didanaiPada: waktuDanaPada,
   lunasPada: jatuhTempo,
   tenorHari: 30,
 };
@@ -74,7 +74,7 @@ ok("lunas satu milidetik terlambat tidak memenuhi syarat", !apakahPelunasanTepat
 ok("pelunasan pokok di bawah minimum tidak memenuhi syarat", !apakahPelunasanTepatWaktu({ ...lunasTepatWaktu, pokokPinjaman: 999_999 }));
 ok("status selain lunas tidak memenuhi syarat", !apakahPelunasanTepatWaktu({ ...lunasTepatWaktu, status: "didanai" }));
 ok("data tanpa waktu pendanaan tidak memenuhi syarat", !apakahPelunasanTepatWaktu({ ...lunasTepatWaktu, didanaiPada: undefined }));
-ok("tenor bulanan dihitung sebagai 30 hari per bulan", apakahPelunasanTepatWaktu({ ...lunasTepatWaktu, tenorHari: undefined, tenorBulan: 3, lunasPada: pendanaanPada + 90 * 86_400_000 }));
+ok("tenor bulanan dihitung sebagai 30 hari per bulan", apakahPelunasanTepatWaktu({ ...lunasTepatWaktu, tenorHari: undefined, tenorBulan: 3, lunasPada: waktuDanaPada + 90 * 86_400_000 }));
 
 ok("pokok tunai dalam plafon diterima", pokokDalamPlafon(900_000, 1_000_000));
 ok("pokok tunai tepat plafon diterima", pokokDalamPlafon(1_000_000, 1_000_000));

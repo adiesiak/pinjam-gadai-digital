@@ -1,5 +1,5 @@
 /**
- * Tes alur "admin menandai pengajuan berjalan" setelah ruang Pendana dihapus.
+ * Tes alur "admin menandai pengajuan berjalan" setelah ruang penyedia dana dihapus.
  *
  * Tidak ada perpindahan dana di aplikasi: admin menyetujui pengajuan, lalu
  * menandainya berjalan pada ledger internal (status + tanggal acuan) sehingga
@@ -25,7 +25,7 @@ async function idPengguna(t: KonteksUji, email: string) {
   });
 }
 
-describe("penandaan pengajuan berjalan oleh admin (tanpa Pendana)", () => {
+describe("penandaan pengajuan berjalan oleh admin (tanpa penyedia dana)", () => {
   it("pinjaman: hanya admin dan hanya setelah disetujui", async () => {
     const t = convexTest(schema, modules);
     const asPeminjam = await buatSesi(t, "Peminjam dana", {

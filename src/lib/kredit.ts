@@ -3,18 +3,18 @@
  *
  * Guardrail Rule 3: semua uang integer rupiah, pembulatan HALF-UP via percentOf
  * (BigInt) — tanpa floating-point error.
- * Guardrail Rule 2: hak finansial Pendana disebut "Imbal Hasil" — bukan
+ * Guardrail Rule 2: hak finansial penyedia dana disebut "Imbal Hasil" — bukan
  * ROI/return/investasi.
  *
  * Aturan skema (dipakai kalkulator pendanaan):
  *  - Konsumen membeli barang dari merchant mitra (marketplace / toko
  *    elektronik) dengan uang muka (DP) 10–50% dari harga barang.
- *  - Sisa harga dibiayai Pendana = pokok dibiayai; skema bulanan memakai
+ *  - Sisa harga dibiayai penyedia dana = pokok dibiayai; skema bulanan memakai
  *    angsuran pokok tetap dan bunga flat dari pokok penuh (cicilan rata).
- *  - Imbal Hasil Pendana pada skema bulanan dihitung FLAT dari pokok penuh
+ *  - Imbal Hasil penyedia dana pada skema bulanan dihitung FLAT dari pokok penuh
  *    (30% tenor 1 bulan, 25% tenor 3 bulan, 20% tenor 6 bulan per bulan).
  *    Skema DP + margin flat 12/24 bulan hanya untuk kontrak warisan (tidak
- *    ditawarkan lagi). Bagian Pendana proporsional dengan porsi pendanaannya.
+ *    ditawarkan lagi). Bagian penyedia dana proporsional dengan porsi pendanaannya.
  *  - Seluruh tenor resmi (1/3/6 bulan) memakai biaya admin 2% + platform 3%
  *    dari pokok, DIPOTONG DI MUKA (= 5%); tenor 3/6 juga dikenai biaya admin
  *    cicilan 2% dari nominal cicilan. Kontrak lama 12/24 tetap layanan 3%.
@@ -81,8 +81,8 @@ export const KREDIT_PRICING = {
   minHargaBarang: 1_000_000,
   /** Harga barang tertinggi yang dapat dibiayai. */
   maxHargaBarang: 100_000_000,
-  /** Porsi pendanaan terendah untuk satu Pendana (%). */
-  minPorsiPendanaPersen: 10,
+  /** Porsi pendanaan terendah untuk satu penyedia dana (%). */
+  minPorsiDanaPersen: 10,
 } as const;
 
 /** Asumsi awal yang dipakai tampilan & contoh katalog. */
@@ -90,7 +90,7 @@ export const KREDIT_ASUMSI_AWAL = {
   dpPersen: 0,
   tenorBulan: 6,
   marginPersenPerBulan: 3.5,
-  porsiPendanaPersen: 100,
+  porsiDanaPersen: 100,
 } as const;
 
 export interface KreditBarangInput {
@@ -101,13 +101,13 @@ export interface KreditBarangInput {
   /** Tenor cicilan dalam bulan (1/3/6 untuk pengajuan baru; 12/24 warisan). */
   tenorBulan: number;
   /**
-   * Imbal Hasil Pendana per bulan (% dari pokok dibiayai) — hanya dipakai
+   * Imbal Hasil penyedia dana per bulan (% dari pokok dibiayai) — hanya dipakai
    * kontrak warisan 12/24 bulan (skema DP + margin flat). Tenor 1/3/6 bulan
    * (skema bulanan) mengabaikan nilai ini: bunga mengikuti tenor otomatis.
    */
   marginPersenPerBulan: number;
-  /** Porsi pokok yang didanai Pendana (%, 10–100). Default 100. */
-  porsiPendanaPersen?: number;
+  /** Porsi pokok yang didanai penyedia dana (%, 10–100). Default 100. */
+  porsiDanaPersen?: number;
 }
 
 export interface KreditBarangJadwalRow {
@@ -155,15 +155,15 @@ export interface KreditBarangQuote {
   totalDibayarKonsumen: Rupiah;
   jadwal: KreditBarangJadwalRow[];
 
-  // ===== Sisi Pendana (terminologi: Imbal Hasil) =====
-  porsiPendanaPersen: number;
-  /** Pokok yang didanai Pendana pada alokasi ini. */
-  porsiPendana: Rupiah;
-  /** Imbal Hasil bulan pertama milik Pendana (proporsional porsi). */
+  // ===== Sisi penyedia dana (terminologi: Imbal Hasil) =====
+  porsiDanaPersen: number;
+  /** Pokok yang didanai penyedia dana pada alokasi ini. */
+  porsiDana: Rupiah;
+  /** Imbal Hasil bulan pertama milik penyedia dana (proporsional porsi). */
   imbalHasilPerBulan: Rupiah;
-  /** Total Imbal Hasil milik Pendana selama tenor (proporsional bunga total). */
+  /** Total Imbal Hasil milik penyedia dana selama tenor (proporsional bunga total). */
   imbalHasil: Rupiah;
-  /** Porsi pokok + total Imbal Hasil yang diterima Pendana. */
+  /** Porsi pokok + total Imbal Hasil yang diterima penyedia dana. */
   totalDiterima: Rupiah;
   /** Imbal Hasil sebagai persen dari porsi pendanaan (2 desimal). */
   persenImbalHasil: number;
@@ -188,17 +188,17 @@ export function skemaBulananKredit(tenorBulan: number): boolean {
 
 /**
  * Quote kredit barang — memvalidasi seluruh batas skema lalu menghitung
- * rincian Konsumen, jadwal cicilan, dan hak Imbal Hasil Pendana.
+ * rincian Konsumen, jadwal cicilan, dan hak Imbal Hasil penyedia dana.
  *
  * Identitas yang dijamin (diuji di kredit.test.ts):
  *  - dp + pokokDibiayai = hargaBarang
  *  - Σ jadwal.pokok = pokokDibiayai · Σ jadwal.margin = marginTotal
- *  - imbalHasil = porsi Pendana × Σ Imbal Hasil pada jadwal (menurun/flat)
- *  - totalDiterima = porsiPendana + imbalHasil
+ *  - imbalHasil = porsi penyedia dana × Σ Imbal Hasil pada jadwal (menurun/flat)
+ *  - totalDiterima = porsiDana + imbalHasil
  */
 export function quoteKreditBarang(input: KreditBarangInput): KreditBarangQuote {
   const { hargaBarang, dpPersen, tenorBulan, marginPersenPerBulan } = input;
-  const porsiPendanaPersen = input.porsiPendanaPersen ?? 100;
+  const porsiDanaPersen = input.porsiDanaPersen ?? 100;
 
   if (
     !isRupiah(hargaBarang) ||
@@ -230,18 +230,18 @@ export function quoteKreditBarang(input: KreditBarangInput): KreditBarangQuote {
     );
   }
   if (
-    !Number.isFinite(porsiPendanaPersen) ||
-    porsiPendanaPersen < KREDIT_PRICING.minPorsiPendanaPersen ||
-    porsiPendanaPersen > 100
+    !Number.isFinite(porsiDanaPersen) ||
+    porsiDanaPersen < KREDIT_PRICING.minPorsiDanaPersen ||
+    porsiDanaPersen > 100
   ) {
     throw new Error(
-      `Porsi pendanaan harus ${KREDIT_PRICING.minPorsiPendanaPersen}–100%.`,
+      `Porsi pendanaan harus ${KREDIT_PRICING.minPorsiDanaPersen}–100%.`,
     );
   }
 
   // ===== Skema bulanan (tenor 1/3/6 bulan): DP 0%, fee sesuai tenor
   // dipotong di muka, bunga menurun — mesin bulanan yang sama dengan pinjaman tunai.
-  // bunga = Imbal Hasil Pendana.
+  // bunga = Imbal Hasil penyedia dana.
   if (skemaBulanan) {
     // Skema kredit menyeragamkan biaya admin 2% + platform 3% di semua tenor
     // resminya (termasuk tenor 1 bulan).
@@ -261,14 +261,14 @@ export function quoteKreditBarang(input: KreditBarangInput): KreditBarangQuote {
       }),
     );
 
-    // ===== Hak Pendana: proporsional terhadap porsi pendanaan =====
+    // ===== Hak penyedia dana: proporsional terhadap porsi pendanaan =====
     // (DP 0% → pokok dibiayai = harga barang.)
-    const porsiPendanaBulanan = percentOf(hargaBarang, porsiPendanaPersen);
-    const imbalHasilPerBulanBulanan = percentOf(sim.bungaPerBulan, porsiPendanaPersen);
-    const imbalHasilBulanan = percentOf(sim.bungaTotal, porsiPendanaPersen);
+    const porsiDanaBulanan = percentOf(hargaBarang, porsiDanaPersen);
+    const imbalHasilPerBulanBulanan = percentOf(sim.bungaPerBulan, porsiDanaPersen);
+    const imbalHasilBulanan = percentOf(sim.bungaTotal, porsiDanaPersen);
     const persenImbalHasilBulanan =
-      porsiPendanaBulanan > 0
-        ? bulatDuaDesimal((imbalHasilBulanan / porsiPendanaBulanan) * 100)
+      porsiDanaBulanan > 0
+        ? bulatDuaDesimal((imbalHasilBulanan / porsiDanaBulanan) * 100)
         : 0;
 
     return {
@@ -286,11 +286,11 @@ export function quoteKreditBarang(input: KreditBarangInput): KreditBarangQuote {
       // Konsumen membayar cicilan (pokok + Imbal Hasil) PLUS biaya di muka.
       totalDibayarKonsumen: sim.totalPengembalian + sim.potonganDiMuka,
       jadwal,
-      porsiPendanaPersen,
-      porsiPendana: porsiPendanaBulanan,
+      porsiDanaPersen,
+      porsiDana: porsiDanaBulanan,
       imbalHasilPerBulan: imbalHasilPerBulanBulanan,
       imbalHasil: imbalHasilBulanan,
-      totalDiterima: porsiPendanaBulanan + imbalHasilBulanan,
+      totalDiterima: porsiDanaBulanan + imbalHasilBulanan,
       persenImbalHasil: persenImbalHasilBulanan,
       persenImbalHasilTahunan: bulatDuaDesimal(
         (persenImbalHasilBulanan * 12) / tenorBulan,
@@ -335,12 +335,12 @@ export function quoteKreditBarang(input: KreditBarangInput): KreditBarangQuote {
     });
   }
 
-  // ===== Hak Pendana: proporsional terhadap porsi pendanaan.
-  const porsiPendana = percentOf(pokokDibiayai, porsiPendanaPersen);
-  const imbalHasilPerBulan = percentOf(marginPerBulan, porsiPendanaPersen);
+  // ===== Hak penyedia dana: proporsional terhadap porsi pendanaan.
+  const porsiDana = percentOf(pokokDibiayai, porsiDanaPersen);
+  const imbalHasilPerBulan = percentOf(marginPerBulan, porsiDanaPersen);
   const imbalHasil = imbalHasilPerBulan * tenorBulan;
   const persenImbalHasil =
-    porsiPendana > 0 ? bulatDuaDesimal((imbalHasil / porsiPendana) * 100) : 0;
+    porsiDana > 0 ? bulatDuaDesimal((imbalHasil / porsiDana) * 100) : 0;
 
   return {
     hargaBarang,
@@ -356,11 +356,11 @@ export function quoteKreditBarang(input: KreditBarangInput): KreditBarangQuote {
     cicilanTerakhir: jadwal[jadwal.length - 1].total,
     totalDibayarKonsumen: dp + biayaLayanan + pokokDibiayai + marginTotal,
     jadwal,
-    porsiPendanaPersen,
-    porsiPendana,
+    porsiDanaPersen,
+    porsiDana,
     imbalHasilPerBulan,
     imbalHasil,
-    totalDiterima: porsiPendana + imbalHasil,
+    totalDiterima: porsiDana + imbalHasil,
     persenImbalHasil,
     persenImbalHasilTahunan: bulatDuaDesimal(
       (persenImbalHasil * 12) / tenorBulan,
@@ -368,13 +368,13 @@ export function quoteKreditBarang(input: KreditBarangInput): KreditBarangQuote {
   };
 }
 
-/** Porsi satu cicilan milik seorang Pendana. */
+/** Porsi satu cicilan milik seorang penyedia dana. */
 export interface PorsiCicilan {
-  /** Bagian pokok yang kembali ke Pendana ini. */
+  /** Bagian pokok yang kembali ke penyedia dana ini. */
   pokok: Rupiah;
-  /** Bagian Imbal Hasil bulan ini untuk Pendana ini. */
+  /** Bagian Imbal Hasil bulan ini untuk penyedia dana ini. */
   margin: Rupiah;
-  /** Total penerimaan Pendana bulan ini = pokok + margin. */
+  /** Total penerimaan penyedia dana bulan ini = pokok + margin. */
   total: Rupiah;
 }
 
@@ -401,26 +401,26 @@ function validasiAlokasi(pokokDibiayai: Rupiah, alokasi: readonly Rupiah[]): voi
     throw new Error("Pokok dibiayai harus rupiah bulat positif.");
   }
   if (alokasi.length === 0) {
-    throw new Error("Tidak ada posisi Pendana untuk dibagi.");
+    throw new Error("Tidak ada posisi dana untuk dibagi.");
   }
   if (alokasi.some((a) => !isRupiah(a) || a <= 0)) {
-    throw new Error("Setiap alokasi Pendana harus rupiah bulat positif.");
+    throw new Error("Setiap alokasi dana harus rupiah bulat positif.");
   }
   if (alokasi.reduce((acc, a) => acc + a, 0) !== pokokDibiayai) {
     throw new Error(
-      "Total Alokasi Dana Pendana tidak sama dengan pokok dibiayai — pendanaan belum penuh.",
+      "Total Alokasi Dana tidak sama dengan pokok dibiayai — pendanaan belum penuh.",
     );
   }
 }
 
 /**
- * Bagi satu cicilan (pokok + Imbal Hasil) ke porsi tiap Pendana secara
+ * Bagi satu cicilan (pokok + Imbal Hasil) ke porsi tiap penyedia dana secara
  * proporsional terhadap Alokasi Dana mereka.
  *
  * Identitas yang dijamin (diuji di kredit.test.ts):
  *  - Σ hasil.pokok = pokok                       (tanpa kehilangan satu rupiah)
  *  - Σ hasil.margin = margin
- *  - bila `konteks` kumulatif disertakan: saat tenor selesai setiap Pendana
+ *  - bila `konteks` kumulatif disertakan: saat tenor selesai setiap penyedia dana
  *    menerima pokok TEPAT sebesar Alokasi Dananya dan Imbal Hasil tepat
  *    sebesar haknya — pembulatan per bulan tidak menumpuk jadi drift.
  *
@@ -428,7 +428,7 @@ function validasiAlokasi(pokokDibiayai: Rupiah, alokasi: readonly Rupiah[]): voi
  * pembulatan (dust) ditanggung alokasi terbesar — pola yang sama dengan
  * distribusi pelunasan pinjaman tunai.
  */
-export function bagiCicilanKePendana(
+export function bagiCicilanKeDana(
   pokok: Rupiah,
   margin: Rupiah,
   pokokDibiayai: Rupiah,
@@ -484,7 +484,7 @@ export function bagiCicilanKePendana(
 
 /**
  * Hak Imbal Hasil tiap alokasi atas seluruh Imbal Hasil satu pengajuan,
- * memakai konvensi yang sama dengan bagiCicilanKePendana: semua alokasi
+ * memakai konvensi yang sama dengan bagiCicilanKeDana: semua alokasi
  * dibulatkan ke bawah, alokasi terbesar menyerap selisih — sehingga
  * Σ hak = marginTotal tepat dan hak tersimpan = hak yang diterima saat lunas.
  */

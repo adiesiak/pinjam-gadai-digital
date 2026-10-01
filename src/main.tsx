@@ -235,7 +235,7 @@ createRoot(document.getElementById("root")!).render(
                     </RequireAuth>
                   }
                 />
-                {/* Ruang Pendana dihapus dari produk — tautan lama diarahkan
+                {/* Ruang penyedia dana dihapus dari produk — tautan lama diarahkan
                     ke dashboard Peminjam supaya tidak berujung 404. */}
                 <Route path="/pendana" element={<Navigate to="/dashboard" replace />} />
                 <Route path="*" element={<NotFound />} />

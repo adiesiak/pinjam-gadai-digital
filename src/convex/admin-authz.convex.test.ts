@@ -635,7 +635,7 @@ describe("otorisasi MFA backend", () => {
     await expect(adminSesiLain.query(api.admin.adminOverview, {})).rejects.toThrow(/TOTP/i);
   });
 
-  it("pengaturan OTP hanya untuk Pendana dan verifikasi OTP menolak role lain", async () => {
+  it("pengaturan OTP hanya untuk penyedia dana dan verifikasi OTP menolak role lain", async () => {
     const t = convexTest(schema, modules);
     const { sesi: peminjam } = await buatPengguna(t, "Peminjam OTP", {
       email: "peminjam-otp@pindai.test",
@@ -645,7 +645,7 @@ describe("otorisasi MFA backend", () => {
       email: "admin-otp-wa@pindai.test",
       role: "admin",
     });
-    const { sesi: pendana, userId: pendanaId } = await buatPengguna(t, "Pendana OTP", {
+    const { sesi: pendana, userId: pendanaId } = await buatPengguna(t, "Penyedia Dana OTP", {
       email: "pendana-otp@pindai.test",
       role: "pendana",
     });
@@ -655,9 +655,9 @@ describe("otorisasi MFA backend", () => {
     );
     await expect(
       peminjam.mutation(api.security.setWaOtpRequired, { wajib: true }),
-    ).rejects.toThrow(/pendana/i);
+    ).rejects.toThrow(/penyedia dana/i);
     await expect(admin.mutation(api.security.setWaOtpRequired, { wajib: true })).rejects.toThrow(
-      /pendana/i,
+      /penyedia dana/i,
     );
     await expect(
       pendana.mutation(api.security.setWaOtpRequired, { wajib: true }),
@@ -669,7 +669,7 @@ describe("otorisasi MFA backend", () => {
         ip: "127.0.0.1",
         userAgent: "browser",
       }),
-    ).rejects.toThrow(/pendana/i);
+    ).rejects.toThrow(/penyedia dana/i);
 
     await t.mutation(async (ctx) => {
       const settings = await ctx.db

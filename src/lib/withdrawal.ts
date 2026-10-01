@@ -1,5 +1,5 @@
 /**
- * Kalkulasi estimasi pencairan Pendana.
+ * Kalkulasi estimasi pencairan penyedia dana.
  * Nilai ini hanya pemodelan; tidak mengurangi saldo atau menjalankan transfer.
  */
 import { percentOf, type Rupiah } from "./money";

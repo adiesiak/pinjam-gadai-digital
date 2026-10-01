@@ -10,11 +10,11 @@ import { api } from "@/convex/_generated/api";
 import { GADAI_PRICING, quoteGadai } from "@/lib/gadai";
 import { formatRupiah, parseRupiah } from "@/lib/money";
 
-import type { GadaiPendanaanRow } from "./types";
+import type { GadaiDanaRow } from "./types";
 
 /** Kartu penetapan hitungan gadai internal; tidak mencatat pencairan, pembayaran, atau penitipan. */
-export function GadaiPendanaanCard({ pawn }: { pawn: GadaiPendanaanRow }) {
-  const setPendanaan = useMutation(api.gadai.setPendanaanGadai);
+export function GadaiDanaCard({ pawn }: { pawn: GadaiDanaRow }) {
+  const setDana = useMutation(api.gadai.setDanaGadai);
   const aktifkan = useMutation(api.loans.aktifkanGadai);
 
   const [pokok, setPokok] = useState("");
@@ -45,7 +45,7 @@ export function GadaiPendanaanCard({ pawn }: { pawn: GadaiPendanaanRow }) {
   const pokokMelebihiLtv =
     parsedPokok !== null && batasLtv !== null && parsedPokok > batasLtv;
 
-  const belumPendanaan = pawn.pokokGadai === undefined;
+  const belumDana = pawn.pokokGadai === undefined;
 
   const jalankanAktif = async () => {
     setMengaktifkan(true);
@@ -78,7 +78,7 @@ export function GadaiPendanaanCard({ pawn }: { pawn: GadaiPendanaanRow }) {
           `Pokok melebihi batas hitung aplikasi 70% (${formatRupiah(batasLtv)}) dari harga yang dicantumkan ${formatRupiah(pawn.hargaPasar ?? 0)}.`,
         );
       }
-      await setPendanaan({
+      await setDana({
         pawnId: pawn._id,
         pokokGadai: parsedPokok,
         persenSewaModal: persenNum,
@@ -123,7 +123,7 @@ export function GadaiPendanaanCard({ pawn }: { pawn: GadaiPendanaanRow }) {
         </p>
       </div>
 
-      {belumPendanaan ? (
+      {belumDana ? (
         <div className="mt-4 space-y-3">
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-2">
@@ -218,7 +218,7 @@ export function GadaiPendanaanCard({ pawn }: { pawn: GadaiPendanaanRow }) {
         </p>
       )}
 
-      {belumPendanaan && (
+      {belumDana && (
         <div className="mt-4 flex flex-wrap items-center gap-3">
           <Button
             className="gradient-primary rounded-full border-0"

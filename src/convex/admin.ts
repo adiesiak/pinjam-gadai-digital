@@ -644,7 +644,7 @@ export const rejectManualPaymentReceipt = mutation({
   },
 });
 
-/** Antrean bukti setoran Pendana untuk pencocokan metadata saja. */
+/** Antrean bukti setoran penyedia dana untuk pencocokan metadata saja. */
 export const pendingDepositEvidence = query({
   args: {},
   handler: async (ctx) => {
@@ -655,7 +655,7 @@ export const pendingDepositEvidence = query({
       .collect();
     const result = [];
     for (const deposit of rows.filter((row) => row.buktiPembayaranId && row.statusPencocokan === undefined).sort((a, b) => b._creationTime - a._creationTime)) {
-      const pendana = await ctx.db.get(deposit.pendanaId);
+      const akunDana = await ctx.db.get(deposit.pendanaId);
       const metadata = await ctx.storage.getMetadata(deposit.buktiPembayaranId!);
       result.push({
         _id: deposit._id,
@@ -666,14 +666,14 @@ export const pendingDepositEvidence = query({
         tanggalTransfer: deposit.tanggalTransfer ?? null,
         buktiUrl: await ctx.storage.getUrl(deposit.buktiPembayaranId!),
         fileContentType: metadata?.contentType ?? null,
-        emailPendana: pendana?.email ?? null,
+        emailDana: akunDana?.email ?? null,
       });
     }
     return result;
   },
 });
 
-/** Antrean setoran Pendana lama tanpa bukti unggahan. */
+/** Antrean setoran penyedia dana lama tanpa bukti unggahan. */
 export const pendingDeposits = query({
   args: {},
   handler: async (ctx) => {
@@ -684,7 +684,7 @@ export const pendingDeposits = query({
       .collect();
     const result = [];
     for (const d of rows.filter((row) => !row.buktiPembayaranId && row.statusPencocokan === undefined).sort((a, b) => b._creationTime - a._creationTime)) {
-      const pendana = await ctx.db.get(d.pendanaId);
+      const akunDana = await ctx.db.get(d.pendanaId);
       result.push({
         _id: d._id,
         _creationTime: d._creationTime,
@@ -697,14 +697,14 @@ export const pendingDeposits = query({
         referensiMutasi: d.referensiMutasi ?? null,
         jumlahMutasi: d.jumlahMutasi ?? null,
         buktiUrl: d.buktiPembayaranId ? await ctx.storage.getUrl(d.buktiPembayaranId) : null,
-        emailPendana: pendana?.email ?? null,
+        emailDana: akunDana?.email ?? null,
       });
     }
     return result;
   },
 });
 
-/** Antrean penarikan Pendana menunggu diproses (untuk panel admin). */
+/** Antrean penarikan penyedia dana menunggu diproses (untuk panel admin). */
 export const pendingWithdrawals = query({
   args: {},
   handler: async (ctx) => {
@@ -715,7 +715,7 @@ export const pendingWithdrawals = query({
       .collect();
     const result = [];
     for (const w of rows.sort((a, b) => b._creationTime - a._creationTime)) {
-      const pendana = await ctx.db.get(w.pendanaId);
+      const akunDana = await ctx.db.get(w.pendanaId);
       result.push({
         _id: w._id,
         _creationTime: w._creationTime,
@@ -723,7 +723,7 @@ export const pendingWithdrawals = query({
         jumlah: w.jumlah,
         namaBank: w.namaBank,
         nomorRekening: w.nomorRekening,
-        emailPendana: pendana?.email ?? null,
+        emailDana: akunDana?.email ?? null,
       });
     }
     return result;
@@ -731,7 +731,7 @@ export const pendingWithdrawals = query({
 });
 
 /**
- * Proses penarikan — jurnal seimbang: kredit dompet Pendana (saldo turun),
+ * Proses penarikan — jurnal seimbang: kredit dompet penyedia dana (saldo turun),
  * debit kas platform (uang keluar). Saldo divalidasi ulang saat eksekusi.
  */
 export const processWithdrawal = mutation({

@@ -29,7 +29,7 @@ export function AnnouncementCms() {
   const publik = useQuery(api.announcements.getPublic);
   const save = useMutation(api.announcements.save);
   const reset = useMutation(api.announcements.resetToDefaults);
-  const bersihkan = useMutation(api.announcements.bersihkanTeksLamaPendana);
+  const bersihkan = useMutation(api.announcements.bersihkanTeksLama);
 
   const [busy, setBusy] = useState(false);
   const [draft, setDraft] = useState<Record<string, string | boolean> | null>(null);
@@ -82,7 +82,7 @@ export function AnnouncementCms() {
     try {
       const hasil = await bersihkan({});
       if (hasil.diganti.length === 0) {
-        toast.success("Tidak ada teks lama yang menyebut Pendana.");
+        toast.success("Tidak ada teks lama yang perlu dibersihkan.");
         return;
       }
       setDraft(null);
@@ -140,7 +140,7 @@ export function AnnouncementCms() {
   return (
     <div className="animate-masuk space-y-6">
       <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-900">
-        Teks CMS yang tersimpan menggantikan default di halaman utama. Periksa semua bar, popup, widget, hero, dan kartu layanan agar tidak mengklaim transfer, pencairan, atau pembayaran/pelunasan yang terverifikasi; nilai CMS yang sudah tersimpan tidak diubah oleh audit ini — pakai tombol "Bersihkan teks Pendana" agar teks lama era Pendana dikembalikan ke default baru.
+        Teks CMS yang tersimpan menggantikan default di halaman utama. Periksa semua bar, popup, widget, hero, dan kartu layanan agar tidak mengklaim transfer, pencairan, atau pembayaran/pelunasan yang terverifikasi; nilai CMS yang sudah tersimpan tidak diubah oleh audit ini — pakai tombol "Bersihkan teks lama" agar teks lama era penyedia dana dikembalikan ke default baru.
       </div>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-xs leading-5 text-muted-foreground">
@@ -148,7 +148,7 @@ export function AnnouncementCms() {
         </p>
         <div className="flex flex-wrap items-center gap-2">
           <Button variant="outline" disabled={busy} onClick={bersihkanTeksLama}>
-            Bersihkan teks Pendana
+            Bersihkan teks lama
           </Button>
           <Button variant="outline" disabled={busy} onClick={kembalikanDefault}>
             Reset ke default

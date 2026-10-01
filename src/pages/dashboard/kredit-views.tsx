@@ -618,16 +618,16 @@ export function KreditSayaSection() {
                 <dt className="text-muted-foreground">Pokok pembiayaan (estimasi)</dt>
                 <dd className="tabular-nums">{k.pokokDibiayai !== null ? formatRupiah(k.pokokDibiayai) : "—"}</dd>
               </div>
-              {k.totalDiterimaPendana !== null && (
+              {k.totalDiterimaPlatform !== null && (
                 <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between sm:gap-3">
                   <dt className="text-muted-foreground">Total pokok + imbal hasil (estimasi)</dt>
-                  <dd className="font-semibold tabular-nums">{formatRupiah(k.totalDiterimaPendana)}</dd>
+                  <dd className="font-semibold tabular-nums">{formatRupiah(k.totalDiterimaPlatform)}</dd>
                 </div>
               )}
-              {k.imbalHasilPendana !== null && (
+              {k.imbalHasilPlatform !== null && (
                 <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between sm:gap-3">
                   <dt className="text-muted-foreground">Imbal hasil (estimasi)</dt>
-                  <dd className="tabular-nums">{formatRupiah(k.imbalHasilPendana)}</dd>
+                  <dd className="tabular-nums">{formatRupiah(k.imbalHasilPlatform)}</dd>
                 </div>
               )}
             </dl>

@@ -17,7 +17,7 @@ describe("manual review and unverified money movement", () => {
       email: "peminjam@pindai.test",
       role: "peminjam",
     });
-    const asPendana = await buatSesi(t, "pendana", {
+    const asDana = await buatSesi(t, "pendana", {
       email: "pendana@pindai.test",
       role: "pendana",
     });
@@ -52,12 +52,12 @@ describe("manual review and unverified money movement", () => {
     expect(disetujui.status).toBe("disetujui");
 
     const depositId = await t.run(async (ctx) => {
-      const pendana = (await ctx.db.query("users").collect()).find(
+      const akunDana = (await ctx.db.query("users").collect()).find(
         (user) => user.email === "pendana@pindai.test",
       );
-      if (pendana === undefined) throw new Error("Pendana uji tidak ditemukan.");
+      if (akunDana === undefined) throw new Error("Akun dana uji tidak ditemukan.");
       return ctx.db.insert("deposits", {
-        pendanaId: pendana._id,
+        pendanaId: akunDana._id,
         jumlah: 10_000_000,
         referensiTransfer: "MANUAL-REF-001",
         status: "menunggu_verifikasi",
@@ -72,19 +72,19 @@ describe("manual review and unverified money movement", () => {
     // Intake setoran masih ditutup tombol operasional — tetap fail-closed,
     // hanya pesannya yang berbeda dari gerbang pembayaran.
     await expect(
-      asPendana.mutation(api.pendana.requestDeposit, {
+      asDana.mutation(api.alokasiDana.requestDeposit, {
         jumlah: 1_000_000,
         referensiTransfer: "MANUAL-REF-002",
         metodePembayaran: "transfer",
         tanggalTransfer: Date.now(),
         buktiPembayaranId: await t.run((ctx) => ctx.storage.store(new Blob(["bukti"]))),
       }),
-    ).rejects.toThrow("Penerimaan setoran Pendana belum diaktifkan tim operasional.");
+    ).rejects.toThrow("Penerimaan setoran penyedia dana belum diaktifkan tim operasional.");
     await expect(
       asAdmin.mutation(api.admin.confirmDeposit, { depositId }),
     ).rejects.toThrow(guardMessage);
     await expect(
-      asPendana.mutation(api.pendana.alokasiKreditBarang, {
+      asDana.mutation(api.alokasiDana.alokasiKreditBarang, {
         kreditId: pengajuan._id,
         jumlah: 1_000_000,
       }),

@@ -14,7 +14,7 @@ export const PINDAI_PRICING = {
   upfrontDeductionPercent: 5,
   /** Net disbursement is 95% of principal. */
   netDisbursementPercent: 95,
-  /** Bunga (Imbal Hasil Pendana) is 30% of principal. */
+  /** Bunga (Imbal Hasil penyedia dana) is 30% of principal. */
   bungaPercent: 30,
   /** Total repayment obligation = 130% of principal. */
   totalRepaymentPercent: 130,
@@ -84,7 +84,7 @@ export interface LoanQuote {
   totalPotonganDiMuka: Rupiah;
   /** Dana Bersih Ditransfer — 95% */
   danaBersihDitransfer: Rupiah;
-  /** Bunga Pinjaman — 30% (hak finansial Pendana) */
+  /** Bunga Pinjaman — 30% (hak finansial penyedia dana) */
   bunga: Rupiah;
   /** Total Kewajiban Pelunasan — 130% */
   totalKewajibanPelunasan: Rupiah;
@@ -196,7 +196,7 @@ export function calculateRepayment(
 /**
  * Ringkasan pelunasan satu pinjaman — SATU sumber kebenaran untuk kedua
  * skema: harian (130% flat) maupun bulanan (bunga flat dari pokok + biaya
- * dengan biaya dipotong di muka). Dipakai UI nasabah, portofolio Pendana,
+ * dengan biaya dipotong di muka). Dipakai UI nasabah, portofolio penyedia dana,
  * panel admin, dan
  * pengingat WhatsApp agar angka yang dilihat semua pihak selalu sama.
  */

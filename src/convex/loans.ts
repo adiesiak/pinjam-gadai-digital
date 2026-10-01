@@ -89,8 +89,8 @@ async function requireUser(ctx: QueryCtx) {
 
 /**
  * Role gate: Peminjam. A user without an explicit role is promoted to Peminjam
- * on first application activity. Akun warisan berperan Pendana diperlakukan
- * sebagai Peminjam karena ruang Pendana sudah dihapus dari produk.
+ * on first application activity. Akun warisan berperan penyedia dana diperlakukan
+ * sebagai Peminjam karena ruang penyedia dana sudah dihapus dari produk.
  */
 async function requirePeminjam(ctx: QueryCtx) {
   return await requireUser(ctx);
@@ -1146,8 +1146,8 @@ export const hapusGadai = mutation({
  * skema bulanan (tenorBulan): Σ cicilan + biaya layanan (fee platform).
  * Jurnal (semua dalam satu mutation transaksional, append-only):
  *   1. D platform:CASH total kewajiban | K pinjaman:<id>
- *   2. D pinjaman:<id> p_i+im_i | K pendana:WALLET:i  (bayar tiap Pendana)
- * Dust pembulatan proporsi imbal hasil diberikan ke Pendana dengan alokasi
+ *   2. D pinjaman:<id> p_i+im_i | K pendana:WALLET:i  (bayar tiap penyedia dana)
+ * Dust pembulatan proporsi imbal hasil diberikan ke penyedia dana dengan alokasi
  * terbesar, sehingga akun pinjaman tepat nol dan total keluar tepat.
  */
 export const repayLoan = mutation({
@@ -1173,18 +1173,18 @@ export const repayLoan = mutation({
       throw new Error("Kewajiban pelunasan tidak dapat dihitung untuk pinjaman ini.");
     }
 
-    // Skema bulanan: bunga = hak Pendana; skema harian: bunga 30% dari
+    // Skema bulanan: bunga = hak penyedia dana; skema harian: bunga 30% dari
     // quoteLoan. Kedua skema memotong biaya admin & platform DI MUKA saat
-    // pencairan (jurnalnya di convex/pendana.ts), jadi pelunasan tidak
+    // pencairan (jurnalnya di convex/alokasiDana.ts), jadi pelunasan tidak
     // memuat biaya tambahan. simBulanan tetap dipakai untuk total Imbal Hasil.
     const simBulanan =
       loan.tenorBulan !== undefined
         ? hitungSimulasiBulanan(loan.pokokPinjaman, loan.tenorBulan)
         : null;
     const q = quoteLoan(loan.pokokPinjaman);
-    const totalPokokPendana = loan.pokokPinjaman;
-    const totalImbalPendana = simBulanan !== null ? simBulanan.bungaTotal : q.bunga;
-    const totalKewajibanPendana = totalPokokPendana + totalImbalPendana;
+    const totalPokokDana = loan.pokokPinjaman;
+    const totalImbalDana = simBulanan !== null ? simBulanan.bungaTotal : q.bunga;
+    const totalKewajibanDana = totalPokokDana + totalImbalDana;
     // Biaya tenor (admin 2% + platform 3%) sudah dipotong di muka saat
     // pencairan. Yang tersisa di pelunasan hanya biaya admin cicilan 2% untuk
     // tenor 3/6 bulan, yang memang dibayar bersama cicilan.
@@ -1210,9 +1210,9 @@ export const repayLoan = mutation({
       {
         akun: "platform:CASH",
         arah: "debit",
-        jumlah: totalKewajibanPendana + feePlatform + feeAdmin,
+        jumlah: totalKewajibanDana + feePlatform + feeAdmin,
       },
-      { akun: `pinjaman:${args.loanId}`, arah: "kredit", jumlah: totalKewajibanPendana },
+      { akun: `pinjaman:${args.loanId}`, arah: "kredit", jumlah: totalKewajibanDana },
     ];
     if (pelunasan.dendaTerlambat > 0) {
       cashLines.push(
@@ -1233,16 +1233,16 @@ export const repayLoan = mutation({
       lines: cashLines,
     });
 
-    // 2. Bayar tiap Pendana: pokok bagian + imbal hasil bagian (dari akun
+    // 2. Bayar tiap penyedia dana: pokok bagian + imbal hasil bagian (dari akun
     //    pinjaman). Urut dari alokasi terbesar — dust pembulatan diterimanya.
     aktif.sort((a, b) => b.jumlahAlokasi - a.jumlahAlokasi);
     const imbalBagian = aktif.map((f) => ({
       funding: f,
-      imbal: Math.floor((totalImbalPendana * f.jumlahAlokasi) / totalPokokPendana),
+      imbal: Math.floor((totalImbalDana * f.jumlahAlokasi) / totalPokokDana),
     }));
     const dust =
-      totalImbalPendana - imbalBagian.reduce((acc, x) => acc + x.imbal, 0);
-    imbalBagian[0].imbal += dust; // dust selalu >= 0 dan < jumlah Pendana
+      totalImbalDana - imbalBagian.reduce((acc, x) => acc + x.imbal, 0);
+    imbalBagian[0].imbal += dust; // dust selalu >= 0 dan < jumlah penyedia dana
 
     let terdistribusi = 0;
     for (const { funding: f, imbal } of imbalBagian) {
@@ -1252,7 +1252,7 @@ export const repayLoan = mutation({
         keterangan: `Pelunasan: pembayaran ke ${f.nomorReferensi} (${loan.nomorReferensi})`,
         aktor: "platform",
         lines: [
-          // Debit menaikkan saldo dompet Pendana; kredit menurunkan akun pinjaman.
+          // Debit menaikkan saldo dompet penyedia dana; kredit menurunkan akun pinjaman.
           { akun: `pendana:WALLET:${f.pendanaId}`, arah: "debit", jumlah: payout },
           { akun: `pinjaman:${args.loanId}`, arah: "kredit", jumlah: payout },
         ],
@@ -1260,7 +1260,7 @@ export const repayLoan = mutation({
       terdistribusi += payout;
     }
 
-    // 3. Biaya tenor dipotong di muka saat pencairan (convex/pendana.ts);
+    // 3. Biaya tenor dipotong di muka saat pencairan (convex/alokasiDana.ts);
     //    yang dijurnal di sini hanya biaya admin cicilan tenor 3/6 (feePlatform
     //    selalu nol). Jurnal dibuat seimbang: debit platform:FEE, kredit akun
     //    pinjaman yang menanggung biaya.
@@ -1277,15 +1277,15 @@ export const repayLoan = mutation({
     }
 
     // 4. Sanity: total kas masuk (kewajiban + denda) = kewajiban ke akun
-    //    pinjaman (payout Pendana + fee) + denda. Gagal = rollback penuh.
-    const totalKasMasuk = totalKewajibanPendana + feePlatform + feeAdmin + pelunasan.dendaTerlambat;
+    //    pinjaman (payout penyedia dana + fee) + denda. Gagal = rollback penuh.
+    const totalKasMasuk = totalKewajibanDana + feePlatform + feeAdmin + pelunasan.dendaTerlambat;
     if (totalKasMasuk !== terdistribusi + feePlatform + feeAdmin + pelunasan.dendaTerlambat) {
       throw new Error(
         `Pelunasan tidak seimbang: selisih ${totalKasMasuk - terdistribusi - feePlatform - feeAdmin - pelunasan.dendaTerlambat}. Transaksi dibatalkan.`,
       );
     }
 
-    // 5. Tutup posisi alokasi Pendana — posisi selesai setelah dibayar penuh.
+    // 5. Tutup posisi alokasi penyedia dana — posisi selesai setelah dibayar penuh.
     for (const f of aktif) {
       await ctx.db.patch(f._id, { status: "selesai" });
     }

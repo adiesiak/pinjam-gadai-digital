@@ -45,7 +45,7 @@ async function penggunaMasuk(ctx: QueryCtx) {
   return { userId, user };
 }
 
-/** Rentang aksi finansial Peminjam — pendana/admin tidak perlu lokasi. */
+/** Rentang aksi finansial Peminjam — penyedia dana/admin tidak perlu lokasi. */
 const PERAN_WAJIB_LOKASI: readonly string[] = [ROLES.PEMINJAM, ROLES.MEMBER];
 
 /**

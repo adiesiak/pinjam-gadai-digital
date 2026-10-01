@@ -1,5 +1,5 @@
-import { GadaiPendanaanCard } from "./gadai/GadaiPendanaanCard";
-import type { GadaiPendanaanRow } from "./gadai/types";
+import { GadaiDanaCard } from "./gadai/GadaiDanaCard";
+import type { GadaiDanaRow } from "./gadai/types";
 
 /**
  * Skema B — alokasi gadai (LTV ≤ 70%) dengan nilai bersih 99%.
@@ -8,9 +8,9 @@ import type { GadaiPendanaanRow } from "./gadai/types";
  * Aktivasi status tidak mengirim dana dan tidak membuktikan barang diterima.
  * Tagihan sewa modal yang dihitung dari sisa pokok tampil di dashboard Peminjam.
  */
-export type { GadaiPendanaanRow };
+export type { GadaiDanaRow };
 
-export function GadaiPendanaanPanel({ pawns }: { pawns: GadaiPendanaanRow[] }) {
+export function GadaiDanaPanel({ pawns }: { pawns: GadaiDanaRow[] }) {
   const disetujui = pawns.filter((p) => p.status === "disetujui");
   if (disetujui.length === 0) return null;
 
@@ -28,7 +28,7 @@ export function GadaiPendanaanPanel({ pawns }: { pawns: GadaiPendanaanRow[] }) {
       </div>
       <div className="space-y-4">
         {disetujui.map((p) => (
-          <GadaiPendanaanCard key={p._id} pawn={p} />
+          <GadaiDanaCard key={p._id} pawn={p} />
         ))}
       </div>
     </section>

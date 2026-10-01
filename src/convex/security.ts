@@ -24,7 +24,7 @@ import {
 /**
  * Proteksi otentikasi & login PINDAI:
  *  1. MFA/2FA TOTP untuk Super Admin (Google Authenticator/Authy).
- *  2. OTP WhatsApp untuk Pendana — login perangkat baru & transaksi finansial.
+ *  2. OTP WhatsApp untuk penyedia dana — login perangkat baru & transaksi finansial.
  *  3. Rate limiting login (5x salah / 15 menit per IP) + blokir sementara.
  *  4. Sesi aktif tunggal — perangkat baru otomatis menggugurkan sesi lama.
  *  5. Log login append-only: status, IP, user-agent, timestamp.
@@ -716,10 +716,10 @@ export const revokeOtherSessions = mutation({
 });
 
 // =====================================================================
-// OTP WhatsApp — Pendana
+// OTP WhatsApp — penyedia dana
 // =====================================================================
 
-/** Status OTP WA untuk Pendana. */
+/** Status OTP WA untuk penyedia dana. */
 export const myWaOtpStatus = query({
   args: {},
   handler: async (ctx) => {
@@ -742,7 +742,7 @@ export const requestWaOtp = action({
     const me: { role?: string } | null = await ctx.runQuery(api.users.currentRole, {});
     if (me === null) throw new Error("Harus masuk terlebih dahulu.");
     if (me.role !== ROLES.PENDANA && me.role !== ROLES.ADMIN) {
-      throw new Error("OTP WhatsApp khusus akun Pendana.");
+      throw new Error("OTP WhatsApp khusus akun penyedia dana.");
     }
 
     // Rate limit: 5 gagal / 15 menit per IP & per nomor.
@@ -856,7 +856,7 @@ export const _appendWaOtpLog = internalMutation({
 });
 
 /**
- * Verifikasi OTP WA — dipakai transaksi finansial Pendana (alokasi dana,
+ * Verifikasi OTP WA — dipakai transaksi finansial penyedia dana (alokasi dana,
  * penarikan) dan konfirmasi perangkat baru. Mengembalikan { ok } dan
  * mencatat percobaan untuk rate limiting.
  */
@@ -866,11 +866,11 @@ export const verifyWaOtp = mutation({
     const user = await getUser(ctx);
     if (user === null) throw new Error("Harus masuk terlebih dahulu.");
     if (user.role !== ROLES.PENDANA && user.role !== ROLES.ADMIN) {
-      throw new Error("OTP WhatsApp khusus akun Pendana.");
+      throw new Error("OTP WhatsApp khusus akun penyedia dana.");
     }
     const mfa = await getMfa(ctx, user._id);
     const gagal = await ctx.runQuery(internal.security.assertNotRateLimited, {
-      identifier: user.email ?? "pendana",
+      identifier: user.email ?? "dana",
       ip,
     });
     if (gagal.blocked) {
@@ -891,7 +891,7 @@ export const verifyWaOtp = mutation({
       kode === mfa.waOtpKode &&
       (mfa.waOtpKedaluwarsa ?? 0) > Date.now();
     await ctx.runMutation(internal.security._guardLogin, {
-      identifier: user.email ?? "pendana",
+      identifier: user.email ?? "dana",
       ip,
       berhasil: benar,
     });
@@ -926,15 +926,15 @@ export const verifyWaOtp = mutation({
       metode: "wa_otp",
       ip,
       userAgent,
-      keterangan: "Verifikasi transaksi Pendana",
+      keterangan: "Verifikasi transaksi penyedia dana",
     });
     return { ok: true };
   },
 });
 
 /**
- * Set/toggle OTP WA wajib untuk transaksi Pendana (onboarding keamanan).
- * Dipanggil dari dashboard Pendana.
+ * Set/toggle OTP WA wajib untuk transaksi penyedia dana (onboarding keamanan).
+ * Dipanggil dari dashboard penyedia dana.
  */
 export const setWaOtpRequired = mutation({
   args: { wajib: v.boolean() },
@@ -942,7 +942,7 @@ export const setWaOtpRequired = mutation({
     const user = await getUser(ctx);
     if (user === null) throw new Error("Harus masuk terlebih dahulu.");
     if (user.role !== ROLES.PENDANA) {
-      throw new Error("Pengaturan OTP WhatsApp khusus akun Pendana.");
+      throw new Error("Pengaturan OTP WhatsApp khusus akun penyedia dana.");
     }
     const mfa = await getMfa(ctx, user._id);
     if (mfa === null) {

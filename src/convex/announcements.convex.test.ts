@@ -73,7 +73,7 @@ describe("CMS situs publik — pengaturan admin", () => {
     });
   });
 
-  it("migrasi membersihkan teks CMS lama era Pendana dan idempoten", async () => {
+  it("migrasi membersihkan teks CMS lama era penyedia dana dan idempoten", async () => {
     const t = convexTest(schema, modules);
     const { sesi: admin } = await siapkanPengguna(t, "Admin Migrasi", {
       email: "admin-migrasi@pindai.test",
@@ -81,12 +81,12 @@ describe("CMS situs publik — pengaturan admin", () => {
     });
 
     // Tanpa baris CMS: tidak ada yang perlu dibersihkan.
-    await expect(admin.mutation(api.announcements.bersihkanTeksLamaPendana, {})).resolves.toEqual({
+    await expect(admin.mutation(api.announcements.bersihkanTeksLama, {})).resolves.toEqual({
       ok: true,
       diganti: [],
     });
 
-    // Simulasi konten lama: sebagian menyebut Pendana, satu teks kustom bersih.
+    // Simulasi konten lama: sebagian menyebut penyedia dana, satu teks kustom bersih.
     await expect(
       admin.mutation(api.announcements.save, {
         teks: "Alokasi dana Pendana kini tersedia untuk pinjaman pilihan.",
@@ -97,7 +97,7 @@ describe("CMS situs publik — pengaturan admin", () => {
       }),
     ).resolves.toEqual({ ok: true });
 
-    const hasil = await admin.mutation(api.announcements.bersihkanTeksLamaPendana, {});
+    const hasil = await admin.mutation(api.announcements.bersihkanTeksLama, {});
     expect(hasil.ok).toBe(true);
     expect(hasil.diganti).toEqual(
       expect.arrayContaining(["Teks berjalan", "Tautan CTA bar", "Judul popup", "Sub-judul hero"]),
@@ -116,11 +116,11 @@ describe("CMS situs publik — pengaturan admin", () => {
     expect(publik.barTeks).toBe(DEFAULTS.bar.teks);
     expect(publik.barTautan).toBe(DEFAULTS.bar.tautan);
     expect(publik.heroSub).toBe(DEFAULTS.hero.sub);
-    // Default pengganti harus teks baru — bukan teks lama era Pendana.
+    // Default pengganti harus teks baru — bukan teks lama era penyedia dana.
     expect(DEFAULTS.bar.teks).not.toMatch(/pendana|alokasi/i);
 
     // Idempoten: pemanggilan kedua tidak mengubah apa pun.
-    await expect(admin.mutation(api.announcements.bersihkanTeksLamaPendana, {})).resolves.toEqual({
+    await expect(admin.mutation(api.announcements.bersihkanTeksLama, {})).resolves.toEqual({
       ok: true,
       diganti: [],
     });
@@ -144,7 +144,7 @@ describe("CMS situs publik — pengaturan admin", () => {
       /admin/i,
     );
     await expect(
-      peminjam.mutation(api.announcements.bersihkanTeksLamaPendana, {}),
+      peminjam.mutation(api.announcements.bersihkanTeksLama, {}),
     ).rejects.toThrow(/admin/i);
   });
 });

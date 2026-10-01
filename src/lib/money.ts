@@ -6,20 +6,20 @@
  * unit (1 rupiah). Floats/never enter money arithmetic: parse inputs through
  * `parseRupiah` and never build money from `Number` multiplication.
  *
- * STRICT TERMINOLOGY (Rule 2): "imbalHasil" is a Pendana's financial right —
+ * STRICT TERMINOLOGY (Rule 2): "imbalHasil" is the fund provider's financial right —
  * never call it investor/ROI/return anywhere in this codebase.
  */
 
 export type Rupiah = number; // integer rupiah. Invariant: Number.isInteger.
 
 export const PINDAI_TERMS = {
-  /** Pendana — the party that provides funds (never "investor"). */
-  pendana: "Pendana",
+  /** Dana — the party that provides funds (never "investor"). */
+  dana: "Dana",
   /** Peminjam — the party that applies for a loan / pawn. */
   peminjam: "Peminjam",
   /** Alokasi Dana — the act of channeling funds (never "investasi"). */
   alokasiDana: "Alokasi Dana",
-  /** Imbal Hasil — the Pendana's financial right (never "ROI"/"return"). */
+  /** Imbal Hasil — the fund provider's financial right (never "ROI"/"return"). */
   imbalHasil: "Imbal Hasil",
 } as const;
 

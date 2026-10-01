@@ -144,7 +144,7 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
   callbacks: {
     async afterUserCreatedOrUpdated(ctx, { userId, provider, type }) {
       const user = await ctx.db.get(userId);
-      // Email OTP publik tetap tersedia untuk peminjam/pendana, tetapi tidak
+      // Email OTP publik tetap tersedia untuk peminjam/penyedia dana, tetapi tidak
       // untuk admin. Permintaan kode tidak boleh membocorkan status admin,
       // jadi tahap pertama dibalas seperti email biasa (email kodenya sendiri
       // tidak dikirim — lihat emailOtp.sendVerificationRequest) dan tahap

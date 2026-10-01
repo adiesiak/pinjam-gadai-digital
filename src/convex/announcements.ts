@@ -283,23 +283,23 @@ const FIELD_TEKS_LAMA: ReadonlyArray<{ field: string; label: string }> = [
 ];
 
 /**
- * Teks default era Pendana yang mungkin masih tersimpan walau tidak memuat
+ * Teks default lama (era penyedia dana) yang mungkin masih tersimpan walau tidak memuat
  * kata "pendana" (mis. menyebut "alokasi").
  */
-const TEKS_LAMA_PENDANA = [
+const TEKS_LEGACY_DEFAULT = [
   "Pinjaman, gadai, dan alokasi dicatat di ledger internal PINDAI.",
 ];
 
 /**
  * Pembersih teks CMS lama: field teks/tautan tersimpan yang masih menyebut
- * Pendana/pendanaan (atau persis teks default era Pendana) dikosongkan,
+ * Teks lama era penyedia dana/pendanaan (atau persis teks default lamanya) dikosongkan,
  * sehingga `getPublic` otomatis memakai default baru di `DEFAULTS` — tidak ada
  * teks pengganti yang disalin manual dan bisa ikut basi.
  *
  * Teks kustom yang tidak menyebut konsep lama tidak disentuh. Operasi ini
  * idempoten: dijalankan dua kali, pemanggilan kedua melaporkan nol perubahan.
  */
-export const bersihkanTeksLamaPendana = mutation({
+export const bersihkanTeksLama = mutation({
   args: {},
   returns: v.object({ ok: v.boolean(), diganti: v.array(v.string()) }),
   handler: async (ctx) => {
@@ -317,7 +317,7 @@ export const bersihkanTeksLamaPendana = mutation({
       const nilai = row[field];
       if (typeof nilai !== "string") continue;
       const teksLama =
-        /pendana/i.test(nilai) || TEKS_LAMA_PENDANA.includes(nilai.trim());
+        /pendana/i.test(nilai) || TEKS_LEGACY_DEFAULT.includes(nilai.trim());
       if (!teksLama) continue;
       patch[field as keyof Doc<"pengumuman">] = undefined as never;
       diganti.push(label);

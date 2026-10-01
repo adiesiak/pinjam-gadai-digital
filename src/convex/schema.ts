@@ -6,10 +6,10 @@ import { Infer, v } from "convex/values";
  * Pinjam Gadai Digital
  *
  * STRICT TERMINOLOGY (Rule 2):
- * - "Pendana"  — pihak yang menyediakan dana (dilarang: investor)
+ * - "Penyedia Dana" — pihak yang menyediakan dana (dilarang: investor)
  * - "Peminjam" — pihak yang mengajukan pinjaman/gadai
  * - "Pendanaan"/"Alokasi Dana" — aktivitas penyaluran dana (dilarang: investasi)
- * - "Bunga"/"Imbal Hasil" — hak finansial Pendana (dilarang: ROI/return)
+ * - "Bunga"/"Imbal Hasil" — hak finansial penyedia dana (dilarang: ROI/return)
  *
  * Rule 3: money is integer rupiah (never float). See src/lib/money.ts.
  * Rule 5.1: ledger_entries is append-only — never update or delete.
@@ -20,7 +20,7 @@ export const ROLES = {
   ADMIN: "admin",
   /** Peminjam — borrower. */
   PEMINJAM: "peminjam",
-  /** Pendana — fund provider (marketplace pendanaan). */
+  /** Penyedia dana — fund provider (marketplace pendanaan). */
   PENDANA: "pendana",
   MEMBER: "member",
 } as const;
@@ -38,7 +38,7 @@ export const loanStatusValidator = v.union(
   v.literal("sedang_direview"),
   v.literal("disetujui"),
   v.literal("ditolak"),
-  // Pinjaman yang telah didanai penuh oleh Pendana (dana bersih telah dicairkan).
+  // Pinjaman yang telah didanai penuh oleh penyedia dana (dana bersih telah dicairkan).
   v.literal("didanai"),
   // Kewajiban 130% telah dibayar penuh oleh Peminjam.
   v.literal("lunas"),
@@ -62,7 +62,7 @@ export type PawnStatusValue = Infer<typeof pawnStatusValidator>;
 /**
  * Status pengajuan Kredit Barang (Skema C) — elektronik/barang marketplace.
  * Alur: diajukan → sedang_ditinjau → disetujui | ditolak; "didanai"
- * ditetapkan otomatis oleh sistem saat pendanaan Pendana terpenuhi penuh.
+ * ditetapkan otomatis oleh sistem saat pendanaan terpenuhi penuh.
  */
 export const kreditStatusValidator = v.union(
   v.literal("diajukan"),
@@ -70,7 +70,7 @@ export const kreditStatusValidator = v.union(
   v.literal("disetujui"),
   v.literal("ditolak"),
   v.literal("didanai"),
-  // Seluruh cicilan (pokok + Imbal Hasil) lunas — posisi Pendana ditutup.
+  // Seluruh cicilan (pokok + Imbal Hasil) lunas — posisi penyedia dana ditutup.
   v.literal("lunas"),
 );
 export type KreditStatusValue = Infer<typeof kreditStatusValidator>;
@@ -256,7 +256,7 @@ const schema = defineSchema(
       .index("by_waktu", ["waktu"]),
 
     /**
-     * Proteksi otentikasi (2FA TOTP admin & OTP WA Pendana) — satu baris per
+     * Proteksi otentikasi (2FA TOTP admin & OTP WA penyedia dana) — satu baris per
      * pengguna. Secret TOTP disimpan terpisah dari profil agar rotasi mudah.
      */
     mfaSettings: defineTable({
@@ -557,7 +557,7 @@ const schema = defineSchema(
     /**
      * Pengajuan Kredit Barang (Skema C) — Peminjam membeli elektronik/barang
      * dari merchant mitra (marketplace/toko) dengan uang muka; sisa harga
-     * dibiayai Pendana dan dicicil bulanan.
+     * dibiayai penyedia dana dan dicicil bulanan.
      *
      * Semua nilai uang rupiah bulat. Rincian (DP, pokok dibiayai, biaya
      * layanan, cicilan, Imbal Hasil) TIDAK disimpan — selalu diturunkan dari
@@ -582,7 +582,7 @@ const schema = defineSchema(
       dpPersen: v.number(),
       /** Tenor cicilan baru 1/3/6 bulan; kontrak lama 12/24 tetap didukung. */
       tenorBulan: v.number(),
-      /** Imbal Hasil Pendana per bulan (% dari pokok dibiayai, 1,5–4). */
+      /** Imbal Hasil penyedia dana per bulan (% dari pokok dibiayai, 1,5–4). */
       marginPersenPerBulan: v.number(),
       status: kreditStatusValidator,
       /** Catatan keputusan reviewer (wajib saat ditolak). */
@@ -631,17 +631,17 @@ const schema = defineSchema(
       .index("by_user", ["userId"]),
 
     /**
-     * Alokasi Dana Pendana ke satu pengajuan Kredit Barang (Skema C) —
+     * Alokasi Dana ke satu pengajuan Kredit Barang (Skema C) —
      * analog `fundings` untuk pinjaman tunai. Satu pengajuan dapat didanai
-     * beberapa Pendana; anti-overfunding divalidasi atomik di server.
+     * beberapa penyedia dana; anti-overfunding divalidasi atomik di server.
      * Hak Imbal Hasil proporsional porsi pokok yang didanai.
      */
     kreditFundings: defineTable({
       kreditId: v.id("kreditBarang"),
       pendanaId: v.id("users"),
-      /** Rupiah bulat — porsi pokok dibiayai yang ditanggung Pendana ini. */
+      /** Rupiah bulat — porsi pokok dibiayai yang ditanggung penyedia dana ini. */
       jumlahAlokasi: v.number(),
-      /** Hak Imbal Hasil Pendana untuk alokasi ini (rupiah bulat). */
+      /** Hak Imbal Hasil penyedia dana untuk alokasi ini (rupiah bulat). */
       imbalHasil: v.number(),
       status: v.union(
         v.literal("dialokasikan"),
@@ -654,13 +654,13 @@ const schema = defineSchema(
       .index("by_pendana", ["pendanaId"]),
 
     /**
-     * Setoran dana Pendana. Dana baru dianggap tersedia setelah admin
+     * Setoran dana. Dana baru dianggap tersedia setelah admin
      * memverifikasi penerimaan (konfirmasi mencatat jurnal ledger).
      */
     deposits: defineTable({
       pendanaId: v.id("users"),
       jumlah: v.number(), // rupiah bulat
-      /** Referensi transfer menurut bank/e-wallet Pendana. */
+      /** Referensi transfer menurut bank/e-wallet penyedia dana. */
       referensiTransfer: v.string(),
       status: v.union(
         v.literal("menunggu_verifikasi"),
@@ -713,12 +713,12 @@ const schema = defineSchema(
       .index("by_pawn", ["pawnId"]),
 
     /**
-     * Alokasi dana Pendana ke satu pinjaman. Satu pinjaman bisa didanai
-     * beberapa Pendana; total alokasi tidak boleh melebihi pokok
+     * Alokasi dana ke satu pinjaman. Satu pinjaman bisa didanai
+     * beberapa penyedia dana; total alokasi tidak boleh melebihi pokok
      * (anti-overfunding divalidasi atomik di server).
      */
     /**
-     * Permintaan penarikan dana Pendana ke rekening pribadinya. Dicatat
+     * Permintaan penarikan dana ke rekening pribadinya. Dicatat
      * berpasangan di ledger saat admin memproses (append-only).
      */
     withdrawals: defineTable({
@@ -744,9 +744,9 @@ const schema = defineSchema(
     fundings: defineTable({
       loanId: v.id("loans"),
       pendanaId: v.id("users"),
-      /** Rupiah bulat — bagian Pendana atas pokok pinjaman. */
+      /** Rupiah bulat — bagian penyedia dana atas pokok pinjaman. */
       jumlahAlokasi: v.number(),
-      /** Rupiah bulat — hak imbal hasil Pendana (30% dari bagian pokok). */
+      /** Rupiah bulat — hak imbal hasil penyedia dana (30% dari bagian pokok). */
       imbalHasil: v.number(),
       status: v.union(
         v.literal("dialokasikan"),

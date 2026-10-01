@@ -11,7 +11,7 @@
  *  - Tenor 3 dan 6 bulan: biaya admin 2% + platform 3% dari pokok,
  *    DIPOTONG DI MUKA dari dana yang diterima (tidak diamortisasi ke cicilan).
  *    Tenor lain memakai biaya layanan 3%, juga dipotong di muka.
- *  - Bunga/margin (hak Pendana) — FLAT dari pokok penuh, sama besar setiap
+ *  - Bunga/margin (hak penyedia dana) — FLAT dari pokok penuh, sama besar setiap
  *    bulan (tidak menurun dari sisa pokok):
  *      tenor 1 bulan  → 30% / bulan
  *      tenor 3 bulan  → 25% / bulan
@@ -120,7 +120,7 @@ export interface CicilanBulananRow {
   bulan: number;
   /** Angsuran pokok bulan ini. */
   pokok: Rupiah;
-  /** Bunga/margin bulan ini (hak Pendana). */
+  /** Bunga/margin bulan ini (hak penyedia dana). */
   bunga: Rupiah;
   /** Porsi biaya admin pada baris ini — selalu nol (biaya dipotong di muka). */
   biayaAdmin: Rupiah;
@@ -174,7 +174,7 @@ export interface SimulasiBulanan {
   cicilanPerBulan: Rupiah;
   /** Total bayar bulan terakhir (termasuk sisa pembulatan pokok). */
   cicilanTerakhir: Rupiah;
-  /** Bunga/margin total selama tenor (hak Pendana). */
+  /** Bunga/margin total selama tenor (hak penyedia dana). */
   bungaTotal: Rupiah;
   /** Total cicilan yang dibayar Peminjam = Σ cicilan = pokok + bunga. */
   totalPengembalian: Rupiah;

@@ -30,7 +30,7 @@ async function penggunaMasuk(ctx: QueryCtx) {
   return { userId, user };
 }
 
-/** Gate: Peminjam. Akun warisan berperan Pendana diperlakukan sebagai Peminjam. */
+/** Gate: Peminjam. Akun warisan berperan penyedia dana diperlakukan sebagai Peminjam. */
 async function peminjamMasuk(ctx: QueryCtx) {
   return await penggunaMasuk(ctx);
 }
@@ -107,10 +107,10 @@ function ringkasKredit(row: Doc<"kreditBarang">, dibayarBulan = 0) {
     biayaAdminCicilanTotal: quote?.biayaAdminCicilanTotal ?? null,
     cicilanPerBulan: quote?.cicilanPerBulan ?? null,
     cicilanTerakhir: quote?.cicilanTerakhir ?? null,
-    imbalHasilPendana: quote?.marginTotal ?? null,
+    imbalHasilPlatform: quote?.marginTotal ?? null,
     totalDibayarKonsumen: quote?.totalDibayarKonsumen ?? null,
     jadwal: quote?.jadwal ?? [],
-    totalDiterimaPendana: quote?.totalDiterima ?? null,
+    totalDiterimaPlatform: quote?.totalDiterima ?? null,
     persenImbalHasil: quote?.persenImbalHasil ?? null,
   };
 }

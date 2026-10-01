@@ -12,7 +12,7 @@ import {
 } from "../lib/kredit";
 import { formatRupiah, type Rupiah } from "../lib/money";
 import { hitungBiayaPencairan } from "../lib/withdrawal";
-import { appendJournal, pendanaWalletBalance } from "./ledger";
+import { appendJournal, danaWalletBalance } from "./ledger";
 import { rejectUnverifiedMoneyMovement } from "./paymentGuard";
 
 /** Rentang bisnis alokasi pendanaan per transaksi. */
@@ -36,21 +36,21 @@ async function requireUser(ctx: QueryCtx) {
   const user = await ctx.db.get(userId);
   if (user === null) throw new Error("Pengguna tidak ditemukan.");
   if (user.isAnonymous === true) {
-    throw new Error("Akun tamu hanya dapat melihat informasi. Masuk dengan akun terverifikasi untuk mengakses ruang Pendana.");
+    throw new Error("Akun tamu hanya dapat melihat informasi. Masuk dengan akun terverifikasi untuk mengakses ruang penyedia dana.");
   }
   return { userId, user };
 }
 
-async function requirePendana(ctx: QueryCtx) {
+async function requireDana(ctx: QueryCtx) {
   const { userId, user } = await requireUser(ctx);
   if (user.role !== ROLES.PENDANA) {
-    throw new Error("Hanya akun Pendana yang dapat melakukan tindakan ini.");
+    throw new Error("Hanya akun penyedia dana yang dapat melakukan tindakan ini.");
   }
   return { userId, user };
 }
 
 /**
- * Gerbang OTP WhatsApp untuk transaksi finansial Pendana. Bila Pendana
+ * Gerbang OTP WhatsApp untuk transaksi finansial penyedia dana. Bila penyedia dana
  * mengaktifkan proteksi (mfaSettings.waOtpWajib), alokasi dana & penarikan
  * wajib menyertakan kode OTP yang masih valid (5 menit, sekali pakai).
  */
@@ -94,13 +94,13 @@ async function requireWaOtpIfEnabled(
 }
 
 /**
- * Ringkasan pinjaman untuk ditampilkan ke Pendana — SATU sumber kebenaran
+ * Ringkasan pinjaman untuk ditampilkan ke penyedia dana — SATU sumber kebenaran
  * untuk skema harian (130% flat) dan skema bulanan (bunga flat per tenor).
  * Imbal
- * Hasil Pendana = 30% pokok (harian) atau Σ bunga bulanan; biaya tenor 3/6
+ * Hasil penyedia dana = 30% pokok (harian) atau Σ bunga bulanan; biaya tenor 3/6
  * memisahkan admin 2% dan platform 3%, dan SELURUH biaya dipotong di muka.
  */
-type BarisJadwalPendana = {
+type BarisJadwalDana = {
   bulan: number | null;
   hariKe: number | null;
   pokok: number;
@@ -126,8 +126,8 @@ type RingkasanPinjaman = {
   /** Biaya admin 2% per cicilan (tenor 3/6; nol untuk tenor lain). */
   biayaAdminCicilanTotal: number;
   danaDiterimaPeminjam: number;
-  jadwalPelunasan: BarisJadwalPendana[];
-  simulasiCicilanBulanan: BarisJadwalPendana[];
+  jadwalPelunasan: BarisJadwalDana[];
+  simulasiCicilanBulanan: BarisJadwalDana[];
   catatanJadwal: string;
 };
 
@@ -234,16 +234,16 @@ function referenceNumber(prefix: string): string {
 }
 
 // =====================================================================
-// Peran Pendana
+// Peran penyedia dana
 // =====================================================================
 
-/** Naik peran menjadi Pendana. Sekali Pendana, peran tidak bisa diubah sendiri. */
-export const becomePendana = mutation({
+/** Naik peran menjadi penyedia dana. Sekali menjadi penyedia dana, peran tidak bisa diubah sendiri. */
+export const naikPeranDana = mutation({
   args: {},
   handler: async (ctx) => {
     const { userId, user } = await requireUser(ctx);
     if (user.role === ROLES.ADMIN) {
-      throw new Error("Akun admin tidak perlu menjadi Pendana.");
+      throw new Error("Akun admin tidak perlu menjadi penyedia dana.");
     }
     if (user.role === ROLES.PENDANA) {
       return { already: true };
@@ -257,16 +257,16 @@ export const becomePendana = mutation({
 // Setoran dana
 // =====================================================================
 
-/** URL unggahan bukti setoran; hanya akun Pendana yang dapat memintanya. */
+/** URL unggahan bukti setoran; hanya akun penyedia dana yang dapat memintanya. */
 export const generateDepositUploadUrl = mutation({
   args: {},
   handler: async (ctx) => {
-    await requirePendana(ctx);
+    await requireDana(ctx);
     return await ctx.storage.generateUploadUrl();
   },
 });
 
-/** Ajukan setoran dana (Pendana) — menunggu pencocokan manual, tanpa kredit saldo. */
+/** Ajukan setoran dana (penyedia dana) — menunggu pencocokan manual, tanpa kredit saldo. */
 export const requestDeposit = mutation({
   args: {
     jumlah: v.number(),
@@ -276,13 +276,13 @@ export const requestDeposit = mutation({
     buktiPembayaranId: v.id("_storage"),
   },
   handler: async (ctx, args) => {
-    const { userId } = await requirePendana(ctx);
+    const { userId } = await requireDana(ctx);
     const config = await ctx.db
       .query("systemConfig")
       .withIndex("by_slot", (q) => q.eq("slot", "global"))
       .first();
     if (config?.manualDepositEnabled !== true) {
-      throw new Error("Penerimaan setoran Pendana belum diaktifkan tim operasional.");
+      throw new Error("Penerimaan setoran penyedia dana belum diaktifkan tim operasional.");
     }
     if (args.metodePembayaran === "qris" &&
       (!config.qrisImageId || !(await ctx.storage.getUrl(config.qrisImageId)))) {
@@ -315,11 +315,11 @@ export const requestDeposit = mutation({
   },
 });
 
-/** Riwayat + status setoran milik Pendana. */
+/** Riwayat + status setoran milik penyedia dana. */
 export const myDeposits = query({
   args: {},
   handler: async (ctx) => {
-    const { userId } = await requirePendana(ctx);
+    const { userId } = await requireDana(ctx);
     const rows = await ctx.db
       .query("deposits")
       .withIndex("by_pendana", (q) => q.eq("pendanaId", userId))
@@ -342,14 +342,14 @@ export const myDeposits = query({
 });
 
 /**
- * Dompet Pendana: saldo aktual dibaca langsung dari ledger (bukan field
+ * Dompet penyedia dana: saldo aktual dibaca langsung dari ledger (bukan field
  * cache), plus posisi alokasi aktif.
  */
 export const myWallet = query({
   args: {},
   handler: async (ctx) => {
-    const { userId } = await requirePendana(ctx);
-    const saldo = await pendanaWalletBalance(ctx, userId);
+    const { userId } = await requireDana(ctx);
+    const saldo = await danaWalletBalance(ctx, userId);
 
     const fundings = await ctx.db
       .query("fundings")
@@ -358,7 +358,7 @@ export const myWallet = query({
     const active = fundings.filter((f) => f.status === "dialokasikan");
 
     // Alokasi Kredit Barang (Skema C) dihitung pada ringkasan yang sama agar
-    // dana yang dipindahkan dari dompet tidak "hilang" dari total Pendana.
+    // dana yang dipindahkan dari dompet tidak "hilang" dari total penyedia dana.
     const kreditFundings = await ctx.db
       .query("kreditFundings")
       .withIndex("by_pendana", (q) => q.eq("pendanaId", userId))
@@ -392,7 +392,7 @@ export const myWallet = query({
 export const marketplace = query({
   args: {},
   handler: async (ctx) => {
-    await requirePendana(ctx);
+    await requireDana(ctx);
 
     const loans = await ctx.db
       .query("loans")
@@ -440,19 +440,19 @@ export const marketplace = query({
  * 2. Validasi sisa kebutuhan (melempar error → seluruh transaksi rollback).
  * 3. Kurangi saldo dompet dari ledger (saldo tidak boleh kurang).
  * 4. Bila pinjaman terpenuhi penuh: catat disbursement + fee ke ledger,
- *    potong porsi Pendana, dan ubah status pinjaman menjadi "didanai".
+ *    potong porsi penyedia dana, dan ubah status pinjaman menjadi "didanai".
  * Convex mengeksekusi satu mutation secara transaksional & serial —
- * dua Pendana yang berlomba tidak dapat melebihi sisa kebutuhan.
+ * dua penyedia dana yang berlomba tidak dapat melebihi sisa kebutuhan.
  */
 export const allocateFunding = mutation({
   args: {
     loanId: v.id("loans"),
     jumlah: v.number(),
-    /** Kode OTP WA — wajib bila Pendana mengaktifkan proteksi transaksi. */
+    /** Kode OTP WA — wajib bila penyedia dana mengaktifkan proteksi transaksi. */
     kodeOtp: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const { userId } = await requirePendana(ctx);
+    const { userId } = await requireDana(ctx);
     rejectUnverifiedMoneyMovement();
     validateRupiahAmount(args.jumlah, "Jumlah alokasi");
     await requireWaOtpIfEnabled(ctx, userId, args.kodeOtp);
@@ -476,7 +476,7 @@ export const allocateFunding = mutation({
       .reduce((acc, f) => acc + f.jumlahAlokasi, 0);
     const sisa = loan.pokokPinjaman - terkumpul;
     if (sisa <= 0) {
-      throw new Error("Pinjaman ini sudah terpenuhi penuh oleh Pendana lain.");
+      throw new Error("Pinjaman ini sudah terpenuhi penuh oleh penyedia dana lain.");
     }
     if (args.jumlah > sisa) {
       throw new Error(
@@ -485,7 +485,7 @@ export const allocateFunding = mutation({
     }
 
     // 3. Saldo dompet dari ledger — tidak boleh minus.
-    const saldo = await pendanaWalletBalance(ctx, userId);
+    const saldo = await danaWalletBalance(ctx, userId);
     if (saldo < args.jumlah) {
       throw new Error(
         `Saldo tidak cukup. Saldo: ${formatRupiah(saldo)}, alokasi: ${formatRupiah(args.jumlah)}.`,
@@ -493,7 +493,7 @@ export const allocateFunding = mutation({
     }
 
     // 4. Tulis posisi alokasi. Imbal Hasil = porsi proporsional dari total hak
-    //    Pendana pinjaman ini (harian: 30% pokok; bulanan: Σ bunga bulanan).
+    //    penyedia dana pinjaman ini (harian: 30% pokok; bulanan: Σ bunga bulanan).
     const ringkas = ringkasPinjaman(loan);
     const imbalHasil = ringkas.imbalHasilTotal > 0
       ? Math.floor((ringkas.imbalHasilTotal * args.jumlah) / loan.pokokPinjaman)
@@ -508,7 +508,7 @@ export const allocateFunding = mutation({
       nomorReferensi: fndRef,
     });
 
-    // 5. Jurnal: dana pindah dari dompet Pendana ke akun pinjaman.
+    // 5. Jurnal: dana pindah dari dompet penyedia dana ke akun pinjaman.
     await appendJournal(ctx, {
       jenis: "disbursement",
       keterangan: `Alokasi pendanaan ${fndRef} ke ${loan.nomorReferensi}`,
@@ -563,7 +563,7 @@ export const allocateFunding = mutation({
         ],
       });
 
-      // Hak Imbal Hasil tiap Pendana: proporsional alokasi dengan alokasi
+      // Hak Imbal Hasil tiap penyedia dana: proporsional alokasi dengan alokasi
       // terbesar menyerap dust pembulatan — SAMA PERSIS dengan distribusi saat
       // pelunasan (lihat repayLoan di convex/loans.ts).
       // Baca ulang alokasi dari DB — snapshot lama tidak memuat baris yang
@@ -596,21 +596,21 @@ export const allocateFunding = mutation({
 });
 
 // =====================================================================
-// Penarikan dana (withdrawal) ke rekening pribadi Pendana
+// Penarikan dana (withdrawal) ke rekening pribadi penyedia dana
 // =====================================================================
 
-/** Ajukan penarikan saldo dompet ke rekening bank pribadi Pendana. */
+/** Ajukan penarikan saldo dompet ke rekening bank pribadi penyedia dana. */
 export const requestWithdrawal = mutation({
   args: {
     jumlah: v.number(),
     namaBank: v.string(),
     nomorRekening: v.string(),
-    /** Kode OTP WA — wajib bila Pendana mengaktifkan proteksi transaksi. */
+    /** Kode OTP WA — wajib bila penyedia dana mengaktifkan proteksi transaksi. */
     kodeOtp: v.optional(v.string()),
   },
   returns: v.object({ nomorReferensi: v.string() }),
   handler: async (ctx, args) => {
-    const { userId } = await requirePendana(ctx);
+    const { userId } = await requireDana(ctx);
     rejectUnverifiedMoneyMovement();
     await requireWaOtpIfEnabled(ctx, userId, args.kodeOtp);
 
@@ -625,7 +625,7 @@ export const requestWithdrawal = mutation({
 
     // Saldo dicek di sini untuk umpan balik cepat; pemotongan final terjadi
     // saat admin memproses (jurnal) dan divalidasi ulang pada momen itu.
-    const saldo = await pendanaWalletBalance(ctx, userId);
+    const saldo = await danaWalletBalance(ctx, userId);
     if (saldo < args.jumlah) {
       throw new Error(
         `Saldo tidak cukup. Saldo: ${formatRupiah(saldo)}, penarikan: ${formatRupiah(args.jumlah)}.`,
@@ -649,7 +649,7 @@ export const requestWithdrawal = mutation({
 export const cancelWithdrawal = mutation({
   args: { withdrawalId: v.id("withdrawals") },
   handler: async (ctx, args) => {
-    const { userId } = await requirePendana(ctx);
+    const { userId } = await requireDana(ctx);
     const w = await ctx.db.get(args.withdrawalId);
     if (w === null || w.pendanaId !== userId) {
       throw new Error("Permintaan penarikan tidak ditemukan.");
@@ -657,15 +657,15 @@ export const cancelWithdrawal = mutation({
     if (w.status !== "menunggu_proses") {
       throw new Error("Permintaan yang sudah diproses tidak dapat dibatalkan.");
     }
-    await ctx.db.patch(args.withdrawalId, { status: "ditolak", catatanAdmin: "Dibatalkan oleh Pendana" });
+    await ctx.db.patch(args.withdrawalId, { status: "ditolak", catatanAdmin: "Dibatalkan oleh penyedia dana" });
   },
 });
 
-/** Riwayat penarikan milik Pendana. */
+/** Riwayat penarikan milik penyedia dana. */
 export const myWithdrawals = query({
   args: {},
   handler: async (ctx) => {
-    const { userId } = await requirePendana(ctx);
+    const { userId } = await requireDana(ctx);
     const rows = await ctx.db
       .query("withdrawals")
       .withIndex("by_pendana", (q) => q.eq("pendanaId", userId))
@@ -687,14 +687,14 @@ export const myWithdrawals = query({
 });
 
 /**
- * Portofolio Pendana: status pelunasan live dan kode peminjam pseudonim.
+ * Portofolio penyedia dana: status pelunasan live dan kode peminjam pseudonim.
  * Data identitas, alamat, koordinat, serta lokasi penyimpanan jaminan tidak
  * disertakan dalam payload ini.
  */
 export const myPortfolio = query({
   args: {},
   handler: async (ctx) => {
-    const { userId } = await requirePendana(ctx);
+    const { userId } = await requireDana(ctx);
     const fundings = await ctx.db
       .query("fundings")
       .withIndex("by_pendana", (q) => q.eq("pendanaId", userId))
@@ -713,7 +713,7 @@ export const myPortfolio = query({
       const rep = pelunasanPinjaman(loan, now);
       const ringkas = ringkasPinjaman(loan);
 
-      // Status pelunasan dari sudut pandang Pendana.
+      // Status pelunasan dari sudut pandang penyedia dana.
       let statusPelunasan: "lancar" | "berjalan" | "menunggak";
       if (loan.status === "lunas") {
         statusPelunasan = "lancar";
@@ -758,13 +758,13 @@ export const myPortfolio = query({
 });
 
 /**
- * Dokumen perjanjian pendanaan milik Pendana: satu entri per alokasi yang
+ * Dokumen perjanjian pendanaan milik penyedia dana: satu entri per alokasi yang
  * sudah terikat pada pinjaman disetujui/didanai/lunas.
  */
 export const myFundingContracts = query({
   args: {},
   handler: async (ctx) => {
-    const { userId } = await requirePendana(ctx);
+    const { userId } = await requireDana(ctx);
     const fundings = await ctx.db
       .query("fundings")
       .withIndex("by_pendana", (q) => q.eq("pendanaId", userId))
@@ -799,13 +799,13 @@ export const myFundingContracts = query({
 });
 
 /**
- * Riwayat alokasi milik Pendana — mencakup pinjaman tunai DAN kredit barang,
+ * Riwayat alokasi milik penyedia dana — mencakup pinjaman tunai DAN kredit barang,
  * agar seluruh perpindahan dana dari dompet terlihat di satu tempat.
  */
 export const myFundings = query({
   args: {},
   handler: async (ctx) => {
-    const { userId } = await requirePendana(ctx);
+    const { userId } = await requireDana(ctx);
     const rows = await ctx.db
       .query("fundings")
       .withIndex("by_pendana", (q) => q.eq("pendanaId", userId))
@@ -872,13 +872,13 @@ function akunMerchant(merchant: string): string {
 
 /**
  * Peluang pendanaan Kredit Barang: pengajuan yang sudah disetujui tim dan
- * belum terpenuhi penuh oleh Pendana. Sisa kebutuhan dihitung live dari
+ * belum terpenuhi penuh oleh penyedia dana. Sisa kebutuhan dihitung live dari
  * alokasi aktif (Zero Fake Data); identitas hanya berupa kode peminjam.
  */
 export const marketplaceKredit = query({
   args: {},
   handler: async (ctx) => {
-    await requirePendana(ctx);
+    await requireDana(ctx);
     const rows = await ctx.db
       .query("kreditBarang")
       .withIndex("by_status", (q) => q.eq("status", "disetujui"))
@@ -974,17 +974,17 @@ export const marketplaceKredit = query({
  * 4. Bila terpenuhi penuh: jurnal pencairan ke merchant mitra, bagi hak
  *    Imbal Hasil proporsional, dan status pengajuan menjadi "didanai".
  * Convex mengeksekusi mutation secara transaksional & serial sehingga dua
- * Pendana yang berlomba tidak dapat melebihi sisa kebutuhan.
+ * penyedia dana yang berlomba tidak dapat melebihi sisa kebutuhan.
  */
 export const alokasiKreditBarang = mutation({
   args: {
     kreditId: v.id("kreditBarang"),
     jumlah: v.number(),
-    /** Kode OTP WA — wajib bila Pendana mengaktifkan proteksi transaksi. */
+    /** Kode OTP WA — wajib bila penyedia dana mengaktifkan proteksi transaksi. */
     kodeOtp: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const { userId } = await requirePendana(ctx);
+    const { userId } = await requireDana(ctx);
     rejectUnverifiedMoneyMovement();
     validateRupiahAmount(args.jumlah, "Jumlah alokasi");
     await requireWaOtpIfEnabled(ctx, userId, args.kodeOtp);
@@ -1022,7 +1022,7 @@ export const alokasiKreditBarang = mutation({
       .reduce((acc, f) => acc + f.jumlahAlokasi, 0);
     const sisa = quote.pokokDibiayai - terkumpul;
     if (sisa <= 0) {
-      throw new Error("Pengajuan ini sudah terpenuhi penuh oleh Pendana lain.");
+      throw new Error("Pengajuan ini sudah terpenuhi penuh oleh penyedia dana lain.");
     }
     if (args.jumlah > sisa) {
       throw new Error(
@@ -1030,7 +1030,7 @@ export const alokasiKreditBarang = mutation({
       );
     }
 
-    const saldo = await pendanaWalletBalance(ctx, userId);
+    const saldo = await danaWalletBalance(ctx, userId);
     if (saldo < args.jumlah) {
       throw new Error(
         `Saldo tidak cukup. Saldo: ${formatRupiah(saldo)}, alokasi: ${formatRupiah(args.jumlah)}.`,
@@ -1051,7 +1051,7 @@ export const alokasiKreditBarang = mutation({
       nomorReferensi: ref,
     });
 
-    // Jurnal: dana pindah dari dompet Pendana ke akun kredit barang.
+    // Jurnal: dana pindah dari dompet penyedia dana ke akun kredit barang.
     await appendJournal(ctx, {
       jenis: "disbursement",
       keterangan: `Alokasi pendanaan ${ref} ke ${kredit.nomorReferensi} (Kredit Barang)`,
@@ -1106,7 +1106,7 @@ export const alokasiKreditBarang = mutation({
 
       // Selaraskan hak Imbal Hasil dengan engine: Σ hak = total Imbal Hasil
       // dan alokasi terbesar menyerap pembulatan — tepat seperti yang
-      // diterima setiap bulan lewat bagiCicilanKePendana.
+      // diterima setiap bulan lewat bagiCicilanKeDana.
       // PENTING: baca ulang alokasi dari DB — snapshot `fundings` di atas
       // belum memuat baris yang baru di-insert mutation ini; memakai snapshot
       // membuat Σ hak < total Imbal Hasil dan alokasi terakhir selalu gagal.
@@ -1145,11 +1145,11 @@ export const alokasiKreditBarang = mutation({
   },
 });
 
-/** Portofolio Alokasi Dana Kredit Barang milik Pendana. */
+/** Portofolio Alokasi Dana Kredit Barang milik penyedia dana. */
 export const myKreditFundings = query({
   args: {},
   handler: async (ctx) => {
-    const { userId } = await requirePendana(ctx);
+    const { userId } = await requireDana(ctx);
     const rows = await ctx.db
       .query("kreditFundings")
       .withIndex("by_pendana", (q) => q.eq("pendanaId", userId))

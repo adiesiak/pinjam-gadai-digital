@@ -1,7 +1,7 @@
 import type { Id } from "@/convex/_generated/dataModel";
 
 /** Baris gadai yang dirender pada panel hitungan internal Skema B. */
-export type GadaiPendanaanRow = {
+export type GadaiDanaRow = {
   _id: Id<"pawns">;
   nomorReferensi: string;
   deskripsiBarang: string;

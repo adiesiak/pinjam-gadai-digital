@@ -1,7 +1,7 @@
 import { ClipboardList, Package, Search } from "lucide-react";
 import { useMemo, useState } from "react";
 
-import { GadaiPendanaanPanel } from "@/components/GadaiPendanaanPanel";
+import { GadaiDanaPanel } from "@/components/GadaiDanaPanel";
 import { StatusBadge } from "@/components/StatusBadge";
 import { formatDate } from "@/components/admin/admin-format";
 import {
@@ -127,7 +127,7 @@ export function PawnQueueSection({
         )}
         </div>
       )}
-      <GadaiPendanaanPanel pawns={pawns} />
+      <GadaiDanaPanel pawns={pawns} />
     </>
   );
 }

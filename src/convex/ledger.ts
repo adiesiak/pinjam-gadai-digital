@@ -77,14 +77,14 @@ export async function appendJournal(
   return gid;
 }
 
-/** Saldo dompet Pendana = sum(debit) − sum(kredit) pada akun dompetnya. */
-export async function pendanaWalletBalance(
+/** Saldo dompet penyedia dana = sum(debit) − sum(kredit) pada akun dompetnya. */
+export async function danaWalletBalance(
   ctx: QueryCtx,
-  pendanaId: string,
+  danaId: string,
 ): Promise<number> {
   const entries = await ctx.db
     .query("ledger_entries")
-    .filter((q) => q.eq(q.field("akun"), `pendana:WALLET:${pendanaId}`))
+    .filter((q) => q.eq(q.field("akun"), `pendana:WALLET:${danaId}`))
     .collect();
   return entries.reduce(
     (acc, e) => acc + (e.arah === "debit" ? e.jumlah : -e.jumlah),

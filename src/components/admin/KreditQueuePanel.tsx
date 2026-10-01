@@ -232,8 +232,8 @@ export function KreditQueuePanel() {
                       ],
                       [
                         "Imbal hasil (estimasi)",
-                        r.imbalHasilPendana !== null
-                          ? `${formatRupiah(r.imbalHasilPendana)} (${r.marginPersenPerBulan}%/bln)`
+                        r.imbalHasilPlatform !== null
+                          ? `${formatRupiah(r.imbalHasilPlatform)} (${r.marginPersenPerBulan}%/bln)`
                           : `${r.marginPersenPerBulan}%/bln`,
                       ],
                     ] as const
