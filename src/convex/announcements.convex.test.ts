@@ -12,6 +12,7 @@ import schema from "./schema";
 import { siapkanPengguna } from "./test.helpers";
 import { modules } from "./test.setup";
 import { DEFAULTS } from "./announcements";
+import { ROLE_LAMA } from "../lib/legacy";
 
 describe("CMS situs publik — pengaturan admin", () => {
   it("admin mengubah konten landing, publik melihatnya, lalu reset ke default", async () => {
@@ -86,7 +87,9 @@ describe("CMS situs publik — pengaturan admin", () => {
       diganti: [],
     });
 
-    // Simulasi konten lama: sebagian menyebut penyedia dana, satu teks kustom bersih.
+    // Simulasi konten lama era "Pendana" yang benar-benar tersimpan di DB —
+    // literalnya dibiarkan apa adanya agar migrasi terbukti mengenalinya;
+    // satu teks kustom bersih untuk memastikan tidak ikut dihapus.
     await expect(
       admin.mutation(api.announcements.save, {
         teks: "Alokasi dana Pendana kini tersedia untuk pinjaman pilihan.",
@@ -117,7 +120,7 @@ describe("CMS situs publik — pengaturan admin", () => {
     expect(publik.barTautan).toBe(DEFAULTS.bar.tautan);
     expect(publik.heroSub).toBe(DEFAULTS.hero.sub);
     // Default pengganti harus teks baru — bukan teks lama era penyedia dana.
-    expect(DEFAULTS.bar.teks).not.toMatch(/pendana|alokasi/i);
+    expect(DEFAULTS.bar.teks).not.toMatch(new RegExp(`${ROLE_LAMA}|alokasi`, "i"));
 
     // Idempoten: pemanggilan kedua tidak mengubah apa pun.
     await expect(admin.mutation(api.announcements.bersihkanTeksLama, {})).resolves.toEqual({

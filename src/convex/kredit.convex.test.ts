@@ -5,6 +5,7 @@ import { api } from "./_generated/api";
 import schema from "./schema";
 import { buatSesi } from "./test.helpers";
 import { modules } from "./test.setup";
+import { KOLOM_DANA, ROLE_LAMA } from "../lib/legacy";
 
 describe("manual review and unverified money movement", () => {
   it("keeps admin review but blocks deposit, funding, repayment, and ledger changes", async () => {
@@ -17,9 +18,9 @@ describe("manual review and unverified money movement", () => {
       email: "peminjam@pindai.test",
       role: "peminjam",
     });
-    const asDana = await buatSesi(t, "pendana", {
-      email: "pendana@pindai.test",
-      role: "pendana",
+    const asDana = await buatSesi(t, "dana", {
+      email: "dana@pindai.test",
+      role: ROLE_LAMA,
     });
 
     await asPeminjam.mutation(api.lokasi.catatLokasi, {
@@ -53,11 +54,11 @@ describe("manual review and unverified money movement", () => {
 
     const depositId = await t.run(async (ctx) => {
       const akunDana = (await ctx.db.query("users").collect()).find(
-        (user) => user.email === "pendana@pindai.test",
+        (user) => user.email === "dana@pindai.test",
       );
       if (akunDana === undefined) throw new Error("Akun dana uji tidak ditemukan.");
       return ctx.db.insert("deposits", {
-        pendanaId: akunDana._id,
+        [KOLOM_DANA]: akunDana._id,
         jumlah: 10_000_000,
         referensiTransfer: "MANUAL-REF-001",
         status: "menunggu_verifikasi",

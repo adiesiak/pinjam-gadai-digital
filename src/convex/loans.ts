@@ -14,6 +14,7 @@ import {
   LoanStatusValue,
   PawnStatusValue,
 } from "./schema";
+import { akunDompetDana, KOLOM_DANA, ROLE_LAMA } from "../lib/legacy";
 import {
   apakahPelunasanTepatWaktu,
   pesanPlafonTerlampaui,
@@ -395,7 +396,7 @@ export const createLoanApplication = mutation({
       throw new Error("Data tanda tangan terlalu besar.");
     }
 
-    if (user.role === undefined || user.role === ROLES.PENDANA) {
+    if (user.role === undefined || user.role === ROLE_LAMA) {
       await ctx.db.patch(userId, { role: ROLES.PEMINJAM });
     }
     await ensureKodePeminjam(ctx, userId);
@@ -766,7 +767,7 @@ export const createPawnApplication = mutation({
       throw new Error("Nomor rekening/akun e-wallet harus 6–20 digit angka.");
     }
 
-    if (user.role === undefined || user.role === ROLES.PENDANA) {
+    if (user.role === undefined || user.role === ROLE_LAMA) {
       await ctx.db.patch(userId, { role: ROLES.PEMINJAM });
     }
 
@@ -1146,7 +1147,7 @@ export const hapusGadai = mutation({
  * skema bulanan (tenorBulan): Σ cicilan + biaya layanan (fee platform).
  * Jurnal (semua dalam satu mutation transaksional, append-only):
  *   1. D platform:CASH total kewajiban | K pinjaman:<id>
- *   2. D pinjaman:<id> p_i+im_i | K pendana:WALLET:i  (bayar tiap penyedia dana)
+ *   2. D pinjaman:<id> p_i+im_i | K akun dompet dana:i  (bayar tiap penyedia dana)
  * Dust pembulatan proporsi imbal hasil diberikan ke penyedia dana dengan alokasi
  * terbesar, sehingga akun pinjaman tepat nol dan total keluar tepat.
  */
@@ -1253,7 +1254,7 @@ export const repayLoan = mutation({
         aktor: "platform",
         lines: [
           // Debit menaikkan saldo dompet penyedia dana; kredit menurunkan akun pinjaman.
-          { akun: `pendana:WALLET:${f.pendanaId}`, arah: "debit", jumlah: payout },
+          { akun: akunDompetDana(f[KOLOM_DANA]), arah: "debit", jumlah: payout },
           { akun: `pinjaman:${args.loanId}`, arah: "kredit", jumlah: payout },
         ],
       });

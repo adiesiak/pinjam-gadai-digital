@@ -16,6 +16,7 @@ import type {
 } from "convex-test";
 
 import type { DataModel, Id } from "./_generated/dataModel";
+import { ROLE_LAMA } from "../lib/legacy";
 
 export type KonteksUji = TestConvexForDataModelAndIdentity<DataModel>;
 export type SesiUji = TestConvexForDataModel<DataModel>;
@@ -25,7 +26,7 @@ export const TEST_TOTP_SECRET = "JBSWY3DPEHPK3PXP";
 
 const MASA_SESI_MS = 60 * 60 * 1000;
 
-export type PeranUji = "admin" | "pendana" | "peminjam";
+export type PeranUji = "admin" | typeof ROLE_LAMA | "peminjam";
 
 export type OpsiPenggunaUji = {
   email?: string;

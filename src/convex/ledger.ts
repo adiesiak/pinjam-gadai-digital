@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { MutationCtx, QueryCtx } from "./_generated/server";
+import { akunDompetDana } from "../lib/legacy";
 
 /**
  * Mesin ledger double-entry (Rule 5.1).
@@ -9,7 +10,7 @@ import { MutationCtx, QueryCtx } from "./_generated/server";
  */
 
 export interface JournalLine {
-  /** "pendana:WALLET:<id>" | "pinjaman:<id>" | "platform:FEE" */
+  /** dompet dana (prefix di lib/legacy) | "pinjaman:<id>" | "platform:FEE" */
   akun: string;
   arah: "debit" | "kredit";
   jumlah: number;
@@ -84,7 +85,7 @@ export async function danaWalletBalance(
 ): Promise<number> {
   const entries = await ctx.db
     .query("ledger_entries")
-    .filter((q) => q.eq(q.field("akun"), `pendana:WALLET:${danaId}`))
+    .filter((q) => q.eq(q.field("akun"), akunDompetDana(danaId)))
     .collect();
   return entries.reduce(
     (acc, e) => acc + (e.arah === "debit" ? e.jumlah : -e.jumlah),

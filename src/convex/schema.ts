@@ -1,6 +1,7 @@
 import { authTables } from "@convex-dev/auth/server";
 import { defineSchema, defineTable } from "convex/server";
 import { Infer, v } from "convex/values";
+import { INDEX_DANA, KOLOM_DANA, ROLE_LAMA } from "../lib/legacy";
 
 /**
  * Pinjam Gadai Digital
@@ -20,15 +21,14 @@ export const ROLES = {
   ADMIN: "admin",
   /** Peminjam — borrower. */
   PEMINJAM: "peminjam",
-  /** Penyedia dana — fund provider (marketplace pendanaan). */
-  PENDANA: "pendana",
   MEMBER: "member",
 } as const;
 
 export const roleValidator = v.union(
   v.literal(ROLES.ADMIN),
   v.literal(ROLES.PEMINJAM),
-  v.literal(ROLES.PENDANA),
+  // Role lama (lihat ../lib/legacy) — masih tersimpan pada dokumen lama.
+  v.literal(ROLE_LAMA),
   v.literal(ROLES.MEMBER),
 );
 export type Role = Infer<typeof roleValidator>;
@@ -638,7 +638,7 @@ const schema = defineSchema(
      */
     kreditFundings: defineTable({
       kreditId: v.id("kreditBarang"),
-      pendanaId: v.id("users"),
+      [KOLOM_DANA]: v.id("users"),
       /** Rupiah bulat — porsi pokok dibiayai yang ditanggung penyedia dana ini. */
       jumlahAlokasi: v.number(),
       /** Hak Imbal Hasil penyedia dana untuk alokasi ini (rupiah bulat). */
@@ -651,14 +651,14 @@ const schema = defineSchema(
       nomorReferensi: v.string(),
     })
       .index("by_kredit", ["kreditId"])
-      .index("by_pendana", ["pendanaId"]),
+      .index(INDEX_DANA, [KOLOM_DANA]),
 
     /**
      * Setoran dana. Dana baru dianggap tersedia setelah admin
      * memverifikasi penerimaan (konfirmasi mencatat jurnal ledger).
      */
     deposits: defineTable({
-      pendanaId: v.id("users"),
+      [KOLOM_DANA]: v.id("users"),
       jumlah: v.number(), // rupiah bulat
       /** Referensi transfer menurut bank/e-wallet penyedia dana. */
       referensiTransfer: v.string(),
@@ -680,7 +680,7 @@ const schema = defineSchema(
       dicocokkanOleh: v.optional(v.id("users")),
       nomorReferensi: v.string(),
     })
-      .index("by_pendana", ["pendanaId"])
+      .index(INDEX_DANA, [KOLOM_DANA])
       .index("by_status", ["status"]),
 
     /**
@@ -722,7 +722,7 @@ const schema = defineSchema(
      * berpasangan di ledger saat admin memproses (append-only).
      */
     withdrawals: defineTable({
-      pendanaId: v.id("users"),
+      [KOLOM_DANA]: v.id("users"),
       /** Rupiah bulat — jumlah penarikan. */
       jumlah: v.number(),
       /** Nama bank tujuan (mis. BCA). */
@@ -738,12 +738,12 @@ const schema = defineSchema(
       catatanAdmin: v.optional(v.string()),
       nomorReferensi: v.string(),
     })
-      .index("by_pendana", ["pendanaId"])
+      .index(INDEX_DANA, [KOLOM_DANA])
       .index("by_status", ["status"]),
 
     fundings: defineTable({
       loanId: v.id("loans"),
-      pendanaId: v.id("users"),
+      [KOLOM_DANA]: v.id("users"),
       /** Rupiah bulat — bagian penyedia dana atas pokok pinjaman. */
       jumlahAlokasi: v.number(),
       /** Rupiah bulat — hak imbal hasil penyedia dana (30% dari bagian pokok). */
@@ -756,7 +756,7 @@ const schema = defineSchema(
       nomorReferensi: v.string(),
     })
       .index("by_loan", ["loanId"])
-      .index("by_pendana", ["pendanaId"]),
+      .index(INDEX_DANA, [KOLOM_DANA]),
 
     /**
      * Jurnal double-entry — APPEND-ONLY (Rule 5.1).
@@ -770,7 +770,7 @@ const schema = defineSchema(
       arah: v.union(v.literal("debit"), v.literal("kredit")),
       /** Rupiah bulat. */
       jumlah: v.number(),
-      /** Nama akun ledger, mis. "pendana:WALLET:<id>", "pinjaman:<id>". */
+      /** Nama akun ledger, mis. dompet dana (prefix di lib/legacy), "pinjaman:<id>". */
       akun: v.string(),
       /** Jenis transaksi: deposit|disbursement|platform_fee|repayment|payout. */
       jenis: v.string(),

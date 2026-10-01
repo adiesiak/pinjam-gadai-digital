@@ -9,6 +9,7 @@ import {
   type KreditBarangQuote,
 } from "../lib/kredit";
 import { ROLES, type KreditStatusValue } from "./schema";
+import { ROLE_LAMA } from "../lib/legacy";
 import { requireAdminSession } from "./adminAuthz";
 import { audit, getConfig } from "./system";
 import { requireGerbangLokasi } from "./lokasi";
@@ -172,7 +173,7 @@ export const ajukanKreditBarang = mutation({
     const wa = args.nomorWhatsApp.replace(/[\s+-]/g, "");
     if (!/^62\d{8,13}$/.test(wa)) throw new Error("Nomor WhatsApp wajib format internasional 62… (mis. 6281234567890).");
 
-    if (user.role === undefined || user.role === ROLES.PENDANA) {
+    if (user.role === undefined || user.role === ROLE_LAMA) {
       await ctx.db.patch(userId, { role: ROLES.PEMINJAM });
     }
     await ensureKodePeminjam(ctx, userId);

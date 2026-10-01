@@ -18,6 +18,7 @@ import {
   type PenggunaUji,
 } from "./test.helpers";
 import { modules } from "./test.setup";
+import { KOLOM_DANA, ROLE_LAMA } from "../lib/legacy";
 
 type Tx = KonteksUji;
 
@@ -36,28 +37,28 @@ describe("alur penyedia dana — pinjaman tunai", () => {
     const t = convexTest(schema, modules);
     const { sesi: admin } = await siapkanPengguna(
       t,
-      "admin-alur-pendana",
-      "admin-alur-pendana@pindai.test",
+      "admin-alur-dana",
+      "admin-alur-dana@pindai.test",
       "admin",
     );
     const { userId: peminjamId, sesi: peminjam } = await siapkanPengguna(
       t,
-      "peminjam-alur-pendana",
-      "peminjam-alur-pendana@pindai.test",
+      "peminjam-alur-dana",
+      "peminjam-alur-dana@pindai.test",
       "peminjam",
     );
-    const { sesi: pendana } = await siapkanPengguna(
+    const { sesi: dana } = await siapkanPengguna(
       t,
-      "pendana-alur",
-      "pendana-alur@pindai.test",
+      "dana-alur",
+      "dana-alur@pindai.test",
       "peminjam",
     );
 
     // Peran penyedia dana dapat diaktifkan mandiri, dan pemanggilan ulang idempoten.
-    await expect(pendana.mutation(api.alokasiDana.naikPeranDana, {})).resolves.toEqual({
+    await expect(dana.mutation(api.alokasiDana.naikPeranDana, {})).resolves.toEqual({
       already: false,
     });
-    await expect(pendana.mutation(api.alokasiDana.naikPeranDana, {})).resolves.toEqual({
+    await expect(dana.mutation(api.alokasiDana.naikPeranDana, {})).resolves.toEqual({
       already: true,
     });
 
@@ -78,7 +79,7 @@ describe("alur penyedia dana — pinjaman tunai", () => {
         namaLengkap: "Rani Peminjam",
         nomorRekening: "1234567890",
         status: "diajukan",
-        nomorReferensi: "PGD-ALUR-PENDANA",
+        nomorReferensi: "PGD-ALUR-DANA",
         tenorHari: 30,
       });
     });
@@ -94,19 +95,19 @@ describe("alur penyedia dana — pinjaman tunai", () => {
 
     // Penerimaan bukti deposit tetap tertutup sampai gerbang admin dibuka; semua perintah uang ditolak tanpa ledger.
     const [depositId, withdrawalId, pawnId] = await t.run(async (ctx) => {
-      const pendanaId = (await ctx.db.query("users").collect()).find(
-        (user) => user.email === "pendana-alur@pindai.test",
+      const danaId = (await ctx.db.query("users").collect()).find(
+        (user) => user.email === "dana-alur@pindai.test",
       )?._id;
-      if (pendanaId === undefined) throw new Error("Akun dana uji tidak ditemukan.");
+      if (danaId === undefined) throw new Error("Akun dana uji tidak ditemukan.");
       const depositId = await ctx.db.insert("deposits", {
-        pendanaId,
+        [KOLOM_DANA]: danaId,
         jumlah: 2_000_000,
         referensiTransfer: "TRF-ALUR-001",
         status: "menunggu_verifikasi",
         nomorReferensi: "DEP-ALUR-001",
       });
       const withdrawalId = await ctx.db.insert("withdrawals", {
-        pendanaId,
+        [KOLOM_DANA]: danaId,
         jumlah: 500_000,
         namaBank: "BCA",
         nomorRekening: "1234567890",
@@ -132,7 +133,7 @@ describe("alur penyedia dana — pinjaman tunai", () => {
       (await ctx.db.query("ledger_entries").collect()).length,
     );
     await expect(
-      pendana.mutation(api.alokasiDana.requestDeposit, {
+      dana.mutation(api.alokasiDana.requestDeposit, {
         jumlah: 2_000_000,
         referensiTransfer: "TRF-ALUR-002",
         metodePembayaran: "transfer",
@@ -144,7 +145,7 @@ describe("alur penyedia dana — pinjaman tunai", () => {
       admin.mutation(api.admin.confirmDeposit, { depositId }),
     ).rejects.toThrow("penyedia pembayaran belum dipilih atau terintegrasi");
     await expect(
-      pendana.mutation(api.alokasiDana.allocateFunding, {
+      dana.mutation(api.alokasiDana.allocateFunding, {
         loanId,
         jumlah: 1_000_000,
       }),
@@ -153,7 +154,7 @@ describe("alur penyedia dana — pinjaman tunai", () => {
       peminjam.mutation(api.loans.repayLoan, { loanId }),
     ).rejects.toThrow("penyedia pembayaran belum dipilih atau terintegrasi");
     await expect(
-      pendana.mutation(api.alokasiDana.requestWithdrawal, {
+      dana.mutation(api.alokasiDana.requestWithdrawal, {
         jumlah: 500_000,
         namaBank: "BCA",
         nomorRekening: "1234567890",
@@ -197,8 +198,8 @@ describe("alur penyedia dana — pinjaman tunai", () => {
     expect(pawnAfter?.sisaPokok).toBe(100_000);
     expect(pawnPaymentsAfter).toHaveLength(0);
     expect((await peminjam.query(api.loans.listMyLoans, {}))[0]?.status).toBe("disetujui");
-    expect(await pendana.query(api.alokasiDana.myFundings, {})).toHaveLength(0);
-    expect(await pendana.query(api.alokasiDana.myWallet, {})).toMatchObject({
+    expect(await dana.query(api.alokasiDana.myFundings, {})).toHaveLength(0);
+    expect(await dana.query(api.alokasiDana.myWallet, {})).toMatchObject({
       saldo: 0,
       danaBekerja: 0,
     });
@@ -210,11 +211,11 @@ describe("alur penyedia dana — pinjaman tunai", () => {
 
   it("mencatat penolakan bukti setoran hanya sebagai metadata, tanpa mengubah status atau ledger", async () => {
     const t = convexTest(schema, modules);
-    const { userId: pendanaId } = await siapkanPengguna(
+    const { userId: danaId } = await siapkanPengguna(
       t,
-      "pendana-bukti-ditolak",
-      "pendana-bukti-ditolak@pindai.test",
-      "pendana",
+      "dana-bukti-ditolak",
+      "dana-bukti-ditolak@pindai.test",
+      ROLE_LAMA,
     );
     const { sesi: admin } = await siapkanPengguna(
       t,
@@ -224,7 +225,7 @@ describe("alur penyedia dana — pinjaman tunai", () => {
     );
     const depositId = await t.run((ctx) =>
       ctx.db.insert("deposits", {
-        pendanaId,
+        [KOLOM_DANA]: danaId,
         jumlah: 250_000,
         referensiTransfer: "TRF-BUKTI-001",
         status: "menunggu_verifikasi",
@@ -258,11 +259,11 @@ describe("alur penyedia dana — pinjaman tunai", () => {
         kodePeminjam: "PMN-1234567890ABCDEF1234",
       }),
     );
-    const { sesi: pendana } = await siapkanPengguna(
+    const { sesi: dana } = await siapkanPengguna(
       t,
-      "pendana-bulanan",
-      "pendana-bulanan@pindai.test",
-      "pendana",
+      "dana-bulanan",
+      "dana-bulanan@pindai.test",
+      ROLE_LAMA,
     );
     await t.run((ctx) =>
       ctx.db.insert("loans", {
@@ -272,13 +273,13 @@ describe("alur penyedia dana — pinjaman tunai", () => {
         namaLengkap: "Nama Rahasia Bulanan",
         nomorRekening: "1234567890",
         status: "disetujui",
-        nomorReferensi: "PGD-BULANAN-PENDANA",
+        nomorReferensi: "PGD-BULANAN-DANA",
         tenorHari: 90,
         tenorBulan: 3,
       }),
     );
 
-    const [peluang] = await pendana.query(api.alokasiDana.marketplace, {});
+    const [peluang] = await dana.query(api.alokasiDana.marketplace, {});
     expect(peluang).toMatchObject({
       kodePeminjam: "PMN-1234567890ABCDEF1234",
       biayaLayananTotal: 50_000,

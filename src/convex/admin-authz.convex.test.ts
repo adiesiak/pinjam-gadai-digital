@@ -15,6 +15,7 @@ import {
 } from "./auth/enumerasi";
 import { CONTRACT_TERMS_VERSION } from "../lib/contract";
 import { totpNow } from "../lib/totp";
+import { ROLE_LAMA } from "../lib/legacy";
 import schema from "./schema";
 import {
   aktifkanTotpUntukSesi,
@@ -645,9 +646,9 @@ describe("otorisasi MFA backend", () => {
       email: "admin-otp-wa@pindai.test",
       role: "admin",
     });
-    const { sesi: pendana, userId: pendanaId } = await buatPengguna(t, "Penyedia Dana OTP", {
-      email: "pendana-otp@pindai.test",
-      role: "pendana",
+    const { sesi: dana, userId: danaId } = await buatPengguna(t, "Penyedia Dana OTP", {
+      email: "dana-otp@pindai.test",
+      role: ROLE_LAMA,
     });
 
     await expect(t.mutation(api.security.setWaOtpRequired, { wajib: true })).rejects.toThrow(
@@ -660,7 +661,7 @@ describe("otorisasi MFA backend", () => {
       /penyedia dana/i,
     );
     await expect(
-      pendana.mutation(api.security.setWaOtpRequired, { wajib: true }),
+      dana.mutation(api.security.setWaOtpRequired, { wajib: true }),
     ).resolves.toEqual({ ok: true });
 
     await expect(
@@ -674,7 +675,7 @@ describe("otorisasi MFA backend", () => {
     await t.mutation(async (ctx) => {
       const settings = await ctx.db
         .query("mfaSettings")
-        .withIndex("by_user", (q) => q.eq("userId", pendanaId))
+        .withIndex("by_user", (q) => q.eq("userId", danaId))
         .first();
       const otp = {
         waOtpKode: "123456",
@@ -682,13 +683,13 @@ describe("otorisasi MFA backend", () => {
         waOtpGagal: 0,
       };
       if (settings === null) {
-        await ctx.db.insert("mfaSettings", { userId: pendanaId, ...otp });
+        await ctx.db.insert("mfaSettings", { userId: danaId, ...otp });
       } else {
         await ctx.db.patch(settings._id, otp);
       }
     });
     await expect(
-      pendana.mutation(api.security.verifyWaOtp, {
+      dana.mutation(api.security.verifyWaOtp, {
         kode: "123456",
         ip: "127.0.0.1",
         userAgent: "browser",

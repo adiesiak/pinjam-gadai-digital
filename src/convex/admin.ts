@@ -2,6 +2,7 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 import { query, mutation, internalMutation, QueryCtx } from "./_generated/server";
 import { v } from "convex/values";
 import { ROLES } from "./schema";
+import { AUDIT_SETORAN_DICocokkan, AUDIT_SETORAN_DITOLAK, KOLOM_DANA } from "../lib/legacy";
 import { requireAdminSession } from "./adminAuthz";
 import { pelunasanPinjaman, quoteLoan } from "../lib/loan";
 import { hitungSimulasiBulanan, TENOR_BULANAN_OPTIONS } from "../lib/bulanan";
@@ -655,7 +656,7 @@ export const pendingDepositEvidence = query({
       .collect();
     const result = [];
     for (const deposit of rows.filter((row) => row.buktiPembayaranId && row.statusPencocokan === undefined).sort((a, b) => b._creationTime - a._creationTime)) {
-      const akunDana = await ctx.db.get(deposit.pendanaId);
+      const akunDana = await ctx.db.get(deposit[KOLOM_DANA]);
       const metadata = await ctx.storage.getMetadata(deposit.buktiPembayaranId!);
       result.push({
         _id: deposit._id,
@@ -684,7 +685,7 @@ export const pendingDeposits = query({
       .collect();
     const result = [];
     for (const d of rows.filter((row) => !row.buktiPembayaranId && row.statusPencocokan === undefined).sort((a, b) => b._creationTime - a._creationTime)) {
-      const akunDana = await ctx.db.get(d.pendanaId);
+      const akunDana = await ctx.db.get(d[KOLOM_DANA]);
       result.push({
         _id: d._id,
         _creationTime: d._creationTime,
@@ -715,7 +716,7 @@ export const pendingWithdrawals = query({
       .collect();
     const result = [];
     for (const w of rows.sort((a, b) => b._creationTime - a._creationTime)) {
-      const akunDana = await ctx.db.get(w.pendanaId);
+      const akunDana = await ctx.db.get(w[KOLOM_DANA]);
       result.push({
         _id: w._id,
         _creationTime: w._creationTime,
@@ -800,7 +801,7 @@ export const matchDepositEvidence = mutation({
       dicocokkanPada: Date.now(),
       dicocokkanOleh: userId,
     });
-    await audit(ctx, userId, admin.email ?? admin.name ?? "admin", "setoran_pendana_dicocokkan", deposit.nomorReferensi, `${reference} · ${args.jumlahMutasi}; pencocokan metadata saja, saldo tidak berubah.`);
+    await audit(ctx, userId, admin.email ?? admin.name ?? "admin", AUDIT_SETORAN_DICocokkan, deposit.nomorReferensi, `${reference} · ${args.jumlahMutasi}; pencocokan metadata saja, saldo tidak berubah.`);
   },
 });
 
@@ -832,7 +833,7 @@ export const rejectDeposit = mutation({
       dicocokkanPada: Date.now(),
       dicocokkanOleh: adminId,
     });
-    await audit(ctx, adminId, admin.email ?? admin.name ?? "admin", "setoran_pendana_ditolak", deposit.nomorReferensi, `${args.reason.trim()}; metadata saja, saldo dan status setoran tidak berubah.`);
+    await audit(ctx, adminId, admin.email ?? admin.name ?? "admin", AUDIT_SETORAN_DITOLAK, deposit.nomorReferensi, `${args.reason.trim()}; metadata saja, saldo dan status setoran tidak berubah.`);
   },
 });
 
