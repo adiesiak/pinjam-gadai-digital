@@ -49,6 +49,32 @@ type AdminStep =
   | "reset"
   | { kind: "code"; email: string; purpose: "activation" | "reset" };
 
+/**
+ * Terjemahkan kegagalan auth menjadi pesan ramah.
+ *
+ * Convex membungkus error server dengan detail teknis ("Server Error",
+ * "Uncaught Error", stack, "Called by client"). Detail itu tidak pernah
+ * ditampilkan apa adanya ke pengguna — pemanggil cukup memakai pesan yang
+ * dikembalikan di sini, atau pesan cadangan miliknya sendiri bila kosong.
+ */
+function bacaErrorAuth(error: unknown): { pesan: string; adminPakaiKataSandi: boolean } {
+  const mentah = error instanceof Error ? error.message : String(error ?? "");
+  if (/Super Admin masuk dengan kata sandi/i.test(mentah)) {
+    return {
+      pesan:
+        "OTP email tidak dipakai untuk masuk sebagai Super Admin. Masuk dengan kata sandi di tab Admin; bila kata sandi belum aktif, gunakan Aktivasi password di tab tersebut.",
+      adminPakaiKataSandi: true,
+    };
+  }
+  if (/Password hanya tersedia untuk akun Super Admin terverifikasi/i.test(mentah)) {
+    return {
+      pesan: "Aktivasi kata sandi hanya untuk akun Super Admin dengan email terverifikasi.",
+      adminPakaiKataSandi: false,
+    };
+  }
+  return { pesan: "", adminPakaiKataSandi: false };
+}
+
 const PORTAL_OPTIONS = [
   {
     href: "/dashboard",
@@ -293,9 +319,10 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
       return;
     }
     setIsLoading(true);
+    // Dibaca sebelum await: `event.currentTarget` tidak lagi valid setelahnya.
+    const formData = new FormData(event.currentTarget);
+    const email = String(formData.get("email") ?? "");
     try {
-      const formData = new FormData(event.currentTarget);
-      const email = formData.get("email") as string;
       await signIn("email-otp", formData);
       setClientStep({ email });
       setIsLoading(false);
@@ -303,11 +330,17 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
       console.error("Email sign-in error:", error);
       setKegagalan((k) => k + 1);
       await recordFailedAttempt("auth-step1");
-      setError(
-        error instanceof Error
-          ? error.message
-          : "Gagal mengirim kode verifikasi. Coba lagi sebentar lagi.",
-      );
+      const { pesan, adminPakaiKataSandi } = bacaErrorAuth(error);
+      if (adminPakaiKataSandi) {
+        // Akun Super Admin memang tidak boleh lewat OTP email: alihkan ke tab
+        // Admin dengan email terisi agar pengguna tinggal mengisi kata sandi.
+        switchAuthMode("admin");
+        setAdminFlow("signIn");
+        setAdminEmail(email);
+        setError(pesan);
+      } else {
+        setError(pesan || "Gagal mengirim kode verifikasi. Coba lagi sebentar lagi.");
+      }
       setIsLoading(false);
     }
   };
@@ -329,12 +362,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
       console.error("OTP verification error:", error);
       setKegagalan((k) => k + 1);
       await recordFailedAttempt(clientStep.email.toLowerCase());
-      const message = error instanceof Error ? error.message : "";
-      setError(
-        message.includes("Super Admin")
-          ? message
-          : "Kode verifikasi salah atau kedaluwarsa.",
-      );
+      setError(bacaErrorAuth(error).pesan || "Kode verifikasi salah atau kedaluwarsa.");
       setIsLoading(false);
       setOtp("");
     }
