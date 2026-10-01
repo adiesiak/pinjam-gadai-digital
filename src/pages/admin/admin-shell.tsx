@@ -1,4 +1,5 @@
 import { motion } from "framer-motion";
+import { useState } from "react";
 import {
   ArrowLeft,
   BadgeCheck,
@@ -20,6 +21,8 @@ import { Link } from "react-router";
 import { CountUp } from "@/components/CountUp";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { formatRupiah } from "@/lib/money";
 import { fadeUpItem, staggerContainer } from "@/lib/motion";
 import { RoleDashboardMenu } from "@/components/RoleDashboardMenu";
@@ -42,24 +45,42 @@ export type AdminStatsData = {
   peringatanLokasiAktif: number;
 };
 
-/** Layar bootstrap admin pertama. */
+/** Layar bootstrap admin pertama — wajib rahasia operator (fail-closed). */
 export function BootstrapAdminView({
   busy,
   onActivate,
 }: {
   busy: boolean;
-  onActivate: () => void;
+  onActivate: (secret: string) => void;
 }) {
+  const [secret, setSecret] = useState("");
+  const siap = secret.trim().length >= 24;
   return (
     <main className="flex min-h-screen items-center justify-center bg-background px-6">
       <div className="animate-masuk w-full max-w-md rounded-lg border border-border/60 p-8">
         <ShieldCheck className="size-5 text-muted-foreground" />
         <h1 className="mt-4 text-xl font-semibold tracking-tight">Setup tim PINDAI</h1>
         <p className="mt-2 text-sm leading-6 text-muted-foreground">
-          Belum ada admin di sistem. Masuk dengan email terverifikasi
-          (bukan akun tamu), lalu aktifkan panel admin dari halaman ini.
+          Belum ada admin di sistem. Masuk dengan email terverifikasi (bukan
+          akun tamu), lalu masukkan rahasia bootstrap operator dari environment{" "}
+          <code className="rounded bg-muted px-1 py-0.5 text-xs">ADMIN_BOOTSTRAP_SECRET</code>.
         </p>
-        <Button className="mt-6 w-full rounded-full" disabled={busy} onClick={onActivate}>
+        <div className="mt-6 space-y-2">
+          <Label htmlFor="admin-bootstrap-secret">Rahasia bootstrap</Label>
+          <Input
+            id="admin-bootstrap-secret"
+            type="password"
+            autoComplete="off"
+            value={secret}
+            onChange={(event) => setSecret(event.target.value)}
+            placeholder="Minimal 24 karakter"
+          />
+        </div>
+        <Button
+          className="mt-4 w-full rounded-full"
+          disabled={busy || !siap}
+          onClick={() => onActivate(secret.trim())}
+        >
           {busy ? (
             <>
               <Loader2 className="mr-2 size-4 animate-spin" />
@@ -73,9 +94,10 @@ export function BootstrapAdminView({
           )}
         </Button>
         <p className="mt-4 text-center text-xs leading-5 text-muted-foreground">
-          Tombol ini hanya berfungsi untuk akun email terverifikasi dan hanya
-          selama belum ada admin. Setelah itu, admin baru hanya bisa
-          ditambahkan oleh admin yang ada.
+          Tanpa rahasia yang cocok, bootstrap selalu ditolak. Tombol ini hanya
+          berfungsi untuk akun email terverifikasi dan hanya selama belum ada
+          admin — setelah itu, admin baru hanya bisa ditambahkan oleh admin
+          yang ada.
         </p>
       </div>
     </main>

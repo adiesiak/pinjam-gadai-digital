@@ -24,6 +24,10 @@ import {
 } from "./test.helpers";
 import { modules } from "./test.setup";
 
+/** Rahasia bootstrap uji — environment diisi agar jalur fail-closed lolos. */
+const RAHASIA_BOOTSTRAP_UJI = "rahasia-bootstrap-uji-minimal-24-karakter-123";
+process.env.ADMIN_BOOTSTRAP_SECRET = RAHASIA_BOOTSTRAP_UJI;
+
 /** Argumen `auth:store` untuk permintaan kode OTP email (`createVerificationCode`). */
 function mintaKodeOtp(email: string, code = "123456") {
   return {
@@ -138,7 +142,9 @@ describe("otorisasi endpoint admin", () => {
         email: "belum-verifikasi@pindai.test",
       });
     await expect(
-      emailBelumTerverifikasi.mutation(api.admin.bootstrapFirstAdmin, {}),
+      emailBelumTerverifikasi.mutation(api.admin.bootstrapFirstAdmin, {
+        secret: RAHASIA_BOOTSTRAP_UJI,
+      }),
     ).rejects.toThrow(/email terverifikasi/i);
     expect(
       await t.run(async (ctx) => (await ctx.db.get(belumTerverifikasiId))?.role),
@@ -149,7 +155,9 @@ describe("otorisasi endpoint admin", () => {
       emailVerificationTime: Date.now(),
       isAnonymous: true,
     });
-    await expect(akunTamu.mutation(api.admin.bootstrapFirstAdmin, {})).rejects.toThrow(
+    await expect(
+      akunTamu.mutation(api.admin.bootstrapFirstAdmin, { secret: RAHASIA_BOOTSTRAP_UJI }),
+    ).rejects.toThrow(
       /email terverifikasi/i,
     );
 
@@ -157,7 +165,9 @@ describe("otorisasi endpoint admin", () => {
       email: "admin-pertama@pindai.test",
       emailVerificationTime: Date.now(),
     });
-    await expect(adminPertama.mutation(api.admin.bootstrapFirstAdmin, {})).resolves.toEqual({
+    await expect(
+      adminPertama.mutation(api.admin.bootstrapFirstAdmin, { secret: RAHASIA_BOOTSTRAP_UJI }),
+    ).resolves.toEqual({
       success: true,
     });
 
@@ -170,12 +180,44 @@ describe("otorisasi endpoint admin", () => {
         role: "peminjam",
       },
     );
-    await expect(penggunaKedua.mutation(api.admin.bootstrapFirstAdmin, {})).rejects.toThrow(
+    await expect(
+      penggunaKedua.mutation(api.admin.bootstrapFirstAdmin, { secret: RAHASIA_BOOTSTRAP_UJI }),
+    ).rejects.toThrow(
       /admin sudah ada/i,
     );
     expect(await t.run(async (ctx) => (await ctx.db.get(penggunaKeduaId))?.role)).toBe(
       "peminjam",
     );
+  });
+
+  it("bootstrap fail-closed: rahasia salah atau belum dikonfigurasi selalu ditolak", async () => {
+    const t = convexTest(schema, modules);
+    const { sesi, userId } = await buatPengguna(t, "Admin rahasia bootstrap", {
+      email: "admin-rahasia-bootstrap@pindai.test",
+      emailVerificationTime: Date.now(),
+    });
+
+    await expect(
+      sesi.mutation(api.admin.bootstrapFirstAdmin, {
+        secret: "rahasia-yang-salah-tapi-cukup-panjang",
+      }),
+    ).rejects.toThrow(/rahasia bootstrap salah/i);
+    expect(await t.run(async (ctx) => (await ctx.db.get(userId))?.role)).not.toBe("admin");
+
+    const tersimpan = process.env.ADMIN_BOOTSTRAP_SECRET;
+    process.env.ADMIN_BOOTSTRAP_SECRET = "pendek";
+    try {
+      await expect(
+        sesi.mutation(api.admin.bootstrapFirstAdmin, { secret: "pendek" }),
+      ).rejects.toThrow(/ADMIN_BOOTSTRAP_SECRET/);
+    } finally {
+      process.env.ADMIN_BOOTSTRAP_SECRET = tersimpan;
+    }
+
+    await expect(
+      sesi.mutation(api.admin.bootstrapFirstAdmin, { secret: RAHASIA_BOOTSTRAP_UJI }),
+    ).resolves.toEqual({ success: true });
+    expect(await t.run(async (ctx) => (await ctx.db.get(userId))?.role)).toBe("admin");
   });
 
   it("dokumen identitas pinjaman hanya dapat dibuka admin dengan TOTP pada sesi aktif", async () => {
@@ -555,7 +597,9 @@ describe("otorisasi MFA backend", () => {
       },
     );
 
-    await expect(firstAdmin.mutation(api.admin.bootstrapFirstAdmin, {})).resolves.toEqual({
+    await expect(
+      firstAdmin.mutation(api.admin.bootstrapFirstAdmin, { secret: RAHASIA_BOOTSTRAP_UJI }),
+    ).resolves.toEqual({
       success: true,
     });
     const setup = await firstAdmin.mutation(api.security.startTotpSetup, {});

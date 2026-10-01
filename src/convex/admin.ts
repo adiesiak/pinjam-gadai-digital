@@ -340,12 +340,36 @@ export const adminExists = query({
 });
 
 /**
- * Bootstrap admin pertama — hanya boleh dipakai saat belum ada admin.
+ * Bandingkan dua rahasia tanpa membocorkan panjang/isi lewat waktu eksekusi.
+ * Tidak berhenti lebih awal saat beda — semua byte dibaca.
+ */
+function samaRahasia(masukan: string, diharapkan: string): boolean {
+  const enc = new TextEncoder();
+  const a = enc.encode(masukan);
+  const b = enc.encode(diharapkan);
+  let beda = a.length ^ b.length;
+  const panjang = Math.max(a.length, b.length);
+  for (let i = 0; i < panjang; i += 1) {
+    beda |= (a[i] ?? 0) ^ (b[i] ?? 0);
+  }
+  return beda === 0;
+}
+
+/** Panjang minimum rahasia bootstrap operator — di bawah ini dianggap belum dikonfigurasi. */
+const MIN_RAHASIA_BOOTSTRAP = 24;
+
+/**
+ * Bootstrap admin pertama — HANYA dengan rahasia operator (`ADMIN_BOOTSTRAP_SECRET`).
+ *
+ * Fail-closed: bila environment `ADMIN_BOOTSTRAP_SECRET` belum diisi (atau
+ * kurang dari 24 karakter), jalur ini selalu ditolak. Rahasia dibandingkan
+ * constant-time dan hanya berlaku selama belum ada admin; setelah admin
+ * pertama ada, jalur ini mati dan promosi berikutnya lewat admin yang ada.
  * Akun tamu (anonim) diblokir: wajib email terverifikasi.
  */
 export const bootstrapFirstAdmin = mutation({
-  args: {},
-  handler: async (ctx) => {
+  args: { secret: v.string() },
+  handler: async (ctx, { secret }) => {
     const userId = await getAuthUserId(ctx);
     if (userId === null) throw new Error("Harus masuk terlebih dahulu.");
     const me = await ctx.db.get(userId);
@@ -368,7 +392,33 @@ export const bootstrapFirstAdmin = mutation({
       );
     }
 
+    const diharapkan = process.env.ADMIN_BOOTSTRAP_SECRET ?? "";
+    if (diharapkan.length < MIN_RAHASIA_BOOTSTRAP) {
+      throw new Error(
+        `Bootstrap belum dikonfigurasi: isi environment ADMIN_BOOTSTRAP_SECRET dengan rahasia acak minimal ${MIN_RAHASIA_BOOTSTRAP} karakter.`,
+      );
+    }
+    if (!samaRahasia(secret, diharapkan)) {
+      await audit(
+        ctx,
+        userId,
+        me.email,
+        "admin_bootstrap_gagal",
+        "users",
+        "Rahasia bootstrap salah — permintaan ditolak.",
+      );
+      throw new Error("Rahasia bootstrap salah.");
+    }
+
     await ctx.db.patch(userId, { role: ROLES.ADMIN });
+    await audit(
+      ctx,
+      userId,
+      me.email,
+      "admin_bootstrap",
+      "users",
+      "Admin pertama diaktifkan dengan rahasia bootstrap operator.",
+    );
     return { success: true };
   },
 });

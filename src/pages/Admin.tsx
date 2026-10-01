@@ -77,10 +77,10 @@ export default function Admin() {
     return (
       <BootstrapAdminView
         busy={booting}
-        onActivate={async () => {
+        onActivate={async (secret?: string) => {
           setBooting(true);
           try {
-            await bootstrapAdmin({});
+            await bootstrapAdmin({ secret: secret ?? "" });
             toast.success("Panel admin aktif untuk akun ini.");
           } catch (err) {
             toast.error(
