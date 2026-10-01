@@ -14,7 +14,7 @@ const SLOT = "global";
 /** Teks default (kondisi kalah/opsional) — dipakai saat admin belum menyimpan. */
 export const DEFAULTS = {
   bar: {
-    teks: "Pinjaman, gadai, dan alokasi dicatat di ledger internal PINDAI.",
+    teks: "Pinjaman, gadai, dan cicilan dicatat di ledger internal PINDAI.",
     tautan: "/auth",
   },
   popup: {
@@ -241,6 +241,95 @@ export const save = mutation({
     }
     void userId;
     return { ok: true };
+  },
+});
+
+/**
+ * Field teks CMS yang dipindai pembersih teks lama — hanya teks dan tautan
+ * (bukan boolean/angka). Label dipakai untuk laporan ke admin.
+ */
+const FIELD_TEKS_LAMA: ReadonlyArray<{ field: string; label: string }> = [
+  { field: "teks", label: "Teks berjalan" },
+  { field: "tautan", label: "Tautan CTA bar" },
+  { field: "popupJudul", label: "Judul popup" },
+  { field: "popupIsi", label: "Isi popup" },
+  { field: "popupCta", label: "Tombol popup" },
+  { field: "floatJudul", label: "Judul widget mengambang" },
+  { field: "floatIsi", label: "Isi widget mengambang" },
+  { field: "floatCta", label: "Tombol widget mengambang" },
+  { field: "logoTeks", label: "Teks logo" },
+  { field: "nav1Label", label: "Menu nav 1" },
+  { field: "nav2Label", label: "Menu nav 2" },
+  { field: "nav3Label", label: "Menu nav 3" },
+  { field: "nav4Label", label: "Menu nav 4" },
+  { field: "heroBadge", label: "Badge hero" },
+  { field: "heroJudul", label: "Judul hero" },
+  { field: "heroJudul2", label: "Judul hero aksen" },
+  { field: "heroSub", label: "Sub-judul hero" },
+  { field: "heroCta1", label: "Tombol CTA 1" },
+  { field: "heroCta2", label: "Tombol CTA 2" },
+  { field: "chip1Label", label: "Chip 1 label" },
+  { field: "chip1Nilai", label: "Chip 1 nilai" },
+  { field: "chip2Label", label: "Chip 2 label" },
+  { field: "chip2Nilai", label: "Chip 2 nilai" },
+  { field: "layananJudul", label: "Judul bagian layanan" },
+  { field: "layananSub", label: "Sub-judul layanan" },
+  { field: "pinjamanJudul", label: "Judul kartu pinjaman" },
+  { field: "pinjamanIsi", label: "Isi kartu pinjaman" },
+  { field: "pinjamanCta", label: "Tombol kartu pinjaman" },
+  { field: "gadaiJudul", label: "Judul kartu gadai" },
+  { field: "gadaiIsi", label: "Isi kartu gadai" },
+  { field: "gadaiCta", label: "Tombol kartu gadai" },
+];
+
+/**
+ * Teks default era Pendana yang mungkin masih tersimpan walau tidak memuat
+ * kata "pendana" (mis. menyebut "alokasi").
+ */
+const TEKS_LAMA_PENDANA = [
+  "Pinjaman, gadai, dan alokasi dicatat di ledger internal PINDAI.",
+];
+
+/**
+ * Pembersih teks CMS lama: field teks/tautan tersimpan yang masih menyebut
+ * Pendana/pendanaan (atau persis teks default era Pendana) dikosongkan,
+ * sehingga `getPublic` otomatis memakai default baru di `DEFAULTS` — tidak ada
+ * teks pengganti yang disalin manual dan bisa ikut basi.
+ *
+ * Teks kustom yang tidak menyebut konsep lama tidak disentuh. Operasi ini
+ * idempoten: dijalankan dua kali, pemanggilan kedua melaporkan nol perubahan.
+ */
+export const bersihkanTeksLamaPendana = mutation({
+  args: {},
+  returns: v.object({ ok: v.boolean(), diganti: v.array(v.string()) }),
+  handler: async (ctx) => {
+    await requireAdmin(ctx);
+    const existing = await ctx.db
+      .query("pengumuman")
+      .withIndex("by_slot", (q) => q.eq("slot", SLOT))
+      .first();
+    if (existing === null) return { ok: true, diganti: [] };
+
+    const row = existing as unknown as Record<string, unknown>;
+    const patch: Partial<Doc<"pengumuman">> = {};
+    const diganti: string[] = [];
+    for (const { field, label } of FIELD_TEKS_LAMA) {
+      const nilai = row[field];
+      if (typeof nilai !== "string") continue;
+      const teksLama =
+        /pendana/i.test(nilai) || TEKS_LAMA_PENDANA.includes(nilai.trim());
+      if (!teksLama) continue;
+      patch[field as keyof Doc<"pengumuman">] = undefined as never;
+      diganti.push(label);
+    }
+
+    if (diganti.length > 0) {
+      await ctx.db.patch(existing._id, {
+        ...patch,
+        diperbaruiPada: Date.now(),
+      });
+    }
+    return { ok: true, diganti };
   },
 });
 

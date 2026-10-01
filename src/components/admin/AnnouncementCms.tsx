@@ -29,6 +29,7 @@ export function AnnouncementCms() {
   const publik = useQuery(api.announcements.getPublic);
   const save = useMutation(api.announcements.save);
   const reset = useMutation(api.announcements.resetToDefaults);
+  const bersihkan = useMutation(api.announcements.bersihkanTeksLamaPendana);
 
   const [busy, setBusy] = useState(false);
   const [draft, setDraft] = useState<Record<string, string | boolean> | null>(null);
@@ -71,6 +72,25 @@ export function AnnouncementCms() {
       toast.success("Semua teks kembali ke default bawaan.");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Gagal reset.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const bersihkanTeksLama = async () => {
+    setBusy(true);
+    try {
+      const hasil = await bersihkan({});
+      if (hasil.diganti.length === 0) {
+        toast.success("Tidak ada teks lama yang menyebut Pendana.");
+        return;
+      }
+      setDraft(null);
+      toast.success(
+        `Teks lama dikembalikan ke default baru: ${hasil.diganti.join(", ")}.`,
+      );
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Gagal membersihkan teks lama.");
     } finally {
       setBusy(false);
     }
@@ -120,13 +140,16 @@ export function AnnouncementCms() {
   return (
     <div className="animate-masuk space-y-6">
       <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-900">
-        Teks CMS yang tersimpan menggantikan default di halaman utama. Periksa semua bar, popup, widget, hero, dan kartu layanan agar tidak mengklaim transfer, pencairan, atau pembayaran/pelunasan yang terverifikasi; nilai CMS yang sudah tersimpan tidak diubah oleh audit ini.
+        Teks CMS yang tersimpan menggantikan default di halaman utama. Periksa semua bar, popup, widget, hero, dan kartu layanan agar tidak mengklaim transfer, pencairan, atau pembayaran/pelunasan yang terverifikasi; nilai CMS yang sudah tersimpan tidak diubah oleh audit ini — pakai tombol "Bersihkan teks Pendana" agar teks lama era Pendana dikembalikan ke default baru.
       </div>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-xs leading-5 text-muted-foreground">
           Semua perubahan langsung tampil di halaman utama setelah disimpan.
         </p>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <Button variant="outline" disabled={busy} onClick={bersihkanTeksLama}>
+            Bersihkan teks Pendana
+          </Button>
           <Button variant="outline" disabled={busy} onClick={kembalikanDefault}>
             Reset ke default
           </Button>

@@ -73,6 +73,59 @@ describe("CMS situs publik — pengaturan admin", () => {
     });
   });
 
+  it("migrasi membersihkan teks CMS lama era Pendana dan idempoten", async () => {
+    const t = convexTest(schema, modules);
+    const { sesi: admin } = await siapkanPengguna(t, "Admin Migrasi", {
+      email: "admin-migrasi@pindai.test",
+      role: "admin",
+    });
+
+    // Tanpa baris CMS: tidak ada yang perlu dibersihkan.
+    await expect(admin.mutation(api.announcements.bersihkanTeksLamaPendana, {})).resolves.toEqual({
+      ok: true,
+      diganti: [],
+    });
+
+    // Simulasi konten lama: sebagian menyebut Pendana, satu teks kustom bersih.
+    await expect(
+      admin.mutation(api.announcements.save, {
+        teks: "Alokasi dana Pendana kini tersedia untuk pinjaman pilihan.",
+        tautan: "/pendana",
+        popupJudul: "Pendana baru bergabung",
+        heroSub: "Sisa bagi hasil untuk Pendana tercatat otomatis.",
+        pinjamanJudul: "Pinjaman tunai untuk semua",
+      }),
+    ).resolves.toEqual({ ok: true });
+
+    const hasil = await admin.mutation(api.announcements.bersihkanTeksLamaPendana, {});
+    expect(hasil.ok).toBe(true);
+    expect(hasil.diganti).toEqual(
+      expect.arrayContaining(["Teks berjalan", "Tautan CTA bar", "Judul popup", "Sub-judul hero"]),
+    );
+    expect(hasil.diganti).not.toContain("Judul kartu pinjaman");
+
+    // Field lama dikosongkan → publik memakai default baru; teks kustom tetap.
+    const baris = await admin.query(api.announcements.getCmsRow, {});
+    expect(baris?.teks).toBeUndefined();
+    expect(baris?.tautan).toBeUndefined();
+    expect(baris?.popupJudul).toBeUndefined();
+    expect(baris?.heroSub).toBeUndefined();
+    expect(baris?.pinjamanJudul).toBe("Pinjaman tunai untuk semua");
+
+    const publik = await t.query(api.announcements.getPublic, {});
+    expect(publik.barTeks).toBe(DEFAULTS.bar.teks);
+    expect(publik.barTautan).toBe(DEFAULTS.bar.tautan);
+    expect(publik.heroSub).toBe(DEFAULTS.hero.sub);
+    // Default pengganti harus teks baru — bukan teks lama era Pendana.
+    expect(DEFAULTS.bar.teks).not.toMatch(/pendana|alokasi/i);
+
+    // Idempoten: pemanggilan kedua tidak mengubah apa pun.
+    await expect(admin.mutation(api.announcements.bersihkanTeksLamaPendana, {})).resolves.toEqual({
+      ok: true,
+      diganti: [],
+    });
+  });
+
   it("non-admin boleh baca konten publik tetapi tidak melihat baris CMS atau mengubahnya", async () => {
     const t = convexTest(schema, modules);
     const { sesi: peminjam } = await siapkanPengguna(t, "Peminjam", {
@@ -90,5 +143,8 @@ describe("CMS situs publik — pengaturan admin", () => {
     await expect(peminjam.mutation(api.announcements.resetToDefaults, {})).rejects.toThrow(
       /admin/i,
     );
+    await expect(
+      peminjam.mutation(api.announcements.bersihkanTeksLamaPendana, {}),
+    ).rejects.toThrow(/admin/i);
   });
 });
