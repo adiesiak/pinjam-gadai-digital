@@ -16,8 +16,8 @@
  * `lokasi`/`titikPeminjam`. Setiap baris tetap membawa `kodePeminjam`
  * (pseudonim acak dari `peminjamCode.ts`) sebagai kunci stabil antar-ruang.
  *
- * Akses ditentukan peran akun: `dana` (penyedia dana) atau `admin` untuk
- * pratinjau. Admin memberi/mencabut akses lewat `ubahAkses` di bawah, dan
+ * Akses ditentukan peran akun: `dana` (penyedia dana), `pengamat` (sesi kode
+ * akses bersama — tanpa berkas identitas), atau `admin` untuk pratinjau. Admin memberi/mencabut akses lewat `ubahAkses` di bawah, dan
  * setiap perubahan tercatat pada audit trail.
  */
 import { getAuthUserId } from "@convex-dev/auth/server";
@@ -215,6 +215,25 @@ async function requirePengamat(ctx: QueryCtx) {
   }
 
   return { userId, user };
+}
+
+/**
+ * Gerbang KHUSUS berkas pemohon (KTP, selfie, slip, foto barang, tanda tangan).
+ *
+ * Lebih ketat daripada `requirePengamat`: berkas identitas hanya dibuka untuk
+ * akun penyedia dana beremail yang ditunjuk admin (peran `dana`) dan untuk
+ * admin sendiri. Sesi tamu kode akses bersama TIDAK dapat membukanya, karena
+ * kode itu dibagikan ke banyak orang dan tidak dapat ditelusuri ke satu akun —
+ * sedangkan KTP/selfie adalah data pribadi peminjam.
+ */
+async function requireBerkasPemohon(ctx: QueryCtx) {
+  const hasil = await requirePengamat(ctx);
+  if (hasil.user.role === ROLES.PENGAMAT) {
+    throw new Error(
+      "Berkas pemohon hanya dibuka untuk akun penyedia dana beremail. Sesi kode akses bersama tidak dapat membukanya.",
+    );
+  }
+  return hasil;
 }
 
 /**
@@ -509,8 +528,9 @@ export const titikPeminjam = query({
  *
  * Sengaja dipisah dari `daftarPengajuan` supaya payload daftar tetap ringan dan
  * berkas hanya diambil saat benar-benar dibuka. `ctx.storage.getUrl` memakai
- * URL penyimpanan Convex yang tidak dapat ditebak; hanya sesi dengan akses
- * ruang ini yang bisa memintanya.
+ * URL penyimpanan Convex yang tidak dapat ditebak; hanya akun penyedia dana
+ * beremail (atau admin) yang bisa memintanya — sesi kode akses bersama ditolak,
+ * lihat `requireBerkasPemohon`.
  */
 export type BerkasPengajuan = {
   jenis: "pinjaman" | "gadai" | "kredit";
@@ -527,7 +547,7 @@ export const berkasPengajuan = query({
     id: v.string(),
   },
   handler: async (ctx, { jenis, id }): Promise<BerkasPengajuan | null> => {
-    await requirePengamat(ctx);
+    await requireBerkasPemohon(ctx);
 
     if (jenis === "kredit") {
       // Pengajuan kredit barang tidak menyimpan berkas gambar di sistem.

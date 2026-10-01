@@ -143,9 +143,12 @@ export function AksesPenyediaDanaPanel() {
         <p className="mt-1 text-xs leading-5 text-muted-foreground">
           Memberi akses membuka halaman <strong>/penyedia-dana</strong>: daftar pengajuan
           pinjaman, gadai, dan kredit barang dalam mode baca. Pemegang akses tidak dapat
-          mengubah data — modulnya tidak memiliki mutation transaksi — dan identitas pemohon
-          tampil sebagai kode pseudonim (tanpa NIK, nomor rekening, atau dokumen). Semua
-          perubahan akses tercatat di Audit Trail.
+          mengubah data — modulnya tidak memiliki mutation transaksi. Nama lengkap pemohon dan
+          titik lokasi terakhirnya ditampilkan; NIK, nomor rekening, dan nomor WhatsApp tidak
+          dikirim sebagai kolom terpisah. <strong>Berkas identitas pemohon (KTP, selfie, slip,
+          foto barang, tanda tangan) hanya dibuka untuk akun beremail dengan peran penyedia dana
+          di bawah</strong> — sesi kode akses bersama tidak dapat membukanya. Semua perubahan akses
+          tercatat di Audit Trail.
         </p>
       </div>
 

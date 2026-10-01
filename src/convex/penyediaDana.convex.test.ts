@@ -3,7 +3,9 @@
  *
  * Yang dijaga di sini:
  * - Gerbang akses di server: tamu, akun biasa, dan akun tanpa peran ditolak —
- *   termasuk untuk `titikPeminjam` dan `berkasPengajuan`.
+ *   termasuk untuk `titikPeminjam` dan `berkasPengajuan`. Sesi kode akses
+ *   bersama (`pengamat`) boleh melihat titik lokasi, tetapi TIDAK berkas
+ *   identitas pemohon; bagian itu diuji di aksesBersama.convex.test.ts.
  * - Privasi: NIK, nomor rekening, dan nomor WhatsApp tidak pernah terkirim
  *   sebagai teks. Nama lengkap pemohon, titik lokasi terakhir, serta berkas
  *   pengajuan memang ditampilkan atas keputusan admin ruang pemantau — berkas

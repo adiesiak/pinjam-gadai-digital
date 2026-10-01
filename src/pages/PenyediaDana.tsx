@@ -544,15 +544,36 @@ function BagianLokasi({ lokasi, nama }: { lokasi: LokasiTitik | null; nama: stri
  * Berkas pengajuan pada dialog Detail: KTP, selfie, slip, foto barang, dan
  * tanda tangan elektronik. Diminta hanya saat dialog dibuka.
  */
-function BagianBerkas({ jenis, id }: { jenis: IsiDetail["jenis"]; id: string }) {
-  const data = useQuery(api.penyediaDana.berkasPengajuan, { jenis, id });
+function BagianBerkas({
+  jenis,
+  id,
+  boleh,
+}: {
+  jenis: IsiDetail["jenis"];
+  id: string;
+  /** Hanya akun penyedia dana beremail/admin — sesi kode bersama tidak. */
+  boleh: boolean;
+}) {
+  // Query di-skip (bukan hanya disembunyikan) untuk sesi kode akses bersama:
+  // server juga menolaknya, jadi tidak ada berkas yang pernah terkirim ke sana.
+  const data = useQuery(
+    api.penyediaDana.berkasPengajuan,
+    boleh ? { jenis, id } : ("skip" as const),
+  );
 
   return (
     <section className="mt-5 border-t border-slate-200 pt-4">
       <p className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">
         <FileText className="size-3.5" aria-hidden /> Berkas pengajuan
       </p>
-      {data === undefined ? (
+      {!boleh ? (
+        <p className="mt-2 flex items-start gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs leading-5 text-muted-foreground">
+          <Lock className="mt-0.5 size-3.5 shrink-0 text-slate-400" aria-hidden />
+          Berkas identitas pemohon (KTP, selfie, slip) hanya dibuka untuk akun penyedia dana
+          beremail yang ditunjuk admin. Sesi kode akses bersama dapat melihat angka pengajuan dan
+          lokasi, tetapi tidak berkas pemohon.
+        </p>
+      ) : data === undefined ? (
         <p className="mt-2 flex items-center gap-2 text-sm text-muted-foreground">
           <Loader2 className="size-4 animate-spin" /> Memuat berkas…
         </p>
@@ -629,7 +650,7 @@ type IsiDetail =
  * Dipisah sebagai komponen sendiri supaya query berkas hanya dibuat saat
  * dialog benar-benar terbuka (aturan hooks melarang pemanggilan bersyarat).
  */
-function IsiDialog({ detail }: { detail: IsiDetail }) {
+function IsiDialog({ detail, bolehBerkas }: { detail: IsiDetail; bolehBerkas: boolean }) {
   return (
     <>
       <dl className="mt-1">
@@ -638,7 +659,7 @@ function IsiDialog({ detail }: { detail: IsiDetail }) {
         {detail.jenis === "kredit" && <DetailKredit row={detail.row} />}
       </dl>
       <BagianLokasi lokasi={detail.row.lokasi} nama={detail.row.namaLengkap} />
-      <BagianBerkas jenis={detail.jenis} id={detail.row._id} />
+      <BagianBerkas jenis={detail.jenis} id={detail.row._id} boleh={bolehBerkas} />
     </>
   );
 }
@@ -745,6 +766,9 @@ function IsiRuang() {
   const role = user?.role;
   // `pengamat` = sesi tamu yang diaktifkan kode akses bersama (lihat saja).
   const bolehLihat = role === "dana" || role === "admin" || role === "pengamat";
+  // Berkas identitas pemohon lebih ketat: hanya akun beremail yang ditunjuk
+  // admin (peran `dana`) atau admin sendiri. Sesi kode akses bersama tidak.
+  const bolehBerkas = role === "dana" || role === "admin";
   // Query tidak dipanggil sebelum peran diketahui atau tanpa akses; server tetap
   // penjaga utama karena gerbangnya juga dijalankan di sisi Convex.
   const data = useQuery(
@@ -796,7 +820,9 @@ function IsiRuang() {
                   <Eye className="mr-1 size-3" /> Akses lihat saja
                 </Badge>
                 <Badge variant="outline" className="border-slate-200 text-muted-foreground">
-                  Berkas &amp; lokasi terakhir ditampilkan
+                  {bolehBerkas
+                    ? "Berkas & lokasi terakhir ditampilkan"
+                    : "Angka pengajuan & lokasi · berkas khusus akun email"}
                 </Badge>
               </div>
               <h1 className="mt-3 text-2xl font-semibold tracking-tight sm:text-3xl">
@@ -805,10 +831,12 @@ function IsiRuang() {
               <p className="mt-3 max-w-3xl text-sm leading-7 text-muted-foreground">
                 Catatan internal PINDAI untuk pinjaman tunai, gadai, dan kredit barang. Anda hanya
                 dapat membaca: tidak ada tindakan alokasi, pencairan, maupun pengubahan status dari
-                ruang ini. Tombol <strong>Detail</strong> membuka berkas pengajuan (KTP, selfie,
-                slip, foto barang, tanda tangan) dan titik lokasi terakhir peminjam. NIK, nomor
-                rekening, nomor WhatsApp, dan alamat tidak dikirim sebagai kolom terpisah — NIK
-                tetap terbaca pada gambar KTP yang Anda buka.
+                ruang ini. Tombol <strong>Detail</strong> membuka titik lokasi terakhir peminjam
+                {bolehBerkas
+                  ? ", berkas pengajuan (KTP, selfie, slip, foto barang, tanda tangan),"
+                  : " — berkas identitas pemohon hanya dibuka untuk akun penyedia dana beremail, bukan untuk sesi kode akses bersama."}{" "}
+                NIK, nomor rekening, nomor WhatsApp, dan alamat tidak dikirim sebagai kolom terpisah
+                {bolehBerkas ? " — NIK tetap terbaca pada gambar KTP yang Anda buka." : "."}
               </p>
             </section>
 
@@ -1179,12 +1207,15 @@ function IsiRuang() {
                   : "Detail kredit barang"}
             </DialogTitle>
             <DialogDescription>
-              Catatan internal PINDAI — ruang lihat saja. Berkas pengajuan dan titik lokasi
-              terakhir ditampilkan untuk penilaian pendanaan; NIK, nomor rekening, nomor WhatsApp,
-              dan alamat tidak dikirim sebagai kolom terpisah (NIK terbaca pada gambar KTP).
+              Catatan internal PINDAI — ruang lihat saja. Titik lokasi terakhir peminjam selalu
+              ditampilkan
+              {bolehBerkas
+                ? "; berkas pengajuan ditampilkan untuk akun penyedia dana beremail."
+                : "; berkas pengajuan hanya dibuka untuk akun penyedia dana beremail, bukan sesi kode akses bersama."}{" "}
+              NIK, nomor rekening, nomor WhatsApp, dan alamat tidak dikirim sebagai kolom terpisah.
             </DialogDescription>
           </DialogHeader>
-          {detail !== null && <IsiDialog detail={detail} />}
+          {detail !== null && <IsiDialog detail={detail} bolehBerkas={bolehBerkas} />}
         </DialogContent>
       </Dialog>
 

@@ -112,7 +112,7 @@ describe("akses bersama penyedia dana", () => {
     const { sesi: tamu, userId: tamuId } = await buatPengguna(t, "tamu", {
       isAnonymous: true,
     });
-    await seedPengajuan(t, peminjamId);
+    const loanId = await seedPengajuan(t, peminjamId);
 
     const { kode } = await admin.mutation(api.aksesBersama.terbitkanKodeBersama, {});
 
@@ -139,6 +139,29 @@ describe("akses bersama penyedia dana", () => {
 
     const daftar = await tamu.query(api.penyediaDana.daftarPengajuan, {});
     expect(daftar.pinjaman[0]?.nomorReferensi).toBe("PGD-AB-1");
+
+    // Peta titik lokasi boleh dibaca pemantau akun bersama (masih kosong di uji ini).
+    const titik = await tamu.query(api.penyediaDana.titikPeminjam, {});
+    expect(titik.rows).toHaveLength(0);
+    expect(titik.tanpaTitik).toBe(1);
+
+    // Berkas identitas pemohon TIDAK: kode bersama dibagikan ke banyak orang dan
+    // tidak dapat ditelusuri ke satu akun, sedangkan KTP/selfie adalah data pribadi.
+    await expect(
+      tamu.query(api.penyediaDana.berkasPengajuan, { jenis: "pinjaman", id: loanId }),
+    ).rejects.toThrow(/akun penyedia dana/i);
+
+    // Akun beremail dengan peran `dana` tetap dapat membuka berkas yang sama.
+    const { sesi: penyedia } = await siapkanPengguna(t, "penyedia", {
+      email: "penyedia@pindai.test",
+      role: "dana",
+    });
+    const berkas = await penyedia.query(api.penyediaDana.berkasPengajuan, {
+      jenis: "pinjaman",
+      id: loanId,
+    });
+    expect(berkas?.jenis).toBe("pinjaman");
+    expect(berkas?.catatan).toMatch(/belum ada berkas/i);
 
     // Tetap hanya baca: gerbang penyedia dana sungguhan & gerbang admin menolak.
     await expect(tamu.query(api.alokasiDana.myWallet, {})).rejects.toThrow(
