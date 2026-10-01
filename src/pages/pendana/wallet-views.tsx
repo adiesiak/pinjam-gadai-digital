@@ -1,6 +1,7 @@
 import { useQuery } from "convex/react";
 import { Wallet } from "lucide-react";
 
+import { CountUp } from "@/components/CountUp";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { api } from "@/convex/_generated/api";
@@ -21,7 +22,8 @@ export function WalletSection() {
         <div className="flex items-center justify-between gap-3">
           <h3 className="text-sm font-semibold">Dompet Pendana</h3>
           <Badge className="border-0 bg-slate-100 text-slate-700 hover:bg-slate-100">
-            <Wallet className="mr-1 size-3" /> Saldo ledger {formatRupiah(wallet?.saldo ?? 0)}
+            <Wallet className="mr-1 size-3" /> Saldo ledger{" "}
+            <CountUp value={wallet?.saldo ?? 0} format={formatRupiah} />
           </Badge>
         </div>
         <p className="text-xs leading-5 text-muted-foreground">PINDAI berfokus pada pencatatan pengajuan dan estimasi. Saldo ini hanya catatan internal, bukan dana tersedia; fitur setoran dan penarikan tidak disediakan.</p>
