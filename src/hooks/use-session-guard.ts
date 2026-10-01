@@ -26,19 +26,27 @@ export function useSessionGuard(timeoutMenit = 15) {
   const { isAuthenticated, signOut, user } = useAuth();
   const navigate = useNavigate();
   const registerSession = useMutation(api.security.ensureSessionPublic);
-  const lastActivity = useRef(Date.now());
+  // Diisi ulang saat efek idle dipasang — hindari `Date.now()` di render.
+  const lastActivity = useRef(0);
   const [sessionId] = useState(() => getSessionId());
-  const [sessionReady, setSessionReady] = useState(false);
+  // Identitas sesi saat ini; null saat belum login / user belum termuat.
+  const sessionKey = isAuthenticated && user ? `${user._id}:${sessionId}` : null;
+  // Sesi dianggap siap setelah registrasi untuk `sessionKey` berhasil — nilai
+  // turunan ini menggantikan reset state di dalam efek.
+  const [registeredKey, setRegisteredKey] = useState<string | null>(null);
+  // Saat sesi berakhir, buang catatan registrasi (pola "adjusting state during
+  // render") agar login berikutnya — yang memakai sessionId localStorage sama —
+  // menunggu registrasi ulang sebelum heartbeat aktif.
+  if (sessionKey === null && registeredKey !== null) {
+    setRegisteredKey(null);
+  }
+  const sessionReady = sessionKey !== null && registeredKey === sessionKey;
 
   // Register this browser session before checking the admin single-session gate.
   useEffect(() => {
-    if (!isAuthenticated || user === undefined || user === null) {
-      setSessionReady(false);
-      return;
-    }
+    if (sessionKey === null) return;
 
     let cancelled = false;
-    setSessionReady(false);
     void (async () => {
       try {
         const ip = await getClientIp();
@@ -47,7 +55,7 @@ export function useSessionGuard(timeoutMenit = 15) {
           perangkat: deviceLabelFromUa(getUserAgent()),
           ip,
         });
-        if (!cancelled) setSessionReady(true);
+        if (!cancelled) setRegisteredKey(sessionKey);
       } catch (error) {
         console.error("Gagal mendaftarkan sesi:", error);
       }
@@ -56,12 +64,13 @@ export function useSessionGuard(timeoutMenit = 15) {
     return () => {
       cancelled = true;
     };
-  }, [isAuthenticated, registerSession, sessionId, user?._id]);
+  }, [sessionKey, registerSession, sessionId]);
 
   // --- 1. Idle auto-logout -------------------------------------------------
   useEffect(() => {
     if (!isAuthenticated) return;
 
+    lastActivity.current = Date.now();
     const keluarDanArahkan = () => {
       void signOut()
         .then(() => navigate("/auth?returnTo=/", { replace: true }))
