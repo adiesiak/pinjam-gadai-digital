@@ -1058,7 +1058,7 @@ export const hapusPinjaman = mutation({
       loan.didanaiPada !== undefined || loan.lunasPada !== undefined ||
       loan.persetujuanSyaratPada !== undefined || loan.tandaTanganPeminjam !== undefined
     ) {
-      throw new Error("Pinjaman ini sudah masuk siklus pendanaan/pelunasan atau memiliki persetujuan tercatat; tidak dapat dihapus.");
+      throw new Error("Pinjaman ini sudah berjalan, lunas, atau memiliki persetujuan tercatat; tidak dapat dihapus.");
     }
 
     const [fundings, reminders, waLogs, locationTrail, locationWarnings, ledger] = await Promise.all([
@@ -1166,7 +1166,7 @@ export const repayLoan = mutation({
 
     const now = Date.now();
     if (loan.didanaiPada === undefined) {
-      throw new Error("Pinjaman ini belum memiliki waktu pendanaan yang valid.");
+      throw new Error("Pinjaman ini belum memiliki waktu mulai berjalan yang valid.");
     }
     const pelunasan = pelunasanInfo(loan, now);
     if (pelunasan === null) {
@@ -1197,7 +1197,7 @@ export const repayLoan = mutation({
       .collect();
     const aktif = fundings.filter((f) => f.status === "dialokasikan");
     if (aktif.length === 0) {
-      throw new Error("Tidak ada posisi Pendana aktif pada pinjaman ini.");
+      throw new Error("Tidak ada posisi alokasi dana aktif pada pinjaman ini.");
     }
 
     // 1. Kas masuk: total kewajiban (+ denda bila terlambat). Denda dijurnal

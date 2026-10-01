@@ -331,13 +331,13 @@ export function loanStatusMeta(status: LoanStatus): {
       return {
         label: "Target tercapai (ledger)",
         description:
-          "Target pendanaan tercatat terpenuhi pada ledger internal. Tombol pelunasan mencatat perubahan status dan seluruh kewajiban sekaligus. Keterlambatan menambah perhitungan denda 0,5% per hari dari pokok (maksimum 15%).",
+          "Dana ditandai tersalurkan pada ledger internal. Tombol pelunasan mencatat perubahan status dan seluruh kewajiban sekaligus. Keterlambatan menambah perhitungan denda 0,5% per hari dari pokok (maksimum 15%).",
       };
     case "lunas":
       return {
         label: "Lunas (ledger)",
         description:
-          "Status kewajiban ditandai selesai di ledger internal dan menjadi acuan penyelesaian antara Peminjam dan Pendana.",
+          "Status kewajiban ditandai selesai di ledger internal dan menjadi acuan penyelesaian kewajiban peminjam.",
       };
   }
 }

@@ -266,7 +266,7 @@ async function setKreditStatus(ctx: MutationCtx, kreditId: Id<"kreditBarang">, s
   if (status === "ditolak") {
     const fundings = await ctx.db.query("kreditFundings").withIndex("by_kredit", (q) => q.eq("kreditId", kreditId)).collect();
     if (fundings.some((f) => f.status === "dialokasikan")) {
-      throw new Error("Pengajuan sudah menerima Alokasi Dana Pendana — kembalikan dana tersebut sebelum menolak.");
+      throw new Error("Pengajuan sudah memiliki alokasi dana tercatat — selesaikan alokasi tersebut sebelum menolak.");
     }
   }
   if (status === "disetujui") await ensureKodePeminjam(ctx, row.userId);
@@ -296,7 +296,7 @@ export const hapusKreditBarang = mutation({
     const row = await ctx.db.get(kreditId);
     if (row === null) throw new Error("Data kredit barang tidak ditemukan.");
     if (row.status === "didanai" || row.status === "lunas" || row.didanaiPada !== undefined || row.lunasPada !== undefined) {
-      throw new Error("Kredit ini sudah masuk siklus pendanaan/pelunasan dan tidak dapat dihapus.");
+      throw new Error("Kredit ini sudah ditandai berjalan atau lunas dan tidak dapat dihapus.");
     }
     const [payments, fundings, ledger] = await Promise.all([
       ctx.db.query("kreditPayments").withIndex("by_kredit", (q) => q.eq("kreditId", kreditId)).collect(),
