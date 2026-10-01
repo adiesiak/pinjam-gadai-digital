@@ -101,6 +101,8 @@ describe("manual review and unverified money movement", () => {
     );
 
     const guardMessage = "penyedia pembayaran belum dipilih atau terintegrasi";
+    // Intake setoran masih ditutup tombol operasional — tetap fail-closed,
+    // hanya pesannya yang berbeda dari gerbang pembayaran.
     await expect(
       asPendana.mutation(api.pendana.requestDeposit, {
         jumlah: 1_000_000,
@@ -109,7 +111,7 @@ describe("manual review and unverified money movement", () => {
         tanggalTransfer: Date.now(),
         buktiPembayaranId: await t.run((ctx) => ctx.storage.store(new Blob(["bukti"]))),
       }),
-    ).rejects.toThrow(guardMessage);
+    ).rejects.toThrow("Penerimaan setoran Pendana belum diaktifkan tim operasional.");
     await expect(
       asAdmin.mutation(api.admin.confirmDeposit, { depositId }),
     ).rejects.toThrow(guardMessage);

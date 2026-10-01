@@ -1,7 +1,7 @@
 import { mutation, query, type QueryCtx } from "./_generated/server";
 import { v } from "convex/values";
 import type { Doc } from "./_generated/dataModel";
-import { requireAdminSession } from "./adminAuthz";
+import { getAdminGateStatus, requireAdminSession } from "./adminAuthz";
 
 /** Gerbang admin untuk CMS. */
 async function requireAdmin(ctx: QueryCtx) {
@@ -109,10 +109,12 @@ export const getPublic = query({
   },
 });
 
-/** Baris mentah CMS untuk editor admin. */
+/** Baris mentah CMS untuk editor admin — null bila pemanggil bukan admin. */
 export const getCmsRow = query({
   args: {},
   handler: async (ctx) => {
+    const gate = await getAdminGateStatus(ctx);
+    if (!gate.isAdmin) return null;
     await requireAdmin(ctx);
     const row = await ctx.db
       .query("pengumuman")

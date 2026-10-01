@@ -27,6 +27,9 @@ import schema from "./schema";
 import { modules } from "./test.setup";
 import { DEFAULT_CONFIG } from "../lib/system-config";
 
+const TEST_TOTP_SECRET = "JBSWY3DPEHPK3PXP";
+
+/** Sesi login palsu dengan authSession + TOTP agar lolos gerbang admin. */
 async function siapkanPengguna(
   t: ReturnType<typeof convexTest>,
   subject: string,
@@ -40,7 +43,22 @@ async function siapkanPengguna(
       role: opts.role,
     });
   });
-  return t.withIdentity({ subject: userId, name: subject }) as never;
+  const authSessionId = await t.run((ctx) =>
+    ctx.db.insert("authSessions", {
+      userId,
+      expirationTime: Date.now() + 60 * 60 * 1000,
+    }),
+  );
+  if (opts.role === "admin") {
+    await t.run((ctx) =>
+      ctx.db.insert("mfaSettings", {
+        userId,
+        totpSecret: TEST_TOTP_SECRET,
+        totpVerifiedAuthSessionIds: [authSessionId],
+      }),
+    );
+  }
+  return t.withIdentity({ subject: `${userId}|${authSessionId}`, name: subject }) as never;
 }
 
 /** Nyalakan kebijakan "wajib aplikasi" lewat akun admin. */

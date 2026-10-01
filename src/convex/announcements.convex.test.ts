@@ -23,8 +23,21 @@ describe("CMS situs publik — pengaturan admin", () => {
         role: "admin",
       }),
     );
+    const authSessionId = await t.run((ctx) =>
+      ctx.db.insert("authSessions", {
+        userId: adminId,
+        expirationTime: Date.now() + 60 * 60 * 1000,
+      }),
+    );
+    await t.run((ctx) =>
+      ctx.db.insert("mfaSettings", {
+        userId: adminId,
+        totpSecret: "JBSWY3DPEHPK3PXP",
+        totpVerifiedAuthSessionIds: [authSessionId],
+      }),
+    );
     const admin: ReturnType<typeof t.withIdentity> = t.withIdentity({
-      subject: adminId,
+      subject: `${adminId}|${authSessionId}`,
       name: "Admin CMS",
     }) as never;
 
