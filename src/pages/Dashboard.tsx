@@ -1,13 +1,12 @@
 import { useQuery } from "convex/react";
 import { Loader2, TrendingUp } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { Button } from "@/components/ui/button";
 import { formatRupiah } from "@/lib/money";
 import type { FunctionReturnType } from "convex/server";
 import { toast } from "sonner";
 
-import { ErrorPage } from "@/components/ErrorPage";
 import { LocationGate } from "@/components/LocationGate";
 import { ManualPaymentEvidenceHistory } from "@/components/ManualPaymentEvidenceForm";
 import { FadeIn } from "@/components/Reveal";
@@ -85,10 +84,10 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const role = user?.role;
 
-  // Lewati query hanya saat profil pengguna masih dimuat atau pengguna adalah
-  // Pendana. Akun tamu/pengguna baru memang belum punya role; endpoint Peminjam
-  // mendukung role kosong, jadi menunggu role terisi akan membuat spinner abadi.
-  const argsPeminjam = user === undefined || isAnonymous || role === "pendana" ? ("skip" as const) : {};
+  // Lewati query hanya saat profil pengguna masih dimuat atau pengguna tamu.
+  // Akun baru memang belum punya role; endpoint Peminjam mendukung role kosong,
+  // jadi menunggu role terisi akan membuat spinner abadi.
+  const argsPeminjam = user === undefined || isAnonymous ? ("skip" as const) : {};
   const loans = useQuery(api.loans.listMyLoans, argsPeminjam);
   const summary = useQuery(api.loans.myLoanSummary, argsPeminjam);
   const creditHistory = useQuery(api.loans.myLoanCreditHistory, argsPeminjam);
@@ -101,11 +100,6 @@ export default function Dashboard() {
   const [loanDetailId, setLoanDetailId] = useState<Id<"loans"> | null>(null);
   const [pawnDetailId, setPawnDetailId] = useState<Id<"pawns"> | null>(null);
   const [activeTab, setActiveTab] = useState("pinjaman");
-
-  // Akun Pendana tidak dilayani di sini — arahkan ke ruang Pendana.
-  useEffect(() => {
-    if (role === "pendana") navigate("/pendana", { replace: true });
-  }, [role, navigate]);
 
   const handleSignOut = async () => {
     await signOut();
@@ -142,28 +136,8 @@ export default function Dashboard() {
               <Button onClick={() => void handleCreateAccount()}>Masuk / buat akun dengan email OTP</Button>
               <Button asChild variant="outline"><Link to="/">Baca informasi layanan</Link></Button>
             </div>
-            <p className="mt-5 text-xs leading-5 text-muted-foreground">PINDAI di halaman ini hanya menyediakan catatan internal. Informasi ini bukan penawaran, bukti transaksi, atau jaminan pendanaan.</p>
+            <p className="mt-5 text-xs leading-5 text-muted-foreground">PINDAI di halaman ini hanya menyediakan catatan internal. Informasi ini bukan penawaran, bukti transaksi, atau jaminan pencairan dana.</p>
           </section>
-        </main>
-        <DashboardFooter />
-      </div>
-    );
-  }
-
-  if (role === "pendana") {
-    return (
-      <div className="flex min-h-screen flex-col bg-slate-50 text-slate-900">
-        <DashboardHeader />
-        <main className="mx-auto flex w-full max-w-3xl flex-1 items-center justify-center px-4 py-16 sm:px-6">
-          <ErrorPage
-            kode="Peran akun"
-            judul="Halaman ini untuk akun Peminjam"
-            deskripsi="Akun Anda terdaftar sebagai Pendana, jadi pengajuan pinjaman dan gadai tidak tersedia di sini. Lihat saldo dan alokasi pada ledger internal di ruang Pendana."
-            primaryLabel="Buka ruang Pendana"
-            primaryHref="/pendana"
-            secondaryLabel="Beranda"
-            secondaryHref="/"
-          />
         </main>
         <DashboardFooter />
       </div>

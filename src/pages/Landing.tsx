@@ -125,7 +125,7 @@ const SECURITY = [
   { icon: Lock, label: "Riwayat pengajuan hanya untuk akun terkait" },
   { icon: Scale, label: "Rincian biaya dan bunga ditampilkan terpisah" },
   { icon: Vault, label: "Status gadai tercatat pada ledger" },
-  { icon: ShieldCheck, label: "Persetujuan aplikasi bukan jaminan pendanaan" },
+  { icon: ShieldCheck, label: "Persetujuan aplikasi bukan jaminan pencairan dana" },
   { icon: Calculator, label: "Angka merupakan perhitungan aplikasi" },
   { icon: Eye, label: "Status dashboard adalah catatan internal" },
 ] as const;
@@ -338,11 +338,11 @@ const FAQ_ITEMS = [
   },
   {
     q: "Bagaimana status pengajuan ditentukan?",
-    a: "Tim PINDAI meninjau pengajuan dan mengubah statusnya di panel admin — tercatat pada audit log. Persetujuan pengajuan bukan jaminan pendanaan, dan status di dashboard adalah catatan internal.",
+    a: "Tim PINDAI meninjau pengajuan dan mengubah statusnya di panel admin — tercatat pada audit log. Persetujuan pengajuan bukan jaminan pencairan dana, dan status di dashboard adalah catatan internal.",
   },
   {
-    q: "Apakah data saya dibagikan ke Pendana?",
-    a: "Halaman Pendana hanya menampilkan kode peminjam dan rincian alokasi tanpa identitas lengkap. Riwayat pengajuan hanya dapat dibuka oleh akun terkait dan tim PINDAI.",
+    q: "Apakah data saya dibagikan ke pihak lain?",
+    a: "Tidak. Riwayat pengajuan hanya dapat dibuka oleh akun terkait dan tim PINDAI; data tidak ditampilkan ke pihak eksternal.",
   },
 ] as const;
 
@@ -745,9 +745,7 @@ export default function Landing() {
     ? "/auth"
     : user?.role === "admin"
       ? ADMIN_ROUTE
-      : user?.role === "pendana"
-        ? "/pendana"
-        : "/dashboard";
+      : "/dashboard";
   const accountCta = isLoading
     ? "Memuat ruang…"
     : isAuthenticated
@@ -1524,7 +1522,7 @@ export default function Landing() {
                 Mulai hari ini
               </h2>
               <p className="mx-auto mt-3 max-w-lg text-sm leading-6 text-primary-foreground/80">
-                Buat akun untuk mencatat pengajuan, atau jelajahi tampilan ledger Pendana. Perpindahan dana ditangani di luar aplikasi.
+                Buat akun untuk mencatat pengajuan pinjaman atau gadai. Perpindahan dana ditangani di luar aplikasi.
               </p>
               <div className="mt-7 flex flex-wrap justify-center gap-3">
                 <Button
@@ -1538,7 +1536,7 @@ export default function Landing() {
                     asChild
                     className="h-11 border border-white/40 bg-transparent px-6 text-white hover:bg-white/10"
                   >
-                    <Link to="/pendana">Lihat mode Pendana</Link>
+                    <a href="#biaya">Lihat rincian biaya</a>
                   </Button>
                 )}
               </div>

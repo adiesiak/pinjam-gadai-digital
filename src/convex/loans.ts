@@ -88,17 +88,12 @@ async function requireUser(ctx: QueryCtx) {
 }
 
 /**
- * Role gate for v1: Peminjam. A user without an explicit role is promoted to
- * Peminjam on first application activity; Pendana is reserved for a later phase.
+ * Role gate: Peminjam. A user without an explicit role is promoted to Peminjam
+ * on first application activity. Akun warisan berperan Pendana diperlakukan
+ * sebagai Peminjam karena ruang Pendana sudah dihapus dari produk.
  */
 async function requirePeminjam(ctx: QueryCtx) {
-  const { userId, user } = await requireUser(ctx);
-  if (user.role === ROLES.PENDANA) {
-    throw new Error(
-      "Akun Pendana tidak dapat mengajukan. Gunakan akun Peminjam.",
-    );
-  }
-  return { userId, user };
+  return await requireUser(ctx);
 }
 
 function referenceNumber(now: number): string {
@@ -400,7 +395,7 @@ export const createLoanApplication = mutation({
       throw new Error("Data tanda tangan terlalu besar.");
     }
 
-    if (user.role === undefined) {
+    if (user.role === undefined || user.role === ROLES.PENDANA) {
       await ctx.db.patch(userId, { role: ROLES.PEMINJAM });
     }
     await ensureKodePeminjam(ctx, userId);
@@ -771,7 +766,7 @@ export const createPawnApplication = mutation({
       throw new Error("Nomor rekening/akun e-wallet harus 6–20 digit angka.");
     }
 
-    if (user.role === undefined) {
+    if (user.role === undefined || user.role === ROLES.PENDANA) {
       await ctx.db.patch(userId, { role: ROLES.PEMINJAM });
     }
 
@@ -909,6 +904,37 @@ export const rejectLoan = mutation({
   handler: (ctx, args) => setLoanStatus(ctx, args.loanId, "ditolak", args.reason),
 });
 
+/**
+ * Admin menandai pinjaman yang sudah disetujui sebagai berjalan pada ledger
+ * internal (status didanai + tanggal acuan). Tidak ada perpindahan dana di
+ * aplikasi — pencairan dan transfer ditangani di luar aplikasi.
+ */
+export const danaiPinjaman = mutation({
+  args: { loanId: v.id("loans") },
+  handler: async (ctx, { loanId }) => {
+    const adminId = await requireAdmin(ctx);
+    const loan = await ctx.db.get(loanId);
+    if (loan === null) throw new Error("Aplikasi tidak ditemukan.");
+    if (loan.status !== "disetujui") {
+      throw new Error("Hanya pinjaman berstatus disetujui yang dapat ditandai berjalan.");
+    }
+    await ctx.db.patch(loanId, {
+      status: "didanai",
+      didanaiPada: Date.now(),
+    });
+    const admin = await ctx.db.get(adminId);
+    await audit(
+      ctx,
+      adminId,
+      admin?.email ?? admin?.name ?? "admin",
+      "loan_didanai",
+      loan.nomorReferensi,
+      `${loan.namaLengkap} — dana ditandai tersalurkan pada ledger internal`,
+    );
+    return { ok: true };
+  },
+});
+
 async function setPawnStatus(
   ctx: MutationCtx,
   pawnId: Id<"pawns">,
@@ -992,6 +1018,28 @@ export const rejectPawn = mutation({
   args: { pawnId: v.id("pawns"), reason: v.string() },
   handler: (ctx, args) =>
     setPawnStatus(ctx, args.pawnId, "ditolak", { catatan: args.reason }),
+});
+
+/**
+ * Admin menandai gadai yang sudah disetujui sebagai berjalan pada ledger
+ * internal setelah pokok acuan ditetapkan. Pencairan dana tetap ditangani di
+ * luar aplikasi (lihat `cairkanGadai` yang fail-closed).
+ */
+export const aktifkanGadai = mutation({
+  args: { pawnId: v.id("pawns") },
+  handler: async (ctx, { pawnId }) => {
+    const pawn = await ctx.db.get(pawnId);
+    if (pawn === null) throw new Error("Pengajuan gadai tidak ditemukan.");
+    if (pawn.status !== "disetujui") {
+      throw new Error("Hanya gadai berstatus disetujui yang dapat ditandai berjalan.");
+    }
+    if (pawn.pokokGadai === undefined || (pawn.sisaPokok ?? 0) <= 0) {
+      throw new Error("Tetapkan pokok gadai terlebih dahulu sebelum menandai berjalan.");
+    }
+    // Catatan review lama dipertahankan (setPawnStatus menimpa bila undefined).
+    await setPawnStatus(ctx, pawnId, "aktif", { catatan: pawn.catatanReview });
+    return { ok: true };
+  },
 });
 
 /** Super Admin menghapus pengajuan pinjaman yang salah input, tanpa jejak transaksi. */

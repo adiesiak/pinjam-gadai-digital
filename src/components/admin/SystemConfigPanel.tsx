@@ -209,13 +209,6 @@ export function SystemConfigPanel() {
             {uploadingQr && <Loader2 className="size-4 animate-spin" />}
             {form.qrisImageId && <Button type="button" variant="outline" size="sm" onClick={() => upd("qrisImageId", null)}>Hapus QRIS</Button>}
           </div>
-          <div className="flex items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-3">
-            <div id="cfg-deposit-gate-label">
-              <p className="text-sm font-medium">Izinkan Pendana mengirim bukti setoran</p>
-              <p className="mt-0.5 text-xs leading-5 text-amber-900">Hanya membuka unggah bukti ke antrean manual. Saldo tidak dikreditkan.</p>
-            </div>
-            <Switch aria-labelledby="cfg-deposit-gate-label" aria-label="Izinkan pengiriman bukti setoran Pendana" checked={form.manualDepositEnabled} onCheckedChange={(v) => upd("manualDepositEnabled", v)} />
-          </div>
         </section>
         {error && (
           <p

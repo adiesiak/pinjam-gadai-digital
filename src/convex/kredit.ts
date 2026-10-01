@@ -30,13 +30,9 @@ async function penggunaMasuk(ctx: QueryCtx) {
   return { userId, user };
 }
 
-/** Gate: Peminjam (akun Pendana tidak boleh mengajukan kredit barang). */
+/** Gate: Peminjam. Akun warisan berperan Pendana diperlakukan sebagai Peminjam. */
 async function peminjamMasuk(ctx: QueryCtx) {
-  const { userId, user } = await penggunaMasuk(ctx);
-  if (user.role === ROLES.PENDANA) {
-    throw new Error("Akun Pendana tidak dapat mengajukan. Gunakan akun Peminjam.");
-  }
-  return { userId, user };
+  return await penggunaMasuk(ctx);
 }
 
 /** Gate: admin (tim PINDAI) — untuk verifikasi pengajuan kredit barang. */
@@ -176,7 +172,9 @@ export const ajukanKreditBarang = mutation({
     const wa = args.nomorWhatsApp.replace(/[\s+-]/g, "");
     if (!/^62\d{8,13}$/.test(wa)) throw new Error("Nomor WhatsApp wajib format internasional 62… (mis. 6281234567890).");
 
-    if (user.role === undefined) await ctx.db.patch(userId, { role: ROLES.PEMINJAM });
+    if (user.role === undefined || user.role === ROLES.PENDANA) {
+      await ctx.db.patch(userId, { role: ROLES.PEMINJAM });
+    }
     await ensureKodePeminjam(ctx, userId);
     const now = Date.now();
     const referensi = nomorReferensiKredit(now);
@@ -262,7 +260,6 @@ async function setKreditStatus(ctx: MutationCtx, kreditId: Id<"kreditBarang">, s
   const row = await ctx.db.get(kreditId);
   if (row === null) throw new Error("Pengajuan kredit barang tidak ditemukan.");
   if (status === "diajukan") throw new Error("Status tidak boleh dikembalikan ke diajukan.");
-  if (status === "didanai") throw new Error("Status Didanai ditetapkan otomatis oleh sistem saat pendanaan Pendana terpenuhi penuh.");
   if (status === "lunas") throw new Error("Status Lunas ditetapkan otomatis oleh sistem saat cicilan terakhir dibayar.");
   if (status === "ditolak" && (!catatan || catatan.trim().length === 0)) throw new Error("Penolakan wajib menyertakan alasan.");
   if (row.status === status) throw new Error("Status pengajuan sudah sama dengan pilihan tersebut.");
@@ -273,13 +270,20 @@ async function setKreditStatus(ctx: MutationCtx, kreditId: Id<"kreditBarang">, s
     }
   }
   if (status === "disetujui") await ensureKodePeminjam(ctx, row.userId);
-  await ctx.db.patch(kreditId, { status, catatanReview: catatan?.trim() || undefined });
+  await ctx.db.patch(kreditId, {
+    status,
+    // Tanggal acuan hanya diisi saat admin menandai dana tersalurkan.
+    ...(status === "didanai" ? { didanaiPada: Date.now() } : {}),
+    catatanReview: catatan?.trim() || undefined,
+  });
   const admin = await ctx.db.get(adminId);
   await audit(ctx, adminId, admin?.email ?? admin?.name ?? "admin", `kredit_${status}`, row.nomorReferensi, `${row.namaLengkap} — ${row.namaBarang} (${row.merchant}) — ${status}${catatan ? `: ${catatan}` : ""}`);
 }
 
 export const tandaiKreditDitinjau = mutation({ args: { kreditId: v.id("kreditBarang") }, handler: (ctx, args) => setKreditStatus(ctx, args.kreditId, "sedang_ditinjau") });
 export const setujuiKreditBarang = mutation({ args: { kreditId: v.id("kreditBarang") }, handler: (ctx, args) => setKreditStatus(ctx, args.kreditId, "disetujui") });
+/** Admin menandai kredit barang disetujui sebagai berjalan pada ledger internal. */
+export const danaiKreditBarang = mutation({ args: { kreditId: v.id("kreditBarang") }, handler: (ctx, args) => setKreditStatus(ctx, args.kreditId, "didanai") });
 export const tolakKreditBarang = mutation({ args: { kreditId: v.id("kreditBarang"), reason: v.string() }, handler: (ctx, args) => setKreditStatus(ctx, args.kreditId, "ditolak", args.reason) });
 
 /** Super Admin menghapus pengajuan kredit barang yang salah input tanpa jejak transaksi. */

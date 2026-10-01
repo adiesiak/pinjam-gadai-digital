@@ -266,7 +266,7 @@ export function ScheduleSection({ schedule }: { schedule: LoanScheduleRow[] }) {
       <EmptyState
         icon={CalendarClock}
         title="Belum ada jadwal angsuran"
-        body="Jadwal angsuran dan tanggal acuan tampil berdasarkan status ledger; ini bukan tagihan atau bukti pendanaan."
+        body="Jadwal angsuran dan tanggal acuan tampil berdasarkan status ledger; ini bukan tagihan atau bukti pencairan dana."
       />
     );
   }

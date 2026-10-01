@@ -4,7 +4,7 @@
  */
 export const CMS_DEFAULTS = {
   bar: {
-    teks: "Pinjaman, gadai, dan alokasi dicatat di ledger internal PINDAI.",
+    teks: "Pinjaman, gadai, dan cicilan dicatat di ledger internal PINDAI.",
     tautan: "/auth",
   },
   popup: {
@@ -21,7 +21,7 @@ export const CMS_DEFAULTS = {
     badge: "Pinjaman & ledger internal",
     judul1: "Pinjam & Gadai Digital",
     judul2: "Transparan",
-    sub: "Jelajahi perhitungan pinjaman, gadai, dan alokasi pendanaan dalam ledger internal. Persetujuan, saldo, dan status tercatat pada ledger internal PINDAI.",
+    sub: "Jelajahi perhitungan pinjaman, gadai, dan cicilan dalam ledger internal. Persetujuan, status, dan pembayaran manual via QRIS/bank tercatat pada ledger internal PINDAI.",
     cta1: "Ajukan Pinjaman",
     cta2: "Gadaikan Barang",
   },

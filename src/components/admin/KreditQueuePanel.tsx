@@ -70,6 +70,7 @@ export function KreditQueuePanel() {
   const rows = useQuery(api.kredit.antreanKreditBarang);
   const tandai = useMutation(api.kredit.tandaiKreditDitinjau);
   const setujui = useMutation(api.kredit.setujuiKreditBarang);
+  const danai = useMutation(api.kredit.danaiKreditBarang);
   const tolak = useMutation(api.kredit.tolakKreditBarang);
   const hapus = useMutation(api.kredit.hapusKreditBarang);
   const [alasan, setAlasan] = useState<Record<string, string>>({});
@@ -111,7 +112,7 @@ export function KreditQueuePanel() {
 
   const jalankan = async (
     id: Id<"kreditBarang">,
-    aksi: "tinjau" | "setujui" | "tolak",
+    aksi: "tinjau" | "setujui" | "danai" | "tolak",
   ) => {
     setBusy(id);
     try {
@@ -121,6 +122,9 @@ export function KreditQueuePanel() {
       } else if (aksi === "setujui") {
         await setujui({ kreditId: id });
         toast.success("Status aplikasi kredit barang disetujui dan tercatat pada ledger.");
+      } else if (aksi === "danai") {
+        await danai({ kreditId: id });
+        toast.success("Kredit barang ditandai berjalan pada ledger internal (dana tersalurkan).");
       } else {
         const reason = (alasan[id] ?? "").trim();
         if (reason.length === 0) {
@@ -227,7 +231,7 @@ export function KreditQueuePanel() {
                           : `${r.tenorBulan} bln`,
                       ],
                       [
-                        "Imbal Hasil Pendana",
+                        "Imbal hasil (estimasi)",
                         r.imbalHasilPendana !== null
                           ? `${formatRupiah(r.imbalHasilPendana)} (${r.marginPersenPerBulan}%/bln)`
                           : `${r.marginPersenPerBulan}%/bln`,
@@ -357,6 +361,15 @@ export function KreditQueuePanel() {
                   <KreditStatusBadge status={r.status} />
                 </div>
                 <div className="mt-3 flex w-full flex-wrap items-center gap-2">
+                  {r.status === "disetujui" && (
+                    <Button
+                      size="sm"
+                      disabled={busy === r._id}
+                      onClick={() => jalankan(r._id, "danai")}
+                    >
+                      <CheckCircle2 className="mr-1.5 size-4" /> Tandai dana tersalurkan
+                    </Button>
+                  )}
                   <Input
                     value={alasanHapus[r._id] ?? ""}
                     onChange={(event) => setAlasanHapus((current) => ({ ...current, [r._id]: event.target.value }))}

@@ -42,14 +42,6 @@ export default function Admin() {
   const overview = useQuery(api.admin.adminOverview, adminVerified ? {} : "skip");
   const [totpSetupOpen, setTotpSetupOpen] = useState(false);
   const stats = useQuery(api.admin.adminStats, adminVerified ? {} : "skip");
-  const pendingDeposits = useQuery(
-    api.admin.pendingDeposits,
-    adminVerified ? {} : "skip",
-  );
-  const pendingWd = useQuery(
-    api.admin.pendingWithdrawals,
-    adminVerified ? {} : "skip",
-  );
   const ledger = useQuery(api.admin.ledgerSummary, adminVerified ? {} : "skip");
   const sysCfg = useQuery(api.system.getStatusPublic, adminVerified ? {} : "skip");
   const setKill = useMutation(api.system.setKillSwitch);
@@ -203,8 +195,6 @@ export default function Admin() {
           overview={overview}
           stats={stats}
           ledger={ledger}
-          pendingDeposits={pendingDeposits}
-          pendingWd={pendingWd}
           onOpenLoan={setLoanDetail}
           onOpenPawn={setPawnDetail}
           onOpenSetup={() => setTotpSetupOpen(true)}

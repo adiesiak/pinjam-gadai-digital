@@ -1,4 +1,4 @@
-import { ChevronDown, LayoutDashboard, ShieldCheck, Wallet } from "lucide-react";
+import { ChevronDown, LayoutDashboard, ShieldCheck } from "lucide-react";
 import { Link } from "react-router";
 
 import { useAuth } from "@/hooks/use-auth";
@@ -17,6 +17,12 @@ export function RoleDashboardMenu() {
   const { isAuthenticated, isLoading, user } = useAuth();
   const role = user?.role;
 
+  const dashboardPeminjam = {
+    href: "/dashboard",
+    label: "Dashboard Peminjam",
+    description: "Lihat catatan pinjaman dan pengajuan",
+    icon: LayoutDashboard,
+  };
   const spaces =
     role === "admin"
       ? [
@@ -26,36 +32,9 @@ export function RoleDashboardMenu() {
             description: "Tinjau catatan internal dan pengaturan sistem",
             icon: ShieldCheck,
           },
-          {
-            href: "/dashboard",
-            label: "Dashboard Peminjam",
-            description: "Lihat catatan pinjaman dan pengajuan",
-            icon: LayoutDashboard,
-          },
+          dashboardPeminjam,
         ]
-      : role === "pendana"
-        ? [
-            {
-              href: "/pendana",
-              label: "Dashboard Pendana",
-              description: "Lihat saldo dan catat alokasi di ledger",
-              icon: Wallet,
-            },
-          ]
-        : [
-            {
-              href: "/dashboard",
-              label: "Dashboard Peminjam",
-              description: "Lihat catatan pinjaman dan pengajuan",
-              icon: LayoutDashboard,
-            },
-            {
-              href: "/pendana",
-              label: "Jelajahi mode Pendana",
-              description: "Buka ruang ledger Pendana",
-              icon: Wallet,
-            },
-          ];
+      : [dashboardPeminjam];
 
   if (isLoading || !isAuthenticated) return null;
 

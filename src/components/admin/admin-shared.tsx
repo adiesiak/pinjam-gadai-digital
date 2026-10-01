@@ -67,7 +67,7 @@ export type PawnRow = {
   nomorRekening: string;
   catatanPeminjam?: string;
   emailPeminjam: string | null;
-  /** Skema B: pendanaan & sisa pokok berjalan. */
+  /** Skema B: pokok & sisa pokok berjalan. */
   pokokGadai?: number;
   persenSewaModal?: number;
   sisaPokok?: number;

@@ -33,6 +33,7 @@ export function LoanReviewDialog({
   const markInReview = useMutation(api.loans.markLoanInReview);
   const approve = useMutation(api.loans.approveLoan);
   const reject = useMutation(api.loans.rejectLoan);
+  const fund = useMutation(api.loans.danaiPinjaman);
   const deleteLoan = useMutation(api.loans.hapusPinjaman);
 
   const [reason, setReason] = useState("");
@@ -248,6 +249,21 @@ export function LoanReviewDialog({
               </Button>
             </div>
           </>
+        )}
+
+        {row.status === "disetujui" && (
+          <div className="space-y-2 rounded-2xl border border-emerald-200 bg-emerald-50/60 p-4">
+            <p className="text-xs leading-5 text-emerald-900">
+              Tandai dana tersalurkan agar tanggal acuan dan jadwal pelunasan aktif pada ledger internal. Pencairan/transfer tetap ditangani di luar aplikasi.
+            </p>
+            <Button
+              disabled={busy !== null}
+              onClick={() => run("fund", () => fund({ loanId: row._id }))}
+            >
+              {busy === "fund" ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
+              Tandai dana tersalurkan (ledger internal)
+            </Button>
+          </div>
         )}
 
         {decided && error && (

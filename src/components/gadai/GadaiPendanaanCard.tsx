@@ -15,10 +15,12 @@ import type { GadaiPendanaanRow } from "./types";
 /** Kartu penetapan hitungan gadai internal; tidak mencatat pencairan, pembayaran, atau penitipan. */
 export function GadaiPendanaanCard({ pawn }: { pawn: GadaiPendanaanRow }) {
   const setPendanaan = useMutation(api.gadai.setPendanaanGadai);
+  const aktifkan = useMutation(api.loans.aktifkanGadai);
 
   const [pokok, setPokok] = useState("");
   const [persen, setPersen] = useState(String(GADAI_PRICING.sewaModalMinPercent));
   const [busy, setBusy] = useState(false);
+  const [mengaktifkan, setMengaktifkan] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const parsedPokok = (() => {
@@ -44,6 +46,25 @@ export function GadaiPendanaanCard({ pawn }: { pawn: GadaiPendanaanRow }) {
     parsedPokok !== null && batasLtv !== null && parsedPokok > batasLtv;
 
   const belumPendanaan = pawn.pokokGadai === undefined;
+
+  const jalankanAktif = async () => {
+    setMengaktifkan(true);
+    setError(null);
+    try {
+      await aktifkan({ pawnId: pawn._id });
+      toast.success(
+        "Gadai ditandai berjalan pada ledger internal; dana tetap di luar aplikasi.",
+      );
+    } catch (e) {
+      setError(
+        e instanceof Error
+          ? `Penandaan gadai gagal: ${e.message}.`
+          : "Penandaan gadai gagal.",
+      );
+    } finally {
+      setMengaktifkan(false);
+    }
+  };
 
   const jalankan = async () => {
     setBusy(true);
@@ -166,12 +187,29 @@ export function GadaiPendanaanCard({ pawn }: { pawn: GadaiPendanaanRow }) {
           )}
         </div>
       ) : (
-        <p className="mt-4 text-xs leading-5 text-emerald-800">
-          Pokok acuan internal{" "}
-          <b className="tabular-nums">{formatRupiah(pawn.pokokGadai ?? 0)}</b> · sewa
-          modal{" "}
-          <b>{pawn.persenSewaModal ?? GADAI_PRICING.sewaModalMinPercent}%</b>/30 hari. Data ini mengikuti pencatatan ledger internal.
-        </p>
+        <>
+          <p className="mt-4 text-xs leading-5 text-emerald-800">
+            Pokok acuan internal{" "}
+            <b className="tabular-nums">{formatRupiah(pawn.pokokGadai ?? 0)}</b> · sewa
+            modal{" "}
+            <b>{pawn.persenSewaModal ?? GADAI_PRICING.sewaModalMinPercent}%</b>/30 hari. Data ini mengikuti pencatatan ledger internal.
+          </p>
+          {pawn.status === "disetujui" && (
+            <div className="mt-4 flex flex-wrap items-center gap-3">
+              <Button
+                className="gradient-primary rounded-full border-0"
+                disabled={mengaktifkan}
+                onClick={() => void jalankanAktif()}
+              >
+                {mengaktifkan ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
+                Tandai gadai berjalan (ledger internal)
+              </Button>
+              <p className="text-xs leading-5 text-emerald-800">
+                Pencairan dan penyerahan dana tetap ditangani di luar aplikasi.
+              </p>
+            </div>
+          )}
+        </>
       )}
 
       {error && (

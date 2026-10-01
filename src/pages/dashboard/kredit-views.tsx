@@ -532,7 +532,7 @@ export function KreditSayaSection() {
       <EmptyState
         icon={ShoppingBag}
         title="Belum ada pengajuan kredit barang"
-        body="Buat catatan pengajuan barang, uang muka, tenor, dan perhitungan cicilan. Pembelian, pendanaan, dan pembayaran ditangani di luar aplikasi."
+        body="Buat catatan pengajuan barang, uang muka, tenor, dan perhitungan cicilan. Pembelian dan pembayaran ditangani di luar aplikasi."
       />
     );
   }
@@ -615,18 +615,18 @@ export function KreditSayaSection() {
                 </dd>
               </div>
               <div className="flex flex-col gap-1 border-t border-slate-100 pt-2 sm:flex-row sm:items-baseline sm:justify-between sm:gap-3">
-                <dt className="text-muted-foreground">Pokok pendanaan (estimasi)</dt>
+                <dt className="text-muted-foreground">Pokok pembiayaan (estimasi)</dt>
                 <dd className="tabular-nums">{k.pokokDibiayai !== null ? formatRupiah(k.pokokDibiayai) : "—"}</dd>
               </div>
               {k.totalDiterimaPendana !== null && (
                 <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between sm:gap-3">
-                  <dt className="text-muted-foreground">Total pokok + imbal hasil pendana (estimasi)</dt>
+                  <dt className="text-muted-foreground">Total pokok + imbal hasil (estimasi)</dt>
                   <dd className="font-semibold tabular-nums">{formatRupiah(k.totalDiterimaPendana)}</dd>
                 </div>
               )}
               {k.imbalHasilPendana !== null && (
                 <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between sm:gap-3">
-                  <dt className="text-muted-foreground">Imbal hasil pendana (estimasi)</dt>
+                  <dt className="text-muted-foreground">Imbal hasil (estimasi)</dt>
                   <dd className="tabular-nums">{formatRupiah(k.imbalHasilPendana)}</dd>
                 </div>
               )}

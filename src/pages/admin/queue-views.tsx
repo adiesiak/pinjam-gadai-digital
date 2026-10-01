@@ -72,7 +72,7 @@ export function LoanQueueSection({
   );
 }
 
-/** Tab Gadai — antrean pengajuan gadai + panel pendanaan. */
+/** Tab Gadai — antrean pengajuan gadai + panel hitungan internal. */
 export function PawnQueueSection({
   pawns,
   onOpen,

@@ -3,7 +3,6 @@ import {
   BellRing,
   ChevronDown,
   ClipboardList,
-  Coins,
   Database,
   Gavel,
   Landmark,
@@ -41,24 +40,26 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 import { LoanQueueSection, PawnQueueSection } from "./queue-views";
-import {
-  SetoranSection,
-  type LedgerSummary,
-  type PendingDeposit,
-  type PendingWithdrawal,
-} from "./setoran-views";
 import { type AdminStatsData } from "./admin-shell";
 
 type TabIcon = typeof ClipboardList;
 type AdminTabItem = [value: string, label: string, badge: string | null, Icon: TabIcon];
+
+/** Ringkasan ledger internal untuk lencana tab — mengikuti `admin.ledgerSummary`. */
+type LedgerSummary = {
+  totalDebit: number;
+  totalKredit: number;
+  entryCount: number;
+  seimbang: boolean;
+  /** Total biaya platform yang sudah dijurnal (platform:FEE, sisi debit). */
+  pendapatanPlatform: number;
+};
 
 /** Tab navigasi + seluruh konten tab panel admin. */
 export function AdminTabs({
   overview,
   stats,
   ledger,
-  pendingDeposits,
-  pendingWd,
   onOpenLoan,
   onOpenPawn,
   onOpenSetup,
@@ -66,8 +67,6 @@ export function AdminTabs({
   overview: { loans: LoanRow[]; pawns: PawnRow[]; kredit: KreditRow[] };
   stats: AdminStatsData | undefined;
   ledger: LedgerSummary | undefined;
-  pendingDeposits: PendingDeposit[] | undefined;
-  pendingWd: PendingWithdrawal[] | undefined;
   onOpenLoan: (l: LoanRow) => void;
   onOpenPawn: (p: PawnRow) => void;
   onOpenSetup: () => void;
@@ -87,7 +86,6 @@ export function AdminTabs({
     ["config", "Pengaturan Sistem", null, Settings2],
     ["audit", "Audit Trail", null, Lock],
     ["loglogin", "Keamanan Login", null, ShieldCheck],
-    ["setoran", "Saldo & setoran ledger", `${pendingDeposits?.length ?? 0}`, Coins],
     ["bukti", "Pencocokan bukti manual", null, ReceiptText],
     ["plafon", "Plafon Nasabah", null, SlidersHorizontal],
     ["pengumuman", "Pengumuman", null, MessageSquare],
@@ -158,10 +156,6 @@ export function AdminTabs({
 
       <TabsContent value="kredit" className="min-w-0 flex-1 animate-masuk">
         <KreditQueuePanel />
-      </TabsContent>
-
-      <TabsContent value="setoran" className="min-w-0 flex-1 animate-masuk">
-        <SetoranSection pendingDeposits={pendingDeposits} pendingWd={pendingWd} ledger={ledger} />
       </TabsContent>
 
       <TabsContent value="bukti" className="min-w-0 flex-1 animate-masuk">

@@ -8,7 +8,7 @@ import { ConvexAuthProvider } from "@convex-dev/auth/react";
 import { ConvexReactClient, useQuery } from "convex/react";
 import React, { StrictMode, useEffect, lazy, Suspense } from "react";
 import { createRoot } from "react-dom/client";
-import { BrowserRouter, Route, Routes, useLocation } from "react-router";
+import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router";
 import "./index.css";
 import { useSessionGuard } from "@/hooks/use-session-guard";
 import { ADMIN_ROUTE } from "@/lib/routes";
@@ -39,7 +39,6 @@ const Landing = lazy(denganPercobaan(() => import("./pages/Landing.tsx")));
 const AuthPage = lazy(denganPercobaan(() => import("./pages/Auth.tsx")));
 const Dashboard = lazy(denganPercobaan(() => import("./pages/Dashboard.tsx")));
 const Admin = lazy(denganPercobaan(() => import("./pages/Admin.tsx")));
-const Pendana = lazy(denganPercobaan(() => import("./pages/Pendana.tsx")));
 const NotFound = lazy(denganPercobaan(() => import("./pages/NotFound.tsx")));
 
 // Simple loading fallback for route transitions
@@ -236,14 +235,9 @@ createRoot(document.getElementById("root")!).render(
                     </RequireAuth>
                   }
                 />
-                <Route
-                  path="/pendana"
-                  element={
-                    <RequireAuth>
-                      <Pendana />
-                    </RequireAuth>
-                  }
-                />
+                {/* Ruang Pendana dihapus dari produk — tautan lama diarahkan
+                    ke dashboard Peminjam supaya tidak berujung 404. */}
+                <Route path="/pendana" element={<Navigate to="/dashboard" replace />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </Suspense>

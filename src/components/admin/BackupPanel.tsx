@@ -116,7 +116,7 @@ export function BackupPanel() {
           </Button>
         </div>
         <p className="text-xs leading-5 text-muted-foreground">
-          Snapshot memuat seluruh pinjaman, gadai, setoran, pendanaan, dan pengguna (email disamarkan). Semua unduhan tercatat di audit trail.
+          Snapshot memuat seluruh pinjaman, gadai, pembayaran, dan pengguna (email disamarkan). Semua unduhan tercatat di audit trail.
         </p>
       </div>
       <div className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5">
