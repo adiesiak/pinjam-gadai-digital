@@ -63,19 +63,19 @@ const PLATFORM_APLIKASI: readonly string[] = ["android", "ios"];
 
 /**
  * Angka acak heksadesimal — kredensial perangkat.
- * Memakai WebCrypto bila tersedia, dengan cadangan Math.random agar tidak
- * bergantung pada ketersediaan API di runtime (mutasi tetap harus tuntas).
+ * Fail-closed: tanpa WebCrypto, kredensial TIDAK dibuat. Cadangan Math.random
+ * tidak dipakai karena PRNG non-kriptografis bisa diprediksi — token perangkat
+ * adalah kredensial yang mengautentikasi endpoint heartbeat.
  */
 function acakHex(panjangByte: number): string {
   const bytes = new Uint8Array(panjangByte);
   const webCrypto = typeof crypto === "undefined" ? undefined : crypto;
-  if (webCrypto !== undefined && typeof webCrypto.getRandomValues === "function") {
-    webCrypto.getRandomValues(bytes);
-  } else {
-    for (let i = 0; i < bytes.length; i += 1) {
-      bytes[i] = Math.floor(Math.random() * 256);
-    }
+  if (webCrypto === undefined || typeof webCrypto.getRandomValues !== "function") {
+    throw new Error(
+      "Sumber acak kriptografis tidak tersedia untuk membuat kredensial perangkat.",
+    );
   }
+  webCrypto.getRandomValues(bytes);
   return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
 }
 
@@ -474,6 +474,15 @@ export const daftarkanPerangkat = mutation({
       const token = acakHex(16);
       await ctx.db.insert("perangkat", { ...baris, token, terdaftarPada: now });
       return { ok: true, token };
+    }
+    // ID perangkat milik akun lain TIDAK boleh dipakai ulang: tanpa cek ini,
+    // pemanggil mana pun yang mengetahui `deviceId` orang lain bisa menerima
+    // token perangkat korban (lalu memakainya untuk mengirim titik lokasi)
+    // sekaligus memindahkan baris perangkat ke akunnya sendiri.
+    if (lama.userId !== userId) {
+      throw new Error(
+        "Perangkat ini sudah terdaftar pada akun lain. Bila perangkat memang milik Anda, hubungi dukungan PINDAI.",
+      );
     }
     // Perangkat yang sama mendaftar ulang (app dibuka kembali): pertahankan
     // token lama agar layanan lokasi yang sudah menyimpannya tidak kehilangan

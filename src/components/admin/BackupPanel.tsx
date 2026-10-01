@@ -6,6 +6,36 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { api } from "@/convex/_generated/api";
 
+/**
+ * Escape teks sebelum ditempel ke HTML yang dirender di tab baru.
+ * Wajib: isi audit/ledger memuat data yang diisi pengguna (nama, referensi),
+ * dan tab hasil `window.open("", "_blank")` mewarisi origin aplikasi — tanpa
+ * escape, satu isian berisi tag/script bisa berjalan dengan sesi admin.
+ */
+function escapeHtml(value: unknown): string {
+  return String(value ?? "").replace(/[&<>"']/g, (character) => {
+    const entities: Record<string, string> = {
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      '"': "&quot;",
+      "'": "&#39;",
+    };
+    return entities[character] ?? character;
+  });
+}
+
+/**
+ * Sel CSV aman: kutip ganda di-escape dan sel yang diawali `=`, `+`, `-`, `@`,
+ * tab, atau CR diberi awalan `'` supaya tidak dieksekusi sebagai formula saat
+ * file dibuka di Excel/Spreadsheet.
+ */
+function csvCell(value: unknown): string {
+  const teks = String(value ?? "");
+  const aman = /^[=+\-@\t\r]/.test(teks) ? `'${teks}` : teks;
+  return `"${aman.replace(/"/g, '""')}"`;
+}
+
 export function BackupPanel() {
   const snapshot = useQuery(api.system.snapshotData);
   const ledgerRows = useQuery(api.admin.ledgerRows);
@@ -43,7 +73,20 @@ export function BackupPanel() {
     try {
       const head = "waktu,grup,akun,arah,jumlah,jenis,keterangan,aktor";
       const baris = ledgerRows
-        .map((r) => `${new Date(r.waktu).toISOString()},${r.groupId},"${r.akun}",${r.arah},${r.jumlah},${r.jenis},"${r.keterangan}","${r.aktor}"`)
+        .map((r) =>
+          [
+            new Date(r.waktu).toISOString(),
+            r.groupId,
+            r.akun,
+            r.arah,
+            r.jumlah,
+            r.jenis,
+            r.keterangan,
+            r.aktor,
+          ]
+            .map(csvCell)
+            .join(","),
+        )
         .join("\n");
       unduhFile(`pindai-ledger-${new Date().toISOString().slice(0, 10)}.csv`, `${head}\n${baris}`, "text/csv");
       await catat({ jenis: "ledger-csv" });
@@ -80,7 +123,7 @@ export function BackupPanel() {
     try {
       const log = auditData.auditTerbaru;
       const html = `<!doctype html><html><head><meta charset="utf-8"><title>Audit Trail PINDAI</title><style>body{font-family:system-ui,sans-serif;padding:32px;color:#1c1a15}h1{font-size:20px}table{width:100%;border-collapse:collapse;font-size:12px}td,th{border:1px solid #e3ddd0;padding:6px 8px;text-align:left}</style></head><body><h1>Audit Trail — Pinjam Gadai Digital</h1><p>Dicetak: ${new Date().toLocaleString("id-ID")}</p><table><tr><th>Waktu</th><th>Aktor</th><th>Aksi</th><th>Target</th><th>Detail</th></tr>${log
-        .map((a) => `<tr><td>${new Date(a.waktu).toLocaleString("id-ID")}</td><td>${a.aktorLabel}</td><td>${a.aksi}</td><td>${a.target ?? "-"}</td><td>${a.detail ?? "-"}</td></tr>`)
+        .map((a) => `<tr><td>${escapeHtml(new Date(a.waktu).toLocaleString("id-ID"))}</td><td>${escapeHtml(a.aktorLabel)}</td><td>${escapeHtml(a.aksi)}</td><td>${escapeHtml(a.target ?? "-")}</td><td>${escapeHtml(a.detail ?? "-")}</td></tr>`)
         .join("")}</table></body></html>`;
       const w = window.open("", "_blank");
       if (w) {

@@ -45,6 +45,24 @@ const ADMIN_RATE_WINDOW_MS = 15 * 60 * 1000;
 const ADMIN_TOKEN_MAX_PERMOHONAN = 3;
 const ADMIN_TOKEN_WINDOW_MS = 15 * 60 * 1000;
 
+/**
+ * Kode OTP 6 digit dari sumber acak kriptografis — bukan `Math.random`.
+ * Kode ini melindungi transaksi finansial & login perangkat baru, jadi PRNG
+ * yang bisa diprediksi tidak boleh dipakai. Rejection sampling menghindari
+ * bias modulo.
+ */
+function kodeOtpEnamDigit(): string {
+  const batas = 1_000_000;
+  const maks = Math.floor(0x1_0000_0000 / batas) * batas;
+  const bytes = new Uint32Array(1);
+  let nilai = maks;
+  while (nilai >= maks) {
+    crypto.getRandomValues(bytes);
+    nilai = bytes[0];
+  }
+  return String(nilai % batas).padStart(6, "0");
+}
+
 /** Nama perangkat ringkas dari user agent. */
 export function deviceLabel(ua: string): string {
   if (/iphone|ipad|ipod/i.test(ua)) return "iOS";
@@ -752,7 +770,7 @@ export const requestWaOtp = action({
       berhasil: true, // permintaan kode bukan kegagalan; kegagalan dihitung saat verifikasi
     });
 
-    const kode = String(Math.floor(100000 + Math.random() * 900000));
+    const kode = kodeOtpEnamDigit();
     const kedaluwarsa = Date.now() + WA_OTP_AGE_MS;
     await ctx.runMutation(internal.security._setWaOtp, {
       userId,
@@ -886,6 +904,23 @@ export const verifyWaOtp = mutation({
         `Terlalu banyak percobaan. Coba lagi dalam ${Math.ceil(gagal.sisaDetik / 60)} menit.`,
       );
     }
+    // Hitungan gagal versi SERVER (`waOtpGagal`) — tidak bisa dipalsukan klien
+    // lewat `recordFailedAttempt`. Batas ini yang benar-benar menjaga kode
+    // 6 digit dari tebak-tebakan; kode baru yang diminta pemilik akun mereset
+    // hitungannya (lihat `_setWaOtp`).
+    if ((mfa?.waOtpGagal ?? 0) >= RATE_MAX_GAGAL) {
+      await catatLogin(ctx, {
+        userId: user._id,
+        status: "diblokir",
+        metode: "wa_otp",
+        ip,
+        userAgent,
+        keterangan: "Batas percobaan OTP WA versi server tercapai",
+      });
+      throw new Error(
+        "Terlalu banyak percobaan kode. Minta kode baru lalu coba lagi.",
+      );
+    }
     const benar =
       mfa?.waOtpKode !== undefined &&
       kode === mfa.waOtpKode &&
@@ -997,17 +1032,36 @@ export const recordFailedAttempt = mutation({
     ctx,
     { ip, identifier },
   ): Promise<{ blocked: boolean; sisaDetik: number }> => {
-    const ident = identifier.toLowerCase().slice(0, 120);
-    await ctx.db.insert("loginAttempts", {
-      identifier: ident,
-      ip,
-      berhasil: false,
-      waktu: Date.now(),
-    });
+    const ident = identifier.trim().toLowerCase().slice(0, 120);
+    const ipBersih = ip.trim().slice(0, 64);
+    const sejak = Date.now() - RATE_WINDOW_MS;
+    // Buang catatan lama identifier ini sekaligus (batasi pertumbuhan tabel)
+    // dan batasi jumlah baris per jendela: pemanggil klien tidak boleh bisa
+    // menulis ribuan baris hanya untuk satu identifier.
+    const barisTerkait = await ctx.db
+      .query("loginAttempts")
+      .withIndex("by_identifier", (q) => q.eq("identifier", ident))
+      .collect();
+    let dalamJendela = 0;
+    for (const baris of barisTerkait) {
+      if (baris.waktu < sejak) {
+        await ctx.db.delete(baris._id);
+      } else {
+        dalamJendela += 1;
+      }
+    }
+    if (dalamJendela < RATE_MAX_GAGAL * 4) {
+      await ctx.db.insert("loginAttempts", {
+        identifier: ident,
+        ip: ipBersih,
+        berhasil: false,
+        waktu: Date.now(),
+      });
+    }
     const cek: { blocked: boolean; sisaDetik: number } =
       await ctx.runQuery(internal.security.assertNotRateLimited, {
         identifier: ident,
-        ip,
+        ip: ipBersih,
       });
     return cek; // UI dapat menampilkan sisa waktu blokir.
   },
