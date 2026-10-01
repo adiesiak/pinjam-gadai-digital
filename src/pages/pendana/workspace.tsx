@@ -2,6 +2,7 @@ import { useQuery } from "convex/react";
 import { useState } from "react";
 import { Store, TrendingUp, Wallet } from "lucide-react";
 
+import { CountUp } from "@/components/CountUp";
 import { FadeIn } from "@/components/Reveal";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { api } from "@/convex/_generated/api";
@@ -87,7 +88,7 @@ export function PendanaWorkspace({
                 <div>
                   <p className="text-xs text-muted-foreground">Saldo ledger</p>
                   <p className="mt-2 break-words text-xl font-semibold tabular-nums text-primary sm:text-2xl">
-                    {formatRupiah(wallet?.saldo ?? 0)}
+                    <CountUp value={wallet?.saldo ?? 0} format={formatRupiah} />
                   </p>
                 </div>
                 <span className="flex size-10 items-center justify-center rounded-xl bg-slate-100 text-slate-700">
@@ -101,7 +102,7 @@ export function PendanaWorkspace({
                 <div>
                   <p className="text-xs text-muted-foreground">Total alokasi</p>
                   <p className="mt-2 break-words text-xl font-semibold tabular-nums sm:text-2xl">
-                    {formatRupiah(wallet?.danaBekerja ?? 0)}
+                    <CountUp value={wallet?.danaBekerja ?? 0} format={formatRupiah} />
                   </p>
                 </div>
                 <span className="flex size-10 items-center justify-center rounded-xl bg-slate-100 text-slate-600">
@@ -115,7 +116,7 @@ export function PendanaWorkspace({
                 <div>
                   <p className="text-xs text-muted-foreground">Estimasi Imbal Hasil</p>
                   <p className="mt-2 break-words text-xl font-semibold tabular-nums text-emerald-600 sm:text-2xl">
-                    {formatRupiah(wallet?.imbalHasilDiharapkan ?? 0)}
+                    <CountUp value={wallet?.imbalHasilDiharapkan ?? 0} format={formatRupiah} />
                   </p>
                 </div>
                 <span className="flex size-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
