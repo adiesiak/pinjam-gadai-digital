@@ -30,12 +30,34 @@ const adminPassword: typeof passwordProvider = {
     if (typeof email !== "string" || email.length === 0) {
       throw new Error("Email admin wajib diisi.");
     }
+    // `flow` menentukan apakah ini masuk, aktivasi, atau reset kata sandi.
+    const flow = typeof params.flow === "string" ? params.flow : "signIn";
     const isVerifiedAdmin = await ctx.runQuery(
       internal.users.isAdminEmailForPasswordAuth,
       { email },
     );
     if (!isVerifiedAdmin) {
+      // Pada flow masuk, balasan disamakan dengan kata sandi salah supaya
+      // keberadaan email Super Admin tidak bisa dikonfirmasi dari beda pesan.
+      if (flow === "signIn") throw new Error("Invalid credentials");
       throw new Error("Akun admin terverifikasi tidak ditemukan.");
+    }
+    // Batas percobaan ditegakkan di server, sebelum kata sandi diverifikasi.
+    // Hanya flow masuk yang dibatasi: itulah permukaan brute force-nya,
+    // sedangkan aktivasi/reset sudah dijaga token yang dikirim ke email admin.
+    if (flow === "signIn") {
+      const batas = await ctx.runMutation(
+        internal.security.catatPercobaanKataSandiAdmin,
+        { email },
+      );
+      if (batas.blocked) {
+        throw new Error(
+          `Terlalu banyak percobaan masuk Super Admin. Coba lagi dalam ${Math.max(
+            1,
+            Math.ceil(batas.sisaDetik / 60),
+          )} menit.`,
+        );
+      }
     }
     return passwordProvider.authorize(params, ctx);
   },

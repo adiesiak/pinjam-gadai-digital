@@ -38,6 +38,9 @@ const WA_OTP_AGE_MS = 5 * 60 * 1000; // 5 menit
 const RATE_WINDOW_MS = 15 * 60 * 1000;
 const RATE_MAX_GAGAL = 5;
 const BLOCK_MS = 15 * 60 * 1000;
+/** Batas percobaan kata sandi Super Admin — ditegakkan server, bukan klien. */
+const ADMIN_RATE_MAX_PERCOBAAN = 5;
+const ADMIN_RATE_WINDOW_MS = 15 * 60 * 1000;
 
 /** Nama perangkat ringkas dari user agent. */
 export function deviceLabel(ua: string): string {
@@ -188,6 +191,73 @@ export const _guardLogin = internalMutation({
       ip: args.ip,
       berhasil: args.berhasil,
     });
+  },
+});
+
+/**
+ * Catat satu percobaan kata sandi Super Admin dan tegakkan batas 5 percobaan
+ * per 15 menit.
+ *
+ * Dipanggil dari `adminPassword.authorize` SEBELUM kata sandi diverifikasi,
+ * jadi pencatatannya tidak bisa dilewati klien: yang dihitung hanya email
+ * admin, bukan IP/identifier kiriman klien. Saat batas terlampaui, kejadiannya
+ * dicatat ke loginLogs + auditLog supaya upaya masuk terlihat oleh tim.
+ */
+export const catatPercobaanKataSandiAdmin = internalMutation({
+  args: { email: v.string() },
+  returns: v.object({ blocked: v.boolean(), sisaDetik: v.number() }),
+  handler: async (ctx, { email }) => {
+    const bersih = email.trim().toLowerCase().slice(0, 160);
+    const sejak = Date.now() - ADMIN_RATE_WINDOW_MS;
+    const semua = await ctx.db
+      .query("adminLoginAttempts")
+      .withIndex("by_email", (q) => q.eq("email", bersih))
+      .collect();
+
+    // Catatan di luar jendela dibuang sekaligus supaya tabel tidak menumpuk.
+    let dalamJendela = 0;
+    let tertua = Date.now();
+    for (const baris of semua) {
+      if (baris.waktu < sejak) {
+        await ctx.db.delete(baris._id);
+      } else {
+        dalamJendela += 1;
+        if (baris.waktu < tertua) tertua = baris.waktu;
+      }
+    }
+
+    if (dalamJendela >= ADMIN_RATE_MAX_PERCOBAAN) {
+      const pemilik = await ctx.db
+        .query("users")
+        .withIndex("email", (q) => q.eq("email", bersih))
+        .first();
+      const keterangan = `Percobaan kata sandi Super Admin melebihi ${ADMIN_RATE_MAX_PERCOBAAN}x dalam 15 menit — permintaan ditolak sebelum verifikasi.`;
+      await catatLogin(ctx, {
+        userId: pemilik?._id,
+        status: "diblokir",
+        metode: "password",
+        ip: "tidak diketahui",
+        userAgent: "tidak diketahui",
+        keterangan,
+      });
+      await ctx.db.insert("auditLog", {
+        aktorLabel: "Percobaan masuk Super Admin",
+        aksi: "admin_login_diblokir",
+        target: bersih,
+        detail: keterangan,
+        waktu: Date.now(),
+      });
+      return {
+        blocked: true,
+        sisaDetik: Math.max(
+          1,
+          Math.ceil((tertua + ADMIN_RATE_WINDOW_MS - Date.now()) / 1000),
+        ),
+      };
+    }
+
+    await ctx.db.insert("adminLoginAttempts", { email: bersih, waktu: Date.now() });
+    return { blocked: false, sisaDetik: 0 };
   },
 });
 

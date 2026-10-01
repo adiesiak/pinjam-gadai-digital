@@ -428,6 +428,10 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
         setError("Email atau kata sandi Super Admin tidak sesuai.");
       } else if (/account.*exist|already exists/i.test(message)) {
         setError("Password sudah aktif. Silakan masuk atau gunakan Lupa kata sandi.");
+      } else if (/terlalu banyak percobaan masuk super admin/i.test(message)) {
+        setError(
+          "Terlalu banyak percobaan masuk. Tunggu beberapa menit sebelum mencoba lagi.",
+        );
       } else if (/account.*not found|could not find/i.test(message)) {
         setError("Password belum diaktifkan atau akun tidak ditemukan. Gunakan Aktivasi password.");
       } else {

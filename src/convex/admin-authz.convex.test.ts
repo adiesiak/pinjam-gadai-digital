@@ -658,4 +658,43 @@ describe("otorisasi MFA backend", () => {
       }),
     ).resolves.toEqual({ ok: true });
   });
+
+  it("membatasi percobaan kata sandi Super Admin di server dan mencatatnya", async () => {
+    const t = convexTest(schema, modules);
+    const email = "admin-rate@pindai.test";
+    const { userId } = await buatPengguna(t, "Admin rate limit", {
+      email,
+      emailVerificationTime: Date.now(),
+      role: "admin",
+    });
+
+    // Lima percobaan pertama masih lolos. Hitungannya murni dari server:
+    // mutation ini tidak menerima IP/identifier kiriman klien, jadi skrip yang
+    // memanggil API langsung tetap terhitung.
+    for (let ke = 1; ke <= 5; ke += 1) {
+      await expect(
+        t.mutation(internal.security.catatPercobaanKataSandiAdmin, { email }),
+      ).resolves.toEqual({ blocked: false, sisaDetik: 0 });
+    }
+
+    const keenam = await t.mutation(internal.security.catatPercobaanKataSandiAdmin, {
+      email,
+    });
+    expect(keenam.blocked).toBe(true);
+    expect(keenam.sisaDetik).toBeGreaterThan(0);
+
+    // Upaya masuk terekam agar terlihat tim di panel keamanan + audit trail.
+    const log = await t.run((ctx) => ctx.db.query("loginLogs").collect());
+    expect(log).toHaveLength(1);
+    expect(log[0]).toMatchObject({ userId, status: "diblokir", metode: "password" });
+    const audit = await t.run((ctx) => ctx.db.query("auditLog").collect());
+    expect(audit.map((a) => a.aksi)).toContain("admin_login_diblokir");
+
+    // Blokir berlaku per email admin, bukan global.
+    await expect(
+      t.mutation(internal.security.catatPercobaanKataSandiAdmin, {
+        email: "admin-lain@pindai.test",
+      }),
+    ).resolves.toEqual({ blocked: false, sisaDetik: 0 });
+  });
 });

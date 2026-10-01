@@ -298,6 +298,19 @@ const schema = defineSchema(
       .index("by_ip", ["ip"]),
 
     /**
+     * Pembatas percobaan kata sandi Super Admin — pencatat yang dihitung
+     * server. Berbeda dari `loginAttempts` (IP/identifier dikirim klien),
+     * tabel ini diisi di dalam `adminPassword.authorize` SEBELUM kata sandi
+     * diverifikasi, sehingga klien tidak bisa melewatinya. 5 percobaan /
+     * 15 menit per email admin.
+     */
+    adminLoginAttempts: defineTable({
+      /** Email admin (lowercase). */
+      email: v.string(),
+      waktu: v.number(),
+    }).index("by_email", ["email"]),
+
+    /**
      * Log login append-only (Rule Audit Trail) — status, IP, UA, timestamp.
      * Ditulis lewat action (butuh fetch WA) lalu mutation internal.
      */
