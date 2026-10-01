@@ -310,6 +310,45 @@ describe("ruang penyedia dana (lihat saja)", () => {
     }
   });
 
+  it("tahan baris alokasi lama (field `pendanaId`) dan memakai email sebagai identitas cadangan", async () => {
+    const t = convexTest(schema, modules);
+    const { userId } = await siapkanPengguna(t, "rani", {
+      email: "rani@pindai.test",
+      role: "peminjam",
+    });
+    // Akun penyedia dana tanpa `name` — identitas jatuh ke email.
+    const { sesi: dana, userId: danaId } = await siapkanPengguna(t, "", {
+      email: "robert@pindai.test",
+      role: "dana",
+    });
+    await t.run(async (ctx) => {
+      const loanId = await ctx.db.insert("loans", {
+        userId,
+        pokokPinjaman: 1_000_000,
+        tujuan: "Modal usaha",
+        namaLengkap: NAMA_PEMOHON,
+        nomorRekening: RAHASIA.nomorRekening,
+        status: "didanai",
+        nomorReferensi: "PGD-LEGACY-1",
+        tenorHari: 30,
+        didanaiPada: Date.now(),
+      });
+      // Bentuk baris lama: id penyedia tersimpan sebagai `pendanaId`.
+      await ctx.db.insert("fundings", {
+        loanId,
+        pendanaId: danaId,
+        jumlahAlokasi: 1_000_000,
+        imbalHasil: 300_000,
+        status: "dialokasikan",
+        nomorReferensi: "FND-LEGACY-1",
+      } as never);
+    });
+
+    const hasil = await dana.query(api.penyediaDana.daftarPengajuan, {});
+    const baris = hasil.pinjaman.find((b) => b.nomorReferensi === "PGD-LEGACY-1");
+    expect(baris?.pendana).toBe("robert@pindai.test");
+  });
+
   it("akses hanya diberikan/dicabut admin, idempoten, dan tercatat di audit", async () => {
     const t = convexTest(schema, modules);
     const { sesi: admin } = await siapkanPengguna(t, "admin", {

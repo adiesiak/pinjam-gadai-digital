@@ -175,14 +175,25 @@ export const daftarPengajuan = query({
       const cached = namaCache.get(userId);
       if (cached !== undefined) return cached;
       const penyedia = await ctx.db.get(userId);
-      const nama = penyedia?.name ?? null;
+      // Akun penyedia dana umumnya tidak mengisi `name` (login OTP/anonymous),
+      // jadi email dipakai sebagai identitas cadangan untuk kolom "Pendana".
+      const namaAkun = penyedia?.name?.trim();
+      const nama = namaAkun ? namaAkun : (penyedia?.email ?? null);
       namaCache.set(userId, nama);
       return nama;
     }
-    async function rangkaiPendana(ids: Id<"users">[]): Promise<string | null> {
-      if (ids.length === 0) return null;
+    // Baris alokasi lama menyimpan id penyedia dengan nama field `pendanaId`
+    // (lihat convex/migrasiPendanaId.ts). Dibaca toleran supaya satu baris
+    // bentuk lama tidak pernah merobohkan seluruh halaman.
+    function idPendana(baris: { danaId?: unknown; pendanaId?: unknown }): Id<"users"> | null {
+      const id = baris.danaId ?? baris.pendanaId;
+      return typeof id === "string" ? (id as Id<"users">) : null;
+    }
+    async function rangkaiPendana(ids: (Id<"users"> | null)[]): Promise<string | null> {
+      const sah = ids.filter((id): id is Id<"users"> => id !== null);
+      if (sah.length === 0) return null;
       const nama: string[] = [];
-      for (const id of ids) {
+      for (const id of sah) {
         nama.push((await namaPenyedia(id)) ?? "Penyedia dana");
       }
       return [...new Set(nama)].join(", ");
@@ -192,14 +203,14 @@ export const daftarPengajuan = query({
         .query("fundings")
         .withIndex("by_loan", (q) => q.eq("loanId", loanId))
         .collect();
-      return rangkaiPendana(alokasi.map((a) => a.danaId));
+      return rangkaiPendana(alokasi.map((a) => idPendana(a)));
     }
     async function pendanaKredit(kreditId: Id<"kreditBarang">): Promise<string | null> {
       const alokasi = await ctx.db
         .query("kreditFundings")
         .withIndex("by_kredit", (q) => q.eq("kreditId", kreditId))
         .collect();
-      return rangkaiPendana(alokasi.map((a) => a.danaId));
+      return rangkaiPendana(alokasi.map((a) => idPendana(a)));
     }
 
     const pinjamanMentah = await ctx.db
