@@ -40,7 +40,13 @@ export function SystemConfigPanel() {
         <div className="grid grid-cols-3 gap-3">
           {(["persenAdmin", "persenPlatform", "persenBunga"] as const).map((k) => (
             <div key={k}>
-              <Label htmlFor={`cfg-${k}`}>{k === "persenAdmin" ? "Biaya admin %" : k === "persenPlatform" ? "Biaya platform %" : "Bunga %"}</Label>
+              <Label htmlFor={`cfg-${k}`}>
+                {k === "persenAdmin"
+                  ? "Potongan admin atas Imbal Hasil %"
+                  : k === "persenPlatform"
+                    ? "Biaya platform %"
+                    : "Bunga %"}
+              </Label>
               <Input
                 id={`cfg-${k}`}
                 type="number"

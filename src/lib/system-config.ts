@@ -56,7 +56,12 @@ export const DEFAULT_CONFIG: SystemConfig = {
   tema: "tinta",
   killSwitch: false,
   maintenanceMode: false,
-  persenAdmin: 2,
+  /**
+   * Potongan admin atas Imbal Hasil (keuntungan) penyedia dana.
+   * Dibaca saat pelunasan pinjaman — lihat lib/bagiHasil.ts dan repayLoan di
+   * convex/loans.ts. Pembulatan selalu ke bawah: sisa rupiah milik penyedia dana.
+   */
+  persenAdmin: 5,
   persenPlatform: 3,
   persenBunga: 30,
   maxLtvPersen: 70,

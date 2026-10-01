@@ -795,6 +795,13 @@ const schema = defineSchema(
         v.literal("dibatalkan"),
       ),
       nomorReferensi: v.string(),
+      // ===== Jejak pembagian Imbal Hasil saat pelunasan (diisi saat settlement) =====
+      /** Rupiah bulat — potongan admin atas Imbal Hasil alokasi ini. */
+      potonganAdmin: v.optional(v.number()),
+      /** Rupiah bulat — Imbal Hasil yang benar-benar masuk dompet penyedia dana. */
+      imbalHasilNet: v.optional(v.number()),
+      /** Waktu pelunasan yang membayar alokasi ini (server). */
+      diselesaikanPada: v.optional(v.number()),
     })
       .index("by_loan", ["loanId"])
       .index("by_dana", ["danaId"]),

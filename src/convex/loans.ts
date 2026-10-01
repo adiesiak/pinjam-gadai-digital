@@ -33,6 +33,7 @@ import {
   hitungSimulasiBulanan,
   TENOR_BULANAN_OPTIONS,
 } from "../lib/bulanan";
+import { bagiImbalHasil } from "../lib/bagiHasil";
 import { formatRupiah, type Rupiah } from "../lib/money";
 import { COLLATERAL_CATEGORIES } from "../lib/pawn";
 import { akunDompetDana, appendJournal } from "./ledger";
@@ -1146,9 +1147,18 @@ export const hapusGadai = mutation({
  * skema bulanan (tenorBulan): Σ cicilan + biaya layanan (fee platform).
  * Jurnal (semua dalam satu mutation transaksional, append-only):
  *   1. D platform:CASH total kewajiban | K pinjaman:<id>
- *   2. D pinjaman:<id> p_i+im_i | K akun dompet dana:i  (bayar tiap penyedia dana)
+ *   2. Per penyedia dana (satu jurnal seimbang):
+ *      D akun dompet dana:i (pokok + Imbal Hasil bersih)
+ *      D platform:FEE (potongan admin atas Imbal Hasil)
+ *      K pinjaman:<id> (pokok + Imbal Hasil bruto)
  * Dust pembulatan proporsi imbal hasil diberikan ke penyedia dana dengan alokasi
  * terbesar, sehingga akun pinjaman tepat nol dan total keluar tepat.
+ *
+ * Potongan admin dibaca dari Pengaturan Sistem (`persenAdmin`) dan dihitung oleh
+ * lib/bagiHasil.ts dengan pembulatan ke bawah: sisa rupiah selalu milik penyedia
+ * dana, tidak pernah masuk ke kas admin. Alokasi yang sudah dibayar dicap
+ * `potonganAdmin`, `imbalHasilNet`, dan `diselesaikanPada` sebagai bukti audit
+ * angka yang benar-benar dibayarkan (bukan hitungan ulang saat pelaporan).
  */
 export const repayLoan = mutation({
   args: { loanId: v.id("loans") },
@@ -1168,6 +1178,7 @@ export const repayLoan = mutation({
     if (loan.didanaiPada === undefined) {
       throw new Error("Pinjaman ini belum memiliki waktu mulai berjalan yang valid.");
     }
+    const cfg = await getConfig(ctx);
     const pelunasan = pelunasanInfo(loan, now);
     if (pelunasan === null) {
       throw new Error("Kewajiban pelunasan tidak dapat dihitung untuk pinjaman ini.");
@@ -1245,19 +1256,42 @@ export const repayLoan = mutation({
     imbalBagian[0].imbal += dust; // dust selalu >= 0 dan < jumlah penyedia dana
 
     let terdistribusi = 0;
+    let totalPotonganAdmin = 0;
     for (const { funding: f, imbal } of imbalBagian) {
-      const payout = f.jumlahAlokasi + imbal;
+      // Potongan admin atas keuntungan penyedia dana (kebijakan Pengaturan Sistem).
+      const { potonganAdmin, imbalBersih } = bagiImbalHasil(imbal, cfg.persenAdmin);
+      const payout = f.jumlahAlokasi + imbalBersih;
       await appendJournal(ctx, {
         jenis: "payout",
-        keterangan: `Pelunasan: pembayaran ke ${f.nomorReferensi} (${loan.nomorReferensi})`,
+        keterangan:
+          potonganAdmin > 0
+            ? `Pelunasan: pembayaran ke ${f.nomorReferensi} (${loan.nomorReferensi}) — Imbal Hasil bruto ${imbal}, potongan admin ${cfg.persenAdmin}% sebesar ${potonganAdmin}, dibayarkan bersih ${imbalBersih}`
+            : `Pelunasan: pembayaran ke ${f.nomorReferensi} (${loan.nomorReferensi})`,
         aktor: "platform",
         lines: [
           // Debit menaikkan saldo dompet penyedia dana; kredit menurunkan akun pinjaman.
           { akun: akunDompetDana(f.danaId), arah: "debit", jumlah: payout },
-          { akun: `pinjaman:${args.loanId}`, arah: "kredit", jumlah: payout },
+          // Potongan admin masuk kas admin; hanya ditulis bila ada nilainya.
+          ...(potonganAdmin > 0
+            ? [
+                {
+                  akun: "platform:FEE",
+                  arah: "debit" as const,
+                  jumlah: potonganAdmin,
+                },
+              ]
+            : []),
+          { akun: `pinjaman:${args.loanId}`, arah: "kredit", jumlah: f.jumlahAlokasi + imbal },
         ],
       });
       terdistribusi += payout;
+      totalPotonganAdmin += potonganAdmin;
+      // Cap bukti audit: berapa bruto, berapa dipotong, berapa dibayarkan.
+      await ctx.db.patch(f._id, {
+        potonganAdmin,
+        imbalHasilNet: imbalBersih,
+        diselesaikanPada: now,
+      });
     }
 
     // 3. Biaya tenor dipotong di muka saat pencairan (convex/alokasiDana.ts);
@@ -1276,12 +1310,20 @@ export const repayLoan = mutation({
       });
     }
 
-    // 4. Sanity: total kas masuk (kewajiban + denda) = kewajiban ke akun
-    //    pinjaman (payout penyedia dana + fee) + denda. Gagal = rollback penuh.
+    // 4. Sanity: total kas masuk (kewajiban + denda) = payout ke penyedia dana +
+    //    potongan admin atas Imbal Hasil + fee + denda. Gagal = rollback penuh.
+    //    Potongan admin TIDAK menambah kas (ia bagian dari kewajiban yang sudah
+    //    masuk), jadi ia dikurangkan dari sisi yang dibayarkan — bukan ditambah.
     const totalKasMasuk = totalKewajibanDana + feePlatform + feeAdmin + pelunasan.dendaTerlambat;
-    if (totalKasMasuk !== terdistribusi + feePlatform + feeAdmin + pelunasan.dendaTerlambat) {
+    const totalDibayarkan =
+      terdistribusi +
+      totalPotonganAdmin +
+      feePlatform +
+      feeAdmin +
+      pelunasan.dendaTerlambat;
+    if (totalKasMasuk !== totalDibayarkan) {
       throw new Error(
-        `Pelunasan tidak seimbang: selisih ${totalKasMasuk - terdistribusi - feePlatform - feeAdmin - pelunasan.dendaTerlambat}. Transaksi dibatalkan.`,
+        `Pelunasan tidak seimbang: selisih ${totalKasMasuk - totalDibayarkan}. Transaksi dibatalkan.`,
       );
     }
 
@@ -1321,6 +1363,9 @@ export const repayLoan = mutation({
       totalDibayar: totalKasMasuk,
       dendaTerlambat: pelunasan.dendaTerlambat,
       hariTerlambat: pelunasan.hariTerlambat,
+      /** Potongan admin atas Imbal Hasil seluruh penyedia dana pada pinjaman ini. */
+      potonganAdmin: totalPotonganAdmin,
+      persenPotonganAdmin: cfg.persenAdmin,
     };
   },
 });

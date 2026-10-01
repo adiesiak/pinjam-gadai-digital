@@ -116,6 +116,10 @@ type Alokasi = {
   statusPengajuan: string | null;
   pokokPorsi: number;
   imbalHasil: number;
+  potonganAdmin: number;
+  imbalBersih: number;
+  /** true = angka masih perkiraan (alokasi berjalan), false = sudah dibayarkan. */
+  perkiraan: boolean;
   status: string;
   waktu: number;
 };
@@ -132,7 +136,15 @@ function TabelAlokasi({ judul, rows }: { judul: string; rows: Alokasi[] }) {
       <Table>
         <TableHeader>
           <TableRow className="bg-slate-50/80">
-            {["Referensi", "Pokok porsi", "Imbal hasil", "Status", "Waktu"].map((kolom) => (
+            {[
+              "Referensi",
+              "Pokok porsi",
+              "Imbal bruto",
+              "Potongan admin",
+              "Bersih untuk penyedia",
+              "Status",
+              "Waktu",
+            ].map((kolom) => (
               <TableHead
                 key={kolom}
                 className="whitespace-nowrap text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500"
@@ -150,6 +162,17 @@ function TabelAlokasi({ judul, rows }: { judul: string; rows: Alokasi[] }) {
               </TableCell>
               <TableCell className="whitespace-nowrap tabular-nums">{rupiah(r.pokokPorsi)}</TableCell>
               <TableCell className="whitespace-nowrap tabular-nums">{rupiah(r.imbalHasil)}</TableCell>
+              <TableCell className="whitespace-nowrap tabular-nums text-amber-700">
+                {r.potonganAdmin === 0 ? "—" : `− ${rupiah(r.potonganAdmin)}`}
+              </TableCell>
+              <TableCell className="whitespace-nowrap font-medium tabular-nums">
+                {rupiah(r.imbalBersih)}
+                {r.perkiraan && (
+                  <span className="ml-1 text-[10px] font-normal text-muted-foreground">
+                    (perkiraan)
+                  </span>
+                )}
+              </TableCell>
               <TableCell className="whitespace-nowrap text-xs text-slate-600">
                 {LABEL_STATUS[r.status] ?? r.status}
               </TableCell>
@@ -220,7 +243,41 @@ function RincianPenyedia({ userId }: { userId: Id<"users"> }) {
 
   return (
     <>
-      <dl className="mt-1">
+      <section className="mt-2 rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">
+          Pembagian keuntungan · potongan admin {data.ringkasKeuntungan.persenPotonganAdmin}%
+        </p>
+        <dl className="mt-2 grid gap-x-6 sm:grid-cols-2">
+          <BarisRincian label="Total pokok dialokasikan" nilai={rupiah(data.ringkasKeuntungan.pokok)} />
+          <BarisRincian
+            label="Saldo berjalan (belum kembali)"
+            nilai={rupiah(data.ringkasKeuntungan.saldoBerjalan)}
+          />
+          <BarisRincian
+            label="Keuntungan bruto sudah dibayar"
+            nilai={rupiah(data.ringkasKeuntungan.brutoTerealisasi)}
+          />
+          <BarisRincian
+            label="Potongan admin (sudah diambil)"
+            nilai={<span className="tabular-nums">− {rupiah(data.ringkasKeuntungan.potonganTerealisasi)}</span>}
+          />
+          <BarisRincian
+            label="Keuntungan bersih dibayarkan"
+            nilai={<strong>{rupiah(data.ringkasKeuntungan.bersihTerealisasi)}</strong>}
+          />
+          <BarisRincian
+            label="Keuntungan masih berjalan (perkiraan)"
+            nilai={rupiah(data.ringkasKeuntungan.bersihDiharapkan)}
+          />
+        </dl>
+        <p className="mt-2 text-[11px] leading-5 text-muted-foreground">
+          Angka "sudah dibayar" dibaca dari cap settlement saat pelunasan; angka "berjalan" adalah
+          perkiraan dengan kebijakan potongan yang berlaku sekarang, dibulatkan ke bawah sehingga
+          sisa rupiah tetap milik penyedia dana.
+        </p>
+      </section>
+
+      <dl className="mt-4">
         <BarisRincian label="Nama akun" nilai={data.nama} />
         <BarisRincian label="Email" nilai={data.email ?? "tanpa email (sesi kode bersama)"} />
         <BarisRincian
@@ -330,15 +387,15 @@ export function PenyediaDanaTable() {
           icon={<Wallet className="size-4" />}
         />
         <Kartu
-          label="Dana bekerja"
-          nilai={rupiah(ringkasan.danaBekerja)}
-          detail="alokasi berstatus sedang bekerja"
+          label="Saldo berjalan"
+          nilai={rupiah(ringkasan.saldoBerjalan)}
+          detail="pokok yang belum kembali"
           icon={<Wallet className="size-4" />}
         />
         <Kartu
-          label="Imbal hasil diharapkan"
-          nilai={rupiah(ringkasan.imbalHasilDiharapkan)}
-          detail="hak atas alokasi yang sedang bekerja"
+          label={`Keuntungan bersih (${ringkasan.persenPotonganAdmin}% ke admin)`}
+          nilai={rupiah(ringkasan.imbalBersihDiharapkan)}
+          detail={`bruto ${rupiah(ringkasan.imbalBrutoDiharapkan)} − potongan ${rupiah(ringkasan.potonganAdminDiharapkan)}`}
           icon={<Wallet className="size-4" />}
         />
         <Kartu
@@ -376,6 +433,15 @@ export function PenyediaDanaTable() {
         <Badge variant="outline" className="border-slate-200 text-muted-foreground">
           total setoran terverifikasi {rupiah(ringkasan.totalSetoran)}
         </Badge>
+        <Badge
+          variant="outline"
+          className="border-emerald-200 bg-emerald-50 text-emerald-800"
+        >
+          keuntungan bersih sudah dibayar {rupiah(ringkasan.imbalBersihTerealisasi)}
+        </Badge>
+        <Badge variant="outline" className="border-slate-200 text-muted-foreground">
+          total disalurkan {rupiah(ringkasan.totalDisalurkan)}
+        </Badge>
         {ringkasan.jumlahPeranLegacy > 0 && (
           <Badge variant="outline" className="border-amber-200 bg-amber-50 text-amber-800">
             {ringkasan.jumlahPeranLegacy} akun berperan lama (belum berakses)
@@ -411,8 +477,11 @@ export function PenyediaDanaTable() {
                   "Penyedia dana",
                   "Status",
                   "Alokasi",
-                  "Dana bekerja",
-                  "Imbal hasil",
+                  "Total disalurkan",
+                  "Saldo berjalan",
+                  `Keuntungan bruto`,
+                  `Potongan admin (${ringkasan.persenPotonganAdmin}%)`,
+                  "Keuntungan bersih",
                   "Saldo dompet",
                   "Aktivitas terakhir",
                   "Aksi",
@@ -435,7 +504,8 @@ export function PenyediaDanaTable() {
                       {r.email ?? "tanpa email · sesi kode bersama"}
                     </p>
                     <p className="mt-0.5 text-[11px] text-muted-foreground">
-                      terdaftar {tanggalRingkas(r.terdaftarPada)}
+                      {r.jumlahAlokasi} alokasi · {r.jumlahPeminjam} peminjam · terdaftar{" "}
+                      {tanggalRingkas(r.terdaftarPada)}
                     </p>
                   </TableCell>
                   <TableCell className="align-top">
@@ -491,11 +561,23 @@ export function PenyediaDanaTable() {
                   <TableCell className="whitespace-nowrap align-top tabular-nums">
                     {r.jumlahAlokasi}
                   </TableCell>
+                  <TableCell className="whitespace-nowrap align-top tabular-nums">
+                    {rupiah(r.totalDisalurkan)}
+                  </TableCell>
                   <TableCell className="whitespace-nowrap align-top font-medium tabular-nums">
-                    {rupiah(r.danaBekerja)}
+                    {rupiah(r.saldoBerjalan)}
                   </TableCell>
                   <TableCell className="whitespace-nowrap align-top tabular-nums">
-                    {rupiah(r.imbalHasilDiharapkan)}
+                    {rupiah(r.imbalBrutoTerealisasi + r.imbalBrutoDiharapkan)}
+                    <span className="mt-0.5 block text-[10px] font-normal text-muted-foreground">
+                      {r.jumlahLunas} lunas · {r.jumlahAktif} berjalan
+                    </span>
+                  </TableCell>
+                  <TableCell className="whitespace-nowrap align-top tabular-nums text-amber-700">
+                    − {rupiah(r.potonganAdminTerealisasi + r.potonganAdminDiharapkan)}
+                  </TableCell>
+                  <TableCell className="whitespace-nowrap align-top font-semibold tabular-nums text-emerald-700">
+                    {rupiah(r.imbalBersihTerealisasi + r.imbalBersihDiharapkan)}
                   </TableCell>
                   <TableCell className="whitespace-nowrap align-top tabular-nums">
                     {rupiah(r.saldoDompet)}
