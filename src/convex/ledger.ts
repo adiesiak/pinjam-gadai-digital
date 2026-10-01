@@ -1,6 +1,13 @@
 import { v } from "convex/values";
 import { MutationCtx, QueryCtx } from "./_generated/server";
-import { akunDompetDana } from "../lib/legacy";
+
+/** Prefix akun dompet dana pada ledger, mis. `dana:WALLET:<userId>`. */
+export const PREFIX_AKUN_DANA = "dana:WALLET:";
+
+/** Nama akun ledger dompet dana untuk satu pengguna. */
+export function akunDompetDana(id: string): string {
+  return `${PREFIX_AKUN_DANA}${id}`;
+}
 
 /**
  * Mesin ledger double-entry (Rule 5.1).
@@ -10,7 +17,7 @@ import { akunDompetDana } from "../lib/legacy";
  */
 
 export interface JournalLine {
-  /** dompet dana (prefix di lib/legacy) | "pinjaman:<id>" | "platform:FEE" */
+  /** dompet dana ("dana:WALLET:<id>") | "pinjaman:<id>" | "platform:FEE" */
   akun: string;
   arah: "debit" | "kredit";
   jumlah: number;

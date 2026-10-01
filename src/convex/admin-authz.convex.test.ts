@@ -15,7 +15,6 @@ import {
 } from "./auth/enumerasi";
 import { CONTRACT_TERMS_VERSION } from "../lib/contract";
 import { totpNow } from "../lib/totp";
-import { ROLE_LAMA } from "../lib/legacy";
 import schema from "./schema";
 import {
   aktifkanTotpUntukSesi,
@@ -648,7 +647,7 @@ describe("otorisasi MFA backend", () => {
     });
     const { sesi: dana, userId: danaId } = await buatPengguna(t, "Penyedia Dana OTP", {
       email: "dana-otp@pindai.test",
-      role: ROLE_LAMA,
+      role: "dana",
     });
 
     await expect(t.mutation(api.security.setWaOtpRequired, { wajib: true })).rejects.toThrow(

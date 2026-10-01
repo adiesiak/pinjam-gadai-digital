@@ -2,7 +2,6 @@ import { mutation, query, type QueryCtx } from "./_generated/server";
 import { v } from "convex/values";
 import type { Doc } from "./_generated/dataModel";
 import { getAdminGateStatus, requireAdminSession } from "./adminAuthz";
-import { ROLE_LAMA } from "../lib/legacy";
 
 /** Gerbang admin untuk CMS. */
 async function requireAdmin(ctx: QueryCtx) {
@@ -285,8 +284,15 @@ const FIELD_TEKS_LAMA: ReadonlyArray<{ field: string; label: string }> = [
 
 /**
  * Teks default lama (era penyedia dana) yang mungkin masih tersimpan walau tidak memuat
- * kata istilah lama (lihat lib/legacy), mis. menyebut "alokasi".
+ * kata istilah lama (lihat KATA_TEKS_LAMA), mis. menyebut "alokasi".
  */
+/**
+ * Kata kunci teks lama era "Pendana" yang mungkin masih tersimpan pada
+ * dokumen CMS. Nilai ini sengaja tetap literal — tugas pembersih justru
+ * mendeteksi teks lama tersebut, jadi ini bukan identifier data.
+ */
+const KATA_TEKS_LAMA = "pendana";
+
 const TEKS_LEGACY_DEFAULT = [
   "Pinjaman, gadai, dan alokasi dicatat di ledger internal PINDAI.",
 ];
@@ -318,7 +324,7 @@ export const bersihkanTeksLama = mutation({
       const nilai = row[field];
       if (typeof nilai !== "string") continue;
       const teksLama =
-        new RegExp(ROLE_LAMA, "i").test(nilai) ||
+        new RegExp(KATA_TEKS_LAMA, "i").test(nilai) ||
         TEKS_LEGACY_DEFAULT.includes(nilai.trim());
       if (!teksLama) continue;
       patch[field as keyof Doc<"pengumuman">] = undefined as never;

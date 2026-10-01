@@ -12,7 +12,6 @@ import schema from "./schema";
 import { siapkanPengguna } from "./test.helpers";
 import { modules } from "./test.setup";
 import { DEFAULTS } from "./announcements";
-import { ROLE_LAMA } from "../lib/legacy";
 
 describe("CMS situs publik — pengaturan admin", () => {
   it("admin mengubah konten landing, publik melihatnya, lalu reset ke default", async () => {
@@ -120,7 +119,7 @@ describe("CMS situs publik — pengaturan admin", () => {
     expect(publik.barTautan).toBe(DEFAULTS.bar.tautan);
     expect(publik.heroSub).toBe(DEFAULTS.hero.sub);
     // Default pengganti harus teks baru — bukan teks lama era penyedia dana.
-    expect(DEFAULTS.bar.teks).not.toMatch(new RegExp(`${ROLE_LAMA}|alokasi`, "i"));
+    expect(DEFAULTS.bar.teks).not.toMatch(/pendana|alokasi/i);
 
     // Idempoten: pemanggilan kedua tidak mengubah apa pun.
     await expect(admin.mutation(api.announcements.bersihkanTeksLama, {})).resolves.toEqual({

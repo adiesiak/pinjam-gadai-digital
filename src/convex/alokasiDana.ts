@@ -3,7 +3,6 @@ import { mutation, query, MutationCtx, QueryCtx } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { v } from "convex/values";
 import { ROLES } from "./schema";
-import { akunDompetDana, INDEX_DANA, KOLOM_DANA, ROLE_LAMA } from "../lib/legacy";
 import { DEFAULT_TENOR_HARI, pelunasanPinjaman, quoteLoan } from "../lib/loan";
 import { hitungSimulasiBulanan, TENOR_BULANAN_OPTIONS } from "../lib/bulanan";
 import {
@@ -13,7 +12,7 @@ import {
 } from "../lib/kredit";
 import { formatRupiah, type Rupiah } from "../lib/money";
 import { hitungBiayaPencairan } from "../lib/withdrawal";
-import { appendJournal, danaWalletBalance } from "./ledger";
+import { akunDompetDana, appendJournal, danaWalletBalance } from "./ledger";
 import { rejectUnverifiedMoneyMovement } from "./paymentGuard";
 
 /** Rentang bisnis alokasi pendanaan per transaksi. */
@@ -44,7 +43,7 @@ async function requireUser(ctx: QueryCtx) {
 
 async function requireDana(ctx: QueryCtx) {
   const { userId, user } = await requireUser(ctx);
-  if (user.role !== ROLE_LAMA) {
+  if (user.role !== ROLES.DANA) {
     throw new Error("Hanya akun penyedia dana yang dapat melakukan tindakan ini.");
   }
   return { userId, user };
@@ -246,10 +245,10 @@ export const naikPeranDana = mutation({
     if (user.role === ROLES.ADMIN) {
       throw new Error("Akun admin tidak perlu menjadi penyedia dana.");
     }
-    if (user.role === ROLE_LAMA) {
+    if (user.role === ROLES.DANA) {
       return { already: true };
     }
-    await ctx.db.patch(userId, { role: ROLE_LAMA });
+    await ctx.db.patch(userId, { role: ROLES.DANA });
     return { already: false };
   },
 });
@@ -304,7 +303,7 @@ export const requestDeposit = mutation({
     }
 
     await ctx.db.insert("deposits", {
-      [KOLOM_DANA]: userId,
+      danaId: userId,
       jumlah: args.jumlah,
       referensiTransfer: ref,
       metodePembayaran: args.metodePembayaran,
@@ -323,7 +322,7 @@ export const myDeposits = query({
     const { userId } = await requireDana(ctx);
     const rows = await ctx.db
       .query("deposits")
-      .withIndex(INDEX_DANA, (q) => q.eq(KOLOM_DANA, userId))
+      .withIndex("by_dana", (q) => q.eq("danaId", userId))
       .collect();
     return rows
       .sort((a, b) => b._creationTime - a._creationTime)
@@ -354,7 +353,7 @@ export const myWallet = query({
 
     const fundings = await ctx.db
       .query("fundings")
-      .withIndex(INDEX_DANA, (q) => q.eq(KOLOM_DANA, userId))
+      .withIndex("by_dana", (q) => q.eq("danaId", userId))
       .collect();
     const active = fundings.filter((f) => f.status === "dialokasikan");
 
@@ -362,7 +361,7 @@ export const myWallet = query({
     // dana yang dipindahkan dari dompet tidak "hilang" dari total penyedia dana.
     const kreditFundings = await ctx.db
       .query("kreditFundings")
-      .withIndex(INDEX_DANA, (q) => q.eq(KOLOM_DANA, userId))
+      .withIndex("by_dana", (q) => q.eq("danaId", userId))
       .collect();
     const kreditAktif = kreditFundings.filter((f) => f.status === "dialokasikan");
 
@@ -502,7 +501,7 @@ export const allocateFunding = mutation({
     const fndRef = referenceNumber("FND");
     await ctx.db.insert("fundings", {
       loanId: args.loanId,
-      [KOLOM_DANA]: userId,
+      danaId: userId,
       jumlahAlokasi: args.jumlah,
       imbalHasil,
       status: "dialokasikan",
@@ -635,7 +634,7 @@ export const requestWithdrawal = mutation({
 
     const nomorReferensi = referenceNumber("WDR");
     await ctx.db.insert("withdrawals", {
-      [KOLOM_DANA]: userId,
+      danaId: userId,
       jumlah: args.jumlah,
       namaBank: bank,
       nomorRekening: rek,
@@ -652,7 +651,7 @@ export const cancelWithdrawal = mutation({
   handler: async (ctx, args) => {
     const { userId } = await requireDana(ctx);
     const w = await ctx.db.get(args.withdrawalId);
-    if (w === null || w[KOLOM_DANA] !== userId) {
+    if (w === null || w.danaId !== userId) {
       throw new Error("Permintaan penarikan tidak ditemukan.");
     }
     if (w.status !== "menunggu_proses") {
@@ -669,7 +668,7 @@ export const myWithdrawals = query({
     const { userId } = await requireDana(ctx);
     const rows = await ctx.db
       .query("withdrawals")
-      .withIndex(INDEX_DANA, (q) => q.eq(KOLOM_DANA, userId))
+      .withIndex("by_dana", (q) => q.eq("danaId", userId))
       .collect();
     return rows
       .sort((a, b) => b._creationTime - a._creationTime)
@@ -698,7 +697,7 @@ export const myPortfolio = query({
     const { userId } = await requireDana(ctx);
     const fundings = await ctx.db
       .query("fundings")
-      .withIndex(INDEX_DANA, (q) => q.eq(KOLOM_DANA, userId))
+      .withIndex("by_dana", (q) => q.eq("danaId", userId))
       .collect();
     const now = Date.now();
     const result = [];
@@ -768,7 +767,7 @@ export const myFundingContracts = query({
     const { userId } = await requireDana(ctx);
     const fundings = await ctx.db
       .query("fundings")
-      .withIndex(INDEX_DANA, (q) => q.eq(KOLOM_DANA, userId))
+      .withIndex("by_dana", (q) => q.eq("danaId", userId))
       .collect();
     const result = [];
     for (const f of fundings.sort((a, b) => b._creationTime - a._creationTime)) {
@@ -809,7 +808,7 @@ export const myFundings = query({
     const { userId } = await requireDana(ctx);
     const rows = await ctx.db
       .query("fundings")
-      .withIndex(INDEX_DANA, (q) => q.eq(KOLOM_DANA, userId))
+      .withIndex("by_dana", (q) => q.eq("danaId", userId))
       .collect();
     const result: Array<{
       _id: Id<"fundings"> | Id<"kreditFundings">;
@@ -838,7 +837,7 @@ export const myFundings = query({
     }
     const kreditRows = await ctx.db
       .query("kreditFundings")
-      .withIndex(INDEX_DANA, (q) => q.eq(KOLOM_DANA, userId))
+      .withIndex("by_dana", (q) => q.eq("danaId", userId))
       .collect();
     for (const f of kreditRows) {
       const kredit = await ctx.db.get(f.kreditId);
@@ -1045,7 +1044,7 @@ export const alokasiKreditBarang = mutation({
     const ref = referenceNumber("KFD");
     await ctx.db.insert("kreditFundings", {
       kreditId: args.kreditId,
-      [KOLOM_DANA]: userId,
+      danaId: userId,
       jumlahAlokasi: args.jumlah,
       imbalHasil,
       status: "dialokasikan",
@@ -1153,7 +1152,7 @@ export const myKreditFundings = query({
     const { userId } = await requireDana(ctx);
     const rows = await ctx.db
       .query("kreditFundings")
-      .withIndex(INDEX_DANA, (q) => q.eq(KOLOM_DANA, userId))
+      .withIndex("by_dana", (q) => q.eq("danaId", userId))
       .collect();
     const hasil = [];
     for (const f of rows.sort((a, b) => b._creationTime - a._creationTime)) {

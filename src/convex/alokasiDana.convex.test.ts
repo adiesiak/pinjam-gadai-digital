@@ -18,7 +18,6 @@ import {
   type PenggunaUji,
 } from "./test.helpers";
 import { modules } from "./test.setup";
-import { KOLOM_DANA, ROLE_LAMA } from "../lib/legacy";
 
 type Tx = KonteksUji;
 
@@ -100,14 +99,14 @@ describe("alur penyedia dana — pinjaman tunai", () => {
       )?._id;
       if (danaId === undefined) throw new Error("Akun dana uji tidak ditemukan.");
       const depositId = await ctx.db.insert("deposits", {
-        [KOLOM_DANA]: danaId,
+        danaId,
         jumlah: 2_000_000,
         referensiTransfer: "TRF-ALUR-001",
         status: "menunggu_verifikasi",
         nomorReferensi: "DEP-ALUR-001",
       });
       const withdrawalId = await ctx.db.insert("withdrawals", {
-        [KOLOM_DANA]: danaId,
+        danaId,
         jumlah: 500_000,
         namaBank: "BCA",
         nomorRekening: "1234567890",
@@ -215,7 +214,7 @@ describe("alur penyedia dana — pinjaman tunai", () => {
       t,
       "dana-bukti-ditolak",
       "dana-bukti-ditolak@pindai.test",
-      ROLE_LAMA,
+      "dana",
     );
     const { sesi: admin } = await siapkanPengguna(
       t,
@@ -225,7 +224,7 @@ describe("alur penyedia dana — pinjaman tunai", () => {
     );
     const depositId = await t.run((ctx) =>
       ctx.db.insert("deposits", {
-        [KOLOM_DANA]: danaId,
+        danaId,
         jumlah: 250_000,
         referensiTransfer: "TRF-BUKTI-001",
         status: "menunggu_verifikasi",
@@ -263,7 +262,7 @@ describe("alur penyedia dana — pinjaman tunai", () => {
       t,
       "dana-bulanan",
       "dana-bulanan@pindai.test",
-      ROLE_LAMA,
+      "dana",
     );
     await t.run((ctx) =>
       ctx.db.insert("loans", {

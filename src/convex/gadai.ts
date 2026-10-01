@@ -6,7 +6,6 @@ import { audit } from "./system";
 import { GADAI_PRICING, quoteGadai, sewaModalBerikutnya } from "../lib/gadai";
 import { formatRupiah, percentOf } from "../lib/money";
 import { rejectUnverifiedMoneyMovement } from "./paymentGuard";
-import { AUDIT_GADAI_DANA } from "../lib/legacy";
 
 function requireAdmin(ctx: MutationCtx) {
   return requireAdminSession(ctx);
@@ -57,7 +56,7 @@ export const setDanaGadai = mutation({
       persenSewaModal: args.persenSewaModal,
       sisaPokok: args.pokokGadai,
     });
-    await audit(ctx, userId, user.email ?? user.name ?? "admin", AUDIT_GADAI_DANA, pawn.nomorReferensi, `Pokok ${formatRupiah(args.pokokGadai)} (LTV ≤70%), sewa modal ${args.persenSewaModal}%/30 hari`);
+    await audit(ctx, userId, user.email ?? user.name ?? "admin", "gadai_dana", pawn.nomorReferensi, `Pokok ${formatRupiah(args.pokokGadai)} (LTV ≤70%), sewa modal ${args.persenSewaModal}%/30 hari`);
     return { ok: true };
   },
 });

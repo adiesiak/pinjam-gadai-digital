@@ -11,7 +11,6 @@ import { createRoot } from "react-dom/client";
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router";
 import "./index.css";
 import { useSessionGuard } from "@/hooks/use-session-guard";
-import { RUTE_LAMA_DANA } from "@/lib/legacy";
 import { ADMIN_ROUTE } from "@/lib/routes";
 import { THEME_PRESETS, type ThemePreset } from "@/lib/system-config";
 import { api } from "@/convex/_generated/api";
@@ -238,7 +237,7 @@ createRoot(document.getElementById("root")!).render(
                 />
                 {/* Ruang penyedia dana dihapus dari produk — tautan lama diarahkan
                     ke dashboard Peminjam supaya tidak berujung 404. */}
-                <Route path={RUTE_LAMA_DANA} element={<Navigate to="/dashboard" replace />} />
+                <Route path="/pendana" element={<Navigate to="/dashboard" replace />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </Suspense>

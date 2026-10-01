@@ -12,7 +12,6 @@ import { v } from "convex/values";
 import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { ROLES } from "./schema";
-import { ROLE_LAMA } from "../lib/legacy";
 import { generateTotpSecret, verifyTotpCode } from "../lib/totp";
 import {
   addVerifiedAuthSession,
@@ -742,7 +741,7 @@ export const requestWaOtp = action({
     if (userId === null) throw new Error("Harus masuk terlebih dahulu.");
     const me: { role?: string } | null = await ctx.runQuery(api.users.currentRole, {});
     if (me === null) throw new Error("Harus masuk terlebih dahulu.");
-    if (me.role !== ROLE_LAMA && me.role !== ROLES.ADMIN) {
+    if (me.role !== ROLES.DANA && me.role !== ROLES.ADMIN) {
       throw new Error("OTP WhatsApp khusus akun penyedia dana.");
     }
 
@@ -866,7 +865,7 @@ export const verifyWaOtp = mutation({
   handler: async (ctx, { kode, ip, userAgent }) => {
     const user = await getUser(ctx);
     if (user === null) throw new Error("Harus masuk terlebih dahulu.");
-    if (user.role !== ROLE_LAMA && user.role !== ROLES.ADMIN) {
+    if (user.role !== ROLES.DANA && user.role !== ROLES.ADMIN) {
       throw new Error("OTP WhatsApp khusus akun penyedia dana.");
     }
     const mfa = await getMfa(ctx, user._id);
@@ -942,7 +941,7 @@ export const setWaOtpRequired = mutation({
   handler: async (ctx, { wajib }) => {
     const user = await getUser(ctx);
     if (user === null) throw new Error("Harus masuk terlebih dahulu.");
-    if (user.role !== ROLE_LAMA) {
+    if (user.role !== ROLES.DANA) {
       throw new Error("Pengaturan OTP WhatsApp khusus akun penyedia dana.");
     }
     const mfa = await getMfa(ctx, user._id);

@@ -12,7 +12,6 @@
  * Menjalankan: bunx vitest run src/convex/plafon.convex.test.ts
  */
 import { convexTest } from "convex-test";
-import { KOLOM_DANA, ROLE_LAMA } from "../lib/legacy";
 import { describe, expect, it } from "vitest";
 
 import { api } from "./_generated/api";
@@ -107,7 +106,7 @@ async function siapkanPinjamanTunaiDidanai(
       email: `dana-${pokokPinjaman}@pindai.test`,
       name: "Penyedia dana seed",
       emailVerificationTime: now,
-      role: ROLE_LAMA,
+      role: "dana",
     });
     await ctx.db.insert("lokasiStatus", {
       userId,
@@ -131,7 +130,7 @@ async function siapkanPinjamanTunaiDidanai(
     });
     await ctx.db.insert("fundings", {
       loanId,
-      [KOLOM_DANA]: danaId,
+      danaId,
       jumlahAlokasi: pokokPinjaman,
       imbalHasil: Math.round(pokokPinjaman * 0.3),
       status: "dialokasikan",

@@ -14,7 +14,6 @@ import {
   LoanStatusValue,
   PawnStatusValue,
 } from "./schema";
-import { akunDompetDana, KOLOM_DANA, ROLE_LAMA } from "../lib/legacy";
 import {
   apakahPelunasanTepatWaktu,
   pesanPlafonTerlampaui,
@@ -36,7 +35,7 @@ import {
 } from "../lib/bulanan";
 import { formatRupiah, type Rupiah } from "../lib/money";
 import { COLLATERAL_CATEGORIES } from "../lib/pawn";
-import { appendJournal } from "./ledger";
+import { akunDompetDana, appendJournal } from "./ledger";
 import { getConfig, audit } from "./system";
 import { requireGerbangLokasi } from "./lokasi";
 import { requireAdminSession } from "./adminAuthz";
@@ -396,7 +395,7 @@ export const createLoanApplication = mutation({
       throw new Error("Data tanda tangan terlalu besar.");
     }
 
-    if (user.role === undefined || user.role === ROLE_LAMA) {
+    if (user.role === undefined || user.role === ROLES.DANA) {
       await ctx.db.patch(userId, { role: ROLES.PEMINJAM });
     }
     await ensureKodePeminjam(ctx, userId);
@@ -767,7 +766,7 @@ export const createPawnApplication = mutation({
       throw new Error("Nomor rekening/akun e-wallet harus 6–20 digit angka.");
     }
 
-    if (user.role === undefined || user.role === ROLE_LAMA) {
+    if (user.role === undefined || user.role === ROLES.DANA) {
       await ctx.db.patch(userId, { role: ROLES.PEMINJAM });
     }
 
@@ -1254,7 +1253,7 @@ export const repayLoan = mutation({
         aktor: "platform",
         lines: [
           // Debit menaikkan saldo dompet penyedia dana; kredit menurunkan akun pinjaman.
-          { akun: akunDompetDana(f[KOLOM_DANA]), arah: "debit", jumlah: payout },
+          { akun: akunDompetDana(f.danaId), arah: "debit", jumlah: payout },
           { akun: `pinjaman:${args.loanId}`, arah: "kredit", jumlah: payout },
         ],
       });
