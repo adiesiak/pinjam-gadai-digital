@@ -51,7 +51,7 @@ export function PlafonPanel() {
   };
 
   return (
-    <div className="space-y-4">
+    <div className="animate-masuk space-y-4">
       <div>
         <p className="flex items-center gap-2 text-sm font-semibold">
           <SlidersHorizontal className="size-4 text-primary" /> Plafon nasabah

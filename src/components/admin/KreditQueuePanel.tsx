@@ -164,7 +164,7 @@ export function KreditQueuePanel() {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="animate-masuk space-y-8">
       <div className="relative">
         <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
         <Input

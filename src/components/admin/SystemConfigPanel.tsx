@@ -32,7 +32,7 @@ export function SystemConfigPanel() {
   const upd = <K extends keyof typeof DEFAULT_CONFIG>(k: K, v: (typeof DEFAULT_CONFIG)[K]) => setForm({ ...form, [k]: v });
 
   return (
-    <div className="grid gap-5 lg:grid-cols-2">
+    <div className="animate-masuk grid gap-5 lg:grid-cols-2">
       <div className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5">
         <p className="flex items-center gap-2 text-sm font-semibold text-navy">
           <Settings2 className="size-4 text-primary" /> Asumsi Perhitungan &amp; Pengaturan Akses

@@ -224,7 +224,7 @@ export function LiveLocationMap() {
         )}
       </div>
       {data !== undefined && (
-        <ul className="divide-y divide-slate-200 rounded-2xl border border-slate-200 bg-white">
+        <ul className="animate-masuk divide-y divide-slate-200 rounded-2xl border border-slate-200 bg-white">
           {data.rows
             .filter((r) => r.mismatch || r.tanda.length > 0)
             .map((r) => (
@@ -275,7 +275,7 @@ function PeringatanLokasiTerbaru() {
   }
   if (rows.length === 0) return null;
   return (
-    <div className="rounded-2xl border border-amber-200 bg-white">
+    <div className="animate-masuk rounded-2xl border border-amber-200 bg-white">
       <p className="border-b border-amber-100 bg-amber-50/70 px-5 py-3 text-sm font-medium text-amber-900">
         Peringatan lokasi terbaru (dikirim otomatis ke nasabah)
       </p>

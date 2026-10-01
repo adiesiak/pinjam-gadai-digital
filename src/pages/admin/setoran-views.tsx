@@ -80,7 +80,7 @@ export function SetoranSection({
       ) : pendingDeposits.length === 0 ? (
         <EmptyQueue icon={Wallet} title="Tidak ada catatan setoran menunggu tinjauan" />
       ) : (
-        <ul className="divide-y divide-slate-200 rounded-2xl border border-slate-200 bg-white">
+        <ul className="animate-masuk divide-y divide-slate-200 rounded-2xl border border-slate-200 bg-white">
           {pendingDeposits.map((d) => (
             <li key={d._id} className="flex flex-col gap-3 px-3 py-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:px-5">
               <div className="min-w-0">
@@ -113,7 +113,7 @@ export function SetoranSection({
       ) : pendingWd.length === 0 ? (
         <EmptyQueue icon={Wallet} title="Tidak ada catatan penarikan menunggu tinjauan" />
       ) : (
-        <ul className="divide-y divide-slate-200 rounded-2xl border border-slate-200 bg-white">
+        <ul className="animate-masuk divide-y divide-slate-200 rounded-2xl border border-slate-200 bg-white">
           {pendingWd.map((w) => (
             <li key={w._id} className="flex flex-col gap-3 px-3 py-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:px-5">
               <div className="min-w-0">
@@ -143,7 +143,7 @@ export function SetoranSection({
           <p className="mt-3 text-sm text-muted-foreground">Memuat…</p>
         ) : (
           <>
-            <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3">
+            <div className="animate-masuk mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3">
               {[
                 ["Total debit", formatRupiah(ledger.totalDebit)],
                 ["Total kredit", formatRupiah(ledger.totalKredit)],

@@ -51,7 +51,7 @@ export function LoanKycPanel({ row }: { row: LoanRow }) {
       ) : urls === null ? (
         <p className="text-sm text-muted-foreground">Data KYC tidak ditemukan untuk pinjaman ini.</p>
       ) : (
-        <>
+        <div className="animate-masuk flex flex-col gap-3">
           <div className="grid gap-x-4 gap-y-2 text-sm sm:grid-cols-2">
             <p className="text-muted-foreground">
               NIK: <span className="tabular-nums text-navy">{urls.nik ?? "—"}</span>
@@ -128,7 +128,7 @@ export function LoanKycPanel({ row }: { row: LoanRow }) {
               </div>
             </div>
           )}
-        </>
+        </div>
       )}
     </div>
   );

@@ -80,7 +80,7 @@ export function LoginSecurityPanel({ onOpenSetup }: { onOpenSetup: () => void })
         ) : sessions.length === 0 ? (
           <p className="mt-3 text-sm text-muted-foreground">Tidak ada sesi aktif.</p>
         ) : (
-          <ul className="mt-4 divide-y divide-slate-200">
+          <ul className="animate-masuk mt-4 divide-y divide-slate-200">
             {sessions.map((s) => (
               <li key={s._id} className="flex flex-wrap items-center justify-between gap-2 py-3">
                 <div className="min-w-0">
@@ -113,7 +113,7 @@ export function LoginSecurityPanel({ onOpenSetup }: { onOpenSetup: () => void })
             Belum ada aktivitas login tercatat.
           </p>
         ) : (
-          <div className="mt-4 overflow-x-auto">
+          <div className="animate-masuk mt-4 overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead>
                 <tr className="border-b border-slate-200 text-xs uppercase tracking-wide text-muted-foreground">

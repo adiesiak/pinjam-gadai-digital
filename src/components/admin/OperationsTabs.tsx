@@ -29,7 +29,7 @@ export function LoanAllocationQueueTab({ onOpen }: { onOpen: (l: LoanRow) => voi
     return <EmptyQueue icon={Wallet} title="Tidak ada pengajuan berstatus disetujui internal" />;
   }
   return (
-    <div className="space-y-3">
+    <div className="animate-masuk space-y-3">
       <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900">
         Daftar ini hanya menampilkan keputusan review internal dan hitungan aplikasi. Persetujuan admin tercatat sebagai keputusan review pada ledger internal.
       </p>
@@ -65,7 +65,7 @@ export function DpdTab() {
     return <EmptyQueue icon={BellRing} title="Tidak ada tanggal acuan yang terlewati" />;
   }
   return (
-    <div className="space-y-3">
+    <div className="animate-masuk space-y-3">
       <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900">
         Daftar ini memuat tanggal acuan yang dihitung aplikasi, bukan tunggakan/tagihan terverifikasi. Tautan WhatsApp membuka draf untuk ditinjau; pastikan isi pesan dan penerima sebelum mengirim.
       </p>
@@ -112,7 +112,7 @@ export function LelangTab() {
   }
   const kandidat = overview.pawns.filter((p) => p.status === "aktif" && (p.nilaiTaksiran ?? 0) > 0);
   return (
-    <div className="space-y-4">
+    <div className="animate-masuk space-y-4">
       <p className="text-sm text-muted-foreground">
         Kalkulator hipotetis: masukkan angka contoh untuk dibandingkan dengan kewajiban pada ledger. Harga/nilai barang dan kode rak mengikuti pencatatan internal. Tampilan ini tidak melaksanakan lelang, penjualan, pelunasan, ataupun pengembalian barang/dana.
       </p>
@@ -185,7 +185,7 @@ function TrenPendapatanChart({
   }
   const semuaNol = total === 0;
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-5">
+    <div className="animate-masuk rounded-2xl border border-slate-200 bg-white p-5">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h3 className="text-sm font-semibold text-navy">Tren biaya pada ledger — 12 bulan terakhir</h3>
         <p className="text-sm font-semibold tabular-nums text-navy">{formatRupiah(total)}</p>
@@ -264,7 +264,7 @@ export function LedgerTab() {
       )
     : rows;
   return (
-    <div className="space-y-4">
+    <div className="animate-masuk space-y-4">
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {([
           ["Total debit", formatRupiah(summary.totalDebit)],

@@ -78,7 +78,7 @@ export function WebsiteTemplatePanel() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="animate-masuk space-y-6">
       <header className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6">
         <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-primary">
           <Palette className="size-4" /> Tampilan website

@@ -40,7 +40,7 @@ export function LoanDetailDialog({
             <DialogDescription>Data ini mungkin bukan milik akun Anda.</DialogDescription>
           </DialogHeader>
         ) : (
-          <>
+          <div className="animate-masuk flex flex-col gap-4">
             <DialogHeader>
               <div className="flex items-center justify-between gap-3">
                 <DialogTitle>Rincian pengajuan pinjaman tunai</DialogTitle>
@@ -143,7 +143,7 @@ export function LoanDetailDialog({
                 </p>
               </div>
             )}
-          </>
+          </div>
         )}
       </DialogContent>
     </Dialog>
@@ -173,7 +173,7 @@ export function PawnDetailDialog({
             <DialogDescription>Data ini mungkin bukan milik akun Anda.</DialogDescription>
           </DialogHeader>
         ) : (
-          <>
+          <div className="animate-masuk flex flex-col gap-4">
             <DialogHeader>
               <div className="flex items-center justify-between gap-3">
                 <DialogTitle className="max-w-64 text-base leading-snug">{pawn.deskripsiBarang}</DialogTitle>
@@ -219,7 +219,7 @@ export function PawnDetailDialog({
             <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900">
               Status ini mengikuti pencatatan ledger internal. Pembayaran gadai dan perubahan status terkait pelepasan dinonaktifkan.
             </p>
-          </>
+          </div>
         )}
       </DialogContent>
     </Dialog>

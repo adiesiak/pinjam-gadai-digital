@@ -11,7 +11,7 @@ export function AuditTrailPanel() {
     return <div className="flex items-center gap-2 py-10 text-sm text-muted-foreground"><Loader2 className="size-4 animate-spin" /> Memuat…</div>;
   }
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white">
+    <div className="animate-masuk rounded-2xl border border-slate-200 bg-white">
       <div className="flex items-center justify-between px-5 py-4">
         <div>
           <p className="text-sm font-semibold text-navy">Rekam jejak aktivitas admin</p>

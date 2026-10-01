@@ -83,7 +83,7 @@ export function ManualEvidenceQueue() {
 }
 
 function EvidenceList({ title, loading, empty, children }: { title: string; loading: boolean; empty: boolean; children: ReactNode }) {
-  return <div><h3 className="mb-3 text-sm font-semibold text-navy">{title}</h3>{loading ? <p className="flex items-center gap-2 py-5 text-sm text-muted-foreground"><Loader2 className="size-4 animate-spin" />Memuat bukti…</p> : empty ? <EmptyQueue icon={Wallet} title="Tidak ada bukti yang menunggu pencocokan" /> : <ul className="divide-y divide-slate-200 rounded-2xl border border-slate-200 bg-white">{children}</ul>}</div>;
+  return <div><h3 className="mb-3 text-sm font-semibold text-navy">{title}</h3>{loading ? <p className="flex items-center gap-2 py-5 text-sm text-muted-foreground"><Loader2 className="size-4 animate-spin" />Memuat bukti…</p> : empty ? <EmptyQueue icon={Wallet} title="Tidak ada bukti yang menunggu pencocokan" /> : <ul className="animate-masuk divide-y divide-slate-200 rounded-2xl border border-slate-200 bg-white">{children}</ul>}</div>;
 }
 
 function MatchControls({ id, amount, reference, amountInput, reason, busy, matchAvailable, onReference, onAmount, onReason, onMatch, onReject }: { id: string; amount: number; reference: string; amountInput: string; reason: string; busy: boolean; matchAvailable: boolean; onReference: (value: string) => void; onAmount: (value: string) => void; onReason: (value: string) => void; onMatch: () => void; onReject: () => void }) {

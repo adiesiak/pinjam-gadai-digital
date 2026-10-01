@@ -91,7 +91,7 @@ export function WhatsAppPanel() {
   };
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,22rem)]">
+    <div className="animate-masuk grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,22rem)]">
       <div className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5">
         <div>
           <p className="text-sm font-semibold">Koneksi gateway WhatsApp</p>
