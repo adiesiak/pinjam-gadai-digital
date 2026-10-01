@@ -168,8 +168,8 @@ export default function AksesBersama() {
                 </p>
                 <p className="mt-1">
                   Akses ini membuka daftar pengajuan (pinjaman, gadai, kredit barang) tanpa
-                  kemampuan mengubah data. Identitas pemohon tampil sebagai kode pseudonim —
-                  NIK, nomor rekening, dan dokumen tidak ditampilkan.
+                  kemampuan mengubah data. Nama pemohon ditampilkan; NIK, nomor rekening,
+                  nomor WhatsApp, alamat, dan dokumen tidak ditampilkan.
                 </p>
               </div>
             </CardContent>

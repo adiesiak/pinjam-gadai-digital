@@ -6,10 +6,11 @@ import {
   Lock,
   Package,
   ShoppingBag,
+  RotateCcw,
   Timer,
   Wallet,
 } from "lucide-react";
-import { useState } from "react";
+import { Component, useState, type ReactNode } from "react";
 import { Link } from "react-router";
 
 import { RoleDashboardMenu } from "@/components/RoleDashboardMenu";
@@ -70,6 +71,18 @@ function coba<T>(fn: () => T): T | null {
     return fn();
   } catch {
     return null;
+  }
+}
+
+/**
+ * Format rupiah defensif: halaman baca-saja tidak boleh gagal total hanya
+ * karena satu baris data warisan bernilai bukan rupiah bulat.
+ */
+function rupiah(nilai: number): string {
+  try {
+    return formatRupiah(nilai);
+  } catch {
+    return `Rp ${Number(nilai).toLocaleString("id-ID")}`;
   }
 }
 
@@ -236,26 +249,26 @@ function DetailPinjaman({ row }: { row: BarisPinjaman }) {
       <BarisDetail label="Nama lengkap" nilai={row.namaLengkap} />
       <BarisDetail label="Kode peminjam" nilai={row.kodePeminjam ?? "belum terbit"} />
       <BarisDetail label="No. referensi" nilai={row.nomorReferensi} />
-      <BarisDetail label="Jumlah pinjaman" nilai={formatRupiah(row.pokokPinjaman)} />
+      <BarisDetail label="Jumlah pinjaman" nilai={rupiah(row.pokokPinjaman)} />
       <BarisDetail
         label="Skema"
         nilai={row.tenorBulan === null ? "Harian" : `Bulanan ${row.tenorBulan} bulan`}
       />
       <BarisDetail
         label="Imbal Hasil (estimasi)"
-        nilai={imbalHasil === null ? "—" : formatRupiah(imbalHasil)}
+        nilai={imbalHasil === null ? "—" : rupiah(imbalHasil)}
       />
       <BarisDetail
         label="Total pelunasan (estimasi)"
-        nilai={totalPelunasan === null ? "—" : formatRupiah(totalPelunasan)}
+        nilai={totalPelunasan === null ? "—" : rupiah(totalPelunasan)}
       />
       <BarisDetail
         label="Potongan di muka"
-        nilai={potongan === null ? "—" : formatRupiah(potongan)}
+        nilai={potongan === null ? "—" : rupiah(potongan)}
       />
       <BarisDetail
         label="Dana bersih diterima"
-        nilai={danaBersih === null ? "—" : formatRupiah(danaBersih)}
+        nilai={danaBersih === null ? "—" : rupiah(danaBersih)}
       />
       <BarisDetail
         label="Tenor"
@@ -283,11 +296,11 @@ function DetailGadai({ row }: { row: BarisGadai }) {
       <BarisDetail label="Barang" nilai={row.deskripsiBarang} />
       <BarisDetail
         label="Nilai taksiran"
-        nilai={row.nilaiTaksiran === null ? "belum ditaksir" : formatRupiah(row.nilaiTaksiran)}
+        nilai={row.nilaiTaksiran === null ? "belum ditaksir" : rupiah(row.nilaiTaksiran)}
       />
       <BarisDetail
         label="Pokok gadai disetujui"
-        nilai={row.pokokGadai === null ? "—" : formatRupiah(row.pokokGadai)}
+        nilai={row.pokokGadai === null ? "—" : rupiah(row.pokokGadai)}
       />
       <BarisDetail
         label="Sewa modal"
@@ -295,7 +308,7 @@ function DetailGadai({ row }: { row: BarisGadai }) {
       />
       <BarisDetail
         label="Sisa pokok berjalan"
-        nilai={row.sisaPokok === null ? "—" : formatRupiah(row.sisaPokok)}
+        nilai={row.sisaPokok === null ? "—" : rupiah(row.sisaPokok)}
       />
       <BarisDetail label="Tanggal pengajuan" nilai={tanggalRingkas(row.diajukanPada)} />
       <BarisDetail label="Status" nilai={<StatusBadge status={row.status} kind="pawn" />} />
@@ -322,28 +335,28 @@ function DetailKredit({ row }: { row: BarisKredit }) {
       <BarisDetail label="No. referensi" nilai={row.nomorReferensi} />
       <BarisDetail label="Barang" nilai={`${row.namaBarang} · ${row.kategori}`} />
       <BarisDetail label="Merchant" nilai={row.merchant} />
-      <BarisDetail label="Harga barang" nilai={formatRupiah(row.hargaBarang)} />
+      <BarisDetail label="Harga barang" nilai={rupiah(row.hargaBarang)} />
       <BarisDetail
         label="Uang muka"
         nilai={
-          quote === null ? `${row.dpPersen}%` : `${row.dpPersen}% · ${formatRupiah(quote.dp)}`
+          quote === null ? `${row.dpPersen}%` : `${row.dpPersen}% · ${rupiah(quote.dp)}`
         }
       />
       <BarisDetail
         label="Pokok dibiayai"
-        nilai={quote === null ? "—" : formatRupiah(quote.pokokDibiayai)}
+        nilai={quote === null ? "—" : rupiah(quote.pokokDibiayai)}
       />
       <BarisDetail
         label="Cicilan per bulan (estimasi)"
-        nilai={quote === null ? "—" : formatRupiah(quote.cicilanPerBulan)}
+        nilai={quote === null ? "—" : rupiah(quote.cicilanPerBulan)}
       />
       <BarisDetail
         label="Total Imbal Hasil (estimasi)"
-        nilai={quote === null ? "—" : formatRupiah(quote.marginTotal)}
+        nilai={quote === null ? "—" : rupiah(quote.marginTotal)}
       />
       <BarisDetail
         label="Total dibayar konsumen"
-        nilai={quote === null ? "—" : formatRupiah(quote.totalDibayarKonsumen)}
+        nilai={quote === null ? "—" : rupiah(quote.totalDibayarKonsumen)}
       />
       <BarisDetail label="Tenor" nilai={`${row.tenorBulan} bulan`} />
       <BarisDetail
@@ -396,7 +409,66 @@ function AksesTerbatas() {
   );
 }
 
-export default function PenyediaDana() {
+/**
+ * Batas error khusus ruang ini: bila salah satu query gagal (mis. sesi akses
+ * lihat-saja sudah diputus admin sementara halaman masih terbuka), pengunjung
+ * menerima pesan yang jelas beserta jalan keluarnya — bukan halaman kendala
+ * sistem aplikasi.
+ */
+class BatasRuang extends Component<{ children: ReactNode }, { pesan: string | null }> {
+  state: { pesan: string | null } = { pesan: null };
+
+  static getDerivedStateFromError(error: Error) {
+    return { pesan: error.message };
+  }
+
+  componentDidCatch(error: Error, info: React.ErrorInfo) {
+    console.error("[PINDAI] Ruang penyedia dana gagal dibuka:", error, info.componentStack);
+  }
+
+  render() {
+    if (this.state.pesan === null) return this.props.children;
+    return <RuangGagal pesan={this.state.pesan} />;
+  }
+}
+
+function RuangGagal({ pesan }: { pesan: string }) {
+  return (
+    <main className="flex min-h-screen items-center justify-center bg-slate-50 px-4 py-10 text-slate-900 sm:px-6">
+      <section className="animate-masuk w-full max-w-lg rounded-3xl border border-slate-200 bg-white p-8 text-center shadow-sm">
+        <span className="mx-auto flex size-12 items-center justify-center rounded-2xl bg-slate-100 text-slate-500">
+          <Lock className="size-5" />
+        </span>
+        <h1 className="mt-4 text-2xl font-semibold tracking-tight">
+          Ruang penyedia dana belum bisa dibuka
+        </h1>
+        <p className="mt-3 text-sm leading-7 text-muted-foreground">
+          Sesi akses lihat-saja Anda mungkin sudah diputus admin atau kode akses bersama sudah
+          diganti. Tidak ada data yang berubah — ruang ini hanya membaca. Minta kode terbaru dari
+          admin lalu masuk lagi.
+        </p>
+        <div className="mt-6 flex flex-wrap justify-center gap-3">
+          <Button onClick={() => window.location.reload()}>
+            <RotateCcw className="mr-1.5 size-4" aria-hidden /> Muat ulang halaman
+          </Button>
+          <Button asChild variant="outline">
+            <Link to="/akses-bersama">Masuk dengan kode akses bersama</Link>
+          </Button>
+          <Button asChild variant="ghost">
+            <Link to="/">Kembali ke beranda</Link>
+          </Button>
+        </div>
+        {import.meta.env.DEV && (
+          <p className="mt-5 break-words rounded-xl border border-dashed border-slate-200 bg-slate-50 px-3 py-2 text-left font-mono text-[11px] text-slate-500">
+            Detail teknis (mode pengembangan): {pesan}
+          </p>
+        )}
+      </section>
+    </main>
+  );
+}
+
+function IsiRuang() {
   const { user } = useAuth();
   const [tab, setTab] = useState("pinjaman");
   const [detail, setDetail] = useState<IsiDetail | null>(null);
@@ -465,19 +537,19 @@ export default function PenyediaDana() {
             <div className="animate-masuk mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <KartuRingkasan
                 label="Pinjaman tunai"
-                nilai={formatRupiah(data.ringkasan.nilaiPinjaman)}
+                nilai={rupiah(data.ringkasan.nilaiPinjaman)}
                 detail={`${data.ringkasan.jumlahPinjaman} pengajuan tercatat`}
                 icon={<Wallet className="size-4" />}
               />
               <KartuRingkasan
                 label="Gadai barang"
-                nilai={formatRupiah(data.ringkasan.nilaiGadai)}
+                nilai={rupiah(data.ringkasan.nilaiGadai)}
                 detail={`${data.ringkasan.jumlahGadai} pengajuan · nilai taksiran tercatat`}
                 icon={<Package className="size-4" />}
               />
               <KartuRingkasan
                 label="Kredit barang"
-                nilai={formatRupiah(data.ringkasan.nilaiKredit)}
+                nilai={rupiah(data.ringkasan.nilaiKredit)}
                 detail={`${data.ringkasan.jumlahKredit} pengajuan · harga barang`}
                 icon={<ShoppingBag className="size-4" />}
               />
@@ -548,7 +620,7 @@ export default function PenyediaDana() {
                           </TableCell>
                           <SelNama nama={row.namaLengkap} kode={row.kodePeminjam} />
                           <TableCell className="whitespace-nowrap align-top font-semibold tabular-nums">
-                            {formatRupiah(row.pokokPinjaman)}
+                            {rupiah(row.pokokPinjaman)}
                           </TableCell>
                           <TableCell className="whitespace-nowrap align-top text-slate-600">
                             {row.tenorBulan === null
@@ -604,7 +676,7 @@ export default function PenyediaDana() {
                           <TableCell className="whitespace-nowrap align-top font-semibold tabular-nums">
                             {row.nilaiTaksiran === null
                               ? "belum ditaksir"
-                              : formatRupiah(row.nilaiTaksiran)}
+                              : rupiah(row.nilaiTaksiran)}
                           </TableCell>
                           <TableCell className="whitespace-nowrap align-top text-slate-600">
                             {tanggalRingkas(row.diajukanPada)}
@@ -661,7 +733,7 @@ export default function PenyediaDana() {
                             </p>
                           </TableCell>
                           <TableCell className="whitespace-nowrap align-top font-semibold tabular-nums">
-                            {formatRupiah(row.hargaBarang)}
+                            {rupiah(row.hargaBarang)}
                           </TableCell>
                           <TableCell className="whitespace-nowrap align-top text-slate-600">
                             {row.tenorBulan} bulan
@@ -731,5 +803,13 @@ export default function PenyediaDana() {
         </div>
       </footer>
     </div>
+  );
+}
+
+export default function PenyediaDana() {
+  return (
+    <BatasRuang>
+      <IsiRuang />
+    </BatasRuang>
   );
 }
