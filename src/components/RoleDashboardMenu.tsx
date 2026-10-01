@@ -1,4 +1,4 @@
-import { ChevronDown, LayoutDashboard, ShieldCheck } from "lucide-react";
+import { ChevronDown, Eye, LayoutDashboard, ShieldCheck } from "lucide-react";
 import { Link } from "react-router";
 
 import { useAuth } from "@/hooks/use-auth";
@@ -23,6 +23,13 @@ export function RoleDashboardMenu() {
     description: "Lihat catatan pinjaman dan pengajuan",
     icon: LayoutDashboard,
   };
+  /** Akses lihat saja: akun penyedia dana dan admin (untuk pratinjau). */
+  const ruangPenyediaDana = {
+    href: "/penyedia-dana",
+    label: "Ruang Penyedia Dana",
+    description: "Pantau pengajuan nasabah — hanya baca",
+    icon: Eye,
+  };
   const spaces =
     role === "admin"
       ? [
@@ -32,9 +39,12 @@ export function RoleDashboardMenu() {
             description: "Tinjau catatan internal dan pengaturan sistem",
             icon: ShieldCheck,
           },
+          ruangPenyediaDana,
           dashboardPeminjam,
         ]
-      : [dashboardPeminjam];
+      : role === "dana"
+        ? [ruangPenyediaDana, dashboardPeminjam]
+        : [dashboardPeminjam];
 
   if (isLoading || !isAuthenticated) return null;
 

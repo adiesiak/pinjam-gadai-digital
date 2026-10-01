@@ -189,8 +189,9 @@ export default function Dashboard() {
 
   return (
     // Gerbang lokasi wajib: Peminjam tidak bisa memakai dashboard tanpa GPS
-    // aktif (heartbeat ke server). Admin dikecualikan agar tim tetap bisa masuk.
-    <LocationGate aktif={role !== "admin"}>
+    // aktif (heartbeat ke server). Admin dan penyedia dana dikecualikan — sama
+    // seperti PERAN_WAJIB_LOKASI di convex/lokasi.ts (hanya peminjam/member).
+    <LocationGate aktif={role !== "admin" && role !== "dana"}>
       <div className="flex min-h-screen flex-col bg-slate-50 text-slate-900">
         {/* Bar pengumuman global dirender di main.tsx (AnnouncementBar). */}
 

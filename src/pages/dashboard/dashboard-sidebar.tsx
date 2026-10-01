@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { LayoutDashboard, LogOut, ShieldCheck } from "lucide-react";
+import { Eye, LayoutDashboard, LogOut, ShieldCheck } from "lucide-react";
 import { Link } from "react-router";
 
 import { Badge } from "@/components/ui/badge";
@@ -54,16 +54,28 @@ export function DashboardSidebar({
           </div>
         </div>
 
-        {role === "admin" && (
+        {(role === "admin" || role === "dana") && (
           <div className="mt-3 flex flex-col gap-1 border-t border-slate-100 pt-3">
+            {role === "admin" && (
+              <Button
+                asChild
+                variant="ghost"
+                size="sm"
+                className="justify-start gap-2 text-xs text-muted-foreground"
+              >
+                <Link to={ADMIN_ROUTE}>
+                  <LayoutDashboard className="size-3.5" /> Panel Admin
+                </Link>
+              </Button>
+            )}
             <Button
               asChild
               variant="ghost"
               size="sm"
               className="justify-start gap-2 text-xs text-muted-foreground"
             >
-              <Link to={ADMIN_ROUTE}>
-                <LayoutDashboard className="size-3.5" /> Panel Admin
+              <Link to="/penyedia-dana">
+                <Eye className="size-3.5" /> Ruang Penyedia Dana
               </Link>
             </Button>
           </div>

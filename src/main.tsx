@@ -39,6 +39,7 @@ const Landing = lazy(denganPercobaan(() => import("./pages/Landing.tsx")));
 const AuthPage = lazy(denganPercobaan(() => import("./pages/Auth.tsx")));
 const Dashboard = lazy(denganPercobaan(() => import("./pages/Dashboard.tsx")));
 const Admin = lazy(denganPercobaan(() => import("./pages/Admin.tsx")));
+const PenyediaDana = lazy(denganPercobaan(() => import("./pages/PenyediaDana.tsx")));
 const NotFound = lazy(denganPercobaan(() => import("./pages/NotFound.tsx")));
 
 // Simple loading fallback for route transitions
@@ -235,9 +236,17 @@ createRoot(document.getElementById("root")!).render(
                     </RequireAuth>
                   }
                 />
-                {/* Ruang penyedia dana dihapus dari produk — tautan lama diarahkan
-                    ke dashboard Peminjam supaya tidak berujung 404. */}
-                <Route path="/pendana" element={<Navigate to="/dashboard" replace />} />
+                {/* Ruang penyedia dana (baca saja) untuk akun yang diberi akses
+                    admin; tautan lama /pendana diarahkan ke sana. */}
+                <Route
+                  path="/penyedia-dana"
+                  element={
+                    <RequireAuth>
+                      <PenyediaDana />
+                    </RequireAuth>
+                  }
+                />
+                <Route path="/pendana" element={<Navigate to="/penyedia-dana" replace />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </Suspense>

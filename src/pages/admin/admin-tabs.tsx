@@ -4,6 +4,7 @@ import {
   ChevronDown,
   ClipboardList,
   Database,
+  Eye,
   Gavel,
   Landmark,
   Lock,
@@ -20,6 +21,7 @@ import {
   Wallet,
 } from "lucide-react";
 
+import { AksesPenyediaDanaPanel } from "@/components/admin/AksesPenyediaDanaPanel";
 import { AnnouncementCms } from "@/components/admin/AnnouncementCms";
 import { AuditTrailPanel } from "@/components/admin/AuditTrailPanel";
 import { BackupPanel } from "@/components/admin/BackupPanel";
@@ -88,6 +90,7 @@ export function AdminTabs({
     ["loglogin", "Keamanan Login", null, ShieldCheck],
     ["bukti", "Pencocokan bukti manual", null, ReceiptText],
     ["plafon", "Plafon Nasabah", null, SlidersHorizontal],
+    ["akses", "Akses Penyedia Dana", null, Eye],
     ["pengumuman", "Pengumuman", null, MessageSquare],
     ["whatsapp", "WhatsApp", null, Send],
   ];
@@ -204,6 +207,10 @@ export function AdminTabs({
 
       <TabsContent value="plafon" className="min-w-0 flex-1 animate-masuk">
         <PlafonPanel />
+      </TabsContent>
+
+      <TabsContent value="akses" className="min-w-0 flex-1 animate-masuk">
+        <AksesPenyediaDanaPanel />
       </TabsContent>
 
       <TabsContent value="audit" className="min-w-0 flex-1 animate-masuk">
