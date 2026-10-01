@@ -1,7 +1,6 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { mutation, query, MutationCtx, QueryCtx } from "./_generated/server";
 import { v } from "convex/values";
-import { ROLES } from "./schema";
 import { requireAdminSession } from "./adminAuthz";
 import {
   DEFAULT_CONFIG,
@@ -314,7 +313,7 @@ export const setKillSwitch = mutation({
 export const snapshotData = query({
   args: {},
   handler: async (ctx) => {
-    const { userId, user } = await requireAdmin(ctx);
+    await requireAdmin(ctx);
     const [loans, pawns, deposits, fundings, users] = await Promise.all([
       ctx.db.query("loans").collect(),
       ctx.db.query("pawns").collect(),

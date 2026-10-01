@@ -2,7 +2,6 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 import { v } from "convex/values";
 
 import {
-  bagiCicilanKePendana,
   KREDIT_BARANG_POKOK_MAKS,
   KREDIT_TENOR_PENGAJUAN_OPTIONS,
   pokokKreditBarangDalamBatas,

@@ -1,7 +1,6 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import { v } from "convex/values";
-import { ROLES } from "./schema";
 import { requireAdminSession } from "./adminAuthz";
 import { audit } from "./system";
 import { GADAI_PRICING, quoteGadai, sewaModalBerikutnya } from "../lib/gadai";

@@ -5,7 +5,7 @@ import { ROLES } from "./schema";
 import { requireAdminSession } from "./adminAuthz";
 import { pelunasanPinjaman, quoteLoan } from "../lib/loan";
 import { hitungSimulasiBulanan, TENOR_BULANAN_OPTIONS } from "../lib/bulanan";
-import { appendJournal, ledgerTotals, pendanaWalletBalance } from "./ledger";
+import { ledgerTotals } from "./ledger";
 import { formatRupiah } from "../lib/money";
 import { CONTRACT_TERMS_VERSION } from "../lib/contract";
 import { getConfig, audit } from "./system";

@@ -35,7 +35,6 @@ import {
  */
 
 const WA_OTP_AGE_MS = 5 * 60 * 1000; // 5 menit
-const MAX_OTP_GAGAL = 5;
 const RATE_WINDOW_MS = 15 * 60 * 1000;
 const RATE_MAX_GAGAL = 5;
 const BLOCK_MS = 15 * 60 * 1000;
@@ -492,7 +491,7 @@ export const myWaOtpStatus = query({
 /** Mulai challenge OTP WA — kirim 6 digit via gateway WA (action). */
 export const requestWaOtp = action({
   args: { tujuan: v.string(), ip: v.string(), userAgent: v.string(), alasan: v.string() },
-  handler: async (ctx, { tujuan, ip, userAgent, alasan }) => {
+  handler: async (ctx, { tujuan, ip, alasan }) => {
     const userId = await getAuthUserId(ctx);
     if (userId === null) throw new Error("Harus masuk terlebih dahulu.");
     const me: { role?: string } | null = await ctx.runQuery(api.users.currentRole, {});
