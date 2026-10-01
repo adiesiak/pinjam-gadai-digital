@@ -1,13 +1,5 @@
 import { useMutation, useQuery } from "convex/react";
-import {
-  Copy,
-  Eye,
-  KeyRound,
-  Loader2,
-  MailPlus,
-  ShieldOff,
-  ShieldX,
-} from "lucide-react";
+import { Copy, Eye, KeyRound, Loader2, MailPlus, ShieldX } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -17,8 +9,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { api } from "@/convex/_generated/api";
 
+import { PenyediaDanaTable } from "./PenyediaDanaTable";
+
 /**
- * Panel Akses Penyedia Dana — dua jalur akses lihat saja:
+ * Panel Kelola Penyedia Dana — dua jalur akses lihat saja:
  *
  * 1. **Kode akses bersama** — satu kode untuk tim pemantau. Kode ditampilkan
  *    SEKALI di sini (yang tersimpan hanya hash-nya), bisa dipakai beberapa
@@ -48,7 +42,6 @@ export function AksesPenyediaDanaPanel() {
   const [busy, setBusy] = useState<string | null>(null);
   const [kodeBaru, setKodeBaru] = useState<string | null>(null);
 
-  const data = useQuery(api.penyediaDana.daftarAkses, {});
   const status = useQuery(api.aksesBersama.statusKodeBersama, {});
   const ubahAkses = useMutation(api.penyediaDana.ubahAkses);
   const terbitkanKode = useMutation(api.aksesBersama.terbitkanKodeBersama);
@@ -77,22 +70,6 @@ export function AksesPenyediaDanaPanel() {
       setAlasan("");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Gagal memberi akses.");
-    } finally {
-      setBusy(null);
-    }
-  };
-
-  const cabut = async (target: string | null) => {
-    if (target === null) {
-      toast.error("Akun ini tidak memiliki email; cabut akses lewat basis data.");
-      return;
-    }
-    setBusy(target);
-    try {
-      await ubahAkses({ email: target, aktif: false, alasan: "Dicabut dari panel admin" });
-      toast.success(`Akses lihat saja ${target} dicabut.`);
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Gagal mencabut akses.");
     } finally {
       setBusy(null);
     }
@@ -138,7 +115,7 @@ export function AksesPenyediaDanaPanel() {
     <div className="animate-masuk space-y-5">
       <div>
         <p className="flex items-center gap-2 text-sm font-semibold">
-          <Eye className="size-4 text-primary" /> Akses penyedia dana (lihat saja)
+          <Eye className="size-4 text-primary" /> Kelola penyedia dana (lihat saja)
         </p>
         <p className="mt-1 text-xs leading-5 text-muted-foreground">
           Memberi akses membuka halaman <strong>/penyedia-dana</strong>: daftar pengajuan
@@ -307,88 +284,8 @@ export function AksesPenyediaDanaPanel() {
         </p>
       </form>
 
-      {data === undefined ? (
-        <p className="flex items-center gap-2 py-8 text-sm text-muted-foreground">
-          <Loader2 className="size-4 animate-spin" /> Memuat daftar akses…
-        </p>
-      ) : data.rows.length === 0 ? (
-        <p className="rounded-2xl border border-slate-200 bg-white px-5 py-8 text-center text-sm text-muted-foreground">
-          Belum ada akun dengan akses lihat saja.
-        </p>
-      ) : (
-        <ul className="divide-y divide-slate-200 rounded-2xl border border-slate-200 bg-white">
-          {data.rows.map((r) => (
-            <li
-              key={r.userId}
-              className="flex flex-wrap items-center justify-between gap-3 px-5 py-4"
-            >
-              <div className="min-w-0">
-                <p className="truncate text-sm font-medium">{r.nama}</p>
-                <p className="mt-0.5 text-xs text-muted-foreground">
-                  {r.email ?? "tanpa email"}
-                  {r.kodePeminjam !== null ? ` · ${r.kodePeminjam}` : ""}
-                </p>
-                <div className="mt-1.5 flex flex-wrap gap-1.5">
-                  <Badge className="border-0 bg-primary/10 text-[10px] text-accent-foreground hover:bg-primary/10">
-                    akses lihat saja
-                  </Badge>
-                  {r.akunBersama ? (
-                    <>
-                      <Badge className="border-0 bg-violet-100 text-[10px] text-violet-700 hover:bg-violet-100">
-                        <KeyRound className="mr-1 size-3" /> akun bersama
-                      </Badge>
-                      <Badge
-                        className={
-                          r.aksesAktif
-                            ? "border-0 bg-emerald-100 text-[10px] text-emerald-700 hover:bg-emerald-100"
-                            : "border-0 bg-slate-100 text-[10px] text-slate-600 hover:bg-slate-100"
-                        }
-                      >
-                        {r.aksesAktif ? "sesi aktif" : "sudah diputus"}
-                      </Badge>
-                    </>
-                  ) : r.emailTerverifikasi ? (
-                    <Badge className="border-0 bg-emerald-100 text-[10px] text-emerald-700 hover:bg-emerald-100">
-                      email terverifikasi
-                    </Badge>
-                  ) : (
-                    <Badge className="border-0 bg-amber-100 text-[10px] text-amber-700 hover:bg-amber-100">
-                      email belum terverifikasi
-                    </Badge>
-                  )}
-                </div>
-              </div>
-              {r.akunBersama ? (
-                <p className="max-w-[16rem] text-[11px] leading-5 text-muted-foreground">
-                  Dikelola lewat kode akses bersama — putuskan dengan menerbitkan kode baru atau
-                  menonaktifkannya.
-                </p>
-              ) : (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="gap-2"
-                  disabled={busy === r.email}
-                  onClick={() => void cabut(r.email)}
-                >
-                  {busy === r.email ? (
-                    <Loader2 className="size-4 animate-spin" />
-                  ) : (
-                    <ShieldOff className="size-4" />
-                  )}
-                  Cabut akses
-                </Button>
-              )}
-            </li>
-          ))}
-        </ul>
-      )}
-
-      {data?.terpotong === true && (
-        <p className="text-[11px] text-muted-foreground">
-          Menampilkan {data.batas} akun pertama saja.
-        </p>
-      )}
+      {/* ===== Daftar penyedia dana + posisi dananya ===== */}
+      <PenyediaDanaTable />
     </div>
   );
 }

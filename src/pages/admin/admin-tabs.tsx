@@ -4,7 +4,6 @@ import {
   ChevronDown,
   ClipboardList,
   Database,
-  Eye,
   Gavel,
   Landmark,
   Lock,
@@ -90,7 +89,7 @@ export function AdminTabs({
     ["loglogin", "Keamanan Login", null, ShieldCheck],
     ["bukti", "Pencocokan bukti manual", null, ReceiptText],
     ["plafon", "Plafon Nasabah", null, SlidersHorizontal],
-    ["akses", "Akses Penyedia Dana", null, Eye],
+    ["akses", "Kelola Penyedia Dana", null, Wallet],
     ["pengumuman", "Pengumuman", null, MessageSquare],
     ["whatsapp", "WhatsApp", null, Send],
   ];

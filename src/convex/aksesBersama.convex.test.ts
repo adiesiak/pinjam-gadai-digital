@@ -307,7 +307,7 @@ describe("akses bersama penyedia dana", () => {
       blokirSampai: null,
     });
 
-    const akses = await admin.query(api.penyediaDana.daftarAkses, {});
+    const akses = await admin.query(api.penyediaDana.daftarInvestor, {});
     const barisDana = akses.rows.find((r) => r.userId === danaId);
     const barisTamu = akses.rows.find((r) => r.userId === tamuId);
     expect(barisDana?.akunBersama).toBe(false);
@@ -318,7 +318,7 @@ describe("akses bersama penyedia dana", () => {
 
     // Setelah nonaktif, baris akun bersama ditandai tidak aktif lagi.
     await admin.mutation(api.aksesBersama.nonaktifkanKodeBersama, {});
-    const setelah = await admin.query(api.penyediaDana.daftarAkses, {});
+    const setelah = await admin.query(api.penyediaDana.daftarInvestor, {});
     expect(setelah.rows.find((r) => r.userId === tamuId)?.aksesAktif).toBe(false);
   });
 });

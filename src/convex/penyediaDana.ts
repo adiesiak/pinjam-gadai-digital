@@ -27,6 +27,7 @@ import type { Id } from "./_generated/dataModel";
 import { mutation, query, type QueryCtx } from "./_generated/server";
 import { SLOT_AKSES_BERSAMA } from "./aksesBersama";
 import { requireAdminSession } from "./adminAuthz";
+import { akunDompetDana, danaWalletBalance } from "./ledger";
 import { ROLES } from "./schema";
 import { audit, getConfig } from "./system";
 
@@ -610,39 +611,303 @@ export const berkasPengajuan = query({
 });
 
 /**
- * Daftar akun yang saat ini punya akses ruang penyedia dana — panel admin.
- * Tidak pernah memuat data pengajuan, hanya identitas akun.
+ * Satu baris kelola investor: identitas akun, status akses, dan posisi
+ * dananya. Semua angka diturunkan dari catatan asli (fundings, kreditFundings,
+ * deposits, withdrawals, ledger) — tidak ada nilai cache.
  */
-export const daftarAkses = query({
+/**
+ * Peran penyedia dana WARISAN.
+ *
+ * Sejumlah dokumen lama menyimpan `role: "pendana"`, sedangkan peran yang
+ * berlaku sekarang adalah `dana` (lihat ROLES). Baris seperti itu tidak dikenali
+ * gerbang ruang mana pun, jadi akunnya tidak punya akses — tetapi alokasi,
+ * setoran, dan saldo ledger mereka tetap nyata. Karena itu akun warisan ikut
+ * DITAMPILKAN di panel kelola (dan ditandai "peran lama") supaya admin dapat
+ * melihat posisinya lalu memberi akses secara sadar lewat tombol Beri akses.
+ * Akses tidak pernah diberikan otomatis.
+ */
+const PERAN_PENDANA_LEGACY = "pendana";
+
+function peranPenyedia(role: string | undefined): boolean {
+  return role === ROLES.DANA || role === PERAN_PENDANA_LEGACY;
+}
+
+export type BarisInvestor = {
+  userId: Id<"users">;
+  nama: string;
+  email: string | null;
+  emailTerverifikasi: boolean;
+  /** Peran tersimpan apa adanya: `dana`, `pendana` (warisan), atau `pengamat`. */
+  peran: string | null;
+  /** Peran warisan `pendana` — menyimpan dana tetapi belum berakses ruang. */
+  peranLegacy: boolean;
+  /** Akun bersama dari kode akses — dikelola lewat terbit/nonaktif kode. */
+  akunBersama: boolean;
+  /**
+   * Punya akses nyata ke ruang penyedia dana saat ini: peran `dana`, atau sesi
+   * bersama yang masih memakai versi kode berlaku. Akun berperan warisan
+   * bernilai false sampai admin memberinya akses.
+   */
+  aksesAktif: boolean;
+  terdaftarPada: number;
+  /** Jumlah alokasi tercatat (pinjaman + kredit barang), semua status. */
+  jumlahAlokasi: number;
+  /** Pokok yang sedang bekerja (status dialokasikan) — rupiah bulat. */
+  danaBekerja: number;
+  /** Hak Imbal Hasil atas alokasi yang sedang bekerja — rupiah bulat. */
+  imbalHasilDiharapkan: number;
+  /** Setoran yang sudah diverifikasi admin — rupiah bulat. */
+  totalSetoran: number;
+  setoranMenunggu: number;
+  /** Penarikan yang sudah diproses admin — rupiah bulat. */
+  totalPenarikan: number;
+  penarikanMenunggu: number;
+  /** Saldo dompet dari ledger internal (debit − kredit akun dompet dana). */
+  saldoDompet: number;
+  /** Waktu catatan terakhir milik akun ini — null bila belum ada aktivitas. */
+  aktivitasTerakhir: number | null;
+};
+
+/** Batas baris riwayat pada dialog rincian investor. */
+const BATAS_RIWAYAT = 50;
+
+/**
+ * Kelola investor — panel admin.
+ *
+ * Menggabungkan daftar akun berakses ruang penyedia dana (email dengan peran
+ * `dana`, plus pemantau kode akses bersama) dengan posisi dana masing-masing:
+ * pokok yang bekerja, hak Imbal Hasil, setoran, penarikan, saldo dompet, dan
+ * waktu aktivitas terakhir. Hanya admin (sesi TOTP) yang dapat membukanya, dan
+ * modul ini tidak memuat satu pun mutation alokasi/transaksi.
+ */
+export const daftarInvestor = query({
   args: {},
   handler: async (ctx) => {
     await requireAdminSession(ctx);
 
     const pengguna = await ctx.db.query("users").take(BATAS_AKUN + 1);
-    const baris = await ctx.db
+    const barisKode = await ctx.db
       .query("aksesBersama")
       .withIndex("by_slot", (q) => q.eq("slot", SLOT_AKSES_BERSAMA))
       .first();
-    const versiAktif = baris?.versi ?? 0;
-    const rows = pengguna
-      .filter((u) => u.role === ROLES.DANA || u.role === ROLES.PENGAMAT)
-      .slice(0, BATAS_AKUN)
-      .map((u) => ({
-        userId: u._id,
-        nama: u.name ?? (u.role === ROLES.PENGAMAT ? "Pemantau bersama" : "Penyedia dana"),
-        email: u.email ?? null,
-        kodePeminjam: u.kodePeminjam ?? null,
-        emailTerverifikasi: u.emailVerificationTime !== undefined,
-        /** Akun bersama dari kode akses — dikelola lewat terbit/nonaktif kode. */
-        akunBersama: u.role === ROLES.PENGAMAT,
-        /** Sesi bersama yang masih memakai versi kode berlaku. */
-        aksesAktif:
-          u.role !== ROLES.PENGAMAT ||
-          (baris?.aktif === true && u.aksesBersamaVersi === versiAktif),
-      }))
-      .sort((a, b) => Number(a.akunBersama) - Number(b.akunBersama));
+    const versiAktif = barisKode?.versi ?? 0;
+    const akun = pengguna
+      .filter(
+        (u) =>
+          peranPenyedia(u.role as string | undefined) || u.role === ROLES.PENGAMAT,
+      )
+      .slice(0, BATAS_AKUN);
 
-    return { batas: BATAS_AKUN, terpotong: pengguna.length > BATAS_AKUN, rows };
+    // Saldo dompet seluruh investor dihitung dari SATU pembacaan ledger, bukan
+    // satu pemindaian per orang.
+    const akunDompet = new Set(akun.map((u) => akunDompetDana(u._id)));
+    const saldoPerAkun = new Map<string, number>();
+    if (akunDompet.size > 0) {
+      const entries = await ctx.db.query("ledger_entries").collect();
+      for (const e of entries) {
+        if (!akunDompet.has(e.akun)) continue;
+        saldoPerAkun.set(
+          e.akun,
+          (saldoPerAkun.get(e.akun) ?? 0) + (e.arah === "debit" ? e.jumlah : -e.jumlah),
+        );
+      }
+    }
+
+    const rows: BarisInvestor[] = [];
+    for (const u of akun) {
+      const fundings = await ctx.db
+        .query("fundings")
+        .withIndex("by_dana", (q) => q.eq("danaId", u._id))
+        .collect();
+      const kreditFundings = await ctx.db
+        .query("kreditFundings")
+        .withIndex("by_dana", (q) => q.eq("danaId", u._id))
+        .collect();
+      const setoran = await ctx.db
+        .query("deposits")
+        .withIndex("by_dana", (q) => q.eq("danaId", u._id))
+        .collect();
+      const penarikan = await ctx.db
+        .query("withdrawals")
+        .withIndex("by_dana", (q) => q.eq("danaId", u._id))
+        .collect();
+
+      const alokasi = [...fundings, ...kreditFundings];
+      const bekerja = alokasi.filter((a) => a.status === "dialokasikan");
+      const waktu = [
+        ...alokasi.map((a) => a._creationTime),
+        ...setoran.map((s) => s._creationTime),
+        ...penarikan.map((w) => w._creationTime),
+      ];
+
+      const peran = (u.role as string | undefined) ?? null;
+      const akunBersama = u.role === ROLES.PENGAMAT;
+      rows.push({
+        userId: u._id,
+        nama: u.name ?? (akunBersama ? "Pemantau bersama" : "Penyedia dana"),
+        email: u.email ?? null,
+        emailTerverifikasi: u.emailVerificationTime !== undefined,
+        peran,
+        peranLegacy: peran === PERAN_PENDANA_LEGACY,
+        akunBersama,
+        aksesAktif:
+          u.role === ROLES.DANA
+            ? true
+            : akunBersama && barisKode?.aktif === true && u.aksesBersamaVersi === versiAktif,
+        terdaftarPada: u._creationTime,
+        jumlahAlokasi: alokasi.length,
+        danaBekerja: bekerja.reduce((total, a) => total + a.jumlahAlokasi, 0),
+        imbalHasilDiharapkan: bekerja.reduce((total, a) => total + a.imbalHasil, 0),
+        totalSetoran: setoran
+          .filter((s) => s.status === "terverifikasi")
+          .reduce((total, s) => total + s.jumlah, 0),
+        setoranMenunggu: setoran.filter((s) => s.status === "menunggu_verifikasi").length,
+        totalPenarikan: penarikan
+          .filter((w) => w.status === "diproses")
+          .reduce((total, w) => total + w.jumlah, 0),
+        penarikanMenunggu: penarikan.filter((w) => w.status === "menunggu_proses").length,
+        saldoDompet: saldoPerAkun.get(akunDompetDana(u._id)) ?? 0,
+        aktivitasTerakhir: waktu.length === 0 ? null : Math.max(...waktu),
+      });
+    }
+
+    // Akun berperan warisan tanpa jejak dana apa pun (dan tanpa email sehingga
+    // tidak bisa diberi akses) hanya akan memenuhi tabel tanpa guna. Akun seperti
+    // itu disembunyikan dan jumlahnya dilaporkan terpisah.
+    const terlihat = rows.filter(
+      (r) =>
+        !r.peranLegacy ||
+        r.email !== null ||
+        r.jumlahAlokasi > 0 ||
+        r.totalSetoran > 0 ||
+        r.totalPenarikan > 0 ||
+        r.setoranMenunggu > 0 ||
+        r.penarikanMenunggu > 0 ||
+        r.saldoDompet !== 0,
+    );
+    const warisanTanpaJejak = rows.length - terlihat.length;
+    rows.length = 0;
+    rows.push(...terlihat);
+
+    // Akun berakses lebih dulu, lalu yang dananya paling banyak bekerja;
+    // akun berperan warisan diletakkan paling bawah.
+    rows.sort(
+      (a, b) =>
+        Number(a.peranLegacy) - Number(b.peranLegacy) ||
+        Number(a.akunBersama) - Number(b.akunBersama) ||
+        b.danaBekerja - a.danaBekerja,
+    );
+
+    return {
+      batas: BATAS_AKUN,
+      terpotong: pengguna.length > BATAS_AKUN,
+      ringkasan: {
+        jumlahAkun: rows.length,
+        /** Akun yang benar-benar bisa membuka ruang penyedia dana saat ini. */
+        jumlahAkses: rows.filter((r) => r.aksesAktif).length,
+        jumlahPeranLegacy: rows.filter((r) => r.peranLegacy).length,
+        /** Akun peran lama tanpa jejak dana & tanpa email — tidak ditampilkan. */
+        jumlahWarisanTanpaJejak: warisanTanpaJejak,
+        jumlahPemantau: rows.filter((r) => r.akunBersama).length,
+        pemantauAktif: rows.filter((r) => r.akunBersama && r.aksesAktif).length,
+        danaBekerja: rows.reduce((total, r) => total + r.danaBekerja, 0),
+        imbalHasilDiharapkan: rows.reduce((total, r) => total + r.imbalHasilDiharapkan, 0),
+        saldoDompet: rows.reduce((total, r) => total + r.saldoDompet, 0),
+        totalSetoran: rows.reduce((total, r) => total + r.totalSetoran, 0),
+        setoranMenunggu: rows.reduce((total, r) => total + r.setoranMenunggu, 0),
+        penarikanMenunggu: rows.reduce((total, r) => total + r.penarikanMenunggu, 0),
+      },
+      rows,
+    };
+  },
+});
+
+/**
+ * Rincian satu investor untuk dialog panel admin: identitas, portofolio alokasi
+ * (pinjaman & kredit barang beserta nomor referensinya), setoran, penarikan,
+ * dan saldo dompet dari ledger. Hanya admin; tanpa mutation apa pun.
+ */
+export const rincianInvestor = query({
+  args: { userId: v.id("users") },
+  handler: async (ctx, { userId }) => {
+    await requireAdminSession(ctx);
+    const user = await ctx.db.get(userId);
+    if (user === null) return null;
+
+    const fundings = await ctx.db
+      .query("fundings")
+      .withIndex("by_dana", (q) => q.eq("danaId", userId))
+      .collect();
+    const kreditFundings = await ctx.db
+      .query("kreditFundings")
+      .withIndex("by_dana", (q) => q.eq("danaId", userId))
+      .collect();
+    const setoran = await ctx.db
+      .query("deposits")
+      .withIndex("by_dana", (q) => q.eq("danaId", userId))
+      .collect();
+    const penarikan = await ctx.db
+      .query("withdrawals")
+      .withIndex("by_dana", (q) => q.eq("danaId", userId))
+      .collect();
+
+    const alokasiPinjaman = [];
+    for (const f of fundings) {
+      const loan = await ctx.db.get(f.loanId);
+      alokasiPinjaman.push({
+        referensi: loan?.nomorReferensi ?? "tanpa referensi",
+        statusPengajuan: loan?.status ?? null,
+        pokokPorsi: f.jumlahAlokasi,
+        imbalHasil: f.imbalHasil,
+        status: f.status as string,
+        waktu: f._creationTime,
+      });
+    }
+    const alokasiKredit = [];
+    for (const f of kreditFundings) {
+      const kredit = await ctx.db.get(f.kreditId);
+      alokasiKredit.push({
+        referensi: kredit?.nomorReferensi ?? "tanpa referensi",
+        statusPengajuan: kredit?.status ?? null,
+        pokokPorsi: f.jumlahAlokasi,
+        imbalHasil: f.imbalHasil,
+        status: f.status as string,
+        waktu: f._creationTime,
+      });
+    }
+    const urutTerbaru = <T extends { waktu: number }>(baris: T[]) =>
+      baris.sort((a, b) => b.waktu - a.waktu).slice(0, BATAS_RIWAYAT);
+
+    return {
+      userId,
+      nama: user.name ?? (user.role === ROLES.PENGAMAT ? "Pemantau bersama" : "Penyedia dana"),
+      email: user.email ?? null,
+      peran: (user.role as string | undefined) ?? null,
+      peranLegacy: (user.role as string | undefined) === PERAN_PENDANA_LEGACY,
+      akunBersama: user.role === ROLES.PENGAMAT,
+      emailTerverifikasi: user.emailVerificationTime !== undefined,
+      terdaftarPada: user._creationTime,
+      saldoDompet: await danaWalletBalance(ctx, userId),
+      alokasiPinjaman: urutTerbaru(alokasiPinjaman),
+      alokasiKredit: urutTerbaru(alokasiKredit),
+      setoran: urutTerbaru(
+        setoran.map((s) => ({
+          referensi: s.nomorReferensi,
+          jumlah: s.jumlah,
+          status: s.status as string,
+          waktu: s._creationTime,
+        })),
+      ),
+      penarikan: urutTerbaru(
+        penarikan.map((w) => ({
+          referensi: w.nomorReferensi,
+          jumlah: w.jumlah,
+          status: w.status as string,
+          waktu: w._creationTime,
+        })),
+      ),
+      batasRiwayat: BATAS_RIWAYAT,
+    };
   },
 });
 

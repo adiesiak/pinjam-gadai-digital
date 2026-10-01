@@ -20,6 +20,7 @@ import { describe, expect, it } from "vitest";
 
 import { api } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
+import { akunDompetDana } from "./ledger";
 import { BATAS_BARIS } from "./penyediaDana";
 import schema from "./schema";
 import { buatPengguna, siapkanPengguna, type KonteksUji } from "./test.helpers";
@@ -372,7 +373,7 @@ describe("ruang penyedia dana (lihat saja)", () => {
       }),
     ).rejects.toThrow(/admin/i);
     // Akun tanpa peran admin juga tidak boleh membaca daftar akses.
-    await expect(calon.query(api.penyediaDana.daftarAkses, {})).rejects.toThrow(
+    await expect(calon.query(api.penyediaDana.daftarInvestor, {})).rejects.toThrow(
       /admin/i,
     );
 
@@ -399,7 +400,7 @@ describe("ruang penyedia dana (lihat saja)", () => {
     });
     expect(ulang.sudahSesuai).toBe(true);
 
-    const daftar = await admin.query(api.penyediaDana.daftarAkses, {});
+    const daftar = await admin.query(api.penyediaDana.daftarInvestor, {});
     expect(daftar.rows.map((r) => r.email)).toEqual(["calon@pindai.test"]);
 
     // Email dengan huruf besar tetap menemukan akun yang sama.
@@ -465,6 +466,249 @@ describe("ruang penyedia dana (lihat saja)", () => {
     // Tidak ada akun yang berubah peran oleh percobaan gagal di atas.
     const semua = await t.run((ctx) => ctx.db.query("users").collect());
     expect(semua.filter((u) => u.role === "dana")).toHaveLength(0);
+  });
+});
+
+describe("kelola penyedia dana (panel admin)", () => {
+  it("meringkas posisi dana tiap akun dan hanya terbuka untuk admin", async () => {
+    const t = convexTest(schema, modules);
+    const { sesi: admin } = await siapkanPengguna(t, "admin", {
+      email: "admin@pindai.test",
+      role: "admin",
+    });
+    const { userId: peminjamId } = await siapkanPengguna(t, "rani", {
+      email: "rani@pindai.test",
+      role: "peminjam",
+    });
+    const { sesi: penyedia, userId: penyediaId } = await siapkanPengguna(t, "Robert", {
+      email: "robert@pindai.test",
+      role: "dana",
+    });
+    const { loanId } = await seedPengajuan(t, peminjamId);
+
+    // Gerbang: penyedia dana sendiri tidak boleh membaca panel kelola.
+    await expect(
+      penyedia.query(api.penyediaDana.daftarInvestor, {}),
+    ).rejects.toThrow(/admin/i);
+    await expect(
+      penyedia.query(api.penyediaDana.rincianInvestor, { userId: penyediaId }),
+    ).rejects.toThrow(/admin/i);
+
+    await t.run(async (ctx) => {
+      await ctx.db.insert("fundings", {
+        loanId,
+        danaId: penyediaId,
+        jumlahAlokasi: 1_000_000,
+        imbalHasil: 300_000,
+        status: "dialokasikan",
+        nomorReferensi: "FND-KELOLA-1",
+      });
+      await ctx.db.insert("fundings", {
+        loanId,
+        danaId: penyediaId,
+        jumlahAlokasi: 500_000,
+        imbalHasil: 150_000,
+        status: "selesai",
+        nomorReferensi: "FND-KELOLA-2",
+      });
+      await ctx.db.insert("deposits", {
+        danaId: penyediaId,
+        jumlah: 2_000_000,
+        referensiTransfer: "TRF-1",
+        status: "terverifikasi",
+        nomorReferensi: "DEP-KELOLA-1",
+      });
+      await ctx.db.insert("deposits", {
+        danaId: penyediaId,
+        jumlah: 750_000,
+        referensiTransfer: "TRF-2",
+        status: "menunggu_verifikasi",
+        nomorReferensi: "DEP-KELOLA-2",
+      });
+      await ctx.db.insert("withdrawals", {
+        danaId: penyediaId,
+        jumlah: 400_000,
+        namaBank: "BCA",
+        nomorRekening: "1234567890",
+        status: "menunggu_proses",
+        nomorReferensi: "WD-KELOLA-1",
+      });
+      // Saldo dompet dibaca dari ledger, bukan field cache.
+      await ctx.db.insert("ledger_entries", {
+        groupId: "uji-kelola-1",
+        arah: "debit",
+        jumlah: 2_000_000,
+        akun: akunDompetDana(penyediaId),
+        jenis: "deposit",
+        keterangan: "setoran uji",
+        aktor: penyediaId,
+        waktu: Date.now(),
+      });
+      await ctx.db.insert("ledger_entries", {
+        groupId: "uji-kelola-2",
+        arah: "kredit",
+        jumlah: 1_000_000,
+        akun: akunDompetDana(penyediaId),
+        jenis: "disbursement",
+        keterangan: "alokasi uji",
+        aktor: penyediaId,
+        waktu: Date.now(),
+      });
+    });
+
+    const daftar = await admin.query(api.penyediaDana.daftarInvestor, {});
+    const baris = daftar.rows.find((r) => r.userId === penyediaId);
+    expect(baris).toBeDefined();
+    expect(baris?.akunBersama).toBe(false);
+    expect(baris?.aksesAktif).toBe(true);
+    expect(baris?.jumlahAlokasi).toBe(2);
+    // Hanya alokasi berstatus "dialokasikan" yang dihitung sedang bekerja.
+    expect(baris?.danaBekerja).toBe(1_000_000);
+    expect(baris?.imbalHasilDiharapkan).toBe(300_000);
+    expect(baris?.totalSetoran).toBe(2_000_000);
+    expect(baris?.setoranMenunggu).toBe(1);
+    expect(baris?.totalPenarikan).toBe(0);
+    expect(baris?.penarikanMenunggu).toBe(1);
+    expect(baris?.saldoDompet).toBe(1_000_000);
+    expect(baris?.aktivitasTerakhir).toBeGreaterThan(0);
+
+    expect(daftar.ringkasan).toMatchObject({
+      jumlahAkun: 1,
+      jumlahAkses: 1,
+      jumlahPeranLegacy: 0,
+      jumlahPemantau: 0,
+      danaBekerja: 1_000_000,
+      imbalHasilDiharapkan: 300_000,
+      totalSetoran: 2_000_000,
+      saldoDompet: 1_000_000,
+      setoranMenunggu: 1,
+      penarikanMenunggu: 1,
+    });
+
+    const rincian = await admin.query(api.penyediaDana.rincianInvestor, {
+      userId: penyediaId,
+    });
+    expect(rincian?.email).toBe("robert@pindai.test");
+    expect(rincian?.akunBersama).toBe(false);
+    expect(rincian?.saldoDompet).toBe(1_000_000);
+    expect(rincian?.alokasiPinjaman).toHaveLength(2);
+    expect(rincian?.alokasiPinjaman[0]?.referensi).toBe("PGD-UJI-1");
+    expect(rincian?.alokasiKredit).toHaveLength(0);
+    // Riwayat selalu diurutkan dari yang terbaru.
+    expect(rincian?.setoran.map((s) => s.referensi)).toEqual([
+      "DEP-KELOLA-2",
+      "DEP-KELOLA-1",
+    ]);
+    expect(rincian?.penarikan).toHaveLength(1);
+  });
+
+  it("menandai pemantau kode bersama terpisah dari penyedia dana beremail", async () => {
+    const t = convexTest(schema, modules);
+    const { sesi: admin } = await siapkanPengguna(t, "admin", {
+      email: "admin@pindai.test",
+      role: "admin",
+    });
+    const { userId: tamuId } = await buatPengguna(t, "tamu", { isAnonymous: true });
+    await t.run((ctx) => ctx.db.patch(tamuId, { role: "pengamat", aksesBersamaVersi: 1 }));
+    await t.run((ctx) =>
+      ctx.db.insert("aksesBersama", {
+        slot: "global",
+        kodeHash: "a".repeat(64),
+        aktif: true,
+        versi: 1,
+        diterbitkanPada: Date.now(),
+        diperbaruiPada: Date.now(),
+        gagalTerakhir: [],
+      }),
+    );
+
+    const daftar = await admin.query(api.penyediaDana.daftarInvestor, {});
+    const baris = daftar.rows.find((r) => r.userId === tamuId);
+    expect(baris?.akunBersama).toBe(true);
+    expect(baris?.aksesAktif).toBe(true);
+    expect(baris?.email).toBeNull();
+    expect(daftar.ringkasan).toMatchObject({
+      jumlahAkun: 1,
+      jumlahAkses: 1,
+      jumlahPeranLegacy: 0,
+      jumlahPemantau: 1,
+      pemantauAktif: 1,
+    });
+  });
+
+  it("menampilkan akun berperan lama (pendana) sebagai belum berakses, lalu menormalkannya", async () => {
+    const t = convexTest(schema, modules);
+    const { sesi: admin } = await siapkanPengguna(t, "admin", {
+      email: "admin@pindai.test",
+      role: "admin",
+    });
+    const { userId: peminjamId } = await siapkanPengguna(t, "rani", {
+      email: "rani@pindai.test",
+      role: "peminjam",
+    });
+    // Akun warisan: peran tersimpan "pendana" (bukan `dana`) seperti data lama.
+    const { userId: legacyId } = await buatPengguna(t, "Penyedia Lama", {
+      email: "lama@pindai.test",
+      emailVerificationTime: 1_700_000_000_000,
+    });
+    await t.run((ctx) => ctx.db.patch(legacyId, { role: "pendana" as never }));
+    const { loanId } = await seedPengajuan(t, peminjamId);
+    await t.run((ctx) =>
+      ctx.db.insert("fundings", {
+        loanId,
+        danaId: legacyId,
+        jumlahAlokasi: 2_000_000,
+        imbalHasil: 600_000,
+        status: "dialokasikan",
+        nomorReferensi: "FND-WARISAN-1",
+      }),
+    );
+
+    const daftar = await admin.query(api.penyediaDana.daftarInvestor, {});
+    const baris = daftar.rows.find((r) => r.userId === legacyId);
+    expect(baris?.peran).toBe("pendana");
+    expect(baris?.peranLegacy).toBe(true);
+    // Peran lama tidak dikenali gerbang ruang → belum berakses, walau dananya nyata.
+    expect(baris?.aksesAktif).toBe(false);
+    expect(baris?.danaBekerja).toBe(2_000_000);
+    expect(daftar.ringkasan).toMatchObject({
+      jumlahAkun: 1,
+      jumlahAkses: 0,
+      jumlahPeranLegacy: 1,
+      danaBekerja: 2_000_000,
+    });
+
+    // Admin menormalkan peran lewat tombol Beri akses (ubahAkses).
+    await admin.mutation(api.penyediaDana.ubahAkses, {
+      email: "lama@pindai.test",
+      aktif: true,
+      alasan: "Normalisasi akun warisan",
+    });
+    expect((await t.run((ctx) => ctx.db.get(legacyId)))?.role).toBe("dana");
+    const sesudah = await admin.query(api.penyediaDana.daftarInvestor, {});
+    const barisSesudah = sesudah.rows.find((r) => r.userId === legacyId);
+    expect(barisSesudah?.peranLegacy).toBe(false);
+    expect(barisSesudah?.aksesAktif).toBe(true);
+    expect(sesudah.ringkasan).toMatchObject({ jumlahAkses: 1, jumlahPeranLegacy: 0 });
+  });
+
+  it("menyembunyikan akun peran lama tanpa jejak dana dan tanpa email", async () => {
+    const t = convexTest(schema, modules);
+    const { sesi: admin } = await siapkanPengguna(t, "admin", {
+      email: "admin@pindai.test",
+      role: "admin",
+    });
+    const { userId: kosongId } = await buatPengguna(t, "Tanpa Jejak");
+    await t.run((ctx) => ctx.db.patch(kosongId, { role: "pendana" as never }));
+
+    const daftar = await admin.query(api.penyediaDana.daftarInvestor, {});
+    expect(daftar.rows.some((r) => r.userId === kosongId)).toBe(false);
+    expect(daftar.ringkasan).toMatchObject({
+      jumlahAkun: 0,
+      jumlahAkses: 0,
+      jumlahPeranLegacy: 0,
+      jumlahWarisanTanpaJejak: 1,
+    });
   });
 });
 
