@@ -17,25 +17,33 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 
-/** Setoran Pendana hanya mengumpulkan bukti untuk pencocokan admin. */
+/** Tanggal hari ini (YYYY-MM-DD) untuk nilai awal form — dihitung sekali saat
+ * modul dimuat supaya render tetap murni (bebas `Date.now()` saat render). */
+const HARI_INI = new Date(Date.now() - new Date().getTimezoneOffset() * 60_000)
+  .toISOString()
+  .slice(0, 10);
+
+/**
+ * Setoran Pendana hanya mengumpulkan bukti untuk pencocokan admin.
+ * Animasi masuk (`.animate-masuk`) sudah disiapkan agar tampil konsisten
+ * dengan panel lain begitu fitur setoran diaktifkan kembali.
+ */
 export function DepositForm() {
   const instructions = useQuery(api.system.getPaymentInstructions);
   const generateUploadUrl = useMutation(api.pendana.generateDepositUploadUrl);
   const requestDeposit = useMutation(api.pendana.requestDeposit);
   const [amount, setAmount] = useState("");
   const [reference, setReference] = useState("");
-  const [date, setDate] = useState(
-    new Date(Date.now() - new Date().getTimezoneOffset() * 60_000).toISOString().slice(0, 10),
-  );
+  const [date, setDate] = useState(HARI_INI);
   const [method, setMethod] = useState<"transfer" | "qris">("transfer");
   const [file, setFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
 
   if (instructions === undefined) return <p className="text-sm text-muted-foreground">Memuat instruksi…</p>;
-  if (!instructions.pendanaDepositEnabled) return <section className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-900">Pengiriman bukti setoran belum dibuka oleh tim operasional. Pencocokan admin tidak mengkreditkan saldo.</section>;
+  if (!instructions.pendanaDepositEnabled) return <section className="animate-masuk rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-900">Pengiriman bukti setoran belum dibuka oleh tim operasional. Pencocokan admin tidak mengkreditkan saldo.</section>;
 
   return (
-    <section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-4 sm:p-6">
+    <section className="animate-masuk space-y-4 rounded-2xl border border-slate-200 bg-white p-4 sm:p-6">
       <div><h3 className="text-sm font-semibold">Kirim bukti setoran</h3><p className="mt-1 text-xs leading-5 text-muted-foreground">Bukti hanya ditinjau dan dicocokkan secara manual; saldo ledger tetap tidak berubah.</p></div>
       <div className="grid gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4 sm:grid-cols-2">
         <div><p className="text-xs font-semibold">Transfer bank</p><p className="mt-1 text-sm">{instructions.namaBank} · {instructions.nomorRekening}</p><p className="text-xs text-muted-foreground">{instructions.namaRekening}</p></div>
@@ -82,7 +90,7 @@ export function DepositSimDialog({
   return (
     <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
       <DialogContent>
-        <DialogHeader>
+        <DialogHeader className="animate-masuk">
           <DialogTitle>Setoran belum tersedia</DialogTitle>
           <DialogDescription>
             Tidak ada QR, virtual account, atau instruksi pembayaran aktif. Jangan mengirim dana berdasarkan tampilan atau catatan aplikasi.
