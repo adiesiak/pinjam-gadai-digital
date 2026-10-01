@@ -1,6 +1,7 @@
 import { CalendarClock, Package, Wallet } from "lucide-react";
 import { useMemo } from "react";
 
+import { CountUp } from "@/components/CountUp";
 import { formatRupiah } from "@/lib/money";
 
 import type { LoanScheduleRow } from "./shared";
@@ -45,7 +46,7 @@ export function SummaryCards({ schedule }: { schedule: LoanScheduleRow[] }) {
           <div>
             <p className="text-xs text-muted-foreground">Nilai Bersih</p>
             <p className="mt-2 break-words text-xl font-semibold tabular-nums text-emerald-600 sm:text-2xl">
-              {formatRupiah(danaBersihTotal)}
+              <CountUp value={danaBersihTotal} format={formatRupiah} />
             </p>
           </div>
           <span className="flex size-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
@@ -59,7 +60,7 @@ export function SummaryCards({ schedule }: { schedule: LoanScheduleRow[] }) {
           <div>
             <p className="text-xs text-muted-foreground">Total kewajiban (bukan tagihan)</p>
             <p className="mt-2 break-words text-xl font-semibold tabular-nums sm:text-2xl">
-              {formatRupiah(totalKewajiban)}
+              <CountUp value={totalKewajiban} format={formatRupiah} />
             </p>
           </div>
           <span className="flex size-10 items-center justify-center rounded-xl bg-slate-100 text-slate-600">
@@ -73,7 +74,7 @@ export function SummaryCards({ schedule }: { schedule: LoanScheduleRow[] }) {
           <div>
             <p className="text-xs text-muted-foreground">Sisa kewajiban · bukan tagihan atau tunggakan</p>
             <p className="mt-2 break-words text-xl font-semibold tabular-nums text-destructive sm:text-2xl">
-              {formatRupiah(sisaSimulasi)}
+              <CountUp value={sisaSimulasi} format={formatRupiah} />
             </p>
           </div>
           <span className="flex size-10 items-center justify-center rounded-xl bg-slate-100 text-slate-600">

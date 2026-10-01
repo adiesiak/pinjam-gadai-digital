@@ -17,11 +17,15 @@ import {
 } from "lucide-react";
 import { Link } from "react-router";
 
+import { CountUp } from "@/components/CountUp";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { formatRupiah } from "@/lib/money";
 import { fadeUpItem, staggerContainer } from "@/lib/motion";
 import { RoleDashboardMenu } from "@/components/RoleDashboardMenu";
+
+/** Pemformat hitungan biasa pada kartu statistik (tanpa pemisah ribuan). */
+const formatJumlah = (n: number) => `${n}`;
 
 export type AdminStatsData = {
   pinjamanBaru: number;
@@ -165,17 +169,17 @@ export function AdminHeader({
 /** Grid statistik ringkas sistem. */
 export function AdminStats({ stats }: { stats: AdminStatsData }) {
   const items = [
-    { label: "Pengajuan pinjaman baru", value: `${stats.pinjamanBaru}`, tone: "amber", Icon: ClipboardList },
-    { label: "Pengajuan gadai diproses", value: `${stats.gadaiProses}`, tone: "amber", Icon: Package },
-    { label: "Catatan pinjaman", value: `${stats.totalPinjaman}`, tone: "sky", Icon: Landmark },
-    { label: "Catatan gadai", value: `${stats.totalGadai}`, tone: "sky", Icon: Database },
-    { label: "Pinjaman disetujui (status internal)", value: `${stats.pinjamanDisetujui}`, tone: "sky", Icon: CircleDollarSign },
-    { label: "Tanggal acuan terlewati", value: `${stats.pinjamanTerlambat}`, tone: stats.pinjamanTerlambat > 0 ? "red" : "mint", Icon: Clock3 },
-    { label: "Nilai taksiran internal", value: formatRupiah(stats.nilaiTaksiranDisetujui), tone: "mint", Icon: CircleDollarSign },
-    { label: "Pola koordinat untuk ditinjau", value: `${stats.gpsMismatch}`, tone: stats.gpsMismatch > 0 ? "red" : "mint", Icon: MapPin },
-    { label: "Koordinat perangkat tidak tersedia", value: `${stats.pinjamanTanpaLokasi}`, tone: stats.pinjamanTanpaLokasi > 0 ? "red" : "mint", Icon: MapPin },
-    { label: "Pola lokasi untuk ditinjau", value: `${stats.titikDicurigai}`, tone: stats.titikDicurigai > 0 ? "red" : "mint", Icon: TriangleAlert },
-    { label: "Peringatan belum diakui", value: `${stats.peringatanLokasiAktif}`, tone: stats.peringatanLokasiAktif > 0 ? "amber" : "mint", Icon: BellRing },
+    { label: "Pengajuan pinjaman baru", angka: stats.pinjamanBaru, format: formatJumlah, tone: "amber", Icon: ClipboardList },
+    { label: "Pengajuan gadai diproses", angka: stats.gadaiProses, format: formatJumlah, tone: "amber", Icon: Package },
+    { label: "Catatan pinjaman", angka: stats.totalPinjaman, format: formatJumlah, tone: "sky", Icon: Landmark },
+    { label: "Catatan gadai", angka: stats.totalGadai, format: formatJumlah, tone: "sky", Icon: Database },
+    { label: "Pinjaman disetujui (status internal)", angka: stats.pinjamanDisetujui, format: formatJumlah, tone: "sky", Icon: CircleDollarSign },
+    { label: "Tanggal acuan terlewati", angka: stats.pinjamanTerlambat, format: formatJumlah, tone: stats.pinjamanTerlambat > 0 ? "red" : "mint", Icon: Clock3 },
+    { label: "Nilai taksiran internal", angka: stats.nilaiTaksiranDisetujui, format: formatRupiah, tone: "mint", Icon: CircleDollarSign },
+    { label: "Pola koordinat untuk ditinjau", angka: stats.gpsMismatch, format: formatJumlah, tone: stats.gpsMismatch > 0 ? "red" : "mint", Icon: MapPin },
+    { label: "Koordinat perangkat tidak tersedia", angka: stats.pinjamanTanpaLokasi, format: formatJumlah, tone: stats.pinjamanTanpaLokasi > 0 ? "red" : "mint", Icon: MapPin },
+    { label: "Pola lokasi untuk ditinjau", angka: stats.titikDicurigai, format: formatJumlah, tone: stats.titikDicurigai > 0 ? "red" : "mint", Icon: TriangleAlert },
+    { label: "Peringatan belum diakui", angka: stats.peringatanLokasiAktif, format: formatJumlah, tone: stats.peringatanLokasiAktif > 0 ? "amber" : "mint", Icon: BellRing },
   ] as const;
 
   const toneClass = {
@@ -193,7 +197,7 @@ export function AdminStats({ stats }: { stats: AdminStatsData }) {
       animate="show"
       className="mt-4 grid grid-cols-2 gap-2 sm:mt-5 sm:grid-cols-3 sm:gap-3 xl:grid-cols-4"
     >
-      {items.map(({ label, value, tone, Icon }) => (
+      {items.map(({ label, angka, format, tone, Icon }) => (
         <motion.div
           key={label}
           variants={fadeUpItem}
@@ -206,7 +210,7 @@ export function AdminStats({ stats }: { stats: AdminStatsData }) {
             </span>
           </div>
           <p className="mt-2 break-words text-lg font-bold tracking-tight tabular-nums text-navy min-[380px]:mt-3 min-[380px]:text-xl sm:text-2xl">
-            {value}
+            <CountUp value={angka} format={format} />
           </p>
         </motion.div>
       ))}
