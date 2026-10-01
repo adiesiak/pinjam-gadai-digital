@@ -10,47 +10,25 @@ import { convexTest } from "convex-test";
 import { describe, expect, it } from "vitest";
 
 import { api } from "./_generated/api";
-import type { Id } from "./_generated/dataModel";
 import schema from "./schema";
+import {
+  siapkanPengguna as siapkanPenggunaUji,
+  type KonteksUji,
+  type PeranUji,
+  type PenggunaUji,
+} from "./test.helpers";
 import { modules } from "./test.setup";
 
-type Tx = ReturnType<typeof convexTest>;
-type Sesi = ReturnType<Tx["withIdentity"]>;
-const TEST_TOTP_SECRET = "JBSWY3DPEHPK3PXP";
+type Tx = KonteksUji;
 
+/** Adapter argumen posisional → helper identitas bersama. */
 async function siapkanPengguna(
   t: Tx,
   subject: string,
   email: string,
-  role: "peminjam" | "pendana" | "admin",
-): Promise<{ userId: Id<"users">; sesi: Sesi }> {
-  const userId = await t.mutation((ctx) =>
-    ctx.db.insert("users", {
-      email,
-      name: subject,
-      emailVerificationTime: Date.now(),
-      role,
-    }),
-  );
-  const authSessionId = await t.run((ctx) =>
-    ctx.db.insert("authSessions", {
-      userId,
-      expirationTime: Date.now() + 60 * 60 * 1000,
-    }),
-  );
-  if (role === "admin") {
-    await t.run((ctx) =>
-      ctx.db.insert("mfaSettings", {
-        userId,
-        totpSecret: TEST_TOTP_SECRET,
-        totpVerifiedAuthSessionIds: [authSessionId],
-      }),
-    );
-  }
-  return {
-    userId,
-    sesi: t.withIdentity({ subject: `${userId}|${authSessionId}`, name: subject }) as never,
-  };
+  role: PeranUji,
+): Promise<PenggunaUji> {
+  return siapkanPenggunaUji(t, subject, { email, role });
 }
 
 describe("alur Pendana — pinjaman tunai", () => {

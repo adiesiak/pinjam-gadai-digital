@@ -24,46 +24,13 @@ import { describe, expect, it, vi } from "vitest";
 import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import schema from "./schema";
+import { buatSesi, type SesiUji } from "./test.helpers";
 import { modules } from "./test.setup";
 import { DEFAULT_CONFIG } from "../lib/system-config";
 
-const TEST_TOTP_SECRET = "JBSWY3DPEHPK3PXP";
-
-/** Sesi login palsu dengan authSession + TOTP agar lolos gerbang admin. */
-async function siapkanPengguna(
-  t: ReturnType<typeof convexTest>,
-  subject: string,
-  opts: { email: string; role: "peminjam" | "admin" },
-): Promise<ReturnType<typeof t.withIdentity>> {
-  const userId = await t.mutation(async (ctx) => {
-    return ctx.db.insert("users", {
-      email: opts.email,
-      name: subject,
-      emailVerificationTime: Date.now(),
-      role: opts.role,
-    });
-  });
-  const authSessionId = await t.run((ctx) =>
-    ctx.db.insert("authSessions", {
-      userId,
-      expirationTime: Date.now() + 60 * 60 * 1000,
-    }),
-  );
-  if (opts.role === "admin") {
-    await t.run((ctx) =>
-      ctx.db.insert("mfaSettings", {
-        userId,
-        totpSecret: TEST_TOTP_SECRET,
-        totpVerifiedAuthSessionIds: [authSessionId],
-      }),
-    );
-  }
-  return t.withIdentity({ subject: `${userId}|${authSessionId}`, name: subject }) as never;
-}
-
 /** Nyalakan kebijakan "wajib aplikasi" lewat akun admin. */
 async function aktifkanKebijakan(t: ReturnType<typeof convexTest>, email: string) {
-  const asAdmin = await siapkanPengguna(t, "admin-app", { email, role: "admin" });
+  const asAdmin = await buatSesi(t, "admin-app", { email, role: "admin" });
   await asAdmin.mutation(api.system.saveConfig, {
     ...DEFAULT_CONFIG,
     wajibAplikasiNative: true,
@@ -72,7 +39,7 @@ async function aktifkanKebijakan(t: ReturnType<typeof convexTest>, email: string
 
 /** Daftarkan perangkat aplikasi dan kembalikan tokennya. */
 async function daftarkanPerangkat(
-  sesi: ReturnType<ReturnType<typeof convexTest>["withIdentity"]>,
+  sesi: SesiUji,
   deviceId: string,
 ): Promise<string> {
   const hasil = await sesi.mutation(api.lokasi.daftarkanPerangkat, {
@@ -106,7 +73,7 @@ const PENGAJUAN = {
 describe("gerbang lokasi wajib", () => {
   it("menolak pengajuan tanpa titik GPS segar di server", async () => {
     const t = convexTest(schema, modules);
-    const asPeminjam = await siapkanPengguna(t, "peminjam-tanpa-lokasi", {
+    const asPeminjam = await buatSesi(t, "peminjam-tanpa-lokasi", {
       email: "tanpa-lokasi@pindai.test",
       role: "peminjam",
     });
@@ -118,7 +85,7 @@ describe("gerbang lokasi wajib", () => {
 
   it("menolak titik di luar wilayah Indonesia dan lompatan mustahil", async () => {
     const t = convexTest(schema, modules);
-    const asPeminjam = await siapkanPengguna(t, "peminjam-luar", {
+    const asPeminjam = await buatSesi(t, "peminjam-luar", {
       email: "luar-negeri@pindai.test",
       role: "peminjam",
     });
@@ -149,7 +116,7 @@ describe("gerbang lokasi wajib", () => {
 
   it("menerima titik jauh setelah jeda panjang (perjalanan luar kota)", async () => {
     const t = convexTest(schema, modules);
-    const asPeminjam = await siapkanPengguna(t, "peminjam-perjalanan-jauh", {
+    const asPeminjam = await buatSesi(t, "peminjam-perjalanan-jauh", {
       email: "perjalanan@pindai.test",
       role: "peminjam",
     });
@@ -189,7 +156,7 @@ describe("gerbang lokasi wajib", () => {
 
   it("melayani pengajuan setelah heartbeat GPS diterima", async () => {
     const t = convexTest(schema, modules);
-    const asPeminjam = await siapkanPengguna(t, "peminjam-lokasi", {
+    const asPeminjam = await buatSesi(t, "peminjam-lokasi", {
       email: "dengan-lokasi@pindai.test",
       role: "peminjam",
     });
@@ -212,7 +179,7 @@ describe("gerbang lokasi wajib", () => {
 
   it("menolak titik yang sudah kedaluwarsa", async () => {
     const t = convexTest(schema, modules);
-    const asPeminjam = await siapkanPengguna(t, "peminjam-basi", {
+    const asPeminjam = await buatSesi(t, "peminjam-basi", {
       email: "basi@pindai.test",
       role: "peminjam",
     });
@@ -240,11 +207,11 @@ describe("gerbang lokasi wajib", () => {
 
   it("pengajuan tetap dilayani bila admin mematikan gerbang lokasi", async () => {
     const t = convexTest(schema, modules);
-    const asAdmin = await siapkanPengguna(t, "admin-lokasi", {
+    const asAdmin = await buatSesi(t, "admin-lokasi", {
       email: "admin-lokasi@pindai.test",
       role: "admin",
     });
-    const asPeminjam = await siapkanPengguna(t, "peminjam-bebas", {
+    const asPeminjam = await buatSesi(t, "peminjam-bebas", {
       email: "bebas-lokasi@pindai.test",
       role: "peminjam",
     });
@@ -264,7 +231,7 @@ describe("kebijakan wajib aplikasi (transaksi hanya dari aplikasi)", () => {
   it("melayani transaksi setelah aplikasi native mengirim titik", async () => {
     const t = convexTest(schema, modules);
     await aktifkanKebijakan(t, "admin-app-1@pindai.test");
-    const asPeminjam = await siapkanPengguna(t, "peminjam-app-1", {
+    const asPeminjam = await buatSesi(t, "peminjam-app-1", {
       email: "app-1@pindai.test",
       role: "peminjam",
     });
@@ -297,7 +264,7 @@ describe("kebijakan wajib aplikasi (transaksi hanya dari aplikasi)", () => {
   it("menolak transaksi dari browser walau perangkat pernah terdaftar", async () => {
     const t = convexTest(schema, modules);
     await aktifkanKebijakan(t, "admin-app-2@pindai.test");
-    const asPeminjam = await siapkanPengguna(t, "peminjam-app-2", {
+    const asPeminjam = await buatSesi(t, "peminjam-app-2", {
       email: "app-2@pindai.test",
       role: "peminjam",
     });
@@ -340,7 +307,7 @@ describe("kebijakan wajib aplikasi (transaksi hanya dari aplikasi)", () => {
   it("tidak menghitung klaim aplikasi tanpa ID perangkat", async () => {
     const t = convexTest(schema, modules);
     await aktifkanKebijakan(t, "admin-app-3@pindai.test");
-    const asPeminjam = await siapkanPengguna(t, "peminjam-app-3", {
+    const asPeminjam = await buatSesi(t, "peminjam-app-3", {
       email: "app-3@pindai.test",
       role: "peminjam",
     });
@@ -365,7 +332,7 @@ describe("kebijakan wajib aplikasi (transaksi hanya dari aplikasi)", () => {
   it("menolak bila perangkat tidak lagi mengirim heartbeat (lebih dari 24 jam)", async () => {
     const t = convexTest(schema, modules);
     await aktifkanKebijakan(t, "admin-app-4@pindai.test");
-    const asPeminjam = await siapkanPengguna(t, "peminjam-app-4", {
+    const asPeminjam = await buatSesi(t, "peminjam-app-4", {
       email: "app-4@pindai.test",
       role: "peminjam",
     });
@@ -409,7 +376,7 @@ describe("deteksi lokasi palsu", () => {
 
   it("menolak titik yang dilaporkan berasal dari mock location", async () => {
     const t = convexTest(schema, modules);
-    const asPeminjam = await siapkanPengguna(t, "peminjam-mock", {
+    const asPeminjam = await buatSesi(t, "peminjam-mock", {
       email: "mock@pindai.test",
       role: "peminjam",
     });
@@ -436,7 +403,7 @@ describe("deteksi lokasi palsu", () => {
 
   it("menolak akurasi di bawah kemampuan sensor GPS", async () => {
     const t = convexTest(schema, modules);
-    const asPeminjam = await siapkanPengguna(t, "peminjam-akurasi-ajaib", {
+    const asPeminjam = await buatSesi(t, "peminjam-akurasi-ajaib", {
       email: "akurasi-ajaib@pindai.test",
       role: "peminjam",
     });
@@ -463,7 +430,7 @@ describe("deteksi lokasi palsu", () => {
 
   it("menandai koordinat beku berulang tanpa menghalangi transaksi", async () => {
     const t = convexTest(schema, modules);
-    const asPeminjam = await siapkanPengguna(t, "peminjam-beku", {
+    const asPeminjam = await buatSesi(t, "peminjam-beku", {
       email: "beku@pindai.test",
       role: "peminjam",
     });
@@ -491,7 +458,7 @@ describe("deteksi lokasi palsu", () => {
 
   it("menolak mock location lewat endpoint heartbeat native", async () => {
     const t = convexTest(schema, modules);
-    const asPeminjam = await siapkanPengguna(t, "peminjam-mock-http", {
+    const asPeminjam = await buatSesi(t, "peminjam-mock-http", {
       email: "mock-http@pindai.test",
       role: "peminjam",
     });
@@ -514,11 +481,11 @@ describe("deteksi lokasi palsu", () => {
 
   it("menghitung titik dicurigai untuk tim review", async () => {
     const t = convexTest(schema, modules);
-    const asAdmin = await siapkanPengguna(t, "admin-dicurigai", {
+    const asAdmin = await buatSesi(t, "admin-dicurigai", {
       email: "admin-dicurigai@pindai.test",
       role: "admin",
     });
-    const asPeminjam = await siapkanPengguna(t, "peminjam-dicurigai", {
+    const asPeminjam = await buatSesi(t, "peminjam-dicurigai", {
       email: "dicurigai@pindai.test",
       role: "peminjam",
     });
@@ -574,7 +541,7 @@ describe("peringatan lokasi dicurigai (nasabah + admin)", () => {
 
   /** Kirim titik identik berulang sampai heuristik menandainya. */
   async function bekukan(
-    sesi: ReturnType<ReturnType<typeof convexTest>["withIdentity"]>,
+    sesi: SesiUji,
     jumlah = 6,
     loanId?: Id<"loans">,
   ): Promise<void> {
@@ -590,7 +557,7 @@ describe("peringatan lokasi dicurigai (nasabah + admin)", () => {
 
   it("menulis satu peringatan per 24 jam plus entri audit", async () => {
     const t = convexTest(schema, modules);
-    const asPeminjam = await siapkanPengguna(t, "peminjam-peringatan", {
+    const asPeminjam = await buatSesi(t, "peminjam-peringatan", {
       email: "peringatan@pindai.test",
       role: "peminjam",
     });
@@ -617,11 +584,11 @@ describe("peringatan lokasi dicurigai (nasabah + admin)", () => {
 
   it("nasabah melihat peringatan dan bisa mengakuinya", async () => {
     const t = convexTest(schema, modules);
-    const asPeminjam = await siapkanPengguna(t, "peminjam-peringatan-2", {
+    const asPeminjam = await buatSesi(t, "peminjam-peringatan-2", {
       email: "peringatan-2@pindai.test",
       role: "peminjam",
     });
-    const asLain = await siapkanPengguna(t, "peminjam-lain", {
+    const asLain = await buatSesi(t, "peminjam-lain", {
       email: "lain@pindai.test",
       role: "peminjam",
     });
@@ -643,7 +610,7 @@ describe("peringatan lokasi dicurigai (nasabah + admin)", () => {
 
   it("mengirim WhatsApp bila gateway aktif, dan mencatat alasannya bila tidak", async () => {
     const t = convexTest(schema, modules);
-    const asPeminjam = await siapkanPengguna(t, "peminjam-peringatan-wa", {
+    const asPeminjam = await buatSesi(t, "peminjam-peringatan-wa", {
       email: "peringatan-wa@pindai.test",
       role: "peminjam",
     });
@@ -692,7 +659,7 @@ describe("peringatan lokasi dicurigai (nasabah + admin)", () => {
 
   it("menandai tanpa_nomor bila nasabah belum punya nomor KYC", async () => {
     const t = convexTest(schema, modules);
-    const asPeminjam = await siapkanPengguna(t, "peminjam-tanpa-nomor", {
+    const asPeminjam = await buatSesi(t, "peminjam-tanpa-nomor", {
       email: "tanpa-nomor@pindai.test",
       role: "peminjam",
     });
@@ -717,7 +684,7 @@ describe("peringatan lokasi dicurigai (nasabah + admin)", () => {
     vi.useFakeTimers();
     try {
       const t = convexTest(schema, modules);
-      const asPeminjam = await siapkanPengguna(t, "peminjam-jadwal-wa", {
+      const asPeminjam = await buatSesi(t, "peminjam-jadwal-wa", {
         email: "jadwal-wa@pindai.test",
         role: "peminjam",
       });
@@ -755,11 +722,11 @@ describe("peringatan lokasi dicurigai (nasabah + admin)", () => {
 
   it("menampilkan peringatan ke admin dengan status pengiriman", async () => {
     const t = convexTest(schema, modules);
-    const asAdmin = await siapkanPengguna(t, "admin-peringatan", {
+    const asAdmin = await buatSesi(t, "admin-peringatan", {
       email: "admin-peringatan@pindai.test",
       role: "admin",
     });
-    const asPeminjam = await siapkanPengguna(t, "peminjam-peringatan-3", {
+    const asPeminjam = await buatSesi(t, "peminjam-peringatan-3", {
       email: "peringatan-3@pindai.test",
       role: "peminjam",
     });
@@ -831,7 +798,7 @@ describe("retensi jejak lokasi (job cron harian)", () => {
   /** Ubah retensi lokasi lewat Pengaturan Sistem (jalur yang dipakai admin). */
   async function aturRetensi(t: ReturnType<typeof convexTest>, hari: number) {
     urutan += 1;
-    const asAdmin = await siapkanPengguna(t, `admin-retensi-${urutan}`, {
+    const asAdmin = await buatSesi(t, `admin-retensi-${urutan}`, {
       email: `admin-retensi-${urutan}@pindai.test`,
       role: "admin",
     });
@@ -918,7 +885,7 @@ describe("retensi jejak lokasi (job cron harian)", () => {
 
   it("menolak nilai retensi di luar batas yang wajar", async () => {
     const t = convexTest(schema, modules);
-    const asAdmin = await siapkanPengguna(t, "admin-retensi-batas", {
+    const asAdmin = await buatSesi(t, "admin-retensi-batas", {
       email: "admin-retensi-batas@pindai.test",
       role: "admin",
     });
@@ -966,7 +933,7 @@ describe("endpoint heartbeat native (POST /lokasi/heartbeat)", () => {
   it("menerima titik dengan token perangkat tanpa sesi pengguna", async () => {
     const t = convexTest(schema, modules);
     await aktifkanKebijakan(t, "admin-http-1@pindai.test");
-    const asPeminjam = await siapkanPengguna(t, "peminjam-http-1", {
+    const asPeminjam = await buatSesi(t, "peminjam-http-1", {
       email: "http-1@pindai.test",
       role: "peminjam",
     });
@@ -996,7 +963,7 @@ describe("endpoint heartbeat native (POST /lokasi/heartbeat)", () => {
 
   it("menolak token kosong/asing (401) dan mengabaikan token di query", async () => {
     const t = convexTest(schema, modules);
-    const asPeminjam = await siapkanPengguna(t, "peminjam-http-2", {
+    const asPeminjam = await buatSesi(t, "peminjam-http-2", {
       email: "http-2@pindai.test",
       role: "peminjam",
     });
@@ -1022,7 +989,7 @@ describe("endpoint heartbeat native (POST /lokasi/heartbeat)", () => {
 
   it("menolak body rusak dan titik tidak sah (400)", async () => {
     const t = convexTest(schema, modules);
-    const asPeminjam = await siapkanPengguna(t, "peminjam-http-3", {
+    const asPeminjam = await buatSesi(t, "peminjam-http-3", {
       email: "http-3@pindai.test",
       role: "peminjam",
     });
@@ -1056,7 +1023,7 @@ describe("endpoint heartbeat native (POST /lokasi/heartbeat)", () => {
 
   it("memakai ulang token perangkat yang sama saat app dibuka kembali", async () => {
     const t = convexTest(schema, modules);
-    const asPeminjam = await siapkanPengguna(t, "peminjam-http-4", {
+    const asPeminjam = await buatSesi(t, "peminjam-http-4", {
       email: "http-4@pindai.test",
       role: "peminjam",
     });
@@ -1067,7 +1034,7 @@ describe("endpoint heartbeat native (POST /lokasi/heartbeat)", () => {
 
   it("menolak platform perangkat selain android/ios", async () => {
     const t = convexTest(schema, modules);
-    const asPeminjam = await siapkanPengguna(t, "peminjam-http-5", {
+    const asPeminjam = await buatSesi(t, "peminjam-http-5", {
       email: "http-5@pindai.test",
       role: "peminjam",
     });

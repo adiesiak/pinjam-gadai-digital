@@ -3,75 +3,14 @@ import { convexTest } from "convex-test";
 import { describe, expect, it } from "vitest";
 
 import { api, internal } from "./_generated/api";
-import type { Id } from "./_generated/dataModel";
 import { CONTRACT_TERMS_VERSION } from "../lib/contract";
 import { totpNow } from "../lib/totp";
 import schema from "./schema";
+import { aktifkanTotpUntukSesi, buatPengguna, TEST_TOTP_SECRET } from "./test.helpers";
 import { modules } from "./test.setup";
 
 type Tx = ReturnType<typeof convexTest<typeof schema.tables>>;
 type Sesi = ReturnType<Tx["withIdentity"]>;
-const TEST_TOTP_SECRET = "JBSWY3DPEHPK3PXP";
-
-async function aktifkanTotpUntukSesi(
-  t: Tx,
-  userId: Id<"users">,
-  authSessionId: Id<"authSessions">,
-) {
-  await t.mutation(async (ctx) => {
-    const existing = await ctx.db
-      .query("mfaSettings")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
-      .first();
-    const patch = {
-      totpSecret: TEST_TOTP_SECRET,
-      totpVerifiedAuthSessionIds: [authSessionId],
-    };
-    if (existing === null) {
-      await ctx.db.insert("mfaSettings", { userId, ...patch });
-    } else {
-      await ctx.db.patch(existing._id, patch);
-    }
-  });
-}
-
-async function buatPengguna(
-  t: Tx,
-  nama: string,
-  opsi: {
-    email?: string;
-    emailVerificationTime?: number;
-    isAnonymous?: boolean;
-    role?: "admin" | "pendana" | "peminjam";
-  } = {},
-): Promise<{
-  sesi: Sesi;
-  userId: Id<"users">;
-  authSessionId: Id<"authSessions">;
-}> {
-  const userId = await t.mutation((ctx) =>
-    ctx.db.insert("users", {
-      ...(opsi.email !== undefined ? { email: opsi.email } : {}),
-      ...(opsi.emailVerificationTime !== undefined
-        ? { emailVerificationTime: opsi.emailVerificationTime }
-        : {}),
-      ...(opsi.isAnonymous !== undefined ? { isAnonymous: opsi.isAnonymous } : {}),
-      name: nama,
-      ...(opsi.role !== undefined ? { role: opsi.role } : {}),
-    }),
-  );
-  const authSessionId = await t.run((ctx) =>
-    ctx.db.insert("authSessions", {
-      userId,
-      expirationTime: Date.now() + 60 * 60 * 1000,
-    }),
-  );
-  return {
-    userId,
-    authSessionId,
-    sesi: t.withIdentity({ subject: `${userId}|${authSessionId}`, name: nama }) as never,
-  };
-}
 
 describe("otorisasi endpoint admin", () => {
   it("hanya admin unik dengan email terverifikasi yang dapat memakai password admin", async () => {

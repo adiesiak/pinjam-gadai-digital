@@ -17,43 +17,15 @@ import { describe, expect, it } from "vitest";
 import { api } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import schema from "./schema";
+import { siapkanPengguna, type KonteksUji, type SesiUji } from "./test.helpers";
 import { modules } from "./test.setup";
 import { PLAFON_BATAS, PLAFON_DEFAULT } from "../lib/plafon";
 import { DEFAULT_CONFIG } from "../lib/system-config";
 
-type Sesi = ReturnType<ReturnType<typeof convexTest>["withIdentity"]>;
-type Tx = ReturnType<typeof convexTest>;
+type Sesi = SesiUji;
+type Tx = KonteksUji;
 
 const TITIK = { lat: -6.2, lng: 106.816666, akurasi: 25 };
-
-async function siapkanPengguna(
-  t: Tx,
-  subject: string,
-  opts: { email: string; role: "peminjam" | "admin" },
-): Promise<{ sesi: Sesi; userId: Id<"users"> }> {
-  const { userId, authSessionId } = await t.mutation(async (ctx) => {
-    const userId = await ctx.db.insert("users", {
-      email: opts.email,
-      name: subject,
-      emailVerificationTime: Date.now(),
-      role: opts.role,
-    });
-    if (opts.role !== "admin") return { userId, authSessionId: null };
-
-    const authSessionId = await ctx.db.insert("authSessions", {
-      userId,
-      expirationTime: Date.now() + 30 * 86_400_000,
-    });
-    await ctx.db.insert("mfaSettings", {
-      userId,
-      totpSecret: "test-secret",
-      totpVerifiedAuthSessionIds: [authSessionId],
-    });
-    return { userId, authSessionId };
-  });
-  const identitySubject = authSessionId === null ? userId : `${userId}|${authSessionId}`;
-  return { sesi: t.withIdentity({ subject: identitySubject, name: subject }) as never, userId };
-}
 
 /** Titik Jakarta — gerbang lokasi wajib harus lolos sebelum plafon dicek. */
 async function aktifkanLokasi(sesi: Sesi) {

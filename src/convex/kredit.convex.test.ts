@@ -3,53 +3,21 @@ import { describe, expect, it } from "vitest";
 
 import { api } from "./_generated/api";
 import schema from "./schema";
+import { buatSesi } from "./test.helpers";
 import { modules } from "./test.setup";
-
-const TEST_TOTP_SECRET = "JBSWY3DPEHPK3PXP";
-
-async function siapkanPengguna(
-  t: ReturnType<typeof convexTest>,
-  subject: string,
-  opts: { email: string; role: "peminjam" | "pendana" | "admin" },
-): Promise<ReturnType<typeof t.withIdentity>> {
-  const userId = await t.mutation((ctx) =>
-    ctx.db.insert("users", {
-      email: opts.email,
-      name: subject,
-      emailVerificationTime: Date.now(),
-      role: opts.role,
-    }),
-  );
-  const authSessionId = await t.run((ctx) =>
-    ctx.db.insert("authSessions", {
-      userId,
-      expirationTime: Date.now() + 60 * 60 * 1000,
-    }),
-  );
-  if (opts.role === "admin") {
-    await t.run((ctx) =>
-      ctx.db.insert("mfaSettings", {
-        userId,
-        totpSecret: TEST_TOTP_SECRET,
-        totpVerifiedAuthSessionIds: [authSessionId],
-      }),
-    );
-  }
-  return t.withIdentity({ subject: `${userId}|${authSessionId}`, name: subject }) as never;
-}
 
 describe("manual review and unverified money movement", () => {
   it("keeps admin review but blocks deposit, funding, repayment, and ledger changes", async () => {
     const t = convexTest(schema, modules);
-    const asAdmin = await siapkanPengguna(t, "admin", {
+    const asAdmin = await buatSesi(t, "admin", {
       email: "admin@pindai.test",
       role: "admin",
     });
-    const asPeminjam = await siapkanPengguna(t, "peminjam", {
+    const asPeminjam = await buatSesi(t, "peminjam", {
       email: "peminjam@pindai.test",
       role: "peminjam",
     });
-    const asPendana = await siapkanPengguna(t, "pendana", {
+    const asPendana = await buatSesi(t, "pendana", {
       email: "pendana@pindai.test",
       role: "pendana",
     });

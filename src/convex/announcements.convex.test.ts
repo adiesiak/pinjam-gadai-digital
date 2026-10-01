@@ -9,37 +9,17 @@ import { describe, expect, it } from "vitest";
 
 import { api } from "./_generated/api";
 import schema from "./schema";
+import { siapkanPengguna } from "./test.helpers";
 import { modules } from "./test.setup";
 import { DEFAULTS } from "./announcements";
 
 describe("CMS situs publik — pengaturan admin", () => {
   it("admin mengubah konten landing, publik melihatnya, lalu reset ke default", async () => {
     const t = convexTest(schema, modules);
-    const adminId = await t.mutation((ctx) =>
-      ctx.db.insert("users", {
-        email: "admin-cms@pindai.test",
-        name: "Admin CMS",
-        emailVerificationTime: Date.now(),
-        role: "admin",
-      }),
-    );
-    const authSessionId = await t.run((ctx) =>
-      ctx.db.insert("authSessions", {
-        userId: adminId,
-        expirationTime: Date.now() + 60 * 60 * 1000,
-      }),
-    );
-    await t.run((ctx) =>
-      ctx.db.insert("mfaSettings", {
-        userId: adminId,
-        totpSecret: "JBSWY3DPEHPK3PXP",
-        totpVerifiedAuthSessionIds: [authSessionId],
-      }),
-    );
-    const admin: ReturnType<typeof t.withIdentity> = t.withIdentity({
-      subject: `${adminId}|${authSessionId}`,
-      name: "Admin CMS",
-    }) as never;
+    const { sesi: admin } = await siapkanPengguna(t, "Admin CMS", {
+      email: "admin-cms@pindai.test",
+      role: "admin",
+    });
 
     // Pengunjung belum login tetap bisa membaca konten publik bawaan.
     const defaultPublik = await t.query(api.announcements.getPublic, {});
@@ -95,18 +75,10 @@ describe("CMS situs publik — pengaturan admin", () => {
 
   it("non-admin boleh baca konten publik tetapi tidak melihat baris CMS atau mengubahnya", async () => {
     const t = convexTest(schema, modules);
-    const peminjamId = await t.mutation((ctx) =>
-      ctx.db.insert("users", {
-        email: "peminjam-cms@pindai.test",
-        name: "Peminjam",
-        emailVerificationTime: Date.now(),
-        role: "peminjam",
-      }),
-    );
-    const peminjam: ReturnType<typeof t.withIdentity> = t.withIdentity({
-      subject: peminjamId,
-      name: "Peminjam",
-    }) as never;
+    const { sesi: peminjam } = await siapkanPengguna(t, "Peminjam", {
+      email: "peminjam-cms@pindai.test",
+      role: "peminjam",
+    });
 
     await expect(peminjam.query(api.announcements.getPublic, {})).resolves.toMatchObject({
       heroJudul: DEFAULTS.hero.judul,
