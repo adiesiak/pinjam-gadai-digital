@@ -49,32 +49,6 @@ type AdminStep =
   | "reset"
   | { kind: "code"; email: string; purpose: "activation" | "reset" };
 
-/**
- * Terjemahkan kegagalan auth menjadi pesan ramah.
- *
- * Convex membungkus error server dengan detail teknis ("Server Error",
- * "Uncaught Error", stack, "Called by client"). Detail itu tidak pernah
- * ditampilkan apa adanya ke pengguna — pemanggil cukup memakai pesan yang
- * dikembalikan di sini, atau pesan cadangan miliknya sendiri bila kosong.
- */
-function bacaErrorAuth(error: unknown): { pesan: string; adminPakaiKataSandi: boolean } {
-  const mentah = error instanceof Error ? error.message : String(error ?? "");
-  if (/Super Admin masuk dengan kata sandi/i.test(mentah)) {
-    return {
-      pesan:
-        "OTP email tidak dipakai untuk masuk sebagai Super Admin. Masuk dengan kata sandi di tab Admin; bila kata sandi belum aktif, gunakan Aktivasi password di tab tersebut.",
-      adminPakaiKataSandi: true,
-    };
-  }
-  if (/Password hanya tersedia untuk akun Super Admin terverifikasi/i.test(mentah)) {
-    return {
-      pesan: "Aktivasi kata sandi hanya untuk akun Super Admin dengan email terverifikasi.",
-      adminPakaiKataSandi: false,
-    };
-  }
-  return { pesan: "", adminPakaiKataSandi: false };
-}
-
 const PORTAL_OPTIONS = [
   {
     href: "/dashboard",
@@ -329,17 +303,10 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
       console.error("Email sign-in error:", error);
       setKegagalan((k) => k + 1);
       await recordFailedAttempt("auth-step1");
-      const { pesan, adminPakaiKataSandi } = bacaErrorAuth(error);
-      if (adminPakaiKataSandi) {
-        // Akun Super Admin memang tidak boleh lewat OTP email: alihkan ke tab
-        // Admin dengan email terisi agar pengguna tinggal mengisi kata sandi.
-        switchAuthMode("admin");
-        setAdminFlow("signIn");
-        setAdminEmail(email);
-        setError(pesan);
-      } else {
-        setError(pesan || "Gagal mengirim kode verifikasi. Coba lagi sebentar lagi.");
-      }
+      // Pesan seragam untuk semua alamat: jangan pernah mengonfirmasi bahwa
+      // sebuah email adalah akun Super Admin (permintaan OTP admin dibalas
+      // sama seperti email biasa).
+      setError("Gagal mengirim kode verifikasi. Coba lagi sebentar lagi.");
       setIsLoading(false);
     }
   };
@@ -361,7 +328,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
       console.error("OTP verification error:", error);
       setKegagalan((k) => k + 1);
       await recordFailedAttempt(clientStep.email.toLowerCase());
-      setError(bacaErrorAuth(error).pesan || "Kode verifikasi salah atau kedaluwarsa.");
+      setError("Kode verifikasi salah atau kedaluwarsa.");
       setIsLoading(false);
       setOtp("");
     }
@@ -422,13 +389,11 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
       setKegagalan((k) => k + 1);
       await recordFailedAttempt(adminEmail.toLowerCase() || "admin");
       const message = error instanceof Error ? error.message : "";
-      if (/akun admin terverifikasi tidak ditemukan/i.test(message)) {
-        setError("Email ini tidak cocok dengan akun Super Admin terverifikasi.");
-      } else if (/invalid credentials/i.test(message)) {
+      if (/invalid credentials/i.test(message)) {
         setError("Email atau kata sandi Super Admin tidak sesuai.");
       } else if (/account.*exist|already exists/i.test(message)) {
         setError("Password sudah aktif. Silakan masuk atau gunakan Lupa kata sandi.");
-      } else if (/terlalu banyak percobaan masuk super admin/i.test(message)) {
+      } else if (/terlalu banyak percobaan masuk/i.test(message)) {
         setError(
           "Terlalu banyak percobaan masuk. Tunggu beberapa menit sebelum mencoba lagi.",
         );

@@ -1,7 +1,7 @@
 import { Email } from "@convex-dev/auth/providers/Email";
 import { RandomReader, generateRandomString } from "@oslojs/crypto/random";
 
-import { emailOtp } from "./emailOtp";
+import { kirimEmailVerifikasi } from "./emailOtp";
 
 /** Challenge email khusus untuk aktivasi dan reset password Super Admin. */
 export const adminPasswordOtp = Email({
@@ -19,5 +19,8 @@ export const adminPasswordOtp = Email({
       32,
     );
   },
-  sendVerificationRequest: emailOtp.sendVerificationRequest,
+  // Token aktivasi/reset selalu dikirim: alamat admin sudah lolos pemeriksaan
+  // di adminPassword.authorize, jadi tidak boleh memakai penahan OTP publik.
+  sendVerificationRequest: ({ identifier, token }) =>
+    kirimEmailVerifikasi(identifier, token),
 });

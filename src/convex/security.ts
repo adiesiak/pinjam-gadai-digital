@@ -195,18 +195,23 @@ export const _guardLogin = internalMutation({
 });
 
 /**
- * Catat satu percobaan kata sandi Super Admin dan tegakkan batas 5 percobaan
- * per 15 menit.
+ * Catat satu percobaan kata sandi dan tegakkan batas 5 percobaan per 15 menit.
  *
  * Dipanggil dari `adminPassword.authorize` SEBELUM kata sandi diverifikasi,
- * jadi pencatatannya tidak bisa dilewati klien: yang dihitung hanya email
- * admin, bukan IP/identifier kiriman klien. Saat batas terlampaui, kejadiannya
- * dicatat ke loginLogs + auditLog supaya upaya masuk terlihat oleh tim.
+ * jadi pencatatannya tidak bisa dilewati klien: yang dihitung adalah email,
+ * bukan IP/identifier kiriman klien.
+ *
+ * Batas ini berlaku untuk SEMUA alamat, bukan hanya alamat admin: kalau hanya
+ * alamat admin yang dibatasi, munculnya balasan "terlalu banyak percobaan"
+ * itu sendiri sudah mengonfirmasi alamat mana yang Super Admin. Argumen
+ * `admin` hanya menentukan apakah kejadiannya ditulis ke loginLogs + auditLog
+ * — jejak keamanan tidak boleh bisa dipenuhi baris palsu dari alamat
+ * sembarangan.
  */
 export const catatPercobaanKataSandiAdmin = internalMutation({
-  args: { email: v.string() },
+  args: { email: v.string(), admin: v.boolean() },
   returns: v.object({ blocked: v.boolean(), sisaDetik: v.number() }),
-  handler: async (ctx, { email }) => {
+  handler: async (ctx, { email, admin }) => {
     const bersih = email.trim().toLowerCase().slice(0, 160);
     const sejak = Date.now() - ADMIN_RATE_WINDOW_MS;
     const semua = await ctx.db
@@ -227,26 +232,28 @@ export const catatPercobaanKataSandiAdmin = internalMutation({
     }
 
     if (dalamJendela >= ADMIN_RATE_MAX_PERCOBAAN) {
-      const pemilik = await ctx.db
-        .query("users")
-        .withIndex("email", (q) => q.eq("email", bersih))
-        .first();
-      const keterangan = `Percobaan kata sandi Super Admin melebihi ${ADMIN_RATE_MAX_PERCOBAAN}x dalam 15 menit — permintaan ditolak sebelum verifikasi.`;
-      await catatLogin(ctx, {
-        userId: pemilik?._id,
-        status: "diblokir",
-        metode: "password",
-        ip: "tidak diketahui",
-        userAgent: "tidak diketahui",
-        keterangan,
-      });
-      await ctx.db.insert("auditLog", {
-        aktorLabel: "Percobaan masuk Super Admin",
-        aksi: "admin_login_diblokir",
-        target: bersih,
-        detail: keterangan,
-        waktu: Date.now(),
-      });
+      if (admin) {
+        const pemilik = await ctx.db
+          .query("users")
+          .withIndex("email", (q) => q.eq("email", bersih))
+          .first();
+        const keterangan = `Percobaan kata sandi Super Admin melebihi ${ADMIN_RATE_MAX_PERCOBAAN}x dalam 15 menit — permintaan ditolak sebelum verifikasi.`;
+        await catatLogin(ctx, {
+          userId: pemilik?._id,
+          status: "diblokir",
+          metode: "password",
+          ip: "tidak diketahui",
+          userAgent: "tidak diketahui",
+          keterangan,
+        });
+        await ctx.db.insert("auditLog", {
+          aktorLabel: "Percobaan masuk Super Admin",
+          aksi: "admin_login_diblokir",
+          target: bersih,
+          detail: keterangan,
+          waktu: Date.now(),
+        });
+      }
       return {
         blocked: true,
         sisaDetik: Math.max(

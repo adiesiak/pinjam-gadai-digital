@@ -5,6 +5,13 @@ import { Password } from "@convex-dev/auth/providers/Password";
 import { convexAuth } from "@convex-dev/auth/server";
 
 import { adminPasswordOtp } from "./auth/adminPasswordOtp";
+import {
+  alurKataSandiDikenal,
+  alurVerifikasiKode,
+  pesanBlokirOtpAdmin,
+  pesanKodeSalah,
+  pesanSandiNonAdmin,
+} from "./auth/enumerasi";
 import { emailOtp } from "./auth/emailOtp";
 import { internal } from "./_generated/api";
 import { ROLES } from "./schema";
@@ -32,34 +39,64 @@ const adminPassword: typeof passwordProvider = {
     }
     // `flow` menentukan apakah ini masuk, aktivasi, atau reset kata sandi.
     const flow = typeof params.flow === "string" ? params.flow : "signIn";
-    const isVerifiedAdmin = await ctx.runQuery(
-      internal.users.isAdminEmailForPasswordAuth,
-      { email },
-    );
-    if (!isVerifiedAdmin) {
-      // Pada flow masuk, balasan disamakan dengan kata sandi salah supaya
-      // keberadaan email Super Admin tidak bisa dikonfirmasi dari beda pesan.
-      if (flow === "signIn") throw new Error("Invalid credentials");
-      throw new Error("Akun admin terverifikasi tidak ditemukan.");
-    }
-    // Batas percobaan ditegakkan di server, sebelum kata sandi diverifikasi.
-    // Hanya flow masuk yang dibatasi: itulah permukaan brute force-nya,
-    // sedangkan aktivasi/reset sudah dijaga token yang dikirim ke email admin.
+    const status = await ctx.runQuery(internal.users.statusAkunKataSandi, {
+      email,
+    });
+
+    // Batas percobaan ditegakkan di server, sebelum kata sandi diverifikasi,
+    // dan berlaku untuk SEMUA alamat — kalau hanya alamat admin yang dibatasi,
+    // balasan "terlalu banyak percobaan" itu sendiri sudah mengonfirmasi
+    // alamat mana yang Super Admin. Hanya flow masuk yang dibatasi: itulah
+    // permukaan brute force-nya, sedangkan aktivasi/reset dijaga token email.
     if (flow === "signIn") {
       const batas = await ctx.runMutation(
         internal.security.catatPercobaanKataSandiAdmin,
-        { email },
+        { email, admin: status.admin },
       );
       if (batas.blocked) {
         throw new Error(
-          `Terlalu banyak percobaan masuk Super Admin. Coba lagi dalam ${Math.max(
+          `Terlalu banyak percobaan masuk. Coba lagi dalam ${Math.max(
             1,
             Math.ceil(batas.sisaDetik / 60),
           )} menit.`,
         );
       }
     }
-    return passwordProvider.authorize(params, ctx);
+
+    // Verifikasi kode token butuh akun kata sandi; tanpa itu Convex Auth
+    // melempar TypeError mentah yang justru membedakan alamat admin dari
+    // alamat biasa yang sudah dibalas dengan pesan kode salah.
+    if (!status.punyaKataSandi && alurVerifikasiKode(flow)) {
+      throw new Error(pesanKodeSalah(flow));
+    }
+
+    // Flow yang tidak dikenal Convex Auth (mis. "activate") dijawab seperti
+    // permintaan token biasa: kalau diteruskan, hanya alamat admin yang
+    // mendapat error "Missing `flow` param" — itu pun membedakan admin.
+    if (!alurKataSandiDikenal(flow)) return null;
+
+    // Alamat non-admin: balasannya disamakan persis dengan balasan Convex Auth
+    // untuk alamat yang tidak punya akun kata sandi, supaya keberadaan email
+    // Super Admin tidak bisa dikonfirmasi dari beda pesan error. Permintaan
+    // token (aktivasi/reset) dilanjutkan tanpa mengirim email apa pun sehingga
+    // bentuk responsnya sama dengan permintaan token milik admin.
+    if (!status.admin) {
+      const pesan = pesanSandiNonAdmin(flow);
+      if (pesan !== null) throw new Error(pesan);
+      return null;
+    }
+
+    // Aktivasi untuk akun kata sandi yang sudah ada dijawab sama seperti
+    // permintaan token biasa: kalau dibiarkan, Convex Auth melempar
+    // "Account ... already exists" dan itu hanya terjadi pada alamat yang
+    // memang punya kata sandi — yaitu alamat admin.
+    if (flow === "signUp" && status.punyaKataSandi) return null;
+    if (flow === "reset" && !status.punyaKataSandi) return null;
+
+    // `flow` yang sudah dinormalisasi selalu dikirim ulang: nilai non-string
+    // juga membuat Convex Auth melempar "Missing `flow` param" yang hanya
+    // dialami alamat admin.
+    return passwordProvider.authorize({ ...params, flow }, ctx);
   },
 };
 
@@ -68,13 +105,17 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
   callbacks: {
     async afterUserCreatedOrUpdated(ctx, { userId, provider, type }) {
       const user = await ctx.db.get(userId);
-      // Email OTP public stays available to borrowers/funders, but not admins.
+      // Email OTP publik tetap tersedia untuk peminjam/pendana, tetapi tidak
+      // untuk admin. Permintaan kode tidak boleh membocorkan status admin,
+      // jadi tahap pertama dibalas seperti email biasa (email kodenya sendiri
+      // tidak dikirim — lihat emailOtp.sendVerificationRequest) dan tahap
+      // verifikasi memakai pesan kode salah yang sama dengan kode salah biasa.
       if (provider.id === emailOtp.id) {
-        if (user?.role === ROLES.ADMIN) {
-          throw new Error(
-            "Super Admin masuk dengan kata sandi; OTP email hanya untuk aktivasi atau reset kata sandi.",
-          );
-        }
+        const pesanBlokir = pesanBlokirOtpAdmin(
+          type,
+          user?.role === ROLES.ADMIN,
+        );
+        if (pesanBlokir !== null) throw new Error(pesanBlokir);
         return;
       }
 

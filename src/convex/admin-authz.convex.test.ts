@@ -3,6 +3,15 @@ import { convexTest } from "convex-test";
 import { describe, expect, it } from "vitest";
 
 import { api, internal } from "./_generated/api";
+import {
+  alurVerifikasiKode,
+  PESAN_KREDENSIAL_SALAH,
+  PESAN_KODE_RESET_SALAH,
+  PESAN_KODE_VERIFIKASI_SALAH,
+  pesanBlokirOtpAdmin,
+  pesanKodeSalah,
+  pesanSandiNonAdmin,
+} from "./auth/enumerasi";
 import { CONTRACT_TERMS_VERSION } from "../lib/contract";
 import { totpNow } from "../lib/totp";
 import schema from "./schema";
@@ -13,6 +22,33 @@ import {
   TEST_TOTP_SECRET,
 } from "./test.helpers";
 import { modules } from "./test.setup";
+
+/** Argumen `auth:store` untuk permintaan kode OTP email (`createVerificationCode`). */
+function mintaKodeOtp(email: string, code = "123456") {
+  return {
+    args: {
+      type: "createVerificationCode" as const,
+      provider: "email-otp",
+      email,
+      code,
+      expirationTime: Date.now() + 60_000,
+      allowExtraProviders: true,
+    },
+  };
+}
+
+/** Argumen `auth:store` untuk verifikasi kode OTP email. */
+function verifikasiKodeOtp(email: string, code: string) {
+  return {
+    args: {
+      type: "verifyCodeAndSignIn" as const,
+      params: { email, code },
+      provider: "email-otp",
+      generateTokens: false,
+      allowExtraProviders: true,
+    },
+  };
+}
 
 describe("otorisasi endpoint admin", () => {
   it("hanya admin unik dengan email terverifikasi yang dapat memakai password admin", async () => {
@@ -659,7 +695,7 @@ describe("otorisasi MFA backend", () => {
     ).resolves.toEqual({ ok: true });
   });
 
-  it("membatasi percobaan kata sandi Super Admin di server dan mencatatnya", async () => {
+  it("membatasi percobaan kata sandi di server dan mencatatnya", async () => {
     const t = convexTest(schema, modules);
     const email = "admin-rate@pindai.test";
     const { userId } = await buatPengguna(t, "Admin rate limit", {
@@ -673,12 +709,16 @@ describe("otorisasi MFA backend", () => {
     // memanggil API langsung tetap terhitung.
     for (let ke = 1; ke <= 5; ke += 1) {
       await expect(
-        t.mutation(internal.security.catatPercobaanKataSandiAdmin, { email }),
+        t.mutation(internal.security.catatPercobaanKataSandiAdmin, {
+          email,
+          admin: true,
+        }),
       ).resolves.toEqual({ blocked: false, sisaDetik: 0 });
     }
 
     const keenam = await t.mutation(internal.security.catatPercobaanKataSandiAdmin, {
       email,
+      admin: true,
     });
     expect(keenam.blocked).toBe(true);
     expect(keenam.sisaDetik).toBeGreaterThan(0);
@@ -694,7 +734,158 @@ describe("otorisasi MFA backend", () => {
     await expect(
       t.mutation(internal.security.catatPercobaanKataSandiAdmin, {
         email: "admin-lain@pindai.test",
+        admin: true,
       }),
     ).resolves.toEqual({ blocked: false, sisaDetik: 0 });
+
+    // Alamat non-admin dibatasi sama persis — kalau batas ini hanya berlaku
+    // untuk alamat admin, munculnya balasan blokir sudah mengonfirmasi admin.
+    // Jejak keamanannya sengaja tidak ditulis untuk alamat non-admin.
+    const emailBiasa = "bukan-admin-rate@pindai.test";
+    for (let ke = 1; ke <= 6; ke += 1) {
+      const hasil = await t.mutation(
+        internal.security.catatPercobaanKataSandiAdmin,
+        { email: emailBiasa, admin: false },
+      );
+      expect(hasil.blocked).toBe(ke === 6);
+    }
+    expect(await t.run((ctx) => ctx.db.query("loginLogs").collect())).toHaveLength(1);
+    expect(await t.run((ctx) => ctx.db.query("auditLog").collect())).toHaveLength(1);
+  });
+});
+
+describe("penutupan enumerasi akun Super Admin", () => {
+  it("permintaan OTP email dibalas sama untuk alamat admin dan alamat biasa", async () => {
+    const t = convexTest(schema, modules);
+    const emailAdmin = "admin-enumerasi@pindai.test";
+    await buatPengguna(t, "Admin enumerasi", {
+      email: emailAdmin,
+      emailVerificationTime: Date.now(),
+      role: "admin",
+    });
+
+    // Dulu permintaan untuk email admin melempar pesan yang menyebut "Super
+    // Admin", sehingga status admin sebuah alamat bisa ditebak dari pesan
+    // error. Sekarang tahap permintaan kode dijawab identik untuk keduanya
+    // (identifier email itu sendiri), tanpa mengirim email ke alamat admin.
+    await expect(t.mutation(internal.auth.store, mintaKodeOtp(emailAdmin))).resolves.toBe(
+      emailAdmin,
+    );
+    await expect(
+      t.mutation(
+        internal.auth.store,
+        mintaKodeOtp("belum-terdaftar@pindai.test", "123457"),
+      ),
+    ).resolves.toBe("belum-terdaftar@pindai.test");
+  });
+
+  it("verifikasi OTP email diblokir untuk admin memakai pesan kode salah yang sama", async () => {
+    const t = convexTest(schema, modules);
+    const emailAdmin = "admin-verifikasi@pindai.test";
+    await buatPengguna(t, "Admin verifikasi OTP", {
+      email: emailAdmin,
+      emailVerificationTime: Date.now(),
+      role: "admin",
+    });
+    await t.mutation(internal.auth.store, mintaKodeOtp(emailAdmin, "234567"));
+
+    // Admin memang tidak boleh masuk lewat OTP email; pesannya sama persis
+    // dengan kode salah milik alamat biasa supaya tidak membedakan admin.
+    await expect(
+      t.mutation(internal.auth.store, verifikasiKodeOtp(emailAdmin, "234567")),
+    ).rejects.toThrow(PESAN_KODE_VERIFIKASI_SALAH);
+
+    // Alamat biasa dengan kode yang sama tetap bisa masuk: blokirnya khusus
+    // admin, bukan kerusakan alur OTP secara umum.
+    const emailPeminjam = "peminjam-verifikasi@pindai.test";
+    await t.mutation(internal.auth.store, mintaKodeOtp(emailPeminjam, "345678"));
+    await expect(
+      t.mutation(internal.auth.store, verifikasiKodeOtp(emailPeminjam, "345678")),
+    ).resolves.toMatchObject({ userId: expect.anything() });
+  });
+
+  it("menyamakan balasan provider kata sandi untuk alamat non-admin", () => {
+    // Pesan mengikuti Convex Auth, bukan pesan khusus peran: masuk memakai
+    // kredensial salah, tahap verifikasi memakai kode salah.
+    expect(pesanSandiNonAdmin("signIn")).toBe(PESAN_KREDENSIAL_SALAH);
+    expect(pesanSandiNonAdmin("reset-verification")).toBe(PESAN_KODE_RESET_SALAH);
+    expect(pesanSandiNonAdmin("email-verification")).toBe(
+      PESAN_KODE_VERIFIKASI_SALAH,
+    );
+    // Aktivasi/reset dilanjutkan seperti permintaan token biasa (tanpa email),
+    // sehingga bentuk responsnya sama dengan milik admin.
+    expect(pesanSandiNonAdmin("signUp")).toBeNull();
+    expect(pesanSandiNonAdmin("reset")).toBeNull();
+
+    // Verifikasi kode memakai pesan Convex Auth untuk flow-nya masing-masing,
+    // termasuk saat akun kata sandinya memang belum ada.
+    expect(alurVerifikasiKode("reset-verification")).toBe(true);
+    expect(alurVerifikasiKode("email-verification")).toBe(true);
+    expect(alurVerifikasiKode("signUp")).toBe(false);
+    expect(pesanKodeSalah("reset-verification")).toBe(PESAN_KODE_RESET_SALAH);
+    expect(pesanKodeSalah("email-verification")).toBe(PESAN_KODE_VERIFIKASI_SALAH);
+
+    // Tahap permintaan kode tidak pernah membocorkan; tahap verifikasi memakai
+    // pesan kode salah yang sama dengan kode salah milik email biasa.
+    expect(pesanBlokirOtpAdmin("email", true)).toBeNull();
+    expect(pesanBlokirOtpAdmin("verification", true)).toBe(
+      PESAN_KODE_VERIFIKASI_SALAH,
+    );
+    expect(pesanBlokirOtpAdmin("verification", false)).toBeNull();
+  });
+
+  it("membaca status akun kata sandi untuk menyamakan balasan tiap flow", async () => {
+    const t = convexTest(schema, modules);
+    const emailAdmin = "admin-status@pindai.test";
+    const emailAdminTanpaSandi = "admin-tanpa-sandi@pindai.test";
+    const emailPeminjam = "peminjam-status@pindai.test";
+    await buatPengguna(t, "Admin status", {
+      email: emailAdmin,
+      emailVerificationTime: Date.now(),
+      role: "admin",
+    });
+    await buatPengguna(t, "Admin tanpa sandi", {
+      email: emailAdminTanpaSandi,
+      emailVerificationTime: Date.now(),
+      role: "admin",
+    });
+    const { userId: peminjamId } = await buatPengguna(t, "Peminjam status", {
+      email: emailPeminjam,
+      emailVerificationTime: Date.now(),
+      role: "peminjam",
+    });
+    await t.run(async (ctx) => {
+      const admin = await ctx.db
+        .query("users")
+        .withIndex("email", (q) => q.eq("email", emailAdmin))
+        .first();
+      if (admin === null) throw new Error("pengguna uji admin tidak ditemukan");
+      // Akun kata sandi yang sudah aktif (hasil aktivasi admin).
+      await ctx.db.insert("authAccounts", {
+        userId: admin._id,
+        provider: "password",
+        providerAccountId: emailAdmin,
+      });
+      // Akun kata sandi lama milik non-admin: tetap bukan admin, tetapi
+      // ditandai punya kata sandi supaya alurnya dibalas seragam.
+      await ctx.db.insert("authAccounts", {
+        userId: peminjamId,
+        provider: "password",
+        providerAccountId: emailPeminjam,
+      });
+    });
+
+    await expect(
+      t.query(internal.users.statusAkunKataSandi, { email: emailAdmin }),
+    ).resolves.toEqual({ admin: true, punyaKataSandi: true });
+    await expect(
+      t.query(internal.users.statusAkunKataSandi, { email: emailAdminTanpaSandi }),
+    ).resolves.toEqual({ admin: true, punyaKataSandi: false });
+    await expect(
+      t.query(internal.users.statusAkunKataSandi, { email: emailPeminjam }),
+    ).resolves.toEqual({ admin: false, punyaKataSandi: true });
+    await expect(
+      t.query(internal.users.statusAkunKataSandi, { email: "belum-ada@pindai.test" }),
+    ).resolves.toEqual({ admin: false, punyaKataSandi: false });
   });
 });
