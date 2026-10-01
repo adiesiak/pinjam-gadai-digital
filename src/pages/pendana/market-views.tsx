@@ -34,7 +34,7 @@ export function MarketplaceSection() {
           body="Catatan berstatus disetujui pada aplikasi tampil dengan kode referensi, rincian perhitungan, jadwal angsuran, dan target ledger yang tersisa."
         />
       ) : (
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="animate-masuk grid gap-4 md:grid-cols-2">
           {marketplace.map((m) => (
             <MarketCard key={m._id} row={m} />
           ))}

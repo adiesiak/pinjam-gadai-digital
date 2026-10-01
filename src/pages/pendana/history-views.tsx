@@ -30,7 +30,7 @@ export function HistorySection() {
   }
 
   return (
-    <div className="grid gap-8 xl:grid-cols-3">
+    <div className="animate-masuk grid gap-8 xl:grid-cols-3">
       <section className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-900 xl:col-span-3">
         Riwayat ini menunjukkan catatan ledger internal saja. Setoran, penarikan, alokasi, dan Imbal Hasil mengikuti pencatatan ledger internal.
       </section>

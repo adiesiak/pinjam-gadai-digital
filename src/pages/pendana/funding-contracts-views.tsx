@@ -30,7 +30,7 @@ export function FundingContractsSection() {
   }
 
   return (
-    <ul className="space-y-3">
+    <ul className="animate-masuk space-y-3">
       {contracts.map((c) => {
         const html = buildFundingContractHtml(c);
         return (

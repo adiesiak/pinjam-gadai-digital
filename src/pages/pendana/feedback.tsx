@@ -22,7 +22,7 @@ export function EmptyState({
   body: string;
 }) {
   return (
-    <div className="rounded-2xl border border-dashed border-slate-200 bg-white/60 px-6 py-14 text-center">
+    <div className="animate-masuk rounded-2xl border border-dashed border-slate-200 bg-white/60 px-6 py-14 text-center">
       <Icon className="mx-auto size-5 text-slate-400" />
       <p className="mt-4 text-sm font-medium">{title}</p>
       <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-muted-foreground">{body}</p>

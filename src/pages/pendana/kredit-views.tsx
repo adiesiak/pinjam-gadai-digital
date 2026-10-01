@@ -2,16 +2,13 @@ import { useQuery } from "convex/react";
 import {
   BadgeCheck,
   Calculator,
-  Loader2,
   Package,
   ShoppingBag,
   TrendingUp,
 } from "lucide-react";
 import { useMemo, useState } from "react";
-import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
@@ -641,7 +638,7 @@ function PeluangKreditSection() {
           />
         </div>
       ) : (
-        <div className="mt-4 grid gap-4 md:grid-cols-2">
+        <div className="animate-masuk mt-4 grid gap-4 md:grid-cols-2">
           {peluang.map((row) => (
             <PeluangKreditCard key={row._id} row={row} />
           ))}
@@ -795,7 +792,7 @@ function PortofolioKreditSection() {
           />
         </div>
       ) : (
-        <ul className="mt-4 space-y-3">
+        <ul className="animate-masuk mt-4 space-y-3">
           {rows.map((f) => (
             <li
               key={f._id}

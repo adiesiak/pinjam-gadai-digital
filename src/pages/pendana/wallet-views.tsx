@@ -42,7 +42,7 @@ export function WalletSection() {
         ) : withdrawals.length === 0 ? (
           <p className="mt-2 text-sm text-muted-foreground">Belum ada catatan penarikan.</p>
         ) : (
-          <ul className="mt-3 divide-y divide-slate-200">
+          <ul className="animate-masuk mt-3 divide-y divide-slate-200">
             {withdrawals.map((w) => (
               <li key={w._id} className="flex items-center justify-between gap-3 py-3">
                 <div className="min-w-0">
@@ -70,7 +70,7 @@ export function WalletSection() {
         ) : deposits.length === 0 ? (
           <p className="text-sm text-muted-foreground">Belum ada catatan setoran.</p>
         ) : (
-          <ul className="divide-y divide-slate-200">
+          <ul className="animate-masuk divide-y divide-slate-200">
             {deposits.map((d) => (
               <li key={d._id} className="flex items-center justify-between gap-3 py-3">
                 <div className="min-w-0">
