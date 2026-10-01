@@ -10,6 +10,12 @@ import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { formatRupiah } from "@/lib/money";
 
+/** Tanggal hari ini (YYYY-MM-DD) untuk nilai awal form — dihitung sekali saat
+ * modul dimuat supaya render tetap murni (bebas `Date.now()` saat render). */
+const HARI_INI = new Date(Date.now() - new Date().getTimezoneOffset() * 60_000)
+  .toISOString()
+  .slice(0, 10);
+
 export function ManualPaymentEvidenceForm({
   jenis,
   targetId,
@@ -26,9 +32,7 @@ export function ManualPaymentEvidenceForm({
   const submit = useMutation(api.loans.submitManualPaymentReceipt);
   const [amount, setAmount] = useState(String(Math.max(1, Math.round(suggestedAmount))));
   const [method, setMethod] = useState<"transfer" | "qris">("transfer");
-  const [transferDate, setTransferDate] = useState(
-    new Date(Date.now() - new Date().getTimezoneOffset() * 60_000).toISOString().slice(0, 10),
-  );
+  const [transferDate, setTransferDate] = useState(HARI_INI);
   const [bankReference, setBankReference] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
