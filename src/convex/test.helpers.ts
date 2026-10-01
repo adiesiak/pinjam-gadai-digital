@@ -73,11 +73,37 @@ export async function buatPengguna(
   };
 }
 
-/** Pasang TOTP terverifikasi pada sesi tertentu (mis. sesi perangkat lain). */
+/**
+ * Buat sesi Auth tambahan bagi pengguna yang sudah ada (mis. "perangkat lain").
+ * Baris `users` tidak dibuat ulang — hanya sesi baru dengan subject produksi.
+ */
+export async function buatSesiLain(
+  t: KonteksUji,
+  nama: string,
+  userId: Id<"users">,
+): Promise<{ sesi: SesiUji; authSessionId: Id<"authSessions"> }> {
+  const authSessionId = await t.run((ctx) =>
+    ctx.db.insert("authSessions", {
+      userId,
+      expirationTime: Date.now() + MASA_SESI_MS,
+    }),
+  );
+  return {
+    authSessionId,
+    sesi: t.withIdentity({ subject: `${userId}|${authSessionId}`, name: nama }),
+  };
+}
+
+/**
+ * Pasang TOTP terverifikasi pada satu atau beberapa sesi.
+ * Default: hanya `authSessionId`; beri `verifiedAuthSessionIds` eksplisit bila
+ * tes perlu beberapa sesi terverifikasi sekaligus (mis. uji rotasi).
+ */
 export async function aktifkanTotpUntukSesi(
   t: KonteksUji,
   userId: Id<"users">,
   authSessionId: Id<"authSessions">,
+  verifiedAuthSessionIds: Id<"authSessions">[] = [authSessionId],
 ): Promise<void> {
   await t.run(async (ctx) => {
     const existing = await ctx.db
@@ -86,7 +112,7 @@ export async function aktifkanTotpUntukSesi(
       .first();
     const patch = {
       totpSecret: TEST_TOTP_SECRET,
-      totpVerifiedAuthSessionIds: [authSessionId],
+      totpVerifiedAuthSessionIds: verifiedAuthSessionIds,
     };
     if (existing === null) {
       await ctx.db.insert("mfaSettings", { userId, ...patch });
@@ -95,6 +121,8 @@ export async function aktifkanTotpUntukSesi(
     }
   });
 }
+
+/** Pasang TOTP terverifikasi pada sesi utama saja. */
 
 /** Email terverifikasi + TOTP otomatis untuk admin — dipakai mayoritas tes. */
 export async function siapkanPengguna(

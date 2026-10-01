@@ -6,11 +6,13 @@ import { api, internal } from "./_generated/api";
 import { CONTRACT_TERMS_VERSION } from "../lib/contract";
 import { totpNow } from "../lib/totp";
 import schema from "./schema";
-import { aktifkanTotpUntukSesi, buatPengguna, TEST_TOTP_SECRET } from "./test.helpers";
+import {
+  aktifkanTotpUntukSesi,
+  buatPengguna,
+  buatSesiLain,
+  TEST_TOTP_SECRET,
+} from "./test.helpers";
 import { modules } from "./test.setup";
-
-type Tx = ReturnType<typeof convexTest<typeof schema.tables>>;
-type Sesi = ReturnType<Tx["withIdentity"]>;
 
 describe("otorisasi endpoint admin", () => {
   it("hanya admin unik dengan email terverifikasi yang dapat memakai password admin", async () => {
@@ -491,16 +493,11 @@ describe("otorisasi MFA backend", () => {
       kredit: [],
     });
 
-    const otherSessionId = await t.run((ctx) =>
-      ctx.db.insert("authSessions", {
-        userId: adminId,
-        expirationTime: Date.now() + 60 * 60 * 1000,
-      }),
+    const { sesi: sesiLain, authSessionId: otherSessionId } = await buatSesiLain(
+      t,
+      "Admin TOTP",
+      adminId,
     );
-    const sesiLain = t.withIdentity({
-      subject: `${adminId}|${otherSessionId}`,
-      name: "Admin TOTP",
-    }) as never as Sesi;
     await expect(sesiLain.query(api.security.totpGateStatus, {})).resolves.toMatchObject({
       aktif: true,
       butuh: true,
@@ -549,23 +546,12 @@ describe("otorisasi MFA backend", () => {
       "Admin rotasi TOTP",
       { email: "admin-rotasi-totp@pindai.test", role: "admin" },
     );
-    const authSessionLain = await t.run((ctx) =>
-      ctx.db.insert("authSessions", {
-        userId,
-        expirationTime: Date.now() + 60 * 60 * 1000,
-      }),
+    const { sesi: adminSesiLain, authSessionId: authSessionLain } = await buatSesiLain(
+      t,
+      "Admin rotasi TOTP",
+      userId,
     );
-    const adminSesiLain = t.withIdentity({
-      subject: `${userId}|${authSessionLain}`,
-      name: "Admin rotasi TOTP",
-    }) as never as Sesi;
-    await t.run((ctx) =>
-      ctx.db.insert("mfaSettings", {
-        userId,
-        totpSecret: TEST_TOTP_SECRET,
-        totpVerifiedAuthSessionIds: [authSessionId, authSessionLain],
-      }),
-    );
+    await aktifkanTotpUntukSesi(t, userId, authSessionId, [authSessionId, authSessionLain]);
 
     await expect(adminSesiLain.query(api.security.totpGateStatus, {})).resolves.toMatchObject({
       aktif: true,
