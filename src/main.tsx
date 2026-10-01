@@ -15,13 +15,32 @@ import { ADMIN_ROUTE } from "@/lib/routes";
 import { THEME_PRESETS, type ThemePreset } from "@/lib/system-config";
 import { api } from "@/convex/_generated/api";
 
+/**
+ * Bungkus importer rute dengan percobaan ulang. Kegagalan memuat modul
+ * (dev server menggantung, 504 "Outdated Optimize Dep", jaringan putus
+ * sesaat) umumnya sementara, jadi modul dicoba ulang beberapa kali sebelum
+ * React menyerah dan menampilkan halaman error.
+ */
+function denganPercobaan<M>(muat: () => Promise<M>, maksPercobaan = 3): () => Promise<M> {
+  return async () => {
+    for (let ke = 1; ; ke += 1) {
+      try {
+        return await muat();
+      } catch (error) {
+        if (ke >= maksPercobaan) throw error;
+        await new Promise((selesai) => setTimeout(selesai, 300 * ke));
+      }
+    }
+  };
+}
+
 // Lazy load route components for better code splitting
-const Landing = lazy(() => import("./pages/Landing.tsx"));
-const AuthPage = lazy(() => import("./pages/Auth.tsx"));
-const Dashboard = lazy(() => import("./pages/Dashboard.tsx"));
-const Admin = lazy(() => import("./pages/Admin.tsx"));
-const Pendana = lazy(() => import("./pages/Pendana.tsx"));
-const NotFound = lazy(() => import("./pages/NotFound.tsx"));
+const Landing = lazy(denganPercobaan(() => import("./pages/Landing.tsx")));
+const AuthPage = lazy(denganPercobaan(() => import("./pages/Auth.tsx")));
+const Dashboard = lazy(denganPercobaan(() => import("./pages/Dashboard.tsx")));
+const Admin = lazy(denganPercobaan(() => import("./pages/Admin.tsx")));
+const Pendana = lazy(denganPercobaan(() => import("./pages/Pendana.tsx")));
+const NotFound = lazy(denganPercobaan(() => import("./pages/NotFound.tsx")));
 
 // Simple loading fallback for route transitions
 function RouteLoading() {
@@ -50,23 +69,69 @@ class ToolbarErrorBoundary extends React.Component<
   }
 }
 
+/** Ciri kegagalan memuat modul rute (chunk/dependency), bukan bug logika. */
+function gagalMuatModul(error: unknown): boolean {
+  const pesan = error instanceof Error ? error.message : String(error);
+  return /failed to fetch dynamically imported module|error loading dynamically imported module|importing a module script failed|outdated optimize dep|chunkloaderror|loading chunk \S+ failed/i.test(
+    pesan,
+  );
+}
+
+const KUNCI_MUAT_ULANG = "pindai.muat-ulang-modul";
+const JEDA_MUAT_ULANG_MS = 30_000;
+
+/**
+ * Izinkan satu muat-ulang otomatis per 30 detik: cukup untuk membuang modul
+ * dengan hash dependency yang basi, tanpa membuat loop bila server benar-benar
+ * mati.
+ */
+function bolehMuatUlangOtomatis(): boolean {
+  try {
+    const terakhir = Number(window.sessionStorage.getItem(KUNCI_MUAT_ULANG) ?? 0);
+    if (Date.now() - terakhir < JEDA_MUAT_ULANG_MS) return false;
+    window.sessionStorage.setItem(KUNCI_MUAT_ULANG, String(Date.now()));
+    return true;
+  } catch {
+    // sessionStorage diblokir → jangan mengambil risiko muat-ulang berulang.
+    return false;
+  }
+}
+
 /**
  * Guard terakhir agar kesalahan runtime tidak pernah menyisakan halaman
  * kosong. Detail teknis hanya dicatat ke console — pengunjung melihat error
  * page generik PINDAI tanpa pesan server mentah.
+ *
+ * Khusus rute yang gagal dimuat, halaman memulihkan diri sendiri dengan satu
+ * kali muat ulang otomatis (mengambil modul beserta hash dependency terbaru)
+ * alih-alih membiarkan pengunjung tersangkut di halaman error.
  */
 class RootErrorBoundary extends React.Component<
   { children: React.ReactNode },
-  { hasError: boolean }
+  { hasError: boolean; memuatUlang: boolean }
 > {
-  state = { hasError: false };
+  state = { hasError: false, memuatUlang: false };
   static getDerivedStateFromError() {
     return { hasError: true };
   }
   componentDidCatch(err: Error, info: React.ErrorInfo) {
     console.error("[PINDAI] Kesalahan runtime:", err, info.componentStack);
+
+    if (!gagalMuatModul(err) || !bolehMuatUlangOtomatis()) return;
+    this.setState({ memuatUlang: true });
+    window.setTimeout(() => window.location.reload(), 300);
+    // Bila browser menolak memuat ulang, kembalikan halaman error sebagai
+    // jalan keluar agar pengunjung tidak berhenti di layar tunggu.
+    window.setTimeout(() => this.setState({ memuatUlang: false }), 2500);
   }
   render() {
+    if (this.state.memuatUlang) {
+      return (
+        <div className="flex min-h-screen items-center justify-center bg-slate-50 px-6 py-16 text-slate-900">
+          <p className="text-sm text-muted-foreground">Menyiapkan ulang halaman…</p>
+        </div>
+      );
+    }
     if (this.state.hasError) {
       return (
         <div className="flex min-h-screen items-center justify-center bg-slate-50 px-6 py-16 text-slate-900">
