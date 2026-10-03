@@ -1,5 +1,6 @@
 import { useQuery } from "convex/react";
 import {
+  BadgeCheck,
   Eye,
   ExternalLink,
   FileText,
@@ -889,6 +890,118 @@ function RuangGagal({ pesan }: { pesan: string }) {
   );
 }
 
+/**
+ * Isi tab pinjaman: kartu per peminjam di layar sempit, tabel penuh di layar
+ * lebar. Dipakai bersama oleh tab "Pinjaman" (belum lunas) dan tab "Lunas"
+ * supaya keduanya tampil identik tanpa menggandakan markup.
+ */
+function DaftarPinjaman({
+  rows,
+  persenBunga,
+  sekarang,
+  onDetail,
+}: {
+  rows: BarisPinjaman[];
+  persenBunga: number;
+  sekarang: number;
+  onDetail: (row: BarisPinjaman) => void;
+}) {
+  return (
+    <>
+      {/* Layar sempit: kartu per peminjam — semua rincian tanpa geser mendatar. */}
+      <div className="space-y-3 md:hidden">
+        {rows.map((row) => (
+          <KartuPengajuan
+            key={row._id}
+            nama={row.namaLengkap}
+            kode={row.kodePeminjam}
+            nomorReferensi={row.nomorReferensi}
+            status={<StatusBadge status={row.status} kind="loan" />}
+            onDetail={() => onDetail(row)}
+          >
+            <InfoKartu label="Pinjaman">{rupiah(row.pokokPinjaman)}</InfoKartu>
+            <InfoKartu label={`Bunga ${persenBunga}%`}>{rupiah(row.bunga)}</InfoKartu>
+            <InfoKartu label="Total lunas">{rupiah(row.totalLunas)}</InfoKartu>
+            <InfoKartu label="Tenor">
+              {row.tenorBulan === null ? `${row.tenorHari} hari` : `${row.tenorBulan} bulan`}
+            </InfoKartu>
+            <InfoKartu label="Tanggal">{tanggalRingkas(row.diajukanPada)}</InfoKartu>
+            <InfoKartu label="Pendana">{row.pendana ?? "—"}</InfoKartu>
+            <InfoKartu label="Keuntungan pendana">
+              {row.pendana === null ? "—" : rupiah(row.keuntunganPendana)}
+            </InfoKartu>
+            <InfoKartu label="Potongan admin">
+              {row.pendana === null ? "—" : rupiah(row.potonganAdmin)}
+            </InfoKartu>
+            <InfoKartu label="Lokasi">
+              {row.lokasi === null ? "belum ada titik" : labelUmur(row.lokasi.waktu, sekarang)}
+            </InfoKartu>
+          </KartuPengajuan>
+        ))}
+      </div>
+      <div className="hidden md:block">
+        <Tabel
+          head={[
+            "No. Ref",
+            "Nama",
+            "Pinjaman",
+            `Bunga ${persenBunga}%`,
+            "Total Lunas",
+            "Tenor",
+            "Tanggal",
+            "Status",
+            "Pendana",
+            "Keuntungan Pendana",
+            "Potongan Admin",
+            "Lokasi",
+            "Aksi",
+          ]}
+        >
+          {rows.map((row) => (
+            <TableRow key={row._id}>
+              <TableCell className="whitespace-nowrap align-top font-mono text-xs text-slate-500">
+                {row.nomorReferensi}
+              </TableCell>
+              <SelNama nama={row.namaLengkap} kode={row.kodePeminjam} />
+              <TableCell className="whitespace-nowrap align-top font-semibold tabular-nums">
+                {rupiah(row.pokokPinjaman)}
+              </TableCell>
+              <TableCell className="whitespace-nowrap align-top font-medium tabular-nums text-emerald-700">
+                {rupiah(row.bunga)}
+              </TableCell>
+              <TableCell className="whitespace-nowrap align-top font-medium tabular-nums text-slate-700">
+                {rupiah(row.totalLunas)}
+              </TableCell>
+              <TableCell className="whitespace-nowrap align-top text-slate-600">
+                {row.tenorBulan === null ? `${row.tenorHari} hari` : `${row.tenorBulan} bulan`}
+              </TableCell>
+              <TableCell className="whitespace-nowrap align-top text-slate-600">
+                {tanggalRingkas(row.diajukanPada)}
+              </TableCell>
+              <TableCell className="align-top">
+                <StatusBadge status={row.status} kind="loan" />
+              </TableCell>
+              <SelPendana pendana={row.pendana} />
+              <TableCell className="whitespace-nowrap align-top font-semibold tabular-nums text-emerald-700">
+                {row.pendana === null ? "—" : rupiah(row.keuntunganPendana)}
+              </TableCell>
+              <TableCell className="whitespace-nowrap align-top font-semibold tabular-nums text-amber-700">
+                {row.pendana === null ? "—" : rupiah(row.potonganAdmin)}
+              </TableCell>
+              <SelLokasi lokasi={row.lokasi} sekarang={sekarang} />
+              <TableCell className="align-top">
+                <Button variant="outline" size="sm" onClick={() => onDetail(row)}>
+                  <Eye className="mr-1.5 size-3.5" aria-hidden /> Detail
+                </Button>
+              </TableCell>
+            </TableRow>
+          ))}
+        </Tabel>
+      </div>
+    </>
+  );
+}
+
 function IsiRuang() {
   const { user } = useAuth();
   const [tab, setTab] = useState("pinjaman");
@@ -914,6 +1027,11 @@ function IsiRuang() {
     api.penyediaDana.titikPeminjam,
     user === undefined || !bolehLihat || tab !== "lokasi" ? ("skip" as const) : {},
   );
+
+  // Pinjaman yang sudah lunas dipisah ke tabnya sendiri, sehingga tab
+  // "Pinjaman" hanya berisi daftar kerja (belum lunas) dan tetap ringkas.
+  const pinjamanAktif = data?.pinjaman.filter((r) => r.status !== "lunas") ?? [];
+  const pinjamanLunas = data?.pinjaman.filter((r) => r.status === "lunas") ?? [];
 
   return (
     <div className="flex min-h-screen flex-col overflow-x-clip bg-slate-50 text-slate-900">
@@ -1034,7 +1152,16 @@ function IsiRuang() {
                 >
                   <Wallet className="size-3.5" /> Pinjaman
                   <span className="tabular-nums text-muted-foreground group-data-[state=active]:text-primary-foreground">
-                    {data.ringkasan.jumlahPinjaman}
+                    {pinjamanAktif.length}
+                  </span>
+                </TabsTrigger>
+                <TabsTrigger
+                  value="lunas"
+                  className="group h-9 flex-none gap-2 rounded-xl px-3 text-xs font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+                >
+                  <BadgeCheck className="size-3.5" /> Lunas
+                  <span className="tabular-nums text-muted-foreground group-data-[state=active]:text-primary-foreground">
+                    {pinjamanLunas.length}
                   </span>
                 </TabsTrigger>
                 <TabsTrigger
@@ -1068,114 +1195,43 @@ function IsiRuang() {
                 </TabsTrigger>
               </TabsList>
 
-              {/* ===== Pinjaman tunai ===== */}
+              {/* ===== Pinjaman tunai (belum lunas) ===== */}
               <TabsContent value="pinjaman" className="mt-4">
-                {data.pinjaman.length === 0 ? (
-                  <KeadaanKosong pesan="Belum ada pengajuan pinjaman tunai yang tercatat." />
+                {pinjamanAktif.length === 0 ? (
+                  <KeadaanKosong pesan="Belum ada pengajuan pinjaman tunai yang belum lunas." />
                 ) : (
                   <>
-                    {/* Layar sempit: kartu per peminjam — semua rincian tanpa geser mendatar. */}
-                    <div className="space-y-3 md:hidden">
-                      {data.pinjaman.map((row) => (
-                        <KartuPengajuan
-                          key={row._id}
-                          nama={row.namaLengkap}
-                          kode={row.kodePeminjam}
-                          nomorReferensi={row.nomorReferensi}
-                          status={<StatusBadge status={row.status} kind="loan" />}
-                          onDetail={() => setDetail({ jenis: "pinjaman", row })}
-                        >
-                          <InfoKartu label="Pinjaman">{rupiah(row.pokokPinjaman)}</InfoKartu>
-                          <InfoKartu label={`Bunga ${data.ringkasan.persenBunga}%`}>
-                            {rupiah(row.bunga)}
-                          </InfoKartu>
-                          <InfoKartu label="Total lunas">{rupiah(row.totalLunas)}</InfoKartu>
-                          <InfoKartu label="Tenor">
-                            {row.tenorBulan === null
-                              ? `${row.tenorHari} hari`
-                              : `${row.tenorBulan} bulan`}
-                          </InfoKartu>
-                          <InfoKartu label="Tanggal">{tanggalRingkas(row.diajukanPada)}</InfoKartu>
-                          <InfoKartu label="Pendana">{row.pendana ?? "—"}</InfoKartu>
-                          <InfoKartu label="Keuntungan pendana">
-                            {row.pendana === null ? "—" : rupiah(row.keuntunganPendana)}
-                          </InfoKartu>
-                          <InfoKartu label="Potongan admin">
-                            {row.pendana === null ? "—" : rupiah(row.potonganAdmin)}
-                          </InfoKartu>
-                          <InfoKartu label="Lokasi">
-                            {row.lokasi === null
-                              ? "belum ada titik"
-                              : labelUmur(row.lokasi.waktu, sekarang)}
-                          </InfoKartu>
-                        </KartuPengajuan>
-                      ))}
-                    </div>
-                    <div className="hidden md:block">
-                      <Tabel
-                      head={[
-                        "No. Ref",
-                        "Nama",
-                        "Pinjaman",
-                        `Bunga ${data.ringkasan.persenBunga}%`,
-                        "Total Lunas",
-                        "Tenor",
-                        "Tanggal",
-                        "Status",
-                        "Pendana",
-                        "Keuntungan Pendana",
-                        "Potongan Admin",
-                        "Lokasi",
-                        "Aksi",
-                      ]}
-                    >
-                      {data.pinjaman.map((row) => (
-                        <TableRow key={row._id}>
-                          <TableCell className="whitespace-nowrap align-top font-mono text-xs text-slate-500">
-                            {row.nomorReferensi}
-                          </TableCell>
-                          <SelNama nama={row.namaLengkap} kode={row.kodePeminjam} />
-                          <TableCell className="whitespace-nowrap align-top font-semibold tabular-nums">
-                            {rupiah(row.pokokPinjaman)}
-                          </TableCell>
-                          <TableCell className="whitespace-nowrap align-top font-medium tabular-nums text-emerald-700">
-                            {rupiah(row.bunga)}
-                          </TableCell>
-                          <TableCell className="whitespace-nowrap align-top font-medium tabular-nums text-slate-700">
-                            {rupiah(row.totalLunas)}
-                          </TableCell>
-                          <TableCell className="whitespace-nowrap align-top text-slate-600">
-                            {row.tenorBulan === null
-                              ? `${row.tenorHari} hari`
-                              : `${row.tenorBulan} bulan`}
-                          </TableCell>
-                          <TableCell className="whitespace-nowrap align-top text-slate-600">
-                            {tanggalRingkas(row.diajukanPada)}
-                          </TableCell>
-                          <TableCell className="align-top">
-                            <StatusBadge status={row.status} kind="loan" />
-                          </TableCell>
-                          <SelPendana pendana={row.pendana} />
-                          <TableCell className="whitespace-nowrap align-top font-semibold tabular-nums text-emerald-700">
-                            {row.pendana === null ? "—" : rupiah(row.keuntunganPendana)}
-                          </TableCell>
-                          <TableCell className="whitespace-nowrap align-top font-semibold tabular-nums text-amber-700">
-                            {row.pendana === null ? "—" : rupiah(row.potonganAdmin)}
-                          </TableCell>
-                          <SelLokasi lokasi={row.lokasi} sekarang={sekarang} />
-                          <TableCell className="align-top">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => setDetail({ jenis: "pinjaman", row })}
-                            >
-                              <Eye className="mr-1.5 size-3.5" aria-hidden /> Detail
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </Tabel>
-                    </div>
+                    <DaftarPinjaman
+                      rows={pinjamanAktif}
+                      persenBunga={data.ringkasan.persenBunga}
+                      sekarang={sekarang}
+                      onDetail={(row) => setDetail({ jenis: "pinjaman", row })}
+                    />
+                    <CatatanTerpotong
+                      terpotong={data.terpotong.pinjaman}
+                      batas={data.batas}
+                    />
+                  </>
+                )}
+              </TabsContent>
+
+              {/* ===== Pinjaman lunas (dipisah ke tab sendiri) ===== */}
+              <TabsContent value="lunas" className="mt-4">
+                {pinjamanLunas.length === 0 ? (
+                  <KeadaanKosong pesan="Belum ada pinjaman tunai yang berstatus lunas." />
+                ) : (
+                  <>
+                    <p className="mb-3 rounded-2xl border border-emerald-200 bg-emerald-50/70 px-4 py-3 text-xs leading-6 text-emerald-900">
+                      Pinjaman pada tab ini sudah berstatus <strong>lunas</strong> pada ledger
+                      internal. Angka keuntungan pendana dan potongan admin di bawah adalah hasil
+                      perhitungan atas kewajiban yang sudah terbayar penuh, bukan bukti mutasi.
+                    </p>
+                    <DaftarPinjaman
+                      rows={pinjamanLunas}
+                      persenBunga={data.ringkasan.persenBunga}
+                      sekarang={sekarang}
+                      onDetail={(row) => setDetail({ jenis: "pinjaman", row })}
+                    />
                     <CatatanTerpotong
                       terpotong={data.terpotong.pinjaman}
                       batas={data.batas}
