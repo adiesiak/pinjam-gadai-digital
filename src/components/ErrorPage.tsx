@@ -1,4 +1,3 @@
-import { motion } from "framer-motion";
 import { ArrowLeft, RotateCcw, ShieldAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -9,6 +8,13 @@ import { Button } from "@/components/ui/button";
  * pernah dirender ke layar. Pemanggil cukup mencatatnya di console untuk
  * keperluan diagnosis; pengunjung hanya melihat pesan ramah berbahasa
  * Indonesia beserta jalan keluar yang jelas.
+ */
+/**
+ * Halaman ini sengaja TIDAK memakai framer-motion. Modul ini ikut bundel awal
+ * (dipasang di main.tsx), dan framer-motion saja menambah puluhan kilobyte ke
+ * jalur kritis pemuatan pertama. Animasi masuknya diganti utilitas CSS
+ * `animate-masuk` yang efeknya sama (naik 10 px + memudar, 0,36 s) dan sudah
+ * otomatis berhenti saat pengguna memilih reduced-motion.
  */
 export interface ErrorPageProps {
   /** Label kecil di atas judul, mis. "Kendala sistem". */
@@ -37,12 +43,7 @@ export function ErrorPage({
   const labelUtama = primaryLabel ?? (aksiUtamaDefault ? "Muat ulang halaman" : "Lanjutkan");
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.35 }}
-      className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm"
-    >
+    <div className="animate-masuk w-full max-w-md rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm">
       <span className="clay-icon-blue inline-flex size-11 items-center justify-center">
         <ShieldAlert className="size-5" />
       </span>
@@ -79,6 +80,6 @@ export function ErrorPage({
       <p className="mt-6 text-xs text-muted-foreground">
         Butuh bantuan? Hubungi tim PINDAI — sertakan nomor referensi transaksi Anda.
       </p>
-    </motion.div>
+    </div>
   );
 }
