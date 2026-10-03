@@ -1021,3 +1021,246 @@ describe("lokasi & berkas peminjam di ruang penyedia dana", () => {
     ).rejects.toThrow(/akses lihat saja/i);
   });
 });
+
+describe("pelacakan transfer keuntungan pendana", () => {
+  /** Pinjaman lunas milik satu penyedia dana — dasar kewajiban transfer. */
+  async function seedPinjamanLunas(
+    t: KonteksUji,
+    opts: { status?: "lunas" | "didanai"; pendana?: boolean } = {},
+  ) {
+    const { userId } = await siapkanPengguna(t, "rani", {
+      email: "rani@pindai.test",
+      role: "peminjam",
+    });
+    const penyedia = await siapkanPengguna(t, "penyedia", {
+      email: "penyedia@pindai.test",
+      role: "dana",
+    });
+    const loanId = await t.run((ctx) =>
+      ctx.db.insert("loans", {
+        userId,
+        pokokPinjaman: 1_000_000,
+        tujuan: "Modal usaha",
+        namaLengkap: NAMA_PEMOHON,
+        nomorRekening: RAHASIA.nomorRekening,
+        status: opts.status ?? "lunas",
+        nomorReferensi: "PGD-TRANSFER-1",
+        tenorHari: 30,
+        didanaiPada: 1_700_000_000_000,
+        lunasPada: 1_700_100_000_000,
+        ...(opts.pendana === false
+          ? {}
+          : { pendanaId: penyedia.userId, pendanaNama: "Penyedia Dana" }),
+      }),
+    );
+    return { loanId, penyedia, userId };
+  }
+
+  it("menolak non-admin — gerbang pencatatan ada di server", async () => {
+    const t = convexTest(schema, modules);
+    const { loanId, penyedia } = await seedPinjamanLunas(t);
+
+    // Penyedia dana sendiri pun tidak boleh mencatat; ini wewenang admin.
+    await expect(
+      penyedia.sesi.mutation(api.penyediaDana.catatTransferPendana, {
+        loanId,
+        metode: "transfer_bank",
+      }),
+    ).rejects.toThrow(/Super Admin/i);
+
+    const { sesi: peminjam } = await siapkanPengguna(t, "rani-dua", {
+      email: "rani-dua@pindai.test",
+      role: "peminjam",
+    });
+    await expect(
+      peminjam.mutation(api.penyediaDana.catatTransferPendana, {
+        loanId,
+        metode: "transfer_bank",
+      }),
+    ).rejects.toThrow(/Super Admin/i);
+  });
+
+  it("mencatat transfer pinjaman lunas: nominal dihitung server, bukan klien", async () => {
+    const t = convexTest(schema, modules);
+    const { sesi: admin } = await siapkanPengguna(t, "admin", {
+      email: "admin@pindai.test",
+      role: "admin",
+    });
+    const { loanId } = await seedPinjamanLunas(t);
+
+    // Kebijakan default: bunga 30% dari 1jt = 300rb, total 1,3jt, potongan
+    // admin 5% = 65rb, sehingga keuntungan bersih pendana = 235rb.
+    const hasil = await admin.mutation(api.penyediaDana.catatTransferPendana, {
+      loanId,
+      metode: "transfer_bank",
+      referensi: "TRX-001",
+      catatan: "ditransfer bersama pelunasan lain",
+    });
+    expect(hasil.jumlah).toBe(235_000);
+
+    const baris = await t.run((ctx) =>
+      ctx.db.query("transferPendana").withIndex("by_loan", (q) => q.eq("loanId", loanId)).collect(),
+    );
+    expect(baris).toHaveLength(1);
+    expect(baris[0].jumlah).toBe(235_000);
+    expect(baris[0].status).toBe("dicatat");
+    expect(baris[0].referensi).toBe("TRX-001");
+    expect(baris[0].pendanaNama).toBe("Penyedia Dana");
+
+    // Catatan pembukuan: tidak ada saldo/ledger yang tersentuh.
+    const ledger = await t.run((ctx) => ctx.db.query("ledger_entries").collect());
+    expect(ledger).toHaveLength(0);
+
+    const audit = await t.run((ctx) =>
+      ctx.db.query("auditLog").collect(),
+    );
+    expect(audit.some((a) => a.aksi === "catat_transfer_pendana")).toBe(true);
+  });
+
+  it("menolak pinjaman belum lunas dan pinjaman tanpa pendana", async () => {
+    const t = convexTest(schema, modules);
+    const { sesi: admin } = await siapkanPengguna(t, "admin", {
+      email: "admin@pindai.test",
+      role: "admin",
+    });
+    const berjalan = await seedPinjamanLunas(t, { status: "didanai" });
+    await expect(
+      admin.mutation(api.penyediaDana.catatTransferPendana, {
+        loanId: berjalan.loanId,
+        metode: "transfer_bank",
+      }),
+    ).rejects.toThrow(/lunas/i);
+
+    const tanpaPendana = await seedPinjamanLunas(t, { pendana: false });
+    await expect(
+      admin.mutation(api.penyediaDana.catatTransferPendana, {
+        loanId: tanpaPendana.loanId,
+        metode: "transfer_bank",
+      }),
+    ).rejects.toThrow(/penyedia dana/i);
+  });
+
+  it("menolak pencatatan ganda sebelum catatan lama dibatalkan", async () => {
+    const t = convexTest(schema, modules);
+    const { sesi: admin } = await siapkanPengguna(t, "admin", {
+      email: "admin@pindai.test",
+      role: "admin",
+    });
+    const { loanId } = await seedPinjamanLunas(t);
+
+    await admin.mutation(api.penyediaDana.catatTransferPendana, {
+      loanId,
+      metode: "tunai",
+    });
+    await expect(
+      admin.mutation(api.penyediaDana.catatTransferPendana, {
+        loanId,
+        metode: "transfer_bank",
+      }),
+    ).rejects.toThrow(/sudah dicatat/i);
+
+    // Setelah dibatalkan, pencatatan ulang boleh.
+    await admin.mutation(api.penyediaDana.batalkanTransferPendana, {
+      loanId,
+      alasan: "salah metode pengiriman",
+    });
+    const ulang = await admin.mutation(api.penyediaDana.catatTransferPendana, {
+      loanId,
+      metode: "transfer_bank",
+      referensi: "TRX-002",
+    });
+    expect(ulang.jumlah).toBe(235_000);
+
+    const baris = await t.run((ctx) =>
+      ctx.db.query("transferPendana").withIndex("by_loan", (q) => q.eq("loanId", loanId)).collect(),
+    );
+    // Riwayat tidak dihapus: baris lama tetap ada sebagai jejak audit.
+    expect(baris).toHaveLength(2);
+    expect(baris.filter((b) => b.status === "dicatat")).toHaveLength(1);
+    expect(baris.filter((b) => b.status === "dibatalkan")).toHaveLength(1);
+  });
+
+  it("pembatalan wajib beralasan dan tidak mengubah saldo/ledger", async () => {
+    const t = convexTest(schema, modules);
+    const { sesi: admin } = await siapkanPengguna(t, "admin", {
+      email: "admin@pindai.test",
+      role: "admin",
+    });
+    const { loanId } = await seedPinjamanLunas(t);
+
+    await expect(
+      admin.mutation(api.penyediaDana.batalkanTransferPendana, { loanId, alasan: "x" }),
+    ).rejects.toThrow(/alasan/i);
+
+    await admin.mutation(api.penyediaDana.catatTransferPendana, {
+      loanId,
+      metode: "e_wallet",
+    });
+    const hasil = await admin.mutation(api.penyediaDana.batalkanTransferPendana, {
+      loanId,
+      alasan: "salah nominal",
+    });
+    expect(hasil.jumlahDibatalkan).toBe(1);
+
+    const loan = await t.run((ctx) => ctx.db.get(loanId));
+    expect(loan?.status).toBe("lunas");
+    const ledger = await t.run((ctx) => ctx.db.query("ledger_entries").collect());
+    expect(ledger).toHaveLength(0);
+  });
+
+  it("panel admin membaca status transfer per akun dan per pinjaman", async () => {
+    const t = convexTest(schema, modules);
+    const { sesi: admin } = await siapkanPengguna(t, "admin", {
+      email: "admin@pindai.test",
+      role: "admin",
+    });
+    const { loanId, penyedia } = await seedPinjamanLunas(t);
+
+    const awal = await admin.query(api.penyediaDana.rincianInvestor, {
+      userId: penyedia.userId,
+    });
+    expect(awal?.transfer.jumlahLunas).toBe(1);
+    expect(awal?.transfer.jumlahBelumDicatat).toBe(1);
+    expect(awal?.transfer.keuntunganBelumDicatat).toBe(235_000);
+    expect(awal?.pinjaman[0].transfer.status).toBe("belum_dicatat");
+
+    await admin.mutation(api.penyediaDana.catatTransferPendana, {
+      loanId,
+      metode: "transfer_bank",
+      referensi: "TRX-777",
+    });
+
+    const sesudah = await admin.query(api.penyediaDana.rincianInvestor, {
+      userId: penyedia.userId,
+    });
+    expect(sesudah?.transfer.jumlahTercatat).toBe(1);
+    expect(sesudah?.transfer.jumlahBelumDicatat).toBe(0);
+    expect(sesudah?.transfer.keuntunganTercatat).toBe(235_000);
+    expect(sesudah?.pinjaman[0].transfer.status).toBe("dicatat");
+    expect(sesudah?.pinjaman[0].transfer.referensi).toBe("TRX-777");
+
+    const daftar = await admin.query(api.penyediaDana.daftarInvestor, {});
+    const barisPenyedia = daftar.rows.find((r) => r.userId === penyedia.userId);
+    expect(barisPenyedia?.transfer.jumlahTercatat).toBe(1);
+    expect(daftar.ringkasan.keuntunganTercatat).toBe(235_000);
+    expect(daftar.ringkasan.pinjamanBelumDicatat).toBe(0);
+  });
+
+  it("ruang penyedia dana menampilkan status transfer sebagai catatan", async () => {
+    const t = convexTest(schema, modules);
+    const { sesi: admin } = await siapkanPengguna(t, "admin", {
+      email: "admin@pindai.test",
+      role: "admin",
+    });
+    const { loanId, penyedia } = await seedPinjamanLunas(t);
+    await admin.mutation(api.penyediaDana.catatTransferPendana, {
+      loanId,
+      metode: "tunai",
+    });
+
+    const data = await penyedia.sesi.query(api.penyediaDana.daftarPengajuan, {});
+    const baris = data.pinjaman.find((p) => p._id === loanId);
+    expect(baris?.transfer.status).toBe("dicatat");
+    expect(data.ringkasan.totalTransferBelumDicatat).toBe(0);
+  });
+});

@@ -31,7 +31,7 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 import { v } from "convex/values";
 
 import type { Id } from "./_generated/dataModel";
-import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
+import { mutation, query, type QueryCtx } from "./_generated/server";
 import { SLOT_AKSES_BERSAMA } from "./aksesBersama";
 import { requireAdminSession } from "./adminAuthz";
 import { bagiHasilPinjaman } from "../lib/bagiHasil";
@@ -41,7 +41,6 @@ import {
   type PinjamanTransfer,
   type RekapTransferPendana,
   type RingkasTransfer,
-  type StatusTransfer,
   type TransferBaris,
 } from "../lib/transferPendana";
 import { akunDompetDana, danaWalletBalance } from "./ledger";
@@ -143,6 +142,11 @@ export type BarisPinjaman = {
   keuntunganPendana: number;
   /** Keuntungan admin atas pinjaman ini (sama dengan potongan admin). */
   keuntunganAdmin: number;
+  /**
+   * Status catatan transfer keuntungan pendana. Kewajibannya baru jatuh tempo
+   * saat pinjaman lunas; catatan dibuat admin dan BUKAN bukti mutasi bank.
+   */
+  transfer: RingkasTransfer;
   /** Titik lokasi terakhir yang diketahui — null bila belum pernah terkirim. */
   lokasi: LokasiTitik | null;
 };
@@ -166,6 +170,12 @@ export type RekapPendana = {
   keuntunganPendana: number;
   /** Keuntungan admin dari pinjaman penyedia dana ini. */
   keuntunganAdmin: number;
+  /** Pinjaman lunas yang keuntungannya sudah dicatat ditransfer admin. */
+  transferTercatat: number;
+  /** Pinjaman lunas yang catatan transfernya belum dibuat admin. */
+  transferBelumDicatat: number;
+  /** Nilai keuntungan pada pinjaman lunas yang belum dicatat transfernya. */
+  keuntunganBelumDicatat: number;
 };
 
 export type BarisGadai = {
@@ -385,6 +395,9 @@ export const daftarPengajuan = query({
       return titik;
     }
 
+    // Catatan transfer dibaca SEKALI, dipetakan per pinjaman untuk seluruh baris.
+    const transferPerPinjaman = await petaTransfer(ctx);
+
     const pinjamanMentah = await ctx.db
       .query("loans")
       .order("desc")
@@ -426,6 +439,7 @@ export const daftarPengajuan = query({
         potonganAdmin: bagi.potonganAdmin,
         keuntunganPendana: bagi.keuntunganPendana,
         keuntunganAdmin: bagi.keuntunganAdmin,
+        transfer: transferPerPinjaman.get(loan._id) ?? ringkasTransfer([]),
         // Pinjaman menyimpan titik GPS saat pengajuan dikirim — dipakai sebagai
         // cadangan bila perangkat belum pernah mengirim heartbeat.
         lokasi:
@@ -502,6 +516,9 @@ export const daftarPengajuan = query({
           totalBunga: 0,
           keuntunganPendana: 0,
           keuntunganAdmin: 0,
+          transferTercatat: 0,
+          transferBelumDicatat: 0,
+          keuntunganBelumDicatat: 0,
         };
       r.jumlahPinjaman += 1;
       if (b.status === "lunas") r.jumlahLunas += 1;
@@ -511,6 +528,16 @@ export const daftarPengajuan = query({
       r.totalBunga += b.bunga;
       r.keuntunganPendana += b.keuntunganPendana;
       r.keuntunganAdmin += b.keuntunganAdmin;
+      // Kewajiban transfer hanya muncul pada pinjaman lunas (bunga sudah
+      // terbayar penuh). Pinjaman berjalan belum jatuh tempo.
+      if (b.status === "lunas") {
+        if (b.transfer.status === "dicatat") {
+          r.transferTercatat += 1;
+        } else {
+          r.transferBelumDicatat += 1;
+          r.keuntunganBelumDicatat += b.keuntunganPendana;
+        }
+      }
       rekapMap.set(b.pendana, r);
     }
     const rekapPendana = [...rekapMap.values()].sort(
@@ -536,6 +563,16 @@ export const daftarPengajuan = query({
       /** Keuntungan bersih penyedia dana dari pinjaman berjalan/lunas. */
       totalKeuntunganPendana: rekapPendana.reduce(
         (total, r) => total + r.keuntunganPendana,
+        0,
+      ),
+      /** Pinjaman lunas yang catatan transfer keuntungannya belum dibuat admin. */
+      totalTransferBelumDicatat: rekapPendana.reduce(
+        (total, r) => total + r.transferBelumDicatat,
+        0,
+      ),
+      /** Nilai keuntungan pada pinjaman lunas yang belum dicatat transfernya. */
+      nilaiTransferBelumDicatat: rekapPendana.reduce(
+        (total, r) => total + r.keuntunganBelumDicatat,
         0,
       ),
       /** Kebijakan yang dipakai menghitung kolom bagi hasil di halaman ini. */

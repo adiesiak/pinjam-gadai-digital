@@ -40,6 +40,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { api } from "@/convex/_generated/api";
+import type { RingkasTransfer } from "@/lib/transferPendana";
 import type {
   BarisGadai,
   BarisKredit,
@@ -195,6 +196,35 @@ function BadgeKredit({ status }: { status: string }) {
   return <Badge className={`border-0 ${meta.kelas}`}>{meta.label}</Badge>;
 }
 
+/**
+ * Badge status catatan transfer keuntungan pendana.
+ *
+ * Ruang ini hanya menampilkan; pencatatan transfer dibuat admin di panel. Istilah
+ * sengaja berbunyi "dicatat", bukan "terbayar": PINDAI tidak memindahkan uang,
+ * jadi yang bisa dibaca di sini adalah catatan admin, bukan bukti mutasi bank.
+ */
+function BadgeTransferPendana({ ringkas }: { ringkas: RingkasTransfer }) {
+  const meta =
+    ringkas.status === "dicatat"
+      ? { label: "sudah dicatat", kelas: "bg-emerald-100 text-emerald-700 hover:bg-emerald-100" }
+      : ringkas.status === "dibatalkan"
+        ? { label: "catatan dibatalkan", kelas: "bg-amber-100 text-amber-800 hover:bg-amber-100" }
+        : { label: "belum dicatat", kelas: "bg-slate-100 text-slate-600 hover:bg-slate-100" };
+  return (
+    <span className="inline-flex flex-col items-start gap-0.5">
+      <Badge className={`border-0 text-[10px] ${meta.kelas}`}>
+        {ringkas.status === "dicatat" && <BadgeCheck className="mr-1 size-2.5" />}
+        {meta.label}
+      </Badge>
+      {ringkas.status === "dicatat" && ringkas.dicatatPada !== null && (
+        <span className="text-[10px] text-muted-foreground">
+          {tanggalRingkas(ringkas.dicatatPada)}
+        </span>
+      )}
+    </span>
+  );
+}
+
 function BadgePseudonim({ kode }: { kode: string | null }) {
   return (
     <Badge
@@ -272,6 +302,27 @@ function KartuPendana({ r }: { r: RekapPendana }) {
           <dt className="text-muted-foreground">Keuntungan admin</dt>
           <dd className="font-semibold tabular-nums text-amber-700">
             {rupiah(r.keuntunganAdmin)}
+          </dd>
+        </div>
+        <div className="flex items-baseline justify-between gap-2 border-t border-slate-100 pt-1.5">
+          <dt className="text-muted-foreground">Transfer keuntungan</dt>
+          <dd className="text-right">
+            {r.jumlahLunas === 0 ? (
+              <span className="text-[11px] text-muted-foreground">belum ada pinjaman lunas</span>
+            ) : r.transferBelumDicatat === 0 ? (
+              <Badge className="border-0 bg-emerald-100 text-[10px] text-emerald-700 hover:bg-emerald-100">
+                <BadgeCheck className="mr-1 size-3" /> semua sudah dicatat
+              </Badge>
+            ) : (
+              <span className="inline-flex flex-col items-end gap-0.5">
+                <Badge className="border-0 bg-amber-100 text-[10px] text-amber-800 hover:bg-amber-100">
+                  <TriangleAlert className="mr-1 size-3" /> {r.transferBelumDicatat} belum dicatat
+                </Badge>
+                <span className="text-[10px] tabular-nums text-muted-foreground">
+                  {rupiah(r.keuntunganBelumDicatat)}
+                </span>
+              </span>
+            )}
           </dd>
         </div>
       </dl>
@@ -933,6 +984,15 @@ function DaftarPinjaman({
             <InfoKartu label="Potongan admin">
               {row.pendana === null ? "—" : rupiah(row.potonganAdmin)}
             </InfoKartu>
+            <InfoKartu label="Transfer keuntungan">
+              {row.pendana === null ? (
+                "—"
+              ) : row.status !== "lunas" ? (
+                <span className="text-muted-foreground">menunggu lunas</span>
+              ) : (
+                <BadgeTransferPendana ringkas={row.transfer} />
+              )}
+            </InfoKartu>
             <InfoKartu label="Lokasi">
               {row.lokasi === null ? "belum ada titik" : labelUmur(row.lokasi.waktu, sekarang)}
             </InfoKartu>
@@ -953,6 +1013,7 @@ function DaftarPinjaman({
             "Pendana",
             "Keuntungan Pendana",
             "Potongan Admin",
+            "Transfer Keuntungan",
             "Lokasi",
             "Aksi",
           ]}
@@ -987,6 +1048,15 @@ function DaftarPinjaman({
               </TableCell>
               <TableCell className="whitespace-nowrap align-top font-semibold tabular-nums text-amber-700">
                 {row.pendana === null ? "—" : rupiah(row.potonganAdmin)}
+              </TableCell>
+              <TableCell className="align-top">
+                {row.pendana === null ? (
+                  <span className="text-xs text-muted-foreground">—</span>
+                ) : row.status !== "lunas" ? (
+                  <span className="text-[11px] text-muted-foreground">menunggu lunas</span>
+                ) : (
+                  <BadgeTransferPendana ringkas={row.transfer} />
+                )}
               </TableCell>
               <SelLokasi lokasi={row.lokasi} sekarang={sekarang} />
               <TableCell className="align-top">
@@ -1126,6 +1196,15 @@ function IsiRuang() {
                   <p className="text-xs font-medium tabular-nums text-muted-foreground">
                     Keuntungan pendana {rupiah(data.ringkasan.totalKeuntunganPendana)} · keuntungan
                     admin {rupiah(data.ringkasan.totalKeuntunganAdmin)}
+                    {data.ringkasan.totalTransferBelumDicatat > 0 && (
+                      <>
+                        {" · "}
+                        <span className="text-amber-700">
+                          {data.ringkasan.totalTransferBelumDicatat} transfer keuntungan belum dicatat
+                          ({rupiah(data.ringkasan.nilaiTransferBelumDicatat)})
+                        </span>
+                      </>
+                    )}
                   </p>
                 </div>
                 <p className="mt-1 max-w-3xl text-xs leading-6 text-muted-foreground">
