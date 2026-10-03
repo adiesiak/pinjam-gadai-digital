@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { api } from "@/convex/_generated/api";
 
 import { PenyediaDanaTable } from "./PenyediaDanaTable";
+import { RekonsiliasiPendana } from "./RekonsiliasiPendana";
 
 /**
  * Panel Kelola Penyedia Dana — dua jalur akses lihat saja:
@@ -286,6 +287,9 @@ export function AksesPenyediaDanaPanel() {
 
       {/* ===== Daftar penyedia dana + posisi dananya ===== */}
       <PenyediaDanaTable />
+
+      {/* ===== Rekonsiliasi panel vs rekap ruang penyedia dana ===== */}
+      <RekonsiliasiPendana />
     </div>
   );
 }
