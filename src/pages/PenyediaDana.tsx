@@ -343,6 +343,60 @@ function SelPendana({ pendana }: { pendana: string | null }) {
   );
 }
 
+/** Satu baris label/nilai pada kartu pengajuan (tampilan layar sempit). */
+function InfoKartu({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="min-w-0">
+      <dt className="text-[10px] font-medium uppercase tracking-[0.1em] text-slate-400">
+        {label}
+      </dt>
+      <dd className="mt-0.5 text-sm font-medium text-slate-800">{children}</dd>
+    </div>
+  );
+}
+
+/**
+ * Kartu pengajuan untuk layar sempit.
+ *
+ * Di HP tabel 13 kolom tidak mungkin muat tanpa geser mendatar, jadi setiap
+ * baris ditampilkan sebagai kartu berisi semua kolom penting, plus tombol
+ * Detail untuk rincian lengkap. Di layar lebar tabel aslinya tetap dipakai.
+ */
+function KartuPengajuan({
+  nama,
+  kode,
+  nomorReferensi,
+  status,
+  onDetail,
+  children,
+}: {
+  nama: string;
+  kode: string | null;
+  nomorReferensi: string;
+  status: React.ReactNode;
+  onDetail: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <article className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="truncate font-semibold text-slate-900">{nama}</p>
+          <p className="mt-0.5 font-mono text-[11px] text-slate-500">{nomorReferensi}</p>
+        </div>
+        <div className="shrink-0">{status}</div>
+      </div>
+      <div className="mt-2">
+        <BadgePseudonim kode={kode} />
+      </div>
+      <dl className="mt-3 grid grid-cols-2 gap-x-3 gap-y-3">{children}</dl>
+      <Button variant="outline" size="sm" className="mt-4 w-full" onClick={onDetail}>
+        <Eye className="mr-1.5 size-3.5" aria-hidden /> Lihat detail lengkap
+      </Button>
+    </article>
+  );
+}
+
 function BarisDetail({ label, nilai }: { label: string; nilai: React.ReactNode }) {
   return (
     <div className="flex items-start justify-between gap-4 border-b border-slate-100 py-2.5 last:border-0">
@@ -847,7 +901,7 @@ function IsiRuang() {
   );
 
   return (
-    <div className="flex min-h-screen flex-col bg-slate-50 text-slate-900">
+    <div className="flex min-h-screen flex-col overflow-x-clip bg-slate-50 text-slate-900">
       <header className="animate-masuk border-b border-slate-200 bg-white/80 backdrop-blur">
         <div className="mx-auto flex h-14 w-full max-w-6xl items-center justify-between gap-3 px-4 sm:px-6">
           <Link to="/dashboard" className="flex shrink-0 items-center gap-2.5">
@@ -1005,7 +1059,45 @@ function IsiRuang() {
                   <KeadaanKosong pesan="Belum ada pengajuan pinjaman tunai yang tercatat." />
                 ) : (
                   <>
-                    <Tabel
+                    {/* Layar sempit: kartu per peminjam — semua rincian tanpa geser mendatar. */}
+                    <div className="space-y-3 md:hidden">
+                      {data.pinjaman.map((row) => (
+                        <KartuPengajuan
+                          key={row._id}
+                          nama={row.namaLengkap}
+                          kode={row.kodePeminjam}
+                          nomorReferensi={row.nomorReferensi}
+                          status={<StatusBadge status={row.status} kind="loan" />}
+                          onDetail={() => setDetail({ jenis: "pinjaman", row })}
+                        >
+                          <InfoKartu label="Pinjaman">{rupiah(row.pokokPinjaman)}</InfoKartu>
+                          <InfoKartu label={`Bunga ${data.ringkasan.persenBunga}%`}>
+                            {rupiah(row.bunga)}
+                          </InfoKartu>
+                          <InfoKartu label="Total lunas">{rupiah(row.totalLunas)}</InfoKartu>
+                          <InfoKartu label="Tenor">
+                            {row.tenorBulan === null
+                              ? `${row.tenorHari} hari`
+                              : `${row.tenorBulan} bulan`}
+                          </InfoKartu>
+                          <InfoKartu label="Tanggal">{tanggalRingkas(row.diajukanPada)}</InfoKartu>
+                          <InfoKartu label="Pendana">{row.pendana ?? "—"}</InfoKartu>
+                          <InfoKartu label="Keuntungan pendana">
+                            {row.pendana === null ? "—" : rupiah(row.keuntunganPendana)}
+                          </InfoKartu>
+                          <InfoKartu label="Potongan admin">
+                            {row.pendana === null ? "—" : rupiah(row.potonganAdmin)}
+                          </InfoKartu>
+                          <InfoKartu label="Lokasi">
+                            {row.lokasi === null
+                              ? "belum ada titik"
+                              : labelUmur(row.lokasi.waktu, sekarang)}
+                          </InfoKartu>
+                        </KartuPengajuan>
+                      ))}
+                    </div>
+                    <div className="hidden md:block">
+                      <Tabel
                       head={[
                         "No. Ref",
                         "Nama",
@@ -1068,6 +1160,7 @@ function IsiRuang() {
                         </TableRow>
                       ))}
                     </Tabel>
+                    </div>
                     <CatatanTerpotong
                       terpotong={data.terpotong.pinjaman}
                       batas={data.batas}
@@ -1082,7 +1175,38 @@ function IsiRuang() {
                   <KeadaanKosong pesan="Belum ada pengajuan gadai yang tercatat." />
                 ) : (
                   <>
-                    <Tabel
+                    <div className="space-y-3 md:hidden">
+                      {data.gadai.map((row) => (
+                        <KartuPengajuan
+                          key={row._id}
+                          nama={row.namaLengkap}
+                          kode={row.kodePeminjam}
+                          nomorReferensi={row.nomorReferensi}
+                          status={<StatusBadge status={row.status} kind="pawn" />}
+                          onDetail={() => setDetail({ jenis: "gadai", row })}
+                        >
+                          <InfoKartu label="Barang">
+                            <span className="block">{row.deskripsiBarang}</span>
+                            <span className="mt-0.5 block text-xs font-normal text-slate-500">
+                              {row.kategori}
+                            </span>
+                          </InfoKartu>
+                          <InfoKartu label="Taksiran">
+                            {row.nilaiTaksiran === null
+                              ? "belum ditaksir"
+                              : rupiah(row.nilaiTaksiran)}
+                          </InfoKartu>
+                          <InfoKartu label="Tanggal">{tanggalRingkas(row.diajukanPada)}</InfoKartu>
+                          <InfoKartu label="Lokasi">
+                            {row.lokasi === null
+                              ? "belum ada titik"
+                              : labelUmur(row.lokasi.waktu, sekarang)}
+                          </InfoKartu>
+                        </KartuPengajuan>
+                      ))}
+                    </div>
+                    <div className="hidden md:block">
+                      <Tabel
                       head={[
                         "No. Ref",
                         "Nama",
@@ -1128,6 +1252,7 @@ function IsiRuang() {
                         </TableRow>
                       ))}
                     </Tabel>
+                    </div>
                     <CatatanTerpotong terpotong={data.terpotong.gadai} batas={data.batas} />
                   </>
                 )}
@@ -1139,7 +1264,36 @@ function IsiRuang() {
                   <KeadaanKosong pesan="Belum ada pengajuan kredit barang yang tercatat." />
                 ) : (
                   <>
-                    <Tabel
+                    <div className="space-y-3 md:hidden">
+                      {data.kredit.map((row) => (
+                        <KartuPengajuan
+                          key={row._id}
+                          nama={row.namaLengkap}
+                          kode={row.kodePeminjam}
+                          nomorReferensi={row.nomorReferensi}
+                          status={<BadgeKredit status={row.status} />}
+                          onDetail={() => setDetail({ jenis: "kredit", row })}
+                        >
+                          <InfoKartu label="Barang">
+                            <span className="block">{row.namaBarang}</span>
+                            <span className="mt-0.5 block text-xs font-normal text-slate-500">
+                              {row.kategori} · {row.merchant}
+                            </span>
+                          </InfoKartu>
+                          <InfoKartu label="Harga">{rupiah(row.hargaBarang)}</InfoKartu>
+                          <InfoKartu label="Tenor">{row.tenorBulan} bulan</InfoKartu>
+                          <InfoKartu label="Tanggal">{tanggalRingkas(row.diajukanPada)}</InfoKartu>
+                          <InfoKartu label="Pendana">{row.pendana ?? "—"}</InfoKartu>
+                          <InfoKartu label="Lokasi">
+                            {row.lokasi === null
+                              ? "belum ada titik"
+                              : labelUmur(row.lokasi.waktu, sekarang)}
+                          </InfoKartu>
+                        </KartuPengajuan>
+                      ))}
+                    </div>
+                    <div className="hidden md:block">
+                      <Tabel
                       head={[
                         "No. Ref",
                         "Nama",
@@ -1191,6 +1345,7 @@ function IsiRuang() {
                         </TableRow>
                       ))}
                     </Tabel>
+                    </div>
                     <CatatanTerpotong terpotong={data.terpotong.kredit} batas={data.batas} />
                   </>
                 )}

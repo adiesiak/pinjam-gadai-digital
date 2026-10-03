@@ -1,6 +1,7 @@
 import {
   CalendarClock,
   FileText,
+  LayoutGrid,
   Package,
   ScrollText,
   Send,
@@ -8,6 +9,7 @@ import {
   Wallet,
 } from "lucide-react";
 
+import { Button } from "@/components/ui/button";
 import { TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select,
@@ -43,7 +45,10 @@ function badgeToneClass(tone: TabBadge["tone"]): string {
 
 /**
  * Navigasi tab dashboard (sisi kiri) — dirender di dalam <Tabs>.
- * Vertikal di layar lebar, dapat digulir mendatar di layar sempit.
+ *
+ * Layar lebar: daftar tab vertikal. Layar sempit: satu kartu menu menonjol
+ * berisi pemilih bagian (dropdown) plus pintasan "Buat pengajuan baru", supaya
+ * pemakai baru tidak perlu menebak menu mana yang membuka formulir.
  */
 export function DashboardTabNav({
   badges,
@@ -54,14 +59,30 @@ export function DashboardTabNav({
   activeTab: string;
   onTabChange: (value: string) => void;
 }) {
+  // Menu yang sedang aktif — ditampilkan menonjol di kartu menu layar sempit.
+  const aktif = TABS.find(([value]) => value === activeTab) ?? null;
+
   return (
     <>
-      <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm lg:hidden">
-        <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-          Menu dashboard
-        </p>
+      <div className="rounded-2xl border border-primary/25 bg-primary/[0.05] p-3 shadow-sm lg:hidden">
+        <div className="flex items-center gap-2.5">
+          <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground">
+            <LayoutGrid className="size-4" aria-hidden />
+          </span>
+          <div className="min-w-0">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-primary/70">
+              Menu dashboard
+            </p>
+            <p className="truncate text-sm font-semibold text-slate-900">
+              {aktif ? aktif[1] : "Pilih menu"}
+            </p>
+          </div>
+        </div>
         <Select value={activeTab} onValueChange={onTabChange}>
-          <SelectTrigger aria-label="Menu dashboard Peminjam" className="h-11 w-full rounded-xl bg-slate-50 text-sm">
+          <SelectTrigger
+            aria-label="Menu dashboard Peminjam"
+            className="mt-3 h-12 w-full rounded-xl border-primary/30 bg-white text-sm font-medium"
+          >
             <SelectValue placeholder="Pilih menu" />
           </SelectTrigger>
           <SelectContent>
@@ -72,6 +93,16 @@ export function DashboardTabNav({
             ))}
           </SelectContent>
         </Select>
+        {activeTab !== "form" && (
+          <Button
+            type="button"
+            size="sm"
+            className="mt-2 h-10 w-full gap-1.5"
+            onClick={() => onTabChange("form")}
+          >
+            <Send className="size-3.5" aria-hidden /> Buat pengajuan baru
+          </Button>
+        )}
       </div>
       <TabsList aria-label="Navigasi dashboard Peminjam" className="hidden h-auto w-full flex-col items-stretch justify-start gap-1 overflow-visible rounded-2xl border border-slate-200 bg-white p-1.5 shadow-sm lg:flex">
         {TABS.map(([value, label, icon]) => {

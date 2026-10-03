@@ -113,7 +113,7 @@ export default function Dashboard() {
 
   if (isAnonymous) {
     return (
-      <div className="flex min-h-screen flex-col bg-slate-50 text-slate-900">
+      <div className="flex min-h-screen flex-col overflow-x-clip bg-slate-50 text-slate-900">
         <DashboardHeader />
         <main className="mx-auto flex w-full max-w-4xl flex-1 items-center px-4 py-12 sm:px-6">
           <section className="w-full rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-10">
@@ -192,7 +192,7 @@ export default function Dashboard() {
     // aktif (heartbeat ke server). Admin dan penyedia dana dikecualikan — sama
     // seperti PERAN_WAJIB_LOKASI di convex/lokasi.ts (hanya peminjam/member).
     <LocationGate aktif={role !== "admin" && role !== "dana"}>
-      <div className="flex min-h-screen flex-col bg-slate-50 text-slate-900">
+      <div className="flex min-h-screen flex-col overflow-x-clip bg-slate-50 text-slate-900">
         {/* Bar pengumuman global dirender di main.tsx (AnnouncementBar). */}
 
       {/* ===== Bar atas ===== */}
@@ -271,9 +271,9 @@ export default function Dashboard() {
                 </TabsContent>
 
                 {/* ============ TAB 6: FORM PENGAJUAN ============ */}
-                <TabsContent value="form" className="mt-8 animate-masuk">
-                  <div className="grid gap-8 xl:grid-cols-2">
-                    <section>
+                <TabsContent value="form" className="mt-8 min-w-0 animate-masuk">
+                  <div className="grid min-w-0 gap-8 xl:grid-cols-2">
+                    <section className="min-w-0">
                       <h2 className="text-lg font-semibold">Form Pengajuan Pinjaman</h2>
                       <Separator className="my-4" />
                       <LoanForm
@@ -282,7 +282,7 @@ export default function Dashboard() {
                         }
                       />
                     </section>
-                    <section>
+                    <section className="min-w-0">
                       <h2 className="text-lg font-semibold">Gadaikan Barang</h2>
                       <Separator className="my-4" />
                       <PawnForm
