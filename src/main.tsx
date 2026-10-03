@@ -2,6 +2,7 @@ import '@vly-ai/integrations';
 import { Toaster } from "@/components/ui/sonner";
 import { AnnouncementBar } from "@/components/AnnouncementBar";
 import { ErrorPage } from "@/components/ErrorPage";
+import { LoadingScreen } from "@/components/LoadingScreen";
 import { RequireAuth } from "@/components/RequireAuth";
 import { VlyToolbar } from "../vly-toolbar-readonly.tsx";
 import { ConvexAuthProvider } from "@convex-dev/auth/react";
@@ -44,13 +45,10 @@ const AksesBersama = lazy(denganPercobaan(() => import("./pages/AksesBersama.tsx
 const SyaratKetentuan = lazy(denganPercobaan(() => import("./pages/SyaratKetentuan.tsx")));
 const NotFound = lazy(denganPercobaan(() => import("./pages/NotFound.tsx")));
 
-// Simple loading fallback for route transitions
+// Fallback pemuatan rute: layar bermerek PINDAI dengan logo brankas "pindai"
+// yang beranimasi dan interaktif (lihat components/LoadingScreen.tsx).
 function RouteLoading() {
-  return (
-    <div className="min-h-screen flex items-center justify-center">
-      <div className="animate-pulse text-muted-foreground">Memuat…</div>
-    </div>
-  );
+  return <LoadingScreen />;
 }
 
 /** Silent error boundary — if VlyToolbar crashes it renders nothing instead of

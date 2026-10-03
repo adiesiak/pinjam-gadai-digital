@@ -626,3 +626,152 @@
     }
   }
 }
+
+/* ===== Layar pemuatan PINDAI — logo brankas "pindai" interaktif ===== */
+@layer utilities {
+  .pindai-loader-bg {
+    background:
+      radial-gradient(
+        1100px 560px at 50% -12%,
+        color-mix(in oklab, var(--primary) 12%, transparent),
+        transparent 72%
+      ),
+      var(--background);
+  }
+
+  /* Perspektif 3D tipis untuk efek memiringkan logo mengikuti kursor. */
+  .pindai-loader {
+    perspective: 900px;
+  }
+
+  .pindai-loader__logo {
+    transform: rotateY(var(--tilt-x, 0deg)) rotateX(var(--tilt-y, 0deg));
+    transform-style: preserve-3d;
+    transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+    background: color-mix(in oklab, var(--primary) 6%, white);
+  }
+
+  /* Jarum dial brankas: berputar pelan bolak-balik, lalu sekali penuh saat
+     diketik/diketuk. */
+  .pindai-loader__dial {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: pindai-dial 5s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
+  }
+  .pindai-loader__buka .pindai-loader__dial {
+    animation: pindai-dial-buka 0.9s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  /* Cincin putus-putus di sekeliling logo. */
+  .pindai-loader__ring {
+    position: absolute;
+    inset: 6px;
+    border-radius: 1.75rem;
+    border: 1.5px dashed color-mix(in oklab, var(--primary) 42%, transparent);
+    animation: pindai-ring 14s linear infinite;
+  }
+
+  /* Lingkaran cahaya lembut yang berdenyut di belakang logo. */
+  .pindai-loader__halo {
+    position: absolute;
+    inset: 14%;
+    border-radius: 9999px;
+    background: radial-gradient(
+      circle,
+      color-mix(in oklab, var(--primary) 20%, transparent),
+      transparent 70%
+    );
+    animation: pindai-halo 3s ease-in-out infinite;
+  }
+
+  /* Garis pindai yang menyapu logo dari atas ke bawah. */
+  .pindai-loader__scanline {
+    position: absolute;
+    left: 14%;
+    right: 14%;
+    height: 2px;
+    border-radius: 9999px;
+    background: linear-gradient(90deg, transparent, #b99b62, transparent);
+    box-shadow: 0 0 12px 2px color-mix(in oklab, #b99b62 55%, transparent);
+    animation: pindai-scanline 2.6s ease-in-out infinite;
+  }
+
+  /* Bilah proses tak-tentu. */
+  .pindai-loader__bar {
+    animation: pindai-bar 1.5s ease-in-out infinite;
+  }
+
+  @keyframes pindai-dial {
+    0%,
+    100% {
+      transform: rotate(0deg);
+    }
+    50% {
+      transform: rotate(66deg);
+    }
+  }
+  @keyframes pindai-dial-buka {
+    from {
+      transform: rotate(0deg);
+    }
+    to {
+      transform: rotate(360deg);
+    }
+  }
+  @keyframes pindai-ring {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+  @keyframes pindai-halo {
+    0%,
+    100% {
+      opacity: 0.5;
+      transform: scale(0.9);
+    }
+    50% {
+      opacity: 1;
+      transform: scale(1.06);
+    }
+  }
+  @keyframes pindai-scanline {
+    0% {
+      top: 16%;
+      opacity: 0;
+    }
+    15% {
+      opacity: 1;
+    }
+    85% {
+      opacity: 1;
+    }
+    100% {
+      top: 84%;
+      opacity: 0;
+    }
+  }
+  @keyframes pindai-bar {
+    0% {
+      transform: translateX(-110%);
+    }
+    100% {
+      transform: translateX(320%);
+    }
+  }
+
+  /* Hormati prefers-reduced-motion. Aturan ini HARUS berada setelah gaya dasar
+     di atas: lapisan yang sama menyelesaikan seri dengan urutan sumber, jadi
+     hanya di sini `transform: none` benar-benar menang atas kemiringan. */
+  @media (prefers-reduced-motion: reduce) {
+    .pindai-loader__dial,
+    .pindai-loader__ring,
+    .pindai-loader__halo,
+    .pindai-loader__scanline,
+    .pindai-loader__bar {
+      animation: none;
+    }
+    .pindai-loader__logo {
+      transform: none;
+    }
+  }
+}
