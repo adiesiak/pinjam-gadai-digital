@@ -823,6 +823,57 @@ const schema = defineSchema(
       .index("by_dana", ["danaId"]),
 
     /**
+     * Catatan transfer keuntungan penyedia dana — SATU baris per (pinjaman,
+     * penyedia dana). Model 1 pinjaman = 1 pendana, jadi praktisnya satu baris
+     * per pinjaman.
+     *
+     * PENTING: baris di sini adalah CATATAN PEMBUKUAN, bukan bukti perpindahan
+     * dana dan bukan perintah transfer. PINDAI tidak memindahkan uang — seluruh
+     * mutation pembayaran tetap ditutup `paymentGuard`. Admin mencatat bahwa ia
+     * SUDAH mentransfer keuntungan pendana di luar sistem, beserta referensi
+     * mutasinya, supaya tidak ada keuntungan yang tertagih dua kali.
+     *
+     * Riwayat transfer tidak dihapus: pembatalan hanya menandai baris terbaru
+     * `dibatalkan` sehingga jejaknya tetap terbaca di audit.
+     */
+    transferPendana: defineTable({
+      loanId: v.id("loans"),
+      /** Penyedia dana penerima (null bila pinjaman hanya punya nama warisan). */
+      pendanaId: v.optional(v.id("users")),
+      /** Nama penyedia dana saat dicatat — snapshot agar tetap terbaca. */
+      pendanaNama: v.string(),
+      /** Nomor referensi pinjaman — snapshot untuk pencarian di audit. Ini
+       *  pendekatan yang sama dengan snapshot nama di atas. */
+      nomorReferensiPinjaman: v.string(),
+      /** Nominal keuntungan bersih yang ditransfer — rupiah bulat. */
+      jumlah: v.number(),
+      /** Metode pengiriman dana oleh admin. */
+      metode: v.union(
+        v.literal("transfer_bank"),
+        v.literal("e_wallet"),
+        v.literal("tunai"),
+      ),
+      /** Referensi mutasi bank/e-wallet atau catatan serah terima tunai. */
+      referensi: v.optional(v.string()),
+      /** Catatan tambahan admin (opsional). */
+      catatan: v.optional(v.string()),
+      /** "dicatat" (transfer sudah dilakukan) | "dibatalkan" (salah catat). */
+      status: v.union(v.literal("dicatat"), v.literal("dibatalkan")),
+      /** Admin yang mencatat — jejak pertanggungjawaban. */
+      dicatatOleh: v.id("users"),
+      /** Label admin — snapshot agar tetap terbaca. */
+      dicatatOlehLabel: v.string(),
+      dicatatPada: v.number(),
+      /** Terisi saat catatan dibatalkan. */
+      dibatalkanPada: v.optional(v.number()),
+      dibatalkanOlehLabel: v.optional(v.string()),
+      alasanBatal: v.optional(v.string()),
+    })
+      .index("by_loan", ["loanId"])
+      .index("by_pendana", ["pendanaId"])
+      .index("by_waktu", ["dicatatPada"]),
+
+    /**
      * Jurnal double-entry — APPEND-ONLY (Rule 5.1).
      * Dilarang UPDATE/DELETE. Setiap transaksi menulis pasangan entri dengan
      * jumlah debit = jumlah kredit; validasi di convex/ledger.ts.

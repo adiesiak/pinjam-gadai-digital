@@ -1,10 +1,17 @@
 /**
- * Ruang penyedia dana — HANYA BACA.
+ * Ruang penyedia dana — HANYA BACA, dengan satu pengecualian pencatatan.
  *
  * Menampilkan catatan pengajuan Peminjam (pinjaman tunai, gadai, kredit barang)
- * kepada akun yang diberi akses "lihat saja" oleh admin. Modul ini sengaja
- * tidak memuat satu pun mutation alokasi/transaksi: pembukanya hanya dapat
- * membaca, tidak pernah mengubah catatan.
+ * kepada akun yang diberi akses "lihat saja" oleh admin. Modul ini tidak memuat
+ * satu pun mutation alokasi/transaksi: pembukanya hanya dapat membaca, tidak
+ * pernah mengubah catatan.
+ *
+ * PENGECUALIAN: `catatTransferPendana` dan `batalkanTransferPendana`. Keduanya
+ * KHUSUS admin (bukan pemegang akses lihat saja), tidak menyentuh saldo, ledger,
+ * maupun status pinjaman, dan tidak memindahkan uang. PINDAI tidak memindahkan
+ * uang — `paymentGuard` menutup seluruh mutation pembayaran. Yang dicatat admin
+ * adalah bahwa ia SUDAH mentransfer keuntungan pendana di luar sistem, agar
+ * tidak ada keuntungan yang tertagih dua kali.
  *
  * Privasi (whitelist, bukan spread dokumen mentah): baris yang dikirim ke
  * klien hanya berisi field operasional yang dibutuhkan ruang ini. Nama lengkap
@@ -24,10 +31,19 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 import { v } from "convex/values";
 
 import type { Id } from "./_generated/dataModel";
-import { mutation, query, type QueryCtx } from "./_generated/server";
+import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import { SLOT_AKSES_BERSAMA } from "./aksesBersama";
 import { requireAdminSession } from "./adminAuthz";
 import { bagiHasilPinjaman } from "../lib/bagiHasil";
+import {
+  rekapTransferPendana,
+  ringkasTransfer,
+  type PinjamanTransfer,
+  type RekapTransferPendana,
+  type RingkasTransfer,
+  type StatusTransfer,
+  type TransferBaris,
+} from "../lib/transferPendana";
 import { akunDompetDana, danaWalletBalance } from "./ledger";
 import { ROLES } from "./schema";
 import { audit, getConfig } from "./system";
@@ -790,6 +806,12 @@ export type BarisInvestor = {
   saldoDompet: number;
   /** Waktu catatan terakhir milik akun ini — null bila belum ada aktivitas. */
   aktivitasTerakhir: number | null;
+  /**
+   * Rekap catatan transfer keuntungan penyedia dana. Kewajiban transfer hanya
+   * dihitung dari pinjaman lunas (pinjaman berjalan belum jatuh tempo) —
+   * terpisah dari transfer.
+   */
+  transfer: RekapTransferPendana;
 };
 
 /** Batas baris riwayat pada dialog rincian investor. */
@@ -846,6 +868,10 @@ export const daftarInvestor = query({
     const pinjamanBerposisi = (await ctx.db.query("loans").collect()).filter(
       (l) => l.status === "didanai" || l.status === "lunas",
     );
+
+    // Seluruh catatan transfer dibaca SEKALI lalu dipetakan per pinjaman, supaya
+    // rekap tiap akun tidak memicu pemindaian tabel sendiri-sendiri.
+    const transferPerPinjaman = await petaTransfer(ctx);
 
     const rows: BarisInvestor[] = [];
     for (const u of akun) {
@@ -939,6 +965,20 @@ export const daftarInvestor = query({
         penarikanMenunggu: penarikan.filter((w) => w.status === "menunggu_proses").length,
         saldoDompet: saldoPerAkun.get(akunDompetDana(u._id)) ?? 0,
         aktivitasTerakhir: waktu.length === 0 ? null : Math.max(...waktu),
+        // Catatan transfer per akun: hanya pinjaman lunas yang menjadi kewajiban
+        // transfer — pinjaman berjalan belum jatuh tempo.
+        transfer: rekapTransferPendana(
+          pinjaman.map<PinjamanTransfer>((l) => ({
+            status: l.status,
+            keuntunganPendana: bagiPinjamanAman(
+              l.pokokPinjaman,
+              cfg.persenBunga,
+              cfg.persenAdmin,
+            ).keuntunganPendana,
+            adaPendana: true,
+            transfer: transferPerPinjaman.get(l._id) ?? ringkasTransfer([]),
+          })),
+        ),
       });
     }
 
@@ -994,6 +1034,23 @@ export const daftarInvestor = query({
         totalSetoran: rows.reduce((total, r) => total + r.totalSetoran, 0),
         setoranMenunggu: rows.reduce((total, r) => total + r.setoranMenunggu, 0),
         penarikanMenunggu: rows.reduce((total, r) => total + r.penarikanMenunggu, 0),
+        /** Kewajiban transfer keuntungan pendana atas pinjaman yang sudah lunas. */
+        keuntunganLunas: rows.reduce((total, r) => total + r.transfer.keuntunganLunas, 0),
+        /** Bagian yang catatan transfernya sudah dibuat admin. */
+        keuntunganTercatat: rows.reduce(
+          (total, r) => total + r.transfer.keuntunganTercatat,
+          0,
+        ),
+        /** Bagian yang belum ada catatan transfernya. */
+        keuntunganBelumDicatat: rows.reduce(
+          (total, r) => total + r.transfer.keuntunganBelumDicatat,
+          0,
+        ),
+        /** Pinjaman lunas berpendana yang belum dicatat transfernya. */
+        pinjamanBelumDicatat: rows.reduce(
+          (total, r) => total + r.transfer.jumlahBelumDicatat,
+          0,
+        ),
       },
       rows,
     };
@@ -1036,6 +1093,7 @@ export const rincianInvestor = query({
     const namaAkun = user.name?.trim();
     if (namaAkun) namaKunci.add(namaAkun);
     if (user.email) namaKunci.add(user.email);
+    const transferPerPinjaman = await petaTransfer(ctx);
     const pinjaman = (await ctx.db.query("loans").collect())
       .filter((l) => l.status === "didanai" || l.status === "lunas")
       .filter(
@@ -1048,6 +1106,7 @@ export const rincianInvestor = query({
       .map((l) => {
         const bagi = bagiPinjamanAman(l.pokokPinjaman, cfg.persenBunga, cfg.persenAdmin);
         return {
+          loanId: l._id,
           referensi: l.nomorReferensi,
           status: l.status as string,
           pokokPinjaman: l.pokokPinjaman,
@@ -1057,11 +1116,22 @@ export const rincianInvestor = query({
           keuntunganPendana: bagi.keuntunganPendana,
           keuntunganAdmin: bagi.keuntunganAdmin,
           waktu: l.didanaiPada ?? l.diajukanPada ?? l._creationTime,
+          /** Catatan transfer keuntungan untuk pinjaman ini (status + nominal). */
+          transfer: transferPerPinjaman.get(l._id) ?? ringkasTransfer([]),
         };
       });
 
     const urutTerbaru = <T extends { waktu: number }>(baris: T[]) =>
       baris.sort((a, b) => b.waktu - a.waktu).slice(0, BATAS_RIWAYAT);
+
+    const rekapTransfer = rekapTransferPendana(
+      pinjaman.map<PinjamanTransfer>((a) => ({
+        status: a.status,
+        keuntunganPendana: a.keuntunganPendana,
+        adaPendana: true,
+        transfer: a.transfer,
+      })),
+    );
 
     const ringkasKeuntungan = {
       persenPotonganAdmin: cfg.persenAdmin,
@@ -1086,6 +1156,8 @@ export const rincianInvestor = query({
       emailTerverifikasi: user.emailVerificationTime !== undefined,
       terdaftarPada: user._creationTime,
       saldoDompet: await danaWalletBalance(ctx, userId),
+      /** Rekap catatan transfer keuntungan untuk akun ini. */
+      transfer: rekapTransfer,
       pinjaman: urutTerbaru(pinjaman),
       setoran: urutTerbaru(
         setoran.map((s) => ({
@@ -1170,5 +1242,202 @@ export const ubahAkses = mutation({
     );
 
     return { ok: true, sudahSesuai: false };
+  },
+});
+
+/**
+ * ==========================================================================
+ * Pelacakan transfer keuntungan penyedia dana
+ * ==========================================================================
+ *
+ * PINDAI TIDAK MEMINDAHKAN UANG. Seluruh mutation pembayaran tetap ditutup
+ * `paymentGuard.rejectUnverifiedMoneyMovement()`. Yang dilakukan dua mutation di
+ * bawah hanya MENCATAT bahwa admin sudah mentransfer keuntungan penyedia dana
+ * di luar sistem, beserta referensi mutasinya. Gunanya: mencegah keuntungan yang
+ * sama ditransfer (atau ditagih) dua kali, dan menyediakan jejak audit kapan dan
+ * oleh siapa pencatatan itu dibuat.
+ *
+ * Karena itu tidak ada satu pun perubahan pada saldo, `ledger_entries`, status
+ * pinjaman, maupun dompet penyedia dana. Membatalkan catatan juga tidak
+ * mengembalikan uang apa pun — ia hanya menandai catatan itu salah.
+ */
+
+/** Baca seluruh catatan transfer satu pinjaman, lalu ringkas jadi satu status. */
+async function ringkasTransferPinjaman(
+  ctx: QueryCtx,
+  loanId: Id<"loans">,
+): Promise<RingkasTransfer> {
+  const baris = await ctx.db
+    .query("transferPendana")
+    .withIndex("by_loan", (q) => q.eq("loanId", loanId))
+    .collect();
+  return ringkasTransfer(
+    baris.map((b) => ({
+      jumlah: b.jumlah,
+      status: b.status as string,
+      dicatatPada: b.dicatatPada,
+      referensi: b.referensi ?? null,
+      metode: b.metode as string,
+      catatan: b.catatan ?? null,
+      dicatatOlehLabel: b.dicatatOlehLabel,
+      alasanBatal: b.alasanBatal ?? null,
+    })),
+  );
+}
+
+/**
+ * Ringkas catatan transfer SELURUH pinjaman dalam satu pembacaan tabel — bukan
+ * satu pemindaian per akun.
+ */
+async function petaTransfer(ctx: QueryCtx): Promise<Map<string, RingkasTransfer>> {
+  const semua = await ctx.db.query("transferPendana").collect();
+  const perPinjaman = new Map<string, TransferBaris[]>();
+  for (const b of semua) {
+    const daftar = perPinjaman.get(b.loanId) ?? [];
+    daftar.push({
+      jumlah: b.jumlah,
+      status: b.status as string,
+      dicatatPada: b.dicatatPada,
+      referensi: b.referensi ?? null,
+      metode: b.metode as string,
+      catatan: b.catatan ?? null,
+      dicatatOlehLabel: b.dicatatOlehLabel,
+      alasanBatal: b.alasanBatal ?? null,
+    });
+    perPinjaman.set(b.loanId, daftar);
+  }
+  const peta = new Map<string, RingkasTransfer>();
+  for (const [loanId, daftar] of perPinjaman) {
+    peta.set(loanId, ringkasTransfer(daftar));
+  }
+  return peta;
+}
+
+export const catatTransferPendana = mutation({
+  args: {
+    loanId: v.id("loans"),
+    metode: v.union(
+      v.literal("transfer_bank"),
+      v.literal("e_wallet"),
+      v.literal("tunai"),
+    ),
+    /** Referensi mutasi bank/e-wallet atau catatan serah terima tunai. */
+    referensi: v.optional(v.string()),
+    catatan: v.optional(v.string()),
+  },
+  handler: async (ctx, { loanId, metode, referensi, catatan }) => {
+    const { userId: adminId, user: admin } = await requireAdminSession(ctx);
+
+    const loan = await ctx.db.get(loanId);
+    if (loan === null) throw new Error("Pinjaman tidak ditemukan.");
+
+    // Keuntungan penyedia dana baru jatuh tempo setelah kewajiban Peminjam
+    // lunas. Pinjaman berjalan belum punya keuntungan untuk dicatat.
+    if (loan.status !== "lunas") {
+      throw new Error(
+        "Keuntungan penyedia dana baru dapat dicatat setelah pinjaman berstatus lunas.",
+      );
+    }
+    if (loan.pendanaId === undefined && loan.pendanaNama === undefined) {
+      throw new Error("Pinjaman ini tidak memiliki penyedia dana.");
+    }
+
+    // Satu pinjaman = satu pendana, jadi hanya boleh ada satu catatan berlaku.
+    // Catatan lama tidak dihapus — batalkan dulu bila salah.
+    const sebelumnya = await ringkasTransferPinjaman(ctx, loanId);
+    if (sebelumnya.status === "dicatat") {
+      throw new Error(
+        "Transfer pinjaman ini sudah dicatat. Batalkan catatan lama sebelum mencatat ulang.",
+      );
+    }
+
+    // Nominal TIDAK diambil dari klien: dihitung ulang di server dari pokok
+    // pinjaman dengan kebijakan yang berlaku, supaya satu angka klien yang
+    // salah tidak pernah masuk catatan.
+    const cfg = await getConfig(ctx);
+    const bagi = bagiPinjamanAman(loan.pokokPinjaman, cfg.persenBunga, cfg.persenAdmin);
+    if (bagi.keuntunganPendana <= 0) {
+      throw new Error("Keuntungan penyedia dana untuk pinjaman ini nol.");
+    }
+
+    const adminLabel = admin.email ?? admin.name ?? "admin";
+    const sekarang = Date.now();
+    await ctx.db.insert("transferPendana", {
+      loanId,
+      pendanaId: loan.pendanaId,
+      pendanaNama: loan.pendanaNama ?? "Penyedia dana",
+      nomorReferensiPinjaman: loan.nomorReferensi,
+      jumlah: bagi.keuntunganPendana,
+      metode,
+      referensi: referensi?.trim() ? referensi.trim() : undefined,
+      catatan: catatan?.trim() ? catatan.trim() : undefined,
+      status: "dicatat",
+      dicatatOleh: adminId,
+      dicatatOlehLabel: adminLabel,
+      dicatatPada: sekarang,
+    });
+
+    await audit(
+      ctx,
+      adminId,
+      adminLabel,
+      "catat_transfer_pendana",
+      loan.nomorReferensi,
+      `Mencatat transfer keuntungan penyedia dana ${bagi.keuntunganPendana} (${metode})${
+        referensi?.trim() ? ` — referensi ${referensi.trim()}` : ""
+      }. Catatan pembukuan, bukan bukti mutasi.`,
+    );
+
+    return { ok: true, jumlah: bagi.keuntunganPendana, waktu: sekarang };
+  },
+});
+
+export const batalkanTransferPendana = mutation({
+  args: {
+    loanId: v.id("loans"),
+    /** Wajib: alasan pembatalan masuk audit trail. */
+    alasan: v.string(),
+  },
+  handler: async (ctx, { loanId, alasan }) => {
+    const { userId: adminId, user: admin } = await requireAdminSession(ctx);
+
+    const bersih = alasan.trim();
+    if (bersih.length < 3) {
+      throw new Error("Isi alasan pembatalan (minimal 3 karakter).");
+    }
+
+    const loan = await ctx.db.get(loanId);
+    if (loan === null) throw new Error("Pinjaman tidak ditemukan.");
+
+    const berlaku = await ctx.db
+      .query("transferPendana")
+      .withIndex("by_loan", (q) => q.eq("loanId", loanId))
+      .collect()
+      .then((rows) => rows.filter((r) => r.status === "dicatat"));
+    if (berlaku.length === 0) {
+      throw new Error("Tidak ada catatan transfer yang berlaku untuk dibatalkan.");
+    }
+
+    const adminLabel = admin.email ?? admin.name ?? "admin";
+    const sekarang = Date.now();
+    for (const baris of berlaku) {
+      await ctx.db.patch(baris._id, {
+        status: "dibatalkan",
+        dibatalkanPada: sekarang,
+        dibatalkanOlehLabel: adminLabel,
+        alasanBatal: bersih,
+      });
+    }
+
+    await audit(
+      ctx,
+      adminId,
+      adminLabel,
+      "batalkan_transfer_pendana",
+      loan.nomorReferensi,
+      `Membatalkan catatan transfer keuntungan penyedia dana — ${bersih}. Catatan dibatalkan tanpa mengubah saldo, ledger, atau status pinjaman.`,
+    );
+
+    return { ok: true, jumlahDibatalkan: berlaku.length };
   },
 });
