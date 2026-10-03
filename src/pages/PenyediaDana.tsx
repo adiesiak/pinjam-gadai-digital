@@ -238,7 +238,7 @@ function KartuPendana({ r }: { r: RekapPendana }) {
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="inline-flex items-center gap-1.5 font-semibold text-slate-900">
+        <p className="inline-flex items-center gap-1.5 font-semibold uppercase text-slate-900">
           <Wallet className="size-3.5 text-primary" aria-hidden /> {r.nama}
         </p>
         <Badge
@@ -322,7 +322,7 @@ function Tabel({ head, children }: { head: string[]; children: React.ReactNode }
 function SelNama({ nama, kode }: { nama: string; kode: string | null }) {
   return (
     <TableCell className="min-w-[190px] align-top">
-      <p className="font-medium text-slate-900">{nama}</p>
+      <p className="font-medium uppercase text-slate-900">{nama}</p>
       <div className="mt-1">
         <BadgePseudonim kode={kode} />
       </div>
@@ -336,7 +336,7 @@ function SelPendana({ pendana }: { pendana: string | null }) {
   }
   return (
     <TableCell className="align-top">
-      <span className="inline-flex items-center gap-1.5 rounded-full border border-gold/40 bg-gold/10 px-2.5 py-1 text-xs font-medium text-gold-foreground">
+      <span className="inline-flex items-center gap-1.5 rounded-full border border-gold/40 bg-gold/10 px-2.5 py-1 text-xs font-medium uppercase text-gold-foreground">
         <Wallet className="size-3" aria-hidden /> {pendana}
       </span>
     </TableCell>
@@ -381,7 +381,7 @@ function KartuPengajuan({
     <article className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="truncate font-semibold text-slate-900">{nama}</p>
+          <p className="truncate font-semibold uppercase text-slate-900">{nama}</p>
           <p className="mt-0.5 font-mono text-[11px] text-slate-500">{nomorReferensi}</p>
         </div>
         <div className="shrink-0">{status}</div>
@@ -427,7 +427,10 @@ function DetailPinjaman({ row }: { row: BarisPinjaman }) {
 
   return (
     <>
-      <BarisDetail label="Nama lengkap" nilai={row.namaLengkap} />
+      <BarisDetail
+        label="Nama lengkap"
+        nilai={<span className="uppercase">{row.namaLengkap}</span>}
+      />
       <BarisDetail label="Kode peminjam" nilai={row.kodePeminjam ?? "belum terbit"} />
       <BarisDetail label="No. referensi" nilai={row.nomorReferensi} />
       <BarisDetail label="Jumlah pinjaman" nilai={rupiah(row.pokokPinjaman)} />
@@ -474,7 +477,10 @@ function DetailPinjaman({ row }: { row: BarisPinjaman }) {
         nilai={jatuhTempo === null ? "belum didanai" : tanggalRingkas(jatuhTempo)}
       />
       <BarisDetail label="Keperluan" nilai={row.tujuan} />
-      <BarisDetail label="Pendana" nilai={row.pendana ?? "belum tercatat"} />
+      <BarisDetail
+        label="Pendana"
+        nilai={row.pendana === null ? "belum tercatat" : <span className="uppercase">{row.pendana}</span>}
+      />
       <BarisDetail label="Tanggal pengajuan" nilai={tanggalRingkas(row.diajukanPada)} />
       <BarisDetail label="Status" nilai={<StatusBadge status={row.status} kind="loan" />} />
     </>
@@ -484,7 +490,10 @@ function DetailPinjaman({ row }: { row: BarisPinjaman }) {
 function DetailGadai({ row }: { row: BarisGadai }) {
   return (
     <>
-      <BarisDetail label="Nama lengkap" nilai={row.namaLengkap} />
+      <BarisDetail
+        label="Nama lengkap"
+        nilai={<span className="uppercase">{row.namaLengkap}</span>}
+      />
       <BarisDetail label="Kode peminjam" nilai={row.kodePeminjam ?? "belum terbit"} />
       <BarisDetail label="No. referensi" nilai={row.nomorReferensi} />
       <BarisDetail label="Kategori" nilai={row.kategori} />
@@ -525,7 +534,10 @@ function DetailKredit({ row }: { row: BarisKredit }) {
 
   return (
     <>
-      <BarisDetail label="Nama lengkap" nilai={row.namaLengkap} />
+      <BarisDetail
+        label="Nama lengkap"
+        nilai={<span className="uppercase">{row.namaLengkap}</span>}
+      />
       <BarisDetail label="Kode peminjam" nilai={row.kodePeminjam ?? "belum terbit"} />
       <BarisDetail label="No. referensi" nilai={row.nomorReferensi} />
       <BarisDetail label="Barang" nilai={`${row.namaBarang} · ${row.kategori}`} />
@@ -558,7 +570,10 @@ function DetailKredit({ row }: { row: BarisKredit }) {
         label="Jatuh tempo"
         nilai={jatuhTempo === null ? "belum didanai" : tanggalRingkas(jatuhTempo)}
       />
-      <BarisDetail label="Pendana" nilai={row.pendana ?? "belum tercatat"} />
+      <BarisDetail
+        label="Pendana"
+        nilai={row.pendana === null ? "belum tercatat" : <span className="uppercase">{row.pendana}</span>}
+      />
       <BarisDetail label="Tanggal pengajuan" nilai={tanggalRingkas(row.diajukanPada)} />
       <BarisDetail label="Status" nilai={<BadgeKredit status={row.status} />} />
     </>
@@ -1402,7 +1417,7 @@ function IsiRuang() {
                             >
                               <span className="min-w-0">
                                 <span className="flex flex-wrap items-center gap-2">
-                                  <span className="font-medium text-slate-900">
+                                  <span className="font-medium uppercase text-slate-900">
                                     {r.namaLengkap}
                                   </span>
                                   <BadgePseudonim kode={r.kodePeminjam} />
