@@ -1,13 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 /**
- * Layar pemuatan bermerek PINDAI — brankas yang terbuka lalu menyemburkan uang.
+ * Layar pemuatan bermerek PINDAI — brankas yang terbuka, memancarkan kilatan
+ * cahaya, lalu menyemburkan banyak uang dari dalam.
  *
  * Dipakai sebagai fallback saat modul rute sedang diunduh dan saat sesi masuk
- * masih diperiksa, menggantikan teks polos "Memuat…". Satu siklus animasi:
- * brankas tertutup → pintu berayun terbuka (menyingkap ruang dalam yang
- * bercahaya) → koin dan uang kertas menyembur keluar → pintu menutup lagi,
- * berulang. Tidak ada kotak/cincin yang mengurung brankas.
+ * masih diperiksa, menggantikan teks polos "Memuat…". Satu siklus animasi
+ * (3,2 detik, berulang):
+ *   brankas tertutup → pintu berayun terbuka → kilatan cahaya dari dalam →
+ *   uang menyembur deras keluar dari mulut brankas → pintu menutup lagi.
+ * Tidak ada kotak/cincin yang mengurung brankas.
  *
  * Interaktif: menggerakkan kursor di atas brankas memiringkannya (parallax
  * ringan), dan mengetuknya memutar dial satu putaran penuh. Semua gerak
@@ -18,17 +20,39 @@ import { useCallback, useEffect, useRef, useState } from "react";
  * murah dan tidak menambah bundel awal.
  */
 
-/**
- * Semburan uang: sudut (derajat, 0 = lurus ke atas), jeda antar-item, jarak
- * tempuh, dan bentuknya. Sudut disebar agar semburan melebar seperti kipas.
- */
-const UANG: Array<{ arah: number; delay: number; jarak: number; jenis: "koin" | "kertas" }> = [
-  { arah: -54, delay: 0.04, jarak: 50, jenis: "kertas" },
-  { arah: -32, delay: 0, jarak: 62, jenis: "koin" },
-  { arah: -10, delay: 0.16, jarak: 50, jenis: "kertas" },
-  { arah: 12, delay: 0.08, jarak: 58, jenis: "koin" },
-  { arah: 34, delay: 0.22, jarak: 52, jenis: "kertas" },
-  { arah: 56, delay: 0.28, jarak: 46, jenis: "koin" },
+type Serpihan = {
+  /** Sudut semburan dalam derajat; 0 = lurus ke atas, negatif = ke kiri. */
+  arah: number;
+  /** Jarak tempuh puncak dalam piksel. */
+  jarak: number;
+  /** Jeda antar-serpihan (detik) — durasi animasi dikurangi sebesar ini supaya
+   *  setiap serpihan tetap sefase dengan siklus pintu. */
+  delay: number;
+  /** Putaran badan serpihan selama melayang. */
+  spin: number;
+  jenis: "koin" | "kertas";
+};
+
+/** Semburan uang: 18 keping, sudut disebar merata, jarak dan jeda bervariasi. */
+const UANG: Serpihan[] = [
+  { arah: -76, jarak: 58, delay: 0.34, spin: -320, jenis: "kertas" },
+  { arah: -66, jarak: 74, delay: 0.16, spin: 280, jenis: "koin" },
+  { arah: -56, jarak: 50, delay: 0.42, spin: -430, jenis: "kertas" },
+  { arah: -46, jarak: 78, delay: 0.05, spin: 360, jenis: "koin" },
+  { arah: -36, jarak: 62, delay: 0.28, spin: -260, jenis: "kertas" },
+  { arah: -26, jarak: 76, delay: 0.12, spin: 480, jenis: "koin" },
+  { arah: -17, jarak: 52, delay: 0.38, spin: -300, jenis: "kertas" },
+  { arah: -8, jarak: 78, delay: 0.02, spin: 420, jenis: "koin" },
+  { arah: 0, jarak: 66, delay: 0.22, spin: -240, jenis: "kertas" },
+  { arah: 8, jarak: 77, delay: 0.08, spin: 300, jenis: "koin" },
+  { arah: 17, jarak: 54, delay: 0.44, spin: -360, jenis: "kertas" },
+  { arah: 26, jarak: 74, delay: 0.14, spin: 260, jenis: "koin" },
+  { arah: 36, jarak: 64, delay: 0.3, spin: -420, jenis: "kertas" },
+  { arah: 46, jarak: 76, delay: 0.06, spin: 340, jenis: "koin" },
+  { arah: 56, jarak: 50, delay: 0.4, spin: -280, jenis: "kertas" },
+  { arah: 66, jarak: 72, delay: 0.18, spin: 400, jenis: "koin" },
+  { arah: 76, jarak: 58, delay: 0.36, spin: -320, jenis: "kertas" },
+  { arah: -20, jarak: 68, delay: 0.24, spin: 220, jenis: "koin" },
 ];
 
 export function LoadingScreen({ label = "Memuat…" }: { label?: string }) {
@@ -113,7 +137,7 @@ export function LoadingScreen({ label = "Memuat…" }: { label?: string }) {
               strokeLinecap="round"
             />
 
-            {/* Ruang dalam — bercahaya hangat saat pintu terbuka */}
+            {/* Ruang dalam — bercahaya saat pintu terbuka */}
             <rect
               className="pindai-loader__isi"
               x="11"
@@ -158,23 +182,33 @@ export function LoadingScreen({ label = "Memuat…" }: { label?: string }) {
 
           <span className="pindai-loader__scanline" aria-hidden="true" />
 
-          {/* Uang yang menyembur keluar dari pintu */}
-          {UANG.map((u, i) => (
-            <span
-              key={i}
-              aria-hidden="true"
-              className={`pindai-loader__money ${
-                u.jenis === "koin" ? "pindai-loader__koin" : "pindai-loader__kertas"
-              }`}
-              style={
-                {
-                  "--arah": `${u.arah}deg`,
-                  "--jarak": `${u.jarak}px`,
-                  "--delay": `${u.delay}s`,
-                } as React.CSSProperties
-              }
-            />
-          ))}
+          {/* Kilatan cahaya dari dalam brankas — tepat saat pintu terbuka. */}
+          <span className="pindai-loader__pendar" aria-hidden="true" />
+          <span className="pindai-loader__kilat" aria-hidden="true" />
+
+          {/* Uang yang menyembur dari mulut brankas. Sudut digambar relatif
+              pusat pintu: dx ke samping, dy ke atas (negatif), lalu jatuh lagi
+              karena gravitasi di ekor keyframe. */}
+          {UANG.map((u) => {
+            const rad = (u.arah * Math.PI) / 180;
+            return (
+              <span
+                key={`${u.arah}-${u.delay}`}
+                aria-hidden="true"
+                className={`pindai-loader__money ${
+                  u.jenis === "koin" ? "pindai-loader__koin" : "pindai-loader__kertas"
+                }`}
+                style={
+                  {
+                    "--dx": `${(Math.sin(rad) * u.jarak).toFixed(1)}px`,
+                    "--dy": `${(-Math.cos(rad) * u.jarak).toFixed(1)}px`,
+                    "--spin": `${u.spin}deg`,
+                    "--delay": `${u.delay}s`,
+                  } as React.CSSProperties
+                }
+              />
+            );
+          })}
         </div>
 
         <div className="flex flex-col items-center gap-1.5">

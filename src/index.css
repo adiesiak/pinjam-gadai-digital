@@ -680,12 +680,56 @@
   .pindai-loader__money {
     position: absolute;
     left: 50%;
-    top: 52%;
-    z-index: 10;
+    top: 50%;
+    z-index: 40;
     opacity: 0;
     will-change: transform, opacity;
-    animation: pindai-uang 3.2s cubic-bezier(0.22, 0.8, 0.35, 1) infinite;
+    /* Durasi wajib sama dengan siklus pintu (3,2 s): jeda hanya menggeser kapan
+       keping mulai, sedangkan periodenya tetap ditentukan durasi. Jadi seluruh
+       keping selalu menyembur pada fase yang sama tiap siklus. */
+    animation-name: pindai-uang;
+    animation-duration: 3.2s;
     animation-delay: var(--delay, 0s);
+    animation-timing-function: cubic-bezier(0.22, 0.8, 0.35, 1);
+    animation-iteration-count: infinite;
+  }
+
+  /* Kilatan cahaya dari dalam brankas (blend "screen" supaya menerangi, bukan
+     menutupi). */
+  .pindai-loader__kilat {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    z-index: 30;
+    width: 132px;
+    height: 132px;
+    border-radius: 9999px;
+    background: radial-gradient(
+      circle,
+      rgba(255, 255, 255, 0.95) 0%,
+      rgba(252, 240, 200, 0.7) 26%,
+      rgba(185, 155, 98, 0.28) 48%,
+      transparent 68%
+    );
+    mix-blend-mode: screen;
+    pointer-events: none;
+    opacity: 0;
+    animation: pindai-kilat 3.2s cubic-bezier(0.22, 0.8, 0.35, 1) infinite;
+  }
+
+  /* Gelombang cahaya yang mengembang keluar dari mulut brankas. */
+  .pindai-loader__pendar {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    z-index: 25;
+    width: 76px;
+    height: 76px;
+    border-radius: 9999px;
+    border: 2px solid rgba(250, 236, 190, 0.85);
+    pointer-events: none;
+    opacity: 0;
+    animation: pindai-pendar 3.2s cubic-bezier(0.22, 0.8, 0.35, 1) infinite;
   }
 
   /* Koin logam senada emas brankas. */
@@ -796,30 +840,73 @@
       fill: #08201e;
     }
   }
-  /* Semburan uang: keluar dari pintu, lalu jatuh sedikit seperti kena gravitasi
-     sebelum memudar. */
-  @keyframes pindai-uang {
-    0% {
+  @keyframes pindai-kilat {
+    0%,
+    12% {
       opacity: 0;
-      transform: translate(-50%, -50%) rotate(var(--arah, 0deg)) translateY(0) scale(0.35);
+      transform: translate(-50%, -50%) scale(0.25);
     }
-    10% {
+    17% {
       opacity: 1;
+      transform: translate(-50%, -50%) scale(0.88);
     }
-    55% {
-      opacity: 1;
-      transform: translate(-50%, -50%) rotate(var(--arah, 0deg))
-        translateY(calc(var(--jarak, 52px) * -1)) scale(1);
+    26% {
+      opacity: 0.72;
+      transform: translate(-50%, -50%) scale(1.16);
     }
-    78% {
-      opacity: 1;
-      transform: translate(-50%, -50%) rotate(var(--arah, 0deg))
-        translateY(calc(var(--jarak, 52px) * -0.72)) scale(0.94);
+    40% {
+      opacity: 0;
+      transform: translate(-50%, -50%) scale(1.42);
     }
     100% {
       opacity: 0;
-      transform: translate(-50%, -50%) rotate(var(--arah, 0deg))
-        translateY(calc(var(--jarak, 52px) * -0.5)) scale(0.9);
+      transform: translate(-50%, -50%) scale(0.25);
+    }
+  }
+  @keyframes pindai-pendar {
+    0%,
+    14% {
+      opacity: 0;
+      transform: translate(-50%, -50%) scale(0.3);
+    }
+    20% {
+      opacity: 0.9;
+    }
+    48% {
+      opacity: 0;
+      transform: translate(-50%, -50%) scale(2.3);
+    }
+    100% {
+      opacity: 0;
+      transform: translate(-50%, -50%) scale(0.3);
+    }
+  }
+  /* Semburan uang: menumpuk kecil di mulut brankas, menyembur keluar ke arah
+     `--dx`/`--dy`, lalu jatuh lagi seperti kena gravitasi sebelum memudar. */
+  @keyframes pindai-uang {
+    0%,
+    12% {
+      opacity: 0;
+      transform: translate(-50%, -50%) translate(0, 0) scale(0.2) rotate(0deg);
+    }
+    16% {
+      opacity: 1;
+    }
+    48% {
+      opacity: 1;
+      transform: translate(-50%, -50%) translate(calc(var(--dx, 0px) * 0.92), calc(var(--dy, 0px) * 0.95))
+        scale(1) rotate(calc(var(--spin, 0deg) * 0.6));
+    }
+    75% {
+      opacity: 1;
+      transform: translate(-50%, -50%) translate(var(--dx, 0px), calc(var(--dy, 0px) * 0.45 + 34px))
+        scale(1) rotate(var(--spin, 0deg));
+    }
+    100% {
+      opacity: 0;
+      transform: translate(-50%, -50%)
+        translate(calc(var(--dx, 0px) * 0.82), calc(var(--dy, 0px) * 0.15 + 58px)) scale(0.85)
+        rotate(var(--spin, 0deg));
     }
   }
   @keyframes pindai-halo {
@@ -866,6 +953,8 @@
     .pindai-loader__pintu,
     .pindai-loader__isi,
     .pindai-loader__money,
+    .pindai-loader__kilat,
+    .pindai-loader__pendar,
     .pindai-loader__halo,
     .pindai-loader__scanline,
     .pindai-loader__bar {
