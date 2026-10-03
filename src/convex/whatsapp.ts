@@ -6,14 +6,21 @@ import {
   internalQuery,
   mutation,
   query,
+  type ActionCtx,
   type QueryCtx,
 } from "./_generated/server";
 import { v } from "convex/values";
 import { api, internal } from "./_generated/api";
+import type { Id } from "./_generated/dataModel";
 import { requireAdminSession } from "./adminAuthz";
 import { BULAN_MS, pelunasanPinjaman } from "../lib/loan";
 import { hitungSimulasiBulanan } from "../lib/bulanan";
 import { formatRupiah } from "../lib/money";
+import {
+  pesanPerubahanStatus,
+  TEMPLATE_STATUS_DEFAULT,
+  type StatusPinjaman,
+} from "../lib/statusPinjaman";
 import { validasiGatewayUrl } from "../lib/waUrl";
 
 /**
@@ -56,6 +63,8 @@ export type WaSettings = {
   aktif?: boolean;
   templatePengingat?: string;
   templateLokasi?: string;
+  /** Template kabar perubahan status pinjaman. */
+  templateStatus?: string;
 };
 
 async function requireAdmin(ctx: QueryCtx) {
@@ -102,6 +111,8 @@ export const saveConfig = mutation({
     templatePengingat: v.string(),
     /** Template peringatan lokasi — opsional, kosong = pakai template bawaan. */
     templateLokasi: v.optional(v.string()),
+    /** Template kabar perubahan status — opsional, kosong = pakai template bawaan. */
+    templateStatus: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const { userId } = await requireAdmin(ctx);
@@ -128,6 +139,12 @@ export const saveConfig = mutation({
     if (templateLokasi !== "" && !templateLokasi.includes("{nama}")) {
       throw new Error("Template peringatan lokasi wajib memuat placeholder {nama}.");
     }
+    // Template status menyapa nasabah dan wajib menyebut status barunya —
+    // pesan yang tidak menyebut status apa pun tidak memberi kabar apa-apa.
+    const templateStatus = args.templateStatus?.trim() ?? "";
+    if (templateStatus !== "" && !templateStatus.includes("{status}")) {
+      throw new Error("Template perubahan status wajib memuat placeholder {status}.");
+    }
     const existing = await ctx.db
       .query("waSettings")
       .withIndex("by_slot", (q) => q.eq("slot", SLOT))
@@ -141,6 +158,7 @@ export const saveConfig = mutation({
       aktif: args.aktif,
       templatePengingat: template,
       templateLokasi: templateLokasi === "" ? undefined : templateLokasi,
+      templateStatus: templateStatus === "" ? undefined : templateStatus,
       diperbaruiPada: Date.now(),
     };
     if (existing === null) {
@@ -190,6 +208,35 @@ export const _loanForMessage = internalQuery({
       tenorBulan: loan.tenorBulan,
       didanaiPada: loan.didanaiPada,
       status: loan.status,
+    };
+  },
+});
+
+/**
+ * Data pinjaman untuk merangkai pesan perubahan status (internal).
+ *
+ * Nominal kewajiban dihitung dari `pokokPinjaman` yang BERLAKU (nominal yang
+ * disetujui admin), bukan angka pengajuan — pesan harus mencerminkan keputusan,
+ * bukan permintaan awal.
+ */
+export const _dataStatusPinjaman = internalQuery({
+  args: { loanId: v.id("loans") },
+  handler: async (ctx, { loanId }) => {
+    const loan = await ctx.db.get(loanId);
+    if (loan === null) return null;
+    const pokokDiajukan = loan.pokokDiajukan ?? loan.pokokPinjaman;
+    const totalKewajiban =
+      loan.tenorBulan !== undefined
+        ? hitungSimulasiBulanan(loan.pokokPinjaman, loan.tenorBulan).totalPengembalian
+        : Math.round(loan.pokokPinjaman * 1.3);
+    return {
+      namaLengkap: loan.namaLengkap,
+      nomorReferensi: loan.nomorReferensi,
+      nomorWhatsApp: loan.nomorWhatsApp ?? null,
+      status: loan.status as StatusPinjaman,
+      pokokDiajukan,
+      pokokPinjaman: loan.pokokPinjaman,
+      totalKewajiban,
     };
   },
 });
@@ -400,6 +447,203 @@ export const sendReminder = action({
     return { ok: true, isi };
   },
 });
+
+/**
+ * Rangkai isi pesan perubahan status dari data pinjaman + template.
+ * Satu sumber untuk kirim otomatis maupun kirim ulang manual.
+ */
+function pesanStatusDari(
+  settings: WaSettings,
+  data: {
+    namaLengkap: string;
+    nomorReferensi: string;
+    status: StatusPinjaman;
+    pokokDiajukan: number;
+    pokokPinjaman: number;
+    totalKewajiban: number;
+  },
+  alasan: string,
+  statusLama: StatusPinjaman,
+): string {
+  return pesanPerubahanStatus(
+    settings.templateStatus?.trim() || TEMPLATE_STATUS_DEFAULT,
+    {
+      nama: data.namaLengkap,
+      nomorReferensi: data.nomorReferensi,
+      statusLama,
+      statusBaru: data.status,
+      alasan,
+      pokokDiajukan: data.pokokDiajukan,
+      pokokDisetujui: data.pokokPinjaman,
+      totalKewajiban: data.status === "ditolak" ? null : data.totalKewajiban,
+    },
+  );
+}
+
+/**
+ * Pratinjau isi pesan perubahan status (admin) — supaya admin melihat persis
+ * apa yang akan dikirim sebelum menekan tombol, termasuk kalimat persetujuan
+ * sebagian. Tidak mengirim apa pun.
+ */
+export const previewStatusPinjaman = query({
+  args: { loanId: v.id("loans"), alasan: v.string() },
+  handler: async (ctx, { loanId, alasan }) => {
+    await requireAdmin(ctx);
+    const settings = await getSettings(ctx);
+    const loan = await ctx.db.get(loanId);
+    const admin = await getAuthUserId(ctx);
+    void admin;
+    if (loan === null) return null;
+    const pokokDiajukan = loan.pokokDiajukan ?? loan.pokokPinjaman;
+    const totalKewajiban =
+      loan.tenorBulan !== undefined
+        ? hitungSimulasiBulanan(loan.pokokPinjaman, loan.tenorBulan).totalPengembalian
+        : Math.round(loan.pokokPinjaman * 1.3);
+    return {
+      nomorWhatsApp: loan.nomorWhatsApp ?? null,
+      isi: pesanStatusDari(
+        settings,
+        {
+          namaLengkap: loan.namaLengkap,
+          nomorReferensi: loan.nomorReferensi,
+          status: loan.status as StatusPinjaman,
+          pokokDiajukan,
+          pokokPinjaman: loan.pokokPinjaman,
+          totalKewajiban,
+        },
+        alasan.trim() === "" ? "—" : alasan.trim(),
+        loan.status as StatusPinjaman,
+      ),
+    };
+  },
+});
+
+/**
+ * Kirim kabar perubahan status ke Peminjam lewat WhatsApp (admin).
+ *
+ * Dipakai tombol "kirim ulang" di dialog review: percobaan otomatis bisa gagal
+ * karena integrasi belum aktif atau gateway sedang bermasalah, dan admin perlu
+ * cara mengulangnya tanpa mengubah status lagi.
+ */
+export const kirimStatusPinjaman = action({
+  args: {
+    loanId: v.id("loans"),
+    alasan: v.string(),
+    statusLama: v.optional(v.string()),
+  },
+  handler: async (ctx, { loanId, alasan, statusLama }): Promise<{ ok: boolean; isi: string }> => {
+    const userId = await getAuthUserId(ctx);
+    if (userId === null) throw new Error("Harus masuk terlebih dahulu.");
+    await ctx.runQuery(api.security.assertAdminSession, {});
+
+    const settings: WaSettings = await ctx.runQuery(internal.whatsapp._getSettings, {});
+    const data = await ctx.runQuery(internal.whatsapp._dataStatusPinjaman, { loanId });
+    if (data === null) throw new Error("Pinjaman tidak ditemukan.");
+    if (!data.nomorWhatsApp) {
+      throw new Error("Peminjam belum punya nomor WhatsApp (lengkapi KYC).");
+    }
+
+    const isi = pesanStatusDari(
+      settings,
+      data,
+      alasan.trim() === "" ? "—" : alasan.trim(),
+      (statusLama ?? "diajukan") as StatusPinjaman,
+    );
+
+    const hasil = await kirimPesanStatus(ctx, settings, data.nomorWhatsApp, isi, loanId, userId);
+    if (!hasil.ok) throw new Error(hasil.respon);
+    return { ok: true, isi };
+  },
+});
+
+/**
+ * Kirim kabar perubahan status TANPA gerbang sesi — dipanggil otomatis oleh
+ * `ubahStatusPinjaman` setelah status tersimpan.
+ *
+ * TIDAK PERNAH melempar: perubahan status yang sudah tercatat tidak boleh
+ * dibatalkan hanya karena gateway WhatsApp bermasalah. Setiap percobaan tetap
+ * masuk `waLogs` supaya admin bisa melihat kenapa pesan tidak sampai, lalu
+ * mengirim ulang lewat tombol manual.
+ */
+export const _kirimStatusPinjaman = internalAction({
+  args: {
+    loanId: v.id("loans"),
+    alasan: v.string(),
+    statusLama: v.string(),
+  },
+  handler: async (ctx, { loanId, alasan, statusLama }): Promise<{ status: string }> => {
+    const data = await ctx.runQuery(internal.whatsapp._dataStatusPinjaman, { loanId });
+    if (data === null) return { status: "tidak_ada" };
+    if (!data.nomorWhatsApp) {
+      await ctx.runMutation(internal.whatsapp._appendLog, {
+        loanId,
+        nomorTujuan: "-",
+        jenis: "status_pinjaman",
+        isiPesan: "(tidak dikirim)",
+        status: "tanpa_nomor",
+        respon: "Peminjam belum punya nomor WhatsApp di data KYC.",
+      });
+      return { status: "tanpa_nomor" };
+    }
+
+    const settings: WaSettings = await ctx.runQuery(internal.whatsapp._getSettings, {});
+    const isi = pesanStatusDari(
+      settings,
+      data,
+      alasan,
+      statusLama as StatusPinjaman,
+    );
+    const hasil = await kirimPesanStatus(
+      ctx,
+      settings,
+      data.nomorWhatsApp,
+      isi,
+      loanId,
+      undefined,
+    );
+    return { status: hasil.status };
+  },
+});
+
+/**
+ * Kirim + catat satu pesan status. Tidak melempar: hasilnya dinilai pemanggil.
+ * Mengembalikan `status` agar action otomatis bisa melaporkannya apa adanya.
+ */
+async function kirimPesanStatus(
+  ctx: ActionCtx,
+  settings: WaSettings,
+  nomor: string,
+  isi: string,
+  loanId: Id<"loans">,
+  olehUserId: Id<"users"> | undefined,
+): Promise<{ ok: boolean; status: string; respon: string }> {
+  const apiKey = process.env.WHATSAPP_API_KEY ?? "";
+  let status: string;
+  let respon: string;
+  if (settings.aktif !== true || !settings.apiUrl) {
+    status = "dinonaktifkan";
+    respon = "Integrasi WhatsApp belum aktif — pesan hanya dicatat.";
+  } else if (!apiKey) {
+    status = "gagal";
+    respon = "WHATSAPP_API_KEY belum diisi di environment.";
+  } else {
+    const hasil = await kirimViaGateway(apiKey, settings, nomor, isi);
+    status = hasil.ok ? "terkirim" : "gagal";
+    respon = hasil.respon;
+  }
+
+  await ctx.runMutation(internal.whatsapp._appendLog, {
+    loanId,
+    nomorTujuan: nomor,
+    jenis: "status_pinjaman",
+    isiPesan: isi,
+    status,
+    respon,
+    olehUserId,
+  });
+
+  return { ok: status === "terkirim", status, respon };
+}
 
 /** Kirim pesan uji ke nomor bebas (admin) — memastikan gateway benar. */
 export const sendTest = action({

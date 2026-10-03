@@ -20,6 +20,8 @@ export function HistorySection({
     _creationTime: number;
     nomorReferensi: string;
     pokokPinjaman: number;
+    /** Nominal asli pengajuan — beda bila disetujui sebagian. */
+    pokokDiajukan?: number;
     tujuan: string;
     status: string;
   }>;
@@ -62,10 +64,18 @@ export function HistorySection({
                   className="flex w-full items-center justify-between gap-4 px-5 py-4 text-left transition-colors hover:bg-slate-50"
                 >
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-medium tabular-nums">Pokok tersimpan {formatRupiah(l.pokokPinjaman)}</p>
+                    <p className="truncate text-sm font-medium tabular-nums">
+                      Pokok tersimpan {formatRupiah(l.pokokPinjaman)}
+                    </p>
                     <p className="mt-1 truncate text-xs text-muted-foreground">
                       {l.nomorReferensi} · {loanPurposeLabel(l.tujuan)} · {formatDate(l._creationTime)}
                     </p>
+                    {(l.pokokDiajukan ?? l.pokokPinjaman) !== l.pokokPinjaman && (
+                      <p className="mt-1 text-xs text-amber-700">
+                        Diajukan {formatRupiah(l.pokokDiajukan ?? l.pokokPinjaman)} · disetujui{" "}
+                        {formatRupiah(l.pokokPinjaman)}
+                      </p>
+                    )}
                   </div>
                   <StatusBadge status={l.status} kind="loan" />
                 </button>

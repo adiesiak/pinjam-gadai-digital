@@ -28,6 +28,7 @@ export function WhatsAppPanel() {
   const [aktif, setAktif] = useState(false);
   const [template, setTemplate] = useState<string | null>(null);
   const [templateLokasi, setTemplateLokasi] = useState<string | null>(null);
+  const [templateStatus, setTemplateStatus] = useState<string | null>(null);
   const [nomorTes, setNomorTes] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -51,6 +52,7 @@ export function WhatsAppPanel() {
     setAktif(cfg.aktif === true);
     setTemplate(cfg.templatePengingat ?? "");
     setTemplateLokasi(cfg.templateLokasi ?? "");
+    setTemplateStatus(cfg.templateStatus ?? "");
   }
   if (apiUrl === null) return null;
 
@@ -68,6 +70,7 @@ export function WhatsAppPanel() {
         aktif,
         templatePengingat: template,
         templateLokasi: templateLokasi ?? "",
+        templateStatus: templateStatus ?? "",
       });
       toast.success("Konfigurasi WhatsApp tersimpan.");
     } catch (err) {
@@ -132,6 +135,28 @@ export function WhatsAppPanel() {
             />
             <p className="mt-1 text-xs leading-5 text-muted-foreground">
               Placeholder: <code className="rounded bg-slate-100 px-1">{"{nama} {ref} {jumlah} {tanggal} {sisa} {denda}"}</code> — wajib memuat <code className="rounded bg-slate-100 px-1">{"{jumlah}"}</code>. Nilainya berasal dari ledger internal. Tulis pesan netral; jangan meminta pelunasan berdasarkan angka ledger internal.
+            </p>
+          </div>
+          <div className="sm:col-span-2">
+            <Label htmlFor="wa-template-status">
+              Template kabar perubahan status pinjaman
+            </Label>
+            <Textarea
+              id="wa-template-status"
+              rows={4}
+              value={templateStatus ?? ""}
+              onChange={(e) => setTemplateStatus(e.target.value)}
+              placeholder="Kosongkan untuk memakai template bawaan"
+            />
+            <p className="mt-1 text-xs leading-5 text-muted-foreground">
+              Dikirim otomatis setiap admin mengubah status pinjaman, dan bisa dikirim ulang dari
+              dialog review. Placeholder:{" "}
+              <code className="rounded bg-slate-100 px-1">
+                {"{nama} {ref} {status} {alasan} {diajukan} {disetujui} {kewajiban}"}
+              </code>{" "}
+              — wajib memuat <code className="rounded bg-slate-100 px-1">{"{status}"}</code>.
+              Kalimat persetujuan sebagian disisipkan otomatis bila nominal yang disetujui lebih
+              kecil daripada pengajuan.
             </p>
           </div>
           <div className="sm:col-span-2">

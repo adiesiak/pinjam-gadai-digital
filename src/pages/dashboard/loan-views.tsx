@@ -108,6 +108,12 @@ export function ActiveLoanSection({
                       {formatRupiah(l.pokokPinjaman)}
                     </p>
                     <p className="mt-1 truncate text-xs text-muted-foreground">{l.nomorReferensi}</p>
+                    {(l.pokokDiajukan ?? l.pokokPinjaman) !== l.pokokPinjaman && (
+                      <p className="mt-1 text-xs text-amber-700">
+                        Diajukan {formatRupiah(l.pokokDiajukan ?? l.pokokPinjaman)} · disetujui{" "}
+                        {formatRupiah(l.pokokPinjaman)}
+                      </p>
+                    )}
                   </div>
                   <StatusBadge status={l.status} kind="loan" />
                 </button>

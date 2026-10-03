@@ -124,8 +124,20 @@ const schema = defineSchema(
     loans: defineTable({
       /** Pemilik aplikasi (Peminjam). */
       userId: v.id("users"),
-      /** Pokok Pinjaman — rupiah bulat. */
+      /**
+       * Pokok Pinjaman yang DISETUJUI admin — rupiah bulat. Inilah satu-satunya
+       * angka yang dipakai seluruh perhitungan (bunga, kewajiban, pencairan,
+       * jurnal, kontrak), sehingga admin dapat menyetujui lebih kecil daripada
+       * yang diajukan tanpa ada dua sumber kebenaran. Diisi = `pokokDiajukan`
+       * sampai admin memutuskan lain.
+       */
       pokokPinjaman: v.number(),
+      /**
+       * Pokok yang DIAJUKAN Peminjam — rupiah bulat. Hanya jejak asli pengajuan:
+       * tidak pernah dipakai untuk perhitungan uang. Kosong pada data lama
+       * (artinya sama dengan `pokokPinjaman`).
+       */
+      pokokDiajukan: v.optional(v.number()),
       /** Keperluan pembiayaan. */
       tujuan: v.string(),
       /** Narasi singkat Peminjam untuk reviewer. */

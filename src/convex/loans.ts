@@ -1,5 +1,6 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
 import {
+  internalAction,
   internalMutation,
   mutation,
   query,
@@ -8,6 +9,7 @@ import {
 } from "./_generated/server";
 import { v } from "convex/values";
 import { Id } from "./_generated/dataModel";
+import { internal } from "./_generated/api";
 import {
   ROLES,
   loanStatusValidator,
@@ -42,6 +44,11 @@ import { requireGerbangLokasi } from "./lokasi";
 import { requireAdminSession } from "./adminAuthz";
 import { ensureKodePeminjam } from "./peminjamCode";
 import { rejectUnverifiedMoneyMovement } from "./paymentGuard";
+import {
+  nominalDisetujui,
+  nominalTerkunci,
+  validasiUbahStatus,
+} from "../lib/statusPinjaman";
 
 /**
  * Saat pinjaman dilunasi, pinjaman baru (belum pernah didanai) bisa kembali
@@ -405,7 +412,10 @@ export const createLoanApplication = mutation({
     const nomorReferensi = referenceNumber(now);
     const loanId = await ctx.db.insert("loans", {
       userId,
+      // Pokok yang disetujui = pengajuan sampai admin memutuskan lain; angka
+      // aslinya tetap tersimpan di `pokokDiajukan` untuk jejak pengajuan.
       pokokPinjaman: quote.pokok,
+      pokokDiajukan: quote.pokok,
       tujuan: args.tujuan.trim(),
       catatanPeminjam: args.catatanPeminjam?.trim() || undefined,
       namaLengkap: trimmedName,
@@ -454,6 +464,8 @@ export const listMyLoans = query({
         _creationTime: l._creationTime,
         nomorReferensi: l.nomorReferensi,
         pokokPinjaman: l.pokokPinjaman,
+        // Nominal asli pengajuan — peminjam melihat bahwa persetujuannya sebagian.
+        pokokDiajukan: l.pokokDiajukan ?? l.pokokPinjaman,
         tujuan: l.tujuan,
         status: l.status,
         catatanReview: l.catatanReview,
@@ -513,6 +525,7 @@ export const getMyLoan = query({
       _creationTime: loan._creationTime,
       nomorReferensi: loan.nomorReferensi,
       pokokPinjaman: loan.pokokPinjaman,
+      pokokDiajukan: loan.pokokDiajukan ?? loan.pokokPinjaman,
       tujuan: loan.tujuan,
       status: loan.status,
       catatanReview: loan.catatanReview,
@@ -857,52 +870,171 @@ async function requireAdmin(ctx: MutationCtx) {
   return (await requireAdminSession(ctx)).userId;
 }
 
+/**
+ * Pindahkan status pinjaman (admin). Ini mengubah CATATAN saja: tidak ada uang
+ * yang berpindah, tidak ada jurnal yang ditulis, tidak ada saldo yang berubah.
+ *
+ * Nominal yang disetujui admin diisi ke `pokokPinjaman` — satu-satunya angka
+ * yang dipakai seluruh perhitungan (bunga, kewajiban, pencairan, kontrak) —
+ * sehingga menyetujui lebih kecil daripada pengajuan tidak menciptakan dua
+ * sumber kebenaran. `pokokDiajukan` menyimpan angka asli pengajuan.
+ *
+ * Setiap perubahan WAJIB beralasan, dicatat ke audit trail, dan mengembalikan
+ * data pesan WhatsApp supaya pemanggil (dialog admin) dapat mengirim kabar ke
+ * Peminjam. Pengiriman pesan itu sendiri adalah action terpisah.
+ */
 async function setLoanStatus(
   ctx: MutationCtx,
   loanId: Id<"loans">,
   status: LoanStatusValue,
   catatan?: string,
-) {
+  nominalDisetujuiUsulan?: number,
+): Promise<{
+  ok: true;
+  status: LoanStatusValue;
+  statusLama: string;
+  pokokDiajukan: number;
+  pokokPinjaman: number;
+  /** Total kewajiban setelah perubahan (null bila belum bisa dihitung). */
+  totalKewajiban: number | null;
+  nomorWhatsApp: string | null;
+  namaLengkap: string;
+  nomorReferensi: string;
+}> {
   const adminId = await requireAdmin(ctx);
   const loan = await ctx.db.get(loanId);
   if (loan === null) throw new Error("Aplikasi tidak ditemukan.");
-  if (status === "diajukan") {
-    throw new Error("Status tidak boleh dikembalikan ke diajukan.");
+
+  const alasan = catatan?.trim() ?? "";
+  // Aturan transisi (semua status, alasan wajib) ada di lib murni agar bisa diuji.
+  const cek = validasiUbahStatus(loan.status, status, alasan);
+  if (!cek.ok) throw new Error(cek.alasan);
+
+  const statusLama = loan.status;
+  const pokokDiajukan = loan.pokokDiajukan ?? loan.pokokPinjaman;
+
+  // Nominal hanya boleh disesuaikan selama dana belum tersalurkan. Setelah itu
+  // angka pokok sudah terpakai kontrak, jurnal, dan pencairan.
+  let pokokPinjaman = loan.pokokPinjaman;
+  if (nominalDisetujuiUsulan !== undefined) {
+    if (nominalTerkunci(statusLama)) {
+      throw new Error(
+        "Nominal pinjaman tidak dapat diubah setelah dana tersalurkan.",
+      );
+    }
+    const nominal = nominalDisetujui(pokokDiajukan, nominalDisetujuiUsulan);
+    if (!nominal.ok) throw new Error(nominal.alasan);
+    pokokPinjaman = nominal.nilai;
   }
-  if (status === "ditolak" && (!catatan || catatan.trim().length === 0)) {
-    throw new Error("Penolakan wajib menyertakan alasan.");
-  }
+
   if (status === "disetujui") {
     await ensureKodePeminjam(ctx, loan.userId);
   }
   await ctx.db.patch(loanId, {
     status,
-    catatanReview: catatan?.trim() || undefined,
+    catatanReview: alasan || undefined,
+    // `pokokDiajukan` diisi sekali saja: pengajuan asli tidak ikut berubah bila
+    // admin menyesuaikan nominalnya.
+    pokokDiajukan,
+    pokokPinjaman,
   });
+
   const admin = await ctx.db.get(adminId);
+  const nominalBerubah = pokokPinjaman !== loan.pokokPinjaman;
   await audit(
     ctx,
     adminId,
     admin?.email ?? admin?.name ?? "admin",
     `loan_${status}`,
     loan.nomorReferensi,
-    `${loan.namaLengkap} — ${status}${catatan ? `: ${catatan}` : ""}`,
+    `${loan.namaLengkap} — ${statusLama} → ${status}: ${alasan}` +
+      (nominalBerubah
+        ? ` (nominal ${pokokPinjaman}, diajukan ${pokokDiajukan})`
+        : ""),
   );
+
+  // Total kewajiban memakai nominal yang berlaku setelah perubahan.
+  const totalKewajiban =
+    status === "ditolak"
+      ? null
+      : loan.tenorBulan !== undefined
+        ? hitungSimulasiBulanan(pokokPinjaman, loan.tenorBulan).totalPengembalian
+        : quoteLoan(pokokPinjaman).totalKewajibanPelunasan;
+
+  // Kabar WhatsApp dijadwalkan SETELAH status tersimpan, lewat action terpisah:
+  // pengiriman keluar (fetch) tidak boleh berjalan di dalam transaksi, dan
+  // kegagalan gateway tidak boleh membatalkan perubahan status yang sah.
+  // Action-nya tidak pernah melempar; percobaannya tercatat di waLogs.
+  await ctx.scheduler.runAfter(0, internal.whatsapp._kirimStatusPinjaman, {
+    loanId,
+    alasan,
+    statusLama,
+  });
+
+  return {
+    ok: true,
+    status,
+    statusLama,
+    pokokDiajukan,
+    pokokPinjaman,
+    totalKewajiban,
+    nomorWhatsApp: loan.nomorWhatsApp ?? null,
+    namaLengkap: loan.namaLengkap,
+    nomorReferensi: loan.nomorReferensi,
+  };
 }
 
 export const markLoanInReview = mutation({
-  args: { loanId: v.id("loans") },
-  handler: (ctx, args) => setLoanStatus(ctx, args.loanId, "sedang_direview"),
+  args: { loanId: v.id("loans"), reason: v.string() },
+  handler: (ctx, args) =>
+    setLoanStatus(ctx, args.loanId, "sedang_direview", args.reason),
 });
 
+/**
+ * Setujui pinjaman. `pokokDisetujui` opsional: kosong = setujui penuh sesuai
+ * pengajuan; diisi = admin menyetujui sebagian (tidak boleh melebihi pengajuan).
+ */
 export const approveLoan = mutation({
-  args: { loanId: v.id("loans") },
-  handler: (ctx, args) => setLoanStatus(ctx, args.loanId, "disetujui"),
+  args: {
+    loanId: v.id("loans"),
+    reason: v.string(),
+    pokokDisetujui: v.optional(v.number()),
+  },
+  handler: (ctx, args) =>
+    setLoanStatus(
+      ctx,
+      args.loanId,
+      "disetujui",
+      args.reason,
+      args.pokokDisetujui,
+    ),
 });
 
 export const rejectLoan = mutation({
   args: { loanId: v.id("loans"), reason: v.string() },
   handler: (ctx, args) => setLoanStatus(ctx, args.loanId, "ditolak", args.reason),
+});
+
+/**
+ * Ubah status pinjaman ke status mana pun (admin) — satu pintu untuk koreksi
+ * dan pemulihan, dengan alasan wajib dan jejak audit. `pokokDisetujui` hanya
+ * berlaku bila statusnya `disetujui` dan dana belum tersalurkan.
+ */
+export const ubahStatusPinjaman = mutation({
+  args: {
+    loanId: v.id("loans"),
+    status: loanStatusValidator,
+    reason: v.string(),
+    pokokDisetujui: v.optional(v.number()),
+  },
+  handler: (ctx, args) =>
+    setLoanStatus(
+      ctx,
+      args.loanId,
+      args.status,
+      args.reason,
+      args.pokokDisetujui,
+    ),
 });
 
 /**
@@ -1407,8 +1539,16 @@ export const _internalSetLoanStatus = internalMutation({
     status: loanStatusValidator,
     reason: v.optional(v.string()),
   },
-  handler: (ctx, args) =>
-    setLoanStatus(ctx, args.loanId, args.status, args.reason),
+  handler: async (ctx, args) => {
+    // Jalur internal (seed/migrasi) tidak melalui dialog admin, jadi tidak ada
+    // alasan yang diketik: pakai alasan sistem agar aturan tetap terpenuhi.
+    await setLoanStatus(
+      ctx,
+      args.loanId,
+      args.status,
+      args.reason ?? "Perubahan status oleh sistem internal.",
+    );
+  },
 });
 
 // =====================================================================

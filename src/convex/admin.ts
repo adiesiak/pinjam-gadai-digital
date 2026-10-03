@@ -187,6 +187,7 @@ export const adminOverview = query({
             _creationTime: l._creationTime,
             nomorReferensi: l.nomorReferensi,
             pokokPinjaman: l.pokokPinjaman,
+            pokokDiajukan: l.pokokDiajukan ?? l.pokokPinjaman,
             tujuan: l.tujuan,
             status: l.status,
             catatanReview: l.catatanReview,

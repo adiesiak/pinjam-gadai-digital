@@ -1,6 +1,6 @@
-import { useMutation } from "convex/react";
-import { Loader2, Trash2 } from "lucide-react";
-import { useState } from "react";
+import { useAction, useMutation, useQuery } from "convex/react";
+import { Loader2, Send, Trash2 } from "lucide-react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import { EContractWidget } from "@/components/EContract";
@@ -15,9 +15,24 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { api } from "@/convex/_generated/api";
 import { loanPurposeLabel, quoteLoan } from "@/lib/loan";
 import { formatRupiah } from "@/lib/money";
+import {
+  ALASAN_MIN_PANJANG,
+  LABEL_STATUS_PINJAMAN,
+  nominalTerkunci,
+  STATUS_PINJAMAN,
+  type StatusPinjaman,
+} from "@/lib/statusPinjaman";
 
 import { formatDate } from "./admin-format";
 import { type LoanRow } from "./admin-shared";
@@ -30,21 +45,41 @@ export function LoanReviewDialog({
   row: LoanRow | null;
   onClose: () => void;
 }) {
-  const markInReview = useMutation(api.loans.markLoanInReview);
-  const approve = useMutation(api.loans.approveLoan);
-  const reject = useMutation(api.loans.rejectLoan);
+  const ubahStatus = useMutation(api.loans.ubahStatusPinjaman);
   const fund = useMutation(api.loans.danaiPinjaman);
   const deleteLoan = useMutation(api.loans.hapusPinjaman);
+  const kirimStatus = useAction(api.whatsapp.kirimStatusPinjaman);
 
   const [reason, setReason] = useState("");
+  const [statusTujuan, setStatusTujuan] = useState<StatusPinjaman>("disetujui");
+  const [nominal, setNominal] = useState("");
   const [deleteReason, setDeleteReason] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // Pratinjau pesan WhatsApp yang akan dikirim — admin melihat persis isinya
+  // sebelum menekan tombol, termasuk kalimat persetujuan sebagian.
+  const pratinjau = useQuery(
+    api.whatsapp.previewStatusPinjaman,
+    row === null ? ("skip" as const) : { loanId: row._id, alasan: reason },
+  );
+
+  // Sasaran status & nominal ikut menyesuaikan saat dialog dibuka untuk baris lain.
+  useEffect(() => {
+    if (row === null) return;
+    setStatusTujuan(row.status === "didanai" ? "lunas" : "disetujui");
+    setNominal("");
+    setReason("");
+    setError(null);
+  }, [row]);
+
   if (row === null) return null;
+  // Nominal pengajuan asli — sama dengan pokokPinjaman kecuali admin menyetujui
+  // sebagian. Dibaca toleran supaya baris lama tanpa field ini tetap aman.
+  const pokokDiajukan =
+    (row as { pokokDiajukan?: number }).pokokDiajukan ?? row.pokokPinjaman;
   const q = quoteLoan(row.pokokPinjaman);
-  const pending = row.status === "diajukan";
-  const decided = row.status === "disetujui" || row.status === "ditolak";
+
 
   const runDelete = async () => {
     const trimmedReason = deleteReason.trim();
@@ -188,25 +223,100 @@ export function LoanReviewDialog({
           </div>
         )}
 
-        {!decided && (
-          <>
+        {row.status === "lunas" ? (
+          <p className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs leading-5 text-muted-foreground">
+            Pinjaman ini sudah <strong>lunas</strong> — posisinya ditutup dan statusnya tidak dapat
+            diubah lagi.
+          </p>
+        ) : (
+          <section className="space-y-3 rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
+                Ubah status pinjaman
+              </p>
+              <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                Perubahan status hanya mengubah catatan internal — tidak ada uang yang berpindah.
+                Peminjam otomatis menerima kabar lewat WhatsApp berisi status dan alasan di bawah.
+              </p>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div>
+                <Label htmlFor="status-tujuan" className="text-[11px] text-muted-foreground">
+                  Status baru
+                </Label>
+                <Select
+                  value={statusTujuan}
+                  onValueChange={(v) => setStatusTujuan(v as StatusPinjaman)}
+                >
+                  <SelectTrigger id="status-tujuan">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {STATUS_PINJAMAN.filter((s) => s !== "diajukan" && s !== row.status).map(
+                      (s) => (
+                        <SelectItem key={s} value={s}>
+                          {LABEL_STATUS_PINJAMAN[s]}
+                        </SelectItem>
+                      ),
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {statusTujuan === "disetujui" && !nominalTerkunci(row.status) && (
+                <div>
+                  <Label htmlFor="pokok-disetujui" className="text-[11px] text-muted-foreground">
+                    Nominal disetujui (Rp)
+                  </Label>
+                  <Input
+                    id="pokok-disetujui"
+                    type="number"
+                    inputMode="numeric"
+                    min={1}
+                    max={pokokDiajukan}
+                    step={50_000}
+                    placeholder={`Penuh: ${formatRupiah(pokokDiajukan)}`}
+                    value={nominal}
+                    onChange={(e) => setNominal(e.target.value)}
+                    disabled={busy !== null}
+                  />
+                  <p className="mt-1 text-[11px] leading-4 text-muted-foreground">
+                    Boleh lebih kecil dari pengajuan ({formatRupiah(pokokDiajukan)}), tidak boleh
+                    lebih besar. Kosongkan untuk menyetujui penuh.
+                  </p>
+                </div>
+              )}
+            </div>
+
             <div className="space-y-2">
               <Label htmlFor="alasan-pinjaman">
-                Catatan alasan (wajib untuk penolakan internal)
+                Alasan perubahan (wajib, dikirim ke peminjam)
               </Label>
               <Textarea
                 id="alasan-pinjaman"
-                aria-invalid={reason.trim().length === 0}
+                aria-invalid={reason.trim().length < ALASAN_MIN_PANJANG}
                 aria-describedby="alasan-pinjaman-help"
                 rows={2}
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
-                placeholder="Contoh: informasi/dokumen yang dimasukkan belum lengkap…"
+                placeholder="Contoh: dokumen penghasilan belum lengkap / nilai jaminan menyesuaikan taksiran…"
               />
               <p id="alasan-pinjaman-help" className="text-xs text-muted-foreground">
-                Isi alasan sebelum memilih Tolak; alasan akan dicatat sebagai bagian dari keputusan internal.
+                Minimal {ALASAN_MIN_PANJANG} karakter. Alasan tercatat di Audit Trail dan ikut
+                dikirim sebagai kabar WhatsApp.
               </p>
             </div>
+
+            {pratinjau !== undefined && pratinjau !== null && (
+              <div className="rounded-xl border border-emerald-200 bg-emerald-50/70 p-3">
+                <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-emerald-900">
+                  <Send className="size-3" aria-hidden /> Pratinjau WhatsApp
+                  {pratinjau.nomorWhatsApp === null && " — nomor belum ada di KYC"}
+                </p>
+                <p className="mt-1.5 text-xs leading-5 text-emerald-900">{pratinjau.isi}</p>
+              </div>
+            )}
 
             {error && (
               <p
@@ -219,36 +329,44 @@ export function LoanReviewDialog({
               </p>
             )}
 
-            <div className="grid grid-cols-1 gap-2 min-[420px]:flex min-[420px]:flex-wrap">
-              {pending && (
-                <Button
-                  variant="outline"
-                  disabled={busy !== null}
-                  onClick={() =>
-                    run("review", () => markInReview({ loanId: row._id }))
-                  }
-                >
-                  {busy === "review" ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
-                  Mulai review
-                </Button>
-              )}
+            <div className="flex flex-wrap gap-2">
               <Button
-                disabled={busy !== null}
-                onClick={() => run("approve", () => approve({ loanId: row._id }))}
+                disabled={busy !== null || reason.trim().length < ALASAN_MIN_PANJANG}
+                onClick={() =>
+                  run("status", () =>
+                    ubahStatus({
+                      loanId: row._id,
+                      status: statusTujuan,
+                      reason,
+                      ...(statusTujuan === "disetujui" && nominal.trim() !== ""
+                        ? { pokokDisetujui: Number(nominal) }
+                        : {}),
+                    }),
+                  )
+                }
               >
-                {busy === "approve" ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
-                Setujui (status aplikasi)
+                {busy === "status" ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
+                Simpan status & kirim WhatsApp
               </Button>
               <Button
-                variant="destructive"
-                disabled={busy !== null}
-                onClick={() => run("reject", () => reject({ loanId: row._id, reason }))}
+                variant="outline"
+                className="gap-1.5"
+                disabled={busy !== null || pratinjau === undefined || pratinjau?.nomorWhatsApp === null}
+                onClick={() =>
+                  run("wa", () =>
+                    kirimStatus({ loanId: row._id, alasan: reason, statusLama: row.status }),
+                  )
+                }
               >
-                {busy === "reject" ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
-                Tolak dengan alasan
+                {busy === "wa" ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  <Send className="size-4" />
+                )}
+                Kirim ulang WhatsApp
               </Button>
             </div>
-          </>
+          </section>
         )}
 
         {row.status === "disetujui" && (
@@ -264,12 +382,6 @@ export function LoanReviewDialog({
               Tandai dana tersalurkan (ledger internal)
             </Button>
           </div>
-        )}
-
-        {decided && error && (
-          <p role="alert" aria-live="assertive" className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
-            {error}
-          </p>
         )}
 
         <div className="space-y-2 border-t border-slate-200 pt-4">

@@ -16,6 +16,8 @@ export type LoanScheduleRow = {
   _id: Id<"loans">;
   nomorReferensi: string;
   pokokPinjaman: number;
+  /** Nominal asli pengajuan — beda bila admin menyetujui sebagian. */
+  pokokDiajukan?: number;
   status: string;
   tenorHari: number;
   /** Diisi (1/3/6 bln) bila pinjaman memakai skema bulanan. */

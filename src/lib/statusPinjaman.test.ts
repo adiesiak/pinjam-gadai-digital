@@ -1,0 +1,183 @@
+/** Run: bun src/lib/statusPinjaman.test.ts */
+import {
+  LABEL_STATUS_PINJAMAN,
+  nominalDisetujui,
+  nominalTerkunci,
+  pesanPerubahanStatus,
+  TEMPLATE_STATUS_DEFAULT,
+  validasiUbahStatus,
+  type StatusPinjaman,
+} from "./statusPinjaman";
+
+let passed = 0;
+let failed = 0;
+function eq(actual: unknown, expected: unknown, label: string) {
+  if (actual === expected) passed += 1;
+  else {
+    failed += 1;
+    console.error(
+      `FAIL ${label}: expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`,
+    );
+  }
+}
+function ok(hasil: { ok: boolean }, label: string) {
+  eq(hasil.ok, true, label);
+}
+function gagal(hasil: { ok: boolean; alasan?: string }, pola: RegExp, label: string) {
+  eq(hasil.ok, false, `${label} (ditolak)`);
+  const alasan = (hasil as { alasan?: string }).alasan ?? "";
+  eq(pola.test(alasan), true, `${label} (alasan cocok)`);
+}
+
+// ===== validasiUbahStatus =====
+
+// Alur normal.
+ok(validasiUbahStatus("diajukan", "sedang_direview", "mulai ditinjau"), "diajukan → review");
+ok(validasiUbahStatus("sedang_direview", "disetujui", "dokumen lengkap"), "review → disetujui");
+ok(validasiUbahStatus("disetujui", "didanai", "dana tersalurkan"), "disetujui → didanai");
+ok(validasiUbahStatus("didanai", "lunas", "kewajiban dibayar penuh"), "didanai → lunas");
+
+// Melompat tahap tetap boleh — admin tidak dipaksa mengikuti urutan.
+ok(validasiUbahStatus("diajukan", "disetujui", "langsung disetujui"), "lompat diajukan → disetujui");
+ok(validasiUbahStatus("didanai", "ditolak", "pencairan dibatalkan"), "tarik didanai → ditolak");
+
+// Mengembalikan ke diajukan selalu ditolak.
+gagal(
+  validasiUbahStatus("sedang_direview", "diajukan", "dibuka ulang"),
+  /dibuka ulang/i,
+  "kembali ke diajukan",
+);
+
+// Pinjaman lunas terkunci.
+gagal(validasiUbahStatus("lunas", "didanai", "koreksi"), /lunas/i, "lunas terkunci");
+gagal(validasiUbahStatus("lunas", "ditolak", "koreksi"), /lunas/i, "lunas tidak bisa ditolak");
+
+// Status sama persis ditolak — mencegah pesan WhatsApp palsu & audit kosong.
+gagal(validasiUbahStatus("disetujui", "disetujui", "ulangi"), /sudah berstatus/i, "status sama");
+
+// Alasan wajib dan minimal panjangnya.
+gagal(validasiUbahStatus("diajukan", "disetujui", ""), /alasan/i, "alasan kosong");
+gagal(validasiUbahStatus("diajukan", "disetujui", "   "), /alasan/i, "alasan spasi");
+gagal(validasiUbahStatus("diajukan", "disetujui", "ok"), /minimal/i, "alasan terlalu pendek");
+ok(validasiUbahStatus("diajukan", "disetujui", "dokumen lengkap"), "alasan cukup panjang");
+
+// Status tak dikenal ditolak.
+gagal(validasiUbahStatus("diajukan", "entah", "alasan panjang"), /tidak dikenali/i, "status asing");
+
+// Setiap status punya label.
+for (const s of Object.keys(LABEL_STATUS_PINJAMAN) as StatusPinjaman[]) {
+  eq(typeof LABEL_STATUS_PINJAMAN[s] === "string" && LABEL_STATUS_PINJAMAN[s].length > 0, true, `label ${s}`);
+}
+
+// ===== nominalDisetujui =====
+
+// Tanpa usulan admin: pakai nominal pengajuan.
+eq(nominalDisetujui(1_000_000, null).ok, true, "tanpa usulan ok");
+eq(
+  (nominalDisetujui(1_000_000, null) as { nilai: number }).nilai,
+  1_000_000,
+  "tanpa usulan = nominal pengajuan",
+);
+eq(
+  (nominalDisetujui(1_000_000, undefined) as { nilai: number }).nilai,
+  1_000_000,
+  "undefined = nominal pengajuan",
+);
+
+// ACC sebagian — kasus utama: diajukan 1 jt, disetujui 500 rb.
+eq(
+  (nominalDisetujui(1_000_000, 500_000) as { nilai: number }).nilai,
+  500_000,
+  "ACC sebagian 500rb",
+);
+// ACC penuh eksplisit.
+eq(
+  (nominalDisetujui(1_000_000, 1_000_000) as { nilai: number }).nilai,
+  1_000_000,
+  "ACC penuh eksplisit",
+);
+// Tidak boleh melebihi pengajuan.
+gagal(nominalDisetujui(1_000_000, 1_500_000), /melebihi/i, "melebihi pengajuan");
+// Harus rupiah bulat positif.
+gagal(nominalDisetujui(1_000_000, 0), /bulat positif/i, "nol ditolak");
+gagal(nominalDisetujui(1_000_000, -5), /bulat positif/i, "negatif ditolak");
+gagal(nominalDisetujui(1_000_000, 500_000.5), /bulat positif/i, "pecahan ditolak");
+// Nominal pengajuan yang tidak valid.
+gagal(nominalDisetujui(0, 100_000), /tidak valid/i, "pengajuan nol");
+gagal(nominalDisetujui(-1, 100_000), /tidak valid/i, "pengajuan negatif");
+
+// ===== nominalTerkunci =====
+
+eq(nominalTerkunci("didanai"), true, "didanai terkunci");
+eq(nominalTerkunci("lunas"), true, "lunas terkunci");
+eq(nominalTerkunci("disetujui"), false, "disetujui belum terkunci");
+eq(nominalTerkunci("diajukan"), false, "diajukan belum terkunci");
+
+// ===== pesanPerubahanStatus =====
+
+const pesan = pesanPerubahanStatus(TEMPLATE_STATUS_DEFAULT, {
+  nama: "Rani",
+  nomorReferensi: "PGD-1",
+  statusLama: "diajukan",
+  statusBaru: "disetujui",
+  alasan: "dokumen lengkap",
+  pokokDiajukan: 1_000_000,
+  pokokDisetujui: 500_000,
+  totalKewajiban: 650_000,
+});
+eq(pesan.includes("Rani"), true, "pesan memuat nama");
+eq(pesan.includes("PGD-1"), true, "pesan memuat referensi");
+eq(pesan.includes("Disetujui"), true, "pesan memuat status");
+eq(pesan.includes("dokumen lengkap"), true, "pesan memuat alasan");
+eq(pesan.includes("Rp 1.000.000"), true, "pesan memuat nominal diajukan");
+eq(pesan.includes("Rp 500.000"), true, "pesan memuat nominal disetujui");
+eq(pesan.includes("Rp 650.000"), true, "pesan memuat total kewajiban");
+// Persetujuan sebagian dijelaskan eksplisit.
+eq(/disetujui sebagian/i.test(pesan), true, "pesan menjelaskan ACC sebagian");
+// Tidak ada placeholder yang tersisa.
+eq(/\{[a-z]+\}/.test(pesan), false, "tanpa placeholder tersisa");
+
+// ACC penuh: tanpa kalimat "sebagian".
+const penuh = pesanPerubahanStatus(TEMPLATE_STATUS_DEFAULT, {
+  nama: "Rani",
+  nomorReferensi: "PGD-2",
+  statusLama: "sedang_direview",
+  statusBaru: "disetujui",
+  alasan: "lengkap",
+  pokokDiajukan: 1_000_000,
+  pokokDisetujui: 1_000_000,
+  totalKewajiban: 1_300_000,
+});
+eq(/sebagian/i.test(penuh), false, "ACC penuh tanpa kalimat sebagian");
+
+// Penolakan: kewajiban tidak diketahui → tanda pisah, bukan "NaN".
+const tolak = pesanPerubahanStatus(TEMPLATE_STATUS_DEFAULT, {
+  nama: "Rani",
+  nomorReferensi: "PGD-3",
+  statusLama: "diajukan",
+  statusBaru: "ditolak",
+  alasan: "penghasilan belum memadai",
+  pokokDiajukan: 1_000_000,
+  pokokDisetujui: 1_000_000,
+  totalKewajiban: null,
+});
+eq(tolak.includes("Ditolak"), true, "pesan penolakan memuat status");
+eq(tolak.includes("NaN"), false, "tidak ada NaN");
+eq(tolak.includes("penghasilan belum memadai"), true, "alasan penolakan terkirim");
+eq(/sebagian/i.test(tolak), false, "penolakan tanpa kalimat sebagian");
+
+// Nominal warisan non-bulat tetap menghasilkan teks, bukan galat.
+const warisan = pesanPerubahanStatus(TEMPLATE_STATUS_DEFAULT, {
+  nama: "Rani",
+  nomorReferensi: "PGD-4",
+  statusLama: "diajukan",
+  statusBaru: "disetujui",
+  alasan: "koreksi",
+  pokokDiajukan: 1_000_000.5,
+  pokokDisetujui: 1_000_000.5,
+  totalKewajiban: null,
+});
+eq(warisan.includes("NaN"), false, "warisan non-bulat tetap aman");
+
+console.log(`statusPinjaman.test: ${passed} lulus, ${failed} gagal`);
+if (failed > 0) process.exit(1);

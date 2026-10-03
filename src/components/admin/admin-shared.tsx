@@ -18,6 +18,8 @@ export type LoanRow = {
   _creationTime: number;
   nomorReferensi: string;
   pokokPinjaman: number;
+  /** Nominal asli pengajuan — berbeda dari pokokPinjaman bila disetujui sebagian. */
+  pokokDiajukan?: number;
   tujuan: string;
   status: "diajukan" | "sedang_direview" | "disetujui" | "ditolak" | "didanai" | "lunas";
   catatanReview?: string;

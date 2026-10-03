@@ -83,11 +83,17 @@ describe("alur penyedia dana — pinjaman tunai", () => {
       });
     });
     expect((await peminjam.query(api.loans.listMyLoans, {}))[0]?.status).toBe("diajukan");
-    await admin.mutation(api.loans.markLoanInReview, { loanId });
+    await admin.mutation(api.loans.markLoanInReview, {
+      loanId,
+      reason: "Berkas lengkap, mulai ditinjau.",
+    });
     expect((await peminjam.query(api.loans.listMyLoans, {}))[0]?.status).toBe(
       "sedang_direview",
     );
-    await admin.mutation(api.loans.approveLoan, { loanId });
+    await admin.mutation(api.loans.approveLoan, {
+      loanId,
+      reason: "Layak disetujui penuh.",
+    });
     expect((await peminjam.query(api.loans.listMyLoans, {}))[0]?.status).toBe(
       "disetujui",
     );
