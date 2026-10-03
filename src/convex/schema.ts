@@ -155,6 +155,16 @@ const schema = defineSchema(
       lunasPada: v.optional(v.number()),
       /** Denda keterlambatan rupiah bulat yang dibayar saat pelunasan. */
       dendaTerlambat: v.optional(v.number()),
+      /**
+       * Penyedia dana TUNGGAL pinjaman ini (model 1 pinjaman = 1 pendana —
+       * tanpa sistem alokasi bertingkat). Diisi saat pinjaman didanai/di-seed.
+       */
+      pendanaId: v.optional(v.id("users")),
+      /**
+       * Nama penyedia dana untuk kolom "Pendana" bila akunnya tidak ada
+       * (cadangan data warisan/seed). Diisi bersama `pendanaId` bila mungkin.
+       */
+      pendanaNama: v.optional(v.string()),
       // ===== KYC wajib saat pengajuan (lihat verifyKyc di lib/kyc.ts) =====
       /** NIK 16 digit sesuai KTP. */
       nik: v.optional(v.string()),

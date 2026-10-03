@@ -1,5 +1,10 @@
 /** Run: bun src/lib/bagiHasil.test.ts */
-import { POTONGAN_ADMIN_DEFAULT_PERSEN, bagiImbalHasil } from "./bagiHasil";
+import {
+  BUNGA_PINJAMAN_DEFAULT_PERSEN,
+  POTONGAN_ADMIN_DEFAULT_PERSEN,
+  bagiHasilPinjaman,
+  bagiImbalHasil,
+} from "./bagiHasil";
 
 let passed = 0;
 let failed = 0;
@@ -63,6 +68,67 @@ throws(() => bagiImbalHasil(-1, 5), "Imbal Hasil negatif ditolak");
 throws(() => bagiImbalHasil(1.5, 5), "Imbal Hasil pecahan ditolak");
 throws(() => bagiImbalHasil(1_000_000, -1), "persentase negatif ditolak");
 throws(() => bagiImbalHasil(1_000_000, 101), "persentase >100 ditolak");
+
+// ===== Bagi hasil pinjaman (model 1 pinjaman = 1 pendana) =====
+// Contoh acuan: pokok Rp1.000.000, bunga 30% → total Rp1.300.000,
+// potongan admin 5% dari total = Rp65.000, penyedia dana menerima Rp1.235.000.
+eq(BUNGA_PINJAMAN_DEFAULT_PERSEN, 30, "bunga pinjaman bawaan 30%");
+const acuan = bagiHasilPinjaman(1_000_000, 30, 5);
+eq(acuan.bunga, 300_000, "bunga = 30% dari pokok");
+eq(acuan.totalLunas, 1_300_000, "total lunas = pokok + bunga");
+eq(acuan.potonganAdmin, 65_000, "potongan admin = 5% dari TOTAL (bukan dari bunga)");
+eq(acuan.pendanaTerima, 1_235_000, "yang diterima penyedia dana = total − potongan");
+eq(acuan.keuntunganPendana, 235_000, "keuntungan bersih penyedia dana");
+eq(acuan.keuntunganAdmin, 65_000, "keuntungan admin = potongan");
+
+// Pendana menerima pokok kembali utuh + keuntungan; admin tidak menyentuh pokok.
+eq(
+  acuan.pendanaTerima - acuan.keuntunganPendana,
+  1_000_000,
+  "pokok kembali utuh ke penyedia dana",
+);
+
+// Pembulatan selalu ke bawah: sisa rupiah milik penyedia dana, bukan admin.
+const ganjilPinjam = bagiHasilPinjaman(500_150, 30, 5);
+eq(ganjilPinjam.bunga, 150_045, "30% dari Rp500.150 dibulatkan ke bawah");
+eq(ganjilPinjam.totalLunas, 650_195, "total lunas akurat");
+eq(
+  ganjilPinjam.potonganAdmin + ganjilPinjam.pendanaTerima,
+  ganjilPinjam.totalLunas,
+  "tidak ada rupiah hilang antara admin dan penyedia",
+);
+
+// Kebijakan dinonaktifkan & batas ekstrem.
+eq(bagiHasilPinjaman(1_000_000, 30, 0).keuntunganAdmin, 0, "0% admin tidak memotong");
+eq(
+  bagiHasilPinjaman(1_000_000, 30, 0).keuntunganPendana,
+  300_000,
+  "0% admin menyisakan bunga penuh untuk penyedia",
+);
+
+// Invariant: potongan + pendanaTerima = totalLunas; keuntunganPendana = bunga − potongan.
+for (const pokok of [0, 1, 500_150, 1_000_000, 2_000_000, 999_999_999]) {
+  for (const persenBunga of [0, 7.5, 10, 30]) {
+    for (const persenAdmin of [0, 2.5, 5]) {
+      const h = bagiHasilPinjaman(pokok, persenBunga, persenAdmin);
+      eq(
+        h.potonganAdmin + h.pendanaTerima,
+        h.totalLunas,
+        `potongan + diterima = total (pokok ${pokok}, bunga ${persenBunga}%, admin ${persenAdmin}%)`,
+      );
+      eq(
+        h.keuntunganPendana,
+        h.bunga - h.potonganAdmin,
+        `keuntungan pendana = bunga − potongan (pokok ${pokok})`,
+      );
+    }
+  }
+}
+
+throws(() => bagiHasilPinjaman(-1, 30, 5), "pokok negatif ditolak");
+throws(() => bagiHasilPinjaman(1.5, 30, 5), "pokok pecahan ditolak");
+throws(() => bagiHasilPinjaman(1_000_000, -1, 5), "bunga negatif ditolak");
+throws(() => bagiHasilPinjaman(1_000_000, 30, 101), "potongan admin >100 ditolak");
 
 console.log(`bagiHasil.test.ts: ${passed} passed, ${failed} failed`);
 if (failed > 0) process.exit(1);

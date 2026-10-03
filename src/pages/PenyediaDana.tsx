@@ -44,6 +44,7 @@ import type {
   BarisKredit,
   BarisPinjaman,
   LokasiTitik,
+  RekapPendana,
 } from "@/convex/penyediaDana";
 import { useAuth } from "@/hooks/use-auth";
 import { hitungSimulasiBulanan } from "@/lib/bulanan";
@@ -229,6 +230,54 @@ function KartuRingkasan({
   );
 }
 
+/**
+ * Kartu rekap satu penyedia dana (model 1 pinjaman = 1 pendana): jumlah
+ * pinjaman, pokok yang bekerja, keuntungan bersih pendana, dan keuntungan admin.
+ */
+function KartuPendana({ r }: { r: RekapPendana }) {
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="inline-flex items-center gap-1.5 font-semibold text-slate-900">
+          <Wallet className="size-3.5 text-primary" aria-hidden /> {r.nama}
+        </p>
+        <Badge
+          variant="outline"
+          className="border-slate-200 text-[10px] font-medium text-slate-500"
+        >
+          {r.jumlahPinjaman} pinjaman · {r.jumlahAktif} aktif · {r.jumlahLunas} lunas
+        </Badge>
+      </div>
+      <dl className="mt-3 space-y-1.5 text-xs">
+        <div className="flex items-baseline justify-between gap-2">
+          <dt className="text-muted-foreground">Total disalurkan</dt>
+          <dd className="font-medium tabular-nums text-slate-900">
+            {rupiah(r.totalDisalurkan)}
+          </dd>
+        </div>
+        <div className="flex items-baseline justify-between gap-2">
+          <dt className="text-muted-foreground">Saldo berjalan</dt>
+          <dd className="font-medium tabular-nums text-slate-900">
+            {rupiah(r.saldoBerjalan)}
+          </dd>
+        </div>
+        <div className="flex items-baseline justify-between gap-2">
+          <dt className="text-muted-foreground">Keuntungan pendana</dt>
+          <dd className="font-semibold tabular-nums text-emerald-700">
+            {rupiah(r.keuntunganPendana)}
+          </dd>
+        </div>
+        <div className="flex items-baseline justify-between gap-2">
+          <dt className="text-muted-foreground">Keuntungan admin</dt>
+          <dd className="font-semibold tabular-nums text-amber-700">
+            {rupiah(r.keuntunganAdmin)}
+          </dd>
+        </div>
+      </dl>
+    </div>
+  );
+}
+
 function KeadaanKosong({ pesan }: { pesan: string }) {
   return (
     <p className="rounded-2xl border border-dashed border-slate-200 bg-white px-5 py-10 text-center text-sm text-muted-foreground">
@@ -347,6 +396,20 @@ function DetailPinjaman({ row }: { row: BarisPinjaman }) {
       <BarisDetail
         label="Dana bersih diterima"
         nilai={danaBersih === null ? "—" : rupiah(danaBersih)}
+      />
+      <BarisDetail label="Bunga pinjaman" nilai={rupiah(row.bunga)} />
+      <BarisDetail
+        label="Total kewajiban (pokok + bunga)"
+        nilai={rupiah(row.totalLunas)}
+      />
+      <BarisDetail label="Potongan admin" nilai={rupiah(row.potonganAdmin)} />
+      <BarisDetail
+        label="Keuntungan pendana (bersih)"
+        nilai={row.pendana === null ? "—" : rupiah(row.keuntunganPendana)}
+      />
+      <BarisDetail
+        label="Keuntungan admin"
+        nilai={row.pendana === null ? "—" : rupiah(row.keuntunganAdmin)}
       />
       <BarisDetail
         label="Tenor"
@@ -867,6 +930,30 @@ function IsiRuang() {
               />
             </div>
 
+            {data.rekapPendana.length > 0 && (
+              <section className="animate-masuk mt-6">
+                <div className="flex flex-wrap items-baseline justify-between gap-2">
+                  <h2 className="text-lg font-semibold tracking-tight">
+                    Rekap Dana Penyedia
+                  </h2>
+                  <p className="text-xs font-medium tabular-nums text-muted-foreground">
+                    Keuntungan pendana {rupiah(data.ringkasan.totalKeuntunganPendana)} · keuntungan
+                    admin {rupiah(data.ringkasan.totalKeuntunganAdmin)}
+                  </p>
+                </div>
+                <p className="mt-1 max-w-3xl text-xs leading-6 text-muted-foreground">
+                  Model <strong>1 pinjaman = 1 pendana</strong>. Bunga {data.ringkasan.persenBunga}%
+                  dari pokok; admin mengambil {data.ringkasan.persenPotonganAdmin}% dari total
+                  kewajiban. Angka di bawah dihitung dari pinjaman yang berjalan dan lunas.
+                </p>
+                <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  {data.rekapPendana.map((r) => (
+                    <KartuPendana key={r.nama} r={r} />
+                  ))}
+                </div>
+              </section>
+            )}
+
             <Tabs value={tab} onValueChange={setTab} className="animate-masuk mt-6">
               <TabsList
                 aria-label="Kategori pengajuan"
@@ -923,10 +1010,14 @@ function IsiRuang() {
                         "No. Ref",
                         "Nama",
                         "Pinjaman",
+                        `Bunga ${data.ringkasan.persenBunga}%`,
+                        "Total Lunas",
                         "Tenor",
                         "Tanggal",
                         "Status",
                         "Pendana",
+                        "Keuntungan Pendana",
+                        "Potongan Admin",
                         "Lokasi",
                         "Aksi",
                       ]}
@@ -940,6 +1031,12 @@ function IsiRuang() {
                           <TableCell className="whitespace-nowrap align-top font-semibold tabular-nums">
                             {rupiah(row.pokokPinjaman)}
                           </TableCell>
+                          <TableCell className="whitespace-nowrap align-top font-medium tabular-nums text-emerald-700">
+                            {rupiah(row.bunga)}
+                          </TableCell>
+                          <TableCell className="whitespace-nowrap align-top font-medium tabular-nums text-slate-700">
+                            {rupiah(row.totalLunas)}
+                          </TableCell>
                           <TableCell className="whitespace-nowrap align-top text-slate-600">
                             {row.tenorBulan === null
                               ? `${row.tenorHari} hari`
@@ -952,6 +1049,12 @@ function IsiRuang() {
                             <StatusBadge status={row.status} kind="loan" />
                           </TableCell>
                           <SelPendana pendana={row.pendana} />
+                          <TableCell className="whitespace-nowrap align-top font-semibold tabular-nums text-emerald-700">
+                            {row.pendana === null ? "—" : rupiah(row.keuntunganPendana)}
+                          </TableCell>
+                          <TableCell className="whitespace-nowrap align-top font-semibold tabular-nums text-amber-700">
+                            {row.pendana === null ? "—" : rupiah(row.potonganAdmin)}
+                          </TableCell>
                           <SelLokasi lokasi={row.lokasi} sekarang={sekarang} />
                           <TableCell className="align-top">
                             <Button

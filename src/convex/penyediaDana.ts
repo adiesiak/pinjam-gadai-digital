@@ -27,7 +27,7 @@ import type { Id } from "./_generated/dataModel";
 import { mutation, query, type QueryCtx } from "./_generated/server";
 import { SLOT_AKSES_BERSAMA } from "./aksesBersama";
 import { requireAdminSession } from "./adminAuthz";
-import { bagiImbalHasil } from "../lib/bagiHasil";
+import { bagiHasilPinjaman, bagiImbalHasil } from "../lib/bagiHasil";
 import { akunDompetDana, danaWalletBalance } from "./ledger";
 import { ROLES } from "./schema";
 import { audit, getConfig } from "./system";
@@ -115,10 +115,41 @@ export type BarisPinjaman = {
   diajukanPada: number;
   /** Waktu pendanaan penuh — null bila belum didanai. */
   didanaiPada: number | null;
-  /** Nama penyedia dana yang mencatat alokasi — null bila belum didanai. */
+  /** Nama penyedia dana tunggal pinjaman ini — null bila belum didanai. */
   pendana: string | null;
+  /** Bunga pinjaman = pokok × persen bunga (dari Pengaturan Sistem). */
+  bunga: number;
+  /** Total kewajiban Peminjam = pokok + bunga (mis. Rp1jt → Rp1,3jt). */
+  totalLunas: number;
+  /** Potongan admin atas pinjaman ini (persen admin × total kewajiban). */
+  potonganAdmin: number;
+  /** Keuntungan bersih penyedia dana = bunga − potongan admin. */
+  keuntunganPendana: number;
+  /** Keuntungan admin atas pinjaman ini (sama dengan potongan admin). */
+  keuntunganAdmin: number;
   /** Titik lokasi terakhir yang diketahui — null bila belum pernah terkirim. */
   lokasi: LokasiTitik | null;
+};
+
+/**
+ * Rekap keuntungan per penyedia dana (model 1 pinjaman = 1 pendana), dihitung
+ * dari baris pinjaman yang benar-benar dikirim ke klien — bukan angka tersimpan.
+ */
+export type RekapPendana = {
+  nama: string;
+  jumlahPinjaman: number;
+  jumlahAktif: number;
+  jumlahLunas: number;
+  /** Pokok seluruh pinjaman berjalan + lunas yang didanai akun ini. */
+  totalDisalurkan: number;
+  /** Pokok pinjaman yang masih berjalan (status didanai). */
+  saldoBerjalan: number;
+  /** Total bunga (kewajiban − pokok) pinjaman berjalan + lunas. */
+  totalBunga: number;
+  /** Keuntungan bersih penyedia dana (bunga − potongan admin). */
+  keuntunganPendana: number;
+  /** Keuntungan admin dari pinjaman penyedia dana ini. */
+  keuntunganAdmin: number;
 };
 
 export type BarisGadai = {
@@ -164,6 +195,26 @@ export type BarisKredit = {
   /** Titik lokasi terakhir yang diketahui — null bila belum pernah terkirim. */
   lokasi: LokasiTitik | null;
 };
+
+/**
+ * Perhitungan bagi hasil tahan-data-warisan: satu baris non-standar tidak
+ * boleh merobohkan seluruh halaman. Bila pokok bukan rupiah bulat, tampilkan
+ * tanpa perhitungan (bunga/potongan nol) alih-alih menggagalkan query.
+ */
+function bagiPinjamanAman(pokok: number, persenBunga: number, persenAdmin: number) {
+  try {
+    return bagiHasilPinjaman(pokok, persenBunga, persenAdmin);
+  } catch {
+    return {
+      bunga: 0,
+      totalLunas: pokok,
+      potonganAdmin: 0,
+      pendanaTerima: pokok,
+      keuntunganPendana: 0,
+      keuntunganAdmin: 0,
+    };
+  }
+}
 
 const MENUNGGU_PINJAMAN = new Set(["diajukan", "sedang_direview"]);
 const MENUNGGU_GADAI = new Set(["diajukan", "sedang_dinilai"]);
@@ -247,6 +298,8 @@ export const daftarPengajuan = query({
   args: {},
   handler: async (ctx) => {
     await requirePengamat(ctx);
+    // Kebijakan bunga & potongan admin dibaca dari Pengaturan Sistem.
+    const cfg = await getConfig(ctx);
 
     // Cache kode pseudonim — satu pembacaan per peminjam, bukan per baris.
     const kodeCache = new Map<Id<"users">, string | null>();
@@ -331,6 +384,14 @@ export const daftarPengajuan = query({
 
     const pinjaman: BarisPinjaman[] = [];
     for (const loan of pinjamanMentah.slice(0, BATAS_BARIS)) {
+      const bagi = bagiPinjamanAman(loan.pokokPinjaman, cfg.persenBunga, cfg.persenAdmin);
+      // Model 1 pinjaman = 1 pendana: penyedia dibaca langsung dari pinjaman.
+      // Baris alokasi lama (`fundings`) tetap dibaca sebagai cadangan warisan.
+      const pendana =
+        loan.pendanaId !== undefined
+          ? await namaPenyedia(loan.pendanaId)
+          : (loan.pendanaNama ??
+            (loan.didanaiPada === undefined ? null : await pendanaPinjaman(loan._id)));
       pinjaman.push({
         _id: loan._id,
         nomorReferensi: loan.nomorReferensi,
@@ -343,8 +404,12 @@ export const daftarPengajuan = query({
         status: loan.status,
         diajukanPada: loan._creationTime,
         didanaiPada: loan.didanaiPada ?? null,
-        pendana:
-          loan.didanaiPada === undefined ? null : await pendanaPinjaman(loan._id),
+        pendana,
+        bunga: bagi.bunga,
+        totalLunas: bagi.totalLunas,
+        potonganAdmin: bagi.potonganAdmin,
+        keuntunganPendana: bagi.keuntunganPendana,
+        keuntunganAdmin: bagi.keuntunganAdmin,
         // Pinjaman menyimpan titik GPS saat pengajuan dikirim — dipakai sebagai
         // cadangan bila perangkat belum pernah mengirim heartbeat.
         lokasi:
@@ -404,6 +469,38 @@ export const daftarPengajuan = query({
       });
     }
 
+    // Rekap keuntungan per penyedia dana (model 1 pinjaman = 1 pendana).
+    // Hanya pinjaman berjalan (didanai) dan lunas yang dihitung uangnya.
+    const rekapMap = new Map<string, RekapPendana>();
+    for (const b of pinjaman) {
+      if (b.pendana === null) continue;
+      if (b.status !== "didanai" && b.status !== "lunas") continue;
+      const r =
+        rekapMap.get(b.pendana) ?? {
+          nama: b.pendana,
+          jumlahPinjaman: 0,
+          jumlahAktif: 0,
+          jumlahLunas: 0,
+          totalDisalurkan: 0,
+          saldoBerjalan: 0,
+          totalBunga: 0,
+          keuntunganPendana: 0,
+          keuntunganAdmin: 0,
+        };
+      r.jumlahPinjaman += 1;
+      if (b.status === "lunas") r.jumlahLunas += 1;
+      else r.jumlahAktif += 1;
+      r.totalDisalurkan += b.pokokPinjaman;
+      if (b.status === "didanai") r.saldoBerjalan += b.pokokPinjaman;
+      r.totalBunga += b.bunga;
+      r.keuntunganPendana += b.keuntunganPendana;
+      r.keuntunganAdmin += b.keuntunganAdmin;
+      rekapMap.set(b.pendana, r);
+    }
+    const rekapPendana = [...rekapMap.values()].sort(
+      (a, b) => b.totalDisalurkan - a.totalDisalurkan,
+    );
+
     // Ringkasan dihitung dari baris yang benar-benar dikirim (Zero Fake Data).
     const ringkasan = {
       jumlahPinjaman: pinjaman.length,
@@ -416,6 +513,18 @@ export const daftarPengajuan = query({
       nilaiPinjaman: pinjaman.reduce((total, b) => total + b.pokokPinjaman, 0),
       nilaiGadai: gadai.reduce((total, b) => total + (b.nilaiTaksiran ?? 0), 0),
       nilaiKredit: kredit.reduce((total, b) => total + b.hargaBarang, 0),
+      /** Total bunga pinjaman yang tercatat pada baris yang dikirim. */
+      totalBungaPinjaman: pinjaman.reduce((total, b) => total + b.bunga, 0),
+      /** Keuntungan admin dari pinjaman yang sudah berjalan/lunas. */
+      totalKeuntunganAdmin: rekapPendana.reduce((total, r) => total + r.keuntunganAdmin, 0),
+      /** Keuntungan bersih penyedia dana dari pinjaman berjalan/lunas. */
+      totalKeuntunganPendana: rekapPendana.reduce(
+        (total, r) => total + r.keuntunganPendana,
+        0,
+      ),
+      /** Kebijakan yang dipakai menghitung kolom bagi hasil di halaman ini. */
+      persenBunga: cfg.persenBunga,
+      persenPotonganAdmin: cfg.persenAdmin,
     };
 
     return {
@@ -426,6 +535,7 @@ export const daftarPengajuan = query({
         kredit: kreditMentah.length > BATAS_BARIS,
       },
       ringkasan,
+      rekapPendana,
       pinjaman,
       gadai,
       kredit,
