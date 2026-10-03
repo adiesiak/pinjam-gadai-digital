@@ -495,21 +495,29 @@ describe("kelola penyedia dana (panel admin)", () => {
     ).rejects.toThrow(/admin/i);
 
     await t.run(async (ctx) => {
-      await ctx.db.insert("fundings", {
-        loanId,
-        danaId: penyediaId,
-        jumlahAlokasi: 1_000_000,
-        imbalHasil: 300_000,
-        status: "dialokasikan",
-        nomorReferensi: "FND-KELOLA-1",
+      // Model baru: satu pinjaman = satu pendana. Pinjaman dari seedPengajuan
+      // dinormalkan menjadi sedang berjalan milik Robert, dan satu pinjaman
+      // lunas ditambahkan sebagai posisi yang sudah kembali.
+      await ctx.db.patch(loanId, {
+        status: "didanai",
+        pokokPinjaman: 1_000_000,
+        pendanaId: penyediaId,
+        pendanaNama: "Robert",
+        didanaiPada: Date.now(),
       });
-      await ctx.db.insert("fundings", {
-        loanId,
-        danaId: penyediaId,
-        jumlahAlokasi: 500_000,
-        imbalHasil: 150_000,
-        status: "selesai",
-        nomorReferensi: "FND-KELOLA-2",
+      await ctx.db.insert("loans", {
+        userId: peminjamId,
+        pokokPinjaman: 500_000,
+        tujuan: "Modal usaha",
+        namaLengkap: NAMA_PEMOHON,
+        nomorRekening: RAHASIA.nomorRekening,
+        status: "lunas",
+        nomorReferensi: "PGD-KELOLA-LUNAS",
+        tenorHari: 30,
+        didanaiPada: Date.now() - 1_000,
+        lunasPada: Date.now(),
+        pendanaId: penyediaId,
+        pendanaNama: "Robert",
       });
       await ctx.db.insert("deposits", {
         danaId: penyediaId,
@@ -561,13 +569,17 @@ describe("kelola penyedia dana (panel admin)", () => {
     expect(baris).toBeDefined();
     expect(baris?.akunBersama).toBe(false);
     expect(baris?.aksesAktif).toBe(true);
-    expect(baris?.jumlahAlokasi).toBe(2);
-    // Hanya alokasi berstatus "dialokasikan" yang masuk saldo berjalan.
+    expect(baris?.jumlahPinjaman).toBe(2);
+    expect(baris?.jumlahAktif).toBe(1);
+    expect(baris?.jumlahLunas).toBe(1);
+    // Hanya pinjaman berstatus "didanai" yang masuk saldo berjalan.
     expect(baris?.saldoBerjalan).toBe(1_000_000);
-    expect(baris?.imbalBrutoDiharapkan).toBe(300_000);
-    // 5% dari Rp 300.000 dipotong untuk admin (kebijakan uji di bawah).
-    expect(baris?.potonganAdminDiharapkan).toBe(15_000);
-    expect(baris?.imbalBersihDiharapkan).toBe(285_000);
+    expect(baris?.totalDisalurkan).toBe(1_500_000);
+    // Bunga 30%: 300.000 + 150.000.
+    expect(baris?.totalBunga).toBe(450_000);
+    // Admin 5% dari total kewajiban: 65.000 + 32.500.
+    expect(baris?.keuntunganAdmin).toBe(97_500);
+    expect(baris?.keuntunganPendana).toBe(352_500);
     expect(baris?.totalSetoran).toBe(2_000_000);
     expect(baris?.setoranMenunggu).toBe(1);
     expect(baris?.totalPenarikan).toBe(0);
@@ -581,11 +593,12 @@ describe("kelola penyedia dana (panel admin)", () => {
       jumlahPeranLegacy: 0,
       jumlahPemantau: 0,
       persenPotonganAdmin: 5,
+      persenBunga: 30,
       totalDisalurkan: 1_500_000,
       saldoBerjalan: 1_000_000,
-      imbalBrutoDiharapkan: 300_000,
-      potonganAdminDiharapkan: 15_000,
-      imbalBersihDiharapkan: 285_000,
+      totalBunga: 450_000,
+      keuntunganAdmin: 97_500,
+      keuntunganPendana: 352_500,
       totalSetoran: 2_000_000,
       saldoDompet: 1_000_000,
       setoranMenunggu: 1,
@@ -598,9 +611,17 @@ describe("kelola penyedia dana (panel admin)", () => {
     expect(rincian?.email).toBe("robert@pindai.test");
     expect(rincian?.akunBersama).toBe(false);
     expect(rincian?.saldoDompet).toBe(1_000_000);
-    expect(rincian?.alokasiPinjaman).toHaveLength(2);
-    expect(rincian?.alokasiPinjaman[0]?.referensi).toBe("PGD-UJI-1");
-    expect(rincian?.alokasiKredit).toHaveLength(0);
+    expect(rincian?.pinjaman).toHaveLength(2);
+    expect(rincian?.pinjaman.some((p) => p.referensi === "PGD-UJI-1")).toBe(true);
+    expect(rincian?.ringkasKeuntungan).toMatchObject({
+      persenPotonganAdmin: 5,
+      persenBunga: 30,
+      pokok: 1_500_000,
+      saldoBerjalan: 1_000_000,
+      totalBunga: 450_000,
+      keuntunganAdmin: 97_500,
+      keuntunganPendana: 352_500,
+    });
     // Riwayat selalu diurutkan dari yang terbaru.
     expect(rincian?.setoran.map((s) => s.referensi)).toEqual([
       "DEP-KELOLA-2",
@@ -661,13 +682,11 @@ describe("kelola penyedia dana (panel admin)", () => {
     await t.run((ctx) => ctx.db.patch(legacyId, { role: "pendana" as never }));
     const { loanId } = await seedPengajuan(t, peminjamId);
     await t.run((ctx) =>
-      ctx.db.insert("fundings", {
-        loanId,
-        danaId: legacyId,
-        jumlahAlokasi: 2_000_000,
-        imbalHasil: 600_000,
-        status: "dialokasikan",
-        nomorReferensi: "FND-WARISAN-1",
+      ctx.db.patch(loanId, {
+        status: "didanai",
+        pokokPinjaman: 2_000_000,
+        pendanaId: legacyId,
+        didanaiPada: Date.now(),
       }),
     );
 
@@ -699,7 +718,7 @@ describe("kelola penyedia dana (panel admin)", () => {
     expect(sesudah.ringkasan).toMatchObject({ jumlahAkses: 1, jumlahPeranLegacy: 0 });
   });
 
-  it("memisahkan keuntungan yang sudah dibayar (cap settlement) dari yang masih berjalan", async () => {
+  it("menghitung bunga, potongan admin, dan keuntungan pendana dari model pinjaman tunggal", async () => {
     const t = convexTest(schema, modules);
     const { sesi: admin } = await siapkanPengguna(t, "admin", {
       email: "admin@pindai.test",
@@ -716,59 +735,50 @@ describe("kelola penyedia dana (panel admin)", () => {
     const { loanId } = await seedPengajuan(t, peminjamId);
 
     await t.run(async (ctx) => {
-      // 1. Sudah lunas SESUDAH kebijakan potongan: ada cap settlement.
-      await ctx.db.insert("fundings", {
-        loanId,
-        danaId: penyediaId,
-        jumlahAlokasi: 1_000_000,
-        imbalHasil: 300_000,
-        status: "selesai",
-        nomorReferensi: "FND-BAGI-1",
-        potonganAdmin: 15_000,
-        imbalHasilNet: 285_000,
-        diselesaikanPada: 1_800_000_000_000,
+      // 1. Pinjaman berjalan: pokok 2jt → bunga 600rb, kewajiban 2,6jt.
+      await ctx.db.patch(loanId, {
+        status: "didanai",
+        pokokPinjaman: 2_000_000,
+        pendanaId: penyediaId,
+        pendanaNama: "Robert",
+        didanaiPada: Date.now(),
       });
-      // 2. Lunas SEBELUM kebijakan ada: tanpa cap, dibayar penuh (bukan dikarang mundur).
-      await ctx.db.insert("fundings", {
-        loanId,
-        danaId: penyediaId,
-        jumlahAlokasi: 500_000,
-        imbalHasil: 150_000,
-        status: "selesai",
-        nomorReferensi: "FND-BAGI-2",
-      });
-      // 3. Masih berjalan: angkanya perkiraan dengan kebijakan sekarang (5%).
-      await ctx.db.insert("fundings", {
-        loanId,
-        danaId: penyediaId,
-        jumlahAlokasi: 2_000_000,
-        imbalHasil: 600_000,
-        status: "dialokasikan",
-        nomorReferensi: "FND-BAGI-3",
+      // 2. Pinjaman lunas: pokok 1jt → bunga 300rb.
+      await ctx.db.insert("loans", {
+        userId: peminjamId,
+        pokokPinjaman: 1_000_000,
+        tujuan: "Renovasi rumah",
+        namaLengkap: NAMA_PEMOHON,
+        nomorRekening: RAHASIA.nomorRekening,
+        status: "lunas",
+        nomorReferensi: "PGD-BAGI-LUNAS",
+        tenorHari: 30,
+        didanaiPada: Date.now() - 5_000,
+        lunasPada: Date.now(),
+        pendanaId: penyediaId,
+        pendanaNama: "Robert",
       });
     });
 
     const daftar = await admin.query(api.penyediaDana.daftarInvestor, {});
     const baris = daftar.rows.find((r) => r.userId === penyediaId);
-    expect(baris?.jumlahAlokasi).toBe(3);
-    expect(baris?.jumlahLunas).toBe(2);
+    expect(baris?.jumlahPinjaman).toBe(2);
     expect(baris?.jumlahAktif).toBe(1);
-    expect(baris?.totalDisalurkan).toBe(3_500_000);
+    expect(baris?.jumlahLunas).toBe(1);
+    expect(baris?.totalDisalurkan).toBe(3_000_000);
     expect(baris?.saldoBerjalan).toBe(2_000_000);
-    // Sudah dibayar: bruto 450.000, potongan 15.000 (hanya alokasi bercap), bersih 435.000.
-    expect(baris?.imbalBrutoTerealisasi).toBe(450_000);
-    expect(baris?.potonganAdminTerealisasi).toBe(15_000);
-    expect(baris?.imbalBersihTerealisasi).toBe(435_000);
-    // Masih berjalan: 5% dari 600.000.
-    expect(baris?.imbalBrutoDiharapkan).toBe(600_000);
-    expect(baris?.potonganAdminDiharapkan).toBe(30_000);
-    expect(baris?.imbalBersihDiharapkan).toBe(570_000);
+    // Bunga 30% dari pokok: 600.000 + 300.000.
+    expect(baris?.totalBunga).toBe(900_000);
+    // Admin 5% dari total kewajiban: 130.000 + 65.000.
+    expect(baris?.keuntunganAdmin).toBe(195_000);
+    // Keuntungan bersih pendana = kewajiban − potongan − pokok.
+    expect(baris?.keuntunganPendana).toBe(705_000);
     expect(daftar.ringkasan).toMatchObject({
       persenPotonganAdmin: 5,
-      imbalBrutoTerealisasi: 450_000,
-      potonganAdminTerealisasi: 15_000,
-      imbalBersihTerealisasi: 435_000,
-      imbalBersihDiharapkan: 570_000,
+      persenBunga: 30,
+      totalBunga: 900_000,
+      keuntunganAdmin: 195_000,
+      keuntunganPendana: 705_000,
     });
 
     const rincian = await admin.query(api.penyediaDana.rincianInvestor, {
@@ -776,26 +786,24 @@ describe("kelola penyedia dana (panel admin)", () => {
     });
     expect(rincian?.ringkasKeuntungan).toMatchObject({
       persenPotonganAdmin: 5,
-      pokok: 3_500_000,
+      persenBunga: 30,
+      pokok: 3_000_000,
       saldoBerjalan: 2_000_000,
-      brutoTerealisasi: 450_000,
-      potonganTerealisasi: 15_000,
-      bersihTerealisasi: 435_000,
-      bersihDiharapkan: 570_000,
+      totalBunga: 900_000,
+      keuntunganAdmin: 195_000,
+      keuntunganPendana: 705_000,
     });
-    const perkiraan = rincian?.alokasiPinjaman.filter((a) => a.perkiraan) ?? [];
-    expect(perkiraan).toHaveLength(1);
-    expect(perkiraan[0]?.referensi).toBe("PGD-UJI-1");
-    expect(perkiraan[0]?.potonganAdmin).toBe(30_000);
-    expect(perkiraan[0]?.imbalBersih).toBe(570_000);
-    const bercap = rincian?.alokasiPinjaman.find((a) => !a.perkiraan && a.potonganAdmin === 15_000);
-    expect(bercap?.imbalBersih).toBe(285_000);
-    // Alokasi lunas tanpa cap tetap dianggap dibayar penuh.
-    const tanpaCap = rincian?.alokasiPinjaman.find(
-      (a) => !a.perkiraan && a.imbalHasil === 150_000,
-    );
-    expect(tanpaCap?.potonganAdmin).toBe(0);
-    expect(tanpaCap?.imbalBersih).toBe(150_000);
+    const berjalan = rincian?.pinjaman.find((p) => p.status === "didanai");
+    expect(berjalan?.referensi).toBe("PGD-UJI-1");
+    expect(berjalan?.bunga).toBe(600_000);
+    expect(berjalan?.totalLunas).toBe(2_600_000);
+    expect(berjalan?.potonganAdmin).toBe(130_000);
+    expect(berjalan?.keuntunganPendana).toBe(470_000);
+    const lunas = rincian?.pinjaman.find((p) => p.status === "lunas");
+    expect(lunas?.referensi).toBe("PGD-BAGI-LUNAS");
+    expect(lunas?.bunga).toBe(300_000);
+    expect(lunas?.potonganAdmin).toBe(65_000);
+    expect(lunas?.keuntunganPendana).toBe(235_000);
   });
 
   it("menyembunyikan akun peran lama tanpa jejak dana dan tanpa email", async () => {

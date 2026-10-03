@@ -27,7 +27,7 @@ import type { Id } from "./_generated/dataModel";
 import { mutation, query, type QueryCtx } from "./_generated/server";
 import { SLOT_AKSES_BERSAMA } from "./aksesBersama";
 import { requireAdminSession } from "./adminAuthz";
-import { bagiHasilPinjaman, bagiImbalHasil } from "../lib/bagiHasil";
+import { bagiHasilPinjaman } from "../lib/bagiHasil";
 import { akunDompetDana, danaWalletBalance } from "./ledger";
 import { ROLES } from "./schema";
 import { audit, getConfig } from "./system";
@@ -761,28 +761,25 @@ export type BarisInvestor = {
    */
   aksesAktif: boolean;
   terdaftarPada: number;
-  /** Jumlah alokasi tercatat (pinjaman + kredit barang), semua status. */
-  jumlahAlokasi: number;
-  /** Seluruh pokok yang pernah disalurkan akun ini — rupiah bulat. */
+  /**
+   * Jumlah pinjaman yang didanai akun ini (model 1 pinjaman = 1 pendana),
+   * hanya status berjalan (`didanai`) dan lunas (`lunas`).
+   */
+  jumlahPinjaman: number;
+  /** Pokok seluruh pinjaman berjalan + lunas yang didanai akun ini. */
   totalDisalurkan: number;
-  /** Pokok yang belum kembali (status dialokasikan = "Saldo Berjalan"). */
+  /** Pokok pinjaman yang belum kembali (status didanai = "Saldo Berjalan"). */
   saldoBerjalan: number;
   /** Jumlah peminjam berbeda yang pernah didanai akun ini. */
   jumlahPeminjam: number;
   jumlahAktif: number;
   jumlahLunas: number;
-  /** Keuntungan yang SUDAH dibayarkan (alokasi berstatus selesai), bruto. */
-  imbalBrutoTerealisasi: number;
-  /** Potongan admin yang benar-benar diambil dari keuntungan itu. */
-  potonganAdminTerealisasi: number;
-  /** Yang benar-benar masuk dompet penyedia dana (bruto − potongan). */
-  imbalBersihTerealisasi: number;
-  /** Keuntungan yang masih berjalan (alokasi aktif), bruto. */
-  imbalBrutoDiharapkan: number;
-  /** Potongan admin yang akan diambil bila alokasi aktif lunas. */
-  potonganAdminDiharapkan: number;
-  /** Perkiraan keuntungan bersih penyedia dana dari alokasi aktif. */
-  imbalBersihDiharapkan: number;
+  /** Total bunga pinjaman berjalan + lunas (bruto, sebelum potongan admin). */
+  totalBunga: number;
+  /** Potongan admin atas bunga pinjaman akun ini. */
+  keuntunganAdmin: number;
+  /** Keuntungan bersih penyedia dana (bunga − potongan admin). */
+  keuntunganPendana: number;
   /** Setoran yang sudah diverifikasi admin — rupiah bulat. */
   totalSetoran: number;
   setoranMenunggu: number;
@@ -842,16 +839,16 @@ export const daftarInvestor = query({
       }
     }
 
+    // Posisi dana dibaca dari model baru: satu pinjaman = satu pendana.
+    // Baris alokasi lama (`fundings`/`kreditFundings`) tidak lagi menjadi
+    // sumber angka panel — posisi pemilik dihitung dari `loans` berstatus
+    // didanai/lunas, persis seperti rekap di ruang penyedia dana.
+    const pinjamanBerposisi = (await ctx.db.query("loans").collect()).filter(
+      (l) => l.status === "didanai" || l.status === "lunas",
+    );
+
     const rows: BarisInvestor[] = [];
     for (const u of akun) {
-      const fundings = await ctx.db
-        .query("fundings")
-        .withIndex("by_dana", (q) => q.eq("danaId", u._id))
-        .collect();
-      const kreditFundings = await ctx.db
-        .query("kreditFundings")
-        .withIndex("by_dana", (q) => q.eq("danaId", u._id))
-        .collect();
       const setoran = await ctx.db
         .query("deposits")
         .withIndex("by_dana", (q) => q.eq("danaId", u._id))
@@ -861,49 +858,52 @@ export const daftarInvestor = query({
         .withIndex("by_dana", (q) => q.eq("danaId", u._id))
         .collect();
 
-      const alokasi = [...fundings, ...kreditFundings];
-      const bekerja = alokasi.filter((a) => a.status === "dialokasikan");
-      const selesai = alokasi.filter((a) => a.status === "selesai");
+      // Pinjaman milik akun ini: id pendana langsung, atau nama tampil (nama
+      // akun → email) sebagai cadangan untuk baris lama tanpa id.
+      const namaKunci = new Set<string>();
+      const namaAkun = u.name?.trim();
+      if (namaAkun) namaKunci.add(namaAkun);
+      if (u.email) namaKunci.add(u.email);
+      const pinjaman = pinjamanBerposisi.filter(
+        (l) =>
+          l.pendanaId === u._id ||
+          (l.pendanaId === undefined &&
+            l.pendanaNama !== undefined &&
+            namaKunci.has(l.pendanaNama)),
+      );
+
+      // Bagi hasil tiap pinjaman dihitung dengan kebijakan yang berlaku
+      // sekarang, dari pokok pinjaman (model 1 pinjaman = 1 pendana).
+      let totalDisalurkan = 0;
+      let saldoBerjalan = 0;
+      let totalBunga = 0;
+      let keuntunganAdmin = 0;
+      let keuntunganPendana = 0;
+      let jumlahAktif = 0;
+      let jumlahLunas = 0;
+      const peminjam = new Set<Id<"users">>();
+      const waktuPinjaman: number[] = [];
+      for (const l of pinjaman) {
+        const bagi = bagiPinjamanAman(l.pokokPinjaman, cfg.persenBunga, cfg.persenAdmin);
+        totalDisalurkan += l.pokokPinjaman;
+        totalBunga += bagi.bunga;
+        keuntunganAdmin += bagi.keuntunganAdmin;
+        keuntunganPendana += bagi.keuntunganPendana;
+        if (l.status === "lunas") {
+          jumlahLunas += 1;
+        } else {
+          jumlahAktif += 1;
+          saldoBerjalan += l.pokokPinjaman;
+        }
+        peminjam.add(l.userId);
+        waktuPinjaman.push(l.didanaiPada ?? l.diajukanPada ?? l._creationTime);
+      }
+
       const waktu = [
-        ...alokasi.map((a) => a._creationTime),
+        ...waktuPinjaman,
         ...setoran.map((s) => s._creationTime),
         ...penarikan.map((w) => w._creationTime),
       ];
-
-      // Peminjam berbeda yang didanai: nomor referensi cukup dibaca pada baris
-      // alokasi (bukan seluruh tabel) dan di-cache agar tidak dibaca berulang.
-      const peminjam = new Set<string>();
-      for (const a of alokasi) {
-        const pengajuan =
-          "loanId" in a
-            ? await ctx.db.get(a.loanId)
-            : await ctx.db.get(a.kreditId);
-        if (pengajuan !== null) peminjam.add(pengajuan.userId);
-      }
-
-      // Keuntungan NYATA dibaca dari cap settlement pada baris alokasi
-      // (`potonganAdmin`/`imbalHasilNet`). Alokasi lama yang lunas sebelum
-      // kebijakan potongan ada tidak punya cap: dihitung utuh (potongan 0),
-      // bukan dikarang mundur dengan persentase hari ini.
-      const brutoTerealisasi = selesai.reduce((total, a) => total + a.imbalHasil, 0);
-      const potonganTerealisasi = selesai.reduce(
-        (total, a) => total + ((a as { potonganAdmin?: number }).potonganAdmin ?? 0),
-        0,
-      );
-      const bersihTerealisasi = selesai.reduce(
-        (total, a) =>
-          total + ((a as { imbalHasilNet?: number }).imbalHasilNet ?? a.imbalHasil),
-        0,
-      );
-
-      // Keuntungan berjalan: potongan dihitung dengan kebijakan yang berlaku
-      // sekarang dan ditandai sebagai perkiraan di UI.
-      let brutoDiharapkan = 0;
-      let potonganDiharapkan = 0;
-      for (const a of bekerja) {
-        brutoDiharapkan += a.imbalHasil;
-        potonganDiharapkan += bagiImbalHasil(a.imbalHasil, cfg.persenAdmin).potonganAdmin;
-      }
 
       const peran = (u.role as string | undefined) ?? null;
       const akunBersama = u.role === ROLES.PENGAMAT;
@@ -920,18 +920,15 @@ export const daftarInvestor = query({
             ? true
             : akunBersama && barisKode?.aktif === true && u.aksesBersamaVersi === versiAktif,
         terdaftarPada: u._creationTime,
-        jumlahAlokasi: alokasi.length,
-        totalDisalurkan: alokasi.reduce((total, a) => total + a.jumlahAlokasi, 0),
-        saldoBerjalan: bekerja.reduce((total, a) => total + a.jumlahAlokasi, 0),
+        jumlahPinjaman: pinjaman.length,
+        totalDisalurkan,
+        saldoBerjalan,
         jumlahPeminjam: peminjam.size,
-        jumlahAktif: bekerja.length,
-        jumlahLunas: selesai.length,
-        imbalBrutoTerealisasi: brutoTerealisasi,
-        potonganAdminTerealisasi: potonganTerealisasi,
-        imbalBersihTerealisasi: bersihTerealisasi,
-        imbalBrutoDiharapkan: brutoDiharapkan,
-        potonganAdminDiharapkan: potonganDiharapkan,
-        imbalBersihDiharapkan: brutoDiharapkan - potonganDiharapkan,
+        jumlahAktif,
+        jumlahLunas,
+        totalBunga,
+        keuntunganAdmin,
+        keuntunganPendana,
         totalSetoran: setoran
           .filter((s) => s.status === "terverifikasi")
           .reduce((total, s) => total + s.jumlah, 0),
@@ -952,7 +949,7 @@ export const daftarInvestor = query({
       (r) =>
         !r.peranLegacy ||
         r.email !== null ||
-        r.jumlahAlokasi > 0 ||
+        r.jumlahPinjaman > 0 ||
         r.totalSetoran > 0 ||
         r.totalPenarikan > 0 ||
         r.setoranMenunggu > 0 ||
@@ -989,18 +986,10 @@ export const daftarInvestor = query({
         persenPotonganAdmin: cfg.persenAdmin,
         totalDisalurkan: rows.reduce((total, r) => total + r.totalDisalurkan, 0),
         saldoBerjalan: rows.reduce((total, r) => total + r.saldoBerjalan, 0),
-        imbalBrutoTerealisasi: rows.reduce((total, r) => total + r.imbalBrutoTerealisasi, 0),
-        potonganAdminTerealisasi: rows.reduce(
-          (total, r) => total + r.potonganAdminTerealisasi,
-          0,
-        ),
-        imbalBersihTerealisasi: rows.reduce((total, r) => total + r.imbalBersihTerealisasi, 0),
-        imbalBrutoDiharapkan: rows.reduce((total, r) => total + r.imbalBrutoDiharapkan, 0),
-        potonganAdminDiharapkan: rows.reduce(
-          (total, r) => total + r.potonganAdminDiharapkan,
-          0,
-        ),
-        imbalBersihDiharapkan: rows.reduce((total, r) => total + r.imbalBersihDiharapkan, 0),
+        totalBunga: rows.reduce((total, r) => total + r.totalBunga, 0),
+        keuntunganAdmin: rows.reduce((total, r) => total + r.keuntunganAdmin, 0),
+        keuntunganPendana: rows.reduce((total, r) => total + r.keuntunganPendana, 0),
+        persenBunga: cfg.persenBunga,
         saldoDompet: rows.reduce((total, r) => total + r.saldoDompet, 0),
         totalSetoran: rows.reduce((total, r) => total + r.totalSetoran, 0),
         setoranMenunggu: rows.reduce((total, r) => total + r.setoranMenunggu, 0),
@@ -1013,13 +1002,14 @@ export const daftarInvestor = query({
 
 /**
  * Rincian satu penyedia dana untuk dialog panel admin: identitas, portofolio
- * alokasi (pinjaman & kredit barang beserta nomor referensinya), pembagian
- * keuntungan per alokasi (bruto, potongan admin, bersih), setoran, penarikan,
- * dan saldo dompet dari ledger. Hanya admin; tanpa mutation apa pun.
+ * pinjaman yang didanai (model 1 pinjaman = 1 pendana), pembagian keuntungan
+ * per pinjaman (bunga, total kewajiban, potongan admin, keuntungan penyedia),
+ * setoran, penarikan, dan saldo dompet dari ledger. Hanya admin; tanpa mutation
+ * apa pun.
  *
- * Angka "diharapkan" memakai kebijakan potongan yang berlaku SEKARANG dan
- * ditandai `perkiraan: true`; angka alokasi yang sudah lunas dibaca dari cap
- * settlement, jadi tidak pernah dihitung ulang mundur.
+ * Seluruh angka bagi hasil dihitung dari pokok pinjaman dengan kebijakan yang
+ * berlaku SEKARANG (persen bunga & potongan admin dari Pengaturan Sistem),
+ * sama seperti rekap di ruang penyedia dana.
  */
 export const rincianInvestor = query({
   args: { userId: v.id("users") },
@@ -1029,14 +1019,6 @@ export const rincianInvestor = query({
     const user = await ctx.db.get(userId);
     if (user === null) return null;
 
-    const fundings = await ctx.db
-      .query("fundings")
-      .withIndex("by_dana", (q) => q.eq("danaId", userId))
-      .collect();
-    const kreditFundings = await ctx.db
-      .query("kreditFundings")
-      .withIndex("by_dana", (q) => q.eq("danaId", userId))
-      .collect();
     const setoran = await ctx.db
       .query("deposits")
       .withIndex("by_dana", (q) => q.eq("danaId", userId))
@@ -1046,95 +1028,51 @@ export const rincianInvestor = query({
       .withIndex("by_dana", (q) => q.eq("danaId", userId))
       .collect();
 
-    /**
-     * Angka keuntungan per alokasi.
-     *
-     * Alokasi yang sudah lunas memakai cap settlement (`potonganAdmin`,
-     * `imbalHasilNet`) — angka yang benar-benar dibayarkan. Alokasi lama yang
-     * lunas sebelum kebijakan potongan ada tidak punya cap: dibayar penuh
-     * (potongan 0). Alokasi yang masih berjalan memakai perkiraan dengan
-     * kebijakan yang berlaku sekarang, ditandai `perkiraan: true`.
-     */
-    function bagi(a: {
-      imbalHasil: number;
-      status: string;
-      potonganAdmin?: number;
-      imbalHasilNet?: number;
-    }) {
-      if (a.status === "selesai") {
-        const potonganAdmin = a.potonganAdmin ?? 0;
+    // Portofolio dibaca dari model baru: satu pinjaman = satu pendana. Baris
+    // alokasi lama tidak lagi menjadi sumber angka. Pengaitan memakai id
+    // pendana langsung, dengan nama tampil (nama akun → email) sebagai
+    // cadangan untuk baris lama tanpa id.
+    const namaKunci = new Set<string>();
+    const namaAkun = user.name?.trim();
+    if (namaAkun) namaKunci.add(namaAkun);
+    if (user.email) namaKunci.add(user.email);
+    const pinjaman = (await ctx.db.query("loans").collect())
+      .filter((l) => l.status === "didanai" || l.status === "lunas")
+      .filter(
+        (l) =>
+          l.pendanaId === userId ||
+          (l.pendanaId === undefined &&
+            l.pendanaNama !== undefined &&
+            namaKunci.has(l.pendanaNama)),
+      )
+      .map((l) => {
+        const bagi = bagiPinjamanAman(l.pokokPinjaman, cfg.persenBunga, cfg.persenAdmin);
         return {
-          potonganAdmin,
-          imbalBersih: a.imbalHasilNet ?? a.imbalHasil - potonganAdmin,
-          perkiraan: false,
+          referensi: l.nomorReferensi,
+          status: l.status as string,
+          pokokPinjaman: l.pokokPinjaman,
+          bunga: bagi.bunga,
+          totalLunas: bagi.totalLunas,
+          potonganAdmin: bagi.potonganAdmin,
+          keuntunganPendana: bagi.keuntunganPendana,
+          keuntunganAdmin: bagi.keuntunganAdmin,
+          waktu: l.didanaiPada ?? l.diajukanPada ?? l._creationTime,
         };
-      }
-      if (a.status === "dialokasikan") {
-        const { potonganAdmin, imbalBersih } = bagiImbalHasil(a.imbalHasil, cfg.persenAdmin);
-        return { potonganAdmin, imbalBersih, perkiraan: true };
-      }
-      return { potonganAdmin: 0, imbalBersih: 0, perkiraan: false };
-    }
+      });
 
-    const alokasiPinjaman = [];
-    for (const f of fundings) {
-      const loan = await ctx.db.get(f.loanId);
-      alokasiPinjaman.push({
-        referensi: loan?.nomorReferensi ?? "tanpa referensi",
-        statusPengajuan: loan?.status ?? null,
-        pokokPorsi: f.jumlahAlokasi,
-        imbalHasil: f.imbalHasil,
-        ...bagi(f),
-        status: f.status as string,
-        waktu: f._creationTime,
-        diselesaikanPada: f.diselesaikanPada ?? null,
-      });
-    }
-    const alokasiKredit = [];
-    for (const f of kreditFundings) {
-      const kredit = await ctx.db.get(f.kreditId);
-      alokasiKredit.push({
-        referensi: kredit?.nomorReferensi ?? "tanpa referensi",
-        statusPengajuan: kredit?.status ?? null,
-        pokokPorsi: f.jumlahAlokasi,
-        imbalHasil: f.imbalHasil,
-        ...bagi(f as { imbalHasil: number; status: string }),
-        status: f.status as string,
-        waktu: f._creationTime,
-        diselesaikanPada: null,
-      });
-    }
     const urutTerbaru = <T extends { waktu: number }>(baris: T[]) =>
       baris.sort((a, b) => b.waktu - a.waktu).slice(0, BATAS_RIWAYAT);
 
-    const semuaAlokasi = [...alokasiPinjaman, ...alokasiKredit];
     const ringkasKeuntungan = {
       persenPotonganAdmin: cfg.persenAdmin,
-      pokok: semuaAlokasi.reduce((total, a) => total + a.pokokPorsi, 0),
-      saldoBerjalan: alokasiPinjaman
-        .filter((a) => a.status === "dialokasikan")
-        .reduce((total, a) => total + a.pokokPorsi, 0) +
-        alokasiKredit
-          .filter((a) => a.status === "dialokasikan")
-          .reduce((total, a) => total + a.pokokPorsi, 0),
-      brutoTerealisasi: semuaAlokasi
-        .filter((a) => a.status === "selesai")
-        .reduce((total, a) => total + a.imbalHasil, 0),
-      potonganTerealisasi: semuaAlokasi
-        .filter((a) => a.status === "selesai")
-        .reduce((total, a) => total + a.potonganAdmin, 0),
-      bersihTerealisasi: semuaAlokasi
-        .filter((a) => a.status === "selesai")
-        .reduce((total, a) => total + a.imbalBersih, 0),
-      brutoDiharapkan: semuaAlokasi
-        .filter((a) => a.status === "dialokasikan")
-        .reduce((total, a) => total + a.imbalHasil, 0),
-      potonganDiharapkan: semuaAlokasi
-        .filter((a) => a.status === "dialokasikan")
-        .reduce((total, a) => total + a.potonganAdmin, 0),
-      bersihDiharapkan: semuaAlokasi
-        .filter((a) => a.status === "dialokasikan")
-        .reduce((total, a) => total + a.imbalBersih, 0),
+      persenBunga: cfg.persenBunga,
+      pokok: pinjaman.reduce((total, a) => total + a.pokokPinjaman, 0),
+      saldoBerjalan: pinjaman
+        .filter((a) => a.status === "didanai")
+        .reduce((total, a) => total + a.pokokPinjaman, 0),
+      totalBunga: pinjaman.reduce((total, a) => total + a.bunga, 0),
+      keuntunganAdmin: pinjaman.reduce((total, a) => total + a.keuntunganAdmin, 0),
+      keuntunganPendana: pinjaman.reduce((total, a) => total + a.keuntunganPendana, 0),
     };
 
     return {
@@ -1148,8 +1086,7 @@ export const rincianInvestor = query({
       emailTerverifikasi: user.emailVerificationTime !== undefined,
       terdaftarPada: user._creationTime,
       saldoDompet: await danaWalletBalance(ctx, userId),
-      alokasiPinjaman: urutTerbaru(alokasiPinjaman),
-      alokasiKredit: urutTerbaru(alokasiKredit),
+      pinjaman: urutTerbaru(pinjaman),
       setoran: urutTerbaru(
         setoran.map((s) => ({
           referensi: s.nomorReferensi,
