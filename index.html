@@ -30,49 +30,30 @@
   <!-- Layar pemuatan awal. Dirender sebagai HTML statis supaya animasi tampil
        pada paint pertama, tanpa menunggu bundel JavaScript diunduh dan React
        menyala. createRoot() menghapus isi #root saat aplikasi menyala, jadi
-       elemen ini otomatis hilang. Isinya sengaja memakai kelas yang sama
-       dengan components/LoadingScreen.tsx (termasuk variabel --dx/--dy/--jx/--jy
-       per keping) agar transisinya mulus. -->
+       elemen ini otomatis hilang. Isinya memakai kelas yang sama dengan
+       components/LoadingScreen.tsx agar transisinya mulus: brankas tertutup,
+       dial berputar, garis pindai, tanpa uang. -->
   <div id="root">
     <div id="pindai-boot" class="pindai-loader-bg flex min-h-screen w-full flex-col items-center justify-center gap-6 px-6 text-slate-900">
       <div class="pindai-loader flex flex-col items-center gap-6">
-        <div class="pindai-loader__logo relative flex h-56 w-64 items-center justify-center">
+        <div class="pindai-loader__logo relative flex size-40 items-center justify-center">
           <span class="pindai-loader__halo" aria-hidden="true"></span>
-          <svg width="96" height="96" viewBox="0 0 64 64" fill="none" aria-hidden="true" class="relative z-20 -translate-y-4">
+          <svg width="96" height="96" viewBox="0 0 64 64" fill="none" aria-hidden="true" class="relative">
             <rect x="5" y="6" width="54" height="50" rx="12" fill="#0f3d3a" stroke="#b99b62" stroke-width="2" />
             <path d="M15 10h34" stroke="#ffffff" stroke-opacity=".18" stroke-width="2" stroke-linecap="round" />
-            <rect class="pindai-loader__isi" x="11" y="12" width="42" height="38" rx="7" fill="#08201e" />
+            <rect x="11" y="12" width="42" height="38" rx="7" fill="#f5f2e9" />
+            <rect x="14" y="15" width="36" height="32" rx="5" stroke="#d9d2c1" stroke-width="1.5" />
             <rect x="7" y="19" width="5" height="7" rx="2.5" fill="#cbb47e" />
             <rect x="7" y="36" width="5" height="7" rx="2.5" fill="#cbb47e" />
-            <g class="pindai-loader__pintu">
-              <rect x="11" y="12" width="42" height="38" rx="7" fill="#f5f2e9" />
-              <rect x="14" y="15" width="36" height="32" rx="5" stroke="#d9d2c1" stroke-width="1.5" />
-              <g class="pindai-loader__dial">
-                <circle cx="31" cy="31" r="10" fill="#0f3d3a" />
-                <circle cx="31" cy="31" r="7.2" stroke="#cbb47e" stroke-width="1.5" />
-                <path d="M31 31l7-5M31 24v2M38 31h-2M31 38v-2M24 31h2" stroke="#f5f2e9" stroke-width="1.7" stroke-linecap="round" />
-                <circle cx="31" cy="31" r="2.2" fill="#cbb47e" />
-              </g>
+            <g class="pindai-loader__dial">
+              <circle cx="31" cy="31" r="10" fill="#0f3d3a" />
+              <circle cx="31" cy="31" r="7.2" stroke="#cbb47e" stroke-width="1.5" />
+              <path d="M31 31l7-5M31 24v2M38 31h-2M31 38v-2M24 31h2" stroke="#f5f2e9" stroke-width="1.7" stroke-linecap="round" />
+              <circle cx="31" cy="31" r="2.2" fill="#cbb47e" />
             </g>
             <path d="M20 57h8M36 57h8" stroke="#0b2d2a" stroke-width="3" stroke-linecap="round" />
           </svg>
           <span class="pindai-loader__scanline" aria-hidden="true"></span>
-          <span class="pindai-loader__pendar" aria-hidden="true"></span>
-          <span class="pindai-loader__kilat" aria-hidden="true"></span>
-          <i class="pindai-loader__money pindai-loader__koin" aria-hidden="true" style="--dx:-57px;--dy:-18px;--jx:-58px;--jy:92px;--spin:320deg"></i>
-          <i class="pindai-loader__money pindai-loader__kertas" aria-hidden="true" style="--dx:-60px;--dy:-44px;--jx:58px;--jy:92px;--spin:-280deg;--delay:.06s"></i>
-          <i class="pindai-loader__money pindai-loader__koin" aria-hidden="true" style="--dx:-37px;--dy:-55px;--jx:-44px;--jy:84px;--spin:400deg;--delay:.12s"></i>
-          <i class="pindai-loader__money pindai-loader__kertas" aria-hidden="true" style="--dx:-24px;--dy:-74px;--jx:44px;--jy:84px;--spin:-360deg;--delay:.18s"></i>
-          <i class="pindai-loader__money pindai-loader__koin" aria-hidden="true" style="--dx:-7px;--dy:-70px;--jx:-30px;--jy:76px;--spin:260deg;--delay:.24s"></i>
-          <i class="pindai-loader__money pindai-loader__kertas" aria-hidden="true" style="--dx:7px;--dy:-70px;--jx:30px;--jy:76px;--spin:-420deg;--delay:.3s"></i>
-          <i class="pindai-loader__money pindai-loader__koin" aria-hidden="true" style="--dx:24px;--dy:-74px;--jx:-18px;--jy:70px;--spin:340deg;--delay:.05s"></i>
-          <i class="pindai-loader__money pindai-loader__kertas" aria-hidden="true" style="--dx:37px;--dy:-55px;--jx:18px;--jy:70px;--spin:-300deg;--delay:.11s"></i>
-          <i class="pindai-loader__money pindai-loader__koin" aria-hidden="true" style="--dx:60px;--dy:-44px;--jx:-8px;--jy:66px;--spin:420deg;--delay:.17s"></i>
-          <i class="pindai-loader__money pindai-loader__kertas" aria-hidden="true" style="--dx:57px;--dy:-18px;--jx:8px;--jy:66px;--spin:-240deg;--delay:.23s"></i>
-          <i class="pindai-loader__money pindai-loader__koin" aria-hidden="true" style="--dx:-39px;--dy:-40px;--jx:0px;--jy:64px;--spin:300deg;--delay:.29s"></i>
-          <i class="pindai-loader__money pindai-loader__kertas" aria-hidden="true" style="--dx:39px;--dy:-40px;--jx:-36px;--jy:88px;--spin:-380deg;--delay:.09s"></i>
-          <i class="pindai-loader__money pindai-loader__koin" aria-hidden="true" style="--dx:-11px;--dy:-51px;--jx:36px;--jy:88px;--spin:360deg;--delay:.15s"></i>
-          <i class="pindai-loader__money pindai-loader__kertas" aria-hidden="true" style="--dx:11px;--dy:-51px;--jx:0px;--jy:78px;--spin:-320deg;--delay:.21s"></i>
         </div>
 
         <div class="flex flex-col items-center gap-1.5">
