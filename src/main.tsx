@@ -41,6 +41,7 @@ const Dashboard = lazy(denganPercobaan(() => import("./pages/Dashboard.tsx")));
 const Admin = lazy(denganPercobaan(() => import("./pages/Admin.tsx")));
 const PenyediaDana = lazy(denganPercobaan(() => import("./pages/PenyediaDana.tsx")));
 const AksesBersama = lazy(denganPercobaan(() => import("./pages/AksesBersama.tsx")));
+const SyaratKetentuan = lazy(denganPercobaan(() => import("./pages/SyaratKetentuan.tsx")));
 const NotFound = lazy(denganPercobaan(() => import("./pages/NotFound.tsx")));
 
 // Simple loading fallback for route transitions
@@ -241,6 +242,7 @@ createRoot(document.getElementById("root")!).render(
                     Sengaja di luar RequireAuth — halamannya sendiri yang
                     membuka sesi tamu sebelum memverifikasi kode. */}
                 <Route path="/akses-bersama" element={<AksesBersama />} />
+                <Route path="/syarat-ketentuan" element={<SyaratKetentuan />} />
 
                 {/* Ruang penyedia dana (baca saja) untuk akun yang diberi akses
                     admin; tautan lama /pendana diarahkan ke sana. */}

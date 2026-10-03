@@ -1605,6 +1605,11 @@ export default function Landing() {
                     Tanya Jawab
                   </a>
                 </li>
+                <li>
+                  <Link to="/syarat-ketentuan" className="link-underline hover:text-slate-900">
+                    Syarat &amp; Ketentuan
+                  </Link>
+                </li>
                 <li className="flex items-center gap-2">
                   <span className="relative flex size-2">
                     <span className="absolute inline-flex size-full animate-ping rounded-full bg-sky-400 opacity-70" />

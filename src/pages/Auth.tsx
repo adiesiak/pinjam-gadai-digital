@@ -1062,6 +1062,16 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
           </Card>
         </div>
       </FadeIn>
+      <footer className="px-6 pb-6 text-center text-[11px] leading-5 text-muted-foreground">
+        Dengan masuk, Anda menyetujui{" "}
+        <Link
+          to="/syarat-ketentuan"
+          className="font-medium text-primary underline underline-offset-2 hover:text-primary/80"
+        >
+          Syarat &amp; Ketentuan
+        </Link>
+        .
+      </footer>
       <div className="flex-1" />
     </div>
   );
