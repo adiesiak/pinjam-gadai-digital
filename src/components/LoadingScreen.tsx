@@ -33,13 +33,17 @@ export function LoadingScreen({ label = "Memuat…" }: { label?: string }) {
   /** Ketuk logo → jarum dial berputar penuh sekali. */
   const putarDial = useCallback(() => {
     setPutar(true);
-    if (timerRef.current !== null) window.clearTimeout(timerRef.current);
+    if (timerRef.current !== null) {
+      window.clearTimeout(timerRef.current);
+    }
     timerRef.current = window.setTimeout(() => setPutar(false), 1000);
   }, []);
 
   useEffect(
     () => () => {
-      if (timerRef.current !== null) window.clearTimeout(timerRef.current);
+      if (timerRef.current !== null) {
+        window.clearTimeout(timerRef.current);
+      }
     },
     [],
   );
@@ -63,7 +67,12 @@ export function LoadingScreen({ label = "Memuat…" }: { label?: string }) {
           className={`pindai-loader__logo relative flex size-40 items-center justify-center outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-4 ${
             putar ? "pindai-loader__buka" : ""
           }`}
-          style={{ "--tilt-x": `${tilt.x}deg`, "--tilt-y": `${tilt.y}deg` } as React.CSSProperties}
+          style={
+            {
+              "--tilt-x": `${tilt.x}deg`,
+              "--tilt-y": `${tilt.y}deg`,
+            } as React.CSSProperties
+          }
         >
           <span className="pindai-loader__halo" aria-hidden="true" />
 
@@ -96,7 +105,15 @@ export function LoadingScreen({ label = "Memuat…" }: { label?: string }) {
               strokeLinecap="round"
             />
             <rect x="11" y="12" width="42" height="38" rx="7" fill="#f5f2e9" />
-            <rect x="14" y="15" width="36" height="32" rx="5" stroke="#d9d2c1" strokeWidth="1.5" />
+            <rect
+              x="14"
+              y="15"
+              width="36"
+              height="32"
+              rx="5"
+              stroke="#d9d2c1"
+              strokeWidth="1.5"
+            />
             <rect x="7" y="19" width="5" height="7" rx="2.5" fill="#cbb47e" />
             <rect x="7" y="36" width="5" height="7" rx="2.5" fill="#cbb47e" />
             <g className="pindai-loader__dial">
