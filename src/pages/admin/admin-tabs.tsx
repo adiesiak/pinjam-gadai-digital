@@ -10,7 +10,6 @@ import {
   Map as MapIcon,
   MessageSquare,
   Package,
-  ReceiptText,
   Send,
   SlidersHorizontal,
   Settings2,
@@ -27,7 +26,6 @@ import { BackupPanel } from "@/components/admin/BackupPanel";
 import { LiveLocationMap } from "@/components/admin/LiveLocationMap";
 import { KreditQueuePanel } from "@/components/admin/KreditQueuePanel";
 import { LoginSecurityPanel } from "@/components/admin/LoginSecurityPanel";
-import { ManualEvidenceQueue } from "@/components/admin/ManualEvidenceQueue";
 import { DpdTab, LedgerTab, LelangTab, LoanAllocationQueueTab } from "@/components/admin/OperationsTabs";
 import { SystemConfigPanel } from "@/components/admin/SystemConfigPanel";
 import { PlafonPanel } from "@/components/admin/PlafonPanel";
@@ -87,7 +85,6 @@ export function AdminTabs({
     ["config", "Pengaturan Sistem", null, Settings2],
     ["audit", "Audit Trail", null, Lock],
     ["loglogin", "Keamanan Login", null, ShieldCheck],
-    ["bukti", "Pencocokan bukti manual", null, ReceiptText],
     ["plafon", "Plafon Nasabah", null, SlidersHorizontal],
     ["akses", "Kelola Penyedia Dana", null, Wallet],
     ["pengumuman", "Pengumuman", null, MessageSquare],
@@ -158,10 +155,6 @@ export function AdminTabs({
 
       <TabsContent value="kredit" className="min-w-0 flex-1 animate-masuk">
         <KreditQueuePanel />
-      </TabsContent>
-
-      <TabsContent value="bukti" className="min-w-0 flex-1 animate-masuk">
-        <ManualEvidenceQueue />
       </TabsContent>
 
       <TabsContent value="pengumuman" className="min-w-0 flex-1 animate-masuk">
