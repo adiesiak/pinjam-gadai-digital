@@ -82,6 +82,26 @@ export type KreditRow = {
   status: "diajukan" | "sedang_ditinjau" | "disetujui" | "ditolak" | "didanai" | "lunas";
 };
 
+/**
+ * Satu metrik label/nilai untuk kartu panel admin.
+ *
+ * Dipakai menggantikan kolom tabel yang terlalu banyak: di layar selebar
+ * laptop, tabel 12 kolom hanya bisa dibaca dengan menggeser mendatar, jadi
+ * barisnya ditampilkan sebagai kartu berisi metrik 2 kolom.
+ */
+export function MetrikKartu({ label, nilai }: { label: string; nilai: ReactNode }) {
+  return (
+    <div className="min-w-0 rounded-xl border border-slate-100 bg-slate-50/60 px-3 py-2">
+      <dt className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400">
+        {label}
+      </dt>
+      <dd className="mt-0.5 break-words text-sm font-medium tabular-nums text-slate-900">
+        {nilai}
+      </dd>
+    </div>
+  );
+}
+
 export function QueueRow({
   reference,
   date,

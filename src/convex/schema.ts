@@ -246,6 +246,13 @@ const schema = defineSchema(
        * lokasinya ditandai, dan tidak pernah menagih uang.
        */
       templateLokasi: v.optional(v.string()),
+      /**
+       * Template pemberitahuan perubahan status pinjaman — placeholder
+       * {nama} {ref} {status} {alasan} {diajukan} {disetujui} {kewajiban}.
+       * Dikirim otomatis saat admin mengubah status, dan bisa dikirim ulang
+       * manual dari dialog review. Tidak pernah menagih uang.
+       */
+      templateStatus: v.optional(v.string()),
       diperbaruiPada: v.optional(v.number()),
     }).index("by_slot", ["slot"]),
 
