@@ -144,6 +144,12 @@ const schema = defineSchema(
       /** Tenor pinjaman dalam hari (30/60/90) — dipilih saat pengajuan. */
       tenorHari: v.number(),
       /**
+       * Waktu pengajuan tercatat bila berbeda dari `_creationTime` — dipakai
+       * untuk data yang dimigrasikan/di-seed agar tanggal historisnya jujur.
+       * Kosong = pakai `_creationTime`.
+       */
+      diajukanPada: v.optional(v.number()),
+      /**
        * Tenor bulanan skema bulanan (1/3/6 bln: DP 0%, layanan 3%, bunga
        * 10/8/7,5%/bln — lib/bulanan.ts) untuk pinjaman DI LUAR plafon 1 jt /
        * 30 hari. Kosong = pinjaman memakai skema harian quoteLoan().

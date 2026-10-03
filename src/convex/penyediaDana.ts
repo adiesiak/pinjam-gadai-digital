@@ -402,7 +402,7 @@ export const daftarPengajuan = query({
         tenorBulan: loan.tenorBulan ?? null,
         tujuan: loan.tujuan,
         status: loan.status,
-        diajukanPada: loan._creationTime,
+        diajukanPada: loan.diajukanPada ?? loan._creationTime,
         didanaiPada: loan.didanaiPada ?? null,
         pendana,
         bunga: bagi.bunga,
