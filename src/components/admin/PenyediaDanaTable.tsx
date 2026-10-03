@@ -74,6 +74,7 @@ export function PenyediaDanaTable() {
   const ubahAkses = useMutation(api.penyediaDana.ubahAkses);
   const terbitkanKode = useMutation(api.aksesBersama.terbitkanKodeBersama);
   const nonaktifkanKode = useMutation(api.aksesBersama.nonaktifkanKodeBersama);
+  const daftar = useQuery(api.penyediaDana.daftarInvestor, {});
 
   const kirim = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -90,7 +91,7 @@ export function PenyediaDanaTable() {
         alasan: alasan.trim() === "" ? undefined : alasan.trim(),
       });
       toast.success(
-        hasil.sudahSESUAI
+        hasil.sudahSesuai
           ? `Akun ${target} memang sudah punya akses lihat saja.`
           : `Akses lihat saja diberikan ke ${target}.`,
       );
@@ -355,7 +356,16 @@ export function PenyediaDanaTable() {
           <div className="space-y-3">
             {daftar !== undefined ? (
               daftar.rows.map((r) => (
-                <KartuPenawaran key={r.email ?? r.nama} r={r} />
+                <KartuPenawaran
+                  key={r.userId ?? r.email ?? r.nama}
+                  r={{
+                    nama: r.nama,
+                    role: r.peran ?? "santai",
+                    saatIni: r.aksesAktif ? "aktif" : "nonaktif",
+                    kode: r.akunBersama ? String(r.terdaftarPada) : "—",
+                    status: r.aksesAktif ? "Aktif" : "Tidak akses",
+                  }}
+                />
               ))
             ) : (
               <div className="rounded-xl border border-slate-200 bg-white px-4 py-6 text-center text-sm text-muted-foreground">
