@@ -680,10 +680,14 @@
   .pindai-loader__money {
     position: absolute;
     left: 50%;
-    top: 50%;
+    /* Sama dengan pergeseran brankas (translate-y-4 pada SVG) agar semburan
+       keluar tepat dari mulut pintu. */
+    top: calc(50% - 1rem);
     z-index: 40;
     opacity: 0;
-    will-change: transform, opacity;
+    /* Sengaja tanpa `will-change`: ada puluhan keping sekaligus, dan animasi
+       transform/opacity sudah efisien di compositor tanpa memaksa puluhan
+       lapisan GPU terpisah. */
     /* Durasi wajib sama dengan siklus pintu (3,2 s): jeda hanya menggeser kapan
        keping mulai, sedangkan periodenya tetap ditentukan durasi. Jadi seluruh
        keping selalu menyembur pada fase yang sama tiap siklus. */
@@ -699,7 +703,7 @@
   .pindai-loader__kilat {
     position: absolute;
     left: 50%;
-    top: 50%;
+    top: calc(50% - 1rem);
     z-index: 30;
     width: 132px;
     height: 132px;
@@ -721,7 +725,7 @@
   .pindai-loader__pendar {
     position: absolute;
     left: 50%;
-    top: 50%;
+    top: calc(50% - 1rem);
     z-index: 25;
     width: 76px;
     height: 76px;
@@ -767,10 +771,16 @@
     border: 1px solid color-mix(in oklab, #86b7a3 70%, transparent);
   }
 
-  /* Lingkaran cahaya lembut yang berdenyut di belakang logo. */
+  /* Lingkaran cahaya lembut yang berdenyut di belakang brankas. Dipusatkan
+     dengan margin negatif (bukan transform) supaya keyframe `pindai-halo`
+     yang memakai transform: scale tidak menghapus pemusatan itu. */
   .pindai-loader__halo {
     position: absolute;
-    inset: 14%;
+    left: 50%;
+    top: calc(50% - 1rem);
+    width: 176px;
+    height: 176px;
+    margin: -88px 0 0 -88px;
     border-radius: 9999px;
     background: radial-gradient(
       circle,
@@ -881,31 +891,40 @@
       transform: translate(-50%, -50%) scale(0.3);
     }
   }
-  /* Semburan uang: menumpuk kecil di mulut brankas, menyembur keluar ke arah
-     `--dx`/`--dy`, lalu jatuh lagi seperti kena gravitasi sebelum memudar. */
+  /* Semburan uang: keping mengumpul kecil di mulut brankas, melesat keluar ke
+     arah `--dx`/`--dy`, jatuh, lalu MENGENDAP di titik tumpukan `--jx`/`--jy`.
+     Tahap 84%–92% adalah bagian "bertumpuk": keping berhenti dan diam sejenak
+     sebelum tumpukan memudar menjelang siklus berikutnya. */
   @keyframes pindai-uang {
     0%,
-    12% {
+    10% {
       opacity: 0;
       transform: translate(-50%, -50%) translate(0, 0) scale(0.2) rotate(0deg);
     }
-    16% {
+    15% {
       opacity: 1;
     }
-    48% {
+    42% {
       opacity: 1;
-      transform: translate(-50%, -50%) translate(calc(var(--dx, 0px) * 0.92), calc(var(--dy, 0px) * 0.95))
-        scale(1) rotate(calc(var(--spin, 0deg) * 0.6));
+      transform: translate(-50%, -50%) translate(calc(var(--dx, 0px) * 0.95), calc(var(--dy, 0px) * 0.95))
+        scale(var(--skala, 1)) rotate(calc(var(--spin, 0deg) * 0.55));
     }
-    75% {
+    68% {
       opacity: 1;
-      transform: translate(-50%, -50%) translate(var(--dx, 0px), calc(var(--dy, 0px) * 0.45 + 34px))
-        scale(1) rotate(var(--spin, 0deg));
+      transform: translate(-50%, -50%)
+        translate(calc(var(--jx, 0px) * 0.72), calc(var(--jy, 0px) * 0.8)) scale(var(--skala, 1))
+        rotate(calc(var(--spin, 0deg) * 0.88));
+    }
+    84%,
+    92% {
+      opacity: 1;
+      transform: translate(-50%, -50%) translate(var(--jx, 0px), var(--jy, 0px)) scale(var(--skala, 1))
+        rotate(var(--spin, 0deg));
     }
     100% {
       opacity: 0;
       transform: translate(-50%, -50%)
-        translate(calc(var(--dx, 0px) * 0.82), calc(var(--dy, 0px) * 0.15 + 58px)) scale(0.85)
+        translate(var(--jx, 0px), calc(var(--jy, 0px) + 8px)) scale(calc(var(--skala, 1) * 0.94))
         rotate(var(--spin, 0deg));
     }
   }
