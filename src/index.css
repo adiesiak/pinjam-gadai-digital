@@ -648,7 +648,6 @@
     transform: rotateY(var(--tilt-x, 0deg)) rotateX(var(--tilt-y, 0deg));
     transform-style: preserve-3d;
     transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1);
-    background: color-mix(in oklab, var(--primary) 6%, white);
   }
 
   /* Jarum dial brankas: berputar pelan bolak-balik, lalu sekali penuh saat
@@ -662,13 +661,66 @@
     animation: pindai-dial-buka 0.9s cubic-bezier(0.22, 1, 0.36, 1);
   }
 
-  /* Cincin putus-putus di sekeliling logo. */
-  .pindai-loader__ring {
+  /* Pintu brankas: berayun terbuka dari sisi engsel (kiri), lalu menutup lagi.
+     scaleX dipakai, bukan rotateY, karena transform 3D pada elemen SVG belum
+     konsisten di semua peramban. */
+  .pindai-loader__pintu {
+    transform-box: fill-box;
+    transform-origin: left center;
+    animation: pindai-pintu 3.2s cubic-bezier(0.45, 0, 0.35, 1) infinite;
+  }
+
+  /* Ruang dalam brankas: gelap saat tertutup, bercahaya saat pintu terbuka. */
+  .pindai-loader__isi {
+    animation: pindai-isi 3.2s cubic-bezier(0.45, 0, 0.35, 1) infinite;
+  }
+
+  /* Uang yang menyembur keluar dari pintu. Arah, jarak, dan jeda tiap keping
+     diatur lewat variabel inline, sehingga satu keyframe melayani semua. */
+  .pindai-loader__money {
     position: absolute;
-    inset: 6px;
-    border-radius: 1.75rem;
-    border: 1.5px dashed color-mix(in oklab, var(--primary) 42%, transparent);
-    animation: pindai-ring 14s linear infinite;
+    left: 50%;
+    top: 52%;
+    z-index: 10;
+    opacity: 0;
+    will-change: transform, opacity;
+    animation: pindai-uang 3.2s cubic-bezier(0.22, 0.8, 0.35, 1) infinite;
+    animation-delay: var(--delay, 0s);
+  }
+
+  /* Koin logam senada emas brankas. */
+  .pindai-loader__koin {
+    width: 15px;
+    height: 15px;
+    border-radius: 9999px;
+    background: radial-gradient(circle at 34% 30%, #f6e3ac, #d8b467 62%, #b99b62);
+    box-shadow:
+      0 0 0 1.5px color-mix(in oklab, #b99b62 70%, transparent),
+      0 2px 6px rgba(15, 61, 58, 0.18);
+  }
+  .pindai-loader__koin::after {
+    content: "";
+    position: absolute;
+    inset: 3px;
+    border-radius: 9999px;
+    border: 1px solid color-mix(in oklab, #8a6f3c 55%, transparent);
+  }
+
+  /* Uang kertas kecil, hijau muda seperti rupiah. */
+  .pindai-loader__kertas {
+    width: 20px;
+    height: 12px;
+    border-radius: 3px;
+    background: linear-gradient(135deg, #eaf6f0, #cfe9dc);
+    border: 1px solid #86b7a3;
+    box-shadow: 0 2px 6px rgba(15, 61, 58, 0.16);
+  }
+  .pindai-loader__kertas::after {
+    content: "";
+    position: absolute;
+    inset: 25% 18%;
+    border-radius: 1px;
+    border: 1px solid color-mix(in oklab, #86b7a3 70%, transparent);
   }
 
   /* Lingkaran cahaya lembut yang berdenyut di belakang logo. */
@@ -718,9 +770,56 @@
       transform: rotate(360deg);
     }
   }
-  @keyframes pindai-ring {
-    to {
-      transform: rotate(360deg);
+  @keyframes pindai-pintu {
+    0%,
+    12% {
+      transform: scaleX(1) skewY(0deg);
+    }
+    40%,
+    84% {
+      transform: scaleX(0.14) skewY(-3deg);
+    }
+    100% {
+      transform: scaleX(1) skewY(0deg);
+    }
+  }
+  @keyframes pindai-isi {
+    0%,
+    12% {
+      fill: #08201e;
+    }
+    40%,
+    84% {
+      fill: #14453a;
+    }
+    100% {
+      fill: #08201e;
+    }
+  }
+  /* Semburan uang: keluar dari pintu, lalu jatuh sedikit seperti kena gravitasi
+     sebelum memudar. */
+  @keyframes pindai-uang {
+    0% {
+      opacity: 0;
+      transform: translate(-50%, -50%) rotate(var(--arah, 0deg)) translateY(0) scale(0.35);
+    }
+    10% {
+      opacity: 1;
+    }
+    55% {
+      opacity: 1;
+      transform: translate(-50%, -50%) rotate(var(--arah, 0deg))
+        translateY(calc(var(--jarak, 52px) * -1)) scale(1);
+    }
+    78% {
+      opacity: 1;
+      transform: translate(-50%, -50%) rotate(var(--arah, 0deg))
+        translateY(calc(var(--jarak, 52px) * -0.72)) scale(0.94);
+    }
+    100% {
+      opacity: 0;
+      transform: translate(-50%, -50%) rotate(var(--arah, 0deg))
+        translateY(calc(var(--jarak, 52px) * -0.5)) scale(0.9);
     }
   }
   @keyframes pindai-halo {
@@ -764,7 +863,9 @@
      hanya di sini `transform: none` benar-benar menang atas kemiringan. */
   @media (prefers-reduced-motion: reduce) {
     .pindai-loader__dial,
-    .pindai-loader__ring,
+    .pindai-loader__pintu,
+    .pindai-loader__isi,
+    .pindai-loader__money,
     .pindai-loader__halo,
     .pindai-loader__scanline,
     .pindai-loader__bar {
