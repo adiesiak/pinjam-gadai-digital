@@ -16,6 +16,8 @@ import { ADMIN_ROUTE } from "@/lib/routes";
 import { THEME_PRESETS, type ThemePreset } from "@/lib/system-config";
 import { api } from "@/convex/_generated/api";
 
+import { Promo } from "./pages/Promo";
+
 /**
  * Bungkus importer rute dengan percobaan ulang. Kegagalan memuat modul
  * (dev server menggantung, 504 "Outdated Optimize Dep", jaringan putus
@@ -252,7 +254,8 @@ createRoot(document.getElementById("root")!).render(
                     </RequireAuth>
                   }
                 />
-                <Route path="/pendana" element={<Navigate to="/penyedia-dana" replace />} />
+                <Route path="/promo" element={<RequireAuth><Promo /></RequireAuth>} />
+                <Route path="/penyedia-dana" element={<Navigate to="/penyedia-dana" replace />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </Suspense>

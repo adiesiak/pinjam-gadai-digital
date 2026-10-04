@@ -1,4 +1,4 @@
-import { ChevronDown, Eye, LayoutDashboard, ShieldCheck } from "lucide-react";
+import { ChevronDown, Eye, LayoutDashboard, Megaphone, ShieldCheck } from "lucide-react";
 import { Link } from "react-router";
 
 import { useAuth } from "@/hooks/use-auth";
@@ -23,9 +23,9 @@ export function RoleDashboardMenu() {
     description: "Lihat catatan pinjaman dan pengajuan",
     icon: LayoutDashboard,
   };
-  /**
-   * Akses lihat saja: akun penyedia dana, pemantau akun bersama (kode akses),
-   * dan admin (untuk pratinjau).
+
+  /** Akses lihat saja: akun penyedia dana, pemantau akun bersama (kode akses),
+   *  dan admin (untuk pratinjau).
    */
   const ruangPenyediaDana = {
     href: "/penyedia-dana",
@@ -33,8 +33,20 @@ export function RoleDashboardMenu() {
     description: "Pantau pengajuan nasabah — hanya baca",
     icon: Eye,
   };
-  const spaces =
-    role === "admin"
+
+  /** Ruang pamer promosi singkat (title/subtitle/peringatan/cta/link).
+   *  Buka editor, lihat preview 2D canvas langsung, unduh PNG, dan bagikan
+   *  ke WhatsApp/Instagram lewat Web Share + deep-link fallback.
+   */
+  const ruangPromo = {
+    href: "/promo",
+    label: "Editor Promo",
+    description: "Susun kartu promosi & bagikan ke media sosial",
+    icon: Megaphone,
+  };
+
+  const menuSpaces = [
+    ...(role === "admin"
       ? [
           {
             href: ADMIN_ROUTE,
@@ -47,7 +59,9 @@ export function RoleDashboardMenu() {
         ]
       : role === "dana" || role === "pengamat"
         ? [ruangPenyediaDana, dashboardPeminjam]
-        : [dashboardPeminjam];
+        : [dashboardPeminjam]),
+    ruangPromo,
+  ];
 
   if (isLoading || !isAuthenticated) return null;
 
@@ -70,7 +84,7 @@ export function RoleDashboardMenu() {
         <DropdownMenuLabel className="px-3 py-2 text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
           Ruang PINDAI
         </DropdownMenuLabel>
-        {spaces.map(({ href, label, description, icon: Icon }) => {
+        {menuSpaces.map(({ href, label, description, icon: Icon }) => {
           return (
             <DropdownMenuItem key={href} asChild className="cursor-pointer px-3 py-2.5">
               <Link to={href} className="flex items-start gap-3">
