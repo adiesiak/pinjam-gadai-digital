@@ -21,6 +21,7 @@ import { describe, expect, it } from "vitest";
 import { api } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { akunDompetDana } from "./ledger";
+import { kunciNamaPendana, pinjamanMilikPendana } from "./pendanaKepemilikan";
 import { BATAS_BARIS } from "./penyediaDana";
 import schema from "./schema";
 import { buatPengguna, siapkanPengguna, type KonteksUji } from "./test.helpers";
@@ -91,6 +92,38 @@ async function seedPengajuan(t: KonteksUji, userId: Id<"users">) {
     return { loanId, pawnId, kreditId };
   });
 }
+
+describe("aturan kepemilikan pinjaman (murni)", () => {
+  const ROBERT = "id_robert" as Id<"users">;
+  const ASEP = "id_asep" as Id<"users">;
+  const kunciRobert = kunciNamaPendana({ name: "Robert", email: "robert@pindai.test" });
+
+  it("id pendana menang atas nama tampil, termasuk saat nama cocok", () => {
+    // Sudah dipindah ke Asep, tetapi nama lamanya masih tersimpan.
+    expect(
+      pinjamanMilikPendana({ pendanaId: ASEP, pendanaNama: "Robert" }, ROBERT, kunciRobert),
+    ).toBe(false);
+    expect(
+      pinjamanMilikPendana({ pendanaId: ASEP, pendanaNama: "Robert" }, ASEP, kunciRobert),
+    ).toBe(true);
+  });
+
+  it("tanpa id pendana, nama tampil dicocokkan persis dengan nama atau email akun", () => {
+    expect(pinjamanMilikPendana({ pendanaNama: "Robert" }, ROBERT, kunciRobert)).toBe(true);
+    expect(pinjamanMilikPendana({ pendanaNama: "robert@pindai.test" }, ROBERT, kunciRobert)).toBe(
+      true,
+    );
+    // Bukan pencocokan longgar: beda huruf besar/kecil dan spasi tidak lolos.
+    expect(pinjamanMilikPendana({ pendanaNama: "robert" }, ROBERT, kunciRobert)).toBe(false);
+    expect(pinjamanMilikPendana({ pendanaNama: " Robert " }, ROBERT, kunciRobert)).toBe(false);
+    expect(pinjamanMilikPendana({ pendanaNama: "Asep" }, ROBERT, kunciRobert)).toBe(false);
+  });
+
+  it("pinjaman tanpa pemilik tidak diklaim siapa pun", () => {
+    expect(pinjamanMilikPendana({}, ROBERT, kunciRobert)).toBe(false);
+    expect(pinjamanMilikPendana({ pendanaNama: undefined }, ROBERT, kunciRobert)).toBe(false);
+  });
+});
 
 describe("ruang penyedia dana (lihat saja)", () => {
   it("menolak tamu dan akun tanpa akses — gerbang ada di server", async () => {
