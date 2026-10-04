@@ -31,7 +31,7 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 import { v } from "convex/values";
 
 import type { Id } from "./_generated/dataModel";
-import { mutation, query, type QueryCtx } from "./_generated/server";
+import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import { SLOT_AKSES_BERSAMA } from "./aksesBersama";
 import { requireAdminSession } from "./adminAuthz";
 import { bagiHasilPinjaman } from "../lib/bagiHasil";
@@ -1324,123 +1324,178 @@ export const ubahDataPinjaman = mutation({
       );
     }
 
-    const patch: {
-      pendanaId?: Id<"users"> | undefined;
-      pendanaNama?: string | undefined;
-      tujuan?: string;
-      tenorHari?: number;
-      tenorBulan?: number | undefined;
-      pokokPinjaman?: number;
-    } = {};
-    const perubahan: string[] = [];
+    return await ctx.endTransaction(async (tx) => {
+      const patch: {
+        pendanaId?: Id<"users"> | undefined;
+        pendanaNama?: string | undefined;
+        tujuan?: string;
+        tenorHari?: number;
+        tenorBulan?: number | undefined;
+        pokokPinjaman?: number;
+      } = {};
+      const perubahan: string[] = [];
 
-    if (args.pendanaEmail !== undefined) {
-      if (args.pendanaEmail === null || args.pendanaEmail.trim() === "") {
-        if (loan.pendanaId !== undefined || loan.pendanaNama !== undefined) {
-          if (nominalTerkunci(loan.status) || loan.didanaiPada !== undefined) {
+      if (args.pendanaEmail !== undefined) {
+        if (args.pendanaEmail === null || args.pendanaEmail.trim() === "") {
+          if (loan.pendanaId !== undefined || loan.pendanaNama !== undefined) {
+            if (nominalTerkunci(loan.status) || loan.didanaiPada !== undefined) {
+              throw new Error(
+                "Pendana pinjaman yang sudah ditandai tersalurkan tidak dapat dilepas — pilih penyedia dana lain sebagai pengganti.",
+              );
+            }
+            patch.pendanaId = undefined;
+            patch.pendanaNama = undefined;
+            perubahan.push(`pendana dilepas (sebelumnya ${loan.pendanaNama ?? "tanpa nama"})`);
+          }
+        } else {
+          const target = await cariAkunEmail(ctx, args.pendanaEmail);
+          if (target === null) {
+            throw new Error(`Tidak ada akun dengan email ${args.pendanaEmail.trim()}.`);
+          }
+          if (target.isAnonymous === true) {
+            throw new Error("Akun tamu tidak dapat menjadi penyedia dana.");
+          }
+          if (target.role !== ROLES.DANA) {
             throw new Error(
-              "Pendana pinjaman yang sudah ditandai tersalurkan tidak dapat dilepas — pilih penyedia dana lain sebagai pengganti.",
+              "Akun itu belum berperan penyedia dana. Beri akses lihat saja lebih dulu di panel admin.",
             );
           }
-          patch.pendanaId = undefined;
-          patch.pendanaNama = undefined;
-          perubahan.push(`pendana dilepas (sebelumnya ${loan.pendanaNama ?? "tanpa nama"})`);
+          const nama = target.name?.trim() || target.email || "Penyedia dana";
+          if (loan.pendanaId !== target._id) {
+            patch.pendanaId = target._id;
+            patch.pendanaNama = nama;
+            perubahan.push(`pendana → ${nama}`);
+          }
         }
-      } else {
-        const target = await cariAkunEmail(ctx, args.pendanaEmail);
-        if (target === null) {
-          throw new Error(`Tidak ada akun dengan email ${args.pendanaEmail.trim()}.`);
+      }
+
+      if (args.tujuan !== undefined) {
+        const tujuan = args.tujuan.trim();
+        if (tujuan.length < 3 || tujuan.length > 500) {
+          throw new Error("Tujuan pinjaman wajib 3–500 karakter.");
         }
-        if (target.isAnonymous === true) {
-          throw new Error("Akun tamu tidak dapat menjadi penyedia dana.");
+        if (tujuan !== loan.tujuan) {
+          patch.tujuan = tujuan;
+          perubahan.push("tujuan diperbarui");
         }
-        if (target.role !== ROLES.DANA) {
+      }
+
+      if (args.tenorHari !== undefined) {
+        if (!Number.isSafeInteger(args.tenorHari) || args.tenorHari < 1 || args.tenorHari > 365) {
+          throw new Error("Tenor harian harus 1–365 hari.");
+        }
+        if (args.tenorHari !== loan.tenorHari) {
+          patch.tenorHari = args.tenorHari;
+          perubahan.push(`tenor ${args.tenorHari} hari`);
+        }
+      }
+
+      if (args.tenorBulan !== undefined) {
+        if (args.tenorBulan === null) {
+          if (loan.tenorBulan !== undefined) {
+            patch.tenorBulan = undefined;
+            perubahan.push("tenor kembali ke skema harian");
+          }
+        } else {
+          if (
+            !Number.isSafeInteger(args.tenorBulan) ||
+            args.tenorBulan < 1 ||
+            args.tenorBulan > 24
+          ) {
+            throw new Error("Tenor bulanan harus 1–24 bulan.");
+          }
+          if (args.tenorBulan !== loan.tenorBulan) {
+            patch.tenorBulan = args.tenorBulan;
+            perubahan.push(`tenor ${args.tenorBulan} bulan`);
+          }
+        }
+      }
+
+      if (args.pokokDisetujui !== undefined) {
+        if (nominalTerkunci(loan.status)) {
           throw new Error(
-            "Akun itu belum berperan penyedia dana. Beri akses lihat saja lebih dulu di panel admin.",
+            "Nominal tidak dapat diubah: dana pinjaman ini sudah tersalurkan.",
           );
         }
-        const nama = target.name?.trim() || target.email || "Penyedia dana";
-        if (loan.pendanaId !== target._id) {
-          patch.pendanaId = target._id;
-          patch.pendanaNama = nama;
-          perubahan.push(`pendana → ${nama}`);
-        }
-      }
-    }
-
-    if (args.tujuan !== undefined) {
-      const tujuan = args.tujuan.trim();
-      if (tujuan.length < 3 || tujuan.length > 500) {
-        throw new Error("Tujuan pinjaman wajib 3–500 karakter.");
-      }
-      if (tujuan !== loan.tujuan) {
-        patch.tujuan = tujuan;
-        perubahan.push("tujuan diperbarui");
-      }
-    }
-
-    if (args.tenorHari !== undefined) {
-      if (!Number.isSafeInteger(args.tenorHari) || args.tenorHari < 1 || args.tenorHari > 365) {
-        throw new Error("Tenor harian harus 1–365 hari.");
-      }
-      if (args.tenorHari !== loan.tenorHari) {
-        patch.tenorHari = args.tenorHari;
-        perubahan.push(`tenor ${args.tenorHari} hari`);
-      }
-    }
-
-    if (args.tenorBulan !== undefined) {
-      if (args.tenorBulan === null) {
-        if (loan.tenorBulan !== undefined) {
-          patch.tenorBulan = undefined;
-          perubahan.push("tenor kembali ke skema harian");
-        }
-      } else {
-        if (
-          !Number.isSafeInteger(args.tenorBulan) ||
-          args.tenorBulan < 1 ||
-          args.tenorBulan > 24
-        ) {
-          throw new Error("Tenor bulanan harus 1–24 bulan.");
-        }
-        if (args.tenorBulan !== loan.tenorBulan) {
-          patch.tenorBulan = args.tenorBulan;
-          perubahan.push(`tenor ${args.tenorBulan} bulan`);
-        }
-      }
-    }
-
-    if (args.pokokDisetujui !== undefined) {
-      if (nominalTerkunci(loan.status)) {
-        throw new Error(
-          "Nominal tidak dapat diubah: dana pinjaman ini sudah tersalurkan.",
+        const hasil = nominalDisetujui(
+          loan.pokokDiajukan ?? loan.pokokPinjaman,
+          args.pokokDisetujui,
         );
+        if (!hasil.ok) throw new Error(hasil.alasan);
+        if (hasil.nilai !== loan.pokokPinjaman) {
+          patch.pokokPinjaman = hasil.nilai;
+          perubahan.push(`pokok ${hasil.nilai}`);
+        }
       }
-      const hasil = nominalDisetujui(
-        loan.pokokDiajukan ?? loan.pokokPinjaman,
-        args.pokokDisetujui,
+
+      // Setelah perubahan disetujui, pindahkan baris-warisan yang masih
+      // `dialokasikan` dari dana lama ke dana baru. Baris lama
+      // `dibatalkan` di dataran lama (peran `dialokasikan_deduped` tidak
+      // ada di skema), sehingga ruang alokasi tidak menghitung pinjaman dua
+      // kali. Tidak dipanggil saat pendana tidak diganti.
+      let danaIdLama: Id<"users"> | undefined;
+      let danaIdBaru: Id<"users"> | undefined;
+      if (args.pendanaEmail !== undefined && args.pendanaEmail !== null && args.pendanaEmail.trim() !== "") {
+        const target = await cariAkunEmail(ctx, args.pendanaEmail);
+        if (target !== null && target.role === ROLES.DANA && loan.pendanaId !== undefined) {
+          danaIdLama = loan.pendanaId;
+          danaIdBaru = target._id;
+        }
+      }
+
+      if (perubahan.length === 0) return { ok: true, perubahan: [] as string[] };
+
+      await tx.db.patch(loan._id, patch);
+      await audit(
+        ctx,
+        adminId,
+        admin.email ?? admin.name ?? "admin",
+        "ubah_data_pinjaman",
+        loan.nomorReferensi,
+        `${loan.namaLengkap} — ${perubahan.join(", ")}. Alasan: ${alasan}`,
       );
-      if (!hasil.ok) throw new Error(hasil.alasan);
-      if (hasil.nilai !== loan.pokokPinjaman) {
-        patch.pokokPinjaman = hasil.nilai;
-        perubahan.push(`pokok ${hasil.nilai}`);
+      if (danaIdLama !== undefined && danaIdBaru !== undefined && danaIdLama !== danaIdBaru) {
+        await pindahAlokasiWarisan(tx, loan._id, danaIdLama, danaIdBaru);
       }
-    }
-
-    if (perubahan.length === 0) return { ok: true, perubahan: [] as string[] };
-
-    await ctx.db.patch(args.loanId, patch);
-    await audit(
-      ctx,
-      adminId,
-      admin.email ?? admin.name ?? "admin",
-      "ubah_data_pinjaman",
-      loan.nomorReferensi,
-      `${loan.namaLengkap} — ${perubahan.join(", ")}. Alasan: ${alasan}`,
-    );
-    return { ok: true, perubahan };
+      return { ok: true, perubahan };
+    });
   },
 });
+
+/**
+ * Penyegaran: pindahkan baris-warisan `fundings` (pinjaman tunai) dari
+ * dana lama ke dana baru untuk satu pinjaman, saat admin mengubah
+ * `pendanaId`. Baris lama yang masih `dialokasikan` di dataran lama
+ * dipindahkan ke dana baru dan ditandai `dibatalkan` di dataran lama
+ * (nilai `dialokasikan_deduped` tidak ada di skema), sehingga ruang alokasi
+ * tidak menghitung pinjaman dua kali. Saldo dompet, `ledger_entries`,
+ * transfer, serta status pinjaman tidak disentuh: mutation ini tetap murni
+ * koreksi catatan.
+ */
+async function pindahAlokasiWarisan(
+  tx: MutationCtx,
+  loanId: Id<"loans">,
+  danaIdLama: Id<"users">,
+  danaIdBaru: Id<"users">,
+) {
+  if (danaIdLama === danaIdBaru) return;
+
+  // fundings (pinjaman tunai) — hanya baris yang baru `dialokasikan`
+  // di dataran lama yang dimigrasikan; setelah dipindahkan mereka
+  // `dibatalkan` di dana lama sehingga ruang alokasi tidak menghitung
+  // pinjaman dua kali.
+  const fundings = await tx.db
+    .query("fundings")
+    .withIndex("by_loan", (q) => q.eq("loanId", loanId))      .collect();
+  for (const f of fundings) {
+    if (f.danaId !== danaIdLama) continue;
+    if (f.status !== "dialokasikan") continue;
+    await tx.db.patch(f._id, {
+      danaId: danaIdBaru,
+      status: "dibatalkan",
+    });
+  }
+}
 
 /**
  * ==========================================================================
