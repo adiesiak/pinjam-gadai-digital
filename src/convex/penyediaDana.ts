@@ -376,7 +376,7 @@ export const daftarPengajuan = query({
     async function pendanaPinjaman(loanId: Id<"loans">): Promise<string | null> {
       const alokasi = await ctx.db
         .query("fundings")
-        .withIndex("by_loan", (q) => q.eq("loanId", loanId))
+        .withIndex("by_loan", (q: QueryCtx) => q.eq("loanId", loanId))
         .collect();
       return rangkaiPendana(alokasi.map((a) => idPendana(a)));
     }
@@ -919,11 +919,11 @@ export const daftarInvestor = query({
     for (const u of akun) {
       const setoran = await ctx.db
         .query("deposits")
-        .withIndex("by_dana", (q) => q.eq("danaId", u._id))
+        .withIndex("by_dana", (q: QueryCtx) => q.eq("danaId", u._id))
         .collect();
       const penarikan = await ctx.db
         .query("withdrawals")
-        .withIndex("by_dana", (q) => q.eq("danaId", u._id))
+        .withIndex("by_dana", (q: QueryCtx) => q.eq("danaId", u._id))
         .collect();
 
       // Kepemilikan pinjaman memakai aturan tunggal di `pendanaKepemilikan.ts`
@@ -1112,12 +1112,10 @@ export const rincianInvestor = query({
     if (user === null) return null;
 
     const setoran = await ctx.db
-      .query("deposits")
-      .withIndex("by_dana", (q) => q.eq("danaId", userId))
+      .query("deposits")        .withIndex("by_dana", (q: QueryCtx) => q.eq("danaId", userId))
       .collect();
     const penarikan = await ctx.db
-      .query("withdrawals")
-      .withIndex("by_dana", (q) => q.eq("danaId", userId))
+      .query("withdrawals")        .withIndex("by_dana", (q: QueryCtx) => q.eq("danaId", userId))
       .collect();
 
     // Portofolio dibaca dari model baru: satu pinjaman = satu pendana. Baris
@@ -1324,18 +1322,17 @@ export const ubahDataPinjaman = mutation({
       );
     }
 
-    return await ctx.endTransaction(async (tx) => {
-      const patch: {
-        pendanaId?: Id<"users"> | undefined;
-        pendanaNama?: string | undefined;
-        tujuan?: string;
-        tenorHari?: number;
-        tenorBulan?: number | undefined;
-        pokokPinjaman?: number;
-      } = {};
-      const perubahan: string[] = [];
+    const patch: {
+      pendanaId?: Id<"users"> | undefined;
+      pendanaNama?: string | undefined;
+      tujuan?: string;
+      tenorHari?: number;
+      tenorBulan?: number | undefined;
+      pokokPinjaman?: number;
+    } = {};
+    const perubahan: string[] = [];
 
-      if (args.pendanaEmail !== undefined) {
+    if (args.pendanaEmail !== undefined) {
         if (args.pendanaEmail === null || args.pendanaEmail.trim() === "") {
           if (loan.pendanaId !== undefined || loan.pendanaNama !== undefined) {
             if (nominalTerkunci(loan.status) || loan.didanaiPada !== undefined) {
@@ -1445,7 +1442,7 @@ export const ubahDataPinjaman = mutation({
 
       if (perubahan.length === 0) return { ok: true, perubahan: [] as string[] };
 
-      await tx.db.patch(loan._id, patch);
+      await ctx.db.patch(loan._id, patch);
       await audit(
         ctx,
         adminId,
@@ -1455,10 +1452,9 @@ export const ubahDataPinjaman = mutation({
         `${loan.namaLengkap} — ${perubahan.join(", ")}. Alasan: ${alasan}`,
       );
       if (danaIdLama !== undefined && danaIdBaru !== undefined && danaIdLama !== danaIdBaru) {
-        await pindahAlokasiWarisan(tx, loan._id, danaIdLama, danaIdBaru);
+        await pindahAlokasiWarisan(ctx, loan._id, danaIdLama, danaIdBaru);
       }
       return { ok: true, perubahan };
-    });
   },
 });
 
@@ -1484,13 +1480,14 @@ async function pindahAlokasiWarisan(
   // di dataran lama yang dimigrasikan; setelah dipindahkan mereka
   // `dibatalkan` di dana lama sehingga ruang alokasi tidak menghitung
   // pinjaman dua kali.
-  const fundings = await tx.db
+  const fundings = await ctx.db
     .query("fundings")
-    .withIndex("by_loan", (q) => q.eq("loanId", loanId))      .collect();
+    .withIndex("by_loan", (q: QueryCtx) => q.eq("loanId", loanId))
+    .collect();
   for (const f of fundings) {
     if (f.danaId !== danaIdLama) continue;
     if (f.status !== "dialokasikan") continue;
-    await tx.db.patch(f._id, {
+    await ctx.db.patch(f._id, {
       danaId: danaIdBaru,
       status: "dibatalkan",
     });
@@ -1521,7 +1518,7 @@ async function ringkasTransferPinjaman(
 ): Promise<RingkasTransfer> {
   const baris = await ctx.db
     .query("transferPendana")
-    .withIndex("by_loan", (q) => q.eq("loanId", loanId))
+    .withIndex("by_loan", (q: QueryCtx) => q.eq("loanId", loanId))
     .collect();
   return ringkasTransfer(
     baris.map((b) => ({
@@ -1663,7 +1660,7 @@ export const batalkanTransferPendana = mutation({
 
     const berlaku = await ctx.db
       .query("transferPendana")
-      .withIndex("by_loan", (q) => q.eq("loanId", loanId))
+      .withIndex("by_loan", (q: QueryCtx) => q.eq("loanId", loanId))
       .collect()
       .then((rows) => rows.filter((r) => r.status === "dicatat"));
     if (berlaku.length === 0) {
