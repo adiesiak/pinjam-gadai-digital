@@ -44,6 +44,7 @@ import {
   type TransferBaris,
 } from "../lib/transferPendana";
 import { akunDompetDana, danaWalletBalance } from "./ledger";
+import { nominalDisetujui, nominalTerkunci } from "../lib/statusPinjaman";
 import { ROLES } from "./schema";
 import { audit, getConfig } from "./system";
 
@@ -1225,6 +1226,22 @@ export const rincianInvestor = query({
  * Akses bersifat lihat saja: hanya mengubah peran akun, tanpa menyentuh
  * catatan pengajuan. Perubahan dicatat pada audit trail.
  */
+/**
+ * Akun berdasarkan alamat email: indeks `email` lebih dulu, lalu pencarian
+ * terbatas untuk alamat yang tersimpan dengan huruf besar/kecil berbeda.
+ */
+async function cariAkunEmail(ctx: QueryCtx, email: string) {
+  const dicari = email.trim().toLowerCase();
+  if (dicari === "" || !dicari.includes("@")) return null;
+  const lewatIndeks = await ctx.db
+    .query("users")
+    .withIndex("email", (q) => q.eq("email", dicari))
+    .first();
+  if (lewatIndeks !== null) return lewatIndeks;
+  const semua = await ctx.db.query("users").take(500);
+  return semua.find((u) => (u.email ?? "").toLowerCase() === dicari) ?? null;
+}
+
 export const ubahAkses = mutation({
   args: {
     email: v.string(),
@@ -1240,16 +1257,7 @@ export const ubahAkses = mutation({
       throw new Error("Masukkan alamat email akun yang valid.");
     }
 
-    // Utamakan indeks email; jatuh ke pencarian terbatas untuk alamat yang
-    // tersimpan dengan huruf besar/kecil berbeda.
-    let target = await ctx.db
-      .query("users")
-      .withIndex("email", (q) => q.eq("email", dicari))
-      .first();
-    if (target === null) {
-      const semua = await ctx.db.query("users").take(500);
-      target = semua.find((u) => (u.email ?? "").toLowerCase() === dicari) ?? null;
-    }
+    const target = await cariAkunEmail(ctx, dicari);
     if (target === null) {
       throw new Error(`Tidak ada akun dengan email ${dicari}.`);
     }
@@ -1282,6 +1290,170 @@ export const ubahAkses = mutation({
     );
 
     return { ok: true, sudahSesuai: false };
+  },
+});
+
+/**
+ * Super Admin mengoreksi data satu pinjaman langsung dari ruang penyedia dana
+ * — termasuk menetapkan siapa pendananya (mis. pinjaman A didanai Robert atau
+ * Asep), tujuan, tenor, dan nominal yang disetujui.
+ *
+ * Ini MURNI KOREKSI CATATAN: tidak ada saldo, `ledger_entries`, atau dompet
+ * yang disentuh, dan `paymentGuard` tetap menutup seluruh perpindahan uang.
+ * Pencairan/transfer tetap di luar aplikasi.
+ *
+ * Batas yang dijaga server (fail-closed):
+ *  - hanya Super Admin dengan sesi TOTP terverifikasi (`requireAdminSession`);
+ *  - pinjaman `lunas` tidak dapat diubah — posisinya sudah ditutup;
+ *  - pendana harus akun beremail yang sudah berperan `dana`;
+ *  - pelepasan pendana hanya untuk pinjaman yang belum pernah ditandai
+ *    tersalurkan, supaya rekap tidak kehilangan pemilik dana secara diam-diam;
+ *  - nominal disetujui tidak boleh melebihi pengajuan dan tidak dapat diubah
+ *    setelah dana tersalurkan (`nominalTerkunci`);
+ *  - setiap perubahan wajib beralasan dan dicatat di audit trail.
+ */
+export const ubahDataPinjaman = mutation({
+  args: {
+    loanId: v.id("loans"),
+    /** Alasan koreksi — wajib, masuk audit trail. */
+    alasan: v.string(),
+    /** Email penyedia dana; `null`/kosong = lepas pendana dari pinjaman ini. */
+    pendanaEmail: v.optional(v.union(v.string(), v.null())),
+    tujuan: v.optional(v.string()),
+    tenorHari: v.optional(v.number()),
+    /** `null` = kembalikan ke skema harian. */
+    tenorBulan: v.optional(v.union(v.number(), v.null())),
+    pokokDisetujui: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const { userId: adminId, user: admin } = await requireAdminSession(ctx);
+    const alasan = args.alasan.trim();
+    if (alasan.length < 5 || alasan.length > 500) {
+      throw new Error("Alasan perubahan wajib 5–500 karakter.");
+    }
+    const loan = await ctx.db.get(args.loanId);
+    if (loan === null) throw new Error("Data pinjaman tidak ditemukan.");
+    if (loan.status === "lunas") {
+      throw new Error(
+        "Pinjaman yang sudah lunas tidak dapat diubah — posisinya sudah ditutup.",
+      );
+    }
+
+    const patch: {
+      pendanaId?: Id<"users"> | undefined;
+      pendanaNama?: string | undefined;
+      tujuan?: string;
+      tenorHari?: number;
+      tenorBulan?: number | undefined;
+      pokokPinjaman?: number;
+    } = {};
+    const perubahan: string[] = [];
+
+    if (args.pendanaEmail !== undefined) {
+      if (args.pendanaEmail === null || args.pendanaEmail.trim() === "") {
+        if (loan.pendanaId !== undefined || loan.pendanaNama !== undefined) {
+          if (nominalTerkunci(loan.status) || loan.didanaiPada !== undefined) {
+            throw new Error(
+              "Pendana pinjaman yang sudah ditandai tersalurkan tidak dapat dilepas — pilih penyedia dana lain sebagai pengganti.",
+            );
+          }
+          patch.pendanaId = undefined;
+          patch.pendanaNama = undefined;
+          perubahan.push(`pendana dilepas (sebelumnya ${loan.pendanaNama ?? "tanpa nama"})`);
+        }
+      } else {
+        const target = await cariAkunEmail(ctx, args.pendanaEmail);
+        if (target === null) {
+          throw new Error(`Tidak ada akun dengan email ${args.pendanaEmail.trim()}.`);
+        }
+        if (target.isAnonymous === true) {
+          throw new Error("Akun tamu tidak dapat menjadi penyedia dana.");
+        }
+        if (target.role !== ROLES.DANA) {
+          throw new Error(
+            "Akun itu belum berperan penyedia dana. Beri akses lihat saja lebih dulu di panel admin.",
+          );
+        }
+        const nama = target.name?.trim() || target.email || "Penyedia dana";
+        if (loan.pendanaId !== target._id) {
+          patch.pendanaId = target._id;
+          patch.pendanaNama = nama;
+          perubahan.push(`pendana → ${nama}`);
+        }
+      }
+    }
+
+    if (args.tujuan !== undefined) {
+      const tujuan = args.tujuan.trim();
+      if (tujuan.length < 3 || tujuan.length > 500) {
+        throw new Error("Tujuan pinjaman wajib 3–500 karakter.");
+      }
+      if (tujuan !== loan.tujuan) {
+        patch.tujuan = tujuan;
+        perubahan.push("tujuan diperbarui");
+      }
+    }
+
+    if (args.tenorHari !== undefined) {
+      if (!Number.isSafeInteger(args.tenorHari) || args.tenorHari < 1 || args.tenorHari > 365) {
+        throw new Error("Tenor harian harus 1–365 hari.");
+      }
+      if (args.tenorHari !== loan.tenorHari) {
+        patch.tenorHari = args.tenorHari;
+        perubahan.push(`tenor ${args.tenorHari} hari`);
+      }
+    }
+
+    if (args.tenorBulan !== undefined) {
+      if (args.tenorBulan === null) {
+        if (loan.tenorBulan !== undefined) {
+          patch.tenorBulan = undefined;
+          perubahan.push("tenor kembali ke skema harian");
+        }
+      } else {
+        if (
+          !Number.isSafeInteger(args.tenorBulan) ||
+          args.tenorBulan < 1 ||
+          args.tenorBulan > 24
+        ) {
+          throw new Error("Tenor bulanan harus 1–24 bulan.");
+        }
+        if (args.tenorBulan !== loan.tenorBulan) {
+          patch.tenorBulan = args.tenorBulan;
+          perubahan.push(`tenor ${args.tenorBulan} bulan`);
+        }
+      }
+    }
+
+    if (args.pokokDisetujui !== undefined) {
+      if (nominalTerkunci(loan.status)) {
+        throw new Error(
+          "Nominal tidak dapat diubah: dana pinjaman ini sudah tersalurkan.",
+        );
+      }
+      const hasil = nominalDisetujui(
+        loan.pokokDiajukan ?? loan.pokokPinjaman,
+        args.pokokDisetujui,
+      );
+      if (!hasil.ok) throw new Error(hasil.alasan);
+      if (hasil.nilai !== loan.pokokPinjaman) {
+        patch.pokokPinjaman = hasil.nilai;
+        perubahan.push(`pokok ${hasil.nilai}`);
+      }
+    }
+
+    if (perubahan.length === 0) return { ok: true, perubahan: [] as string[] };
+
+    await ctx.db.patch(args.loanId, patch);
+    await audit(
+      ctx,
+      adminId,
+      admin.email ?? admin.name ?? "admin",
+      "ubah_data_pinjaman",
+      loan.nomorReferensi,
+      `${loan.namaLengkap} — ${perubahan.join(", ")}. Alasan: ${alasan}`,
+    );
+    return { ok: true, perubahan };
   },
 });
 

@@ -454,6 +454,145 @@ describe("ruang penyedia dana (lihat saja)", () => {
     expect(entri.some((j) => (j.detail ?? "").includes("Selesai uji"))).toBe(true);
   });
 
+  it("Super Admin memindahkan pendana pinjaman tanpa menyentuh ledger", async () => {
+    const t = convexTest(schema, modules);
+    const { sesi: admin } = await siapkanPengguna(t, "admin", {
+      email: "admin@pindai.test",
+      role: "admin",
+    });
+    const { userId: peminjamId } = await siapkanPengguna(t, "rani", {
+      email: "rani@pindai.test",
+      role: "peminjam",
+    });
+    const { userId: robertId } = await siapkanPengguna(t, "Robert", {
+      email: "robert@pindai.test",
+      role: "dana",
+    });
+    const { sesi: asep, userId: asepId } = await siapkanPengguna(t, "Asep", {
+      email: "asep@pindai.test",
+      role: "dana",
+    });
+    const { loanId } = await seedPengajuan(t, peminjamId);
+    await t.run((ctx) =>
+      ctx.db.patch(loanId, {
+        status: "didanai",
+        pokokDiajukan: 2_500_000,
+        pokokPinjaman: 2_500_000,
+        pendanaId: robertId,
+        pendanaNama: "Robert",
+        didanaiPada: Date.now(),
+      }),
+    );
+
+    // Penyedia dana sendiri tidak boleh mengubah catatan — gerbangnya di server.
+    await expect(
+      asep.mutation(api.penyediaDana.ubahDataPinjaman, {
+        loanId,
+        pendanaEmail: "asep@pindai.test",
+        alasan: "Pindah pendana",
+      }),
+    ).rejects.toThrow(/Super Admin/i);
+
+    const hasil = await admin.mutation(api.penyediaDana.ubahDataPinjaman, {
+      loanId,
+      pendanaEmail: "asep@pindai.test",
+      alasan: "Salah pilih pendana saat pencatatan",
+    });
+    expect(hasil.perubahan).toEqual(["pendana → Asep"]);
+    const pinjaman = await t.run((ctx) => ctx.db.get(loanId));
+    expect(pinjaman?.pendanaId).toBe(asepId);
+    expect(pinjaman?.pendanaNama).toBe("Asep");
+    // Pokok, status, dan tanggal pendanaan tidak ikut berubah.
+    expect(pinjaman?.pokokPinjaman).toBe(2_500_000);
+    expect(pinjaman?.status).toBe("didanai");
+    // Murni koreksi catatan: tidak ada saldo/ledger maupun dompet yang tersentuh.
+    expect(await t.run((ctx) => ctx.db.query("ledger_entries").collect())).toEqual([]);
+
+    // Rekap dan baris daftar langsung mengikuti pendana baru.
+    const daftar = await asep.query(api.penyediaDana.daftarPengajuan, {});
+    expect(daftar.pinjaman[0]?.pendana).toBe("Asep");
+
+    // Alasan wajib, dan pinjaman lunas tidak dapat diubah lagi.
+    await expect(
+      admin.mutation(api.penyediaDana.ubahDataPinjaman, {
+        loanId,
+        pendanaEmail: "robert@pindai.test",
+        alasan: "ok",
+      }),
+    ).rejects.toThrow(/5/);
+    await t.run((ctx) => ctx.db.patch(loanId, { status: "lunas" }));
+    await expect(
+      admin.mutation(api.penyediaDana.ubahDataPinjaman, {
+        loanId,
+        pendanaEmail: "robert@pindai.test",
+        alasan: "Kembalikan ke Robert setelah lunas",
+      }),
+    ).rejects.toThrow(/lunas/i);
+  });
+
+  it("menolak akun tanpa peran dana dan melepas pendana hanya bila belum tersalurkan", async () => {
+    const t = convexTest(schema, modules);
+    const { sesi: admin } = await siapkanPengguna(t, "admin", {
+      email: "admin@pindai.test",
+      role: "admin",
+    });
+    const { userId: peminjamId } = await siapkanPengguna(t, "rani", {
+      email: "rani@pindai.test",
+      role: "peminjam",
+    });
+    const { userId: penyediaId } = await siapkanPengguna(t, "Robert", {
+      email: "robert@pindai.test",
+      role: "dana",
+    });
+    const { userId: biasaId } = await siapkanPengguna(t, "Biasa", {
+      email: "biasa@pindai.test",
+      role: "peminjam",
+    });
+    const { loanId } = await seedPengajuan(t, peminjamId);
+
+    // Akun tanpa akses penyedia dana ditolak sebagai pendana.
+    await expect(
+      admin.mutation(api.penyediaDana.ubahDataPinjaman, {
+        loanId,
+        pendanaEmail: "biasa@pindai.test",
+        alasan: "Coba akun biasa",
+      }),
+    ).rejects.toThrow(/penyedia dana/i);
+    expect((await t.run((ctx) => ctx.db.get(loanId)))?.pendanaId).toBeUndefined();
+    expect(biasaId).toBeDefined();
+
+    // Belum tersalurkan → pendana boleh dilepas lagi.
+    await admin.mutation(api.penyediaDana.ubahDataPinjaman, {
+      loanId,
+      pendanaEmail: "robert@pindai.test",
+      alasan: "Tandai pendana Robert",
+    });
+    const lepas = await admin.mutation(api.penyediaDana.ubahDataPinjaman, {
+      loanId,
+      pendanaEmail: null,
+      alasan: "Robert batal mendanai",
+    });
+    expect(lepas.perubahan[0]).toMatch(/lepas/i);
+    expect((await t.run((ctx) => ctx.db.get(loanId)))?.pendanaId).toBeUndefined();
+
+    // Sudah tersalurkan → pelepasan ditolak supaya rekap tidak kehilangan pemilik dana.
+    await t.run((ctx) =>
+      ctx.db.patch(loanId, {
+        status: "didanai",
+        pendanaId: penyediaId,
+        pendanaNama: "Robert",
+        didanaiPada: Date.now(),
+      }),
+    );
+    await expect(
+      admin.mutation(api.penyediaDana.ubahDataPinjaman, {
+        loanId,
+        pendanaEmail: null,
+        alasan: "Lepas setelah tersalurkan",
+      }),
+    ).rejects.toThrow(/tidak dapat dilepas|tersalurkan/i);
+  });
+
   it("menolak email tak dikenal, email tidak valid, dan akun tim (admin)", async () => {
     const t = convexTest(schema, modules);
     const { sesi: admin } = await siapkanPengguna(t, "admin", {

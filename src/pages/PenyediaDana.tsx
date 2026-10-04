@@ -1,4 +1,4 @@
-import { useQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import {
   BadgeCheck,
   Eye,
@@ -9,6 +9,7 @@ import {
   Lock,
   MapPin,
   Package,
+  Pencil,
   ShoppingBag,
   RotateCcw,
   Timer,
@@ -40,6 +41,16 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { api } from "@/convex/_generated/api";
+import { toast } from "sonner";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import type { RingkasTransfer } from "@/lib/transferPendana";
 import type {
   BarisGadai,
@@ -347,17 +358,22 @@ function CatatanTerpotong({ terpotong, batas }: { terpotong: boolean; batas: num
   );
 }
 
-/** Kerangka tabel yang bisa digulir mendatar di layar sempit. */
+/**
+ * Kerangka tabel — dirancang agar muat TANPA geser mendatar.
+ * Kolom sudah diringkas (nomor referensi dan tenor ikut ke dalam sel lain),
+ * dan `TableHead` tidak lagi memaksa `whitespace-nowrap` supaya judul panjang
+ * boleh turun ke baris kedua alih-alih melebarkan tabel.
+ */
 function Tabel({ head, children }: { head: string[]; children: React.ReactNode }) {
   return (
-    <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white">
-      <Table>
+    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+      <Table className="w-full">
         <TableHeader>
           <TableRow className="bg-slate-50/80">
             {head.map((judul) => (
               <TableHead
                 key={judul}
-                className="whitespace-nowrap text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500"
+                className="align-bottom text-[11px] font-semibold uppercase tracking-[0.1em] text-slate-500"
               >
                 {judul}
               </TableHead>
@@ -370,11 +386,23 @@ function Tabel({ head, children }: { head: string[]; children: React.ReactNode }
   );
 }
 
-/** Sel nama pemohon + kode pseudonim sebagai kunci stabil. */
-function SelNama({ nama, kode }: { nama: string; kode: string | null }) {
+/**
+ * Sel peminjam: nama, nomor referensi, dan kode pseudonim dalam satu kolom.
+ * Digabung supaya tabel tidak perlu digeser mendatar di layar kerja.
+ */
+function SelPeminjam({
+  nama,
+  kode,
+  referensi,
+}: {
+  nama: string;
+  kode: string | null;
+  referensi: string;
+}) {
   return (
-    <TableCell className="min-w-[190px] align-top">
+    <TableCell className="align-top">
       <p className="font-medium uppercase text-slate-900">{nama}</p>
+      <p className="mt-1 break-all font-mono text-[11px] text-slate-500">{referensi}</p>
       <div className="mt-1">
         <BadgePseudonim kode={kode} />
       </div>
@@ -420,6 +448,7 @@ function KartuPengajuan({
   nomorReferensi,
   status,
   onDetail,
+  onUbah,
   children,
 }: {
   nama: string;
@@ -427,6 +456,8 @@ function KartuPengajuan({
   nomorReferensi: string;
   status: React.ReactNode;
   onDetail: () => void;
+  /** Hanya diberikan untuk Super Admin — mengoreksi data pinjaman. */
+  onUbah?: () => void;
   children: React.ReactNode;
 }) {
   return (
@@ -442,9 +473,16 @@ function KartuPengajuan({
         <BadgePseudonim kode={kode} />
       </div>
       <dl className="mt-3 grid grid-cols-2 gap-x-3 gap-y-3">{children}</dl>
-      <Button variant="outline" size="sm" className="mt-4 w-full" onClick={onDetail}>
-        <Eye className="mr-1.5 size-3.5" aria-hidden /> Lihat detail lengkap
-      </Button>
+      <div className="mt-4 flex gap-2">
+        <Button variant="outline" size="sm" className="flex-1" onClick={onDetail}>
+          <Eye className="mr-1.5 size-3.5" aria-hidden /> Detail
+        </Button>
+        {onUbah !== undefined && (
+          <Button variant="outline" size="sm" className="flex-1" onClick={onUbah}>
+            <Pencil className="mr-1.5 size-3.5" aria-hidden /> Ubah
+          </Button>
+        )}
+      </div>
     </article>
   );
 }
@@ -964,11 +1002,14 @@ function DaftarPinjaman({
   persenBunga,
   sekarang,
   onDetail,
+  onUbah,
 }: {
   rows: BarisPinjaman[];
   persenBunga: number;
   sekarang: number;
   onDetail: (row: BarisPinjaman) => void;
+  /** Hanya diisi untuk Super Admin (koreksi data pinjaman). */
+  onUbah?: (row: BarisPinjaman) => void;
 }) {
   return (
     <>
@@ -982,6 +1023,7 @@ function DaftarPinjaman({
             nomorReferensi={row.nomorReferensi}
             status={<StatusBadge status={row.status} kind="loan" />}
             onDetail={() => onDetail(row)}
+            onUbah={onUbah === undefined ? undefined : () => onUbah(row)}
           >
             <InfoKartu label="Nominal diajukan">
               {rupiah(row.pokokDiajukan ?? row.pokokPinjaman)}
@@ -1018,74 +1060,86 @@ function DaftarPinjaman({
       <div className="hidden md:block">
         <Tabel
           head={[
-            "No. Ref",
-            "Nama",
-            "Pengajuan / pokok tercatat",
-            `Bunga ${persenBunga}%`,
-            "Total Lunas",
-            "Tenor",
+            "Peminjam",
+            "Pengajuan & tenor",
+            "Kewajiban & biaya",
             "Tanggal",
             "Status",
             "Pendana",
-            "Keuntungan Pendana",
-            "Potongan Admin",
-            "Transfer Keuntungan",
             "Lokasi",
             "Aksi",
           ]}
         >
           {rows.map((row) => (
             <TableRow key={row._id}>
-              <TableCell className="whitespace-nowrap align-top font-mono text-xs text-slate-500">
-                {row.nomorReferensi}
-              </TableCell>
-              <SelNama nama={row.namaLengkap} kode={row.kodePeminjam} />
-              <TableCell className="whitespace-nowrap align-top tabular-nums">
-                <p className="text-xs text-muted-foreground">
-                  Diajukan {rupiah(row.pokokDiajukan ?? row.pokokPinjaman)}
+              <SelPeminjam
+                nama={row.namaLengkap}
+                kode={row.kodePeminjam}
+                referensi={row.nomorReferensi}
+              />
+              <TableCell className="align-top tabular-nums">
+                <p className="font-semibold text-slate-900">{rupiah(row.pokokPinjaman)}</p>
+                <p className="mt-1 text-[11px] text-muted-foreground">
+                  Diajukan {rupiah(row.pokokDiajukan ?? row.pokokPinjaman)} · {labelPokok(row.status)}
                 </p>
-                <p className="mt-1 font-semibold">{rupiah(row.pokokPinjaman)}</p>
-                <p className="mt-1 text-[10px] text-muted-foreground">{labelPokok(row.status)}</p>
+                <p className="mt-1 text-[11px] text-slate-600">
+                  {row.tenorBulan === null ? `${row.tenorHari} hari` : `${row.tenorBulan} bulan`}
+                </p>
                 {row.pokokDiajukan > row.pokokPinjaman && (
-                  <Badge variant="outline" className="mt-2 text-[10px]">Nominal dikurangi</Badge>
+                  <Badge variant="outline" className="mt-2 text-[10px]">
+                    Nominal dikurangi
+                  </Badge>
                 )}
               </TableCell>
-              <TableCell className="whitespace-nowrap align-top font-medium tabular-nums text-emerald-700">
-                {rupiah(row.bunga)}
+              <TableCell className="align-top tabular-nums">
+                <p className="font-medium text-slate-800">{rupiah(row.totalLunas)}</p>
+                <p className="mt-1 text-[11px] text-emerald-700">
+                  Bunga {persenBunga}% {rupiah(row.bunga)}
+                </p>
+                <p className="mt-1 text-[11px] text-amber-700">
+                  Potongan admin {row.pendana === null ? "—" : rupiah(row.potonganAdmin)}
+                </p>
               </TableCell>
-              <TableCell className="whitespace-nowrap align-top font-medium tabular-nums text-slate-700">
-                {rupiah(row.totalLunas)}
-              </TableCell>
-              <TableCell className="whitespace-nowrap align-top text-slate-600">
-                {row.tenorBulan === null ? `${row.tenorHari} hari` : `${row.tenorBulan} bulan`}
-              </TableCell>
-              <TableCell className="whitespace-nowrap align-top text-slate-600">
+              <TableCell className="align-top text-slate-600">
                 {tanggalRingkas(row.diajukanPada)}
               </TableCell>
               <TableCell className="align-top">
                 <StatusBadge status={row.status} kind="loan" />
               </TableCell>
-              <SelPendana pendana={row.pendana} />
-              <TableCell className="whitespace-nowrap align-top font-semibold tabular-nums text-emerald-700">
-                {row.pendana === null ? "—" : rupiah(row.keuntunganPendana)}
-              </TableCell>
-              <TableCell className="whitespace-nowrap align-top font-semibold tabular-nums text-amber-700">
-                {row.pendana === null ? "—" : rupiah(row.potonganAdmin)}
-              </TableCell>
               <TableCell className="align-top">
                 {row.pendana === null ? (
-                  <span className="text-xs text-muted-foreground">—</span>
-                ) : row.status !== "lunas" ? (
-                  <span className="text-[11px] text-muted-foreground">menunggu lunas</span>
+                  <span className="text-slate-400">—</span>
                 ) : (
-                  <BadgeTransferPendana ringkas={row.transfer} />
+                  <>
+                    <span className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-gold/40 bg-gold/10 px-2.5 py-1 text-[11px] font-medium uppercase text-gold-foreground">
+                      <Wallet className="size-3 shrink-0" aria-hidden />
+                      <span className="truncate">{row.pendana}</span>
+                    </span>
+                    <p className="mt-1 text-[11px] font-semibold text-emerald-700">
+                      Untung {rupiah(row.keuntunganPendana)}
+                    </p>
+                    <p className="mt-1 text-[11px] text-muted-foreground">
+                      {row.status !== "lunas" ? (
+                        "transfer menunggu lunas"
+                      ) : (
+                        <BadgeTransferPendana ringkas={row.transfer} />
+                      )}
+                    </p>
+                  </>
                 )}
               </TableCell>
               <SelLokasi lokasi={row.lokasi} sekarang={sekarang} />
               <TableCell className="align-top">
-                <Button variant="outline" size="sm" onClick={() => onDetail(row)}>
-                  <Eye className="mr-1.5 size-3.5" aria-hidden /> Detail
-                </Button>
+                <div className="flex flex-col gap-2">
+                  <Button variant="outline" size="sm" onClick={() => onDetail(row)}>
+                    <Eye className="mr-1.5 size-3.5" aria-hidden /> Detail
+                  </Button>
+                  {onUbah !== undefined && (
+                    <Button variant="outline" size="sm" onClick={() => onUbah(row)}>
+                      <Pencil className="mr-1.5 size-3.5" aria-hidden /> Ubah
+                    </Button>
+                  )}
+                </div>
               </TableCell>
             </TableRow>
           ))}
@@ -1095,10 +1149,222 @@ function DaftarPinjaman({
   );
 }
 
+/**
+ * Koreksi data pinjaman — khusus Super Admin.
+ *
+ * Ruang penyedia dana tetap "lihat saja" untuk peran `dana` dan `pengamat`:
+ * tombol Ubah tidak pernah muncul untuk mereka. Server tetap penjaga utama —
+ * `ubahDataPinjaman` mewajibkan Super Admin dengan sesi TOTP terverifikasi,
+ * alasan perubahan, dan menolak pinjaman yang sudah lunas.
+ */
+function DialogUbahPinjaman({
+  row,
+  onClose,
+}: {
+  row: BarisPinjaman | null;
+  onClose: () => void;
+}) {
+  return (
+    <Dialog open={row !== null} onOpenChange={(open) => (open ? undefined : onClose())}>
+      <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Ubah data pinjaman</DialogTitle>
+          <DialogDescription>
+            Koreksi catatan internal PINDAI — termasuk menetapkan siapa pendananya. Tidak ada uang
+            yang berpindah dan pencairan tetap di luar aplikasi; setiap perubahan wajib beralasan
+            dan masuk audit trail.
+          </DialogDescription>
+        </DialogHeader>
+        {row !== null && <FormUbahPinjaman key={row._id} row={row} onClose={onClose} />}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function FormUbahPinjaman({ row, onClose }: { row: BarisPinjaman; onClose: () => void }) {
+  const investor = useQuery(api.penyediaDana.daftarInvestor, {});
+  const simpan = useMutation(api.penyediaDana.ubahDataPinjaman);
+  const [pendana, setPendana] = useState("");
+  const [tujuan, setTujuan] = useState(row.tujuan);
+  const [tenorHari, setTenorHari] = useState(String(row.tenorHari));
+  const [tenorBulan, setTenorBulan] = useState(
+    row.tenorBulan === null ? "harian" : String(row.tenorBulan),
+  );
+  const [pokok, setPokok] = useState(String(row.pokokPinjaman));
+  const [alasan, setAlasan] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  // Pendana yang boleh dipilih: akun beremail yang sudah berperan `dana`.
+  const kandidat = (investor?.rows ?? []).filter(
+    (r) => r.email !== null && r.aksesAktif && r.peran === "dana",
+  );
+  const nominalTerkunci = row.status === "didanai" || row.status === "lunas";
+  const bolehLepas = !nominalTerkunci && row.didanaiPada === null;
+
+  const kirim = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const catatan = alasan.trim();
+    if (catatan.length < 5) {
+      toast.error("Alasan perubahan wajib diisi (minimal 5 karakter).");
+      return;
+    }
+    const tenorAwal = row.tenorBulan === null ? "harian" : String(row.tenorBulan);
+    setBusy(true);
+    try {
+      const hasil = await simpan({
+        loanId: row._id,
+        alasan: catatan,
+        ...(pendana === ""
+          ? {}
+          : { pendanaEmail: pendana === "__lepas" ? null : pendana }),
+        ...(tujuan.trim() !== row.tujuan ? { tujuan: tujuan.trim() } : {}),
+        ...(tenorBulan === "harian" && Number(tenorHari) !== row.tenorHari
+          ? { tenorHari: Number(tenorHari) }
+          : {}),
+        ...(tenorBulan !== tenorAwal
+          ? { tenorBulan: tenorBulan === "harian" ? null : Number(tenorBulan) }
+          : {}),
+        ...(!nominalTerkunci && Number(pokok) !== row.pokokPinjaman
+          ? { pokokDisetujui: Number(pokok) }
+          : {}),
+      });
+      toast.success(
+        hasil.perubahan.length === 0
+          ? "Tidak ada perubahan yang disimpan."
+          : `Tersimpan: ${hasil.perubahan.join(", ")}`,
+      );
+      onClose();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Gagal menyimpan perubahan.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <form className="space-y-4" onSubmit={kirim}>
+      <div className="rounded-2xl border border-slate-200 bg-slate-50/70 px-4 py-3 text-xs leading-6 text-muted-foreground">
+        <span className="font-medium uppercase text-slate-700">{row.namaLengkap}</span> ·{" "}
+        <span className="font-mono">{row.nomorReferensi}</span>
+        <br />
+        Pokok tercatat {rupiah(row.pokokPinjaman)} · diajukan{" "}
+        {rupiah(row.pokokDiajukan ?? row.pokokPinjaman)} · pendana sekarang{" "}
+        {row.pendana ?? "belum ada"}
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="ubah-pendana">Pendana</Label>
+        <Select value={pendana} onValueChange={setPendana}>
+          <SelectTrigger id="ubah-pendana" className="w-full">
+            <SelectValue placeholder="Tidak diubah" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="">Tidak diubah</SelectItem>
+            {kandidat.map((r) => (
+              <SelectItem key={r.userId} value={r.email ?? ""}>
+                {r.nama} — {r.email}
+              </SelectItem>
+            ))}
+            <SelectItem value="__lepas" disabled={!bolehLepas}>
+              Lepas pendana (tanpa pemilik dana)
+            </SelectItem>
+          </SelectContent>
+        </Select>
+        <p className="text-[11px] leading-5 text-muted-foreground">
+          Daftar ini berisi akun yang sudah diberi akses penyedia dana.{" "}
+          {bolehLepas
+            ? "Pinjaman ini belum ditandai tersalurkan, jadi pendananya boleh dilepas."
+            : "Pendana tidak dapat dilepas setelah dana ditandai tersalurkan — pilih penggantinya."}
+        </p>
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="ubah-tujuan">Tujuan pinjaman</Label>
+        <Input
+          id="ubah-tujuan"
+          value={tujuan}
+          onChange={(e) => setTujuan(e.target.value)}
+          maxLength={500}
+        />
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="space-y-2">
+          <Label htmlFor="ubah-tenor-bulan">Skema tenor</Label>
+          <Select value={tenorBulan} onValueChange={setTenorBulan}>
+            <SelectTrigger id="ubah-tenor-bulan" className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="harian">Harian</SelectItem>
+              {[1, 3, 6, 12, 24].map((bulan) => (
+                <SelectItem key={bulan} value={String(bulan)}>
+                  {bulan} bulan
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="ubah-tenor-hari">Tenor harian (hari)</Label>
+          <Input
+            id="ubah-tenor-hari"
+            type="number"
+            min={1}
+            max={365}
+            value={tenorHari}
+            disabled={tenorBulan !== "harian"}
+            onChange={(e) => setTenorHari(e.target.value)}
+          />
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="ubah-pokok">Pokok disetujui (Rp)</Label>
+        <Input
+          id="ubah-pokok"
+          type="number"
+          min={1}
+          value={pokok}
+          disabled={nominalTerkunci}
+          onChange={(e) => setPokok(e.target.value)}
+        />
+        <p className="text-[11px] leading-5 text-muted-foreground">
+          {nominalTerkunci
+            ? "Nominal tidak dapat diubah: dana pinjaman ini sudah ditandai tersalurkan."
+            : `Tidak boleh melebihi pengajuan ${rupiah(row.pokokDiajukan ?? row.pokokPinjaman)}.`}
+        </p>
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="ubah-alasan">Alasan perubahan</Label>
+        <Input
+          id="ubah-alasan"
+          value={alasan}
+          onChange={(e) => setAlasan(e.target.value)}
+          placeholder="mis. pinjaman didanai Asep, sebelumnya tercatat Robert"
+          maxLength={500}
+        />
+      </div>
+
+      <div className="flex justify-end gap-2 pt-1">
+        <Button type="button" variant="ghost" onClick={onClose} disabled={busy}>
+          Batal
+        </Button>
+        <Button type="submit" disabled={busy}>
+          {busy ? <Loader2 className="mr-1.5 size-3.5 animate-spin" /> : null}
+          Simpan perubahan
+        </Button>
+      </div>
+    </form>
+  );
+}
+
 function IsiRuang() {
   const { user } = useAuth();
   const [tab, setTab] = useState("pinjaman");
   const [detail, setDetail] = useState<IsiDetail | null>(null);
+  const [ubah, setUbah] = useState<BarisPinjaman | null>(null);
   const sekarang = useJamBerjalan();
 
   const role = user?.role;
@@ -1141,7 +1407,9 @@ function IsiRuang() {
               <Eye className="size-3" />
               {role === "pengamat"
                 ? "Pemantau akun bersama · lihat saja"
-                : "Ruang penyedia dana · lihat saja"}
+                : role === "admin"
+                  ? "Super Admin · dapat mengoreksi data"
+                  : "Ruang penyedia dana · lihat saja"}
             </span>
             <RoleDashboardMenu />
           </div>
@@ -1160,7 +1428,8 @@ function IsiRuang() {
             <section className="animate-masuk rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7">
               <div className="flex flex-wrap items-center gap-2">
                 <Badge className="border-0 bg-primary/10 text-accent-foreground">
-                  <Eye className="mr-1 size-3" /> Akses lihat saja
+                  <Eye className="mr-1 size-3" />{" "}
+                  {role === "admin" ? "Akses Super Admin · dapat mengoreksi" : "Akses lihat saja"}
                 </Badge>
                 <Badge variant="outline" className="border-slate-200 text-muted-foreground">
                   {bolehBerkas
@@ -1172,9 +1441,12 @@ function IsiRuang() {
                 Pengajuan Peminjam
               </h1>
               <p className="mt-3 max-w-3xl text-sm leading-7 text-muted-foreground">
-                Catatan internal PINDAI untuk pinjaman tunai, gadai, dan kredit barang. Anda hanya
-                dapat membaca: tidak ada tindakan alokasi, pencairan, maupun pengubahan status dari
-                ruang ini. Tombol <strong>Detail</strong> membuka titik lokasi terakhir peminjam
+                Catatan internal PINDAI untuk pinjaman tunai, gadai, dan kredit barang. Tidak ada
+                tindakan alokasi maupun pencairan dari ruang ini
+                {role === "admin"
+                  ? "; sebagai Super Admin Anda dapat mengoreksi data pinjaman (termasuk menetapkan pendananya) lewat tombol Ubah — setiap perubahan wajib beralasan dan tercatat di audit trail."
+                  : ": Anda hanya dapat membaca catatan ini."}{" "}
+                Tombol <strong>Detail</strong> membuka titik lokasi terakhir peminjam
                 {bolehBerkas
                   ? ", berkas pengajuan (KTP, selfie, slip, foto barang, tanda tangan),"
                   : " — berkas identitas pemohon hanya dibuka untuk akun penyedia dana beremail, bukan untuk sesi kode akses bersama."}{" "}
@@ -1246,7 +1518,7 @@ function IsiRuang() {
             <Tabs value={tab} onValueChange={setTab} className="animate-masuk mt-6">
               <TabsList
                 aria-label="Kategori pengajuan"
-                className="h-auto w-full justify-start gap-1 overflow-x-auto rounded-2xl border border-slate-200 bg-white p-1.5"
+                className="h-auto w-full flex-wrap justify-start gap-1 rounded-2xl border border-slate-200 bg-white p-1.5"
               >
                 <TabsTrigger
                   value="pinjaman"
@@ -1308,6 +1580,7 @@ function IsiRuang() {
                       persenBunga={data.ringkasan.persenBunga}
                       sekarang={sekarang}
                       onDetail={(row) => setDetail({ jenis: "pinjaman", row })}
+                      onUbah={role === "admin" ? (row) => setUbah(row) : undefined}
                     />
                     <CatatanTerpotong
                       terpotong={data.terpotong.pinjaman}
@@ -1333,6 +1606,7 @@ function IsiRuang() {
                       persenBunga={data.ringkasan.persenBunga}
                       sekarang={sekarang}
                       onDetail={(row) => setDetail({ jenis: "pinjaman", row })}
+                      onUbah={role === "admin" ? (row) => setUbah(row) : undefined}
                     />
                     <CatatanTerpotong
                       terpotong={data.terpotong.pinjaman}
@@ -1381,8 +1655,7 @@ function IsiRuang() {
                     <div className="hidden md:block">
                       <Tabel
                       head={[
-                        "No. Ref",
-                        "Nama",
+                        "Peminjam",
                         "Barang",
                         "Taksiran",
                         "Tanggal",
@@ -1393,20 +1666,21 @@ function IsiRuang() {
                     >
                       {data.gadai.map((row) => (
                         <TableRow key={row._id}>
-                          <TableCell className="whitespace-nowrap align-top font-mono text-xs text-slate-500">
-                            {row.nomorReferensi}
-                          </TableCell>
-                          <SelNama nama={row.namaLengkap} kode={row.kodePeminjam} />
-                          <TableCell className="min-w-[200px] align-top">
+                          <SelPeminjam
+                            nama={row.namaLengkap}
+                            kode={row.kodePeminjam}
+                            referensi={row.nomorReferensi}
+                          />
+                          <TableCell className="align-top">
                             <p className="text-slate-900">{row.deskripsiBarang}</p>
                             <p className="mt-0.5 text-xs text-muted-foreground">{row.kategori}</p>
                           </TableCell>
-                          <TableCell className="whitespace-nowrap align-top font-semibold tabular-nums">
+                          <TableCell className="align-top font-semibold tabular-nums">
                             {row.nilaiTaksiran === null
                               ? "belum ditaksir"
                               : rupiah(row.nilaiTaksiran)}
                           </TableCell>
-                          <TableCell className="whitespace-nowrap align-top text-slate-600">
+                          <TableCell className="align-top text-slate-600">
                             {tanggalRingkas(row.diajukanPada)}
                           </TableCell>
                           <TableCell className="align-top">
@@ -1468,11 +1742,9 @@ function IsiRuang() {
                     <div className="hidden md:block">
                       <Tabel
                       head={[
-                        "No. Ref",
-                        "Nama",
+                        "Peminjam",
                         "Barang",
-                        "Harga",
-                        "Tenor",
+                        "Harga & tenor",
                         "Tanggal",
                         "Status",
                         "Pendana",
@@ -1482,23 +1754,24 @@ function IsiRuang() {
                     >
                       {data.kredit.map((row) => (
                         <TableRow key={row._id}>
-                          <TableCell className="whitespace-nowrap align-top font-mono text-xs text-slate-500">
-                            {row.nomorReferensi}
-                          </TableCell>
-                          <SelNama nama={row.namaLengkap} kode={row.kodePeminjam} />
-                          <TableCell className="min-w-[190px] align-top">
+                          <SelPeminjam
+                            nama={row.namaLengkap}
+                            kode={row.kodePeminjam}
+                            referensi={row.nomorReferensi}
+                          />
+                          <TableCell className="align-top">
                             <p className="text-slate-900">{row.namaBarang}</p>
                             <p className="mt-0.5 text-xs text-muted-foreground">
                               {row.kategori} · {row.merchant}
                             </p>
                           </TableCell>
-                          <TableCell className="whitespace-nowrap align-top font-semibold tabular-nums">
-                            {rupiah(row.hargaBarang)}
+                          <TableCell className="align-top tabular-nums">
+                            <p className="font-semibold text-slate-900">{rupiah(row.hargaBarang)}</p>
+                            <p className="mt-1 text-[11px] text-slate-600">
+                              {row.tenorBulan} bulan · DP {row.dpPersen}%
+                            </p>
                           </TableCell>
-                          <TableCell className="whitespace-nowrap align-top text-slate-600">
-                            {row.tenorBulan} bulan
-                          </TableCell>
-                          <TableCell className="whitespace-nowrap align-top text-slate-600">
+                          <TableCell className="align-top text-slate-600">
                             {tanggalRingkas(row.diajukanPada)}
                           </TableCell>
                           <TableCell className="align-top">
@@ -1649,6 +1922,11 @@ function IsiRuang() {
           {detail !== null && <IsiDialog detail={detail} bolehBerkas={bolehBerkas} />}
         </DialogContent>
       </Dialog>
+
+      {/* Koreksi data pinjaman — hanya Super Admin yang dapat membukanya. */}
+      {role === "admin" && (
+        <DialogUbahPinjaman row={ubah} onClose={() => setUbah(null)} />
+      )}
 
       <footer className="border-t border-slate-200 bg-white">
         <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-2 px-4 py-5 text-xs text-muted-foreground sm:px-6">
