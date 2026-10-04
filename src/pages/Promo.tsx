@@ -60,14 +60,12 @@ const UKURAN: Ukuran[] = [
 
 // Palet tinta & kuningan yang selaras admin panel.
 const NAVY = "#0f3d3a";
-const NAVY_DEEP = "#0a2a28";
 const GOLD = "#9c7b3a";
 const GOLD_DEEP = "#7a5f2b";
 const GOLD_LIGHT = "#e9dcb6";
 const PAPER = "#fdfbf7";
 const INK = "#17322e";
 const MUTED = "#5c6b66";
-const BAND = "#e7e2d4";
 const WARN_BG = "#f4ecd9";
 const WARN_EDGE = "#d8c38a";
 const WARN_TEXT = "#8a6d1a";
@@ -78,7 +76,6 @@ function UkuranBadge({ u }: { u: Ukuran }) {
     <svg width={34} height={34} viewBox="0 0 100 100" aria-hidden="true">
       <rect x={2} y={2} width={96} height={96} rx={18} fill="#0f3d3a" />
       <rect x={2} y={2} width={96} height={96} rx={18} fill="none" stroke={GOLD} strokeWidth={5} />
-      {u.id === "stories" ? null : null}
       <rect x={30} y={34} width={40} height={32} rx={3} fill={GOLD_LIGHT} />
       <rect x={34} y={38} width={32} height={24} rx={3} fill={GOLD} />
       <circle cx={50} cy={74} r={8} fill={NAVY} />
@@ -120,12 +117,13 @@ const DEFAULT_TEMPLATE: Template = {
   sizeId: "stories",
 };
 
-// Renderkan kartu promosi mentah ke dalam Canvas 2D sesuai ukuran.
+// Render kartu promosi mentah ke Canvas 2D. Semua posisi dihitung dari `size`
+// dan `t`, sehinggapreview 1 juta / 30% hanya mengubah field editor.
 function renderKartu(ctx: CanvasRenderingContext2D, t: Template, size: Ukuran) {
   const canvas = ctx.canvas;
   const dx = size.canvas[0] * 0.055;
 
-  // Latar + tepi atas
+  // Latar + tepi atas.
   ctx.fillStyle = PAPER;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
   ctx.fillStyle = NAVY;
@@ -133,7 +131,7 @@ function renderKartu(ctx: CanvasRenderingContext2D, t: Template, size: Ukuran) {
   ctx.fillStyle = GOLD;
   ctx.fillRect(0, 16, canvas.width, 4);
 
-  // Tepi kiri dekorasi bermata emas
+  // Tepi kiri dekorasi bermata emas.
   for (let i = 0; i < 2; i += 1) {
     const y = 22 + i * 40;
     const s = 46 + i * 34;
@@ -159,7 +157,7 @@ function renderKartu(ctx: CanvasRenderingContext2D, t: Template, size: Ukuran) {
     img.src = d.toDataURL("image/png");
   }
 
-  // Tikar teks (garis sebelum judul)
+  // Tikar teks (garis sebelum judul).
   ctx.strokeStyle = GOLD;
   ctx.lineWidth = 3;
   ctx.setLineDash([]);
@@ -189,7 +187,7 @@ function renderKartu(ctx: CanvasRenderingContext2D, t: Template, size: Ukuran) {
     return lines;
   };
 
-  // Judul
+  // Judul.
   ctx.fillStyle = NAVY;
   ctx.font = `700 ${Math.round(size.content[0] * 0.1)}px ui-sans-serif, system-ui, sans-serif`;
   ctx.textAlign = "left";
@@ -201,7 +199,7 @@ function renderKartu(ctx: CanvasRenderingContext2D, t: Template, size: Ukuran) {
     ty += Math.round(size.content[0] * 0.088);
   }
 
-  // Subjudul
+  // Subjudul.
   if (t.subtitle) {
     ctx.fillStyle = MUTED;
     ctx.font = `${Math.round(size.content[0] * 0.034)}px ui-sans-serif, system-ui, sans-serif`;
@@ -213,7 +211,7 @@ function renderKartu(ctx: CanvasRenderingContext2D, t: Template, size: Ukuran) {
     }
   }
 
-  // Peringatan
+  // Peringatan.
   if (t.peringatan) {
     const warnW = Math.min(size.canvas[0] * 0.86, 720);
     const warnX = (canvas.width - warnW) / 2;
@@ -236,7 +234,7 @@ function renderKartu(ctx: CanvasRenderingContext2D, t: Template, size: Ukuran) {
     }
   }
 
-  // CTA
+  // CTA.
   const cta = t.cta || "";
   const link = t.link || "";
   const ctaLines = cta ? wrap(cta, size.content[0] * 0.84) : [];
@@ -269,7 +267,8 @@ export function Promo() {
 
   const ukuran = UKURAN.find((u) => u.id === t.sizeId) ?? UKURAN[0];
 
-  // Preview canvas diRender ulang saat ukuran atau teks berubah.
+  // Preview selalu 100% ukuran kanvas. Canvas diRender ulang setiap kali teks
+  // atau ukuran pilihan berubah.
   const preview = useMemo(() => {
     const canvasW = ukuran.canvas[0];
     const canvasH = ukuran.canvas[1];
@@ -299,7 +298,7 @@ export function Promo() {
     const imageUrl = preview.toDataURL("image/png");
     const url = typeof window !== "undefined" ? window.location.href : "";
 
-    // Fine-link: buka WhatsApp/Instagram manual + salin teks ke clipboard.
+    // Bagian teks yang disalin/share.
     const lines: string[] = [title, t.title, t.link].filter(Boolean);
     const shareText = lines.join("\n\n");
 
