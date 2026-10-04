@@ -122,6 +122,8 @@ export type BarisPinjaman = {
   namaLengkap: string;
   kodePeminjam: string | null;
   pokokPinjaman: number;
+  /** Nominal awal pengajuan; dokumen lama memakai pokok tercatat. */
+  pokokDiajukan: number;
   tenorHari: number;
   tenorBulan: number | null;
   tujuan: string;
@@ -427,6 +429,7 @@ export const daftarPengajuan = query({
         namaLengkap: loan.namaLengkap,
         kodePeminjam: await kodeUntuk(loan.userId),
         pokokPinjaman: loan.pokokPinjaman,
+        pokokDiajukan: loan.pokokDiajukan ?? loan.pokokPinjaman,
         tenorHari: loan.tenorHari,
         tenorBulan: loan.tenorBulan ?? null,
         tujuan: loan.tujuan,

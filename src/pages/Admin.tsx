@@ -1,7 +1,8 @@
 import { useMutation, useQuery } from "convex/react";
-import { Activity, Loader2, ShieldCheck } from "lucide-react";
+import { Activity, ShieldCheck } from "lucide-react";
 import { useState } from "react";
-import { useNavigate } from "react-router";
+import { Navigate } from "react-router";
+import { LoadingScreen } from "@/components/LoadingScreen";
 import { toast } from "sonner";
 
 import { TotpGate, TotpSetupDialog } from "@/components/TotpGate";
@@ -29,7 +30,6 @@ import { Button } from "@/components/ui/button";
  */
 export default function Admin() {
   const { isLoading, isAuthenticated } = useAuth();
-  const navigate = useNavigate();
   const gate = useQuery(
     api.security.totpGateStatus,
     isAuthenticated ? {} : "skip",
@@ -59,17 +59,12 @@ export default function Admin() {
     isLoading ||
     (isAuthenticated && (gate === undefined || adminExistsQ === undefined))
   ) {
-    return (
-      <main className="flex min-h-screen items-center justify-center bg-background">
-        <Loader2 className="size-5 animate-spin text-muted-foreground" />
-      </main>
-    );
+    return <LoadingScreen label="Memeriksa akses admin…" />;
   }
 
   // Belum login → pertahankan tujuan menuju jalur admin tersembunyi.
   if (!isAuthenticated) {
-    navigate(`/auth?returnTo=${encodeURIComponent(ADMIN_ROUTE)}`);
-    return null;
+    return <Navigate to={`/auth?returnTo=${encodeURIComponent(ADMIN_ROUTE)}`} replace />;
   }
 
   // Bootstrap admin pertama: belum ada admin + akun ini email terverifikasi
@@ -125,11 +120,7 @@ export default function Admin() {
     return <TotpGate />;
   }
   if (overview === undefined) {
-    return (
-      <main className="flex min-h-screen items-center justify-center bg-background">
-        <Loader2 className="size-5 animate-spin text-muted-foreground" />
-      </main>
-    );
+    return <LoadingScreen label="Memuat panel operasional…" />;
   }
 
   const handleToggleKill = async () => {

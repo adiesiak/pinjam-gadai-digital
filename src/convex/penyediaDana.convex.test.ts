@@ -126,6 +126,7 @@ describe("ruang penyedia dana (lihat saja)", () => {
       namaLengkap: NAMA_PEMOHON,
       kodePeminjam: KODE_PEMINJAM,
       pokokPinjaman: 2_500_000,
+      pokokDiajukan: 2_500_000,
       tenorHari: 30,
       status: "diajukan",
       didanaiPada: null,
@@ -189,6 +190,36 @@ describe("ruang penyedia dana (lihat saja)", () => {
       gadai: false,
       kredit: false,
     });
+  });
+
+  it("memisahkan pengajuan awal dari persetujuan sebagian tanpa mengubah posisi dana", async () => {
+    const t = convexTest(schema, modules);
+    const { userId } = await siapkanPengguna(t, "rani", {
+      email: "rani@pindai.test",
+      role: "peminjam",
+    });
+    const { sesi: dana } = await siapkanPengguna(t, "penyedia", {
+      email: "dana@pindai.test",
+      role: "dana",
+    });
+    const { loanId } = await seedPengajuan(t, userId);
+    await t.run((ctx) => ctx.db.patch(loanId, {
+      pokokDiajukan: 2_500_000,
+      pokokPinjaman: 1_500_000,
+      status: "disetujui",
+    }));
+    const hasil = await dana.query(api.penyediaDana.daftarPengajuan, {});
+    expect(hasil.pinjaman[0]).toMatchObject({
+      pokokDiajukan: 2_500_000,
+      pokokPinjaman: 1_500_000,
+      status: "disetujui",
+      didanaiPada: null,
+      pendana: null,
+    });
+    expect(hasil.ringkasan.nilaiPinjaman).toBe(1_500_000);
+    expect(hasil.rekapPendana).toEqual([]);
+    expect(JSON.stringify(hasil)).not.toContain(RAHASIA.nik);
+    expect(await t.run((ctx) => ctx.db.query("ledger_entries").collect())).toEqual([]);
   });
 
   it("admin boleh membuka sebagai pratinjau", async () => {

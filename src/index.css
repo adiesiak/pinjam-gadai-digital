@@ -639,6 +639,61 @@
       var(--background);
   }
 
+  /* Brankas tetap tertutup; hanya ilustrasi dan jarum yang bergerak. */
+  .pindai-loader__scene {
+    animation: pindai-safe-cycle 5s cubic-bezier(0.22, 1, 0.36, 1) infinite;
+  }
+  .pindai-loader__ascii-dial {
+    position: absolute;
+    left: calc(1rem + 16.5ch);
+    top: calc(1rem + 110px);
+    width: 38px;
+    height: 38px;
+    transform: translate(-50%, -50%);
+    border: 2px solid #b99b62;
+    border-radius: 50%;
+    background: var(--primary);
+    box-shadow: 0 0 0 4px var(--background);
+  }
+  .pindai-loader__needle {
+    position: absolute;
+    inset: 0;
+    animation: pindai-dial-buka 5s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
+  }
+  .pindai-loader__needle::before {
+    content: "";
+    position: absolute;
+    left: calc(50% - 1px);
+    top: 4px;
+    width: 2px;
+    height: 13px;
+    border-radius: 2px;
+    background: #f5f2e9;
+  }
+  .pindai-loader__hub {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 6px;
+    height: 6px;
+    transform: translate(-50%, -50%);
+    border-radius: 50%;
+    background: #b99b62;
+  }
+  .pindai-loader__buka .pindai-loader__needle {
+    animation: pindai-dial-buka 0.9s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  @media (min-width: 640px) {
+    .pindai-loader__ascii-dial {
+      top: calc(1rem + 132px);
+    }
+  }
+  @keyframes pindai-safe-cycle {
+    0%, 100% { opacity: 0.35; transform: translateY(8px); }
+    18%, 78% { opacity: 1; transform: translateY(0); }
+    90% { opacity: 0.7; transform: translateY(-4px); }
+  }
+
   /* Perspektif 3D tipis untuk efek memiringkan logo mengikuti kursor. */
   .pindai-loader {
     perspective: 900px;
@@ -748,6 +803,9 @@
      di atas: lapisan yang sama menyelesaikan seri dengan urutan sumber, jadi
      hanya di sini `transform: none` benar-benar menang atas kemiringan. */
   @media (prefers-reduced-motion: reduce) {
+    .pindai-loader__scene,
+    .pindai-loader__needle,
+    .pindai-loader__buka .pindai-loader__needle,
     .pindai-loader__dial,
     .pindai-loader__halo,
     .pindai-loader__scanline,

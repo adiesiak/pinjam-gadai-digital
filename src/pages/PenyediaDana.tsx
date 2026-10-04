@@ -458,6 +458,12 @@ function BarisDetail({ label, nilai }: { label: string; nilai: React.ReactNode }
   );
 }
 
+function labelPokok(status: string): string {
+  return ["disetujui", "didanai", "lunas"].includes(status)
+    ? "Pokok disetujui"
+    : "Pokok tercatat";
+}
+
 function DetailPinjaman({ row }: { row: BarisPinjaman }) {
   const tenorBulan = row.tenorBulan;
   const harian = tenorBulan === null ? coba(() => quoteLoan(row.pokokPinjaman)) : null;
@@ -485,7 +491,14 @@ function DetailPinjaman({ row }: { row: BarisPinjaman }) {
       />
       <BarisDetail label="Kode peminjam" nilai={row.kodePeminjam ?? "belum terbit"} />
       <BarisDetail label="No. referensi" nilai={row.nomorReferensi} />
-      <BarisDetail label="Jumlah pinjaman" nilai={rupiah(row.pokokPinjaman)} />
+      <BarisDetail label="Nominal diajukan" nilai={rupiah(row.pokokDiajukan ?? row.pokokPinjaman)} />
+      <BarisDetail label={labelPokok(row.status)} nilai={rupiah(row.pokokPinjaman)} />
+      {row.pokokDiajukan > row.pokokPinjaman && (
+        <p className="text-xs leading-6 text-muted-foreground">
+          Pokok tercatat lebih kecil dari pengajuan awal. Perhitungan menggunakan pokok tercatat;
+          status persetujuan tidak berarti dana sudah ditransfer.
+        </p>
+      )}
       <BarisDetail
         label="Skema"
         nilai={row.tenorBulan === null ? "Harian" : `Bulanan ${row.tenorBulan} bulan`}
@@ -970,7 +983,10 @@ function DaftarPinjaman({
             status={<StatusBadge status={row.status} kind="loan" />}
             onDetail={() => onDetail(row)}
           >
-            <InfoKartu label="Pinjaman">{rupiah(row.pokokPinjaman)}</InfoKartu>
+            <InfoKartu label="Nominal diajukan">
+              {rupiah(row.pokokDiajukan ?? row.pokokPinjaman)}
+            </InfoKartu>
+            <InfoKartu label={labelPokok(row.status)}>{rupiah(row.pokokPinjaman)}</InfoKartu>
             <InfoKartu label={`Bunga ${persenBunga}%`}>{rupiah(row.bunga)}</InfoKartu>
             <InfoKartu label="Total lunas">{rupiah(row.totalLunas)}</InfoKartu>
             <InfoKartu label="Tenor">
@@ -1004,7 +1020,7 @@ function DaftarPinjaman({
           head={[
             "No. Ref",
             "Nama",
-            "Pinjaman",
+            "Pengajuan / pokok tercatat",
             `Bunga ${persenBunga}%`,
             "Total Lunas",
             "Tenor",
@@ -1024,8 +1040,15 @@ function DaftarPinjaman({
                 {row.nomorReferensi}
               </TableCell>
               <SelNama nama={row.namaLengkap} kode={row.kodePeminjam} />
-              <TableCell className="whitespace-nowrap align-top font-semibold tabular-nums">
-                {rupiah(row.pokokPinjaman)}
+              <TableCell className="whitespace-nowrap align-top tabular-nums">
+                <p className="text-xs text-muted-foreground">
+                  Diajukan {rupiah(row.pokokDiajukan ?? row.pokokPinjaman)}
+                </p>
+                <p className="mt-1 font-semibold">{rupiah(row.pokokPinjaman)}</p>
+                <p className="mt-1 text-[10px] text-muted-foreground">{labelPokok(row.status)}</p>
+                {row.pokokDiajukan > row.pokokPinjaman && (
+                  <Badge variant="outline" className="mt-2 text-[10px]">Nominal dikurangi</Badge>
+                )}
               </TableCell>
               <TableCell className="whitespace-nowrap align-top font-medium tabular-nums text-emerald-700">
                 {rupiah(row.bunga)}
@@ -1164,7 +1187,7 @@ function IsiRuang() {
               <KartuRingkasan
                 label="Pinjaman tunai"
                 nilai={rupiah(data.ringkasan.nilaiPinjaman)}
-                detail={`${data.ringkasan.jumlahPinjaman} pengajuan tercatat`}
+                detail={`${data.ringkasan.jumlahPinjaman} pengajuan · pokok tercatat, semua status`}
                 icon={<Wallet className="size-4" />}
               />
               <KartuRingkasan
@@ -1184,18 +1207,6 @@ function IsiRuang() {
                 nilai={String(data.ringkasan.menungguReview)}
                 detail="status diajukan / sedang ditinjau"
                 icon={<Timer className="size-4" />}
-              />
-              <KartuRingkasan
-                label="Diajukan / Disetujui"
-                nilai={`${data.ringkasan.diajukan} · ${data.ringkasan.disetujui}`}
-                detail="pokok disebutkan di daftar pinjaman"
-                icon={<Package className="size-4" />}
-              />
-              <KartuRingkasan
-                label="Diajukan / Disetujui"
-                nilai={`${data.ringkasan.diajukan} · ${data.ringkasan.disetujui}`}
-                detail="pokok disebutkan di daftar pinjaman"
-                icon={<Package className="size-4" />}
               />
             </div>
 
@@ -1229,62 +1240,10 @@ function IsiRuang() {
                     <KartuPendana key={r.nama} r={r} />
                   ))}
                 </div>
-                <section className="mt-6">
-                  <div className="flex flex-wrap items-baseline justify-between gap-2">
-                    <h2 className="text-lg font-semibold tracking-tight">Struktur pinjaman terkunci</h2>
-                    <p className="text-xs font-medium tabular-nums text-muted-foreground">
-                      {data.rekapPendana.reduce((acc, r) => acc + r.jumlahLunas, 0)} pinjaman
-                      {data.rekapPendana.reduce((acc, r) => acc + r.jumlahLunas, 0) === 1 ? "lunas" : "lunas belum dikategorikan ke jangka pendek"}
-                      · {data.rekapPendana.reduce((acc, r) => acc + r.jumlahAktif, 0)} pinjaman berjalan
-                    </p>
-                  </div>
-                  <p className="mt-1 max-w-3xl text-xs leading-6 text-muted-foreground">
-                    Panjang kontrak (disebabkan) tidak ada: PINDAI tidak membuka kontrak atas nama
-                    peminjam. Dasar yang berlaku: pokok pinjaman yang disetujui, imbal hasil, dan
-                    potongan admin dihitung dari tabel perbandingan. Pohon keputusan
-                    {data.ringkasan.persenBunga}% bunga · {data.ringkasan.persenPotonganAdmin}% potongan
-                    admin tetap dapat diubah atas keputusan admin dalam panel rekap pendana.
-                  </p>
-                  <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                    <KartuRingkasan
-                      label="Dibutuhkan"
-                      nilai="100%"
-                      detail="Pokok pinjaman disetujui penuh, tanpa menangguhkan atau mengurangi nominal."
-                      icon={<Clock className="size-4" />}
-                    />
-                    <KartuRingkasan
-                      label="Disetujui"
-                      nilai={rupiah(data.ringkasan.nilaiPinjaman)}
-                      detail={
-                        data.rekapPendana.reduce((acc, r) => acc + r.totalDisalurkan, 0) === 0
-                          ? "belum ada pinjaman disetujui"
-                          : `${data.ringkasan.nilaiPinjaman} disetujui atas ${data.ringkasan.jumlahPinjaman} pengajuan`
-                      }
-                      icon={<Check className="size-4" />}
-                    />
-                    <KartuRingkasan
-                      label="Disalurkan"
-                      nilai={rupiah(data.ringkasan.totalKeuntunganPendana)}
-                      detail={
-                        data.rekapPendana.reduce((acc, r) => acc + r.saldoBerjalan, 0) === 0
-                          ? "belum ada dana yang masuk ke rekening penyelenggara"
-                          : `${data.rekapPendana.reduce((acc, r) => acc + r.totalDisalurkan, 0)} disalurkan, saldo berjalan ${rupiah(data.rekapPendana.reduce((acc, r) => acc + r.saldoBerjalan, 0))}`
-                      }
-                      icon={<Send className="size-4" />}
-                    />
-                    <KartuRingkasan
-                      label="Lancar"
-                      nilai={
-                        data.rekapPendana.reduce((acc, r) => acc + r.jumlahAktif, 0) === 0
-                          ? "0 pinjaman berjalan"
-                          : `${data.rekapPendana.reduce((acc, r) => acc + r.jumlahAktif, 0)} pinjaman berjalan, ${data.rekapPendana.reduce((acc, r) => acc + r.jumlahLunas, 0)} lunas`
-                      }
-                      detail="Belum gagal / bukan kembali; menunggu dana kembali keuangan setelah berakhirnya masa pakai."
-                      icon={<Target className="size-4" />}
-                    />
-                  </div>
-                </section>
- onValueChange={setTab} className="animate-masuk mt-6">
+              </section>
+            )}
+
+            <Tabs value={tab} onValueChange={setTab} className="animate-masuk mt-6">
               <TabsList
                 aria-label="Kategori pengajuan"
                 className="h-auto w-full justify-start gap-1 overflow-x-auto rounded-2xl border border-slate-200 bg-white p-1.5"
