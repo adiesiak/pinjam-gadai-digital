@@ -177,8 +177,9 @@ describe("aturan kepemilikan pinjaman (murni)", () => {
     expect(hasil.perubahan.some((p) => /pendana/i.test(p))).toBe(true);
 
     const sesudah = await t.run((ctx) => ctx.db.query("fundings").collect());
+    const loanPendingTransfer = (await t.run((ctx) => ctx.db.get(loanId)))?.pendanaId;
     const yangBerusahaDipindahkan = sebelumnya.filter(
-      (f) => f.danaId === (await t.run((ctx) => ctx.db.get(loanId)))?.pendanaId,
+      (f) => f.danaId === loanPendingTransfer,
     );
 
     // Tidak ada `fundings` yang masih `dialokasikan` dari pinjaman ini.
