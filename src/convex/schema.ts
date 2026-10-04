@@ -216,7 +216,10 @@ const schema = defineSchema(
       ),
     })
       .index("by_user", ["userId"])
-      .index("by_status", ["status"]),
+      .index("by_status", ["status"])
+      // Model 1 pinjaman = 1 pendana: dipakai ruang penyedia dana, portofolio
+      // penyedia dana, dan rekap admin supaya semuanya membaca sumber yang sama.
+      .index("by_pendana", ["pendanaId"]),
 
     /**
      * Konfigurasi API WhatsApp — hanya bisa dibaca/diubah admin.

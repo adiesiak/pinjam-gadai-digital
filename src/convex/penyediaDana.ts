@@ -44,6 +44,7 @@ import {
   type TransferBaris,
 } from "../lib/transferPendana";
 import { akunDompetDana, danaWalletBalance } from "./ledger";
+import { kunciNamaPendana, pinjamanMilikPendana } from "./pendanaKepemilikan";
 import { nominalDisetujui, nominalTerkunci } from "../lib/statusPinjaman";
 import { ROLES } from "./schema";
 import { audit, getConfig } from "./system";
@@ -925,18 +926,11 @@ export const daftarInvestor = query({
         .withIndex("by_dana", (q) => q.eq("danaId", u._id))
         .collect();
 
-      // Pinjaman milik akun ini: id pendana langsung, atau nama tampil (nama
-      // akun → email) sebagai cadangan untuk baris lama tanpa id.
-      const namaKunci = new Set<string>();
-      const namaAkun = u.name?.trim();
-      if (namaAkun) namaKunci.add(namaAkun);
-      if (u.email) namaKunci.add(u.email);
-      const pinjaman = pinjamanBerposisi.filter(
-        (l) =>
-          l.pendanaId === u._id ||
-          (l.pendanaId === undefined &&
-            l.pendanaNama !== undefined &&
-            namaKunci.has(l.pendanaNama)),
+      // Kepemilikan pinjaman memakai aturan tunggal di `pendanaKepemilikan.ts`
+      // supaya rekap admin, ruang penyedia dana, dan portofolio pendana sepakat.
+      const namaKunci = kunciNamaPendana(u);
+      const pinjaman = pinjamanBerposisi.filter((l) =>
+        pinjamanMilikPendana(l, u._id, namaKunci),
       );
 
       // Bagi hasil tiap pinjaman dihitung dengan kebijakan yang berlaku
@@ -1130,20 +1124,11 @@ export const rincianInvestor = query({
     // alokasi lama tidak lagi menjadi sumber angka. Pengaitan memakai id
     // pendana langsung, dengan nama tampil (nama akun → email) sebagai
     // cadangan untuk baris lama tanpa id.
-    const namaKunci = new Set<string>();
-    const namaAkun = user.name?.trim();
-    if (namaAkun) namaKunci.add(namaAkun);
-    if (user.email) namaKunci.add(user.email);
+    const namaKunci = kunciNamaPendana(user);
     const transferPerPinjaman = await petaTransfer(ctx);
     const pinjaman = (await ctx.db.query("loans").collect())
       .filter((l) => l.status === "didanai" || l.status === "lunas")
-      .filter(
-        (l) =>
-          l.pendanaId === userId ||
-          (l.pendanaId === undefined &&
-            l.pendanaNama !== undefined &&
-            namaKunci.has(l.pendanaNama)),
-      )
+      .filter((l) => pinjamanMilikPendana(l, userId, namaKunci))
       .map((l) => {
         const bagi = bagiPinjamanAman(l.pokokPinjaman, cfg.persenBunga, cfg.persenAdmin);
         return {

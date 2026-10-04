@@ -254,6 +254,105 @@ describe("alur penyedia dana — pinjaman tunai", () => {
     expect(ledger).toHaveLength(0);
   });
 
+  it("menghubungkan posisi pendana lintas model: penetapan pendana tampil di portofolio, penggantian memindahkannya", async () => {
+    const t = convexTest(schema, modules);
+    const { sesi: admin } = await siapkanPengguna(
+      t,
+      "admin-hubung",
+      "admin-hubung@pindai.test",
+      "admin",
+    );
+    const { userId: peminjamId } = await siapkanPengguna(
+      t,
+      "rani-hubung",
+      "rani-hubung@pindai.test",
+      "peminjam",
+    );
+    const { sesi: robert, userId: robertId } = await siapkanPengguna(
+      t,
+      "Robert",
+      "robert-hubung@pindai.test",
+      "dana",
+    );
+    const { sesi: asep, userId: asepId } = await siapkanPengguna(
+      t,
+      "Asep",
+      "asep-hubung@pindai.test",
+      "dana",
+    );
+
+    // Pinjaman berjalan milik Robert (model 1 pinjaman = 1 pendana) PLUS baris
+    // alokasi lama yang juga menunjuk Robert — sumber ganda yang harus dibaca
+    // sekali saja, bukan dua kali.
+    const loanId = await t.run(async (ctx) => {
+      await ctx.db.patch(peminjamId, { kodePeminjam: "PMN-HUBUNG1" });
+      const id = await ctx.db.insert("loans", {
+        userId: peminjamId,
+        pokokPinjaman: 1_000_000,
+        pokokDiajukan: 1_000_000,
+        tujuan: "Modal usaha",
+        namaLengkap: "Rani Peminjam",
+        nomorRekening: "1234567890",
+        status: "didanai",
+        nomorReferensi: "PGD-HUBUNG-1",
+        tenorHari: 30,
+        didanaiPada: Date.now(),
+        pendanaId: robertId,
+        pendanaNama: "Robert",
+      });
+      await ctx.db.insert("fundings", {
+        loanId: id,
+        danaId: robertId,
+        jumlahAlokasi: 1_000_000,
+        imbalHasil: 300_000,
+        status: "dialokasikan",
+        nomorReferensi: "FND-HUBUNG-1",
+      });
+      return id;
+    });
+
+    const awal = await robert.query(api.alokasiDana.myPortfolio, {});
+    expect(awal.map((r) => r.loanRef)).toEqual(["PGD-HUBUNG-1"]);
+    expect(awal[0]).toMatchObject({
+      pokokPinjaman: 1_000_000,
+      jumlahAlokasi: 1_000_000,
+      statusPinjaman: "didanai",
+    });
+    expect(
+      (await robert.query(api.alokasiDana.myFundingContracts, {})).map((r) => r.loanRef),
+    ).toEqual(["PGD-HUBUNG-1"]);
+    // Pendana lain tidak ikut mengklaim.
+    expect(await asep.query(api.alokasiDana.myPortfolio, {})).toEqual([]);
+
+    // Admin memindahkan pendananya ke Asep dari ruang penyedia dana.
+    await admin.mutation(api.penyediaDana.ubahDataPinjaman, {
+      loanId,
+      pendanaEmail: "asep-hubung@pindai.test",
+      alasan: "Pendana dipindah ke Asep",
+    });
+
+    // Robert tidak lagi melihat posisi itu walau baris alokasi lamanya masih ada.
+    expect(await robert.query(api.alokasiDana.myPortfolio, {})).toEqual([]);
+    expect(await robert.query(api.alokasiDana.myFundingContracts, {})).toEqual([]);
+    // Asep melihatnya tepat satu kali (dari model kanonik, tanpa baris alokasi).
+    const setelah = await asep.query(api.alokasiDana.myPortfolio, {});
+    expect(setelah.map((r) => r.loanRef)).toEqual(["PGD-HUBUNG-1"]);
+    expect(setelah[0]?.statusAlokasi).toBe("dialokasikan");
+    expect(asepId).toBeDefined();
+
+    // Dompet tetap murni ledger — tidak bertambah/berkurang oleh koreksi
+    // catatan — dan posisinya ikut berpindah bersama kepemilikan pinjaman.
+    expect(await robert.query(api.alokasiDana.myWallet, {})).toMatchObject({
+      saldo: 0,
+      posisiAlokasi: 0,
+      danaBekerja: 0,
+    });
+    expect(await asep.query(api.alokasiDana.myWallet, {})).toMatchObject({
+      saldo: 0,
+      danaBekerja: 0,
+    });
+  });
+
   it("menampilkan jadwal pinjaman bulanan sebagai proyeksi internal, bukan pembayaran aktual", async () => {
     const t = convexTest(schema, modules);
     const peminjamId = await t.mutation((ctx) =>

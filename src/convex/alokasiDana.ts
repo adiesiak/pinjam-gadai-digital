@@ -1,6 +1,6 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { mutation, query, MutationCtx, QueryCtx } from "./_generated/server";
-import type { Id } from "./_generated/dataModel";
+import type { Doc, Id } from "./_generated/dataModel";
 import { v } from "convex/values";
 import { ROLES } from "./schema";
 import { DEFAULT_TENOR_HARI, pelunasanPinjaman, quoteLoan } from "../lib/loan";
@@ -12,7 +12,10 @@ import {
 } from "../lib/kredit";
 import { formatRupiah, type Rupiah } from "../lib/money";
 import { hitungBiayaPencairan } from "../lib/withdrawal";
+import { kunciNamaPendana, pinjamanMilikPendana } from "./pendanaKepemilikan";
+import { bagiHasilPinjaman } from "../lib/bagiHasil";
 import { akunDompetDana, appendJournal, danaWalletBalance } from "./ledger";
+import { getConfig } from "./system";
 import { rejectUnverifiedMoneyMovement } from "./paymentGuard";
 
 /** Rentang bisnis alokasi pendanaan per transaksi. */
@@ -355,7 +358,22 @@ export const myWallet = query({
       .query("fundings")
       .withIndex("by_dana", (q) => q.eq("danaId", userId))
       .collect();
-    const active = fundings.filter((f) => f.status === "dialokasikan");
+    const user = await ctx.db.get(userId);
+    const namaKunci = kunciNamaPendana(user ?? {});
+    /**
+     * Dompet menghitung uang yang BENAR-BENAR keluar dari dompet ini. Baris
+     * alokasi yang pinjamannya sudah dipindah ke pendana lain tidak lagi
+     * dihitung di sini — posisinya berpindah ke pemilik baru (lihat
+     * `myPortfolio`/`myFundingContracts`). Jadi dompet dan portofolio memakai
+     * aturan kepemilikan yang sama, tanpa mengubah saldo ledger.
+     */
+    const active: Doc<"fundings">[] = [];
+    for (const f of fundings) {
+      if (f.status !== "dialokasikan") continue;
+      const loan = await ctx.db.get(f.loanId);
+      if (loan !== null && !pinjamanMilikPendana(loan, userId, namaKunci)) continue;
+      active.push(f);
+    }
 
     // Alokasi Kredit Barang (Skema C) dihitung pada ringkasan yang sama agar
     // dana yang dipindahkan dari dompet tidak "hilang" dari total penyedia dana.
@@ -695,51 +713,53 @@ export const myPortfolio = query({
   args: {},
   handler: async (ctx) => {
     const { userId } = await requireDana(ctx);
-    const fundings = await ctx.db
-      .query("fundings")
-      .withIndex("by_dana", (q) => q.eq("danaId", userId))
-      .collect();
+    const user = await ctx.db.get(userId);
+    const namaKunci = kunciNamaPendana(user ?? {});
+    const cfg = await getConfig(ctx);
     const now = Date.now();
     const result = [];
-    for (const f of fundings.sort((a, b) => b._creationTime - a._creationTime)) {
-      if (f.status !== "dialokasikan" && f.status !== "selesai") continue;
-      const loan = await ctx.db.get(f.loanId);
-      if (loan === null) continue;
+    const sudahMasuk = new Set<string>();
 
+    /**
+     * Satu bentuk baris portofolio untuk kedua sumber kepemilikan, supaya
+     * baris alokasi lama dan pinjaman model baru tidak pernah berbeda tampilan.
+     */
+    const baris = async (
+      loan: Doc<"loans">,
+      meta: {
+        _id: Id<"fundings"> | Id<"loans">;
+        nomorReferensi: string;
+        jumlahAlokasi: number;
+        imbalHasil: number;
+        statusAlokasi: string;
+      },
+    ) => {
       const peminjam = await ctx.db.get(loan.userId);
-      if (peminjam?.kodePeminjam === undefined) continue;
-
+      if (peminjam?.kodePeminjam === undefined) return null;
       // Satu sumber kebenaran pelunasan: skema harian & bulanan sekaligus.
       const rep = pelunasanPinjaman(loan, now);
-      const ringkas = ringkasPinjaman(loan);
-
       // Status pelunasan dari sudut pandang penyedia dana.
-      let statusPelunasan: "lancar" | "berjalan" | "menunggak";
-      if (loan.status === "lunas") {
-        statusPelunasan = "lancar";
-      } else if (rep === null) {
-        statusPelunasan = "berjalan";
-      } else if (rep.hariTerlambat > 0) {
-        statusPelunasan = "menunggak";
-      } else {
-        statusPelunasan = "berjalan";
-      }
-
-      result.push({
-        _id: f._id,
-        nomorReferensi: f.nomorReferensi,
+      const statusPelunasan: "lancar" | "berjalan" | "menunggak" =
+        loan.status === "lunas"
+          ? "lancar"
+          : rep === null || rep.hariTerlambat <= 0
+            ? "berjalan"
+            : "menunggak";
+      return {
+        _id: meta._id,
+        nomorReferensi: meta.nomorReferensi,
         loanId: loan._id,
         loanRef: loan.nomorReferensi,
         kodePeminjam: peminjam.kodePeminjam,
         statusVerifikasi: "Disetujui tim PINDAI",
         tujuan: loan.tujuan,
         pokokPinjaman: loan.pokokPinjaman,
-        jumlahAlokasi: f.jumlahAlokasi,
-        imbalHasil: f.imbalHasil,
-        statusAlokasi: f.status,
+        jumlahAlokasi: meta.jumlahAlokasi,
+        imbalHasil: meta.imbalHasil,
+        statusAlokasi: meta.statusAlokasi,
         statusPinjaman: loan.status,
         statusPelunasan,
-        ...ringkas,
+        ...ringkasPinjaman(loan),
         pelunasan:
           rep === null
             ? null
@@ -751,11 +771,70 @@ export const myPortfolio = query({
                 totalKewajibanPelunasan: rep.totalKewajibanPelunasan,
                 totalKewajibanDenganPenalti: rep.totalKewajibanDenganPenalti,
               },
+      };
+    };
+
+    // 1. Baris alokasi (model lama) — hanya yang pemiliknya MASIH akun ini.
+    //    Pinjaman yang sudah dipindah ke pendana lain tidak lagi ikut terhitung.
+    const fundings = await ctx.db
+      .query("fundings")
+      .withIndex("by_dana", (q) => q.eq("danaId", userId))
+      .collect();
+    for (const f of fundings.sort((a, b) => b._creationTime - a._creationTime)) {
+      if (f.status !== "dialokasikan" && f.status !== "selesai") continue;
+      const loan = await ctx.db.get(f.loanId);
+      if (loan === null) continue;
+      if (!pinjamanMilikPendana(loan, userId, namaKunci)) continue;
+      const isi = await baris(loan, {
+        _id: f._id,
+        nomorReferensi: f.nomorReferensi,
+        jumlahAlokasi: f.jumlahAlokasi,
+        imbalHasil: f.imbalHasil,
+        statusAlokasi: f.status,
       });
+      if (isi === null) continue;
+      sudahMasuk.add(loan._id);
+      result.push(isi);
     }
+
+    // 2. Pinjaman yang ditetapkan lewat model 1 pinjaman = 1 pendana (ruang
+    //    penyedia dana) tetap tampil walau belum punya baris alokasi lama,
+    //    sehingga dua sisi benar-benar terhubung.
+    const kanonik = await ctx.db
+      .query("loans")
+      .withIndex("by_pendana", (q) => q.eq("pendanaId", userId))
+      .collect();
+    for (const loan of kanonik.sort(
+      (a, b) => (b.didanaiPada ?? b._creationTime) - (a.didanaiPada ?? a._creationTime),
+    )) {
+      if (sudahMasuk.has(loan._id)) continue;
+      if (loan.status !== "didanai" && loan.status !== "lunas") continue;
+      const isi = await baris(loan, {
+        _id: loan._id,
+        nomorReferensi: loan.nomorReferensi,
+        jumlahAlokasi: loan.pokokPinjaman,
+        // Estimasi dari kebijakan yang berlaku sekarang (sama seperti ruang
+        // penyedia dana): model baru tidak menyimpan imbal hasil per alokasi.
+        imbalHasil:
+          cobaBagi(loan.pokokPinjaman, cfg.persenBunga, cfg.persenAdmin)?.keuntunganPendana ?? 0,
+        statusAlokasi: "dialokasikan",
+      });
+      if (isi === null) continue;
+      result.push(isi);
+    }
+
     return result;
   },
 });
+
+/** Bagi hasil tahan data warisan: pokok non-standar tidak merobohkan query. */
+function cobaBagi(pokok: number, persenBunga: number, persenAdmin: number) {
+  try {
+    return bagiHasilPinjaman(pokok, persenBunga, persenAdmin);
+  } catch {
+    return null;
+  }
+}
 
 /**
  * Dokumen perjanjian pendanaan milik penyedia dana: satu entri per alokasi yang
@@ -765,36 +844,92 @@ export const myFundingContracts = query({
   args: {},
   handler: async (ctx) => {
     const { userId } = await requireDana(ctx);
+    const user = await ctx.db.get(userId);
+    const namaKunci = kunciNamaPendana(user ?? {});
+    const cfg = await getConfig(ctx);
+    const result = [];
+    const sudahMasuk = new Set<string>();
+
+    /** Pinjaman yang belum berkontrak tidak pernah muncul sebagai perjanjian. */
+    const belumBerkontrak = (status: string) =>
+      status === "diajukan" || status === "sedang_direview" || status === "ditolak";
+
+    const baris = async (
+      loan: Doc<"loans">,
+      meta: {
+        _id: Id<"fundings"> | Id<"loans">;
+        nomorReferensi: string;
+        jumlahAlokasi: number;
+        imbalHasil: number;
+        statusAlokasi: string;
+        createdAt: number;
+      },
+    ) => {
+      const peminjam = await ctx.db.get(loan.userId);
+      if (peminjam?.kodePeminjam === undefined) return null;
+      return {
+        _id: meta._id,
+        nomorReferensi: meta.nomorReferensi,
+        loanRef: loan.nomorReferensi,
+        kodePeminjam: peminjam.kodePeminjam,
+        tujuan: loan.tujuan,
+        jumlahAlokasi: meta.jumlahAlokasi,
+        imbalHasil: meta.imbalHasil,
+        statusAlokasi: meta.statusAlokasi,
+        statusPinjaman: loan.status,
+        ...ringkasPinjaman(loan),
+        pokokPinjaman: loan.pokokPinjaman,
+        createdAt: meta.createdAt,
+      };
+    };
+
+    // 1. Baris alokasi (model lama) milik akun ini dan masih menjadi haknya.
     const fundings = await ctx.db
       .query("fundings")
       .withIndex("by_dana", (q) => q.eq("danaId", userId))
       .collect();
-    const result = [];
     for (const f of fundings.sort((a, b) => b._creationTime - a._creationTime)) {
       if (f.status !== "dialokasikan" && f.status !== "selesai") continue;
       const loan = await ctx.db.get(f.loanId);
       if (loan === null) continue;
-      if (loan.status === "diajukan" || loan.status === "sedang_direview" || loan.status === "ditolak") {
-        continue;
-      }
-      const peminjam = await ctx.db.get(loan.userId);
-      if (peminjam?.kodePeminjam === undefined) continue;
-      result.push({
+      if (belumBerkontrak(loan.status)) continue;
+      if (!pinjamanMilikPendana(loan, userId, namaKunci)) continue;
+      const isi = await baris(loan, {
         _id: f._id,
         nomorReferensi: f.nomorReferensi,
-        loanRef: loan.nomorReferensi,
-        kodePeminjam: peminjam.kodePeminjam,
-        tujuan: loan.tujuan,
         jumlahAlokasi: f.jumlahAlokasi,
         imbalHasil: f.imbalHasil,
         statusAlokasi: f.status,
-        statusPinjaman: loan.status,
-        ...ringkasPinjaman(loan),
-        pokokPinjaman: loan.pokokPinjaman,
         createdAt: f._creationTime,
       });
+      if (isi === null) continue;
+      sudahMasuk.add(loan._id);
+      result.push(isi);
     }
-    return result;
+
+    // 2. Pinjaman model baru (1 pinjaman = 1 pendana) tetap punya perjanjian
+    //    walau belum pernah melalui alokasi dompet.
+    const kanonik = await ctx.db
+      .query("loans")
+      .withIndex("by_pendana", (q) => q.eq("pendanaId", userId))
+      .collect();
+    for (const loan of kanonik) {
+      if (sudahMasuk.has(loan._id)) continue;
+      if (belumBerkontrak(loan.status)) continue;
+      const isi = await baris(loan, {
+        _id: loan._id,
+        nomorReferensi: loan.nomorReferensi,
+        jumlahAlokasi: loan.pokokPinjaman,
+        imbalHasil:
+          cobaBagi(loan.pokokPinjaman, cfg.persenBunga, cfg.persenAdmin)?.keuntunganPendana ?? 0,
+        statusAlokasi: "dialokasikan",
+        createdAt: loan.didanaiPada ?? loan.diajukanPada ?? loan._creationTime,
+      });
+      if (isi === null) continue;
+      result.push(isi);
+    }
+
+    return result.sort((a, b) => b.createdAt - a.createdAt);
   },
 });
 
