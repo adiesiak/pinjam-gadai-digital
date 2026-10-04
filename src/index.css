@@ -641,19 +641,34 @@
 
   /* Brankas tetap tertutup; hanya ilustrasi dan jarum yang bergerak. */
   .pindai-loader__scene {
-    animation: pindai-safe-cycle 5s cubic-bezier(0.22, 1, 0.36, 1) infinite;
+    animation: pindai-safe-cycle 5s ease-in-out infinite;
+  }
+  .pindai-loader__ascii {
+    --safe-line: 24px;
+    position: relative;
+    display: block;
+    width: 22ch;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 16px;
+    line-height: var(--safe-line);
+    font-weight: 600;
+    color: #0f3d3a;
+  }
+  .pindai-loader__ascii pre {
+    font: inherit;
+    line-height: inherit;
   }
   .pindai-loader__ascii-dial {
     position: absolute;
-    left: calc(1rem + 16.5ch);
-    top: calc(1rem + 110px);
+    left: 10.5ch;
+    top: calc(var(--safe-line) * 5.5);
     width: 38px;
     height: 38px;
     transform: translate(-50%, -50%);
     border: 2px solid #b99b62;
     border-radius: 50%;
-    background: var(--primary);
-    box-shadow: 0 0 0 4px var(--background);
+    background: #0f3d3a;
+    box-shadow: 0 0 0 4px var(--background), 0 4px 12px #0f3d3a20;
   }
   .pindai-loader__needle {
     position: absolute;
@@ -684,14 +699,14 @@
     animation: pindai-dial-buka 0.9s cubic-bezier(0.22, 1, 0.36, 1);
   }
   @media (min-width: 640px) {
-    .pindai-loader__ascii-dial {
-      top: calc(1rem + 132px);
+    .pindai-loader__ascii {
+      --safe-line: 28px;
+      font-size: 18px;
     }
   }
   @keyframes pindai-safe-cycle {
-    0%, 100% { opacity: 0.35; transform: translateY(8px); }
-    18%, 78% { opacity: 1; transform: translateY(0); }
-    90% { opacity: 0.7; transform: translateY(-4px); }
+    0%, 100% { opacity: 0.85; transform: translateY(3px); }
+    50% { opacity: 1; transform: translateY(-3px); }
   }
 
   /* Perspektif 3D tipis untuk efek memiringkan logo mengikuti kursor. */
