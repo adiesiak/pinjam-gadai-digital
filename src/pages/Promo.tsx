@@ -260,13 +260,14 @@ function renderKartu(ctx: CanvasRenderingContext2D, t: Template, size: Ukuran) {
 }
 
 export function Promo() {
+  const [mode, setMode] = useState<"composer" | "poster">("composer");
   const [t, setT] = useState<Template>(DEFAULT_TEMPLATE);
 
   const ukuran = UKURAN.find((u) => u.id === t.sizeId) ?? UKURAN[0];
 
-  // Preview selalu 100% ukuran kanvas. Canvas diRender ulang setiap kali teks
-  // atau ukuran pilihan berubah.
-  const preview = useMemo(() => {
+  // Poster mode = full-bleed artboard, fixed size. No live tiny canvas;
+  // the image is rendered once into a PNG on demand (~35\u201345 ms).
+  const poster = useMemo(() => {
     const canvasW = ukuran.canvas[0];
     const canvasH = ukuran.canvas[1];
     const c = document.createElement("canvas");
@@ -279,20 +280,26 @@ export function Promo() {
     return c;
   }, [t, ukuran]);
 
+  const createPosterPng = () => {
+    if (!poster) return null;
+    return poster.toDataURL("image/png");
+  };
+
   const exportGambar = () => {
-    if (!preview) return;
+    const url = mode === "poster" ? createPosterPng() : poster?.toDataURL("image/png");
+    if (!url) return;
     const link = document.createElement("a");
     link.download = `promo-${t.sizeId}-${Date.now()}.png`;
-    link.href = preview.toDataURL("image/png");
+    link.href = url;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
   };
 
   const bagikan = async () => {
-    if (!preview) return;
     const title = t.title || "Promo";
-    const imageUrl = preview.toDataURL("image/png");
+    const imageUrl = mode === "poster" ? createPosterPng() : poster?.toDataURL("image/png");
+    if (!imageUrl) return;
     const url = typeof window !== "undefined" ? window.location.href : "";
 
     // Bagian teks yang disalin/share.
@@ -409,12 +416,22 @@ export function Promo() {
           <section className="flex flex-col">
             <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-2">
-                <span className="text-sm font-bold tracking-tight text-[#0f3d3a]">Preview</span>
-                <span className="rounded-full bg-[#e7e2d4] px-2 py-0.5 text-[11px] font-medium text-[#5c6b66]">
-                  live
-                </span>
+                {mode === "composer" ? (
+                  <>
+                    <span className="text-sm font-bold tracking-tight text-[#0f3d3a]">Preview</span>
+                    <span className="rounded-full bg-[#e7e2d4] px-2 py-0.5 text-[11px] font-medium text-[#5c6b66]">
+                      live
+                    </span>
+                  </>
+                ) : (
+                  <span className="text-sm font-bold tracking-tight text-[#0f3d3a]">Poster</span>
+                )}
               </div>
               <div className="flex items-center gap-2">
+                <Button variant="ghost" size="sm" onClick={() => setMode(mode === "composer" ? "poster" : "composer")} className="gap-2 text-muted-foreground hover:text-ink text-xs">
+                  <ImageIcon className="size-4" aria-hidden="true" />
+                  {mode === "composer" ? "Poster" : "Editor"}
+                </Button>
                 <Select value={t.sizeId} onValueChange={(v) => setT({ ...t, sizeId: v })}>
                   <SelectTrigger className="w-auto min-w-[180px]" aria-label="Ukuran kanvas">
                     <SelectValue />
@@ -443,18 +460,26 @@ export function Promo() {
                 className="relative flex aspect-video w-full max-w-[min(1080px,100%)] items-center justify-center bg-[#fdfbf7]"
                 style={{ aspectRatio: `${ukuran.canvas[0]} / ${ukuran.canvas[1]}` }}
               >
-                {preview ? (
+  {mode === "poster" ? (
                   <canvas
-                    className="relative aspect-[1080/1920] w-full object-contain"
-                    style={{ aspectRatio: `${preview.width} / ${preview.height}` }}
-                    width={preview.width}
-                    height={preview.height}
+                    className="relative block w-full object-contain"
+                    width={ukuran.canvas[0]}
+                    height={ukuran.canvas[1]}
                   />
                 ) : (
-                  <div className="flex flex-col items-center text-sm text-muted-foreground">
-                    <ImageIcon className="mb-2 size-8" aria-hidden="true" />
-                    Memuat preview kartu…
-                  </div>
+                  poster ? (
+                    <canvas
+                      className="relative aspect-[1080/1920] w-full object-contain"
+                      style={{ aspectRatio: `${poster.width} / ${poster.height}` }}
+                      width={poster.width}
+                      height={poster.height}
+                    />
+                  ) : (
+                    <div className="flex flex-col items-center text-sm text-muted-foreground">
+                      <ImageIcon className="mb-2 size-8" aria-hidden="true" />
+                      Memuat preview kartu…
+                    </div>
+                  )
                 )}
               </div>
             </div>
