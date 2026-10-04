@@ -386,6 +386,10 @@ function Tabel({ head, children }: { head: string[]; children: React.ReactNode }
   );
 }
 
+function capitalize(nama: string): string {
+  return nama.trim().toUpperCase();
+}
+
 /**
  * Sel peminjam: nama, nomor referensi, dan kode pseudonim dalam satu kolom.
  * Digabung supaya tabel tidak perlu digeser mendatar di layar kerja.
@@ -1018,7 +1022,7 @@ function DaftarPinjaman({
         {rows.map((row) => (
           <KartuPengajuan
             key={row._id}
-            nama={row.namaLengkap}
+            nama={capitalize(row.namaLengkap)}
             kode={row.kodePeminjam}
             nomorReferensi={row.nomorReferensi}
             status={<StatusBadge status={row.status} kind="loan" />}
@@ -1073,7 +1077,7 @@ function DaftarPinjaman({
           {rows.map((row) => (
             <TableRow key={row._id}>
               <SelPeminjam
-                nama={row.namaLengkap}
+                nama={capitalize(row.namaLengkap)}
                 kode={row.kodePeminjam}
                 referensi={row.nomorReferensi}
               />
@@ -1254,7 +1258,7 @@ function FormUbahPinjaman({ row, onClose }: { row: BarisPinjaman; onClose: () =>
   return (
     <form className="space-y-4" onSubmit={kirim}>
       <div className="rounded-2xl border border-slate-200 bg-slate-50/70 px-4 py-3 text-xs leading-6 text-muted-foreground">
-        <span className="font-medium uppercase text-slate-700">{row.namaLengkap}</span> ·{" "}
+        <span className="font-medium uppercase text-slate-700">{capitalize(row.namaLengkap)}</span> ·{" "}
         <span className="font-mono">{row.nomorReferensi}</span>
         <br />
         Pokok tercatat {rupiah(row.pokokPinjaman)} · diajukan{" "}
@@ -1641,7 +1645,7 @@ function IsiRuang() {
                       {data.gadai.map((row) => (
                         <KartuPengajuan
                           key={row._id}
-                          nama={row.namaLengkap}
+                          nama={capitalize(row.namaLengkap)}
                           kode={row.kodePeminjam}
                           nomorReferensi={row.nomorReferensi}
                           status={<StatusBadge status={row.status} kind="pawn" />}
@@ -1682,7 +1686,7 @@ function IsiRuang() {
                       {data.gadai.map((row) => (
                         <TableRow key={row._id}>
                           <SelPeminjam
-                            nama={row.namaLengkap}
+                            nama={capitalize(row.namaLengkap)}
                             kode={row.kodePeminjam}
                             referensi={row.nomorReferensi}
                           />
@@ -1730,7 +1734,7 @@ function IsiRuang() {
                       {data.kredit.map((row) => (
                         <KartuPengajuan
                           key={row._id}
-                          nama={row.namaLengkap}
+                          nama={capitalize(row.namaLengkap)}
                           kode={row.kodePeminjam}
                           nomorReferensi={row.nomorReferensi}
                           status={<BadgeKredit status={row.status} />}
@@ -1770,7 +1774,7 @@ function IsiRuang() {
                       {data.kredit.map((row) => (
                         <TableRow key={row._id}>
                           <SelPeminjam
-                            nama={row.namaLengkap}
+                            nama={capitalize(row.namaLengkap)}
                             kode={row.kodePeminjam}
                             referensi={row.nomorReferensi}
                           />
@@ -1864,7 +1868,7 @@ function IsiRuang() {
                               <span className="min-w-0">
                                 <span className="flex flex-wrap items-center gap-2">
                                   <span className="font-medium uppercase text-slate-900">
-                                    {r.namaLengkap}
+                                    {capitalize(r.namaLengkap)}
                                   </span>
                                   <BadgePseudonim kode={r.kodePeminjam} />
                                   {r.posisi.tanda.length > 0 && (

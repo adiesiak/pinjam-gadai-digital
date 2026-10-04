@@ -171,7 +171,7 @@ describe("aturan kepemilikan pinjaman (murni)", () => {
     const sebelumnya = await t.run((ctx) => ctx.db.query("fundings").collect());
     const hasil = await admin.mutation(api.penyediaDana.ubahDataPinjaman, {
       loanId,
-      pendanaEmail: penyedia.email,
+      pendanaEmail: "penyedia@pindai.test",
       alasan: "Pindah pendana dari admin ke admin",
     });
     expect(hasil.perubahan.some((p) => /pendana/i.test(p))).toBe(true);
@@ -188,7 +188,7 @@ describe("aturan kepemilikan pinjaman (murni)", () => {
     expect(sesudah.some((f) => f.loanId === loanId && f.status === "dibatalkan")).toBe(true);
     expect(
       sesudah.some(
-        (f) => f.loanId === loanId && f.danaId !== (await t.run((ctx) => ctx.db.get(loanId)))?.pendanaId,
+        (f) => f.loanId === loanId && f.danaId !== loanPendingTransfer,
       ),
     ).toBe(false);
 
@@ -216,6 +216,7 @@ describe("aturan kepemilikan pinjaman (murni)", () => {
     expect(baris.filter((b) => b.status === "dicatat")).toHaveLength(0);
     expect(baris.filter((b) => b.status === "dibatalkan")).toHaveLength(1);
   });
+});
 
 describe("ruang penyedia dana (lihat saja)", () => {
   it("menolak tamu dan akun tanpa akses — gerbang ada di server", async () => {
@@ -1232,8 +1233,8 @@ describe("kelola penyedia dana (panel admin)", () => {
       jumlahAkun: 0,
       jumlahAkses: 0,
       jumlahPeranLegacy: 0,
-      jumlahWarisanTanpaJejak: 1,
-    });
+      jumlahWarisanTanpaJejak: 1,    });
+  });
 });
 
 describe("lokasi & berkas peminjam di ruang penyedia dana", () => {
@@ -1674,3 +1675,4 @@ describe("pelacakan transfer keuntungan pendana", () => {
     expect(data.ringkasan.totalTransferBelumDicatat).toBe(0);
   });
 });
+
