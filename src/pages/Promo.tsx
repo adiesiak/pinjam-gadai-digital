@@ -131,7 +131,7 @@ function renderKartu(ctx: CanvasRenderingContext2D, t: Template, size: Ukuran) {
   ctx.fillStyle = GOLD;
   ctx.fillRect(0, 16, canvas.width, 4);
 
-  // Tepi kiri dekorasi bermata emas.
+  // Tepi kiri dekorasi bermata emas (synchronous, tersenyawa utuh saat preview pertama kali render).
   for (let i = 0; i < 2; i += 1) {
     const y = 22 + i * 40;
     const s = 46 + i * 34;
@@ -150,11 +150,8 @@ function renderKartu(ctx: CanvasRenderingContext2D, t: Template, size: Ukuran) {
     grad.addColorStop(1, GOLD_DEEP);
     g.fillStyle = grad;
     g.fill();
-    const img = new Image();
-    img.onload = () => {
-      ctx.drawImage(img, dx + i * 52, y - 2);
-    };
-    img.src = d.toDataURL("image/png");
+    // Gambar ikon ke konteks utama sebelum teks ditarik, jadi preview selalu punya dua emas.
+    ctx.drawImage(d, dx + i * 52, y - 2);
   }
 
   // Tikar teks (garis sebelum judul).
@@ -441,7 +438,7 @@ export function Promo() {
               </div>
             </div>
 
-            <div className="mt-3 flex flex-1 items-centered justify-center rounded-2xl border border-[#d9d2c3] bg-white p-4 shadow-sm">
+            <div className="mt-3 flex flex-1 items-center justify-center rounded-2xl border border-[#d9d2c3] bg-white p-4 shadow-sm">
               <div
                 className="relative flex aspect-video w-full max-w-[min(1080px,100%)] items-center justify-center bg-[#fdfbf7]"
                 style={{ aspectRatio: `${ukuran.canvas[0]} / ${ukuran.canvas[1]}` }}
@@ -458,9 +455,6 @@ export function Promo() {
                     <ImageIcon className="mb-2 size-8" aria-hidden="true" />
                     Memuat preview kartu…
                   </div>
-                )}
-                {(t.title || t.subtitle || t.peringatan || t.cta) && (
-                  <div className="absolute inset-0 pointer-events-none rounded-2xl border-2 border-[#0f3d3a] p-3 shadow-lg ring-1 ring-[#b98743]/40" />
                 )}
               </div>
             </div>
