@@ -122,6 +122,41 @@ describe("aturan kepemilikan pinjaman (murni)", () => {
   it("pinjaman tanpa pemilik tidak diklaim siapa pun", () => {
     expect(pinjamanMilikPendana({}, ROBERT, kunciRobert)).toBe(false);
     expect(pinjamanMilikPendana({ pendanaNama: undefined }, ROBERT, kunciRobert)).toBe(false);
+  });
+
+
+  /** Pinjaman lunas milik satu penyedia dana — dasar kewajiban transfer. */
+  async function seedPinjamanLunas(
+    t: KonteksUji,
+    opts: { status?: "lunas" | "didanai"; pendana?: boolean } = {},
+  ) {
+    const { userId } = await siapkanPengguna(t, "rani", {
+      email: "rani@pindai.test",
+      role: "peminjam",
+    });
+    const penyedia = await siapkanPengguna(t, "penyedia", {
+      email: "penyedia@pindai.test",
+      role: "dana",
+    });
+    const loanId = await t.run((ctx) =>
+      ctx.db.insert("loans", {
+        userId,
+        pokokPinjaman: 1_000_000,
+        tujuan: "Modal usaha",
+        namaLengkap: NAMA_PEMOHON,
+        nomorRekening: RAHASIA.nomorRekening,
+        status: opts.status ?? "lunas",
+        nomorReferensi: "PGD-TRANSFER-1",
+        tenorHari: 30,
+        didanaiPada: 1_700_000_000_000,
+        lunasPada: 1_700_100_000_000,
+        ...(opts.pendana === false
+          ? {}
+          : { pendanaId: penyedia.userId, pendanaNama: "Penyedia Dana" }),
+      }),
+    );
+    return { loanId, penyedia, userId };
+  }
 
   it("memverifikasi batas migrasi fundings yang dipindahkan ke dana baru", async () => {
     const t = convexTest(schema, modules);
@@ -145,6 +180,7 @@ describe("aturan kepemilikan pinjaman (murni)", () => {
     const yangBerusahaDipindahkan = sebelumnya.filter(
       (f) => f.danaId === (await t.run((ctx) => ctx.db.get(loanId)))?.pendanaId,
     );
+
     // Tidak ada `fundings` yang masih `dialokasikan` dari pinjaman ini.
     expect(sesudah.some((f) => f.loanId === loanId && f.status === "dialokasikan")).toBe(false);
     // Baris yang dipindahkan ditandai `dibatalkan`, bukan `dialokasikan_deduped`.
@@ -175,11 +211,10 @@ describe("aturan kepemilikan pinjaman (murni)", () => {
     const baris = await t.run((ctx) =>
       ctx.db.query("transferPendana").withIndex("by_loan", (q) => q.eq("loanId", loanId)).collect(),
     );
+
     expect(baris.filter((b) => b.status === "dicatat")).toHaveLength(0);
     expect(baris.filter((b) => b.status === "dibatalkan")).toHaveLength(1);
   });
-  });
-});
 
 describe("ruang penyedia dana (lihat saja)", () => {
   it("menolak tamu dan akun tanpa akses — gerbang ada di server", async () => {
@@ -1198,7 +1233,6 @@ describe("kelola penyedia dana (panel admin)", () => {
       jumlahPeranLegacy: 0,
       jumlahWarisanTanpaJejak: 1,
     });
-  });
 });
 
 describe("lokasi & berkas peminjam di ruang penyedia dana", () => {
