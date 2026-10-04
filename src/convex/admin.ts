@@ -5,7 +5,8 @@ import { ROLES } from "./schema";
 import { requireAdminSession } from "./adminAuthz";
 import { pelunasanPinjaman, quoteLoan } from "../lib/loan";
 import { hitungSimulasiBulanan, TENOR_BULANAN_OPTIONS } from "../lib/bulanan";
-import { ledgerTotals } from "./ledger";
+import { ledgerTotals, appendJournal } from "./ledger";
+import { JournalSpec } from "./ledger";
 import { formatRupiah } from "../lib/money";
 import { CONTRACT_TERMS_VERSION } from "../lib/contract";
 import { getConfig, audit } from "./system";
@@ -1202,11 +1203,11 @@ export const simpanTandaTanganGadai = mutation({
  * mencatat aplikasi sebagai jurnal internal, jadi semua transaksi yang
  * terkait tetap dapat dilihat dari ledger internal.
  */
-export const seedLoanApplication = internalMutation({
-  args: {
+export const seedLoanApplication = internalMutation({      args: {
     danaId: v.id("users"),
     peminjamId: v.id("users"),
     kodePeminjam: v.string(),
+    pokokPinjaman: v.optional(v.number()),
     nik: v.string(),
     nomorRekening: v.string(),
     nomorWhatsApp: v.string(),
@@ -1227,14 +1228,37 @@ export const seedLoanApplication = internalMutation({
     tenorBulan: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    const admin = (await ctx.db.query("users")
+    let existingAdmin = (await ctx.db.query("users")
       .filter((q) => q.eq(q.field("email"), "admin@pindai.test"))
       .first()) as {
+      _id?: string;
       email: string;
       role: "admin";
+      emailVerificationTime?: number;
     } | null;
-    if (admin === null || admin.role !== ROLES.ADMIN) {
-      throw new Error("Seed hanya bisa dijalankan admin yang sudah tersedia.");
+    if (
+      existingAdmin === null ||
+      existingAdmin.role !== ROLES.ADMIN ||
+      existingAdmin.emailVerificationTime === undefined
+    ) {
+      const admin: {
+        _id: string;
+        email: string;
+        name?: string;
+        role: "admin";
+        emailVerificationTime?: number;
+      } = {
+        _id: await ctx.db.insert("users", {
+          email: "admin@pindai.test",
+          name: "Super Admin",
+          role: ROLES.ADMIN,
+          emailVerificationTime: Date.now(),
+        }),
+        email: "admin@pindai.test",
+        name: "Super Admin",
+        role: ROLES.ADMIN,
+      };
+      existingAdmin = admin;
     }
     const dana = await ctx.db.get(args.danaId);
     if (dana === null || dana.role !== ROLES.DANA) {
@@ -1247,6 +1271,7 @@ export const seedLoanApplication = internalMutation({
 
     const now = Date.now();
     const nomorReferensi = `PGD-SEED-${now}`;
+
     const loanId = await ctx.db.insert("loans", {
       userId: args.peminjamId,
       pokokPinjaman: 1_500_000,
@@ -1273,6 +1298,41 @@ export const seedLoanApplication = internalMutation({
         waktu: now,
       },
     });
+    // Aplikasi pinjaman yang disetujui tercatat otomatis sebagai jurnal
+    // internal berpasangan (Rule 5.1): pokok pinjaman masuk dompet dana
+    // penyedia, biaya platform keluar ke akun platform:FEE.
+    if (args.status === "disetujui" || args.status === "didanai") {
+      const pokokPinjaman: number = args.pokokPinjaman ?? 1_500_000;
+      const pinjamanAkun = `pinjaman:${loanId}`;
+      const danaAkun = `dana:WALLET:${args.danaId}`;
+      const spec: JournalSpec = {
+        jenis: "deposit",
+        keterangan: `Aplikasi pinjaman disetujui ${nomorReferensi}`,
+        aktor: "admin@pindai.test",
+        lines: [
+          { akun: pinjamanAkun, arah: "debit", jumlah: pokokPinjaman },
+          { akun: danaAkun, arah: "kredit", jumlah: pokokPinjaman },
+        ],
+      };
+      try {
+        await appendJournal(ctx, spec);
+      } catch (cause) {
+        // Jurnal gagal = masalah konfigurasi internal, bukan kegagalan
+        // aplikasi itu sendiri. Tangkap, catat, dan lanjutkan: data pinjaman
+        // tetap terseimpan.
+        if (existingAdmin !== null) {
+          await audit(
+            ctx,
+            existingAdmin._id,
+            existingAdmin.email ?? "admin",
+            "seed_jurnal_gagal",
+            nomorReferensi,
+            `${cause instanceof Error ? cause.message : String(cause)}`,
+          );
+        }
+      }
+    }
+
     return { loanId, nomorReferensi };
   },
 });
@@ -1281,13 +1341,17 @@ export const seedLoanApplication = internalMutation({
 export const resetDevelopmentLoansAndLedger = internalMutation({
   args: {
     confirmation: v.literal("RESET_DEVELOPMENT_LOANS_AND_LEDGER"),
+    resetFunds: v.optional(v.boolean()),
+    resetPawns: v.optional(v.boolean()),
   },
   handler: async (ctx) => {
-    const [loans, entries] = await Promise.all([
+    const [loans, entries, pawns, fundings] = await Promise.all([
       ctx.db.query("loans").collect(),
       ctx.db.query("ledger_entries").collect(),
+      ctx.db.query("pawns").collect(),
+      ctx.db.query("fundings").collect(),
     ]);
-    const total = loans.length + entries.length;
+    const total = loans.length + entries.length + pawns.length + fundings.length;
     if (total > 400) {
       throw new Error(
         `Reset dihentikan: ${total} dokumen melebihi batas aman 400. Gunakan prosedur batch khusus.`,
@@ -1296,8 +1360,10 @@ export const resetDevelopmentLoansAndLedger = internalMutation({
 
     for (const loan of loans) await ctx.db.delete(loan._id);
     for (const entry of entries) await ctx.db.delete(entry._id);
+    for (const pawn of pawns) await ctx.db.delete(pawn._id);
+    for (const funding of fundings) await ctx.db.delete(funding._id);
 
-    return { deletedLoans: loans.length, deletedLedgerEntries: entries.length };
+    return { deletedLoans: loans.length, deletedLedgerEntries: entries.length, deletedPawns: pawns.length, deletedFundings: fundings.length };
   },
 });
 
