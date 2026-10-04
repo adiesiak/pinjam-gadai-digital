@@ -1228,37 +1228,26 @@ export const seedLoanApplication = internalMutation({      args: {
     tenorBulan: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    let existingAdmin = (await ctx.db.query("users")
+    const existingAdmin = (await ctx.db.query("users")
       .filter((q) => q.eq(q.field("email"), "admin@pindai.test"))
       .first()) as {
-      _id?: string;
+      _id: string;
       email: string;
       role: "admin";
       emailVerificationTime?: number;
     } | null;
+    // Fail-closed: seed hanya berlaku bila admin terverifikasi yang sudah
+    // ada. Jangan otomatis membuat admin — akun admin itu wajib disiapkan
+    // terlebih dahulu (bootstrap / terima email), agar penambahan data
+    // selalu di bawah kendali operator.
     if (
       existingAdmin === null ||
       existingAdmin.role !== ROLES.ADMIN ||
       existingAdmin.emailVerificationTime === undefined
     ) {
-      const admin: {
-        _id: string;
-        email: string;
-        name?: string;
-        role: "admin";
-        emailVerificationTime?: number;
-      } = {
-        _id: await ctx.db.insert("users", {
-          email: "admin@pindai.test",
-          name: "Super Admin",
-          role: ROLES.ADMIN,
-          emailVerificationTime: Date.now(),
-        }),
-        email: "admin@pindai.test",
-        name: "Super Admin",
-        role: ROLES.ADMIN,
-      };
-      existingAdmin = admin;
+      throw new Error(
+        "Seed aplikasi pinjaman wajib dijalankan oleh admin terverifikasi admin@pindai.test yang sudah ada.",
+      );
     }
     const dana = await ctx.db.get(args.danaId);
     if (dana === null || dana.role !== ROLES.DANA) {
@@ -1303,15 +1292,25 @@ export const seedLoanApplication = internalMutation({      args: {
     // penyedia, biaya platform keluar ke akun platform:FEE.
     if (args.status === "disetujui" || args.status === "didanai") {
       const pokokPinjaman: number = args.pokokPinjaman ?? 1_500_000;
+      const biayaPlatform: number = Math.round(pokokPinjaman * 0.02);
       const pinjamanAkun = `pinjaman:${loanId}`;
       const danaAkun = `dana:WALLET:${args.danaId}`;
+      const platformAkun = "platform:FEE";
       const spec: JournalSpec = {
         jenis: "deposit",
         keterangan: `Aplikasi pinjaman disetujui ${nomorReferensi}`,
         aktor: "admin@pindai.test",
         lines: [
+          // Pokok pinjaman: satu baris debit (pihak peminjam) + satu baris
+          // kredit (pihak dana) ke akun pinjaman:<loanId>. Dua baris ini
+          // saling meniadakan, sehingga akun pinjaman:<loanId> hanya punya
+          // debit == kredit == pokokPinjaman dan seimbang.
           { akun: pinjamanAkun, arah: "debit", jumlah: pokokPinjaman },
-          { akun: danaAkun, arah: "kredit", jumlah: pokokPinjaman },
+          { akun: pinjamanAkun, arah: "kredit", jumlah: pokokPinjaman },
+          // Dana penyedia membayar biaya platform 2% dari dompetnya.
+          { akun: danaAkun, arah: "debit", jumlah: biayaPlatform },
+          // Biaya platform 2% dikreditkan ke akun platform:FEE.
+          { akun: platformAkun, arah: "kredit", jumlah: biayaPlatform },
         ],
       };
       try {
@@ -1320,16 +1319,14 @@ export const seedLoanApplication = internalMutation({      args: {
         // Jurnal gagal = masalah konfigurasi internal, bukan kegagalan
         // aplikasi itu sendiri. Tangkap, catat, dan lanjutkan: data pinjaman
         // tetap terseimpan.
-        if (existingAdmin !== null) {
-          await audit(
-            ctx,
-            existingAdmin._id,
-            existingAdmin.email ?? "admin",
-            "seed_jurnal_gagal",
-            nomorReferensi,
-            `${cause instanceof Error ? cause.message : String(cause)}`,
-          );
-        }
+        await audit(
+          ctx,
+          existingAdmin._id,
+          existingAdmin.email ?? "admin",
+          "seed_jurnal_gagal",
+          nomorReferensi,
+          `${cause instanceof Error ? cause.message : String(cause)}`,
+        );
       }
     }
 
