@@ -376,7 +376,7 @@ export const daftarPengajuan = query({
     async function pendanaPinjaman(loanId: Id<"loans">): Promise<string | null> {
       const alokasi = await ctx.db
         .query("fundings")
-        .withIndex("by_loan", (q: QueryCtx) => q.eq("loanId", loanId))
+        .withIndex("by_loan", (q) => q.eq("loanId", loanId))
         .collect();
       return rangkaiPendana(alokasi.map((a) => idPendana(a)));
     }
@@ -397,9 +397,7 @@ export const daftarPengajuan = query({
       const titik = await lokasiPerangkat(ctx, userId);
       lokasiCache.set(userId, titik);
       return titik;
-    }
-
-    // Catatan transfer dibaca SEKALI, dipetakan per pinjaman untuk seluruh baris.
+    }    // Catatan transfer dibaca SEKALI, dipetakan per pinjaman untuk seluruh baris.
     const transferPerPinjaman = await petaTransfer(ctx);
 
     const pinjamanMentah = await ctx.db
@@ -916,14 +914,13 @@ export const daftarInvestor = query({
     const transferPerPinjaman = await petaTransfer(ctx);
 
     const rows: BarisInvestor[] = [];
-    for (const u of akun) {
-      const setoran = await ctx.db
+    for (const u of akun) {      const setoran = await ctx.db
         .query("deposits")
-        .withIndex("by_dana", (q: QueryCtx) => q.eq("danaId", u._id))
+        .withIndex("by_dana", (q) => q.eq("danaId", u._id))
         .collect();
       const penarikan = await ctx.db
         .query("withdrawals")
-        .withIndex("by_dana", (q: QueryCtx) => q.eq("danaId", u._id))
+        .withIndex("by_dana", (q) => q.eq("danaId", u._id))
         .collect();
 
       // Kepemilikan pinjaman memakai aturan tunggal di `pendanaKepemilikan.ts`
@@ -1112,10 +1109,12 @@ export const rincianInvestor = query({
     if (user === null) return null;
 
     const setoran = await ctx.db
-      .query("deposits")        .withIndex("by_dana", (q: QueryCtx) => q.eq("danaId", userId))
+      .query("deposits")
+      .withIndex("by_dana", (q) => q.eq("danaId", userId))
       .collect();
     const penarikan = await ctx.db
-      .query("withdrawals")        .withIndex("by_dana", (q: QueryCtx) => q.eq("danaId", userId))
+      .query("withdrawals")
+      .withIndex("by_dana", (q) => q.eq("danaId", userId))
       .collect();
 
     // Portofolio dibaca dari model baru: satu pinjaman = satu pendana. Baris
@@ -1480,14 +1479,13 @@ async function pindahAlokasiWarisan(
   // di dataran lama yang dimigrasikan; setelah dipindahkan mereka
   // `dibatalkan` di dana lama sehingga ruang alokasi tidak menghitung
   // pinjaman dua kali.
-  const fundings = await ctx.db
-    .query("fundings")
-    .withIndex("by_loan", (q: QueryCtx) => q.eq("loanId", loanId))
+  const fundings = await tx.db.query("fundings")
+    .withIndex("by_dana", (q) => q.eq("danaId", danaIdLama))
     .collect();
   for (const f of fundings) {
     if (f.danaId !== danaIdLama) continue;
     if (f.status !== "dialokasikan") continue;
-    await ctx.db.patch(f._id, {
+    await tx.db.patch(f._id, {
       danaId: danaIdBaru,
       status: "dibatalkan",
     });
@@ -1515,11 +1513,7 @@ async function pindahAlokasiWarisan(
 async function ringkasTransferPinjaman(
   ctx: QueryCtx,
   loanId: Id<"loans">,
-): Promise<RingkasTransfer> {
-  const baris = await ctx.db
-    .query("transferPendana")
-    .withIndex("by_loan", (q: QueryCtx) => q.eq("loanId", loanId))
-    .collect();
+): Promise<RingkasTransfer> {    const baris = await ctx.db.query("transferPendana").collect();
   return ringkasTransfer(
     baris.map((b) => ({
       jumlah: b.jumlah,
@@ -1660,7 +1654,6 @@ export const batalkanTransferPendana = mutation({
 
     const berlaku = await ctx.db
       .query("transferPendana")
-      .withIndex("by_loan", (q: QueryCtx) => q.eq("loanId", loanId))
       .collect()
       .then((rows) => rows.filter((r) => r.status === "dicatat"));
     if (berlaku.length === 0) {
