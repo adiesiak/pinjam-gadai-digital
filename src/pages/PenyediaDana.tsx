@@ -1184,7 +1184,11 @@ function DialogUbahPinjaman({
 function FormUbahPinjaman({ row, onClose }: { row: BarisPinjaman; onClose: () => void }) {
   const investor = useQuery(api.penyediaDana.daftarInvestor, {});
   const simpan = useMutation(api.penyediaDana.ubahDataPinjaman);
-  const [pendana, setPendana] = useState("");
+  // Sentinel NON-kosong: Radix Select menolak `<SelectItem value="">`
+  // (melempar saat dropdown dibuka), jadi "tidak diubah" memakai penanda sendiri.
+  const TETAP = "__tetap";
+  const LEPAS = "__lepas";
+  const [pendana, setPendana] = useState(TETAP);
   const [tujuan, setTujuan] = useState(row.tujuan);
   const [tenorHari, setTenorHari] = useState(String(row.tenorHari));
   const [tenorBulan, setTenorBulan] = useState(
@@ -1209,23 +1213,29 @@ function FormUbahPinjaman({ row, onClose }: { row: BarisPinjaman; onClose: () =>
       return;
     }
     const tenorAwal = row.tenorBulan === null ? "harian" : String(row.tenorBulan);
+    // Angka yang tidak valid tidak pernah dikirim: biarkan server menolak hanya
+    // bila admin memang mengisi nilai, bukan saat kolomnya kosong.
+    const hariBaru = Number(tenorHari);
+    const pokokBaru = Number(pokok);
     setBusy(true);
     try {
       const hasil = await simpan({
         loanId: row._id,
         alasan: catatan,
-        ...(pendana === ""
+        ...(pendana === TETAP
           ? {}
-          : { pendanaEmail: pendana === "__lepas" ? null : pendana }),
+          : { pendanaEmail: pendana === LEPAS ? null : pendana }),
         ...(tujuan.trim() !== row.tujuan ? { tujuan: tujuan.trim() } : {}),
-        ...(tenorBulan === "harian" && Number(tenorHari) !== row.tenorHari
-          ? { tenorHari: Number(tenorHari) }
+        ...(tenorBulan === "harian" &&
+        Number.isFinite(hariBaru) &&
+        hariBaru !== row.tenorHari
+          ? { tenorHari: hariBaru }
           : {}),
         ...(tenorBulan !== tenorAwal
           ? { tenorBulan: tenorBulan === "harian" ? null : Number(tenorBulan) }
           : {}),
-        ...(!nominalTerkunci && Number(pokok) !== row.pokokPinjaman
-          ? { pokokDisetujui: Number(pokok) }
+        ...(!nominalTerkunci && Number.isFinite(pokokBaru) && pokokBaru !== row.pokokPinjaman
+          ? { pokokDisetujui: pokokBaru }
           : {}),
       });
       toast.success(
@@ -1259,19 +1269,24 @@ function FormUbahPinjaman({ row, onClose }: { row: BarisPinjaman; onClose: () =>
             <SelectValue placeholder="Tidak diubah" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">Tidak diubah</SelectItem>
+            <SelectItem value={TETAP}>Tidak diubah</SelectItem>
             {kandidat.map((r) => (
               <SelectItem key={r.userId} value={r.email ?? ""}>
-                {r.nama} — {r.email}
+                {r.nama || r.email}
+                {r.nama && r.email ? ` — ${r.email}` : ""}
               </SelectItem>
             ))}
-            <SelectItem value="__lepas" disabled={!bolehLepas}>
+            <SelectItem value={LEPAS} disabled={!bolehLepas}>
               Lepas pendana (tanpa pemilik dana)
             </SelectItem>
           </SelectContent>
         </Select>
         <p className="text-[11px] leading-5 text-muted-foreground">
-          Daftar ini berisi akun yang sudah diberi akses penyedia dana.{" "}
+          {investor === undefined
+            ? "Memuat daftar akun penyedia dana… "
+            : kandidat.length === 0
+              ? "Belum ada akun berperan penyedia dana — beri akses lebih dulu di panel admin. "
+              : "Daftar ini berisi akun yang sudah diberi akses penyedia dana. "}
           {bolehLepas
             ? "Pinjaman ini belum ditandai tersalurkan, jadi pendananya boleh dilepas."
             : "Pendana tidak dapat dilepas setelah dana ditandai tersalurkan — pilih penggantinya."}

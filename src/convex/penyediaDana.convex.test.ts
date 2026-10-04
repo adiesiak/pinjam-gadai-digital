@@ -46,6 +46,9 @@ async function seedPengajuan(t: KonteksUji, userId: Id<"users">) {
     const loanId = await ctx.db.insert("loans", {
       userId,
       pokokPinjaman: 2_500_000,
+      // Pengajuan baru selalu menyimpan jejak pengajuan asli (lihat
+      // `createLoanApplication`), jadi seed disamakan dengan bentuk nyata itu.
+      pokokDiajukan: 2_500_000,
       tujuan: "Modal usaha warung",
       namaLengkap: NAMA_PEMOHON,
       nomorRekening: RAHASIA.nomorRekening,
@@ -220,6 +223,50 @@ describe("ruang penyedia dana (lihat saja)", () => {
     expect(hasil.rekapPendana).toEqual([]);
     expect(JSON.stringify(hasil)).not.toContain(RAHASIA.nik);
     expect(await t.run((ctx) => ctx.db.query("ledger_entries").collect())).toEqual([]);
+  });
+
+  it("memakai pokok tercatat sebagai pengajuan pada dokumen lama", async () => {
+    const t = convexTest(schema, modules);
+    const { userId } = await siapkanPengguna(t, "rani-lama", {
+      email: "rani-lama@pindai.test",
+      role: "peminjam",
+    });
+    const { sesi: dana } = await siapkanPengguna(t, "penyedia-lama", {
+      email: "penyedia-lama@pindai.test",
+      role: "dana",
+    });
+    const { sesi: admin } = await siapkanPengguna(t, "admin-lama", {
+      email: "admin-lama@pindai.test",
+      role: "admin",
+    });
+    // Dokumen warisan: `pokokDiajukan` belum ada sama sekali.
+    const loanId = await t.run((ctx) =>
+      ctx.db.insert("loans", {
+        userId,
+        pokokPinjaman: 900_000,
+        tujuan: "Data warisan",
+        namaLengkap: NAMA_PEMOHON,
+        nomorRekening: RAHASIA.nomorRekening,
+        status: "diajukan",
+        nomorReferensi: "PGD-WARISAN-1",
+        tenorHari: 30,
+      }),
+    );
+
+    const hasil = await dana.query(api.penyediaDana.daftarPengajuan, {});
+    expect(hasil.pinjaman[0]).toMatchObject({
+      pokokPinjaman: 900_000,
+      pokokDiajukan: 900_000,
+    });
+
+    // Batas "tidak melebihi pengajuan" tetap ditegakkan dari pokok tercatat.
+    await expect(
+      admin.mutation(api.penyediaDana.ubahDataPinjaman, {
+        loanId,
+        alasan: "Coba melebihi pengajuan warisan",
+        pokokDisetujui: 1_000_000,
+      }),
+    ).rejects.toThrow(/melebihi/i);
   });
 
   it("admin boleh membuka sebagai pratinjau", async () => {
@@ -591,6 +638,75 @@ describe("ruang penyedia dana (lihat saja)", () => {
         alasan: "Lepas setelah tersalurkan",
       }),
     ).rejects.toThrow(/tidak dapat dilepas|tersalurkan/i);
+  });
+
+  it("mengubah tujuan, tenor, dan nominal disetujui serta mencatat audit trail", async () => {
+    const t = convexTest(schema, modules);
+    const { sesi: admin } = await siapkanPengguna(t, "admin", {
+      email: "admin@pindai.test",
+      role: "admin",
+    });
+    const { userId } = await siapkanPengguna(t, "rani", {
+      email: "rani@pindai.test",
+      role: "peminjam",
+    });
+    // Pokok 2,5jt · tenor 30 hari · masih `diajukan`.
+    const { loanId } = await seedPengajuan(t, userId);
+
+    // Menyetujui lebih besar daripada pengajuan bukan penilaian kredit — ditolak.
+    await expect(
+      admin.mutation(api.penyediaDana.ubahDataPinjaman, {
+        loanId,
+        alasan: "Naikkan pokok di atas pengajuan",
+        pokokDisetujui: 3_000_000,
+      }),
+    ).rejects.toThrow(/melebihi/i);
+
+    const hasil = await admin.mutation(api.penyediaDana.ubahDataPinjaman, {
+      loanId,
+      alasan: "Setujui sebagian dan rapikan tenor",
+      tujuan: "Modal usaha warung sembako",
+      tenorHari: 45,
+      pokokDisetujui: 1_500_000,
+    });
+    expect(hasil.perubahan).toEqual(
+      expect.arrayContaining(["tujuan diperbarui", "tenor 45 hari", "pokok 1500000"]),
+    );
+    const pinjaman = await t.run((ctx) => ctx.db.get(loanId));
+    expect(pinjaman?.pokokPinjaman).toBe(1_500_000);
+    // Jejak pengajuan asli tidak ikut berubah.
+    expect(pinjaman?.pokokDiajukan).toBe(2_500_000);
+    expect(pinjaman?.tenorHari).toBe(45);
+    expect(pinjaman?.tujuan).toBe("Modal usaha warung sembako");
+
+    // Nominal terkunci setelah dana ditandai tersalurkan.
+    await t.run((ctx) =>
+      ctx.db.patch(loanId, { status: "didanai", didanaiPada: Date.now() }),
+    );
+    await expect(
+      admin.mutation(api.penyediaDana.ubahDataPinjaman, {
+        loanId,
+        alasan: "Ubah nominal setelah dana tersalurkan",
+        pokokDisetujui: 1_000_000,
+      }),
+    ).rejects.toThrow(/sudah tersalurkan/i);
+
+    // Perubahan yang benar-benar tersimpan masuk audit trail beserta alasannya.
+    const jejak = await admin.query(api.system.getConfigAdmin, {});
+    const entri = jejak.auditTerbaru.filter((j) => j.aksi === "ubah_data_pinjaman");
+    expect(entri).toHaveLength(1);
+    expect(entri[0].detail ?? "").toContain("rapikan tenor");
+
+    // Tanpa perubahan apa pun: tidak ada baris audit tambahan, aksi idempoten.
+    const kosong = await admin.mutation(api.penyediaDana.ubahDataPinjaman, {
+      loanId,
+      alasan: "Kirim ulang tanpa perubahan",
+      tujuan: "Modal usaha warung sembako",
+      tenorHari: 45,
+    });
+    expect(kosong.perubahan).toEqual([]);
+    const sesudah = await admin.query(api.system.getConfigAdmin, {});
+    expect(sesudah.auditTerbaru.filter((j) => j.aksi === "ubah_data_pinjaman")).toHaveLength(1);
   });
 
   it("menolak email tak dikenal, email tidak valid, dan akun tim (admin)", async () => {
