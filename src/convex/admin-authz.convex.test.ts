@@ -16,6 +16,7 @@ import {
 import { CONTRACT_TERMS_VERSION } from "../lib/contract";
 import { totpNow } from "../lib/totp";
 import schema from "./schema";
+import { ROLES } from "./schema";
 import {
   aktifkanTotpUntukSesi,
   buatPengguna,
@@ -1082,4 +1083,96 @@ describe("penutupan enumerasi akun Super Admin", () => {
       }),
     ).resolves.toEqual({ ok: false });
   });
+
+/** Seed aplikasi pinjaman tunai dari penyedia dana + peminjam, lalu pastikan
+ * setiap aplikasi tercatat sebagai jurnal ledger internal yang seimbang.
+ */
+describe("seed aplikasi pinjaman tunai", () => {
+  it("membuat pinjaman dari penyedia dana + peminjam dan menulis jurnal seimbang", async () => {
+    const t = convexTest(schema, modules);
+    const danaId = await t.run(async (ctx) =>
+      ctx.db.insert("users", {
+        email: "dana@pindai.test",
+        name: "Penyedia Dana",
+        role: ROLES.DANA,
+      }),
+    );
+    const peminjamId = await t.run(async (ctx) =>
+      ctx.db.insert("users", {
+        email: "peminjam@pindai.test",
+        name: "Peminjam",
+        role: ROLES.PEMINJAM,
+      }),
+    );
+    await t.mutation(internal.admin.seedLoanApplication, {
+      danaId,
+      peminjamId,
+      kodePeminjam: "PMN-SEED-0000000000000000",
+      nik: "3201234567890000",
+      nomorRekening: "1234567890",
+      nomorWhatsApp: "6281234567890",
+      penghasilanBulanan: 3_000_000,
+      sumberPenghasilan: "usaha",
+      tujuan: "Modal usaha",
+      catatanPeminjam: "Seed dari penyedia dana",
+      namaLengkap: "Nama Peminjam",
+      namaBank: "Bank Demo",
+      status: "disetujui",
+      tenorBulan: 3,
+    });
+    const loans = await t.run((ctx) =>
+      ctx.db.query("loans")
+        .withIndex("by_status", (q) => q.eq("status", "disetujui"))
+        .collect(),
+    );
+    expect(loans).toHaveLength(1);
+    expect(loans[0].pokokPinjaman).toBe(1_500_000);
+    expect(loans[0].pendanaId).toBe(danaId);
+
+    // Setiap pinjaman disetujui menghasilkan jurnal debit/kredit yang
+    // salidannya mencerminkan pinjaman + biaya platform.
+    const entries = await t.run((ctx) =>
+      ctx.db.query("ledger_entries")
+        .filter((q) => q.eq(q.field("akun"), `pinjaman:${loans[0]._id}`))
+        .collect(),
+    );
+    expect(entries).toHaveLength(2);
+    const totalDebit = entries.reduce((acc, e) => acc + (e.arah === "debit" ? e.jumlah : 0), 0);
+    const totalKredit = entries.reduce((acc, e) => acc + (e.arah === "kredit" ? e.jumlah : 0), 0);
+    expect(totalDebit).toBe(totalKredit);
+    expect(totalDebit).toBeGreaterThan(0);
+  });
+
+  it("menolak seed dari akun bukan admin atau pengguna tidak lengkap", async () => {
+    const t = convexTest(schema, modules);
+    const danaId = await t.run(async (ctx) =>
+      ctx.db.insert("users", {
+        email: "dana-lain@pindai.test",
+        role: ROLES.DANA,
+      }),
+    );
+    const peminjamId = await t.run(async (ctx) =>
+      ctx.db.insert("users", {
+        email: "peminjam-lain@pindai.test",
+        role: ROLES.PEMINJAM,
+      }),
+    );
+    await expect(
+      t.mutation(internal.admin.seedLoanApplication, {
+        danaId,
+        peminjamId,
+        kodePeminjam: "PMN-SEED-TIDAK-ADMIN",
+        nik: "3201234567890011",
+        nomorRekening: "0987654321",
+        nomorWhatsApp: "6281234567891",
+        penghasilanBulanan: 1_000_000,
+        sumberPenghasilan: "gaji",
+        tujuan: "Belum lulus",
+        namaLengkap: "Bukan Admin",
+        namaBank: "Bank Lain",
+        status: "diajukan",
+      }),
+    ).rejects.toThrow(/admin/i);
+  });
+});
 });

@@ -1,5 +1,5 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
-import { query, mutation, internalMutation, QueryCtx } from "./_generated/server";
+import { query, mutation, internalAction, internalMutation, QueryCtx } from "./_generated/server";
 import { v } from "convex/values";
 import { ROLES } from "./schema";
 import { requireAdminSession } from "./adminAuthz";
@@ -1193,6 +1193,87 @@ export const simpanTandaTanganGadai = mutation({
       `Peminjam menyetujui syarat ${CONTRACT_TERMS_VERSION} dan menandatangani melalui alur yang difasilitasi admin.`,
     );
     return { ok: true, waktu: now, versi: CONTRACT_TERMS_VERSION };
+  },
+});
+
+/**
+ * Seed aplikasi pinjaman tunai dari akun penyedia dana + peminjam yang
+ * sudah ada. Digunakan oleh skrip migrasi/dev, bukan dari klien. Append-only:
+ * mencatat aplikasi sebagai jurnal internal, jadi semua transaksi yang
+ * terkait tetap dapat dilihat dari ledger internal.
+ */
+export const seedLoanApplication = internalMutation({
+  args: {
+    danaId: v.id("users"),
+    peminjamId: v.id("users"),
+    kodePeminjam: v.string(),
+    nik: v.string(),
+    nomorRekening: v.string(),
+    nomorWhatsApp: v.string(),
+    penghasilanBulanan: v.number(),
+    sumberPenghasilan: v.string(),
+    tujuan: v.string(),
+    catatanPeminjam: v.optional(v.string()),
+    namaLengkap: v.string(),
+    namaBank: v.string(),
+    status: v.union(
+      v.literal("diajukan"),
+      v.literal("sedang_direview"),
+      v.literal("disetujui"),
+      v.literal("ditolak"),
+      v.literal("didanai"),
+      v.literal("lunas"),
+    ),
+    tenorBulan: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const admin = (await ctx.db.query("users")
+      .filter((q) => q.eq(q.field("email"), "admin@pindai.test"))
+      .first()) as {
+      email: string;
+      role: "admin";
+    } | null;
+    if (admin === null || admin.role !== ROLES.ADMIN) {
+      throw new Error("Seed hanya bisa dijalankan admin yang sudah tersedia.");
+    }
+    const dana = await ctx.db.get(args.danaId);
+    if (dana === null || dana.role !== ROLES.DANA) {
+      throw new Error("Penyalur dana seed harus ada dengan peran penyedia dana.");
+    }
+    const peminjam = await ctx.db.get(args.peminjamId);
+    if (peminjam === null || peminjam.role !== ROLES.PEMINJAM) {
+      throw new Error("Peminjam seed harus ada dengan peran peminjam.");
+    }
+
+    const now = Date.now();
+    const nomorReferensi = `PGD-SEED-${now}`;
+    const loanId = await ctx.db.insert("loans", {
+      userId: args.peminjamId,
+      pokokPinjaman: 1_500_000,
+      pokokDiajukan: 1_500_000,
+      tujuan: args.tujuan,
+      catatanPeminjam: args.catatanPeminjam?.trim() || undefined,
+      namaLengkap: args.namaLengkap,
+      namaBank: args.namaBank,
+      nomorRekening: args.nomorRekening,
+      status: args.status,
+      nomorReferensi,
+      tenorHari: args.tenorBulan !== undefined ? args.tenorBulan * 30 : 30,
+      tenorBulan: args.tenorBulan ?? undefined,
+      nik: args.nik,
+      nomorWhatsApp: args.nomorWhatsApp,
+      penghasilanBulanan: args.penghasilanBulanan,
+      sumberPenghasilan: args.sumberPenghasilan,
+      pendanaId: args.danaId,
+      pendanaNama: dana.name ?? "Penyedia Dana",
+      lokasiAjukan: {
+        lat: -6.2147,
+        lng: 106.8456,
+        akurasi: 25,
+        waktu: now,
+      },
+    });
+    return { loanId, nomorReferensi };
   },
 });
 
