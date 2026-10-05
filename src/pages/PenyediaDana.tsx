@@ -1421,15 +1421,26 @@ function IsiRuang() {
   // BELUM didanai, posisi yang SUDAH didanai (berjalan), riwayat lunas, dan
   // pengajuan yang DITOLAK (tidak dilanjutkan) ke tab sendiri agar tidak
   // tercampur dengan antrean yang masih berjalan.
-  // `didanaiPada` adalah penanda resmi "sudah pernah didanai" dari server.
+  //
+  // Pemisahan utama memakai `status` (otoritatif) dan `didanaiPada` hanya
+  // sebagai pelengkap data warisan. Ini penting karena sebagian baris lama
+  // berstatus "didanai" (Target tercapai) tapi `didanaiPada`-nya kosong — kalau
+  // hanya mengandalkan `didanaiPada`, baris itu salah nyelip ke "Belum didanai".
   const pinjamanDitolak = data?.pinjaman.filter((r) => r.status === "ditolak") ?? [];
   const pinjamanBaru =
     data?.pinjaman.filter(
-      (r) => r.didanaiPada === null && r.status !== "lunas" && r.status !== "ditolak",
+      (r) =>
+        r.didanaiPada === null &&
+        r.status !== "lunas" &&
+        r.status !== "ditolak" &&
+        r.status !== "didanai",
     ) ?? [];
   const pinjamanDidanai =
     data?.pinjaman.filter(
-      (r) => r.didanaiPada !== null && r.status !== "lunas" && r.status !== "ditolak",
+      (r) =>
+        r.status !== "lunas" &&
+        r.status !== "ditolak" &&
+        (r.status === "didanai" || r.didanaiPada !== null),
     ) ?? [];
   const pinjamanLunas = data?.pinjaman.filter((r) => r.status === "lunas") ?? [];
 
