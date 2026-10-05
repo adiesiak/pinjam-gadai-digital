@@ -627,6 +627,88 @@ describe("ruang penyedia dana (lihat saja)", () => {
     expect(entri.some((j) => (j.detail ?? "").includes("Selesai uji"))).toBe(true);
   });
 
+  it("admin membuat pendana baru yang langsung berakses ruang", async () => {
+    const t = convexTest(schema, modules);
+    const { sesi: admin } = await siapkanPengguna(t, "admin", {
+      email: "admin@pindai.test",
+      role: "admin",
+    });
+    const { sesi: calon } = await siapkanPengguna(t, "calon", {
+      email: "calon@pindai.test",
+      role: "peminjam",
+    });
+
+    // Pembuatan akun pendana hanya untuk admin.
+    await expect(
+      calon.mutation(api.penyediaDana.buatPendana, {
+        nama: "Pendana Nakal",
+        email: "nakal@pindai.test",
+      }),
+    ).rejects.toThrow(/admin/i);
+
+    // Nama dan email divalidasi.
+    await expect(
+      admin.mutation(api.penyediaDana.buatPendana, {
+        nama: "X",
+        email: "pendek@pindai.test",
+      }),
+    ).rejects.toThrow(/2–120/);
+    await expect(
+      admin.mutation(api.penyediaDana.buatPendana, {
+        nama: "Pendana Baru",
+        email: "bukan-email",
+      }),
+    ).rejects.toThrow(/valid/i);
+
+    // Email yang sudah dipakai akun terdaftar ditolak — arahkan ke "Beri akses".
+    await expect(
+      admin.mutation(api.penyediaDana.buatPendana, {
+        nama: "Bentrok",
+        email: "calon@pindai.test",
+      }),
+    ).rejects.toThrow(/Beri akses/i);
+
+    const hasil = await admin.mutation(api.penyediaDana.buatPendana, {
+      nama: "Robert Tanaya",
+      email: "Robert.Tanaya@Pindai.test",
+      alasan: "Mitra pendanaan baru",
+    });
+    expect(hasil.nama).toBe("Robert Tanaya");
+    expect(hasil.email).toBe("robert.tanaya@pindai.test");
+
+    const akun = await t.run((ctx) => ctx.db.get(hasil.userId));
+    expect(akun?.role).toBe("dana");
+    expect(akun?.name).toBe("Robert Tanaya");
+    expect(akun?.email).toBe("robert.tanaya@pindai.test");
+    expect(akun?.isAnonymous).toBe(false);
+    // Stub ditandai email terverifikasi agar OTP nanti menautkannya, bukan
+    // membuat akun duplikat.
+    expect(typeof akun?.emailVerificationTime).toBe("number");
+
+    // Email yang sama tidak dapat dibuat dua kali.
+    await expect(
+      admin.mutation(api.penyediaDana.buatPendana, {
+        nama: "Duplikat",
+        email: "robert.tanaya@pindai.test",
+      }),
+    ).rejects.toThrow(/sudah/i);
+
+    // Langsung tampil di daftar investor dengan akses aktif.
+    const daftar = await admin.query(api.penyediaDana.daftarInvestor, {});
+    const baris = daftar.rows.find((r) => r.email === "robert.tanaya@pindai.test");
+    expect(baris?.aksesAktif).toBe(true);
+
+    // Tercatat di audit trail.
+    const jejak = await admin.query(api.system.getConfigAdmin, {});
+    expect(
+      jejak.auditTerbaru.some(
+        (j) =>
+          j.aksi === "buat_pendana" &&
+          (j.detail ?? "").includes("Mitra pendanaan baru"),
+      ),
+    ).toBe(true);
+  });
+
   it("Super Admin memindahkan pendana pinjaman tanpa menyentuh ledger", async () => {
     const t = convexTest(schema, modules);
     const { sesi: admin } = await siapkanPengguna(t, "admin", {

@@ -1,5 +1,5 @@
 import { useMutation, useQuery } from "convex/react";
-import { Copy, Eye, KeyRound, Loader2, MailPlus, ShieldX } from "lucide-react";
+import { Copy, Eye, KeyRound, Loader2, MailPlus, ShieldX, UserPlus } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -40,11 +40,14 @@ function tanggalRingkas(ms: number | null): string {
 export function AksesPenyediaDanaPanel() {
   const [email, setEmail] = useState("");
   const [alasan, setAlasan] = useState("");
+  const [namaPendana, setNamaPendana] = useState("");
+  const [emailPendana, setEmailPendana] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
   const [kodeBaru, setKodeBaru] = useState<string | null>(null);
 
   const status = useQuery(api.aksesBersama.statusKodeBersama, {});
   const ubahAkses = useMutation(api.penyediaDana.ubahAkses);
+  const buatPendana = useMutation(api.penyediaDana.buatPendana);
   const terbitkanKode = useMutation(api.aksesBersama.terbitkanKodeBersama);
   const nonaktifkanKode = useMutation(api.aksesBersama.nonaktifkanKodeBersama);
 
@@ -71,6 +74,33 @@ export function AksesPenyediaDanaPanel() {
       setAlasan("");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Gagal memberi akses.");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const buatBaru = async (event: React.FormEvent) => {
+    event.preventDefault();
+    const nama = namaPendana.trim();
+    const target = emailPendana.trim().toLowerCase();
+    if (nama === "") {
+      toast.error("Isi nama pendana yang akan dibuat.");
+      return;
+    }
+    if (target === "") {
+      toast.error("Isi alamat email pendana yang akan dibuat.");
+      return;
+    }
+    setBusy("buat");
+    try {
+      await buatPendana({ nama, email: target });
+      toast.success(
+        `Pendana ${nama} dibuat. Minta ia masuk lewat /auth dengan email ${target}, lalu ruang penyedia dana langsung terbuka.`,
+      );
+      setNamaPendana("");
+      setEmailPendana("");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Gagal membuat pendana.");
     } finally {
       setBusy(null);
     }
@@ -233,6 +263,65 @@ export function AksesPenyediaDanaPanel() {
           mereka perlu kode terbaru untuk masuk lagi.
         </p>
       </section>
+
+      {/* ===== Buat pendana baru (langsung berakses) ===== */}
+      <form
+        onSubmit={buatBaru}
+        className="rounded-2xl border border-primary/25 bg-primary/[0.03] p-4 shadow-sm sm:p-5"
+      >
+        <p className="flex items-center gap-2 text-sm font-semibold">
+          <UserPlus className="size-4 text-primary" /> Buat pendana baru
+        </p>
+        <p className="mt-1 text-xs leading-5 text-muted-foreground">
+          Buat akun penyedia dana yang <strong>langsung punya akses</strong> ke{" "}
+          <strong>/penyedia-dana</strong>. Setelah dibuat, pendana masuk lewat{" "}
+          <span className="font-medium text-slate-700">/auth</span> dengan email ini (kode
+          OTP) — akunnya otomatis tertaut dan ruang langsung terbuka. Untuk akun yang
+          sudah terdaftar, pakai “Beri akses” di bawah.
+        </p>
+        <div className="mt-3 grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] sm:items-end">
+          <div>
+            <Label htmlFor="pendana-nama" className="text-[11px] text-muted-foreground">
+              Nama pendana
+            </Label>
+            <Input
+              id="pendana-nama"
+              autoComplete="off"
+              placeholder="mis. Robert Tanaya"
+              value={namaPendana}
+              onChange={(e) => setNamaPendana(e.target.value)}
+              disabled={busy === "buat"}
+            />
+          </div>
+          <div>
+            <Label htmlFor="pendana-email" className="text-[11px] text-muted-foreground">
+              Email pendana
+            </Label>
+            <Input
+              id="pendana-email"
+              type="email"
+              inputMode="email"
+              autoComplete="off"
+              placeholder="nama@contoh.com"
+              value={emailPendana}
+              onChange={(e) => setEmailPendana(e.target.value)}
+              disabled={busy === "buat"}
+            />
+          </div>
+          <Button type="submit" className="gap-2" disabled={busy === "buat"}>
+            {busy === "buat" ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <UserPlus className="size-4" />
+            )}
+            Buat pendana
+          </Button>
+        </div>
+        <p className="mt-2 text-[11px] leading-5 text-muted-foreground">
+          Email tidak boleh sudah dipakai akun lain. Akun dibuat tanpa kata sandi — akses
+          masuk tetap lewat kode OTP email agar aktivasi sadar pemiliknya.
+        </p>
+      </form>
 
       {/* ===== Akses per akun email ===== */}
       <form

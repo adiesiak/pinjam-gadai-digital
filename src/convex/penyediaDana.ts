@@ -24,8 +24,9 @@
  * (pseudonim acak dari `peminjamCode.ts`) sebagai kunci stabil antar-ruang.
  *
  * Akses ditentukan peran akun: `dana` (penyedia dana), `pengamat` (sesi kode
- * akses bersama — tanpa berkas identitas), atau `admin` untuk pratinjau. Admin memberi/mencabut akses lewat `ubahAkses` di bawah, dan
- * setiap perubahan tercatat pada audit trail.
+ * akses bersama — tanpa berkas identitas), atau `admin` untuk pratinjau. Admin
+ * memberi/mencabut akses lewat `ubahAkses`, atau membuat akun pendana baru
+ * siap-akses lewat `buatPendana`, dan setiap perubahan tercatat pada audit trail.
  */
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { v } from "convex/values";
@@ -1354,6 +1355,82 @@ export const ubahAkses = mutation({
 });
 
 /**
+ * Buat akun penyedia dana baru langsung dari panel admin — pendana "siap akses"
+ * yang dapat masuk ke ruang /penyedia-dana.
+ *
+ * `ubahAkses` di atas hanya menandai akun yang SUDAH terdaftar. Mutation ini
+ * melengkapinya: admin membuat sendiri akun pendana (nama + email) yang
+ * langsung berperan `dana`. Karena akun kata sandi hanya untuk Super Admin,
+ * pendana tetap masuk lewat OTP email seperti pengguna lain; saat email itu
+ * diverifikasi, Convex Auth menemukan tepat satu akun dengan email terverifikasi
+ * yang sama (akun stub ini) lalu menautkannya — akun tidak terduplikasi dan
+ * peran `dana` yang diberikan admin tetap menempel.
+ *
+ * Batas yang dijaga server:
+ *  - hanya Super Admin dengan sesi TOTP terverifikasi (`requireAdminSession`);
+ *  - nama wajib 2–120 karakter dan email wajib valid;
+ *  - email yang sudah dipakai akun lain ditolak — arahkan memakai "Beri akses";
+ *  - akun dibuat bukan-anonim dan langsung berperan `dana`;
+ *  - setiap pembuatan dicatat di audit trail.
+ *
+ * Setelah dibuat, pendana harus masuk sekali lewat /auth dengan email itu
+ * (kode OTP) agar akunnya benar-benar tertaut dan dapat membuka ruang.
+ */
+export const buatPendana = mutation({
+  args: {
+    nama: v.string(),
+    email: v.string(),
+    /** Alasan keputusan (disarankan) — masuk audit trail. */
+    alasan: v.optional(v.string()),
+  },
+  handler: async (ctx, { nama, email, alasan }) => {
+    const { userId: adminId, user: admin } = await requireAdminSession(ctx);
+
+    const namaBersih = nama.trim();
+    if (namaBersih.length < 2 || namaBersih.length > 120) {
+      throw new Error("Nama pendana wajib 2–120 karakter.");
+    }
+    const dicari = email.trim().toLowerCase();
+    if (dicari === "" || !dicari.includes("@")) {
+      throw new Error("Masukkan alamat email pendana yang valid.");
+    }
+
+    const ada = await cariAkunEmail(ctx, dicari);
+    if (ada !== null) {
+      throw new Error(
+        ada.role === ROLES.DANA
+          ? `Akun ${dicari} sudah menjadi penyedia dana berakses ruang.`
+          : `Akun ${dicari} sudah terdaftar — pakai "Beri akses" untuk memberinya akses ruang.`,
+      );
+    }
+
+    const userId = await ctx.db.insert("users", {
+      name: namaBersih,
+      email: dicari,
+      // Stub ini sengaja ditandai email terverifikasi supaya Convex Auth
+      // menautkan akun ini (bukan membuat duplikat) saat OTP email itu
+      // diverifikasi. Tanpa authAccount, akun ini tetap tidak bisa masuk.
+      emailVerificationTime: Date.now(),
+      role: ROLES.DANA,
+      isAnonymous: false,
+    });
+
+    await audit(
+      ctx,
+      adminId,
+      admin.email ?? admin.name ?? "admin",
+      "buat_pendana",
+      dicari,
+      `Akun pendana "${namaBersih}" (${dicari}) dibuat dengan akses lihat saja ruang penyedia dana${
+        alasan?.trim() ? ` — ${alasan.trim()}` : ""
+      }`,
+    );
+
+    return { ok: true, userId, nama: namaBersih, email: dicari };
+  },
+});
+
+/**
  * Super Admin mengoreksi data satu pinjaman langsung dari ruang penyedia dana
  * — termasuk menetapkan siapa pendananya (mis. pinjaman A didanai Robert atau
  * Asep), tujuan, tenor, dan nominal yang disetujui.
@@ -1620,18 +1697,23 @@ async function pindahAlokasiWarisan(
 async function ringkasTransferPinjaman(
   ctx: QueryCtx,
   loanId: Id<"loans">,
-): Promise<RingkasTransfer> {    const baris = await ctx.db.query("transferPendana").collect();
+): Promise<RingkasTransfer> {
+  const baris = await ctx.db.query("transferPendana").collect();
   return ringkasTransfer(
-    baris.map((b) => ({
-      jumlah: b.jumlah,
-      status: b.status as string,
-      dicatatPada: b.dicatatPada,
-      referensi: b.referensi ?? null,
-      metode: b.metode as string,
-      catatan: b.catatan ?? null,
-      dicatatOlehLabel: b.dicatatOlehLabel,
-      alasanBatal: b.alasanBatal ?? null,
-    })),
+    baris
+      // Hanya catatan milik pinjaman ini — tanpa filter, satu catatan pada
+      // pinjaman lain membuat penjaga "sudah dicatat" ikut menolak pinjaman ini.
+      .filter((b) => b.loanId === loanId)
+      .map((b) => ({
+        jumlah: b.jumlah,
+        status: b.status as string,
+        dicatatPada: b.dicatatPada,
+        referensi: b.referensi ?? null,
+        metode: b.metode as string,
+        catatan: b.catatan ?? null,
+        dicatatOlehLabel: b.dicatatOlehLabel,
+        alasanBatal: b.alasanBatal ?? null,
+      })),
   );
 }
 
