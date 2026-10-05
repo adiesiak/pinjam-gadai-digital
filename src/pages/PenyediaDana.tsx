@@ -16,6 +16,7 @@ import {
   Timer,
   TriangleAlert,
   Wallet,
+  XCircle,
 } from "lucide-react";
 import { Component, useEffect, useState, type ReactNode } from "react";
 import { Link } from "react-router";
@@ -1417,12 +1418,19 @@ function IsiRuang() {
   );
 
   // Pinjaman dipisah supaya ruang kerja pendana jelas: pengajuan baru yang
-  // BELUM didanai, posisi yang SUDAH didanai (berjalan), dan riwayat lunas.
+  // BELUM didanai, posisi yang SUDAH didanai (berjalan), riwayat lunas, dan
+  // pengajuan yang DITOLAK (tidak dilanjutkan) ke tab sendiri agar tidak
+  // tercampur dengan antrean yang masih berjalan.
   // `didanaiPada` adalah penanda resmi "sudah pernah didanai" dari server.
+  const pinjamanDitolak = data?.pinjaman.filter((r) => r.status === "ditolak") ?? [];
   const pinjamanBaru =
-    data?.pinjaman.filter((r) => r.didanaiPada === null && r.status !== "lunas") ?? [];
+    data?.pinjaman.filter(
+      (r) => r.didanaiPada === null && r.status !== "lunas" && r.status !== "ditolak",
+    ) ?? [];
   const pinjamanDidanai =
-    data?.pinjaman.filter((r) => r.didanaiPada !== null && r.status !== "lunas") ?? [];
+    data?.pinjaman.filter(
+      (r) => r.didanaiPada !== null && r.status !== "lunas" && r.status !== "ditolak",
+    ) ?? [];
   const pinjamanLunas = data?.pinjaman.filter((r) => r.status === "lunas") ?? [];
 
   return (
@@ -1582,6 +1590,15 @@ function IsiRuang() {
                   </span>
                 </TabsTrigger>
                 <TabsTrigger
+                  value="ditolak"
+                  className="group h-9 flex-none gap-2 rounded-xl px-3 text-xs font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+                >
+                  <XCircle className="size-3.5" /> Ditolak
+                  <span className="tabular-nums text-muted-foreground group-data-[state=active]:text-primary-foreground">
+                    {pinjamanDitolak.length}
+                  </span>
+                </TabsTrigger>
+                <TabsTrigger
                   value="gadai"
                   className="group h-9 flex-none gap-2 rounded-xl px-3 text-xs font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
                 >
@@ -1676,6 +1693,32 @@ function IsiRuang() {
                     </p>
                     <DaftarPinjaman
                       rows={pinjamanLunas}
+                      persenBunga={data.ringkasan.persenBunga}
+                      sekarang={sekarang}
+                      onDetail={(row) => setDetail({ jenis: "pinjaman", row })}
+                      onUbah={role === "admin" ? (row) => setUbah(row) : undefined}
+                    />
+                    <CatatanTerpotong
+                      terpotong={data.terpotong.pinjaman}
+                      batas={data.batas}
+                    />
+                  </>
+                )}
+              </TabsContent>
+
+              {/* ===== Pinjaman ditolak (dipisah dari antrean berjalan) ===== */}
+              <TabsContent value="ditolak" className="mt-4">
+                {pinjamanDitolak.length === 0 ? (
+                  <KeadaanKosong pesan="Tidak ada pengajuan pinjaman yang ditolak." />
+                ) : (
+                  <>
+                    <p className="mb-3 rounded-2xl border border-red-200 bg-red-50/70 px-4 py-3 text-xs leading-6 text-red-900">
+                      Pinjaman pada tab ini berstatus <strong>ditolak internal</strong> — tidak
+                      dilanjutkan dalam alur aplikasi dan tidak memerlukan alokasi dana. Tetap
+                      ditampilkan sebagai catatan riwayat.
+                    </p>
+                    <DaftarPinjaman
+                      rows={pinjamanDitolak}
                       persenBunga={data.ringkasan.persenBunga}
                       sekarang={sekarang}
                       onDetail={(row) => setDetail({ jenis: "pinjaman", row })}
