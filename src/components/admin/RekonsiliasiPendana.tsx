@@ -270,7 +270,7 @@ export function RekonsiliasiPendana() {
           </ul>
 
           {/* Layar lebar: tabel yang membungkus teks — tanpa geser mendatar. */}
-          <div className="mt-3 hidden overflow-hidden rounded-2xl border border-slate-200 md:block">
+          <div className="mt-3 hidden overflow-hidden rounded-2xl border border-slate-200 [&>[data-slot=table-container]]:overflow-x-clip md:block">
             <Table className="w-full [&_th]:whitespace-normal [&_td]:whitespace-normal [&_td]:break-words">
               <TableHeader>
                 <TableRow className="bg-slate-50/80">
