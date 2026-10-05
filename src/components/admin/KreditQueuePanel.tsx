@@ -164,6 +164,12 @@ export function KreditQueuePanel() {
       <EmptyQueue
         icon={ShoppingBag}
         title="Belum ada pengajuan kredit barang"
+        deskripsi="Pengajuan kredit barang akan tampil di sini setelah nasabah mengajukan pembelian barang."
+        poin={[
+          "Barang, merchant, dan harga yang diajukan",
+          "Hitungan cicilan serta DP aplikasi",
+          "Alur persetujuan hingga pelunasan",
+        ]}
       />
     );
   }

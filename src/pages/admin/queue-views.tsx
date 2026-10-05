@@ -100,7 +100,16 @@ export function PawnQueueSection({
   return (
     <>
       {pawns.length === 0 ? (
-        <EmptyQueue icon={Package} title="Belum ada pengajuan gadai" />
+        <EmptyQueue
+          icon={Package}
+          title="Belum ada pengajuan gadai"
+          deskripsi="Antrean gadai akan muncul di sini begitu nasabah mengirim pengajuan barang jaminan."
+          poin={[
+            "Barang jaminan, kategori, dan nilai taksiran",
+            "Status penilaian serta hasil review tim",
+            "Posisi gadai aktif (Skema B) yang sudah disetujui",
+          ]}
+        />
       ) : (
         <div className="space-y-3">
         <div className="relative">

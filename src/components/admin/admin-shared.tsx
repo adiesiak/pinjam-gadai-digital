@@ -1,4 +1,4 @@
-import { Database, Lock, ShieldAlert, ShieldCheck } from "lucide-react";
+import { CheckCircle2, Database, Lock, ShieldAlert, ShieldCheck } from "lucide-react";
 import type { ComponentType, ReactNode } from "react";
 
 import { Id } from "@/convex/_generated/dataModel";
@@ -139,17 +139,38 @@ export function QueueRow({
 export function EmptyQueue({
   icon: Icon,
   title,
+  deskripsi,
+  poin,
 }: {
   icon: ComponentType<{ className?: string }>;
   title: string;
+  /** Kalimat penjelas; ada bawaan bila tidak diisi. */
+  deskripsi?: string;
+  /** Daftar singkat apa yang akan muncul di tab ini saat ada data. */
+  poin?: string[];
 }) {
   return (
-    <div className="rounded-2xl border border-dashed border-sky-200 bg-white/70 px-6 py-14 text-center">
-      <Icon className="mx-auto size-5 text-muted-foreground" />
-      <p className="mt-4 text-sm font-medium">{title}</p>
+    <div className="animate-masuk rounded-2xl border border-dashed border-slate-300 bg-gradient-to-b from-white to-slate-50/70 px-6 py-12 text-center sm:py-14">
+      <span className="mx-auto flex size-12 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-500 shadow-sm">
+        <Icon className="size-5" />
+      </span>
+      <p className="mt-4 text-sm font-semibold text-navy">{title}</p>
       <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-muted-foreground">
-        Antrean akan terisi otomatis saat nasabah mengirim pengajuan.
+        {deskripsi ?? "Antrean akan terisi otomatis saat nasabah mengirim pengajuan."}
       </p>
+      {poin && poin.length > 0 && (
+        <ul className="mx-auto mt-5 flex max-w-sm flex-col gap-2 text-left">
+          {poin.map((item) => (
+            <li
+              key={item}
+              className="flex items-start gap-2 rounded-xl border border-slate-100 bg-white px-3 py-2 text-xs leading-5 text-slate-600"
+            >
+              <CheckCircle2 className="mt-0.5 size-3.5 shrink-0 text-emerald-500" />
+              <span>{item}</span>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }
