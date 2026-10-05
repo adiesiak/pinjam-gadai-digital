@@ -164,53 +164,92 @@ describe("aturan kepemilikan pinjaman (murni)", () => {
       email: "admin@pindai.test",
       role: "admin",
     });
-    const { loanId, penyedia } = await seedPinjamanLunas(t);
+    // Dua akun penyedia dana berbeda: `ubahDataPinjaman` hanya memigrasikan
+    // baris-warisan saat pemiliknya benar-benar berpindah, dan guard menutup
+    // pinjaman lunas — jadi migrasi diuji pada posisi berjalan.
+    const { userId } = await siapkanPengguna(t, "rani-migrasi", {
+      email: "rani-migrasi@pindai.test",
+      role: "peminjam",
+    });
+    const { userId: danaLamaId } = await siapkanPengguna(t, "dana-lama", {
+      email: "dana-lama@pindai.test",
+      role: "dana",
+    });
+    const { userId: danaBaruId } = await siapkanPengguna(t, "dana-baru", {
+      email: "dana-baru@pindai.test",
+      role: "dana",
+    });
+
+    const loanId = await t.run(async (ctx) => {
+      const id = await ctx.db.insert("loans", {
+        userId,
+        pokokPinjaman: 1_000_000,
+        tujuan: "Modal usaha",
+        namaLengkap: NAMA_PEMOHON,
+        nomorRekening: RAHASIA.nomorRekening,
+        status: "didanai",
+        nomorReferensi: "PGD-TRANSFER-1",
+        tenorHari: 30,
+        didanaiPada: 1_700_000_000_000,
+        pendanaId: danaLamaId,
+        pendanaNama: "Dana Lama",
+      });
+      // Baris-warisan `fundings` masih `dialokasikan` ke dana lama.
+      await ctx.db.insert("fundings", {
+        loanId: id,
+        danaId: danaLamaId,
+        jumlahAlokasi: 1_000_000,
+        imbalHasil: 300_000,
+        status: "dialokasikan",
+        nomorReferensi: "ALOK-MIGRASI-1",
+      });
+      return id;
+    });
 
     // 1) Admin mengubah pendana pinjaman: baris-warisan `fundings` dari dana
     //    lama dipindahkan ke dana baru, baris lama `dibatalkan`.
-    const sebelumnya = await t.run((ctx) => ctx.db.query("fundings").collect());
     const hasil = await admin.mutation(api.penyediaDana.ubahDataPinjaman, {
       loanId,
-      pendanaEmail: "penyedia@pindai.test",
-      alasan: "Pindah pendana dari admin ke admin",
+      pendanaUserId: danaBaruId,
+      alasan: "Pindah pendana dari dana lama ke dana baru",
     });
     expect(hasil.perubahan.some((p) => /pendana/i.test(p))).toBe(true);
 
-    const sesudah = await t.run((ctx) => ctx.db.query("fundings").collect());
-    const loanPendingTransfer = (await t.run((ctx) => ctx.db.get(loanId)))?.pendanaId;
-    const yangBerusahaDipindahkan = sebelumnya.filter(
-      (f) => f.danaId === loanPendingTransfer,
+    const sesudah = await t.run((ctx) =>
+      ctx.db.query("fundings").withIndex("by_loan", (q) => q.eq("loanId", loanId)).collect(),
     );
+    const pendana = (await t.run((ctx) => ctx.db.get(loanId)))?.pendanaId;
+    expect(pendana).toBe(danaBaruId);
 
     // Tidak ada `fundings` yang masih `dialokasikan` dari pinjaman ini.
-    expect(sesudah.some((f) => f.loanId === loanId && f.status === "dialokasikan")).toBe(false);
-    // Baris yang dipindahkan ditandai `dibatalkan`, bukan `dialokasikan_deduped`.
-    expect(sesudah.some((f) => f.loanId === loanId && f.status === "dibatalkan")).toBe(true);
-    expect(
-      sesudah.some(
-        (f) => f.loanId === loanId && f.danaId !== loanPendingTransfer,
-      ),
-    ).toBe(false);
+    expect(sesudah.some((f) => f.status === "dialokasikan")).toBe(false);
+    // Baris yang dipindahkan kini milik dana baru dan ditandai `dibatalkan`
+    // (peran `dialokasikan_deduped` tidak ada di skema).
+    expect(sesudah.some((f) => f.status === "dibatalkan" && f.danaId === danaBaruId)).toBe(true);
+    expect(sesudah.some((f) => f.danaId !== danaBaruId)).toBe(false);
 
-    // 2) Rekap tetap eksis & saldo dompet tidak berubah.
+    // 2) Rekap mengikuti pemilik baru & saldo dompet tidak berubah.
     const rincian = await admin.query(api.penyediaDana.rincianInvestor, {
-      userId: penyedia.userId,
+      userId: danaBaruId,
     });
     expect(rincian?.pinjaman.some((p) => p.referensi === "PGD-TRANSFER-1")).toBe(true);
     expect(rincian?.saldoDompet).toBeDefined();
 
     // 3) `batalkanTransferPendana` masih membuang catatan transfer lama.
+    //    Keuntungan baru dapat dicatat setelah pinjaman lunas, jadi pakai
+    //    pinjaman lunas terpisah (guard menutup migrasi di atas pinjaman lunas).
+    const { loanId: loanLunas } = await seedPinjamanLunas(t);
     await admin.mutation(api.penyediaDana.catatTransferPendana, {
-      loanId,
+      loanId: loanLunas,
       metode: "e_wallet",
     });
     const ditandai = await admin.mutation(api.penyediaDana.batalkanTransferPendana, {
-      loanId,
+      loanId: loanLunas,
       alasan: "Debug migrasi boundary",
     });
     expect(ditandai.jumlahDibatalkan).toBe(1);
     const baris = await t.run((ctx) =>
-      ctx.db.query("transferPendana").withIndex("by_loan", (q) => q.eq("loanId", loanId)).collect(),
+      ctx.db.query("transferPendana").withIndex("by_loan", (q) => q.eq("loanId", loanLunas)).collect(),
     );
 
     expect(baris.filter((b) => b.status === "dicatat")).toHaveLength(0);
