@@ -13,8 +13,12 @@ import { v } from "convex/values";
 import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { requireAdminSession } from "./adminAuthz";
-import { BULAN_MS, pelunasanPinjaman } from "../lib/loan";
-import { hitungSimulasiBulanan } from "../lib/bulanan";
+import {
+  BULAN_MS,
+  pelunasanPinjaman,
+  quotePinjaman,
+  simulasiBulananPinjaman,
+} from "../lib/loan";
 import { formatRupiah } from "../lib/money";
 import {
   pesanPerubahanStatus,
@@ -227,8 +231,8 @@ export const _dataStatusPinjaman = internalQuery({
     const pokokDiajukan = loan.pokokDiajukan ?? loan.pokokPinjaman;
     const totalKewajiban =
       loan.tenorBulan !== undefined
-        ? hitungSimulasiBulanan(loan.pokokPinjaman, loan.tenorBulan).totalPengembalian
-        : Math.round(loan.pokokPinjaman * 1.3);
+        ? simulasiBulananPinjaman({ ...loan, tenorBulan: loan.tenorBulan }).totalPengembalian
+        : quotePinjaman(loan).totalKewajibanPelunasan;
     return {
       namaLengkap: loan.namaLengkap,
       nomorReferensi: loan.nomorReferensi,
@@ -280,8 +284,8 @@ function pesanDariLoan(
   const pelunasan = pelunasanPinjaman(loan, now);
   const totalKewajibanPenuh =
     loan.tenorBulan !== undefined
-      ? hitungSimulasiBulanan(loan.pokokPinjaman, loan.tenorBulan).totalPengembalian
-      : Math.round(loan.pokokPinjaman * 1.3);
+      ? simulasiBulananPinjaman({ ...loan, tenorBulan: loan.tenorBulan }).totalPengembalian
+      : quotePinjaman(loan).totalKewajibanPelunasan;
   const total = pelunasan ? pelunasan.totalKewajibanDenganPenalti : totalKewajibanPenuh;
   const denda = pelunasan ? pelunasan.dendaTerlambat : 0;
   const jatuhTempo =
@@ -497,8 +501,8 @@ export const previewStatusPinjaman = query({
     const pokokDiajukan = loan.pokokDiajukan ?? loan.pokokPinjaman;
     const totalKewajiban =
       loan.tenorBulan !== undefined
-        ? hitungSimulasiBulanan(loan.pokokPinjaman, loan.tenorBulan).totalPengembalian
-        : Math.round(loan.pokokPinjaman * 1.3);
+        ? simulasiBulananPinjaman({ ...loan, tenorBulan: loan.tenorBulan }).totalPengembalian
+        : quotePinjaman(loan).totalKewajibanPelunasan;
     return {
       nomorWhatsApp: loan.nomorWhatsApp ?? null,
       isi: pesanStatusDari(

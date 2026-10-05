@@ -98,6 +98,44 @@ export function quoteLoan(pokok: Rupiah): LoanQuote {
   });
 }
 
+/** Quote skema harian dengan bunga khusus nasabah (persen, mis. 30 → 130%). */
+export function quoteLoanBunga(pokok: Rupiah, persenBunga: number): LoanQuote {
+  return quoteLoanDenganPersen(pokok, {
+    admin: PINDAI_PRICING.adminFeePercent,
+    platform: PINDAI_PRICING.platformFeePercent,
+    bunga: persenBunga,
+  });
+}
+
+/**
+ * Quote satu pinjaman HARIAN menghormati snapshot bunga per nasabah.
+ * Kosong = perilaku lama (bunga 30% dari Pengaturan Sistem).
+ */
+export function quotePinjaman(loan: {
+  pokokPinjaman: Rupiah;
+  persenBunga?: number;
+}): LoanQuote {
+  return loan.persenBunga === undefined
+    ? quoteLoan(loan.pokokPinjaman)
+    : quoteLoanBunga(loan.pokokPinjaman, loan.persenBunga);
+}
+
+/**
+ * Simulasi BULANAN satu pinjaman menghormati snapshot bunga per nasabah
+ * (dipakai sebagai bunga per bulan); kosong = tarif tenor bawaan.
+ */
+export function simulasiBulananPinjaman(loan: {
+  pokokPinjaman: Rupiah;
+  tenorBulan: number;
+  persenBunga?: number;
+}): ReturnType<typeof hitungSimulasiBulanan> {
+  return hitungSimulasiBulanan(
+    loan.pokokPinjaman,
+    loan.tenorBulan,
+    loan.persenBunga === undefined ? {} : { persenBungaPerBulan: loan.persenBunga },
+  );
+}
+
 /**
  * Kalkulasi dengan persentase dinamis dari Pengaturan System (admin).
  * Angka tetap rupiah bulat — pembulatan per komponen, sisa ke platform.
@@ -161,8 +199,9 @@ export function calculateRepayment(
   tenor: number,
   didanaiPada: number,
   now: number,
+  persenBunga?: number,
 ): RepaymentQuote {
-  const base = quoteLoan(pokok);
+  const base = persenBunga === undefined ? quoteLoan(pokok) : quoteLoanBunga(pokok, persenBunga);
   if (!Number.isSafeInteger(tenor) || tenor <= 0) {
     throw new Error("Tenor harus bilangan bulat positif.");
   }
@@ -230,6 +269,8 @@ export function pelunasanPinjaman(
     tenorHari?: number;
     tenorBulan?: number;
     didanaiPada?: number;
+    /** Snapshot bunga per nasabah; kosong = default global. */
+    persenBunga?: number;
   },
   now: number,
 ): PelunasanPinjaman | null {
@@ -237,7 +278,7 @@ export function pelunasanPinjaman(
     return null;
   }
   if (loan.tenorBulan !== undefined) {
-    const sim = hitungSimulasiBulanan(loan.pokokPinjaman, loan.tenorBulan);
+    const sim = simulasiBulananPinjaman({ ...loan, tenorBulan: loan.tenorBulan });
     const jatuhTempoPada = loan.didanaiPada + loan.tenorBulan * BULAN_MS;
     const sisaMs = jatuhTempoPada - now;
     const sisaHari = Math.max(0, Math.ceil(sisaMs / DAY_MS));
@@ -263,7 +304,7 @@ export function pelunasanPinjaman(
   }
   // Data warisan pra-tenor memakai default 30 hari agar tetap bisa dilunasi.
   const tenor = loan.tenorHari ?? DEFAULT_TENOR_HARI;
-  const rep = calculateRepayment(loan.pokokPinjaman, tenor, loan.didanaiPada, now);
+  const rep = calculateRepayment(loan.pokokPinjaman, tenor, loan.didanaiPada, now, loan.persenBunga);
   return {
     jatuhTempoPada: rep.jatuhTempoPada,
     sisaHari: rep.sisaHari,

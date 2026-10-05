@@ -101,6 +101,11 @@ const schema = defineSchema(
       plafonPinjaman: v.optional(v.number()),
       /** Penanda warisan: waktu kenaikan plafon pertama; bukan sumber kelayakan saat ini. */
       plafonPinjamanNaikPada: v.optional(v.number()),
+      /**
+       * Bunga pinjaman khusus pengguna ini (persen, 0–100) — diatur admin.
+       * Menang atas `persenBunga` Pengaturan Sistem; kosong = ikut global.
+       */
+      persenBunga: v.optional(v.number()),
       /** Kode pseudonim acak yang stabil; tidak berasal dari data identitas. */
       kodePeminjam: v.optional(v.string()),
       /**
@@ -167,6 +172,13 @@ const schema = defineSchema(
        * 30 hari. Kosong = pinjaman memakai skema harian quoteLoan().
        */
       tenorBulan: v.optional(v.number()),
+      /**
+       * Snapshot bunga efektif yang berlaku untuk pinjaman ini (persen).
+       * Diisi saat pengajuan dari override admin nasabah; kosong pada data lama
+       * = pakai `persenBunga` Pengaturan Sistem. Angka pinjaman yang sudah cair
+       * tidak berubah walau override nasabah diubah kemudian.
+       */
+      persenBunga: v.optional(v.number()),
       /** Terisi saat pinjaman didanai penuh dan dana bersih dicairkan. */
       didanaiPada: v.optional(v.number()),
       /** Terisi saat kewajiban 130% (+ denda bila terlambat) dibayar penuh. */

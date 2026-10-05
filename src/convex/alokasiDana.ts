@@ -3,7 +3,12 @@ import { mutation, query, MutationCtx, QueryCtx } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import { v } from "convex/values";
 import { ROLES } from "./schema";
-import { DEFAULT_TENOR_HARI, pelunasanPinjaman, quoteLoan } from "../lib/loan";
+import {
+  DEFAULT_TENOR_HARI,
+  pelunasanPinjaman,
+  quotePinjaman,
+  simulasiBulananPinjaman,
+} from "../lib/loan";
 import { hitungSimulasiBulanan, TENOR_BULANAN_OPTIONS } from "../lib/bulanan";
 import {
   hakImbalHasilPerAlokasi,
@@ -138,9 +143,14 @@ function ringkasPinjaman(loan: {
   pokokPinjaman: number;
   tenorHari?: number;
   tenorBulan?: number;
+  persenBunga?: number;
 }): RingkasanPinjaman {
   if (loan.tenorBulan !== undefined) {
-    const sim = hitungSimulasiBulanan(loan.pokokPinjaman, loan.tenorBulan);
+    const sim = simulasiBulananPinjaman({
+      pokokPinjaman: loan.pokokPinjaman,
+      tenorBulan: loan.tenorBulan,
+      persenBunga: loan.persenBunga,
+    });
     const tenorHari = loan.tenorBulan * 30;
     return {
       skemaBulanan: true,
@@ -187,7 +197,7 @@ function ringkasPinjaman(loan: {
         "Biaya admin 2% dan platform 3% untuk tenor 3/6 bulan (atau biaya layanan 3% untuk tenor 1) dipotong di muka dari dana yang diterima; tenor 3 dan 6 bulan dikenai tambahan biaya admin 2% dari nominal cicilan yang dibayar bersama setiap cicilan.",
     };
   }
-  const q = quoteLoan(loan.pokokPinjaman);
+  const q = quotePinjaman(loan);
   const tenorHari = loan.tenorHari ?? DEFAULT_TENOR_HARI;
   return {
     skemaBulanan: false,
@@ -816,7 +826,11 @@ export const myPortfolio = query({
         // Estimasi dari kebijakan yang berlaku sekarang (sama seperti ruang
         // penyedia dana): model baru tidak menyimpan imbal hasil per alokasi.
         imbalHasil:
-          cobaBagi(loan.pokokPinjaman, cfg.persenBunga, cfg.persenAdmin)?.keuntunganPendana ?? 0,
+          cobaBagi(
+            loan.pokokPinjaman,
+            loan.persenBunga ?? cfg.persenBunga,
+            cfg.persenAdmin,
+          )?.keuntunganPendana ?? 0,
         statusAlokasi: "dialokasikan",
       });
       if (isi === null) continue;
@@ -921,7 +935,11 @@ export const myFundingContracts = query({
         nomorReferensi: loan.nomorReferensi,
         jumlahAlokasi: loan.pokokPinjaman,
         imbalHasil:
-          cobaBagi(loan.pokokPinjaman, cfg.persenBunga, cfg.persenAdmin)?.keuntunganPendana ?? 0,
+          cobaBagi(
+            loan.pokokPinjaman,
+            loan.persenBunga ?? cfg.persenBunga,
+            cfg.persenAdmin,
+          )?.keuntunganPendana ?? 0,
         statusAlokasi: "dialokasikan",
         createdAt: loan.didanaiPada ?? loan.diajukanPada ?? loan._creationTime,
       });

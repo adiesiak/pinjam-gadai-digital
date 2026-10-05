@@ -26,7 +26,7 @@ import {
 import {
   LOAN_LIMITS,
   LOAN_PURPOSE_OPTIONS,
-  quoteLoan,
+  quotePinjaman,
   TENOR_OPTIONS,
 } from "@/lib/loan";
 import { formatRupiah } from "@/lib/money";
@@ -41,9 +41,13 @@ import {
  * Ringkasan bulanan yang tidak melempar error saat input belum valid —
  * slider bergerak cepat, jadi nilai di luar rentang cukup tampil kosong.
  */
-function simulasiBulananAman(pokok: number, tenorBulan: number) {
+function simulasiBulananAman(pokok: number, tenorBulan: number, persenBunga?: number) {
   try {
-    return hitungSimulasiBulanan(pokok, tenorBulan);
+    return hitungSimulasiBulanan(
+      pokok,
+      tenorBulan,
+      persenBunga === undefined ? {} : { persenBungaPerBulan: persenBunga },
+    );
   } catch {
     return null;
   }
@@ -313,8 +317,10 @@ export function LoanForm({ onCreated }: { onCreated: (ref: string) => void }) {
 
   const bulanan = skema === "bulanan";
   const tenorBulanNum = Number(tenorBulan);
-  const sim = bulanan ? simulasiBulananAman(pokok, tenorBulanNum) : null;
-  const q = quoteLoan(pokok);
+  const bungaQuery = useQuery(api.lokasi.bungaSaya, {});
+  const bungaSaya = bungaQuery ?? undefined;
+  const sim = bulanan ? simulasiBulananAman(pokok, tenorBulanNum, bungaSaya) : null;
+  const q = quotePinjaman({ pokokPinjaman: pokok, persenBunga: bungaSaya });
   // Batas pinjaman mengurangi jumlah maksimum kedua pilihan. Selama data dimuat,
   // gunakan batas awal agar penggeser tidak melewati batas yang berlaku.
   const plafonQuery = useQuery(api.lokasi.plafonSaya, {});

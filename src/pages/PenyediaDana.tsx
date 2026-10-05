@@ -60,9 +60,8 @@ import type {
   RekapPendana,
 } from "@/convex/penyediaDana";
 import { useAuth } from "@/hooks/use-auth";
-import { hitungSimulasiBulanan } from "@/lib/bulanan";
 import { quoteKreditBarang } from "@/lib/kredit";
-import { BULAN_MS, quoteLoan } from "@/lib/loan";
+import { BULAN_MS, quotePinjaman, simulasiBulananPinjaman } from "@/lib/loan";
 import { formatRupiah } from "@/lib/money";
 
 /**
@@ -508,11 +507,15 @@ function labelPokok(status: string): string {
 
 function DetailPinjaman({ row }: { row: BarisPinjaman }) {
   const tenorBulan = row.tenorBulan;
-  const harian = tenorBulan === null ? coba(() => quoteLoan(row.pokokPinjaman)) : null;
+  const persenBunga = row.persenBunga ?? undefined;
+  const harian =
+    tenorBulan === null
+      ? coba(() => quotePinjaman({ pokokPinjaman: row.pokokPinjaman, persenBunga }))
+      : null;
   const bulanan =
     tenorBulan === null
       ? null
-      : coba(() => hitungSimulasiBulanan(row.pokokPinjaman, tenorBulan));
+      : coba(() => simulasiBulananPinjaman({ pokokPinjaman: row.pokokPinjaman, tenorBulan, persenBunga }));
   const imbalHasil = harian?.bunga ?? bulanan?.bungaTotal ?? null;
   const totalPelunasan = harian?.totalKewajibanPelunasan ?? bulanan?.totalPengembalian ?? null;
   const potongan = harian?.totalPotonganDiMuka ?? bulanan?.potonganDiMuka ?? null;

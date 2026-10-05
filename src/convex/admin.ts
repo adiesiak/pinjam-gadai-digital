@@ -3,7 +3,12 @@ import { query, mutation, internalAction, internalMutation, QueryCtx } from "./_
 import { v } from "convex/values";
 import { ROLES } from "./schema";
 import { requireAdminSession } from "./adminAuthz";
-import { pelunasanPinjaman, quoteLoan } from "../lib/loan";
+import {
+  pelunasanPinjaman,
+  quoteLoan,
+  quotePinjaman,
+  simulasiBulananPinjaman,
+} from "../lib/loan";
 import { hitungSimulasiBulanan, TENOR_BULANAN_OPTIONS } from "../lib/bulanan";
 import { ledgerTotals, appendJournal } from "./ledger";
 import { JournalSpec } from "./ledger";
@@ -17,6 +22,7 @@ import {
   clampPlafon,
   plafonEfektif,
 } from "../lib/plafon";
+import { clampPersenBunga, persenBungaEfektif } from "../lib/bunga";
 import { ensureKodePeminjam } from "./peminjamCode";
 import { rejectUnverifiedMoneyMovement } from "./paymentGuard";
 
@@ -59,6 +65,8 @@ export const daftarPlafonPeminjam = query({
       email: string | null;
       plafonPribadi: number | null;
       plafonEfektif: number;
+      persenBungaPribadi: number | null;
+      persenBungaEfektif: number;
       jumlahPelunasanTepatWaktu: number;
       jumlahPengajuan: number;
       pinjamanAktif: number;
@@ -70,6 +78,7 @@ export const daftarPlafonPeminjam = query({
             email?: string;
             role?: string;
             plafonPinjaman?: number;
+            persenBunga?: number;
           }
         | null;
       if (user === null) continue;
@@ -89,13 +98,19 @@ export const daftarPlafonPeminjam = query({
           cfg.plafonPinjaman,
           pelunasanTepatWaktuPerUser.get(id) ?? 0,
         ),
+        persenBungaPribadi: user.persenBunga ?? null,
+        persenBungaEfektif: persenBungaEfektif(user.persenBunga, cfg.persenBunga),
         jumlahPelunasanTepatWaktu: pelunasanTepatWaktuPerUser.get(id) ?? 0,
         jumlahPengajuan: pinjamanUser.length + kreditUser.length,
         pinjamanAktif: pinjamanUser.filter((l) => l.status === "didanai").length,
       });
     }
     hasil.sort((a, b) => b.jumlahPengajuan - a.jumlahPengajuan || a.nama.localeCompare(b.nama));
-    return { default: cfg.plafonPinjaman, rows: hasil.slice(0, 100) };
+    return {
+      default: cfg.plafonPinjaman,
+      defaultBunga: cfg.persenBunga,
+      rows: hasil.slice(0, 100),
+    };
   },
 });
 
@@ -159,6 +174,134 @@ export const setPlafonPeminjam = mutation({
 });
 
 /**
+ * Tetapkan bunga pinjaman khusus satu nasabah (persen, 0–100) — admin.
+ * `persenBunga: null` mengembalikan nasabah ke default global Pengaturan
+ * Sistem. Pengajuan yang belum cair (belum didanai/lunas) ikut diperbarui;
+ * pinjaman yang sudah cair tetap memakai snapshot bunganya. Setiap perubahan
+ * masuk audit trail karena ini keputusan harga kredit.
+ */
+export const setBungaPeminjam = mutation({
+  args: {
+    userId: v.id("users"),
+    /** Persen bunga (0–100) di rentang BUNGA_BATAS, atau null = default global. */
+    persenBunga: v.union(v.number(), v.null()),
+    /** Alasan keputusan (disarankan) — masuk audit trail. */
+    alasan: v.optional(v.string()),
+  },
+  handler: async (ctx, { userId, persenBunga, alasan }) => {
+    const { userId: adminId, user: admin } = await requireAdmin(ctx);
+    const target = await ctx.db.get(userId);
+    if (target === null) throw new Error("Pengguna tidak ditemukan.");
+    if (target.role === ROLES.ADMIN) {
+      throw new Error("Bunga tidak berlaku untuk akun tim (admin).");
+    }
+
+    const cfg = await getConfig(ctx);
+    const nilaiBaru = persenBunga === null ? null : clampPersenBunga(persenBunga);
+    const sebelumnya = persenBungaEfektif(target.persenBunga, cfg.persenBunga);
+    const sesudah = persenBungaEfektif(nilaiBaru, cfg.persenBunga);
+
+    await ctx.db.patch(userId, { persenBunga: nilaiBaru ?? undefined });
+
+    // Pengajuan berjalan ikut memakai bunga baru; pinjaman yang sudah cair
+    // (didanai/lunas) tetap memakai snapshotnya agar angka tidak berubah.
+    const loans = await ctx.db
+      .query("loans")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .collect();
+    let pengajuanDiperbarui = 0;
+    for (const l of loans) {
+      if (l.status === "didanai" || l.status === "lunas") continue;
+      await ctx.db.patch(l._id, { persenBunga: nilaiBaru ?? undefined });
+      pengajuanDiperbarui += 1;
+    }
+
+    await audit(
+      ctx,
+      adminId,
+      admin.email ?? admin.name ?? "admin",
+      "ubah_bunga",
+      target.name ?? target.email ?? userId,
+      `Bunga ${sebelumnya}% → ${sesudah}%${
+        nilaiBaru === null ? " (kembali ke default global)" : " (khusus nasabah ini)"
+      }; ${pengajuanDiperbarui} pengajuan berjalan diperbarui` +
+        `${alasan?.trim() ? ` — ${alasan.trim()}` : ""}`,
+    );
+    return { ok: true, persenBunga: sesudah, pengajuanDiperbarui };
+  },
+});
+
+/**
+ * Hapus AKUN satu nasabah — admin.
+ *
+ * Hanya akun yang dihapus; pengajuan (pinjaman/gadai/kredit barang) dan
+ * jurnalnya sengaja DIBIARKAN UTUH agar riwayat keuangan tidak hilang.
+ * Baris turunan akun yang tak lagi bermakna tanpa penggunanya (sesi auth,
+ * MFA, consent lokasi, status/perangkat lokasi, sesi bersama) ikut
+ * dibersihkan. Akun tim (admin) tidak dapat dihapus dari jalur ini.
+ */
+export const hapusNasabah = mutation({
+  args: { userId: v.id("users"), alasan: v.string() },
+  handler: async (ctx, { userId, alasan }) => {
+    const { userId: adminId, user: admin } = await requireAdmin(ctx);
+    const target = await ctx.db.get(userId);
+    if (target === null) throw new Error("Pengguna tidak ditemukan.");
+    if (target.role === ROLES.ADMIN) {
+      throw new Error("Akun tim (admin) tidak dapat dihapus dari sini.");
+    }
+    const bersih = alasan.trim();
+    if (bersih.length < 10 || bersih.length > 500) {
+      throw new Error("Alasan penghapusan wajib 10–500 karakter.");
+    }
+    const nama = target.name ?? target.email ?? userId;
+
+    // Akun auth + sesi turunannya.
+    const akunAuth = await ctx.db
+      .query("authAccounts")
+      .withIndex("userIdAndProvider", (q) => q.eq("userId", userId))
+      .collect();
+    for (const row of akunAuth) await ctx.db.delete(row._id);
+    const sesiAuth = await ctx.db
+      .query("authSessions")
+      .withIndex("userId", (q) => q.eq("userId", userId))
+      .collect();
+    for (const row of sesiAuth) await ctx.db.delete(row._id);
+
+    // Baris turunan akun (bukan riwayat keuangan): MFA, consent & status
+    // lokasi, perangkat terdaftar, sesi internal, dan jejak lokasi.
+    const [mfa, consent, statusLokasi, perangkat, sesiInternal, jejak] =
+      await Promise.all([
+        ctx.db.query("mfaSettings").withIndex("by_user", (q) => q.eq("userId", userId)).collect(),
+        ctx.db.query("trackingConsents").withIndex("by_user", (q) => q.eq("userId", userId)).collect(),
+        ctx.db.query("lokasiStatus").withIndex("by_user", (q) => q.eq("userId", userId)).collect(),
+        ctx.db.query("perangkat").withIndex("by_user", (q) => q.eq("userId", userId)).collect(),
+        ctx.db.query("sessions").withIndex("by_user", (q) => q.eq("userId", userId)).collect(),
+        ctx.db.query("lokasiJejak").withIndex("by_user", (q) => q.eq("userId", userId)).collect(),
+      ]);
+    for (const row of [...mfa, ...consent, ...statusLokasi, ...perangkat, ...sesiInternal, ...jejak]) {
+      await ctx.db.delete(row._id);
+    }
+    const turunan =
+      mfa.length + consent.length + statusLokasi.length +
+      perangkat.length + sesiInternal.length + jejak.length;
+
+    await audit(
+      ctx,
+      adminId,
+      admin.email ?? admin.name ?? "admin",
+      "nasabah_delete",
+      nama,
+      `Akun nasabah dihapus (pengajuan & riwayat keuangan dibiarkan utuh); ` +
+        `${akunAuth.length} akun auth, ${sesiAuth.length} sesi auth, ` +
+        `${turunan} baris turunan dibersihkan; alasan: ${bersih}`,
+    );
+
+    await ctx.db.delete(userId);
+    return { ok: true, nama };
+  },
+});
+
+/**
  * Query gabungan untuk halaman admin: profil sendiri (untuk deteksi halaman)
  * plus antrean pengajuan. Digunakan juga oleh nasabah — untuk mereka
  * `isAdmin` false dan antrean selalu kosong, sehingga halaman admin bisa
@@ -181,15 +324,16 @@ export const adminOverview = query({
           // bukan 130% — agar tim menelaah kewajiban yang benar.
           const bulanan =
             l.tenorBulan !== undefined
-              ? hitungSimulasiBulanan(l.pokokPinjaman, l.tenorBulan)
+              ? simulasiBulananPinjaman({ ...l, tenorBulan: l.tenorBulan })
               : null;
-          const harian = bulanan === null ? quoteLoan(l.pokokPinjaman) : null;
+          const harian = bulanan === null ? quotePinjaman(l) : null;
           return {
             _id: l._id,
             _creationTime: l._creationTime,
             nomorReferensi: l.nomorReferensi,
             pokokPinjaman: l.pokokPinjaman,
             pokokDiajukan: l.pokokDiajukan ?? l.pokokPinjaman,
+            persenBunga: l.persenBunga ?? null,
             tujuan: l.tujuan,
             status: l.status,
             catatanReview: l.catatanReview,
@@ -526,10 +670,13 @@ export const adminStats = query({
     // yang sama dengan panel penyedia dana (lib/bagiHasil.ts). Baris warisan
     // yang pokoknya bukan rupiah bulat dilewati agar satu dokumen lama tidak
     // merobohkan ringkasan.
-    const keuntunganAdminSatu = (pokok: number): number => {
+    const keuntunganAdminSatu = (l: { pokokPinjaman: number; persenBunga?: number }): number => {
       try {
-        return bagiHasilPinjaman(pokok, cfg.persenBunga, cfg.persenAdmin)
-          .keuntunganAdmin;
+        return bagiHasilPinjaman(
+          l.pokokPinjaman,
+          l.persenBunga ?? cfg.persenBunga,
+          cfg.persenAdmin,
+        ).keuntunganAdmin;
       } catch {
         return 0;
       }
@@ -539,10 +686,10 @@ export const adminStats = query({
     // belum direalisasi sampai pinjaman ditutup.
     const keuntunganAdminTercatat = loans
       .filter((l) => l.status === "lunas")
-      .reduce((acc, l) => acc + keuntunganAdminSatu(l.pokokPinjaman), 0);
+      .reduce((acc, l) => acc + keuntunganAdminSatu(l), 0);
     const keuntunganAdminBelumTercatat = loans
       .filter((l) => l.status === "didanai")
-      .reduce((acc, l) => acc + keuntunganAdminSatu(l.pokokPinjaman), 0);
+      .reduce((acc, l) => acc + keuntunganAdminSatu(l), 0);
 
     // GPS mismatch: posisi terakhir peminjam aktif vs gudang brankas.
     const vault = { lat: cfg.vaultLat, lng: cfg.vaultLng };
@@ -627,11 +774,20 @@ export const adminStats = query({
 // 3% tenor 1 dipotong di muka, bunga flat per tenor); kosong → skema
 // harian 130%.
 export const adminLoanQuote = query({
-  args: { pokokPinjaman: v.number(), tenorBulan: v.optional(v.number()) },
+  args: {
+    pokokPinjaman: v.number(),
+    tenorBulan: v.optional(v.number()),
+    /** Bunga khusus nasabah (persen) bila baris pinjaman punya snapshot. */
+    persenBunga: v.optional(v.number()),
+  },
   handler: async (ctx, args) => {
     await requireAdmin(ctx);
     if (args.tenorBulan !== undefined) {
-      const sim = hitungSimulasiBulanan(args.pokokPinjaman, args.tenorBulan);
+      const sim = hitungSimulasiBulanan(
+        args.pokokPinjaman,
+        args.tenorBulan,
+        args.persenBunga === undefined ? {} : { persenBungaPerBulan: args.persenBunga },
+      );
       return {
         skema: "bulanan" as const,
         tenorBulan: args.tenorBulan,
@@ -652,10 +808,19 @@ export const adminLoanQuote = query({
         totalKeuntunganBersih: sim.totalKeuntunganBersih,
         persentaseProfitTotal: sim.persentaseProfitTotal,
         jadwal: sim.jadwal,
-        quote: quoteLoan(args.pokokPinjaman),
+        quote:
+          args.persenBunga === undefined
+            ? quoteLoan(args.pokokPinjaman)
+            : quotePinjaman({ pokokPinjaman: args.pokokPinjaman, persenBunga: args.persenBunga }),
       };
     }
-    return { skema: "harian" as const, quote: quoteLoan(args.pokokPinjaman) };
+    return {
+      skema: "harian" as const,
+      quote:
+        args.persenBunga === undefined
+          ? quoteLoan(args.pokokPinjaman)
+          : quotePinjaman({ pokokPinjaman: args.pokokPinjaman, persenBunga: args.persenBunga }),
+    };
   },
 });
 
@@ -1076,11 +1241,12 @@ export const contractDetail = query({
       // Skema bulanan memakai jadwal bunga dari lib/bulanan (flat dari
       // pokok penuh sehingga cicilannya rata);
       // perubahan versi syarat di lib/contract harus ikut dipush bersama fungsi ini.
+      persenBunga: loan.persenBunga ?? null,
       bulanan:
         loan.tenorBulan !== undefined
-          ? hitungSimulasiBulanan(loan.pokokPinjaman, loan.tenorBulan)
+          ? simulasiBulananPinjaman({ ...loan, tenorBulan: loan.tenorBulan })
           : null,
-      quote: quoteLoan(loan.pokokPinjaman),
+      quote: quotePinjaman(loan),
     };
   },
 });

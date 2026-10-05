@@ -24,7 +24,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { api } from "@/convex/_generated/api";
-import { loanPurposeLabel, quoteLoan } from "@/lib/loan";
+import { loanPurposeLabel, quotePinjaman } from "@/lib/loan";
 import { formatRupiah } from "@/lib/money";
 import {
   ALASAN_MIN_PANJANG,
@@ -78,7 +78,10 @@ export function LoanReviewDialog({
   // sebagian. Dibaca toleran supaya baris lama tanpa field ini tetap aman.
   const pokokDiajukan =
     (row as { pokokDiajukan?: number }).pokokDiajukan ?? row.pokokPinjaman;
-  const q = quoteLoan(row.pokokPinjaman);
+  const q = quotePinjaman({
+    pokokPinjaman: row.pokokPinjaman,
+    persenBunga: row.persenBunga ?? undefined,
+  });
 
 
   const runDelete = async () => {

@@ -20,6 +20,8 @@ export type LoanRow = {
   pokokPinjaman: number;
   /** Nominal asli pengajuan — berbeda dari pokokPinjaman bila disetujui sebagian. */
   pokokDiajukan?: number;
+  /** Bunga khusus nasabah (persen); null = default Pengaturan Sistem. */
+  persenBunga: number | null;
   tujuan: string;
   status: "diajukan" | "sedang_direview" | "disetujui" | "ditolak" | "didanai" | "lunas";
   catatanReview?: string;

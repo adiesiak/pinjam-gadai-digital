@@ -39,10 +39,15 @@ export const TENOR_BULANAN_OPTIONS = [1, 3, 6] as const;
  */
 export const TENOR_BIAYA_ADMIN_PLATFORM_DEFAULT = [3, 6] as const;
 
-/** Opsi biaya skema bulanan (dipakai skema kredit barang). */
+/** Opsi biaya skema bulanan (dipakai skema kredit barang & bunga per nasabah). */
 export interface OpsiBiayaBulanan {
   /** Tenor yang memakai biaya admin 2% + platform 3% dipotong di muka. */
   tenorBiayaAdminPlatform?: readonly number[];
+  /**
+   * Override bunga per bulan (persen, flat dari pokok penuh) untuk nasabah
+   * dengan bunga khusus admin. Kosong = pakai tarif tenor bawaan.
+   */
+  persenBungaPerBulan?: number;
 }
 
 export const BULANAN_PRICING = {
@@ -234,7 +239,10 @@ export function hitungSimulasiBulanan(
 
   const dp = 0;
   const pokokDibiayai = pokok - dp;
-  const persen = persenBungaPerBulan(tenorBulan);
+  const persen =
+    opsi.persenBungaPerBulan !== undefined && Number.isFinite(opsi.persenBungaPerBulan)
+      ? Math.min(100, Math.max(0, opsi.persenBungaPerBulan))
+      : persenBungaPerBulan(tenorBulan);
   const metode = metodeBungaBulanan(tenorBulan);
 
   // Komponen biaya — semua HALF-UP per rupiah via percentOf (BigInt), dan

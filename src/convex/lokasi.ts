@@ -13,6 +13,7 @@ import { internal } from "./_generated/api";
 import { audit, getConfig } from "./system";
 import { jarakKm } from "../lib/geo";
 import { plafonPeminjam } from "../lib/plafon";
+import { persenBungaEfektif } from "../lib/bunga";
 import {
   bolehKirimPeringatanLokasi,
   INDONESIA_BOUNDS,
@@ -638,6 +639,23 @@ export const plafonSaya = query({
     const user = await ctx.db.get(userId);
     if (user === null || user.isAnonymous === true) return null;
     return await plafonPeminjam(ctx, userId);
+  },
+});
+
+/**
+ * Bunga efektif nasabah ini (persen) — untuk perkiraan di form pengajuan.
+ * Server memakai resolver yang sama (`lib/bunga`), jadi UI dan perhitungan
+ * kewajiban tidak mungkin berbeda angka. Null = belum masuk/anonim.
+ */
+export const bungaSaya = query({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await getAuthUserId(ctx);
+    if (userId === null) return null;
+    const user = await ctx.db.get(userId);
+    if (user === null || user.isAnonymous === true) return null;
+    const cfg = await getConfig(ctx);
+    return persenBungaEfektif(user.persenBunga, cfg.persenBunga);
   },
 });
 

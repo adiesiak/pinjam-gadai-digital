@@ -14,8 +14,7 @@ import {
   judulContract,
   nomorContract,
 } from "@/lib/contract";
-import { hitungSimulasiBulanan } from "@/lib/bulanan";
-import { quoteLoan } from "@/lib/loan";
+import { quotePinjaman, simulasiBulananPinjaman } from "@/lib/loan";
 import { formatRupiah } from "@/lib/money";
 import { EmptyState } from "./empty-state";
 
@@ -31,6 +30,8 @@ export function MyContractsSection({
           pokokPinjaman: number;
           tenorHari: number;
           tenorBulan: number | null;
+          /** Bunga khusus nasabah (persen); null = default Pengaturan Sistem. */
+          persenBunga: number | null;
           status: string;
           tandaTanganAda: boolean;
           tandaTanganDataUrl: string | null;
@@ -125,6 +126,8 @@ function LoanContractCard({
     tenorHari: number;
     /** Diisi (1/3/6 bln) bila pinjaman memakai skema bulanan. */
     tenorBulan: number | null;
+    /** Bunga khusus nasabah (persen); null = default Pengaturan Sistem. */
+    persenBunga: number | null;
     status: string;
     tandaTanganAda: boolean;
     tandaTanganDataUrl: string | null;
@@ -139,16 +142,20 @@ function LoanContractCard({
     lokasiAjukan: { lat: number; lng: number } | null;
   };
 }) {
-  const q = quoteLoan(c.pokokPinjaman);
+  const q = quotePinjaman({ pokokPinjaman: c.pokokPinjaman, persenBunga: c.persenBunga ?? undefined });
   // Ringkasan bulanan: data warisan di luar rentang skema dilewati dengan aman.
   const bulanan = useMemo(() => {
     if (c.tenorBulan === null) return null;
     try {
-      return hitungSimulasiBulanan(c.pokokPinjaman, c.tenorBulan);
+      return simulasiBulananPinjaman({
+        pokokPinjaman: c.pokokPinjaman,
+        tenorBulan: c.tenorBulan,
+        persenBunga: c.persenBunga ?? undefined,
+      });
     } catch {
       return null;
     }
-  }, [c.pokokPinjaman, c.tenorBulan]);
+  }, [c.pokokPinjaman, c.tenorBulan, c.persenBunga]);
   const html = useMemo(
     () =>
       buildPinjamanContract(

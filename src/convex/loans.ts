@@ -28,8 +28,12 @@ import { assertPokokPinjamanValid,
   calculateRepayment,
   pelunasanPinjaman,
   quoteLoan,
+  quoteLoanBunga,
+  quotePinjaman,
+  simulasiBulananPinjaman,
   TENOR_OPTIONS,
 } from "../lib/loan";
+import { persenBungaEfektif } from "../lib/bunga";
 import {
   assertSimulasiBulananValid,
   hitungSimulasiBulanan,
@@ -426,6 +430,8 @@ export const createLoanApplication = mutation({
       nomorReferensi,
       tenorHari: args.tenorHari,
       tenorBulan: tenorBulanSim,
+      // Snapshot bunga efektif nasabah — angka pinjaman ini stabil setelahnya.
+      persenBunga: persenBungaEfektif(user.persenBunga, sys.persenBunga),
       nik,
       nomorWhatsApp: wa,
       penghasilanBulanan: args.penghasilanBulanan,
@@ -514,12 +520,13 @@ export const getMyLoan = query({
             loan.tenorHari ?? DEFAULT_TENOR_HARI,
             loan.didanaiPada,
             Date.now(),
+            loan.persenBunga,
           )
         : null;
     // Skema bulanan: kewajiban diturunkan dari mesin bulanan, bukan 130%.
     const sim =
       loan.tenorBulan !== undefined
-        ? hitungSimulasiBulanan(loan.pokokPinjaman, loan.tenorBulan)
+        ? simulasiBulananPinjaman({ ...loan, tenorBulan: loan.tenorBulan })
         : null;
     return {
       _id: loan._id,
@@ -532,10 +539,11 @@ export const getMyLoan = query({
       catatanReview: loan.catatanReview,
       tenorHari: loan.tenorHari ?? null,
       tenorBulan: loan.tenorBulan ?? null,
+      persenBunga: loan.persenBunga ?? null,
       simulasiBulanan: sim,
-      quote: quoteLoan(loan.pokokPinjaman),
-      imbalHasilTotal: sim !== null ? sim.bungaTotal : quoteLoan(loan.pokokPinjaman).bunga,
-      totalKewajiban: sim !== null ? sim.totalPengembalian : quoteLoan(loan.pokokPinjaman).totalKewajibanPelunasan,
+      quote: quotePinjaman(loan),
+      imbalHasilTotal: sim !== null ? sim.bungaTotal : quotePinjaman(loan).bunga,
+      totalKewajiban: sim !== null ? sim.totalPengembalian : quotePinjaman(loan).totalKewajibanPelunasan,
       pelunasan,
     };
   },
@@ -591,6 +599,7 @@ export const myContracts = query({
           pokokPinjaman: l.pokokPinjaman,
           tenorHari: l.tenorHari ?? DEFAULT_TENOR_HARI,
           tenorBulan: l.tenorBulan ?? null,
+          persenBunga: l.persenBunga ?? null,
           status: l.status,
           tandaTanganAda: l.tandaTanganPeminjam !== undefined,
           tandaTanganDataUrl: l.tandaTanganPeminjam ?? null,
@@ -646,19 +655,20 @@ export const myLoanSchedule = query({
           tenorHari: l.tenorHari ?? DEFAULT_TENOR_HARI,
           tenorBulan: l.tenorBulan ?? null,
           didanaiPada: l.didanaiPada ?? null,
+          persenBunga: l.persenBunga ?? null,
           simulasiBulanan:
             l.tenorBulan !== undefined
-              ? hitungSimulasiBulanan(l.pokokPinjaman, l.tenorBulan)
+              ? simulasiBulananPinjaman({ ...l, tenorBulan: l.tenorBulan })
               : null,
-          quote: quoteLoan(l.pokokPinjaman),
+          quote: quotePinjaman(l),
           imbalHasilTotal:
             l.tenorBulan !== undefined
-              ? hitungSimulasiBulanan(l.pokokPinjaman, l.tenorBulan).bungaTotal
-              : quoteLoan(l.pokokPinjaman).bunga,
+              ? simulasiBulananPinjaman({ ...l, tenorBulan: l.tenorBulan }).bungaTotal
+              : quotePinjaman(l).bunga,
           totalKewajiban:
             l.tenorBulan !== undefined
-              ? hitungSimulasiBulanan(l.pokokPinjaman, l.tenorBulan).totalPengembalian
-              : quoteLoan(l.pokokPinjaman).totalKewajibanPelunasan,
+              ? simulasiBulananPinjaman({ ...l, tenorBulan: l.tenorBulan }).totalPengembalian
+              : quotePinjaman(l).totalKewajibanPelunasan,
           pelunasan:
             info === null
               ? null
@@ -955,13 +965,18 @@ async function setLoanStatus(
         : ""),
   );
 
-  // Total kewajiban memakai nominal yang berlaku setelah perubahan.
+  // Total kewajiban memakai nominal yang berlaku setelah perubahan + snapshot
+  // bunga nasabah pada pinjaman ini.
   const totalKewajiban =
     status === "ditolak"
       ? null
       : loan.tenorBulan !== undefined
-        ? hitungSimulasiBulanan(pokokPinjaman, loan.tenorBulan).totalPengembalian
-        : quoteLoan(pokokPinjaman).totalKewajibanPelunasan;
+        ? hitungSimulasiBulanan(pokokPinjaman, loan.tenorBulan, {
+            ...(loan.persenBunga === undefined ? {} : { persenBungaPerBulan: loan.persenBunga }),
+          }).totalPengembalian
+        : loan.persenBunga === undefined
+          ? quoteLoan(pokokPinjaman).totalKewajibanPelunasan
+          : quoteLoanBunga(pokokPinjaman, loan.persenBunga).totalKewajibanPelunasan;
 
   // Kabar WhatsApp dijadwalkan SETELAH status tersimpan, lewat action terpisah:
   // pengiriman keluar (fetch) tidak boleh berjalan di dalam transaksi, dan
@@ -1318,15 +1333,16 @@ export const repayLoan = mutation({
       throw new Error("Kewajiban pelunasan tidak dapat dihitung untuk pinjaman ini.");
     }
 
-    // Skema bulanan: bunga = hak penyedia dana; skema harian: bunga 30% dari
-    // quoteLoan. Kedua skema memotong biaya admin & platform DI MUKA saat
-    // pencairan (jurnalnya di convex/alokasiDana.ts), jadi pelunasan tidak
-    // memuat biaya tambahan. simBulanan tetap dipakai untuk total Imbal Hasil.
+    // Skema bulanan: bunga = hak penyedia dana; skema harian: bunga dari
+    // quoteLoan (menghormati snapshot bunga nasabah). Kedua skema memotong
+    // biaya admin & platform DI MUKA saat pencairan (jurnalnya di
+    // convex/alokasiDana.ts), jadi pelunasan tidak memuat biaya tambahan.
+    // simBulanan tetap dipakai untuk total Imbal Hasil.
     const simBulanan =
       loan.tenorBulan !== undefined
-        ? hitungSimulasiBulanan(loan.pokokPinjaman, loan.tenorBulan)
+        ? simulasiBulananPinjaman({ ...loan, tenorBulan: loan.tenorBulan })
         : null;
-    const q = quoteLoan(loan.pokokPinjaman);
+    const q = quotePinjaman(loan);
     const totalPokokDana = loan.pokokPinjaman;
     const totalImbalDana = simBulanan !== null ? simBulanan.bungaTotal : q.bunga;
     const totalKewajibanDana = totalPokokDana + totalImbalDana;
