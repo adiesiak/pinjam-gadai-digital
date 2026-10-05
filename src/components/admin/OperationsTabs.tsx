@@ -19,6 +19,7 @@ import { formatRupiah, parseRupiah } from "@/lib/money";
 
 import { formatDate } from "./admin-format";
 import { EmptyQueue, QueueRow, type LoanRow } from "./admin-shared";
+import { IntegrasiLedgerPanel } from "./IntegrasiLedgerPanel";
 
 export function LoanAllocationQueueTab({ onOpen }: { onOpen: (l: LoanRow) => void }) {
   const overview = useQuery(api.admin.adminOverview);
@@ -306,6 +307,7 @@ export function LedgerTab() {
           ))}
         </div>
       </div>
+      <IntegrasiLedgerPanel />
       <Input aria-label="Cari akun, grup, atau keterangan ledger" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Cari akun / grup / keterangan…" />
       <div className="max-h-[420px] overflow-y-auto rounded-2xl border border-slate-200 bg-white">
         <table className="w-full text-left text-xs">

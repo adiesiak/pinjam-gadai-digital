@@ -1,0 +1,215 @@
+/**
+ * Tes integrasi pinjaman lama ke ledger internal + penghapusan per baris.
+ *
+ * Menjalankan: bunx vitest run src/convex/integrasiLedger.convex.test.ts
+ */
+import { convexTest } from "convex-test";
+import { describe, expect, it } from "vitest";
+
+import { api } from "./_generated/api";
+import type { Id } from "./_generated/dataModel";
+import schema from "./schema";
+import { siapkanPengguna, type KonteksUji } from "./test.helpers";
+import { modules } from "./test.setup";
+
+/** Pinjaman tunai minimal untuk pembukuan biaya. */
+async function siapkanPinjaman(
+  t: KonteksUji,
+  userId: Id<"users">,
+  pokokPinjaman: number,
+  status: "disetujui" | "didanai" | "lunas" | "ditolak" | "diajukan",
+): Promise<Id<"loans">> {
+  return t.run((ctx) =>
+    ctx.db.insert("loans", {
+      userId,
+      pokokPinjaman,
+      tujuan: "Modal usaha kecil",
+      namaLengkap: "RANI PEMINJAM",
+      namaBank: "BCA",
+      nomorRekening: "1234567890",
+      status,
+      nomorReferensi: `PGD-ITG-${pokokPinjaman}-${status}`,
+      tenorHari: 30,
+    }),
+  );
+}
+
+async function jumlahEntriPlatform(
+  t: KonteksUji,
+  loanId: Id<"loans">,
+): Promise<number[]> {
+  return t.run(async (ctx) => {
+    const entries = await ctx.db.query("ledger_entries").collect();
+    return entries
+      .filter((e) => e.jenis === "platform_fee" && e.akun === `pinjaman:${loanId}`)
+      .map((e) => e.jumlah);
+  });
+}
+
+describe("integrasi pinjaman ke ledger internal", () => {
+  it("membukukan biaya admin & platform 2% dan idempoten", async () => {
+    const t = convexTest(schema, modules);
+    const { userId } = await siapkanPengguna(t, "rani", {
+      email: "rani@pindai.test",
+      role: "peminjam",
+    });
+    const { sesi: admin } = await siapkanPengguna(t, "admin", {
+      email: "admin@pindai.test",
+      role: "admin",
+    });
+
+    const loanId = await siapkanPinjaman(t, userId, 1_000_000, "disetujui");
+    const pengajuan = await siapkanPinjaman(t, userId, 500_000, "diajukan");
+
+    const status = await admin.query(api.integrasiLedger.statusIntegrasiLedger, {});
+    expect(status.perluIntegrasi).toBe(1);
+    const barisLayak = status.rows.find((r) => r._id === loanId);
+    expect(barisLayak?.layak).toBe(true);
+    expect(barisLayak?.biayaIntegrasi).toBe(20_000);
+    const barisBelum = status.rows.find((r) => r._id === pengajuan);
+    expect(barisBelum?.layak).toBe(false);
+    expect(barisBelum?.terintegrasi).toBe(false);
+
+    const hasil = await admin.mutation(api.integrasiLedger.integrasikanPinjamanKeLedger, {});
+    expect(hasil.jumlah).toBe(1);
+    expect(hasil.totalBiaya).toBe(20_000);
+    expect(hasil.sisa).toBe(0);
+    expect(await jumlahEntriPlatform(t, loanId)).toEqual([20_000]);
+
+    // Idempoten — pemanggilan kedua tidak menggandakan jurnal.
+    const ulang = await admin.mutation(api.integrasiLedger.integrasikanPinjamanKeLedger, {});
+    expect(ulang.jumlah).toBe(0);
+    expect(await jumlahEntriPlatform(t, loanId)).toEqual([20_000]);
+
+    const setelah = await admin.query(api.integrasiLedger.statusIntegrasiLedger, {});
+    expect(setelah.perluIntegrasi).toBe(0);
+    expect(setelah.rows.find((r) => r._id === loanId)?.terintegrasi).toBe(true);
+  });
+
+  it("menolak integrasi dari akun non-admin", async () => {
+    const t = convexTest(schema, modules);
+    const { sesi: peminjam } = await siapkanPengguna(t, "rani", {
+      email: "rani@pindai.test",
+      role: "peminjam",
+    });
+    await expect(
+      peminjam.mutation(api.integrasiLedger.integrasikanPinjamanKeLedger, {}),
+    ).rejects.toThrow();
+  });
+});
+
+describe("hapus pinjaman lama per baris", () => {
+  it("menghapus pinjaman lama beserta turunannya dan mempertahankan jurnal", async () => {
+    const t = convexTest(schema, modules);
+    const { userId } = await siapkanPengguna(t, "rani", {
+      email: "rani@pindai.test",
+      role: "peminjam",
+    });
+    const { sesi: admin } = await siapkanPengguna(t, "admin", {
+      email: "admin@pindai.test",
+      role: "admin",
+    });
+
+    const loanId = await siapkanPinjaman(t, userId, 1_000_000, "lunas");
+    await admin.mutation(api.integrasiLedger.integrasikanPinjamanKeLedger, {});
+
+    const danaId = await t.run((ctx) =>
+      ctx.db.insert("users", {
+        email: "dana@pindai.test",
+        name: "Penyedia Dana",
+        role: "dana",
+      }),
+    );
+    await t.run((ctx) =>
+      ctx.db.insert("fundings", {
+        loanId,
+        danaId,
+        jumlahAlokasi: 1_000_000,
+        imbalHasil: 300_000,
+        status: "selesai",
+        nomorReferensi: "FND-ITG-1",
+      }),
+    );
+
+    const status = await admin.query(api.integrasiLedger.statusIntegrasiLedger, {});
+    expect(status.rows.find((r) => r._id === loanId)?.bolehDihapus).toBe(true);
+
+    const hasil = await admin.mutation(api.integrasiLedger.hapusPinjamanLama, {
+      loanIds: [loanId],
+      alasan: "pembersihan data pinjaman seed lama",
+    });
+    expect(hasil.dihapus).toBe(1);
+    expect(hasil.terlewat).toHaveLength(0);
+
+    const sisa = await t.run(async (ctx) => ({
+      loan: await ctx.db.get(loanId),
+      fundings: await ctx.db.query("fundings").collect(),
+      // Jurnal tidak boleh ikut terhapus.
+      jurnal: await ctx.db.query("ledger_entries").collect(),
+    }));
+    expect(sisa.loan).toBeNull();
+    expect(sisa.fundings).toHaveLength(0);
+    expect(sisa.jurnal.some((e) => e.akun === `pinjaman:${loanId}`)).toBe(true);
+  });
+
+  it("menolak pinjaman berjalan dan yang punya alokasi dana aktif", async () => {
+    const t = convexTest(schema, modules);
+    const { userId } = await siapkanPengguna(t, "rani", {
+      email: "rani@pindai.test",
+      role: "peminjam",
+    });
+    const { sesi: admin } = await siapkanPengguna(t, "admin", {
+      email: "admin@pindai.test",
+      role: "admin",
+    });
+
+    const berjalan = await siapkanPinjaman(t, userId, 1_000_000, "didanai");
+    const adaAlokasi = await siapkanPinjaman(t, userId, 1_000_000, "lunas");
+    const danaId = await t.run((ctx) =>
+      ctx.db.insert("users", { email: "dana2@pindai.test", name: "Dana 2", role: "dana" }),
+    );
+    await t.run((ctx) =>
+      ctx.db.insert("fundings", {
+        loanId: adaAlokasi,
+        danaId,
+        jumlahAlokasi: 1_000_000,
+        imbalHasil: 0,
+        status: "dialokasikan",
+        nomorReferensi: "FND-ITG-2",
+      }),
+    );
+
+    const hasil = await admin.mutation(api.integrasiLedger.hapusPinjamanLama, {
+      loanIds: [berjalan, adaAlokasi],
+      alasan: "percobaan hapus pinjaman aktif",
+    });
+    expect(hasil.dihapus).toBe(0);
+    expect(hasil.terlewat).toHaveLength(2);
+
+    const masihAda = await t.run(async (ctx) => ({
+      a: await ctx.db.get(berjalan),
+      b: await ctx.db.get(adaAlokasi),
+    }));
+    expect(masihAda.a).not.toBeNull();
+    expect(masihAda.b).not.toBeNull();
+  });
+
+  it("menolak alasan yang terlalu pendek", async () => {
+    const t = convexTest(schema, modules);
+    const { userId } = await siapkanPengguna(t, "rani", {
+      email: "rani@pindai.test",
+      role: "peminjam",
+    });
+    const { sesi: admin } = await siapkanPengguna(t, "admin", {
+      email: "admin@pindai.test",
+      role: "admin",
+    });
+    const loanId = await siapkanPinjaman(t, userId, 1_000_000, "ditolak");
+    await expect(
+      admin.mutation(api.integrasiLedger.hapusPinjamanLama, {
+        loanIds: [loanId],
+        alasan: "pendek",
+      }),
+    ).rejects.toThrow();
+  });
+});
