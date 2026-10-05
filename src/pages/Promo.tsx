@@ -640,6 +640,58 @@ function renderKartu(
   const qrSide = pakaiQris ? Math.round(Math.min(W * 0.2, H * 0.128, ctaH * 2.1)) : 0;
   const colX = pakaiQris ? innerX + qrSide + gap : innerX;
   const colW = Math.max(120, innerX + innerW - colX);
+  const labelSize = Math.round(Math.min(W * 0.024, H * 0.017));
+
+  // ===== Panggung motif: menyerap sisa ruang supaya TIDAK ada zona kosong =====
+  // Semua kanvas (9:16 … 1:1) memakai blok yang sama; tinggi panggung mengikuti
+  // sisa ruang antara baris manfaat dan blok bawah, jadi tak ada celah menggantung.
+  const stagePad = Math.round(H * 0.024);
+  const stageTop = Math.round(y + stagePad);
+  const stageBottom = Math.round(
+    (pakaiQris ? ctaTop - Math.round(labelSize * 1.5) : ctaTop) - stagePad,
+  );
+  const stageH = stageBottom - stageTop;
+  if (stageH > Math.round(H * 0.045)) {
+    const stageR = Math.round(Math.min(stageH * 0.22, W * 0.04));
+    bulat(ctx, innerX, stageTop, innerW, stageH, stageR);
+    ctx.fillStyle = rgba(accent, 0.09);
+    ctx.fill();
+    ctx.strokeStyle = rgba(accent, 0.26);
+    ctx.lineWidth = Math.max(1.5, W * 0.0022);
+    ctx.stroke();
+
+    // Cincin konsentris samar, diklip ke bentuk panggung.
+    ctx.save();
+    bulat(ctx, innerX, stageTop, innerW, stageH, stageR);
+    ctx.clip();
+    ctx.strokeStyle = rgba(accent, 0.14);
+    ctx.lineWidth = Math.max(2, W * 0.003);
+    for (let i = 0; i < 4; i += 1) {
+      ctx.beginPath();
+      ctx.arc(
+        innerX + innerW * 0.84,
+        stageTop + stageH * 0.92,
+        W * (0.17 + i * 0.13),
+        0,
+        Math.PI * 2,
+      );
+      ctx.stroke();
+    }
+    ctx.restore();
+
+    // Ilustrasi motif di tengah panggung, diskalakan agar mengisi tinggi/lebar.
+    ctx.save();
+    ctx.globalAlpha = 0.92;
+    gambarMotif(
+      ctx,
+      p.motif,
+      innerX + innerW / 2,
+      stageTop + stageH / 2,
+      Math.round(Math.min(innerW * 0.62, stageH * 0.72)),
+      accent,
+    );
+    ctx.restore();
+  }
 
   if (pakaiQris && qris) {
     const qrY = ctaTop + Math.round((ctaH - qrSide) / 2);
@@ -656,7 +708,6 @@ function renderKartu(
     const inset = Math.round(qrSide * 0.11);
     ctx.drawImage(qris.img, innerX + inset, qrY + inset, qrSide - inset * 2, qrSide - inset * 2);
 
-    const labelSize = Math.round(Math.min(W * 0.024, H * 0.017));
     ctx.textAlign = "left";
     ctx.textBaseline = "alphabetic";
     ctx.fillStyle = accent;
