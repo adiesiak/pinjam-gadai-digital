@@ -365,11 +365,12 @@ function CatatanTerpotong({ terpotong, batas }: { terpotong: boolean; batas: num
  * membuat tabel melebar dan harus digeser); di sini penekanan itu dilonggarkan
  * lewat varian `[&_th]`/`[&_td]` supaya judul dan isi boleh turun ke baris
  * kedua, sehingga tabel pas di lebar kontainer. Nomor referensi sudah memakai
- * `break-all` di SelPeminjam.
+ * `break-all` di SelPeminjam. Wadah bawaan `Table` (`data-slot="table-container"`)
+ * juga di-set `overflow-x-clip` agar tidak pernah menampilkan geser mendatar.
  */
 function Tabel({ head, children }: { head: string[]; children: React.ReactNode }) {
   return (
-    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white [&>[data-slot=table-container]]:overflow-x-clip">
       <Table className="w-full [&_th]:whitespace-normal [&_td]:whitespace-normal [&_td]:break-words">
         <TableHeader>
           <TableRow className="bg-slate-50/80">
@@ -1025,7 +1026,7 @@ function DaftarPinjaman({
   return (
     <>
       {/* Layar sempit: kartu per peminjam — semua rincian tanpa geser mendatar. */}
-      <div className="space-y-3 md:hidden">
+      <div className="space-y-3 lg:hidden">
         {rows.map((row) => (
           <KartuPengajuan
             key={row._id}
@@ -1068,7 +1069,7 @@ function DaftarPinjaman({
           </KartuPengajuan>
         ))}
       </div>
-      <div className="hidden md:block">
+      <div className="hidden lg:block">
         <Tabel
           head={[
             "Peminjam",
@@ -1694,7 +1695,7 @@ function IsiRuang() {
                   <KeadaanKosong pesan="Belum ada pengajuan gadai yang tercatat." />
                 ) : (
                   <>
-                    <div className="space-y-3 md:hidden">
+                    <div className="space-y-3 lg:hidden">
                       {data.gadai.map((row) => (
                         <KartuPengajuan
                           key={row._id}
@@ -1724,7 +1725,7 @@ function IsiRuang() {
                         </KartuPengajuan>
                       ))}
                     </div>
-                    <div className="hidden md:block">
+                    <div className="hidden lg:block">
                       <Tabel
                       head={[
                         "Peminjam",
@@ -1783,7 +1784,7 @@ function IsiRuang() {
                   <KeadaanKosong pesan="Belum ada pengajuan kredit barang yang tercatat." />
                 ) : (
                   <>
-                    <div className="space-y-3 md:hidden">
+                    <div className="space-y-3 lg:hidden">
                       {data.kredit.map((row) => (
                         <KartuPengajuan
                           key={row._id}
@@ -1811,7 +1812,7 @@ function IsiRuang() {
                         </KartuPengajuan>
                       ))}
                     </div>
-                    <div className="hidden md:block">
+                    <div className="hidden lg:block">
                       <Tabel
                       head={[
                         "Peminjam",
