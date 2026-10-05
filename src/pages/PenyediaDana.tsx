@@ -360,14 +360,16 @@ function CatatanTerpotong({ terpotong, batas }: { terpotong: boolean; batas: num
 
 /**
  * Kerangka tabel — dirancang agar muat TANPA geser mendatar.
- * Kolom sudah diringkas (nomor referensi dan tenor ikut ke dalam sel lain),
- * dan `TableHead` tidak lagi memaksa `whitespace-nowrap` supaya judul panjang
- * boleh turun ke baris kedua alih-alih melebarkan tabel.
+ * `TableHead`/`TableCell` bawaan memaksa `whitespace-nowrap` (itulah yang
+ * membuat tabel melebar dan harus digeser); di sini penekanan itu dilonggarkan
+ * lewat varian `[&_th]`/`[&_td]` supaya judul dan isi boleh turun ke baris
+ * kedua, sehingga tabel pas di lebar kontainer. Nomor referensi sudah memakai
+ * `break-all` di SelPeminjam.
  */
 function Tabel({ head, children }: { head: string[]; children: React.ReactNode }) {
   return (
     <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
-      <Table className="w-full">
+      <Table className="w-full [&_th]:whitespace-normal [&_td]:whitespace-normal [&_td]:break-words">
         <TableHeader>
           <TableRow className="bg-slate-50/80">
             {head.map((judul) => (

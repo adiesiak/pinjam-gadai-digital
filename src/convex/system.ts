@@ -10,6 +10,7 @@ import {
   type ThemePreset,
 } from "../lib/system-config";
 import { clampPlafon } from "../lib/plafon";
+import type { Id } from "./_generated/dataModel";
 
 /**
  * Konfigurasi sistem, kill switch, snapshot data, dan audit trail.
@@ -320,38 +321,116 @@ export const setKillSwitch = mutation({
   },
 });
 
-/** Snapshot seluruh data transaksi & pengguna — unduh JSON (admin). */
+/**
+ * Snapshot LENGKAP seluruh data operasional + dokumen — unduh JSON (admin saja).
+ *
+ * Memuat semua koleksi transaksi (pinjaman, gadai, kredit barang, pendanaan,
+ * setoran, penarikan, transfer pendana, bukti pembayaran, ledger, audit) dan
+ * seluruh baris `users` apa adanya, plus daftar dokumen storage (KTP, selfie,
+ * slip gaji, foto barang, bukti setoran/pembayaran, QRIS) dengan URL bertanda
+ * tangan agar berkas ikut tercakup. BERISI DATA PRIBADI — perlakuan sebagai rahasia.
+ */
 export const snapshotData = query({
   args: {},
   handler: async (ctx) => {
     await requireAdmin(ctx);
-    const [loans, pawns, deposits, fundings, users] = await Promise.all([
+    const [
+      loans,
+      pawns,
+      kreditBarang,
+      deposits,
+      fundings,
+      kreditFundings,
+      withdrawals,
+      transferPendana,
+      receipts,
+      ledgerEntries,
+      auditLog,
+      users,
+    ] = await Promise.all([
       ctx.db.query("loans").collect(),
       ctx.db.query("pawns").collect(),
+      ctx.db.query("kreditBarang").collect(),
       ctx.db.query("deposits").collect(),
       ctx.db.query("fundings").collect(),
+      ctx.db.query("kreditFundings").collect(),
+      ctx.db.query("withdrawals").collect(),
+      ctx.db.query("transferPendana").collect(),
+      ctx.db.query("manualPaymentReceipts").collect(),
+      ctx.db.query("ledger_entries").collect(),
+      ctx.db.query("auditLog").collect(),
       ctx.db.query("users").collect(),
     ]);
-    // PII diminimalkan: email/pengenal disamarkan untuk snapshot aman.
+    const config = await getConfig(ctx);
+
+    // Dokumen storage + URL bertanda tangan: tanpa ini berkas KYC dan bukti
+    // tidak ikut ter-backup meski barisnya ada.
+    const dokumen: Array<{
+      jenis: string;
+      pemilik: string;
+      storageId: string;
+      url: string | null;
+    }> = [];
+    const tambahDokumen = async (
+      jenis: string,
+      pemilik: string,
+      id: Id<"_storage"> | undefined | null,
+    ) => {
+      if (!id) return;
+      dokumen.push({
+        jenis,
+        pemilik,
+        storageId: id,
+        url: await ctx.storage.getUrl(id),
+      });
+    };
+    for (const l of loans) {
+      await tambahDokumen("ktp", l.nomorReferensi, l.dokKtpId);
+      await tambahDokumen("selfie_ktp", l.nomorReferensi, l.dokSelfieKtpId);
+      await tambahDokumen("slip_gaji", l.nomorReferensi, l.dokSlipGajiId);
+    }
+    for (const p of pawns) {
+      await tambahDokumen("foto_barang", p.nomorReferensi, p.fotoBarangId);
+    }
+    for (const r of receipts) {
+      await tambahDokumen("bukti_pembayaran", r.nomorReferensi, r.buktiPembayaranId);
+    }
+    for (const d of deposits) {
+      await tambahDokumen("bukti_setoran", d.nomorReferensi, d.buktiPembayaranId);
+    }
+    await tambahDokumen("qris", "konfigurasi", config.qrisImageId);
+
     return {
       dibuatPada: new Date().toISOString(),
       jumlah: {
         loans: loans.length,
         pawns: pawns.length,
+        kreditBarang: kreditBarang.length,
         deposits: deposits.length,
         fundings: fundings.length,
+        kreditFundings: kreditFundings.length,
+        withdrawals: withdrawals.length,
+        transferPendana: transferPendana.length,
+        manualPaymentReceipts: receipts.length,
+        ledgerEntries: ledgerEntries.length,
+        auditLog: auditLog.length,
         users: users.length,
+        dokumen: dokumen.length,
       },
       loans,
       pawns,
+      kreditBarang,
       deposits,
       fundings,
-      users: users.map((u) => ({
-        _id: u._id,
-        name: u.name ?? null,
-        email: u.email ? u.email.replace(/(.{2}).+(@.+)/, "$1***$2") : null,
-        role: u.role ?? null,
-      })),
+      kreditFundings,
+      withdrawals,
+      transferPendana,
+      manualPaymentReceipts: receipts,
+      ledger_entries: ledgerEntries,
+      auditLog,
+      systemConfig: config,
+      users,
+      dokumen,
     };
   },
 });

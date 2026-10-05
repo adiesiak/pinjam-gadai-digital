@@ -150,7 +150,11 @@ export function AdminTabs({
           value: "lokasi",
           label: "Peta Live Location",
           hint: "Peta titik lokasi terakhir yang dilaporkan perangkat peminjam.",
-          badge: null,
+          // Notifikasi lokasi: pola koordinat dicurigai, pola lokasi ditandai,
+          // peringatan belum diakui, dan pinjaman tanpa titik perangkat.
+          badge: stats
+            ? `${stats.gpsMismatch + stats.titikDicurigai + stats.peringatanLokasiAktif + stats.pinjamanTanpaLokasi}`
+            : null,
           Icon: MapIcon,
         },
         {

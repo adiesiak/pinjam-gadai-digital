@@ -196,24 +196,16 @@ export function AdminHeader({
   );
 }
 
-/** Grid statistik ringkas sistem. */
+/**
+ * Kartu statistik ringkas admin. Hanya angka penting (volume pinjaman &
+ * keuntungan) yang ditampilkan sebagai kartu; sisa hitungan operasional
+ * dipindah menjadi lencana angka di samping nama menu (lihat admin-tabs).
+ */
 export function AdminStats({ stats }: { stats: AdminStatsData }) {
   const items = [
-    { label: "Pengajuan pinjaman baru", angka: stats.pinjamanBaru, format: formatJumlah, tone: "amber", Icon: ClipboardList },
-    { label: "Pengajuan gadai diproses", angka: stats.gadaiProses, format: formatJumlah, tone: "amber", Icon: Package },
-    { label: "Catatan pinjaman", angka: stats.totalPinjaman, format: formatJumlah, tone: "sky", Icon: Landmark },
-    { label: "Catatan gadai", angka: stats.totalGadai, format: formatJumlah, tone: "sky", Icon: Database },
-    { label: "Pinjaman disetujui (status internal)", angka: stats.pinjamanDisetujui, format: formatJumlah, tone: "sky", Icon: CircleDollarSign },
-    { label: "Total pinjaman sedang berjalan", angka: stats.totalPinjamanBerjalan, format: formatRupiah, tone: "mint", Icon: CircleDollarSign },
-    { label: "Total pinjaman diajukan", angka: stats.totalPinjamanDiajukan, format: formatRupiah, tone: "amber", Icon: ClipboardList },
-    { label: "Keuntungan admin sudah tercatat", angka: stats.keuntunganAdminTercatat, format: formatRupiah, tone: "mint", Icon: BadgeCheck },
-    { label: "Keuntungan admin belum tercatat", angka: stats.keuntunganAdminBelumTercatat, format: formatRupiah, tone: "amber", Icon: Clock3 },
-    { label: "Tanggal acuan terlewati", angka: stats.pinjamanTerlambat, format: formatJumlah, tone: stats.pinjamanTerlambat > 0 ? "red" : "mint", Icon: Clock3 },
-    { label: "Nilai taksiran internal", angka: stats.nilaiTaksiranDisetujui, format: formatRupiah, tone: "mint", Icon: CircleDollarSign },
-    { label: "Pola koordinat untuk ditinjau", angka: stats.gpsMismatch, format: formatJumlah, tone: stats.gpsMismatch > 0 ? "red" : "mint", Icon: MapPin },
-    { label: "Koordinat perangkat tidak tersedia", angka: stats.pinjamanTanpaLokasi, format: formatJumlah, tone: stats.pinjamanTanpaLokasi > 0 ? "red" : "mint", Icon: MapPin },
-    { label: "Pola lokasi untuk ditinjau", angka: stats.titikDicurigai, format: formatJumlah, tone: stats.titikDicurigai > 0 ? "red" : "mint", Icon: TriangleAlert },
-    { label: "Peringatan belum diakui", angka: stats.peringatanLokasiAktif, format: formatJumlah, tone: stats.peringatanLokasiAktif > 0 ? "amber" : "mint", Icon: BellRing },
+    { label: "Total pinjaman sedang berjalan", angka: stats.totalPinjamanBerjalan, format: formatRupiah, tone: "mint", Icon: CircleDollarSign, catatan: null as string | null },
+    { label: "Total pinjaman diajukan", angka: stats.totalPinjamanDiajukan, format: formatRupiah, tone: "amber", Icon: ClipboardList, catatan: null as string | null },
+    { label: "Keuntungan admin sudah tercatat", angka: stats.keuntunganAdminTercatat, format: formatRupiah, tone: "mint", Icon: BadgeCheck, catatan: `Belum tercatat ${formatRupiah(stats.keuntunganAdminBelumTercatat)}` as string | null },
   ] as const;
 
   const toneClass = {
@@ -229,9 +221,9 @@ export function AdminStats({ stats }: { stats: AdminStatsData }) {
       variants={staggerContainer}
       initial="hidden"
       animate="show"
-      className="mt-4 grid grid-cols-2 gap-2 sm:mt-5 sm:grid-cols-3 sm:gap-3 xl:grid-cols-4"
+      className="mt-4 grid grid-cols-1 gap-2 sm:mt-5 sm:grid-cols-3 sm:gap-3"
     >
-      {items.map(({ label, angka, format, tone, Icon }) => (
+      {items.map(({ label, angka, format, tone, Icon, catatan }) => (
         <motion.div
           key={label}
           variants={fadeUpItem}
@@ -246,6 +238,9 @@ export function AdminStats({ stats }: { stats: AdminStatsData }) {
           <p className="mt-2 break-words text-lg font-bold tracking-tight tabular-nums text-navy min-[380px]:mt-3 min-[380px]:text-xl sm:text-2xl">
             <CountUp value={angka} format={format} />
           </p>
+          {catatan !== null && (
+            <p className="mt-1 text-[11px] leading-4 text-muted-foreground">{catatan}</p>
+          )}
         </motion.div>
       ))}
     </motion.section>
