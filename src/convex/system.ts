@@ -58,6 +58,8 @@ export async function getConfig(ctx: QueryCtx): Promise<SystemConfig> {
     persenAdmin: row.persenAdmin ?? DEFAULT_CONFIG.persenAdmin,
     persenPlatform: row.persenPlatform ?? DEFAULT_CONFIG.persenPlatform,
     persenBunga: row.persenBunga ?? DEFAULT_CONFIG.persenBunga,
+    persenBiayaIntegrasi:
+      row.persenBiayaIntegrasi ?? DEFAULT_CONFIG.persenBiayaIntegrasi,
     maxLtvPersen: row.maxLtvPersen ?? DEFAULT_CONFIG.maxLtvPersen,
     sessionTimeoutMenit: row.sessionTimeoutMenit ?? DEFAULT_CONFIG.sessionTimeoutMenit,
     vaultLat: row.vaultLat ?? DEFAULT_CONFIG.vaultLat,
@@ -154,6 +156,7 @@ export const saveConfig = mutation({
     persenAdmin: v.number(),
     persenPlatform: v.number(),
     persenBunga: v.number(),
+    persenBiayaIntegrasi: v.number(),
     maxLtvPersen: v.number(),
     sessionTimeoutMenit: v.number(),
     vaultLat: v.number(),
@@ -174,8 +177,16 @@ export const saveConfig = mutation({
   },
   handler: async (ctx, args) => {
     const { userId, user } = await requireAdmin(ctx);
-    if (args.persenAdmin < 0 || args.persenPlatform < 0 || args.persenBunga < 0) {
+    if (
+      args.persenAdmin < 0 ||
+      args.persenPlatform < 0 ||
+      args.persenBunga < 0 ||
+      args.persenBiayaIntegrasi < 0
+    ) {
       throw new Error("Persentase biaya/bunga tidak boleh negatif.");
+    }
+    if (args.persenBiayaIntegrasi > 100) {
+      throw new Error("Biaya integrasi pinjaman lama tidak boleh lebih dari 100%.");
     }
     if (!Number.isSafeInteger(args.lokasiMaxUmurMenit) || args.lokasiMaxUmurMenit < 1) {
       throw new Error("Batas umur lokasi harus minimal 1 menit.");

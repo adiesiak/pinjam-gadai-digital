@@ -58,6 +58,24 @@ export function SystemConfigPanel() {
             </div>
           ))}
         </div>
+        <div>
+          <Label htmlFor="cfg-integrasi">Biaya integrasi pinjaman lama (%)</Label>
+          <Input
+            id="cfg-integrasi"
+            type="number"
+            min={0}
+            max={100}
+            value={form.persenBiayaIntegrasi}
+            onChange={(e) =>
+              upd("persenBiayaIntegrasi", Math.min(100, Math.max(0, Number(e.target.value) || 0)))
+            }
+            className="tabular-nums"
+          />
+          <p className="mt-1 text-xs leading-5 text-muted-foreground">
+            Dipakai panel Ledger internal saat membukukan pinjaman lama (biaya admin &amp; platform).
+            Tidak mengubah biaya pinjaman baru maupun pinjaman yang sudah tercatat.
+          </p>
+        </div>
         <div className="grid grid-cols-2 gap-3">
           <div>
             <Label htmlFor="cfg-ltv">Maks LTV gadai (%)</Label>

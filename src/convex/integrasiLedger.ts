@@ -4,7 +4,7 @@ import type { Id } from "./_generated/dataModel";
 
 import { requireAdminSession } from "./adminAuthz";
 import { appendJournal } from "./ledger";
-import { audit } from "./system";
+import { audit, getConfig } from "./system";
 
 /**
  * Integrasi pinjaman lama ke ledger internal + pembersihan pinjaman lama.
@@ -20,9 +20,6 @@ import { audit } from "./system";
  * ledger (jurnal append-only tetap utuh), dan menolak pinjaman yang masih
  * berjalan / punya alokasi dana aktif.
  */
-
-/** Persentase biaya yang diakui saat integrasi (biaya admin & platform). */
-export const PERSEN_BIAYA_INTEGRASI = 2;
 
 /** Status pinjaman yang sudah cukup matang untuk dibukukan biayanya. */
 const STATUS_LAYAK = new Set(["disetujui", "didanai", "lunas"]);
@@ -67,6 +64,8 @@ export const statusIntegrasiLedger = query({
   handler: async (ctx) => {
     await requireAdminSession(ctx);
 
+    const cfg = await getConfig(ctx);
+    const persenBiaya = cfg.persenBiayaIntegrasi;
     const loans = await ctx.db.query("loans").collect();
     const sudah = await pinjamanTerintegrasi(ctx);
 
@@ -88,9 +87,7 @@ export const statusIntegrasiLedger = query({
             namaLengkap: l.namaLengkap,
             status: l.status,
             pokokPinjaman: l.pokokPinjaman,
-            biayaIntegrasi: Math.round(
-              (l.pokokPinjaman * PERSEN_BIAYA_INTEGRASI) / 100,
-            ),
+            biayaIntegrasi: Math.round((l.pokokPinjaman * persenBiaya) / 100),
             layak: STATUS_LAYAK.has(l.status) && l.pokokPinjaman > 0,
             terintegrasi: sudah.has(l._id),
             alokasiAktif,
@@ -100,7 +97,7 @@ export const statusIntegrasiLedger = query({
     );
 
     return {
-      persenBiaya: PERSEN_BIAYA_INTEGRASI,
+      persenBiaya,
       /** Pinjaman siap dibukukan (layak, belum terintegrasi). */
       perluIntegrasi: rows.filter((r) => r.layak && !r.terintegrasi).length,
       /** Pinjaman yang sudah punya entri biaya di ledger. */
@@ -122,6 +119,8 @@ export const integrasikanPinjamanKeLedger = mutation({
   handler: async (ctx) => {
     const { userId, user } = await requireAdminSession(ctx);
     const label = labelAdmin(user.email, user.name);
+    const cfg = await getConfig(ctx);
+    const persenBiaya = cfg.persenBiayaIntegrasi;
 
     const loans = await ctx.db.query("loans").collect();
     const sudah = await pinjamanTerintegrasi(ctx);
@@ -141,7 +140,7 @@ export const integrasikanPinjamanKeLedger = mutation({
     const gagal: Array<{ nomorReferensi: string; pesan: string }> = [];
 
     for (const loan of batch) {
-      const biaya = Math.round((loan.pokokPinjaman * PERSEN_BIAYA_INTEGRASI) / 100);
+      const biaya = Math.round((loan.pokokPinjaman * persenBiaya) / 100);
       if (biaya <= 0) continue;
       try {
         await appendJournal(ctx, {

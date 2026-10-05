@@ -20,6 +20,12 @@ export type SystemConfig = {
   persenAdmin: number;
   persenPlatform: number;
   persenBunga: number;
+  /**
+   * Persentase biaya admin & platform yang diakui saat integrasi pinjaman
+   * lama ke ledger internal (panel Ledger admin). Bukan biaya pinjaman baru —
+   * hanya dipakai untuk membukukan pinjaman warisan yang belum tercatat.
+   */
+  persenBiayaIntegrasi: number;
   maxLtvPersen: number;
   sessionTimeoutMenit: number;
   vaultLat: number;
@@ -64,6 +70,8 @@ export const DEFAULT_CONFIG: SystemConfig = {
   persenAdmin: 5,
   persenPlatform: 3,
   persenBunga: 30,
+  /** Biaya integrasi default saat membukukan pinjaman lama ke ledger. */
+  persenBiayaIntegrasi: 2,
   maxLtvPersen: 70,
   sessionTimeoutMenit: 30,
   vaultLat: -6.249511,

@@ -11,6 +11,7 @@ import type { Id } from "./_generated/dataModel";
 import schema from "./schema";
 import { siapkanPengguna, type KonteksUji } from "./test.helpers";
 import { modules } from "./test.setup";
+import { DEFAULT_CONFIG } from "../lib/system-config";
 
 /** Pinjaman tunai minimal untuk pembukuan biaya. */
 async function siapkanPinjaman(
@@ -84,6 +85,32 @@ describe("integrasi pinjaman ke ledger internal", () => {
     const setelah = await admin.query(api.integrasiLedger.statusIntegrasiLedger, {});
     expect(setelah.perluIntegrasi).toBe(0);
     expect(setelah.rows.find((r) => r._id === loanId)?.terintegrasi).toBe(true);
+  });
+
+  it("mengikuti persentase biaya dari Pengaturan Sistem", async () => {
+    const t = convexTest(schema, modules);
+    const { userId } = await siapkanPengguna(t, "rani", {
+      email: "rani@pindai.test",
+      role: "peminjam",
+    });
+    const { sesi: admin } = await siapkanPengguna(t, "admin", {
+      email: "admin@pindai.test",
+      role: "admin",
+    });
+
+    await admin.mutation(api.system.saveConfig, {
+      ...DEFAULT_CONFIG,
+      persenBiayaIntegrasi: 5,
+    });
+    const loanId = await siapkanPinjaman(t, userId, 1_000_000, "disetujui");
+
+    const status = await admin.query(api.integrasiLedger.statusIntegrasiLedger, {});
+    expect(status.persenBiaya).toBe(5);
+    expect(status.rows.find((r) => r._id === loanId)?.biayaIntegrasi).toBe(50_000);
+
+    const hasil = await admin.mutation(api.integrasiLedger.integrasikanPinjamanKeLedger, {});
+    expect(hasil.totalBiaya).toBe(50_000);
+    expect(await jumlahEntriPlatform(t, loanId)).toEqual([50_000]);
   });
 
   it("menolak integrasi dari akun non-admin", async () => {

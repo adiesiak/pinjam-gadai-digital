@@ -544,6 +544,8 @@ const schema = defineSchema(
       persenAdmin: v.optional(v.number()),
       persenPlatform: v.optional(v.number()),
       persenBunga: v.optional(v.number()),
+      /** Persentase biaya admin & platform saat integrasi pinjaman lama ke ledger. */
+      persenBiayaIntegrasi: v.optional(v.number()),
       /** Maks LTV gadai (default 70%). */
       maxLtvPersen: v.optional(v.number()),
       /** Logout otomatis admin pasif (menit, 0 = nonaktif). */
