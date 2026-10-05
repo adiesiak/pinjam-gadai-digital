@@ -33,7 +33,7 @@ import {
   UserX,
   Vault,
 } from "lucide-react";
-import { Suspense, useEffect, useState, type FormEvent } from "react";
+import { Suspense, useEffect, useRef, useState, type FormEvent } from "react";
 import { useMutation } from "convex/react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 
@@ -152,6 +152,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
   /** Pemulihan batas percobaan kata sandi: kode TOTP aplikasi autentikator. */
   const [adminTotp, setAdminTotp] = useState("");
   const [butuhTotp, setButuhTotp] = useState(false);
+  const adminFormRef = useRef<HTMLFormElement | null>(null);
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -168,6 +169,15 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
   const captchaWajib = kegagalan >= 2;
   const captchaBenar =
     !captchaWajib || captchaJawab.trim() === String(captcha.a + captcha.b);
+
+  // Jalur pemulihan TOTP: begitu 6 digit terisi (dan captcha lolos), kirim form
+  // otomatis — admin tidak perlu menekan Enter atau tombol.
+  useEffect(() => {
+    if (butuhTotp && adminTotp.length === 6 && captchaBenar && !isLoading) {
+      adminFormRef.current?.requestSubmit();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [adminTotp, captchaBenar]);
 
   useEffect(() => {
     if (!authLoading && isAuthenticated) {
@@ -635,7 +645,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                         Masuk dengan kata sandi. Verifikasi TOTP tetap berlaku sesuai pengaturan akun.
                       </CardDescription>
                     </CardHeader>
-                    <form onSubmit={handleAdminSubmit}>
+                    <form ref={adminFormRef} onSubmit={handleAdminSubmit}>
                       <CardContent className="space-y-4">
                         <div className="space-y-2">
                           <label htmlFor="admin-email" className="text-sm font-medium">
@@ -679,7 +689,9 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                               maxLength={6}
                               placeholder="123456"
                               value={adminTotp}
-                              onChange={(event) => setAdminTotp(event.target.value)}
+                              onChange={(event) =>
+                                setAdminTotp(event.target.value.replace(/\D/g, "").slice(0, 6))
+                              }
                               disabled={isLoading}
                             />
                             <p className="text-xs leading-5 text-muted-foreground">

@@ -58,11 +58,12 @@ export function TotpSetupDialog({
     }
   };
 
-  const handleConfirm = async () => {
+  const handleConfirm = async (nilai: string = kode) => {
+    if (busy || nilai.length !== 6) return;
     setBusy(true);
     setError(null);
     try {
-      await confirm({ kode });
+      await confirm({ kode: nilai });
       setSecret(null);
       setKode("");
       onOpenChange(false);
@@ -73,11 +74,12 @@ export function TotpSetupDialog({
     }
   };
 
-  const handleDisable = async () => {
+  const handleDisable = async (nilai: string = kode) => {
+    if (busy || nilai.length !== 6) return;
     setBusy(true);
     setError(null);
     try {
-      await disable({ kode });
+      await disable({ kode: nilai });
       setKode("");
       onOpenChange(false);
     } catch (e) {
@@ -85,6 +87,15 @@ export function TotpSetupDialog({
     } finally {
       setBusy(false);
     }
+  };
+
+  // Begitu 6 digit terisi, jalankan aksi yang sesuai (nonaktifkan atau
+  // konfirmasi aktivasi) tanpa perlu menekan tombol.
+  const ubahKode = (nilai: string) => {
+    setKode(nilai);
+    if (nilai.length !== 6 || busy) return;
+    if (status?.aktif) void handleDisable(nilai);
+    else if (secret !== null) void handleConfirm(nilai);
   };
 
   return (
@@ -109,7 +120,7 @@ export function TotpSetupDialog({
               <p className="text-sm text-muted-foreground">
                 Masukkan kode 6 digit saat ini untuk menonaktifkan:
               </p>
-              <InputOTP value={kode} onChange={setKode} maxLength={6}>
+              <InputOTP value={kode} onChange={ubahKode} maxLength={6}>
                 <InputOTPGroup>
                   {Array.from({ length: 6 }).map((_, i) => (
                     <InputOTPSlot key={i} index={i} />
@@ -124,7 +135,7 @@ export function TotpSetupDialog({
               </Button>
               <Button
                 variant="destructive"
-                onClick={handleDisable}
+                onClick={() => void handleDisable()}
                 disabled={busy || kode.length !== 6}
               >
                 {busy ? <Loader2 className="size-4 animate-spin" /> : null}
@@ -179,7 +190,7 @@ export function TotpSetupDialog({
                   <p className="text-sm text-muted-foreground">
                     Masukkan kode 6 digit dari aplikasi untuk konfirmasi:
                   </p>
-                  <InputOTP value={kode} onChange={setKode} maxLength={6}>
+                  <InputOTP value={kode} onChange={ubahKode} maxLength={6}>
                     <InputOTPGroup>
                       {Array.from({ length: 6 }).map((_, i) => (
                         <InputOTPSlot key={i} index={i} />
@@ -192,7 +203,7 @@ export function TotpSetupDialog({
                   <Button variant="outline" onClick={() => setSecret(null)}>
                     Ulangi
                   </Button>
-                  <Button onClick={handleConfirm} disabled={busy || kode.length !== 6}>
+                  <Button onClick={() => void handleConfirm()} disabled={busy || kode.length !== 6}>
                     {busy ? <Loader2 className="size-4 animate-spin" /> : null}
                     Aktifkan 2FA
                   </Button>

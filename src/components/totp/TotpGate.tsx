@@ -20,14 +20,17 @@ export function TotpGate() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const handleSubmit = async () => {
+  // Terima nilai eksplisit agar auto-submit memakai kode yang baru diketik
+  // (bukan state lama yang belum ter-render).
+  const handleSubmit = async (nilai: string = kode) => {
+    if (busy || nilai.length !== 6) return;
     setBusy(true);
     setError(null);
     try {
       const ip = await getClientIp();
       const ua = getUserAgent();
       await verify({
-        kode,
+        kode: nilai,
         perangkat: deviceLabelFromUa(ua),
         ip,
       });
@@ -37,6 +40,12 @@ export function TotpGate() {
     } finally {
       setBusy(false);
     }
+  };
+
+  // Begitu 6 digit terisi, verifikasi langsung tanpa menekan tombol/Enter.
+  const ubahKode = (nilai: string) => {
+    setKode(nilai);
+    if (nilai.length === 6) void handleSubmit(nilai);
   };
 
   return (
@@ -54,7 +63,7 @@ export function TotpGate() {
           </div>
         </div>
         <div className="flex justify-center py-2">
-          <InputOTP value={kode} onChange={setKode} maxLength={6}>
+          <InputOTP value={kode} onChange={ubahKode} maxLength={6}>
             <InputOTPGroup>
               {Array.from({ length: 6 }).map((_, i) => (
                 <InputOTPSlot key={i} index={i} />
@@ -65,7 +74,7 @@ export function TotpGate() {
         {error && <p className="mt-2 text-center text-sm text-destructive">{error}</p>}
         <Button
           className="mt-4 w-full rounded-full"
-          onClick={handleSubmit}
+          onClick={() => void handleSubmit()}
           disabled={busy || kode.length !== 6}
         >
           {busy ? <Loader2 className="mr-2 size-4 animate-spin" /> : <ShieldCheck className="mr-2 size-4" />}
