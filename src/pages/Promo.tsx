@@ -65,13 +65,26 @@ const UKURAN: Ukuran[] = [
   },
 ];
 
-// Palet gelap + kuningan — kontras tinggi agar mencolok di feed.
+// ---------------------------------------------------------------------------
+// Palet brand PINDAI. Tiap poster punya warna aksen sendiri supaya galeri
+// terasa hidup, namun tetap dalam keluarga hijau + krem yang sama.
+// ---------------------------------------------------------------------------
 const NAVY = "#0f3d3a";
 const NAVY_DEEP = "#0a2624";
 const GOLD = "#e0b64d";
-const GOLD_DEEP = "#b7892f";
-const CREAM = "#f7f3e8";
-const MUTED_LIGHT = "#a9bdb7";
+const INK = "#133a34";
+const MUTED = "#5f6f6a";
+const CARD = "#fbf8f1";
+
+/** Ubah warna hex menjadi rgba() dengan alpha tertentu. */
+function rgba(hex: string, a: number): string {
+  const h = hex.replace("#", "");
+  const n = Number.parseInt(h, 16);
+  const r = (n >> 16) & 255;
+  const g = (n >> 8) & 255;
+  const b = n & 255;
+  return `rgba(${r},${g},${b},${a})`;
+}
 
 // Ikon badge kecil sesuai ukuran untuk pilihan kanvas.
 function UkuranBadge({ u }: { u: Ukuran }) {
@@ -90,10 +103,12 @@ function UkuranBadge({ u }: { u: Ukuran }) {
 // ---------------------------------------------------------------------------
 // Poster siap pakai — copy penjualan langsung, bukan editor.
 // ---------------------------------------------------------------------------
+type Motif = "koin" | "brankas" | "tas" | "grafik" | "spark";
+
 type Poster = {
   id: string;
   label: string;
-  /** Seruan singkat di badge kuning (pancing perhatian). */
+  /** Seruan singkat di badge (pancing perhatian). */
   hook: string;
   /** Judul besar. */
   judul: string;
@@ -103,6 +118,10 @@ type Poster = {
   manfaat: string[];
   cta: string;
   peringatan: string;
+  /** Warna aksen khas poster ini. */
+  accent: string;
+  /** Ilustrasi samar di sudut kanan bawah. */
+  motif: Motif;
 };
 
 const POSTER: Poster[] = [
@@ -115,6 +134,8 @@ const POSTER: Poster[] = [
     manfaat: ["Tenor 7–30 hari, bebas pilih", "Bunga flat 30% — transparan"],
     cta: "Ajukan Sekarang",
     peringatan: "PINDAI · bunga flat 30% dari pokok",
+    accent: "#c8892b",
+    motif: "koin",
   },
   {
     id: "gadai",
@@ -125,6 +146,8 @@ const POSTER: Poster[] = [
     manfaat: ["LTV hingga 70% dari taksiran", "Barang aman di brankas PINDAI"],
     cta: "Taksir Barang",
     peringatan: "PINDAI · LTV hingga 70%",
+    accent: "#b0642f",
+    motif: "brankas",
   },
   {
     id: "kredit",
@@ -135,6 +158,8 @@ const POSTER: Poster[] = [
     manfaat: ["DP 0% — langsung dibiayai", "Tenor 1 / 3 / 6 bulan"],
     cta: "Mulai Cicil",
     peringatan: "PINDAI · DP 0% · tenor 1/3/6 bulan",
+    accent: "#2f7d8c",
+    motif: "tas",
   },
   {
     id: "disiplin",
@@ -145,6 +170,8 @@ const POSTER: Poster[] = [
     manfaat: ["Naik bertahap tiap pelunasan tepat waktu", "Catatan transparan di aplikasi"],
     cta: "Cek Plafon Saya",
     peringatan: "PINDAI · plafon naik bertahap",
+    accent: "#7c3357",
+    motif: "grafik",
   },
   {
     id: "brand",
@@ -155,6 +182,8 @@ const POSTER: Poster[] = [
     manfaat: ["Proses digital & akad tercatat", "Brankas & dokumen terverifikasi"],
     cta: "Pelajari Layanan",
     peringatan: "PINDAI · pinjam & gadai digital",
+    accent: "#1f7a5c",
+    motif: "spark",
   },
 ];
 
@@ -222,20 +251,27 @@ function bungkus(ctx: CanvasRenderingContext2D, teks: string, maxWidth: number):
 }
 
 /** Logo brangkas PINDAI: pintu brankas + dial + tuas. */
-function gambarBrangkas(ctx: CanvasRenderingContext2D, x: number, y: number, s: number) {
+function gambarBrangkas(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  s: number,
+  body: string = NAVY,
+  aksen: string = GOLD,
+) {
   const r = s * 0.24;
   // Badan brankas.
   bulat(ctx, x, y, s, s, r);
-  ctx.fillStyle = NAVY;
+  ctx.fillStyle = body;
   ctx.fill();
-  ctx.strokeStyle = GOLD;
+  ctx.strokeStyle = aksen;
   ctx.lineWidth = Math.max(2, s * 0.05);
   ctx.stroke();
 
   // Bingkai pintu dalam.
   const inset = s * 0.13;
   bulat(ctx, x + inset, y + inset, s - 2 * inset, s - 2 * inset, r * 0.75);
-  ctx.strokeStyle = "rgba(247,243,232,0.35)";
+  ctx.strokeStyle = "rgba(255,255,255,0.35)";
   ctx.lineWidth = Math.max(1.5, s * 0.014);
   ctx.stroke();
 
@@ -245,15 +281,15 @@ function gambarBrangkas(ctx: CanvasRenderingContext2D, x: number, y: number, s: 
   const R = s * 0.27;
   ctx.beginPath();
   ctx.arc(cx, cy, R, 0, Math.PI * 2);
-  ctx.fillStyle = GOLD;
+  ctx.fillStyle = aksen;
   ctx.fill();
   ctx.beginPath();
   ctx.arc(cx, cy, R * 0.6, 0, Math.PI * 2);
-  ctx.fillStyle = NAVY_DEEP;
+  ctx.fillStyle = body;
   ctx.fill();
 
   // Jari-jari dial.
-  ctx.strokeStyle = GOLD;
+  ctx.strokeStyle = aksen;
   ctx.lineWidth = Math.max(2, s * 0.035);
   ctx.lineCap = "round";
   for (let i = 0; i < 3; i += 1) {
@@ -265,9 +301,100 @@ function gambarBrangkas(ctx: CanvasRenderingContext2D, x: number, y: number, s: 
   }
 
   // Tuas di sisi kanan.
-  ctx.fillStyle = GOLD;
+  ctx.fillStyle = aksen;
   bulat(ctx, x + s * 0.82, y + s * 0.36, s * 0.14, s * 0.28, s * 0.05);
   ctx.fill();
+}
+
+/** Ilustrasi samar khas tiap poster (watermark sudut). */
+function gambarMotif(
+  ctx: CanvasRenderingContext2D,
+  jenis: Motif,
+  cx: number,
+  cy: number,
+  s: number,
+  warna: string,
+) {
+  ctx.save();
+  ctx.lineJoin = "round";
+  ctx.lineCap = "round";
+
+  if (jenis === "koin") {
+    const rw = s * 0.5;
+    const rh = s * 0.16;
+    for (let i = 0; i < 3; i += 1) {
+      const yy = cy + s * 0.24 - i * s * 0.22;
+      ctx.beginPath();
+      ctx.ellipse(cx, yy, rw, rh, 0, 0, Math.PI * 2);
+      ctx.fillStyle = warna;
+      ctx.fill();
+      ctx.beginPath();
+      ctx.ellipse(cx, yy, rw * 0.62, rh * 0.62, 0, 0, Math.PI * 2);
+      ctx.fillStyle = "#ffffff";
+      ctx.fill();
+    }
+  } else if (jenis === "brankas") {
+    gambarBrangkas(ctx, cx - s / 2, cy - s / 2, s, warna, "#ffffff");
+  } else if (jenis === "tas") {
+    const w = s * 0.8;
+    const h = s * 0.66;
+    const x = cx - w / 2;
+    const y = cy - h / 2 + s * 0.08;
+    bulat(ctx, x, y, w, h, s * 0.11);
+    ctx.fillStyle = warna;
+    ctx.fill();
+    ctx.lineWidth = s * 0.055;
+    ctx.strokeStyle = warna;
+    ctx.beginPath();
+    ctx.arc(cx, y, w * 0.3, Math.PI, Math.PI * 2);
+    ctx.stroke();
+    ctx.fillStyle = "#ffffff";
+    bulat(ctx, cx - w * 0.12, y + h * 0.34, w * 0.24, h * 0.13, s * 0.03);
+    ctx.fill();
+  } else if (jenis === "grafik") {
+    const bars = [0.42, 0.62, 0.84, 1.08];
+    const bw = s * 0.16;
+    const gapB = s * 0.08;
+    const total = bars.length * bw + (bars.length - 1) * gapB;
+    let x = cx - total / 2;
+    const base = cy + s * 0.42;
+    for (const bh of bars) {
+      const hh = s * 0.72 * bh;
+      bulat(ctx, x, base - hh, bw, hh, bw * 0.4);
+      ctx.fillStyle = warna;
+      ctx.fill();
+      x += bw + gapB;
+    }
+    ctx.strokeStyle = warna;
+    ctx.lineWidth = s * 0.06;
+    ctx.beginPath();
+    ctx.moveTo(cx - total / 2 - s * 0.05, base + s * 0.03);
+    ctx.lineTo(cx + total / 2 - bw * 0.4, base + s * 0.03);
+    ctx.stroke();
+  } else {
+    // spark — bintang empat sudut + titik kecil.
+    const r = s * 0.5;
+    ctx.fillStyle = warna;
+    ctx.beginPath();
+    for (let i = 0; i < 16; i += 1) {
+      const a = (i * Math.PI) / 8;
+      const rr = i % 2 === 0 ? r : r * 0.32;
+      const px = cx + Math.cos(a) * rr;
+      const py = cy + Math.sin(a) * rr;
+      if (i === 0) ctx.moveTo(px, py);
+      else ctx.lineTo(px, py);
+    }
+    ctx.closePath();
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(cx + r * 0.95, cy - r * 0.85, r * 0.14, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(cx - r * 0.9, cy + r * 0.8, r * 0.1, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  ctx.restore();
 }
 
 // ---------------------------------------------------------------------------
@@ -282,215 +409,300 @@ function renderKartu(
 ) {
   const W = size.canvas[0];
   const H = size.canvas[1];
-  const pad = Math.round(W * 0.075);
   const sans = "ui-sans-serif, system-ui, sans-serif";
+  const accent = p.accent;
 
-  // Latar gelap + pendar kuningan.
+  // ===== Latar hijau pekat + pendar aksen poster =====
   ctx.fillStyle = NAVY_DEEP;
   ctx.fillRect(0, 0, W, H);
-  const glow = ctx.createRadialGradient(W * 0.5, H * 0.1, 0, W * 0.5, H * 0.1, W * 1.05);
-  glow.addColorStop(0, "rgba(224,182,77,0.20)");
-  glow.addColorStop(1, "rgba(224,182,77,0)");
+
+  const glow = ctx.createRadialGradient(W * 0.78, H * 0.05, 0, W * 0.78, H * 0.05, W * 1.1);
+  glow.addColorStop(0, rgba(accent, 0.45));
+  glow.addColorStop(0.45, rgba(accent, 0.14));
+  glow.addColorStop(1, rgba(accent, 0));
   ctx.fillStyle = glow;
   ctx.fillRect(0, 0, W, H);
 
+  const glow2 = ctx.createRadialGradient(W * 0.08, H * 0.98, 0, W * 0.08, H * 0.98, W * 0.95);
+  glow2.addColorStop(0, "rgba(224,182,77,0.16)");
+  glow2.addColorStop(1, "rgba(224,182,77,0)");
+  ctx.fillStyle = glow2;
+  ctx.fillRect(0, 0, W, H);
+
   // Cincin brankas samar sebagai tekstur.
-  ctx.strokeStyle = "rgba(224,182,77,0.08)";
-  ctx.lineWidth = Math.max(2, W * 0.004);
-  for (let i = 0; i < 4; i += 1) {
+  ctx.strokeStyle = rgba(accent, 0.14);
+  ctx.lineWidth = Math.max(2, W * 0.0035);
+  for (let i = 0; i < 3; i += 1) {
     ctx.beginPath();
-    ctx.arc(W * 0.9, H * 0.84, W * (0.2 + i * 0.13), 0, Math.PI * 2);
+    ctx.arc(W * 0.92, H * 0.1, W * (0.15 + i * 0.12), 0, Math.PI * 2);
     ctx.stroke();
   }
 
-  // Brangkas raksasa samar (watermark merek).
+  // Konfeti aksen kecil (ringan, tidak ramai).
+  const konfeti: Array<[number, number, number]> = [
+    [W * 0.08, H * 0.04, W * 0.006],
+    [W * 0.94, H * 0.5, W * 0.007],
+    [W * 0.12, H * 0.96, W * 0.005],
+    [W * 0.6, H * 0.018, W * 0.004],
+  ];
+  ctx.fillStyle = rgba(accent, 0.55);
+  for (const [cx, cy, r] of konfeti) {
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // ===== Kartu krem utama =====
+  const M = Math.round(W * 0.05);
+  const CW = W - M * 2;
+  const CH = H - M * 2;
+  const radiusKartu = Math.round(W * 0.045);
+  const P = Math.round(W * 0.062);
+  const innerX = M + P;
+  const innerW = W - innerX * 2;
+
   ctx.save();
-  ctx.globalAlpha = 0.05;
-  const wm = Math.round(W * 0.55);
-  gambarBrangkas(ctx, Math.round(W * 0.52), Math.round(H * 0.5), wm);
+  ctx.shadowColor = "rgba(0,0,0,0.4)";
+  ctx.shadowBlur = Math.round(W * 0.05);
+  ctx.shadowOffsetY = Math.round(W * 0.013);
+  bulat(ctx, M, M, CW, CH, radiusKartu);
+  ctx.fillStyle = CARD;
+  ctx.fill();
   ctx.restore();
 
-  // Pita emas atas.
-  ctx.fillStyle = GOLD;
-  ctx.fillRect(0, 0, W, Math.round(W * 0.014));
+  // Watermark motif di sudut kanan bawah, diklip ke bentuk kartu.
+  ctx.save();
+  bulat(ctx, M, M, CW, CH, radiusKartu);
+  ctx.clip();
+  ctx.globalAlpha = 0.1;
+  gambarMotif(
+    ctx,
+    p.motif,
+    M + CW * 0.85,
+    M + CH * 0.9,
+    Math.round(W * 0.52),
+    accent,
+  );
+  ctx.restore();
 
-  // Header: logo brangkas + "PINDAI" + tagline.
-  const logo = Math.round(Math.min(W * 0.17, H * 0.11));
-  const logoY = pad;
-  gambarBrangkas(ctx, pad, logoY, logo);
-  const tx = pad + logo + Math.round(W * 0.03);
-  ctx.textAlign = "left";
+  // ===== Header brand =====
   ctx.textBaseline = "top";
-  ctx.fillStyle = CREAM;
-  ctx.font = `800 ${Math.round(logo * 0.54)}px ${sans}`;
-  ctx.fillText("PINDAI", tx, logoY + logo * 0.05);
-  ctx.fillStyle = GOLD;
-  ctx.font = `700 ${Math.round(logo * 0.235)}px ${sans}`;
-  ctx.fillText("PINJAM & GADAI DIGITAL", tx, logoY + logo * 0.63);
+  ctx.textAlign = "left";
+  const logo = Math.round(Math.min(innerW * 0.12, H * 0.072));
+  gambarBrangkas(ctx, innerX, M + P, logo, NAVY, GOLD);
+  const tx = innerX + logo + Math.round(logo * 0.32);
+  ctx.fillStyle = INK;
+  ctx.font = `800 ${Math.round(logo * 0.56)}px ${sans}`;
+  ctx.fillText("PINDAI", tx, M + P + logo * 0.05);
+  ctx.fillStyle = accent;
+  ctx.font = `800 ${Math.round(logo * 0.225)}px ${sans}`;
+  ctx.fillText("PINJAM & GADAI DIGITAL", tx, M + P + logo * 0.66);
 
-  let y = logoY + logo + Math.round(W * 0.06);
-
-  // Badge hook.
-  const hookFont = Math.round(Math.min(W * 0.032, H * 0.021));
-  ctx.font = `800 ${hookFont}px ${sans}`;
-  const hookPadX = Math.round(hookFont * 1.3);
-  const hookW = Math.min(W - pad * 2, ctx.measureText(p.hook).width + hookPadX * 2);
-  const hookH = Math.round(hookFont * 2.2);
-  bulat(ctx, pad, y, hookW, hookH, hookH / 2);
-  ctx.fillStyle = GOLD;
+  // Chip kategori di kanan atas.
+  const chipFont = Math.round(Math.min(W * 0.022, H * 0.014));
+  ctx.font = `800 ${chipFont}px ${sans}`;
+  ctx.textAlign = "right";
+  const chipText = p.label.toUpperCase();
+  const chipW = ctx.measureText(chipText).width + chipFont * 1.7;
+  const chipH = Math.round(chipFont * 2.1);
+  const chipX = M + CW - P - chipW;
+  const chipY = M + P + Math.round((logo - chipH) / 2);
+  bulat(ctx, chipX, chipY, chipW, chipH, chipH / 2);
+  ctx.fillStyle = rgba(accent, 0.14);
   ctx.fill();
-  ctx.fillStyle = NAVY_DEEP;
-  ctx.textAlign = "left";
+  ctx.strokeStyle = rgba(accent, 0.5);
+  ctx.lineWidth = Math.max(1.5, W * 0.0022);
+  ctx.stroke();
+  ctx.fillStyle = accent;
   ctx.textBaseline = "middle";
-  ctx.fillText(p.hook, pad + hookPadX, y + hookH / 2 + 1);
-  y += hookH + Math.round(W * 0.048);
-
-  // Judul besar.
-  const headSize = Math.round(Math.min(W * 0.118, H * 0.08));
-  ctx.fillStyle = CREAM;
-  ctx.font = `800 ${headSize}px ${sans}`;
+  ctx.fillText(chipText, M + CW - P - chipFont * 0.85, chipY + chipH / 2 + 1);
   ctx.textAlign = "left";
   ctx.textBaseline = "top";
-  for (const baris of bungkus(ctx, p.judul, W - pad * 2)) {
-    ctx.fillText(baris, pad, y);
-    y += Math.round(headSize * 1.04);
+
+  // Garis pemisah halus + posisi awal konten.
+  let y = M + P + logo + Math.round(H * 0.032);
+  ctx.strokeStyle = "rgba(19,58,52,0.12)";
+  ctx.lineWidth = Math.max(1.5, W * 0.002);
+  ctx.beginPath();
+  ctx.moveTo(innerX, y);
+  ctx.lineTo(innerX + innerW, y);
+  ctx.stroke();
+  y += Math.round(H * 0.03);
+
+  // ===== Badge hook (stiker aksen) =====
+  const hookFont = Math.round(Math.min(W * 0.03, H * 0.019));
+  ctx.font = `800 ${hookFont}px ${sans}`;
+  const hookPadX = Math.round(hookFont * 1.35);
+  const hookW = Math.min(innerW, ctx.measureText(p.hook).width + hookPadX * 2);
+  const hookH = Math.round(hookFont * 2.3);
+  ctx.save();
+  ctx.shadowColor = rgba(accent, 0.35);
+  ctx.shadowBlur = Math.round(W * 0.02);
+  ctx.shadowOffsetY = Math.round(W * 0.004);
+  bulat(ctx, innerX, y, hookW, hookH, hookH / 2);
+  ctx.fillStyle = accent;
+  ctx.fill();
+  ctx.restore();
+  ctx.fillStyle = "#ffffff";
+  ctx.textBaseline = "middle";
+  ctx.fillText(p.hook, innerX + hookPadX, y + hookH / 2 + 1);
+  ctx.textBaseline = "top";
+  y += hookH + Math.round(H * 0.036);
+
+  // ===== Judul besar =====
+  const headSize = Math.round(Math.min(W * 0.105, H * 0.062));
+  ctx.fillStyle = INK;
+  ctx.font = `800 ${headSize}px ${sans}`;
+  for (const baris of bungkus(ctx, p.judul, innerW)) {
+    ctx.fillText(baris, innerX, y);
+    y += Math.round(headSize * 1.02);
   }
 
-  // Subjudul.
-  y += Math.round(W * 0.018);
-  const subSize = Math.round(Math.min(W * 0.034, H * 0.026));
-  ctx.fillStyle = MUTED_LIGHT;
+  // Aksen swipe di bawah judul.
+  y += Math.round(headSize * 0.14);
+  const swipeH = Math.round(headSize * 0.13);
+  const swipeW = Math.round(Math.min(innerW * 0.42, headSize * 3.2));
+  bulat(ctx, innerX, y, swipeW, swipeH, swipeH / 2);
+  ctx.fillStyle = accent;
+  ctx.fill();
+  y += swipeH + Math.round(H * 0.026);
+
+  // ===== Subjudul =====
+  const subSize = Math.round(Math.min(W * 0.03, H * 0.021));
+  ctx.fillStyle = MUTED;
   ctx.font = `400 ${subSize}px ${sans}`;
-  for (const baris of bungkus(ctx, p.sub, W - pad * 2)) {
-    ctx.fillText(baris, pad, y);
-    y += Math.round(subSize * 1.35);
+  for (const baris of bungkus(ctx, p.sub, innerW)) {
+    ctx.fillText(baris, innerX, y);
+    y += Math.round(subSize * 1.42);
   }
 
-  // Poin manfaat dengan centang emas.
-  y += Math.round(W * 0.032);
-  const bFont = Math.round(Math.min(W * 0.031, H * 0.024));
-  const rowBase = Math.round(bFont * 2.05);
+  // ===== Poin manfaat: baris lembut =====
+  y += Math.round(H * 0.026);
+  const bFont = Math.round(Math.min(W * 0.029, H * 0.02));
+  const lineH = Math.round(bFont * 1.35);
+  const iconR = bFont * 0.72;
+  const rowPadX = Math.round(bFont * 0.7);
+  const rowPadY = Math.round(bFont * 0.55);
+  const rowGap = Math.round(bFont * 0.5);
+  const teksW = Math.max(80, innerW - Math.round(iconR * 2) - rowPadX * 2 - Math.round(bFont * 0.35));
   for (const m of p.manfaat) {
     ctx.font = `600 ${bFont}px ${sans}`;
-    const maxW = W - pad * 2 - Math.round(rowBase * 0.9);
-    const baris = bungkus(ctx, m, maxW);
-    const barisH = Math.round(bFont * 1.35);
-    const blokH = Math.max(rowBase, baris.length * barisH + Math.round(bFont * 0.6));
-    const cx = pad + Math.round(rowBase * 0.32);
-    const cy = y + Math.round(blokH / 2);
+    const baris = bungkus(ctx, m, teksW);
+    const rowH = Math.max(Math.round(iconR * 2 + rowPadY * 2), baris.length * lineH + rowPadY * 2);
 
-    ctx.beginPath();
-    ctx.arc(cx, cy, rowBase * 0.3, 0, Math.PI * 2);
-    ctx.fillStyle = "rgba(224,182,77,0.18)";
+    bulat(ctx, innerX, y, innerW, rowH, Math.round(rowH * 0.28));
+    ctx.fillStyle = rgba(accent, 0.1);
     ctx.fill();
-    ctx.strokeStyle = GOLD;
-    ctx.lineWidth = Math.max(2, W * 0.003);
+    ctx.strokeStyle = rgba(accent, 0.28);
+    ctx.lineWidth = Math.max(1.5, W * 0.002);
     ctx.stroke();
-    ctx.strokeStyle = GOLD;
-    ctx.lineWidth = Math.max(3, W * 0.006);
+
+    const cx = innerX + rowPadX + iconR;
+    const cy = y + rowH / 2;
+    ctx.beginPath();
+    ctx.arc(cx, cy, iconR, 0, Math.PI * 2);
+    ctx.fillStyle = accent;
+    ctx.fill();
+    ctx.strokeStyle = "#ffffff";
+    ctx.lineWidth = Math.max(2, bFont * 0.17);
     ctx.lineCap = "round";
     ctx.beginPath();
-    ctx.moveTo(cx - rowBase * 0.12, cy);
-    ctx.lineTo(cx - rowBase * 0.02, cy + rowBase * 0.1);
-    ctx.lineTo(cx + rowBase * 0.15, cy - rowBase * 0.13);
+    ctx.moveTo(cx - iconR * 0.42, cy);
+    ctx.lineTo(cx - iconR * 0.08, cy + iconR * 0.34);
+    ctx.lineTo(cx + iconR * 0.46, cy - iconR * 0.38);
     ctx.stroke();
 
-    ctx.fillStyle = CREAM;
+    ctx.fillStyle = INK;
     ctx.font = `600 ${bFont}px ${sans}`;
     ctx.textAlign = "left";
     ctx.textBaseline = "middle";
-    let ly = y + (blokH - baris.length * barisH) / 2 + barisH / 2;
+    let ly = y + rowH / 2;
+    const teksX = innerX + rowPadX + iconR * 2 + Math.round(bFont * 0.35);
     for (const baris_ of baris) {
-      ctx.fillText(baris_, pad + Math.round(rowBase * 0.75), ly);
-      ly += barisH;
+      ctx.fillText(baris_, teksX, ly);
+      ly += lineH;
     }
-    y += blokH + Math.round(bFont * 0.35);
+    ctx.textBaseline = "top";
+    y += rowH + rowGap;
   }
 
-  // ===== Blok bawah: kartu QRIS (bila ada) + CTA emas + disclaimer =====
-  const ctaH = Math.round(Math.min(W * 0.115, H * 0.092));
-  const ctaFont = Math.round(ctaH * 0.42);
-  const footSize = Math.round(Math.min(W * 0.027, H * 0.02));
-  const footY = H - pad * 0.7;
-  const bandBottom = footY - Math.round(footSize * 1.75);
+  // ===== Blok bawah: QRIS + CTA + disclaimer (digantung dari dasar kartu) =====
+  const cardBottom = M + CH;
+  const footSize = Math.round(Math.min(W * 0.023, H * 0.016));
+  const footBaseline = cardBottom - P * 0.5;
+  const ctaH = Math.round(Math.min(W * 0.096, H * 0.066));
+  const ctaFont = Math.round(ctaH * 0.4);
+  const gap = Math.round(W * 0.028);
+  const ctaBottom = footBaseline - Math.round(footSize * 1.7);
+  const ctaTop = ctaBottom - ctaH;
 
   const pakaiQris = Boolean(qris?.img);
-  const gap = Math.round(W * 0.03);
-
-  // Kartu QRIS persegi; tingginya dibatasi sisa ruang di atas disclaimer agar
-  // tidak menabrak teks manfaat.
-  let qrSide = pakaiQris ? Math.round(Math.min(W * 0.25, H * 0.155)) : 0;
-  const contentBottom = y + Math.round(W * 0.035);
-  let bandTop = bandBottom - Math.max(qrSide, ctaH);
-  if (bandTop < contentBottom) bandTop = contentBottom;
-  const bandH = Math.max(ctaH, bandBottom - bandTop);
-  if (pakaiQris) qrSide = Math.min(qrSide, bandH);
-
-  const colX = pakaiQris ? pad + qrSide + gap : pad;
-  const colW = Math.max(120, W - pad - colX);
+  const qrSide = pakaiQris ? Math.round(Math.min(W * 0.2, H * 0.128, ctaH * 2.1)) : 0;
+  const colX = pakaiQris ? innerX + qrSide + gap : innerX;
+  const colW = Math.max(120, innerX + innerW - colX);
 
   if (pakaiQris && qris) {
-    // Kartu putih berisi kode QRIS merchant.
-    const cardY = bandTop + Math.round((bandH - qrSide) / 2);
+    const qrY = ctaTop + Math.round((ctaH - qrSide) / 2);
     ctx.save();
-    ctx.shadowColor = "rgba(0,0,0,0.35)";
-    ctx.shadowBlur = Math.round(W * 0.02);
-    ctx.shadowOffsetY = Math.round(W * 0.006);
-    bulat(ctx, pad, cardY, qrSide, qrSide, qrSide * 0.13);
+    ctx.shadowColor = "rgba(0,0,0,0.3)";
+    ctx.shadowBlur = Math.round(W * 0.018);
+    ctx.shadowOffsetY = Math.round(W * 0.005);
+    bulat(ctx, innerX, qrY, qrSide, qrSide, qrSide * 0.16);
     ctx.fillStyle = "#ffffff";
     ctx.fill();
     ctx.restore();
 
-    // Quiet zone putih di sekeliling kode agar tetap mudah dipindai.
-    const inner = Math.round(qrSide * 0.1);
-    ctx.drawImage(qris.img, pad + inner, cardY + inner, qrSide - inner * 2, qrSide - inner * 2);
+    // Quiet zone agar kode tetap mudah dipindai.
+    const inset = Math.round(qrSide * 0.11);
+    ctx.drawImage(qris.img, innerX + inset, qrY + inset, qrSide - inset * 2, qrSide - inset * 2);
+
+    const labelSize = Math.round(Math.min(W * 0.024, H * 0.017));
+    ctx.textAlign = "left";
+    ctx.textBaseline = "alphabetic";
+    ctx.fillStyle = accent;
+    ctx.font = `800 ${labelSize}px ${sans}`;
+    ctx.fillText("SCAN QRIS UNTUK BAYAR", colX, ctaTop - Math.round(labelSize * 0.5));
+    ctx.textBaseline = "top";
   }
 
-  // Tombol CTA emas.
+  // Tombol CTA.
   ctx.font = `800 ${ctaFont}px ${sans}`;
   const ctaText = `${p.cta}  →`;
-  const ctaW = Math.min(colW, ctx.measureText(ctaText).width + ctaH * 1.15);
-  const ctaX = pakaiQris ? colX : Math.round((W - ctaW) / 2);
-  const ctaY = pakaiQris
-    ? bandTop + Math.round((bandH - ctaH) / 2) + Math.round(ctaH * 0.14)
-    : bandBottom - ctaH;
+  const ctaW = Math.min(colW, ctx.measureText(ctaText).width + ctaH * 1.2);
+  const ctaX = pakaiQris ? colX : innerX;
+  const ctaY = ctaTop;
 
-  ctx.shadowColor = "rgba(224,182,77,0.45)";
+  ctx.save();
+  ctx.shadowColor = rgba(accent, 0.4);
   ctx.shadowBlur = Math.round(W * 0.03);
-  bulat(ctx, ctaX, ctaY, ctaW, ctaH, ctaH * 0.28);
-  ctx.fillStyle = GOLD;
+  ctx.shadowOffsetY = Math.round(W * 0.006);
+  bulat(ctx, ctaX, ctaY, ctaW, ctaH, ctaH * 0.32);
+  ctx.fillStyle = accent;
   ctx.fill();
-  ctx.shadowBlur = 0;
-  ctx.shadowColor = "transparent";
-  ctx.strokeStyle = GOLD_DEEP;
-  ctx.lineWidth = Math.max(2, W * 0.003);
-  ctx.stroke();
-  ctx.fillStyle = NAVY_DEEP;
+  ctx.restore();
+
+  ctx.fillStyle = "#ffffff";
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.fillText(ctaText, ctaX + ctaW / 2, ctaY + ctaH / 2 + 1);
 
-  // Label "scan QRIS" + nama merchant di kolom kanan saat kode ditampilkan.
+  // Nama merchant QRIS di bawah tombol (bila kode tampil).
   if (pakaiQris && qris) {
-    const labelSize = Math.round(Math.min(W * 0.028, H * 0.02));
-    const nameSize = Math.round(Math.min(W * 0.023, H * 0.016));
-    ctx.textAlign = "left";
-    ctx.textBaseline = "alphabetic";
-    ctx.fillStyle = GOLD;
-    ctx.font = `800 ${labelSize}px ${sans}`;
-    ctx.fillText("SCAN QRIS UNTUK BAYAR", colX, ctaY - Math.round(labelSize * 0.55));
-    ctx.fillStyle = "rgba(169,189,183,0.9)";
+    const nameSize = Math.round(Math.min(W * 0.021, H * 0.014));
+    ctx.fillStyle = MUTED;
     ctx.font = `600 ${nameSize}px ${sans}`;
-    const namaBaris = bungkus(ctx, qris.nama.trim() || "PINDAI", colW);
-    ctx.fillText(namaBaris[0] ?? "PINDAI", colX, ctaY + ctaH + Math.round(nameSize * 1.4));
+    ctx.textAlign = "left";
+    ctx.textBaseline = "middle";
+    const nama = (qris.nama.trim() || "PINDAI").toUpperCase();
+    ctx.fillText(nama, colX, ctaBottom + (footBaseline - ctaBottom) / 2);
   }
 
   // Disclaimer.
-  ctx.fillStyle = "rgba(169,189,183,0.85)";
-  ctx.font = `500 ${footSize}px ${sans}`;
+  ctx.fillStyle = "rgba(95,111,106,0.9)";
+  ctx.font = `600 ${footSize}px ${sans}`;
   ctx.textAlign = "center";
   ctx.textBaseline = "alphabetic";
-  ctx.fillText(p.peringatan, W / 2, footY);
+  ctx.fillText(p.peringatan, M + CW / 2, footBaseline);
 }
 
 function unduhCanvas(canvas: HTMLCanvasElement, nama: string) {
@@ -576,7 +788,10 @@ function PosterCard({
             {ukuran.canvas[0]}×{ukuran.canvas[1]} · {ukuran.ratioLabel}
           </p>
         </div>
-        <span className="flex size-8 items-center justify-center rounded-lg bg-[#e7e2d4] p-1 text-[#0f3d3a]">
+        <span
+          className="flex size-8 items-center justify-center rounded-lg p-1"
+          style={{ backgroundColor: rgba(poster.accent, 0.16) }}
+        >
           <UkuranBadge u={ukuran} />
         </span>
       </div>
@@ -695,9 +910,10 @@ export function Promo() {
                 Poster siap dibagikan
               </h1>
               <p className="mt-2 text-sm leading-6 text-[#5c6b66]">
-                Gaya jual langsung dengan logo brankas PINDAI. Tinggal pilih ukuran, unduh PNG,
-                lalu unggah ke Instagram, WhatsApp, atau status — kode QRIS tampil otomatis bila
-                admin sudah mengunggahnya. Tidak ada yang perlu diedit.
+                Kartu krem bersih dengan warna aksen & ilustrasi berbeda tiap tema, ditata di atas
+                latar brankas PINDAI. Tinggal pilih ukuran, unduh PNG, lalu unggah ke Instagram,
+                WhatsApp, atau status — kode QRIS tampil otomatis bila admin sudah mengunggahnya.
+                Tidak ada yang perlu diedit.
               </p>
             </div>
             <div className="w-full sm:w-auto">
