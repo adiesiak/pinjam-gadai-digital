@@ -4,6 +4,7 @@ import { AnnouncementBar } from "@/components/AnnouncementBar";
 import { ErrorPage } from "@/components/ErrorPage";
 import { LoadingScreen } from "@/components/LoadingScreen";
 import { Snowfall } from "@/components/Snowfall";
+import { SenjaGlow } from "@/components/SenjaGlow";
 import { RequireAuth } from "@/components/RequireAuth";
 import { VlyToolbar } from "../vly-toolbar-readonly.tsx";
 import { ConvexAuthProvider } from "@convex-dev/auth/react";
@@ -170,8 +171,10 @@ function ThemeSync() {
     }
   }, [config?.tema]);
 
-  // Tema "Musim Salju" menambahkan lapisan salju layar penuh di atas aplikasi.
-  return config?.tema === "salju" ? <Snowfall /> : null;
+  // Tema beranimasi menambahkan lapisan efek layar penuh di atas aplikasi.
+  if (config?.tema === "salju") return <Snowfall />;
+  if (config?.tema === "senja") return <SenjaGlow />;
+  return null;
 }
 
 function SessionGuardBridge() {

@@ -346,6 +346,66 @@
   --color-slate-950: #141d24;
 }
 
+/* Tema "Senja": palet hangat matahari terbenam (rose + amber) dengan latar krem. */
+:root:where([data-theme="senja"]) {
+  --background: #fdf6f2;
+  --foreground: #331f28;
+  --card: #ffffff;
+  --card-foreground: #331f28;
+  --popover: #ffffff;
+  --popover-foreground: #331f28;
+  --primary: #7c3357;
+  --primary-foreground: #fdf3f7;
+  --secondary: #f6e3e8;
+  --secondary-foreground: #43283a;
+  --muted: #fbf0f2;
+  --muted-foreground: #7c6270;
+  --accent: #f3dde4;
+  --accent-foreground: #43283a;
+  --destructive: #a53a4a;
+  --border: #eed6dd;
+  --input: #dfc2cc;
+  --ring: #b0548a;
+  --gold: #c47a3c;
+  --gold-foreground: #6d3f16;
+  --navy: #4e2740;
+  --chart-1: #7c3357;
+  --chart-2: #c47a3c;
+  --chart-3: #b0548a;
+  --chart-4: #d98fa6;
+  --chart-5: #e7bfcc;
+  --sidebar: #fbf0f2;
+  --sidebar-foreground: #331f28;
+  --sidebar-primary: #7c3357;
+  --sidebar-primary-foreground: #fdf3f7;
+  --sidebar-accent: #f3dde4;
+  --sidebar-accent-foreground: #43283a;
+  --sidebar-border: #eed6dd;
+  --sidebar-ring: #b0548a;
+  --color-sky-50: #fdf3ee;
+  --color-sky-100: #fbe3d6;
+  --color-sky-200: #f7cbb4;
+  --color-sky-300: #f0a988;
+  --color-sky-400: #e8845c;
+  --color-sky-500: #d9663c;
+  --color-sky-600: #bd4f2c;
+  --color-sky-700: #9c3f26;
+  --color-sky-800: #7f3622;
+  --color-sky-900: #682f20;
+  --color-sky-950: #3c1710;
+  --color-slate-50: #fbf6f7;
+  --color-slate-100: #f6ebee;
+  --color-slate-200: #ecd7dc;
+  --color-slate-300: #dbbac3;
+  --color-slate-400: #c296a2;
+  --color-slate-500: #a57785;
+  --color-slate-600: #895d6c;
+  --color-slate-700: #704a58;
+  --color-slate-800: #5b3d48;
+  --color-slate-900: #4c333c;
+  --color-slate-950: #2e1d24;
+}
+
 .dark {
   --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);
@@ -919,6 +979,69 @@
   [data-theme="salju"] .vault-logo,
   [data-theme="salju"] .vault-dial,
   [data-theme="salju"] .salju-logo-img {
+    animation: none;
+  }
+}
+
+/* ===== Tema "Senja" — aurora hangat yang bergeser perlahan di latar belakang =====
+   Hanya terlihat ketika <html data-theme="senja">. Gradien lembut ditepikan
+   (sudut-sudut) agar konten tetap terbaca, dan menghormati prefers-reduced-motion. */
+.senja-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  pointer-events: none;
+  overflow: hidden;
+}
+.senja-glow {
+  position: absolute;
+  inset: -25%;
+  display: block;
+  background-repeat: no-repeat;
+  will-change: transform, opacity;
+  filter: blur(8px);
+}
+.senja-glow--1 {
+  background-image: radial-gradient(42% 38% at 16% 10%, rgba(255, 176, 118, 0.5), transparent 72%),
+    radial-gradient(38% 36% at 84% 18%, rgba(255, 132, 96, 0.4), transparent 72%);
+  animation: senja-drift 26s ease-in-out infinite;
+}
+.senja-glow--2 {
+  background-image: radial-gradient(46% 42% at 80% 90%, rgba(196, 86, 140, 0.42), transparent 72%),
+    radial-gradient(34% 32% at 22% 88%, rgba(150, 92, 170, 0.3), transparent 72%);
+  animation: senja-drift 34s ease-in-out infinite reverse;
+}
+@keyframes senja-drift {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+    opacity: 0.85;
+  }
+  50% {
+    transform: translate3d(3%, -2%, 0) scale(1.08);
+    opacity: 1;
+  }
+}
+[data-theme="senja"] .vault-logo,
+[data-theme="senja"] .salju-logo-img {
+  animation: senja-logo 11s ease-in-out infinite;
+}
+@keyframes senja-logo {
+  0%,
+  100% {
+    transform: translateY(0);
+    filter: drop-shadow(0 2px 8px rgba(196, 86, 140, 0.35));
+  }
+  50% {
+    transform: translateY(-1px);
+    filter: drop-shadow(0 2px 10px rgba(255, 140, 90, 0.5));
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .senja-glow--1,
+  .senja-glow--2,
+  [data-theme="senja"] .vault-logo,
+  [data-theme="senja"] .salju-logo-img {
     animation: none;
   }
 }

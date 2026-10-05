@@ -50,6 +50,15 @@ const TEMPLATES: TemplateInfo[] = [
     latar: "#eef3f7",
     tinta: "#1d2b36",
   },
+  {
+    id: "senja",
+    nama: "Senja",
+    deskripsi:
+      "Palet hangat matahari terbenam (rose & amber) dengan aurora lembut yang bergeser perlahan.",
+    warna: ["#7c3357", "#c47a3c", "#f3dde4"],
+    latar: "#fdf6f2",
+    tinta: "#331f28",
+  },
 ];
 
 export function WebsiteTemplatePanel() {

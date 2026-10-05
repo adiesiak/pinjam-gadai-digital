@@ -151,7 +151,13 @@ export const getConfigAdmin = query({
 /** Simpan konfigurasi — mencatat audit + deteksi perubahan kill switch. */
 export const saveConfig = mutation({
   args: {
-    tema: v.union(v.literal("tinta"), v.literal("pesisir"), v.literal("terakota"), v.literal("salju")),
+    tema: v.union(
+      v.literal("tinta"),
+      v.literal("pesisir"),
+      v.literal("terakota"),
+      v.literal("salju"),
+      v.literal("senja"),
+    ),
     killSwitch: v.boolean(),
     maintenanceMode: v.boolean(),
     persenAdmin: v.number(),
@@ -265,6 +271,7 @@ export const setWebsiteTemplate = mutation({
       v.literal("pesisir"),
       v.literal("terakota"),
       v.literal("salju"),
+      v.literal("senja"),
     ),
   },
   handler: async (ctx, { tema }) => {
