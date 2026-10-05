@@ -903,6 +903,25 @@ function PosterCard({
   );
 }
 
+/** Pita kata berulang untuk kerangka halaman — menyatu dengan tema poster. */
+function PitaKata({
+  teks,
+  className = "",
+  warna = "text-[#e0b64d]/70",
+}: {
+  teks: string;
+  className?: string;
+  warna?: string;
+}) {
+  return (
+    <div className={`overflow-hidden whitespace-nowrap ${className}`} aria-hidden="true">
+      <span className={`text-[11px] font-extrabold uppercase tracking-[0.32em] ${warna}`}>
+        {teks.repeat(8)}
+      </span>
+    </div>
+  );
+}
+
 export function Promo() {
   const [sizeId, setSizeId] = useState<string>("stories");
   const ukuran = UKURAN.find((u) => u.id === sizeId) ?? UKURAN[0];
@@ -934,39 +953,67 @@ export function Promo() {
   );
 
   return (
-    <main className="min-h-screen bg-[#fdfbf7] text-[#17322e] sm:p-6">
+    <main className="min-h-screen bg-[#0a2624] text-[#f7f4ec] sm:p-6">
       <div className="mx-auto max-w-7xl space-y-8">
-        {/* Header */}
-        <header className="flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <span className="flex size-10 items-center justify-center rounded-xl bg-[#0f3d3a] text-sm font-bold text-[#f7f4ec]">
-              P
-            </span>
-            <div>
-              <p className="text-sm font-bold tracking-tight text-[#0f3d3a]">PINDAI</p>
-              <p className="text-[11px] font-medium tracking-[0.12em] text-[#5c6b66]">
-                Poster Siap Pakai
-              </p>
+        {/* Header — tipografi kata, selaras dengan poster */}
+        <header className="overflow-hidden rounded-3xl border border-[#1d4a45] bg-[#0f3d3a] shadow-lg">
+          <PitaKata
+            teks="PINDAI · PINJAM & GADAI DIGITAL · "
+            className="border-b border-[#1d4a45] py-2.5"
+            warna="text-[#e0b64d]/70"
+          />
+          <div className="flex flex-wrap items-center justify-between gap-4 p-5 sm:p-6">
+            <div className="flex items-center gap-4">
+              <span className="flex size-12 items-center justify-center rounded-2xl border border-[#e0b64d]/60 bg-[#0a2624] text-xl font-extrabold text-[#e0b64d]">
+                P
+              </span>
+              <div>
+                <p className="text-2xl font-extrabold tracking-tight text-[#f7f4ec]">PINDAI</p>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#e0b64d]">
+                  Poster berbasis kata
+                </p>
+              </div>
             </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <Button asChild variant="outline" size="sm">
-              <Link to="/">
-                <X className="mr-2 size-4" aria-hidden="true" />
-                Batal
-              </Link>
-            </Button>
-            <Button asChild size="sm">
-              <Link to="/dashboard">
-                <Check className="mr-2 size-4" aria-hidden="true" />
-                Kembali ke Ruang
-              </Link>
-            </Button>
+            <div className="flex flex-col items-start gap-3 sm:items-end">
+              <div className="flex flex-wrap gap-2">
+                {["Pinjam", "Gadai", "Kredit"].map((k) => (
+                  <span
+                    key={k}
+                    className="rounded-full border border-[#e0b64d]/40 bg-[#e0b64d]/10 px-3 py-1 text-xs font-semibold text-[#e0b64d]"
+                  >
+                    {k}
+                  </span>
+                ))}
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  asChild
+                  variant="outline"
+                  size="sm"
+                  className="border-[#e0b64d]/50 bg-transparent text-[#f7f4ec] hover:bg-[#e0b64d]/10 hover:text-[#f7f4ec]"
+                >
+                  <Link to="/">
+                    <X className="mr-2 size-4" aria-hidden="true" />
+                    Batal
+                  </Link>
+                </Button>
+                <Button
+                  asChild
+                  size="sm"
+                  className="bg-[#e0b64d] text-[#0a2624] hover:bg-[#e0b64d]/90"
+                >
+                  <Link to="/dashboard">
+                    <Check className="mr-2 size-4" aria-hidden="true" />
+                    Kembali ke Ruang
+                  </Link>
+                </Button>
+              </div>
+            </div>
           </div>
         </header>
 
         {/* Intro + pemilih ukuran */}
-        <section className="overflow-hidden rounded-3xl border border-[#d9d2c3] bg-white p-5 shadow-sm sm:p-6">
+        <section className="overflow-hidden rounded-3xl border border-[#d9d2c3] bg-[#fbf8f1] p-5 shadow-sm sm:p-6">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div className="max-w-2xl">
               <p className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#9c7b3a]">
@@ -1011,7 +1058,7 @@ export function Promo() {
         </section>
 
         {/* Status QRIS + opsi tampil di poster */}
-        <section className="overflow-hidden rounded-3xl border border-[#d9d2c3] bg-white p-5 shadow-sm sm:p-6">
+        <section className="overflow-hidden rounded-3xl border border-[#d9d2c3] bg-[#fbf8f1] p-5 shadow-sm sm:p-6">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div className="flex items-start gap-3">
               <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-[#0f3d3a] text-[#e0b64d]">
@@ -1063,11 +1110,14 @@ export function Promo() {
 
         {/* Galeri poster */}
         <section className="space-y-4">
-          <div className="flex items-center gap-2">
-            <ImageIcon className="size-3.5 text-[#9c7b3a]" aria-hidden="true" />
-            <h2 className="text-lg font-bold tracking-tight text-[#0f3d3a]">
+          <div className="flex flex-wrap items-center gap-2">
+            <ImageIcon className="size-3.5 text-[#e0b64d]" aria-hidden="true" />
+            <h2 className="text-lg font-bold tracking-tight text-[#f7f4ec]">
               Galeri poster ({POSTER.length})
             </h2>
+            <span className="rounded-full border border-[#e0b64d]/40 bg-[#e0b64d]/10 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#e0b64d]">
+              Kata
+            </span>
           </div>
           <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
             {POSTER.map((p) => (
@@ -1077,7 +1127,7 @@ export function Promo() {
         </section>
 
         {/* Referensi ukuran */}
-        <section className="rounded-3xl border border-[#d9d2c3] bg-white p-5 shadow-sm">
+        <section className="rounded-3xl border border-[#d9d2c3] bg-[#fbf8f1] p-5 shadow-sm">
           <div className="flex items-center gap-2">
             <ImageIcon className="size-3.5 text-[#9c7b3a]" aria-hidden="true" />
             <h2 className="text-lg font-bold tracking-tight text-[#0f3d3a]">
@@ -1116,10 +1166,18 @@ export function Promo() {
           </div>
         </section>
 
-        {/* Footer */}
-        <footer className="pb-4 text-center text-xs text-muted-foreground">
-          Poster PINDAI · ruang penyedia dana. Unggah apa adanya — pastikan angka dan klaim sesuai
-          kebijakan resmi sebelum dipublikasikan.
+        {/* Footer — pita kata penutup */}
+        <footer className="overflow-hidden rounded-3xl border border-[#1d4a45] bg-[#0f3d3a]">
+          <PitaKata
+            teks="PINDAI · PINJAM & GADAI DIGITAL · "
+            className="border-b border-[#1d4a45] py-2.5"
+            warna="text-[#e0b64d]/70"
+          />
+          <p className="px-5 py-5 text-center text-xs leading-6 text-[#9fb4af]">
+            Poster PINDAI · ruang penyedia dana. Semua poster berbasis kata — kalimat sorotan, poin
+            manfaat, dan kata kunci. Unggah apa adanya dan pastikan angka serta klaim sesuai
+            kebijakan resmi sebelum dipublikasikan.
+          </p>
         </footer>
       </div>
     </main>
