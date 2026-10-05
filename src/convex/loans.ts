@@ -1224,12 +1224,19 @@ export const hapusPinjaman = mutation({
       ctx.db.query("lokasiPeringatan").withIndex("by_loan", (q) => q.eq("loanId", loanId)).collect(),
       ctx.db.query("ledger_entries").withIndex("by_akun", (q) => q.eq("akun", `pinjaman:${loanId}`)).first(),
     ]);
-    const hasRelatedRecord =
-      fundings.length > 0 || reminders.length > 0 || waLogs.length > 0 ||
-      locationTrail.length > 0 || locationWarnings.length > 0 || ledger !== null;
-    if (hasRelatedRecord) {
-      throw new Error("Data pinjaman memiliki alokasi, jurnal, pengingat, atau catatan operasional terkait; tidak dihapus agar riwayat tetap utuh.");
+    // Catatan KEUANGAN tetap memblokir: pinjaman yang sudah punya alokasi dana
+    // atau jurnal bukan lagi pengajuan kosong, jadi tidak boleh dihapus.
+    if (fundings.length > 0 || ledger !== null) {
+      throw new Error("Data pinjaman memiliki alokasi atau jurnal terkait; tidak dihapus agar riwayat keuangan tetap utuh.");
     }
+    // Catatan OPERASIONAL (pengingat, log WhatsApp, jejak & peringatan lokasi)
+    // adalah efek samping pengajuan, bukan riwayat keuangan. Untuk pinjaman yang
+    // belum berjalan dan belum disetujui, ikut dihapus bersama pinjamannya
+    // supaya salah input dapat dibersihkan tanpa meninggalkan catatan yatim.
+    for (const row of reminders) await ctx.db.delete(row._id);
+    for (const row of waLogs) await ctx.db.delete(row._id);
+    for (const row of locationTrail) await ctx.db.delete(row._id);
+    for (const row of locationWarnings) await ctx.db.delete(row._id);
 
     await audit(
       ctx,

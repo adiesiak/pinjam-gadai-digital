@@ -458,6 +458,143 @@ describe("plafon pinjaman per nasabah", () => {
     ).rejects.toThrow(/persetujuan tercatat/);
   });
 
+  it("pinjaman kosong tanpa persetujuan dihapus walau ada catatan operasional; alokasi dana tetap memblokir", async () => {
+    const t = convexTest(schema, modules);
+    const { sesi: admin } = await siapkanPengguna(t, "admin", {
+      email: "admin-hapus2@pindai.test",
+      role: "admin",
+    });
+    const { userId } = await siapkanPengguna(t, "rani", {
+      email: "rani-hapus2@pindai.test",
+      role: "peminjam",
+    });
+    const { userId: danaId } = await siapkanPengguna(t, "dana-uji", {
+      email: "dana-uji@pindai.test",
+      role: "dana",
+    });
+
+    const ttd =
+      "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/fMkAAAAASUVORK5CYII=";
+    const now = Date.now();
+
+    // Pengajuan kosong (tanpa `persetujuanSyaratPada`) disertai catatan
+    // operasional: pengingat, log WhatsApp, jejak & peringatan lokasi.
+    const loanId = await t.run(async (ctx) => {
+      const id = await ctx.db.insert("loans", {
+        userId,
+        pokokPinjaman: 1_000_000,
+        tujuan: "Modal usaha kecil",
+        namaLengkap: "Rani Peminjam",
+        namaBank: "BCA",
+        nomorRekening: "1234567890",
+        status: "diajukan",
+        nomorReferensi: "PGD-HAPUS-3",
+        tenorHari: 30,
+        tandaTanganPeminjam: ttd,
+        tandaTanganPada: now,
+      });
+      await ctx.db.insert("pengingat", {
+        loanId: id,
+        tanggal: now,
+        jenis: "h_minus_3",
+        sisaHari: 3,
+        jumlahKewajiban: 1_500_000,
+        waktu: now,
+      });
+      await ctx.db.insert("waLogs", {
+        loanId: id,
+        nomorTujuan: "628123456789",
+        jenis: "pengingat",
+        isiPesan: "Pengingat jatuh tempo",
+        status: "terkirim",
+        waktu: now,
+      });
+      await ctx.db.insert("lokasiJejak", {
+        userId,
+        loanId: id,
+        lat: -6.2,
+        lng: 106.816666,
+        akurasi: 25,
+        waktu: now,
+      });
+      await ctx.db.insert("lokasiPeringatan", {
+        userId,
+        tanda: ["koordinat_identik"],
+        loanId: id,
+        lat: -6.2,
+        lng: 106.816666,
+        jenis: "peringatan",
+        waktu: now,
+      });
+      return id;
+    });
+
+    await expect(
+      admin.mutation(api.loans.hapusPinjaman, {
+        loanId,
+        reason: "Hapus data uji yang salah input total.",
+      }),
+    ).resolves.toMatchObject({ ok: true });
+
+    // Pinjaman DAN seluruh catatan operasionalnya ikut terhapus.
+    const sisa = await t.run(async (ctx) => ({
+      loan: await ctx.db.get(loanId),
+      pengingat: await ctx.db
+        .query("pengingat")
+        .withIndex("by_loan", (q) => q.eq("loanId", loanId))
+        .collect(),
+      waLogs: await ctx.db
+        .query("waLogs")
+        .withIndex("by_loan", (q) => q.eq("loanId", loanId))
+        .collect(),
+      jejak: await ctx.db
+        .query("lokasiJejak")
+        .withIndex("by_loan", (q) => q.eq("loanId", loanId))
+        .collect(),
+      peringatan: await ctx.db
+        .query("lokasiPeringatan")
+        .withIndex("by_loan", (q) => q.eq("loanId", loanId))
+        .collect(),
+    }));
+    expect(sisa.loan).toBeNull();
+    expect(sisa.pengingat).toHaveLength(0);
+    expect(sisa.waLogs).toHaveLength(0);
+    expect(sisa.jejak).toHaveLength(0);
+    expect(sisa.peringatan).toHaveLength(0);
+
+    // Alokasi dana (catatan keuangan) tetap memblokir penghapusan.
+    const loanDialokasikan = await t.run(async (ctx) => {
+      const id = await ctx.db.insert("loans", {
+        userId,
+        pokokPinjaman: 1_000_000,
+        tujuan: "Modal usaha kecil",
+        namaLengkap: "Rani Peminjam",
+        namaBank: "BCA",
+        nomorRekening: "1234567890",
+        status: "diajukan",
+        nomorReferensi: "PGD-HAPUS-4",
+        tenorHari: 30,
+        tandaTanganPeminjam: ttd,
+        tandaTanganPada: now,
+      });
+      await ctx.db.insert("fundings", {
+        loanId: id,
+        danaId,
+        jumlahAlokasi: 1_000_000,
+        imbalHasil: 300_000,
+        status: "dialokasikan",
+        nomorReferensi: "ALOK-HAPUS-1",
+      });
+      return id;
+    });
+    await expect(
+      admin.mutation(api.loans.hapusPinjaman, {
+        loanId: loanDialokasikan,
+        reason: "Mencoba hapus pinjaman yang sudah dialokasikan.",
+      }),
+    ).rejects.toThrow(/alokasi atau jurnal/);
+  });
+
   it("default global di Pengaturan Sistem ikut ter-clamp", async () => {
     const t = convexTest(schema, modules);
     const { sesi: admin } = await siapkanPengguna(t, "admin", {
