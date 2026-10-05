@@ -953,23 +953,23 @@ export function Promo() {
   );
 
   return (
-    <main className="min-h-screen bg-[#0a2624] text-[#f7f4ec] sm:p-6">
+    <main className="min-h-screen bg-[#f4efe4] text-[#17322e] sm:p-6">
       <div className="mx-auto max-w-7xl space-y-8">
-        {/* Header — tipografi kata, selaras dengan poster */}
-        <header className="overflow-hidden rounded-3xl border border-[#1d4a45] bg-[#0f3d3a] shadow-lg">
+        {/* Header — editorial ringan, menyatu dengan kartu krem poster */}
+        <header className="overflow-hidden rounded-3xl border border-[#e7ddc9] bg-[#fffdf8] shadow-sm">
           <PitaKata
             teks="PINDAI · PINJAM & GADAI DIGITAL · "
-            className="border-b border-[#1d4a45] py-2.5"
-            warna="text-[#e0b64d]/70"
+            className="border-b border-[#efe6d4] py-2.5"
+            warna="text-[#0f3d3a]/30"
           />
           <div className="flex flex-wrap items-center justify-between gap-4 p-5 sm:p-6">
             <div className="flex items-center gap-4">
-              <span className="flex size-12 items-center justify-center rounded-2xl border border-[#e0b64d]/60 bg-[#0a2624] text-xl font-extrabold text-[#e0b64d]">
+              <span className="flex size-12 items-center justify-center rounded-2xl bg-[#0f3d3a] text-xl font-extrabold text-[#e0b64d] shadow-sm">
                 P
               </span>
               <div>
-                <p className="text-2xl font-extrabold tracking-tight text-[#f7f4ec]">PINDAI</p>
-                <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#e0b64d]">
+                <p className="text-2xl font-extrabold tracking-tight text-[#0f3d3a]">PINDAI</p>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#9c7b3a]">
                   Poster berbasis kata
                 </p>
               </div>
@@ -979,7 +979,7 @@ export function Promo() {
                 {["Pinjam", "Gadai", "Kredit"].map((k) => (
                   <span
                     key={k}
-                    className="rounded-full border border-[#e0b64d]/40 bg-[#e0b64d]/10 px-3 py-1 text-xs font-semibold text-[#e0b64d]"
+                    className="rounded-full border border-[#0f3d3a]/15 bg-[#0f3d3a]/[0.04] px-3 py-1 text-xs font-semibold text-[#0f3d3a]"
                   >
                     {k}
                   </span>
@@ -990,7 +990,7 @@ export function Promo() {
                   asChild
                   variant="outline"
                   size="sm"
-                  className="border-[#e0b64d]/50 bg-transparent text-[#f7f4ec] hover:bg-[#e0b64d]/10 hover:text-[#f7f4ec]"
+                  className="border-[#e7ddc9] bg-white text-[#0f3d3a] hover:bg-[#faf6ee] hover:text-[#0f3d3a]"
                 >
                   <Link to="/">
                     <X className="mr-2 size-4" aria-hidden="true" />
@@ -1000,7 +1000,7 @@ export function Promo() {
                 <Button
                   asChild
                   size="sm"
-                  className="bg-[#e0b64d] text-[#0a2624] hover:bg-[#e0b64d]/90"
+                  className="bg-[#0f3d3a] text-[#f7f4ec] hover:bg-[#0a2624]"
                 >
                   <Link to="/dashboard">
                     <Check className="mr-2 size-4" aria-hidden="true" />
@@ -1111,11 +1111,11 @@ export function Promo() {
         {/* Galeri poster */}
         <section className="space-y-4">
           <div className="flex flex-wrap items-center gap-2">
-            <ImageIcon className="size-3.5 text-[#e0b64d]" aria-hidden="true" />
-            <h2 className="text-lg font-bold tracking-tight text-[#f7f4ec]">
+            <ImageIcon className="size-3.5 text-[#9c7b3a]" aria-hidden="true" />
+            <h2 className="text-lg font-bold tracking-tight text-[#0f3d3a]">
               Galeri poster ({POSTER.length})
             </h2>
-            <span className="rounded-full border border-[#e0b64d]/40 bg-[#e0b64d]/10 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#e0b64d]">
+            <span className="rounded-full border border-[#0f3d3a]/15 bg-[#0f3d3a]/[0.04] px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#0f3d3a]">
               Kata
             </span>
           </div>
@@ -1167,13 +1167,13 @@ export function Promo() {
         </section>
 
         {/* Footer — pita kata penutup */}
-        <footer className="overflow-hidden rounded-3xl border border-[#1d4a45] bg-[#0f3d3a]">
+        <footer className="overflow-hidden rounded-3xl border border-[#e7ddc9] bg-[#fffdf8]">
           <PitaKata
             teks="PINDAI · PINJAM & GADAI DIGITAL · "
-            className="border-b border-[#1d4a45] py-2.5"
-            warna="text-[#e0b64d]/70"
+            className="border-b border-[#efe6d4] py-2.5"
+            warna="text-[#0f3d3a]/30"
           />
-          <p className="px-5 py-5 text-center text-xs leading-6 text-[#9fb4af]">
+          <p className="px-5 py-5 text-center text-xs leading-6 text-[#5f6f6a]">
             Poster PINDAI · ruang penyedia dana. Semua poster berbasis kata — kalimat sorotan, poin
             manfaat, dan kata kunci. Unggah apa adanya dan pastikan angka serta klaim sesuai
             kebijakan resmi sebelum dipublikasikan.
