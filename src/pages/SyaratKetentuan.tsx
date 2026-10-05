@@ -224,7 +224,7 @@ const PASAL: Pasal[] = [
             aplikasi.
           </Ayat>
           <Ayat>
-            Denda keterlambatan sebesar <strong>0,5% per hari dari pokok</strong>, dibatasi
+            Denda keterlambatan sebesar <strong>1% per hari dari pokok</strong>, dibatasi
             maksimum <strong>15% dari pokok</strong>. Tidak ada masa tenggang: melewati satu hari
             penuh jatuh tempo terhitung satu hari denda.
           </Ayat>
