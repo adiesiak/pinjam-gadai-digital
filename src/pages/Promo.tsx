@@ -1,7 +1,9 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router";
+import { useQuery } from "convex/react";
 
 import { Button } from "@/components/ui/button";
+import { api } from "@/convex/_generated/api";
 import {
   Select,
   SelectContent,
@@ -10,9 +12,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+  AlertTriangle,
   Check,
   Download,
   Image as ImageIcon,
+  Loader2,
+  QrCode,
   Share2,
   Sparkles,
   X,
@@ -154,6 +159,34 @@ const POSTER: Poster[] = [
 ];
 
 // ---------------------------------------------------------------------------
+// Kode QRIS: admin mengunggah gambar QRIS di pengaturan, poster menampilkannya.
+// ---------------------------------------------------------------------------
+type Qris = { img: HTMLImageElement; nama: string };
+
+/**
+ * Muat gambar (mis. QRIS) lewat blob URL agar kanvas tidak ter-taint aturan CORS,
+ * sehingga poster tetap bisa diekspor ke PNG lewat `toDataURL`.
+ */
+async function muatGambar(url: string): Promise<HTMLImageElement | null> {
+  try {
+    const res = await fetch(url, { mode: "cors" });
+    if (!res.ok) return null;
+    const blob = await res.blob();
+    const objUrl = URL.createObjectURL(blob);
+    const img = await new Promise<HTMLImageElement | null>((resolve) => {
+      const el = new Image();
+      el.onload = () => resolve(el);
+      el.onerror = () => resolve(null);
+      el.src = objUrl;
+    });
+    URL.revokeObjectURL(objUrl);
+    return img;
+  } catch {
+    return null;
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Primitif gambar.
 // ---------------------------------------------------------------------------
 function bulat(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
@@ -241,7 +274,12 @@ function gambarBrangkas(ctx: CanvasRenderingContext2D, x: number, y: number, s: 
 // Render poster ke Canvas 2D. Posisi & ukuran huruf diturunkan dari lebar/tinggi
 // kanvas sehingga proporsional di keempat ukuran.
 // ---------------------------------------------------------------------------
-function renderKartu(ctx: CanvasRenderingContext2D, p: Poster, size: Ukuran) {
+function renderKartu(
+  ctx: CanvasRenderingContext2D,
+  p: Poster,
+  size: Ukuran,
+  qris: Qris | null,
+) {
   const W = size.canvas[0];
   const H = size.canvas[1];
   const pad = Math.round(W * 0.075);
@@ -369,16 +407,53 @@ function renderKartu(ctx: CanvasRenderingContext2D, p: Poster, size: Ukuran) {
     y += blokH + Math.round(bFont * 0.35);
   }
 
-  // Tombol CTA emas (kontras tinggi) + disclaimer di bawah.
+  // ===== Blok bawah: kartu QRIS (bila ada) + CTA emas + disclaimer =====
   const ctaH = Math.round(Math.min(W * 0.115, H * 0.092));
   const ctaFont = Math.round(ctaH * 0.42);
-  ctx.font = `800 ${ctaFont}px ${sans}`;
-  const ctaText = `${p.cta}  →`;
-  const ctaW = Math.min(W - pad * 2, ctx.measureText(ctaText).width + ctaH * 1.2);
-  const ctaX = Math.round((W - ctaW) / 2);
   const footSize = Math.round(Math.min(W * 0.027, H * 0.02));
   const footY = H - pad * 0.7;
-  const ctaY = footY - Math.round(footSize * 1.8) - Math.round(H * 0.018) - ctaH;
+  const bandBottom = footY - Math.round(footSize * 1.75);
+
+  const pakaiQris = Boolean(qris?.img);
+  const gap = Math.round(W * 0.03);
+
+  // Kartu QRIS persegi; tingginya dibatasi sisa ruang di atas disclaimer agar
+  // tidak menabrak teks manfaat.
+  let qrSide = pakaiQris ? Math.round(Math.min(W * 0.25, H * 0.155)) : 0;
+  const contentBottom = y + Math.round(W * 0.035);
+  let bandTop = bandBottom - Math.max(qrSide, ctaH);
+  if (bandTop < contentBottom) bandTop = contentBottom;
+  const bandH = Math.max(ctaH, bandBottom - bandTop);
+  if (pakaiQris) qrSide = Math.min(qrSide, bandH);
+
+  const colX = pakaiQris ? pad + qrSide + gap : pad;
+  const colW = Math.max(120, W - pad - colX);
+
+  if (pakaiQris && qris) {
+    // Kartu putih berisi kode QRIS merchant.
+    const cardY = bandTop + Math.round((bandH - qrSide) / 2);
+    ctx.save();
+    ctx.shadowColor = "rgba(0,0,0,0.35)";
+    ctx.shadowBlur = Math.round(W * 0.02);
+    ctx.shadowOffsetY = Math.round(W * 0.006);
+    bulat(ctx, pad, cardY, qrSide, qrSide, qrSide * 0.13);
+    ctx.fillStyle = "#ffffff";
+    ctx.fill();
+    ctx.restore();
+
+    // Quiet zone putih di sekeliling kode agar tetap mudah dipindai.
+    const inner = Math.round(qrSide * 0.1);
+    ctx.drawImage(qris.img, pad + inner, cardY + inner, qrSide - inner * 2, qrSide - inner * 2);
+  }
+
+  // Tombol CTA emas.
+  ctx.font = `800 ${ctaFont}px ${sans}`;
+  const ctaText = `${p.cta}  →`;
+  const ctaW = Math.min(colW, ctx.measureText(ctaText).width + ctaH * 1.15);
+  const ctaX = pakaiQris ? colX : Math.round((W - ctaW) / 2);
+  const ctaY = pakaiQris
+    ? bandTop + Math.round((bandH - ctaH) / 2) + Math.round(ctaH * 0.14)
+    : bandBottom - ctaH;
 
   ctx.shadowColor = "rgba(224,182,77,0.45)";
   ctx.shadowBlur = Math.round(W * 0.03);
@@ -395,8 +470,26 @@ function renderKartu(ctx: CanvasRenderingContext2D, p: Poster, size: Ukuran) {
   ctx.textBaseline = "middle";
   ctx.fillText(ctaText, ctaX + ctaW / 2, ctaY + ctaH / 2 + 1);
 
+  // Label "scan QRIS" + nama merchant di kolom kanan saat kode ditampilkan.
+  if (pakaiQris && qris) {
+    const labelSize = Math.round(Math.min(W * 0.028, H * 0.02));
+    const nameSize = Math.round(Math.min(W * 0.023, H * 0.016));
+    ctx.textAlign = "left";
+    ctx.textBaseline = "alphabetic";
+    ctx.fillStyle = GOLD;
+    ctx.font = `800 ${labelSize}px ${sans}`;
+    ctx.fillText("SCAN QRIS UNTUK BAYAR", colX, ctaY - Math.round(labelSize * 0.55));
+    ctx.fillStyle = "rgba(169,189,183,0.9)";
+    ctx.font = `600 ${nameSize}px ${sans}`;
+    const namaBaris = bungkus(ctx, qris.nama.trim() || "PINDAI", colW);
+    ctx.fillText(namaBaris[0] ?? "PINDAI", colX, ctaY + ctaH + Math.round(nameSize * 1.4));
+  }
+
+  // Disclaimer.
   ctx.fillStyle = "rgba(169,189,183,0.85)";
   ctx.font = `500 ${footSize}px ${sans}`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "alphabetic";
   ctx.fillText(p.peringatan, W / 2, footY);
 }
 
@@ -451,7 +544,15 @@ async function bagikanPoster(canvas: HTMLCanvasElement, p: Poster, size: Ukuran)
 }
 
 /** Satu poster siap pakai: kanvas + aksi unduh/bagikan. */
-function PosterCard({ poster, ukuran }: { poster: Poster; ukuran: Ukuran }) {
+function PosterCard({
+  poster,
+  ukuran,
+  qris,
+}: {
+  poster: Poster;
+  ukuran: Ukuran;
+  qris: Qris | null;
+}) {
   const ref = useRef<HTMLCanvasElement | null>(null);
 
   useEffect(() => {
@@ -461,8 +562,8 @@ function PosterCard({ poster, ukuran }: { poster: Poster; ukuran: Ukuran }) {
     canvas.height = ukuran.canvas[1];
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
-    renderKartu(ctx, poster, ukuran);
-  }, [poster, ukuran]);
+    renderKartu(ctx, poster, ukuran, qris);
+  }, [poster, ukuran, qris]);
 
   const namaBerkas = `pindai-${poster.id}-${ukuran.id}.png`;
 
@@ -519,6 +620,37 @@ export function Promo() {
   const [sizeId, setSizeId] = useState<string>("stories");
   const ukuran = UKURAN.find((u) => u.id === sizeId) ?? UKURAN[0];
 
+  // QRIS merchant berasal dari pengaturan admin — poster menampilkan kode asli.
+  const instructions = useQuery(api.system.getPaymentInstructions);
+  const qrisUrl = instructions?.qrisUrl ?? null;
+  const namaMerchant = instructions?.namaMerchantQris ?? "PINDAI";
+  const [qrisImg, setQrisImg] = useState<HTMLImageElement | null>(null);
+  const [qrisGagal, setQrisGagal] = useState(false);
+  const [sertakanQris, setSertakanQris] = useState(true);
+
+  useEffect(() => {
+    let batal = false;
+    setQrisGagal(false);
+    if (!qrisUrl) {
+      setQrisImg(null);
+      return;
+    }
+    void (async () => {
+      const img = await muatGambar(qrisUrl);
+      if (batal) return;
+      setQrisImg(img);
+      setQrisGagal(img === null);
+    })();
+    return () => {
+      batal = true;
+    };
+  }, [qrisUrl]);
+
+  const qris = useMemo<Qris | null>(
+    () => (sertakanQris && qrisImg ? { img: qrisImg, nama: namaMerchant } : null),
+    [sertakanQris, qrisImg, namaMerchant],
+  );
+
   return (
     <main className="min-h-screen bg-[#fdfbf7] text-[#17322e] sm:p-6">
       <div className="mx-auto max-w-7xl space-y-8">
@@ -564,7 +696,8 @@ export function Promo() {
               </h1>
               <p className="mt-2 text-sm leading-6 text-[#5c6b66]">
                 Gaya jual langsung dengan logo brankas PINDAI. Tinggal pilih ukuran, unduh PNG,
-                lalu unggah ke Instagram, WhatsApp, atau status — tidak ada yang perlu diedit.
+                lalu unggah ke Instagram, WhatsApp, atau status — kode QRIS tampil otomatis bila
+                admin sudah mengunggahnya. Tidak ada yang perlu diedit.
               </p>
             </div>
             <div className="w-full sm:w-auto">
@@ -593,6 +726,57 @@ export function Promo() {
           </div>
         </section>
 
+        {/* Status QRIS + opsi tampil di poster */}
+        <section className="overflow-hidden rounded-3xl border border-[#d9d2c3] bg-white p-5 shadow-sm sm:p-6">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div className="flex items-start gap-3">
+              <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-[#0f3d3a] text-[#e0b64d]">
+                <QrCode className="size-5" aria-hidden="true" />
+              </span>
+              <div className="max-w-2xl">
+                <p className="text-sm font-bold tracking-tight text-[#0f3d3a]">
+                  Bayar via QRIS di poster
+                </p>
+                {instructions === undefined ? (
+                  <p className="mt-1 flex items-center gap-1.5 text-sm leading-6 text-[#5c6b66]">
+                    <Loader2 className="size-3.5 animate-spin" aria-hidden="true" /> Memuat kode
+                    QRIS merchant…
+                  </p>
+                ) : (
+                  <p className="mt-1 text-sm leading-6 text-[#5c6b66]">
+                    {qrisUrl && qrisImg
+                      ? `Kode QRIS merchant ${namaMerchant} tampil di setiap poster agar calon nasabah bisa langsung memindai dan membayar.`
+                      : "QRIS belum siap — poster tampil tanpa kode QRIS."}
+                  </p>
+                )}
+                {qrisUrl && qrisGagal && (
+                  <p className="mt-2 flex items-center gap-1.5 text-xs font-medium text-amber-700">
+                    <AlertTriangle className="size-3.5" aria-hidden="true" /> Kode QRIS gagal dimuat.
+                    Muat ulang halaman untuk mencoba lagi.
+                  </p>
+                )}
+                {instructions !== undefined && !qrisUrl && (
+                  <p className="mt-2 flex items-center gap-1.5 text-xs font-medium text-amber-700">
+                    <AlertTriangle className="size-3.5" aria-hidden="true" /> Unggah gambar QRIS di
+                    Pengaturan admin agar kode muncul di poster.
+                  </p>
+                )}
+              </div>
+            </div>
+            {qrisUrl && (
+              <label className="flex cursor-pointer items-center gap-2 text-sm font-medium text-[#0f3d3a]">
+                <input
+                  type="checkbox"
+                  className="size-4 accent-[#0f3d3a]"
+                  checked={sertakanQris}
+                  onChange={(e) => setSertakanQris(e.target.checked)}
+                />
+                Sertakan QRIS
+              </label>
+            )}
+          </div>
+        </section>
+
         {/* Galeri poster */}
         <section className="space-y-4">
           <div className="flex items-center gap-2">
@@ -603,7 +787,7 @@ export function Promo() {
           </div>
           <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
             {POSTER.map((p) => (
-              <PosterCard key={p.id} poster={p} ukuran={ukuran} />
+              <PosterCard key={p.id} poster={p} ukuran={ukuran} qris={qris} />
             ))}
           </div>
         </section>
