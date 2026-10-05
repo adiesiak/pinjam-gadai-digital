@@ -41,6 +41,7 @@ import {
 import { bagiImbalHasil } from "../lib/bagiHasil";
 import { formatRupiah, type Rupiah } from "../lib/money";
 import { COLLATERAL_CATEGORIES } from "../lib/pawn";
+import { CONTRACT_TERMS_VERSION } from "../lib/contract";
 import { akunDompetDana, appendJournal } from "./ledger";
 import { getConfig, audit } from "./system";
 import { requireGerbangLokasi } from "./lokasi";
@@ -267,6 +268,12 @@ export const createLoanApplication = mutation({
     /** Tanda tangan digital peminjam (canvas → data URL PNG) — WAJIB. */
     tandaTangan: v.string(),
     /**
+     * Persetujuan Syarat & Ketentuan saat MENGIRIM pengajuan — WAJIB `true`.
+     * Server mencatat waktunya beserta `CONTRACT_TERMS_VERSION` yang berlaku,
+     * supaya persetujuan peminjam punya jejak audit (bukan hanya di UI).
+     */
+    persetujuanSyarat: v.literal(true),
+    /**
      * Tenor pinjaman dalam hari (skema 1 jt / 30 hari) — divalidasi server
      * terhadap opsi resmi. Diabaikan bila `tenorBulan` disertakan.
      */
@@ -441,7 +448,17 @@ export const createLoanApplication = mutation({
       lokasiAjukan: { ...lok, waktu: now },
       tandaTanganPeminjam: tandaTangan,
       tandaTanganPada: now,
+      persetujuanPengajuanPada: now,
+      persetujuanPengajuanVersi: CONTRACT_TERMS_VERSION,
     });
+    await audit(
+      ctx,
+      userId,
+      user.email ?? user.name ?? "peminjam",
+      "persetujuan_pengajuan",
+      nomorReferensi,
+      `Peminjam menyetujui Syarat & Ketentuan ${CONTRACT_TERMS_VERSION} saat mengirim pengajuan.`,
+    );
     return { appId: loanId, nomorReferensi };
   },
 });

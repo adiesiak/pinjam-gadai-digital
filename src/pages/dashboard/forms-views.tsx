@@ -477,6 +477,8 @@ export function LoanForm({ onCreated }: { onCreated: (ref: string) => void }) {
         nomorRekening,
         catatanPeminjam: catatanPeminjam.trim() ? catatanPeminjam : undefined,
         tandaTangan: ttdDataUrl,
+        // Persetujuan Syarat & Ketentuan dicatat server bersama versinya.
+        persetujuanSyarat: true,
         nik: nik.replace(/\s+/g, ""),
         nomorWhatsApp: nomorWhatsApp.replace(/[\s+-]/g, ""),
         penghasilanBulanan: penghasilan,

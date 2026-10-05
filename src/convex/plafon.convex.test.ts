@@ -8,6 +8,9 @@
  *
  * Tes gerbang pelunasan menanam pinjaman didanai langsung ke DB agar tidak
  * bergantung pada storageGetMetadata yang belum didukung convexTest untuk KYC.
+ * Persetujuan Syarat & Ketentuan saat pengajuan tidak dapat diuji lewat
+ * `createLoanApplication` karena keterbatasan yang sama; yang diuji di sini
+ * adalah efeknya pada penghapusan (persetujuan pengajuan BUKAN akad resmi).
  *
  * Menjalankan: bunx vitest run src/convex/plafon.convex.test.ts
  */
@@ -21,6 +24,7 @@ import { siapkanPengguna, type KonteksUji, type SesiUji } from "./test.helpers";
 import { modules } from "./test.setup";
 import { PLAFON_BATAS, PLAFON_DEFAULT } from "../lib/plafon";
 import { DEFAULT_CONFIG } from "../lib/system-config";
+import { CONTRACT_TERMS_VERSION } from "../lib/contract";
 
 type Sesi = SesiUji;
 type Tx = KonteksUji;
@@ -87,6 +91,7 @@ async function ajukanTunai(
     dokSelfieKtpId: kyc.selfie,
     dokSlipGajiId: kyc.slip,
     lokasiAjukan: { ...TITIK, waktu: Date.now() },
+    persetujuanSyarat: true,
     // Tanda tangan wajib pada pengajuan pinjaman.
     tandaTangan:
       "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/fMkAAAAASUVORK5CYII=",
@@ -168,6 +173,45 @@ describe("plafon pinjaman per nasabah", () => {
     await expect(ajukanKredit(peminjam, 2_000_000, 0, 12)).rejects.toThrow(
       /Tenor kredit barang baru harus 1 \/ 3 \/ 6 bulan/,
     );
+  });
+
+  it("persetujuan pengajuan tidak menghalangi penghapusan; akad resmi menghalangi", async () => {
+    const t = convexTest(schema, modules);
+    const { sesi: admin } = await siapkanPengguna(t, "admin-ttd", {
+      email: "admin-ttd@pindai.test",
+      role: "admin",
+    });
+    const { userId } = await siapkanPengguna(t, "rani-ttd", {
+      email: "rani-ttd@pindai.test",
+      role: "peminjam",
+    });
+    const now = Date.now();
+
+    // Persetujuan SAAT MENGAJUKAN (`persetujuanPengajuan*`) adalah catatan
+    // pengiriman, BUKAN akad resmi — pengajuan yang belum berjalan tetap dapat
+    // dihapus walau peminjam sudah mencentang Syarat & Ketentuan.
+    const loanPengajuan = await t.run((ctx) =>
+      ctx.db.insert("loans", {
+        userId,
+        pokokPinjaman: 1_000_000,
+        tujuan: "Modal usaha kecil",
+        namaLengkap: "Rani Peminjam",
+        namaBank: "BCA",
+        nomorRekening: "1234567890",
+        status: "diajukan",
+        nomorReferensi: "PGD-TTD-1",
+        tenorHari: 30,
+        persetujuanPengajuanPada: now,
+        persetujuanPengajuanVersi: CONTRACT_TERMS_VERSION,
+      }),
+    );
+    await expect(
+      admin.mutation(api.loans.hapusPinjaman, {
+        loanId: loanPengajuan,
+        reason: "Data uji salah input, dihapus admin.",
+      }),
+    ).resolves.toMatchObject({ ok: true });
+    expect(await t.run((ctx) => ctx.db.get(loanPengajuan))).toBeNull();
   });
 
   it("menolak pelunasan tanpa settlement; status dan plafon tidak berubah", async () => {

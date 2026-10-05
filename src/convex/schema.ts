@@ -216,6 +216,15 @@ const schema = defineSchema(
       persetujuanSyaratPada: v.optional(v.number()),
       /** Versi syarat dan ketentuan yang disetujui. */
       persetujuanSyaratVersi: v.optional(v.string()),
+      /**
+       * Waktu Peminjam mencentang persetujuan Syarat & Ketentuan saat MENGIRIM
+       * pengajuan — sebelum admin memfasilitasi tanda tangan akad. Berbeda dari
+       * `persetujuanSyaratPada` (akad resmi): pengajuan yang belum berjalan tetap
+       * dapat dihapus walau kolom ini terisi.
+       */
+      persetujuanPengajuanPada: v.optional(v.number()),
+      /** Versi Syarat & Ketentuan yang disetujui saat mengirim pengajuan. */
+      persetujuanPengajuanVersi: v.optional(v.string()),
       /** Lokasi real (GPS) saat pengajuan dikirim — wajib ada. */
       lokasiAjukan: v.optional(
         v.object({
