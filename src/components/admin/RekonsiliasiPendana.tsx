@@ -92,7 +92,7 @@ function Baris({ r }: { r: BarisRekonsiliasi }) {
   const meta = META_STATUS[r.status];
   return (
     <TableRow>
-      <TableCell className="min-w-[200px] align-top">
+      <TableCell className="align-top">
         <p className="font-medium text-slate-900">{r.nama}</p>
         {r.email !== null && (
           <p className="mt-0.5 text-xs text-muted-foreground">{r.email}</p>
@@ -103,16 +103,16 @@ function Baris({ r }: { r: BarisRekonsiliasi }) {
           </p>
         )}
       </TableCell>
-      <TableCell className="whitespace-nowrap align-top">
+      <TableCell className="align-top">
         <NilaiBanding panel={r.panel?.jumlahPinjaman ?? null} rekap={r.rekap?.jumlahPinjaman ?? null} rupiah={false} />
       </TableCell>
-      <TableCell className="whitespace-nowrap align-top">
+      <TableCell className="align-top">
         <NilaiBanding panel={r.panel?.saldoBerjalan ?? null} rekap={r.rekap?.saldoBerjalan ?? null} />
       </TableCell>
-      <TableCell className="whitespace-nowrap align-top">
+      <TableCell className="align-top">
         <NilaiBanding panel={r.panel?.totalBunga ?? null} rekap={r.rekap?.totalBunga ?? null} />
       </TableCell>
-      <TableCell className="whitespace-nowrap align-top">
+      <TableCell className="align-top">
         <NilaiBanding
           panel={r.panel?.keuntunganPendana ?? null}
           rekap={r.rekap?.keuntunganPendana ?? null}
@@ -122,6 +122,48 @@ function Baris({ r }: { r: BarisRekonsiliasi }) {
         <Badge className={meta.className}>{meta.label}</Badge>
       </TableCell>
     </TableRow>
+  );
+}
+
+/**
+ * Satu pendana sebagai kartu untuk layar sempit — empat metrik dibaca tanpa
+ * digeser mendatar, mengikuti pola kartu pada /penyedia-dana.
+ */
+function KartuRekonsiliasi({ r }: { r: BarisRekonsiliasi }) {
+  const meta = META_STATUS[r.status];
+  const metrik = [
+    ["Jumlah pinjaman", <NilaiBanding panel={r.panel?.jumlahPinjaman ?? null} rekap={r.rekap?.jumlahPinjaman ?? null} rupiah={false} key="jp" />],
+    ["Saldo berjalan", <NilaiBanding panel={r.panel?.saldoBerjalan ?? null} rekap={r.rekap?.saldoBerjalan ?? null} key="sb" />],
+    ["Bunga", <NilaiBanding panel={r.panel?.totalBunga ?? null} rekap={r.rekap?.totalBunga ?? null} key="bg" />],
+    ["Keuntungan pendana", <NilaiBanding panel={r.panel?.keuntunganPendana ?? null} rekap={r.rekap?.keuntunganPendana ?? null} key="kp" />],
+  ] as const;
+  return (
+    <li className="rounded-2xl border border-slate-200 p-4">
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <p className="break-words font-medium text-slate-900">{r.nama}</p>
+          {r.email !== null && (
+            <p className="mt-0.5 break-words text-xs text-muted-foreground">{r.email}</p>
+          )}
+        </div>
+        <Badge className={meta.className}>{meta.label}</Badge>
+      </div>
+      {r.selisih.length > 0 && (
+        <p className="mt-1 text-[11px] text-amber-800">
+          Beda: {r.selisih.map((k) => LABEL_METRIK[k]).join(", ")}
+        </p>
+      )}
+      <dl className="mt-3 grid grid-cols-2 gap-2">
+        {metrik.map(([label, nilai]) => (
+          <div key={label} className="min-w-0 rounded-xl border border-slate-100 bg-slate-50/60 px-3 py-2">
+            <dt className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400">
+              {label}
+            </dt>
+            <dd className="mt-0.5 break-words text-xs font-medium text-slate-900">{nilai}</dd>
+          </div>
+        ))}
+      </dl>
+    </li>
   );
 }
 
@@ -219,34 +261,44 @@ export function RekonsiliasiPendana() {
           Belum ada posisi pendana pada kedua permukaan untuk dibandingkan.
         </p>
       ) : (
-        <div className="mt-3 overflow-x-auto rounded-2xl border border-slate-200">
-          <Table>
-            <TableHeader>
-              <TableRow className="bg-slate-50/80">
-                {[
-                  "Penyedia dana",
-                  "Jumlah pinjaman",
-                  "Saldo berjalan",
-                  "Bunga",
-                  "Keuntungan pendana",
-                  "Status",
-                ].map((kolom) => (
-                  <TableHead
-                    key={kolom}
-                    className="whitespace-nowrap text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500"
-                  >
-                    {kolom}
-                  </TableHead>
+        <>
+          {/* Layar sempit: kartu per pendana — tanpa geser mendatar. */}
+          <ul className="mt-3 space-y-3 md:hidden">
+            {rows.map((r) => (
+              <KartuRekonsiliasi key={`${r.nama}-${r.email ?? ""}`} r={r} />
+            ))}
+          </ul>
+
+          {/* Layar lebar: tabel yang membungkus teks — tanpa geser mendatar. */}
+          <div className="mt-3 hidden overflow-hidden rounded-2xl border border-slate-200 md:block">
+            <Table className="w-full [&_th]:whitespace-normal [&_td]:whitespace-normal [&_td]:break-words">
+              <TableHeader>
+                <TableRow className="bg-slate-50/80">
+                  {[
+                    "Penyedia dana",
+                    "Jumlah pinjaman",
+                    "Saldo berjalan",
+                    "Bunga",
+                    "Keuntungan pendana",
+                    "Status",
+                  ].map((kolom) => (
+                    <TableHead
+                      key={kolom}
+                      className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500"
+                    >
+                      {kolom}
+                    </TableHead>
+                  ))}
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {rows.map((r) => (
+                  <Baris key={`${r.nama}-${r.email ?? ""}`} r={r} />
                 ))}
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {rows.map((r) => (
-                <Baris key={`${r.nama}-${r.email ?? ""}`} r={r} />
-              ))}
-            </TableBody>
-          </Table>
-        </div>
+              </TableBody>
+            </Table>
+          </div>
+        </>
       )}
 
       <p className="mt-2 text-[11px] leading-5 text-muted-foreground">
