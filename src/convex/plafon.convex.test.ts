@@ -386,6 +386,78 @@ describe("plafon pinjaman per nasabah", () => {
     expect(entri?.detail ?? "").toContain("Test audit");
   });
 
+  it("pengajuan baru bertanda tangan masih dapat dihapus admin; kontrak yang sudah disetujui tidak", async () => {
+    const t = convexTest(schema, modules);
+    const { sesi: admin } = await siapkanPengguna(t, "admin", {
+      email: "admin-hapus@pindai.test",
+      role: "admin",
+    });
+    const { userId } = await siapkanPengguna(t, "rani", {
+      email: "rani-hapus@pindai.test",
+      role: "peminjam",
+    });
+
+    const ttd =
+      "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/fMkAAAAASUVORK5CYII=";
+    const now = Date.now();
+
+    // convexTest belum mendukung syscall storageGetMetadata yang dipakai
+    // createLoanApplication untuk KYC, jadi pengajuan ditanam langsung ke DB
+    // (pola yang sama dengan tes gerbang pelunasan di berkas ini).
+    // Dokumen storage sengaja dibiarkan kosong agar pembersihan storage di
+    // hapusPinjaman tidak memicu syscall yang belum didukung.
+    const loanBaru = await t.run(async (ctx) =>
+      ctx.db.insert("loans", {
+        userId,
+        pokokPinjaman: 1_000_000,
+        tujuan: "Modal usaha kecil",
+        namaLengkap: "Rani Peminjam",
+        namaBank: "BCA",
+        nomorRekening: "1234567890",
+        status: "diajukan",
+        nomorReferensi: "PGD-HAPUS-1",
+        tenorHari: 30,
+        // Tanda tangan formulir — sejak alur submit baru, semua pengajuan
+        // baru menyimpan ini; TIDAK boleh memblokir penghapusan.
+        tandaTanganPeminjam: ttd,
+        tandaTanganPada: now,
+      }),
+    );
+
+    await expect(
+      admin.mutation(api.loans.hapusPinjaman, {
+        loanId: loanBaru,
+        reason: "Data uji salah input, dihapus admin.",
+      }),
+    ).resolves.toMatchObject({ ok: true });
+    const terhapus = await t.run((ctx) => ctx.db.get(loanBaru));
+    expect(terhapus).toBeNull();
+
+    // Kontrak yang sudah disetujui (persetujuanSyaratPada) tetap dilindungi.
+    const loanKontrak = await t.run(async (ctx) =>
+      ctx.db.insert("loans", {
+        userId,
+        pokokPinjaman: 1_000_000,
+        tujuan: "Modal usaha kecil",
+        namaLengkap: "Rani Peminjam",
+        namaBank: "BCA",
+        nomorRekening: "1234567890",
+        status: "diajukan",
+        nomorReferensi: "PGD-HAPUS-2",
+        tenorHari: 30,
+        tandaTanganPeminjam: ttd,
+        tandaTanganPada: now,
+        persetujuanSyaratPada: now,
+      }),
+    );
+    await expect(
+      admin.mutation(api.loans.hapusPinjaman, {
+        loanId: loanKontrak,
+        reason: "Mencoba hapus kontrak bertanda tangan.",
+      }),
+    ).rejects.toThrow(/persetujuan tercatat/);
+  });
+
   it("default global di Pengaturan Sistem ikut ter-clamp", async () => {
     const t = convexTest(schema, modules);
     const { sesi: admin } = await siapkanPengguna(t, "admin", {

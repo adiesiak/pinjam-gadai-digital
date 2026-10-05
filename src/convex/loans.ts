@@ -1,6 +1,5 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
 import {
-  internalAction,
   internalMutation,
   mutation,
   query,
@@ -1203,10 +1202,16 @@ export const hapusPinjaman = mutation({
     }
     const loan = await ctx.db.get(loanId);
     if (loan === null) throw new Error("Data pinjaman tidak ditemukan.");
+    // Penghapusan hanya untuk pengajuan yang belum berjalan. Tanda tangan di
+    // formulir pengajuan BUKAN persetujuan kontrak — sejak alur submit baru,
+    // setiap pengajuan baru menyimpan `tandaTanganPeminjam` saat dikirim, jadi
+    // memakainya sebagai pemblokir membuat semua pengajuan baru tak bisa
+    // dihapus. Persetujuan kontrak yang sesungguhnya ditandai oleh
+    // `persetujuanSyaratPada` (lihat admin.simpanTandaTangan).
     if (
       loan.status === "didanai" || loan.status === "lunas" ||
       loan.didanaiPada !== undefined || loan.lunasPada !== undefined ||
-      loan.persetujuanSyaratPada !== undefined || loan.tandaTanganPeminjam !== undefined
+      loan.persetujuanSyaratPada !== undefined
     ) {
       throw new Error("Pinjaman ini sudah berjalan, lunas, atau memiliki persetujuan tercatat; tidak dapat dihapus.");
     }
