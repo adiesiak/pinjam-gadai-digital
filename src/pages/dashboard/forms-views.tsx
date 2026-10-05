@@ -1,9 +1,17 @@
 import { useMutation, useQuery } from "convex/react";
-import { ArrowRight, Camera, Loader2, MapPin } from "lucide-react";
+import { ArrowRight, Camera, Loader2, MapPin, ShieldCheck, Upload } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { Link } from "react-router";
 import SignaturePad from "signature_pad";
 
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -17,6 +25,7 @@ import { Slider } from "@/components/ui/slider";
 import { Textarea } from "@/components/ui/textarea";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
+import { CONTRACT_TERMS_VERSION } from "@/lib/contract";
 import { KYC_FILES, MAX_FILE_BYTES, validateKycInput, type KycFileKey } from "@/lib/kyc";
 import {
   BULANAN_LIMITS,
@@ -130,6 +139,11 @@ export function LoanForm({ onCreated }: { onCreated: (ref: string) => void }) {
   const cameraVideoRef = useRef<HTMLVideoElement | null>(null);
   const cameraStreamRef = useRef<MediaStream | null>(null);
   const cameraRequestRef = useRef(0);
+  // Persetujuan Syarat & Ketentuan saat mengirim formulir.
+  const [setujuOpen, setSetujuOpen] = useState(false);
+  const [setujuCentang, setSetujuCentang] = useState(false);
+  // Unggah bukti penghasilan dari galeri/berkas, bukan hanya kamera.
+  const slipInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     const video = cameraVideoRef.current;
@@ -418,25 +432,40 @@ export function LoanForm({ onCreated }: { onCreated: (ref: string) => void }) {
     if (kycError) {
       setError(kycError);
       return;
-    }
-    if (!dok.ktp.id || !dok.selfie.id || !dok.slip.id) {
-      setError("Ambil foto KTP, selfie sambil memegang KTP, dan bukti penghasilan.");
+    }    if (!dok.ktp.id || !dok.selfie.id || !dok.slip.id) {
+      setError(
+        "Lengkapi foto KTP, selfie sambil memegang KTP, dan bukti penghasilan (kamera atau berkas).",
+      );
       return;
     }
     if (lokasi === null) {
       setError("Lokasi Anda belum tercatat. Izinkan akses lokasi, lalu pilih 'Ambil lokasi'.");
       return;
     }
-    // Tanda tangan wajib — pengajuan tidak dikirim tanpa gambar tanda tangan.
+    // Tanda tangan wajib — pengajuan tidak diteruskan tanpa gambar tanda tangan.
     const pad = padRef.current;
     if (pad === null || pad.isEmpty()) {
       setError("Tanda tangan wajib: bubuhkan tanda tangan pada area tanda tangan sebelum mengirim pengajuan.");
       return;
     }
 
+    // Semua validasi lolos — minta persetujuan Syarat & Ketentuan dulu.
+    setSetujuCentang(false);
+    setSetujuOpen(true);
+  };
+
+  /** Kirim pengajuan setelah pengguna mencentang Syarat & Ketentuan. */
+  const kirimPengajuan = async () => {
+    const pad = padRef.current;
+    const dokKtpId = dok.ktp.id;
+    const dokSelfieId = dok.selfie.id;
+    const dokSlipId = dok.slip.id;
+    // Jaga-jaga: jangan kirim bila dokumen/lokasi hilang antara validasi dan klik setuju.
+    if (pad === null || !dokKtpId || !dokSelfieId || !dokSlipId || lokasi === null) return;
     setSubmitting(true);
     try {
       const ttdDataUrl = pad.toDataURL("image/png");
+
       const result = await createLoan({
         pokokPinjaman: pokok,
         // tenorHari tetap dikirim (diabaikan server) saat skema bulanan aktif.
@@ -452,9 +481,9 @@ export function LoanForm({ onCreated }: { onCreated: (ref: string) => void }) {
         nomorWhatsApp: nomorWhatsApp.replace(/[\s+-]/g, ""),
         penghasilanBulanan: penghasilan,
         sumberPenghasilan,
-        dokKtpId: dok.ktp.id,
-        dokSelfieKtpId: dok.selfie.id,
-        dokSlipGajiId: dok.slip.id,
+        dokKtpId,
+        dokSelfieKtpId: dokSelfieId,
+        dokSlipGajiId: dokSlipId,
         lokasiAjukan: lokasi,
       });
       onCreated(result.nomorReferensi);
@@ -465,7 +494,10 @@ export function LoanForm({ onCreated }: { onCreated: (ref: string) => void }) {
       setCatatanPeminjam("");
       padRef.current?.clear();
       setTtdKosong(true);
+      setSetujuOpen(false);
+      setSetujuCentang(false);
     } catch (err) {
+      setSetujuOpen(false);
       setError(err instanceof Error ? err.message : "Pengajuan gagal dikirim. Silakan coba lagi.");
     } finally {
       setSubmitting(false);
@@ -771,21 +803,52 @@ export function LoanForm({ onCreated }: { onCreated: (ref: string) => void }) {
                         ? "Foto sedang dikirim…"
                         : dok[key].id
                           ? "Foto tersimpan di aplikasi."
-                          : "Ambil foto dengan kamera. Ukuran maksimal 5 MB."}
+                          : key === "slip"
+                            ? "Ambil dengan kamera atau pilih berkas dari galeri. Ukuran maksimal 5 MB."
+                            : "Ambil foto dengan kamera. Ukuran maksimal 5 MB."}
                     </p>
                   </div>
                   {!kameraAktif && (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      aria-label={`${dok[key].id ? "Ambil ulang" : "Buka kamera untuk"} ${label}`}
-                      disabled={submitting || dok[key].busy || cameraLoading || cameraDoc !== null}
-                      onClick={() => void startCamera(key, label)}
-                    >
-                      {dok[key].busy ? <Loader2 className="size-3.5 animate-spin" /> : <Camera className="size-3.5" />}
-                      {dok[key].busy ? "Mengirim foto…" : dok[key].id ? "Ambil ulang" : "Buka kamera"}
-                    </Button>
+                    <div className="flex shrink-0 flex-wrap justify-end gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        aria-label={`${dok[key].id ? "Ambil ulang" : "Buka kamera untuk"} ${label}`}
+                        disabled={submitting || dok[key].busy || cameraLoading || cameraDoc !== null}
+                        onClick={() => void startCamera(key, label)}
+                      >
+                        {dok[key].busy ? <Loader2 className="size-3.5 animate-spin" /> : <Camera className="size-3.5" />}
+                        {dok[key].busy ? "Mengirim foto…" : dok[key].id ? "Ambil ulang" : "Buka kamera"}
+                      </Button>
+                      {key === "slip" && (
+                        <>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            aria-label={`Pilih berkas ${label} dari galeri`}
+                            disabled={submitting || dok[key].busy || cameraLoading || cameraDoc !== null}
+                            onClick={() => slipInputRef.current?.click()}
+                          >
+                            <Upload className="size-3.5" />
+                            Pilih berkas
+                          </Button>
+                          <input
+                            ref={slipInputRef}
+                            type="file"
+                            accept="image/*"
+                            className="sr-only"
+                            tabIndex={-1}
+                            onChange={(event) => {
+                              const file = event.target.files?.[0];
+                              event.target.value = "";
+                              void handleFile("slip", label, file);
+                            }}
+                          />
+                        </>
+                      )}
+                    </div>
                   )}
                 </div>
                 {kameraAktif && (
@@ -915,6 +978,82 @@ export function LoanForm({ onCreated }: { onCreated: (ref: string) => void }) {
           {error}
         </p>
       )}
+
+      {/* Pop-up Syarat & Ketentuan — wajib dicentang sebelum pengajuan dikirim. */}
+      <Dialog
+        open={setujuOpen}
+        onOpenChange={(open) => {
+          if (submitting) return;
+          setSetujuOpen(open);
+        }}
+      >
+        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ShieldCheck className="size-4 text-primary" aria-hidden />
+              Syarat &amp; Ketentuan
+            </DialogTitle>
+            <DialogDescription>
+              Bacalah ringkasan ini sebelum mengirim pengajuan.
+            </DialogDescription>
+          </DialogHeader>
+
+          <ul className="space-y-2 text-sm leading-6 text-slate-600">
+            {[
+              "PINDAI mencatat pengajuan, perhitungan, dan status pada ledger internal — bukan memindahkan dana.",
+              "Bunga flat 30% dari pokok dan biaya dipotong di muka sesuai tenor yang dipilih.",
+              "Persetujuan pengajuan bukan jaminan pencairan; keputusan dibuat tim PINDAI dan tercatat pada audit trail.",
+              "Keterlambatan dikenai denda 0,5% per hari dari pokok (maksimum 15%).",
+              "Data dan dokumen yang Anda kirim hanya dibuka oleh akun Anda dan tim PINDAI.",
+            ].map((item) => (
+              <li key={item} className="flex gap-2">
+                <span className="mt-2 size-1.5 shrink-0 rounded-full bg-primary/60" aria-hidden />
+                <span>{item}</span>
+              </li>
+            ))}
+          </ul>
+
+          <p className="text-xs text-slate-500">
+            Versi {CONTRACT_TERMS_VERSION}.{" "}
+            <Link
+              to="/syarat-ketentuan"
+              className="font-medium text-primary underline underline-offset-2 hover:text-primary/80"
+            >
+              Baca ketentuan selengkapnya
+            </Link>
+            .
+          </p>
+
+          <label className="flex items-start gap-2.5 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-700">
+            <input
+              type="checkbox"
+              className="mt-0.5 size-4 accent-primary"
+              checked={setujuCentang}
+              onChange={(event) => setSetujuCentang(event.target.checked)}
+            />
+            <span>Saya telah membaca dan menyetujui Syarat &amp; Ketentuan PINDAI.</span>
+          </label>
+
+          <div className="flex flex-wrap justify-end gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setSetujuOpen(false)}
+              disabled={submitting}
+            >
+              Batal
+            </Button>
+            <Button
+              type="button"
+              onClick={() => void kirimPengajuan()}
+              disabled={!setujuCentang || submitting}
+            >
+              {submitting ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
+              {submitting ? "Mengirim…" : "Setuju & kirim"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <Button
         type="submit"
