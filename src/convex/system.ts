@@ -156,7 +156,7 @@ export const saveConfig = mutation({
       v.literal("pesisir"),
       v.literal("terakota"),
       v.literal("salju"),
-      v.literal("senja"),
+      v.literal("karnival"),
     ),
     killSwitch: v.boolean(),
     maintenanceMode: v.boolean(),
@@ -271,7 +271,7 @@ export const setWebsiteTemplate = mutation({
       v.literal("pesisir"),
       v.literal("terakota"),
       v.literal("salju"),
-      v.literal("senja"),
+      v.literal("karnival"),
     ),
   },
   handler: async (ctx, { tema }) => {

@@ -4,7 +4,7 @@ import { AnnouncementBar } from "@/components/AnnouncementBar";
 import { ErrorPage } from "@/components/ErrorPage";
 import { LoadingScreen } from "@/components/LoadingScreen";
 import { Snowfall } from "@/components/Snowfall";
-import { SenjaGlow } from "@/components/SenjaGlow";
+import { KarnivalConfetti } from "@/components/KarnivalConfetti";
 import { RequireAuth } from "@/components/RequireAuth";
 import { VlyToolbar } from "../vly-toolbar-readonly.tsx";
 import { ConvexAuthProvider } from "@convex-dev/auth/react";
@@ -173,7 +173,7 @@ function ThemeSync() {
 
   // Tema beranimasi menambahkan lapisan efek layar penuh di atas aplikasi.
   if (config?.tema === "salju") return <Snowfall />;
-  if (config?.tema === "senja") return <SenjaGlow />;
+  if (config?.tema === "karnival") return <KarnivalConfetti />;
   return null;
 }
 

@@ -585,7 +585,7 @@ const schema = defineSchema(
           v.literal("pesisir"),
           v.literal("terakota"),
           v.literal("salju"),
-          v.literal("senja"),
+          v.literal("karnival"),
         ),
       ),
       /** Waktu terakhir konfigurasi diperbarui. */

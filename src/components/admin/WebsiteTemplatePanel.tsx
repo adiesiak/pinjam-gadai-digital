@@ -51,13 +51,13 @@ const TEMPLATES: TemplateInfo[] = [
     tinta: "#1d2b36",
   },
   {
-    id: "senja",
-    nama: "Senja",
+    id: "karnival",
+    nama: "Karnival",
     deskripsi:
-      "Palet hangat matahari terbenam (rose & amber) dengan aurora lembut yang bergeser perlahan.",
-    warna: ["#7c3357", "#c47a3c", "#f3dde4"],
-    latar: "#fdf6f2",
-    tinta: "#331f28",
+      "Tema paling meriah: palet warna cerah ala karnival, konfeti berjatuhan, logo memantul, dan dial berputar.",
+    warna: ["#c2266f", "#f5b301", "#ffe6f2"],
+    latar: "#fff7fb",
+    tinta: "#2b1533",
   },
 ];
 

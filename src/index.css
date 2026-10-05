@@ -346,64 +346,64 @@
   --color-slate-950: #141d24;
 }
 
-/* Tema "Senja": palet hangat matahari terbenam (rose + amber) dengan latar krem. */
-:root:where([data-theme="senja"]) {
-  --background: #fdf6f2;
-  --foreground: #331f28;
+/* Tema "Karnival": palet riang ala karnival (magenta + kuning cerah + teal). */
+:root:where([data-theme="karnival"]) {
+  --background: #fff7fb;
+  --foreground: #2b1533;
   --card: #ffffff;
-  --card-foreground: #331f28;
+  --card-foreground: #2b1533;
   --popover: #ffffff;
-  --popover-foreground: #331f28;
-  --primary: #7c3357;
-  --primary-foreground: #fdf3f7;
-  --secondary: #f6e3e8;
-  --secondary-foreground: #43283a;
-  --muted: #fbf0f2;
-  --muted-foreground: #7c6270;
-  --accent: #f3dde4;
-  --accent-foreground: #43283a;
-  --destructive: #a53a4a;
-  --border: #eed6dd;
-  --input: #dfc2cc;
-  --ring: #b0548a;
-  --gold: #c47a3c;
-  --gold-foreground: #6d3f16;
-  --navy: #4e2740;
-  --chart-1: #7c3357;
-  --chart-2: #c47a3c;
-  --chart-3: #b0548a;
-  --chart-4: #d98fa6;
-  --chart-5: #e7bfcc;
-  --sidebar: #fbf0f2;
-  --sidebar-foreground: #331f28;
-  --sidebar-primary: #7c3357;
-  --sidebar-primary-foreground: #fdf3f7;
-  --sidebar-accent: #f3dde4;
-  --sidebar-accent-foreground: #43283a;
-  --sidebar-border: #eed6dd;
-  --sidebar-ring: #b0548a;
-  --color-sky-50: #fdf3ee;
-  --color-sky-100: #fbe3d6;
-  --color-sky-200: #f7cbb4;
-  --color-sky-300: #f0a988;
-  --color-sky-400: #e8845c;
-  --color-sky-500: #d9663c;
-  --color-sky-600: #bd4f2c;
-  --color-sky-700: #9c3f26;
-  --color-sky-800: #7f3622;
-  --color-sky-900: #682f20;
-  --color-sky-950: #3c1710;
-  --color-slate-50: #fbf6f7;
-  --color-slate-100: #f6ebee;
-  --color-slate-200: #ecd7dc;
-  --color-slate-300: #dbbac3;
-  --color-slate-400: #c296a2;
-  --color-slate-500: #a57785;
-  --color-slate-600: #895d6c;
-  --color-slate-700: #704a58;
-  --color-slate-800: #5b3d48;
-  --color-slate-900: #4c333c;
-  --color-slate-950: #2e1d24;
+  --popover-foreground: #2b1533;
+  --primary: #c2266f;
+  --primary-foreground: #fff5fa;
+  --secondary: #ffe6f2;
+  --secondary-foreground: #4a1240;
+  --muted: #fdeef7;
+  --muted-foreground: #8a5c7e;
+  --accent: #ffe9c2;
+  --accent-foreground: #5a3c00;
+  --destructive: #d6335a;
+  --border: #f4d5e7;
+  --input: #eec3da;
+  --ring: #e0569a;
+  --gold: #f5b301;
+  --gold-foreground: #6b4a00;
+  --navy: #5a1f4a;
+  --chart-1: #c2266f;
+  --chart-2: #f5b301;
+  --chart-3: #00b3a4;
+  --chart-4: #6a2fd0;
+  --chart-5: #ff7a3c;
+  --sidebar: #fdeef7;
+  --sidebar-foreground: #2b1533;
+  --sidebar-primary: #c2266f;
+  --sidebar-primary-foreground: #fff5fa;
+  --sidebar-accent: #ffe9c2;
+  --sidebar-accent-foreground: #5a3c00;
+  --sidebar-border: #f4d5e7;
+  --sidebar-ring: #e0569a;
+  --color-sky-50: #fdf2fa;
+  --color-sky-100: #fbe3f4;
+  --color-sky-200: #f7c6e8;
+  --color-sky-300: #f09fd6;
+  --color-sky-400: #e46fbd;
+  --color-sky-500: #d2449f;
+  --color-sky-600: #b82a83;
+  --color-sky-700: #9a1f6c;
+  --color-sky-800: #7d1b58;
+  --color-sky-900: #671a49;
+  --color-sky-950: #400b2c;
+  --color-slate-50: #fdf6fb;
+  --color-slate-100: #f8ecf4;
+  --color-slate-200: #eed9e8;
+  --color-slate-300: #dcbdd6;
+  --color-slate-400: #c09ab4;
+  --color-slate-500: #a37793;
+  --color-slate-600: #855d74;
+  --color-slate-700: #6c4a5f;
+  --color-slate-800: #573d4d;
+  --color-slate-900: #48333f;
+  --color-slate-950: #2b1c25;
 }
 
 .dark {
@@ -983,65 +983,88 @@
   }
 }
 
-/* ===== Tema "Senja" — aurora hangat yang bergeser perlahan di latar belakang =====
-   Hanya terlihat ketika <html data-theme="senja">. Gradien lembut ditepikan
-   (sudut-sudut) agar konten tetap terbaca, dan menghormati prefers-reduced-motion. */
-.senja-layer {
+/* ===== Tema "Karnival" — konfeti berjatuhan + elemen yang memantul =====
+   Hanya aktif ketika <html data-theme="karnival">. Menghormati
+   prefers-reduced-motion (semua animasi dimatikan). */
+
+/* Lapisan konfeti layar penuh; tiap potongan dijadwalkan lewat inline style. */
+.karnival-layer {
   position: fixed;
   inset: 0;
-  z-index: 40;
+  z-index: 50;
   pointer-events: none;
   overflow: hidden;
 }
-.senja-glow {
+.karnival-piece {
   position: absolute;
-  inset: -25%;
+  top: -10vh;
   display: block;
-  background-repeat: no-repeat;
+  border-radius: 2px;
+  opacity: 0;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.04);
+  animation-name: karnival-jatuh;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
   will-change: transform, opacity;
-  filter: blur(8px);
 }
-.senja-glow--1 {
-  background-image: radial-gradient(42% 38% at 16% 10%, rgba(255, 176, 118, 0.5), transparent 72%),
-    radial-gradient(38% 36% at 84% 18%, rgba(255, 132, 96, 0.4), transparent 72%);
-  animation: senja-drift 26s ease-in-out infinite;
+.karnival-piece--bulat {
+  border-radius: 9999px;
 }
-.senja-glow--2 {
-  background-image: radial-gradient(46% 42% at 80% 90%, rgba(196, 86, 140, 0.42), transparent 72%),
-    radial-gradient(34% 32% at 22% 88%, rgba(150, 92, 170, 0.3), transparent 72%);
-  animation: senja-drift 34s ease-in-out infinite reverse;
-}
-@keyframes senja-drift {
-  0%,
-  100% {
-    transform: translate3d(0, 0, 0) scale(1);
-    opacity: 0.85;
+@keyframes karnival-jatuh {
+  0% {
+    transform: translateY(0) rotate(0deg);
+    opacity: 0;
   }
-  50% {
-    transform: translate3d(3%, -2%, 0) scale(1.08);
+  8% {
     opacity: 1;
   }
+  92% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(122vh) rotate(720deg);
+    opacity: 0;
+  }
 }
-[data-theme="senja"] .vault-logo,
-[data-theme="senja"] .salju-logo-img {
-  animation: senja-logo 11s ease-in-out infinite;
+
+/* Logo & dial ikut meriah: logo memantul-mantul, dial berputar penuh. */
+[data-theme="karnival"] .vault-logo,
+[data-theme="karnival"] .salju-logo-img {
+  animation: karnival-logo 3.6s ease-in-out infinite;
 }
-@keyframes senja-logo {
+@keyframes karnival-logo {
   0%,
   100% {
-    transform: translateY(0);
-    filter: drop-shadow(0 2px 8px rgba(196, 86, 140, 0.35));
+    transform: translateY(0) rotate(0deg) scale(1);
+  }
+  25% {
+    transform: translateY(-3px) rotate(-7deg) scale(1.06);
   }
   50% {
-    transform: translateY(-1px);
-    filter: drop-shadow(0 2px 10px rgba(255, 140, 90, 0.5));
+    transform: translateY(0) rotate(0deg) scale(0.98);
+  }
+  75% {
+    transform: translateY(-2px) rotate(6deg) scale(1.04);
+  }
+}
+[data-theme="karnival"] .vault-dial {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: karnival-dial 4.5s linear infinite;
+}
+@keyframes karnival-dial {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .senja-glow--1,
-  .senja-glow--2,
-  [data-theme="senja"] .vault-logo,
-  [data-theme="senja"] .salju-logo-img {
+  .karnival-piece,
+  [data-theme="karnival"] .vault-logo,
+  [data-theme="karnival"] .vault-dial,
+  [data-theme="karnival"] .salju-logo-img {
     animation: none;
   }
 }
