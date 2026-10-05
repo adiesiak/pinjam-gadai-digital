@@ -87,7 +87,7 @@ function rgba(hex: string, a: number): string {
 }
 
 // Ikon badge kecil sesuai ukuran untuk pilihan kanvas.
-function UkuranBadge({ u }: { u: Ukuran }) {
+function UkuranBadge() {
   return (
     <svg width={34} height={34} viewBox="0 0 100 100" aria-hidden="true">
       <rect x={2} y={2} width={96} height={96} rx={18} fill="#0f3d3a" />
@@ -103,8 +103,6 @@ function UkuranBadge({ u }: { u: Ukuran }) {
 // ---------------------------------------------------------------------------
 // Poster siap pakai — copy penjualan langsung, bukan editor.
 // ---------------------------------------------------------------------------
-type Motif = "koin" | "brankas" | "tas" | "grafik" | "spark";
-
 type Poster = {
   id: string;
   label: string;
@@ -120,8 +118,10 @@ type Poster = {
   peringatan: string;
   /** Warna aksen khas poster ini. */
   accent: string;
-  /** Ilustrasi samar di sudut kanan bawah. */
-  motif: Motif;
+  /** Kalimat sorotan besar yang mengisi panggung tipografi. */
+  sorotan: string;
+  /** Kata kunci singkat sebagai pil label di bawah sorotan. */
+  kataKunci: string[];
 };
 
 const POSTER: Poster[] = [
@@ -135,7 +135,8 @@ const POSTER: Poster[] = [
     cta: "Ajukan Sekarang",
     peringatan: "PINDAI · bunga flat 30% dari pokok",
     accent: "#c8892b",
-    motif: "koin",
+    sorotan: "Cair hari ini, bukan besok.",
+    kataKunci: ["7–30 hari", "Bunga flat 30%", "Langsung pakai"],
   },
   {
     id: "gadai",
@@ -147,7 +148,8 @@ const POSTER: Poster[] = [
     cta: "Taksir Barang",
     peringatan: "PINDAI · LTV hingga 70%",
     accent: "#b0642f",
-    motif: "brankas",
+    sorotan: "Barang aman, dana jalan.",
+    kataKunci: ["LTV 70%", "Taksir transparan", "Brankas aman"],
   },
   {
     id: "kredit",
@@ -159,7 +161,8 @@ const POSTER: Poster[] = [
     cta: "Mulai Cicil",
     peringatan: "PINDAI · DP 0% · tenor 1/3/6 bulan",
     accent: "#2f7d8c",
-    motif: "tas",
+    sorotan: "Bawa pulang, cicil tenang.",
+    kataKunci: ["DP 0%", "1 / 3 / 6 bulan", "Langsung dibiayai"],
   },
   {
     id: "disiplin",
@@ -171,7 +174,8 @@ const POSTER: Poster[] = [
     cta: "Cek Plafon Saya",
     peringatan: "PINDAI · plafon naik bertahap",
     accent: "#7c3357",
-    motif: "grafik",
+    sorotan: "Tepat waktu, plafon naik.",
+    kataKunci: ["Riwayat baik", "Naik bertahap", "Tercatat rapi"],
   },
   {
     id: "brand",
@@ -183,7 +187,8 @@ const POSTER: Poster[] = [
     cta: "Pelajari Layanan",
     peringatan: "PINDAI · pinjam & gadai digital",
     accent: "#1f7a5c",
-    motif: "spark",
+    sorotan: "Satu aplikasi, semua dana.",
+    kataKunci: ["Pinjam", "Gadai", "Kredit"],
   },
 ];
 
@@ -250,151 +255,180 @@ function bungkus(ctx: CanvasRenderingContext2D, teks: string, maxWidth: number):
   return hasil;
 }
 
-/** Logo brangkas PINDAI: pintu brankas + dial + tuas. */
-function gambarBrangkas(
+// ---------------------------------------------------------------------------
+// Panggung tipografi: seluruh poster diisi kata-kata, bukan ilustrasi. Blok
+// kalimat sorotan + pil kata kunci ini menggantikan gambar motif lama.
+// ---------------------------------------------------------------------------
+type TataKata = {
+  fraseFs: number;
+  fraseBaris: string[];
+  fraseH: number;
+  chipFs: number;
+  chipH: number;
+  chipGap: number;
+  chipRows: { teks: string; w: number }[][];
+  chipsH: number;
+  gapBlok: number;
+  totalH: number;
+};
+
+/**
+ * Ukur tata letak blok kata untuk lebar maksimum tertentu: bungkus kalimat
+ * sorotan lalu susun kata kunci jadi pil yang membungkus baris. Dipakai bersama
+ * loop penyusutan agar seluruh blok selalu muat di dalam panggung.
+ */
+function ukurTataKata(
   ctx: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  s: number,
-  body: string = NAVY,
-  aksen: string = GOLD,
-) {
-  const r = s * 0.24;
-  // Badan brankas.
-  bulat(ctx, x, y, s, s, r);
-  ctx.fillStyle = body;
-  ctx.fill();
-  ctx.strokeStyle = aksen;
-  ctx.lineWidth = Math.max(2, s * 0.05);
-  ctx.stroke();
+  p: Poster,
+  maxW: number,
+  fraseFs: number,
+  sans: string,
+  denganChip: boolean,
+): TataKata {
+  ctx.textAlign = "left";
+  ctx.textBaseline = "top";
 
-  // Bingkai pintu dalam.
-  const inset = s * 0.13;
-  bulat(ctx, x + inset, y + inset, s - 2 * inset, s - 2 * inset, r * 0.75);
-  ctx.strokeStyle = "rgba(255,255,255,0.35)";
-  ctx.lineWidth = Math.max(1.5, s * 0.014);
-  ctx.stroke();
+  ctx.font = `800 ${fraseFs}px ${sans}`;
+  const fraseBaris = bungkus(ctx, p.sorotan, maxW);
+  const fraseH = fraseBaris.length * fraseFs * 1.08;
 
-  // Dial.
-  const cx = x + s / 2;
-  const cy = y + s / 2;
-  const R = s * 0.27;
-  ctx.beginPath();
-  ctx.arc(cx, cy, R, 0, Math.PI * 2);
-  ctx.fillStyle = aksen;
-  ctx.fill();
-  ctx.beginPath();
-  ctx.arc(cx, cy, R * 0.6, 0, Math.PI * 2);
-  ctx.fillStyle = body;
-  ctx.fill();
+  const chipFs = Math.max(9, fraseFs * 0.42);
+  const chipPadX = Math.round(chipFs * 0.95);
+  const chipH = Math.round(chipFs * 1.1 + chipFs);
+  const chipGap = Math.round(chipFs * 0.6);
 
-  // Jari-jari dial.
-  ctx.strokeStyle = aksen;
-  ctx.lineWidth = Math.max(2, s * 0.035);
-  ctx.lineCap = "round";
-  for (let i = 0; i < 3; i += 1) {
-    const a = -Math.PI / 2 + i * ((2 * Math.PI) / 3);
-    ctx.beginPath();
-    ctx.moveTo(cx, cy);
-    ctx.lineTo(cx + Math.cos(a) * R * 0.92, cy + Math.sin(a) * R * 0.92);
-    ctx.stroke();
+  const chipRows: { teks: string; w: number }[][] = [];
+  if (denganChip) {
+    ctx.font = `700 ${chipFs}px ${sans}`;
+    let baris: { teks: string; w: number }[] = [];
+    let lebar = 0;
+    for (const kata of p.kataKunci) {
+      const w = Math.round(ctx.measureText(kata).width + chipPadX * 2);
+      const coba = baris.length === 0 ? w : lebar + chipGap + w;
+      if (coba > maxW && baris.length > 0) {
+        chipRows.push(baris);
+        baris = [{ teks: kata, w }];
+        lebar = w;
+      } else {
+        baris.push({ teks: kata, w });
+        lebar = coba;
+      }
+    }
+    if (baris.length > 0) chipRows.push(baris);
   }
 
-  // Tuas di sisi kanan.
-  ctx.fillStyle = aksen;
-  bulat(ctx, x + s * 0.82, y + s * 0.36, s * 0.14, s * 0.28, s * 0.05);
-  ctx.fill();
+  const chipsH =
+    chipRows.length === 0 ? 0 : chipRows.length * chipH + (chipRows.length - 1) * chipGap;
+  const gapBlok = chipRows.length === 0 ? 0 : fraseFs * 0.8;
+  const totalH = fraseH + gapBlok + chipsH;
+
+  return {
+    fraseFs,
+    fraseBaris,
+    fraseH,
+    chipFs,
+    chipH,
+    chipGap,
+    chipRows,
+    chipsH,
+    gapBlok,
+    totalH,
+  };
 }
 
-/** Ilustrasi samar khas tiap poster (watermark sudut). */
-function gambarMotif(
+/** Render blok kata (sorotan + pil kata kunci) yang dipusatkan di panggung. */
+function gambarPanggungKata(
   ctx: CanvasRenderingContext2D,
-  jenis: Motif,
-  cx: number,
-  cy: number,
-  s: number,
-  warna: string,
+  p: Poster,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  sans: string,
 ) {
-  ctx.save();
-  ctx.lineJoin = "round";
-  ctx.lineCap = "round";
+  const accent = p.accent;
+  const pad = Math.round(w * 0.06);
+  const maxW = w - pad * 2;
+  const maxH = h - pad * 2;
 
-  if (jenis === "koin") {
-    const rw = s * 0.5;
-    const rh = s * 0.16;
-    for (let i = 0; i < 3; i += 1) {
-      const yy = cy + s * 0.24 - i * s * 0.22;
-      ctx.beginPath();
-      ctx.ellipse(cx, yy, rw, rh, 0, 0, Math.PI * 2);
-      ctx.fillStyle = warna;
-      ctx.fill();
-      ctx.beginPath();
-      ctx.ellipse(cx, yy, rw * 0.62, rh * 0.62, 0, 0, Math.PI * 2);
-      ctx.fillStyle = "#ffffff";
-      ctx.fill();
+  // Cari tata letak terbesar yang muat; bila pil kata kunci tak muat, jatuhkan.
+  let tata: TataKata | null = null;
+  for (const denganChip of [true, false]) {
+    let fs = Math.max(14, Math.min(maxW * 0.16, maxH * 0.44));
+    for (let i = 0; i < 80; i += 1) {
+      const coba = ukurTataKata(ctx, p, maxW, fs, sans, denganChip);
+      if (coba.totalH <= maxH) {
+        tata = coba;
+        break;
+      }
+      if (fs <= 12) break;
+      fs *= 0.92;
     }
-  } else if (jenis === "brankas") {
-    gambarBrangkas(ctx, cx - s / 2, cy - s / 2, s, warna, "#ffffff");
-  } else if (jenis === "tas") {
-    const w = s * 0.8;
-    const h = s * 0.66;
-    const x = cx - w / 2;
-    const y = cy - h / 2 + s * 0.08;
-    bulat(ctx, x, y, w, h, s * 0.11);
-    ctx.fillStyle = warna;
-    ctx.fill();
-    ctx.lineWidth = s * 0.055;
-    ctx.strokeStyle = warna;
-    ctx.beginPath();
-    ctx.arc(cx, y, w * 0.3, Math.PI, Math.PI * 2);
-    ctx.stroke();
-    ctx.fillStyle = "#ffffff";
-    bulat(ctx, cx - w * 0.12, y + h * 0.34, w * 0.24, h * 0.13, s * 0.03);
-    ctx.fill();
-  } else if (jenis === "grafik") {
-    const bars = [0.42, 0.62, 0.84, 1.08];
-    const bw = s * 0.16;
-    const gapB = s * 0.08;
-    const total = bars.length * bw + (bars.length - 1) * gapB;
-    let x = cx - total / 2;
-    const base = cy + s * 0.42;
-    for (const bh of bars) {
-      const hh = s * 0.72 * bh;
-      bulat(ctx, x, base - hh, bw, hh, bw * 0.4);
-      ctx.fillStyle = warna;
-      ctx.fill();
-      x += bw + gapB;
-    }
-    ctx.strokeStyle = warna;
-    ctx.lineWidth = s * 0.06;
-    ctx.beginPath();
-    ctx.moveTo(cx - total / 2 - s * 0.05, base + s * 0.03);
-    ctx.lineTo(cx + total / 2 - bw * 0.4, base + s * 0.03);
-    ctx.stroke();
-  } else {
-    // spark — bintang empat sudut + titik kecil.
-    const r = s * 0.5;
-    ctx.fillStyle = warna;
-    ctx.beginPath();
-    for (let i = 0; i < 16; i += 1) {
-      const a = (i * Math.PI) / 8;
-      const rr = i % 2 === 0 ? r : r * 0.32;
-      const px = cx + Math.cos(a) * rr;
-      const py = cy + Math.sin(a) * rr;
-      if (i === 0) ctx.moveTo(px, py);
-      else ctx.lineTo(px, py);
-    }
-    ctx.closePath();
-    ctx.fill();
-    ctx.beginPath();
-    ctx.arc(cx + r * 0.95, cy - r * 0.85, r * 0.14, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.beginPath();
-    ctx.arc(cx - r * 0.9, cy + r * 0.8, r * 0.1, 0, Math.PI * 2);
-    ctx.fill();
+    if (tata) break;
+  }
+  if (!tata) return;
+
+  const cx = x + w / 2;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "top";
+
+  // Kalimat sorotan.
+  let cy = y + h / 2 - tata.totalH / 2;
+  ctx.fillStyle = INK;
+  ctx.font = `800 ${tata.fraseFs}px ${sans}`;
+  for (const baris of tata.fraseBaris) {
+    ctx.fillText(baris, cx, cy);
+    cy += tata.fraseFs * 1.08;
   }
 
-  ctx.restore();
+  // Pil kata kunci.
+  if (tata.chipRows.length > 0) {
+    cy += tata.gapBlok;
+    for (const baris of tata.chipRows) {
+      const lebarBaris = baris.reduce((s, c) => s + c.w, 0) + tata.chipGap * (baris.length - 1);
+      let ccx = cx - lebarBaris / 2;
+      for (const c of baris) {
+        bulat(ctx, ccx, cy, c.w, tata.chipH, tata.chipH / 2);
+        ctx.fillStyle = rgba(accent, 0.12);
+        ctx.fill();
+        ctx.strokeStyle = rgba(accent, 0.4);
+        ctx.lineWidth = Math.max(1.5, w * 0.003);
+        ctx.stroke();
+        ctx.fillStyle = accent;
+        ctx.font = `700 ${tata.chipFs}px ${sans}`;
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(c.teks, ccx + c.w / 2, cy + tata.chipH / 2 + 1);
+        ccx += c.w + tata.chipGap;
+      }
+      cy += tata.chipH + tata.chipGap;
+    }
+  }
+
+  ctx.textAlign = "left";
+  ctx.textBaseline = "top";
+}
+
+/** Pita kata berulang sebagai tekstur latar (pengganti cincin/gambar). */
+function pitaKata(
+  ctx: CanvasRenderingContext2D,
+  teks: string,
+  x0: number,
+  x1: number,
+  y: number,
+  fontPx: number,
+  warna: string,
+  sans: string,
+) {
+  ctx.font = `800 ${fontPx}px ${sans}`;
+  ctx.fillStyle = warna;
+  ctx.textAlign = "left";
+  ctx.textBaseline = "middle";
+  const lebar = ctx.measureText(teks).width + fontPx * 1.6;
+  for (let x = x0; x < x1; x += lebar) {
+    ctx.fillText(teks, x, y);
+  }
+  ctx.textBaseline = "top";
 }
 
 // ---------------------------------------------------------------------------
@@ -429,14 +463,12 @@ function renderKartu(
   ctx.fillStyle = glow2;
   ctx.fillRect(0, 0, W, H);
 
-  // Cincin brankas samar sebagai tekstur.
-  ctx.strokeStyle = rgba(accent, 0.14);
-  ctx.lineWidth = Math.max(2, W * 0.0035);
-  for (let i = 0; i < 3; i += 1) {
-    ctx.beginPath();
-    ctx.arc(W * 0.92, H * 0.1, W * (0.15 + i * 0.12), 0, Math.PI * 2);
-    ctx.stroke();
-  }
+  // Pita kata sebagai tekstur latar (menggantikan gambar cincin), tampil di
+  // tepi luar kartu supaya tetap terbaca sebagai kata.
+  const pitaFont = Math.max(10, Math.round(W * 0.021));
+  const pita = "PINDAI · PINJAM & GADAI DIGITAL · ";
+  pitaKata(ctx, pita, W * 0.02, W * 0.98, pitaFont * 1.3, pitaFont, "rgba(255,255,255,0.10)", sans);
+  pitaKata(ctx, pita, W * 0.02, W * 0.98, H - pitaFont * 1.3, pitaFont, "rgba(255,255,255,0.10)", sans);
 
   // Konfeti aksen kecil (ringan, tidak ramai).
   const konfeti: Array<[number, number, number]> = [
@@ -470,26 +502,41 @@ function renderKartu(
   ctx.fill();
   ctx.restore();
 
-  // Watermark motif di sudut kanan bawah, diklip ke bentuk kartu.
+  // Watermark kata besar di sudut kanan bawah, diklip ke bentuk kartu.
+  const cap = (p.kataKunci[0] ?? p.label).toUpperCase();
   ctx.save();
   bulat(ctx, M, M, CW, CH, radiusKartu);
   ctx.clip();
-  ctx.globalAlpha = 0.1;
-  gambarMotif(
-    ctx,
-    p.motif,
-    M + CW * 0.85,
-    M + CH * 0.9,
-    Math.round(W * 0.52),
-    accent,
-  );
+  ctx.globalAlpha = 0.09;
+  ctx.fillStyle = accent;
+  ctx.font = `800 ${Math.round(W * 0.4)}px ${sans}`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.translate(M + CW * 0.8, M + CH * 0.9);
+  ctx.rotate(-0.16);
+  ctx.fillText(cap, 0, 0);
   ctx.restore();
+  ctx.textAlign = "left";
+  ctx.textBaseline = "top";
 
   // ===== Header brand =====
   ctx.textBaseline = "top";
   ctx.textAlign = "left";
   const logo = Math.round(Math.min(innerW * 0.12, H * 0.072));
-  gambarBrangkas(ctx, innerX, M + P, logo, NAVY, GOLD);
+  // Lencana tipografi: huruf P emas dalam kotak navy, bukan gambar brankas.
+  bulat(ctx, innerX, M + P, logo, logo, logo * 0.3);
+  ctx.fillStyle = NAVY;
+  ctx.fill();
+  ctx.strokeStyle = rgba(GOLD, 0.75);
+  ctx.lineWidth = Math.max(2, logo * 0.05);
+  ctx.stroke();
+  ctx.fillStyle = GOLD;
+  ctx.font = `800 ${Math.round(logo * 0.56)}px ${sans}`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText("P", innerX + logo / 2, M + P + logo / 2 + 1);
+  ctx.textAlign = "left";
+  ctx.textBaseline = "top";
   const tx = innerX + logo + Math.round(logo * 0.32);
   ctx.fillStyle = INK;
   ctx.font = `800 ${Math.round(logo * 0.56)}px ${sans}`;
@@ -642,9 +689,10 @@ function renderKartu(
   const colW = Math.max(120, innerX + innerW - colX);
   const labelSize = Math.round(Math.min(W * 0.024, H * 0.017));
 
-  // ===== Panggung motif: menyerap sisa ruang supaya TIDAK ada zona kosong =====
+  // ===== Panggung kata: menyerap sisa ruang supaya TIDAK ada zona kosong =====
   // Semua kanvas (9:16 … 1:1) memakai blok yang sama; tinggi panggung mengikuti
   // sisa ruang antara baris manfaat dan blok bawah, jadi tak ada celah menggantung.
+  // Isinya kalimat sorotan + pil kata kunci — murni tipografi, bukan ilustrasi.
   const stagePad = Math.round(H * 0.024);
   const stageTop = Math.round(y + stagePad);
   const stageBottom = Math.round(
@@ -660,36 +708,9 @@ function renderKartu(
     ctx.lineWidth = Math.max(1.5, W * 0.0022);
     ctx.stroke();
 
-    // Cincin konsentris samar, diklip ke bentuk panggung.
+    // Kalimat sorotan + kata kunci, dipusatkan di dalam panggung.
     ctx.save();
-    bulat(ctx, innerX, stageTop, innerW, stageH, stageR);
-    ctx.clip();
-    ctx.strokeStyle = rgba(accent, 0.14);
-    ctx.lineWidth = Math.max(2, W * 0.003);
-    for (let i = 0; i < 4; i += 1) {
-      ctx.beginPath();
-      ctx.arc(
-        innerX + innerW * 0.84,
-        stageTop + stageH * 0.92,
-        W * (0.17 + i * 0.13),
-        0,
-        Math.PI * 2,
-      );
-      ctx.stroke();
-    }
-    ctx.restore();
-
-    // Ilustrasi motif di tengah panggung, diskalakan agar mengisi tinggi/lebar.
-    ctx.save();
-    ctx.globalAlpha = 0.92;
-    gambarMotif(
-      ctx,
-      p.motif,
-      innerX + innerW / 2,
-      stageTop + stageH / 2,
-      Math.round(Math.min(innerW * 0.62, stageH * 0.72)),
-      accent,
-    );
+    gambarPanggungKata(ctx, p, innerX, stageTop, innerW, stageH, sans);
     ctx.restore();
   }
 
@@ -843,7 +864,7 @@ function PosterCard({
           className="flex size-8 items-center justify-center rounded-lg p-1"
           style={{ backgroundColor: rgba(poster.accent, 0.16) }}
         >
-          <UkuranBadge u={ukuran} />
+          <UkuranBadge />
         </span>
       </div>
       <div className="flex flex-1 items-center justify-center bg-[#0a2624] p-4">
@@ -896,16 +917,11 @@ export function Promo() {
 
   useEffect(() => {
     let batal = false;
-    setQrisGagal(false);
-    if (!qrisUrl) {
-      setQrisImg(null);
-      return;
-    }
     void (async () => {
-      const img = await muatGambar(qrisUrl);
+      const img = qrisUrl ? await muatGambar(qrisUrl) : null;
       if (batal) return;
       setQrisImg(img);
-      setQrisGagal(img === null);
+      setQrisGagal(qrisUrl ? img === null : false);
     })();
     return () => {
       batal = true;
@@ -961,10 +977,11 @@ export function Promo() {
                 Poster siap dibagikan
               </h1>
               <p className="mt-2 text-sm leading-6 text-[#5c6b66]">
-                Kartu krem bersih dengan warna aksen & ilustrasi berbeda tiap tema, ditata di atas
-                latar brankas PINDAI. Tinggal pilih ukuran, unduh PNG, lalu unggah ke Instagram,
-                WhatsApp, atau status — kode QRIS tampil otomatis bila admin sudah mengunggahnya.
-                Tidak ada yang perlu diedit.
+                Kartu krem bersih yang diisi kata-kata promosi — kalimat sorotan, poin manfaat,
+                dan kata kunci dengan warna aksen berbeda tiap tema. Murni tipografi tanpa gambar.
+                Tinggal pilih ukuran, unduh PNG, lalu unggah ke Instagram, WhatsApp, atau status —
+                kode QRIS tampil otomatis bila admin sudah mengunggahnya. Tidak ada yang perlu
+                diedit.
               </p>
             </div>
             <div className="w-full sm:w-auto">
@@ -978,7 +995,7 @@ export function Promo() {
                     <SelectItem key={u.id} value={u.id}>
                       <span className="flex items-center gap-2">
                         <span className="block size-6 rounded-lg bg-white p-1 shadow-sm">
-                          <UkuranBadge u={u} />
+                          <UkuranBadge />
                         </span>
                         {u.label}
                         <span className="ml-auto font-mono text-[11px] text-[#5c6b66]">
@@ -1085,7 +1102,7 @@ export function Promo() {
                 aria-pressed={u.id === sizeId}
               >
                 <span className="flex size-11 items-center justify-center rounded-xl bg-white p-2 text-[#0f3d3a] shadow-sm">
-                  <UkuranBadge u={u} />
+                  <UkuranBadge />
                 </span>
                 <div className="min-w-0">
                   <p className="truncate text-sm font-medium text-[#0f3d3a]">{u.label}</p>
