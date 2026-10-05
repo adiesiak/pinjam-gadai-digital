@@ -1,10 +1,7 @@
-import { useMemo, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
 
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -12,7 +9,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Check, Download, ExternalLink, Image as ImageIcon, Share2, Type, X } from "lucide-react";
+import {
+  Check,
+  Download,
+  ExternalLink,
+  Image as ImageIcon,
+  Share2,
+  Sparkles,
+  X,
+} from "lucide-react";
 
 // ---------------------------------------------------------------------------
 // Ukuran kanvas kasus sosial media (content-safe area di sekitar batas).
@@ -61,10 +66,8 @@ const UKURAN: Ukuran[] = [
 // Palet tinta & kuningan yang selaras admin panel.
 const NAVY = "#0f3d3a";
 const GOLD = "#9c7b3a";
-const GOLD_DEEP = "#7a5f2b";
 const GOLD_LIGHT = "#e9dcb6";
 const PAPER = "#fdfbf7";
-const INK = "#17322e";
 const MUTED = "#5c6b66";
 const WARN_BG = "#f4ecd9";
 const WARN_EDGE = "#d8c38a";
@@ -84,260 +87,327 @@ function UkuranBadge({ u }: { u: Ukuran }) {
   );
 }
 
-// Template editor fields.
-type Field = {
-  id: keyof Template;
+// ---------------------------------------------------------------------------
+// Poster siap pakai — tidak ada editor. Setiap kartu adalah materi final yang
+// tinggal dipilih ukurannya lalu diunduh / dibagikan.
+// ---------------------------------------------------------------------------
+type Poster = {
+  id: string;
   label: string;
-  placeholder: string;
-};
-
-const FIELDS: Field[] = [
-  { id: "title", label: "Judul", placeholder: "e.g. Dana Pinjaman Cepat & Pasti" },
-  { id: "subtitle", label: "Subjudul", placeholder: "e.g. Dana pinjaman untuk kebutuhan operasional" },
-  { id: "peringatan", label: "Peringatan", placeholder: "e.g. Dana akan diproses dalam 1×24 jam" },
-  { id: "cta", label: "Tindakan", placeholder: "e.g. Ajukan pinjaman" },
-  { id: "link", label: "Link", placeholder: "https://milikmu.id/pinjam" },
-];
-
-type Template = {
   title: string;
   subtitle: string;
   peringatan: string;
   cta: string;
-  link: string;
-  sizeId: string;
 };
 
-const DEFAULT_TEMPLATE: Template = {
-  title: "Kredit Barang Aman, Cepat Diproses",
-  subtitle: "Dana pinjaman untuk kebutuhan harian & usaha. Verifikasi dokumen dilakukan otomatis, angka real-time.",
-  peringatan: "Bunga 30% / tahun · 1×24 jam tersalurkan · PINDAI",
-  cta: "Ajukan Sekarang",
-  link: "https://milikmu.id/pinjam",
-  sizeId: "stories",
-};
+const POSTER: Poster[] = [
+  {
+    id: "tunai",
+    label: "Pinjaman Tunai",
+    title: "Pinjaman Tunai untuk Kebutuhan & Usaha",
+    subtitle: "Pengajuan ringkas lewat aplikasi, keputusan jelas, dana cair ke rekening Anda.",
+    peringatan: "Tenor 7–30 hari · bunga flat 30% · PINDAI",
+    cta: "Ajukan Sekarang",
+  },
+  {
+    id: "gadai",
+    label: "Gadai Barang",
+    title: "Gadai Barang, Nilai Tetap Terjaga",
+    subtitle: "Barang ditaksir transparan dan disimpan aman di brankas PINDAI.",
+    peringatan: "LTV hingga 70% · barang dititipkan terverifikasi · PINDAI",
+    cta: "Taksir Barang",
+  },
+  {
+    id: "kredit",
+    label: "Kredit Barang",
+    title: "Kredit Barang, Cicilan Ringan Tiap Bulan",
+    subtitle: "Elektronik dan kebutuhan rumah dengan pilihan tenor yang fleksibel.",
+    peringatan: "DP 0% · tenor 1 / 3 / 6 bulan · PINDAI",
+    cta: "Mulai Cicilan",
+  },
+  {
+    id: "disiplin",
+    label: "Bayar Tepat Waktu",
+    title: "Bayar Tepat Waktu, Plafon Meningkat",
+    subtitle: "Riwayat pembayaran yang baik menambah batas pinjaman Anda berikutnya.",
+    peringatan: "Catatan transparan di ledger internal · PINDAI",
+    cta: "Cek Plafon Saya",
+  },
+  {
+    id: "brand",
+    label: "Kenalan PINDAI",
+    title: "PINDAI — Pinjam & Gadai Digital",
+    subtitle: "Satu ruang untuk pinjaman tunai, gadai barang, dan kredit barang.",
+    peringatan: "Proses digital · akad & dokumen tercatat · PINDAI",
+    cta: "Pelajari Layanan",
+  },
+];
 
-// Render kartu promosi mentah ke Canvas 2D. Semua posisi dihitung dari `size`
-// dan `t`, sehinggapreview 1 juta / 30% hanya mengubah field editor.
-function renderKartu(ctx: CanvasRenderingContext2D, t: Template, size: Ukuran) {
-  const canvas = ctx.canvas;
-  const dx = size.canvas[0] * 0.055;
-
-  // Latar + tepi atas.
-  ctx.fillStyle = PAPER;
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-  ctx.fillStyle = NAVY;
-  ctx.fillRect(0, 0, canvas.width, 16);
-  ctx.fillStyle = GOLD;
-  ctx.fillRect(0, 16, canvas.width, 4);
-
-  // Tepi kiri dekorasi bermata emas (synchronous, tersenyawa utuh saat preview pertama kali render).
-  for (let i = 0; i < 2; i += 1) {
-    const y = 22 + i * 40;
-    const s = 46 + i * 34;
-    const d = document.createElement("canvas");
-    d.width = s;
-    d.height = s;
-    const g = d.getContext("2d")!;
-    g.clearRect(0, 0, s, s);
-    g.beginPath();
-    g.moveTo(0, s * 0.58);
-    g.lineTo(s * 0.33, s * 0.30);
-    g.lineTo(s * 0.66, s * 0.94);
-    g.closePath();
-    const grad = g.createLinearGradient(0, 0, s, s);
-    grad.addColorStop(0, GOLD);
-    grad.addColorStop(1, GOLD_DEEP);
-    g.fillStyle = grad;
-    g.fill();
-    // Gambar ikon ke konteks utama sebelum teks ditarik, jadi preview selalu punya dua emas.
-    ctx.drawImage(d, dx + i * 52, y - 2);
-  }
-
-  // Tikar teks (garis sebelum judul).
-  ctx.strokeStyle = GOLD;
-  ctx.lineWidth = 3;
-  ctx.setLineDash([]);
+// ---------------------------------------------------------------------------
+// Render poster ke Canvas 2D. Semua posisi diturunkan dari lebar kanvas supaya
+// proporsional di keempat ukuran. Satu poster = satu gambar final.
+// ---------------------------------------------------------------------------
+function bulat(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
+  const radius = Math.min(r, w / 2, h / 2);
   ctx.beginPath();
-  ctx.moveTo(dx - 6, 84);
-  ctx.lineTo(dx - 6 + canvas.width - (dx - 6) * 2, 84);
-  ctx.stroke();
-  ctx.beginPath();
-  ctx.moveTo(dx - 6, 88);
-  ctx.lineTo(dx - 6 + canvas.width - (dx - 6) * 2, 88);
-  ctx.stroke();
+  ctx.moveTo(x + radius, y);
+  ctx.lineTo(x + w - radius, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + radius);
+  ctx.lineTo(x + w, y + h - radius);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - radius, y + h);
+  ctx.lineTo(x + radius, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - radius);
+  ctx.lineTo(x, y + radius);
+  ctx.quadraticCurveTo(x, y, x + radius, y);
+  ctx.closePath();
+}
 
-  const wrap = (text: string, maxWidth: number): string[] => {
-    const words = text.split(" ");
-    let line = "";
-    const lines: string[] = [];
-    for (const word of words) {
-      const test = line ? `${line} ${word}` : word;
-      if (ctx.measureText(test).width > maxWidth && line) {
-        lines.push(line);
-        line = word;
-      } else {
-        line = test;
-      }
+function bungkus(ctx: CanvasRenderingContext2D, teks: string, maxWidth: number): string[] {
+  const kata = teks.split(" ");
+  let baris = "";
+  const hasil: string[] = [];
+  for (const k of kata) {
+    const coba = baris ? `${baris} ${k}` : k;
+    if (ctx.measureText(coba).width > maxWidth && baris) {
+      hasil.push(baris);
+      baris = k;
+    } else {
+      baris = coba;
     }
-    if (line) lines.push(line);
-    return lines;
-  };
+  }
+  if (baris) hasil.push(baris);
+  return hasil;
+}
+
+function renderKartu(ctx: CanvasRenderingContext2D, p: Poster, size: Ukuran) {
+  const W = size.canvas[0];
+  const H = size.canvas[1];
+  const pad = Math.round(W * 0.08);
+  const sans = "ui-sans-serif, system-ui, sans-serif";
+
+  // Latar + pita aksen atas.
+  ctx.fillStyle = PAPER;
+  ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = NAVY;
+  ctx.fillRect(0, 0, W, Math.round(W * 0.016));
+  ctx.fillStyle = GOLD;
+  ctx.fillRect(0, Math.round(W * 0.016), W, Math.round(W * 0.006));
+
+  // Pita bawah (tempat nama merek).
+  const bandH = Math.round(H * 0.055);
+  ctx.fillStyle = NAVY;
+  ctx.fillRect(0, H - bandH, W, bandH);
+  ctx.fillStyle = GOLD;
+  ctx.fillRect(0, H - bandH, W, Math.round(W * 0.004));
+
+  // Baris merek: lencana P + nama.
+  const brandY = Math.round(W * 0.075);
+  const markSize = Math.round(W * 0.08);
+  bulat(ctx, pad, brandY, markSize, markSize, Math.round(markSize * 0.28));
+  ctx.fillStyle = NAVY;
+  ctx.fill();
+  ctx.fillStyle = GOLD;
+  ctx.font = `700 ${Math.round(markSize * 0.56)}px ${sans}`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText("P", pad + markSize / 2, brandY + markSize * 0.54);
+  const namaX = pad + markSize + Math.round(W * 0.022);
+  ctx.textAlign = "left";
+  ctx.fillStyle = NAVY;
+  ctx.font = `800 ${Math.round(W * 0.044)}px ${sans}`;
+  ctx.fillText("PINDAI", namaX, brandY + Math.round(W * 0.018));
+  ctx.fillStyle = MUTED;
+  ctx.font = `${Math.round(W * 0.024)}px ${sans}`;
+  ctx.fillText("Pinjam & Gadai Digital", namaX, brandY + Math.round(W * 0.055));
+
+  // Badge peringatan.
+  const badgeFont = Math.round(W * 0.026);
+  ctx.font = `700 ${badgeFont}px ${sans}`;
+  const badgePadX = Math.round(W * 0.03);
+  const badgeW = Math.min(W - pad * 2, ctx.measureText(p.peringatan).width + badgePadX * 2);
+  const badgeH = Math.round(badgeFont * 2.1);
+  const badgeY = brandY + markSize + Math.round(W * 0.055);
+  bulat(ctx, pad, badgeY, badgeW, badgeH, badgeH / 2);
+  ctx.fillStyle = WARN_BG;
+  ctx.fill();
+  ctx.strokeStyle = WARN_EDGE;
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  ctx.fillStyle = WARN_TEXT;
+  ctx.textAlign = "left";
+  ctx.textBaseline = "middle";
+  ctx.fillText(p.peringatan, pad + badgePadX, badgeY + badgeH / 2 + 1);
 
   // Judul.
+  const titleSize = Math.round(W * 0.093);
   ctx.fillStyle = NAVY;
-  ctx.font = `700 ${Math.round(size.content[0] * 0.1)}px ui-sans-serif, system-ui, sans-serif`;
+  ctx.font = `800 ${titleSize}px ${sans}`;
   ctx.textAlign = "left";
   ctx.textBaseline = "top";
-  const titleLines = wrap(t.title || "Judul Promosi", size.content[0] * 0.84);
-  let ty = 94;
-  for (const line of titleLines) {
-    ctx.fillText(line, dx + 4, ty);
-    ty += Math.round(size.content[0] * 0.088);
+  let y = badgeY + badgeH + Math.round(W * 0.06);
+  for (const baris of bungkus(ctx, p.title, W - pad * 2)) {
+    ctx.fillText(baris, pad, y);
+    y += Math.round(titleSize * 1.08);
   }
 
   // Subjudul.
-  if (t.subtitle) {
+  if (p.subtitle) {
+    y += Math.round(W * 0.022);
     ctx.fillStyle = MUTED;
-    ctx.font = `${Math.round(size.content[0] * 0.034)}px ui-sans-serif, system-ui, sans-serif`;
-    const subLines = wrap(t.subtitle, size.content[0] * 0.72);
-    let sy = ty + Math.round(size.content[0] * 0.03);
-    for (const line of subLines) {
-      ctx.fillText(line, dx + 4, sy);
-      sy += Math.round(size.content[0] * 0.042);
+    ctx.font = `${Math.round(W * 0.032)}px ${sans}`;
+    for (const baris of bungkus(ctx, p.subtitle, W - pad * 2)) {
+      ctx.fillText(baris, pad, y);
+      y += Math.round(W * 0.046);
     }
   }
 
-  // Peringatan.
-  if (t.peringatan) {
-    const warnW = Math.min(size.canvas[0] * 0.86, 720);
-    const warnX = (canvas.width - warnW) / 2;
-    const warnH = 30;
-    const warnY = 92;
-    ctx.fillStyle = WARN_BG;
-    ctx.fillRect(warnX - 4, warnY - 10, warnW + 8, warnH);
-    ctx.strokeStyle = WARN_EDGE;
-    ctx.lineWidth = 1.5;
-    ctx.strokeRect(warnX - 4, warnY - 10, warnW + 8, warnH);
-    ctx.fillStyle = WARN_TEXT;
-    ctx.font = `700 ${Math.round(size.content[0] * 0.036)}px ui-sans-serif, system-ui, sans-serif`;
-    ctx.textAlign = "left";
-    ctx.textBaseline = "top";
-    const warnLines = wrap(t.peringatan, size.canvas[0] * 0.8);
-    let wy = warnY + 6;
-    for (const line of warnLines) {
-      ctx.fillText(line, warnX + 8, wy);
-      wy += Math.round(size.content[0] * 0.042);
-    }
-  }
-
-  // CTA.
-  const cta = t.cta || "";
-  const link = t.link || "";
-  const ctaLines = cta ? wrap(cta, size.content[0] * 0.84) : [];
-  let cy = ty;
-  if (cta) {
-    const buttonW = Math.min(size.content[0] * 0.62, 420);
-    const btnH = Math.round(size.content[0] * 0.064);
-    const bx = (canvas.width - buttonW) / 2;
-    const by = cy;
+  // Tombol CTA di bagian bawah.
+  if (p.cta) {
+    const ctaFont = Math.round(W * 0.032);
+    ctx.font = `700 ${ctaFont}px ${sans}`;
+    const btnPadX = Math.round(W * 0.06);
+    const btnW = Math.min(W - pad * 2, ctx.measureText(p.cta).width + btnPadX * 2);
+    const btnH = Math.round(W * 0.092);
+    const btnX = Math.round((W - btnW) / 2);
+    const btnY = H - bandH - Math.round(H * 0.055) - btnH;
+    bulat(ctx, btnX, btnY, btnW, btnH, Math.round(btnH * 0.3));
     ctx.fillStyle = NAVY;
-    ctx.fillRect(bx, by, buttonW, btnH);
-    ctx.fillStyle = GOLD;
-    ctx.fillRect(bx, by, buttonW, btnH / 2);
-    ctx.fillStyle = "#f7f4ec";
-    ctx.font = `700 ${Math.round(btnH * 0.52)}px ui-sans-serif, system-ui, sans-serif`;
+    ctx.fill();
+    ctx.strokeStyle = GOLD;
+    ctx.lineWidth = 3;
+    ctx.stroke();
+    ctx.fillStyle = GOLD_LIGHT;
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.fillText(cta, bx + buttonW / 2, by + btnH / 2);
-    if (link) {
-      const linkText = ` · ${link}`;
-      ctx.fillStyle = MUTED;
-      ctx.font = `${Math.round(btnH * 0.44)}px ui-sans-serif, system-ui, sans-serif`;
-      ctx.fillText(linkText, bx, by + btnH / 2 + 1);
+    ctx.fillText(p.cta, btnX + btnW / 2, btnY + btnH / 2 + 1);
+  }
+
+  // Teks merek pada pita bawah.
+  ctx.fillStyle = GOLD_LIGHT;
+  ctx.font = `${Math.round(W * 0.024)}px ${sans}`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText("PINDAI · layanan pinjam & gadai digital", W / 2, H - bandH / 2 + 1);
+}
+
+function unduhCanvas(canvas: HTMLCanvasElement, nama: string) {
+  const url = canvas.toDataURL("image/png");
+  const link = document.createElement("a");
+  link.download = nama;
+  link.href = url;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
+
+function canvasKeFile(canvas: HTMLCanvasElement, nama: string): Promise<File | null> {
+  return new Promise((resolve) => {
+    canvas.toBlob(
+      (blob) => resolve(blob ? new File([blob], nama, { type: "image/png" }) : null),
+      "image/png",
+    );
+  });
+}
+
+async function bagikanPoster(canvas: HTMLCanvasElement, p: Poster, size: Ukuran) {
+  const nama = `pindai-${p.id}-${size.id}.png`;
+  const teks = `${p.title}\n\n${p.subtitle}\n\n${p.peringatan}`;
+  const tautan = typeof window !== "undefined" ? window.location.href : "";
+  const file = await canvasKeFile(canvas, nama);
+
+  if (navigator.share) {
+    try {
+      await navigator.share({
+        title: p.title,
+        text: teks,
+        url: tautan,
+        ...(file ? { files: [file] } : {}),
+      });
+      return;
+    } catch (err) {
+      if ((err as Error).name === "AbortError") return;
     }
   }
+
+  try {
+    await navigator.clipboard.writeText(teks);
+  } catch {
+    // Clipboard ditolak — tetap lanjut ke WhatsApp.
+  }
+  window.open(
+    `https://wa.me/?text=${encodeURIComponent(`${p.title} — ${teks}`)}`,
+    "_blank",
+  );
+}
+
+/** Satu poster siap pakai: kanvas + aksi unduh/bagikan. */
+function PosterCard({ poster, ukuran }: { poster: Poster; ukuran: Ukuran }) {
+  const ref = useRef<HTMLCanvasElement | null>(null);
+
+  useEffect(() => {
+    const canvas = ref.current;
+    if (!canvas) return;
+    canvas.width = ukuran.canvas[0];
+    canvas.height = ukuran.canvas[1];
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    renderKartu(ctx, poster, ukuran);
+  }, [poster, ukuran]);
+
+  const namaBerkas = `pindai-${poster.id}-${ukuran.id}.png`;
+
+  return (
+    <figure className="flex flex-col overflow-hidden rounded-3xl border border-[#e7e2d4] bg-white shadow-sm transition-shadow hover:shadow-md">
+      <div className="flex items-center justify-between gap-2 border-b border-[#efe9db] px-4 py-3">
+        <div className="min-w-0">
+          <p className="truncate text-sm font-bold tracking-tight text-[#0f3d3a]">{poster.label}</p>
+          <p className="text-[11px] font-mono text-[#5c6b66]">
+            {ukuran.canvas[0]}×{ukuran.canvas[1]} · {ukuran.ratioLabel}
+          </p>
+        </div>
+        <span className="flex size-8 items-center justify-center rounded-lg bg-[#e7e2d4] p-1 text-[#0f3d3a]">
+          <UkuranBadge u={ukuran} />
+        </span>
+      </div>
+      <div className="flex flex-1 items-center justify-center bg-[#faf8f3] p-4">
+        <canvas
+          ref={ref}
+          className="block w-full rounded-xl object-contain shadow-sm"
+          style={{ aspectRatio: `${ukuran.canvas[0]} / ${ukuran.canvas[1]}` }}
+        />
+      </div>
+      <figcaption className="flex flex-wrap gap-2 border-t border-[#efe9db] px-4 py-3">
+        <Button
+          size="sm"
+          className="gap-2"
+          onClick={() => {
+            const canvas = ref.current;
+            if (canvas) unduhCanvas(canvas, namaBerkas);
+          }}
+        >
+          <Download className="size-4" aria-hidden="true" />
+          Unduh PNG
+        </Button>
+        <Button
+          size="sm"
+          variant="outline"
+          className="gap-2"
+          onClick={() => {
+            const canvas = ref.current;
+            if (canvas) void bagikanPoster(canvas, poster, ukuran);
+          }}
+        >
+          <Share2 className="size-4" aria-hidden="true" />
+          Bagikan
+        </Button>
+      </figcaption>
+    </figure>
+  );
 }
 
 export function Promo() {
-  const [mode, setMode] = useState<"composer" | "poster">("composer");
-  const [t, setT] = useState<Template>(DEFAULT_TEMPLATE);
-
-  const ukuran = UKURAN.find((u) => u.id === t.sizeId) ?? UKURAN[0];
-
-  // Poster mode = full-bleed artboard, fixed size. No live tiny canvas;
-  // the image is rendered once into a PNG on demand (~35\u201345 ms).
-  const poster = useMemo(() => {
-    const canvasW = ukuran.canvas[0];
-    const canvasH = ukuran.canvas[1];
-    const c = document.createElement("canvas");
-    c.width = canvasW;
-    c.height = canvasH;
-    const ctx = c.getContext("2d");
-    if (!ctx) return null;
-
-    renderKartu(ctx, t, ukuran);
-    return c;
-  }, [t, ukuran]);
-
-  const createPosterPng = () => {
-    if (!poster) return null;
-    return poster.toDataURL("image/png");
-  };
-
-  const exportGambar = () => {
-    const url = mode === "poster" ? createPosterPng() : poster?.toDataURL("image/png");
-    if (!url) return;
-    const link = document.createElement("a");
-    link.download = `promo-${t.sizeId}-${Date.now()}.png`;
-    link.href = url;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
-  const bagikan = async () => {
-    const title = t.title || "Promo";
-    const imageUrl = mode === "poster" ? createPosterPng() : poster?.toDataURL("image/png");
-    if (!imageUrl) return;
-    const url = typeof window !== "undefined" ? window.location.href : "";
-
-    // Bagian teks yang disalin/share.
-    const lines: string[] = [title, t.title, t.link].filter(Boolean);
-    const shareText = lines.join("\n\n");
-
-    // Prefer native Web Share; fallback ke link open + salin teks.
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title,
-          text: shareText,
-          url,
-          files: [
-            new File([imageUrl], `promo-${t.sizeId}-${Date.now()}.png`, {
-              type: "image/png",
-            }),
-          ],
-        });
-        return;
-      } catch (err) {
-        if ((err as Error).name !== "AbortError") {
-          // Lanjut ke fallback (rulang).
-        }
-      }
-    }
-
-    try {
-      await navigator.clipboard.writeText(shareText);
-    } catch {
-      // Clipboard API tidak tersedia / ditolak — lanjut ke link manual saja.
-    }
-
-    const whatsapp = `https://wa.me/?text=${encodeURIComponent(`${title} — ${shareText}`)}`;
-    const instagram = "https://www.instagram.com";
-    const wa = window.open(whatsapp, "_blank");
-    if (wa) wa.focus();
-  };
+  const [sizeId, setSizeId] = useState<string>("stories");
+  const ukuran = UKURAN.find((u) => u.id === sizeId) ?? UKURAN[0];
 
   return (
     <main className="min-h-screen bg-[#fdfbf7] text-[#17322e] sm:p-6">
@@ -351,7 +421,7 @@ export function Promo() {
             <div>
               <p className="text-sm font-bold tracking-tight text-[#0f3d3a]">PINDAI</p>
               <p className="text-[11px] font-medium tracking-[0.12em] text-[#5c6b66]">
-                Ruang Penyedia Dana
+                Poster Siap Pakai
               </p>
             </div>
           </div>
@@ -371,137 +441,62 @@ export function Promo() {
           </div>
         </header>
 
-        <div className="grid gap-6 lg:grid-cols-[1.15fr_1fr]">
-          {/* Editor teks */}
-          <section className="rounded-3xl border border-[#d9d2c3] bg-white p-5 shadow-sm">
-            <div className="flex items-center gap-2">
-              <Type className="size-3.5 text-[#9c7b3a]" aria-hidden="true" />
-              <h2 className="text-lg font-bold tracking-tight text-[#0f3d3a]">Template</h2>
-              <span className="rounded-full bg-[#e7e2d4] px-2 py-0.5 text-[11px] font-medium text-[#5c6b66]">
-                paling sedang
-              </span>
+        {/* Intro + pemilih ukuran */}
+        <section className="overflow-hidden rounded-3xl border border-[#d9d2c3] bg-white p-5 shadow-sm sm:p-6">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div className="max-w-2xl">
+              <p className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#9c7b3a]">
+                <Sparkles className="size-3.5" aria-hidden="true" />
+                Materi promosi final
+              </p>
+              <h1 className="mt-2 text-xl font-bold tracking-tight text-[#0f3d3a] sm:text-2xl">
+                Poster siap dibagikan
+              </h1>
+              <p className="mt-2 text-sm leading-6 text-[#5c6b66]">
+                Tinggal pilih ukuran, unduh PNG, lalu unggah ke Instagram, WhatsApp, atau
+                status. Semua poster sudah final — tidak ada yang perlu diedit.
+              </p>
             </div>
-            <p className="mt-1 text-xs text-[#5c6b66]">
-              Ubah teks di samping; kartu kuning akan merekam ulang secara otomatis.
-            </p>
-            <div className="mt-4 space-y-4">
-              {FIELDS.map((f) => (
-                <div key={f.id}>
-                  <Label htmlFor={f.id} className="text-xs font-medium text-[#5c6b66]">
-                    {f.label}
-                  </Label>
-                  {f.id === "cta" || f.id === "link" ? (
-                    <Input
-                      id={f.id}
-                      value={t[f.id] as string}
-                      onChange={(e) => setT({ ...t, [f.id]: e.target.value })}
-                      placeholder={f.placeholder}
-                    />
-                  ) : (
-                    <Textarea
-                      id={f.id}
-                      value={t[f.id] as string}
-                      onChange={(e) => setT({ ...t, [f.id]: e.target.value })}
-                      placeholder={f.placeholder}
-                      rows={f.id === "peringatan" ? 2 : 3}
-                      className="font-mono text-xs"
-                    />
-                  )}
-                </div>
-              ))}
-            </div>
-          </section>
-
-          {/* Preview + aksi */}
-          <section className="flex flex-col">
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-2">
-                {mode === "composer" ? (
-                  <>
-                    <span className="text-sm font-bold tracking-tight text-[#0f3d3a]">Preview</span>
-                    <span className="rounded-full bg-[#e7e2d4] px-2 py-0.5 text-[11px] font-medium text-[#5c6b66]">
-                      live
-                    </span>
-                  </>
-                ) : (
-                  <span className="text-sm font-bold tracking-tight text-[#0f3d3a]">Poster</span>
-                )}
-              </div>
-              <div className="flex items-center gap-2">
-                <Button variant="ghost" size="sm" onClick={() => setMode(mode === "composer" ? "poster" : "composer")} className="gap-2 text-muted-foreground hover:text-ink text-xs">
-                  <ImageIcon className="size-4" aria-hidden="true" />
-                  {mode === "composer" ? "Poster" : "Editor"}
-                </Button>
-                <Select value={t.sizeId} onValueChange={(v) => setT({ ...t, sizeId: v })}>
-                  <SelectTrigger className="w-auto min-w-[180px]" aria-label="Ukuran kanvas">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {UKURAN.map((u) => (
-                      <SelectItem key={u.id} value={u.id}>
-                        <span className="flex items-center gap-2">
-                          <span className="block size-6 rounded-lg bg-white p-1 shadow-sm">
-                            <UkuranBadge u={u} />
-                          </span>
-                          {u.label}
-                          <span className="ml-auto text-[11px] text-[#5c6b66] font-mono">
-                            {u.ratioLabel}
-                          </span>
+            <div className="w-full sm:w-auto">
+              <p className="mb-1.5 text-xs font-medium text-[#5c6b66]">Ukuran kanvas</p>
+              <Select value={sizeId} onValueChange={setSizeId}>
+                <SelectTrigger className="w-full sm:min-w-[220px]" aria-label="Ukuran kanvas">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {UKURAN.map((u) => (
+                    <SelectItem key={u.id} value={u.id}>
+                      <span className="flex items-center gap-2">
+                        <span className="block size-6 rounded-lg bg-white p-1 shadow-sm">
+                          <UkuranBadge u={u} />
                         </span>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+                        {u.label}
+                        <span className="ml-auto font-mono text-[11px] text-[#5c6b66]">
+                          {u.ratioLabel}
+                        </span>
+                      </span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
+          </div>
+        </section>
 
-            <div className="mt-3 flex flex-1 items-center justify-center rounded-2xl border border-[#d9d2c3] bg-white p-4 shadow-sm">
-              <div
-                className="relative flex aspect-video w-full max-w-[min(1080px,100%)] items-center justify-center bg-[#fdfbf7]"
-                style={{ aspectRatio: `${ukuran.canvas[0]} / ${ukuran.canvas[1]}` }}
-              >
-  {mode === "poster" ? (
-                  <canvas
-                    className="relative block w-full object-contain"
-                    width={ukuran.canvas[0]}
-                    height={ukuran.canvas[1]}
-                  />
-                ) : (
-                  poster ? (
-                    <canvas
-                      className="relative aspect-[1080/1920] w-full object-contain"
-                      style={{ aspectRatio: `${poster.width} / ${poster.height}` }}
-                      width={poster.width}
-                      height={poster.height}
-                    />
-                  ) : (
-                    <div className="flex flex-col items-center text-sm text-muted-foreground">
-                      <ImageIcon className="mb-2 size-8" aria-hidden="true" />
-                      Memuat preview kartu…
-                    </div>
-                  )
-                )}
-              </div>
-            </div>
-
-            <div className="mt-3 flex flex-wrap gap-2">
-              <Button variant="default" className="gap-2" onClick={exportGambar}>
-                <Download className="size-4" aria-hidden="true" />
-                Unduh PNG
-              </Button>
-              <Button variant="outline" className="gap-2" onClick={bagikan}>
-                <Share2 className="size-4" aria-hidden="true" />
-                Bagikan ke WhatsApp / Instagram
-              </Button>
-              <Button variant="ghost" size="sm" asChild>
-                <Link to="/dashboard">
-                  <ExternalLink className="size-4" aria-hidden="true" />
-                  Sampai sini
-                </Link>
-              </Button>
-            </div>
-          </section>
-        </div>
+        {/* Galeri poster */}
+        <section className="space-y-4">
+          <div className="flex items-center gap-2">
+            <ImageIcon className="size-3.5 text-[#9c7b3a]" aria-hidden="true" />
+            <h2 className="text-lg font-bold tracking-tight text-[#0f3d3a]">
+              Galeri poster ({POSTER.length})
+            </h2>
+          </div>
+          <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
+            {POSTER.map((p) => (
+              <PosterCard key={p.id} poster={p} ukuran={ukuran} />
+            ))}
+          </div>
+        </section>
 
         {/* Referensi ukuran */}
         <section className="rounded-3xl border border-[#d9d2c3] bg-white p-5 shadow-sm">
@@ -512,34 +507,41 @@ export function Promo() {
             </h2>
           </div>
           <p className="mt-1 text-sm text-[#5c6b66]">
-            Setiap ukuran sudah mengisi konten agar rapi di perangkat tujuan. Unduh satu
-            gambar sesuai pilihan kanvas.
+            Setiap ukuran sudah mengisi konten agar rapi di perangkat tujuan. Ubah ukuran di
+            atas untuk menyiapkan seluruh galeri sekaligus.
           </p>
           <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {UKURAN.map((u) => (
-              <div
+              <button
                 key={u.id}
-                className="flex items-center gap-3 rounded-2xl border border-[#e7e2d4] bg-[#faf8f3] p-4"
+                type="button"
+                onClick={() => setSizeId(u.id)}
+                className={`flex items-center gap-3 rounded-2xl border p-4 text-left transition-colors ${
+                  u.id === sizeId
+                    ? "border-[#9c7b3a] bg-[#faf8f3]"
+                    : "border-[#e7e2d4] bg-white hover:bg-[#faf8f3]"
+                }`}
+                aria-pressed={u.id === sizeId}
               >
-                <span className="flex size-11 items-center justify-center rounded-xl bg-white p-2 shadow-sm text-[#0f3d3a]">
+                <span className="flex size-11 items-center justify-center rounded-xl bg-white p-2 text-[#0f3d3a] shadow-sm">
                   <UkuranBadge u={u} />
                 </span>
                 <div className="min-w-0">
                   <p className="truncate text-sm font-medium text-[#0f3d3a]">{u.label}</p>
-                  <p className="text-[11px] font-mono text-[#5c6b66]">{u.ratioLabel}</p>
+                  <p className="font-mono text-[11px] text-[#5c6b66]">{u.ratioLabel}</p>
                 </div>
                 <span className="ml-auto text-[11px] text-[#5c6b66]">
                   {u.canvas[0]}×{u.canvas[1]}
                 </span>
-              </div>
+              </button>
             ))}
           </div>
         </section>
 
-        {/* Footer info */}
-        <footer className="text-center text-xs text-muted-foreground">
-          Lencana emas + grid laut pada kartu ini meniru dirian P. Tim PINDAI · ruang
-          penyedia dana.
+        {/* Footer */}
+        <footer className="pb-4 text-center text-xs text-muted-foreground">
+          Poster PINDAI · ruang penyedia dana. Unggah apa adanya — jangan mengubah angka atau
+          klaim pada gambar.
         </footer>
       </div>
     </main>
