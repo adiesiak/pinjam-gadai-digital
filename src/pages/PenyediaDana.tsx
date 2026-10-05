@@ -275,7 +275,7 @@ function KartuRingkasan({
 
 /**
  * Kartu rekap satu penyedia dana (model 1 pinjaman = 1 pendana): jumlah
- * pinjaman, pokok yang bekerja, keuntungan bersih pendana, dan keuntungan admin.
+ * pinjaman, pokok yang bekerja, keuntungan bersih pendana, dan biaya platform.
  */
 function KartuPendana({ r }: { r: RekapPendana }) {
   return (
@@ -311,7 +311,7 @@ function KartuPendana({ r }: { r: RekapPendana }) {
           </dd>
         </div>
         <div className="flex items-baseline justify-between gap-2">
-          <dt className="text-muted-foreground">Keuntungan admin</dt>
+          <dt className="text-muted-foreground">Biaya platform</dt>
           <dd className="font-semibold tabular-nums text-amber-700">
             {rupiah(r.keuntunganAdmin)}
           </dd>
@@ -580,7 +580,7 @@ function DetailPinjaman({ row }: { row: BarisPinjaman }) {
         nilai={row.pendana === null ? "—" : rupiah(row.keuntunganPendana)}
       />
       <BarisDetail
-        label="Keuntungan admin"
+        label="Biaya platform"
         nilai={row.pendana === null ? "—" : rupiah(row.keuntunganAdmin)}
       />
       <BarisDetail
@@ -1523,8 +1523,8 @@ function IsiRuang() {
                     Rekap Dana Penyedia
                   </h2>
                   <p className="text-xs font-medium tabular-nums text-muted-foreground">
-                    Keuntungan pendana {rupiah(data.ringkasan.totalKeuntunganPendana)} · keuntungan
-                    admin {rupiah(data.ringkasan.totalKeuntunganAdmin)}
+                    Keuntungan pendana {rupiah(data.ringkasan.totalKeuntunganPendana)} · biaya
+                    platform {rupiah(data.ringkasan.totalKeuntunganAdmin)}
                     {data.ringkasan.totalTransferBelumDicatat > 0 && (
                       <>
                         {" · "}
