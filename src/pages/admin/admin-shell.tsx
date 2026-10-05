@@ -152,8 +152,9 @@ export function AdminHeader({
     <header className="animate-masuk sticky top-0 z-40 border-b border-slate-200 bg-white/95 backdrop-blur">
       <div className="mx-auto flex min-h-14 w-full max-w-7xl items-center justify-between gap-2 px-3 py-2 sm:min-h-16 sm:gap-3 sm:px-6">
         <div className="flex min-w-0 items-center gap-2 sm:gap-3">
-          <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-emerald-700 text-base font-bold text-primary-foreground sm:size-10">
+          <span className="vault-logo relative flex size-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-emerald-700 text-base font-bold text-primary-foreground sm:size-10">
             P
+            <span className="salju-cap" aria-hidden="true" />
           </span>
           <div className="min-w-0">
             <p className="truncate text-xs font-bold tracking-[0.1em] text-navy sm:text-sm sm:tracking-[0.12em]">PANEL ADMIN</p>

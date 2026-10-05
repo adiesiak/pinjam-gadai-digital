@@ -20,7 +20,7 @@ export function LoadingScreen({ label = "Memuat…" }: { label?: string }) {
         <div className="pb__stage">
           <span className="pb__halo" aria-hidden="true" />
           <svg
-            className="pb__vault"
+            className="pb__vault vault-logo"
             width="96"
             height="96"
             viewBox="0 0 64 64"
@@ -46,6 +46,15 @@ export function LoadingScreen({ label = "Memuat…" }: { label?: string }) {
               <circle cx="31" cy="31" r="2.2" fill="#cbb47e" />
             </g>
             <path d="M20 57h8M36 57h8" stroke="#0b2d2a" strokeWidth="3" strokeLinecap="round" />
+            <g className="vault-snow" aria-hidden="true">
+              <path
+                d="M6 16 C 13 9, 21 17, 31 12 C 41 7, 49 16, 58 10 L58 9 C58 7 56 6 54 6 L10 6 C8 6 6 7 6 9 Z"
+                fill="#ffffff"
+                opacity="0.96"
+              />
+              <circle cx="17" cy="13" r="2.6" fill="#ffffff" opacity="0.9" />
+              <circle cx="45" cy="12" r="3" fill="#ffffff" opacity="0.92" />
+            </g>
           </svg>
           <span className="pb__scan" aria-hidden="true" />
         </div>

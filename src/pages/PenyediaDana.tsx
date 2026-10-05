@@ -7,6 +7,7 @@ import {
   KeyRound,
   Loader2,
   Lock,
+  HandCoins,
   MapPin,
   Package,
   Pencil,
@@ -1389,7 +1390,7 @@ function FormUbahPinjaman({ row, onClose }: { row: BarisPinjaman; onClose: () =>
 
 function IsiRuang() {
   const { user } = useAuth();
-  const [tab, setTab] = useState("pinjaman");
+  const [tab, setTab] = useState("belum");
   const [detail, setDetail] = useState<IsiDetail | null>(null);
   const [ubah, setUbah] = useState<BarisPinjaman | null>(null);
   const sekarang = useJamBerjalan();
@@ -1414,9 +1415,13 @@ function IsiRuang() {
     user === undefined || !bolehLihat || tab !== "lokasi" ? ("skip" as const) : {},
   );
 
-  // Pinjaman yang sudah lunas dipisah ke tabnya sendiri, sehingga tab
-  // "Pinjaman" hanya berisi daftar kerja (belum lunas) dan tetap ringkas.
-  const pinjamanAktif = data?.pinjaman.filter((r) => r.status !== "lunas") ?? [];
+  // Pinjaman dipisah supaya ruang kerja pendana jelas: pengajuan baru yang
+  // BELUM didanai, posisi yang SUDAH didanai (berjalan), dan riwayat lunas.
+  // `didanaiPada` adalah penanda resmi "sudah pernah didanai" dari server.
+  const pinjamanBaru =
+    data?.pinjaman.filter((r) => r.didanaiPada === null && r.status !== "lunas") ?? [];
+  const pinjamanDidanai =
+    data?.pinjaman.filter((r) => r.didanaiPada !== null && r.status !== "lunas") ?? [];
   const pinjamanLunas = data?.pinjaman.filter((r) => r.status === "lunas") ?? [];
 
   return (
@@ -1424,8 +1429,9 @@ function IsiRuang() {
       <header className="animate-masuk border-b border-slate-200 bg-white/80 backdrop-blur">
         <div className="mx-auto flex h-14 w-full max-w-6xl items-center justify-between gap-3 px-4 sm:px-6">
           <Link to="/dashboard" className="flex shrink-0 items-center gap-2.5">
-            <span className="flex size-8 items-center justify-center rounded-lg bg-primary text-sm font-bold text-primary-foreground">
+            <span className="vault-logo relative flex size-8 items-center justify-center rounded-lg bg-primary text-sm font-bold text-primary-foreground">
               P
+              <span className="salju-cap" aria-hidden="true" />
             </span>
             <span className="hidden text-sm font-semibold tracking-[0.14em] sm:block">PINDAI</span>
           </Link>
@@ -1548,12 +1554,21 @@ function IsiRuang() {
                 className="h-auto w-full flex-wrap justify-start gap-1 rounded-2xl border border-slate-200 bg-white p-1.5"
               >
                 <TabsTrigger
-                  value="pinjaman"
+                  value="belum"
                   className="group h-9 flex-none gap-2 rounded-xl px-3 text-xs font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
                 >
-                  <Wallet className="size-3.5" /> Pinjaman
+                  <Timer className="size-3.5" /> Belum didanai
                   <span className="tabular-nums text-muted-foreground group-data-[state=active]:text-primary-foreground">
-                    {pinjamanAktif.length}
+                    {pinjamanBaru.length}
+                  </span>
+                </TabsTrigger>
+                <TabsTrigger
+                  value="didanai"
+                  className="group h-9 flex-none gap-2 rounded-xl px-3 text-xs font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+                >
+                  <HandCoins className="size-3.5" /> Sudah didanai
+                  <span className="tabular-nums text-muted-foreground group-data-[state=active]:text-primary-foreground">
+                    {pinjamanDidanai.length}
                   </span>
                 </TabsTrigger>
                 <TabsTrigger
@@ -1596,14 +1611,44 @@ function IsiRuang() {
                 </TabsTrigger>
               </TabsList>
 
-              {/* ===== Pinjaman tunai (belum lunas) ===== */}
-              <TabsContent value="pinjaman" className="mt-4">
-                {pinjamanAktif.length === 0 ? (
-                  <KeadaanKosong pesan="Belum ada pengajuan pinjaman tunai yang belum lunas." />
+              {/* ===== Pinjaman baru: belum didanai ===== */}
+              <TabsContent value="belum" className="mt-4">
+                {pinjamanBaru.length === 0 ? (
+                  <KeadaanKosong pesan="Belum ada pengajuan pinjaman baru yang menunggu didanai." />
                 ) : (
                   <>
+                    <p className="mb-3 rounded-2xl border border-amber-200 bg-amber-50/70 px-4 py-3 text-xs leading-6 text-amber-900">
+                      Pinjaman pada tab ini <strong>belum didanai</strong> — dana belum dialokasikan.
+                      Alokasi pendanaan dilakukan dari panel admin.
+                    </p>
                     <DaftarPinjaman
-                      rows={pinjamanAktif}
+                      rows={pinjamanBaru}
+                      persenBunga={data.ringkasan.persenBunga}
+                      sekarang={sekarang}
+                      onDetail={(row) => setDetail({ jenis: "pinjaman", row })}
+                      onUbah={role === "admin" ? (row) => setUbah(row) : undefined}
+                    />
+                    <CatatanTerpotong
+                      terpotong={data.terpotong.pinjaman}
+                      batas={data.batas}
+                    />
+                  </>
+                )}
+              </TabsContent>
+
+              {/* ===== Pinjaman sudah didanai (berjalan, belum lunas) ===== */}
+              <TabsContent value="didanai" className="mt-4">
+                {pinjamanDidanai.length === 0 ? (
+                  <KeadaanKosong pesan="Belum ada pinjaman yang sudah didanai dan masih berjalan." />
+                ) : (
+                  <>
+                    <p className="mb-3 rounded-2xl border border-emerald-200 bg-emerald-50/70 px-4 py-3 text-xs leading-6 text-emerald-900">
+                      Pinjaman pada tab ini <strong>sudah didanai</strong> dan masih berjalan. Angka
+                      keuntungan di bawah adalah perhitungan atas kewajiban berjalan, bukan bukti
+                      mutasi.
+                    </p>
+                    <DaftarPinjaman
+                      rows={pinjamanDidanai}
                       persenBunga={data.ringkasan.persenBunga}
                       sekarang={sekarang}
                       onDetail={(row) => setDetail({ jenis: "pinjaman", row })}

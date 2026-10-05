@@ -39,7 +39,7 @@ export function LogoDropdown() {
             alt="Logo"
             width={32}
             height={32}
-            className="rounded-lg"
+            className="salju-logo-img rounded-lg"
           />
         </Button>
       </DropdownMenuTrigger>

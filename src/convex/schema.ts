@@ -579,7 +579,7 @@ const schema = defineSchema(
       /** Gate off until downstream allocations, disbursements, and withdrawals are ready. */
       manualDepositEnabled: v.optional(v.boolean()),
       /** Preset tema aman dari whitelist; tidak menerima CSS arbitrer. */
-      tema: v.optional(v.union(v.literal("tinta"), v.literal("pesisir"), v.literal("terakota"))),
+      tema: v.optional(v.union(v.literal("tinta"), v.literal("pesisir"), v.literal("terakota"), v.literal("salju"))),
       /** Waktu terakhir konfigurasi diperbarui. */
       diperbaruiPada: v.number(),
     }).index("by_slot", ["slot"]),

@@ -41,6 +41,15 @@ const TEMPLATES: TemplateInfo[] = [
     latar: "#fcf8f4",
     tinta: "#3b2821",
   },
+  {
+    id: "salju",
+    nama: "Musim Salju",
+    deskripsi:
+      "Tema musiman beranimasi: salju turun perlahan, brankas tertutup salju, dan logo berganti warna.",
+    warna: ["#2f5d7c", "#9fb8c8", "#e6eef3"],
+    latar: "#eef3f7",
+    tinta: "#1d2b36",
+  },
 ];
 
 export function WebsiteTemplatePanel() {

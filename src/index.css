@@ -286,6 +286,66 @@
   --color-slate-950: #201915;
 }
 
+/* Tema musiman "Musim Salju": palet dingin baja-biru dengan latar es. */
+:root:where([data-theme="salju"]) {
+  --background: #eef3f7;
+  --foreground: #1d2b36;
+  --card: #ffffff;
+  --card-foreground: #1d2b36;
+  --popover: #ffffff;
+  --popover-foreground: #1d2b36;
+  --primary: #2f5d7c;
+  --primary-foreground: #f3f8fb;
+  --secondary: #dfe9f0;
+  --secondary-foreground: #20313d;
+  --muted: #e8eff4;
+  --muted-foreground: #5c7180;
+  --accent: #d6e3ec;
+  --accent-foreground: #20313d;
+  --destructive: #a5404b;
+  --border: #d3e0e8;
+  --input: #bfd0db;
+  --ring: #4a86ab;
+  --gold: #7d94a6;
+  --gold-foreground: #3d5162;
+  --navy: #24435a;
+  --chart-1: #2f5d7c;
+  --chart-2: #7d94a6;
+  --chart-3: #4a86ab;
+  --chart-4: #9fb8c8;
+  --chart-5: #c9d9e3;
+  --sidebar: #e8eff4;
+  --sidebar-foreground: #1d2b36;
+  --sidebar-primary: #2f5d7c;
+  --sidebar-primary-foreground: #f3f8fb;
+  --sidebar-accent: #d6e3ec;
+  --sidebar-accent-foreground: #20313d;
+  --sidebar-border: #d3e0e8;
+  --sidebar-ring: #4a86ab;
+  --color-sky-50: #eef5fa;
+  --color-sky-100: #dcebf4;
+  --color-sky-200: #bed7e7;
+  --color-sky-300: #93bad3;
+  --color-sky-400: #659abc;
+  --color-sky-500: #447ea3;
+  --color-sky-600: #336588;
+  --color-sky-700: #2b5270;
+  --color-sky-800: #27455d;
+  --color-sky-900: #243b4f;
+  --color-sky-950: #162634;
+  --color-slate-50: #eef3f7;
+  --color-slate-100: #e8eff4;
+  --color-slate-200: #d8e2e9;
+  --color-slate-300: #c1cfd9;
+  --color-slate-400: #94a7b4;
+  --color-slate-500: #6d8190;
+  --color-slate-600: #546674;
+  --color-slate-700: #3f4f5c;
+  --color-slate-800: #2d3a45;
+  --color-slate-900: #1f2a33;
+  --color-slate-950: #141d24;
+}
+
 .dark {
   --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);
@@ -724,5 +784,141 @@
   @keyframes pb-bar { 0% { transform: translateX(-110%); } 100% { transform: translateX(320%); } }
   @media (prefers-reduced-motion: reduce) {
     .pb__dial, .pb__halo, .pb__scan, .pb__bar { animation: none; }
+  }
+}
+
+/* ===== Tema musiman "Musim Salju" — salju turun + brankas tertutup salju =====
+   Semua animasi di bawah HANYA aktif ketika <html data-theme="salju">, sehingga
+   tema lain tidak terpengaruh. Menghormati prefers-reduced-motion. */
+
+/* Lapisan salju layar penuh: tiga kedalaman yang jatuh dengan kecepatan berbeda. */
+.salju-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  pointer-events: none;
+  overflow: hidden;
+}
+.salju-flake {
+  position: absolute;
+  inset: -220px 0 0;
+  display: block;
+  background-repeat: repeat;
+  will-change: background-position;
+}
+.salju-flake--1 {
+  background-image: radial-gradient(1.5px 1.5px at 24px 22px, rgba(255, 255, 255, 0.95), transparent),
+    radial-gradient(1.5px 1.5px at 120px 90px, rgba(255, 255, 255, 0.7), transparent),
+    radial-gradient(1.5px 1.5px at 74px 160px, rgba(255, 255, 255, 0.85), transparent),
+    radial-gradient(1.5px 1.5px at 168px 48px, rgba(255, 255, 255, 0.6), transparent);
+  background-size: 210px 210px;
+  animation: salju-turun 16s linear infinite;
+}
+.salju-flake--2 {
+  background-image: radial-gradient(2.4px 2.4px at 40px 30px, rgba(255, 255, 255, 0.9), transparent),
+    radial-gradient(2.4px 2.4px at 150px 120px, rgba(255, 255, 255, 0.7), transparent),
+    radial-gradient(2.4px 2.4px at 96px 200px, rgba(255, 255, 255, 0.82), transparent);
+  background-size: 260px 260px;
+  animation: salju-turun 11s linear infinite;
+}
+.salju-flake--3 {
+  background-image: radial-gradient(3.4px 3.4px at 60px 40px, rgba(255, 255, 255, 0.92), transparent),
+    radial-gradient(3.4px 3.4px at 190px 150px, rgba(255, 255, 255, 0.72), transparent),
+    radial-gradient(3.4px 3.4px at 130px 250px, rgba(255, 255, 255, 0.85), transparent);
+  background-size: 320px 320px;
+  animation: salju-turun 7.5s linear infinite;
+}
+@keyframes salju-turun {
+  from {
+    background-position: 0 0;
+  }
+  to {
+    background-position: 0 320px;
+  }
+}
+
+/* Brankas tertutup salju + logo yang berubah-ubah (dial berputar, rona bergeser). */
+.vault-snow {
+  display: none;
+}
+[data-theme="salju"] .vault-snow {
+  display: block;
+  animation: salju-akumulasi 6s ease-in-out infinite;
+}
+@keyframes salju-akumulasi {
+  0%,
+  100% {
+    transform: translateY(0) scaleY(1);
+    opacity: 0.94;
+  }
+  50% {
+    transform: translateY(-1px) scaleY(1.06);
+    opacity: 1;
+  }
+}
+/* Tutup salju untuk lambang berbasis HTML (kotak brand "P" di header). */
+.salju-cap {
+  display: none;
+}
+[data-theme="salju"] .salju-cap {
+  display: block;
+  position: absolute;
+  left: -12%;
+  right: -12%;
+  top: -30%;
+  height: 66%;
+  border-radius: 50% 50% 45% 45% / 92% 92% 55% 55%;
+  background: #ffffff;
+  box-shadow: 0 2px 6px rgba(120, 160, 190, 0.4);
+  pointer-events: none;
+  animation: salju-akumulasi 6s ease-in-out infinite;
+}
+[data-theme="salju"] .vault-logo,
+[data-theme="salju"] .salju-logo-img {
+  animation: salju-logo-morph 9s ease-in-out infinite;
+}
+@keyframes salju-logo-morph {
+  0%,
+  100% {
+    transform: translateY(0) rotate(0deg);
+    filter: hue-rotate(0deg) brightness(1) drop-shadow(0 2px 6px rgba(120, 160, 190, 0.35));
+  }
+  25% {
+    transform: translateY(-1px) rotate(-3deg);
+    filter: hue-rotate(-20deg) brightness(1.08) drop-shadow(0 2px 8px rgba(120, 160, 190, 0.45));
+  }
+  50% {
+    transform: translateY(0) rotate(2deg);
+    filter: hue-rotate(14deg) brightness(1.04) drop-shadow(0 2px 6px rgba(120, 160, 190, 0.4));
+  }
+  75% {
+    transform: translateY(-1px) rotate(-1deg);
+    filter: hue-rotate(-8deg) brightness(1.1) drop-shadow(0 2px 9px rgba(120, 160, 190, 0.5));
+  }
+}
+[data-theme="salju"] .vault-dial {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: salju-dial 7s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
+}
+@keyframes salju-dial {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+  50% {
+    transform: rotate(72deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .salju-flake--1,
+  .salju-flake--2,
+  .salju-flake--3,
+  [data-theme="salju"] .salju-cap,
+  [data-theme="salju"] .vault-snow,
+  [data-theme="salju"] .vault-logo,
+  [data-theme="salju"] .vault-dial,
+  [data-theme="salju"] .salju-logo-img {
+    animation: none;
   }
 }

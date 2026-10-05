@@ -151,7 +151,7 @@ export const getConfigAdmin = query({
 /** Simpan konfigurasi — mencatat audit + deteksi perubahan kill switch. */
 export const saveConfig = mutation({
   args: {
-    tema: v.union(v.literal("tinta"), v.literal("pesisir"), v.literal("terakota")),
+    tema: v.union(v.literal("tinta"), v.literal("pesisir"), v.literal("terakota"), v.literal("salju")),
     killSwitch: v.boolean(),
     maintenanceMode: v.boolean(),
     persenAdmin: v.number(),
@@ -259,7 +259,14 @@ export const generatePaymentAssetUploadUrl = mutation({
 
 /** Pilih template/tema visual website untuk seluruh pengunjung. */
 export const setWebsiteTemplate = mutation({
-  args: { tema: v.union(v.literal("tinta"), v.literal("pesisir"), v.literal("terakota")) },
+  args: {
+    tema: v.union(
+      v.literal("tinta"),
+      v.literal("pesisir"),
+      v.literal("terakota"),
+      v.literal("salju"),
+    ),
+  },
   handler: async (ctx, { tema }) => {
     const { userId, user } = await requireAdmin(ctx);
     if (!(THEME_PRESETS as readonly string[]).includes(tema)) {
