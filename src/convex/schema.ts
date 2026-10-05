@@ -351,6 +351,34 @@ const schema = defineSchema(
     }).index("by_user", ["userId"]),
 
     /**
+     * Perangkat dipercaya ("ingat perangkat ini") — Super Admin yang sudah
+     * lolos TOTP boleh melewati gate TOTP di perangkat yang sama tanpa
+     * memasukkan kode lagi, hingga kedaluwarsa.
+     *
+     * Token disimpan HANYA sebagai hash SHA-256 (nilai aslinya cuma ada di
+     * localStorage perangkat), terikat pada satu `userId`, punya masa berlaku,
+     * dan dapat dicabut. Mencabut/menonaktifkan 2FA mematikan seluruh baris ini.
+     */
+    trustedDevices: defineTable({
+      userId: v.id("users"),
+      /** SHA-256 hex dari token perangkat — bukan token aslinya. */
+      tokenHash: v.string(),
+      /** Label perangkat untuk ditampilkan di panel keamanan. */
+      perangkat: v.string(),
+      /** IP saat token dibuat/dipakai terakhir (opsional, untuk audit). */
+      ip: v.optional(v.string()),
+      dibuatPada: v.number(),
+      /** Lewat waktu ini token tidak lagi berlaku. */
+      kedaluwarsaPada: v.number(),
+      /** Waktu token terakhir dipakai untuk melewati gate. */
+      terakhirDipakai: v.optional(v.number()),
+      /** Terisi saat token dicabut — baris tetap ada untuk jejak audit. */
+      dicabutPada: v.optional(v.number()),
+    })
+      .index("by_user", ["userId"])
+      .index("by_tokenHash", ["tokenHash"]),
+
+    /**
      * Rate limit login — hitung kegagalan per email+IP, append-only.
      * 5x gagal dalam 15 menit → IP diblokir sementara (dicek di verifyLogin). */
     loginAttempts: defineTable({

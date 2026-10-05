@@ -46,6 +46,40 @@ const ADMIN_RATE_WINDOW_MS = 15 * 60 * 1000;
 const ADMIN_TOKEN_MAX_PERMOHONAN = 3;
 const ADMIN_TOKEN_WINDOW_MS = 15 * 60 * 1000;
 
+/** Masa berlaku "ingat perangkat ini" — 30 hari sejak verifikasi TOTP. */
+export const MASA_PERANGKAT_PERCAYA_MS = 30 * 24 * 60 * 60 * 1000;
+/** Batas perangkat dipercaya aktif per akun; yang terlama dicabut otomatis. */
+export const MAKS_PERANGKAT_PERCAYA = 10;
+/** Salt tetap — token sudah acak 256 bit, salt hanya memisahkan domain hash. */
+const SALT_PERANGKAT = "pindai:perangkat-percaya:v1:";
+
+function keHexPerangkat(bytes: Uint8Array): string {
+  return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+/** ASCII → byte tanpa TextEncoder (aman di seluruh runtime Convex). */
+function keBytesPerangkat(teks: string): Uint8Array {
+  const bytes = new Uint8Array(teks.length);
+  for (let i = 0; i < teks.length; i += 1) bytes[i] = teks.charCodeAt(i) & 0xff;
+  return bytes;
+}
+
+/** SHA-256 hex dari token perangkat — satu-satunya bentuk yang disimpan. */
+export async function hashTokenPerangkat(token: string): Promise<string> {
+  const digest = await crypto.subtle.digest(
+    "SHA-256",
+    keBytesPerangkat(SALT_PERANGKAT + token) as unknown as ArrayBuffer,
+  );
+  return keHexPerangkat(new Uint8Array(digest));
+}
+
+/** Token perangkat acak 32 byte (256 bit) dalam hex. */
+export function buatTokenPerangkat(): string {
+  const bytes = new Uint8Array(32);
+  crypto.getRandomValues(bytes);
+  return keHexPerangkat(bytes);
+}
+
 /**
  * Kode OTP 6 digit dari sumber acak kriptografis — bukan `Math.random`.
  * Kode ini melindungi transaksi finansial & login perangkat baru, jadi PRNG
@@ -90,6 +124,19 @@ async function getMfa(ctx: QueryCtx, userId: Id<"users">) {
     .query("mfaSettings")
     .withIndex("by_user", (q) => q.eq("userId", userId))
     .first();
+}
+
+/** Batasi jumlah perangkat dipercaya aktif; yang terlama dicabut otomatis. */
+async function batasiPerangkatPercaya(ctx: MutationCtx, userId: Id<"users">) {
+  const aktif = (await ctx.db
+    .query("trustedDevices")
+    .withIndex("by_user", (q) => q.eq("userId", userId))
+    .collect())
+    .filter((d) => d.dicabutPada === undefined && d.kedaluwarsaPada > Date.now())
+    .sort((a, b) => b.dibuatPada - a.dibuatPada);
+  for (const lama of aktif.slice(MAKS_PERANGKAT_PERCAYA)) {
+    await ctx.db.patch(lama._id, { dicabutPada: Date.now() });
+  }
 }
 
 /** Tulis log login append-only. */
@@ -552,8 +599,14 @@ export const confirmTotpSetup = mutation({
 
 /** Verifikasi kode TOTP saat sesi admin dibuka (gate klien per sesi). */
 export const verifyTotp = mutation({
-  args: { kode: v.string(), perangkat: v.string(), ip: v.string() },
-  handler: async (ctx, { kode, perangkat, ip }) => {
+  args: {
+    kode: v.string(),
+    perangkat: v.string(),
+    ip: v.string(),
+    /** Bila true, terbitkan token "ingat perangkat ini" untuk 30 hari. */
+    ingatPerangkat: v.optional(v.boolean()),
+  },
+  handler: async (ctx, { kode, perangkat, ip, ingatPerangkat }) => {
     const user = await requireAdmin(ctx);
     const authSessionId = await getCurrentAuthSessionId(ctx, user._id);
     if (authSessionId === null) {
@@ -588,6 +641,22 @@ export const verifyTotp = mutation({
         authSessionId,
       ),
     });
+    // "Ingat perangkat ini": terbitkan token sekali, simpan hanya hash-nya.
+    let tokenPerangkat: string | null = null;
+    if (ingatPerangkat === true) {
+      tokenPerangkat = buatTokenPerangkat();
+      const now = Date.now();
+      await ctx.db.insert("trustedDevices", {
+        userId: user._id,
+        tokenHash: await hashTokenPerangkat(tokenPerangkat),
+        perangkat,
+        ip,
+        dibuatPada: now,
+        kedaluwarsaPada: now + MASA_PERANGKAT_PERCAYA_MS,
+        terakhirDipakai: now,
+      });
+      await batasiPerangkatPercaya(ctx, user._id);
+    }
     await catatLogin(ctx, {
       userId: user._id,
       status: "berhasil",
@@ -595,7 +664,7 @@ export const verifyTotp = mutation({
       ip,
       userAgent: perangkat,
     });
-    return { ok: true, butuh: true };
+    return { ok: true, butuh: true, tokenPerangkat };
   },
 });
 
@@ -614,6 +683,16 @@ export const disableTotp = mutation({
       totpLastCounter: undefined,
       totpVerifiedAuthSessionIds: undefined,
     });
+    // 2FA mati → seluruh perangkat dipercaya ikut dicabut.
+    const perangkat = await ctx.db
+      .query("trustedDevices")
+      .withIndex("by_user", (q) => q.eq("userId", user._id))
+      .collect();
+    for (const d of perangkat) {
+      if (d.dicabutPada === undefined) {
+        await ctx.db.patch(d._id, { dicabutPada: Date.now() });
+      }
+    }
     await ctx.db.insert("auditLog", {
       aktorUserId: user._id,
       aktorLabel: user.email ?? user.name ?? "admin",
@@ -621,6 +700,132 @@ export const disableTotp = mutation({
       target: "mfaSettings",
       waktu: Date.now(),
     });
+    return { ok: true };
+  },
+});
+
+/**
+ * Lewati gate TOTP memakai token "ingat perangkat ini".
+ *
+ * Hanya berfungsi untuk akun admin yang sedang masuk, dengan token yang belum
+ * kedaluwarsa dan belum dicabut. Bila valid, sesi Auth saat ini ditandai sudah
+ * terverifikasi TOTP — sama seperti baru mengetik kode. Catatan: token mentah
+ * TIDAK pernah disimpan, hanya hash-nya.
+ */
+export const cobaPerangkatPercaya = mutation({
+  args: { token: v.string(), perangkat: v.string(), ip: v.string() },
+  handler: async (ctx, { token, perangkat, ip }) => {
+    const user = await requireAdmin(ctx);
+    const authSessionId = await getCurrentAuthSessionId(ctx, user._id);
+    if (authSessionId === null) return { ok: false };
+    const mfa = await getMfa(ctx, user._id);
+    if (mfa === null || mfa.totpSecret === undefined) return { ok: false };
+
+    const tokenHash = await hashTokenPerangkat(token);
+    const row = await ctx.db
+      .query("trustedDevices")
+      .withIndex("by_tokenHash", (q) => q.eq("tokenHash", tokenHash))
+      .first();
+    if (
+      row === null ||
+      row.userId !== user._id ||
+      row.dicabutPada !== undefined ||
+      row.kedaluwarsaPada <= Date.now()
+    ) {
+      return { ok: false };
+    }
+
+    const now = Date.now();
+    await ctx.db.patch(row._id, { terakhirDipakai: now, perangkat, ip });
+    await ctx.db.patch(mfa._id, {
+      totpVerifiedAuthSessionIds: addVerifiedAuthSession(
+        mfa.totpVerifiedAuthSessionIds,
+        authSessionId,
+      ),
+    });
+    await catatLogin(ctx, {
+      userId: user._id,
+      status: "berhasil",
+      metode: "totp_perangkat",
+      ip,
+      userAgent: perangkat,
+      keterangan: "Perangkat dipercaya — gate TOTP dilewati",
+    });
+    return { ok: true };
+  },
+});
+
+/** Pesan status pemakaian perangkat dipercaya untuk satu token (diagnostik UI). */
+export const statusPerangkatPercaya = query({
+  args: {},
+  handler: async (ctx) => {
+    const user = await requireAdmin(ctx);
+    const aktif = (await ctx.db
+      .query("trustedDevices")
+      .withIndex("by_user", (q) => q.eq("userId", user._id))
+      .collect())
+      .filter((d) => d.dicabutPada === undefined && d.kedaluwarsaPada > Date.now());
+    return { jumlah: aktif.length, maks: MAKS_PERANGKAT_PERCAYA };
+  },
+});
+
+/** Daftar perangkat dipercaya aktif milik admin ini — untuk panel keamanan. */
+export const daftarPerangkatPercaya = query({
+  args: {},
+  handler: async (ctx) => {
+    const user = await requireAdminSession(ctx);
+    const rows = await ctx.db
+      .query("trustedDevices")
+      .withIndex("by_user", (q) => q.eq("userId", user.userId))
+      .collect();
+    return rows
+      .filter((d) => d.dicabutPada === undefined && d.kedaluwarsaPada > Date.now())
+      .sort((a, b) => b.dibuatPada - a.dibuatPada)
+      .map((d) => ({
+        _id: d._id,
+        perangkat: d.perangkat,
+        ip: d.ip ?? null,
+        dibuatPada: d.dibuatPada,
+        terakhirDipakai: d.terakhirDipakai ?? null,
+        kedaluwarsaPada: d.kedaluwarsaPada,
+      }));
+  },
+});
+
+/** Cabut satu perangkat dipercaya milik admin ini. */
+export const cabutPerangkatPercaya = mutation({
+  args: { id: v.id("trustedDevices") },
+  handler: async (ctx, { id }) => {
+    const user = await requireAdminSession(ctx);
+    const row = await ctx.db.get(id);
+    if (row === null || row.userId !== user.userId) {
+      throw new Error("Perangkat tidak ditemukan.");
+    }
+    if (row.dicabutPada === undefined) {
+      await ctx.db.patch(id, { dicabutPada: Date.now() });
+    }
+    return { ok: true };
+  },
+});
+
+/**
+ * Lupakan perangkat saat ini — mencabut token yang tersimpan di perangkat ini.
+ * Dipakai tombol "Lupakan perangkat ini" (klien mengirim token lokalnya).
+ * Aman bila token tidak dikenal: tidak melempar.
+ */
+export const lupakanPerangkatPercaya = mutation({
+  args: { token: v.string() },
+  handler: async (ctx, { token }) => {
+    const user = await requireAdmin(ctx);
+    if (token.trim() === "") return { ok: true };
+    const tokenHash = await hashTokenPerangkat(token);
+    const row = await ctx.db
+      .query("trustedDevices")
+      .withIndex("by_tokenHash", (q) => q.eq("tokenHash", tokenHash))
+      .first();
+    if (row !== null && row.userId === user._id && row.dicabutPada === undefined) {
+      await ctx.db.patch(row._id, { dicabutPada: Date.now() });
+    }
     return { ok: true };
   },
 });

@@ -1,9 +1,13 @@
-import { useQuery } from "convex/react";
-import { Loader2, ShieldCheck } from "lucide-react";
+import { useMutation, useQuery } from "convex/react";
+import { Loader2, ShieldCheck, Smartphone, Trash2 } from "lucide-react";
+import { useState } from "react";
+import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { api } from "@/convex/_generated/api";
+import type { Id } from "@/convex/_generated/dataModel";
+import { ambilTokenPerangkat, lupakanTokenPerangkat } from "@/lib/perangkatPercaya";
 
 import { formatDate } from "./admin-format";
 
@@ -15,6 +19,39 @@ export function LoginSecurityPanel({ onOpenSetup }: { onOpenSetup: () => void })
   const overviewKeam = useQuery(api.security.getSecurityOverview, {});
   const sessions = useQuery(api.security.mySessions, {});
   const totpStatus = useQuery(api.security.myTotpStatus, {});
+  const perangkatQ = useQuery(api.security.daftarPerangkatPercaya, {});
+  const cabutPerangkat = useMutation(api.security.cabutPerangkatPercaya);
+  const lupakanPerangkat = useMutation(api.security.lupakanPerangkatPercaya);
+  const [busyPerangkat, setBusyPerangkat] = useState<string | null>(null);
+  // Token perangkat ini (bila ada) — hanya untuk tombol "Lupakan perangkat ini".
+  const tokenLokal = ambilTokenPerangkat();
+
+  const cabut = async (id: Id<"trustedDevices">, perangkat: string) => {
+    setBusyPerangkat(id);
+    try {
+      await cabutPerangkat({ id });
+      toast.success(`Perangkat "${perangkat}" dicabut.`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Gagal mencabut perangkat.");
+    } finally {
+      setBusyPerangkat(null);
+    }
+  };
+
+  const lupakan = async () => {
+    const token = ambilTokenPerangkat();
+    if (token === null) return;
+    setBusyPerangkat("lokal");
+    try {
+      await lupakanPerangkat({ token });
+      lupakanTokenPerangkat();
+      toast.success("Perangkat ini tidak lagi dipercaya — kode TOTP diminta lagi.");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Gagal melupakan perangkat.");
+    } finally {
+      setBusyPerangkat(null);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -66,6 +103,73 @@ export function LoginSecurityPanel({ onOpenSetup }: { onOpenSetup: () => void })
             </Button>
           )}
         </div>
+      </section>
+
+      {/* Perangkat dipercaya ("ingat perangkat ini") */}
+      <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h3 className="flex items-center gap-2 text-sm font-semibold">
+              <Smartphone className="size-4 text-sky-600" /> Perangkat dipercaya
+            </h3>
+            <p className="mt-1 text-xs leading-5 text-muted-foreground">
+              Perangkat yang mencentang "Ingat perangkat ini" melewati gate TOTP hingga 30 hari.
+              Cabut perangkat yang tidak Anda kenali.
+            </p>
+          </div>
+          {tokenLokal !== null && (
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={busyPerangkat === "lokal"}
+              onClick={() => void lupakan()}
+            >
+              {busyPerangkat === "lokal" ? (
+                <Loader2 className="mr-1.5 size-4 animate-spin" />
+              ) : (
+                <Trash2 className="mr-1.5 size-4" />
+              )}
+              Lupakan perangkat ini
+            </Button>
+          )}
+        </div>
+        {perangkatQ === undefined ? (
+          <Loader2 className="mt-4 size-4 animate-spin text-muted-foreground" />
+        ) : perangkatQ.length === 0 ? (
+          <p className="mt-3 text-sm text-muted-foreground">
+            Belum ada perangkat dipercaya. Centang "Ingat perangkat ini" saat verifikasi TOTP
+            untuk menambahkan.
+          </p>
+        ) : (
+          <ul className="animate-masuk mt-4 divide-y divide-slate-200">
+            {perangkatQ.map((d) => (
+              <li key={d._id} className="flex flex-wrap items-center justify-between gap-2 py-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium">{d.perangkat}</p>
+                  <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                    {d.ip ?? "IP tidak diketahui"} · terakhir dipakai{" "}
+                    {d.terakhirDipakai ? formatDate(d.terakhirDipakai) : "belum"} · kedaluwarsa{" "}
+                    {formatDate(d.kedaluwarsaPada)}
+                  </p>
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="text-destructive hover:text-destructive"
+                  disabled={busyPerangkat === d._id}
+                  onClick={() => void cabut(d._id, d.perangkat)}
+                >
+                  {busyPerangkat === d._id ? (
+                    <Loader2 className="size-4 animate-spin" />
+                  ) : (
+                    <Trash2 className="size-4" />
+                  )}
+                  <span className="ml-1">Cabut</span>
+                </Button>
+              </li>
+            ))}
+          </ul>
+        )}
       </section>
 
       {/* Sesi aktif */}
