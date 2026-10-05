@@ -175,71 +175,71 @@ export function IntegrasiLedgerPanel() {
         </p>
       )}
 
-      <div className="mt-5 overflow-x-auto rounded-xl border border-slate-200">
-        <table className="w-full text-left text-xs">
-          <thead className="bg-slate-100 text-[11px] uppercase tracking-wide text-muted-foreground">
-            <tr>
-              <th className="w-10 px-3 py-2.5">
-                <input
-                  type="checkbox"
-                  aria-label="Pilih semua pinjaman yang bisa dihapus"
-                  className="size-3.5 accent-primary"
-                  checked={idTerpilih.length > 0 && idTerpilih.length === bisaDihapus}
-                  disabled={bisaDihapus === 0}
-                  onChange={(e) =>
-                    setDipilih(
-                      e.target.checked
-                        ? Object.fromEntries(rows.filter((r) => r.bolehDihapus).map((r) => [r._id, true]))
-                        : {},
-                    )
-                  }
-                />
-              </th>
-              <th className="px-3 py-2.5">Referensi</th>
-              <th className="px-3 py-2.5">Nama</th>
-              <th className="px-3 py-2.5">Status</th>
-              <th className="px-3 py-2.5 text-right">Pokok</th>
-              <th className="px-3 py-2.5 text-right">Biaya {status.persenBiaya}%</th>
-              <th className="px-3 py-2.5">Ledger</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
-            {rows.map((r) => (
-              <tr key={r._id} className={r.bolehDihapus ? "" : "opacity-60"}>
-                <td className="px-3 py-2">
-                  <input
-                    type="checkbox"
-                    aria-label={`Pilih pinjaman ${r.nomorReferensi}`}
-                    className="size-3.5 accent-primary"
-                    checked={Boolean(dipilih[r._id])}
-                    disabled={!r.bolehDihapus}
-                    onChange={(e) => setDipilih((m) => ({ ...m, [r._id]: e.target.checked }))}
-                  />
-                </td>
-                <td className="whitespace-nowrap px-3 py-2 font-medium text-navy">{r.nomorReferensi}</td>
-                <td className="px-3 py-2">{r.namaLengkap}</td>
-                <td className="px-3 py-2 text-muted-foreground">{r.status}</td>
-                <td className="px-3 py-2 text-right tabular-nums">{formatRupiah(r.pokokPinjaman)}</td>
-                <td className="px-3 py-2 text-right tabular-nums">{formatRupiah(r.biayaIntegrasi)}</td>
-                <td className="px-3 py-2">
+      <div className="mt-5 rounded-xl border border-slate-200">
+        <div className="flex items-center justify-between gap-2 border-b border-slate-100 bg-slate-50/80 px-3 py-2">
+          <label className="flex items-center gap-2 text-[11px] font-medium text-muted-foreground">
+            <input
+              type="checkbox"
+              aria-label="Pilih semua pinjaman yang bisa dihapus"
+              className="size-3.5 accent-primary"
+              checked={idTerpilih.length > 0 && idTerpilih.length === bisaDihapus}
+              disabled={bisaDihapus === 0}
+              onChange={(e) =>
+                setDipilih(
+                  e.target.checked
+                    ? Object.fromEntries(rows.filter((r) => r.bolehDihapus).map((r) => [r._id, true]))
+                    : {},
+                )
+              }
+            />
+            Pilih semua yang bisa dihapus
+          </label>
+          <span className="shrink-0 text-[11px] text-muted-foreground">{rows.length} pinjaman</span>
+        </div>
+        <ul className="divide-y divide-slate-100">
+          {rows.map((r) => (
+            <li
+              key={r._id}
+              className={`flex items-start gap-3 px-3 py-3 ${r.bolehDihapus ? "" : "opacity-60"}`}
+            >
+              <input
+                type="checkbox"
+                aria-label={`Pilih pinjaman ${r.nomorReferensi}`}
+                className="mt-0.5 size-3.5 shrink-0 accent-primary"
+                checked={Boolean(dipilih[r._id])}
+                disabled={!r.bolehDihapus}
+                onChange={(e) => setDipilih((m) => ({ ...m, [r._id]: e.target.checked }))}
+              />
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                  <span className="text-xs font-semibold text-navy">{r.nomorReferensi}</span>
                   <BadgeIntegrasi terintegrasi={r.terintegrasi} layak={r.layak} />
                   {!r.bolehDihapus && (
-                    <span className="ml-2 text-[10px] text-muted-foreground">
+                    <span className="text-[10px] text-muted-foreground">
                       {r.status === "didanai" ? "sedang berjalan" : `${r.alokasiAktif} alokasi aktif`}
                     </span>
                   )}
-                </td>
-              </tr>
-            ))}
-            {rows.length === 0 && (
-              <tr>
-                <td colSpan={7} className="px-3 py-6 text-center text-muted-foreground">
-                  Belum ada pinjaman.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+                </div>
+                <p className="mt-1 truncate text-xs text-muted-foreground">
+                  {r.namaLengkap} · {r.status}
+                </p>
+                <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-0.5 text-xs">
+                  <span className="text-muted-foreground">
+                    Pokok <span className="font-medium tabular-nums text-slate-900">{formatRupiah(r.pokokPinjaman)}</span>
+                  </span>
+                  <span className="text-muted-foreground">
+                    Biaya {status.persenBiaya}% <span className="font-medium tabular-nums text-slate-900">{formatRupiah(r.biayaIntegrasi)}</span>
+                  </span>
+                </div>
+              </div>
+            </li>
+          ))}
+          {rows.length === 0 && (
+            <li className="px-3 py-6 text-center text-xs text-muted-foreground">
+              Belum ada pinjaman.
+            </li>
+          )}
+        </ul>
       </div>
 
       <div className="mt-4 rounded-xl border border-red-100 bg-red-50/50 p-4">

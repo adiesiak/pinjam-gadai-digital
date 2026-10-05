@@ -324,11 +324,13 @@ export const setKillSwitch = mutation({
 /**
  * Snapshot LENGKAP seluruh data operasional + dokumen — unduh JSON (admin saja).
  *
- * Memuat semua koleksi transaksi (pinjaman, gadai, kredit barang, pendanaan,
- * setoran, penarikan, transfer pendana, bukti pembayaran, ledger, audit) dan
- * seluruh baris `users` apa adanya, plus daftar dokumen storage (KTP, selfie,
- * slip gaji, foto barang, bukti setoran/pembayaran, QRIS) dengan URL bertanda
- * tangan agar berkas ikut tercakup. BERISI DATA PRIBADI — perlakuan sebagai rahasia.
+ * Memuat semua koleksi transaksi (pinjaman, gadai, kredit barang, pembayaran
+ * cicilan gadai/kredit, pendanaan, setoran, penarikan, transfer pendana, bukti
+ * pembayaran, log WA, jejak lokasi, pengingat, peringatan lokasi, pengumuman,
+ * ledger, audit) dan seluruh baris `users` apa adanya, plus daftar dokumen
+ * storage (KTP, selfie, slip gaji, foto barang, bukti setoran/pembayaran, QRIS)
+ * dengan URL bertanda tangan agar berkas ikut tercakup. BERISI DATA PRIBADI —
+ * perlakuan sebagai rahasia.
  */
 export const snapshotData = query({
   args: {},
@@ -338,12 +340,19 @@ export const snapshotData = query({
       loans,
       pawns,
       kreditBarang,
+      pawnPayments,
+      kreditPayments,
       deposits,
       fundings,
       kreditFundings,
       withdrawals,
       transferPendana,
       receipts,
+      waLogs,
+      lokasiJejak,
+      pengingat,
+      lokasiPeringatan,
+      pengumuman,
       ledgerEntries,
       auditLog,
       users,
@@ -351,12 +360,19 @@ export const snapshotData = query({
       ctx.db.query("loans").collect(),
       ctx.db.query("pawns").collect(),
       ctx.db.query("kreditBarang").collect(),
+      ctx.db.query("pawnPayments").collect(),
+      ctx.db.query("kreditPayments").collect(),
       ctx.db.query("deposits").collect(),
       ctx.db.query("fundings").collect(),
       ctx.db.query("kreditFundings").collect(),
       ctx.db.query("withdrawals").collect(),
       ctx.db.query("transferPendana").collect(),
       ctx.db.query("manualPaymentReceipts").collect(),
+      ctx.db.query("waLogs").collect(),
+      ctx.db.query("lokasiJejak").collect(),
+      ctx.db.query("pengingat").collect(),
+      ctx.db.query("lokasiPeringatan").collect(),
+      ctx.db.query("pengumuman").collect(),
       ctx.db.query("ledger_entries").collect(),
       ctx.db.query("auditLog").collect(),
       ctx.db.query("users").collect(),
@@ -406,12 +422,19 @@ export const snapshotData = query({
         loans: loans.length,
         pawns: pawns.length,
         kreditBarang: kreditBarang.length,
+        pawnPayments: pawnPayments.length,
+        kreditPayments: kreditPayments.length,
         deposits: deposits.length,
         fundings: fundings.length,
         kreditFundings: kreditFundings.length,
         withdrawals: withdrawals.length,
         transferPendana: transferPendana.length,
         manualPaymentReceipts: receipts.length,
+        waLogs: waLogs.length,
+        lokasiJejak: lokasiJejak.length,
+        pengingat: pengingat.length,
+        lokasiPeringatan: lokasiPeringatan.length,
+        pengumuman: pengumuman.length,
         ledgerEntries: ledgerEntries.length,
         auditLog: auditLog.length,
         users: users.length,
@@ -420,12 +443,19 @@ export const snapshotData = query({
       loans,
       pawns,
       kreditBarang,
+      pawnPayments,
+      kreditPayments,
       deposits,
       fundings,
       kreditFundings,
       withdrawals,
       transferPendana,
       manualPaymentReceipts: receipts,
+      waLogs,
+      lokasiJejak,
+      pengingat,
+      lokasiPeringatan,
+      pengumuman,
       ledger_entries: ledgerEntries,
       auditLog,
       systemConfig: config,

@@ -159,7 +159,7 @@ export function BackupPanel() {
           </Button>
         </div>
         <p className="text-xs leading-5 text-muted-foreground">
-          Snapshot memuat seluruh pinjaman, gadai, kredit barang, pendanaan, setoran/penarikan, transfer pendana, bukti pembayaran, ledger, audit, dan seluruh baris pengguna apa adanya, plus daftar dokumen (KTP, selfie, slip gaji, foto barang, bukti setoran/pembayaran, QRIS) beserta tautan unduhnya. <strong>Berisi data pribadi — simpan sebagai rahasia.</strong> Semua unduhan tercatat di audit trail.
+          Snapshot memuat SELURUH data pinjaman: pinjaman, gadai, kredit barang, pembayaran cicilan gadai/kredit, pendanaan, setoran/penarikan, transfer pendana, bukti pembayaran, log WA, jejak lokasi, pengingat, peringatan lokasi, pengumuman, ledger, audit, dan seluruh baris pengguna (data dirinya) apa adanya — plus daftar dokumen (KTP, selfie, slip gaji, foto barang, bukti setoran/pembayaran, QRIS) beserta tautan unduhnya. <strong>Berisi data pribadi — simpan sebagai rahasia.</strong> Semua unduhan tercatat di audit trail.
         </p>
       </div>
       <div className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5">
@@ -179,7 +179,7 @@ export function BackupPanel() {
         <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
           <p className="text-sm font-medium">Backup siap</p>
           <p className="mt-1 text-xs leading-5 text-emerald-700">
-            Snapshot siap: {snapshot ? `${snapshot.jumlah.loans} pinjaman, ${snapshot.jumlah.pawns} gadai, ${snapshot.jumlah.kreditBarang} kredit barang, ${snapshot.jumlah.users} pengguna, ${snapshot.jumlah.dokumen} dokumen` : "—"} · database dapat dipulihkan dari file JSON.
+            Snapshot siap: {snapshot ? `${snapshot.jumlah.loans} pinjaman, ${snapshot.jumlah.pawns} gadai, ${snapshot.jumlah.kreditBarang} kredit barang, ${snapshot.jumlah.users} pengguna, ${snapshot.jumlah.dokumen} dokumen · ${snapshot.jumlah.waLogs} log WA, ${snapshot.jumlah.lokasiJejak} jejak lokasi` : "—"} · database dapat dipulihkan dari file JSON.
           </p>
         </div>
         <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
