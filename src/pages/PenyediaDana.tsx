@@ -41,6 +41,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { api } from "@/convex/_generated/api";
+import type { Id } from "@/convex/_generated/dataModel";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -1189,7 +1190,9 @@ function DialogUbahPinjaman({
 }
 
 function FormUbahPinjaman({ row, onClose }: { row: BarisPinjaman; onClose: () => void }) {
-  const investor = useQuery(api.penyediaDana.daftarInvestor, {});
+  // Kandidat pendana = SEMUA akun yang pernah menjadi pendana (termasuk
+  // pendana lama tanpa peran aktif), bukan hanya akun berperan `dana`.
+  const kandidatQ = useQuery(api.penyediaDana.kandidatPendana, {});
   const simpan = useMutation(api.penyediaDana.ubahDataPinjaman);
   // Sentinel NON-kosong: Radix Select menolak `<SelectItem value="">`
   // (melempar saat dropdown dibuka), jadi "tidak diubah" memakai penanda sendiri.
@@ -1205,10 +1208,7 @@ function FormUbahPinjaman({ row, onClose }: { row: BarisPinjaman; onClose: () =>
   const [alasan, setAlasan] = useState("");
   const [busy, setBusy] = useState(false);
 
-  // Pendana yang boleh dipilih: akun beremail yang sudah berperan `dana`.
-  const kandidat = (investor?.rows ?? []).filter(
-    (r) => r.email !== null && r.aksesAktif && r.peran === "dana",
-  );
+  const kandidat = kandidatQ?.rows ?? [];
   const nominalTerkunci = row.status === "didanai" || row.status === "lunas";
   const bolehLepas = !nominalTerkunci && row.didanaiPada === null;
 
@@ -1231,7 +1231,9 @@ function FormUbahPinjaman({ row, onClose }: { row: BarisPinjaman; onClose: () =>
         alasan: catatan,
         ...(pendana === TETAP
           ? {}
-          : { pendanaEmail: pendana === LEPAS ? null : pendana }),
+          : pendana === LEPAS
+            ? { pendanaEmail: null }
+            : { pendanaUserId: pendana as Id<"users"> }),
         ...(tujuan.trim() !== row.tujuan ? { tujuan: tujuan.trim() } : {}),
         ...(tenorBulan === "harian" &&
         Number.isFinite(hariBaru) &&
@@ -1278,9 +1280,10 @@ function FormUbahPinjaman({ row, onClose }: { row: BarisPinjaman; onClose: () =>
           <SelectContent>
             <SelectItem value={TETAP}>Tidak diubah</SelectItem>
             {kandidat.map((r) => (
-              <SelectItem key={r.userId} value={r.email ?? ""}>
-                {r.nama || r.email}
-                {r.nama && r.email ? ` — ${r.email}` : ""}
+              <SelectItem key={r.userId} value={r.userId}>
+                {r.nama}
+                {r.email ? ` — ${r.email}` : ""}
+                {r.aksesAktif ? "" : " (pendana lama)"}
               </SelectItem>
             ))}
             <SelectItem value={LEPAS} disabled={!bolehLepas}>
@@ -1289,11 +1292,11 @@ function FormUbahPinjaman({ row, onClose }: { row: BarisPinjaman; onClose: () =>
           </SelectContent>
         </Select>
         <p className="text-[11px] leading-5 text-muted-foreground">
-          {investor === undefined
-            ? "Memuat daftar akun penyedia dana… "
+          {kandidatQ === undefined
+            ? "Memuat daftar pendana… "
             : kandidat.length === 0
-              ? "Belum ada akun berperan penyedia dana — beri akses lebih dulu di panel admin. "
-              : "Daftar ini berisi akun yang sudah diberi akses penyedia dana. "}
+              ? "Belum ada akun yang pernah menjadi pendana. "
+              : "Daftar ini berisi semua akun yang pernah menjadi pendana, termasuk pendana lama. "}
           {bolehLepas
             ? "Pinjaman ini belum ditandai tersalurkan, jadi pendananya boleh dilepas."
             : "Pendana tidak dapat dilepas setelah dana ditandai tersalurkan — pilih penggantinya."}

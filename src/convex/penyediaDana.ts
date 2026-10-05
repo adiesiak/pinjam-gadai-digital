@@ -802,6 +802,62 @@ function peranPenyedia(role: string | undefined): boolean {
   return role === ROLES.DANA || role === PERAN_PENDANA_LEGACY;
 }
 
+/** Nama tampil pendana: nama akun → email → label generik. */
+function namaTampilPendana(
+  nama: string | null | undefined,
+  email: string | null | undefined,
+): string {
+  const bersih = nama?.trim();
+  return bersih !== undefined && bersih !== "" ? bersih : (email ?? "Penyedia dana");
+}
+
+/**
+ * Semua akun yang PERNAH menjadi pendana: punya posisi (`loans.pendanaId`),
+ * namanya cocok dengan `pendanaNama` warisan, atau berperan penyedia dana
+ * (`dana`/`pendana`). Dipakai panel koreksi admin supaya seluruh pendana lama
+ * tetap bisa dipilih sebagai pengganti — bukan hanya akun berperan `dana`
+ * beremail. Akun tamu & tim (admin) tidak pernah masuk daftar ini.
+ */
+async function akunPernahJadiPendana(
+  ctx: QueryCtx,
+): Promise<
+  Map<
+    Id<"users">,
+    { nama: string; email: string | null; peran: string | null; aksesAktif: boolean }
+  >
+> {
+  const loans = await ctx.db.query("loans").collect();
+  const idPosisi = new Set<string>();
+  const namaPosisi = new Set<string>();
+  for (const l of loans) {
+    if (l.pendanaId !== undefined) idPosisi.add(l.pendanaId);
+    const nm = l.pendanaNama?.trim();
+    if (nm !== undefined && nm !== "") namaPosisi.add(nm);
+  }
+
+  const pengguna = await ctx.db.query("users").take(BATAS_AKUN + 1);
+  const peta = new Map<
+    Id<"users">,
+    { nama: string; email: string | null; peran: string | null; aksesAktif: boolean }
+  >();
+  for (const u of pengguna) {
+    if (u.isAnonymous === true || u.role === ROLES.ADMIN) continue;
+    const nama = u.name?.trim();
+    const punyaPosisi =
+      idPosisi.has(u._id) ||
+      (nama !== undefined && nama !== "" && namaPosisi.has(nama)) ||
+      (u.email !== undefined && namaPosisi.has(u.email));
+    if (!peranPenyedia(u.role as string | undefined) && !punyaPosisi) continue;
+    peta.set(u._id, {
+      nama: namaTampilPendana(u.name, u.email),
+      email: u.email ?? null,
+      peran: (u.role as string | undefined) ?? null,
+      aksesAktif: u.role === ROLES.DANA,
+    });
+  }
+  return peta;
+}
+
 export type BarisInvestor = {
   userId: Id<"users">;
   nama: string;
@@ -859,6 +915,25 @@ export type BarisInvestor = {
 
 /** Batas baris riwayat pada dialog rincian investor. */
 const BATAS_RIWAYAT = 50;
+
+/**
+ * Kandidat pendana untuk dialog koreksi admin — SEMUA akun yang pernah menjadi
+ * pendana (peran penyedia dana, punya posisi pinjaman, atau nama warisan yang
+ * cocok). Inilah daftar yang muncul di dropdown "Pendana" agar admin bisa
+ * menggantikan pemilik pinjaman ke pendana lama mana pun, bukan hanya akun
+ * berperan `dana` beremail. Hanya admin (sesi TOTP) yang dapat membukanya.
+ */
+export const kandidatPendana = query({
+  args: {},
+  handler: async (ctx) => {
+    await requireAdminSession(ctx);
+    const peta = await akunPernahJadiPendana(ctx);
+    const rows = [...peta.entries()]
+      .map(([userId, r]) => ({ userId, ...r }))
+      .sort((a, b) => a.nama.localeCompare(b.nama, "id"));
+    return { rows };
+  },
+});
 
 /**
  * Kelola investor — panel admin.
@@ -1290,7 +1365,9 @@ export const ubahAkses = mutation({
  * Batas yang dijaga server (fail-closed):
  *  - hanya Super Admin dengan sesi TOTP terverifikasi (`requireAdminSession`);
  *  - pinjaman `lunas` tidak dapat diubah — posisinya sudah ditutup;
- *  - pendana harus akun beremail yang sudah berperan `dana`;
+ *  - pendana pengganti harus akun yang PERNAH menjadi pendana (peran penyedia
+ *    dana, punya posisi pinjaman, atau nama warisan yang cocok) — lihat
+ *    `kandidatPendana`; ditetapkan lewat `pendanaUserId` atau `pendanaEmail`;
  *  - pelepasan pendana hanya untuk pinjaman yang belum pernah ditandai
  *    tersalurkan, supaya rekap tidak kehilangan pemilik dana secara diam-diam;
  *  - nominal disetujui tidak boleh melebihi pengajuan dan tidak dapat diubah
@@ -1304,6 +1381,12 @@ export const ubahDataPinjaman = mutation({
     alasan: v.string(),
     /** Email penyedia dana; `null`/kosong = lepas pendana dari pinjaman ini. */
     pendanaEmail: v.optional(v.union(v.string(), v.null())),
+    /**
+     * Id akun pendana pengganti (alternatif email) — dipakai dropdown kandidat
+     * pendana agar pendana lama tanpa email tetap dapat ditetapkan.
+     * `null` = lepas pendana.
+     */
+    pendanaUserId: v.optional(v.union(v.id("users"), v.null())),
     tujuan: v.optional(v.string()),
     tenorHari: v.optional(v.number()),
     /** `null` = kembalikan ke skema harian. */
@@ -1334,8 +1417,12 @@ export const ubahDataPinjaman = mutation({
     } = {};
     const perubahan: string[] = [];
 
-    if (args.pendanaEmail !== undefined) {
-        if (args.pendanaEmail === null || args.pendanaEmail.trim() === "") {
+    if (args.pendanaEmail !== undefined || args.pendanaUserId !== undefined) {
+        const lepas =
+          args.pendanaEmail === null ||
+          args.pendanaUserId === null ||
+          (typeof args.pendanaEmail === "string" && args.pendanaEmail.trim() === "");
+        if (lepas) {
           if (loan.pendanaId !== undefined || loan.pendanaNama !== undefined) {
             if (nominalTerkunci(loan.status) || loan.didanaiPada !== undefined) {
               throw new Error(
@@ -1347,23 +1434,33 @@ export const ubahDataPinjaman = mutation({
             perubahan.push(`pendana dilepas (sebelumnya ${loan.pendanaNama ?? "tanpa nama"})`);
           }
         } else {
-          const target = await cariAkunEmail(ctx, args.pendanaEmail);
+          const idDiminta = args.pendanaUserId;
+          const target =
+            idDiminta !== undefined && idDiminta !== null
+              ? await ctx.db.get(idDiminta)
+              : await cariAkunEmail(ctx, (args.pendanaEmail as string).trim());
           if (target === null) {
-            throw new Error(`Tidak ada akun dengan email ${args.pendanaEmail.trim()}.`);
+            throw new Error(
+              idDiminta !== undefined && idDiminta !== null
+                ? "Akun pendana tidak ditemukan."
+                : `Tidak ada akun dengan email ${(args.pendanaEmail as string).trim()}.`,
+            );
           }
           if (target.isAnonymous === true) {
             throw new Error("Akun tamu tidak dapat menjadi penyedia dana.");
           }
-          if (target.role !== ROLES.DANA) {
+          // Hanya akun yang PERNAH menjadi pendana boleh ditetapkan, supaya
+          // kepemilikan pinjaman tidak jatuh ke akun sembarangan.
+          const kandidat = (await akunPernahJadiPendana(ctx)).get(target._id);
+          if (kandidat === undefined) {
             throw new Error(
-              "Akun itu belum berperan penyedia dana. Beri akses lihat saja lebih dulu di panel admin.",
+              "Akun itu belum pernah menjadi pendana. Pilih dari daftar pendana yang ada, atau beri akses penyedia dana lebih dulu.",
             );
           }
-          const nama = target.name?.trim() || target.email || "Penyedia dana";
           if (loan.pendanaId !== target._id) {
             patch.pendanaId = target._id;
-            patch.pendanaNama = nama;
-            perubahan.push(`pendana → ${nama}`);
+            patch.pendanaNama = kandidat.nama;
+            perubahan.push(`pendana → ${kandidat.nama}`);
           }
         }
       }
@@ -1434,9 +1531,16 @@ export const ubahDataPinjaman = mutation({
       // kali. Tidak dipanggil saat pendana tidak diganti.
       let danaIdLama: Id<"users"> | undefined;
       let danaIdBaru: Id<"users"> | undefined;
-      if (args.pendanaEmail !== undefined && args.pendanaEmail !== null && args.pendanaEmail.trim() !== "") {
+      const idPendanaBaru = args.pendanaUserId;
+      if (idPendanaBaru !== undefined && idPendanaBaru !== null) {
+        const target = await ctx.db.get(idPendanaBaru);
+        if (target !== null && loan.pendanaId !== undefined) {
+          danaIdLama = loan.pendanaId;
+          danaIdBaru = target._id;
+        }
+      } else if (args.pendanaEmail !== undefined && args.pendanaEmail !== null && args.pendanaEmail.trim() !== "") {
         const target = await cariAkunEmail(ctx, args.pendanaEmail);
-        if (target !== null && target.role === ROLES.DANA && loan.pendanaId !== undefined) {
+        if (target !== null && loan.pendanaId !== undefined) {
           danaIdLama = loan.pendanaId;
           danaIdBaru = target._id;
         }
