@@ -3,18 +3,13 @@ import { useState } from "react";
 import {
   ArrowLeft,
   BadgeCheck,
-  BellRing,
   CircleDollarSign,
   ClipboardList,
-  Clock3,
-  Database,
   Landmark,
   Loader2,
-  MapPin,
   Package,
   ShieldAlert,
   ShieldCheck,
-  TriangleAlert,
 } from "lucide-react";
 import { Link } from "react-router";
 
@@ -23,12 +18,10 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatRupiah } from "@/lib/money";
 import { fadeUpItem, staggerContainer } from "@/lib/motion";
 import { RoleDashboardMenu } from "@/components/RoleDashboardMenu";
-
-/** Pemformat hitungan biasa pada kartu statistik (tanpa pemisah ribuan). */
-const formatJumlah = (n: number) => `${n}`;
 
 export type AdminStatsData = {
   pinjamanBaru: number;
@@ -46,6 +39,10 @@ export type AdminStatsData = {
   keuntunganAdminBelumTercatat: number;
   pinjamanTerlambat: number;
   nilaiTaksiranDisetujui: number;
+  /** Total pokok gadai yang masih berjalan (sisa pokok, gadai aktif). */
+  totalGadaiBerjalan: number;
+  /** Total pokok dibiayai kredit barang yang sedang berjalan. */
+  totalKreditBerjalan: number;
   gpsMismatch: number;
   /** Pinjaman aktif yang titik GPS-nya kedaluwarsa (lokasi dimatikan). */
   pinjamanTanpaLokasi: number;
@@ -203,11 +200,7 @@ export function AdminHeader({
  * dipindah menjadi lencana angka di samping nama menu (lihat admin-tabs).
  */
 export function AdminStats({ stats }: { stats: AdminStatsData }) {
-  const items = [
-    { label: "Total pinjaman sedang berjalan", angka: stats.totalPinjamanBerjalan, format: formatRupiah, tone: "mint", Icon: CircleDollarSign, catatan: null as string | null },
-    { label: "Total pinjaman diajukan", angka: stats.totalPinjamanDiajukan, format: formatRupiah, tone: "amber", Icon: ClipboardList, catatan: null as string | null },
-    { label: "Keuntungan admin sudah tercatat", angka: stats.keuntunganAdminTercatat, format: formatRupiah, tone: "mint", Icon: BadgeCheck, catatan: `Belum tercatat ${formatRupiah(stats.keuntunganAdminBelumTercatat)}` as string | null },
-  ] as const;
+  const [headlineTab, setHeadlineTab] = useState<"pinjaman" | "gadai" | "kredit">("pinjaman");
 
   const toneClass = {
     red: "text-red-700 bg-red-50 border-red-100",
@@ -215,6 +208,18 @@ export function AdminStats({ stats }: { stats: AdminStatsData }) {
     mint: "text-emerald-700 bg-emerald-50 border-emerald-100",
     sky: "text-sky-700 bg-sky-50 border-sky-100",
   } as const;
+
+  // Kartu utama: satu angka "sedang berjalan" yang bisa ditukar antar produk.
+  const headline = [
+    { value: "pinjaman", tab: "Pinjaman", label: "Total pinjaman sedang berjalan", angka: stats.totalPinjamanBerjalan, tone: "mint", Icon: CircleDollarSign },
+    { value: "gadai", tab: "Gadai", label: "Total gadai sedang berjalan", angka: stats.totalGadaiBerjalan, tone: "sky", Icon: Landmark },
+    { value: "kredit", tab: "Kredit", label: "Total kredit sedang berjalan", angka: stats.totalKreditBerjalan, tone: "amber", Icon: Package },
+  ] as const;
+
+  const items = [
+    { label: "Total pinjaman diajukan", angka: stats.totalPinjamanDiajukan, tone: "amber", Icon: ClipboardList, catatan: null as string | null },
+    { label: "Keuntungan admin sudah tercatat", angka: stats.keuntunganAdminTercatat, tone: "mint", Icon: BadgeCheck, catatan: `Belum tercatat ${formatRupiah(stats.keuntunganAdminBelumTercatat)}` as string | null },
+  ] as const;
 
   return (
     <motion.section
@@ -224,7 +229,46 @@ export function AdminStats({ stats }: { stats: AdminStatsData }) {
       animate="show"
       className="mt-4 grid grid-cols-1 gap-2 sm:mt-5 sm:grid-cols-3 sm:gap-3"
     >
-      {items.map(({ label, angka, format, tone, Icon, catatan }) => (
+      <motion.div
+        variants={fadeUpItem}
+        className="group rounded-xl border border-slate-200 bg-white p-3 transition-colors hover:border-slate-300 min-[380px]:rounded-2xl min-[380px]:p-4 sm:p-5"
+      >
+        <Tabs
+          value={headlineTab}
+          onValueChange={(value) => setHeadlineTab(value as "pinjaman" | "gadai" | "kredit")}
+        >
+          <TabsList
+            aria-label="Pilih produk: pinjaman, gadai, atau kredit"
+            className="h-auto w-fit gap-1 rounded-full bg-slate-100/80 p-1"
+          >
+            {headline.map((h) => (
+              <TabsTrigger
+                key={h.value}
+                value={h.value}
+                className="h-7 gap-1 rounded-full px-2.5 text-[11px] font-semibold data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm"
+              >
+                <h.Icon className="size-3.5" />
+                {h.tab}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+          {headline.map((h) => (
+            <TabsContent key={h.value} value={h.value} className="mt-1">
+              <div className="flex items-start justify-between gap-2">
+                <p className="text-xs font-medium leading-5 text-muted-foreground">{h.label}</p>
+                <span className={`flex size-8 shrink-0 items-center justify-center rounded-xl border ${toneClass[h.tone]}`}>
+                  <h.Icon className="size-4" />
+                </span>
+              </div>
+              <p className="mt-2 break-words text-lg font-bold tracking-tight tabular-nums text-navy min-[380px]:mt-3 min-[380px]:text-xl sm:text-2xl">
+                <CountUp value={h.angka} format={formatRupiah} />
+              </p>
+            </TabsContent>
+          ))}
+        </Tabs>
+      </motion.div>
+
+      {items.map(({ label, angka, tone, Icon, catatan }) => (
         <motion.div
           key={label}
           variants={fadeUpItem}
@@ -237,7 +281,7 @@ export function AdminStats({ stats }: { stats: AdminStatsData }) {
             </span>
           </div>
           <p className="mt-2 break-words text-lg font-bold tracking-tight tabular-nums text-navy min-[380px]:mt-3 min-[380px]:text-xl sm:text-2xl">
-            <CountUp value={angka} format={format} />
+            <CountUp value={angka} format={formatRupiah} />
           </p>
           {catatan !== null && (
             <p className="mt-1 text-[11px] leading-4 text-muted-foreground">{catatan}</p>

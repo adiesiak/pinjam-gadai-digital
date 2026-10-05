@@ -1,5 +1,5 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
-import { query, mutation, internalAction, internalMutation, QueryCtx } from "./_generated/server";
+import { query, mutation, internalMutation, QueryCtx } from "./_generated/server";
 import { v } from "convex/values";
 import { ROLES } from "./schema";
 import { requireAdminSession } from "./adminAuthz";
@@ -25,6 +25,7 @@ import {
 import { clampPersenBunga, persenBungaEfektif } from "../lib/bunga";
 import { ensureKodePeminjam } from "./peminjamCode";
 import { rejectUnverifiedMoneyMovement } from "./paymentGuard";
+import { quoteKreditBarang } from "../lib/kredit";
 
 /** Gerbang admin — semua query/mutation di file ini dijaga. */
 async function requireAdmin(ctx: QueryCtx) {
@@ -636,6 +637,34 @@ export const adminStats = query({
     const taksiranTotal = pawns
       .filter((p) => p.status === "disetujui" && p.nilaiTaksiran !== undefined)
       .reduce((acc, p) => acc + (p.nilaiTaksiran ?? 0), 0);
+    const kreditBarang = await ctx.db.query("kreditBarang").collect();
+
+    // Pokok gadai yang MASIH beredar (sisa menurun; fallback pokok awal) untuk
+    // gadai aktif — pembanding "sedang berjalan" milik pinjaman tunai.
+    const totalGadaiBerjalan = pawns
+      .filter((p) => p.status === "aktif")
+      .reduce((acc, p) => acc + (p.sisaPokok ?? p.pokokGadai ?? 0), 0);
+
+    // Pokok DIBIAYAI (harga − DP) untuk kredit barang yang sedang berjalan.
+    // Baris warisan yang tak bisa di-quote dilewati agar satu dokumen lama tidak
+    // merobohkan ringkasan — pola yang sama dengan `keuntunganAdminSatu`.
+    const totalKreditBerjalan = kreditBarang
+      .filter((k) => k.status === "didanai")
+      .reduce((acc, k) => {
+        try {
+          return (
+            acc +
+            quoteKreditBarang({
+              hargaBarang: k.hargaBarang,
+              dpPersen: k.dpPersen,
+              tenorBulan: k.tenorBulan,
+              marginPersenPerBulan: k.marginPersenPerBulan,
+            }).pokokDibiayai
+          );
+        } catch {
+          return acc;
+        }
+      }, 0);
 
     // Keterlambatan pelunasan — dihitung live dari tanggal pendanaan + tenor.
     let pinjamanTerlambat = 0;
@@ -749,6 +778,8 @@ export const adminStats = query({
       totalPinjaman: loans.length,
       totalGadai: pawns.length,
       nilaiTaksiranDisetujui: taksiranTotal,
+      totalGadaiBerjalan,
+      totalKreditBerjalan,
       pinjamanTerlambat,
       totalDendaBerjalan,
       pinjamanDisetujui,
