@@ -333,7 +333,8 @@ export const createLoanApplication = mutation({
       );
     }
 
-    const trimmedName = args.namaLengkap.trim();
+    // Nama peminjam selalu disimpan UPPERCASE agar konsisten di dashboard.
+    const trimmedName = args.namaLengkap.trim().toUpperCase();
     const namaBank = args.namaBank.trim();
     const trimmedAccount = args.nomorRekening.trim().replace(/\s+/g, "");
     if (trimmedName.length < 3) {
@@ -767,7 +768,8 @@ export const createPawnApplication = mutation({
         "Alamat lokasi barang wajib diisi (minimal 10 karakter) untuk penjadwalan pemeriksaan.",
       );
     }
-    const nama = args.namaLengkap.trim();
+    // Nama pemohon gadai selalu disimpan UPPERCASE agar konsisten di dashboard.
+    const nama = args.namaLengkap.trim().toUpperCase();
     if (nama.length < 3) {
       throw new Error("Nama lengkap wajib diisi (minimal 3 karakter).");
     }

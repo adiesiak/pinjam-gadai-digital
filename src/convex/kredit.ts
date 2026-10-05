@@ -163,7 +163,8 @@ export const ajukanKreditBarang = mutation({
       if (!/^https?:\/\/\S+$/i.test(t)) throw new Error("Tautan barang harus diawali http:// atau https://.");
       tautan = t;
     }
-    const nama = args.namaLengkap.trim();
+    // Nama pemohon selalu disimpan UPPERCASE agar konsisten di dashboard.
+    const nama = args.namaLengkap.trim().toUpperCase();
     if (nama.length < 3) throw new Error("Nama lengkap wajib diisi (minimal 3 karakter).");
     const nik = args.nik.replace(/\s+/g, "");
     if (!/^\d{16}$/.test(nik)) throw new Error("NIK harus 16 digit angka sesuai KTP.");

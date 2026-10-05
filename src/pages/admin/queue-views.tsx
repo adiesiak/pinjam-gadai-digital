@@ -59,7 +59,7 @@ export function LoanQueueSection({
           <QueueRow
             reference={l.nomorReferensi}
             date={formatDate(l._creationTime)}
-            title={l.namaLengkap}
+            title={l.namaLengkap.toUpperCase()}
             subtitle={`${l.emailPeminjam ?? "tanpa email"} · ${l.nomorReferensi} · pokok ${formatRupiah(l.pokokPinjaman)} · ${loanPurposeLabel(l.tujuan)}`}
             status={<StatusBadge status={l.status} kind="loan" />}
             onOpen={() => onOpen(l)}

@@ -89,7 +89,7 @@ export function PlafonPanel() {
             return (
               <li key={r.userId} className="flex flex-wrap items-end justify-between gap-3 px-5 py-4">
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-medium">{r.nama}</p>
+                  <p className="truncate text-sm font-medium">{r.nama.toUpperCase()}</p>
                   <p className="mt-0.5 text-xs text-muted-foreground">
                     {r.email ?? "tanpa email"} · {r.jumlahPengajuan} pengajuan aplikasi ·{" "}
                     {r.pinjamanAktif} status aktif di ledger
