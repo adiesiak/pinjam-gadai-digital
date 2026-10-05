@@ -812,7 +812,6 @@ export default function Landing() {
     { href: "#kalkulator", label: c(cms?.nav3, "Kalkulator") },
     { href: "#keamanan", label: c(cms?.nav4, "Keamanan") },
     { href: "#tanya", label: "Tanya" },
-    { href: "#syarat", label: "Ketentuan" },
   ];
 
   const [menuOpen, setMenuOpen] = useState(false);
@@ -938,7 +937,7 @@ export default function Landing() {
             <VaultLogo size={40} />
             <BrandWordmark name={logoTeks} />
           </Link>
-          <nav className="hidden min-w-0 items-center gap-7 whitespace-nowrap text-sm text-slate-600 lg:flex xl:gap-9 2xl:gap-10">
+          <nav className="hidden items-center gap-8 text-sm text-slate-600 lg:flex">
             {navItems.map(({ href, label }) => (
               <a
                 key={href}
@@ -1003,7 +1002,7 @@ export default function Landing() {
               transition={{ duration: 0.18, ease: "easeOut" }}
               className="absolute inset-x-0 top-full overflow-hidden border-b border-slate-200 bg-white shadow-lg lg:hidden"
             >
-              <nav className="grid gap-1 px-4 py-3">
+              <nav className="grid gap-0.5 px-4 py-3">
                 {showAdminShortcut && (
                   <Link
                     to={ADMIN_ROUTE}
