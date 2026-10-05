@@ -1149,6 +1149,25 @@ describe("seed aplikasi pinjaman tunai", () => {
     const totalKredit = entries.reduce((acc, e) => acc + (e.arah === "kredit" ? e.jumlah : 0), 0);
     expect(totalDebit).toBe(totalKredit);
     expect(totalDebit).toBeGreaterThan(0);
+
+    // Biaya platform 2% (30.000): diakui sebagai pendapatan dengan mendebit
+    // platform:FEE (jenis platform_fee, agar terhitung di ringkasan admin)
+    // dan mengkredit dompet penyedia dana sehingga saldonya turun.
+    const semuaEntri = await t.run((ctx) =>
+      ctx.db.query("ledger_entries").collect(),
+    );
+    const entriPlatform = semuaEntri.filter((e) => e.akun === "platform:FEE");
+    expect(entriPlatform).toHaveLength(1);
+    expect(entriPlatform[0].jenis).toBe("platform_fee");
+    expect(entriPlatform[0].arah).toBe("debit");
+    expect(entriPlatform[0].jumlah).toBe(30_000);
+
+    const entriDana = semuaEntri.filter(
+      (e) => e.akun === `dana:WALLET:${danaId}`,
+    );
+    expect(entriDana).toHaveLength(1);
+    expect(entriDana[0].arah).toBe("kredit");
+    expect(entriDana[0].jumlah).toBe(30_000);
   });
 
   it("menolak seed dari akun bukan admin atau pengguna tidak lengkap", async () => {

@@ -1260,11 +1260,15 @@ export const seedLoanApplication = internalMutation({      args: {
 
     const now = Date.now();
     const nomorReferensi = `PGD-SEED-${now}`;
+    // Pokok ditentukan argumen opsional (default 1.500.000). Dipakai untuk
+    // DOKUMEN pinjaman sekaligus JURNAL, sehingga keduanya tidak pernah bisa
+    // berbeda ketika pemanggil mengisi pokokPinjaman.
+    const pokokPinjaman: number = args.pokokPinjaman ?? 1_500_000;
 
     const loanId = await ctx.db.insert("loans", {
       userId: args.peminjamId,
-      pokokPinjaman: 1_500_000,
-      pokokDiajukan: 1_500_000,
+      pokokPinjaman,
+      pokokDiajukan: pokokPinjaman,
       tujuan: args.tujuan,
       catatanPeminjam: args.catatanPeminjam?.trim() || undefined,
       namaLengkap: args.namaLengkap,
@@ -1288,17 +1292,16 @@ export const seedLoanApplication = internalMutation({      args: {
       },
     });
     // Aplikasi pinjaman yang disetujui tercatat otomatis sebagai jurnal
-    // internal berpasangan (Rule 5.1): pokok pinjaman masuk dompet dana
-    // penyedia, biaya platform keluar ke akun platform:FEE.
+    // internal berpasangan (Rule 5.1): biaya platform 2% dibebankan ke dompet
+    // penyedia dana dan diakui sebagai pendapatan platform:FEE.
     if (args.status === "disetujui" || args.status === "didanai") {
-      const pokokPinjaman: number = args.pokokPinjaman ?? 1_500_000;
       const biayaPlatform: number = Math.round(pokokPinjaman * 0.02);
       const pinjamanAkun = `pinjaman:${loanId}`;
       const danaAkun = `dana:WALLET:${args.danaId}`;
       const platformAkun = "platform:FEE";
       const spec: JournalSpec = {
-        jenis: "deposit",
-        keterangan: `Aplikasi pinjaman disetujui ${nomorReferensi}`,
+        jenis: "platform_fee",
+        keterangan: `Biaya admin & platform ${nomorReferensi}`,
         aktor: "admin@pindai.test",
         lines: [
           // Pokok pinjaman: satu baris debit (pihak peminjam) + satu baris
@@ -1307,10 +1310,13 @@ export const seedLoanApplication = internalMutation({      args: {
           // debit == kredit == pokokPinjaman dan seimbang.
           { akun: pinjamanAkun, arah: "debit", jumlah: pokokPinjaman },
           { akun: pinjamanAkun, arah: "kredit", jumlah: pokokPinjaman },
-          // Dana penyedia membayar biaya platform 2% dari dompetnya.
-          { akun: danaAkun, arah: "debit", jumlah: biayaPlatform },
-          // Biaya platform 2% dikreditkan ke akun platform:FEE.
-          { akun: platformAkun, arah: "kredit", jumlah: biayaPlatform },
+          // Biaya platform 2% diakui sebagai pendapatan: debit platform:FEE
+          // (konvensi sama dengan alokasiDana.ts) yang membuat entri ini
+          // terhitung di ledgerSummary.pendapatanPlatform.
+          { akun: platformAkun, arah: "debit", jumlah: biayaPlatform },
+          // Dompet penyedia dana dibebani biaya tersebut — kredit menurunkan
+          // saldo danaWalletBalance (debit == naik, kredit == turun).
+          { akun: danaAkun, arah: "kredit", jumlah: biayaPlatform },
         ],
       };
       try {
