@@ -51,6 +51,7 @@ import { api } from "@/convex/_generated/api";
 import { RoleDashboardMenu } from "@/components/RoleDashboardMenu";
 import { Reveal } from "@/components/Reveal";
 import { CMS_DEFAULTS } from "@/lib/cms-defaults";
+import { CONTRACT_TERMS_VERSION } from "@/lib/contract";
 import {
   BULANAN_LIMITS,
   hitungSimulasiBulanan,
@@ -359,6 +360,40 @@ const FAQ_ITEMS = [
     a: "Tidak. Riwayat pengajuan hanya dapat dibuka oleh akun terkait dan tim PINDAI; data tidak ditampilkan ke pihak eksternal.",
   },
 ] as const;
+
+/** Poin ringkas Syarat & Ketentuan untuk landing; versi lengkap di /syarat-ketentuan. */
+const RINGKASAN_SYARAT: Array<{ judul: string; isi: string; Icon: typeof Scale }> = [
+  {
+    judul: "Pencatatan internal, bukan transfer dana",
+    isi: "PINDAI mencatat pengajuan, perhitungan, dan status pada ledger internal. Perpindahan dana ditangani di luar aplikasi.",
+    Icon: Landmark,
+  },
+  {
+    judul: "Biaya transparan",
+    isi: "Bunga flat 30% dari pokok dan biaya dipotong di muka sesuai tenor. Semua angka dihitung aplikasi, bukan diketik manual.",
+    Icon: Percent,
+  },
+  {
+    judul: "Akun & keamanan",
+    isi: "Jaga kerahasiaan akun Anda; verifikasi TOTP dan audit trail melindungi setiap tindakan di sistem.",
+    Icon: Lock,
+  },
+  {
+    judul: "Data pribadi",
+    isi: "Riwayat pengajuan hanya dapat dibuka oleh akun terkait dan tim PINDAI, tidak dibagikan ke pihak eksternal.",
+    Icon: ShieldCheck,
+  },
+  {
+    judul: "Gadai & kredit barang",
+    isi: "PINDAI mencatat data barang dan taksiran. Pemeriksaan fisik, penyimpanan, dan pelelangan belum dijalankan aplikasi.",
+    Icon: Package,
+  },
+  {
+    judul: "Keputusan & pelunasan",
+    isi: "Persetujuan pengajuan bukan jaminan pencairan. Keterlambatan dikenai denda 0,5% per hari dari pokok (maksimum 15%).",
+    Icon: Scale,
+  },
+];
 
 // Skema harian: Rp 100 rb–1 jt / maks 30 hari. Skema bulanan: sampai plafon
 // tertinggi yang boleh disimpan admin (Rp 10 jt) dengan tenor 1/3/6 bulan
@@ -777,6 +812,7 @@ export default function Landing() {
     { href: "#kalkulator", label: c(cms?.nav3, "Kalkulator") },
     { href: "#keamanan", label: c(cms?.nav4, "Keamanan") },
     { href: "#tanya", label: "Tanya" },
+    { href: "#syarat", label: "Ketentuan" },
   ];
 
   const [menuOpen, setMenuOpen] = useState(false);
@@ -1511,6 +1547,56 @@ export default function Landing() {
                   </AccordionItem>
                 ))}
               </Accordion>
+            </Reveal>
+          </div>
+        </section>
+
+        {/* Syarat & Ketentuan singkat */}
+        <section id="syarat" className="relative scroll-mt-24 border-t border-slate-200 bg-slate-50/60">
+          <div className="mx-auto w-full max-w-4xl px-4 py-16 sm:px-6 sm:py-20">
+            <Reveal>
+              <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#9c7b3a]">
+                Syarat &amp; Ketentuan
+              </span>
+              <h2 className="mt-3 text-2xl font-semibold tracking-tight sm:text-3xl">
+                Ketentuan singkat sebelum mengajukan
+              </h2>
+              <p className="mt-3 max-w-2xl text-base leading-7 text-slate-600">
+                Rangkuman poin terpenting. Versi lengkap dan mengikat ada di halaman Syarat &amp;
+                Ketentuan.
+              </p>
+            </Reveal>
+
+            <Reveal delay={0.08} className="mt-8">
+              <div className="grid gap-4 sm:grid-cols-2">
+                {RINGKASAN_SYARAT.map((item) => (
+                  <div
+                    key={item.judul}
+                    className="flex gap-3 rounded-2xl border border-slate-200 bg-white p-4"
+                  >
+                    <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                      <item.Icon className="size-4" aria-hidden />
+                    </span>
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-slate-900">{item.judul}</p>
+                      <p className="mt-1 text-xs leading-5 text-slate-600">{item.isi}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-5 py-4">
+                <p className="text-xs text-slate-500">
+                  Berlaku versi {CONTRACT_TERMS_VERSION}. Dengan melanjutkan, Anda menyetujui
+                  ketentuan ini.
+                </p>
+                <Button asChild className="h-10">
+                  <Link to="/syarat-ketentuan">
+                    Baca selengkapnya
+                    <ArrowRight className="ml-2 size-4" aria-hidden />
+                  </Link>
+                </Button>
+              </div>
             </Reveal>
           </div>
         </section>
