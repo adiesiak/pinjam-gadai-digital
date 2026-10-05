@@ -508,6 +508,17 @@ export const adminStats = query({
     // Hitung pinjaman berstatus disetujui (keputusan review internal saja).
     const pinjamanDisetujui = loans.filter((l) => l.status === "disetujui").length;
 
+    // Total nominal pinjaman berdasarkan arus kas:
+    //  - sedang berjalan: sudah didanai (status didanai), pokok yang beredar;
+    //  - diajukan: pengajuan baru yang menunggu keputusan, memakai pokok yang
+    //    diminta (pokokDiajukan) bila ada.
+    const totalPinjamanBerjalan = loans
+      .filter((l) => l.status === "didanai")
+      .reduce((acc, l) => acc + l.pokokPinjaman, 0);
+    const totalPinjamanDiajukan = loans
+      .filter((l) => l.status === "diajukan")
+      .reduce((acc, l) => acc + (l.pokokDiajukan ?? l.pokokPinjaman), 0);
+
     // GPS mismatch: posisi terakhir peminjam aktif vs gudang brankas.
     const cfg = await getConfig(ctx);
     const vault = { lat: cfg.vaultLat, lng: cfg.vaultLng };
@@ -570,6 +581,8 @@ export const adminStats = query({
       pinjamanTerlambat,
       totalDendaBerjalan,
       pinjamanDisetujui,
+      totalPinjamanBerjalan,
+      totalPinjamanDiajukan,
       gpsMismatch,
       /** Pinjaman aktif tanpa titik lokasi segar (gerbang lokasi wajib). */
       pinjamanTanpaLokasi,

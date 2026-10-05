@@ -36,6 +36,10 @@ export type AdminStatsData = {
   totalPinjaman: number;
   totalGadai: number;
   pinjamanDisetujui: number;
+  /** Total pokok pinjaman yang sedang berjalan (sudah didanai). */
+  totalPinjamanBerjalan: number;
+  /** Total pokok pinjaman yang diajukan (menunggu keputusan). */
+  totalPinjamanDiajukan: number;
   pinjamanTerlambat: number;
   nilaiTaksiranDisetujui: number;
   gpsMismatch: number;
@@ -196,6 +200,8 @@ export function AdminStats({ stats }: { stats: AdminStatsData }) {
     { label: "Catatan pinjaman", angka: stats.totalPinjaman, format: formatJumlah, tone: "sky", Icon: Landmark },
     { label: "Catatan gadai", angka: stats.totalGadai, format: formatJumlah, tone: "sky", Icon: Database },
     { label: "Pinjaman disetujui (status internal)", angka: stats.pinjamanDisetujui, format: formatJumlah, tone: "sky", Icon: CircleDollarSign },
+    { label: "Total pinjaman sedang berjalan", angka: stats.totalPinjamanBerjalan, format: formatRupiah, tone: "mint", Icon: CircleDollarSign },
+    { label: "Total pinjaman diajukan", angka: stats.totalPinjamanDiajukan, format: formatRupiah, tone: "amber", Icon: ClipboardList },
     { label: "Tanggal acuan terlewati", angka: stats.pinjamanTerlambat, format: formatJumlah, tone: stats.pinjamanTerlambat > 0 ? "red" : "mint", Icon: Clock3 },
     { label: "Nilai taksiran internal", angka: stats.nilaiTaksiranDisetujui, format: formatRupiah, tone: "mint", Icon: CircleDollarSign },
     { label: "Pola koordinat untuk ditinjau", angka: stats.gpsMismatch, format: formatJumlah, tone: stats.gpsMismatch > 0 ? "red" : "mint", Icon: MapPin },
