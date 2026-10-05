@@ -9,6 +9,7 @@ import { ledgerTotals, appendJournal } from "./ledger";
 import { JournalSpec } from "./ledger";
 import { formatRupiah } from "../lib/money";
 import { CONTRACT_TERMS_VERSION } from "../lib/contract";
+import { bagiHasilPinjaman } from "../lib/bagiHasil";
 import { getConfig, audit } from "./system";
 import { jarakKm } from "../lib/geo";
 import {
@@ -519,8 +520,31 @@ export const adminStats = query({
       .filter((l) => l.status === "diajukan")
       .reduce((acc, l) => acc + (l.pokokDiajukan ?? l.pokokPinjaman), 0);
 
-    // GPS mismatch: posisi terakhir peminjam aktif vs gudang brankas.
     const cfg = await getConfig(ctx);
+
+    // Keuntungan admin = potongan admin atas kewajiban pinjaman, memakai model
+    // yang sama dengan panel penyedia dana (lib/bagiHasil.ts). Baris warisan
+    // yang pokoknya bukan rupiah bulat dilewati agar satu dokumen lama tidak
+    // merobohkan ringkasan.
+    const keuntunganAdminSatu = (pokok: number): number => {
+      try {
+        return bagiHasilPinjaman(pokok, cfg.persenBunga, cfg.persenAdmin)
+          .keuntunganAdmin;
+      } catch {
+        return 0;
+      }
+    };
+    // Sudah tercatat: pinjaman lunas — potongan adminnya sudah dibukukan saat
+    // pelunasan. Belum tercatat: pinjaman yang masih berjalan, potongannya
+    // belum direalisasi sampai pinjaman ditutup.
+    const keuntunganAdminTercatat = loans
+      .filter((l) => l.status === "lunas")
+      .reduce((acc, l) => acc + keuntunganAdminSatu(l.pokokPinjaman), 0);
+    const keuntunganAdminBelumTercatat = loans
+      .filter((l) => l.status === "didanai")
+      .reduce((acc, l) => acc + keuntunganAdminSatu(l.pokokPinjaman), 0);
+
+    // GPS mismatch: posisi terakhir peminjam aktif vs gudang brankas.
     const vault = { lat: cfg.vaultLat, lng: cfg.vaultLng };
     let gpsMismatch = 0;
     for (const l of loans) {
@@ -583,6 +607,10 @@ export const adminStats = query({
       pinjamanDisetujui,
       totalPinjamanBerjalan,
       totalPinjamanDiajukan,
+      /** Keuntungan admin dari pinjaman lunas (sudah dibukukan). */
+      keuntunganAdminTercatat,
+      /** Keuntungan admin dari pinjaman berjalan (belum dibukukan). */
+      keuntunganAdminBelumTercatat,
       gpsMismatch,
       /** Pinjaman aktif tanpa titik lokasi segar (gerbang lokasi wajib). */
       pinjamanTanpaLokasi,

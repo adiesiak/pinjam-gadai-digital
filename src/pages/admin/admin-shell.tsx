@@ -40,6 +40,10 @@ export type AdminStatsData = {
   totalPinjamanBerjalan: number;
   /** Total pokok pinjaman yang diajukan (menunggu keputusan). */
   totalPinjamanDiajukan: number;
+  /** Keuntungan admin dari pinjaman lunas (sudah dibukukan). */
+  keuntunganAdminTercatat: number;
+  /** Keuntungan admin dari pinjaman berjalan (belum dibukukan). */
+  keuntunganAdminBelumTercatat: number;
   pinjamanTerlambat: number;
   nilaiTaksiranDisetujui: number;
   gpsMismatch: number;
@@ -202,6 +206,8 @@ export function AdminStats({ stats }: { stats: AdminStatsData }) {
     { label: "Pinjaman disetujui (status internal)", angka: stats.pinjamanDisetujui, format: formatJumlah, tone: "sky", Icon: CircleDollarSign },
     { label: "Total pinjaman sedang berjalan", angka: stats.totalPinjamanBerjalan, format: formatRupiah, tone: "mint", Icon: CircleDollarSign },
     { label: "Total pinjaman diajukan", angka: stats.totalPinjamanDiajukan, format: formatRupiah, tone: "amber", Icon: ClipboardList },
+    { label: "Keuntungan admin sudah tercatat", angka: stats.keuntunganAdminTercatat, format: formatRupiah, tone: "mint", Icon: BadgeCheck },
+    { label: "Keuntungan admin belum tercatat", angka: stats.keuntunganAdminBelumTercatat, format: formatRupiah, tone: "amber", Icon: Clock3 },
     { label: "Tanggal acuan terlewati", angka: stats.pinjamanTerlambat, format: formatJumlah, tone: stats.pinjamanTerlambat > 0 ? "red" : "mint", Icon: Clock3 },
     { label: "Nilai taksiran internal", angka: stats.nilaiTaksiranDisetujui, format: formatRupiah, tone: "mint", Icon: CircleDollarSign },
     { label: "Pola koordinat untuk ditinjau", angka: stats.gpsMismatch, format: formatJumlah, tone: stats.gpsMismatch > 0 ? "red" : "mint", Icon: MapPin },
