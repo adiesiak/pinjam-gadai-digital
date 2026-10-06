@@ -7,6 +7,7 @@ import {
   useReducedMotion,
   useScroll,
   useSpring,
+  useTransform,
   type Variants,
 } from "framer-motion";
 import {
@@ -24,11 +25,10 @@ import {
   Scale,
   ShieldCheck,
   Sparkles,
-  Vault,
   Wallet,
   X,
 } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router";
 
 import { useAuth } from "@/hooks/use-auth";
@@ -89,13 +89,157 @@ function BrandWordmark({ name, compact = false }: { name: string; compact?: bool
   );
 }
 
-const SECURITY = [
-  { icon: Lock, label: "Riwayat pengajuan hanya untuk akun terkait" },
-  { icon: Scale, label: "Rincian biaya dan bunga ditampilkan terpisah" },
-  { icon: Vault, label: "Status gadai tercatat pada ledger" },
-  { icon: ShieldCheck, label: "Persetujuan aplikasi bukan jaminan pencairan dana" },
-  { icon: Calculator, label: "Angka merupakan perhitungan aplikasi" },
-  { icon: Eye, label: "Status dashboard adalah catatan internal" },
+/** Judul bagian dengan penomoran folio gaya buku besar. Dipakai konsisten di
+ *  seluruh landing supaya irama tipografinya sama; set `gelap` untuk bagian
+ *  yang berlatar hijau tua. */
+function SectionHeading({
+  folio,
+  eyebrow,
+  title,
+  description,
+  gelap = false,
+  align = "left",
+}: {
+  folio: string;
+  eyebrow: string;
+  title: ReactNode;
+  description?: ReactNode;
+  gelap?: boolean;
+  align?: "left" | "center";
+}) {
+  const tengah = align === "center";
+  return (
+    <div className="min-w-0">
+      <div className={`flex items-center gap-2.5 ${tengah ? "justify-center" : ""}`}>
+        <span
+          className={`font-mono text-[11px] font-semibold tracking-[0.18em] tabular-nums ${
+            gelap ? "text-[#d8c28c]" : "text-[#b99b62]"
+          }`}
+        >
+          {folio}
+        </span>
+        <span
+          aria-hidden="true"
+          className={`h-px w-6 ${gelap ? "bg-[#d8c28c]/50" : "bg-[#b99b62]/50"}`}
+        />
+        <span
+          className={`text-[11px] font-semibold uppercase tracking-[0.18em] ${
+            gelap ? "text-[#e6d3a5]" : "text-[#9c7b3a]"
+          }`}
+        >
+          {eyebrow}
+        </span>
+      </div>
+      <h2
+        className={`mt-3 text-2xl font-semibold tracking-tight sm:text-3xl ${
+          gelap ? "text-white" : "text-slate-950"
+        } ${tengah ? "text-center" : ""}`}
+      >
+        {title}
+      </h2>
+      {description ? (
+        <p
+          className={`mt-3 text-base leading-7 ${gelap ? "text-white/70" : "text-slate-600"} ${
+            tengah ? "mx-auto max-w-2xl text-center" : "max-w-2xl"
+          }`}
+        >
+          {description}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+/** Ornamen dial brankas raksasa di latar hero — berputar mengikuti gulir agar
+ *  halaman terasa seperti membuka brankas saat dibaca. */
+function HeroVaultDial() {
+  const reduce = useReducedMotion();
+  const { scrollY } = useScroll();
+  const putar = useTransform(scrollY, [0, 900], reduce ? [0, 0] : [6, 150]);
+  const segmen = Array.from({ length: 24 }, (_, i) => i);
+
+  return (
+    <motion.div
+      aria-hidden="true"
+      style={{ rotate: putar }}
+      className="pointer-events-none absolute -right-28 top-10 hidden size-[22rem] sm:block lg:-right-20 lg:size-[30rem]"
+    >
+      <svg viewBox="0 0 200 200" className="size-full">
+        <circle cx="100" cy="100" r="97" fill="none" stroke="#b99b62" strokeOpacity="0.42" strokeWidth="0.7" />
+        <circle
+          cx="100"
+          cy="100"
+          r="86"
+          fill="none"
+          stroke="#0f3d3a"
+          strokeOpacity="0.14"
+          strokeWidth="0.7"
+          strokeDasharray="4 8"
+        />
+        {segmen.map((i) => (
+          <line
+            key={i}
+            x1="100"
+            y1="13"
+            x2="100"
+            y2={i % 3 === 0 ? "26" : "19"}
+            stroke="#b99b62"
+            strokeOpacity={i % 3 === 0 ? 0.5 : 0.26}
+            strokeWidth={i % 3 === 0 ? 1.6 : 0.9}
+            transform={`rotate(${i * 15} 100 100)`}
+          />
+        ))}
+        <circle cx="100" cy="100" r="52" fill="none" stroke="#0f3d3a" strokeOpacity="0.12" strokeWidth="0.8" />
+        <circle cx="100" cy="100" r="34" fill="none" stroke="#b99b62" strokeOpacity="0.45" strokeWidth="1.1" />
+        {[0, 90, 180, 270].map((derajat) => (
+          <line
+            key={derajat}
+            x1="100"
+            y1="66"
+            x2="100"
+            y2="80"
+            stroke="#b99b62"
+            strokeOpacity="0.5"
+            strokeWidth="2.4"
+            strokeLinecap="round"
+            transform={`rotate(${derajat} 100 100)`}
+          />
+        ))}
+        <circle cx="100" cy="100" r="5" fill="#b99b62" fillOpacity="0.32" />
+      </svg>
+    </motion.div>
+  );
+}
+
+/** Dua kolom pembanding di bagian "Batas yang jelas": apa yang dikerjakan
+ *  aplikasi dan apa yang sepenuhnya berjalan di luar aplikasi. */
+const DIJALANKAN = [
+  { judul: "Mencatat pengajuan", isi: "Parameter pinjaman, gadai, atau kredit tersimpan di akun Anda." },
+  {
+    judul: "Menghitung biaya",
+    isi: "Bunga, potongan di muka, dan cicilan berasal dari rumus sistem — bukan angka yang diketik manual.",
+  },
+  {
+    judul: "Meninjau status",
+    isi: "Keputusan tim PINDAI tercatat pada audit log beserta waktu dan pelakunya.",
+  },
+  {
+    judul: "Menyimpan riwayat",
+    isi: "Riwayat pengajuan hanya dapat dibuka oleh akun terkait dan tim PINDAI.",
+  },
+] as const;
+
+const DI_LUAR_APLIKASI = [
+  {
+    judul: "Perpindahan dana",
+    isi: "Pencairan dan pelunasan ditangani di luar aplikasi; PINDAI tidak mengirim uang.",
+  },
+  { judul: "Penyimpanan barang", isi: "Barang jaminan gadai tidak disimpan oleh PINDAI." },
+  {
+    judul: "Pemeriksaan & lelang",
+    isi: "Pemeriksaan fisik dan pelelangan barang belum dijalankan aplikasi.",
+  },
+  { judul: "Penyedia pembayaran", isi: "Belum ada kanal pembayaran yang terhubung ke sistem." },
 ] as const;
 
 const heroContainer: Variants = {
@@ -182,15 +326,272 @@ function LedgerGrid({ className = "" }: { className?: string }) {
   );
 }
 
-/** Kolom contoh catatan ledger pada pratinjau (angka ilustrasi). */
-const CATATAN_CONTOH = [
-  { label: "Nomor referensi", value: "PDI-••••-••" },
-  { label: "Skema", value: "Bulanan · 3 bulan" },
-  { label: "Pokok perhitungan", value: "Rp 5.000.000" },
-  { label: "Biaya admin + platform", value: "5% · dipotong di muka" },
-  { label: "Biaya admin cicilan", value: "2% per bayar" },
-  { label: "Status", value: "Sedang Direview" },
+/** Fakta ringkas dalam angka — semuanya bisa ditelusuri di halaman ini. */
+const PITA_ANGKA = [
+  { to: 3, suffix: "", label: "Skema tercatat", ket: "Harian · Bulanan · Kredit barang" },
+  { to: 95, suffix: "%", label: "Nilai bersih harian", ket: "Setelah potongan 5% di muka" },
+  { to: 5, suffix: "%", label: "Potongan di muka", ket: "Admin 2% + platform 3%" },
+  { to: 0, suffix: "", label: "Biaya tersembunyi", ket: "Semua rincian terbuka di awal" },
 ] as const;
+
+/** Pita angka tepat di bawah hero. */
+function PitaAngka() {
+  return (
+    <section aria-label="PINDAI dalam angka" className="relative bg-white">
+      <div className="mx-auto grid w-full max-w-6xl grid-cols-2 gap-px bg-slate-200 sm:grid-cols-4">
+        {PITA_ANGKA.map((item, i) => (
+          <motion.div
+            key={item.label}
+            initial={{ opacity: 0, y: 12 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, amount: 0.4 }}
+            transition={{ duration: 0.45, delay: i * 0.06, ease: EASE_OUT }}
+            className="bg-white px-5 py-7 sm:px-6 sm:py-9"
+          >
+            <p className="text-3xl font-semibold tabular-nums tracking-tight text-primary sm:text-4xl">
+              <CountUp to={item.to} suffix={item.suffix} />
+            </p>
+            <p className="mt-2 text-xs font-semibold uppercase tracking-[0.12em] text-slate-700">
+              {item.label}
+            </p>
+            <p className="mt-1 text-xs leading-5 text-slate-500">{item.ket}</p>
+          </motion.div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+/** Isi brankas: contoh catatan tiap skema, ditampilkan sebagai lembar bergaris
+ *  seperti buku besar. Semua baris adalah ilustrasi tampilan, bukan tagihan. */
+const ISI_BRANKAS: ReadonlyArray<{
+  id: string;
+  label: string;
+  rak: string;
+  Icon: typeof Banknote;
+  judul: string;
+  isi: string;
+  baris: ReadonlyArray<readonly [string, string]>;
+}> = [
+  {
+    id: "harian",
+    label: "Pinjaman harian",
+    rak: "Laci 01",
+    Icon: Banknote,
+    judul: "Skema harian — 7 sampai 30 hari",
+    isi: "Kewajiban dihitung sekali di akhir tenor: bunga flat 30% dari pokok dengan potongan 5% dipotong di muka.",
+    baris: [
+      ["Nomor referensi", "PDI-••••-••"],
+      ["Pokok perhitungan", "Rp 100 rb – Rp 1 jt"],
+      ["Potongan di muka", "5% (admin 2% + platform 3%)"],
+      ["Nilai bersih diterima", "95% dari pokok"],
+      ["Bunga flat", "30% dari pokok"],
+      ["Total kewajiban pelunasan", "130% dari pokok"],
+    ],
+  },
+  {
+    id: "bulanan",
+    label: "Pinjaman bulanan",
+    rak: "Laci 02",
+    Icon: Landmark,
+    judul: "Skema bulanan — tenor 1 / 3 / 6 bulan",
+    isi: "Cicilan rata dari pokok penuh: angsuran berisi pokok dan bunga saja karena biaya tenor dipotong di muka.",
+    baris: [
+      ["Nomor referensi", "PDI-••••-••"],
+      ["Nominal", "Rp 500 rb – Rp 10 jt"],
+      ["Potongan di muka", "5% (tenor 3 & 6) · 3% (tenor 1)"],
+      ["Bunga flat per bulan", "30% / 25% / 20%"],
+      ["Biaya admin cicilan", "2% per bayar (tenor 3 & 6)"],
+      ["Pencatatan pelunasan", "Sekali saat jatuh tempo"],
+    ],
+  },
+  {
+    id: "kredit",
+    label: "Kredit barang",
+    rak: "Laci 03",
+    Icon: Package,
+    judul: "Kredit barang — elektronik & mitra",
+    isi: "Barang menjadi objek pembiayaan: nominal, tenor, dan cicilan dihitung dari harga barang yang diajukan.",
+    baris: [
+      ["Nomor referensi", "PDI-••••-••"],
+      ["Nilai pembiayaan", "Hingga Rp 10 jt"],
+      ["Uang muka", "0%"],
+      ["Potongan di muka", "5% (admin 2% + platform 3%)"],
+      ["Tenor", "1 / 3 / 6 bulan"],
+      ["Cicilan", "Rata dari pokok penuh"],
+    ],
+  },
+];
+
+/** Bagian "isi brankas": pilih satu laci, lalu lihat contoh catatannya. */
+function IsiBrankas() {
+  const reduce = useReducedMotion();
+  const [aktif, setAktif] = useState(ISI_BRANKAS[0].id);
+  const skema = ISI_BRANKAS.find((s) => s.id === aktif) ?? ISI_BRANKAS[0];
+
+  return (
+    <section
+      id="catatan"
+      className="relative scroll-mt-24 overflow-hidden border-t border-slate-200 bg-[#0f3d3a] py-16 sm:py-20"
+    >
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0"
+        style={{
+          backgroundImage: "radial-gradient(rgba(216,194,140,0.22) 1px, transparent 1px)",
+          backgroundSize: "22px 22px",
+          maskImage: "radial-gradient(ellipse 80% 70% at 18% 20%, #000 8%, transparent 72%)",
+          WebkitMaskImage: "radial-gradient(ellipse 80% 70% at 18% 20%, #000 8%, transparent 72%)",
+        }}
+      />
+      <div aria-hidden="true" className="animate-drift pointer-events-none absolute -left-28 top-6 size-72 rounded-full bg-[#cbb47e]/15 blur-3xl" />
+      <div aria-hidden="true" className="animate-drift-reverse pointer-events-none absolute -bottom-24 -right-16 size-80 rounded-full bg-white/[0.07] blur-3xl" />
+
+      <div className="relative mx-auto w-full max-w-6xl px-4 sm:px-6">
+        <Reveal>
+          <SectionHeading
+            folio="02"
+            eyebrow="Isi brankas"
+            gelap
+            title="Catatan yang bisa Anda periksa"
+            description="Setiap pengajuan menyimpan parameter yang dipakai menghitung angkanya — nominal, tenor, biaya, dan status. Pilih satu laci untuk melihat contoh catatannya."
+          />
+        </Reveal>
+
+        <div className="mt-8 grid gap-6 sm:mt-10 lg:grid-cols-[0.9fr_1.1fr] lg:gap-10">
+          <Reveal className="h-full">
+            <div className="flex h-full flex-col gap-2 rounded-2xl border border-white/10 bg-white/[0.05] p-2.5 backdrop-blur-sm">
+              {ISI_BRANKAS.map(({ id, label, rak, Icon }) => {
+                const dipilih = id === aktif;
+                return (
+                  <button
+                    key={id}
+                    type="button"
+                    onClick={() => setAktif(id)}
+                    aria-pressed={dipilih}
+                    className={`group flex items-center gap-3.5 rounded-xl border px-3.5 py-3 text-left transition-colors ${
+                      dipilih
+                        ? "border-[#d8c28c]/45 bg-[#d8c28c]/10 text-white"
+                        : "border-white/10 bg-black/10 text-white/70 hover:border-white/20 hover:bg-white/[0.07] hover:text-white"
+                    }`}
+                  >
+                    <span
+                      className={`flex size-9 shrink-0 items-center justify-center rounded-lg border transition-colors ${
+                        dipilih
+                          ? "border-[#d8c28c]/45 bg-[#d8c28c]/15 text-[#e6d3a5]"
+                          : "border-white/10 text-white/55 group-hover:text-white/85"
+                      }`}
+                    >
+                      <Icon className="size-4" strokeWidth={2} />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-[10px] font-semibold uppercase tracking-[0.16em] text-white/45">
+                        {rak}
+                      </span>
+                      <span className="mt-0.5 block truncate text-sm font-semibold">{label}</span>
+                    </span>
+                    <ArrowRight
+                      aria-hidden="true"
+                      className={`size-4 shrink-0 transition-transform ${
+                        dipilih ? "text-[#e6d3a5]" : "text-white/30 group-hover:translate-x-0.5"
+                      }`}
+                    />
+                  </button>
+                );
+              })}
+              <p className="mt-auto px-3.5 pb-1 pt-3 text-[11px] leading-5 text-white/45">
+                Contoh ilustrasi tampilan. Angka sebenarnya dihitung aplikasi dari data pengajuan Anda
+                dan bukan tagihan atau bukti pembayaran.
+              </p>
+            </div>
+          </Reveal>
+
+          <Reveal delay={0.1} className="h-full">
+            <div className="relative">
+              <AnimatePresence mode="wait" initial={false}>
+                <motion.div
+                  key={skema.id}
+                  initial={reduce ? { opacity: 0 } : { opacity: 0, y: 14 }}
+                  animate={reduce ? { opacity: 1 } : { opacity: 1, y: 0 }}
+                  exit={reduce ? { opacity: 0 } : { opacity: 0, y: -10 }}
+                  transition={{ duration: 0.28, ease: EASE_OUT }}
+                  className="relative overflow-hidden rounded-2xl bg-[#fbf8f1] shadow-[0_28px_60px_-38px_rgba(0,0,0,0.75)]"
+                >
+                  <div aria-hidden="true" className="absolute inset-y-0 left-9 w-px bg-[#b99b62]/35" />
+                  <div
+                    aria-hidden="true"
+                    className="pointer-events-none absolute inset-0"
+                    style={{
+                      backgroundImage:
+                        "repeating-linear-gradient(to bottom, rgba(15,61,58,0.055) 0px, rgba(15,61,58,0.055) 1px, transparent 1px, transparent 30px)",
+                      maskImage: "linear-gradient(to bottom, #000 0%, #000 55%, transparent 92%)",
+                      WebkitMaskImage: "linear-gradient(to bottom, #000 0%, #000 55%, transparent 92%)",
+                    }}
+                  />
+                  <div className="relative">
+                    <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#e4dccb] py-3.5 pl-12 pr-4 sm:pl-14 sm:pr-6">
+                      <div className="min-w-0">
+                        <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#9c7b3a]">
+                          Contoh catatan · {skema.rak}
+                        </p>
+                        <p className="mt-1 text-sm font-semibold text-[#0f3d3a]">{skema.judul}</p>
+                      </div>
+                      <span className="inline-flex items-center gap-2 rounded-full border border-[#0f3d3a]/15 bg-white px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.14em] text-[#0f3d3a]/70">
+                        <span className="relative flex size-2">
+                          <span className="absolute inline-flex size-full animate-ping rounded-full bg-primary/50" />
+                          <span className="relative inline-flex size-2 rounded-full bg-primary" />
+                        </span>
+                        Ledger internal
+                      </span>
+                    </div>
+                    <p className="border-b border-[#e4dccb] py-3 pl-12 pr-4 text-xs leading-5 text-[#5f6f6a] sm:pl-14 sm:pr-6">
+                      {skema.isi}
+                    </p>
+                    <dl>
+                      {skema.baris.map(([label, nilai]) => (
+                        <div
+                          key={label}
+                          className="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-3 border-b border-[#eee7d6] py-3 pl-12 pr-4 last:border-b-0 sm:pl-14 sm:pr-6"
+                        >
+                          <dt className="text-xs text-[#5f6f6a]">{label}</dt>
+                          <dd className="text-right text-xs font-semibold tabular-nums text-[#0f3d3a]">
+                            {nilai}
+                          </dd>
+                        </div>
+                      ))}
+                    </dl>
+                  </div>
+                </motion.div>
+              </AnimatePresence>
+              <div
+                aria-hidden="true"
+                className="pointer-events-none absolute -bottom-4 -right-2 rotate-[-8deg] rounded-lg border-2 border-[#0f3d3a]/25 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.22em] text-[#0f3d3a]/45 sm:-right-4"
+              >
+                Dicatat
+              </div>
+            </div>
+          </Reveal>
+        </div>
+
+        <ul className="mt-8 grid gap-3 sm:grid-cols-3">
+          {[
+            "Parameter perhitungan berasal dari data pengajuan yang tersimpan",
+            "Riwayat pengajuan hanya dapat dibuka oleh akun terkait",
+            "Perubahan status oleh tim PINDAI tercatat pada audit log",
+          ].map((item) => (
+            <li
+              key={item}
+              className="flex items-start gap-3 rounded-2xl border border-white/10 bg-white/[0.05] px-4 py-3.5 text-xs leading-5 text-white/70"
+            >
+              <BadgeCheck className="mt-0.5 size-4 shrink-0 text-[#e6d3a5]" aria-hidden="true" />
+              {item}
+            </li>
+          ))}
+        </ul>
+      </div>
+    </section>
+  );
+}
 
 /** Fakta ringkas yang berjalan (marquee) di bawah hero. */
 const HERO_FACTS = [
@@ -530,7 +931,12 @@ function LiveCalculator() {
         </div>
       </div>
 
-      <dl className="mt-6 space-y-2.5 border-t border-slate-200 pt-5 text-sm sm:space-y-2">
+      <div aria-hidden="true" className="mt-6 flex items-center gap-2.5">
+        <span className="size-2 rounded-full bg-slate-200" />
+        <span className="h-px flex-1 border-t border-dashed border-slate-300" />
+        <span className="size-2 rounded-full bg-slate-200" />
+      </div>
+      <dl className="mt-5 space-y-2.5 text-sm sm:space-y-2">
         {(
           sim !== null
             ? ([
@@ -1006,7 +1412,7 @@ export default function Landing() {
           <LedgerGrid />
           <GlowField />
           <div aria-hidden="true" className="pointer-events-none absolute -right-32 top-16 size-80 rounded-full border border-primary/10 sm:size-[30rem]" />
-          <div aria-hidden="true" className="animate-spin-slow pointer-events-none absolute -right-20 top-28 size-56 rounded-full border border-dashed border-[#b99b62]/25 sm:size-96" />
+          <HeroVaultDial />
           <div className="relative mx-auto grid w-full max-w-7xl items-center gap-10 px-4 py-14 sm:gap-12 sm:px-8 sm:py-24 lg:grid-cols-[1.05fr_0.95fr] lg:gap-16 lg:py-28">
             <motion.div
               variants={heroContainer}
@@ -1150,19 +1556,18 @@ export default function Landing() {
           <FactRibbon />
         </section>
 
+        <PitaAngka />
+
         {/* Layanan */}
         <section className="relative border-t border-slate-200 bg-slate-50/60">
           <div className="mx-auto w-full max-w-6xl px-4 py-16 sm:px-6 sm:py-20">
             <Reveal className="max-w-2xl">
-              <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#9c7b3a]">
-                Tiga skema
-              </span>
-              <h2 className="mt-3 text-2xl font-semibold tracking-tight sm:text-3xl">
-                {c(cms?.layananJudul, CMS_DEFAULTS.layanan.judul)}
-              </h2>
-              <p className="mt-3 text-base leading-7 text-slate-600">
-                {c(cms?.layananSub, CMS_DEFAULTS.layanan.sub)}
-              </p>
+              <SectionHeading
+                folio="01"
+                eyebrow="Tiga skema"
+                title={c(cms?.layananJudul, CMS_DEFAULTS.layanan.judul)}
+                description={c(cms?.layananSub, CMS_DEFAULTS.layanan.sub)}
+              />
             </Reveal>
 
             <div className="mt-8 grid gap-5 sm:gap-6 md:grid-cols-2 lg:grid-cols-3">
@@ -1242,71 +1647,8 @@ export default function Landing() {
           </div>
         </section>
 
-        {/* Pratinjau catatan ledger */}
-        <section className="relative overflow-hidden border-t border-slate-200">
-          <div className="mx-auto grid w-full max-w-6xl items-center gap-8 px-4 py-16 sm:gap-10 sm:px-6 sm:py-20 lg:grid-cols-2 lg:gap-16">
-            <Reveal>
-              <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#9c7b3a]">
-                Catatan internal
-              </span>
-              <h2 className="mt-3 text-2xl font-semibold tracking-tight sm:text-3xl">
-                Catatan yang bisa Anda periksa
-              </h2>
-              <p className="mt-3 text-base leading-7 text-slate-600">
-                Setiap pengajuan menyimpan parameter yang dipakai menghitung angkanya — nominal, tenor, biaya, dan status. Tidak ada kolom tersembunyi, dan tidak ada perpindahan dana di dalam aplikasi.
-              </p>
-              <ul className="mt-6 space-y-3">
-                {[
-                  "Parameter perhitungan berasal dari data pengajuan yang tersimpan",
-                  "Riwayat pengajuan hanya dapat dibuka oleh akun terkait",
-                  "Perubahan status oleh tim PINDAI tercatat pada audit log",
-                ].map((item) => (
-                  <li key={item} className="flex items-start gap-3 text-sm leading-6 text-slate-600">
-                    <BadgeCheck className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden="true" />
-                    {item}
-                  </li>
-                ))}
-              </ul>
-            </Reveal>
-
-            <Reveal delay={0.12}>
-              <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_18px_40px_-32px_rgba(15,61,58,0.5)]">
-                <div className="flex items-center justify-between gap-3 border-b border-slate-200 bg-slate-50/80 px-4 py-3">
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">
-                    Contoh catatan
-                  </p>
-                  <span className="inline-flex items-center gap-2 text-[10px] font-medium uppercase tracking-[0.14em] text-slate-500">
-                    <span className="relative flex size-2">
-                      <span className="absolute inline-flex size-full animate-ping rounded-full bg-primary/60" />
-                      <span className="relative inline-flex size-2 rounded-full bg-primary" />
-                    </span>
-                    Ledger internal
-                  </span>
-                </div>
-                <ul>
-                  {CATATAN_CONTOH.map((row, i) => (
-                    <motion.li
-                      key={row.label}
-                      initial={{ opacity: 0, y: 10 }}
-                      whileInView={{ opacity: 1, y: 0 }}
-                      viewport={{ once: true, amount: 0.6 }}
-                      transition={{ duration: 0.4, delay: i * 0.08, ease: EASE_OUT }}
-                      className="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-2 border-b border-slate-100 px-4 py-3 last:border-b-0 sm:gap-3"
-                    >
-                      <span className="text-xs text-slate-500">{row.label}</span>
-                      <span className="text-right text-xs font-semibold tabular-nums text-slate-800">
-                        {row.value}
-                      </span>
-                    </motion.li>
-                  ))}
-                </ul>
-                <p className="border-t border-slate-100 bg-slate-50/60 px-4 py-3 text-[11px] leading-5 text-slate-500">
-                  Contoh ilustrasi tampilan. Angka sebenarnya dihitung aplikasi dari data pengajuan Anda dan bukan tagihan atau bukti pembayaran.
-                </p>
-              </div>
-            </Reveal>
-          </div>
-        </section>
+        {/* Isi brankas — contoh catatan tiap skema, bisa dipilih satu per satu. */}
+        <IsiBrankas />
 
         {/* Rincian biaya — angka terbuka sejak awal. */}
         <section
@@ -1315,15 +1657,12 @@ export default function Landing() {
         >
           <div className="mx-auto w-full max-w-6xl px-4 py-16 sm:px-6 sm:py-20">
             <Reveal className="max-w-2xl">
-              <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#9c7b3a]">
-                Rincian biaya
-              </span>
-              <h2 className="mt-3 text-2xl font-semibold tracking-tight sm:text-3xl">
-                Angka terbuka sejak awal
-              </h2>
-              <p className="mt-3 text-base leading-7 text-slate-600">
-                Setiap potongan dihitung aplikasi dari nominal dan tenor yang Anda pilih. Tidak ada biaya tersembunyi — dan perpindahan dana tetap ditangani di luar aplikasi.
-              </p>
+              <SectionHeading
+                folio="03"
+                eyebrow="Rincian biaya"
+                title="Angka terbuka sejak awal"
+                description="Setiap potongan dihitung aplikasi dari nominal dan tenor yang Anda pilih. Tidak ada biaya tersembunyi — dan perpindahan dana tetap ditangani di luar aplikasi."
+              />
             </Reveal>
 
             <div className="mt-8 grid gap-5 sm:mt-10 sm:gap-6 lg:grid-cols-2">
@@ -1377,15 +1716,12 @@ export default function Landing() {
             </Reveal>
             <div>
               <Reveal>
-                <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#9c7b3a]">
-                  Alur pengajuan
-                </span>
-                <h2 className="mt-3 text-2xl font-semibold tracking-tight sm:text-3xl">
-                  Tiga langkah
-                </h2>
-                <p className="mt-3 text-base leading-7 text-slate-600">
-                  Proses ringkas dengan angka yang sama seperti yang Anda lihat di kalkulator.
-                </p>
+                <SectionHeading
+                  folio="04"
+                  eyebrow="Alur pengajuan"
+                  title="Tiga langkah"
+                  description="Proses ringkas dengan angka yang sama seperti yang Anda lihat di kalkulator."
+                />
               </Reveal>
               <div className="relative mt-8">
                 <div aria-hidden="true" className="absolute bottom-3 left-5 top-3 w-px bg-slate-200" />
@@ -1431,40 +1767,68 @@ export default function Landing() {
         <section id="keamanan" className="relative scroll-mt-24 border-t border-slate-200 bg-slate-50/60">
           <div className="mx-auto w-full max-w-6xl px-4 py-16 sm:px-6 sm:py-20">
             <Reveal className="max-w-2xl">
-              <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#9c7b3a]">
-                Batas yang jelas
-              </span>
-              <h2 className="mt-3 text-2xl font-semibold tracking-tight sm:text-3xl">
-                Pencatatan &amp; batas ledger
-              </h2>
-              <p className="mt-3 text-base leading-7 text-slate-600">
-                Ketahui apa yang dicatat aplikasi dan apa yang tidak dijalankan secara eksternal.
-              </p>
+              <SectionHeading
+                folio="05"
+                eyebrow="Batas yang jelas"
+                title="Pencatatan & batas ledger"
+                description="Dua kolom ini memisahkan apa yang dikerjakan aplikasi dan apa yang sepenuhnya berjalan di luar aplikasi."
+              />
             </Reveal>
-            <motion.div
-              initial="hidden"
-              whileInView="show"
-              viewport={{ once: true, amount: 0.2 }}
-              variants={{ hidden: {}, show: { transition: { staggerChildren: 0.06 } } }}
-              className="mt-8 grid gap-px overflow-hidden rounded-2xl border border-slate-200 bg-slate-200 sm:mt-10 sm:grid-cols-2 lg:grid-cols-3"
-            >
-              {SECURITY.map(({ icon: Icon, label }) => (
-                <motion.div
-                  key={label}
-                  variants={{
-                    hidden: { opacity: 0, y: 10 },
-                    show: { opacity: 1, y: 0, transition: { duration: 0.4, ease: EASE_OUT } },
-                  }}
-                  className="group flex items-center gap-3 bg-white p-5 transition-colors hover:bg-primary/[0.03]"
-                >
-                  <Icon
-                    className="size-5 shrink-0 text-primary transition-transform duration-300 group-hover:scale-110"
-                    strokeWidth={2}
-                  />
-                  <span className="text-sm font-medium text-slate-700">{label}</span>
-                </motion.div>
-              ))}
-            </motion.div>
+            <div className="mt-8 grid gap-4 sm:mt-10 lg:grid-cols-2 lg:gap-5">
+              <Reveal>
+                <div className="h-full rounded-2xl border border-primary/20 bg-white p-5 sm:p-6">
+                  <p className="inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-primary">
+                    <BadgeCheck className="size-4" aria-hidden="true" />
+                    Dijalankan aplikasi
+                  </p>
+                  <ul className="mt-4 space-y-3.5">
+                    {DIJALANKAN.map((item) => (
+                      <li key={item.judul} className="flex gap-3">
+                        <span
+                          aria-hidden="true"
+                          className="mt-1.5 size-1.5 shrink-0 rounded-full bg-primary"
+                        />
+                        <span className="min-w-0">
+                          <span className="block text-sm font-semibold text-slate-900">
+                            {item.judul}
+                          </span>
+                          <span className="mt-0.5 block text-xs leading-5 text-slate-600">
+                            {item.isi}
+                          </span>
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </Reveal>
+
+              <Reveal delay={0.1}>
+                <div className="h-full rounded-2xl border border-dashed border-slate-300 bg-slate-50/70 p-5 sm:p-6">
+                  <p className="inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+                    <span aria-hidden="true" className="h-px w-4 bg-slate-400" />
+                    Di luar aplikasi
+                  </p>
+                  <ul className="mt-4 space-y-3.5">
+                    {DI_LUAR_APLIKASI.map((item) => (
+                      <li key={item.judul} className="flex gap-3">
+                        <span
+                          aria-hidden="true"
+                          className="mt-1.5 size-1.5 shrink-0 rounded-full bg-slate-400"
+                        />
+                        <span className="min-w-0">
+                          <span className="block text-sm font-semibold text-slate-700">
+                            {item.judul}
+                          </span>
+                          <span className="mt-0.5 block text-xs leading-5 text-slate-500">
+                            {item.isi}
+                          </span>
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </Reveal>
+            </div>
           </div>
         </section>
 
@@ -1472,15 +1836,12 @@ export default function Landing() {
         <section id="tanya" className="relative scroll-mt-24 border-t border-slate-200">
           <div className="mx-auto w-full max-w-3xl px-4 py-16 sm:px-6 sm:py-20">
             <Reveal>
-              <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#9c7b3a]">
-                Tanya jawab
-              </span>
-              <h2 className="mt-3 text-2xl font-semibold tracking-tight sm:text-3xl">
-                Pertanyaan yang sering muncul
-              </h2>
-              <p className="mt-3 text-base leading-7 text-slate-600">
-                Jawaban singkat tentang apa yang dihitung, dicatat, dan tidak dijalankan aplikasi.
-              </p>
+              <SectionHeading
+                folio="06"
+                eyebrow="Tanya jawab"
+                title="Pertanyaan yang sering muncul"
+                description="Jawaban singkat tentang apa yang dihitung, dicatat, dan tidak dijalankan aplikasi."
+              />
             </Reveal>
             <Reveal delay={0.08} className="mt-8">
               <Accordion
@@ -1507,16 +1868,12 @@ export default function Landing() {
         <section id="syarat" className="relative scroll-mt-24 border-t border-slate-200 bg-slate-50/60">
           <div className="mx-auto w-full max-w-4xl px-4 py-16 sm:px-6 sm:py-20">
             <Reveal>
-              <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#9c7b3a]">
-                Syarat &amp; Ketentuan
-              </span>
-              <h2 className="mt-3 text-2xl font-semibold tracking-tight sm:text-3xl">
-                Ketentuan singkat sebelum mengajukan
-              </h2>
-              <p className="mt-3 max-w-2xl text-base leading-7 text-slate-600">
-                Rangkuman poin terpenting. Versi lengkap dan mengikat ada di halaman Syarat &amp;
-                Ketentuan.
-              </p>
+              <SectionHeading
+                folio="07"
+                eyebrow="Syarat & Ketentuan"
+                title="Ketentuan singkat sebelum mengajukan"
+                description="Rangkuman poin terpenting. Versi lengkap dan mengikat ada di halaman Syarat & Ketentuan."
+              />
             </Reveal>
 
             <Reveal delay={0.08} className="mt-8">
@@ -1565,6 +1922,20 @@ export default function Landing() {
             <div aria-hidden="true" className="animate-drift pointer-events-none absolute -left-24 -top-24 size-72 rounded-full bg-[#cbb47e]/25 blur-3xl" />
             <div aria-hidden="true" className="animate-drift-reverse pointer-events-none absolute -bottom-28 -right-20 size-80 rounded-full bg-white/10 blur-3xl" />
             <div aria-hidden="true" className="animate-spin-slow pointer-events-none absolute -right-16 -top-16 size-64 rounded-full border border-dashed border-white/15" />
+            <div aria-hidden="true" className="pointer-events-none absolute bottom-5 left-5 hidden size-32 opacity-80 sm:block">
+              <svg viewBox="0 0 120 120" className="animate-spin-slow size-full text-[#d8c28c]">
+                <defs>
+                  <path id="segel-pindai" d="M60,60 m-44,0 a44,44 0 1,1 88,0 a44,44 0 1,1 -88,0" />
+                </defs>
+                <circle cx="60" cy="60" r="54" fill="none" stroke="currentColor" strokeOpacity="0.3" strokeWidth="0.8" />
+                <circle cx="60" cy="60" r="36" fill="none" stroke="currentColor" strokeOpacity="0.22" strokeWidth="0.8" />
+                <text fill="currentColor" fontSize="8.5" fontWeight="600" letterSpacing="2.2">
+                  <textPath href="#segel-pindai" startOffset="0">
+                    LEDGER INTERNAL · PINDAI · TERCATAT
+                  </textPath>
+                </text>
+              </svg>
+            </div>
             <div className="relative">
               <span className="inline-flex items-center gap-2 rounded-full border border-[#d8c28c]/35 bg-[#d8c28c]/10 px-3.5 py-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-[#e6d3a5]">
                 <Sparkles className="size-3.5" aria-hidden="true" />
@@ -1674,7 +2045,12 @@ export default function Landing() {
           </div>
           <div className="mt-8 flex flex-col items-center justify-between gap-2 border-t border-slate-200 pt-6 text-xs text-slate-500 sm:flex-row">
             <span>© 2026 {logoTeks}. Seluruh hak cipta.</span>
-            <span>Perhitungan transparan · Status ledger internal</span>
+            <span className="flex flex-wrap items-center justify-center gap-2">
+              <span>Perhitungan transparan · Status ledger internal</span>
+              <span className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 font-medium">
+                Ketentuan {CONTRACT_TERMS_VERSION}
+              </span>
+            </span>
           </div>
         </div>
       </footer>
