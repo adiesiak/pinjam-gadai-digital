@@ -1,6 +1,7 @@
 import { Link } from "react-router";
 
 import { RoleDashboardMenu } from "@/components/RoleDashboardMenu";
+import { VaultLogo } from "@/components/VaultLogo";
 
 /** Bar atas dashboard nasabah: brand + penanda ruang. */
 export function DashboardHeader() {
@@ -8,10 +9,7 @@ export function DashboardHeader() {
     <header className="animate-masuk border-b border-slate-200 bg-white/80 backdrop-blur">
       <div className="mx-auto flex h-14 w-full max-w-7xl items-center justify-between gap-3 px-4 sm:px-6">
         <Link to="/dashboard" className="flex shrink-0 items-center gap-2.5">
-          <span className="vault-logo relative flex size-8 items-center justify-center rounded-lg bg-primary text-sm font-bold text-primary-foreground">
-            P
-            <span className="salju-cap" aria-hidden="true" />
-          </span>
+          <VaultLogo size={32} className="size-8 shrink-0" />
           <span className="hidden text-sm font-semibold tracking-[0.14em] sm:block">
             PINDAI
           </span>
