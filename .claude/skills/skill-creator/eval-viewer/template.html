@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Skill eval review</title>
+<style>
+  :root{
+    --bg:#f7f7f6; --panel:#fff; --ink:#1d1d1f; --muted:#6b6b70; --line:#e3e3e0;
+    --accent:#2f5d50; --accent-soft:#eaf1ee; --good:#1f7a4d; --bad:#a32f2f;
+    --warn-bg:#fff8e6; --warn-line:#e8d9a8; --radius:10px;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    background:var(--bg); color:var(--ink);
+    font:15px/1.55 ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  }
+  header{
+    position:sticky; top:0; z-index:10; background:rgba(255,255,255,.94);
+    backdrop-filter:blur(8px); border-bottom:1px solid var(--line);
+  }
+  .wrap{max-width:1040px;margin:0 auto;padding:0 20px}
+  .head{display:flex;align-items:center;gap:16px;min-height:60px;flex-wrap:wrap}
+  .brand{font-weight:650;letter-spacing:-.01em}
+  .brand small{display:block;font-weight:400;color:var(--muted);font-size:12px;letter-spacing:0}
+  .tabs{margin-left:auto;display:flex;gap:4px;background:#efefec;padding:3px;border-radius:999px}
+  .tabs button{
+    border:0;background:transparent;padding:7px 15px;border-radius:999px;cursor:pointer;
+    font:inherit;font-size:13px;font-weight:550;color:var(--muted)
+  }
+  .tabs button[aria-selected="true"]{background:#fff;color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.07)}
+  main{padding:24px 0 96px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:18px;margin-bottom:16px}
+  .card h2{margin:0 0 4px;font-size:15px;letter-spacing:-.005em}
+  .card h2 .sub{font-weight:400;color:var(--muted);font-size:13px}
+  .meta{color:var(--muted);font-size:13px;margin:0 0 14px}
+  .label{font-size:11px;text-transform:uppercase;letter-spacing:.09em;color:var(--muted);font-weight:650;margin-bottom:6px}
+  .prompt{
+    background:#fafaf8;border:1px solid var(--line);border-left:3px solid var(--accent);
+    border-radius:6px;padding:11px 13px;font-size:14px;white-space:pre-wrap
+  }
+  .nav{display:flex;align-items:center;gap:10px;margin-bottom:16px}
+  .nav button{
+    border:1px solid var(--line);background:#fff;border-radius:8px;padding:7px 13px;
+    cursor:pointer;font:inherit;font-size:13px
+  }
+  .nav button:disabled{opacity:.4;cursor:default}
+  .nav .count{margin-left:auto;color:var(--muted);font-size:13px;font-variant-numeric:tabular-nums}
+  .chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
+  .chip{
+    border:1px solid var(--line);background:#fff;border-radius:999px;padding:4px 11px;
+    font-size:12px;cursor:pointer;font:inherit
+  }
+  .chip[aria-pressed="true"]{background:var(--accent);color:#fff;border-color:var(--accent)}
+  details{border:1px solid var(--line);border-radius:8px;padding:0;margin-bottom:12px;background:#fcfcfb}
+  details>summary{cursor:pointer;padding:11px 13px;font-size:13px;font-weight:550;list-style:none}
+  details>summary::-webkit-details-marker{display:none}
+  details>summary::before{content:"▸ ";color:var(--muted)}
+  details[open]>summary::before{content:"▾ "}
+  details .body{padding:0 13px 13px}
+  pre{
+    margin:0;padding:12px;background:#fbfbf9;border:1px solid var(--line);border-radius:6px;
+    overflow:auto;max-height:520px;font:12.5px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    white-space:pre-wrap;word-break:break-word
+  }
+  iframe{width:100%;height:520px;border:1px solid var(--line);border-radius:6px;background:#fff}
+  img{max-width:100%;border:1px solid var(--line);border-radius:6px;background:#fff}
+  .file{border-top:1px solid var(--line);padding:14px 0}
+  .file:first-of-type{border-top:0}
+  .file .head{min-height:auto;gap:8px;padding-bottom:9px}
+  .file .name{font:12.5px/1.4 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-weight:600}
+  .file .size{color:var(--muted);font-size:12px;margin-left:auto;font-variant-numeric:tabular-nums}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);font-weight:650}
+  td.num{font-variant-numeric:tabular-nums;text-align:right}
+  .pass{color:var(--good);font-weight:650}
+  .fail{color:var(--bad);font-weight:650}
+  .pill{display:inline-block;padding:2px 8px;border-radius:999px;font-size:11.5px;font-weight:650}
+  .pill.ok{background:#e7f4ec;color:var(--good)}
+  .pill.no{background:#fbeaea;color:var(--bad)}
+  .pill.dim{background:#f0f0ee;color:var(--muted)}
+  textarea{
+    width:100%;min-height:92px;border:1px solid var(--line);border-radius:8px;padding:11px;
+    font:inherit;font-size:14px;resize:vertical;background:#fff
+  }
+  .hint{color:var(--muted);font-size:12.5px;margin:8px 0 0}
+  .bar{
+    position:fixed;left:0;right:0;bottom:0;background:rgba(255,255,255,.96);
+    border-top:1px solid var(--line);backdrop-filter:blur(8px);padding:12px 0
+  }
+  .bar .wrap{display:flex;align-items:center;gap:14px}
+  .bar button{
+    border:0;background:var(--accent);color:#fff;border-radius:8px;padding:10px 18px;
+    font:inherit;font-size:14px;font-weight:600;cursor:pointer
+  }
+  .bar button[disabled]{opacity:.5;cursor:default}
+  .status{font-size:13px;color:var(--muted)}
+  .status.ok{color:var(--good)}
+  .status.bad{color:var(--bad)}
+  .note{
+    background:var(--warn-bg);border:1px solid var(--warn-line);border-radius:8px;
+    padding:11px 13px;font-size:13px;margin-bottom:14px
+  }
+  .empty{color:var(--muted);font-size:13px;padding:8px 0}
+  ul.obs{margin:6px 0 0;padding-left:20px}
+  ul.obs li{margin-bottom:6px}
+  td.prev{color:var(--muted)}
+  code{background:#f2f2ef;padding:1px 5px;border-radius:4px;font-size:12.5px}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap head">
+    <div class="brand">
+      <span id="skillName">Skill</span>
+      <small id="iterName"></small>
+    </div>
+    <div class="tabs" role="tablist">
+      <button role="tab" id="tabOutputs" aria-selected="true">Outputs</button>
+      <button role="tab" id="tabBench" aria-selected="false">Benchmark</button>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+  <section id="viewOutputs"></section>
+  <section id="viewBench" hidden></section>
+</main>
+
+<div class="bar">
+  <div class="wrap">
+    <button id="submitBtn">Submit All Reviews</button>
+    <span class="status" id="status"></span>
+  </div>
+</div>
+
+<script>
+const DATA = __DATA_PLACEHOLDER__;
+
+const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g,
+  (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const pct = (x) => (x == null ? "—" : Math.round(x * 100) + "%");
+const num = (x, d = 1) => (x == null ? "—" : Number(x).toFixed(d));
+
+const STORE = "skill-creator-feedback-" + DATA.iteration;
+// Feedback is keyed by run id (see references/schemas.md), so switching between
+// the skill output and the baseline keeps a separate note per run.
+const feedback = Object.assign({}, DATA.feedback || {});
+try {
+  const cached = JSON.parse(localStorage.getItem(STORE) || "{}");
+  for (const k of Object.keys(cached)) if (!(k in feedback)) feedback[k] = cached[k];
+} catch (e) { /* a corrupt cache shouldn't break the page */ }
+
+const simpan = () => { try { localStorage.setItem(STORE, JSON.stringify(feedback)); } catch (e) {} };
+
+const primaryCfg = DATA.configs.includes("with_skill") ? "with_skill" : (DATA.configs[0] || "");
+let idx = 0;
+let cfg = primaryCfg;
+
+const el = (id) => document.getElementById(id);
+
+/* ---------- Outputs tab ---------- */
+
+function renderFile(f) {
+  const head = '<div class="head"><span class="name">' + esc(f.name) + '</span>' +
+    '<span class="size">' + (f.size < 1024 ? f.size + " B" : (f.size / 1024).toFixed(1) + " KiB") +
+    (f.truncated ? " · truncated" : "") + "</span></div>";
+  let body = "";
+  if (f.kind === "image") {
+    body = '<img alt="' + esc(f.name) + '" src="' + f.data_uri + '">';
+  } else if (f.kind === "html") {
+    body = '<iframe sandbox="allow-same-origin" srcdoc="' + esc(f.content) + '"></iframe>';
+  } else if (f.kind === "text") {
+    body = "<pre>" + esc(f.content) + "</pre>";
+  } else {
+    body = '<div class="empty">' + esc(f.note || "not rendered") + "</div>";
+  }
+  return '<div class="file">' + head + body + "</div>";
+}
+
+function renderGrades(grades) {
+  if (!grades || !grades.length) {
+    return '<div class="empty">No grading.json for this run — it counts as ungraded, not failed.</div>';
+  }
+  const rows = grades.map((g) =>
+    "<tr><td>" + esc(g.text) + "</td>" +
+    '<td class="' + (g.passed ? "pass" : "fail") + '">' + (g.passed ? "passed" : "failed") + "</td>" +
+    '<td class="prev">' + esc(g.evidence) + "</td></tr>").join("");
+  return "<table><thead><tr><th>Assertion</th><th>Result</th><th>Evidence</th></tr></thead>" +
+    "<tbody>" + rows + "</tbody></table>";
+}
+
+function renderPrevious(prev, ev) {
+  if (!prev) return "";
+  const cfgKeys = Object.keys(prev);
+  if (!cfgKeys.length) return "";
+  let isi = "";
+  for (const c of cfgKeys) {
+    const r = prev[c];
+    isi += '<div class="label">' + esc(c) + "</div>";
+    if (r.grades && r.grades.length) {
+      isi += "<p class=\"meta\">Pass rate " + pct(r.pass_rate) + "</p>";
+    }
+    isi += r.outputs.length
+      ? r.outputs.map(renderFile).join("")
+      : '<div class="empty">No outputs were saved.</div>';
+  }
+  return '<details><summary>Previous output (last iteration)</summary><div class="body">' + isi + "</div></details>";
+}
+
+function renderPrevFeedback(ev) {
+  const prev = DATA.previous_feedback || {};
+  const baris = Object.keys(prev)
+    .filter((k) => k.indexOf(ev.eval_name) === 0 && prev[k])
+    .map((k) => "<b>" + esc(k) + "</b>: " + esc(prev[k])).join("<br>");
+  if (!baris) return "";
+  return '<details><summary>Your feedback last iteration</summary><div class="body">' + baris + "</div></details>";
+}
+
+function renderOutputs() {
+  if (!DATA.evals.length) {
+    el("viewOutputs").innerHTML = '<div class="card"><div class="empty">No eval directories found.</div></div>';
+    return;
+  }
+  const ev = DATA.evals[idx];
+  const runIds = DATA.configs.filter((c) => ev.runs[c]);
+  const run = ev.runs[cfg] || ev.runs[runIds[0]] || null;
+  const viewCfg = run ? (ev.runs[cfg] ? cfg : runIds[0]) : "";
+
+  const chips = runIds.length > 1
+    ? '<div class="chips">' + runIds.map((c) =>
+        '<button class="chip" data-cfg="' + esc(c) + '" aria-pressed="' + (c === viewCfg) + '">' +
+        esc(c) + "</button>").join("") + "</div>"
+    : "";
+
+  const outputs = run
+    ? (run.outputs.length ? run.outputs.map(renderFile).join("")
+       : '<div class="empty">No files under outputs/ for this run.</div>')
+    : '<div class="empty">This eval has no run directory for the selected configuration.</div>';
+
+  const rid = run ? run.run_id : ev.eval_name + "-" + viewCfg;
+  const nilai = feedback[rid] || "";
+
+  el("viewOutputs").innerHTML =
+    '<div class="nav">' +
+      '<button id="prevBtn"' + (idx === 0 ? " disabled" : "") + ">← Prev</button>" +
+      '<button id="nextBtn"' + (idx === DATA.evals.length - 1 ? " disabled" : "") + ">Next →</button>" +
+      '<span class="count">' + (idx + 1) + " / " + DATA.evals.length + "</span>" +
+    "</div>" +
+    '<div class="card">' +
+      '<h2>' + esc(ev.eval_name) + "</h2>" +
+      (DATA.benchmark ? "" : '<div class="note">No benchmark.json yet — run ' +
+        "<code>python -m scripts.aggregate_benchmark</code> to fill the Benchmark tab.</div>") +
+      '<div class="label">Prompt</div><div class="prompt">' + esc(ev.prompt || "(none recorded)") + "</div>" +
+      (ev.expected_output
+        ? '<div class="label" style="margin-top:14px">Expected output</div>' +
+          '<p class="meta">' + esc(ev.expected_output) + "</p>" : "") +
+    "</div>" +
+    '<div class="card">' +
+      '<h2>Output <span class="sub">' + esc(viewCfg) + " · " + (run ? esc(run.run_id) : "") + "</span></h2>" +
+      chips + outputs +
+    "</div>" +
+    '<div class="card"><h2>Formal grades</h2>' +
+      (run ? renderGrades(run.grades) : '<div class="empty">Nothing to grade.</div>') +
+    "</div>" +
+    renderPrevious(ev.previous, ev) +
+    renderPrevFeedback(ev) +
+    '<div class="card"><h2>Feedback</h2>' +
+      '<textarea id="fb" placeholder="What would you change? Leave blank if this looks right.">' +
+      esc(nilai) + "</textarea>" +
+      '<p class="hint">Saved as you type. Blank means "looked at it, happy with it" — that is a real answer.</p>' +
+    "</div>";
+
+  el("prevBtn").onclick = () => { idx--; renderOutputs(); window.scrollTo(0, 0); };
+  el("nextBtn").onclick = () => { idx++; renderOutputs(); window.scrollTo(0, 0); };
+  const ta = el("fb");
+  ta.oninput = () => { feedback[rid] = ta.value; simpan(); };
+  document.querySelectorAll(".chip").forEach((b) => {
+    b.onclick = () => { cfg = b.dataset.cfg; renderOutputs(); };
+  });
+}
+
+/* ---------- Benchmark tab ---------- */
+
+function renderBenchmark() {
+  const b = DATA.benchmark;
+  if (!b) {
+    el("viewBench").innerHTML = '<div class="card"><h2>Benchmark</h2><div class="empty">' +
+      "No benchmark.json in this iteration. Run " +
+      "<code>python -m scripts.aggregate_benchmark &lt;iteration-dir&gt; --skill-name &lt;name&gt;</code> " +
+      "and reload.</div></div>";
+    return;
+  }
+  const rows = (b.configs || []).map((c) =>
+    "<tr><td><b>" + esc(c.configuration) + "</b></td>" +
+    '<td class="num">' + c.graded_runs + "/" + c.runs.length +
+      (c.ungraded_runs ? ' <span class="pill dim">' + c.ungraded_runs + " ungraded</span>" : "") + "</td>" +
+    '<td class="num">' + pct(c.pass_rate && c.pass_rate.mean) +
+      " ± " + num(c.pass_rate && c.pass_rate.stddev, 2) + "</td>" +
+    '<td class="num">' + num(c.time_seconds && c.time_seconds.mean) +
+      " ± " + num(c.time_seconds && c.time_seconds.stddev) + "</td>" +
+    '<td class="num">' + num(c.tokens && c.tokens.mean, 0) +
+      " ± " + num(c.tokens && c.tokens.stddev, 0) + "</td></tr>").join("");
+
+  const delta = (b.deltas || []).length
+    ? '<table><thead><tr><th>Configuration</th><th>vs</th><th class="num">Pass rate</th>' +
+      '<th class="num">Time (s)</th><th class="num">Tokens</th></tr></thead><tbody>' +
+      b.deltas.map((d) =>
+        "<tr><td>" + esc(d.configuration) + "</td><td>" + esc(d.baseline) + "</td>" +
+        '<td class="num ' + (d.pass_rate_delta > 0 ? "pass" : d.pass_rate_delta < 0 ? "fail" : "") + '">' +
+          (d.pass_rate_delta > 0 ? "+" : "") + num(d.pass_rate_delta, 2) + "</td>" +
+        '<td class="num">' + (d.time_seconds_delta > 0 ? "+" : "") + num(d.time_seconds_delta) + "</td>" +
+        '<td class="num">' + (d.tokens_delta > 0 ? "+" : "") + num(d.tokens_delta, 0) + "</td></tr>").join("") +
+      "</tbody></table>"
+    : '<div class="empty">No baseline to compare against.</div>';
+
+  const perEval = (b.evals || []).length
+    ? '<table><thead><tr><th>Eval</th>' +
+      (b.configs || []).map((c) => '<th class="num">' + esc(c.configuration) + "</th>").join("") +
+      "</tr></thead><tbody>" +
+      b.evals.map((e) =>
+        "<tr><td>" + esc(e.eval_name) + "</td>" +
+        (b.configs || []).map((c) => {
+          const v = (e.configs || {})[c];
+          return '<td class="num">' + (v ? pct(v.pass_rate) : "—") + "</td>";
+        }).join("") + "</tr>").join("") +
+      "</tbody></table>"
+    : '<div class="empty">No per-eval breakdown.</div>';
+
+  const obs = (b.observations || []).length
+    ? "<ul class='obs'>" + b.observations.map((o) => "<li>" + esc(o) + "</li>").join("") + "</ul>"
+    : '<div class="empty">No observations.</div>';
+
+  let prev = "";
+  if (DATA.previous_benchmark) {
+    const pm = (DATA.previous_benchmark.configs || []).find((c) => c.configuration === primaryCfg);
+    const cm = (b.configs || []).find((c) => c.configuration === primaryCfg);
+    if (pm && cm && pm.pass_rate && cm.pass_rate) {
+      const d = cm.pass_rate.mean - pm.pass_rate.mean;
+      prev = '<div class="card"><h2>Change since last iteration</h2><p class="meta">' +
+        esc(primaryCfg) + " pass rate " + pct(pm.pass_rate.mean) + " → " + pct(cm.pass_rate.mean) +
+        " (" + (d > 0 ? "+" : "") + num(d, 2) + ")</p></div>";
+    }
+  }
+
+  el("viewBench").innerHTML =
+    '<div class="card"><h2>Summary <span class="sub">' + esc(b.skill_name || DATA.skill_name) +
+      ", iteration " + esc(String(b.iteration || "")) + "</span></h2>" +
+      "<table><thead><tr><th>Configuration</th><th class=\"num\">Graded</th>" +
+      '<th class="num">Pass rate</th><th class="num">Time (s)</th><th class="num">Tokens</th>' +
+      "</tr></thead><tbody>" + rows + "</tbody></table>" +
+      '<p class="hint">With a single run per configuration the stddev is 0.0 by definition — ' +
+      "read those as point estimates, not as evidence of stability.</p></div>" +
+    '<div class="card"><h2>Delta vs baseline</h2>' + delta + "</div>" +
+    '<div class="card"><h2>Per eval</h2>' + perEval + "</div>" +
+    '<div class="card"><h2>Observations</h2>' + obs + "</div>" + prev;
+}
+
+/* ---------- Tabs, keyboard, submit ---------- */
+
+function pilihTab(nama) {
+  const out = nama === "outputs";
+  el("viewOutputs").hidden = !out;
+  el("viewBench").hidden = out;
+  el("tabOutputs").setAttribute("aria-selected", String(out));
+  el("tabBench").setAttribute("aria-selected", String(!out));
+}
+
+el("tabOutputs").onclick = () => pilihTab("outputs");
+el("tabBench").onclick = () => pilihTab("bench");
+
+document.addEventListener("keydown", (e) => {
+  const tag = (e.target.tagName || "").toLowerCase();
+  if (tag === "textarea" || tag === "input") return;
+  if (el("viewOutputs").hidden) return;
+  if (e.key === "ArrowLeft" && idx > 0) { idx--; renderOutputs(); window.scrollTo(0, 0); }
+  if (e.key === "ArrowRight" && idx < DATA.evals.length - 1) { idx++; renderOutputs(); window.scrollTo(0, 0); }
+});
+
+el("submitBtn").onclick = async () => {
+  const reviews = [];
+  const now = new Date().toISOString();
+  DATA.evals.forEach((ev) => {
+    const ids = DATA.configs.filter((c) => ev.runs[c]);
+    if (!ids.length) return;
+    ids.forEach((c) => {
+      const rid = ev.runs[c].run_id;
+      const text = feedback[rid] || "";
+      // Always record the primary view, even when blank, so the reader can tell
+      // "reviewed and happy" from "never opened". Other views only when non-empty.
+      if (c === primaryCfg || text) reviews.push({ run_id: rid, feedback: text, timestamp: now });
+    });
+  });
+  const payload = { reviews, status: "complete" };
+  const status = el("status");
+  try {
+    const res = await fetch("/save", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    const j = await res.json();
+    status.className = "status ok";
+    status.textContent = "Saved " + j.reviews + " reviews → " + j.saved;
+    el("submitBtn").disabled = true;
+  } catch (err) {
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "feedback.json";
+    a.click();
+    URL.revokeObjectURL(a.href);
+    status.className = "status ok";
+    status.textContent = "Downloaded feedback.json — copy it into the iteration folder.";
+    el("submitBtn").disabled = true;
+  }
+};
+
+el("skillName").textContent = DATA.skill_name || "Skill";
+el("iterName").textContent = DATA.iteration +
+  (DATA.evals.length ? " · " + DATA.evals.length + " eval" + (DATA.evals.length === 1 ? "" : "s") : "");
+renderOutputs();
+renderBenchmark();
+</script>
+</body>
+</html>

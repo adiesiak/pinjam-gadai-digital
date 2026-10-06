@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Review trigger eval set</title>
+<style>
+  :root{--bg:#f7f7f6;--panel:#fff;--ink:#1d1d1f;--muted:#6b6b70;--line:#e3e3e0;
+        --accent:#2f5d50;--good:#1f7a4d;--bad:#a32f2f}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+       font:15px/1.55 ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+  header{position:sticky;top:0;z-index:5;background:rgba(255,255,255,.95);backdrop-filter:blur(8px);
+         border-bottom:1px solid var(--line)}
+  .wrap{max-width:920px;margin:0 auto;padding:0 20px}
+  .head{display:flex;align-items:center;gap:14px;min-height:60px;flex-wrap:wrap}
+  .brand{font-weight:650}
+  .brand small{display:block;font-weight:400;color:var(--muted);font-size:12px}
+  .spacer{margin-left:auto}
+  button{border:1px solid var(--line);background:#fff;border-radius:8px;padding:8px 14px;
+         cursor:pointer;font:inherit;font-size:13px}
+  button.primary{background:var(--accent);color:#fff;border-color:var(--accent);font-weight:600}
+  main{padding:22px 0 120px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:18px;margin-bottom:14px}
+  .desc{background:#fafaf8;border:1px solid var(--line);border-left:3px solid var(--accent);
+        border-radius:6px;padding:11px 13px;font-size:13.5px;white-space:pre-wrap}
+  .label{font-size:11px;text-transform:uppercase;letter-spacing:.09em;color:var(--muted);
+         font-weight:650;margin-bottom:6px}
+  .item{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px;margin-bottom:10px}
+  .item.tidak{border-left:3px solid var(--bad)}
+  .item.ya{border-left:3px solid var(--good)}
+  .row{display:flex;align-items:center;gap:10px;margin-bottom:9px}
+  textarea{width:100%;min-height:64px;border:1px solid var(--line);border-radius:8px;padding:10px;
+           font:inherit;font-size:14px;resize:vertical;background:#fff}
+  .toggle{display:flex;gap:3px;background:#efefec;padding:3px;border-radius:999px}
+  .toggle button{border:0;background:transparent;padding:5px 12px;border-radius:999px;font-size:12.5px;
+                 font-weight:550;color:var(--muted);cursor:pointer}
+  .toggle button[aria-pressed="true"]{background:#fff;color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.07)}
+  .toggle button[aria-pressed="true"].on-yes{background:var(--good);color:#fff}
+  .toggle button[aria-pressed="true"].on-no{background:var(--bad);color:#fff}
+  .del{margin-left:auto;color:var(--bad);border-color:#f0d5d5}
+  .bar{position:fixed;left:0;right:0;bottom:0;background:rgba(255,255,255,.96);
+       border-top:1px solid var(--line);padding:12px 0;backdrop-filter:blur(8px)}
+  .bar .wrap{display:flex;align-items:center;gap:14px}
+  .status{font-size:13px;color:var(--muted)}
+  .status.ok{color:var(--good)}
+  .count{font-variant-numeric:tabular-nums;color:var(--muted);font-size:13px}
+  .hint{color:var(--muted);font-size:12.5px;margin:6px 0 0}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap head">
+    <div class="brand">
+      <span id="skillName">skill</span>
+      <small>trigger eval set — edit before running the optimizer</small>
+    </div>
+    <div class="spacer"></div>
+    <span class="count" id="count"></span>
+  </div>
+</header>
+
+<main class="wrap">
+  <div class="card">
+    <div class="label">Current description</div>
+    <div class="desc" id="skillDescription"></div>
+    <p class="hint">These queries test whether this description makes Claude reach for the skill
+    at the right moments. Edit them, flip any that you disagree with, delete the weak ones.</p>
+  </div>
+  <div id="items"></div>
+  <button id="addBtn">+ Add a query</button>
+</main>
+
+<div class="bar">
+  <div class="wrap">
+    <button class="primary" id="exportBtn">Export Eval Set</button>
+    <span class="status" id="status"></span>
+  </div>
+</div>
+
+<script>
+const SKILL_NAME = "__SKILL_NAME_PLACEHOLDER__";
+const SKILL_DESCRIPTION = "__SKILL_DESCRIPTION_PLACEHOLDER__";
+let items = __EVAL_DATA_PLACEHOLDER__;
+
+document.getElementById("skillName").textContent = SKILL_NAME;
+document.getElementById("skillDescription").textContent = SKILL_DESCRIPTION;
+
+const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g,
+  (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+function render() {
+  const host = document.getElementById("items");
+  host.innerHTML = items.map((it, i) =>
+    '<div class="item ' + (it.should_trigger ? "ya" : "tidak") + '">' +
+      '<div class="row">' +
+        '<span class="label" style="margin:0">#' + (i + 1) + "</span>" +
+        '<div class="toggle">' +
+          '<button data-i="' + i + '" data-v="1" class="on-yes" aria-pressed="' +
+            (it.should_trigger === true) + '">should trigger</button>' +
+          '<button data-i="' + i + '" data-v="0" class="on-no" aria-pressed="' +
+            (it.should_trigger === false) + '">should not</button>' +
+        "</div>" +
+        '<button class="del" data-del="' + i + '">Delete</button>' +
+      "</div>" +
+      '<textarea data-i="' + i + '" placeholder="A prompt a real user would type…">' +
+        esc(it.query) + "</textarea>" +
+    "</div>").join("");
+
+  host.querySelectorAll("textarea").forEach((t) => {
+    t.oninput = () => { items[Number(t.dataset.i)].query = t.value; };
+  });
+  host.querySelectorAll(".toggle button").forEach((b) => {
+    b.onclick = () => { items[Number(b.dataset.i)].should_trigger = b.dataset.v === "1"; render(); };
+  });
+  host.querySelectorAll(".del").forEach((b) => {
+    b.onclick = () => { items.splice(Number(b.dataset.del), 1); render(); };
+  });
+
+  const ya = items.filter((i) => i.should_trigger).length;
+  document.getElementById("count").textContent =
+    items.length + " queries · " + ya + " should trigger · " + (items.length - ya) + " should not";
+}
+
+document.getElementById("addBtn").onclick = () => {
+  items.push({ query: "", should_trigger: true });
+  render();
+};
+
+document.getElementById("exportBtn").onclick = () => {
+  const bersih = items
+    .map((i) => ({ query: String(i.query || "").trim(), should_trigger: i.should_trigger === true }))
+    .filter((i) => i.query.length > 0);
+  const blob = new Blob([JSON.stringify(bersih, null, 2)], { type: "application/json" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "eval_set.json";
+  a.click();
+  URL.revokeObjectURL(a.href);
+  const st = document.getElementById("status");
+  st.className = "status ok";
+  st.textContent = "Exported " + bersih.length + " queries to eval_set.json (check your Downloads folder).";
+};
+
+render();
+</script>
+</body>
+</html>
