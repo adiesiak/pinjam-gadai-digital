@@ -8,7 +8,9 @@
 import {
   GRUP_NAV,
   NILAI_MODUL_ADMIN,
+  STATUS_MENUNGGU,
   grupDariModul,
+  hitungMenunggu,
   jumlahPerhatianLokasi,
   jumlahPerluKeputusan,
   ringkasGrup,
@@ -206,6 +208,77 @@ eq(
   0,
   "status asing diabaikan",
 );
+
+// ===== hitungMenunggu & STATUS_MENUNGGU (sumber kebenaran bersama) =====
+
+// Ketiga produk punya daftarnya sendiri, dan semuanya menyertakan `diajukan`.
+eq(
+  Object.keys(STATUS_MENUNGGU).sort().join(","),
+  "gadai,kredit,pinjaman",
+  "STATUS_MENUNGGU memuat tiga produk",
+);
+for (const produk of Object.keys(STATUS_MENUNGGU)) {
+  eq(
+    STATUS_MENUNGGU[produk as "pinjaman"].includes("diajukan"),
+    true,
+    `STATUS_MENUNGGU.${produk} memuat diajukan`,
+  );
+}
+
+// Nilai persisnya dipatok: lencana tab dan kartu "Hari Ini" wajib sepakat.
+eq(
+  STATUS_MENUNGGU.pinjaman.join(","),
+  "diajukan,sedang_direview",
+  "status menunggu pinjaman",
+);
+eq(
+  STATUS_MENUNGGU.gadai.join(","),
+  "diajukan,sedang_dinilai",
+  "status menunggu gadai",
+);
+eq(
+  STATUS_MENUNGGU.kredit.join(","),
+  "diajukan,sedang_ditinjau",
+  "status menunggu kredit",
+);
+
+// hitungMenunggu per produk — termasuk `sedang_direview` yang dulu hilang dari
+// lencana tab "Pinjaman".
+const PINJAMAN_UJI = [
+  { status: "diajukan" },
+  { status: "sedang_direview" },
+  { status: "disetujui" },
+  { status: "lunas" },
+];
+eq(hitungMenunggu(PINJAMAN_UJI, "pinjaman"), 2, "hitungMenunggu pinjaman");
+eq(hitungMenunggu([], "kredit"), 0, "hitungMenunggu tanpa baris");
+
+// `diajukan` SENGAJA ada di ketiga produk — setiap tabel punya baris diajukan
+// sendiri. Jadi fungsi ini tidak memisahkan produk; pemanggil wajib mengoper
+// array produk yang benar (`overview.pawns` untuk gadai, dst.).
+eq(hitungMenunggu([{ status: "diajukan" }], "gadai"), 1, "diajukan dihitung di produk mana pun");
+
+// Status yang khas satu produk tidak bocor ke produk lain.
+eq(hitungMenunggu([{ status: "sedang_direview" }], "gadai"), 0, "sedang_direview bukan milik gadai");
+eq(hitungMenunggu([{ status: "sedang_direview" }], "kredit"), 0, "sedang_direview bukan milik kredit");
+eq(hitungMenunggu([{ status: "sedang_dinilai" }], "pinjaman"), 0, "sedang_dinilai bukan milik pinjaman");
+eq(hitungMenunggu([{ status: "sedang_ditinjau" }], "gadai"), 0, "sedang_ditinjau bukan milik gadai");
+
+// Konsistensi: total = jumlah tiap produk. Inilah yang menjamin angka di
+// sidebar dan angka di panel "Hari Ini" tidak bisa berbeda.
+const OVERVIEW_UJI = {
+  loans: PINJAMAN_UJI,
+  pawns: [{ status: "diajukan" }, { status: "aktif" }],
+  kredit: [{ status: "sedang_ditinjau" }, { status: "lunas" }],
+};
+eq(
+  hitungMenunggu(OVERVIEW_UJI.loans, "pinjaman") +
+    hitungMenunggu(OVERVIEW_UJI.pawns, "gadai") +
+    hitungMenunggu(OVERVIEW_UJI.kredit, "kredit"),
+  jumlahPerluKeputusan(OVERVIEW_UJI),
+  "total hitungMenunggu = jumlahPerluKeputusan",
+);
+eq(jumlahPerluKeputusan(OVERVIEW_UJI), 4, "total menunggu dari tiga produk");
 
 // ===== jumlahPerhatianLokasi =====
 

@@ -6,6 +6,7 @@ import {
   Database,
   Gavel,
   Landmark,
+  LayoutDashboard,
   Lock,
   Map as MapIcon,
   MessageSquare,
@@ -31,13 +32,23 @@ import { SystemConfigPanel } from "@/components/admin/SystemConfigPanel";
 import { PlafonPanel } from "@/components/admin/PlafonPanel";
 import { WhatsAppPanel } from "@/components/admin/WhatsAppPanel";
 import { WebsiteTemplatePanel } from "@/components/admin/WebsiteTemplatePanel";
-import {
-  type KreditRow,
-  type LoanRow,
-  type PawnRow,
+import type {
+  AdminOverviewData,
+  LedgerSummary,
+  LoanRow,
+  PawnRow,
 } from "@/components/admin/admin-shared";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import {
+  NILAI_MODUL_ADMIN,
+  hitungMenunggu,
+  jumlahPerhatianLokasi,
+  ringkasGrup,
+  type BobotGrup,
+  type NilaiModulAdmin,
+} from "@/lib/admin-queue";
 
+import { MejaKerja } from "./meja-kerja";
 import { LoanQueueSection, PawnQueueSection } from "./queue-views";
 import { type AdminStatsData } from "./admin-shell";
 
@@ -45,11 +56,17 @@ type TabIcon = typeof ClipboardList;
 
 /** Satu menu operasional: nilai tab, label, penjelasan singkat, lencana, ikon. */
 type AdminTabItem = {
-  value: string;
+  value: NilaiModulAdmin;
   label: string;
   /** Penjelasan satu baris — muncul saat tab aktif agar tim tahu isinya. */
   hint: string;
   badge: string | null;
+  /**
+   * Bobot lencana untuk ringkasan grup. Hanya `"menunggu"` yang dijumlahkan
+   * saat grup tertutup; lencana informasi (mis. pinjaman yang sudah disetujui)
+   * tidak boleh membuat grup tampak penuh pekerjaan.
+   */
+  hitung: BobotGrup;
   Icon: TabIcon;
 };
 
@@ -57,16 +74,6 @@ type AdminTabItem = {
 type AdminTabGroup = {
   judul: string;
   items: AdminTabItem[];
-};
-
-/** Ringkasan ledger internal untuk lencana tab — mengikuti `admin.ledgerSummary`. */
-type LedgerSummary = {
-  totalDebit: number;
-  totalKredit: number;
-  entryCount: number;
-  seimbang: boolean;
-  /** Total biaya platform yang sudah dijurnal (platform:FEE, sisi debit). */
-  pendapatanPlatform: number;
 };
 
 /** Kelas bersama tombol menu di sidebar (bagian yang tidak berubah saat aktif). */
@@ -93,16 +100,8 @@ function LencanaTab({ badge }: { badge: string | null }) {
   );
 }
 
-/** Lencana ringkas satu grup saat tertutup: jumlah item menunggu, atau "!" bila ada
- *  item yang perlu perhatian (mis. ledger tidak seimbang). */
-function ringkasGrup(items: AdminTabItem[]): string | null {
-  if (items.some((item) => item.badge === "!")) return "!";
-  const jumlah = items.reduce((total, item) => {
-    const angka = Number(item.badge);
-    return Number.isFinite(angka) ? total + angka : total;
-  }, 0);
-  return jumlah > 0 ? `${jumlah}` : null;
-}
+// `ringkasGrup` kini tinggal di `@/lib/admin-queue` (T2): hanya lencana yang
+// benar-benar menunggu tindakan yang dijumlahkan, dan logikanya diuji tanpa React.
 
 /** Tab navigasi + seluruh konten tab panel admin. */
 export function AdminTabs({
@@ -113,16 +112,34 @@ export function AdminTabs({
   onOpenPawn,
   onOpenSetup,
 }: {
-  overview: { loans: LoanRow[]; pawns: PawnRow[]; kredit: KreditRow[] };
+  overview: AdminOverviewData;
   stats: AdminStatsData | undefined;
   ledger: LedgerSummary | undefined;
   onOpenLoan: (l: LoanRow) => void;
   onOpenPawn: (p: PawnRow) => void;
   onOpenSetup: () => void;
 }) {
-  const [activeTab, setActiveTab] = useState("pinjaman");
+  // Default "Hari Ini": ini meja kerja, bukan satu antrean. Mendarat di
+  // ringkasan dulu berarti admin melihat apa yang menunggu sebelum memilih modul.
+  const [activeTab, setActiveTab] = useState<NilaiModulAdmin>("hari-ini");
 
   const menu: AdminTabGroup[] = [
+    {
+      judul: "Ringkasan",
+      items: [
+        {
+          value: "hari-ini",
+          label: "Hari Ini",
+          hint: "Ringkasan pekerjaan yang perlu ditindak hari ini.",
+          // Sengaja tanpa lencana: satu angka di sini akan mencampur empat
+          // metrik berbeda (keputusan, keterlambatan, lokasi, ledger) dan justru
+          // melebih-lebihkan — kesalahan yang sama seperti pada R3.
+          badge: null,
+          hitung: "tidak",
+          Icon: LayoutDashboard,
+        },
+      ],
+    },
     {
       judul: "Pengajuan & tindakan",
       items: [
@@ -130,21 +147,24 @@ export function AdminTabs({
           value: "pinjaman",
           label: "Pinjaman",
           hint: "Tinjau dan putuskan pengajuan pinjaman tunai.",
-          badge: `${overview.loans.filter((l) => l.status === "diajukan").length}`,
+          badge: `${hitungMenunggu(overview.loans, "pinjaman")}`,
+          hitung: "menunggu",
           Icon: ClipboardList,
         },
         {
           value: "gadai",
           label: "Gadai",
           hint: "Tinjau pengajuan gadai dan nilai barang jaminan.",
-          badge: `${overview.pawns.filter((p) => p.status === "diajukan" || p.status === "sedang_dinilai").length}`,
+          badge: `${hitungMenunggu(overview.pawns, "gadai")}`,
+          hitung: "menunggu",
           Icon: Package,
         },
         {
           value: "kredit",
           label: "Kredit Barang",
           hint: "Tinjau pengajuan kredit barang.",
-          badge: `${overview.kredit.filter((k) => k.status === "diajukan" || k.status === "sedang_ditinjau").length}`,
+          badge: `${hitungMenunggu(overview.kredit, "kredit")}`,
+          hitung: "menunggu",
           Icon: ShoppingBag,
         },
         {
@@ -152,6 +172,9 @@ export function AdminTabs({
           label: "Pinjaman disetujui (internal)",
           hint: "Pantau pinjaman yang sudah disetujui (catatan internal).",
           badge: stats ? `${stats.pinjamanDisetujui}` : null,
+          // R3: sudah disetujui BUKAN pekerjaan tertunda — tandai "info" supaya
+          // tidak ikut dijumlahkan pada ringkasan grup tertutup.
+          hitung: "info",
           Icon: Wallet,
         },
       ],
@@ -165,9 +188,8 @@ export function AdminTabs({
           hint: "Peta titik lokasi terakhir yang dilaporkan perangkat peminjam.",
           // Notifikasi lokasi: pola koordinat dicurigai, pola lokasi ditandai,
           // peringatan belum diakui, dan pinjaman tanpa titik perangkat.
-          badge: stats
-            ? `${stats.gpsMismatch + stats.titikDicurigai + stats.peringatanLokasiAktif + stats.pinjamanTanpaLokasi}`
-            : null,
+          badge: stats ? `${jumlahPerhatianLokasi(stats)}` : null,
+          hitung: "menunggu",
           Icon: MapIcon,
         },
         {
@@ -175,13 +197,17 @@ export function AdminTabs({
           label: "Tanggal acuan",
           hint: "Pinjaman yang melewati tanggal acuan pelunasan.",
           badge: stats ? `${stats.pinjamanTerlambat}` : null,
+          hitung: "menunggu",
           Icon: BellRing,
         },
         {
           value: "ledger",
           label: "Ledger internal",
           hint: "Saldo dan jurnal internal — pastikan pembukuan seimbang.",
-          badge: ledger?.seimbang ? "OK" : "!",
+          // R1: saat `ledger` belum termuat, jangan nyalakan "!" merah — itu
+          // memberi kesan ada masalah padahal datanya memang belum ada.
+          badge: ledger === undefined ? null : ledger.seimbang ? "OK" : "!",
+          hitung: "tidak",
           Icon: Landmark,
         },
         {
@@ -189,6 +215,7 @@ export function AdminTabs({
           label: "Kalkulator lelang jaminan",
           hint: "Kalkulator nilai lelang untuk barang jaminan.",
           badge: null,
+          hitung: "tidak",
           Icon: Gavel,
         },
       ],
@@ -201,6 +228,7 @@ export function AdminTabs({
           label: "Plafon Nasabah",
           hint: "Atur plafon pinjaman per nasabah.",
           badge: null,
+          hitung: "tidak",
           Icon: SlidersHorizontal,
         },
         {
@@ -208,6 +236,7 @@ export function AdminTabs({
           label: "Kelola Penyedia Dana",
           hint: "Kelola akses dan posisi penyedia dana.",
           badge: null,
+          hitung: "tidak",
           Icon: Wallet,
         },
       ],
@@ -220,6 +249,7 @@ export function AdminTabs({
           label: "Pengumuman",
           hint: "Terbitkan pengumuman untuk pengguna aplikasi.",
           badge: null,
+          hitung: "tidak",
           Icon: MessageSquare,
         },
         {
@@ -227,6 +257,7 @@ export function AdminTabs({
           label: "WhatsApp",
           hint: "Template pesan dan status kanal WhatsApp.",
           badge: null,
+          hitung: "tidak",
           Icon: Send,
         },
       ],
@@ -239,6 +270,7 @@ export function AdminTabs({
           label: "Pengaturan Sistem",
           hint: "Kebijakan sistem: bunga, potongan admin, mode pemeliharaan.",
           badge: null,
+          hitung: "tidak",
           Icon: Settings2,
         },
         {
@@ -246,6 +278,7 @@ export function AdminTabs({
           label: "Template Website",
           hint: "Teks dan tampilan halaman publik.",
           badge: null,
+          hitung: "tidak",
           Icon: PanelsTopLeft,
         },
         {
@@ -253,6 +286,7 @@ export function AdminTabs({
           label: "Keamanan Login",
           hint: "Riwayat login dan status verifikasi TOTP.",
           badge: null,
+          hitung: "tidak",
           Icon: ShieldCheck,
         },
         {
@@ -260,6 +294,7 @@ export function AdminTabs({
           label: "Audit Trail",
           hint: "Jejak seluruh tindakan admin.",
           badge: null,
+          hitung: "tidak",
           Icon: Lock,
         },
         {
@@ -267,6 +302,7 @@ export function AdminTabs({
           label: "Backup & Keamanan",
           hint: "Cadangan data dan pemulihan sistem.",
           badge: null,
+          hitung: "tidak",
           Icon: Database,
         },
       ],
@@ -278,17 +314,31 @@ export function AdminTabs({
 
   /** Pindah menu sekaligus pastikan grupnya terbuka, agar item aktif selalu terlihat
    *  di sidebar (mis. setelah memilih menu lewat select di layar kecil). */
-  const pilihMenu = (value: string) => {
+  const pilihMenu = (value: NilaiModulAdmin) => {
     setActiveTab(value);
     const grup = menu.find((g) => g.items.some((item) => item.value === value));
     if (grup) setGrupTerbuka((sebelumnya) => (sebelumnya.includes(grup.judul) ? sebelumnya : [...sebelumnya, grup.judul]));
   };
 
+  /** Penjaga batas DOM: `<select>` memberi `string`, bukan union nilai modul. */
+  const adalahNilaiModul = (nilai: string): nilai is NilaiModulAdmin =>
+    (NILAI_MODUL_ADMIN as readonly string[]).includes(nilai);
+
   const semuaItem = menu.flatMap((g) => g.items);
   const aktif = semuaItem.find((i) => i.value === activeTab) ?? semuaItem[0];
 
   /** Isi setiap menu — satu entri per nilai tab. */
-  const panel: Record<string, ReactNode> = {
+  // `Record<NilaiModulAdmin, ReactNode>` yang ekshaustif: menambah nilai modul
+  // tanpa isinya langsung menjadi galat kompilasi — menutup R2 di akarnya.
+  const panel: Record<NilaiModulAdmin, ReactNode> = {
+    "hari-ini": (
+      <MejaKerja
+        overview={overview}
+        stats={stats}
+        ledger={ledger}
+        onBukaModul={pilihMenu}
+      />
+    ),
     pinjaman: <LoanQueueSection loans={overview.loans} onOpen={onOpenLoan} />,
     gadai: <PawnQueueSection pawns={overview.pawns} onOpen={onOpenPawn} />,
     kredit: <KreditQueuePanel />,
@@ -319,7 +369,9 @@ export function AdminTabs({
           <select
             id="admin-tab-select"
             value={activeTab}
-            onChange={(event) => pilihMenu(event.target.value)}
+            onChange={(event) => {
+              if (adalahNilaiModul(event.target.value)) pilihMenu(event.target.value);
+            }}
             aria-label="Menu operasional admin"
             className="h-11 w-full appearance-none rounded-xl border border-slate-200 bg-white px-3 pr-10 text-sm font-semibold text-navy outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
           >

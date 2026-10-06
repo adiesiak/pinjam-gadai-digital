@@ -138,13 +138,33 @@ export function ringkasGrup(items: readonly ItemRingkas[]): string | null {
 /** Bentuk minimal satu catatan pengajuan — cukup untuk penghitung status. */
 export type BarisStatus = { readonly status: string };
 
-/** Status yang berarti "belum diputuskan", per produk. */
-const PERLU_KEPUTUSAN_PINJAMAN = ["diajukan", "sedang_direview"];
-const PERLU_KEPUTUSAN_GADAI = ["diajukan", "sedang_dinilai"];
-const PERLU_KEPUTUSAN_KREDIT = ["diajukan", "sedang_ditinjau"];
+/** Produk yang punya antrean pengajuan. */
+export type ProdukAntrean = "pinjaman" | "gadai" | "kredit";
+
+/**
+ * Status yang berarti "belum diputuskan", per produk — satu sumber kebenaran.
+ *
+ * Lencana tab dan kartu "Hari Ini" sama-sama membaca daftar ini. Sebelumnya
+ * lencana tab "Pinjaman" hanya menghitung `diajukan`, sehingga pekerjaan yang
+ * sedang ditinjau hilang dari hitungan dan angka di sidebar berbeda dengan
+ * angka di panel.
+ */
+export const STATUS_MENUNGGU: Record<ProdukAntrean, readonly string[]> = {
+  pinjaman: ["diajukan", "sedang_direview"],
+  gadai: ["diajukan", "sedang_dinilai"],
+  kredit: ["diajukan", "sedang_ditinjau"],
+};
 
 function hitungStatus(baris: readonly BarisStatus[], status: readonly string[]): number {
   return baris.filter((satu) => status.includes(satu.status)).length;
+}
+
+/** Jumlah catatan satu produk yang menunggu keputusan admin. */
+export function hitungMenunggu(
+  baris: readonly BarisStatus[],
+  produk: ProdukAntrean,
+): number {
+  return hitungStatus(baris, STATUS_MENUNGGU[produk]);
 }
 
 /**
@@ -164,9 +184,9 @@ export function jumlahPerluKeputusan({
   kredit: readonly BarisStatus[];
 }): number {
   return (
-    hitungStatus(loans, PERLU_KEPUTUSAN_PINJAMAN) +
-    hitungStatus(pawns, PERLU_KEPUTUSAN_GADAI) +
-    hitungStatus(kredit, PERLU_KEPUTUSAN_KREDIT)
+    hitungMenunggu(loans, "pinjaman") +
+    hitungMenunggu(pawns, "gadai") +
+    hitungMenunggu(kredit, "kredit")
   );
 }
 

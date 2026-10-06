@@ -85,6 +85,23 @@ export type KreditRow = {
   status: "diajukan" | "sedang_ditinjau" | "disetujui" | "ditolak" | "didanai" | "lunas";
 };
 
+/** Tiga antrean pengajuan dari `admin.adminOverview`, dipakai bersama tab dan panel "Hari Ini". */
+export type AdminOverviewData = {
+  loans: LoanRow[];
+  pawns: PawnRow[];
+  kredit: KreditRow[];
+};
+
+/** Ringkasan ledger internal untuk lencana tab — mengikuti `admin.ledgerSummary`. */
+export type LedgerSummary = {
+  totalDebit: number;
+  totalKredit: number;
+  entryCount: number;
+  seimbang: boolean;
+  /** Total biaya platform yang sudah dijurnal (platform:FEE, sisi debit). */
+  pendapatanPlatform: number;
+};
+
 /** Satu pilihan pada baris sub-tab: label, tooltip, dan predikat penyaring. */
 export type OpsiSubTab<T> = {
   id: string;
