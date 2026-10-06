@@ -14,9 +14,10 @@ ol{padding-left:18px}
 .ttd-slot{display:grid;place-items:center;height:112px}
 .signature{display:block;object-fit:contain;max-width:100%;height:68px}
 .signature-placeholder{display:grid;place-items:center;width:100%;height:68px;border:1px dashed #a8b2bd;color:#64748b;font:11px ui-sans-serif,system-ui,sans-serif}
-.pindai-stamp{display:grid;justify-items:center;align-content:center;gap:1px;width:104px;height:104px;padding:8px;border:3px double #8b493d;border-radius:50%;color:#8b493d;text-align:center;font:9px/1.25 ui-sans-serif,system-ui,sans-serif;transform:rotate(-6deg)}
-.cap-brankas{width:30px;height:30px;margin-bottom:2px}
-.pindai-stamp strong{font-size:11px;letter-spacing:.1em}.pindai-stamp small{font-size:8px;letter-spacing:.06em;font-weight:700}
+.pindai-stamp{display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 8px;border:1px solid #8b493d;color:#8b493d;text-align:center;font:9px/1.25 ui-sans-serif,system-ui,sans-serif}
+.cap-brankas{width:26px;height:26px;margin-bottom:1px}
+.pindai-stamp strong{display:block;font-size:10px;letter-spacing:.12em}
+.pindai-stamp small{display:block;font-size:8px;letter-spacing:.06em;font-weight:700}
 @media print{.no-print{display:none}}`;
 
 export function wrapContractHtml(inner: string): string {
