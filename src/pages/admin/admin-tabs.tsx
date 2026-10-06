@@ -341,6 +341,30 @@ export function AdminTabs({
   const semuaItem = menu.flatMap((g) => g.items);
   const aktif = semuaItem.find((i) => i.value === activeTab) ?? semuaItem[0];
 
+  /**
+   * Grup yang memuat menu aktif — grup ini tidak ikut tertutup saat kursor
+   * menjauh, supaya posisi admin tidak pernah hilang dari sidebar.
+   */
+  const grupMenuAktif =
+    menu.find((g) => g.items.some((i) => i.value === activeTab))?.judul ?? null;
+
+  /**
+   * Buka grup saat kursor menyentuhnya, tutup lagi saat kursor menjauh.
+   * Daftar grup lain yang sudah dibuka tetap dibiarkan terbuka, jadi perilaku
+   * ini tidak menendang grup yang sedang dibaca pengguna.
+   */
+  const sorotGrup = (judul: string) => {
+    setGrupTerbuka((sebelumnya) =>
+      sebelumnya.includes(judul) ? sebelumnya : [...sebelumnya, judul],
+    );
+  };
+  const lupakanGrup = (judul: string) => {
+    if (judul === grupMenuAktif) return;
+    setGrupTerbuka((sebelumnya) =>
+      sebelumnya.includes(judul) ? sebelumnya.filter((j) => j !== judul) : sebelumnya,
+    );
+  };
+
   /** Isi setiap menu — satu entri per nilai tab. */
   // `Record<NilaiModulAdmin, ReactNode>` yang ekshaustif: menambah nilai modul
   // tanpa isinya langsung menjadi galat kompilasi — menutup R2 di akarnya.
@@ -394,6 +418,10 @@ export function AdminTabs({
               key={grup.judul}
               value={grup.judul}
               className="border-b border-slate-100 last:border-b-0"
+              // Kursor yang menyentuh menu membuka grupnya sendiri; begitu
+              // kursor pindah, grup itu menutup kembali (kecuali grup aktif).
+              onMouseEnter={() => sorotGrup(grup.judul)}
+              onMouseLeave={() => lupakanGrup(grup.judul)}
             >
               <AccordionTrigger className="items-center gap-2 rounded-lg px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground hover:text-navy hover:no-underline data-[state=open]:text-navy [&>svg]:size-3.5">
                 <span className="flex-1 text-left">{grup.judul}</span>

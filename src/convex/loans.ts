@@ -1412,6 +1412,7 @@ export const repayLoan = mutation({
     }
     await appendJournal(ctx, {
       jenis: "repayment",
+      skema: "pinjaman",
       keterangan: simBulanan !== null
         ? pelunasan.hariTerlambat > 0
           ? `Pelunasan ${loan.nomorReferensi} — skema bulanan + denda ${pelunasan.hariTerlambat} hari (${pelunasan.dendaTerlambat})`
@@ -1442,6 +1443,7 @@ export const repayLoan = mutation({
       const payout = f.jumlahAlokasi + imbalBersih;
       await appendJournal(ctx, {
         jenis: "payout",
+        skema: "pinjaman",
         keterangan:
           potonganAdmin > 0
             ? `Pelunasan: pembayaran ke ${f.nomorReferensi} (${loan.nomorReferensi}) — Imbal Hasil bruto ${imbal}, potongan admin ${cfg.persenAdmin}% sebesar ${potonganAdmin}, dibayarkan bersih ${imbalBersih}`
@@ -1480,6 +1482,7 @@ export const repayLoan = mutation({
     if (feePlatform + feeAdmin > 0) {
       await appendJournal(ctx, {
         jenis: "platform_fee",
+        skema: "pinjaman",
         keterangan: `Biaya admin cicilan ${loan.nomorReferensi} (skema bulanan)`,
         aktor: "platform",
         lines: [

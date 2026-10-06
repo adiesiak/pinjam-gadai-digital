@@ -145,6 +145,7 @@ export const integrasikanPinjamanKeLedger = mutation({
       try {
         await appendJournal(ctx, {
           jenis: "platform_fee",
+          skema: "pinjaman",
           keterangan: `Biaya admin & platform ${loan.nomorReferensi}`,
           aktor: label,
           lines: [

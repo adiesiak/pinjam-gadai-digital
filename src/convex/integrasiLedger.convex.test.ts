@@ -177,6 +177,18 @@ describe("hapus pinjaman lama per baris", () => {
     expect(sisa.loan).toBeNull();
     expect(sisa.fundings).toHaveLength(0);
     expect(sisa.jurnal.some((e) => e.akun === `pinjaman:${loanId}`)).toBe(true);
+
+    // Jurnal integrasi harus bertag skema `pinjaman`: ringkasan ledger lalu
+    // mengklasifikasikan biayanya dari tag itu, bukan dari tebakan teks
+    // keterangan — inilah yang membuat angka per skema cocok dengan pinjaman.
+    const jurnalIntegrasi = sisa.jurnal.filter((e) => e.akun === `pinjaman:${loanId}`);
+    expect(jurnalIntegrasi.length).toBeGreaterThan(0);
+    expect(jurnalIntegrasi.every((e) => e.skema === "pinjaman")).toBe(true);
+
+    const ringkas = await admin.query(api.admin.ledgerSummary, {});
+    expect(ringkas.rincianSkema.pinjaman).toBeGreaterThan(0);
+    expect(ringkas.rincianSkema.lainnya).toBe(0);
+    expect(ringkas.seimbang).toBe(true);
   });
 
   it("menolak pinjaman berjalan dan yang punya alokasi dana aktif", async () => {

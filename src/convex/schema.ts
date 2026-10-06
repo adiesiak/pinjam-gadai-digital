@@ -32,6 +32,13 @@ export const ROLES = {
   PENGAMAT: "pengamat",
 } as const;
 
+/** Skema produk untuk tag jurnal ledger (lihat convex/ledger.ts). */
+export const skemaLedgerValidator = v.union(
+  v.literal("pinjaman"),
+  v.literal("gadai"),
+  v.literal("kredit"),
+);
+
 export const roleValidator = v.union(
   v.literal(ROLES.ADMIN),
   v.literal(ROLES.PEMINJAM),
@@ -971,6 +978,12 @@ const schema = defineSchema(
       /** Jenis transaksi: deposit|disbursement|platform_fee|repayment|payout. */
       jenis: v.string(),
       keterangan: v.string(),
+      /**
+       * Skema produk asal jurnal (pinjaman|gadai|kredit). Kosong pada entri lama
+       * yang ditulis sebelum penandaan eksplisit — ringkasan ledger masih bisa
+       * mengklasifikasikannya lewat pola teks `keterangan`.
+       */
+      skema: v.optional(skemaLedgerValidator),
       /** Subjek transaksi (userId atau "platform"). */
       aktor: v.string(),
       waktu: v.number(),

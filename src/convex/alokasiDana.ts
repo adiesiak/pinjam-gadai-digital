@@ -540,6 +540,7 @@ export const allocateFunding = mutation({
     // 5. Jurnal: dana pindah dari dompet penyedia dana ke akun pinjaman.
     await appendJournal(ctx, {
       jenis: "disbursement",
+      skema: "pinjaman",
       keterangan: `Alokasi pendanaan ${fndRef} ke ${loan.nomorReferensi}`,
       aktor: userId,
       lines: [
@@ -560,6 +561,7 @@ export const allocateFunding = mutation({
       if (ringkasPenuh.totalPotonganDiMuka > 0) {
         await appendJournal(ctx, {
           jenis: "platform_fee",
+          skema: "pinjaman",
           keterangan: `Biaya admin & platform ${loan.nomorReferensi}`,
           aktor: "platform",
           lines: [
@@ -574,6 +576,7 @@ export const allocateFunding = mutation({
       // tenor 3/6, atau layanan 2% untuk tenor 1).
       await appendJournal(ctx, {
         jenis: "disbursement",
+        skema: "pinjaman",
         keterangan: ringkasPenuh.skemaBulanan
           ? `Pencairan pokok penuh ${loan.nomorReferensi} (skema bulanan)`
           : `Pencairan dana bersih ${loan.nomorReferensi}`,
@@ -1208,6 +1211,7 @@ export const alokasiKreditBarang = mutation({
     // Jurnal: dana pindah dari dompet penyedia dana ke akun kredit barang.
     await appendJournal(ctx, {
       jenis: "disbursement",
+      skema: "kredit",
       keterangan: `Alokasi pendanaan ${ref} ke ${kredit.nomorReferensi} (Kredit Barang)`,
       aktor: userId,
       lines: [
@@ -1221,6 +1225,7 @@ export const alokasiKreditBarang = mutation({
     if (terkumpulSetelah === quote.pokokDibiayai) {
       await appendJournal(ctx, {
         jenis: "disbursement",
+        skema: "kredit",
         keterangan: `Pencairan pokok ke ${kredit.merchant} untuk ${kredit.nomorReferensi}`,
         aktor: "platform",
         lines: [
@@ -1245,6 +1250,7 @@ export const alokasiKreditBarang = mutation({
       if (bayarFeeDiMuka) {
         await appendJournal(ctx, {
           jenis: "platform_fee",
+          skema: "kredit",
           keterangan: `Biaya layanan platform ${kredit.nomorReferensi} (Kredit Barang)`,
           aktor: "platform",
           lines: [

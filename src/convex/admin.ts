@@ -1085,15 +1085,29 @@ export const ledgerSummary = query({
       //  - "Potongan muka 1% gadai <REF>" / "Sewa modal <REF>" (gadai)
       //  - "Biaya layanan platform <REF> (Kredit Barang)"
       //  - "Biaya layanan cicilan <REF> bulan n/tenor"
+      // Sumber utama: tag `skema` yang ditulis jurnalnya sendiri — angka per
+      // skema jadi pasti cocok dengan produk yang menerbitkan biayanya, bukan
+      // hasil menebak teks. Entri lama yang belum bertag tetap diklasifikasi
+      // lewat pola keterangan di bawah (kembali-kompatibel).
       const ket = e.keterangan.toLowerCase();
-      if (
-        ket.includes("kredit barang") ||
-        ket.includes("biaya layanan cicilan")
-      ) {
+      const kredit =
+        e.skema === "kredit" ||
+        (e.skema === undefined &&
+          (ket.includes("kredit barang") || ket.includes("biaya layanan cicilan")));
+      const gadai =
+        !kredit &&
+        (e.skema === "gadai" ||
+          (e.skema === undefined && (ket.includes("gadai") || ket.includes("sewa modal"))));
+      const pinjaman =
+        !kredit &&
+        !gadai &&
+        (e.skema === "pinjaman" ||
+          (e.skema === undefined && (ket.includes("biaya admin") || ket.includes("pinjaman"))));
+      if (kredit) {
         rincianSkema.kredit += e.jumlah;
-      } else if (ket.includes("gadai") || ket.includes("sewa modal")) {
+      } else if (gadai) {
         rincianSkema.gadai += e.jumlah;
-      } else if (ket.includes("biaya admin") || ket.includes("pinjaman")) {
+      } else if (pinjaman) {
         rincianSkema.pinjaman += e.jumlah;
       } else {
         rincianSkema.lainnya += e.jumlah;

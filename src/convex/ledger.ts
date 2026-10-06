@@ -23,11 +23,20 @@ export interface JournalLine {
   jumlah: number;
 }
 
+/**
+ * Skema produk yang menghasilkan jurnal. Ditulis eksplisit supaya ringkasan
+ * ledger tidak perlu menebak dari teks `keterangan` — tebakan teks itulah yang
+ * dulu membuat angka per skema terlihat tidak cocok dengan pinjaman yang ada.
+ */
+export type SkemaLedger = "pinjaman" | "gadai" | "kredit";
+
 export interface JournalSpec {
   jenis: "deposit" | "disbursement" | "platform_fee" | "repayment" | "payout" | "withdrawal";
   keterangan: string;
   aktor: string;
   lines: JournalLine[];
+  /** Skema produk asal jurnal; kosong hanya untuk jurnal lama/lain-lain. */
+  skema?: SkemaLedger;
 }
 
 function assertIntegerRupiah(n: number, label: string) {
@@ -80,6 +89,7 @@ export async function appendJournal(
       keterangan: spec.keterangan,
       aktor: spec.aktor,
       waktu: now,
+      skema: spec.skema,
     });
   }
   return gid;
