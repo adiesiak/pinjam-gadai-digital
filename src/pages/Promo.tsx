@@ -23,6 +23,8 @@ import {
   X,
 } from "lucide-react";
 
+import { ASET_PROFIL, gambarAsetProfil, type AsetProfil } from "@/lib/promoProfil";
+
 // ---------------------------------------------------------------------------
 // Ukuran kanvas kasus sosial media (content-safe area di sekitar batas).
 // ---------------------------------------------------------------------------
@@ -827,6 +829,116 @@ async function bagikanPoster(canvas: HTMLCanvasElement, p: Poster, size: Ukuran)
   );
 }
 
+/** Bagikan aset profil (foto/background WhatsApp) lewat lembar berbagi bawaan,
+ *  dengan fallback salin teks + buka WhatsApp Web. */
+async function bagikanAset(canvas: HTMLCanvasElement, aset: AsetProfil) {
+  const teks = `${aset.label} PINDAI — pinjam & gadai digital.`;
+  const file = await canvasKeFile(canvas, aset.berkas);
+
+  if (navigator.share) {
+    try {
+      await navigator.share({
+        title: `${aset.label} — PINDAI`,
+        text: teks,
+        ...(file ? { files: [file] } : {}),
+      });
+      return;
+    } catch (err) {
+      if ((err as Error).name === "AbortError") return;
+    }
+  }
+
+  try {
+    await navigator.clipboard.writeText(teks);
+  } catch {
+    // Clipboard ditolak — tetap lanjut ke WhatsApp.
+  }
+  window.open(`https://wa.me/?text=${encodeURIComponent(teks)}`, "_blank");
+}
+
+/** Satu aset profil WhatsApp: kanvas 1:1 atau 16:9 + aksi unduh/bagikan. */
+function AsetProfilCard({ aset }: { aset: AsetProfil }) {
+  const ref = useRef<HTMLCanvasElement | null>(null);
+
+  useEffect(() => {
+    const canvas = ref.current;
+    if (!canvas) return;
+    canvas.width = aset.canvas[0];
+    canvas.height = aset.canvas[1];
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    gambarAsetProfil(ctx, aset);
+  }, [aset]);
+
+  return (
+    <figure className="flex flex-col overflow-hidden rounded-3xl border border-[#e7e2d4] bg-white shadow-sm transition-shadow hover:shadow-md">
+      <div className="flex items-center justify-between gap-2 border-b border-[#efe9db] px-4 py-3">
+        <div className="min-w-0">
+          <p className="truncate text-sm font-bold tracking-tight text-[#0f3d3a]">{aset.label}</p>
+          <p className="text-[11px] font-mono text-[#5c6b66]">
+            {aset.canvas[0]}×{aset.canvas[1]} · {aset.ratioLabel}
+          </p>
+        </div>
+        <span className="flex size-8 items-center justify-center rounded-lg bg-[#0f3d3a]/10 text-[#0f3d3a]">
+          <ImageIcon className="size-4" aria-hidden="true" />
+        </span>
+      </div>
+      <div className="flex flex-1 items-center justify-center bg-[#0a2624] p-4">
+        <div
+          className="relative w-full"
+          style={{ aspectRatio: `${aset.canvas[0]} / ${aset.canvas[1]}` }}
+        >
+          <canvas ref={ref} className="block size-full rounded-xl object-contain shadow-lg" />
+          {aset.id === "foto-profil" ? (
+            // Pratinjau potongan bulat WhatsApp untuk foto profil.
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-0 flex items-center justify-center"
+            >
+              <div className="aspect-square h-full rounded-full border-2 border-dashed border-white/45" />
+            </div>
+          ) : (
+            // Perkiraan area sampul yang tertutup foto profil.
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute rounded-full border-2 border-dashed border-white/45"
+              style={{ left: "5%", bottom: "8%", width: "17%", height: "17%" }}
+            />
+          )}
+        </div>
+      </div>
+      <figcaption className="flex flex-col gap-3 border-t border-[#efe9db] px-4 py-3">
+        <p className="text-xs leading-5 text-[#5c6b66]">{aset.keterangan}</p>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            size="sm"
+            className="gap-2"
+            onClick={() => {
+              const canvas = ref.current;
+              if (canvas) unduhCanvas(canvas, aset.berkas);
+            }}
+          >
+            <Download className="size-4" aria-hidden="true" />
+            Unduh PNG
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            className="gap-2"
+            onClick={() => {
+              const canvas = ref.current;
+              if (canvas) void bagikanAset(canvas, aset);
+            }}
+          >
+            <Share2 className="size-4" aria-hidden="true" />
+            Bagikan
+          </Button>
+        </div>
+      </figcaption>
+    </figure>
+  );
+}
+
 /** Satu poster siap pakai: kanvas + aksi unduh/bagikan. */
 function PosterCard({
   poster,
@@ -1028,7 +1140,8 @@ export function Promo() {
                 dan kata kunci dengan warna aksen berbeda tiap tema. Murni tipografi tanpa gambar.
                 Tinggal pilih ukuran, unduh PNG, lalu unggah ke Instagram, WhatsApp, atau status —
                 kode QRIS tampil otomatis bila admin sudah mengunggahnya. Tidak ada yang perlu
-                diedit.
+                diedit. Foto profil dan background untuk akun WhatsApp PINDAI ada di bagian aset
+                profil di bawah.
               </p>
             </div>
             <div className="w-full sm:w-auto">
@@ -1122,6 +1235,30 @@ export function Promo() {
           <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
             {POSTER.map((p) => (
               <PosterCard key={p.id} poster={p} ukuran={ukuran} qris={qris} />
+            ))}
+          </div>
+        </section>
+
+        {/* Aset profil WhatsApp — foto profil & background siap unggah */}
+        <section className="space-y-4">
+          <div className="flex flex-wrap items-center gap-2">
+            <Sparkles className="size-3.5 text-[#9c7b3a]" aria-hidden="true" />
+            <h2 className="text-lg font-bold tracking-tight text-[#0f3d3a]">
+              Aset profil WhatsApp ({ASET_PROFIL.length})
+            </h2>
+            <span className="rounded-full border border-[#0f3d3a]/15 bg-[#0f3d3a]/[0.04] px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#0f3d3a]">
+              Brankas
+            </span>
+          </div>
+          <p className="max-w-3xl text-sm leading-6 text-[#5c6b66]">
+            Foto profil dan background untuk akun WhatsApp PINDAI. Garis putus-putus pada pratinjau
+            menandai area yang dipotong WhatsApp: lingkaran pada foto profil, dan sudut kiri bawah
+            pada background yang tertutup foto profil. Konten penting sudah diletakkan di dalam area
+            aman tersebut.
+          </p>
+          <div className="grid gap-5 sm:grid-cols-2">
+            {ASET_PROFIL.map((aset) => (
+              <AsetProfilCard key={aset.id} aset={aset} />
             ))}
           </div>
         </section>
