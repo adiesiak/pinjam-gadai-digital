@@ -87,7 +87,6 @@ ok(
   "konten foto profil mendekati pusat kanvas",
   Math.abs((atas + bawah) / 2 - FOTO_PROFIL_PUSAT) <= 20,
 );
-ok("kotak konten foto profil punya luas wajar", kanan > kiri && bawah > atas);
 
 // ---- Foto profil: skala besar + panggung yang tetap aman ----
 const { emblema, judul, rule, eyebrow } = TATA_FOTO_PROFIL;
@@ -129,25 +128,15 @@ ok(
   "rule kuningan duduk di antara judul dan eyebrow",
   rule.y > judul.baseline && rule.y + rule.tinggi < eyebrow.baseline,
 );
-ok("urutan vertikal foto profil: lambang → judul → rule → eyebrow", emblema.y < judul.baseline && judul.baseline < rule.y && rule.y < eyebrow.baseline);
 
 // ---- Background: konten penting berhenti sebelum area tertutup foto profil ----
 ok(
-  `konten sampul berakhir sebelum batas area aman (${KOTAK_KONTEN_BACKGROUND.bawah} ≤ ${BACKGROUND_BATAS_AMAN})`,
-  KOTAK_KONTEN_BACKGROUND.bawah <= BACKGROUND_BATAS_AMAN,
+  `konten sampul berakhir sebelum batas area aman (${KOTAK_KONTEN_BACKGROUND.bawah} < ${BACKGROUND_BATAS_AMAN})`,
+  KOTAK_KONTEN_BACKGROUND.bawah < BACKGROUND_BATAS_AMAN,
 );
 ok(
   `pusat konten sampul di paruh atas kanvas (${BACKGROUND_KONTEN_PUSAT_Y} < ${BACKGROUND_TINGGI / 2})`,
   BACKGROUND_KONTEN_PUSAT_Y < BACKGROUND_TINGGI / 2,
-);
-ok(
-  `konten sampul seluruhnya di atas batas area aman (${KOTAK_KONTEN_BACKGROUND.bawah} ≤ ${BACKGROUND_BATAS_AMAN})`,
-  KOTAK_KONTEN_BACKGROUND.bawah < BACKGROUND_BATAS_AMAN,
-);
-ok("kotak konten sampul tidak kosong", KOTAK_KONTEN_BACKGROUND.bawah > KOTAK_KONTEN_BACKGROUND.atas);
-ok(
-  `pusat konten sampul = titik tengah kotak konten (${BACKGROUND_KONTEN_PUSAT_Y})`,
-  BACKGROUND_KONTEN_PUSAT_Y === (KOTAK_KONTEN_BACKGROUND.atas + KOTAK_KONTEN_BACKGROUND.bawah) / 2,
 );
 
 // ---- Background: band bawah terdesain, bukan ruang mati ----

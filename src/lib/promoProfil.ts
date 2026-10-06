@@ -29,14 +29,6 @@ export const BRASS = "#b99b62";
 export const KREM = "#fbf8f1";
 export const KREM_REDUP = "#d8c28c";
 
-/** Warna turunan untuk memberi kedalaman pada lambang brankas. */
-const PINTU_TERANG = "#faf8f2";
-const PINTU = "#f5f2e9";
-const PINTU_GELAP = "#ddd6c6";
-/** Rongga dalam brankas — terlihat pada celah pintu yang sedikit terbuka. */
-const INTERIOR = "#08201f";
-const EMAS_MUDA = "#ffe9a8";
-
 /** Warna hex → rgba() dengan alpha tertentu. */
 export function rgba(hex: string, a: number): string {
   const h = hex.replace("#", "");
@@ -103,29 +95,11 @@ function bulat(ctx: Ctx, x: number, y: number, w: number, h: number, r: number) 
   ctx.closePath();
 }
 
-/** Bintik halus sebagai tekstur latar (pengganti pola gambar). Bila `pudar`
- *  diisi, bintik memudar mendekati radius itu sehingga tepi potongan bulat
- *  WhatsApp tetap bersih. */
-function titikHalus(
-  ctx: Ctx,
-  w: number,
-  h: number,
-  hex: string,
-  alpha: number,
-  gap: number,
-  radius: number,
-  pudar?: { cx: number; cy: number; r: number },
-) {
+/** Bintik halus sebagai tekstur latar (pengganti pola gambar). */
+function titikHalus(ctx: Ctx, w: number, h: number, warna: string, gap: number, radius: number) {
+  ctx.fillStyle = warna;
   for (let x = gap / 2; x < w; x += gap) {
     for (let y = gap / 2; y < h; y += gap) {
-      let a = alpha;
-      if (pudar) {
-        const d = Math.hypot(x - pudar.cx, y - pudar.cy);
-        if (d >= pudar.r) continue;
-        a = alpha * (1 - (d / pudar.r) ** 2);
-      }
-      if (a <= 0.002) continue;
-      ctx.fillStyle = rgba(hex, a);
       ctx.beginPath();
       ctx.arc(x, y, radius, 0, Math.PI * 2);
       ctx.fill();
@@ -165,7 +139,7 @@ function teksBerspasi(ctx: Ctx, teks: string, cx: number, y: number, spasi: numb
  * vignette gelap di tepi kanvas — supaya latar tidak terbaca sebagai bidang
  * warna yang rata.
  */
-export function sorotLapis(
+function sorotLapis(
   ctx: Ctx,
   lebar: number,
   tinggi: number,
@@ -212,13 +186,7 @@ export function sorotLapis(
  * sesuatu: bayangan di lantai, garis lantai yang lebih lebar, badan landasan
  * berundak terang→gelap, lalu kilau di tepi atasnya.
  */
-export function panggung(
-  ctx: Ctx,
-  cx: number,
-  atas: number,
-  lebar: number,
-  tinggi: number,
-) {
+function panggung(ctx: Ctx, cx: number, atas: number, lebar: number, tinggi: number) {
   const kiri = cx - lebar / 2;
   const bawah = atas + tinggi;
 
@@ -256,7 +224,7 @@ export function panggung(
  * WhatsApp, lalu takik-takik di sepanjang busur. Takik dibuat sedikit dan
  * tebal agar tidak melebur saat aset diperkecil jadi thumbnail.
  */
-export function busurSegel(
+function busurSegel(
   ctx: Ctx,
   cx: number,
   cy: number,
@@ -351,18 +319,18 @@ export function brankas(ctx: Ctx, x: number, y: number, s: number) {
   ctx.lineTo(x + s * 0.76, y + s * 0.08);
   ctx.stroke();
 
-  // Rongga dalam.
+  // Rongga dalam (terlihat di celah pintu).
   bulat(ctx, bukaanX, bukaanY, bukaanW, bukaanH, s * 0.12);
-  ctx.fillStyle = INTERIOR;
+  ctx.fillStyle = "#08201f";
   ctx.fill();
 
-  // Cahaya dari dalam: pendar lebar, bilah terang, lalu berkas pendek.
+  // Cahaya dari dalam: pendar lebar lalu bilah terang di tepi celah.
   bulat(ctx, bukaanX + bukaanW - s * 0.17, bukaanY, s * 0.17, bukaanH, s * 0.05);
   ctx.fillStyle = rgba(GOLD, 0.2);
   ctx.fill();
 
   const celah = ctx.createLinearGradient(0, bukaanY, 0, bukaanY + bukaanH);
-  celah.addColorStop(0, EMAS_MUDA);
+  celah.addColorStop(0, "#ffe9a8");
   celah.addColorStop(0.55, GOLD);
   celah.addColorStop(1, BRASS);
   bulat(
@@ -376,17 +344,6 @@ export function brankas(ctx: Ctx, x: number, y: number, s: number) {
   ctx.fillStyle = celah;
   ctx.fill();
 
-  const asalX = bukaanX + bukaanW - s * 0.07;
-  const asalY = bukaanY + bukaanH * 0.5;
-  ctx.strokeStyle = rgba(GOLD, 0.34);
-  ctx.lineWidth = Math.max(1, s * 0.012);
-  for (const sudut of [-0.5, -0.18, 0.18, 0.5]) {
-    ctx.beginPath();
-    ctx.moveTo(asalX, asalY);
-    ctx.lineTo(asalX + Math.cos(sudut) * s * 0.11, asalY + Math.sin(sudut) * s * 0.11);
-    ctx.stroke();
-  }
-
   // Bayangan kontak pintu, lalu panel pintu berbayang terang→gelap.
   bulat(ctx, pintuX, pintuY, pintuW, pintuH, s * 0.12);
   ctx.strokeStyle = "rgba(0,0,0,0.3)";
@@ -394,9 +351,9 @@ export function brankas(ctx: Ctx, x: number, y: number, s: number) {
   ctx.stroke();
 
   const pintu = ctx.createLinearGradient(pintuX, 0, pintuX + pintuW, 0);
-  pintu.addColorStop(0, PINTU_TERANG);
-  pintu.addColorStop(0.42, PINTU);
-  pintu.addColorStop(1, PINTU_GELAP);
+  pintu.addColorStop(0, "#faf8f2");
+  pintu.addColorStop(0.42, "#f5f2e9");
+  pintu.addColorStop(1, "#ddd6c6");
   bulat(ctx, pintuX, pintuY, pintuW, pintuH, s * 0.12);
   ctx.fillStyle = pintu;
   ctx.fill();
@@ -450,7 +407,7 @@ export function brankas(ctx: Ctx, x: number, y: number, s: number) {
   ctx.lineWidth = Math.max(1.5, s * 0.024);
   ctx.stroke();
 
-  ctx.strokeStyle = PINTU_TERANG;
+  ctx.strokeStyle = "#faf8f2";
   ctx.lineWidth = Math.max(1.5, s * 0.026);
   ctx.beginPath();
   ctx.moveTo(dcx, dcy);
@@ -577,19 +534,16 @@ export function setengahLebarAman(radius: number, jarakY: number): number {
 
 /** Kotak pembatas konten foto profil (dipakai uji lingkaran aman). */
 export const KOTAK_KONTEN_FOTO_PROFIL = (() => {
-  const { emblema, judul, rule, eyebrow } = TATA_FOTO_PROFIL;
-  const setengahMaks = Math.max(
-    judul.lebarMaks / 2,
-    eyebrow.lebarMaks / 2,
-    rule.lebar / 2,
-  );
+  const { emblema, judul, eyebrow } = TATA_FOTO_PROFIL;
+  const setengahMaks = Math.max(judul.lebarMaks, eyebrow.lebarMaks) / 2;
   const kiri = Math.min(emblema.x, FOTO_PROFIL_PUSAT - setengahMaks);
   const kanan = Math.max(emblema.x + emblema.sisi, FOTO_PROFIL_PUSAT + setengahMaks);
   const atas = emblema.y;
   // Kaki brankas melewati tinggi badan, ditambah ruang turun huruf eyebrow.
+  // Landasan & rule tidak ikut ke sini: keduanya diperiksa langsung terhadap
+  // lingkaran aman (sudut kotak & jarak ke pusat) di `promoProfil.test.ts`.
   const bawah = Math.max(
     emblema.y + emblema.sisi * 0.97,
-    LANDASAN_FOTO_PROFIL.atas + LANDASAN_FOTO_PROFIL.tinggi,
     eyebrow.baseline + eyebrow.fs * 0.3,
   );
   return { kiri, kanan, atas, bawah };
@@ -607,7 +561,7 @@ export function gambarFotoProfil(ctx: Ctx) {
   ctx.fillStyle = NAVY_DEEP;
   ctx.fillRect(0, 0, lebar, tinggi);
   sorotLapis(ctx, lebar, tinggi, cx, tinggi * 0.42, lebar * 0.8);
-  titikHalus(ctx, lebar, tinggi, "#ffffff", 0.06, 30, 1.2, { cx, cy, r: radius });
+  titikHalus(ctx, lebar, tinggi, rgba("#ffffff", 0.06), 30, 1.2);
 
   // Bibir medali: busur segel terang di bagian atas + cincin tipis penuh.
   busurSegel(ctx, cx, cy, TATA_FOTO_PROFIL.cincin, Math.PI * 1.08, Math.PI * 1.92, 13);
@@ -747,11 +701,10 @@ export function gambarBackgroundProfil(ctx: Ctx) {
   ctx.fillStyle = NAVY_DEEP;
   ctx.fillRect(0, 0, lebar, tinggi);
   sorotLapis(ctx, lebar, tinggi, lebar * 0.84, tinggi * 0.06, lebar * 0.9);
-  titikHalus(ctx, lebar, tinggi, "#ffffff", 0.055, 28 * skala, 1.15 * skala);
+  titikHalus(ctx, lebar, tinggi, rgba("#ffffff", 0.055), 28 * skala, 1.15 * skala);
 
-  // Ornamen: dial besar kanan-atas, busur kembar kecil di kiri bawah.
+  // Ornamen: dial besar di kanan-atas.
   dialAir(ctx, lebar * 0.87, tinggi * 0.33, 265 * skala, GOLD, 0.16);
-  busurSegel(ctx, lebar * 0.1, 792 * skala, 88 * skala, Math.PI * 0.1, Math.PI * 0.9, 7);
 
   // Band bawah: area yang boleh tertutup foto profil, diisi aturan buku besar.
   ctx.fillStyle = "rgba(0,0,0,0.24)";

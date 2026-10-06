@@ -175,10 +175,7 @@ if (background) {
     `teks di band bawah hanya pita kata (${diBand.length} temuan)`,
     diBand.length > 0 && diBand.every((t) => t.teks === pita.teks && t.y === pita.y),
   );
-  ok(
-    "pita kata diulang memenuhi lebar band",
-    diBand.filter((t) => t.y === pita.y).length >= 3,
-  );
+  ok("pita kata diulang memenuhi lebar band", diBand.length >= 3);
 }
 
 // ---- Lambang brankas dipakai bersama lencana header poster ----
