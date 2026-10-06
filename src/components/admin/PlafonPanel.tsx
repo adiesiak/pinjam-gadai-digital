@@ -1,5 +1,15 @@
 import { useMutation, useQuery } from "convex/react";
-import { Loader2, RotateCcw, Search, SlidersHorizontal, Trash2, Users, X } from "lucide-react";
+import {
+  ChevronLeft,
+  ChevronRight,
+  Loader2,
+  RotateCcw,
+  Search,
+  SlidersHorizontal,
+  Trash2,
+  Users,
+  X,
+} from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -21,6 +31,7 @@ import { EmptyQueue, MetrikKartu } from "@/components/admin/admin-shared";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { formatRupiah } from "@/lib/money";
+import { BARIS_PER_HALAMAN, labelRentang, potongHalaman } from "@/lib/paginasi";
 import { clampPlafon, PLAFON_BATAS, PLAFON_LANGKAH } from "@/lib/plafon";
 import { BUNGA_BATAS, BUNGA_LANGKAH, clampPersenBunga } from "@/lib/bunga";
 
@@ -57,6 +68,8 @@ export function PlafonPanel() {
   /** Nasabah yang sedang dikonfirmasi penghapusannya lewat dialog. */
   const [hapusTarget, setHapusTarget] = useState<{ userId: Id<"users">; nama: string } | null>(null);
   const [alasanHapus, setAlasanHapus] = useState("");
+  /** Halaman daftar nasabah yang sedang dilihat (10 baris per halaman). */
+  const [halaman, setHalaman] = useState(0);
   const data = useQuery(api.admin.daftarPlafonPeminjam, { cari: cari || undefined });
   const setPlafon = useMutation(api.admin.setPlafonPeminjam);
   const setBunga = useMutation(api.admin.setBungaPeminjam);
@@ -113,6 +126,12 @@ export function PlafonPanel() {
 
   const alasanBersih = alasanHapus.trim();
   const alasanValid = alasanBersih.length >= 10 && alasanBersih.length <= 500;
+
+  // Paginasi 10 baris/halaman. Halaman dijepit di dalam `potongHalaman` (bukan
+  // di-reset lewat useEffect) supaya pencarian yang mempersingkat daftar tidak
+  // pernah menampilkan halaman kosong — sekaligus menghindari aturan
+  // `react-hooks` yang melarang setState di dalam effect.
+  const halamanAktif = potongHalaman(data.rows, halaman, BARIS_PER_HALAMAN);
 
   const hapus = async () => {
     if (hapusTarget === null) return;
@@ -194,7 +213,11 @@ export function PlafonPanel() {
             aria-label="Cari nasabah berdasarkan nama atau email"
             placeholder="Cari nama atau email…"
             value={cari}
-            onChange={(e) => setCari(e.target.value)}
+            onChange={(e) => {
+              setCari(e.target.value);
+              // Kembali ke halaman pertama tiap kali kata kunci berubah.
+              setHalaman(0);
+            }}
           />
           {cari !== "" && (
             <Button
@@ -203,7 +226,10 @@ export function PlafonPanel() {
               size="icon-sm"
               aria-label="Bersihkan pencarian"
               className="absolute right-1.5 top-1/2 -translate-y-1/2 text-muted-foreground"
-              onClick={() => setCari("")}
+              onClick={() => {
+                setCari("");
+                setHalaman(0);
+              }}
             >
               <X className="size-4" />
             </Button>
@@ -235,7 +261,7 @@ export function PlafonPanel() {
         )
       ) : (
         <ul className="space-y-3">
-          {data.rows.map((r) => {
+          {halamanAktif.baris.map((r) => {
             const nilai = draft[r.userId] ?? formatAngka(r.plafonEfektif);
             const berubah = Number(nilai.replace(/\D/g, "")) !== r.plafonEfektif;
             const nilaiBunga = draftBunga[r.userId] ?? formatPersenAngka(r.persenBungaEfektif);
@@ -464,6 +490,61 @@ export function PlafonPanel() {
             );
           })}
         </ul>
+      )}
+
+      {/* Navigasi halaman: 10 nasabah per halaman. Label rentang membuat
+          "18 nasabah" di atas terbaca jelas sebagai total, bukan jumlah baris. */}
+      {data.rows.length > 0 && (
+        <nav
+          aria-label="Navigasi halaman daftar nasabah"
+          className="flex flex-wrap items-center justify-between gap-3"
+        >
+          <p className="text-xs tabular-nums text-muted-foreground">
+            {labelRentang(halamanAktif, data.rows.length)} nasabah
+          </p>
+          {halamanAktif.totalHalaman > 1 && (
+            <div className="flex flex-wrap items-center gap-1.5">
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="h-8 gap-1 px-2.5"
+                disabled={halamanAktif.halaman === 0}
+                onClick={() => setHalaman(halamanAktif.halaman - 1)}
+              >
+                <ChevronLeft className="size-3.5" />
+                Sebelumnya
+              </Button>
+              {Array.from({ length: halamanAktif.totalHalaman }, (_, i) => i).map((i) => (
+                <button
+                  key={i}
+                  type="button"
+                  aria-label={`Halaman ${i + 1}`}
+                  aria-current={i === halamanAktif.halaman ? "page" : undefined}
+                  onClick={() => setHalaman(i)}
+                  className={`flex size-8 items-center justify-center rounded-lg border text-xs font-semibold tabular-nums transition-colors ${
+                    i === halamanAktif.halaman
+                      ? "border-primary bg-primary text-primary-foreground"
+                      : "border-slate-200 bg-white text-slate-600 hover:border-primary hover:text-primary"
+                  }`}
+                >
+                  {i + 1}
+                </button>
+              ))}
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="h-8 gap-1 px-2.5"
+                disabled={halamanAktif.halaman >= halamanAktif.totalHalaman - 1}
+                onClick={() => setHalaman(halamanAktif.halaman + 1)}
+              >
+                Berikutnya
+                <ChevronRight className="size-3.5" />
+              </Button>
+            </div>
+          )}
+        </nav>
       )}
 
       {/* Konfirmasi hapus: alasan 10–500 karakter (sama dengan validasi server)
