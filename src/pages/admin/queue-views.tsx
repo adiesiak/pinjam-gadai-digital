@@ -7,28 +7,21 @@ import { formatDate } from "@/components/admin/admin-format";
 import {
   EmptyQueue,
   QueueRow,
+  SubTabFilter,
   type LoanRow,
+  type OpsiSubTab,
   type PawnRow,
 } from "@/components/admin/admin-shared";
 import { loanPurposeLabel } from "@/lib/loan";
 import { formatRupiah } from "@/lib/money";
 import { Input } from "@/components/ui/input";
-import { cn } from "@/lib/utils";
 
 /**
  * Sub-tab antrean pinjaman: memisahkan catatan yang masih perlu ditindak dari
  * yang sudah selesai, supaya satu daftar tidak mencampur keduanya. Urutannya
  * mengikuti alur status di `LOAN_STATUS_FLOW`.
  */
-type SubTabPinjaman = {
-  id: string;
-  label: string;
-  /** Penjelasan isi sub-tab — dipakai sebagai tooltip tombol. */
-  hint: string;
-  cocok: (pinjaman: LoanRow) => boolean;
-};
-
-const SUB_TAB_PINJAMAN: readonly SubTabPinjaman[] = [
+const SUB_TAB_PINJAMAN: readonly OpsiSubTab<LoanRow>[] = [
   {
     id: "semua",
     label: "Semua",
@@ -55,6 +48,43 @@ const SUB_TAB_PINJAMAN: readonly SubTabPinjaman[] = [
     label: "Lunas",
     hint: "Kewajiban yang sudah selesai di ledger internal.",
     cocok: (pinjaman) => pinjaman.status === "lunas",
+  },
+];
+
+/** Sub-tab antrean gadai, mengikuti alur status di `PAWN_STATUS_FLOW`. */
+const SUB_TAB_GADAI: readonly OpsiSubTab<PawnRow>[] = [
+  {
+    id: "semua",
+    label: "Semua",
+    hint: "Seluruh catatan gadai, apa pun statusnya.",
+    cocok: () => true,
+  },
+  {
+    id: "belum-aktif",
+    label: "Belum aktif",
+    hint: "Diajukan, sedang dinilai, dan disetujui internal — barang belum tercatat aktif di ledger.",
+    cocok: (gadai) =>
+      gadai.status === "diajukan" ||
+      gadai.status === "sedang_dinilai" ||
+      gadai.status === "disetujui",
+  },
+  {
+    id: "berjalan",
+    label: "Berjalan",
+    hint: "Gadai aktif dan yang menunggu pembaruan status pelepasan barang.",
+    cocok: (gadai) => gadai.status === "aktif" || gadai.status === "menunggu_pelepasan",
+  },
+  {
+    id: "ditolak",
+    label: "Ditolak",
+    hint: "Pengajuan gadai yang tidak dilanjutkan.",
+    cocok: (gadai) => gadai.status === "ditolak",
+  },
+  {
+    id: "lunas",
+    label: "Lunas",
+    hint: "Kewajiban lunas dan barang sudah ditandai dilepas di ledger internal.",
+    cocok: (gadai) => gadai.status === "lunas_dilepas",
   },
 ];
 
@@ -94,36 +124,13 @@ export function LoanQueueSection({
       <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-900">
         Nominal dan status pinjaman yang ditampilkan mengikuti catatan ledger internal.
       </p>
-      <div role="group" aria-label="Sub-tab status pinjaman" className="flex flex-wrap gap-1.5">
-        {SUB_TAB_PINJAMAN.map((t) => {
-          const dipilih = t.id === aktif.id;
-          return (
-            <button
-              key={t.id}
-              type="button"
-              aria-pressed={dipilih}
-              title={t.hint}
-              onClick={() => setTabAktif(t.id)}
-              className={cn(
-                "flex h-10 items-center gap-1.5 rounded-xl border px-3 text-xs font-semibold transition-colors",
-                dipilih
-                  ? "border-primary bg-primary text-primary-foreground"
-                  : "border-slate-200 bg-white text-slate-600 hover:border-primary hover:text-primary",
-              )}
-            >
-              {t.label}
-              <span
-                className={cn(
-                  "rounded-full px-1.5 text-[10px] font-bold tabular-nums",
-                  dipilih ? "bg-white/25" : "bg-slate-100 text-slate-600",
-                )}
-              >
-                {loans.filter(t.cocok).length}
-              </span>
-            </button>
-          );
-        })}
-      </div>
+      <SubTabFilter
+        nama="Sub-tab status pinjaman"
+        opsi={SUB_TAB_PINJAMAN}
+        aktif={aktif.id}
+        onPilih={setTabAktif}
+        baris={loans}
+      />
       <div className="relative">
         <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
         <Input aria-label="Cari peminjam atau pengajuan tunai" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Cari nama, email, referensi, atau keperluan…" className="pl-9" />
@@ -162,11 +169,15 @@ export function PawnQueueSection({
   pawns: PawnRow[];
   onOpen: (p: PawnRow) => void;
 }) {
+  const [tabAktif, setTabAktif] = useState(SUB_TAB_GADAI[0].id);
   const [search, setSearch] = useState("");
+  const aktif = SUB_TAB_GADAI.find((t) => t.id === tabAktif) ?? SUB_TAB_GADAI[0];
+  const cocokAktif = aktif.cocok;
   const filteredPawns = useMemo(() => {
+    const diTab = pawns.filter(cocokAktif);
     const needle = search.trim().toLowerCase();
-    if (!needle) return pawns;
-    return pawns.filter((pawn) =>
+    if (!needle) return diTab;
+    return diTab.filter((pawn) =>
       [
         pawn.namaLengkap,
         pawn.emailPeminjam ?? "",
@@ -178,7 +189,7 @@ export function PawnQueueSection({
         pawn.nomorRekening,
       ].some((value) => value.toLowerCase().includes(needle)),
     );
-  }, [pawns, search]);
+  }, [pawns, search, cocokAktif]);
   return (
     <>
       {pawns.length === 0 ? (
@@ -194,28 +205,39 @@ export function PawnQueueSection({
         />
       ) : (
         <div className="space-y-3">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input aria-label="Cari pemohon atau pengajuan gadai" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Cari nama, email, referensi, barang, atau kategori…" className="pl-9" />
-        </div>
-        {filteredPawns.length === 0 ? (
-          <p className="rounded-2xl border border-dashed border-slate-200 bg-white px-5 py-8 text-center text-sm text-muted-foreground">Tidak ada pengajuan yang cocok dengan pencarian.</p>
-        ) : (
-        <ul className="divide-y divide-slate-200 rounded-2xl border border-slate-200 bg-white">
-          {filteredPawns.map((p) => (
-            <li key={p._id}>
-              <QueueRow
-                reference={p.nomorReferensi}
-                date={formatDate(p._creationTime)}
-                title={p.namaLengkap}
-                subtitle={`${p.emailPeminjam ?? "tanpa email"} · ${p.nomorReferensi} · ${p.deskripsiBarang} · ${p.kategori}`}
-                status={<StatusBadge status={p.status} kind="pawn" />}
-                onOpen={() => onOpen(p)}
-              />
-            </li>
-          ))}
-        </ul>
-        )}
+          <SubTabFilter
+            nama="Sub-tab status gadai"
+            opsi={SUB_TAB_GADAI}
+            aktif={aktif.id}
+            onPilih={setTabAktif}
+            baris={pawns}
+          />
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Input aria-label="Cari pemohon atau pengajuan gadai" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Cari nama, email, referensi, barang, atau kategori…" className="pl-9" />
+          </div>
+          {filteredPawns.length === 0 ? (
+            <p className="rounded-2xl border border-dashed border-slate-200 bg-white px-5 py-8 text-center text-sm text-muted-foreground">
+              {search.trim()
+                ? "Tidak ada pengajuan yang cocok dengan pencarian."
+                : `Tidak ada pengajuan gadai pada sub-tab ${aktif.label}.`}
+            </p>
+          ) : (
+            <ul className="divide-y divide-slate-200 rounded-2xl border border-slate-200 bg-white">
+              {filteredPawns.map((p) => (
+                <li key={p._id}>
+                  <QueueRow
+                    reference={p.nomorReferensi}
+                    date={formatDate(p._creationTime)}
+                    title={p.namaLengkap}
+                    subtitle={`${p.emailPeminjam ?? "tanpa email"} · ${p.nomorReferensi} · ${p.deskripsiBarang} · ${p.kategori}`}
+                    status={<StatusBadge status={p.status} kind="pawn" />}
+                    onOpen={() => onOpen(p)}
+                  />
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       )}
       <GadaiDanaPanel pawns={pawns} />

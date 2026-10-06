@@ -2,6 +2,7 @@ import { CheckCircle2, Database, Lock, ShieldAlert, ShieldCheck } from "lucide-r
 import type { ComponentType, ReactNode } from "react";
 
 import { Id } from "@/convex/_generated/dataModel";
+import { cn } from "@/lib/utils";
 
 /**
  * Tipe & komponen bersama panel admin.
@@ -83,6 +84,71 @@ export type KreditRow = {
   _id: Id<"kreditBarang">;
   status: "diajukan" | "sedang_ditinjau" | "disetujui" | "ditolak" | "didanai" | "lunas";
 };
+
+/** Satu pilihan pada baris sub-tab: label, tooltip, dan predikat penyaring. */
+export type OpsiSubTab<T> = {
+  id: string;
+  label: string;
+  /** Penjelasan isi sub-tab — dipakai sebagai tooltip tombol. */
+  hint: string;
+  cocok: (baris: T) => boolean;
+};
+
+/**
+ * Baris sub-tab status: grup tombol `aria-pressed` dengan jumlah tiap sub-tab.
+ *
+ * Sengaja bukan `role="tab"`: ini penyaring satu daftar, bukan panel terpisah,
+ * sehingga tidak butuh pasangan `tablist`/`tabpanel` yang bisa salah dipasang.
+ */
+export function SubTabFilter<T>({
+  nama,
+  opsi,
+  aktif,
+  onPilih,
+  baris,
+}: {
+  /** Label grup untuk pembaca layar. */
+  nama: string;
+  opsi: readonly OpsiSubTab<T>[];
+  /** Id sub-tab yang sedang dipilih. */
+  aktif: string;
+  onPilih: (id: string) => void;
+  /** Sumber hitungan jumlah baris per sub-tab. */
+  baris: readonly T[];
+}) {
+  return (
+    <div role="group" aria-label={nama} className="flex flex-wrap gap-1.5">
+      {opsi.map((o) => {
+        const dipilih = o.id === aktif;
+        return (
+          <button
+            key={o.id}
+            type="button"
+            aria-pressed={dipilih}
+            title={o.hint}
+            onClick={() => onPilih(o.id)}
+            className={cn(
+              "flex h-10 items-center gap-1.5 rounded-xl border px-3 text-xs font-semibold transition-colors",
+              dipilih
+                ? "border-primary bg-primary text-primary-foreground"
+                : "border-slate-200 bg-white text-slate-600 hover:border-primary hover:text-primary",
+            )}
+          >
+            {o.label}
+            <span
+              className={cn(
+                "rounded-full px-1.5 text-[10px] font-bold tabular-nums",
+                dipilih ? "bg-white/25" : "bg-slate-100 text-slate-600",
+              )}
+            >
+              {baris.filter(o.cocok).length}
+            </span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
 
 /**
  * Satu metrik label/nilai untuk kartu panel admin.
