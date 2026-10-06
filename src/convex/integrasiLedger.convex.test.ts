@@ -6,7 +6,7 @@
 import { convexTest } from "convex-test";
 import { describe, expect, it } from "vitest";
 
-import { api } from "./_generated/api";
+import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import schema from "./schema";
 import { siapkanPengguna, type KonteksUji } from "./test.helpers";
@@ -236,6 +236,125 @@ describe("hapus pinjaman lama per baris", () => {
       admin.mutation(api.integrasiLedger.hapusPinjamanLama, {
         loanIds: [loanId],
         alasan: "pendek",
+      }),
+    ).rejects.toThrow();
+  });
+});
+
+/** Tulis satu grup jurnal mentah (tanpa lewat appendJournal) untuk uji purge. */
+async function siapkanGrup(
+  t: KonteksUji,
+  groupId: string,
+  lines: Array<{ akun: string; arah: "debit" | "kredit"; jumlah: number }>,
+): Promise<void> {
+  await t.run(async (ctx) => {
+    for (const l of lines) {
+      await ctx.db.insert("ledger_entries", {
+        groupId,
+        arah: l.arah,
+        jumlah: l.jumlah,
+        akun: l.akun,
+        jenis: "platform_fee",
+        keterangan: `uji ${groupId}`,
+        aktor: "uji",
+        waktu: 1,
+      });
+    }
+  });
+}
+
+describe("pembersihan jurnal per grup (CLI sekali pakai)", () => {
+  it("menghapus grup seimbang tanpa memecah keseimbangan dan melaporkan grup tak ditemukan", async () => {
+    const t = convexTest(schema, modules);
+    await siapkanGrup(t, "J-uji-1", [
+      { akun: "platform:FEE", arah: "debit", jumlah: 20_000 },
+      { akun: "pinjaman:a", arah: "kredit", jumlah: 20_000 },
+    ]);
+    await siapkanGrup(t, "J-uji-2", [
+      { akun: "platform:FEE", arah: "debit", jumlah: 10_000 },
+      { akun: "pinjaman:b", arah: "kredit", jumlah: 10_000 },
+    ]);
+    // Grup di luar daftar wajib tidak tersentuh.
+    await siapkanGrup(t, "J-uji-lain", [
+      { akun: "platform:FEE", arah: "debit", jumlah: 5_000 },
+      { akun: "pinjaman:c", arah: "kredit", jumlah: 5_000 },
+    ]);
+
+    const hasil = await t.mutation(internal.integrasiLedger.qaPurgeJurnalGroups, {
+      groupIds: ["J-uji-1", "J-uji-2", "J-tidak-ada"],
+      alasan: "pembersihan data uji ledger internal",
+    });
+
+    expect(hasil.dihapus.map((d) => d.groupId)).toEqual(["J-uji-1", "J-uji-2"]);
+    expect(hasil.dihapus.every((d) => d.entri === 2)).toBe(true);
+    expect(hasil.entriDihapus).toBe(4);
+    expect(hasil.dilewati).toEqual([{ groupId: "J-tidak-ada", pesan: "Grup tidak ditemukan." }]);
+    expect(hasil.sebelum.entryCount).toBe(6);
+    expect(hasil.sesudah.entryCount).toBe(2);
+    expect(hasil.sesudah.seimbang).toBe(true);
+
+    const sisa = await t.run((ctx) => ctx.db.query("ledger_entries").collect());
+    expect(sisa.every((e) => e.groupId === "J-uji-lain")).toBe(true);
+  });
+
+  it("melewati grup tidak seimbang dan tidak menghapus satu sisinya", async () => {
+    const t = convexTest(schema, modules);
+    await siapkanGrup(t, "J-pincang", [
+      { akun: "platform:FEE", arah: "debit", jumlah: 1_858_333 },
+    ]);
+    await siapkanGrup(t, "J-ok", [
+      { akun: "platform:FEE", arah: "debit", jumlah: 6_000 },
+      { akun: "pinjaman:d", arah: "kredit", jumlah: 6_000 },
+    ]);
+
+    const hasil = await t.mutation(internal.integrasiLedger.qaPurgeJurnalGroups, {
+      groupIds: ["J-pincang", "J-ok"],
+      alasan: "uji penolakan grup tidak seimbang",
+    });
+
+    expect(hasil.dihapus.map((d) => d.groupId)).toEqual(["J-ok"]);
+    expect(hasil.dilewati).toHaveLength(1);
+    expect(hasil.dilewati[0]?.pesan).toContain("tidak seimbang");
+    // Grup pincang tetap utuh — tidak ada penghapusan sebagian.
+    const sisa = await t.run((ctx) => ctx.db.query("ledger_entries").collect());
+    expect(sisa.map((e) => e.groupId)).toEqual(["J-pincang"]);
+  });
+
+  it("mencatat penghapusan ke audit log", async () => {
+    const t = convexTest(schema, modules);
+
+    await siapkanGrup(t, "J-audit", [
+      { akun: "platform:CASH", arah: "debit", jumlah: 1_000_000 },
+      { akun: "pinjaman:e", arah: "kredit", jumlah: 1_000_000 },
+    ]);
+    await t.mutation(internal.integrasiLedger.qaPurgeJurnalGroups, {
+      groupIds: ["J-audit"],
+      alasan: "pembersihan data uji ledger internal",
+    });
+
+    // Catatan: `internalMutation` hanya terekspos lewat CLI deployment —
+    // convex-test memanggil semua fungsi lewat registry modul, jadi tidak bisa
+    // membuktikan ketiadaan jalur klien di sini; yang diuji adalah jejaknya.
+    const log = await t.run((ctx) => ctx.db.query("auditLog").collect());
+    const baris = log.find((l) => l.aksi === "ledger_purge_grup");
+    expect(baris).toBeDefined();
+    expect(baris?.aktorLabel).toBe("cli:qaPurgeJurnalGroups");
+    expect(baris?.detail).toContain("pembersihan data uji ledger internal");
+    expect(baris?.detail).toContain("entri 2 -> 0");
+  });
+
+  it("menolak alasan terlalu pendek dan daftar grup kosong", async () => {
+    const t = convexTest(schema, modules);
+    await expect(
+      t.mutation(internal.integrasiLedger.qaPurgeJurnalGroups, {
+        groupIds: ["J-x"],
+        alasan: "pendek",
+      }),
+    ).rejects.toThrow();
+    await expect(
+      t.mutation(internal.integrasiLedger.qaPurgeJurnalGroups, {
+        groupIds: [],
+        alasan: "pembersihan data uji ledger internal",
       }),
     ).rejects.toThrow();
   });

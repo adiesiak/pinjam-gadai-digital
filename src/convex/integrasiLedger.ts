@@ -1,9 +1,9 @@
-import { query, mutation, QueryCtx } from "./_generated/server";
+import { query, mutation, internalMutation, QueryCtx } from "./_generated/server";
 import { v } from "convex/values";
 import type { Id } from "./_generated/dataModel";
 
 import { requireAdminSession } from "./adminAuthz";
-import { appendJournal } from "./ledger";
+import { appendJournal, ledgerTotals } from "./ledger";
 import { audit, getConfig } from "./system";
 
 /**
@@ -286,5 +286,85 @@ export const hapusPinjamanLama = mutation({
     }
 
     return { dihapus, terlewat };
+  },
+});
+
+/**
+ * PEMELIHARAAN LEDGER — HANYA VIA CLI CONVEX (internalMutation).
+ *
+ * Menghapus entri `ledger_entries` per `groupId` untuk membersihkan data uji /
+ * seed. Ledger normalnya append-only (Rule 5.1) dan tidak satu pun jalur
+ * aplikasi boleh menghapusnya; karena itu fungsi ini sengaja `internalMutation`
+ * — tidak bisa dipanggil klien mana pun, hanya dari deployment CLI:
+ *
+ *   bunx convex run integrasiLedger:qaPurgeJurnalGroups \
+ *     '{"groupIds":["J-..."],"alasan":"..."}'
+ *
+ * Aturan yang ditegakkan:
+ *  - satu grup hanya dihapus bila SEIMBANG (Σ debit = Σ kredit) — menghapus
+ *    satu sisi jurnal akan memecah ringkasan ledger (status tidak seimbang);
+ *  - grup yang tidak ditemukan / tidak seimbang dilaporkan di `dilewati`,
+ *    tidak pernah diabaikan diam-diam;
+ *  - alasan 10–500 karakter wajib, hasilnya selalu ditulis ke `auditLog`.
+ */
+export const qaPurgeJurnalGroups = internalMutation({
+  args: { groupIds: v.array(v.string()), alasan: v.string() },
+  handler: async (ctx, args) => {
+    const alasan = args.alasan.trim();
+    if (alasan.length < 10 || alasan.length > 500) {
+      throw new Error("Alasan wajib 10–500 karakter.");
+    }
+    if (args.groupIds.length === 0) {
+      throw new Error("Kirim minimal satu groupId.");
+    }
+
+    const sebelum = await ledgerTotals(ctx);
+    const dihapus: Array<{ groupId: string; entri: number; keterangan: string }> = [];
+    const dilewati: Array<{ groupId: string; pesan: string }> = [];
+
+    for (const groupId of args.groupIds) {
+      const entries = await ctx.db
+        .query("ledger_entries")
+        .withIndex("by_group", (q) => q.eq("groupId", groupId))
+        .collect();
+      if (entries.length === 0) {
+        dilewati.push({ groupId, pesan: "Grup tidak ditemukan." });
+        continue;
+      }
+      let debit = 0;
+      let kredit = 0;
+      for (const e of entries) {
+        if (e.arah === "debit") debit += e.jumlah;
+        else kredit += e.jumlah;
+      }
+      if (debit !== kredit) {
+        dilewati.push({
+          groupId,
+          pesan: `Grup tidak seimbang (debit ${debit} != kredit ${kredit}) — tidak dihapus.`,
+        });
+        continue;
+      }
+      for (const e of entries) await ctx.db.delete(e._id);
+      dihapus.push({ groupId, entri: entries.length, keterangan: entries[0]?.keterangan ?? "" });
+    }
+
+    const sesudah = await ledgerTotals(ctx);
+    await audit(
+      ctx,
+      undefined,
+      "cli:qaPurgeJurnalGroups",
+      "ledger_purge_grup",
+      `${dihapus.length} grup`,
+      `${alasan}; entri ${sebelum.entryCount} -> ${sesudah.entryCount}; ` +
+        `grup dilewati ${dilewati.length}; seimbang ${sebelum.seimbang} -> ${sesudah.seimbang}.`,
+    );
+
+    return {
+      dihapus,
+      dilewati,
+      entriDihapus: sebelum.entryCount - sesudah.entryCount,
+      sebelum,
+      sesudah,
+    };
   },
 });
