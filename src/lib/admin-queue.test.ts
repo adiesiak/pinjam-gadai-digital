@@ -1,0 +1,380 @@
+/**
+ * Uji logika murni Meja Kerja Admin.
+ * Run: bun src/lib/admin-queue.test.ts
+ *
+ * Berkas ini tidak menyentuh React, Convex, atau DOM — sama seperti uji lib
+ * lain di repo ini, ia hanya memeriksa angka dan keputusan.
+ */
+import {
+  GRUP_NAV,
+  NILAI_MODUL_ADMIN,
+  grupDariModul,
+  jumlahPerhatianLokasi,
+  jumlahPerluKeputusan,
+  ringkasGrup,
+  saringModul,
+  type ItemRingkas,
+  type NilaiModulAdmin,
+} from "./admin-queue";
+
+let passed = 0;
+let failed = 0;
+function eq(actual: unknown, expected: unknown, label: string) {
+  if (actual === expected) passed += 1;
+  else {
+    failed += 1;
+    console.error(
+      `FAIL ${label}: expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`,
+    );
+  }
+}
+
+// ===== ringkasGrup =====
+
+// Tanpa apa-apa: tidak ada lencana sama sekali.
+eq(ringkasGrup([]), null, "grup kosong → null");
+
+// Lencana nol / null tidak dihitung sebagai pekerjaan.
+eq(
+  ringkasGrup([
+    { badge: "0", hitung: "menunggu" },
+    { badge: null, hitung: "tidak" },
+  ]),
+  null,
+  "semua nol → null (bukan \"0\")",
+);
+
+// Lencana non-angka (mis. "OK") diabaikan, bukan jadi NaN.
+eq(
+  ringkasGrup([
+    { badge: "OK", hitung: "tidak" },
+    { badge: null, hitung: "tidak" },
+  ]),
+  null,
+  "lencana \"OK\" diabaikan",
+);
+
+// Menjumlahkan yang benar-benar menunggu.
+eq(
+  ringkasGrup([
+    { badge: "2", hitung: "menunggu" },
+    { badge: "3", hitung: "menunggu" },
+    { badge: "OK", hitung: "tidak" },
+  ]),
+  "5",
+  "menjumlahkan semua yang menunggu",
+);
+
+// R3: lencana informasi TIDAK ikut dijumlahkan.
+// Grup "Nasabah & penyedia dana" lama menampilkan "alokasi" = jumlah pinjaman
+// yang sudah disetujui, sehingga grup tampak penuh pekerjaan padahal tidak.
+eq(
+  ringkasGrup([
+    { badge: "7", hitung: "info" },
+    { badge: "2", hitung: "menunggu" },
+  ]),
+  "2",
+  "R3: lencana info tidak dijumlahkan",
+);
+
+// Hanya lencana info → tidak ada ringkasan angka.
+eq(ringkasGrup([{ badge: "7", hitung: "info" }]), null, "hanya info → null");
+
+// "!" selalu menang, walau ada angka menunggu.
+eq(
+  ringkasGrup([
+    { badge: "9", hitung: "menunggu" },
+    { badge: "!", hitung: "tidak" },
+  ]),
+  "!",
+  "\"!\" menang atas angka",
+);
+
+// "!" juga menang bila hanya ada satu item yang bukan hitungan.
+eq(
+  ringkasGrup([{ badge: "!", hitung: "tidak" }]),
+  "!",
+  "\"!\" sendirian tetap tampil",
+);
+
+// Lencana "menunggu" yang bukan angka tidak menghasilkan NaN.
+eq(
+  ringkasGrup([{ badge: "segera", hitung: "menunggu" }]),
+  null,
+  "menunggu non-angka tidak jadi NaN",
+);
+
+// Nilai menunggu yang besarnya nol di antara yang lain.
+eq(
+  ringkasGrup([
+    { badge: "0", hitung: "menunggu" },
+    { badge: "4", hitung: "menunggu" },
+  ]),
+  "4",
+  "nol di antara angka lain",
+);
+
+// ===== jumlahPerluKeputusan =====
+
+const TANPA_BARIS = { loans: [], pawns: [], kredit: [] };
+eq(jumlahPerluKeputusan(TANPA_BARIS), 0, "tanpa pengajuan → 0");
+
+// Pinjaman: `diajukan` DAN `sedang_direview` sama-sama menunggu keputusan.
+eq(
+  jumlahPerluKeputusan({
+    loans: [
+      { status: "diajukan" },
+      { status: "sedang_direview" },
+      { status: "disetujui" },
+      { status: "didanai" },
+      { status: "lunas" },
+      { status: "ditolak" },
+    ],
+    pawns: [],
+    kredit: [],
+  }),
+  2,
+  "pinjaman: diajukan + sedang_direview",
+);
+
+// Gadai: `diajukan` + `sedang_dinilai`.
+eq(
+  jumlahPerluKeputusan({
+    loans: [],
+    pawns: [
+      { status: "diajukan" },
+      { status: "sedang_dinilai" },
+      { status: "disetujui" },
+      { status: "aktif" },
+      { status: "menunggu_pelepasan" },
+      { status: "lunas_dilepas" },
+      { status: "ditolak" },
+    ],
+    kredit: [],
+  }),
+  2,
+  "gadai: diajukan + sedang_dinilai",
+);
+
+// Kredit: `diajukan` + `sedang_ditinjau`.
+eq(
+  jumlahPerluKeputusan({
+    loans: [],
+    pawns: [],
+    kredit: [
+      { status: "diajukan" },
+      { status: "sedang_ditinjau" },
+      { status: "disetujui" },
+      { status: "didanai" },
+      { status: "lunas" },
+      { status: "ditolak" },
+    ],
+  }),
+  2,
+  "kredit: diajukan + sedang_ditinjau",
+);
+
+// Total gabungan tiga produk.
+eq(
+  jumlahPerluKeputusan({
+    loans: [{ status: "diajukan" }, { status: "sedang_direview" }],
+    pawns: [{ status: "diajukan" }],
+    kredit: [{ status: "sedang_ditinjau" }, { status: "sedang_ditinjau" }],
+  }),
+  5,
+  "gabungan tiga produk",
+);
+
+// Status milik produk lain tidak ikut terhitung (tidak ada silang produk).
+eq(
+  jumlahPerluKeputusan({
+    loans: [{ status: "sedang_dinilai" }, { status: "sedang_ditinjau" }],
+    pawns: [{ status: "sedang_direview" }],
+    kredit: [{ status: "sedang_dinilai" }],
+  }),
+  0,
+  "status produk lain tidak terhitung",
+);
+
+// Status asing diabaikan, bukan bikin galat.
+eq(
+  jumlahPerluKeputusan({
+    loans: [{ status: "entah" }, { status: "" }],
+    pawns: [],
+    kredit: [],
+  }),
+  0,
+  "status asing diabaikan",
+);
+
+// ===== jumlahPerhatianLokasi =====
+
+eq(
+  jumlahPerhatianLokasi({
+    gpsMismatch: 0,
+    titikDicurigai: 0,
+    peringatanLokasiAktif: 0,
+    pinjamanTanpaLokasi: 0,
+  }),
+  0,
+  "lokasi: semua nol → 0",
+);
+
+eq(
+  jumlahPerhatianLokasi({
+    gpsMismatch: 3,
+    titikDicurigai: 4,
+    peringatanLokasiAktif: 5,
+    pinjamanTanpaLokasi: 6,
+  }),
+  18,
+  "lokasi: menjumlah keempat sumber",
+);
+
+// ===== saringModul =====
+
+type MenuUji = {
+  value: string;
+  label: string;
+  hint: string;
+  grup?: string;
+  ikon: string;
+};
+
+const MENU_UJI: MenuUji[] = [
+  {
+    value: "pinjaman",
+    label: "Pinjaman",
+    hint: "Tinjau dan putuskan pengajuan pinjaman tunai.",
+    grup: "Antrean",
+    ikon: "clipboard",
+  },
+  {
+    value: "gadai",
+    label: "Gadai",
+    hint: "Nilai barang jaminan.",
+    grup: "Antrean",
+    ikon: "package",
+  },
+  {
+    value: "loglogin",
+    label: "Keamanan Login",
+    hint: "Riwayat login dan status verifikasi TOTP.",
+    grup: "Sistem",
+    ikon: "shield",
+  },
+];
+
+// Kueri kosong → seluruh daftar, sebagai array baru (sheet belum diketik).
+const semua = saringModul(MENU_UJI, "");
+eq(semua.length, MENU_UJI.length, "kueri kosong → semua modul");
+eq(semua !== MENU_UJI, true, "kueri kosong mengembalikan array baru");
+
+// Kueri spasi saja sama dengan kosong.
+eq(saringModul(MENU_UJI, "   ").length, MENU_UJI.length, "kueri spasi → semua");
+
+// Cocok pada label, tanpa peduli huruf besar/kecil.
+eq(saringModul(MENU_UJI, "GADAI")[0]?.value, "gadai", "cocok label huruf besar");
+eq(saringModul(MENU_UJI, "gadai")[0]?.value, "gadai", "cocok label");
+
+// Cocok sebagian di tengah kata.
+eq(saringModul(MENU_UJI, "njama")[0]?.value, "pinjaman", "cocok sebagian label");
+
+// Cocok pada nama grup.
+// Catatan: `eq` memakai `===`, jadi bandingkan hasil map sebagai string.
+eq(
+  saringModul(MENU_UJI, "sistem")
+    .map((m) => m.value)
+    .join(","),
+  "loglogin",
+  "cocok nama grup",
+);
+
+// Cocok pada hint (bukan label).
+eq(saringModul(MENU_UJI, "jaminan")[0]?.value, "gadai", "cocok hint");
+
+// Kueri dipangkas di ujung.
+eq(saringModul(MENU_UJI, "  totp  ")[0]?.value, "loglogin", "kueri dipangkas");
+
+// Tidak ada yang cocok → array kosong, bukan galat.
+eq(saringModul(MENU_UJI, "zzz").length, 0, "tanpa hasil → kosong");
+
+// Field tambahan (ikon) tetap ikut — pemanggil tidak kehilangan tipe.
+eq(saringModul(MENU_UJI, "gadai")[0]?.ikon, "package", "field tambahan ikut");
+
+// Tidak mengubah daftar asal.
+saringModul(MENU_UJI, "gadai");
+eq(MENU_UJI.length, 3, "daftar asal tidak diubah");
+
+// Item tanpa `grup` tetap bisa dicari (grup opsional).
+eq(
+  saringModul([{ value: "x", label: "Tanpa Grup", hint: "apa saja" }], "tanpa")[0]
+    ?.value,
+  "x",
+  "item tanpa grup tetap bisa dicari",
+);
+
+// ===== Peta modul & grup (dokumen desain §4) =====
+
+eq(NILAI_MODUL_ADMIN.length, 18, "18 nilai modul");
+eq(
+  new Set(NILAI_MODUL_ADMIN).size,
+  NILAI_MODUL_ADMIN.length,
+  "nilai modul unik",
+);
+
+// Bijection: setiap modul muncul tepat sekali di GRUP_NAV — tidak ada yang
+// hilang dan tidak ada yang dobel. Inilah uji kelengkapan navigasi (T3).
+const dariGrup = GRUP_NAV.flatMap((grup) => [...grup.modul]);
+eq(dariGrup.length, NILAI_MODUL_ADMIN.length, "GRUP_NAV memuat semua modul sekali");
+eq(new Set(dariGrup).size, dariGrup.length, "tidak ada modul dobel di GRUP_NAV");
+for (const modul of NILAI_MODUL_ADMIN) {
+  eq(dariGrup.includes(modul), true, `modul ${modul} ada di GRUP_NAV`);
+}
+
+// Empat tab bawah, sesuai desain.
+eq(
+  GRUP_NAV.map((g) => g.id).join(","),
+  "hari-ini,antrean,nasabah,sistem",
+  "empat tab bawah berurutan",
+);
+eq(
+  GRUP_NAV.map((g) => g.modul.length).join(","),
+  "1,6,3,8",
+  "jumlah modul tiap tab (1+6+3+8 = 18)",
+);
+eq(
+  GRUP_NAV.reduce((total, g) => total + g.modul.length, 0),
+  NILAI_MODUL_ADMIN.length,
+  "total modul GRUP_NAV = 18",
+);
+
+// Modul default tiap grup harus salah satu anggotanya.
+for (const grup of GRUP_NAV) {
+  eq(
+    grup.modul.includes(grup.default),
+    true,
+    `default grup ${grup.id} ada di anggotanya`,
+  );
+}
+
+// grupDariModul bolak-balik untuk seluruh modul.
+for (const grup of GRUP_NAV) {
+  for (const modul of grup.modul) {
+    eq(grupDariModul(modul), grup.id, `grupDariModul(${modul})`);
+  }
+}
+
+// Modul tak terdaftar tidak ditemukan (nilai asing disuntik sengaja).
+eq(
+  grupDariModul("entah" as NilaiModulAdmin),
+  undefined,
+  "modul tak terdaftar → undefined",
+);
+
+// `ItemRingkas` yang dipakai UI harus lolos tanpa `as`.
+const contohItem: ItemRingkas = { badge: "1", hitung: "menunggu" };
+eq(ringkasGrup([contohItem]), "1", "ItemRingkas kompatibel");
+
+console.log(`admin-queue.test: ${passed} lulus, ${failed} gagal`);
+if (failed > 0) process.exit(1);
