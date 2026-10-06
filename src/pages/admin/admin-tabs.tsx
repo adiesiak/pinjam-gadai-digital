@@ -1,4 +1,4 @@
-import { Fragment, useState } from "react";
+import { useState, type ReactNode } from "react";
 import {
   BellRing,
   ChevronDown,
@@ -36,7 +36,7 @@ import {
   type LoanRow,
   type PawnRow,
 } from "@/components/admin/admin-shared";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 
 import { LoanQueueSection, PawnQueueSection } from "./queue-views";
 import { type AdminStatsData } from "./admin-shell";
@@ -69,9 +69,11 @@ type LedgerSummary = {
   pendapatanPlatform: number;
 };
 
-/** Kelas bersama untuk tombol menu (sidebar desktop). */
-const KELAS_TRIGGER =
-  "h-10 w-full justify-start gap-2.5 rounded-xl px-3 text-left text-xs font-medium text-navy shadow-none transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 data-[state=active]:gradient-primary data-[state=active]:text-white data-[state=active]:shadow-none data-[state=active]:hover:bg-none lg:min-h-10 lg:text-sm";
+/** Kelas bersama tombol menu di sidebar (bagian yang tidak berubah saat aktif). */
+const KELAS_ITEM =
+  "flex h-10 w-full items-center gap-2.5 rounded-xl px-3 text-left text-xs font-medium shadow-none transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 lg:min-h-10 lg:text-sm";
+const KELAS_ITEM_IDLE = "text-navy hover:bg-slate-50";
+const KELAS_ITEM_AKTIF = "gradient-primary text-white";
 
 /** Lencana angka seragam: netral, "OK" hijau, "!" merah berdenyut, lain kuning. */
 function LencanaTab({ badge }: { badge: string | null }) {
@@ -89,6 +91,17 @@ function LencanaTab({ badge }: { badge: string | null }) {
       {badge}
     </span>
   );
+}
+
+/** Lencana ringkas satu grup saat tertutup: jumlah item menunggu, atau "!" bila ada
+ *  item yang perlu perhatian (mis. ledger tidak seimbang). */
+function ringkasGrup(items: AdminTabItem[]): string | null {
+  if (items.some((item) => item.badge === "!")) return "!";
+  const jumlah = items.reduce((total, item) => {
+    const angka = Number(item.badge);
+    return Number.isFinite(angka) ? total + angka : total;
+  }, 0);
+  return jumlah > 0 ? `${jumlah}` : null;
 }
 
 /** Tab navigasi + seluruh konten tab panel admin. */
@@ -260,15 +273,44 @@ export function AdminTabs({
     },
   ];
 
+  /** Grup sidebar yang sedang dibuka — bisa dibuka-tutup bebas oleh admin. */
+  const [grupTerbuka, setGrupTerbuka] = useState<string[]>([menu[0].judul]);
+
+  /** Pindah menu sekaligus pastikan grupnya terbuka, agar item aktif selalu terlihat
+   *  di sidebar (mis. setelah memilih menu lewat select di layar kecil). */
+  const pilihMenu = (value: string) => {
+    setActiveTab(value);
+    const grup = menu.find((g) => g.items.some((item) => item.value === value));
+    if (grup) setGrupTerbuka((sebelumnya) => (sebelumnya.includes(grup.judul) ? sebelumnya : [...sebelumnya, grup.judul]));
+  };
+
   const semuaItem = menu.flatMap((g) => g.items);
   const aktif = semuaItem.find((i) => i.value === activeTab) ?? semuaItem[0];
 
+  /** Isi setiap menu — satu entri per nilai tab. */
+  const panel: Record<string, ReactNode> = {
+    pinjaman: <LoanQueueSection loans={overview.loans} onOpen={onOpenLoan} />,
+    gadai: <PawnQueueSection pawns={overview.pawns} onOpen={onOpenPawn} />,
+    kredit: <KreditQueuePanel />,
+    alokasi: <LoanAllocationQueueTab onOpen={onOpenLoan} />,
+    lokasi: <LiveLocationMap />,
+    dpd: <DpdTab />,
+    ledger: <LedgerTab />,
+    lelang: <LelangTab />,
+    plafon: <PlafonPanel />,
+    akses: <AksesPenyediaDanaPanel />,
+    pengumuman: <AnnouncementCms />,
+    whatsapp: <WhatsAppPanel />,
+    config: <SystemConfigPanel />,
+    template: <WebsiteTemplatePanel />,
+    loglogin: <LoginSecurityPanel onOpenSetup={onOpenSetup} />,
+    audit: <AuditTrailPanel />,
+    backup: <BackupPanel />,
+  };
+
   return (
-    <Tabs
-      value={activeTab}
-      onValueChange={setActiveTab}
-      className="mt-4 flex min-w-0 flex-col gap-4 sm:mt-6 sm:gap-5 lg:flex-row lg:items-start lg:gap-6"
-    >
+    <div className="mt-4 flex min-w-0 flex-col gap-4 sm:mt-6 sm:gap-5 lg:flex-row lg:items-start lg:gap-6">
+      {/* Layar kecil: pilih menu lewat select berkelompok, karena sidebar terlalu sempit. */}
       <div className="animate-masuk sticky top-16 z-30 -mx-3 border-y border-slate-200 bg-white/95 px-3 py-2.5 backdrop-blur sm:-mx-6 sm:px-6 lg:hidden">
         <label htmlFor="admin-tab-select" className="mb-1.5 block text-[11px] font-medium text-muted-foreground">
           Menu operasional
@@ -277,7 +319,7 @@ export function AdminTabs({
           <select
             id="admin-tab-select"
             value={activeTab}
-            onChange={(event) => setActiveTab(event.target.value)}
+            onChange={(event) => pilihMenu(event.target.value)}
             aria-label="Menu operasional admin"
             className="h-11 w-full appearance-none rounded-xl border border-slate-200 bg-white px-3 pr-10 text-sm font-semibold text-navy outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
           >
@@ -296,32 +338,54 @@ export function AdminTabs({
         </div>
       </div>
 
-      <TabsList
+      {/* Desktop: sidebar accordion — setiap grup menu bisa dibuka-tutup sendiri. */}
+      <nav
         aria-label="Navigasi panel admin"
-        className="animate-masuk hidden lg:sticky lg:top-20 lg:z-30 lg:flex lg:h-auto lg:w-64 lg:shrink-0 lg:flex-col lg:items-stretch lg:gap-1 lg:self-start lg:rounded-2xl lg:border lg:border-slate-200 lg:bg-white lg:p-2"
+        className="animate-masuk hidden lg:sticky lg:top-20 lg:z-30 lg:block lg:max-h-[calc(100vh-6rem)] lg:w-64 lg:shrink-0 lg:self-start lg:overflow-y-auto lg:overscroll-contain lg:rounded-2xl lg:border lg:border-slate-200 lg:bg-white lg:p-2"
       >
-        {menu.map((grup, indeks) => (
-          <Fragment key={grup.judul}>
-            <p
-              role="presentation"
-              className={`px-3 pb-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground ${
-                indeks === 0 ? "pt-0.5" : "pt-3"
-              }`}
+        <Accordion
+          type="multiple"
+          value={grupTerbuka}
+          onValueChange={setGrupTerbuka}
+          className="flex flex-col"
+        >
+          {menu.map((grup) => (
+            <AccordionItem
+              key={grup.judul}
+              value={grup.judul}
+              className="border-b border-slate-100 last:border-b-0"
             >
-              {grup.judul}
-            </p>
-            {grup.items.map(({ value, label, hint, badge, Icon }) => (
-              <TabsTrigger key={value} value={value} title={hint} className={KELAS_TRIGGER}>
-                <Icon className="size-3.5 shrink-0" />
-                <span className="min-w-0 flex-1 whitespace-normal break-words text-left leading-5">
-                  {label}
-                </span>
-                <LencanaTab badge={badge} />
-              </TabsTrigger>
-            ))}
-          </Fragment>
-        ))}
-      </TabsList>
+              <AccordionTrigger className="items-center gap-2 rounded-lg px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground hover:text-navy hover:no-underline data-[state=open]:text-navy [&>svg]:size-3.5">
+                <span className="flex-1 text-left">{grup.judul}</span>
+                <LencanaTab badge={ringkasGrup(grup.items)} />
+              </AccordionTrigger>
+              <AccordionContent className="pb-1.5">
+                <div className="flex flex-col gap-1">
+                  {grup.items.map(({ value, label, hint, badge, Icon }) => {
+                    const iniAktif = value === activeTab;
+                    return (
+                      <button
+                        key={value}
+                        type="button"
+                        onClick={() => pilihMenu(value)}
+                        title={hint}
+                        aria-current={iniAktif ? "page" : undefined}
+                        className={`${KELAS_ITEM} ${iniAktif ? KELAS_ITEM_AKTIF : KELAS_ITEM_IDLE}`}
+                      >
+                        <Icon className="size-3.5 shrink-0" />
+                        <span className="min-w-0 flex-1 whitespace-normal break-words text-left leading-5">
+                          {label}
+                        </span>
+                        <LencanaTab badge={badge} />
+                      </button>
+                    );
+                  })}
+                </div>
+              </AccordionContent>
+            </AccordionItem>
+          ))}
+        </Accordion>
+      </nav>
 
       <div className="min-w-0 flex-1 space-y-4 sm:space-y-5">
         {aktif && (
@@ -336,74 +400,10 @@ export function AdminTabs({
           </div>
         )}
 
-        <TabsContent value="pinjaman" className="min-w-0 animate-masuk">
-          <LoanQueueSection loans={overview.loans} onOpen={onOpenLoan} />
-        </TabsContent>
-
-        <TabsContent value="gadai" className="min-w-0 animate-masuk">
-          <PawnQueueSection pawns={overview.pawns} onOpen={onOpenPawn} />
-        </TabsContent>
-
-        <TabsContent value="kredit" className="min-w-0 animate-masuk">
-          <KreditQueuePanel />
-        </TabsContent>
-
-        <TabsContent value="pengumuman" className="min-w-0 animate-masuk">
-          <AnnouncementCms />
-        </TabsContent>
-
-        <TabsContent value="whatsapp" className="min-w-0 animate-masuk">
-          <WhatsAppPanel />
-        </TabsContent>
-
-        <TabsContent value="lokasi" className="min-w-0 animate-masuk">
-          <LiveLocationMap />
-        </TabsContent>
-
-        <TabsContent value="alokasi" className="min-w-0 animate-masuk">
-          <LoanAllocationQueueTab onOpen={onOpenLoan} />
-        </TabsContent>
-
-        <TabsContent value="dpd" className="min-w-0 animate-masuk">
-          <DpdTab />
-        </TabsContent>
-
-        <TabsContent value="lelang" className="min-w-0 animate-masuk">
-          <LelangTab />
-        </TabsContent>
-
-        <TabsContent value="ledger" className="min-w-0 animate-masuk">
-          <LedgerTab />
-        </TabsContent>
-
-        <TabsContent value="backup" className="min-w-0 animate-masuk">
-          <BackupPanel />
-        </TabsContent>
-
-        <TabsContent value="template" className="min-w-0 animate-masuk">
-          <WebsiteTemplatePanel />
-        </TabsContent>
-
-        <TabsContent value="config" className="min-w-0 animate-masuk">
-          <SystemConfigPanel />
-        </TabsContent>
-
-        <TabsContent value="plafon" className="min-w-0 animate-masuk">
-          <PlafonPanel />
-        </TabsContent>
-
-        <TabsContent value="akses" className="min-w-0 animate-masuk">
-          <AksesPenyediaDanaPanel />
-        </TabsContent>
-
-        <TabsContent value="audit" className="min-w-0 animate-masuk">
-          <AuditTrailPanel />
-        </TabsContent>
-
-        <TabsContent value="loglogin" className="min-w-0 animate-masuk">
-          <LoginSecurityPanel onOpenSetup={onOpenSetup} />
-        </TabsContent>
+        <div key={activeTab} role="region" aria-label={aktif?.label} className="min-w-0 animate-masuk">
+          {panel[activeTab]}
+        </div>
       </div>
-    </Tabs>
+    </div>
   );
 }
