@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from "react";
 import {
   BellRing,
   ClipboardList,
@@ -304,6 +304,40 @@ export function AdminTabs({
     if (grup) setGrupTerbuka((sebelumnya) => (sebelumnya.includes(grup.judul) ? sebelumnya : [...sebelumnya, grup.judul]));
   };
 
+  /**
+   * R5 — roving tabindex: panah kanan/bawah ke menu berikutnya, panah kiri/atas
+   * ke sebelumnya, plus Home/End di kelompok yang sama. Fokus lalu dipindah ke
+   * tombol tujuan supaya perpindahan keyboard terasa nyata.
+   *
+   * Satu handler biasa yang dipakai tiap tombol — bukan hook atau `useRef` per
+   * item, karena memanggil hook di dalam `.map()` melanggar aturan hooks.
+   */
+  const tanganiTombol = (
+    e: ReactKeyboardEvent<HTMLButtonElement>,
+    grup: AdminTabGroup,
+    value: NilaiModulAdmin,
+  ) => {
+    const daftar = grup.items.map((i) => i.value);
+    const sekarang = daftar.indexOf(value);
+    if (sekarang === -1) return;
+
+    let selanjutnya: NilaiModulAdmin | null = null;
+    if (e.key === "ArrowRight" || e.key === "ArrowDown") {
+      selanjutnya = daftar[(sekarang + 1) % daftar.length] ?? null;
+    } else if (e.key === "ArrowLeft" || e.key === "ArrowUp") {
+      selanjutnya = daftar[(sekarang - 1 + daftar.length) % daftar.length] ?? null;
+    } else if (e.key === "Home") {
+      selanjutnya = daftar[0] ?? null;
+    } else if (e.key === "End") {
+      selanjutnya = daftar[daftar.length - 1] ?? null;
+    }
+    if (selanjutnya === null || selanjutnya === value) return;
+
+    e.preventDefault();
+    pilihMenu(selanjutnya);
+    document.getElementById(`tab-${selanjutnya}`)?.focus();
+  };
+
   const semuaItem = menu.flatMap((g) => g.items);
   const aktif = semuaItem.find((i) => i.value === activeTab) ?? semuaItem[0];
 
@@ -366,233 +400,36 @@ export function AdminTabs({
                 <LencanaTab badge={ringkasGrup(grup.items)} />
               </AccordionTrigger>
               <AccordionContent className="pb-1.5">
-                <div className="flex flex-col gap-1">                  {grup.items.map(({ value, label, hint, badge, Icon }) => {
+                <div className="flex flex-col gap-1">
+                  {grup.items.map(({ value, label, hint, badge, Icon }) => {
                     const iniAktif = value === activeTab;
-                    const tombolId = `tab-${grup.judul}-${value}`;
-                    const tabindex = iniAktif ? 0 : -1;
-                    const ref = useRef<HTMLButtonElement | null>(null);
-                    // Roving tabindex (R5): tombol aktif istana-0, sisanya -1.
-                    // Panah kiri/kanan/up/down (juga Home/End) berpindah antar
-                    // item kelompok yang sama. Keyboard tetap rajut.
-                    useEffect(() => {
-                      const tombol = ref.current;
-                      if (!tombol) return;
-                      const handler = (e: KeyboardEvent) => {
-                        const key = e.key;
-                        const list = grup.items.map((i) => i.value);
-                        const now = list.indexOf(value);
-                        let next: string | null = null;
-                        if (key === "ArrowRight" || key === "ArrowDown") {
-                          next = list[(now + 1) % list.length];
-                        } else if (key === "ArrowLeft" || key === "ArrowUp") {
-                          next = list[(now - 1 + list.length) % list.length];
-                        } else if (key === "Home") {
-                          next = list[0];
-                        } else if (key === "End") {
-                          next = list[list.length - 1];
-                        }
-                        if (next !== null && next !== value) {
-                          e.preventDefault();
-                          pilihMenu(next);
-                          tombol.parentElement?.querySelector(
-                            `#tab-${grup.judul}-${next}`
-                          )?.focus();
-                        }
-                      };
-                      tombol.addEventListener("keydown", handler, true);
-                      return () => {
-                        tombol.removeEventListener("keydown", handler, true);
-                      };
-                    }, [pilihMenu, value, grup]);
                     return (
                       <button
                         key={value}
                         type="button"
-                        id={tombolId}
-                      ref={useRovingTabButton(grup, value, pilihMenu)}
-                      onClick={() => pilihMenu(value)}
+                        id={`tab-${value}`}
+                        onClick={() => pilihMenu(value)}
+                        onKeyDown={(e) => tanganiTombol(e, grup, value)}
                         title={hint}
                         aria-current={iniAktif ? "page" : undefined}
-                        aria-controls={`panel-${grup.judul}-${value}`}
-                        tabIndex={tabindex}
+                        // R4: tombol menu dan panelnya kini saling menunjuk, jadi
+                        // pembaca layar tahu tombol mana yang mengendalikan isi mana.
+                        aria-controls={`panel-${value}`}
+                        // R5: hanya menu aktif yang masuk urutan Tab; sisanya
+                        // dijangkau lewat tombol panah (roving tabindex).
+                        tabIndex={iniAktif ? 0 : -1}
                         className={`${KELAS_ITEM} ${iniAktif ? KELAS_ITEM_AKTIF : KELAS_ITEM_IDLE}`}
                       >
                         <Icon className="size-3.5 shrink-0" />
                         <span className="min-w-0 flex-1 whitespace-normal break-words text-left leading-5">
                           {label}
                         </span>
-                    <LencanaTab badge={badge} />
-                    </button>
+                        <LencanaTab badge={badge} />
+                      </button>
+                    );
                   })}
                 </div>
-              </nav>
-
-              <div className="min-w-0 flex-1 space-y-4 sm:space-y-5">
-                {aktif && (
-                  <div className="animate-masuk flex items-start gap-3 rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
-                    <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                      <aktif.Icon className="size-4" />
-                    </span>
-                    <div className="min-w-0">
-                      <p className="text-sm font-semibold text-navy">{aktif.label}</p>
-                      <p className="mt-0.5 text-xs leading-5 text-muted-foreground">{aktif.hint}</p>
-                    </div>
-                  </div>
-                )}
-
-                <div key={activeTab} id={`panel-${aktif?.value}`} role="region" aria-label={aktif?.label} aria-labelledby={aktif ? `tab-${aktif?.value}` : undefined} className="min-w-0 animate-masuk">
-                  {panel[activeTab]}
-                </div>
-              </div>
-            </div>
-          )
-        )}
-      </div>
-    </div>
-  );
-}
-
-// ── Roving tabindex: mouse finger dari item kelompok yang sama ──
-// (R5). Tombol aktif istana-0, sisanya -1; panah kiri/kanan/up/down
-// berpindah antar item tersebut. Keyboard tetap berjalan seperti biasa.
-export function useRovingTabs(items: string[], active: string, onChange: (value: string) => void) {
-    const listRef = useRef(items);
-    const activeRef = useRef(active);
-
-    return (e: KeyboardEvent) => {
-    const key = e.key;
-    const current = listRef.current;
-    const now = current.indexOf(activeRef.current);
-    if (now === -1) return;
-    let next = null;
-    if (key === "ArrowRight" || key === "ArrowDown") {
-      next = current[(now + 1) % current.length];
-    } else if (key === "ArrowLeft" || key === "ArrowUp") {
-      next = current[(now - 1 + current.length) % current.length];
-    } else if (key === "Home") {
-      next = current[0];
-    } else if (key === "End") {
-      next = current[current.length - 1];
-    }
-    if (next !== null && next !== activeRef.current) {
-      e.preventDefault();
-      onChange(next);
-    }
-  };
-}
-
-// ── Roving tabindex per item kelompok — (R5) ─────────────────────────────────
-export function useRovingTabs(items: string[], active: string, onChange: (value: string) => void) {
-  const listRef = useRef(items);
-  const activeRef = useRef(active);
-
-  return (e: KeyboardEvent) => {
-    const key = e.key;
-    const current = listRef.current;
-    const now = current.indexOf(activeRef.current);
-    if (now === -1) return;
-    let next: string | null = null;
-    if (key === "ArrowRight" || key === "ArrowDown") {
-      next = current[(now + 1) % current.length];
-    } else if (key === "ArrowLeft" || key === "ArrowUp") {
-      next = current[(now - 1 + current.length) % current.length];
-    } else if (key === "Home") {
-      next = current[0];
-    } else if (key === "End") {
-      next = current[current.length - 1];
-    }
-    if (next !== null && next !== activeRef.current) {
-      e.preventDefault();
-      onChange(next);
-    }
-  };
-}
-
-// ── Per-button keyboard handler — (R5) ────────────────────────────────────────
-const ROVING_TABINDEX = "tabindex";
-export function useRovingTabButton(
-  grup: AdminTabGroup,
-  value: NilaiModulAdmin,
-  onChange: (value: NilaiModulAdmin) => void,
-) {
-  const tombolRef = useRef<HTMLButtonElement | null>(null);
-  const listRef = useRef<string[]>([]);
-  listRef.current = grup.items.map((i) => i.value);
-
-  useEffect(() => {
-    const tombol = tombolRef.current;
-    if (!tombol) return;
-    const handler = (e: KeyboardEvent) => {
-      if (!(e.target instanceof HTMLElement)) return;
-      const key = e.key;
-      const list = listRef.current;
-      const now = list.indexOf(value);
-      let next: string | null = null;
-      if (key === "ArrowRight" || key === "ArrowDown") {
-        next = list[(now + 1) % list.length];
-      } else if (key === "ArrowLeft" || key === "ArrowUp") {
-        next = list[(now - 1 + list.length) % list.length];
-      } else if (key === "Home") {
-        next = list[0];
-      } else if (key === "End") {
-        next = list[list.length - 1];
-      }
-      if (next !== null && next !== value) {
-        e.preventDefault();
-        onChange(next);
-        tombol.parentElement?.querySelector(
-          `#tab-${grup.judul}-${next}`
-        )?.focus();
-      }
-    };
-    tombol.addEventListener("keydown", handler, true);
-    return () => {
-      tombol.removeEventListener("keydown", handler, true);
-    };
-  }, [pilihMenu, value, grup]);
-
-  return tombolRef;
-}
-                        selanjutnya = list[(sekarang + 1) % list.length];
-                        pindah = true;
-                      } else if (key === "ArrowLeft") {
-                        selanjutnya = list[(sekarang - 1 + list.length) % list.length];
-                        pindah = true;
-                      } else if (key === "ArrowDown") {
-                        selanjutnya = list[(sekarang + 1) % list.length];
-                        pindah = true;
-                      } else if (key === "ArrowUp") {
-                        selanjutnya = list[(sekarang - 1 + list.length) % list.length];
-                        pindah = true;
-                      } else if (key === "Home") {
-                        selanjutnya = list[0];
-                        pindah = true;
-                      } else if (key === "End") {
-                        selanjutnya = list[list.length - 1];
-                        pindah = true;
-                      }
-                      if (pindah && selanjutnya) {
-                        e.preventDefault();
-                        pilihMenu(selanjutnya);
-                        const tombol = document.getElementById(`tab-${grup.judul}-${selanjutnya}`);
-                        tombol?.focus();
-                      }
-                    };
-                    return (cleanup) => {
-                      // `godar` dipanggil setiap render per item kelompok; cabut
-                      // listener dulu, reziplak dengan yang baru.
-                      cleanup();
-                      const tombol = e.currentTarget;
-                      tombol.addEventListener("keydown", handler, true);
-                      return () => {
-                        tombol.removeEventListener("keydown", handler, true);
-                      };
-                    };
-                  })}
-                </div>
-              </nav>
-
-              <div className="min-w-0 flex-1 space-y-4 sm:space-y-5">
+              </AccordionContent>
             </AccordionItem>
           ))}
         </Accordion>
@@ -611,12 +448,14 @@ export function useRovingTabButton(
           </div>
         )}
 
+        {/* R4: panel menunjuk balik ke tombolnya (`aria-labelledby`) sekaligus
+            tetap punya `aria-label` sebagai cadangan. */}
         <div
           key={activeTab}
           id={`panel-${aktif?.value}`}
           role="region"
           aria-label={aktif?.label}
-          aria-labelledby={aktif ? `tab-${aktif?.value}` : undefined}
+          aria-labelledby={aktif ? `tab-${aktif.value}` : undefined}
           className="min-w-0 animate-masuk"
         >
           {panel[activeTab]}
