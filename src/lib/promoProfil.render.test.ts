@@ -9,6 +9,7 @@ import {
   BACKGROUND_BATAS_AMAN,
   FOTO_PROFIL_PUSAT,
   RADIUS_AMAN_BULAT,
+  TATA_BACKGROUND,
   brankas,
   gambarAsetProfil,
 } from "./promoProfil";
@@ -25,7 +26,15 @@ function ok(label: string, syarat: boolean) {
   }
 }
 
-type Jejak = { op: "fillText" | "arc"; x: number; y: number; teks?: string };
+type Jejak = {
+  op: "fillText" | "arc" | "ellipse";
+  x: number;
+  y: number;
+  teks?: string;
+  /** Radius (arc) atau radius-X (ellipse). */
+  r?: number;
+  ry?: number;
+};
 
 /** Ukuran font (px) dari string `ctx.font`, mis. "800 104px sans-serif". */
 function ukuranFont(font: string): number {
@@ -33,8 +42,8 @@ function ukuranFont(font: string): number {
   return m ? Number(m[1]) : 16;
 }
 
-/** Tiruan ctx yang mencatat posisi `fillText`/`arc` dan menaksir lebar teks
- *  seperti font sans-serif tebal (±0.62 em per huruf). */
+/** Tiruan ctx yang mencatat posisi `fillText`/`arc`/`ellipse` dan menaksir
+ *  lebar teks seperti font sans-serif tebal (±0.62 em per huruf). */
 function buatCtxTiruan(lebar: number, tinggi: number) {
   const jejak: Jejak[] = [];
   let font = "16px sans-serif";
@@ -67,8 +76,11 @@ function buatCtxTiruan(lebar: number, tinggi: number) {
     drawImage() {},
     fill() {},
     stroke() {},
-    arc(x: number, y: number) {
-      jejak.push({ op: "arc", x, y });
+    arc(x: number, y: number, r: number) {
+      jejak.push({ op: "arc", x, y, r });
+    },
+    ellipse(x: number, y: number, rx: number, ry: number) {
+      jejak.push({ op: "ellipse", x, y, r: rx, ry });
     },
     fillText(teks: string, x: number, y: number) {
       jejak.push({ op: "fillText", x, y, teks });
@@ -77,6 +89,9 @@ function buatCtxTiruan(lebar: number, tinggi: number) {
       return { width: teks.length * ukuranFont(font) * 0.62 };
     },
     createRadialGradient() {
+      return { addColorStop() {} };
+    },
+    createLinearGradient() {
       return { addColorStop() {} };
     },
   };
@@ -95,9 +110,10 @@ for (const aset of ASET_PROFIL) {
   ok(`render ${aset.id} selesai tanpa error (${galat ? String(galat) : "ok"})`, galat === null);
   ok(`render ${aset.id} menggambar teks`, jejak.some((j) => j.op === "fillText"));
   ok(`render ${aset.id} menggambar bentuk`, jejak.some((j) => j.op === "arc"));
+  ok(`render ${aset.id} menggambar bayangan kontak brankas`, jejak.some((j) => j.op === "ellipse"));
 }
 
-// ---- Foto profil: teks harus di dalam lingkaran aman ----
+// ---- Foto profil: teks & bentuk harus di dalam lingkaran aman ----
 const foto = ASET_PROFIL.find((a) => a.id === "foto-profil");
 if (foto) {
   const { ctx, jejak } = buatCtxTiruan(foto.canvas[0], foto.canvas[1]);
@@ -114,6 +130,25 @@ if (foto) {
     "eyebrow PINJAM & GADAI DIGITAL digambar per huruf",
     teks.filter((t) => (t.teks ?? "").length === 1).length >= 20,
   );
+
+  // Segel kuningan tidak boleh melewati potongan bulat WhatsApp.
+  const busur = jejak.filter((j) => j.op === "arc");
+  const rBusurTerbesar = busur.reduce((maks, j) => Math.max(maks, j.r ?? 0), 0);
+  ok(
+    `busur segel terbesar masih di dalam lingkaran aman (${rBusurTerbesar.toFixed(1)} ≤ ${radiusAman})`,
+    rBusurTerbesar <= radiusAman,
+  );
+
+  // Bayangan kontak (brankas + landasan) tetap di dalam potongan bulat.
+  const elips = jejak.filter((j) => j.op === "ellipse");
+  let elipsTerjauh = 0;
+  for (const e of elips) {
+    elipsTerjauh = Math.max(
+      elipsTerjauh,
+      Math.abs(e.y - FOTO_PROFIL_PUSAT) + Math.hypot(e.r ?? 0, e.ry ?? 0),
+    );
+  }
+  ok(`bayangan kontak foto profil di dalam lingkaran aman (${elipsTerjauh.toFixed(1)} ≤ ${radiusAman})`, elipsTerjauh <= radiusAman);
 }
 
 // ---- Background: tidak ada konten di zona tertutup foto profil ----
@@ -132,6 +167,18 @@ if (background) {
     "pil kata kunci digambar",
     ["Pinjam", "Gadai", "Kredit"].every((k) => teks.some((t) => t.teks === k)),
   );
+
+  // Band bawah hanya berisi ornamen: satu-satunya teks di sana adalah pita kata.
+  const { pita } = TATA_BACKGROUND;
+  const diBand = teks.filter((t) => t.y > BACKGROUND_BATAS_AMAN);
+  ok(
+    `teks di band bawah hanya pita kata (${diBand.length} temuan)`,
+    diBand.length > 0 && diBand.every((t) => t.teks === pita.teks && t.y === pita.y),
+  );
+  ok(
+    "pita kata diulang memenuhi lebar band",
+    diBand.filter((t) => t.y === pita.y).length >= 3,
+  );
 }
 
 // ---- Lambang brankas dipakai bersama lencana header poster ----
@@ -139,6 +186,7 @@ if (background) {
   const { ctx, jejak } = buatCtxTiruan(400, 400);
   const alignSebelum = ctx.textAlign;
   const baselineSebelum = ctx.textBaseline;
+  const alphaSebelum = ctx.globalAlpha;
   let galat: unknown = null;
   try {
     brankas(ctx, 20, 30, 96);
@@ -147,11 +195,14 @@ if (background) {
   }
   ok(`lencana brankas selesai digambar (${galat ? String(galat) : "ok"})`, galat === null);
   ok("lencana brankas menggambar dial", jejak.some((j) => j.op === "arc"));
+  // Kedalaman: bayangan kontak + celah cahaya (gradien) harus ikut tergambar.
+  ok("lencana brankas punya bayangan kontak", jejak.some((j) => j.op === "ellipse"));
   // Lencana murni bentuk: tidak menulis teks, sehingga header poster tetap
   // mengontrol font/judul di sebelahnya.
   ok("lencana brankas tidak menulis teks", !jejak.some((j) => j.op === "fillText"));
   ok("lencana brankas tidak mengubah textAlign", ctx.textAlign === alignSebelum);
   ok("lencana brankas tidak mengubah textBaseline", ctx.textBaseline === baselineSebelum);
+  ok("lencana brankas tidak mengubah globalAlpha", ctx.globalAlpha === alphaSebelum);
 }
 
 console.log(`promoProfil render tests: ${passed} passed, ${failed} failed`);
