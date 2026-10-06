@@ -129,8 +129,14 @@ function teksBerspasi(ctx: Ctx, teks: string, cx: number, y: number, spasi: numb
   ctx.textAlign = simpanAlign;
 }
 
-/** Lambang brankas PINDAI versi kanvas (padanan `VaultLogo`). */
-function brankas(ctx: Ctx, x: number, y: number, s: number) {
+/**
+ * Lambang brankas PINDAI versi kanvas (padanan `VaultLogo`). Dipakai oleh
+ * aset profil di sini **dan** oleh lencana header poster di `/promo`, supaya
+ * lambang brand hanya punya satu gambar sumber.
+ * Menggambar pada kotak `s × s` dengan sudut kiri-atas di (x, y); tinggi
+ * efektif ±0.91·s karena kaki brankas menonjol sedikit di bawah badan.
+ */
+export function brankas(ctx: Ctx, x: number, y: number, s: number) {
   const bodyH = s * 0.84;
 
   // Kaki brankas.

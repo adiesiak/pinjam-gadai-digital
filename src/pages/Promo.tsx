@@ -3,6 +3,7 @@ import { Link } from "react-router";
 import { useQuery } from "convex/react";
 
 import { Button } from "@/components/ui/button";
+import { VaultLogo } from "@/components/VaultLogo";
 import { api } from "@/convex/_generated/api";
 import {
   Select,
@@ -23,7 +24,7 @@ import {
   X,
 } from "lucide-react";
 
-import { ASET_PROFIL, gambarAsetProfil, type AsetProfil } from "@/lib/promoProfil";
+import { ASET_PROFIL, brankas, gambarAsetProfil, type AsetProfil } from "@/lib/promoProfil";
 
 // ---------------------------------------------------------------------------
 // Ukuran kanvas kasus sosial media (content-safe area di sekitar batas).
@@ -525,18 +526,9 @@ function renderKartu(
   ctx.textBaseline = "top";
   ctx.textAlign = "left";
   const logo = Math.round(Math.min(innerW * 0.12, H * 0.072));
-  // Lencana tipografi: huruf P emas dalam kotak navy, bukan gambar brankas.
-  bulat(ctx, innerX, M + P, logo, logo, logo * 0.3);
-  ctx.fillStyle = NAVY;
-  ctx.fill();
-  ctx.strokeStyle = rgba(GOLD, 0.75);
-  ctx.lineWidth = Math.max(2, logo * 0.05);
-  ctx.stroke();
-  ctx.fillStyle = GOLD;
-  ctx.font = `800 ${Math.round(logo * 0.56)}px ${sans}`;
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.fillText("P", innerX + logo / 2, M + P + logo / 2 + 1);
+  // Lencana brand: lambang brankas PINDAI — gambar yang sama dengan aset
+  // profil WhatsApp (lihat `promoProfil.ts`), bukan huruf "P" lagi.
+  brankas(ctx, innerX, M + P, logo);
   ctx.textAlign = "left";
   ctx.textBaseline = "top";
   const tx = innerX + logo + Math.round(logo * 0.32);
@@ -1076,9 +1068,7 @@ export function Promo() {
           />
           <div className="flex flex-wrap items-center justify-between gap-4 p-5 sm:p-6">
             <div className="flex items-center gap-4">
-              <span className="flex size-12 items-center justify-center rounded-2xl bg-[#0f3d3a] text-xl font-extrabold text-[#e0b64d] shadow-sm">
-                P
-              </span>
+              <VaultLogo size={48} className="shrink-0" />
               <div>
                 <p className="text-2xl font-extrabold tracking-tight text-[#0f3d3a]">PINDAI</p>
                 <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#9c7b3a]">

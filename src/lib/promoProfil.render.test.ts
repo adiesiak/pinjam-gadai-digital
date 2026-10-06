@@ -9,6 +9,7 @@ import {
   BACKGROUND_BATAS_AMAN,
   FOTO_PROFIL_PUSAT,
   RADIUS_AMAN_BULAT,
+  brankas,
   gambarAsetProfil,
 } from "./promoProfil";
 
@@ -131,6 +132,26 @@ if (background) {
     "pil kata kunci digambar",
     ["Pinjam", "Gadai", "Kredit"].every((k) => teks.some((t) => t.teks === k)),
   );
+}
+
+// ---- Lambang brankas dipakai bersama lencana header poster ----
+{
+  const { ctx, jejak } = buatCtxTiruan(400, 400);
+  const alignSebelum = ctx.textAlign;
+  const baselineSebelum = ctx.textBaseline;
+  let galat: unknown = null;
+  try {
+    brankas(ctx, 20, 30, 96);
+  } catch (err) {
+    galat = err;
+  }
+  ok(`lencana brankas selesai digambar (${galat ? String(galat) : "ok"})`, galat === null);
+  ok("lencana brankas menggambar dial", jejak.some((j) => j.op === "arc"));
+  // Lencana murni bentuk: tidak menulis teks, sehingga header poster tetap
+  // mengontrol font/judul di sebelahnya.
+  ok("lencana brankas tidak menulis teks", !jejak.some((j) => j.op === "fillText"));
+  ok("lencana brankas tidak mengubah textAlign", ctx.textAlign === alignSebelum);
+  ok("lencana brankas tidak mengubah textBaseline", ctx.textBaseline === baselineSebelum);
 }
 
 console.log(`promoProfil render tests: ${passed} passed, ${failed} failed`);
