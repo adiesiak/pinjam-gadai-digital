@@ -1,7 +1,6 @@
 import { useState, type ReactNode } from "react";
 import {
   BellRing,
-  ChevronDown,
   ClipboardList,
   Database,
   Gavel,
@@ -20,6 +19,7 @@ import {
   Wallet,
 } from "lucide-react";
 
+import { AdminNav } from "@/components/admin/admin-nav";
 import { AksesPenyediaDanaPanel } from "@/components/admin/AksesPenyediaDanaPanel";
 import { AnnouncementCms } from "@/components/admin/AnnouncementCms";
 import { AuditTrailPanel } from "@/components/admin/AuditTrailPanel";
@@ -32,15 +32,15 @@ import { SystemConfigPanel } from "@/components/admin/SystemConfigPanel";
 import { PlafonPanel } from "@/components/admin/PlafonPanel";
 import { WhatsAppPanel } from "@/components/admin/WhatsAppPanel";
 import { WebsiteTemplatePanel } from "@/components/admin/WebsiteTemplatePanel";
-import type {
-  AdminOverviewData,
-  LedgerSummary,
-  LoanRow,
-  PawnRow,
+import {
+  LencanaTab,
+  type AdminOverviewData,
+  type LedgerSummary,
+  type LoanRow,
+  type PawnRow,
 } from "@/components/admin/admin-shared";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import {
-  NILAI_MODUL_ADMIN,
   hitungMenunggu,
   jumlahPerhatianLokasi,
   ringkasGrup,
@@ -82,24 +82,8 @@ const KELAS_ITEM =
 const KELAS_ITEM_IDLE = "text-navy hover:bg-slate-50";
 const KELAS_ITEM_AKTIF = "gradient-primary text-white";
 
-/** Lencana angka seragam: netral, "OK" hijau, "!" merah berdenyut, lain kuning. */
-function LencanaTab({ badge }: { badge: string | null }) {
-  if (badge === null || badge === undefined || badge === "0") return null;
-  const warna =
-    badge === "OK"
-      ? "bg-emerald-100 text-emerald-700"
-      : badge === "!"
-        ? "animate-pulse bg-red-100 text-red-700"
-        : "bg-amber-100 text-amber-700";
-  return (
-    <span
-      className={`inline-flex min-w-5 shrink-0 items-center justify-center rounded-full px-1.5 py-0.5 text-[10px] font-bold tabular-nums ${warna}`}
-    >
-      {badge}
-    </span>
-  );
-}
-
+// `LencanaTab` pindah ke `@/components/admin/admin-shared` agar chip modul dan
+// bilah bawah di layar kecil memakai lencana yang sama persis.
 // `ringkasGrup` kini tinggal di `@/lib/admin-queue` (T2): hanya lencana yang
 // benar-benar menunggu tindakan yang dijumlahkan, dan logikanya diuji tanpa React.
 
@@ -320,10 +304,6 @@ export function AdminTabs({
     if (grup) setGrupTerbuka((sebelumnya) => (sebelumnya.includes(grup.judul) ? sebelumnya : [...sebelumnya, grup.judul]));
   };
 
-  /** Penjaga batas DOM: `<select>` memberi `string`, bukan union nilai modul. */
-  const adalahNilaiModul = (nilai: string): nilai is NilaiModulAdmin =>
-    (NILAI_MODUL_ADMIN as readonly string[]).includes(nilai);
-
   const semuaItem = menu.flatMap((g) => g.items);
   const aktif = semuaItem.find((i) => i.value === activeTab) ?? semuaItem[0];
 
@@ -360,35 +340,9 @@ export function AdminTabs({
 
   return (
     <div className="mt-4 flex min-w-0 flex-col gap-4 sm:mt-6 sm:gap-5 lg:flex-row lg:items-start lg:gap-6">
-      {/* Layar kecil: pilih menu lewat select berkelompok, karena sidebar terlalu sempit. */}
-      <div className="animate-masuk sticky top-16 z-30 -mx-3 border-y border-slate-200 bg-white/95 px-3 py-2.5 backdrop-blur sm:-mx-6 sm:px-6 lg:hidden">
-        <label htmlFor="admin-tab-select" className="mb-1.5 block text-[11px] font-medium text-muted-foreground">
-          Menu operasional
-        </label>
-        <div className="relative">
-          <select
-            id="admin-tab-select"
-            value={activeTab}
-            onChange={(event) => {
-              if (adalahNilaiModul(event.target.value)) pilihMenu(event.target.value);
-            }}
-            aria-label="Menu operasional admin"
-            className="h-11 w-full appearance-none rounded-xl border border-slate-200 bg-white px-3 pr-10 text-sm font-semibold text-navy outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
-          >
-            {menu.map((grup) => (
-              <optgroup key={grup.judul} label={grup.judul}>
-                {grup.items.map((item) => (
-                  <option key={item.value} value={item.value}>
-                    {item.label}
-                    {item.badge !== null && item.badge !== "0" ? ` · ${item.badge}` : ""}
-                  </option>
-                ))}
-              </optgroup>
-            ))}
-          </select>
-          <ChevronDown className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-        </div>
-      </div>
+      {/* Layar kecil: bilah bawah + strip chip modul + sheet pencarian.
+          Menggantikan `<select>` 17 opsi yang menyembunyikan isi tiap menu. */}
+      <AdminNav menu={menu} activeTab={activeTab} onPilih={pilihMenu} />
 
       {/* Desktop: sidebar accordion — setiap grup menu bisa dibuka-tutup sendiri. */}
       <nav

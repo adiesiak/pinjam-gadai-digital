@@ -112,6 +112,28 @@ export type OpsiSubTab<T> = {
 };
 
 /**
+ * Lencana angka seragam untuk menu admin: netral, "OK" hijau, "!" merah
+ * berdenyut, lain kuning. Dipakai sidebar desktop, chip modul, dan bilah bawah
+ * agar satu status tampil sama di semua tempat.
+ */
+export function LencanaTab({ badge }: { badge: string | null }) {
+  if (badge === null || badge === undefined || badge === "0") return null;
+  const warna =
+    badge === "OK"
+      ? "bg-emerald-100 text-emerald-700"
+      : badge === "!"
+        ? "animate-pulse bg-red-100 text-red-700"
+        : "bg-amber-100 text-amber-700";
+  return (
+    <span
+      className={`inline-flex min-w-5 shrink-0 items-center justify-center rounded-full px-1.5 py-0.5 text-[10px] font-bold tabular-nums ${warna}`}
+    >
+      {badge}
+    </span>
+  );
+}
+
+/**
  * Baris sub-tab status: grup tombol `aria-pressed` dengan jumlah tiap sub-tab.
  *
  * Sengaja bukan `role="tab"`: ini penyaring satu daftar, bukan panel terpisah,
