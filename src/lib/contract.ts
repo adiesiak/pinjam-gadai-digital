@@ -9,7 +9,7 @@ import { formatRupiah } from "./money";
 import type { LoanQuote } from "./loan";
 
 /** Naikkan versi setiap kali syarat akad berubah secara material. */
-export const CONTRACT_TERMS_VERSION = "v1.3";
+export const CONTRACT_TERMS_VERSION = "v1.4";
 
 export type ContractParty = {
   namaLengkap: string;
@@ -142,7 +142,7 @@ function blokParaPihak(): string {
 /**
  * Rangkai HTML ringkasan pengajuan pinjaman pada ledger internal.
  *
- * Dua skema didukung: harian (130%, potongan 5% di muka) dan bulanan
+ * Dua skema didukung: harian (130%, potongan 2% di muka) dan bulanan
  * (DP 0%, biaya dipotong di muka, bunga flat dari pokok penuh per tenor). Bila
  * `bulanan`
  * diisi, rincian mengikuti skema bulanan dan angka dari engine lib/bulanan.ts.
@@ -163,19 +163,17 @@ export function buildPinjamanContract(
   const rincianBiayaBulanan =
     bulanan !== null && (bulanan.tenorBulan === 3 || bulanan.tenorBulan === 6)
       ? `<li>Biaya admin 2%: ${formatRupiah(bulanan.biayaAdminTotal)}.</li>
-      <li>Biaya platform 3%: ${formatRupiah(bulanan.biayaPlatformTotal)}.</li>
-      <li>Total biaya tenor 5% (${formatRupiah(bulanan.biayaLayananTotal)}) dipotong di muka dari dana yang diterima.</li>
+      <li>Total potongan di muka 2% (${formatRupiah(bulanan.biayaLayananTotal)}) dipotong di muka dari dana yang diterima — biaya platform dihapus (0%).</li>
       <li>Biaya admin layanan cicilan 2% dari nominal cicilan: ${formatRupiah(bulanan.biayaAdminCicilanTotal)} selama ${bulanan.tenorBulan} bulan (bulan pertama ${formatRupiah(bulanan.biayaAdminCicilanPerBulan)}), dibayar bersama setiap cicilan.</li>`
       : bulanan !== null
-        ? `<li>Biaya layanan 3% dari pokok acuan: ${formatRupiah(bulanan.biayaLayananTotal)}, dipotong di muka dari dana yang diterima.</li>`
+        ? `<li>Biaya layanan 2% dari pokok acuan: ${formatRupiah(bulanan.biayaLayananTotal)}, dipotong di muka dari dana yang diterima.</li>`
         : "";
   const pasalFinansial =
     bulanan === null
       ? `
-      <li>Biaya admin: ${formatRupiah(quote.biayaAdmin)}.</li>
-      <li>Biaya platform: ${formatRupiah(quote.biayaPlatform)}.</li>
-      <li>Total potongan di muka: ${formatRupiah(quote.totalPotonganDiMuka)}.</li>
-      <li><strong>Perhitungan dana bersih: ${formatRupiah(quote.danaBersihDitransfer)} (95% dari pokok)</strong>; dana diteruskan sesuai proses pencairan.</li>
+      <li>Biaya admin 2%: ${formatRupiah(quote.biayaAdmin)}.</li>
+      <li>Total potongan di muka 2%: ${formatRupiah(quote.totalPotonganDiMuka)} (biaya platform dihapus — 0%).</li>
+      <li><strong>Perhitungan dana bersih: ${formatRupiah(quote.danaBersihDitransfer)} (98% dari pokok)</strong>; dana diteruskan sesuai proses pencairan.</li>
       <li>Bunga: ${formatRupiah(quote.bunga)}.</li>
       <li><strong>Total kewajiban: ${formatRupiah(quote.totalKewajibanPelunasan)} (130% dari pokok)</strong>; nominal mengikuti perhitungan aplikasi.</li>`
       : `

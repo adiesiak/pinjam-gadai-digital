@@ -76,10 +76,10 @@ const loanDetail: any = await userA.query(api.loans.getMyLoan, {
 ok(loanDetail !== null, "detail pinjaman bisa dibuka");
 ok(loanDetail.status === "diajukan", "status awal = diajukan");
 const q = loanDetail.quote;
-ok(q.biayaAdmin === 300_000, `biaya admin 3% = Rp 300.000 (dapat ${q.biayaAdmin})`);
-ok(q.biayaPlatform === 200_000, `biaya platform 2% = Rp 200.000`);
-ok(q.totalPotonganDiMuka === 500_000, "potongan di muka 5% = Rp 500.000");
-ok(q.danaBersihDitransfer === 9_500_000, "dana bersih 95% = Rp 9.500.000");
+ok(q.biayaAdmin === 200_000, `biaya admin 2% = Rp 200.000 (dapat ${q.biayaAdmin})`);
+ok(q.biayaPlatform === 0, `biaya platform 0% (dihapus) = Rp 0`);
+ok(q.totalPotonganDiMuka === 200_000, "potongan di muka 2% = Rp 200.000");
+ok(q.danaBersihDitransfer === 9_800_000, "dana bersih 98% = Rp 9.800.000");
 ok(q.bunga === 3_000_000, "bunga 30% = Rp 3.000.000");
 ok(q.totalKewajibanPelunasan === 13_000_000, "total kewajiban 130% = Rp 13.000.000");
 

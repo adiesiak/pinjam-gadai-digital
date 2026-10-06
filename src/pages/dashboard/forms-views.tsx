@@ -579,11 +579,11 @@ export function LoanForm({ onCreated }: { onCreated: (ref: string) => void }) {
                   <dd className="font-medium tabular-nums">{formatRupiah(sim.biayaAdminTotal)}</dd>
                 </div>
                 <div className="flex flex-col gap-1 bg-white px-3 py-2 text-sm sm:flex-row sm:items-baseline sm:justify-between">
-                  <dt className="font-medium text-slate-700">Biaya platform 3% (dipotong di muka)</dt>
+                  <dt className="font-medium text-slate-700">Biaya platform 0% (dihapus)</dt>
                   <dd className="font-medium tabular-nums">{formatRupiah(sim.biayaPlatformTotal)}</dd>
                 </div>
                 <div className="flex flex-col gap-1 bg-white px-3 py-2 text-sm sm:flex-row sm:items-baseline sm:justify-between">
-                  <dt className="font-medium text-slate-700">Total biaya tenor 5% (dipotong di muka)</dt>
+                  <dt className="font-medium text-slate-700">Total potongan di muka 2%</dt>
                   <dd className="font-medium tabular-nums">{formatRupiah(sim.biayaLayananTotal)}</dd>
                 </div>
                 <div className="flex flex-col gap-1 bg-white px-3 py-2 text-sm sm:flex-row sm:items-baseline sm:justify-between">
@@ -595,7 +595,7 @@ export function LoanForm({ onCreated }: { onCreated: (ref: string) => void }) {
               </>
             ) : (
               <div className="flex flex-col gap-1 bg-white px-3 py-2 text-sm sm:flex-row sm:items-baseline sm:justify-between">
-                <dt className="font-medium text-slate-700">Biaya layanan 3% (dipotong di muka)</dt>
+                <dt className="font-medium text-slate-700">Biaya layanan 2% (dipotong di muka)</dt>
                 <dd className="font-medium tabular-nums">{formatRupiah(sim.biayaLayananTotal)}</dd>
               </div>
             )}

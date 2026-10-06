@@ -279,8 +279,8 @@ export const createLoanApplication = mutation({
      */
     tenorHari: v.number(),
     /**
-     * Tenor bulanan (DP 0%, biaya 3% untuk tenor 1 atau admin 2% + platform
-     * 3% untuk tenor 3/6, seluruhnya dipotong di muka; bunga flat dari pokok
+     * Tenor bulanan (DP 0%, potongan di muka 2% — biaya admin 2% untuk tenor
+     * 3/6, biaya layanan 2% untuk tenor 1, biaya platform dihapus; bunga flat dari pokok
      * penuh 30%/25%/20% per bulan sesuai tenor) —
      * pinjaman DI LUAR plafon 1 jt / 30 hari. Bila diisi, `tenorHari`
      * diabaikan.
@@ -1375,7 +1375,7 @@ export const repayLoan = mutation({
     const totalPokokDana = loan.pokokPinjaman;
     const totalImbalDana = simBulanan !== null ? simBulanan.bungaTotal : q.bunga;
     const totalKewajibanDana = totalPokokDana + totalImbalDana;
-    // Biaya tenor (admin 2% + platform 3%) sudah dipotong di muka saat
+    // Potongan di muka (biaya admin 2%, biaya platform dihapus) sudah dipotong saat
     // pencairan. Yang tersisa di pelunasan hanya biaya admin cicilan 2% untuk
     // tenor 3/6 bulan, yang memang dibayar bersama cicilan.
     const feePlatform = 0;

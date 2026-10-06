@@ -8,9 +8,10 @@
  * Aturan skema:
  *  - Uang muka (DP) 0% → pokok dibiayai = harga/pokok penuh.
  *  - Angsuran pokok per bulan = pokok ÷ tenor (bulan terakhir menyerap sisa).
- *  - Tenor 3 dan 6 bulan: biaya admin 2% + platform 3% dari pokok,
- *    DIPOTONG DI MUKA dari dana yang diterima (tidak diamortisasi ke cicilan).
- *    Tenor lain memakai biaya layanan 3%, juga dipotong di muka.
+ *  - Tenor 3 dan 6 bulan: biaya admin 2% (platform 0%) dari pokok, DIPOTONG DI
+ *    MUKA dari dana yang diterima (tidak diamortisasi ke cicilan). Tenor lain
+ *    memakai biaya layanan 2%, juga dipotong di muka — jadi potongan di muka
+ *    selalu 2% (dana diterima 98%), berapa pun tenor yang dipilih.
  *  - Bunga/margin (hak penyedia dana) — FLAT dari pokok penuh, sama besar setiap
  *    bulan (tidak menurun dari sisa pokok):
  *      tenor 1 bulan  → 30% / bulan
@@ -32,8 +33,9 @@ import { isRupiah, percentOf, type Rupiah } from "./money";
 export const TENOR_BULANAN_OPTIONS = [1, 3, 6] as const;
 
 /**
- * Tenor default yang memakai biaya admin 2% + platform 3% dari pokok
- * (dipotong di muka). Tenor di luar daftar ini memakai biaya layanan 3%.
+ * Tenor default yang memakai biaya admin 2% (platform 0%) dari pokok
+ * (dipotong di muka). Tenor di luar daftar ini memakai biaya layanan 2% —
+ * besar potongannya sama, hanya nama komponennya yang berbeda.
  * Skema kredit barang menyeragamkan seluruh tenor resminya lewat opsi
  * `tenorBiayaAdminPlatform` pada hitungSimulasiBulanan.
  */
@@ -41,7 +43,7 @@ export const TENOR_BIAYA_ADMIN_PLATFORM_DEFAULT = [3, 6] as const;
 
 /** Opsi biaya skema bulanan (dipakai skema kredit barang & bunga per nasabah). */
 export interface OpsiBiayaBulanan {
-  /** Tenor yang memakai biaya admin 2% + platform 3% dipotong di muka. */
+  /** Tenor yang memakai biaya admin 2% (platform 0%) dipotong di muka. */
   tenorBiayaAdminPlatform?: readonly number[];
   /**
    * Override bunga per bulan (persen, flat dari pokok penuh) untuk nasabah
@@ -53,10 +55,14 @@ export interface OpsiBiayaBulanan {
 export const BULANAN_PRICING = {
   /** Uang muka 0% — seluruh harga/pokok dibiayai. */
   dpPersen: 0,
-  /** Biaya layanan untuk tenor selain 3 dan 6 bulan (dipotong di muka). */
-  biayaLayananPersen: 3,
-  /** Total biaya tenor yang memakai admin + platform = 2% + 3% = 5%. */
-  biayaTenor3_6Persen: 5,
+  /**
+   * Biaya layanan untuk tenor selain 3 dan 6 bulan (dipotong di muka).
+   * Besarnya sama dengan total biaya tenor admin+platform (2%) supaya potongan
+   * di muka seragam 2%, hanya nama komponennya yang berbeda.
+   */
+  biayaLayananPersen: 2,
+  /** Total biaya tenor yang memakai admin + platform = 2% + 0% = 2%. */
+  biayaTenor3_6Persen: 2,
   /**
    * Biaya admin layanan yang dibayar bersama SETIAP cicilan (% dari nominal
    * cicilan pokok + bunga). Berlaku pada tenor 3 dan 6 bulan.
@@ -64,8 +70,12 @@ export const BULANAN_PRICING = {
   biayaAdminCicilanPersen: 2,
   /** Biaya admin (% pokok) pada tenor yang memakai admin + platform di muka. */
   biayaAdminPersen: 2,
-  /** Biaya platform (% pokok) pada tenor yang memakai admin + platform di muka. */
-  biayaPlatformPersen: 3,
+  /**
+   * Biaya platform (% pokok) dihapus — potongan di muka kini hanya biaya
+   * admin 2%. Konstanta tetap ada agar mesin fee punya satu jalur perhitungan
+   * (nol rupiah) dan rincian biaya platform di kontrak/UI tetap konsisten.
+   */
+  biayaPlatformPersen: 0,
   /** Bunga tenor 1 bulan (%/bulan, flat dari pokok penuh). */
   bungaTenor1PersenPerBulan: 30,
   /** Bunga tenor 3–5 bulan (%/bulan, flat dari pokok penuh). */
@@ -210,7 +220,7 @@ export function assertSimulasiBulananValid(pokok: Rupiah, tenorBulan: number): v
  * Identitas yang dijamin (diuji di bulanan.test.ts):
  *  - dp = 0 dan pokokDibiayai = pokok
  *  - Σ jadwal.pokok = pokokDibiayai
- *  - Tenor 3/6 mengenakan admin 2% + platform 3% (total 5%), tenor lain 3%
+ *  - Tenor 3/6 mengenakan admin 2% (platform 0%), tenor lain biaya layanan 2%
  *  - Seluruh biaya dipotong di muka: danaDiterima = pokok − potonganDiMuka
  *  - Jadwal hanya berisi pokok + bunga (Σ jadwal.total = totalPengembalian)
  *  - seluruh tenor resmi memakai bunga flat dari pokok penuh (30%/25%/20%
@@ -246,7 +256,9 @@ export function hitungSimulasiBulanan(
   const metode = metodeBungaBulanan(tenorBulan);
 
   // Komponen biaya — semua HALF-UP per rupiah via percentOf (BigInt), dan
-  // seluruhnya dipotong di muka (tidak pernah masuk ke cicilan).
+  // seluruhnya dipotong di muka (tidak pernah masuk ke cicilan). Sejak
+  // kebijakan 2% di muka, `biayaPlatformTotal` selalu nol: potongan hanya
+  // biaya admin (tenor admin+platform) atau biaya layanan (tenor lain).
   const pokokPerBulan = Math.floor(pokokDibiayai / tenorBulan);
   // Tenor flat: bunga selalu dihitung dari pokok penuh.
   const bungaPerBulan = percentOf(pokokDibiayai, persen);

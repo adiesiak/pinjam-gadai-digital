@@ -801,8 +801,8 @@ export const adminStats = query({
 });
 
 // Re-quote helper dipakai ulang untuk tampilan admin (rincian biaya pinjaman).
-// tenorBulan diisi → rincian skema bulanan (DP 0%, biaya 5% tenor 3/6 atau
-// 3% tenor 1 dipotong di muka, bunga flat per tenor); kosong → skema
+// tenorBulan diisi → rincian skema bulanan (DP 0%, potongan di muka 2% untuk
+// semua tenor — biaya admin; platform dihapus — bunga flat per tenor); kosong → skema
 // harian 130%.
 export const adminLoanQuote = query({
   args: {

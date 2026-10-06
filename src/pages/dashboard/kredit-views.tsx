@@ -381,11 +381,11 @@ export function KreditBarangForm({ onCreated }: { onCreated: (ref: string) => vo
                   <dd className="tabular-nums">{formatRupiah(preview.biayaAdmin)}</dd>
                 </div>
                 <div className="flex flex-col gap-1 px-3 py-2 text-sm sm:flex-row sm:items-baseline sm:justify-between">
-                  <dt className="text-muted-foreground">Biaya platform (3%, dipotong di muka)</dt>
+                  <dt className="text-muted-foreground">Biaya platform (0% — dihapus)</dt>
                   <dd className="tabular-nums">{formatRupiah(preview.biayaPlatform)}</dd>
                 </div>
                 <div className="flex flex-col gap-1 bg-slate-50 px-3 py-2.5 text-sm sm:flex-row sm:items-baseline sm:justify-between">
-                  <dt className="font-semibold">Total biaya tenor perkiraan (5%)</dt>
+                  <dt className="font-semibold">Total potongan di muka perkiraan (2%)</dt>
                   <dd className="font-semibold tabular-nums">{formatRupiah(preview.biayaLayanan)}</dd>
                 </div>
                 {(tenorBulan === 3 || tenorBulan === 6) && (
@@ -411,8 +411,8 @@ export function KreditBarangForm({ onCreated }: { onCreated: (ref: string) => vo
           <p className="mt-2 text-xs leading-5 text-muted-foreground">
             {KREDIT_TENOR_BIAYA_ADMIN_PLATFORM.includes(tenorBulan)
               ? tenorBulan === 3 || tenorBulan === 6
-                ? "Biaya admin 2% dan platform 3% dipotong di muka; setiap cicilan ditambah biaya admin 2% dari nominal cicilan."
-                : "Biaya admin 2% dan platform 3% dipotong di muka dari dana yang diterima."
+                ? "Biaya admin 2% dipotong di muka (biaya platform dihapus); setiap cicilan ditambah biaya admin 2% dari nominal cicilan."
+                : "Biaya admin 2% dipotong di muka dari dana yang diterima (biaya platform dihapus)."
               : "Biaya layanan 3% dimodelkan dalam skema tenor ini (kontrak lama)."} Kredit barang ini bukan pencairan uang tunai; PINDAI tidak membeli barang atau mengirim dana ke merchant.
           </p>
           </>
@@ -585,7 +585,7 @@ export function KreditSayaSection() {
                     <dd className="tabular-nums">{k.biayaAdmin !== null ? formatRupiah(k.biayaAdmin) : "—"}</dd>
                   </div>
                   <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between sm:gap-3">
-                    <dt className="text-muted-foreground">Biaya platform (3%, dipotong di muka)</dt>
+                    <dt className="text-muted-foreground">Biaya platform (0% — dihapus)</dt>
                     <dd className="tabular-nums">{k.biayaPlatform !== null ? formatRupiah(k.biayaPlatform) : "—"}</dd>
                   </div>
                   {(k.tenorBulan === 3 || k.tenorBulan === 6) && (
@@ -597,7 +597,7 @@ export function KreditSayaSection() {
                     </div>
                   )}
                   <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between sm:gap-3">
-                    <dt className="text-muted-foreground">Total biaya admin + platform (5%)</dt>
+                    <dt className="text-muted-foreground">Total potongan di muka (2%)</dt>
                     <dd className="tabular-nums">{k.biayaLayanan !== null ? formatRupiah(k.biayaLayanan) : "—"}</dd>
                   </div>
                 </>

@@ -151,7 +151,7 @@ const schema = defineSchema(
       namaLengkap: v.string(),
       /** Nama bank/e-wallet tujuan pencairan (opsional untuk data lama). */
       namaBank: v.optional(v.string()),
-      /** Nomor rekening/akun tujuan dana bersih (95%). */
+      /** Nomor rekening/akun tujuan dana bersih (98%). */
       nomorRekening: v.string(),
       status: loanStatusValidator,
       /** Catatan keputusan reviewer (wajib saat ditolak). */
@@ -167,7 +167,7 @@ const schema = defineSchema(
        */
       diajukanPada: v.optional(v.number()),
       /**
-       * Tenor bulanan skema bulanan (1/3/6 bln: DP 0%, layanan 3%, bunga
+       * Tenor bulanan skema bulanan (1/3/6 bln: DP 0%, potongan di muka 2%, bunga
        * 10/8/7,5%/bln — lib/bulanan.ts) untuk pinjaman DI LUAR plafon 1 jt /
        * 30 hari. Kosong = pinjaman memakai skema harian quoteLoan().
        */

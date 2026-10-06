@@ -105,8 +105,9 @@ async function requireWaOtpIfEnabled(
  * Ringkasan pinjaman untuk ditampilkan ke penyedia dana — SATU sumber kebenaran
  * untuk skema harian (130% flat) dan skema bulanan (bunga flat per tenor).
  * Imbal
- * Hasil penyedia dana = 30% pokok (harian) atau Σ bunga bulanan; biaya tenor 3/6
- * memisahkan admin 2% dan platform 3%, dan SELURUH biaya dipotong di muka.
+ * Hasil penyedia dana = 30% pokok (harian) atau Σ bunga bulanan; potongan di
+ * muka kini selalu 2% (biaya admin 2%, biaya platform dihapus) dan SELURUH
+ * biaya dipotong di muka.
  */
 type BarisJadwalDana = {
   bulan: number | null;
@@ -194,7 +195,7 @@ function ringkasPinjaman(loan: {
         sisaPokok: c.sisaPokok,
       })),
       catatanJadwal:
-        "Biaya admin 2% dan platform 3% untuk tenor 3/6 bulan (atau biaya layanan 3% untuk tenor 1) dipotong di muka dari dana yang diterima; tenor 3 dan 6 bulan dikenai tambahan biaya admin 2% dari nominal cicilan yang dibayar bersama setiap cicilan.",
+        "Biaya admin 2% (biaya platform dihapus) untuk tenor 3/6 bulan (atau biaya layanan 2% untuk tenor 1) dipotong di muka dari dana yang diterima; tenor 3 dan 6 bulan dikenai tambahan biaya admin 2% dari nominal cicilan yang dibayar bersama setiap cicilan.",
     };
   }
   const q = quotePinjaman(loan);
@@ -553,9 +554,9 @@ export const allocateFunding = mutation({
       const ringkasPenuh = ringkasPinjaman(loan);
       const now = Date.now();
 
-      // Jurnal biaya: admin + platform dipotong di muka untuk KEDUA skema
-      // (harian 2% + 3% dari quoteLoan; bulanan 2% + 3% tenor 3/6 atau
-      // layanan 3% tenor 1 dari mesin bulanan).
+      // Jurnal biaya: potongan di muka 2% untuk KEDUA skema (harian dari
+      // quoteLoan; bulanan dari mesin bulanan — admin 2% tenor 3/6, layanan 2%
+      // tenor 1; biaya platform dihapus jadi nol).
       if (ringkasPenuh.totalPotonganDiMuka > 0) {
         await appendJournal(ctx, {
           jenis: "platform_fee",
@@ -569,8 +570,8 @@ export const allocateFunding = mutation({
       }
 
       // Jurnal pencairan ke Peminjam — KEDUA skema memakai dana bersih setelah
-      // potongan di muka: harian 95% pokok; bulanan pokok − (admin 2% +
-      // platform 3%) untuk tenor 3/6, atau pokok − layanan 3% untuk tenor 1.
+      // potongan di muka: harian 98% pokok; bulanan pokok − 2% (admin 2% untuk
+      // tenor 3/6, atau layanan 2% untuk tenor 1).
       await appendJournal(ctx, {
         jenis: "disbursement",
         keterangan: ringkasPenuh.skemaBulanan
@@ -1110,7 +1111,7 @@ export const marketplaceKredit = query({
         catatanJadwal:
           simulasiBulanan === null
             ? "Biaya layanan dibayar di muka dan tidak termasuk dalam jumlah cicilan bulanan."
-            : "Biaya admin 2% + platform 3% dari pokok dipotong di muka untuk seluruh tenor 1/3/6 bulan; tenor 3 dan 6 bulan dikenai tambahan biaya admin 2% dari nominal cicilan yang dibayar bersama setiap cicilan.",
+            : "Biaya admin 2% dari pokok (biaya platform dihapus) dipotong di muka untuk seluruh tenor 1/3/6 bulan; tenor 3 dan 6 bulan dikenai tambahan biaya admin 2% dari nominal cicilan yang dibayar bersama setiap cicilan.",
         terkumpul,
         sisaKebutuhan: quote.pokokDibiayai - terkumpul,
       });
@@ -1238,7 +1239,7 @@ export const alokasiKreditBarang = mutation({
 
       // Biaya layanan platform — margin platform, dibayar DI MUKA pada semua
       // tenor: kontrak warisan 12/24 layanan 3% dari pokok dibiayai; tenor
-      // resmi 1/3/6 admin 2% + platform 3% dari pokok.
+      // resmi 1/3/6 memakai biaya admin 2% dari pokok (platform dihapus).
       // Tidak ada biaya yang diamortisasi ke cicilan.
       const bayarFeeDiMuka = true;
       if (bayarFeeDiMuka) {

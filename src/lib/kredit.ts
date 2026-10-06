@@ -15,8 +15,8 @@
  *    (30% tenor 1 bulan, 25% tenor 3 bulan, 20% tenor 6 bulan per bulan).
  *    Skema DP + margin flat 12/24 bulan hanya untuk kontrak warisan (tidak
  *    ditawarkan lagi). Bagian penyedia dana proporsional dengan porsi pendanaannya.
- *  - Seluruh tenor resmi (1/3/6 bulan) memakai biaya admin 2% + platform 3%
- *    dari pokok, DIPOTONG DI MUKA (= 5%); tenor 3/6 juga dikenai biaya admin
+ *  - Seluruh tenor resmi (1/3/6 bulan) memakai biaya admin 2% (platform 0%)
+ *    dari pokok, DIPOTONG DI MUKA (= 2%); tenor 3/6 juga dikenai biaya admin
  *    cicilan 2% dari nominal cicilan. Kontrak lama 12/24 tetap layanan 3%.
  */
 import { isRupiah, percentOf, type Rupiah } from "./money";
@@ -45,9 +45,10 @@ export const KREDIT_TENOR_MAKS_BULAN = 6;
 export const KREDIT_TENOR_DIDUKUNG_ENGINE = [1, 3, 6, 12, 24] as const;
 
 /**
- * Tenor kredit barang yang dikenai biaya admin 2% + platform 3% (= 5%) dari
+ * Tenor kredit barang yang dikenai biaya admin 2% (platform 0%) = 2% dari
  * pokok, dipotong di muka — berlaku untuk SELURUH tenor resmi kredit barang
- * (1, 3, dan 6 bulan). Kontrak warisan 12/24 tetap memakai biaya layanan 3%.
+ * (1, 3, dan 6 bulan). Kontrak warisan 12/24 tetap memakai biaya layanan 3%
+ * (dibekukan agar angka kontrak lama tidak berubah).
  */
 export const KREDIT_TENOR_BIAYA_ADMIN_PLATFORM: readonly number[] =
   KREDIT_TENOR_PENGAJUAN_OPTIONS;
@@ -64,8 +65,8 @@ export const KREDIT_PRICING = {
   dpMaxPersen: 50,
   /**
    * Pilihan tenor kredit barang (bulan) = KREDIT_TENOR_PENGAJUAN_OPTIONS:
-   * 1/3/6 bulan dengan skema bulanan (DP 0%, biaya admin 2% + platform 3%
-   * dari pokok untuk SELURUH tenor resmi, dipotong di muka; bunga FLAT dari
+   * 1/3/6 bulan dengan skema bulanan (DP 0%, biaya admin 2% dari pokok untuk
+   * SELURUH tenor resmi, dipotong di muka; bunga FLAT dari
    * pokok penuh 30%/25%/20% per bulan sesuai tenor; TAMBAHAN biaya admin
    * cicilan 2% dari nominal cicilan pada tenor 3/6). Tenor 12/24 bulan tidak
    * ditawarkan lagi — kontrak warisan itu memakai layanan 3% di muka.
@@ -75,7 +76,12 @@ export const KREDIT_PRICING = {
   marginMinPersenPerBulan: 2.5,
   /** Imbal Hasil maksimum per bulan (% dari pokok dibiayai). */
   marginMaxPersenPerBulan: 5,
-  /** Biaya layanan platform untuk kontrak warisan 12/24, dibayar di muka. */
+  /**
+   * Biaya layanan untuk kontrak warisan 12/24 (skema DP + margin), dibayar di
+   * muka. Sengaja TIDAK ikut turun ke 2%: angka kontrak lama harus tetap
+   * seperti saat ditandatangani, sedangkan pengajuan baru 1/3/6 bulan memakai
+   * biaya admin 2% dari mesin bulanan.
+   */
   biayaLayananPersen: 3,
   /** Harga barang terendah yang dapat dibiayai. */
   minHargaBarang: 1_000_000,
@@ -139,7 +145,8 @@ export interface KreditBarangQuote {
   biayaLayanan: Rupiah;
   /** Total biaya admin 2% dari pokok (seluruh tenor resmi); dipotong di muka. */
   biayaAdmin: Rupiah;
-  /** Total biaya platform 3% dari pokok (seluruh tenor resmi); dipotong di muka. */
+  /** Total biaya platform (0% — dihapus) dari pokok; field dipertahankan agar
+   * rincian di UI/kontrak tetap punya satu nilai eksplisit. */
   biayaPlatform: Rupiah;
   /** Total biaya admin cicilan 2% (tenor 3/6); nol untuk tenor lain. */
   biayaAdminCicilanTotal: Rupiah;
@@ -176,8 +183,8 @@ function bulatDuaDesimal(v: number): number {
 }
 
 /**
- * True bila tenor memakai skema bulanan (1/3/6 bulan): DP 0%, biaya 5%
- * (admin 2% + platform 3%) dari pokok untuk seluruh tenor resmi — dipotong
+ * True bila tenor memakai skema bulanan (1/3/6 bulan): DP 0%, biaya 2%
+ * (admin 2%, platform dihapus) dari pokok untuk seluruh tenor resmi — dipotong
  * di muka, tenor 3/6 menambah biaya admin cicilan 2% — dan bunga flat per
  * tenor; input DP/margin manual diabaikan engine.
  * Dipakai UI agar slider yang tidak berpengaruh disembunyikan.
@@ -243,8 +250,8 @@ export function quoteKreditBarang(input: KreditBarangInput): KreditBarangQuote {
   // dipotong di muka, bunga menurun — mesin bulanan yang sama dengan pinjaman tunai.
   // bunga = Imbal Hasil penyedia dana.
   if (skemaBulanan) {
-    // Skema kredit menyeragamkan biaya admin 2% + platform 3% di semua tenor
-    // resminya (termasuk tenor 1 bulan).
+    // Skema kredit menyeragamkan biaya admin 2% di semua tenor resminya
+    // (termasuk tenor 1 bulan) — potongan di muka 2%, dana diterima 98%.
     const sim = hitungSimulasiBulanan(hargaBarang, tenorBulan, {
       tenorBiayaAdminPlatform: KREDIT_TENOR_BIAYA_ADMIN_PLATFORM,
     });

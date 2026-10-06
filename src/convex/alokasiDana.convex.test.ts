@@ -386,15 +386,15 @@ describe("alur penyedia dana — pinjaman tunai", () => {
     const [peluang] = await dana.query(api.alokasiDana.marketplace, {});
     expect(peluang).toMatchObject({
       kodePeminjam: "PMN-1234567890ABCDEF1234",
-      biayaLayananTotal: 50_000,
-      totalPotonganDiMuka: 50_000,
-      danaBersih: 950_000,
+      biayaLayananTotal: 20_000,
+      totalPotonganDiMuka: 20_000,
+      danaBersih: 980_000,
       jadwalPelunasan: [{ bulan: 3, hariKe: 90, total: 1_785_001 }],
       simulasiCicilanBulanan: expect.arrayContaining([
         expect.objectContaining({ bulan: 1 }),
       ]),
       catatanJadwal:
-        "Biaya admin 2% dan platform 3% untuk tenor 3/6 bulan (atau biaya layanan 3% untuk tenor 1) dipotong di muka dari dana yang diterima; tenor 3 dan 6 bulan dikenai tambahan biaya admin 2% dari nominal cicilan yang dibayar bersama setiap cicilan.",
+        "Biaya admin 2% (biaya platform dihapus) untuk tenor 3/6 bulan (atau biaya layanan 2% untuk tenor 1) dipotong di muka dari dana yang diterima; tenor 3 dan 6 bulan dikenai tambahan biaya admin 2% dari nominal cicilan yang dibayar bersama setiap cicilan.",
     });
     expect(peluang.jadwalPelunasan).toHaveLength(1);
     expect(peluang.simulasiCicilanBulanan).toHaveLength(3);

@@ -466,6 +466,19 @@ function renderKartu(
   ctx.fillStyle = glow2;
   ctx.fillRect(0, 0, W, H);
 
+  // Pasak sudut kanan atas: baji aksen pekat yang menandai muka kartu, jadi
+  // identitas poster terbaca bahkan dari thumbnail kecil di galeri.
+  ctx.save();
+  ctx.globalAlpha = 0.16;
+  ctx.fillStyle = accent;
+  ctx.beginPath();
+  ctx.moveTo(W, 0);
+  ctx.lineTo(W, H * 0.3);
+  ctx.lineTo(W * 0.36, 0);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+
   // Pita kata sebagai tekstur latar (menggantikan gambar cincin), tampil di
   // tepi luar kartu supaya tetap terbaca sebagai kata.
   const pitaFont = Math.max(10, Math.round(W * 0.021));
@@ -503,6 +516,16 @@ function renderKartu(
   bulat(ctx, M, M, CW, CH, radiusKartu);
   ctx.fillStyle = CARD;
   ctx.fill();
+  ctx.restore();
+
+  // Bilah aksen di tepi kiri kartu — garis tegas yang menyatukan seluruh isi
+  // dan menggantikan hiasan tersebar pada desain sebelumnya.
+  const relW = Math.max(4, Math.round(W * 0.0075));
+  ctx.save();
+  bulat(ctx, M, M, CW, CH, radiusKartu);
+  ctx.clip();
+  ctx.fillStyle = accent;
+  ctx.fillRect(M, M, relW, CH);
   ctx.restore();
 
   // Watermark kata besar di sudut kanan bawah, diklip ke bentuk kartu.
@@ -549,12 +572,9 @@ function renderKartu(
   const chipX = M + CW - P - chipW;
   const chipY = M + P + Math.round((logo - chipH) / 2);
   bulat(ctx, chipX, chipY, chipW, chipH, chipH / 2);
-  ctx.fillStyle = rgba(accent, 0.14);
-  ctx.fill();
-  ctx.strokeStyle = rgba(accent, 0.5);
-  ctx.lineWidth = Math.max(1.5, W * 0.0022);
-  ctx.stroke();
   ctx.fillStyle = accent;
+  ctx.fill();
+  ctx.fillStyle = "#ffffff";
   ctx.textBaseline = "middle";
   ctx.fillText(chipText, M + CW - P - chipFont * 0.85, chipY + chipH / 2 + 1);
   ctx.textAlign = "left";
@@ -617,55 +637,59 @@ function renderKartu(
     y += Math.round(subSize * 1.42);
   }
 
-  // ===== Poin manfaat: baris lembut =====
-  y += Math.round(H * 0.026);
+  // ===== Poin manfaat: daftar bernomor dengan garis rambut =====
+  // Tanpa blok isian penuh agar halaman terasa seperti lembar cetak, bukan
+  // tumpukan gelembung — nomor bulat kontur aksen jadi penanda urutan.
+  y += Math.round(H * 0.03);
   const bFont = Math.round(Math.min(W * 0.029, H * 0.02));
   const lineH = Math.round(bFont * 1.35);
-  const iconR = bFont * 0.72;
-  const rowPadX = Math.round(bFont * 0.7);
-  const rowPadY = Math.round(bFont * 0.55);
+  const nomorR = Math.round(bFont * 0.86);
   const rowGap = Math.round(bFont * 0.5);
-  const teksW = Math.max(80, innerW - Math.round(iconR * 2) - rowPadX * 2 - Math.round(bFont * 0.35));
-  for (const m of p.manfaat) {
+  const kolomNomor = nomorR * 2 + Math.round(bFont * 0.7);
+  const teksW = Math.max(80, innerW - kolomNomor);
+  p.manfaat.forEach((m, i) => {
     ctx.font = `600 ${bFont}px ${sans}`;
     const baris = bungkus(ctx, m, teksW);
-    const rowH = Math.max(Math.round(iconR * 2 + rowPadY * 2), baris.length * lineH + rowPadY * 2);
+    const rowH = Math.max(nomorR * 2, baris.length * lineH);
+    const tengah = y + rowH / 2;
 
-    bulat(ctx, innerX, y, innerW, rowH, Math.round(rowH * 0.28));
-    ctx.fillStyle = rgba(accent, 0.1);
+    ctx.beginPath();
+    ctx.arc(innerX + nomorR, tengah, nomorR, 0, Math.PI * 2);
+    ctx.fillStyle = rgba(accent, 0.12);
     ctx.fill();
-    ctx.strokeStyle = rgba(accent, 0.28);
+    ctx.strokeStyle = rgba(accent, 0.55);
     ctx.lineWidth = Math.max(1.5, W * 0.002);
     ctx.stroke();
-
-    const cx = innerX + rowPadX + iconR;
-    const cy = y + rowH / 2;
-    ctx.beginPath();
-    ctx.arc(cx, cy, iconR, 0, Math.PI * 2);
     ctx.fillStyle = accent;
-    ctx.fill();
-    ctx.strokeStyle = "#ffffff";
-    ctx.lineWidth = Math.max(2, bFont * 0.17);
-    ctx.lineCap = "round";
-    ctx.beginPath();
-    ctx.moveTo(cx - iconR * 0.42, cy);
-    ctx.lineTo(cx - iconR * 0.08, cy + iconR * 0.34);
-    ctx.lineTo(cx + iconR * 0.46, cy - iconR * 0.38);
-    ctx.stroke();
+    ctx.font = `800 ${Math.round(bFont * 0.9)}px ${sans}`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(String(i + 1), innerX + nomorR, tengah + 1);
 
+    ctx.textAlign = "left";
     ctx.fillStyle = INK;
     ctx.font = `600 ${bFont}px ${sans}`;
-    ctx.textAlign = "left";
-    ctx.textBaseline = "middle";
-    let ly = y + rowH / 2;
-    const teksX = innerX + rowPadX + iconR * 2 + Math.round(bFont * 0.35);
+    const teksX = innerX + kolomNomor;
+    let ly = y + (rowH - baris.length * lineH) / 2 + lineH / 2;
     for (const baris_ of baris) {
-      ctx.fillText(baris_, teksX, ly);
+      ctx.fillText(baris_, teksX, ly + 1);
       ly += lineH;
     }
     ctx.textBaseline = "top";
-    y += rowH + rowGap;
-  }
+    y += rowH;
+
+    // Garis rambut hanya di antara poin, tidak setelah poin terakhir.
+    if (i < p.manfaat.length - 1) {
+      y += rowGap / 2;
+      ctx.strokeStyle = "rgba(19,58,52,0.12)";
+      ctx.lineWidth = Math.max(1, W * 0.0016);
+      ctx.beginPath();
+      ctx.moveTo(innerX, y);
+      ctx.lineTo(innerX + innerW, y);
+      ctx.stroke();
+      y += rowGap / 2;
+    }
+  });
 
   // ===== Blok bawah: QRIS + CTA + disclaimer (digantung dari dasar kartu) =====
   const cardBottom = M + CH;
@@ -702,6 +726,17 @@ function renderKartu(
     ctx.lineWidth = Math.max(1.5, W * 0.0022);
     ctx.stroke();
 
+    // Tanda kutip besar sebagai jangkar visual blok kalimat sorotan.
+    const kutip = Math.round(Math.min(innerW * 0.2, stageH * 0.32));
+    ctx.save();
+    ctx.globalAlpha = 0.22;
+    ctx.fillStyle = accent;
+    ctx.font = `800 ${kutip}px ${sans}`;
+    ctx.textAlign = "left";
+    ctx.textBaseline = "top";
+    ctx.fillText("“", innerX + Math.round(innerW * 0.035), stageTop + Math.round(stageH * 0.03));
+    ctx.restore();
+
     // Kalimat sorotan + kata kunci, dipusatkan di dalam panggung.
     ctx.save();
     gambarPanggungKata(ctx, p, innerX, stageTop, innerW, stageH, sans);
@@ -734,7 +769,8 @@ function renderKartu(
   // Tombol CTA.
   ctx.font = `800 ${ctaFont}px ${sans}`;
   const ctaText = `${p.cta}  →`;
-  const ctaW = Math.min(colW, ctx.measureText(ctaText).width + ctaH * 1.2);
+  // Tombol selebar kolom: satu bilah ajakan yang tegas, bukan tombol mengambang.
+  const ctaW = colW;
   const ctaX = pakaiQris ? colX : innerX;
   const ctaY = ctaTop;
 
@@ -763,7 +799,14 @@ function renderKartu(
     ctx.fillText(nama, colX, ctaBottom + (footBaseline - ctaBottom) / 2);
   }
 
-  // Disclaimer.
+  // Disclaimer — dipisah garis rambut agar terbaca sebagai catatan kaki.
+  const garisKaki = footBaseline - Math.round(footSize * 1.9);
+  ctx.strokeStyle = "rgba(19,58,52,0.14)";
+  ctx.lineWidth = Math.max(1, W * 0.0016);
+  ctx.beginPath();
+  ctx.moveTo(M + P, garisKaki);
+  ctx.lineTo(M + CW - P, garisKaki);
+  ctx.stroke();
   ctx.fillStyle = "rgba(95,111,106,0.9)";
   ctx.font = `600 ${footSize}px ${sans}`;
   ctx.textAlign = "center";
@@ -863,19 +906,25 @@ function AsetProfilCard({ aset }: { aset: AsetProfil }) {
   }, [aset]);
 
   return (
-    <figure className="flex flex-col overflow-hidden rounded-3xl border border-[#e7e2d4] bg-white shadow-sm transition-shadow hover:shadow-md">
-      <div className="flex items-center justify-between gap-2 border-b border-[#efe9db] px-4 py-3">
-        <div className="min-w-0">
-          <p className="truncate text-sm font-bold tracking-tight text-[#0f3d3a]">{aset.label}</p>
-          <p className="text-[11px] font-mono text-[#5c6b66]">
-            {aset.canvas[0]}×{aset.canvas[1]} · {aset.ratioLabel}
-          </p>
+    <figure
+      className="group relative flex flex-col overflow-hidden rounded-2xl border border-[#e7e2d4] bg-white shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-[#c9bfa6] hover:shadow-lg"
+      style={{ borderTopColor: "#9c7b3a", borderTopWidth: 3 }}
+    >
+      <div className="flex items-start justify-between gap-3 px-4 pb-3 pt-3.5">
+        <div className="flex min-w-0 items-start gap-2.5">
+          <span className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-lg bg-[#0f3d3a]/10 text-[#0f3d3a]">
+            <ImageIcon className="size-3.5" aria-hidden="true" />
+          </span>
+          <div className="min-w-0">
+            <p className="truncate text-sm font-bold tracking-tight text-[#0f3d3a]">{aset.label}</p>
+            <p className="mt-0.5 truncate text-[11px] leading-4 text-[#5c6b66]">{aset.keterangan}</p>
+          </div>
         </div>
-        <span className="flex size-8 items-center justify-center rounded-lg bg-[#0f3d3a]/10 text-[#0f3d3a]">
-          <ImageIcon className="size-4" aria-hidden="true" />
+        <span className="shrink-0 rounded-full bg-[#9c7b3a]/12 px-2.5 py-1 font-mono text-[10px] font-semibold text-[#9c7b3a]">
+          {aset.ratioLabel} · {aset.canvas[0]}×{aset.canvas[1]}
         </span>
       </div>
-      <div className="flex flex-1 items-center justify-center bg-[#0a2624] p-4">
+      <div className="flex flex-1 items-center justify-center border-y border-[#efe9db] bg-[#0a2624] p-4">
         <div
           className="relative w-full"
           style={{ aspectRatio: `${aset.canvas[0]} / ${aset.canvas[1]}` }}
@@ -899,12 +948,11 @@ function AsetProfilCard({ aset }: { aset: AsetProfil }) {
           )}
         </div>
       </div>
-      <figcaption className="flex flex-col gap-3 border-t border-[#efe9db] px-4 py-3">
-        <p className="text-xs leading-5 text-[#5c6b66]">{aset.keterangan}</p>
-        <div className="flex flex-wrap gap-2">
+      <figcaption className="flex flex-col gap-3 px-4 py-3">
+        <div className="flex flex-wrap items-center gap-2">
           <Button
             size="sm"
-            className="gap-2"
+            className="gap-2 bg-[#0f3d3a] text-[#f7f4ec] hover:bg-[#0a2624]"
             onClick={() => {
               const canvas = ref.current;
               if (canvas) unduhCanvas(canvas, aset.berkas);
@@ -915,8 +963,8 @@ function AsetProfilCard({ aset }: { aset: AsetProfil }) {
           </Button>
           <Button
             size="sm"
-            variant="outline"
-            className="gap-2"
+            variant="ghost"
+            className="gap-2 text-[#0f3d3a] hover:bg-[#0f3d3a]/[0.06] hover:text-[#0f3d3a]"
             onClick={() => {
               const canvas = ref.current;
               if (canvas) void bagikanAset(canvas, aset);
@@ -956,32 +1004,34 @@ function PosterCard({
   const namaBerkas = `pindai-${poster.id}-${ukuran.id}.png`;
 
   return (
-    <figure className="flex flex-col overflow-hidden rounded-3xl border border-[#e7e2d4] bg-white shadow-sm transition-shadow hover:shadow-md">
-      <div className="flex items-center justify-between gap-2 border-b border-[#efe9db] px-4 py-3">
+    <figure
+      className="group relative flex flex-col overflow-hidden rounded-2xl border border-[#e7e2d4] bg-white shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-[#c9bfa6] hover:shadow-lg"
+      style={{ borderTopColor: poster.accent, borderTopWidth: 3 }}
+    >
+      {/* Kepala kartu: label + judul poster + chip rasio, bukan sekadar dua baris teks. */}
+      <div className="flex items-start justify-between gap-3 px-4 pb-3 pt-3.5">
         <div className="min-w-0">
           <p className="truncate text-sm font-bold tracking-tight text-[#0f3d3a]">{poster.label}</p>
-          <p className="text-[11px] font-mono text-[#5c6b66]">
-            {ukuran.canvas[0]}×{ukuran.canvas[1]} · {ukuran.ratioLabel}
-          </p>
+          <p className="mt-0.5 truncate text-[11px] leading-4 text-[#5c6b66]">{poster.judul}</p>
         </div>
         <span
-          className="flex size-8 items-center justify-center rounded-lg p-1"
-          style={{ backgroundColor: rgba(poster.accent, 0.16) }}
+          className="shrink-0 rounded-full px-2.5 py-1 font-mono text-[10px] font-semibold"
+          style={{ backgroundColor: rgba(poster.accent, 0.14), color: poster.accent }}
         >
-          <UkuranBadge />
+          {ukuran.ratioLabel} · {ukuran.canvas[0]}×{ukuran.canvas[1]}
         </span>
       </div>
-      <div className="flex flex-1 items-center justify-center bg-[#0a2624] p-4">
+      <div className="flex flex-1 items-center justify-center border-y border-[#efe9db] bg-[#0a2624] p-4">
         <canvas
           ref={ref}
-          className="block w-full rounded-xl object-contain shadow-lg"
+          className="block w-full rounded-lg object-contain shadow-lg transition-transform duration-300 group-hover:scale-[1.01]"
           style={{ aspectRatio: `${ukuran.canvas[0]} / ${ukuran.canvas[1]}` }}
         />
       </div>
-      <figcaption className="flex flex-wrap gap-2 border-t border-[#efe9db] px-4 py-3">
+      <figcaption className="flex flex-wrap items-center gap-2 px-4 py-3">
         <Button
           size="sm"
-          className="gap-2"
+          className="gap-2 bg-[#0f3d3a] text-[#f7f4ec] hover:bg-[#0a2624]"
           onClick={() => {
             const canvas = ref.current;
             if (canvas) unduhCanvas(canvas, namaBerkas);
@@ -992,8 +1042,8 @@ function PosterCard({
         </Button>
         <Button
           size="sm"
-          variant="outline"
-          className="gap-2"
+          variant="ghost"
+          className="gap-2 text-[#0f3d3a] hover:bg-[#0f3d3a]/[0.06] hover:text-[#0f3d3a]"
           onClick={() => {
             const canvas = ref.current;
             if (canvas) void bagikanPoster(canvas, poster, ukuran);
@@ -1002,6 +1052,9 @@ function PosterCard({
           <Share2 className="size-4" aria-hidden="true" />
           Bagikan
         </Button>
+        <span className="ml-auto hidden font-mono text-[10px] text-[#8b8578] sm:block">
+          {namaBerkas}
+        </span>
       </figcaption>
     </figure>
   );

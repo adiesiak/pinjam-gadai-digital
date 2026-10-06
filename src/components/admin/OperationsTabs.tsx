@@ -294,9 +294,9 @@ export function LedgerTab() {
         </div>
         <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
           {([
-            ["Pinjaman tunai", rincian.pinjaman, "Biaya pinjaman harian 5% (admin 2% + platform 3%); tenor bulanan 5% untuk 3/6 bulan dan 3% untuk 1 bulan, dipotong di muka"],
+            ["Pinjaman tunai", rincian.pinjaman, "Potongan di muka 2% (biaya admin; biaya platform dihapus) untuk skema harian maupun bulanan semua tenor"],
             ["Gadai (Skema B)", rincian.gadai, "Nilai potongan 1% + sewa modal"],
-            ["Kredit barang (Skema C)", rincian.kredit, "Tenor 1/3/6 bulan: admin 2% + platform 3%, dipotong di muka; tenor 3/6 menambah biaya admin cicilan 2%; kontrak lama 12/24 tetap terhitung"],
+            ["Kredit barang (Skema C)", rincian.kredit, "Tenor 1/3/6 bulan: biaya admin 2% dipotong di muka (platform dihapus); tenor 3/6 menambah biaya admin cicilan 2%; kontrak lama 12/24 tetap terhitung"],
             ["Lainnya", rincian.lainnya, "Entri biaya internal di luar tiga skema utama"],
           ] as const).map(([label, value, hint]) => (
             <div key={label} className="rounded-xl border border-slate-100 bg-slate-50/60 px-4 py-3">

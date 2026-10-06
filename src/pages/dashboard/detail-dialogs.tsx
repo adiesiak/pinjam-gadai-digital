@@ -64,15 +64,15 @@ export function LoanDetailDialog({
                     ...(loan.simulasiBulanan !== null && (loan.tenorBulan === 3 || loan.tenorBulan === 6)
                       ? [
                           ["Biaya admin perkiraan (2%, dipotong di muka)", formatRupiah(loan.simulasiBulanan.biayaAdminTotal)],
-                          ["Biaya platform perkiraan (3%, dipotong di muka)", formatRupiah(loan.simulasiBulanan.biayaPlatformTotal)],
-                          ["Total biaya tenor perkiraan (5%)", formatRupiah(loan.simulasiBulanan.biayaLayananTotal)],
+                          ["Biaya platform perkiraan (0% — dihapus)", formatRupiah(loan.simulasiBulanan.biayaPlatformTotal)],
+                          ["Total potongan di muka perkiraan (2%)", formatRupiah(loan.simulasiBulanan.biayaLayananTotal)],
                           [
                             "Biaya admin cicilan perkiraan (2% per bayar)",
                             formatRupiah(loan.simulasiBulanan.biayaAdminCicilanTotal),
                           ],
                         ]
                       : loan.simulasiBulanan !== null
-                        ? [["Biaya layanan perkiraan (3%, dipotong di muka)", formatRupiah(loan.simulasiBulanan.biayaLayananTotal)]]
+                        ? [["Biaya layanan perkiraan (2%, dipotong di muka)", formatRupiah(loan.simulasiBulanan.biayaLayananTotal)]]
                         : []),
                     ["Total kewajiban perkiraan", formatRupiah(loan.totalKewajiban)],
                   ]
@@ -80,9 +80,9 @@ export function LoanDetailDialog({
                     ["Keperluan", loanPurposeLabel(loan.tujuan)],
                     ["Pokok pengajuan tersimpan di Convex", formatRupiah(loan.pokokPinjaman)],
                     ["Biaya admin perkiraan (2%)", formatRupiah(loan.quote.biayaAdmin)],
-                    ["Biaya platform perkiraan (3%)", formatRupiah(loan.quote.biayaPlatform)],
-                    ["Perkiraan potongan di muka (5%)", formatRupiah(loan.quote.totalPotonganDiMuka)],
-                    ["Perkiraan nilai bersih (95%)", formatRupiah(loan.quote.danaBersihDitransfer)],
+                    ["Biaya platform perkiraan (0% — dihapus)", formatRupiah(loan.quote.biayaPlatform)],
+                    ["Perkiraan potongan di muka (2%)", formatRupiah(loan.quote.totalPotonganDiMuka)],
+                    ["Perkiraan nilai bersih (98%)", formatRupiah(loan.quote.danaBersihDitransfer)],
                     ["Total kewajiban perkiraan", formatRupiah(loan.quote.totalKewajibanPelunasan)],
                   ]
               ).map(([label, value], index, semua) => (

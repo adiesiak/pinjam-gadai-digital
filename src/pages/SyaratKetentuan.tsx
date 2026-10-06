@@ -196,9 +196,9 @@ const PASAL: Pasal[] = [
             Rp100.000 hingga Rp1.000.000), dengan pilihan tenor 7, 14, atau 30 hari.
           </Ayat>
           <Ayat>
-            <strong>Biaya admin 2%</strong> dan <strong>biaya platform 3%</strong> dari pokok —
-            total potongan di muka 5%. Dana bersih yang diterima dihitung 95% dari pokok dan
-            diteruskan sesuai proses pencairan.
+            <strong>Biaya admin 2%</strong> dari pokok — biaya platform dihapus (0%), sehingga total
+            potongan di muka <strong>2%</strong>. Dana bersih yang diterima dihitung 98% dari pokok
+            dan diteruskan sesuai proses pencairan.
           </Ayat>
           <Ayat>
             <strong>Bunga pinjaman 30%</strong> dari pokok, sehingga total kewajiban pelunasan

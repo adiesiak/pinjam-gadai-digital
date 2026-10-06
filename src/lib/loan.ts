@@ -9,11 +9,17 @@ import { formatRupiah, percentOf, type Rupiah } from "./money";
 
 export const PINDAI_PRICING = {
   adminFeePercent: 2,
-  platformFeePercent: 3,
-  /** Total upfront deduction = Admin 2% + Platform 3% = 5%. */
-  upfrontDeductionPercent: 5,
-  /** Net disbursement is 95% of principal. */
-  netDisbursementPercent: 95,
+  /**
+   * Biaya platform dihapus (0%): seluruh potongan di muka sekarang hanya
+   * biaya admin 2%. Field ini dipertahankan agar `biayaPlatform` tetap punya
+   * satu sumber kebenaran (rupiah bulat nol) dan tidak perlu dihapus dari
+   * kontrak/UI yang sudah menampilkan rinciannya.
+   */
+  platformFeePercent: 0,
+  /** Total upfront deduction = Admin 2% + Platform 0% = 2%. */
+  upfrontDeductionPercent: 2,
+  /** Net disbursement is 98% of principal. */
+  netDisbursementPercent: 98,
   /** Bunga (Imbal Hasil penyedia dana) is 30% of principal. */
   bungaPercent: 30,
   /** Total repayment obligation = 130% of principal. */
@@ -78,11 +84,11 @@ export interface LoanQuote {
   pokok: Rupiah;
   /** Biaya Admin — 2% dari pokok */
   biayaAdmin: Rupiah;
-  /** Biaya Layanan Platform — 3% dari pokok */
+  /** Biaya Layanan Platform — 0% dari pokok (dihapus dari potongan di muka) */
   biayaPlatform: Rupiah;
-  /** Total Potongan di Muka — 5% */
+  /** Total Potongan di Muka — 2% (hanya biaya admin) */
   totalPotonganDiMuka: Rupiah;
-  /** Dana Bersih Ditransfer — 95% */
+  /** Dana Bersih Ditransfer — 98% */
   danaBersihDitransfer: Rupiah;
   /** Bunga Pinjaman — 30% (hak finansial penyedia dana) */
   bunga: Rupiah;

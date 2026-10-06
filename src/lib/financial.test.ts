@@ -47,9 +47,9 @@ throws(() => parseRupiah("-1000"), "negatif ditolak");
 // ---- quoteLoan: formula wajib PINDAI ----
 const q1 = quoteLoan(10_000_000);
 eq(q1.biayaAdmin, 200_000, "Admin 2% dari 10jt");
-eq(q1.biayaPlatform, 300_000, "Platform 3% dari 10jt");
-eq(q1.totalPotonganDiMuka, 500_000, "Potongan 5% dari 10jt");
-eq(q1.danaBersihDitransfer, 9_500_000, "Net 95% dari 10jt");
+eq(q1.biayaPlatform, 0, "Platform 0% — biaya platform dihapus");
+eq(q1.totalPotonganDiMuka, 200_000, "Potongan di muka 2% dari 10jt");
+eq(q1.danaBersihDitransfer, 9_800_000, "Net 98% dari 10jt");
 eq(q1.bunga, 3_000_000, "Bunga 30% dari 10jt");
 eq(q1.totalKewajibanPelunasan, 13_000_000, "Total 130% dari 10jt");
 eq(
@@ -66,7 +66,7 @@ eq(
 // ---- requote: simulasi kalkulator landing ----
 const r1 = requote(8_000_000);
 eq(r1.pokok, 8_000_000, "requote pokok");
-eq(r1.danaBersihDitransfer, 7_600_000, "requote net 95%");
+eq(r1.danaBersihDitransfer, 7_840_000, "requote net 98%");
 
 // requote adalah alias quoteLoan — validasi minimum terjadi di lapisan mutasi.
 eq(requote(500_000).pokok, 500_000, "requote nominal kecil tetap terhitung");
@@ -74,7 +74,7 @@ eq(requote(500_000).pokok, 500_000, "requote nominal kecil tetap terhitung");
 // ---- kalkulasi bulat untuk nominal tak rata ----
 const q2 = quoteLoan(7_777_777);
 eq(q2.biayaAdmin, 155_556, "2% dari 7.777.777 (155.555,54 → 155.556)");
-eq(q2.biayaPlatform, 233_333, "3% dari 7.777.777 (233.333,31 → 233.333)");
+eq(q2.biayaPlatform, 0, "platform 0% pada nominal tak rata");
 eq(
   q2.pokok - q2.totalPotonganDiMuka,
   q2.danaBersihDitransfer,
