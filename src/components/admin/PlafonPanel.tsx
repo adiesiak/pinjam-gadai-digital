@@ -1,5 +1,5 @@
 import { useMutation, useQuery } from "convex/react";
-import { Loader2, Search, SlidersHorizontal, Trash2 } from "lucide-react";
+import { Loader2, RotateCcw, Search, SlidersHorizontal, Trash2, Users, X } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -7,6 +7,17 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { EmptyQueue, MetrikKartu } from "@/components/admin/admin-shared";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { formatRupiah } from "@/lib/money";
@@ -25,7 +36,17 @@ import { BUNGA_BATAS, BUNGA_LANGKAH, clampPersenBunga } from "@/lib/bunga";
  * snapshot pada tiap pengajuan; pengajuan yang belum cair ikut diperbarui,
  * pinjaman yang sudah cair tidak berubah. Menghapus nasabah hanya menghapus
  * akunnya — pengajuan dan riwayat keuangannya tetap utuh.
+ *
+ * Susunan kartu per nasabah: identitas + lencana di kepala, dua blok isian
+ * (plafon & bunga) yang terpisah, lalu hapus akun di kaki kartu agar keputusan
+ * destruktif tidak menempel pada tombol simpan sehari-hari.
  */
+
+/** Ukuran kelas label kecil di dalam blok isian. */
+const KELAS_LABEL_BLOK = "text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400";
+/** Ukuran kelas catatan bantuan di bawah isian. */
+const KELAS_HINT = "text-[10px] leading-4 text-muted-foreground";
+
 export function PlafonPanel() {
   const [cari, setCari] = useState("");
   const [draft, setDraft] = useState<Record<string, string>>({});
@@ -33,6 +54,9 @@ export function PlafonPanel() {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [busyBungaId, setBusyBungaId] = useState<string | null>(null);
   const [busyHapusId, setBusyHapusId] = useState<string | null>(null);
+  /** Nasabah yang sedang dikonfirmasi penghapusannya lewat dialog. */
+  const [hapusTarget, setHapusTarget] = useState<{ userId: Id<"users">; nama: string } | null>(null);
+  const [alasanHapus, setAlasanHapus] = useState("");
   const data = useQuery(api.admin.daftarPlafonPeminjam, { cari: cari || undefined });
   const setPlafon = useMutation(api.admin.setPlafonPeminjam);
   const setBunga = useMutation(api.admin.setBungaPeminjam);
@@ -40,7 +64,7 @@ export function PlafonPanel() {
 
   if (data === undefined) {
     return (
-      <p className="flex items-center gap-2 py-10 text-sm text-muted-foreground">
+      <p className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-5 py-10 text-sm text-muted-foreground">
         <Loader2 className="size-4 animate-spin" /> Memuat plafon nasabah…
       </p>
     );
@@ -87,23 +111,21 @@ export function PlafonPanel() {
     }
   };
 
-  const hapus = async (userId: Id<"users">, nama: string) => {
-    const alasan = window.prompt(
-      `Hapus AKUN nasabah "${nama.toUpperCase()}"?\n\n` +
-        "Pengajuan dan riwayat keuangannya TETAP disimpan; hanya akunnya yang dihapus.\n\n" +
-        "Alasan penghapusan (10–500 karakter):",
-    );
-    if (alasan === null) return;
-    const bersih = alasan.trim();
-    if (bersih.length < 10 || bersih.length > 500) {
+  const alasanBersih = alasanHapus.trim();
+  const alasanValid = alasanBersih.length >= 10 && alasanBersih.length <= 500;
+
+  const hapus = async () => {
+    if (hapusTarget === null) return;
+    if (!alasanValid) {
       toast.error("Alasan penghapusan wajib 10–500 karakter.");
       return;
     }
-    if (!window.confirm(`Konfirmasi: hapus akun ${nama.toUpperCase()} sekarang?`)) return;
-    setBusyHapusId(userId);
+    setBusyHapusId(hapusTarget.userId);
     try {
-      await hapusNasabah({ userId, alasan: bersih });
-      toast.success(`Akun ${nama.toUpperCase()} dihapus.`);
+      await hapusNasabah({ userId: hapusTarget.userId, alasan: alasanBersih });
+      toast.success(`Akun ${hapusTarget.nama.toUpperCase()} dihapus.`);
+      setHapusTarget(null);
+      setAlasanHapus("");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Gagal menghapus akun.");
     } finally {
@@ -112,194 +134,393 @@ export function PlafonPanel() {
   };
 
   return (
-    <div className="animate-masuk space-y-4">
-      <div>
-        <p className="flex items-center gap-2 text-sm font-semibold">
-          <SlidersHorizontal className="size-4 text-primary" /> Plafon & bunga nasabah
-        </p>
-        <p className="mt-1 text-xs leading-5 text-muted-foreground">
-          Untuk pinjaman tunai, default plafon awal{" "}
-          <strong className="tabular-nums">{formatRupiah(data.default)}</strong> dan bunga dasar{" "}
-          <strong className="tabular-nums">{formatPersen(data.defaultBunga)}</strong> (Pengaturan
-          Sistem). Setiap pinjaman tunai dengan pokok minimal Rp1 juta dan status lunas tepat waktu
-          pada ledger internal dapat menambah plafon Rp1 juta, hingga maksimum Rp10 juta. Status
-          lunas/tanggal mengikuti entri ledger internal PINDAI. Override admin tetap berlaku; reset
-          kembali ke plafon progresif / bunga global. Bunga khusus disimpan per pengajuan: pengajuan
-          yang belum cair ikut diperbarui, pinjaman yang sudah cair tetap memakai bunganya. Rentang
-          plafon {formatRupiah(PLAFON_BATAS.min)}–{formatRupiah(PLAFON_BATAS.maks)}; rentang bunga{" "}
-          {BUNGA_BATAS.min}–{BUNGA_BATAS.maks}%.
-        </p>
-      </div>
+    <div className="animate-masuk space-y-4 sm:space-y-5">
+      {/* Kebijakan sekilas: empat angka kunci jadi kartu metrik, aturan
+          lengkapnya dilipat agar tidak menutupi daftar nasabah. */}
+      <section className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
+        <div className="flex items-start gap-3">
+          <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+            <SlidersHorizontal className="size-4" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <h2 className="text-sm font-semibold text-navy">Plafon &amp; bunga nasabah</h2>
+            <p className="mt-0.5 text-xs leading-5 text-muted-foreground">
+              Override admin menang atas default global. Bunga khusus disimpan sebagai snapshot pada
+              tiap pengajuan.
+            </p>
+            <dl className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+              <MetrikKartu label="Default plafon" nilai={formatRupiah(data.default)} />
+              <MetrikKartu label="Default bunga" nilai={formatPersen(data.defaultBunga)} />
+              <MetrikKartu
+                label="Rentang plafon"
+                nilai={`${formatRupiah(PLAFON_BATAS.min)} – ${formatRupiah(PLAFON_BATAS.maks)}`}
+              />
+              <MetrikKartu label="Rentang bunga" nilai={`${BUNGA_BATAS.min}–${BUNGA_BATAS.maks}%`} />
+            </dl>
+            <details className="mt-3 rounded-xl border border-slate-100 bg-slate-50/60 px-3 py-2">
+              <summary className="cursor-pointer text-xs font-medium text-slate-600 hover:text-navy">
+                Aturan plafon &amp; bunga
+              </summary>
+              <ul className="mt-2 list-disc space-y-1 pl-4 text-xs leading-5 text-muted-foreground">
+                <li>
+                  Default plafon awal dan bunga dasar diambil dari Pengaturan Sistem; keduanya bisa
+                  ditimpa per nasabah di kolom bawah.
+                </li>
+                <li>
+                  Setiap pinjaman tunai dengan pokok minimal Rp1 juta yang lunas tepat waktu
+                  menambah plafon Rp1 juta, hingga maksimum Rp10 juta.
+                </li>
+                <li>Status lunas dan tanggal pelunasan mengikuti entri ledger internal PINDAI.</li>
+                <li>
+                  Tombol reset mengembalikan nasabah ke plafon progresif atau bunga global; kredit
+                  barang memakai batas tersendiri.
+                </li>
+                <li>
+                  Bunga khusus hanya mengubah pengajuan yang belum cair — pinjaman yang sudah cair
+                  tetap memakai bunganya.
+                </li>
+              </ul>
+            </details>
+          </div>
+        </div>
+      </section>
 
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          className="pl-9"
-          aria-label="Cari nasabah berdasarkan nama atau email"
-          placeholder="Cari nama atau email…"
-          value={cari}
-          onChange={(e) => setCari(e.target.value)}
-        />
+      {/* Pencarian + jumlah hasil, sejajar agar lebar daftar tidak bergeser. */}
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="relative min-w-0 flex-1">
+          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            className="pl-9 pr-10"
+            aria-label="Cari nasabah berdasarkan nama atau email"
+            placeholder="Cari nama atau email…"
+            value={cari}
+            onChange={(e) => setCari(e.target.value)}
+          />
+          {cari !== "" && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              aria-label="Bersihkan pencarian"
+              className="absolute right-1.5 top-1/2 -translate-y-1/2 text-muted-foreground"
+              onClick={() => setCari("")}
+            >
+              <X className="size-4" />
+            </Button>
+          )}
+        </div>
+        <p className="shrink-0 text-xs tabular-nums text-muted-foreground">
+          {data.rows.length}
+          {data.rows.length >= 100 ? "+" : ""} nasabah
+        </p>
       </div>
 
       {data.rows.length === 0 ? (
-        <p className="rounded-2xl border border-slate-200 bg-white px-5 py-8 text-center text-sm text-muted-foreground">
-          Belum ada Peminjam yang pernah mengajukan.
-        </p>
+        cari.trim() === "" ? (
+          <EmptyQueue
+            icon={Users}
+            title="Belum ada Peminjam"
+            deskripsi="Nasabah muncul di sini setelah mengirim pengajuan pinjaman atau kredit barang."
+            poin={[
+              "Atur plafon khusus agar batas pinjaman tidak mengikuti default global.",
+              "Tetapkan bunga khusus per nasabah dan pantau riwayat pelunasannya.",
+            ]}
+          />
+        ) : (
+          <EmptyQueue
+            icon={Search}
+            title="Tidak ada nasabah yang cocok"
+            deskripsi={`Tidak ada nama atau email yang mengandung “${cari.trim()}”. Coba kata kunci lain.`}
+          />
+        )
       ) : (
-        <ul className="divide-y divide-slate-200 rounded-2xl border border-slate-200 bg-white">
+        <ul className="space-y-3">
           {data.rows.map((r) => {
-            const nilai = draft[r.userId] ?? String(r.plafonEfektif);
+            const nilai = draft[r.userId] ?? formatAngka(r.plafonEfektif);
             const berubah = Number(nilai.replace(/\D/g, "")) !== r.plafonEfektif;
-            const nilaiBunga = draftBunga[r.userId] ?? String(r.persenBungaEfektif);
-            const bungaBerubah =
-              parsePersen(nilaiBunga) !== r.persenBungaEfektif;
+            const nilaiBunga = draftBunga[r.userId] ?? formatPersenAngka(r.persenBungaEfektif);
+            const bungaBerubah = parsePersen(nilaiBunga) !== r.persenBungaEfektif;
+            const sedangSimpanPlafon = busyId === r.userId;
+            const sedangSimpanBunga = busyBungaId === r.userId;
+            const sedangHapus = busyHapusId === r.userId;
             return (
-              <li key={r.userId} className="flex flex-wrap items-end justify-between gap-3 px-5 py-4">
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-medium">{r.nama.toUpperCase()}</p>
-                  <p className="mt-0.5 text-xs text-muted-foreground">
-                    {r.email ?? "tanpa email"} · {r.jumlahPengajuan} pengajuan aplikasi ·{" "}
-                    {r.pinjamanAktif} status aktif di ledger
-                  </p>
-                  <div className="mt-1.5 flex flex-wrap gap-1.5">
+              <li
+                key={r.userId}
+                className="overflow-hidden rounded-2xl border border-slate-200 bg-white"
+              >
+                {/* Kepala kartu: siapa, seberapa aktif, dan status override-nya. */}
+                <header className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-100 px-4 py-3.5 sm:px-5">
+                  <div className="flex min-w-0 items-start gap-3">
+                    <span
+                      aria-hidden="true"
+                      className="flex size-9 shrink-0 items-center justify-center rounded-full bg-slate-100 text-xs font-bold text-slate-500"
+                    >
+                      {inisial(r.nama)}
+                    </span>
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold text-navy">
+                        {r.nama.toUpperCase()}
+                      </p>
+                      <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                        {r.email ?? "tanpa email"}
+                      </p>
+                      <p className="mt-1 text-[11px] tabular-nums text-muted-foreground">
+                        {r.jumlahPengajuan} pengajuan aplikasi · {r.pinjamanAktif} status aktif di
+                        ledger
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
                     {r.plafonPribadi === null ? (
                       r.jumlahPelunasanTepatWaktu === 0 ? (
-                        <Badge className="bg-slate-100 text-slate-600 hover:bg-slate-100">
+                        <Badge className="border-slate-200 bg-slate-100 text-slate-600">
                           plafon ikut default global
                         </Badge>
                       ) : (
-                        <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100">
+                        <Badge className="border-emerald-200 bg-emerald-100 text-emerald-700">
                           plafon progresif · {r.jumlahPelunasanTepatWaktu} lunas tepat waktu
                         </Badge>
                       )
                     ) : (
-                      <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100">
+                      <Badge className="border-emerald-200 bg-emerald-100 text-emerald-700">
                         plafon khusus: {formatRupiah(r.plafonPribadi)}
                       </Badge>
                     )}
                     {r.persenBungaPribadi === null ? (
-                      <Badge className="bg-slate-100 text-slate-600 hover:bg-slate-100">
+                      <Badge className="border-slate-200 bg-slate-100 text-slate-600">
                         bunga ikut default global
                       </Badge>
                     ) : (
-                      <Badge className="bg-amber-100 text-amber-700 hover:bg-amber-100">
+                      <Badge className="border-amber-200 bg-amber-100 text-amber-700">
                         bunga khusus: {formatPersen(r.persenBungaPribadi)}
                       </Badge>
                     )}
                   </div>
-                </div>
-                <div className="flex flex-wrap items-end gap-3">
-                  <div>
-                    <Label htmlFor={`plafon-${r.userId}`} className="text-[11px] text-muted-foreground">
-                      Plafon efektif
-                    </Label>
-                    <Input
-                      id={`plafon-${r.userId}`}
-                      inputMode="numeric"
-                      className="w-32 tabular-nums"
-                      value={nilai}
-                      onChange={(e) =>
-                        setDraft((p) => ({ ...p, [r.userId]: e.target.value.replace(/\D/g, "") }))
-                      }
-                      onBlur={() => {
-                        const angka = Number(nilai.replace(/\D/g, "")) || 0;
-                        setDraft((p) => ({ ...p, [r.userId]: String(clampPlafon(angka)) }));
-                      }}
-                      disabled={busyId === r.userId}
-                    />
-                    <p className="mt-1 text-[10px] text-muted-foreground">
-                      kelipatan {formatRupiah(PLAFON_LANGKAH)}
-                    </p>
-                  </div>
-                  <Button
-                    size="sm"
-                    disabled={!berubah || busyId === r.userId}
-                    onClick={() => void simpan(r.userId as Id<"users">, nilai, false)}
-                  >
-                    {busyId === r.userId ? <Loader2 className="size-4 animate-spin" /> : "Simpan"}
-                  </Button>
-                  {r.plafonPribadi !== null && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      disabled={busyId === r.userId}
-                      onClick={() => void simpan(r.userId as Id<"users">, "", true)}
-                    >
-                      {r.jumlahPelunasanTepatWaktu === 0
-                        ? "Plafon ke default"
-                        : "Plafon progresif"}
-                    </Button>
-                  )}
-                  <div>
-                    <Label htmlFor={`bunga-${r.userId}`} className="text-[11px] text-muted-foreground">
-                      Bunga efektif
-                    </Label>
-                    <div className="flex items-center gap-1">
-                      <Input
-                        id={`bunga-${r.userId}`}
-                        inputMode="decimal"
-                        className="w-24 tabular-nums"
-                        value={nilaiBunga}
-                        onChange={(e) =>
-                          setDraftBunga((p) => ({ ...p, [r.userId]: e.target.value.replace(/[^\d.]/g, "") }))
-                        }
-                        onBlur={() =>
-                          setDraftBunga((p) => ({
-                            ...p,
-                            [r.userId]: String(clampPersenBunga(parsePersen(nilaiBunga))),
-                          }))
-                        }
-                        disabled={busyBungaId === r.userId}
-                      />
-                      <span className="text-sm font-medium text-muted-foreground">%</span>
+                </header>
+
+                {/* Badan kartu: dua blok isian sejajar, masing-masing punya
+                    tombol simpan dan resetnya sendiri. */}
+                <div className="grid gap-3 px-4 py-4 sm:grid-cols-2 sm:px-5">
+                  <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <Label htmlFor={`plafon-${r.userId}`} className={KELAS_LABEL_BLOK}>
+                        Plafon efektif
+                      </Label>
+                      {berubah && (
+                        <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700">
+                          belum disimpan
+                        </span>
+                      )}
                     </div>
-                    <p className="mt-1 text-[10px] text-muted-foreground">
-                      langkah {formatPersen(BUNGA_LANGKAH)}
-                    </p>
+                    <div className="mt-2 flex items-center gap-2">
+                      <div className="relative min-w-0 flex-1">
+                        <span
+                          aria-hidden="true"
+                          className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-xs font-medium text-slate-400"
+                        >
+                          Rp
+                        </span>
+                        <Input
+                          id={`plafon-${r.userId}`}
+                          inputMode="numeric"
+                          className="pl-8 tabular-nums"
+                          value={nilai}
+                          onChange={(e) =>
+                            setDraft((p) => ({
+                              ...p,
+                              [r.userId]: e.target.value.replace(/\D/g, ""),
+                            }))
+                          }
+                          onBlur={() => {
+                            const angka = Number(nilai.replace(/\D/g, "")) || 0;
+                            setDraft((p) => ({
+                              ...p,
+                              [r.userId]: formatAngka(clampPlafon(angka)),
+                            }));
+                          }}
+                          disabled={sedangSimpanPlafon}
+                        />
+                      </div>
+                      <Button
+                        size="sm"
+                        className="h-10 px-3"
+                        disabled={!berubah || sedangSimpanPlafon}
+                        onClick={() => void simpan(r.userId as Id<"users">, nilai, false)}
+                      >
+                        {sedangSimpanPlafon ? <Loader2 className="size-4 animate-spin" /> : "Simpan"}
+                      </Button>
+                    </div>
+                    <div className="mt-2 flex items-center justify-between gap-2">
+                      <p className={KELAS_HINT}>Kelipatan {formatRupiah(PLAFON_LANGKAH)}</p>
+                      {r.plafonPribadi !== null && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-7 px-2 text-[11px] font-medium text-primary hover:bg-primary/10 hover:text-primary"
+                          disabled={sedangSimpanPlafon}
+                          onClick={() => void simpan(r.userId as Id<"users">, "", true)}
+                        >
+                          <RotateCcw className="size-3.5" />
+                          {r.jumlahPelunasanTepatWaktu === 0
+                            ? "Ke default global"
+                            : "Ke plafon progresif"}
+                        </Button>
+                      )}
+                    </div>
                   </div>
-                  <Button
-                    size="sm"
-                    disabled={!bungaBerubah || busyBungaId === r.userId}
-                    onClick={() => void simpanBunga(r.userId as Id<"users">, nilaiBunga, false)}
-                  >
-                    {busyBungaId === r.userId ? (
-                      <Loader2 className="size-4 animate-spin" />
-                    ) : (
-                      "Simpan bunga"
-                    )}
-                  </Button>
-                  {r.persenBungaPribadi !== null && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      disabled={busyBungaId === r.userId}
-                      onClick={() => void simpanBunga(r.userId as Id<"users">, "", true)}
-                    >
-                      Bunga ke default
-                    </Button>
-                  )}
+
+                  <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <Label htmlFor={`bunga-${r.userId}`} className={KELAS_LABEL_BLOK}>
+                        Bunga efektif
+                      </Label>
+                      {bungaBerubah && (
+                        <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700">
+                          belum disimpan
+                        </span>
+                      )}
+                    </div>
+                    <div className="mt-2 flex items-center gap-2">
+                      <div className="relative min-w-0 flex-1">
+                        <Input
+                          id={`bunga-${r.userId}`}
+                          inputMode="decimal"
+                          className="pr-8 tabular-nums"
+                          value={nilaiBunga}
+                          onChange={(e) =>
+                            setDraftBunga((p) => ({
+                              ...p,
+                              [r.userId]: e.target.value.replace(/[^\d.,]/g, ""),
+                            }))
+                          }
+                          onBlur={() =>
+                            setDraftBunga((p) => ({
+                              ...p,
+                              [r.userId]: formatPersenAngka(clampPersenBunga(parsePersen(nilaiBunga))),
+                            }))
+                          }
+                          disabled={sedangSimpanBunga}
+                        />
+                        <span
+                          aria-hidden="true"
+                          className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs font-medium text-slate-400"
+                        >
+                          %
+                        </span>
+                      </div>
+                      <Button
+                        size="sm"
+                        className="h-10 px-3"
+                        disabled={!bungaBerubah || sedangSimpanBunga}
+                        onClick={() => void simpanBunga(r.userId as Id<"users">, nilaiBunga, false)}
+                      >
+                        {sedangSimpanBunga ? <Loader2 className="size-4 animate-spin" /> : "Simpan"}
+                      </Button>
+                    </div>
+                    <div className="mt-2 flex items-center justify-between gap-2">
+                      <p className={KELAS_HINT}>Langkah {formatPersen(BUNGA_LANGKAH)}</p>
+                      {r.persenBungaPribadi !== null && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-7 px-2 text-[11px] font-medium text-primary hover:bg-primary/10 hover:text-primary"
+                          disabled={sedangSimpanBunga}
+                          onClick={() => void simpanBunga(r.userId as Id<"users">, "", true)}
+                        >
+                          <RotateCcw className="size-3.5" />
+                          Ke bunga global
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Kaki kartu: satu-satunya aksi destruktif, dijauhkan dari
+                    tombol simpan dan dijelaskan dampaknya. */}
+                <footer className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 bg-slate-50/60 px-4 py-2.5 sm:px-5">
+                  <p className={KELAS_HINT}>
+                    Menghapus hanya menghapus akun — pengajuan dan riwayat keuangannya tetap
+                    tersimpan.
+                  </p>
                   <Button
                     size="sm"
                     variant="outline"
-                    className="text-destructive hover:text-destructive"
-                    disabled={busyHapusId === r.userId}
-                    onClick={() => void hapus(r.userId as Id<"users">, r.nama)}
-                    title="Hapus akun nasabah (pengajuan tetap disimpan)"
+                    className="border-destructive/30 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                    disabled={sedangHapus}
+                    onClick={() => {
+                      setAlasanHapus("");
+                      setHapusTarget({ userId: r.userId as Id<"users">, nama: r.nama });
+                    }}
                   >
-                    {busyHapusId === r.userId ? (
+                    {sedangHapus ? (
                       <Loader2 className="size-4 animate-spin" />
                     ) : (
                       <Trash2 className="size-4" />
                     )}
                     <span className="ml-1">Hapus akun</span>
                   </Button>
-                </div>
+                </footer>
               </li>
             );
           })}
         </ul>
       )}
+
+      {/* Konfirmasi hapus: alasan 10–500 karakter (sama dengan validasi server)
+          diketik di dialog, bukan di `window.prompt` yang memblokir layar. */}
+      <AlertDialog
+        open={hapusTarget !== null}
+        onOpenChange={(terbuka) => {
+          if (!terbuka) {
+            setHapusTarget(null);
+            setAlasanHapus("");
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Hapus akun nasabah?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Akun <strong className="text-navy">{hapusTarget?.nama.toUpperCase()}</strong> akan
+              dihapus. Pengajuan dan riwayat keuangannya TETAP tersimpan di ledger internal — hanya
+              akunnya yang hilang.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="space-y-1.5">
+            <Label htmlFor="alasan-hapus-nasabah" className="text-xs">
+              Alasan penghapusan
+            </Label>
+            <Textarea
+              id="alasan-hapus-nasabah"
+              rows={3}
+              maxLength={500}
+              value={alasanHapus}
+              onChange={(e) => setAlasanHapus(e.target.value)}
+              placeholder="Mis. permintaan penghapusan data dari nasabah (10–500 karakter)…"
+            />
+            <p
+              className={`text-[11px] tabular-nums ${
+                alasanBersih.length === 0 || alasanValid
+                  ? "text-muted-foreground"
+                  : "text-destructive"
+              }`}
+            >
+              {alasanBersih.length}/500 karakter · minimal 10 karakter
+            </p>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={busyHapusId !== null}>Batal</AlertDialogCancel>
+            <Button
+              variant="destructive"
+              disabled={!alasanValid || busyHapusId !== null}
+              onClick={() => void hapus()}
+            >
+              {busyHapusId !== null ? <Loader2 className="size-4 animate-spin" /> : null}
+              Hapus akun
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
@@ -314,4 +535,19 @@ function parsePersen(nilai: string): number {
 /** 30 → "30%", 12.5 → "12,5%". */
 function formatPersen(nilai: number): string {
   return `${String(nilai).replace(".", ",")}%`;
+}
+
+/** 12.5 → "12,5" (tanpa tanda persen) untuk nilai di dalam kolom isian. */
+function formatPersenAngka(nilai: number): string {
+  return String(nilai).replace(".", ",");
+}
+
+/** 1000000 → "1.000.000" — pemisah ribuan saat kolom isian tidak difokuskan. */
+function formatAngka(nilai: number): string {
+  return new Intl.NumberFormat("id-ID").format(nilai);
+}
+
+/** "alfian rifki" → "A" untuk lencana bulat di kepala kartu. */
+function inisial(nama: string): string {
+  return nama.trim().charAt(0).toUpperCase();
 }
