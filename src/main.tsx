@@ -14,7 +14,7 @@ import { createRoot } from "react-dom/client";
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router";
 import "./index.css";
 import { useSessionGuard } from "@/hooks/use-session-guard";
-import { ADMIN_ROUTE } from "@/lib/routes";
+import { ADMIN_ROUTE, QC_ROUTE } from "@/lib/routes";
 import { THEME_PRESETS, type ThemePreset } from "@/lib/system-config";
 import { api } from "@/convex/_generated/api";
 
@@ -48,6 +48,7 @@ const PenyediaDana = lazy(denganPercobaan(() => import("./pages/PenyediaDana.tsx
 const AksesBersama = lazy(denganPercobaan(() => import("./pages/AksesBersama.tsx")));
 const SyaratKetentuan = lazy(denganPercobaan(() => import("./pages/SyaratKetentuan.tsx")));
 const NotFound = lazy(denganPercobaan(() => import("./pages/NotFound.tsx")));
+const Qc = lazy(denganPercobaan(() => import("./pages/Qc.tsx")));
 
 // Fallback pemuatan rute: layar bermerek PINDAI dengan logo brankas "pindai"
 // yang beranimasi dan interaktif (lihat components/LoadingScreen.tsx).
@@ -260,6 +261,16 @@ createRoot(document.getElementById("root")!).render(
                   }
                 />
                 <Route path="/promo" element={<RequireAuth><Promo /></RequireAuth>} />
+                {/* QC konsistensi — suite pemeriksaan invariant uang, mandiri,
+                    gerbang admin + TOTP di dalam halaman. */}
+                <Route
+                  path={QC_ROUTE}
+                  element={
+                    <RequireAuth>
+                      <Qc />
+                    </RequireAuth>
+                  }
+                />
                 {/* Tautan lama /pendana (bookmark, dokumen lama) diarahkan ke
                     ruang penyedia dana alih-alih jatuh ke NotFound. Rute ini
                     sebelumnya terdaftar untuk /penyedia-dana — path yang sudah
