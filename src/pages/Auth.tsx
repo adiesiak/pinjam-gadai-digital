@@ -32,6 +32,7 @@ import {
   ShieldCheck,
   UserX,
   Vault,
+  LogIn,
 } from "lucide-react";
 import { Suspense, useEffect, useRef, useState, type FormEvent } from "react";
 import { useMutation } from "convex/react";
@@ -420,9 +421,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
       console.error("Guest login error:", error);
       setKegagalan((k) => k + 1);
       setError(
-        `Gagal masuk sebagai tamu: ${
-          error instanceof Error ? error.message : "kesalahan tidak diketahui"
-        }`,
+        `Gagal masuk sebagai tamu: ${error instanceof Error ? error.message : "kesalahan tidak diketahui"}`,
       );
       setIsLoading(false);
     }
@@ -436,42 +435,48 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
       ? `client-${typeof clientStep === "string" ? clientStep : "kode"}`
       : `admin-${typeof adminStep === "string" ? adminStep : `kode-${adminStep.purpose}`}`;
 
+  /* Kartu auth: perpaduan antara kartu kolom (Login) dan kartu dasar (rest). */
+  const cardStyle =
+    "gap-6 rounded-2xl border-border/60 shadow-sm bg-card clay-card text-card-foreground";
+
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground">
       <div className="flex-1" />
-      <FadeIn className="flex items-center justify-center px-4 py-8 sm:px-6">
-        <div className="flex w-full max-w-sm flex-col items-center">
+
+      <FadeIn className="flex items-center justify-center px-4 py-10 sm:px-6">
+        <div className="flex w-full max-w-lg flex-col items-center">
+          {/* Brand minimalis — logo abu dengan titik kuning, teks PINDAI di bawah */}
           <Link
             to="/"
-            className="flex items-center gap-2.5 text-sm font-semibold tracking-[0.18em] text-foreground"
+            className="group flex items-center gap-2.5 text-sm font-semibold tracking-[0.18em] text-foreground transition-colors hover:text-primary"
           >
-            <span className="flex size-8 items-center justify-center rounded-lg bg-primary font-bold text-primary-foreground">
+            <span className="flex size-8 items-center justify-center rounded-lg border border-slate-300 bg-white text-slate-800 font-bold text-base shadow-sm group-hover:border-primary/40 group-hover:text-primary transition-colors">
               P
             </span>
             PINDAI
           </Link>
-          <p className="mt-2 text-xs text-muted-foreground">
+          <p className="mt-2 text-xs text-muted-foreground tracking-wide">
             Pinjam &amp; Gadai Digital
           </p>
+
+          {/* Mitra kepercayaan — tiga ikon kecil di sebelah logo */}
           <ul className="mt-4 flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-xs text-muted-foreground">
             <li className="flex items-center gap-1.5">
-              <BadgeCheck className="size-3.5 text-primary" />
+              <BadgeCheck className="size-3.5 text-sky-700" />
               Pencatatan ledger
             </li>
             <li className="flex items-center gap-1.5">
-              <Vault className="size-3.5 text-primary" />
+              <Vault className="size-3.5 text-sky-700" />
               Pencatatan gadai
             </li>
             <li className="flex items-center gap-1.5">
-              <CalendarClock className="size-3.5 text-primary" />
+              <CalendarClock className="size-3.5 text-sky-700" />
               Jadwal angsuran
             </li>
           </ul>
 
-          <Card
-            key={langkahKey}
-            className="animate-masuk mt-8 w-full gap-6 rounded-xl border-border/60 shadow-none"
-          >
+          {/* Kartu login — putih, nama field jelas, aksi utama kontras */}
+          <Card key={langkahKey} className={`animate-masuk mt-8 w-full ${cardStyle}`}>
             {authMode === "client" ? (
               clientStep === "signIn" ? (
                 <>
@@ -1072,8 +1077,20 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                 </div>
               )}
           </Card>
+
+          {/* Aksi lanjutan: login klaim langsung untuk link dari OTP */}
+          <div className="mt-6 w-full max-w-sm text-center">
+            <Link
+              to={`/auth?returnTo=${encodeURIComponent(redirect)}`}
+              className="inline-flex items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-sky-700"
+            >
+              <LogIn className="size-3.5" />
+              Kembali ke halaman login
+            </Link>
+          </div>
         </div>
       </FadeIn>
+
       <footer className="px-6 pb-6 text-center text-[11px] leading-5 text-muted-foreground">
         Dengan masuk, Anda menyetujui{" "}
         <Link
