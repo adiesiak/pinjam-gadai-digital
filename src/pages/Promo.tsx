@@ -386,7 +386,11 @@ export function Promo() {
             Belum ada poster aktif pada kategori ini.
           </motion.p>
         ) : (
-          <section className="mt-6 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          // `relative` wajib bersama `AnimatePresence mode="popLayout"`: kartu
+          // yang keluar dipaku `position: absolute` pada offset hasil ukur
+          // terhadap `offsetParent`, jadi induknya harus jadi acuan posisi yang
+          // stabil — tanpa itu kartu bisa melompat ke posisi lain.
+          <section className="relative mt-6 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
             <AnimatePresence mode="popLayout">
               {daftar.map((p, i) => (
                 <motion.div
@@ -458,7 +462,7 @@ export function Promo() {
                 initial={reduce ? { opacity: 0 } : { opacity: 0, scale: 0.95, y: 12 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 transition={{ duration: 0.42, ease: EASE_OUT }}
-                className="flex items-center justify-center"
+                className="flex w-full items-center justify-center"
               >
                 <KanvasPoster
                   poster={terbuka}

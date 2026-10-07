@@ -91,7 +91,13 @@ ok(
 );
 
 // ===== Galeri: semua poster tetap tergambar =====
-ada(html, "mt-6 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3", "grid galeri");
+// `relative` ikut dijaga: tanpa induk berposisi, kartu yang keluar dari
+// AnimatePresence popLayout tidak punya acuan posisi yang stabil.
+ada(
+  html,
+  "relative mt-6 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3",
+  "grid galeri berposisi relatif",
+);
 ok(
   jumlah(html, "<canvas") === poster.length,
   `setiap poster punya kanvas (${poster.length})`,
