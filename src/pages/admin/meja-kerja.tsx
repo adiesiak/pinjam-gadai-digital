@@ -3,15 +3,17 @@ import {
   BellRing,
   ChevronRight,
   ClipboardList,
+  Coins,
   Landmark,
   MapPin,
   ShieldCheck,
 } from "lucide-react";
 import type { ComponentType } from "react";
 
-import type {
-  AdminOverviewData,
-  LedgerSummary,
+import {
+  MetrikKartu,
+  type AdminOverviewData,
+  type LedgerSummary,
 } from "@/components/admin/admin-shared";
 import { Button } from "@/components/ui/button";
 import {
@@ -21,6 +23,11 @@ import {
 } from "@/lib/admin-queue";
 import { fadeUpItem, staggerContainer } from "@/lib/motion";
 import { formatRupiah } from "@/lib/money";
+import {
+  barisRincianAliran,
+  labelPotonganRincian,
+  rincianAliranDana,
+} from "@/lib/rincianAliranDana";
 
 import type { AdminStatsData } from "./admin-shell";
 
@@ -133,6 +140,12 @@ export function MejaKerja({
   /** Pindah ke modul yang menangani kartu ini. */
   onBukaModul: (modul: NilaiModulAdmin) => void;
 }) {
+  // Rincian aliran uang itu kebijakan, bukan data server: tidak punya keadaan
+  // "memuat", dan karena murni dari `lib/rincianAliranDana` ia tidak bisa
+  // berbeda dari akad/tagihan yang memakai mesin harga yang sama.
+  const rincian = rincianAliranDana();
+  const barisAliran = barisRincianAliran(rincian);
+
   const perluKeputusan = angkaRingkas(jumlahPerluKeputusan(overview));
   const terlambat = angkaRingkas(stats?.pinjamanTerlambat);
   const lokasi = angkaRingkas(
@@ -193,6 +206,54 @@ export function MejaKerja({
         cta="Buka ledger"
         onBuka={() => onBukaModul("ledger")}
       />
+
+      {/* Rincian aliran uang satu pinjaman — melintang satu baris penuh di
+          bawah keempat kartu, supaya admin bisa memeriksa seluruh perjalanan
+          uang tanpa membuka modul lain. */}
+      <motion.div
+        variants={fadeUpItem}
+        className="rounded-xl border border-slate-200 bg-white p-3 min-[380px]:rounded-2xl min-[380px]:p-4 sm:col-span-2 sm:p-5 xl:col-span-4"
+      >
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-navy">Aliran uang satu pinjaman</p>
+            <p className="mt-0.5 text-xs leading-5 text-muted-foreground">
+              Contoh satu pinjaman {formatRupiah(rincian.pokok)}: dipotong{" "}
+              {rincian.persenPotonganDiMuka}% di muka, kembali{" "}
+              {rincian.persenImbalHasil + 100}% dari pokok, lalu dipotong{" "}
+              {rincian.persenPotonganPenyedia}% dari uang yang kembali.
+            </p>
+          </div>
+          <span className="flex size-8 shrink-0 items-center justify-center rounded-xl border border-emerald-100 bg-emerald-50 text-emerald-700">
+            <Coins className="size-4" />
+          </span>
+        </div>
+
+        <dl className="mt-3 grid grid-cols-1 gap-2 min-[380px]:grid-cols-2 lg:grid-cols-4">
+          {barisAliran.map((baris) => (
+            <MetrikKartu
+              key={baris.label}
+              label={baris.label}
+              nilai={
+                baris.arah === "potongan" ? (
+                  <span className="text-amber-700">{labelPotonganRincian(baris.nilai)}</span>
+                ) : baris.arah === "total" ? (
+                  <span className="text-navy">{formatRupiah(baris.nilai)}</span>
+                ) : (
+                  formatRupiah(baris.nilai)
+                )
+              }
+            />
+          ))}
+        </dl>
+
+        {/* Sengaja tanpa tanda pisah "—": di panel ini karakter itu berarti
+            "data server belum termuat" (lihat D1/E4 di scripts/qa-meja-kerja.ts),
+            jadi teks biasa tidak boleh memakainya atau admin salah membacanya. */}
+        <p className="mt-2 text-[11px] leading-4 text-muted-foreground">
+          Contoh kebijakan perhitungan satu pinjaman, bukan angka ledger hari ini.
+        </p>
+      </motion.div>
     </motion.section>
   );
 }

@@ -23,6 +23,7 @@ status perbaikan; bagian 1–7 adalah temuan dan tindakannya.
 | 13 | Label "Biaya platform" dipakai untuk potongan admin (dua tempat) | **Diperbaiki** | Menjadi "Potongan admin", seragam dengan panel admin & akad |
 | 14 | Baris "Potongan admin" muncul dua kali dengan nilai sama di detail pinjaman | **Diperbaiki** | Duplikat dihapus (kedua field memang selalu sama) |
 | 15 | Label "Total kewajiban (pokok + bunga)" untuk pinjaman bulanan | **Diperbaiki** | Label kondisional: menyebut biaya cicilan pada tenor bulanan |
+| 16 | Kartu "Aliran uang satu pinjaman" (panel Ringkasan) memakai dasar 5% **dari uang yang kembali**, sedangkan ledger & panel penyedia dana membukukan 5% **dari Imbal Hasil** | **Terbuka — perlu keputusan pemilik produk** | Permintaan eksplisit pada 2026-10-07 ("5% dari total yang kembali"); kartu tampil di `src/pages/admin/meja-kerja.tsx`, rumus & catatan konsistensinya di `src/lib/rincianAliranDana.ts`. Untuk Rp1jt: kartu Rp65.000, ledger Rp15.000 |
 
 Verifikasi akhir setelah semua perubahan: `bunx convex dev --once` exit 0 →
 `bunx tsc -b --noEmit` exit 0 → `bunx eslint .` exit 0 → `bun run test` exit 0
