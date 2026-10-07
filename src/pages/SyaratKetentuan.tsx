@@ -300,8 +300,9 @@ const PASAL: Pasal[] = [
           </Ayat>
           <Ayat>
             Imbal hasil penyedia dana berasal dari bunga pinjaman. Admin mengambil potongan sebesar
-            persentase yang berlaku (default <strong>5%</strong>) dari total kewajiban (pokok +
-            bunga), dan sisanya menjadi hak penyedia dana setelah pokok kembali.
+            persentase yang berlaku (default <strong>5%</strong>) dari <strong>Imbal Hasil</strong>
+            (bunga pinjaman), bukan dari pokok: dari bunga itulah sisanya menjadi hak penyedia dana,
+            sementara pokok selalu kembali utuh.
           </Ayat>
           <Ayat>
             Ruang penyedia dana bersifat <strong>baca saja</strong>; angka yang tampil diturunkan

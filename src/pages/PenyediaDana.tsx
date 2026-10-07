@@ -313,7 +313,7 @@ function KartuPendana({ r }: { r: RekapPendana }) {
           </dd>
         </div>
         <div className="flex items-baseline justify-between gap-2">
-          <dt className="text-muted-foreground">Biaya platform</dt>
+          <dt className="text-muted-foreground">Potongan admin</dt>
           <dd className="font-semibold tabular-nums text-amber-700">
             {rupiah(r.keuntunganAdmin)}
           </dd>
@@ -573,7 +573,11 @@ function DetailPinjaman({ row }: { row: BarisPinjaman }) {
       />
       <BarisDetail label="Bunga pinjaman" nilai={rupiah(row.bunga)} />
       <BarisDetail
-        label="Total kewajiban (pokok + bunga)"
+        label={
+          row.tenorBulan === null
+            ? "Total kewajiban (pokok + bunga)"
+            : "Total kewajiban (pokok + bunga + biaya cicilan)"
+        }
         nilai={rupiah(row.totalLunas)}
       />
       <BarisDetail label="Potongan admin" nilai={rupiah(row.potonganAdmin)} />
@@ -581,10 +585,10 @@ function DetailPinjaman({ row }: { row: BarisPinjaman }) {
         label="Keuntungan pendana (bersih)"
         nilai={row.pendana === null ? "—" : rupiah(row.keuntunganPendana)}
       />
-      <BarisDetail
-        label="Biaya platform"
-        nilai={row.pendana === null ? "—" : rupiah(row.keuntunganAdmin)}
-      />
+      {/* `row.keuntunganAdmin` sengaja tidak ditampilkan lagi: pada model bagi
+          hasil PINDAI ia selalu sama dengan `row.potonganAdmin` di atas
+          (keuntungan admin = potongan admin atas Imbal Hasil), jadi menampilkan
+          keduanya berarti satu angka muncul dua kali dengan label sama. */}
       <BarisDetail
         label="Tenor"
         nilai={row.tenorBulan === null ? `${row.tenorHari} hari` : `${row.tenorBulan} bulan`}
@@ -1540,8 +1544,8 @@ function IsiRuang() {
                     Rekap Dana Penyedia
                   </h2>
                   <p className="text-xs font-medium tabular-nums text-muted-foreground">
-                    Keuntungan pendana {rupiah(data.ringkasan.totalKeuntunganPendana)} · biaya
-                    platform {rupiah(data.ringkasan.totalKeuntunganAdmin)}
+                    Keuntungan pendana {rupiah(data.ringkasan.totalKeuntunganPendana)} · potongan
+                    admin {rupiah(data.ringkasan.totalKeuntunganAdmin)}
                     {data.ringkasan.totalTransferBelumDicatat > 0 && (
                       <>
                         {" · "}
@@ -1555,8 +1559,9 @@ function IsiRuang() {
                 </div>
                 <p className="mt-1 max-w-3xl text-xs leading-6 text-muted-foreground">
                   Model <strong>1 pinjaman = 1 pendana</strong>. Bunga {data.ringkasan.persenBunga}%
-                  dari pokok; admin mengambil {data.ringkasan.persenPotonganAdmin}% dari total
-                  kewajiban. Angka di bawah dihitung dari pinjaman yang berjalan dan lunas.
+                  dari pokok; admin mengambil {data.ringkasan.persenPotonganAdmin}% dari Imbal Hasil
+                  (bunga pinjaman), bukan dari pokok — pokok kembali utuh ke penyedia dana. Angka di
+                  bawah dihitung dari pinjaman yang berjalan dan lunas.
                 </p>
                 <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                   {data.rekapPendana.map((r) => (

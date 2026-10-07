@@ -18,10 +18,24 @@ status perbaikan; bagian 1–7 adalah temuan dan tindakannya.
 | 8 | `.env.keys` tidak masuk `.gitignore` | **Diperbaiki** | `.gitignore` memuat `.env.keys` |
 | 9 | Skrip QA yang menunjuk modul Convex yang sudah pindah | **Diperbaiki sebagian** | `api.pendana.*` → `api.alokasiDana.*`; skrip QA tidak bisa dijalankan di sandbox ini (butuh deployment + token admin) |
 | 10 | Berkas besar (Landing 2.075 baris, PenyediaDana 2.074, …) | **Terbuka** | Belum dipecah — tidak mendesak |
+| 11 | Copy kebijakan masih menyebut "5% dari total kewajiban" (halaman penyedia dana + Syarat & Ketentuan) | **Diperbaiki** | Kini "5% dari Imbal Hasil (bunga pinjaman), bukan dari pokok" |
+| 12 | Kartu "Pendapatan tercatat" / tren melewatkan potongan admin (jurnal `payout`) | **Diperbaiki** | Predikat bersama + tes baru di `integrasiLedger.convex.test.ts` |
+| 13 | Label "Biaya platform" dipakai untuk potongan admin (dua tempat) | **Diperbaiki** | Menjadi "Potongan admin", seragam dengan panel admin & akad |
+| 14 | Baris "Potongan admin" muncul dua kali dengan nilai sama di detail pinjaman | **Diperbaiki** | Duplikat dihapus (kedua field memang selalu sama) |
+| 15 | Label "Total kewajiban (pokok + bunga)" untuk pinjaman bulanan | **Diperbaiki** | Label kondisional: menyebut biaya cicilan pada tenor bulanan |
 
 Verifikasi akhir setelah semua perubahan: `bunx convex dev --once` exit 0 →
 `bunx tsc -b --noEmit` exit 0 → `bunx eslint .` exit 0 → `bun run test` exit 0
-(seluruh rantai, termasuk `vitest`: 14 berkas / 148 tes).
+(seluruh rantai, termasuk `vitest`: 14 berkas / 149 tes).
+
+Angka panel juga diperiksa lewat "jalan kaki" data — harness sementara yang
+menjalankan query yang sama dengan halaman (`adminStats`, `ledgerSummary`,
+`daftarInvestor`, `daftarPengajuan`) atas data uji, lalu mencetak angka yang
+akan terlihat pengguna. Hasilnya konsisten dengan rumus di atas, mis. pada
+pinjaman 1jt/30%: potongan admin Rp15.000 dan keuntungan penyedia Rp285.000; dan
+pada pinjaman bulanan 2jt/3 bulan @10%: bunga Rp600.000 (satu tenor penuh, dulu
+Rp200.000), potongan admin Rp30.000, keuntungan penyedia Rp570.000. Harness itu
+sudah dihapus.
 
 ## 1. Bentuk proyek
 
@@ -55,13 +69,19 @@ Rp10jt selisihnya Rp500.000 — bukan pembulatan.
   di `penyediaDana.convex.test.ts` dan 5 nilai di `bagiHasil.test.ts`) dan
   diganti dengan invarian lintas-modul: untuk 8 pokok × 4 bunga × 3 potongan,
   `bagiHasilPinjaman` harus sama dengan `quotePinjaman` + `bagiImbalHasil` yang
-  dipakai ledger.
+  dipakai ledger.Kartu "Nilai biaya pada ledger" juga sudah diperbaiki: penyaringnya dulu hanya
+`jenis === "platform_fee"`, sehingga potongan admin atas Imbal Hasil (dijurnal
+`jenis: "payout"`) tidak ikut terhitung dan angkanya selalu lebih kecil daripada
+kas yang benar-benar masuk `platform:FEE`. Sekarang kedua jenis pendapatan
+platform dihitung lewat satu predikat bersama (`pendapatanPlatformEntry`), yang
+dipakai juga oleh grafik tren — sehingga Σ semua bulan = pendapatanPlatform
+tetap benar. Denda keterlambatan sengaja tetap di luar hitungan: itu sanksi ke
+Peminjam, bukan pendapatan jasa.
 
-Catatan yang masih perlu keputusan produk: kartu "Nilai biaya pada ledger"
-masih menyaring `jenis === "platform_fee"`, sehingga potongan admin atas Imbal
-Hasil (dijurnal `jenis: "payout"`) tidak ikut terhitung di kartu itu. Angkanya
-tetap lebih kecil daripada kas yang benar-benar masuk `platform:FEE`; kartu
-"Keuntungan admin sudah tercatat" kini memakai basis yang sama dengan ledger (selisih maksimum satu rupiah hanya mungkin pada data warisan dengan beberapa alokasi per pinjaman, karena ledger membulatkan per alokasi sedangkan kartu menghitung per pinjaman).
+Kartu "Keuntungan admin sudah tercatat" memakai basis yang sama dengan ledger
+(selisih maksimum satu rupiah hanya mungkin pada data warisan dengan beberapa
+alokasi per pinjaman, karena ledger membulatkan per alokasi sedangkan kartu
+menghitung per pinjaman).
 
 ## 3. Dua kebijakan pembulatan (diperbaiki)
 

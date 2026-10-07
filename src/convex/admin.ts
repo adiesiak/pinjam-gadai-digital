@@ -1056,19 +1056,41 @@ export const rejectDeposit = mutation({
 });
 
 /**
+ * Apakah satu baris ledger termasuk pendapatan platform yang diakui?
+ *
+ * Dua jenis jurnal menulis ke akun `platform:FEE`:
+ *  - `platform_fee` — biaya yang dipotong platform: potongan di muka pinjaman
+ *    (2%), potongan muka 1% + sewa modal gadai, dan biaya layanan kredit;
+ *  - `payout` — potongan admin atas Imbal Hasil penyedia dana, dibukukan saat
+ *    pelunasan pinjaman. Uang ini juga benar-benar masuk kas platform, jadi ikut
+ *    dihitung; sebelum ini ia terlewat, sehingga kartu "Pendapatan tercatat"
+ *    selalu lebih kecil daripada saldo akun platform:FEE.
+ *
+ * Denda keterlambatan (jenis `repayment`) sengaja TIDAK dihitung: kartu ini
+ * melaporkan pendapatan jasa platform, sedangkan denda adalah sanksi ke
+ * Peminjam yang dicatat terpisah.
+ */
+function pendapatanPlatformEntry(e: { jenis: string; akun: string }): boolean {
+  if (e.akun !== "platform:FEE") return false;
+  return e.jenis === "platform_fee" || e.jenis === "payout";
+}
+
+/**
  * Ringkasan ledger untuk kartu kesehatan sistem di panel admin.
- * `pendapatanPlatform` = total entri `platform_fee` pada akun platform:FEE
- * (debit maupun kredit — sewa modal gadai dibayar dari arah kredit);
- * `rincianSkema` memecahnya per lini usaha.
+ * `pendapatanPlatform` = total entri pendapatan platform pada akun platform:FEE
+ * (lihat `pendapatanPlatformEntry`; debit maupun kredit — sewa modal gadai
+ * dibayar dari arah kredit); `rincianSkema` memecahnya per lini usaha.
  */
 export const ledgerSummary = query({
   args: {},
   handler: async (ctx) => {
     await requireAdmin(ctx);
     const totals = await ledgerTotals(ctx);
-    // Pendapatan platform = setiap entri `platform_fee` pada akun
-    // platform:FEE (debit maupun kredit). Terdiri dari:
-    //  - pinjaman: biaya admin & platform 2% + 3% dipotong di muka saat pendanaan penuh
+    // Pendapatan platform = setiap entri pendapatan pada akun platform:FEE
+    // (debit maupun kredit). Terdiri dari:
+    //  - pinjaman: biaya admin & platform 2% dipotong di muka saat pendanaan penuh,
+    //    ditambah potongan admin atas Imbal Hasil yang dibukukan saat pelunasan
+    //    (jurnal `payout`)
     //  - gadai: potongan muka 1% (pencairan) + sewa modal periodik (bayar gadai)
     //  - kredit: biaya layanan dari pokok dibiayai, diakui saat pendanaan penuh (dipotong di muka).
     const entries = await ctx.db.query("ledger_entries").collect();
@@ -1080,11 +1102,11 @@ export const ledgerSummary = query({
     };
     let pendapatanPlatform = 0;
     for (const e of entries) {
-      // Setiap jurnal platform_fee menyentuh platform:FEE tepat satu kali;
-      // jumlah entri itulah pendapatan yang diakui — arahnya bisa debit
-      // (biaya dipotong ke platform) atau kredit (sewa modal dibayar dari
-      // akun gadai: D gadai:<id> / K platform:FEE). Keduanya dihitung.
-      if (e.jenis !== "platform_fee" || e.akun !== "platform:FEE") {
+      // Setiap jurnal pendapatan menyentuh platform:FEE tepat satu kali; jumlah
+      // baris itulah pendapatan yang diakui — arahnya bisa debit (biaya dipotong
+      // ke platform) atau kredit (sewa modal dibayar dari akun gadai:
+      // D gadai:<id> / K platform:FEE). Keduanya dihitung.
+      if (!pendapatanPlatformEntry(e)) {
         continue;
       }
       pendapatanPlatform += e.jumlah;
@@ -1128,8 +1150,8 @@ export const ledgerSummary = query({
 /**
  * Tren pendapatan platform per bulan kalender (WIB) — 12 bulan terakhir,
  * tertua → terbaru. Bulan tanpa transaksi tetap muncul dengan nilai 0.
- * Sumber: entri `platform_fee` pada akun platform:FEE (sumber sama dengan
- * ledgerSummary), sehingga Σ semua bulan = pendapatanPlatform.
+ * Sumber: entri pendapatan platform (`pendapatanPlatformEntry`, sumber sama
+ * dengan ledgerSummary), sehingga Σ semua bulan = pendapatanPlatform.
  */
 export const trenPendapatanBulanan = query({
   args: {},
@@ -1153,7 +1175,7 @@ export const trenPendapatanBulanan = query({
     // Kumpulkan pendapatan per kunci bulan.
     const perBulan = new Map<string, number>();
     for (const e of entries) {
-      if (e.jenis !== "platform_fee" || e.akun !== "platform:FEE") continue;
+      if (!pendapatanPlatformEntry(e)) continue;
       const kunci = kunciBulan(e.waktu);
       perBulan.set(kunci, (perBulan.get(kunci) ?? 0) + e.jumlah);
     }

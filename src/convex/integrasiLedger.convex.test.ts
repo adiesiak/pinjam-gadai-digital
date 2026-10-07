@@ -371,3 +371,75 @@ describe("pembersihan jurnal per grup (CLI sekali pakai)", () => {
     ).rejects.toThrow();
   });
 });
+
+/** Satu baris jurnal mentah — mencerminkan bentuk yang ditulis appendJournal. */
+function baris(
+  groupId: string,
+  akun: string,
+  arah: "debit" | "kredit",
+  jumlah: number,
+  jenis: string,
+  keterangan: string,
+) {
+  return {
+    groupId,
+    akun,
+    arah,
+    jumlah,
+    jenis,
+    skema: "pinjaman" as const,
+    keterangan,
+    aktor: "platform",
+    waktu: Date.now(),
+  };
+}
+
+describe("ringkasan pendapatan platform", () => {
+  it("menghitung potongan admin pada jurnal payout, dan tidak mencampur denda", async () => {
+    const t = convexTest(schema, modules);
+    const { sesi: admin } = await siapkanPengguna(t, "admin-ledger", {
+      email: "admin-ledger@pindai.test",
+      role: "admin",
+    });
+
+    await t.run(async (ctx) => {
+      // 1. Biaya dipotong di muka saat pendanaan penuh (jurnal platform_fee).
+      await ctx.db.insert(
+        "ledger_entries",
+        baris("J-fee", "platform:FEE", "debit", 20_000, "platform_fee", "Biaya admin & platform PGD-X"),
+      );
+      await ctx.db.insert(
+        "ledger_entries",
+        baris("J-fee", "pinjaman:x", "kredit", 20_000, "platform_fee", "Biaya admin & platform PGD-X"),
+      );
+      // 2. Potongan admin atas Imbal Hasil, dibukukan saat pelunasan (payout).
+      await ctx.db.insert(
+        "ledger_entries",
+        baris("J-payout", "platform:FEE", "debit", 15_000, "payout", "Pelunasan: pembayaran ke dana PGD-X"),
+      );
+      await ctx.db.insert(
+        "ledger_entries",
+        baris("J-payout", "pinjaman:x", "kredit", 15_000, "payout", "Pelunasan: pembayaran ke dana PGD-X"),
+      );
+      // 3. Denda keterlambatan: sanksi ke Peminjam, bukan pendapatan jasa.
+      await ctx.db.insert(
+        "ledger_entries",
+        baris("J-denda", "platform:CASH", "debit", 50_000, "repayment", "Pelunasan PGD-X — denda 5 hari"),
+      );
+      await ctx.db.insert(
+        "ledger_entries",
+        baris("J-denda", "platform:FEE", "kredit", 50_000, "repayment", "Pelunasan PGD-X — denda 5 hari"),
+      );
+    });
+
+    const ringkas = await admin.query(api.admin.ledgerSummary, {});
+    // 20.000 (potongan di muka) + 15.000 (potongan admin atas Imbal Hasil).
+    expect(ringkas.pendapatanPlatform).toBe(35_000);
+    expect(ringkas.rincianSkema.pinjaman).toBe(35_000);
+    expect(ringkas.seimbang).toBe(true);
+
+    // Kartu tren memakai sumber yang sama: Σ semua bulan = pendapatanPlatform.
+    const tren = await admin.query(api.admin.trenPendapatanBulanan, {});
+    expect(tren.reduce((total, b) => total + b.jumlah, 0)).toBe(35_000);
+  });
+});
