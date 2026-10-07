@@ -18,12 +18,12 @@ status perbaikan; bagian 1–7 adalah temuan dan tindakannya.
 | 8 | `.env.keys` tidak masuk `.gitignore` | **Diperbaiki** | `.gitignore` memuat `.env.keys` |
 | 9 | Skrip QA yang menunjuk modul Convex yang sudah pindah | **Diperbaiki sebagian** | `api.pendana.*` → `api.alokasiDana.*`; skrip QA tidak bisa dijalankan di sandbox ini (butuh deployment + token admin) |
 | 10 | Berkas besar (Landing 2.075 baris, PenyediaDana 2.074, …) | **Terbuka** | Belum dipecah — tidak mendesak |
-| 11 | Copy kebijakan masih menyebut "5% dari total kewajiban" (halaman penyedia dana + Syarat & Ketentuan) | **Diperbaiki** | Kini "5% dari Imbal Hasil (bunga pinjaman), bukan dari pokok" |
+| 11 | Copy kebijakan masih menyebut "5% dari total kewajiban" (halaman penyedia dana + Syarat & Ketentuan) | **Diperbaiki** | Kini "5% dari uang yang kembali (pokok + Imbal Hasil), bukan dari pokok" — sesuai kebijakan #16 |
 | 12 | Kartu "Pendapatan tercatat" / tren melewatkan potongan admin (jurnal `payout`) | **Diperbaiki** | Predikat bersama + tes baru di `integrasiLedger.convex.test.ts` |
 | 13 | Label "Biaya platform" dipakai untuk potongan admin (dua tempat) | **Diperbaiki** | Menjadi "Potongan admin", seragam dengan panel admin & akad |
 | 14 | Baris "Potongan admin" muncul dua kali dengan nilai sama di detail pinjaman | **Diperbaiki** | Duplikat dihapus (kedua field memang selalu sama) |
 | 15 | Label "Total kewajiban (pokok + bunga)" untuk pinjaman bulanan | **Diperbaiki** | Label kondisional: menyebut biaya cicilan pada tenor bulanan |
-| 16 | Kartu "Aliran uang satu pinjaman" (panel Ringkasan) memakai dasar 5% **dari uang yang kembali**, sedangkan ledger & panel penyedia dana membukukan 5% **dari Imbal Hasil** | **Terbuka — perlu keputusan pemilik produk** | Permintaan eksplisit pada 2026-10-07 ("5% dari total yang kembali"); kartu tampil di `src/pages/admin/meja-kerja.tsx`, rumus & catatan konsistensinya di `src/lib/rincianAliranDana.ts`. Untuk Rp1jt: kartu Rp65.000, ledger Rp15.000 |
+| 16 | Kartu "Aliran uang satu pinjaman" (panel Ringkasan) memakai dasar 5% **dari uang yang kembali**, sedangkan ledger & panel penyedia dana masih membukukan 5% **dari Imbal Hasil** | **Diperbaiki** | Dasar potongan disamakan ke "uang yang kembali" di seluruh sistem: `lib/bagiHasil.ts` (satu pintu), `convex/loans.ts` (potongan per alokasi saat pelunasan), panel penyedia dana, Syarat & Ketentuan, dan Pengaturan Sistem. Untuk Rp1jt: potongan Rp65.000, penyedia dana menerima Rp1.235.000 — kartu, panel, dan ledger kini identik |
 
 Verifikasi akhir setelah semua perubahan: `bunx convex dev --once` exit 0 →
 `bunx tsc -b --noEmit` exit 0 → `bunx eslint .` exit 0 → `bun run test` exit 0
@@ -32,11 +32,12 @@ Verifikasi akhir setelah semua perubahan: `bunx convex dev --once` exit 0 →
 Angka panel juga diperiksa lewat "jalan kaki" data — harness sementara yang
 menjalankan query yang sama dengan halaman (`adminStats`, `ledgerSummary`,
 `daftarInvestor`, `daftarPengajuan`) atas data uji, lalu mencetak angka yang
-akan terlihat pengguna. Hasilnya konsisten dengan rumus di atas, mis. pada
-pinjaman 1jt/30%: potongan admin Rp15.000 dan keuntungan penyedia Rp285.000; dan
-pada pinjaman bulanan 2jt/3 bulan @10%: bunga Rp600.000 (satu tenor penuh, dulu
-Rp200.000), potongan admin Rp30.000, keuntungan penyedia Rp570.000. Harness itu
-sudah dihapus.
+akan terlihat pengguna. Dengan kebijakan berjalan (potongan 5% dari uang yang
+kembali), pinjaman 1jt/30% menghasilkan potongan admin Rp65.000 dan keuntungan
+penyedia Rp235.000; pinjaman bulanan 2jt/3 bulan @10% menghasilkan bunga
+Rp600.000 (satu tenor penuh, dulu Rp200.000), potongan admin Rp130.000 (dasar =
+pokok + Imbal Hasil tenor, Rp2.600.000, biaya admin cicilan tidak ikut dipotong),
+dan keuntungan penyedia Rp470.000. Harness itu sudah dihapus.
 
 ## 1. Bentuk proyek
 
@@ -63,10 +64,12 @@ sementara ledger membukukan Rp15.000 (lebih 4,3×), dan panel penyedia
 menampilkan keuntungan Rp235.000 sementara ledger membayar Rp285.000. Pada
 Rp10jt selisihnya Rp500.000 — bukan pembulatan.
 
-**Perbaikan:** kebijakan yang benar adalah yang benar-benar dieksekusi ledger
-(5% dari Imbal Hasil — sesuai header `lib/bagiHasil.ts` dan
-`convex/loans.ts`). `bagiHasilPinjaman` kini menyusun angkanya dari `percentOf`
-+ `bagiImbalHasil`, bukan menghitung ulang, sehingga panel dan ledger tidak bisa lagi berbeda. Ekspektasi tes yang mengunci rumus lama diperbarui (22 assertion
+**Perbaikan:** satu pintu uang dipilih — `bagiHasilPinjaman` menyusun angkanya
+dari `percentOf` + `bagiImbalHasil`, bukan menghitung ulang, sehingga panel dan
+ledger tidak bisa lagi berbeda. (Dasar potongan lalu diganti dari "Imbal Hasil"
+menjadi "uang yang kembali" pada 2026-10-07 — lihat temuan #16 — dan
+`convex/loans.ts` ikut memakai dasar baru itu per alokasi.)
+Ekspektasi tes yang mengunci rumus lama diperbarui (22 assertion
   di `penyediaDana.convex.test.ts` dan 5 nilai di `bagiHasil.test.ts`) dan
   diganti dengan invarian lintas-modul: untuk 8 pokok × 4 bunga × 3 potongan,
   `bagiHasilPinjaman` harus sama dengan `quotePinjaman` + `bagiImbalHasil` yang

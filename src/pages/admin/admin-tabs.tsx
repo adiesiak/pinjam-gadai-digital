@@ -252,7 +252,7 @@ export function AdminTabs({
         {
           value: "config",
           label: "Pengaturan Sistem",
-          hint: "Kebijakan sistem: bunga, potongan admin, mode pemeliharaan.",
+          hint: "Kebijakan sistem: bunga, potongan admin atas uang yang kembali, mode pemeliharaan.",
           badge: null,
           hitung: "tidak",
           Icon: Settings2,

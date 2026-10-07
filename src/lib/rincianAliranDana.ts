@@ -19,23 +19,30 @@
  * | Imbal Hasil bersih penyedia dana | diterima − pokok | Rp235.000 |
  * | Pendapatan platform | potongan di muka + potongan penyedia | Rp85.000 |
  *
- * Setengah pertama memakai `quoteLoan` — bukan rumus baru — sehingga potongan
- * di muka, dana bersih, bunga, dan total kembali selalu identik dengan yang
- * ditagih ke Peminjam dan yang tercetak di akad. Setengah kedua memakai
- * `percentOf` agar pembulatannya sama dengan seluruh uang lain di PINDAI
- * (HALF-UP di 0,5 rupiah, integer rupiah penuh).
+ * SATU PINTU UANG (penting): kedua paruh rincian ini diambil dari mesin uang
+ * yang sama dengan yang menagih dan membukukan, bukan dihitung ulang di UI:
+ *  - paruh pertama dari `quoteLoan` (lib/loan.ts) — potongan di muka, dana
+ *    bersih, bunga, dan total kembali yang tercetak di akad;
+ *  - paruh kedua dari `bagiHasilPinjaman` (lib/bagiHasil.ts) — potongan
+ *    platform dan hak penyedia dana yang **persis sama** dengan yang dijurnal
+ *    `convex/loans.ts` saat pelunasan dan ditampilkan ruang penyedia dana.
  *
- * CATATAN KONSISTENSI (perlu keputusan lanjutan, jangan dihapus):
- * potongan 5% di sini dihitung dari **total yang kembali** (Rp1.300.000 →
- * Rp65.000) sesuai keputusan pemilik produk. Mesin uang yang benar-benar
- * dibukukan — `bagiHasil.ts` + `convex/loans.ts` (pelunasan) dan panel
- * "Kelola Penyedia Dana" — masih menghitung 5% dari **Imbal Hasil**
- * (Rp300.000 → Rp15.000). Selama keduanya belum disamakan, angka kartu ini
- * adalah kebijakan yang ditampilkan, bukan angka yang dijurnal ledger.
+ * Kalau kedua mesin itu suatu saat berbeda, fungsi ini MELEMPAR (lihat
+ * `pastikanMesinSepakat`) alih-alih menggambar angka yang tidak akan pernah
+ * dibayar.
  */
 
-import { POTONGAN_ADMIN_DEFAULT_PERSEN } from "./bagiHasil";
-import { LOAN_LIMITS, PINDAI_PRICING, assertPokokPinjamanValid, quoteLoan } from "./loan";
+import {
+  bagiHasilPinjaman,
+  bagiHasilPinjamanDari,
+  POTONGAN_ADMIN_DEFAULT_PERSEN,
+} from "./bagiHasil";
+import {
+  LOAN_LIMITS,
+  PINDAI_PRICING,
+  assertPokokPinjamanValid,
+  quoteLoan,
+} from "./loan";
 import { formatRupiah, percentOf, type Rupiah } from "./money";
 
 /**
@@ -43,6 +50,24 @@ import { formatRupiah, percentOf, type Rupiah } from "./money";
  * Diambil dari batas bisnis, bukan angka yang ditulis di komponen.
  */
 export const POKOK_CONTOH_RINCIAN: Rupiah = LOAN_LIMITS.maxPokok;
+
+/**
+ * Pokok yang bisa dipilih admin di kartu (semua di dalam batas bisnis).
+ * Dipakai selector kartu supaya admin bisa memeriksa perjalanan uang pada
+ * nominal kecil, menengah, dan maksimum — bukan hanya satu contoh.
+ */
+export const PILIHAN_POKOK_RINCIAN: readonly Rupiah[] = [
+  LOAN_LIMITS.minPokok,
+  250_000,
+  500_000,
+  750_000,
+  LOAN_LIMITS.maxPokok,
+].filter(
+  (pokok, index, daftar) =>
+    pokok >= LOAN_LIMITS.minPokok &&
+    pokok <= LOAN_LIMITS.maxPokok &&
+    daftar.indexOf(pokok) === index,
+);
 
 /** Seluruh angka satu aliran pinjaman, semuanya rupiah bulat. */
 export type RincianAliranDana = {
@@ -66,7 +91,7 @@ export type RincianAliranDana = {
   totalKembali: Rupiah;
   /** Persen potongan platform atas uang yang kembali (5%). */
   persenPotonganPenyedia: number;
-  /** Potongan platform = persen × total yang kembali. */
+  /** Potongan platform = persen × total yang kembali (pembulatan ke bawah). */
   potonganPenyedia: Rupiah;
   /** Uang yang diterima penyedia dana = total kembali − potongan. */
   diterimaPenyedia: Rupiah;
@@ -82,12 +107,33 @@ export type PinjamanRincian = {
 };
 
 /**
+ * Penjaga mesin: harga (lib/loan) dan bagi hasil (lib/bagiHasil) harus
+ * mengucapkan angka yang sama untuk pinjaman yang sama. Bila tidak, kartu
+ * admin lebih baik gagal terang-terangan daripada menampilkan janji yang tidak
+ * pernah dibayar.
+ */
+function pastikanMesinSepakat(
+  tagihan: ReturnType<typeof quoteLoan>,
+  bagi: ReturnType<typeof bagiHasilPinjaman>,
+): void {
+  if (tagihan.bunga !== bagi.bunga) {
+    throw new Error(
+      `Mesin uang tidak sepakat: Imbal Hasil akad ${formatRupiah(tagihan.bunga)} vs bagi hasil ${formatRupiah(bagi.bunga)}.`,
+    );
+  }
+  if (tagihan.totalKewajibanPelunasan !== bagi.totalLunas) {
+    throw new Error(
+      `Mesin uang tidak sepakat: kewajiban ${formatRupiah(tagihan.totalKewajibanPelunasan)} vs uang yang kembali ${formatRupiah(bagi.totalLunas)}.`,
+    );
+  }
+}
+
+/**
  * Rincian aliran uang satu pinjaman.
  *
  * `persenPotonganPenyedia` sengaja punya nilai bawaan dari `bagiHasil.ts`
- * (`POTONGAN_ADMIN_DEFAULT_PERSEN`) supaya tarifnya hanya hidup di satu tempat,
- * walaupun dasar pengenaannya di kartu ini berbeda (lihat catatan di kepala
- * berkas).
+ * (`POTONGAN_ADMIN_DEFAULT_PERSEN`) supaya tarifnya hanya hidup di satu tempat —
+ * kartu, ruang penyedia dana, dan ledger memakai tarif yang sama.
  *
  * Melempar bila pokok bukan rupiah bulat positif atau di luar batas bisnis
  * (`LOAN_LIMITS`) — kartu admin tidak boleh menggambar contoh pinjaman yang
@@ -101,11 +147,15 @@ export function rincianAliranDana(
   // contoh pinjaman yang tidak mungkin diajukan nasabah.
   assertPokokPinjamanValid(pokok);
 
-  // Setengah pertama memakai mesin harga yang sama dengan akad & tagihan.
+  // Paruh pertama dari mesin harga yang sama dengan akad & tagihan…
   const q = quoteLoan(pokok);
-
-  const potonganPenyedia = percentOf(q.totalKewajibanPelunasan, persenPotonganPenyedia);
-  const diterimaPenyedia = q.totalKewajibanPelunasan - potonganPenyedia;
+  // …paruh kedua dari mesin bagi hasil yang sama dengan ledger saat pelunasan.
+  const bagi = bagiHasilPinjaman(
+    pokok,
+    PINDAI_PRICING.bungaPercent,
+    persenPotonganPenyedia,
+  );
+  pastikanMesinSepakat(q, bagi);
 
   return {
     pokok: q.pokok,
@@ -113,14 +163,28 @@ export function rincianAliranDana(
     potonganDiMuka: q.totalPotonganDiMuka,
     diterimaPeminjam: q.danaBersihDitransfer,
     persenImbalHasil: PINDAI_PRICING.bungaPercent,
-    imbalHasil: q.bunga,
-    totalKembali: q.totalKewajibanPelunasan,
+    imbalHasil: bagi.bunga,
+    totalKembali: bagi.totalLunas,
     persenPotonganPenyedia,
-    potonganPenyedia,
-    diterimaPenyedia,
-    imbalBersihPenyedia: diterimaPenyedia - q.pokok,
-    pendapatanPlatform: q.totalPotonganDiMuka + potonganPenyedia,
+    potonganPenyedia: bagi.potonganAdmin,
+    diterimaPenyedia: bagi.pendanaTerima,
+    imbalBersihPenyedia: bagi.keuntunganPendana,
+    pendapatanPlatform: q.totalPotonganDiMuka + bagi.potonganAdmin,
   };
+}
+
+/**
+ * Kalimat ringkas kebijakan untuk kartu admin: apa yang dipotong di muka,
+ * berapa yang kembali, dan dari apa potongan platform diambil. Dipisahkan dari
+ * komponen supaya bisa diuji tanpa React dan supaya tidak ada angka yang
+ * ditulis ulang di JSX.
+ */
+export function kalimatContohAliran(r: RincianAliranDana): string {
+  return (
+    `Contoh satu pinjaman ${formatRupiah(r.pokok)}: dipotong ` +
+    `${r.persenPotonganDiMuka}% di muka, kembali ${r.persenImbalHasil + 100}% ` +
+    `dari pokok, lalu dipotong ${r.persenPotonganPenyedia}% dari uang yang kembali.`
+  );
 }
 
 /** Label rupiah yang selalu menyebut arah uangnya ("−" untuk potongan). */
@@ -139,8 +203,22 @@ export type BarisRincian = {
   arah: "kotor" | "potongan" | "bersih" | "total";
 };
 
-/** Baris rincian dalam urutan yang ditampilkan kartu admin. */
-export function barisRincianAliran(r: RincianAliranDana): BarisRincian[] {
+/**
+ * Baris rincian dalam urutan yang ditampilkan kartu admin.
+ *
+ * `tenorBulan` hanya mengubah LABEL baris kembali: pada skema bulanan angka
+ * Imbal Hasil adalah total selama tenor, jadi menulis "Imbal Hasil 10%" (tarif
+ * per bulan) di sebelah rupiah total tenor akan menyesatkan admin.
+ */
+export function barisRincianAliran(
+  r: RincianAliranDana,
+  opsi: { tenorBulan?: number | null } = {},
+): BarisRincian[] {
+  const tenorBulan = opsi.tenorBulan ?? null;
+  const labelKembali =
+    tenorBulan === null
+      ? `Kembali (pokok + Imbal Hasil ${r.persenImbalHasil}%)`
+      : `Kembali (pokok + Imbal Hasil ${tenorBulan} bulan @${r.persenImbalHasil}%)`;
   return [
     { label: "Pokok pinjaman", nilai: r.pokok, arah: "kotor" },
     {
@@ -149,11 +227,7 @@ export function barisRincianAliran(r: RincianAliranDana): BarisRincian[] {
       arah: "potongan",
     },
     { label: "Diterima peminjam", nilai: r.diterimaPeminjam, arah: "bersih" },
-    {
-      label: `Kembali (pokok + Imbal Hasil ${r.persenImbalHasil}%)`,
-      nilai: r.totalKembali,
-      arah: "total",
-    },
+    { label: labelKembali, nilai: r.totalKembali, arah: "total" },
     {
       label: `Potongan ${r.persenPotonganPenyedia}% dari uang yang kembali`,
       nilai: r.potonganPenyedia,
@@ -163,4 +237,62 @@ export function barisRincianAliran(r: RincianAliranDana): BarisRincian[] {
     { label: "Imbal Hasil bersih penyedia dana", nilai: r.imbalBersihPenyedia, arah: "bersih" },
     { label: "Pendapatan platform", nilai: r.pendapatanPlatform, arah: "total" },
   ];
+}
+
+/**
+ * Rincian satu pinjaman NYATA (bukan contoh kebijakan) — dipakai detail
+ * pinjaman di panel admin, supaya admin melihat persis angka yang akan
+ * dibukukan untuk pinjaman yang sedang dibuka.
+ *
+ * Menghormati snapshot bunga nasabah dan skema tenornya: pinjaman bulanan
+ * dihitung dari `bagiHasilPinjamanDari`, pinjaman harian dari harga akad.
+ * Label persennya memakai tarif yang benar-benar berlaku pada pinjaman itu.
+ */
+export function rincianPinjamanNyata(
+  pinjaman: {
+    pokokPinjaman: Rupiah;
+    tenorBulan?: number | null;
+    persenBunga?: number | null;
+  },
+  persenPotonganPenyedia: number = POTONGAN_ADMIN_DEFAULT_PERSEN,
+): RincianAliranDana {
+  const pokok = pinjaman.pokokPinjaman;
+  // Data warisan dengan pokok tidak sah tetap ditampilkan apa adanya (tanpa
+  // perhitungan), sama seperti ruang penyedia dana — satu baris aneh tidak
+  // boleh merobohkan detail pinjaman admin.
+  if (!Number.isSafeInteger(pokok) || pokok <= 0) {
+    const nol = 0;
+    return {
+      pokok,
+      persenPotonganDiMuka: PINDAI_PRICING.upfrontDeductionPercent,
+      potonganDiMuka: nol,
+      diterimaPeminjam: pokok,
+      persenImbalHasil: pinjaman.persenBunga ?? PINDAI_PRICING.bungaPercent,
+      imbalHasil: nol,
+      totalKembali: pokok,
+      persenPotonganPenyedia,
+      potonganPenyedia: nol,
+      diterimaPenyedia: pokok,
+      imbalBersihPenyedia: nol,
+      pendapatanPlatform: nol,
+    };
+  }
+  // Potongan di muka 2% tetap dipotong dari pokok pada semua tenor pinjaman
+  // tunai (lihat PINDAI_PRICING), jadi paruh pertama memakai tarif itu.
+  const potonganDiMuka = percentOf(pokok, PINDAI_PRICING.upfrontDeductionPercent);
+  const bagi = bagiHasilPinjamanDari(pinjaman, persenPotonganPenyedia);
+  return {
+    pokok,
+    persenPotonganDiMuka: PINDAI_PRICING.upfrontDeductionPercent,
+    potonganDiMuka,
+    diterimaPeminjam: pokok - potonganDiMuka,
+    persenImbalHasil: pinjaman.persenBunga ?? PINDAI_PRICING.bungaPercent,
+    imbalHasil: bagi.bunga,
+    totalKembali: bagi.totalLunas,
+    persenPotonganPenyedia,
+    potonganPenyedia: bagi.potonganAdmin,
+    diterimaPenyedia: bagi.pendanaTerima,
+    imbalBersihPenyedia: bagi.keuntunganPendana,
+    pendapatanPlatform: potonganDiMuka + bagi.potonganAdmin,
+  };
 }

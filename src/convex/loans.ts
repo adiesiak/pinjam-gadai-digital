@@ -1326,17 +1326,19 @@ export const hapusGadai = mutation({
  * Jurnal (semua dalam satu mutation transaksional, append-only):
  *   1. D platform:CASH total kewajiban | K pinjaman:<id>
  *   2. Per penyedia dana (satu jurnal seimbang):
- *      D akun dompet dana:i (pokok + Imbal Hasil bersih)
- *      D platform:FEE (potongan admin atas Imbal Hasil)
- *      K pinjaman:<id> (pokok + Imbal Hasil bruto)
+ *      D akun dompet dana:i (uang kembali bagiannya − potongan admin)
+ *      D platform:FEE (potongan admin = persen × uang kembali bagiannya)
+ *      K pinjaman:<id> (alokasi + Imbal Hasil bagiannya)
  * Dust pembulatan proporsi imbal hasil diberikan ke penyedia dana dengan alokasi
  * terbesar, sehingga akun pinjaman tepat nol dan total keluar tepat.
  *
- * Potongan admin dibaca dari Pengaturan Sistem (`persenAdmin`) dan dihitung oleh
- * lib/bagiHasil.ts dengan pembulatan ke bawah: sisa rupiah selalu milik penyedia
- * dana, tidak pernah masuk ke kas admin. Alokasi yang sudah dibayar dicap
- * `potonganAdmin`, `imbalHasilNet`, dan `diselesaikanPada` sebagai bukti audit
- * angka yang benar-benar dibayarkan (bukan hitungan ulang saat pelaporan).
+ * Dasar potongan: **uang yang kembali** (pokok + Imbal Hasil), bukan hanya Imbal
+ * Hasil — lihat tabel kebijakan di kepala lib/bagiHasil.ts. Persentasenya dibaca
+ * dari Pengaturan Sistem (`persenAdmin`) dan dihitung oleh lib/bagiHasil.ts
+ * dengan pembulatan ke bawah: sisa rupiah selalu milik penyedia dana, tidak
+ * pernah masuk ke kas admin. Alokasi yang sudah dibayar dicap `potonganAdmin`,
+ * `imbalHasilNet`, dan `diselesaikanPada` sebagai bukti audit angka yang
+ * benar-benar dibayarkan (bukan hitungan ulang saat pelaporan).
  */
 export const repayLoan = mutation({
   args: { loanId: v.id("loans") },
@@ -1438,15 +1440,22 @@ export const repayLoan = mutation({
     let terdistribusi = 0;
     let totalPotonganAdmin = 0;
     for (const { funding: f, imbal } of imbalBagian) {
-      // Potongan admin atas keuntungan penyedia dana (kebijakan Pengaturan Sistem).
-      const { potonganAdmin, imbalBersih } = bagiImbalHasil(imbal, cfg.persenAdmin);
-      const payout = f.jumlahAlokasi + imbalBersih;
+      // Potongan admin atas UANG YANG KEMBALI bagian penyedia dana ini
+      // (alokasi + Imbal Hasil bagiannya) — kebijakan Pengaturan Sistem.
+      // Dipotong per alokasi, bukan sekali atas total pinjaman, supaya urutan
+      // pendaftaran penyedia dana tidak mengubah hak siapa pun.
+      const brutoBagian = f.jumlahAlokasi + imbal;
+      const { potonganAdmin, imbalBersih } = bagiImbalHasil(
+        brutoBagian,
+        cfg.persenAdmin,
+      );
+      const payout = imbalBersih;
       await appendJournal(ctx, {
         jenis: "payout",
         skema: "pinjaman",
         keterangan:
           potonganAdmin > 0
-            ? `Pelunasan: pembayaran ke ${f.nomorReferensi} (${loan.nomorReferensi}) — Imbal Hasil bruto ${imbal}, potongan admin ${cfg.persenAdmin}% sebesar ${potonganAdmin}, dibayarkan bersih ${imbalBersih}`
+            ? `Pelunasan: pembayaran ke ${f.nomorReferensi} (${loan.nomorReferensi}) — uang yang kembali bagian penyedia ${brutoBagian}, potongan admin ${cfg.persenAdmin}% sebesar ${potonganAdmin}, dibayarkan ${imbalBersih}`
             : `Pelunasan: pembayaran ke ${f.nomorReferensi} (${loan.nomorReferensi})`,
         aktor: "platform",
         lines: [
@@ -1493,7 +1502,7 @@ export const repayLoan = mutation({
     }
 
     // 4. Sanity: total kas masuk (kewajiban + denda) = payout ke penyedia dana +
-    //    potongan admin atas Imbal Hasil + fee + denda. Gagal = rollback penuh.
+    //    potongan admin atas uang yang kembali + fee + denda. Gagal = rollback.
     //    Potongan admin TIDAK menambah kas (ia bagian dari kewajiban yang sudah
     //    masuk), jadi ia dikurangkan dari sisi yang dibayarkan — bukan ditambah.
     const totalKasMasuk = totalKewajibanDana + feePlatform + feeAdmin + pelunasan.dendaTerlambat;

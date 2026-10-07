@@ -9,6 +9,9 @@
  */
 import { renderToStaticMarkup } from "react-dom/server";
 
+import { formatRupiah } from "@/lib/money";
+import { PILIHAN_POKOK_RINCIAN } from "@/lib/rincianAliranDana";
+
 import { MejaKerja } from "./meja-kerja";
 
 let passed = 0;
@@ -30,13 +33,14 @@ function bersih(html: string, label: string): void {
 }
 
 /** Panel dirender tanpa data server: `stats` & `ledger` belum siap. */
-function renderPanel(): string {
+function renderPanel(pokokContohAwal?: number): string {
   return renderToStaticMarkup(
     <MejaKerja
       overview={{ loans: [], pawns: [], kredit: [] }}
       stats={undefined}
       ledger={undefined}
       onBukaModul={() => {}}
+      pokokContohAwal={pokokContohAwal}
     />,
   );
 }
@@ -74,6 +78,23 @@ ada(html, "Rp 1.235.000", "uang yang diterima penyedia dana");
 ada(html, "Rp 235.000", "Imbal Hasil bersih penyedia dana");
 ada(html, "Rp 85.000", "pendapatan platform satu pinjaman");
 
+// Pilihan pokok: admin bisa memeriksa nominal lain tanpa membuka modul lain.
+ada(html, "Pilih pokok pinjaman contoh", "grup pilihan pokok ada dan diberi nama");
+for (const pokok of PILIHAN_POKOK_RINCIAN) {
+  ada(html, formatRupiah(pokok), `pilihan pokok ${formatRupiah(pokok)} tersedia`);
+}
+ada(
+  html,
+  `aria-pressed="true"`,
+  "pilihan aktif ditandai aria-pressed (pokok bawaan = maksimum)",
+);
+ada(html, `aria-pressed="false"`, "pilihan lain ditandai tidak aktif");
+ada(
+  html,
+  "Rincian pinjaman yang sedang berjalan ada di detail pinjaman masing-masing.",
+  "kartu mengarahkan admin ke detail pinjaman untuk angka nyata",
+);
+
 // Kartu melintang penuh di grid (1/2/4 kolom) supaya tidak berdesakan.
 ada(html, "sm:col-span-2", "kartu rincian melintang 2 kolom di layar kecil");
 ada(html, "xl:col-span-4", "kartu rincian melintang penuh di desktop");
@@ -93,6 +114,31 @@ ok(
 ada(html, "Tidak ada yang perlu ditindak.", "antrean kosong dijelaskan, bukan dibiarkan kosong");
 
 bersih(html, "markup panel Hari Ini");
+
+// ===== Pilihan pokok benar-benar mengubah angka kartu =====
+// Panel dibuka dengan pilihan lain (pokok Rp500.000): angka rincian HARUS ikut
+// berubah, bukan tetap menampilkan contoh maksimum.
+const htmlKecil = renderPanel(500_000);
+ada(htmlKecil, "Contoh satu pinjaman Rp 500.000", "kalimat contoh mengikuti pilihan pokok");
+ada(htmlKecil, "− Rp 10.000", "potongan di muka 2% dari Rp500.000");
+ada(htmlKecil, "Rp 490.000", "diterima peminjam");
+ada(htmlKecil, "Rp 650.000", "uang yang kembali");
+ada(htmlKecil, "− Rp 32.500", "potongan 5% dari yang kembali");
+ada(htmlKecil, "Rp 617.500", "diterima penyedia dana");
+ada(htmlKecil, "Rp 117.500", "Imbal Hasil bersih penyedia dana");
+ada(htmlKecil, "Rp 42.500", "pendapatan platform");
+ok(
+  !htmlKecil.includes("Rp 1.235.000"),
+  "angka contoh maksimum tidak lagi tampil saat pilihan diganti",
+);
+// Tombol yang aktif harus tombol Rp500.000 — bukan hanya "ada satu yang aktif".
+const posisiAktif = htmlKecil.indexOf('aria-pressed="true"');
+const posisiTombol = htmlKecil.indexOf(">Rp 500.000</button>");
+ok(
+  posisiAktif !== -1 && posisiTombol > posisiAktif && posisiTombol - posisiAktif < 400,
+  "tombol pokok yang aktif adalah Rp 500.000",
+);
+bersih(htmlKecil, "markup panel dengan pilihan pokok Rp500.000");
 
 console.log(`meja-kerja.render.test: ${passed} lulus, ${failed} gagal`);
 if (failed > 0) process.exit(1);

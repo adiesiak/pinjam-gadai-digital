@@ -42,7 +42,7 @@ export function SystemConfigPanel() {
             <div key={k}>
               <Label htmlFor={`cfg-${k}`}>
                 {k === "persenAdmin"
-                  ? "Potongan admin atas Imbal Hasil %"
+                  ? "Potongan admin atas uang yang kembali %"
                   : k === "persenPlatform"
                     ? "Biaya platform %"
                     : "Bunga %"}

@@ -891,7 +891,7 @@ const schema = defineSchema(
       danaId: v.id("users"),
       /** Rupiah bulat — bagian penyedia dana atas pokok pinjaman. */
       jumlahAlokasi: v.number(),
-      /** Rupiah bulat — hak imbal hasil penyedia dana (30% dari bagian pokok). */
+      /** Rupiah bulat — hak Imbal Hasil penyedia dana (30% dari bagian pokok). */
       imbalHasil: v.number(),
       status: v.union(
         v.literal("dialokasikan"),
@@ -899,10 +899,17 @@ const schema = defineSchema(
         v.literal("dibatalkan"),
       ),
       nomorReferensi: v.string(),
-      // ===== Jejak pembagian Imbal Hasil saat pelunasan (diisi saat settlement) =====
-      /** Rupiah bulat — potongan admin atas Imbal Hasil alokasi ini. */
+      // ===== Jejak pembagian uang saat pelunasan (diisi saat settlement) =====
+      /**
+       * Rupiah bulat — potongan admin atas UANG YANG KEMBALI bagian alokasi ini
+       * (alokasi + Imbal Hasil bagiannya), bukan hanya atas Imbal Hasilnya.
+       * Lihat tabel kebijakan di kepala lib/bagiHasil.ts.
+       */
       potonganAdmin: v.optional(v.number()),
-      /** Rupiah bulat — Imbal Hasil yang benar-benar masuk dompet penyedia dana. */
+      /**
+       * Rupiah bulat — uang yang benar-benar masuk dompet penyedia dana
+       * (alokasi + Imbal Hasil bagiannya − potongan admin).
+       */
       imbalHasilNet: v.optional(v.number()),
       /** Waktu pelunasan yang membayar alokasi ini (server). */
       diselesaikanPada: v.optional(v.number()),

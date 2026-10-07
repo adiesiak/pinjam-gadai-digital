@@ -311,7 +311,9 @@ export function jalankanQc(input: InputQc): HasilQc {
   };
 
   // 1) Identitas per baris: potongan admin + bagian penyedia = Imbal Hasil,
-  //    dan dua bidang keuntungan memang saling menyalin.
+  //    dan dua bidang keuntungan memang saling menyalin. Identitas ini tetap
+  //    berlaku walau DASAR potongan bukan lagi Imbal Hasil melainkan uang yang
+  //    kembali (pokok + Imbal Hasil) — lihat kebijakan di lib/bagiHasil.ts.
   const masalahIdentitas: string[] = [];
   for (const b of baris) {
     const angka = [b.bunga, b.potonganAdmin, b.keuntunganPendana, b.keuntunganAdmin, b.totalLunas];

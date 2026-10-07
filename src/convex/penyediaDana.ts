@@ -905,9 +905,13 @@ export type BarisInvestor = {
   jumlahPeminjam: number;
   jumlahAktif: number;
   jumlahLunas: number;
-  /** Total bunga pinjaman berjalan + lunas (bruto, sebelum potongan admin). */
+  /**
+   * Total Imbal Hasil pinjaman berjalan + lunas (bruto). Potongan admin tidak
+   * diambil dari angka ini saja — dasarnya adalah pokok + Imbal Hasil
+   * (lihat kebijakan di lib/bagiHasil.ts).
+   */
   totalBunga: number;
-  /** Potongan admin atas bunga pinjaman akun ini. */
+  /** Potongan admin atas uang yang kembali dari pinjaman akun ini (pokok + Imbal Hasil). */
   keuntunganAdmin: number;
   /** Keuntungan bersih penyedia dana (bunga − potongan admin). */
   keuntunganPendana: number;

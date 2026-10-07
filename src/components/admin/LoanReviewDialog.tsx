@@ -36,6 +36,7 @@ import {
 
 import { formatDate } from "./admin-format";
 import { type LoanRow } from "./admin-shared";
+import { AliranDanaPinjaman } from "./AliranDanaPinjaman";
 import { LoanKycPanel } from "./LoanKycPanel";
 
 export function LoanReviewDialog({
@@ -146,6 +147,16 @@ export function LoanReviewDialog({
         <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-900">
           Nominal, tanggal acuan, alokasi, dan status lunas di panel ini mengikuti catatan ledger internal; perpindahan dana ditangani di luar aplikasi.
         </p>
+
+        {/* Aliran uang pinjaman ini — angka dari mesin uang yang sama dengan
+            akad dan ledger pelunasan, bukan hitungan tampilan. */}
+        <AliranDanaPinjaman
+          pokokPinjaman={row.pokokPinjaman}
+          tenorBulan={row.tenorBulan}
+          tenorHari={row.tenorHari}
+          persenBunga={row.persenBunga}
+          sudahLunas={row.status === "lunas"}
+        />
 
         <EContractWidget kind="loan" loanId={row._id} />
 

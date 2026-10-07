@@ -695,11 +695,11 @@ export const adminStats = query({
 
     const cfg = await getConfig(ctx);
 
-    // Keuntungan admin = potongan admin atas Imbal Hasil, memakai model yang
-    // sama dengan panel penyedia dana (lib/bagiHasil.ts) — termasuk skema
-    // bulanan yang dihitung dari tenor penuhnya. Baris warisan yang pokoknya
-    // bukan rupiah bulat dilewati agar satu dokumen lama tidak merobohkan
-    // ringkasan.
+    // Keuntungan admin = potongan admin atas uang yang kembali dari Peminjam
+    // (pokok + Imbal Hasil), memakai model yang sama dengan panel penyedia dana
+    // (lib/bagiHasil.ts) — termasuk skema bulanan yang dihitung dari tenor
+    // penuhnya. Baris warisan yang pokoknya bukan rupiah bulat dilewati agar
+    // satu dokumen lama tidak merobohkan ringkasan.
     const keuntunganAdminSatu = (l: {
       pokokPinjaman: number;
       tenorBulan?: number;

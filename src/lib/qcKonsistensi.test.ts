@@ -24,36 +24,41 @@ function ok(syarat: boolean, label: string): void {
  * Snapshot data yang SEHAT: satu pinjaman harian Rp1.000.000 @30% yang sudah
  * lunas, jurnal dua grup seimbang, panel & ruang sepakat, kartu admin sama.
  * Tiap kasus uji menyalin fixture ini lalu merusak SATU sisi saja.
+ *
+ * Angkanya mengikuti kebijakan berjalan (lihat tabel di lib/bagiHasil.ts):
+ * potongan platform = 5% dari uang yang kembali Rp1.300.000 = Rp65.000, jadi
+ * penyedia dana menerima Rp1.235.000 dan keuntungan bersihnya Rp235.000.
+ * Pendapatan platform satu pinjaman = Rp20.000 (di muka) + Rp65.000 = Rp85.000.
  */
 function sehat(): InputQc {
   return {
     ledger: {
-      totalDebit: 35_000,
-      totalKredit: 35_000,
+      totalDebit: 85_000,
+      totalKredit: 85_000,
       entryCount: 4,
       seimbang: true,
-      pendapatanPlatform: 35_000,
-      rincianSkema: { pinjaman: 35_000, gadai: 0, kredit: 0, lainnya: 0 },
+      pendapatanPlatform: 85_000,
+      rincianSkema: { pinjaman: 85_000, gadai: 0, kredit: 0, lainnya: 0 },
     },
     tren: Array.from({ length: 12 }, (_, i) => ({
       kunci: `2026-${String(i + 1).padStart(2, "0")}`,
       label: `B${i + 1}`,
-      jumlah: i === 11 ? 35_000 : 0,
+      jumlah: i === 11 ? 85_000 : 0,
     })),
     entri: [
       { groupId: "J-fee", arah: "debit", jumlah: 20_000 },
       { groupId: "J-fee", arah: "kredit", jumlah: 20_000 },
-      { groupId: "J-payout", arah: "debit", jumlah: 15_000 },
-      { groupId: "J-payout", arah: "kredit", jumlah: 15_000 },
+      { groupId: "J-payout", arah: "debit", jumlah: 65_000 },
+      { groupId: "J-payout", arah: "kredit", jumlah: 65_000 },
     ],
     ruang: {
       terpotong: { pinjaman: false },
       ringkasan: {
         totalBungaPinjaman: 300_000,
-        totalKeuntunganAdmin: 15_000,
-        totalKeuntunganPendana: 285_000,
+        totalKeuntunganAdmin: 65_000,
+        totalKeuntunganPendana: 235_000,
         totalTransferBelumDicatat: 1,
-        nilaiTransferBelumDicatat: 285_000,
+        nilaiTransferBelumDicatat: 235_000,
         persenBunga: 30,
         persenPotonganAdmin: 5,
       },
@@ -64,10 +69,10 @@ function sehat(): InputQc {
           totalDisalurkan: 1_000_000,
           saldoBerjalan: 0,
           totalBunga: 300_000,
-          keuntunganPendana: 285_000,
-          keuntunganAdmin: 15_000,
+          keuntunganPendana: 235_000,
+          keuntunganAdmin: 65_000,
           transferBelumDicatat: 1,
-          keuntunganBelumDicatat: 285_000,
+          keuntunganBelumDicatat: 235_000,
         },
       ],
       pinjaman: [
@@ -79,9 +84,9 @@ function sehat(): InputQc {
           persenBunga: null,
           bunga: 300_000,
           totalLunas: 1_300_000,
-          potonganAdmin: 15_000,
-          keuntunganPendana: 285_000,
-          keuntunganAdmin: 15_000,
+          potonganAdmin: 65_000,
+          keuntunganPendana: 235_000,
+          keuntunganAdmin: 65_000,
         },
       ],
     },
@@ -92,9 +97,9 @@ function sehat(): InputQc {
         totalDisalurkan: 1_000_000,
         saldoBerjalan: 0,
         totalBunga: 300_000,
-        keuntunganAdmin: 15_000,
-        keuntunganPendana: 285_000,
-        keuntunganBelumDicatat: 285_000,
+        keuntunganAdmin: 65_000,
+        keuntunganPendana: 235_000,
+        keuntunganBelumDicatat: 235_000,
       },
       rows: [
         {
@@ -105,14 +110,14 @@ function sehat(): InputQc {
             totalDisalurkan: 1_000_000,
             saldoBerjalan: 0,
             totalBunga: 300_000,
-            keuntunganPendana: 285_000,
-            keuntunganAdmin: 15_000,
+            keuntunganPendana: 235_000,
+            keuntunganAdmin: 65_000,
           },
         },
       ],
     },
     stats: {
-      keuntunganAdminTercatat: 15_000,
+      keuntunganAdminTercatat: 65_000,
       keuntunganAdminBelumTercatat: 0,
       totalPinjaman: 1,
       pinjamanBaru: 0,
@@ -198,7 +203,7 @@ function statusDari(hasil: ReturnType<typeof jalankanQc>, id: string): StatusCek
 // ===== 6. Ledger: tren melebihi total = entri ganda; lebih kecil = di luar jendela =====
 {
   const lebih = salinan();
-  lebih.tren[11].jumlah = 40_000;
+  lebih.tren[11].jumlah = 100_000;
   eq(statusDari(jalankanQc(lebih), "ledger-tren-12-bulan"), "gagal", "tren > total → gagal");
 
   const kurang = salinan();
@@ -243,7 +248,7 @@ function statusDari(hasil: ReturnType<typeof jalankanQc>, id: string): StatusCek
   input.panel.rows[0].metrik.keuntunganPendana = 300_000;
   input.panel.ringkasan.keuntunganPendana = 300_000;
   const hasil = jalankanQc(input);
-  eq(statusDari(hasil, "identitas-agregat"), "gagal", "15.000 + 300.000 ≠ 300.000 → gagal");
+  eq(statusDari(hasil, "identitas-agregat"), "gagal", "65.000 + 300.000 ≠ 300.000 → gagal");
   eq(hasil.ringkasan.gagal, 1, "hanya identitas agregat yang gagal");
 }
 
@@ -278,9 +283,9 @@ function statusDari(hasil: ReturnType<typeof jalankanQc>, id: string): StatusCek
     persenBunga: null,
     bunga: 150_000,
     totalLunas: 650_000,
-    potonganAdmin: 7_500,
-    keuntunganPendana: 142_500,
-    keuntunganAdmin: 7_500,
+    potonganAdmin: 32_500,
+    keuntunganPendana: 117_500,
+    keuntunganAdmin: 32_500,
   });
   input.ruang.rekapPendana.push({
     nama: "Citra",
@@ -288,15 +293,15 @@ function statusDari(hasil: ReturnType<typeof jalankanQc>, id: string): StatusCek
     totalDisalurkan: 500_000,
     saldoBerjalan: 500_000,
     totalBunga: 150_000,
-    keuntunganPendana: 142_500,
-    keuntunganAdmin: 7_500,
+    keuntunganPendana: 117_500,
+    keuntunganAdmin: 32_500,
     transferBelumDicatat: 0,
     keuntunganBelumDicatat: 0,
   });
   input.ruang.ringkasan.totalBungaPinjaman = 450_000;
-  input.ruang.ringkasan.totalKeuntunganAdmin = 22_500;
-  input.ruang.ringkasan.totalKeuntunganPendana = 427_500;
-  input.stats.keuntunganAdminBelumTercatat = 7_500;
+  input.ruang.ringkasan.totalKeuntunganAdmin = 97_500;
+  input.ruang.ringkasan.totalKeuntunganPendana = 352_500;
+  input.stats.keuntunganAdminBelumTercatat = 32_500;
   input.stats.totalPinjaman = 2;
   input.stats.totalPinjamanBerjalan = 500_000;
   const hasil = jalankanQc(input);

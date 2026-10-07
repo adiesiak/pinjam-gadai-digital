@@ -8,11 +8,16 @@
  * menerima Rp980.000; kembali Rp1.300.000; dipotong 5% dari uang yang kembali
  * → penyedia dana menerima Rp1.235.000.
  */
+import { bagiHasilPinjaman, POTONGAN_ADMIN_DEFAULT_PERSEN } from "./bagiHasil";
+import { hitungSimulasiBulanan } from "./bulanan";
+import { LOAN_LIMITS, PINDAI_PRICING, quoteLoan } from "./loan";
 import {
   POKOK_CONTOH_RINCIAN,
+  PILIHAN_POKOK_RINCIAN,
   barisRincianAliran,
   labelPotonganRincian,
   rincianAliranDana,
+  rincianPinjamanNyata,
 } from "./rincianAliranDana";
 
 let passed = 0;
@@ -65,15 +70,21 @@ eq(
 // ===== Pembulatan rupiah pada pokok yang tidak bulat =====
 
 // 2% × 333.333 = 6.666,66 → HALF-UP 6.667; 30% × 333.333 = 99.999,9 → 100.000;
-// 5% × 433.333 = 21.666,65 → HALF-UP 21.667.
+// 5% × 433.333 = 21.666,65 → KE BAWAH 21.666 (sisa rupiah milik penyedia dana,
+// sama dengan yang dibukukan ledger saat pelunasan).
 const ganjil = rincianAliranDana(333_333);
 eq(ganjil.potonganDiMuka, 6_667, "2% dari 333.333 dibulatkan HALF-UP");
 eq(ganjil.diterimaPeminjam, 326_666, "dana bersih 333.333 − 6.667");
 eq(ganjil.imbalHasil, 100_000, "30% dari 333.333 dibulatkan HALF-UP");
 eq(ganjil.totalKembali, 433_333, "total kembali 433.333");
-eq(ganjil.potonganPenyedia, 21_667, "5% dari 433.333 dibulatkan HALF-UP");
-eq(ganjil.diterimaPenyedia, 411_666, "diterima penyedia 433.333 − 21.667");
-eq(ganjil.imbalBersihPenyedia, 78_333, "Imbal Hasil bersih = 100.000 − 21.667");
+eq(ganjil.potonganPenyedia, 21_666, "5% dari 433.333 dibulatkan KE BAWAH (bukan 21.667)");
+eq(
+  ganjil.potonganPenyedia === Math.round(ganjil.totalKembali * 0.05),
+  false,
+  "potongan memakai pembulatan ledger (floor), bukan HALF-UP rupiah biasa",
+);
+eq(ganjil.diterimaPenyedia, 411_667, "diterima penyedia 433.333 − 21.666");
+eq(ganjil.imbalBersihPenyedia, 78_334, "Imbal Hasil bersih = 100.000 − 21.666");
 
 // Batas bisnis bawah.
 const terkecil = rincianAliranDana(100_000);
@@ -181,6 +192,122 @@ eq(
   true,
   "semua baris bernilai rupiah bulat",
 );
+
+// ===== Satu pintu uang: kartu = mesin harga + mesin bagi hasil =====
+// Angka kartu tidak boleh lahir dari rumus lokal di UI. Untuk setiap pokok,
+// tiap nilai harus persis sama dengan keluaran mesin yang menagih Peminjam
+// (quoteLoan) dan mesin yang membukukan bagi hasil (bagiHasilPinjaman).
+for (const pokok of daftarPokok) {
+  const r = rincianAliranDana(pokok);
+  const tagihan = quoteLoan(pokok);
+  const bagi = bagiHasilPinjaman(pokok, PINDAI_PRICING.bungaPercent, POTONGAN_ADMIN_DEFAULT_PERSEN);
+  const tag = `satu pintu pokok ${pokok}`;
+  eq(r.potonganDiMuka, tagihan.totalPotonganDiMuka, `${tag}: potongan di muka dari harga akad`);
+  eq(r.diterimaPeminjam, tagihan.danaBersihDitransfer, `${tag}: diterima peminjam dari harga akad`);
+  eq(r.imbalHasil, tagihan.bunga, `${tag}: Imbal Hasil dari harga akad`);
+  eq(r.totalKembali, tagihan.totalKewajibanPelunasan, `${tag}: uang kembali dari harga akad`);
+  eq(r.potonganPenyedia, bagi.potonganAdmin, `${tag}: potongan = yang dibukukan ledger`);
+  eq(r.diterimaPenyedia, bagi.pendanaTerima, `${tag}: diterima penyedia = yang dibayarkan ledger`);
+  eq(r.imbalBersihPenyedia, bagi.keuntunganPendana, `${tag}: Imbal Hasil bersih = yang dibayarkan ledger`);
+}
+
+// ===== Pilihan pokok kartu =====
+
+eq(PILIHAN_POKOK_RINCIAN.length >= 3, true, "kartu menyediakan beberapa pilihan pokok");
+eq(
+  PILIHAN_POKOK_RINCIAN.every((p) => p >= LOAN_LIMITS.minPokok && p <= LOAN_LIMITS.maxPokok),
+  true,
+  "semua pilihan pokok berada di dalam batas bisnis",
+);
+eq(
+  [...PILIHAN_POKOK_RINCIAN].sort((a, b) => a - b).join(),
+  PILIHAN_POKOK_RINCIAN.join(),
+  "pilihan pokok urut dari kecil ke besar",
+);
+eq(
+  new Set(PILIHAN_POKOK_RINCIAN).size,
+  PILIHAN_POKOK_RINCIAN.length,
+  "tidak ada pilihan pokok kembar",
+);
+for (const pokok of PILIHAN_POKOK_RINCIAN) {
+  const r = rincianAliranDana(pokok);
+  eq(r.pokok, pokok, `pilihan ${pokok} bisa dihitung kartu`);
+  eq(r.potonganPenyedia + r.diterimaPenyedia, r.totalKembali, `pilihan ${pokok}: tidak ada rupiah hilang`);
+}
+
+// ===== Rincian satu pinjaman NYATA (detail pinjaman admin) =====
+// Harian: pokok 500.000 @30% → potongan di muka 10.000, kembali 650.000,
+// potongan 5% dari uang kembali = 32.500, penyedia dana menerima 617.500.
+const nyataHarian = rincianPinjamanNyata({ pokokPinjaman: 500_000, persenBunga: 30 });
+eq(nyataHarian.potonganDiMuka, 10_000, "nyata harian: potongan di muka 2%");
+eq(nyataHarian.diterimaPeminjam, 490_000, "nyata harian: diterima peminjam");
+eq(nyataHarian.imbalHasil, 150_000, "nyata harian: Imbal Hasil 30%");
+eq(nyataHarian.totalKembali, 650_000, "nyata harian: uang yang kembali");
+eq(nyataHarian.potonganPenyedia, 32_500, "nyata harian: potongan 5% dari yang kembali");
+eq(nyataHarian.diterimaPenyedia, 617_500, "nyata harian: diterima penyedia");
+eq(nyataHarian.imbalBersihPenyedia, 117_500, "nyata harian: Imbal Hasil bersih");
+
+// Harian tanpa snapshot bunga memakai tarif bawaan akad (30%).
+eq(
+  rincianPinjamanNyata({ pokokPinjaman: 500_000 }).imbalHasil,
+  rincianPinjamanNyata({ pokokPinjaman: 500_000, persenBunga: 30 }).imbalHasil,
+  "tanpa snapshot bunga memakai tarif akad",
+);
+
+// Bulanan: Imbal Hasil = bunga SELAMA TENOR (bukan satu bulan), dasarnya tetap
+// uang yang kembali, dan potongannya dibulatkan ke bawah.
+for (const [pokok, tenorBulan, persenBulan] of [
+  [1_000_000, 1, 10],
+  [2_000_000, 3, 10],
+  [3_333_333, 3, 7.5],
+] as const) {
+  const sim = hitungSimulasiBulanan(pokok, tenorBulan, { persenBungaPerBulan: persenBulan });
+  const r = rincianPinjamanNyata({ pokokPinjaman: pokok, tenorBulan, persenBunga: persenBulan });
+  const tag = `nyata bulanan ${pokok}/${tenorBulan}bln`;
+  // Dasar potongan = pokok + Imbal Hasil tenor (biaya admin cicilan sudah milik
+  // platform, jadi tidak ikut dipotong).
+  const dasar = sim.totalPengembalian - sim.biayaAdminCicilanTotal;
+  eq(dasar, pokok + sim.bungaTotal, `${tag}: dasar potongan = pokok + Imbal Hasil tenor`);
+  eq(r.imbalHasil, sim.bungaTotal, `${tag}: Imbal Hasil = bunga total tenor`);
+  eq(r.totalKembali, sim.totalPengembalian, `${tag}: kembali = Σ cicilan simulasi`);
+  eq(
+    r.potonganPenyedia,
+    Math.floor((dasar * 5) / 100),
+    `${tag}: potongan 5% dari uang yang kembali (floor)`,
+  );
+  eq(
+    r.potonganPenyedia + r.diterimaPenyedia,
+    dasar,
+    `${tag}: potongan + diterima penyedia = uang yang kembali`,
+  );
+  eq(
+    r.imbalBersihPenyedia,
+    r.imbalHasil - r.potonganPenyedia,
+    `${tag}: Imbal Hasil bersih = Imbal Hasil − potongan`,
+  );
+}
+
+// Label baris bulanan tidak boleh menyebut tarif bulanan sebagai "Imbal Hasil".
+const barisBulanan = barisRincianAliran(
+  rincianPinjamanNyata({ pokokPinjaman: 2_000_000, tenorBulan: 3, persenBunga: 10 }),
+  { tenorBulan: 3 },
+);
+eq(
+  barisBulanan[3]?.label,
+  "Kembali (pokok + Imbal Hasil 3 bulan @10%)",
+  "baris bulanan menyebut tenor dan tarif per bulan",
+);
+eq(
+  barisRincianAliran(rincianPinjamanNyata({ pokokPinjaman: 1_000_000, persenBunga: 30 }))[3]?.label,
+  "Kembali (pokok + Imbal Hasil 30%)",
+  "baris harian tetap seperti semula",
+);
+
+// Data warisan: pokok tidak sah tidak merobohkan detail pinjaman (tanpa hitungan).
+const warisan = rincianPinjamanNyata({ pokokPinjaman: 0 });
+eq(warisan.potonganPenyedia, 0, "pokok warisan 0: tidak ada potongan");
+eq(warisan.diterimaPenyedia, 0, "pokok warisan 0: penyedia menerima apa adanya");
+eq(warisan.pendapatanPlatform, 0, "pokok warisan 0: platform tidak mengaku pendapatan");
 
 console.log(`rincianAliranDana.test: ${passed} lulus, ${failed} gagal`);
 if (failed > 0) process.exit(1);

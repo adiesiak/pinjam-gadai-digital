@@ -313,7 +313,7 @@ function KartuPendana({ r }: { r: RekapPendana }) {
           </dd>
         </div>
         <div className="flex items-baseline justify-between gap-2">
-          <dt className="text-muted-foreground">Potongan admin</dt>
+          <dt className="text-muted-foreground">Potongan admin (dari uang kembali)</dt>
           <dd className="font-semibold tabular-nums text-amber-700">
             {rupiah(r.keuntunganAdmin)}
           </dd>
@@ -580,15 +580,19 @@ function DetailPinjaman({ row }: { row: BarisPinjaman }) {
         }
         nilai={rupiah(row.totalLunas)}
       />
-      <BarisDetail label="Potongan admin" nilai={rupiah(row.potonganAdmin)} />
+      <BarisDetail
+        label="Potongan admin (dari uang yang kembali)"
+        nilai={rupiah(row.potonganAdmin)}
+      />
       <BarisDetail
         label="Keuntungan pendana (bersih)"
         nilai={row.pendana === null ? "—" : rupiah(row.keuntunganPendana)}
       />
       {/* `row.keuntunganAdmin` sengaja tidak ditampilkan lagi: pada model bagi
           hasil PINDAI ia selalu sama dengan `row.potonganAdmin` di atas
-          (keuntungan admin = potongan admin atas Imbal Hasil), jadi menampilkan
-          keduanya berarti satu angka muncul dua kali dengan label sama. */}
+          (keuntungan admin = potongan admin atas uang yang kembali, yaitu
+          pokok + Imbal Hasil), jadi menampilkan keduanya berarti satu angka
+          muncul dua kali dengan label sama. */}
       <BarisDetail
         label="Tenor"
         nilai={row.tenorBulan === null ? `${row.tenorHari} hari` : `${row.tenorBulan} bulan`}
@@ -1057,7 +1061,7 @@ function DaftarPinjaman({
             <InfoKartu label="Keuntungan pendana">
               {row.pendana === null ? "—" : rupiah(row.keuntunganPendana)}
             </InfoKartu>
-            <InfoKartu label="Potongan admin">
+            <InfoKartu label="Potongan admin (dari uang kembali)">
               {row.pendana === null ? "—" : rupiah(row.potonganAdmin)}
             </InfoKartu>
             <InfoKartu label="Transfer keuntungan">
@@ -1115,7 +1119,8 @@ function DaftarPinjaman({
                   Bunga {persenBunga}% {rupiah(row.bunga)}
                 </p>
                 <p className="mt-1 text-[11px] text-amber-700">
-                  Potongan admin {row.pendana === null ? "—" : rupiah(row.potonganAdmin)}
+                  Potongan admin (dari uang kembali){" "}
+                  {row.pendana === null ? "—" : rupiah(row.potonganAdmin)}
                 </p>
               </TableCell>
               <TableCell className="align-top text-slate-600">
@@ -1559,9 +1564,10 @@ function IsiRuang() {
                 </div>
                 <p className="mt-1 max-w-3xl text-xs leading-6 text-muted-foreground">
                   Model <strong>1 pinjaman = 1 pendana</strong>. Bunga {data.ringkasan.persenBunga}%
-                  dari pokok; admin mengambil {data.ringkasan.persenPotonganAdmin}% dari Imbal Hasil
-                  (bunga pinjaman), bukan dari pokok — pokok kembali utuh ke penyedia dana. Angka di
-                  bawah dihitung dari pinjaman yang berjalan dan lunas.
+                  dari pokok; admin mengambil {data.ringkasan.persenPotonganAdmin}% dari uang yang
+                  kembali (pokok + Imbal Hasil), bukan dari Imbal Hasil saja. Pokok tetap kembali
+                  utuh ke penyedia dana — yang terpotong adalah keuntungannya. Angka di bawah
+                  dihitung dari pinjaman yang berjalan dan lunas.
                 </p>
                 <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                   {data.rekapPendana.map((r) => (
@@ -1703,7 +1709,9 @@ function IsiRuang() {
                     <p className="mb-3 rounded-2xl border border-emerald-200 bg-emerald-50/70 px-4 py-3 text-xs leading-6 text-emerald-900">
                       Pinjaman pada tab ini sudah berstatus <strong>lunas</strong> pada ledger
                       internal. Angka keuntungan pendana dan potongan admin di bawah adalah hasil
-                      perhitungan atas kewajiban yang sudah terbayar penuh, bukan bukti mutasi.
+                      perhitungan atas kewajiban yang sudah terbayar penuh — potongan diambil dari
+                      uang yang kembali (pokok + Imbal Hasil), bukan dari Imbal Hasil saja — bukan
+                      bukti mutasi.
                     </p>
                     <DaftarPinjaman
                       rows={pinjamanLunas}

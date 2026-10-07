@@ -8,7 +8,7 @@ import {
   MapPin,
   ShieldCheck,
 } from "lucide-react";
-import type { ComponentType } from "react";
+import { useState, type ComponentType } from "react";
 
 import {
   MetrikKartu,
@@ -24,7 +24,9 @@ import {
 import { fadeUpItem, staggerContainer } from "@/lib/motion";
 import { formatRupiah } from "@/lib/money";
 import {
+  PILIHAN_POKOK_RINCIAN,
   barisRincianAliran,
+  kalimatContohAliran,
   labelPotonganRincian,
   rincianAliranDana,
 } from "@/lib/rincianAliranDana";
@@ -133,17 +135,30 @@ export function MejaKerja({
   stats,
   ledger,
   onBukaModul,
+  pokokContohAwal,
 }: {
   overview: AdminOverviewData;
   stats: AdminStatsData | undefined;
   ledger: LedgerSummary | undefined;
   /** Pindah ke modul yang menangani kartu ini. */
   onBukaModul: (modul: NilaiModulAdmin) => void;
+  /**
+   * Pokok contoh yang terpilih saat panel dibuka. Bawaannya pinjaman terbesar
+   * yang bisa diajukan; hanya dipakai uji render untuk memastikan angka kartu
+   * benar-benar mengikuti pilihan admin.
+   */
+  pokokContohAwal?: number;
 }) {
   // Rincian aliran uang itu kebijakan, bukan data server: tidak punya keadaan
   // "memuat", dan karena murni dari `lib/rincianAliranDana` ia tidak bisa
-  // berbeda dari akad/tagihan yang memakai mesin harga yang sama.
-  const rincian = rincianAliranDana();
+  // berbeda dari akad/tagihan maupun dari yang dijurnal ledger saat pelunasan.
+  //
+  // Pokoknya bisa dipilih admin supaya perjalanan uang bisa diperiksa pada
+  // nominal kecil sampai maksimum — bukan hanya pada satu contoh.
+  const [pokokContoh, setPokokContoh] = useState<number>(
+    pokokContohAwal ?? PILIHAN_POKOK_RINCIAN[PILIHAN_POKOK_RINCIAN.length - 1],
+  );
+  const rincian = rincianAliranDana(pokokContoh);
   const barisAliran = barisRincianAliran(rincian);
 
   const perluKeputusan = angkaRingkas(jumlahPerluKeputusan(overview));
@@ -218,15 +233,39 @@ export function MejaKerja({
           <div className="min-w-0">
             <p className="text-sm font-semibold text-navy">Aliran uang satu pinjaman</p>
             <p className="mt-0.5 text-xs leading-5 text-muted-foreground">
-              Contoh satu pinjaman {formatRupiah(rincian.pokok)}: dipotong{" "}
-              {rincian.persenPotonganDiMuka}% di muka, kembali{" "}
-              {rincian.persenImbalHasil + 100}% dari pokok, lalu dipotong{" "}
-              {rincian.persenPotonganPenyedia}% dari uang yang kembali.
+              {kalimatContohAliran(rincian)}
             </p>
           </div>
           <span className="flex size-8 shrink-0 items-center justify-center rounded-xl border border-emerald-100 bg-emerald-50 text-emerald-700">
             <Coins className="size-4" />
           </span>
+        </div>
+
+        {/* Pilihan pokok: rincian di bawah ikut berubah, jadi admin bisa
+            memeriksa nominal kecil maupun maksimum tanpa membuka modul lain. */}
+        <div
+          role="group"
+          aria-label="Pilih pokok pinjaman contoh"
+          className="mt-3 flex flex-wrap gap-1.5"
+        >
+          {PILIHAN_POKOK_RINCIAN.map((pokok) => {
+            const aktif = pokok === rincian.pokok;
+            return (
+              <button
+                key={pokok}
+                type="button"
+                aria-pressed={aktif}
+                onClick={() => setPokokContoh(pokok)}
+                className={`rounded-full border px-3 py-1 text-[11px] font-medium tabular-nums transition-colors ${
+                  aktif
+                    ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+                    : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:text-navy"
+                }`}
+              >
+                {formatRupiah(pokok)}
+              </button>
+            );
+          })}
         </div>
 
         <dl className="mt-3 grid grid-cols-1 gap-2 min-[380px]:grid-cols-2 lg:grid-cols-4">
@@ -252,6 +291,7 @@ export function MejaKerja({
             jadi teks biasa tidak boleh memakainya atau admin salah membacanya. */}
         <p className="mt-2 text-[11px] leading-4 text-muted-foreground">
           Contoh kebijakan perhitungan satu pinjaman, bukan angka ledger hari ini.
+          Rincian pinjaman yang sedang berjalan ada di detail pinjaman masing-masing.
         </p>
       </motion.div>
     </motion.section>

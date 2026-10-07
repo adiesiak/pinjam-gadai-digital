@@ -45,7 +45,7 @@ const LABEL_METRIK: Record<keyof MetrikPendana, string> = {
   saldoBerjalan: "saldo berjalan",
   totalBunga: "bunga",
   keuntunganPendana: "keuntungan pendana",
-  keuntunganAdmin: "potongan admin",
+  keuntunganAdmin: "potongan admin atas uang kembali",
 };
 
 const META_STATUS: Record<StatusRekonsiliasi, { label: string; className: string }> = {

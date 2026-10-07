@@ -412,14 +412,18 @@ describe("ringkasan pendapatan platform", () => {
         "ledger_entries",
         baris("J-fee", "pinjaman:x", "kredit", 20_000, "platform_fee", "Biaya admin & platform PGD-X"),
       );
-      // 2. Potongan admin atas Imbal Hasil, dibukukan saat pelunasan (payout).
+      // 2. Potongan admin atas UANG YANG KEMBALI (pokok + Imbal Hasil) bagian
+      //    penyedia dana, dibukukan saat pelunasan (payout). Nominalnya mengikuti
+      //    kebijakan berjalan untuk pinjaman 1jt @30% (5% × Rp1.300.000 =
+      //    Rp65.000, lihat lib/bagiHasil.ts); yang diuji di sini klasifikasi
+      //    ringkasan ledger, bukan perhitungannya.
       await ctx.db.insert(
         "ledger_entries",
-        baris("J-payout", "platform:FEE", "debit", 15_000, "payout", "Pelunasan: pembayaran ke dana PGD-X"),
+        baris("J-payout", "platform:FEE", "debit", 65_000, "payout", "Pelunasan: pembayaran ke dana PGD-X"),
       );
       await ctx.db.insert(
         "ledger_entries",
-        baris("J-payout", "pinjaman:x", "kredit", 15_000, "payout", "Pelunasan: pembayaran ke dana PGD-X"),
+        baris("J-payout", "pinjaman:x", "kredit", 65_000, "payout", "Pelunasan: pembayaran ke dana PGD-X"),
       );
       // 3. Denda keterlambatan: sanksi ke Peminjam, bukan pendapatan jasa.
       await ctx.db.insert(
@@ -433,13 +437,15 @@ describe("ringkasan pendapatan platform", () => {
     });
 
     const ringkas = await admin.query(api.admin.ledgerSummary, {});
-    // 20.000 (potongan di muka) + 15.000 (potongan admin atas Imbal Hasil).
-    expect(ringkas.pendapatanPlatform).toBe(35_000);
-    expect(ringkas.rincianSkema.pinjaman).toBe(35_000);
+    // 20.000 (potongan di muka 2%) + 65.000 (potongan admin atas uang yang
+    // kembali) = 85.000 — sama dengan pendapatan platform satu pinjaman 1jt @30%
+    // yang ditampilkan kartu "Aliran uang" panel Ringkasan.
+    expect(ringkas.pendapatanPlatform).toBe(85_000);
+    expect(ringkas.rincianSkema.pinjaman).toBe(85_000);
     expect(ringkas.seimbang).toBe(true);
 
     // Kartu tren memakai sumber yang sama: Σ semua bulan = pendapatanPlatform.
     const tren = await admin.query(api.admin.trenPendapatanBulanan, {});
-    expect(tren.reduce((total, b) => total + b.jumlah, 0)).toBe(35_000);
+    expect(tren.reduce((total, b) => total + b.jumlah, 0)).toBe(85_000);
   });
 });
