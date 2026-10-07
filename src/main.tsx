@@ -260,7 +260,11 @@ createRoot(document.getElementById("root")!).render(
                   }
                 />
                 <Route path="/promo" element={<RequireAuth><Promo /></RequireAuth>} />
-                <Route path="/penyedia-dana" element={<Navigate to="/penyedia-dana" replace />} />
+                {/* Tautan lama /pendana (bookmark, dokumen lama) diarahkan ke
+                    ruang penyedia dana alih-alih jatuh ke NotFound. Rute ini
+                    sebelumnya terdaftar untuk /penyedia-dana — path yang sudah
+                    dilayani di atas, sehingga tidak pernah terpakai. */}
+                <Route path="/pendana" element={<Navigate to="/penyedia-dana" replace />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </Suspense>

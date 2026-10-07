@@ -40,7 +40,7 @@ async function expectError(fn: () => Promise<unknown>, label: string) {
 
 async function signUpAnonymous(): Promise<ConvexHttpClient> {
   const c = new ConvexHttpClient(url);
-  const res: any = await c.action(api.auth.signIn, {
+  const res = await c.action(api.auth.signIn, {
     provider: "anonymous",
     params: {},
   });
@@ -62,8 +62,8 @@ const loan = await borrower.mutation(api.loans.createLoanApplication, {
 });
 
 const pendana = await signUpAnonymous();
-await pendana.mutation(api.pendana.becomePendana, {});
-await pendana.mutation(api.pendana.requestDeposit, {
+await pendana.mutation(api.alokasiDana.naikPeranDana, {});
+await pendana.mutation(api.alokasiDana.requestDeposit, {
   jumlah: 5_000_000,
   referensiTransfer: "QAREPAY-001",
 });
@@ -71,33 +71,33 @@ await pendana.mutation(api.pendana.requestDeposit, {
 const admin = new ConvexHttpClient(url);
 admin.setAuth(readFileSync("scripts/.qa-admin-token", "utf8").trim());
 
-const pending: any[] = await admin.query(api.admin.pendingDeposits);
+const pending = await admin.query(api.admin.pendingDeposits);
 const dep = pending.find((d) => d.referensiTransfer === "QAREPAY-001");
 await admin.mutation(api.admin.confirmDeposit, { depositId: dep._id });
 await admin.mutation(api.loans.approveLoan, { loanId: loan.appId });
-await pendana.mutation(api.pendana.allocateFunding, {
+await pendana.mutation(api.alokasiDana.allocateFunding, {
   loanId: loan.appId,
   jumlah: 1_000_000,
 });
 
-const wBefore: any = await pendana.query(api.pendana.myWallet);
+const wBefore = await pendana.query(api.alokasiDana.myWallet);
 ok(wBefore.saldo === 4_000_000, `saldo Pendana sebelum lunas = 4.000.000 (dapat ${wBefore.saldo})`);
 ok(wBefore.imbalHasilDiharapkan === 300_000, `imbal hasil 300.000 (dapat ${wBefore.imbalHasilDiharapkan})`);
 
-const loanNow: any = await borrower.query(api.loans.getMyLoan, { loanId: loan.appId });
+const loanNow = await borrower.query(api.loans.getMyLoan, { loanId: loan.appId });
 ok(loanNow.status === "didanai", "status didanai");
 
 console.log("2) Pelunasan 130% oleh nasabah…");
-const lw: any = await borrower.query(api.loans.getMyLoan, { loanId: loan.appId });
+const lw = await borrower.query(api.loans.getMyLoan, { loanId: loan.appId });
 ok(lw.quote.totalKewajibanPelunasan === 1_300_000, "total kewajiban = 1.300.000");
 
 const repay = await borrower.mutation(api.loans.repayLoan, { loanId: loan.appId });
 ok(repay.totalDibayar === 1_300_000, "total dibayar = 1.300.000");
 
-const loanAfter: any = await borrower.query(api.loans.getMyLoan, { loanId: loan.appId });
+const loanAfter = await borrower.query(api.loans.getMyLoan, { loanId: loan.appId });
 ok(loanAfter.status === "lunas", "status menjadi lunas");
 
-const wAfter: any = await pendana.query(api.pendana.myWallet);
+const wAfter = await pendana.query(api.alokasiDana.myWallet);
 ok(wAfter.saldo === 5_300_000, `saldo Pendana setelah lunas = 5.300.000 (dapat ${wAfter.saldo})`);
 ok(wAfter.danaBekerja === 0, "dana bekerja kembali 0");
 
@@ -108,7 +108,7 @@ await expectError(
 );
 
 console.log("3) Ledger tetap seimbang…");
-const led: any = await admin.query(api.admin.ledgerSummary);
+const led = await admin.query(api.admin.ledgerSummary);
 ok(led.seimbang === true, `debit == kredit (D=${led.totalDebit}, K=${led.totalKredit})`);
 
 console.log("4) Alur gadai: aktif → pelepasan → rilis…");
@@ -120,18 +120,18 @@ await borrower.mutation(api.loans.createPawnApplication, {
   namaLengkap: "Nasabah QA Pelunasan",
   nomorRekening: "1122334455",
 });
-const myPawns: any[] = await borrower.query(api.loans.listMyPawns);
+const myPawns = await borrower.query(api.loans.listMyPawns);
 const pawn = myPawns.find((p) => p.status === "diajukan");
 await admin.mutation(api.loans.approvePawn, {
   pawnId: pawn._id,
   nilaiTaksiran: 12_000_000,
 });
 await admin.mutation(api.loans.activatePawn, { pawnId: pawn._id });
-const active: any = await borrower.query(api.loans.getMyPawn, { pawnId: pawn._id });
+const active = await borrower.query(api.loans.getMyPawn, { pawnId: pawn._id });
 ok(active.status === "aktif", "gadai aktif");
 
 await borrower.mutation(api.loans.requestPawnRelease, { pawnId: pawn._id });
-const waiting: any = await borrower.query(api.loans.getMyPawn, { pawnId: pawn._id });
+const waiting = await borrower.query(api.loans.getMyPawn, { pawnId: pawn._id });
 ok(waiting.status === "menunggu_pelepasan", "menunggu pelepasan");
 
 // Rilis oleh non-admin harus ditolak
@@ -141,7 +141,7 @@ await expectError(
 );
 
 await admin.mutation(api.loans.releasePawn, { pawnId: pawn._id });
-const released: any = await borrower.query(api.loans.getMyPawn, { pawnId: pawn._id });
+const released = await borrower.query(api.loans.getMyPawn, { pawnId: pawn._id });
 ok(released.status === "lunas_dilepas", "gadai lunas_dilepas");
 
 // Pelepasan ulang harus ditolak

@@ -39,7 +39,7 @@ async function expectError(fn: () => Promise<unknown>, label: string) {
 
 async function signUpAnonymous(): Promise<ConvexHttpClient> {
   const c = new ConvexHttpClient(url);
-  const res: any = await c.action(api.auth.signIn, {
+  const res = await c.action(api.auth.signIn, {
     provider: "anonymous",
     params: {},
   });
@@ -52,7 +52,7 @@ async function signUpAnonymous(): Promise<ConvexHttpClient> {
 // ---------------------------------------------------------------------
 console.log("1) Daftar — jalur tamu (anonymous)…");
 const userA = await signUpAnonymous();
-const meA: any = await userA.query(api.users.currentUser);
+const meA = await userA.query(api.users.currentUser);
 ok(meA !== null, "pengguna terdaftar & ter-autentikasi");
 ok(meA.role === undefined, "peran baru masih kosong (akan jadi peminjam)");
 
@@ -70,7 +70,7 @@ const loan = await userA.mutation(api.loans.createLoanApplication, {
 ok(typeof loan.nomorReferensi === "string" && loan.nomorReferensi.startsWith("PGD-"),
   `nomor referensi format PGD- (${loan.nomorReferensi})`);
 
-const loanDetail: any = await userA.query(api.loans.getMyLoan, {
+const loanDetail = await userA.query(api.loans.getMyLoan, {
   loanId: loan.appId,
 });
 ok(loanDetail !== null, "detail pinjaman bisa dibuka");
@@ -83,7 +83,7 @@ ok(q.danaBersihDitransfer === 9_800_000, "dana bersih 98% = Rp 9.800.000");
 ok(q.bunga === 3_000_000, "bunga 30% = Rp 3.000.000");
 ok(q.totalKewajibanPelunasan === 13_000_000, "total kewajiban 130% = Rp 13.000.000");
 
-const meA2: any = await userA.query(api.users.currentUser);
+const meA2 = await userA.query(api.users.currentUser);
 ok(meA2.role === "peminjam", "peran otomatis menjadi peminjam");
 
 console.log("3) Validasi pinjaman (harus ditolak server)…");
@@ -141,9 +141,9 @@ await userA.mutation(api.loans.createPawnApplication, {
   namaLengkap: "Nasabah Uji Alur",
   nomorRekening: "1234567890",
 });
-const pawns: any[] = await userA.query(api.loans.listMyPawns);
+const pawns = await userA.query(api.loans.listMyPawns);
 ok(pawns.length === 1, "pengajuan gadai tersimpan");
-const pawnDetail: any = await userA.query(api.loans.getMyPawn, {
+const pawnDetail = await userA.query(api.loans.getMyPawn, {
   pawnId: pawns[0]._id,
 });
 ok(pawnDetail.status === "diajukan", "status gadai awal = diajukan");
@@ -183,11 +183,11 @@ ok(pawnSummary.totalGadai === 1, "ringkasan gadai benar");
 // ---------------------------------------------------------------------
 console.log("7) Isolasi antar-nasabah…");
 const userB = await signUpAnonymous();
-const borrowedLoan: any = await userB.query(api.loans.getMyLoan, {
+const borrowedLoan = await userB.query(api.loans.getMyLoan, {
   loanId: loan.appId,
 });
 ok(borrowedLoan === null, "nasabah lain TIDAK bisa membuka pinjaman A");
-const bPawns: any[] = await userB.query(api.loans.listMyPawns);
+const bPawns = await userB.query(api.loans.listMyPawns);
 ok(bPawns.length === 0, "daftar gadai B kosong (Zero Fake Data)");
 const bSummary = await userB.query(api.loans.myLoanSummary);
 ok(bSummary.totalAplikasi === 0, "ringkasan B jujur = 0");

@@ -1,6 +1,6 @@
 import { useAction, useMutation, useQuery } from "convex/react";
 import { Loader2, Send, Trash2 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 
 import { EContractWidget } from "@/components/EContract";
@@ -64,14 +64,22 @@ export function LoanReviewDialog({
     row === null ? ("skip" as const) : { loanId: row._id, alasan: reason },
   );
 
-  // Sasaran status & nominal ikut menyesuaikan saat dialog dibuka untuk baris lain.
-  useEffect(() => {
-    if (row === null) return;
-    setStatusTujuan(row.status === "didanai" ? "lunas" : "disetujui");
+  // Sasaran status & nominal menyesuaikan saat dialog dibuka untuk baris lain.
+  //
+  // Disesuaikan SAAT RENDER lewat `_id`, bukan lewat effect + identitas objek:
+  // query reaktif Convex bisa mengirim objek baru untuk baris yang sama, dan
+  // effect yang mengikuti identitas objek akan menghapus ketikan admin di
+  // tengah proses review. Penyetelan saat render adalah pola React untuk
+  // "menyesuaikan state ketika prop berubah" — tidak memicu render berantai.
+  const idBaris: string | null = row?._id ?? null;
+  const [idTerakhir, setIdTerakhir] = useState<string | null>(idBaris);
+  if (idBaris !== idTerakhir) {
+    setIdTerakhir(idBaris);
+    setStatusTujuan(row?.status === "didanai" ? "lunas" : "disetujui");
     setNominal("");
     setReason("");
     setError(null);
-  }, [row]);
+  }
 
   if (row === null) return null;
   // Nominal pengajuan asli — sama dengan pokokPinjaman kecuali admin menyetujui

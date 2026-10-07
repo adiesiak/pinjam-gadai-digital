@@ -4,7 +4,11 @@ import {
   POTONGAN_ADMIN_DEFAULT_PERSEN,
   bagiHasilPinjaman,
   bagiImbalHasil,
+  bagiHasilPinjamanDari,
 } from "./bagiHasil";
+import { hitungSimulasiBulanan } from "./bulanan";
+import { quotePinjaman } from "./loan";
+import { percentOf } from "./money";
 
 let passed = 0;
 let failed = 0;
@@ -70,16 +74,20 @@ throws(() => bagiImbalHasil(1_000_000, -1), "persentase negatif ditolak");
 throws(() => bagiImbalHasil(1_000_000, 101), "persentase >100 ditolak");
 
 // ===== Bagi hasil pinjaman (model 1 pinjaman = 1 pendana) =====
-// Contoh acuan: pokok Rp1.000.000, bunga 30% → total Rp1.300.000,
-// potongan admin 5% dari total = Rp65.000, penyedia dana menerima Rp1.235.000.
+// Contoh acuan: pokok Rp1.000.000, bunga 30% → total Rp1.300.000.
+// Potongan admin 5% diambil dari IMBAL HASIL (Rp300.000), bukan dari total
+// kewajiban: Rp15.000. Penyedia dana menerima pokok kembali utuh + Rp285.000.
+// Angka-angka ini wajib sama dengan yang dibukukan ledger saat pelunasan
+// (convex/loans.ts memakai bagiImbalHasil atas Imbal Hasil) — kalau salah satu
+// sisi berubah sendiri, pengguna melihat janji yang tidak pernah dibayar.
 eq(BUNGA_PINJAMAN_DEFAULT_PERSEN, 30, "bunga pinjaman bawaan 30%");
 const acuan = bagiHasilPinjaman(1_000_000, 30, 5);
 eq(acuan.bunga, 300_000, "bunga = 30% dari pokok");
 eq(acuan.totalLunas, 1_300_000, "total lunas = pokok + bunga");
-eq(acuan.potonganAdmin, 65_000, "potongan admin = 5% dari TOTAL (bukan dari bunga)");
-eq(acuan.pendanaTerima, 1_235_000, "yang diterima penyedia dana = total − potongan");
-eq(acuan.keuntunganPendana, 235_000, "keuntungan bersih penyedia dana");
-eq(acuan.keuntunganAdmin, 65_000, "keuntungan admin = potongan");
+eq(acuan.potonganAdmin, 15_000, "potongan admin = 5% dari Imbal Hasil (bukan dari total)");
+eq(acuan.pendanaTerima, 1_285_000, "yang diterima penyedia dana = pokok + imbal bersih");
+eq(acuan.keuntunganPendana, 285_000, "keuntungan bersih penyedia dana");
+eq(acuan.keuntunganAdmin, 15_000, "keuntungan admin = potongan");
 
 // Pendana menerima pokok kembali utuh + keuntungan; admin tidak menyentuh pokok.
 eq(
@@ -88,10 +96,12 @@ eq(
   "pokok kembali utuh ke penyedia dana",
 );
 
-// Pembulatan selalu ke bawah: sisa rupiah milik penyedia dana, bukan admin.
+// Pokok tak rata: bunga memakai pembulatan HALF-UP yang sama dengan quoteLoan,
+// sedangkan potongan admin tetap KE BAWAH agar sisa rupiah milik penyedia dana.
 const ganjilPinjam = bagiHasilPinjaman(500_150, 30, 5);
-eq(ganjilPinjam.bunga, 150_045, "30% dari Rp500.150 dibulatkan ke bawah");
+eq(ganjilPinjam.bunga, 150_045, "30% dari Rp500.150 sama dengan yang ditagih Peminjam");
 eq(ganjilPinjam.totalLunas, 650_195, "total lunas akurat");
+eq(ganjilPinjam.potonganAdmin, 7_502, "floor 5% dari Imbal Hasil Rp150.045");
 eq(
   ganjilPinjam.potonganAdmin + ganjilPinjam.pendanaTerima,
   ganjilPinjam.totalLunas,
@@ -123,6 +133,92 @@ for (const pokok of [0, 1, 500_150, 1_000_000, 2_000_000, 999_999_999]) {
       );
     }
   }
+}
+
+// Imbangan lintas-modul: angka yang dilihat admin/penyedia dana harus sama
+// dengan angka yang benar-benar dibukukan ledger saat pelunasan. Ledger memakai
+// quotePinjaman (kewajiban Peminjam) + bagiImbalHasil atas Imbal Hasil; panel
+// memakai bagiHasilPinjaman. Invarian inilah yang dulu tidak ada, sehingga
+// dashboard dan ledger bisa menunjuk angka berbeda tanpa ada tes yang gagal.
+for (const pokok of [1, 999, 100_000, 333_333, 500_150, 1_000_000, 1_999_999, 7_777_777]) {
+  for (const persenBunga of [0, 7.5, 10, 30]) {
+    for (const persenAdmin of [0, 2.5, 5]) {
+      const panel = bagiHasilPinjaman(pokok, persenBunga, persenAdmin);
+      const tagihan = quotePinjaman({ pokokPinjaman: pokok, persenBunga });
+      const ledger = bagiImbalHasil(tagihan.bunga, persenAdmin);
+      eq(
+        panel.bunga,
+        tagihan.bunga,
+        `bunga panel = bunga yang ditagih ke Peminjam (pokok ${pokok}, ${persenBunga}%)`,
+      );
+      eq(
+        panel.totalLunas,
+        tagihan.totalKewajibanPelunasan,
+        `total kewajiban panel = kewajiban Peminjam (pokok ${pokok})`,
+      );
+      eq(
+        panel.potonganAdmin,
+        ledger.potonganAdmin,
+        `potongan admin panel = yang dibukukan ledger (pokok ${pokok}, admin ${persenAdmin}%)`,
+      );
+      eq(
+        panel.keuntunganPendana,
+        ledger.imbalBersih,
+        `keuntungan penyedia dana panel = yang dibayarkan ledger (pokok ${pokok})`,
+      );
+    }
+  }
+}
+
+// Skema BULANAN: Imbal Hasil penyedia dana = bunga SELAMA TENOR dari simulasi
+// bulanan, bukan satu bulan bunga. Memakai satu bulan membuat nominal yang
+// dicatat admin untuk penyedia dana (dan angka keuntungan di panel) berbeda
+// dari yang dibukukan ledger saat pelunasan.
+for (const [pokok, tenorBulan, persenBulan] of [
+  [1_000_000, 1, 10],
+  [2_000_000, 3, 10],
+  [3_333_333, 3, 7.5],
+  [5_000_000, 6, 8],
+] as const) {
+  const sim = hitungSimulasiBulanan(pokok, tenorBulan, {
+    persenBungaPerBulan: persenBulan,
+  });
+  const panel = bagiHasilPinjamanDari(
+    { pokokPinjaman: pokok, tenorBulan, persenBunga: persenBulan },
+    5,
+  );
+  const ledger = bagiImbalHasil(sim.bungaTotal, 5);
+  eq(
+    panel.bunga,
+    sim.bungaTotal,
+    `bunga bulanan = total Imbal Hasil tenor (pokok ${pokok}, ${tenorBulan} bln)`,
+  );
+  eq(
+    panel.totalLunas,
+    sim.totalPengembalian,
+    `kewajiban bulanan = totalPengembalian simulasi (pokok ${pokok})`,
+  );
+  eq(
+    panel.potonganAdmin,
+    ledger.potonganAdmin,
+    `potongan admin bulanan = yang dibukukan ledger (pokok ${pokok})`,
+  );
+  eq(
+    panel.keuntunganPendana,
+    ledger.imbalBersih,
+    `keuntungan penyedia bulanan = yang dibayarkan ledger (pokok ${pokok})`,
+  );
+  eq(
+    panel.pendanaTerima,
+    pokok + ledger.imbalBersih,
+    `pokok bulanan kembali utuh ke penyedia (pokok ${pokok})`,
+  );
+  // Tanpa tenorBulan, skema harian tetap 30% flat dari pokok.
+  eq(
+    bagiHasilPinjamanDari({ pokokPinjaman: pokok, persenBunga: 30 }, 5).bunga,
+    percentOf(pokok, 30),
+    `tanpa tenorBulan tetap skema harian (pokok ${pokok})`,
+  );
 }
 
 throws(() => bagiHasilPinjaman(-1, 30, 5), "pokok negatif ditolak");

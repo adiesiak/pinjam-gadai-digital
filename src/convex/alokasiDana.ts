@@ -18,7 +18,7 @@ import {
 import { formatRupiah, type Rupiah } from "../lib/money";
 import { hitungBiayaPencairan } from "../lib/withdrawal";
 import { kunciNamaPendana, pinjamanMilikPendana } from "./pendanaKepemilikan";
-import { bagiHasilPinjaman } from "../lib/bagiHasil";
+import { bagiHasilPinjamanDari } from "../lib/bagiHasil";
 import { akunDompetDana, appendJournal, danaWalletBalance } from "./ledger";
 import { getConfig } from "./system";
 import { rejectUnverifiedMoneyMovement } from "./paymentGuard";
@@ -829,12 +829,7 @@ export const myPortfolio = query({
         jumlahAlokasi: loan.pokokPinjaman,
         // Estimasi dari kebijakan yang berlaku sekarang (sama seperti ruang
         // penyedia dana): model baru tidak menyimpan imbal hasil per alokasi.
-        imbalHasil:
-          cobaBagi(
-            loan.pokokPinjaman,
-            loan.persenBunga ?? cfg.persenBunga,
-            cfg.persenAdmin,
-          )?.keuntunganPendana ?? 0,
+        imbalHasil: cobaBagi(loan, cfg.persenBunga, cfg.persenAdmin)?.keuntunganPendana ?? 0,
         statusAlokasi: "dialokasikan",
       });
       if (isi === null) continue;
@@ -845,10 +840,25 @@ export const myPortfolio = query({
   },
 });
 
-/** Bagi hasil tahan data warisan: pokok non-standar tidak merobohkan query. */
-function cobaBagi(pokok: number, persenBunga: number, persenAdmin: number) {
+/**
+ * Bagi hasil tahan data warisan: pokok non-standar (atau tenor bulanan di luar
+ * rentang) tidak merobohkan query. Menerima objek pinjaman agar skema bulanan
+ * dihitung dari tenor penuhnya — sama dengan yang dibukukan ledger.
+ */
+function cobaBagi(
+  pinjaman: { pokokPinjaman: number; tenorBulan?: number | null; persenBunga?: number | null },
+  persenBungaDefault: number,
+  persenAdmin: number,
+) {
   try {
-    return bagiHasilPinjaman(pokok, persenBunga, persenAdmin);
+    return bagiHasilPinjamanDari(
+      {
+        pokokPinjaman: pinjaman.pokokPinjaman,
+        tenorBulan: pinjaman.tenorBulan ?? null,
+        persenBunga: pinjaman.persenBunga ?? persenBungaDefault,
+      },
+      persenAdmin,
+    );
   } catch {
     return null;
   }
@@ -938,12 +948,7 @@ export const myFundingContracts = query({
         _id: loan._id,
         nomorReferensi: loan.nomorReferensi,
         jumlahAlokasi: loan.pokokPinjaman,
-        imbalHasil:
-          cobaBagi(
-            loan.pokokPinjaman,
-            loan.persenBunga ?? cfg.persenBunga,
-            cfg.persenAdmin,
-          )?.keuntunganPendana ?? 0,
+        imbalHasil: cobaBagi(loan, cfg.persenBunga, cfg.persenAdmin)?.keuntunganPendana ?? 0,
         statusAlokasi: "dialokasikan",
         createdAt: loan.didanaiPada ?? loan.diajukanPada ?? loan._creationTime,
       });

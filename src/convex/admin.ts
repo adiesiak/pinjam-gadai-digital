@@ -14,7 +14,7 @@ import { ledgerTotals, appendJournal } from "./ledger";
 import { JournalSpec } from "./ledger";
 import { formatRupiah } from "../lib/money";
 import { CONTRACT_TERMS_VERSION } from "../lib/contract";
-import { bagiHasilPinjaman } from "../lib/bagiHasil";
+import { bagiHasilPinjamanDari } from "../lib/bagiHasil";
 import { getConfig, audit } from "./system";
 import { jarakKm } from "../lib/geo";
 import {
@@ -695,15 +695,23 @@ export const adminStats = query({
 
     const cfg = await getConfig(ctx);
 
-    // Keuntungan admin = potongan admin atas kewajiban pinjaman, memakai model
-    // yang sama dengan panel penyedia dana (lib/bagiHasil.ts). Baris warisan
-    // yang pokoknya bukan rupiah bulat dilewati agar satu dokumen lama tidak
-    // merobohkan ringkasan.
-    const keuntunganAdminSatu = (l: { pokokPinjaman: number; persenBunga?: number }): number => {
+    // Keuntungan admin = potongan admin atas Imbal Hasil, memakai model yang
+    // sama dengan panel penyedia dana (lib/bagiHasil.ts) — termasuk skema
+    // bulanan yang dihitung dari tenor penuhnya. Baris warisan yang pokoknya
+    // bukan rupiah bulat dilewati agar satu dokumen lama tidak merobohkan
+    // ringkasan.
+    const keuntunganAdminSatu = (l: {
+      pokokPinjaman: number;
+      tenorBulan?: number;
+      persenBunga?: number;
+    }): number => {
       try {
-        return bagiHasilPinjaman(
-          l.pokokPinjaman,
-          l.persenBunga ?? cfg.persenBunga,
+        return bagiHasilPinjamanDari(
+          {
+            pokokPinjaman: l.pokokPinjaman,
+            tenorBulan: l.tenorBulan ?? null,
+            persenBunga: l.persenBunga ?? cfg.persenBunga,
+          },
           cfg.persenAdmin,
         ).keuntunganAdmin;
       } catch {

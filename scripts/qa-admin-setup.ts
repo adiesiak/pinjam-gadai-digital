@@ -16,7 +16,7 @@ if (!url) {
 }
 
 const c = new ConvexHttpClient(url);
-const res: any = await c.action(api.auth.signIn, {
+const res = await c.action(api.auth.signIn, {
   provider: "anonymous",
   params: {},
 });
@@ -25,7 +25,7 @@ if (!token) throw new Error("Sign-in anonim tidak mengembalikan token.");
 
 // Identitas pengguna saat ini (butuh auth token)
 c.setAuth(token);
-const me: any = await c.query(api.users.currentUser);
+const me = await c.query(api.users.currentUser);
 if (!me?._id) throw new Error("Gagal membaca pengguna saat ini.");
 
 // Promosikan via internal mutation (CLI Convex, akses deployment penuh)

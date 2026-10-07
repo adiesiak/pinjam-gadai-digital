@@ -14,7 +14,7 @@ if (!url) {
 
 const c = new ConvexHttpClient(url);
 c.setAuth(readFileSync("scripts/.qa-admin-token", "utf8").trim());
-const o: any = await c.query(api.admin.adminOverview);
+const o = await c.query(api.admin.adminOverview);
 
 console.log(`Antrean (${o.loans.length} pinjaman, ${o.pawns.length} gadai):`);
 for (const l of o.loans) {

@@ -21,8 +21,8 @@ async function uploadDokumen(client: ConvexHttpClient): Promise<string> {
   return body.storageId;
 }
 
-/** eslint-disable-next-line @typescript-eslint/no-explicit-any */
-export async function kycArgs(client: ConvexHttpClient): Promise<any> {
+/** Argumen KYC rapi diinferensi dari bentuk kembaliannya — tanpa `any`. */
+export async function kycArgs(client: ConvexHttpClient) {
   const [dokKtpId, dokSelfieKtpId, dokSlipGajiId] = await Promise.all([
     uploadDokumen(client),
     uploadDokumen(client),

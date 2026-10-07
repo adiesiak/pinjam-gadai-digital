@@ -49,14 +49,43 @@ function kelasPb(sumber: string): Set<string> {
   );
 }
 
-/** Atribut geometris SVG — yang menentukan bentuk brankas. */
+/** Atribut yang menentukan bentuk brankas (nama sudah dinormalkan). */
+const ATRIBUT_BENTUK = new Set([
+  "x",
+  "y",
+  "cx",
+  "cy",
+  "r",
+  "width",
+  "height",
+  "viewbox",
+  "rx",
+  "d",
+  "fill",
+  "opacity",
+  "stroke",
+  "strokewidth",
+  "strokeopacity",
+  "strokelinecap",
+]);
+
+/**
+ * Atribut geometris SVG — yang menentukan bentuk brankas.
+ *
+ * Nama atribut dibaca utuh lalu dinormalkan (huruf kecil, tanda hubung dibuang)
+ * supaya JSX (`strokeWidth`) dan HTML (`stroke-width`) bisa dibandingkan apel
+ * ke apel. Versi lama memakai satu regex pada teks mentah, sehingga "width=" di
+ * dalam "stroke-width=" ikut terbaca dan akhiran "y=" pada "strokeOpacity="
+ * terbaca sebagai atribut `y` — dua berkas yang bentuknya sama pun akan selalu
+ * dianggap berbeda, jadi pemeriksaan ini tidak pernah mengukur bentuk brankas.
+ */
 function geometriSvg(sumber: string): string {
   const svg = sumber.match(/<svg[\s\S]*?<\/svg>/)?.[0] ?? "";
-  return (
-    svg.match(
-      /(?:x|y|cx|cy|r|width|height|viewBox|rx|d|fill|stroke|stroke-width|stroke-opacity|stroke-linecap)="[^"]*"/g,
-    ) ?? []
-  ).join(" ");
+  return [...svg.matchAll(/\s([A-Za-z][A-Za-z-]*)="([^"]*)"/g)]
+    .map(([, nama, nilai]) => [nama.toLowerCase().replace(/-/g, ""), nilai] as const)
+    .filter(([nama]) => ATRIBUT_BENTUK.has(nama))
+    .map(([nama, nilai]) => `${nama}=${nilai}`)
+    .join(" ");
 }
 
 const html = renderToStaticMarkup(
@@ -99,8 +128,38 @@ for (const [nilai, label] of [
   cek(css.includes(nilai) && halaman.includes(nilai), `${label} sama di index.css & index.html`);
 }
 
-const reduksiCss = css.slice(css.lastIndexOf("@media (prefers-reduced-motion: reduce)"));
-const reduksiHtml = halaman.slice(halaman.lastIndexOf("@media (prefers-reduced-motion: reduce)"));
+/**
+ * Seluruh blok `@media (prefers-reduced-motion: reduce)` pada sebuah berkas.
+ *
+ * Sengaja TIDAK memakai `lastIndexOf` seperti versi lama: irisan dari blok
+ * terakhir membuat pemeriksaan ini gagal begitu ada blok reduced-motion baru
+ * ditambahkan di bawahnya (mis. tema karnival), walau aturan yang diperiksa
+ * sebenarnya masih ada. Kurung kurawal dipasangkan berurutan agar isi blok
+ * yang dibaca benar, bukan sekadar sekian karakter setelah penanda.
+ */
+function blokReduksi(sumber: string): string {
+  const penanda = "@media (prefers-reduced-motion: reduce)";
+  const bagian: string[] = [];
+  let dari = 0;
+  for (;;) {
+    const mulai = sumber.indexOf(penanda, dari);
+    if (mulai === -1) break;
+    const buka = sumber.indexOf("{", mulai + penanda.length);
+    if (buka === -1) break;
+    let dalam = 1;
+    let akhir = buka + 1;
+    for (; akhir < sumber.length && dalam > 0; akhir += 1) {
+      if (sumber[akhir] === "{") dalam += 1;
+      else if (sumber[akhir] === "}") dalam -= 1;
+    }
+    bagian.push(sumber.slice(mulai, akhir));
+    dari = akhir;
+  }
+  return bagian.join("\n");
+}
+
+const reduksiCss = blokReduksi(css);
+const reduksiHtml = blokReduksi(halaman);
 for (const kelas of ["pb__dial", "pb__halo", "pb__scan", "pb__bar"]) {
   cek(reduksiCss.includes(kelas), `reduced-motion ${kelas} ada di index.css`);
   cek(reduksiHtml.includes(kelas), `reduced-motion ${kelas} ada di index.html`);

@@ -1104,7 +1104,7 @@ describe("seed aplikasi pinjaman tunai", () => {
         role: ROLES.PEMINJAM,
       }),
     );
-    const adminId = await t.run(async (ctx) =>
+    await t.run(async (ctx) =>
       ctx.db.insert("users", {
         email: "admin@pindai.test",
         name: "Super Admin",

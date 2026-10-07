@@ -18,15 +18,6 @@ import { api } from "@/convex/_generated/api";
 
 import { RekonsiliasiPendana } from "./RekonsiliasiPendana";
 
-/** Format rupiah defensif: satu angka warisan non-bulat tidak boleh melumpuhkan panel. */
-function formatRupiah(n: number): string {
-  try {
-    return new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR" }).format(n);
-  } catch {
-    return `Rp ${Math.round(Number(n)).toLocaleString("id-ID")}`;
-  }
-}
-
 function tanggalRingkas(ms: number | null): string {
   if (ms === null) return "—";
   return new Date(ms).toLocaleString("id-ID", {

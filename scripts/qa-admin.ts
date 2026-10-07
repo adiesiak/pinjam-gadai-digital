@@ -47,7 +47,7 @@ ok(token.length > 0, "token tersedia");
 console.log("2) adminOverview untuk admin…");
 const admin = new ConvexHttpClient(url);
 admin.setAuth(token);
-const overview: any = await admin.query(api.admin.adminOverview);
+const overview = await admin.query(api.admin.adminOverview);
 ok(overview.isAdmin === true, "peran admin terdeteksi");
 ok(Array.isArray(overview.loans) && Array.isArray(overview.pawns), "antrean terbaca");
 
@@ -62,7 +62,7 @@ const awal = {
 
 // ---------------------------------------------------------------------
 console.log("3) Alur keputusan pinjaman…");
-const loans: any[] = overview.loans;
+const loans = overview.loans;
 const target = loans.find((l) => l.status === "diajukan");
 if (!target) {
   console.error("  Tidak ada pinjaman berstatus diajukan untuk diuji.");
@@ -75,23 +75,23 @@ if (!target) {
   );
 
   await admin.mutation(api.loans.markLoanInReview, { loanId: target._id });
-  const afterReview: any = await admin.query(api.admin.adminOverview);
+  const afterReview = await admin.query(api.admin.adminOverview);
   ok(
-    afterReview.loans.find((l: any) => l._id === target._id)?.status === "sedang_direview",
+    afterReview.loans.find((l) => l._id === target._id)?.status === "sedang_direview",
     "status berubah ke sedang_direview",
   );
 
   await admin.mutation(api.loans.approveLoan, { loanId: target._id });
-  const afterApprove: any = await admin.query(api.admin.adminOverview);
+  const afterApprove = await admin.query(api.admin.adminOverview);
   ok(
-    afterApprove.loans.find((l: any) => l._id === target._id)?.status === "disetujui",
+    afterApprove.loans.find((l) => l._id === target._id)?.status === "disetujui",
     "pinjaman disetujui",
   );
 }
 
 // ---------------------------------------------------------------------
 console.log("4) Alur keputusan gadai…");
-const pawns: any[] = overview.pawns;
+const pawns = overview.pawns;
 const pawn = pawns.find((p) => p.status === "diajukan");
 if (!pawn) {
   console.error("  Tidak ada gadai berstatus diajukan untuk diuji.");
@@ -108,15 +108,15 @@ if (!pawn) {
     pawnId: pawn._id,
     nilaiTaksiran: 8_000_000,
   });
-  const afterPawn: any = await admin.query(api.admin.adminOverview);
-  const approved = afterPawn.pawns.find((p: any) => p._id === pawn._id);
+  const afterPawn = await admin.query(api.admin.adminOverview);
+  const approved = afterPawn.pawns.find((p) => p._id === pawn._id);
   ok(approved?.status === "disetujui", "gadai disetujui dengan taksiran");
   ok(approved?.nilaiTaksiran === 8_000_000, "nilai taksiran tersimpan benar");
 }
 
 // ---------------------------------------------------------------------
 console.log("5) Statistik admin (agregasi nyata)…");
-const stats2: any = await admin.query(api.admin.adminStats);
+const stats2 = await admin.query(api.admin.adminStats);
 ok(
   stats2.pinjamanBaru === awal.pinjamanBaru - 1,
   `antrean berkurang tepat 1 (pengajuan uji dikonsumsi saat disetujui; delta ${stats2.pinjamanBaru - awal.pinjamanBaru})`,

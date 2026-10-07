@@ -39,7 +39,7 @@ async function expectError(fn: () => Promise<unknown>, label: string) {
 
 async function signUpAnonymous(): Promise<ConvexHttpClient> {
   const c = new ConvexHttpClient(url);
-  const res: any = await c.action(api.auth.signIn, {
+  const res = await c.action(api.auth.signIn, {
     provider: "anonymous",
     params: {},
   });
@@ -64,24 +64,24 @@ ok(!!loan.appId, "pinjaman QA terbuat");
 
 console.log("2) Dua Pendana mendaftar & mengajukan setoran…");
 const p1 = await signUpAnonymous();
-await p1.mutation(api.pendana.becomePendana, {});
-const me1: any = await p1.query(api.users.currentUser);
+await p1.mutation(api.alokasiDana.naikPeranDana, {});
+const me1 = await p1.query(api.users.currentUser);
 ok(me1.role === "pendana", "P1 menjadi pendana");
 
 const p2 = await signUpAnonymous();
-await p2.mutation(api.pendana.becomePendana, {});
-const me2: any = await p2.query(api.users.currentUser);
+await p2.mutation(api.alokasiDana.naikPeranDana, {});
+const me2 = await p2.query(api.users.currentUser);
 ok(me2.role === "pendana", "P2 menjadi pendana");
 
 // Saldo awal jujur = 0 (Zero Fake Data)
-const w0: any = await p1.query(api.pendana.myWallet);
+const w0 = await p1.query(api.alokasiDana.myWallet);
 ok(w0.saldo === 0, "saldo awal P1 = 0 (jujur)");
 
-await p1.mutation(api.pendana.requestDeposit, {
+await p1.mutation(api.alokasiDana.requestDeposit, {
   jumlah: 5_000_000,
   referensiTransfer: "QAREF-0001",
 });
-await p2.mutation(api.pendana.requestDeposit, {
+await p2.mutation(api.alokasiDana.requestDeposit, {
   jumlah: 1_000_000,
   referensiTransfer: "QAREF-0002",
 });
@@ -89,7 +89,7 @@ ok(true, "dua setoran diajukan");
 
 // Alokasi sebelum verifikasi/setujui harus ditolak
 await expectError(
-  () => p1.mutation(api.pendana.allocateFunding, { loanId: loan.appId, jumlah: 1_000_000 }),
+  () => p1.mutation(api.alokasiDana.allocateFunding, { loanId: loan.appId, jumlah: 1_000_000 }),
   "alokasi ke pinjaman non-disetujui ditolak",
 );
 
@@ -97,15 +97,15 @@ console.log("3) Admin memverifikasi setoran…");
 const admin = new ConvexHttpClient(url);
 admin.setAuth(readFileSync("scripts/.qa-admin-token", "utf8").trim());
 
-const pending: any[] = await admin.query(api.admin.pendingDeposits);
+const pending = await admin.query(api.admin.pendingDeposits);
 const dep1 = pending.find((d) => d.referensiTransfer === "QAREF-0001");
 const dep2 = pending.find((d) => d.referensiTransfer === "QAREF-0002");
 ok(!!dep1 && !!dep2, "kedua setoran terlihat di antrean admin");
 
 await admin.mutation(api.admin.confirmDeposit, { depositId: dep1._id });
 await admin.mutation(api.admin.confirmDeposit, { depositId: dep2._id });
-const w1a: any = await p1.query(api.pendana.myWallet);
-const w2a: any = await p2.query(api.pendana.myWallet);
+const w1a = await p1.query(api.alokasiDana.myWallet);
+const w2a = await p2.query(api.alokasiDana.myWallet);
 ok(w1a.saldo === 5_000_000, `saldo P1 = 5.000.000 (dapat ${w1a.saldo})`);
 ok(w2a.saldo === 1_000_000, `saldo P2 = 1.000.000 (dapat ${w2a.saldo})`);
 
@@ -119,23 +119,23 @@ console.log("4) Admin menyetujui pinjaman…");
 await admin.mutation(api.loans.approveLoan, { loanId: loan.appId });
 
 console.log("5) Marketplace & alokasi parsial…");
-const mk: any[] = await p1.query(api.pendana.marketplace);
+const mk = await p1.query(api.alokasiDana.marketplace);
 const row = mk.find((r) => r._id === loan.appId);
 ok(!!row, "pinjaman muncul di marketplace");
 ok(row.sisaKebutuhan === 2_000_000, "sisa kebutuhan = 2.000.000");
 
-await p1.mutation(api.pendana.allocateFunding, {
+await p1.mutation(api.alokasiDana.allocateFunding, {
   loanId: loan.appId,
   jumlah: 1_500_000,
 });
-const mk2: any[] = await p1.query(api.pendana.marketplace);
+const mk2 = await p1.query(api.alokasiDana.marketplace);
 const row2 = mk2.find((r) => r._id === loan.appId);
 ok(row2.sisaKebutuhan === 500_000, "sisa kebutuhan tinggal 500.000");
 
 console.log("6) Uji anti-overfunding…");
 await expectError(
   () =>
-    p1.mutation(api.pendana.allocateFunding, {
+    p1.mutation(api.alokasiDana.allocateFunding, {
       loanId: loan.appId,
       jumlah: 2_000_000, // melebihi sisa 500rb
     }),
@@ -143,7 +143,7 @@ await expectError(
 );
 await expectError(
   () =>
-    p2.mutation(api.pendana.allocateFunding, {
+    p2.mutation(api.alokasiDana.allocateFunding, {
       loanId: loan.appId,
       jumlah: 2_500_000, // melebihi saldo P2
     }),
@@ -151,29 +151,29 @@ await expectError(
 );
 
 // P1 melengkapi → pinjaman didanai penuh
-await p1.mutation(api.pendana.allocateFunding, {
+await p1.mutation(api.alokasiDana.allocateFunding, {
   loanId: loan.appId,
   jumlah: 500_000,
 });
 
 console.log("7) Verifikasi status & saldo akhir…");
-const loanFinal: any = await borrower.query(api.loans.getMyLoan, {
+const loanFinal = await borrower.query(api.loans.getMyLoan, {
   loanId: loan.appId,
 });
 ok(loanFinal.status === "didanai", "status pinjaman = didanai");
 
-const mk3: any[] = await p1.query(api.pendana.marketplace);
+const mk3 = await p1.query(api.alokasiDana.marketplace);
 ok(!mk3.some((r) => r._id === loan.appId), "pinjaman keluar dari marketplace");
 
-const w1b: any = await p1.query(api.pendana.myWallet);
-const w2b: any = await p2.query(api.pendana.myWallet);
+const w1b = await p1.query(api.alokasiDana.myWallet);
+const w2b = await p2.query(api.alokasiDana.myWallet);
 ok(w1b.saldo === 3_000_000, `saldo P1 akhir = 3.000.000 (dapat ${w1b.saldo})`);
 ok(w2b.saldo === 1_000_000, `saldo P2 akhir tetap 1.000.000`);
 ok(w1b.danaBekerja === 2_000_000, "dana bekerja P1 = 2.000.000");
 ok(w1b.imbalHasilDiharapkan === 600_000, `imbal hasil P1 = 600.000 (dapat ${w1b.imbalHasilDiharapkan})`);
 
 console.log("8) Ledger tetap seimbang…");
-const led: any = await admin.query(api.admin.ledgerSummary);
+const led = await admin.query(api.admin.ledgerSummary);
 ok(led.seimbang === true, `debit == kredit (D=${led.totalDebit}, K=${led.totalKredit})`);
 ok(led.entryCount >= 8, `entri append-only tercatat (${led.entryCount} entri)`);
 

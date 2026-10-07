@@ -34,10 +34,9 @@ export function TotpGate() {
     if (sudahCoba.current) return;
     sudahCoba.current = true;
     const token = ambilTokenPerangkat();
-    if (token === null) {
-      setMemeriksa(false);
-      return;
-    }
+    // Tanpa token, `memeriksa` sudah bernilai false sejak state awal — tidak
+    // perlu (dan tidak boleh) di-set ulang di dalam effect.
+    if (token === null) return;
     let batal = false;
     void (async () => {
       try {

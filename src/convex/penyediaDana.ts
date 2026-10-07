@@ -35,7 +35,7 @@ import type { Id } from "./_generated/dataModel";
 import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import { SLOT_AKSES_BERSAMA } from "./aksesBersama";
 import { requireAdminSession } from "./adminAuthz";
-import { bagiHasilPinjaman } from "../lib/bagiHasil";
+import { bagiHasilPinjamanDari } from "../lib/bagiHasil";
 import {
   rekapTransferPendana,
   ringkasTransfer,
@@ -231,18 +231,33 @@ export type BarisKredit = {
 
 /**
  * Perhitungan bagi hasil tahan-data-warisan: satu baris non-standar tidak
- * boleh merobohkan seluruh halaman. Bila pokok bukan rupiah bulat, tampilkan
- * tanpa perhitungan (bunga/potongan nol) alih-alih menggagalkan query.
+ * boleh merobohkan seluruh halaman. Bila pokok bukan rupiah bulat (atau tenor
+ * bulanan di luar rentang), tampilkan tanpa perhitungan (bunga/potongan nol)
+ * alih-alih menggagalkan query.
+ *
+ * Menerima objek pinjaman, bukan hanya pokok, supaya skema bulanan dihitung
+ * dari tenor penuhnya — angka yang sama dengan yang dibukukan ledger.
  */
-function bagiPinjamanAman(pokok: number, persenBunga: number, persenAdmin: number) {
+function bagiPinjamanAman(
+  pinjaman: { pokokPinjaman: number; tenorBulan?: number | null; persenBunga?: number | null },
+  persenBungaDefault: number,
+  persenAdmin: number,
+) {
   try {
-    return bagiHasilPinjaman(pokok, persenBunga, persenAdmin);
+    return bagiHasilPinjamanDari(
+      {
+        pokokPinjaman: pinjaman.pokokPinjaman,
+        tenorBulan: pinjaman.tenorBulan ?? null,
+        persenBunga: pinjaman.persenBunga ?? persenBungaDefault,
+      },
+      persenAdmin,
+    );
   } catch {
     return {
       bunga: 0,
-      totalLunas: pokok,
+      totalLunas: pinjaman.pokokPinjaman,
       potonganAdmin: 0,
-      pendanaTerima: pokok,
+      pendanaTerima: pinjaman.pokokPinjaman,
       keuntunganPendana: 0,
       keuntunganAdmin: 0,
     };
@@ -418,7 +433,7 @@ export const daftarPengajuan = query({
 
     const pinjaman: BarisPinjaman[] = [];
     for (const loan of pinjamanMentah.slice(0, BATAS_BARIS)) {
-      const bagi = bagiPinjamanAman(loan.pokokPinjaman, loan.persenBunga ?? cfg.persenBunga, cfg.persenAdmin);
+      const bagi = bagiPinjamanAman(loan, cfg.persenBunga, cfg.persenAdmin);
       // Model 1 pinjaman = 1 pendana: penyedia dibaca langsung dari pinjaman.
       // Baris alokasi lama (`fundings`) tetap dibaca sebagai cadangan warisan.
       const pendana =
@@ -1021,7 +1036,7 @@ export const daftarInvestor = query({
       const peminjam = new Set<Id<"users">>();
       const waktuPinjaman: number[] = [];
       for (const l of pinjaman) {
-        const bagi = bagiPinjamanAman(l.pokokPinjaman, l.persenBunga ?? cfg.persenBunga, cfg.persenAdmin);
+        const bagi = bagiPinjamanAman(l, cfg.persenBunga, cfg.persenAdmin);
         totalDisalurkan += l.pokokPinjaman;
         totalBunga += bagi.bunga;
         keuntunganAdmin += bagi.keuntunganAdmin;
@@ -1081,11 +1096,8 @@ export const daftarInvestor = query({
         transfer: rekapTransferPendana(
           pinjaman.map<PinjamanTransfer>((l) => ({
             status: l.status,
-            keuntunganPendana: bagiPinjamanAman(
-              l.pokokPinjaman,
-              l.persenBunga ?? cfg.persenBunga,
-              cfg.persenAdmin,
-            ).keuntunganPendana,
+            keuntunganPendana: bagiPinjamanAman(l, cfg.persenBunga, cfg.persenAdmin)
+              .keuntunganPendana,
             adaPendana: true,
             transfer: transferPerPinjaman.get(l._id) ?? ringkasTransfer([]),
           })),
@@ -1206,7 +1218,7 @@ export const rincianInvestor = query({
       .filter((l) => l.status === "didanai" || l.status === "lunas")
       .filter((l) => pinjamanMilikPendana(l, userId, namaKunci))
       .map((l) => {
-        const bagi = bagiPinjamanAman(l.pokokPinjaman, l.persenBunga ?? cfg.persenBunga, cfg.persenAdmin);
+        const bagi = bagiPinjamanAman(l, cfg.persenBunga, cfg.persenAdmin);
         return {
           loanId: l._id,
           referensi: l.nomorReferensi,
@@ -1787,7 +1799,7 @@ export const catatTransferPendana = mutation({
     // pinjaman dengan kebijakan yang berlaku, supaya satu angka klien yang
     // salah tidak pernah masuk catatan.
     const cfg = await getConfig(ctx);
-    const bagi = bagiPinjamanAman(loan.pokokPinjaman, loan.persenBunga ?? cfg.persenBunga, cfg.persenAdmin);
+    const bagi = bagiPinjamanAman(loan, cfg.persenBunga, cfg.persenAdmin);
     if (bagi.keuntunganPendana <= 0) {
       throw new Error("Keuntungan penyedia dana untuk pinjaman ini nol.");
     }
