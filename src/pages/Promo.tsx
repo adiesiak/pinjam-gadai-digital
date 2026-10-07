@@ -386,11 +386,11 @@ export function Promo() {
             Belum ada poster aktif pada kategori ini.
           </motion.p>
         ) : (
-          // `relative` wajib bersama `AnimatePresence mode="popLayout"`: kartu
-          // yang keluar dipaku `position: absolute` pada offset hasil ukur
-          // terhadap `offsetParent`, jadi induknya harus jadi acuan posisi yang
-          // stabil — tanpa itu kartu bisa melompat ke posisi lain.
           <section className="relative mt-6 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            {/* `relative` wajib bersama `AnimatePresence mode="popLayout"`:
+                kartu yang keluar dipaku `position: absolute` pada offset hasil
+                ukur terhadap `offsetParent`, jadi induknya harus menjadi acuan
+                posisi yang stabil — tanpa itu kartu bisa melompat ke tempat lain. */}
             <AnimatePresence mode="popLayout">
               {daftar.map((p, i) => (
                 <motion.div
