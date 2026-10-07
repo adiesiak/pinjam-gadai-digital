@@ -573,21 +573,34 @@ function IsiBrankas() {
           </Reveal>
         </div>
 
-        <ul className="mt-8 grid gap-3 sm:grid-cols-3">
+        <motion.ul
+          initial="hidden"
+          whileInView="show"
+          viewport={{ once: true, amount: 0.3 }}
+          variants={{
+            hidden: {},
+            show: { transition: { staggerChildren: 0.08, delayChildren: 0.06 } },
+          }}
+          className="mt-8 grid gap-3 sm:grid-cols-3"
+        >
           {[
             "Parameter perhitungan berasal dari data pengajuan yang tersimpan",
             "Riwayat pengajuan hanya dapat dibuka oleh akun terkait",
             "Perubahan status oleh tim PINDAI tercatat pada audit log",
           ].map((item) => (
-            <li
+            <motion.li
               key={item}
+              variants={{
+                hidden: reduce ? { opacity: 0 } : { opacity: 0, y: 14 },
+                show: { opacity: 1, y: 0, transition: { duration: 0.45, ease: EASE_OUT } },
+              }}
               className="flex items-start gap-3 rounded-2xl border border-white/10 bg-white/[0.05] px-4 py-3.5 text-xs leading-5 text-white/70"
             >
               <BadgeCheck className="mt-0.5 size-4 shrink-0 text-[#e6d3a5]" aria-hidden="true" />
               {item}
-            </li>
+            </motion.li>
           ))}
-        </ul>
+        </motion.ul>
       </div>
     </section>
   );
@@ -1173,6 +1186,7 @@ export default function Landing() {
     { href: "#tanya", label: "Tanya" },
   ];
 
+  const reduce = useReducedMotion();
   const [menuOpen, setMenuOpen] = useState(false);
   const [showAdminShortcut, setShowAdminShortcut] = useState(false);
   const headerRef = useRef<HTMLElement | null>(null);
@@ -1877,11 +1891,25 @@ export default function Landing() {
             </Reveal>
 
             <Reveal delay={0.08} className="mt-8">
-              <div className="grid gap-4 sm:grid-cols-2">
+              <motion.div
+                initial="hidden"
+                whileInView="show"
+                viewport={{ once: true, amount: 0.2 }}
+                variants={{
+                  hidden: {},
+                  show: { transition: { staggerChildren: 0.07, delayChildren: 0.04 } },
+                }}
+                className="grid gap-4 sm:grid-cols-2"
+              >
                 {RINGKASAN_SYARAT.map((item) => (
-                  <div
+                  <motion.div
                     key={item.judul}
-                    className="flex gap-3 rounded-2xl border border-slate-200 bg-white p-4"
+                    variants={{
+                      hidden: reduce ? { opacity: 0 } : { opacity: 0, y: 16 },
+                      show: { opacity: 1, y: 0, transition: { duration: 0.45, ease: EASE_OUT } },
+                    }}
+                    whileHover={reduce ? undefined : { y: -3 }}
+                    className="flex gap-3 rounded-2xl border border-slate-200 bg-white p-4 transition-shadow duration-300 hover:shadow-md"
                   >
                     <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
                       <item.Icon className="size-4" aria-hidden />
@@ -1890,9 +1918,9 @@ export default function Landing() {
                       <p className="text-sm font-semibold text-slate-900">{item.judul}</p>
                       <p className="mt-1 text-xs leading-5 text-slate-600">{item.isi}</p>
                     </div>
-                  </div>
+                  </motion.div>
                 ))}
-              </div>
+              </motion.div>
 
               <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-5 py-4">
                 <p className="text-xs text-slate-500">
@@ -1971,7 +1999,7 @@ export default function Landing() {
       {/* Footer */}
       <footer className="border-t border-slate-200 bg-white">
         <div className="mx-auto w-full max-w-6xl px-4 py-12 sm:px-6">
-          <div className="grid gap-8 sm:grid-cols-3">
+          <Reveal className="grid gap-8 sm:grid-cols-3">
             <div>
               <div className="flex items-center gap-3">
                 <VaultLogo size={36} />
@@ -2042,7 +2070,7 @@ export default function Landing() {
                 </li>
               </ul>
             </div>
-          </div>
+          </Reveal>
           <div className="mt-8 flex flex-col items-center justify-between gap-2 border-t border-slate-200 pt-6 text-xs text-slate-500 sm:flex-row">
             <span>© 2026 {logoTeks}. Seluruh hak cipta.</span>
             <span className="flex flex-wrap items-center justify-center gap-2">

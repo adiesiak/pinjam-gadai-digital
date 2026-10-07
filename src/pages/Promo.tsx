@@ -7,11 +7,18 @@
  * yang ikut masuk ke gambar. Konten (badge, headline, CTA, dst.) berasal dari
  * data sehingga kelak bisa diedit admin tanpa menyentuh kode gambar.
  *
+ * Gerak halaman memakai bahasa animasi PINDAI yang sama dengan landing
+ * (`framer-motion` + `lib/motion`): header masuk berurutan, pil filter aktif
+ * bergeser mulus (`layoutId`), kartu galeri muncul berjeda saat difilter
+ * (`AnimatePresence`), dan pratinjau membesar halus saat dibuka — semuanya
+ * menyusut menjadi fade sederhana saat `prefers-reduced-motion` aktif.
+ *
  * Navigasi dan identitas utama situs tidak diubah; halaman ini hanya mengisi
  * rute /promo yang sudah ada.
  */
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router";
+import { AnimatePresence, motion, useReducedMotion, type Variants } from "framer-motion";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
@@ -33,6 +40,7 @@ import {
   type PromoPoster,
 } from "@/lib/promoPosters";
 import { UKURAN_POSTER, gambarPoster } from "@/lib/promoPosterGambar";
+import { EASE_OUT } from "@/lib/motion";
 
 /** Skala kanvas kartu (540 px → 1/2 dari 1080) supaya pratinjau tetap ringan. */
 const SKALA_KARTU = 0.5;
@@ -103,6 +111,42 @@ async function bagikanPoster(p: PromoPoster): Promise<void> {
   await salinTautan(p);
 }
 
+/** Header masuk berurutan: label, judul, keterangan, lalu ringkasan aset. */
+const wadahHeader: Variants = {
+  hidden: {},
+  show: { transition: { staggerChildren: 0.08, delayChildren: 0.02 } },
+};
+
+const itemHeader: Variants = {
+  hidden: { opacity: 0, y: 12 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.45, ease: EASE_OUT } },
+};
+
+/**
+ * Varian kartu galeri. `custom` = indeks kartu, dipakai sebagai jeda berurutan
+ * pada saat masuk; saat keluar jedanya dihapus supaya kartu yang difilter tidak
+ * menggantung di layar. Reduced-motion menyisakan fade saja.
+ */
+function varianGaleri(reduce: boolean): Variants {
+  if (reduce) {
+    return {
+      hidden: { opacity: 0 },
+      show: { opacity: 1, transition: { duration: 0.22 } },
+      keluar: { opacity: 0, transition: { duration: 0.14 } },
+    };
+  }
+  return {
+    hidden: { opacity: 0, y: 20, scale: 0.985 },
+    show: (i: number) => ({
+      opacity: 1,
+      y: 0,
+      scale: 1,
+      transition: { duration: 0.42, delay: Math.min(i, 8) * 0.05, ease: EASE_OUT },
+    }),
+    keluar: { opacity: 0, y: -12, scale: 0.985, transition: { duration: 0.2, ease: EASE_OUT } },
+  };
+}
+
 /**
  * Kanvas poster — menggambar `poster` pada lebar piksel tertentu (rasio 4:5).
  * Menggambar terjadi di efek, bukan saat render, sesuai aturan kemurnian React.
@@ -154,7 +198,7 @@ function KanvasPoster({
   );
 }
 
-/** Satu kartu poster pada galeri. */
+/** Satu kartu poster pada galeri — terangkat & poster membesar halus saat disorot. */
 function KartuPoster({
   poster,
   onLihat,
@@ -163,7 +207,7 @@ function KartuPoster({
   onLihat: (p: PromoPoster) => void;
 }) {
   return (
-    <article className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm transition-shadow hover:shadow-md">
+    <article className="group flex h-full flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm transition-[transform,box-shadow,border-color] duration-300 hover:-translate-y-1 hover:border-slate-300 hover:shadow-lg">
       <button
         type="button"
         onClick={() => onLihat(poster)}
@@ -173,7 +217,7 @@ function KartuPoster({
         <KanvasPoster
           poster={poster}
           lebar={LEBAR_KARTU}
-          className="block h-auto w-full"
+          className="block h-auto w-full transition-transform duration-500 ease-out group-hover:scale-[1.03]"
         />
       </button>
 
@@ -187,19 +231,28 @@ function KartuPoster({
         </Badge>
       </div>
 
-      <div className="flex flex-wrap gap-2 px-1 pb-1">
-        <Button size="sm" className="rounded-full" onClick={() => unduhPoster(poster)}>
+      <div className="mt-auto flex flex-wrap gap-2 px-1 pb-1">
+        <Button
+          size="sm"
+          className="rounded-full transition-transform hover:-translate-y-0.5"
+          onClick={() => unduhPoster(poster)}
+        >
           <Download className="size-4" /> Unduh PNG
         </Button>
         <Button
           size="sm"
           variant="outline"
-          className="rounded-full"
+          className="rounded-full transition-transform hover:-translate-y-0.5"
           onClick={() => void bagikanPoster(poster)}
         >
           <Share2 className="size-4" /> Bagikan
         </Button>
-        <Button size="sm" variant="ghost" className="rounded-full" onClick={() => onLihat(poster)}>
+        <Button
+          size="sm"
+          variant="ghost"
+          className="rounded-full transition-colors hover:bg-slate-100"
+          onClick={() => onLihat(poster)}
+        >
           <Eye className="size-4" /> Lihat
         </Button>
       </div>
@@ -208,6 +261,7 @@ function KartuPoster({
 }
 
 export function Promo() {
+  const reduce = useReducedMotion() ?? false;
   const [kategori, setKategori] = useState<string>("Semua");
   const [params, setParams] = useSearchParams();
 
@@ -246,10 +300,24 @@ export function Promo() {
     <div className="min-h-screen bg-background text-foreground">
       <main className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 sm:py-10">
         {/* Header */}
-        <header className="animate-masuk flex flex-wrap items-end justify-between gap-4 border-b border-border pb-6">
-          <div>
+        <motion.header
+          variants={wadahHeader}
+          initial="hidden"
+          animate="show"
+          className="flex flex-wrap items-end justify-between gap-4 border-b border-border pb-6"
+        >
+          <motion.div variants={itemHeader}>
             <p className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-primary">
-              <Shapes className="size-4" /> Brand asset center
+              <motion.span
+                aria-hidden="true"
+                initial={reduce ? false : { rotate: -18, opacity: 0 }}
+                animate={{ rotate: 0, opacity: 1 }}
+                transition={{ duration: 0.5, ease: EASE_OUT }}
+                className="flex"
+              >
+                <Shapes className="size-4" />
+              </motion.span>
+              Brand asset center
             </p>
             <h1 className="mt-2 text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
               Poster Promo
@@ -257,16 +325,22 @@ export function Promo() {
             <p className="mt-1 text-sm leading-6 text-muted-foreground">
               Materi kampanye PINDAI untuk berbagai kebutuhan.
             </p>
-          </div>
-          <p className="text-xs tabular-nums text-muted-foreground">
+          </motion.div>
+          <motion.p
+            variants={itemHeader}
+            className="text-xs tabular-nums text-muted-foreground"
+          >
             {posterAktif.length} poster · 1080 × 1350 px · siap Instagram / WhatsApp / Facebook
-          </p>
-        </header>
+          </motion.p>
+        </motion.header>
 
-        {/* Filter kategori */}
-        <nav
+        {/* Filter kategori — pil aktif bergeser mulus antar tombol. */}
+        <motion.nav
           aria-label="Filter kategori poster"
-          className="animate-masuk mt-6 flex flex-wrap gap-2"
+          initial={reduce ? { opacity: 0 } : { opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.45, delay: 0.18, ease: EASE_OUT }}
+          className="mt-6 flex flex-wrap gap-2"
         >
           {KATEGORI_POSTER.map((k) => {
             const aktif = kategori === k;
@@ -276,39 +350,76 @@ export function Promo() {
                 type="button"
                 onClick={() => setKategori(k)}
                 aria-pressed={aktif}
-                className={`rounded-full border px-4 py-1.5 text-xs font-semibold transition-colors ${
+                className={`relative isolate overflow-hidden rounded-full border px-4 py-1.5 text-xs font-semibold transition-colors ${
                   aktif
-                    ? "border-primary bg-primary text-primary-foreground"
-                    : "border-border bg-card text-muted-foreground hover:text-foreground"
+                    ? "border-primary"
+                    : "border-border bg-card text-muted-foreground hover:border-slate-300 hover:text-foreground"
                 }`}
               >
-                {k}
+                {aktif && (
+                  <motion.span
+                    aria-hidden="true"
+                    layoutId="promo-filter-pil"
+                    className="absolute inset-0 -z-10 rounded-full bg-primary"
+                    transition={
+                      reduce ? { duration: 0 } : { type: "spring", stiffness: 380, damping: 32 }
+                    }
+                  />
+                )}
+                <span className={`relative ${aktif ? "text-primary-foreground" : ""}`}>
+                  {k}
+                </span>
               </button>
             );
           })}
-        </nav>
+        </motion.nav>
 
-        {/* Galeri */}
+        {/* Galeri — kartu masuk berjeda; saat filter berubah, kartu lama keluar
+            dan kartu baru mengambil tempatnya tanpa lompatan tata letak. */}
         {daftar.length === 0 ? (
-          <p className="mt-10 rounded-2xl border border-dashed border-border bg-card px-6 py-10 text-center text-sm text-muted-foreground">
+          <motion.p
+            initial={reduce ? { opacity: 0 } : { opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.35, ease: EASE_OUT }}
+            className="mt-10 rounded-2xl border border-dashed border-border bg-card px-6 py-10 text-center text-sm text-muted-foreground"
+          >
             Belum ada poster aktif pada kategori ini.
-          </p>
+          </motion.p>
         ) : (
           <section className="mt-6 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            {daftar.map((p) => (
-              <KartuPoster key={p.id} poster={p} onLihat={bukaPratinjau} />
-            ))}
+            <AnimatePresence mode="popLayout">
+              {daftar.map((p, i) => (
+                <motion.div
+                  key={p.id}
+                  layout
+                  custom={i}
+                  variants={varianGaleri(reduce)}
+                  initial="hidden"
+                  animate="show"
+                  exit="keluar"
+                  className="h-full"
+                >
+                  <KartuPoster poster={p} onLihat={bukaPratinjau} />
+                </motion.div>
+              ))}
+            </AnimatePresence>
           </section>
         )}
 
-        <footer className="mt-10 border-t border-border pt-5 text-xs leading-5 text-muted-foreground">
+        <motion.footer
+          initial={reduce ? { opacity: 0 } : { opacity: 0, y: 12 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, amount: 0.4 }}
+          transition={{ duration: 0.4, ease: EASE_OUT }}
+          className="mt-10 border-t border-border pt-5 text-xs leading-5 text-muted-foreground"
+        >
           Seluruh poster memakai identitas visual PINDAI yang sama dan tidak
           memuat klaim persetujuan maupun keamanan absolut. Angka biaya dan
           ketentuan mengikuti konfigurasi sistem.
-        </footer>
+        </motion.footer>
       </main>
 
-      {/* Pratinjau fullscreen */}
+      {/* Pratinjau fullscreen — poster membesar halus, bilah alat menyusul. */}
       <Dialog
         open={terbuka !== null}
         onOpenChange={(buka) => {
@@ -325,7 +436,12 @@ export function Promo() {
 
           {terbuka && (
             <>
-              <div className="flex w-full max-w-5xl items-center justify-between gap-3 pr-10 text-white">
+              <motion.div
+                initial={reduce ? { opacity: 0 } : { opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.35, ease: EASE_OUT }}
+                className="flex w-full max-w-5xl items-center justify-between gap-3 pr-10 text-white"
+              >
                 <div className="min-w-0">
                   <p className="truncate text-sm font-semibold">{terbuka.title}</p>
                   <p className="text-xs text-white/60">
@@ -335,15 +451,28 @@ export function Promo() {
                 <Badge variant="outline" className="shrink-0 border-white/30 text-white/80">
                   {terbuka.nomor} / 09
                 </Badge>
-              </div>
+              </motion.div>
 
-              <KanvasPoster
-                poster={terbuka}
-                lebar={UKURAN_POSTER.lebar}
-                className="block h-auto max-h-[68vh] w-auto max-w-full rounded-xl shadow-2xl"
-              />
+              <motion.div
+                key={terbuka.id}
+                initial={reduce ? { opacity: 0 } : { opacity: 0, scale: 0.95, y: 12 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                transition={{ duration: 0.42, ease: EASE_OUT }}
+                className="flex items-center justify-center"
+              >
+                <KanvasPoster
+                  poster={terbuka}
+                  lebar={UKURAN_POSTER.lebar}
+                  className="block h-auto max-h-[68vh] w-auto max-w-full rounded-xl shadow-2xl"
+                />
+              </motion.div>
 
-              <div className="flex w-full max-w-5xl flex-wrap items-center justify-center gap-2">
+              <motion.div
+                initial={reduce ? { opacity: 0 } : { opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.4, delay: 0.12, ease: EASE_OUT }}
+                className="flex w-full max-w-5xl flex-wrap items-center justify-center gap-2"
+              >
                 <Button className="rounded-full" onClick={() => unduhPoster(terbuka)}>
                   <Download className="size-4" /> Unduh PNG
                 </Button>
@@ -368,7 +497,7 @@ export function Promo() {
                 >
                   Tutup
                 </Button>
-              </div>
+              </motion.div>
             </>
           )}
         </DialogContent>
