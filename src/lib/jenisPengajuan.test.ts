@@ -85,14 +85,14 @@ eq(
 eq(jenisPengajuanUntukTab("pinjaman"), "pinjaman", "tab pinjaman → pinjaman");
 eq(jenisPengajuanUntukTab("jadwal"), "pinjaman", "tab jadwal angsuran → pinjaman");
 eq(jenisPengajuanUntukTab("gadai"), "gadai", "tab gadai → gadai");
-eq(jenisPengajuanUntukTab("kredit"), "kredit", "tab kredit → kredit barang");
+eq(jenisPengajuanUntukTab("kredit"), null, "tab kredit sudah dihapus → jenis bawaan");
 eq(jenisPengajuanUntukTab("kontrak"), null, "tab kontrak tidak memilih jenis");
 eq(jenisPengajuanUntukTab("riwayat"), null, "tab riwayat tidak memilih jenis");
 eq(jenisPengajuanUntukTab("form"), null, "tab form itu sendiri tidak memilih jenis");
 eq(jenisPengajuanUntukTab(""), null, "tab kosong tidak memilih jenis");
 eq(jenisPengajuanUntukTab("entah"), null, "tab tak dikenal tidak memilih jenis");
 // Tiap hasil pemetaan harus jenis yang benar-benar ada di daftar.
-for (const tab of ["pinjaman", "jadwal", "gadai", "kredit"]) {
+for (const tab of ["pinjaman", "jadwal", "gadai"]) {
   const jenis = jenisPengajuanUntukTab(tab);
   eq(
     jenis !== null && JENIS_PENGAJUAN.some((j) => j.id === jenis),

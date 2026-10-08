@@ -27,7 +27,6 @@ import {
 } from "./dashboard/form-pengajuan-views";
 import { GadaiBillingSection } from "./dashboard/gadai-views";
 import { HistorySection } from "./dashboard/history-views";
-import { KreditBarangSection } from "./dashboard/kredit-views";
 import { ActiveLoanSection, ScheduleSection } from "./dashboard/loan-views";
 import { DueReminderBanner, LokasiPeringatanBanner } from "./dashboard/notice-views";
 import { SummaryCards } from "./dashboard/summary-cards";
@@ -97,7 +96,6 @@ export default function Dashboard() {
   const dueReminder = useQuery(api.loans.dueReminder, argsPeminjam);
   const schedule = useQuery(api.loans.myLoanSchedule, argsPeminjam);
   const contracts = useQuery(api.loans.myContracts, argsPeminjam);
-  const kredit = useQuery(api.kredit.kreditSaya, argsPeminjam);
 
   const [loanDetailId, setLoanDetailId] = useState<Id<"loans"> | null>(null);
   const [pawnDetailId, setPawnDetailId] = useState<Id<"pawns"> | null>(null);
@@ -166,8 +164,7 @@ export default function Dashboard() {
     pawns === undefined ||
     dueReminder === undefined ||
     schedule === undefined ||
-    contracts === undefined ||
-    kredit === undefined;
+    contracts === undefined;
 
   const greetingName = user?.name ?? user?.email?.split("@")[0] ?? "Nasabah";
 
@@ -188,18 +185,12 @@ export default function Dashboard() {
     (p) => p.status === "aktif" || p.status === "menunggu_pelepasan",
   ).length;
   const jumlahKontrak = contracts ? contracts.pinjaman.length + contracts.gadai.length : 0;
-  const kreditMenunggu = (kredit ?? []).filter(
-    (k) => k.status === "diajukan" || k.status === "sedang_ditinjau",
-  ).length;
-  const kreditDisetujui = (kredit ?? []).filter((k) => k.status === "disetujui").length;
 
   const tabBadges: Partial<Record<string, TabBadge>> = {};
   if (pinjamanAktif > 0) tabBadges.pinjaman = { count: pinjamanAktif };
   if (tagihanTerlambat > 0) tabBadges.jadwal = { count: tagihanTerlambat, tone: "danger" };
   else if (tagihanDekat > 0) tabBadges.jadwal = { count: tagihanDekat, tone: "warning" };
   if (gadaiAktif > 0) tabBadges.gadai = { count: gadaiAktif };
-  if (kreditMenunggu > 0) tabBadges.kredit = { count: kreditMenunggu, tone: "warning" };
-  else if (kreditDisetujui > 0) tabBadges.kredit = { count: kreditDisetujui };
   if (jumlahKontrak > 0) tabBadges.kontrak = { count: jumlahKontrak };
 
   return (
@@ -281,18 +272,14 @@ export default function Dashboard() {
                   </div>
                 </TabsContent>
 
-                {/* ============ TAB 4: KREDIT BARANG (Skema C) ============ */}
-                <TabsContent value="kredit" className="mt-8 animate-masuk">
-                  <TombolBuatPengajuan jenis="kredit" onClick={() => bukaPengajuan("kredit")} />
-                  <KreditBarangSection />
-                </TabsContent>
-
-                {/* ============ TAB 5: E-CONTRACT ============ */}
+                {/* ============ TAB 4: E-CONTRACT ============
+                    Kredit barang tidak punya tab sendiri lagi: formulir dan
+                    catatannya berada di tab Form Pengajuan. */}
                 <TabsContent value="kontrak" className="mt-8 animate-masuk">
                   <MyContractsSection contracts={contracts} />
                 </TabsContent>
 
-                {/* ===== TAB 6: FORM PENGAJUAN — satu halaman, tiga jenis =====
+                {/* ===== TAB 5: FORM PENGAJUAN — satu halaman, tiga jenis =====
                     Peminjam memilih pinjaman / gadai / kredit barang lewat menu
                     dropdown; hanya formulir jenis itu yang dirender. */}
                 <TabsContent value="form" className="mt-8 min-w-0 animate-masuk">
@@ -302,7 +289,7 @@ export default function Dashboard() {
                   />
                 </TabsContent>
 
-                {/* ============ TAB 7: RIWAYAT ============ */}
+                {/* ============ TAB 6: RIWAYAT ============ */}
                 <TabsContent value="riwayat" className="mt-8 animate-masuk">
                   <div className="space-y-6">
                     <HistorySection

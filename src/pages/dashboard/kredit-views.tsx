@@ -679,12 +679,11 @@ export function KreditSayaSection() {
 
 /** Tab kredit barang berfokus pada formulir pengajuan dan estimasi tersimpan. */
 /**
- * Tab "Kredit Barang": catatan pengajuan kredit barang milik Peminjam.
+ * Catatan pengajuan kredit barang milik Peminjam.
  *
- * Formulir pengajuan barunya TIDAK di sini lagi — ketiga formulir (pinjaman,
- * gadai, kredit barang) hidup di tab "Form Pengajuan" dan dipilih lewat menu
- * dropdown, supaya tidak ada dua formulir besar berebut satu layar. Tab ini
- * sejajar dengan tab pinjaman dan gadai: hanya catatan dan tagihan.
+ * Dirender di tab "Form Pengajuan", tepat di bawah formulir kredit barang:
+ * tab "Kredit Barang" sudah dihapus, jadi formulir dan catatan satu produk
+ * berdampingan di satu tempat. Tab pinjaman dan gadai tetap murni catatan.
  */
 export function KreditBarangSection() {
   return (

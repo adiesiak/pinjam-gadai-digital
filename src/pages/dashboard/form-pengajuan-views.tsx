@@ -7,6 +7,10 @@
  * menu dropdown, lalu hanya formulir jenis itu yang dirender — jadi tidak ada
  * dua formulir besar yang berebut perhatian di satu layar.
  *
+ * Tab "Kredit Barang" sudah dihapus, jadi daftar catatan kredit menempel pada
+ * formulirnya di tampilan kredit: formulir dan catatan satu produk berada di
+ * satu tempat, tanpa menambah satu tab lagi di navigasi.
+ *
  * Formulirnya sendiri tidak disalin: `LoanForm`, `PawnForm`, dan
  * `KreditBarangForm` tetap komponen aslinya, sehingga seluruh validasi,
  * perhitungan, dan mutasi Convex tidak berubah. Daftar jenis dan fungsi
@@ -33,7 +37,7 @@ import {
 } from "@/lib/jenisPengajuan";
 
 import { LoanForm, PawnForm } from "./forms-views";
-import { KreditBarangForm } from "./kredit-views";
+import { KreditBarangForm, KreditBarangSection } from "./kredit-views";
 
 /** Ikon tiap jenis — dipetakan di sini supaya `lib/jenisPengajuan` tetap bebas React. */
 const IKON_JENIS: Record<JenisPengajuan, typeof Wallet> = {
@@ -206,13 +210,18 @@ export function FormPengajuanSection({
           />
         )}
         {aktif.id === "kredit" && (
-          <KreditBarangForm
-            onCreated={(ref) =>
-              toast.success(
-                `Catatan pengajuan kredit barang tersimpan — referensi ${ref}.`,
-              )
-            }
-          />
+          <div className="space-y-8">
+            <KreditBarangForm
+              onCreated={(ref) =>
+                toast.success(
+                  `Catatan pengajuan kredit barang tersimpan — referensi ${ref}.`,
+                )
+              }
+            />
+            {/* Daftar catatan menemani formulirnya: dulu pasangan ini tinggal
+                di tab "Kredit Barang" yang kini dihapus. */}
+            <KreditBarangSection />
+          </div>
         )}
       </div>
     </section>

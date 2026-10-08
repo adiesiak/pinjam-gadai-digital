@@ -72,15 +72,14 @@ export function jenisPengajuanAktif(nilai: string): BarisJenisPengajuan {
 /**
  * Tab dashboard → jenis pengajuan yang paling masuk akal dibuka lebih dulu
  * lewat tombol "Buat pengajuan baru" di tab itu. Tab catatan pinjaman dan jadwal
- * angsuran sama-sama mengarah ke pinjaman tunai; tab yang tidak berkaitan dengan
- * pengajuan (kontrak, riwayat, form itu sendiri) mengembalikan `null` sehingga
- * pemanggil memakai jenis bawaan.
+ * angsuran sama-sama mengarah ke pinjaman tunai. Tab yang tidak punya padanan
+ * (kontrak, riwayat, form itu sendiri) mengembalikan `null` sehingga pemanggil
+ * memakai jenis bawaan — begitu pula tab yang sudah dihapus, seperti "kredit".
  */
 const JENIS_PENGAJUAN_PER_TAB: Partial<Record<string, JenisPengajuan>> = {
   pinjaman: "pinjaman",
   jadwal: "pinjaman",
   gadai: "gadai",
-  kredit: "kredit",
 };
 
 /** Jenis pengajuan untuk sebuah tab dashboard; `null` bila tab tidak relevan. */

@@ -8,7 +8,9 @@
  * 2. Menu dashboard (dropdown layar sempit) juga menyebut menu aktif — termasuk
  *    jumlah itemnya.
  * 3. CTA "Buat pengajuan baru" di tiap tab menyebut jenis yang akan dibuka
- *    (tab Kredit Barang → "Buat pengajuan kredit barang").
+ *    (tab pinjaman → "Buat pengajuan pinjaman").
+ * 4. Tab "Kredit Barang" yang dihapus tidak lagi muncul di daftar navigasi,
+ *    sementara jenis pengajuan kreditnya tetap ada di dropdown form.
  *
  * Formulir pinjaman/gadai/kredit sengaja tidak dirender: ketiganya membaca Convex
  * (`useQuery`/`useMutation`), jadi di luar aplikasi mereka tidak punya klien.
@@ -89,20 +91,44 @@ ok(
 
 // --- Menu dashboard (layar sempit) ------------------------------------------
 
-function wajahMenuDashboard(activeTab: string, badges?: Parameters<typeof DashboardTabNav>[0]["badges"]) {
-  return wajahDropdown(
-    renderToStaticMarkup(
-      <Tabs value={activeTab}>
-        <DashboardTabNav
-          activeTab={activeTab}
-          onTabChange={() => {}}
-          onBuatPengajuan={() => {}}
-          badges={badges}
-        />
-      </Tabs>,
-    ),
-    "Menu dashboard Peminjam",
+function renderMenuDashboard(
+  activeTab: string,
+  badges?: Parameters<typeof DashboardTabNav>[0]["badges"],
+) {
+  return renderToStaticMarkup(
+    <Tabs value={activeTab}>
+      <DashboardTabNav
+        activeTab={activeTab}
+        onTabChange={() => {}}
+        onBuatPengajuan={() => {}}
+        badges={badges}
+      />
+    </Tabs>,
   );
+}
+
+/** Wajah dropdown menu dashboard pada layar sempit. */
+function wajahMenuDashboard(
+  activeTab: string,
+  badges?: Parameters<typeof DashboardTabNav>[0]["badges"],
+) {
+  return wajahDropdown(renderMenuDashboard(activeTab, badges), "Menu dashboard Peminjam");
+}
+
+// Tab "Kredit Barang" sudah dihapus dari navigasi (catatan kreditnya kini
+// menjadi bagian dari tab Form Pengajuan). Labelnya tidak boleh tertinggal di
+// daftar tab, sedangkan jenis pengajuan kreditnya tetap ada.
+const htmlMenuDashboard = renderMenuDashboard("form");
+ok("tab Kredit Barang sudah hilang dari navigasi", !htmlMenuDashboard.includes("Kredit Barang"));
+for (const label of [
+  "Catatan Pinjaman",
+  "Jadwal Angsuran",
+  "Catatan Gadai",
+  "Dokumen Perjanjian",
+  "Form Pengajuan",
+  "Riwayat Ledger",
+]) {
+  ok(`navigasi masih memuat tab "${label}"`, htmlMenuDashboard.includes(label));
 }
 
 const wajahMenuForm = wajahMenuDashboard("form");
