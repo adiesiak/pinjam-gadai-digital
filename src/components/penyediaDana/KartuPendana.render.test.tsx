@@ -80,12 +80,21 @@ const html = renderToStaticMarkup(<KartuPendana r={ROBERT} />);
 
 // Identitas + ringkasan jumlah pinjaman.
 ada(html, "ROBERT", "nama penyedia dana");
-ada(html, "8 pinjaman · 7 aktif · 1 lunas", "ringkasan jumlah pinjaman");
 
-// Modal diringkas jadi satu baris konteks — bukan dua baris yang bersaing
-// perhatian dengan laporan keuntungan.
-ada(html, "Rp 7.000.000 disalurkan", "total disalurkan tetap tampil, kini satu baris");
-ada(html, "Rp 6.000.000 masih berjalan", "saldo berjalan tetap tampil, kini satu baris");
+// Modal tetap berlabel — permintaan pemilik produk: total pinjaman dan dana
+// tersalurkan TIDAK boleh hilang saat kartu diringkas.
+ok(
+  baris(html, "Total pinjaman").includes("8 pinjaman · 7 aktif · 1 lunas"),
+  "baris \"Total pinjaman\" memuat hitungan pinjaman, aktif, dan lunas",
+);
+ok(
+  baris(html, "Dana tersalurkan").includes("Rp 7.000.000"),
+  "baris \"Dana tersalurkan\" memuat total pokok yang sudah tersalurkan",
+);
+ok(
+  baris(html, "Saldo berjalan").includes("Rp 6.000.000"),
+  "baris \"Saldo berjalan\" memuat pokok yang masih berjalan",
+);
 
 // ===== Blok keuntungan: yang sudah cair dipisah dari yang masih perkiraan =====
 ada(html, "Keuntungan pendana", "judul blok keuntungan");
@@ -139,11 +148,26 @@ ada(html, "perkiraan Rp 390.000", "potongan admin perkiraan tetap disebut");
 ada(html, "Transfer keuntungan", "baris transfer keuntungan");
 ada(html, "1 belum dicatat", "catatan transfer yang belum dibuat ditandai");
 
-// ===== Kartu tetap ringkas =====
-// Lima baris nilai (3 keuntungan + 1 potongan admin + 1 transfer) adalah bentuk
-// yang diminta: penyedia dana tidak perlu mengurai sembilan baris angka.
-const jumlahBaris = (html.match(/<\/dt>/g) ?? []).length;
-ok(jumlahBaris <= 6, `kartu tetap terbaca ringkas (${jumlahBaris} baris nilai, maksimum 6)`);
+// ===== Susunan baris adalah kontrak, bukan sekadar jumlah =====
+// Urutan dan labelnya diuji persis: angka wajib (total pinjaman, dana
+// tersalurkan, saldo berjalan, keuntungan sudah/belum lunas, total, potongan
+// admin, transfer) tetap ada, tanpa baris tambahan yang membuat kartu kembali
+// menjadi daftar panjang.
+const label = [...html.matchAll(/<dt[^>]*>([^<]*)<\/dt>/g)].map((m) => m[1]);
+eq(
+  JSON.stringify(label),
+  JSON.stringify([
+    "Total pinjaman",
+    "Dana tersalurkan",
+    "Saldo berjalan",
+    "Sudah lunas (dibukukan)",
+    "Belum lunas (perkiraan) · 7 pinjaman berjalan",
+    "Total keuntungan",
+    "Potongan admin (total)",
+    "Transfer keuntungan",
+  ]),
+  "urutan & label baris kartu persis seperti kontrak",
+);
 
 bersih(html, "markup kartu rekap");
 

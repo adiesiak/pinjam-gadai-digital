@@ -57,7 +57,9 @@ function BarisNilai({
  * benar jadi uang, dan yang mana yang masih perkiraan?" — dijawab di tempat
  * pertama yang dilihat mata:
  *
- *  1. modal: satu baris konteks (disalurkan & masih berjalan);
+ *  1. modal: **total pinjaman** (berapa catatan: aktif & lunas), **dana
+ *     tersalurkan**, dan **saldo berjalan** — tetap berlabel, karena pemilik
+ *     produk memerlukannya untuk mencocokkan catatan sendiri;
  *  2. **keuntungan pendana**: sudah lunas (dibukukan saat pelunasan) dipisah
  *     tegas dari belum lunas (perkiraan atas pinjaman berjalan), ditutup baris
  *     total;
@@ -86,19 +88,29 @@ export function KartuPendana({
         <p className="inline-flex items-center gap-1.5 font-semibold uppercase text-slate-900">
           <Wallet className="size-3.5 text-primary" aria-hidden /> {r.nama}
         </p>
-        <Badge
-          variant="outline"
-          className="border-slate-200 text-[10px] font-medium text-slate-500"
-        >
-          {r.jumlahPinjaman} pinjaman · {r.jumlahAktif} aktif · {r.jumlahLunas} lunas
-        </Badge>
       </div>
 
-      {/* Modal: konteks pendanaan, bukan laporan keuntungan — cukup satu baris
-          supaya perhatian tetap pada blok keuntungan di bawahnya. */}
-      <p className="mt-2 text-[11px] leading-4 tabular-nums text-muted-foreground">
-        {rupiah(r.totalDisalurkan)} disalurkan · {rupiah(r.saldoBerjalan)} masih berjalan
-      </p>
+      {/* Modal: angka pokok yang harus tetap ada di rekap — berapa pinjaman yang
+          tercatat, berapa dana yang sudah tersalurkan, dan berapa pokok yang
+          masih berjalan. Sengaja berlabel, bukan kalimat kecil: penyedia dana
+          memakai ketiganya untuk mencocokkan catatannya sendiri. */}
+      <dl className="mt-3 space-y-1.5 text-xs">
+        <BarisNilai
+          label="Total pinjaman"
+          nilai={`${r.jumlahPinjaman} pinjaman · ${r.jumlahAktif} aktif · ${r.jumlahLunas} lunas`}
+          kelas="font-medium text-slate-900"
+        />
+        <BarisNilai
+          label="Dana tersalurkan"
+          nilai={rupiah(r.totalDisalurkan)}
+          kelas="font-medium text-slate-900"
+        />
+        <BarisNilai
+          label="Saldo berjalan"
+          nilai={rupiah(r.saldoBerjalan)}
+          kelas="font-medium text-slate-900"
+        />
+      </dl>
 
       {/* Blok keuntungan: uang yang sudah cair dipisah dari yang masih perkiraan.
           Menggabung keduanya membuat penyedia dana membaca uang yang belum cair
