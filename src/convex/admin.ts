@@ -23,7 +23,7 @@ import {
   plafonEfektif,
 } from "../lib/plafon";
 import { clampPersenBunga, persenBungaEfektif } from "../lib/bunga";
-import { bacaDataDiri, type DataDiriForm } from "../lib/dataDiri";
+import { simpanDataDiriProfil, bacaProfilUntukForm } from "./dataDiriProfil";
 import { ensureKodePeminjam } from "./peminjamCode";
 import { rejectUnverifiedMoneyMovement } from "./paymentGuard";
 import { quoteKreditBarang } from "../lib/kredit";
@@ -278,20 +278,17 @@ export const dataDiriNasabah = query({
       email: user.email ?? null,
       /** true bila baris data diri sudah ada. */
       ada: row !== null,
-      /** Nama prefil dari akun agar admin tidak mengetik ulang dari nol. */
+      // Nama prefil dari akun agar admin tidak mengetik ulang dari nol; sisanya
+      // lewat helper yang sama dengan jalur sunting mandiri nasabah.
       data: {
+        ...bacaProfilUntukForm(row),
         namaLengkap: row?.namaLengkap ?? user.name ?? "",
-        nik: row?.nik ?? "",
-        nomorWhatsApp: row?.nomorWhatsApp ?? "",
-        alamat: row?.alamat ?? "",
-        pekerjaan: row?.pekerjaan ?? "",
-        penghasilanBulanan: row?.penghasilanBulanan ?? null,
-        namaBank: row?.namaBank ?? "",
-        nomorRekening: row?.nomorRekening ?? "",
       },
       fotoKtpUrl: row?.fotoKtpId !== undefined ? await ctx.storage.getUrl(row.fotoKtpId) : null,
       diperbaruiPada: row?.diperbaruiPada ?? null,
       diperbaruiOlehLabel: row?.diperbaruiOlehLabel ?? null,
+      /** Siapa yang terakhir menyunting (null untuk data lama). */
+      sumber: row?.sumber ?? null,
     };
   },
 });
@@ -342,75 +339,33 @@ export const simpanDataDiriNasabah = mutation({
       throw new Error("Data diri tidak berlaku untuk akun tim (admin).");
     }
 
-    // Angka dari klien harus sudah rupiah bulat. Tanpa penjagaan ini, nilai
-    // berkoma (mis. 5.5) akan "diperbaiki" diam-diam menjadi 55 oleh
-    // pengekstrakan digit — menyimpan angka yang salah, bukan menolaknya.
-    if (
-      args.penghasilanBulanan !== null &&
-      !Number.isSafeInteger(args.penghasilanBulanan)
-    ) {
-      throw new Error("Penghasilan per bulan harus rupiah bulat (tanpa koma).");
-    }
-
-    const form: DataDiriForm = {
-      namaLengkap: args.namaLengkap,
-      nik: args.nik,
-      nomorWhatsApp: args.nomorWhatsApp,
-      alamat: args.alamat,
-      pekerjaan: args.pekerjaan,
-      penghasilan: args.penghasilanBulanan === null ? "" : String(args.penghasilanBulanan),
-      namaBank: args.namaBank,
-      nomorRekening: args.nomorRekening,
-    };
-    const { tersimpan, pesan } = bacaDataDiri(form);
-    if (tersimpan === null) throw new Error(pesan ?? "Data diri tidak valid.");
-
-    const existing = await ctx.db
-      .query("nasabahProfil")
-      .withIndex("by_user", (q) => q.eq("userId", args.userId))
-      .first();
-
-    // Foto KTP: hitung nilai akhir + hapus berkas lama bila benar-benar berubah.
-    let fotoKtpId = existing?.fotoKtpId;
-    if (args.fotoKtpId === null) {
-      fotoKtpId = undefined;
-    } else if (args.fotoKtpId !== undefined) {
-      fotoKtpId = args.fotoKtpId;
-    }
-    const fotoLama = existing?.fotoKtpId;
-    if (fotoLama !== undefined && fotoLama !== fotoKtpId) {
-      if (await ctx.storage.getMetadata(fotoLama) !== null) {
-        await ctx.storage.delete(fotoLama);
-      }
-    }
+    // Validasi, normalisasi, dan penanganan foto ada di satu tempat bersama
+    // jalur sunting mandiri nasabah (convex/dataDiriProfil.ts).
+    const { dibuat, tersimpan, fotoKtpId } = await simpanDataDiriProfil(ctx, {
+      userId: args.userId,
+      isian: {
+        namaLengkap: args.namaLengkap,
+        nik: args.nik,
+        nomorWhatsApp: args.nomorWhatsApp,
+        alamat: args.alamat,
+        pekerjaan: args.pekerjaan,
+        penghasilanBulanan: args.penghasilanBulanan,
+        namaBank: args.namaBank,
+        nomorRekening: args.nomorRekening,
+      },
+      fotoKtpId: args.fotoKtpId,
+      sumber: "admin",
+      olehLabel: admin.email ?? admin.name ?? "admin",
+    });
 
     const nama = target.name ?? target.email ?? args.userId;
-    const isi = {
-      namaLengkap: tersimpan.namaLengkap,
-      nik: tersimpan.nik,
-      nomorWhatsApp: tersimpan.nomorWhatsApp,
-      alamat: tersimpan.alamat ?? undefined,
-      pekerjaan: tersimpan.pekerjaan ?? undefined,
-      penghasilanBulanan: tersimpan.penghasilanBulanan ?? undefined,
-      namaBank: tersimpan.namaBank ?? undefined,
-      nomorRekening: tersimpan.nomorRekening ?? undefined,
-      fotoKtpId,
-      diperbaruiPada: Date.now(),
-      diperbaruiOlehLabel: admin.email ?? admin.name ?? "admin",
-    };
-    if (existing === null) {
-      await ctx.db.insert("nasabahProfil", { userId: args.userId, ...isi });
-    } else {
-      await ctx.db.patch(existing._id, isi);
-    }
-
     await audit(
       ctx,
       adminId,
       admin.email ?? admin.name ?? "admin",
       "ubah_data_diri",
       nama,
-      `${existing === null ? "Data diri dibuat" : "Data diri diperbarui"}: ` +
+      `${dibuat ? "Data diri dibuat" : "Data diri diperbarui"}: ` +
         `NIK ${tersimpan.nik.slice(0, 4)}••••${tersimpan.nik.slice(-4)}, ` +
         `WA ${tersimpan.nomorWhatsApp}` +
         (tersimpan.alamat === null ? ", alamat kosong" : ", alamat terisi") +
@@ -596,6 +551,8 @@ export const adminOverview = query({
             namaBank: p.namaBank ?? null,
             catatanPeminjam: p.catatanPeminjam,
             emailPeminjam: borrower?.email ?? null,
+            // Dipakai panel review untuk membuka data diri tersimpan pemohon.
+            userIdPeminjam: p.userId,
             // Skema B: pendanaan & sisa pokok berjalan (decreasing principal).
             pokokGadai: p.pokokGadai,
             persenSewaModal: p.persenSewaModal,

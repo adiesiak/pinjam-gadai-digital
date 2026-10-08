@@ -40,6 +40,7 @@ import { formatDate } from "./admin-format";
 import { type LoanRow } from "./admin-shared";
 import { AliranDanaPinjaman } from "./AliranDanaPinjaman";
 import { LoanKycPanel } from "./LoanKycPanel";
+import { PanelDataDiriNasabah } from "./PanelDataDiriNasabah";
 
 // Sentinel NON-kosong: Radix Select menolak `<SelectItem value="">`, jadi
 // "tidak diubah" dan "lepas pendana" memakai penandanya sendiri.
@@ -232,6 +233,11 @@ export function LoanReviewDialog({
             Catatan pengajuan internal · {row.nomorReferensi} · {formatDate(row._creationTime)}
           </DialogDescription>
         </DialogHeader>
+
+        {/* Data diri acuan nasabah (diisi admin / disunting nasabah) —
+            ditampilkan SEBELUM isian pengajuan agar peninjau bisa
+            membandingkan keduanya. */}
+        <PanelDataDiriNasabah userId={row.userIdPeminjam} />
 
         <LoanKycPanel row={row} />
 

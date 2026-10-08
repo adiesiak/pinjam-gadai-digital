@@ -21,6 +21,7 @@ import { formatRupiah } from "@/lib/money";
 
 import { formatDate } from "./admin-format";
 import { type PawnRow } from "./admin-shared";
+import { PanelDataDiriNasabah } from "./PanelDataDiriNasabah";
 
 export function PawnReviewDialog({
   row,
@@ -137,6 +138,9 @@ export function PawnReviewDialog({
             </div>
           ))}
         </dl>
+
+        {/* Data diri acuan nasabah — memudahkan peninjau mencocokkan pemohon. */}
+        <PanelDataDiriNasabah userId={row.userIdPeminjam} />
 
         <p className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-900">
           Pelepasan barang dikonfirmasi terpisah dengan bukti serah-terima; fitur pelepasan dinonaktifkan.

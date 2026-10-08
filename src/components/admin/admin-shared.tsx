@@ -75,6 +75,8 @@ export type PawnRow = {
   nomorRekening: string;
   catatanPeminjam?: string;
   emailPeminjam: string | null;
+  /** Akun pemohon — dipakai untuk membuka data diri tersimpan di panel review. */
+  userIdPeminjam: Id<"users">;
   /** Skema B: pokok & sisa pokok berjalan. */
   pokokGadai?: number;
   persenSewaModal?: number;

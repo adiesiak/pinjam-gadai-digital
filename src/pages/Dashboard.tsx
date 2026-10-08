@@ -16,6 +16,7 @@ import { Id } from "@/convex/_generated/dataModel";
 import { useAuth } from "@/hooks/use-auth";
 
 import { MyContractsSection } from "./dashboard/contract-views";
+import { DataDiriSection } from "./dashboard/data-diri-views";
 import { DashboardFooter } from "./dashboard/dashboard-footer";
 import { DashboardHeader } from "./dashboard/dashboard-header";
 import { DashboardSidebar } from "./dashboard/dashboard-sidebar";
@@ -287,6 +288,11 @@ export default function Dashboard() {
                     jenis={jenisPengajuan}
                     onUbahJenis={setJenisPengajuan}
                   />
+                </TabsContent>
+
+                {/* ===== TAB: DATA DIRI — sunting mandiri nasabah ===== */}
+                <TabsContent value="diri" className="mt-8 min-w-0 animate-masuk">
+                  <DataDiriSection />
                 </TabsContent>
 
                 {/* ============ TAB 6: RIWAYAT ============ */}

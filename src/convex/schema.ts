@@ -280,6 +280,13 @@ const schema = defineSchema(
       diperbaruiPada: v.number(),
       /** Label admin penyunting terakhir — snapshot agar tetap terbaca. */
       diperbaruiOlehLabel: v.string(),
+      /**
+       * Sumber penyuntingan terakhir: "admin" (panel admin) atau "nasabah"
+       * (sunting mandiri dari dashboard). Dipakai untuk memberi tahu kedua
+       * pihak siapa yang terakhir mengubah — suntingan admin tetap menjadi
+       * acuan karena panel admin selalu menimpa saat disimpan.
+       */
+      sumber: v.optional(v.union(v.literal("admin"), v.literal("nasabah"))),
     }).index("by_user", ["userId"]),
 
     /**

@@ -145,6 +145,31 @@ export function LoanForm({ onCreated }: { onCreated: (ref: string) => void }) {
   // Unggah bukti penghasilan dari galeri/berkas, bukan hanya kamera.
   const slipInputRef = useRef<HTMLInputElement | null>(null);
 
+  // ===== Praisi dari data diri tersimpan =====
+  // Data diri yang sudah disimpan (oleh nasabah atau admin) dipakai untuk
+  // mengisi formulir sekali saja, dan hanya ke kolom yang masih KOSONG — supaya
+  // tidak pernah menimpa ketikan yang sudah dimulai. Dijadwalkan sebagai
+  // microtask karena setState langsung di dalam efek dilarang aturan
+  // react-hooks (pola yang sama dipakai pengambilan lokasi di atas).
+  const dataDiriTersimpan = useQuery(api.profilNasabah.dataDiriSaya);
+  const praisiRef = useRef(false);
+  useEffect(() => {
+    if (praisiRef.current || dataDiriTersimpan === undefined) return;
+    praisiRef.current = true;
+    const d = dataDiriTersimpan.data;
+    queueMicrotask(() => {
+      setNik((v) => (v === "" ? d.nik : v));
+      setNomorWhatsApp((v) => (v === "" ? d.nomorWhatsApp : v));
+      setPenghasilan((v) =>
+        (v === 5_000_000 || v === 0) && d.penghasilanBulanan !== null ? d.penghasilanBulanan : v,
+      );
+      setSumberPenghasilan((v) => (v === "" && d.pekerjaan !== "" ? d.pekerjaan : v));
+      setNamaLengkap((v) => (v === "" ? d.namaLengkap : v));
+      setNamaBank((v) => (v === "" ? d.namaBank : v));
+      setNomorRekening((v) => (v === "" ? d.nomorRekening : v));
+    });
+  }, [dataDiriTersimpan]);
+
   useEffect(() => {
     const video = cameraVideoRef.current;
     if (!video || !cameraStream) return;

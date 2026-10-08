@@ -1,6 +1,7 @@
 import {
   CalendarClock,
   FileText,
+  IdCard,
   LayoutGrid,
   Package,
   ScrollText,
@@ -31,6 +32,7 @@ const TABS: Array<[string, string, React.ReactNode]> = [
   ["gadai", "Catatan Gadai", <Package key="i" className="size-4" />],
   ["kontrak", "Dokumen Perjanjian", <FileText key="i" className="size-4" />],
   ["form", "Form Pengajuan", <Send key="i" className="size-4" />],
+  ["diri", "Data Diri", <IdCard key="i" className="size-4" />],
   ["riwayat", "Riwayat Ledger", <ScrollText key="i" className="size-4" />],
 ];
 

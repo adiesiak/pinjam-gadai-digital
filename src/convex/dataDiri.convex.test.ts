@@ -22,7 +22,7 @@ import { describe, expect, it } from "vitest";
 
 import { api } from "./_generated/api";
 import schema from "./schema";
-import { siapkanPengguna } from "./test.helpers";
+import { buatPengguna, siapkanPengguna } from "./test.helpers";
 import { modules } from "./test.setup";
 
 const NIK = "3271012345678901";
@@ -250,5 +250,101 @@ describe("data diri nasabah (admin)", () => {
     }));
     expect(sisa.user).toBeNull();
     expect(sisa.profil).toHaveLength(0);
+  });
+});
+
+describe("data diri mandiri (nasabah)", () => {
+  it("nasabah mengisi data dirinya sendiri; sumber tercatat 'nasabah'", async () => {
+    const t = convexTest(schema, modules);
+    const { sesi: peminjam, userId } = await siapkanPengguna(t, "Rani", {
+      email: "rani-sv@pindai.test",
+      role: "peminjam",
+    });
+
+    await expect(
+      peminjam.mutation(api.profilNasabah.simpanDataDiriSaya, {
+        namaLengkap: "Rani Puspita",
+        nik: "3271 0123 4567 8901",
+        nomorWhatsApp: "62 812-3456-7890",
+        alamat: "Jalan Merdeka No. 10, Bandung",
+        pekerjaan: "Karyawan swasta",
+        penghasilanBulanan: 4_000_000,
+        namaBank: "BCA",
+        nomorRekening: "1234567890",
+      }),
+    ).resolves.toMatchObject({ ok: true });
+
+    const baca = await peminjam.query(api.profilNasabah.dataDiriSaya, {});
+    expect(baca.ada).toBe(true);
+    expect(baca.data.nik).toBe(NIK);
+    expect(baca.data.nomorWhatsApp).toBe(WA);
+    expect(baca.sumber).toBe("nasabah");
+
+    const audit = await t.run((ctx) => ctx.db.query("auditLog").collect());
+    expect(audit.some((a) => a.aksi === "data_diri_sendiri")).toBe(true);
+    // Baris tersimpan atas nama pemilik akun itu sendiri.
+    const baris = await t.run((ctx) => ctx.db.query("nasabahProfil").collect());
+    expect(baris).toHaveLength(1);
+    expect(baris[0].userId).toBe(userId);
+  });
+
+  it("suntingan admin sesudahnya menimpa dan menandai sumber 'admin'", async () => {
+    const t = convexTest(schema, modules);
+    const { sesi: peminjam, userId } = await siapkanPengguna(t, "Rani", {
+      email: "rani-sv2@pindai.test",
+      role: "peminjam",
+    });
+    const { sesi: admin } = await siapkanPengguna(t, "admin", {
+      email: "admin-sv2@pindai.test",
+      role: "admin",
+    });
+
+    const isian = {
+      namaLengkap: "Rani Puspita",
+      nik: NIK,
+      nomorWhatsApp: WA,
+      alamat: "",
+      pekerjaan: "",
+      penghasilanBulanan: null,
+      namaBank: "",
+      nomorRekening: "",
+    };
+    await peminjam.mutation(api.profilNasabah.simpanDataDiriSaya, isian);
+    await admin.mutation(api.admin.simpanDataDiriNasabah, { ...isian, userId });
+
+    const baca = await peminjam.query(api.profilNasabah.dataDiriSaya, {});
+    expect(baca.sumber).toBe("admin");
+    // Hanya satu baris — suntingan admin memperbarui, bukan menambah.
+    const baris = await t.run((ctx) => ctx.db.query("nasabahProfil").collect());
+    expect(baris).toHaveLength(1);
+  });
+
+  it("akun tamu ditolak; akun baru TANPA peran tetap boleh (tanpa regresi dashboard)", async () => {
+    const t = convexTest(schema, modules);
+    const { sesi: tamu } = await siapkanPengguna(t, "Tamu", {
+      email: "tamu-sv@pindai.test",
+      role: "peminjam",
+    });
+    await t.run(async (ctx) => {
+      const u = await ctx.db.query("users").first();
+      if (u !== null) await ctx.db.patch(u._id, { isAnonymous: true });
+    });
+    await expect(tamu.query(api.profilNasabah.dataDiriSaya, {})).rejects.toThrow(/tamu/i);
+
+    // Akun baru tanpa peran — dashboard tidak boleh gagal; gerbangnya sama
+    // dengan endpoint Peminjam lain (cukup sudah masuk, bukan tamu).
+    const { sesi: baru } = await buatPengguna(t, "Baru", { email: "baru-sv@pindai.test" });
+    await expect(
+      baru.mutation(api.profilNasabah.simpanDataDiriSaya, {
+        namaLengkap: "Nasabah Baru",
+        nik: NIK,
+        nomorWhatsApp: WA,
+        alamat: "",
+        pekerjaan: "",
+        penghasilanBulanan: null,
+        namaBank: "",
+        nomorRekening: "",
+      }),
+    ).resolves.toMatchObject({ ok: true });
   });
 });

@@ -1,16 +1,17 @@
 /**
- * Uji render form data diri nasabah (admin).
- * Run: bun src/components/admin/DataDiriDialog.render.test.tsx
+ * Uji render form data diri nasabah.
+ * Run: bun src/components/DataDiriForm.render.test.tsx
  *
- * `DataDiriDialog` membaca Convex (useQuery/useMutation) sehingga tidak bisa
- * dirender di luar aplikasi; bagian yang murni — `FormDataDiri` — dirender di
- * sini dengan callback palsu. Yang dijaga: isian menampilkan nilai yang ada,
+ * Form ini dipakai bersama oleh panel admin (`admin/DataDiriDialog`) dan
+ * sunting mandiri nasabah (dashboard). Keduanya membaca Convex sehingga tidak
+ * bisa dirender di luar aplikasi; bagian yang murni — `FormDataDiri` — dirender
+ * di sini dengan callback palsu. Yang dijaga: isian menampilkan nilai yang ada,
  * foto KTP punya jalur unggah/ganti/hapus yang benar, galat terlihat, dan
  * markup tidak pernah membocorkan "undefined"/"NaN".
  */
 import { renderToStaticMarkup } from "react-dom/server";
 
-import { FormDataDiri, type FormDataDiriProps } from "./DataDiriDialog";
+import { FormDataDiri, type FormDataDiriProps } from "./DataDiriForm";
 
 let passed = 0;
 let failed = 0;
@@ -115,5 +116,5 @@ function props(overrides: Partial<FormDataDiriProps> = {}): FormDataDiriProps {
   bersih(html, "form bergalat");
 }
 
-console.log(`DataDiriDialog.render: ${passed} lulus, ${failed} gagal`);
+console.log(`DataDiriForm.render: ${passed} lulus, ${failed} gagal`);
 if (failed > 0) process.exit(1);
