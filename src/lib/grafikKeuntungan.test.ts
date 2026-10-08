@@ -1,5 +1,10 @@
 /** Run: bun src/lib/grafikKeuntungan.test.ts */
-import { barKeuntungan, type SumberBarKeuntungan } from "./grafikKeuntungan";
+import {
+  barDanaTersalurkan,
+  barKeuntungan,
+  type SumberBarKeuntungan,
+  type SumberDanaTersalurkan,
+} from "./grafikKeuntungan";
 
 let passed = 0;
 let failed = 0;
@@ -22,6 +27,25 @@ function sumber(
   belumLunas: number,
 ): SumberBarKeuntungan {
   return { nama, keuntunganPendanaLunas: lunas, keuntunganPendanaBelumLunas: belumLunas };
+}
+
+/** Satu penyedia dana untuk bar dana tersalurkan. */
+function dana(
+  nama: string,
+  tersalurkan: number,
+  berjalan: number,
+  pinjaman: number,
+  aktif: number,
+  lunas: number,
+): SumberDanaTersalurkan {
+  return {
+    nama,
+    totalDisalurkan: tersalurkan,
+    saldoBerjalan: berjalan,
+    jumlahPinjaman: pinjaman,
+    jumlahAktif: aktif,
+    jumlahLunas: lunas,
+  };
 }
 
 // ===== Panjang bar relatif terhadap nilai terbesar =====
@@ -91,6 +115,52 @@ function sumber(
   eq(bars.length, 1, "satu penyedia → satu bar");
   eq(bars[0].persen, 100, "satu penyedia memakai bar penuh");
   eq(bars[0].persenSudahCair, 0, "seluruhnya perkiraan");
+}
+
+// ===== Bar dana tersalurkan per penyedia dana =====
+{
+  const bars = barDanaTersalurkan([
+    dana("CHARELSOERYA@GMAIL.COM", 1_000_000, 1_000_000, 1, 1, 0),
+    dana("ROBERT", 7_000_000, 6_000_000, 8, 7, 1),
+    dana("ASEP FIRMAN HANAFI", 5_000_000, 3_000_000, 7, 4, 3),
+  ]);
+  eq(bars.length, 3, "tiga bar dana");
+  eq(bars[0].nama, "ROBERT", "dana tersalurkan terbesar lebih dulu");
+  eq(bars[0].nilai, 7_000_000, "nilai Robert = total disalurkan");
+  eq(bars[0].berjalan, 6_000_000, "saldo berjalan ikut dibawa apa adanya");
+  eq(bars[0].persen, 100, "penyedia terbesar memakai bar penuh");
+  eq(bars[1].persen, 71.43, "bar Asep 5jt dari 7jt");
+  eq(bars[2].persen, 14.29, "bar Charel 1jt dari 7jt");
+  eq(bars[1].jumlahPinjaman, 7, "jumlah pinjaman ikut dibawa");
+  eq(bars[1].jumlahAktif, 4, "jumlah pinjaman berjalan ikut dibawa");
+  eq(bars[1].jumlahLunas, 3, "jumlah pinjaman lunas ikut dibawa");
+  // Jumlah seluruh bar = total dana tersalurkan semua penyedia.
+  eq(
+    bars.reduce((total, b) => total + b.nilai, 0),
+    13_000_000,
+    "jumlah bar = total dana tersalurkan",
+  );
+  eq(
+    bars.reduce((total, b) => total + b.berjalan, 0),
+    10_000_000,
+    "jumlah bagian berjalan = saldo berjalan semua penyedia",
+  );
+}
+
+{
+  // Seri diurutkan menurut nama; nol tetap nol (bukan bar penuh).
+  const bars = barDanaTersalurkan([
+    dana("BETA", 1_000_000, 0, 1, 0, 1),
+    dana("ALFA", 1_000_000, 1_000_000, 1, 1, 0),
+  ]);
+  eq(bars[0].nama, "ALFA", "seri dana diurutkan menurut nama");
+  eq(bars[0].persen, 100, "seri: keduanya bar penuh");
+  eq(bars[1].persen, 100, "seri: keduanya bar penuh");
+
+  const kosong = barDanaTersalurkan([dana("KOSONG", 0, 0, 0, 0, 0)]);
+  eq(kosong[0].persen, 0, "dana nol → panjang bar nol");
+  ok(!Number.isNaN(kosong[0].persen), "dana nol tidak menghasilkan NaN");
+  eq(barDanaTersalurkan([]).length, 0, "rekap kosong → tanpa bar dana");
 }
 
 const jumlah = barKeuntungan;

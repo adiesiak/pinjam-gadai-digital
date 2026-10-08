@@ -24,6 +24,7 @@ import { Link } from "react-router";
 import { RoleDashboardMenu } from "@/components/RoleDashboardMenu";
 import { VaultLogo } from "@/components/VaultLogo";
 import { CatatanPotonganAdmin } from "@/components/penyediaDana/CatatanPotonganAdmin";
+import { DanaTersalurkanPendana } from "@/components/penyediaDana/DanaTersalurkanPendana";
 import { GrafikKeuntunganPendana } from "@/components/penyediaDana/GrafikKeuntunganPendana";
 import { KartuPendana, type RincianPerkiraan } from "@/components/penyediaDana/KartuPendana";
 import { PetaLokasiPeminjam } from "@/components/penyediaDana/PetaLokasiPeminjam";
@@ -1576,6 +1577,14 @@ function IsiRuang() {
                     <GrafikKeuntunganPendana rekap={data.rekapPendana} />
                   </div>
                 )}
+
+                {/* Total dana tersalurkan per penyedia dana: angka pokok yang
+                    diminta pemilik produk, dipisah dari grafik keuntungan supaya
+                    modal dan hasil tidak tertukar. Selalu tampil — satu penyedia
+                    pun tetap mendapat totalnya di kepala kartu. */}
+                <div className="mt-3">
+                  <DanaTersalurkanPendana rekap={data.rekapPendana} />
+                </div>
 
                 <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                   {data.rekapPendana.map((r) => (
