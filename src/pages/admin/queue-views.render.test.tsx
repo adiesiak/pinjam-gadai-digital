@@ -18,8 +18,10 @@ import { renderToStaticMarkup } from "react-dom/server";
 import type { Id } from "@/convex/_generated/dataModel";
 import { LOAN_STATUS_FLOW } from "@/lib/loan";
 
-import { LoanQueueSection } from "./queue-views";
+import { LoanQueueSection, PawnQueueSection } from "./queue-views";
+import { CatatPengajuanManualButton } from "@/components/admin/CatatPengajuanManual";
 import type { LoanRow } from "@/components/admin/admin-shared";
+import { JENIS_MANUAL } from "@/lib/pengajuanManual";
 import { SUB_TAB_PINJAMAN } from "@/lib/subTabAntrean";
 
 let passed = 0;
@@ -157,6 +159,37 @@ function hitungTab(html: string): Map<string, number> {
   eq(jumlahTab, LOANS.length, "seluruh sub-tab status menjumlah ke \"Semua\"");
 
   bersih(html, "markup antrean pinjaman");
+}
+
+// ===== 3. Pencatatan pengajuan manual tersedia dari tab produknya =====
+{
+  // Tab Pinjaman: tombol tetap ada saat antrean kosong MAUPUN terisi — admin
+  // harus bisa mencatat pengajuan yang diterima di luar aplikasi kapan pun.
+  ada(
+    renderToStaticMarkup(<LoanQueueSection loans={[]} onOpen={() => {}} />),
+    "Catat pengajuan pinjaman",
+    "CTA pencatatan manual tampil saat antrean pinjaman kosong",
+  );
+  const isi = renderToStaticMarkup(<LoanQueueSection loans={LOANS} onOpen={() => {}} />);
+  ada(isi, "Catat pengajuan pinjaman", "CTA pencatatan manual tampil bersama antrean pinjaman");
+
+  // Tab Gadai: panel gadai kosong tetap menampilkan CTA-nya.
+  const gadai = renderToStaticMarkup(<PawnQueueSection pawns={[]} onOpen={() => {}} />);
+  ada(gadai, "Catat pengajuan gadai", "CTA pencatatan manual tampil di tab gadai");
+  bersih(gadai, "markup antrean gadai");
+
+  // Ketiga produk memakai komponen yang sama; labelnya tidak boleh tertukar,
+  // dan isi dialog baru dirender setelah tombolnya ditekan (bukan ikut tampil).
+  for (const jenis of ["pinjaman", "gadai", "kredit"] as const) {
+    const html = renderToStaticMarkup(<CatatPengajuanManualButton jenis={jenis} />);
+    ada(html, JENIS_MANUAL[jenis].cta, `tombol manual ${jenis} memakai label jenisnya`);
+    eq(
+      html.includes(JENIS_MANUAL[jenis].deskripsi),
+      false,
+      `isi dialog ${jenis} belum dirender sebelum tombolnya ditekan`,
+    );
+    bersih(html, `markup tombol manual ${jenis}`);
+  }
 }
 
 console.log(`queue-views.render.test: ${passed} lulus, ${failed} gagal`);

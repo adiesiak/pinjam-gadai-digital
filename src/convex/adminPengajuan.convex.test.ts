@@ -1,0 +1,358 @@
+/**
+ * Tes pencatatan pengajuan manual oleh admin (pinjaman, gadai, kredit barang).
+ * Jalankan: bunx vitest run src/convex/adminPengajuan.convex.test.ts
+ *
+ * Yang dijaga berkas ini — janji fitur "admin bisa menambahkan pengajuan secara
+ * manual", supaya tidak diterjemahkan sebagai jalan pintas:
+ *  1. barisnya benar-benar masuk antrean produknya dengan status `diajukan`,
+ *     jadi keputusan tetap lewat dialog review yang sudah diaudit;
+ *  2. plafon nasabah tetap mengikat — pencatatan manual bukan celah melewati
+ *     batas kredit;
+ *  3. identitas (NIK, WhatsApp, penghasilan, rekening) diambil dari data diri
+ *     tersimpan, dan kredit barang menolak dicatat sebelum data diri lengkap;
+ *  4. setiap pencatatan tercatat di Audit Trail dengan aksi `pengajuan_manual_*`;
+ *  5. hanya admin terverifikasi TOTP yang bisa mencari nasabah dan mencatat.
+ *
+ * Kill switch sengaja TIDAK menutup jalur ini (diuji di akhir): kill switch
+ * menghentikan pengajuan BARU dari aplikasi nasabah, sedangkan admin memakainya
+ * justru saat alur normal bermasalah.
+ */
+import { convexTest } from "convex-test";
+import { describe, expect, it } from "vitest";
+
+import { api } from "./_generated/api";
+import type { Id } from "./_generated/dataModel";
+import schema from "./schema";
+import { siapkanPengguna } from "./test.helpers";
+import { modules } from "./test.setup";
+import { DEFAULT_CONFIG } from "../lib/system-config";
+import { PLAFON_DEFAULT } from "../lib/plafon";
+
+/** Data diri lengkap satu nasabah — sumber identitas pencatatan manual. */
+async function simpanDataDiri(
+  t: ReturnType<typeof convexTest>,
+  userId: Id<"users">,
+  overrides: Partial<{
+    namaLengkap: string;
+    nik: string;
+    nomorWhatsApp: string;
+    namaBank: string;
+    nomorRekening: string;
+    penghasilanBulanan: number;
+    pekerjaan: string;
+  }> = {},
+): Promise<void> {
+  await t.run((ctx) =>
+    ctx.db.insert("nasabahProfil", {
+      userId,
+      namaLengkap: overrides.namaLengkap ?? "Rani Peminjam",
+      nik: overrides.nik ?? "3201234567890003",
+      nomorWhatsApp: overrides.nomorWhatsApp ?? "628123456791",
+      ...(overrides.namaBank !== undefined ? { namaBank: overrides.namaBank } : {}),
+      ...(overrides.nomorRekening !== undefined
+        ? { nomorRekening: overrides.nomorRekening }
+        : {}),
+      ...(overrides.pekerjaan !== undefined ? { pekerjaan: overrides.pekerjaan } : {}),
+      ...(overrides.penghasilanBulanan !== undefined
+        ? { penghasilanBulanan: overrides.penghasilanBulanan }
+        : {}),
+      diperbaruiPada: Date.now(),
+      diperbaruiOlehLabel: "admin@pindai.test",
+      sumber: "admin" as const,
+    }),
+  );
+}
+
+/** Baris audit terbaru untuk satu aksi. */
+async function auditTerakhir(t: ReturnType<typeof convexTest>, aksi: string) {
+  const rows = await t.run((ctx) => ctx.db.query("auditLog").collect());
+  return rows.filter((row) => row.aksi === aksi).sort((a, b) => b.waktu - a.waktu)[0] ?? null;
+}
+
+describe("pencatatan pengajuan manual oleh admin", () => {
+  it("mencatat pinjaman manual dari data diri dan masuk antrean review", async () => {
+    const t = convexTest(schema, modules);
+    const { sesi: admin } = await siapkanPengguna(t, "admin", {
+      email: "admin@pindai.test",
+      role: "admin",
+    });
+    const { userId } = await siapkanPengguna(t, "rani", {
+      email: "rani@pindai.test",
+      role: "peminjam",
+    });
+    await simpanDataDiri(t, userId, {
+      namaBank: "BRI",
+      nomorRekening: "1234567890",
+      pekerjaan: "Usaha warung",
+      penghasilanBulanan: 3_500_000,
+    });
+
+    const hasil = await admin.mutation(api.adminPengajuan.catatPinjamanManual, {
+      userIdTarget: userId,
+      pokokPinjaman: 900_000,
+      tenorHari: 30,
+      tujuan: "modal_usaha",
+      namaLengkap: "rani peminjam",
+    });
+    expect(hasil.nomorReferensi).toMatch(/^PGD-\d{8}-[A-Z2-9]{4}$/);
+
+    const loan = await t.run((ctx) => ctx.db.get(hasil.appId));
+    expect(loan).toMatchObject({
+      userId,
+      status: "diajukan",
+      pokokPinjaman: 900_000,
+      pokokDiajukan: 900_000,
+      namaLengkap: "RANI PEMINJAM",
+      namaBank: "BRI",
+      nomorRekening: "1234567890",
+      tenorHari: 30,
+      // Identitas & pekerjaan datang dari data diri, bukan diketik admin.
+      nik: "3201234567890003",
+      nomorWhatsApp: "628123456791",
+      penghasilanBulanan: 3_500_000,
+      sumberPenghasilan: "Usaha warung",
+      persenBunga: DEFAULT_CONFIG.persenBunga,
+    });
+    // Baris baru tidak melewati keputusan: catatan review masih kosong.
+    expect(loan?.catatanReview).toBeUndefined();
+
+    const user = await t.run((ctx) => ctx.db.get(userId));
+    expect(user?.kodePeminjam).toMatch(/^PMN-/);
+
+    const audit = await auditTerakhir(t, "pengajuan_manual_pinjaman");
+    expect(audit?.target).toBe(hasil.nomorReferensi);
+    // Label aktor = email admin, dan asal-usul manualnya tetap terbaca.
+    expect(audit?.aktorLabel).toBe("admin@pindai.test");
+    expect(audit?.detail).toContain("Pencatatan manual oleh admin");
+    expect(audit?.detail).toContain("antrean review");
+  });
+
+  it("plafon nasabah tetap mengikat pencatatan manual", async () => {
+    const t = convexTest(schema, modules);
+    const { sesi: admin } = await siapkanPengguna(t, "admin", {
+      email: "admin@pindai.test",
+      role: "admin",
+    });
+    const { userId } = await siapkanPengguna(t, "budi", {
+      email: "budi@pindai.test",
+      role: "peminjam",
+    });
+    await simpanDataDiri(t, userId, { nomorRekening: "1234567890" });
+
+    await admin.mutation(api.admin.setPlafonPeminjam, {
+      userId,
+      plafon: 300_000,
+      alasan: "Plafon diturunkan untuk uji",
+    });
+    await expect(
+      admin.mutation(api.adminPengajuan.catatPinjamanManual, {
+        userIdTarget: userId,
+        pokokPinjaman: 500_000,
+        tenorHari: 30,
+        tujuan: "modal_usaha",
+        namaLengkap: "Budi Peminjam",
+        namaBank: "BCA",
+        nomorRekening: "1234567890",
+      }),
+    ).rejects.toThrow(/Batas pinjaman Anda saat ini Rp 300\.000/);
+
+    // Di dalam plafon, pencatatan dilayani — dan plafon default global kembali
+    // menjadi acuan saat override dicabut.
+    await admin.mutation(api.admin.setPlafonPeminjam, { userId, plafon: null });
+    expect(PLAFON_DEFAULT).toBe(1_000_000);
+    await expect(
+      admin.mutation(api.adminPengajuan.catatPinjamanManual, {
+        userIdTarget: userId,
+        pokokPinjaman: 1_000_000,
+        tenorHari: 30,
+        tujuan: "modal_usaha",
+        namaLengkap: "Budi Peminjam",
+        namaBank: "BCA",
+        nomorRekening: "1234567890",
+      }),
+    ).resolves.toMatchObject({ nomorReferensi: expect.stringMatching(/^PGD-/) });
+  });
+
+  it("mencatat gadai manual sebagai diajukan tanpa menaksir barang", async () => {
+    const t = convexTest(schema, modules);
+    const { sesi: admin } = await siapkanPengguna(t, "admin", {
+      email: "admin@pindai.test",
+      role: "admin",
+    });
+    const { userId } = await siapkanPengguna(t, "sari", {
+      email: "sari@pindai.test",
+      role: "peminjam",
+    });
+
+    const hasil = await admin.mutation(api.adminPengajuan.catatGadaiManual, {
+      userIdTarget: userId,
+      deskripsiBarang: "iPhone 14 Pro 256 GB, kotak lengkap",
+      kategori: "Elektronik",
+      alamatPenilaian: "Jl. Merdeka No. 10, Bandung",
+      namaLengkap: "sari pemohon",
+      namaBank: "DANA",
+      nomorRekening: "081234567890",
+    });
+
+    const pawn = await t.run((ctx) => ctx.db.get(hasil.appId));
+    expect(pawn).toMatchObject({
+      userId,
+      status: "diajukan",
+      kategori: "Elektronik",
+      namaLengkap: "SARI PEMOHON",
+      nomorReferensi: hasil.nomorReferensi,
+    });
+    // Penilaian tim tidak boleh ditebak saat pencatatan manual.
+    expect(pawn?.nilaiTaksiran).toBeUndefined();
+    expect(pawn?.hargaPasar).toBeUndefined();
+    expect(pawn?.kondisiFisik).toBeUndefined();
+
+    const audit = await auditTerakhir(t, "pengajuan_manual_gadai");
+    expect(audit?.target).toBe(hasil.nomorReferensi);
+  });
+
+  it("menolak kredit manual sebelum data diri lengkap, lalu memakai identitas data diri", async () => {
+    const t = convexTest(schema, modules);
+    const { sesi: admin } = await siapkanPengguna(t, "admin", {
+      email: "admin@pindai.test",
+      role: "admin",
+    });
+    const { userId } = await siapkanPengguna(t, "dina", {
+      email: "dina@pindai.test",
+      role: "peminjam",
+    });
+
+    const permintaan = {
+      userIdTarget: userId,
+      namaBarang: "Samsung Galaxy A55 8/256",
+      kategori: "Elektronik",
+      merchant: "Tokopedia",
+      hargaBarang: 5_000_000,
+      tenorBulan: 6,
+    } as const;
+
+    await expect(
+      admin.mutation(api.adminPengajuan.catatKreditManual, permintaan),
+    ).rejects.toThrow(/Data diri nasabah belum lengkap/);
+
+    await simpanDataDiri(t, userId, { nomorRekening: "1234567892" });
+    const hasil = await admin.mutation(api.adminPengajuan.catatKreditManual, permintaan);
+    expect(hasil.nomorReferensi).toMatch(/^KRD-\d{8}-[A-Z2-9]{4}$/);
+
+    const kredit = await t.run((ctx) => ctx.db.get(hasil.appId));
+    expect(kredit).toMatchObject({
+      userId,
+      status: "diajukan",
+      dpPersen: 0,
+      tenorBulan: 6,
+      hargaBarang: 5_000_000,
+      namaLengkap: "Rani Peminjam",
+      nik: "3201234567890003",
+      nomorWhatsApp: "628123456791",
+      // Rekening kosong di form diisi dari data diri, bukan string kosong.
+      nomorRekening: "1234567892",
+    });
+
+    const audit = await auditTerakhir(t, "pengajuan_manual_kredit");
+    expect(audit?.target).toBe(hasil.nomorReferensi);
+  });
+
+  it("hanya admin terverifikasi yang boleh mencari nasabah dan mencatat", async () => {
+    const t = convexTest(schema, modules);
+    const { sesi: peminjam } = await siapkanPengguna(t, "rini", {
+      email: "rini@pindai.test",
+      role: "peminjam",
+    });
+    const { userId: targetId } = await siapkanPengguna(t, "bayu", {
+      email: "bayu@pindai.test",
+      role: "peminjam",
+    });
+
+    await expect(peminjam.query(api.adminPengajuan.cariNasabah, { kueri: "" })).rejects.toThrow(
+      /Akses khusus/i,
+    );
+    await expect(
+      peminjam.mutation(api.adminPengajuan.catatPinjamanManual, {
+        userIdTarget: targetId,
+        pokokPinjaman: 500_000,
+        tenorHari: 30,
+        tujuan: "modal_usaha",
+        namaLengkap: "Bayu Peminjam",
+        namaBank: "BCA",
+        nomorRekening: "1234567890",
+      }),
+    ).rejects.toThrow(/Akses khusus/i);
+    // Tidak ada baris yang tercipta saat gerbang menolak.
+    const loans = await t.run((ctx) => ctx.db.query("loans").collect());
+    expect(loans).toHaveLength(0);
+  });
+
+  it("pemilih nasabah menawarkan nasabah biasa, bukan akun admin, dan menandai data diri", async () => {
+    const t = convexTest(schema, modules);
+    const { sesi: admin } = await siapkanPengguna(t, "admin", {
+      email: "admin@pindai.test",
+      role: "admin",
+    });
+    const { userId: denganDataDiri } = await siapkanPengguna(t, "rani", {
+      email: "rani@pindai.test",
+      role: "peminjam",
+    });
+    const { userId: tanpaDataDiri } = await siapkanPengguna(t, "bayu", {
+      email: "bayu@pindai.test",
+      role: "peminjam",
+    });
+    await simpanDataDiri(t, denganDataDiri, { nomorRekening: "1234567890" });
+
+    const semua = await admin.query(api.adminPengajuan.cariNasabah, { kueri: "" });
+    const idDitemukan = semua.hasil.map((n) => n.userId);
+    expect(idDitemukan).toContain(denganDataDiri);
+    expect(idDitemukan).toContain(tanpaDataDiri);
+    expect(idDitemukan).not.toContain(
+      (await admin.query(api.adminPengajuan.cariNasabah, { kueri: "admin@pindai.test" })).hasil[0]
+        ?.userId,
+    );
+
+    const pencarian = await admin.query(api.adminPengajuan.cariNasabah, { kueri: "rani" });
+    expect(pencarian.hasil).toHaveLength(1);
+    expect(pencarian.hasil[0]).toMatchObject({
+      nama: "rani",
+      email: "rani@pindai.test",
+      adaDataDiri: true,
+      nomorRekening: "1234567890",
+    });
+
+    const kosong = await admin.query(api.adminPengajuan.cariNasabah, { kueri: "tidak-ada" });
+    expect(kosong.hasil).toHaveLength(0);
+  });
+
+  it("kill switch tidak menutup pencatatan manual admin", async () => {
+    const t = convexTest(schema, modules);
+    const { sesi: admin } = await siapkanPengguna(t, "admin", {
+      email: "admin@pindai.test",
+      role: "admin",
+    });
+    const { userId } = await siapkanPengguna(t, "tomi", {
+      email: "tomi@pindai.test",
+      role: "peminjam",
+    });
+    await t.run((ctx) =>
+      ctx.db.insert("systemConfig", {
+        slot: "global",
+        killSwitch: true,
+        diperbaruiPada: Date.now(),
+      }),
+    );
+
+    await expect(
+      admin.mutation(api.adminPengajuan.catatGadaiManual, {
+        userIdTarget: userId,
+        deskripsiBarang: "Sepeda motor Honda Beat 2020",
+        kategori: "Kendaraan",
+        alamatPenilaian: "Jl. Sudirman No. 5, Jakarta",
+        namaLengkap: "Tomi Pemohon",
+        namaBank: "BCA",
+        nomorRekening: "1234567891",
+      }),
+    ).resolves.toMatchObject({ nomorReferensi: expect.stringMatching(/^PGD-/) });
+  });
+});

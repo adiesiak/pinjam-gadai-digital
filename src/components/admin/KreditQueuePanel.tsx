@@ -3,6 +3,7 @@ import { CheckCircle2, Loader2, Search, Send, ShoppingBag, Trash2, XCircle } fro
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
+import { CatatPengajuanManualButton } from "@/components/admin/CatatPengajuanManual";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -178,30 +179,40 @@ export function KreditQueuePanel() {
 
   if (rows.length === 0) {
     return (
-      <EmptyQueue
-        icon={ShoppingBag}
-        title="Belum ada pengajuan kredit barang"
-        deskripsi="Pengajuan kredit barang akan tampil di sini setelah nasabah mengajukan pembelian barang."
-        poin={[
-          "Barang, merchant, dan harga yang diajukan",
-          "Hitungan cicilan serta DP aplikasi",
-          "Alur persetujuan hingga pelunasan",
-        ]}
-      />
+      <div className="space-y-3">
+        {/* Pencatatan manual tetap tersedia walau antrean kosong: pengajuan
+            yang diterima di luar aplikasi masuk lewat jalur ini. */}
+        <div className="flex justify-end">
+          <CatatPengajuanManualButton jenis="kredit" />
+        </div>
+        <EmptyQueue
+          icon={ShoppingBag}
+          title="Belum ada pengajuan kredit barang"
+          deskripsi="Pengajuan kredit barang akan tampil di sini setelah nasabah mengajukan pembelian barang."
+          poin={[
+            "Barang, merchant, dan harga yang diajukan",
+            "Hitungan cicilan serta DP aplikasi",
+            "Alur persetujuan hingga pelunasan",
+          ]}
+        />
+      </div>
     );
   }
 
   return (
     <div className="animate-masuk space-y-8">
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          aria-label="Cari pengajuan kredit barang"
-          value={search}
-          onChange={(event) => setSearch(event.target.value)}
-          placeholder="Cari nama pemohon, email, referensi, barang, merchant, atau catatan…"
-          className="pl-9"
-        />
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="relative min-w-0 flex-1">
+          <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            aria-label="Cari pengajuan kredit barang"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Cari nama pemohon, email, referensi, barang, merchant, atau catatan…"
+            className="pl-9"
+          />
+        </div>
+        <CatatPengajuanManualButton jenis="kredit" />
       </div>
       {filteredRows.length === 0 ? (
         <p className="rounded-2xl border border-dashed border-slate-200 bg-white px-5 py-8 text-center text-sm text-muted-foreground">

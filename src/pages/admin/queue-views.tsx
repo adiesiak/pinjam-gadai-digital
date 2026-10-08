@@ -3,6 +3,7 @@ import { useMemo, useState } from "react";
 
 import { GadaiDanaPanel } from "@/components/GadaiDanaPanel";
 import { StatusBadge } from "@/components/StatusBadge";
+import { CatatPengajuanManualButton } from "@/components/admin/CatatPengajuanManual";
 import { formatDate } from "@/components/admin/admin-format";
 import {
   EmptyQueue,
@@ -51,10 +52,22 @@ export function LoanQueueSection({
     );
   }, [loans, search, cocokAktif]);
   if (loans.length === 0) {
-    return <EmptyQueue icon={ClipboardList} title="Belum ada pengajuan pinjaman" />;
+    return (
+      <div className="space-y-3">
+        {/* Pencatatan manual tetap tersedia walau antrean kosong: pengajuan
+            yang diterima di luar aplikasi masuk lewat jalur ini. */}
+        <div className="flex justify-end">
+          <CatatPengajuanManualButton jenis="pinjaman" />
+        </div>
+        <EmptyQueue icon={ClipboardList} title="Belum ada pengajuan pinjaman" />
+      </div>
+    );
   }
   return (
     <div className="space-y-3">
+      <div className="flex justify-end">
+        <CatatPengajuanManualButton jenis="pinjaman" />
+      </div>
       <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-900">
         Nominal dan status pinjaman yang ditampilkan mengikuti catatan ledger internal.
       </p>
@@ -126,6 +139,9 @@ export function PawnQueueSection({
   }, [pawns, search, cocokAktif]);
   return (
     <>
+      <div className="mb-3 flex justify-end">
+        <CatatPengajuanManualButton jenis="gadai" />
+      </div>
       {pawns.length === 0 ? (
         <EmptyQueue
           icon={Package}

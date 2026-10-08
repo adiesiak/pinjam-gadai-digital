@@ -1,0 +1,186 @@
+import { useQuery } from "convex/react";
+import { Loader2, Plus, Search, ShieldAlert, UserCheck } from "lucide-react";
+import { useState } from "react";
+import { toast } from "sonner";
+
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { api } from "@/convex/_generated/api";
+import { JENIS_MANUAL, type NasabahManual } from "@/lib/pengajuanManual";
+import type { JenisPengajuan } from "@/lib/jenisPengajuan";
+
+import { FormGadaiManual } from "./pengajuan-manual/FormGadaiManual";
+import { FormKreditManual } from "./pengajuan-manual/FormKreditManual";
+import { FormPinjamanManual } from "./pengajuan-manual/FormPinjamanManual";
+
+/**
+ * Pencatatan pengajuan manual dari panel admin.
+ *
+ * Admin memilih nasabah lebih dulu, baru mengisi data pengajuan — supaya setiap
+ * baris yang dibuat benar-benar milik satu akun, dan identitas pemohon (NIK,
+ * WhatsApp, penghasilan) diambil dari data diri tersimpan, bukan diketik ulang.
+ * Setelah tercatat, pengajuan masuk antrean produknya seperti pengajuan biasa;
+ * keputusan tetap lewat dialog review yang sudah ada.
+ */
+
+/** Pencarian & pemilihan nasabah tujuan pencatatan. */
+function PencariNasabah({ onPilih }: { onPilih: (nasabah: NasabahManual) => void }) {
+  const [kueri, setKueri] = useState("");
+  const hasil = useQuery(api.adminPengajuan.cariNasabah, { kueri });
+  return (
+    <div className="space-y-3">
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          aria-label="Cari nasabah tujuan pencatatan"
+          value={kueri}
+          onChange={(event) => setKueri(event.target.value)}
+          placeholder="Cari nama, email, kode peminjam, atau NIK…"
+          className="pl-9"
+          autoFocus
+        />
+      </div>
+      {hasil === undefined ? (
+        <p className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-6 text-sm text-muted-foreground">
+          <Loader2 className="size-4 animate-spin" /> Mencari nasabah…
+        </p>
+      ) : hasil.hasil.length === 0 ? (
+        <p className="rounded-xl border border-dashed border-slate-200 bg-white px-4 py-6 text-center text-sm text-muted-foreground">
+          Tidak ada nasabah yang cocok. Pastikan nasabah sudah punya akun terverifikasi.
+        </p>
+      ) : (
+        <ul className="max-h-72 divide-y divide-slate-200 overflow-y-auto rounded-xl border border-slate-200 bg-white">
+          {hasil.hasil.map((n) => (
+            <li key={n.userId}>
+              <button
+                type="button"
+                onClick={() => onPilih(n)}
+                className="flex w-full items-start justify-between gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/50"
+              >
+                <span className="min-w-0">
+                  <span className="block truncate text-sm font-medium text-navy">{n.nama}</span>
+                  <span className="mt-0.5 block truncate text-xs text-muted-foreground">
+                    {n.email ?? "tanpa email"} · {n.kodePeminjam ?? "tanpa kode peminjam"}
+                  </span>
+                </span>
+                {n.adaDataDiri ? (
+                  <Badge className="border-0 bg-emerald-100 text-emerald-700 hover:bg-emerald-100">
+                    <UserCheck className="mr-1 size-3.5" /> Data diri lengkap
+                  </Badge>
+                ) : (
+                  <Badge className="border-0 bg-amber-100 text-amber-800 hover:bg-amber-100">
+                    <ShieldAlert className="mr-1 size-3.5" /> Belum ada data diri
+                  </Badge>
+                )}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      <p className="text-xs leading-5 text-muted-foreground">
+        NIK, nomor WhatsApp, penghasilan, dan rekening tujuan diambil dari Data Diri
+        nasabah. Pengajuan kredit barang hanya bisa dicatat setelah data diri lengkap.
+      </p>
+    </div>
+  );
+}
+
+/**
+ * Tombol + dialog pencatatan manual satu produk. Dipasang di tab produk yang
+ * bersangkutan agar admin menambah pengajuan dari tempat ia meninjaunya.
+ */
+export function CatatPengajuanManualButton({ jenis }: { jenis: JenisPengajuan }) {
+  const [terbuka, setTerbuka] = useState(false);
+  const [nasabah, setNasabah] = useState<NasabahManual | null>(null);
+  const info = JENIS_MANUAL[jenis];
+
+  const tutup = () => {
+    setTerbuka(false);
+    setNasabah(null);
+  };
+
+  return (
+    <>
+      <Button
+        size="sm"
+        variant="outline"
+        className="rounded-full"
+        onClick={() => setTerbuka(true)}
+      >
+        <Plus className="mr-1.5 size-4" /> {info.cta}
+      </Button>
+      <Dialog
+        open={terbuka}
+        onOpenChange={(nilai) => {
+          if (!nilai) tutup();
+          else setTerbuka(true);
+        }}
+      >
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>{info.judul}</DialogTitle>
+            <DialogDescription>{info.deskripsi}</DialogDescription>
+          </DialogHeader>
+
+          {nasabah === null ? (
+            <PencariNasabah onPilih={setNasabah} />
+          ) : (
+            <div className="space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+                <div className="min-w-0">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400">
+                    Nasabah tujuan
+                  </p>
+                  <p className="mt-0.5 truncate text-sm font-semibold text-navy">{nasabah.nama}</p>
+                  <p className="truncate text-xs text-muted-foreground">
+                    {nasabah.email ?? "tanpa email"} · {nasabah.kodePeminjam ?? "tanpa kode peminjam"}
+                    {!nasabah.adaDataDiri && " · data diri belum ada"}
+                  </p>
+                </div>
+                <Button variant="ghost" size="sm" className="rounded-full" onClick={() => setNasabah(null)}>
+                  Ganti nasabah
+                </Button>
+              </div>
+
+              {jenis === "pinjaman" && (
+                <FormPinjamanManual
+                  nasabah={nasabah}
+                  onSukses={(referensi) => {
+                    toast.success(`Pengajuan pinjaman ${referensi} tercatat untuk ${nasabah.nama}.`);
+                    tutup();
+                  }}
+                />
+              )}
+              {jenis === "gadai" && (
+                <FormGadaiManual
+                  nasabah={nasabah}
+                  onSukses={(referensi) => {
+                    toast.success(`Pengajuan gadai ${referensi} tercatat untuk ${nasabah.nama}.`);
+                    tutup();
+                  }}
+                />
+              )}
+              {jenis === "kredit" && (
+                <FormKreditManual
+                  nasabah={nasabah}
+                  onSukses={(referensi) => {
+                    toast.success(`Pengajuan kredit ${referensi} tercatat untuk ${nasabah.nama}.`);
+                    tutup();
+                  }}
+                />
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}

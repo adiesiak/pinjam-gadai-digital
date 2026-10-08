@@ -130,7 +130,7 @@ export function AdminTabs({
         {
           value: "pinjaman",
           label: "Pinjaman",
-          hint: "Tinjau dan putuskan pengajuan pinjaman tunai.",
+          hint: "Tinjau pengajuan pinjaman tunai, atau catat pengajuan yang diterima di luar aplikasi.",
           badge: `${hitungMenunggu(overview.loans, "pinjaman")}`,
           hitung: "menunggu",
           Icon: ClipboardList,
@@ -138,7 +138,7 @@ export function AdminTabs({
         {
           value: "gadai",
           label: "Gadai",
-          hint: "Tinjau pengajuan gadai dan nilai barang jaminan.",
+          hint: "Tinjau pengajuan gadai dan nilai barang jaminan, atau catat pengajuan manual.",
           badge: `${hitungMenunggu(overview.pawns, "gadai")}`,
           hitung: "menunggu",
           Icon: Package,
@@ -146,7 +146,7 @@ export function AdminTabs({
         {
           value: "kredit",
           label: "Kredit Barang",
-          hint: "Tinjau pengajuan kredit barang.",
+          hint: "Tinjau pengajuan kredit barang, atau catat pengajuan manual atas nama nasabah.",
           badge: `${hitungMenunggu(overview.kredit, "kredit")}`,
           hitung: "menunggu",
           Icon: ShoppingBag,
