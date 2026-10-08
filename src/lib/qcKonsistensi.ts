@@ -91,7 +91,12 @@ export type RekapPendanaQc = {
   saldoBerjalan: number;
   totalBunga: number;
   keuntunganPendana: number;
+  /** Pecahan keuntungan penyedia: sudah lunas (dibukukan) dan belum lunas (proyeksi). */
+  keuntunganPendanaLunas: number;
+  keuntunganPendanaBelumLunas: number;
   keuntunganAdmin: number;
+  keuntunganAdminLunas: number;
+  keuntunganAdminBelumLunas: number;
   transferBelumDicatat: number;
   keuntunganBelumDicatat: number;
 };
@@ -102,6 +107,11 @@ export type RuangQc = {
     totalBungaPinjaman: number;
     totalKeuntunganAdmin: number;
     totalKeuntunganPendana: number;
+    /** Pecahan "sudah lunas" (dibukukan) dan "belum lunas" (proyeksi). */
+    totalKeuntunganPendanaLunas: number;
+    totalKeuntunganPendanaBelumLunas: number;
+    totalKeuntunganAdminLunas: number;
+    totalKeuntunganAdminBelumLunas: number;
     totalTransferBelumDicatat: number;
     nilaiTransferBelumDicatat: number;
     persenBunga: number;
@@ -442,6 +452,72 @@ export function jalankanQc(input: InputQc): HasilQc {
       `bunga ${rp(ruang.ringkasan.totalBungaPinjaman)}`,
       `admin ${rp(ruang.ringkasan.totalKeuntunganAdmin)}`,
       `penyedia ${rp(ruang.ringkasan.totalKeuntunganPendana)}`,
+    ],
+  );
+
+  // 3b) Keuntungan pinjaman yang BELUM lunas harus dilaporkan terpisah dari
+  // yang sudah lunas. Kalau tercampur, penyedia dana membaca uang yang belum
+  // masuk sebagai haknya yang sudah cair.
+  const bedaPemisahan: string[] = [];
+  for (const r of rekap) {
+    if (r.keuntunganPendanaLunas + r.keuntunganPendanaBelumLunas !== r.keuntunganPendana) {
+      bedaPemisahan.push(
+        `${r.nama}: penyedia ${rp(r.keuntunganPendanaLunas)} + ${rp(r.keuntunganPendanaBelumLunas)} ≠ ${rp(r.keuntunganPendana)}`,
+      );
+    }
+    if (r.keuntunganAdminLunas + r.keuntunganAdminBelumLunas !== r.keuntunganAdmin) {
+      bedaPemisahan.push(
+        `${r.nama}: admin ${rp(r.keuntunganAdminLunas)} + ${rp(r.keuntunganAdminBelumLunas)} ≠ ${rp(r.keuntunganAdmin)}`,
+      );
+    }
+  }
+  const jumlahPemisahan = {
+    pendanaLunas: jumlah(rekap, (r) => r.keuntunganPendanaLunas),
+    pendanaBelumLunas: jumlah(rekap, (r) => r.keuntunganPendanaBelumLunas),
+    adminLunas: jumlah(rekap, (r) => r.keuntunganAdminLunas),
+    adminBelumLunas: jumlah(rekap, (r) => r.keuntunganAdminBelumLunas),
+  };
+  const pasanganPemisahan: Array<[string, number, number]> = [
+    [
+      "keuntungan penyedia sudah lunas",
+      ruang.ringkasan.totalKeuntunganPendanaLunas,
+      jumlahPemisahan.pendanaLunas,
+    ],
+    [
+      "keuntungan penyedia belum lunas",
+      ruang.ringkasan.totalKeuntunganPendanaBelumLunas,
+      jumlahPemisahan.pendanaBelumLunas,
+    ],
+    [
+      "potongan admin sudah lunas",
+      ruang.ringkasan.totalKeuntunganAdminLunas,
+      jumlahPemisahan.adminLunas,
+    ],
+    [
+      "potongan admin belum lunas",
+      ruang.ringkasan.totalKeuntunganAdminBelumLunas,
+      jumlahPemisahan.adminBelumLunas,
+    ],
+  ];
+  for (const [label, tampil, hitung] of pasanganPemisahan) {
+    if (tampil !== hitung) {
+      bedaPemisahan.push(`${label}: tampil ${rp(tampil)} vs jumlah ${rp(hitung)}`);
+    }
+  }
+  tambah(
+    "pemisahan-lunas",
+    GRUP_QC[1],
+    "Keuntungan pinjaman belum lunas dilaporkan terpisah dari yang sudah lunas",
+    rekap.length === 0 ? "lewat" : bedaPemisahan.length === 0 ? "lulus" : "gagal",
+    rekap.length === 0
+      ? "Belum ada pendana dengan posisi pinjaman."
+      : bedaPemisahan.length === 0
+        ? `Pecahan cocok pada ${rekap.length} pendana: penyedia ${rp(jumlahPemisahan.pendanaLunas)} sudah lunas + ${rp(jumlahPemisahan.pendanaBelumLunas)} belum lunas = ${rp(ruang.ringkasan.totalKeuntunganPendana)}; potongan admin ${rp(jumlahPemisahan.adminLunas)} + ${rp(jumlahPemisahan.adminBelumLunas)} = ${rp(ruang.ringkasan.totalKeuntunganAdmin)}.`
+        : `${bedaPemisahan.length} angka tidak cocok: ${batasi(bedaPemisahan)}`,
+    [
+      rp(jumlahPemisahan.pendanaLunas),
+      rp(jumlahPemisahan.pendanaBelumLunas),
+      rp(ruang.ringkasan.totalKeuntunganPendana),
     ],
   );
 

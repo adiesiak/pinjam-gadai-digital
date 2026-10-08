@@ -1001,6 +1001,73 @@ describe("ruang penyedia dana (lihat saja)", () => {
     const semua = await t.run((ctx) => ctx.db.query("users").collect());
     expect(semua.filter((u) => u.role === "dana")).toHaveLength(0);
   });
+
+  it("melaporkan keuntungan pinjaman belum lunas terpisah dari yang sudah lunas", async () => {
+    const t = convexTest(schema, modules);
+    const { userId: peminjamId } = await siapkanPengguna(t, "rani", {
+      email: "rani@pindai.test",
+      role: "peminjam",
+    });
+    const { sesi: penyedia, userId: penyediaId } = await siapkanPengguna(t, "Robert", {
+      email: "robert@pindai.test",
+      role: "dana",
+    });
+    const { loanId } = await seedPengajuan(t, peminjamId);
+
+    await t.run(async (ctx) => {
+      // 1. Masih berjalan (belum lunas): pokok 2jt → Imbal Hasil 600rb,
+      //    potongan admin 5% dari 2,6jt = 130rb.
+      await ctx.db.patch(loanId, {
+        status: "didanai",
+        pokokPinjaman: 2_000_000,
+        pendanaId: penyediaId,
+        pendanaNama: "Robert",
+        didanaiPada: Date.now(),
+      });
+      // 2. Sudah lunas: pokok 1jt → Imbal Hasil 300rb, potongan admin 65rb.
+      await ctx.db.insert("loans", {
+        userId: peminjamId,
+        pokokPinjaman: 1_000_000,
+        tujuan: "Renovasi rumah",
+        namaLengkap: NAMA_PEMOHON,
+        nomorRekening: RAHASIA.nomorRekening,
+        status: "lunas",
+        nomorReferensi: "PGD-BAGI-LUNAS",
+        tenorHari: 30,
+        didanaiPada: Date.now() - 5_000,
+        lunasPada: Date.now(),
+        pendanaId: penyediaId,
+        pendanaNama: "Robert",
+      });
+    });
+
+    const hasil = await penyedia.query(api.penyediaDana.daftarPengajuan, {});
+    const rekap = hasil.rekapPendana.find((r) => r.nama === "Robert");
+    expect(rekap).toBeDefined();
+
+    // Pinjaman lunas 1jt: bersih 300rb − 65rb = 235rb (sudah dibukukan).
+    expect(rekap?.keuntunganPendanaLunas).toBe(235_000);
+    expect(rekap?.keuntunganAdminLunas).toBe(65_000);
+    // Pinjaman berjalan 2jt: bersih 600rb − 130rb = 470rb (masih proyeksi).
+    expect(rekap?.keuntunganPendanaBelumLunas).toBe(470_000);
+    expect(rekap?.keuntunganAdminBelumLunas).toBe(130_000);
+    // Total tetap jumlah kedua bagian, bukan angka yang tercampur.
+    expect(rekap?.keuntunganPendana).toBe(705_000);
+    expect(rekap?.keuntunganAdmin).toBe(195_000);
+    expect(
+      (rekap?.keuntunganPendanaLunas ?? 0) + (rekap?.keuntunganPendanaBelumLunas ?? 0),
+    ).toBe(rekap?.keuntunganPendana);
+
+    // Ringkasan bagian memakai pemisahan yang sama.
+    expect(hasil.ringkasan).toMatchObject({
+      totalKeuntunganPendana: 705_000,
+      totalKeuntunganPendanaLunas: 235_000,
+      totalKeuntunganPendanaBelumLunas: 470_000,
+      totalKeuntunganAdmin: 195_000,
+      totalKeuntunganAdminLunas: 65_000,
+      totalKeuntunganAdminBelumLunas: 130_000,
+    });
+  });
 });
 
 describe("kelola penyedia dana (panel admin)", () => {

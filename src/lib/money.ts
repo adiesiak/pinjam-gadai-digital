@@ -36,6 +36,19 @@ export function formatRupiah(v: Rupiah): string {
 }
 
 /**
+ * Format rupiah defensif untuk tampilan: satu angka warisan non-bulat tidak
+ * boleh merobohkan seluruh halaman (mis. rekap ruang penyedia dana yang harus
+ * tetap terbaca). Angka tetap dicetak apa adanya, tanpa pembulatan diam-diam.
+ */
+export function formatRupiahAman(v: Rupiah): string {
+  try {
+    return formatRupiah(v);
+  } catch {
+    return `Rp ${Number(v).toLocaleString("id-ID")}`;
+  }
+}
+
+/**
  * Parse user input into integer rupiah. Accepts "2.500.000", "2500000",
  * "2,5 juta"-free plain digits with optional separators. Rounds HALF-UP when
  * the user types decimals — the half cent goes to the user, never to the house.

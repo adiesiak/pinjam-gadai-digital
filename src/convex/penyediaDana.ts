@@ -173,10 +173,23 @@ export type RekapPendana = {
   saldoBerjalan: number;
   /** Total bunga (kewajiban − pokok) pinjaman berjalan + lunas. */
   totalBunga: number;
-  /** Keuntungan bersih penyedia dana (bunga − potongan admin). */
+  /**
+   * Keuntungan bersih penyedia dana (bunga − potongan admin) dari SELURUH
+   * pinjaman berjalan + lunas. Pecahannya dilaporkan terpisah di bawah: yang
+   * sudah lunas (dibukukan) tidak boleh tercampur dengan yang masih berjalan
+   * (proyeksi), karena uangnya belum masuk.
+   */
   keuntunganPendana: number;
-  /** Keuntungan admin dari pinjaman penyedia dana ini. */
+  /** Bagian yang sudah dibukukan — pinjaman berstatus lunas. */
+  keuntunganPendanaLunas: number;
+  /** Bagian proyeksi — pinjaman berjalan (didanai), belum lunas & belum dibukukan. */
+  keuntunganPendanaBelumLunas: number;
+  /** Potongan admin atas pinjaman penyedia dana ini (berjalan + lunas). */
   keuntunganAdmin: number;
+  /** Bagian potongan admin dari pinjaman lunas (sudah dibukukan). */
+  keuntunganAdminLunas: number;
+  /** Bagian potongan admin dari pinjaman belum lunas (proyeksi). */
+  keuntunganAdminBelumLunas: number;
   /** Pinjaman lunas yang keuntungannya sudah dicatat ditransfer admin. */
   transferTercatat: number;
   /** Pinjaman lunas yang catatan transfernya belum dibuat admin. */
@@ -537,7 +550,11 @@ export const daftarPengajuan = query({
           saldoBerjalan: 0,
           totalBunga: 0,
           keuntunganPendana: 0,
+          keuntunganPendanaLunas: 0,
+          keuntunganPendanaBelumLunas: 0,
           keuntunganAdmin: 0,
+          keuntunganAdminLunas: 0,
+          keuntunganAdminBelumLunas: 0,
           transferTercatat: 0,
           transferBelumDicatat: 0,
           keuntunganBelumDicatat: 0,
@@ -550,6 +567,15 @@ export const daftarPengajuan = query({
       r.totalBunga += b.bunga;
       r.keuntunganPendana += b.keuntunganPendana;
       r.keuntunganAdmin += b.keuntunganAdmin;
+      // Keuntungan pinjaman yang BELUM lunas dilaporkan terpisah dari yang sudah
+      // lunas: yang lunas sudah dibukukan ledger, yang berjalan masih proyeksi.
+      if (b.status === "lunas") {
+        r.keuntunganPendanaLunas += b.keuntunganPendana;
+        r.keuntunganAdminLunas += b.keuntunganAdmin;
+      } else {
+        r.keuntunganPendanaBelumLunas += b.keuntunganPendana;
+        r.keuntunganAdminBelumLunas += b.keuntunganAdmin;
+      }
       // Kewajiban transfer hanya muncul pada pinjaman lunas (bunga sudah
       // terbayar penuh). Pinjaman berjalan belum jatuh tempo.
       if (b.status === "lunas") {
@@ -585,6 +611,27 @@ export const daftarPengajuan = query({
       /** Keuntungan bersih penyedia dana dari pinjaman berjalan/lunas. */
       totalKeuntunganPendana: rekapPendana.reduce(
         (total, r) => total + r.keuntunganPendana,
+        0,
+      ),
+      /**
+       * Pecahan keuntungan di atas. "Sudah lunas" = uang yang benar-benar sudah
+       * masuk (dibukukan saat pelunasan); "belum lunas" = proyeksi atas pinjaman
+       * yang masih berjalan, belum dibukukan.
+       */
+      totalKeuntunganPendanaLunas: rekapPendana.reduce(
+        (total, r) => total + r.keuntunganPendanaLunas,
+        0,
+      ),
+      totalKeuntunganPendanaBelumLunas: rekapPendana.reduce(
+        (total, r) => total + r.keuntunganPendanaBelumLunas,
+        0,
+      ),
+      totalKeuntunganAdminLunas: rekapPendana.reduce(
+        (total, r) => total + r.keuntunganAdminLunas,
+        0,
+      ),
+      totalKeuntunganAdminBelumLunas: rekapPendana.reduce(
+        (total, r) => total + r.keuntunganAdminBelumLunas,
         0,
       ),
       /** Pinjaman lunas yang catatan transfer keuntungannya belum dibuat admin. */

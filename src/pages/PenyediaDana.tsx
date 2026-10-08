@@ -24,6 +24,7 @@ import { Link } from "react-router";
 import { RoleDashboardMenu } from "@/components/RoleDashboardMenu";
 import { VaultLogo } from "@/components/VaultLogo";
 import { CatatanPotonganAdmin } from "@/components/penyediaDana/CatatanPotonganAdmin";
+import { KartuPendana } from "@/components/penyediaDana/KartuPendana";
 import { PetaLokasiPeminjam } from "@/components/penyediaDana/PetaLokasiPeminjam";
 import { SaringanPengajuan } from "@/components/penyediaDana/SaringanPengajuan";
 import { StatusBadge } from "@/components/StatusBadge";
@@ -63,12 +64,11 @@ import type {
   BarisKredit,
   BarisPinjaman,
   LokasiTitik,
-  RekapPendana,
 } from "@/convex/penyediaDana";
 import { useAuth } from "@/hooks/use-auth";
 import { quoteKreditBarang } from "@/lib/kredit";
 import { BULAN_MS, quotePinjaman, simulasiBulananPinjaman } from "@/lib/loan";
-import { formatRupiah } from "@/lib/money";
+import { formatRupiahAman } from "@/lib/money";
 import {
   adaFilter,
   daftarPendana,
@@ -119,12 +119,10 @@ function coba<T>(fn: () => T): T | null {
  * Format rupiah defensif: halaman baca-saja tidak boleh gagal total hanya
  * karena satu baris data warisan bernilai bukan rupiah bulat.
  */
+/** Format rupiah defensif — satu angka warisan non-bulat tidak boleh
+ * merobohkan halaman ini (lihat `formatRupiahAman`). */
 function rupiah(nilai: number): string {
-  try {
-    return formatRupiah(nilai);
-  } catch {
-    return `Rp ${Number(nilai).toLocaleString("id-ID")}`;
-  }
+  return formatRupiahAman(nilai);
 }
 
 /** Satu bulan = 30 hari, mengikuti lib/loan (BULAN_MS). */
@@ -281,75 +279,6 @@ function KartuRingkasan({
       </div>
       <p className="mt-3 text-lg font-semibold tabular-nums">{nilai}</p>
       <p className="mt-0.5 text-xs text-muted-foreground">{detail}</p>
-    </div>
-  );
-}
-
-/**
- * Kartu rekap satu penyedia dana (model 1 pinjaman = 1 pendana): jumlah
- * pinjaman, pokok yang bekerja, keuntungan bersih pendana, dan biaya platform.
- */
-function KartuPendana({ r }: { r: RekapPendana }) {
-  return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="inline-flex items-center gap-1.5 font-semibold uppercase text-slate-900">
-          <Wallet className="size-3.5 text-primary" aria-hidden /> {r.nama}
-        </p>
-        <Badge
-          variant="outline"
-          className="border-slate-200 text-[10px] font-medium text-slate-500"
-        >
-          {r.jumlahPinjaman} pinjaman · {r.jumlahAktif} aktif · {r.jumlahLunas} lunas
-        </Badge>
-      </div>
-      <dl className="mt-3 space-y-1.5 text-xs">
-        <div className="flex items-baseline justify-between gap-2">
-          <dt className="text-muted-foreground">Total disalurkan</dt>
-          <dd className="font-medium tabular-nums text-slate-900">
-            {rupiah(r.totalDisalurkan)}
-          </dd>
-        </div>
-        <div className="flex items-baseline justify-between gap-2">
-          <dt className="text-muted-foreground">Saldo berjalan</dt>
-          <dd className="font-medium tabular-nums text-slate-900">
-            {rupiah(r.saldoBerjalan)}
-          </dd>
-        </div>
-        <div className="flex items-baseline justify-between gap-2">
-          <dt className="text-muted-foreground">Keuntungan pendana</dt>
-          <dd className="font-semibold tabular-nums text-emerald-700">
-            {rupiah(r.keuntunganPendana)}
-          </dd>
-        </div>
-        <div className="flex items-baseline justify-between gap-2">
-          <dt className="text-muted-foreground">Potongan admin (dari uang kembali)</dt>
-          <dd className="font-semibold tabular-nums text-amber-700">
-            {rupiah(r.keuntunganAdmin)}
-          </dd>
-        </div>
-        <div className="flex items-baseline justify-between gap-2 border-t border-slate-100 pt-1.5">
-          <dt className="text-muted-foreground">Transfer keuntungan</dt>
-          <dd className="text-right">
-            {r.jumlahLunas === 0 ? (
-              <span className="text-[11px] text-muted-foreground">belum ada pinjaman lunas</span>
-            ) : r.transferBelumDicatat === 0 ? (
-              <Badge className="border-0 bg-emerald-100 text-[10px] text-emerald-700 hover:bg-emerald-100">
-                <BadgeCheck className="mr-1 size-3" /> semua sudah dicatat
-              </Badge>
-            ) : (
-              <span className="inline-flex flex-col items-end gap-0.5">
-                <Badge className="border-0 bg-amber-100 text-[10px] text-amber-800 hover:bg-amber-100">
-                  <TriangleAlert className="mr-1 size-3" /> {r.transferBelumDicatat} belum dicatat
-                </Badge>
-                <span className="text-[10px] tabular-nums text-muted-foreground">
-                  {rupiah(r.keuntunganBelumDicatat)}
-                </span>
-              </span>
-            )}
-          </dd>
-        </div>
-      </dl>
     </div>
   );
 }
@@ -1606,16 +1535,21 @@ function IsiRuang() {
                     Rekap Dana Penyedia
                   </h2>
                   <p className="text-xs font-medium tabular-nums text-muted-foreground">
-                    Keuntungan pendana {rupiah(data.ringkasan.totalKeuntunganPendana)} · potongan
-                    admin {rupiah(data.ringkasan.totalKeuntunganAdmin)}
+                    <span className="block">
+                      Keuntungan pendana {rupiah(data.ringkasan.totalKeuntunganPendana)} — sudah lunas{" "}
+                      {rupiah(data.ringkasan.totalKeuntunganPendanaLunas)} · belum lunas{" "}
+                      {rupiah(data.ringkasan.totalKeuntunganPendanaBelumLunas)}
+                    </span>
+                    <span className="block">
+                      Potongan admin {rupiah(data.ringkasan.totalKeuntunganAdmin)} — sudah lunas{" "}
+                      {rupiah(data.ringkasan.totalKeuntunganAdminLunas)} · belum lunas{" "}
+                      {rupiah(data.ringkasan.totalKeuntunganAdminBelumLunas)}
+                    </span>
                     {data.ringkasan.totalTransferBelumDicatat > 0 && (
-                      <>
-                        {" · "}
-                        <span className="text-amber-700">
-                          {data.ringkasan.totalTransferBelumDicatat} transfer keuntungan belum dicatat
-                          ({rupiah(data.ringkasan.nilaiTransferBelumDicatat)})
-                        </span>
-                      </>
+                      <span className="block text-amber-700">
+                        {data.ringkasan.totalTransferBelumDicatat} transfer keuntungan belum dicatat (
+                        {rupiah(data.ringkasan.nilaiTransferBelumDicatat)})
+                      </span>
                     )}
                   </p>
                 </div>
@@ -1623,8 +1557,10 @@ function IsiRuang() {
                   Model <strong>1 pinjaman = 1 pendana</strong>. Bunga {data.ringkasan.persenBunga}%
                   dari pokok; admin mengambil {data.ringkasan.persenPotonganAdmin}% dari uang yang
                   kembali (pokok + Imbal Hasil), bukan dari Imbal Hasil saja. Pokok tetap kembali
-                  utuh ke penyedia dana — yang terpotong adalah keuntungannya. Angka di bawah
-                  dihitung dari pinjaman yang berjalan dan lunas.
+                  utuh ke penyedia dana — yang terpotong adalah keuntungannya. Keuntungan dilaporkan
+                  terpisah: <strong>sudah lunas</strong> = uang yang benar-benar sudah masuk
+                  (dibukukan saat pelunasan), <strong>belum lunas (proyeksi)</strong> = perhitungan
+                  atas pinjaman yang masih berjalan dan belum dibukukan.
                 </p>
                 <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                   {data.rekapPendana.map((r) => (

@@ -57,6 +57,11 @@ function sehat(): InputQc {
         totalBungaPinjaman: 300_000,
         totalKeuntunganAdmin: 65_000,
         totalKeuntunganPendana: 235_000,
+        // Peminjam tunggal ini sudah lunas: seluruh keuntungan sudah dibukukan.
+        totalKeuntunganPendanaLunas: 235_000,
+        totalKeuntunganPendanaBelumLunas: 0,
+        totalKeuntunganAdminLunas: 65_000,
+        totalKeuntunganAdminBelumLunas: 0,
         totalTransferBelumDicatat: 1,
         nilaiTransferBelumDicatat: 235_000,
         persenBunga: 30,
@@ -70,7 +75,11 @@ function sehat(): InputQc {
           saldoBerjalan: 0,
           totalBunga: 300_000,
           keuntunganPendana: 235_000,
+          keuntunganPendanaLunas: 235_000,
+          keuntunganPendanaBelumLunas: 0,
           keuntunganAdmin: 65_000,
+          keuntunganAdminLunas: 65_000,
+          keuntunganAdminBelumLunas: 0,
           transferBelumDicatat: 1,
           keuntunganBelumDicatat: 235_000,
         },
@@ -146,11 +155,11 @@ function statusDari(hasil: ReturnType<typeof jalankanQc>, id: string): StatusCek
 // ===== 1. Suite sehat: seluruh pemeriksaan lulus =====
 {
   const hasil = jalankanQc(sehat());
-  eq(hasil.ringkasan.total, 15, "suite memuat 15 pemeriksaan");
+  eq(hasil.ringkasan.total, 16, "suite memuat 16 pemeriksaan");
   eq(hasil.ringkasan.gagal, 0, "tidak ada gagalan pada data sehat");
   eq(hasil.ringkasan.awas, 0, "tidak ada peringatan pada data sehat");
   eq(hasil.ringkasan.lewat, 0, "tidak ada pemeriksaan terlewat pada data sehat");
-  eq(hasil.ringkasan.lulus, 15, "semua pemeriksaan lulus");
+  eq(hasil.ringkasan.lulus, 16, "semua pemeriksaan lulus");
   ok(hasil.lulusSemua, "suite sehat dinyatakan lulus");
   for (const c of hasil.cek) {
     eq(c.status, "lulus", `sehat → ${c.id}`);
@@ -158,7 +167,7 @@ function statusDari(hasil: ReturnType<typeof jalankanQc>, id: string): StatusCek
     ok(c.nilai.length > 0, `${c.id} punya angka pengamatan`);
     ok(GRUP_QC.includes(c.grup as (typeof GRUP_QC)[number]), `${c.id} dalam grup resmi`);
   }
-  eq(new Set(hasil.cek.map((c) => c.id)).size, 15, "id pemeriksaan unik");
+  eq(new Set(hasil.cek.map((c) => c.id)).size, 16, "id pemeriksaan unik");
 }
 
 // ===== 2. Ledger: total tidak seimbang → gagal =====
@@ -240,11 +249,34 @@ function statusDari(hasil: ReturnType<typeof jalankanQc>, id: string): StatusCek
   eq(statusDari(jalankanQc(input), "ringkasan-ruang"), "gagal", "ringkasan ≠ jumlah baris → gagal");
 }
 
+// ===== 9b. Ruang: keuntungan belum lunas tercampur yang sudah lunas → gagal =====
+{
+  const input = salinan();
+  // Totalnya tidak berubah, tetapi "belum lunas" dinaikkan tanpa menurunkan
+  // "sudah lunas": uang yang belum masuk dihitung sebagai hak yang sudah cair.
+  input.ruang.rekapPendana[0].keuntunganPendanaBelumLunas = 235_000;
+  input.ruang.ringkasan.totalKeuntunganPendanaBelumLunas = 235_000;
+  const hasil = jalankanQc(input);
+  eq(
+    statusDari(hasil, "pemisahan-lunas"),
+    "gagal",
+    "pecahan lunas + belum lunas ≠ total → gagal",
+  );
+  ok(
+    cekDari(hasil, "pemisahan-lunas").detail.includes("Budi"),
+    "pendana yang pecahannya salah disebut namanya",
+  );
+  // Total agregat lain tetap cocok: yang salah memang hanya pemisahannya.
+  eq(statusDari(hasil, "ringkasan-ruang"), "lulus", "total lain tetap cocok");
+}
+
 // ===== 10. Ruang: identitas agregat admin + penyedia = Imbal Hasil =====
 {
   const input = salinan();
   input.ruang.rekapPendana[0].keuntunganPendana = 300_000;
+  input.ruang.rekapPendana[0].keuntunganPendanaLunas = 300_000;
   input.ruang.ringkasan.totalKeuntunganPendana = 300_000;
+  input.ruang.ringkasan.totalKeuntunganPendanaLunas = 300_000;
   input.panel.rows[0].metrik.keuntunganPendana = 300_000;
   input.panel.ringkasan.keuntunganPendana = 300_000;
   const hasil = jalankanQc(input);
@@ -294,13 +326,22 @@ function statusDari(hasil: ReturnType<typeof jalankanQc>, id: string): StatusCek
     saldoBerjalan: 500_000,
     totalBunga: 150_000,
     keuntunganPendana: 117_500,
+    // Pinjaman Citra masih berjalan — seluruh keuntungannya "belum lunas".
+    keuntunganPendanaLunas: 0,
+    keuntunganPendanaBelumLunas: 117_500,
     keuntunganAdmin: 32_500,
+    keuntunganAdminLunas: 0,
+    keuntunganAdminBelumLunas: 32_500,
     transferBelumDicatat: 0,
     keuntunganBelumDicatat: 0,
   });
   input.ruang.ringkasan.totalBungaPinjaman = 450_000;
   input.ruang.ringkasan.totalKeuntunganAdmin = 97_500;
   input.ruang.ringkasan.totalKeuntunganPendana = 352_500;
+  input.ruang.ringkasan.totalKeuntunganPendanaLunas = 235_000;
+  input.ruang.ringkasan.totalKeuntunganPendanaBelumLunas = 117_500;
+  input.ruang.ringkasan.totalKeuntunganAdminLunas = 65_000;
+  input.ruang.ringkasan.totalKeuntunganAdminBelumLunas = 32_500;
   input.stats.keuntunganAdminBelumTercatat = 32_500;
   input.stats.totalPinjaman = 2;
   input.stats.totalPinjamanBerjalan = 500_000;
@@ -367,6 +408,10 @@ function statusDari(hasil: ReturnType<typeof jalankanQc>, id: string): StatusCek
         totalBungaPinjaman: 0,
         totalKeuntunganAdmin: 0,
         totalKeuntunganPendana: 0,
+        totalKeuntunganPendanaLunas: 0,
+        totalKeuntunganPendanaBelumLunas: 0,
+        totalKeuntunganAdminLunas: 0,
+        totalKeuntunganAdminBelumLunas: 0,
         totalTransferBelumDicatat: 0,
         nilaiTransferBelumDicatat: 0,
         persenBunga: 30,
