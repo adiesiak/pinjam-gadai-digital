@@ -1,0 +1,75 @@
+import { useMutation } from "convex/react";
+import { useState } from "react";
+
+import { FormDataDiri, type PerubahanFotoKtp } from "@/components/DataDiriForm";
+import { api } from "@/convex/_generated/api";
+import { DATA_DIRI_KOSONG, penghasilanDariTeks } from "@/lib/dataDiri";
+import type { NasabahManual } from "@/lib/pengajuanManual";
+import { unggahDokumen } from "@/lib/unggahDokumen";
+
+/**
+ * Catat PEMOHON BARU yang belum punya akun — langkah identitas di panel admin.
+ *
+ * Dipakai saat pengajuan masuk dari orang yang belum mendaftar di aplikasi
+ * (datang ke kantor, data lama dari buku). Admin mengisi identitas dan
+ * mengunggah foto KTP; server membuat catatan pemohon beserta data dirinya,
+ * lalu formulir produk (pinjaman/gadai/kredit) bisa dipakai seperti biasa.
+ *
+ * Formulirnya memakai `FormDataDiri` yang sama dengan jalur data diri admin,
+ * jadi aturan validasi (NIK 16 angka, WhatsApp 62…, penghasilan rupiah bulat)
+ * dan penanganan foto tidak berbeda antara kedua jalur.
+ */
+export function FormNasabahBaru({
+  onSukses,
+}: {
+  onSukses: (nasabah: NasabahManual) => void;
+}) {
+  const catat = useMutation(api.adminPengajuan.buatNasabahBaru);
+  // URL unggah digerbang admin di server; dipakai untuk foto KTP pemohon baru.
+  const mintaUrlUnggah = useMutation(api.admin.generateDataDiriUploadUrl);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  return (
+    <div className="space-y-3">
+      <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900">
+        Pemohon ini belum punya akun aplikasi. Isi identitas sesuai KTP dan unggah
+        fotonya — catatan pemohon dibuat tanpa meminta orang itu mendaftar lebih
+        dulu. Datanya tetap dapat disunting lewat menu Data Diri.
+      </p>
+
+      <FormDataDiri
+        nama="Pemohon baru"
+        awal={DATA_DIRI_KOSONG}
+        fotoKtpUrl={null}
+        sebelumnya="Belum pernah tercatat sebagai pemohon."
+        labelSimpan="Simpan pemohon baru"
+        unggah={(file) => unggahDokumen(file, mintaUrlUnggah, "Foto KTP")}
+        busy={busy}
+        error={error}
+        onSimpan={(form, foto: PerubahanFotoKtp) => {
+          setBusy(true);
+          setError(null);
+          void catat({
+            namaLengkap: form.namaLengkap,
+            nik: form.nik,
+            nomorWhatsApp: form.nomorWhatsApp,
+            alamat: form.alamat,
+            pekerjaan: form.pekerjaan,
+            penghasilanBulanan: penghasilanDariTeks(form.penghasilan),
+            namaBank: form.namaBank,
+            nomorRekening: form.nomorRekening,
+            ...(typeof foto === "string" ? { fotoKtpId: foto } : {}),
+          })
+            .then((nasabah) => onSukses(nasabah))
+            .catch((err: unknown) => {
+              setError(
+                err instanceof Error ? err.message : "Pemohon baru gagal dicatat.",
+              );
+            })
+            .finally(() => setBusy(false));
+        }}
+      />
+    </div>
+  );
+}

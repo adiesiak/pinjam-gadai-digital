@@ -46,6 +46,7 @@ import {
 } from "../lib/transferPendana";
 import { akunDompetDana, danaWalletBalance } from "./ledger";
 import { kunciNamaPendana, pinjamanMilikPendana } from "./pendanaKepemilikan";
+import { namaHurufBesar } from "../lib/nama";
 import { nominalDisetujui, nominalTerkunci } from "../lib/statusPinjaman";
 import { ROLES } from "./schema";
 import { audit, getConfig } from "./system";
@@ -1512,7 +1513,9 @@ export const buatPendana = mutation({
  *    tersalurkan, supaya rekap tidak kehilangan pemilik dana secara diam-diam;
  *  - nominal disetujui tidak boleh melebihi pengajuan dan tidak dapat diubah
  *    setelah dana tersalurkan (`nominalTerkunci`);
- *  - setiap perubahan wajib beralasan dan dicatat di audit trail.
+ *  - **nama peminjam dapat diperbaiki** bila salah tulis (typo), dan disimpan
+ *    HURUF BESAR (`lib/nama.ts`) supaya sama dengan ruang peminjam lain;
+ *  - setiap perubahan dicatat di audit trail (catatan alasan opsional).
  */
 export const ubahDataPinjaman = mutation({
   args: {
@@ -1531,6 +1534,11 @@ export const ubahDataPinjaman = mutation({
      */
     pendanaUserId: v.optional(v.union(v.id("users"), v.null())),
     tujuan: v.optional(v.string()),
+    /**
+     * Nama peminjam pada catatan pinjaman — dipakai untuk MEMPERBAIKI salah
+     * tulis tanpa membuat pinjaman baru. Selalu disimpan HURUF BESAR.
+     */
+    namaPeminjam: v.optional(v.string()),
     tenorHari: v.optional(v.number()),
     /** `null` = kembalikan ke skema harian. */
     tenorBulan: v.optional(v.union(v.number(), v.null())),
@@ -1553,6 +1561,7 @@ export const ubahDataPinjaman = mutation({
     const patch: {
       pendanaId?: Id<"users"> | undefined;
       pendanaNama?: string | undefined;
+      namaLengkap?: string;
       tujuan?: string;
       tenorHari?: number;
       tenorBulan?: number | undefined;
@@ -1605,6 +1614,19 @@ export const ubahDataPinjaman = mutation({
             patch.pendanaNama = kandidat.nama;
             perubahan.push(`pendana → ${kandidat.nama}`);
           }
+        }
+      }
+
+      // Perbaikan nama peminjam (typo) — hanya menyentuh catatan pinjaman ini;
+      // nama disimpan HURUF BESAR agar seragam di semua layar.
+      if (args.namaPeminjam !== undefined) {
+        const nama = namaHurufBesar(args.namaPeminjam);
+        if (nama.length < 3 || nama.length > 120) {
+          throw new Error("Nama peminjam wajib 3–120 karakter.");
+        }
+        if (nama !== loan.namaLengkap) {
+          patch.namaLengkap = nama;
+          perubahan.push(`nama peminjam ${loan.namaLengkap} → ${nama}`);
         }
       }
 

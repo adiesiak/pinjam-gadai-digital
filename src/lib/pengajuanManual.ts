@@ -22,6 +22,7 @@ import { KREDIT_PRICING, KREDIT_TENOR_PENGAJUAN_OPTIONS } from "./kredit";
 import type { JenisPengajuan } from "./jenisPengajuan";
 import { assertPokokPinjamanValid, LOAN_PURPOSE_OPTIONS, TENOR_OPTIONS } from "./loan";
 import { parseRupiah } from "./money";
+import { namaHurufBesar } from "./nama";
 import { COLLATERAL_CATEGORIES } from "./pawn";
 
 /** Satu nasabah yang bisa dipilih sebagai pemilik pengajuan manual. */
@@ -36,6 +37,11 @@ export type NasabahManual = {
   namaBank: string | null;
   /** Nomor rekening terakhir yang tersimpan di data diri, bila ada. */
   nomorRekening: string | null;
+  /**
+   * true bila akun ini DIBUAT ADMIN untuk pemohon yang belum punya akun
+   * (walk-in); akun begini tidak punya kredensial masuk.
+   */
+  dibuatAdmin: boolean;
 };
 
 /** Label & awalan nomor referensi tiap produk untuk formulir manual. */
@@ -111,9 +117,12 @@ export function normalisasiTeksOpsional(
   return teks;
 }
 
-/** Nama pemohon selalu disimpan UPPERCASE agar konsisten di dashboard. */
+/**
+ * Nama pemohon selalu disimpan HURUF BESAR agar seragam dengan data pinjaman
+ * di ruang penyedia dana (satu tempat aturannya: `lib/nama.ts`).
+ */
 export function normalisasiNamaPanjang(nilai: string): string {
-  return normalisasiTeks(nilai.toUpperCase(), "Nama lengkap", 3, 120);
+  return normalisasiTeks(namaHurufBesar(nilai), "Nama lengkap", 3, 120);
 }
 
 /** Nama bank/e-wallet tujuan pencairan. */

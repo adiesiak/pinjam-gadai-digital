@@ -18,6 +18,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { api } from "@/convex/_generated/api";
 import { formatRupiah } from "@/lib/money";
+import { namaHurufBesar } from "@/lib/nama";
 
 import { formatDate } from "./admin-format";
 import { type PawnRow } from "./admin-shared";
@@ -118,7 +119,7 @@ export function PawnReviewDialog({
 
         <dl className="divide-y divide-slate-200 rounded-2xl border border-slate-200 bg-white">
           {[
-            ["Pemohon", row.namaLengkap],
+            ["Pemohon", namaHurufBesar(row.namaLengkap)],
             ["Email", row.emailPeminjam ?? "—"],
             ["Bank / e-wallet yang dicatat", row.namaBank ?? "Tidak dicatat (data lama)"],
             ["Rekening / akun yang dicatat", row.nomorRekening],

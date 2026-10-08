@@ -6,6 +6,7 @@ import { useEffect, useRef } from "react";
 import { Badge } from "@/components/ui/badge";
 import { api } from "@/convex/_generated/api";
 import { labelTandaLokasi } from "@/lib/lokasi";
+import { namaHurufBesar } from "@/lib/nama";
 import { DEFAULT_CONFIG } from "@/lib/system-config";
 
 import "leaflet/dist/leaflet.css";
@@ -88,7 +89,7 @@ export function LiveLocationMap() {
           weight: 2,
         })
           .bindTooltip(
-            `<strong>${r.namaLengkap}</strong><br/>${r.nomorReferensi} · status ledger: ${r.statusPinjaman}<br/>` +
+            `<strong>${namaHurufBesar(r.namaLengkap)}</strong><br/>${r.nomorReferensi} · status ledger: ${r.statusPinjaman}<br/>` +
               (r.tanda.length > 0 ? "POLA KOORDINAT DICURIGAI (OTOMATIS)" : "") +
               (r.tanda.length > 0 && r.jarakVaultKm !== null ? " · " : "") +
               (r.mismatch
@@ -236,7 +237,7 @@ export function LiveLocationMap() {
                   {r.tanda.length > 0 && (
                     <Badge className="mr-2 bg-amber-100 text-amber-800 hover:bg-amber-100">Pola koordinat ditandai</Badge>
                   )}
-                  {r.namaLengkap} · {r.nomorReferensi}
+                  {namaHurufBesar(r.namaLengkap)} · {r.nomorReferensi}
                 </span>
                 <span className="shrink-0 tabular-nums text-xs text-muted-foreground sm:text-sm">
                   {r.tanda.length > 0

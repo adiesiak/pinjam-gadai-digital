@@ -3,6 +3,7 @@ import { MapPin } from "lucide-react";
 import { useEffect, useRef } from "react";
 
 import { labelTandaLokasi } from "@/lib/lokasi";
+import { namaHurufBesar } from "@/lib/nama";
 import type { TitikPeminjam } from "@/convex/penyediaDana";
 
 import "leaflet/dist/leaflet.css";
@@ -103,7 +104,7 @@ export function PetaLokasiPeminjam({
         const ditandai = r.posisi.tanda.length > 0;
         const warna = ditandai ? WARNA_DITANDAI : WARNA_NORMAL;
         const keterangan = [
-          `<strong>${r.namaLengkap}</strong>`,
+          `<strong>${namaHurufBesar(r.namaLengkap)}</strong>`,
           `${r.nomorReferensi} · ${r.kategori}`,
           `titik terakhir: ${waktuRingkas(r.posisi.waktu)} (±${Math.round(r.posisi.akurasi)} m, ${r.posisi.sumber})`,
           ditandai ? `POLA KOORDINAT DICURIGAI (OTOMATIS): ${r.posisi.tanda.map(labelTandaLokasi).join(", ")}` : "",

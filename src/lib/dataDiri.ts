@@ -13,10 +13,14 @@
  * Aturan yang dijaga:
  * - Isian dinormalkan dulu (spasi/tanda hubung dibuang, digit diekstrak),
  *   supaya "62812 3456-7890" dan "6281234567890" tidak dianggap berbeda.
+ * - Nama lengkap disimpan HURUF BESAR (`lib/nama.ts`) supaya sama dengan data
+ *   pinjaman di ruang penyedia dana — satu orang tidak lagi tampil beda di dua
+ *   layar hanya karena yang mengetiknya beda huruf besar/kecil.
  * - Bidang opsional yang kosong disimpan sebagai `null`, bukan string kosong,
  *   sehingga "belum diisi" tidak bisa tertukar dengan "diisi kosong".
  * - Semua angka uang rupiah bulat (Rule 3) dan tidak boleh negatif.
  */
+import { namaHurufBesar } from "./nama";
 
 /** Batas panjang & nilai untuk tiap bidang data diri. */
 export const DATA_DIRI_BATAS = {
@@ -105,7 +109,7 @@ export function bacaDataDiri(form: DataDiriForm): {
   tersimpan: DataDiriTersimpan | null;
   pesan: string | null;
 } {
-  const namaLengkap = rapikan(form.namaLengkap);
+  const namaLengkap = namaHurufBesar(form.namaLengkap);
   const nik = digitSaja(form.nik);
   const nomorWhatsApp = digitSaja(form.nomorWhatsApp);
   const alamat = rapikan(form.alamat);

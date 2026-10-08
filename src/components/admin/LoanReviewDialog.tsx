@@ -37,6 +37,8 @@ import {
   type StatusPinjaman,
 } from "@/lib/statusPinjaman";
 
+import { namaHurufBesar } from "@/lib/nama";
+
 import { formatDate } from "./admin-format";
 import { type LoanRow } from "./admin-shared";
 import { AliranDanaPinjaman } from "./AliranDanaPinjaman";
@@ -259,7 +261,7 @@ export function LoanReviewDialog({
 
         <dl className="divide-y divide-slate-200 rounded-2xl border border-slate-200 bg-white">
           {[
-            ["Pemohon", row.namaLengkap],
+            ["Pemohon", namaHurufBesar(row.namaLengkap)],
             ["Email", row.emailPeminjam ?? "—"],
             ["Bank / e-wallet yang dicatat", row.namaBank ?? "Tidak dicatat (data lama)"],
             ["Rekening / akun yang dicatat", row.nomorRekening],

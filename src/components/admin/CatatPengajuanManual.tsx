@@ -1,5 +1,5 @@
 import { useQuery } from "convex/react";
-import { Loader2, Plus, Search, ShieldAlert, UserCheck } from "lucide-react";
+import { Loader2, Plus, Search, ShieldAlert, UserCheck, UserPlus } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -14,11 +14,13 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { api } from "@/convex/_generated/api";
+import { cn } from "@/lib/utils";
 import { JENIS_MANUAL, type NasabahManual } from "@/lib/pengajuanManual";
 import type { JenisPengajuan } from "@/lib/jenisPengajuan";
 
 import { FormGadaiManual } from "./pengajuan-manual/FormGadaiManual";
 import { FormKreditManual } from "./pengajuan-manual/FormKreditManual";
+import { FormNasabahBaru } from "./pengajuan-manual/FormNasabahBaru";
 import { FormPinjamanManual } from "./pengajuan-manual/FormPinjamanManual";
 
 /**
@@ -29,6 +31,12 @@ import { FormPinjamanManual } from "./pengajuan-manual/FormPinjamanManual";
  * WhatsApp, penghasilan) diambil dari data diri tersimpan, bukan diketik ulang.
  * Setelah tercatat, pengajuan masuk antrean produknya seperti pengajuan biasa;
  * keputusan tetap lewat dialog review yang sudah ada.
+ *
+ * Dua pintu masuk nasabah:
+ *  - **Terdaftar** — pilih dari pencarian akun yang sudah ada.
+ *  - **Belum punya akun** (`FormNasabahBaru`) — pemohon walk-in: admin mengisi
+ *    identitas + mengunggah foto KTP, dan server membuat catatan pemohonnya
+ *    tanpa memaksa orang itu mendaftar lebih dulu.
  */
 
 /** Pencarian & pemilihan nasabah tujuan pencatatan. */
@@ -54,7 +62,8 @@ function PencariNasabah({ onPilih }: { onPilih: (nasabah: NasabahManual) => void
         </p>
       ) : hasil.hasil.length === 0 ? (
         <p className="rounded-xl border border-dashed border-slate-200 bg-white px-4 py-6 text-center text-sm text-muted-foreground">
-          Tidak ada nasabah yang cocok. Pastikan nasabah sudah punya akun terverifikasi.
+          Tidak ada nasabah yang cocok. Kalau pemohonnya belum punya akun, pakai tab
+          “Belum punya akun” di atas.
         </p>
       ) : (
         <ul className="max-h-72 divide-y divide-slate-200 overflow-y-auto rounded-xl border border-slate-200 bg-white">
@@ -71,7 +80,11 @@ function PencariNasabah({ onPilih }: { onPilih: (nasabah: NasabahManual) => void
                     {n.email ?? "tanpa email"} · {n.kodePeminjam ?? "tanpa kode peminjam"}
                   </span>
                 </span>
-                {n.adaDataDiri ? (
+                {n.dibuatAdmin ? (
+                  <Badge className="border-0 bg-slate-100 text-slate-700 hover:bg-slate-100">
+                    <UserPlus className="mr-1 size-3.5" /> Dicatat admin
+                  </Badge>
+                ) : n.adaDataDiri ? (
                   <Badge className="border-0 bg-emerald-100 text-emerald-700 hover:bg-emerald-100">
                     <UserCheck className="mr-1 size-3.5" /> Data diri lengkap
                   </Badge>
@@ -87,8 +100,53 @@ function PencariNasabah({ onPilih }: { onPilih: (nasabah: NasabahManual) => void
       )}
       <p className="text-xs leading-5 text-muted-foreground">
         NIK, nomor WhatsApp, penghasilan, dan rekening tujuan diambil dari Data Diri
-        nasabah. Pengajuan kredit barang hanya bisa dicatat setelah data diri lengkap.
+        nasabah. Dokumen pengajuan (foto KTP, selfie, bukti penghasilan) ikut tersimpan
+        pada pinjaman yang dicatat. Pengajuan kredit barang hanya bisa dicatat setelah
+        data diri lengkap.
       </p>
+    </div>
+  );
+}
+
+/** Jalur pencatatan: nasabah terdaftar, atau pemohon yang belum punya akun. */
+type JalurNasabah = "terdaftar" | "baru";
+
+/** Pemilih jalur di atas daftar/pencarian nasabah. */
+function PilihJalurNasabah({
+  mode,
+  onUbah,
+}: {
+  mode: JalurNasabah;
+  onUbah: (mode: JalurNasabah) => void;
+}) {
+  return (
+    <div
+      role="tablist"
+      aria-label="Jalur pencatatan nasabah"
+      className="grid grid-cols-2 gap-1 rounded-xl bg-slate-100 p-1"
+    >
+      {(
+        [
+          ["terdaftar", "Nasabah terdaftar"],
+          ["baru", "Belum punya akun"],
+        ] as const
+      ).map(([nilai, label]) => (
+        <button
+          key={nilai}
+          type="button"
+          role="tab"
+          aria-selected={mode === nilai}
+          onClick={() => onUbah(nilai)}
+          className={cn(
+            "rounded-lg px-3 py-2 text-xs font-semibold transition-colors",
+            mode === nilai
+              ? "bg-white text-navy shadow-sm"
+              : "text-muted-foreground hover:text-navy",
+          )}
+        >
+          {label}
+        </button>
+      ))}
     </div>
   );
 }
@@ -100,11 +158,13 @@ function PencariNasabah({ onPilih }: { onPilih: (nasabah: NasabahManual) => void
 export function CatatPengajuanManualButton({ jenis }: { jenis: JenisPengajuan }) {
   const [terbuka, setTerbuka] = useState(false);
   const [nasabah, setNasabah] = useState<NasabahManual | null>(null);
+  const [mode, setMode] = useState<JalurNasabah>("terdaftar");
   const info = JENIS_MANUAL[jenis];
 
   const tutup = () => {
     setTerbuka(false);
     setNasabah(null);
+    setMode("terdaftar");
   };
 
   return (
@@ -130,8 +190,23 @@ export function CatatPengajuanManualButton({ jenis }: { jenis: JenisPengajuan })
             <DialogDescription>{info.deskripsi}</DialogDescription>
           </DialogHeader>
 
-          {nasabah === null ? (
-            <PencariNasabah onPilih={setNasabah} />
+          {nasabah === null && mode === "terdaftar" ? (
+            <div className="space-y-3">
+              <PilihJalurNasabah mode={mode} onUbah={setMode} />
+              <PencariNasabah onPilih={setNasabah} />
+            </div>
+          ) : nasabah === null ? (
+            <div className="space-y-3">
+              <PilihJalurNasabah mode={mode} onUbah={setMode} />
+              <FormNasabahBaru
+                onSukses={(pemohon) => {
+                  toast.success(
+                    `Pemohon ${pemohon.nama} tercatat. Lanjutkan mengisi pengajuannya.`,
+                  );
+                  setNasabah(pemohon);
+                }}
+              />
+            </div>
           ) : (
             <div className="space-y-4">
               <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">

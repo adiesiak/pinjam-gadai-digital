@@ -42,6 +42,11 @@ export type PerubahanFotoKtp = Id<"_storage"> | null | undefined;
  * - Foto KTP lama dihapus dari storage saat diganti atau dikosongkan, agar
  *   tidak menumpuk berkas yatim.
  *
+ * - Menyamakan `users.name` dengan nama KTP yang tersimpan, sehingga SELURUH
+ *   layar yang membaca nama akun (pemilih nasabah, panel plafon, dashboard)
+ *   menampilkan nama yang sama dengan ruang penyedia dana. Ini juga jalur
+ *   perbaikan salah tulis nama: admin cukup memperbaiki di Data Diri.
+ *
  * Mengembalikan `{ dibuat, tersimpan, fotoKtpId }` (nilai yang BENAR-BENAR
  * tersimpan) supaya pemanggil bisa menyusun kalimat audit tanpa menghitung
  * ulang.
@@ -114,6 +119,14 @@ export async function simpanDataDiriProfil(
     await ctx.db.insert("nasabahProfil", { userId: args.userId, ...isi });
   } else {
     await ctx.db.patch(existing._id, isi);
+  }
+
+  // Nama akun mengikuti nama KTP (HURUF BESAR, lihat lib/nama.ts): semua layar
+  // yang membaca `users.name` jadi seragam dengan data pinjaman di ruang
+  // penyedia dana, dan memperbaiki salah tulis nama cukup dilakukan sekali.
+  const pemilik = await ctx.db.get(args.userId);
+  if (pemilik !== null && pemilik.name !== tersimpan.namaLengkap) {
+    await ctx.db.patch(args.userId, { name: tersimpan.namaLengkap });
   }
   return {
     dibuat: existing === null,

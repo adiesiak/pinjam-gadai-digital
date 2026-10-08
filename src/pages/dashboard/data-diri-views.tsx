@@ -9,6 +9,7 @@ import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { formDariTersimpan, penghasilanDariTeks } from "@/lib/dataDiri";
 import { MAX_FILE_BYTES } from "@/lib/kyc";
+import { namaHurufBesar } from "@/lib/nama";
 
 /**
  * Data diri nasabah — sunting mandiri dari dashboard.
@@ -98,7 +99,7 @@ export function DataDiriSection() {
       <div className="mt-4">
         <FormDataDiri
           key={`${data.ada}-${data.diperbaruiPada ?? 0}`}
-          nama={data.nama}
+          nama={namaHurufBesar(data.nama)}
           awal={formDariTersimpan(data.data)}
           fotoKtpUrl={data.fotoKtpUrl}
           sebelumnya={

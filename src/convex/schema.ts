@@ -145,6 +145,14 @@ const schema = defineSchema(
       aksesBersamaVersi: v.optional(v.number()),
       /** Waktu sesi tamu terakhir diaktifkan dengan kode akses bersama. */
       aksesBersamaPada: v.optional(v.number()),
+      /**
+       * Waktu admin mencatat pemohon yang BELUM punya akun (nasabah walk-in,
+       * data lama dari buku) beserta dokumennya. Akun begini sengaja tidak
+       * punya kredensial masuk: pengelolaannya lewat panel admin, dan bila
+       * pemohon mendaftar sendiri nanti ia memakai akun barunya.
+       * Kosong = akun biasa yang dibuat pemiliknya lewat aplikasi.
+       */
+      dibuatAdminPada: v.optional(v.number()),
     })
       .index("email", ["email"]) // index for the email. do not remove or modify
       .index("by_kodePeminjam", ["kodePeminjam"]),

@@ -56,18 +56,23 @@ describe("data diri nasabah (admin)", () => {
 
     const hasil = await t.run(async (ctx) => ({
       profil: await ctx.db.query("nasabahProfil").collect(),
+      akun: await ctx.db.get(userId),
       audit: await ctx.db.query("auditLog").collect(),
     }));
 
     expect(hasil.profil).toHaveLength(1);
+    // Nama disimpan HURUF BESAR (lib/nama.ts) supaya seragam di semua layar.
     expect(hasil.profil[0]).toMatchObject({
       userId,
-      namaLengkap: "Rani Puspita",
+      namaLengkap: "RANI PUSPITA",
       nik: NIK,
       nomorWhatsApp: WA,
       nomorRekening: "1234567890",
       penghasilanBulanan: 5_000_000,
     });
+    // Nama akun mengikuti nama KTP: layar yang membaca `users.name` (pemilih
+    // nasabah, panel plafon) menampilkan nama yang sama dengan ruang penyedia.
+    expect(hasil.akun?.name).toBe("RANI PUSPITA");
     expect(hasil.audit.map((a) => a.aksi)).toContain("ubah_data_diri");
 
     // Query panel mengembalikan isian siap-pakai untuk form.

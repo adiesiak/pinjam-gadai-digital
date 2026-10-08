@@ -16,6 +16,13 @@
  *    nomor WhatsApp, penghasilan, dan (bila ada) rekening tujuan diisi dari
  *    `nasabahProfil`. Pengajuan kredit barang menolak dicatat sebelum data
  *    diri lengkap karena kontraknya menyimpan identitas pemohon.
+ *  - **Pemohon yang BELUM punya akun juga dilayani** (`buatNasabahBaru`): admin
+ *    mengisi identitas + mengunggah dokumen pengajuan (foto KTP minimal), lalu
+ *    server membuat akun tanpa kredensial beserta data dirinya, sehingga
+ *    pengajuan bisa dicatat tanpa memaksa pemohon mendaftar lebih dulu.
+ *  - **Dokumen pengajuan ikut disimpan pada pinjaman** (KTP dari data diri,
+ *    selfie dan bukti penghasilan dari unggahan admin) supaya panel KYC
+ *    menampilkan berkas yang sama seperti pengajuan jalur nasabah.
  *  - **Selalu menjadi pengajuan `diajukan`.** Pencatatan manual TIDAK
  *    memutuskan kredit: keputusan tetap lewat antrean review yang sudah ada,
  *    sehingga jalur audit keputusan tidak terbelah dua.
@@ -29,7 +36,9 @@
 import { v } from "convex/values";
 
 import { KREDIT_ASUMSI_AWAL, KREDIT_BARANG_POKOK_MAKS, pokokKreditBarangDalamBatas, quoteKreditBarang } from "../lib/kredit";
+import { bacaDataDiri } from "../lib/dataDiri";
 import { formatRupiah } from "../lib/money";
+import { namaTampil } from "../lib/nama";
 import { persenBungaEfektif } from "../lib/bunga";
 import {
   nomorReferensiManual,
@@ -40,6 +49,7 @@ import {
 } from "../lib/pengajuanManual";
 import { pesanPlafonTerlampaui, plafonPeminjam, pokokDalamPlafon } from "../lib/plafon";
 import { requireAdminSession } from "./adminAuthz";
+import { simpanDataDiriProfil } from "./dataDiriProfil";
 import { ROLES } from "./schema";
 import { audit, getConfig } from "./system";
 import { ensureKodePeminjam } from "./peminjamCode";
@@ -77,12 +87,15 @@ function ringkasNasabah(
 ): NasabahManual {
   return {
     userId: user._id,
-    nama: user.name ?? profil?.namaLengkap ?? user.email ?? "Tanpa nama",
+    // Nama KTP di data diri adalah acuan, nama akun hanya cadangan — dan selalu
+    // HURUF BESAR supaya sama dengan data pinjaman di ruang penyedia dana.
+    nama: namaTampil([profil?.namaLengkap, user.name, user.email]),
     email: user.email ?? null,
     kodePeminjam: user.kodePeminjam ?? null,
     adaDataDiri: profil !== null,
     namaBank: profil?.namaBank ?? null,
     nomorRekening: profil?.nomorRekening ?? null,
+    dibuatAdmin: user.dibuatAdminPada !== undefined,
   };
 }
 
@@ -158,6 +171,13 @@ export const catatPinjamanManual = mutation({
     nomorRekening: v.optional(v.string()),
     /** Kosong = pakai nama dari data diri/akun nasabah. */
     namaLengkap: v.optional(v.string()),
+    /**
+     * Dokumen pengajuan. Foto KTP diambil otomatis dari data diri nasabah; dua
+     * berkas ini diunggah admin bila ada, dan disimpan pada pinjaman agar panel
+     * KYC menampilkannya sama seperti pengajuan jalur nasabah.
+     */
+    dokSelfieKtpId: v.optional(v.id("_storage")),
+    dokSlipGajiId: v.optional(v.id("_storage")),
     catatanPeminjam: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
@@ -207,7 +227,17 @@ export const catatPinjamanManual = mutation({
       nomorWhatsApp: profil?.nomorWhatsApp,
       penghasilanBulanan: profil?.penghasilanBulanan,
       sumberPenghasilan: profil?.pekerjaan,
+      // Dokumen pengajuan: KTP mengikuti data diri, dua berkas lain dari
+      // unggahan admin pada formulir ini.
+      dokKtpId: profil?.fotoKtpId,
+      dokSelfieKtpId: args.dokSelfieKtpId,
+      dokSlipGajiId: args.dokSlipGajiId,
     });
+    const dokumen = [
+      profil?.fotoKtpId !== undefined ? "KTP" : null,
+      args.dokSelfieKtpId !== undefined ? "selfie KTP" : null,
+      args.dokSlipGajiId !== undefined ? "bukti penghasilan" : null,
+    ].filter((label): label is string => label !== null);
     await audit(
       ctx,
       adminId,
@@ -218,7 +248,7 @@ export const catatPinjamanManual = mutation({
         bersih.pokokPinjaman,
       )}${bersih.tenorBulan !== undefined ? `, tenor ${bersih.tenorBulan} bulan` : `, tenor ${bersih.tenorHari} hari`}, plafon nasabah ${formatRupiah(
         plafon,
-      )}. Status awal "diajukan" — keputusan tetap lewat antrean review.`,
+      )}, dokumen: ${dokumen.length > 0 ? dokumen.join(", ") : "belum ada"}. Status awal "diajukan" — keputusan tetap lewat antrean review.`,
     );
     return { appId: loanId, nomorReferensi };
   },
@@ -370,5 +400,118 @@ export const catatKreditManual = mutation({
       )}). Status awal "diajukan".`,
     );
     return { appId: kreditId, nomorReferensi };
+  },
+});
+
+/**
+ * Catat PEMOHON YANG BELUM PUNYA AKUN (nasabah walk-in / data lama) — admin.
+ *
+ * Admin mengisi identitas dan mengunggah dokumen pengajuan (foto KTP minimal,
+ * selfie/bukti penghasilan bila ada). Server membuat dua baris sekaligus:
+ *
+ *  - `users` sebagai pemilik pengajuan, ditandai `dibuatAdminPada`. Akun ini
+ *    SENGAJA tidak punya kredensial masuk (`authAccounts` tidak dibuat): ia ada
+ *    supaya pengajuan, data diri, dan kode peminjam punya pemilik yang sah,
+ *    bukan supaya orang itu bisa masuk. Bila pemohon mendaftar sendiri nanti,
+ *    ia memakai akun barunya — akun pencatatan ini tinggal jadi riwayat.
+ *  - `nasabahProfil` (data diri) lewat helper yang SAMA dengan jalur data diri
+ *    admin, jadi normalisasi/validasi dan foto KTP-nya tidak berbeda.
+ *
+ * NIK kembar ditolak: satu orang satu data diri, supaya dua akun tidak
+ * memecah riwayat pinjaman orang yang sama.
+ */
+export const buatNasabahBaru = mutation({
+  args: {
+    namaLengkap: v.string(),
+    nik: v.string(),
+    nomorWhatsApp: v.string(),
+    alamat: v.string(),
+    pekerjaan: v.string(),
+    /** Rupiah bulat, atau null bila tidak diisi. */
+    penghasilanBulanan: v.union(v.number(), v.null()),
+    namaBank: v.string(),
+    nomorRekening: v.string(),
+    /** Foto KTP hasil unggahan admin (Convex storage). */
+    fotoKtpId: v.optional(v.id("_storage")),
+    /** Catatan sumber data, mis. "berkas fisik di kantor". Opsional. */
+    catatan: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const { userId: adminId, user: admin } = await requireAdmin(ctx);
+
+    // Aturan identitas satu sumber dengan form data diri (lib/dataDiri.ts):
+    // NIK 16 angka, WhatsApp 62…, nama jadi HURUF BESAR.
+    const { tersimpan, pesan } = bacaDataDiri({
+      namaLengkap: args.namaLengkap,
+      nik: args.nik,
+      nomorWhatsApp: args.nomorWhatsApp,
+      alamat: args.alamat,
+      pekerjaan: args.pekerjaan,
+      penghasilan: args.penghasilanBulanan === null ? "" : String(args.penghasilanBulanan),
+      namaBank: args.namaBank,
+      nomorRekening: args.nomorRekening,
+    });
+    if (tersimpan === null) {
+      throw new Error(pesan ?? "Identitas pemohon tidak valid.");
+    }
+
+    // Satu orang satu data diri: NIK yang sudah tercatat tidak dibuatkan akun
+    // baru, supaya riwayat pinjamannya tidak terbelah dua.
+    const profilLain = await ctx.db.query("nasabahProfil").collect();
+    const kembar = profilLain.find((p) => p.nik === tersimpan.nik);
+    if (kembar !== undefined) {
+      const pemilik = await ctx.db.get(kembar.userId);
+      throw new Error(
+        `NIK ini sudah tercatat untuk ${namaTampil([kembar.namaLengkap, pemilik?.name])}. Pilih nasabah itu di daftar, atau perbaiki NIK-nya lewat menu Data Diri.`,
+      );
+    }
+
+    const now = Date.now();
+    const userId = await ctx.db.insert("users", {
+      name: tersimpan.namaLengkap,
+      role: ROLES.PEMINJAM,
+      isAnonymous: false,
+      dibuatAdminPada: now,
+    });
+    await ensureKodePeminjam(ctx, userId);
+    await simpanDataDiriProfil(ctx, {
+      userId,
+      isian: {
+        namaLengkap: tersimpan.namaLengkap,
+        nik: tersimpan.nik,
+        nomorWhatsApp: tersimpan.nomorWhatsApp,
+        alamat: tersimpan.alamat ?? "",
+        pekerjaan: tersimpan.pekerjaan ?? "",
+        penghasilanBulanan: tersimpan.penghasilanBulanan,
+        namaBank: tersimpan.namaBank ?? "",
+        nomorRekening: tersimpan.nomorRekening ?? "",
+      },
+      fotoKtpId: args.fotoKtpId,
+      sumber: "admin",
+      olehLabel: labelAdmin(admin),
+    });
+
+    const user = await ctx.db.get(userId);
+    if (user === null) {
+      throw new Error("Akun pemohon baru gagal dibuat. Silakan coba lagi.");
+    }
+    const profil = await ctx.db
+      .query("nasabahProfil")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .first();
+
+    const catatan = args.catatan?.trim() ?? "";
+    await audit(
+      ctx,
+      adminId,
+      labelAdmin(admin),
+      "nasabah_baru_manual",
+      tersimpan.namaLengkap,
+      `Nasabah baru tanpa akun aplikasi dicatat admin — NIK ${tersimpan.nik}, WhatsApp ${tersimpan.nomorWhatsApp}` +
+        `${args.fotoKtpId !== undefined ? ", foto KTP diunggah" : ", tanpa foto KTP"}` +
+        `${catatan === "" ? "" : `. Catatan: ${catatan}`}.`,
+    );
+
+    return ringkasNasabah(user, profil);
   },
 });

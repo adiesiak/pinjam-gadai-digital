@@ -6,6 +6,7 @@
 import type { SimulasiBulanan } from "./bulanan";
 import { quoteGadai } from "./gadai";
 import { formatRupiah } from "./money";
+import { namaHurufBesar } from "./nama";
 import type { LoanQuote } from "./loan";
 
 /** Naikkan versi setiap kali syarat akad berubah secara material. */
@@ -194,7 +195,7 @@ export function buildPinjamanContract(
 
     <p>Perjanjian ini dibuat dan disetujui pada <strong>${tgl}</strong> atas data pengajuan yang tersimpan di aplikasi PINDAI.</p>
     <p><strong>Pihak Pertama:</strong> Pinjam Gadai Digital (PINDAI).</p>
-    <p><strong>Pihak Kedua:</strong> ${escapeHtml(peminjam.namaLengkap.toUpperCase())}${peminjam.nik ? `, NIK ${escapeHtml(peminjam.nik)}` : ""}${peminjam.email ? `, email ${escapeHtml(peminjam.email)}` : ""}; informasi bank/e-wallet dan rekening/akun yang dimasukkan: <strong>${peminjam.namaBank ? `${escapeHtml(peminjam.namaBank)} · ` : ""}${escapeHtml(peminjam.nomorRekening)}</strong>. Data ini berasal dari pengisian pada pengajuan.</p>
+    <p><strong>Pihak Kedua:</strong> ${escapeHtml(namaHurufBesar(peminjam.namaLengkap))}${peminjam.nik ? `, NIK ${escapeHtml(peminjam.nik)}` : ""}${peminjam.email ? `, email ${escapeHtml(peminjam.email)}` : ""}; informasi bank/e-wallet dan rekening/akun yang dimasukkan: <strong>${peminjam.namaBank ? `${escapeHtml(peminjam.namaBank)} · ` : ""}${escapeHtml(peminjam.nomorRekening)}</strong>. Data ini berasal dari pengisian pada pengajuan.</p>
 
     <h2>Pasal 1 — Pokok, Tenor, dan Status</h2>
     <ol>
@@ -217,7 +218,7 @@ export function buildPinjamanContract(
     <p>Timestamp sistem <strong>${new Date(meta.timestampPada).toLocaleString("id-ID")}</strong>${meta.lokasi ? ` dan koordinat perangkat yang dikirim <strong>${fmtKoordinat(meta.lokasi)}</strong>` : ""} ditampilkan sebagai metadata masukan pengajuan.</p>
 
     <div class="ttd">
-      ${blokTandaTanganPeminjam(peminjam.namaLengkap, "Peminjam — Pihak Kedua", meta)}
+      ${blokTandaTanganPeminjam(namaHurufBesar(peminjam.namaLengkap), "Peminjam — Pihak Kedua", meta)}
       ${blokPlatform()}
     </div>
   </div>`;
@@ -249,7 +250,7 @@ export function buildGadaiContract(
     ${blokParaPihak()}
     <p>Akad ini dibuat dan disetujui pada <strong>${tgl}</strong> atas data pengajuan yang tersimpan di aplikasi PINDAI.</p>
     <p><strong>Pihak Pertama:</strong> Pinjam Gadai Digital (PINDAI).</p>
-    <p><strong>Pihak Kedua:</strong> ${escapeHtml(peminjam.namaLengkap.toUpperCase())}${peminjam.nik ? `, NIK ${escapeHtml(peminjam.nik)}` : ""}; informasi rekening yang dimasukkan: <strong>${peminjam.namaBank ? `${escapeHtml(peminjam.namaBank)} · ` : ""}${escapeHtml(peminjam.nomorRekening)}</strong>. Data ini berasal dari pengisian pada pengajuan.</p>
+    <p><strong>Pihak Kedua:</strong> ${escapeHtml(namaHurufBesar(peminjam.namaLengkap))}${peminjam.nik ? `, NIK ${escapeHtml(peminjam.nik)}` : ""}; informasi rekening yang dimasukkan: <strong>${peminjam.namaBank ? `${escapeHtml(peminjam.namaBank)} · ` : ""}${escapeHtml(peminjam.nomorRekening)}</strong>. Data ini berasal dari pengisian pada pengajuan.</p>
 
     <h2>Pasal 1 — Data Barang dan Lokasi Penyimpanan</h2>
     <ol>
@@ -280,7 +281,7 @@ export function buildGadaiContract(
     <p>Timestamp sistem <strong>${new Date(meta.timestampPada).toLocaleString("id-ID")}</strong> dan koordinat yang tampil pada aplikasi adalah metadata yang dicatat pada pengajuan.</p>
 
     <div class="ttd">
-      ${blokTandaTanganPeminjam(peminjam.namaLengkap, "Peminjam — Pihak Kedua", meta)}
+      ${blokTandaTanganPeminjam(namaHurufBesar(peminjam.namaLengkap), "Peminjam — Pihak Kedua", meta)}
       ${blokPlatform()}
     </div>
   </div>`;

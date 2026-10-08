@@ -14,6 +14,7 @@ import {
 } from "@/components/admin/admin-shared";
 import { loanPurposeLabel } from "@/lib/loan";
 import { formatRupiah } from "@/lib/money";
+import { namaHurufBesar } from "@/lib/nama";
 import { SUB_TAB_GADAI, SUB_TAB_PINJAMAN } from "@/lib/subTabAntrean";
 import { Input } from "@/components/ui/input";
 
@@ -95,7 +96,7 @@ export function LoanQueueSection({
               <QueueRow
                 reference={l.nomorReferensi}
                 date={formatDate(l._creationTime)}
-                title={l.namaLengkap.toUpperCase()}
+                title={namaHurufBesar(l.namaLengkap)}
                 subtitle={`${l.emailPeminjam ?? "tanpa email"} · ${l.nomorReferensi} · pokok ${formatRupiah(l.pokokPinjaman)} · ${loanPurposeLabel(l.tujuan)}`}
                 status={<StatusBadge status={l.status} kind="loan" />}
                 onOpen={() => onOpen(l)}
@@ -179,7 +180,7 @@ export function PawnQueueSection({
                   <QueueRow
                     reference={p.nomorReferensi}
                     date={formatDate(p._creationTime)}
-                    title={p.namaLengkap}
+                    title={namaHurufBesar(p.namaLengkap)}
                     subtitle={`${p.emailPeminjam ?? "tanpa email"} · ${p.nomorReferensi} · ${p.deskripsiBarang} · ${p.kategori}`}
                     status={<StatusBadge status={p.status} kind="pawn" />}
                     onOpen={() => onOpen(p)}

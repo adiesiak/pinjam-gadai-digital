@@ -314,10 +314,13 @@ describe("pencatatan pengajuan manual oleh admin", () => {
 
     const pencarian = await admin.query(api.adminPengajuan.cariNasabah, { kueri: "rani" });
     expect(pencarian.hasil).toHaveLength(1);
+    // Nama diambil dari data diri (KTP) dan selalu HURUF BESAR — sama dengan
+    // data pinjaman di ruang penyedia dana.
     expect(pencarian.hasil[0]).toMatchObject({
-      nama: "rani",
+      nama: "RANI PEMINJAM",
       email: "rani@pindai.test",
       adaDataDiri: true,
+      dibuatAdmin: false,
       nomorRekening: "1234567890",
     });
 
@@ -354,5 +357,135 @@ describe("pencatatan pengajuan manual oleh admin", () => {
         nomorRekening: "1234567891",
       }),
     ).resolves.toMatchObject({ nomorReferensi: expect.stringMatching(/^PGD-/) });
+  });
+
+  it("mencatat pemohon BARU tanpa akun, lalu pengajuan + dokumennya", async () => {
+    const t = convexTest(schema, modules);
+    const { sesi: admin } = await siapkanPengguna(t, "admin", {
+      email: "admin-walkin@pindai.test",
+      role: "admin",
+    });
+    const fotoKtp = await t.run((ctx) => ctx.storage.store(new Blob(["ktp"])));
+
+    const pemohon = await admin.mutation(api.adminPengajuan.buatNasabahBaru, {
+      namaLengkap: "  asep firm an  hanafi ",
+      nik: "3201 2345 6789 0001",
+      nomorWhatsApp: "62 812-3456-7890",
+      alamat: "Jl. Merdeka No. 10",
+      pekerjaan: "Pedagang",
+      penghasilanBulanan: 2_500_000,
+      namaBank: "BRI",
+      nomorRekening: "1234-567-890",
+      fotoKtpId: fotoKtp,
+    });
+
+    // Nama HURUF BESAR dan data diri langsung siap dipakai formulir pengajuan.
+    expect(pemohon).toMatchObject({
+      nama: "ASEP FIRM AN HANAFI",
+      email: null,
+      adaDataDiri: true,
+      dibuatAdmin: true,
+      namaBank: "BRI",
+      nomorRekening: "1234567890",
+    });
+
+    const state = await t.run(async (ctx) => ({
+      user: await ctx.db.get(pemohon.userId),
+      akunAuth: await ctx.db.query("authAccounts").collect(),
+      profil: await ctx.db.query("nasabahProfil").collect(),
+    }));
+    expect(state.user).toMatchObject({ name: "ASEP FIRM AN HANAFI", role: "peminjam" });
+    expect(state.user?.dibuatAdminPada).toBeTypeOf("number");
+    expect(state.user?.kodePeminjam).toMatch(/^PMN-/);
+    // Akun pencatatan SENGAJA tanpa kredensial: pemohon tidak bisa masuk dengan
+    // akun ini, tetapi pengajuan & data dirinya punya pemilik yang sah.
+    expect(state.akunAuth).toHaveLength(0);
+    expect(state.profil[0]).toMatchObject({
+      namaLengkap: "ASEP FIRM AN HANAFI",
+      nik: "3201234567890001",
+      nomorWhatsApp: "6281234567890",
+      fotoKtpId: fotoKtp,
+    });
+
+    const auditPemohon = await auditTerakhir(t, "nasabah_baru_manual");
+    expect(auditPemohon?.target).toBe("ASEP FIRM AN HANAFI");
+    expect(auditPemohon?.detail).toContain("tanpa akun aplikasi");
+
+    // Pengajuan pinjaman atas nama pemohon baru ini langsung bisa dicatat, dan
+    // ketiga dokumen KYC ikut tersimpan pada baris pinjamannya.
+    const selfie = await t.run((ctx) => ctx.storage.store(new Blob(["selfie"])));
+    const slip = await t.run((ctx) => ctx.storage.store(new Blob(["slip"])));
+    const hasil = await admin.mutation(api.adminPengajuan.catatPinjamanManual, {
+      userIdTarget: pemohon.userId,
+      pokokPinjaman: 900_000,
+      tenorHari: 30,
+      tujuan: "modal_usaha",
+      dokSelfieKtpId: selfie,
+      dokSlipGajiId: slip,
+    });
+    const loan = await t.run((ctx) => ctx.db.get(hasil.appId));
+    expect(loan).toMatchObject({
+      status: "diajukan",
+      namaLengkap: "ASEP FIRM AN HANAFI",
+      namaBank: "BRI",
+      nomorRekening: "1234567890",
+      nik: "3201234567890001",
+      nomorWhatsApp: "6281234567890",
+      penghasilanBulanan: 2_500_000,
+      // Foto KTP mengikuti data diri; dua berkas lain dari unggahan admin.
+      dokKtpId: fotoKtp,
+      dokSelfieKtpId: selfie,
+      dokSlipGajiId: slip,
+    });
+
+    const auditPinjaman = await auditTerakhir(t, "pengajuan_manual_pinjaman");
+    expect(auditPinjaman?.detail).toContain("dokumen: KTP, selfie KTP, bukti penghasilan");
+  });
+
+  it("menolak NIK yang sudah tercatat dan menolak non-admin", async () => {
+    const t = convexTest(schema, modules);
+    const { sesi: admin } = await siapkanPengguna(t, "admin", {
+      email: "admin-ganda@pindai.test",
+      role: "admin",
+    });
+    const { sesi: peminjam } = await siapkanPengguna(t, "dina", {
+      email: "dina-ganda@pindai.test",
+      role: "peminjam",
+    });
+
+    const identitas = {
+      namaLengkap: "Dina Pemohon",
+      nik: "3201234567890009",
+      nomorWhatsApp: "628123456792",
+      alamat: "Jl. Melati No. 2",
+      pekerjaan: "Karyawan",
+      penghasilanBulanan: null,
+      namaBank: "BCA",
+      nomorRekening: "1234567892",
+    };
+
+    await expect(
+      peminjam.mutation(api.adminPengajuan.buatNasabahBaru, identitas),
+    ).rejects.toThrow(/Super Admin/i);
+
+    await expect(
+      admin.mutation(api.adminPengajuan.buatNasabahBaru, identitas),
+    ).resolves.toMatchObject({ dibuatAdmin: true });
+
+    // Satu orang satu data diri: NIK yang sama tidak membuat akun kedua.
+    await expect(
+      admin.mutation(api.adminPengajuan.buatNasabahBaru, {
+        ...identitas,
+        namaLengkap: "Dina Kedua",
+      }),
+    ).rejects.toThrow(/sudah tercatat/i);
+
+    const jumlah = await t.run(async (ctx) => ({
+      users: await ctx.db.query("users").collect(),
+      profil: await ctx.db.query("nasabahProfil").collect(),
+    }));
+    expect(jumlah.profil).toHaveLength(1);
+    // admin@pindai.test + dina@pindai.test + satu pemohon walk-in.
+    expect(jumlah.users).toHaveLength(3);
   });
 });

@@ -22,6 +22,7 @@ import { Component, useEffect, useState, type ReactNode } from "react";
 import { Link } from "react-router";
 
 import { RoleDashboardMenu } from "@/components/RoleDashboardMenu";
+import { namaHurufBesar } from "@/lib/nama";
 import { VaultLogo } from "@/components/VaultLogo";
 import { CatatanPotonganAdmin } from "@/components/penyediaDana/CatatanPotonganAdmin";
 import { DanaTersalurkanPendana } from "@/components/penyediaDana/DanaTersalurkanPendana";
@@ -350,10 +351,6 @@ function Tabel({ head, children }: { head: string[]; children: React.ReactNode }
       </Table>
     </div>
   );
-}
-
-function capitalize(nama: string): string {
-  return nama.trim().toUpperCase();
 }
 
 /**
@@ -1000,7 +997,7 @@ function DaftarPinjaman({
         {rows.map((row) => (
           <KartuPengajuan
             key={row._id}
-            nama={capitalize(row.namaLengkap)}
+            nama={namaHurufBesar(row.namaLengkap)}
             kode={row.kodePeminjam}
             nomorReferensi={row.nomorReferensi}
             status={<StatusBadge status={row.status} kind="loan" />}
@@ -1055,7 +1052,7 @@ function DaftarPinjaman({
           {rows.map((row) => (
             <TableRow key={row._id}>
               <SelPeminjam
-                nama={capitalize(row.namaLengkap)}
+                nama={namaHurufBesar(row.namaLengkap)}
                 kode={row.kodePeminjam}
                 referensi={row.nomorReferensi}
               />
@@ -1181,6 +1178,7 @@ function FormUbahPinjaman({ row, onClose }: { row: BarisPinjaman; onClose: () =>
   const TETAP_STATUS = "__tetap_status";
   const [pendana, setPendana] = useState(TETAP);
   const [statusBaru, setStatusBaru] = useState<string>(TETAP_STATUS);
+  const [namaPeminjam, setNamaPeminjam] = useState(row.namaLengkap);
   const [tujuan, setTujuan] = useState(row.tujuan);
   const [tenorHari, setTenorHari] = useState(String(row.tenorHari));
   const [tenorBulan, setTenorBulan] = useState(
@@ -1234,6 +1232,10 @@ function FormUbahPinjaman({ row, onClose }: { row: BarisPinjaman; onClose: () =>
           : pendana === LEPAS
             ? { pendanaEmail: null }
             : { pendanaUserId: pendana as Id<"users"> }),
+        // Nama peminjam hanya dikirim bila benar-benar diubah (perbaikan typo).
+        ...(namaPeminjam.trim() !== row.namaLengkap.trim()
+          ? { namaPeminjam: namaPeminjam.trim() }
+          : {}),
         ...(tujuan.trim() !== row.tujuan ? { tujuan: tujuan.trim() } : {}),
         ...(tenorBulan === "harian" &&
         Number.isFinite(hariBaru) &&
@@ -1262,7 +1264,7 @@ function FormUbahPinjaman({ row, onClose }: { row: BarisPinjaman; onClose: () =>
   return (
     <form className="space-y-4" onSubmit={kirim}>
       <div className="rounded-2xl border border-slate-200 bg-slate-50/70 px-4 py-3 text-xs leading-6 text-muted-foreground">
-        <span className="font-medium uppercase text-slate-700">{capitalize(row.namaLengkap)}</span> ·{" "}
+        <span className="font-medium uppercase text-slate-700">{namaHurufBesar(row.namaLengkap)}</span> ·{" "}
         <span className="font-mono">{row.nomorReferensi}</span>
         <br />
         Pokok tercatat {rupiah(row.pokokPinjaman)} · diajukan{" "}
@@ -1323,6 +1325,22 @@ function FormUbahPinjaman({ row, onClose }: { row: BarisPinjaman; onClose: () =>
           {bolehLepas
             ? "Pinjaman ini belum ditandai tersalurkan, jadi pendananya boleh dilepas."
             : "Pendana tidak dapat dilepas setelah dana ditandai tersalurkan — pilih penggantinya."}
+        </p>
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="ubah-nama-peminjam">Nama peminjam</Label>
+        <Input
+          id="ubah-nama-peminjam"
+          value={namaPeminjam}
+          onChange={(e) => setNamaPeminjam(e.target.value)}
+          maxLength={120}
+          className="uppercase"
+        />
+        <p className="text-[11px] leading-5 text-muted-foreground">
+          Nama pada catatan pinjaman ini. Perbaiki bila ada salah tulis — disimpan
+          HURUF BESAR dan langsung dipakai di seluruh layar. Identitas lain
+          (NIK, WhatsApp, foto KTP) disunting lewat menu Data Diri nasabah.
         </p>
       </div>
 
@@ -1512,7 +1530,7 @@ function IsiRuang() {
       .map((b) => ({
         id: b._id,
         nomorReferensi: b.nomorReferensi,
-        namaLengkap: capitalize(b.namaLengkap),
+        namaLengkap: namaHurufBesar(b.namaLengkap),
         keuntunganPendana: b.keuntunganPendana,
       }));
   }
@@ -1872,7 +1890,7 @@ function IsiRuang() {
                       {tampilGadai.map((row) => (
                         <KartuPengajuan
                           key={row._id}
-                          nama={capitalize(row.namaLengkap)}
+                          nama={namaHurufBesar(row.namaLengkap)}
                           kode={row.kodePeminjam}
                           nomorReferensi={row.nomorReferensi}
                           status={<StatusBadge status={row.status} kind="pawn" />}
@@ -1913,7 +1931,7 @@ function IsiRuang() {
                       {tampilGadai.map((row) => (
                         <TableRow key={row._id}>
                           <SelPeminjam
-                            nama={capitalize(row.namaLengkap)}
+                            nama={namaHurufBesar(row.namaLengkap)}
                             kode={row.kodePeminjam}
                             referensi={row.nomorReferensi}
                           />
@@ -1964,7 +1982,7 @@ function IsiRuang() {
                       {tampilKredit.map((row) => (
                         <KartuPengajuan
                           key={row._id}
-                          nama={capitalize(row.namaLengkap)}
+                          nama={namaHurufBesar(row.namaLengkap)}
                           kode={row.kodePeminjam}
                           nomorReferensi={row.nomorReferensi}
                           status={<BadgeKredit status={row.status} />}
@@ -2004,7 +2022,7 @@ function IsiRuang() {
                       {tampilKredit.map((row) => (
                         <TableRow key={row._id}>
                           <SelPeminjam
-                            nama={capitalize(row.namaLengkap)}
+                            nama={namaHurufBesar(row.namaLengkap)}
                             kode={row.kodePeminjam}
                             referensi={row.nomorReferensi}
                           />
@@ -2098,7 +2116,7 @@ function IsiRuang() {
                               <span className="min-w-0">
                                 <span className="flex flex-wrap items-center gap-2">
                                   <span className="font-medium uppercase text-slate-900">
-                                    {capitalize(r.namaLengkap)}
+                                    {namaHurufBesar(r.namaLengkap)}
                                   </span>
                                   <BadgePseudonim kode={r.kodePeminjam} />
                                   {r.posisi.tanda.length > 0 && (

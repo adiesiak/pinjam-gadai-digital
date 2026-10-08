@@ -20,6 +20,7 @@ import {
   simulasiBulananPinjaman,
 } from "../lib/loan";
 import { formatRupiah } from "../lib/money";
+import { namaHurufBesar } from "../lib/nama";
 import {
   pesanPerubahanStatus,
   statusKanonik,
@@ -304,7 +305,9 @@ function pesanDariLoan(
   const dendaStr =
     denda > 0 ? ` (sudah termasuk denda ${formatRupiah(denda)})` : "";
   const isi = renderTemplate(template, {
-    nama: loan.namaLengkap,
+    // Nama di pesan selalu HURUF BESAR (lib/nama.ts) — pesan, pratinjau, dan
+    // ruang penyedia dana menampilkan orang yang sama dengan tulisan yang sama.
+    nama: namaHurufBesar(loan.namaLengkap),
     ref: loan.nomorReferensi,
     jumlah: formatRupiah(total),
     tanggal,
@@ -713,7 +716,7 @@ export const _dataPeringatanLokasi = internalQuery({
       loans.find((l) => l.nomorWhatsApp) ??
       null;
     return {
-      nama: sumber?.namaLengkap ?? user?.name ?? "Nasabah PINDAI",
+      nama: namaHurufBesar(sumber?.namaLengkap ?? user?.name ?? "Nasabah PINDAI"),
       nomorWhatsApp: sumber?.nomorWhatsApp ?? null,
       nomorReferensi: sumber?.nomorReferensi ?? null,
       tanda: peringatan.tanda,

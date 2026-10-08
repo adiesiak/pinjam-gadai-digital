@@ -19,6 +19,8 @@ import { LOAN_LIMITS, LOAN_PURPOSE_OPTIONS, TENOR_OPTIONS } from "@/lib/loan";
 import { formatRupiah } from "@/lib/money";
 import { rupiahDariTeks, validasiPinjamanManual, type NasabahManual } from "@/lib/pengajuanManual";
 
+import { UnggahDokumen, type DokumenTerunggah } from "./UnggahDokumen";
+
 /**
  * Formulir admin untuk MENCATAT pengajuan pinjaman tunai yang masuk di luar
  * aplikasi (nasabah datang ke kantor, data lama dipindahkan, dsb).
@@ -31,6 +33,10 @@ import { rupiahDariTeks, validasiPinjamanManual, type NasabahManual } from "@/li
  *    server (`admin.adminLoanQuote`) dan tetap divalidasi ulang saat keputusan.
  *  - Identitas (NIK, WhatsApp, penghasilan) tidak diketik ulang: diambil server
  *    dari Data Diri nasabah. Yang diketik admin hanya rekening pencairan.
+ *  - **Dokumen pengajuan ikut dicatat**: foto KTP mengikuti Data Diri nasabah,
+ *    sedangkan selfie dengan KTP dan bukti penghasilan diunggah di sini bila
+ *    berkasnya sudah diterima. Ketiganya tersimpan pada pinjaman ini sehingga
+ *    panel KYC menampilkannya seperti pengajuan jalur nasabah.
  */
 export function FormPinjamanManual({
   nasabah,
@@ -40,6 +46,8 @@ export function FormPinjamanManual({
   onSukses: (nomorReferensi: string) => void;
 }) {
   const catat = useMutation(api.adminPengajuan.catatPinjamanManual);
+  // URL unggah digerbang admin di server; dipakai untuk dokumen pengajuan.
+  const mintaUrlUnggah = useMutation(api.admin.generateDataDiriUploadUrl);
   const [skema, setSkema] = useState<"harian" | "bulanan">("harian");
   const [tenorHari, setTenorHari] = useState<string>(`${TENOR_OPTIONS[2]}`);
   const [tenorBulan, setTenorBulan] = useState<string>(`${TENOR_BULANAN_OPTIONS[1]}`);
@@ -49,6 +57,8 @@ export function FormPinjamanManual({
   const [namaBank, setNamaBank] = useState(nasabah.namaBank ?? "");
   const [nomorRekening, setNomorRekening] = useState(nasabah.nomorRekening ?? "");
   const [catatan, setCatatan] = useState("");
+  const [selfie, setSelfie] = useState<DokumenTerunggah | null>(null);
+  const [slip, setSlip] = useState<DokumenTerunggah | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -97,6 +107,9 @@ export function FormPinjamanManual({
         ...(bersih.catatanPeminjam !== undefined
           ? { catatanPeminjam: bersih.catatanPeminjam }
           : {}),
+        // Dokumen pengajuan: hanya yang benar-benar diunggah yang dikirim.
+        ...(selfie !== null ? { dokSelfieKtpId: selfie.id } : {}),
+        ...(slip !== null ? { dokSlipGajiId: slip.id } : {}),
       });
       onSukses(hasil.nomorReferensi);
     } catch (err) {
@@ -309,6 +322,35 @@ export function FormPinjamanManual({
           placeholder="Sumber pengajuan, berkas yang diterima, atau permintaan khusus nasabah…"
           disabled={busy}
         />
+      </div>
+
+      <div className="space-y-2 rounded-xl border border-slate-200 bg-slate-50/60 p-3">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-400">
+          Dokumen pengajuan (opsional)
+        </p>
+        <p className="text-[11px] leading-4 text-muted-foreground">
+          {nasabah.adaDataDiri
+            ? "Foto KTP ikut otomatis dari Data Diri nasabah. Unggah dua berkas ini bila sudah diterima dari pemohon."
+            : "Data diri nasabah belum ada, jadi foto KTP juga belum ikut. Lengkapi lewat Data Diri bila berkasnya sudah ada."}
+        </p>
+        <div className="grid gap-2 sm:grid-cols-2">
+          <UnggahDokumen
+            label="Selfie + KTP"
+            keterangan="Foto pemohon memegang KTP."
+            nilai={selfie}
+            onUbah={setSelfie}
+            mintaUrl={mintaUrlUnggah}
+            disabled={busy}
+          />
+          <UnggahDokumen
+            label="Bukti penghasilan"
+            keterangan="Slip gaji, mutasi, atau surat keterangan usaha."
+            nilai={slip}
+            onUbah={setSlip}
+            mintaUrl={mintaUrlUnggah}
+            disabled={busy}
+          />
+        </div>
       </div>
 
       {error !== null && (

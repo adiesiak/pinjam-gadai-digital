@@ -52,7 +52,8 @@ eq(penghasilanDariTeks("abc"), null, "penghasilan tanpa digit → null");
   const { tersimpan, pesan } = bacaDataDiri(form());
   eq(pesan, null, "form lengkap → tanpa pesan");
   eq(tersimpan, {
-    namaLengkap: "Rani Puspita",
+    // Nama disimpan HURUF BESAR (lib/nama.ts) — sama dengan ruang penyedia dana.
+    namaLengkap: "RANI PUSPITA",
     nik: "3271012345678901",
     nomorWhatsApp: "6281234567890",
     alamat: "Jalan Merdeka No. 10, Bandung",
@@ -74,7 +75,7 @@ eq(penghasilanDariTeks("abc"), null, "penghasilan tanpa digit → null");
       penghasilan: "2.500.000",
     }),
   );
-  eq(tersimpan?.namaLengkap, "Rani Puspita", "nama dirapikan spasinya");
+  eq(tersimpan?.namaLengkap, "RANI PUSPITA", "nama dirapikan spasinya & jadi huruf besar");
   eq(tersimpan?.nik, "3271012345678901", "NIK dinormalkan jadi digit");
   eq(tersimpan?.nomorWhatsApp, "6281234567890", "WhatsApp dinormalkan jadi digit");
   eq(tersimpan?.nomorRekening, "1234567890", "rekening dinormalkan jadi digit");

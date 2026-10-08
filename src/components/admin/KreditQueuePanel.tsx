@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { formatRupiah } from "@/lib/money";
+import { namaHurufBesar } from "@/lib/nama";
 
 import { formatDate } from "./admin-format";
 import { EmptyQueue } from "./admin-shared";
@@ -237,7 +238,7 @@ export function KreditQueuePanel() {
               <li key={r._id} className="rounded-2xl border border-slate-200 bg-white p-5">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="text-sm font-semibold">{r.namaLengkap}</p>
+                    <p className="text-sm font-semibold">{namaHurufBesar(r.namaLengkap)}</p>
                     <p className="mt-1 text-xs text-muted-foreground">
                       {r.emailPemohon ?? "tanpa email"} · {r.nomorReferensi} · {r.namaBarang} · {r.merchant} · {r.kategori} · {formatDate(r._creationTime)}
                     </p>
@@ -281,7 +282,7 @@ export function KreditQueuePanel() {
 
                 <div className="mt-4 grid gap-x-4 gap-y-1 border-t border-slate-100 pt-4 text-xs text-muted-foreground sm:grid-cols-2">
                   <p>
-                    Pemohon: <span className="text-navy">{r.namaLengkap}</span>
+                    Pemohon: <span className="text-navy">{namaHurufBesar(r.namaLengkap)}</span>
                     {r.emailPemohon !== null && ` · ${r.emailPemohon}`}
                   </p>
                   <p>
@@ -398,7 +399,7 @@ export function KreditQueuePanel() {
               >
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium">
-                    {r.namaLengkap} — {r.namaBarang} (harga {formatRupiah(r.hargaBarang)})
+                    {namaHurufBesar(r.namaLengkap)} — {r.namaBarang} (harga {formatRupiah(r.hargaBarang)})
                   </p>
                   <p className="mt-1 truncate text-xs text-muted-foreground">
                     {r.nomorReferensi} · {r.emailPemohon ?? "tanpa email"} · {r.merchant} · tenor {r.tenorBulan} bulan

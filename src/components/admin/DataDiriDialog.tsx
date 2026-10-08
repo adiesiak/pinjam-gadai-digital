@@ -15,6 +15,7 @@ import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { formDariTersimpan, penghasilanDariTeks } from "@/lib/dataDiri";
 import { MAX_FILE_BYTES } from "@/lib/kyc";
+import { namaHurufBesar } from "@/lib/nama";
 
 /**
  * Isi & sunting data diri satu nasabah — admin.
@@ -78,7 +79,7 @@ export function DataDiriDialog({
           </p>
         ) : (
           <FormDataDiri
-            nama={data.nama}
+            nama={namaHurufBesar(data.nama)}
             awal={formDariTersimpan(data.data)}
             fotoKtpUrl={data.fotoKtpUrl}
             sebelumnya={keteranganSebelumnya(data)}
