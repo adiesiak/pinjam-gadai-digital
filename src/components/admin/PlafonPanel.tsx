@@ -2,6 +2,7 @@ import { useMutation, useQuery } from "convex/react";
 import {
   ChevronLeft,
   ChevronRight,
+  IdCard,
   Loader2,
   RotateCcw,
   Search,
@@ -28,6 +29,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { EmptyQueue, MetrikKartu } from "@/components/admin/admin-shared";
+import { DataDiriDialog } from "@/components/admin/DataDiriDialog";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { formatRupiah } from "@/lib/money";
@@ -67,6 +69,8 @@ export function PlafonPanel() {
   const [busyHapusId, setBusyHapusId] = useState<string | null>(null);
   /** Nasabah yang sedang dikonfirmasi penghapusannya lewat dialog. */
   const [hapusTarget, setHapusTarget] = useState<{ userId: Id<"users">; nama: string } | null>(null);
+  /** Nasabah yang data dirinya sedang diisi/disunting lewat dialog. */
+  const [dataDiriTarget, setDataDiriTarget] = useState<{ userId: Id<"users">; nama: string } | null>(null);
   const [alasanHapus, setAlasanHapus] = useState("");
   /** Halaman daftar nasabah yang sedang dilihat (10 baris per halaman). */
   const [halaman, setHalaman] = useState(0);
@@ -321,6 +325,19 @@ export function PlafonPanel() {
                         bunga khusus: {formatPersen(r.persenBungaPribadi)}
                       </Badge>
                     )}
+                    {!r.adaDataDiri ? (
+                      <Badge className="border-slate-200 bg-slate-100 text-slate-600">
+                        data diri belum diisi
+                      </Badge>
+                    ) : r.adaFotoKtp ? (
+                      <Badge className="border-emerald-200 bg-emerald-100 text-emerald-700">
+                        data diri &amp; KTP lengkap
+                      </Badge>
+                    ) : (
+                      <Badge className="border-amber-200 bg-amber-100 text-amber-800">
+                        data diri tanpa foto KTP
+                      </Badge>
+                    )}
                   </div>
                 </header>
 
@@ -466,25 +483,39 @@ export function PlafonPanel() {
                 <footer className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 bg-slate-50/60 px-4 py-2.5 sm:px-5">
                   <p className={KELAS_HINT}>
                     Menghapus hanya menghapus akun — pengajuan dan riwayat keuangannya tetap
-                    tersimpan.
+                    tersimpan. Data diri diisi admin dan dapat disunting kapan saja.
                   </p>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="border-destructive/30 text-destructive hover:bg-destructive/10 hover:text-destructive"
-                    disabled={sedangHapus}
-                    onClick={() => {
-                      setAlasanHapus("");
-                      setHapusTarget({ userId: r.userId as Id<"users">, nama: r.nama });
-                    }}
-                  >
-                    {sedangHapus ? (
-                      <Loader2 className="size-4 animate-spin" />
-                    ) : (
-                      <Trash2 className="size-4" />
-                    )}
-                    <span className="ml-1">Hapus akun</span>
-                  </Button>
+                  <div className="flex flex-wrap gap-1.5">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() =>
+                        setDataDiriTarget({ userId: r.userId as Id<"users">, nama: r.nama })
+                      }
+                    >
+                      <IdCard className="size-4" />
+                      <span className="ml-1">
+                        {r.adaDataDiri ? "Sunting data diri" : "Isi data diri"}
+                      </span>
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="border-destructive/30 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                      disabled={sedangHapus}
+                      onClick={() => {
+                        setAlasanHapus("");
+                        setHapusTarget({ userId: r.userId as Id<"users">, nama: r.nama });
+                      }}
+                    >
+                      {sedangHapus ? (
+                        <Loader2 className="size-4 animate-spin" />
+                      ) : (
+                        <Trash2 className="size-4" />
+                      )}
+                      <span className="ml-1">Hapus akun</span>
+                    </Button>
+                  </div>
                 </footer>
               </li>
             );
@@ -545,6 +576,14 @@ export function PlafonPanel() {
             </div>
           )}
         </nav>
+      )}
+
+      {/* Editor data diri per nasabah (termasuk unggah KTP). */}
+      {dataDiriTarget !== null && (
+        <DataDiriDialog
+          userId={dataDiriTarget.userId}
+          onClose={() => setDataDiriTarget(null)}
+        />
       )}
 
       {/* Konfirmasi hapus: alasan 10–500 karakter (sama dengan validasi server)

@@ -23,6 +23,7 @@ import {
   plafonEfektif,
 } from "../lib/plafon";
 import { clampPersenBunga, persenBungaEfektif } from "../lib/bunga";
+import { bacaDataDiri, type DataDiriForm } from "../lib/dataDiri";
 import { ensureKodePeminjam } from "./peminjamCode";
 import { rejectUnverifiedMoneyMovement } from "./paymentGuard";
 import { quoteKreditBarang } from "../lib/kredit";
@@ -54,6 +55,15 @@ export const daftarPlafonPeminjam = query({
 
     const loans = await ctx.db.query("loans").collect();
     const kredits = await ctx.db.query("kreditBarang").collect();
+    // Data diri disimpan satu baris per pengguna; dipakai untuk menandai kartu
+    // nasabah yang sudah/belum dilengkapi tanpa membuka dialognya dulu.
+    const profil = await ctx.db.query("nasabahProfil").collect();
+    const adaDataDiri = new Set<string>();
+    const adaFotoKtp = new Set<string>();
+    for (const p of profil) {
+      adaDataDiri.add(p.userId);
+      if (p.fotoKtpId !== undefined) adaFotoKtp.add(p.userId);
+    }
     const pelunasanTepatWaktuPerUser = new Map<string, number>();
     for (const loan of loans) {
       if (!apakahPelunasanTepatWaktu(loan)) continue;
@@ -77,6 +87,10 @@ export const daftarPlafonPeminjam = query({
       jumlahPelunasanTepatWaktu: number;
       jumlahPengajuan: number;
       pinjamanAktif: number;
+      /** true bila admin sudah pernah mengisi data diri nasabah ini. */
+      adaDataDiri: boolean;
+      /** true bila foto KTP nasabah ini sudah tersimpan. */
+      adaFotoKtp: boolean;
     }> = [];
     for (const id of idPeminjam) {
       const user = (await ctx.db.get(id as never)) as
@@ -110,6 +124,8 @@ export const daftarPlafonPeminjam = query({
         jumlahPelunasanTepatWaktu: pelunasanTepatWaktuPerUser.get(id) ?? 0,
         jumlahPengajuan: pinjamanUser.length + kreditUser.length,
         pinjamanAktif: pinjamanUser.filter((l) => l.status === "didanai").length,
+        adaDataDiri: adaDataDiri.has(id),
+        adaFotoKtp: adaFotoKtp.has(id),
       });
     }
     hasil.sort((a, b) => b.jumlahPengajuan - a.jumlahPengajuan || a.nama.localeCompare(b.nama));
@@ -238,6 +254,175 @@ export const setBungaPeminjam = mutation({
   },
 });
 
+// ===== Data diri nasabah (diisi & disunting admin; lihat lib/dataDiri.ts) =====
+
+/**
+ * Data diri satu nasabah untuk form admin — admin saja.
+ *
+ * Mengembalikan isian siap-pakai (kosong bila belum pernah diisi) plus URL
+ * foto KTP yang sudah tersimpan, sehingga form bisa menampilkan kondisi nyata
+ * alih-alih menebak. URL bersifat sementara (ditandatangani storage).
+ */
+export const dataDiriNasabah = query({
+  args: { userId: v.id("users") },
+  handler: async (ctx, { userId }) => {
+    await requireAdmin(ctx);
+    const user = await ctx.db.get(userId);
+    if (user === null) throw new Error("Pengguna tidak ditemukan.");
+    const row = await ctx.db
+      .query("nasabahProfil")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .first();
+    return {
+      nama: user.name ?? user.email ?? "Peminjam",
+      email: user.email ?? null,
+      /** true bila baris data diri sudah ada. */
+      ada: row !== null,
+      /** Nama prefil dari akun agar admin tidak mengetik ulang dari nol. */
+      data: {
+        namaLengkap: row?.namaLengkap ?? user.name ?? "",
+        nik: row?.nik ?? "",
+        nomorWhatsApp: row?.nomorWhatsApp ?? "",
+        alamat: row?.alamat ?? "",
+        pekerjaan: row?.pekerjaan ?? "",
+        penghasilanBulanan: row?.penghasilanBulanan ?? null,
+        namaBank: row?.namaBank ?? "",
+        nomorRekening: row?.nomorRekening ?? "",
+      },
+      fotoKtpUrl: row?.fotoKtpId !== undefined ? await ctx.storage.getUrl(row.fotoKtpId) : null,
+      diperbaruiPada: row?.diperbaruiPada ?? null,
+      diperbaruiOlehLabel: row?.diperbaruiOlehLabel ?? null,
+    };
+  },
+});
+
+/** URL unggah satu berkas foto KTP data diri — admin saja. */
+export const generateDataDiriUploadUrl = mutation({
+  args: {},
+  returns: v.string(),
+  handler: async (ctx) => {
+    await requireAdmin(ctx);
+    return await ctx.storage.generateUploadUrl();
+  },
+});
+
+/**
+ * Isi/perbarui data diri satu nasabah — admin.
+ *
+ * Validasi memakai `bacaDataDiri()` yang sama dengan form (satu sumber aturan),
+ * jadi nilai yang tersimpan sudah dinormalkan (digit NIK/WA/rekening, angka
+ * penghasilan). Foto KTP lama dihapus dari storage saat diganti atau
+ * dikosongkan agar tidak menumpuk berkas yatim. Setiap perubahan masuk audit
+ * trail.
+ */
+export const simpanDataDiriNasabah = mutation({
+  args: {
+    userId: v.id("users"),
+    namaLengkap: v.string(),
+    nik: v.string(),
+    nomorWhatsApp: v.string(),
+    alamat: v.string(),
+    pekerjaan: v.string(),
+    /** Rupiah bulat, atau null bila kosong. */
+    penghasilanBulanan: v.union(v.number(), v.null()),
+    namaBank: v.string(),
+    nomorRekening: v.string(),
+    /**
+     * Perubahan foto KTP: id = pasang/ganti, null = kosongkan, tidak dikirim =
+     * biarkan apa adanya. Dipisah begini supaya menyimpan data diri tanpa
+     * menyentuh foto tidak pernah menghapusnya tanpa sengaja.
+     */
+    fotoKtpId: v.optional(v.union(v.id("_storage"), v.null())),
+  },
+  handler: async (ctx, args) => {
+    const { userId: adminId, user: admin } = await requireAdmin(ctx);
+    const target = await ctx.db.get(args.userId);
+    if (target === null) throw new Error("Pengguna tidak ditemukan.");
+    if (target.role === ROLES.ADMIN) {
+      throw new Error("Data diri tidak berlaku untuk akun tim (admin).");
+    }
+
+    // Angka dari klien harus sudah rupiah bulat. Tanpa penjagaan ini, nilai
+    // berkoma (mis. 5.5) akan "diperbaiki" diam-diam menjadi 55 oleh
+    // pengekstrakan digit — menyimpan angka yang salah, bukan menolaknya.
+    if (
+      args.penghasilanBulanan !== null &&
+      !Number.isSafeInteger(args.penghasilanBulanan)
+    ) {
+      throw new Error("Penghasilan per bulan harus rupiah bulat (tanpa koma).");
+    }
+
+    const form: DataDiriForm = {
+      namaLengkap: args.namaLengkap,
+      nik: args.nik,
+      nomorWhatsApp: args.nomorWhatsApp,
+      alamat: args.alamat,
+      pekerjaan: args.pekerjaan,
+      penghasilan: args.penghasilanBulanan === null ? "" : String(args.penghasilanBulanan),
+      namaBank: args.namaBank,
+      nomorRekening: args.nomorRekening,
+    };
+    const { tersimpan, pesan } = bacaDataDiri(form);
+    if (tersimpan === null) throw new Error(pesan ?? "Data diri tidak valid.");
+
+    const existing = await ctx.db
+      .query("nasabahProfil")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .first();
+
+    // Foto KTP: hitung nilai akhir + hapus berkas lama bila benar-benar berubah.
+    let fotoKtpId = existing?.fotoKtpId;
+    if (args.fotoKtpId === null) {
+      fotoKtpId = undefined;
+    } else if (args.fotoKtpId !== undefined) {
+      fotoKtpId = args.fotoKtpId;
+    }
+    const fotoLama = existing?.fotoKtpId;
+    if (fotoLama !== undefined && fotoLama !== fotoKtpId) {
+      if (await ctx.storage.getMetadata(fotoLama) !== null) {
+        await ctx.storage.delete(fotoLama);
+      }
+    }
+
+    const nama = target.name ?? target.email ?? args.userId;
+    const isi = {
+      namaLengkap: tersimpan.namaLengkap,
+      nik: tersimpan.nik,
+      nomorWhatsApp: tersimpan.nomorWhatsApp,
+      alamat: tersimpan.alamat ?? undefined,
+      pekerjaan: tersimpan.pekerjaan ?? undefined,
+      penghasilanBulanan: tersimpan.penghasilanBulanan ?? undefined,
+      namaBank: tersimpan.namaBank ?? undefined,
+      nomorRekening: tersimpan.nomorRekening ?? undefined,
+      fotoKtpId,
+      diperbaruiPada: Date.now(),
+      diperbaruiOlehLabel: admin.email ?? admin.name ?? "admin",
+    };
+    if (existing === null) {
+      await ctx.db.insert("nasabahProfil", { userId: args.userId, ...isi });
+    } else {
+      await ctx.db.patch(existing._id, isi);
+    }
+
+    await audit(
+      ctx,
+      adminId,
+      admin.email ?? admin.name ?? "admin",
+      "ubah_data_diri",
+      nama,
+      `${existing === null ? "Data diri dibuat" : "Data diri diperbarui"}: ` +
+        `NIK ${tersimpan.nik.slice(0, 4)}••••${tersimpan.nik.slice(-4)}, ` +
+        `WA ${tersimpan.nomorWhatsApp}` +
+        (tersimpan.alamat === null ? ", alamat kosong" : ", alamat terisi") +
+        (tersimpan.penghasilanBulanan === null
+          ? ", penghasilan kosong"
+          : `, penghasilan ${formatRupiah(tersimpan.penghasilanBulanan)}`) +
+        (fotoKtpId === undefined ? ", tanpa foto KTP" : ", foto KTP tersimpan"),
+    );
+    return { ok: true };
+  },
+});
+
 /**
  * Hapus AKUN satu nasabah — admin.
  *
@@ -275,8 +460,8 @@ export const hapusNasabah = mutation({
     for (const row of sesiAuth) await ctx.db.delete(row._id);
 
     // Baris turunan akun (bukan riwayat keuangan): MFA, consent & status
-    // lokasi, perangkat terdaftar, sesi internal, dan jejak lokasi.
-    const [mfa, consent, statusLokasi, perangkat, sesiInternal, jejak] =
+    // lokasi, perangkat terdaftar, sesi internal, jejak lokasi, dan data diri.
+    const [mfa, consent, statusLokasi, perangkat, sesiInternal, jejak, profil] =
       await Promise.all([
         ctx.db.query("mfaSettings").withIndex("by_user", (q) => q.eq("userId", userId)).collect(),
         ctx.db.query("trackingConsents").withIndex("by_user", (q) => q.eq("userId", userId)).collect(),
@@ -284,13 +469,23 @@ export const hapusNasabah = mutation({
         ctx.db.query("perangkat").withIndex("by_user", (q) => q.eq("userId", userId)).collect(),
         ctx.db.query("sessions").withIndex("by_user", (q) => q.eq("userId", userId)).collect(),
         ctx.db.query("lokasiJejak").withIndex("by_user", (q) => q.eq("userId", userId)).collect(),
+        ctx.db.query("nasabahProfil").withIndex("by_user", (q) => q.eq("userId", userId)).collect(),
       ]);
-    for (const row of [...mfa, ...consent, ...statusLokasi, ...perangkat, ...sesiInternal, ...jejak]) {
+    // Foto KTP ikut dihapus dari storage — tanpa baris pemiliknya, berkas itu
+    // menjadi yatim yang tak bisa ditelusuri lagi.
+    for (const p of profil) {
+      if (p.fotoKtpId !== undefined && await ctx.storage.getMetadata(p.fotoKtpId) !== null) {
+        await ctx.storage.delete(p.fotoKtpId);
+      }
+    }
+    for (const row of [
+      ...mfa, ...consent, ...statusLokasi, ...perangkat, ...sesiInternal, ...jejak, ...profil,
+    ]) {
       await ctx.db.delete(row._id);
     }
     const turunan =
       mfa.length + consent.length + statusLokasi.length +
-      perangkat.length + sesiInternal.length + jejak.length;
+      perangkat.length + sesiInternal.length + jejak.length + profil.length;
 
     await audit(
       ctx,

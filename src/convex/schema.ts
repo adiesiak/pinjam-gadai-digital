@@ -250,6 +250,39 @@ const schema = defineSchema(
       .index("by_pendana", ["pendanaId"]),
 
     /**
+     * Data diri nasabah yang diisi/diperbarui ADMIN — satu baris per pengguna.
+     *
+     * Dipisah dari tabel `users` (auth) supaya identitas kependudukan tidak
+     * menempel pada dokumen autentikasi, dan menyamai pola tabel "satu baris
+     * per pengguna" lain (mfaSettings, trackingConsents, lokasiStatus).
+     *
+     * Isian wajib: nama, NIK 16 digit, nomor WhatsApp (62…). Sisanya opsional —
+     * kosong disimpan sebagai field yang TIDAK ada, bukan string kosong. Foto
+     * KTP adalah referensi Convex storage; berkas lama dihapus saat diganti atau
+     * dikosongkan. Aturan validasinya satu sumber dengan form, lihat
+     * lib/dataDiri.ts (bacaDataDiri).
+     */
+    nasabahProfil: defineTable({
+      userId: v.id("users"),
+      namaLengkap: v.string(),
+      /** NIK 16 digit sesuai KTP. */
+      nik: v.string(),
+      /** Nomor WhatsApp format 62… tanpa tanda +. */
+      nomorWhatsApp: v.string(),
+      alamat: v.optional(v.string()),
+      pekerjaan: v.optional(v.string()),
+      /** Penghasilan per bulan — rupiah bulat. */
+      penghasilanBulanan: v.optional(v.number()),
+      namaBank: v.optional(v.string()),
+      nomorRekening: v.optional(v.string()),
+      /** Foto KTP yang diunggah admin (Convex storage). */
+      fotoKtpId: v.optional(v.id("_storage")),
+      diperbaruiPada: v.number(),
+      /** Label admin penyunting terakhir — snapshot agar tetap terbaca. */
+      diperbaruiOlehLabel: v.string(),
+    }).index("by_user", ["userId"]),
+
+    /**
      * Konfigurasi API WhatsApp — hanya bisa dibaca/diubah admin.
      * Gateway generik berbasis token: admin menempel endpoint & template
      * penyedia apa pun (Fonnte, Wablas, Meta Cloud API, dll).
