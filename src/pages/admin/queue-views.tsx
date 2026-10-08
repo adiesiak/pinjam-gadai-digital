@@ -20,8 +20,13 @@ import { Input } from "@/components/ui/input";
  * Sub-tab antrean pinjaman: memisahkan catatan yang masih perlu ditindak dari
  * yang sudah selesai, supaya satu daftar tidak mencampur keduanya. Urutannya
  * mengikuti alur status di `LOAN_STATUS_FLOW`.
+ *
+ * Diekspor agar uji render bisa memastikan setiap status pinjaman punya satu
+ * sub-tab. Tanpa tab "Didanai", pinjaman yang dananya sudah tersalurkan tidak
+ * cocok dengan sub-tab mana pun: barisnya hanya terlihat di "Semua", dan
+ * jumlah seluruh sub-tab status tidak pernah sama dengan "Semua".
  */
-const SUB_TAB_PINJAMAN: readonly OpsiSubTab<LoanRow>[] = [
+export const SUB_TAB_PINJAMAN: readonly OpsiSubTab<LoanRow>[] = [
   {
     id: "semua",
     label: "Semua",
@@ -36,6 +41,12 @@ const SUB_TAB_PINJAMAN: readonly OpsiSubTab<LoanRow>[] = [
       pinjaman.status === "diajukan" ||
       pinjaman.status === "sedang_direview" ||
       pinjaman.status === "disetujui",
+  },
+  {
+    id: "didanai",
+    label: "Didanai",
+    hint: "Dana sudah tersalurkan dan pinjaman sedang berjalan — belum lunas.",
+    cocok: (pinjaman) => pinjaman.status === "didanai",
   },
   {
     id: "ditolak",
