@@ -5,12 +5,10 @@ import { Link, useNavigate } from "react-router";
 import { Button } from "@/components/ui/button";
 import { formatRupiah } from "@/lib/money";
 import type { FunctionReturnType } from "convex/server";
-import { toast } from "sonner";
 
 import { LocationGate } from "@/components/LocationGate";
 import { ManualPaymentEvidenceHistory } from "@/components/ManualPaymentEvidenceForm";
 import { FadeIn } from "@/components/Reveal";
-import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
@@ -22,7 +20,7 @@ import { DashboardHeader } from "./dashboard/dashboard-header";
 import { DashboardSidebar } from "./dashboard/dashboard-sidebar";
 import type { TabBadge } from "./dashboard/dashboard-tab-nav";
 import { LoanDetailDialog, PawnDetailDialog } from "./dashboard/detail-dialogs";
-import { LoanForm, PawnForm } from "./dashboard/forms-views";
+import { FormPengajuanSection } from "./dashboard/form-pengajuan-views";
 import { GadaiBillingSection } from "./dashboard/gadai-views";
 import { HistorySection } from "./dashboard/history-views";
 import { KreditBarangSection } from "./dashboard/kredit-views";
@@ -270,30 +268,11 @@ export default function Dashboard() {
                   <MyContractsSection contracts={contracts} />
                 </TabsContent>
 
-                {/* ============ TAB 6: FORM PENGAJUAN ============ */}
+                {/* ===== TAB 6: FORM PENGAJUAN — satu halaman, tiga jenis =====
+                    Peminjam memilih pinjaman / gadai / kredit barang lewat menu
+                    dropdown; hanya formulir jenis itu yang dirender. */}
                 <TabsContent value="form" className="mt-8 min-w-0 animate-masuk">
-                  <div className="grid min-w-0 gap-8 xl:grid-cols-2">
-                    <section className="min-w-0">
-                      <h2 className="text-lg font-semibold">Form Pengajuan Pinjaman</h2>
-                      <Separator className="my-4" />
-                      <LoanForm
-                        onCreated={(ref) =>
-                          toast.success(`Catatan pengajuan tersimpan — referensi ${ref}.`)
-                        }
-                      />
-                    </section>
-                    <section className="min-w-0">
-                      <h2 className="text-lg font-semibold">Gadaikan Barang</h2>
-                      <Separator className="my-4" />
-                      <PawnForm
-                        onCreated={() =>
-                          toast.success(
-                            "Catatan pengajuan gadai tersimpan pada ledger internal.",
-                          )
-                        }
-                      />
-                    </section>
-                  </div>
+                  <FormPengajuanSection />
                 </TabsContent>
 
                 {/* ============ TAB 7: RIWAYAT ============ */}

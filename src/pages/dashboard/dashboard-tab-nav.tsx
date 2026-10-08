@@ -62,6 +62,13 @@ export function DashboardTabNav({
   // Menu yang sedang aktif — ditampilkan menonjol di kartu menu layar sempit.
   const aktif = TABS.find(([value]) => value === activeTab) ?? null;
 
+  // Teks sebuah menu: label + jumlah item. Dipakai baik oleh isi dropdown
+  // maupun wajah trigger-nya, supaya keduanya tidak pernah berbeda.
+  const teksMenu = (value: string, label: string) => {
+    const jumlah = badges?.[value]?.count;
+    return jumlah ? `${label} · ${jumlah}` : label;
+  };
+
   return (
     <>
       <div className="rounded-2xl border border-primary/25 bg-primary/[0.05] p-3 shadow-sm lg:hidden">
@@ -83,12 +90,14 @@ export function DashboardTabNav({
             aria-label="Menu dashboard Peminjam"
             className="mt-3 h-12 w-full rounded-xl border-primary/30 bg-white text-sm font-medium"
           >
-            <SelectValue placeholder="Pilih menu" />
+            <SelectValue placeholder="Pilih menu">
+              {aktif ? teksMenu(aktif[0], aktif[1]) : "Pilih menu"}
+            </SelectValue>
           </SelectTrigger>
           <SelectContent>
             {TABS.map(([value, label]) => (
               <SelectItem key={value} value={value}>
-                {label}{badges?.[value]?.count ? ` · ${badges[value].count}` : ""}
+                {teksMenu(value, label)}
               </SelectItem>
             ))}
           </SelectContent>

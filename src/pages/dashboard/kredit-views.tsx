@@ -1,7 +1,6 @@
 import { useMutation, useQuery } from "convex/react";
 import { Link2, Loader2, PackageCheck, Send, ShoppingBag, TrendingUp } from "lucide-react";
 import { useMemo, useState } from "react";
-import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -679,26 +678,25 @@ export function KreditSayaSection() {
 }
 
 /** Tab kredit barang berfokus pada formulir pengajuan dan estimasi tersimpan. */
+/**
+ * Tab "Kredit Barang": catatan pengajuan kredit barang milik Peminjam.
+ *
+ * Formulir pengajuan barunya TIDAK di sini lagi — ketiga formulir (pinjaman,
+ * gadai, kredit barang) hidup di tab "Form Pengajuan" dan dipilih lewat menu
+ * dropdown, supaya tidak ada dua formulir besar berebut satu layar. Tab ini
+ * sejajar dengan tab pinjaman dan gadai: hanya catatan dan tagihan.
+ */
 export function KreditBarangSection() {
   return (
-    <div className="flex flex-col gap-8">
-      <div className="grid gap-8 lg:grid-cols-2">
-        <section>
-          <h2 className="text-lg font-semibold">Buat catatan pengajuan kredit barang</h2>
-          <Separator className="my-4" />
-          <KreditBarangForm
-            onCreated={(ref) =>
-              toast.success(`Catatan pengajuan tersimpan — referensi ${ref}.`)
-            }
-          />
-        </section>
-        <section>
-          <h2 className="text-lg font-semibold">Catatan pengajuan kredit barang saya</h2>
-          <Separator className="my-4" />
-          <KreditSayaSection />
-        </section>
-      </div>
-    </div>
+    <section className="min-w-0">
+      <h2 className="text-lg font-semibold">Catatan pengajuan kredit barang saya</h2>
+      <p className="mt-1 text-sm leading-6 text-muted-foreground">
+        Pengajuan kredit barang baru dibuat dari tab <strong>Form Pengajuan</strong>:
+        pilih “Kredit barang” di menu dropdown-nya.
+      </p>
+      <Separator className="my-4" />
+      <KreditSayaSection />
+    </section>
   );
 }
 

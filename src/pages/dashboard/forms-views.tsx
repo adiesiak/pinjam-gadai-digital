@@ -649,7 +649,12 @@ export function LoanForm({ onCreated }: { onCreated: (ref: string) => void }) {
               aria-describedby={error !== null && !tenorHari && !bulanan ? "loan-form-error" : undefined}
               className="w-full"
             >
-              <SelectValue placeholder="Pilih lama pinjaman" />
+              {/* Label dipasang manual: Radix hanya mengisi wajah trigger dari
+                  item yang sudah pernah dirender, jadi tanpa children ini
+                  dropdown tenor tampak kosong sampai dibuka sekali. */}
+              <SelectValue placeholder="Pilih lama pinjaman">
+                {bulanan ? `${tenorBulan} bulan` : `${tenorHari} hari`}
+              </SelectValue>
             </SelectTrigger>
             <SelectContent>
               {bulanan
