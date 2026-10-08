@@ -1316,6 +1316,18 @@ export const hapusPinjaman = mutation({
           ? `; PENGHAPUSAN MENYELURUH: ${fundings.length} alokasi dana, ${transfers.length} catatan transfer, ` +
             `${receipts.length} bukti bayar dihapus; ${jurnal.length} entri jurnal ledger dipertahankan (append-only).`
           : "; tanpa catatan keuangan"),
+      // Angka terstruktur untuk panel Audit Trail: berapa baris yang benar-benar
+      // ikut terhapus dan berapa entri jurnal yang dipertahankan.
+      {
+        menyeluruh: bersihkanDana === true,
+        alokasiDana: fundings.length,
+        catatanTransfer: transfers.length,
+        buktiBayar: receipts.length,
+        pengingat: reminders.length,
+        logWhatsapp: waLogs.length,
+        jejakLokasi: locationTrail.length + locationWarnings.length,
+        jurnalDipertahankan: jurnal.length,
+      },
     );
     await ctx.db.delete(loanId);
     for (const storageId of [loan.dokKtpId, loan.dokSelfieKtpId, loan.dokSlipGajiId]) {
@@ -1328,9 +1340,33 @@ export const hapusPinjaman = mutation({
 });
 
 /** Super Admin menghapus pengajuan gadai yang salah input, tanpa jejak transaksi. */
+/**
+ * Super Admin menghapus catatan gadai yang salah input.
+ *
+ * Dua jalur, dengan pembagian yang disengaja:
+ *
+ *  1. **Biasa** — ditolak begitu ada catatan yang menyatakan gadai ini sudah
+ *     berjalan (pencairan, persetujuan/tanda tangan, cicilan, atau jurnal),
+ *     supaya salah tekan tidak menghapus catatan yang uangnya sudah berpindah.
+ *  2. **Menyeluruh** (`bersihkanDana: true`) — admin menyatakan sadar dan
+ *     cicilan (`pawnPayments`) ikut dibersihkan agar tidak ada referensi yatim;
+ *     **jurnal ledger TIDAK disentuh** (append-only, Rule 5.1) dan justru tetap
+ *     menjadi riwayat keuangannya.
+ *
+ * Yang TETAP memblokir di kedua jalur: barang jaminan yang masih tercatat di
+ * rak penitipan (`kodeRakVault`, status `aktif`/`menunggu_pelepasan`). Itu bukan
+ * catatan data, melainkan barang fisik yang masih ada di tangan kita —
+ * menghapus barisnya akan membuat keberadaan barang itu tak lagi terlacak.
+ * Lepaskan barangnya lewat alur gadai lebih dulu.
+ */
 export const hapusGadai = mutation({
-  args: { pawnId: v.id("pawns"), reason: v.string() },
-  handler: async (ctx, { pawnId, reason }) => {
+  args: {
+    pawnId: v.id("pawns"),
+    reason: v.string(),
+    /** Konfirmasi eksplisit untuk gadai yang sudah punya catatan keuangan. */
+    bersihkanDana: v.optional(v.boolean()),
+  },
+  handler: async (ctx, { pawnId, reason, bersihkanDana }) => {
     const { userId, user } = await requireAdminSession(ctx);
     const alasan = reason.trim();
     if (alasan.length < 10 || alasan.length > 500) {
@@ -1339,20 +1375,42 @@ export const hapusGadai = mutation({
     const pawn = await ctx.db.get(pawnId);
     if (pawn === null) throw new Error("Data gadai tidak ditemukan.");
     if (
-      pawn.dicairkanPada !== undefined || pawn.kodeRakVault !== undefined ||
-      pawn.persetujuanSyaratPada !== undefined || pawn.tandaTanganPeminjam !== undefined ||
-      pawn.status === "aktif" || pawn.status === "menunggu_pelepasan" || pawn.status === "lunas_dilepas"
+      pawn.kodeRakVault !== undefined ||
+      pawn.status === "aktif" ||
+      pawn.status === "menunggu_pelepasan"
     ) {
-      throw new Error("Gadai ini sudah masuk siklus pencairan, penitipan, atau memiliki persetujuan tercatat; tidak dapat dihapus.");
+      throw new Error(
+        "Barang jaminan masih tercatat di rak penitipan; lepaskan barangnya lewat alur gadai sebelum menghapus catatannya.",
+      );
+    }
+    if (
+      bersihkanDana !== true &&
+      (pawn.dicairkanPada !== undefined ||
+        pawn.persetujuanSyaratPada !== undefined ||
+        pawn.tandaTanganPeminjam !== undefined ||
+        pawn.status === "lunas_dilepas")
+    ) {
+      throw new Error(
+        "Gadai ini sudah masuk siklus pencairan atau memiliki persetujuan tercatat; tidak dihapus. " +
+          "Centang \"Hapus menyeluruh\" bila penghapusan ini memang disengaja.",
+      );
     }
 
     const [payments, ledger] = await Promise.all([
       ctx.db.query("pawnPayments").withIndex("by_pawn", (q) => q.eq("pawnId", pawnId)).collect(),
-      ctx.db.query("ledger_entries").withIndex("by_akun", (q) => q.eq("akun", `gadai:${pawnId}`)).first(),
+      ctx.db.query("ledger_entries").withIndex("by_akun", (q) => q.eq("akun", `gadai:${pawnId}`)).collect(),
     ]);
-    if (payments.length > 0 || ledger !== null) {
-      throw new Error("Data gadai memiliki pembayaran atau jurnal terkait; tidak dihapus agar riwayat tetap utuh.");
+    if (bersihkanDana !== true && (payments.length > 0 || ledger.length > 0)) {
+      throw new Error(
+        "Data gadai memiliki pembayaran atau jurnal terkait; tidak dihapus agar riwayat tetap utuh. " +
+          "Centang \"Hapus menyeluruh\" bila penghapusan ini memang disengaja.",
+      );
     }
+
+    // Cicilan ikut dibersihkan pada jalur menyeluruh supaya tidak ada baris
+    // yatim yang menunjuk gadai yang sudah tidak ada. Jurnal ledger sengaja
+    // TIDAK disentuh — itulah catatan keuangan yang tetap menjadi riwayat.
+    for (const p of payments) await ctx.db.delete(p._id);
 
     await audit(
       ctx,
@@ -1360,7 +1418,21 @@ export const hapusGadai = mutation({
       user.email ?? user.name ?? "admin",
       "pawn_delete",
       pawn.nomorReferensi,
-      `${pawn.namaLengkap} — ${pawn.deskripsiBarang}, status ${pawn.status}; alasan: ${alasan}`,
+      `${pawn.namaLengkap} — ${pawn.deskripsiBarang}, status ${pawn.status}; alasan: ${alasan}` +
+        (payments.length > 0 || ledger.length > 0
+          ? `; PENGHAPUSAN MENYELURUH: ${payments.length} cicilan dihapus; ` +
+            `${ledger.length} entri jurnal ledger dipertahankan (append-only).`
+          : "; tanpa catatan keuangan"),
+      {
+        menyeluruh: bersihkanDana === true,
+        alokasiDana: 0,
+        catatanTransfer: 0,
+        buktiBayar: 0,
+        pengingat: 0,
+        logWhatsapp: 0,
+        jejakLokasi: 0,
+        jurnalDipertahankan: ledger.length,
+      },
     );
     await ctx.db.delete(pawnId);
     if (pawn.fotoBarangId !== undefined && await ctx.storage.getMetadata(pawn.fotoBarangId) !== null) {

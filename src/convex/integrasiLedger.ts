@@ -274,6 +274,14 @@ export const hapusPinjamanLama = mutation({
         .collect();
       for (const titik of jejak) await ctx.db.delete(titik._id);
 
+      // Jurnal yang menunjuk pinjaman ini sengaja TIDAK dihapus (append-only);
+      // jumlahnya dicatat sebagai rincian supaya panel Audit Trail bisa
+      // menunjukkannya, bukan hanya menyebutnya di kalimat.
+      const jurnal = await ctx.db
+        .query("ledger_entries")
+        .withIndex("by_akun", (q) => q.eq("akun", `pinjaman:${id}`))
+        .collect();
+
       await ctx.db.delete(id);
       await audit(
         ctx,
@@ -281,7 +289,19 @@ export const hapusPinjamanLama = mutation({
         label,
         "pinjaman_hapus_lama",
         loan.nomorReferensi,
-        `${alasan}; status ${loan.status}; pokok ${loan.pokokPinjaman}; jurnal ledger dipertahankan.`,
+        `${alasan}; status ${loan.status}; pokok ${loan.pokokPinjaman}; ` +
+          `PENGHAPUSAN MENYELURUH: ${fundings.length} alokasi dana, ${transfer.length} catatan transfer, ` +
+          `${receipts.length} bukti bayar dihapus; ${jurnal.length} entri jurnal ledger dipertahankan.`,
+        {
+          menyeluruh: true,
+          alokasiDana: fundings.length,
+          catatanTransfer: transfer.length,
+          buktiBayar: receipts.length,
+          pengingat: pengingat.length,
+          logWhatsapp: waLogs.length,
+          jejakLokasi: jejak.length + peringatan.length,
+          jurnalDipertahankan: jurnal.length,
+        },
       );
       dihapus += 1;
     }

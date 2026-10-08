@@ -10,6 +10,12 @@ import {
   type ThemePreset,
 } from "../lib/system-config";
 import { clampPlafon } from "../lib/plafon";
+import {
+  AKSI_PER_JENIS,
+  rangkumAuditHapus,
+  type JenisHapus,
+  type RincianHapus,
+} from "../lib/auditHapus";
 import type { Id } from "./_generated/dataModel";
 
 /**
@@ -26,7 +32,14 @@ async function requireAdmin(ctx: QueryCtx) {
   return requireAdminSession(ctx);
 }
 
-/** Tulis satu baris audit trail (append-only). */
+/**
+ * Tulis satu baris audit trail (append-only).
+ *
+ * `rincianHapus` diisi khusus oleh aksi PENGHAPUSAN data: angka terstruktur
+ * tentang berapa baris turunan yang ikut terhapus dan berapa entri jurnal yang
+ * dipertahankan. Kalimatnya tetap ada di `detail`; kolom terstruktur ini yang
+ * dijumlahkan panel Audit Trail (lihat lib/auditHapus.ts).
+ */
 export async function audit(
   ctx: MutationCtx,
   aktorUserId: unknown,
@@ -34,6 +47,7 @@ export async function audit(
   aksi: string,
   target?: string,
   detail?: string,
+  rincianHapus?: RincianHapus,
 ): Promise<void> {
   await ctx.db.insert("auditLog", {
     aktorUserId: typeof aktorUserId === "string" ? (aktorUserId as never) : undefined,
@@ -41,6 +55,7 @@ export async function audit(
     aksi,
     target,
     detail,
+    ...(rincianHapus !== undefined ? { rincianHapus } : {}),
     waktu: Date.now(),
   });
 }
@@ -144,6 +159,63 @@ export const getConfigAdmin = query({
       auditTerbaru: await ctx.db.query("auditLog").withIndex("by_waktu").order("desc").take(10),
       diperbaruiOleh: user.email ?? user.name ?? "admin",
       _me: userId,
+    };
+  },
+});
+
+/** Batas baris penghapusan yang dikirim ke panel Audit Trail. */
+const BATAS_AUDIT_HAPUS = 100;
+
+/**
+ * Daftar penghapusan data untuk panel Audit Trail — admin saja.
+ *
+ * Dibaca lewat indeks `by_aksi` per aksi hapus, bukan dengan menyaring N entri
+ * terbaru: penghapusan itu peristiwa langka, jadi daftar "terbaru saja" akan
+ * bolong tanpa terlihat bolong. Angka ringkasannya dihitung lib/auditHapus dari
+ * rincian TERSTRUKTUR; baris lama tanpa rincian cukup dilaporkan sebagai
+ * `tanpaRincian`, tidak dikarang.
+ */
+export const auditPenghapusan = query({
+  args: {
+    jenis: v.optional(
+      v.union(
+        v.literal("semua"),
+        v.literal("pinjaman"),
+        v.literal("gadai"),
+        v.literal("kredit-barang"),
+        v.literal("pinjaman-lama"),
+      ),
+    ),
+  },
+  handler: async (ctx, { jenis }) => {
+    await requireAdmin(ctx);
+    const pilihan: JenisHapus = jenis ?? "semua";
+    const perAksi = await Promise.all(
+      AKSI_PER_JENIS[pilihan].map((aksi) =>
+        ctx.db
+          .query("auditLog")
+          .withIndex("by_aksi", (q) => q.eq("aksi", aksi))
+          .order("desc")
+          .take(BATAS_AUDIT_HAPUS),
+      ),
+    );
+    const rows = perAksi
+      .flat()
+      .sort((a, b) => b.waktu - a.waktu)
+      .slice(0, BATAS_AUDIT_HAPUS);
+    return {
+      jenis: pilihan,
+      batas: BATAS_AUDIT_HAPUS,
+      rows: rows.map((r) => ({
+        _id: r._id,
+        aktorLabel: r.aktorLabel,
+        aksi: r.aksi,
+        target: r.target,
+        detail: r.detail,
+        waktu: r.waktu,
+        rincianHapus: r.rincianHapus,
+      })),
+      ringkasan: rangkumAuditHapus(rows),
     };
   },
 });

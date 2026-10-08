@@ -5,6 +5,7 @@ import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
@@ -75,6 +76,9 @@ export function KreditQueuePanel() {
   const hapus = useMutation(api.kredit.hapusKreditBarang);
   const [alasan, setAlasan] = useState<Record<string, string>>({});
   const [alasanHapus, setAlasanHapus] = useState<Record<string, string>>({});
+  // Konfirmasi per baris untuk "hapus menyeluruh": kredit yang sudah berjalan
+  // atau punya alokasi/cicilan/jurnal hanya boleh dihapus bila admin sadar.
+  const [hapusMenyeluruh, setHapusMenyeluruh] = useState<Record<string, boolean>>({});
   const [busy, setBusy] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const filteredRows = useMemo(() => {
@@ -147,11 +151,24 @@ export function KreditQueuePanel() {
       toast.error("Alasan penghapusan wajib minimal 10 karakter.");
       return;
     }
-    if (!window.confirm(`Hapus permanen kredit ${reference}? Audit Trail tetap tersimpan. Data dengan transaksi terkait akan ditolak.`)) return;
+    const menyeluruh = hapusMenyeluruh[id] === true;
+    if (
+      !window.confirm(
+        menyeluruh
+          ? `Hapus MENYELURUH kredit ${reference}? Alokasi dana dan cicilan yang tercatat ikut dihapus. Jurnal ledger tetap utuh sebagai riwayat. Audit Trail tetap tersimpan.`
+          : `Hapus permanen kredit ${reference}? Audit Trail tetap tersimpan. Data dengan transaksi terkait akan ditolak kecuali Anda mencentang "Hapus menyeluruh".`,
+      )
+    ) {
+      return;
+    }
     setBusy(id);
     try {
-      await hapus({ kreditId: id, reason });
-      toast.success("Data kredit dihapus dan tercatat di Audit Trail.");
+      await hapus({ kreditId: id, reason, ...(menyeluruh ? { bersihkanDana: true } : {}) });
+      toast.success(
+        menyeluruh
+          ? "Kredit dan baris turunannya dihapus; jurnal ledger dipertahankan. Tercatat di Audit Trail."
+          : "Data kredit dihapus dan tercatat di Audit Trail.",
+      );
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Gagal menghapus data kredit.");
     } finally {
@@ -323,13 +340,24 @@ export function KreditQueuePanel() {
                     maxLength={500}
                     aria-label={`Alasan penghapusan ${r.nomorReferensi}`}
                   />
+                  <label className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-[11px] text-slate-700">
+                    <Checkbox
+                      checked={hapusMenyeluruh[r._id] === true}
+                      onCheckedChange={(nilai) =>
+                        setHapusMenyeluruh((current) => ({ ...current, [r._id]: nilai === true }))
+                      }
+                      aria-label={`Hapus menyeluruh ${r.nomorReferensi}`}
+                    />
+                    Hapus menyeluruh (alokasi/cicilan ikut dihapus)
+                  </label>
                   <Button
                     size="sm"
                     variant="destructive"
                     disabled={busy === r._id || (alasanHapus[r._id] ?? "").trim().length < 10}
                     onClick={() => void jalankanHapus(r._id, r.nomorReferensi)}
                   >
-                    <Trash2 className="mr-1.5 size-4" /> Hapus data
+                    <Trash2 className="mr-1.5 size-4" />
+                    {hapusMenyeluruh[r._id] === true ? "Hapus menyeluruh" : "Hapus data"}
                   </Button>
                   {busy === r._id && <Loader2 className="size-4 animate-spin text-muted-foreground" />}
                 </div>
@@ -341,7 +369,11 @@ export function KreditQueuePanel() {
 
       <section>
         <h2 className="text-sm font-semibold">Riwayat keputusan ({selesai.length})</h2>
-        <p className="mt-1 text-xs text-muted-foreground">Penghapusan hanya berhasil bila belum ada alokasi dana, pembayaran, atau jurnal ledger terkait.</p>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Kredit yang belum berjalan dan tanpa alokasi/pembayaran/jurnal bisa dihapus langsung.
+          Untuk yang sudah berjalan, centang <strong>Hapus menyeluruh</strong> — alokasi dan cicilan
+          ikut dihapus, sedangkan jurnal ledger tetap utuh sebagai riwayat keuangan.
+        </p>
         {selesai.length === 0 ? (
           <p className="mt-4 rounded-2xl border border-dashed border-slate-200 bg-white/60 px-5 py-8 text-center text-sm text-muted-foreground">
             Belum ada keputusan untuk pengajuan kredit barang.
@@ -384,13 +416,24 @@ export function KreditQueuePanel() {
                     maxLength={500}
                     aria-label={`Alasan penghapusan ${r.nomorReferensi}`}
                   />
+                  <label className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-[11px] text-slate-700">
+                    <Checkbox
+                      checked={hapusMenyeluruh[r._id] === true}
+                      onCheckedChange={(nilai) =>
+                        setHapusMenyeluruh((current) => ({ ...current, [r._id]: nilai === true }))
+                      }
+                      aria-label={`Hapus menyeluruh ${r.nomorReferensi}`}
+                    />
+                    Hapus menyeluruh (alokasi/cicilan ikut dihapus)
+                  </label>
                   <Button
                     size="sm"
                     variant="destructive"
                     disabled={busy === r._id || (alasanHapus[r._id] ?? "").trim().length < 10}
                     onClick={() => void jalankanHapus(r._id, r.nomorReferensi)}
                   >
-                    <Trash2 className="mr-1.5 size-4" /> Hapus data
+                    <Trash2 className="mr-1.5 size-4" />
+                    {hapusMenyeluruh[r._id] === true ? "Hapus menyeluruh" : "Hapus data"}
                   </Button>
                   {busy === r._id && <Loader2 className="size-4 animate-spin text-muted-foreground" />}
                 </div>

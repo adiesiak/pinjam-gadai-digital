@@ -26,6 +26,12 @@ import { clampPersenBunga, persenBungaEfektif } from "../lib/bunga";
 import { ensureKodePeminjam } from "./peminjamCode";
 import { rejectUnverifiedMoneyMovement } from "./paymentGuard";
 import { quoteKreditBarang } from "../lib/kredit";
+import type { Id } from "./_generated/dataModel";
+import {
+  kelompokkanJurnalYatim,
+  ringkasJurnalYatim,
+  subjekAkun,
+} from "../lib/ledgerYatim";
 
 /** Gerbang admin — semua query/mutation di file ini dijaga. */
 async function requireAdmin(ctx: QueryCtx) {
@@ -1157,6 +1163,49 @@ export const ledgerSummary = query({
  * Sumber: entri pendapatan platform (`pendapatanPlatformEntry`, sumber sama
  * dengan ledgerSummary), sehingga Σ semua bulan = pendapatanPlatform.
  */
+
+/**
+ * Jurnal yang SUBJEKNYA sudah tidak ada — admin saja.
+ *
+ * Penghapusan data yang sudah berpindah dana sengaja tidak menghapus jurnal
+ * ledger (append-only, Rule 5.1). Akibatnya akun `pinjaman:<id>` / `gadai:<id>` /
+ * `kredit:<id>` bisa tetap ada padahal baris subjeknya sudah hilang. Panel ini
+ * menampilkannya supaya penghapusan menyeluruh TERLIHAT (beserta sisa saldo
+ * akunnya), bukan senyap — sejalan dengan temuan yang dilaporkan panel QC.
+ *
+ * Keberadaan subjek dicek SEKALI per id unik, bukan sekali per entri jurnal.
+ * Akun non-subjek dan id tidak berbentuk id dokumen dilewati oleh
+ * `subjekAkun()` sehingga laporan ini tidak pernah berisi tebakan.
+ */
+export const ledgerYatim = query({
+  args: {},
+  handler: async (ctx) => {
+    await requireAdmin(ctx);
+    const entri = await ctx.db.query("ledger_entries").collect();
+
+    const subjekUnik = new Map<string, { jenis: "pinjaman" | "gadai" | "kredit"; id: string }>();
+    for (const e of entri) {
+      const subjek = subjekAkun(e.akun);
+      if (subjek !== null) subjekUnik.set(`${subjek.jenis}:${subjek.id}`, subjek);
+    }
+    const masihAda = new Set<string>();
+    for (const [kunci, subjek] of subjekUnik) {
+      const baris =
+        subjek.jenis === "pinjaman"
+          ? await ctx.db.get(subjek.id as Id<"loans">)
+          : subjek.jenis === "gadai"
+            ? await ctx.db.get(subjek.id as Id<"pawns">)
+            : await ctx.db.get(subjek.id as Id<"kreditBarang">);
+      if (baris !== null) masihAda.add(kunci);
+    }
+
+    const kelompok = kelompokkanJurnalYatim(entri, (jenis, id) =>
+      masihAda.has(`${jenis}:${id}`),
+    );
+    return { ...ringkasJurnalYatim(kelompok), kelompok };
+  },
+});
+
 export const trenPendapatanBulanan = query({
   args: {},
   handler: async (ctx) => {

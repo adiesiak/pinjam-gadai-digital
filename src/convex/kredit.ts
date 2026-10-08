@@ -287,26 +287,73 @@ export const setujuiKreditBarang = mutation({ args: { kreditId: v.id("kreditBara
 export const danaiKreditBarang = mutation({ args: { kreditId: v.id("kreditBarang") }, handler: (ctx, args) => setKreditStatus(ctx, args.kreditId, "didanai") });
 export const tolakKreditBarang = mutation({ args: { kreditId: v.id("kreditBarang"), reason: v.string() }, handler: (ctx, args) => setKreditStatus(ctx, args.kreditId, "ditolak", args.reason) });
 
-/** Super Admin menghapus pengajuan kredit barang yang salah input tanpa jejak transaksi. */
+/**
+ * Super Admin menghapus pengajuan kredit barang yang salah input.
+ *
+ *  - **Biasa** — ditolak begitu pengajuan sudah berjalan (status didanai/lunas,
+ *    tanggal acuan terisi) atau sudah punya alokasi dana/cicilan/jurnal.
+ *  - **Menyeluruh** (`bersihkanDana: true`) — admin menyatakan sadar; alokasi
+ *    dana dan cicilan ikut dibersihkan agar tidak ada referensi yatim, tetapi
+ *    **jurnal ledger TIDAK disentuh** (append-only) dan tetap menjadi riwayat
+ *    keuangannya. Angka barisnya dicatat di Audit Trail.
+ */
 export const hapusKreditBarang = mutation({
-  args: { kreditId: v.id("kreditBarang"), reason: v.string() },
-  handler: async (ctx, { kreditId, reason }) => {
+  args: {
+    kreditId: v.id("kreditBarang"),
+    reason: v.string(),
+    /** Konfirmasi eksplisit untuk kredit yang sudah punya catatan keuangan. */
+    bersihkanDana: v.optional(v.boolean()),
+  },
+  handler: async (ctx, { kreditId, reason, bersihkanDana }) => {
     const adminId = await adminMasuk(ctx);
     const alasan = reason.trim();
     if (alasan.length < 10 || alasan.length > 500) throw new Error("Alasan penghapusan wajib 10–500 karakter.");
     const row = await ctx.db.get(kreditId);
     if (row === null) throw new Error("Data kredit barang tidak ditemukan.");
-    if (row.status === "didanai" || row.status === "lunas" || row.didanaiPada !== undefined || row.lunasPada !== undefined) {
-      throw new Error("Kredit ini sudah ditandai berjalan atau lunas dan tidak dapat dihapus.");
-    }
     const [payments, fundings, ledger] = await Promise.all([
       ctx.db.query("kreditPayments").withIndex("by_kredit", (q) => q.eq("kreditId", kreditId)).collect(),
       ctx.db.query("kreditFundings").withIndex("by_kredit", (q) => q.eq("kreditId", kreditId)).collect(),
-      ctx.db.query("ledger_entries").withIndex("by_akun", (q) => q.eq("akun", `kredit:${kreditId}`)).first(),
+      ctx.db.query("ledger_entries").withIndex("by_akun", (q) => q.eq("akun", `kredit:${kreditId}`)).collect(),
     ]);
-    if (payments.length > 0 || fundings.length > 0 || ledger !== null) throw new Error("Data kredit memiliki alokasi, pembayaran, atau jurnal terkait; tidak dihapus agar riwayat tetap utuh.");
+    const sudahBerjalan =
+      row.status === "didanai" || row.status === "lunas" ||
+      row.didanaiPada !== undefined || row.lunasPada !== undefined;
+    const adaCatatan =
+      sudahBerjalan || payments.length > 0 || fundings.length > 0 || ledger.length > 0;
+    if (adaCatatan && bersihkanDana !== true) {
+      throw new Error(
+        "Data kredit sudah berjalan atau memiliki alokasi, pembayaran, atau jurnal terkait; tidak dihapus agar riwayat tetap utuh. " +
+          "Centang \"Hapus menyeluruh\" bila penghapusan ini memang disengaja.",
+      );
+    }
+    // Baris turunan dibersihkan supaya tidak ada alokasi/cicilan yatim yang
+    // menunjuk pengajuan yang sudah tidak ada. Jurnal ledger sengaja TIDAK
+    // disentuh — itulah catatan keuangan yang tetap menjadi riwayat.
+    for (const f of fundings) await ctx.db.delete(f._id);
+    for (const p of payments) await ctx.db.delete(p._id);
     const admin = await ctx.db.get(adminId);
-    await audit(ctx, adminId, admin?.email ?? admin?.name ?? "admin", "kredit_delete", row.nomorReferensi, `${row.namaLengkap} — ${row.namaBarang} (${row.merchant}), status ${row.status}; alasan: ${alasan}`);
+    await audit(
+      ctx,
+      adminId,
+      admin?.email ?? admin?.name ?? "admin",
+      "kredit_delete",
+      row.nomorReferensi,
+      `${row.namaLengkap} — ${row.namaBarang} (${row.merchant}), status ${row.status}; alasan: ${alasan}` +
+        (adaCatatan
+          ? `; PENGHAPUSAN MENYELURUH: ${fundings.length} alokasi dana, ${payments.length} cicilan dihapus; ` +
+            `${ledger.length} entri jurnal ledger dipertahankan (append-only).`
+          : "; tanpa catatan keuangan"),
+      {
+        menyeluruh: bersihkanDana === true,
+        alokasiDana: fundings.length,
+        catatanTransfer: 0,
+        buktiBayar: 0,
+        pengingat: 0,
+        logWhatsapp: 0,
+        jejakLokasi: 0,
+        jurnalDipertahankan: ledger.length,
+      },
+    );
     await ctx.db.delete(kreditId);
     return { ok: true };
   },

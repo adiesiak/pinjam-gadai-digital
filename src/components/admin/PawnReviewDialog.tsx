@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { EContractWidget } from "@/components/EContract";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -36,8 +37,13 @@ export function PawnReviewDialog({
 
   const [reason, setReason] = useState("");
   const [deleteReason, setDeleteReason] = useState("");
+  // Konfirmasi khusus: gadai yang sudah berpindah dana (pencairan/persetujuan/
+  // cicilan/jurnal) hanya boleh dihapus bila admin menyatakannya sadar.
+  const [hapusMenyeluruh, setHapusMenyeluruh] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Galat penghapusan dipisah supaya pesannya tampil di samping tombol Hapus.
+  const [errorHapus, setErrorHapus] = useState<string | null>(null);
 
   if (row === null) return null;
   const pending = row.status === "diajukan";
@@ -47,18 +53,34 @@ export function PawnReviewDialog({
   const runDelete = async () => {
     const trimmedReason = deleteReason.trim();
     if (trimmedReason.length < 10) {
-      setError("Alasan penghapusan wajib minimal 10 karakter.");
+      setErrorHapus("Alasan penghapusan wajib minimal 10 karakter.");
       return;
     }
-    if (!window.confirm(`Hapus permanen gadai ${row.nomorReferensi}? Audit Trail tetap tersimpan. Data dengan transaksi terkait akan ditolak.`)) return;
+    if (
+      !window.confirm(
+        hapusMenyeluruh
+          ? `Hapus MENYELURUH gadai ${row.nomorReferensi}? Cicilan yang tercatat ikut dihapus. Jurnal ledger tetap utuh sebagai riwayat. Audit Trail tetap tersimpan.`
+          : `Hapus permanen gadai ${row.nomorReferensi}? Audit Trail tetap tersimpan. Data dengan transaksi terkait akan ditolak kecuali Anda mencentang "Hapus menyeluruh".`,
+      )
+    ) {
+      return;
+    }
     setBusy("delete");
-    setError(null);
+    setErrorHapus(null);
     try {
-      await deletePawn({ pawnId: row._id, reason: trimmedReason });
-      toast.success("Data gadai dihapus dan tercatat di Audit Trail.");
+      await deletePawn({
+        pawnId: row._id,
+        reason: trimmedReason,
+        ...(hapusMenyeluruh ? { bersihkanDana: true } : {}),
+      });
+      toast.success(
+        hapusMenyeluruh
+          ? "Gadai dan cicilan terkait dihapus; jurnal ledger dipertahankan. Tercatat di Audit Trail."
+          : "Data gadai dihapus dan tercatat di Audit Trail.",
+      );
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Gagal menghapus data gadai.");
+      setErrorHapus(err instanceof Error ? err.message : "Gagal menghapus data gadai.");
     } finally {
       setBusy(null);
     }
@@ -205,12 +227,47 @@ export function PawnReviewDialog({
             onChange={(event) => setDeleteReason(event.target.value)}
             placeholder="Alasan penghapusan wajib (minimal 10 karakter)…"
           />
+          {/* Selalu tersedia — bukan hanya saat baris tampak sudah berpindah
+              dana: server bisa menolak karena catatan yang tidak terbaca dari
+              baris ringkas, dan admin harus punya jalan keluar di tempat yang
+              sama dengan tombol hapus. */}
+          <div className="flex items-start gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+            <Checkbox
+              id="hapus-menyeluruh-gadai"
+              checked={hapusMenyeluruh}
+              onCheckedChange={(nilai) => setHapusMenyeluruh(nilai === true)}
+              className="mt-0.5"
+            />
+            <div className="min-w-0">
+              <Label htmlFor="hapus-menyeluruh-gadai" className="text-xs font-semibold text-slate-900">
+                Hapus menyeluruh (gadai sudah berpindah dana)
+              </Label>
+              <p className="mt-1 text-[11px] leading-5 text-muted-foreground">
+                Butuh bila server menolak dengan pesan &quot;pencairan&quot;, &quot;persetujuan&quot;, atau
+                &quot;pembayaran/jurnal&quot;. Dengan centang ini cicilan yang tercatat ikut dihapus,
+                sedangkan jurnal ledger <strong>tetap utuh</strong> sebagai riwayat keuangan. Barang
+                yang masih tercatat di rak penitipan tetap tidak bisa dihapus sampai dilepas lewat
+                alur gadai.
+              </p>
+            </div>
+          </div>
           <p className="text-xs leading-5 text-muted-foreground">
-            Hanya data tanpa pencairan, pembayaran, penitipan atau jurnal terkait yang bisa dihapus. Audit Trail tetap tersimpan.
+            Data tanpa pencairan, pembayaran, penitipan, atau jurnal bisa dihapus langsung. Audit
+            Trail tetap tersimpan.
           </p>
+          {errorHapus && (
+            <p
+              role="alert"
+              aria-live="assertive"
+              aria-atomic="true"
+              className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive"
+            >
+              {errorHapus}
+            </p>
+          )}
           <Button variant="destructive" disabled={busy !== null || deleteReason.trim().length < 10} onClick={() => void runDelete()}>
             {busy === "delete" ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Trash2 className="mr-2 size-4" />}
-            Hapus gadai
+            {hapusMenyeluruh ? "Hapus gadai & cicilan" : "Hapus gadai"}
           </Button>
         </div>
 

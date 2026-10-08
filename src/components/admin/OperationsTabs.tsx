@@ -20,6 +20,7 @@ import { formatRupiah, parseRupiah } from "@/lib/money";
 import { formatDate } from "./admin-format";
 import { EmptyQueue, QueueRow, type LoanRow } from "./admin-shared";
 import { IntegrasiLedgerPanel } from "./IntegrasiLedgerPanel";
+import { LedgerYatimPanel } from "./LedgerYatimPanel";
 
 export function LoanAllocationQueueTab({ onOpen }: { onOpen: (l: LoanRow) => void }) {
   const overview = useQuery(api.admin.adminOverview);
@@ -252,6 +253,8 @@ export function LedgerTab() {
   const summary = useQuery(api.admin.ledgerSummary);
   const rows = useQuery(api.admin.ledgerRows);
   const tren = useQuery(api.admin.trenPendapatanBulanan);
+  // Jurnal yang subjeknya sudah tidak ada (mis. hasil hapus menyeluruh).
+  const yatim = useQuery(api.admin.ledgerYatim);
   const [q, setQ] = useState("");
   if (summary === undefined || rows === undefined) {
     return <div className="flex items-center gap-2 py-10 text-sm text-muted-foreground"><Loader2 className="size-4 animate-spin" /> Memuat…</div>;
@@ -308,6 +311,7 @@ export function LedgerTab() {
         </div>
       </div>
       <IntegrasiLedgerPanel />
+      <LedgerYatimPanel data={yatim} />
       <Input aria-label="Cari akun, grup, atau keterangan ledger" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Cari akun / grup / keterangan…" />
       <div className="max-h-[420px] overflow-y-auto rounded-2xl border border-slate-200 bg-white">
         <table className="w-full text-left text-xs">

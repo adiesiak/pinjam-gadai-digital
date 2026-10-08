@@ -619,8 +619,33 @@ const schema = defineSchema(
       aksi: v.string(),
       target: v.optional(v.string()),
       detail: v.optional(v.string()),
+      /**
+       * Rincian TERSTRUKTUR satu penghapusan data: jumlah baris turunan yang
+       * benar-benar ikut terhapus dan jumlah entri jurnal yang sengaja
+       * dipertahankan. `detail` tetap ada sebagai kalimat untuk dibaca manusia;
+       * kolom inilah yang dijumlahkan panel Audit Trail tanpa menebak dari teks.
+       * Kosong pada entri audit lama (sebelum kolom ini ada).
+       */
+      rincianHapus: v.optional(
+        v.object({
+          /** true bila admin memakai jalur "hapus menyeluruh" (bersihkanDana). */
+          menyeluruh: v.boolean(),
+          alokasiDana: v.number(),
+          catatanTransfer: v.number(),
+          buktiBayar: v.number(),
+          pengingat: v.number(),
+          logWhatsapp: v.number(),
+          jejakLokasi: v.number(),
+          jurnalDipertahankan: v.number(),
+        }),
+      ),
       waktu: v.number(),
-    }).index("by_waktu", ["waktu"]),
+    })
+      .index("by_waktu", ["waktu"])
+      // Filter penghapusan di panel Audit Trail membaca aksi langsung dari
+      // indeks ini — bukan menyaring N entri terbaru, yang bisa kehilangan
+      // penghapusan lama karena aksi hapus jarang terjadi.
+      .index("by_aksi", ["aksi", "waktu"]),
 
     /**
      * Catatan pengajuan penggadaian barang. Taksiran dan keputusan disimpan
