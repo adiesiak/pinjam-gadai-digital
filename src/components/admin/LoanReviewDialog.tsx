@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { EContractWidget } from "@/components/EContract";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -64,11 +65,18 @@ export function LoanReviewDialog({
   const [statusTujuan, setStatusTujuan] = useState<StatusPinjaman>("disetujui");
   const [nominal, setNominal] = useState("");
   const [deleteReason, setDeleteReason] = useState("");
+  // Konfirmasi khusus: pinjaman yang sudah berpindah dana (punya alokasi/jurnal)
+  // hanya boleh dihapus bila admin menyatakannya sadar. Default mati.
+  const [hapusMenyeluruh, setHapusMenyeluruh] = useState(false);
   const [pendana, setPendana] = useState<string>(PENDANA_TETAP);
   const [alasanPendana, setAlasanPendana] = useState("");
   const [nominalPendana, setNominalPendana] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Galat penghapusan dipisah dari `error` supaya pesannya tampil TEPAT di
+  // samping tombol Hapus dan centang "Hapus menyeluruh" — bukan jauh di bagian
+  // atas dialog tempat admin tidak melihatnya setelah menggulir ke bawah.
+  const [errorHapus, setErrorHapus] = useState<string | null>(null);
 
   // Pratinjau pesan WhatsApp yang akan dikirim — admin melihat persis isinya
   // sebelum menekan tombol, termasuk kalimat persetujuan sebagian.
@@ -100,7 +108,9 @@ export function LoanReviewDialog({
     setPendana(PENDANA_TETAP);
     setAlasanPendana("");
     setNominalPendana("");
+    setHapusMenyeluruh(false);
     setError(null);
+    setErrorHapus(null);
   }
 
   if (row === null) return null;
@@ -112,23 +122,44 @@ export function LoanReviewDialog({
     pokokPinjaman: row.pokokPinjaman,
     persenBunga: row.persenBunga ?? undefined,
   });
+  // Pinjaman dianggap sudah berpindah dana bila statusnya berjalan/lunas atau
+  // sudah ada penyedia dana tercatat — di situlah alokasi dana & jurnal ledger
+  // muncul, dan di situlah centang "Hapus menyeluruh" dibutuhkan.
+  const sudahBerpindahDana =
+    row.status === "didanai" || row.status === "lunas" || row.pendanaNama != null;
 
 
   const runDelete = async () => {
     const trimmedReason = deleteReason.trim();
     if (trimmedReason.length < 10) {
-      setError("Alasan penghapusan wajib minimal 10 karakter.");
+      setErrorHapus("Alasan penghapusan wajib minimal 10 karakter.");
       return;
     }
-    if (!window.confirm(`Hapus permanen pinjaman ${row.nomorReferensi}? Audit Trail tetap tersimpan. Data dengan transaksi terkait akan ditolak.`)) return;
+    if (
+      !window.confirm(
+        hapusMenyeluruh
+          ? `Hapus MENYELURUH pinjaman ${row.nomorReferensi}? Alokasi dana, catatan transfer, dan bukti bayar ikut dihapus. Jurnal ledger tetap utuh sebagai riwayat. Audit Trail tetap tersimpan.`
+          : `Hapus permanen pinjaman ${row.nomorReferensi}? Audit Trail tetap tersimpan. Data dengan transaksi terkait akan ditolak kecuali Anda mencentang "Hapus menyeluruh".`,
+      )
+    ) {
+      return;
+    }
     setBusy("delete");
-    setError(null);
+    setErrorHapus(null);
     try {
-      await deleteLoan({ loanId: row._id, reason: trimmedReason });
-      toast.success("Data pinjaman dihapus dan tercatat di Audit Trail.");
+      await deleteLoan({
+        loanId: row._id,
+        reason: trimmedReason,
+        ...(hapusMenyeluruh ? { bersihkanDana: true } : {}),
+      });
+      toast.success(
+        hapusMenyeluruh
+          ? "Pinjaman dan baris turunannya dihapus; jurnal ledger dipertahankan. Tercatat di Audit Trail."
+          : "Data pinjaman dihapus dan tercatat di Audit Trail.",
+      );
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Gagal menghapus data pinjaman.");
+      setErrorHapus(err instanceof Error ? err.message : "Gagal menghapus data pinjaman.");
     } finally {
       setBusy(null);
     }
@@ -574,14 +605,70 @@ export function LoanReviewDialog({
             onChange={(event) => setDeleteReason(event.target.value)}
             placeholder="Alasan penghapusan wajib (minimal 10 karakter)…"
           />
+          {/* Centang konfirmasi SELALU tersedia — bukan hanya saat baris sudah
+              tampak berpindah dana. Penghapusan bisa ditolak server karena
+              alokasi/jurnal yang tidak terbaca dari baris ringkas ini, dan admin
+              harus tetap punya jalan keluar di tempat yang sama dengan tombol
+              hapus (bukan menggulir mencari opsi yang tersembunyi). */}
+          <div
+            className={
+              sudahBerpindahDana
+                ? "flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 px-3 py-2"
+                : "flex items-start gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2"
+            }
+          >
+            <Checkbox
+              id="hapus-menyeluruh"
+              checked={hapusMenyeluruh}
+              onCheckedChange={(nilai) => setHapusMenyeluruh(nilai === true)}
+              className="mt-0.5"
+            />
+            <div className="min-w-0">
+              <Label
+                htmlFor="hapus-menyeluruh"
+                className={
+                  sudahBerpindahDana
+                    ? "text-xs font-semibold text-red-900"
+                    : "text-xs font-semibold text-slate-900"
+                }
+              >
+                Hapus menyeluruh (pinjaman sudah berpindah dana)
+              </Label>
+              <p
+                className={
+                  sudahBerpindahDana
+                    ? "mt-1 text-[11px] leading-5 text-red-800"
+                    : "mt-1 text-[11px] leading-5 text-muted-foreground"
+                }
+              >
+                {sudahBerpindahDana
+                  ? "Pinjaman ini sudah berpindah dana (punya alokasi dana dan/atau jurnal ledger). "
+                  : "Butuh hanya bila server menolak dengan pesan \"memiliki alokasi atau jurnal\". "}
+                Dengan centang ini, alokasi dana, catatan transfer, dan bukti bayar ikut
+                dihapus, sedangkan jurnal ledger <strong>tetap utuh</strong> sebagai riwayat
+                keuangan. Tanpa centang, penghapusan ditolak server.
+              </p>
+            </div>
+          </div>
           <p className="text-xs leading-5 text-muted-foreground">
             Pengajuan yang belum berpindah dana — termasuk yang sudah disetujui — dapat
             dihapus. Penghapusan ditolak bila pinjaman sudah punya alokasi dana atau jurnal
-            ledger, agar catatan keuangan tidak hilang. Catatan Audit Trail tetap disimpan.
+            ledger, kecuali Anda mencentang <strong>Hapus menyeluruh</strong>. Catatan Audit Trail
+            tetap disimpan.
           </p>
+          {errorHapus && (
+            <p
+              role="alert"
+              aria-live="assertive"
+              aria-atomic="true"
+              className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive"
+            >
+              {errorHapus}
+            </p>
+          )}
           <Button variant="destructive" disabled={busy !== null || deleteReason.trim().length < 10} onClick={() => void runDelete()}>
             {busy === "delete" ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Trash2 className="mr-2 size-4" />}
-            Hapus pinjaman
+            {hapusMenyeluruh ? "Hapus pinjaman & alokasi dana" : "Hapus pinjaman"}
           </Button>
         </div>
 

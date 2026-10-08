@@ -1210,13 +1210,35 @@ export const aktifkanGadai = mutation({
 
 /**
  * Super Admin menghapus data pinjaman yang salah input — termasuk pengajuan
- * yang sudah ditandatangani atau disetujui — selama belum ada catatan keuangan
- * (alokasi dana atau jurnal `pinjaman:<id>`). Setelah uang tercatat berpindah,
- * penghapusan ditolak agar riwayat tetap utuh. Audit trail tetap disimpan.
+ * yang sudah ditandatangani atau disetujui.
+ *
+ * Dua jalur, dan bedanya disengaja:
+ *
+ *  1. **Biasa** (tanpa `bersihkanDana`) — ditolak begitu ada catatan keuangan
+ *     (alokasi dana atau jurnal `pinjaman:<id>`), supaya salah tekan tidak
+ *     menghapus pinjaman yang uangnya sudah berpindah.
+ *  2. **Menyeluruh** (`bersihkanDana: true`) — admin menyatakan sadar bahwa
+ *     pinjaman ini sudah berpindah dana. Baris turunan keuangan (alokasi dana,
+ *     transfer keuntungan, bukti bayar manual) ikut dihapus supaya tidak ada
+ *     referensi yatim, tetapi **jurnal ledger TIDAK disentuh**: ledger bersifat
+ *     append-only (Rule 5.1), jadi catatan keuangannya tetap menjadi riwayat —
+ *     sama seperti `integrasiLedger.hapusPinjamanLama`. Audit trail menyebut
+ *     jumlah baris yang dibersihkan dan jumlah entri jurnal yang dipertahankan.
+ *
+ * Perubahan ini menjawab permintaan pemilik produk: admin harus bisa
+ * membersihkan pinjaman yang sudah didanai tanpa mengubah kebijakan ledger.
+ * Konsekuensinya (pinjaman hilang dari rekap padahal jurnalnya masih ada) akan
+ * tampak sebagai temuan "awas/gagal" pada panel QC konsistensi — itu memang
+ * yang diinginkan: penghapusan menyeluruh harus terlihat, bukan senyap.
  */
 export const hapusPinjaman = mutation({
-  args: { loanId: v.id("loans"), reason: v.string() },
-  handler: async (ctx, { loanId, reason }) => {
+  args: {
+    loanId: v.id("loans"),
+    reason: v.string(),
+    /** Konfirmasi eksplisit untuk pinjaman yang sudah punya alokasi/jurnal. */
+    bersihkanDana: v.optional(v.boolean()),
+  },
+  handler: async (ctx, { loanId, reason, bersihkanDana }) => {
     const { userId, user } = await requireAdminSession(ctx);
     const alasan = reason.trim();
     if (alasan.length < 10 || alasan.length > 500) {
@@ -1231,18 +1253,34 @@ export const hapusPinjaman = mutation({
     // jurnal `pinjaman:<id>`. Begitu ada uang tercatat berpindah, penghapusan
     // ditolak supaya riwayat tetap utuh.
 
-    const [fundings, reminders, waLogs, locationTrail, locationWarnings, ledger] = await Promise.all([
+    const [
+      fundings,
+      reminders,
+      waLogs,
+      locationTrail,
+      locationWarnings,
+      transfers,
+      receipts,
+      jurnal,
+    ] = await Promise.all([
       ctx.db.query("fundings").withIndex("by_loan", (q) => q.eq("loanId", loanId)).collect(),
       ctx.db.query("pengingat").withIndex("by_loan", (q) => q.eq("loanId", loanId)).collect(),
       ctx.db.query("waLogs").withIndex("by_loan", (q) => q.eq("loanId", loanId)).collect(),
       ctx.db.query("lokasiJejak").withIndex("by_loan", (q) => q.eq("loanId", loanId)).collect(),
       ctx.db.query("lokasiPeringatan").withIndex("by_loan", (q) => q.eq("loanId", loanId)).collect(),
-      ctx.db.query("ledger_entries").withIndex("by_akun", (q) => q.eq("akun", `pinjaman:${loanId}`)).first(),
+      ctx.db.query("transferPendana").withIndex("by_loan", (q) => q.eq("loanId", loanId)).collect(),
+      ctx.db.query("manualPaymentReceipts").withIndex("by_loan", (q) => q.eq("loanId", loanId)).collect(),
+      ctx.db.query("ledger_entries").withIndex("by_akun", (q) => q.eq("akun", `pinjaman:${loanId}`)).collect(),
     ]);
-    // Catatan KEUANGAN tetap memblokir: pinjaman yang sudah punya alokasi dana
-    // atau jurnal bukan lagi pengajuan kosong, jadi tidak boleh dihapus.
-    if (fundings.length > 0 || ledger !== null) {
-      throw new Error("Data pinjaman memiliki alokasi atau jurnal terkait; tidak dihapus agar riwayat keuangan tetap utuh.");
+    // Catatan KEUANGAN memblokir jalur BIASA: pinjaman yang sudah punya alokasi
+    // dana atau jurnal bukan lagi pengajuan kosong. Admin tetap bisa
+    // membersihkannya, tetapi harus menyatakannya lewat `bersihkanDana` supaya
+    // tidak terjadi karena salah tekan.
+    if ((fundings.length > 0 || jurnal.length > 0) && bersihkanDana !== true) {
+      throw new Error(
+        "Data pinjaman memiliki alokasi atau jurnal terkait; tidak dihapus agar riwayat keuangan tetap utuh. " +
+          "Centang \"Hapus menyeluruh\" bila penghapusan ini memang disengaja.",
+      );
     }
     // Catatan OPERASIONAL (pengingat, log WhatsApp, jejak & peringatan lokasi)
     // adalah efek samping pengajuan, bukan riwayat keuangan — ikut dihapus
@@ -1254,13 +1292,30 @@ export const hapusPinjaman = mutation({
     for (const row of locationTrail) await ctx.db.delete(row._id);
     for (const row of locationWarnings) await ctx.db.delete(row._id);
 
+    // Baris turunan KEUANGAN ikut dibersihkan — juga pada jalur biasa, supaya
+    // tidak ada alokasi/transfer/bukti yatim yang menunjuk pinjaman yang sudah
+    // tidak ada. Jurnal ledger sengaja TIDAK disentuh (append-only); itulah
+    // catatan keuangan yang tetap menjadi riwayat.
+    for (const f of fundings) await ctx.db.delete(f._id);
+    for (const row of transfers) await ctx.db.delete(row._id);
+    for (const r of receipts) {
+      if (await ctx.storage.getMetadata(r.buktiPembayaranId) !== null) {
+        await ctx.storage.delete(r.buktiPembayaranId);
+      }
+      await ctx.db.delete(r._id);
+    }
+
     await audit(
       ctx,
       userId,
       user.email ?? user.name ?? "admin",
       "loan_delete",
       loan.nomorReferensi,
-      `${loan.namaLengkap} — pokok ${formatRupiah(loan.pokokPinjaman)}, status ${loan.status}; alasan: ${alasan}`,
+      `${loan.namaLengkap} — pokok ${formatRupiah(loan.pokokPinjaman)}, status ${loan.status}; alasan: ${alasan}` +
+        (fundings.length > 0 || jurnal.length > 0
+          ? `; PENGHAPUSAN MENYELURUH: ${fundings.length} alokasi dana, ${transfers.length} catatan transfer, ` +
+            `${receipts.length} bukti bayar dihapus; ${jurnal.length} entri jurnal ledger dipertahankan (append-only).`
+          : "; tanpa catatan keuangan"),
     );
     await ctx.db.delete(loanId);
     for (const storageId of [loan.dokKtpId, loan.dokSelfieKtpId, loan.dokSlipGajiId]) {
