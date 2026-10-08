@@ -25,6 +25,7 @@ import { RoleDashboardMenu } from "@/components/RoleDashboardMenu";
 import { VaultLogo } from "@/components/VaultLogo";
 import { CatatanPotonganAdmin } from "@/components/penyediaDana/CatatanPotonganAdmin";
 import { PetaLokasiPeminjam } from "@/components/penyediaDana/PetaLokasiPeminjam";
+import { SaringanPengajuan } from "@/components/penyediaDana/SaringanPengajuan";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -68,6 +69,14 @@ import { useAuth } from "@/hooks/use-auth";
 import { quoteKreditBarang } from "@/lib/kredit";
 import { BULAN_MS, quotePinjaman, simulasiBulananPinjaman } from "@/lib/loan";
 import { formatRupiah } from "@/lib/money";
+import {
+  adaFilter,
+  daftarPendana,
+  FILTER_PENGAJUAN_KOSONG,
+  saringNama,
+  saringPengajuan,
+  type FilterPengajuan,
+} from "@/lib/saringanPengajuan";
 
 /**
  * Ruang Penyedia Dana — HANYA BACA.
@@ -350,6 +359,17 @@ function KeadaanKosong({ pesan }: { pesan: string }) {
     <p className="rounded-2xl border border-dashed border-slate-200 bg-white px-5 py-10 text-center text-sm text-muted-foreground">
       {pesan}
     </p>
+  );
+}
+
+/**
+ * Keadaan kosong yang jujur saat saringan aktif: "belum ada pengajuan" akan
+ * menyesatkan bila datanya sebenarnya ada, hanya tersaring.
+ */
+function KeadaanKosongDaftar({ aktif, pesan }: { aktif: boolean; pesan: string }) {
+  if (!aktif) return <KeadaanKosong pesan={pesan} />;
+  return (
+    <KeadaanKosong pesan="Tidak ada pengajuan yang cocok dengan saringan nama / penyedia dana di atas. Kosongkan saringan untuk menampilkan semuanya." />
   );
 }
 
@@ -1406,6 +1426,8 @@ function IsiRuang() {
   const [tab, setTab] = useState("belum");
   const [detail, setDetail] = useState<IsiDetail | null>(null);
   const [ubah, setUbah] = useState<BarisPinjaman | null>(null);
+  // Saringan di atas tabel: nama peminjam + penyedia dana.
+  const [filter, setFilter] = useState<FilterPengajuan>(FILTER_PENGAJUAN_KOSONG);
   const sekarang = useJamBerjalan();
 
   const role = user?.role;
@@ -1454,6 +1476,38 @@ function IsiRuang() {
         (r.status === "didanai" || r.didanaiPada !== null),
     ) ?? [];
   const pinjamanLunas = data?.pinjaman.filter((r) => r.status === "lunas") ?? [];
+
+  // Saringan dihitung SEKALI di sini lalu dipakai daftar kartu (layar sempit)
+  // maupun tabel (desktop), supaya kedua tata letak selalu menampilkan baris
+  // yang sama. Pilihan penyedia dana diambil dari data yang sudah ada — bukan
+  // daftar akun terpisah — supaya isinya pasti punya pinjaman.
+  const gadai = data?.gadai ?? [];
+  const kredit = data?.kredit ?? [];
+  const pendanaTerdaftar = daftarPendana([
+    ...pinjamanDitolak,
+    ...pinjamanDidanai,
+    ...pinjamanLunas,
+    ...pinjamanBaru,
+    ...kredit,
+  ]);
+  const tampilBaru = saringPengajuan(pinjamanBaru, filter);
+  const tampilDidanai = saringPengajuan(pinjamanDidanai, filter);
+  const tampilLunas = saringPengajuan(pinjamanLunas, filter);
+  const tampilDitolak = saringPengajuan(pinjamanDitolak, filter);
+  const tampilGadai = saringNama(gadai, filter.cari);
+  const tampilKredit = saringPengajuan(kredit, filter);
+  const saringanAktif = adaFilter(filter);
+  // Jumlah per tab dibuat dari tab yang sedang dibuka, bukan dari seluruh data,
+  // agar "Menampilkan X dari Y" selalu cocok dengan tabel di bawahnya.
+  const jumlahPerTab: Record<string, { tampil: number; total: number }> = {
+    belum: { tampil: tampilBaru.length, total: pinjamanBaru.length },
+    didanai: { tampil: tampilDidanai.length, total: pinjamanDidanai.length },
+    lunas: { tampil: tampilLunas.length, total: pinjamanLunas.length },
+    ditolak: { tampil: tampilDitolak.length, total: pinjamanDitolak.length },
+    gadai: { tampil: tampilGadai.length, total: gadai.length },
+    kredit: { tampil: tampilKredit.length, total: kredit.length },
+  };
+  const jumlahTab = jumlahPerTab[tab] ?? { tampil: 0, total: 0 };
 
   return (
     <div className="flex min-h-screen flex-col overflow-x-clip bg-slate-50 text-slate-900">
@@ -1652,10 +1706,30 @@ function IsiRuang() {
                 </TabsTrigger>
               </TabsList>
 
+              {/* Saringan di atas tabel data pinjaman — nama peminjam dan
+                  penyedia dana. Disembunyikan di tab peta: daftarnya bukan
+                  pengajuan, dan tab gadai tidak punya kolom pendana. */}
+              {tab !== "lokasi" && (
+                <SaringanPengajuan
+                  cari={filter.cari}
+                  onCari={(nilai) => setFilter((lama) => ({ ...lama, cari: nilai }))}
+                  pendana={filter.pendana}
+                  onPendana={(nama) => setFilter((lama) => ({ ...lama, pendana: nama }))}
+                  pilihanPendana={pendanaTerdaftar}
+                  tampilkanPendana={tab !== "gadai"}
+                  tampil={jumlahTab.tampil}
+                  total={jumlahTab.total}
+                  onReset={() => setFilter(FILTER_PENGAJUAN_KOSONG)}
+                />
+              )}
+
               {/* ===== Pinjaman baru: belum didanai ===== */}
               <TabsContent value="belum" className="mt-4">
-                {pinjamanBaru.length === 0 ? (
-                  <KeadaanKosong pesan="Belum ada pengajuan pinjaman baru yang menunggu didanai." />
+                {tampilBaru.length === 0 ? (
+                  <KeadaanKosongDaftar
+                    aktif={saringanAktif}
+                    pesan="Belum ada pengajuan pinjaman baru yang menunggu didanai."
+                  />
                 ) : (
                   <>
                     <p className="mb-3 rounded-2xl border border-amber-200 bg-amber-50/70 px-4 py-3 text-xs leading-6 text-amber-900">
@@ -1663,7 +1737,7 @@ function IsiRuang() {
                       Alokasi pendanaan dilakukan dari panel admin.
                     </p>
                     <DaftarPinjaman
-                      rows={pinjamanBaru}
+                      rows={tampilBaru}
                       persenBunga={data.ringkasan.persenBunga}
                       sekarang={sekarang}
                       onDetail={(row) => setDetail({ jenis: "pinjaman", row })}
@@ -1679,8 +1753,11 @@ function IsiRuang() {
 
               {/* ===== Pinjaman sudah didanai (berjalan, belum lunas) ===== */}
               <TabsContent value="didanai" className="mt-4">
-                {pinjamanDidanai.length === 0 ? (
-                  <KeadaanKosong pesan="Belum ada pinjaman yang sudah didanai dan masih berjalan." />
+                {tampilDidanai.length === 0 ? (
+                  <KeadaanKosongDaftar
+                    aktif={saringanAktif}
+                    pesan="Belum ada pinjaman yang sudah didanai dan masih berjalan."
+                  />
                 ) : (
                   <>
                     <p className="mb-3 rounded-2xl border border-emerald-200 bg-emerald-50/70 px-4 py-3 text-xs leading-6 text-emerald-900">
@@ -1689,7 +1766,7 @@ function IsiRuang() {
                       mutasi.
                     </p>
                     <DaftarPinjaman
-                      rows={pinjamanDidanai}
+                      rows={tampilDidanai}
                       persenBunga={data.ringkasan.persenBunga}
                       sekarang={sekarang}
                       onDetail={(row) => setDetail({ jenis: "pinjaman", row })}
@@ -1705,8 +1782,11 @@ function IsiRuang() {
 
               {/* ===== Pinjaman lunas (dipisah ke tab sendiri) ===== */}
               <TabsContent value="lunas" className="mt-4">
-                {pinjamanLunas.length === 0 ? (
-                  <KeadaanKosong pesan="Belum ada pinjaman tunai yang berstatus lunas." />
+                {tampilLunas.length === 0 ? (
+                  <KeadaanKosongDaftar
+                    aktif={saringanAktif}
+                    pesan="Belum ada pinjaman tunai yang berstatus lunas."
+                  />
                 ) : (
                   <>
                     <p className="mb-3 rounded-2xl border border-emerald-200 bg-emerald-50/70 px-4 py-3 text-xs leading-6 text-emerald-900">
@@ -1717,7 +1797,7 @@ function IsiRuang() {
                       bukti mutasi.
                     </p>
                     <DaftarPinjaman
-                      rows={pinjamanLunas}
+                      rows={tampilLunas}
                       persenBunga={data.ringkasan.persenBunga}
                       sekarang={sekarang}
                       onDetail={(row) => setDetail({ jenis: "pinjaman", row })}
@@ -1733,8 +1813,11 @@ function IsiRuang() {
 
               {/* ===== Pinjaman ditolak (dipisah dari antrean berjalan) ===== */}
               <TabsContent value="ditolak" className="mt-4">
-                {pinjamanDitolak.length === 0 ? (
-                  <KeadaanKosong pesan="Tidak ada pengajuan pinjaman yang ditolak." />
+                {tampilDitolak.length === 0 ? (
+                  <KeadaanKosongDaftar
+                    aktif={saringanAktif}
+                    pesan="Tidak ada pengajuan pinjaman yang ditolak."
+                  />
                 ) : (
                   <>
                     <p className="mb-3 rounded-2xl border border-red-200 bg-red-50/70 px-4 py-3 text-xs leading-6 text-red-900">
@@ -1743,7 +1826,7 @@ function IsiRuang() {
                       ditampilkan sebagai catatan riwayat.
                     </p>
                     <DaftarPinjaman
-                      rows={pinjamanDitolak}
+                      rows={tampilDitolak}
                       persenBunga={data.ringkasan.persenBunga}
                       sekarang={sekarang}
                       onDetail={(row) => setDetail({ jenis: "pinjaman", row })}
@@ -1759,12 +1842,15 @@ function IsiRuang() {
 
               {/* ===== Gadai ===== */}
               <TabsContent value="gadai" className="mt-4">
-                {data.gadai.length === 0 ? (
-                  <KeadaanKosong pesan="Belum ada pengajuan gadai yang tercatat." />
+                {tampilGadai.length === 0 ? (
+                  <KeadaanKosongDaftar
+                    aktif={saringanAktif}
+                    pesan="Belum ada pengajuan gadai yang tercatat."
+                  />
                 ) : (
                   <>
                     <div className="space-y-3 lg:hidden">
-                      {data.gadai.map((row) => (
+                      {tampilGadai.map((row) => (
                         <KartuPengajuan
                           key={row._id}
                           nama={capitalize(row.namaLengkap)}
@@ -1805,7 +1891,7 @@ function IsiRuang() {
                         "Aksi",
                       ]}
                     >
-                      {data.gadai.map((row) => (
+                      {tampilGadai.map((row) => (
                         <TableRow key={row._id}>
                           <SelPeminjam
                             nama={capitalize(row.namaLengkap)}
@@ -1848,12 +1934,15 @@ function IsiRuang() {
 
               {/* ===== Kredit barang ===== */}
               <TabsContent value="kredit" className="mt-4">
-                {data.kredit.length === 0 ? (
-                  <KeadaanKosong pesan="Belum ada pengajuan kredit barang yang tercatat." />
+                {tampilKredit.length === 0 ? (
+                  <KeadaanKosongDaftar
+                    aktif={saringanAktif}
+                    pesan="Belum ada pengajuan kredit barang yang tercatat."
+                  />
                 ) : (
                   <>
                     <div className="space-y-3 lg:hidden">
-                      {data.kredit.map((row) => (
+                      {tampilKredit.map((row) => (
                         <KartuPengajuan
                           key={row._id}
                           nama={capitalize(row.namaLengkap)}
@@ -1893,7 +1982,7 @@ function IsiRuang() {
                         "Aksi",
                       ]}
                     >
-                      {data.kredit.map((row) => (
+                      {tampilKredit.map((row) => (
                         <TableRow key={row._id}>
                           <SelPeminjam
                             nama={capitalize(row.namaLengkap)}
