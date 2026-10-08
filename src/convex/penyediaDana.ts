@@ -1517,8 +1517,11 @@ export const buatPendana = mutation({
 export const ubahDataPinjaman = mutation({
   args: {
     loanId: v.id("loans"),
-    /** Alasan koreksi — wajib, masuk audit trail. */
-    alasan: v.string(),
+    /**
+     * Catatan koreksi — OPSIONAL (boleh dikosongkan). Bila diisi, ikut masuk
+     * Audit Trail bersama daftar perubahan yang terjadi.
+     */
+    alasan: v.optional(v.string()),
     /** Email penyedia dana; `null`/kosong = lepas pendana dari pinjaman ini. */
     pendanaEmail: v.optional(v.union(v.string(), v.null())),
     /**
@@ -1535,9 +1538,9 @@ export const ubahDataPinjaman = mutation({
   },
   handler: async (ctx, args) => {
     const { userId: adminId, user: admin } = await requireAdminSession(ctx);
-    const alasan = args.alasan.trim();
-    if (alasan.length < 5 || alasan.length > 500) {
-      throw new Error("Alasan perubahan wajib 5–500 karakter.");
+    const alasan = (args.alasan ?? "").trim();
+    if (alasan.length > 500) {
+      throw new Error("Catatan perubahan maksimal 500 karakter.");
     }
     const loan = await ctx.db.get(args.loanId);
     if (loan === null) throw new Error("Data pinjaman tidak ditemukan.");
@@ -1695,7 +1698,8 @@ export const ubahDataPinjaman = mutation({
         admin.email ?? admin.name ?? "admin",
         "ubah_data_pinjaman",
         loan.nomorReferensi,
-        `${loan.namaLengkap} — ${perubahan.join(", ")}. Alasan: ${alasan}`,
+        `${loan.namaLengkap} — ${perubahan.join(", ")}` +
+          (alasan === "" ? " (tanpa catatan)" : `. Catatan: ${alasan}`),
       );
       if (danaIdLama !== undefined && danaIdBaru !== undefined && danaIdLama !== danaIdBaru) {
         await pindahAlokasiWarisan(ctx, loan._id, danaIdLama, danaIdBaru);

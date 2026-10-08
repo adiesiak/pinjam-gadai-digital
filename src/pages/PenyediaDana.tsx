@@ -1138,7 +1138,8 @@ function DaftarPinjaman({
  * Ruang penyedia dana tetap "lihat saja" untuk peran `dana` dan `pengamat`:
  * tombol Ubah tidak pernah muncul untuk mereka. Server tetap penjaga utama —
  * `ubahDataPinjaman` mewajibkan Super Admin dengan sesi TOTP terverifikasi,
- * alasan perubahan, dan menolak pinjaman yang sudah lunas.
+ * mencatat setiap perubahan ke Audit Trail (catatan koreksi opsional), dan
+ * menolak pinjaman yang sudah lunas.
  */
 function DialogUbahPinjaman({
   row,
@@ -1154,8 +1155,8 @@ function DialogUbahPinjaman({
           <DialogTitle>Ubah data pinjaman</DialogTitle>
           <DialogDescription>
             Koreksi catatan internal PINDAI — termasuk menetapkan siapa pendananya. Tidak ada uang
-            yang berpindah dan pencairan tetap di luar aplikasi; setiap perubahan wajib beralasan
-            dan masuk audit trail.
+            yang berpindah dan pencairan tetap di luar aplikasi; setiap perubahan masuk audit trail
+            (catatan koreksi boleh dikosongkan).
           </DialogDescription>
         </DialogHeader>
         {row !== null && <FormUbahPinjaman key={row._id} row={row} onClose={onClose} />}
@@ -1195,11 +1196,8 @@ function FormUbahPinjaman({ row, onClose }: { row: BarisPinjaman; onClose: () =>
 
   const kirim = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    // Catatan opsional: perubahan boleh disimpan tanpa alasan apa pun.
     const catatan = alasan.trim();
-    if (catatan.length < 5) {
-      toast.error("Alasan perubahan wajib diisi (minimal 5 karakter).");
-      return;
-    }
     const tenorAwal = row.tenorBulan === null ? "harian" : String(row.tenorBulan);
     // Angka yang tidak valid tidak pernah dikirim: biarkan server menolak hanya
     // bila admin memang mengisi nilai, bukan saat kolomnya kosong.
@@ -1221,7 +1219,7 @@ function FormUbahPinjaman({ row, onClose }: { row: BarisPinjaman; onClose: () =>
         await ubahStatus({
           loanId: row._id,
           status: kanonik,
-          reason: catatan,
+          ...(catatan === "" ? {} : { reason: catatan }),
           ...(nominalBaru === null ? {} : { pokokDisetujui: nominalBaru }),
         });
         perubahan.push(`status → ${LABEL_STATUS_PINJAMAN[kanonik]}`);
@@ -1230,7 +1228,7 @@ function FormUbahPinjaman({ row, onClose }: { row: BarisPinjaman; onClose: () =>
       //    statusnya tidak ikut berpindah (agar tidak dikirim dua kali).
       const hasil = await simpan({
         loanId: row._id,
-        alasan: catatan,
+        ...(catatan === "" ? {} : { alasan: catatan }),
         ...(pendana === TETAP
           ? {}
           : pendana === LEPAS
@@ -1292,7 +1290,7 @@ function FormUbahPinjaman({ row, onClose }: { row: BarisPinjaman; onClose: () =>
         <p className="text-[11px] leading-5 text-muted-foreground">
           {row.status === "lunas"
             ? "Pinjaman sudah lunas — posisinya ditutup dan statusnya tidak dapat diubah lagi."
-            : `Status sekarang: ${labelStatusPinjaman(row.status)}. Perubahan status memakai pintu yang sama dengan panel admin: peminjam menerima kabar WhatsApp berisi status dan alasan di atas.`}
+            : `Status sekarang: ${labelStatusPinjaman(row.status)}. Perubahan status memakai pintu yang sama dengan panel admin: peminjam menerima kabar WhatsApp berisi status dan catatan di atas (boleh dikosongkan).`}
         </p>
       </div>
 
@@ -1387,12 +1385,12 @@ function FormUbahPinjaman({ row, onClose }: { row: BarisPinjaman; onClose: () =>
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="ubah-alasan">Alasan perubahan</Label>
+        <Label htmlFor="ubah-alasan">Catatan perubahan (opsional)</Label>
         <Input
           id="ubah-alasan"
           value={alasan}
           onChange={(e) => setAlasan(e.target.value)}
-          placeholder="mis. pinjaman didanai Asep, sebelumnya tercatat Robert"
+          placeholder="Boleh dikosongkan. Contoh: pinjaman didanai Asep, sebelumnya tercatat Robert"
           maxLength={500}
         />
       </div>
@@ -1569,7 +1567,7 @@ function IsiRuang() {
                 Catatan internal PINDAI untuk pinjaman tunai, gadai, dan kredit barang. Tidak ada
                 tindakan alokasi maupun pencairan dari ruang ini
                 {role === "admin"
-                  ? "; sebagai Super Admin Anda dapat mengoreksi data pinjaman (termasuk menetapkan pendananya) lewat tombol Ubah — setiap perubahan wajib beralasan dan tercatat di audit trail."
+                  ? "; sebagai Super Admin Anda dapat mengoreksi data pinjaman (termasuk menetapkan pendananya) lewat tombol Ubah — setiap perubahan tercatat di audit trail, dan catatan koreksinya boleh dikosongkan."
                   : ": Anda hanya dapat membaca catatan ini."}{" "}
                 Tombol <strong>Detail</strong> membuka titik lokasi terakhir peminjam
                 {bolehBerkas

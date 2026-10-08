@@ -10,9 +10,11 @@
  * ditulis, dan tidak ada saldo yang berubah. Pencairan serta transfer tetap
  * ditangani di luar aplikasi.
  *
- * Karena itu setiap perpindahan status WAJIB beralasan: alasan itulah yang
- * membuat catatan bisa ditelusuri, dan alasan yang sama dikirim ke Peminjam
- * lewat WhatsApp supaya ia tidak mendapati statusnya berubah tanpa kabar.
+ * Catatan perubahan bersifat OPSIONAL (kebijakan pemilik produk: admin tidak
+ * boleh tertahan oleh kolom alasan saat mencatat perubahan). Bila diisi, text
+ * itu ikut dikirim ke Peminjam lewat WhatsApp dan terbaca di Audit Trail; bila
+ * dikosongkan, perpindahan tetap sah dan jejaknya tetap ada (siapa mengubah
+ * apa, kapan) — pesan WhatsApp memakai tanda "—" sebagai ganti catatan.
  *
  * ------------------------------------------------------------------
  * Riwayat & penggabungan (penting)
@@ -88,9 +90,6 @@ export const LABEL_STATUS_PINJAMAN: Record<StatusPinjaman, string> = {
 /** Status yang menutup posisi: tidak boleh dipindahkan lagi oleh admin. */
 export const STATUS_TERKUNCI: readonly string[] = ["lunas"];
 
-/** Alasan penolakan minimal — terlalu pendek tidak bisa ditelusuri. */
-export const ALASAN_MIN_PANJANG = 5;
-
 /**
  * Status kanonik dari ejaan tersimpan apa pun.
  * Ejaan warisan `diajukan`/`sedang_direview`/`disetujui` semuanya "ditinjau".
@@ -138,12 +137,14 @@ export type HasilValidasiStatus =
  *
  * `ke` boleh memakai ejaan kanonik ("ditinjau") maupun ejaan tersimpannya
  * (`sedang_direview`/`disetujui`) supaya alur internal seperti persetujuan
- * nominal tetap bisa dicatat. Yang ditolak hanya empat hal:
+ * nominal tetap bisa dicatat. Yang ditolak hanya tiga hal:
  *
  *  1. status tujuan yang tidak dikenali;
  *  2. posisi yang sudah ditutup (`lunas`);
- *  3. perpindahan yang tidak mengubah apa pun (ejaan tersimpan yang sama);
- *  4. alasan yang terlalu pendek untuk bisa ditelusuri.
+ *  3. perpindahan yang tidak mengubah apa pun (ejaan tersimpan yang sama).
+ *
+ * Catatan/alasan TIDAK diperiksa di sini: perpindahan status boleh dicatat
+ * tanpa catatan sama sekali (lihat catatan kebijakan di atas).
  *
  * Mengembalikan pinjaman ke tahap tinjauan DIPERBOLEHKAN sekarang: "Ditinjau"
  * adalah tahap kerja biasa, bukan status awal yang dikunci.
@@ -151,7 +152,6 @@ export type HasilValidasiStatus =
 export function validasiUbahStatus(
   dari: string,
   ke: string,
-  alasan: string,
 ): HasilValidasiStatus {
   const kanonik = statusKanonik(ke);
   if (kanonik === null) {
@@ -168,12 +168,6 @@ export function validasiUbahStatus(
     return {
       ok: false,
       alasan: `Pinjaman sudah berstatus ${LABEL_STATUS_PINJAMAN[kanonik]}.`,
-    };
-  }
-  if (alasan.trim().length < ALASAN_MIN_PANJANG) {
-    return {
-      ok: false,
-      alasan: `Alasan perubahan status wajib diisi (minimal ${ALASAN_MIN_PANJANG} karakter).`,
     };
   }
   return { ok: true, berubah: true };
@@ -302,6 +296,9 @@ function rupiahAman(nilai: number): string {
  * Bila admin menyetujui lebih kecil daripada pengajuan, kalimat persetujuan
  * sebagian disisipkan langsung setelah status — supaya Peminjam tahu kenapa
  * nominalnya berbeda, bukan hanya melihat angka yang lebih kecil.
+ *
+ * Pemanggil menentukan pengganti catatan kosong (dialog memakai "—") supaya
+ * template yang dapat disunting admin tidak pernah menyisakan kalimat kosong.
  */
 export function pesanPerubahanStatus(
   template: string,

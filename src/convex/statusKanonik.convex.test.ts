@@ -127,6 +127,53 @@ describe("empat status pinjaman di server", () => {
     ).rejects.toThrow(/sudah berstatus/i);
   });
 
+  it("mencatat perubahan status tanpa catatan: jejak tetap ada, pesan WhatsApp tidak kosong", async () => {
+    const t = convexTest(schema, modules);
+    const { sesi: admin } = await siapkanPengguna(t, "admin", {
+      email: "admin-tanpa-catatan@pindai.test",
+      role: "admin",
+    });
+    const { userId: peminjamId } = await siapkanPengguna(t, "rani", {
+      email: "rani-tanpa-catatan@pindai.test",
+      role: "peminjam",
+    });
+    const loanId = await buatPinjaman(t, peminjamId, "sedang_direview");
+
+    // Kebijakan pemilik produk: admin tidak wajib mengisi alasan perubahan
+    // status. Dialog mengirim argumen `reason` kosong ("") atau tidak sama sekali.
+    await expect(
+      admin.mutation(api.loans.ubahStatusPinjaman, { loanId, status: "didanai" }),
+    ).resolves.toMatchObject({ ok: true });
+    expect((await t.run((ctx) => ctx.db.get(loanId)))?.status).toBe("didanai");
+
+    // Jejak audit tetap ditulis dan menandai bahwa catatannya kosong — bukan
+    // entri audit kosong tanpa penjelasan.
+    const audit = await t.run(async (ctx) => {
+      const rows = await ctx.db.query("auditLog").collect();
+      return rows.filter((r) => r.aksi === "loan_didanai").slice(-1)[0] ?? null;
+    });
+    expect(audit?.target).toBe("PGD-STATUS-sedang_direview");
+    expect(audit?.detail).toContain("tanpa catatan");
+    expect(audit?.aktorLabel).toBe("admin-tanpa-catatan@pindai.test");
+
+    // Pesan kabar ke peminjam tidak boleh menyisakan kalimat kosong
+    // ("Catatan dari tim: .") saat admin tidak mengisi catatan.
+    const pratinjau = await admin.query(api.whatsapp.previewStatusPinjaman, {
+      loanId,
+      alasan: "",
+    });
+    expect(pratinjau?.isi).toContain("Catatan dari tim: —");
+    expect(pratinjau?.isi).not.toContain("Catatan dari tim: .");
+    expect(pratinjau?.isi).not.toContain("{alasan}");
+
+    // Dengan catatan, teksnya tetap terkirim apa adanya.
+    const denganCatatan = await admin.query(api.whatsapp.previewStatusPinjaman, {
+      loanId,
+      alasan: "dana ditandai tersalurkan",
+    });
+    expect(denganCatatan?.isi).toContain("dana ditandai tersalurkan");
+  });
+
   it("ejaan tahap lama yang sudah digabung ditolak validator", async () => {
     const t = convexTest(schema, modules);
     const { sesi: admin } = await siapkanPengguna(t, "admin", {

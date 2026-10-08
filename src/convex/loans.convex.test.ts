@@ -206,6 +206,50 @@ describe("hapus pinjaman yang sudah berpindah dana", () => {
     expect(hapus[0].detail).toContain("1 entri jurnal ledger dipertahankan");
   });
 
+  it("menghapus salah input tanpa catatan tetap sah dan tetap berjejak", async () => {
+    const t = convexTest(schema, modules);
+    const { sesi: admin } = await siapkanPengguna(t, "admin", {
+      email: "admin-hm4@pindai.test",
+      role: "admin",
+    });
+    const { userId } = await siapkanPengguna(t, "rani", {
+      email: "rani-hm4@pindai.test",
+      role: "peminjam",
+    });
+    // Pengajuan kosong tanpa catatan keuangan — persis kasus "salah input".
+    const loanId = await t.run((ctx) =>
+      ctx.db.insert("loans", {
+        userId,
+        pokokPinjaman: 500_000,
+        tujuan: "modal_usaha",
+        namaLengkap: "RANI PEMINJAM",
+        namaBank: "BCA",
+        nomorRekening: "1234567890",
+        status: "sedang_direview",
+        nomorReferensi: "PGD-HAPUS-TANPA-CATATAN",
+        tenorHari: 30,
+      }),
+    );
+
+    // Kebijakan pemilik produk: admin TIDAK perlu menulis alasan penghapusan.
+    await expect(
+      admin.mutation(api.loans.hapusPinjaman, { loanId }),
+    ).resolves.toMatchObject({ ok: true });
+
+    const sisa = await t.run(async (ctx) => ({
+      loan: await ctx.db.get(loanId),
+      audit: await ctx.db.query("auditLog").collect(),
+    }));
+    expect(sisa.loan).toBeNull();
+
+    // Jejaknya tetap lengkap: siapa, apa, kapan — hanya catatannya yang kosong.
+    const hapus = sisa.audit.filter((row) => row.aksi === "loan_delete");
+    expect(hapus).toHaveLength(1);
+    expect(hapus[0].target).toBe("PGD-HAPUS-TANPA-CATATAN");
+    expect(hapus[0].aktorLabel).toBe("admin-hm4@pindai.test");
+    expect(hapus[0].detail).toContain("tanpa catatan penghapusan");
+  });
+
   it("hanya admin yang boleh memakai jalur menyeluruh", async () => {
     const t = convexTest(schema, modules);
     const { userId: adminId } = await siapkanPengguna(t, "admin", {

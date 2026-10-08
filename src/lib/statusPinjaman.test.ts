@@ -37,25 +37,25 @@ function gagal(hasil: { ok: boolean; alasan?: string }, pola: RegExp, label: str
 // ===== validasiUbahStatus =====
 
 // Alur normal.
-ok(validasiUbahStatus("diajukan", "sedang_direview", "mulai ditinjau"), "diajukan → review");
-ok(validasiUbahStatus("sedang_direview", "disetujui", "dokumen lengkap"), "review → disetujui");
-ok(validasiUbahStatus("disetujui", "didanai", "dana tersalurkan"), "disetujui → didanai");
-ok(validasiUbahStatus("didanai", "lunas", "kewajiban dibayar penuh"), "didanai → lunas");
+ok(validasiUbahStatus("diajukan", "sedang_direview"), "diajukan → review");
+ok(validasiUbahStatus("sedang_direview", "disetujui"), "review → disetujui");
+ok(validasiUbahStatus("disetujui", "didanai"), "disetujui → didanai");
+ok(validasiUbahStatus("didanai", "lunas"), "didanai → lunas");
 
 // Melompat tahap tetap boleh — admin tidak dipaksa mengikuti urutan.
-ok(validasiUbahStatus("diajukan", "disetujui", "langsung disetujui"), "lompat diajukan → disetujui");
-ok(validasiUbahStatus("didanai", "ditolak", "pencairan dibatalkan"), "tarik didanai → ditolak");
+ok(validasiUbahStatus("diajukan", "disetujui"), "lompat diajukan → disetujui");
+ok(validasiUbahStatus("didanai", "ditolak"), "tarik didanai → ditolak");
 
 // Sejak status digabung menjadi empat, "Ditinjau" adalah tahap kerja biasa:
 // mengembalikan pinjaman ke tahap tinjauan DIPERBOLEHKAN (mis. pengajuan
 // dibuka ulang), baik lewat ejaan kanonik maupun ejaan tersimpan lamanya.
-ok(validasiUbahStatus("sedang_direview", "diajukan", "dibuka ulang"), "kembali ke tinjauan (ejaan lama)");
-ok(validasiUbahStatus("diajukan", "ditinjau", "dibuka ulang"), "kembali ke tinjauan (kanonik)");
-ok(validasiUbahStatus("disetujui", "ditinjau", "nominal dikoreksi"), "kanonik ditinjau dari tahap persetujuan");
+ok(validasiUbahStatus("sedang_direview", "diajukan"), "kembali ke tinjauan (ejaan lama)");
+ok(validasiUbahStatus("diajukan", "ditinjau"), "kembali ke tinjauan (kanonik)");
+ok(validasiUbahStatus("disetujui", "ditinjau"), "kanonik ditinjau dari tahap persetujuan");
 // Menargetkan tahap yang ejaan tersimpannya sama tetap ditolak — "ditinjau"
 // tersimpan sebagai `sedang_direview`.
 gagal(
-  validasiUbahStatus("sedang_direview", "ditinjau", "ulangi"),
+  validasiUbahStatus("sedang_direview", "ditinjau"),
   /sudah berstatus/i,
   "ditinjau pada baris yang sudah di tahap tinjauan",
 );
@@ -87,20 +87,20 @@ eq(statusKanonik("entah"), null, "ejaan asing tidak dikenali");
 eq(diTahapTinjauan("entah"), false, "ejaan asing bukan tinjauan");
 
 // Pinjaman lunas terkunci.
-gagal(validasiUbahStatus("lunas", "didanai", "koreksi"), /lunas/i, "lunas terkunci");
-gagal(validasiUbahStatus("lunas", "ditolak", "koreksi"), /lunas/i, "lunas tidak bisa ditolak");
+gagal(validasiUbahStatus("lunas", "didanai"), /lunas/i, "lunas terkunci");
+gagal(validasiUbahStatus("lunas", "ditolak"), /lunas/i, "lunas tidak bisa ditolak");
 
 // Status sama persis ditolak — mencegah pesan WhatsApp palsu & audit kosong.
-gagal(validasiUbahStatus("disetujui", "disetujui", "ulangi"), /sudah berstatus/i, "status sama");
+gagal(validasiUbahStatus("disetujui", "disetujui"), /sudah berstatus/i, "status sama");
 
-// Alasan wajib dan minimal panjangnya.
-gagal(validasiUbahStatus("diajukan", "disetujui", ""), /alasan/i, "alasan kosong");
-gagal(validasiUbahStatus("diajukan", "disetujui", "   "), /alasan/i, "alasan spasi");
-gagal(validasiUbahStatus("diajukan", "disetujui", "ok"), /minimal/i, "alasan terlalu pendek");
-ok(validasiUbahStatus("diajukan", "disetujui", "dokumen lengkap"), "alasan cukup panjang");
+// Catatan TIDAK lagi wajib: pemilik produk meminta admin bisa memindahkan
+// status tanpa mengisi alasan apa pun. Yang diperiksa hanya statusnya —
+// jejak audit dan kabar WhatsApp tetap ditulis oleh jalur penyimpanannya.
+ok(validasiUbahStatus("diajukan", "disetujui"), "perubahan tanpa catatan tetap sah");
+ok(validasiUbahStatus("sedang_direview", "didanai"), "perubahan tanpa catatan (2) tetap sah");
 
 // Status tak dikenal ditolak.
-gagal(validasiUbahStatus("diajukan", "entah", "alasan panjang"), /tidak dikenali/i, "status asing");
+gagal(validasiUbahStatus("diajukan", "entah"), /tidak dikenali/i, "status asing");
 
 // Setiap status punya label.
 for (const s of Object.keys(LABEL_STATUS_PINJAMAN) as StatusPinjaman[]) {

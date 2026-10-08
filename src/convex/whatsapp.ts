@@ -592,10 +592,13 @@ export const _kirimStatusPinjaman = internalAction({
     }
 
     const settings: WaSettings = await ctx.runQuery(internal.whatsapp._getSettings, {});
+    // Catatan opsional: tanpa catatan, template tidak boleh menyisakan kalimat
+    // kosong ("Catatan dari tim: .") — sama dengan pratinjau dan kirim ulang.
+    const catatan = alasan.trim() === "" ? "—" : alasan.trim();
     const isi = pesanStatusDari(
       settings,
       data,
-      alasan,
+      catatan,
       statusLama ?? "ditinjau",
     );
     const hasil = await kirimPesanStatus(

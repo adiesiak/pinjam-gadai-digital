@@ -910,9 +910,11 @@ async function requireAdmin(ctx: MutationCtx) {
  * sehingga menyetujui lebih kecil daripada pengajuan tidak menciptakan dua
  * sumber kebenaran. `pokokDiajukan` menyimpan angka asli pengajuan.
  *
- * Setiap perubahan WAJIB beralasan, dicatat ke audit trail, dan mengembalikan
- * data pesan WhatsApp supaya pemanggil (dialog admin) dapat mengirim kabar ke
- * Peminjam. Pengiriman pesan itu sendiri adalah action terpisah.
+ * Catatan (`catatan`) OPSIONAL: kebijakan pemilik produk — admin tidak boleh
+ * tertahan oleh kolom alasan saat mengubah status. Yang selalu ada adalah jejak
+ * audit (`loan_<status>`) dan data pesan WhatsApp supaya pemanggil (dialog
+ * admin) dapat mengirim kabar ke Peminjam. Pengiriman pesan itu sendiri adalah
+ * action terpisah.
  */
 async function setLoanStatus(
   ctx: MutationCtx,
@@ -937,8 +939,12 @@ async function setLoanStatus(
   if (loan === null) throw new Error("Aplikasi tidak ditemukan.");
 
   const alasan = catatan?.trim() ?? "";
-  // Aturan transisi (semua status, alasan wajib) ada di lib murni agar bisa diuji.
-  const cek = validasiUbahStatus(loan.status, status, alasan);
+  if (alasan.length > 500) {
+    throw new Error("Catatan perubahan maksimal 500 karakter.");
+  }
+  // Aturan transisi (status kanonik, posisi lunas, status sama) ada di lib murni
+  // agar bisa diuji. Catatan tidak diperiksa: boleh kosong.
+  const cek = validasiUbahStatus(loan.status, status);
   if (!cek.ok) throw new Error(cek.alasan);
 
   const statusLama = loan.status;
@@ -985,7 +991,8 @@ async function setLoanStatus(
     admin?.email ?? admin?.name ?? "admin",
     `loan_${status}`,
     loan.nomorReferensi,
-    `${loan.namaLengkap} — ${statusLama} → ${status}: ${alasan}` +
+    `${loan.namaLengkap} — ${statusLama} → ${status}` +
+      (alasan === "" ? " (tanpa catatan)" : `: ${alasan}`) +
       (nominalBerubah
         ? ` (nominal ${pokokPinjaman}, diajukan ${pokokDiajukan})`
         : ""),
@@ -1028,7 +1035,7 @@ async function setLoanStatus(
 }
 
 export const markLoanInReview = mutation({
-  args: { loanId: v.id("loans"), reason: v.string() },
+  args: { loanId: v.id("loans"), /** Catatan opsional. */ reason: v.optional(v.string()) },
   handler: (ctx, args) =>
     setLoanStatus(ctx, args.loanId, "sedang_direview", args.reason),
 });
@@ -1040,7 +1047,8 @@ export const markLoanInReview = mutation({
 export const approveLoan = mutation({
   args: {
     loanId: v.id("loans"),
-    reason: v.string(),
+    /** Catatan opsional — tidak lagi wajib diisi. */
+    reason: v.optional(v.string()),
     pokokDisetujui: v.optional(v.number()),
   },
   handler: (ctx, args) =>
@@ -1054,13 +1062,13 @@ export const approveLoan = mutation({
 });
 
 export const rejectLoan = mutation({
-  args: { loanId: v.id("loans"), reason: v.string() },
+  args: { loanId: v.id("loans"), /** Catatan opsional. */ reason: v.optional(v.string()) },
   handler: (ctx, args) => setLoanStatus(ctx, args.loanId, "ditolak", args.reason),
 });
 
 /**
  * Ubah status pinjaman ke salah satu dari EMPAT status (admin) — satu pintu
- * untuk koreksi dan pemulihan, dengan alasan wajib dan jejak audit.
+ * untuk koreksi dan pemulihan. Catatan OPSIONAL; jejak audit selalu ditulis.
  *
  * Argumennya memakai status KANONIK (`ditinjau`/`didanai`/`ditolak`/`lunas`),
  * lalu dipetakan ke ejaan tersimpannya: "ditinjau" tersimpan sebagai
@@ -1073,7 +1081,8 @@ export const ubahStatusPinjaman = mutation({
   args: {
     loanId: v.id("loans"),
     status: loanStatusKanonikValidator,
-    reason: v.string(),
+    /** Catatan opsional — boleh dikosongkan. */
+    reason: v.optional(v.string()),
     pokokDisetujui: v.optional(v.number()),
   },
   handler: (ctx, args) =>
@@ -1257,15 +1266,16 @@ export const aktifkanGadai = mutation({
 export const hapusPinjaman = mutation({
   args: {
     loanId: v.id("loans"),
-    reason: v.string(),
+    /** Catatan penghapusan OPSIONAL — salah input boleh dibersihkan tanpa alasan. */
+    reason: v.optional(v.string()),
     /** Konfirmasi eksplisit untuk pinjaman yang sudah punya alokasi/jurnal. */
     bersihkanDana: v.optional(v.boolean()),
   },
   handler: async (ctx, { loanId, reason, bersihkanDana }) => {
     const { userId, user } = await requireAdminSession(ctx);
-    const alasan = reason.trim();
-    if (alasan.length < 10 || alasan.length > 500) {
-      throw new Error("Alasan penghapusan wajib 10–500 karakter.");
+    const alasan = (reason ?? "").trim();
+    if (alasan.length > 500) {
+      throw new Error("Catatan penghapusan maksimal 500 karakter.");
     }
     const loan = await ctx.db.get(loanId);
     if (loan === null) throw new Error("Data pinjaman tidak ditemukan.");
@@ -1334,7 +1344,8 @@ export const hapusPinjaman = mutation({
       user.email ?? user.name ?? "admin",
       "loan_delete",
       loan.nomorReferensi,
-      `${loan.namaLengkap} — pokok ${formatRupiah(loan.pokokPinjaman)}, status ${loan.status}; alasan: ${alasan}` +
+      `${loan.namaLengkap} — pokok ${formatRupiah(loan.pokokPinjaman)}, status ${loan.status}; ` +
+        (alasan === "" ? "tanpa catatan penghapusan" : `catatan: ${alasan}`) +
         (fundings.length > 0 || jurnal.length > 0
           ? `; PENGHAPUSAN MENYELURUH: ${fundings.length} alokasi dana, ${transfers.length} catatan transfer, ` +
             `${receipts.length} bukti bayar dihapus; ${jurnal.length} entri jurnal ledger dipertahankan (append-only).`

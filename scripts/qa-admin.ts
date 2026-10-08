@@ -2,7 +2,7 @@
  * QA panel admin — memverifikasi:
  *  1. Promosi QA account menjadi admin (via internal CLI mutation)
  *  2. adminOverview terisi untuk admin, kosong untuk non-admin
- *  3. Alur keputusan pinjaman: review → setujui (dan tolak dgn alasan wajib)
+ *  3. Alur keputusan pinjaman: review → setujui (catatan opsional, boleh kosong)
  *  4. Alur keputusan gadai: jadwalkan penilaian → taksiran + setujui
  *  5. Statistik admin = agregasi nyata
  *
@@ -68,10 +68,13 @@ if (!target) {
   console.error("  Tidak ada pinjaman berstatus diajukan untuk diuji.");
   failed++;
 } else {
-  // Tolak tanpa alasan harus gagal (server-side rule)
-  await expectError(
-    () => admin.mutation(api.loans.rejectLoan, { loanId: target._id, reason: "  " }),
-    "tolak tanpa alasan ditolak server",
+  // Catatan opsional: memindahkan status TANPA alasan harus berhasil sekarang
+  // (kebijakan pemilik produk) — dulu justru ditolak server.
+  await admin.mutation(api.loans.rejectLoan, { loanId: target._id });
+  const afterTolak = await admin.query(api.admin.adminOverview);
+  ok(
+    afterTolak.loans.find((l) => l._id === target._id)?.status === "ditolak",
+    "tolak tanpa alasan diterima server (catatan opsional)",
   );
 
   await admin.mutation(api.loans.markLoanInReview, { loanId: target._id });

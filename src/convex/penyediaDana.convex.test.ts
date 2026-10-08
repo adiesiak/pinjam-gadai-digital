@@ -807,14 +807,23 @@ describe("ruang penyedia dana (lihat saja)", () => {
     const daftar = await asep.query(api.penyediaDana.daftarPengajuan, {});
     expect(daftar.pinjaman[0]?.pendana).toBe("Asep");
 
-    // Alasan wajib, dan pinjaman lunas tidak dapat diubah lagi.
-    await expect(
-      admin.mutation(api.penyediaDana.ubahDataPinjaman, {
-        loanId,
-        pendanaEmail: "robert@pindai.test",
-        alasan: "ok",
-      }),
-    ).rejects.toThrow(/5/);
+    // Catatan TIDAK wajib: koreksi pendana tanpa alasan apa pun harus tersimpan
+    // (kebijakan pemilik produk) — dan audit trail tetap ditulis.
+    const tanpaCatatan = await admin.mutation(api.penyediaDana.ubahDataPinjaman, {
+      loanId,
+      pendanaEmail: "robert@pindai.test",
+    });
+    expect(tanpaCatatan.perubahan).toEqual(["pendana → Robert"]);
+    expect((await t.run((ctx) => ctx.db.get(loanId)))?.pendanaId).toBe(robertId);
+    const auditTanpaCatatan = await t.run(async (ctx) => {
+      const rows = await ctx.db.query("auditLog").collect();
+      const cocok = rows.filter((r) => r.aksi === "ubah_data_pinjaman");
+      return cocok.length === 0 ? null : cocok[cocok.length - 1];
+    });
+    expect(auditTanpaCatatan?.detail).toContain("pendana → Robert");
+    expect(auditTanpaCatatan?.detail).toContain("tanpa catatan");
+
+    // Pinjaman lunas tetap tidak dapat diubah lagi.
     await t.run((ctx) => ctx.db.patch(loanId, { status: "lunas" }));
     await expect(
       admin.mutation(api.penyediaDana.ubahDataPinjaman, {

@@ -29,7 +29,6 @@ import { Id } from "@/convex/_generated/dataModel";
 import { loanPurposeLabel, quotePinjaman } from "@/lib/loan";
 import { formatRupiah } from "@/lib/money";
 import {
-  ALASAN_MIN_PANJANG,
   diTahapTinjauan,
   keStatusTersimpan,
   LABEL_STATUS_PINJAMAN,
@@ -136,11 +135,9 @@ export function LoanReviewDialog({
 
 
   const runDelete = async () => {
+    // Catatan penghapusan opsional — salah input boleh dibersihkan tanpa alasan.
+    // Konfirmasi tetap diminta supaya penghapusan tidak terjadi karena salah tekan.
     const trimmedReason = deleteReason.trim();
-    if (trimmedReason.length < 10) {
-      setErrorHapus("Alasan penghapusan wajib minimal 10 karakter.");
-      return;
-    }
     if (
       !window.confirm(
         hapusMenyeluruh
@@ -186,11 +183,9 @@ export function LoanReviewDialog({
   };
 
   const runPendana = async () => {
+    // Catatan opsional: admin boleh menyimpan perubahan pendana/nominal tanpa
+    // mengisi alasan apa pun.
     const alasan = alasanPendana.trim();
-    if (alasan.length < 5) {
-      setError("Alasan perubahan pendana wajib minimal 5 karakter.");
-      return;
-    }
     const pokokBaru = nominalPendana.trim() === "" ? null : Number(nominalPendana);
     if (pokokBaru !== null && (!Number.isSafeInteger(pokokBaru) || pokokBaru <= 0)) {
       setError("Nominal yang disetujui harus rupiah bulat positif.");
@@ -201,7 +196,7 @@ export function LoanReviewDialog({
     try {
       const hasil = await simpanPendana({
         loanId: row._id,
-        alasan,
+        ...(alasan === "" ? {} : { alasan }),
         ...(pendana === PENDANA_TETAP
           ? {}
           : pendana === PENDANA_LEPAS
@@ -360,7 +355,8 @@ export function LoanReviewDialog({
               </p>
               <p className="mt-1 text-xs leading-5 text-muted-foreground">
                 Perubahan status hanya mengubah catatan internal — tidak ada uang yang berpindah.
-                Peminjam otomatis menerima kabar lewat WhatsApp berisi status dan alasan di bawah.
+                Peminjam otomatis menerima kabar lewat WhatsApp berisi status dan catatan di bawah
+                (kolom catatan boleh dikosongkan).
               </p>
             </div>
 
@@ -415,20 +411,20 @@ export function LoanReviewDialog({
 
             <div className="space-y-2">
               <Label htmlFor="alasan-pinjaman">
-                Alasan perubahan (wajib, dikirim ke peminjam)
+                Catatan perubahan (opsional, dikirim ke peminjam)
               </Label>
               <Textarea
                 id="alasan-pinjaman"
-                aria-invalid={reason.trim().length < ALASAN_MIN_PANJANG}
                 aria-describedby="alasan-pinjaman-help"
                 rows={2}
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
-                placeholder="Contoh: dokumen penghasilan belum lengkap / nilai jaminan menyesuaikan taksiran…"
+                maxLength={500}
+                placeholder="Boleh dikosongkan. Contoh: dokumen penghasilan belum lengkap / nilai jaminan menyesuaikan taksiran…"
               />
               <p id="alasan-pinjaman-help" className="text-xs text-muted-foreground">
-                Minimal {ALASAN_MIN_PANJANG} karakter. Alasan tercatat di Audit Trail dan ikut
-                dikirim sebagai kabar WhatsApp.
+                Tidak wajib diisi. Bila diisi, catatan tercatat di Audit Trail dan ikut dikirim
+                sebagai kabar WhatsApp.
               </p>
             </div>
 
@@ -455,7 +451,7 @@ export function LoanReviewDialog({
 
             <div className="flex flex-wrap gap-2">
               <Button
-                disabled={busy !== null || reason.trim().length < ALASAN_MIN_PANJANG}
+                disabled={busy !== null}
                 onClick={() =>
                   run("status", () =>
                     ubahStatus({
@@ -570,21 +566,20 @@ export function LoanReviewDialog({
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="alasan-pendana">Alasan perubahan pendana / nominal (wajib)</Label>
+              <Label htmlFor="alasan-pendana">
+                Catatan perubahan pendana / nominal (opsional)
+              </Label>
               <Textarea
                 id="alasan-pendana"
                 rows={2}
                 maxLength={500}
                 value={alasanPendana}
                 onChange={(e) => setAlasanPendana(e.target.value)}
-                placeholder="mis. pinjaman ini didanai oleh Robert, sebelumnya belum tercatat…"
+                placeholder="Boleh dikosongkan. Contoh: pinjaman ini didanai oleh Robert, sebelumnya belum tercatat…"
               />
             </div>
 
-            <Button
-              disabled={busy !== null || alasanPendana.trim().length < 5}
-              onClick={() => void runPendana()}
-            >
+            <Button disabled={busy !== null} onClick={() => void runPendana()}>
               {busy === "pendana" ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
               {diTahapTinjauan(row.status) ? "Simpan pendana & nominal" : "Simpan pendana"}
             </Button>
@@ -607,14 +602,16 @@ export function LoanReviewDialog({
         )}
 
         <div className="space-y-2 border-t border-slate-200 pt-4">
-          <Label htmlFor="alasan-hapus-pinjaman">Hapus data salah input</Label>
+          <Label htmlFor="alasan-hapus-pinjaman">
+            Hapus data salah input — catatan penghapusan (opsional)
+          </Label>
           <Textarea
             id="alasan-hapus-pinjaman"
             rows={2}
             maxLength={500}
             value={deleteReason}
             onChange={(event) => setDeleteReason(event.target.value)}
-            placeholder="Alasan penghapusan wajib (minimal 10 karakter)…"
+            placeholder="Boleh dikosongkan…"
           />
           {/* Centang konfirmasi SELALU tersedia — bukan hanya saat baris sudah
               tampak berpindah dana. Penghapusan bisa ditolak server karena
@@ -677,7 +674,7 @@ export function LoanReviewDialog({
               {errorHapus}
             </p>
           )}
-          <Button variant="destructive" disabled={busy !== null || deleteReason.trim().length < 10} onClick={() => void runDelete()}>
+          <Button variant="destructive" disabled={busy !== null} onClick={() => void runDelete()}>
             {busy === "delete" ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Trash2 className="mr-2 size-4" />}
             {hapusMenyeluruh ? "Hapus pinjaman & alokasi dana" : "Hapus pinjaman"}
           </Button>
