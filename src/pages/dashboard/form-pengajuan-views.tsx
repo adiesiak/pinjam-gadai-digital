@@ -14,9 +14,9 @@
  * `PemilihJenisPengajuan` bisa dirender di uji tanpa klien Convex.
  */
 import { Package, Send, ShoppingBag, Wallet } from "lucide-react";
-import { useState } from "react";
 import { toast } from "sonner";
 
+import { Button } from "@/components/ui/button";
 import {
   Select,
   SelectContent,
@@ -27,7 +27,6 @@ import {
 import { Separator } from "@/components/ui/separator";
 import {
   JENIS_PENGAJUAN,
-  JENIS_PENGAJUAN_AWAL,
   jenisPengajuanAktif,
   jenisPengajuanDari,
   type JenisPengajuan,
@@ -121,17 +120,47 @@ export function PemilihJenisPengajuan({
 }
 
 /**
+ * CTA untuk tab lain: mengingatkan bahwa tab itu hanya catatan, lalu membuka
+ * halaman Form Pengajuan dengan jenis ini sudah terpilih.
+ *
+ * Tanpa hook Convex, sehingga bisa dirender di uji.
+ */
+export function TombolBuatPengajuan({
+  jenis,
+  onClick,
+}: {
+  jenis: JenisPengajuan;
+  onClick: () => void;
+}) {
+  const aktif = jenisPengajuanAktif(jenis);
+
+  return (
+    <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-primary/20 bg-primary/[0.04] px-4 py-3">
+      <p className="text-xs leading-5 text-slate-600">
+        Daftar di bawah adalah catatan dan tagihan. Pengajuan baru dibuat di halaman
+        Form Pengajuan.
+      </p>
+      <Button type="button" size="sm" className="gap-1.5" onClick={onClick}>
+        <Send className="size-3.5" aria-hidden="true" /> {aktif.cta}
+      </Button>
+    </div>
+  );
+}
+
+/**
  * Seksi pengajuan: judul, pemilih jenis, lalu formulir jenis terpilih.
  *
- * `jenisAwal` memungkinkan halaman dibuka langsung pada satu jenis (dan
- * memungkinkan uji memeriksa tiap keadaan tanpa klik).
+ * Jenis yang aktif dimiliki pemanggil (dashboard), bukan seksi ini: CTA di tab
+ * lain harus bisa membuka halaman ini dengan jenisnya sudah terpilih, dan
+ * pilihan pemakai tetap tersimpan saat berpindah tab bolak-balik.
  */
 export function FormPengajuanSection({
-  jenisAwal = JENIS_PENGAJUAN_AWAL,
+  jenis,
+  onUbahJenis,
 }: {
-  jenisAwal?: JenisPengajuan;
+  jenis: JenisPengajuan;
+  onUbahJenis: (jenis: JenisPengajuan) => void;
 }) {
-  const [jenis, setJenis] = useState<JenisPengajuan>(jenisAwal);
   const aktif = jenisPengajuanAktif(jenis);
 
   return (
@@ -156,7 +185,7 @@ export function FormPengajuanSection({
       <Separator className="my-4" />
 
       <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
-        <PemilihJenisPengajuan nilai={jenis} onUbah={setJenis} />
+        <PemilihJenisPengajuan nilai={jenis} onUbah={onUbahJenis} />
       </div>
 
       {/* `key` memaksa formulir lama dilepas saat jenis berganti: isian tidak

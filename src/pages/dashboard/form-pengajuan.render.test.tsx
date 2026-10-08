@@ -7,6 +7,8 @@
  *    children tampak kosong sampai menunya dibuka sekali.
  * 2. Menu dashboard (dropdown layar sempit) juga menyebut menu aktif — termasuk
  *    jumlah itemnya.
+ * 3. CTA "Buat pengajuan baru" di tiap tab menyebut jenis yang akan dibuka
+ *    (tab Kredit Barang → "Buat pengajuan kredit barang").
  *
  * Formulir pinjaman/gadai/kredit sengaja tidak dirender: ketiganya membaca Convex
  * (`useQuery`/`useMutation`), jadi di luar aplikasi mereka tidak punya klien.
@@ -16,9 +18,10 @@
 import { renderToStaticMarkup } from "react-dom/server";
 
 import { Tabs } from "@/components/ui/tabs";
+import { JENIS_PENGAJUAN } from "@/lib/jenisPengajuan";
 
 import { DashboardTabNav } from "./dashboard-tab-nav";
-import { PemilihJenisPengajuan } from "./form-pengajuan-views";
+import { PemilihJenisPengajuan, TombolBuatPengajuan } from "./form-pengajuan-views";
 
 let passed = 0;
 let failed = 0;
@@ -90,7 +93,12 @@ function wajahMenuDashboard(activeTab: string, badges?: Parameters<typeof Dashbo
   return wajahDropdown(
     renderToStaticMarkup(
       <Tabs value={activeTab}>
-        <DashboardTabNav activeTab={activeTab} onTabChange={() => {}} badges={badges} />
+        <DashboardTabNav
+          activeTab={activeTab}
+          onTabChange={() => {}}
+          onBuatPengajuan={() => {}}
+          badges={badges}
+        />
       </Tabs>,
     ),
     "Menu dashboard Peminjam",
@@ -109,6 +117,23 @@ ok(
   "dropdown menu dashboard menyebut jumlah item menu aktif",
   wajahMenuPinjaman.includes("Catatan Pinjaman · 2"),
 );
+
+// --- CTA "Buat pengajuan baru" di tab lain ----------------------------------
+
+for (const jenis of JENIS_PENGAJUAN) {
+  const html = renderToStaticMarkup(
+    <TombolBuatPengajuan jenis={jenis.id} onClick={() => {}} />,
+  );
+  ok(`CTA ${jenis.id} menyebut "${jenis.cta}"`, html.includes(jenis.cta));
+  ok(`CTA ${jenis.id} memuat ikon kirim`, html.includes("lucide-send"));
+}
+
+// CTA tab Kredit Barang harus menamai jenis kredit barang, bukan jenis lain.
+const htmlCtaKredit = renderToStaticMarkup(
+  <TombolBuatPengajuan jenis="kredit" onClick={() => {}} />,
+);
+ok("CTA kredit barang tidak menyebut pinjaman", !htmlCtaKredit.includes("Buat pengajuan pinjaman"));
+ok("CTA kredit barang tidak menyebut gadai", !htmlCtaKredit.includes("Buat pengajuan gadai"));
 
 console.log(`form-pengajuan render tests: ${passed} passed, ${failed} failed`);
 if (failed > 0) process.exit(1);

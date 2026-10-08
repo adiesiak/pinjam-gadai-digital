@@ -22,6 +22,8 @@ export type BarisJenisPengajuan = {
   judul: string;
   /** Keterangan singkat tentang apa yang dicatat formulir ini. */
   hint: string;
+  /** Teks tombol yang membuka formulir jenis ini dari tab lain. */
+  cta: string;
 };
 
 /** Urutan tampil di dropdown: pinjaman → gadai → kredit barang. */
@@ -31,18 +33,21 @@ export const JENIS_PENGAJUAN: ReadonlyArray<BarisJenisPengajuan> = [
     label: "Pinjaman tunai",
     judul: "Form pengajuan pinjaman",
     hint: "Skema harian atau bulanan; bunga, biaya, dan cicilan dihitung aplikasi dari nominal serta tenor yang Anda pilih.",
+    cta: "Buat pengajuan pinjaman",
   },
   {
     id: "gadai",
     label: "Gadai barang",
     judul: "Gadai barang jaminan",
     hint: "Catat deskripsi barang dan alamat penilaian; nilai taksiran diisi tim PINDAI saat peninjauan.",
+    cta: "Buat pengajuan gadai",
   },
   {
     id: "kredit",
     label: "Kredit barang",
     judul: "Pengajuan kredit barang",
     hint: "Barang elektronik atau mitra; DP, tenor, dan cicilan dihitung aplikasi dari harga barang yang diajukan.",
+    cta: "Buat pengajuan kredit barang",
   },
 ];
 
@@ -62,4 +67,23 @@ export function jenisPengajuanDari(nilai: string): JenisPengajuan | null {
  */
 export function jenisPengajuanAktif(nilai: string): BarisJenisPengajuan {
   return JENIS_PENGAJUAN.find((jenis) => jenis.id === nilai) ?? JENIS_PENGAJUAN[0];
+}
+
+/**
+ * Tab dashboard → jenis pengajuan yang paling masuk akal dibuka lebih dulu
+ * lewat tombol "Buat pengajuan baru" di tab itu. Tab catatan pinjaman dan jadwal
+ * angsuran sama-sama mengarah ke pinjaman tunai; tab yang tidak berkaitan dengan
+ * pengajuan (kontrak, riwayat, form itu sendiri) mengembalikan `null` sehingga
+ * pemanggil memakai jenis bawaan.
+ */
+const JENIS_PENGAJUAN_PER_TAB: Partial<Record<string, JenisPengajuan>> = {
+  pinjaman: "pinjaman",
+  jadwal: "pinjaman",
+  gadai: "gadai",
+  kredit: "kredit",
+};
+
+/** Jenis pengajuan untuk sebuah tab dashboard; `null` bila tab tidak relevan. */
+export function jenisPengajuanUntukTab(tab: string): JenisPengajuan | null {
+  return JENIS_PENGAJUAN_PER_TAB[tab] ?? null;
 }

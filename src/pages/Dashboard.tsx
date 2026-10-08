@@ -3,6 +3,7 @@ import { Loader2, TrendingUp } from "lucide-react";
 import { useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { Button } from "@/components/ui/button";
+import { JENIS_PENGAJUAN_AWAL, type JenisPengajuan } from "@/lib/jenisPengajuan";
 import { formatRupiah } from "@/lib/money";
 import type { FunctionReturnType } from "convex/server";
 
@@ -20,7 +21,10 @@ import { DashboardHeader } from "./dashboard/dashboard-header";
 import { DashboardSidebar } from "./dashboard/dashboard-sidebar";
 import type { TabBadge } from "./dashboard/dashboard-tab-nav";
 import { LoanDetailDialog, PawnDetailDialog } from "./dashboard/detail-dialogs";
-import { FormPengajuanSection } from "./dashboard/form-pengajuan-views";
+import {
+  FormPengajuanSection,
+  TombolBuatPengajuan,
+} from "./dashboard/form-pengajuan-views";
 import { GadaiBillingSection } from "./dashboard/gadai-views";
 import { HistorySection } from "./dashboard/history-views";
 import { KreditBarangSection } from "./dashboard/kredit-views";
@@ -98,6 +102,19 @@ export default function Dashboard() {
   const [loanDetailId, setLoanDetailId] = useState<Id<"loans"> | null>(null);
   const [pawnDetailId, setPawnDetailId] = useState<Id<"pawns"> | null>(null);
   const [activeTab, setActiveTab] = useState("pinjaman");
+  // Jenis pengajuan yang aktif dimiliki di sini, bukan di halaman form: CTA di
+  // tab lain (dan pintasan menu layar sempit) harus bisa membuka halaman form
+  // dengan jenisnya sudah terpilih, dan pilihan pemakai bertahan saat berpindah
+  // tab.
+  const [jenisPengajuan, setJenisPengajuan] = useState<JenisPengajuan>(
+    JENIS_PENGAJUAN_AWAL,
+  );
+
+  /** Buka halaman Form Pengajuan dengan jenis yang sudah dipilih. */
+  const bukaPengajuan = (jenis: JenisPengajuan) => {
+    setJenisPengajuan(jenis);
+    setActiveTab("form");
+  };
 
   const handleSignOut = async () => {
     await signOut();
@@ -210,6 +227,7 @@ export default function Dashboard() {
               badges={tabBadges}
               activeTab={activeTab}
               onTabChange={setActiveTab}
+              onBuatPengajuan={bukaPengajuan}
               onSignOut={handleSignOut}
             />
           </aside>
@@ -239,6 +257,10 @@ export default function Dashboard() {
 
                 {/* ============ TAB 1: PINJAMAN AKTIF ============ */}
                 <TabsContent value="pinjaman" className="mt-8 animate-masuk">
+                  <TombolBuatPengajuan
+                    jenis="pinjaman"
+                    onClick={() => bukaPengajuan("pinjaman")}
+                  />
                   <ActiveLoanSection
                     schedule={schedule ?? []}
                     onOpenDetail={setLoanDetailId}
@@ -252,6 +274,7 @@ export default function Dashboard() {
 
                 {/* ============ TAB 3: JAMINAN GADAI ============ */}
                 <TabsContent value="gadai" className="mt-8 animate-masuk">
+                  <TombolBuatPengajuan jenis="gadai" onClick={() => bukaPengajuan("gadai")} />
                   <div className="space-y-8">
                     <GadaiBillingSection pawns={pawns ?? []} />
                     <PawnVaultSection pawns={pawns ?? []} onOpenDetail={setPawnDetailId} />
@@ -260,6 +283,7 @@ export default function Dashboard() {
 
                 {/* ============ TAB 4: KREDIT BARANG (Skema C) ============ */}
                 <TabsContent value="kredit" className="mt-8 animate-masuk">
+                  <TombolBuatPengajuan jenis="kredit" onClick={() => bukaPengajuan("kredit")} />
                   <KreditBarangSection />
                 </TabsContent>
 
@@ -272,7 +296,10 @@ export default function Dashboard() {
                     Peminjam memilih pinjaman / gadai / kredit barang lewat menu
                     dropdown; hanya formulir jenis itu yang dirender. */}
                 <TabsContent value="form" className="mt-8 min-w-0 animate-masuk">
-                  <FormPengajuanSection />
+                  <FormPengajuanSection
+                    jenis={jenisPengajuan}
+                    onUbahJenis={setJenisPengajuan}
+                  />
                 </TabsContent>
 
                 {/* ============ TAB 7: RIWAYAT ============ */}

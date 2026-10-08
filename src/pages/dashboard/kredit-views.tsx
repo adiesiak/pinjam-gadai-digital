@@ -690,10 +690,6 @@ export function KreditBarangSection() {
   return (
     <section className="min-w-0">
       <h2 className="text-lg font-semibold">Catatan pengajuan kredit barang saya</h2>
-      <p className="mt-1 text-sm leading-6 text-muted-foreground">
-        Pengajuan kredit barang baru dibuat dari tab <strong>Form Pengajuan</strong>:
-        pilih “Kredit barang” di menu dropdown-nya.
-      </p>
       <Separator className="my-4" />
       <KreditSayaSection />
     </section>

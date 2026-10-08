@@ -4,6 +4,7 @@ import { Link } from "react-router";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import type { JenisPengajuan } from "@/lib/jenisPengajuan";
 import { fadeUpItem, staggerContainer } from "@/lib/motion";
 import { ADMIN_ROUTE } from "@/lib/routes";
 
@@ -20,6 +21,7 @@ export function DashboardSidebar({
   badges,
   activeTab,
   onTabChange,
+  onBuatPengajuan,
   onSignOut,
 }: {
   greetingName: string;
@@ -27,6 +29,8 @@ export function DashboardSidebar({
   badges?: Partial<Record<string, TabBadge>>;
   activeTab: string;
   onTabChange: (value: string) => void;
+  /** Pintasan "Buat pengajuan baru" di menu layar sempit. */
+  onBuatPengajuan: (jenis: JenisPengajuan) => void;
   onSignOut: () => void;
 }) {
   const initial = greetingName.charAt(0).toUpperCase();
@@ -92,7 +96,12 @@ export function DashboardSidebar({
       </motion.div>
 
       <motion.div variants={fadeUpItem}>
-        <DashboardTabNav badges={badges} activeTab={activeTab} onTabChange={onTabChange} />
+        <DashboardTabNav
+          badges={badges}
+          activeTab={activeTab}
+          onTabChange={onTabChange}
+          onBuatPengajuan={onBuatPengajuan}
+        />
       </motion.div>
     </motion.div>
   );

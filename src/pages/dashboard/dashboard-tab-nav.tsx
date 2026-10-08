@@ -18,6 +18,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  JENIS_PENGAJUAN_AWAL,
+  jenisPengajuanUntukTab,
+  type JenisPengajuan,
+} from "@/lib/jenisPengajuan";
 import { cn } from "@/lib/utils";
 
 /** Item navigasi tab: [nilai, label, ikon]. */
@@ -49,15 +54,21 @@ function badgeToneClass(tone: TabBadge["tone"]): string {
  * Layar lebar: daftar tab vertikal. Layar sempit: satu kartu menu menonjol
  * berisi pemilih bagian (dropdown) plus pintasan "Buat pengajuan baru", supaya
  * pemakai baru tidak perlu menebak menu mana yang membuka formulir.
+ *
+ * Pintasannya membawa jenis pengajuan yang cocok dengan tab yang sedang dibuka
+ * (mis. tab Kredit Barang → Kredit barang sudah terpilih).
  */
 export function DashboardTabNav({
   badges,
   activeTab,
   onTabChange,
+  onBuatPengajuan,
 }: {
   badges?: Partial<Record<string, TabBadge>>;
   activeTab: string;
   onTabChange: (value: string) => void;
+  /** Buka halaman Form Pengajuan dengan jenis yang cocok untuk tab aktif. */
+  onBuatPengajuan: (jenis: JenisPengajuan) => void;
 }) {
   // Menu yang sedang aktif — ditampilkan menonjol di kartu menu layar sempit.
   const aktif = TABS.find(([value]) => value === activeTab) ?? null;
@@ -107,7 +118,9 @@ export function DashboardTabNav({
             type="button"
             size="sm"
             className="mt-2 h-10 w-full gap-1.5"
-            onClick={() => onTabChange("form")}
+            onClick={() =>
+              onBuatPengajuan(jenisPengajuanUntukTab(activeTab) ?? JENIS_PENGAJUAN_AWAL)
+            }
           >
             <Send className="size-3.5" aria-hidden /> Buat pengajuan baru
           </Button>
