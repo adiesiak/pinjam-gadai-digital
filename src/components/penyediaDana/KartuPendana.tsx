@@ -36,12 +36,18 @@ function BarisNilai({
 }
 
 /**
- * Kartu rekap satu penyedia dana (model 1 pinjaman = 1 pendana): jumlah
- * pinjaman, pokok yang bekerja, keuntungan bersih pendana, dan potongan admin.
+ * Kartu rekap satu penyedia dana (model 1 pinjaman = 1 pendana).
  *
- * Keuntungan dilaporkan TERPISAH antara pinjaman yang sudah lunas (uangnya
- * sudah masuk dan dibukukan) dan yang belum lunas (masih proyeksi). Menggabung
- * keduanya membuat penyedia dana membaca uang yang belum cair sebagai haknya.
+ * Disusun tiga blok supaya tidak perlu diurai sebagai satu daftar angka panjang,
+ * dan supaya pertanyaan utamanya — "keuntungan saya yang mana yang sudah benar-
+ * benar jadi uang, dan yang mana yang masih perkiraan?" — dijawab di tempat
+ * pertama yang dilihat mata:
+ *
+ *  1. modal: satu baris konteks (disalurkan & masih berjalan);
+ *  2. **keuntungan pendana**: sudah lunas (dibukukan saat pelunasan) dipisah
+ *     tegas dari belum lunas (perkiraan atas pinjaman berjalan), ditutup baris
+ *     total;
+ *  3. potongan admin & status transfer keuntungan, masing-masing satu baris.
  *
  * Murni presentasional — tanpa Convex — supaya bisa dirender langsung oleh uji
  * markup (`KartuPendana.render.test.tsx`).
@@ -60,52 +66,66 @@ export function KartuPendana({ r }: { r: RekapPendana }) {
           {r.jumlahPinjaman} pinjaman · {r.jumlahAktif} aktif · {r.jumlahLunas} lunas
         </Badge>
       </div>
-      <dl className="mt-3 space-y-1.5 text-xs">
-        <BarisNilai
-          label="Total disalurkan"
-          nilai={rupiah(r.totalDisalurkan)}
-          kelas="font-medium text-slate-900"
-        />
-        <BarisNilai
-          label="Saldo berjalan"
-          nilai={rupiah(r.saldoBerjalan)}
-          kelas="font-medium text-slate-900"
-        />
-        {/* Keuntungan pinjaman yang BELUM lunas dilaporkan terpisah dari yang
-            sudah lunas: hanya yang lunas yang uangnya sudah masuk (dibukukan). */}
-        <BarisNilai
-          label="Keuntungan sudah lunas"
-          nilai={rupiah(r.keuntunganPendanaLunas)}
-          kelas="font-semibold text-emerald-700"
-        />
-        <BarisNilai
-          label="Keuntungan belum lunas (proyeksi)"
-          nilai={rupiah(r.keuntunganPendanaBelumLunas)}
-          kelas="font-medium text-amber-700"
-        />
-        <BarisNilai
-          label="Total keuntungan pendana"
-          nilai={rupiah(r.keuntunganPendana)}
-          kelas="font-semibold text-emerald-700"
-          garis
-        />
-        <BarisNilai
-          label="Potongan admin sudah lunas"
-          nilai={rupiah(r.keuntunganAdminLunas)}
-          kelas="font-semibold text-amber-700"
-        />
-        <BarisNilai
-          label="Potongan admin belum lunas (proyeksi)"
-          nilai={rupiah(r.keuntunganAdminBelumLunas)}
-          kelas="font-medium text-amber-700"
-        />
-        <BarisNilai
-          label="Total potongan admin (dari uang kembali)"
-          nilai={rupiah(r.keuntunganAdmin)}
-          kelas="font-semibold text-amber-700"
-          garis
-        />
-        <div className="flex items-baseline justify-between gap-2 border-t border-slate-100 pt-1.5">
+
+      {/* Modal: konteks pendanaan, bukan laporan keuntungan — cukup satu baris
+          supaya perhatian tetap pada blok keuntungan di bawahnya. */}
+      <p className="mt-2 text-[11px] leading-4 tabular-nums text-muted-foreground">
+        {rupiah(r.totalDisalurkan)} disalurkan · {rupiah(r.saldoBerjalan)} masih berjalan
+      </p>
+
+      {/* Blok keuntungan: uang yang sudah cair dipisah dari yang masih perkiraan.
+          Menggabung keduanya membuat penyedia dana membaca uang yang belum cair
+          sebagai haknya. */}
+      <div className="mt-3 rounded-xl border border-emerald-100 bg-emerald-50/50 px-3 py-2.5">
+        <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-emerald-800">
+          Keuntungan pendana
+        </p>
+        <dl className="mt-2 space-y-1.5 text-xs">
+          <BarisNilai
+            label="Sudah lunas (dibukukan)"
+            nilai={rupiah(r.keuntunganPendanaLunas)}
+            kelas="font-semibold text-emerald-700"
+          />
+          <BarisNilai
+            label={
+              r.jumlahAktif > 0
+                ? `Belum lunas (perkiraan) · ${r.jumlahAktif} pinjaman berjalan`
+                : "Belum lunas (perkiraan)"
+            }
+            nilai={rupiah(r.keuntunganPendanaBelumLunas)}
+            kelas="font-medium text-amber-700"
+          />
+          <BarisNilai
+            label="Total keuntungan"
+            nilai={rupiah(r.keuntunganPendana)}
+            kelas="font-semibold text-emerald-800"
+            garis
+          />
+        </dl>
+      </div>
+      <p className="mt-1.5 text-[10px] leading-4 text-muted-foreground">
+        Angka perkiraan baru menjadi uang Anda setelah pinjamannya lunas.
+      </p>
+
+      {/* Potongan admin: satu baris total; pemisahan sudah/belum dibukukan cukup
+          sebagai catatan kecil karena ini bukan bagian uang penyedia dana. */}
+      <dl className="mt-3 border-t border-slate-100 pt-2 text-xs">
+        <div>
+          <div className="flex items-baseline justify-between gap-2">
+            <dt className="text-muted-foreground">Potongan admin (total)</dt>
+            <dd className="tabular-nums font-semibold text-amber-700">
+              {rupiah(r.keuntunganAdmin)}
+            </dd>
+          </div>
+          <p className="mt-0.5 text-right text-[10px] tabular-nums text-muted-foreground">
+            sudah dibukukan {rupiah(r.keuntunganAdminLunas)} · perkiraan{" "}
+            {rupiah(r.keuntunganAdminBelumLunas)}
+          </p>
+        </div>
+      </dl>
+
+      <dl className="mt-2 border-t border-slate-100 pt-2 text-xs">
+        <div className="flex items-baseline justify-between gap-2">
           <dt className="text-muted-foreground">Transfer keuntungan</dt>
           <dd className="text-right">
             {r.jumlahLunas === 0 ? (

@@ -1534,34 +1534,66 @@ function IsiRuang() {
                   <h2 className="text-lg font-semibold tracking-tight">
                     Rekap Dana Penyedia
                   </h2>
-                  <p className="text-xs font-medium tabular-nums text-muted-foreground">
-                    <span className="block">
-                      Keuntungan pendana {rupiah(data.ringkasan.totalKeuntunganPendana)} — sudah lunas{" "}
-                      {rupiah(data.ringkasan.totalKeuntunganPendanaLunas)} · belum lunas{" "}
-                      {rupiah(data.ringkasan.totalKeuntunganPendanaBelumLunas)}
-                    </span>
-                    <span className="block">
-                      Potongan admin {rupiah(data.ringkasan.totalKeuntunganAdmin)} — sudah lunas{" "}
-                      {rupiah(data.ringkasan.totalKeuntunganAdminLunas)} · belum lunas{" "}
-                      {rupiah(data.ringkasan.totalKeuntunganAdminBelumLunas)}
-                    </span>
-                    {data.ringkasan.totalTransferBelumDicatat > 0 && (
-                      <span className="block text-amber-700">
-                        {data.ringkasan.totalTransferBelumDicatat} transfer keuntungan belum dicatat (
-                        {rupiah(data.ringkasan.nilaiTransferBelumDicatat)})
-                      </span>
-                    )}
+                  <p className="max-w-md text-xs leading-5 text-muted-foreground">
+                    Model <strong>1 pinjaman = 1 pendana</strong> · bunga{" "}
+                    {data.ringkasan.persenBunga}% dari pokok · potongan admin{" "}
+                    {data.ringkasan.persenPotonganAdmin}% dari uang yang kembali
                   </p>
                 </div>
-                <p className="mt-1 max-w-3xl text-xs leading-6 text-muted-foreground">
-                  Model <strong>1 pinjaman = 1 pendana</strong>. Bunga {data.ringkasan.persenBunga}%
-                  dari pokok; admin mengambil {data.ringkasan.persenPotonganAdmin}% dari uang yang
-                  kembali (pokok + Imbal Hasil), bukan dari Imbal Hasil saja. Pokok tetap kembali
-                  utuh ke penyedia dana — yang terpotong adalah keuntungannya. Keuntungan dilaporkan
-                  terpisah: <strong>sudah lunas</strong> = uang yang benar-benar sudah masuk
-                  (dibukukan saat pelunasan), <strong>belum lunas (proyeksi)</strong> = perhitungan
-                  atas pinjaman yang masih berjalan dan belum dibukukan.
+                {/* Tiga angka utama dipisah menjadi kartu kecil, bukan kalimat
+                    bertumpuk: pertanyaan penyedia dana cuma dua — berapa yang sudah
+                    jadi uang, dan berapa yang masih perkiraan. */}
+                <div className="mt-3 grid gap-2 sm:grid-cols-3">
+                  <div className="rounded-xl border border-emerald-200 bg-emerald-50/60 px-3 py-2">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-emerald-800">
+                      Sudah lunas · dibukukan
+                    </p>
+                    <p className="mt-1 text-base font-semibold tabular-nums text-emerald-800">
+                      {rupiah(data.ringkasan.totalKeuntunganPendanaLunas)}
+                    </p>
+                    <p className="text-[10px] leading-4 text-muted-foreground">
+                      keuntungan yang sudah menjadi hak penyedia dana
+                    </p>
+                  </div>
+                  <div className="rounded-xl border border-amber-200 bg-amber-50/60 px-3 py-2">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-amber-800">
+                      Belum lunas · perkiraan
+                    </p>
+                    <p className="mt-1 text-base font-semibold tabular-nums text-amber-700">
+                      {rupiah(data.ringkasan.totalKeuntunganPendanaBelumLunas)}
+                    </p>
+                    <p className="text-[10px] leading-4 text-muted-foreground">
+                      hitungan atas pinjaman yang masih berjalan — belum dibukukan
+                    </p>
+                  </div>
+                  <div className="rounded-xl border border-slate-200 bg-white px-3 py-2">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+                      Total keuntungan pendana
+                    </p>
+                    <p className="mt-1 text-base font-semibold tabular-nums text-slate-900">
+                      {rupiah(data.ringkasan.totalKeuntunganPendana)}
+                    </p>
+                    <p className="text-[10px] leading-4 text-muted-foreground">
+                      dibukukan + perkiraan
+                    </p>
+                  </div>
+                </div>
+
+                <p className="mt-2 max-w-3xl text-xs leading-5 text-muted-foreground">
+                  Angka <strong>perkiraan</strong> baru menjadi uang penyedia dana saat
+                  pinjamannya lunas. Potongan admin{" "}
+                  {rupiah(data.ringkasan.totalKeuntunganAdmin)} (sudah dibukukan{" "}
+                  {rupiah(data.ringkasan.totalKeuntunganAdminLunas)} · perkiraan{" "}
+                  {rupiah(data.ringkasan.totalKeuntunganAdminBelumLunas)}) diambil dari uang yang
+                  kembali, bukan dari Imbal Hasil saja — pokok tetap kembali utuh.
                 </p>
+                {data.ringkasan.totalTransferBelumDicatat > 0 && (
+                  <p className="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1 text-[11px] font-medium text-amber-800">
+                    <TriangleAlert className="size-3.5 shrink-0" aria-hidden />
+                    {data.ringkasan.totalTransferBelumDicatat} transfer keuntungan belum dicatat (
+                    {rupiah(data.ringkasan.nilaiTransferBelumDicatat)})
+                  </p>
+                )}
                 <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                   {data.rekapPendana.map((r) => (
                     <KartuPendana key={r.nama} r={r} />
