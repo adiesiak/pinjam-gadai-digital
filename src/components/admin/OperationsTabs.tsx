@@ -29,12 +29,18 @@ export function LoanAllocationQueueTab({ onOpen }: { onOpen: (l: LoanRow) => voi
   }
   const pinjamanDisetujui = overview.loans.filter((l) => l.status === "disetujui");
   if (pinjamanDisetujui.length === 0) {
-    return <EmptyQueue icon={Wallet} title="Tidak ada pengajuan berstatus disetujui internal" />;
+    return (
+      <EmptyQueue
+        icon={Wallet}
+        title="Tidak ada pinjaman yang siap disalurkan"
+        deskripsi="Antrean ini memuat pinjaman yang keputusan nominalnya sudah tercatat dan dananya belum ditandai tersalurkan — semuanya berstatus Ditinjau di daftar pinjaman."
+      />
+    );
   }
   return (
     <div className="animate-masuk space-y-3">
       <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900">
-        Daftar ini hanya menampilkan keputusan review internal dan hitungan aplikasi. Persetujuan admin tercatat sebagai keputusan review pada ledger internal.
+        Daftar ini menampilkan pinjaman yang keputusan nominalnya sudah tercatat dan dananya belum ditandai tersalurkan — statusnya masih <strong>Ditinjau</strong> pada daftar pinjaman. Tandai dana tersalurkan dari dialognya bila pencairan sudah terjadi.
       </p>
       <ul className="divide-y divide-slate-200 rounded-2xl border border-slate-200 bg-white">
         {pinjamanDisetujui.map((l) => (

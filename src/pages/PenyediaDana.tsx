@@ -61,6 +61,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  keStatusTersimpan,
+  labelStatusPinjaman,
+  LABEL_STATUS_PINJAMAN,
+  STATUS_PINJAMAN,
+  type StatusPinjaman,
+} from "@/lib/statusPinjaman";
 import type { RingkasTransfer } from "@/lib/transferPendana";
 import type {
   BarisGadai,
@@ -1162,11 +1169,17 @@ function FormUbahPinjaman({ row, onClose }: { row: BarisPinjaman; onClose: () =>
   // pendana lama tanpa peran aktif), bukan hanya akun berperan `dana`.
   const kandidatQ = useQuery(api.penyediaDana.kandidatPendana, {});
   const simpan = useMutation(api.penyediaDana.ubahDataPinjaman);
+  // Status dipindahkan lewat mutation yang SAMA dengan panel admin
+  // (`loans.ubahStatusPinjaman`) supaya kedua tempat selalu menampilkan status
+  // yang sama, satu audit, dan satu pesan WhatsApp.
+  const ubahStatus = useMutation(api.loans.ubahStatusPinjaman);
   // Sentinel NON-kosong: Radix Select menolak `<SelectItem value="">`
   // (melempar saat dropdown dibuka), jadi "tidak diubah" memakai penanda sendiri.
   const TETAP = "__tetap";
   const LEPAS = "__lepas";
+  const TETAP_STATUS = "__tetap_status";
   const [pendana, setPendana] = useState(TETAP);
+  const [statusBaru, setStatusBaru] = useState<string>(TETAP_STATUS);
   const [tujuan, setTujuan] = useState(row.tujuan);
   const [tenorHari, setTenorHari] = useState(String(row.tenorHari));
   const [tenorBulan, setTenorBulan] = useState(
@@ -1192,8 +1205,29 @@ function FormUbahPinjaman({ row, onClose }: { row: BarisPinjaman; onClose: () =>
     // bila admin memang mengisi nilai, bukan saat kolomnya kosong.
     const hariBaru = Number(tenorHari);
     const pokokBaru = Number(pokok);
+    const nominalBaru =
+      !nominalTerkunci && Number.isFinite(pokokBaru) && pokokBaru !== row.pokokPinjaman
+        ? pokokBaru
+        : null;
+    const gantiStatus = statusBaru !== TETAP_STATUS;
     setBusy(true);
+    const perubahan: string[] = [];
     try {
+      // 1) Status pinjaman lebih dulu (bila dipilih) — inilah pintu yang sama
+      //    dengan panel admin. Nominal ikut dikirim di sini karena server
+      //    menolaknya setelah dana ditandai tersalurkan.
+      if (gantiStatus) {
+        const kanonik = statusBaru as StatusPinjaman;
+        await ubahStatus({
+          loanId: row._id,
+          status: kanonik,
+          reason: catatan,
+          ...(nominalBaru === null ? {} : { pokokDisetujui: nominalBaru }),
+        });
+        perubahan.push(`status → ${LABEL_STATUS_PINJAMAN[kanonik]}`);
+      }
+      // 2) Koreksi catatan lain: pendana, tujuan, tenor — dan nominal bila
+      //    statusnya tidak ikut berpindah (agar tidak dikirim dua kali).
       const hasil = await simpan({
         loanId: row._id,
         alasan: catatan,
@@ -1211,14 +1245,13 @@ function FormUbahPinjaman({ row, onClose }: { row: BarisPinjaman; onClose: () =>
         ...(tenorBulan !== tenorAwal
           ? { tenorBulan: tenorBulan === "harian" ? null : Number(tenorBulan) }
           : {}),
-        ...(!nominalTerkunci && Number.isFinite(pokokBaru) && pokokBaru !== row.pokokPinjaman
-          ? { pokokDisetujui: pokokBaru }
-          : {}),
+        ...(nominalBaru !== null && !gantiStatus ? { pokokDisetujui: nominalBaru } : {}),
       });
+      perubahan.push(...hasil.perubahan);
       toast.success(
-        hasil.perubahan.length === 0
+        perubahan.length === 0
           ? "Tidak ada perubahan yang disimpan."
-          : `Tersimpan: ${hasil.perubahan.join(", ")}`,
+          : `Tersimpan: ${perubahan.join(", ")}`,
       );
       onClose();
     } catch (err) {
@@ -1237,6 +1270,30 @@ function FormUbahPinjaman({ row, onClose }: { row: BarisPinjaman; onClose: () =>
         Pokok tercatat {rupiah(row.pokokPinjaman)} · diajukan{" "}
         {rupiah(row.pokokDiajukan ?? row.pokokPinjaman)} · pendana sekarang{" "}
         {row.pendana ?? "belum ada"}
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="ubah-status">Status pinjaman</Label>
+        <Select value={statusBaru} onValueChange={setStatusBaru} disabled={row.status === "lunas"}>
+          <SelectTrigger id="ubah-status" className="w-full">
+            <SelectValue placeholder="Tidak diubah" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={TETAP_STATUS}>Tidak diubah</SelectItem>
+            {STATUS_PINJAMAN.filter(
+              (s) => keStatusTersimpan(s) !== row.status,
+            ).map((s) => (
+              <SelectItem key={s} value={s}>
+                {LABEL_STATUS_PINJAMAN[s]}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <p className="text-[11px] leading-5 text-muted-foreground">
+          {row.status === "lunas"
+            ? "Pinjaman sudah lunas — posisinya ditutup dan statusnya tidak dapat diubah lagi."
+            : `Status sekarang: ${labelStatusPinjaman(row.status)}. Perubahan status memakai pintu yang sama dengan panel admin: peminjam menerima kabar WhatsApp berisi status dan alasan di atas.`}
+        </p>
       </div>
 
       <div className="space-y-2">
@@ -1389,8 +1446,8 @@ function IsiRuang() {
   //
   // Pemisahan utama memakai `status` (otoritatif) dan `didanaiPada` hanya
   // sebagai pelengkap data warisan. Ini penting karena sebagian baris lama
-  // berstatus "didanai" (Target tercapai) tapi `didanaiPada`-nya kosong — kalau
-  // hanya mengandalkan `didanaiPada`, baris itu salah nyelip ke "Belum didanai".
+  // berstatus "didanai" (berlabel Disalurkan) tapi `didanaiPada`-nya kosong —
+  // kalau hanya mengandalkan `didanaiPada`, baris itu salah nyelip ke "Ditinjau".
   const pinjamanDitolak = data?.pinjaman.filter((r) => r.status === "ditolak") ?? [];
   const pinjamanBaru =
     data?.pinjaman.filter(
@@ -1545,7 +1602,7 @@ function IsiRuang() {
               <KartuRingkasan
                 label="Menunggu review"
                 nilai={String(data.ringkasan.menungguReview)}
-                detail="status diajukan / sedang ditinjau"
+                detail="status Ditinjau"
                 icon={<Timer className="size-4" />}
               />
             </div>
@@ -1607,7 +1664,7 @@ function IsiRuang() {
                   value="belum"
                   className="group h-9 flex-none gap-2 rounded-xl px-3 text-xs font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
                 >
-                  <Timer className="size-3.5" /> Belum didanai
+                  <Timer className="size-3.5" /> Ditinjau
                   <span className="tabular-nums text-muted-foreground group-data-[state=active]:text-primary-foreground">
                     {pinjamanBaru.length}
                   </span>
@@ -1616,7 +1673,7 @@ function IsiRuang() {
                   value="didanai"
                   className="group h-9 flex-none gap-2 rounded-xl px-3 text-xs font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
                 >
-                  <HandCoins className="size-3.5" /> Sudah didanai
+                  <HandCoins className="size-3.5" /> Disalurkan
                   <span className="tabular-nums text-muted-foreground group-data-[state=active]:text-primary-foreground">
                     {pinjamanDidanai.length}
                   </span>

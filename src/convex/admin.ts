@@ -471,6 +471,23 @@ export const adminOverview = query({
     const loans = await ctx.db.query("loans").collect();
     const pawns = await ctx.db.query("pawns").collect();
 
+    // Nama pendana dibaca dari AKUN-nya, bukan dari salinan `pendanaNama` yang
+    // tersimpan saat penetapan. Dengan begitu panel admin dan /penyedia-dana
+    // (yang juga membaca akun lewat `loans.pendanaId`) selalu menampilkan nama
+    // yang sama, walau nama akun pendana berubah setelah penetapan. Salinan
+    // tersimpan hanya dipakai untuk baris warisan tanpa `pendanaId`.
+    const namaPendanaCache = new Map<string, string | null>();
+    const namaPendanaAkun = async (
+      userId: Id<"users">,
+      cadangan: string | null,
+    ): Promise<string | null> => {
+      if (namaPendanaCache.has(userId)) return namaPendanaCache.get(userId) ?? null;
+      const akun = await ctx.db.get(userId);
+      const nama = akun?.name?.trim() || akun?.email || cadangan || null;
+      namaPendanaCache.set(userId, nama);
+      return nama;
+    };
+
     const loanRows = await Promise.all(
       loans
         .sort((a, b) => b._creationTime - a._creationTime)
@@ -503,7 +520,10 @@ export const adminOverview = query({
             // Model 1 pinjaman = 1 pendana — dipakai dialog review admin untuk
             // menampilkan/mengganti siapa penyedia dana pinjaman ini.
             pendanaId: l.pendanaId ?? null,
-            pendanaNama: l.pendanaNama ?? null,
+            pendanaNama:
+              l.pendanaId !== undefined
+                ? await namaPendanaAkun(l.pendanaId, l.pendanaNama ?? null)
+                : l.pendanaNama ?? null,
             tenorHari: l.tenorHari ?? null,
             tenorBulan: l.tenorBulan ?? null,
             cicilanPerBulan: bulanan?.cicilanPerBulan ?? null,

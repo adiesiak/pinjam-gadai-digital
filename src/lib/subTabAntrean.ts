@@ -11,11 +11,16 @@
  * - aturan "setiap status punya tepat satu sub-tab" bisa diperiksa langsung
  *   terhadap `LOAN_STATUS_FLOW` / status gadai, tanpa membawa React.
  *
- * Tanpa tab "Didanai", pinjaman yang dananya sudah tersalurkan tidak cocok
+ * Tanpa tab "Disalurkan", pinjaman yang dananya sudah tersalurkan tidak cocok
  * dengan sub-tab mana pun: barisnya hanya terlihat di "Semua", dan jumlah
  * seluruh sub-tab status tidak pernah sama dengan "Semua".
+ *
+ * Labelnya mengikuti EMPAT status pinjaman yang dipakai aplikasi (Ditinjau,
+ * Disalurkan, Ditolak, Lunas) — lihat `lib/statusPinjaman.ts`. Tahap tinjauan
+ * memakai satu sub-tab untuk ketiga ejaan tersimpannya.
  */
 import type { LoanRow, OpsiSubTab, PawnRow } from "@/components/admin/admin-shared";
+import { diTahapTinjauan } from "@/lib/statusPinjaman";
 
 /**
  * Sub-tab antrean pinjaman: memisahkan catatan yang masih perlu ditindak dari
@@ -31,17 +36,14 @@ export const SUB_TAB_PINJAMAN: readonly OpsiSubTab<LoanRow>[] = [
   },
   {
     id: "belum-didanai",
-    label: "Belum didanai",
-    hint: "Diajukan, sedang direview, dan disetujui internal — belum ada dana yang tersalurkan.",
-    cocok: (pinjaman) =>
-      pinjaman.status === "diajukan" ||
-      pinjaman.status === "sedang_direview" ||
-      pinjaman.status === "disetujui",
+    label: "Ditinjau",
+    hint: "Pengajuan pada tahap tinjauan — belum ada dana yang tersalurkan.",
+    cocok: (pinjaman) => diTahapTinjauan(pinjaman.status),
   },
   {
     id: "didanai",
-    label: "Didanai",
-    hint: "Dana sudah tersalurkan dan pinjaman sedang berjalan — belum lunas.",
+    label: "Disalurkan",
+    hint: "Dana sudah ditandai tersalurkan dan pinjaman sedang berjalan — belum lunas.",
     cocok: (pinjaman) => pinjaman.status === "didanai",
   },
   {

@@ -22,8 +22,8 @@ import {
 import { formatRupiah } from "../lib/money";
 import {
   pesanPerubahanStatus,
+  statusKanonik,
   TEMPLATE_STATUS_DEFAULT,
-  type StatusPinjaman,
 } from "../lib/statusPinjaman";
 import { validasiGatewayUrl } from "../lib/waUrl";
 
@@ -237,7 +237,7 @@ export const _dataStatusPinjaman = internalQuery({
       namaLengkap: loan.namaLengkap,
       nomorReferensi: loan.nomorReferensi,
       nomorWhatsApp: loan.nomorWhatsApp ?? null,
-      status: loan.status as StatusPinjaman,
+      status: loan.status,
       pokokDiajukan,
       pokokPinjaman: loan.pokokPinjaman,
       totalKewajiban,
@@ -461,13 +461,14 @@ function pesanStatusDari(
   data: {
     namaLengkap: string;
     nomorReferensi: string;
-    status: StatusPinjaman;
+    /** Ejaan status tersimpan apa pun — diterjemahkan ke label 4 status. */
+    status: string;
     pokokDiajukan: number;
     pokokPinjaman: number;
     totalKewajiban: number;
   },
   alasan: string,
-  statusLama: StatusPinjaman,
+  statusLama: string,
 ): string {
   return pesanPerubahanStatus(
     settings.templateStatus?.trim() || TEMPLATE_STATUS_DEFAULT,
@@ -479,7 +480,7 @@ function pesanStatusDari(
       alasan,
       pokokDiajukan: data.pokokDiajukan,
       pokokDisetujui: data.pokokPinjaman,
-      totalKewajiban: data.status === "ditolak" ? null : data.totalKewajiban,
+      totalKewajiban: statusKanonik(data.status) === "ditolak" ? null : data.totalKewajiban,
     },
   );
 }
@@ -510,13 +511,13 @@ export const previewStatusPinjaman = query({
         {
           namaLengkap: loan.namaLengkap,
           nomorReferensi: loan.nomorReferensi,
-          status: loan.status as StatusPinjaman,
+          status: loan.status,
           pokokDiajukan,
           pokokPinjaman: loan.pokokPinjaman,
           totalKewajiban,
         },
         alasan.trim() === "" ? "—" : alasan.trim(),
-        loan.status as StatusPinjaman,
+        loan.status,
       ),
     };
   },
@@ -551,7 +552,7 @@ export const kirimStatusPinjaman = action({
       settings,
       data,
       alasan.trim() === "" ? "—" : alasan.trim(),
-      (statusLama ?? "diajukan") as StatusPinjaman,
+      statusLama ?? "ditinjau",
     );
 
     const hasil = await kirimPesanStatus(ctx, settings, data.nomorWhatsApp, isi, loanId, userId);
@@ -595,7 +596,7 @@ export const _kirimStatusPinjaman = internalAction({
       settings,
       data,
       alasan,
-      statusLama as StatusPinjaman,
+      statusLama ?? "ditinjau",
     );
     const hasil = await kirimPesanStatus(
       ctx,

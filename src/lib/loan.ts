@@ -348,6 +348,15 @@ export const LOAN_STATUS_FLOW = [
 
 export type LoanStatus = (typeof LOAN_STATUS_FLOW)[number];
 
+/**
+ * Label & penjelasan status pinjaman.
+ *
+ * Aplikasi mengenal EMPAT status yang ditampilkan: Ditinjau, Disalurkan,
+ * Ditolak, Lunas (lihat `lib/statusPinjaman.ts`). Tiga ejaan lama
+ * (`diajukan`, `sedang_direview`, `disetujui`) adalah satu tahap yang sama,
+ * jadi ketiganya berlabel **Ditinjau**; `didanai` berlabel **Disalurkan**.
+ * Penjelasannya tetap dibedakan supaya tim tahu sub-tahap yang tercatat.
+ */
 export function loanStatusMeta(status: LoanStatus): {
   label: string;
   description: string;
@@ -355,34 +364,34 @@ export function loanStatusMeta(status: LoanStatus): {
   switch (status) {
     case "diajukan":
       return {
-        label: "Diajukan (catatan internal)",
+        label: "Ditinjau",
         description: "Pengajuan tercatat dalam antrean tinjauan internal PINDAI.",
       };
     case "sedang_direview":
       return {
-        label: "Sedang Direview",
+        label: "Ditinjau",
         description: "Tim PINDAI sedang menelaah catatan pengajuan. Dokumen atau data yang diunggah tidak otomatis terverifikasi oleh pihak eksternal.",
       };
     case "disetujui":
       return {
-        label: "Disetujui internal",
+        label: "Ditinjau",
         description:
-          "Pengajuan disetujui secara internal. Status ini tidak memicu pencairan; informasi rekening hanya tersimpan sebagai catatan dan tidak terhubung ke transfer.",
+          "Nominal sudah diputuskan tim PINDAI; dana belum ditandai tersalurkan. Status ini tidak memicu pencairan.",
       };
     case "ditolak":
       return {
-        label: "Ditolak internal",
+        label: "Ditolak",
         description: "Catatan pengajuan tidak dilanjutkan dalam alur aplikasi. Anda dapat membuat catatan baru.",
       };
     case "didanai":
       return {
-        label: "Target tercapai (ledger)",
+        label: "Disalurkan",
         description:
           "Dana ditandai tersalurkan pada ledger internal. Tombol pelunasan mencatat perubahan status dan seluruh kewajiban sekaligus. Keterlambatan menambah perhitungan denda 1% per hari dari pokok (maksimum 15%).",
       };
     case "lunas":
       return {
-        label: "Lunas (ledger)",
+        label: "Lunas",
         description:
           "Status kewajiban ditandai selesai di ledger internal dan menjadi acuan penyelesaian kewajiban peminjam.",
       };

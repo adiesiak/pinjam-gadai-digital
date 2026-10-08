@@ -1,5 +1,9 @@
 /**
- * Aturan perubahan status pinjaman oleh admin — fungsi MURNI.
+ * Status pinjaman — SATU sumber kebenaran. Modul MURNI (tanpa React/Convex).
+ *
+ * Aplikasi mengenal TEPAT EMPAT status pinjaman:
+ *
+ *   Ditinjau → Disalurkan → Lunas        (Ditolak dapat dicapai dari tahap mana pun)
  *
  * PINDAI adalah produk pencatatan. Memindahkan status pinjaman hanya mengubah
  * catatan internal: tidak ada uang yang berpindah, tidak ada jurnal yang
@@ -10,50 +14,119 @@
  * membuat catatan bisa ditelusuri, dan alasan yang sama dikirim ke Peminjam
  * lewat WhatsApp supaya ia tidak mendapati statusnya berubah tanpa kabar.
  *
- * Urutan alaminya:
- *   diajukan → sedang_direview → disetujui → didanai → lunas
- *   (ditolak dapat dicapai dari tahap mana pun sebelum dana tersalurkan)
+ * ------------------------------------------------------------------
+ * Riwayat & penggabungan (penting)
+ * ------------------------------------------------------------------
+ * Sebelumnya produk menampilkan ENAM status, tiga di antaranya sesungguhnya
+ * satu tahap yang sama:
  *
- * Meski begitu admin tetap boleh melompat — misalnya langsung `disetujui`
- * tanpa `sedang_direview`, atau menarik `didanai` kembali ke `ditolak` bila
- * ternyata pencairan dibatalkan. Yang benar-benar dilarang hanya dua:
+ *   `diajukan` → `sedang_direview` → `disetujui` → `didanai` → `lunas`
+ *                                     (ditolak dari tahap mana pun)
  *
- *  1. Mengembalikan status ke `diajukan` — pengajuan tidak bisa "dibuka ulang"
- *     karena jejak tanggalnya sudah terpakai.
- *  2. Mengubah pinjaman yang sudah `lunas` — posisinya sudah ditutup dan
- *     pendanaannya sudah diselesaikan.
+ * Penggabungan menjadi empat status dilakukan di lapisan **tampilan dan
+ * penulisan**, bukan dengan menulis ulang basis data — sehingga tidak ada satu
+ * pun baris lama yang berubah arti atau menjadi tidak sah:
  *
- * Perubahan yang tidak mengubah apa pun (status sama persis) juga ditolak
- * supaya tidak memicu pesan WhatsApp palsu dan baris audit kosong.
+ *  - `diajukan`       — hanya mungkin pada baris lama. Pengajuan baru langsung
+ *                       ditulis sebagai `sedang_direview`.
+ *  - `sedang_direview`— NAMA TERSIMPAN untuk "Ditinjau"; inilah yang ditulis
+ *                       aplikasi saat status berpindah ke tahap tinjauan.
+ *  - `disetujui`      — sub-tahap internal: nominal sudah diputuskan, dana
+ *                       belum ditandai tersalurkan. Tampilnya tetap "Ditinjau";
+ *                       alur dana lama yang membaca `by_status: "disetujui"`
+ *                       (marketplace pendanaan) tetap bekerja apa adanya.
+ *  - `didanai`        — NAMA TERSIMPAN untuk "Disalurkan".
+ *
+ * Jadi ejaan lama tidak pernah ditulis lagi, tetapi tetap terbaca sebagai
+ * padanan kanoniknya.
  */
 
-/** Seluruh status pinjaman — cerminan `loanStatusValidator` di schema. */
+/**
+ * Empat status pinjaman yang dipakai aplikasi (kanonik).
+ *
+ * `didanai` sengaja tetap menjadi ejaan tersimpannya — belum ada migrasi
+ * basis data — sedangkan "ditinjau" tersimpan sebagai `sedang_direview`.
+ * Gunakan `keStatusTersimpan()` bila perlu nilai yang ditulis ke tabel.
+ */
 export const STATUS_PINJAMAN = [
-  "diajukan",
-  "sedang_direview",
-  "disetujui",
-  "ditolak",
+  "ditinjau",
   "didanai",
+  "ditolak",
   "lunas",
 ] as const;
 
 export type StatusPinjaman = (typeof STATUS_PINJAMAN)[number];
 
-/** Status yang menutup posisi: tidak boleh dipindahkan lagi oleh admin. */
-export const STATUS_TERKUNCI: readonly StatusPinjaman[] = ["lunas"];
+/**
+ * Ejaan warisan yang menandai TAHAP TINJAUAN yang sama ("Ditinjau").
+ * Diterima saat dibaca dan divalidasi, tidak pernah ditulis lagi oleh
+ * perpindahan status yang dipilih admin.
+ */
+export const STATUS_TINJAUAN_TERSIMPAN = [
+  "diajukan",
+  "sedang_direview",
+  "disetujui",
+] as const;
 
-/** Label Indonesia untuk setiap status — dipakai UI dan pesan WhatsApp. */
+/** Nama tersimpan untuk status kanonik "Ditinjau". */
+const STATUS_TERSIMPAN_TINJAUAN = "sedang_direview";
+
+/** Semua ejaan status pinjaman yang sah dibaca — kanonik + warisan. */
+export const STATUS_PINJAMAN_DIKENAL: readonly string[] = [
+  ...STATUS_PINJAMAN,
+  ...STATUS_TINJAUAN_TERSIMPAN,
+];
+
+/** Label Indonesia untuk tiap status kanonik — dipakai UI dan pesan WhatsApp. */
 export const LABEL_STATUS_PINJAMAN: Record<StatusPinjaman, string> = {
-  diajukan: "Diajukan",
-  sedang_direview: "Sedang ditinjau",
-  disetujui: "Disetujui",
+  ditinjau: "Ditinjau",
+  didanai: "Disalurkan",
   ditolak: "Ditolak",
-  didanai: "Dana tersalurkan",
   lunas: "Lunas",
 };
 
+/** Status yang menutup posisi: tidak boleh dipindahkan lagi oleh admin. */
+export const STATUS_TERKUNCI: readonly string[] = ["lunas"];
+
 /** Alasan penolakan minimal — terlalu pendek tidak bisa ditelusuri. */
 export const ALASAN_MIN_PANJANG = 5;
+
+/**
+ * Status kanonik dari ejaan tersimpan apa pun.
+ * Ejaan warisan `diajukan`/`sedang_direview`/`disetujui` semuanya "ditinjau".
+ */
+export function statusKanonik(status: string): StatusPinjaman | null {
+  if (status === "didanai") return "didanai";
+  if (status === "ditolak") return "ditolak";
+  if (status === "lunas") return "lunas";
+  if (
+    status === "ditinjau" ||
+    (STATUS_TINJAUAN_TERSIMPAN as readonly string[]).includes(status)
+  ) {
+    return "ditinjau";
+  }
+  return null;
+}
+
+/** Apakah baris (ejaan tersimpan apa pun) sedang berada di tahap tinjauan. */
+export function diTahapTinjauan(status: string): boolean {
+  return statusKanonik(status) === "ditinjau";
+}
+
+/** Label tampil untuk status tersimpan apa pun — "Ditinjau" bila tak dikenali. */
+export function labelStatusPinjaman(status: string): string {
+  const kanonik = statusKanonik(status);
+  return kanonik === null ? "Ditinjau" : LABEL_STATUS_PINJAMAN[kanonik];
+}
+
+/**
+ * Nilai yang ditulis ke tabel `loans.status` untuk sebuah status kanonik.
+ * "ditinjau" tersimpan sebagai `sedang_direview` (nama lama yang sama artinya),
+ * sisanya ditulis apa adanya.
+ */
+export function keStatusTersimpan(status: string): string {
+  return status === "ditinjau" ? STATUS_TERSIMPAN_TINJAUAN : status;
+}
 
 export type HasilValidasiStatus =
   | { ok: true; berubah: true }
@@ -62,33 +135,39 @@ export type HasilValidasiStatus =
 /**
  * Periksa apakah admin boleh memindahkan `dari` → `ke`.
  * Murni: tidak membaca basis data, tidak menulis apa pun.
+ *
+ * `ke` boleh memakai ejaan kanonik ("ditinjau") maupun ejaan tersimpannya
+ * (`sedang_direview`/`disetujui`) supaya alur internal seperti persetujuan
+ * nominal tetap bisa dicatat. Yang ditolak hanya empat hal:
+ *
+ *  1. status tujuan yang tidak dikenali;
+ *  2. posisi yang sudah ditutup (`lunas`);
+ *  3. perpindahan yang tidak mengubah apa pun (ejaan tersimpan yang sama);
+ *  4. alasan yang terlalu pendek untuk bisa ditelusuri.
+ *
+ * Mengembalikan pinjaman ke tahap tinjauan DIPERBOLEHKAN sekarang: "Ditinjau"
+ * adalah tahap kerja biasa, bukan status awal yang dikunci.
  */
 export function validasiUbahStatus(
   dari: string,
   ke: string,
   alasan: string,
 ): HasilValidasiStatus {
-  if (!STATUS_PINJAMAN.includes(ke as StatusPinjaman)) {
+  const kanonik = statusKanonik(ke);
+  if (kanonik === null) {
     return { ok: false, alasan: `Status "${ke}" tidak dikenali.` };
   }
-  if (ke === "diajukan") {
-    return {
-      ok: false,
-      alasan:
-        "Status tidak dapat dikembalikan ke Diajukan — pengajuan tidak bisa dibuka ulang.",
-    };
-  }
-  if (STATUS_TERKUNCI.includes(dari as StatusPinjaman)) {
+  if (STATUS_TERKUNCI.includes(dari)) {
     return {
       ok: false,
       alasan:
         "Pinjaman yang sudah lunas tidak dapat diubah lagi — posisinya sudah ditutup.",
     };
   }
-  if (dari === ke) {
+  if (keStatusTersimpan(ke) === dari) {
     return {
       ok: false,
-      alasan: `Pinjaman sudah berstatus ${LABEL_STATUS_PINJAMAN[ke as StatusPinjaman]}.`,
+      alasan: `Pinjaman sudah berstatus ${LABEL_STATUS_PINJAMAN[kanonik]}.`,
     };
   }
   if (alasan.trim().length < ALASAN_MIN_PANJANG) {
@@ -146,14 +225,18 @@ export function nominalTerkunci(status: string): boolean {
 /**
  * Data minimum untuk merangkai pesan perubahan status.
  *
+ * Status berupa `string` — ejaan tersimpan apa pun diterima dan diterjemahkan
+ * lewat `labelStatusPinjaman()`, sehingga baris warisan tetap menghasilkan
+ * pesan yang benar.
+ *
  * Sengaja TIDAK memuat tanggal jatuh tempo atau denda: pesan status adalah
  * kabar keputusan, bukan penagihan. Penagihan tetap milik template pengingat.
  */
 export type DataStatusWa = {
   nama: string;
   nomorReferensi: string;
-  statusLama: StatusPinjaman;
-  statusBaru: StatusPinjaman;
+  statusLama: string;
+  statusBaru: string;
   alasan: string;
   /** Nominal pengajuan — untuk menjelaskan persetujuan sebagian. */
   pokokDiajukan: number;
@@ -225,7 +308,8 @@ export function pesanPerubahanStatus(
   data: DataStatusWa,
 ): string {
   const sebagian =
-    data.statusBaru === "disetujui" && data.pokokDisetujui < data.pokokDiajukan
+    statusKanonik(data.statusBaru) !== "ditolak" &&
+    data.pokokDisetujui < data.pokokDiajukan
       ? CATATAN_PERSETUJUAN_SEBAGIAN.replace(
           "{disetujui}",
           rupiahAman(data.pokokDisetujui),
@@ -235,7 +319,7 @@ export function pesanPerubahanStatus(
   const dasar = renderTemplateStatus(template, {
     nama: data.nama,
     ref: data.nomorReferensi,
-    status: LABEL_STATUS_PINJAMAN[data.statusBaru],
+    status: labelStatusPinjaman(data.statusBaru),
     alasan: data.alasan,
     diajukan: rupiahAman(data.pokokDiajukan),
     disetujui: rupiahAman(data.pokokDisetujui),

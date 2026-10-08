@@ -26,7 +26,7 @@ async function idPengguna(t: KonteksUji, email: string) {
 }
 
 describe("penandaan pengajuan berjalan oleh admin (tanpa penyedia dana)", () => {
-  it("pinjaman: hanya admin dan hanya setelah disetujui", async () => {
+  it("pinjaman: hanya admin dan hanya selama tahap tinjauan", async () => {
     const t = convexTest(schema, modules);
     const asPeminjam = await buatSesi(t, "Peminjam dana", {
       email: "peminjam-dana@pindai.test",
@@ -63,7 +63,10 @@ describe("penandaan pengajuan berjalan oleh admin (tanpa penyedia dana)", () => 
     // Tanggal acuan wajib terisi agar jadwal pelunasan tidak kosong.
     expect(typeof berjalan?.didanaiPada).toBe("number");
 
-    const diajukanId = await t.run((ctx) =>
+    // Sejak status digabung menjadi EMPAT (Ditinjau/Disalurkan/Ditolak/Lunas),
+    // "Ditinjau" adalah satu-satunya tahap sebelum dana ditandai tersalurkan —
+    // pengajuan baru maupun tahap tinjauan lama berada di situ.
+    const tinjauanId = await t.run((ctx) =>
       ctx.db.insert("loans", {
         userId: peminjamId,
         pokokPinjaman: 500_000,
@@ -76,8 +79,44 @@ describe("penandaan pengajuan berjalan oleh admin (tanpa penyedia dana)", () => 
       }),
     );
     await expect(
-      asAdmin.mutation(api.loans.danaiPinjaman, { loanId: diajukanId }),
-    ).rejects.toThrow(/disetujui/i);
+      asAdmin.mutation(api.loans.danaiPinjaman, { loanId: tinjauanId }),
+    ).resolves.toEqual({ ok: true });
+    const tinjauanBerjalan = await t.run((ctx) => ctx.db.get(tinjauanId));
+    expect(tinjauanBerjalan?.status).toBe("didanai");
+    expect(typeof tinjauanBerjalan?.didanaiPada).toBe("number");
+
+    // Baris yang sudah ditutup tidak pernah bisa dibuka lagi.
+    const ditolakId = await t.run((ctx) =>
+      ctx.db.insert("loans", {
+        userId: peminjamId,
+        pokokPinjaman: 400_000,
+        tujuan: "kebutuhan_pribadi",
+        namaLengkap: "Peminjam Uji",
+        nomorRekening: "12345678",
+        status: "ditolak",
+        nomorReferensi: "LON-DANA-03",
+        tenorHari: 30,
+      }),
+    );
+    await expect(
+      asAdmin.mutation(api.loans.danaiPinjaman, { loanId: ditolakId }),
+    ).rejects.toThrow(/Ditinjau/i);
+
+    const lunasId = await t.run((ctx) =>
+      ctx.db.insert("loans", {
+        userId: peminjamId,
+        pokokPinjaman: 400_000,
+        tujuan: "kebutuhan_pribadi",
+        namaLengkap: "Peminjam Uji",
+        nomorRekening: "12345678",
+        status: "lunas",
+        nomorReferensi: "LON-DANA-04",
+        tenorHari: 30,
+      }),
+    );
+    await expect(
+      asAdmin.mutation(api.loans.danaiPinjaman, { loanId: lunasId }),
+    ).rejects.toThrow(/Ditinjau/i);
   });
 
   it("gadai: wajib pokok acuan lebih dulu dan hanya admin", async () => {

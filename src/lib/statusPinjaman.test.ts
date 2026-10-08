@@ -1,9 +1,14 @@
 /** Run: bun src/lib/statusPinjaman.test.ts */
 import {
+  diTahapTinjauan,
+  keStatusTersimpan,
+  labelStatusPinjaman,
   LABEL_STATUS_PINJAMAN,
   nominalDisetujui,
   nominalTerkunci,
   pesanPerubahanStatus,
+  statusKanonik,
+  STATUS_PINJAMAN,
   TEMPLATE_STATUS_DEFAULT,
   validasiUbahStatus,
   type StatusPinjaman,
@@ -41,12 +46,45 @@ ok(validasiUbahStatus("didanai", "lunas", "kewajiban dibayar penuh"), "didanai �
 ok(validasiUbahStatus("diajukan", "disetujui", "langsung disetujui"), "lompat diajukan → disetujui");
 ok(validasiUbahStatus("didanai", "ditolak", "pencairan dibatalkan"), "tarik didanai → ditolak");
 
-// Mengembalikan ke diajukan selalu ditolak.
+// Sejak status digabung menjadi empat, "Ditinjau" adalah tahap kerja biasa:
+// mengembalikan pinjaman ke tahap tinjauan DIPERBOLEHKAN (mis. pengajuan
+// dibuka ulang), baik lewat ejaan kanonik maupun ejaan tersimpan lamanya.
+ok(validasiUbahStatus("sedang_direview", "diajukan", "dibuka ulang"), "kembali ke tinjauan (ejaan lama)");
+ok(validasiUbahStatus("diajukan", "ditinjau", "dibuka ulang"), "kembali ke tinjauan (kanonik)");
+ok(validasiUbahStatus("disetujui", "ditinjau", "nominal dikoreksi"), "kanonik ditinjau dari tahap persetujuan");
+// Menargetkan tahap yang ejaan tersimpannya sama tetap ditolak — "ditinjau"
+// tersimpan sebagai `sedang_direview`.
 gagal(
-  validasiUbahStatus("sedang_direview", "diajukan", "dibuka ulang"),
-  /dibuka ulang/i,
-  "kembali ke diajukan",
+  validasiUbahStatus("sedang_direview", "ditinjau", "ulangi"),
+  /sudah berstatus/i,
+  "ditinjau pada baris yang sudah di tahap tinjauan",
 );
+
+// ===== Pemetaan status kanonik ↔ tersimpan =====
+
+// Empat status yang dipakai aplikasi.
+eq(STATUS_PINJAMAN.length, 4, "tepat empat status pinjaman");
+eq(
+  STATUS_PINJAMAN.join(","),
+  "ditinjau,didanai,ditolak,lunas",
+  "empat status: ditinjau, disalurkan (didanai), ditolak, lunas",
+);
+// Tiga ejaan lama adalah satu tahap: "Ditinjau".
+for (const s of ["diajukan", "sedang_direview", "disetujui"]) {
+  eq(statusKanonik(s), "ditinjau", `${s} → ditinjau`);
+  eq(diTahapTinjauan(s), true, `${s} ada di tahap tinjauan`);
+  eq(labelStatusPinjaman(s), "Ditinjau", `${s} berlabel Ditinjau`);
+}
+eq(statusKanonik("didanai"), "didanai", "didanai tetap didanai");
+eq(labelStatusPinjaman("didanai"), "Disalurkan", "didanai berlabel Disalurkan");
+eq(labelStatusPinjaman("lunas"), "Lunas", "lunas berlabel Lunas");
+// "ditinjau" (kanonik) tersimpan sebagai ejaan lama yang sama artinya.
+eq(keStatusTersimpan("ditinjau"), "sedang_direview", "ditinjau → sedang_direview");
+eq(keStatusTersimpan("didanai"), "didanai", "didanai tetap didanai");
+eq(keStatusTersimpan("lunas"), "lunas", "lunas tetap lunas");
+// Ejaan di luar daftar tidak pernah dianggap tahap tinjauan.
+eq(statusKanonik("entah"), null, "ejaan asing tidak dikenali");
+eq(diTahapTinjauan("entah"), false, "ejaan asing bukan tinjauan");
 
 // Pinjaman lunas terkunci.
 gagal(validasiUbahStatus("lunas", "didanai", "koreksi"), /lunas/i, "lunas terkunci");
@@ -127,7 +165,10 @@ const pesan = pesanPerubahanStatus(TEMPLATE_STATUS_DEFAULT, {
 });
 eq(pesan.includes("Rani"), true, "pesan memuat nama");
 eq(pesan.includes("PGD-1"), true, "pesan memuat referensi");
-eq(pesan.includes("Disetujui"), true, "pesan memuat status");
+// Label yang dikirim adalah salah satu dari EMPAT status aplikasi — ejaan
+// lama `disetujui` tampil sebagai "Ditinjau".
+eq(pesan.includes("Ditinjau"), true, "pesan memuat status");
+eq(/Disetujui internal|Target tercapai/.test(pesan), false, "tanpa label tahap lama");
 eq(pesan.includes("dokumen lengkap"), true, "pesan memuat alasan");
 eq(pesan.includes("Rp 1.000.000"), true, "pesan memuat nominal diajukan");
 eq(pesan.includes("Rp 500.000"), true, "pesan memuat nominal disetujui");

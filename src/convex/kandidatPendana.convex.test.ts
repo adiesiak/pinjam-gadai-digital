@@ -118,4 +118,57 @@ describe("kandidat pendana & ubah pemilik pinjaman", () => {
       peminjam.query(api.penyediaDana.kandidatPendana, {}),
     ).rejects.toThrow(/admin/i);
   });
+
+  /**
+   * Keluhan nyata pemilik produk: nama pendana diubah, tetapi /penyedia-dana
+   * tetap menampilkan yang lama. Kedua tempat harus membaca SUMBER yang sama:
+   * akun pendana lewat `loans.pendanaId` — bukan salinan `pendanaNama` yang
+   * tersimpan saat penetapan.
+   */
+  it("panel admin & /penyedia-dana menampilkan pendana yang sama setelah nama akun berubah", async () => {
+    const t = convexTest(schema, modules);
+    const { sesi: admin } = await siapkanPengguna(t, "admin", {
+      email: "admin@pindai.test",
+      role: "admin",
+    });
+    const { userId: peminjamId } = await siapkanPengguna(t, "rani", {
+      email: "rani@pindai.test",
+      role: "peminjam",
+    });
+    const { userId: pendanaId } = await siapkanPengguna(t, "Robert", {
+      email: "robert@pindai.test",
+      role: "dana",
+    });
+    const loanId = await buatPinjaman(t, peminjamId, "didanai", "Robert", pendanaId);
+
+    // Sebelum diubah: kedua tempat sepakat.
+    const awalAdmin = (await admin.query(api.admin.adminOverview, {})).loans.find(
+      (l) => l._id === loanId,
+    );
+    const awalPendana = (
+      await admin.query(api.penyediaDana.daftarPengajuan, {})
+    ).pinjaman.find((p) => p._id === loanId);
+    expect(awalAdmin?.pendanaNama).toBe("Robert");
+    expect(awalPendana?.pendana).toBe("Robert");
+
+    // Nama akun pendana berubah setelah pinjaman ditetapkan.
+    await t.run((ctx) => ctx.db.patch(pendanaId, { name: "Robert Santoso" }));
+
+    const sesudahAdmin = (await admin.query(api.admin.adminOverview, {})).loans.find(
+      (l) => l._id === loanId,
+    );
+    const sesudahPendana = (
+      await admin.query(api.penyediaDana.daftarPengajuan, {})
+    ).pinjaman.find((p) => p._id === loanId);
+
+    // Keduanya ikut berubah, dan nilainya sama satu sama lain.
+    expect(sesudahAdmin?.pendanaNama).toBe("Robert Santoso");
+    expect(sesudahPendana?.pendana).toBe("Robert Santoso");
+    expect(sesudahAdmin?.pendanaNama).toBe(sesudahPendana?.pendana);
+
+    // Salinan tersimpan tetap ada sebagai cadangan warisan, tetapi tidak lagi
+    // menentukan apa yang dibaca panel mana pun.
+    const tersimpan = await t.run((ctx) => ctx.db.get(loanId));
+    expect(tersimpan?.pendanaNama).toBe("Robert");
+  });
 });

@@ -111,10 +111,19 @@ function hitungTab(html: string): Map<string, number> {
   ok(semua !== undefined && LOAN_STATUS_FLOW.every((s) => semua.cocok(baris(s, 0))), "\"Semua\" mencakup setiap status");
   // Rentang yang sudah selesai dipisah dari antrean keputusan.
   const belum = SUB_TAB_PINJAMAN.find((t) => t.id === "belum-didanai");
-  ok(belum !== undefined && !belum.cocok(baris("didanai", 0)), "\"Belum didanai\" tidak lagi menelan pinjaman berjalan");
+  ok(belum !== undefined && !belum.cocok(baris("didanai", 0)), "sub-tab tahap tinjauan tidak menelan pinjaman berjalan");
   ok(
     SUB_TAB_PINJAMAN.some((t) => t.id === "didanai" && t.cocok(baris("didanai", 0)) && !t.cocok(baris("lunas", 0))),
-    "sub-tab \"Didanai\" hanya untuk pinjaman berjalan, bukan yang lunas",
+    "sub-tab \"Disalurkan\" hanya untuk pinjaman berjalan, bukan yang lunas",
+  );
+  // Ketiga ejaan tahap tinjauan duduk di SATU sub-tab: itulah penggabungan
+  // enam status lama menjadi empat status aplikasi.
+  ok(
+    belum !== undefined &&
+      (["diajukan", "sedang_direview", "disetujui"] as const).every((s) =>
+        belum.cocok(baris(s, 0)),
+      ),
+    "satu sub-tab untuk seluruh ejaan tahap tinjauan",
   );
 }
 
@@ -123,22 +132,25 @@ function hitungTab(html: string): Map<string, number> {
   const html = renderToStaticMarkup(<LoanQueueSection loans={LOANS} onOpen={() => {}} />);
   const tab = hitungTab(html);
 
-  ada(html, "Didanai", "tombol sub-tab \"Didanai\" tampil");
-  ada(html, "Belum didanai", "tombol sub-tab \"Belum didanai\" tetap ada");
+  // Empat status yang ditampilkan, bukan enam.
+  ada(html, "Disalurkan", "tombol sub-tab \"Disalurkan\" tampil");
+  ada(html, "Ditinjau", "tombol sub-tab \"Ditinjau\" tampil");
+  eq(/Belum didanai/.test(html), false, "label tahap \"Belum didanai\" sudah tidak ada");
+  eq(/>Didanai</.test(html), false, "label \"Didanai\" sudah tidak ada");
   ada(
     html,
-    "Dana sudah tersalurkan dan pinjaman sedang berjalan",
-    "hint sub-tab \"Didanai\" menjelaskan isinya",
+    "Dana sudah ditandai tersalurkan dan pinjaman sedang berjalan",
+    "hint sub-tab \"Disalurkan\" menjelaskan isinya",
   );
 
   eq(tab.get("Semua"), LOANS.length, "jumlah \"Semua\" = seluruh pinjaman");
-  eq(tab.get("Didanai"), 1, "jumlah \"Didanai\" = pinjaman berjalan");
+  eq(tab.get("Disalurkan"), 1, "jumlah \"Disalurkan\" = pinjaman berjalan");
   eq(tab.get("Lunas"), 1, "jumlah \"Lunas\" = pinjaman lunas");
   eq(tab.get("Ditolak"), 1, "jumlah \"Ditolak\" = pengajuan ditolak");
-  eq(tab.get("Belum didanai"), 3, "jumlah \"Belum didanai\" = diajukan + review + disetujui");
+  eq(tab.get("Ditinjau"), 3, "jumlah \"Ditinjau\" = ejaan diajukan + review + disetujui");
 
   // Invarian yang dulu bocor: tab status harus menjumlah ke "Semua".
-  const jumlahTab = ["Belum didanai", "Didanai", "Ditolak", "Lunas"].reduce(
+  const jumlahTab = ["Ditinjau", "Disalurkan", "Ditolak", "Lunas"].reduce(
     (total, label) => total + (tab.get(label) ?? 0),
     0,
   );

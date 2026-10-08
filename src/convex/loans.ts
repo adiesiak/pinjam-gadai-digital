@@ -11,6 +11,7 @@ import { Id } from "./_generated/dataModel";
 import { internal } from "./_generated/api";
 import {
   ROLES,
+  loanStatusKanonikValidator,
   loanStatusValidator,
   LoanStatusValue,
   PawnStatusValue,
@@ -49,6 +50,8 @@ import { requireAdminSession } from "./adminAuthz";
 import { ensureKodePeminjam } from "./peminjamCode";
 import { rejectUnverifiedMoneyMovement } from "./paymentGuard";
 import {
+  diTahapTinjauan,
+  keStatusTersimpan,
   nominalDisetujui,
   nominalTerkunci,
   validasiUbahStatus,
@@ -965,6 +968,13 @@ async function setLoanStatus(
     // admin menyesuaikan nominalnya.
     pokokDiajukan,
     pokokPinjaman,
+    // Tanggal acuan ditetapkan saat status berpindah ke "Disalurkan" — jalur
+    // ini dan tombol "Tandai dana tersalurkan" (`danaiPinjaman`) menghasilkan
+    // catatan yang sama, sehingga jatuh tempo tidak pernah kosong. Nilai yang
+    // sudah ada tidak ditimpa (koreksi tidak boleh menggeser tanggal).
+    ...(status === "didanai" && loan.didanaiPada === undefined
+      ? { didanaiPada: Date.now() }
+      : {}),
   });
 
   const admin = await ctx.db.get(adminId);
@@ -1049,14 +1059,20 @@ export const rejectLoan = mutation({
 });
 
 /**
- * Ubah status pinjaman ke status mana pun (admin) — satu pintu untuk koreksi
- * dan pemulihan, dengan alasan wajib dan jejak audit. `pokokDisetujui` hanya
- * berlaku bila statusnya `disetujui` dan dana belum tersalurkan.
+ * Ubah status pinjaman ke salah satu dari EMPAT status (admin) — satu pintu
+ * untuk koreksi dan pemulihan, dengan alasan wajib dan jejak audit.
+ *
+ * Argumennya memakai status KANONIK (`ditinjau`/`didanai`/`ditolak`/`lunas`),
+ * lalu dipetakan ke ejaan tersimpannya: "ditinjau" tersimpan sebagai
+ * `sedang_direview` (lihat `lib/statusPinjaman.ts`), sehingga tahap lama yang
+ * sudah digabung tidak lagi bisa dipilih admin.
+ *
+ * `pokokDisetujui` hanya berlaku selama dana belum ditandai tersalurkan.
  */
 export const ubahStatusPinjaman = mutation({
   args: {
     loanId: v.id("loans"),
-    status: loanStatusValidator,
+    status: loanStatusKanonikValidator,
     reason: v.string(),
     pokokDisetujui: v.optional(v.number()),
   },
@@ -1064,16 +1080,21 @@ export const ubahStatusPinjaman = mutation({
     setLoanStatus(
       ctx,
       args.loanId,
-      args.status,
+      keStatusTersimpan(args.status) as LoanStatusValue,
       args.reason,
       args.pokokDisetujui,
     ),
 });
 
 /**
- * Admin menandai pinjaman yang sudah disetujui sebagai berjalan pada ledger
- * internal (status didanai + tanggal acuan). Tidak ada perpindahan dana di
+ * Admin menandai pinjaman yang masih ditinjau sebagai berjalan pada ledger
+ * internal (status Disalurkan + tanggal acuan). Tidak ada perpindahan dana di
  * aplikasi — pencairan dan transfer ditangani di luar aplikasi.
+ *
+ * Gerbangnya bukan lagi satu tahap persetujuan internal: sejak status
+ * digabung menjadi empat, "Ditinjau" adalah satu-satunya tahap sebelum dana
+ * ditandai tersalurkan (mencakup ejaan lama `diajukan`/`sedang_direview`/
+ * `disetujui`).
  */
 export const danaiPinjaman = mutation({
   args: { loanId: v.id("loans") },
@@ -1081,8 +1102,10 @@ export const danaiPinjaman = mutation({
     const adminId = await requireAdmin(ctx);
     const loan = await ctx.db.get(loanId);
     if (loan === null) throw new Error("Aplikasi tidak ditemukan.");
-    if (loan.status !== "disetujui") {
-      throw new Error("Hanya pinjaman berstatus disetujui yang dapat ditandai berjalan.");
+    if (!diTahapTinjauan(loan.status)) {
+      throw new Error(
+        "Hanya pinjaman yang masih berstatus Ditinjau dapat ditandai tersalurkan.",
+      );
     }
     await ctx.db.patch(loanId, {
       status: "didanai",

@@ -153,11 +153,11 @@ export function AdminTabs({
         },
         {
           value: "alokasi",
-          label: "Pinjaman disetujui (internal)",
-          hint: "Pantau pinjaman yang sudah disetujui (catatan internal).",
+          label: "Pinjaman siap disalurkan",
+          hint: "Pinjaman yang keputusannya sudah tercatat — menunggu dana ditandai tersalurkan (status Ditinjau).",
           badge: stats ? `${stats.pinjamanDisetujui}` : null,
-          // R3: sudah disetujui BUKAN pekerjaan tertunda — tandai "info" supaya
-          // tidak ikut dijumlahkan pada ringkasan grup tertutup.
+          // R3: keputusan yang sudah tercatat BUKAN pekerjaan tertunda — tandai
+          // "info" supaya tidak ikut dijumlahkan pada ringkasan grup tertutup.
           hitung: "info",
           Icon: Wallet,
         },

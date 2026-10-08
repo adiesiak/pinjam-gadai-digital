@@ -48,6 +48,15 @@ export const roleValidator = v.union(
 );
 export type Role = Infer<typeof roleValidator>;
 
+/**
+ * Ejaan status pinjaman yang tersimpan di tabel `loans`.
+ *
+ * Aplikasi sekarang mengenal EMPAT status (`ditinjau`, `didanai`,
+ * `ditolak`, `lunas` — lihat `lib/statusPinjaman.ts`), tetapi validator ini
+ * tetap menerima ejaan lama (`diajukan`, `sedang_direview`, `disetujui`) supaya
+ * baris yang sudah ada tetap sah dibaca dan tidak ada data yang perlu
+ * ditulis ulang. Ejaan lama tidak pernah ditulis lagi oleh kode aplikasi.
+ */
 export const loanStatusValidator = v.union(
   v.literal("diajukan"),
   v.literal("sedang_direview"),
@@ -59,6 +68,19 @@ export const loanStatusValidator = v.union(
   v.literal("lunas"),
 );
 export type LoanStatusValue = Infer<typeof loanStatusValidator>;
+
+/**
+ * EMPAT status pinjaman yang ditawarkan dan ditulis aplikasi.
+ * Dipakai sebagai argumen mutation `loans.ubahStatusPinjaman`, sehingga admin
+ * tidak bisa lagi memilih tahap lama yang sudah digabung.
+ */
+export const loanStatusKanonikValidator = v.union(
+  v.literal("ditinjau"),
+  v.literal("didanai"),
+  v.literal("ditolak"),
+  v.literal("lunas"),
+);
+export type LoanStatusKanonikValue = Infer<typeof loanStatusKanonikValidator>;
 
 export const pawnStatusValidator = v.union(
   v.literal("diajukan"),

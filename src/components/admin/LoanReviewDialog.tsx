@@ -30,6 +30,8 @@ import { loanPurposeLabel, quotePinjaman } from "@/lib/loan";
 import { formatRupiah } from "@/lib/money";
 import {
   ALASAN_MIN_PANJANG,
+  diTahapTinjauan,
+  keStatusTersimpan,
   LABEL_STATUS_PINJAMAN,
   nominalTerkunci,
   STATUS_PINJAMAN,
@@ -63,7 +65,10 @@ export function LoanReviewDialog({
   const simpanPendana = useMutation(api.penyediaDana.ubahDataPinjaman);
 
   const [reason, setReason] = useState("");
-  const [statusTujuan, setStatusTujuan] = useState<StatusPinjaman>("disetujui");
+  // Sasaran status memakai EMPAT status kanonik. "Disalurkan" adalah langkah
+  // berikutnya yang paling sering diambil, jadi itu bawaannya untuk pinjaman
+  // yang belum tersalurkan.
+  const [statusTujuan, setStatusTujuan] = useState<StatusPinjaman>("didanai");
   const [nominal, setNominal] = useState("");
   const [deleteReason, setDeleteReason] = useState("");
   // Konfirmasi khusus: pinjaman yang sudah berpindah dana (punya alokasi/jurnal)
@@ -103,7 +108,7 @@ export function LoanReviewDialog({
   const [idTerakhir, setIdTerakhir] = useState<string | null>(idBaris);
   if (idBaris !== idTerakhir) {
     setIdTerakhir(idBaris);
-    setStatusTujuan(row?.status === "didanai" ? "lunas" : "disetujui");
+    setStatusTujuan(row?.status === "didanai" ? "lunas" : "didanai");
     setNominal("");
     setReason("");
     setPendana(PENDANA_TETAP);
@@ -372,18 +377,18 @@ export function LoanReviewDialog({
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {STATUS_PINJAMAN.filter((s) => s !== "diajukan" && s !== row.status).map(
-                      (s) => (
-                        <SelectItem key={s} value={s}>
-                          {LABEL_STATUS_PINJAMAN[s]}
-                        </SelectItem>
-                      ),
-                    )}
+                    {STATUS_PINJAMAN.filter(
+                      (s) => keStatusTersimpan(s) !== row.status,
+                    ).map((s) => (
+                      <SelectItem key={s} value={s}>
+                        {LABEL_STATUS_PINJAMAN[s]}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
 
-              {statusTujuan === "disetujui" && !nominalTerkunci(row.status) && (
+              {statusTujuan !== "ditolak" && !nominalTerkunci(row.status) && (
                 <div>
                   <Label htmlFor="pokok-disetujui" className="text-[11px] text-muted-foreground">
                     Nominal disetujui (Rp)
@@ -457,7 +462,7 @@ export function LoanReviewDialog({
                       loanId: row._id,
                       status: statusTujuan,
                       reason,
-                      ...(statusTujuan === "disetujui" && nominal.trim() !== ""
+                      ...(statusTujuan !== "ditolak" && nominal.trim() !== ""
                         ? { pokokDisetujui: Number(nominal) }
                         : {}),
                     }),
@@ -540,7 +545,7 @@ export function LoanReviewDialog({
                 </p>
               </div>
 
-              {row.status === "disetujui" && (
+              {diTahapTinjauan(row.status) && !nominalTerkunci(row.status) && (
                 <div>
                   <Label htmlFor="nominal-disetujui" className="text-[11px] text-muted-foreground">
                     Nominal disetujui (Rp)
@@ -581,12 +586,12 @@ export function LoanReviewDialog({
               onClick={() => void runPendana()}
             >
               {busy === "pendana" ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
-              {row.status === "disetujui" ? "Simpan pendana & nominal" : "Simpan pendana"}
+              {diTahapTinjauan(row.status) ? "Simpan pendana & nominal" : "Simpan pendana"}
             </Button>
           </section>
         )}
 
-        {row.status === "disetujui" && (
+        {diTahapTinjauan(row.status) && (
           <div className="space-y-2 rounded-2xl border border-emerald-200 bg-emerald-50/60 p-4">
             <p className="text-xs leading-5 text-emerald-900">
               Tandai dana tersalurkan agar tanggal acuan dan jadwal pelunasan aktif pada ledger internal. Pencairan/transfer tetap ditangani di luar aplikasi.
