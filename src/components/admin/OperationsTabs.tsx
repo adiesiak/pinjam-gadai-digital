@@ -16,6 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { api } from "@/convex/_generated/api";
 import { formatRupiah, parseRupiah } from "@/lib/money";
+import { namaHurufBesar } from "@/lib/nama";
 
 import { formatDate } from "./admin-format";
 import { EmptyQueue, QueueRow, type LoanRow } from "./admin-shared";
@@ -49,7 +50,7 @@ export function LoanAllocationQueueTab({ onOpen }: { onOpen: (l: LoanRow) => voi
               reference={l.nomorReferensi}
               date={formatDate(l._creationTime)}
               title={formatRupiah(l.pokokPinjaman)}
-              subtitle={`${l.namaLengkap} · dana bersih ${formatRupiah(
+              subtitle={`${namaHurufBesar(l.namaLengkap)} · dana bersih ${formatRupiah(
                 l.tenorBulan !== null
                   ? l.pokokPinjaman - (l.biayaLayananTotal ?? 0)
                   : Math.round(l.pokokPinjaman * 0.95),
@@ -87,7 +88,7 @@ export function DpdTab() {
           return (
             <li key={l._id} className="flex flex-wrap items-center justify-between gap-3 px-5 py-4">
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium">Data pemohon: {l.namaLengkap} — pokok pinjaman {formatRupiah(l.pokokPinjaman)}</p>
+                <p className="truncate text-sm font-medium">Data pemohon: {namaHurufBesar(l.namaLengkap)} — pokok pinjaman {formatRupiah(l.pokokPinjaman)}</p>
                 <p className="mt-1 truncate text-xs text-muted-foreground">
                   {l.nomorReferensi} · tanggal acuan terlewati {l.hariTerlambat} hari · denda {formatRupiah(l.dendaTerlambat ?? 0)} · kewajiban {formatRupiah(l.totalKewajibanDenganPenalti ?? 0)}
                 </p>

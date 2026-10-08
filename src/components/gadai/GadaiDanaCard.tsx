@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { api } from "@/convex/_generated/api";
 import { GADAI_PRICING, quoteGadai } from "@/lib/gadai";
 import { formatRupiah, parseRupiah } from "@/lib/money";
+import { namaHurufBesar } from "@/lib/nama";
 
 import type { GadaiDanaRow } from "./types";
 
@@ -103,7 +104,7 @@ export function GadaiDanaCard({ pawn }: { pawn: GadaiDanaRow }) {
         <div className="min-w-0">
           <p className="truncate text-sm font-semibold">{pawn.deskripsiBarang}</p>
           <p className="mt-0.5 text-xs text-muted-foreground tabular-nums">
-            {pawn.nomorReferensi} · {pawn.namaLengkap}
+            {pawn.nomorReferensi} · {namaHurufBesar(pawn.namaLengkap)}
           </p>
         </div>
         <p className="text-xs text-muted-foreground">

@@ -496,7 +496,7 @@ function DetailPinjaman({ row }: { row: BarisPinjaman }) {
     <>
       <BarisDetail
         label="Nama lengkap"
-        nilai={<span className="uppercase">{row.namaLengkap}</span>}
+        nilai={<span className="uppercase">{namaHurufBesar(row.namaLengkap)}</span>}
       />
       <BarisDetail label="Kode peminjam" nilai={row.kodePeminjam ?? "belum terbit"} />
       <BarisDetail label="No. referensi" nilai={row.nomorReferensi} />
@@ -574,7 +574,7 @@ function DetailGadai({ row }: { row: BarisGadai }) {
     <>
       <BarisDetail
         label="Nama lengkap"
-        nilai={<span className="uppercase">{row.namaLengkap}</span>}
+        nilai={<span className="uppercase">{namaHurufBesar(row.namaLengkap)}</span>}
       />
       <BarisDetail label="Kode peminjam" nilai={row.kodePeminjam ?? "belum terbit"} />
       <BarisDetail label="No. referensi" nilai={row.nomorReferensi} />
@@ -618,7 +618,7 @@ function DetailKredit({ row }: { row: BarisKredit }) {
     <>
       <BarisDetail
         label="Nama lengkap"
-        nilai={<span className="uppercase">{row.namaLengkap}</span>}
+        nilai={<span className="uppercase">{namaHurufBesar(row.namaLengkap)}</span>}
       />
       <BarisDetail label="Kode peminjam" nilai={row.kodePeminjam ?? "belum terbit"} />
       <BarisDetail label="No. referensi" nilai={row.nomorReferensi} />
@@ -872,7 +872,7 @@ function IsiDialog({ detail, bolehBerkas }: { detail: IsiDetail; bolehBerkas: bo
         {detail.jenis === "gadai" && <DetailGadai row={detail.row} />}
         {detail.jenis === "kredit" && <DetailKredit row={detail.row} />}
       </dl>
-      <BagianLokasi lokasi={detail.row.lokasi} nama={detail.row.namaLengkap} />
+      <BagianLokasi lokasi={detail.row.lokasi} nama={namaHurufBesar(detail.row.namaLengkap)} />
       <BagianBerkas jenis={detail.jenis} id={detail.row._id} boleh={bolehBerkas} />
     </>
   );
@@ -1178,7 +1178,7 @@ function FormUbahPinjaman({ row, onClose }: { row: BarisPinjaman; onClose: () =>
   const TETAP_STATUS = "__tetap_status";
   const [pendana, setPendana] = useState(TETAP);
   const [statusBaru, setStatusBaru] = useState<string>(TETAP_STATUS);
-  const [namaPeminjam, setNamaPeminjam] = useState(row.namaLengkap);
+  const [namaPeminjam, setNamaPeminjam] = useState(namaHurufBesar(row.namaLengkap));
   const [tujuan, setTujuan] = useState(row.tujuan);
   const [tenorHari, setTenorHari] = useState(String(row.tenorHari));
   const [tenorBulan, setTenorBulan] = useState(
@@ -1233,7 +1233,7 @@ function FormUbahPinjaman({ row, onClose }: { row: BarisPinjaman; onClose: () =>
             ? { pendanaEmail: null }
             : { pendanaUserId: pendana as Id<"users"> }),
         // Nama peminjam hanya dikirim bila benar-benar diubah (perbaikan typo).
-        ...(namaPeminjam.trim() !== row.namaLengkap.trim()
+        ...(namaPeminjam.trim() !== namaHurufBesar(row.namaLengkap).trim()
           ? { namaPeminjam: namaPeminjam.trim() }
           : {}),
         ...(tujuan.trim() !== row.tujuan ? { tujuan: tujuan.trim() } : {}),

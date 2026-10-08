@@ -13,6 +13,7 @@ import { hitungSimulasiBulanan, TENOR_BULANAN_OPTIONS } from "../lib/bulanan";
 import { ledgerTotals, appendJournal } from "./ledger";
 import { JournalSpec } from "./ledger";
 import { formatRupiah } from "../lib/money";
+import { namaHurufBesar } from "../lib/nama";
 import { CONTRACT_TERMS_VERSION } from "../lib/contract";
 import { bagiHasilPinjamanDari } from "../lib/bagiHasil";
 import { getConfig, audit } from "./system";
@@ -1505,7 +1506,7 @@ export const peringatanLokasiTerbaru = query({
       const loan = r.loanId === undefined ? null : await ctx.db.get(r.loanId);
       hasil.push({
         _id: r._id,
-        nama: user?.name ?? user?.email ?? "Nasabah",
+        nama: namaHurufBesar(user?.name ?? user?.email ?? "Nasabah"),
         nomorReferensi: loan?.nomorReferensi ?? null,
         tanda: r.tanda,
         jenis: r.jenis,

@@ -7,6 +7,7 @@ import { Loader2, PenLine } from "lucide-react";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { buildGadaiContract, CONTRACT_TERMS_VERSION, nomorContract } from "@/lib/contract";
+import { namaHurufBesar } from "@/lib/nama";
 
 import { ContractSigningDialog } from "./ContractSigningDialog";
 
@@ -117,7 +118,7 @@ Perjanjian gadai tersedia setelah nilai taksiran dimasukkan ke aplikasi.
         onOpenChange={setOpen}
         title="Perjanjian Gadai"
         reference={detail.nomorReferensi}
-        borrowerName={detail.namaLengkap}
+        borrowerName={namaHurufBesar(detail.namaLengkap)}
         html={html}
         signature={contractData.ttdPeminjam}
         signedAt={contractData.ttdPada}

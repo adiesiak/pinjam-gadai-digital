@@ -12,6 +12,7 @@ import {
   nomorContract,
 } from "@/lib/contract";
 import { formatRupiah } from "@/lib/money";
+import { namaHurufBesar } from "@/lib/nama";
 
 import { ContractSigningDialog } from "./ContractSigningDialog";
 
@@ -108,7 +109,7 @@ export function LoanContractBlock({ loanId }: { loanId: Id<"loans"> }) {
         onOpenChange={setOpen}
         title="Perjanjian Pinjaman"
         reference={detail.nomorReferensi}
-        borrowerName={detail.namaLengkap}
+        borrowerName={namaHurufBesar(detail.namaLengkap)}
         html={html}
         signature={contractData.ttdPeminjam}
         signedAt={contractData.ttdPada}

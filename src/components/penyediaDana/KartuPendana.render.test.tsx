@@ -18,6 +18,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 
 import type { RekapPendana } from "@/convex/penyediaDana";
+import { namaHurufBesar } from "@/lib/nama";
 
 import { KartuPendana, type RincianPerkiraan } from "./KartuPendana";
 
@@ -236,11 +237,15 @@ bersih(htmlBaru, "markup kartu tanpa pinjaman lunas");
   for (const p of RINCIAN) {
     ada(
       htmlRincian,
-      `${p.nomorReferensi} · ${p.namaLengkap}`,
+      `${p.nomorReferensi} · ${namaHurufBesar(p.namaLengkap)}`,
       `baris rincian ${p.nomorReferensi}`,
     );
   }
-  ada(htmlRincian, "Peminjam 7", "nama peminjam terakhir ikut tampil");
+  ada(htmlRincian, "PEMINJAM 7", "nama peminjam terakhir ikut tampil");
+  ok(
+    !htmlRincian.includes("Peminjam "),
+    "nama peminjam di rincian tampil HURUF BESAR, bukan apa adanya",
+  );
   // Angka perkiraan kartu tetap sama; rincian tidak boleh mengubahnya.
   ada(htmlRincian, "Rp 1.410.000", "angka perkiraan tetap tampil di blok keuntungan");
 

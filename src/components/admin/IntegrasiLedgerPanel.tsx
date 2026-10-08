@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { api } from "@/convex/_generated/api";
 import { formatRupiah } from "@/lib/money";
+import { namaHurufBesar } from "@/lib/nama";
 
 /** Lencana status integrasi per pinjaman. */
 function BadgeIntegrasi({ terintegrasi, layak }: { terintegrasi: boolean; layak: boolean }) {
@@ -221,7 +222,7 @@ export function IntegrasiLedgerPanel() {
                   )}
                 </div>
                 <p className="mt-1 truncate text-xs text-muted-foreground">
-                  {r.namaLengkap} · {r.status}
+                  {namaHurufBesar(r.namaLengkap)} · {r.status}
                 </p>
                 <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-0.5 text-xs">
                   <span className="text-muted-foreground">

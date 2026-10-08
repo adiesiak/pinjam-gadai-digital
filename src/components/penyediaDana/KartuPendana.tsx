@@ -3,6 +3,7 @@ import { BadgeCheck, TriangleAlert, Wallet } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import type { RekapPendana } from "@/convex/penyediaDana";
 import { formatRupiahAman } from "@/lib/money";
+import { namaHurufBesar } from "@/lib/nama";
 
 /**
  * Satu pinjaman yang membentuk angka perkiraan pada kartu ini.
@@ -151,7 +152,7 @@ export function KartuPendana({
               {rincian.map((p) => (
                 <li key={p.id} className="flex items-baseline justify-between gap-2">
                   <span className="min-w-0 truncate text-muted-foreground">
-                    {p.nomorReferensi} · {p.namaLengkap}
+                    {p.nomorReferensi} · {namaHurufBesar(p.namaLengkap)}
                   </span>
                   <span className="shrink-0 tabular-nums font-medium text-amber-700">
                     {rupiah(p.keuntunganPendana)}

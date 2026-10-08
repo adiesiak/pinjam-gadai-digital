@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { api } from "@/convex/_generated/api";
+import { namaHurufBesar } from "@/lib/nama";
 import { cn } from "@/lib/utils";
 import { JENIS_MANUAL, type NasabahManual } from "@/lib/pengajuanManual";
 import type { JenisPengajuan } from "@/lib/jenisPengajuan";
@@ -75,7 +76,7 @@ function PencariNasabah({ onPilih }: { onPilih: (nasabah: NasabahManual) => void
                 className="flex w-full items-start justify-between gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/50"
               >
                 <span className="min-w-0">
-                  <span className="block truncate text-sm font-medium text-navy">{n.nama}</span>
+                  <span className="block truncate text-sm font-medium text-navy">{namaHurufBesar(n.nama)}</span>
                   <span className="mt-0.5 block truncate text-xs text-muted-foreground">
                     {n.email ?? "tanpa email"} · {n.kodePeminjam ?? "tanpa kode peminjam"}
                   </span>
@@ -201,7 +202,7 @@ export function CatatPengajuanManualButton({ jenis }: { jenis: JenisPengajuan })
               <FormNasabahBaru
                 onSukses={(pemohon) => {
                   toast.success(
-                    `Pemohon ${pemohon.nama} tercatat. Lanjutkan mengisi pengajuannya.`,
+                    `Pemohon ${namaHurufBesar(pemohon.nama)} tercatat. Lanjutkan mengisi pengajuannya.`,
                   );
                   setNasabah(pemohon);
                 }}
@@ -214,7 +215,7 @@ export function CatatPengajuanManualButton({ jenis }: { jenis: JenisPengajuan })
                   <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400">
                     Nasabah tujuan
                   </p>
-                  <p className="mt-0.5 truncate text-sm font-semibold text-navy">{nasabah.nama}</p>
+                  <p className="mt-0.5 truncate text-sm font-semibold text-navy">{namaHurufBesar(nasabah.nama)}</p>
                   <p className="truncate text-xs text-muted-foreground">
                     {nasabah.email ?? "tanpa email"} · {nasabah.kodePeminjam ?? "tanpa kode peminjam"}
                     {!nasabah.adaDataDiri && " · data diri belum ada"}
@@ -229,7 +230,7 @@ export function CatatPengajuanManualButton({ jenis }: { jenis: JenisPengajuan })
                 <FormPinjamanManual
                   nasabah={nasabah}
                   onSukses={(referensi) => {
-                    toast.success(`Pengajuan pinjaman ${referensi} tercatat untuk ${nasabah.nama}.`);
+                    toast.success(`Pengajuan pinjaman ${referensi} tercatat untuk ${namaHurufBesar(nasabah.nama)}.`);
                     tutup();
                   }}
                 />
@@ -238,7 +239,7 @@ export function CatatPengajuanManualButton({ jenis }: { jenis: JenisPengajuan })
                 <FormGadaiManual
                   nasabah={nasabah}
                   onSukses={(referensi) => {
-                    toast.success(`Pengajuan gadai ${referensi} tercatat untuk ${nasabah.nama}.`);
+                    toast.success(`Pengajuan gadai ${referensi} tercatat untuk ${namaHurufBesar(nasabah.nama)}.`);
                     tutup();
                   }}
                 />
@@ -247,7 +248,7 @@ export function CatatPengajuanManualButton({ jenis }: { jenis: JenisPengajuan })
                 <FormKreditManual
                   nasabah={nasabah}
                   onSukses={(referensi) => {
-                    toast.success(`Pengajuan kredit ${referensi} tercatat untuk ${nasabah.nama}.`);
+                    toast.success(`Pengajuan kredit ${referensi} tercatat untuk ${namaHurufBesar(nasabah.nama)}.`);
                     tutup();
                   }}
                 />
