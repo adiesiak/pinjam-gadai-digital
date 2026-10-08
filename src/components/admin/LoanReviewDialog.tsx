@@ -24,6 +24,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { api } from "@/convex/_generated/api";
+import { Id } from "@/convex/_generated/dataModel";
 import { loanPurposeLabel, quotePinjaman } from "@/lib/loan";
 import { formatRupiah } from "@/lib/money";
 import {
@@ -39,6 +40,11 @@ import { type LoanRow } from "./admin-shared";
 import { AliranDanaPinjaman } from "./AliranDanaPinjaman";
 import { LoanKycPanel } from "./LoanKycPanel";
 
+// Sentinel NON-kosong: Radix Select menolak `<SelectItem value="">`, jadi
+// "tidak diubah" dan "lepas pendana" memakai penandanya sendiri.
+const PENDANA_TETAP = "__tetap";
+const PENDANA_LEPAS = "__lepas";
+
 export function LoanReviewDialog({
   row,
   onClose,
@@ -50,11 +56,17 @@ export function LoanReviewDialog({
   const fund = useMutation(api.loans.danaiPinjaman);
   const deleteLoan = useMutation(api.loans.hapusPinjaman);
   const kirimStatus = useAction(api.whatsapp.kirimStatusPinjaman);
+  // Penetapan pendana + koreksi nominal memakai jalur yang sama dengan ruang
+  // penyedia dana, sehingga nama pendana langsung tampil di sana.
+  const simpanPendana = useMutation(api.penyediaDana.ubahDataPinjaman);
 
   const [reason, setReason] = useState("");
   const [statusTujuan, setStatusTujuan] = useState<StatusPinjaman>("disetujui");
   const [nominal, setNominal] = useState("");
   const [deleteReason, setDeleteReason] = useState("");
+  const [pendana, setPendana] = useState<string>(PENDANA_TETAP);
+  const [alasanPendana, setAlasanPendana] = useState("");
+  const [nominalPendana, setNominalPendana] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -63,6 +75,12 @@ export function LoanReviewDialog({
   const pratinjau = useQuery(
     api.whatsapp.previewStatusPinjaman,
     row === null ? ("skip" as const) : { loanId: row._id, alasan: reason },
+  );
+  // Kandidat pendana = semua akun yang pernah menjadi penyedia dana. Hanya
+  // admin (sesi TOTP) yang boleh membacanya, sama seperti server.
+  const kandidatQ = useQuery(
+    api.penyediaDana.kandidatPendana,
+    row === null ? ("skip" as const) : {},
   );
 
   // Sasaran status & nominal menyesuaikan saat dialog dibuka untuk baris lain.
@@ -79,6 +97,9 @@ export function LoanReviewDialog({
     setStatusTujuan(row?.status === "didanai" ? "lunas" : "disetujui");
     setNominal("");
     setReason("");
+    setPendana(PENDANA_TETAP);
+    setAlasanPendana("");
+    setNominalPendana("");
     setError(null);
   }
 
@@ -122,6 +143,45 @@ export function LoanReviewDialog({
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Gagal menyimpan keputusan.");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const runPendana = async () => {
+    const alasan = alasanPendana.trim();
+    if (alasan.length < 5) {
+      setError("Alasan perubahan pendana wajib minimal 5 karakter.");
+      return;
+    }
+    const pokokBaru = nominalPendana.trim() === "" ? null : Number(nominalPendana);
+    if (pokokBaru !== null && (!Number.isSafeInteger(pokokBaru) || pokokBaru <= 0)) {
+      setError("Nominal yang disetujui harus rupiah bulat positif.");
+      return;
+    }
+    setBusy("pendana");
+    setError(null);
+    try {
+      const hasil = await simpanPendana({
+        loanId: row._id,
+        alasan,
+        ...(pendana === PENDANA_TETAP
+          ? {}
+          : pendana === PENDANA_LEPAS
+            ? { pendanaEmail: null }
+            : { pendanaUserId: pendana as Id<"users"> }),
+        ...(pokokBaru !== null && pokokBaru !== row.pokokPinjaman
+          ? { pokokDisetujui: pokokBaru }
+          : {}),
+      });
+      toast.success(
+        hasil.perubahan.length === 0
+          ? "Tidak ada perubahan pendana atau nominal."
+          : `Tersimpan: ${hasil.perubahan.join(", ")}`,
+      );
+      onClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Gagal menyimpan pendana.");
     } finally {
       setBusy(null);
     }
@@ -391,6 +451,104 @@ export function LoanReviewDialog({
           </section>
         )}
 
+        {row.status !== "lunas" && (
+          <section className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
+                Pendana & nominal disetujui
+              </p>
+              <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                Tetapkan penyedia dana yang mendanai pinjaman ini sebelum menyetujui — namanya
+                langsung tampil di ruang penyedia dana dan tercatat di Audit Trail. Untuk pinjaman
+                yang sudah disetujui, nominalnya juga dapat dikoreksi selama dana belum ditandai
+                tersalurkan.
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Pendana sekarang:{" "}
+                <span className="font-medium text-slate-700">
+                  {row.pendanaNama ?? "belum ada"}
+                </span>
+              </p>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div>
+                <Label htmlFor="pendana-pinjaman" className="text-[11px] text-muted-foreground">
+                  Pendana
+                </Label>
+                <Select value={pendana} onValueChange={setPendana}>
+                  <SelectTrigger id="pendana-pinjaman">
+                    <SelectValue placeholder="Tidak diubah" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={PENDANA_TETAP}>Tidak diubah</SelectItem>
+                    {(kandidatQ?.rows ?? []).map((r) => (
+                      <SelectItem key={r.userId} value={r.userId}>
+                        {r.nama}
+                        {r.email ? ` — ${r.email}` : ""}
+                        {r.aksesAktif ? "" : " (pendana lama)"}
+                      </SelectItem>
+                    ))}
+                    <SelectItem value={PENDANA_LEPAS} disabled={nominalTerkunci(row.status)}>
+                      Lepas pendana (tanpa pemilik dana)
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="mt-1 text-[11px] leading-4 text-muted-foreground">
+                  {kandidatQ === undefined
+                    ? "Memuat daftar pendana…"
+                    : (kandidatQ.rows.length === 0)
+                      ? "Belum ada akun yang pernah menjadi pendana. Beri akses di ruang penyedia dana lebih dulu."
+                      : "Daftar ini memuat semua akun yang pernah menjadi penyedia dana, termasuk pendana lama."}
+                </p>
+              </div>
+
+              {row.status === "disetujui" && (
+                <div>
+                  <Label htmlFor="nominal-disetujui" className="text-[11px] text-muted-foreground">
+                    Nominal disetujui (Rp)
+                  </Label>
+                  <Input
+                    id="nominal-disetujui"
+                    type="number"
+                    inputMode="numeric"
+                    min={1}
+                    step={50_000}
+                    placeholder={`Tercatat: ${formatRupiah(row.pokokPinjaman)}`}
+                    value={nominalPendana}
+                    onChange={(e) => setNominalPendana(e.target.value)}
+                    disabled={busy !== null}
+                  />
+                  <p className="mt-1 text-[11px] leading-4 text-muted-foreground">
+                    Koreksi nominal yang sudah disetujui — tidak boleh melebihi pengajuan{" "}
+                    {formatRupiah(pokokDiajukan)}. Kosongkan bila tidak diubah.
+                  </p>
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="alasan-pendana">Alasan perubahan pendana / nominal (wajib)</Label>
+              <Textarea
+                id="alasan-pendana"
+                rows={2}
+                maxLength={500}
+                value={alasanPendana}
+                onChange={(e) => setAlasanPendana(e.target.value)}
+                placeholder="mis. pinjaman ini didanai oleh Robert, sebelumnya belum tercatat…"
+              />
+            </div>
+
+            <Button
+              disabled={busy !== null || alasanPendana.trim().length < 5}
+              onClick={() => void runPendana()}
+            >
+              {busy === "pendana" ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
+              {row.status === "disetujui" ? "Simpan pendana & nominal" : "Simpan pendana"}
+            </Button>
+          </section>
+        )}
+
         {row.status === "disetujui" && (
           <div className="space-y-2 rounded-2xl border border-emerald-200 bg-emerald-50/60 p-4">
             <p className="text-xs leading-5 text-emerald-900">
@@ -417,7 +575,9 @@ export function LoanReviewDialog({
             placeholder="Alasan penghapusan wajib (minimal 10 karakter)…"
           />
           <p className="text-xs leading-5 text-muted-foreground">
-            Hanya data tanpa alokasi, jurnal, pembayaran atau catatan terkait yang bisa dihapus. Catatan Audit Trail tetap disimpan.
+            Pengajuan yang belum berpindah dana — termasuk yang sudah disetujui — dapat
+            dihapus. Penghapusan ditolak bila pinjaman sudah punya alokasi dana atau jurnal
+            ledger, agar catatan keuangan tidak hilang. Catatan Audit Trail tetap disimpan.
           </p>
           <Button variant="destructive" disabled={busy !== null || deleteReason.trim().length < 10} onClick={() => void runDelete()}>
             {busy === "delete" ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Trash2 className="mr-2 size-4" />}

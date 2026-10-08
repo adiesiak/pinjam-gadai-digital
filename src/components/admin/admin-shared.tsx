@@ -32,6 +32,9 @@ export type LoanRow = {
   catatanPeminjam?: string;
   emailPeminjam: string | null;
   userIdPeminjam: Id<"users">;
+  /** Pendana yang ditetapkan admin (model 1 pinjaman = 1 pendana). */
+  pendanaId?: Id<"users"> | null;
+  pendanaNama?: string | null;
   tenorHari: number | null;
   /** Diisi (1/3/6 bln) bila pinjaman memakai skema bulanan. */
   tenorBulan: number | null;

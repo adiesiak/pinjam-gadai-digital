@@ -1208,7 +1208,12 @@ export const aktifkanGadai = mutation({
   },
 });
 
-/** Super Admin menghapus pengajuan pinjaman yang salah input, tanpa jejak transaksi. */
+/**
+ * Super Admin menghapus data pinjaman yang salah input — termasuk pengajuan
+ * yang sudah ditandatangani atau disetujui — selama belum ada catatan keuangan
+ * (alokasi dana atau jurnal `pinjaman:<id>`). Setelah uang tercatat berpindah,
+ * penghapusan ditolak agar riwayat tetap utuh. Audit trail tetap disimpan.
+ */
 export const hapusPinjaman = mutation({
   args: { loanId: v.id("loans"), reason: v.string() },
   handler: async (ctx, { loanId, reason }) => {
@@ -1219,19 +1224,12 @@ export const hapusPinjaman = mutation({
     }
     const loan = await ctx.db.get(loanId);
     if (loan === null) throw new Error("Data pinjaman tidak ditemukan.");
-    // Penghapusan hanya untuk pengajuan yang belum berjalan. Tanda tangan di
-    // formulir pengajuan BUKAN persetujuan kontrak — sejak alur submit baru,
-    // setiap pengajuan baru menyimpan `tandaTanganPeminjam` saat dikirim, jadi
-    // memakainya sebagai pemblokir membuat semua pengajuan baru tak bisa
-    // dihapus. Persetujuan kontrak yang sesungguhnya ditandai oleh
-    // `persetujuanSyaratPada` (lihat admin.simpanTandaTangan).
-    if (
-      loan.status === "didanai" || loan.status === "lunas" ||
-      loan.didanaiPada !== undefined || loan.lunasPada !== undefined ||
-      loan.persetujuanSyaratPada !== undefined
-    ) {
-      throw new Error("Pinjaman ini sudah berjalan, lunas, atau memiliki persetujuan tercatat; tidak dapat dihapus.");
-    }
+    // Super Admin boleh membersihkan salah input, termasuk pengajuan yang
+    // sudah ditandatangani atau disetujui — tanda tangan formulir maupun
+    // `persetujuanSyaratPada` BUKAN catatan keuangan. Yang tetap memblokir
+    // hanyalah catatan KEUANGAN di bawah ini: alokasi dana (`fundings`) atau
+    // jurnal `pinjaman:<id>`. Begitu ada uang tercatat berpindah, penghapusan
+    // ditolak supaya riwayat tetap utuh.
 
     const [fundings, reminders, waLogs, locationTrail, locationWarnings, ledger] = await Promise.all([
       ctx.db.query("fundings").withIndex("by_loan", (q) => q.eq("loanId", loanId)).collect(),
@@ -1247,9 +1245,10 @@ export const hapusPinjaman = mutation({
       throw new Error("Data pinjaman memiliki alokasi atau jurnal terkait; tidak dihapus agar riwayat keuangan tetap utuh.");
     }
     // Catatan OPERASIONAL (pengingat, log WhatsApp, jejak & peringatan lokasi)
-    // adalah efek samping pengajuan, bukan riwayat keuangan. Untuk pinjaman yang
-    // belum berjalan dan belum disetujui, ikut dihapus bersama pinjamannya
-    // supaya salah input dapat dibersihkan tanpa meninggalkan catatan yatim.
+    // adalah efek samping pengajuan, bukan riwayat keuangan — ikut dihapus
+    // bersama pinjamannya supaya salah input dapat dibersihkan tanpa
+    // meninggalkan catatan yatim, termasuk untuk pengajuan yang sudah
+    // ditandatangani atau disetujui.
     for (const row of reminders) await ctx.db.delete(row._id);
     for (const row of waLogs) await ctx.db.delete(row._id);
     for (const row of locationTrail) await ctx.db.delete(row._id);

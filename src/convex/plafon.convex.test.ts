@@ -430,7 +430,7 @@ describe("plafon pinjaman per nasabah", () => {
     expect(entri?.detail ?? "").toContain("Test audit");
   });
 
-  it("pengajuan baru bertanda tangan masih dapat dihapus admin; kontrak yang sudah disetujui tidak", async () => {
+  it("pengajuan bertanda tangan maupun yang sudah disetujui dapat dihapus admin selama belum ada catatan keuangan", async () => {
     const t = convexTest(schema, modules);
     const { sesi: admin } = await siapkanPengguna(t, "admin", {
       email: "admin-hapus@pindai.test",
@@ -477,7 +477,10 @@ describe("plafon pinjaman per nasabah", () => {
     const terhapus = await t.run((ctx) => ctx.db.get(loanBaru));
     expect(terhapus).toBeNull();
 
-    // Kontrak yang sudah disetujui (persetujuanSyaratPada) tetap dilindungi.
+    // Pinjaman yang sudah disetujui (persetujuanSyaratPada) tetapi belum punya
+    // catatan keuangan juga dapat dibersihkan Super Admin: persetujuan adalah
+    // catatan keputusan, bukan perpindahan dana. Penghapusan tetap terekam di
+    // Audit Trail.
     const loanKontrak = await t.run(async (ctx) =>
       ctx.db.insert("loans", {
         userId,
@@ -486,7 +489,7 @@ describe("plafon pinjaman per nasabah", () => {
         namaLengkap: "Rani Peminjam",
         namaBank: "BCA",
         nomorRekening: "1234567890",
-        status: "diajukan",
+        status: "disetujui",
         nomorReferensi: "PGD-HAPUS-2",
         tenorHari: 30,
         tandaTanganPeminjam: ttd,
@@ -497,9 +500,10 @@ describe("plafon pinjaman per nasabah", () => {
     await expect(
       admin.mutation(api.loans.hapusPinjaman, {
         loanId: loanKontrak,
-        reason: "Mencoba hapus kontrak bertanda tangan.",
+        reason: "Hapus pinjaman disetujui yang salah input.",
       }),
-    ).rejects.toThrow(/persetujuan tercatat/);
+    ).resolves.toMatchObject({ ok: true });
+    expect(await t.run((ctx) => ctx.db.get(loanKontrak))).toBeNull();
   });
 
   it("pinjaman kosong tanpa persetujuan dihapus walau ada catatan operasional; alokasi dana tetap memblokir", async () => {
@@ -635,6 +639,38 @@ describe("plafon pinjaman per nasabah", () => {
       admin.mutation(api.loans.hapusPinjaman, {
         loanId: loanDialokasikan,
         reason: "Mencoba hapus pinjaman yang sudah dialokasikan.",
+      }),
+    ).rejects.toThrow(/alokasi atau jurnal/);
+
+    // Jurnal ledger pinjaman juga memblokir penghapusan.
+    const loanJurnal = await t.run(async (ctx) => {
+      const id = await ctx.db.insert("loans", {
+        userId,
+        pokokPinjaman: 1_000_000,
+        tujuan: "Modal usaha kecil",
+        namaLengkap: "Rani Peminjam",
+        namaBank: "BCA",
+        nomorRekening: "1234567890",
+        status: "didanai",
+        nomorReferensi: "PGD-HAPUS-5",
+        tenorHari: 30,
+      });
+      await ctx.db.insert("ledger_entries", {
+        groupId: "GRP-HAPUS-1",
+        arah: "debit",
+        jumlah: 1_000_000,
+        akun: `pinjaman:${id}`,
+        jenis: "disbursement",
+        keterangan: "uji penghapusan pinjaman berjurnal",
+        aktor: "uji",
+        waktu: now,
+      });
+      return id;
+    });
+    await expect(
+      admin.mutation(api.loans.hapusPinjaman, {
+        loanId: loanJurnal,
+        reason: "Mencoba hapus pinjaman yang sudah punya jurnal.",
       }),
     ).rejects.toThrow(/alokasi atau jurnal/);
   });

@@ -344,6 +344,10 @@ export const adminOverview = query({
             catatanPeminjam: l.catatanPeminjam,
             emailPeminjam: borrower?.email ?? null,
             userIdPeminjam: l.userId,
+            // Model 1 pinjaman = 1 pendana — dipakai dialog review admin untuk
+            // menampilkan/mengganti siapa penyedia dana pinjaman ini.
+            pendanaId: l.pendanaId ?? null,
+            pendanaNama: l.pendanaNama ?? null,
             tenorHari: l.tenorHari ?? null,
             tenorBulan: l.tenorBulan ?? null,
             cicilanPerBulan: bulanan?.cicilanPerBulan ?? null,
