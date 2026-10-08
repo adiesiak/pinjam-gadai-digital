@@ -23,6 +23,7 @@ import { Link } from "react-router";
 
 import { RoleDashboardMenu } from "@/components/RoleDashboardMenu";
 import { VaultLogo } from "@/components/VaultLogo";
+import { CatatanPotonganAdmin } from "@/components/penyediaDana/CatatanPotonganAdmin";
 import { PetaLokasiPeminjam } from "@/components/penyediaDana/PetaLokasiPeminjam";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Badge } from "@/components/ui/badge";
@@ -1542,6 +1543,8 @@ function IsiRuang() {
               />
             </div>
 
+            <CatatanPotonganAdmin persen={data.ringkasan.persenPotonganAdmin} />
+
             {data.rekapPendana.length > 0 && (
               <section className="animate-masuk mt-6">
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
@@ -2032,7 +2035,9 @@ function IsiRuang() {
 
             <p className="mt-6 rounded-2xl border border-slate-200 bg-white px-5 py-4 text-xs leading-6 text-muted-foreground">
               Angka di ruang ini adalah catatan internal PINDAI dan bukan bukti transaksi, jaminan
-              pencairan, maupun penawaran. Status mengikuti pencatatan ledger internal.
+              pencairan, maupun penawaran. Status mengikuti pencatatan ledger internal. Jaminan
+              asuransi 14 hari kerja pada potongan admin adalah komitmen layanan PINDAI — berlaku
+              terpisah dari angka yang ditampilkan di layar ini.
             </p>
           </>
         )}
