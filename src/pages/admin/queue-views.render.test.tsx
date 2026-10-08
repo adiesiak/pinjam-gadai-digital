@@ -18,8 +18,9 @@ import { renderToStaticMarkup } from "react-dom/server";
 import type { Id } from "@/convex/_generated/dataModel";
 import { LOAN_STATUS_FLOW } from "@/lib/loan";
 
-import { LoanQueueSection, SUB_TAB_PINJAMAN } from "./queue-views";
+import { LoanQueueSection } from "./queue-views";
 import type { LoanRow } from "@/components/admin/admin-shared";
+import { SUB_TAB_PINJAMAN } from "@/lib/subTabAntrean";
 
 let passed = 0;
 let failed = 0;

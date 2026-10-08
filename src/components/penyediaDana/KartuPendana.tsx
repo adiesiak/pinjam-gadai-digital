@@ -4,6 +4,20 @@ import { Badge } from "@/components/ui/badge";
 import type { RekapPendana } from "@/convex/penyediaDana";
 import { formatRupiahAman } from "@/lib/money";
 
+/**
+ * Satu pinjaman yang membentuk angka perkiraan pada kartu ini.
+ *
+ * Sengaja bukan `BarisPinjaman` (tipe server) supaya kartu tetap murni
+ * presentasional dan bisa diuji tanpa membawa seluruh bentuk data server:
+ * pemanggil cukup memetakan nomor referensi, nama, dan keuntungannya.
+ */
+export type RincianPerkiraan = {
+  id: string;
+  nomorReferensi: string;
+  namaLengkap: string;
+  keuntunganPendana: number;
+};
+
 function rupiah(nilai: number): string {
   return formatRupiahAman(nilai);
 }
@@ -52,7 +66,20 @@ function BarisNilai({
  * Murni presentasional — tanpa Convex — supaya bisa dirender langsung oleh uji
  * markup (`KartuPendana.render.test.tsx`).
  */
-export function KartuPendana({ r }: { r: RekapPendana }) {
+export function KartuPendana({
+  r,
+  rincianPerkiraan,
+}: {
+  r: RekapPendana;
+  /**
+   * Pinjaman berjalan milik penyedia ini yang membentuk baris "Belum lunas
+   * (perkiraan)". Diringkas dalam `<details>` (tertutup secara bawaan) supaya
+   * laporan tetap ringkas, tetapi bisa dibuka saat penyedia dana ingin tahu
+   * angka perkiraan itu datang dari mana. Jumlah barisnya = angka perkiraan.
+   */
+  rincianPerkiraan?: readonly RincianPerkiraan[];
+}) {
+  const rincian = rincianPerkiraan ?? [];
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -102,6 +129,29 @@ export function KartuPendana({ r }: { r: RekapPendana }) {
             garis
           />
         </dl>
+
+        {rincian.length > 0 && (
+          <details className="mt-2 border-t border-emerald-100 pt-1.5">
+            <summary className="cursor-pointer text-[10px] font-semibold uppercase tracking-[0.12em] text-emerald-800">
+              Rincian {rincian.length} pinjaman berjalan
+            </summary>
+            <ul className="mt-1.5 space-y-1 text-[11px]">
+              {rincian.map((p) => (
+                <li key={p.id} className="flex items-baseline justify-between gap-2">
+                  <span className="min-w-0 truncate text-muted-foreground">
+                    {p.nomorReferensi} · {p.namaLengkap}
+                  </span>
+                  <span className="shrink-0 tabular-nums font-medium text-amber-700">
+                    {rupiah(p.keuntunganPendana)}
+                  </span>
+                </li>
+              ))}
+            </ul>
+            <p className="mt-1 text-[10px] leading-4 text-muted-foreground">
+              Jumlah baris di atas sama dengan baris “Belum lunas (perkiraan)”.
+            </p>
+          </details>
+        )}
       </div>
       <p className="mt-1.5 text-[10px] leading-4 text-muted-foreground">
         Angka perkiraan baru menjadi uang Anda setelah pinjamannya lunas.

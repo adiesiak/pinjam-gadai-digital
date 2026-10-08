@@ -9,95 +9,18 @@ import {
   QueueRow,
   SubTabFilter,
   type LoanRow,
-  type OpsiSubTab,
   type PawnRow,
 } from "@/components/admin/admin-shared";
 import { loanPurposeLabel } from "@/lib/loan";
 import { formatRupiah } from "@/lib/money";
+import { SUB_TAB_GADAI, SUB_TAB_PINJAMAN } from "@/lib/subTabAntrean";
 import { Input } from "@/components/ui/input";
 
 /**
- * Sub-tab antrean pinjaman: memisahkan catatan yang masih perlu ditindak dari
- * yang sudah selesai, supaya satu daftar tidak mencampur keduanya. Urutannya
- * mengikuti alur status di `LOAN_STATUS_FLOW`.
- *
- * Diekspor agar uji render bisa memastikan setiap status pinjaman punya satu
- * sub-tab. Tanpa tab "Didanai", pinjaman yang dananya sudah tersalurkan tidak
- * cocok dengan sub-tab mana pun: barisnya hanya terlihat di "Semua", dan
- * jumlah seluruh sub-tab status tidak pernah sama dengan "Semua".
+ * Sub-tab antrean pinjaman & gadai tinggal di `@/lib/subTabAntrean` — data
+ * murni, supaya berkas ini hanya berisi komponen dan aturan "setiap status
+ * punya satu sub-tab" bisa diuji tanpa membawa React.
  */
-export const SUB_TAB_PINJAMAN: readonly OpsiSubTab<LoanRow>[] = [
-  {
-    id: "semua",
-    label: "Semua",
-    hint: "Seluruh catatan pinjaman, apa pun statusnya.",
-    cocok: () => true,
-  },
-  {
-    id: "belum-didanai",
-    label: "Belum didanai",
-    hint: "Diajukan, sedang direview, dan disetujui internal — belum ada dana yang tersalurkan.",
-    cocok: (pinjaman) =>
-      pinjaman.status === "diajukan" ||
-      pinjaman.status === "sedang_direview" ||
-      pinjaman.status === "disetujui",
-  },
-  {
-    id: "didanai",
-    label: "Didanai",
-    hint: "Dana sudah tersalurkan dan pinjaman sedang berjalan — belum lunas.",
-    cocok: (pinjaman) => pinjaman.status === "didanai",
-  },
-  {
-    id: "ditolak",
-    label: "Ditolak",
-    hint: "Catatan pengajuan yang tidak dilanjutkan.",
-    cocok: (pinjaman) => pinjaman.status === "ditolak",
-  },
-  {
-    id: "lunas",
-    label: "Lunas",
-    hint: "Kewajiban yang sudah selesai di ledger internal.",
-    cocok: (pinjaman) => pinjaman.status === "lunas",
-  },
-];
-
-/** Sub-tab antrean gadai, mengikuti alur status di `PAWN_STATUS_FLOW`. */
-const SUB_TAB_GADAI: readonly OpsiSubTab<PawnRow>[] = [
-  {
-    id: "semua",
-    label: "Semua",
-    hint: "Seluruh catatan gadai, apa pun statusnya.",
-    cocok: () => true,
-  },
-  {
-    id: "belum-aktif",
-    label: "Belum aktif",
-    hint: "Diajukan, sedang dinilai, dan disetujui internal — barang belum tercatat aktif di ledger.",
-    cocok: (gadai) =>
-      gadai.status === "diajukan" ||
-      gadai.status === "sedang_dinilai" ||
-      gadai.status === "disetujui",
-  },
-  {
-    id: "berjalan",
-    label: "Berjalan",
-    hint: "Gadai aktif dan yang menunggu pembaruan status pelepasan barang.",
-    cocok: (gadai) => gadai.status === "aktif" || gadai.status === "menunggu_pelepasan",
-  },
-  {
-    id: "ditolak",
-    label: "Ditolak",
-    hint: "Pengajuan gadai yang tidak dilanjutkan.",
-    cocok: (gadai) => gadai.status === "ditolak",
-  },
-  {
-    id: "lunas",
-    label: "Lunas",
-    hint: "Kewajiban lunas dan barang sudah ditandai dilepas di ledger internal.",
-    cocok: (gadai) => gadai.status === "lunas_dilepas",
-  },
-];
 
 /** Tab Pinjaman — antrean pengajuan pinjaman dengan sub-tab status. */
 export function LoanQueueSection({

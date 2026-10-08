@@ -10,13 +10,16 @@
  *    sudah cair — angka perkiraan tidak boleh menyamar sebagai uang yang sudah
  *    menjadi hak penyedia dana, dan labelnya tidak boleh tertukar;
  * 2. kartunya tetap ringkas: dibaca dalam blok (keuntungan → potongan admin →
- *    transfer), bukan daftar angka panjang yang harus diurai satu per satu.
+ *    transfer), bukan daftar angka panjang yang harus diurai satu per satu;
+ * 3. angka perkiraan bisa ditelusuri: rincian pinjaman pembentuknya ada, tetapi
+ *    tersimpan dalam `<details>` yang tertutup secara bawaan — dan jumlah
+ *    barisnya benar-benar sama dengan angka perkiraan yang ditampilkan.
  */
 import { renderToStaticMarkup } from "react-dom/server";
 
 import type { RekapPendana } from "@/convex/penyediaDana";
 
-import { KartuPendana } from "./KartuPendana";
+import { KartuPendana, type RincianPerkiraan } from "./KartuPendana";
 
 let passed = 0;
 let failed = 0;
@@ -25,6 +28,15 @@ function ok(syarat: boolean, label: string): void {
   else {
     failed += 1;
     console.error(`FAIL ${label}`);
+  }
+}
+function eq(actual: unknown, expected: unknown, label: string): void {
+  if (actual === expected) passed += 1;
+  else {
+    failed += 1;
+    console.error(
+      `FAIL ${label}: expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`,
+    );
   }
 }
 function ada(html: string, teks: string, label: string): void {
@@ -170,6 +182,58 @@ ok(
   "belum ada pinjaman lunas tidak diklaim sudah dicatat",
 );
 bersih(htmlBaru, "markup kartu tanpa pinjaman lunas");
+
+// ===== Rincian pembentuk angka perkiraan (tersimpan rapi di dalam <details>) =====
+{
+  // Tanpa rincian, kartu tidak boleh menampilkan bagian kosong.
+  ok(!html.includes("Rincian"), "tanpa rincian, tidak ada bagian rincian kosong");
+
+  // 5 × Rp200.000 + 2 × Rp205.000 = Rp1.410.000, yaitu angka perkiraan kartu.
+  const RINCIAN: RincianPerkiraan[] = Array.from(
+    { length: 7 },
+    (_, i) => ({
+      id: `loans-${i}`,
+      nomorReferensi: `PGD-2026-000${i + 1}`,
+      namaLengkap: `Peminjam ${i + 1}`,
+      keuntunganPendana: i < 5 ? 200_000 : 205_000,
+    }),
+  );
+  const htmlRincian = renderToStaticMarkup(
+    <KartuPendana r={ROBERT} rincianPerkiraan={RINCIAN} />,
+  );
+
+  ada(htmlRincian, "Rincian 7 pinjaman berjalan", "judul rincian menyebut jumlah pinjaman");
+  ada(htmlRincian, "<details", "rincian tersimpan dalam elemen yang bisa dilipat");
+  ada(
+    htmlRincian,
+    "Jumlah baris di atas sama dengan baris “Belum lunas (perkiraan)”.",
+    "rincian menjelaskan hubungannya dengan angka perkiraan",
+  );
+  for (const p of RINCIAN) {
+    ada(
+      htmlRincian,
+      `${p.nomorReferensi} · ${p.namaLengkap}`,
+      `baris rincian ${p.nomorReferensi}`,
+    );
+  }
+  ada(htmlRincian, "Peminjam 7", "nama peminjam terakhir ikut tampil");
+  // Angka perkiraan kartu tetap sama; rincian tidak boleh mengubahnya.
+  ada(htmlRincian, "Rp 1.410.000", "angka perkiraan tetap tampil di blok keuntungan");
+
+  // Invarian yang dijanjikan catatan di kartu: jumlah baris rincian = angka perkiraan.
+  const jumlah = RINCIAN.reduce((total, p) => total + p.keuntunganPendana, 0);
+  eq(
+    jumlah,
+    ROBERT.keuntunganPendanaBelumLunas,
+    "jumlah rincian sama dengan angka perkiraan pada kartu",
+  );
+  // Rincian tidak melemahkan aturan lama: bagian yang sudah cair tetap terpisah.
+  ok(
+    baris(htmlRincian, "Sudah lunas (dibukukan)").includes("Rp 235.000"),
+    "rincian tidak menggeser angka yang sudah cair",
+  );
+  bersih(htmlRincian, "markup kartu dengan rincian perkiraan");
+}
 
 console.log(`KartuPendana.render.test: ${passed} lulus, ${failed} gagal`);
 if (failed > 0) process.exit(1);

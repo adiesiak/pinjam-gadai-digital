@@ -1,0 +1,128 @@
+import { TriangleAlert } from "lucide-react";
+
+import { formatRupiah } from "@/lib/money";
+
+/** Angka ringkasan keuntungan yang dibutuhkan komponen ini. */
+export type AngkaRingkasanKeuntungan = {
+  /** Keuntungan penyedia dana yang sudah dibukukan (pinjaman lunas). */
+  totalKeuntunganPendanaLunas: number;
+  /** Keuntungan penyedia dana yang masih perkiraan (pinjaman berjalan). */
+  totalKeuntunganPendanaBelumLunas: number;
+  /** Jumlah keduanya. */
+  totalKeuntunganPendana: number;
+  /** Potongan admin dari uang yang kembali (berjalan + lunas). */
+  totalKeuntunganAdmin: number;
+  totalKeuntunganAdminLunas: number;
+  totalKeuntunganAdminBelumLunas: number;
+  /** Pinjaman lunas yang catatan transfer keuntungannya belum dibuat admin. */
+  totalTransferBelumDicatat: number;
+  nilaiTransferBelumDicatat: number;
+};
+
+/** Satu kartu angka ringkasan: judul kecil, angka besar, catatan satu baris. */
+function KartuAngka({
+  judul,
+  nilai,
+  catatan,
+  warna,
+}: {
+  judul: string;
+  nilai: string;
+  catatan: string;
+  warna: "emerald" | "amber" | "slate";
+}) {
+  const gaya = {
+    emerald: {
+      kotak: "border-emerald-200 bg-emerald-50/60",
+      judul: "text-emerald-800",
+      angka: "text-emerald-800",
+    },
+    amber: {
+      kotak: "border-amber-200 bg-amber-50/60",
+      judul: "text-amber-800",
+      angka: "text-amber-700",
+    },
+    slate: {
+      kotak: "border-slate-200 bg-white",
+      judul: "text-slate-500",
+      angka: "text-slate-900",
+    },
+  }[warna];
+
+  return (
+    <div className={`rounded-xl border px-3 py-2 ${gaya.kotak}`}>
+      <p className={`text-[10px] font-semibold uppercase tracking-[0.14em] ${gaya.judul}`}>
+        {judul}
+      </p>
+      <p className={`mt-1 text-base font-semibold tabular-nums ${gaya.angka}`}>{nilai}</p>
+      <p className="text-[10px] leading-4 text-muted-foreground">{catatan}</p>
+    </div>
+  );
+}
+
+/**
+ * Ringkasan keuntungan penyedia dana — bentuk ringkas di puncak ruang penyedia
+ * dana (dan panel admin yang menampilkannya).
+ *
+ * Pertanyaan penyedia dana cuma dua: **berapa yang sudah jadi uang** dan
+ * **berapa yang masih perkiraan**. Karena itu angkanya dipisah menjadi kartu,
+ * bukan dirangkai menjadi kalimat bertumpuk, dan pemisahan itu diberi label
+ * yang sama dengan yang dipakai di kartu tiap penyedia dana ("Sudah lunas ·
+ * dibukukan" vs "Belum lunas · perkiraan").
+ *
+ * Murni presentasional — tanpa Convex — supaya bisa dirender langsung oleh uji
+ * markup (`RingkasanKeuntungan.render.test.tsx`).
+ */
+export function RingkasanKeuntungan({
+  ringkasan,
+}: {
+  ringkasan: AngkaRingkasanKeuntungan;
+}) {
+  return (
+    <section aria-label="Ringkasan keuntungan penyedia dana" className="animate-masuk mt-3">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h2 className="text-lg font-semibold tracking-tight">Ringkasan keuntungan</h2>
+        <p className="text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+          Seluruh penyedia dana
+        </p>
+      </div>
+
+      <div className="mt-2 grid gap-2 sm:grid-cols-3">
+        <KartuAngka
+          judul="Sudah lunas · dibukukan"
+          nilai={formatRupiah(ringkasan.totalKeuntunganPendanaLunas)}
+          catatan="keuntungan yang sudah menjadi hak penyedia dana"
+          warna="emerald"
+        />
+        <KartuAngka
+          judul="Belum lunas · perkiraan"
+          nilai={formatRupiah(ringkasan.totalKeuntunganPendanaBelumLunas)}
+          catatan="hitungan atas pinjaman yang masih berjalan — belum dibukukan"
+          warna="amber"
+        />
+        <KartuAngka
+          judul="Total keuntungan pendana"
+          nilai={formatRupiah(ringkasan.totalKeuntunganPendana)}
+          catatan="dibukukan + perkiraan"
+          warna="slate"
+        />
+      </div>
+
+      <p className="mt-2 max-w-3xl text-xs leading-5 text-muted-foreground">
+        Angka <strong>perkiraan</strong> baru menjadi uang penyedia dana saat pinjamannya lunas.
+        Potongan admin {formatRupiah(ringkasan.totalKeuntunganAdmin)} (sudah dibukukan{" "}
+        {formatRupiah(ringkasan.totalKeuntunganAdminLunas)} · perkiraan{" "}
+        {formatRupiah(ringkasan.totalKeuntunganAdminBelumLunas)}) diambil dari uang yang kembali,
+        bukan dari Imbal Hasil saja — pokok tetap kembali utuh.
+      </p>
+
+      {ringkasan.totalTransferBelumDicatat > 0 && (
+        <p className="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1 text-[11px] font-medium text-amber-800">
+          <TriangleAlert className="size-3.5 shrink-0" aria-hidden />
+          {ringkasan.totalTransferBelumDicatat} transfer keuntungan belum dicatat (
+          {formatRupiah(ringkasan.nilaiTransferBelumDicatat)})
+        </p>
+      )}
+    </section>
+  );
+}

@@ -24,8 +24,10 @@ import { Link } from "react-router";
 import { RoleDashboardMenu } from "@/components/RoleDashboardMenu";
 import { VaultLogo } from "@/components/VaultLogo";
 import { CatatanPotonganAdmin } from "@/components/penyediaDana/CatatanPotonganAdmin";
-import { KartuPendana } from "@/components/penyediaDana/KartuPendana";
+import { GrafikKeuntunganPendana } from "@/components/penyediaDana/GrafikKeuntunganPendana";
+import { KartuPendana, type RincianPerkiraan } from "@/components/penyediaDana/KartuPendana";
 import { PetaLokasiPeminjam } from "@/components/penyediaDana/PetaLokasiPeminjam";
+import { RingkasanKeuntungan } from "@/components/penyediaDana/RingkasanKeuntungan";
 import { SaringanPengajuan } from "@/components/penyediaDana/SaringanPengajuan";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Badge } from "@/components/ui/badge";
@@ -1438,6 +1440,27 @@ function IsiRuang() {
   };
   const jumlahTab = jumlahPerTab[tab] ?? { tampil: 0, total: 0 };
 
+  /**
+   * Pinjaman berjalan milik satu penyedia dana — pembentuk baris "Belum lunas
+   * (perkiraan)" pada kartunya.
+   *
+   * Sengaja memakai saringan yang SAMA dengan perhitungan rekap di server
+   * (`pendana` terisi dan statusnya `didanai`), bukan daftar `pinjamanDidanai`
+   * di atas yang juga memuat baris warisan ber-`didanaiPada` — supaya jumlah
+   * baris rincian selalu sama dengan angka perkiraan di kartu, bukan sekadar
+   * mirip.
+   */
+  function rincianPerkiraan(nama: string): RincianPerkiraan[] {
+    return (data?.pinjaman ?? [])
+      .filter((b) => b.pendana === nama && b.status === "didanai")
+      .map((b) => ({
+        id: b._id,
+        nomorReferensi: b.nomorReferensi,
+        namaLengkap: capitalize(b.namaLengkap),
+        keuntunganPendana: b.keuntunganPendana,
+      }));
+  }
+
   return (
     <div className="flex min-h-screen flex-col overflow-x-clip bg-slate-50 text-slate-900">
       <header className="animate-masuk border-b border-slate-200 bg-white/80 backdrop-blur">
@@ -1528,6 +1551,11 @@ function IsiRuang() {
 
             <CatatanPotonganAdmin persen={data.ringkasan.persenPotonganAdmin} />
 
+            {/* Ringkasan keuntungan selalu tampil: pertanyaan penyedia dana
+                ("berapa yang sudah jadi uang, berapa yang masih perkiraan")
+                dijawab di puncak halaman, bukan di tengah daftar angka. */}
+            <RingkasanKeuntungan ringkasan={data.ringkasan} />
+
             {data.rekapPendana.length > 0 && (
               <section className="animate-masuk mt-6">
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
@@ -1540,63 +1568,22 @@ function IsiRuang() {
                     {data.ringkasan.persenPotonganAdmin}% dari uang yang kembali
                   </p>
                 </div>
-                {/* Tiga angka utama dipisah menjadi kartu kecil, bukan kalimat
-                    bertumpuk: pertanyaan penyedia dana cuma dua — berapa yang sudah
-                    jadi uang, dan berapa yang masih perkiraan. */}
-                <div className="mt-3 grid gap-2 sm:grid-cols-3">
-                  <div className="rounded-xl border border-emerald-200 bg-emerald-50/60 px-3 py-2">
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-emerald-800">
-                      Sudah lunas · dibukukan
-                    </p>
-                    <p className="mt-1 text-base font-semibold tabular-nums text-emerald-800">
-                      {rupiah(data.ringkasan.totalKeuntunganPendanaLunas)}
-                    </p>
-                    <p className="text-[10px] leading-4 text-muted-foreground">
-                      keuntungan yang sudah menjadi hak penyedia dana
-                    </p>
+                {/* Grafik hanya berguna saat ada beberapa penyedia dana yang bisa
+                    dibandingkan — dengan satu penyedia, kartunya sendiri yang
+                    berbicara. Angka ringkasannya sudah tampil di puncak halaman. */}
+                {data.rekapPendana.length > 1 && (
+                  <div className="mt-3">
+                    <GrafikKeuntunganPendana rekap={data.rekapPendana} />
                   </div>
-                  <div className="rounded-xl border border-amber-200 bg-amber-50/60 px-3 py-2">
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-amber-800">
-                      Belum lunas · perkiraan
-                    </p>
-                    <p className="mt-1 text-base font-semibold tabular-nums text-amber-700">
-                      {rupiah(data.ringkasan.totalKeuntunganPendanaBelumLunas)}
-                    </p>
-                    <p className="text-[10px] leading-4 text-muted-foreground">
-                      hitungan atas pinjaman yang masih berjalan — belum dibukukan
-                    </p>
-                  </div>
-                  <div className="rounded-xl border border-slate-200 bg-white px-3 py-2">
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">
-                      Total keuntungan pendana
-                    </p>
-                    <p className="mt-1 text-base font-semibold tabular-nums text-slate-900">
-                      {rupiah(data.ringkasan.totalKeuntunganPendana)}
-                    </p>
-                    <p className="text-[10px] leading-4 text-muted-foreground">
-                      dibukukan + perkiraan
-                    </p>
-                  </div>
-                </div>
-
-                <p className="mt-2 max-w-3xl text-xs leading-5 text-muted-foreground">
-                  Angka <strong>perkiraan</strong> baru menjadi uang penyedia dana saat
-                  pinjamannya lunas. Potongan admin{" "}
-                  {rupiah(data.ringkasan.totalKeuntunganAdmin)} (sudah dibukukan{" "}
-                  {rupiah(data.ringkasan.totalKeuntunganAdminLunas)} · perkiraan{" "}
-                  {rupiah(data.ringkasan.totalKeuntunganAdminBelumLunas)}) diambil dari uang yang
-                  kembali, bukan dari Imbal Hasil saja — pokok tetap kembali utuh.
-                </p>
-                {data.ringkasan.totalTransferBelumDicatat > 0 && (
-                  <p className="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1 text-[11px] font-medium text-amber-800">
-                    <TriangleAlert className="size-3.5 shrink-0" aria-hidden />
-                    {data.ringkasan.totalTransferBelumDicatat} transfer keuntungan belum dicatat (
-                    {rupiah(data.ringkasan.nilaiTransferBelumDicatat)})
-                  </p>
                 )}
+
                 <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                   {data.rekapPendana.map((r) => (
-                    <KartuPendana key={r.nama} r={r} />
+                    <KartuPendana
+                      key={r.nama}
+                      r={r}
+                      rincianPerkiraan={rincianPerkiraan(r.nama)}
+                    />
                   ))}
                 </div>
               </section>
