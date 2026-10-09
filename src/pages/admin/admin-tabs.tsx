@@ -15,12 +15,14 @@ import {
   ShieldCheck,
   ShoppingBag,
   PanelsTopLeft,
+  Smartphone,
   Wallet,
 } from "lucide-react";
 
 import { AdminNav } from "@/components/admin/admin-nav";
 import { AksesPenyediaDanaPanel } from "@/components/admin/AksesPenyediaDanaPanel";
 import { AnnouncementCms } from "@/components/admin/AnnouncementCms";
+import { AplikasiAndroidPanel } from "@/components/admin/AplikasiAndroidPanel";
 import { AuditTrailPanel } from "@/components/admin/AuditTrailPanel";
 import { BackupPanel } from "@/components/admin/BackupPanel";
 import { LiveLocationMap } from "@/components/admin/LiveLocationMap";
@@ -252,6 +254,14 @@ export function AdminTabs({
           Icon: PanelsTopLeft,
         },
         {
+          value: "aplikasi",
+          label: "Aplikasi Android",
+          hint: "Ganti splash screen, logo di dalam aplikasi, nama, dan warna tanpa build ulang.",
+          badge: null,
+          hitung: "tidak",
+          Icon: Smartphone,
+        },
+        {
           value: "loglogin",
           label: "Keamanan Login",
           hint: "Riwayat login dan status verifikasi TOTP.",
@@ -348,6 +358,7 @@ export function AdminTabs({
     whatsapp: <WhatsAppPanel />,
     config: <SystemConfigPanel />,
     template: <WebsiteTemplatePanel />,
+    aplikasi: <AplikasiAndroidPanel />,
     loglogin: <LoginSecurityPanel onOpenSetup={onOpenSetup} />,
     audit: <AuditTrailPanel />,
     backup: <BackupPanel />,

@@ -359,7 +359,7 @@ cek(
 );
 cek("H7 lencana tampil di baris", htmlCari.includes(">2<") && htmlCari.includes(">OK<"));
 
-// ===== I. Select 17 opsi benar-benar hilang dari panel admin =====
+// ===== I. Select 18 opsi benar-benar hilang dari panel admin =====
 cek("I1 tanpa elemen select", !html.includes("<select"));
 cek("I2 tanpa id admin-tab-select", !html.includes("admin-tab-select"));
 

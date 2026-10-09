@@ -1,6 +1,6 @@
 import { httpRouter } from "convex/server";
 
-import { internal } from "./_generated/api";
+import { api, internal } from "./_generated/api";
 import { httpAction } from "./_generated/server";
 import { auth } from "./auth";
 
@@ -43,6 +43,15 @@ function balas(status: number, isi: unknown): Response {
     headers: { ...CORS, "Content-Type": "application/json" },
   });
 }
+
+/**
+ * Header CORS untuk endpoint BACA (pengaturan aplikasi). Aman `*` karena
+ * endpointnya publik dan tidak menerima kredensial apa pun.
+ */
+const CORS_BACA: Record<string, string> = {
+  ...CORS,
+  "Access-Control-Allow-Methods": "GET, OPTIONS",
+};
 
 /** Token dari header `Authorization: Bearer ...` atau field `token`. */
 function tokenDari(request: Request, isi: Record<string, unknown>): string {
@@ -122,6 +131,49 @@ http.route({
       // berasal dari `simpanTitik`; pesannya sudah siap ditampilkan ke pengguna.
       const pesan = err instanceof Error ? err.message : "Gagal menyimpan titik lokasi.";
       return balas(400, { ok: false, error: pesan });
+    }
+  }),
+});
+
+/**
+ * Pengaturan aplikasi Android untuk klien apa pun.
+ *
+ * Kenapa lewat HTTP, bukan hanya query Convex: aplikasi Android boleh jadi
+ * pembungkus WebView/native yang tidak memakai SDK Convex (mis. Kotlin, Flutter,
+ * atau Capacitor). Endpoint GET sederhana ini memuat splash screen, logo, nama,
+ * dan warna yang diatur admin dari panel — jadi ganti splash/logo tidak perlu
+ * build ulang: aplikasi cukup memuat ulang endpoint ini saat dibuka.
+ *
+ * Isinya sama persis dengan `api.androidApp.asetAktif` (satu sumber di
+ * lib/asetAndroidApp), tidak ada data sensitif, dan tanpa autentikasi.
+ */
+http.route({
+  path: "/api/aplikasi-android",
+  method: "OPTIONS",
+  handler: httpAction(async () => new Response(null, { status: 204, headers: CORS_BACA })),
+});
+
+http.route({
+  path: "/api/aplikasi-android",
+  method: "GET",
+  handler: httpAction(async (ctx) => {
+    try {
+      const data = await ctx.runQuery(api.androidApp.asetAktif, {});
+      return new Response(JSON.stringify(data), {
+        status: 200,
+        headers: {
+          ...CORS_BACA,
+          "Content-Type": "application/json",
+          // Selalu segar: aplikasi memakainya sebagai sumber aset saat dibuka.
+          "Cache-Control": "no-store",
+        },
+      });
+    } catch (err) {
+      const pesan = err instanceof Error ? err.message : "Gagal membaca pengaturan aplikasi.";
+      return new Response(JSON.stringify({ ok: false, error: pesan }), {
+        status: 500,
+        headers: { ...CORS_BACA, "Content-Type": "application/json" },
+      });
     }
   }),
 });

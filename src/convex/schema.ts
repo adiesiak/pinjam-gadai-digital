@@ -679,6 +679,33 @@ const schema = defineSchema(
     }).index("by_slot", ["slot"]),
 
     /**
+     * Pengaturan aplikasi Android — satu baris global (slot "global").
+     *
+     * Admin mengganti splash screen, logo di dalam aplikasi, nama aplikasi, dan
+     * warna splash TANPA build ulang: aplikasi membuka berkas ini setiap kali
+     * dibuka. Berkas disimpan di Convex storage; yang tersimpan di sini hanya
+     * referensinya + nama berkas aslinya (untuk ditampilkan di panel).
+     * Ikon launcher di layar utama tetap milik APK — lihat lib/asetAndroidApp.ts.
+     */
+    androidAppConfig: defineTable({
+      slot: v.string(),
+      namaAplikasi: v.optional(v.string()),
+      warnaSplash: v.optional(v.string()),
+      warnaTeksSplash: v.optional(v.string()),
+      ikonId: v.optional(v.union(v.id("_storage"), v.null())),
+      ikonNama: v.optional(v.string()),
+      ikonPada: v.optional(v.number()),
+      ikonSplashId: v.optional(v.union(v.id("_storage"), v.null())),
+      ikonSplashNama: v.optional(v.string()),
+      ikonSplashPada: v.optional(v.number()),
+      splashId: v.optional(v.union(v.id("_storage"), v.null())),
+      splashNama: v.optional(v.string()),
+      splashPada: v.optional(v.number()),
+      diperbaruiPada: v.number(),
+      diperbaruiOleh: v.optional(v.string()),
+    }).index("by_slot", ["slot"]),
+
+    /**
      * Audit trail — append-only. Mencatat setiap aksi berdampak:
      * keputusan review, kill switch, perubahan konfigurasi, backup.
      */
