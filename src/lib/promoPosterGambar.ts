@@ -1,14 +1,26 @@
 /**
  * promoPosterGambar — komposer poster kampanye PINDAI di atas Canvas 2D.
  *
- * Satu kerangka untuk sembilan poster: latar teal pekat, bingkai tipis, grain,
- * watermark sangat samar, kepala berlogo + tagline, badge, headline tegas,
- * deskripsi, zona konten per varian, tombol CTA, dan disclaimer kecil. Konten
- * spesifik tiap poster datang dari data `promoPosters` — tidak ada teks atau
- * angka yang ditulis di sini (placeholder biaya pun berasal dari data).
+ * Arah desain (revisi): **poster tipografi**, bukan poster ikon.
  *
- * Output selalu 1080 × 1350 px (rasio 4:5) pada skala ctx 1:1; kanvas memang
- * dibuat sebesar itu sehingga unduhan PNG identik dengan pratinjau.
+ * Versi sebelumnya menaruh ilustrasi clip-art di tengah poster (dokumen, ponsel,
+ * brankas, perisai, kantong, gelembung chat, centang) plus deret pil fitur.
+ * Hasilnya ramai: banyak bentuk yang tidak menambah makna, dan pesan kampanye
+ * justru tenggelam di antara ikon.
+ *
+ * Aturan yang berlaku sekarang:
+ *  1. **Tagline adalah fokus utama.** Tiap poster membuka dengan TAGLINE
+ *     kampanyenya sendiri (`poster.badge`, ditampilkan dalam huruf besar, warna
+ *     aksen, dengan jarak antar-huruf) di bawah kop brand — itu elemen pertama
+ *     yang dibaca setelah logo.
+ *  2. **Tanpa ikon.** Tidak ada clip-art sama sekali. Seluruh konten digambar
+ *     sebagai huruf, garis rambut (hairline), dan bidang tipis: daftar fitur,
+ *     langkah bernomor, baris biaya, kisi pilar, dan daftar pertanyaan.
+ *  3. **Hierarki tetap tunggal.** Tagline → headline → deskripsi → konten →
+ *     CTA → kaki. Setiap poster punya satu pusat perhatian, bukan lima.
+ *
+ * Satu kerangka untuk sembilan poster, konten datang dari data `promoPosters`.
+ * Output selalu 1080 × 1350 px (rasio 4:5) pada skala ctx 1:1.
  */
 import { TAGLINE, type PromoPoster } from "./promoPosters";
 
@@ -19,9 +31,7 @@ const FONT = "ui-sans-serif, system-ui, sans-serif";
 /** Palet tetap — sengaja tidak mengikuti tema situs supaya PNG selalu sama. */
 const TEAL = "#0e3733";
 const TEAL_TUA = "#0a2a27";
-const HUTAN = "#15524b";
 const IVORY = "#f1ede3";
-const CREAM = "#fbf8f1";
 const REDUP = "#b9c7c2";
 const EMAS = "#d8b45e";
 const JINGGA = "#d4703c";
@@ -114,9 +124,101 @@ function lebarTeks(ctx: Ctx, teks: string, fs: number, berat = 700): number {
   return w;
 }
 
+/**
+ * Tulis satu baris dengan jarak antar-huruf tambahan.
+ *
+ * `ctx.letterSpacing` tidak tersedia di semua peramban; bila tidak ada, teks
+ * tetap ditulis tanpa jarak tambahan (bukan gagal) — karena itu pengukuran lebar
+ * selalu menambah perkiraan jarak supaya pemenggalan baris tetap aman.
+ */
+function tulisBerspasi(
+  ctx: Ctx,
+  teks: string,
+  x: number,
+  y: number,
+  fs: number,
+  spasi: number,
+  warna: string,
+): number {
+  const c = ctx as Ctx & { letterSpacing?: string };
+  const didukung = "letterSpacing" in c;
+  ctx.save();
+  if (didukung) c.letterSpacing = `${spasi}px`;
+  ctx.font = `800 ${fs}px ${FONT}`;
+  ctx.fillStyle = warna;
+  ctx.textAlign = "left";
+  ctx.textBaseline = "top";
+  ctx.fillText(teks, x, y);
+  ctx.restore();
+  return fs * 1.06;
+}
+
+/** Perkiraan lebar satu baris berjarak huruf (dipakai untuk pemenggalan). */
+function lebarBerspasi(ctx: Ctx, teks: string, fs: number, spasi: number): number {
+  return lebarTeks(ctx, teks, fs, 800) + Math.max(0, Array.from(teks).length - 1) * spasi;
+}
+
+/**
+ * Pilih ukuran tagline terbesar yang muat satu baris di lebar `maxW`.
+ *
+ * Tagline adalah fokus poster, jadi ia boleh lebih besar dari headline
+ * (bahkan sampai 88 px untuk tagline pendek). Batas atas dipakai sebagai
+ * perkiraan konservatif (0,62 em/huruf) supaya di peramban nyata pun tidak
+ * melipat — perkiraan ini selalu ≥ lebar hasil ukur ctx tiruan.
+ */
+function ukuranTagline(ctx: Ctx, teks: string, maxW: number): { fs: number; spasi: number } {
+  const n = Array.from(teks).length;
+  for (let fs = 88; fs >= 40; fs -= 2) {
+    const spasi = Math.round(fs * 0.14);
+    const perkiraan =
+      Math.max(lebarTeks(ctx, teks, fs, 800), n * fs * 0.62) + Math.max(0, n - 1) * spasi;
+    if (perkiraan <= maxW) return { fs, spasi };
+  }
+  return { fs: 40, spasi: 5 };
+}
+
+/** Blok tagline berjarak huruf: dibungkus manual agar jaraknya ikut dihitung. */
+function tulisTagline(
+  ctx: Ctx,
+  teks: string,
+  x: number,
+  y: number,
+  fs: number,
+  spasi: number,
+  maxW: number,
+  warna: string,
+): number {
+  const lineH = fs * 1.24;
+  const baris: string[] = [];
+  let kini = "";
+  for (const k of teks.split(" ")) {
+    const coba = kini ? `${kini} ${k}` : k;
+    if (kini && lebarBerspasi(ctx, coba, fs, spasi) > maxW) {
+      baris.push(kini);
+      kini = k;
+    } else {
+      kini = coba;
+    }
+  }
+  baris.push(kini);
+
+  let cy = y;
+  for (const b of baris) {
+    tulisBerspasi(ctx, b, x, cy, fs, spasi, warna);
+    cy += lineH;
+  }
+  return cy;
+}
+
 // ---------------------------------------------------------------------------
-// Elemen kerangka
+// Kerangka poster
 // ---------------------------------------------------------------------------
+
+const MARGIN = 80;
+const LEBAR_KONTEN = 920;
+const RULE_Y = 172;
+const CTA_Y = 1128;
+const FOOT_Y = 1264;
 
 /** Butiran (grain) sangat halus — deterministik supaya hasil uji stabil. */
 function grain(ctx: Ctx): void {
@@ -138,17 +240,21 @@ function grain(ctx: Ctx): void {
 /** Watermark "PINDAI" raksasa — sangat subtle, di tengah poster. */
 function watermark(ctx: Ctx): void {
   ctx.save();
-  ctx.translate(540, 720);
+  ctx.translate(540, 760);
   ctx.rotate(-0.16);
   ctx.font = `800 330px ${FONT}`;
-  ctx.fillStyle = rgba(IVORY, 0.05);
+  ctx.fillStyle = rgba(IVORY, 0.045);
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.fillText("PINDAI", 0, 0);
   ctx.restore();
 }
 
-/** Latar + bingkai editorial + dua lingkaran geometris tipis. */
+/**
+ * Latar + bingkai editorial. Sengaja hanya dua ornamen: satu busur tipis di
+ * sudut atas dan satu di bawah, supaya bidangnya tidak terbaca rata tanpa
+ * menambah bentuk yang bersaing dengan teks.
+ */
 function latar(ctx: Ctx, aksen: string): void {
   ctx.save();
   ctx.fillStyle = TEAL;
@@ -176,7 +282,7 @@ function latar(ctx: Ctx, aksen: string): void {
   grain(ctx);
 }
 
-/** Logo lockup: petak brankas + wordmark PINDAI + tagline. */
+/** Logo lockup: petak brankas + wordmark PINDAI + tagline brand. */
 function logo(
   ctx: Ctx,
   x: number,
@@ -187,7 +293,14 @@ function logo(
 ): number {
   const s = skala;
   const ukuran = Math.round(56 * s);
-  const bx = tengah ? x - ukuran / 2 : x;
+  const fsWord = Math.round(44 * s);
+  const fsTag = Math.round(17 * s);
+  const lebarBlok = Math.max(
+    lebarTeks(ctx, "PINDAI", fsWord, 800),
+    lebarTeks(ctx, TAGLINE, fsTag, 700),
+  );
+  const lebarLockup = ukuran + 18 * s + lebarBlok;
+  const bx = tengah ? x - lebarLockup / 2 : x;
   bulat(ctx, bx, y, ukuran, ukuran, Math.round(14 * s));
   ctx.fillStyle = IVORY;
   ctx.fill();
@@ -207,96 +320,51 @@ function logo(
   ctx.fillStyle = aksen;
   ctx.fill();
 
-  const fsWord = Math.round(44 * s);
-  const xWord = tengah ? x + ukuran / 2 + 14 * s : x + ukuran + 18 * s;
+  const xWord = bx + ukuran + 18 * s;
   const yWord = y - 4 * s;
   ctx.font = `800 ${fsWord}px ${FONT}`;
   ctx.fillStyle = IVORY;
-  ctx.textAlign = tengah ? "left" : "left";
+  ctx.textAlign = "left";
   ctx.textBaseline = "top";
   ctx.fillText("PINDAI", xWord, yWord);
 
-  const fsTag = Math.round(17 * s);
   ctx.font = `700 ${fsTag}px ${FONT}`;
   ctx.fillStyle = aksen;
   ctx.fillText(TAGLINE, xWord, yWord + fsWord + 8 * s);
+
   return Math.max(ukuran, fsWord + fsTag + 14 * s);
 }
 
-/** Badge pill kecil di atas headline. */
-function badge(ctx: Ctx, teks: string, x: number, y: number, aksen: string): number {
-  const fs = 22;
-  const w = lebarTeks(ctx, teks.toUpperCase(), fs, 800) + 52;
-  const h = 54;
-  bulat(ctx, x, y, w, h, h / 2);
-  ctx.fillStyle = rgba(aksen, 0.14);
-  ctx.fill();
-  ctx.strokeStyle = rgba(aksen, 0.6);
-  ctx.lineWidth = 2;
+/** Garis rambut — satu-satunya pemisah yang dipakai poster ini. */
+function garis(ctx: Ctx, x: number, y: number, w: number, warna: string, tebal = 2): void {
+  ctx.beginPath();
+  ctx.moveTo(x, y);
+  ctx.lineTo(x + w, y);
+  ctx.strokeStyle = warna;
+  ctx.lineWidth = tebal;
   ctx.stroke();
-  ctx.font = `800 ${fs}px ${FONT}`;
-  ctx.fillStyle = aksen;
-  ctx.textAlign = "left";
-  ctx.textBaseline = "middle";
-  ctx.fillText(teks.toUpperCase(), x + 26, y + h / 2 + 1);
-  ctx.textBaseline = "top";
-  return h;
 }
 
-/** Deret pil fitur — membungkus baris bila tidak muat. */
-function chips(ctx: Ctx, daftar: readonly string[], x: number, yMaks: number, aksen: string): number {
-  if (daftar.length === 0) return yMaks;
-  const fs = 26;
-  const h = 58;
-  const gap = 16;
-  const padX = 26;
-  const maxW = 920;
-
-  const baris: { teks: string; w: number }[][] = [];
-  let kini: { teks: string; w: number }[] = [];
-  let lebar = 0;
-  for (const t of daftar) {
-    const w = Math.round(lebarTeks(ctx, t, fs, 700)) + padX * 2;
-    const coba = kini.length === 0 ? w : lebar + gap + w;
-    if (coba > maxW && kini.length > 0) {
-      baris.push(kini);
-      kini = [{ teks: t, w }];
-      lebar = w;
-    } else {
-      kini.push({ teks: t, w });
-      lebar = coba;
-    }
-  }
-  if (kini.length > 0) baris.push(kini);
-
-  const totalH = baris.length * h + (baris.length - 1) * gap;
-  let y = yMaks - totalH;
-  for (const b of baris) {
-    const lebarBaris = b.reduce((s, c) => s + c.w, 0) + gap * (b.length - 1);
-    let cx = x + (maxW - lebarBaris) / 2;
-    for (const c of b) {
-      bulat(ctx, cx, y, c.w, h, h / 2);
-      ctx.fillStyle = rgba(IVORY, 0.07);
-      ctx.fill();
-      ctx.strokeStyle = rgba(aksen, 0.45);
-      ctx.lineWidth = 2;
-      ctx.stroke();
-      ctx.font = `700 ${fs}px ${FONT}`;
-      ctx.fillStyle = IVORY;
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      ctx.fillText(c.teks, cx + c.w / 2, y + h / 2 + 1);
-      cx += c.w + gap;
-    }
-    y += h + gap;
-  }
-  ctx.textAlign = "left";
-  ctx.textBaseline = "top";
-  return yMaks;
+/** Panel hairline tipis sebagai wadah daftar konten (satu bentuk, bukan ikon). */
+function panel(ctx: Ctx, y: number, h: number, aksen: string): void {
+  bulat(ctx, MARGIN, y, LEBAR_KONTEN, h, 26);
+  ctx.fillStyle = rgba(IVORY, 0.05);
+  ctx.fill();
+  ctx.strokeStyle = rgba(aksen, 0.3);
+  ctx.lineWidth = 2;
+  ctx.stroke();
 }
 
 /** Tombol CTA pill. */
-function tombol(ctx: Ctx, teks: string, x: number, y: number, aksen: string, tengah: boolean, fs = 34): number {
+function tombol(
+  ctx: Ctx,
+  teks: string,
+  x: number,
+  y: number,
+  aksen: string,
+  tengah: boolean,
+  fs = 34,
+): number {
   const h = fs + 58;
   const w = lebarTeks(ctx, teks, fs, 800) + 88;
   const bx = tengah ? x - w / 2 : x;
@@ -316,8 +384,15 @@ function tombol(ctx: Ctx, teks: string, x: number, y: number, aksen: string, ten
   return h;
 }
 
-/** Pill b Outline (CTA sekunder). */
-function tombolOutline(ctx: Ctx, teks: string, x: number, y: number, aksen: string, tengah: boolean, fs = 24): number {
+/** Pill outline (CTA sekunder poster hero). */
+function tombolOutline(
+  ctx: Ctx,
+  teks: string,
+  x: number,
+  y: number,
+  tengah: boolean,
+  fs = 24,
+): number {
   const h = fs + 32;
   const w = lebarTeks(ctx, teks, fs, 700) + 64;
   const bx = tengah ? x - w / 2 : x;
@@ -336,231 +411,96 @@ function tombolOutline(ctx: Ctx, teks: string, x: number, y: number, aksen: stri
 }
 
 // ---------------------------------------------------------------------------
-// Ikon geometris minimal
+// Zona konten per bentuk — semuanya tipografi, tanpa ikon
 // ---------------------------------------------------------------------------
 
-function ikonCentang(ctx: Ctx, cx: number, cy: number, r: number, aksen: string): void {
-  ctx.beginPath();
-  ctx.arc(cx, cy, r, 0, Math.PI * 2);
-  ctx.fillStyle = rgba(aksen, 0.18);
-  ctx.fill();
-  ctx.strokeStyle = aksen;
-  ctx.lineWidth = Math.max(2, r * 0.16);
-  ctx.beginPath();
-  ctx.moveTo(cx - r * 0.42, cy + r * 0.02);
-  ctx.lineTo(cx - r * 0.1, cy + r * 0.34);
-  ctx.lineTo(cx + r * 0.46, cy - r * 0.34);
-  ctx.stroke();
+/** Tinggi baris yang pas untuk `n` baris di dalam rentang [atas, bawah]. */
+function tinggiBaris(n: number, atas: number, bawah: number, maks: number): number {
+  if (n <= 0) return 0;
+  return Math.max(52, Math.min(maks, (bawah - atas) / n));
 }
 
-/** Ponsel dengan antarmuka mini (kartu saldo + baris + centang). */
-function ponsel(ctx: Ctx, x: number, y: number, w: number, h: number, aksen: string): void {
-  bulat(ctx, x, y, w, h, w * 0.12);
-  ctx.fillStyle = CREAM;
-  ctx.fill();
-  ctx.strokeStyle = rgba(IVORY, 0.5);
-  ctx.lineWidth = 3;
-  ctx.stroke();
-
-  const pad = w * 0.09;
-  const sx = x + pad;
-  const sy = y + pad + h * 0.04;
-  const sw = w - pad * 2;
-  const sh = h - pad * 2 - h * 0.04;
-
-  bulat(ctx, sx, sy, sw, sh, w * 0.07);
-  ctx.fillStyle = TEAL_TUA;
-  ctx.fill();
-
-  // Bar header.
-  bulat(ctx, sx + sw * 0.1, sy + sh * 0.1, sw * 0.5, sh * 0.06, sh * 0.03);
-  ctx.fillStyle = aksen;
-  ctx.fill();
-
-  // Kartu saldo.
-  bulat(ctx, sx + sw * 0.1, sy + sh * 0.22, sw * 0.8, sh * 0.2, sh * 0.04);
-  ctx.fillStyle = HUTAN;
-  ctx.fill();
-  ctx.fillStyle = rgba(IVORY, 0.85);
-  ctx.fillRect(sx + sw * 0.18, sy + sh * 0.3, sw * 0.4, sh * 0.035);
-  ctx.fillStyle = aksen;
-  ctx.fillRect(sx + sw * 0.18, sy + sh * 0.38, sw * 0.28, sh * 0.045);
-
-  // Baris daftar + centang.
-  for (let i = 0; i < 3; i += 1) {
-    const ry = sy + sh * (0.5 + i * 0.16);
-    bulat(ctx, sx + sw * 0.1, ry, sw * 0.8, sh * 0.1, sh * 0.03);
-    ctx.fillStyle = rgba(IVORY, 0.08);
-    ctx.fill();
-    ctx.fillStyle = rgba(IVORY, 0.6);
-    ctx.fillRect(sx + sw * 0.17, ry + sh * 0.035, sw * 0.42, sh * 0.03);
-    ikonCentang(ctx, sx + sw * 0.79, ry + sh * 0.05, sh * 0.035, aksen);
-  }
+/**
+ * Titik mulai blok konten di dalam zona [atas, bawah].
+ *
+ * Bila blok lebih pendek dari zonanya, sisa ruang dibagi 40% di atas blok —
+ * konten tidak menempel ke deskripsi dan tidak menyisakan lubang besar di atas
+ * CTA. Bila blok lebih tinggi dari zona, mulai dari `atas` (tanpa geser).
+ */
+function sebar(atas: number, bawah: number, tinggiBlok: number): number {
+  return atas + Math.max(0, (bawah - atas - tinggiBlok) * 0.4);
 }
 
-/** Perisai keamanan. */
-function perisai(ctx: Ctx, x: number, y: number, w: number, h: number, aksen: string): void {
-  ctx.beginPath();
-  ctx.moveTo(x + w / 2, y);
-  ctx.lineTo(x + w, y + h * 0.22);
-  ctx.lineTo(x + w, y + h * 0.55);
-  ctx.quadraticCurveTo(x + w, y + h * 0.9, x + w / 2, y + h);
-  ctx.quadraticCurveTo(x, y + h * 0.9, x, y + h * 0.55);
-  ctx.lineTo(x, y + h * 0.22);
-  ctx.closePath();
-  ctx.fillStyle = rgba(aksen, 0.16);
-  ctx.fill();
-  ctx.strokeStyle = aksen;
-  ctx.lineWidth = 5;
-  ctx.stroke();
-  ikonCentang(ctx, x + w / 2, y + h * 0.46, w * 0.2, aksen);
-}
+/**
+ * Daftar fitur (bentuk "teks"): satu panel hairline berisi baris-baris fitur
+ * dengan penanda kotak aksen kecil — penanda geometris, bukan ikon.
+ */
+function daftarFitur(
+  ctx: Ctx,
+  daftar: readonly string[],
+  aksen: string,
+  atas: number,
+  bawah: number,
+): void {
+  const n = daftar.length;
+  if (n === 0) return;
+  const h = tinggiBaris(n, atas, bawah, 92);
+  const tinggiPanel = h * n;
+  const y0 = sebar(atas, bawah, tinggiPanel);
 
-/** Brankas gadai (petak + dial). */
-function brankas(ctx: Ctx, x: number, y: number, w: number, h: number, aksen: string): void {
-  bulat(ctx, x, y, w, h, w * 0.1);
-  ctx.fillStyle = HUTAN;
-  ctx.fill();
-  ctx.strokeStyle = aksen;
-  ctx.lineWidth = 5;
-  ctx.stroke();
-  const cx = x + w / 2;
-  const cy = y + h / 2;
-  ctx.beginPath();
-  ctx.arc(cx, cy, w * 0.26, 0, Math.PI * 2);
-  ctx.strokeStyle = IVORY;
-  ctx.lineWidth = 5;
-  ctx.stroke();
-  for (let i = 0; i < 8; i += 1) {
-    const a = (i / 8) * Math.PI * 2;
-    ctx.beginPath();
-    ctx.moveTo(cx + Math.cos(a) * w * 0.3, cy + Math.sin(a) * w * 0.3);
-    ctx.lineTo(cx + Math.cos(a) * w * 0.36, cy + Math.sin(a) * w * 0.36);
-    ctx.strokeStyle = rgba(IVORY, 0.7);
-    ctx.lineWidth = 3;
-    ctx.stroke();
-  }
-  ctx.beginPath();
-  ctx.arc(cx, cy, w * 0.07, 0, Math.PI * 2);
-  ctx.fillStyle = aksen;
-  ctx.fill();
-}
-
-/** Kantong belanja (kredit barang). */
-function kantong(ctx: Ctx, x: number, y: number, w: number, h: number, aksen: string): void {
-  bulat(ctx, x, y + h * 0.24, w, h * 0.76, w * 0.08);
-  ctx.fillStyle = CREAM;
-  ctx.fill();
-  ctx.strokeStyle = rgba(TEAL, 0.3);
-  ctx.lineWidth = 3;
-  ctx.stroke();
-  ctx.beginPath();
-  ctx.arc(x + w / 2, y + h * 0.26, w * 0.26, Math.PI, 0);
-  ctx.strokeStyle = aksen;
-  ctx.lineWidth = 6;
-  ctx.stroke();
-  ctx.fillStyle = rgba(TEAL, 0.12);
-  ctx.fillRect(x + w * 0.2, y + h * 0.5, w * 0.6, h * 0.08);
-  ctx.fillRect(x + w * 0.2, y + h * 0.66, w * 0.4, h * 0.08);
-}
-
-/** Gelembung chat dengan tanda tanya (FAQ). */
-function gelembung(ctx: Ctx, x: number, y: number, w: number, h: number, aksen: string): void {
-  bulat(ctx, x, y, w, h, 26);
-  ctx.fillStyle = rgba(IVORY, 0.07);
-  ctx.fill();
-  ctx.strokeStyle = rgba(aksen, 0.4);
-  ctx.lineWidth = 2;
-  ctx.stroke();
-  ctx.beginPath();
-  ctx.moveTo(x + 34, y + h - 2);
-  ctx.lineTo(x + 34, y + h + 24);
-  ctx.lineTo(x + 66, y + h - 2);
-  ctx.closePath();
-  ctx.fillStyle = rgba(IVORY, 0.07);
-  ctx.fill();
-
-  const r = 26;
-  ctx.beginPath();
-  ctx.arc(x + 46, y + h / 2, r, 0, Math.PI * 2);
-  ctx.fillStyle = aksen;
-  ctx.fill();
-  ctx.font = `800 30px ${FONT}`;
-  ctx.fillStyle = TEAL;
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.fillText("?", x + 46, y + h / 2 + 2);
-  ctx.textAlign = "left";
-  ctx.textBaseline = "top";
-}
-
-/** Dokumen digital dengan baris teks + centang. */
-function dokumen(ctx: Ctx, x: number, y: number, w: number, h: number, aksen: string): void {
-  bulat(ctx, x, y, w, h, 18);
-  ctx.fillStyle = CREAM;
-  ctx.fill();
-  ctx.strokeStyle = rgba(TEAL, 0.25);
-  ctx.lineWidth = 3;
-  ctx.stroke();
-  ctx.fillStyle = rgba(TEAL, 0.18);
-  for (let i = 0; i < 4; i += 1) {
-    ctx.fillRect(x + w * 0.14, y + h * (0.2 + i * 0.17), w * (i === 3 ? 0.4 : 0.72), h * 0.07);
-  }
-  ikonCentang(ctx, x + w * 0.8, y + h * 0.24, w * 0.13, aksen);
-}
-
-// ---------------------------------------------------------------------------
-// Zona konten per bentuk
-// ---------------------------------------------------------------------------
-
-const CTA_Y = 1128;
-const FOOT_Y = 1264;
-const RULE_Y = 172;
-const MARGIN = 80;
-
-/** Kartu baris bernomor (bentuk "langkah"). */
-function daftarLangkah(ctx: Ctx, items: { teks: string }[], aksen: string, atas: number, bawah: number): void {
-  const n = items.length;
-  const h = 84;
-  const gap = Math.min(24, ((bawah - atas) - n * h) / Math.max(1, n - 1));
-  const tinggiTotal = n * h + (n - 1) * gap;
-  let y = atas + Math.max(0, ((bawah - atas) - tinggiTotal) / 2);
-
+  panel(ctx, y0, tinggiPanel, aksen);
   for (let i = 0; i < n; i += 1) {
-    const it = items[i];
-    if (i > 0) {
-      ctx.beginPath();
-      ctx.moveTo(MARGIN + 34, y - gap + 4);
-      ctx.lineTo(MARGIN + 34, y + 4);
-      ctx.strokeStyle = rgba(aksen, 0.5);
-      ctx.lineWidth = 3;
-      ctx.stroke();
-    }
-    bulat(ctx, MARGIN, y, 920, h, 22);
-    ctx.fillStyle = rgba(IVORY, 0.06);
-    ctx.fill();
-    ctx.strokeStyle = rgba(IVORY, 0.12);
-    ctx.lineWidth = 2;
-    ctx.stroke();
+    const y = y0 + i * h;
+    if (i > 0) garis(ctx, MARGIN + 34, y, LEBAR_KONTEN - 68, rgba(IVORY, 0.12));
 
-    ctx.beginPath();
-    ctx.arc(MARGIN + 46, y + h / 2, 26, 0, Math.PI * 2);
+    // Penanda kotak aksen.
     ctx.fillStyle = aksen;
-    ctx.fill();
-    ctx.font = `800 26px ${FONT}`;
-    ctx.fillStyle = TEAL;
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText(String(i + 1), MARGIN + 46, y + h / 2 + 1);
+    ctx.fillRect(MARGIN + 38, y + h / 2 - 7, 14, 14);
+
+    tulis(ctx, daftar[i], MARGIN + 78, y + h / 2 - 20, {
+      fs: 32,
+      berat: 700,
+      maxW: LEBAR_KONTEN - 130,
+    });
+  }
+}
+
+/** Langkah bernomor (bentuk "langkah") — angka sebagai huruf, tanpa lingkaran. */
+function daftarLangkah(
+  ctx: Ctx,
+  items: { teks: string }[],
+  aksen: string,
+  atas: number,
+  bawah: number,
+): void {
+  const n = items.length;
+  if (n === 0) return;
+  const h = tinggiBaris(n, atas, bawah, 96);
+  const y0 = sebar(atas, bawah, h * n);
+
+  panel(ctx, y0, h * n, aksen);
+  for (let i = 0; i < n; i += 1) {
+    const y = y0 + i * h;
+    if (i > 0) garis(ctx, MARGIN + 34, y, LEBAR_KONTEN - 68, rgba(IVORY, 0.12));
+
+    ctx.font = `800 32px ${FONT}`;
+    ctx.fillStyle = aksen;
     ctx.textAlign = "left";
     ctx.textBaseline = "top";
+    ctx.fillText(String(i + 1), MARGIN + 44, y + h / 2 - 20);
 
-    tulis(ctx, it.teks, MARGIN + 92, y + h / 2 - 19, { fs: 32, berat: 700 });
-    y += h + gap;
+    tulis(ctx, items[i].teks, MARGIN + 116, y + h / 2 - 21, {
+      fs: 34,
+      berat: 700,
+      maxW: LEBAR_KONTEN - 168,
+    });
   }
 }
 
-/** Deret komponen biaya (bentuk "baris") dengan operator + / =. */
+/**
+ * Komponen biaya (bentuk "baris"): label aksen kiri, nilai kanan, operator
+ * (+ / =) sebagai huruf aksen di antara baris. Tanpa kartu per baris.
+ */
 function daftarBaris(
   ctx: Ctx,
   items: { judul?: string; teks: string }[],
@@ -570,44 +510,52 @@ function daftarBaris(
   bawah: number,
 ): void {
   const n = items.length;
-  const h = 104;
-  const gap = 44;
-  const tinggiTotal = n * h + (n - 1) * gap;
-  let y = atas + Math.max(0, ((bawah - atas) - tinggiTotal) / 2);
+  if (n === 0) return;
+  const gapOperator = 46;
+  const h = tinggiBaris(n, atas, bawah - (n - 1) * gapOperator, 118);
+  const tinggiPanel = h * n + (n - 1) * gapOperator;
+  const y0 = sebar(atas, bawah, tinggiPanel);
 
+  panel(ctx, y0, tinggiPanel, aksen);
+  let y = y0;
   for (let i = 0; i < n; i += 1) {
-    const it = items[i];
-    bulat(ctx, MARGIN, y, 920, h, 24);
-    ctx.fillStyle = rgba(IVORY, 0.06);
-    ctx.fill();
-    ctx.strokeStyle = i === n - 1 ? rgba(aksen, 0.7) : rgba(IVORY, 0.14);
-    ctx.lineWidth = i === n - 1 ? 3 : 2;
-    ctx.stroke();
-
-    tulis(ctx, (it.judul ?? "").toUpperCase(), MARGIN + 32, y + 22, {
-      fs: 24,
+    const total = i === n - 1;
+    tulis(ctx, (items[i].judul ?? "").toUpperCase(), MARGIN + 40, y + h / 2 - 26, {
+      fs: total ? 30 : 26,
       berat: 800,
       warna: aksen,
+      maxW: 420,
     });
-    ctx.font = `800 42px ${FONT}`;
-    ctx.fillStyle = IVORY;
+
+    ctx.font = `800 ${total ? 46 : 42}px ${FONT}`;
+    ctx.fillStyle = total ? aksen : IVORY;
     ctx.textAlign = "right";
-    ctx.textBaseline = "top";
-    ctx.fillText(it.teks, MARGIN + 888, y + 34);
+    ctx.textBaseline = "middle";
+    ctx.fillText(items[i].teks, MARGIN + LEBAR_KONTEN - 40, y + h / 2);
     ctx.textAlign = "left";
     ctx.textBaseline = "top";
 
-    if (i < n - 1 && pemisah?.[i]) {
-      ctx.font = `800 44px ${FONT}`;
-      ctx.fillStyle = aksen;
-      ctx.textAlign = "left";
-      ctx.fillText(pemisah[i], MARGIN + 4, y + h + 2);
+    // Garis tegas di atas baris total: penutup perhitungan.
+    if (total) garis(ctx, MARGIN + 40, y, LEBAR_KONTEN - 80, rgba(aksen, 0.45), 3);
+
+    y += h;
+    if (i < n - 1) {
+      const operator = pemisah?.[i];
+      if (operator) {
+        ctx.font = `800 34px ${FONT}`;
+        ctx.fillStyle = rgba(aksen, 0.9);
+        ctx.textAlign = "left";
+        ctx.textBaseline = "top";
+        ctx.fillText(operator, MARGIN + 40, y + 10);
+      }
+      y += gapOperator;
     }
-    y += h + gap;
+    ctx.textAlign = "left";
+    ctx.textBaseline = "top";
   }
 }
 
-/** Kisi 2×2 kartu (bentuk "kartu" — fitur keamanan / pilar brand). */
+/** Kisi 2×2 pilar (bentuk "kartu") — label teks dengan garis aksen, tanpa ikon. */
 function kisiKartu(
   ctx: Ctx,
   items: { teks: string }[],
@@ -616,33 +564,44 @@ function kisiKartu(
   bawah: number,
 ): void {
   const n = Math.min(items.length, 4);
-  const lebarKartu = 450;
-  const h = Math.min(150, ((bawah - atas) - 20) / 2);
-  const tinggiTotal = h * 2 + 20;
-  const y = atas + Math.max(0, ((bawah - atas) - tinggiTotal) / 2);
+  if (n === 0) return;
+  const gap = 20;
+  const lebarKartu = (LEBAR_KONTEN - gap) / 2;
+  const barisKe = Math.ceil(n / 2);
+  const hKartu = Math.min(150, (bawah - atas - gap * (barisKe - 1)) / barisKe);
+  const tinggiTotal = hKartu * barisKe + gap * (barisKe - 1);
+  const y0 = sebar(atas, bawah, tinggiTotal);
 
   for (let i = 0; i < n; i += 1) {
     const kolom = i % 2;
     const baris = Math.floor(i / 2);
-    const x = MARGIN + kolom * (lebarKartu + 20);
-    const cy = y + baris * (h + 20);
-    bulat(ctx, x, cy, lebarKartu, h, 24);
-    ctx.fillStyle = rgba(IVORY, 0.06);
+    const x = MARGIN + kolom * (lebarKartu + gap);
+    const y = y0 + baris * (hKartu + gap);
+
+    bulat(ctx, x, y, lebarKartu, hKartu, 22);
+    ctx.fillStyle = rgba(IVORY, 0.05);
     ctx.fill();
-    ctx.strokeStyle = rgba(IVORY, 0.13);
+    ctx.strokeStyle = rgba(aksen, 0.28);
     ctx.lineWidth = 2;
     ctx.stroke();
-    ikonCentang(ctx, x + 44, cy + 44, 22, aksen);
-    tulis(ctx, items[i].teks, x + 28, cy + h - 24 - (items[i].teks.length > 16 ? 44 : 0), {
-      fs: 30,
-      berat: 800,
-      maxW: lebarKartu - 56,
-      lineH: 36,
-    });
+
+    // Garis aksen kecil di tepi atas kartu: penanda, bukan ikon.
+    garis(ctx, x + 28, y + 30, 54, rgba(aksen, 0.9), 5);
+
+    ctx.font = `800 30px ${FONT}`;
+    ctx.fillStyle = IVORY;
+    ctx.textAlign = "left";
+    ctx.textBaseline = "top";
+    const barisTeks = bungkus(ctx, items[i].teks, lebarKartu - 56);
+    let ty = y + hKartu / 2 - (barisTeks.length * 38) / 2 + 10;
+    for (const b of barisTeks) {
+      ctx.fillText(b, x + 28, ty);
+      ty += 38;
+    }
   }
 }
 
-/** Deret pertanyaan (bentuk "pertanyaan" — kartu chat FAQ). */
+/** Daftar pertanyaan (bentuk "pertanyaan") — tanda pisah aksen, tanpa gelembung. */
 function daftarPertanyaan(
   ctx: Ctx,
   items: { teks: string }[],
@@ -651,120 +610,123 @@ function daftarPertanyaan(
   bawah: number,
 ): void {
   const n = items.length;
-  const h = 96;
-  const gap = Math.min(26, ((bawah - atas) - n * h) / Math.max(1, n - 1));
-  const tinggiTotal = n * h + (n - 1) * gap;
-  let y = atas + Math.max(0, ((bawah - atas) - tinggiTotal) / 2);
+  if (n === 0) return;
+  const h = tinggiBaris(n, atas, bawah, 96);
+  const y0 = sebar(atas, bawah, h * n);
 
+  panel(ctx, y0, h * n, aksen);
   for (let i = 0; i < n; i += 1) {
-    gelembung(ctx, MARGIN, y, 920, h, aksen);
-    tulis(ctx, items[i].teks, MARGIN + 92, y + h / 2 - 20, {
-      fs: 30,
+    const y = y0 + i * h;
+    if (i > 0) garis(ctx, MARGIN + 34, y, LEBAR_KONTEN - 68, rgba(IVORY, 0.12));
+
+    garis(ctx, MARGIN + 40, y + h / 2, 34, rgba(aksen, 0.9), 4);
+    tulis(ctx, items[i].teks, MARGIN + 100, y + h / 2 - 20, {
+      fs: 32,
       berat: 600,
-      maxW: 790,
-      lineH: 38,
+      maxW: LEBAR_KONTEN - 160,
     });
-    y += h + gap;
   }
 }
 
-/** Zona ilustrasi untuk bentuk "teks" — komposisi geometris per poster. */
-function ilustrasi(ctx: Ctx, p: PromoPoster, aksen: string, x: number, y: number, w: number, h: number): void {
-  const tengahX = x + w / 2;
-  switch (p.id) {
-    case "pinjaman": {
-      dokumen(ctx, x + 60, y + 30, 300, h - 60, aksen);
-      ponsel(ctx, tengahX + 90, y, 240, h, aksen);
-      ikonCentang(ctx, tengahX + 20, y + 50, 26, aksen);
-      ikonCentang(ctx, tengahX + 44, y + h - 60, 20, aksen);
-      break;
+/** Baris tautan kebijakan sebagai teks berjarak, bukan pil. */
+function barisTautan(ctx: Ctx, tautan: readonly string[], aksen: string, y: number): void {
+  let x = MARGIN;
+  for (const [i, t] of tautan.entries()) {
+    ctx.font = `700 24px ${FONT}`;
+    ctx.fillStyle = rgba(IVORY, 0.75);
+    ctx.textAlign = "left";
+    ctx.textBaseline = "top";
+    ctx.fillText(t, x, y);
+    x += lebarTeks(ctx, t, 24, 700) + 18;
+    if (i < tautan.length - 1) {
+      ctx.fillStyle = rgba(aksen, 0.9);
+      ctx.fillText("·", x, y);
+      x += lebarTeks(ctx, "·", 24, 700) + 18;
     }
-    case "gadai": {
-      brankas(ctx, x + 90, y + 10, 300, h - 20, aksen);
-      perisai(ctx, tengahX + 120, y + 24, 170, h - 60, aksen);
-      dokumen(ctx, tengahX - 60, y + h * 0.55, 150, h * 0.42, aksen);
-      break;
-    }
-    case "kredit": {
-      kantong(ctx, x + 90, y + 10, 260, h - 20, aksen);
-      ponsel(ctx, tengahX + 110, y + 6, 220, h - 12, aksen);
-      ikonCentang(ctx, tengahX + 20, y + 44, 24, aksen);
-      break;
-    }
-    case "keamanan": {
-      perisai(ctx, tengahX - 90, y + 4, 180, h - 8, aksen);
-      break;
-    }
-    default:
-      break;
   }
 }
 
-/** Komposisi hero poster CTA (bentuk "hero"). */
+/** Komposisi hero poster CTA (bentuk "hero") — tagline di tengah, tanpa ikon. */
 function hero(ctx: Ctx, p: PromoPoster, aksen: string): void {
-  // Glow lembut + lingkaran konsentris.
-  const glow = ctx.createRadialGradient(540, 780, 40, 540, 780, 640);
-  glow.addColorStop(0, rgba(aksen, 0.2));
-  glow.addColorStop(1, rgba(aksen, 0));
-  ctx.fillStyle = glow;
+  ctx.save();
+  ctx.fillStyle = TEAL;
   ctx.fillRect(0, 0, UKURAN_POSTER.lebar, UKURAN_POSTER.tinggi);
-  ctx.strokeStyle = rgba(IVORY, 0.08);
+  ctx.fillStyle = TEAL_TUA;
+  ctx.fillRect(0, 1080, UKURAN_POSTER.lebar, 270);
+  bulat(ctx, 34, 34, 1012, 1282, 44);
+  ctx.strokeStyle = rgba(IVORY, 0.12);
   ctx.lineWidth = 2;
-  for (const r of [300, 430, 560]) {
-    ctx.beginPath();
-    ctx.arc(540, 780, r, 0, Math.PI * 2);
-    ctx.stroke();
-  }
+  ctx.stroke();
+  ctx.restore();
+  watermark(ctx);
+  grain(ctx);
 
-  badge(ctx, p.badge, 540 - (lebarTeks(ctx, p.badge.toUpperCase(), 22, 800) + 52) / 2, 64, aksen);
+  logo(ctx, 540, 96, 1.2, aksen, true);
 
-  // Logo besar terpusat.
-  logo(ctx, 540 - 40, 150, 1.5, aksen, true);
+  // Tagline: fokus poster, di atas headline.
+  const tagline = p.badge.toUpperCase();
+  const ukuran = ukuranTagline(ctx, tagline, 900);
+  const lebarTag = lebarBerspasi(ctx, tagline, ukuran.fs, ukuran.spasi);
+  const tinggiTag = tulisTagline(
+    ctx,
+    tagline,
+    540 - lebarTag / 2,
+    262,
+    ukuran.fs,
+    ukuran.spasi,
+    900,
+    aksen,
+  );
+  const yRule = Math.max(tinggiTag + 16, 380);
 
-  tulis(ctx, p.headline, 540, 300, {
+  garis(ctx, 540 - 90, yRule, 180, rgba(aksen, 0.7), 4);
+
+  const yHeadline = tulis(ctx, p.headline, 540, yRule + 52, {
     fs: 92,
     berat: 800,
     align: "center",
-    maxW: 940,
+    maxW: 960,
     lineH: 100,
   });
-  tulis(ctx, p.description, 540, 512, {
-    fs: 30,
-    berat: 500,
-    warna: REDUP,
-    align: "center",
-    maxW: 860,
-    lineH: 44,
-  });
 
-  ponsel(ctx, 390, 640, 300, 360, aksen);
+  const yDesk = p.description
+    ? tulis(ctx, p.description, 540, yHeadline + 24, {
+        fs: 32,
+        berat: 500,
+        warna: REDUP,
+        align: "center",
+        maxW: 880,
+        lineH: 46,
+      })
+    : yHeadline;
 
-  // Tiga layanan.
+  // Tiga layanan sebagai kata berjarak huruf dengan pemisah titik aksen.
   const layanan = p.layanan ?? [];
-  const fsL = 24;
-  const lebarPil = 240;
-  const gapL = 24;
-  const totalL = layanan.length * lebarPil + (layanan.length - 1) * gapL;
+  const fsL = 27;
+  const spasiL = 5;
+  const bagian = layanan.map((l) => lebarBerspasi(ctx, l, fsL, spasiL));
+  const lebarPemisah = 34;
+  const totalL =
+    bagian.reduce((t, w) => t + w, 0) + lebarPemisah * Math.max(0, layanan.length - 1);
   let lx = 540 - totalL / 2;
-  for (const l of layanan) {
-    bulat(ctx, lx, 1026, lebarPil, 62, 31);
-    ctx.fillStyle = rgba(IVORY, 0.08);
-    ctx.fill();
-    ctx.strokeStyle = rgba(aksen, 0.5);
-    ctx.lineWidth = 2;
-    ctx.stroke();
-    ctx.font = `800 ${fsL}px ${FONT}`;
-    ctx.fillStyle = IVORY;
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText(l, lx + lebarPil / 2, 1026 + 32);
-    lx += lebarPil + gapL;
+  const yLayanan = Math.max(yDesk + 58, 726);
+  for (const [i, l] of layanan.entries()) {
+    tulisBerspasi(ctx, l, lx, yLayanan, fsL, spasiL, IVORY);
+    lx += bagian[i];
+    if (i < layanan.length - 1) {
+      ctx.font = `800 ${fsL}px ${FONT}`;
+      ctx.fillStyle = rgba(aksen, 0.9);
+      ctx.textAlign = "left";
+      ctx.textBaseline = "top";
+      ctx.fillText("·", lx + lebarPemisah / 2 - 6, yLayanan);
+      lx += lebarPemisah;
+    }
   }
   ctx.textAlign = "left";
   ctx.textBaseline = "top";
 
-  tombol(ctx, p.cta, 540, 1106, aksen, true, 38);
-  if (p.subCta) tombolOutline(ctx, p.subCta, 540, 1216, aksen, true, 24);
+  tombol(ctx, p.cta, 540, 1046, aksen, true, 38);
+  if (p.subCta) tombolOutline(ctx, p.subCta, 540, 1160, true, 24);
 }
 
 // ---------------------------------------------------------------------------
@@ -774,13 +736,13 @@ function hero(ctx: Ctx, p: PromoPoster, aksen: string): void {
 /**
  * Gambar poster ke ctx. ctx HARUS berukuran 1080×1350 (atau kelipatan — bila
  * kanvas pratinjau lebih kecil, pemanggil mengatur scale sebelum memanggil).
- * `gambar` opsional: gambar kustom dari data `image`, bila admin menggantinya.
+ * `gambar` opsional: gambar kustom dari data `image`, bila admin menggantinya —
+ * hanya dipakai pada bentuk "teks", dan tetap dibingkai tipis tanpa ikon.
  */
 export function gambarPoster(ctx: Ctx, p: PromoPoster, gambar?: HTMLImageElement): void {
   const aksen = AKSEN[p.aksen];
 
   if (p.bentuk === "hero") {
-    latar(ctx, aksen);
     hero(ctx, p, aksen);
     footer(ctx, p, aksen);
     return;
@@ -788,60 +750,68 @@ export function gambarPoster(ctx: Ctx, p: PromoPoster, gambar?: HTMLImageElement
 
   latar(ctx, aksen);
 
-  // Kepala: logo + nomor + garis pemisah.
+  // Kop: logo + nomor kampanye + kategori.
   logo(ctx, MARGIN, 64, 1, aksen);
   ctx.font = `700 22px ${FONT}`;
   ctx.fillStyle = rgba(IVORY, 0.55);
   ctx.textAlign = "right";
   ctx.textBaseline = "top";
   ctx.fillText(`${p.nomor} / 09`, 1000, 76);
+  ctx.font = `700 22px ${FONT}`;
+  ctx.fillStyle = rgba(aksen, 0.8);
+  ctx.fillText(p.category.toUpperCase(), 1000, 106);
   ctx.textAlign = "left";
-  ctx.beginPath();
-  ctx.moveTo(MARGIN, RULE_Y);
-  ctx.lineTo(1000, RULE_Y);
-  ctx.strokeStyle = rgba(IVORY, 0.16);
-  ctx.lineWidth = 2;
-  ctx.stroke();
+  garis(ctx, MARGIN, RULE_Y, LEBAR_KONTEN, rgba(IVORY, 0.16));
 
-  // Badge + headline + deskripsi.
-  let y = 214;
-  y += badge(ctx, p.badge, MARGIN, y, aksen) + 34;
+  // Tagline: fokus utama poster, tepat di bawah kop.
+  garis(ctx, MARGIN, 214, 132, rgba(aksen, 0.95), 5);
+  const tagline = p.badge.toUpperCase();
+  const ukuran = ukuranTagline(ctx, tagline, 950);
+  const y = tulisTagline(ctx, tagline, MARGIN, 244, ukuran.fs, ukuran.spasi, 950, aksen);
+  garis(ctx, MARGIN, y + 22, LEBAR_KONTEN, rgba(aksen, 0.32), 3);
 
-  y = tulis(ctx, p.headline, MARGIN, y, {
-    fs: p.bentuk === "langkah" ? 78 : 84,
+  // Headline + deskripsi.
+  const yHeadline = tulis(ctx, p.headline, MARGIN, y + 62, {
+    fs: 74,
     berat: 800,
-    maxW: 920,
-    lineH: p.bentuk === "langkah" ? 86 : 92,
+    maxW: LEBAR_KONTEN,
+    lineH: 82,
   });
-  if (p.description) {
-    y = tulis(ctx, p.description, MARGIN, y + 26, {
-      fs: 30,
-      berat: 500,
-      warna: REDUP,
-      maxW: 880,
-      lineH: 44,
-    });
-  }
+  const yDesk = p.description
+    ? tulis(ctx, p.description, MARGIN, yHeadline + 24, {
+        fs: 30,
+        berat: 500,
+        warna: REDUP,
+        maxW: LEBAR_KONTEN - 30,
+        lineH: 44,
+      })
+    : yHeadline;
 
-  const atas = y + 44;
-  const bawah = p.bentuk === "teks" ? 960 : CTA_Y - 44;
+  // Catatan/tautan kecil diberi ruangnya sendiri di atas CTA.
+  const yCatatan = CTA_Y - 108;
+  const adaCatatan = Boolean(p.catatan) || Boolean(p.tautan && p.tautan.length > 0);
+  const atas = yDesk + 48;
+  const bawah = (adaCatatan ? CTA_Y - 140 : CTA_Y) - 56;
 
   switch (p.bentuk) {
     case "teks": {
       if (gambar) {
+        const hGambar = bawah - atas;
         ctx.save();
-        ctx.beginPath();
-        ctx.rect(MARGIN, atas, 920, bawah - atas);
+        bulat(ctx, MARGIN, atas, LEBAR_KONTEN, hGambar, 26);
         ctx.clip();
-        const rasio = Math.max(920 / gambar.width, (bawah - atas) / gambar.height);
+        const rasio = Math.max(LEBAR_KONTEN / gambar.width, hGambar / gambar.height);
         const dw = gambar.width * rasio;
         const dh = gambar.height * rasio;
-        ctx.drawImage(gambar, MARGIN + (920 - dw) / 2, atas + (bawah - atas - dh) / 2, dw, dh);
+        ctx.drawImage(gambar, MARGIN + (LEBAR_KONTEN - dw) / 2, atas + (hGambar - dh) / 2, dw, dh);
         ctx.restore();
+        bulat(ctx, MARGIN, atas, LEBAR_KONTEN, hGambar, 26);
+        ctx.strokeStyle = rgba(aksen, 0.3);
+        ctx.lineWidth = 2;
+        ctx.stroke();
       } else {
-        ilustrasi(ctx, p, aksen, MARGIN, atas, 920, bawah - atas);
+        daftarFitur(ctx, p.features, aksen, atas, bawah);
       }
-      chips(ctx, p.features, MARGIN, CTA_Y - 34, aksen);
       break;
     }
     case "langkah":
@@ -850,35 +820,17 @@ export function gambarPoster(ctx: Ctx, p: PromoPoster, gambar?: HTMLImageElement
     case "baris":
       daftarBaris(ctx, p.items ?? [], p.pemisah, aksen, atas, bawah);
       if (p.catatan) {
-        tulis(ctx, p.catatan, 540, CTA_Y - 96, {
+        tulis(ctx, p.catatan, MARGIN, yCatatan, {
           fs: 26,
           berat: 700,
           warna: aksen,
-          align: "center",
-          maxW: 880,
+          maxW: LEBAR_KONTEN,
         });
       }
       break;
     case "kartu":
       kisiKartu(ctx, p.items ?? p.features.map((t) => ({ teks: t })), aksen, atas, bawah);
-      if (p.tautan && p.tautan.length > 0) {
-        const fsT = 24;
-        let tx = MARGIN;
-        ctx.font = `700 ${fsT}px ${FONT}`;
-        for (const t of p.tautan) {
-          const w = ctx.measureText(t).width + 34;
-          bulat(ctx, tx, CTA_Y - 108, w, 46, 23);
-          ctx.strokeStyle = rgba(IVORY, 0.35);
-          ctx.lineWidth = 2;
-          ctx.stroke();
-          ctx.fillStyle = rgba(IVORY, 0.85);
-          ctx.textAlign = "left";
-          ctx.textBaseline = "middle";
-          ctx.fillText(t, tx + 17, CTA_Y - 108 + 24);
-          tx += w + 16;
-        }
-        ctx.textBaseline = "top";
-      }
+      if (p.tautan && p.tautan.length > 0) barisTautan(ctx, p.tautan, aksen, yCatatan);
       break;
     case "pertanyaan":
       daftarPertanyaan(ctx, p.items ?? [], aksen, atas, bawah);
@@ -891,17 +843,18 @@ export function gambarPoster(ctx: Ctx, p: PromoPoster, gambar?: HTMLImageElement
   footer(ctx, p, aksen);
 }
 
-/** Baris kaki: disclaimer kiri + tagline kanan. */
+/** Baris kaki: disclaimer kiri + kategori kanan (tagline sudah jadi fokus atas). */
 function footer(ctx: Ctx, p: PromoPoster, aksen: string): void {
+  garis(ctx, MARGIN, FOOT_Y - 30, LEBAR_KONTEN, rgba(IVORY, 0.14));
   tulis(ctx, p.disclaimer, MARGIN, FOOT_Y, {
     fs: 20,
     berat: 500,
     warna: rgba(REDUP, 0.9),
-    maxW: 640,
+    maxW: 660,
     lineH: 26,
   });
   ctx.font = `700 18px ${FONT}`;
-  ctx.fillStyle = rgba(aksen, 0.8);
+  ctx.fillStyle = rgba(aksen, 0.85);
   ctx.textAlign = "right";
   ctx.textBaseline = "top";
   ctx.fillText(TAGLINE, 1000, FOOT_Y + 2);

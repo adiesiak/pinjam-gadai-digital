@@ -19,7 +19,7 @@ function ok(syarat: boolean, label: string): void {
   }
 }
 
-type Tulisan = { teks: string; x: number; y: number };
+type Tulisan = { teks: string; x: number; y: number; fs: number };
 
 /** Tiruan ctx 2D yang mencatat setiap fillText + koordinatnya. */
 function ctxTiruan(): { ctx: CanvasRenderingContext2D; tulisan: Tulisan[] } {
@@ -48,7 +48,8 @@ function ctxTiruan(): { ctx: CanvasRenderingContext2D; tulisan: Tulisan[] } {
       return { width: teks.length * fs * 0.52 };
     },
     fillText(teks: string, x: number, y: number) {
-      tulisan.push({ teks, x, y });
+      const fs = Number(/(\d+(?:\.\d+)?)px/.exec(this.font)?.[1] ?? 0);
+      tulisan.push({ teks, x, y, fs });
     },
     strokeText() {},
     fillRect() {},
@@ -128,6 +129,16 @@ for (const p of promoPosters) {
   ok(
     p.bentuk === "hero" || teks.some((t) => t.includes(p.nomor)),
     `${p.id}: nomor kampanye`,
+  );
+
+  // Tagline adalah fokus poster: digambar sebelum headline, dan cukup besar.
+  const tagline = tulisan.find((t) => t.teks === p.badge.toUpperCase());
+  const headlinePertama = tulisan.find((t) => t.teks === p.headline.split("\n")[0]);
+  ok(tagline !== undefined, `${p.id}: tagline digambar`);
+  ok(tagline !== undefined && tagline.fs >= 40, `${p.id}: tagline >= 40 px`);
+  ok(
+    tagline !== undefined && headlinePertama !== undefined && tagline.y < headlinePertama.y,
+    `${p.id}: tagline mendahului headline`,
   );
 
   for (const baris of p.headline.split("\n")) {

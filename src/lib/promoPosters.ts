@@ -14,6 +14,10 @@
  *    yang mengikuti konfigurasi sistem, dan tenor kredit diambil dari konstanta
  *    produk (`lib/kredit.ts`).
  *  - Istilah "Pendana" tidak pernah diganti menjadi "Investor".
+ *
+ * Tata letak gambar mengikuti `badge` sebagai tagline: poster bertipografi
+ * (tanpa ikon clip-art), tagline tampil paling dulu dan paling besar di antara
+ * konten poster — lihat `lib/promoPosterGambar.ts`.
  */
 import { KREDIT_TENOR_PENGAJUAN_OPTIONS } from "./kredit";
 
@@ -40,6 +44,11 @@ export type PromoPoster = {
   id: string;
   title: string;
   category: KategoriPoster;
+  /**
+   * Tagline poster — elemen paling menonjol pada gambar (fokus utama, digambar
+   * tepat di bawah kop dengan ukuran yang menyesuaikan panjangnya). Dipakai
+   * juga sebagai label ringkas pada kartu galeri.
+   */
   badge: string;
   headline: string;
   description: string;
