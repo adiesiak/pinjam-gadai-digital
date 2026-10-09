@@ -205,7 +205,11 @@ export default function Dashboard() {
       {/* ===== Bar atas ===== */}
       <DashboardHeader />
 
-      <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-5 sm:px-6 sm:py-8">
+      <main
+        id="konten"
+        tabIndex={-1}
+        className="mx-auto w-full max-w-7xl flex-1 px-4 py-5 sm:px-6 sm:py-8"
+      >
         <Tabs
           value={activeTab}
           onValueChange={setActiveTab}

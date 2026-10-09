@@ -305,7 +305,11 @@ export function Promo() {
 
   return (
     <div className="min-h-screen bg-background text-foreground">
-      <main className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 sm:py-10">
+      <main
+        id="konten"
+        tabIndex={-1}
+        className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 sm:py-10"
+      >
         {/* Header */}
         <motion.header
           variants={wadahHeader}

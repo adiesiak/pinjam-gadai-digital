@@ -1511,7 +1511,7 @@ export default function Landing() {
             <VaultLogo size={40} />
             <BrandWordmark name={logoTeks} />
           </Link>
-          <nav className="hidden items-center gap-8 text-sm text-slate-600 lg:flex">
+          <nav aria-label="Navigasi utama" className="hidden items-center gap-8 text-sm text-slate-600 lg:flex">
             {navItems.map(({ href, label }) => (
               <a
                 key={href}
@@ -1576,7 +1576,7 @@ export default function Landing() {
               transition={{ duration: 0.18, ease: "easeOut" }}
               className="absolute inset-x-0 top-full overflow-hidden border-b border-slate-200 bg-white shadow-lg lg:hidden"
             >
-              <nav className="grid gap-0.5 px-4 py-3">
+              <nav aria-label="Navigasi utama" className="grid gap-0.5 px-4 py-3">
                 {showAdminShortcut && (
                   <Link
                     to={ADMIN_ROUTE}
@@ -1621,7 +1621,7 @@ export default function Landing() {
         </AnimatePresence>
       </header>
 
-      <main>
+      <main id="konten" tabIndex={-1}>
         {/* Hero — nuansa arsip finansial, tinta dan kertas. */}
         <section className="relative isolate overflow-hidden border-b border-slate-200 bg-[radial-gradient(ellipse_at_18%_0%,#edf4f0_0%,transparent_42%),linear-gradient(135deg,#fbfaf6_0%,#ffffff_52%,#f5f1e8_100%)]">
           <LedgerGrid />

@@ -203,7 +203,15 @@ export function SystemConfigPanel() {
             <div><Label htmlFor="cfg-account">Nomor rekening</Label><Input id="cfg-account" inputMode="numeric" value={form.rekeningUsahaNomor} onChange={(e) => upd("rekeningUsahaNomor", e.target.value.replace(/\D/g, ""))} /></div>
             <div><Label htmlFor="cfg-qris-merchant">Nama merchant QRIS</Label><Input id="cfg-qris-merchant" value={form.qrisMerchantNama} onChange={(e) => upd("qrisMerchantNama", e.target.value)} /></div>
           </div>
-          {data.qrisUrl && <img src={data.qrisUrl} alt="QRIS yang diunggah admin" className="max-h-56 rounded-xl border border-slate-200 bg-white object-contain p-2" />}
+          {data.qrisUrl && (
+            <img
+              src={data.qrisUrl}
+              alt="QRIS yang diunggah admin"
+              loading="lazy"
+              decoding="async"
+              className="max-h-56 rounded-xl border border-slate-200 bg-white object-contain p-2"
+            />
+          )}
           <div className="flex flex-wrap items-center gap-3">
             <Label htmlFor="cfg-qris-file" className="sr-only">Unggah gambar QRIS</Label>
             <Input id="cfg-qris-file" type="file" accept="image/png,image/jpeg,image/webp" disabled={uploadingQr} onChange={async (event) => {

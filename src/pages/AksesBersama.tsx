@@ -110,7 +110,11 @@ export default function AksesBersama() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-[radial-gradient(ellipse_at_20%_0%,#edf4f0_0%,transparent_45%),linear-gradient(135deg,#fbfaf6_0%,#ffffff_55%,#f5f1e8_100%)] px-4 py-10 text-slate-900 sm:px-6">
+    <main
+      id="konten"
+      tabIndex={-1}
+      className="flex min-h-screen items-center justify-center bg-[radial-gradient(ellipse_at_20%_0%,#edf4f0_0%,transparent_45%),linear-gradient(135deg,#fbfaf6_0%,#ffffff_55%,#f5f1e8_100%)] px-4 py-10 text-slate-900 sm:px-6"
+    >
       <div className="w-full max-w-md">
         <div className="flex flex-col items-center">
           <Link to="/" className="flex items-center gap-2.5">

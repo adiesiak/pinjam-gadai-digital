@@ -36,7 +36,7 @@ export function AnnouncementBar() {
 
   /** Satu "setengah" track: teks digandakan 3× agar loop marquee mulus. */
   const half = (
-    <div className="flex shrink-0 items-center" aria-hidden={false}>
+    <div className="flex shrink-0 items-center">
       {[0, 1, 2].map((i) => (
         <span key={i} className="flex items-center">
           <span className="mx-6 flex items-center gap-2 text-xs font-medium text-sky-900">
@@ -65,7 +65,24 @@ export function AnnouncementBar() {
 
   return (
     <div className="marquee-paused relative z-50 overflow-hidden border-b border-slate-200 bg-slate-50">
-      <div className="animate-marquee flex w-max py-2">
+      {/* Teks pengumuman versi pembaca layar.
+          Marquee di bawah menggandakan isi 6× demi loop yang mulus secara
+          visual, jadi seluruh track ditandai aria-hidden agar tidak dibacakan
+          berulang-ulang. Versi ini dibaca sekali saja. */}
+      <span className="sr-only">
+        {`Pengumuman: ${ann.barTeks}.`}
+        {ann.barTautan ? (
+          <>
+            {" "}
+            <Link to={ann.barTautan}>Mulai sekarang</Link>
+          </>
+        ) : null}
+        {sysStatus?.killSwitch
+          ? " Layanan pengajuan sementara dijeda — coba lagi nanti."
+          : ""}
+      </span>
+
+      <div aria-hidden className="animate-marquee flex w-max py-2">
         {half}
         {half}
       </div>

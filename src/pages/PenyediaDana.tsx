@@ -916,6 +916,8 @@ function BagianBerkas({
                   <img
                     src={b.url}
                     alt={`Berkas ${b.label}`}
+                    loading="lazy"
+                    decoding="async"
                     className="h-32 w-full bg-slate-50 object-contain"
                   />
                   <span className="flex items-center justify-between gap-2 border-t border-slate-100 px-3 py-2 text-xs font-medium">
@@ -940,6 +942,8 @@ function BagianBerkas({
               <img
                 src={data.tandaTangan}
                 alt="Tanda tangan elektronik peminjam"
+                loading="lazy"
+                decoding="async"
                 className="mt-2 h-24 w-full bg-slate-50 object-contain"
               />
             </div>
@@ -1701,7 +1705,11 @@ function IsiRuang() {
         </div>
       </header>
 
-      <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 sm:px-6 sm:py-9">
+      <main
+        id="konten"
+        tabIndex={-1}
+        className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 sm:px-6 sm:py-9"
+      >
         {user !== undefined && !bolehLihat ? (
           <AksesTerbatas />
         ) : data === undefined ? (

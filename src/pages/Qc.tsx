@@ -93,7 +93,11 @@ export default function Qc() {
 
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground">
-      <main className="mx-auto w-full max-w-5xl flex-1 space-y-4 px-3 py-6 sm:px-6 sm:py-8">
+      <main
+        id="konten"
+        tabIndex={-1}
+        className="mx-auto w-full max-w-5xl flex-1 space-y-4 px-3 py-6 sm:px-6 sm:py-8"
+      >
         <QcPanel hasil={hasil} />
 
         <section className="animate-masuk rounded-2xl border border-border bg-card p-4 sm:p-5">

@@ -440,7 +440,11 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
     "gap-6 rounded-2xl border-border/60 shadow-sm bg-card clay-card text-card-foreground";
 
   return (
-    <div className="flex min-h-screen flex-col bg-background text-foreground">
+    <div
+      id="konten"
+      tabIndex={-1}
+      className="flex min-h-screen flex-col bg-background text-foreground"
+    >
       <div className="flex-1" />
 
       <FadeIn className="flex items-center justify-center px-4 py-10 sm:px-6">

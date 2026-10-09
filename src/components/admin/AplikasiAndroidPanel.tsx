@@ -385,6 +385,8 @@ export function AplikasiAndroidPanel() {
                     <img
                       src={ikonAktif}
                       alt="Logo aplikasi aktif"
+                      loading="lazy"
+                      decoding="async"
                       className="max-h-12 max-w-12 object-contain"
                     />
                   ) : (
@@ -453,7 +455,13 @@ export function AplikasiAndroidPanel() {
                   <div className="mt-3 flex items-center gap-3">
                     <div className="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-slate-200 bg-white">
                       {gambar ? (
-                        <img src={gambar} alt={`Pratinjau ${BAWAAN_ASET[kunci].label}`} className="max-h-full max-w-full object-contain" />
+                        <img
+                          src={gambar}
+                          alt={`Pratinjau ${BAWAAN_ASET[kunci].label}`}
+                          loading="lazy"
+                          decoding="async"
+                          className="max-h-full max-w-full object-contain"
+                        />
                       ) : (
                         <PratinjauBawaan kunci={kunci} />
                       )}

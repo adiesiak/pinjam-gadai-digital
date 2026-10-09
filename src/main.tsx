@@ -193,6 +193,41 @@ function RouteSyncer() {
     );
   }, [location.pathname]);
 
+  /**
+   * Setiap perpindahan rute: kembalikan gulir ke puncak dan pindahkan fokus
+   * keyboard ke landmark konten utama (#konten). Tanpa ini, pengguna keyboard
+   * dan pembaca layar tetap berada pada posisi gulir/fokus halaman sebelumnya
+   * padahal isinya sudah berganti.
+   *
+   * Rute dimuat dengan lazy(), jadi elemen #konten belum tentu ada pada frame
+   * pertama — fokus dicoba ulang maksimal ~1 detik agar tidak menggantung.
+   */
+  useEffect(() => {
+    let dibatalkan = false;
+    let frame = 0;
+    let percobaan = 0;
+
+    const pindahFokus = () => {
+      if (dibatalkan) return;
+      const konten = document.getElementById("konten");
+      if (konten) {
+        konten.focus({ preventScroll: true });
+        return;
+      }
+      if (percobaan >= 60) return;
+      percobaan += 1;
+      frame = window.requestAnimationFrame(pindahFokus);
+    };
+
+    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+    frame = window.requestAnimationFrame(pindahFokus);
+
+    return () => {
+      dibatalkan = true;
+      window.cancelAnimationFrame(frame);
+    };
+  }, [location.pathname]);
+
   useEffect(() => {
     function handleMessage(event: MessageEvent) {
       if (event.data?.type === "navigate") {
@@ -217,6 +252,11 @@ createRoot(document.getElementById("root")!).render(
       <ConvexAuthProvider client={convex}>
         <ThemeSync />
         <BrowserRouter>
+          {/* Tautan lewat-navigasi: hanya tampil saat difokuskan dengan Tab,
+              memindahkan pengguna keyboard langsung ke konten utama. */}
+          <a className="skip-link" href="#konten">
+            Lewati ke konten utama
+          </a>
           <AnnouncementBar />
           <SessionGuardBridge />
           <RouteSyncer />

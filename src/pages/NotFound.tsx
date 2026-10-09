@@ -8,6 +8,8 @@ import { Button } from "@/components/ui/button";
 export default function NotFound() {
   return (
     <motion.main
+      id="konten"
+      tabIndex={-1}
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.35 }}

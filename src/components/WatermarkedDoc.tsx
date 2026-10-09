@@ -19,6 +19,8 @@ export function WatermarkedDoc({ src, label }: { src: string; label?: string }) 
       <img
         src={src}
         alt={label ?? "Dokumen KYC"}
+        loading="lazy"
+        decoding="async"
         onLoad={() => setLoaded(true)}
         className={`max-h-56 w-full object-contain ${loaded ? "" : "hidden"}`}
         draggable={false}

@@ -448,10 +448,50 @@
     @apply bg-background text-foreground;
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
+    /* Cegah geser mendatar tak sengaja di layar sempit: konten panjang
+       (tabel, peta, kartu) tidak boleh melebarkan viewport. Dipakai `clip`,
+       bukan `hidden`, karena `hidden` menjadikan body wadah gulir dan bisa
+       mematahkan header `sticky` di landing. */
+    overflow-x: clip;
   }
   button:not([disabled]),
   [role="button"]:not([disabled]) {
     cursor: pointer;
+  }
+
+  /* Jaring pengaman fokus keyboard.
+     Sebagian panel kustom menulis `outline-none` sendiri; aturan ini hanya
+     berlaku untuk elemen yang TIDAK punya cincin fokus bawaan (tautan teks,
+     <summary>, tab, dan elemen ber-tabindex). Komponen yang sudah memakai
+     utilitas `outline-none` + `focus-visible:ring` tetap menang karena
+     utilitas berada di layer setelah base — jadi tidak ada cincin ganda. */
+  a:focus-visible,
+  summary:focus-visible,
+  [role="tab"]:focus-visible,
+  [role="button"]:focus-visible,
+  [tabindex]:not([tabindex="-1"]):focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+    border-radius: 6px;
+  }
+
+  /* Landmark konten utama difokuskan otomatis saat berpindah halaman
+     (lihat main.tsx) — cincinnya sengaja dimatikan agar tidak mengganggu. */
+  #konten:focus {
+    outline: none;
+  }
+
+  ::selection {
+    background-color: var(--primary);
+    color: var(--primary-foreground);
+  }
+
+  /* Lompatan antar-anchor (mis. navigasi landing) terasa halus hanya bila
+     pengunjung tidak meminta pengurangan gerak. */
+  @media (prefers-reduced-motion: no-preference) {
+    html {
+      scroll-behavior: smooth;
+    }
   }
 }
 
@@ -741,9 +781,42 @@
     .animate-drift-reverse,
     .animate-grid-pan,
     .animate-spin-slow,
+    .animate-float,
     .animate-masuk {
       animation: none;
     }
+    /* Kartu yang mengangkat saat hover juga tidak boleh bergerak. */
+    .card-lift,
+    .card-lift:hover {
+      transition: none;
+      transform: none;
+    }
+  }
+
+  /* Tautan "lewati ke konten" — hanya tampak saat difokuskan dengan keyboard. */
+  .skip-link {
+    position: fixed;
+    top: 0.75rem;
+    left: 0.75rem;
+    z-index: 70;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.625rem 1rem;
+    border-radius: 0.625rem;
+    border: 1px solid var(--border);
+    background-color: var(--card);
+    color: var(--foreground);
+    font-size: 0.875rem;
+    font-weight: 600;
+    box-shadow: 0 10px 30px -16px oklch(0.3 0.02 75 / 0.3);
+    transform: translateY(-180%);
+    transition: transform 0.18s ease;
+  }
+  .skip-link:focus-visible {
+    transform: translateY(0);
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
   }
 }
 
