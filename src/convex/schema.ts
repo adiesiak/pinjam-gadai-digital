@@ -1256,6 +1256,215 @@ const schema = defineSchema(
       /** Audit ringan: kapan terakhir diubah admin. */
       diperbaruiPada: v.number(),
     }).index("by_slot", ["slot"]),
+
+    /*
+     * ==================================================================
+     * Pengelolaan keterlambatan & penagihan
+     * ==================================================================
+     * Aturan main, klasifikasi tunggakan, penugasan petugas, riwayat
+     * komunikasi, janji pembayaran, pengaduan, dan catatan penyelesaian.
+     *
+     * Batas modul ini (dijaga `lib/penagihan.ts`): TIDAK memindahkan uang,
+     * tidak mengubah ledger, dan tidak memuat ancaman, intimidasi, penyebaran
+     * data pribadi, kontak ke pihak tidak berwenang, atau pesan menyesatkan.
+     * Status pinjaman & saldo tetap milik tabel pinjaman/ledger.
+     *
+     * Semua tindakan menyimpan WAKTU (dari server), PETUGAS (id + label
+     * snapshot), dan HASIL, sehingga setiap langkah dapat ditinjau ulang.
+     */
+
+    /**
+     * Aturan penagihan — satu baris global (slot "global"): ambang tunggakan,
+     * jam kontak, dan saklar modul.
+     *
+     * Sengaja TERPISAH dari `systemConfig`: aturan penagihan ditinjau dan
+     * diaudit sendiri, tanpa harus menyentuh konfigurasi biaya/lokasi. Nilai
+     * kosong berarti memakai default di `lib/penagihan.ts`.
+     */
+    penagihanAturan: defineTable({
+      slot: v.string(),
+      /** Saklar modul; false = tindakan penagihan ditolak server. */
+      aktif: v.optional(v.boolean()),
+      /** Batas hari tahap ringan/sedang/berat (menaik). Lihat lib/penagihan. */
+      ambangRingan: v.optional(v.number()),
+      ambangSedang: v.optional(v.number()),
+      ambangBerat: v.optional(v.number()),
+      /** Jendela jam kontak setempat (WIB) yang boleh dipakai petugas. */
+      jamMulai: v.optional(v.number()),
+      jamSelesai: v.optional(v.number()),
+      diperbaruiPada: v.number(),
+      /** Label admin terakhir — snapshot agar tetap terbaca. */
+      diperbaruiOlehLabel: v.optional(v.string()),
+    }).index("by_slot", ["slot"]),
+
+    /**
+     * Satu kasus penagihan PER PINJAMAN yang terlambat — memuat penugasan
+     * petugas, tingkat eskalasi, dan ringkasan keadaan terakhir.
+     *
+     * Dibuat saat petugas ditugaskan atau tindakan pertama dicatat (bukan
+     * untuk setiap pinjaman), sehingga tabel ini hanya memuat kasus yang
+     * benar-benar ditangani. Penugasan menentukan kewenangan: petugas hanya
+     * dapat menindak kasus yang ditugaskan kepadanya (`convex/penagihan.ts`).
+     */
+    penagihanKasus: defineTable({
+      loanId: v.id("loans"),
+      userId: v.id("users"),
+      nomorReferensi: v.string(),
+      /** Salah satu `STATUS_KASUS` di lib/penagihan. */
+      status: v.string(),
+      /** 0 = belum dieskalasi; 1–4 mengikuti `URUTAN_ESKALASI`. */
+      tingkatEskalasi: v.number(),
+      petugasUserId: v.optional(v.id("users")),
+      petugasLabel: v.optional(v.string()),
+      /** Salah satu `STATUS_PEMBAYARAN` — keadaan yang DICATAT petugas. */
+      statusPembayaran: v.string(),
+      nominalDibayar: v.optional(v.number()),
+      /** Janji pembayaran yang sedang aktif (bila ada). */
+      janjiAktifId: v.optional(v.id("penagihanJanji")),
+      jumlahTindakan: v.number(),
+      tindakanTerakhirPada: v.optional(v.number()),
+      catatanTerakhir: v.optional(v.string()),
+      /** Alasan penutupan kasus (mis. "lunas dicatat", "di luar jangkauan"). */
+      sebabSelesai: v.optional(v.string()),
+      dibuatPada: v.number(),
+      diperbaruiPada: v.number(),
+      selesaiPada: v.optional(v.number()),
+    })
+      .index("by_loan", ["loanId"])
+      .index("by_petugas", ["petugasUserId"])
+      .index("by_status", ["status"]),
+
+    /**
+     * Riwayat komunikasi & tindakan penagihan — APPEND-ONLY.
+     *
+     * Setiap baris memuat jenis, saluran, HASIL, pihak yang dihubungi, waktu
+     * server, dan petugas. `nomorTujuan` disimpan utuh untuk kontinuitas
+     * penanganan tetapi hanya ditampilkan tersamar di daftar kerja
+     * (`maskNomorTelepon`); nomor utuh dibuka lewat jalur yang mencatat audit.
+     */
+    penagihanTindakan: defineTable({
+      kasusId: v.id("penagihanKasus"),
+      loanId: v.id("loans"),
+      /** Salah satu `JENIS_TINDAKAN`. */
+      jenis: v.string(),
+      /** Salah satu `SALURAN_TINDAKAN`. */
+      saluran: v.string(),
+      /** Salah satu `HASIL_TINDAKAN`. */
+      hasil: v.string(),
+      /** Pihak yang dihubungi — selalu "peminjam". */
+      pihak: v.string(),
+      nomorTujuan: v.optional(v.string()),
+      /** Isi pesan yang sudah lolos penjaga pesan (lib/penagihan). */
+      isiPesan: v.optional(v.string()),
+      catatan: v.optional(v.string()),
+      petugasUserId: v.id("users"),
+      petugasLabel: v.string(),
+      /** Waktu server — tidak pernah diisi klien. */
+      waktu: v.number(),
+    })
+      .index("by_kasus", ["kasusId"])
+      .index("by_loan", ["loanId"])
+      .index("by_petugas", ["petugasUserId"])
+      .index("by_waktu", ["waktu"]),
+
+    /** Janji pembayaran (promise to pay) beserta hasilnya. */
+    penagihanJanji: defineTable({
+      kasusId: v.id("penagihanKasus"),
+      loanId: v.id("loans"),
+      userId: v.id("users"),
+      /** Nominal yang dijanjikan (rupiah bulat). */
+      nominal: v.number(),
+      /** Tanggal janji (epoch ms) — divalidasi lib/penagihan. */
+      tanggalJanji: v.number(),
+      /** Salah satu `SALURAN_TINDAKAN`. */
+      kanal: v.string(),
+      /** Salah satu `STATUS_JANJI`. */
+      status: v.string(),
+      catatan: v.optional(v.string()),
+      dibuatOlehUserId: v.id("users"),
+      dibuatOlehLabel: v.string(),
+      dibuatPada: v.number(),
+      ditutupPada: v.optional(v.number()),
+      ditutupOlehLabel: v.optional(v.string()),
+      /** Hasil saat janji ditutup (dipenuhi/dilanggar/dibatalkan). */
+      hasilCatatan: v.optional(v.string()),
+    })
+      .index("by_kasus", ["kasusId"])
+      .index("by_loan", ["loanId"])
+      .index("by_status", ["status"])
+      .index("by_tanggal", ["tanggalJanji"]),
+
+    /**
+     * Riwayat pembaruan STATUS PEMBAYARAN pada kasus penagihan.
+     *
+     * PENTING: ini catatan petugas, bukan bukti transfer. Saldo, jurnal, dan
+     * status pinjaman tetap diubah lewat jalur pinjaman/pembayaran yang ada;
+     * modul penagihan hanya mencatat apa yang dilaporkan.
+     */
+    penagihanPembayaran: defineTable({
+      kasusId: v.id("penagihanKasus"),
+      loanId: v.id("loans"),
+      /** Salah satu `STATUS_PEMBAYARAN`. */
+      status: v.string(),
+      nominal: v.number(),
+      /** Total kewajiban ledger saat pembaruan dicatat — untuk peninjauan. */
+      totalKewajiban: v.number(),
+      catatan: v.optional(v.string()),
+      petugasUserId: v.id("users"),
+      petugasLabel: v.string(),
+      waktu: v.number(),
+    })
+      .index("by_kasus", ["kasusId"])
+      .index("by_loan", ["loanId"]),
+
+    /**
+     * Catatan penyelesaian kasus (pelunasan, restrukturisasi, keringanan
+     * denda, penyelesaian sengketa). Keputusan DICATAT, tidak dieksekusi:
+     * tidak ada uang berpindah dan tidak ada jurnal yang ditulis.
+     */
+    penagihanPenyelesaian: defineTable({
+      kasusId: v.id("penagihanKasus"),
+      loanId: v.id("loans"),
+      /** Salah satu `JENIS_PENYELESAIAN`. */
+      jenis: v.string(),
+      nominal: v.number(),
+      totalKewajiban: v.number(),
+      alasan: v.string(),
+      petugasUserId: v.id("users"),
+      petugasLabel: v.string(),
+      waktu: v.number(),
+    })
+      .index("by_kasus", ["kasusId"])
+      .index("by_loan", ["loanId"]),
+
+    /**
+     * Pengaduan nasabah atas proses penagihan (atau catatan aplikasi).
+     *
+     * Dipisah dari `waLogs` dan audit trail: pengaduan adalah suara nasabah
+     * yang harus punya status, penanggung jawab, dan penyelesaian — bukan
+     * sekadar pesan masuk.
+     */
+    pengaduanNasabah: defineTable({
+      loanId: v.optional(v.id("loans")),
+      userId: v.optional(v.id("users")),
+      nomorReferensi: v.optional(v.string()),
+      /** Kanal masuk: "whatsapp" | "telepon" | "tatap_muka" | "petugas" | "sistem". */
+      kanal: v.string(),
+      /** Salah satu `KATEGORI_PENGADUAN`. */
+      kategori: v.string(),
+      isi: v.string(),
+      /** Salah satu `STATUS_PENGADUAN`. */
+      status: v.string(),
+      petugasUserId: v.optional(v.id("users")),
+      petugasLabel: v.optional(v.string()),
+      penyelesaian: v.optional(v.string()),
+      dibuatPada: v.number(),
+      diperbaruiPada: v.number(),
+      ditutupPada: v.optional(v.number()),
+    })
+      .index("by_status", ["status"])
+      .index("by_user", ["userId"])
+      .index("by_loan", ["loanId"]),
   },
   {
     schemaValidation: false,
