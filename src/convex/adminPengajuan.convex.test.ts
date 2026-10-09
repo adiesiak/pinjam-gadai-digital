@@ -127,7 +127,7 @@ describe("pencatatan pengajuan manual oleh admin", () => {
     expect(audit?.detail).toContain("antrean review");
   });
 
-  it("plafon nasabah TIDAK mengikat manual, tapi batas sistem & skema tetap ada", async () => {
+  it("plafon nasabah TIDAK mengikat manual, tapi langit-langit Rp 10 juta tetap ada", async () => {
     const t = convexTest(schema, modules);
     const { sesi: admin } = await siapkanPengguna(t, "admin", {
       email: "admin@pindai.test",
@@ -179,18 +179,32 @@ describe("pencatatan pengajuan manual oleh admin", () => {
       }),
     ).rejects.toThrow(/maksimal Rp 10\.000\.000/);
 
-    // Batas PRODUK skema harian tetap berlaku (Rp 1 juta).
+    // Batas PRODUK skema harian Rp 1 juta TIDAK berlaku untuk pencatatan admin:
+    // yang dicatat adalah pinjaman yang sudah diputuskan di luar aplikasi, jadi
+    // yang mengikat hanya langit-langit jalur manual (Rp 10 juta).
     await expect(
       admin.mutation(api.adminPengajuan.catatPinjamanManual, {
         userIdTarget: userId,
-        pokokPinjaman: 2_000_000,
+        pokokPinjaman: 10_000_000,
         tenorHari: 30,
         tujuan: "modal_usaha",
         namaLengkap: "Budi Peminjam",
         namaBank: "BCA",
         nomorRekening: "1234567890",
       }),
-    ).rejects.toThrow(/Pokok pinjaman harus antara/);
+    ).resolves.toMatchObject({ nomorReferensi: expect.stringMatching(/^PGD-/) });
+
+    await expect(
+      admin.mutation(api.adminPengajuan.catatPinjamanManual, {
+        userIdTarget: userId,
+        pokokPinjaman: 10_100_000,
+        tenorHari: 30,
+        tujuan: "modal_usaha",
+        namaLengkap: "Budi Peminjam",
+        namaBank: "BCA",
+        nomorRekening: "1234567890",
+      }),
+    ).rejects.toThrow(/Pokok pinjaman harian harus antara/);
   });
 
   it("mencatat gadai manual sebagai diajukan tanpa menaksir barang", async () => {
@@ -544,5 +558,47 @@ describe("pencatatan pengajuan manual oleh admin", () => {
     // tidak ada salinan typo yang ikut ditawarkan ke admin.
     const semua = await admin.query(api.adminPengajuan.cariNasabah, { kueri: "" });
     expect(semua.hasil.map((n) => n.nama)).toEqual(["ALFIAN RIFKI JUNIAWAN"]);
+  });
+
+  it("pemilih nasabah memakai nama CATATAN terbaru — sama dengan ruang penyedia dana", async () => {
+    const t = convexTest(schema, modules);
+    const { sesi: admin } = await siapkanPengguna(t, "admin", {
+      email: "admin-nama@pindai.test",
+      role: "admin",
+    });
+    const { userId } = await siapkanPengguna(t, "hasbi", {
+      email: "hasbi@pindai.test",
+      role: "peminjam",
+    });
+    // Data diri (KTP) memakai ejaan yang lebih lengkap…
+    await simpanDataDiri(t, userId, { namaLengkap: "Hasbi Sukmanda Wijaya" });
+    // …sedangkan catatan pinjamanlah yang tampil di ruang penyedia dana. Nama
+    // dari catatan itu yang harus ditawarkan ke admin, supaya pengajuan manual
+    // berikutnya tidak tercatat dengan nama yang berbeda dari ruang dana.
+    await t.run((ctx) =>
+      ctx.db.insert("loans", {
+        userId,
+        pokokPinjaman: 900_000,
+        pokokDiajukan: 900_000,
+        tujuan: "modal_usaha",
+        namaLengkap: "HASBI SUKMANDA",
+        namaBank: "BCA",
+        nomorRekening: "1234567890",
+        status: "diajukan",
+        nomorReferensi: "PGD-20260101-AAAA",
+        tenorHari: 30,
+      }),
+    );
+
+    const hasil = await admin.query(api.adminPengajuan.cariNasabah, { kueri: "hasbi" });
+    expect(hasil.hasil).toHaveLength(1);
+    expect(hasil.hasil[0]?.nama).toBe("HASBI SUKMANDA");
+
+    // Nama data diri tetap bisa dicari — ia cadangan yang dipakai bila nasabah
+    // belum punya catatan sama sekali.
+    const lewatDataDiri = await admin.query(api.adminPengajuan.cariNasabah, {
+      kueri: "sukmanda wijaya",
+    });
+    expect(lewatDataDiri.hasil.map((n) => n.nama)).toEqual(["HASBI SUKMANDA"]);
   });
 });

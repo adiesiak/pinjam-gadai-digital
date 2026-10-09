@@ -17,7 +17,12 @@ import { api } from "@/convex/_generated/api";
 import { TENOR_BULANAN_OPTIONS } from "@/lib/bulanan";
 import { LOAN_LIMITS, LOAN_PURPOSE_OPTIONS, TENOR_OPTIONS } from "@/lib/loan";
 import { formatRupiah } from "@/lib/money";
-import { rupiahDariTeks, validasiPinjamanManual, type NasabahManual } from "@/lib/pengajuanManual";
+import {
+  POKOK_MANUAL_MAKS,
+  rupiahDariTeks,
+  validasiPinjamanManual,
+  type NasabahManual,
+} from "@/lib/pengajuanManual";
 
 import { UnggahDokumen, type DokumenTerunggah } from "./UnggahDokumen";
 
@@ -30,7 +35,8 @@ import { UnggahDokumen, type DokumenTerunggah } from "./UnggahDokumen";
  *    (`validasiPinjamanManual`) supaya admin tahu lebih dulu apa yang ditolak.
  *    Plafon per nasabah TIDAK menghalangi jalur ini — baris yang dicatat di
  *    sini memindahkan pinjaman yang sudah diputuskan di luar aplikasi, jadi
- *    yang tersisa hanya batas produk (skema harian) dan batas sistem.
+ *    yang tersisa hanya langit-langit jalur manual (`POKOK_MANUAL_MAKS`,
+ *    Rp 10 juta — sama dengan batas plafon maksimum di Pengaturan) dan tenor.
  *  - Angka uang TIDAK dihitung di sini. Pratinjau diambil dari mesin harga
  *    server (`admin.adminLoanQuote`) dan tetap divalidasi ulang saat keputusan.
  *  - Identitas (NIK, WhatsApp, penghasilan) tidak diketik ulang: diambil server
@@ -67,10 +73,11 @@ export function FormPinjamanManual({
   const bulanan = skema === "bulanan";
   const pokok = rupiahDariTeks(pokokTeks);
   const tenorTerpilih = bulanan ? Number(tenorBulan) : Number(tenorHari);
-  // Pratinjau hanya diminta saat pokoknya sudah masuk batas skema harian;
-  // skema bulanan dibatasi plafon nasabah yang hanya diketahui server.
+  // Pratinjau hanya diminta saat pokoknya sudah masuk batas jalur manual
+  // (harian: Rp 100.000 – Rp 10 juta); skema bulanan dibatasi plafon nasabah
+  // yang hanya diketahui server.
   const pokokBisaDihitung =
-    pokok !== null && (bulanan || (pokok >= LOAN_LIMITS.minPokok && pokok <= LOAN_LIMITS.maxPokok));
+    pokok !== null && (bulanan || (pokok >= LOAN_LIMITS.minPokok && pokok <= POKOK_MANUAL_MAKS));
   const pratinjau = useQuery(
     api.admin.adminLoanQuote,
     pokokBisaDihitung && pokok !== null
@@ -209,11 +216,11 @@ export function FormPinjamanManual({
         />
         <p id="manual-pinjaman-pokok-hint" className="text-xs leading-5 text-muted-foreground">
           {pokok === null
-            ? `Nominal rupiah bulat. Skema harian maksimal ${formatRupiah(LOAN_LIMITS.maxPokok)}.`
+            ? `Nominal rupiah bulat. Skema harian maksimal ${formatRupiah(POKOK_MANUAL_MAKS)} untuk pencatatan admin.`
             : `Terbaca ${formatRupiah(pokok)}. ${
                 bulanan
                   ? "Skema bulanan bebas plafon nasabah — dibatasi batas sistem saja."
-                  : `Skema harian dibatasi ${formatRupiah(LOAN_LIMITS.minPokok)}–${formatRupiah(LOAN_LIMITS.maxPokok)}.`
+                  : `Skema harian dibatasi ${formatRupiah(LOAN_LIMITS.minPokok)}–${formatRupiah(POKOK_MANUAL_MAKS)}.`
               }`}
         </p>
       </div>

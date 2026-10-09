@@ -20,9 +20,10 @@ import type { Id } from "../convex/_generated/dataModel";
 import { assertSimulasiBulananValid, TENOR_BULANAN_OPTIONS } from "./bulanan";
 import { KREDIT_PRICING, KREDIT_TENOR_PENGAJUAN_OPTIONS } from "./kredit";
 import type { JenisPengajuan } from "./jenisPengajuan";
-import { assertPokokPinjamanValid, LOAN_PURPOSE_OPTIONS, TENOR_OPTIONS } from "./loan";
-import { parseRupiah } from "./money";
+import { LOAN_LIMITS, LOAN_PURPOSE_OPTIONS, TENOR_OPTIONS } from "./loan";
+import { formatRupiah, parseRupiah } from "./money";
 import { namaHurufBesar } from "./nama";
+import { PLAFON_NAIK_SETELAH_LUNAS } from "./plafon";
 import { COLLATERAL_CATEGORIES } from "./pawn";
 
 /** Satu nasabah yang bisa dipilih sebagai pemilik pengajuan manual. */
@@ -193,6 +194,46 @@ export function tenorBulananManualSah(tenorBulan: number): boolean {
   return (TENOR_BULANAN_OPTIONS as readonly number[]).includes(tenorBulan);
 }
 
+/**
+ * Langit-langit pokok untuk pencatatan MANUAL oleh admin.
+ *
+ * Jalur ini memindahkan pinjaman yang SUDAH diputuskan di luar aplikasi (nasabah
+ * datang ke kantor, koperasi mitra, data lama). Batas produk harian Rp 1 juta
+ * mengikat pengajuan yang dibuat nasabah sendiri di aplikasi — bukan admin yang
+ * sedang mencatat apa yang sudah terjadi. Karena itu batas jalur manual adalah
+ * langit-langit sistem (`PLAFON_NAIK_SETELAH_LUNAS`, sama dengan batas plafon
+ * maksimum yang boleh diisi admin), bukan `LOAN_LIMITS.maxPokok`.
+ *
+ * Satu angka ini dipakai validasi server DAN formulir admin, supaya pesan yang
+ * dibaca admin dan nilai yang benar-benar disimpan tidak pernah berbeda.
+ */
+export const POKOK_MANUAL_MAKS = PLAFON_NAIK_SETELAH_LUNAS;
+
+/**
+ * Nama pada CATATAN pinjaman/kredit per nasabah — yang TERBARU menang.
+ *
+ * Kenapa ada: ruang penyedia dana menampilkan `loans.namaLengkap` /
+ * `kreditBarang.namaLengkap` (catatan pinjamannya), sedangkan data diri dan nama
+ * akun adalah sumber lain yang bisa berbeda. Bila pencatatan manual mengambil
+ * nama dari data diri, satu orang bisa tampil dengan DUA nama di ruang dana —
+ * persis yang tidak boleh terjadi. Karena itu nama dari catatan terbaru dipakai
+ * lebih dulu; data diri, nama akun, dan email hanya cadangan.
+ */
+export function kumpulkanNamaCatatan(
+  baris: readonly { userId: string; namaLengkap?: string; waktu: number }[],
+): Map<string, string> {
+  const terpilih = new Map<string, { nama: string; waktu: number }>();
+  for (const b of baris) {
+    const nama = b.namaLengkap?.trim() ?? "";
+    if (nama === "") continue;
+    const ada = terpilih.get(b.userId);
+    if (ada === undefined || b.waktu > ada.waktu) {
+      terpilih.set(b.userId, { nama, waktu: b.waktu });
+    }
+  }
+  return new Map([...terpilih].map(([userId, nilai]) => [userId, nilai.nama]));
+}
+
 // =====================================================================
 // Pinjaman tunai
 // =====================================================================
@@ -222,8 +263,10 @@ export type PinjamanManualBersih = {
 };
 
 /**
- * Validasi bentuk pengajuan pinjaman manual. Batas pokok memakai aturan resmi
- * masing-masing skema (harian ≤ Rp 1 juta; bulanan lewat mesin bulanan).
+ * Validasi bentuk pengajuan pinjaman manual. Batas pokok skema HARIAN memakai
+ * langit-langit jalur manual (`POKOK_MANUAL_MAKS`, Rp 10 juta), bukan batas
+ * produk Rp 1 juta: admin mencatat pinjaman yang sudah diputuskan di luar
+ * aplikasi. Skema bulanan tetap lewat mesin bulanan.
  * Plafon per nasabah SENGAJA tidak diperiksa di sini MAUPUN di mutation:
  * jalur ini memindahkan pengajuan yang sudah terjadi di luar aplikasi, jadi
  * batas kredit dalam aplikasi bukan syaratnya (lihat convex/adminPengajuan.ts).
@@ -240,7 +283,19 @@ export function validasiPinjamanManual(
     }
     assertSimulasiBulananValid(input.pokokPinjaman, input.tenorBulan as number);
   } else {
-    assertPokokPinjamanValid(input.pokokPinjaman);
+    if (!Number.isSafeInteger(input.pokokPinjaman) || input.pokokPinjaman <= 0) {
+      throw new Error("Pokok pinjaman harus rupiah bulat positif (tanpa desimal).");
+    }
+    if (
+      input.pokokPinjaman < LOAN_LIMITS.minPokok ||
+      input.pokokPinjaman > POKOK_MANUAL_MAKS
+    ) {
+      throw new Error(
+        `Pokok pinjaman harian harus antara ${formatRupiah(
+          LOAN_LIMITS.minPokok,
+        )} dan ${formatRupiah(POKOK_MANUAL_MAKS)}.`,
+      );
+    }
     if (!(TENOR_OPTIONS as readonly number[]).includes(input.tenorHari ?? 0)) {
       throw new Error(
         `Tenor harus salah satu dari ${TENOR_OPTIONS.join(" / ")} hari (maksimal 30 hari).`,

@@ -12,13 +12,21 @@
  *    memindahkan pengajuan yang SUDAH terjadi di luar aplikasi (mis. pinjaman
  *    dari koperasi mitra). Memaksakan plafon dalam aplikasi membuat data nyata
  *    ditolak hanya karena batas yang belum sempat dinaikkan, sehingga
- *    pengajuannya "hilang". Yang tetap berlaku hanya batas PRODUK: skema harian
- *    mengikuti `LOAN_LIMITS.maxPokok`, dan plafon sistem maksimum
- *    `PLAFON_NAIK_SETELAH_LUNAS` menjadi langit-langit agar angkanya tidak liar.
+ *    pengajuannya "hilang". Yang tetap berlaku hanya tenor tiap skema dan
+ *    langit-langit jalur manual `POKOK_MANUAL_MAKS` (Rp 10 juta, sama dengan
+ *    plafon sistem maksimum) agar satu salah ketik tidak memasukkan nominal di
+ *    luar jangkauan produk. Batas produk harian Rp 1 juta TIDAK berlaku di sini:
+ *    yang dicatat bukan pengajuan baru dari aplikasi nasabah, melainkan pinjaman
+ *    yang sudah terjadi di luar aplikasi.
  *  - **Identitas diambil dari data diri nasabah**, bukan diketik ulang: NIK,
  *    nomor WhatsApp, penghasilan, dan (bila ada) rekening tujuan diisi dari
  *    `nasabahProfil`. Pengajuan kredit barang menolak dicatat sebelum data
  *    diri lengkap karena kontraknya menyimpan identitas pemohon.
+ *  - **Nama pemohon mengikuti CATATAN pinjaman/kredit TERBARU** (`loans.namaLengkap`
+ *    / `kreditBarang.namaLengkap`) — sumber yang sama dengan baris di ruang
+ *    penyedia dana — lalu data diri, nama akun, dan email sebagai cadangan.
+ *    Dengan begitu orang yang sama tidak tercatat dengan nama berbeda dari yang
+ *    sudah tampil di ruang dana.
  *  - **Pemohon yang BELUM punya akun juga dilayani** (`buatNasabahBaru`): admin
  *    mengisi identitas + mengunggah dokumen pengajuan (foto KTP minimal), lalu
  *    server membuat akun tanpa kredensial beserta data dirinya, sehingga
@@ -45,7 +53,9 @@ import { namaTampil } from "../lib/nama";
 import { persenBungaEfektif } from "../lib/bunga";
 import {
   cariNasabahKembar,
+  kumpulkanNamaCatatan,
   nomorReferensiManual,
+  POKOK_MANUAL_MAKS,
   validasiGadaiManual,
   validasiKreditManual,
   validasiPinjamanManual,
@@ -84,16 +94,46 @@ async function ambilNasabah(ctx: QueryCtx, userId: Id<"users">) {
   return { user, profil };
 }
 
+/**
+ * Nama pada CATATAN pinjaman/kredit terbaru satu nasabah — sumber yang SAMA
+ * dengan baris di ruang penyedia dana. Dipakai agar satu orang tidak tercatat
+ * dengan dua nama berbeda di dua layar.
+ */
+async function namaCatatanNasabah(
+  ctx: QueryCtx,
+  userId: Id<"users">,
+): Promise<string | undefined> {
+  const [loans, kredits] = await Promise.all([
+    ctx.db.query("loans").withIndex("by_user", (q) => q.eq("userId", userId)).collect(),
+    ctx.db.query("kreditBarang").withIndex("by_user", (q) => q.eq("userId", userId)).collect(),
+  ]);
+  return kumpulkanNamaCatatan([
+    ...loans.map((l) => ({
+      userId: l.userId as string,
+      namaLengkap: l.namaLengkap,
+      waktu: l.diajukanPada ?? l._creationTime,
+    })),
+    ...kredits.map((k) => ({
+      userId: k.userId as string,
+      namaLengkap: k.namaLengkap,
+      waktu: k._creationTime,
+    })),
+  ]).get(userId);
+}
+
 /** Baris hasil pencarian nasabah untuk pemilih di panel admin. */
 function ringkasNasabah(
   user: Doc<"users">,
   profil: Doc<"nasabahProfil"> | null,
+  /** Nama pada catatan pinjaman/kredit terbaru — prioritas pertama. */
+  namaCatatan?: string,
 ): NasabahManual {
   return {
     userId: user._id,
-    // Nama KTP di data diri adalah acuan, nama akun hanya cadangan — dan selalu
-    // HURUF BESAR supaya sama dengan data pinjaman di ruang penyedia dana.
-    nama: namaTampil([profil?.namaLengkap, user.name, user.email]),
+    // Nama mengikuti CATATAN terbaru (sumber yang sama dengan ruang penyedia
+    // dana), lalu nama KTP di data diri, nama akun, dan terakhir email — selalu
+    // HURUF BESAR supaya tidak tampil beda dari baris di ruang dana.
+    nama: namaTampil([namaCatatan, profil?.namaLengkap, user.name, user.email]),
     email: user.email ?? null,
     kodePeminjam: user.kodePeminjam ?? null,
     adaDataDiri: profil !== null,
@@ -112,27 +152,49 @@ export const cariNasabah = query({
   args: { kueri: v.string() },
   handler: async (ctx, { kueri }) => {
     await requireAdmin(ctx);
-    const [users, profilRows] = await Promise.all([
+    const [users, profilRows, loans, kredits] = await Promise.all([
       ctx.db.query("users").collect(),
       ctx.db.query("nasabahProfil").collect(),
+      ctx.db.query("loans").collect(),
+      ctx.db.query("kreditBarang").collect(),
     ]);
     const profilPerUser = new Map(profilRows.map((p) => [p.userId as string, p]));
+    // Nama dari catatan pinjaman/kredit terbaru — sumber yang SAMA dengan baris
+    // di ruang penyedia dana, supaya nasabah yang sudah punya catatan ditawarkan
+    // dengan nama yang persis sama seperti di ruang dana.
+    const namaPerCatatan = kumpulkanNamaCatatan([
+      ...loans.map((l) => ({
+        userId: l.userId as string,
+        namaLengkap: l.namaLengkap,
+        waktu: l.diajukanPada ?? l._creationTime,
+      })),
+      ...kredits.map((k) => ({
+        userId: k.userId as string,
+        namaLengkap: k.namaLengkap,
+        waktu: k._creationTime,
+      })),
+    ]);
     const needle = kueri.trim().toLowerCase();
     const hasil: NasabahManual[] = [];
     for (const user of users) {
       if (user.role === ROLES.ADMIN) continue;
       if (user.isAnonymous === true) continue;
       const profil = profilPerUser.get(user._id) ?? null;
+      const namaCatatan = namaPerCatatan.get(user._id);
       if (needle !== "") {
         const kandidat = [
           user.name ?? "",
           user.email ?? "",
           user.kodePeminjam ?? "",
           profil?.nik ?? "",
+          // Nama yang benar-benar tampil di baris ini pun harus bisa dicari —
+          // admin mencari dengan nama yang ia lihat di ruang penyedia dana.
+          namaCatatan ?? "",
+          profil?.namaLengkap ?? "",
         ];
         if (!kandidat.some((teks) => teks.toLowerCase().includes(needle))) continue;
       }
-      hasil.push(ringkasNasabah(user, profil));
+      hasil.push(ringkasNasabah(user, profil, namaCatatan));
     }
     hasil.sort((a, b) => a.nama.localeCompare(b.nama));
     return { hasil: hasil.slice(0, 20), total: hasil.length };
@@ -192,7 +254,15 @@ export const catatPinjamanManual = mutation({
       tenorHari: args.tenorHari,
       tenorBulan: args.tenorBulan,
       tujuan: args.tujuan,
-      namaLengkap: args.namaLengkap ?? profil?.namaLengkap ?? user.name ?? user.email ?? "",
+      // Nama: yang diketik admin, lalu CATATAN terbaru (sumber yang sama dengan
+      // ruang penyedia dana), baru data diri/akun.
+      namaLengkap:
+        args.namaLengkap ??
+        (await namaCatatanNasabah(ctx, args.userIdTarget)) ??
+        profil?.namaLengkap ??
+        user.name ??
+        user.email ??
+        "",
       namaBank: args.namaBank ?? profil?.namaBank ?? "",
       nomorRekening: args.nomorRekening ?? profil?.nomorRekening ?? "",
       catatanPeminjam: args.catatanPeminjam,
@@ -200,12 +270,13 @@ export const catatPinjamanManual = mutation({
 
     // Plafon per nasabah sengaja TIDAK diperiksa: baris ini mencatat pinjaman
     // yang sudah diputuskan di luar aplikasi, jadi batas kredit dalam aplikasi
-    // bukan syaratnya. Langit-langit sistem tetap dijaga supaya satu salah ketik
-    // tidak memasukkan nominal yang di luar jangkauan produk.
+    // bukan syaratnya. Yang dijaga hanya langit-langit jalur manual (skema
+    // harian) dan batas sistem (skema bulanan, mesin bulanan) supaya satu salah
+    // ketik tidak memasukkan nominal di luar jangkauan produk.
     if (bersih.pokokPinjaman > PLAFON_NAIK_SETELAH_LUNAS) {
       throw new Error(
         `Pokok pinjaman manual maksimal ${formatRupiah(
-          PLAFON_NAIK_SETELAH_LUNAS,
+          POKOK_MANUAL_MAKS,
         )} — batas sistem. Periksa kembali nominalnya.`,
       );
     }
@@ -283,7 +354,15 @@ export const catatGadaiManual = mutation({
       deskripsiBarang: args.deskripsiBarang,
       kategori: args.kategori,
       alamatPenilaian: args.alamatPenilaian,
-      namaLengkap: args.namaLengkap ?? profil?.namaLengkap ?? user.name ?? user.email ?? "",
+      // Nama: yang diketik admin, lalu CATATAN terbaru (sumber yang sama dengan
+      // ruang penyedia dana), baru data diri/akun.
+      namaLengkap:
+        args.namaLengkap ??
+        (await namaCatatanNasabah(ctx, args.userIdTarget)) ??
+        profil?.namaLengkap ??
+        user.name ??
+        user.email ??
+        "",
       namaBank: args.namaBank ?? profil?.namaBank ?? "",
       nomorRekening: args.nomorRekening ?? profil?.nomorRekening ?? "",
       catatanPeminjam: args.catatanPeminjam,
@@ -345,6 +424,10 @@ export const catatKreditManual = mutation({
         "Data diri nasabah belum lengkap (nama, NIK, nomor WhatsApp). Lengkapi lewat menu Plafon Nasabah → Data Diri sebelum mencatat pengajuan kredit.",
       );
     }
+    // Nama pemohon pada kontrak: CATATAN terbaru lebih dulu (sumber yang sama
+    // dengan ruang penyedia dana), baru data diri nasabah.
+    const namaPemohon =
+      (await namaCatatanNasabah(ctx, args.userIdTarget)) ?? profil.namaLengkap;
     const bersih = validasiKreditManual({
       namaBarang: args.namaBarang,
       kategori: args.kategori,
@@ -388,7 +471,10 @@ export const catatKreditManual = mutation({
       tenorBulan: bersih.tenorBulan,
       marginPersenPerBulan: KREDIT_ASUMSI_AWAL.marginPersenPerBulan,
       status: "diajukan",
-      namaLengkap: profil.namaLengkap,
+      // Nama mengikuti CATATAN pinjaman/kredit terbaru (sumber yang sama dengan
+      // ruang penyedia dana), baru data diri — supaya satu orang tidak tampil
+      // dengan dua nama berbeda di ruang dana.
+      namaLengkap: namaPemohon,
       nik: profil.nik,
       nomorRekening: bersih.nomorRekening,
       nomorWhatsApp: profil.nomorWhatsApp,
@@ -400,7 +486,7 @@ export const catatKreditManual = mutation({
       labelAdmin(admin),
       "pengajuan_manual_kredit",
       nomorReferensi,
-      `Pencatatan manual oleh admin untuk ${profil.namaLengkap} — ${bersih.namaBarang} (${bersih.merchant}, harga ${formatRupiah(
+      `Pencatatan manual oleh admin untuk ${namaPemohon} — ${bersih.namaBarang} (${bersih.merchant}, harga ${formatRupiah(
         bersih.hargaBarang,
       )}, tenor ${bersih.tenorBulan} bulan, cicilan ${formatRupiah(
         quote.cicilanPerBulan,

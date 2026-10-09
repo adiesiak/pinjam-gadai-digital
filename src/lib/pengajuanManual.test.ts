@@ -11,12 +11,14 @@
 import {
   cariNasabahKembar,
   JENIS_MANUAL,
+  kumpulkanNamaCatatan,
   normalisasiNik,
   normalisasiNamaPanjang,
   normalisasiNomorWhatsApp,
   normalisasiRekening,
   normalisasiTautan,
   nomorReferensiManual,
+  POKOK_MANUAL_MAKS,
   rupiahDariTeks,
   tenorBulananManualSah,
   validasiGadaiManual,
@@ -120,10 +122,35 @@ function galat(fn: () => unknown): string | null {
   eq(bulanan.tenorBulan, 3, "skema bulanan menyimpan tenor bulan");
   eq(bulanan.tenorHari, 30, "skema bulanan tetap punya tenor harian 30 (warisan kolom)");
 
+  // Jalur manual TIDAK memakai batas produk harian Rp 1 juta: admin mencatat
+  // pinjaman yang sudah diputuskan di luar aplikasi. Langit-langitnya adalah
+  // `POKOK_MANUAL_MAKS` (Rp 10 juta) — sama dengan plafon sistem maksimum.
+  const harianBesar = validasiPinjamanManual({
+    pokokPinjaman: 2_000_000,
+    tenorHari: 30,
+    tujuan: "modal_usaha",
+    namaLengkap: "rani",
+    namaBank: "BCA",
+    nomorRekening: "1234567890",
+  });
+  eq(harianBesar.pokokPinjaman, 2_000_000, "pokok 2 juta diterima pada skema harian manual");
+  eq(POKOK_MANUAL_MAKS, 10_000_000, "langit-langit jalur manual Rp 10 juta");
+  eq(
+    validasiPinjamanManual({
+      pokokPinjaman: POKOK_MANUAL_MAKS,
+      tenorHari: 30,
+      tujuan: "modal_usaha",
+      namaLengkap: "rani",
+      namaBank: "BCA",
+      nomorRekening: "1234567890",
+    }).pokokPinjaman,
+    10_000_000,
+    "pokok harian tepat Rp 10 juta diterima",
+  );
   ok(
     galat(() =>
       validasiPinjamanManual({
-        pokokPinjaman: 2_000_000,
+        pokokPinjaman: 10_100_000,
         tenorHari: 30,
         tujuan: "modal_usaha",
         namaLengkap: "rani",
@@ -131,7 +158,20 @@ function galat(fn: () => unknown): string | null {
         nomorRekening: "1234567890",
       }),
     ) !== null,
-    "pokok 2 juta ditolak pada skema harian (batas Rp 1 juta)",
+    "pokok harian di atas Rp 10 juta ditolak",
+  );
+  ok(
+    galat(() =>
+      validasiPinjamanManual({
+        pokokPinjaman: 50_000,
+        tenorHari: 30,
+        tujuan: "modal_usaha",
+        namaLengkap: "rani",
+        namaBank: "BCA",
+        nomorRekening: "1234567890",
+      }),
+    ) !== null,
+    "pokok harian di bawah Rp 100.000 ditolak",
   );
   ok(
     galat(() =>
@@ -173,6 +213,20 @@ function galat(fn: () => unknown): string | null {
     "Pilih keperluan pinjaman yang valid.",
     "keperluan di luar daftar resmi ditolak",
   );
+}
+
+// ===== Kumpulkan nama catatan (sumber nama di ruang penyedia dana) =====
+{
+  const peta = kumpulkanNamaCatatan([
+    { userId: "u1", namaLengkap: "HASBI LAMA", waktu: 10 },
+    { userId: "u1", namaLengkap: "HASBI SUKMANDA", waktu: 20 },
+    { userId: "u2", namaLengkap: "   ", waktu: 30 },
+    { userId: "u2", namaLengkap: "RANDI", waktu: 5 },
+  ]);
+  eq(peta.get("u1"), "HASBI SUKMANDA", "nama catatan TERBARU yang dipakai");
+  eq(peta.get("u2"), "RANDI", "catatan bernama kosong dilewati");
+  eq(peta.get("u3"), undefined, "nasabah tanpa catatan tidak masuk peta");
+  eq(kumpulkanNamaCatatan([]).size, 0, "tanpa catatan peta tetap kosong");
 }
 
 // ===== Gadai manual =====
