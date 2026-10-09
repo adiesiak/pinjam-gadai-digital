@@ -126,6 +126,19 @@
 /* CHANGE VALUES FOR THEME */
 :root {
   --radius: 0.625rem;
+  /* ===== Motion tokens (lihat docs/animasi.md) =====
+     Tiga durasi standar + dua kurva easing + langkah stagger. Nilainya SAMA
+     dengan `DURATION_MS`/`EASE_OUT`/`EASE_IN_OUT`/`STAGGER` di
+     `src/lib/motion.ts`, dan dijaga oleh uji `src/lib/motion.test.ts`.
+     Token ini sengaja tidak berubah antar tema (terang/gelap/pesisir/…):
+     tempo gerak milik aplikasi, bukan milik palet warna. */
+  --motion-fast: 120ms;
+  --motion-normal: 200ms;
+  --motion-slow: 380ms;
+  --motion-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --motion-ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --motion-stagger: 80ms;
+  --motion-jarak: 16px;
   /* Permukaan kertas hangat, teks tinta. */
   --background: #ffffff;
   --foreground: #1c1a15;
@@ -529,9 +542,9 @@
   /* Kartu terangkat halus saat disorot. */
   .card-lift {
     transition:
-      transform 0.18s ease,
-      box-shadow 0.18s ease,
-      border-color 0.18s ease;
+      transform var(--motion-normal) var(--motion-ease-out),
+      box-shadow var(--motion-normal) var(--motion-ease-out),
+      border-color var(--motion-normal) var(--motion-ease-out);
   }
   .card-lift:hover {
     transform: translateY(-2px);
@@ -739,9 +752,10 @@
 
   /* Muncul halus saat elemen baru dirender — dipakai untuk langkah auth, panel
      tab dashboard, header, dan banner. Easing serta jaraknya selaras dengan
-     animasi masuk landing. */
+     animasi masuk landing. Sejak motion token ada, temponya memakai
+     `--motion-slow` (380 ms) supaya seluruh aplikasi seragam. */
   .animate-masuk {
-    animation: pindai-masuk 0.36s cubic-bezier(0.22, 1, 0.36, 1) both;
+    animation: pindai-masuk var(--motion-slow) var(--motion-ease-out) both;
   }
   @keyframes pindai-masuk {
     from {
@@ -752,6 +766,169 @@
       opacity: 1;
       transform: translateY(0);
     }
+  }
+
+  /* ===== Motion utilities (lihat docs/animasi.md) =====
+     Kelas masuk/keluar yang bisa dipakai tanpa JavaScript. Aturannya:
+     - Hanya `opacity` dan `transform` yang dianimasikan → dikerjakan compositor,
+       tidak memicu layout, jadi tidak ada layout shift.
+     - Keadaan DASAR elemen adalah keadaan AKHIR (terlihat penuh). Keyframe hanya
+       menggambarkan titik awalnya, sehingga mematikan animasi (reduced-motion)
+       langsung menampilkan elemen apa adanya — bukan elemen yang tak terlihat.
+     - Semuanya `both`, jadi tidak ada kedipan sebelum animasi mulai.
+     Durasi memakai token: `--motion-fast` (umpan balik), `--motion-normal`
+     (perpindahan kecil), `--motion-slow` (masuknya bagian halaman). */
+  .motion-fade {
+    animation: pindai-motion-fade var(--motion-normal) var(--motion-ease-out) both;
+  }
+  @keyframes pindai-motion-fade {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  .motion-slide-up {
+    animation: pindai-motion-slide-up var(--motion-slow) var(--motion-ease-out) both;
+  }
+  @keyframes pindai-motion-slide-up {
+    from {
+      opacity: 0;
+      transform: translateY(var(--motion-jarak));
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  .motion-slide-down {
+    animation: pindai-motion-slide-down var(--motion-slow) var(--motion-ease-out) both;
+  }
+  @keyframes pindai-motion-slide-down {
+    from {
+      opacity: 0;
+      transform: translateY(calc(-1 * var(--motion-jarak)));
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  .motion-slide-left {
+    animation: pindai-motion-slide-left var(--motion-slow) var(--motion-ease-out) both;
+  }
+  @keyframes pindai-motion-slide-left {
+    from {
+      opacity: 0;
+      transform: translateX(var(--motion-jarak));
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+  .motion-slide-right {
+    animation: pindai-motion-slide-right var(--motion-slow) var(--motion-ease-out) both;
+  }
+  @keyframes pindai-motion-slide-right {
+    from {
+      opacity: 0;
+      transform: translateX(calc(-1 * var(--motion-jarak)));
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+
+  .motion-scale {
+    animation: pindai-motion-scale var(--motion-normal) var(--motion-ease-out) both;
+  }
+  @keyframes pindai-motion-scale {
+    from {
+      opacity: 0;
+      transform: scale(0.96);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+
+  /* Gerak berurutan tanpa JavaScript: beri kelas ini pada wadahnya, lalu salah
+     satu `.motion-*` di atas pada setiap anak (atau pada anak-anaknya sekaligus).
+     Jeda dihitung dari posisi anak — maksimal 12 anak, sisanya menyusul tanpa
+     jeda tambahan supaya daftar panjang tidak menunggu lama. */
+  .motion-stagger > * {
+    animation-delay: calc(var(--motion-stagger) * var(--motion-index, 0));
+  }
+  .motion-stagger > :nth-child(1) {
+    --motion-index: 0;
+  }
+  .motion-stagger > :nth-child(2) {
+    --motion-index: 1;
+  }
+  .motion-stagger > :nth-child(3) {
+    --motion-index: 2;
+  }
+  .motion-stagger > :nth-child(4) {
+    --motion-index: 3;
+  }
+  .motion-stagger > :nth-child(5) {
+    --motion-index: 4;
+  }
+  .motion-stagger > :nth-child(6) {
+    --motion-index: 5;
+  }
+  .motion-stagger > :nth-child(7) {
+    --motion-index: 6;
+  }
+  .motion-stagger > :nth-child(8) {
+    --motion-index: 7;
+  }
+  .motion-stagger > :nth-child(9) {
+    --motion-index: 8;
+  }
+  .motion-stagger > :nth-child(10) {
+    --motion-index: 9;
+  }
+  .motion-stagger > :nth-child(11) {
+    --motion-index: 10;
+  }
+  .motion-stagger > :nth-child(12) {
+    --motion-index: 11;
+  }
+
+  /* Denyut perhatian yang BERAKHIR (3 kali) — bawaan untuk "lihat ini sekali".
+     Untuk keadaan yang benar-benar hidup (mis. pengingat jatuh tempo), pakai
+     `.motion-pulse-loop` secara sadar: animasi terus-menerus hanya dibenarkan
+     bila statusnya memang terus berubah. */
+  .motion-pulse {
+    animation: pindai-motion-pulse var(--motion-slow) var(--motion-ease-in-out) 3;
+  }
+  .motion-pulse-loop {
+    animation: pindai-motion-pulse var(--motion-slow) var(--motion-ease-in-out) infinite;
+  }
+  @keyframes pindai-motion-pulse {
+    0%,
+    100% {
+      opacity: 1;
+      transform: scale(1);
+    }
+    50% {
+      opacity: 0.86;
+      transform: scale(1.03);
+    }
+  }
+
+  /* Umpan balik tekan (fast) — dipakai pada tombol/kartu yang bisa diklik. */
+  .motion-press {
+    transition: transform var(--motion-fast) var(--motion-ease-out);
+  }
+  .motion-press:active {
+    transform: scale(0.985);
   }
 
   /* Garis bawah judul yang tumbuh saat disorot. */
@@ -850,12 +1027,29 @@
     .animate-due-ring,
     .animate-due-breathe,
     .animate-due-pop,
-    .animate-due-tick {
+    .animate-due-tick,
+    .motion-fade,
+    .motion-slide-up,
+    .motion-slide-down,
+    .motion-slide-left,
+    .motion-slide-right,
+    .motion-scale,
+    .motion-pulse,
+    .motion-pulse-loop {
       animation: none;
+    }
+    /* Gerak berurutan tidak perlu jeda bila tidak ada animasinya. */
+    .motion-stagger > * {
+      animation-delay: 0s;
     }
     /* Kartu yang mengangkat saat hover juga tidak boleh bergerak. */
     .card-lift,
     .card-lift:hover {
+      transition: none;
+      transform: none;
+    }
+    .motion-press,
+    .motion-press:active {
       transition: none;
       transform: none;
     }

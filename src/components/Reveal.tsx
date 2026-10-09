@@ -1,18 +1,22 @@
 import { motion, useReducedMotion } from "framer-motion";
 import type { ReactNode } from "react";
 
-import { EASE_OUT } from "@/lib/motion";
+import { DURATION, EASE_OUT } from "@/lib/motion";
 
 /**
  * Pembungkus animasi masuk PINDAI. Nilai easing dan variannya ada di
  * `@/lib/motion` supaya landing, halaman auth, dan dashboard seragam. Semua
  * animasi otomatis menyusut menjadi fade sederhana saat reduced-motion aktif.
+ *
+ * Sejak motion token ada, durasinya memakai `DURATION.slow` (380 ms) — bagian
+ * masuk halaman tidak lagi memakai angka sendiri-sendiri. Untuk kebutuhan lain
+ * (slide arah lain, scale, daftar berurutan, pulse) pakai `@/components/Motion`.
  */
 
 /** Prop gerak "muncul saat mount" untuk dipasang pada motion.* secara langsung. */
 function useFadeUp({
   y = 16,
-  duration = 0.5,
+  duration = DURATION.slow,
   delay = 0,
 }: { y?: number; duration?: number; delay?: number } = {}) {
   const reduce = useReducedMotion();
@@ -41,7 +45,7 @@ export function Reveal({
       initial={reduce ? { opacity: 0 } : { opacity: 0, y }}
       whileInView={reduce ? { opacity: 1 } : { opacity: 1, y: 0 }}
       viewport={{ once: true, amount: 0.2 }}
-      transition={{ duration: 0.55, delay, ease: EASE_OUT }}
+      transition={{ duration: DURATION.slow, delay, ease: EASE_OUT }}
       className={className}
     >
       {children}
@@ -54,7 +58,7 @@ export function FadeIn({
   children,
   delay = 0,
   y = 16,
-  duration = 0.5,
+  duration = DURATION.slow,
   className,
 }: {
   children: ReactNode;
