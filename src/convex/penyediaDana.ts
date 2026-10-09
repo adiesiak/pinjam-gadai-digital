@@ -37,6 +37,12 @@ import { SLOT_AKSES_BERSAMA } from "./aksesBersama";
 import { requireAdminSession } from "./adminAuthz";
 import { bagiHasilPinjamanDari } from "../lib/bagiHasil";
 import {
+  hitungKepercayaan,
+  riwayatDariPinjaman,
+  type PinjamanRiwayat,
+  type RingkasKepercayaan,
+} from "../lib/kepercayaanPeminjam";
+import {
   rekapTransferPendana,
   ringkasTransfer,
   type PinjamanTransfer,
@@ -157,6 +163,17 @@ export type BarisPinjaman = {
   transfer: RingkasTransfer;
   /** Titik lokasi terakhir yang diketahui — null bila belum pernah terkirim. */
   lokasi: LokasiTitik | null;
+  /**
+   * Indeks kepercayaan peminjam — sinyal internal PINDAI, BUKAN skor kredit.
+   *
+   * Dihitung dari catatan yang sudah ada di aplikasi ini: riwayat pinjaman
+   * tunai peminjam (lunas tepat waktu, terlambat, menunggak), kelengkapan data
+   * diri tersimpan, dan terbitnya kode pseudonim. Riwayatnya diambil dari
+   * maksimal `BATAS_BARIS` pinjaman terbaru yang dibaca halaman ini, jadi ia
+   * ringkasan atas catatan yang benar-benar tersedia — bukan klaim total
+   * sepanjang masa. Tidak pernah memuat NIK, rekening, atau isi data diri.
+   */
+  kepercayaan: RingkasKepercayaan;
 };
 
 /**
@@ -362,6 +379,8 @@ export const daftarPengajuan = query({
     await requirePengamat(ctx);
     // Kebijakan bunga & potongan admin dibaca dari Pengaturan Sistem.
     const cfg = await getConfig(ctx);
+    // Patokan waktu untuk penilaian kepercayaan: jam server saat query dibaca.
+    const sekarang = Date.now();
 
     // Cache kode pseudonim — satu pembacaan per peminjam, bukan per baris.
     const kodeCache = new Map<Id<"users">, string | null>();
@@ -445,6 +464,53 @@ export const daftarPengajuan = query({
       .order("desc")
       .take(BATAS_BARIS + 1);
 
+    // ---- Indeks kepercayaan peminjam ------------------------------------
+    // Riwayat dikelompokkan dari pinjaman yang SUDAH dibaca di atas: tidak ada
+    // pembacaan riwayat per baris. Kelengkapan data diri dibaca satu kali per
+    // peminjam, dan hasil akhirnya di-cache per peminjam juga.
+    const pinjamanPerPeminjam = new Map<Id<"users">, PinjamanRiwayat[]>();
+    for (const loan of pinjamanMentah) {
+      const baris: PinjamanRiwayat = {
+        status: loan.status,
+        didanaiPada: loan.didanaiPada ?? null,
+        lunasPada: loan.lunasPada ?? null,
+        tenorHari: loan.tenorHari ?? null,
+        tenorBulan: loan.tenorBulan ?? null,
+      };
+      const daftar = pinjamanPerPeminjam.get(loan.userId);
+      if (daftar === undefined) pinjamanPerPeminjam.set(loan.userId, [baris]);
+      else daftar.push(baris);
+    }
+
+    /** Apakah peminjam sudah menyimpan data diri (KTP, alamat, pekerjaan)? */
+    const dataDiriCache = new Map<Id<"users">, boolean>();
+    async function punyaDataDiri(userId: Id<"users">): Promise<boolean> {
+      const cached = dataDiriCache.get(userId);
+      if (cached !== undefined) return cached;
+      const profil = await ctx.db
+        .query("nasabahProfil")
+        .withIndex("by_user", (q) => q.eq("userId", userId))
+        .first();
+      const ada = profil !== null;
+      dataDiriCache.set(userId, ada);
+      return ada;
+    }
+
+    const kepercayaanCache = new Map<Id<"users">, RingkasKepercayaan>();
+    async function kepercayaanUntuk(userId: Id<"users">): Promise<RingkasKepercayaan> {
+      const cached = kepercayaanCache.get(userId);
+      if (cached !== undefined) return cached;
+      const hasil = hitungKepercayaan(
+        riwayatDariPinjaman(pinjamanPerPeminjam.get(userId) ?? [], {
+          sekarang,
+          dataDiriLengkap: await punyaDataDiri(userId),
+          punyaKodePeminjam: (await kodeUntuk(userId)) !== null,
+        }),
+      );
+      kepercayaanCache.set(userId, hasil);
+      return hasil;
+    }
+
     const pinjaman: BarisPinjaman[] = [];
     for (const loan of pinjamanMentah.slice(0, BATAS_BARIS)) {
       const bagi = bagiPinjamanAman(loan, cfg.persenBunga, cfg.persenAdmin);
@@ -476,6 +542,7 @@ export const daftarPengajuan = query({
         keuntunganPendana: bagi.keuntunganPendana,
         keuntunganAdmin: bagi.keuntunganAdmin,
         transfer: transferPerPinjaman.get(loan._id) ?? ringkasTransfer([]),
+        kepercayaan: await kepercayaanUntuk(loan.userId),
         // Pinjaman menyimpan titik GPS saat pengajuan dikirim — dipakai sebagai
         // cadangan bila perangkat belum pernah mengirim heartbeat.
         lokasi:

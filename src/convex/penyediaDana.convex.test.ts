@@ -359,6 +359,139 @@ describe("ruang penyedia dana (lihat saja)", () => {
       gadai: false,
       kredit: false,
     });
+
+    // Kepercayaan dihitung dari riwayat, jadi peminjam tanpa riwayat lunas
+    // tampil jujur sebagai nasabah baru — bukan angka karangan.
+    expect(hasil.pinjaman[0]?.kepercayaan).toMatchObject({
+      tingkat: "baru",
+      label: "Nasabah baru",
+      ringkas: "0 tepat waktu · 0 terlambat",
+    });
+    expect(hasil.pinjaman[0]?.kepercayaan.alasan).toContain(
+      "Belum ada pinjaman yang berjalan atau lunas",
+    );
+  });
+
+  it("menilai kepercayaan peminjam dari riwayat pelunasan di catatan PINDAI", async () => {
+    const t = convexTest(schema, modules);
+    const { userId: rajin } = await siapkanPengguna(t, "rani-rajin", {
+      email: "rajin@pindai.test",
+      role: "peminjam",
+    });
+    const { userId: telat } = await siapkanPengguna(t, "rusdi-telat", {
+      email: "telat@pindai.test",
+      role: "peminjam",
+    });
+    const { sesi: dana } = await siapkanPengguna(t, "penyedia-nilai", {
+      email: "dana-nilai@pindai.test",
+      role: "dana",
+    });
+
+    const HARI = 86_400_000;
+    const DIDANAI = Date.now() - 120 * HARI;
+    let idPinjamanPertama: Id<"loans"> | null = null;
+
+    await t.run(async (ctx) => {
+      await ctx.db.patch(rajin, { kodePeminjam: "PMN-RAJIN" });
+      await ctx.db.patch(telat, { kodePeminjam: "PMN-TELAT" });
+
+      // Dua pelunasan benar-benar tepat waktu (lunas ≤ jatuh tempo 30 hari).
+      for (const i of [0, 1]) {
+        const id = await ctx.db.insert("loans", {
+          userId: rajin,
+          pokokPinjaman: 2_500_000,
+          tujuan: "Modal usaha",
+          namaLengkap: "Rani Rajin",
+          nomorRekening: RAHASIA.nomorRekening,
+          nik: RAHASIA.nik,
+          nomorWhatsApp: RAHASIA.nomorWhatsApp,
+          status: "lunas",
+          nomorReferensi: `PGD-RAJIN-${i + 1}`,
+          tenorHari: 30,
+          didanaiPada: DIDANAI + i * 40 * HARI,
+          lunasPada: DIDANAI + i * 40 * HARI + 30 * HARI,
+        });
+        if (i === 0) idPinjamanPertama = id;
+      }
+
+      // Data diri tersimpan — satu poin penilaian yang bisa diperiksa admin.
+      await ctx.db.insert("nasabahProfil", {
+        userId: rajin,
+        namaLengkap: "Rani Rajin",
+        nik: RAHASIA.nik,
+        nomorWhatsApp: RAHASIA.nomorWhatsApp,
+        alamat: "Jl. Contoh No. 2",
+        diperbaruiPada: Date.now(),
+        diperbaruiOlehLabel: "admin",
+      });
+
+      // Peminjam kedua: satu pinjaman berjalan yang sudah lewat jatuh tempo.
+      await ctx.db.insert("loans", {
+        userId: telat,
+        pokokPinjaman: 1_500_000,
+        tujuan: "Kebutuhan pribadi",
+        namaLengkap: "Rusdi Telat",
+        nomorRekening: RAHASIA.nomorRekening,
+        status: "didanai",
+        nomorReferensi: "PGD-TELAT-1",
+        tenorHari: 30,
+        didanaiPada: Date.now() - 40 * HARI,
+      });
+    });
+
+    const hasil = await dana.query(api.penyediaDana.daftarPengajuan, {});
+    expect(hasil.pinjaman).toHaveLength(3);
+
+    const barisRajin = hasil.pinjaman.filter((b) => b.namaLengkap === "Rani Rajin");
+    expect(barisRajin).toHaveLength(2);
+    // Penilaian bersifat per PEMINJAM: dua baris orang yang sama identik.
+    expect(barisRajin[0]?.kepercayaan).toEqual(barisRajin[1]?.kepercayaan);
+    expect(barisRajin[0]?.kepercayaan).toMatchObject({
+      tingkat: "kuat",
+      label: "Terpercaya",
+      ringkas: "2 tepat waktu · 0 terlambat",
+    });
+    expect(barisRajin[0]?.kepercayaan.skor).toBeGreaterThanOrEqual(78);
+    expect(barisRajin[0]?.kepercayaan.alasan).toContain("2 pinjaman lunas tepat waktu");
+    expect(barisRajin[0]?.kepercayaan.alasan).toContain("Data diri tersimpan lengkap");
+
+    const barisTelat = hasil.pinjaman.find((b) => b.namaLengkap === "Rusdi Telat");
+    expect(barisTelat?.kepercayaan).toMatchObject({
+      tingkat: "perlu_perhatian",
+      label: "Perlu perhatian",
+    });
+    expect(barisTelat?.kepercayaan.alasan.join(" | ")).toMatch(/lewat jatuh tempo/);
+    expect(barisTelat?.kepercayaan.alasan).toContain("Data diri belum lengkap");
+    expect(barisTelat?.kepercayaan.skor ?? 100).toBeLessThan(55);
+
+    // Penilaian tidak membocorkan identitas: hanya label, skor, dan alasan.
+    const teksKepercayaan = JSON.stringify(barisRajin.map((b) => b.kepercayaan));
+    for (const rahasia of Object.values(RAHASIA)) {
+      expect(teksKepercayaan).not.toContain(rahasia);
+    }
+    expect(JSON.stringify(hasil)).not.toContain(RAHASIA.nik);
+    for (const kunci of ["nik", "nomorRekening", "nomorWhatsApp", "namaLengkap"]) {
+      expect(barisRajin[0]?.kepercayaan).not.toHaveProperty(kunci);
+    }
+
+    // Dibaca ulang tanpa data berubah: skor tetap sama (deterministik).
+    const ulang = await dana.query(api.penyediaDana.daftarPengajuan, {});
+    expect(ulang.pinjaman.find((b) => b.namaLengkap === "Rani Rajin")?.kepercayaan.skor).toBe(
+      barisRajin[0]?.kepercayaan.skor,
+    );
+
+    // Riwayat dibaca dari dokumen pinjaman yang sebenarnya, bukan dari
+    // `kodePeminjam` atau klaim klien: melunasi satu pinjaman lagi mengubah
+    // penilaian.
+    const targetId = idPinjamanPertama;
+    if (targetId === null) throw new Error("seed pinjaman pertama gagal");
+    await t.run((ctx) => ctx.db.patch(targetId, { lunasPada: DIDANAI + 60 * HARI }));
+    const setelahTerlambat = await dana.query(api.penyediaDana.daftarPengajuan, {});
+    const rajinSetelah = setelahTerlambat.pinjaman.find((b) => b.namaLengkap === "Rani Rajin");
+    expect(rajinSetelah?.kepercayaan.alasan.join(" | ")).toMatch(/melewati jatuh tempo/);
+    expect(rajinSetelah?.kepercayaan.skor ?? 100).toBeLessThan(
+      barisRajin[0]?.kepercayaan.skor ?? 0,
+    );
   });
 
   it("memisahkan pengajuan awal dari persetujuan sebagian tanpa mengubah posisi dana", async () => {

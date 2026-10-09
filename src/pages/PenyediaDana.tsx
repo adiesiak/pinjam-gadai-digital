@@ -24,6 +24,11 @@ import { Link } from "react-router";
 import { RoleDashboardMenu } from "@/components/RoleDashboardMenu";
 import { kunciNama, namaHurufBesar, namaRuangan } from "@/lib/nama";
 import { VaultLogo } from "@/components/VaultLogo";
+import {
+  BadgeKepercayaan,
+  TampilanJatuhTempo,
+  TampilanJatuhTempoRingkas,
+} from "@/components/penyediaDana/BadgeKepercayaan";
 import { CatatanPotonganAdmin } from "@/components/penyediaDana/CatatanPotonganAdmin";
 import { DanaTersalurkanPendana } from "@/components/penyediaDana/DanaTersalurkanPendana";
 import { GrafikKeuntunganPendana } from "@/components/penyediaDana/GrafikKeuntunganPendana";
@@ -79,6 +84,8 @@ import type {
 import { useAuth } from "@/hooks/use-auth";
 import { quoteKreditBarang } from "@/lib/kredit";
 import { BULAN_MS, quotePinjaman, simulasiBulananPinjaman } from "@/lib/loan";
+import { ringkasJatuhTempo } from "@/lib/jatuhTempo";
+import type { RingkasKepercayaan } from "@/lib/kepercayaanPeminjam";
 import { formatRupiahAman } from "@/lib/money";
 import {
   adaFilter,
@@ -135,9 +142,6 @@ function coba<T>(fn: () => T): T | null {
 function rupiah(nilai: number): string {
   return formatRupiahAman(nilai);
 }
-
-/** Satu bulan = 30 hari, mengikuti lib/loan (BULAN_MS). */
-const HARI_MS = BULAN_MS / 30;
 
 /**
  * Umur titik lokasi dalam bahasa manusia. Selalu relatif terhadap waktu
@@ -361,17 +365,21 @@ function SelPeminjam({
   nama,
   kode,
   referensi,
+  kepercayaan,
 }: {
   nama: string;
   kode: string | null;
   referensi: string;
+  /** Hanya diisi untuk pengajuan pinjaman — indeks kepercayaan peminjam. */
+  kepercayaan?: RingkasKepercayaan;
 }) {
   return (
     <TableCell className="align-top">
       <p className="font-medium uppercase text-slate-900">{nama}</p>
       <p className="mt-1 break-all font-mono text-[11px] text-slate-500">{referensi}</p>
-      <div className="mt-1">
+      <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
         <BadgePseudonim kode={kode} />
+        {kepercayaan !== undefined && <BadgeKepercayaan kepercayaan={kepercayaan} />}
       </div>
     </TableCell>
   );
@@ -472,10 +480,13 @@ function labelPokok(status: string): string {
 function DetailPinjaman({
   row,
   namaTampil,
+  sekarang,
 }: {
   row: BarisPinjaman;
   /** Penyamaran nama untuk ruang bersama (nama orang disamarkan). */
   namaTampil: (nama: string) => string;
+  /** Jam berjalan halaman — dipakai untuk hitung hari jatuh tempo. */
+  sekarang: number;
 }) {
   const tenorBulan = row.tenorBulan;
   const persenBunga = row.persenBunga ?? undefined;
@@ -491,13 +502,13 @@ function DetailPinjaman({
   const totalPelunasan = harian?.totalKewajibanPelunasan ?? bulanan?.totalPengembalian ?? null;
   const potongan = harian?.totalPotonganDiMuka ?? bulanan?.potonganDiMuka ?? null;
   const danaBersih = harian?.danaBersihDitransfer ?? bulanan?.danaDiterima ?? null;
-  // Jatuh tempo dihitung dari tanggal pendanaan + tenor (bukan dari waktu
-  // sekarang) supaya render tetap murni dan tidak bergantung jam perangkat.
-  const jatuhTempo =
-    row.didanaiPada === null
-      ? null
-      : row.didanaiPada +
-        (tenorBulan === null ? row.tenorHari * HARI_MS : tenorBulan * BULAN_MS);
+  /**
+   * Jatuh tempo memakai `lib/jatuhTempo` — modul yang sama dengan tabel dan
+   * kartu, jadi tanggal serta hitung harinya tidak pernah berbeda antar tempat.
+   * Jam "sekarang" datang dari halaman (jam berjalan), bukan dibaca di sini,
+   * supaya render tetap bisa diuji.
+   */
+  const tampilanJatuhTempo = ringkasJatuhTempo(row, sekarang);
 
   return (
     <>
@@ -563,8 +574,17 @@ function DetailPinjaman({
       />
       <BarisDetail
         label="Jatuh tempo"
-        nilai={jatuhTempo === null ? "belum didanai" : tanggalRingkas(jatuhTempo)}
+        nilai={<TampilanJatuhTempo tampilan={tampilanJatuhTempo} align="right" />}
       />
+      <BarisDetail
+        label="Indeks kepercayaan"
+        nilai={<BadgeKepercayaan kepercayaan={row.kepercayaan} />}
+      />
+      <p className="border-b border-slate-100 pb-3 text-xs leading-6 text-muted-foreground">
+        Dasar penilaian: {row.kepercayaan.alasan.join(" · ")}. Indeks ini dihitung PINDAI dari
+        riwayat pinjaman dan kelengkapan data pada catatan internal — bukan skor kredit lembaga
+        penilai dan bukan jaminan persetujuan.
+      </p>
       <BarisDetail label="Keperluan" nilai={row.tujuan} />
       <BarisDetail
         label="Pendana"
@@ -899,16 +919,19 @@ function IsiDialog({
   detail,
   bolehBerkas,
   namaTampil,
+  sekarang,
 }: {
   detail: IsiDetail;
   bolehBerkas: boolean;
   namaTampil: (nama: string) => string;
+  /** Jam berjalan halaman — diteruskan ke tampilan jatuh tempo. */
+  sekarang: number;
 }) {
   return (
     <>
       <dl className="mt-1">
         {detail.jenis === "pinjaman" && (
-          <DetailPinjaman row={detail.row} namaTampil={namaTampil} />
+          <DetailPinjaman row={detail.row} namaTampil={namaTampil} sekarang={sekarang} />
         )}
         {detail.jenis === "gadai" && <DetailGadai row={detail.row} namaTampil={namaTampil} />}
         {detail.jenis === "kredit" && (
@@ -1036,6 +1059,13 @@ function DaftarPinjaman({
   /** Penyamaran nama orang (peminjam & penyedia dana) untuk ruang bersama. */
   namaTampil: (nama: string) => string;
 }) {
+  /**
+   * Jatuh tempo satu baris — dihitung sekali per baris dan dihitung ulang
+   * ketika jam halaman berjalan (60 detik), sehingga lencana "Terlambat n hari"
+   * ikut menua tanpa perlu muat ulang.
+   */
+  const jatuhTempo = (row: BarisPinjaman) => ringkasJatuhTempo(row, sekarang);
+
   return (
     <>
       {/* Layar sempit: kartu per peminjam — semua rincian tanpa geser mendatar. */}
@@ -1058,6 +1088,12 @@ function DaftarPinjaman({
             <InfoKartu label="Total lunas">{rupiah(row.totalLunas)}</InfoKartu>
             <InfoKartu label="Tenor">
               {row.tenorBulan === null ? `${row.tenorHari} hari` : `${row.tenorBulan} bulan`}
+            </InfoKartu>
+            <InfoKartu label="Jatuh tempo">
+              <TampilanJatuhTempoRingkas tampilan={jatuhTempo(row)} />
+            </InfoKartu>
+            <InfoKartu label="Kepercayaan peminjam">
+              <BadgeKepercayaan kepercayaan={row.kepercayaan} tampilkanRingkas />
             </InfoKartu>
             <InfoKartu label="Tanggal">{tanggalRingkas(row.diajukanPada)}</InfoKartu>
             <InfoKartu label="Pendana">
@@ -1090,6 +1126,7 @@ function DaftarPinjaman({
             "Peminjam",
             "Pengajuan & tenor",
             "Kewajiban & biaya",
+            "Jatuh tempo",
             "Tanggal",
             "Status",
             "Pendana",
@@ -1103,6 +1140,7 @@ function DaftarPinjaman({
                 nama={namaTampil(row.namaLengkap)}
                 kode={row.kodePeminjam}
                 referensi={row.nomorReferensi}
+                kepercayaan={row.kepercayaan}
               />
               <TableCell className="align-top tabular-nums">
                 <p className="font-semibold text-slate-900">{rupiah(row.pokokPinjaman)}</p>
@@ -1127,6 +1165,9 @@ function DaftarPinjaman({
                   Potongan admin (dari uang kembali){" "}
                   {row.pendana === null ? "—" : rupiah(row.potonganAdmin)}
                 </p>
+              </TableCell>
+              <TableCell className="align-top">
+                <TampilanJatuhTempo tampilan={jatuhTempo(row)} />
               </TableCell>
               <TableCell className="align-top text-slate-600">
                 {tanggalRingkas(row.diajukanPada)}
@@ -2256,7 +2297,12 @@ function IsiRuang() {
               NIK, nomor rekening, nomor WhatsApp, dan alamat tidak dikirim sebagai kolom terpisah.
             </DialogDescription>
           </DialogHeader>                  {detail !== null && (
-                    <IsiDialog detail={detail} bolehBerkas={bolehBerkas} namaTampil={tampilNama} />
+                    <IsiDialog
+                      detail={detail}
+                      bolehBerkas={bolehBerkas}
+                      namaTampil={tampilNama}
+                      sekarang={sekarang}
+                    />
                   )}
         </DialogContent>
       </Dialog>
