@@ -23,6 +23,7 @@
  *  - `lewat` — pemeriksaan tidak dapat dijalankan pada data saat ini (data
  *    kosong, baris terpotong, atau sudah ditutup oleh pemeriksaan lain).
  */
+import { STATUS_MENUNGGU } from "./admin-queue";
 import { bagiHasilPinjamanDari } from "./bagiHasil";
 import { formatRupiah } from "./money";
 import { bandingkanPendana, type MetrikPendana, type SumberPendana } from "./rekonsiliasi";
@@ -694,14 +695,20 @@ export function jalankanQc(input: InputQc): HasilQc {
   // tidak terpotong. Salah satu ketiganya berbeda = ada angka dashboard yang
   // tidak berasal dari data yang sama dengan yang dilihat penyedia dana.
   const berjalanBaris = baris.filter((b) => b.status === "didanai");
-  const diajukanBaris = baris.filter((b) => b.status === "diajukan");
+  // "Menunggu review" = himpunan yang SAMA dengan yang dipakai `adminStats`
+  // (`lib/admin-queue.ts`): `diajukan` DAN `sedang_direview`. Menghitung hanya
+  // `diajukan` di sini dulu membuat panel dan baris selalu terlihat berbeda
+  // begitu ada pengajuan yang sedang ditinjau — kegagalan palsu di suite QC.
+  const menungguBaris = baris.filter((b) =>
+    STATUS_MENUNGGU.pinjaman.includes(b.status),
+  );
   const bedaKartu: string[] = [];
   const cocokKartu = (label: string, kartu: number, dariBaris: number): void => {
     if (kartu !== dariBaris) bedaKartu.push(`${label}: kartu ${kartu} vs baris ${dariBaris}`);
   };
   if (!ruang.terpotong.pinjaman) {
     cocokKartu("jumlah pinjaman", stats.totalPinjaman, baris.length);
-    cocokKartu("pengajuan menunggu", stats.pinjamanBaru, diajukanBaris.length);
+    cocokKartu("pengajuan menunggu", stats.pinjamanBaru, menungguBaris.length);
     cocokKartu(
       "nilai pinjaman berjalan",
       stats.totalPinjamanBerjalan,

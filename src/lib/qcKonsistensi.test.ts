@@ -385,6 +385,41 @@ function statusDari(hasil: ReturnType<typeof jalankanQc>, id: string): StatusCek
   ok(hasilSalah.ringkasan.gagal >= 1, "kegagalan kartu terhitung dalam ringkasan");
 }
 
+// ===== 14b. Baris `sedang_direview` ikut dihitung sebagai menunggu review =====
+// `adminStats.pinjamanBaru` menghitung `diajukan` DAN `sedang_direview`
+// (lib/admin-queue.ts). Pemeriksaan kartu wajib memakai himpunan yang sama;
+// kalau hanya `diajukan` yang dihitung di sini, panel dan baris selalu tampak
+// berbeda begitu ada pengajuan yang sedang ditinjau — kegagalan palsu di QC.
+{
+  const cocok = salinan();
+  cocok.ruang.pinjaman.push({
+    ...cocok.ruang.pinjaman[0],
+    nomorReferensi: "PGD-2",
+    status: "sedang_direview",
+  });
+  cocok.stats.totalPinjaman = 2;
+  cocok.stats.pinjamanBaru = 1;
+  eq(
+    statusDari(jalankanQc(cocok), "admin-kartu-pinjaman"),
+    "lulus",
+    "pengajuan sedang_direview dihitung sebagai menunggu review",
+  );
+
+  const salah = salinan();
+  salah.ruang.pinjaman.push({
+    ...salah.ruang.pinjaman[0],
+    nomorReferensi: "PGD-3",
+    status: "sedang_direview",
+  });
+  salah.stats.totalPinjaman = 2;
+  salah.stats.pinjamanBaru = 0;
+  eq(
+    statusDari(jalankanQc(salah), "admin-kartu-pinjaman"),
+    "gagal",
+    "pengajuan sedang_direview yang tak terhitung kartu tetap ditangkap",
+  );
+}
+
 // ===== 15. Data kosong: tidak ada kegagalan, hanya pemeriksaan yang terlewat =====
 {
   const input: InputQc = {

@@ -187,6 +187,9 @@ describe("empat status pinjaman di server", () => {
     const loanId = await buatPinjaman(t, peminjamId, "sedang_direview");
 
     // Ketiga ejaan lama bukan lagi pilihan yang sah — "Ditinjau" menggantikannya.
+    // Ditolak oleh validator argumen (bukan oleh galat lain saat berjalan),
+    // jadi pesannya ikut diperiksa: kalau gerbangnya bocor dan mutasi malah
+    // melempar karena sebab lain, uji ini gagal.
     for (const lama of ["diajukan", "sedang_direview", "disetujui"]) {
       await expect(
         admin.mutation(api.loans.ubahStatusPinjaman, {
@@ -194,7 +197,7 @@ describe("empat status pinjaman di server", () => {
           status: lama as never,
           reason: "coba tahap lama",
         }),
-      ).rejects.toThrow();
+      ).rejects.toThrow(/Validator error/);
     }
     expect((await t.run((ctx) => ctx.db.get(loanId)))?.status).toBe(
       "sedang_direview",

@@ -119,9 +119,11 @@ describe("integrasi pinjaman ke ledger internal", () => {
       email: "rani@pindai.test",
       role: "peminjam",
     });
+    // Pesan diperiksa: tanpa itu, galat apa pun (mis. konfigurasi hilang) akan
+    // membuat uji lulus padahal gerbang admin justru sedang rusak.
     await expect(
       peminjam.mutation(api.integrasiLedger.integrasikanPinjamanKeLedger, {}),
-    ).rejects.toThrow();
+    ).rejects.toThrow(/Akses khusus Super Admin/);
   });
 });
 
@@ -249,7 +251,7 @@ describe("hapus pinjaman lama per baris", () => {
         loanIds: [loanId],
         alasan: "pendek",
       }),
-    ).rejects.toThrow();
+    ).rejects.toThrow(/Alasan wajib 10.500 karakter/);
   });
 });
 
@@ -357,18 +359,20 @@ describe("pembersihan jurnal per grup (CLI sekali pakai)", () => {
 
   it("menolak alasan terlalu pendek dan daftar grup kosong", async () => {
     const t = convexTest(schema, modules);
+    // Dua alasan penolakan yang berbeda: pesannya dipisah supaya tertukar
+    // (mis. menolak karena daftar kosong padahal alasannya yang salah) ketahuan.
     await expect(
       t.mutation(internal.integrasiLedger.qaPurgeJurnalGroups, {
         groupIds: ["J-x"],
         alasan: "pendek",
       }),
-    ).rejects.toThrow();
+    ).rejects.toThrow(/Alasan wajib 10.500 karakter/);
     await expect(
       t.mutation(internal.integrasiLedger.qaPurgeJurnalGroups, {
         groupIds: [],
         alasan: "pembersihan data uji ledger internal",
       }),
-    ).rejects.toThrow();
+    ).rejects.toThrow(/Kirim minimal satu groupId/);
   });
 });
 
