@@ -488,4 +488,41 @@ describe("pencatatan pengajuan manual oleh admin", () => {
     // admin@pindai.test + dina@pindai.test + satu pemohon walk-in.
     expect(jumlah.users).toHaveLength(3);
   });
+
+  it("menolak duplikat saat NIK salah ketik tapi nomor WhatsApp sama", async () => {
+    // Duplikat nyata dari data luar aplikasi: orang yang sama dicatat dua kali
+    // karena NIK-nya salah ketik (satu digit berbeda), sehingga muncul nama
+    // typo di samping nama lengkapnya. Nomor WhatsApp yang sama harus menolak
+    // pembuatan akun kedua.
+    const t = convexTest(schema, modules);
+    const { sesi: admin } = await siapkanPengguna(t, "admin", {
+      email: "admin-duplikat@pindai.test",
+      role: "admin",
+    });
+
+    const identitas = {
+      namaLengkap: "Alfian Rifki Juniawan",
+      nik: "3201234567890003",
+      nomorWhatsApp: "628123456791",
+      alamat: "Jl. Kenanga No. 5",
+      pekerjaan: "Karyawan",
+      penghasilanBulanan: null,
+      namaBank: "BCA",
+      nomorRekening: "1234567890",
+    };
+    await admin.mutation(api.adminPengajuan.buatNasabahBaru, identitas);
+
+    await expect(
+      admin.mutation(api.adminPengajuan.buatNasabahBaru, {
+        ...identitas,
+        namaLengkap: "Alifan",
+        nik: "3201234567890004",
+      }),
+    ).rejects.toThrow(/Nomor WhatsApp ini sudah tercatat/i);
+
+    // Satu orang tetap satu baris, dan nama yang tampil adalah yang lengkap —
+    // tidak ada salinan typo yang ikut ditawarkan ke admin.
+    const semua = await admin.query(api.adminPengajuan.cariNasabah, { kueri: "" });
+    expect(semua.hasil.map((n) => n.nama)).toEqual(["ALFIAN RIFKI JUNIAWAN"]);
+  });
 });

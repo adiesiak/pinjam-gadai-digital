@@ -383,3 +383,56 @@ export function validasiKreditManual(input: KreditManualInput): KreditManualBers
     ),
   };
 }
+
+/** Identitas minimal untuk mengenali satu orang di `nasabahProfil`. */
+export type IdentitasNasabah = {
+  readonly nik?: string | null;
+  readonly nomorWhatsApp?: string | null;
+};
+
+/** Bidang identitas yang membuat dua baris dianggap orang yang sama. */
+export type SebabKembar = "nik" | "whatsapp";
+
+export type NasabahKembar<T> = { readonly baris: T; readonly sebab: SebabKembar };
+
+/**
+ * Cari nasabah yang SUDAH tercatat untuk identitas ini — lewat NIK **atau**
+ * nomor WhatsApp.
+ *
+ * Kenapa WhatsApp ikut diperiksa: pengajuan yang dicatat dari data luar
+ * (koperasi, buku besar, berkas kantor) sering membawa NIK yang salah ketik —
+ * satu digit berbeda untuk orang yang sama. Kalau hanya NIK yang dibandingkan,
+ * orang itu lolos dan dibuatkan akun KEDUA: dua baris nasabah, dua riwayat
+ * pinjaman, dan dua salinan nama yang bisa berbeda tipis (mis. "ALIFAN" vs
+ * "ALFIAN RIFKI JUNIAWAN") — persis duplikat yang sulit dilacak asalnya.
+ *
+ * Nomor WhatsApp lebih stabil daripada NIK yang diketik ulang, jadi kesamaan
+ * nomor sudah cukup untuk MENOLAK membuat akun baru. NIK diperiksa lebih dulu
+ * supaya pesannya menunjuk sebab yang paling meyakinkan.
+ */
+export function cariNasabahKembar<T extends IdentitasNasabah>(
+  baris: readonly T[],
+  calon: IdentitasNasabah,
+): NasabahKembar<T> | undefined {
+  if (digitSaja(calon.nik) !== "") {
+    const nik = digitSaja(calon.nik);
+    const cocok = baris.find((satu) => digitSaja(satu.nik) === nik);
+    if (cocok !== undefined) return { baris: cocok, sebab: "nik" };
+  }
+  if (digitSaja(calon.nomorWhatsApp) !== "") {
+    const wa = digitSaja(calon.nomorWhatsApp);
+    const cocok = baris.find((satu) => digitSaja(satu.nomorWhatsApp) === wa);
+    if (cocok !== undefined) return { baris: cocok, sebab: "whatsapp" };
+  }
+  return undefined;
+}
+
+/**
+ * Digit saja, TANPA validasi. Dipakai hanya untuk MEMBANDINGKAN identitas:
+ * baris warisan bisa memuat spasi/tanda hubung, dan kolom yang tidak sah
+ * (mis. NIK belum 16 digit) harus sekadar tidak cocok — bukan melempar galat
+ * dari jalur pencarian duplikat.
+ */
+function digitSaja(nilai: string | null | undefined): string {
+  return (nilai ?? "").replace(/\D/g, "");
+}

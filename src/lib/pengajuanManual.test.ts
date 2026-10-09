@@ -9,6 +9,7 @@
  * UPPERCASE serta pengambilan identitas dari data diri tidak boleh berbeda.
  */
 import {
+  cariNasabahKembar,
   JENIS_MANUAL,
   normalisasiNik,
   normalisasiNamaPanjang,
@@ -273,6 +274,60 @@ function galat(fn: () => unknown): string | null {
     ) !== null,
     "harga barang berdesimal ditolak (rupiah bulat)",
   );
+}
+
+// ===== cariNasabahKembar: pencegahan duplikat nasabah =====
+// Duplikat nyata di lapangan: data dari luar membawa NIK salah ketik untuk
+// orang yang sudah tercatat, sehingga muncul "ALIFAN" di samping "ALFIAN RIFKI
+// JUNIAWAN". Nomor WhatsApp yang sama harus sudah cukup untuk menolaknya.
+{
+  const tercatat = [
+    {
+      nik: "3201234567890003",
+      nomorWhatsApp: "628123456791",
+      namaLengkap: "ALFIAN RIFKI JUNIAWAN",
+    },
+  ];
+
+  const nikSama = cariNasabahKembar(tercatat, {
+    nik: "3201234567890003",
+    nomorWhatsApp: "628999999999",
+  });
+  eq(nikSama?.sebab, "nik", "NIK sama terdeteksi sebagai NIK");
+  eq(nikSama?.baris.namaLengkap, "ALFIAN RIFKI JUNIAWAN", "baris yang cocok dikembalikan");
+
+  // Kasus inti: NIK BEDA satu digit (salah ketik), WhatsApp sama.
+  const waSama = cariNasabahKembar(tercatat, {
+    nik: "3201234567890004",
+    nomorWhatsApp: "628123456791",
+  });
+  eq(waSama?.sebab, "whatsapp", "NIK beda tapi WhatsApp sama tetap terdeteksi");
+  eq(
+    cariNasabahKembar(tercatat, {
+      nik: "3201234567890004",
+      nomorWhatsApp: "62 812-3456-791",
+    })?.sebab,
+    "whatsapp",
+    "tanda baca WhatsApp warisan tetap cocok",
+  );
+
+  // Orang yang memang berbeda tidak boleh dianggap kembar.
+  eq(
+    cariNasabahKembar(tercatat, {
+      nik: "3201234567890009",
+      nomorWhatsApp: "628123456799",
+    }),
+    undefined,
+    "orang berbeda tidak dianggap kembar",
+  );
+
+  // Identitas kosong tidak boleh membuat semua orang dianggap kembar.
+  eq(
+    cariNasabahKembar(tercatat, { nik: "", nomorWhatsApp: "" }),
+    undefined,
+    "identitas kosong tidak cocok dengan siapa pun",
+  );
+  eq(cariNasabahKembar([], { nik: "3201234567890003" }), undefined, "daftar kosong");
 }
 
 console.log(`pengajuanManual.test: ${passed} lulus, ${failed} gagal`);

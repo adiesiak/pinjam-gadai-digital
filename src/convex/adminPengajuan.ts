@@ -41,6 +41,7 @@ import { formatRupiah } from "../lib/money";
 import { namaTampil } from "../lib/nama";
 import { persenBungaEfektif } from "../lib/bunga";
 import {
+  cariNasabahKembar,
   nomorReferensiManual,
   validasiGadaiManual,
   validasiKreditManual,
@@ -455,14 +456,24 @@ export const buatNasabahBaru = mutation({
       throw new Error(pesan ?? "Identitas pemohon tidak valid.");
     }
 
-    // Satu orang satu data diri: NIK yang sudah tercatat tidak dibuatkan akun
-    // baru, supaya riwayat pinjamannya tidak terbelah dua.
+    // Satu orang satu data diri. NIK diperiksa, TAPI tidak cukup sendiri:
+    // data dari luar aplikasi sering membawa NIK salah ketik untuk orang yang
+    // sudah tercatat, dan itulah cara duplikat ("ALIFAN" di samping "ALFIAN
+    // RIFKI JUNIAWAN") terbentuk. Nomor WhatsApp ikut dicocokkan karena lebih
+    // stabil, sehingga satu orang tidak dibuatkan dua akun dengan dua riwayat.
     const profilLain = await ctx.db.query("nasabahProfil").collect();
-    const kembar = profilLain.find((p) => p.nik === tersimpan.nik);
+    const kembar = cariNasabahKembar(profilLain, {
+      nik: tersimpan.nik,
+      nomorWhatsApp: tersimpan.nomorWhatsApp,
+    });
     if (kembar !== undefined) {
-      const pemilik = await ctx.db.get(kembar.userId);
+      const pemilik = await ctx.db.get(kembar.baris.userId);
+      const sebab = kembar.sebab === "nik" ? "NIK" : "Nomor WhatsApp";
       throw new Error(
-        `NIK ini sudah tercatat untuk ${namaTampil([kembar.namaLengkap, pemilik?.name])}. Pilih nasabah itu di daftar, atau perbaiki NIK-nya lewat menu Data Diri.`,
+        `${sebab} ini sudah tercatat untuk ${namaTampil([
+          kembar.baris.namaLengkap,
+          pemilik?.name,
+        ])}. Pilih nasabah itu di daftar — jangan dicatat ulang supaya riwayat pinjamannya tidak terbelah dua — atau perbaiki datanya lewat menu Data Diri.`,
       );
     }
 
