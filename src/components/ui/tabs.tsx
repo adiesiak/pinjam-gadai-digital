@@ -5,6 +5,19 @@ import * as TabsPrimitive from "@radix-ui/react-tabs"
 
 import { cn } from "@/lib/utils"
 
+/**
+ * Tab PINDAI.
+ *
+ * Micro-interaction di sini SENGAJA hanya soal transisi nada (warna, bayangan,
+ * latar) memakai motion token `--motion-normal`: perubahan keadaan tab harus
+ * terbaca halus, bukan melompat. Penanda tab aktif yang benar-benar BERGESER
+ * antar tab dibuat oleh pemanggil, karena hanya pemanggil yang tahu nilai tab
+ * aktif — lihat `dashboard-tab-nav.tsx` (pill `layoutId` dari framer-motion)
+ * dan `docs/animasi.md`. Cara itu dipilih agar tab yang sudah punya gaya aktif
+ * sendiri (panel admin, ruang penyedia dana) tidak tertimpa penanda kedua.
+ *
+ * Navigasi keyboard (panah, Home/End) tetap sepenuhnya dari Radix.
+ */
 function Tabs({
   className,
   ...props
@@ -42,7 +55,7 @@ function TabsTrigger({
     <TabsPrimitive.Trigger
       data-slot="tabs-trigger"
       className={cn(
-        "text-muted-foreground data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm inline-flex h-8 flex-1 items-center justify-center gap-1.5 rounded-full px-3.5 text-sm font-medium whitespace-nowrap transition-all disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+        "text-muted-foreground data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm inline-flex h-8 flex-1 items-center justify-center gap-1.5 rounded-full px-3.5 text-sm font-medium whitespace-nowrap touch-manipulation transition-[color,background-color,border-color,box-shadow,opacity] duration-[var(--motion-normal)] ease-[var(--motion-ease-out)] disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
         className
       )}
       {...props}

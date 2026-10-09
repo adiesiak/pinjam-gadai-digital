@@ -2,12 +2,37 @@ import * as React from "react"
 
 import { cn } from "@/lib/utils"
 
-function Card({ className, ...props }: React.ComponentProps<"div">) {
+/**
+ * Kartu PINDAI.
+ *
+ * Micro-interaction: perpindahan tepi & bayangan memakai motion token, jadi
+ * perubahan yang dipicu pemanggil (mis. `hover:border-primary/40`) terasa halus
+ * tanpa perlu menulis durasi sendiri.
+ *
+ * `hover` (opsional) menyalakan pengangkatan ringan untuk kartu yang benar-benar
+ * bisa diklik/dibuka (`card-lift`: naik 2 px + bayangan lebih dalam). Sengaja
+ * opsional: kartu informasi statis tidak boleh bergerak hanya karena kursor
+ * melintas. Bila `hover` aktif, transisi bawaan tidak dipasang lagi karena
+ * `.card-lift` sudah membawa transisinya sendiri (menghindari dua definisi
+ * `transition` yang saling menimpa).
+ */
+function Card({
+  className,
+  hover = false,
+  ...props
+}: React.ComponentProps<"div"> & {
+  /** Kartu bisa diklik/dibuka → naik halus saat disorot. */
+  hover?: boolean
+}) {
   return (
     <div
       data-slot="card"
+      data-hover={hover ? "true" : undefined}
       className={cn(
         "bg-card text-card-foreground clay-card flex flex-col gap-6 rounded-xl border py-6 shadow-sm",
+        hover
+          ? "card-lift"
+          : "transition-[border-color,box-shadow] duration-[var(--motion-normal)] ease-[var(--motion-ease-out)]",
         className
       )}
       {...props}

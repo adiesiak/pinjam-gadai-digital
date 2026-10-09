@@ -1,3 +1,4 @@
+import { LayoutGroup, motion, useReducedMotion } from "framer-motion";
 import {
   CalendarClock,
   FileText,
@@ -23,7 +24,19 @@ import {
   jenisPengajuanUntukTab,
   type JenisPengajuan,
 } from "@/lib/jenisPengajuan";
+import { DURATION, EASE_OUT, transitionReduced } from "@/lib/motion";
 import { cn } from "@/lib/utils";
+
+/**
+ * Penanda tab aktif yang BERGESER — pill yang meluncur dari tab lama ke tab
+ * baru, bukan dua latar yang saling berkedip.
+ *
+ * Dipasang di sini, bukan di `TabsTrigger` bersama, karena pemanggil inilah yang
+ * tahu nilai tab aktif. Semua trigger memakai `layoutId` yang sama sehingga
+ * framer-motion memperlakukan pill sebagai SATU elemen yang berpindah tempat.
+ * Saat `prefers-reduced-motion`, perpindahannya dibuat seketika.
+ */
+const ID_PENANDA_AKTIF = "tab-dashboard-aktif";
 
 /** Item navigasi tab: [nilai, label, ikon]. */
 const TABS: Array<[string, string, React.ReactNode]> = [
@@ -70,6 +83,8 @@ export function DashboardTabNav({
   /** Buka halaman Form Pengajuan dengan jenis yang cocok untuk tab aktif. */
   onBuatPengajuan: (jenis: JenisPengajuan) => void;
 }) {
+  const reduce = useReducedMotion() === true;
+
   // Menu yang sedang aktif — ditampilkan menonjol di kartu menu layar sempit.
   const aktif = TABS.find(([value]) => value === activeTab) ?? null;
 
@@ -126,33 +141,54 @@ export function DashboardTabNav({
           </Button>
         )}
       </div>
-      <TabsList aria-label="Navigasi dashboard Peminjam" className="hidden h-auto w-full flex-col items-stretch justify-start gap-1 overflow-visible rounded-2xl border border-slate-200 bg-white p-1.5 shadow-sm lg:flex">
-        {TABS.map(([value, label, icon]) => {
-          const badge = badges?.[value];
-          return (
-            <TabsTrigger
-              key={value}
-              value={value}
-              className="group h-auto w-auto flex-none shrink-0 justify-start gap-2.5 rounded-xl px-3 py-2.5 text-xs font-medium text-slate-600 transition-all hover:bg-slate-50 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm lg:w-full"
-            >
-              <span className="inline-flex align-middle">{icon}</span>
-              <span className="whitespace-nowrap lg:whitespace-normal lg:text-left">{label}</span>
-              {badge !== undefined && badge.count > 0 && (
-                <span
-                  aria-label={`${badge.count} item`}
-                  className={cn(
-                    "ml-auto inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[10px] font-semibold tabular-nums",
-                    badgeToneClass(badge.tone),
-                    "group-data-[state=active]:bg-white/25 group-data-[state=active]:text-primary-foreground",
-                  )}
-                >
-                  {badge.count > 99 ? "99+" : badge.count}
+      <LayoutGroup id="tab-dashboard">
+        <TabsList
+          aria-label="Navigasi dashboard Peminjam"
+          className="hidden h-auto w-full flex-col items-stretch justify-start gap-1 overflow-visible rounded-2xl border border-slate-200 bg-white p-1.5 shadow-sm lg:flex"
+        >
+          {TABS.map(([value, label, icon]) => {
+            const badge = badges?.[value];
+            const sedangAktif = value === activeTab;
+            return (
+              <TabsTrigger
+                key={value}
+                value={value}
+                className="group relative isolate h-auto w-auto flex-none shrink-0 justify-start gap-2.5 rounded-xl px-3 py-2.5 text-xs font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 data-[state=active]:bg-transparent data-[state=active]:text-primary-foreground data-[state=active]:shadow-none data-[state=active]:hover:bg-transparent lg:w-full"
+              >
+                {/* Pill penanda: satu elemen yang sama, berpindah antar tab. */}
+                {sedangAktif && (
+                  <motion.span
+                    aria-hidden
+                    layoutId={ID_PENANDA_AKTIF}
+                    className="absolute inset-0 rounded-xl bg-primary shadow-sm"
+                    transition={
+                      reduce ? transitionReduced : { duration: DURATION.normal, ease: EASE_OUT }
+                    }
+                  />
+                )}
+                <span className="relative inline-flex items-center gap-2.5">
+                  <span className="inline-flex align-middle">{icon}</span>
+                  <span className="whitespace-nowrap lg:whitespace-normal lg:text-left">
+                    {label}
+                  </span>
                 </span>
-              )}
-            </TabsTrigger>
-          );
-        })}
-      </TabsList>
+                {badge !== undefined && badge.count > 0 && (
+                  <span
+                    aria-label={`${badge.count} item`}
+                    className={cn(
+                      "relative ml-auto inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[10px] font-semibold tabular-nums",
+                      badgeToneClass(badge.tone),
+                      "group-data-[state=active]:bg-white/25 group-data-[state=active]:text-primary-foreground",
+                    )}
+                  >
+                    {badge.count > 99 ? "99+" : badge.count}
+                  </span>
+                )}
+              </TabsTrigger>
+            );
+          })}
+        </TabsList>
+      </LayoutGroup>
     </>
   );
 }
