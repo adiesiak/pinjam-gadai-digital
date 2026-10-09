@@ -133,13 +133,11 @@ function Kartu({
 export function MejaKerja({
   overview,
   stats,
-  ledger,
   onBukaModul,
   pokokContohAwal,
 }: {
   overview: AdminOverviewData;
   stats: AdminStatsData | undefined;
-  ledger: LedgerSummary | undefined;
   /** Pindah ke modul yang menangani kartu ini. */
   onBukaModul: (modul: NilaiModulAdmin) => void;
   /**
@@ -166,20 +164,6 @@ export function MejaKerja({
   const lokasi = angkaRingkas(
     stats === undefined ? undefined : jumlahPerhatianLokasi(stats),
   );
-
-  // Kartu ledger bukan angka: pertanyaannya "seimbang atau tidak", dan nominal
-  // biaya yang sudah dijurnal hanya menjadi catatan pendukung.
-  const ledgerAngka: Angka =
-    ledger === undefined
-      ? { memuat: true, teks: "—", catatan: null }
-      : {
-          memuat: false,
-          teks: ledger.seimbang ? "Seimbang" : "Tidak seimbang",
-          catatan:
-            ledger.pendapatanPlatform > 0
-              ? `Pendapatan tercatat ${formatRupiah(ledger.pendapatanPlatform)}`
-              : `${ledger.entryCount} entri jurnal tercatat`,
-        };
 
   return (
     <motion.section
@@ -212,14 +196,6 @@ export function MejaKerja({
         tone="sky"
         cta="Buka peta lokasi"
         onBuka={() => onBukaModul("lokasi")}
-      />
-      <Kartu
-        Icon={ledger?.seimbang === false ? ShieldCheck : Landmark}
-        label="Ledger internal"
-        angka={ledgerAngka}
-        tone={ledger?.seimbang === false ? "red" : "mint"}
-        cta="Buka ledger"
-        onBuka={() => onBukaModul("ledger")}
       />
 
       {/* Rincian aliran uang satu pinjaman — melintang satu baris penuh di

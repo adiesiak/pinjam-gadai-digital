@@ -26,7 +26,6 @@ import schema from "./schema";
 import { siapkanPengguna } from "./test.helpers";
 import { modules } from "./test.setup";
 import { DEFAULT_CONFIG } from "../lib/system-config";
-import { PLAFON_DEFAULT } from "../lib/plafon";
 
 /** Data diri lengkap satu nasabah — sumber identitas pencatatan manual. */
 async function simpanDataDiri(
@@ -127,7 +126,7 @@ describe("pencatatan pengajuan manual oleh admin", () => {
     expect(audit?.detail).toContain("antrean review");
   });
 
-  it("plafon nasabah tetap mengikat pencatatan manual", async () => {
+  it("plafon nasabah TIDAK mengikat manual, tapi batas sistem & skema tetap ada", async () => {
     const t = convexTest(schema, modules);
     const { sesi: admin } = await siapkanPengguna(t, "admin", {
       email: "admin@pindai.test",
@@ -139,38 +138,58 @@ describe("pencatatan pengajuan manual oleh admin", () => {
     });
     await simpanDataDiri(t, userId, { nomorRekening: "1234567890" });
 
+    // Plafon nasabah diturunkan jauh di bawah pengajuan yang akan dicatat.
     await admin.mutation(api.admin.setPlafonPeminjam, {
       userId,
       plafon: 300_000,
       alasan: "Plafon diturunkan untuk uji",
     });
-    await expect(
-      admin.mutation(api.adminPengajuan.catatPinjamanManual, {
-        userIdTarget: userId,
-        pokokPinjaman: 500_000,
-        tenorHari: 30,
-        tujuan: "modal_usaha",
-        namaLengkap: "Budi Peminjam",
-        namaBank: "BCA",
-        nomorRekening: "1234567890",
-      }),
-    ).rejects.toThrow(/Batas pinjaman Anda saat ini Rp 300\.000/);
 
-    // Di dalam plafon, pencatatan dilayani — dan plafon default global kembali
-    // menjadi acuan saat override dicabut.
-    await admin.mutation(api.admin.setPlafonPeminjam, { userId, plafon: null });
-    expect(PLAFON_DEFAULT).toBe(1_000_000);
+    // Pengajuan di ATAS plafon nasabah tetap tercatat: jalur ini memindahkan
+    // pinjaman yang sudah diputuskan di luar aplikasi, jadi plafon dalam
+    // aplikasi bukan syaratnya.
     await expect(
       admin.mutation(api.adminPengajuan.catatPinjamanManual, {
         userIdTarget: userId,
-        pokokPinjaman: 1_000_000,
-        tenorHari: 30,
+        pokokPinjaman: 9_000_000,
+        tenorBulan: 3,
         tujuan: "modal_usaha",
         namaLengkap: "Budi Peminjam",
         namaBank: "BCA",
         nomorRekening: "1234567890",
       }),
     ).resolves.toMatchObject({ nomorReferensi: expect.stringMatching(/^PGD-/) });
+
+    // Plafon nasabah TIDAK ikut berubah diam-diam: menaikkannya tetap keputusan
+    // terpisah yang punya audit sendiri.
+    const setelah = await t.run(async (ctx) => ctx.db.get(userId));
+    expect(setelah?.plafonPinjaman).toBe(300_000);
+
+    // Langit-langit sistem tetap: di atas Rp 10 juta ditolak.
+    await expect(
+      admin.mutation(api.adminPengajuan.catatPinjamanManual, {
+        userIdTarget: userId,
+        pokokPinjaman: 11_000_000,
+        tenorBulan: 6,
+        tujuan: "modal_usaha",
+        namaLengkap: "Budi Peminjam",
+        namaBank: "BCA",
+        nomorRekening: "1234567890",
+      }),
+    ).rejects.toThrow(/maksimal Rp 10\.000\.000/);
+
+    // Batas PRODUK skema harian tetap berlaku (Rp 1 juta).
+    await expect(
+      admin.mutation(api.adminPengajuan.catatPinjamanManual, {
+        userIdTarget: userId,
+        pokokPinjaman: 2_000_000,
+        tenorHari: 30,
+        tujuan: "modal_usaha",
+        namaLengkap: "Budi Peminjam",
+        namaBank: "BCA",
+        nomorRekening: "1234567890",
+      }),
+    ).rejects.toThrow(/Pokok pinjaman harus antara/);
   });
 
   it("mencatat gadai manual sebagai diajukan tanpa menaksir barang", async () => {

@@ -15,7 +15,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { api } from "@/convex/_generated/api";
 import { formatRupiah } from "@/lib/money";
 import { namaHurufBesar } from "@/lib/nama";
@@ -37,8 +36,6 @@ export function PawnReviewDialog({
   const reject = useMutation(api.loans.rejectPawn);
   const deletePawn = useMutation(api.loans.hapusGadai);
 
-  const [reason, setReason] = useState("");
-  const [deleteReason, setDeleteReason] = useState("");
   // Konfirmasi khusus: gadai yang sudah berpindah dana (pencairan/persetujuan/
   // cicilan/jurnal) hanya boleh dihapus bila admin menyatakannya sadar.
   const [hapusMenyeluruh, setHapusMenyeluruh] = useState(false);
@@ -53,11 +50,8 @@ export function PawnReviewDialog({
   const decided = row.status === "disetujui" || row.status === "ditolak";
 
   const runDelete = async () => {
-    const trimmedReason = deleteReason.trim();
-    if (trimmedReason.length < 10) {
-      setErrorHapus("Alasan penghapusan wajib minimal 10 karakter.");
-      return;
-    }
+    // Catatan alasan tidak diminta lagi; konfirmasi tetap ada supaya
+    // penghapusan tidak terjadi karena salah tekan.
     if (
       !window.confirm(
         hapusMenyeluruh
@@ -72,7 +66,6 @@ export function PawnReviewDialog({
     try {
       await deletePawn({
         pawnId: row._id,
-        reason: trimmedReason,
         ...(hapusMenyeluruh ? { bersihkanDana: true } : {}),
       });
       toast.success(
@@ -158,22 +151,6 @@ export function PawnReviewDialog({
 
         {!decided && (
           <>
-            <div className="space-y-2">
-              <Label htmlFor="alasan-gadai">Alasan (wajib untuk penolakan)</Label>
-              <Textarea
-                id="alasan-gadai"
-                aria-invalid={reason.trim().length === 0}
-                aria-describedby="alasan-gadai-help"
-                rows={2}
-                value={reason}
-                onChange={(e) => setReason(e.target.value)}
-                placeholder="Contoh: informasi barang atau dokumen belum lengkap…"
-              />
-              <p id="alasan-gadai-help" className="text-xs text-muted-foreground">
-                Isi alasan sebelum memilih Tolak; alasan akan dicatat bersama keputusan.
-              </p>
-            </div>
-
             {error && (
               <p
                 role="alert"
@@ -207,10 +184,10 @@ export function PawnReviewDialog({
               <Button
                 variant="destructive"
                 disabled={busy !== null}
-                onClick={() => run("reject", () => reject({ pawnId: row._id, reason }))}
+                onClick={() => run("reject", () => reject({ pawnId: row._id }))}
               >
                 {busy === "reject" ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
-                Tolak dengan alasan
+                Tolak pengajuan
               </Button>
             </div>
           </>
@@ -223,15 +200,9 @@ export function PawnReviewDialog({
         )}
 
         <div className="space-y-2 border-t border-slate-200 pt-4">
-          <Label htmlFor="alasan-hapus-gadai">Hapus data salah input</Label>
-          <Textarea
-            id="alasan-hapus-gadai"
-            rows={2}
-            maxLength={500}
-            value={deleteReason}
-            onChange={(event) => setDeleteReason(event.target.value)}
-            placeholder="Alasan penghapusan wajib (minimal 10 karakter)…"
-          />
+          <p className="text-xs font-medium text-slate-700">
+            Hapus data salah input — penghapusan tetap tercatat di Audit Trail.
+          </p>
           {/* Selalu tersedia — bukan hanya saat baris tampak sudah berpindah
               dana: server bisa menolak karena catatan yang tidak terbaca dari
               baris ringkas, dan admin harus punya jalan keluar di tempat yang
@@ -270,7 +241,7 @@ export function PawnReviewDialog({
               {errorHapus}
             </p>
           )}
-          <Button variant="destructive" disabled={busy !== null || deleteReason.trim().length < 10} onClick={() => void runDelete()}>
+          <Button variant="destructive" disabled={busy !== null} onClick={() => void runDelete()}>
             {busy === "delete" ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Trash2 className="mr-2 size-4" />}
             {hapusMenyeluruh ? "Hapus gadai & cicilan" : "Hapus gadai"}
           </Button>

@@ -235,7 +235,7 @@ describe("hapus pinjaman lama per baris", () => {
     expect(masihAda.b).not.toBeNull();
   });
 
-  it("menolak alasan yang terlalu pendek", async () => {
+  it("menerima catatan alasan pendek maupun kosong, tapi membatasi panjangnya", async () => {
     const t = convexTest(schema, modules);
     const { userId } = await siapkanPengguna(t, "rani", {
       email: "rani@pindai.test",
@@ -245,13 +245,32 @@ describe("hapus pinjaman lama per baris", () => {
       email: "admin@pindai.test",
       role: "admin",
     });
-    const loanId = await siapkanPinjaman(t, userId, 1_000_000, "ditolak");
+
+    // Catatan bukan lagi syarat: penghapusan berjalan tanpa alasan apa pun.
+    const loanTanpa = await siapkanPinjaman(t, userId, 1_000_000, "ditolak");
     await expect(
       admin.mutation(api.integrasiLedger.hapusPinjamanLama, {
-        loanIds: [loanId],
-        alasan: "pendek",
+        loanIds: [loanTanpa],
       }),
-    ).rejects.toThrow(/Alasan wajib 10.500 karakter/);
+    ).resolves.toMatchObject({ dihapus: 1 });
+
+    // Catatan pendek pun diterima.
+    const loanPendek = await siapkanPinjaman(t, userId, 1_000_000, "ditolak");
+    await expect(
+      admin.mutation(api.integrasiLedger.hapusPinjamanLama, {
+        loanIds: [loanPendek],
+        alasan: "salah input",
+      }),
+    ).resolves.toMatchObject({ dihapus: 1 });
+
+    // Batas ATAS tetap dijaga supaya audit tetap terbaca.
+    const loanPanjang = await siapkanPinjaman(t, userId, 1_000_000, "ditolak");
+    await expect(
+      admin.mutation(api.integrasiLedger.hapusPinjamanLama, {
+        loanIds: [loanPanjang],
+        alasan: "x".repeat(501),
+      }),
+    ).rejects.toThrow(/maksimal 500 karakter/);
   });
 });
 
@@ -357,16 +376,18 @@ describe("pembersihan jurnal per grup (CLI sekali pakai)", () => {
     expect(baris?.detail).toContain("entri 2 -> 0");
   });
 
-  it("menolak alasan terlalu pendek dan daftar grup kosong", async () => {
+  it("menerima catatan kosong tetapi tetap menolak daftar grup kosong", async () => {
     const t = convexTest(schema, modules);
-    // Dua alasan penolakan yang berbeda: pesannya dipisah supaya tertukar
-    // (mis. menolak karena daftar kosong padahal alasannya yang salah) ketahuan.
+
+    // Tanpa catatan sama sekali pun grup yang sesuai tetap diproses —
+    // yang dilaporkan hanya grup yang tidak ada.
     await expect(
       t.mutation(internal.integrasiLedger.qaPurgeJurnalGroups, {
         groupIds: ["J-x"],
-        alasan: "pendek",
       }),
-    ).rejects.toThrow(/Alasan wajib 10.500 karakter/);
+    ).resolves.toMatchObject({ entriDihapus: 0 });
+
+    // Daftar grup kosong tetap ditolak: bukan soal catatan, tapi soal sasaran.
     await expect(
       t.mutation(internal.integrasiLedger.qaPurgeJurnalGroups, {
         groupIds: [],

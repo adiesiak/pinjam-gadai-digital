@@ -17,7 +17,9 @@
 
 /**
  * Seluruh nilai tab panel admin, urut sesuai peta di dokumen desain §4.
- * 17 modul lama + `hari-ini` = 18. Menambah modul di sini akan memaksa
+ * 16 modul lama + `hari-ini` = 17 (panel "Ledger internal" dihapus dari
+ * panel admin; query ledger tetap dipakai halaman /qc). Menambah modul di sini
+ * akan memaksa
  * `panel` di `admin-tabs.tsx` menambahkan isinya.
  */
 export const NILAI_MODUL_ADMIN = [
@@ -31,7 +33,6 @@ export const NILAI_MODUL_ADMIN = [
   "plafon",
   "akses",
   "lokasi",
-  "ledger",
   "pengumuman",
   "whatsapp",
   "config",
@@ -81,7 +82,6 @@ export const GRUP_NAV: readonly GrupNav[] = [
     id: "sistem",
     label: "Sistem",
     modul: [
-      "ledger",
       "pengumuman",
       "whatsapp",
       "config",
@@ -90,7 +90,7 @@ export const GRUP_NAV: readonly GrupNav[] = [
       "audit",
       "backup",
     ],
-    default: "ledger",
+    default: "pengumuman",
   },
 ];
 

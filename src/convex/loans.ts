@@ -1212,8 +1212,9 @@ export const approvePawn = mutation({
     }),
 });
 
+// Catatan penolakan opsional: admin tidak boleh tertahan oleh kolom alasan.
 export const rejectPawn = mutation({
-  args: { pawnId: v.id("pawns"), reason: v.string() },
+  args: { pawnId: v.id("pawns"), reason: v.optional(v.string()) },
   handler: (ctx, args) =>
     setPawnStatus(ctx, args.pawnId, "ditolak", { catatan: args.reason }),
 });
@@ -1396,15 +1397,17 @@ export const hapusPinjaman = mutation({
 export const hapusGadai = mutation({
   args: {
     pawnId: v.id("pawns"),
-    reason: v.string(),
+    /** Catatan penghapusan opsional — penghapusan tidak boleh tertahan kolom alasan. */
+    reason: v.optional(v.string()),
     /** Konfirmasi eksplisit untuk gadai yang sudah punya catatan keuangan. */
     bersihkanDana: v.optional(v.boolean()),
   },
   handler: async (ctx, { pawnId, reason, bersihkanDana }) => {
     const { userId, user } = await requireAdminSession(ctx);
-    const alasan = reason.trim();
-    if (alasan.length < 10 || alasan.length > 500) {
-      throw new Error("Alasan penghapusan wajib 10–500 karakter.");
+    // Catatan tidak wajib; hanya batas atas yang dijaga agar audit tetap terbaca.
+    const alasan = (reason ?? "").trim();
+    if (alasan.length > 500) {
+      throw new Error("Catatan penghapusan maksimal 500 karakter.");
     }
     const pawn = await ctx.db.get(pawnId);
     if (pawn === null) throw new Error("Data gadai tidak ditemukan.");

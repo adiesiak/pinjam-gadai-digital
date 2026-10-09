@@ -4,7 +4,6 @@ import {
   ClipboardList,
   Database,
   Gavel,
-  Landmark,
   LayoutDashboard,
   Lock,
   Map as MapIcon,
@@ -27,7 +26,7 @@ import { BackupPanel } from "@/components/admin/BackupPanel";
 import { LiveLocationMap } from "@/components/admin/LiveLocationMap";
 import { KreditQueuePanel } from "@/components/admin/KreditQueuePanel";
 import { LoginSecurityPanel } from "@/components/admin/LoginSecurityPanel";
-import { DpdTab, LedgerTab, LelangTab, LoanAllocationQueueTab } from "@/components/admin/OperationsTabs";
+import { DpdTab, LelangTab, LoanAllocationQueueTab } from "@/components/admin/OperationsTabs";
 import { SystemConfigPanel } from "@/components/admin/SystemConfigPanel";
 import { PlafonPanel } from "@/components/admin/PlafonPanel";
 import { WhatsAppPanel } from "@/components/admin/WhatsAppPanel";
@@ -35,7 +34,6 @@ import { WebsiteTemplatePanel } from "@/components/admin/WebsiteTemplatePanel";
 import {
   LencanaTab,
   type AdminOverviewData,
-  type LedgerSummary,
   type LoanRow,
   type PawnRow,
 } from "@/components/admin/admin-shared";
@@ -91,14 +89,12 @@ const KELAS_ITEM_AKTIF = "gradient-primary text-white";
 export function AdminTabs({
   overview,
   stats,
-  ledger,
   onOpenLoan,
   onOpenPawn,
   onOpenSetup,
 }: {
   overview: AdminOverviewData;
   stats: AdminStatsData | undefined;
-  ledger: LedgerSummary | undefined;
   onOpenLoan: (l: LoanRow) => void;
   onOpenPawn: (p: PawnRow) => void;
   onOpenSetup: () => void;
@@ -183,16 +179,6 @@ export function AdminTabs({
           badge: stats ? `${stats.pinjamanTerlambat}` : null,
           hitung: "menunggu",
           Icon: BellRing,
-        },
-        {
-          value: "ledger",
-          label: "Ledger internal",
-          hint: "Saldo dan jurnal internal — pastikan pembukuan seimbang.",
-          // R1: saat `ledger` belum termuat, jangan nyalakan "!" merah — itu
-          // memberi kesan ada masalah padahal datanya memang belum ada.
-          badge: ledger === undefined ? null : ledger.seimbang ? "OK" : "!",
-          hitung: "tidak",
-          Icon: Landmark,
         },
         {
           value: "lelang",
@@ -347,12 +333,7 @@ export function AdminTabs({
   // tanpa isinya langsung menjadi galat kompilasi — menutup R2 di akarnya.
   const panel: Record<NilaiModulAdmin, ReactNode> = {
     "hari-ini": (
-      <MejaKerja
-        overview={overview}
-        stats={stats}
-        ledger={ledger}
-        onBukaModul={pilihMenu}
-      />
+      <MejaKerja overview={overview} stats={stats} onBukaModul={pilihMenu} />
     ),
     pinjaman: <LoanQueueSection loans={overview.loans} onOpen={onOpenLoan} />,
     gadai: <PawnQueueSection pawns={overview.pawns} onOpen={onOpenPawn} />,
@@ -360,7 +341,6 @@ export function AdminTabs({
     alokasi: <LoanAllocationQueueTab onOpen={onOpenLoan} />,
     lokasi: <LiveLocationMap />,
     dpd: <DpdTab />,
-    ledger: <LedgerTab />,
     lelang: <LelangTab />,
     plafon: <PlafonPanel />,
     akses: <AksesPenyediaDanaPanel />,

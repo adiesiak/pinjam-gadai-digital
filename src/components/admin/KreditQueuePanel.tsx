@@ -76,8 +76,6 @@ export function KreditQueuePanel() {
   const danai = useMutation(api.kredit.danaiKreditBarang);
   const tolak = useMutation(api.kredit.tolakKreditBarang);
   const hapus = useMutation(api.kredit.hapusKreditBarang);
-  const [alasan, setAlasan] = useState<Record<string, string>>({});
-  const [alasanHapus, setAlasanHapus] = useState<Record<string, string>>({});
   // Konfirmasi per baris untuk "hapus menyeluruh": kredit yang sudah berjalan
   // atau punya alokasi/cicilan/jurnal hanya boleh dihapus bila admin sadar.
   const [hapusMenyeluruh, setHapusMenyeluruh] = useState<Record<string, boolean>>({});
@@ -132,12 +130,8 @@ export function KreditQueuePanel() {
         await danai({ kreditId: id });
         toast.success("Kredit barang ditandai berjalan pada ledger internal (dana tersalurkan).");
       } else {
-        const reason = (alasan[id] ?? "").trim();
-        if (reason.length === 0) {
-          toast.error("Isi alasan penolakan terlebih dahulu.");
-          return;
-        }
-        await tolak({ kreditId: id, reason });
+        // Catatan penolakan opsional — keputusan tidak boleh tertahan kolom alasan.
+        await tolak({ kreditId: id });
         toast.success("Pengajuan ditolak dan tercatat di audit trail.");
       }
     } catch (err) {
@@ -148,11 +142,7 @@ export function KreditQueuePanel() {
   };
 
   const jalankanHapus = async (id: Id<"kreditBarang">, reference: string) => {
-    const reason = (alasanHapus[id] ?? "").trim();
-    if (reason.length < 10) {
-      toast.error("Alasan penghapusan wajib minimal 10 karakter.");
-      return;
-    }
+    // Catatan alasan tidak diminta lagi; konfirmasi tetap ada.
     const menyeluruh = hapusMenyeluruh[id] === true;
     if (
       !window.confirm(
@@ -165,7 +155,7 @@ export function KreditQueuePanel() {
     }
     setBusy(id);
     try {
-      await hapus({ kreditId: id, reason, ...(menyeluruh ? { bersihkanDana: true } : {}) });
+      await hapus({ kreditId: id, ...(menyeluruh ? { bersihkanDana: true } : {}) });
       toast.success(
         menyeluruh
           ? "Kredit dan baris turunannya dihapus; jurnal ledger dipertahankan. Tercatat di Audit Trail."
@@ -330,12 +320,6 @@ export function KreditQueuePanel() {
                   >
                     <CheckCircle2 className="mr-1.5 size-4" /> Setujui
                   </Button>
-                  <Input
-                    value={alasan[r._id] ?? ""}
-                    onChange={(e) => setAlasan((m) => ({ ...m, [r._id]: e.target.value }))}
-                    placeholder="Alasan penolakan (wajib saat menolak)"
-                    className="w-full sm:w-72"
-                  />
                   <Button
                     size="sm"
                     variant="destructive"
@@ -344,14 +328,6 @@ export function KreditQueuePanel() {
                   >
                     <XCircle className="mr-1.5 size-4" /> Tolak
                   </Button>
-                  <Input
-                    value={alasanHapus[r._id] ?? ""}
-                    onChange={(event) => setAlasanHapus((current) => ({ ...current, [r._id]: event.target.value }))}
-                    placeholder="Alasan hapus (wajib, min. 10 karakter)"
-                    className="w-full sm:w-72"
-                    maxLength={500}
-                    aria-label={`Alasan penghapusan ${r.nomorReferensi}`}
-                  />
                   <label className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-[11px] text-slate-700">
                     <Checkbox
                       checked={hapusMenyeluruh[r._id] === true}
@@ -365,7 +341,7 @@ export function KreditQueuePanel() {
                   <Button
                     size="sm"
                     variant="destructive"
-                    disabled={busy === r._id || (alasanHapus[r._id] ?? "").trim().length < 10}
+                    disabled={busy === r._id}
                     onClick={() => void jalankanHapus(r._id, r.nomorReferensi)}
                   >
                     <Trash2 className="mr-1.5 size-4" />
@@ -420,14 +396,6 @@ export function KreditQueuePanel() {
                       <CheckCircle2 className="mr-1.5 size-4" /> Tandai dana tersalurkan
                     </Button>
                   )}
-                  <Input
-                    value={alasanHapus[r._id] ?? ""}
-                    onChange={(event) => setAlasanHapus((current) => ({ ...current, [r._id]: event.target.value }))}
-                    placeholder="Alasan hapus (wajib, min. 10 karakter)"
-                    className="w-full sm:w-72"
-                    maxLength={500}
-                    aria-label={`Alasan penghapusan ${r.nomorReferensi}`}
-                  />
                   <label className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-[11px] text-slate-700">
                     <Checkbox
                       checked={hapusMenyeluruh[r._id] === true}
@@ -441,7 +409,7 @@ export function KreditQueuePanel() {
                   <Button
                     size="sm"
                     variant="destructive"
-                    disabled={busy === r._id || (alasanHapus[r._id] ?? "").trim().length < 10}
+                    disabled={busy === r._id}
                     onClick={() => void jalankanHapus(r._id, r.nomorReferensi)}
                   >
                     <Trash2 className="mr-1.5 size-4" />

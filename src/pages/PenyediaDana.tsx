@@ -1185,7 +1185,6 @@ function FormUbahPinjaman({ row, onClose }: { row: BarisPinjaman; onClose: () =>
     row.tenorBulan === null ? "harian" : String(row.tenorBulan),
   );
   const [pokok, setPokok] = useState(String(row.pokokPinjaman));
-  const [alasan, setAlasan] = useState("");
   const [busy, setBusy] = useState(false);
 
   const kandidat = kandidatQ?.rows ?? [];
@@ -1194,8 +1193,6 @@ function FormUbahPinjaman({ row, onClose }: { row: BarisPinjaman; onClose: () =>
 
   const kirim = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    // Catatan opsional: perubahan boleh disimpan tanpa alasan apa pun.
-    const catatan = alasan.trim();
     const tenorAwal = row.tenorBulan === null ? "harian" : String(row.tenorBulan);
     // Angka yang tidak valid tidak pernah dikirim: biarkan server menolak hanya
     // bila admin memang mengisi nilai, bukan saat kolomnya kosong.
@@ -1217,7 +1214,6 @@ function FormUbahPinjaman({ row, onClose }: { row: BarisPinjaman; onClose: () =>
         await ubahStatus({
           loanId: row._id,
           status: kanonik,
-          ...(catatan === "" ? {} : { reason: catatan }),
           ...(nominalBaru === null ? {} : { pokokDisetujui: nominalBaru }),
         });
         perubahan.push(`status → ${LABEL_STATUS_PINJAMAN[kanonik]}`);
@@ -1226,7 +1222,6 @@ function FormUbahPinjaman({ row, onClose }: { row: BarisPinjaman; onClose: () =>
       //    statusnya tidak ikut berpindah (agar tidak dikirim dua kali).
       const hasil = await simpan({
         loanId: row._id,
-        ...(catatan === "" ? {} : { alasan: catatan }),
         ...(pendana === TETAP
           ? {}
           : pendana === LEPAS
@@ -1400,17 +1395,6 @@ function FormUbahPinjaman({ row, onClose }: { row: BarisPinjaman; onClose: () =>
             ? "Nominal tidak dapat diubah: dana pinjaman ini sudah ditandai tersalurkan."
             : `Tidak boleh melebihi pengajuan ${rupiah(row.pokokDiajukan ?? row.pokokPinjaman)}.`}
         </p>
-      </div>
-
-      <div className="space-y-2">
-        <Label htmlFor="ubah-alasan">Catatan perubahan (opsional)</Label>
-        <Input
-          id="ubah-alasan"
-          value={alasan}
-          onChange={(e) => setAlasan(e.target.value)}
-          placeholder="Boleh dikosongkan. Contoh: pinjaman didanai Asep, sebelumnya tercatat Robert"
-          maxLength={500}
-        />
       </div>
 
       <div className="flex justify-end gap-2 pt-1">

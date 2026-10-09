@@ -239,7 +239,7 @@ describe("hapus akun nasabah", () => {
     expect(state.audit.some((row) => row.aksi === "nasabah_delete")).toBe(true);
   });
 
-  it("menolak alasan terlalu pendek dan melindungi akun admin", async () => {
+  it("menerima catatan pendek maupun kosong, dan melindungi akun admin", async () => {
     const t = convexTest(schema, modules);
     const { sesi: admin, userId: adminId } = await siapkanPengguna(t, "admin", {
       email: "admin@pindai.test",
@@ -250,9 +250,24 @@ describe("hapus akun nasabah", () => {
       role: "peminjam",
     });
 
+    // Catatan bukan lagi syarat penghapusan akun.
     await expect(
-      admin.mutation(api.admin.hapusNasabah, { userId, alasan: "pendek" }),
-    ).rejects.toThrow(/10–500/);
+      admin.mutation(api.admin.hapusNasabah, { userId }),
+    ).resolves.toMatchObject({ ok: true, nama: "eko" });
+
+    // Batas ATAS tetap dijaga supaya audit tetap terbaca.
+    const { userId: kedua } = await siapkanPengguna(t, "eko2", {
+      email: "eko2@pindai.test",
+      role: "peminjam",
+    });
+    await expect(
+      admin.mutation(api.admin.hapusNasabah, {
+        userId: kedua,
+        alasan: "x".repeat(501),
+      }),
+    ).rejects.toThrow(/maksimal 500 karakter/);
+
+    // Akun tim tetap terlindungi, terlepas dari catatannya.
     await expect(
       admin.mutation(api.admin.hapusNasabah, {
         userId: adminId,

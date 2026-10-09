@@ -32,13 +32,12 @@ function bersih(html: string, label: string): void {
   ok(!html.includes("NaN"), `${label} tanpa "NaN"`);
 }
 
-/** Panel dirender tanpa data server: `stats` & `ledger` belum siap. */
+/** Panel dirender tanpa data server: `stats` belum siap. */
 function renderPanel(pokokContohAwal?: number): string {
   return renderToStaticMarkup(
     <MejaKerja
       overview={{ loans: [], pawns: [], kredit: [] }}
       stats={undefined}
-      ledger={undefined}
       onBukaModul={() => {}}
       pokokContohAwal={pokokContohAwal}
     />,
@@ -105,12 +104,9 @@ ada(html, "bukan angka ledger hari ini", "keterangan bahwa ini contoh kebijakan"
 // Aturan panel: sumber belum siap → tanda pisah, bukan nol.
 ada(html, "—", "kartu pekerjaan menampilkan tanda pisah saat data belum siap");
 ada(html, "aria-busy", "kartu yang belum siap ditandai aria-busy");
-// T4/R1: ledger yang belum termuat tidak boleh diklaim sehat. (Antrean memang
-// termuat dan kosong, jadi kartu "Perlu keputusan" sah menampilkan 0.)
-ok(
-  !html.includes("Seimbang"),
-  "ledger yang belum termuat tidak diklaim 'Seimbang'",
-);
+// Panel ledger sudah dihapus dari admin: tidak boleh ada lagi kartu/tombolnya.
+ok(!html.includes("Ledger internal"), "tanpa kartu Ledger internal");
+ok(!html.includes("Buka ledger"), "tanpa tombol menuju panel ledger");
 ada(html, "Tidak ada yang perlu ditindak.", "antrean kosong dijelaskan, bukan dibiarkan kosong");
 
 bersih(html, "markup panel Hari Ini");

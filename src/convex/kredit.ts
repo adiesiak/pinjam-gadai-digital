@@ -285,7 +285,8 @@ export const tandaiKreditDitinjau = mutation({ args: { kreditId: v.id("kreditBar
 export const setujuiKreditBarang = mutation({ args: { kreditId: v.id("kreditBarang") }, handler: (ctx, args) => setKreditStatus(ctx, args.kreditId, "disetujui") });
 /** Admin menandai kredit barang disetujui sebagai berjalan pada ledger internal. */
 export const danaiKreditBarang = mutation({ args: { kreditId: v.id("kreditBarang") }, handler: (ctx, args) => setKreditStatus(ctx, args.kreditId, "didanai") });
-export const tolakKreditBarang = mutation({ args: { kreditId: v.id("kreditBarang"), reason: v.string() }, handler: (ctx, args) => setKreditStatus(ctx, args.kreditId, "ditolak", args.reason) });
+// Catatan penolakan opsional — sama dengan jalur pinjaman & gadai.
+export const tolakKreditBarang = mutation({ args: { kreditId: v.id("kreditBarang"), reason: v.optional(v.string()) }, handler: (ctx, args) => setKreditStatus(ctx, args.kreditId, "ditolak", args.reason) });
 
 /**
  * Super Admin menghapus pengajuan kredit barang yang salah input.
@@ -300,14 +301,16 @@ export const tolakKreditBarang = mutation({ args: { kreditId: v.id("kreditBarang
 export const hapusKreditBarang = mutation({
   args: {
     kreditId: v.id("kreditBarang"),
-    reason: v.string(),
+    /** Catatan penghapusan opsional — penghapusan tidak boleh tertahan kolom alasan. */
+    reason: v.optional(v.string()),
     /** Konfirmasi eksplisit untuk kredit yang sudah punya catatan keuangan. */
     bersihkanDana: v.optional(v.boolean()),
   },
   handler: async (ctx, { kreditId, reason, bersihkanDana }) => {
     const adminId = await adminMasuk(ctx);
-    const alasan = reason.trim();
-    if (alasan.length < 10 || alasan.length > 500) throw new Error("Alasan penghapusan wajib 10–500 karakter.");
+    // Catatan tidak wajib; hanya batas atas yang dijaga agar audit tetap terbaca.
+    const alasan = (reason ?? "").trim();
+    if (alasan.length > 500) throw new Error("Catatan penghapusan maksimal 500 karakter.");
     const row = await ctx.db.get(kreditId);
     if (row === null) throw new Error("Data kredit barang tidak ditemukan.");
     const [payments, fundings, ledger] = await Promise.all([

@@ -8,10 +8,13 @@
  *  - **Hanya bentuk yang divalidasi di sini.** Semua angka uang (bunga, biaya,
  *    DP, cicilan, kewajiban) tetap dihitung mesin server saat dibaca; yang
  *    disimpan hanya data pengajuan apa adanya.
- *  - **Plafon tetap berlaku.** Pokok pinjaman yang dicatat manual melewati
- *    pemeriksaan plafon efektif nasabah yang sama dengan jalur nasabah —
- *    menaikkan plafon adalah keputusan terpisah yang punya audit sendiri
- *    (lihat `setPlafonPeminjam`).
+ *  - **Plafon per nasabah TIDAK mengikat di sini.** Pencatatan manual ada untuk
+ *    memindahkan pengajuan yang SUDAH terjadi di luar aplikasi (mis. pinjaman
+ *    dari koperasi mitra). Memaksakan plafon dalam aplikasi membuat data nyata
+ *    ditolak hanya karena batas yang belum sempat dinaikkan, sehingga
+ *    pengajuannya "hilang". Yang tetap berlaku hanya batas PRODUK: skema harian
+ *    mengikuti `LOAN_LIMITS.maxPokok`, dan plafon sistem maksimum
+ *    `PLAFON_NAIK_SETELAH_LUNAS` menjadi langit-langit agar angkanya tidak liar.
  *  - **Identitas diambil dari data diri nasabah**, bukan diketik ulang: NIK,
  *    nomor WhatsApp, penghasilan, dan (bila ada) rekening tujuan diisi dari
  *    `nasabahProfil`. Pengajuan kredit barang menolak dicatat sebelum data
@@ -48,7 +51,7 @@ import {
   validasiPinjamanManual,
   type NasabahManual,
 } from "../lib/pengajuanManual";
-import { pesanPlafonTerlampaui, plafonPeminjam, pokokDalamPlafon } from "../lib/plafon";
+import { PLAFON_NAIK_SETELAH_LUNAS } from "../lib/plafon";
 import { requireAdminSession } from "./adminAuthz";
 import { simpanDataDiriProfil } from "./dataDiriProfil";
 import { ROLES } from "./schema";
@@ -195,11 +198,16 @@ export const catatPinjamanManual = mutation({
       catatanPeminjam: args.catatanPeminjam,
     });
 
-    // Plafon efektif nasabah — jalur manual tidak boleh menjadi celah
-    // melewati batas kredit. Menaikkan plafon adalah keputusan terpisah.
-    const plafon = await plafonPeminjam(ctx, args.userIdTarget);
-    if (!pokokDalamPlafon(bersih.pokokPinjaman, plafon)) {
-      throw new Error(pesanPlafonTerlampaui(plafon));
+    // Plafon per nasabah sengaja TIDAK diperiksa: baris ini mencatat pinjaman
+    // yang sudah diputuskan di luar aplikasi, jadi batas kredit dalam aplikasi
+    // bukan syaratnya. Langit-langit sistem tetap dijaga supaya satu salah ketik
+    // tidak memasukkan nominal yang di luar jangkauan produk.
+    if (bersih.pokokPinjaman > PLAFON_NAIK_SETELAH_LUNAS) {
+      throw new Error(
+        `Pokok pinjaman manual maksimal ${formatRupiah(
+          PLAFON_NAIK_SETELAH_LUNAS,
+        )} — batas sistem. Periksa kembali nominalnya.`,
+      );
     }
 
     const cfg = await getConfig(ctx);
@@ -247,9 +255,7 @@ export const catatPinjamanManual = mutation({
       nomorReferensi,
       `Pencatatan manual oleh admin untuk ${bersih.namaLengkap} — pokok ${formatRupiah(
         bersih.pokokPinjaman,
-      )}${bersih.tenorBulan !== undefined ? `, tenor ${bersih.tenorBulan} bulan` : `, tenor ${bersih.tenorHari} hari`}, plafon nasabah ${formatRupiah(
-        plafon,
-      )}, dokumen: ${dokumen.length > 0 ? dokumen.join(", ") : "belum ada"}. Status awal "diajukan" — keputusan tetap lewat antrean review.`,
+      )}${bersih.tenorBulan !== undefined ? `, tenor ${bersih.tenorBulan} bulan` : `, tenor ${bersih.tenorHari} hari`}, dokumen: ${dokumen.length > 0 ? dokumen.join(", ") : "belum ada"}. Status awal "diajukan" — keputusan tetap lewat antrean review.`,
     );
     return { appId: loanId, nomorReferensi };
   },

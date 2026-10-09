@@ -27,8 +27,10 @@ import { UnggahDokumen, type DokumenTerunggah } from "./UnggahDokumen";
  *
  * Aturan yang dijaga formulir ini:
  *  - Nominal, tenor, dan keperluan divalidasi aturan yang sama dengan server
- *    (`validasiPinjamanManual`) supaya admin tahu lebih dulu apa yang ditolak;
- *    plafon per nasabah tetap diperiksa mutation karena butuh riwayat nasabah.
+ *    (`validasiPinjamanManual`) supaya admin tahu lebih dulu apa yang ditolak.
+ *    Plafon per nasabah TIDAK menghalangi jalur ini — baris yang dicatat di
+ *    sini memindahkan pinjaman yang sudah diputuskan di luar aplikasi, jadi
+ *    yang tersisa hanya batas produk (skema harian) dan batas sistem.
  *  - Angka uang TIDAK dihitung di sini. Pratinjau diambil dari mesin harga
  *    server (`admin.adminLoanQuote`) dan tetap divalidasi ulang saat keputusan.
  *  - Identitas (NIK, WhatsApp, penghasilan) tidak diketik ulang: diambil server
@@ -210,7 +212,7 @@ export function FormPinjamanManual({
             ? `Nominal rupiah bulat. Skema harian maksimal ${formatRupiah(LOAN_LIMITS.maxPokok)}.`
             : `Terbaca ${formatRupiah(pokok)}. ${
                 bulanan
-                  ? "Skema bulanan mengikuti plafon nasabah yang diperiksa server."
+                  ? "Skema bulanan bebas plafon nasabah — dibatasi batas sistem saja."
                   : `Skema harian dibatasi ${formatRupiah(LOAN_LIMITS.minPokok)}–${formatRupiah(LOAN_LIMITS.maxPokok)}.`
               }`}
         </p>

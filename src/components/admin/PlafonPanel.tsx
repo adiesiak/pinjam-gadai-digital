@@ -18,7 +18,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -71,7 +70,6 @@ export function PlafonPanel() {
   const [hapusTarget, setHapusTarget] = useState<{ userId: Id<"users">; nama: string } | null>(null);
   /** Nasabah yang data dirinya sedang diisi/disunting lewat dialog. */
   const [dataDiriTarget, setDataDiriTarget] = useState<{ userId: Id<"users">; nama: string } | null>(null);
-  const [alasanHapus, setAlasanHapus] = useState("");
   /** Halaman daftar nasabah yang sedang dilihat (10 baris per halaman). */
   const [halaman, setHalaman] = useState(0);
   const data = useQuery(api.admin.daftarPlafonPeminjam, { cari: cari || undefined });
@@ -128,9 +126,6 @@ export function PlafonPanel() {
     }
   };
 
-  const alasanBersih = alasanHapus.trim();
-  const alasanValid = alasanBersih.length >= 10 && alasanBersih.length <= 500;
-
   // Paginasi 10 baris/halaman. Halaman dijepit di dalam `potongHalaman` (bukan
   // di-reset lewat useEffect) supaya pencarian yang mempersingkat daftar tidak
   // pernah menampilkan halaman kosong — sekaligus menghindari aturan
@@ -139,16 +134,13 @@ export function PlafonPanel() {
 
   const hapus = async () => {
     if (hapusTarget === null) return;
-    if (!alasanValid) {
-      toast.error("Alasan penghapusan wajib 10–500 karakter.");
-      return;
-    }
+    // Catatan alasan pengahapusan tidak diminta lagi — penghapusan tetap
+    // tercatat di Audit Trail (siapa, kapan, akun mana).
     setBusyHapusId(hapusTarget.userId);
     try {
-      await hapusNasabah({ userId: hapusTarget.userId, alasan: alasanBersih });
+      await hapusNasabah({ userId: hapusTarget.userId });
       toast.success(`Akun ${hapusTarget.nama.toUpperCase()} dihapus.`);
       setHapusTarget(null);
-      setAlasanHapus("");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Gagal menghapus akun.");
     } finally {
@@ -504,7 +496,6 @@ export function PlafonPanel() {
                       className="border-destructive/30 text-destructive hover:bg-destructive/10 hover:text-destructive"
                       disabled={sedangHapus}
                       onClick={() => {
-                        setAlasanHapus("");
                         setHapusTarget({ userId: r.userId as Id<"users">, nama: r.nama });
                       }}
                     >
@@ -586,15 +577,12 @@ export function PlafonPanel() {
         />
       )}
 
-      {/* Konfirmasi hapus: alasan 10–500 karakter (sama dengan validasi server)
-          diketik di dialog, bukan di `window.prompt` yang memblokir layar. */}
+      {/* Konfirmasi hapus diketik di dialog, bukan di `window.prompt` yang
+          memblokir layar. Kolom alasan tidak lagi diminta. */}
       <AlertDialog
         open={hapusTarget !== null}
         onOpenChange={(terbuka) => {
-          if (!terbuka) {
-            setHapusTarget(null);
-            setAlasanHapus("");
-          }
+          if (!terbuka) setHapusTarget(null);
         }}
       >
         <AlertDialogContent>
@@ -606,33 +594,11 @@ export function PlafonPanel() {
               akunnya yang hilang.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <div className="space-y-1.5">
-            <Label htmlFor="alasan-hapus-nasabah" className="text-xs">
-              Alasan penghapusan
-            </Label>
-            <Textarea
-              id="alasan-hapus-nasabah"
-              rows={3}
-              maxLength={500}
-              value={alasanHapus}
-              onChange={(e) => setAlasanHapus(e.target.value)}
-              placeholder="Mis. permintaan penghapusan data dari nasabah (10–500 karakter)…"
-            />
-            <p
-              className={`text-[11px] tabular-nums ${
-                alasanBersih.length === 0 || alasanValid
-                  ? "text-muted-foreground"
-                  : "text-destructive"
-              }`}
-            >
-              {alasanBersih.length}/500 karakter · minimal 10 karakter
-            </p>
-          </div>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={busyHapusId !== null}>Batal</AlertDialogCancel>
             <Button
               variant="destructive"
-              disabled={!alasanValid || busyHapusId !== null}
+              disabled={busyHapusId !== null}
               onClick={() => void hapus()}
             >
               {busyHapusId !== null ? <Loader2 className="size-4 animate-spin" /> : null}

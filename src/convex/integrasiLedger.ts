@@ -187,15 +187,17 @@ export const integrasikanPinjamanKeLedger = mutation({
 export const hapusPinjamanLama = mutation({
   args: {
     loanIds: v.array(v.id("loans")),
-    alasan: v.string(),
+    /** Catatan penghapusan opsional — penghapusan tidak boleh tertahan kolom alasan. */
+    alasan: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const { userId, user } = await requireAdminSession(ctx);
     const label = labelAdmin(user.email, user.name);
 
-    const alasan = args.alasan.trim();
-    if (alasan.length < 10 || alasan.length > 500) {
-      throw new Error("Alasan wajib 10–500 karakter.");
+    // Catatan tidak wajib; batas atas dijaga agar audit tetap terbaca.
+    const alasan = (args.alasan ?? "").trim();
+    if (alasan.length > 500) {
+      throw new Error("Catatan penghapusan maksimal 500 karakter.");
     }
     if (args.loanIds.length === 0) {
       throw new Error("Pilih minimal satu pinjaman untuk dihapus.");
@@ -289,7 +291,7 @@ export const hapusPinjamanLama = mutation({
         label,
         "pinjaman_hapus_lama",
         loan.nomorReferensi,
-        `${alasan}; status ${loan.status}; pokok ${loan.pokokPinjaman}; ` +
+        `${alasan === "" ? "tanpa catatan" : alasan}; status ${loan.status}; pokok ${loan.pokokPinjaman}; ` +
           `PENGHAPUSAN MENYELURUH: ${fundings.length} alokasi dana, ${transfer.length} catatan transfer, ` +
           `${receipts.length} bukti bayar dihapus; ${jurnal.length} entri jurnal ledger dipertahankan.`,
         {
@@ -326,14 +328,15 @@ export const hapusPinjamanLama = mutation({
  *    satu sisi jurnal akan memecah ringkasan ledger (status tidak seimbang);
  *  - grup yang tidak ditemukan / tidak seimbang dilaporkan di `dilewati`,
  *    tidak pernah diabaikan diam-diam;
- *  - alasan 10–500 karakter wajib, hasilnya selalu ditulis ke `auditLog`.
+ *  - alasan opsional (boleh dikosongkan, maksimal 500 karakter), hasilnya
+ *    selalu ditulis ke `auditLog`.
  */
 export const qaPurgeJurnalGroups = internalMutation({
-  args: { groupIds: v.array(v.string()), alasan: v.string() },
+  args: { groupIds: v.array(v.string()), alasan: v.optional(v.string()) },
   handler: async (ctx, args) => {
-    const alasan = args.alasan.trim();
-    if (alasan.length < 10 || alasan.length > 500) {
-      throw new Error("Alasan wajib 10–500 karakter.");
+    const alasan = (args.alasan ?? "").trim();
+    if (alasan.length > 500) {
+      throw new Error("Catatan penghapusan maksimal 500 karakter.");
     }
     if (args.groupIds.length === 0) {
       throw new Error("Kirim minimal satu groupId.");
@@ -376,7 +379,7 @@ export const qaPurgeJurnalGroups = internalMutation({
       "cli:qaPurgeJurnalGroups",
       "ledger_purge_grup",
       `${dihapus.length} grup`,
-      `${alasan}; entri ${sebelum.entryCount} -> ${sesudah.entryCount}; ` +
+      `${alasan === "" ? "tanpa catatan" : alasan}; entri ${sebelum.entryCount} -> ${sesudah.entryCount}; ` +
         `grup dilewati ${dilewati.length}; seimbang ${sebelum.seimbang} -> ${sesudah.seimbang}.`,
     );
 

@@ -171,7 +171,7 @@ export default function Admin() {
                 Ringkasan sistem hari ini
               </h1>
               <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                Tinjau catatan pengajuan, lihat koordinat yang dilaporkan perangkat, dan kelola status ledger internal.
+                Tinjau catatan pengajuan, lihat koordinat yang dilaporkan perangkat, dan kelola status data nasabah.
               </p>
             </div>
             <div className="flex w-fit items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-2 text-[11px] font-medium text-emerald-800 sm:text-xs">
@@ -187,7 +187,6 @@ export default function Admin() {
         <AdminTabs
           overview={overview}
           stats={stats}
-          ledger={ledger}
           onOpenLoan={setLoanDetail}
           onOpenPawn={setPawnDetail}
           onOpenSetup={() => setTotpSetupOpen(true)}

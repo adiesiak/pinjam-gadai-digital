@@ -27,6 +27,7 @@ import { clampPersenBunga, persenBungaEfektif } from "../lib/bunga";
 import { simpanDataDiriProfil, bacaProfilUntukForm } from "./dataDiriProfil";
 import { ensureKodePeminjam } from "./peminjamCode";
 import { rejectUnverifiedMoneyMovement } from "./paymentGuard";
+import { hapusTurunanAkun, totalTurunanAkun } from "./hapusAkunTurunan";
 import { quoteKreditBarang } from "../lib/kredit";
 import { STATUS_MENUNGGU } from "../lib/admin-queue";
 import type { Id } from "./_generated/dataModel";
@@ -390,7 +391,11 @@ export const simpanDataDiriNasabah = mutation({
  * dibersihkan. Akun tim (admin) tidak dapat dihapus dari jalur ini.
  */
 export const hapusNasabah = mutation({
-  args: { userId: v.id("users"), alasan: v.string() },
+  args: {
+    userId: v.id("users"),
+    /** Catatan penghapusan opsional — penghapusan tidak boleh tertahan kolom alasan. */
+    alasan: v.optional(v.string()),
+  },
   handler: async (ctx, { userId, alasan }) => {
     const { userId: adminId, user: admin } = await requireAdmin(ctx);
     const target = await ctx.db.get(userId);
@@ -398,51 +403,17 @@ export const hapusNasabah = mutation({
     if (target.role === ROLES.ADMIN) {
       throw new Error("Akun tim (admin) tidak dapat dihapus dari sini.");
     }
-    const bersih = alasan.trim();
-    if (bersih.length < 10 || bersih.length > 500) {
-      throw new Error("Alasan penghapusan wajib 10–500 karakter.");
+    // Catatan tidak wajib; batas atas dijaga agar audit tetap terbaca.
+    const bersih = (alasan ?? "").trim();
+    if (bersih.length > 500) {
+      throw new Error("Catatan penghapusan maksimal 500 karakter.");
     }
     const nama = target.name ?? target.email ?? userId;
 
-    // Akun auth + sesi turunannya.
-    const akunAuth = await ctx.db
-      .query("authAccounts")
-      .withIndex("userIdAndProvider", (q) => q.eq("userId", userId))
-      .collect();
-    for (const row of akunAuth) await ctx.db.delete(row._id);
-    const sesiAuth = await ctx.db
-      .query("authSessions")
-      .withIndex("userId", (q) => q.eq("userId", userId))
-      .collect();
-    for (const row of sesiAuth) await ctx.db.delete(row._id);
-
-    // Baris turunan akun (bukan riwayat keuangan): MFA, consent & status
-    // lokasi, perangkat terdaftar, sesi internal, jejak lokasi, dan data diri.
-    const [mfa, consent, statusLokasi, perangkat, sesiInternal, jejak, profil] =
-      await Promise.all([
-        ctx.db.query("mfaSettings").withIndex("by_user", (q) => q.eq("userId", userId)).collect(),
-        ctx.db.query("trackingConsents").withIndex("by_user", (q) => q.eq("userId", userId)).collect(),
-        ctx.db.query("lokasiStatus").withIndex("by_user", (q) => q.eq("userId", userId)).collect(),
-        ctx.db.query("perangkat").withIndex("by_user", (q) => q.eq("userId", userId)).collect(),
-        ctx.db.query("sessions").withIndex("by_user", (q) => q.eq("userId", userId)).collect(),
-        ctx.db.query("lokasiJejak").withIndex("by_user", (q) => q.eq("userId", userId)).collect(),
-        ctx.db.query("nasabahProfil").withIndex("by_user", (q) => q.eq("userId", userId)).collect(),
-      ]);
-    // Foto KTP ikut dihapus dari storage — tanpa baris pemiliknya, berkas itu
-    // menjadi yatim yang tak bisa ditelusuri lagi.
-    for (const p of profil) {
-      if (p.fotoKtpId !== undefined && await ctx.storage.getMetadata(p.fotoKtpId) !== null) {
-        await ctx.storage.delete(p.fotoKtpId);
-      }
-    }
-    for (const row of [
-      ...mfa, ...consent, ...statusLokasi, ...perangkat, ...sesiInternal, ...jejak, ...profil,
-    ]) {
-      await ctx.db.delete(row._id);
-    }
-    const turunan =
-      mfa.length + consent.length + statusLokasi.length +
-      perangkat.length + sesiInternal.length + jejak.length + profil.length;
+    // Baris turunan akun (bukan riwayat keuangan): kredensial & sesi auth, MFA,
+    // consent & status lokasi, perangkat terdaftar, sesi internal, jejak
+    // lokasi, dan data diri. Satu helper bersama jalur penggabungan nasabah.
+    const turunan = await hapusTurunanAkun(ctx, userId);
 
     await audit(
       ctx,
@@ -451,8 +422,8 @@ export const hapusNasabah = mutation({
       "nasabah_delete",
       nama,
       `Akun nasabah dihapus (pengajuan & riwayat keuangan dibiarkan utuh); ` +
-        `${akunAuth.length} akun auth, ${sesiAuth.length} sesi auth, ` +
-        `${turunan} baris turunan dibersihkan; alasan: ${bersih}`,
+        `${turunan.akunAuth} akun auth, ${turunan.sesiAuth} sesi auth, ` +
+        `${totalTurunanAkun(turunan)} baris turunan dibersihkan${bersih === "" ? "" : `; alasan: ${bersih}`}`,
     );
 
     await ctx.db.delete(userId);
