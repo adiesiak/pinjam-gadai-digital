@@ -13,7 +13,7 @@ import { hitungSimulasiBulanan, TENOR_BULANAN_OPTIONS } from "../lib/bulanan";
 import { ledgerTotals, appendJournal } from "./ledger";
 import { JournalSpec } from "./ledger";
 import { formatRupiah } from "../lib/money";
-import { namaHurufBesar } from "../lib/nama";
+import { namaHurufBesar, namaTampil } from "../lib/nama";
 import { CONTRACT_TERMS_VERSION } from "../lib/contract";
 import { bagiHasilPinjamanDari } from "../lib/bagiHasil";
 import { getConfig, audit } from "./system";
@@ -63,8 +63,10 @@ export const daftarPlafonPeminjam = query({
     const profil = await ctx.db.query("nasabahProfil").collect();
     const adaDataDiri = new Set<string>();
     const adaFotoKtp = new Set<string>();
+    const namaDataDiriPerUser = new Map<string, string>();
     for (const p of profil) {
       adaDataDiri.add(p.userId);
+      if (p.namaLengkap.trim() !== "") namaDataDiriPerUser.set(p.userId, p.namaLengkap);
       if (p.fotoKtpId !== undefined) adaFotoKtp.add(p.userId);
     }
     const pelunasanTepatWaktuPerUser = new Map<string, number>();
@@ -78,6 +80,20 @@ export const daftarPlafonPeminjam = query({
     const idPeminjam = new Set<string>();
     for (const l of loans) idPeminjam.add(l.userId);
     for (const k of kredits) idPeminjam.add(k.userId);
+
+    // Nama peminjam mengikuti CATATAN PINJAMAN (`loans.namaLengkap` /
+    // `kreditBarang.namaLengkap`) — sumber yang sama dengan baris di ruang
+    // penyedia dana — supaya orang yang sama tidak tampil beda nama di dua layar.
+    // Bila punya beberapa catatan, yang TERBARU dipakai. Data diri jadi cadangan,
+    // lalu nama akun, lalu email.
+    const namaPinjamanPerUser = new Map<string, { nama: string; waktu: number }>();
+    const catatNama = (userId: string, nama: string | undefined, waktu: number) => {
+      if (nama === undefined || nama.trim() === "") return;
+      const ada = namaPinjamanPerUser.get(userId);
+      if (ada === undefined || waktu > ada.waktu) namaPinjamanPerUser.set(userId, { nama, waktu });
+    };
+    for (const l of loans) catatNama(l.userId, l.namaLengkap, l.diajukanPada ?? l._creationTime);
+    for (const k of kredits) catatNama(k.userId, k.namaLengkap, k._creationTime);
 
     const hasil: Array<{
       userId: string;
@@ -108,13 +124,25 @@ export const daftarPlafonPeminjam = query({
       if (user === null) continue;
       const pinjamanUser = loans.filter((l) => l.userId === id);
       const kreditUser = kredits.filter((k) => k.userId === id);
-      const nama = (user.name ?? user.email ?? "Peminjam").toLowerCase();
-      if (kata !== "" && !nama.includes(kata) && !(user.email ?? "").toLowerCase().includes(kata)) {
+      const nama = namaTampil(
+        [
+          namaPinjamanPerUser.get(id)?.nama,
+          namaDataDiriPerUser.get(id),
+          user.name,
+          user.email,
+        ],
+        "Peminjam",
+      );
+      if (
+        kata !== "" &&
+        !nama.toLowerCase().includes(kata) &&
+        !(user.email ?? "").toLowerCase().includes(kata)
+      ) {
         continue;
       }
       hasil.push({
         userId: id,
-        nama: user.name ?? user.email ?? "Peminjam",
+        nama,
         email: user.email ?? null,
         plafonPribadi: user.plafonPinjaman ?? null,
         plafonEfektif: plafonEfektif(

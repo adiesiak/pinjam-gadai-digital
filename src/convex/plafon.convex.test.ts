@@ -339,6 +339,29 @@ describe("plafon pinjaman per nasabah", () => {
     expect(baris?.plafonEfektif).toBe(8_200_000);
   });
 
+  it("nama nasabah di panel plafon mengikuti catatan pinjaman (sama dengan ruang penyedia dana)", async () => {
+    const t = convexTest(schema, modules);
+    const { userId } = await siapkanPengguna(t, "nina akun", {
+      email: "nina-nama@pindai.test",
+      role: "peminjam",
+    });
+    const { sesi: admin } = await siapkanPengguna(t, "admin-nama", {
+      email: "admin-nama@pindai.test",
+      role: "admin",
+    });
+    // Nama akun berbeda dari nama pada catatan pinjaman: panel plafon harus
+    // memakai nama catatan pinjaman supaya sama dengan ruang penyedia dana.
+    await siapkanPinjamanTunaiDidanai(t, userId, 1_000_000);
+
+    const daftar = await admin.query(api.admin.daftarPlafonPeminjam, {});
+    const baris = daftar.rows.find((r) => r.userId === userId);
+    expect(baris?.nama).toBe("RANI PEMINJAM");
+
+    // Pencarian admin mengikuti nama tampil yang sama (bukan hanya nama akun).
+    const cariPinjaman = await admin.query(api.admin.daftarPlafonPeminjam, { cari: "rani" });
+    expect(cariPinjaman.rows.some((r) => r.userId === userId)).toBe(true);
+  });
+
   it("nilai di luar rentang di-clamp ke 100 ribu / 10 juta", async () => {
     const t = convexTest(schema, modules);
     const { userId } = await siapkanPengguna(t, "dina", {
