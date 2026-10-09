@@ -13,6 +13,12 @@ import type { Doc, Id } from "./_generated/dataModel";
 import { requireAdminSession } from "./adminAuthz";
 import { simpanDataDiriProfil } from "./dataDiriProfil";
 import { bacaDataDiri, galatDataDiri, type DataDiriForm } from "../lib/dataDiri";
+import {
+  aturanUsang,
+  keteranganAturanUsang,
+  VERSI_ATURAN_KYC,
+  type SlotBerkasAturan,
+} from "../lib/kycAturan";
 import { VERSI_PERSETUJUAN_KYC, persetujuanAktif } from "../lib/persetujuanKyc";
 import {
   bolehTransisi,
@@ -180,6 +186,9 @@ async function catatPerubahanStatus(
     ...(args.aktorUserId === undefined ? {} : { aktorUserId: args.aktorUserId }),
     alasan: args.alasan,
     ...(args.catatan === undefined ? {} : { catatan: args.catatan }),
+    // Dasar aturan dicatat pada barisnya sendiri: riwayat jadi bisa menjawab
+    // "atas aturan apa keputusan ini diambil", bukan hanya "siapa dan kapan".
+    versiAturan: VERSI_ATURAN_KYC,
     waktu: args.waktu,
   });
   await audit(
@@ -263,12 +272,15 @@ async function ubahStatus(
             buktiPenghasilanId: row.buktiPenghasilanId ?? null,
             pada: args.sekarang,
           },
+          // Putusan disimpan bersama ATURAN yang berlaku saat itu — inilah yang
+          // membuat "sudah diverifikasi" bisa ditelusuri dasarnya.
+          aturanTerverifikasi: { versi: VERSI_ATURAN_KYC, pada: args.sekarang },
         }
       : {}),
     // Keluar dari VERIFIED (verifikasi ulang) membuang stempel lama: putusan itu
     // diambil atas data lain, jadi tidak boleh dipakai membandingkan lagi.
     ...(dari === "VERIFIED" && args.ke === "REVERIFICATION_REQUIRED"
-      ? { stempelTerverifikasi: undefined }
+      ? { stempelTerverifikasi: undefined, aturanTerverifikasi: undefined }
       : {}),
   });
 
@@ -384,6 +396,10 @@ export const kycSaya = query({
         persetujuan: null,
         persetujuanAktif: false,
         versiPersetujuan: VERSI_PERSETUJUAN_KYC,
+        // Belum ada baris = belum ada putusan apa pun atas aturan apa pun.
+        versiAturan: VERSI_ATURAN_KYC,
+        aturanTerverifikasi: null,
+        aturanUsang: false,
         diajukanPada: null,
         diputuskanPada: null,
         diputuskanOlehLabel: null,
@@ -445,6 +461,21 @@ export const kycSaya = query({
             },
       persetujuanAktif: persetujuanAktif(row.persetujuan),
       versiPersetujuan: VERSI_PERSETUJUAN_KYC,
+      // ===== Dasar aturan verifikasi =====
+      /** Aturan yang berlaku SEKARANG (dipakai UI untuk konteks). */
+      versiAturan: VERSI_ATURAN_KYC,
+      /** Snapshot aturan saat putusan VERIFIED terakhir, bila pernah ada. */
+      aturanTerverifikasi:
+        row.aturanTerverifikasi === undefined
+          ? null
+          : { versi: row.aturanTerverifikasi.versi, pada: row.aturanTerverifikasi.pada },
+      /**
+       * true bila putusan terakhir diambil dengan aturan yang sudah bukan versi
+       * berlaku. Nasabah TIDAK diminta mengulang sendiri: kewenangan meminta
+       * verifikasi ulang ada pada petugas (`tinjauKyc`).
+       */
+      aturanUsang: aturanUsang(row.aturanTerverifikasi?.versi),
+      keteranganAturanUsang: keteranganAturanUsang(row.aturanTerverifikasi?.versi),
       diajukanPada: row.diajukanPada ?? null,
       diputuskanPada: row.diputuskanPada ?? null,
       diputuskanOlehLabel: row.diputuskanOlehLabel ?? null,
@@ -796,6 +827,18 @@ export const ajukanKyc = mutation({
       .withIndex("by_user", (q) => q.eq("userId", userId))
       .first();
     if (row === null) throw new Error("KYC belum dimulai. Simpan isian dulu.");
+
+    // IDEMPOTEN: pengajuan yang SUDAH menunggu peninjauan tidak diajukan lagi.
+    // Klik ganda atau percobaan ulang karena jaringan tidak boleh membuat baris
+    // riwayat & audit kedua, dan tidak boleh menggeser `diajukanPada` milik
+    // pengajuan yang sedang ditinjau petugas. Data yang berubah setelah
+    // diajukan pasti sudah menarik statusnya kembali ke IN_PROGRESS (lihat
+    // `simpanProgresKyc`), jadi PENDING_REVIEW di sini berarti pengajuan itu
+    // memang pengajuan terakhir — tidak ada yang perlu dikirim.
+    if (row.status === "PENDING_REVIEW") {
+      return { status: "PENDING_REVIEW" as StatusKyc };
+    }
+
     // Pertahanan berlapis: pengajuan tidak mungkin berisi data pribadi tanpa
     // persetujuan yang tercatat, tetapi diperiksa lagi di sini supaya baris lama
     // (dibuat sebelum aturan ini ada) tidak bisa diajukan tanpa persetujuan.
@@ -906,6 +949,8 @@ export const daftarKycAdmin = query({
         email: emailPerUser.get(r.userId) ?? null,
         status: r.status as StatusKyc,
         kekurangan: kekuranganKyc(ringkas(r)),
+        /** Putusan terakhir diambil dengan aturan yang sudah tidak berlaku. */
+        aturanUsang: aturanUsang(r.aturanTerverifikasi?.versi),
         diajukanPada: r.diajukanPada ?? null,
         diperbaruiPada: r.diperbaruiPada,
         diputuskanPada: r.diputuskanPada ?? null,
@@ -953,6 +998,76 @@ export const detailKycAdmin = query({
       diputuskanOlehLabel: row.diputuskanOlehLabel ?? null,
       keputusanCatatan: row.keputusanCatatan ?? null,
       verifikasiUlangTertunda: perluVerifikasiUlang(stempel(row), ringkas(row)),
+      // ===== Dasar aturan verifikasi =====
+      versiAturan: VERSI_ATURAN_KYC,
+      aturanTerverifikasi:
+        row.aturanTerverifikasi === undefined
+          ? null
+          : { versi: row.aturanTerverifikasi.versi, pada: row.aturanTerverifikasi.pada },
+      aturanUsang: aturanUsang(row.aturanTerverifikasi?.versi),
+      keteranganAturanUsang: keteranganAturanUsang(row.aturanTerverifikasi?.versi),
+      /**
+       * Hasil pemeriksaan tiap berkas: jenis (dari ISI berkas), ukuran, sidik
+       * jari SHA-256, dan versi aturan yang memeriksanya. Dibaca dari tabel
+       * `berkasTerverifikasi` — bukan dari klaim klien — supaya petugas bisa
+       * menilai berkasnya tanpa membuka gambarnya lebih dulu.
+       */
+      berkas: await Promise.all(
+        (
+          [
+            ["ktp", "Foto KTP", row.ktpId ?? null],
+            ["selfie", "Selfie dengan KTP", row.selfieKtpId ?? null],
+            ["bukti", "Bukti penghasilan", row.buktiPenghasilanId ?? null],
+          ] as Array<[SlotBerkasAturan, string, Id<"_storage"> | null]>
+        ).map(async ([slot, label, id]) => {
+          if (id === null) {
+            return {
+              slot,
+              label,
+              ada: false,
+              jenis: null,
+              ukuranByte: null,
+              contentType: null,
+              sidikJari: null,
+              versiAturan: null,
+              diperiksaPada: null,
+              aturanUsang: false,
+              dipakaiAkunLain: 0,
+            };
+          }
+          const penanda = await ctx.db
+            .query("berkasTerverifikasi")
+            .withIndex("by_storageId", (q) => q.eq("storageId", id))
+            .first();
+          // Berkas identitas yang ISINYA sama dipakai akun lain: terlihat dari
+          // sidik jari SHA-256 (indeks `by_sidikJari`). Yang dilaporkan hanya
+          // JUMLAHNYA — petugas perlu tahu ada indikasi penggunaan ulang tanpa
+          // membuka data pemilik lain dari layar ini.
+          let dipakaiAkunLain = 0;
+          if (penanda?.sidikJari !== undefined) {
+            const sejenis = await ctx.db
+              .query("berkasTerverifikasi")
+              .withIndex("by_sidikJari", (q) => q.eq("sidikJari", penanda.sidikJari))
+              .collect();
+            dipakaiAkunLain = sejenis.filter(
+              (s) => s.olehUserId !== undefined && s.olehUserId !== userId,
+            ).length;
+          }
+          return {
+            slot,
+            label,
+            ada: penanda !== null,
+            jenis: penanda?.jenis ?? null,
+            ukuranByte: penanda?.ukuranByte ?? null,
+            contentType: penanda?.contentType ?? null,
+            sidikJari: penanda?.sidikJari ?? null,
+            versiAturan: penanda?.versiAturan ?? null,
+            diperiksaPada: penanda?.waktu ?? null,
+            aturanUsang: aturanUsang(penanda?.versiAturan),
+            dipakaiAkunLain,
+          };
+        }),
+      ),
       // Petugas perlu tahu dasar pemrosesan sebelum memutuskan: tanpa persetujuan
       // yang berlaku, keputusan apa pun tidak punya dasar yang bisa diaudit.
       persetujuan:
@@ -977,6 +1092,7 @@ export const detailKycAdmin = query({
           aktorLabel: it.aktorLabel,
           alasan: it.alasan,
           catatan: it.catatan ?? null,
+          versiAturan: it.versiAturan ?? null,
           waktu: it.waktu,
         })),
     };
@@ -1071,6 +1187,63 @@ export const tinjauKyc = mutation({
 });
 
 /* ==========================================================================
+ * MIGRASI BERTAHAP — melengkapi metadata berkas lama
+ * ========================================================================== */
+
+/**
+ * MIGRASI (bertahap, idempoten, admin ber-TOTP): lengkapi metadata
+ * `berkasTerverifikasi` yang dibuat SEBELUM kolom metadata ada.
+ *
+ * Kenapa perlu: baris lama hanya menyimpan `storageId`/`label`/`jenis`, sehingga
+ * panel petugas tidak bisa menampilkan ukuran atau sidik jari berkas lamanya —
+ * padahal berkasnya masih ada. Semua nilai diisi dari tabel sistem `_storage`:
+ * FAKTA yang sudah tercatat Convex, bukan hasil menebak.
+ *
+ * Yang sengaja TIDAK diisi: `versiAturan`. Baris lama tidak menyimpan aturan
+ * mana yang memeriksanya, dan menstempel versi yang berlaku SEKARANG akan
+ * memalsukan bukti audit. Kolomnya dibiarkan kosong; `aturanUsang()`
+ * memperlakukan "tanpa versi" sebagai "tidak diketahui", bukan "usang".
+ *
+ * Idempoten: baris yang metadatanya sudah lengkap dilewati, jadi pemanggilan
+ * ulang tidak menulis apa pun. Berjalan 50 baris per pemanggilan dengan cursor —
+ * pola yang sama dengan `admin.backfillKodePeminjam`.
+ */
+export const backfillMetadataBerkas = mutation({
+  args: { cursor: v.union(v.string(), v.null()) },
+  handler: async (ctx, { cursor }) => {
+    await requireAdminSession(ctx);
+    const page = await ctx.db
+      .query("berkasTerverifikasi")
+      .order("asc")
+      .paginate({ numItems: 50, cursor });
+    let dilengkapi = 0;
+    let berkasHilang = 0;
+    for (const baris of page.page) {
+      if (baris.sidikJari !== undefined && baris.ukuranByte !== undefined) continue;
+      const meta = await ctx.db.system.get("_storage", baris.storageId);
+      if (meta === null) {
+        // Berkasnya sudah dihapus: tidak ada yang bisa dicatat, dan baris
+        // penandanya sengaja TIDAK diubah (tidak ada yang dikarang).
+        berkasHilang += 1;
+        continue;
+      }
+      await ctx.db.patch(baris._id, {
+        ukuranByte: meta.size,
+        contentType: (meta.contentType ?? "").slice(0, 80),
+        sidikJari: meta.sha256,
+      });
+      dilengkapi += 1;
+    }
+    return {
+      cursor: page.continueCursor,
+      selesai: page.isDone,
+      dilengkapi,
+      berkasHilang,
+    };
+  },
+});
+
+/* ==========================================================================
  * Internal — penanda berkas terverifikasi (dipanggil action magic bytes)
  * ========================================================================== */
 
@@ -1089,27 +1262,39 @@ export const catatBerkasTerverifikasi = internalMutation({
     olehUserId: v.optional(v.id("users")),
   },
   handler: async (ctx, { storageId, label, jenis, olehUserId }) => {
+    // Metadata diambil dari tabel sistem `_storage` — BUKAN dari argumen yang
+    // dikirim pemanggil. Ukuran, tipe, dan sidik jari SHA-256 adalah fakta yang
+    // dicatat Convex saat berkas benar-benar tersimpan; menerimanya dari klien
+    // berarti mencatat klaim, bukan bukti.
+    const meta = await ctx.db.system.get("_storage", storageId);
+    if (meta === null) {
+      // Berkas yang sudah tidak ada tidak boleh ditandai "terverifikasi":
+      // tanpa ini, penanda bisa hidup untuk berkas yang sudah dihapus.
+      throw new Error("Berkas tidak ditemukan di penyimpanan. Unggah ulang berkasnya.");
+    }
+    const isi = {
+      label: label.slice(0, 60),
+      jenis,
+      ukuranByte: meta.size,
+      contentType: (meta.contentType ?? "").slice(0, 80),
+      sidikJari: meta.sha256,
+      // Versi aturan yang memeriksa berkas ini ikut dicatat supaya berkas yang
+      // diperiksa dengan aturan lama bisa ditandai di panel petugas.
+      versiAturan: VERSI_ATURAN_KYC,
+      ...(olehUserId === undefined ? {} : { olehUserId }),
+    };
+    const waktu = Date.now();
     const lama = await ctx.db
       .query("berkasTerverifikasi")
       .withIndex("by_storageId", (q) => q.eq("storageId", storageId))
       .first();
-    const waktu = Date.now();
     if (lama === null) {
-      await ctx.db.insert("berkasTerverifikasi", {
-        storageId,
-        label: label.slice(0, 60),
-        jenis,
-        ...(olehUserId === undefined ? {} : { olehUserId }),
-        waktu,
-      });
+      await ctx.db.insert("berkasTerverifikasi", { storageId, ...isi, waktu });
       return { ok: true as const };
     }
-    await ctx.db.patch(lama._id, {
-      label: label.slice(0, 60),
-      jenis,
-      ...(olehUserId === undefined ? {} : { olehUserId }),
-      waktu,
-    });
+    // Pemeriksaan ulang atas berkas yang sama hanya memperbarui hasil terakhir
+    // (storage id tidak bisa berubah isinya, jadi tidak ada riwayat yang hilang).
+    await ctx.db.patch(lama._id, { ...isi, waktu });
     return { ok: true as const };
   },
 });

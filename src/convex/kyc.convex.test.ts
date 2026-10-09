@@ -23,9 +23,10 @@
 import { convexTest } from "convex-test";
 import { describe, expect, it } from "vitest";
 
-import { api } from "./_generated/api";
+import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import schema from "./schema";
+import { VERSI_ATURAN_KYC } from "../lib/kycAturan";
 import { VERSI_PERSETUJUAN_KYC } from "../lib/persetujuanKyc";
 import { buatPengguna, siapkanPengguna, type KonteksUji, type SesiUji } from "./test.helpers";
 import { modules } from "./test.setup";
@@ -39,6 +40,10 @@ const BYTE_PNG = new Uint8Array([
 ]);
 /** Isi berkas PDF (bukan gambar) untuk menguji penolakan magic bytes. */
 const BYTE_PDF = new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2d, 0x31, 0x2e, 0x37]);
+/** Isi JPEG minimal — berkas LAIN dengan jenis & sidik jari yang berbeda. */
+const BYTE_JPG = new Uint8Array([
+  0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46, 0x00, 0x01, 0x01, 0x00, 0x00, 0x01,
+]);
 
 /** Isian lengkap & sah menurut aturan yang sama dengan form data diri. */
 const ISI_LENGKAP = {
@@ -416,6 +421,293 @@ describe("alur KYC mandiri", () => {
     expect(profil?.fotoKtpId).toBe(ktpBaru);
     expect(profil?.verifikasiIdentitas?.status).toBe("terverifikasi");
     expect(berkas.ktpId).not.toBe(ktpBaru);
+  });
+
+  it("Mencatat metadata dokumen & hasil pemeriksaan dari server, bukan dari klien", async () => {
+    const { t, admin, nasabah } = await siapkanDua();
+    await kirimLengkap(t, nasabah.sesi);
+
+    const penanda = await t.run((ctx) => ctx.db.query("berkasTerverifikasi").collect());
+    expect(penanda).toHaveLength(3);
+    for (const p of penanda) {
+      expect(p.jenis).toBe("png");
+      expect(p.ukuranByte).toBeGreaterThan(0);
+      expect(p.contentType).toBe("image/png");
+      // Sidik jari SHA-256 dihitung PENYIMPANAN (base64), bukan dikirim pemanggil.
+      expect(p.sidikJari).toMatch(/^[A-Za-z0-9+/]{43}=$/);
+      expect(p.versiAturan).toBe(VERSI_ATURAN_KYC);
+      expect(p.olehUserId).toBe(nasabah.userId);
+    }
+
+    // Berkas LAIN menghasilkan jenis & sidik jari yang berbeda — metadata benar
+    // membaca berkasnya, bukan menyalin label slot.
+    const jpg = await unggah(t, nasabah.sesi, "Foto KTP", BYTE_JPG);
+    const penandaJpg = await t.run((ctx) =>
+      ctx.db
+        .query("berkasTerverifikasi")
+        .withIndex("by_storageId", (q) => q.eq("storageId", jpg))
+        .first(),
+    );
+    expect(penandaJpg?.jenis).toBe("jpeg");
+    expect(penandaJpg?.sidikJari).not.toBe(penanda[0].sidikJari);
+
+    // Berkas yang sudah TIDAK ADA tidak boleh ditandai "terverifikasi":
+    // penanda untuk berkas yang sudah dihapus hanya jadi bukti palsu.
+    const dihapus = await simpanGambarUji(t);
+    await t.run((ctx) => ctx.storage.delete(dihapus));
+    await expect(
+      t.mutation(internal.kyc.catatBerkasTerverifikasi, {
+        storageId: dihapus,
+        label: "Foto KTP",
+        jenis: "png",
+      }),
+    ).rejects.toThrow(/tidak ditemukan di penyimpanan/);
+
+    // Berkas identitas yang ISINYA sama dipakai akun LAIN: terlihat dari sidik
+    // jarinya (indeks `by_sidikJari`), dan yang dilaporkan hanya jumlahnya.
+    const orangLain = await siapkanPengguna(t, "Orang Lain", {
+      email: "lain3@pindai.test",
+      role: "peminjam",
+    });
+    await unggah(t, orangLain.sesi, "Foto KTP", BYTE_PNG);
+    const detailDenganUlang = await admin.sesi.query(api.kyc.detailKycAdmin, {
+      userId: nasabah.userId,
+    });
+    const berkasKtp = detailDenganUlang?.berkas.find((b) => b.slot === "ktp");
+    expect(berkasKtp?.dipakaiAkunLain).toBe(1);
+    const berkasBukti = detailDenganUlang?.berkas.find((b) => b.slot === "bukti");
+    expect(berkasBukti?.dipakaiAkunLain).toBe(1);
+    expect(JSON.stringify(detailDenganUlang)).not.toContain(orangLain.userId);
+
+    // Petugas melihat metadata itu di rincian, bersama dasar aturan putusan.
+    await admin.sesi.mutation(api.kyc.tinjauKyc, {
+      userId: nasabah.userId,
+      keputusan: "VERIFIED",
+      catatan: "Berkas jelas.",
+    });
+    const detail = await admin.sesi.query(api.kyc.detailKycAdmin, { userId: nasabah.userId });
+    expect(detail?.versiAturan).toBe(VERSI_ATURAN_KYC);
+    expect(detail?.aturanTerverifikasi?.versi).toBe(VERSI_ATURAN_KYC);
+    expect(detail?.aturanUsang).toBe(false);
+    expect(detail?.keteranganAturanUsang).toBeNull();
+    expect(detail?.berkas.map((b) => b.slot)).toEqual(["ktp", "selfie", "bukti"]);
+    expect(detail?.berkas.every((b) => b.ada && b.jenis === "png" && (b.ukuranByte ?? 0) > 0)).toBe(
+      true,
+    );
+    expect(detail?.berkas.every((b) => (b.sidikJari ?? "").length >= 43)).toBe(true);
+    // Riwayat mencatat dasar aturannya, bukan hanya pelaku & waktunya.
+    expect(detail?.riwayat.every((r) => r.versiAturan === VERSI_ATURAN_KYC)).toBe(true);
+  });
+
+  it("Pengajuan ganda tidak menggandakan riwayat/audit (idempoten)", async () => {
+    const { t, nasabah } = await siapkanDua();
+    await kirimLengkap(t, nasabah.sesi);
+
+    const sebelum = await t.run(async (ctx) => ({
+      riwayat: (await ctx.db.query("kycRiwayat").collect()).length,
+      audit: (await ctx.db.query("auditLog").collect()).length,
+      row: await ctx.db
+        .query("kycProfil")
+        .withIndex("by_user", (q) => q.eq("userId", nasabah.userId))
+        .first(),
+    }));
+
+    // Klik ganda: hasilnya tetap satu pengajuan, tanpa baris riwayat/audit baru,
+    // dan waktu pengajuan yang sedang ditinjau petugas tidak digeser.
+    const lagi = await nasabah.sesi.mutation(api.kyc.ajukanKyc, {});
+    expect(lagi.status).toBe("PENDING_REVIEW");
+
+    const sesudah = await t.run(async (ctx) => ({
+      riwayat: (await ctx.db.query("kycRiwayat").collect()).length,
+      audit: (await ctx.db.query("auditLog").collect()).length,
+      row: await ctx.db
+        .query("kycProfil")
+        .withIndex("by_user", (q) => q.eq("userId", nasabah.userId))
+        .first(),
+    }));
+    expect(sesudah.riwayat).toBe(sebelum.riwayat);
+    expect(sesudah.audit).toBe(sebelum.audit);
+    expect(sesudah.row?.diajukanPada).toBe(sebelum.row?.diajukanPada);
+    expect(sesudah.row?.status).toBe("PENDING_REVIEW");
+  });
+
+  it("Nasabah lain tidak bisa membaca atau mengubah baris KYC nasabah ini", async () => {
+    const { t, nasabah } = await siapkanDua();
+    await kirimLengkap(t, nasabah.sesi);
+    const lain = await siapkanPengguna(t, "Orang Lain", {
+      email: "lain2@pindai.test",
+      role: "peminjam",
+    });
+
+    // Membaca: yang terlihat hanya barisnya sendiri — belum mulai, bukan data orang lain.
+    const milikLain = await lain.sesi.query(api.kyc.kycSaya, {});
+    expect(milikLain.adaBaris).toBe(false);
+    expect(milikLain.status).toBe("NOT_STARTED");
+    expect(milikLain.isian.nik).toBe("");
+    expect(milikLain.dokumen.ktpId).toBeNull();
+
+    // Mengubah: menyimpan & mengajukan hanya menyentuh baris sendiri.
+    await setujui(lain.sesi);
+    await lain.sesi.mutation(api.kyc.simpanProgresKyc, { namaLengkap: "Orang Lain" });
+    // Mengajukan tetap ditolak karena isiannya sendiri belum lengkap — bukan
+    // mengambil alih isian/berkas nasabah lain.
+    await expect(lain.sesi.mutation(api.kyc.ajukanKyc, {})).rejects.toThrow(
+      /Nomor KTP \(NIK\) harus terdiri dari 16 angka/,
+    );
+
+    const semua = await t.run((ctx) => ctx.db.query("kycProfil").collect());
+    expect(semua).toHaveLength(2);
+    const barisPertama = semua.find((r) => r.userId === nasabah.userId);
+    expect(barisPertama?.namaLengkap).toBe("RANI PUSPITA");
+    expect(barisPertama?.status).toBe("PENDING_REVIEW");
+    const barisLain = semua.find((r) => r.userId === lain.userId);
+    expect(barisLain?.status).toBe("IN_PROGRESS");
+    expect(barisLain?.ktpId).toBeUndefined();
+  });
+
+  it("Baris KYC lama (tanpa kolom aturan/persetujuan) tetap terbaca & bisa diputuskan", async () => {
+    const { t, admin, nasabah } = await siapkanDua();
+    // Bentuk baris yang ADA SEBELUM kolom versi aturan/persetujuan ditambahkan:
+    // tidak ada `aturanTerverifikasi`, tidak ada `stempelTerverifikasi`, tidak ada
+    // berkas. Migrasi tidak boleh membuat baris seperti ini tidak terbaca.
+    await t.run((ctx) =>
+      ctx.db.insert("kycProfil", {
+        userId: nasabah.userId,
+        status: "PENDING_REVIEW",
+        namaLengkap: "RANI PUSPITA",
+        nik: NIK,
+        nomorWhatsApp: WA,
+        penghasilanBulanan: 5_000_000,
+        sumberPenghasilan: "Gaji bulanan",
+        dibuatPada: 1_600_000_000_000,
+        diperbaruiPada: 1_600_000_000_000,
+        diajukanPada: 1_600_000_000_000,
+      }),
+    );
+
+    const saya = await nasabah.sesi.query(api.kyc.kycSaya, {});
+    expect(saya.status).toBe("PENDING_REVIEW");
+    expect(saya.aturanTerverifikasi).toBeNull();
+    // Baris lama TIDAK ditandai usang — migrasi tidak memaksa KYC ulang massal.
+    expect(saya.aturanUsang).toBe(false);
+    expect(saya.versiAturan).toBe(VERSI_ATURAN_KYC);
+    expect(saya.riwayat).toEqual([]);
+
+    const detail = await admin.sesi.query(api.kyc.detailKycAdmin, { userId: nasabah.userId });
+    expect(detail?.aturanTerverifikasi).toBeNull();
+    expect(detail?.aturanUsang).toBe(false);
+    expect(detail?.berkas.every((b) => b.ada === false)).toBe(true);
+
+    // Verifikasi tetap TIDAK bisa diambil hanya karena barisnya sudah lama ada.
+    await expect(
+      admin.sesi.mutation(api.kyc.tinjauKyc, { userId: nasabah.userId, keputusan: "VERIFIED" }),
+    ).rejects.toThrow(/isian belum lengkap/);
+
+    // Keputusan yang sah tetap jalan, dan datanya tidak hilang.
+    const putusan = await admin.sesi.mutation(api.kyc.tinjauKyc, {
+      userId: nasabah.userId,
+      keputusan: "NEEDS_CORRECTION",
+      catatan: "Lengkapi foto KTP, selfie, dan bukti penghasilan.",
+    });
+    expect(putusan.status).toBe("NEEDS_CORRECTION");
+    const sesudah = await nasabah.sesi.query(api.kyc.kycSaya, {});
+    expect(sesudah.status).toBe("NEEDS_CORRECTION");
+    expect(sesudah.isian.nik).toBe(NIK);
+    // Riwayat petugas menyimpan dasar aturannya (versi aturan tidak dikirim ke
+    // tampilan nasabah — cukup bagi petugas yang mengaudit putusannya).
+    const detailSesudah = await admin.sesi.query(api.kyc.detailKycAdmin, {
+      userId: nasabah.userId,
+    });
+    expect(detailSesudah?.riwayat[0]).toMatchObject({
+      dari: "PENDING_REVIEW",
+      ke: "NEEDS_CORRECTION",
+      versiAturan: VERSI_ATURAN_KYC,
+    });
+
+    // Baris lama tanpa persetujuan TIDAK boleh menampung data pribadi baru.
+    await expect(
+      nasabah.sesi.mutation(api.kyc.simpanProgresKyc, { alamat: "Jalan Baru No. 1, Bogor" }),
+    ).rejects.toThrow(/Persetujuan pemrosesan data belum tercatat/);
+  });
+
+  it("Migrasi metadata berkas: admin-only, idempoten, dan tidak mengarang versi aturan", async () => {
+    const t = convexTest(schema, modules);
+    const admin = await siapkanPengguna(t, "Petugas Migrasi", {
+      email: "petugas3@pindai.test",
+      role: "admin",
+    });
+    const nasabah = await siapkanPengguna(t, "Rani Puspita", {
+      email: "rani2@pindai.test",
+      role: "peminjam",
+    });
+
+    // Baris "lama": berkasnya masih ada di storage, metadatanya belum tercatat.
+    const idLama = await simpanGambarUji(t);
+    await t.run((ctx) =>
+      ctx.db.insert("berkasTerverifikasi", {
+        storageId: idLama,
+        label: "Foto KTP",
+        jenis: "png",
+        waktu: 1_600_000_000_000,
+      }),
+    );
+
+    // Gerbang: nasabah (dan petugas tanpa TOTP) tidak boleh menjalankan migrasi.
+    await expect(
+      nasabah.sesi.mutation(api.kyc.backfillMetadataBerkas, { cursor: null }),
+    ).rejects.toThrow(/Akses khusus Super Admin/);
+
+    const pertama = await admin.sesi.mutation(api.kyc.backfillMetadataBerkas, { cursor: null });
+    expect(pertama.dilengkapi).toBe(1);
+    expect(pertama.berkasHilang).toBe(0);
+    expect(pertama.selesai).toBe(true);
+
+    const baris = await t.run((ctx) => ctx.db.query("berkasTerverifikasi").collect());
+    expect(baris[0].ukuranByte).toBe(BYTE_PNG.byteLength);
+    expect(baris[0].contentType).toBe("image/png");
+    expect(baris[0].sidikJari).toMatch(/^[A-Za-z0-9+/]{43}=$/);
+    // Aturan yang memeriksa berkas lama TIDAK diketahui — jangan dikarang.
+    expect(baris[0].versiAturan).toBeUndefined();
+
+    // Idempoten: pemanggilan berikutnya tidak menulis apa pun.
+    const kedua = await admin.sesi.mutation(api.kyc.backfillMetadataBerkas, { cursor: null });
+    expect(kedua.dilengkapi).toBe(0);
+    expect(kedua.berkasHilang).toBe(0);
+  });
+
+  it("Menghapus akun juga menghapus data KYC & berkas identitasnya", async () => {
+    const { t, admin, nasabah } = await siapkanDua();
+    const berkas = await kirimLengkap(t, nasabah.sesi);
+
+    const sebelum = await t.run(async (ctx) => ({
+      kyc: (await ctx.db.query("kycProfil").collect()).length,
+      riwayat: (await ctx.db.query("kycRiwayat").collect()).length,
+      penanda: (await ctx.db.query("berkasTerverifikasi").collect()).length,
+      ktp: await ctx.storage.getMetadata(berkas.ktpId),
+    }));
+    expect(sebelum.kyc).toBe(1);
+    expect(sebelum.riwayat).toBeGreaterThan(0);
+    expect(sebelum.penanda).toBe(3);
+    expect(sebelum.ktp).not.toBeNull();
+
+    await admin.sesi.mutation(api.admin.hapusNasabah, { userId: nasabah.userId });
+
+    const sesudah = await t.run(async (ctx) => ({
+      kyc: (await ctx.db.query("kycProfil").collect()).length,
+      riwayat: (await ctx.db.query("kycRiwayat").collect()).length,
+      penanda: (await ctx.db.query("berkasTerverifikasi").collect()).length,
+      ktp: await ctx.storage.getMetadata(berkas.ktpId),
+      selfie: await ctx.storage.getMetadata(berkas.selfieKtpId),
+      bukti: await ctx.storage.getMetadata(berkas.buktiPenghasilanId),
+    }));
+    // Tidak ada baris KYC, riwayat, atau penanda berkas yang tertinggal...
+    expect(sesudah.kyc).toBe(0);
+    expect(sesudah.riwayat).toBe(0);
+    expect(sesudah.penanda).toBe(0);
+    // ...dan foto identitasnya benar-benar hilang dari penyimpanan.
+    expect(sesudah.ktp).toBeNull();
+    expect(sesudah.selfie).toBeNull();
+    expect(sesudah.bukti).toBeNull();
   });
 
   it("Akses: tamu & non-petugas ditolak, antrean admin berisi cacah per status", async () => {

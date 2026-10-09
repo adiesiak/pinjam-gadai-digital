@@ -66,6 +66,13 @@ function waktu(ms: number | null): string {
   return new Date(ms).toLocaleString("id-ID", { dateStyle: "medium", timeStyle: "short" });
 }
 
+/** Ukuran berkas untuk dibaca petugas (KB/MB) — bukan angka byte mentah. */
+function ukuranBerkas(byte: number | null): string {
+  if (byte === null) return "ukuran tidak tercatat";
+  if (byte >= 1024 * 1024) return `${(byte / (1024 * 1024)).toFixed(1)} MB`;
+  return `${Math.max(1, Math.round(byte / 1024))} KB`;
+}
+
 /* ==========================================================================
  * Bagian tampilan MURNI
  * ========================================================================== */
@@ -100,6 +107,13 @@ export function BarisKyc({
         <span className="flex items-center gap-1 rounded-lg bg-amber-50 px-2 py-1 text-[11px] text-amber-800">
           <FileWarning className="size-3.5 shrink-0" aria-hidden />
           {item.kekurangan.length} berkas/isi kurang
+        </span>
+      )}
+      {/* Putusan yang diambil dengan aturan lama harus kelihatan DARI DAFTAR —
+          bukan hanya setelah membuka satu per satu. */}
+      {item.aturanUsang && (
+        <span className="flex items-center gap-1 rounded-lg bg-amber-100 px-2 py-1 text-[11px] font-medium text-amber-900">
+          <ShieldAlert className="size-3.5 shrink-0" aria-hidden /> aturan lama
         </span>
       )}
       <StatusKycBadge status={item.status} />
@@ -153,6 +167,22 @@ export function KycDetailRingkas({ detail }: { detail: DetailKycTampil }) {
         </p>
       )}
 
+      {/* Dasar ATURAN putusan terakhir: "terverifikasi" tanpa menyebut atas
+          aturan apa tidak bisa ditelusuri bila aturannya berubah. */}
+      {detail.aturanTerverifikasi !== null && (
+        <p
+          className={
+            detail.aturanUsang
+              ? "rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] leading-5 text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/40 dark:text-amber-100"
+              : "rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-[11px] leading-5 text-slate-700"
+          }
+        >
+          Diverifikasi dengan aturan <strong>{detail.aturanTerverifikasi.versi}</strong> pada{" "}
+          {waktu(detail.aturanTerverifikasi.pada)} (aturan berlaku: {detail.versiAturan}).
+          {detail.keteranganAturanUsang === null ? "" : ` ${detail.keteranganAturanUsang}`}
+        </p>
+      )}
+
       {detail.kekurangan.length > 0 && (
         <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] leading-5 text-amber-900">
           <p className="font-semibold">Isian belum lengkap — tidak bisa diverifikasi:</p>
@@ -173,25 +203,49 @@ export function KycDetailRingkas({ detail }: { detail: DetailKycTampil }) {
         ))}
       </dl>
 
+      {/* URL dipisah dari metadata pemeriksaannya karena `WatermarkedDoc`
+          tidak menerima `src` null. */}
       <div className="grid gap-3 sm:grid-cols-3">
-        {(
-          [
-            ["Foto KTP", detail.url.ktp],
-            ["Selfie dengan KTP", detail.url.selfie],
-            ["Bukti penghasilan", detail.url.buktiPenghasilan],
-          ] as Array<[string, string | null]>
-        ).map(([label, url]) =>
-          url === null ? (
-            <div
-              key={label}
-              className="flex h-28 items-center justify-center rounded-xl border border-dashed border-slate-300 bg-slate-50 text-[11px] text-muted-foreground"
-            >
-              {label}: belum diunggah
+        {detail.berkas.map((meta) => {
+          const url =
+            meta.slot === "ktp"
+              ? detail.url.ktp
+              : meta.slot === "selfie"
+                ? detail.url.selfie
+                : detail.url.buktiPenghasilan;
+          return (
+            <div key={meta.slot} className="space-y-1">
+              {url === null ? (
+                <div className="flex h-28 items-center justify-center rounded-xl border border-dashed border-slate-300 bg-slate-50 text-[11px] text-muted-foreground">
+                  {meta.label}: belum diunggah
+                </div>
+              ) : (
+                <WatermarkedDoc src={url} label={meta.label} />
+              )}
+              {meta.ada ? (
+                <p className="text-[10px] leading-4 text-muted-foreground">
+                  Diperiksa server: {meta.jenis ?? "—"} · {ukuranBerkas(meta.ukuranByte)} · sidik jari{" "}
+                  {(meta.sidikJari ?? "—").slice(0, 12)} · aturan {meta.versiAturan ?? "—"}
+                </p>
+              ) : (
+                <p className="text-[10px] leading-4 text-muted-foreground">
+                  Belum diperiksa server — berkas belum bisa ditautkan.
+                </p>
+              )}
+              {meta.aturanUsang && (
+                <p className="text-[10px] leading-4 text-amber-800">
+                  Diperiksa dengan aturan lama — pertimbangkan pemeriksaan ulang.
+                </p>
+              )}
+              {meta.dipakaiAkunLain > 0 && (
+                <p role="alert" className="text-[10px] leading-4 font-medium text-red-700">
+                  Berkas dengan isi yang sama dipakai di {meta.dipakaiAkunLain} akun lain — periksa
+                  kemungkinan penyalahgunaan identitas.
+                </p>
+              )}
             </div>
-          ) : (
-            <WatermarkedDoc key={label} src={url} label={label} />
-          ),
-        )}
+          );
+        })}
       </div>
     </div>
   );
@@ -212,6 +266,7 @@ export function KycRiwayatRingkas({ riwayat }: { riwayat: DetailKycTampil["riway
           </span>{" "}
           <span className="text-muted-foreground">
             · {item.alasan.replace(/_/g, " ")} · {item.aktorLabel} ({item.aktor}) · {waktu(item.waktu)}
+            {item.versiAturan === null ? "" : ` · aturan ${item.versiAturan}`}
           </span>
           {item.catatan !== null && <span className="block text-slate-700">“{item.catatan}”</span>}
         </li>

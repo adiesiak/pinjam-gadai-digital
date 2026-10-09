@@ -42,8 +42,10 @@ export function BackupPanel() {
   const auditData = useQuery(api.system.getConfigAdmin);
   const catat = useMutation(api.system.catatBackup);
   const backfillKode = useMutation(api.admin.backfillKodePeminjam);
+  const backfillBerkasKyc = useMutation(api.kyc.backfillMetadataBerkas);
   const [busy, setBusy] = useState<string | null>(null);
   const [kodePeminjamDiterbitkan, setKodePeminjamDiterbitkan] = useState<number | null>(null);
+  const [metadataBerkasDilengkapi, setMetadataBerkasDilengkapi] = useState<number | null>(null);
 
   const unduhFile = (nama: string, isi: string, mime: string) => {
     const blob = new Blob([isi], { type: mime });
@@ -112,6 +114,33 @@ export function BackupPanel() {
       toast.success(`${totalDiterbitkan} kode peminjam baru diterbitkan. Data identitas tidak diubah.`);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Migrasi kode peminjam gagal.");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  /**
+   * Migrasi bertahap: lengkapi metadata berkas KYC lama dari tabel `_storage`.
+   * Nilainya dibaca dari penyimpanan (ukuran, tipe, sidik jari SHA-256) — tidak
+   * ada yang dikarang, dan versi aturan lama sengaja TIDAK diisi.
+   */
+  const migrasiMetadataBerkasKyc = async () => {
+    setBusy("berkas-kyc");
+    setMetadataBerkasDilengkapi(0);
+    let cursor: string | null = null;
+    let total = 0;
+    try {
+      while (true) {
+        const hasil: { cursor: string; selesai: boolean; dilengkapi: number } =
+          await backfillBerkasKyc({ cursor });
+        total += hasil.dilengkapi;
+        setMetadataBerkasDilengkapi(total);
+        if (hasil.selesai) break;
+        cursor = hasil.cursor;
+      }
+      toast.success(`${total} metadata berkas KYC dilengkapi dari penyimpanan.`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Migrasi metadata berkas KYC gagal.");
     } finally {
       setBusy(null);
     }
@@ -200,6 +229,34 @@ export function BackupPanel() {
           >
             {busy === "kode-peminjam" ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Lock className="mr-2 size-4 text-emerald-600" />}
             {busy === "kode-peminjam" ? "Memproses kode lama…" : "Backfill kode peminjam lama"}
+          </Button>
+        </div>
+        <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+          <p className="text-sm font-medium">Metadata berkas KYC lama</p>
+          <p className="mt-1 text-xs leading-5 text-muted-foreground">
+            Lengkapi ukuran, tipe, dan sidik jari SHA-256 berkas KYC yang diunggah sebelum kolom
+            metadata ada. Nilainya dibaca dari penyimpanan, prosesnya bertahap, dan setiap baris yang
+            sudah lengkap dilewati. Versi aturan lama TIDAK diisi — aturan yang memeriksa berkas itu
+            tidak diketahui, jadi tidak boleh dikarang.
+          </p>
+          {metadataBerkasDilengkapi !== null && (
+            <p className="mt-2 text-xs font-medium text-emerald-700" aria-live="polite">
+              {busy === "berkas-kyc" ? "Sedang memproses" : "Terakhir selesai"}:{" "}
+              {metadataBerkasDilengkapi} baris dilengkapi.
+            </p>
+          )}
+          <Button
+            variant="outline"
+            className="mt-3 w-full justify-start"
+            disabled={busy !== null}
+            onClick={() => void migrasiMetadataBerkasKyc()}
+          >
+            {busy === "berkas-kyc" ? (
+              <Loader2 className="mr-2 size-4 animate-spin" />
+            ) : (
+              <Lock className="mr-2 size-4 text-emerald-600" />
+            )}
+            {busy === "berkas-kyc" ? "Memproses metadata…" : "Lengkapi metadata berkas KYC"}
           </Button>
         </div>
       </div>

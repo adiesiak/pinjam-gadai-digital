@@ -16,6 +16,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 
 import { BarisKyc, KycDetailRingkas, KycRiwayatRingkas, type DetailKycTampil, type ItemKycTampil } from "./KycPanel";
 import { StatusKycBadge } from "@/components/StatusKycBadge";
+import { keteranganAturanUsang, VERSI_ATURAN_KYC } from "@/lib/kycAturan";
 import { KYC_STATUS, LABEL_STATUS_KYC } from "@/lib/kycStatus";
 
 let passed = 0;
@@ -42,6 +43,7 @@ const item = (overrides: Partial<ItemKycTampil> = {}): ItemKycTampil => ({
   email: "rani@pindai.test",
   status: "PENDING_REVIEW",
   kekurangan: [],
+  aturanUsang: false,
   diajukanPada: 1_700_000_000_000,
   diperbaruiPada: 1_700_000_000_000,
   diputuskanPada: null,
@@ -67,6 +69,51 @@ const detail = (overrides: Partial<DetailKycTampil> = {}): DetailKycTampil => ({
   verifikasiUlangTertunda: false,
   persetujuan: { versi: "pdp-2026-10", pada: 1_700_000_000_000, olehLabel: "rani@pindai.test" },
   persetujuanAktif: true,
+  versiAturan: VERSI_ATURAN_KYC,
+  aturanTerverifikasi: { versi: VERSI_ATURAN_KYC, pada: 1_700_000_000_000 },
+  aturanUsang: false,
+  keteranganAturanUsang: null,
+  berkas: [
+    {
+      slot: "ktp",
+      label: "Foto KTP",
+      ada: true,
+      jenis: "png",
+      ukuranByte: 1_200_000,
+      contentType: "image/png",
+      sidikJari: "8f3a1c2b4d5e6f708192a3b4c5d6e7f8",
+      versiAturan: VERSI_ATURAN_KYC,
+      diperiksaPada: 1_700_000_000_000,
+      aturanUsang: false,
+      dipakaiAkunLain: 0,
+    },
+    {
+      slot: "selfie",
+      label: "Selfie dengan KTP",
+      ada: true,
+      jenis: "jpeg",
+      ukuranByte: 900_000,
+      contentType: "image/jpeg",
+      sidikJari: "11223344556677889900112233445566",
+      versiAturan: VERSI_ATURAN_KYC,
+      diperiksaPada: 1_700_000_000_000,
+      aturanUsang: false,
+      dipakaiAkunLain: 0,
+    },
+    {
+      slot: "bukti",
+      label: "Bukti penghasilan",
+      ada: true,
+      jenis: "png",
+      ukuranByte: 640_000,
+      contentType: "image/png",
+      sidikJari: "aabbccddeeff00112233445566778899",
+      versiAturan: VERSI_ATURAN_KYC,
+      diperiksaPada: 1_700_000_000_000,
+      aturanUsang: false,
+      dipakaiAkunLain: 0,
+    },
+  ],
   url: {
     ktp: "https://example.test/ktp.png",
     selfie: "https://example.test/selfie.png",
@@ -101,7 +148,14 @@ for (const status of KYC_STATUS) {
   ada(tanpaEmail, "tanpa email", "nasabah tanpa email tidak tampil kosong");
   ada(tanpaEmail, 'aria-pressed="true"', "baris aktif ditandai");
   ok(!tanpaEmail.includes("berkas/isi kurang"), "tanpa kekurangan tidak ada peringatan palsu");
+  ok(!tanpaEmail.includes("aturan lama"), "aturan berlaku tidak ditandai usang");
   bersih(tanpaEmail, "baris tanpa email");
+
+  // Putusan yang diambil dengan aturan lama harus kelihatan dari DAFTAR — bukan
+  // hanya setelah membuka satu per satu.
+  const aturanLama = renderToStaticMarkup(<BarisKyc item={item({ aturanUsang: true })} aktif={false} onPilih={() => {}} />);
+  ada(aturanLama, "aturan lama", "baris dengan aturan lama ditandai");
+  bersih(aturanLama, "baris aturan lama");
 }
 
 // ===== 3. Rincian lengkap: isian + tiga berkas ber-watermark =====
@@ -118,6 +172,13 @@ for (const status of KYC_STATUS) {
   ada(html, 'alt="Foto KTP"', "label Foto KTP terpasang pada gambarnya");
   ada(html, "Persetujuan pemrosesan data tercatat", "dasar pemrosesan terlihat oleh petugas");
   ada(html, "pdp-2026-10", "versi persetujuan tercatat");
+  // Dasar ATURAN putusan + hasil pemeriksaan berkas (metadata dari server).
+  ada(html, "Diverifikasi dengan aturan", "dasar aturan putusan tampil");
+  ada(html, VERSI_ATURAN_KYC, "versi aturan berlaku tampil");
+  ada(html, "Diperiksa server: png", "hasil pemeriksaan berkas tampil");
+  ada(html, "1.1 MB", "ukuran berkas tampil dalam MB, bukan byte mentah");
+  ada(html, "8f3a1c2b4d5e", "sidik jari berkas tampil (dipotong)");
+  ok(!html.includes("akun lain"), "tanpa indikasi penggunaan ulang tidak ada peringatan");
   ok(!html.includes("belum diunggah"), "tidak ada kabar \"belum diunggah\" saat berkas lengkap");
   bersih(html, "rincian lengkap");
 }
@@ -135,6 +196,19 @@ for (const status of KYC_STATUS) {
 
 // ===== 4. Rincian belum lengkap: kekurangan + slot berkas kosong =====
 {
+  const belumDiperiksa = (slot: "selfie" | "bukti", label: string) => ({
+    slot,
+    label,
+    ada: false,
+    jenis: null,
+    ukuranByte: null,
+    contentType: null,
+    sidikJari: null,
+    versiAturan: null,
+    diperiksaPada: null,
+    aturanUsang: false,
+    dipakaiAkunLain: 0,
+  });
   const html = renderToStaticMarkup(
     <KycDetailRingkas
       detail={detail({
@@ -142,6 +216,12 @@ for (const status of KYC_STATUS) {
         nik: null,
         penghasilanBulanan: null,
         kekurangan: ["NIK 16 angka", "Bukti penghasilan"],
+        aturanTerverifikasi: null,
+        berkas: [
+          detail().berkas[0],
+          belumDiperiksa("selfie", "Selfie dengan KTP"),
+          belumDiperiksa("bukti", "Bukti penghasilan"),
+        ],
         url: { ktp: "https://example.test/ktp.png", selfie: null, buktiPenghasilan: null },
       })}
     />,
@@ -150,8 +230,48 @@ for (const status of KYC_STATUS) {
   ada(html, "NIK 16 angka", "kekurangan NIK tampil");
   ada(html, "Selfie dengan KTP: belum diunggah", "slot selfie kosong disebutkan");
   ada(html, "Bukti penghasilan: belum diunggah", "slot bukti kosong disebutkan");
+  ada(html, "Belum diperiksa server", "slot tanpa penanda diperiksa disebut jujur");
+  ok(!html.includes("Diverifikasi dengan aturan"), "tanpa putusan tidak mengaku ada dasar aturan");
   ada(html, "—", "isian kosong memakai tanda pisah, bukan kata \"undefined\"");
   bersih(html, "rincian belum lengkap");
+}
+
+// ===== 4b. Putusan/berkas dari aturan LAMA ditandai, bukan dibiarkan tampak sah =====
+{
+  const versiLama = "kyc-aturan-2020-01";
+  const html = renderToStaticMarkup(
+    <KycDetailRingkas
+      detail={detail({
+        status: "VERIFIED",
+        aturanTerverifikasi: { versi: versiLama, pada: 1_600_000_000_000 },
+        aturanUsang: true,
+        keteranganAturanUsang: keteranganAturanUsang(versiLama),
+        berkas: detail().berkas.map((b) => ({ ...b, versiAturan: versiLama, aturanUsang: true })),
+      })}
+    />,
+  );
+  ada(html, versiLama, "versi aturan putusan tampil");
+  ada(html, VERSI_ATURAN_KYC, "versi aturan berlaku ikut disebut sebagai pembanding");
+  ada(html, "verifikasi ulang", "petugas diusulkan memverifikasi ulang");
+  ada(html, "Diperiksa dengan aturan lama", "berkas ber-aturan lama ditandai");
+  bersih(html, "rincian aturan lama");
+}
+
+// ===== 4c. Dokumen identitas yang sama dipakai akun lain =====
+{
+  const html = renderToStaticMarkup(
+    <KycDetailRingkas
+      detail={detail({
+        berkas: detail().berkas.map((b) =>
+          b.slot === "ktp" ? { ...b, dipakaiAkunLain: 2 } : b,
+        ),
+      })}
+    />,
+  );
+  ada(html, "dipakai di 2 akun lain", "indikasi penggunaan ulang identitas tampil dengan jumlahnya");
+  // Yang dilaporkan HANYA jumlahnya: data pemilik lain tidak ikut ditarik ke sini.
+  ok(!html.includes("users_"), "tidak ada id pemilik lain di markup");
+  bersih(html, "rincian dengan penggunaan ulang");
 }
 
 // ===== 5. Riwayat petugas =====
@@ -166,6 +286,7 @@ for (const status of KYC_STATUS) {
           aktorLabel: "petugas@pindai.test",
           alasan: "perbaikan_diminta",
           catatan: "Foto KTP buram.",
+          versiAturan: VERSI_ATURAN_KYC,
           waktu: 1_700_000_000_000,
         },
       ]}

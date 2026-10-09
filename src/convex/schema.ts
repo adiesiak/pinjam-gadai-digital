@@ -1298,6 +1298,15 @@ const schema = defineSchema(
      * bisa disimpan SETENGAH JALAN. Satu baris per pengguna, dan hanya satu
      * tempat yang menyimpan status KYC — supaya tidak ada dua layar yang berbeda
      * pendapat soal "sudah diverifikasi atau belum".
+     *
+     * PENYIMPANAN DOKUMEN: KTP/selfie/bukti penghasilan hidup di Convex
+     * `_storage` sebagai id, BUKAN di kolom ini dan BUKAN di bucket publik.
+     * Convex tidak menyediakan URL publik permanen: `ctx.storage.getUrl()`
+     * menghasilkan URL bertanda tangan yang hanya diberikan lewat query yang
+     * sudah melewati gerbang otorisasi — pemiliknya sendiri (`kycSaya`) atau
+     * petugas ber-TOTP (`detailKycAdmin`). Berkas tidak pernah ditulis ke tabel
+     * yang bisa dibaca publik, dan tidak ada URL dokumen yang masuk laporan,
+     * log, atau pengumuman.
      */
     kycProfil: defineTable({
       userId: v.id("users"),
@@ -1360,6 +1369,28 @@ const schema = defineSchema(
           pada: v.number(),
         }),
       ),
+      /**
+       * VERSI ATURAN VERIFIKASI yang berlaku saat putusan VERIFIED terakhir
+       * diambil (lihat `lib/kycAturan.ts`).
+       *
+       * Kenapa terpisah dari `stempelTerverifikasi`: aturan bisa berubah TANPA
+       * satu pun isian nasabah berubah (batas ukuran, jenis gambar yang
+       * diterima, syarat persetujuan). Stempel data menjawab "apakah datanya
+       * masih sama"; kolom ini menjawab "atas dasar aturan apa putusan itu
+       * diambil" — dan membuat aturan yang sudah kedaluwarsa bisa ditandai di
+       * panel petugas. Diisi hanya saat status menjadi VERIFIED; dibuang saat
+       * keluar dari VERIFIED, karena putusan itu tidak berlaku lagi.
+       *
+       * Kosong pada baris lama (sebelum kolom ini ada) — dan sengaja TIDAK
+       * ditandai "usang" (lihat `aturanUsang()`), supaya migrasi tidak memaksa
+       * semua nasabah lama mengulang KYC.
+       */
+      aturanTerverifikasi: v.optional(
+        v.object({
+          versi: v.string(),
+          pada: v.number(),
+        }),
+      ),
     }).index("by_user", ["userId"]),
 
     /**
@@ -1383,6 +1414,12 @@ const schema = defineSchema(
       alasan: v.string(),
       /** Kalimat untuk dibaca manusia. */
       catatan: v.optional(v.string()),
+      /**
+       * Versi aturan verifikasi yang berlaku saat baris ini dicatat. Riwayat
+       * jadi bisa menceritakan dasar aturannya, bukan hanya pelakunya. Kosong
+       * pada baris lama (sebelum kolom ini ada).
+       */
+      versiAturan: v.optional(v.string()),
       waktu: v.number(),
     })
       .index("by_user", ["userId", "waktu"])
@@ -1403,12 +1440,30 @@ const schema = defineSchema(
       storageId: v.id("_storage"),
       /** Label saat diperiksa (mis. "Foto KTP") — ikut bukti audit. */
       label: v.string(),
-      /** Jenis gambar yang terdeteksi dari isi berkas (png/jpeg/…). */
+      /** Jenis gambar yang terdeteksi dari ISI berkas (png/jpeg/…). */
       jenis: v.string(),
+      /**
+       * Metadata berkas menurut tabel sistem `_storage` — fakta yang dicatat
+       * Convex saat berkas benar-benar tersimpan, BUKAN yang dikirim klien.
+       * `sidikJari` adalah SHA-256 isi berkas: berguna membuktikan berkas yang
+       * sama dipakai ulang, dan tidak bisa dipalsukan tanpa mengubah isinya.
+       */
+      ukuranByte: v.optional(v.number()),
+      contentType: v.optional(v.string()),
+      sidikJari: v.optional(v.string()),
+      /**
+       * Versi aturan verifikasi yang memeriksa berkas ini (`lib/kycAturan.ts`).
+       * Berkas yang diperiksa dengan aturan lama bisa ditandai di panel petugas.
+       */
+      versiAturan: v.optional(v.string()),
       /** Pengguna yang memicu pemeriksaan. */
       olehUserId: v.optional(v.id("users")),
       waktu: v.number(),
-    }).index("by_storageId", ["storageId"]),
+    })
+      .index("by_storageId", ["storageId"])
+      // Mencari berkas yang sama dipakai di slot/akun lain (berkas yang sudah
+      // dihapus tidak perlu dihitung) — satu berkas identitas, satu pemilik.
+      .index("by_sidikJari", ["sidikJari"]),
 
     /**
      * Tanda "sudah dibaca" untuk pusat notifikasi in-app.
