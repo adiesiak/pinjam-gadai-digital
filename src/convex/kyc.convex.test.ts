@@ -26,6 +26,7 @@ import { describe, expect, it } from "vitest";
 import { api } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import schema from "./schema";
+import { VERSI_PERSETUJUAN_KYC } from "../lib/persetujuanKyc";
 import { buatPengguna, siapkanPengguna, type KonteksUji, type SesiUji } from "./test.helpers";
 import { modules } from "./test.setup";
 
@@ -87,8 +88,18 @@ async function unggah(
   return id;
 }
 
+/**
+ * Catat persetujuan pemrosesan data — syarat mutlak sebelum isian/berkas apa pun
+ * boleh disimpan. Dipakai semua alur di bawah supaya tidak ada uji yang lolos
+ * "berkat" melewati gerbang persetujuan.
+ */
+async function setujui(sesi: SesiUji): Promise<void> {
+  await sesi.mutation(api.kyc.catatPersetujuanKyc, { versi: VERSI_PERSETUJUAN_KYC });
+}
+
 /** Isi semuanya + unggah tiga berkas, lalu kirim pengajuan (PENDING_REVIEW). */
 async function kirimLengkap(t: KonteksUji, sesi: SesiUji): Promise<BerkasKyc> {
+  await setujui(sesi);
   const ktpId = await unggah(t, sesi, "Foto KTP");
   const selfieKtpId = await unggah(t, sesi, "Selfie dengan KTP");
   const buktiPenghasilanId = await unggah(t, sesi, "Bukti penghasilan");
@@ -127,6 +138,24 @@ describe("alur KYC mandiri", () => {
     const mulai = await nasabah.sesi.mutation(api.kyc.mulaiKyc, {});
     expect(mulai.status).toBe("IN_PROGRESS");
 
+    // Gerbang persetujuan: tanpa persetujuan tercatat di server, isian apa pun
+    // yang menyentuh data pribadi DITOLAK — bukan hanya dikunci di layar.
+    await expect(
+      nasabah.sesi.mutation(api.kyc.simpanProgresKyc, { namaLengkap: "Rani Puspita" }),
+    ).rejects.toThrow(/Persetujuan pemrosesan data belum tercatat/);
+    expect((await nasabah.sesi.query(api.kyc.kycSaya, {})).persetujuanAktif).toBe(false);
+
+    // Versi penjelasan yang basi juga ditolak (pengguna harus membaca ulang).
+    await expect(
+      nasabah.sesi.mutation(api.kyc.catatPersetujuanKyc, { versi: "versi-lama" }),
+    ).rejects.toThrow(/Versi penjelasan pemrosesan data sudah berubah/);
+
+    // Persetujuan berlaku → tercatat di server beserta auditnya.
+    await setujui(nasabah.sesi);
+    const sesudahSetuju = await nasabah.sesi.query(api.kyc.kycSaya, {});
+    expect(sesudahSetuju.persetujuanAktif).toBe(true);
+    expect(sesudahSetuju.persetujuan?.versi).toBe(VERSI_PERSETUJUAN_KYC);
+
     // Progres setengah jalan: isian kosong boleh, isian yang DIISI harus sah.
     await expect(
       nasabah.sesi.mutation(api.kyc.simpanProgresKyc, { namaLengkap: "Rani", nik: "123" }),
@@ -151,6 +180,7 @@ describe("alur KYC mandiri", () => {
   it("Mengajukan peninjauan menuntut isian lengkap DAN berkas yang diperiksa server", async () => {
     const { t, nasabah } = await siapkanDua();
     await nasabah.sesi.mutation(api.kyc.mulaiKyc, {});
+    await setujui(nasabah.sesi);
 
     // Berkas yang belum lewat action pemeriksa isi: ditolak walau metadatanya gambar.
     const tanpaPenanda = await simpanGambarUji(t);
@@ -424,6 +454,7 @@ describe("alur KYC mandiri", () => {
     );
 
     await kirimLengkap(t, nasabahA.sesi);
+    await setujui(nasabahB.sesi);
     await nasabahB.sesi.mutation(api.kyc.simpanProgresKyc, { namaLengkap: "Budi Santoso" });
 
     const antrean = await admin.sesi.query(api.kyc.daftarKycAdmin, {});

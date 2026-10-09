@@ -52,6 +52,9 @@ for (const status of KYC_STATUS) {
       kekurangan={["Foto KTP", "Bukti penghasilan"]}
       lengkap={false}
       diperbaruiPada={1_700_000_000_000}
+      persen={0}
+      selesai={0}
+      total={7}
     />,
   );
   ada(html, LABEL_STATUS_KYC[status], `label status ${status} mengikuti lib/kycStatus`);
@@ -67,11 +70,15 @@ for (const status of KYC_STATUS) {
       kekurangan={["NIK 16 angka", "Selfie dengan KTP"]}
       lengkap={false}
       diperbaruiPada={null}
+      persen={29}
+      selesai={2}
+      total={7}
     />,
   );
   ada(kurang, "NIK 16 angka", "kekurangan NIK tampil");
   ada(kurang, "Selfie dengan KTP", "kekurangan selfie tampil");
-  ada(kurang, "Masih kurang 2 hal", "jumlah kekurangan dilaporkan");
+  ada(kurang, "2 hal sebelum bisa diajukan", "jumlah kekurangan dilaporkan");
+  ada(kurang, "2 dari 7 tahap siap", "progres tahap dilaporkan dengan angka nyata");
   ada(kurang, "Belum ada isian", "tanpa isian menjelaskan keadaannya");
 
   const lengkap = renderToStaticMarkup(
@@ -80,10 +87,13 @@ for (const status of KYC_STATUS) {
       kekurangan={[]}
       lengkap
       diperbaruiPada={1_700_000_000_000}
+      persen={100}
+      selesai={7}
+      total={7}
     />,
   );
   ada(lengkap, "Lengkap — siap diajukan.", "keadaan lengkap tampil");
-  ok(!lengkap.includes("masih kurang"), "tidak mengeluh kekurangan saat lengkap");
+  ok(!lengkap.includes("sebelum bisa diajukan"), "tidak mengeluh kekurangan saat lengkap");
   bersih(lengkap, "judul status lengkap");
 }
 
@@ -96,6 +106,9 @@ for (const status of KYC_STATUS) {
       kekurangan={[]}
       lengkap
       diperbaruiPada={1_700_000_000_000}
+      persen={100}
+      selesai={7}
+      total={7}
     />,
   );
   const penjelasan = KETERANGAN_STATUS_KYC.VERIFIED;

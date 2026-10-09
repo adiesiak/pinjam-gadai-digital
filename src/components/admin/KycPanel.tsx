@@ -136,6 +136,23 @@ export function KycDetailRingkas({ detail }: { detail: DetailKycTampil }) {
         {KETERANGAN_STATUS_KYC[detail.status]}
       </p>
 
+      {/* Dasar pemrosesan: petugas tidak memverifikasi identitas tanpa persetujuan
+          pemrosesan data yang tercatat dan masih berlaku. */}
+      {detail.persetujuanAktif ? (
+        <p className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-[11px] leading-5 text-emerald-900 dark:border-emerald-900/40 dark:bg-emerald-950/40 dark:text-emerald-200">
+          Persetujuan pemrosesan data tercatat {waktu(detail.persetujuan?.pada ?? null)} (versi{" "}
+          {detail.persetujuan?.versi ?? "—"}) oleh {detail.persetujuan?.olehLabel ?? "—"}.
+        </p>
+      ) : (
+        <p
+          role="alert"
+          className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-[11px] leading-5 text-red-900 dark:border-red-900/40 dark:bg-red-950/40 dark:text-red-200"
+        >
+          Nasabah <strong>belum memiliki persetujuan pemrosesan data yang berlaku</strong>. Jangan
+          verifikasi identitas sebelum dasar pemrosesan tercatat.
+        </p>
+      )}
+
       {detail.kekurangan.length > 0 && (
         <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] leading-5 text-amber-900">
           <p className="font-semibold">Isian belum lengkap — tidak bisa diverifikasi:</p>

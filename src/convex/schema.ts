@@ -1318,6 +1318,20 @@ const schema = defineSchema(
       ktpId: v.optional(v.id("_storage")),
       selfieKtpId: v.optional(v.id("_storage")),
       buktiPenghasilanId: v.optional(v.id("_storage")),
+      /**
+       * Persetujuan pemrosesan data pribadi (UU PDP) — WAJIB ada sebelum isian
+       * pribadi atau berkas apa pun boleh disimpan. Menyimpan VERSI teks yang
+       * disetujui: bila penjelasannya berubah, versinya naik dan pengguna diminta
+       * menyetujui ulang (lihat `lib/persetujuanKyc.ts`).
+       */
+      persetujuan: v.optional(
+        v.object({
+          versi: v.string(),
+          /** Waktu server saat persetujuan dicatat. */
+          pada: v.number(),
+          olehLabel: v.string(),
+        }),
+      ),
       // ===== Waktu & keputusan =====
       /** Waktu baris KYC pertama kali dibuat (server). */
       dibuatPada: v.number(),

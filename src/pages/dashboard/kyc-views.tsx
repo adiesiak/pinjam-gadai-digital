@@ -2,50 +2,119 @@ import { useAction, useMutation, useQuery } from "convex/react";
 import { FunctionReturnType } from "convex/server";
 import {
   AlertTriangle,
+  ArrowLeft,
   ArrowRight,
   BadgeCheck,
-  ClipboardCheck,
+  Camera,
+  CheckCircle2,
+  CircleDashed,
   Clock3,
+  CreditCard,
+  IdCard,
   Loader2,
+  Lock,
+  MapPin,
+  PencilLine,
+  Phone,
   Play,
   Save,
   ShieldAlert,
   ShieldCheck,
+  Upload,
+  Wallet,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { StatusKycBadge } from "@/components/StatusKycBadge";
+import { WatermarkedDoc } from "@/components/WatermarkedDoc";
 import { UnggahDokumen, type DokumenTerunggah } from "@/components/admin/pengajuan-manual/UnggahDokumen";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
+import {
+  Field,
+  FieldDescription,
+  FieldError,
+  FieldGroup,
+  FieldLabel,
+  FieldLegend,
+  FieldSet,
+} from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Progress } from "@/components/ui/progress";
 import { Textarea } from "@/components/ui/textarea";
 import { api } from "@/convex/_generated/api";
-import type { Id } from "@/convex/_generated/dataModel";
 import { penghasilanDariTeks } from "@/lib/dataDiri";
-import { cn } from "@/lib/utils";
 import {
+  galatTahapKyc,
+  ID_TAHAP_KYC,
+  kekuranganLokalTahap,
+  LABEL_SLOT_BERKAS,
+  LABEL_STATUS_TAHAP,
+  maskNik,
+  maskRekening,
+  maskWhatsApp,
+  petunjukTahap,
+  progresKyc,
+  statusTahapKyc,
+  tahapDisarankan,
+  tahapKyc,
+  TAHAPAN_KYC,
+  type BerkasKyc,
+  type IdTahapKyc,
+  type IsianKycLengkap,
+  type OpsiStatusTahap,
+  type StatusTahapKyc,
+} from "@/lib/kycTahapan";
+import {
+  bolehTransisi,
   KETERANGAN_STATUS_KYC,
   LABEL_STATUS_KYC,
   keputusanWajibAlasan,
   ringkasStatusKyc,
   type StatusKyc,
 } from "@/lib/kycStatus";
+import {
+  pesanButuhPersetujuan,
+  pesanVersiPersetujuanBerubah,
+  POIN_PERSETUJUAN_KYC,
+  RINGKASAN_PERSETUJUAN_KYC,
+  VERSI_PERSETUJUAN_KYC,
+} from "@/lib/persetujuanKyc";
+import { cn } from "@/lib/utils";
 
 /**
- * MODUL KYC — bagian dashboard nasabah.
+ * MODUL KYC — antarmuka nasabah.
  *
- * Mandiri: tidak ada satu pun field pengajuan pinjaman di sini, dan menyimpan
- * KYC tidak membuat catatan pinjaman (lihat `convex/kyc.ts`). Alurnya:
- * mulai → isi & simpan progres (boleh setengah jalan) → ajukan peninjauan →
- * baca keputusan petugas.
+ * Alurnya berjenjang supaya data sensitif tidak diminta sekaligus:
+ * 1) persetujuan pemrosesan data → 2) data identitas → 3) foto KTP →
+ * 4) selfie dengan KTP → 5) nomor WhatsApp → 6) alamat → 7) informasi pendukung.
  *
- * Server yang memutuskan segalanya: transisi status, kelengkapan, dan apakah
- * berkas boleh ditautkan. Bagian ini hanya menampilkan keadaan itu dan
- * menyembunyikan tindakan yang memang tidak sah, serta selalu menampilkan
- * pesan galat dari server apa adanya.
+ * Aturan yang dipegang di sini (semuanya juga dijaga server, lihat
+ * `convex/kyc.ts`):
+ * - **Persetujuan lebih dulu.** Tahap 2–7 terkunci selama server belum mencatat
+ *   persetujuan; server juga menolak menyimpan isian/berkas apa pun tanpa itu.
+ * - **Progres dari server.** Status, kelengkapan, dan keputusan petugas selalu
+ *   dibaca dari `kycSaya` — antarmuka tidak pernah menyimpulkan sendiri, dan
+ *   status "Terverifikasi" hanya muncul bila backend mengirimkannya.
+ * - **Privasi di tampilan.** NIK, nomor WhatsApp, dan nomor rekening hanya
+ *   ditampilkan bertopeng (`maskNik` dan kawan-kawan) di ringkasan; nilai utuh
+ *   hanya ada di isian yang sedang diketik pemiliknya. Tidak ada data pribadi
+ *   yang masuk URL, `console`, atau pesan notifikasi — halaman ini tidak pernah
+ *   menulis ke `location`/`console`, dan pesan yang ditampilkan hanya kalimat
+ *   dari server.
+ * - **Gagal dengan jelas.** Setiap kegagalan (simpan, unggah, ajukan) tampil
+ *   sebagai alert berisi pesan apa adanya dari server, dengan tombol ulang; bila
+ *   penyebabnya persetujuan, pengguna diantar kembali ke tahap 1.
  */
 
 type DataKyc = FunctionReturnType<typeof api.kyc.kycSaya>;
@@ -73,49 +142,162 @@ function kalimatAlasan(alasan: string): string {
   return ALASAN[alasan] ?? alasan.replace(/_/g, " ");
 }
 
-function waktu(ms: number): string {
+function waktu(ms: number | null): string {
+  if (ms === null) return "—";
   return new Date(ms).toLocaleString("id-ID", { dateStyle: "medium", timeStyle: "short" });
 }
 
 /* ==========================================================================
- * Bagian tampilan MURNI (bisa diuji tanpa Convex)
+ * Bagian tampilan MURNI (bisa dirender & diuji tanpa Convex)
  * ========================================================================== */
 
-/** Judul modul: status sekarang, artinya, dan apa yang masih kurang. */
+/** Ikon tiap tahap — dipisah karena `lib/kycTahapan.ts` sengaja tanpa React. */
+const IKON_TAHAP: Record<IdTahapKyc, typeof IdCard> = {
+  persetujuan: Lock,
+  identitas: IdCard,
+  ktp: CreditCard,
+  selfie: Camera,
+  whatsapp: Phone,
+  alamat: MapPin,
+  pendukung: Wallet,
+};
+
+/**
+ * Daftar tahap: rel vertikal di layar lebar, chip bergulir di layar sempit.
+ *
+ * Status tiap tahap ditampilkan sebagai teks (bukan hanya warna), dan tahap aktif
+ * memakai `aria-current="step"` supaya pembaca layar tahu posisinya.
+ */
+export function KycDaftarTahap({
+  aktif,
+  statusPerTahap,
+  onPilih,
+  terkunci,
+}: {
+  aktif: IdTahapKyc;
+  statusPerTahap: Record<IdTahapKyc, StatusTahapKyc>;
+  onPilih: (id: IdTahapKyc) => void;
+  /** true bila tahap ini belum boleh dibuka (persetujuan belum tercatat). */
+  terkunci: boolean;
+}) {
+  return (
+    <nav aria-label="Tahapan pengisian KYC" className="lg:sticky lg:top-6">
+      <ol className="flex gap-2 overflow-x-auto pb-1 lg:flex-col lg:gap-1.5 lg:overflow-visible lg:pb-0">
+        {TAHAPAN_KYC.map((tahap, urutan) => {
+          const status = statusPerTahap[tahap.id];
+          const iniAktif = tahap.id === aktif;
+          const Ikon = IKON_TAHAP[tahap.id];
+          const bolehDibuka = !terkunci || tahap.id === "persetujuan";
+          return (
+            <li key={tahap.id} className="shrink-0 lg:shrink">
+              <button
+                type="button"
+                onClick={() => onPilih(tahap.id)}
+                disabled={!bolehDibuka}
+                aria-current={iniAktif ? "step" : undefined}
+                className={cn(
+                  "flex w-full min-w-[13rem] items-center gap-2.5 rounded-xl border px-3 py-2.5 text-left transition-colors lg:min-w-0",
+                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2",
+                  iniAktif
+                    ? "border-primary/40 bg-primary/[0.07]"
+                    : "border-border bg-card hover:bg-muted",
+                  !bolehDibuka && "cursor-not-allowed opacity-60",
+                )}
+              >
+                <span
+                  className={cn(
+                    "flex size-7 shrink-0 items-center justify-center rounded-lg text-[11px] font-semibold",
+                    status === "lengkap"
+                      ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300"
+                      : iniAktif
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-muted text-muted-foreground",
+                  )}
+                  aria-hidden
+                >
+                  {status === "lengkap" ? <CheckCircle2 className="size-4" /> : urutan + 1}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
+                    <Ikon className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
+                    <span className="truncate">{tahap.judul}</span>
+                    {!tahap.wajib && (
+                      <span className="rounded-full bg-muted px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wide text-muted-foreground">
+                        Opsional
+                      </span>
+                    )}
+                  </span>
+                  <span className="mt-0.5 block truncate text-[10px] text-muted-foreground">
+                    {LABEL_STATUS_TAHAP[status]}
+                  </span>
+                </span>
+                {!bolehDibuka && <Lock className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />}
+              </button>
+            </li>
+          );
+        })}
+      </ol>
+    </nav>
+  );
+}
+
+/** Judul modul + progres kesiapan pengajuan. */
 export function KycStatusHeader({
   status,
   kekurangan,
   lengkap,
   diperbaruiPada,
+  persen,
+  selesai,
+  total,
 }: {
   status: StatusKyc;
   kekurangan: string[];
   lengkap: boolean;
   diperbaruiPada: number | null;
+  persen: number;
+  selesai: number;
+  total: number;
 }) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+    <div className="rounded-2xl border border-border bg-card p-4 shadow-sm sm:p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <h2 className="flex items-center gap-2 text-sm font-semibold text-navy">
-            <ClipboardCheck className="size-4" aria-hidden /> Verifikasi identitas (KYC)
+            <ShieldCheck className="size-4" aria-hidden /> Verifikasi identitas (KYC)
           </h2>
-          <p className="mt-1 text-xs leading-5 text-muted-foreground">
+          <p className="mt-1 max-w-2xl text-xs leading-5 text-muted-foreground">
             {KETERANGAN_STATUS_KYC[status]}
           </p>
         </div>
         <StatusKycBadge status={status} />
       </div>
 
-      <div className="mt-3 grid gap-2 sm:grid-cols-2">
-        <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">
-            Kelengkapan berkas
+      <div className="mt-4">
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+            Kesiapan pengajuan
           </p>
-          <p className="mt-1 text-xs font-medium">
+          <p className="text-xs tabular-nums text-muted-foreground">
+            {selesai} dari {total} tahap siap
+          </p>
+        </div>
+        <Progress
+          value={persen}
+          aria-label={`Kesiapan pengajuan KYC: ${persen} persen`}
+          className="mt-2"
+        />
+      </div>
+
+      <div className="mt-3 grid gap-2 sm:grid-cols-2">
+        <div className="rounded-xl border border-border bg-muted/50 px-3 py-2">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+            Yang masih kurang
+          </p>
+          <p className="mt-1 text-xs font-medium text-foreground">
             {lengkap
               ? "Lengkap — siap diajukan."
-              : `Masih kurang ${kekurangan.length} hal sebelum bisa diajukan.`}
+              : `${kekurangan.length} hal sebelum bisa diajukan.`}
           </p>
           {!lengkap && (
             <ul className="mt-1.5 list-disc space-y-0.5 pl-4 text-[11px] leading-4 text-muted-foreground">
@@ -125,16 +307,16 @@ export function KycStatusHeader({
             </ul>
           )}
         </div>
-        <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">
+        <div className="rounded-xl border border-border bg-muted/50 px-3 py-2">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
             Perubahan terakhir
           </p>
-          <p className="mt-1 flex items-center gap-1.5 text-xs font-medium">
-            <Clock3 className="size-3.5 shrink-0 text-slate-400" aria-hidden />
-            {diperbaruiPada === null ? "Belum ada isian" : waktu(diperbaruiPada)}
+          <p className="mt-1 flex items-center gap-1.5 text-xs font-medium text-foreground">
+            <Clock3 className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
+            {diperbaruiPada === null ? "Belum ada isian tersimpan" : waktu(diperbaruiPada)}
           </p>
           <p className="mt-1 text-[11px] leading-4 text-muted-foreground">
-            Tersimpan otomatis di server saat Anda menekan simpan.
+            Progres tersimpan di server setiap kali Anda menekan simpan.
           </p>
         </div>
       </div>
@@ -142,14 +324,7 @@ export function KycStatusHeader({
   );
 }
 
-/**
- * Pil status KYC yang tampil di SEMUA tab dashboard (di luar bagian KYC).
- *
- * Alasannya: status KYC perlu terlihat tanpa harus membuka tabnya — mis. saat
- * nasabah sedang menyiapkan pengajuan pinjaman. Kalimatnya diambil dari
- * `ringkasStatusKyc()` supaya satu status tidak pernah dijelaskan dengan dua
- * cara berbeda di halaman yang berbeda.
- */
+/** Pil status KYC yang tampil di semua tab dashboard (di luar bagian KYC). */
 export function KycStatusStrip({ status, onBuka }: { status: StatusKyc; onBuka: () => void }) {
   const perluTindakan =
     status === "NOT_STARTED" ||
@@ -163,58 +338,18 @@ export function KycStatusStrip({ status, onBuka }: { status: StatusKyc; onBuka: 
       className={cn(
         "mt-4 flex w-full flex-wrap items-center gap-2 rounded-2xl border px-4 py-3 text-left transition-colors",
         perluTindakan
-          ? "border-amber-200 bg-amber-50/70 hover:bg-amber-50"
-          : "border-slate-200 bg-white hover:bg-slate-50",
+          ? "border-amber-200 bg-amber-50/70 hover:bg-amber-50 dark:border-amber-900/50 dark:bg-amber-950/40 dark:hover:bg-amber-950/60"
+          : "border-border bg-card hover:bg-muted",
       )}
     >
       <StatusKycBadge status={status} />
-      <span className="min-w-0 flex-1 text-xs leading-5 text-slate-700">
+      <span className="min-w-0 flex-1 text-xs leading-5 text-foreground">
         {ringkasStatusKyc(status)}
       </span>
       <span className="text-[11px] font-medium text-primary">
         {perluTindakan ? "Lanjutkan verifikasi →" : "Lihat Verifikasi KYC →"}
       </span>
     </button>
-  );
-}
-
-/** Daftar riwayat perubahan status — waktu, aktor, alasan, catatan. */
-export function KycRiwayatList({ riwayat }: { riwayat: RiwayatKycTampil[] }) {
-  if (riwayat.length === 0) {
-    return (
-      <div className="rounded-2xl border border-slate-200 bg-white p-4 text-xs text-muted-foreground sm:p-5">
-        Belum ada riwayat. Perubahan status akan tercatat di sini lengkap dengan waktu, pelaku, dan
-        alasannya.
-      </div>
-    );
-  }
-  return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
-      <h3 className="text-sm font-semibold text-navy">Riwayat KYC</h3>
-      <ol className="mt-3 space-y-3">
-        {riwayat.map((item, index) => (
-          <li key={`${item.waktu}-${index}`} className="flex gap-3">
-            <span className="mt-1 flex size-2 shrink-0 rounded-full bg-primary/60" aria-hidden />
-            <div className="min-w-0">
-              <p className="text-xs font-medium">
-                {item.dari === "-" ? "Baru" : LABEL_STATUS_KYC[item.dari as StatusKyc]}{" "}
-                <ArrowRight className="inline size-3" aria-hidden />{" "}
-                {LABEL_STATUS_KYC[item.ke as StatusKyc]}
-              </p>
-              <p className="mt-0.5 text-[11px] leading-4 text-muted-foreground">
-                {kalimatAlasan(item.alasan)} · oleh {item.aktorLabel} ({item.aktor}) ·{" "}
-                {waktu(item.waktu)}
-              </p>
-              {item.catatan !== null && (
-                <p className="mt-1 rounded-lg bg-slate-50 px-2 py-1 text-[11px] leading-4 text-slate-700">
-                  “{item.catatan}”
-                </p>
-              )}
-            </div>
-          </li>
-        ))}
-      </ol>
-    </div>
   );
 }
 
@@ -233,8 +368,8 @@ export function KycKeputusanAlert({
   if (!keputusanWajibAlasan(status) && status !== "REVERIFICATION_REQUIRED") return null;
   const nada =
     status === "REJECTED"
-      ? "border-red-200 bg-red-50 text-red-900"
-      : "border-amber-200 bg-amber-50 text-amber-900";
+      ? "border-red-200 bg-red-50 text-red-900 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-200"
+      : "border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-100";
   const judul =
     status === "REJECTED"
       ? "Pengajuan KYC ditolak"
@@ -253,283 +388,99 @@ export function KycKeputusanAlert({
           {pada === null ? "" : ` pada ${waktu(pada)}`}
         </p>
       )}
+      <p className="mt-1 opacity-80">Perbaiki pada tahap yang ditandai “Perlu diperbaiki”, lalu kirim ulang.</p>
     </div>
   );
 }
 
-/* ==========================================================================
- * Isian
- * ========================================================================== */
+/** Riwayat perubahan status — waktu, aktor, alasan, catatan. */
+export function KycRiwayatList({ riwayat }: { riwayat: RiwayatKycTampil[] }) {
+  if (riwayat.length === 0) {
+    return (
+      <div className="rounded-2xl border border-border bg-card p-4 text-xs text-muted-foreground sm:p-5">
+        Belum ada riwayat. Setiap perubahan status tercatat di sini lengkap dengan waktu, pelaku, dan
+        alasannya.
+      </div>
+    );
+  }
+  return (
+    <div className="rounded-2xl border border-border bg-card p-4 shadow-sm sm:p-5">
+      <h3 className="text-sm font-semibold text-navy">Riwayat pemeriksaan</h3>
+      <ol className="mt-3 space-y-3">
+        {riwayat.map((item, index) => (
+          <li key={`${item.waktu}-${index}`} className="flex gap-3">
+            <span className="mt-1 flex size-2 shrink-0 rounded-full bg-primary/60" aria-hidden />
+            <div className="min-w-0">
+              <p className="text-xs font-medium text-foreground">
+                {item.dari === "-" ? "Baru" : LABEL_STATUS_KYC[item.dari as StatusKyc]}{" "}
+                <ArrowRight className="inline size-3" aria-hidden />{" "}
+                {LABEL_STATUS_KYC[item.ke as StatusKyc]}
+              </p>
+              <p className="mt-0.5 text-[11px] leading-4 text-muted-foreground">
+                {kalimatAlasan(item.alasan)} · oleh {item.aktorLabel} ({item.aktor}) ·{" "}
+                {waktu(item.waktu)}
+              </p>
+              {item.catatan !== null && (
+                <p className="mt-1 rounded-lg bg-muted px-2 py-1 text-[11px] leading-4 text-foreground">
+                  “{item.catatan}”
+                </p>
+              )}
+            </div>
+          </li>
+        ))}
+      </ol>
+    </div>
+  );
+}
 
-type Isian = DataKyc["isian"];
-
-const KELAS_LABEL = "text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-400";
+/** Petunjuk foto yang harus dibaca sebelum mengunggah dokumen. */
+export function KycPetunjukFoto({ tahapId }: { tahapId: IdTahapKyc }) {
+  const petunjuk = petunjukTahap(tahapId);
+  if (petunjuk.length === 0) return null;
+  return (
+    <div className="rounded-xl border border-border bg-muted/40 p-3">
+      <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+        <Camera className="size-3.5" aria-hidden /> Petunjuk foto
+      </p>
+      <ul className="mt-2 space-y-2">
+        {petunjuk.map((poin, urutan) => (
+          <li key={poin.judul} className="flex gap-2">
+            <span className="mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[9px] font-semibold text-primary">
+              {urutan + 1}
+            </span>
+            <span className="min-w-0">
+              <span className="block text-[11px] font-semibold text-foreground">{poin.judul}</span>
+              <span className="mt-0.5 block text-[11px] leading-4 text-muted-foreground">{poin.isi}</span>
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
 
 /**
- * Formulir KYC. Dipisah dari `KycSection` dan diberi `key` dari stempel server
- * supaya setelah simpan berhasil form memuat nilai yang BENAR-BENAR tersimpan
- * (sudah dinormalkan server), bukan teks mentah yang baru diketik.
+ * Judul tahap yang menerima fokus setiap kali tahap berganti, supaya pengguna
+ * keyboard/pembaca layar tidak tertinggal di kontrol tahap sebelumnya.
+ *
+ * Sengaja komponen terpisah: di `KycSection` ada cabang "sedang memuat" sebelum
+ * JSX, dan hook yang ditulis setelah cabang seperti itu membuat jumlah hook
+ * berbeda antara render termuat dan belum termuat — pelanggaran aturan hook.
  */
-function KycForm({
-  data,
-  terkunci,
-  busy,
-  onSimpan,
-  onAjukan,
-  mintaUrl,
-  periksa,
-}: {
-  data: DataKyc;
-  /** PENDING_REVIEW: isian dikunci sampai petugas memutuskan. */
-  terkunci: boolean;
-  busy: boolean;
-  onSimpan: (
-    nilai: Isian,
-    berkas: { ktpId?: Id<"_storage"> | null; selfieKtpId?: Id<"_storage"> | null; buktiPenghasilanId?: Id<"_storage"> | null },
-  ) => Promise<boolean>;
-  onAjukan: () => Promise<void>;
-  mintaUrl: () => Promise<string>;
-  periksa: (id: Id<"_storage">, label: string) => Promise<void>;
-}) {
-  const [nilai, setNilai] = useState<Isian>(data.isian);
-  const [berkas, setBerkas] = useState<{
-    ktp: DokumenTerunggah | null;
-    selfie: DokumenTerunggah | null;
-    bukti: DokumenTerunggah | null;
-  }>({
-    ktp: data.dokumen.ktpId === null ? null : { id: data.dokumen.ktpId, nama: "Berkas tersimpan" },
-    selfie:
-      data.dokumen.selfieKtpId === null
-        ? null
-        : { id: data.dokumen.selfieKtpId, nama: "Berkas tersimpan" },
-    bukti:
-      data.dokumen.buktiPenghasilanId === null
-        ? null
-        : { id: data.dokumen.buktiPenghasilanId, nama: "Berkas tersimpan" },
-  });
-
-  const ubah = (kunci: keyof Isian, teks: string) =>
-    setNilai((sebelumnya) => ({ ...sebelumnya, [kunci]: teks }));
-
-  /** Kirim isian + perubahan berkas; `true` bila server menerimanya. */
-  const simpan = async (): Promise<boolean> => {
-    return onSimpan(nilai, {
-      ktpId: berkas.ktp?.id ?? null,
-      selfieKtpId: berkas.selfie?.id ?? null,
-      buktiPenghasilanId: berkas.bukti?.id ?? null,
-    });
-  };
-
+function JudulTahap({ nomor, judul }: { nomor: number; judul: string }) {
+  const ref = useRef<HTMLHeadingElement | null>(null);
+  useEffect(() => {
+    ref.current?.focus();
+  }, [nomor, judul]);
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
-      <h3 className="text-sm font-semibold text-navy">Isian identitas</h3>
-      <p className="mt-1 text-xs leading-5 text-muted-foreground">
-        Isi semampunya lalu simpan — progres boleh setengah jalan dan bisa dilanjutkan kapan saja.
-      </p>
-
-      <div className="mt-4 grid gap-3 sm:grid-cols-2">
-        <div className="sm:col-span-2">
-          <Label className={KELAS_LABEL} htmlFor="kyc-nama">
-            Nama lengkap sesuai KTP
-          </Label>
-          <Input
-            id="kyc-nama"
-            className="mt-1"
-            value={nilai.namaLengkap}
-            disabled={terkunci}
-            onChange={(e) => ubah("namaLengkap", e.target.value)}
-          />
-        </div>
-        <div>
-          <Label className={KELAS_LABEL} htmlFor="kyc-nik">
-            NIK (16 angka)
-          </Label>
-          <Input
-            id="kyc-nik"
-            className="mt-1"
-            inputMode="numeric"
-            value={nilai.nik}
-            disabled={terkunci}
-            onChange={(e) => ubah("nik", e.target.value)}
-          />
-        </div>
-        <div>
-          <Label className={KELAS_LABEL} htmlFor="kyc-wa">
-            Nomor WhatsApp (62…)
-          </Label>
-          <Input
-            id="kyc-wa"
-            className="mt-1"
-            inputMode="tel"
-            placeholder="6281234567890"
-            value={nilai.nomorWhatsApp}
-            disabled={terkunci}
-            onChange={(e) => ubah("nomorWhatsApp", e.target.value)}
-          />
-        </div>
-        <div className="sm:col-span-2">
-          <Label className={KELAS_LABEL} htmlFor="kyc-alamat">
-            Alamat
-          </Label>
-          <Input
-            id="kyc-alamat"
-            className="mt-1"
-            value={nilai.alamat}
-            disabled={terkunci}
-            onChange={(e) => ubah("alamat", e.target.value)}
-          />
-        </div>
-        <div>
-          <Label className={KELAS_LABEL} htmlFor="kyc-pekerjaan">
-            Pekerjaan
-          </Label>
-          <Input
-            id="kyc-pekerjaan"
-            className="mt-1"
-            value={nilai.pekerjaan}
-            disabled={terkunci}
-            onChange={(e) => ubah("pekerjaan", e.target.value)}
-          />
-        </div>
-        <div>
-          <Label className={KELAS_LABEL} htmlFor="kyc-penghasilan">
-            Penghasilan per bulan (Rp)
-          </Label>
-          <Input
-            id="kyc-penghasilan"
-            className="mt-1"
-            inputMode="numeric"
-            placeholder="5000000"
-            value={nilai.penghasilan}
-            disabled={terkunci}
-            onChange={(e) => ubah("penghasilan", e.target.value)}
-          />
-        </div>
-        <div className="sm:col-span-2">
-          <Label className={KELAS_LABEL} htmlFor="kyc-sumber">
-            Sumber penghasilan
-          </Label>
-          <Input
-            id="kyc-sumber"
-            className="mt-1"
-            placeholder="Gaji bulanan, usaha warung, dll."
-            value={nilai.sumberPenghasilan}
-            disabled={terkunci}
-            onChange={(e) => ubah("sumberPenghasilan", e.target.value)}
-          />
-        </div>
-        <div>
-          <Label className={KELAS_LABEL} htmlFor="kyc-bank">
-            Bank
-          </Label>
-          <Input
-            id="kyc-bank"
-            className="mt-1"
-            value={nilai.namaBank}
-            disabled={terkunci}
-            onChange={(e) => ubah("namaBank", e.target.value)}
-          />
-        </div>
-        <div>
-          <Label className={KELAS_LABEL} htmlFor="kyc-rekening">
-            Nomor rekening
-          </Label>
-          <Input
-            id="kyc-rekening"
-            className="mt-1"
-            inputMode="numeric"
-            value={nilai.nomorRekening}
-            disabled={terkunci}
-            onChange={(e) => ubah("nomorRekening", e.target.value)}
-          />
-        </div>
-        <div className="sm:col-span-2">
-          <Label className={KELAS_LABEL} htmlFor="kyc-catatan">
-            Catatan untuk petugas (opsional)
-          </Label>
-          <Textarea
-            id="kyc-catatan"
-            className="mt-1"
-            rows={2}
-            value={nilai.catatanPeminjam}
-            disabled={terkunci}
-            onChange={(e) => ubah("catatanPeminjam", e.target.value)}
-          />
-        </div>
-      </div>
-
-      <div className="mt-4 space-y-3">
-        <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">
-          Berkas pendukung
-        </p>
-        <div className="grid gap-3 sm:grid-cols-3">
-          <UnggahDokumen
-            label="Foto KTP"
-            keterangan="Seluruh KTP terlihat, tidak silau, tidak terpotong."
-            accept="image/*"
-            nilai={berkas.ktp}
-            onUbah={(d) => setBerkas((s) => ({ ...s, ktp: d }))}
-            mintaUrl={mintaUrl}
-            periksa={periksa}
-            disabled={terkunci}
-          />
-          <UnggahDokumen
-            label="Selfie dengan KTP"
-            keterangan="Wajah dan KTP terlihat dalam satu foto."
-            accept="image/*"
-            nilai={berkas.selfie}
-            onUbah={(d) => setBerkas((s) => ({ ...s, selfie: d }))}
-            mintaUrl={mintaUrl}
-            periksa={periksa}
-            disabled={terkunci}
-          />
-          <UnggahDokumen
-            label="Bukti penghasilan"
-            keterangan="Slip gaji, buku tabungan, atau surat keterangan usaha."
-            accept="image/*"
-            nilai={berkas.bukti}
-            onUbah={(d) => setBerkas((s) => ({ ...s, bukti: d }))}
-            mintaUrl={mintaUrl}
-            periksa={periksa}
-            disabled={terkunci}
-          />
-        </div>
-        <p className="text-[11px] leading-4 text-muted-foreground">
-          Berkas diperiksa server setelah diunggah: yang bukan gambar ditolak sebelum tersimpan.
-        </p>
-      </div>
-
-      <div className="mt-4 flex flex-wrap gap-2">
-        <Button
-          type="button"
-          variant="outline"
-          className="gap-1.5"
-          disabled={terkunci || busy}
-          onClick={() => void simpan()}
-        >
-          {busy ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
-          Simpan progres
-        </Button>
-        <Button
-          type="button"
-          className="gap-1.5"
-          disabled={terkunci || busy || !data.lengkap}
-          onClick={() => void onAjukan()}
-        >
-          <ShieldCheck className="size-4" />
-          {data.status === "REVERIFICATION_REQUIRED"
-            ? "Ajukan verifikasi ulang"
-            : data.status === "NEEDS_CORRECTION"
-              ? "Kirim ulang pengajuan"
-              : "Ajukan peninjauan"}
-        </Button>
-      </div>
-      {!data.lengkap && (
-        <p className="mt-2 text-[11px] leading-4 text-muted-foreground">
-          Tombol ajukan aktif setelah isian lengkap dan ketiga berkas terunggah.
-        </p>
-      )}
-    </div>
+    <h3
+      id="kyc-tahap-judul"
+      ref={ref}
+      tabIndex={-1}
+      className="text-sm font-semibold text-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+    >
+      {nomor}. {judul}
+    </h3>
   );
 }
 
@@ -537,25 +488,169 @@ function KycForm({
  * Bagian yang tersambung server
  * ========================================================================== */
 
+/** Slot berkas yang dipakai antarmuka (nama pendek untuk kunci di `url`). */
+type SlotBerkasUi = "ktp" | "selfie" | "bukti";
+
+/**
+ * Pratinjau berkas yang dipilih pengguna tetapi BELUM tersimpan di server.
+ * `url` adalah URL objek lokal (`URL.createObjectURL`) — hanya hidup di tab ini,
+ * tidak pernah dikirim ke mana pun, dan dibersihkan saat berkas diganti atau
+ * halaman ditinggalkan. `null` bila browser tidak mendukungnya.
+ */
+type PratinjauLokal = { url: string | null; nama: string };
+
+/** Hasil unggahan satu slot yang belum disimpan ke baris KYC. */
+type BerkasDraft = DokumenTerunggah & { file?: File };
+
+/** Isian yang sudah disunting pengguna tetapi belum tersimpan. */
+type DraftKyc = {
+  /** Stempel data tersimpan saat draft dibuat — draft diabaikan bila server berubah. */
+  stempel: string;
+  isian: IsianKycLengkap;
+  berkas: Record<SlotBerkasUi, BerkasDraft | null>;
+};
+
 export function KycSection() {
   const data = useQuery(api.kyc.kycSaya);
   const mulai = useMutation(api.kyc.mulaiKyc);
+  const setujui = useMutation(api.kyc.catatPersetujuanKyc);
   const simpan = useMutation(api.kyc.simpanProgresKyc);
   const ajukan = useMutation(api.kyc.ajukanKyc);
   const buatUrl = useMutation(api.kyc.urlUnggahBerkasKyc);
   const periksa = useAction(api.berkasIdentitas.periksaIsiBerkasKyc);
+
+  const [draft, setDraft] = useState<DraftKyc | null>(null);
+  /** Pratinjau berkas yang baru dipilih (belum tersimpan) per slot. */
+  const [pratinjau, setPratinjau] = useState<Partial<Record<SlotBerkasUi, PratinjauLokal>>>({});
+  const [tahapPilihan, setTahapPilihan] = useState<IdTahapKyc | null>(null);
+  const [centangSetuju, setCentangSetuju] = useState(false);
   const [busy, setBusy] = useState(false);
   const [galat, setGalat] = useState<string | null>(null);
+  // Nilai terakhir pratinjau juga dipegang ref supaya URL objeknya bisa
+  // dibersihkan saat komponen dilepas. Efek pembersih ini sengaja ditulis
+  // SEBELUM cabang "sedang memuat" di bawah: kalau diletakkan sesudahnya,
+  // jumlah hook berbeda antara render termuat dan belum termuat.
+  const pratinjauRef = useRef<Partial<Record<SlotBerkasUi, PratinjauLokal>>>({});
+  useEffect(() => {
+    return () => {
+      for (const item of Object.values(pratinjauRef.current)) {
+        if (item !== undefined && item.url !== null) URL.revokeObjectURL(item.url);
+      }
+      pratinjauRef.current = {};
+    };
+  }, []);
 
   if (data === undefined) {
     return (
-      <div className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-5 py-10 text-sm text-muted-foreground">
+      <div className="flex items-center gap-2 rounded-2xl border border-border bg-card px-5 py-10 text-sm text-muted-foreground">
         <Loader2 className="size-4 animate-spin" /> Memuat status KYC…
       </div>
     );
   }
 
-  /** Jalankan satu langkah; galat dari server ditampilkan apa adanya. */
+  // Id dokumen dari server dipakai apa adanya (bertipe `Id<"_storage">`), bukan
+  // disalin lewat `BerkasKyc` yang hanya peduli "ada atau tidak ada".
+  const dokumenTersimpan = data.dokumen;
+  const berkasTersimpan: BerkasKyc = {
+    ktp: dokumenTersimpan.ktpId,
+    selfie: dokumenTersimpan.selfieKtpId,
+    bukti: dokumenTersimpan.buktiPenghasilanId,
+  };
+  // Draft hanya berlaku untuk data tersimpan yang SAMA: stempel berubah setiap
+  // kali server mencatat simpanan baru, sehingga setelah simpan berhasil layar
+  // otomatis menampilkan nilai yang benar-benar tersimpan (sudah dinormalkan
+  // server) — tanpa `useEffect` yang bisa menimpa ketikan yang belum disimpan.
+  const stempelServer = `${data.adaBaris}:${data.diperbaruiPada ?? 0}:${data.persetujuan?.versi ?? "-"}`;
+  const draftAktif = draft !== null && draft.stempel === stempelServer ? draft : null;
+  const isian: IsianKycLengkap = draftAktif?.isian ?? data.isian;
+  const berkas: Record<SlotBerkasUi, BerkasDraft | null> = draftAktif?.berkas ?? {
+    ktp:
+      dokumenTersimpan.ktpId === null
+        ? null
+        : { id: dokumenTersimpan.ktpId, nama: "Berkas tersimpan" },
+    selfie:
+      dokumenTersimpan.selfieKtpId === null
+        ? null
+        : { id: dokumenTersimpan.selfieKtpId, nama: "Berkas tersimpan" },
+    bukti:
+      dokumenTersimpan.buktiPenghasilanId === null
+        ? null
+        : { id: dokumenTersimpan.buktiPenghasilanId, nama: "Berkas tersimpan" },
+  };
+  const berkasUntukStatus: BerkasKyc = {
+    ktp: berkas.ktp?.id ?? null,
+    selfie: berkas.selfie?.id ?? null,
+    bukti: berkas.bukti?.id ?? null,
+  };
+  const opsi: OpsiStatusTahap = {
+    kekurangan: data.kekurangan,
+    perluPerbaikan: data.status === "NEEDS_CORRECTION",
+    persetujuanAktif: data.persetujuanAktif,
+  };
+  const statusPerTahap = Object.fromEntries(
+    ID_TAHAP_KYC.map((id) => [id, statusTahapKyc(id, isian, berkasUntukStatus, opsi)]),
+  ) as Record<IdTahapKyc, StatusTahapKyc>;
+  const progres = progresKyc(isian, berkasUntukStatus, opsi);
+
+  const terkunci = !data.persetujuanAktif;
+  const tahapAktif = tahapPilihan ?? tahapDisarankan(data.status, isian, berkasUntukStatus, opsi);
+  const tahap = tahapKyc(tahapAktif);
+  const galatTahap = galatTahapKyc(tahap.id, isian, berkasUntukStatus);
+  const kurangTahap = kekuranganLokalTahap(tahap.id, isian, berkasUntukStatus);
+  const indeks = TAHAPAN_KYC.findIndex((t) => t.id === tahap.id);
+  // Tombol "ajukan" hanya aktif bila transisinya memang SAH menurut
+  // `lib/kycStatus.ts` — bukan sekadar "isian lengkap". Dengan begitu nasabah
+  // tidak pernah diantar ke tombol yang pasti ditolak server: setelah DITOLAK
+  // ia harus menyunting data dulu (pengajuan dimulai ulang), dan setelah
+  // TERVERIFIKASI tidak ada lagi yang perlu diajukan.
+  const bolehAjukan =
+    !terkunci && data.lengkap && bolehTransisi(data.status, "PENDING_REVIEW", "nasabah");
+  /** Slot dokumen tahap ini (KTP/selfie), atau null bila bukan tahap dokumen. */
+  const slotDokumen: SlotBerkasUi | null =
+    tahap.id === "ktp" ? "ktp" : tahap.id === "selfie" ? "selfie" : null;
+
+  const ubah = (kunci: keyof IsianKycLengkap, nilai: string) =>
+    setDraft({ stempel: stempelServer, isian: { ...isian, [kunci]: nilai }, berkas });
+  /**
+   * Pasang/lepas pratinjau lokal satu slot. URL objek yang digantikan langsung
+   * dicabut supaya blob lama tidak menumpuk di memori tab.
+   */
+  const gantiPratinjau = (slot: SlotBerkasUi, nilai: PratinjauLokal | null) => {
+    const lama = pratinjauRef.current[slot];
+    if (lama !== undefined && lama.url !== null) URL.revokeObjectURL(lama.url);
+    const berikutnya = { ...pratinjauRef.current };
+    if (nilai === null) delete berikutnya[slot];
+    else berikutnya[slot] = nilai;
+    pratinjauRef.current = berikutnya;
+    setPratinjau(berikutnya);
+  };
+
+  /** Berkas baru dipilih: tampilkan pratinjau lokal sampai (bila) tersimpan. */
+  const tampilkanPratinjau = (slot: SlotBerkasUi, file: File) => {
+    const url =
+      typeof URL !== "undefined" && typeof URL.createObjectURL === "function"
+        ? URL.createObjectURL(file)
+        : null;
+    gantiPratinjau(slot, { url, nama: file.name });
+  };
+
+  const ubahBerkas = (slot: SlotBerkasUi, nilai: DokumenTerunggah | null) => {
+    setDraft({ stempel: stempelServer, isian, berkas: { ...berkas, [slot]: nilai } });
+    // Berkas dihapus atau diganti: pratinjau lokal yang lama tidak berlaku lagi,
+    // supaya yang tampil hanya berkas yang benar-benar sedang diproses.
+    gantiPratinjau(slot, null);
+  };
+
+  const menuju = (id: IdTahapKyc) => {
+    setTahapPilihan(id);
+    setGalat(null);
+  };
+
+  /**
+   * Simpan SATU langkah. Mengembalikan `true` bila server menerima.
+   * Galat dari server ditampilkan apa adanya; galat persetujuan mengantar
+   * pengguna kembali ke tahap 1.
+   */
   const jalankan = async (langkah: () => Promise<unknown>): Promise<boolean> => {
     setBusy(true);
     setGalat(null);
@@ -563,46 +658,103 @@ export function KycSection() {
       await langkah();
       return true;
     } catch (err) {
-      setGalat(err instanceof Error ? err.message : "Langkah KYC gagal. Coba lagi.");
+      const pesan = err instanceof Error ? err.message : "Langkah KYC gagal. Coba lagi.";
+      setGalat(pesan);
+      if (pesanButuhPersetujuan(pesan) || pesanVersiPersetujuanBerubah(pesan)) {
+        setTahapPilihan("persetujuan");
+      }
       return false;
     } finally {
       setBusy(false);
     }
   };
 
-  const simpanProgres = async (
-    nilai: Isian,
-    berkas: {
-      ktpId?: Id<"_storage"> | null;
-      selfieKtpId?: Id<"_storage"> | null;
-      buktiPenghasilanId?: Id<"_storage"> | null;
-    },
-  ): Promise<boolean> => {
+  const simpanProgres = async (): Promise<boolean> => {
     const berhasil = await jalankan(() =>
       simpan({
-        namaLengkap: nilai.namaLengkap,
-        nik: nilai.nik,
-        nomorWhatsApp: nilai.nomorWhatsApp,
-        alamat: nilai.alamat,
-        pekerjaan: nilai.pekerjaan,
-        penghasilanBulanan: penghasilanDariTeks(nilai.penghasilan),
-        sumberPenghasilan: nilai.sumberPenghasilan,
-        namaBank: nilai.namaBank,
-        nomorRekening: nilai.nomorRekening,
-        catatanPeminjam: nilai.catatanPeminjam,
-        ...berkas,
+        namaLengkap: isian.namaLengkap,
+        nik: isian.nik,
+        nomorWhatsApp: isian.nomorWhatsApp,
+        alamat: isian.alamat,
+        pekerjaan: isian.pekerjaan,
+        penghasilanBulanan: penghasilanDariTeks(isian.penghasilan),
+        sumberPenghasilan: isian.sumberPenghasilan,
+        namaBank: isian.namaBank,
+        nomorRekening: isian.nomorRekening,
+        catatanPeminjam: isian.catatanPeminjam,
+        ktpId: berkas.ktp?.id ?? null,
+        selfieKtpId: berkas.selfie?.id ?? null,
+        buktiPenghasilanId: berkas.bukti?.id ?? null,
       }),
     );
     if (berhasil) toast.success("Progres KYC tersimpan.");
     return berhasil;
   };
 
-  const ajukanPeninjauan = async () => {
-    const berhasil = await jalankan(() => ajukan({}));
-    if (berhasil) toast.success("Pengajuan KYC dikirim untuk peninjauan.");
+  const setujuiPemrosesan = async () => {
+    const berhasil = await jalankan(() => setujui({ versi: VERSI_PERSETUJUAN_KYC }));
+    if (berhasil) {
+      toast.success("Persetujuan pemrosesan data tercatat.");
+      menuju("identitas");
+    }
   };
 
-  const terkunci = data.status === "PENDING_REVIEW";
+  const ajukanPeninjauan = async () => {
+    const berhasil = await jalankan(() => ajukan({}));
+    if (berhasil) toast.success("Pengajuan KYC dikirim untuk peninjauan petugas.");
+  };
+
+  /** Simpan lalu pindah ke tahap berikutnya (tanpa memaksa bila ada galat). */
+  const simpanDanLanjut = async () => {
+    const berhasil = await simpanProgres();
+    if (!berhasil) return;
+    const berikutnya = TAHAPAN_KYC[indeks + 1];
+    if (berikutnya !== undefined) menuju(berikutnya.id);
+  };
+
+  // ===== Kondisi awal: KYC belum pernah disentuh =====
+  if (!data.adaBaris && data.status === "NOT_STARTED") {
+    return (
+      <section className="space-y-4">
+        <KycStatusStrip status={data.status} onBuka={() => menuju("persetujuan")} />
+        <Empty className="border border-border bg-card">
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <ShieldCheck className="size-6" />
+            </EmptyMedia>
+            <EmptyTitle>Verifikasi identitas belum dimulai</EmptyTitle>
+            <EmptyDescription>
+              KYC memastikan identitas Anda benar sebelum layanan pinjaman/gadai diproses. Prosesnya
+              bertahap dan bisa disimpan di tengah jalan. Tidak ada biaya dan tidak otomatis membuat
+              pengajuan pinjaman.
+            </EmptyDescription>
+          </EmptyHeader>
+          <EmptyContent>
+            <Button
+              type="button"
+              className="gap-1.5"
+              disabled={busy}
+              onClick={() =>
+                void jalankan(() => mulai({})).then((ok) => {
+                  if (ok) {
+                    toast.success("KYC dimulai. Baca dan setujui penjelasan pemrosesan data.");
+                    menuju("persetujuan");
+                  }
+                })
+              }
+            >
+              <Play className="size-4" /> Mulai KYC
+            </Button>
+            {galat !== null && (
+              <p role="alert" className="text-[11px] leading-4 text-destructive">
+                {galat}
+              </p>
+            )}
+          </EmptyContent>
+        </Empty>
+      </section>
+    );
+  }
 
   return (
     <section className="space-y-4">
@@ -611,27 +763,33 @@ export function KycSection() {
         kekurangan={data.kekurangan}
         lengkap={data.lengkap}
         diperbaruiPada={data.diperbaruiPada}
+        persen={progres.persen}
+        selesai={progres.selesai}
+        total={progres.total}
       />
 
-      {data.status === "NOT_STARTED" && !data.adaBaris && (
-        <div className="rounded-2xl border border-primary/25 bg-primary/[0.05] p-4 sm:p-5">
-          <p className="text-sm font-semibold text-navy">Mulai KYC</p>
-          <p className="mt-1 text-xs leading-5 text-muted-foreground">
-            Verifikasi identitas dipakai untuk pengajuan pinjaman/gadai Anda. Tidak ada biaya dan
-            tidak otomatis membuat pengajuan.
+      {data.status === "VERIFIED" && (
+        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs leading-5 text-emerald-900 dark:border-emerald-900/50 dark:bg-emerald-950/40 dark:text-emerald-200">
+          <p className="flex items-center gap-1.5 font-semibold">
+            <BadgeCheck className="size-3.5 shrink-0" aria-hidden /> Identitas terverifikasi
           </p>
-          <Button
-            type="button"
-            className="mt-3 gap-1.5"
-            disabled={busy}
-            onClick={() =>
-              void jalankan(() => mulai({})).then((ok) => {
-                if (ok) toast.success("KYC dimulai. Isi data Anda di bawah.");
-              })
-            }
-          >
-            <Play className="size-4" /> Mulai KYC
-          </Button>
+          <p className="mt-1">
+            Status ini dikonfirmasi server: identitas Anda sudah diperiksa petugas — bukan
+            persetujuan pinjaman dan bukan bukti dana cair. Mengubah nama, NIK, atau berkas
+            identitas akan memicu verifikasi ulang.
+          </p>
+        </div>
+      )}
+
+      {data.status === "PENDING_REVIEW" && (
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-100">
+          <p className="flex items-center gap-1.5 font-semibold">
+            <Clock3 className="size-3.5 shrink-0" aria-hidden /> Menunggu peninjauan petugas
+          </p>
+          <p className="mt-1">
+            Isian dikunci sementara supaya petugas menilai data yang sama dengan yang Anda kirim.
+            Anda masih bisa melihat semua tahap dan status pemeriksaannya di bawah.
+          </p>
         </div>
       )}
 
@@ -642,51 +800,538 @@ export function KycSection() {
         pada={data.diputuskanPada}
       />
 
-      {data.status === "VERIFIED" && (
-        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs leading-5 text-emerald-900">
-          <p className="flex items-center gap-1.5 font-semibold">
-            <BadgeCheck className="size-3.5 shrink-0" aria-hidden /> Identitas terverifikasi
-          </p>
-          <p className="mt-1">
-            Status ini berarti identitas Anda sudah diperiksa petugas — bukan persetujuan pinjaman
-            dan bukan bukti dana cair. Mengubah nama, NIK, atau berkas identitas akan memicu
-            verifikasi ulang.
-          </p>
-        </div>
-      )}
-
-      {terkunci && (
-        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-900">
-          <p className="flex items-center gap-1.5 font-semibold">
-            <Clock3 className="size-3.5 shrink-0" aria-hidden /> Isian dikunci sementara
-          </p>
-          <p className="mt-1">
-            Pengajuan Anda sedang ditinjau petugas. Isian tidak bisa diubah supaya petugas menilai
-            data yang sama dengan yang Anda kirim.
-          </p>
-        </div>
-      )}
-
-      {data.status !== "NOT_STARTED" && (
-        <KycForm
-          key={`${data.diperbaruiPada ?? 0}`}
-          data={data}
-          terkunci={terkunci}
-          busy={busy}
-          onSimpan={simpanProgres}
-          onAjukan={ajukanPeninjauan}
-          mintaUrl={() => buatUrl({})}
-          periksa={(id, label) => periksa({ id, label }).then(() => undefined)}
-        />
-      )}
-
       {galat !== null && (
         <Alert variant="destructive">
           <AlertTriangle className="size-4" />
           <AlertTitle>Langkah KYC belum berhasil</AlertTitle>
-          <AlertDescription>{galat}</AlertDescription>
+          <AlertDescription>
+            <span>{galat}</span>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="mt-2 gap-1.5"
+              disabled={busy}
+              onClick={() => void simpanProgres()}
+            >
+              <Save className="size-3.5" /> Coba simpan lagi
+            </Button>
+          </AlertDescription>
         </Alert>
       )}
+
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,17rem)_minmax(0,1fr)] lg:items-start lg:gap-6">
+        <KycDaftarTahap
+          aktif={tahap.id}
+          statusPerTahap={statusPerTahap}
+          onPilih={menuju}
+          terkunci={terkunci}
+        />
+
+        <div
+          id="kyc-tahap-isi"
+          role="region"
+          aria-labelledby="kyc-tahap-judul"
+          className="min-w-0 rounded-2xl border border-border bg-card p-4 shadow-sm sm:p-5"
+        >
+          <p className="sr-only" role="status" aria-live="polite">
+            Tahap {indeks + 1} dari {TAHAPAN_KYC.length}: {tahap.judul}
+          </p>
+          <div className="flex flex-wrap items-start justify-between gap-2">
+            <div className="min-w-0">
+              <JudulTahap nomor={indeks + 1} judul={tahap.judul} />
+              <p className="mt-0.5 text-xs leading-5 text-muted-foreground">{tahap.ringkas}</p>
+            </div>
+            <span
+              className={cn(
+                "rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
+                statusPerTahap[tahap.id] === "lengkap"
+                  ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300"
+                  : statusPerTahap[tahap.id] === "perlu-diperbaiki"
+                    ? "bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-200"
+                    : "bg-muted text-muted-foreground",
+              )}
+            >
+              {LABEL_STATUS_TAHAP[statusPerTahap[tahap.id]]}
+            </span>
+          </div>
+
+          {terkunci && tahap.id !== "persetujuan" && (
+            <p className="mt-3 flex items-start gap-2 rounded-xl border border-border bg-muted/50 px-3 py-2 text-[11px] leading-4 text-muted-foreground">
+              <Lock className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+              Tahap ini terbuka setelah persetujuan pemrosesan data tercatat di server.
+            </p>
+          )}
+
+          <div className="mt-4">
+            {/* ===== Tahap 1: persetujuan & penjelasan pemrosesan data ===== */}
+            {tahap.id === "persetujuan" && (
+              <div className="space-y-4">
+                <div className="rounded-xl border border-border bg-muted/40 p-3">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                    Ringkasan singkat
+                  </p>
+                  <p className="mt-1 text-xs leading-5 text-foreground">
+                    Data identitas Anda dipakai hanya untuk memverifikasi identitas dan menilai
+                    kelayakan. Hanya petugas PINDAI ber-TOTP yang dapat melihatnya, dokumen
+                    ditampilkan ber-watermark, dan setiap keputusan tercatat di jejak audit.
+                  </p>
+                </div>
+                <ul className="grid gap-3 sm:grid-cols-2">
+                  {POIN_PERSETUJUAN_KYC.map((poin) => (
+                    <li key={poin.judul} className="rounded-xl border border-border bg-card p-3">
+                      <p className="text-xs font-semibold text-foreground">{poin.judul}</p>
+                      <p className="mt-1 text-[11px] leading-4 text-muted-foreground">{poin.isi}</p>
+                    </li>
+                  ))}
+                </ul>
+
+                {data.persetujuanAktif ? (
+                  <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-[11px] leading-5 text-emerald-900 dark:border-emerald-900/50 dark:bg-emerald-950/40 dark:text-emerald-200">
+                    <p className="flex items-center gap-1.5 font-semibold">
+                      <CheckCircle2 className="size-3.5 shrink-0" aria-hidden /> Persetujuan tercatat
+                      di server
+                    </p>
+                    <p className="mt-1">
+                      {waktu(data.persetujuan?.pada ?? null)} · versi teks{" "}
+                      {data.persetujuan?.versi ?? "—"}. Menarik persetujuan dapat dilakukan lewat tim
+                      PINDAI dan berarti pengajuan KYC tidak dapat dilanjutkan.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-3 rounded-xl border border-border bg-card p-3">
+                    <div className="flex items-start gap-3">
+                      <Checkbox
+                        id="kyc-setuju"
+                        checked={centangSetuju}
+                        onCheckedChange={(nilai) => setCentangSetuju(nilai === true)}
+                        disabled={busy}
+                      />
+                      <label htmlFor="kyc-setuju" className="text-xs leading-5 text-foreground">
+                        {RINGKASAN_PERSETUJUAN_KYC}
+                      </label>
+                    </div>
+                    <Button
+                      type="button"
+                      className="gap-1.5"
+                      disabled={busy || !centangSetuju}
+                      onClick={() => void setujuiPemrosesan()}
+                    >
+                      {busy ? <Loader2 className="size-4 animate-spin" /> : <ShieldCheck className="size-4" />}
+                      Setujui & lanjut
+                    </Button>
+                    {!centangSetuju && (
+                      <p className="text-[11px] leading-4 text-muted-foreground">
+                        Tahap berikutnya terkunci sampai Anda menyetujui pemrosesan data.
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ===== Tahap 2: data identitas ===== */}
+            {tahap.id === "identitas" && !terkunci && (
+              <FieldSet>
+                <FieldLegend variant="label" className="sr-only">
+                  Data identitas
+                </FieldLegend>
+                <FieldGroup>
+                  <Field data-invalid={galatTahap.some((g) => g.kunci === "namaLengkap")}>
+                    <FieldLabel htmlFor="kyc-nama">Nama lengkap sesuai KTP</FieldLabel>
+                    <Input
+                      id="kyc-nama"
+                      value={isian.namaLengkap}
+                      onChange={(e) => ubah("namaLengkap", e.target.value)}
+                      placeholder="Mis. Rani Puspita"
+                      autoComplete="name"
+                      required
+                      aria-required="true"
+                      aria-invalid={galatTahap.some((g) => g.kunci === "namaLengkap")}
+                      disabled={busy}
+                    />
+                    <FieldError
+                      errors={galatTahap.filter((g) => g.kunci === "namaLengkap").map((g) => ({ message: g.pesan }))}
+                    />
+                    <FieldDescription>
+                      Tulis persis seperti di KTP, tanpa gelar atau singkatan.
+                    </FieldDescription>
+                  </Field>
+                  <Field data-invalid={galatTahap.some((g) => g.kunci === "nik")}>
+                    <FieldLabel htmlFor="kyc-nik">NIK (nomor KTP)</FieldLabel>
+                    <Input
+                      id="kyc-nik"
+                      inputMode="numeric"
+                      className="tabular-nums"
+                      value={isian.nik}
+                      onChange={(e) => ubah("nik", e.target.value.replace(/\D/g, ""))}
+                      placeholder="16 angka"
+                      maxLength={16}
+                      autoComplete="off"
+                      required
+                      aria-required="true"
+                      aria-invalid={galatTahap.some((g) => g.kunci === "nik")}
+                      disabled={busy}
+                    />
+                    <FieldError
+                      errors={galatTahap.filter((g) => g.kunci === "nik").map((g) => ({ message: g.pesan }))}
+                    />
+                    <FieldDescription>
+                      NIK dipakai hanya untuk verifikasi identitas. Di ringkasan, NIK ditampilkan
+                      bertopeng ({maskNik(isian.nik)}) dan tidak pernah dimasukkan ke URL, log, atau
+                      notifikasi.
+                    </FieldDescription>
+                  </Field>
+                </FieldGroup>
+              </FieldSet>
+            )}
+
+            {/* ===== Tahap 3 & 4: dokumen KTP dan selfie ===== */}
+            {slotDokumen !== null && !terkunci && (
+              <div className="space-y-3">
+                <KycPetunjukFoto tahapId={tahap.id} />
+                <UnggahDokumen
+                  label={LABEL_SLOT_BERKAS[slotDokumen]}
+                  keterangan={
+                    slotDokumen === "ktp"
+                      ? "Pastikan seluruh sisi KTP terlihat dan teksnya terbaca sebelum menyimpan."
+                      : "Diperlukan agar petugas bisa mencocokkan wajah Anda dengan foto KTP. Wajah dan KTP harus terlihat dalam satu foto, tanpa penutup wajah."
+                  }
+                  accept="image/*"
+                  nilai={berkas[slotDokumen]}
+                  onUbah={(d) => ubahBerkas(slotDokumen, d)}
+                  onBerkasDipilih={(file) => tampilkanPratinjau(slotDokumen, file)}
+                  mintaUrl={() => buatUrl({})}
+                  periksa={(id, label) => periksa({ id, label }).then(() => undefined)}
+                  disabled={busy}
+                />
+                {pratinjau[slotDokumen]?.url != null && (
+                  <WatermarkedDoc
+                    src={pratinjau[slotDokumen]!.url!}
+                    label={`Pratinjau ${LABEL_SLOT_BERKAS[slotDokumen].toLowerCase()}${pratinjau[slotDokumen]!.nama === "" ? "" : ` (${pratinjau[slotDokumen]!.nama})`} — belum tersimpan`}
+                  />
+                )}
+                {berkas[slotDokumen] === null && data.url[slotDokumen] !== null && (
+                  <p className="text-[11px] leading-4 text-amber-700 dark:text-amber-300">
+                    Berkas lama akan diganti setelah Anda menyimpan.
+                  </p>
+                )}
+                {berkasTersimpan[slotDokumen] !== null && (
+                  <WatermarkedDoc
+                    src={data.url[slotDokumen] ?? ""}
+                    label={`${LABEL_SLOT_BERKAS[slotDokumen]} tersimpan`}
+                  />
+                )}
+                {statusPerTahap[tahap.id] === "perlu-diperbaiki" && (
+                  <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] leading-4 text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-100">
+                    Petugas meminta berkas ini diganti. Unggah foto baru sesuai petunjuk di atas, lalu
+                    simpan.
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* ===== Tahap 5: nomor WhatsApp ===== */}
+            {tahap.id === "whatsapp" && !terkunci && (
+              <Field
+                data-invalid={galatTahap.some((g) => g.kunci === "nomorWhatsApp")}
+                className="max-w-md"
+              >
+                <FieldLabel htmlFor="kyc-wa">Nomor WhatsApp aktif</FieldLabel>
+                <Input
+                  id="kyc-wa"
+                  inputMode="tel"
+                  className="tabular-nums"
+                  value={isian.nomorWhatsApp}
+                  onChange={(e) => ubah("nomorWhatsApp", e.target.value)}
+                  placeholder="6281234567890"
+                  autoComplete="tel"
+                  required
+                  aria-required="true"
+                  aria-invalid={galatTahap.some((g) => g.kunci === "nomorWhatsApp")}
+                  disabled={busy}
+                />
+                <FieldError
+                  errors={galatTahap
+                    .filter((g) => g.kunci === "nomorWhatsApp")
+                    .map((g) => ({ message: g.pesan }))}
+                />
+                <FieldDescription>
+                  Diawali kode negara 62 tanpa tanda +. Petugas memakai nomor ini untuk menghubungi
+                  Anda soal pengajuan — nomor tidak ditampilkan ke pengguna lain
+                  {isian.nomorWhatsApp.trim() === "" ? "" : ` (tersimpan sebagai ${maskWhatsApp(isian.nomorWhatsApp)})`}.
+                </FieldDescription>
+              </Field>
+            )}
+
+            {/* ===== Tahap 6: alamat (opsional) ===== */}
+            {tahap.id === "alamat" && !terkunci && (
+              <FieldGroup>
+                <Field data-invalid={galatTahap.some((g) => g.kunci === "alamat")}>
+                  <FieldLabel htmlFor="kyc-alamat">Alamat tempat tinggal</FieldLabel>
+                  <Textarea
+                    id="kyc-alamat"
+                    rows={2}
+                    value={isian.alamat}
+                    onChange={(e) => ubah("alamat", e.target.value)}
+                    placeholder="Jalan, nomor, kelurahan, kota"
+                    aria-invalid={galatTahap.some((g) => g.kunci === "alamat")}
+                    disabled={busy}
+                  />
+                  <FieldError
+                    errors={galatTahap.filter((g) => g.kunci === "alamat").map((g) => ({ message: g.pesan }))}
+                  />
+                  <FieldDescription>
+                    Opsional. Membantu petugas menilai pengajuan dan memverifikasi tempat usaha bila
+                    dipakai untuk pinjaman.
+                  </FieldDescription>
+                </Field>
+                <Field data-invalid={galatTahap.some((g) => g.kunci === "pekerjaan")}>
+                  <FieldLabel htmlFor="kyc-pekerjaan">Pekerjaan</FieldLabel>
+                  <Input
+                    id="kyc-pekerjaan"
+                    value={isian.pekerjaan}
+                    onChange={(e) => ubah("pekerjaan", e.target.value)}
+                    placeholder="Mis. Karyawan swasta, pedagang"
+                    aria-invalid={galatTahap.some((g) => g.kunci === "pekerjaan")}
+                    disabled={busy}
+                  />
+                  <FieldError
+                    errors={galatTahap.filter((g) => g.kunci === "pekerjaan").map((g) => ({ message: g.pesan }))}
+                  />
+                </Field>
+              </FieldGroup>
+            )}
+
+            {/* ===== Tahap 7: informasi pendukung ===== */}
+            {tahap.id === "pendukung" && !terkunci && (
+              <div className="space-y-4">
+                <FieldGroup>
+                  <Field data-invalid={galatTahap.some((g) => g.kunci === "penghasilan")}>
+                    <FieldLabel htmlFor="kyc-penghasilan">Penghasilan per bulan</FieldLabel>
+                    <div className="relative">
+                      <span
+                        aria-hidden
+                        className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-xs font-medium text-muted-foreground"
+                      >
+                        Rp
+                      </span>
+                      <Input
+                        id="kyc-penghasilan"
+                        inputMode="numeric"
+                        className="pl-8 tabular-nums"
+                        value={isian.penghasilan}
+                        onChange={(e) => ubah("penghasilan", e.target.value.replace(/\D/g, ""))}
+                        placeholder="5000000"
+                        aria-invalid={galatTahap.some((g) => g.kunci === "penghasilan")}
+                        disabled={busy}
+                      />
+                    </div>
+                    <FieldError
+                      errors={galatTahap
+                        .filter((g) => g.kunci === "penghasilan")
+                        .map((g) => ({ message: g.pesan }))}
+                    />
+                    <FieldDescription>Rupiah bulat, tanpa tanda titik atau koma.</FieldDescription>
+                  </Field>
+                  <Field data-invalid={galatTahap.some((g) => g.kunci === "sumberPenghasilan")}>
+                    <FieldLabel htmlFor="kyc-sumber">Sumber penghasilan</FieldLabel>
+                    <Input
+                      id="kyc-sumber"
+                      value={isian.sumberPenghasilan}
+                      onChange={(e) => ubah("sumberPenghasilan", e.target.value)}
+                      placeholder="Mis. gaji bulanan, usaha warung"
+                      aria-invalid={galatTahap.some((g) => g.kunci === "sumberPenghasilan")}
+                      disabled={busy}
+                    />
+                    <FieldError
+                      errors={galatTahap
+                        .filter((g) => g.kunci === "sumberPenghasilan")
+                        .map((g) => ({ message: g.pesan }))}
+                    />
+                  </Field>
+                  <Field data-invalid={galatTahap.some((g) => g.kunci === "namaBank")}>
+                    <FieldLabel htmlFor="kyc-bank">Bank / e-wallet</FieldLabel>
+                    <Input
+                      id="kyc-bank"
+                      value={isian.namaBank}
+                      onChange={(e) => ubah("namaBank", e.target.value)}
+                      placeholder="Mis. BCA"
+                      aria-invalid={galatTahap.some((g) => g.kunci === "namaBank")}
+                      disabled={busy}
+                    />
+                    <FieldError
+                      errors={galatTahap
+                        .filter((g) => g.kunci === "namaBank")
+                        .map((g) => ({ message: g.pesan }))}
+                    />
+                  </Field>
+                  <Field data-invalid={galatTahap.some((g) => g.kunci === "nomorRekening")}>
+                    <FieldLabel htmlFor="kyc-rekening">Nomor rekening</FieldLabel>
+                    <Input
+                      id="kyc-rekening"
+                      inputMode="numeric"
+                      className="tabular-nums"
+                      value={isian.nomorRekening}
+                      onChange={(e) => ubah("nomorRekening", e.target.value.replace(/\D/g, ""))}
+                      placeholder="Opsional"
+                      aria-invalid={galatTahap.some((g) => g.kunci === "nomorRekening")}
+                      disabled={busy}
+                    />
+                    <FieldError
+                      errors={galatTahap
+                        .filter((g) => g.kunci === "nomorRekening")
+                        .map((g) => ({ message: g.pesan }))}
+                    />
+                    <FieldDescription>
+                      Dipakai bila pengajuan disetujui. Di ringkasan ditampilkan bertopeng (
+                      {maskRekening(isian.nomorRekening)}).
+                    </FieldDescription>
+                  </Field>
+                  <Field>
+                    <FieldLabel htmlFor="kyc-catatan">Catatan untuk petugas</FieldLabel>
+                    <Textarea
+                      id="kyc-catatan"
+                      rows={2}
+                      value={isian.catatanPeminjam}
+                      onChange={(e) => ubah("catatanPeminjam", e.target.value)}
+                      placeholder="Opsional, mis. jadwal terbaik untuk dihubungi"
+                      disabled={busy}
+                    />
+                  </Field>
+                </FieldGroup>
+
+                <div className="space-y-3">
+                  <KycPetunjukFoto tahapId="pendukung" />
+                  <UnggahDokumen
+                    label={LABEL_SLOT_BERKAS.bukti}
+                    keterangan="Slip gaji, mutasi rekening, atau surat keterangan usaha."
+                    accept="image/*"
+                    nilai={berkas.bukti}
+                    onUbah={(d) => ubahBerkas("bukti", d)}
+                    onBerkasDipilih={(file) => tampilkanPratinjau("bukti", file)}
+                    mintaUrl={() => buatUrl({})}
+                    periksa={(id, label) => periksa({ id, label }).then(() => undefined)}
+                    disabled={busy}
+                  />
+                  {pratinjau.bukti?.url != null && (
+                    <WatermarkedDoc
+                      src={pratinjau.bukti.url}
+                      label={`Pratinjau bukti penghasilan${pratinjau.bukti.nama === "" ? "" : ` (${pratinjau.bukti.nama})`} — belum tersimpan`}
+                    />
+                  )}
+                  {berkasTersimpan.bukti !== null && (
+                    <WatermarkedDoc
+                      src={data.url.buktiPenghasilan ?? ""}
+                      label={LABEL_SLOT_BERKAS.bukti}
+                    />
+                  )}
+                </div>
+
+                <div className="rounded-xl border border-border bg-muted/40 p-3">
+                  <p className="flex items-center gap-1.5 text-[11px] font-semibold text-foreground">
+                    <CircleDashed className="size-3.5" aria-hidden /> Ringkasan bertopeng
+                  </p>
+                  <dl className="mt-2 space-y-1 text-[11px] leading-4 text-muted-foreground">
+                    <div className="flex justify-between gap-3">
+                      <dt>NIK</dt>
+                      <dd className="tabular-nums">{maskNik(isian.nik)}</dd>
+                    </div>
+                    <div className="flex justify-between gap-3">
+                      <dt>WhatsApp</dt>
+                      <dd className="tabular-nums">{maskWhatsApp(isian.nomorWhatsApp)}</dd>
+                    </div>
+                    <div className="flex justify-between gap-3">
+                      <dt>Rekening</dt>
+                      <dd className="tabular-nums">{maskRekening(isian.nomorRekening)}</dd>
+                    </div>
+                  </dl>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* ===== Yang masih kurang di tahap ini ===== */}
+          {(galatTahap.length > 0 || kurangTahap.length > 0) &&
+            !(tahap.id === "persetujuan") && (
+              <div className="mt-4 rounded-xl border border-border bg-muted/40 px-3 py-2">
+                <p className="text-[11px] font-semibold text-foreground">Tahap ini belum lengkap</p>
+                <ul className="mt-1 list-disc space-y-0.5 pl-4 text-[11px] leading-4 text-muted-foreground">
+                  {[...galatTahap.map((g) => g.pesan), ...kurangTahap].map((pesan) => (
+                    <li key={pesan}>{pesan}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+          {/* ===== Navigasi tahap ===== */}
+          <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-border pt-4">
+            <Button
+              type="button"
+              variant="outline"
+              className="gap-1.5"
+              disabled={busy || indeks === 0}
+              onClick={() => {
+                const sebelumnya = TAHAPAN_KYC[indeks - 1];
+                if (sebelumnya !== undefined) menuju(sebelumnya.id);
+              }}
+            >
+              <ArrowLeft className="size-4" /> Sebelumnya
+            </Button>
+
+            <Button
+              type="button"
+              variant="outline"
+              className="gap-1.5"
+              disabled={busy || terkunci}
+              onClick={() => void simpanProgres()}
+            >
+              {busy ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
+              Simpan progres
+            </Button>
+
+            {indeks < TAHAPAN_KYC.length - 1 ? (
+              <Button
+                type="button"
+                className="gap-1.5"
+                disabled={busy || (terkunci && tahap.id !== "persetujuan")}
+                onClick={() => void simpanDanLanjut()}
+              >
+                <Upload className="size-4" /> Simpan & lanjut
+              </Button>
+            ) : null}
+
+            {data.status !== "VERIFIED" && (
+              <Button
+                type="button"
+                className="gap-1.5"
+                disabled={busy || !bolehAjukan}
+                onClick={() => void ajukanPeninjauan()}
+              >
+                <ShieldCheck className="size-4" />
+                {data.status === "REVERIFICATION_REQUIRED"
+                  ? "Ajukan verifikasi ulang"
+                  : data.status === "NEEDS_CORRECTION"
+                    ? "Kirim ulang pengajuan"
+                    : "Ajukan peninjauan"}
+              </Button>
+            )}
+
+            <span className="ml-auto flex items-center gap-1.5 text-[11px] text-muted-foreground">
+              <PencilLine className="size-3.5 shrink-0" aria-hidden />
+              {data.status === "VERIFIED"
+                ? "Identitas sudah terverifikasi. Mengubah nama, NIK, atau berkas memicu verifikasi ulang."
+                : data.status === "REJECTED"
+                  ? "Perbaiki data yang diminta petugas lalu simpan — pengajuan dimulai ulang otomatis."
+                  : data.status === "PENDING_REVIEW"
+                    ? "Sedang menunggu peninjauan petugas. Menyimpan perubahan menarik pengajuan kembali."
+                    : data.lengkap
+                      ? "Semua tahap wajib sudah siap."
+                      : "Ajukan aktif setelah semua tahap wajib siap."}
+            </span>
+          </div>
+        </div>
+      </div>
 
       <KycRiwayatList riwayat={data.riwayat} />
     </section>

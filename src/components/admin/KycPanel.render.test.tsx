@@ -65,6 +65,8 @@ const detail = (overrides: Partial<DetailKycTampil> = {}): DetailKycTampil => ({
   diputuskanOlehLabel: null,
   keputusanCatatan: null,
   verifikasiUlangTertunda: false,
+  persetujuan: { versi: "pdp-2026-10", pada: 1_700_000_000_000, olehLabel: "rani@pindai.test" },
+  persetujuanAktif: true,
   url: {
     ktp: "https://example.test/ktp.png",
     selfie: "https://example.test/selfie.png",
@@ -114,8 +116,21 @@ for (const status of KYC_STATUS) {
   ada(html, "https://example.test/selfie.png", "selfie KTP terpasang");
   ada(html, "https://example.test/slip.png", "bukti penghasilan terpasang");
   ada(html, 'alt="Foto KTP"', "label Foto KTP terpasang pada gambarnya");
+  ada(html, "Persetujuan pemrosesan data tercatat", "dasar pemrosesan terlihat oleh petugas");
+  ada(html, "pdp-2026-10", "versi persetujuan tercatat");
   ok(!html.includes("belum diunggah"), "tidak ada kabar \"belum diunggah\" saat berkas lengkap");
   bersih(html, "rincian lengkap");
+}
+
+// ===== 3b. Tanpa persetujuan: petugas diperingatkan, bukan dibiarkan memutuskan =====
+{
+  const html = renderToStaticMarkup(
+    <KycDetailRingkas detail={detail({ persetujuan: null, persetujuanAktif: false })} />,
+  );
+  ada(html, "belum memiliki persetujuan pemrosesan data yang berlaku", "peringatan tanpa persetujuan tampil");
+  ada(html, 'role="alert"', "peringatan diumumkan sebagai alert");
+  ok(!html.includes("Persetujuan pemrosesan data tercatat"), "tidak mengaku persetujuan ada");
+  bersih(html, "rincian tanpa persetujuan");
 }
 
 // ===== 4. Rincian belum lengkap: kekurangan + slot berkas kosong =====

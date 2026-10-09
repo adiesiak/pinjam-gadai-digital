@@ -38,6 +38,7 @@ export function UnggahDokumen({
   periksa,
   disabled = false,
   accept = "image/*,application/pdf",
+  onBerkasDipilih,
 }: {
   label: string;
   keterangan: string;
@@ -57,6 +58,12 @@ export function UnggahDokumen({
    */
   periksa?: (id: Id<"_storage">, label: string) => Promise<void>;
   disabled?: boolean;
+  /**
+   * Dipanggil dengan berkas yang BARU dipilih (sebelum diunggah). Dipakai
+   * pemanggil yang ingin menampilkan pratinjau lokal — tanpa perlu mengubah
+   * cara unggah atau menitipkan berkas ke server lebih dulu.
+   */
+  onBerkasDipilih?: (file: File) => void;
 }) {
   const inputRef = useRef<HTMLInputElement | null>(null);
   /** Tahap proses yang sedang berjalan — menentukan label yang ditampilkan. */
@@ -70,6 +77,7 @@ export function UnggahDokumen({
 
   const pilih = async (file: File | undefined) => {
     if (!file) return;
+    onBerkasDipilih?.(file);
     setTahap("unggah");
     setGalat(null);
     setProgres(null);

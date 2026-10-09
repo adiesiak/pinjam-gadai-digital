@@ -13,6 +13,7 @@ import type { Doc, Id } from "./_generated/dataModel";
 import { requireAdminSession } from "./adminAuthz";
 import { simpanDataDiriProfil } from "./dataDiriProfil";
 import { bacaDataDiri, galatDataDiri, type DataDiriForm } from "../lib/dataDiri";
+import { VERSI_PERSETUJUAN_KYC, persetujuanAktif } from "../lib/persetujuanKyc";
 import {
   bolehTransisi,
   keputusanWajibAlasan,
@@ -128,6 +129,31 @@ async function pastikanBerkasTerverifikasi(
   if (penanda.olehUserId !== undefined && penanda.olehUserId !== pemilik) {
     throw new Error(`${label} bukan milik akun ini. Unggah ulang lewat formulir KYC.`);
   }
+}
+
+/**
+ * Persetujuan pemrosesan data harus TERCATAT di server sebelum data pribadi
+ * dikumpulkan.
+ *
+ * Kenapa di sini, bukan hanya di UI: kotak centang di peramban hanyalah tampilan.
+ * Kalau gerbangnya hanya di klien, mutation bisa dipanggil langsung untuk
+ * menyimpan NIK/foto KTP tanpa persetujuan apa pun — dan aplikasi yang
+ * mengumpulkan data sensitif tanpa dasar persetujuan melanggar UU PDP.
+ */
+async function pastikanPersetujuan(
+  ctx: MutationCtx,
+  row: Doc<"kycProfil"> | null,
+  label: string,
+): Promise<void> {
+  if (persetujuanAktif(row?.persetujuan)) return;
+  throw new Error(
+    "Persetujuan pemrosesan data belum tercatat. Baca penjelasan pada tahap " +
+      "\"Persetujuan pemrosesan data\", centang persetujuan, lalu simpan lagi. " +
+      `(Versi penjelasan yang berlaku: ${VERSI_PERSETUJUAN_KYC}.)` +
+      " Diperlukan sebelum " +
+      label +
+      " disimpan.",
+  );
 }
 
 /** Tulis satu baris riwayat + satu entri audit untuk perubahan status. */
@@ -354,6 +380,10 @@ export const kycSaya = query({
         url: { ktp: null, selfie: null, buktiPenghasilan: null },
         kekurangan: kekuranganKyc({}),
         lengkap: false,
+        // Belum ada baris = belum ada persetujuan apa pun yang tercatat.
+        persetujuan: null,
+        persetujuanAktif: false,
+        versiPersetujuan: VERSI_PERSETUJUAN_KYC,
         diajukanPada: null,
         diputuskanPada: null,
         diputuskanOlehLabel: null,
@@ -402,13 +432,30 @@ export const kycSaya = query({
       url: { ktp, selfie, buktiPenghasilan: bukti },
       kekurangan: kekuranganKyc(r),
       lengkap: lengkapKyc(r),
+      // Persetujuan dikirim apa adanya (versi + waktu server) supaya antarmuka
+      // bisa memblokir pengumpulan data sensitif SELAGI server belum mencatatnya,
+      // dan meminta persetujuan ulang bila versi penjelasannya sudah berubah.
+      persetujuan:
+        row.persetujuan === undefined
+          ? null
+          : {
+              versi: row.persetujuan.versi,
+              pada: row.persetujuan.pada,
+              olehLabel: row.persetujuan.olehLabel,
+            },
+      persetujuanAktif: persetujuanAktif(row.persetujuan),
+      versiPersetujuan: VERSI_PERSETUJUAN_KYC,
       diajukanPada: row.diajukanPada ?? null,
       diputuskanPada: row.diputuskanPada ?? null,
       diputuskanOlehLabel: row.diputuskanOlehLabel ?? null,
       keputusanCatatan: row.keputusanCatatan ?? null,
       diperbaruiPada: row.diperbaruiPada,
+      // Terbaru dulu. `waktu` saja tidak cukup: dua perubahan yang tercatat di
+      // milidetik yang sama membuat urutannya tidak tentu, sehingga kejadian
+      // terakhir bisa tampil di baris kedua. `_creationTime` (selalu naik) jadi
+      // pemecah seri yang membuat "paling baru" benar-benar paling atas.
       riwayat: riwayat
-        .sort((a, b) => b.waktu - a.waktu)
+        .sort((a, b) => b.waktu - a.waktu || b._creationTime - a._creationTime)
         .slice(0, 20)
         .map((it) => ({
           dari: it.dari,
@@ -439,8 +486,71 @@ export const urlUnggahBerkasKyc = mutation({
   args: {},
   returns: v.string(),
   handler: async (ctx) => {
-    await requireNasabah(ctx);
+    const { userId } = await requireNasabah(ctx);
+    const lama = await ctx.db
+      .query("kycProfil")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .first();
+    // Berkas KTP/selfie/bukti adalah data pribadi: URL unggahnya baru diberikan
+    // setelah persetujuan tercatat, jadi tidak ada berkas sensitif yang bisa
+    // mendarat di penyimpanan tanpa dasar persetujuan.
+    await pastikanPersetujuan(ctx, lama, "berkas identitas");
     return await ctx.storage.generateUploadUrl();
+  },
+});
+
+/**
+ * Catat persetujuan pemrosesan data (`lib/persetujuanKyc.ts`).
+ *
+ * Terpisah dari `simpanProgresKyc` supaya persetujuan punya waktunya sendiri,
+ * tercatat di audit, dan tetap sah walau isian berikutnya gagal disimpan.
+ * Idempoten: persetujuan yang sudah berlaku tidak ditulis ulang sehingga tidak
+ * ada baris audit ganda.
+ */
+export const catatPersetujuanKyc = mutation({
+  args: { versi: v.string() },
+  returns: v.object({ ok: v.literal(true), versi: v.string() }),
+  handler: async (ctx, { versi }) => {
+    const { userId, label } = await requireNasabah(ctx);
+    if (versi !== VERSI_PERSETUJUAN_KYC) {
+      throw new Error(
+        "Versi penjelasan pemrosesan data sudah berubah. Muat ulang halaman, baca penjelasan " +
+          "terbaru, lalu setujui lagi.",
+      );
+    }
+    const sekarang = Date.now();
+    const lama = await ctx.db
+      .query("kycProfil")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .first();
+    if (persetujuanAktif(lama?.persetujuan)) {
+      return { ok: true as const, versi };
+    }
+
+    if (lama === null) {
+      // Menyetujui = memulai modul KYC (NOT_STARTED → IN_PROGRESS oleh nasabah).
+      await ctx.db.insert("kycProfil", {
+        userId,
+        status: "IN_PROGRESS",
+        dibuatPada: sekarang,
+        diperbaruiPada: sekarang,
+        persetujuan: { versi, pada: sekarang, olehLabel: label },
+      });
+    } else {
+      await ctx.db.patch(lama._id, {
+        persetujuan: { versi, pada: sekarang, olehLabel: label },
+        diperbaruiPada: sekarang,
+      });
+    }
+    await audit(
+      ctx,
+      userId,
+      label,
+      "kyc_persetujuan",
+      userId,
+      `Persetujuan pemrosesan data pribadi dicatat (versi penjelasan ${versi}).`,
+    );
+    return { ok: true as const, versi };
   },
 });
 
@@ -524,6 +634,9 @@ export const simpanProgresKyc = mutation({
       .query("kycProfil")
       .withIndex("by_user", (q) => q.eq("userId", userId))
       .first();
+
+    // Gerbang persetujuan: semua argumen di mutation ini adalah data pribadi.
+    await pastikanPersetujuan(ctx, lama, "data KYC");
 
     // Isian baru = isian lama + yang dikirim sekarang (undefined = jangan ubah).
     const isian: Record<KunciIsianKyc, string | undefined> = {
@@ -683,6 +796,10 @@ export const ajukanKyc = mutation({
       .withIndex("by_user", (q) => q.eq("userId", userId))
       .first();
     if (row === null) throw new Error("KYC belum dimulai. Simpan isian dulu.");
+    // Pertahanan berlapis: pengajuan tidak mungkin berisi data pribadi tanpa
+    // persetujuan yang tercatat, tetapi diperiksa lagi di sini supaya baris lama
+    // (dibuat sebelum aturan ini ada) tidak bisa diajukan tanpa persetujuan.
+    await pastikanPersetujuan(ctx, row, "pengajuan KYC");
     const sekarang = Date.now();
 
     const { tersimpan, pesan } = bacaDataDiri({
@@ -836,9 +953,22 @@ export const detailKycAdmin = query({
       diputuskanOlehLabel: row.diputuskanOlehLabel ?? null,
       keputusanCatatan: row.keputusanCatatan ?? null,
       verifikasiUlangTertunda: perluVerifikasiUlang(stempel(row), ringkas(row)),
+      // Petugas perlu tahu dasar pemrosesan sebelum memutuskan: tanpa persetujuan
+      // yang berlaku, keputusan apa pun tidak punya dasar yang bisa diaudit.
+      persetujuan:
+        row.persetujuan === undefined
+          ? null
+          : {
+              versi: row.persetujuan.versi,
+              pada: row.persetujuan.pada,
+              olehLabel: row.persetujuan.olehLabel,
+            },
+      persetujuanAktif: persetujuanAktif(row.persetujuan),
       url: { ktp, selfie, buktiPenghasilan: bukti },
+      // Lihat catatan yang sama di `kycSaya`: pemecah seri `_creationTime`
+      // menjaga urutan "terbaru dulu" tetap pasti di panel petugas.
       riwayat: riwayat
-        .sort((a, b) => b.waktu - a.waktu)
+        .sort((a, b) => b.waktu - a.waktu || b._creationTime - a._creationTime)
         .slice(0, 30)
         .map((it) => ({
           dari: it.dari,
