@@ -1734,7 +1734,7 @@ describe("lokasi & berkas peminjam di ruang penyedia dana", () => {
     expect(akhir.kredit[0]?.lokasi?.lat).toBeCloseTo(-6.175392);
   });
 
-  it("berkasPengajuan hanya untuk sesi ber-akses dan memuat URL berkas tersimpan", async () => {
+  it("berkasPengajuan tidak pernah membocorkan dokumen identitas ke ruang penyedia dana", async () => {
     const t = convexTest(schema, modules);
     const { userId } = await siapkanPengguna(t, "rani", {
       email: "rani@pindai.test",
@@ -1761,16 +1761,24 @@ describe("lokasi & berkas peminjam di ruang penyedia dana", () => {
     );
     await t.run((ctx) => ctx.db.patch(pawnId, { fotoBarangId: fotoBarang }));
 
+    // Pinjaman: seluruh dokumennya identitas, jadi tidak ada yang boleh keluar.
     const pinjaman = await dana.query(api.penyediaDana.berkasPengajuan, {
       jenis: "pinjaman",
       id: loanId,
     });
-    expect(pinjaman?.berkas.map((b) => b.label)).toEqual(["KTP", "Selfie dengan KTP"]);
-    expect(pinjaman?.berkas.every((b) => b.url.startsWith("http"))).toBe(true);
-    expect(pinjaman?.catatan).toBeNull();
-    expect(pinjaman?.tandaTangan).toBe("data:image/png;base64,AAAA");
-    expect(pinjaman?.tandaTanganPada).toBe(1_700_000_000_000);
+    expect(pinjaman?.berkas).toEqual([]);
+    expect(pinjaman?.catatan).toMatch(/hanya dapat dibuka oleh tim PINDAI/i);
 
+    // URL berkas identitas tidak pernah ikut, dalam bentuk apa pun.
+    const urlKtp = await t.run((ctx) => ctx.storage.getUrl(ktp));
+    const urlSelfie = await t.run((ctx) => ctx.storage.getUrl(selfie));
+    const mentah = JSON.stringify(pinjaman);
+    expect(urlKtp).not.toBeNull();
+    expect(mentah).not.toContain(urlKtp as string);
+    expect(mentah).not.toContain(urlSelfie as string);
+    expect(mentah).not.toContain("data:image/png");
+
+    // Gadai: hanya foto BARANG jaminan (bukan identitas orang).
     const gadai = await dana.query(api.penyediaDana.berkasPengajuan, {
       jenis: "gadai",
       id: pawnId,
@@ -1803,7 +1811,8 @@ describe("lokasi & berkas peminjam di ruang penyedia dana", () => {
       id: kosong,
     });
     expect(tanpaBerkas?.berkas).toHaveLength(0);
-    expect(tanpaBerkas?.catatan).toMatch(/belum ada berkas/i);
+    // Alasan selalu dijelaskan — tidak pernah dikosongkan diam-diam.
+    expect(tanpaBerkas?.catatan).toMatch(/hanya dapat dibuka oleh tim PINDAI/i);
 
     // Id tidak valid & id dari tabel lain tidak pernah membocorkan dokumen.
     expect(

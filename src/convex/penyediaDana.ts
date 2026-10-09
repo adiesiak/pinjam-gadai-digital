@@ -17,14 +17,21 @@
  * klien hanya berisi field operasional yang dibutuhkan ruang ini. Nama lengkap
  * pemohon ditampilkan untuk ruang pemantau (keputusan admin), NIK, nomor
  * rekening, nomor WhatsApp, alamat, dan penghasilan tetap TIDAK pernah keluar
- * sebagai teks. Dua hal dibuka atas keputusan admin: (1) berkas pengajuan
- * (KTP, selfie, slip, foto barang) lewat `berkasPengajuan` yang hanya dipanggil
- * saat dialog Detail dibuka, dan (2) titik lokasi terakhir peminjam lewat
- * `lokasi`/`titikPeminjam`. Setiap baris tetap membawa `kodePeminjam`
- * (pseudonim acak dari `peminjamCode.ts`) sebagai kunci stabil antar-ruang.
+ * sebagai teks.
+ *
+ * DOKUMEN IDENTITAS TIDAK PERNAH DIBAGIKAN KE RUANG INI. KTP, selfie dengan
+ * KTP, bukti penghasilan, dan tanda tangan peminjam hanya dapat dibuka oleh
+ * tim PINDAI yang berwenang lewat panel admin (`admin.dokumenKycUrls`, sesi
+ * TOTP terverifikasi, tampil ber-watermark). Yang tersisa di sini hanya foto
+ * BARANG jaminan (gadai) — foto benda, bukan identitas orang — dan pemanggilnya
+ * tetap dibatasi `requireBerkasPemohon`.
+ *
+ * Titik lokasi terakhir peminjam dibuka lewat `lokasi`/`titikPeminjam`.
+ * Setiap baris tetap membawa `kodePeminjam` (pseudonim acak dari
+ * `peminjamCode.ts`) sebagai kunci stabil antar-ruang.
  *
  * Akses ditentukan peran akun: `dana` (penyedia dana), `pengamat` (sesi kode
- * akses bersama — tanpa berkas identitas), atau `admin` untuk pratinjau. Admin
+ * akses bersama), atau `admin` untuk pratinjau. Admin
  * memberi/mencabut akses lewat `ubahAkses`, atau membuat akun pendana baru
  * siap-akses lewat `buatPendana`, dan setiap perubahan tercatat pada audit trail.
  */
@@ -825,23 +832,31 @@ export const titikPeminjam = query({
 });
 
 /**
- * Berkas pengajuan (KTP, selfie KTP, slip penghasilan, foto barang, tanda
- * tangan) untuk dialog Detail.
+ * Berkas NON-IDENTITAS pengajuan untuk dialog Detail: hanya foto barang
+ * jaminan (gadai).
+ *
+ * Dokumen identitas peminjam — KTP, selfie dengan KTP, bukti penghasilan,
+ * dan tanda tangan — SENGAJA tidak pernah ada di sini. Pemegang akses "lihat
+ * saja" (termasuk penyedia dana beremail) tidak berhak atas dokumen identitas
+ * mentah; permintaan berkas identitas hanya lewat panel admin yang ber-watermark
+ * dan tercatat (`admin.dokumenKycUrls`). Bila tidak ada berkas yang boleh
+ * ditampilkan, `catatan` menjelaskan alasannya alih-alih mengosongkannya diam-diam.
  *
  * Sengaja dipisah dari `daftarPengajuan` supaya payload daftar tetap ringan dan
- * berkas hanya diambil saat benar-benar dibuka. `ctx.storage.getUrl` memakai
- * URL penyimpanan Convex yang tidak dapat ditebak; hanya akun penyedia dana
- * beremail (atau admin) yang bisa memintanya — sesi kode akses bersama ditolak,
- * lihat `requireBerkasPemohon`.
+ * berkas hanya diambil saat benar-benar dibuka.
  */
 export type BerkasPengajuan = {
   jenis: "pinjaman" | "gadai" | "kredit";
+  /** Berkas non-identitas saja (foto barang jaminan). */
   berkas: { label: string; url: string }[];
-  /** Tanda tangan elektronik peminjam (data URL PNG) bila ada. */
-  tandaTangan: string | null;
-  tandaTanganPada: number | null;
   catatan: string | null;
 };
+
+/** Kalimat tetap untuk menjelaskan kenapa dokumen identitas tidak tampil di sini. */
+const CATATAN_IDENTITAS_KHUSUS_ADMIN =
+  "Dokumen identitas pemohon (KTP, selfie dengan KTP, bukti penghasilan, tanda tangan) " +
+  "hanya dapat dibuka oleh tim PINDAI yang berwenang melalui panel admin — " +
+  "tidak pernah dibagikan ke ruang penyedia dana.";
 
 export const berkasPengajuan = query({
   args: {
@@ -858,8 +873,6 @@ export const berkasPengajuan = query({
       return {
         jenis,
         berkas: [],
-        tandaTangan: null,
-        tandaTanganPada: null,
         catatan:
           "Pengajuan kredit barang tidak menyimpan berkas gambar di PINDAI — hanya data pemohon dan rincian barang.",
       };
@@ -875,39 +888,18 @@ export const berkasPengajuan = query({
       return {
         jenis,
         berkas,
-        tandaTangan: pawn.tandaTanganPeminjam ?? null,
-        tandaTanganPada: pawn.tandaTanganPada ?? null,
         catatan:
           berkas.length === 0
-            ? "Belum ada foto barang yang tersimpan untuk pengajuan gadai ini."
-            : null,
+            ? `Belum ada foto barang yang tersimpan untuk pengajuan gadai ini. ${CATATAN_IDENTITAS_KHUSUS_ADMIN}`
+            : CATATAN_IDENTITAS_KHUSUS_ADMIN,
       };
     }
 
     const loanId = ctx.db.normalizeId("loans", id);
-    if (loanId === null) return null;
-    const loan = await ctx.db.get(loanId);
-    if (loan === null) return null;
-    const [ktp, selfie, slip] = await Promise.all([
-      loan.dokKtpId ? ctx.storage.getUrl(loan.dokKtpId) : null,
-      loan.dokSelfieKtpId ? ctx.storage.getUrl(loan.dokSelfieKtpId) : null,
-      loan.dokSlipGajiId ? ctx.storage.getUrl(loan.dokSlipGajiId) : null,
-    ]);
-    const berkas = [
-      { label: "KTP", url: ktp },
-      { label: "Selfie dengan KTP", url: selfie },
-      { label: "Slip penghasilan", url: slip },
-    ].filter((b): b is { label: string; url: string } => b.url !== null);
-    return {
-      jenis,
-      berkas,
-      tandaTangan: loan.tandaTanganPeminjam ?? null,
-      tandaTanganPada: loan.tandaTanganPada ?? null,
-      catatan:
-        berkas.length === 0
-          ? "Belum ada berkas yang tersimpan untuk pengajuan pinjaman ini."
-          : null,
-    };
+    if (loanId === null || (await ctx.db.get(loanId)) === null) return null;
+    // Pinjaman tunai tidak punya berkas non-identitas: seluruh dokumennya
+    // (KTP, selfie, slip, tanda tangan) adalah data pribadi peminjam.
+    return { jenis, berkas: [], catatan: CATATAN_IDENTITAS_KHUSUS_ADMIN };
   },
 });
 

@@ -232,7 +232,13 @@ const schema = defineSchema(
        * (cadangan data warisan/seed). Diisi bersama `pendanaId` bila mungkin.
        */
       pendanaNama: v.optional(v.string()),
-      // ===== KYC wajib saat pengajuan (lihat verifyKyc di lib/kyc.ts) =====
+      // ===== KYC wajib saat pengajuan =====
+      // Aturan bentuk isian ada di lib/kyc.ts (validateKycInput) dan dipakai
+      // form MAUPUN server; batas ukuran/jenis berkas diperiksa server lewat
+      // convex/berkasIdentitas.ts (metadata + magic bytes storage). Kolom di
+      // bawah ini hanya menyimpan MASUKAN pengajuan — tidak ada status
+      // "identitas terverifikasi" di sini; putusan verifikasi hidup di
+      // `nasabahProfil.verifikasiIdentitas`.
       /** NIK 16 digit sesuai KTP. */
       nik: v.optional(v.string()),
       /** Nomor WhatsApp aktif untuk pengingat penagihan. */
@@ -317,6 +323,32 @@ const schema = defineSchema(
        * acuan karena panel admin selalu menimpa saat disimpan.
        */
       sumber: v.optional(v.union(v.literal("admin"), v.literal("nasabah"))),
+      /**
+       * PUTUSAN verifikasi identitas oleh petugas — sengaja TERPISAH dari
+       * keputusan pinjaman (status di tabel `loans`).
+       *
+       * Kosong = belum ada putusan. Mengunggah dokumen TIDAK pernah mengisi
+       * kolom ini: yang bisa mengisinya hanya mutation admin
+       * (`admin.verifikasiIdentitasNasabah`) yang tercatat di audit trail.
+       * Kolom ini juga TIDAK dibaca oleh alur persetujuan pinjaman — jadi
+       * "dokumen sudah diunggah" tidak pernah diperlakukan sebagai "identitas
+       * sudah terverifikasi", dan sebaliknya pinjaman yang disetujui tidak
+       * membuat identitas menjadi terverifikasi.
+       *
+       * Direset otomatis (dihapus) saat data identitas berubah — nama, NIK,
+       * atau foto KTP — karena putusan lama tidak lagi mewakili data baru.
+       */
+      verifikasiIdentitas: v.optional(
+        v.object({
+          status: v.union(v.literal("terverifikasi"), v.literal("ditolak")),
+          /** Waktu putusan petugas (ms). */
+          pada: v.number(),
+          /** Label petugas yang memutuskan (snapshot agar tetap terbaca). */
+          olehLabel: v.string(),
+          /** Alasan/catatan — wajib saat ditolak supaya bisa ditindaklanjuti. */
+          catatan: v.optional(v.string()),
+        }),
+      ),
     }).index("by_user", ["userId"]),
 
     /**

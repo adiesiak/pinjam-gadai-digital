@@ -107,11 +107,14 @@ import {
  * tidak pernah memanggil mutation apa pun; seluruh pengubahan data tetap di
  * panel admin.
  *
- * Atas keputusan admin, ruang ini juga menampilkan (1) berkas pengajuan — KTP,
- * selfie, slip penghasilan, foto barang, tanda tangan — yang diambil hanya saat
- * dialog Detail dibuka, dan (2) titik lokasi terakhir peminjam beserta peta
- * live. NIK, nomor rekening, nomor WhatsApp, dan alamat tetap tidak dikirim
- * sebagai kolom terpisah; NIK hanya terbaca pada gambar KTP bila dibuka.
+ * Ruang ini juga menampilkan (1) foto BARANG jaminan pada gadai — foto benda,
+ * bukan identitas orang — yang diambil hanya saat dialog Detail dibuka, dan
+ * (2) titik lokasi terakhir peminjam beserta peta live. NIK, nomor rekening,
+ * nomor WhatsApp, dan alamat tetap tidak dikirim sebagai kolom terpisah.
+ *
+ * Dokumen identitas (KTP, selfie dengan KTP, bukti penghasilan, tanda tangan)
+ * TIDAK PERNAH dikirim ke ruang ini: aksesnya hanya untuk tim PINDAI yang
+ * berwenang lewat panel admin.
  *
  * Batas yang harus jujur disampaikan: titik lokasi hanya diperbarui selama
  * dashboard peminjam terbuka (±60 detik). Pelacakan saat aplikasi ditutup butuh
@@ -856,8 +859,12 @@ function BagianLokasi({ lokasi, nama }: { lokasi: LokasiTitik | null; nama: stri
 }
 
 /**
- * Berkas pengajuan pada dialog Detail: KTP, selfie, slip, foto barang, dan
- * tanda tangan elektronik. Diminta hanya saat dialog dibuka.
+ * Berkas NON-IDENTITAS pada dialog Detail: foto barang jaminan gadai. Diminta
+ * hanya saat dialog dibuka.
+ *
+ * Dokumen identitas peminjam sengaja tidak dirender di sini meski server kelak
+ * mengirimkannya: ruang penyedia dana bukan pihak yang berwenang atas KTP,
+ * selfie, NIK, atau tanda tangan.
  */
 function BagianBerkas({
   jenis,
@@ -884,9 +891,9 @@ function BagianBerkas({
       {!boleh ? (
         <p className="mt-2 flex items-start gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs leading-5 text-muted-foreground">
           <Lock className="mt-0.5 size-3.5 shrink-0 text-slate-400" aria-hidden />
-          Berkas identitas pemohon (KTP, selfie, slip) hanya dibuka untuk akun penyedia dana
+          Berkas non-identitas (mis. foto barang jaminan) hanya dibuka untuk akun penyedia dana
           beremail yang ditunjuk admin. Sesi kode akses bersama dapat melihat angka pengajuan dan
-          lokasi, tetapi tidak berkas pemohon.
+          lokasi, tetapi tidak berkas apa pun.
         </p>
       ) : data === undefined ? (
         <p className="mt-2 flex items-center gap-2 text-sm text-muted-foreground">
@@ -931,27 +938,11 @@ function BagianBerkas({
               ))}
             </div>
           )}
-          {data.tandaTangan !== null && (
-            <div className="mt-3 rounded-2xl border border-slate-200 bg-white p-3">
-              <p className="text-xs text-muted-foreground">
-                Tanda tangan elektronik peminjam
-                {data.tandaTanganPada === null
-                  ? ""
-                  : ` · ${tanggalRingkas(data.tandaTanganPada)}`}
-              </p>
-              <img
-                src={data.tandaTangan}
-                alt="Tanda tangan elektronik peminjam"
-                loading="lazy"
-                decoding="async"
-                className="mt-2 h-24 w-full bg-slate-50 object-contain"
-              />
-            </div>
-          )}
           <p className="mt-3 flex items-start gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-[11px] leading-5 text-muted-foreground">
-            <TriangleAlert className="mt-0.5 size-3.5 shrink-0 text-amber-600" aria-hidden />
-            Berkas memuat data pribadi peminjam (termasuk NIK pada KTP). Gunakan hanya untuk
-            penilaian pendanaan dan jangan dibagikan ke luar tim.
+            <Lock className="mt-0.5 size-3.5 shrink-0 text-slate-400" aria-hidden />
+            Dokumen identitas peminjam (KTP, selfie dengan KTP, bukti penghasilan, tanda tangan)
+            tidak dibagikan ke ruang penyedia dana. Peninjauannya dilakukan tim PINDAI yang
+            berwenang, dengan penanda air, di panel admin.
           </p>
         </>
       )}

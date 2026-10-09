@@ -9,6 +9,7 @@ import {
 import { v } from "convex/values";
 import { Id } from "./_generated/dataModel";
 import { internal } from "./_generated/api";
+import { periksaBerkasIdentitasStorage } from "./berkasIdentitas";
 import {
   ROLES,
   loanStatusKanonikValidator,
@@ -383,16 +384,16 @@ export const createLoanApplication = mutation({
     if (args.sumberPenghasilan.trim().length < 3) {
       throw new Error("Isi sumber penghasilan (mis. gaji, usaha).");
     }
-    // Dokumen wajib benar-benar ada di storage.
+    // Dokumen wajib ada di storage DAN benar-benar berupa gambar ukuran wajar.
+    // Batas ukuran/jenis yang hanya diperiksa di form bisa dilewati dengan
+    // mengirim langsung ke URL unggah, jadi aturannya ditegakkan di sini.
+    // Fungsi ini melempar pesan siap tampil bila berkas tidak lolos.
     for (const [label, id] of [
       ["Foto KTP", args.dokKtpId],
       ["Selfie dengan KTP", args.dokSelfieKtpId],
       ["Slip gaji / bukti penghasilan", args.dokSlipGajiId],
     ] as const) {
-      const meta = await ctx.storage.getMetadata(id);
-      if (meta === null) {
-        throw new Error(`${label} wajib diunggah.`);
-      }
+      await periksaBerkasIdentitasStorage(ctx, label, id);
     }
     // Lokasi real wajib: bukan (0,0), koordinat valid, dan segar (≤10 menit).
     const lok = args.lokasiAjukan;

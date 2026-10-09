@@ -320,7 +320,80 @@ export const dataDiriNasabah = query({
       diperbaruiOlehLabel: row?.diperbaruiOlehLabel ?? null,
       /** Siapa yang terakhir menyunting (null untuk data lama). */
       sumber: row?.sumber ?? null,
+      /**
+       * PUTUSAN verifikasi identitas petugas, atau null bila belum ada putusan.
+       * Terpisah dari keputusan pinjaman; `null` berarti "belum diverifikasi",
+       * BUKAN "dokumen belum diunggah".
+       */
+      verifikasiIdentitas: row?.verifikasiIdentitas ?? null,
     };
+  },
+});
+
+/**
+ * Catat PUTUSAN verifikasi identitas seorang nasabah — admin saja.
+ *
+ * Sengaja berdiri sendiri dari keputusan pinjaman: menyetujui pengajuan TIDAK
+ * mengisi putusan ini, dan mengisi putusan ini TIDAK mengubah status pinjaman
+ * mana pun. Jadi "dokumen sudah diunggah" tidak pernah disamakan dengan
+ * "identitas sudah terverifikasi".
+ *
+ * Catatan wajib saat status `ditolak` supaya penolakan punya alasan yang bisa
+ * ditindaklanjuti nasabah. Setiap putusan tercatat di audit trail.
+ */
+export const verifikasiIdentitasNasabah = mutation({
+  args: {
+    userId: v.id("users"),
+    status: v.union(v.literal("terverifikasi"), v.literal("ditolak")),
+    catatan: v.optional(v.string()),
+  },
+  handler: async (ctx, { userId, status, catatan }) => {
+    const { userId: adminId, user: admin } = await requireAdmin(ctx);
+    const target = await ctx.db.get(userId);
+    if (target === null) throw new Error("Pengguna tidak ditemukan.");
+    if (target.role === ROLES.ADMIN) {
+      throw new Error("Verifikasi identitas tidak berlaku untuk akun tim (admin).");
+    }
+    const row = await ctx.db
+      .query("nasabahProfil")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .first();
+    if (row === null) {
+      throw new Error(
+        "Data diri nasabah belum ada. Isi data diri dulu, baru catat putusan verifikasi identitas.",
+      );
+    }
+    const bersih = (catatan ?? "").trim();
+    if (bersih.length > 300) {
+      throw new Error("Catatan verifikasi maksimal 300 karakter.");
+    }
+    if (status === "ditolak" && bersih.length < 3) {
+      throw new Error("Alasan penolakan verifikasi wajib diisi (minimal 3 karakter).");
+    }
+
+    const olehLabel = admin.email ?? admin.name ?? "admin";
+    await ctx.db.patch(row._id, {
+      verifikasiIdentitas: {
+        status,
+        pada: Date.now(),
+        olehLabel,
+        ...(bersih === "" ? {} : { catatan: bersih }),
+      },
+    });
+
+    const nama = target.name ?? target.email ?? userId;
+    await audit(
+      ctx,
+      adminId,
+      olehLabel,
+      status === "terverifikasi" ? "verifikasi_identitas" : "verifikasi_identitas_ditolak",
+      nama,
+      `${status === "terverifikasi" ? "Identitas ditandai terverifikasi" : "Verifikasi identitas ditolak"} ` +
+        `(NIK ${row.nik.slice(0, 4)}••••${row.nik.slice(-4)}). Keputusan ini terpisah dari ` +
+        `keputusan pinjaman.` +
+        (bersih === "" ? "" : ` Catatan: ${bersih}`),
+    );
+    return { ok: true };
   },
 });
 
@@ -372,7 +445,7 @@ export const simpanDataDiriNasabah = mutation({
 
     // Validasi, normalisasi, dan penanganan foto ada di satu tempat bersama
     // jalur sunting mandiri nasabah (convex/dataDiriProfil.ts).
-    const { dibuat, tersimpan, fotoKtpId } = await simpanDataDiriProfil(ctx, {
+    const { dibuat, tersimpan, fotoKtpId, verifikasiDireset } = await simpanDataDiriProfil(ctx, {
       userId: args.userId,
       isian: {
         namaLengkap: args.namaLengkap,
@@ -403,7 +476,10 @@ export const simpanDataDiriNasabah = mutation({
         (tersimpan.penghasilanBulanan === null
           ? ", penghasilan kosong"
           : `, penghasilan ${formatRupiah(tersimpan.penghasilanBulanan)}`) +
-        (fotoKtpId === undefined ? ", tanpa foto KTP" : ", foto KTP tersimpan"),
+        (fotoKtpId === undefined ? ", tanpa foto KTP" : ", foto KTP tersimpan") +
+        (verifikasiDireset
+          ? ". Putusan verifikasi identitas DIHAPUS karena nama/NIK/foto KTP berubah."
+          : ""),
     );
     return { ok: true };
   },

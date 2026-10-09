@@ -1,6 +1,7 @@
 import type { MutationCtx } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { bacaDataDiri, type DataDiriForm, type DataDiriTersimpan } from "../lib/dataDiri";
+import { periksaBerkasIdentitasStorage } from "./berkasIdentitas";
 
 /**
  * Inti penyimpanan satu baris data diri nasabah (`nasabahProfil`) — dipakai
@@ -39,8 +40,15 @@ export type PerubahanFotoKtp = Id<"_storage"> | null | undefined;
  *   sama dengan form).
  * - Menolak penghasilan berkoma — tanpa ini, angka seperti 5.5 akan "diperbaiki"
  *   diam-diam menjadi 55 oleh pengekstrakan digit.
+ * - Foto KTP BARU diperiksa server (harus gambar, ≤ 5 MB) sebelum disimpan —
+ *   batas yang hanya hidup di form bisa dilewati dengan mengirim langsung ke
+ *   URL unggah.
  * - Foto KTP lama dihapus dari storage saat diganti atau dikosongkan, agar
  *   tidak menumpuk berkas yatim.
+ *
+ * - PUTUSAN VERIFIKASI IDENTITAS DIRESET saat data identitas berubah (nama,
+ *   NIK, atau foto KTP). Putusan lama diambil atas data lama, jadi membiarkannya
+ *   berarti menyatakan data BARU sudah terverifikasi padahal belum diperiksa.
  *
  * - Menyamakan `users.name` dengan nama KTP yang tersimpan, sehingga SELURUH
  *   layar yang membaca nama akun (pemilih nasabah, panel plafon, dashboard)
@@ -64,6 +72,8 @@ export async function simpanDataDiriProfil(
   dibuat: boolean;
   tersimpan: Pick<DataDiriTersimpan, "nik" | "nomorWhatsApp" | "alamat" | "penghasilanBulanan">;
   fotoKtpId: Id<"_storage"> | undefined;
+  /** true bila putusan verifikasi identitas ikut dihapus karena data berubah. */
+  verifikasiDireset: boolean;
 }> {
   if (args.isian.penghasilanBulanan !== null && !Number.isSafeInteger(args.isian.penghasilanBulanan)) {
     throw new Error("Penghasilan per bulan harus rupiah bulat (tanpa koma).");
@@ -95,11 +105,23 @@ export async function simpanDataDiriProfil(
     fotoKtpId = args.fotoKtpId;
   }
   const fotoLama = existing?.fotoKtpId;
+  // Foto BARU diperiksa server dulu (bentuk + ukuran) sebelum apa pun ditulis.
+  if (fotoKtpId !== undefined && fotoKtpId !== fotoLama) {
+    await periksaBerkasIdentitasStorage(ctx, "Foto KTP", fotoKtpId);
+  }
   if (fotoLama !== undefined && fotoLama !== fotoKtpId) {
-    if ((await ctx.storage.getMetadata(fotoLama)) !== null) {
+    if ((await ctx.db.system.get("_storage", fotoLama)) !== null) {
       await ctx.storage.delete(fotoLama);
     }
   }
+
+  // Putusan verifikasi identitas hanya berlaku untuk data yang diperiksa.
+  const identitasBerubah =
+    existing !== null &&
+    (existing.namaLengkap !== tersimpan.namaLengkap ||
+      existing.nik !== tersimpan.nik ||
+      fotoLama !== fotoKtpId);
+  const verifikasiDireset = identitasBerubah && existing?.verifikasiIdentitas !== undefined;
 
   const isi = {
     namaLengkap: tersimpan.namaLengkap,
@@ -114,6 +136,8 @@ export async function simpanDataDiriProfil(
     sumber: args.sumber,
     diperbaruiPada: Date.now(),
     diperbaruiOlehLabel: args.olehLabel,
+    // `undefined` menghapus kolomnya (Convex patch) — itulah jalur reset.
+    verifikasiIdentitas: identitasBerubah ? undefined : existing?.verifikasiIdentitas,
   };
   if (existing === null) {
     await ctx.db.insert("nasabahProfil", { userId: args.userId, ...isi });
@@ -137,6 +161,7 @@ export async function simpanDataDiriProfil(
       penghasilanBulanan: tersimpan.penghasilanBulanan,
     },
     fotoKtpId,
+    verifikasiDireset,
   };
 }
 
