@@ -11,7 +11,14 @@
  * Keduanya presentasional: angka dihitung `lib/jatuhTempo` dan
  * `lib/kepercayaanPeminjam`, jadi bisa diuji tanpa server maupun jam perangkat.
  */
-import { BadgeCheck, CalendarClock, ShieldAlert, Sparkles, TrendingUp } from "lucide-react";
+import {
+  BadgeCheck,
+  CalendarClock,
+  ShieldAlert,
+  Sparkles,
+  TrendingUp,
+  TriangleAlert,
+} from "lucide-react";
 import type { ReactNode } from "react";
 
 import { Badge } from "@/components/ui/badge";
@@ -21,10 +28,10 @@ import type { RingkasKepercayaan, TingkatKepercayaan } from "@/lib/kepercayaanPe
 
 /** Warna per tingkat kepercayaan — konsisten dengan palet slate halaman ini. */
 const KELAS_TINGKAT: Record<TingkatKepercayaan, string> = {
-  kuat: "border-emerald-200 bg-emerald-100 text-emerald-800 hover:bg-emerald-100",
-  berkembang: "border-sky-200 bg-sky-100 text-sky-700 hover:bg-sky-100",
-  baru: "border-slate-200 bg-slate-100 text-slate-600 hover:bg-slate-100",
-  perlu_perhatian: "border-red-200 bg-red-100 text-red-700 hover:bg-red-100",
+  kuat: "border-emerald-700 bg-emerald-600 text-white hover:bg-emerald-600",
+  berkembang: "border-sky-700 bg-sky-600 text-white hover:bg-sky-600",
+  baru: "border-slate-500 bg-slate-500 text-white hover:bg-slate-500",
+  perlu_perhatian: "border-red-700 bg-red-600 text-white hover:bg-red-600",
 };
 
 const IKON_TINGKAT: Record<TingkatKepercayaan, ReactNode> = {
@@ -34,23 +41,31 @@ const IKON_TINGKAT: Record<TingkatKepercayaan, ReactNode> = {
   perlu_perhatian: <ShieldAlert className="size-3" aria-hidden />,
 };
 
-/** Warna teks tanggal + lencana hitung hari per nada jatuh tempo. */
+/**
+ * Warna teks tanggal + lencana hitung hari per nada jatuh tempo.
+ *
+ * Lencana hitung hari memakai warna PEJAL (bukan pastel) untuk dua keadaan
+ * mendesak — merah saat terlambat, kuning tua saat jatuh tempo ≤3 hari — supaya
+ * benar-benar menangkap mata di antara banyak kolom abu-abu. Keadaan jauh,
+ * lunas, dan belum didanai sengaja tetap tenang agar warna mendesak tetap
+ * berarti.
+ */
 const KELAS_NADA: Record<NadaJatuhTempo, { teks: string; badge: string }> = {
   terlambat: {
     teks: "text-red-700",
-    badge: "border-red-200 bg-red-100 text-red-700 hover:bg-red-100",
+    badge: "border-red-700 bg-red-600 text-white hover:bg-red-600",
   },
   segera: {
     teks: "text-amber-700",
-    badge: "border-amber-300 bg-amber-100 text-amber-900 hover:bg-amber-100",
+    badge: "border-amber-600 bg-amber-500 text-white hover:bg-amber-500",
   },
   netral: {
     teks: "text-slate-900",
-    badge: "border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-50",
+    badge: "border-slate-300 bg-slate-100 text-slate-700 hover:bg-slate-100",
   },
   lunas: {
     teks: "text-slate-500",
-    badge: "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-50",
+    badge: "border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-50",
   },
   belum_didanai: {
     teks: "text-slate-400",
@@ -81,17 +96,40 @@ export function TampilanJatuhTempo({
     >
       <span
         className={cn(
-          "inline-flex items-center gap-1.5 whitespace-nowrap text-base font-bold tabular-nums tracking-tight",
+          "inline-flex items-center gap-1.5 whitespace-nowrap text-sm font-bold tabular-nums tracking-tight",
           kelas.teks,
         )}
       >
-        <CalendarClock className="size-4 shrink-0 opacity-70" aria-hidden />
+        <CalendarClock className="size-3.5 shrink-0 opacity-70" aria-hidden />
         {tampilan.teks}
       </span>
-      <Badge variant="outline" className={cn("border text-[10px] font-semibold", kelas.badge)}>
-        {tampilan.hitung}
-      </Badge>
+      {tombolHitung(tampilan, kelas)}
     </span>
+  );
+}
+
+/**
+ * Lencana hitung hari — elemen paling menarik perhatian pada baris ini.
+ * Keadaan mendesak memakai isian warna pejal + huruf besar + ikon peringatan
+ * supaya terbaca sekilas tanpa harus membaca angkanya.
+ */
+function tombolHitung(
+  tampilan: DataJatuhTempo,
+  kelas: { teks: string; badge: string },
+): ReactNode {
+  const mendesak = tampilan.nada === "terlambat" || tampilan.nada === "segera";
+  return (
+    <Badge
+      variant="outline"
+      className={cn(
+        "gap-1 border text-[11px] font-bold tracking-wide",
+        mendesak && "uppercase",
+        kelas.badge,
+      )}
+    >
+      {mendesak && <TriangleAlert className="size-3" aria-hidden />}
+      {tampilan.hitung}
+    </Badge>
   );
 }
 
@@ -106,9 +144,7 @@ export function TampilanJatuhTempoRingkas({ tampilan }: { tampilan: DataJatuhTem
       >
         {tampilan.teks}
       </span>
-      <Badge variant="outline" className={cn("border text-[10px] font-semibold", kelas.badge)}>
-        {tampilan.hitung}
-      </Badge>
+      {tombolHitung(tampilan, kelas)}
     </span>
   );
 }
@@ -128,7 +164,10 @@ export function BadgeKepercayaan({
     <span className="inline-flex flex-col items-start gap-1">
       <Badge
         variant="outline"
-        className={cn("gap-1 border text-[10px] font-semibold", KELAS_TINGKAT[kepercayaan.tingkat])}
+        className={cn(
+          "gap-1 border text-[11px] font-bold shadow-sm",
+          KELAS_TINGKAT[kepercayaan.tingkat],
+        )}
         title={`${kepercayaan.alasan.join(" · ")} (skor internal PINDAI, bukan skor kredit lembaga)`}
       >
         {IKON_TINGKAT[kepercayaan.tingkat]}

@@ -26,6 +26,9 @@ const WARNA = {
   netral: "text-slate-900",
   segera: "text-amber-700",
   terlambat: "text-red-700",
+  /** Isian pejal untuk lencana hitung hari yang mendesak. */
+  badgeTerlambat: "bg-red-600",
+  badgeSegera: "bg-amber-500",
 } as const;
 
 let passed = 0;
@@ -73,7 +76,11 @@ ada(htmlJauh, jauh.teks, "tanggal jatuh tempo tampil apa adanya");
 ada(htmlJauh, "font-bold", "tanggal dicetak tebal");
 ada(htmlJauh, "Sisa 25 hari", "lencana hitung hari tampil");
 ada(htmlJauh, WARNA.netral, "nada netral memakai warna tenang");
+ada(htmlJauh, "text-sm", "tanggal dicetak ringkas (text-sm)");
+ok(!htmlJauh.includes("text-base"), "tanggal tidak lagi memakai ukuran besar");
 ok(!htmlJauh.includes(WARNA.terlambat), "nada netral bukan warna peringatan");
+ok(!htmlJauh.includes(WARNA.badgeTerlambat) && !htmlJauh.includes(WARNA.badgeSegera), "lencana jauh tetap tenang, bukan merah/kuning pejal");
+ok(!htmlJauh.includes("uppercase"), "lencana jauh tidak diteriakkan");
 ada(htmlJauh, jauh.aksesibilitas, "kalimat aksesibilitas ikut tercetak");
 ada(htmlJauh, "aria-label", "penanda dibaca pembaca layar");
 bersih(htmlJauh, "tampilan netral");
@@ -83,7 +90,12 @@ const htmlTerlambat = renderToStaticMarkup(
 );
 ada(htmlTerlambat, "Terlambat 3 hari", "keterlambatan terbaca jelas");
 ada(htmlTerlambat, WARNA.terlambat, "keterlambatan memakai merah");
-ada(htmlTerlambat, "border-red-200", "lencana keterlambatan memakai warna merah");
+ada(htmlTerlambat, "border-red-700", "lencana keterlambatan memakai warna merah pejal");
+ada(htmlTerlambat, WARNA.badgeTerlambat, "lencana keterlambatan berisi warna merah pejal");
+ada(htmlTerlambat, "uppercase", "lencana mendesak dicetak huruf besar");
+ada(htmlTerlambat, "lucide-triangle-alert", "lencana keterlambatan memakai ikon peringatan");
+ada(htmlTerlambat, "text-white", "lencana mendesak memakai teks putih agar kontras");
+ok(!htmlTerlambat.includes("text-base"), "tanggal tetap ringkas saat terlambat");
 bersih(htmlTerlambat, "tampilan terlambat");
 
 const htmlSegera = renderToStaticMarkup(
@@ -91,18 +103,24 @@ const htmlSegera = renderToStaticMarkup(
 );
 ada(htmlSegera, "Sisa 2 hari", "jatuh tempo dekat terbaca");
 ada(htmlSegera, WARNA.segera, "jatuh tempo dekat memakai kuning");
+ada(htmlSegera, WARNA.badgeSegera, "lencana sisa hari berisi kuning pejal");
+ada(htmlSegera, "uppercase", "lencana sisa hari dicetak huruf besar");
+ada(htmlSegera, "lucide-triangle-alert", "lencana sisa hari memakai ikon peringatan");
 bersih(htmlSegera, "tampilan segera");
 
 const htmlHariIni = renderToStaticMarkup(
   <TampilanJatuhTempo tampilan={ringkasJatuhTempo(baris("didanai"), DIDANAI + 30 * HARI)} />,
 );
 ada(htmlHariIni, "Jatuh tempo hari ini", "hari jatuh tempo disebut eksplisit");
+ada(htmlHariIni, WARNA.badgeSegera, "hari jatuh tempo juga disorot dengan isian kuning");
+ada(htmlHariIni, "uppercase", "hari jatuh tempo disorot huruf besar");
 
 const htmlLunas = renderToStaticMarkup(
   <TampilanJatuhTempo tampilan={ringkasJatuhTempo(baris("lunas"), DIDANAI + 40 * HARI)} />,
 );
 ada(htmlLunas, "Sudah lunas", "pinjaman lunas tidak dihitung hari");
-ada(htmlLunas, "border-emerald-200", "lencana lunas memakai warna hijau");
+ada(htmlLunas, "border-emerald-300", "lencana lunas memakai warna hijau tenang");
+ok(!htmlLunas.includes(WARNA.badgeTerlambat), "pinjaman lunas tidak diberi warna peringatan");
 
 const htmlBelum = renderToStaticMarkup(
   <TampilanJatuhTempo
@@ -138,7 +156,8 @@ eq(rajin.tingkat, "kuat", "tiga pelunasan tepat waktu → tingkat kuat");
 const htmlKuat = renderToStaticMarkup(<BadgeKepercayaan kepercayaan={rajin} />);
 ada(htmlKuat, rajin.label, "label tingkat tampil");
 ada(htmlKuat, `${rajin.skor}/100`, "skor tampil sebagai angka");
-ada(htmlKuat, "border-emerald-200", "tingkat kuat memakai warna hijau");
+ada(htmlKuat, "bg-emerald-600", "tingkat kuat memakai isian hijau pejal");
+ada(htmlKuat, "text-white", "lencana kepercayaan memakai teks putih agar menonjol");
 ada(htmlKuat, "3 pinjaman lunas tepat waktu", "dasar penilaian ada di tooltip");
 ada(htmlKuat, "bukan skor kredit lembaga", "tooltip menegaskan ini bukan skor kredit");
 ok(!htmlKuat.includes(rajin.ringkas), "tanpa tampilkanRingkas tidak ada baris angka");
@@ -159,10 +178,21 @@ const baru = hitungKepercayaan(
 );
 const htmlBaru = renderToStaticMarkup(<BadgeKepercayaan kepercayaan={baru} tampilkanRingkas />);
 ada(htmlBaru, "Nasabah baru", "peminjam tanpa riwayat tampil sebagai nasabah baru");
-ada(htmlBaru, "border-slate-200", "tingkat baru memakai warna netral");
-ok(!htmlBaru.includes("border-red-200"), "nasabah baru tidak diberi warna peringatan");
+ada(htmlBaru, "bg-slate-500", "tingkat baru memakai isian abu netral");
+ok(!htmlBaru.includes("bg-red-600"), "nasabah baru tidak diberi warna peringatan");
 ada(htmlBaru, "Data diri belum lengkap", "kekurangan data diri terlihat");
 bersih(htmlBaru, "badge baru");
+
+const berkembang = hitungKepercayaan(
+  riwayatDariPinjaman(
+    [{ status: "lunas", didanaiPada: DIDANAI, tenorHari: 30, lunasPada: DIDANAI + 10 * HARI }],
+    { sekarang: DIDANAI + 60 * HARI, dataDiriLengkap: false, punyaKodePeminjam: true },
+  ),
+);
+const htmlBerkembang = renderToStaticMarkup(<BadgeKepercayaan kepercayaan={berkembang} />);
+ada(htmlBerkembang, berkembang.label, "label riwayat baik tampil");
+ada(htmlBerkembang, "bg-sky-600", "riwayat baik memakai isian biru pejal");
+bersih(htmlBerkembang, "badge riwayat baik");
 
 const menunggak = hitungKepercayaan(
   riwayatDariPinjaman([{ status: "didanai", didanaiPada: DIDANAI, tenorHari: 30 }], {
@@ -173,12 +203,15 @@ const menunggak = hitungKepercayaan(
 );
 const htmlPerhatian = renderToStaticMarkup(<BadgeKepercayaan kepercayaan={menunggak} />);
 ada(htmlPerhatian, "Perlu perhatian", "tunggakan tampil sebagai perlu perhatian");
-ada(htmlPerhatian, "border-red-200", "perlu perhatian memakai warna merah");
+ada(htmlPerhatian, "border-red-700", "perlu perhatian memakai bingkai merah");
+ada(htmlPerhatian, "bg-red-600", "perlu perhatian memakai isian merah pejal");
 ada(htmlPerhatian, "lewat jatuh tempo", "sebab penilaian disebut");
 bersih(htmlPerhatian, "badge perlu perhatian");
 
 // ===== 4. Tidak ada data identitas ikut tercetak =====
-const seluruhHtml = [htmlKuat, htmlRingkasKeyakinan, htmlBaru, htmlPerhatian].join("\n");
+const seluruhHtml = [htmlKuat, htmlRingkasKeyakinan, htmlBaru, htmlPerhatian, htmlBerkembang].join(
+  "\n",
+);
 for (const rahasia of ["3201234567890003", "1234567890", "628123456791"]) {
   ok(!seluruhHtml.includes(rahasia), `tidak memuat data identitas (${rahasia.slice(0, 4)}…)`);
 }
