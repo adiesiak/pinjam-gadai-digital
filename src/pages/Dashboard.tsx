@@ -10,7 +10,7 @@ import type { FunctionReturnType } from "convex/server";
 import { LocationGate } from "@/components/LocationGate";
 import { ManualPaymentEvidenceHistory } from "@/components/ManualPaymentEvidenceForm";
 import { FadeIn } from "@/components/Reveal";
-import { Skeleton } from "@/components/ui/skeleton";
+import { SkeletonBarisDaftar, SkeletonKartu } from "@/components/ui/loading";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
@@ -46,30 +46,19 @@ function RingkasanMemuat() {
     <div role="status" aria-live="polite" className="mt-8 space-y-6">
       <span className="sr-only">Memuat data Anda…</span>
       {/* Kolom skeleton disamakan dengan `SummaryCards` (2 di sm, 3 di xl,
-          tiga kartu) supaya tata letak tidak melompat saat data asli tiba. */}
+          tiga kartu) supaya tata letak tidak melompat saat data asli tiba.
+          Bentuk kartunya memakai `SkeletonKartu` bersama, jadi tinggi kartu di
+          sini tidak bisa lagi menyimpang dari kartu angka yang sesungguhnya. */}
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 xl:gap-4">
         {[0, 1, 2].map((kolom) => (
-          <div
-            key={kolom}
-            className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
-          >
-            <Skeleton className="h-3.5 w-24" />
-            <Skeleton className="mt-4 h-7 w-32" />
-            <Skeleton className="mt-3 h-3 w-20" />
-          </div>
+          <SkeletonKartu key={kolom} className="p-5" />
         ))}
       </div>
-      <div className="space-y-3 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        {[0, 1, 2].map((baris) => (
-          <div key={baris} className="flex items-center gap-4">
-            <Skeleton className="size-10 shrink-0 rounded-xl" />
-            <div className="min-w-0 flex-1 space-y-2">
-              <Skeleton className="h-4 w-1/3" />
-              <Skeleton className="h-3 w-1/2" />
-            </div>
-            <Skeleton className="hidden h-7 w-20 shrink-0 rounded-full sm:block" />
-          </div>
-        ))}
+      {/* Daftarnya sudah punya wilayah statusnya sendiri; di sini isinya cukup
+          dilihat, sementara pengumumannya dipegang teks "Memuat data Anda…" di
+          atas — supaya pembaca layar tidak mendengar dua pengumuman sekaligus. */}
+      <div aria-hidden="true">
+        <SkeletonBarisDaftar baris={3} className="rounded-2xl border border-slate-200 bg-white p-5" />
       </div>
     </div>
   );

@@ -1,7 +1,8 @@
 import { useQuery } from "convex/react";
-import { BadgeCheck, IdCard, Loader2, ShieldX } from "lucide-react";
+import { BadgeCheck, IdCard, ShieldX } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
+import { MemuatBaris } from "@/components/ui/loading";
 import { WatermarkedDoc } from "@/components/WatermarkedDoc";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
@@ -52,11 +53,7 @@ export function PanelDataDiriNasabah({ userId }: { userId: Id<"users"> }) {
   const data = useQuery(api.admin.dataDiriNasabah, { userId });
 
   if (data === undefined) {
-    return (
-      <div className="flex items-center gap-2 py-3 text-sm text-muted-foreground">
-        <Loader2 className="size-4 animate-spin" /> Memuat data diri tersimpan…
-      </div>
-    );
+    return <MemuatBaris teks="Memuat data diri tersimpan…" className="py-3" />;
   }
   return <DataDiriRingkas data={data} />;
 }

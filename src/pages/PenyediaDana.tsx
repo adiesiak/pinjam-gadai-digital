@@ -53,6 +53,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { KerangkaRuangPendana, MemuatBaris } from "@/components/ui/loading";
 import {
   Table,
   TableBody,
@@ -900,9 +901,7 @@ function BagianBerkas({
           lokasi, tetapi tidak berkas apa pun.
         </p>
       ) : data === undefined ? (
-        <p className="mt-2 flex items-center gap-2 text-sm text-muted-foreground">
-          <Loader2 className="size-4 animate-spin" /> Memuat berkas…
-        </p>
+        <MemuatBaris teks="Memuat berkas…" className="mt-2" />
       ) : data === null ? (
         <p className="mt-2 text-sm text-muted-foreground">
           Berkas pengajuan ini tidak ditemukan.
@@ -1740,9 +1739,10 @@ function IsiRuang() {
         {user !== undefined && !bolehLihat ? (
           <AksesTerbatas />
         ) : data === undefined ? (
-          <p className="flex items-center justify-center gap-2 py-24 text-sm text-muted-foreground">
-            <Loader2 className="size-4 animate-spin" /> Memuat catatan pengajuan…
-          </p>
+          /* Rangka ruang penyedia dana: panel judul, baris angka, dan tabel
+             pengajuan sekaligus — bukan spinner di tengah halaman kosong, supaya
+             tabel tidak melompat dari bawah lipatan saat data tiba. */
+          <KerangkaRuangPendana />
         ) : (
           <>
             {/*
@@ -2298,7 +2298,7 @@ function IsiRuang() {
               <TabsContent value="lokasi" className="mt-4 space-y-4">
                 {titik === undefined ? (
                   <p className="flex items-center justify-center gap-2 py-24 text-sm text-muted-foreground">
-                    <Loader2 className="size-4 animate-spin" /> Memuat titik lokasi…
+                    <MemuatBaris teks="Memuat titik lokasi…" />
                   </p>
                 ) : (
                   <>

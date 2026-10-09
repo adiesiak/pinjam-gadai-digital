@@ -56,6 +56,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { SkeletonKartu, SkeletonTabel } from "@/components/ui/loading";
 import {
   Select,
   SelectContent,
@@ -1317,7 +1318,23 @@ function PengaduanBagian({ aturan, kasus }: { aturan: Aturan; kasus: BarisKasus[
 
 function LaporanBagian({ aturan }: { aturan: Aturan }) {
   const data = useQuery(api.penagihan.laporanPenagihan);
-  if (data === undefined) return <PanelMemuat />;
+  if (data === undefined) {
+    // Laporan = kartu metrik lalu tabel. Rangkanya mengikuti keduanya, bukan
+    // satu spinner di tengah panel yang membuat tinggi halaman melompat.
+    return (
+      <div role="status" aria-live="polite" className="space-y-5">
+        <span className="sr-only">Memuat laporan penagihan…</span>
+        <div aria-hidden="true" className="space-y-5">
+          <div className="grid gap-2 sm:grid-cols-3">
+            {[0, 1, 2].map((i) => (
+              <SkeletonKartu key={i} className="rounded-xl p-3" />
+            ))}
+          </div>
+          <SkeletonTabel kolom={4} baris={4} />
+        </div>
+      </div>
+    );
+  }
   const laporan = data as unknown as Laporan;
   return (
     <div className="space-y-5">

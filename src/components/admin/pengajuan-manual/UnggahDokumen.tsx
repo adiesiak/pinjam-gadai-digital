@@ -3,6 +3,7 @@ import { useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { BilahTakTentu } from "@/components/ui/loading";
 import type { Id } from "@/convex/_generated/dataModel";
 import { unggahDokumen } from "@/lib/unggahDokumen";
 
@@ -18,6 +19,13 @@ export type DokumenTerunggah = { id: Id<"_storage">; nama: string };
  * Unggahan langsung dikirim ke Convex storage lewat URL yang diminta server;
  * yang disimpan formulir hanya id + nama berkasnya. Slot bisa dikosongkan lagi
  * sebelum pengajuan disimpan.
+ *
+ * Umpan balik prosesnya dibedakan per TAHAP — "Mengunggah …" lalu
+ * "Memeriksa isi …" — dan keduanya memakai bilah TAK TENTU: `fetch` tidak
+ * melaporkan berapa byte yang sudah terkirim, jadi menampilkan persen berarti
+ * mengarang angka. Yang penting bagi pengguna adalah tahu pekerjaannya masih
+ * berjalan dan panelnya belum boleh ditutup. Saat gagal, pesannya menyebutkan
+ * cara mencoba ulang (pilih berkasnya sekali lagi), bukan sekadar "gagal".
  */
 export function UnggahDokumen({
   label,
@@ -42,32 +50,45 @@ export function UnggahDokumen({
   disabled?: boolean;
 }) {
   const inputRef = useRef<HTMLInputElement | null>(null);
-  const [busy, setBusy] = useState(false);
+  /** Tahap proses yang sedang berjalan — menentukan label yang ditampilkan. */
+  const [tahap, setTahap] = useState<"diam" | "unggah" | "periksa">("diam");
   const [galat, setGalat] = useState<string | null>(null);
+  const busy = tahap !== "diam";
 
   const pilih = async (file: File | undefined) => {
     if (!file) return;
-    setBusy(true);
+    setTahap("unggah");
     setGalat(null);
     try {
       const id = await unggahDokumen(
         file,
         mintaUrl,
         label,
-        periksa === undefined ? undefined : (sid) => periksa(sid, label),
+        periksa === undefined
+          ? undefined
+          : async (sid) => {
+              // Tahap kedua: server memeriksa ISI berkas (magic bytes). Unggahan
+              // sudah selesai di titik ini, jadi labelnya harus berubah — bukan
+              // berhenti di "mengunggah" sampai pemeriksaan kelar.
+              setTahap("periksa");
+              await periksa(sid, label);
+            },
       );
       onUbah({ id, nama: file.name });
     } catch (err) {
       setGalat(err instanceof Error ? err.message : `${label} gagal diunggah.`);
     } finally {
-      setBusy(false);
+      setTahap("diam");
       // Izinkan memilih berkas yang sama lagi setelah gagal.
       if (inputRef.current) inputRef.current.value = "";
     }
   };
 
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-3">
+    <div
+      aria-busy={busy || undefined}
+      className="rounded-xl border border-slate-200 bg-white p-3"
+    >
       <Label className={KELAS_LABEL}>{label}</Label>
       <p className="mt-1 text-[11px] leading-4 text-muted-foreground">{keterangan}</p>
       <div className="mt-2 flex flex-wrap items-center gap-1.5">
@@ -109,9 +130,19 @@ export function UnggahDokumen({
         aria-label={`Berkas ${label}`}
         onChange={(event) => void pilih(event.target.files?.[0])}
       />
+      {busy && (
+        <BilahTakTentu
+          className="mt-2"
+          label={
+            tahap === "periksa"
+              ? `Memeriksa isi ${label.toLowerCase()}…`
+              : `Mengunggah ${label.toLowerCase()}… jangan tutup panel ini.`
+          }
+        />
+      )}
       {galat !== null && (
         <p role="alert" className="mt-2 text-[11px] leading-4 text-destructive">
-          {galat}
+          {galat} Pilih berkasnya sekali lagi untuk mencoba ulang.
         </p>
       )}
     </div>

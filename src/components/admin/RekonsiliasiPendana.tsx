@@ -1,7 +1,8 @@
 import { useQuery } from "convex/react";
-import { CheckCircle2, GitCompareArrows, Loader2, TriangleAlert } from "lucide-react";
+import { CheckCircle2, GitCompareArrows, TriangleAlert } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
+import { MemuatBaris } from "@/components/ui/loading";
 import {
   Table,
   TableBody,
@@ -172,11 +173,7 @@ export function RekonsiliasiPendana() {
   const ruang = useQuery(api.penyediaDana.daftarPengajuan, {});
 
   if (panel === undefined || ruang === undefined) {
-    return (
-      <p className="flex items-center gap-2 py-6 text-sm text-muted-foreground">
-        <Loader2 className="size-4 animate-spin" /> Menghitung rekonsiliasi…
-      </p>
-    );
+    return <MemuatBaris teks="Menghitung rekonsiliasi…" className="py-6" />;
   }
 
   const sumberPanel: SumberPendana[] = panel.rows.map((r) => ({

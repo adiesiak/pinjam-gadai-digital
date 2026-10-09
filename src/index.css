@@ -948,6 +948,23 @@
     }
   }
 
+  /* Bilah proses TAK TENTU (indeterminate) — untuk pekerjaan yang durasinya
+     tidak diketahui (unggahan berkas, pemeriksaan isi berkas di server).
+     Sengaja TIDAK memakai lebar yang dihitung dari persen: menampilkan angka
+     palsu lebih buruk daripada tidak menampilkan angka. Hanya `transform` yang
+     dianimasikan, jadi tidak ada layout shift. */
+  .motion-bilah {
+    animation: pindai-motion-bilah 1.4s var(--motion-ease-in-out) infinite;
+  }
+  @keyframes pindai-motion-bilah {
+    0% {
+      transform: translateX(-100%);
+    }
+    100% {
+      transform: translateX(320%);
+    }
+  }
+
   /* Garis bawah judul yang tumbuh saat disorot.
      Muncul pada hover DAN saat fokus keyboard (`:focus-visible`), jadi penanda
      ini tidak pernah hanya bisa dicapai dengan tetikus. Temponya dari motion
@@ -1062,7 +1079,8 @@
     .motion-scale,
     .motion-pulse,
     .motion-pulse-loop,
-    .motion-check-in {
+    .motion-check-in,
+    .motion-bilah {
       animation: none;
     }
     /* Gerak berurutan tidak perlu jeda bila tidak ada animasinya. */

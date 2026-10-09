@@ -1,5 +1,4 @@
 import { useQuery } from "convex/react";
-import { Loader2 } from "lucide-react";
 
 import { StatusBadge } from "@/components/StatusBadge";
 import {
@@ -9,6 +8,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { SkeletonDetail } from "@/components/ui/loading";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { loanPurposeLabel, loanStatusMeta } from "@/lib/loan";
@@ -31,9 +31,10 @@ export function LoanDetailDialog({
     <Dialog open={loanId !== null} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-h-[90dvh] overflow-y-auto p-4 sm:max-w-md sm:p-6">
         {loan === undefined ? (
-          <div className="flex items-center justify-center py-10">
-            <Loader2 className="size-4 animate-spin text-muted-foreground" />
-          </div>
+          /* Rangka rincian, bukan spinner: kepala dialog, baris `dl`, dan blok
+             pelunasan sudah menempati ruang yang sama dengan isi sungguhannya,
+             jadi isi tidak "melompat" saat menggantikannya. */
+          <SkeletonDetail keterangan="Memuat rincian pinjaman…" />
         ) : loan === null ? (
           <DialogHeader>
             <DialogTitle>Pengajuan tidak ditemukan</DialogTitle>
@@ -164,9 +165,7 @@ export function PawnDetailDialog({
     <Dialog open={pawnId !== null} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-h-[90dvh] overflow-y-auto p-4 sm:max-w-md sm:p-6">
         {pawn === undefined ? (
-          <div className="flex items-center justify-center py-10">
-            <Loader2 className="size-4 animate-spin text-muted-foreground" />
-          </div>
+          <SkeletonDetail baris={4} keterangan="Memuat rincian gadai…" />
         ) : pawn === null ? (
           <DialogHeader>
             <DialogTitle>Pengajuan tidak ditemukan</DialogTitle>

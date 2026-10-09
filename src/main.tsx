@@ -1,6 +1,7 @@
 import '@vly-ai/integrations';
 import { Toaster } from "@/components/ui/sonner";
 import { AnnouncementBar } from "@/components/AnnouncementBar";
+import { BilahSinkron } from "@/components/BilahSinkron";
 import { ErrorPage } from "@/components/ErrorPage";
 import { LoadingScreen } from "@/components/LoadingScreen";
 import { Snowfall } from "@/components/Snowfall";
@@ -258,6 +259,10 @@ createRoot(document.getElementById("root")!).render(
             Lewati ke konten utama
           </a>
           <AnnouncementBar />
+          {/* Indikator global HANYA untuk keadaan yang memang perlu diketahui
+              seluruh layar: koneksi terputus atau proses panjang yang berjalan.
+              Pemuatan awal & penyegaran biasa punya umpan baliknya sendiri. */}
+          <BilahSinkron />
           <SessionGuardBridge />
           <RouteSyncer />
           <RouteErrorBoundary>

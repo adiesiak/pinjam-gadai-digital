@@ -13,6 +13,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { MemuatBaris } from "@/components/ui/loading";
 import { Textarea } from "@/components/ui/textarea";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
@@ -80,9 +81,7 @@ export function DataDiriDialog({
         </DialogHeader>
 
         {data === undefined ? (
-          <p className="flex items-center gap-2 py-8 text-sm text-muted-foreground">
-            <Loader2 className="size-4 animate-spin" /> Memuat data diri…
-          </p>
+          <MemuatBaris teks="Memuat data diri…" className="py-8" />
         ) : (
           <FormDataDiri
             nama={namaHurufBesar(data.nama)}

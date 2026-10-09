@@ -5,6 +5,7 @@ import { Link } from "react-router";
 import SignaturePad from "signature_pad";
 
 import { Button } from "@/components/ui/button";
+import { BilahTakTentu } from "@/components/ui/loading";
 import {
   Dialog,
   DialogContent,
@@ -888,6 +889,12 @@ export function LoanForm({ onCreated }: { onCreated: (ref: string) => void }) {
                     </div>
                   )}
                 </div>
+                {/* Bilah tak tentu: unggahan tidak melaporkan berapa byte yang
+                    terkirim, jadi tidak ada persen — hanya tanda bahwa foto ini
+                    masih dikirim. */}
+                {dok[key].busy && (
+                  <BilahTakTentu className="mt-2" label="Mengunggah foto… jangan tutup halaman ini." />
+                )}
                 {kameraAktif && (
                   <div className="mt-3 space-y-3" aria-labelledby={`dok-label-${key}`}>
                     <p id={`camera-instructions-${key}`} className="text-xs leading-5 text-muted-foreground">

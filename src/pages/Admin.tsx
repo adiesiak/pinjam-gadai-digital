@@ -10,6 +10,7 @@ import { AppraisalDialog } from "@/components/admin/AppraisalDialog";
 import { LoanReviewDialog } from "@/components/admin/LoanReviewDialog";
 import { PawnReviewDialog } from "@/components/admin/PawnReviewDialog";
 import { SecurityBar, type LoanRow, type PawnRow } from "@/components/admin/admin-shared";
+import { KerangkaAdmin, SkeletonKartu } from "@/components/ui/loading";
 import { api } from "@/convex/_generated/api";
 import { useAuth } from "@/hooks/use-auth";
 import { ADMIN_ROUTE } from "@/lib/routes";
@@ -119,8 +120,12 @@ export default function Admin() {
   if (!gate.verified) {
     return <TotpGate />;
   }
+  // Pemuatan pertama panel admin memakai RANGKA, bukan layar penuh bermerek:
+  // satu permintaan data tidak boleh menutupi seluruh halaman, dan bentuk
+  // rangkanya sudah mengikuti susunan panel sehingga tidak ada lompatan tata
+  // letak saat angka-angka asli menggantikannya.
   if (overview === undefined) {
-    return <LoadingScreen label="Memuat panel operasional…" />;
+    return <KerangkaAdmin />;
   }
 
   const handleToggleKill = async () => {
@@ -186,7 +191,23 @@ export default function Admin() {
           </div>
         </section>
 
-        {stats && <AdminStats stats={stats} />}
+        {/* Statistik datang lebih lambat dari antrean pada sebagian sesi. Kartu
+            rangka memakai tinggi & kisi yang sama supaya panel tidak melompat
+            saat angkanya menggantikan rangka. */}
+        {stats ? (
+          <AdminStats stats={stats} />
+        ) : (
+          <div
+            role="status"
+            aria-live="polite"
+            className="mt-4 grid grid-cols-1 gap-2 sm:mt-5 sm:grid-cols-3 sm:gap-3"
+          >
+            <span className="sr-only">Memuat statistik operasional…</span>
+            {[0, 1, 2].map((i) => (
+              <SkeletonKartu key={i} className="rounded-xl p-3 sm:rounded-2xl sm:p-5" />
+            ))}
+          </div>
+        )}
 
         <AdminTabs
           overview={overview}

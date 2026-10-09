@@ -12,6 +12,8 @@ import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { SkeletonBarisDaftar } from "@/components/ui/loading";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { api } from "@/convex/_generated/api";
@@ -156,7 +158,9 @@ export function PenyediaDanaTable() {
             <KeyRound className="size-4 text-primary" /> Kode akses bersama
           </p>
           {status === undefined ? (
-            <Loader2 className="size-4 animate-spin text-muted-foreground" />
+            /* Lencana belum diketahui: rangka berbentuk lencana yang sama, jadi
+               barisnya tidak bergeser ketika status tiba. */
+            <Skeleton className="h-6 w-20 rounded-full" />
           ) : (
             <Badge
               className={
@@ -359,9 +363,7 @@ export function PenyediaDanaTable() {
                 />
               ))
             ) : (
-              <div className="rounded-xl border border-slate-200 bg-white px-4 py-6 text-center text-sm text-muted-foreground">
-                Menunggu data
-              </div>
+              <SkeletonBarisDaftar baris={3} />
             )}
           </div>
         </div>

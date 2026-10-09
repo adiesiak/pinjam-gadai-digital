@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { BilahTakTentu, SkeletonBarisDaftar } from "@/components/ui/loading";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { formatRupiah } from "@/lib/money";
@@ -35,7 +36,11 @@ export function ManualPaymentEvidenceForm({
   const [transferDate, setTransferDate] = useState(HARI_INI);
   const [bankReference, setBankReference] = useState("");
   const [file, setFile] = useState<File | null>(null);
-  const [busy, setBusy] = useState(false);
+  // Tahap proses dipisah supaya pengguna tahu di bagian mana pekerjaannya
+  // berada: mengunggah berkas, atau mencatat buktinya. Tanpa pemisahan ini,
+  // satu kata "mengirim…" menutupi dua pekerjaan yang berbeda lamanya.
+  const [tahap, setTahap] = useState<"diam" | "unggah" | "catat">("diam");
+  const busy = tahap !== "diam";
 
   return (
     <section className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
@@ -47,18 +52,19 @@ export function ManualPaymentEvidenceForm({
           <div><p className="font-medium">QRIS · {instructions.namaMerchantQris}</p>{instructions.qrisUrl ? <img src={instructions.qrisUrl} alt={`QRIS ${instructions.namaMerchantQris}`} className="mt-2 max-h-36 max-w-full object-contain" /> : <p className="mt-1 text-muted-foreground">Gambar QRIS belum diunggah admin.</p>}</div>
         </div>
       )}
-      <form className="mt-3 grid gap-3 sm:grid-cols-2" onSubmit={async (event) => {
+      <form aria-busy={busy || undefined} className="mt-3 grid gap-3 sm:grid-cols-2" onSubmit={async (event) => {
         event.preventDefault();
         const rupiah = Number(amount);
         if (!Number.isSafeInteger(rupiah) || rupiah <= 0) { toast.error("Nominal harus rupiah bulat positif."); return; }
         if (bankReference.trim().length < 4 || !file) { toast.error("Referensi bank dan bukti unggahan wajib diisi."); return; }
         if (file.size > 5_000_000 || !["image/jpeg", "image/png", "image/webp", "application/pdf"].includes(file.type)) { toast.error("Bukti harus JPG, PNG, WebP, atau PDF maksimal 5 MB."); return; }
-        setBusy(true);
+        setTahap("unggah");
         try {
           const url = await generateUploadUrl();
           const response = await fetch(url, { method: "POST", headers: { "Content-Type": file.type }, body: file });
           const result = (await response.json()) as { storageId?: Id<"_storage"> };
           if (!response.ok || !result.storageId) throw new Error("Bukti gagal diunggah.");
+          setTahap("catat");
           const target = jenis === "pinjaman" ? { loanId: targetId as Id<"loans"> } : jenis === "kredit_barang" ? { kreditId: targetId as Id<"kreditBarang"> } : { pawnId: targetId as Id<"pawns"> };
           const saved = await submit({ jenis, ...target, jumlah: rupiah, metodePembayaran: method, tanggalTransfer: new Date(`${transferDate}T00:00:00`).getTime(), referensiTransfer: bankReference, buktiPembayaranId: result.storageId });
           toast.success(`Bukti ${saved.nomorReferensi} masuk antrean pencocokan manual.`);
@@ -67,7 +73,7 @@ export function ManualPaymentEvidenceForm({
         } catch (error) {
           toast.error(error instanceof Error ? error.message : "Bukti pembayaran gagal dikirim.");
         } finally {
-          setBusy(false);
+          setTahap("diam");
         }
       }}>
         <div><Label htmlFor={`receipt-amount-${targetId}`}>Nominal yang diklaim</Label><Input id={`receipt-amount-${targetId}`} type="number" min="1" step="1" value={amount} onChange={(e) => setAmount(e.target.value)} /></div>
@@ -75,7 +81,17 @@ export function ManualPaymentEvidenceForm({
         <div><Label htmlFor={`receipt-date-${targetId}`}>Tanggal transfer</Label><Input id={`receipt-date-${targetId}`} type="date" value={transferDate} onChange={(e) => setTransferDate(e.target.value)} /></div>
         <div><Label htmlFor={`receipt-reference-${targetId}`}>Referensi transfer</Label><Input id={`receipt-reference-${targetId}`} value={bankReference} onChange={(e) => setBankReference(e.target.value)} maxLength={120} placeholder="Nomor referensi dari aplikasi bank" /></div>
         <div className="sm:col-span-2"><Label htmlFor={`receipt-file-${targetId}`}>Bukti unggahan (maks. 5 MB)</Label><Input id={`receipt-file-${targetId}`} type="file" accept="image/jpeg,image/png,image/webp,application/pdf" onChange={(e) => setFile(e.target.files?.[0] ?? null)} /></div>
-        <Button type="submit" size="sm" disabled={busy} className="sm:col-span-2">{busy ? <Loader2 className="mr-2 size-4 animate-spin" /> : <FileUp className="mr-2 size-4" />}Kirim bukti saja</Button>
+        {busy && (
+          <BilahTakTentu
+            className="sm:col-span-2"
+            label={
+              tahap === "unggah"
+                ? "Mengunggah bukti… jangan tutup halaman ini."
+                : "Mencatat bukti ke antrean pencocokan…"
+            }
+          />
+        )}
+        <Button type="submit" size="sm" disabled={busy} className="gap-2 sm:col-span-2">{busy ? <Loader2 className="size-4 animate-spin" /> : <FileUp className="size-4" />}{busy ? "Mengirim…" : "Kirim bukti saja"}</Button>
       </form>
       <p className="mt-2 text-[11px] text-muted-foreground">Jumlah contoh {formatRupiah(suggestedAmount)} · pencocokan dilakukan manual oleh tim PINDAI.</p>
     </section>
@@ -84,7 +100,13 @@ export function ManualPaymentEvidenceForm({
 
 export function ManualPaymentEvidenceHistory() {
   const rows = useQuery(api.loans.myManualPaymentReceipts);
-  if (!rows?.length) return null;
+  // Pemuatan pertama dibedakan dari "tidak ada riwayat": sebelumnya keduanya
+  // sama-sama tidak menampilkan apa pun, sehingga pengguna tidak pernah tahu
+  // apakah daftarnya masih dimuat atau memang kosong.
+  if (rows === undefined) {
+    return <SkeletonBarisDaftar baris={2} className="mt-6" />;
+  }
+  if (rows.length === 0) return null;
   return (
     <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-4">
       <h3 className="text-sm font-semibold">Riwayat bukti pembayaran yang dikirim</h3>

@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
+import { SkeletonTabel } from "@/components/ui/loading";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { formatRupiah } from "@/lib/money";
@@ -101,11 +102,9 @@ export function KreditQueuePanel() {
   }, [rows, search]);
 
   if (rows === undefined) {
-    return (
-      <div className="flex items-center gap-2 py-10 text-sm text-muted-foreground">
-        <Loader2 className="size-4 animate-spin" /> Memuat pengajuan kredit barang…
-      </div>
-    );
+    // Rangka tabel: baris kepala + baris berisi. Tinggi barisnya tetap (`h-14`)
+    // sehingga tabel sungguhan menggantikannya tanpa menggeser halaman.
+    return <SkeletonTabel kolom={5} baris={5} keterangan="Memuat pengajuan kredit barang…" />;
   }
 
   const menunggu = filteredRows.filter((r) => r.status === "diajukan" || r.status === "sedang_ditinjau");

@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { ContractPrintButton } from "@/components/EContract";
 import { wrapContractHtml } from "@/components/contract/contract-doc";
 import { Button } from "@/components/ui/button";
+import { MemuatBaris } from "@/components/ui/loading";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import {
@@ -58,11 +59,7 @@ export function MyContractsSection({
     | undefined;
 }) {
   if (contracts === undefined) {
-    return (
-      <div className="flex items-center justify-center py-10 text-sm text-muted-foreground">
-        <Loader2 className="mr-2 size-4 animate-spin" /> Memuat perjanjian…
-      </div>
-    );
+    return <MemuatBaris teks="Memuat perjanjian…" className="justify-center py-10" />;
   }
   const total = contracts.pinjaman.length + contracts.gadai.length;
   if (total === 0) {
