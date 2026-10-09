@@ -72,7 +72,7 @@ export function SystemConfigPanel() {
             className="tabular-nums"
           />
           <p className="mt-1 text-xs leading-5 text-muted-foreground">
-            Dipakai panel Ledger internal saat membukukan pinjaman lama (biaya admin &amp; platform).
+            Dipakai saat membukukan pinjaman lama ke jurnal ledger (biaya admin &amp; platform).
             Tidak mengubah biaya pinjaman baru maupun pinjaman yang sudah tercatat.
           </p>
         </div>

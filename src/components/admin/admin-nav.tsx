@@ -91,7 +91,7 @@ export function IsiCariMenu({
         value={kueri}
         onValueChange={setKueri}
         aria-label="Cari menu"
-        placeholder="Cari menu — mis. keamanan, ledger, gadai…"
+        placeholder="Cari menu — mis. keamanan, plafon, gadai…"
       />
       <CommandList className="max-h-[60vh]">
         {hasil.length === 0 ? (

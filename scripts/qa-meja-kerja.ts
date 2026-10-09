@@ -59,7 +59,6 @@ type Loan = Props["overview"]["loans"][number];
 type Pawn = Props["overview"]["pawns"][number];
 type Kredit = Props["overview"]["kredit"][number];
 type Stats = NonNullable<Props["stats"]>;
-type Ledger = NonNullable<Props["ledger"]>;
 
 const pinjaman = (i: number, status: Loan["status"]): Loan =>
   ({
@@ -115,14 +114,6 @@ const stats0: Stats = {
   titikDicurigai: 1,
   peringatanLokasiAktif: 1,
 };
-const ledgerOk: Ledger = {
-  totalDebit: 100,
-  totalKredit: 100,
-  entryCount: 2,
-  seimbang: true,
-  pendapatanPlatform: 5000,
-};
-
 // 2 perlu keputusan (diajukan + sedang_direview), 0 gadai, 0 kredit.
 // `alokasi` berisi 7 tetapi berbobot "info" sehingga TIDAK dijumlahkan (R3).
 const overview = {
@@ -130,12 +121,11 @@ const overview = {
   pawns: [] as Pawn[],
   kredit: [] as Kredit[],
 };
-const tabs = (o: Props["overview"], s: Props["stats"], l: Props["ledger"]) =>
+const tabs = (o: Props["overview"], s: Props["stats"]) =>
   renderToStaticMarkup(
     createElement(AdminTabs, {
       overview: o,
       stats: s,
-      ledger: l,
       onOpenLoan: () => {},
       onOpenPawn: () => {},
       onOpenSetup: () => {},
@@ -143,7 +133,7 @@ const tabs = (o: Props["overview"], s: Props["stats"], l: Props["ledger"]) =>
   );
 
 // ===== A. Tab default + panel "Hari Ini" terpasang =====
-const html = tabs(overview, stats0, ledgerOk);
+const html = tabs(overview, stats0);
 const t = teksDari(html);
 cek("A1 region berlabel Hari Ini", html.includes('aria-label="Hari Ini"'));
 cek("A2 tab Hari Ini ditandai aktif", html.includes('aria-current="page"'));
@@ -152,9 +142,9 @@ cek("A4 kartu Perlu keputusan", t.includes("Perlu keputusan"));
 cek("A5 CTA menuju antrean", t.includes("Tinjau antrean"));
 cek("A6 kartu tanggal acuan", t.includes("Lewat tanggal acuan"));
 cek("A7 kartu perhatian lokasi", t.includes("Perhatian lokasi"));
-cek("A8 kartu ledger", t.includes("Ledger internal"));
-cek("A9 ledger seimbang", t.includes("Seimbang"));
-cek("A10 pendapatan tercatat", t.includes("Rp 5.000"));
+// Panel "Ledger internal" sudah dihapus dari menu admin — panel Hari Ini tidak
+// boleh lagi memuat kartu/labelnya.
+cek("A8 tanpa kartu ledger", !t.includes("Ledger internal"));
 cek("A11 tanpa NaN", !t.includes("NaN"));
 cek("A12 tanpa undefined", !t.includes("undefined"));
 
@@ -193,35 +183,24 @@ cek(
   "dapat: " + badgeGrup(html, "Pemantauan"),
 );
 
-// ===== C. R1: ledger belum termuat -> tanpa tanda seru merah =====
-const bilahTanpaLedger = bilahDari(tabs(overview, stats0, undefined));
-cek(
-  "C1 ledger undefined -> tab Sistem tanpa lencana",
-  lencanaTab(bilahTanpaLedger, "Sistem") === undefined,
-  "dapat: " + lencanaTab(bilahTanpaLedger, "Sistem"),
-);
-cek("C2 ledger undefined tanpa tanda seru", !bilahTanpaLedger.includes(">!<"));
-const bilahTidakSeimbang = bilahDari(
-  tabs(overview, stats0, { ...ledgerOk, seimbang: false, totalDebit: 100, totalKredit: 90 }),
-);
-cek(
-  "C3 ledger tidak seimbang -> tab Sistem bertanda seru",
-  lencanaTab(bilahTidakSeimbang, "Sistem") === "!",
-  "dapat: " + lencanaTab(bilahTidakSeimbang, "Sistem"),
-);
+// ===== C. Panel "Ledger internal" sudah tidak ada di menu admin =====
+// Lencana OK/tanda seru untuk ledger ikut hilang; tab Sistem hanya bisa
+// berlencana bila ada modul Sistem yang benar-benar menunggu tindakan.
+cek("C1 tab Sistem tanpa lencana", lencanaTab(bilah, "Sistem") === undefined);
+cek("C2 tanpa tanda seru palsu", !bilah.includes(">!<"));
+cek("C3 item ledger hilang dari sidebar", !html.includes("Ledger internal"));
 
 // ===== D. Aturan angka: "belum siap" bukan 0 =====
 const mMemuat = renderToStaticMarkup(
   createElement(MejaKerja, {
     overview,
     stats: undefined,
-    ledger: undefined,
     onBukaModul: () => {},
   }),
 );
 const tmMemuat = teksDari(mMemuat);
 const jumlahPisah = (tmMemuat.match(/—/g) ?? []).length;
-cek("D1 tiga kartu menampilkan tanda pisah", jumlahPisah === 3, "jumlah: " + jumlahPisah);
+cek("D1 dua kartu menampilkan tanda pisah", jumlahPisah === 2, "jumlah: " + jumlahPisah);
 cek("D2 tidak ada 0 palsu", !/\b0\b/.test(tmMemuat), "teks: " + tmMemuat);
 cek("D3 tanpa NaN", !tmMemuat.includes("NaN"));
 
@@ -237,15 +216,13 @@ const mNol = renderToStaticMarkup(
       titikDicurigai: 0,
       peringatanLokasiAktif: 0,
     },
-    ledger: { ...ledgerOk, entryCount: 0, pendapatanPlatform: 0 },
     onBukaModul: () => {},
   }),
 );
 const tmNol = teksDari(mNol);
 cek("E1 nol ditampilkan sebagai 0", /\b0\b/.test(tmNol));
 cek("E2 catatan saat nol", tmNol.includes("Tidak ada yang perlu ditindak"));
-cek("E3 ledger tanpa pendapatan menjelaskan entri", tmNol.includes("0 entri jurnal tercatat"));
-cek("E4 tanpa tanda pisah", !tmNol.includes("—"));
+cek("E3 tanpa tanda pisah", !tmNol.includes("—"));
 
 // ===== F. Tiap produk membaca array-nya sendiri =====
 // Panjang tiap array sengaja berbeda (1/2/3) supaya salah pasang array
@@ -263,7 +240,6 @@ const htmlCampur = tabs(
     ],
   },
   stats0,
-  ledgerOk,
 );
 const bilahCampur = bilahDari(htmlCampur);
 cek(
@@ -297,8 +273,7 @@ const menuUji: GrupNavData[] = [
   },
   {
     judul: "Sistem & keamanan",
-    items: [
-      itemMenu("ledger", "Ledger internal", "Pastikan pembukuan seimbang.", "OK", "tidak", Landmark),
+    items: [        itemMenu("audit", "Audit Trail", "Jejak seluruh tindakan admin.", "OK", "tidak", Landmark),
       itemMenu("loglogin", "Keamanan Login", "Riwayat login dan status TOTP.", null, "tidak", ShieldCheck),
     ],
   },
@@ -344,11 +319,11 @@ cek(
   lencanaTab(bilahDari(nav("plafon")), "Antrean") === "3",
   "dapat: " + lencanaTab(bilahDari(nav("plafon")), "Antrean"),
 );
-// Saat grup Sistem aktif, chip ledger memakai lencana yang sama dengan sidebar.
-const htmlNavSistem = nav("ledger");
+// Saat grup Sistem aktif, chip modul memakai lencana yang sama dengan sidebar.
+const htmlNavSistem = nav("audit");
 cek(
-  "G10 chip ledger menampilkan OK",
-  htmlNavSistem.includes("Ledger internal") && htmlNavSistem.includes(">OK<"),
+  "G10 chip modul Sistem menampilkan OK",
+  htmlNavSistem.includes("Audit Trail") && htmlNavSistem.includes(">OK<"),
 );
 
 // Strip dan bilah bawah harus `lg:hidden`, supaya navigasi layar kecil tidak
@@ -371,7 +346,7 @@ cek("H1 input pencarian berlabel", htmlCari.includes('aria-label="Cari menu"'));
 cek("H2 input ter-autofokus", /autofocus/i.test(htmlCari));
 cek(
   "H3 semua modul tampil saat kueri kosong",
-  ["Pinjaman", "Gadai", "Ledger internal", "Keamanan Login"].every((x) => tCari.includes(x)),
+  ["Pinjaman", "Gadai", "Audit Trail", "Keamanan Login"].every((x) => tCari.includes(x)),
 );
 cek("H4 nama grup tampil di baris", tCari.includes("Sistem & keamanan"));
 const barisCari = (htmlCari.match(/cmdk-item/g) ?? []).length;
