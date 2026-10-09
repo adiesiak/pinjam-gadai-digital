@@ -11,10 +11,14 @@
  *     sehingga browser menganimasikannya masuk; kalau animasinya dilepas, uji
  *     ini gagal. Pil filter aktif memakai penanda `layoutId` (satu pil yang
  *     bergeser), bukan latar statis per tombol.
+ *  3. Seksi aset aplikasi Android lengkap — setiap berkas punya pratinjau,
+ *     tujuan, dan tombol unduh, dan panduan pasangnya tetap ada di markup
+ *     meski panelnya tertutup (dipakai untuk mengunduh aset build Android).
  */
 import { renderToStaticMarkup } from "react-dom/server";
 import { MemoryRouter } from "react-router";
 
+import { ASET_ANDROID, PANDUAN_ANDROID } from "@/lib/asetAndroid";
 import { KATEGORI_POSTER, promoPostersAktif } from "@/lib/promoPosters";
 
 import { Promo } from "./Promo";
@@ -99,8 +103,8 @@ ada(
   "grid galeri berposisi relatif",
 );
 ok(
-  jumlah(html, "<canvas") === poster.length,
-  `setiap poster punya kanvas (${poster.length})`,
+  jumlah(html, "<canvas") === poster.length + ASET_ANDROID.length,
+  `setiap poster (${poster.length}) dan setiap aset Android (${ASET_ANDROID.length}) punya kanvas`,
 );
 for (const p of poster) {
   const judul = esc(p.title);
@@ -108,7 +112,10 @@ for (const p of poster) {
   ada(html, `>${judul}</h3>`, `judul kartu "${p.title}"`);
   ada(html, `aria-label="Buka pratinjau ${judul}"`, `tombol pratinjau "${p.title}"`);
 }
-ok(jumlah(html, "Unduh PNG") === poster.length, "setiap kartu punya tombol unduh PNG");
+ok(
+  jumlah(html, "Unduh PNG") === poster.length + ASET_ANDROID.length,
+  "setiap kartu poster dan aset Android punya tombol unduh PNG",
+);
 ok(jumlah(html, "Bagikan") === poster.length, "setiap kartu punya tombol bagikan");
 // Galeri benar-benar terisi, dan pratinjau (portal) tidak ikut tercetak.
 ok(
@@ -134,6 +141,57 @@ ada(
   html,
   "opacity:0;transform:translateY(10px)",
   "baris filter juga punya keadaan awal untuk animasi masuk",
+);
+
+// ===== Seksi aset aplikasi Android =====
+ada(html, 'id="aset-android"', "jangkar seksi aset Android");
+ada(html, 'href="#aset-android"', "tautan lompat di header menuju aset Android");
+ada(html, "Aset aplikasi Android", "judul seksi aset Android");
+ok(
+  html.indexOf("Aset aplikasi Android") < html.indexOf("Poster kampanye"),
+  "seksi aset Android berada di atas galeri poster (mudah ditemukan)",
+);
+ada(
+  html,
+  `Unduh semua (${ASET_ANDROID.length})`,
+  "tombol unduh semua berkas aset Android",
+);
+ok(
+  jumlah(html, 'aria-label="Pratinjau ') === ASET_ANDROID.length,
+  `setiap aset Android punya kanvas pratinjau (${ASET_ANDROID.length})`,
+);
+ok(
+  jumlah(html, "Transparan) ") === 0 &&
+    jumlah(html, ">Transparan<") + jumlah(html, ">Latar penuh<") === ASET_ANDROID.length,
+  "setiap aset Android menyebut aturan transparansinya",
+);
+for (const aset of ASET_ANDROID) {
+  const label = esc(aset.label);
+  ada(html, `aria-label="Pratinjau ${label}"`, `pratinjau aset "${aset.label}"`);
+  ada(html, `>${label}</h4>`, `judul kartu aset "${aset.label}"`);
+  ada(html, `${aset.canvas[0]} × ${aset.canvas[1]}`, `ukuran kanvas "${aset.label}"`);
+  ada(html, esc(aset.tujuan), `tujuan berkas "${aset.label}"`);
+  ada(html, `aria-label="Salin tujuan berkas ${label}"`, `tombol salin tujuan "${aset.label}"`);
+  ada(html, esc(aset.berkas), `nama berkas "${aset.berkas}" pada tabel panduan`);
+}
+
+// ===== Panduan pasang: isinya harus ada di markup meski panelnya tertutup =====
+ada(html, "Panduan pasang di Android Studio", "judul panduan pasang");
+for (const langkah of PANDUAN_ANDROID.langkah) {
+  ada(html, esc(langkah.slice(0, 40)), "langkah panduan tercetak");
+}
+for (const w of PANDUAN_ANDROID.warna) {
+  ada(html, w.nama, `warna "${w.nama}" ada di panduan`);
+  ada(html, w.nilai, `nilai warna "${w.nama}" ada di panduan`);
+}
+for (const p of PANDUAN_ANDROID.potongan) {
+  ada(html, esc(p.judul), `potongan kode "${p.judul}" ada`);
+  ada(html, esc(p.berkas), `berkas tujuan potongan "${p.id}" ada`);
+  ada(html, `aria-label="Salin kode ${esc(p.judul)}"`, `tombol salin kode "${p.judul}"`);
+}
+ok(
+  html.includes("&lt;adaptive-icon") && html.includes("windowSplashScreenAnimatedIcon"),
+  "potongan XML benar-benar tercetak di panduan",
 );
 
 bersih(html, "markup halaman promo");

@@ -13,6 +13,11 @@
  * (`AnimatePresence`), dan pratinjau membesar halus saat dibuka — semuanya
  * menyusut menjadi fade sederhana saat `prefers-reduced-motion` aktif.
  *
+ * Halaman ini juga menjadi tempat unduh **aset aplikasi Android** (ikon peluncur,
+ * ikon adaptive, ikon notifikasi, splash, logo, wordmark, feature graphic) lewat
+ * seksi `AsetAndroid` — diletakkan tepat setelah header karena aset itu dicari
+ * orang yang sedang menyiapkan build Android, bukan yang sedang menyusun poster.
+ *
  * Navigasi dan identitas utama situs tidak diubah; halaman ini hanya mengisi
  * rute /promo yang sudah ada.
  */
@@ -21,6 +26,7 @@ import { useSearchParams } from "react-router";
 import { AnimatePresence, motion, useReducedMotion, type Variants } from "framer-motion";
 import { toast } from "sonner";
 
+import { AsetAndroid } from "@/components/AsetAndroid";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -30,7 +36,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Download, Eye, Link2, Share2, Shapes } from "lucide-react";
+import { Download, Eye, Link2, Share2, Shapes, Smartphone } from "lucide-react";
 
 import {
   KATEGORI_POSTER,
@@ -40,6 +46,7 @@ import {
   type PromoPoster,
 } from "@/lib/promoPosters";
 import { UKURAN_POSTER, gambarPoster } from "@/lib/promoPosterGambar";
+import { ASET_ANDROID } from "@/lib/asetAndroid";
 import { EASE_OUT } from "@/lib/motion";
 
 /** Skala kanvas kartu (540 px → 1/2 dari 1080) supaya pratinjau tetap ringan. */
@@ -326,13 +333,26 @@ export function Promo() {
               Materi kampanye PINDAI untuk berbagai kebutuhan.
             </p>
           </motion.div>
-          <motion.p
-            variants={itemHeader}
-            className="text-xs tabular-nums text-muted-foreground"
-          >
-            {posterAktif.length} poster · 1080 × 1350 px · siap Instagram / WhatsApp / Facebook
-          </motion.p>
+          <motion.div variants={itemHeader} className="flex flex-col items-start gap-2 sm:items-end">
+            <p className="text-xs tabular-nums text-muted-foreground">
+              {posterAktif.length} poster · 1080 × 1350 px · siap Instagram / WhatsApp / Facebook
+            </p>
+            <a
+              href="#aset-android"
+              className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1.5 text-xs font-semibold text-navy transition-colors hover:border-slate-300 hover:bg-slate-50"
+            >
+              <Smartphone className="size-3.5" /> Aset Android ({ASET_ANDROID.length} berkas) ↓
+            </a>
+          </motion.div>
         </motion.header>
+
+        {/* Aset aplikasi Android lebih dulu: yang datang ke sini untuk menyiapkan
+            build Android harus bisa langsung mengunduh tanpa menggulir galeri. */}
+        <AsetAndroid />
+
+        <h2 className="mt-12 border-b border-border pb-3 text-lg font-semibold tracking-tight text-foreground">
+          Poster kampanye
+        </h2>
 
         {/* Filter kategori — pil aktif bergeser mulus antar tombol. */}
         <motion.nav
@@ -340,7 +360,7 @@ export function Promo() {
           initial={reduce ? { opacity: 0 } : { opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.45, delay: 0.18, ease: EASE_OUT }}
-          className="mt-6 flex flex-wrap gap-2"
+          className="mt-4 flex flex-wrap gap-2"
         >
           {KATEGORI_POSTER.map((k) => {
             const aktif = kategori === k;
@@ -417,9 +437,11 @@ export function Promo() {
           transition={{ duration: 0.4, ease: EASE_OUT }}
           className="mt-10 border-t border-border pt-5 text-xs leading-5 text-muted-foreground"
         >
-          Seluruh poster memakai identitas visual PINDAI yang sama dan tidak
-          memuat klaim persetujuan maupun keamanan absolut. Angka biaya dan
-          ketentuan mengikuti konfigurasi sistem.
+          Aset aplikasi Android dibuat dari painter yang sama dengan poster dan
+          lambang brand di dalam aplikasi, jadi ikon peluncur di perangkat tampil
+          identik dengan logo di situs. Seluruh poster memakai identitas visual
+          PINDAI yang sama dan tidak memuat klaim persetujuan maupun keamanan
+          absolut. Angka biaya dan ketentuan mengikuti konfigurasi sistem.
         </motion.footer>
       </main>
 
