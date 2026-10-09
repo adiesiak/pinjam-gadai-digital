@@ -23,8 +23,21 @@ export async function unggahDokumen(
     headers: { "Content-Type": file.type || "application/octet-stream" },
     body: file,
   });
-  const json = (await res.json()) as { storageId?: Id<"_storage"> };
-  if (!res.ok || !json.storageId) {
+  // Status HTTP diperiksa lebih dulu: badan galat dari server/storage sering
+  // kosong atau bukan JSON, dan `res.json()` akan melempar SyntaxError yang
+  // membingungkan sebelum pesan galat yang benar sempat dipakai.
+  if (!res.ok) {
+    throw new Error(`${label} gagal diunggah. Coba lagi.`);
+  }
+  // Badan sukses yang bukan JSON (proxy/redirect) tetap dianggap gagal bersih
+  // alih-alih meledak dengan galat parsing.
+  let json: { storageId?: Id<"_storage"> } | null = null;
+  try {
+    json = (await res.json()) as { storageId?: Id<"_storage"> };
+  } catch {
+    json = null;
+  }
+  if (!json || !json.storageId) {
     throw new Error(`${label} gagal diunggah. Coba lagi.`);
   }
   return json.storageId;

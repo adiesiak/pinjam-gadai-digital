@@ -28,6 +28,7 @@ import { simpanDataDiriProfil, bacaProfilUntukForm } from "./dataDiriProfil";
 import { ensureKodePeminjam } from "./peminjamCode";
 import { rejectUnverifiedMoneyMovement } from "./paymentGuard";
 import { quoteKreditBarang } from "../lib/kredit";
+import { STATUS_MENUNGGU } from "../lib/admin-queue";
 import type { Id } from "./_generated/dataModel";
 import {
   kelompokkanJurnalYatim,
@@ -813,9 +814,15 @@ export const adminStats = query({
     const loans = await ctx.db.query("loans").collect();
     const pawns = await ctx.db.query("pawns").collect();
 
-    const pendingLoans = loans.filter((l) => l.status === "diajukan").length;
-    const pendingPawns = pawns.filter(
-      (p) => p.status === "diajukan" || p.status === "sedang_dinilai",
+    // Status "menunggu keputusan" dibaca dari SATU sumber kebenaran yang sama
+    // dengan lencana sub-tab (`lib/admin-queue.ts`). Sebelumnya di sini hanya
+    // `diajukan` yang dihitung, sehingga pengajuan berstatus `sedang_direview`
+    // — ejaan yang justru ditulis aplikasi — tidak pernah muncul di ringkasan.
+    const pendingLoans = loans.filter((l) =>
+      STATUS_MENUNGGU.pinjaman.includes(l.status),
+    ).length;
+    const pendingPawns = pawns.filter((p) =>
+      STATUS_MENUNGGU.gadai.includes(p.status),
     ).length;
     const taksiranTotal = pawns
       .filter((p) => p.status === "disetujui" && p.nilaiTaksiran !== undefined)
@@ -873,7 +880,7 @@ export const adminStats = query({
       .filter((l) => l.status === "didanai")
       .reduce((acc, l) => acc + l.pokokPinjaman, 0);
     const totalPinjamanDiajukan = loans
-      .filter((l) => l.status === "diajukan")
+      .filter((l) => STATUS_MENUNGGU.pinjaman.includes(l.status))
       .reduce((acc, l) => acc + (l.pokokDiajukan ?? l.pokokPinjaman), 0);
 
     const cfg = await getConfig(ctx);
