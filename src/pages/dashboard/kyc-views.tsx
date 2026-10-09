@@ -29,6 +29,8 @@ import { toast } from "sonner";
 import { StatusKycBadge } from "@/components/StatusKycBadge";
 import { WatermarkedDoc } from "@/components/WatermarkedDoc";
 import { UnggahDokumen, type DokumenTerunggah } from "@/components/admin/pengajuan-manual/UnggahDokumen";
+import { PindaiKtpOcr } from "@/components/kyc/PindaiKtpOcr";
+import type { DataKtp } from "@/lib/kycOcr";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -527,6 +529,9 @@ export function KycSection() {
   const [draft, setDraft] = useState<DraftKyc | null>(null);
   /** Pratinjau berkas yang baru dipilih (belum tersimpan) per slot. */
   const [pratinjau, setPratinjau] = useState<Partial<Record<SlotBerkasUi, PratinjauLokal>>>({});
+  // Berkas KTP yang sedang dipilih — dipegang terpisah supaya OCR bisa dibaca
+  // dari berkas asli di perangkat (tidak perlu bolak-balik ke storage).
+  const [fileKtp, setFileKtp] = useState<File | null>(null);
   const [tahapPilihan, setTahapPilihan] = useState<IdTahapKyc | null>(null);
   const [centangSetuju, setCentangSetuju] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -644,6 +649,26 @@ export function KycSection() {
     // Berkas dihapus atau diganti: pratinjau lokal yang lama tidak berlaku lagi,
     // supaya yang tampil hanya berkas yang benar-benar sedang diproses.
     gantiPratinjau(slot, null);
+    if (slot === "ktp" && nilai === null) setFileKtp(null);
+  };
+
+  /**
+   * Terapkan hasil OCR ke draf formulir. Nilai yang tidak terbaca TIDAK
+   * menimpa isian yang sudah ada, dan pengguna tetap bisa mengoreksi kolomnya
+   * sebelum menyimpan — OCR tidak pernah menyimpan sendiri ke server.
+   */
+  const terapkanOcrKtp = (ktp: DataKtp) => {
+    setDraft({
+      stempel: stempelServer,
+      isian: {
+        ...isian,
+        namaLengkap: ktp.nama ?? isian.namaLengkap,
+        nik: ktp.nik ?? isian.nik,
+        alamat: ktp.alamat ?? isian.alamat,
+      },
+      berkas,
+    });
+    toast.success("Hasil OCR diterapkan ke formulir. Periksa dan koreksi sebelum menyimpan.");
   };
 
   const menuju = (id: IdTahapKyc) => {
@@ -1005,11 +1030,22 @@ export function KycSection() {
                   accept="image/jpeg,image/png,image/webp"
                   nilai={berkas[slotDokumen]}
                   onUbah={(d) => ubahBerkas(slotDokumen, d)}
-                  onBerkasDipilih={(file) => tampilkanPratinjau(slotDokumen, file)}
+                  onBerkasDipilih={(file) => {
+                    tampilkanPratinjau(slotDokumen, file);
+                    if (slotDokumen === "ktp") setFileKtp(file);
+                  }}
                   mintaUrl={() => buatUrl({})}
                   periksa={(id, label) => periksa({ id, label }).then(() => undefined)}
                   disabled={busy}
                 />
+                {slotDokumen === "ktp" && fileKtp !== null && (
+                  <PindaiKtpOcr
+                    file={fileKtp}
+                    form={{ namaLengkap: isian.namaLengkap, nik: isian.nik, alamat: isian.alamat }}
+                    onTerapkan={terapkanOcrKtp}
+                    disabled={busy}
+                  />
+                )}
                 {pratinjau[slotDokumen]?.url != null && (
                   <WatermarkedDoc
                     src={pratinjau[slotDokumen]!.url!}
