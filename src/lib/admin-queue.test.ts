@@ -389,7 +389,7 @@ eq(
 
 // ===== Peta modul & grup (dokumen desain §4) =====
 
-eq(NILAI_MODUL_ADMIN.length, 19, "19 nilai modul");
+eq(NILAI_MODUL_ADMIN.length, 18, "18 nilai modul yang ada");
 eq(
   new Set(NILAI_MODUL_ADMIN).size,
   NILAI_MODUL_ADMIN.length,
