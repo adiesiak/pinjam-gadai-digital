@@ -115,7 +115,10 @@ export async function hapusTurunanAkun(
       await ctx.db.delete(row._id);
       berkasKyc += 1;
     }
-    if ((await ctx.storage.getMetadata(storageId)) !== null) {
+    // Keberadaan blob diperiksa lewat `storage.getUrl` (null = tidak ada).
+    // `storage.getMetadata` belum didukung convex-test, sedangkan jalur hapus
+    // berkas identitas ini justru yang paling perlu diuji.
+    if ((await ctx.storage.getUrl(storageId)) !== null) {
       await ctx.storage.delete(storageId);
       berkasKycStorage += 1;
     }
@@ -123,7 +126,7 @@ export async function hapusTurunanAkun(
 
   // Foto KTP ikut dihapus — tanpa baris pemiliknya, berkas itu menjadi yatim.
   for (const p of profil) {
-    if (p.fotoKtpId !== undefined && (await ctx.storage.getMetadata(p.fotoKtpId)) !== null) {
+    if (p.fotoKtpId !== undefined && (await ctx.storage.getUrl(p.fotoKtpId)) !== null) {
       await ctx.storage.delete(p.fotoKtpId);
     }
   }

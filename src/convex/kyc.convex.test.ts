@@ -679,11 +679,14 @@ describe("alur KYC mandiri", () => {
     const { t, admin, nasabah } = await siapkanDua();
     const berkas = await kirimLengkap(t, nasabah.sesi);
 
+    // Catatan: `convexTest` belum mendukung syscall `storage.getMetadata`,
+    // sehingga keberadaan blob diperiksa lewat `storage.getUrl` — yang juga
+    // mengembalikan null setelah blob benar-benar dihapus.
     const sebelum = await t.run(async (ctx) => ({
       kyc: (await ctx.db.query("kycProfil").collect()).length,
       riwayat: (await ctx.db.query("kycRiwayat").collect()).length,
       penanda: (await ctx.db.query("berkasTerverifikasi").collect()).length,
-      ktp: await ctx.storage.getMetadata(berkas.ktpId),
+      ktp: await ctx.storage.getUrl(berkas.ktpId),
     }));
     expect(sebelum.kyc).toBe(1);
     expect(sebelum.riwayat).toBeGreaterThan(0);
@@ -696,9 +699,9 @@ describe("alur KYC mandiri", () => {
       kyc: (await ctx.db.query("kycProfil").collect()).length,
       riwayat: (await ctx.db.query("kycRiwayat").collect()).length,
       penanda: (await ctx.db.query("berkasTerverifikasi").collect()).length,
-      ktp: await ctx.storage.getMetadata(berkas.ktpId),
-      selfie: await ctx.storage.getMetadata(berkas.selfieKtpId),
-      bukti: await ctx.storage.getMetadata(berkas.buktiPenghasilanId),
+      ktp: await ctx.storage.getUrl(berkas.ktpId),
+      selfie: await ctx.storage.getUrl(berkas.selfieKtpId),
+      bukti: await ctx.storage.getUrl(berkas.buktiPenghasilanId),
     }));
     // Tidak ada baris KYC, riwayat, atau penanda berkas yang tertinggal...
     expect(sesudah.kyc).toBe(0);
