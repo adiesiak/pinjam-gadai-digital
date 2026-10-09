@@ -21,6 +21,7 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatRupiah } from "@/lib/money";
 import { fadeUpItem, staggerContainer } from "@/lib/motion";
+import { NotificationBell } from "@/components/notifications/NotificationBell";
 import { RoleDashboardMenu } from "@/components/RoleDashboardMenu";
 import { VaultLogo } from "@/components/VaultLogo";
 
@@ -160,6 +161,9 @@ export function AdminHeader({
           </Badge>
         </div>
         <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
+          {/* Lonceng yang sama dengan dashboard nasabah: sumbernya catatan milik
+              pengguna yang sedang masuk, jadi tidak ada notifikasi orang lain. */}
+          <NotificationBell />
           <RoleDashboardMenu />
           <Button
             size="sm"

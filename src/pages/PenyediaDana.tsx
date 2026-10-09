@@ -23,6 +23,7 @@ import {
 import { Component, useEffect, useState, type ReactNode } from "react";
 import { Link } from "react-router";
 
+import { NotificationBell } from "@/components/notifications/NotificationBell";
 import { RoleDashboardMenu } from "@/components/RoleDashboardMenu";
 import { kunciNama, namaHurufBesar, namaRuangan } from "@/lib/nama";
 import { VaultLogo } from "@/components/VaultLogo";
@@ -1726,6 +1727,7 @@ function IsiRuang() {
                   ? "Super Admin · dapat mengoreksi data"
                   : "Ruang penyedia dana · lihat saja"}
             </span>
+            <NotificationBell />
             <RoleDashboardMenu />
           </div>
         </div>

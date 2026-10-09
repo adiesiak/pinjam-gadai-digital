@@ -1,5 +1,6 @@
 import { Link } from "react-router";
 
+import { NotificationBell } from "@/components/notifications/NotificationBell";
 import { RoleDashboardMenu } from "@/components/RoleDashboardMenu";
 import { VaultLogo } from "@/components/VaultLogo";
 
@@ -17,10 +18,13 @@ export function DashboardHeader() {
           </span>
         </Link>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 sm:gap-2">
           <span className="hidden rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[10px] font-medium uppercase tracking-[0.16em] text-muted-foreground sm:inline-flex">
             Dashboard Peminjam
           </span>
+          {/* Lonceng hanya untuk akun terverifikasi (tamu tidak punya catatan
+              yang bisa diberitakan). Komponennya sendiri yang memutuskan. */}
+          <NotificationBell />
           <RoleDashboardMenu />
         </div>
       </div>

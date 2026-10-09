@@ -1,7 +1,8 @@
 import { useQuery } from "convex/react";
 import { TrendingUp } from "lucide-react";
 import { useState } from "react";
-import { Link, useNavigate } from "react-router";
+import { Link, useNavigate, useSearchParams } from "react-router";
+import { tabDariParams } from "@/lib/notifikasi";
 import { Button } from "@/components/ui/button";
 import { JENIS_PENGAJUAN_AWAL, type JenisPengajuan } from "@/lib/jenisPengajuan";
 import { formatRupiah } from "@/lib/money";
@@ -129,7 +130,19 @@ export default function Dashboard() {
 
   const [loanDetailId, setLoanDetailId] = useState<Id<"loans"> | null>(null);
   const [pawnDetailId, setPawnDetailId] = useState<Id<"pawns"> | null>(null);
-  const [activeTab, setActiveTab] = useState("pinjaman");
+
+  // Tab yang sedang dibuka. Parameter `?tab=…` (mis. dari pusat notifikasi)
+  // diutamakan selama masih ada di URL, lalu pilihan pengguna mengambil alih —
+  // jadi tautan notifikasi selalu membuka tab yang dimaksud, tanpa memaksa
+  // pengguna tetap terkunci di tab itu setelah ia berpindah sendiri.
+  const [parameter, setParameter] = useSearchParams();
+  const tabDariUrl = tabDariParams(parameter);
+  const [tabLokal, setTabLokal] = useState<string>(() => tabDariUrl ?? "pinjaman");
+  const activeTab = tabDariUrl ?? tabLokal;
+  const gantiTab = (value: string) => {
+    if (tabDariUrl !== null) setParameter(new URLSearchParams(), { replace: true });
+    setTabLokal(value);
+  };
   // Jenis pengajuan yang aktif dimiliki di sini, bukan di halaman form: CTA di
   // tab lain (dan pintasan menu layar sempit) harus bisa membuka halaman form
   // dengan jenisnya sudah terpilih, dan pilihan pemakai bertahan saat berpindah
@@ -141,7 +154,7 @@ export default function Dashboard() {
   /** Buka halaman Form Pengajuan dengan jenis yang sudah dipilih. */
   const bukaPengajuan = (jenis: JenisPengajuan) => {
     setJenisPengajuan(jenis);
-    setActiveTab("form");
+    gantiTab("form");
   };
 
   const handleSignOut = async () => {
@@ -241,7 +254,7 @@ export default function Dashboard() {
       >
         <Tabs
           value={activeTab}
-          onValueChange={setActiveTab}
+          onValueChange={gantiTab}
           className="flex flex-col gap-5 lg:flex-row lg:items-start lg:gap-8"
         >
           {/* ===== Sisi kiri: profil + navigasi tab ===== */}
@@ -251,7 +264,7 @@ export default function Dashboard() {
               role={user?.role}
               badges={tabBadges}
               activeTab={activeTab}
-              onTabChange={setActiveTab}
+              onTabChange={gantiTab}
               onBuatPengajuan={bukaPengajuan}
               onSignOut={handleSignOut}
             />

@@ -1257,6 +1257,38 @@ const schema = defineSchema(
       diperbaruiPada: v.number(),
     }).index("by_slot", ["slot"]),
 
+    /**
+     * Tanda "sudah dibaca" untuk pusat notifikasi in-app.
+     *
+     * Pusat notifikasi TIDAK menyimpan salinan notifikasi dan tidak mengirim
+     * apa pun: daftarnya selalu dihitung ulang dari sumber asli yang sudah ada
+     * (`pengingat`, `lokasiPeringatan`, `manualPaymentReceipts`, `pengumuman`),
+     * sehingga tidak ada notifikasi palsu yang bisa hidup di tabel ini. Yang
+     * disimpan hanyalah keadaan milik pengguna: notifikasi mana yang sudah ia
+     * baca, dan kapan.
+     *
+     * `kunci` adalah identitas stabil sumbernya, mis. `pengingat:<id>` — bukan
+     * judul atau waktu, supaya perubahan kecil pada isi (mis. nominal yang
+     * diperbarui) tidak membuat notifikasi lama muncul kembali sebagai belum
+     * dibaca.
+     *
+     * Peringatan lokasi TIDAK memakai tabel ini: tabel `lokasiPeringatan` sudah
+     * punya `dibacaPada` yang juga mengendalikan banner di dashboard. Satu
+     * keadaan, satu tempat — supaya banner dan pusat notifikasi tidak pernah
+     * berbeda pendapat soal apa yang sudah diakui pengguna.
+     */
+    notifikasiBaca: defineTable({
+      userId: v.id("users"),
+      /** Identitas stabil sumber notifikasi (mis. "pengingat:<id>"). */
+      kunci: v.string(),
+      /** Jenis sumber, disimpan untuk pemeriksaan/audit ringan. */
+      sumber: v.string(),
+      /** Waktu baca menurut server (epoch ms). */
+      dibacaPada: v.number(),
+    })
+      .index("by_user", ["userId"])
+      .index("by_user_kunci", ["userId", "kunci"]),
+
     /*
      * ==================================================================
      * Pengelolaan keterlambatan & penagihan
