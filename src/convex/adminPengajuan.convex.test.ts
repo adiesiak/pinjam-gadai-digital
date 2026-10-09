@@ -6,8 +6,9 @@
  * manual", supaya tidak diterjemahkan sebagai jalan pintas:
  *  1. barisnya benar-benar masuk antrean produknya dengan status `diajukan`,
  *     jadi keputusan tetap lewat dialog review yang sudah diaudit;
- *  2. plafon nasabah tetap mengikat — pencatatan manual bukan celah melewati
- *     batas kredit;
+ *  2. plafon nasabah TIDAK mengikat jalur manual — pengajuan yang sudah
+ *     diputuskan di luar aplikasi tetap bisa dipindahkan; yang tetap berlaku
+ *     hanyalah batas produk & langit-langit sistem;
  *  3. identitas (NIK, WhatsApp, penghasilan, rekening) diambil dari data diri
  *     tersimpan, dan kredit barang menolak dicatat sebelum data diri lengkap;
  *  4. setiap pencatatan tercatat di Audit Trail dengan aksi `pengajuan_manual_*`;

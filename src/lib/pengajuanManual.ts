@@ -223,8 +223,10 @@ export type PinjamanManualBersih = {
 
 /**
  * Validasi bentuk pengajuan pinjaman manual. Batas pokok memakai aturan resmi
- * masing-masing skema (harian ≤ Rp 1 juta; bulanan lewat mesin bulanan) —
- * plafon per nasabah tetap diperiksa mutation karena butuh riwayat nasabah.
+ * masing-masing skema (harian ≤ Rp 1 juta; bulanan lewat mesin bulanan).
+ * Plafon per nasabah SENGAJA tidak diperiksa di sini MAUPUN di mutation:
+ * jalur ini memindahkan pengajuan yang sudah terjadi di luar aplikasi, jadi
+ * batas kredit dalam aplikasi bukan syaratnya (lihat convex/adminPengajuan.ts).
  */
 export function validasiPinjamanManual(
   input: PinjamanManualInput,

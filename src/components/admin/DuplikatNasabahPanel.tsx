@@ -1,5 +1,5 @@
 import { useMutation, useQuery } from "convex/react";
-import { Check, GitMerge, Loader2, ShieldCheck, Trash2, UserMinus, Users } from "lucide-react";
+import { Check, GitMerge, Loader2, ShieldCheck, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 

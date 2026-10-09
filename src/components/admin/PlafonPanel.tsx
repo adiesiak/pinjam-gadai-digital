@@ -29,6 +29,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { EmptyQueue, MetrikKartu } from "@/components/admin/admin-shared";
 import { DataDiriDialog } from "@/components/admin/DataDiriDialog";
+import { DuplikatNasabahPanel } from "@/components/admin/DuplikatNasabahPanel";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { formatRupiah } from "@/lib/money";
@@ -199,6 +200,10 @@ export function PlafonPanel() {
           </div>
         </div>
       </section>
+
+      {/* Alat data lama: temukan & gabungkan nasabah kembar. Hanya muncul saat
+          memang ada duplikat, jadi tidak menambah kebisingan layar kerja. */}
+      <DuplikatNasabahPanel />
 
       {/* Pencarian + jumlah hasil, sejajar agar lebar daftar tidak bergeser. */}
       <div className="flex flex-wrap items-center gap-3">
