@@ -22,7 +22,7 @@ function ok(syarat: boolean, label: string): void {
 
 /**
  * Snapshot data yang SEHAT: satu pinjaman harian Rp1.000.000 @30% yang sudah
- * lunas, jurnal dua grup seimbang, panel & ruang sepakat, kartu admin sama.
+ * lunas, panel & ruang sepakat, kartu admin sama.
  * Tiap kasus uji menyalin fixture ini lalu merusak SATU sisi saja.
  *
  * Angkanya mengikuti kebijakan berjalan (lihat tabel di lib/bagiHasil.ts):
@@ -32,25 +32,6 @@ function ok(syarat: boolean, label: string): void {
  */
 function sehat(): InputQc {
   return {
-    ledger: {
-      totalDebit: 85_000,
-      totalKredit: 85_000,
-      entryCount: 4,
-      seimbang: true,
-      pendapatanPlatform: 85_000,
-      rincianSkema: { pinjaman: 85_000, gadai: 0, kredit: 0, lainnya: 0 },
-    },
-    tren: Array.from({ length: 12 }, (_, i) => ({
-      kunci: `2026-${String(i + 1).padStart(2, "0")}`,
-      label: `B${i + 1}`,
-      jumlah: i === 11 ? 85_000 : 0,
-    })),
-    entri: [
-      { groupId: "J-fee", arah: "debit", jumlah: 20_000 },
-      { groupId: "J-fee", arah: "kredit", jumlah: 20_000 },
-      { groupId: "J-payout", arah: "debit", jumlah: 65_000 },
-      { groupId: "J-payout", arah: "kredit", jumlah: 65_000 },
-    ],
     ruang: {
       terpotong: { pinjaman: false },
       ringkasan: {
@@ -155,11 +136,11 @@ function statusDari(hasil: ReturnType<typeof jalankanQc>, id: string): StatusCek
 // ===== 1. Suite sehat: seluruh pemeriksaan lulus =====
 {
   const hasil = jalankanQc(sehat());
-  eq(hasil.ringkasan.total, 16, "suite memuat 16 pemeriksaan");
+  eq(hasil.ringkasan.total, 11, "suite memuat 11 pemeriksaan");
   eq(hasil.ringkasan.gagal, 0, "tidak ada gagalan pada data sehat");
   eq(hasil.ringkasan.awas, 0, "tidak ada peringatan pada data sehat");
   eq(hasil.ringkasan.lewat, 0, "tidak ada pemeriksaan terlewat pada data sehat");
-  eq(hasil.ringkasan.lulus, 16, "semua pemeriksaan lulus");
+  eq(hasil.ringkasan.lulus, 11, "semua pemeriksaan lulus");
   ok(hasil.lulusSemua, "suite sehat dinyatakan lulus");
   for (const c of hasil.cek) {
     eq(c.status, "lulus", `sehat → ${c.id}`);
@@ -167,63 +148,10 @@ function statusDari(hasil: ReturnType<typeof jalankanQc>, id: string): StatusCek
     ok(c.nilai.length > 0, `${c.id} punya angka pengamatan`);
     ok(GRUP_QC.includes(c.grup as (typeof GRUP_QC)[number]), `${c.id} dalam grup resmi`);
   }
-  eq(new Set(hasil.cek.map((c) => c.id)).size, 16, "id pemeriksaan unik");
+  eq(new Set(hasil.cek.map((c) => c.id)).size, 11, "id pemeriksaan unik");
 }
 
-// ===== 2. Ledger: total tidak seimbang → gagal =====
-{
-  const input = salinan();
-  input.ledger.totalKredit = 34_000;
-  input.ledger.seimbang = false;
-  const hasil = jalankanQc(input);
-  eq(statusDari(hasil, "ledger-seimbang"), "gagal", "debit ≠ kredit → gagal");
-  ok(!hasil.lulusSemua, "suite gagal saat ledger tak seimbang");
-}
-
-// ===== 3. Ledger: satu grup pincang (tertutupi total) tetap ketahuan =====
-{
-  const input = salinan();
-  input.entri[1].jumlah = 10_000; // kredit grup J-fee tinggal 10.000
-  const hasil = jalankanQc(input);
-  eq(statusDari(hasil, "ledger-grup-seimbang"), "gagal", "grup pincang → gagal");
-  ok(cekDari(hasil, "ledger-grup-seimbang").detail.includes("J-fee"), "grup pincang disebut namanya");
-}
-
-// ===== 4. Ledger: jumlah negatif ditolak walaupun tetap seimbang =====
-{
-  const input = salinan();
-  // Pasangan negatif tetap seimbang secara aritmetika (−20.000 − (−20.000) = 0),
-  // tetapi tetap harus tertangkap pemeriksaan rupiah bulat non-negatif.
-  input.entri[0].jumlah = -20_000;
-  input.entri[1].jumlah = -20_000;
-  const hasil = jalankanQc(input);
-  eq(statusDari(hasil, "ledger-jumlah-sah"), "gagal", "jumlah negatif → gagal");
-  eq(statusDari(hasil, "ledger-grup-seimbang"), "lulus", "grup tetap seimbang");
-}
-
-// ===== 5. Ledger: rincian per skema tidak menjumlah =====
-{
-  const input = salinan();
-  input.ledger.rincianSkema.pinjaman = 30_000;
-  const hasil = jalankanQc(input);
-  eq(statusDari(hasil, "ledger-rincian-skema"), "gagal", "rincian ≠ total → gagal");
-}
-
-// ===== 6. Ledger: tren melebihi total = entri ganda; lebih kecil = di luar jendela =====
-{
-  const lebih = salinan();
-  lebih.tren[11].jumlah = 100_000;
-  eq(statusDari(jalankanQc(lebih), "ledger-tren-12-bulan"), "gagal", "tren > total → gagal");
-
-  const kurang = salinan();
-  kurang.tren = kurang.tren.map((b) => ({ ...b, jumlah: 0 }));
-  kurang.tren[0].jumlah = 20_000;
-  const hasilKurang = jalankanQc(kurang);
-  eq(statusDari(hasilKurang, "ledger-tren-12-bulan"), "lewat", "tren < total → lewat (jendela 12 bulan)");
-  ok(hasilKurang.lulusSemua, "pendapatan di luar jendela bukan kegagalan");
-}
-
-// ===== 7. Ruang: pembagian Imbal Hasil tidak kembali utuh → gagal =====
+// ===== 2. Ruang: pembagian Imbal Hasil tidak kembali utuh → gagal =====
 {
   const input = salinan();
   input.ruang.pinjaman[0].potonganAdmin = 20_000;
@@ -232,7 +160,7 @@ function statusDari(hasil: ReturnType<typeof jalankanQc>, id: string): StatusCek
   eq(statusDari(hasil, "baris-hitung-ulang"), "gagal", "angka baris ≠ hitung ulang → gagal");
 }
 
-// ===== 8. Ruang: masukan di luar rentang → peringatan, bukan kegagalan =====
+// ===== 3. Ruang: masukan di luar rentang → peringatan, bukan kegagalan =====
 {
   const input = salinan();
   input.ruang.pinjaman[0].pokokPinjaman = 1_000_000.5; // jatuh ke fallback nol
@@ -242,14 +170,14 @@ function statusDari(hasil: ReturnType<typeof jalankanQc>, id: string): StatusCek
   ok(hasil.lulusSemua, "peringatan tidak menggagalkan suite");
 }
 
-// ===== 9. Ruang: total yang tampil ≠ jumlah baris/rekap → gagal =====
+// ===== 4. Ruang: total yang tampil ≠ jumlah baris/rekap → gagal =====
 {
   const input = salinan();
   input.ruang.ringkasan.totalBungaPinjaman = 400_000;
   eq(statusDari(jalankanQc(input), "ringkasan-ruang"), "gagal", "ringkasan ≠ jumlah baris → gagal");
 }
 
-// ===== 9b. Ruang: keuntungan belum lunas tercampur yang sudah lunas → gagal =====
+// ===== 5. Ruang: keuntungan belum lunas tercampur yang sudah lunas → gagal =====
 {
   const input = salinan();
   // Totalnya tidak berubah, tetapi "belum lunas" dinaikkan tanpa menurunkan
@@ -270,7 +198,7 @@ function statusDari(hasil: ReturnType<typeof jalankanQc>, id: string): StatusCek
   eq(statusDari(hasil, "ringkasan-ruang"), "lulus", "total lain tetap cocok");
 }
 
-// ===== 10. Ruang: identitas agregat admin + penyedia = Imbal Hasil =====
+// ===== 6. Ruang: identitas agregat admin + penyedia = Imbal Hasil =====
 {
   const input = salinan();
   input.ruang.rekapPendana[0].keuntunganPendana = 300_000;
@@ -284,14 +212,14 @@ function statusDari(hasil: ReturnType<typeof jalankanQc>, id: string): StatusCek
   eq(hasil.ringkasan.gagal, 1, "hanya identitas agregat yang gagal");
 }
 
-// ===== 11. Kebijakan berbeda antara panel dan ruang → gagal =====
+// ===== 7. Kebijakan berbeda antara panel dan ruang → gagal =====
 {
   const input = salinan();
   input.panel.ringkasan.persenPotonganAdmin = 7;
   eq(statusDari(jalankanQc(input), "kebijakan-bersama"), "gagal", "kebedaan kebijakan → gagal");
 }
 
-// ===== 12. Rekonsiliasi: selisih per pendana → gagal, total ditutup =====
+// ===== 8. Rekonsiliasi: selisih per pendana → gagal, total ditutup =====
 {
   const input = salinan();
   input.panel.rows[0].metrik.totalBunga = 250_000;
@@ -302,7 +230,7 @@ function statusDari(hasil: ReturnType<typeof jalankanQc>, id: string): StatusCek
   eq(statusDari(hasil, "total-panel-ruang"), "lewat", "total ditutup sampai pemetaan beres");
 }
 
-// ===== 13. Rekonsiliasi: pinjaman tanpa akun panel → peringatan =====
+// ===== 9. Rekonsiliasi: pinjaman tanpa akun panel → peringatan =====
 {
   const input = salinan();
   // Satu pinjaman berjalan milik pendana yang tidak punya akun panel — angka
@@ -352,7 +280,7 @@ function statusDari(hasil: ReturnType<typeof jalankanQc>, id: string): StatusCek
   eq(statusDari(hasil, "total-panel-ruang"), "lewat", "total ditutup selama pemetaan belum bersih");
 }
 
-// ===== 14. Panel admin: kartu keuntungan ≠ jumlah potongan baris → gagal =====
+// ===== 10. Panel admin: kartu keuntungan ≠ jumlah potongan baris → gagal =====
 {
   const input = salinan();
   input.stats.keuntunganAdminTercatat = 20_000;
@@ -385,7 +313,7 @@ function statusDari(hasil: ReturnType<typeof jalankanQc>, id: string): StatusCek
   ok(hasilSalah.ringkasan.gagal >= 1, "kegagalan kartu terhitung dalam ringkasan");
 }
 
-// ===== 14b. Baris `sedang_direview` ikut dihitung sebagai menunggu review =====
+// ===== 11. Baris `sedang_direview` ikut dihitung sebagai menunggu review =====
 // `adminStats.pinjamanBaru` menghitung `diajukan` DAN `sedang_direview`
 // (lib/admin-queue.ts). Pemeriksaan kartu wajib memakai himpunan yang sama;
 // kalau hanya `diajukan` yang dihitung di sini, panel dan baris selalu tampak
@@ -420,23 +348,9 @@ function statusDari(hasil: ReturnType<typeof jalankanQc>, id: string): StatusCek
   );
 }
 
-// ===== 15. Data kosong: tidak ada kegagalan, hanya pemeriksaan yang terlewat =====
+// ===== 12. Data kosong: tidak ada kegagalan, hanya pemeriksaan yang terlewat =====
 {
   const input: InputQc = {
-    ledger: {
-      totalDebit: 0,
-      totalKredit: 0,
-      entryCount: 0,
-      seimbang: true,
-      pendapatanPlatform: 0,
-      rincianSkema: { pinjaman: 0, gadai: 0, kredit: 0, lainnya: 0 },
-    },
-    tren: Array.from({ length: 12 }, (_, i) => ({
-      kunci: `2026-${String(i + 1).padStart(2, "0")}`,
-      label: `B${i + 1}`,
-      jumlah: 0,
-    })),
-    entri: [],
     ruang: {
       terpotong: { pinjaman: false },
       ringkasan: {

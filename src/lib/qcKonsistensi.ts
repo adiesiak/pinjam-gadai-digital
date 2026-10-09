@@ -6,9 +6,7 @@
  * dan tidak menyentuh Convex supaya bisa diuji langsung dengan `bun
  * src/lib/qcKonsistensi.test.ts` tanpa DOM maupun server.
  *
- * Empat sumber data yang dibandingkan:
- *  - `ledger` + `entri` — ringkasan & baris jurnal internal (`admin.ledgerSummary`,
- *    `admin.ledgerRows`) — keseimbangan debit/kredit dan pendapatan platform.
+ * Tiga sumber data yang dibandingkan:
  *  - `ruang` — ruang penyedia dana (`penyediaDana.daftarPengajuan`) — angka
  *    bagi hasil per baris pinjaman dan rekap per pendana.
  *  - `panel` — panel admin "Kelola Penyedia Dana" (`penyediaDana.daftarInvestor`).
@@ -55,22 +53,6 @@ export type HasilQc = {
 };
 
 // ===== Bentuk masukan (dicocokkan struktural dengan hasil query) =====
-
-export type LedgerQc = {
-  totalDebit: number;
-  totalKredit: number;
-  entryCount: number;
-  seimbang: boolean;
-  pendapatanPlatform: number;
-  rincianSkema: { pinjaman: number; gadai: number; kredit: number; lainnya: number };
-};
-
-/** Entri jurnal yang dibutuhkan pemeriksaan — hanya bidang yang dibaca. */
-export type EntriLedgerQc = {
-  groupId: string;
-  arah: "debit" | "kredit";
-  jumlah: number;
-};
 
 export type BarisPinjamanQc = {
   nomorReferensi: string;
@@ -146,9 +128,6 @@ export type StatsQc = {
 };
 
 export type InputQc = {
-  ledger: LedgerQc;
-  tren: { kunci: string; label: string; jumlah: number }[];
-  entri: EntriLedgerQc[];
   ruang: RuangQc;
   panel: PanelQc;
   stats: StatsQc;
@@ -157,7 +136,6 @@ export type InputQc = {
 // ===== Kelompok pemeriksaan (urutan tampil di halaman) =====
 
 export const GRUP_QC = [
-  "Ledger internal",
   "Ruang penyedia dana",
   "Rekonsiliasi panel ↔ ruang",
   "Panel admin",
@@ -213,105 +191,6 @@ export function jalankanQc(input: InputQc): HasilQc {
     cek.push({ id, grup, judul, status, detail, nilai });
   };
 
-  // ============ Ledger internal ============
-
-  const { ledger, entri, tren } = input;
-  const seimbang =
-    ledger.seimbang && ledger.totalDebit === ledger.totalKredit;
-  tambah(
-    "ledger-seimbang",
-    GRUP_QC[0],
-    "Total debit sama dengan total kredit",
-    seimbang ? "lulus" : "gagal",
-    seimbang
-      ? `Seluruh ${ledger.entryCount} entri jurnal seimbang pada ${rp(ledger.totalDebit)}.`
-      : `Debit ${rp(ledger.totalDebit)} berbeda dengan kredit ${rp(ledger.totalKredit)} — uang diciptakan atau hilang di ledger.`,
-    [rp(ledger.totalDebit), rp(ledger.totalKredit), `${ledger.entryCount} entri`],
-  );
-
-  // Keseimbangan per grup: kuat dari keseimbangan total — satu grup yang
-  // pincang bisa tertutupi grup lain yang kebalikannya.
-  const selisihPerGrup = new Map<string, number>();
-  for (const e of entri) {
-    selisihPerGrup.set(e.groupId, (selisihPerGrup.get(e.groupId) ?? 0) + (e.arah === "debit" ? e.jumlah : -e.jumlah));
-  }
-  const grupPincang = [...selisihPerGrup.entries()].filter(([, s]) => s !== 0);
-  tambah(
-    "ledger-grup-seimbang",
-    GRUP_QC[0],
-    "Setiap grup jurnal seimbang",
-    entri.length === 0
-      ? "lewat"
-      : grupPincang.length === 0
-        ? "lulus"
-        : "gagal",
-    entri.length === 0
-      ? "Belum ada entri jurnal untuk diperiksa."
-      : grupPincang.length === 0
-        ? `${selisihPerGrup.size} grup jurnal semuanya berpasangan debit/kredit.`
-        : `${grupPincang.length} grup tidak seimbang: ${batasi(grupPincang.map(([g, s]) => `${g} (${s > 0 ? "+" : ""}${rp(s)})`))}`,
-    [
-      `${selisihPerGrup.size} grup jurnal`,
-      ...grupPincang.slice(0, 3).map(([g, s]) => `${g} ${s > 0 ? "+" : ""}${rp(s)}`),
-    ],
-  );
-
-  const jumlahTakSah = entri.filter((e) => !bulatPositif(e.jumlah));
-  tambah(
-    "ledger-jumlah-sah",
-    GRUP_QC[0],
-    "Jumlah jurnal rupiah bulat non-negatif",
-    entri.length === 0
-      ? "lewat"
-      : jumlahTakSah.length === 0
-        ? "lulus"
-        : "gagal",
-    entri.length === 0
-      ? "Belum ada entri jurnal untuk diperiksa."
-      : jumlahTakSah.length === 0
-        ? `Seluruh ${entri.length} entri memakai rupiah bulat.`
-        : `${jumlahTakSah.length} entri bernilai negatif/bukan rupiah bulat.`,
-    [
-      `${entri.length} entri`,
-      ...jumlahTakSah.slice(0, 3).map((e) => `${e.groupId}: ${e.jumlah}`),
-    ],
-  );
-
-  const rincian = ledger.rincianSkema;
-  const jumlahRincian =
-    rincian.pinjaman + rincian.gadai + rincian.kredit + rincian.lainnya;
-  const rincianCocok = jumlahRincian === ledger.pendapatanPlatform;
-  tambah(
-    "ledger-rincian-skema",
-    GRUP_QC[0],
-    "Rincian per skema menjumlah ke pendapatan platform",
-    rincianCocok ? "lulus" : "gagal",
-    rincianCocok
-      ? `Pinjaman ${rp(rincian.pinjaman)} + gadai ${rp(rincian.gadai)} + kredit ${rp(rincian.kredit)} + lainnya ${rp(rincian.lainnya)} = ${rp(jumlahRincian)}.`
-      : `Rincian per skema ${rp(jumlahRincian)} tidak sama dengan pendapatan platform ${rp(ledger.pendapatanPlatform)}.`,
-    [`pinjaman ${rp(rincian.pinjaman)}`, `gadai ${rp(rincian.gadai)}`, `kredit ${rp(rincian.kredit)}`, `lainnya ${rp(rincian.lainnya)}`],
-  );
-
-  const jumlahTren = jumlah(tren, (b) => b.jumlah);
-  const trenStatus: StatusCekQc =
-    jumlahTren > ledger.pendapatanPlatform
-      ? "gagal"
-      : jumlahTren === ledger.pendapatanPlatform
-        ? "lulus"
-        : "lewat";
-  tambah(
-    "ledger-tren-12-bulan",
-    GRUP_QC[0],
-    "Grafik tren 12 bulan tidak melebihi total pendapatan",
-    trenStatus,
-    trenStatus === "gagal"
-      ? `Tren menjumlah ${rp(jumlahTren)} sedangkan total pendapatan platform hanya ${rp(ledger.pendapatanPlatform)} — entri terhitung ganda.`
-      : trenStatus === "lulus"
-        ? `Seluruh pendapatan ${rp(jumlahTren)} berada di jendela 12 bulan terakhir.`
-        : `${rp(ledger.pendapatanPlatform - jumlahTren)} pendapatan berada di luar jendela 12 bulan terakhir — grafik hanya memuat 12 bulan, jadi angkanya memang lebih kecil.`,
-    [rp(jumlahTren), rp(ledger.pendapatanPlatform), `${tren.length} bulan`],
-  );
-
   // ============ Ruang penyedia dana ============
 
   const { ruang } = input;
@@ -343,7 +222,7 @@ export function jalankanQc(input: InputQc): HasilQc {
   }
   tambah(
     "baris-identitas",
-    GRUP_QC[1],
+    GRUP_QC[0],
     "Pembagian Imbal Hasil tiap baris kembali utuh",
     baris.length === 0 ? "lewat" : masalahIdentitas.length === 0 ? "lulus" : "gagal",
     baris.length === 0
@@ -397,7 +276,7 @@ export function jalankanQc(input: InputQc): HasilQc {
     baris.length === 0 ? "lewat" : salahHitung.length > 0 ? "gagal" : gagalHitung.length > 0 ? "awas" : "lulus";
   tambah(
     "baris-hitung-ulang",
-    GRUP_QC[1],
+    GRUP_QC[0],
     "Angka baris identik dengan hitung ulang kebijakan berjalan",
     statusHitung,
     statusHitung === "lewat"
@@ -441,7 +320,7 @@ export function jalankanQc(input: InputQc): HasilQc {
   );
   tambah(
     "ringkasan-ruang",
-    GRUP_QC[1],
+    GRUP_QC[0],
     "Ringkasan ruang dijumlah dari baris & rekap yang sama",
     baris.length === 0 ? "lewat" : bedaRingkas.length === 0 ? "lulus" : "gagal",
     baris.length === 0
@@ -507,7 +386,7 @@ export function jalankanQc(input: InputQc): HasilQc {
   }
   tambah(
     "pemisahan-lunas",
-    GRUP_QC[1],
+    GRUP_QC[0],
     "Keuntungan pinjaman belum lunas dilaporkan terpisah dari yang sudah lunas",
     rekap.length === 0 ? "lewat" : bedaPemisahan.length === 0 ? "lulus" : "gagal",
     rekap.length === 0
@@ -527,7 +406,7 @@ export function jalankanQc(input: InputQc): HasilQc {
   const agregatOk = agregat === jumlahRekap.totalBunga;
   tambah(
     "identitas-agregat",
-    GRUP_QC[1],
+    GRUP_QC[0],
     "Keuntungan admin + penyedia = total Imbal Hasil",
     rekap.length === 0 ? "lewat" : agregatOk ? "lulus" : "gagal",
     rekap.length === 0
@@ -548,7 +427,7 @@ export function jalankanQc(input: InputQc): HasilQc {
     input.panel.ringkasan.persenPotonganAdmin === cfg.persenAdmin;
   tambah(
     "kebijakan-bersama",
-    GRUP_QC[1],
+    GRUP_QC[0],
     "Panel admin dan ruang memakai kebijakan yang sama",
     kebijakan ? "lulus" : "gagal",
     kebijakan
@@ -580,7 +459,7 @@ export function jalankanQc(input: InputQc): HasilQc {
   const barisSelisih = rekonsiliasi.rows.filter((r) => r.status === "selisih");
   tambah(
     "rekonsiliasi-selisih",
-    GRUP_QC[2],
+    GRUP_QC[1],
     "Angka per pendana identik di kedua permukaan",
     ringkasRek.jumlahPendana === 0
       ? "lewat"
@@ -604,7 +483,7 @@ export function jalankanQc(input: InputQc): HasilQc {
   const tanpaPasangan = ringkasRek.tanpaRekap + ringkasRek.tanpaAkun;
   tambah(
     "rekonsiliasi-pemetaan",
-    GRUP_QC[2],
+    GRUP_QC[1],
     "Setiap pendana punya pasangan di kedua permukaan",
     ringkasRek.jumlahPendana === 0
       ? "lewat"
@@ -641,7 +520,7 @@ export function jalankanQc(input: InputQc): HasilQc {
   );
   tambah(
     "total-panel-ruang",
-    GRUP_QC[2],
+    GRUP_QC[1],
     "Jumlah besar panel admin = jumlah besar ruang penyedia dana",
     !pemetaanBersih ? "lewat" : bedaTotal.length === 0 ? "lulus" : "gagal",
     !pemetaanBersih
@@ -675,7 +554,7 @@ export function jalankanQc(input: InputQc): HasilQc {
         : ("gagal" as const);
   tambah(
     "admin-vs-ruang",
-    GRUP_QC[3],
+    GRUP_QC[2],
     "Kartu keuntungan admin = jumlah potongan pada baris ruang",
     statusAdmin,
     statusAdmin === "lewat"
@@ -723,7 +602,7 @@ export function jalankanQc(input: InputQc): HasilQc {
         : ("gagal" as const);
   tambah(
     "admin-kartu-pinjaman",
-    GRUP_QC[3],
+    GRUP_QC[2],
     "Kartu pinjaman dashboard admin = baris ruang penyedia dana",
     statusKartu,
     statusKartu === "lewat"

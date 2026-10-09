@@ -539,13 +539,6 @@ function IsiBrankas() {
                         </p>
                         <p className="mt-1 text-sm font-semibold text-[#0f3d3a]">{skema.judul}</p>
                       </div>
-                      <span className="inline-flex items-center gap-2 rounded-full border border-[#0f3d3a]/15 bg-white px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.14em] text-[#0f3d3a]/70">
-                        <span className="relative flex size-2">
-                          <span className="absolute inline-flex size-full animate-ping rounded-full bg-primary/50" />
-                          <span className="relative inline-flex size-2 rounded-full bg-primary" />
-                        </span>
-                        Ledger internal
-                      </span>
                     </div>
                     <p className="border-b border-[#e4dccb] py-3 pl-12 pr-4 text-xs leading-5 text-[#5f6f6a] sm:pl-14 sm:pr-6">
                       {skema.isi}

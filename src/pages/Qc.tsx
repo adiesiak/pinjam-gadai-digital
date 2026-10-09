@@ -2,9 +2,9 @@
  * Rute `/qc` — QC Konsistensi PINDAI.
  *
  * Halaman admin berdiri sendiri yang menjalankan suite pemeriksaan invariant
- * (lib/qcKonsistensi) di atas DATA ASLI: ledger internal, ruang penyedia dana,
- * panel admin, dan kartu keuntungan admin. Suite gagal begitu satu invariant
- * uang dilanggar — angka yang tidak mungkin berasal dari perhitungan yang sama.
+ * (lib/qcKonsistensi) di atas DATA ASLI: ruang penyedia dana, panel admin, dan
+ * kartu keuntungan admin. Suite gagal begitu satu invariant uang dilanggar —
+ * angka yang tidak mungkin berasal dari perhitungan yang sama.
  *
  * Akses mengikuti pola panel admin: `RequireAuth` pada rute, lalu gerbang
  * peran + TOTP di dalam halaman; seluruh query dijaga `requireAdminSession`
@@ -32,9 +32,6 @@ export default function Qc() {
   const gate = useQuery(api.security.totpGateStatus, isAuthenticated ? {} : "skip");
   const adminVerified = gate?.isAdmin === true && gate.verified;
 
-  const ledger = useQuery(api.admin.ledgerSummary, adminVerified ? {} : "skip");
-  const tren = useQuery(api.admin.trenPendapatanBulanan, adminVerified ? {} : "skip");
-  const entri = useQuery(api.admin.ledgerRows, adminVerified ? {} : "skip");
   const ruang = useQuery(api.penyediaDana.daftarPengajuan, adminVerified ? {} : "skip");
   const panel = useQuery(api.penyediaDana.daftarInvestor, adminVerified ? {} : "skip");
   const stats = useQuery(api.admin.adminStats, adminVerified ? {} : "skip");
@@ -52,14 +49,10 @@ export default function Qc() {
   // tanpa waktu render (aturan kemurnian React): stempel laporan dibaca saat
   // tombol "Salin laporan" diklik.
   const hasil = useMemo<HasilQc | null>(() => {
-    if (ledger === undefined || tren === undefined || entri === undefined ||
-        ruang === undefined || panel === undefined || stats === undefined) {
+    if (ruang === undefined || panel === undefined || stats === undefined) {
       return null;
     }
     const input: InputQc = {
-      ledger,
-      tren,
-      entri,
       ruang,
       panel: {
         ringkasan: panel.ringkasan,
@@ -79,7 +72,7 @@ export default function Qc() {
       stats,
     };
     return jalankanQc(input);
-  }, [ledger, tren, entri, ruang, panel, stats]);
+  }, [ruang, panel, stats]);
 
   // ===== Gerbang akses — sama urutannya dengan panel admin =====
   if (isLoading || (isAuthenticated && gate === undefined)) {

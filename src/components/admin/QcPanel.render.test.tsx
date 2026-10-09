@@ -33,15 +33,13 @@ function cek(id: string, grup: string, status: StatusCekQc, judul: string, detai
   return { id, grup, judul, status, detail, nilai };
 }
 
-/** Hasil buatan yang mencakup keempat status dan keempat grup. */
+/** Hasil buatan yang mencakup keempat status dan ketiga grup. */
 function hasil(cacat: boolean): HasilQc {
   const cekList: CekQc[] = [
-    cek("a", GRUP_QC[0], "lulus", "Total debit sama dengan total kredit", "Seluruh 4 entri jurnal seimbang pada Rp 35.000.", ["Rp 35.000"]),
-    cek("b", GRUP_QC[0], cacat ? "gagal" : "lulus", "Setiap grup jurnal seimbang", cacat ? "1 grup tidak seimbang: J-fee (+Rp 10.000)" : "2 grup jurnal semuanya berpasangan debit/kredit.", ["2 grup jurnal"]),
-    cek("c", GRUP_QC[1], "lulus", "Pembagian Imbal Hasil tiap baris kembali utuh", "1 baris pinjaman: potongan admin + keuntungan penyedia = Imbal Hasil.", ["Imbal Hasil Rp 300.000", "potongan admin Rp 15.000"]),
-    cek("d", GRUP_QC[1], "awas", "Angka baris identik dengan hitung ulang kebijakan berjalan", "1 baris jatuh ke nilai nol karena masukan di luar rentang.", ["bunga 30%"]),
-    cek("e", GRUP_QC[2], "lewat", "Jumlah besar panel admin = jumlah besar ruang penyedia dana", "Ditutup oleh pemeriksaan pemetaan di atas.", []),
-    cek("f", GRUP_QC[3], "lulus", "Kartu keuntungan admin = jumlah potongan pada baris ruang", "Sudah tercatat Rp 15.000 + belum tercatat Rp 0 = Rp 15.000.", ["tercatat Rp 15.000"]),
+    cek("c", GRUP_QC[0], "lulus", "Pembagian Imbal Hasil tiap baris kembali utuh", "1 baris pinjaman: potongan admin + keuntungan penyedia = Imbal Hasil.", ["Imbal Hasil Rp 300.000", "potongan admin Rp 15.000"]),
+    cek("d", GRUP_QC[0], "awas", "Angka baris identik dengan hitung ulang kebijakan berjalan", "1 baris jatuh ke nilai nol karena masukan di luar rentang.", ["bunga 30%"]),
+    cek("e", GRUP_QC[1], "lewat", "Jumlah besar panel admin = jumlah besar ruang penyedia dana", "Ditutup oleh pemeriksaan pemetaan di atas.", []),
+    cek("f", GRUP_QC[2], cacat ? "gagal" : "lulus", "Kartu keuntungan admin = jumlah potongan pada baris ruang", cacat ? "Kartu admin Rp 0 ≠ jumlah potongan baris Rp 15.000." : "Sudah tercatat Rp 15.000 + belum tercatat Rp 0 = Rp 15.000.", ["tercatat Rp 15.000"]),
   ];
   const ringkasan = {
     lulus: cekList.filter((c) => c.status === "lulus").length,
@@ -71,13 +69,13 @@ function hasil(cacat: boolean): HasilQc {
   ada(html, "Lulus dengan 1 peringatan", "kabar lulus berperingatan");
   ada(html, "data langsung · diperbarui otomatis", "indikator data langsung");
   ada(html, "Salin laporan", "tombol salin tersedia");
-  ada(html, "Total debit sama dengan total kredit", "judul pemeriksaan tampil");
-  ada(html, "Seluruh 4 entri jurnal seimbang pada Rp 35.000.", "detail rupiah tampil");
+  ada(html, "Pembagian Imbal Hasil tiap baris kembali utuh", "judul pemeriksaan tampil");
+  ada(html, "1 baris pinjaman: potongan admin + keuntungan penyedia = Imbal Hasil.", "detail rupiah tampil");
   ada(html, "Imbal Hasil Rp 300.000", "angka pengamatan tampil");
   ada(html, "peringatan", "lencana peringatan tampil");
   ada(html, "dilewati", "lencana terlewat tampil");
-  ada(html, "2/2 lulus", "ringkasan per grup tampil");
-  ada(html, "4 lulus", "hitung lulus global tampil");
+  ada(html, "1/2 lulus", "ringkasan per grup tampil");
+  ada(html, "2 lulus", "hitung lulus global tampil");
   bersih(html, "panel lulus");
 }
 
@@ -87,7 +85,7 @@ function hasil(cacat: boolean): HasilQc {
   const html = renderToStaticMarkup(<QcPanel hasil={h} />);
   ada(html, "Suite gagal — 1 pemeriksaan dilanggar", "kabar kegagalan");
   ada(html, "GAGAL", "lencana GAGAL tampil");
-  ada(html, "1 grup tidak seimbang: J-fee (+Rp 10.000)", "detail kegagalan tampil");
+  ada(html, "Kartu admin Rp 0 ≠ jumlah potongan baris Rp 15.000.", "detail kegagalan tampil");
   ada(html, "1 gagal", "hitung gagal tampil");
   ok(!html.includes("Seluruh pemeriksaan lulus"), "tidak mengklaim lulus saat gagal");
   bersih(html, "panel gagal");
