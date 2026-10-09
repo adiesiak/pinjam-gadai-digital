@@ -22,7 +22,7 @@ import { Component, useEffect, useState, type ReactNode } from "react";
 import { Link } from "react-router";
 
 import { RoleDashboardMenu } from "@/components/RoleDashboardMenu";
-import { namaHurufBesar } from "@/lib/nama";
+import { kunciNama, namaHurufBesar, namaRuangan } from "@/lib/nama";
 import { VaultLogo } from "@/components/VaultLogo";
 import { CatatanPotonganAdmin } from "@/components/penyediaDana/CatatanPotonganAdmin";
 import { DanaTersalurkanPendana } from "@/components/penyediaDana/DanaTersalurkanPendana";
@@ -469,7 +469,14 @@ function labelPokok(status: string): string {
     : "Pokok tercatat";
 }
 
-function DetailPinjaman({ row }: { row: BarisPinjaman }) {
+function DetailPinjaman({
+  row,
+  namaTampil,
+}: {
+  row: BarisPinjaman;
+  /** Penyamaran nama untuk ruang bersama (nama orang disamarkan). */
+  namaTampil: (nama: string) => string;
+}) {
   const tenorBulan = row.tenorBulan;
   const persenBunga = row.persenBunga ?? undefined;
   const harian =
@@ -496,7 +503,7 @@ function DetailPinjaman({ row }: { row: BarisPinjaman }) {
     <>
       <BarisDetail
         label="Nama lengkap"
-        nilai={<span className="uppercase">{namaHurufBesar(row.namaLengkap)}</span>}
+        nilai={<span className="uppercase">{namaTampil(row.namaLengkap)}</span>}
       />
       <BarisDetail label="Kode peminjam" nilai={row.kodePeminjam ?? "belum terbit"} />
       <BarisDetail label="No. referensi" nilai={row.nomorReferensi} />
@@ -561,7 +568,13 @@ function DetailPinjaman({ row }: { row: BarisPinjaman }) {
       <BarisDetail label="Keperluan" nilai={row.tujuan} />
       <BarisDetail
         label="Pendana"
-        nilai={row.pendana === null ? "belum tercatat" : <span className="uppercase">{row.pendana}</span>}
+        nilai={
+          row.pendana === null ? (
+            "belum tercatat"
+          ) : (
+            <span className="uppercase">{namaTampil(row.pendana)}</span>
+          )
+        }
       />
       <BarisDetail label="Tanggal pengajuan" nilai={tanggalRingkas(row.diajukanPada)} />
       <BarisDetail label="Status" nilai={<StatusBadge status={row.status} kind="loan" />} />
@@ -569,12 +582,18 @@ function DetailPinjaman({ row }: { row: BarisPinjaman }) {
   );
 }
 
-function DetailGadai({ row }: { row: BarisGadai }) {
+function DetailGadai({
+  row,
+  namaTampil,
+}: {
+  row: BarisGadai;
+  namaTampil: (nama: string) => string;
+}) {
   return (
     <>
       <BarisDetail
         label="Nama lengkap"
-        nilai={<span className="uppercase">{namaHurufBesar(row.namaLengkap)}</span>}
+        nilai={<span className="uppercase">{namaTampil(row.namaLengkap)}</span>}
       />
       <BarisDetail label="Kode peminjam" nilai={row.kodePeminjam ?? "belum terbit"} />
       <BarisDetail label="No. referensi" nilai={row.nomorReferensi} />
@@ -602,7 +621,13 @@ function DetailGadai({ row }: { row: BarisGadai }) {
   );
 }
 
-function DetailKredit({ row }: { row: BarisKredit }) {
+function DetailKredit({
+  row,
+  namaTampil,
+}: {
+  row: BarisKredit;
+  namaTampil: (nama: string) => string;
+}) {
   const quote = coba(() =>
     quoteKreditBarang({
       hargaBarang: row.hargaBarang,
@@ -618,7 +643,7 @@ function DetailKredit({ row }: { row: BarisKredit }) {
     <>
       <BarisDetail
         label="Nama lengkap"
-        nilai={<span className="uppercase">{namaHurufBesar(row.namaLengkap)}</span>}
+        nilai={<span className="uppercase">{namaTampil(row.namaLengkap)}</span>}
       />
       <BarisDetail label="Kode peminjam" nilai={row.kodePeminjam ?? "belum terbit"} />
       <BarisDetail label="No. referensi" nilai={row.nomorReferensi} />
@@ -654,7 +679,13 @@ function DetailKredit({ row }: { row: BarisKredit }) {
       />
       <BarisDetail
         label="Pendana"
-        nilai={row.pendana === null ? "belum tercatat" : <span className="uppercase">{row.pendana}</span>}
+        nilai={
+          row.pendana === null ? (
+            "belum tercatat"
+          ) : (
+            <span className="uppercase">{namaTampil(row.pendana)}</span>
+          )
+        }
       />
       <BarisDetail label="Tanggal pengajuan" nilai={tanggalRingkas(row.diajukanPada)} />
       <BarisDetail label="Status" nilai={<BadgeKredit status={row.status} />} />
@@ -864,15 +895,27 @@ type IsiDetail =
  * Dipisah sebagai komponen sendiri supaya query berkas hanya dibuat saat
  * dialog benar-benar terbuka (aturan hooks melarang pemanggilan bersyarat).
  */
-function IsiDialog({ detail, bolehBerkas }: { detail: IsiDetail; bolehBerkas: boolean }) {
+function IsiDialog({
+  detail,
+  bolehBerkas,
+  namaTampil,
+}: {
+  detail: IsiDetail;
+  bolehBerkas: boolean;
+  namaTampil: (nama: string) => string;
+}) {
   return (
     <>
       <dl className="mt-1">
-        {detail.jenis === "pinjaman" && <DetailPinjaman row={detail.row} />}
-        {detail.jenis === "gadai" && <DetailGadai row={detail.row} />}
-        {detail.jenis === "kredit" && <DetailKredit row={detail.row} />}
+        {detail.jenis === "pinjaman" && (
+          <DetailPinjaman row={detail.row} namaTampil={namaTampil} />
+        )}
+        {detail.jenis === "gadai" && <DetailGadai row={detail.row} namaTampil={namaTampil} />}
+        {detail.jenis === "kredit" && (
+          <DetailKredit row={detail.row} namaTampil={namaTampil} />
+        )}
       </dl>
-      <BagianLokasi lokasi={detail.row.lokasi} nama={namaHurufBesar(detail.row.namaLengkap)} />
+      <BagianLokasi lokasi={detail.row.lokasi} nama={namaTampil(detail.row.namaLengkap)} />
       <BagianBerkas jenis={detail.jenis} id={detail.row._id} boleh={bolehBerkas} />
     </>
   );
@@ -982,6 +1025,7 @@ function DaftarPinjaman({
   sekarang,
   onDetail,
   onUbah,
+  namaTampil,
 }: {
   rows: BarisPinjaman[];
   persenBunga: number;
@@ -989,6 +1033,8 @@ function DaftarPinjaman({
   onDetail: (row: BarisPinjaman) => void;
   /** Hanya diisi untuk Super Admin (koreksi data pinjaman). */
   onUbah?: (row: BarisPinjaman) => void;
+  /** Penyamaran nama orang (peminjam & penyedia dana) untuk ruang bersama. */
+  namaTampil: (nama: string) => string;
 }) {
   return (
     <>
@@ -997,7 +1043,7 @@ function DaftarPinjaman({
         {rows.map((row) => (
           <KartuPengajuan
             key={row._id}
-            nama={namaHurufBesar(row.namaLengkap)}
+            nama={namaTampil(row.namaLengkap)}
             kode={row.kodePeminjam}
             nomorReferensi={row.nomorReferensi}
             status={<StatusBadge status={row.status} kind="loan" />}
@@ -1014,7 +1060,9 @@ function DaftarPinjaman({
               {row.tenorBulan === null ? `${row.tenorHari} hari` : `${row.tenorBulan} bulan`}
             </InfoKartu>
             <InfoKartu label="Tanggal">{tanggalRingkas(row.diajukanPada)}</InfoKartu>
-            <InfoKartu label="Pendana">{row.pendana ?? "—"}</InfoKartu>
+            <InfoKartu label="Pendana">
+              {row.pendana === null ? "—" : namaTampil(row.pendana)}
+            </InfoKartu>
             <InfoKartu label="Keuntungan pendana">
               {row.pendana === null ? "—" : rupiah(row.keuntunganPendana)}
             </InfoKartu>
@@ -1052,7 +1100,7 @@ function DaftarPinjaman({
           {rows.map((row) => (
             <TableRow key={row._id}>
               <SelPeminjam
-                nama={namaHurufBesar(row.namaLengkap)}
+                nama={namaTampil(row.namaLengkap)}
                 kode={row.kodePeminjam}
                 referensi={row.nomorReferensi}
               />
@@ -1093,7 +1141,7 @@ function DaftarPinjaman({
                   <>
                     <span className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-gold/40 bg-gold/10 px-2.5 py-1 text-[11px] font-medium uppercase text-gold-foreground">
                       <Wallet className="size-3 shrink-0" aria-hidden />
-                      <span className="truncate">{row.pendana}</span>
+                      <span className="truncate">{namaTampil(row.pendana)}</span>
                     </span>
                     <p className="mt-1 text-[11px] font-semibold text-emerald-700">
                       Untung {rupiah(row.keuntunganPendana)}
@@ -1425,6 +1473,20 @@ function IsiRuang() {
   // Berkas identitas pemohon lebih ketat: hanya akun beremail yang ditunjuk
   // admin (peran `dana`) atau admin sendiri. Sesi kode akses bersama tidak.
   const bolehBerkas = role === "dana" || role === "admin";
+  /**
+   * Penyamaran nama di ruang bersama.
+   *
+   * Ruang ini dibaca banyak pihak (penyedia dana dan tim pemantau berkode
+   * akses bersama), sehingga nama orang — peminjam maupun penyedia dana —
+   * disamarkan di layar. Super Admin tidak disamarkan: ia memang perlu nama
+   * penuh untuk mengoreksi catatan lewat tombol Ubah. Nama SENDIRI juga
+   * dibiarkan terbaca supaya setiap penyedia dana tetap menemukan kartunya —
+   * identitas kita sendiri tidak kita rahasiakan dari kita sendiri.
+   */
+  const samar = role !== "admin";
+  const kunciSendiri = kunciNama(user?.name);
+  const tampilNama = (nama: string): string =>
+    namaRuangan(nama, samar && (kunciSendiri === "" || kunciNama(nama) !== kunciSendiri));
   // Query tidak dipanggil sebelum peran diketahui atau tanpa akses; server tetap
   // penjaga utama karena gerbangnya juga dijalankan di sisi Convex.
   const data = useQuery(
@@ -1514,7 +1576,7 @@ function IsiRuang() {
       .map((b) => ({
         id: b._id,
         nomorReferensi: b.nomorReferensi,
-        namaLengkap: namaHurufBesar(b.namaLengkap),
+        namaLengkap: tampilNama(b.namaLengkap),
         keuntunganPendana: b.keuntunganPendana,
       }));
   }
@@ -1561,6 +1623,11 @@ function IsiRuang() {
                     ? "Berkas & lokasi terakhir ditampilkan"
                     : "Angka pengajuan & lokasi · berkas khusus akun email"}
                 </Badge>
+                {samar && (
+                  <Badge className="border-0 bg-amber-100 text-amber-900 hover:bg-amber-100">
+                    <Lock className="mr-1 size-3" /> Nama orang disamarkan
+                  </Badge>
+                )}
               </div>
               <h1 className="mt-3 text-2xl font-semibold tracking-tight sm:text-3xl">
                 Pengajuan Peminjam
@@ -1576,7 +1643,9 @@ function IsiRuang() {
                   ? ", berkas pengajuan (KTP, selfie, slip, foto barang, tanda tangan),"
                   : " — berkas identitas pemohon hanya dibuka untuk akun penyedia dana beremail, bukan untuk sesi kode akses bersama."}{" "}
                 NIK, nomor rekening, nomor WhatsApp, dan alamat tidak dikirim sebagai kolom terpisah
-                {bolehBerkas ? " — NIK tetap terbaca pada gambar KTP yang Anda buka." : "."}
+                {bolehBerkas ? " — NIK tetap terbaca pada gambar KTP yang Anda buka." : "."}{" "}
+                {samar &&
+                  "Nama orang — peminjam maupun penyedia dana — disamarkan di layar ini; kode pseudonim peminjam dan nomor referensi tetap utuh sebagai penanda. Nama Anda sendiri tetap terbaca."}
               </p>
             </section>
 
@@ -1631,7 +1700,10 @@ function IsiRuang() {
                     berbicara. Angka ringkasannya sudah tampil di puncak halaman. */}
                 {data.rekapPendana.length > 1 && (
                   <div className="mt-3">
-                    <GrafikKeuntunganPendana rekap={data.rekapPendana} />
+                    <GrafikKeuntunganPendana
+                      rekap={data.rekapPendana}
+                      namaTampil={tampilNama}
+                    />
                   </div>
                 )}
 
@@ -1640,7 +1712,7 @@ function IsiRuang() {
                     modal dan hasil tidak tertukar. Selalu tampil — satu penyedia
                     pun tetap mendapat totalnya di kepala kartu. */}
                 <div className="mt-3">
-                  <DanaTersalurkanPendana rekap={data.rekapPendana} />
+                  <DanaTersalurkanPendana rekap={data.rekapPendana} namaTampil={tampilNama} />
                 </div>
 
                 <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -1649,6 +1721,7 @@ function IsiRuang() {
                       key={r.nama}
                       r={r}
                       rincianPerkiraan={rincianPerkiraan(r.nama)}
+                      namaTampil={tampilNama}
                     />
                   ))}
                 </div>
@@ -1741,6 +1814,7 @@ function IsiRuang() {
                   tampil={jumlahTab.tampil}
                   total={jumlahTab.total}
                   onReset={() => setFilter(FILTER_PENGAJUAN_KOSONG)}
+                  namaTampil={tampilNama}
                 />
               )}
 
@@ -1758,6 +1832,7 @@ function IsiRuang() {
                       Alokasi pendanaan dilakukan dari panel admin.
                     </p>
                     <DaftarPinjaman
+                      namaTampil={tampilNama}
                       rows={tampilBaru}
                       persenBunga={data.ringkasan.persenBunga}
                       sekarang={sekarang}
@@ -1787,6 +1862,7 @@ function IsiRuang() {
                       mutasi.
                     </p>
                     <DaftarPinjaman
+                      namaTampil={tampilNama}
                       rows={tampilDidanai}
                       persenBunga={data.ringkasan.persenBunga}
                       sekarang={sekarang}
@@ -1818,6 +1894,7 @@ function IsiRuang() {
                       bukti mutasi.
                     </p>
                     <DaftarPinjaman
+                      namaTampil={tampilNama}
                       rows={tampilLunas}
                       persenBunga={data.ringkasan.persenBunga}
                       sekarang={sekarang}
@@ -1847,6 +1924,7 @@ function IsiRuang() {
                       ditampilkan sebagai catatan riwayat.
                     </p>
                     <DaftarPinjaman
+                      namaTampil={tampilNama}
                       rows={tampilDitolak}
                       persenBunga={data.ringkasan.persenBunga}
                       sekarang={sekarang}
@@ -1874,7 +1952,7 @@ function IsiRuang() {
                       {tampilGadai.map((row) => (
                         <KartuPengajuan
                           key={row._id}
-                          nama={namaHurufBesar(row.namaLengkap)}
+                          nama={tampilNama(row.namaLengkap)}
                           kode={row.kodePeminjam}
                           nomorReferensi={row.nomorReferensi}
                           status={<StatusBadge status={row.status} kind="pawn" />}
@@ -1915,7 +1993,7 @@ function IsiRuang() {
                       {tampilGadai.map((row) => (
                         <TableRow key={row._id}>
                           <SelPeminjam
-                            nama={namaHurufBesar(row.namaLengkap)}
+                            nama={tampilNama(row.namaLengkap)}
                             kode={row.kodePeminjam}
                             referensi={row.nomorReferensi}
                           />
@@ -1966,7 +2044,7 @@ function IsiRuang() {
                       {tampilKredit.map((row) => (
                         <KartuPengajuan
                           key={row._id}
-                          nama={namaHurufBesar(row.namaLengkap)}
+                          nama={tampilNama(row.namaLengkap)}
                           kode={row.kodePeminjam}
                           nomorReferensi={row.nomorReferensi}
                           status={<BadgeKredit status={row.status} />}
@@ -1981,7 +2059,9 @@ function IsiRuang() {
                           <InfoKartu label="Harga">{rupiah(row.hargaBarang)}</InfoKartu>
                           <InfoKartu label="Tenor">{row.tenorBulan} bulan</InfoKartu>
                           <InfoKartu label="Tanggal">{tanggalRingkas(row.diajukanPada)}</InfoKartu>
-                          <InfoKartu label="Pendana">{row.pendana ?? "—"}</InfoKartu>
+                          <InfoKartu label="Pendana">
+                            {row.pendana === null ? "—" : tampilNama(row.pendana)}
+                          </InfoKartu>
                           <InfoKartu label="Lokasi">
                             {row.lokasi === null
                               ? "belum ada titik"
@@ -2006,7 +2086,7 @@ function IsiRuang() {
                       {tampilKredit.map((row) => (
                         <TableRow key={row._id}>
                           <SelPeminjam
-                            nama={namaHurufBesar(row.namaLengkap)}
+                            nama={tampilNama(row.namaLengkap)}
                             kode={row.kodePeminjam}
                             referensi={row.nomorReferensi}
                           />
@@ -2028,7 +2108,7 @@ function IsiRuang() {
                           <TableCell className="align-top">
                             <BadgeKredit status={row.status} />
                           </TableCell>
-                          <SelPendana pendana={row.pendana} />
+                          <SelPendana pendana={row.pendana === null ? null : tampilNama(row.pendana)} />
                           <SelLokasi lokasi={row.lokasi} sekarang={sekarang} />
                           <TableCell className="align-top">
                             <Button
@@ -2084,7 +2164,11 @@ function IsiRuang() {
                       </p>
                     </div>
 
-                    <PetaLokasiPeminjam rows={titik.rows} vault={titik.vault} />
+                    <PetaLokasiPeminjam
+                      rows={titik.rows}
+                      vault={titik.vault}
+                      namaTampil={tampilNama}
+                    />
 
                     {titik.rows.length === 0 ? (
                       <KeadaanKosong pesan="Belum ada titik lokasi yang terkirim dari perangkat peminjam. Titik muncul setelah peminjam membuka dashboard dengan GPS aktif." />
@@ -2100,7 +2184,7 @@ function IsiRuang() {
                               <span className="min-w-0">
                                 <span className="flex flex-wrap items-center gap-2">
                                   <span className="font-medium uppercase text-slate-900">
-                                    {namaHurufBesar(r.namaLengkap)}
+                                    {tampilNama(r.namaLengkap)}
                                   </span>
                                   <BadgePseudonim kode={r.kodePeminjam} />
                                   {r.posisi.tanda.length > 0 && (
@@ -2171,8 +2255,9 @@ function IsiRuang() {
                 : "; berkas pengajuan hanya dibuka untuk akun penyedia dana beremail, bukan sesi kode akses bersama."}{" "}
               NIK, nomor rekening, nomor WhatsApp, dan alamat tidak dikirim sebagai kolom terpisah.
             </DialogDescription>
-          </DialogHeader>
-          {detail !== null && <IsiDialog detail={detail} bolehBerkas={bolehBerkas} />}
+          </DialogHeader>                  {detail !== null && (
+                    <IsiDialog detail={detail} bolehBerkas={bolehBerkas} namaTampil={tampilNama} />
+                  )}
         </DialogContent>
       </Dialog>
 

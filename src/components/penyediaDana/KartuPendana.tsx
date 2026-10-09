@@ -72,6 +72,7 @@ function BarisNilai({
 export function KartuPendana({
   r,
   rincianPerkiraan,
+  namaTampil,
 }: {
   r: RekapPendana;
   /**
@@ -81,13 +82,20 @@ export function KartuPendana({
    * angka perkiraan itu datang dari mana. Jumlah barisnya = angka perkiraan.
    */
   rincianPerkiraan?: readonly RincianPerkiraan[];
+  /**
+   * Penyamaran nama untuk tampilan (ruang penyedia dana menyamarkan identitas).
+   * Bawaan: nama apa adanya, sehingga pratinjau admin dan uji markup lama tetap
+   * menampilkan nama penuh.
+   */
+  namaTampil?: (nama: string) => string;
 }) {
   const rincian = rincianPerkiraan ?? [];
+  const tampil = namaTampil ?? ((nama: string) => nama);
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="inline-flex items-center gap-1.5 font-semibold uppercase text-slate-900">
-          <Wallet className="size-3.5 text-primary" aria-hidden /> {r.nama}
+          <Wallet className="size-3.5 text-primary" aria-hidden /> {tampil(r.nama)}
         </p>
       </div>
 

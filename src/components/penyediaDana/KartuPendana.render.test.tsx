@@ -18,7 +18,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 
 import type { RekapPendana } from "@/convex/penyediaDana";
-import { namaHurufBesar } from "@/lib/nama";
+import { namaHurufBesar, samarkanNama } from "@/lib/nama";
 
 import { KartuPendana, type RincianPerkiraan } from "./KartuPendana";
 
@@ -262,6 +262,17 @@ bersih(htmlBaru, "markup kartu tanpa pinjaman lunas");
     "rincian tidak menggeser angka yang sudah cair",
   );
   bersih(htmlRincian, "markup kartu dengan rincian perkiraan");
+}
+
+// ===== Penyamaran nama penyedia dana (ruang /penyedia-dana) =====
+{
+  const htmlSamar = renderToStaticMarkup(<KartuPendana r={ROBERT} namaTampil={samarkanNama} />);
+  ada(htmlSamar, samarkanNama(ROBERT.nama), "nama penyedia dana tampil tersamar");
+  ok(
+    !htmlSamar.includes(`>${ROBERT.nama}<`),
+    "nama penyedia dana penuh tidak tercetak saat penyamaran dipakai",
+  );
+  bersih(htmlSamar, "markup kartu dengan penyamaran");
 }
 
 console.log(`KartuPendana.render.test: ${passed} lulus, ${failed} gagal`);

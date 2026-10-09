@@ -50,10 +50,14 @@ function waktuRingkas(ms: number): string {
 export function PetaLokasiPeminjam({
   rows,
   vault,
+  namaTampil,
 }: {
   rows: TitikPeminjam[];
   vault: { lat: number; lng: number };
+  /** Penyamaran nama peminjam pada tooltip peta (bawaan: HURUF BESAR penuh). */
+  namaTampil?: (nama: string) => string;
 }) {
+  const tampil = namaTampil ?? namaHurufBesar;
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<L.Map | null>(null);
   const layerRef = useRef<L.LayerGroup | null>(null);
@@ -104,7 +108,7 @@ export function PetaLokasiPeminjam({
         const ditandai = r.posisi.tanda.length > 0;
         const warna = ditandai ? WARNA_DITANDAI : WARNA_NORMAL;
         const keterangan = [
-          `<strong>${namaHurufBesar(r.namaLengkap)}</strong>`,
+          `<strong>${tampil(r.namaLengkap)}</strong>`,
           `${r.nomorReferensi} · ${r.kategori}`,
           `titik terakhir: ${waktuRingkas(r.posisi.waktu)} (±${Math.round(r.posisi.akurasi)} m, ${r.posisi.sumber})`,
           ditandai ? `POLA KOORDINAT DICURIGAI (OTOMATIS): ${r.posisi.tanda.map(labelTandaLokasi).join(", ")}` : "",

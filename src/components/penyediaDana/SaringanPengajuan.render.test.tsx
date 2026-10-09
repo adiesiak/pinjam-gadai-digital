@@ -14,6 +14,8 @@
  */
 import { renderToStaticMarkup } from "react-dom/server";
 
+import { samarkanNama } from "@/lib/nama";
+
 import { SEMUA_PENDANA, SaringanPengajuan } from "./SaringanPengajuan";
 
 let passed = 0;
@@ -106,6 +108,30 @@ const gadai = render({ tampilkanPendana: false });
 ok(!gadai.includes('aria-label="Penyedia dana"'), "tab gadai tanpa pilihan pendana");
 ada(gadai, "Cari nama peminjam", "tab gadai tetap punya saringan nama");
 ada(gadai, "Menampilkan 13 dari 13 pengajuan pada tab ini", "tab gadai tetap menghitung jumlah");
+
+// ===== Penyamaran label pendana (ruang /penyedia-dana) =====
+// Label disamarkan, tetapi NILAI yang dipilih tetap nama asli supaya
+// penyaringan datanya tidak ikut berubah.
+const tersamar = renderToStaticMarkup(
+  <SaringanPengajuan
+    cari=""
+    onCari={() => {}}
+    pendana={PILIHAN[2]}
+    onPendana={() => {}}
+    pilihanPendana={PILIHAN}
+    tampilkanPendana
+    tampil={13}
+    total={13}
+    onReset={() => {}}
+    namaTampil={samarkanNama}
+  />,
+);
+ada(tersamar, samarkanNama(PILIHAN[2]), "wajah trigger menyebut pendana terpilih secara tersamar");
+ok(
+  !tersamar.includes(`>${PILIHAN[2]}<`),
+  "nama pendana terpilih tidak tercetak penuh saat penyamaran dipakai",
+);
+bersih(tersamar, "markup saringan dengan penyamaran");
 
 console.log(`SaringanPengajuan.render.test: ${passed} lulus, ${failed} gagal`);
 if (failed > 0) process.exit(1);

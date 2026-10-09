@@ -32,6 +32,7 @@ export function SaringanPengajuan({
   tampil,
   total,
   onReset,
+  namaTampil,
 }: {
   cari: string;
   onCari: (nilai: string) => void;
@@ -44,8 +45,14 @@ export function SaringanPengajuan({
   tampil: number;
   total: number;
   onReset: () => void;
+  /**
+   * Penyamaran LABEL saja — nilai yang dikirim tetap nama asli, supaya
+   * penyaringan data tetap tepat walau namanya tampil tersamar.
+   */
+  namaTampil?: (nama: string) => string;
 }) {
   const aktif = cari.trim() !== "" || pendana !== "";
+  const tampilNama = namaTampil ?? ((nama: string) => nama);
   return (
     <section
       aria-label="Saring daftar pengajuan"
@@ -96,14 +103,14 @@ export function SaringanPengajuan({
                     `<SelectItem>` yang sudah pernah dirender, sehingga tanpa
                     children dropdown tampak kosong sampai menu dibuka. */}
                 <SelectValue placeholder="Semua penyedia dana">
-                  {pendana === "" ? "Semua penyedia dana" : pendana}
+                  {pendana === "" ? "Semua penyedia dana" : tampilNama(pendana)}
                 </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value={SEMUA_PENDANA}>Semua penyedia dana</SelectItem>
                 {pilihanPendana.map((nama) => (
                   <SelectItem key={nama} value={nama}>
-                    {nama}
+                    {tampilNama(nama)}
                   </SelectItem>
                 ))}
               </SelectContent>

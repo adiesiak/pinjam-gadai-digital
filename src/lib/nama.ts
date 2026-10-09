@@ -30,6 +30,54 @@ export function namaHurufBesar(nama: string): string {
 }
 
 /**
+ * Samarkan satu nama orang untuk ruang yang dibaca banyak pihak (ruang
+ * penyedia dana): tiap kata disisakan huruf depannya, sisanya diganti tanda
+ * bintang.
+ *
+ * Aturan yang dijaga:
+ * - Nama kosong tetap kosong, dan kata satu huruf dibiarkan apa adanya — tidak
+ *   ada yang bisa disembunyikan dari satu huruf, dan menghapusnya hanya membuat
+ *   nama tampak rusak.
+ * - Kata dua huruf menyisakan satu huruf (`AB` → `A*`), kata tiga huruf ke atas
+ *   menyisakan dua (`BUDI` → `BU**`) supaya dua orang berbeda tidak gampang
+ *   tertukar di layar bersama.
+ *
+ * Ini penyamaran TAMPILAN saja — identitas yang benar tetap dipakai untuk
+ * pencocokan data (lihat `namaRuangan`).
+ */
+export function samarkanNama(nama: string): string {
+  const bersih = rapikan(nama);
+  if (bersih === "") return "";
+  return bersih
+    .split(" ")
+    .map((kata) => {
+      if (kata.length <= 1) return kata;
+      const dibuka = kata.length >= 3 ? 2 : 1;
+      return kata.slice(0, dibuka) + "*".repeat(kata.length - dibuka);
+    })
+    .join(" ");
+}
+
+/**
+ * Nama orang untuk ditampilkan di ruang bersama: bentuk kanonik (HURUF BESAR),
+ * lalu disamarkan bila `samar` true. Satu tempat memutuskan "kanonik + samar"
+ * supaya setiap layar ruang itu memakai aturan yang sama.
+ */
+export function namaRuangan(nama: string, samar: boolean): string {
+  const kanonik = namaHurufBesar(nama);
+  return samar ? samarkanNama(kanonik) : kanonik;
+}
+
+/**
+ * Kunci pembanding nama (huruf kecil, spasi dirapikan). Dipakai ruang penyedia
+ * dana untuk memutuskan "apakah nama ini nama saya sendiri?" — namanya sendiri
+ * tidak disamarkan supaya ia tetap bisa menemukan kartunya.
+ */
+export function kunciNama(nama: string | null | undefined): string {
+  return (nama ?? "").trim().replace(/\s+/g, " ").toLowerCase();
+}
+
+/**
  * Nama tampilan dari daftar kandidat: kandidat PERTAMA yang berisi dipakai
  * (mis. nama di data pinjaman lebih dulu, baru nama akun), dalam HURUF BESAR.
  * `fallback` dikembalikan apa adanya bila semua kandidat kosong.

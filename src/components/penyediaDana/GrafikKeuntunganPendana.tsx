@@ -18,9 +18,13 @@ import { barKeuntungan, type SumberBarKeuntungan } from "@/lib/grafikKeuntungan"
  */
 export function GrafikKeuntunganPendana({
   rekap,
+  namaTampil,
 }: {
   rekap: readonly SumberBarKeuntungan[];
+  /** Penyamaran nama penyedia dana untuk tampilan (bawaan: apa adanya). */
+  namaTampil?: (nama: string) => string;
 }) {
+  const tampil = namaTampil ?? ((nama: string) => nama);
   const bars = barKeuntungan(rekap);
   const totalPerkiraan = bars.reduce((total, b) => total + b.perkiraan, 0);
   const totalSudahCair = bars.reduce((total, b) => total + b.sudahCair, 0);
@@ -49,7 +53,7 @@ export function GrafikKeuntunganPendana({
           <li key={b.nama}>
             <div className="flex items-baseline justify-between gap-2">
               <span className="min-w-0 truncate text-xs font-semibold uppercase text-slate-900">
-                {b.nama}
+                {tampil(b.nama)}
               </span>
               <span className="shrink-0 text-xs font-semibold tabular-nums text-slate-900">
                 {formatRupiah(b.total)}
