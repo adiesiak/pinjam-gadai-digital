@@ -49,6 +49,32 @@ export const roleValidator = v.union(
 export type Role = Infer<typeof roleValidator>;
 
 /**
+ * Status modul KYC mandiri — ejaan sesuai ketentuan produk.
+ *
+ * Aturan transisinya TIDAK hidup di skema maupun di UI, melainkan di
+ * `src/lib/kycStatus.ts` dan ditegakkan `convex/kyc.ts`: validator di sini hanya
+ * menjamin nilai yang tersimpan termasuk daftar yang dikenal.
+ */
+export const kycStatusValidator = v.union(
+  v.literal("NOT_STARTED"),
+  v.literal("IN_PROGRESS"),
+  v.literal("PENDING_REVIEW"),
+  v.literal("NEEDS_CORRECTION"),
+  v.literal("VERIFIED"),
+  v.literal("REJECTED"),
+  v.literal("REVERIFICATION_REQUIRED"),
+);
+export type KycStatusValue = Infer<typeof kycStatusValidator>;
+
+/** Siapa yang mengubah status KYC — selalu disimpan bersama waktu & alasan. */
+export const aktorKycValidator = v.union(
+  v.literal("nasabah"),
+  v.literal("admin"),
+  v.literal("sistem"),
+);
+export type AktorKycValue = Infer<typeof aktorKycValidator>;
+
+/**
  * Ejaan status pinjaman yang tersimpan di tabel `loans`.
  *
  * Aplikasi sekarang mengenal EMPAT status (`ditinjau`, `didanai`,
@@ -1256,6 +1282,119 @@ const schema = defineSchema(
       /** Audit ringan: kapan terakhir diubah admin. */
       diperbaruiPada: v.number(),
     }).index("by_slot", ["slot"]),
+
+    /*
+     * ==================================================================
+     * Modul KYC MANDIRI (terpisah dari formulir pengajuan pinjaman)
+     * ==================================================================
+     * Nasabah dapat memulai, menyimpan progres, melanjutkan, dan mengirim
+     * pengajuan KYC tanpa membuat pengajuan pinjaman. Modul ini TIDAK
+     * memindahkan uang, tidak menyentuh ledger, dan TIDAK mengubah status
+     * pinjaman: status VERIFIED berarti identitas sudah diperiksa petugas —
+     * bukan persetujuan pinjaman dan bukan bukti dana cair.
+     *
+     * Kenapa tabelnya sendiri: `nasabahProfil` (data diri admin) membutuhkan
+     * NIK/nomor WhatsApp yang sudah sah sejak baris pertama, sedangkan KYC harus
+     * bisa disimpan SETENGAH JALAN. Satu baris per pengguna, dan hanya satu
+     * tempat yang menyimpan status KYC — supaya tidak ada dua layar yang berbeda
+     * pendapat soal "sudah diverifikasi atau belum".
+     */
+    kycProfil: defineTable({
+      userId: v.id("users"),
+      status: kycStatusValidator,
+      // ===== Isian identitas (semuanya opsional selama masih progres) =====
+      namaLengkap: v.optional(v.string()),
+      nik: v.optional(v.string()),
+      nomorWhatsApp: v.optional(v.string()),
+      alamat: v.optional(v.string()),
+      pekerjaan: v.optional(v.string()),
+      /** Rupiah bulat. */
+      penghasilanBulanan: v.optional(v.number()),
+      sumberPenghasilan: v.optional(v.string()),
+      namaBank: v.optional(v.string()),
+      nomorRekening: v.optional(v.string()),
+      catatanPeminjam: v.optional(v.string()),
+      // ===== Dokumen (Convex storage) — wajib punya penanda terverifikasi =====
+      ktpId: v.optional(v.id("_storage")),
+      selfieKtpId: v.optional(v.id("_storage")),
+      buktiPenghasilanId: v.optional(v.id("_storage")),
+      // ===== Waktu & keputusan =====
+      /** Waktu baris KYC pertama kali dibuat (server). */
+      dibuatPada: v.number(),
+      /** Waktu perubahan terakhir (server). */
+      diperbaruiPada: v.number(),
+      /** Waktu terakhir diajukan untuk peninjauan (server). */
+      diajukanPada: v.optional(v.number()),
+      /** Waktu keputusan petugas terakhir (server). */
+      diputuskanPada: v.optional(v.number()),
+      /** Label petugas pemutus terakhir — snapshot agar tetap terbaca. */
+      diputuskanOlehLabel: v.optional(v.string()),
+      /** Alasan/catatan keputusan terakhir (wajib saat menolak/perbaikan). */
+      keputusanCatatan: v.optional(v.string()),
+      /**
+       * Stempel identitas yang BENAR-BENAR diverifikasi. Dipakai untuk memutuskan
+       * verifikasi ulang saat data identitas penting berubah (lihat
+       * `lib/kycStatus.ts`). Diisi hanya saat status menjadi VERIFIED.
+       */
+      stempelTerverifikasi: v.optional(
+        v.object({
+          namaLengkap: v.string(),
+          nik: v.string(),
+          ktpId: v.union(v.id("_storage"), v.null()),
+          selfieKtpId: v.union(v.id("_storage"), v.null()),
+          buktiPenghasilanId: v.union(v.id("_storage"), v.null()),
+          pada: v.number(),
+        }),
+      ),
+    }).index("by_user", ["userId"]),
+
+    /**
+     * Riwayat perubahan status KYC — APPEND-ONLY.
+     *
+     * Setiap baris menyimpan WAKTU (server), AKTOR (id + label + peran), ALASAN
+     * terstruktur, dan CATATAN. Baris tidak pernah diubah/dihapus, sehingga
+     * pertanyaan "siapa mengubah status ini, kapan, dan atas dasar apa" selalu
+     * bisa dijawab — termasuk untuk keputusan yang diambil petugas.
+     */
+    kycRiwayat: defineTable({
+      userId: v.id("users"),
+      dari: v.union(kycStatusValidator, v.literal("-")),
+      ke: kycStatusValidator,
+      aktor: aktorKycValidator,
+      /** Label aktor (email/nama) untuk dibaca manusia. */
+      aktorLabel: v.string(),
+      /** Id pengguna aktor; kosong untuk perubahan oleh sistem. */
+      aktorUserId: v.optional(v.id("users")),
+      /** Kode alasan terstruktur (mis. "data_identitas_berubah"). */
+      alasan: v.string(),
+      /** Kalimat untuk dibaca manusia. */
+      catatan: v.optional(v.string()),
+      waktu: v.number(),
+    })
+      .index("by_user", ["userId", "waktu"])
+      .index("by_waktu", ["waktu"]),
+
+    /**
+     * Penanda bahwa ISI sebuah berkas sudah diperiksa server dari magic bytes.
+     *
+     * Kenapa perlu tabel: pemeriksaan isi berkas di Convex hanya bisa dilakukan
+     * dari ACTION (`ctx.storage.get`), sedangkan mutation hanya membaca metadata
+     * yang tipe MIME-nya ditentukan klien. Kalau pemeriksaan hanya dipanggil
+     * klien, klien yang mengirim mutation langsung bisa menautkan berkas apa pun
+     * yang mengaku gambar. Karena itu: action membaca isinya, lalu menulis baris
+     * di sini; setiap mutation yang MENGIKAT berkas KYC ke sebuah baris wajib
+     * menemukan penandanya — tanpa penanda, berkas ditolak.
+     */
+    berkasTerverifikasi: defineTable({
+      storageId: v.id("_storage"),
+      /** Label saat diperiksa (mis. "Foto KTP") — ikut bukti audit. */
+      label: v.string(),
+      /** Jenis gambar yang terdeteksi dari isi berkas (png/jpeg/…). */
+      jenis: v.string(),
+      /** Pengguna yang memicu pemeriksaan. */
+      olehUserId: v.optional(v.id("users")),
+      waktu: v.number(),
+    }).index("by_storageId", ["storageId"]),
 
     /**
      * Tanda "sudah dibaca" untuk pusat notifikasi in-app.

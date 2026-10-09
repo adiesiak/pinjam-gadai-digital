@@ -19,6 +19,7 @@ import { useAuth } from "@/hooks/use-auth";
 
 import { MyContractsSection } from "./dashboard/contract-views";
 import { DataDiriSection } from "./dashboard/data-diri-views";
+import { KycSection, KycStatusStrip } from "./dashboard/kyc-views";
 import { DashboardFooter } from "./dashboard/dashboard-footer";
 import { DashboardHeader } from "./dashboard/dashboard-header";
 import { DashboardSidebar } from "./dashboard/dashboard-sidebar";
@@ -127,6 +128,10 @@ export default function Dashboard() {
   const dueReminder = useQuery(api.loans.dueReminder, argsPeminjam);
   const schedule = useQuery(api.loans.myLoanSchedule, argsPeminjam);
   const contracts = useQuery(api.loans.myContracts, argsPeminjam);
+  // Status KYC dipakai untuk lencana tab (butuh tindakan nasabah) — tidak ikut
+  // menahan seluruh dashboard saat masih dimuat: tanpa data, tabnya cukup tanpa
+  // lencana.
+  const kyc = useQuery(api.kyc.kycSaya, argsPeminjam);
 
   const [loanDetailId, setLoanDetailId] = useState<Id<"loans"> | null>(null);
   const [pawnDetailId, setPawnDetailId] = useState<Id<"pawns"> | null>(null);
@@ -235,6 +240,16 @@ export default function Dashboard() {
   else if (tagihanDekat > 0) tabBadges.jadwal = { count: tagihanDekat, tone: "warning" };
   if (gadaiAktif > 0) tabBadges.gadai = { count: gadaiAktif };
   if (jumlahKontrak > 0) tabBadges.kontrak = { count: jumlahKontrak };
+  // Hanya status yang MENUNGGU TINDAKAN NASABAH yang diberi lencana — VERIFIED
+  // dan PENDING_REVIEW bukan pekerjaan pengguna.
+  if (
+    kyc !== undefined &&
+    (kyc.status === "NEEDS_CORRECTION" ||
+      kyc.status === "REJECTED" ||
+      kyc.status === "REVERIFICATION_REQUIRED")
+  ) {
+    tabBadges.kyc = { count: 1, tone: kyc.status === "REJECTED" ? "danger" : "warning" };
+  }
 
   return (
     // Gerbang lokasi wajib: Peminjam tidak bisa memakai dashboard tanpa GPS
@@ -295,6 +310,12 @@ export default function Dashboard() {
                 <SummaryCards schedule={schedule ?? []} />
                 {creditHistory && <CreditProgressCard history={creditHistory} />}
 
+                {/* Status KYC tampil di SEMUA tab — nasabah tidak perlu membuka
+                    tab KYC untuk tahu di mana posisinya. */}
+                {kyc !== undefined && (
+                  <KycStatusStrip status={kyc.status} onBuka={() => gantiTab("kyc")} />
+                )}
+
                 {/* ============ TAB 1: PINJAMAN AKTIF ============ */}
                 <TabsContent value="pinjaman" className="mt-8 animate-masuk">
                   <TombolBuatPengajuan
@@ -341,6 +362,14 @@ export default function Dashboard() {
                 {/* ===== TAB: DATA DIRI — sunting mandiri nasabah ===== */}
                 <TabsContent value="diri" className="mt-8 min-w-0 animate-masuk">
                   <DataDiriSection />
+                </TabsContent>
+
+                {/* ===== TAB: VERIFIKASI KYC — modul mandiri =====
+                    Terpisah dari formulir pengajuan: menyimpan KYC tidak membuat
+                    catatan pinjaman apa pun, dan status VERIFIED bukan
+                    persetujuan pinjaman. */}
+                <TabsContent value="kyc" className="mt-8 min-w-0 animate-masuk">
+                  <KycSection />
                 </TabsContent>
 
                 {/* ============ TAB 6: RIWAYAT ============ */}

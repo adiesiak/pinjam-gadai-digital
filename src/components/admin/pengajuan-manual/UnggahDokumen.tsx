@@ -37,9 +37,16 @@ export function UnggahDokumen({
   mintaUrl,
   periksa,
   disabled = false,
+  accept = "image/*,application/pdf",
 }: {
   label: string;
   keterangan: string;
+  /**
+   * Jenis berkas yang boleh dipilih. Bawaannya gambar atau PDF (pengajuan
+   * manual); modul KYC mempersempitnya ke `image/*` karena KTP/selfie/bukti
+   * penghasilan di sana WAJIB gambar menurut pemeriksa isi berkas di server.
+   */
+  accept?: string;
   nilai: DokumenTerunggah | null;
   onUbah: (dokumen: DokumenTerunggah | null) => void;
   /** Mutation admin penerbit URL unggah. */
@@ -135,7 +142,7 @@ export function UnggahDokumen({
       <input
         ref={inputRef}
         type="file"
-        accept="image/*,application/pdf"
+        accept={accept}
         className="hidden"
         aria-label={`Berkas ${label}`}
         onChange={(event) => void pilih(event.target.files?.[0])}

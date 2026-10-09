@@ -28,6 +28,7 @@ export const NILAI_MODUL_ADMIN = [
   "pinjaman",
   "gadai",
   "kredit",
+  "kyc",
   "alokasi",
   "dpd",
   "lelang",
@@ -74,7 +75,7 @@ export const GRUP_NAV: readonly GrupNav[] = [
   {
     id: "antrean",
     label: "Antrean",
-    modul: ["pinjaman", "gadai", "kredit", "alokasi", "dpd", "lelang"],
+    modul: ["pinjaman", "gadai", "kredit", "kyc", "alokasi", "dpd", "lelang"],
     default: "pinjaman",
   },
   {

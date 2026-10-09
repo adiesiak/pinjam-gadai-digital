@@ -1,6 +1,7 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { v } from "convex/values";
 
+import { internal } from "./_generated/api";
 import { action, type MutationCtx } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { jenisGambarDariByte, periksaBerkasIdentitas, periksaIsiGambar } from "../lib/kyc";
@@ -50,6 +51,11 @@ export async function periksaBerkasIdentitasStorage(
  * pengajuan. Mutation tetap memeriksa metadata/ukuran sebagai penjaga akhir.
  *
  * `label` hanya dipakai pada kalimat galat, jadi panjangnya dibatasi.
+ *
+ * Berkas yang LOLOS ditandai di tabel `berkasTerverifikasi` (lewat mutation
+ * internal). Penanda itulah yang membuat pemeriksaan ini tidak bisa dilewati:
+ * mutation yang menautkan dokumen KYC (`convex/kyc.ts`) menolak storage id yang
+ * belum punya penanda. Tanpa penanda, "sudah diperiksa" hanya klaim klien.
  */
 export const periksaIsiBerkasKyc = action({
   args: { id: v.id("_storage"), label: v.string() },
@@ -62,6 +68,15 @@ export const periksaIsiBerkasKyc = action({
     const head = blob === null ? null : new Uint8Array(await blob.slice(0, 16).arrayBuffer());
     const pesan = periksaIsiGambar(nama, head);
     if (pesan !== null) throw new Error(pesan);
-    return { ok: true as const, jenis: jenisGambarDariByte(head ?? new Uint8Array(0)) ?? "gambar" };
+    const jenis = jenisGambarDariByte(head ?? new Uint8Array(0)) ?? "gambar";
+    // Penanda ditulis setelah isi berkas terbukti gambar — satu-satunya bukti
+    // bahwa pemeriksaan ini benar-benar berjalan.
+    await ctx.runMutation(internal.kyc.catatBerkasTerverifikasi, {
+      storageId: id,
+      label: nama,
+      jenis,
+      olehUserId: userId,
+    });
+    return { ok: true as const, jenis };
   },
 });

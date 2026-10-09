@@ -7,6 +7,7 @@ import {
   Package,
   ScrollText,
   Send,
+  ShieldCheck,
   Wallet,
 } from "lucide-react";
 
@@ -46,6 +47,10 @@ const TABS: Array<[string, string, React.ReactNode]> = [
   ["kontrak", "Dokumen Perjanjian", <FileText key="i" className="size-4" />],
   ["form", "Form Pengajuan", <Send key="i" className="size-4" />],
   ["diri", "Data Diri", <IdCard key="i" className="size-4" />],
+  // KYC berdiri sendiri, terpisah dari Data Diri: yang pertama adalah proses
+  // verifikasi identitas oleh petugas (punya status & riwayat), yang kedua
+  // hanyalah isian data diri yang dipakai mengisi formulir pengajuan.
+  ["kyc", "Verifikasi KYC", <ShieldCheck key="i" className="size-4" />],
   ["riwayat", "Riwayat Ledger", <ScrollText key="i" className="size-4" />],
 ];
 

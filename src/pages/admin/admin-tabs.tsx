@@ -27,13 +27,13 @@ import { AuditTrailPanel } from "@/components/admin/AuditTrailPanel";
 import { BackupPanel } from "@/components/admin/BackupPanel";
 import { LiveLocationMap } from "@/components/admin/LiveLocationMap";
 import { KreditQueuePanel } from "@/components/admin/KreditQueuePanel";
+import { KycPanel } from "@/components/admin/KycPanel";
 import { LoginSecurityPanel } from "@/components/admin/LoginSecurityPanel";
 import { DpdTab, LelangTab, LoanAllocationQueueTab } from "@/components/admin/OperationsTabs";
 import { SystemConfigPanel } from "@/components/admin/SystemConfigPanel";
 import { PlafonPanel } from "@/components/admin/PlafonPanel";
 import { WhatsAppPanel } from "@/components/admin/WhatsAppPanel";
 import { WebsiteTemplatePanel } from "@/components/admin/WebsiteTemplatePanel";
-import { PenagihanPanel } from "@/components/admin/PenagihanPanel";
 import {
   LencanaTab,
   type AdminOverviewData,
@@ -95,12 +95,20 @@ export function AdminTabs({
   onOpenLoan,
   onOpenPawn,
   onOpenSetup,
+  kycMenunggu = null,
 }: {
   overview: AdminOverviewData;
   stats: AdminStatsData | undefined;
   onOpenLoan: (l: LoanRow) => void;
   onOpenPawn: (p: PawnRow) => void;
   onOpenSetup: () => void;
+  /**
+   * Jumlah pengajuan KYC yang menunggu peninjauan, atau `null` bila belum
+   * diketahui (masih dimuat). Dikirim sebagai prop — bukan di-query di sini —
+   * supaya komponen ini tetap murni tampilan dan bisa dirender di luar
+   * `ConvexProvider` (mis. skrip QA meja kerja).
+   */
+  kycMenunggu?: number | null;
 }) {
   // Default "Hari Ini": ini meja kerja, bukan satu antrean. Mendarat di
   // ringkasan dulu berarti admin melihat apa yang menunggu sebelum memilih modul.
@@ -149,6 +157,14 @@ export function AdminTabs({
           badge: `${hitungMenunggu(overview.kredit, "kredit")}`,
           hitung: "menunggu",
           Icon: ShoppingBag,
+        },
+        {
+          value: "kyc",
+          label: "Verifikasi KYC",
+          hint: "Tinjau verifikasi identitas (KTP, selfie, bukti penghasilan) dan putuskan: verifikasi, minta perbaikan, atau tolak.",
+          badge: kycMenunggu === null ? null : `${kycMenunggu}`,
+          hitung: "menunggu",
+          Icon: ShieldCheck,
         },
         {
           value: "alokasi",
@@ -349,6 +365,7 @@ export function AdminTabs({
     pinjaman: <LoanQueueSection loans={overview.loans} onOpen={onOpenLoan} />,
     gadai: <PawnQueueSection pawns={overview.pawns} onOpen={onOpenPawn} />,
     kredit: <KreditQueuePanel />,
+    kyc: <KycPanel />,
     alokasi: <LoanAllocationQueueTab onOpen={onOpenLoan} />,
     lokasi: <LiveLocationMap />,
     dpd: <DpdTab />,

@@ -45,6 +45,9 @@ export default function Admin() {
   const stats = useQuery(api.admin.adminStats, adminVerified ? {} : "skip");
   const ledger = useQuery(api.admin.ledgerSummary, adminVerified ? {} : "skip");
   const sysCfg = useQuery(api.system.getStatusPublic, adminVerified ? {} : "skip");
+  // Cacah antrean verifikasi identitas untuk lencana menu. Hanya dihitung saat
+  // sesi admin sudah terverifikasi TOTP; sebelum itu query dilewati.
+  const kycAntrean = useQuery(api.kyc.daftarKycAdmin, adminVerified ? {} : "skip");
   const setKill = useMutation(api.system.setKillSwitch);
   const [killBusy, setKillBusy] = useState(false);
   const [killConfirm, setKillConfirm] = useState(false);
@@ -215,6 +218,7 @@ export default function Admin() {
           onOpenLoan={setLoanDetail}
           onOpenPawn={setPawnDetail}
           onOpenSetup={() => setTotpSetupOpen(true)}
+          kycMenunggu={kycAntrean === undefined ? null : (kycAntrean.cacah.PENDING_REVIEW ?? 0)}
         />
       </main>
 

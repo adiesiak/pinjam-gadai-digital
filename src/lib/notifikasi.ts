@@ -56,6 +56,7 @@ export const TAB_DASHBOARD = [
   "kontrak",
   "form",
   "diri",
+  "kyc",
   "riwayat",
 ] as const;
 
