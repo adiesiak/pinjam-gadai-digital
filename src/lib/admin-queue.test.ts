@@ -389,7 +389,7 @@ eq(
 
 // ===== Peta modul & grup (dokumen desain §4) =====
 
-eq(NILAI_MODUL_ADMIN.length, 18, "18 nilai modul");
+eq(NILAI_MODUL_ADMIN.length, 19, "19 nilai modul");
 eq(
   new Set(NILAI_MODUL_ADMIN).size,
   NILAI_MODUL_ADMIN.length,
@@ -414,12 +414,12 @@ eq(
 eq(
   GRUP_NAV.map((g) => g.modul.length).join(","),
   "1,6,3,8",
-  "jumlah modul tiap tab (1+6+3+8 = 18)",
+  "jumlah modul tiap tab (1+6+3+8 = 18; penagihan belum masuk GRUP_NAV)",
 );
 eq(
   GRUP_NAV.reduce((total, g) => total + g.modul.length, 0),
   NILAI_MODUL_ADMIN.length,
-  "total modul GRUP_NAV = 18",
+  "GRUP_NAV memuat seluruh modul yang sudah ada (18)",
 );
 
 // Modul default tiap grup harus salah satu anggotanya.

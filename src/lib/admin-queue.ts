@@ -18,8 +18,9 @@
 /**
  * Seluruh nilai tab panel admin, urut sesuai peta di dokumen desain §4.
  * 16 modul lama + `hari-ini` + `aplikasi` = 18 (panel "Ledger internal" dihapus
- * dari panel admin; query ledger tetap dipakai halaman /qc). Menambah modul di
- * sini akan memaksa
+ * dari panel admin; query ledger tetap dipakai halaman /qc).
+ * Tambah `penagihan` nanti di GRUP_NAV bila /admin diberi tab penagihan; nilai ini
+ * dipakai admin-ui jadi tipe-nilai yang valid. Menambah modul di sini akan memaksa
  * `panel` di `admin-tabs.tsx` menambahkan isinya.
  */
 export const NILAI_MODUL_ADMIN = [
@@ -59,7 +60,10 @@ export type GrupNav = {
   readonly default: NilaiModulAdmin;
 };
 
-/** Peta tab bawah → modul. Urutan dan isinya mengikuti dokumen desain §4. */
+/* * Peta tab bawah → modul. Urutan dan isinya mengikuti dokumen desain §4.
+ * `penagihan` tidak masuk GRUP_NAV sampai /admin benar-benar mendapat tabnya; saat itu
+ * nilai "penagihan" sudah jadi anggota `NilaiModulAdmin` ke-7 di sini.
+ */
 export const GRUP_NAV: readonly GrupNav[] = [
   {
     id: "hari-ini",

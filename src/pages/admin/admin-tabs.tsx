@@ -33,6 +33,7 @@ import { SystemConfigPanel } from "@/components/admin/SystemConfigPanel";
 import { PlafonPanel } from "@/components/admin/PlafonPanel";
 import { WhatsAppPanel } from "@/components/admin/WhatsAppPanel";
 import { WebsiteTemplatePanel } from "@/components/admin/WebsiteTemplatePanel";
+import { PenagihanPanel } from "@/components/admin/PenagihanPanel";
 import {
   LencanaTab,
   type AdminOverviewData,
