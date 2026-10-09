@@ -2061,6 +2061,42 @@ describe("pelacakan transfer keuntungan pendana", () => {
     expect(daftar.ringkasan.pinjamanBelumDicatat).toBe(0);
   });
 
+  it("daftar transfer: hanya pinjaman lunas, yang belum dicatat selalu di atas", async () => {
+    const t = convexTest(schema, modules);
+    const { sesi: admin } = await siapkanPengguna(t, "admin", {
+      email: "admin@pindai.test",
+      role: "admin",
+    });
+    const lunasA = await seedPinjamanLunas(t);
+    const lunasB = await seedPinjamanLunas(t);
+    const berjalan = await seedPinjamanLunas(t, { status: "didanai" });
+
+    const awal = await admin.query(api.penyediaDana.daftarTransferPendana, {});
+    // Pinjaman berjalan belum jatuh tempo, jadi tidak pernah jadi kewajiban.
+    expect(awal.rows).toHaveLength(2);
+    expect(awal.rows.some((r) => r.loanId === berjalan.loanId)).toBe(false);
+    expect(awal.ringkasan.jumlahBelumDicatat).toBe(2);
+    expect(awal.ringkasan.nilaiBelumDicatat).toBe(470_000);
+    expect(awal.ringkasan.jumlahTercatat).toBe(0);
+
+    await admin.mutation(api.penyediaDana.catatTransferPendana, {
+      loanId: lunasA.loanId,
+      metode: "transfer_bank",
+      referensi: "TRX-A",
+    });
+
+    const sesudah = await admin.query(api.penyediaDana.daftarTransferPendana, {});
+    // Yang masih menunggu transfer selalu muncul lebih dulu.
+    expect(sesudah.rows[0].loanId).toBe(lunasB.loanId);
+    expect(sesudah.rows[0].transfer.status).toBe("belum_dicatat");
+    expect(sesudah.rows[1].loanId).toBe(lunasA.loanId);
+    expect(sesudah.rows[1].transfer.referensi).toBe("TRX-A");
+    expect(sesudah.ringkasan.jumlahBelumDicatat).toBe(1);
+    expect(sesudah.ringkasan.nilaiBelumDicatat).toBe(235_000);
+    expect(sesudah.ringkasan.jumlahTercatat).toBe(1);
+    expect(sesudah.ringkasan.nilaiTercatat).toBe(235_000);
+  });
+
   it("ruang penyedia dana menampilkan status transfer sebagai catatan", async () => {
     const t = convexTest(schema, modules);
     const { sesi: admin } = await siapkanPengguna(t, "admin", {

@@ -1406,6 +1406,81 @@ export const rincianInvestor = query({
 });
 
 /**
+ * Daftar pencatatan transfer keuntungan penyedia dana untuk panel admin.
+ *
+ * Satu baris = satu pinjaman LUNAS berpendana. Kewajiban transfer baru jatuh
+ * tempo setelah kewajiban Peminjam lunas — pinjaman berjalan belum punya
+ * keuntungan untuk ditransfer. Nominal dihitung di SERVER dengan kebijakan yang
+ * berlaku, sama persis dengan yang ditulis `catatTransferPendana`, sehingga admin
+ * tidak pernah mengirim angka.
+ *
+ * Baris yang belum dicatat diurutkan lebih dulu: yang paling lama menunggu
+ * selalu terlihat di atas. Baca-saja — tidak ada perubahan data.
+ */
+export const daftarTransferPendana = query({
+  args: {},
+  handler: async (ctx) => {
+    await requireAdminSession(ctx);
+    const cfg = await getConfig(ctx);
+    const transferPerPinjaman = await petaTransfer(ctx);
+
+    const pinjamanLunas = (await ctx.db.query("loans").collect()).filter(
+      (l) =>
+        l.status === "lunas" &&
+        (l.pendanaId !== undefined || l.pendanaNama !== undefined),
+    );
+
+    const rows = pinjamanLunas.map((l) => {
+      const bagi = bagiPinjamanAman(l, cfg.persenBunga, cfg.persenAdmin);
+      const transfer = transferPerPinjaman.get(l._id) ?? ringkasTransfer([]);
+      return {
+        loanId: l._id,
+        referensi: l.nomorReferensi,
+        pendanaNama: l.pendanaNama ?? "Penyedia dana",
+        keuntunganPendana: bagi.keuntunganPendana,
+        // Waktu pelunasan = kapan kewajiban transfer mulai berjalan.
+        lunasPada: l.lunasPada ?? l.didanaiPada ?? l._creationTime,
+        transfer: {
+          status: transfer.status,
+          jumlah: transfer.jumlah,
+          referensi: transfer.referensi,
+          metode: transfer.metode,
+          catatan: transfer.catatan,
+          dicatatOlehLabel: transfer.dicatatOlehLabel,
+          dicatatPada: transfer.dicatatPada,
+          alasanBatal: transfer.alasanBatal,
+          adaPembatalan: transfer.adaPembatalan,
+        },
+      };
+    });
+
+    rows.sort(
+      (a, b) =>
+        Number(a.transfer.status === "dicatat") -
+          Number(b.transfer.status === "dicatat") ||
+        b.lunasPada - a.lunasPada,
+    );
+
+    const belum = rows.filter((r) => r.transfer.status !== "dicatat");
+    const tercatat = rows.filter((r) => r.transfer.status === "dicatat");
+
+    return {
+      rows,
+      ringkasan: {
+        /** Pinjaman lunas yang catatan transfernya belum dibuat admin. */
+        jumlahBelumDicatat: belum.length,
+        /** Nilai keuntungan pada pinjaman yang belum dicatat transfernya. */
+        nilaiBelumDicatat: belum.reduce((total, r) => total + r.keuntunganPendana, 0),
+        /** Pinjaman lunas yang keuntungannya sudah dicatat ditransfer. */
+        jumlahTercatat: tercatat.length,
+        /** Nilai keuntungan yang sudah dicatat ditransfer. */
+        nilaiTercatat: tercatat.reduce((total, r) => total + r.keuntunganPendana, 0),
+      },
+    };
+  },
+});
+
+/**
  * Beri/cabut akses ruang penyedia dana untuk satu akun (berdasarkan email).
  * Akses bersifat lihat saja: hanya mengubah peran akun, tanpa menyentuh
  * catatan pengajuan. Perubahan dicatat pada audit trail.

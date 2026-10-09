@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { api } from "@/convex/_generated/api";
 
+import { PencatatanTransferPendana } from "./PencatatanTransferPendana";
 import { PenyediaDanaTable } from "./PenyediaDanaTable";
 import { RekonsiliasiPendana } from "./RekonsiliasiPendana";
 
@@ -22,9 +23,11 @@ import { RekonsiliasiPendana } from "./RekonsiliasiPendana";
  * 2. **Per akun email** — akses tetap untuk satu alamat tertentu lewat
  *    "Beri akses".
  *
- * Keduanya hanya membuka halaman /penyedia-dana (baca saja): modul
- * convex/penyediaDana.ts tidak punya mutation transaksi, identitas pemohon
- * tampil sebagai kode pseudonim, dan setiap perubahan tercatat di Audit Trail.
+ * Keduanya hanya membuka halaman /penyedia-dana (baca saja). Satu-satunya
+ * pencatatan di modul `convex/penyediaDana.ts` adalah pencatatan transfer
+ * keuntungan, dan itu KHUSUS admin (bukan pemegang akses lihat saja) — lihat
+ * `PencatatanTransferPendana`. Identitas pemohon tampil sebagai kode pseudonim,
+ * dan setiap perubahan tercatat di Audit Trail.
  */
 function tanggalRingkas(ms: number | null): string {
   if (ms === null) return "—";
@@ -151,7 +154,8 @@ export function AksesPenyediaDanaPanel() {
         <p className="mt-1 text-xs leading-5 text-muted-foreground">
           Memberi akses membuka halaman <strong>/penyedia-dana</strong>: daftar pengajuan
           pinjaman, gadai, dan kredit barang dalam mode baca. Pemegang akses tidak dapat
-          mengubah data — modulnya tidak memiliki mutation transaksi. Nama lengkap pemohon dan
+          mengubah data apa pun; pencatatan transfer keuntungan di bawah hanya untuk admin.
+          Nama lengkap pemohon dan
           titik lokasi terakhirnya ditampilkan; NIK, nomor rekening, dan nomor WhatsApp tidak
           dikirim sebagai kolom terpisah. <strong>Berkas identitas pemohon (KTP, selfie, slip,
           foto barang, tanda tangan) hanya dibuka untuk akun beremail dengan peran penyedia dana
@@ -373,6 +377,9 @@ export function AksesPenyediaDanaPanel() {
           tidak dapat diberi akses ini.
         </p>
       </form>
+
+      {/* ===== Pencatatan transfer keuntungan ===== */}
+      <PencatatanTransferPendana />
 
       {/* ===== Daftar penyedia dana + posisi dananya ===== */}
       <PenyediaDanaTable />
