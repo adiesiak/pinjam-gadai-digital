@@ -26,7 +26,9 @@ import { Slider } from "@/components/ui/slider";
 import { Textarea } from "@/components/ui/textarea";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
+import { useCegahTinggalkan, useKirimSekali } from "@/hooks/use-cegah-tinggalkan";
 import { CONTRACT_TERMS_VERSION } from "@/lib/contract";
+import { adaPerubahan } from "@/lib/formInteraksi";
 import { KYC_FILES, MAX_FILE_BYTES, validateKycInput, type KycFileKey } from "@/lib/kyc";
 import {
   BULANAN_LIMITS,
@@ -406,6 +408,44 @@ export function LoanForm({ onCreated }: { onCreated: (ref: string) => void }) {
     });
   };
 
+  // Kiriman dikunci sekali-pakai: tombol `disabled` baru berlaku SETELAH React
+  // merender ulang, sedangkan klik ganda dan Enter berulang datang lebih dahulu.
+  const kirimSekali = useKirimSekali();
+  const bukaKunciKirim = kirimSekali.buka;
+  useEffect(() => {
+    if (!submitting) bukaKunciKirim();
+  }, [submitting, bukaKunciKirim]);
+
+  // Peringatan "belum disimpan" hanya untuk isian yang benar-benar diisi
+  // pengguna — nilai bawaan (pokok, tenor, penghasilan) bukan perubahan, jadi
+  // membuka formulir lalu berpindah tab tidak pernah memunculkan peringatan.
+  const kotorLoan =
+    adaPerubahan(
+      {
+        tujuan: "",
+        namaLengkap: "",
+        namaBank: "",
+        nomorRekening: "",
+        catatanPeminjam: "",
+        nik: "",
+        nomorWhatsApp: "",
+        sumberPenghasilan: "",
+        ttdKosong: true,
+      },
+      {
+        tujuan,
+        namaLengkap,
+        namaBank,
+        nomorRekening,
+        catatanPeminjam,
+        nik,
+        nomorWhatsApp,
+        sumberPenghasilan,
+        ttdKosong,
+      },
+    ) || dok.ktp.id !== null || dok.selfie.id !== null || dok.slip.id !== null;
+  const perluDicegahLoan = useCegahTinggalkan(kotorLoan);
+
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError(null);
@@ -493,6 +533,8 @@ export function LoanForm({ onCreated }: { onCreated: (ref: string) => void }) {
     const dokSlipId = dok.slip.id;
     // Jaga-jaga: jangan kirim bila dokumen/lokasi hilang antara validasi dan klik setuju.
     if (pad === null || !dokKtpId || !dokSelfieId || !dokSlipId || lokasi === null) return;
+    // Satu pengiriman saja, walau tombol setuju ditekan berulang.
+    if (!kirimSekali.kunci()) return;
     setSubmitting(true);
     try {
       const ttdDataUrl = pad.toDataURL("image/png");
@@ -1099,6 +1141,15 @@ export function LoanForm({ onCreated }: { onCreated: (ref: string) => void }) {
         </DialogContent>
       </Dialog>
 
+      {/* Penanda perubahan belum terkirim: terlihat sebelum peringatan keluar
+          muncul, supaya pengguna tidak kaget saat peramban bertanya. */}
+      {perluDicegahLoan && !submitting && (
+        <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900">
+          Pengajuan ini belum dikirim dan isiannya belum tersimpan. Menutup halaman atau memuat
+          ulang akan menghilangkannya.
+        </p>
+      )}
+
       <Button
         type="submit"
         className="w-full"
@@ -1140,6 +1191,36 @@ export function PawnForm({ onCreated }: { onCreated: () => void }) {
 
   const createPawn = useMutation(api.loans.createPawnApplication);
 
+  // Lihat LoanForm: kunci sekali-pakai menutup celah antara klik dan render
+  // ulang tombol, dan peringatan keluar hanya muncul bila isian benar-benar diisi.
+  const kirimSekali = useKirimSekali();
+  const bukaKunciKirim = kirimSekali.buka;
+  useEffect(() => {
+    if (!submitting) bukaKunciKirim();
+  }, [submitting, bukaKunciKirim]);
+
+  const kotorPawn = adaPerubahan(
+    {
+      deskripsiBarang: "",
+      kategori: "",
+      alamatPenilaian: "",
+      namaLengkap: "",
+      namaBank: "",
+      nomorRekening: "",
+      catatanPeminjam: "",
+    },
+    {
+      deskripsiBarang,
+      kategori,
+      alamatPenilaian,
+      namaLengkap,
+      namaBank,
+      nomorRekening,
+      catatanPeminjam,
+    },
+  );
+  const perluDicegahPawn = useCegahTinggalkan(kotorPawn);
+
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError(null);
@@ -1167,6 +1248,7 @@ export function PawnForm({ onCreated }: { onCreated: () => void }) {
       setError("Nomor rekening atau dompet digital harus berisi 6 sampai 20 angka.");
       return;
     }
+    if (!kirimSekali.kunci()) return;
     setSubmitting(true);
     try {
       await createPawn({
@@ -1267,6 +1349,13 @@ export function PawnForm({ onCreated }: { onCreated: () => void }) {
           {error}
         </p>
       )}
+      {perluDicegahPawn && !submitting && (
+        <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900">
+          Pengajuan gadai ini belum dikirim dan isiannya belum tersimpan. Menutup halaman akan
+          menghilangkannya.
+        </p>
+      )}
+
       <Button type="submit" className="w-full" disabled={submitting}>
         {submitting ? (
           <>

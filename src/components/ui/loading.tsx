@@ -259,6 +259,55 @@ export function BilahTakTentu({
 }
 
 /**
+ * Bilah proses dengan angka NYATA — dipakai hanya bila lapisan pengiriman
+ * melaporkan berapa byte yang sudah terkirim (mis. `XMLHttpRequest.upload
+ * .onprogress`, lihat `lib/unggahDokumen.ts`).
+ *
+ * `nilai` berupa persen 0–100 dari `progresPersen()`, atau `null` bila total
+ * byte tidak diketahui — dan saat `null` komponen ini jatuh ke `BilahTakTentu`
+ * yang memang tidak punya `aria-valuenow`. Jadi tidak pernah ada bilah yang
+ * mengaku tahu progres padahal angkanya tidak ada.
+ */
+export function BilahProgres({
+  nilai,
+  label,
+  className,
+}: {
+  /** Persen 0–100, atau `null` bila tidak diketahui. */
+  nilai: number | null;
+  /** Nama pekerjaan (mis. "Mengunggah Foto KTP") — diumumkan pembaca layar. */
+  label: string;
+  className?: string;
+}) {
+  if (nilai === null) return <BilahTakTentu label={label} className={className} />;
+  return (
+    <div className={cn("min-w-0", className)}>
+      <div
+        role="progressbar"
+        aria-label={label}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={nilai}
+        className="h-1.5 w-full overflow-hidden rounded-full bg-slate-200"
+      >
+        <span
+          aria-hidden="true"
+          style={{ width: `${nilai}%` }}
+          className="block h-full rounded-full bg-primary transition-[width] duration-[var(--motion-fast)] ease-[var(--motion-ease-out)]"
+        />
+      </div>
+      <p
+        role="status"
+        aria-live="polite"
+        className="mt-1.5 text-[11px] leading-4 tabular-nums text-muted-foreground"
+      >
+        {label} {nilai}%
+      </p>
+    </div>
+  );
+}
+
+/**
  * Keadaan gagal yang bisa dicoba lagi.
  *
  * Dipakai bila satu permintaan mengambil data GAGAL (bukan sekadar lambat):

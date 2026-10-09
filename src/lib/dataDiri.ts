@@ -97,6 +97,108 @@ function rapikan(teks: string): string {
   return teks.trim().replace(/\s+/g, " ");
 }
 
+/** Nama isian data diri — dipakai sebagai kunci galat per isian. */
+export type IsianDataDiri = keyof DataDiriForm;
+
+/** Galat per isian, supaya pesannya bisa ditampilkan DI DEKAT isiannya. */
+export type GalatDataDiri = Partial<Record<IsianDataDiri, string>>;
+
+/**
+ * Aturan validasi data diri, dipecah PER ISIAN dengan urutan tetap.
+ *
+ * Kenapa dipisah: form menampilkan pesan di bawah isian yang salah, sedangkan
+ * server hanya butuh tahu boleh-tidaknya simpan. Dengan satu daftar aturan
+ * berurut ini, `galatDataDiri()` memberi pesan per isian untuk form dan
+ * `bacaDataDiri()` mengambil yang pertama untuk pesan tunggal — keduanya dari
+ * aturan yang SAMA, jadi tidak mungkin berbeda.
+ *
+ * Urutan diperiksa tetap seperti semula (nama → NIK → WhatsApp → alamat →
+ * pekerjaan → penghasilan → bank → rekening) supaya pesan pertama yang
+ * dikembalikan `bacaDataDiri` tidak berubah.
+ */
+function aturanDataDiri(form: DataDiriForm): Array<[IsianDataDiri, string]> {
+  const namaLengkap = namaHurufBesar(form.namaLengkap);
+  const nik = digitSaja(form.nik);
+  const nomorWhatsApp = digitSaja(form.nomorWhatsApp);
+  const alamat = rapikan(form.alamat);
+  const pekerjaan = rapikan(form.pekerjaan);
+  const namaBank = rapikan(form.namaBank);
+  const nomorRekening = digitSaja(form.nomorRekening);
+  const penghasilanBulanan = penghasilanDariTeks(form.penghasilan);
+
+  const galat: Array<[IsianDataDiri, string]> = [];
+
+  if (namaLengkap.length < DATA_DIRI_BATAS.namaMin || namaLengkap.length > DATA_DIRI_BATAS.namaMaks) {
+    galat.push([
+      "namaLengkap",
+      `Nama lengkap wajib ${DATA_DIRI_BATAS.namaMin}–${DATA_DIRI_BATAS.namaMaks} karakter.`,
+    ]);
+  }
+  if (!/^\d{16}$/.test(nik)) {
+    galat.push(["nik", "Nomor KTP (NIK) harus terdiri dari 16 angka."]);
+  }
+  // Nomor WhatsApp Indonesia: kode negara 62 + 8–13 digit (tanpa tanda +).
+  if (!/^62\d{8,13}$/.test(nomorWhatsApp)) {
+    galat.push([
+      "nomorWhatsApp",
+      "Nomor WhatsApp harus diawali 62 tanpa tanda +, contoh: 6281234567890.",
+    ]);
+  }
+  if (alamat !== "" && (alamat.length < DATA_DIRI_BATAS.alamatMin || alamat.length > DATA_DIRI_BATAS.alamatMaks)) {
+    galat.push([
+      "alamat",
+      `Alamat wajib ${DATA_DIRI_BATAS.alamatMin}–${DATA_DIRI_BATAS.alamatMaks} karakter bila diisi.`,
+    ]);
+  }
+  if (pekerjaan !== "" && (pekerjaan.length < DATA_DIRI_BATAS.pekerjaanMin || pekerjaan.length > DATA_DIRI_BATAS.pekerjaanMaks)) {
+    galat.push([
+      "pekerjaan",
+      `Pekerjaan wajib ${DATA_DIRI_BATAS.pekerjaanMin}–${DATA_DIRI_BATAS.pekerjaanMaks} karakter bila diisi.`,
+    ]);
+  }
+  if (penghasilanBulanan !== null) {
+    if (!Number.isSafeInteger(penghasilanBulanan) || penghasilanBulanan <= 0) {
+      galat.push(["penghasilan", "Penghasilan per bulan harus angka rupiah bulat positif."]);
+    } else if (penghasilanBulanan > DATA_DIRI_BATAS.penghasilanMaks) {
+      galat.push([
+        "penghasilan",
+        "Penghasilan per bulan tidak boleh melebihi Rp 1.000.000.000.",
+      ]);
+    }
+  }
+  if (namaBank !== "" && (namaBank.length < DATA_DIRI_BATAS.bankMin || namaBank.length > DATA_DIRI_BATAS.bankMaks)) {
+    galat.push([
+      "namaBank",
+      `Nama bank wajib ${DATA_DIRI_BATAS.bankMin}–${DATA_DIRI_BATAS.bankMaks} karakter bila diisi.`,
+    ]);
+  }
+  if (
+    nomorRekening !== "" &&
+    (nomorRekening.length < DATA_DIRI_BATAS.rekeningMin || nomorRekening.length > DATA_DIRI_BATAS.rekeningMaks)
+  ) {
+    galat.push([
+      "nomorRekening",
+      `Nomor rekening wajib ${DATA_DIRI_BATAS.rekeningMin}–${DATA_DIRI_BATAS.rekeningMaks} angka bila diisi.`,
+    ]);
+  }
+
+  return galat;
+}
+
+/**
+ * Galat per isian untuk ditampilkan di dekat isian yang bersangkutan.
+ * Isian yang sah tidak muncul sebagai kunci, jadi pemanggil tinggal memeriksa
+ * `galat.nik !== undefined` untuk isian itu saja.
+ */
+export function galatDataDiri(form: DataDiriForm): GalatDataDiri {
+  const hasil: GalatDataDiri = {};
+  for (const [isian, pesan] of aturanDataDiri(form)) {
+    // Galat pertama per isian yang dipakai — isian tidak pernah menumpuk pesan.
+    if (hasil[isian] === undefined) hasil[isian] = pesan;
+  }
+  return hasil;
+}
+
 /**
  * Validasi + normalisasi satu isian data diri.
  *
@@ -118,59 +220,9 @@ export function bacaDataDiri(form: DataDiriForm): {
   const nomorRekening = digitSaja(form.nomorRekening);
   const penghasilanBulanan = penghasilanDariTeks(form.penghasilan);
 
-  if (namaLengkap.length < DATA_DIRI_BATAS.namaMin || namaLengkap.length > DATA_DIRI_BATAS.namaMaks) {
-    return {
-      tersimpan: null,
-      pesan: `Nama lengkap wajib ${DATA_DIRI_BATAS.namaMin}–${DATA_DIRI_BATAS.namaMaks} karakter.`,
-    };
-  }
-  if (!/^\d{16}$/.test(nik)) {
-    return { tersimpan: null, pesan: "Nomor KTP (NIK) harus terdiri dari 16 angka." };
-  }
-  // Nomor WhatsApp Indonesia: kode negara 62 + 8–13 digit (tanpa tanda +).
-  if (!/^62\d{8,13}$/.test(nomorWhatsApp)) {
-    return {
-      tersimpan: null,
-      pesan: "Nomor WhatsApp harus diawali 62 tanpa tanda +, contoh: 6281234567890.",
-    };
-  }
-  if (alamat !== "" && (alamat.length < DATA_DIRI_BATAS.alamatMin || alamat.length > DATA_DIRI_BATAS.alamatMaks)) {
-    return {
-      tersimpan: null,
-      pesan: `Alamat wajib ${DATA_DIRI_BATAS.alamatMin}–${DATA_DIRI_BATAS.alamatMaks} karakter bila diisi.`,
-    };
-  }
-  if (pekerjaan !== "" && (pekerjaan.length < DATA_DIRI_BATAS.pekerjaanMin || pekerjaan.length > DATA_DIRI_BATAS.pekerjaanMaks)) {
-    return {
-      tersimpan: null,
-      pesan: `Pekerjaan wajib ${DATA_DIRI_BATAS.pekerjaanMin}–${DATA_DIRI_BATAS.pekerjaanMaks} karakter bila diisi.`,
-    };
-  }
-  if (penghasilanBulanan !== null) {
-    if (!Number.isSafeInteger(penghasilanBulanan) || penghasilanBulanan <= 0) {
-      return { tersimpan: null, pesan: "Penghasilan per bulan harus angka rupiah bulat positif." };
-    }
-    if (penghasilanBulanan > DATA_DIRI_BATAS.penghasilanMaks) {
-      return {
-        tersimpan: null,
-        pesan: "Penghasilan per bulan tidak boleh melebihi Rp 1.000.000.000.",
-      };
-    }
-  }
-  if (namaBank !== "" && (namaBank.length < DATA_DIRI_BATAS.bankMin || namaBank.length > DATA_DIRI_BATAS.bankMaks)) {
-    return {
-      tersimpan: null,
-      pesan: `Nama bank wajib ${DATA_DIRI_BATAS.bankMin}–${DATA_DIRI_BATAS.bankMaks} karakter bila diisi.`,
-    };
-  }
-  if (
-    nomorRekening !== "" &&
-    (nomorRekening.length < DATA_DIRI_BATAS.rekeningMin || nomorRekening.length > DATA_DIRI_BATAS.rekeningMaks)
-  ) {
-    return {
-      tersimpan: null,
-      pesan: `Nomor rekening wajib ${DATA_DIRI_BATAS.rekeningMin}–${DATA_DIRI_BATAS.rekeningMaks} angka bila diisi.`,
-    };
+  const pelanggaran = aturanDataDiri(form);
+  if (pelanggaran.length > 0) {
+    return { tersimpan: null, pesan: pelanggaran[0][1] };
   }
 
   return {

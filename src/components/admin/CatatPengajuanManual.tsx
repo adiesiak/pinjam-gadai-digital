@@ -1,6 +1,8 @@
 import { useQuery } from "convex/react";
 import { Loader2, Plus, Search, ShieldAlert, UserCheck, UserPlus } from "lucide-react";
 import { useState } from "react";
+
+import { useNilaiTertunda } from "@/hooks/use-validasi-tertunda";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
@@ -40,12 +42,24 @@ import { FormPinjamanManual } from "./pengajuan-manual/FormPinjamanManual";
  *    tanpa memaksa orang itu mendaftar lebih dulu.
  */
 
-/** Pencarian & pemilihan nasabah tujuan pencatatan. */
+/**
+ * Pencarian & pemilihan nasabah tujuan pencatatan.
+ *
+ * Pencariannya TERTUNDA (debounce): yang diketik tetap tampil apa adanya, tapi
+ * kueri ke server baru dijalankan setelah admin berhenti mengetik. Sebelumnya
+ * SETIAP huruf menembakkan satu kueri yang memuat seluruh pengguna, profil,
+ * pinjaman, dan kredit barang. Daftar hasil lama sengaja tidak dikosongkan saat
+ * menunggu — menghapus hasil yang masih berguna setiap kali mengetik hanya
+ * membuat layar berkedip — dan keadaan "mencari" diberitahukan lewat
+ * `role="status"`, bukan dibiarkan tak terlihat.
+ */
 function PencariNasabah({ onPilih }: { onPilih: (nasabah: NasabahManual) => void }) {
   const [kueri, setKueri] = useState("");
-  const hasil = useQuery(api.adminPengajuan.cariNasabah, { kueri });
+  const kueriTertunda = useNilaiTertunda(kueri);
+  const hasil = useQuery(api.adminPengajuan.cariNasabah, { kueri: kueriTertunda });
+  const menunggu = kueri !== kueriTertunda || hasil === undefined;
   return (
-    <div className="space-y-3">
+    <div className="space-y-3" aria-busy={menunggu || undefined}>
       <div className="relative">
         <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
         <Input
@@ -54,17 +68,28 @@ function PencariNasabah({ onPilih }: { onPilih: (nasabah: NasabahManual) => void
           onChange={(event) => setKueri(event.target.value)}
           placeholder="Cari nama, email, kode peminjam, atau NIK…"
           className="pl-9"
+          autoComplete="off"
           autoFocus
         />
       </div>
+      {menunggu && (
+        <p
+          role="status"
+          aria-live="polite"
+          className="flex items-center gap-2 text-xs text-muted-foreground"
+        >
+          <Loader2 className="size-3.5 animate-spin" aria-hidden /> Mencari nasabah…
+        </p>
+      )}
       {hasil === undefined ? (
         <p className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-6 text-sm text-muted-foreground">
-          <Loader2 className="size-4 animate-spin" /> Mencari nasabah…
+          <Loader2 className="size-4 animate-spin" /> Memuat daftar nasabah…
         </p>
       ) : hasil.hasil.length === 0 ? (
         <p className="rounded-xl border border-dashed border-slate-200 bg-white px-4 py-6 text-center text-sm text-muted-foreground">
-          Tidak ada nasabah yang cocok. Kalau pemohonnya belum punya akun, pakai tab
-          “Belum punya akun” di atas.
+          {menunggu
+            ? "Tunggu sebentar sampai pencarian selesai."
+            : "Tidak ada nasabah yang cocok. Kalau pemohonnya belum punya akun, pakai tab “Belum punya akun” di atas."}
         </p>
       ) : (
         <ul className="max-h-72 divide-y divide-slate-200 overflow-y-auto rounded-xl border border-slate-200 bg-white">

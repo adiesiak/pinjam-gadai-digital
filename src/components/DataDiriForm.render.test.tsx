@@ -116,5 +116,91 @@ function props(overrides: Partial<FormDataDiriProps> = {}): FormDataDiriProps {
   bersih(html, "form bergalat");
 }
 
+// ===== 5. Galat per isian: hanya setelah disentuh / setelah Simpan =====
+// Markup statis menggambarkan keadaan AWAL (belum ada isian disentuh), jadi
+// pesan per isian TIDAK boleh muncul walau isian wajibnya masih kosong.
+{
+  const html = renderToStaticMarkup(
+    <FormDataDiri
+      {...props({
+        awal: {
+          namaLengkap: "",
+          nik: "",
+          nomorWhatsApp: "",
+          alamat: "",
+          pekerjaan: "",
+          penghasilan: "",
+          namaBank: "",
+          nomorRekening: "",
+        },
+        fotoKtpUrl: null,
+      })}
+    />,
+  );
+  ok(
+    !html.includes("Nama lengkap wajib"),
+    "formulir yang belum disentuh tidak menampilkan galat wajib",
+  );
+  ok(!html.includes('aria-invalid="true"'), "belum ada isian ditandai tidak sah saat awal");
+  bersih(html, "form kosong tanpa galat");
+}
+
+// ===== 6. Semua isian punya label + kaitan ke pesan galatnya =====
+{
+  const html = renderToStaticMarkup(<FormDataDiri {...props()} />);
+  const id = ["dd-nama", "dd-nik", "dd-wa", "dd-alamat", "dd-pekerjaan", "dd-penghasilan", "dd-bank", "dd-rekening"];
+  for (const k of id) {
+    ok(html.includes(`for="${k}"`), `isian ${k} punya label yang menunjuk padanya`);
+    ok(html.includes(`id="${k}"`), `isian ${k} ada di markup`);
+  }
+  // Isian yang punya keterangan menunjuk keterangannya lewat aria-describedby.
+  for (const k of ["dd-alamat", "dd-pekerjaan", "dd-penghasilan", "dd-bank", "dd-rekening"]) {
+    ok(html.includes(`id="${k}-hint"`), `keterangan ${k} ada di markup`);
+  }
+  ok(html.includes('id="dd-nik-hint"') === false, "isian wajib tanpa keterangan tidak mengarang hint");
+  // Tombol simpan kini tombol submit form — Enter di dalam isian ikut mengirim.
+  ada(html, 'type="submit"', "tombol simpan adalah submit form (aksesibel lewat keyboard)");
+  bersih(html, "form aksesibel");
+}
+
+// ===== 7. Galat per isian tampil dekat isiannya (dengan kaitan aria) =====
+// Diukur pada NIK & WhatsApp yang sengaja tidak sah, dengan galat dipaksa
+// tampil — keadaan yang sama seperti setelah pengguna menekan Simpan.
+{
+  const html = renderToStaticMarkup(
+    <FormDataDiri
+      {...props({
+        awal: {
+          namaLengkap: "Rani Puspita",
+          nik: "123",
+          nomorWhatsApp: "0812",
+          alamat: "",
+          pekerjaan: "",
+          penghasilan: "",
+          namaBank: "",
+          nomorRekening: "",
+        },
+        tampilkanGalat: true,
+      })}
+    />,
+  );
+  ada(html, "Nomor KTP (NIK) harus terdiri dari 16 angka.", "galat NIK tampil di form");
+  ada(html, "Nomor WhatsApp harus diawali 62 tanpa tanda +", "galat WhatsApp tampil di form");
+  ada(html, 'id="dd-nik-galat"', "galat NIK punya id yang bisa dirujuk");
+  ada(html, 'aria-describedby="dd-nik-galat"', "isian NIK menunjuk galatnya sendiri");
+  ada(html, 'aria-describedby="dd-wa-galat"', "isian WhatsApp menunjuk galatnya sendiri");
+  ok(
+    (html.match(/aria-invalid="true"/g) ?? []).length === 2,
+    "hanya dua isian yang salah ditandai tidak sah",
+  );
+  ok(
+    (html.match(/role="alert"/g) ?? []).length >= 2,
+    "setiap galat isian diumumkan sebagai alert",
+  );
+  // Tanpa galat server, pesan banner lama tidak dipakai — pesannya per isian.
+  ok(!html.includes("rounded-lg bg-destructive/10"), "galat per isian tidak menambah banner besar");
+  bersih(html, "form dengan galat per isian");
+}
+
 console.log(`DataDiriForm.render: ${passed} lulus, ${failed} gagal`);
 if (failed > 0) process.exit(1);

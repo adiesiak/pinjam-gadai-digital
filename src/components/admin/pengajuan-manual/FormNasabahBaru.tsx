@@ -1,11 +1,12 @@
-import { useAction, useMutation } from "convex/react";
-import { useState } from "react";
+import { useAction, useConvex, useMutation } from "convex/react";
+import { useCallback, useState } from "react";
 
 import { FormDataDiri, type PerubahanFotoKtp } from "@/components/DataDiriForm";
 import { api } from "@/convex/_generated/api";
 import { DATA_DIRI_KOSONG, penghasilanDariTeks } from "@/lib/dataDiri";
+import { namaHurufBesar } from "@/lib/nama";
 import type { NasabahManual } from "@/lib/pengajuanManual";
-import { unggahDokumen } from "@/lib/unggahDokumen";
+import { unggahDokumen, type ProgresUnggah } from "@/lib/unggahDokumen";
 
 /**
  * Catat PEMOHON BARU yang belum punya akun — langkah identitas di panel admin.
@@ -29,8 +30,28 @@ export function FormNasabahBaru({
   const mintaUrlUnggah = useMutation(api.admin.generateDataDiriUploadUrl);
   // Periksa ISI berkas (magic bytes) sesudah unggah, bukan hanya tipe MIME.
   const periksaIsi = useAction(api.berkasIdentitas.periksaIsiBerkasKyc);
+  const klien = useConvex();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  /**
+   * Pemeriksaan asinkron atas NIK yang baru diketik (dijalankan FormDataDiri
+   * setelah jeda ketikan, bukan tiap huruf). Query yang dipakai sudah ada dan
+   * tetap digerbang admin di server — tidak ada jalur data baru, dan tidak ada
+   * NIK nasabah lain yang dikirim ke peramban: yang dikembalikan hanya nama
+   * pemilik catatan yang cocok, sebagai peringatan agar admin memeriksa dulu.
+   * Ini pemberitahuan lebih awal, bukan pengganti pemeriksaan server saat simpan.
+   */
+  const periksaKembar = useCallback(
+    async (nilai: string) => {
+      const { hasil } = await klien.query(api.adminPengajuan.cariNasabah, { kueri: nilai });
+      if (hasil.length === 0) return null;
+      const contoh = hasil[0];
+      const nama = contoh === undefined ? "nasabah lain" : namaHurufBesar(contoh.nama);
+      return `NIK ini cocok dengan ${hasil.length} catatan nasabah (mis. ${nama}). Periksa dulu agar tidak membuat akun kembar.`;
+    },
+    [klien],
+  );
 
   return (
     <div className="space-y-3">
@@ -46,8 +67,10 @@ export function FormNasabahBaru({
         fotoKtpUrl={null}
         sebelumnya="Belum pernah tercatat sebagai pemohon."
         labelSimpan="Simpan pemohon baru"
-        unggah={async (file) => {
-          const id = await unggahDokumen(file, mintaUrlUnggah, "Foto KTP");
+        periksaKembar={periksaKembar}
+        unggah={async (file, onProgres?: (p: ProgresUnggah) => void) => {
+          const id = await unggahDokumen(file, mintaUrlUnggah, "Foto KTP", undefined, onProgres);
+          // Periksa isi (magic bytes) tetap dijalankan server setelah unggah.
           await periksaIsi({ id, label: "Foto KTP" });
           return id;
         }}

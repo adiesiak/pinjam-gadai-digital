@@ -1,6 +1,11 @@
 /** Run: bun src/lib/unggahDokumen.test.ts */
 import { MAX_FILE_BYTES } from "./kyc";
-import { unggahDokumen } from "./unggahDokumen";
+import {
+  kirimBerkasViaXhr,
+  unggahDokumen,
+  type ProgresUnggah,
+  type XhrMirip,
+} from "./unggahDokumen";
 
 let passed = 0;
 let failed = 0;
@@ -198,6 +203,121 @@ await denganFetch(
   );
   eq(tipeKonten, "application/octet-stream", "tipe kosong jadi octet-stream");
 }
+
+/* ==========================================================================
+ * Jalur progres (XHR): byte yang dilaporkan harus byte yang NYATA, dan
+ * kegagalan harus tetap menjadi penolakan yang jelas.
+ * ========================================================================== */
+
+/** Tiruan XHR minimum: cukup untuk menggerakkan seluruh jalur progres. */
+function xhrTiruan(opsi: {
+  status: number;
+  responseText: string;
+  /** Dipanggil setelah `send` — di sinilah "jaringan" berjalan. */
+  saatKirim?: (xhr: XhrMirip) => void;
+}): { xhr: XhrMirip; dicatat: { url: string; metode: string; tipeKonten: string | null; badan: unknown } } {
+  const dicatat = { url: "", metode: "", tipeKonten: null as string | null, badan: null as unknown };
+  const xhr: XhrMirip = {
+    status: opsi.status,
+    responseText: opsi.responseText,
+    upload: { onprogress: null },
+    onload: null,
+    onerror: null,
+    onabort: null,
+    open(metode, url) {
+      dicatat.metode = metode;
+      dicatat.url = url;
+    },
+    setRequestHeader(nama, nilai) {
+      if (nama.toLowerCase() === "content-type") dicatat.tipeKonten = nilai;
+    },
+    send(badan) {
+      dicatat.badan = badan;
+      opsi.saatKirim?.(xhr);
+    },
+  };
+  return { xhr, dicatat };
+}
+
+// Progres: dua laporan byte lalu sukses, id dikembalikan apa adanya.
+{
+  const progres: ProgresUnggah[] = [];
+  const { xhr, dicatat } = xhrTiruan({
+    status: 200,
+    responseText: JSON.stringify({ storageId: "storage-xhr" }),
+    saatKirim: (x) => {
+      x.upload.onprogress?.({ loaded: 250, lengthComputable: true, total: 1000 });
+      x.upload.onprogress?.({ loaded: 1000, lengthComputable: true, total: 1000 });
+      x.onload?.();
+    },
+  });
+  const id = await kirimBerkasViaXhr(URL_TIRUAN, berkas(1_000), "Foto KTP", (p) => progres.push(p), () => xhr);
+  eq(id.storageId, "storage-xhr", "XHR: storageId dikembalikan");
+  eq(dicatat.metode, "POST", "XHR: berkas dikirim dengan POST");
+  eq(dicatat.url, URL_TIRUAN, "XHR: URL dari mintaUrl yang dipakai");
+  eq(dicatat.tipeKonten, "image/png", "XHR: tipe berkas jadi Content-Type");
+  eq(progres.length, 2, "XHR: dua laporan progres diteruskan");
+  eq(progres[0]?.dimuat, 250, "XHR: byte terkirim dilaporkan apa adanya");
+  eq(progres[0]?.total, 1000, "XHR: total byte dilaporkan");
+}
+
+// Total yang TIDAK komputabel dilaporkan 0 — pemanggil memakai bilah tak tentu,
+// bukan menebak total dari ukuran berkas.
+{
+  const progres: ProgresUnggah[] = [];
+  const { xhr } = xhrTiruan({
+    status: 200,
+    responseText: JSON.stringify({ storageId: "s" }),
+    saatKirim: (x) => {
+      x.upload.onprogress?.({ loaded: 10, lengthComputable: false, total: 0 });
+      x.onload?.();
+    },
+  });
+  await kirimBerkasViaXhr(URL_TIRUAN, berkas(10), "Berkas", (p) => progres.push(p), () => xhr);
+  eq(progres[0]?.total, 0, "XHR: total tak diketahui tidak dikarang");
+}
+
+// Status HTTP non-ok → ditolak dengan pesan yang menyebut label.
+await tolak(
+  async () => {
+    const { xhr } = xhrTiruan({
+      status: 500,
+      responseText: "<html>error</html>",
+      saatKirim: (x) => x.onload?.(),
+    });
+    await kirimBerkasViaXhr(URL_TIRUAN, berkas(10), "Selfie KTP", undefined, () => xhr);
+  },
+  /Selfie KTP gagal diunggah/i,
+  "XHR: HTTP non-ok ditolak",
+);
+
+// Sambungan gagal / dibatalkan → pesan yang bisa ditindaklanjuti.
+await tolak(
+  async () => {
+    const { xhr } = xhrTiruan({ status: 0, responseText: "", saatKirim: (x) => x.onerror?.() });
+    await kirimBerkasViaXhr(URL_TIRUAN, berkas(10), "Berkas", undefined, () => xhr);
+  },
+  /gagal diunggah/i,
+  "XHR: galat jaringan ditolak",
+);
+await tolak(
+  async () => {
+    const { xhr } = xhrTiruan({ status: 0, responseText: "", saatKirim: (x) => x.onabort?.() });
+    await kirimBerkasViaXhr(URL_TIRUAN, berkas(10), "Berkas", undefined, () => xhr);
+  },
+  /gagal diunggah/i,
+  "XHR: unggahan yang dibatalkan ditolak",
+);
+
+// Badan sukses yang bukan JSON → ditolak, bukan meledak dengan SyntaxError.
+await tolak(
+  async () => {
+    const { xhr } = xhrTiruan({ status: 200, responseText: "bukan json", saatKirim: (x) => x.onload?.() });
+    await kirimBerkasViaXhr(URL_TIRUAN, berkas(10), "Berkas", undefined, () => xhr);
+  },
+  /gagal diunggah/i,
+  "XHR: badan bukan JSON ditolak",
+);
 
 console.log(`unggahDokumen.test: ${passed} lulus, ${failed} gagal`);
 if (failed > 0) process.exit(1);

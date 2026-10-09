@@ -3,9 +3,10 @@ import { useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { BilahTakTentu } from "@/components/ui/loading";
+import { BilahProgres } from "@/components/ui/loading";
 import type { Id } from "@/convex/_generated/dataModel";
-import { unggahDokumen } from "@/lib/unggahDokumen";
+import { progresPersen } from "@/lib/formInteraksi";
+import { unggahDokumen, type ProgresUnggah } from "@/lib/unggahDokumen";
 
 const KELAS_LABEL = "text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-400";
 
@@ -21,10 +22,11 @@ export type DokumenTerunggah = { id: Id<"_storage">; nama: string };
  * sebelum pengajuan disimpan.
  *
  * Umpan balik prosesnya dibedakan per TAHAP — "Mengunggah …" lalu
- * "Memeriksa isi …" — dan keduanya memakai bilah TAK TENTU: `fetch` tidak
- * melaporkan berapa byte yang sudah terkirim, jadi menampilkan persen berarti
- * mengarang angka. Yang penting bagi pengguna adalah tahu pekerjaannya masih
- * berjalan dan panelnya belum boleh ditutup. Saat gagal, pesannya menyebutkan
+ * "Memeriksa isi …". Selama berkas dikirim, bilahnya memakai PERSEN NYATA dari
+ * byte yang dilaporkan lapisan pengiriman (`unggahDokumen` memakai XHR saat
+ * tersedia); bila total byte tidak diketahui, bilahnya kembali TAK TENTU —
+ * bukan persen karangan. Tahap pemeriksaan isi di server selalu tak tentu,
+ * karena server tidak melaporkan kemajuannya. Saat gagal, pesannya menyebutkan
  * cara mencoba ulang (pilih berkasnya sekali lagi), bukan sekadar "gagal".
  */
 export function UnggahDokumen({
@@ -53,12 +55,17 @@ export function UnggahDokumen({
   /** Tahap proses yang sedang berjalan — menentukan label yang ditampilkan. */
   const [tahap, setTahap] = useState<"diam" | "unggah" | "periksa">("diam");
   const [galat, setGalat] = useState<string | null>(null);
+  // Byte terakhir yang dilaporkan jaringan. Dipakai HANYA saat berkas sedang
+  // dikirim; saat memeriksa isi di server, angkanya dibuang lagi supaya tidak
+  // ada "100%" yang tertinggal di layar padahal pekerjaannya belum selesai.
+  const [progres, setProgres] = useState<ProgresUnggah | null>(null);
   const busy = tahap !== "diam";
 
   const pilih = async (file: File | undefined) => {
     if (!file) return;
     setTahap("unggah");
     setGalat(null);
+    setProgres(null);
     try {
       const id = await unggahDokumen(
         file,
@@ -71,14 +78,17 @@ export function UnggahDokumen({
               // sudah selesai di titik ini, jadi labelnya harus berubah — bukan
               // berhenti di "mengunggah" sampai pemeriksaan kelar.
               setTahap("periksa");
+              setProgres(null);
               await periksa(sid, label);
             },
+        (p) => setProgres(p),
       );
       onUbah({ id, nama: file.name });
     } catch (err) {
       setGalat(err instanceof Error ? err.message : `${label} gagal diunggah.`);
     } finally {
       setTahap("diam");
+      setProgres(null);
       // Izinkan memilih berkas yang sama lagi setelah gagal.
       if (inputRef.current) inputRef.current.value = "";
     }
@@ -130,16 +140,20 @@ export function UnggahDokumen({
         aria-label={`Berkas ${label}`}
         onChange={(event) => void pilih(event.target.files?.[0])}
       />
-      {busy && (
-        <BilahTakTentu
-          className="mt-2"
-          label={
-            tahap === "periksa"
-              ? `Memeriksa isi ${label.toLowerCase()}…`
-              : `Mengunggah ${label.toLowerCase()}… jangan tutup panel ini.`
-          }
-        />
-      )}
+      {busy &&
+        (tahap === "periksa" ? (
+          <BilahProgres
+            className="mt-2"
+            nilai={null}
+            label={`Memeriksa isi ${label.toLowerCase()}…`}
+          />
+        ) : (
+          <BilahProgres
+            className="mt-2"
+            nilai={progres === null ? null : progresPersen(progres.dimuat, progres.total)}
+            label={`Mengunggah ${label.toLowerCase()}… jangan tutup panel ini.`}
+          />
+        ))}
       {galat !== null && (
         <p role="alert" className="mt-2 text-[11px] leading-4 text-destructive">
           {galat} Pilih berkasnya sekali lagi untuk mencoba ulang.

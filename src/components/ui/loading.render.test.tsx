@@ -117,7 +117,25 @@ const modul = baca("src/components/ui/loading.tsx")
   .replace(/\/\*[\s\S]*?\*\//g, "")
   .replace(/^\s*\/\/.*$/gm, "");
 tidakAda(modul, "transition-all", "tidak memakai transisi menyeluruh");
-tidakAda(modul, "aria-valuenow", "tidak ada nilai progres yang dikarang");
+
+// Nilai progres berangka hanya boleh hidup di `BilahProgres`, dan hanya boleh
+// berasal dari prop `nilai` yang dikirim pemanggil (yang mendapatkannya dari
+// byte nyata lewat `progresPersen`). Bilah TAK TENTU tetap wajib tanpa nilai —
+// jadi "tidak ada progres yang dikarang" sekarang diperiksa per bagian, bukan
+// dengan melarang kata kuncinya di seluruh berkas.
+const badanTakTentu = modul.slice(
+  modul.indexOf("function BilahTakTentu"),
+  modul.indexOf("function BilahProgres"),
+);
+const badanProgres = modul.slice(modul.indexOf("function BilahProgres"));
+ok(badanTakTentu.length > 0 && badanProgres.length > 0, "kedua bentuk bilah ada di modul");
+tidakAda(badanTakTentu, "aria-valuenow", "bilah tak tentu tanpa nilai angka");
+ok(
+  (modul.match(/aria-valuenow/g) ?? []).length === 1,
+  "hanya ada SATU tempat yang memakai aria-valuenow",
+);
+ada(badanProgres, "aria-valuenow={nilai}", "nilai progres hanya dari prop pemanggil");
+ada(badanProgres, "nilai === null", "tanpa nilai nyata, bilah jatuh ke tak tentu");
 ok(!/aria-valuetext="\d/.test(modul), "tidak ada teks nilai progres berangka");
 ok(!/\d+\s*%/.test(modul), "tidak ada persen hardcode di kode pemuatan");
 ok(

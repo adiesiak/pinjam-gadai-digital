@@ -18,8 +18,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { formDariTersimpan, penghasilanDariTeks } from "@/lib/dataDiri";
-import { MAX_FILE_BYTES } from "@/lib/kyc";
 import { namaHurufBesar } from "@/lib/nama";
+import { unggahDokumen, type ProgresUnggah } from "@/lib/unggahDokumen";
 
 /**
  * Isi & sunting data diri satu nasabah — admin.
@@ -47,20 +47,18 @@ export function DataDiriDialog({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const unggahKtp = async (file: File): Promise<Id<"_storage">> => {
-    if (file.size > MAX_FILE_BYTES) {
-      throw new Error("Ukuran foto KTP maksimal 5 MB.");
-    }
-    const url = await buatUrlUnggah();
-    const res = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": file.type || "application/octet-stream" },
-      body: file,
-    });
-    const json = (await res.json()) as { storageId?: Id<"_storage"> };
-    if (!res.ok || !json.storageId) throw new Error("Foto KTP gagal diunggah. Coba lagi.");
-    await periksaIsi({ id: json.storageId, label: "Foto KTP" });
-    return json.storageId;
+  /**
+   * Unggah foto KTP lewat helper bersama (`lib/unggahDokumen`), bukan `fetch`
+   * sendiri: batas ukuran, pemeriksaan status HTTP, pesan galat, dan laporan
+   * progres byte-nya jadi sama dengan unggahan dokumen di jalur lain.
+   */
+  const unggahKtp = async (
+    file: File,
+    onProgres?: (progres: ProgresUnggah) => void,
+  ): Promise<Id<"_storage">> => {
+    const id = await unggahDokumen(file, buatUrlUnggah, "Foto KTP", undefined, onProgres);
+    await periksaIsi({ id, label: "Foto KTP" });
+    return id;
   };
 
   return (
