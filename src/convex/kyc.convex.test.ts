@@ -34,15 +34,50 @@ import { modules } from "./test.setup";
 const NIK = "3271012345678901";
 const WA = "6281234567890";
 
-/** 16 byte pertama sebuah PNG — cukup bagi server mengenali isinya gambar. */
-const BYTE_PNG = new Uint8Array([
-  0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d, 0x49, 0x48, 0x44, 0x52,
+/**
+ * Susun berkas uji dari header asli + padding nol sampai melewati
+ * `MIN_FILE_BYTES`: jalur nyata (data diri) juga memeriksa ukuran minimum,
+ * sedangkan header tetap harus benar supaya pemeriksaan dimensi berjalan.
+ */
+function berkasUji(header: number[], ukuran = 2048): Uint8Array {
+  const b = new Uint8Array(ukuran);
+  b.set(header);
+  return b;
+}
+
+/**
+ * PNG 800×600: signature + chunk `IHDR` berisi lebar/tinggi, lalu padding.
+ * Server membaca dimensi dari header, jadi berkas uji harus punya IHDR benar —
+ * bukan sekadar magic bytes.
+ */
+const BYTE_PNG = berkasUji([
+  0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, // signature
+  0x00, 0x00, 0x00, 0x0d, 0x49, 0x48, 0x44, 0x52, // panjang + "IHDR"
+  0x00, 0x00, 0x03, 0x20, // lebar 800
+  0x00, 0x00, 0x02, 0x58, // tinggi 600
+]);
+/** PNG 20×10 — di bawah `DIMENSI_MIN`, untuk menguji penolakan "terlalu kecil". */
+const BYTE_PNG_KECIL = new Uint8Array([
+  0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
+  0x00, 0x00, 0x00, 0x0d, 0x49, 0x48, 0x44, 0x52,
+  0x00, 0x00, 0x00, 0x14, // lebar 20
+  0x00, 0x00, 0x00, 0x0a, // tinggi 10
 ]);
 /** Isi berkas PDF (bukan gambar) untuk menguji penolakan magic bytes. */
 const BYTE_PDF = new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2d, 0x31, 0x2e, 0x37]);
-/** Isi JPEG minimal — berkas LAIN dengan jenis & sidik jari yang berbeda. */
-const BYTE_JPG = new Uint8Array([
-  0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46, 0x00, 0x01, 0x01, 0x00, 0x00, 0x01,
+/** GIF ber-header sah — format yang TIDAK lagi diterima. */
+const BYTE_GIF = new Uint8Array([0x47, 0x49, 0x46, 0x38, 0x39, 0x61, 0x00, 0x00]);
+/**
+ * JPEG 800×600 (APP0 + SOF0 + EOI) — berkas LAIN dengan jenis & sidik jari yang
+ * berbeda, dan dengan header dimensi yang bisa dibaca.
+ */
+const BYTE_JPG = berkasUji([
+  0xff, 0xd8, // SOI
+  0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46, 0x00, 0x01, 0x01, 0x00, 0x00, 0x01, 0x00, 0x01,
+  0x00, 0x00, // APP0 "JFIF" (panjang 16)
+  0xff, 0xc0, 0x00, 0x11, 0x08, 0x02, 0x58, 0x03, 0x20, 0x03, // SOF0: tinggi 600, lebar 800
+  0x01, 0x11, 0x00, 0x02, 0x11, 0x01, 0x03, 0x11, 0x01, // komponen
+  0xff, 0xd9, // EOI
 ]);
 
 /** Isian lengkap & sah menurut aturan yang sama dengan form data diri. */
@@ -198,6 +233,18 @@ describe("alur KYC mandiri", () => {
     await expect(
       nasabah.sesi.action(api.berkasIdentitas.periksaIsiBerkasKyc, { id: pdf, label: "Foto KTP" }),
     ).rejects.toThrow(/tidak dikenali sebagai gambar/);
+
+    // Format "berbahaya" walau berawalan image/: GIF (bisa beranimasi) ditolak.
+    const gif = await simpanGambarUji(t, BYTE_GIF);
+    await expect(
+      nasabah.sesi.action(api.berkasIdentitas.periksaIsiBerkasKyc, { id: gif, label: "Foto KTP" }),
+    ).rejects.toThrow(/tidak dikenali sebagai gambar/);
+
+    // Gambar terbaca tetapi terlalu kecil (20×10) ditolak sebagai tidak terbaca.
+    const kecil = await simpanGambarUji(t, BYTE_PNG_KECIL);
+    await expect(
+      nasabah.sesi.action(api.berkasIdentitas.periksaIsiBerkasKyc, { id: kecil, label: "Foto KTP" }),
+    ).rejects.toThrow(/terlalu kecil/);
 
     // Penanda milik akun lain tidak bisa dipakai (berkas bukan miliknya).
     const orangLain = await siapkanPengguna(t, "Orang Lain", {
@@ -433,6 +480,9 @@ describe("alur KYC mandiri", () => {
       expect(p.jenis).toBe("png");
       expect(p.ukuranByte).toBeGreaterThan(0);
       expect(p.contentType).toBe("image/png");
+      // Dimensi dibaca dari HEADER berkas (800×600 pada BYTE_PNG) — bukan klaim klien.
+      expect(p.lebar).toBe(800);
+      expect(p.tinggi).toBe(600);
       // Sidik jari SHA-256 dihitung PENYIMPANAN (base64), bukan dikirim pemanggil.
       expect(p.sidikJari).toMatch(/^[A-Za-z0-9+/]{43}=$/);
       expect(p.versiAturan).toBe(VERSI_ATURAN_KYC);
@@ -673,6 +723,22 @@ describe("alur KYC mandiri", () => {
     const kedua = await admin.sesi.mutation(api.kyc.backfillMetadataBerkas, { cursor: null });
     expect(kedua.dilengkapi).toBe(0);
     expect(kedua.berkasHilang).toBe(0);
+  });
+
+  it("Membatasi laju permintaan URL unggah berkas KYC per pengguna", async () => {
+    const { t, nasabah } = await siapkanDua("Rani Puspita", "rani-laju@pindai.test");
+    await setujui(nasabah.sesi);
+    for (let i = 0; i < 30; i += 1) {
+      await nasabah.sesi.mutation(api.kyc.urlUnggahBerkasKyc, {});
+    }
+    // Permintaan ke-31 dalam jendela 15 menit ditolak; pencatatnya di server.
+    await expect(nasabah.sesi.mutation(api.kyc.urlUnggahBerkasKyc, {})).rejects.toThrow(
+      /Terlalu banyak unggahan berkas/,
+    );
+    // Hanya mencatat id pengguna + waktu — tidak ada berkas atau isinya.
+    const log = await t.run((ctx) => ctx.db.query("kycUnggahLog").collect());
+    expect(log).toHaveLength(30);
+    expect(log.every((b) => b.userId === nasabah.userId && typeof b.waktu === "number")).toBe(true);
   });
 
   it("Menghapus akun juga menghapus data KYC & berkas identitasnya", async () => {

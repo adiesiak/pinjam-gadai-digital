@@ -162,6 +162,43 @@ async function pastikanPersetujuan(
   );
 }
 
+/** Jendela pembatas laju unggahan berkas KYC (15 menit). */
+const JENDELA_UNGGAH_MS = 15 * 60 * 1000;
+
+/**
+ * Jumlah unggahan URL yang diizinkan per pengguna per jendela. Tiga slot
+ * berkas plus ruang untuk beberapa percobaan ulang (berkas ditolak/diganti).
+ */
+const MAKS_UNGGAH_PER_JENDELA = 30;
+
+/**
+ * Batasi laju permintaan URL unggah berkas KYC per pengguna.
+ *
+ * Dihitung dari baris `kycUnggahLog` (waktu server), bukan dari klien; baris
+ * di luar jendela dibuang selagi menghitung supaya tabel tetap kecil. Ini
+ * melindungi penyimpanan & pemeriksa berkas dari pembanjiran, tanpa pernah
+ * mengunci akun permanen (jendelanya bergulir).
+ */
+async function batasLajuUnggah(ctx: MutationCtx, userId: Id<"users">): Promise<void> {
+  const sekarang = Date.now();
+  const sejak = sekarang - JENDELA_UNGGAH_MS;
+  const baris = await ctx.db
+    .query("kycUnggahLog")
+    .withIndex("by_user", (q) => q.eq("userId", userId))
+    .collect();
+  let dalamJendela = 0;
+  for (const b of baris) {
+    if (b.waktu < sejak) await ctx.db.delete(b._id);
+    else dalamJendela += 1;
+  }
+  if (dalamJendela >= MAKS_UNGGAH_PER_JENDELA) {
+    throw new Error(
+      "Terlalu banyak unggahan berkas dalam waktu singkat. Tunggu beberapa menit, lalu coba lagi.",
+    );
+  }
+  await ctx.db.insert("kycUnggahLog", { userId, waktu: sekarang });
+}
+
 /** Tulis satu baris riwayat + satu entri audit untuk perubahan status. */
 async function catatPerubahanStatus(
   ctx: MutationCtx,
@@ -526,6 +563,8 @@ export const urlUnggahBerkasKyc = mutation({
     // setelah persetujuan tercatat, jadi tidak ada berkas sensitif yang bisa
     // mendarat di penyimpanan tanpa dasar persetujuan.
     await pastikanPersetujuan(ctx, lama, "berkas identitas");
+    // Batas laju: mencegah satu akun membanjiri penyimpanan/pemeriksa berkas.
+    await batasLajuUnggah(ctx, userId);
     return await ctx.storage.generateUploadUrl();
   },
 });
@@ -1029,6 +1068,8 @@ export const detailKycAdmin = query({
               ukuranByte: null,
               contentType: null,
               sidikJari: null,
+              lebar: null,
+              tinggi: null,
               versiAturan: null,
               diperiksaPada: null,
               aturanUsang: false,
@@ -1061,6 +1102,8 @@ export const detailKycAdmin = query({
             ukuranByte: penanda?.ukuranByte ?? null,
             contentType: penanda?.contentType ?? null,
             sidikJari: penanda?.sidikJari ?? null,
+            lebar: penanda?.lebar ?? null,
+            tinggi: penanda?.tinggi ?? null,
             versiAturan: penanda?.versiAturan ?? null,
             diperiksaPada: penanda?.waktu ?? null,
             aturanUsang: aturanUsang(penanda?.versiAturan),
@@ -1259,9 +1302,11 @@ export const catatBerkasTerverifikasi = internalMutation({
     storageId: v.id("_storage"),
     label: v.string(),
     jenis: v.string(),
+    lebar: v.optional(v.number()),
+    tinggi: v.optional(v.number()),
     olehUserId: v.optional(v.id("users")),
   },
-  handler: async (ctx, { storageId, label, jenis, olehUserId }) => {
+  handler: async (ctx, { storageId, label, jenis, lebar, tinggi, olehUserId }) => {
     // Metadata diambil dari tabel sistem `_storage` — BUKAN dari argumen yang
     // dikirim pemanggil. Ukuran, tipe, dan sidik jari SHA-256 adalah fakta yang
     // dicatat Convex saat berkas benar-benar tersimpan; menerimanya dari klien
@@ -1278,6 +1323,10 @@ export const catatBerkasTerverifikasi = internalMutation({
       ukuranByte: meta.size,
       contentType: (meta.contentType ?? "").slice(0, 80),
       sidikJari: meta.sha256,
+      // Dimensi yang dibaca action dari header berkas — dipakai panel petugas
+      // untuk menilai keterbacaan tanpa membuka gambarnya lebih dulu.
+      ...(lebar === undefined ? {} : { lebar }),
+      ...(tinggi === undefined ? {} : { tinggi }),
       // Versi aturan yang memeriksa berkas ini ikut dicatat supaya berkas yang
       // diperiksa dengan aturan lama bisa ditandai di panel petugas.
       versiAturan: VERSI_ATURAN_KYC,

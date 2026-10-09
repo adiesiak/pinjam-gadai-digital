@@ -455,6 +455,11 @@ export function KycPetunjukFoto({ tahapId }: { tahapId: IdTahapKyc }) {
           </li>
         ))}
       </ul>
+      <p className="mt-2 border-t border-border pt-2 text-[10px] leading-4 text-muted-foreground">
+        Aplikasi hanya memeriksa format (JPG/PNG/WEBP), ukuran, dan keterbacaan berkas. Keaslian
+        KTP tidak ditentukan dari format atau kualitas gambar — penilaian akhir tetap pada
+        petugas.
+      </p>
     </div>
   );
 }
@@ -997,7 +1002,7 @@ export function KycSection() {
                       ? "Pastikan seluruh sisi KTP terlihat dan teksnya terbaca sebelum menyimpan."
                       : "Diperlukan agar petugas bisa mencocokkan wajah Anda dengan foto KTP. Wajah dan KTP harus terlihat dalam satu foto, tanpa penutup wajah."
                   }
-                  accept="image/*"
+                  accept="image/jpeg,image/png,image/webp"
                   nilai={berkas[slotDokumen]}
                   onUbah={(d) => ubahBerkas(slotDokumen, d)}
                   onBerkasDipilih={(file) => tampilkanPratinjau(slotDokumen, file)}
@@ -1206,7 +1211,7 @@ export function KycSection() {
                   <UnggahDokumen
                     label={LABEL_SLOT_BERKAS.bukti}
                     keterangan="Slip gaji, mutasi rekening, atau surat keterangan usaha."
-                    accept="image/*"
+                    accept="image/jpeg,image/png,image/webp"
                     nilai={berkas.bukti}
                     onUbah={(d) => ubahBerkas("bukti", d)}
                     onBerkasDipilih={(file) => tampilkanPratinjau("bukti", file)}

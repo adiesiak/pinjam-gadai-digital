@@ -44,8 +44,9 @@ export function UnggahDokumen({
   keterangan: string;
   /**
    * Jenis berkas yang boleh dipilih. Bawaannya gambar atau PDF (pengajuan
-   * manual); modul KYC mempersempitnya ke `image/*` karena KTP/selfie/bukti
-   * penghasilan di sana WAJIB gambar menurut pemeriksa isi berkas di server.
+   * manual); modul KYC mempersempitnya ke `image/jpeg,image/png,image/webp`
+   * karena KTP/selfie/bukti penghasilan di sana WAJIB gambar menurut pemeriksa
+   * isi berkas (magic bytes) + dimensi di server.
    */
   accept?: string;
   nilai: DokumenTerunggah | null;

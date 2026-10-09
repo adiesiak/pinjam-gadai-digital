@@ -224,8 +224,12 @@ export function KycDetailRingkas({ detail }: { detail: DetailKycTampil }) {
               )}
               {meta.ada ? (
                 <p className="text-[10px] leading-4 text-muted-foreground">
-                  Diperiksa server: {meta.jenis ?? "—"} · {ukuranBerkas(meta.ukuranByte)} · sidik jari{" "}
-                  {(meta.sidikJari ?? "—").slice(0, 12)} · aturan {meta.versiAturan ?? "—"}
+                  Diperiksa server: {meta.jenis ?? "—"} · {ukuranBerkas(meta.ukuranByte)} ·{" "}
+                  {meta.lebar !== null && meta.tinggi !== null
+                    ? `${meta.lebar}×${meta.tinggi} px`
+                    : "dimensi —"}{" "}
+                  · sidik jari {(meta.sidikJari ?? "—").slice(0, 12)} · aturan{" "}
+                  {meta.versiAturan ?? "—"}
                 </p>
               ) : (
                 <p className="text-[10px] leading-4 text-muted-foreground">

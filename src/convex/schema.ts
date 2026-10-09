@@ -1452,6 +1452,13 @@ const schema = defineSchema(
       contentType: v.optional(v.string()),
       sidikJari: v.optional(v.string()),
       /**
+       * Dimensi gambar (piksel) yang dibaca server dari HEADER berkas — fakta
+       * keterbacaan, bukan klaim klien. Dipakai panel petugas untuk menandai
+       * berkas yang terlalu kecil/terpotong.
+       */
+      lebar: v.optional(v.number()),
+      tinggi: v.optional(v.number()),
+      /**
        * Versi aturan verifikasi yang memeriksa berkas ini (`lib/kycAturan.ts`).
        * Berkas yang diperiksa dengan aturan lama bisa ditandai di panel petugas.
        */
@@ -1464,6 +1471,21 @@ const schema = defineSchema(
       // Mencari berkas yang sama dipakai di slot/akun lain (berkas yang sudah
       // dihapus tidak perlu dihitung) — satu berkas identitas, satu pemilik.
       .index("by_sidikJari", ["sidikJari"]),
+
+    /**
+     * Pembatas laju unggahan berkas KYC — pencatat yang dihitung SERVER.
+     *
+     * Kenapa perlu: tiap unggahan bisa mencapai 5 MB dan memicu pemeriksaan isi
+     * (magic bytes + header dimensi) di server. Tanpa batas, satu akun bisa
+     * membanjiri penyimpanan/pemeriksa. Batasnya dihitung dari waktu server,
+     * bukan dari klaim klien. Baris lama dibuang saat menghitung (lihat
+     * `batasLajuUnggah`), jadi tabelnya tetap kecil. Hanya menyimpan id
+     * pengguna + waktu — bukan berkas atau isinya.
+     */
+    kycUnggahLog: defineTable({
+      userId: v.id("users"),
+      waktu: v.number(),
+    }).index("by_user", ["userId", "waktu"]),
 
     /**
      * Tanda "sudah dibaca" untuk pusat notifikasi in-app.

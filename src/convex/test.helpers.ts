@@ -16,6 +16,7 @@ import type {
 } from "convex-test";
 
 import type { DataModel, Id } from "./_generated/dataModel";
+import { MIN_FILE_BYTES } from "../lib/kyc";
 
 export type KonteksUji = TestConvexForDataModelAndIdentity<DataModel>;
 export type SesiUji = TestConvexForDataModel<DataModel>;
@@ -158,6 +159,10 @@ export async function buatSesi(
  * menolak berkas tanpa tipe gambar (`berkasIdentitas.periksaBerkasIdentitasStorage`),
  * berkas uji harus ditambal metadatanya agar melewati gerbang yang SAMA dengan
  * unggahan nyata dari peramban — bukan mematikan gerbangnya.
+ *
+ * Isinya juga di-pad melewati `MIN_FILE_BYTES`: server menolak berkas yang
+ * lebih kecil sebagai "kosong", jadi blok uji beberapa byte akan gagal di
+ * gerbang ukuran yang sama dengan berkas kosong di produksi.
  */
 export async function simpanBerkasUji(
   t: SesiUji,
@@ -165,7 +170,10 @@ export async function simpanBerkasUji(
   contentType = "image/png",
 ): Promise<Id<"_storage">> {
   return t.run(async (ctx) => {
-    const id = await ctx.storage.store(new Blob([isi], { type: contentType }));
+    const byte = new TextEncoder().encode(isi);
+    const buffer = new Uint8Array(Math.max(byte.byteLength, MIN_FILE_BYTES));
+    buffer.set(byte);
+    const id = await ctx.storage.store(new Blob([buffer], { type: contentType }));
     await (
       ctx.db as unknown as {
         patch: (table: string, id: string, value: Record<string, unknown>) => Promise<void>;

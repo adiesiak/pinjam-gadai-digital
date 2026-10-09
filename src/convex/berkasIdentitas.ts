@@ -4,7 +4,21 @@ import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import { action, type MutationCtx } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
-import { jenisGambarDariByte, periksaBerkasIdentitas, periksaIsiGambar } from "../lib/kyc";
+import {
+  dimensiGambar,
+  jenisGambarDariByte,
+  MAX_FILE_BYTES,
+  periksaBerkasIdentitas,
+  periksaIsiGambar,
+  periksaUkuranGambar,
+} from "../lib/kyc";
+
+/**
+ * Byte pertama yang dibaca untuk memeriksa isi + header dimensi. Cukup untuk
+ * header PNG/WEBP (beberapa byte pertama) dan untuk hampir semua JPEG, yang
+ * `SOF`-nya muncul sebelum scan-line pertama.
+ */
+const PREFIKS_BACA = 64 * 1024;
 
 /**
  * Periksa SATU berkas identitas yang sudah ada di Convex storage — di sisi
@@ -65,16 +79,33 @@ export const periksaIsiBerkasKyc = action({
     if (userId === null) throw new Error("Harus masuk terlebih dahulu.");
     const nama = label.trim().slice(0, 40) || "Berkas";
     const blob = await ctx.storage.get(id);
-    const head = blob === null ? null : new Uint8Array(await blob.slice(0, 16).arrayBuffer());
-    const pesan = periksaIsiGambar(nama, head);
-    if (pesan !== null) throw new Error(pesan);
-    const jenis = jenisGambarDariByte(head ?? new Uint8Array(0)) ?? "gambar";
-    // Penanda ditulis setelah isi berkas terbukti gambar — satu-satunya bukti
-    // bahwa pemeriksaan ini benar-benar berjalan.
+    if (blob === null) {
+      throw new Error(`${nama} tidak ditemukan di penyimpanan. Unggah ulang berkasnya.`);
+    }
+    // Batas ukuran ditegakkan di sini juga: action inilah yang menandai berkas
+    // "terverifikasi", jadi berkas yang dikirim langsung ke URL unggah (tanpa
+    // melewati mutation) tetap tidak bisa lolos.
+    if (blob.size > MAX_FILE_BYTES) {
+      throw new Error(`${nama} maksimal ${Math.round(MAX_FILE_BYTES / (1024 * 1024))} MB.`);
+    }
+    const head = new Uint8Array(await blob.slice(0, PREFIKS_BACA).arrayBuffer());
+    // 1) Isinya benar-benar gambar menurut magic bytes.
+    const pesanIsi = periksaIsiGambar(nama, head.slice(0, 16));
+    if (pesanIsi !== null) throw new Error(pesanIsi);
+    // 2) Gambarnya terbaca, cukup besar, dan rasionya wajar (bukan strip
+    //    terpotong). Ini pemeriksaan keterbacaan — bukan penilaian keaslian.
+    const dimensi = dimensiGambar(head);
+    const pesanUkuran = periksaUkuranGambar(nama, dimensi);
+    if (pesanUkuran !== null) throw new Error(pesanUkuran);
+    const jenis = jenisGambarDariByte(head) ?? "gambar";
+    // Penanda ditulis setelah isi berkas terbukti gambar yang terbaca —
+    // satu-satunya bukti bahwa pemeriksaan ini benar-benar berjalan.
     await ctx.runMutation(internal.kyc.catatBerkasTerverifikasi, {
       storageId: id,
       label: nama,
       jenis,
+      lebar: dimensi?.lebar,
+      tinggi: dimensi?.tinggi,
       olehUserId: userId,
     });
     return { ok: true as const, jenis };
