@@ -1,5 +1,5 @@
 import { useQuery } from "convex/react";
-import { BellRing, Gavel, Loader2, Send, Wallet } from "lucide-react";
+import { BellRing, Gavel, Send, Wallet } from "lucide-react";
 import { useState } from "react";
 
 import { StatusBadge } from "@/components/StatusBadge";
@@ -10,12 +10,12 @@ import { formatRupiah, parseRupiah } from "@/lib/money";
 import { namaHurufBesar } from "@/lib/nama";
 
 import { formatDate } from "./admin-format";
-import { EmptyQueue, QueueRow, type LoanRow } from "./admin-shared";
+import { EmptyQueue, PanelMemuat, QueueRow, type LoanRow } from "./admin-shared";
 
 export function LoanAllocationQueueTab({ onOpen }: { onOpen: (l: LoanRow) => void }) {
   const overview = useQuery(api.admin.adminOverview);
   if (overview === undefined) {
-    return <div className="flex items-center gap-2 py-10 text-sm text-muted-foreground"><Loader2 className="size-4 animate-spin" /> Memuat…</div>;
+    return <PanelMemuat />;
   }
   const pinjamanDisetujui = overview.loans.filter((l) => l.status === "disetujui");
   if (pinjamanDisetujui.length === 0) {
@@ -57,7 +57,7 @@ export function LoanAllocationQueueTab({ onOpen }: { onOpen: (l: LoanRow) => voi
 export function DpdTab() {
   const overview = useQuery(api.admin.adminOverview);
   if (overview === undefined) {
-    return <div className="flex items-center gap-2 py-10 text-sm text-muted-foreground"><Loader2 className="size-4 animate-spin" /> Memuat…</div>;
+    return <PanelMemuat />;
   }
   const terlambat = overview.loans.filter((l) => l.status === "didanai" && (l.hariTerlambat ?? 0) > 0);
   if (terlambat.length === 0) {
@@ -107,7 +107,7 @@ export function LelangTab() {
   const overview = useQuery(api.admin.adminOverview);
   const [nilaiLelang, setNilaiLelang] = useState<Record<string, string>>({});
   if (overview === undefined) {
-    return <div className="flex items-center gap-2 py-10 text-sm text-muted-foreground"><Loader2 className="size-4 animate-spin" /> Memuat…</div>;
+    return <PanelMemuat />;
   }
   const kandidat = overview.pawns.filter((p) => p.status === "aktif" && (p.nilaiTaksiran ?? 0) > 0);
   return (

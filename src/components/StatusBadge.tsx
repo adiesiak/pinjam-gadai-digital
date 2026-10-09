@@ -28,7 +28,7 @@ export function StatusBadge({
   }
   if (kind === "loan" && status === "lunas") {
     return (
-      <Badge className="border-primary/30 bg-primary/10 text-accent-foreground">
+      <Badge className="border-primary/30 bg-primary/10 text-primary">
         {meta.label}
       </Badge>
     );
@@ -65,7 +65,7 @@ export function StatusBadge({
   }
   if (status === "disetujui") {
     return (
-      <Badge className="border-primary/30 bg-primary/10 text-accent-foreground">
+      <Badge className="border-primary/30 bg-primary/10 text-primary">
         {meta.label}
       </Badge>
     );

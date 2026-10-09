@@ -1,5 +1,5 @@
 import { useQuery } from "convex/react";
-import { Loader2, TrendingUp } from "lucide-react";
+import { TrendingUp } from "lucide-react";
 import { useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,7 @@ import type { FunctionReturnType } from "convex/server";
 import { LocationGate } from "@/components/LocationGate";
 import { ManualPaymentEvidenceHistory } from "@/components/ManualPaymentEvidenceForm";
 import { FadeIn } from "@/components/Reveal";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
@@ -34,6 +35,43 @@ import { SummaryCards } from "./dashboard/summary-cards";
 import { PawnVaultSection } from "./dashboard/vault-views";
 
 type CreditHistory = FunctionReturnType<typeof api.loans.myLoanCreditHistory>;
+
+/**
+ * Rangka pemuatan dashboard: bentuknya mengikuti kartu ringkasan + daftar
+ * yang akan menggantikannya, sehingga tata letak tidak "melompat" saat data
+ * asli tiba. Teks status tetap ada untuk pembaca layar.
+ */
+function RingkasanMemuat() {
+  return (
+    <div role="status" aria-live="polite" className="mt-8 space-y-6">
+      <span className="sr-only">Memuat data Anda…</span>
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {[0, 1, 2, 3].map((kolom) => (
+          <div
+            key={kolom}
+            className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
+          >
+            <Skeleton className="h-3.5 w-24" />
+            <Skeleton className="mt-4 h-7 w-32" />
+            <Skeleton className="mt-3 h-3 w-20" />
+          </div>
+        ))}
+      </div>
+      <div className="space-y-3 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        {[0, 1, 2].map((baris) => (
+          <div key={baris} className="flex items-center gap-4">
+            <Skeleton className="size-10 shrink-0 rounded-xl" />
+            <div className="min-w-0 flex-1 space-y-2">
+              <Skeleton className="h-4 w-1/3" />
+              <Skeleton className="h-3 w-1/2" />
+            </div>
+            <Skeleton className="hidden h-7 w-20 shrink-0 rounded-full sm:block" />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 function CreditProgressCard({ history }: { history: CreditHistory }) {
   return (
@@ -231,10 +269,7 @@ export default function Dashboard() {
           {/* ===== Kolom konten ===== */}
           <FadeIn className="min-w-0 flex-1">
             {isLoading ? (
-              <div className="mt-20 flex items-center justify-center gap-2 text-sm text-muted-foreground">
-                <Loader2 className="size-4 animate-spin" />
-                Memuat data Anda…
-              </div>
+              <RingkasanMemuat />
             ) : (
               <>
                 {/* Pengingat jatuh tempo live */}

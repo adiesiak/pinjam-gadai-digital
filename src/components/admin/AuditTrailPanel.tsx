@@ -13,6 +13,8 @@ import {
   type JenisHapus,
 } from "@/lib/auditHapus";
 
+import { PanelMemuat } from "./admin-shared";
+
 const AKSI_HAPUS_PANEL = ["loan_delete", "kredit_delete", "pawn_delete"];
 
 /**
@@ -33,9 +35,7 @@ export function AuditTrailPanel() {
 
   if (data === undefined) {
     return (
-      <div className="flex items-center gap-2 py-10 text-sm text-muted-foreground">
-        <Loader2 className="size-4 animate-spin" /> Memuat…
-      </div>
+      <PanelMemuat />
     );
   }
 

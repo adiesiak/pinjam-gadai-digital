@@ -15,6 +15,8 @@ import {
   RETENSI_LOKASI_BATAS,
 } from "@/lib/system-config";
 
+import { PanelMemuat } from "./admin-shared";
+
 export function SystemConfigPanel() {
   const data = useQuery(api.system.getConfigAdmin);
   const save = useMutation(api.system.saveConfig);
@@ -25,7 +27,7 @@ export function SystemConfigPanel() {
   const [error, setError] = useState<string | null>(null);
 
   if (data === undefined) {
-    return <div className="flex items-center gap-2 py-10 text-sm text-muted-foreground"><Loader2 className="size-4 animate-spin" /> Memuat…</div>;
+    return <PanelMemuat />;
   }
   if (form === null) setForm({ ...DEFAULT_CONFIG, ...data.config });
   if (form === null) return null;

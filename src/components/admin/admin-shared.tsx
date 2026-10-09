@@ -2,6 +2,7 @@ import { CheckCircle2, Database, Lock, ShieldAlert, ShieldCheck } from "lucide-r
 import type { ComponentType, ReactNode } from "react";
 
 import { Id } from "@/convex/_generated/dataModel";
+import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
 /**
@@ -233,7 +234,7 @@ export function QueueRow({
     <button
       type="button"
       onClick={onOpen}
-      className="flex w-full items-start justify-between gap-3 px-3 py-4 text-left transition-colors hover:bg-muted/50 sm:items-center sm:gap-4 sm:px-5"
+      className="flex w-full items-start justify-between gap-3 px-3 py-4 text-left transition-colors hover:bg-muted/50 active:bg-muted/70 sm:items-center sm:gap-4 sm:px-5"
     >
       <div className="min-w-0">
         <p className="truncate text-sm font-medium">{title}</p>
@@ -243,6 +244,34 @@ export function QueueRow({
       </div>
       <div className="shrink-0 pt-0.5 sm:flex sm:items-center sm:gap-3">{status}</div>
     </button>
+  );
+}
+
+/**
+ * Placeholder pemuatan berpola untuk panel admin: baris rangka yang
+ * menyerupai daftar sungguhan, menggantikan spinner + teks "Memuat…".
+ * Tujuannya supaya tidak ada lompatan tata letak saat data tiba, dan agar
+ * keadaan memuat terlihat seperti bagian dari produk — bukan jeda kosong.
+ * Teksnya tetap disediakan untuk pembaca layar.
+ */
+export function PanelMemuat({ baris = 3 }: { baris?: number }) {
+  return (
+    <div role="status" aria-live="polite" className="animate-masuk space-y-2.5 py-2">
+      <span className="sr-only">Memuat…</span>
+      {Array.from({ length: baris }).map((_, i) => (
+        <div
+          key={i}
+          className="flex items-center gap-4 rounded-xl border border-slate-100 bg-white px-4 py-3"
+        >
+          <Skeleton className="size-9 shrink-0 rounded-lg" />
+          <div className="min-w-0 flex-1 space-y-2">
+            <Skeleton className="h-3.5 w-1/3" />
+            <Skeleton className="h-3 w-1/2" />
+          </div>
+          <Skeleton className="h-6 w-16 shrink-0 rounded-full" />
+        </div>
+      ))}
+    </div>
   );
 }
 
