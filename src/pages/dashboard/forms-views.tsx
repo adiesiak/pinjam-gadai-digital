@@ -1,4 +1,4 @@
-import { useMutation, useQuery } from "convex/react";
+import { useAction, useMutation, useQuery } from "convex/react";
 import { ArrowRight, Camera, Loader2, MapPin, ShieldCheck, Upload } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
@@ -207,6 +207,10 @@ export function LoanForm({ onCreated }: { onCreated: (ref: string) => void }) {
 
   const createLoan = useMutation(api.loans.createLoanApplication);
   const generateUploadUrl = useMutation(api.loans.generateKycUploadUrl);
+  // Periksa ISI berkas (magic bytes) sesudah unggah: batas "harus gambar" yang
+  // hanya hidup di form dan metadata MIME bisa dilewati dengan mengirim berkas
+  // lain langsung ke URL unggah.
+  const periksaIsi = useAction(api.berkasIdentitas.periksaIsiBerkasKyc);
 
   const captureLokasi = () => {
     if (!("geolocation" in navigator)) {
@@ -254,6 +258,7 @@ export function LoanForm({ onCreated }: { onCreated: (ref: string) => void }) {
       });
       const json = (await res.json()) as { storageId?: Id<"_storage"> };
       if (!res.ok || !json.storageId) throw new Error(`Foto ${label} gagal dikirim. Coba lagi.`);
+      await periksaIsi({ id: json.storageId, label });
       setDok((p) => ({ ...p, [key]: { id: json.storageId ?? null, busy: false } }));
     } catch (err) {
       setError(err instanceof Error ? err.message : `Foto ${label} gagal dikirim. Coba lagi.`);

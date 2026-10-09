@@ -149,3 +149,28 @@ export async function buatSesi(
 ): Promise<SesiUji> {
   return (await siapkanPengguna(t, nama, opsi)).sesi;
 }
+
+/**
+ * Simpan berkas uji dengan contentType berupa GAMBAR.
+ *
+ * `ctx.storage.store` milik convex-test hanya menulis `{ size, sha256 }` ke
+ * tabel `_storage` — `contentType` tidak pernah diisi. Karena validasi server
+ * menolak berkas tanpa tipe gambar (`berkasIdentitas.periksaBerkasIdentitasStorage`),
+ * berkas uji harus ditambal metadatanya agar melewati gerbang yang SAMA dengan
+ * unggahan nyata dari peramban — bukan mematikan gerbangnya.
+ */
+export async function simpanBerkasUji(
+  t: SesiUji,
+  isi: string,
+  contentType = "image/png",
+): Promise<Id<"_storage">> {
+  return t.run(async (ctx) => {
+    const id = await ctx.storage.store(new Blob([isi], { type: contentType }));
+    await (
+      ctx.db as unknown as {
+        patch: (table: string, id: string, value: Record<string, unknown>) => Promise<void>;
+      }
+    ).patch("_storage", id, { contentType });
+    return id;
+  });
+}

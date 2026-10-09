@@ -24,7 +24,7 @@ import { describe, expect, it } from "vitest";
 import { api } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import schema from "./schema";
-import { siapkanPengguna } from "./test.helpers";
+import { simpanBerkasUji, siapkanPengguna } from "./test.helpers";
 import { modules } from "./test.setup";
 import { DEFAULT_CONFIG } from "../lib/system-config";
 
@@ -399,7 +399,7 @@ describe("pencatatan pengajuan manual oleh admin", () => {
       email: "admin-walkin@pindai.test",
       role: "admin",
     });
-    const fotoKtp = await t.run((ctx) => ctx.storage.store(new Blob(["ktp"])));
+    const fotoKtp = await simpanBerkasUji(t, "ktp");
 
     const pemohon = await admin.mutation(api.adminPengajuan.buatNasabahBaru, {
       namaLengkap: "  asep firm an  hanafi ",
@@ -447,8 +447,8 @@ describe("pencatatan pengajuan manual oleh admin", () => {
 
     // Pengajuan pinjaman atas nama pemohon baru ini langsung bisa dicatat, dan
     // ketiga dokumen KYC ikut tersimpan pada baris pinjamannya.
-    const selfie = await t.run((ctx) => ctx.storage.store(new Blob(["selfie"])));
-    const slip = await t.run((ctx) => ctx.storage.store(new Blob(["slip"])));
+    const selfie = await simpanBerkasUji(t, "selfie");
+    const slip = await simpanBerkasUji(t, "slip");
     const hasil = await admin.mutation(api.adminPengajuan.catatPinjamanManual, {
       userIdTarget: pemohon.userId,
       pokokPinjaman: 900_000,

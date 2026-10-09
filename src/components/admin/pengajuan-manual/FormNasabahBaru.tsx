@@ -1,4 +1,4 @@
-import { useMutation } from "convex/react";
+import { useAction, useMutation } from "convex/react";
 import { useState } from "react";
 
 import { FormDataDiri, type PerubahanFotoKtp } from "@/components/DataDiriForm";
@@ -27,6 +27,8 @@ export function FormNasabahBaru({
   const catat = useMutation(api.adminPengajuan.buatNasabahBaru);
   // URL unggah digerbang admin di server; dipakai untuk foto KTP pemohon baru.
   const mintaUrlUnggah = useMutation(api.admin.generateDataDiriUploadUrl);
+  // Periksa ISI berkas (magic bytes) sesudah unggah, bukan hanya tipe MIME.
+  const periksaIsi = useAction(api.berkasIdentitas.periksaIsiBerkasKyc);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -44,7 +46,11 @@ export function FormNasabahBaru({
         fotoKtpUrl={null}
         sebelumnya="Belum pernah tercatat sebagai pemohon."
         labelSimpan="Simpan pemohon baru"
-        unggah={(file) => unggahDokumen(file, mintaUrlUnggah, "Foto KTP")}
+        unggah={async (file) => {
+          const id = await unggahDokumen(file, mintaUrlUnggah, "Foto KTP");
+          await periksaIsi({ id, label: "Foto KTP" });
+          return id;
+        }}
         busy={busy}
         error={error}
         onSimpan={(form, foto: PerubahanFotoKtp) => {

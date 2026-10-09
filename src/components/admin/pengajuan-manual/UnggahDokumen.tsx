@@ -25,6 +25,7 @@ export function UnggahDokumen({
   nilai,
   onUbah,
   mintaUrl,
+  periksa,
   disabled = false,
 }: {
   label: string;
@@ -33,6 +34,11 @@ export function UnggahDokumen({
   onUbah: (dokumen: DokumenTerunggah | null) => void;
   /** Mutation admin penerbit URL unggah. */
   mintaUrl: () => Promise<string>;
+  /**
+   * Pemeriksa ISI berkas sesudah unggah (opsional) — mis. action magic bytes
+   * `berkasIdentitas.periksaIsiBerkasKyc`, dipanggil dengan storage id + label.
+   */
+  periksa?: (id: Id<"_storage">, label: string) => Promise<void>;
   disabled?: boolean;
 }) {
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -44,7 +50,12 @@ export function UnggahDokumen({
     setBusy(true);
     setGalat(null);
     try {
-      const id = await unggahDokumen(file, mintaUrl, label);
+      const id = await unggahDokumen(
+        file,
+        mintaUrl,
+        label,
+        periksa === undefined ? undefined : (sid) => periksa(sid, label),
+      );
       onUbah({ id, nama: file.name });
     } catch (err) {
       setGalat(err instanceof Error ? err.message : `${label} gagal diunggah.`);

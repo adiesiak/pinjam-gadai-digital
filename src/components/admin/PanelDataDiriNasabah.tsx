@@ -1,5 +1,5 @@
 import { useQuery } from "convex/react";
-import { IdCard, Loader2 } from "lucide-react";
+import { BadgeCheck, IdCard, Loader2, ShieldX } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { WatermarkedDoc } from "@/components/WatermarkedDoc";
@@ -35,6 +35,17 @@ export type DataDiriTampil = {
   diperbaruiPada: number | null;
   diperbaruiOlehLabel: string | null;
   sumber: "admin" | "nasabah" | null;
+  /**
+   * PUTUSAN verifikasi identitas petugas, atau `null` bila belum ada putusan.
+   * Terpisah dari keputusan pinjaman: `null` berarti "belum diverifikasi",
+   * BUKAN "dokumen belum diunggah".
+   */
+  verifikasiIdentitas: {
+    status: "terverifikasi" | "ditolak";
+    pada: number;
+    olehLabel: string;
+    catatan?: string;
+  } | null;
 };
 
 export function PanelDataDiriNasabah({ userId }: { userId: Id<"users"> }) {
@@ -115,7 +126,65 @@ export function DataDiriRingkas({ data }: { data: DataDiriTampil }) {
               Belum ada foto KTP tersimpan.
             </p>
           )}
+          <VerifikasiIdentitasRingkas verifikasi={data.verifikasiIdentitas} />
         </>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Putusan VERIFIKASI IDENTITAS petugas — sengaja berdiri sendiri dari keputusan
+ * pinjaman. Panel ini hanya membacanya; yang memutuskan adalah petugas lewat
+ * panel Nasabah. Tidak ada putusan (`null`) ditampilkan sebagai "belum
+ * diverifikasi", bukan "sudah" — mengunggah dokumen tidak pernah dianggap
+ * sebagai bukti identitas telah terverifikasi.
+ */
+export function VerifikasiIdentitasRingkas({
+  verifikasi,
+}: {
+  verifikasi: DataDiriTampil["verifikasiIdentitas"];
+}) {
+  if (verifikasi === null) {
+    return (
+      <div className="rounded-xl border border-dashed border-slate-300 px-3 py-2.5">
+        <p className="text-xs font-medium text-muted-foreground">Belum diverifikasi</p>
+        <p className="mt-0.5 text-[11px] leading-4 text-muted-foreground">
+          Identitas nasabah ini belum diputuskan petugas. Dokumen yang diunggah tidak otomatis
+          berarti terverifikasi — petugas perlu mencatat putusannya.
+        </p>
+      </div>
+    );
+  }
+  const terverifikasi = verifikasi.status === "terverifikasi";
+  return (
+    <div
+      className={
+        terverifikasi
+          ? "rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2.5"
+          : "rounded-xl border border-red-200 bg-red-50 px-3 py-2.5"
+      }
+    >
+      <p
+        className={
+          terverifikasi
+            ? "flex items-center gap-1.5 text-xs font-semibold text-emerald-800"
+            : "flex items-center gap-1.5 text-xs font-semibold text-red-800"
+        }
+      >
+        {terverifikasi ? (
+          <BadgeCheck className="size-4" aria-hidden />
+        ) : (
+          <ShieldX className="size-4" aria-hidden />
+        )}
+        {terverifikasi ? "Identitas terverifikasi" : "Verifikasi identitas ditolak"}
+      </p>
+      <p className="mt-1 text-[11px] leading-4 text-muted-foreground">
+        Diputuskan {new Date(verifikasi.pada).toLocaleString("id-ID")} oleh {verifikasi.olehLabel}.
+        Keputusan ini terpisah dari keputusan pinjaman.
+      </p>
+      {verifikasi.catatan !== undefined && verifikasi.catatan !== "" && (
+        <p className="mt-1 text-[11px] leading-4 text-navy">Catatan: {verifikasi.catatan}</p>
       )}
     </div>
   );

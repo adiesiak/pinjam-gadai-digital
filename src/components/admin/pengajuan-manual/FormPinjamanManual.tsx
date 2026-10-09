@@ -1,4 +1,4 @@
-import { useMutation, useQuery } from "convex/react";
+import { useAction, useMutation, useQuery } from "convex/react";
 import { Loader2, Save, ShieldAlert } from "lucide-react";
 import { useState } from "react";
 
@@ -56,6 +56,9 @@ export function FormPinjamanManual({
   const catat = useMutation(api.adminPengajuan.catatPinjamanManual);
   // URL unggah digerbang admin di server; dipakai untuk dokumen pengajuan.
   const mintaUrlUnggah = useMutation(api.admin.generateDataDiriUploadUrl);
+  // Periksa ISI berkas (magic bytes) sesudah unggah — metadata MIME saja bisa
+  // dipalsukan dengan mengirim berkas lain langsung ke URL unggah.
+  const periksaIsi = useAction(api.berkasIdentitas.periksaIsiBerkasKyc);
   const [skema, setSkema] = useState<"harian" | "bulanan">("harian");
   const [tenorHari, setTenorHari] = useState<string>(`${TENOR_OPTIONS[2]}`);
   const [tenorBulan, setTenorBulan] = useState<string>(`${TENOR_BULANAN_OPTIONS[1]}`);
@@ -349,6 +352,9 @@ export function FormPinjamanManual({
             nilai={selfie}
             onUbah={setSelfie}
             mintaUrl={mintaUrlUnggah}
+            periksa={async (id, label) => {
+              await periksaIsi({ id, label });
+            }}
             disabled={busy}
           />
           <UnggahDokumen
@@ -357,6 +363,9 @@ export function FormPinjamanManual({
             nilai={slip}
             onUbah={setSlip}
             mintaUrl={mintaUrlUnggah}
+            periksa={async (id, label) => {
+              await periksaIsi({ id, label });
+            }}
             disabled={busy}
           />
         </div>

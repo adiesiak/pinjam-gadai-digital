@@ -161,7 +161,11 @@ describe("akses bersama penyedia dana", () => {
       id: loanId,
     });
     expect(berkas?.jenis).toBe("pinjaman");
-    expect(berkas?.catatan).toMatch(/belum ada berkas/i);
+    // Dokumen identitas mentah (KTP/selfie/slip/tanda tangan) TIDAK PERNAH
+    // dibagikan ke ruang penyedia dana — daftar berkas kosong dan `catatan`
+    // menjelaskan alasannya alih-alih mengosongkannya diam-diam.
+    expect(berkas?.berkas).toHaveLength(0);
+    expect(berkas?.catatan).toMatch(/tidak pernah dibagikan ke ruang penyedia dana/i);
 
     // Tetap hanya baca: gerbang penyedia dana sungguhan & gerbang admin menolak.
     await expect(tamu.query(api.alokasiDana.myWallet, {})).rejects.toThrow(

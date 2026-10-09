@@ -11,7 +11,7 @@
  */
 import { renderToStaticMarkup } from "react-dom/server";
 
-import { DataDiriRingkas, type DataDiriTampil } from "./PanelDataDiriNasabah";
+import { DataDiriRingkas, VerifikasiIdentitasRingkas, type DataDiriTampil } from "./PanelDataDiriNasabah";
 
 let passed = 0;
 let failed = 0;
@@ -50,6 +50,7 @@ function data(overrides: Partial<DataDiriTampil> = {}): DataDiriTampil {
     diperbaruiPada: 1_700_000_000_000,
     diperbaruiOlehLabel: "admin@pindai.test",
     sumber: "admin",
+    verifikasiIdentitas: null,
     ...overrides,
   };
 }
@@ -117,6 +118,47 @@ function data(overrides: Partial<DataDiriTampil> = {}): DataDiriTampil {
   const html = renderToStaticMarkup(<DataDiriRingkas data={data({ fotoKtpUrl: null })} />);
   ada(html, "Belum ada foto KTP tersimpan.", "kabar tanpa foto KTP");
   bersih(html, "panel tanpa foto");
+}
+
+// ===== 5. Tanpa putusan verifikasi: JANGAN tampil sebagai terverifikasi =====
+{
+  const html = renderToStaticMarkup(<DataDiriRingkas data={data()} />);
+  ada(html, "Belum diverifikasi", "kabar belum diverifikasi tampil");
+  ok(!html.includes("Identitas terverifikasi"), "dokumen terunggah tidak disamakan terverifikasi");
+  bersih(html, "panel belum diverifikasi");
+}
+
+// ===== 6. Putusan terverifikasi =====
+{
+  const html = renderToStaticMarkup(
+    <VerifikasiIdentitasRingkas
+      verifikasi={{
+        status: "terverifikasi",
+        pada: 1_700_000_000_000,
+        olehLabel: "petugas@pindai.test",
+      }}
+    />,
+  );
+  ada(html, "Identitas terverifikasi", "putusan terverifikasi tampil");
+  ada(html, "petugas@pindai.test", "petugas pemutus tampil");
+  bersih(html, "panel terverifikasi");
+}
+
+// ===== 7. Putusan ditolak dengan alasan =====
+{
+  const html = renderToStaticMarkup(
+    <VerifikasiIdentitasRingkas
+      verifikasi={{
+        status: "ditolak",
+        pada: 1_700_000_000_000,
+        olehLabel: "petugas@pindai.test",
+        catatan: "Foto KTP buram, NIK tidak terbaca",
+      }}
+    />,
+  );
+  ada(html, "Verifikasi identitas ditolak", "putusan ditolak tampil");
+  ada(html, "Foto KTP buram, NIK tidak terbaca", "alasan penolakan tampil");
+  bersih(html, "panel ditolak");
 }
 
 console.log(`PanelDataDiriNasabah.render: ${passed} lulus, ${failed} gagal`);

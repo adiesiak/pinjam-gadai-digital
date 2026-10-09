@@ -1,9 +1,10 @@
-import { useMutation, useQuery } from "convex/react";
-import { IdCard, Loader2 } from "lucide-react";
+import { useAction, useMutation, useQuery } from "convex/react";
+import { BadgeCheck, IdCard, Loader2, ShieldX } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
 import { FormDataDiri, type PerubahanFotoKtp } from "@/components/DataDiriForm";
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -11,6 +12,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { formDariTersimpan, penghasilanDariTeks } from "@/lib/dataDiri";
@@ -37,7 +40,9 @@ export function DataDiriDialog({
 }) {
   const data = useQuery(api.admin.dataDiriNasabah, { userId });
   const simpan = useMutation(api.admin.simpanDataDiriNasabah);
+  const verifikasi = useMutation(api.admin.verifikasiIdentitasNasabah);
   const buatUrlUnggah = useMutation(api.admin.generateDataDiriUploadUrl);
+  const periksaIsi = useAction(api.berkasIdentitas.periksaIsiBerkasKyc);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -53,6 +58,7 @@ export function DataDiriDialog({
     });
     const json = (await res.json()) as { storageId?: Id<"_storage"> };
     if (!res.ok || !json.storageId) throw new Error("Foto KTP gagal diunggah. Coba lagi.");
+    await periksaIsi({ id: json.storageId, label: "Foto KTP" });
     return json.storageId;
   };
 
@@ -113,8 +119,120 @@ export function DataDiriDialog({
             onBatal={onClose}
           />
         )}
+
+        {data !== undefined && data.ada && (
+          <PutusanVerifikasiIdentitas
+            awal={data.verifikasiIdentitas}
+            onPutuskan={async (status, catatan) => {
+              await verifikasi({ userId, status, ...(catatan === "" ? {} : { catatan }) });
+              toast.success(
+                status === "terverifikasi"
+                  ? "Identitas ditandai terverifikasi."
+                  : "Verifikasi identitas ditolak.",
+              );
+            }}
+          />
+        )}
       </DialogContent>
     </Dialog>
+  );
+}
+
+/**
+ * Putusan VERIFIKASI IDENTITAS — sengaja terpisah dari formulir dan dari
+ * keputusan pinjaman. Menyimpan data diri TIDAK memverifikasi identitas, dan
+ * menyetujui pinjaman juga tidak; petugas harus memutuskan di sini.
+ *
+ * Penolakan WAJIB beralasan (server menolak catatan kosong) supaya nasabah bisa
+ * menindaklanjutinya. Setiap putusan masuk Audit Trail.
+ */
+function PutusanVerifikasiIdentitas({
+  awal,
+  onPutuskan,
+}: {
+  awal: {
+    status: "terverifikasi" | "ditolak";
+    pada: number;
+    olehLabel: string;
+    catatan?: string;
+  } | null;
+  onPutuskan: (status: "terverifikasi" | "ditolak", catatan: string) => Promise<void>;
+}) {
+  const [catatan, setCatatan] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const putuskan = async (status: "terverifikasi" | "ditolak") => {
+    setBusy(true);
+    setError(null);
+    try {
+      await onPutuskan(status, catatan.trim());
+      setCatatan("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Gagal menyimpan putusan.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="space-y-2 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-400">
+        Verifikasi identitas
+      </p>
+      <p className="text-[11px] leading-4 text-muted-foreground">
+        Putusan ini berdiri sendiri: mengunggah dokumen atau menyetujui pinjaman TIDAK membuat
+        identitas terverifikasi. Putusan lama dihapus otomatis bila nama, NIK, atau foto KTP berubah.
+      </p>
+      {awal === null ? (
+        <p className="text-xs font-medium text-muted-foreground">Belum ada putusan.</p>
+      ) : (
+        <p className="flex items-center gap-1.5 text-xs font-medium">
+          {awal.status === "terverifikasi" ? (
+            <BadgeCheck className="size-3.5 text-emerald-600" aria-hidden />
+          ) : (
+            <ShieldX className="size-3.5 text-red-600" aria-hidden />
+          )}
+          {awal.status === "terverifikasi" ? "Terverifikasi" : "Ditolak"} ·{" "}
+          {new Date(awal.pada).toLocaleString("id-ID")} oleh {awal.olehLabel}
+          {awal.catatan !== undefined && awal.catatan !== "" ? ` — ${awal.catatan}` : ""}
+        </p>
+      )}
+      <div className="space-y-1.5">
+        <Label htmlFor="verifikasi-catatan" className="text-xs">
+          Catatan (wajib saat menolak)
+        </Label>
+        <Textarea
+          id="verifikasi-catatan"
+          value={catatan}
+          onChange={(event) => setCatatan(event.target.value)}
+          rows={2}
+          maxLength={300}
+          placeholder="Contoh: foto KTP buram, NIK tidak terbaca"
+          disabled={busy}
+        />
+      </div>
+      {error !== null && (
+        <p role="alert" className="text-[11px] leading-4 text-destructive">
+          {error}
+        </p>
+      )}
+      <div className="flex flex-wrap gap-2">
+        <Button size="sm" disabled={busy} onClick={() => void putuskan("terverifikasi")}>
+          {busy ? <Loader2 className="mr-1.5 size-3.5 animate-spin" /> : <BadgeCheck className="mr-1.5 size-3.5" />}
+          Tandai terverifikasi
+        </Button>
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={busy}
+          className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+          onClick={() => void putuskan("ditolak")}
+        >
+          <ShieldX className="mr-1.5 size-3.5" /> Tolak
+        </Button>
+      </div>
+    </div>
   );
 }
 

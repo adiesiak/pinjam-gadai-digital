@@ -8,11 +8,18 @@ import { MAX_FILE_BYTES } from "./kyc";
  * penghasilan pengajuan manual) supaya batas ukuran, cara POST, dan pesan
  * galatnya sama — bukan tiga salinan yang bisa berbeda diam-diam. Izin unggah
  * tetap ditentukan server: `mintaUrl` adalah mutation admin yang digerbang.
+ *
+ * `periksa` opsional dipanggil dengan storage id SETELAH unggah berhasil.
+ * Situs pemanggil mengisinya dengan action pemeriksa ISI berkas (magic bytes,
+ * `berkasIdentitas.periksaIsiBerkasKyc`); berkas yang mengaku gambar tetapi
+ * isinya bukan gambar tertolak sebelum ditautkan ke pengajuan. Helper ini
+ * sendiri tetap murni (tanpa Convex) lewat callback tersebut.
  */
 export async function unggahDokumen(
   file: File,
   mintaUrl: () => Promise<string>,
   label = "Berkas",
+  periksa?: (id: Id<"_storage">) => Promise<void>,
 ): Promise<Id<"_storage">> {
   if (file.size > MAX_FILE_BYTES) {
     throw new Error(`${label} maksimal ${Math.round(MAX_FILE_BYTES / (1024 * 1024))} MB.`);
@@ -40,5 +47,6 @@ export async function unggahDokumen(
   if (!json || !json.storageId) {
     throw new Error(`${label} gagal diunggah. Coba lagi.`);
   }
+  if (periksa !== undefined) await periksa(json.storageId);
   return json.storageId;
 }

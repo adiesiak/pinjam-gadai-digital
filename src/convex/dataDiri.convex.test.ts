@@ -21,8 +21,9 @@ import { convexTest } from "convex-test";
 import { describe, expect, it } from "vitest";
 
 import { api } from "./_generated/api";
+import type { Id } from "./_generated/dataModel";
 import schema from "./schema";
-import { buatPengguna, siapkanPengguna } from "./test.helpers";
+import { buatPengguna, simpanBerkasUji, siapkanPengguna } from "./test.helpers";
 import { modules } from "./test.setup";
 
 const NIK = "3271012345678901";
@@ -143,7 +144,9 @@ describe("data diri nasabah (admin)", () => {
       email: "rani-dd3@pindai.test",
       role: "peminjam",
     });
-    const fotoId = await t.run((ctx) => ctx.storage.store(new Blob(["ktp-rani"])));
+    // Berkas diberi tipe gambar: server memeriksa metadata gambar sebelum
+    // menyimpan (bukan hanya form), jadi blob tanpa tipe memang ditolak.
+    const fotoId = await simpanBerkasUji(t, "ktp-rani");
 
     const dasar = {
       userId,
@@ -351,5 +354,177 @@ describe("data diri mandiri (nasabah)", () => {
         nomorRekening: "",
       }),
     ).resolves.toMatchObject({ ok: true });
+  });
+});
+
+describe("putusan verifikasi identitas (admin)", () => {
+  const isian = (userId: Id<"users">) => ({
+    userId,
+    namaLengkap: "Rani Puspita",
+    nik: NIK,
+    nomorWhatsApp: WA,
+    alamat: "",
+    pekerjaan: "",
+    penghasilanBulanan: null,
+    namaBank: "",
+    nomorRekening: "",
+  });
+
+  it("menyimpan data diri TIDAK memverifikasi identitas (unggahan ≠ terverifikasi)", async () => {
+    const t = convexTest(schema, modules);
+    const { sesi: admin } = await siapkanPengguna(t, "admin", {
+      email: "admin-ver1@pindai.test",
+      role: "admin",
+    });
+    const { userId } = await siapkanPengguna(t, "Rani", {
+      email: "rani-ver1@pindai.test",
+      role: "peminjam",
+    });
+
+    await admin.mutation(api.admin.simpanDataDiriNasabah, isian(userId));
+    // Lengkapi juga foto KTP — tetap tidak boleh dianggap terverifikasi.
+    const fotoId = await simpanBerkasUji(t, "ktp");
+    await admin.mutation(api.admin.simpanDataDiriNasabah, { ...isian(userId), fotoKtpId: fotoId });
+
+    const baca = await admin.query(api.admin.dataDiriNasabah, { userId });
+    expect(baca.verifikasiIdentitas).toBeNull();
+    const profil = await t.run((ctx) => ctx.db.query("nasabahProfil").first());
+    expect(profil?.verifikasiIdentitas).toBeUndefined();
+  });
+
+  it("petugas mencatat putusan; penolakan wajib beralasan + tercatat audit", async () => {
+    const t = convexTest(schema, modules);
+    const { sesi: admin } = await siapkanPengguna(t, "admin", {
+      email: "admin-ver2@pindai.test",
+      role: "admin",
+    });
+    const { userId } = await siapkanPengguna(t, "Rani", {
+      email: "rani-ver2@pindai.test",
+      role: "peminjam",
+    });
+    await admin.mutation(api.admin.simpanDataDiriNasabah, isian(userId));
+
+    // Tolak tanpa catatan → ditolak server.
+    await expect(
+      admin.mutation(api.admin.verifikasiIdentitasNasabah, { userId, status: "ditolak" }),
+    ).rejects.toThrow(/alasan/i);
+
+    await expect(
+      admin.mutation(api.admin.verifikasiIdentitasNasabah, {
+        userId,
+        status: "ditolak",
+        catatan: "Foto KTP buram, NIK tidak terbaca",
+      }),
+    ).resolves.toMatchObject({ ok: true });
+
+    let baca = await admin.query(api.admin.dataDiriNasabah, { userId });
+    expect(baca.verifikasiIdentitas?.status).toBe("ditolak");
+    expect(baca.verifikasiIdentitas?.catatan).toBe("Foto KTP buram, NIK tidak terbaca");
+
+    // Petugas lain menandai terverifikasi — putusan terbaru menimpa.
+    await admin.mutation(api.admin.verifikasiIdentitasNasabah, {
+      userId,
+      status: "terverifikasi",
+      catatan: "Dokumen jelas",
+    });
+    baca = await admin.query(api.admin.dataDiriNasabah, { userId });
+    expect(baca.verifikasiIdentitas?.status).toBe("terverifikasi");
+
+    const audit = await t.run((ctx) => ctx.db.query("auditLog").collect());
+    expect(audit.map((a) => a.aksi)).toContain("verifikasi_identitas_ditolak");
+    expect(audit.map((a) => a.aksi)).toContain("verifikasi_identitas");
+    // Audit tidak membocorkan NIK utuh.
+    const baris = audit.find((a) => a.aksi === "verifikasi_identitas");
+    expect(baris?.detail).not.toContain(NIK);
+  });
+
+  it("bukan admin ditolak; akun tim & nasabah tanpa data diri juga ditolak", async () => {
+    const t = convexTest(schema, modules);
+    const { userId: adminId } = await siapkanPengguna(t, "admin", {
+      email: "admin-ver3@pindai.test",
+      role: "admin",
+    });
+    const { sesi: admin } = await siapkanPengguna(t, "admin2", {
+      email: "admin-ver3b@pindai.test",
+      role: "admin",
+    });
+    const { sesi: peminjam, userId } = await siapkanPengguna(t, "Rani", {
+      email: "rani-ver3@pindai.test",
+      role: "peminjam",
+    });
+
+    await expect(
+      peminjam.mutation(api.admin.verifikasiIdentitasNasabah, {
+        userId,
+        status: "terverifikasi",
+      }),
+    ).rejects.toThrow(/admin/i);
+
+    // Data diri belum ada → tidak bisa diputuskan.
+    await expect(
+      admin.mutation(api.admin.verifikasiIdentitasNasabah, { userId, status: "terverifikasi" }),
+    ).rejects.toThrow(/data diri/i);
+
+    // Akun tim tidak dijadikan target putusan.
+    await admin.mutation(api.admin.simpanDataDiriNasabah, isian(userId));
+    await expect(
+      admin.mutation(api.admin.verifikasiIdentitasNasabah, {
+        userId: adminId,
+        status: "terverifikasi",
+      }),
+    ).rejects.toThrow(/akun tim/i);
+  });
+
+  it("putusan dihapus saat nama/NIK/foto berubah, tetapi bertahan saat alamat berubah", async () => {
+    const t = convexTest(schema, modules);
+    const { sesi: admin } = await siapkanPengguna(t, "admin", {
+      email: "admin-ver4@pindai.test",
+      role: "admin",
+    });
+    const { userId } = await siapkanPengguna(t, "Rani", {
+      email: "rani-ver4@pindai.test",
+      role: "peminjam",
+    });
+    await admin.mutation(api.admin.simpanDataDiriNasabah, isian(userId));
+    await admin.mutation(api.admin.verifikasiIdentitasNasabah, {
+      userId,
+      status: "terverifikasi",
+    });
+
+    // Perubahan yang BUKAN identitas tidak menghapus putusan.
+    await admin.mutation(api.admin.simpanDataDiriNasabah, {
+      ...isian(userId),
+      alamat: "Jalan Baru No. 1",
+    });
+    let baca = await admin.query(api.admin.dataDiriNasabah, { userId });
+    expect(baca.verifikasiIdentitas?.status).toBe("terverifikasi");
+
+    // Mengubah NIK menghapus putusan lama.
+    await admin.mutation(api.admin.simpanDataDiriNasabah, {
+      ...isian(userId),
+      nik: "3271012345678902",
+    });
+    baca = await admin.query(api.admin.dataDiriNasabah, { userId });
+    expect(baca.verifikasiIdentitas).toBeNull();
+
+    // Audit menyebut putusan lama dihapus karena data identitas berubah.
+    const audit = await t.run((ctx) => ctx.db.query("auditLog").collect());
+    expect(
+      audit.some((a) => a.detail?.includes("Putusan verifikasi identitas DIHAPUS")),
+    ).toBe(true);
+
+    // Memverifikasi ulang menghapus catatan lama; foto baru juga menghapusnya.
+    await admin.mutation(api.admin.verifikasiIdentitasNasabah, {
+      userId,
+      status: "terverifikasi",
+    });
+    const fotoId = await simpanBerkasUji(t, "ktp");
+    await admin.mutation(api.admin.simpanDataDiriNasabah, {
+      ...isian(userId),
+      nik: "3271012345678902",
+      fotoKtpId: fotoId,
+    });
+    baca = await admin.query(api.admin.dataDiriNasabah, { userId });
+    expect(baca.verifikasiIdentitas).toBeNull();
   });
 });
