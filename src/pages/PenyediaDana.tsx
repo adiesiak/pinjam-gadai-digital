@@ -1290,7 +1290,7 @@ function DialogUbahPinjaman({
 }) {
   return (
     <Dialog open={row !== null} onOpenChange={(open) => (open ? undefined : onClose())}>
-      <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg">
+      <DialogContent className="max-h-[85dvh] overflow-y-auto p-4 sm:max-w-lg sm:p-6">
         <DialogHeader>
           <DialogTitle>Ubah data pinjaman</DialogTitle>
           <DialogDescription>
@@ -1683,7 +1683,7 @@ function IsiRuang() {
        * diberi garis kuningan tipis di puncaknya sebagai penanda identitas
        * PINDAI — bahasa warna "tinta & kuningan" yang sudah dipakai aplikasi.
        */}
-      <header className="animate-masuk sticky top-0 z-40 border-t-2 border-gold bg-white/90 backdrop-blur">
+      <header className="animate-masuk sticky top-0 z-40 border-t-2 border-gold bg-white/90 pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)] backdrop-blur">
         <div className="mx-auto flex h-14 w-full max-w-6xl items-center justify-between gap-3 px-4 sm:px-6">
           <Link to="/dashboard" className="flex shrink-0 items-center gap-2.5">
             <VaultLogo size={32} className="size-8 shrink-0" />
@@ -2365,7 +2365,7 @@ function IsiRuang() {
       </main>
 
       <Dialog open={detail !== null} onOpenChange={(open) => (open ? undefined : setDetail(null))}>
-        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-xl">
+        <DialogContent className="max-h-[85dvh] overflow-y-auto p-4 sm:max-w-xl sm:p-6">
           <DialogHeader>
             <DialogTitle>
               {detail?.jenis === "pinjaman"

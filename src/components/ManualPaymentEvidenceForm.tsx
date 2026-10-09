@@ -44,7 +44,7 @@ export function ManualPaymentEvidenceForm({
       {instructions && (
         <div className="mt-3 grid gap-3 rounded-lg border border-slate-200 bg-white p-3 text-xs sm:grid-cols-2">
           <div><p className="font-medium">Transfer bank (instruksi)</p><p className="mt-1">{instructions.namaBank} · {instructions.nomorRekening}</p><p>{instructions.namaRekening}</p></div>
-          <div><p className="font-medium">QRIS · {instructions.namaMerchantQris}</p>{instructions.qrisUrl ? <img src={instructions.qrisUrl} alt={`QRIS ${instructions.namaMerchantQris}`} className="mt-2 max-h-36 object-contain" /> : <p className="mt-1 text-muted-foreground">Gambar QRIS belum diunggah admin.</p>}</div>
+          <div><p className="font-medium">QRIS · {instructions.namaMerchantQris}</p>{instructions.qrisUrl ? <img src={instructions.qrisUrl} alt={`QRIS ${instructions.namaMerchantQris}`} className="mt-2 max-h-36 max-w-full object-contain" /> : <p className="mt-1 text-muted-foreground">Gambar QRIS belum diunggah admin.</p>}</div>
         </div>
       )}
       <form className="mt-3 grid gap-3 sm:grid-cols-2" onSubmit={async (event) => {

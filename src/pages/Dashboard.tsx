@@ -45,8 +45,10 @@ function RingkasanMemuat() {
   return (
     <div role="status" aria-live="polite" className="mt-8 space-y-6">
       <span className="sr-only">Memuat data Anda…</span>
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {[0, 1, 2, 3].map((kolom) => (
+      {/* Kolom skeleton disamakan dengan `SummaryCards` (2 di sm, 3 di xl,
+          tiga kartu) supaya tata letak tidak melompat saat data asli tiba. */}
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 xl:gap-4">
+        {[0, 1, 2].map((kolom) => (
           <div
             key={kolom}
             className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"

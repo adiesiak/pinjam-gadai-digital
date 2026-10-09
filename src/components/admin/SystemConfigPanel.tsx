@@ -39,7 +39,7 @@ export function SystemConfigPanel() {
         <p className="flex items-center gap-2 text-sm font-semibold text-navy">
           <Settings2 className="size-4 text-primary" /> Asumsi Perhitungan &amp; Pengaturan Akses
         </p>
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           {(["persenAdmin", "persenPlatform", "persenBunga"] as const).map((k) => (
             <div key={k}>
               <Label htmlFor={`cfg-${k}`}>
@@ -78,7 +78,7 @@ export function SystemConfigPanel() {
             Tidak mengubah biaya pinjaman baru maupun pinjaman yang sudah tercatat.
           </p>
         </div>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div>
             <Label htmlFor="cfg-ltv">Maks LTV gadai (%)</Label>
             <Input id="cfg-ltv" type="number" min={1} max={100} value={form.maxLtvPersen} onChange={(e) => upd("maxLtvPersen", Math.min(100, Math.max(1, Number(e.target.value) || 1)))} className="tabular-nums" />
@@ -211,7 +211,7 @@ export function SystemConfigPanel() {
               alt="QRIS yang diunggah admin"
               loading="lazy"
               decoding="async"
-              className="max-h-56 rounded-xl border border-slate-200 bg-white object-contain p-2"
+              className="max-h-56 max-w-full rounded-xl border border-slate-200 bg-white object-contain p-2"
             />
           )}
           <div className="flex flex-wrap items-center gap-3">
@@ -275,7 +275,7 @@ export function SystemConfigPanel() {
         <p className="flex items-center gap-2 text-sm font-semibold text-navy">
           <MapPin className="size-4 text-emerald-600" /> Titik Referensi Konfigurasi
         </p>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div>
             <Label htmlFor="cfg-vlat">Latitude vault</Label>
             <Input id="cfg-vlat" type="number" step="any" value={form.vaultLat} onChange={(e) => upd("vaultLat", Number(e.target.value) || 0)} className="tabular-nums" />

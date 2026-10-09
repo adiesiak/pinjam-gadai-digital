@@ -139,7 +139,9 @@ export function ContractSigningDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[92vh] overflow-hidden p-0 sm:max-w-3xl">
+      {/* `p-0 sm:p-0` wajib: header/kaki dialog ini menempel ke tepi (full-bleed),
+          jadi padding bawaan DialogContent harus mati di semua breakpoint. */}
+      <DialogContent className="max-h-[92dvh] overflow-hidden p-0 sm:max-w-3xl sm:p-0">
         <DialogHeader className="border-b border-slate-200 px-5 py-5 pr-12 text-left sm:px-6">
           <div className="flex flex-wrap items-center gap-2">
             <Badge variant="outline" className="border-primary/25 bg-primary/5 text-primary">

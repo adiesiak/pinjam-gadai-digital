@@ -216,7 +216,7 @@ export function PetaLokasiPeminjam({
   }, [rows, vault]);
 
   return (
-    <div className="relative h-[52vh] min-h-[280px] max-h-[440px] overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 shadow-sm sm:h-[440px]">
+    <div className="relative h-[52dvh] min-h-[280px] max-h-[440px] overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 shadow-sm sm:h-[440px]">
       <div
         ref={containerRef}
         role="region"

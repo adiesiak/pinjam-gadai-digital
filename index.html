@@ -6,7 +6,11 @@
   <link rel="icon" type="image/svg+xml" href="/logo.svg?v=pindai-2" />
   <link rel="apple-touch-icon" href="/logo.svg?v=pindai-2" />
   <link rel="manifest" href="/manifest.webmanifest" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <!-- `viewport-fit=cover` membuat `env(safe-area-inset-*)` benar-benar bernilai
+       di perangkat bertakik (iOS/Android), sehingga bar bawah admin dan pil
+       lokasi tidak tertutup indikator home. Chrome yang tidak mendukung
+       mengabaikannya, dan inset tetap 0 sehingga hasilnya sama seperti semula. -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <meta name="theme-color" content="#0f3d3a" />
   <meta
     name="description"

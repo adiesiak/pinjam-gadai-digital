@@ -185,7 +185,7 @@ export function CatatPengajuanManualButton({ jenis }: { jenis: JenisPengajuan })
           else setTerbuka(true);
         }}
       >
-        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
+        <DialogContent className="max-h-[90dvh] overflow-y-auto p-4 sm:max-w-2xl sm:p-6">
           <DialogHeader>
             <DialogTitle>{info.judul}</DialogTitle>
             <DialogDescription>{info.deskripsi}</DialogDescription>

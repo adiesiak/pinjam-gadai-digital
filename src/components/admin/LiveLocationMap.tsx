@@ -208,7 +208,7 @@ export function LiveLocationMap() {
         </div>
       </div>
       <div
-        className="relative h-[55vh] min-h-[280px] max-h-[420px] overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 shadow-sm sm:h-[420px]"
+        className="relative h-[55dvh] min-h-[280px] max-h-[420px] overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 shadow-sm sm:h-[420px]"
       >
         <div
           ref={containerRef}

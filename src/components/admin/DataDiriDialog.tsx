@@ -63,7 +63,7 @@ export function DataDiriDialog({
         if (!terbuka) onClose();
       }}
     >
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
+      <DialogContent className="max-h-[90dvh] overflow-y-auto p-4 sm:max-w-2xl sm:p-6">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <IdCard className="size-4" aria-hidden /> Data diri nasabah

@@ -218,7 +218,10 @@ export function LoginSecurityPanel({ onOpenSetup }: { onOpenSetup: () => void })
           </p>
         ) : (
           <div className="animate-masuk mt-4 overflow-x-auto">
-            <table className="w-full text-left text-sm">
+            {/* Lebar minimum menjaga kolom tetap terbaca; pada layar sempit
+                tabel menggulir mendatar di dalam kartu alih-alih memaksa lima
+                kolom berdesakan sampai teks pecah per kata. */}
+            <table className="w-full min-w-[640px] text-left text-sm">
               <thead>
                 <tr className="border-b border-slate-200 text-xs uppercase tracking-wide text-muted-foreground">
                   <th className="py-2 pr-3 font-medium">Waktu</th>

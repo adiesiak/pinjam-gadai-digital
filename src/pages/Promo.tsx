@@ -456,7 +456,7 @@ export function Promo() {
           if (!buka) tutupPratinjau();
         }}
       >
-        <DialogContent className="fixed inset-0 grid h-[100dvh] w-[100vw] max-w-none translate-x-0 translate-y-0 place-items-center gap-4 overflow-y-auto rounded-none border-0 bg-black/85 p-4 sm:max-w-none">
+        <DialogContent className="fixed inset-0 grid h-[100dvh] w-[100vw] max-w-none max-h-none translate-x-0 translate-y-0 place-items-center gap-4 overflow-y-auto overscroll-contain rounded-none border-0 bg-black/85 p-4 sm:max-w-none sm:p-4">
           <DialogHeader className="sr-only">
             <DialogTitle>{terbuka?.title ?? "Pratinjau poster"}</DialogTitle>
             <DialogDescription>
@@ -493,7 +493,7 @@ export function Promo() {
                 <KanvasPoster
                   poster={terbuka}
                   lebar={UKURAN_POSTER.lebar}
-                  className="block h-auto max-h-[68vh] w-auto max-w-full rounded-xl shadow-2xl"
+                  className="block h-auto max-h-[68dvh] w-auto max-w-full rounded-xl shadow-2xl"
                 />
               </motion.div>
 

@@ -100,7 +100,7 @@ export function TotpSetupDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md rounded-2xl">
+      <DialogContent className="max-h-[90dvh] overflow-y-auto p-4 rounded-2xl sm:max-w-md sm:p-6">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <ShieldCheck className="size-5 text-sky-600" />

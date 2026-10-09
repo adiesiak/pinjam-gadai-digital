@@ -93,7 +93,7 @@ export function IsiCariMenu({
         aria-label="Cari menu"
         placeholder="Cari menu — mis. keamanan, plafon, gadai…"
       />
-      <CommandList className="max-h-[60vh]">
+      <CommandList className="max-h-[60dvh]">
         {hasil.length === 0 ? (
           <p className="px-3 py-8 text-center text-sm text-muted-foreground">
             Tidak ada menu yang cocok dengan “{kueri.trim()}”.
@@ -190,7 +190,7 @@ export function AdminNav({
           navigasi, bukan penyaring satu daftar (lihat catatan `SubTabFilter`). */}
       <nav
         aria-label="Menu operasi"
-        className="fixed inset-x-0 bottom-0 z-30 border-t border-slate-200 bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden"
+        className="fixed bottom-0 left-[env(safe-area-inset-left)] right-[env(safe-area-inset-right)] z-30 border-t border-slate-200 bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden"
       >
         <div className="mx-auto flex w-full max-w-7xl items-stretch">
           {GRUP_NAV.map((grupNav) => {
@@ -229,7 +229,7 @@ export function AdminNav({
       </nav>
 
       <Sheet open={cariTerbuka} onOpenChange={setCariTerbuka}>
-        <SheetContent side="bottom" className="z-50 max-h-[80vh] gap-0 rounded-t-2xl p-0">
+        <SheetContent side="bottom" className="z-50 max-h-[85dvh] gap-0 rounded-t-2xl p-0 pb-[env(safe-area-inset-bottom)]">
           <SheetHeader className="border-b border-slate-200 px-4 py-3 pr-12 text-left">
             <SheetTitle className="text-sm text-navy">Cari menu</SheetTitle>
           </SheetHeader>

@@ -90,7 +90,7 @@ export function AnnouncementBar() {
         type="button"
         onClick={dismiss}
         aria-label="Tutup pengumuman"
-        className="absolute right-2 top-1/2 flex size-7 -translate-y-1/2 items-center justify-center rounded-full text-slate-400 transition-colors hover:bg-white/80 hover:text-slate-700 active:bg-white"
+        className="absolute right-[max(0.5rem,env(safe-area-inset-right))] top-1/2 flex size-8 -translate-y-1/2 items-center justify-center rounded-full text-slate-400 transition-colors hover:bg-white/80 hover:text-slate-700 active:bg-white"
       >
         <X className="size-3.5" />
       </button>

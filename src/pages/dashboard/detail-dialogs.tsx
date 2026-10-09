@@ -29,7 +29,7 @@ export function LoanDetailDialog({
 
   return (
     <Dialog open={loanId !== null} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="max-h-[90dvh] overflow-y-auto p-4 sm:max-w-md sm:p-6">
         {loan === undefined ? (
           <div className="flex items-center justify-center py-10">
             <Loader2 className="size-4 animate-spin text-muted-foreground" />
@@ -162,7 +162,7 @@ export function PawnDetailDialog({
 
   return (
     <Dialog open={pawnId !== null} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="max-h-[90dvh] overflow-y-auto p-4 sm:max-w-md sm:p-6">
         {pawn === undefined ? (
           <div className="flex items-center justify-center py-10">
             <Loader2 className="size-4 animate-spin text-muted-foreground" />

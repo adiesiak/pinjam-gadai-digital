@@ -1049,7 +1049,9 @@ function AnnouncementModal({
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogContent className="max-w-md gap-0 overflow-hidden rounded-2xl border border-slate-200 p-0 sm:max-w-md">
+      {/* `p-0 sm:p-0` meniadakan padding bawaan DialogContent di semua breakpoint:
+          panel ini menyusun jaraknya sendiri lewat pembungkus ber-`px-6`. */}
+      <DialogContent className="max-h-[90dvh] w-full max-w-md gap-0 overflow-y-auto overscroll-contain rounded-2xl border border-slate-200 p-0 sm:max-w-md sm:p-0">
         <div className="px-6 pb-2 pt-7">
           <span className="inline-flex size-11 items-center justify-center rounded-xl bg-primary/10 text-primary">
             <Megaphone className="size-5" />
@@ -1495,7 +1497,7 @@ export default function Landing() {
       {/* Navbar */}
       <header
         ref={headerRef}
-        className={`sticky top-0 z-40 border-b backdrop-blur transition-[background-color,border-color,box-shadow] duration-300 ${
+        className={`sticky top-0 z-40 border-b pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)] backdrop-blur transition-[background-color,border-color,box-shadow] duration-300 ${
           scrolled
             ? "border-slate-200 bg-white/95 shadow-[0_10px_30px_-24px_rgba(15,61,58,0.55)]"
             : "border-slate-200/70 bg-white/80"
@@ -1511,7 +1513,10 @@ export default function Landing() {
             <VaultLogo size={40} />
             <BrandWordmark name={logoTeks} />
           </Link>
-          <nav aria-label="Navigasi utama" className="hidden items-center gap-8 text-sm text-slate-600 lg:flex">
+          {/* `gap-6` di lg, `gap-8` hanya di xl: dengan enam item dan label dari
+              CMS yang bisa lebih panjang, jarak 32px pada 1024px membuat baris
+              ini nyaris menyentuh tombol aksi di kanan. */}
+          <nav aria-label="Navigasi utama" className="hidden items-center gap-6 text-sm text-slate-600 lg:flex xl:gap-8">
             {navItems.map(({ href, label }) => (
               <a
                 key={href}
