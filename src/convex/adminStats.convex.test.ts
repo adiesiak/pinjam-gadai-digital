@@ -1,9 +1,12 @@
 /**
  * Tes agregasi ringkasan admin (`admin.adminStats`).
  *
- * Menjaga angka "sedang berjalan" untuk gadai & kredit — dipakai kartu utama
- * panel admin (tab Pinjaman / Gadai / Kredit). Agregat pinjaman sudah diuji di
- * tempat lain; di sini fokus pada dua produk baru.
+ * - Gadai & kredit: menjaga angka "sedang berjalan" yang dipakai kartu utama
+ *   panel admin (tab Pinjaman / Gadai / Kredit).
+ * - Pinjaman: menjaga dua aggregat yang dipakai lintas layar admin:
+ *   `pinjamanBaru` (jumlah menunggu) dan `totalPinjamanDiajukan` (nominal atas
+ *   pengajuan yang menunggu), serta konfirmasi bahwa keduanya berintegrasi
+ *   dengan lencana sub-tab admin (`lib/admin-queue.ts`).
  *
  * Menjalankan: bunx vitest run src/convex/adminStats.convex.test.ts
  */
@@ -14,6 +17,8 @@ import { api } from "./_generated/api";
 import schema from "./schema";
 import { siapkanPengguna } from "./test.helpers";
 import { modules } from "./test.setup";
+import { hitungMenunggu } from "../lib/admin-queue";
+import { diTahapTinjauan } from "../lib/statusPinjaman";
 import { quoteKreditBarang } from "../lib/kredit";
 
 const NIK = "3201234567890003";
@@ -108,5 +113,110 @@ describe("ringkasan admin: total sedang berjalan", () => {
       marginPersenPerBulan: 3,
     }).pokokDibiayai;
     expect(stats.totalKreditBerjalan).toBe(dibiayai);
+  });
+});
+
+describe("ringkasan admin: agregat pinjaman menunggu", () => {
+  // Pinjaman baru umumnya masuk ke antrean review TANPA melalui admin
+  // (nasabah pengusul langsung tulis `sedang_direview`). Dalam fixture ini kita
+  // menulis kedua ejaan sehingga asersi menegaskan bahwa keduanya terhitung.
+  it("jumlah dan nominal pengajuan menunggu mencakup diajukan dan sedang_direview", async () => {
+    const t = convexTest(schema, modules);
+    const { sesi: asAdmin } = await siapkanPengguna(t, "admin-stats-menunggu", {
+      email: "admin-stats-menunggu@pindai.test",
+      role: "admin",
+    });
+    const { userId: peminjam1 } = await siapkanPengguna(t, "peminjam1-stats", {
+      email: "p1@pindai.test",
+      role: "peminjam",
+    });
+    const { userId: peminjam2 } = await siapkanPengguna(t, "peminjam2-stats", {
+      email: "p2@pindai.test",
+      role: "peminjam",
+    });
+
+    await t.run(async (ctx) => {
+      // Baris 1: ejaan warisan (masih sah dibaca).
+      await ctx.db.insert("loans", {
+        userId: peminjam1,
+        pokokPinjaman: 5_000_000,
+        pokokDiajukan: 5_000_000,
+        nomorReferensi: "PGL-MENUNGGU-1",
+        tujuan: "modal_usaha",
+        status: "diajukan",
+        namaLengkap: "Rani Peminjam",
+        nomorRekening: REKENING,
+        nik: NIK,
+        nomorWhatsApp: WA,
+        sumberPenghasilan: "gaji",
+        tenorHari: 30,
+      });
+      // Baris 2: ejaan yang ditulis aplikasi saat status bergerak ke tinjauan.
+      await ctx.db.insert("loans", {
+        userId: peminjam2,
+        pokokPinjaman: 10_000_000,
+        pokokDiajukan: 10_000_000,
+        nomorReferensi: "PGL-MENUNGGU-2",
+        tujuan: "kebutuhan_pribadi",
+        status: "sedang_direview",
+        namaLengkap: "Bayu Peminjam",
+        nomorRekening: REKENING,
+        nik: "3202345678901007",
+        nomorWhatsApp: "6282345678901",
+        sumberPenghasilan: "usaha",
+        tenorHari: 30,
+      });
+    });
+
+    const stats = await asAdmin.query(api.admin.adminStats, {});
+
+    // Administrasi: kedua baris ini masuk antrean review; yang sudah disetujui
+    // atau didanai tidak masuk.
+    expect(stats.pinjamanBaru).toBe(2);
+    expect(diTahapTinjauan("diajukan")).toBe(true);
+    expect(diTahapTinjauan("sedang_direview")).toBe(true);
+    expect(diTahapTinjauan("didanai")).toBe(false);
+
+    // Unit test independen: fungsi pembilang lencana admin seharusnya memakai
+    // aturan yang sama dengan kardinal dan nominal di atas.
+    const semuaBaris = [
+      { status: "diajukan" },
+      { status: "sedang_direview" },
+      { status: "didanai" },
+    ] as const;
+    expect(hitungMenunggu(semuaBaris, "pinjaman")).toBe(2);
+  });
+
+  it("totalPinjamanDiajukan menggunakan pokokDiajukan bila ada", async () => {
+    const t = convexTest(schema, modules);
+    const { sesi: asAdmin } = await siapkanPengguna(t, "admin-stats-diajukan", {
+      email: "admin-stats-diajukan@pindai.test",
+      role: "admin",
+    });
+    const { userId } = await siapkanPengguna(t, "peminjam-stats-diajukan", {
+      email: "p@pindai.test",
+      role: "peminjam",
+    });
+
+    await t.run(async (ctx) => {
+      await ctx.db.insert("loans", {
+        userId,
+        pokokPinjaman: 4_000_000,
+        pokokDiajukan: 7_000_000,
+        nomorReferensi: "PGL-DIAJUKD-1",
+        tujuan: "modal_usaha",
+        status: "sedang_direview",
+        namaLengkap: "Rani Peminjam",
+        nomorRekening: REKENING,
+        nik: NIK,
+        nomorWhatsApp: WA,
+        sumberPenghasilan: "gaji",
+        tenorHari: 30,
+      });
+    });
+
+    const stats = await asAdmin.query(api.admin.adminStats, {});
+    expect(stats.totalPinjamanDiajukan).toBe(7_000_000);
+    expect(stats.pinjamanBaru).toBe(1);
   });
 });
