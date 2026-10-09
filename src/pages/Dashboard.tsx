@@ -274,8 +274,13 @@ export default function Dashboard() {
               <RingkasanMemuat />
             ) : (
               <>
-                {/* Pengingat jatuh tempo live */}
-                {dueReminder !== null && <DueReminderBanner reminder={dueReminder} />}
+                {/* Pengingat jatuh tempo live — CTA membuka detail pembayaran. */}
+                {dueReminder !== null && (
+                  <DueReminderBanner
+                    reminder={dueReminder}
+                    onLihatDetail={setLoanDetailId}
+                  />
+                )}
 
                 {/* Peringatan lokasi dicurigai — ditulis server saat titik
                     lokasi nasabah ditandai (mis. koordinat beku berulang). */}

@@ -775,6 +775,70 @@
     transform: scaleX(1);
   }
 
+  /* ===== Pengingat jatuh tempo (Payment Due Alert) =====
+     Tiga efek sengaja dipisah supaya tiap tingkat bisa memakai seperlunya:
+     - `due-ring`   — cincin yang melebar lalu hilang (denyut halus).
+     - `due-breathe`— bayangan yang "bernapas" pelan, bukan kelap-kelip.
+     - `due-pop`    — skala kecil berulang pada lencana status.
+     - `due-tick`   — angka hitung mundur masuk saat nilainya berubah.
+     Semua temponya lambat (≥1,8s) dan memudar penuh, jadi tidak menyilaukan
+     maupun menuntut perhatian terus-menerus. */
+  .animate-due-ring {
+    animation: pindai-due-ring 2.8s cubic-bezier(0.22, 1, 0.36, 1) infinite;
+  }
+  @keyframes pindai-due-ring {
+    0% {
+      transform: scale(0.9);
+      opacity: 0.5;
+    }
+    70%,
+    100% {
+      transform: scale(1.85);
+      opacity: 0;
+    }
+  }
+  .animate-due-breathe {
+    animation: pindai-due-breathe 4.5s ease-in-out infinite;
+  }
+  @keyframes pindai-due-breathe {
+    0%,
+    100% {
+      box-shadow:
+        0 1px 2px oklch(0.3 0.02 75 / 0.06),
+        0 10px 24px -18px oklch(0.3 0.02 75 / 0.22);
+    }
+    50% {
+      box-shadow:
+        0 1px 2px oklch(0.3 0.02 75 / 0.08),
+        0 14px 34px -18px oklch(0.3 0.02 75 / 0.32);
+    }
+  }
+  .animate-due-pop {
+    animation: pindai-due-pop 2.6s ease-in-out infinite;
+  }
+  @keyframes pindai-due-pop {
+    0%,
+    100% {
+      transform: scale(1);
+    }
+    50% {
+      transform: scale(1.05);
+    }
+  }
+  .animate-due-tick {
+    animation: pindai-due-tick 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+  @keyframes pindai-due-tick {
+    from {
+      opacity: 0;
+      transform: translateY(4px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
   @media (prefers-reduced-motion: reduce) {
     .animate-sheen::after,
     .animate-drift,
@@ -782,7 +846,11 @@
     .animate-grid-pan,
     .animate-spin-slow,
     .animate-float,
-    .animate-masuk {
+    .animate-masuk,
+    .animate-due-ring,
+    .animate-due-breathe,
+    .animate-due-pop,
+    .animate-due-tick {
       animation: none;
     }
     /* Kartu yang mengangkat saat hover juga tidak boleh bergerak. */

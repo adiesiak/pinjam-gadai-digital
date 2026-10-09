@@ -3,16 +3,24 @@ import { Loader2, MapPin } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
+import { PaymentDueAlert } from "@/components/PaymentDueAlert";
 import { Button } from "@/components/ui/button";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
-import { formatRupiah } from "@/lib/money";
 
-import { formatDate } from "./shared";
-
-/** Banner pengingat jatuh tempo (live dari server). */
+/**
+ * Banner pengingat jatuh tempo (live dari server).
+ *
+ * Sejak sistem pengingat beranimasi diperkenalkan, banner ini hanya
+ * menjembatani data `loans.dueReminder` ke `PaymentDueAlert` — seluruh visual
+ * (tingkat, animasi, hitung mundur, CTA) hidup di komponen bersama itu, yang
+ * juga dipakai ruang penyedia dana. Tingkat dan hitung mundur di sana hanya
+ * dekoratif: status, denda, dan nominal tetap berasal dari server seperti
+ * sebelumnya.
+ */
 export function DueReminderBanner({
   reminder,
+  onLihatDetail,
 }: {
   reminder: {
     loanId: Id<"loans">;
@@ -24,45 +32,21 @@ export function DueReminderBanner({
     totalKewajibanDenganPenalti: number;
     totalKewajibanPelunasan: number;
   };
+  /** Buka detail pembayaran pinjaman yang dimaksud. */
+  onLihatDetail?: (id: Id<"loans">) => void;
 }) {
-  const terlambat = reminder.hariTerlambat > 0;
   return (
-    <section
-      className={`animate-masuk mt-6 rounded-2xl border px-5 py-4 shadow-sm ${
-        terlambat ? "border-red-200 bg-red-50/70" : "border-slate-200 bg-white"
-      }`}
-    >
-      <div className="flex flex-wrap items-baseline justify-between gap-3">
-        <div>
-          <p className={`text-[11px] font-medium uppercase tracking-[0.18em] ${terlambat ? "text-red-600" : "text-muted-foreground"}`}>
-            {terlambat
-              ? `Tanggal acuan terlewati ${reminder.hariTerlambat} hari — denda`
-              : reminder.sisaHari === 0
-                ? "Tanggal acuan hari ini"
-                : `Tanggal acuan dalam ${reminder.sisaHari} hari`}
-          </p>
-          <p className="mt-1 text-sm leading-6 text-muted-foreground">
-            Catatan pinjaman {reminder.nomorReferensi} memakai tanggal acuan{" "}
-            <span className="font-medium text-foreground">{formatDate(reminder.jatuhTempoPada)}</span>.
-            {terlambat ? " Denda yang tampil merupakan hitungan internal, bukan tagihan." : " Tanggal ini bukan tagihan atau bukti transaksi."}
-          </p>
-        </div>
-        <div className="text-right">
-          <p className="text-xs text-muted-foreground">Total kewajiban · bukan tagihan</p>
-          <p className="mt-1 text-xl font-semibold tabular-nums">
-            {formatRupiah(reminder.totalKewajibanDenganPenalti)}
-          </p>
-          {terlambat && (
-            <p className="mt-0.5 text-xs tabular-nums text-red-600">
-              denda {formatRupiah(reminder.dendaTerlambat)}
-            </p>
-          )}
-        </div>
-      </div>
-      <p className="mt-3 text-xs leading-5 text-muted-foreground">
-        Tanggal, status, dan nominal berasal dari perhitungan ledger internal PINDAI.
-      </p>
-    </section>
+    <PaymentDueAlert
+      nomorReferensi={reminder.nomorReferensi}
+      nominal={reminder.totalKewajibanDenganPenalti}
+      jatuhTempoPada={reminder.jatuhTempoPada}
+      sisaHari={reminder.sisaHari}
+      hariTerlambat={reminder.hariTerlambat}
+      dendaTerlambat={reminder.dendaTerlambat}
+      onLihatDetail={
+        onLihatDetail === undefined ? undefined : () => onLihatDetail(reminder.loanId)
+      }
+    />
   );
 }
 

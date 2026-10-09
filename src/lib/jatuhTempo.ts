@@ -23,6 +23,13 @@ const DAY_MS = 86_400_000;
 /** Selisih hari yang membuat satu jatuh tempo disorot sebagai "segera". */
 export const AMBANG_SEGERA_HARI = 3;
 
+/**
+ * Kalimat hitung hari saat kewajiban jatuh tempo persis hari ini. Diekspor
+ * sebagai konstanta (bukan literal yang disalin) supaya mesin pengingat jatuh
+ * tempo bisa mengenali keadaan "hari ini" tanpa menebak dari angka.
+ */
+export const HITUNG_HARI_INI = "Jatuh tempo hari ini";
+
 /** Nada warna untuk UI — dipetakan ke kelas Tailwind oleh komponennya. */
 export type NadaJatuhTempo =
   /** Belum ada pendanaan: tidak ada tanggal yang bisa diperiksa. */
@@ -186,7 +193,7 @@ export function ringkasJatuhTempo(
       ada: true,
       tanggal: jatuhTempoPada,
       teks,
-      hitung: "Jatuh tempo hari ini",
+      hitung: HITUNG_HARI_INI,
       nada: "segera",
       mencolok: true,
       aksesibilitas: `Jatuh tempo ${teks} — hari ini.`,

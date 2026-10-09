@@ -31,6 +31,10 @@ import {
   TampilanJatuhTempo,
   TampilanJatuhTempoRingkas,
 } from "@/components/penyediaDana/BadgeKepercayaan";
+import {
+  PengingatJatuhTempoPendana,
+  type BarisPengingatPendana,
+} from "@/components/PaymentDueAlert";
 import { CatatanPotonganAdmin } from "@/components/penyediaDana/CatatanPotonganAdmin";
 import { DanaTersalurkanPendana } from "@/components/penyediaDana/DanaTersalurkanPendana";
 import { GrafikKeuntunganPendana } from "@/components/penyediaDana/GrafikKeuntunganPendana";
@@ -1667,6 +1671,38 @@ function IsiRuang() {
       }));
   }
 
+  /**
+   * Pinjaman BERJALAN milik penyedia dana yang sedang membuka ruang ini — dasar
+   * indikator jatuh tempo pribadi.
+   *
+   * Hanya peran `dana` yang punya "pinjaman sendiri": sesi kode akses bersama
+   * (`pengamat`) memang bukan pemilik alokasi, dan Super Admin memantau semua
+   * pinjaman lewat tabel — bukan lewat pengingat pribadi. Saringan statusnya
+   * SAMA dengan kartu pendana (`status === "didanai"`), jadi jumlahnya tidak
+   * pernah berbeda dari bagian "Belum lunas (perkiraan)" di kartu.
+   *
+   * Angka jatuh tempo memakai `ringkasJatuhTempo` — modul yang sama dengan
+   * tabel ruang ini, sehingga lencana di sini tidak mungkin berbeda dari kolom
+   * "Jatuh tempo" di bawahnya.
+   */
+  const jatuhTempoSaya: BarisPengingatPendana[] =
+    role === "dana" && kunciSendiri !== ""
+      ? (data?.pinjaman ?? [])
+          .filter((b) => b.status === "didanai" && kunciNama(b.pendana) === kunciSendiri)
+          .map((b) => {
+            const tampilan = ringkasJatuhTempo(b, sekarang);
+            return {
+              id: b._id,
+              nomorReferensi: b.nomorReferensi,
+              pokokPinjaman: b.pokokPinjaman,
+              status: b.status,
+              jatuhTempoPada: tampilan.tanggal,
+              hitung: tampilan.hitung,
+              nada: tampilan.nada,
+            };
+          })
+      : [];
+
   return (
     <div className="flex min-h-screen flex-col overflow-x-clip bg-slate-50 text-slate-900">
       {/*
@@ -1799,6 +1835,12 @@ function IsiRuang() {
                 />
               </div>
             </section>
+
+            {/* Pengingat jatuh tempo pribadi penyedia dana — sebelum penjelasan
+                kebijakan dan angka keuntungan, karena waktu yang mendesak harus
+                terbaca lebih dahulu. Tidak tampil saat tidak ada pinjaman
+                berjalan atas nama pembaca. */}
+            <PengingatJatuhTempoPendana rows={jatuhTempoSaya} sekarang={sekarang} />
 
             <CatatanPotonganAdmin persen={data.ringkasan.persenPotonganAdmin} />
 
