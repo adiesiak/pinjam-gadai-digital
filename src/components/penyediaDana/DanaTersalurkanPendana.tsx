@@ -32,11 +32,11 @@ export function DanaTersalurkanPendana({
   return (
     <section
       aria-label="Total dana tersalurkan per penyedia dana"
-      className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
+      className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5"
     >
-      <div className="flex flex-wrap items-baseline justify-between gap-2">
+      <div className="flex flex-wrap items-baseline justify-between gap-2 border-b border-slate-100 pb-3">
         <h3 className="text-sm font-semibold text-navy">Dana tersalurkan per penyedia dana</h3>
-        <p className="text-xs font-semibold tabular-nums text-slate-900">
+        <p className="text-sm font-semibold tabular-nums text-navy">
           Total {formatRupiah(total)}
         </p>
       </div>
@@ -48,13 +48,13 @@ export function DanaTersalurkanPendana({
               <span className="min-w-0 truncate text-xs font-semibold uppercase text-slate-900">
                 {tampil(b.nama)}
               </span>
-              <span className="shrink-0 text-xs font-semibold tabular-nums text-slate-900">
+              <span className="shrink-0 text-sm font-semibold tabular-nums text-navy">
                 {formatRupiah(b.nilai)}
               </span>
             </div>
             <div
               aria-hidden
-              className="mt-1.5 h-2.5 w-full overflow-hidden rounded-full bg-slate-100"
+              className="mt-1.5 h-3 w-full overflow-hidden rounded-full bg-slate-100 ring-1 ring-slate-200/70 ring-inset"
             >
               <span
                 className="block h-full rounded-full bg-primary"

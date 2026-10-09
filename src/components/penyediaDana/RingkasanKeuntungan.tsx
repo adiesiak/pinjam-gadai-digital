@@ -34,28 +34,35 @@ function KartuAngka({
   const gaya = {
     emerald: {
       kotak: "border-emerald-200 bg-emerald-50/60",
+      garis: "bg-emerald-500",
       judul: "text-emerald-800",
       angka: "text-emerald-800",
     },
     amber: {
       kotak: "border-amber-200 bg-amber-50/60",
+      garis: "bg-amber-500",
       judul: "text-amber-800",
       angka: "text-amber-700",
     },
     slate: {
       kotak: "border-slate-200 bg-white",
+      garis: "bg-navy",
       judul: "text-slate-500",
-      angka: "text-slate-900",
+      angka: "text-navy",
     },
   }[warna];
 
   return (
-    <div className={`rounded-xl border px-3 py-2 ${gaya.kotak}`}>
-      <p className={`text-[10px] font-semibold uppercase tracking-[0.14em] ${gaya.judul}`}>
+    <div className={`relative overflow-hidden rounded-2xl border px-4 py-3 ${gaya.kotak}`}>
+      {/* Garis warna di tepi kiri: penanda blok yang terbaca sebelum angkanya. */}
+      <span aria-hidden className={`absolute inset-y-0 left-0 w-1 ${gaya.garis}`} />
+      <p className={`text-[10px] font-semibold uppercase tracking-[0.16em] ${gaya.judul}`}>
         {judul}
       </p>
-      <p className={`mt-1 text-base font-semibold tabular-nums ${gaya.angka}`}>{nilai}</p>
-      <p className="text-[10px] leading-4 text-muted-foreground">{catatan}</p>
+      <p className={`mt-1.5 text-xl font-semibold tabular-nums leading-tight ${gaya.angka}`}>
+        {nilai}
+      </p>
+      <p className="mt-0.5 text-[10px] leading-4 text-muted-foreground">{catatan}</p>
     </div>
   );
 }
@@ -81,7 +88,7 @@ export function RingkasanKeuntungan({
   return (
     <section aria-label="Ringkasan keuntungan penyedia dana" className="animate-masuk mt-3">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h2 className="text-lg font-semibold tracking-tight">Ringkasan keuntungan</h2>
+        <h2 className="text-lg font-semibold tracking-tight text-navy">Ringkasan keuntungan</h2>
         <p className="text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
           Seluruh penyedia dana
         </p>

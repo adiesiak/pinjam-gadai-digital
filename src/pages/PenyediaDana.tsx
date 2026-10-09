@@ -1,6 +1,7 @@
 import { useMutation, useQuery } from "convex/react";
 import {
   BadgeCheck,
+  Coins,
   Eye,
   ExternalLink,
   FileText,
@@ -8,6 +9,7 @@ import {
   Loader2,
   Lock,
   HandCoins,
+  Inbox,
   MapPin,
   Package,
   Pencil,
@@ -273,6 +275,13 @@ function BadgePseudonim({ kode }: { kode: string | null }) {
   );
 }
 
+/**
+ * Satu angka pokok pada panel judul.
+ *
+ * Sengaja tanpa bingkai sendiri: keempatnya duduk di atas satu bidang navy,
+ * dipisah garis rambut panel — jadi terbaca sebagai satu baris angka milik
+ * ruang ini, bukan empat kartu yang saling bersaing.
+ */
 function KartuRingkasan({
   label,
   nilai,
@@ -285,23 +294,58 @@ function KartuRingkasan({
   icon: React.ReactNode;
 }) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-      <div className="flex items-center gap-2 text-muted-foreground">
-        <span className="flex size-8 items-center justify-center rounded-xl bg-primary/10 text-primary">
+    <div className="min-w-0">
+      <div className="flex items-center gap-2">
+        <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-white/10 text-white">
           {icon}
         </span>
-        <p className="text-[11px] font-semibold uppercase tracking-[0.14em]">{label}</p>
+        <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-gold">{label}</p>
       </div>
-      <p className="mt-3 text-lg font-semibold tabular-nums">{nilai}</p>
-      <p className="mt-0.5 text-xs text-muted-foreground">{detail}</p>
+      <p className="mt-2.5 text-2xl font-semibold tabular-nums leading-tight text-white">{nilai}</p>
+      <p className="mt-1 text-xs leading-5 text-white/60">{detail}</p>
     </div>
   );
 }
 
+/**
+ * Keadaan kosong satu daftar.
+ *
+ * Diberi penanda visual (kotak ikon) dan bidang putus-putus yang lebih terang
+ * daripada kotak data, supaya "tidak ada baris" tidak pernah terbaca seperti
+ * tabel yang gagal termuat. Kalimatnya tetap datang dari pemanggil.
+ */
 function KeadaanKosong({ pesan }: { pesan: string }) {
   return (
-    <p className="rounded-2xl border border-dashed border-slate-200 bg-white px-5 py-10 text-center text-sm text-muted-foreground">
-      {pesan}
+    <div className="rounded-2xl border border-dashed border-slate-300 bg-white/70 px-6 py-12 text-center">
+      <span className="mx-auto flex size-11 items-center justify-center rounded-2xl bg-slate-100 text-slate-400">
+        <Inbox className="size-5" aria-hidden />
+      </span>
+      <p className="mx-auto mt-3 max-w-md text-sm leading-6 text-muted-foreground">{pesan}</p>
+    </div>
+  );
+}
+
+/**
+ * Catatan kebijakan satu tab.
+ *
+ * Sebelumnya kotak penuh berwarna muda; sekarang hanya garis warna di tepi kiri
+ * supaya peringatan tetap menonjol tanpa bersaing dengan angka di tabel.
+ */
+function CatatanTab({
+  nada,
+  children,
+}: {
+  nada: "amber" | "emerald" | "red";
+  children: React.ReactNode;
+}) {
+  const gaya = {
+    amber: "border-amber-400 bg-amber-50/70 text-amber-900",
+    emerald: "border-emerald-500 bg-emerald-50/60 text-emerald-900",
+    red: "border-red-400 bg-red-50/60 text-red-900",
+  }[nada];
+  return (
+    <p className={`mb-4 rounded-r-2xl border-l-4 px-4 py-3 text-xs leading-6 ${gaya}`}>
+      {children}
     </p>
   );
 }
@@ -337,21 +381,27 @@ function CatatanTerpotong({ terpotong, batas }: { terpotong: boolean; batas: num
  */
 function Tabel({ head, children }: { head: string[]; children: React.ReactNode }) {
   return (
-    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white [&>[data-slot=table-container]]:overflow-x-clip">
+    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm [&>[data-slot=table-container]]:overflow-x-clip">
       <Table className="w-full [&_th]:whitespace-normal [&_td]:whitespace-normal [&_td]:break-words">
         <TableHeader>
-          <TableRow className="bg-slate-50/80">
+          {/* Judul kolom diberi garis kuningan di bawahnya: batas antara kepala
+              dan isi tabel jadi terbaca sekali pandang. */}
+          <TableRow className="border-b-2 border-gold/40 bg-slate-100/70 hover:bg-slate-100/70">
             {head.map((judul) => (
               <TableHead
                 key={judul}
-                className="align-bottom text-[11px] font-semibold uppercase tracking-[0.1em] text-slate-500"
+                className="h-11 align-bottom text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500"
               >
                 {judul}
               </TableHead>
             ))}
           </TableRow>
         </TableHeader>
-        <TableBody>{children}</TableBody>
+        {/* Baris zebra + sorot saat disorot: tabel berkolom banyak jauh lebih
+            mudah diikuti mata ketika barisnya punya irama. */}
+        <TableBody className="[&_tr:nth-child(even)]:bg-slate-50/60 [&_tr:hover]:bg-sky-50/60 [&_tr]:transition-colors">
+          {children}
+        </TableBody>
       </Table>
     </div>
   );
@@ -1624,14 +1674,21 @@ function IsiRuang() {
 
   return (
     <div className="flex min-h-screen flex-col overflow-x-clip bg-slate-50 text-slate-900">
-      <header className="animate-masuk border-b border-slate-200 bg-white/80 backdrop-blur">
+      {/*
+       * Bilah atas: tetap menempel saat menggulir karena ruang ini panjang, dan
+       * diberi garis kuningan tipis di puncaknya sebagai penanda identitas
+       * PINDAI — bahasa warna "tinta & kuningan" yang sudah dipakai aplikasi.
+       */}
+      <header className="animate-masuk sticky top-0 z-40 border-t-2 border-gold bg-white/90 backdrop-blur">
         <div className="mx-auto flex h-14 w-full max-w-6xl items-center justify-between gap-3 px-4 sm:px-6">
           <Link to="/dashboard" className="flex shrink-0 items-center gap-2.5">
             <VaultLogo size={32} className="size-8 shrink-0" />
-            <span className="hidden text-sm font-semibold tracking-[0.14em] sm:block">PINDAI</span>
+            <span className="hidden text-sm font-semibold tracking-[0.18em] text-navy sm:block">
+              PINDAI
+            </span>
           </Link>
           <div className="flex items-center gap-2">
-            <span className="hidden items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[10px] font-medium uppercase tracking-[0.16em] text-muted-foreground sm:inline-flex">
+            <span className="hidden items-center gap-1.5 rounded-full border border-navy/15 bg-navy/5 px-3 py-1 text-[10px] font-medium uppercase tracking-[0.16em] text-navy sm:inline-flex">
               <Eye className="size-3" />
               {role === "pengamat"
                 ? "Pemantau akun bersama · lihat saja"
@@ -1653,69 +1710,96 @@ function IsiRuang() {
           </p>
         ) : (
           <>
-            <section className="animate-masuk rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7">
-              <div className="flex flex-wrap items-center gap-2">
-                <Badge className="border-0 bg-primary/10 text-accent-foreground">
-                  <Eye className="mr-1 size-3" />{" "}
+            {/*
+             * Panel judul "tinta": satu bidang navy berisi identitas ruang,
+             * empat angka pokok, dan keterangan cara membacanya. Sebelumnya
+             * semua itu berupa kartu putih terpisah di atas latar putih, sehingga
+             * tidak ada tempat pertama yang benar-benar menangkap mata dan
+             * keterangan panjang mendorong tabel jauh ke bawah layar.
+             */}
+            <section className="animate-masuk relative overflow-hidden rounded-3xl bg-navy px-5 py-6 text-white shadow-sm sm:px-8 sm:py-8">
+              <span aria-hidden className="absolute inset-x-0 top-0 h-1 bg-gold/70" />
+              <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-gold">
+                Ruang penyedia dana
+              </p>
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-white/20 bg-white/10 px-3 py-1 text-[10px] font-medium uppercase tracking-[0.14em] text-white">
+                  <Eye className="size-3" aria-hidden />{" "}
                   {role === "admin" ? "Akses Super Admin · dapat mengoreksi" : "Akses lihat saja"}
-                </Badge>
-                <Badge variant="outline" className="border-slate-200 text-muted-foreground">
+                </span>
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 px-3 py-1 text-[10px] font-medium uppercase tracking-[0.14em] text-white/70">
                   {bolehBerkas
                     ? "Berkas & lokasi terakhir ditampilkan"
                     : "Angka pengajuan & lokasi · berkas khusus akun email"}
-                </Badge>
+                </span>
                 {samar && (
-                  <Badge className="border-0 bg-amber-100 text-amber-900 hover:bg-amber-100">
-                    <Lock className="mr-1 size-3" /> Nama orang disamarkan
-                  </Badge>
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-gold/50 bg-gold/20 px-3 py-1 text-[10px] font-medium uppercase tracking-[0.14em] text-white">
+                    <Lock className="size-3" aria-hidden /> Nama orang disamarkan
+                  </span>
                 )}
               </div>
-              <h1 className="mt-3 text-2xl font-semibold tracking-tight sm:text-3xl">
+              <h1 className="mt-4 text-3xl font-semibold tracking-tight text-white sm:text-4xl">
                 Pengajuan Peminjam
               </h1>
-              <p className="mt-3 max-w-3xl text-sm leading-7 text-muted-foreground">
-                Catatan internal PINDAI untuk pinjaman tunai, gadai, dan kredit barang. Tidak ada
-                tindakan alokasi maupun pencairan dari ruang ini
-                {role === "admin"
-                  ? "; sebagai Super Admin Anda dapat mengoreksi data pinjaman (termasuk menetapkan pendananya) lewat tombol Ubah — setiap perubahan tercatat di audit trail, dan catatan koreksinya boleh dikosongkan."
-                  : ": Anda hanya dapat membaca catatan ini."}{" "}
-                Tombol <strong>Detail</strong> membuka titik lokasi terakhir peminjam
-                {bolehBerkas
-                  ? ", berkas pengajuan (KTP, selfie, slip, foto barang, tanda tangan),"
-                  : " — berkas identitas pemohon hanya dibuka untuk akun penyedia dana beremail, bukan untuk sesi kode akses bersama."}{" "}
-                NIK, nomor rekening, nomor WhatsApp, dan alamat tidak dikirim sebagai kolom terpisah
-                {bolehBerkas ? " — NIK tetap terbaca pada gambar KTP yang Anda buka." : "."}{" "}
-                {samar &&
-                  "Nama orang — peminjam maupun penyedia dana — disamarkan di layar ini; kode pseudonim peminjam dan nomor referensi tetap utuh sebagai penanda. Nama Anda sendiri tetap terbaca."}
+              <p className="mt-3 max-w-2xl text-sm leading-7 text-white/70">
+                Satu layar untuk memantau pengajuan dan posisi dana — pinjaman tunai, gadai, dan
+                kredit barang — beserta siapa pendananya.
               </p>
-            </section>
 
-            <div className="animate-masuk mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              <KartuRingkasan
-                label="Pinjaman tunai"
-                nilai={rupiah(data.ringkasan.nilaiPinjaman)}
-                detail={`${data.ringkasan.jumlahPinjaman} pengajuan · pokok tercatat, semua status`}
-                icon={<Wallet className="size-4" />}
-              />
-              <KartuRingkasan
-                label="Gadai barang"
-                nilai={rupiah(data.ringkasan.nilaiGadai)}
-                detail={`${data.ringkasan.jumlahGadai} pengajuan · nilai taksiran tercatat`}
-                icon={<Package className="size-4" />}
-              />
-              <KartuRingkasan
-                label="Kredit barang"
-                nilai={rupiah(data.ringkasan.nilaiKredit)}
-                detail={`${data.ringkasan.jumlahKredit} pengajuan · harga barang`}
-                icon={<ShoppingBag className="size-4" />}
-              />
-              <KartuRingkasan
-                label="Menunggu review"
-                nilai={String(data.ringkasan.menungguReview)}
-                detail="status Ditinjau"
-                icon={<Timer className="size-4" />}
-              />
-            </div>
+              {/* Keterangan panjang dipindah ke lipatan: tetap bisa dibaca siapa
+                  pun yang membutuhkannya, tetapi tidak lagi menjadi dinding teks
+                  yang harus dilewati setiap kali membuka halaman. */}
+              <details className="mt-4 max-w-3xl rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-xs leading-6 text-white/70">
+                <summary className="cursor-pointer text-[10px] font-semibold uppercase tracking-[0.16em] text-gold">
+                  Cara membaca ruang ini
+                </summary>
+                <p className="mt-2">
+                  Catatan internal PINDAI untuk pinjaman tunai, gadai, dan kredit barang. Tidak ada
+                  tindakan alokasi maupun pencairan dari ruang ini
+                  {role === "admin"
+                    ? "; sebagai Super Admin Anda dapat mengoreksi data pinjaman (termasuk menetapkan pendananya) lewat tombol Ubah — setiap perubahan tercatat di audit trail, dan catatan koreksinya boleh dikosongkan."
+                    : ": Anda hanya dapat membaca catatan ini."}{" "}
+                  Tombol <strong>Detail</strong> membuka titik lokasi terakhir peminjam
+                  {bolehBerkas
+                    ? ", berkas pengajuan (KTP, selfie, slip, foto barang, tanda tangan),"
+                    : " — berkas identitas pemohon hanya dibuka untuk akun penyedia dana beremail, bukan untuk sesi kode akses bersama."}{" "}
+                  NIK, nomor rekening, nomor WhatsApp, dan alamat tidak dikirim sebagai kolom terpisah
+                  {bolehBerkas ? " — NIK tetap terbaca pada gambar KTP yang Anda buka." : "."}{" "}
+                  {samar &&
+                    "Nama orang — peminjam maupun penyedia dana — disamarkan di layar ini; kode pseudonim peminjam dan nomor referensi tetap utuh sebagai penanda. Nama Anda sendiri tetap terbaca."}
+                </p>
+              </details>
+
+              {/* Angka pokok ruang ini diletakkan di dalam panel judul supaya
+                  tidak perlu digulir, dan dipisah garis rambut tipis agar tetap
+                  terbaca sebagai empat angka yang setara. */}
+              <div className="mt-6 grid gap-x-6 gap-y-5 border-t border-white/10 pt-5 sm:grid-cols-2 lg:grid-cols-4">
+                <KartuRingkasan
+                  label="Pinjaman tunai"
+                  nilai={rupiah(data.ringkasan.nilaiPinjaman)}
+                  detail={`${data.ringkasan.jumlahPinjaman} pengajuan · pokok tercatat, semua status`}
+                  icon={<Wallet className="size-4" />}
+                />
+                <KartuRingkasan
+                  label="Gadai barang"
+                  nilai={rupiah(data.ringkasan.nilaiGadai)}
+                  detail={`${data.ringkasan.jumlahGadai} pengajuan · nilai taksiran tercatat`}
+                  icon={<Package className="size-4" />}
+                />
+                <KartuRingkasan
+                  label="Kredit barang"
+                  nilai={rupiah(data.ringkasan.nilaiKredit)}
+                  detail={`${data.ringkasan.jumlahKredit} pengajuan · harga barang`}
+                  icon={<ShoppingBag className="size-4" />}
+                />
+                <KartuRingkasan
+                  label="Menunggu review"
+                  nilai={String(data.ringkasan.menungguReview)}
+                  detail="status Ditinjau"
+                  icon={<Timer className="size-4" />}
+                />
+              </div>
+            </section>
 
             <CatatanPotonganAdmin persen={data.ringkasan.persenPotonganAdmin} />
 
@@ -1726,9 +1810,9 @@ function IsiRuang() {
 
             {data.rekapPendana.length > 0 && (
               <section className="animate-masuk mt-6">
-                <div className="flex flex-wrap items-baseline justify-between gap-2">
-                  <h2 className="text-lg font-semibold tracking-tight">
-                    Rekap Dana Penyedia
+                <div className="flex flex-wrap items-baseline justify-between gap-2 border-b border-slate-200 pb-3">
+                  <h2 className="flex items-center gap-2 text-lg font-semibold tracking-tight text-navy">
+                    <Coins className="size-4 text-gold" aria-hidden /> Rekap Dana Penyedia
                   </h2>
                   <p className="max-w-md text-xs leading-5 text-muted-foreground">
                     Model <strong>1 pinjaman = 1 pendana</strong> · bunga{" "}
@@ -1772,69 +1856,69 @@ function IsiRuang() {
             <Tabs value={tab} onValueChange={setTab} className="animate-masuk mt-6">
               <TabsList
                 aria-label="Kategori pengajuan"
-                className="h-auto w-full flex-wrap justify-start gap-1 rounded-2xl border border-slate-200 bg-white p-1.5"
+                className="sticky top-14 z-30 h-auto w-full flex-wrap justify-start gap-1 rounded-2xl border border-slate-200 bg-white p-1.5 shadow-sm"
               >
                 <TabsTrigger
                   value="belum"
-                  className="group h-9 flex-none gap-2 rounded-xl px-3 text-xs font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+                  className="group h-9 flex-none gap-2 rounded-xl px-3 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-100 data-[state=active]:bg-navy data-[state=active]:text-white data-[state=active]:shadow-sm"
                 >
                   <Timer className="size-3.5" /> Ditinjau
-                  <span className="tabular-nums text-muted-foreground group-data-[state=active]:text-primary-foreground">
+                  <span className="rounded-full bg-slate-100 px-1.5 text-[10px] font-semibold tabular-nums text-slate-500 group-data-[state=active]:bg-white/15 group-data-[state=active]:text-white">
                     {pinjamanBaru.length}
                   </span>
                 </TabsTrigger>
                 <TabsTrigger
                   value="didanai"
-                  className="group h-9 flex-none gap-2 rounded-xl px-3 text-xs font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+                  className="group h-9 flex-none gap-2 rounded-xl px-3 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-100 data-[state=active]:bg-navy data-[state=active]:text-white data-[state=active]:shadow-sm"
                 >
                   <HandCoins className="size-3.5" /> Disalurkan
-                  <span className="tabular-nums text-muted-foreground group-data-[state=active]:text-primary-foreground">
+                  <span className="rounded-full bg-slate-100 px-1.5 text-[10px] font-semibold tabular-nums text-slate-500 group-data-[state=active]:bg-white/15 group-data-[state=active]:text-white">
                     {pinjamanDidanai.length}
                   </span>
                 </TabsTrigger>
                 <TabsTrigger
                   value="lunas"
-                  className="group h-9 flex-none gap-2 rounded-xl px-3 text-xs font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+                  className="group h-9 flex-none gap-2 rounded-xl px-3 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-100 data-[state=active]:bg-navy data-[state=active]:text-white data-[state=active]:shadow-sm"
                 >
                   <BadgeCheck className="size-3.5" /> Lunas
-                  <span className="tabular-nums text-muted-foreground group-data-[state=active]:text-primary-foreground">
+                  <span className="rounded-full bg-slate-100 px-1.5 text-[10px] font-semibold tabular-nums text-slate-500 group-data-[state=active]:bg-white/15 group-data-[state=active]:text-white">
                     {pinjamanLunas.length}
                   </span>
                 </TabsTrigger>
                 <TabsTrigger
                   value="ditolak"
-                  className="group h-9 flex-none gap-2 rounded-xl px-3 text-xs font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+                  className="group h-9 flex-none gap-2 rounded-xl px-3 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-100 data-[state=active]:bg-navy data-[state=active]:text-white data-[state=active]:shadow-sm"
                 >
                   <XCircle className="size-3.5" /> Ditolak
-                  <span className="tabular-nums text-muted-foreground group-data-[state=active]:text-primary-foreground">
+                  <span className="rounded-full bg-slate-100 px-1.5 text-[10px] font-semibold tabular-nums text-slate-500 group-data-[state=active]:bg-white/15 group-data-[state=active]:text-white">
                     {pinjamanDitolak.length}
                   </span>
                 </TabsTrigger>
                 <TabsTrigger
                   value="gadai"
-                  className="group h-9 flex-none gap-2 rounded-xl px-3 text-xs font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+                  className="group h-9 flex-none gap-2 rounded-xl px-3 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-100 data-[state=active]:bg-navy data-[state=active]:text-white data-[state=active]:shadow-sm"
                 >
                   <Package className="size-3.5" /> Gadai
-                  <span className="tabular-nums text-muted-foreground group-data-[state=active]:text-primary-foreground">
+                  <span className="rounded-full bg-slate-100 px-1.5 text-[10px] font-semibold tabular-nums text-slate-500 group-data-[state=active]:bg-white/15 group-data-[state=active]:text-white">
                     {data.ringkasan.jumlahGadai}
                   </span>
                 </TabsTrigger>
                 <TabsTrigger
                   value="kredit"
-                  className="group h-9 flex-none gap-2 rounded-xl px-3 text-xs font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+                  className="group h-9 flex-none gap-2 rounded-xl px-3 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-100 data-[state=active]:bg-navy data-[state=active]:text-white data-[state=active]:shadow-sm"
                 >
                   <ShoppingBag className="size-3.5" /> Kredit Barang
-                  <span className="tabular-nums text-muted-foreground group-data-[state=active]:text-primary-foreground">
+                  <span className="rounded-full bg-slate-100 px-1.5 text-[10px] font-semibold tabular-nums text-slate-500 group-data-[state=active]:bg-white/15 group-data-[state=active]:text-white">
                     {data.ringkasan.jumlahKredit}
                   </span>
                 </TabsTrigger>
                 <TabsTrigger
                   value="lokasi"
-                  className="group h-9 flex-none gap-2 rounded-xl px-3 text-xs font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+                  className="group h-9 flex-none gap-2 rounded-xl px-3 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-100 data-[state=active]:bg-navy data-[state=active]:text-white data-[state=active]:shadow-sm"
                 >
                   <MapPin className="size-3.5" /> Lokasi live
                   {titik !== undefined && (
-                    <span className="tabular-nums text-muted-foreground group-data-[state=active]:text-primary-foreground">
+                    <span className="rounded-full bg-slate-100 px-1.5 text-[10px] font-semibold tabular-nums text-slate-500 group-data-[state=active]:bg-white/15 group-data-[state=active]:text-white">
                       {titik.jumlahTitik}
                     </span>
                   )}
@@ -1868,10 +1952,10 @@ function IsiRuang() {
                   />
                 ) : (
                   <>
-                    <p className="mb-3 rounded-2xl border border-amber-200 bg-amber-50/70 px-4 py-3 text-xs leading-6 text-amber-900">
+                    <CatatanTab nada="amber">
                       Pinjaman pada tab ini <strong>belum didanai</strong> — dana belum dialokasikan.
                       Alokasi pendanaan dilakukan dari panel admin.
-                    </p>
+                    </CatatanTab>
                     <DaftarPinjaman
                       namaTampil={tampilNama}
                       rows={tampilBaru}
@@ -1897,11 +1981,11 @@ function IsiRuang() {
                   />
                 ) : (
                   <>
-                    <p className="mb-3 rounded-2xl border border-emerald-200 bg-emerald-50/70 px-4 py-3 text-xs leading-6 text-emerald-900">
+                    <CatatanTab nada="emerald">
                       Pinjaman pada tab ini <strong>sudah didanai</strong> dan masih berjalan. Angka
                       keuntungan di bawah adalah perhitungan atas kewajiban berjalan, bukan bukti
                       mutasi.
-                    </p>
+                    </CatatanTab>
                     <DaftarPinjaman
                       namaTampil={tampilNama}
                       rows={tampilDidanai}
@@ -1927,13 +2011,13 @@ function IsiRuang() {
                   />
                 ) : (
                   <>
-                    <p className="mb-3 rounded-2xl border border-emerald-200 bg-emerald-50/70 px-4 py-3 text-xs leading-6 text-emerald-900">
+                    <CatatanTab nada="emerald">
                       Pinjaman pada tab ini sudah berstatus <strong>lunas</strong> pada ledger
                       internal. Angka keuntungan pendana dan potongan admin di bawah adalah hasil
                       perhitungan atas kewajiban yang sudah terbayar penuh — potongan diambil dari
                       uang yang kembali (pokok + Imbal Hasil), bukan dari Imbal Hasil saja — bukan
                       bukti mutasi.
-                    </p>
+                    </CatatanTab>
                     <DaftarPinjaman
                       namaTampil={tampilNama}
                       rows={tampilLunas}
@@ -1959,11 +2043,11 @@ function IsiRuang() {
                   />
                 ) : (
                   <>
-                    <p className="mb-3 rounded-2xl border border-red-200 bg-red-50/70 px-4 py-3 text-xs leading-6 text-red-900">
+                    <CatatanTab nada="red">
                       Pinjaman pada tab ini berstatus <strong>ditolak internal</strong> — tidak
                       dilanjutkan dalam alur aplikasi dan tidak memerlukan alokasi dana. Tetap
                       ditampilkan sebagai catatan riwayat.
-                    </p>
+                    </CatatanTab>
                     <DaftarPinjaman
                       namaTampil={tampilNama}
                       rows={tampilDitolak}
@@ -2268,12 +2352,6 @@ function IsiRuang() {
               </TabsContent>
             </Tabs>
 
-            <p className="mt-6 rounded-2xl border border-slate-200 bg-white px-5 py-4 text-xs leading-6 text-muted-foreground">
-              Angka di ruang ini adalah catatan internal PINDAI dan bukan bukti transaksi, jaminan
-              pencairan, maupun penawaran. Status mengikuti pencatatan ledger internal. Jaminan
-              asuransi 14 hari kerja pada potongan admin adalah komitmen layanan PINDAI — berlaku
-              terpisah dari angka yang ditampilkan di layar ini.
-            </p>
           </>
         )}
       </main>
@@ -2312,12 +2390,31 @@ function IsiRuang() {
         <DialogUbahPinjaman row={ubah} onClose={() => setUbah(null)} />
       )}
 
-      <footer className="border-t border-slate-200 bg-white">
-        <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-2 px-4 py-5 text-xs text-muted-foreground sm:px-6">
-          <span>PINDAI · ruang penyedia dana (lihat saja)</span>
-          <Link to="/dashboard" className="hover:text-slate-900">
-            Dashboard Peminjam
-          </Link>
+      {/*
+       * Kaki bergaya "tinta": peringatan bahwa angka di ruang ini adalah catatan
+       * internal ikut di sini, bukan lagi sebagai kotak putih yang menyela daftar.
+       * Dengan begitu bagian paling bawah halaman menjadi penutup yang jelas:
+       * apa ruang ini, dan apa batasnya.
+       */}
+      <footer className="mt-8 bg-navy text-white/70">
+        <div className="mx-auto w-full max-w-6xl px-4 py-7 sm:px-6">
+          <p className="max-w-3xl text-[11px] leading-6">
+            Angka di ruang ini adalah catatan internal PINDAI dan bukan bukti transaksi, jaminan
+            pencairan, maupun penawaran. Status mengikuti pencatatan ledger internal. Jaminan
+            asuransi 14 hari kerja pada potongan admin adalah komitmen layanan PINDAI — berlaku
+            terpisah dari angka yang ditampilkan di layar ini.
+          </p>
+          <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-4">
+            <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-gold">
+              PINDAI · ruang penyedia dana (lihat saja)
+            </span>
+            <Link
+              to="/dashboard"
+              className="text-xs font-medium text-white/80 transition-colors hover:text-white"
+            >
+              Dashboard Peminjam
+            </Link>
+          </div>
         </div>
       </footer>
     </div>

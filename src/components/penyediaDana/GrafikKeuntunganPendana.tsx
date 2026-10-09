@@ -32,7 +32,7 @@ export function GrafikKeuntunganPendana({
   return (
     <section
       aria-label="Grafik keuntungan per penyedia dana"
-      className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
+      className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5"
     >
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h3 className="text-sm font-semibold text-navy">Keuntungan per penyedia dana</h3>

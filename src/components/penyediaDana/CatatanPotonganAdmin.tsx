@@ -20,8 +20,8 @@ export function CatatanPotonganAdmin({ persen }: { persen: number }) {
     "Asuransi — jaminan pokok pinjaman maupun Imbal Hasilnya cair ke penyedia dana dalam 14 hari kerja.",
   ];
   return (
-    <section className="animate-masuk mt-3 max-w-3xl rounded-2xl border border-slate-200 bg-white px-5 py-4">
-      <p className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-900">
+    <section className="animate-masuk mt-3 max-w-3xl rounded-2xl border border-slate-200 border-l-4 border-l-gold bg-white px-5 py-4 shadow-sm">
+      <p className="inline-flex items-center gap-2 text-xs font-semibold text-navy">
         <ShieldCheck className="size-3.5 shrink-0 text-primary" aria-hidden />
         Potongan admin {persen}% bukan sekadar biaya — keperluan inilah yang dibiayai
       </p>
