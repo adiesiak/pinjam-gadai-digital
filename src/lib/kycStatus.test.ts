@@ -11,6 +11,7 @@ import {
   bolehTransisi,
   keputusanWajibAlasan,
   kekuranganKyc,
+  keteranganNomorWa,
   KETERANGAN_STATUS_KYC,
   KYC_STATUS,
   LABEL_STATUS_KYC,
@@ -157,6 +158,19 @@ ok(ringkasStatusKyc("NOT_STARTED").includes("belum dimulai"), "ringkasan belum d
 for (const s of KYC_STATUS as readonly StatusKyc[]) {
   ok(ringkasStatusKyc(s).length > 5, `ringkasan ${s} terisi`);
 }
+
+// ===== 8. Hasil pemeriksaan nomor WhatsApp (OTP) =====
+// Kalimat satu tempat untuk nasabah & petugas: "terverifikasi" hanya menyatakan
+// nomor itu AKTIF, dan selalu ditegaskan bukan persetujuan pinjaman.
+ok(
+  keteranganNomorWa(true).includes("bukan persetujuan pinjaman"),
+  "kalimat nomor terverifikasi menegaskan batasnya",
+);
+ok(keteranganNomorWa(false).includes("belum dibuktikan"), "kalimat nomor belum diverifikasi");
+ok(
+  keteranganNomorWa(true) !== keteranganNomorWa(false),
+  "dua keadaan nomor tidak memakai kalimat yang sama",
+);
 
 console.log(`kycStatus.test: ${passed} lulus, ${failed} gagal`);
 if (failed > 0) process.exit(1);

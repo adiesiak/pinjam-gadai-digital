@@ -1,6 +1,5 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
 import {
-  action,
   internalMutation,
   internalQuery,
   mutation,
@@ -9,11 +8,10 @@ import {
   type QueryCtx,
 } from "./_generated/server";
 import { v } from "convex/values";
-import { api, internal } from "./_generated/api";
+import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { ROLES } from "./schema";
 import { generateTotpSecret, verifyTotpCode } from "../lib/totp";
-import { validasiGatewayUrl } from "../lib/waUrl";
 import {
   addVerifiedAuthSession,
   getAdminGateStatus,
@@ -25,7 +23,9 @@ import {
 /**
  * Proteksi otentikasi & login PINDAI:
  *  1. MFA/2FA TOTP untuk Super Admin (Google Authenticator/Authy).
- *  2. OTP WhatsApp untuk penyedia dana — login perangkat baru & transaksi finansial.
+ *  2. Saklar "OTP WhatsApp wajib" untuk transaksi penyedia dana. Mesin OTP-nya
+ *     (kode, HASH, pengiriman Fonnte, batas percobaan) ada di
+ *     `convex/otpWhatsapp.ts` — di sini hanya disimpan saklarnya.
  *  3. Rate limiting login (5x salah / 15 menit per IP) + blokir sementara.
  *  4. Sesi aktif tunggal — perangkat baru otomatis menggugurkan sesi lama.
  *  5. Log login append-only: status, IP, user-agent, timestamp.
@@ -35,7 +35,6 @@ import {
  * otorisasi). UA juga dikirim klien.
  */
 
-const WA_OTP_AGE_MS = 5 * 60 * 1000; // 5 menit
 const RATE_WINDOW_MS = 15 * 60 * 1000;
 const RATE_MAX_GAGAL = 5;
 const BLOCK_MS = 15 * 60 * 1000;
@@ -78,24 +77,6 @@ export function buatTokenPerangkat(): string {
   const bytes = new Uint8Array(32);
   crypto.getRandomValues(bytes);
   return keHexPerangkat(bytes);
-}
-
-/**
- * Kode OTP 6 digit dari sumber acak kriptografis — bukan `Math.random`.
- * Kode ini melindungi transaksi finansial & login perangkat baru, jadi PRNG
- * yang bisa diprediksi tidak boleh dipakai. Rejection sampling menghindari
- * bias modulo.
- */
-function kodeOtpEnamDigit(): string {
-  const batas = 1_000_000;
-  const maks = Math.floor(0x1_0000_0000 / batas) * batas;
-  const bytes = new Uint32Array(1);
-  let nilai = maks;
-  while (nilai >= maks) {
-    crypto.getRandomValues(bytes);
-    nilai = bytes[0];
-  }
-  return String(nilai % batas).padStart(6, "0");
 }
 
 /** Nama perangkat ringkas dari user agent. */
@@ -227,39 +208,6 @@ export const assertNotRateLimited = internalQuery({
       return { blocked: true, sisaDetik: Math.ceil(BLOCK_MS / 1000) };
     }
     return { blocked: false, sisaDetik: 0 };
-  },
-});
-
-/** Rekam satu percobaan login (append-only). */
-export const _recordAttempt = internalMutation({
-  args: {
-    identifier: v.string(),
-    ip: v.string(),
-    berhasil: v.boolean(),
-  },
-  handler: async (ctx, args) => {
-    await ctx.db.insert("loginAttempts", { ...args, waktu: Date.now() });
-  },
-});
-
-/** Rekam percobaan + lempar bila sedang diblokir — dipakai action OTP WA. */
-export const _guardLogin = internalMutation({
-  args: { identifier: v.string(), ip: v.string(), berhasil: v.boolean() },
-  handler: async (ctx, args) => {
-    const cek = await ctx.runQuery(internal.security.assertNotRateLimited, {
-      identifier: args.identifier,
-      ip: args.ip,
-    });
-    if (cek.blocked && !args.berhasil) {
-      throw new Error(
-        `Terlalu banyak percobaan. Coba lagi dalam ${Math.ceil(cek.sisaDetik / 60)} menit.`,
-      );
-    }
-    await ctx.runMutation(internal.security._recordAttempt, {
-      identifier: args.identifier,
-      ip: args.ip,
-      berhasil: args.berhasil,
-    });
   },
 });
 
@@ -940,10 +888,15 @@ export const revokeOtherSessions = mutation({
 });
 
 // =====================================================================
-// OTP WhatsApp — penyedia dana
+// OTP WhatsApp — saklar "wajib OTP" untuk penyedia dana
 // =====================================================================
+//
+// Mesin OTP-nya (membuat kode, menyimpan HASH, mengirim lewat Fonnte, membatasi
+// percobaan & kirim ulang) ada di `convex/otpWhatsapp.ts`. Modul ini hanya
+// menyimpan SAKLAR proteksinya (`waOtpWajib`) supaya transaksi penyedia dana
+// meminta kode sekali pakai dari mesin yang sama.
 
-/** Status OTP WA untuk penyedia dana. */
+/** Status saklar OTP WA untuk penyedia dana — tidak memuat kode apa pun. */
 export const myWaOtpStatus = query({
   args: {},
   handler: async (ctx) => {
@@ -954,230 +907,6 @@ export const myWaOtpStatus = query({
       aktif: mfa?.waOtpWajib === true,
       mfa: mfa?.totpSecret !== undefined,
     };
-  },
-});
-
-/** Mulai challenge OTP WA — kirim 6 digit via gateway WA (action). */
-export const requestWaOtp = action({
-  args: { tujuan: v.string(), ip: v.string(), userAgent: v.string(), alasan: v.string() },
-  handler: async (ctx, { tujuan, ip, alasan }) => {
-    const userId = await getAuthUserId(ctx);
-    if (userId === null) throw new Error("Harus masuk terlebih dahulu.");
-    const me: { role?: string } | null = await ctx.runQuery(api.users.currentRole, {});
-    if (me === null) throw new Error("Harus masuk terlebih dahulu.");
-    if (me.role !== ROLES.DANA && me.role !== ROLES.ADMIN) {
-      throw new Error("OTP WhatsApp khusus akun penyedia dana.");
-    }
-
-    // Rate limit: 5 gagal / 15 menit per IP & per nomor.
-    await ctx.runMutation(internal.security._guardLogin, {
-      identifier: tujuan,
-      ip,
-      berhasil: true, // permintaan kode bukan kegagalan; kegagalan dihitung saat verifikasi
-    });
-
-    const kode = kodeOtpEnamDigit();
-    const kedaluwarsa = Date.now() + WA_OTP_AGE_MS;
-    await ctx.runMutation(internal.security._setWaOtp, {
-      userId,
-      kode,
-      kedaluwarsa,
-    });
-
-    // Kirim via gateway WhatsApp (generik, sama seperti pengingat).
-    const settings = await ctx.runQuery(internal.whatsapp._getSettings, {});
-    let status = "gagal";
-    let respon = "";
-    // Fail-closed anti-SSRF: URL gateway divalidasi ulang sebelum fetch —
-    // konfigurasi lama yang tidak lolos aturan tidak boleh dihubungi.
-    const cekUrl =
-      settings.apiUrl === undefined ? null : validasiGatewayUrl(settings.apiUrl);
-    if (settings.aktif !== true || !settings.apiUrl) {
-      respon = "Integrasi WhatsApp belum aktif — kode hanya dicatat di log (mode uji).";
-      status = "dinonaktifkan";
-    } else if (cekUrl !== null && !cekUrl.ok) {
-      respon = `Endpoint gateway ditolak: ${cekUrl.alasan}`;
-    } else {
-      const apiKey = process.env.WHATSAPP_API_KEY ?? "";
-      if (!apiKey) {
-        respon = "WHATSAPP_API_KEY belum diisi di environment.";
-      } else {
-        const isi =
-          `Kode verifikasi PINDAI Anda: ${kode}\n` +
-          `Berlaku 5 menit. Jangan bagikan kode ini ke siapa pun.\n` +
-          `Alasan: ${alasan}.`;
-        try {
-          const header = settings.authHeader ?? "Authorization";
-          const prefix = settings.authPrefix ?? "";
-          const res = await fetch(settings.apiUrl, {
-            method: "POST",
-            // Tanpa mengikuti redirect: cegah redirect-based SSRF.
-            redirect: "error",
-            headers: {
-              "Content-Type": "application/json",
-              [header]: `${prefix}${apiKey}`,
-            },
-            body: JSON.stringify({
-              [settings.fieldNomor ?? "target"]: tujuan,
-              [settings.fieldPesan ?? "message"]: isi,
-            }),
-          });
-          const text = (await res.text()).slice(0, 300);
-          status = res.ok ? "terkirim" : "gagal";
-          respon = `HTTP ${res.status}: ${text}`;
-        } catch (err) {
-          respon = err instanceof Error ? err.message : "Koneksi gagal";
-        }
-      }
-    }
-
-    await ctx.runMutation(internal.security._appendWaOtpLog, {
-      nomorTujuan: tujuan,
-      status,
-      respon,
-      userId,
-      alasan,
-    });
-    if (status === "terkirim") return { ok: true };
-    // Mode uji tanpa gateway tetap mengizinkan (kode tercatat di log admin).
-    return { ok: false, modeUji: true, respon };
-  },
-});
-
-export const _setWaOtp = internalMutation({
-  args: { userId: v.id("users"), kode: v.string(), kedaluwarsa: v.number() },
-  handler: async (ctx, { userId, kode, kedaluwarsa }) => {
-    const mfa = await getMfa(ctx, userId);
-    if (mfa === null) {
-      await ctx.db.insert("mfaSettings", {
-        userId,
-        waOtpKode: kode,
-        waOtpKedaluwarsa: kedaluwarsa,
-        waOtpGagal: 0,
-      });
-    } else {
-      await ctx.db.patch(mfa._id, {
-        waOtpKode: kode,
-        waOtpKedaluwarsa: kedaluwarsa,
-        waOtpGagal: 0,
-      });
-    }
-  },
-});
-
-export const _appendWaOtpLog = internalMutation({
-  args: {
-    nomorTujuan: v.string(),
-    status: v.string(),
-    respon: v.string(),
-    userId: v.id("users"),
-    alasan: v.string(),
-  },
-  handler: async (ctx, { nomorTujuan, status, respon, userId, alasan }) => {
-    await ctx.db.insert("waLogs", {
-      loanId: undefined,
-      nomorTujuan,
-      jenis: `otp_${alasan}`,
-      isiPesan: `OTP dikirim (isi disembunyikan) — ${alasan}`,
-      status,
-      respon,
-      olehUserId: userId,
-      waktu: Date.now(),
-    });
-  },
-});
-
-/**
- * Verifikasi OTP WA — dipakai transaksi finansial penyedia dana (alokasi dana,
- * penarikan) dan konfirmasi perangkat baru. Mengembalikan { ok } dan
- * mencatat percobaan untuk rate limiting.
- */
-export const verifyWaOtp = mutation({
-  args: { kode: v.string(), ip: v.string(), userAgent: v.string() },
-  handler: async (ctx, { kode, ip, userAgent }) => {
-    const user = await getUser(ctx);
-    if (user === null) throw new Error("Harus masuk terlebih dahulu.");
-    if (user.role !== ROLES.DANA && user.role !== ROLES.ADMIN) {
-      throw new Error("OTP WhatsApp khusus akun penyedia dana.");
-    }
-    const mfa = await getMfa(ctx, user._id);
-    const gagal = await ctx.runQuery(internal.security.assertNotRateLimited, {
-      identifier: user.email ?? "dana",
-      ip,
-    });
-    if (gagal.blocked) {
-      await catatLogin(ctx, {
-        userId: user._id,
-        status: "diblokir",
-        metode: "wa_otp",
-        ip,
-        userAgent,
-        keterangan: "Rate limit OTP WA",
-      });
-      throw new Error(
-        `Terlalu banyak percobaan. Coba lagi dalam ${Math.ceil(gagal.sisaDetik / 60)} menit.`,
-      );
-    }
-    // Hitungan gagal versi SERVER (`waOtpGagal`) — tidak bisa dipalsukan klien
-    // lewat `recordFailedAttempt`. Batas ini yang benar-benar menjaga kode
-    // 6 digit dari tebak-tebakan; kode baru yang diminta pemilik akun mereset
-    // hitungannya (lihat `_setWaOtp`).
-    if ((mfa?.waOtpGagal ?? 0) >= RATE_MAX_GAGAL) {
-      await catatLogin(ctx, {
-        userId: user._id,
-        status: "diblokir",
-        metode: "wa_otp",
-        ip,
-        userAgent,
-        keterangan: "Batas percobaan OTP WA versi server tercapai",
-      });
-      throw new Error(
-        "Terlalu banyak percobaan kode. Minta kode baru lalu coba lagi.",
-      );
-    }
-    const benar =
-      mfa?.waOtpKode !== undefined &&
-      kode === mfa.waOtpKode &&
-      (mfa.waOtpKedaluwarsa ?? 0) > Date.now();
-    await ctx.runMutation(internal.security._guardLogin, {
-      identifier: user.email ?? "dana",
-      ip,
-      berhasil: benar,
-    });
-    if (!benar) {
-      const baru = (mfa?.waOtpGagal ?? 0) + 1;
-      if (mfa !== null) {
-        await ctx.db.patch(mfa._id, { waOtpGagal: baru });
-      }
-      await catatLogin(ctx, {
-        userId: user._id,
-        status: "gagal",
-        metode: "wa_otp",
-        ip,
-        userAgent,
-        keterangan: `OTP WA salah (ke-${baru})`,
-      });
-      throw new Error("Kode OTP salah atau kedaluwarsa.");
-    }
-    if (mfa !== null) {
-      await ctx.db.patch(mfa._id, {
-        waOtpKode: undefined,
-        waOtpKedaluwarsa: undefined,
-        waOtpGagal: 0,
-        // Jendela 2 menit bagi mutation finansial untuk lanjut tanpa meminta
-        // kode lagi (sekali pakai — langsung dihabiskan mutation tersebut).
-        waOtpTerverifikasiSampai: Date.now() + 2 * 60 * 1000,
-      });
-    }
-    await catatLogin(ctx, {
-      userId: user._id,
-      status: "berhasil",
-      metode: "wa_otp",
-      ip,
-      userAgent,
-      keterangan: "Verifikasi transaksi penyedia dana",
-    });
-    return { ok: true };
   },
 });
 

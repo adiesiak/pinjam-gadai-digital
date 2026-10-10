@@ -284,3 +284,23 @@ export function ringkasStatusKyc(status: StatusKyc): string {
   if (status === "NOT_STARTED") return "KYC belum dimulai.";
   return `KYC: ${LABEL_STATUS_KYC[status].toLowerCase()}.`;
 }
+
+/* ==========================================================================
+ * Hasil pemeriksaan nomor WhatsApp (OTP)
+ * ========================================================================== */
+
+/**
+ * Kalimat hasil pemeriksaan nomor WhatsApp — dipakai halaman nasabah DAN panel
+ * petugas, supaya arti "terverifikasi" tidak berbeda di dua tempat.
+ *
+ * Penghitungan keabsahan bukti OTP (cocok/tidak dengan nomor yang tersimpan)
+ * dilakukan SERVER di `convex/kyc.ts` dan dikirim sebagai `cocok`; berkas ini
+ * hanya menyediakan kalimatnya. Batas pentingnya tetap sama: verifikasi nomor
+ * membuktikan nomor itu AKTIF, bukan bahwa seluruh identitas sudah diperiksa
+ * petugas.
+ */
+export function keteranganNomorWa(terverifikasi: boolean): string {
+  return terverifikasi
+    ? "Nomor WhatsApp sudah dibuktikan aktif lewat kode OTP yang dikirim ke nomor itu sendiri. Ini satu hasil pemeriksaan — bukan persetujuan pinjaman."
+    : "Nomor WhatsApp belum dibuktikan. Kirim kode OTP ke nomor ini, lalu masukkan 6 digit untuk memverifikasi.";
+}

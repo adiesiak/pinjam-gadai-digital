@@ -13,6 +13,7 @@ import type { Doc, Id } from "./_generated/dataModel";
 import { requireAdminSession } from "./adminAuthz";
 import { simpanDataDiriProfil } from "./dataDiriProfil";
 import { bacaDataDiri, galatDataDiri, type DataDiriForm } from "../lib/dataDiri";
+import { normalisasiNomorWa } from "../lib/otpWa";
 import {
   aturanUsang,
   keteranganAturanUsang,
@@ -107,6 +108,24 @@ function stempel(row: Doc<"kycProfil">): StempelIdentitas | null {
     selfieKtpId: s.selfieKtpId,
     buktiPenghasilanId: s.buktiPenghasilanId,
   };
+}
+
+/**
+ * true bila bukti OTP masih mewakili nomor yang tersimpan SEKARANG.
+ *
+ * Verifikasi nomor tidak boleh "menempel" pada baris KYC saja: kalau nomornya
+ * diganti setelah diverifikasi, bukti lama berbicara tentang nomor lain.
+ * Karena itu yang dibandingkan adalah NOMOR yang dinormalkan, bukan sekadar
+ * ada/tidaknya penanda.
+ */
+function nomorWaCocok(
+  verifikasi: { nomor: string } | null | undefined,
+  nomor: string | null | undefined,
+): boolean {
+  if (verifikasi === null || verifikasi === undefined) return false;
+  const a = normalisasiNomorWa(verifikasi.nomor);
+  const b = normalisasiNomorWa(nomor);
+  return a !== null && b !== null && a === b;
 }
 
 /**
@@ -389,6 +408,59 @@ async function selaraskanDataDiri(
   });
 }
 
+/**
+ * Tandai nomor WhatsApp KYC sebagai TERVERIFIKASI lewat kode OTP.
+ *
+ * Sengaja fungsi biasa (bukan mutation publik): satu-satunya pemanggilnya
+ * adalah `convex/otpWhatsapp.ts`, setelah hash kode benar-benar cocok. Karena
+ * itu "Fonnte berhasil mengirim" tidak punya jalan mengisi kolom ini — hanya
+ * verifikasi di server yang bisa.
+ *
+ * Nomor yang dicatat HARUS sama dengan nomor yang tersimpan di baris KYC;
+ * kalau tidak, penandanya akan berbicara tentang nomor lain. Pemeriksaan itu
+ * diulang di sini supaya aturan pengikatan nomor tidak bergantung pada modul
+ * OTP saja.
+ */
+export async function tandaiNomorWaTerverifikasi(
+  ctx: MutationCtx,
+  args: { userId: Id<"users">; nomor: string; pada: number; olehLabel: string },
+): Promise<void> {
+  const row = await ctx.db
+    .query("kycProfil")
+    .withIndex("by_user", (q) => q.eq("userId", args.userId))
+    .first();
+  if (row === null) {
+    throw new Error(
+      "KYC belum dimulai — nomor WhatsApp hanya bisa diverifikasi lewat modul KYC.",
+    );
+  }
+  const tersimpan = normalisasiNomorWa(row.nomorWhatsApp);
+  if (tersimpan === null || tersimpan !== args.nomor) {
+    throw new Error(
+      "Nomor yang diverifikasi berbeda dari nomor KYC yang tersimpan. Simpan nomornya lebih dulu, lalu minta kode baru.",
+    );
+  }
+  await ctx.db.patch(row._id, {
+    nomorWhatsAppTerverifikasi: {
+      nomor: args.nomor,
+      pada: args.pada,
+      metode: "wa_otp",
+    },
+    diperbaruiPada: args.pada,
+  });
+  // Nomor lengkap tidak masuk catatan audit — cukup bentuk bertopengnya, karena
+  // jejak audit dibaca banyak orang dan nomor itu data pribadi.
+  const topeng = `62••••${args.nomor.slice(-3)}`;
+  await audit(
+    ctx,
+    args.userId,
+    args.olehLabel,
+    "kyc_nomor_wa_terverifikasi",
+    args.userId,
+    `Nomor WhatsApp ${topeng} diverifikasi lewat kode OTP yang dikirim ke nomor itu.`,
+  );
+}
+
 /* ==========================================================================
  * Query — nasabah
  * ========================================================================== */
@@ -429,6 +501,9 @@ export const kycSaya = query({
         url: { ktp: null, selfie: null, buktiPenghasilan: null },
         kekurangan: kekuranganKyc({}),
         lengkap: false,
+        // Belum ada baris = tidak ada bukti OTP apa pun.
+        nomorWhatsAppTerverifikasi: null,
+        nomorWhatsAppTerbukti: false,
         // Belum ada baris = belum ada persetujuan apa pun yang tercatat.
         persetujuan: null,
         persetujuanAktif: false,
@@ -485,6 +560,24 @@ export const kycSaya = query({
       url: { ktp, selfie, buktiPenghasilan: bukti },
       kekurangan: kekuranganKyc(r),
       lengkap: lengkapKyc(r),
+      /**
+       * HASIL PEMERIKSAAN KYC: bukti bahwa nomor WhatsApp aktif milik pemilik
+       * akun (bukan sekadar nomor yang diketik). `cocok` dihitung ulang setiap
+       * kali dibaca, jadi mengganti nomor otomatis membatalkan bukti lama.
+       */
+      nomorWhatsAppTerverifikasi:
+        row.nomorWhatsAppTerverifikasi === undefined
+          ? null
+          : {
+              nomor: row.nomorWhatsAppTerverifikasi.nomor,
+              pada: row.nomorWhatsAppTerverifikasi.pada,
+              metode: row.nomorWhatsAppTerverifikasi.metode,
+              cocok: nomorWaCocok(row.nomorWhatsAppTerverifikasi, row.nomorWhatsApp),
+            },
+      nomorWhatsAppTerbukti: nomorWaCocok(
+        row.nomorWhatsAppTerverifikasi,
+        row.nomorWhatsApp,
+      ),
       // Persetujuan dikirim apa adanya (versi + waktu server) supaya antarmuka
       // bisa memblokir pengumpulan data sensitif SELAGI server belum mencatatnya,
       // dan meminta persetujuan ulang bila versi penjelasannya sudah berubah.
@@ -790,6 +883,12 @@ export const simpanProgresKyc = mutation({
       ktpId: dokumen.ktpId ?? undefined,
       selfieKtpId: dokumen.selfieKtpId ?? undefined,
       buktiPenghasilanId: dokumen.buktiPenghasilanId ?? undefined,
+      // Bukti OTP terikat pada NOMOR: begitu nomornya berubah, bukti lama tidak
+      // lagi mewakili nomor baru, jadi ikut dibuang di sini.
+      nomorWhatsAppTerverifikasi:
+        normalisasiNomorWa(isian.nomorWhatsApp) === normalisasiNomorWa(lama?.nomorWhatsApp)
+          ? lama?.nomorWhatsAppTerverifikasi
+          : undefined,
       diperbaruiPada: sekarang,
     };
 
@@ -1032,6 +1131,24 @@ export const detailKycAdmin = query({
       sumberPenghasilan: row.sumberPenghasilan ?? null,
       catatanPeminjam: row.catatanPeminjam ?? null,
       kekurangan: kekuranganKyc(ringkas(row)),
+      /**
+       * Hasil pemeriksaan nomor WhatsApp untuk petugas: nomor, waktu, cara, dan
+       * apakah buktinya masih cocok dengan nomor yang tersimpan sekarang.
+       * "Kode terkirim" tidak pernah masuk sini — hanya verifikasi server.
+       */
+      nomorWhatsAppTerverifikasi:
+        row.nomorWhatsAppTerverifikasi === undefined
+          ? null
+          : {
+              nomor: row.nomorWhatsAppTerverifikasi.nomor,
+              pada: row.nomorWhatsAppTerverifikasi.pada,
+              metode: row.nomorWhatsAppTerverifikasi.metode,
+              cocok: nomorWaCocok(row.nomorWhatsAppTerverifikasi, row.nomorWhatsApp),
+            },
+      nomorWhatsAppTerbukti: nomorWaCocok(
+        row.nomorWhatsAppTerverifikasi,
+        row.nomorWhatsApp,
+      ),
       diajukanPada: row.diajukanPada ?? null,
       diputuskanPada: row.diputuskanPada ?? null,
       diputuskanOlehLabel: row.diputuskanOlehLabel ?? null,

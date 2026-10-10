@@ -67,6 +67,13 @@ const detail = (overrides: Partial<DetailKycTampil> = {}): DetailKycTampil => ({
   diputuskanOlehLabel: null,
   keputusanCatatan: null,
   verifikasiUlangTertunda: false,
+  nomorWhatsAppTerverifikasi: {
+    nomor: "6281234567890",
+    pada: 1_700_000_000_000,
+    metode: "wa_otp",
+    cocok: true,
+  },
+  nomorWhatsAppTerbukti: true,
   persetujuan: { versi: "pdp-2026-10", pada: 1_700_000_000_000, olehLabel: "rani@pindai.test" },
   persetujuanAktif: true,
   versiAturan: VERSI_ATURAN_KYC,
@@ -280,6 +287,43 @@ for (const status of KYC_STATUS) {
   // Yang dilaporkan HANYA jumlahnya: data pemilik lain tidak ikut ditarik ke sini.
   ok(!html.includes("users_"), "tidak ada id pemilik lain di markup");
   bersih(html, "rincian dengan penggunaan ulang");
+}
+
+// ===== 4d. Hasil pemeriksaan nomor WhatsApp (verifikasi OTP) =====
+{
+  // Terverifikasi untuk nomor yang tersimpan sekarang.
+  const html = renderToStaticMarkup(<KycDetailRingkas detail={detail()} />);
+  ada(html, "dibuktikan aktif lewat kode OTP", "bukti OTP nomor tampil saat cocok");
+  bersih(html, "rincian dengan nomor terverifikasi");
+}
+{
+  // Belum pernah diverifikasi.
+  const html = renderToStaticMarkup(
+    <KycDetailRingkas
+      detail={detail({ nomorWhatsAppTerverifikasi: null, nomorWhatsAppTerbukti: false })}
+    />,
+  );
+  ada(html, "belum diverifikasi", "nomor yang belum dibuktikan ditandai");
+  bersih(html, "rincian tanpa bukti OTP");
+}
+{
+  // Pernah diverifikasi, tetapi nomornya sudah diganti — bukti lama tidak sah
+  // lagi dan petugas harus tahu, bukan dibiarkan tampak terverifikasi.
+  const html = renderToStaticMarkup(
+    <KycDetailRingkas
+      detail={detail({
+        nomorWhatsAppTerverifikasi: {
+          nomor: "628000000000",
+          pada: 1_700_000_000_000,
+          metode: "wa_otp",
+          cocok: false,
+        },
+        nomorWhatsAppTerbukti: false,
+      })}
+    />,
+  );
+  ada(html, "tidak lagi cocok", "bukti OTP yang tidak cocok dengan nomor ditandai");
+  bersih(html, "rincian dengan bukti OTP kedaluwarsa");
 }
 
 // ===== 5. Riwayat petugas =====

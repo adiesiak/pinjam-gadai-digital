@@ -708,37 +708,79 @@ describe("otorisasi MFA backend", () => {
       dana.mutation(api.security.setWaOtpRequired, { wajib: true }),
     ).resolves.toEqual({ ok: true });
 
+    // Gerbang peran hidup di mesin OTP tunggal (`convex/otpWhatsapp.ts`), bukan
+    // hanya di saklarnya: akun non-penyedia-dana tidak bisa memakai OTP transaksi.
+    // Verifikasi mengembalikan hasil (bukan melempar) supaya hitungan percobaan
+    // yang perlu disimpan tidak ikut ter-rollback.
     await expect(
-      peminjam.mutation(api.security.verifyWaOtp, {
+      peminjam.mutation(api.otpWhatsapp.verifikasiOtpWa, {
+        tujuan: "transaksi",
         kode: "123456",
-        ip: "127.0.0.1",
-        userAgent: "browser",
       }),
-    ).rejects.toThrow(/penyedia dana/i);
+    ).resolves.toMatchObject({ ok: false, pesan: expect.stringMatching(/penyedia dana/i) });
 
-    await t.mutation(async (ctx) => {
-      const settings = await ctx.db
-        .query("mfaSettings")
-        .withIndex("by_user", (q) => q.eq("userId", danaId))
-        .first();
-      const otp = {
-        waOtpKode: "123456",
-        waOtpKedaluwarsa: Date.now() + 60_000,
-        waOtpGagal: 0,
-      };
-      if (settings === null) {
-        await ctx.db.insert("mfaSettings", { userId: danaId, ...otp });
-      } else {
-        await ctx.db.patch(settings._id, otp);
-      }
-    });
+    // Mesin OTP mengirim ke nomor yang tersimpan di modul KYC; tanpa nomor itu
+    // tidak ada OTP yang bisa diminta.
     await expect(
-      dana.mutation(api.security.verifyWaOtp, {
-        kode: "123456",
-        ip: "127.0.0.1",
-        userAgent: "browser",
-      }),
-    ).resolves.toEqual({ ok: true });
+      dana.action(api.otpWhatsapp.mintaOtpWa, { tujuan: "transaksi" }),
+    ).resolves.toMatchObject({ ok: false, terkirim: false });
+
+    await t.run(async (ctx) => {
+      await ctx.db.insert("kycProfil", {
+        userId: danaId,
+        status: "IN_PROGRESS",
+        nomorWhatsApp: "6281234567890",
+        dibuatPada: Date.now(),
+        diperbaruiPada: Date.now(),
+      });
+    });
+
+    // Fonnte dipanggil dari SERVER. Tes mengganti `fetch` dan membaca kode dari
+    // PESAN KELUAR — satu-satunya tempat kode aslinya pernah ada. Token hanya
+    // dikirim sebagai header permintaan itu.
+    const fetchAsli = globalThis.fetch;
+    const keluar: Array<{ target: string; message: string; auth: string | null }> = [];
+    process.env.FONNTE_TOKEN = "token-uji-fonnte";
+    globalThis.fetch = (async (
+      _url: unknown,
+      init?: { body?: unknown; headers?: Record<string, string> },
+    ) => {
+      const body = new URLSearchParams(String(init?.body ?? ""));
+      keluar.push({
+        target: body.get("target") ?? "",
+        message: body.get("message") ?? "",
+        auth: init?.headers?.Authorization ?? null,
+      });
+      return new Response(JSON.stringify({ status: true, detail: "success! message in queue" }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    }) as unknown as typeof fetch;
+    try {
+      const hasil = await dana.action(api.otpWhatsapp.mintaOtpWa, { tujuan: "transaksi" });
+      expect(hasil.ok).toBe(true);
+      expect(keluar).toHaveLength(1);
+      expect(keluar[0].target).toBe("6281234567890");
+      expect(keluar[0].auth).toBe("token-uji-fonnte");
+      const kode = keluar[0].message.match(/\d{6}/)?.[0] ?? "";
+      expect(kode).toHaveLength(6);
+
+      // Yang tersimpan hanya HASH: kode aslinya tidak ada di baris tantangan.
+      const baris = await t.run(async (ctx) =>
+        ctx.db
+          .query("waOtpChallenges")
+          .withIndex("by_user", (q) => q.eq("userId", danaId))
+          .first(),
+      );
+      expect(JSON.stringify(baris)).not.toContain(kode);
+
+      await expect(
+        dana.mutation(api.otpWhatsapp.verifikasiOtpWa, { tujuan: "transaksi", kode }),
+      ).resolves.toEqual({ ok: true });
+    } finally {
+      globalThis.fetch = fetchAsli;
+      delete process.env.FONNTE_TOKEN;
+    }
   });
 
   it("membatasi percobaan kata sandi di server dan mencatatnya", async () => {

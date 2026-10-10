@@ -80,11 +80,13 @@ import {
 import {
   bolehTransisi,
   KETERANGAN_STATUS_KYC,
+  keteranganNomorWa,
   LABEL_STATUS_KYC,
   keputusanWajibAlasan,
   ringkasStatusKyc,
   type StatusKyc,
 } from "@/lib/kycStatus";
+import { normalisasiNomorWa } from "@/lib/otpWa";
 import {
   pesanButuhPersetujuan,
   pesanVersiPersetujuanBerubah,
@@ -525,6 +527,11 @@ export function KycSection() {
   const ajukan = useMutation(api.kyc.ajukanKyc);
   const buatUrl = useMutation(api.kyc.urlUnggahBerkasKyc);
   const periksa = useAction(api.berkasIdentitas.periksaIsiBerkasKyc);
+  // OTP WhatsApp: satu-satunya jalur verifikasi nomor, dijalankan mesin OTP di
+  // server (`convex/otpWhatsapp.ts`). Halaman ini tidak pernah memegang token
+  // maupun memanggil gateway — hanya meminta kode dan mengirim kode yang diketik.
+  const mintaOtp = useAction(api.otpWhatsapp.mintaOtpWa);
+  const verifikasiOtp = useMutation(api.otpWhatsapp.verifikasiOtpWa);
 
   const [draft, setDraft] = useState<DraftKyc | null>(null);
   /** Pratinjau berkas yang baru dipilih (belum tersimpan) per slot. */
@@ -536,6 +543,8 @@ export function KycSection() {
   const [centangSetuju, setCentangSetuju] = useState(false);
   const [busy, setBusy] = useState(false);
   const [galat, setGalat] = useState<string | null>(null);
+  const [kodeOtp, setKodeOtp] = useState("");
+  const [otpBusy, setOtpBusy] = useState(false);
   // Nilai terakhir pratinjau juga dipegang ref supaya URL objeknya bisa
   // dibersihkan saat komponen dilepas. Efek pembersih ini sengaja ditulis
   // SEBELUM cabang "sedang memuat" di bawah: kalau diletakkan sesudahnya,
@@ -740,6 +749,50 @@ export function KycSection() {
     if (!berhasil) return;
     const berikutnya = TAHAPAN_KYC[indeks + 1];
     if (berikutnya !== undefined) menuju(berikutnya.id);
+  };
+
+  /**
+   * Minta kode OTP ke nomor yang TERSIMPAN. Server menolak (dan itu memang
+   * benar) bila nomor belum tersimpan atau permintaan terlalu sering — pesannya
+   * ditampilkan apa adanya.
+   */
+  const kirimKodeOtp = async () => {
+    setOtpBusy(true);
+    setGalat(null);
+    try {
+      const hasil = await mintaOtp({ tujuan: "verifikasi_nomor" });
+      if (hasil.ok) {
+        toast.success("Kode verifikasi dikirim ke WhatsApp nomor Anda. Berlaku 5 menit.");
+      } else {
+        setGalat(hasil.pesan);
+      }
+    } catch (err) {
+      setGalat(err instanceof Error ? err.message : "Gagal meminta kode verifikasi.");
+    } finally {
+      setOtpBusy(false);
+    }
+  };
+
+  /**
+   * Kirim kode yang diketik. Verifikasi sungguhan terjadi di server; halaman ini
+   * tidak pernah menyimpulkan sendiri bahwa nomornya terverifikasi.
+   */
+  const verifikasiKodeOtp = async () => {
+    setOtpBusy(true);
+    setGalat(null);
+    try {
+      const hasil = await verifikasiOtp({ tujuan: "verifikasi_nomor", kode: kodeOtp });
+      if (hasil.ok) {
+        setKodeOtp("");
+        toast.success("Nomor WhatsApp terverifikasi. Status ini terlihat petugas KYC.");
+      } else {
+        setGalat(hasil.pesan);
+      }
+    } catch (err) {
+      setGalat(err instanceof Error ? err.message : "Verifikasi kode gagal.");
+    } finally {
+      setOtpBusy(false);
+    }
   };
 
   // ===== Kondisi awal: KYC belum pernah disentuh =====
@@ -1074,9 +1127,9 @@ export function KycSection() {
 
             {/* ===== Tahap 5: nomor WhatsApp ===== */}
             {tahap.id === "whatsapp" && !terkunci && (
+              <div className="max-w-md space-y-3">
               <Field
                 data-invalid={galatTahap.some((g) => g.kunci === "nomorWhatsApp")}
-                className="max-w-md"
               >
                 <FieldLabel htmlFor="kyc-wa">Nomor WhatsApp aktif</FieldLabel>
                 <Input
@@ -1103,6 +1156,76 @@ export function KycSection() {
                   {isian.nomorWhatsApp.trim() === "" ? "" : ` (tersimpan sebagai ${maskWhatsApp(isian.nomorWhatsApp)})`}.
                 </FieldDescription>
               </Field>
+
+                {/* Verifikasi nomor lewat kode OTP WhatsApp. Hasilnya tersimpan di
+                    modul KYC sebagai salah satu hasil pemeriksaan (`nomorWhatsAppTerverifikasi`),
+                    dan hanya berubah lewat verifikasi server. */}
+                <div className="rounded-2xl border border-border bg-muted/40 p-3">
+                  <div className="flex items-center gap-2">
+                    {data.nomorWhatsAppTerbukti ? (
+                      <CheckCircle2 className="size-4 text-emerald-600" aria-hidden />
+                    ) : (
+                      <ShieldAlert className="size-4 text-amber-600" aria-hidden />
+                    )}
+                    <p className="text-xs font-semibold">
+                      {data.nomorWhatsAppTerbukti
+                        ? "Nomor WhatsApp terverifikasi"
+                        : "Nomor WhatsApp belum diverifikasi"}
+                    </p>
+                  </div>
+                  <p className="mt-1 text-[11px] leading-5 text-muted-foreground">
+                    {keteranganNomorWa(data.nomorWhatsAppTerbukti)}
+                  </p>
+                  {data.nomorWhatsAppTerverifikasi !== null && (
+                    <p className="mt-1 text-[11px] leading-5 text-muted-foreground">
+                      Dibuktikan {waktu(data.nomorWhatsAppTerverifikasi.pada)} untuk nomor{" "}
+                      {maskWhatsApp(data.nomorWhatsAppTerverifikasi.nomor)}.
+                    </p>
+                  )}
+                  {normalisasiNomorWa(isian.nomorWhatsApp) !==
+                  normalisasiNomorWa(data.isian.nomorWhatsApp) ? (
+                    <p className="mt-2 text-[11px] leading-5 text-amber-700 dark:text-amber-300">
+                      Simpan dulu nomor di atas, lalu kirim kode verifikasi — kode hanya berlaku untuk
+                      nomor yang tersimpan.
+                    </p>
+                  ) : (
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={busy || otpBusy}
+                        onClick={kirimKodeOtp}
+                      >
+                        {otpBusy ? (
+                          <Loader2 className="size-4 animate-spin" />
+                        ) : (
+                          <Phone className="size-4" />
+                        )}
+                        Kirim kode ke WhatsApp
+                      </Button>
+                      <Input
+                        inputMode="numeric"
+                        className="h-9 w-28 tabular-nums"
+                        value={kodeOtp}
+                        onChange={(e) => setKodeOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                        placeholder="6 digit"
+                        aria-label="Kode OTP WhatsApp"
+                        autoComplete="one-time-code"
+                        disabled={busy || otpBusy || data.nomorWhatsAppTerbukti}
+                      />
+                      <Button
+                        type="button"
+                        size="sm"
+                        disabled={busy || otpBusy || kodeOtp.length !== 6}
+                        onClick={verifikasiKodeOtp}
+                      >
+                        <ShieldCheck className="size-4" /> Verifikasi
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              </div>
             )}
 
             {/* ===== Tahap 6: alamat (opsional) ===== */}

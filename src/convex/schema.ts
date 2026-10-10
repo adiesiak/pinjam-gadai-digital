@@ -505,20 +505,76 @@ const schema = defineSchema(
       totpLastCounter: v.optional(v.number()),
       /** Convex Auth session IDs that completed the TOTP gate (never client IDs). */
       totpVerifiedAuthSessionIds: v.optional(v.array(v.string())),
-      /** OTP WA terakhir yang benar (hash-ish) untuk login/transaksi baru. */
+      /**
+       * WARISAN — JANGAN DIPAKAI. Dulu kode OTP WA disimpan PLAINTEXT di tiga
+       * kolom ini. Sejak OTP pindah ke `waOtpChallenges` (hash ber-salt, terikat
+       * pengguna + nomor + tujuan), tidak ada kode yang ditulis ke sini lagi.
+       * Kolomnya masih ada hanya supaya baris lama tetap sah dibaca; boleh
+       * dihapus setelah dipastikan tidak ada dokumen yang memakainya.
+       */
       waOtpKode: v.optional(v.string()),
+      /** WARISAN — JANGAN DIPAKAI. Lihat catatan di `waOtpKode`. */
       waOtpKedaluwarsa: v.optional(v.number()),
-      /** Jumlah kegagalan verifikasi OTP WA berturut-turut. */
+      /**
+       * WARISAN — kegagalan verifikasi OTP kini dihitung per kode di
+       * `waOtpChallenges.percobaanGagal`. JANGAN DIPAKAI.
+       */
       waOtpGagal: v.optional(v.number()),
-      /** Setelah true, OTP WA wajib untuk setiap transaksi finansial. */
+      /** Setelah true, transaksi finansial penyedia dana wajib OTP WhatsApp. */
       waOtpWajib: v.optional(v.boolean()),
       /**
-       * Jendela verifikasi OTP WA hasil dialog transaksi (epoch ms). Selama
-       * masih berlaku, mutation finansial boleh lanjut tanpa mengirim ulang
-       * kode — sekali pakai, langsung dihapus oleh mutation yang memakainya.
+       * Izin transaksi sekali pakai hasil `otpWhatsapp.verifikasiOtpWa` (epoch
+       * ms). Selama masih berlaku, mutation finansial boleh lanjut tanpa
+       * mengirim ulang kode — dan izin itu langsung dihabiskan oleh mutation
+       * yang memakainya (lihat `alokasiDana.requireWaOtpIfEnabled`).
        */
       waOtpTerverifikasiSampai: v.optional(v.number()),
     }).index("by_user", ["userId"]),
+
+    /**
+     * Tantangan OTP WhatsApp — SATU baris per kode yang dikirim.
+     *
+     * Kenapa tabel terpisah dari `mfaSettings`: kode OTP harus terikat pada
+     * PENGGUNA + NOMOR + TUJUAN verifikasi, punya masa berlaku, batas percobaan,
+     * dan status sekali-pakai masing-masing. Menyimpannya sebagai satu kolom di
+     * baris MFA membuat kode untuk satu keperluan mudah tertukar dengan kode
+     * keperluan lain.
+     *
+     * Yang disimpan adalah HASH `SHA-256(salt + ":" + kode)` — kode aslinya
+     * tidak pernah masuk database, log, maupun balasan API. Kode hanya berubah
+     * menjadi "terverifikasi" lewat mutation `verifikasiOtpWa`; respons sukses
+     * dari Fonnte hanya menandai `statusPengiriman`.
+     */
+    waOtpChallenges: defineTable({
+      userId: v.id("users"),
+      /** Nomor tujuan ternormalisasi (62…) — kode hanya sah untuk nomor ini. */
+      nomor: v.string(),
+      /** Tujuan verifikasi (`verifikasi_nomor` | `transaksi`). */
+      tujuan: v.string(),
+      /** SHA-256(salt + ":" + kode) dalam heksadesimal. */
+      kodeHash: v.string(),
+      /** Salt acak per kode (16 byte hex). */
+      salt: v.string(),
+      dibuatPada: v.number(),
+      kedaluwarsaPada: v.number(),
+      /** Batas percobaan verifikasi untuk kode ini. */
+      maksPercobaan: v.number(),
+      /** Percobaan verifikasi gagal berturut-turut untuk kode ini. */
+      percobaanGagal: v.number(),
+      /** Terisi saat kode dipakai — sekali pakai, tidak bisa diulang. */
+      dipakaiPada: v.optional(v.number()),
+      /** "terkirim" | "gagal" — hasil panggilan Fonnte (bukan status verifikasi). */
+      statusPengiriman: v.string(),
+      /** Respon Fonnte yang sudah dipotong untuk diagnosis (tanpa token). */
+      responPengiriman: v.optional(v.string()),
+      /** IP klien (dikirim klien; Convex tidak mengekspos IP) untuk pembatas laju. */
+      ip: v.optional(v.string()),
+      userAgent: v.optional(v.string()),
+    })
+      .index("by_user", ["userId"])
+      .index("by_user_tujuan", ["userId", "tujuan"])
+      .index("by_nomor", ["nomor"])
+      .index("by_ip", ["ip"]),
 
     /**
      * Perangkat dipercaya ("ingat perangkat ini") — Super Admin yang sudah
@@ -1341,6 +1397,27 @@ const schema = defineSchema(
       namaLengkap: v.optional(v.string()),
       nik: v.optional(v.string()),
       nomorWhatsApp: v.optional(v.string()),
+      /**
+       * HASIL PEMERIKSAAN: nomor WhatsApp yang benar-benar terbukti aktif milik
+       * pemilik akun, lewat kode OTP yang dikirim ke nomor itu (lihat
+       * `convex/otpWhatsapp.ts`).
+       *
+       * Diisi HANYA oleh server setelah `verifikasiOtpWa` mencocokkan kode —
+       * "Fonnte berhasil mengirim" atau "kode diminta" TIDAK pernah mengisi
+       * kolom ini. Terikat pada nomor: kalau `nomorWhatsApp` di atas berubah,
+       * penanda ini otomatis dibuang (`simpanProgresKyc`), karena bukti lama
+       * tidak lagi mewakili nomor baru.
+       */
+      nomorWhatsAppTerverifikasi: v.optional(
+        v.object({
+          /** Nomor (format 62…) yang diverifikasi. */
+          nomor: v.string(),
+          /** Waktu server saat kode benar-benar diverifikasi. */
+          pada: v.number(),
+          /** Cara verifikasi — saat ini selalu "wa_otp". */
+          metode: v.string(),
+        }),
+      ),
       alamat: v.optional(v.string()),
       pekerjaan: v.optional(v.string()),
       /** Rupiah bulat. */

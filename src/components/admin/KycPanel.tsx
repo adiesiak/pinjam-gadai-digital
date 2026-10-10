@@ -167,6 +167,34 @@ export function KycDetailRingkas({ detail }: { detail: DetailKycTampil }) {
         </p>
       )}
 
+      {/* HASIL PEMERIKSAAN nomor WhatsApp: nomor yang terbukti aktif lewat kode
+          OTP. Petugas memakainya sebagai bahan pertimbangan — belum terverifikasi
+          TIDAK otomatis menggagalkan pengajuan, tetapi wajib terlihat. */}
+      <p
+        className={
+          detail.nomorWhatsAppTerbukti
+            ? "rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-[11px] leading-5 text-emerald-900 dark:border-emerald-900/40 dark:bg-emerald-950/40 dark:text-emerald-200"
+            : "rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] leading-5 text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/40 dark:text-amber-100"
+        }
+      >
+        {detail.nomorWhatsAppTerbukti ? (
+          <>
+            Nomor WhatsApp <strong>dibuktikan aktif lewat kode OTP</strong> (
+            {detail.nomorWhatsAppTerverifikasi?.metode ?? "wa_otp"}) pada{" "}
+            {waktu(detail.nomorWhatsAppTerverifikasi?.pada ?? null)}.
+          </>
+        ) : detail.nomorWhatsAppTerverifikasi === null ? (
+          <>
+            Nomor WhatsApp <strong>belum diverifikasi</strong> lewat kode OTP.
+          </>
+        ) : (
+          <>
+            Bukti OTP terakhir <strong>tidak lagi cocok</strong> dengan nomor yang tersimpan (nomor
+            berubah setelah diverifikasi) — minta nasabah memverifikasi ulang nomornya.
+          </>
+        )}
+      </p>
+
       {/* Dasar ATURAN putusan terakhir: "terverifikasi" tanpa menyebut atas
           aturan apa tidak bisa ditelusuri bila aturannya berubah. */}
       {detail.aturanTerverifikasi !== null && (

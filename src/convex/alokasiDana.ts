@@ -58,47 +58,36 @@ async function requireDana(ctx: QueryCtx) {
 }
 
 /**
- * Gerbang OTP WhatsApp untuk transaksi finansial penyedia dana. Bila penyedia dana
- * mengaktifkan proteksi (mfaSettings.waOtpWajib), alokasi dana & penarikan
- * wajib menyertakan kode OTP yang masih valid (5 menit, sekali pakai).
+ * Gerbang OTP WhatsApp untuk transaksi finansial penyedia dana. Bila penyedia
+ * dana mengaktifkan proteksi (`mfaSettings.waOtpWajib`), alokasi dana &
+ * penarikan hanya boleh jalan dengan IZIN sekali pakai yang diterbitkan
+ * `otpWhatsapp.verifikasiOtpWa` setelah kode benar-benar dicocokkan (hash,
+ * masa berlaku, batas percobaan, terikat nomor & tujuan).
+ *
+ * Kenapa izin, bukan mencocokkan kode di sini: melempar dari mutation
+ * membatalkan seluruh tulisan transaksi, termasuk hitungan percobaan. Kalau
+ * kode dicocokkan di dalam mutation finansial, kode salah tidak akan pernah
+ * terhitung — praktis tanpa batas percobaan. Karena itu verifikasi terjadi di
+ * mutation-nya sendiri, dan di sini hanya dihabiskan (sekali pakai).
  */
-async function requireWaOtpIfEnabled(
-  ctx: MutationCtx,
-  userId: Id<"users">,
-  kodeOtp?: string,
-) {
+async function requireWaOtpIfEnabled(ctx: MutationCtx, userId: Id<"users">) {
   const mfa = await ctx.db
     .query("mfaSettings")
     .withIndex("by_user", (q) => q.eq("userId", userId))
     .first();
   if (mfa?.waOtpWajib !== true) return; // proteksi belum diaktifkan
 
-  // Jalur 1: dialog WaOtpDialog sudah memverifikasi kode (jendela 2 menit).
-  // Jendela langsung dihabiskan agar tidak bisa dipakai dua kali.
   if ((mfa.waOtpTerverifikasiSampai ?? 0) > Date.now()) {
+    // Sekali pakai: izin langsung dihabiskan agar satu verifikasi tidak
+    // dipakai dua transaksi.
     await ctx.db.patch(mfa._id, { waOtpTerverifikasiSampai: undefined });
     return;
   }
 
-  // Jalur 2: kode dikirim langsung bersama mutation (validasi sekali pakai).
-  if (!kodeOtp) {
-    throw new Error(
-      "Transaksi memerlukan kode OTP WhatsApp. Minta kode lalu masukkan 6 digit.",
-    );
-  }
-  const benar =
-    mfa.waOtpKode !== undefined &&
-    kodeOtp === mfa.waOtpKode &&
-    (mfa.waOtpKedaluwarsa ?? 0) > Date.now();
-  if (!benar) {
-    throw new Error("Kode OTP salah atau kedaluwarsa (berlaku 5 menit).");
-  }
-  // Sekali pakai — habiskan kode agar tidak bisa direplay.
-  await ctx.db.patch(mfa._id, {
-    waOtpKode: undefined,
-    waOtpKedaluwarsa: undefined,
-    waOtpGagal: 0,
-  });
+  throw new Error(
+    "Transaksi memerlukan verifikasi OTP WhatsApp: minta kode, masukkan lewat " +
+      "verifikasi OTP (satu kode sekali pakai), lalu ulangi transaksi ini.",
+  );
 }
 
 /**
@@ -477,14 +466,12 @@ export const allocateFunding = mutation({
   args: {
     loanId: v.id("loans"),
     jumlah: v.number(),
-    /** Kode OTP WA — wajib bila penyedia dana mengaktifkan proteksi transaksi. */
-    kodeOtp: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const { userId } = await requireDana(ctx);
     rejectUnverifiedMoneyMovement();
     validateRupiahAmount(args.jumlah, "Jumlah alokasi");
-    await requireWaOtpIfEnabled(ctx, userId, args.kodeOtp);
+    await requireWaOtpIfEnabled(ctx, userId);
 
     // 1. Pinjaman harus terbuka untuk pendanaan.
     const loan = await ctx.db.get(args.loanId);
@@ -637,14 +624,12 @@ export const requestWithdrawal = mutation({
     jumlah: v.number(),
     namaBank: v.string(),
     nomorRekening: v.string(),
-    /** Kode OTP WA — wajib bila penyedia dana mengaktifkan proteksi transaksi. */
-    kodeOtp: v.optional(v.string()),
   },
   returns: v.object({ nomorReferensi: v.string() }),
   handler: async (ctx, args) => {
     const { userId } = await requireDana(ctx);
     rejectUnverifiedMoneyMovement();
-    await requireWaOtpIfEnabled(ctx, userId, args.kodeOtp);
+    await requireWaOtpIfEnabled(ctx, userId);
 
     const bank = args.namaBank.trim();
     const rek = args.nomorRekening.trim().replace(/\s+/g, "");
@@ -1142,14 +1127,12 @@ export const alokasiKreditBarang = mutation({
   args: {
     kreditId: v.id("kreditBarang"),
     jumlah: v.number(),
-    /** Kode OTP WA — wajib bila penyedia dana mengaktifkan proteksi transaksi. */
-    kodeOtp: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const { userId } = await requireDana(ctx);
     rejectUnverifiedMoneyMovement();
     validateRupiahAmount(args.jumlah, "Jumlah alokasi");
-    await requireWaOtpIfEnabled(ctx, userId, args.kodeOtp);
+    await requireWaOtpIfEnabled(ctx, userId);
 
     const kredit = await ctx.db.get(args.kreditId);
     if (kredit === null) throw new Error("Pengajuan kredit barang tidak ditemukan.");
