@@ -629,16 +629,36 @@ export function KycSection() {
   // tahu sesuatu tidak hilang.
   const adaProgresTersimpan =
     data?.adaBaris &&
-    (data?.isian.namaLengkap ||
-      data?.isian.nik ||
-      data?.isian.nomorWhatsApp ||
-      data?.isian.alamat ||
-      data?.isian.pekerjaan ||
-      data?.isian.sumberPenghasilan ||
-      data?.isian.catatanPeminjam ||
-      data?.dokumen.ktpId ||
-      data?.dokumen.selfieKtpId ||
-      data?.dokumen.buktiPenghasilanId);
+    (data?.isian.namaLengkap !== null &&
+      data?.isian.namaLengkap !== undefined &&
+      data?.isian.namaLengkap !== "" ||
+      data?.isian.nik !== null &&
+      data?.isian.nik !== undefined &&
+      data?.isian.nik !== "" ||
+      data?.isian.nomorWhatsApp !== null &&
+      data?.isian.nomorWhatsApp !== undefined &&
+      data?.isian.nomorWhatsApp !== "" ||
+      data?.isian.alamat !== null &&
+      data?.isian.alamat !== undefined &&
+      data?.isian.alamat !== "" ||
+      data?.isian.pekerjaan !== null &&
+      data?.isian.pekerjaan !== undefined &&
+      data?.isian.pekerjaan !== "" ||
+      data?.isian.sumberPenghasilan !== null &&
+      data?.isian.sumberPenghasilan !== undefined &&
+      data?.isian.sumberPenghasilan !== "" ||
+      data?.isian.catatanPeminjam !== null &&
+      data?.isian.catatanPeminjam !== undefined &&
+      data?.isian.catatanPeminjam !== "" ||
+      data?.dokumen.ktpId !== null &&
+      data?.dokumen.ktpId !== undefined &&
+      data?.dokumen.ktpId !== "" ||
+      data?.dokumen.selfieKtpId !== null &&
+      data?.dokumen.selfieKtpId !== undefined &&
+      data?.dokumen.selfieKtpId !== "" ||
+      data?.dokumen.buktiPenghasilanId !== null &&
+      data?.dokumen.buktiPenghasilanId !== undefined &&
+      data?.dokumen.buktiPenghasilanId !== "");
 
   useEffect(() => {
     if (!lifecycle.isPageRestored) return;
@@ -646,8 +666,10 @@ export function KycSection() {
 
     setRestoredNote("Progress Anda berhasil dipulihkan.");
     auditOtpEvent("KYC_DRAFT_RESTORED", { adaProgres: true });
-    markRestored?.();
-  }, [...lifecycleDeps, adaProgresTersimpan]);
+    markRestored?.();    }, [
+      ...lifecycleDeps,
+      adaProgresTersimpan,
+    ]);
 
   if (data === undefined) {
     return (
