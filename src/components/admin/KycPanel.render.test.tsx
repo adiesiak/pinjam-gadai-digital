@@ -646,7 +646,7 @@ for (const status of KYC_STATUS) {
     "akibat penolakan menyebut status tujuan dengan label bersama",
   );
   ada(
-    akibatKeputusan("REJECTED"),
+    akibatKeputusanKyc("REJECTED"),
     "Nasabah harus memperbarui datanya",
     "akibat penolakan menjelaskan langkah berikutnya bagi nasabah",
   );

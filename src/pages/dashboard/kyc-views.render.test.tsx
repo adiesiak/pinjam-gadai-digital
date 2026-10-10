@@ -15,9 +15,7 @@
  *  - riwayat menampilkan waktu, aktor, alasan yang sudah diterjemahkan, dan
  *    tidak pernah memunculkan "undefined"/"NaN"/"[object Object]".
  */
-import { renderToStaticMarkup } from "react-dom/server";
-
-import {
+import { renderToStaticMarkup } from "react-dom/server";import {
   KycKeputusanAlert,
   KycPemeriksaanOtomatis,
   KycRiwayatList,
@@ -45,6 +43,9 @@ function bersih(html: string, label: string): void {
   ok(!html.includes("[object Object]"), `${label} tanpa "[object Object]"`);
   ok(!html.includes("NaN"), `${label} tanpa "NaN"`);
 }
+
+
+
 
 // ===== 1. Tujuh status, label & penjelasan dari satu sumber =====
 for (const status of KYC_STATUS) {

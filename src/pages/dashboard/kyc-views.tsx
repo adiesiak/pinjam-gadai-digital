@@ -11,6 +11,7 @@ import {
   Clock3,
   CreditCard,
   IdCard,
+  Info,
   Loader2,
   Lock,
   MapPin,
@@ -52,6 +53,7 @@ import {
   FieldSet,
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { InputOTP } from "@/components/ui/input-otp";
 import { Progress } from "@/components/ui/progress";
 import { Textarea } from "@/components/ui/textarea";
 import { api } from "@/convex/_generated/api";
@@ -95,6 +97,16 @@ import {
   VERSI_PERSETUJUAN_KYC,
 } from "@/lib/persetujuanKyc";
 import { cn } from "@/lib/utils";
+import { useMobileLifecycle } from "@/hooks/useMobileLifecycle";
+import {
+  simpanStempelOtp,
+  bacaStempelOtp,
+  hapusStempelOtp,
+  keputusanTampilanOtp,
+  sisaDetikDariServer,
+  auditOtpEvent,
+  type OtpResumeData,
+} from "@/lib/otpResume";
 
 /**
  * MODUL KYC — antarmuka nasabah.
@@ -128,6 +140,9 @@ type RiwayatKyc = DataKyc["riwayat"][number];
 export type RiwayatKycTampil = RiwayatKyc;
 
 /** Terjemahan kode alasan terstruktur → kalimat untuk manusia. */
+/* Pasca-paparan: perilaku `useMobileLifecycle`, resume OTP, dan pemulihan progres.
+ * Ditulis di sini supaya cukup satu render test (lihat `kyc-views.render.test.tsx`).
+ * -------------------------------------------------------------------------- */
 const ALASAN: Record<string, string> = {
   kyc_dimulai: "Nasabah memulai modul KYC",
   kyc_diajukan: "Diajukan untuk peninjauan petugas",
@@ -554,6 +569,8 @@ export function KycSection() {
   const [galat, setGalat] = useState<string | null>(null);
   const [kodeOtp, setKodeOtp] = useState("");
   const [otpBusy, setOtpBusy] = useState(false);
+  const [otpResumeStatus, setOtpResumeStatus] = useState<string | null>(null);
+  const [restoredNote, setRestoredNote] = useState<string | null>(null);
   // Nilai terakhir pratinjau juga dipegang ref supaya URL objeknya bisa
   // dibersihkan saat komponen dilepas. Efek pembersih ini sengaja ditulis
   // SEBELUM cabang "sedang memuat" di bawah: kalau diletakkan sesudahnya,
@@ -568,6 +585,70 @@ export function KycSection() {
     };
   }, []);
 
+  const { state: lifecycle, markRestored } = useMobileLifecycle();
+  const lifecycleDeps = [
+    lifecycle.isPageRestored,
+    markRestored ?? (() => {}),
+  ] as const;
+
+  // --- Resume OTP (tidak ada OTP plaintext yang disimpan/dibaca di sini) ---
+  // Stempel yang tersimpan hanya menyimpan `kind` + `purpose` + opsional
+  // `sessionId`/`serverExpiresAt` yang diterima dari server, bukan kode OTP.
+  const otpStempel = bacaStempelOtp("verifikasi_nomor");
+  const otpKeputusan = keputusanTampilanOtp(otpStempel);
+  const otpServerSisa = sisaDetikDariServer(otpStempel);
+
+  // Saat halaman kembali (tab di-restore / kembali dari background), coba resume
+  // status sesi OTP dari server. Jangan buat OTP session baru hanya karena halaman
+  // kembali aktif; cukup tanyakan status yang tersimpan dan perbarui UI.
+  useEffect(() => {
+    if (!lifecycle.isPageRestored) return;
+
+    if (otpKeputusan.adaStempel) {
+      setOtpResumeStatus(
+        otpKeputusan.serverKetahuiMasihBerlaku
+          ? otpServerSisa !== null
+            ? `Kode OTP masih berlaku (sekitar ${otpServerSisa} detik lagi).`
+            : "Kode OTP masih berlaku (server belum menyatakan kedaluwarsa)."
+          : otpKeputusan.serverKetahuiExpired
+            ? "Kode OTP sudah kedaluwarsa. Silakan kirim kode baru."
+            : "Sesi OTP ditemukan; harap verifikasi ulang kode.",
+      );
+      auditOtpEvent("OTP_SESSION_RESUMED", { adaStempel: true, tidakTahuExpiry: otpKeputusan.tidakTahuExpiry });
+    } else {
+      // Tidak ada sesi yang stempelnya tersimpan; halaman kembali ke kondisi
+      // awal tanpa membuat sesi baru secara otomatis.
+      auditOtpEvent("OTP_SESSION_RESUME_UNAVAILABLE", { adaStempel: false });
+    }
+  }, [...lifecycleDeps, otpKeputusan, otpServerSisa]);
+
+  // --- Restore progres melihat dari server saat kembali ---
+  // Progres sebenarnya selalu dibaca dari server (`data.isian` / `data.dokumen`).
+  // Yang kita lakukan di sini hanyalah menampilkan notifikasi kecil kalau user
+  // kembali ke halaman dan server sudah memiliki progres tersimpan, supaya user
+  // tahu sesuatu tidak hilang.
+  const adaProgresTersimpan =
+    data.adaBaris &&
+    (data.isian.namaLengkap ||
+      data.isian.nik ||
+      data.isian.nomorWhatsApp ||
+      data.isian.alamat ||
+      data.isian.pekerjaan ||
+      data.isian.sumberPenghasilan ||
+      data.isian.catatanPeminjam ||
+      data.dokumen.ktpId ||
+      data.dokumen.selfieKtpId ||
+      data.dokumen.buktiPenghasilanId);
+
+  useEffect(() => {
+    if (!lifecycle.isPageRestored) return;
+    if (!adaProgresTersimpan) return;
+
+    setRestoredNote("Progress Anda berhasil dipulihkan.");
+    auditOtpEvent("KYC_DRAFT_RESTORED", { adaProgres: true });
+    markRestored?.();
+  }, [...lifecycleDeps, adaProgresTersimpan]);
+
   if (data === undefined) {
     return (
       <div className="flex items-center gap-2 rounded-2xl border border-border bg-card px-5 py-10 text-sm text-muted-foreground">
@@ -578,7 +659,8 @@ export function KycSection() {
 
   // Id dokumen dari server dipakai apa adanya (bertipe `Id<"_storage">`), bukan
   // disalin lewat `BerkasKyc` yang hanya peduli "ada atau tidak ada".
-  const dokumenTersimpan = data.dokumen;
+  const dataPasti = data;
+  const dokumenTersimpan = dataPasti.dokumen;
   const berkasTersimpan: BerkasKyc = {
     ktp: dokumenTersimpan.ktpId,
     selfie: dokumenTersimpan.selfieKtpId,
@@ -588,9 +670,9 @@ export function KycSection() {
   // kali server mencatat simpanan baru, sehingga setelah simpan berhasil layar
   // otomatis menampilkan nilai yang benar-benar tersimpan (sudah dinormalkan
   // server) — tanpa `useEffect` yang bisa menimpa ketikan yang belum disimpan.
-  const stempelServer = `${data.adaBaris}:${data.diperbaruiPada ?? 0}:${data.persetujuan?.versi ?? "-"}`;
+  const stempelServer = `${dataPasti.adaBaris}:${dataPasti.diperbaruiPada ?? 0}:${dataPasti.persetujuan?.versi ?? "-"}`;
   const draftAktif = draft !== null && draft.stempel === stempelServer ? draft : null;
-  const isian: IsianKycLengkap = draftAktif?.isian ?? data.isian;
+  const isian: IsianKycLengkap = draftAktif?.isian ?? dataPasti.isian;
   const berkas: Record<SlotBerkasUi, BerkasDraft | null> = draftAktif?.berkas ?? {
     ktp:
       dokumenTersimpan.ktpId === null
@@ -611,17 +693,17 @@ export function KycSection() {
     bukti: berkas.bukti?.id ?? null,
   };
   const opsi: OpsiStatusTahap = {
-    kekurangan: data.kekurangan,
-    perluPerbaikan: data.status === "NEEDS_CORRECTION",
-    persetujuanAktif: data.persetujuanAktif,
+    kekurangan: dataPasti.kekurangan,
+    perluPerbaikan: dataPasti.status === "NEEDS_CORRECTION",
+    persetujuanAktif: dataPasti.persetujuanAktif,
   };
   const statusPerTahap = Object.fromEntries(
     ID_TAHAP_KYC.map((id) => [id, statusTahapKyc(id, isian, berkasUntukStatus, opsi)]),
   ) as Record<IdTahapKyc, StatusTahapKyc>;
   const progres = progresKyc(isian, berkasUntukStatus, opsi);
 
-  const terkunci = !data.persetujuanAktif;
-  const tahapAktif = tahapPilihan ?? tahapDisarankan(data.status, isian, berkasUntukStatus, opsi);
+  const terkunci = !dataPasti.persetujuanAktif;
+  const tahapAktif = tahapPilihan ?? tahapDisarankan(dataPasti.status, isian, berkasUntukStatus, opsi);
   const tahap = tahapKyc(tahapAktif);
   const galatTahap = galatTahapKyc(tahap.id, isian, berkasUntukStatus);
   const kurangTahap = kekuranganLokalTahap(tahap.id, isian, berkasUntukStatus);
@@ -632,7 +714,7 @@ export function KycSection() {
   // ia harus menyunting data dulu (pengajuan dimulai ulang), dan setelah
   // TERVERIFIKASI tidak ada lagi yang perlu diajukan.
   const bolehAjukan =
-    !terkunci && data.lengkap && bolehTransisi(data.status, "PENDING_REVIEW", "nasabah");
+    !terkunci && dataPasti.lengkap && bolehTransisi(dataPasti.status, "PENDING_REVIEW", "nasabah");
   /** Slot dokumen tahap ini (KTP/selfie), atau null bila bukan tahap dokumen. */
   const slotDokumen: SlotBerkasUi | null =
     tahap.id === "ktp" ? "ktp" : tahap.id === "selfie" ? "selfie" : null;
@@ -942,6 +1024,22 @@ export function KycSection() {
             </Button>
           </AlertDescription>
         </Alert>
+      )}
+
+      {/* Notifikasi pemulihan progres / status sesi saat kembali dari latar. */}
+      {restoredNote !== null && (
+        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs leading-5 text-emerald-900 dark:border-emerald-900/50 dark:bg-emerald-950/40 dark:text-emerald-200">
+          <p className="flex items-center gap-2 font-semibold">
+            <CheckCircle2 className="size-3.5 shrink-0" aria-hidden /> {restoredNote}
+          </p>
+        </div>
+      )}
+      {otpResumeStatus !== null && otpResumeStatus !== "Sesi OTP ditemukan; harap verifikasi ulang kode." && (
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-100">
+          <p className="flex items-center gap-2 font-semibold">
+            <Clock3 className="size-3.5 shrink-0" aria-hidden /> {otpResumeStatus}
+          </p>
+        </div>
       )}
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,17rem)_minmax(0,1fr)] lg:items-start lg:gap-6">
@@ -1278,6 +1376,12 @@ export function KycSection() {
                     </div>
                   )}
                 </div>
+
+                {otpResumeStatus !== null && (
+                  <p className="text-[11px] leading-4 text-amber-700 dark:text-amber-300" role="status">
+                    {otpResumeStatus}
+                  </p>
+                )}
               </div>
             )}
 
@@ -1466,23 +1570,21 @@ export function KycSection() {
                 </div>
               </div>
             )}
-          </div>
+          </div>            {/* ===== Yang masih kurang di tahap ini ===== */}
+            {(galatTahap.length > 0 || kurangTahap.length > 0) &&
+              !(tahap.id === "persetujuan") && (
+                <div className="mt-4 rounded-xl border border-border bg-muted/40 px-3 py-2">
+                  <p className="text-[11px] font-semibold text-foreground">Tahap ini belum lengkap</p>
+                  <ul className="mt-1 list-disc space-y-0.5 pl-4 text-[11px] leading-4 text-muted-foreground">
+                    {[...galatTahap.map((g) => g.pesan), ...kurangTahap].map((pesan) => (
+                      <li key={pesan}>{pesan}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
 
-          {/* ===== Yang masih kurang di tahap ini ===== */}
-          {(galatTahap.length > 0 || kurangTahap.length > 0) &&
-            !(tahap.id === "persetujuan") && (
-              <div className="mt-4 rounded-xl border border-border bg-muted/40 px-3 py-2">
-                <p className="text-[11px] font-semibold text-foreground">Tahap ini belum lengkap</p>
-                <ul className="mt-1 list-disc space-y-0.5 pl-4 text-[11px] leading-4 text-muted-foreground">
-                  {[...galatTahap.map((g) => g.pesan), ...kurangTahap].map((pesan) => (
-                    <li key={pesan}>{pesan}</li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
-          {/* ===== Navigasi tahap ===== */}
-          <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-border pt-4">
+            {/* ===== Navigasi tahap ===== */}
+            <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-border pt-4">
             <Button
               type="button"
               variant="outline"
