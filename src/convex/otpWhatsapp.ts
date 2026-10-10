@@ -169,6 +169,10 @@ async function tantanganPengguna(
  * klien), dan baris tantangan baru ditulis SEBELUM kode dikirim supaya
  * kegagalan gateway tidak membuat kode yang tidak pernah tercatat.
  *
+ * Masa berlaku dihitung DI SINI (dari jam yang sama dengan `dibuatPada`), bukan
+ * dikirim action: selisih dua `Date.now()` yang berbeda membuat kedaluwarsa
+ * meleset beberapa milidetik dari 5 menit.
+ *
  * Mengembalikan `ok: false` (bukan melempar) untuk keadaan "sedang cooldown"
  * atau "kuota permintaan habis" — keduanya keadaan normal yang perlu
  * ditampilkan ke pengguna, bukan galat server.
@@ -180,7 +184,6 @@ export const _simpanPermintaan = internalMutation({
     tujuan: tujuanValidator,
     kodeHash: v.string(),
     salt: v.string(),
-    kedaluwarsaPada: v.number(),
     maksPercobaan: v.number(),
     ip: v.optional(v.string()),
     userAgent: v.optional(v.string()),
@@ -266,7 +269,9 @@ export const _simpanPermintaan = internalMutation({
       kodeHash: args.kodeHash,
       salt: args.salt,
       dibuatPada: sekarang,
-      kedaluwarsaPada: args.kedaluwarsaPada,
+      // Kedaluwarsa dihitung dari jam YANG SAMA dengan `dibuatPada` supaya masa
+      // berlaku tepat 5 menit (kalau dihitung di action, selisihnya bisa 1 ms).
+      kedaluwarsaPada: sekarang + OTP_MASA_BERLAKU_MS,
       maksPercobaan: args.maksPercobaan,
       percobaanGagal: 0,
       statusPengiriman: "menunggu",
@@ -394,7 +399,6 @@ export const mintaOtpWa = action({
     const kode = kodeOtpEnamDigit();
     const salt = buatSaltOtp();
     const kodeHash = await hashKodeOtp(salt, kode);
-    const sekarang = Date.now();
 
     const izin = await ctx.runMutation(internal.otpWhatsapp._simpanPermintaan, {
       userId,
@@ -402,7 +406,6 @@ export const mintaOtpWa = action({
       tujuan,
       kodeHash,
       salt,
-      kedaluwarsaPada: sekarang + OTP_MASA_BERLAKU_MS,
       maksPercobaan: OTP_MAKS_PERCOBAAN,
       ip: ip?.trim().slice(0, 64),
       userAgent: userAgent?.trim().slice(0, 200),
