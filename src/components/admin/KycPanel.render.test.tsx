@@ -17,6 +17,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { BarisKyc, KycDetailRingkas, KycRiwayatRingkas, type DetailKycTampil, type ItemKycTampil } from "./KycPanel";
 import { StatusKycBadge } from "@/components/StatusKycBadge";
 import { keteranganAturanUsang, VERSI_ATURAN_KYC } from "@/lib/kycAturan";
+import { VERSI_ATURAN_AUTO_KYC } from "@/lib/kycAutoApproval";
 import { KYC_STATUS, LABEL_STATUS_KYC } from "@/lib/kycStatus";
 
 let passed = 0;
@@ -80,6 +81,7 @@ const detail = (overrides: Partial<DetailKycTampil> = {}): DetailKycTampil => ({
   aturanTerverifikasi: { versi: VERSI_ATURAN_KYC, pada: 1_700_000_000_000 },
   aturanUsang: false,
   keteranganAturanUsang: null,
+  keputusanOtomatis: null,
   berkas: [
     {
       slot: "ktp",
@@ -324,6 +326,90 @@ for (const status of KYC_STATUS) {
   );
   ada(html, "tidak lagi cocok", "bukti OTP yang tidak cocok dengan nomor ditandai");
   bersih(html, "rincian dengan bukti OTP kedaluwarsa");
+}
+
+// ===== 4e. Hasil pemeriksaan OTOMATIS: apa yang gagal & apakah status berubah =====
+{
+  // Mesin menemukan yang gagal tetapi TIDAK mengubah status: petugas harus bisa
+  // membedakan "sudah diputuskan mesin" dari "dicatat untuk ditinjau".
+  const html = renderToStaticMarkup(
+    <KycDetailRingkas
+      detail={detail({
+        keputusanOtomatis: {
+          waktu: 1_700_000_000_000,
+          statusSebelum: "PENDING_REVIEW",
+          keputusan: "NEEDS_CORRECTION",
+          alasan: "otomatis_perlu_perbaikan",
+          ringkasan: "Pemeriksaan otomatis menemukan 1 hal yang perlu diperbaiki.",
+          versiAturan: VERSI_ATURAN_AUTO_KYC,
+          sumber: "otomatis",
+          aktor: "sistem",
+          diterapkan: false,
+          aturan: [
+            {
+              id: "nomor_wa_terverifikasi",
+              judul: "Nomor WhatsApp sudah terverifikasi",
+              status: "gagal",
+              sumber: "server",
+              pesan: "Nomor WhatsApp belum diverifikasi lewat kode OTP.",
+              detail: [],
+            },
+            {
+              id: "ocr_tersedia_threshold",
+              judul: "Hasil OCR tersedia & memenuhi ambang keyakinan",
+              status: "tidak_pasti",
+              sumber: "klien",
+              pesan: "Hasil OCR KTP belum tersedia.",
+              detail: [],
+            },
+          ],
+        },
+      })}
+    />,
+  );
+  ada(html, "Pemeriksaan otomatis terakhir", "blok pemeriksaan otomatis tampil");
+  ada(html, "status TIDAK diubah", "hasil yang tidak diterapkan ditandai jelas");
+  ok(!html.includes("sudah mengubah status"), "tidak mengaku status berubah sendiri");
+  ada(html, VERSI_ATURAN_AUTO_KYC, "versi aturan mesin tampil");
+  ada(html, "Gagal", "pemeriksaan yang gagal ditandai");
+  ada(html, "Belum pasti", "pemeriksaan yang belum pasti ditandai");
+  ada(html, "belum diverifikasi lewat kode OTP", "pesan mesin ditampilkan apa adanya");
+  ada(html, "Dukcapil", "batas yang tidak diklaim tetap disebut");
+  bersih(html, "rincian dengan keputusan otomatis");
+}
+{
+  // Hasil mesin yang DITERAPKAN: status memang berubah karena mesin.
+  const html = renderToStaticMarkup(
+    <KycDetailRingkas
+      detail={detail({
+        status: "VERIFIED",
+        keputusanOtomatis: {
+          waktu: 1_700_000_000_000,
+          statusSebelum: "PENDING_REVIEW",
+          keputusan: "VERIFIED",
+          alasan: "otomatis_semua_pemeriksaan_lulus",
+          ringkasan: "Seluruh persyaratan yang dapat diverifikasi sistem sudah terpenuhi.",
+          versiAturan: VERSI_ATURAN_AUTO_KYC,
+          sumber: "otomatis",
+          aktor: "sistem",
+          diterapkan: true,
+          aturan: [
+            {
+              id: "format_nik_valid",
+              judul: "Format NIK valid (bentuk 16 angka)",
+              status: "lulus",
+              sumber: "server",
+              pesan: "NIK berbentuk 16 angka dengan komponen tanggal yang wajar.",
+              detail: [],
+            },
+          ],
+        },
+      })}
+    />,
+  );
+  ada(html, "sudah mengubah status", "hasil yang diterapkan ditandai");
+  ada(html, "Lulus", "pemeriksaan yang lulus ditandai");
+  bersih(html, "rincian dengan keputusan otomatis diterapkan");
 }
 
 // ===== 5. Riwayat petugas =====

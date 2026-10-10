@@ -1,20 +1,8 @@
 import { motion } from "framer-motion";
-import {
-  BellRing,
-  ChevronRight,
-  ClipboardList,
-  Coins,
-  Landmark,
-  MapPin,
-  ShieldCheck,
-} from "lucide-react";
+import { BellRing, ChevronRight, ClipboardList, Coins, MapPin } from "lucide-react";
 import { useState, type ComponentType } from "react";
 
-import {
-  MetrikKartu,
-  type AdminOverviewData,
-  type LedgerSummary,
-} from "@/components/admin/admin-shared";
+import { MetrikKartu, type AdminOverviewData } from "@/components/admin/admin-shared";
 import { Button } from "@/components/ui/button";
 import {
   jumlahPerhatianLokasi,

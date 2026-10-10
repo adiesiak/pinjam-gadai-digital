@@ -38,6 +38,7 @@ export function PindaiKtpOcr({
   file,
   form,
   onTerapkan,
+  onHasil,
   disabled = false,
 }: {
   /** Berkas KTP yang sedang dipilih pengguna (belum tentu tersimpan). */
@@ -46,6 +47,13 @@ export function PindaiKtpOcr({
   form: { namaLengkap: string; nik: string; alamat: string };
   /** Terapkan hasil OCR ke draf formulir (pengguna masih bisa mengoreksi). */
   onTerapkan: (ktp: DataKtp) => void;
+  /**
+   * Dipanggil setiap kali pemindaian SELESAI, dengan hasil MENTAH apa adanya
+   * (termasuk keyakinan mesin). Dipakai pemanggil untuk menyimpan snapshot OCR
+   * bagi mesin keputusan otomatis — snapshot mewakili APA yang dibaca mesin,
+   * bahkan bila pengguna nanti mengoreksi formulirnya.
+   */
+  onHasil?: (ktp: DataKtp, konfidensi: number) => void;
   disabled?: boolean;
 }) {
   const [status, setStatus] = useState<StatusPindai>("diam");
@@ -93,8 +101,10 @@ export function PindaiKtpOcr({
       const { teks, konfidensi } = await mesin.jalankanOcrKtp(file, {
         onProgres: (k) => setKemajuan(k.persen),
       });
-      setHasil({ ktp: uraikanKtp(teks), konfidensi });
+      const ktp = uraikanKtp(teks);
+      setHasil({ ktp, konfidensi });
       setStatus("siap");
+      onHasil?.(ktp, konfidensi);
     } catch (err) {
       setGalat(err instanceof Error ? err.message : "OCR gagal dijalankan.");
       setStatus("galat");

@@ -19,7 +19,6 @@ import { convexTest } from "convex-test";
 import { describe, expect, it } from "vitest";
 
 import { api } from "./_generated/api";
-import type { Id } from "./_generated/dataModel";
 import schema from "./schema";
 import { siapkanPengguna } from "./test.helpers";
 import { modules } from "./test.setup";
@@ -59,7 +58,7 @@ async function tulisJurnal(
 describe("hapus menyeluruh gadai & kredit barang", () => {
   it("gadai: ditolak tanpa konfirmasi, dibersihkan dengan konfirmasi — jurnal tetap utuh", async () => {
     const t = convexTest(schema, modules);
-    const { sesi: admin, userId: adminId } = await siapkanPengguna(t, "admin", {
+    const { sesi: admin } = await siapkanPengguna(t, "admin", {
       email: "admin-hg@pindai.test",
       role: "admin",
     });

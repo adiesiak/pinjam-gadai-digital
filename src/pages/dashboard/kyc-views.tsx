@@ -539,6 +539,15 @@ export function KycSection() {
   // Berkas KTP yang sedang dipilih — dipegang terpisah supaya OCR bisa dibaca
   // dari berkas asli di perangkat (tidak perlu bolak-balik ke storage).
   const [fileKtp, setFileKtp] = useState<File | null>(null);
+  // Snapshot OCR KTP terakhir (hasil mesin, apa adanya). Dikirim bareng simpanan
+  // supaya mesin keputusan otomatis di server bisa menilai keterbacaan & kecocokan
+  // teks KTP — snapshot mewakili APA yang dibaca mesin, bukan yang dikoreksi.
+  const [ocrKtp, setOcrKtp] = useState<{
+    konfidensi: number;
+    nik: string | null;
+    nama: string | null;
+    alamat: string | null;
+  } | null>(null);
   const [tahapPilihan, setTahapPilihan] = useState<IdTahapKyc | null>(null);
   const [centangSetuju, setCentangSetuju] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -658,7 +667,11 @@ export function KycSection() {
     // Berkas dihapus atau diganti: pratinjau lokal yang lama tidak berlaku lagi,
     // supaya yang tampil hanya berkas yang benar-benar sedang diproses.
     gantiPratinjau(slot, null);
-    if (slot === "ktp" && nilai === null) setFileKtp(null);
+    if (slot === "ktp" && nilai === null) {
+      setFileKtp(null);
+      // Foto dihapus: snapshot OCR untuk foto itu tidak berlaku lagi.
+      setOcrKtp(null);
+    }
   };
 
   /**
@@ -708,7 +721,7 @@ export function KycSection() {
     }
   };
 
-  const simpanProgres = async (): Promise<boolean> => {
+  const simpanProgres = async (opsi: { diam?: boolean } = {}): Promise<boolean> => {
     const berhasil = await jalankan(() =>
       simpan({
         namaLengkap: isian.namaLengkap,
@@ -724,9 +737,12 @@ export function KycSection() {
         ktpId: berkas.ktp?.id ?? null,
         selfieKtpId: berkas.selfie?.id ?? null,
         buktiPenghasilanId: berkas.bukti?.id ?? null,
+        // Snapshot OCR ikut disimpan bersama isian & berkas (bukan lewat jalur
+        // terpisah) supaya ia selalu sejalan dengan berkas KTP yang tersimpan.
+        ocrKtp,
       }),
     );
-    if (berhasil) toast.success("Progres KYC tersimpan.");
+    if (berhasil && opsi.diam !== true) toast.success("Progres KYC tersimpan.");
     return berhasil;
   };
 
@@ -739,8 +755,33 @@ export function KycSection() {
   };
 
   const ajukanPeninjauan = async () => {
-    const berhasil = await jalankan(() => ajukan({}));
-    if (berhasil) toast.success("Pengajuan KYC dikirim untuk peninjauan petugas.");
+    // Simpan dulu (tanpa toast) supaya isian & snapshot OCR TERBARU tersimpan
+    // sebelum mesin keputusan otomatis berjalan di server.
+    if (!(await simpanProgres({ diam: true }))) return;
+    setBusy(true);
+    setGalat(null);
+    try {
+      const hasil = await ajukan({});
+      // Mesin hanya menerapkan VERIFIED sendiri. Hasil lain (ada yang gagal /
+      // belum bisa dipastikan) DICATAT sebagai bahan peninjauan, jadi statusnya
+      // tetap menunggu petugas — pesannya pun tidak menjanjikan perbaikan
+      // otomatis, hanya menunjuk pemeriksaan yang gagal.
+      if (hasil.status === "VERIFIED") {
+        toast.success(
+          "Seluruh syarat yang bisa diperiksa sistem terpenuhi — KYC otomatis terverifikasi.",
+        );
+      } else if (hasil.otomatis?.keputusan === "NEEDS_CORRECTION") {
+        toast.warning(
+          "Pemeriksaan otomatis menemukan hal yang bisa Anda rapikan. Lihat panel pemeriksaan otomatis; petugas juga tetap meninjau pengajuan ini.",
+        );
+      } else {
+        toast.success("Pengajuan KYC dikirim untuk peninjauan petugas.");
+      }
+    } catch (err) {
+      setGalat(err instanceof Error ? err.message : "Pengajuan KYC gagal. Coba lagi.");
+    } finally {
+      setBusy(false);
+    }
   };
 
   /** Simpan lalu pindah ke tahap berikutnya (tanpa memaksa bila ada galat). */
@@ -1085,7 +1126,11 @@ export function KycSection() {
                   onUbah={(d) => ubahBerkas(slotDokumen, d)}
                   onBerkasDipilih={(file) => {
                     tampilkanPratinjau(slotDokumen, file);
-                    if (slotDokumen === "ktp") setFileKtp(file);
+                    if (slotDokumen === "ktp") {
+                      setFileKtp(file);
+                      // Foto baru: snapshot OCR foto sebelumnya tidak berlaku lagi.
+                      setOcrKtp(null);
+                    }
                   }}
                   mintaUrl={() => buatUrl({})}
                   periksa={(id, label) => periksa({ id, label }).then(() => undefined)}
@@ -1096,6 +1141,14 @@ export function KycSection() {
                     file={fileKtp}
                     form={{ namaLengkap: isian.namaLengkap, nik: isian.nik, alamat: isian.alamat }}
                     onTerapkan={terapkanOcrKtp}
+                    onHasil={(ktp, konfidensi) =>
+                      setOcrKtp({
+                        konfidensi,
+                        nik: ktp.nik,
+                        nama: ktp.nama,
+                        alamat: ktp.alamat,
+                      })
+                    }
                     disabled={busy}
                   />
                 )}
@@ -1497,7 +1550,73 @@ export function KycSection() {
         </div>
       </div>
 
+      {data.keputusanOtomatis !== null && (
+        <KycPemeriksaanOtomatis keputusan={data.keputusanOtomatis} />
+      )}
+
       <KycRiwayatList riwayat={data.riwayat} />
     </section>
+  );
+}
+
+/**
+ * KOTAK HASIL PEMERIKSAAN OTOMATIS — sisi nasabah.
+ *
+ * Menampilkan waktu, alasan, hasil SETIAP pemeriksaan, versi aturan, sumber, dan
+ * pelakunya. Yang tidak boleh hilang: keterangan bahwa hasil yang belum
+ * DITERAPKAN tidak mengubah status apa pun. Mesin hanya menerapkan `VERIFIED`;
+ * hasil lain dicatat sebagai bahan peninjauan, jadi tanpa kalimat itu nasabah
+ * bisa menyangka statusnya sudah diputuskan mesin padahal masih menunggu petugas.
+ */
+export function KycPemeriksaanOtomatis({
+  keputusan,
+}: {
+  keputusan: NonNullable<DataKyc["keputusanOtomatis"]>;
+}) {
+  return (
+    <div className="rounded-2xl border border-border bg-card p-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+          <ShieldAlert className="size-3.5" aria-hidden /> Pemeriksaan otomatis terakhir
+        </p>
+        <span className="text-[11px] text-muted-foreground">{waktu(keputusan.waktu)}</span>
+      </div>
+      <p className="mt-1.5 text-[12px] leading-5 text-muted-foreground">{keputusan.ringkasan}</p>
+      {/* Hasil yang TIDAK diterapkan tidak mengubah status apa pun. Tanpa
+          kalimat ini, nasabah bisa menyangka statusnya sudah diputuskan mesin. */}
+      {!keputusan.diterapkan && (
+        <p className="mt-1 text-[11px] leading-5 text-muted-foreground">
+          Hasil ini <strong>belum mengubah status</strong> — pengajuan tetap menunggu keputusan
+          petugas. Perbaiki hal di bawah lalu kirim ulang untuk diperiksa lagi.
+        </p>
+      )}
+      <ul className="mt-2 space-y-1">
+        {keputusan.aturan.map((r) => (
+          <li key={r.id} className="flex items-start gap-2 text-[11px]">
+            <span
+              className={`mt-0.5 inline-flex shrink-0 items-center rounded-full border px-1.5 py-0.5 font-medium ${
+                r.status === "lulus"
+                  ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                  : r.status === "gagal"
+                    ? "border-red-200 bg-red-50 text-red-700"
+                    : "border-amber-200 bg-amber-50 text-amber-800"
+              }`}
+            >
+              {r.status === "lulus" ? "Lulus" : r.status === "gagal" ? "Gagal" : "Belum pasti"}
+            </span>
+            <span className="min-w-0">
+              <span className="font-medium">{r.judul}</span> — {r.pesan}
+              {r.detail.length > 0 && (
+                <span className="block text-muted-foreground">{r.detail.join("; ")}.</span>
+              )}
+            </span>
+          </li>
+        ))}
+      </ul>
+      <p className="mt-2 border-t border-border pt-2 text-[10px] leading-4 text-muted-foreground">
+        Versi aturan {keputusan.versiAturan} · sumber {keputusan.sumber} · pelaku {keputusan.aktor}.
+        Keputusan otomatis tidak membuktikan keaslian KTP dan tidak diverifikasi ke Dukcapil.
+      </p>
+    </div>
   );
 }

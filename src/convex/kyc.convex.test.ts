@@ -16,7 +16,10 @@
  *  - data identitas penting yang berubah setelah VERIFIED memicu verifikasi
  *    ulang, sedangkan data kontak biasa tidak;
  *  - berkas hanya bisa ditautkan bila isinya benar-benar sudah diperiksa server
- *    (magic bytes) — tanpa penanda, mutation menolak.
+ *    (magic bytes) — tanpa penanda, mutation menolak;
+ *  - mesin keputusan otomatis MENAIKKAN status ke VERIFIED sendiri hanya bila
+ *    seluruh pemeriksaan yang bisa diverifikasi mesin lulus — dan hasil yang
+ *    gagal/tidak pasti hanya DICATAT, tidak menutup jalur verifikasi petugas.
  *
  * Menjalankan: bunx vitest run src/convex/kyc.convex.test.ts
  */
@@ -27,6 +30,7 @@ import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import schema from "./schema";
 import { VERSI_ATURAN_KYC } from "../lib/kycAturan";
+import { VERSI_ATURAN_AUTO_KYC } from "../lib/kycAutoApproval";
 import { VERSI_PERSETUJUAN_KYC } from "../lib/persetujuanKyc";
 import { buatPengguna, siapkanPengguna, type KonteksUji, type SesiUji } from "./test.helpers";
 import { modules } from "./test.setup";
@@ -841,5 +845,295 @@ describe("alur KYC mandiri", () => {
     await expect(
       admin.sesi.mutation(api.kyc.tinjauKyc, { userId: tamu.userId, keputusan: "VERIFIED" }),
     ).rejects.toThrow(/Baris KYC nasabah tidak ditemukan/);
+  });
+});
+
+/* ==========================================================================
+ * KEPUTUSAN OTOMATIS — mesin `lib/kycAutoApproval.ts`
+ * ==========================================================================
+ *
+ * Yang dijaga blok ini:
+ *  - status naik ke VERIFIED SENDIRI hanya bila seluruh pemeriksaan yang bisa
+ *    diverifikasi mesin lulus (isian, bentuk NIK, berkas yang diperiksa server,
+ *    snapshot OCR di atas ambang, OTP WhatsApp);
+ *  - hasil yang GAGAL atau BELUM PASTI hanya DICATAT lengkap (waktu, hasil tiap
+ *    rule, alasan, versi aturan, sumber, aktor) — status TIDAK diturunkan mesin,
+ *    pengajuan tetap di antrean petugas, dan petugas tetap bisa memverifikasi;
+ *  - pemeriksaan ulang atas FAKTA yang sama tidak menulis keputusan kedua.
+ */
+
+/**
+ * NIK dengan komponen tanggal lahir yang wajar (DDMMYY = 010100). Mesin memeriksa
+ * bentuk itu sedangkan isian form tidak, jadi NIK lain akan membuat pemeriksaan
+ * "format NIK" gagal dan menutupi pemeriksaan yang sedang diuji.
+ */
+const NIK_MESIN = "3271010101000001";
+
+/** Isian KYC yang lulus seluruh pemeriksaan mesin. */
+const ISI_MESIN = { ...ISI_LENGKAP, nik: NIK_MESIN };
+
+/** Snapshot OCR yang cocok dengan isian di atas (keyakinan di atas ambang 80). */
+const OCR_COCOK = {
+  konfidensi: 92,
+  nik: NIK_MESIN,
+  nama: "RANI PUSPITA",
+  alamat: ISI_LENGKAP.alamat,
+};
+
+type KeluarFonnte = { target: string; message: string };
+
+/**
+ * Fonnte palsu — cukup untuk memverifikasi nomor lewat jalur OTP yang SAMA dengan
+ * produksi (`mintaOtpWa` → kode benar-benar dikirim → `verifikasiOtpWa`).
+ */
+function pasangFonnte() {
+  const asli = globalThis.fetch;
+  const keluar: KeluarFonnte[] = [];
+  process.env.FONNTE_TOKEN = "token-uji-fonnte";
+  globalThis.fetch = (async (_url: unknown, init?: { body?: unknown }) => {
+    const body = new URLSearchParams(String(init?.body ?? ""));
+    keluar.push({ target: body.get("target") ?? "", message: body.get("message") ?? "" });
+    return new Response(JSON.stringify({ status: true, detail: "success! message in queue" }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  }) as unknown as typeof fetch;
+  return {
+    keluar,
+    pulihkan: () => {
+      globalThis.fetch = asli;
+      delete process.env.FONNTE_TOKEN;
+    },
+  };
+}
+
+/** Verifikasi nomor WhatsApp lewat kode yang benar-benar dikirim keluar. */
+async function verifikasiWa(sesi: SesiUji): Promise<void> {
+  const fonnte = pasangFonnte();
+  try {
+    const kirim = await sesi.action(api.otpWhatsapp.mintaOtpWa, {
+      tujuan: "verifikasi_nomor",
+      ip: "10.0.0.1",
+    });
+    expect(kirim.terkirim).toBe(true);
+    const kode = fonnte.keluar[0]?.message.match(/\d{6}/)?.[0] ?? "";
+    expect(kode).toHaveLength(6);
+    const hasil = await sesi.mutation(api.otpWhatsapp.verifikasiOtpWa, {
+      tujuan: "verifikasi_nomor",
+      kode,
+      ip: "10.0.0.1",
+    });
+    expect(hasil.ok).toBe(true);
+  } finally {
+    fonnte.pulihkan();
+  }
+}
+
+/**
+ * Siapkan pengajuan: persetujuan, tiga berkas yang isinya diperiksa server,
+ * isian lengkap + snapshot OCR, lalu (bila diminta) nomor WhatsApp diverifikasi
+ * lewat OTP. Berkas dikembalikan supaya uji bisa menyimpan ULANG data yang sama.
+ */
+async function siapkanMesin(
+  t: KonteksUji,
+  sesi: SesiUji,
+  opsi: { ocr?: boolean; wa?: boolean } = {},
+): Promise<BerkasKyc> {
+  const pakaiOcr = opsi.ocr ?? true;
+  const pakaiWa = opsi.wa ?? true;
+  await setujui(sesi);
+  const berkas: BerkasKyc = {
+    ktpId: await unggah(t, sesi, "Foto KTP"),
+    selfieKtpId: await unggah(t, sesi, "Selfie dengan KTP"),
+    buktiPenghasilanId: await unggah(t, sesi, "Bukti penghasilan"),
+  };
+  await simpanUlang(sesi, berkas, pakaiOcr);
+  if (pakaiWa) await verifikasiWa(sesi);
+  return berkas;
+}
+
+/**
+ * Simpan ULANG isian yang sama. Menyunting saat `PENDING_REVIEW` menarik
+ * pengajuan kembali ke `IN_PROGRESS` (lihat `statusSetelahSunting`), jadi ini
+ * jalur nyata "kirim ulang" — bukan panggilan mesin secara langsung.
+ */
+async function simpanUlang(
+  sesi: SesiUji,
+  berkas: BerkasKyc,
+  pakaiOcr = true,
+): Promise<void> {
+  await sesi.mutation(api.kyc.simpanProgresKyc, {
+    ...ISI_MESIN,
+    ...berkas,
+    ...(pakaiOcr ? { ocrKtp: OCR_COCOK } : {}),
+  });
+}
+
+/** Semua keputusan otomatis milik satu nasabah, urut waktu. */
+async function keputusanMesin(t: KonteksUji, userId: Id<"users">) {
+  return t.run(async (ctx) =>
+    ctx.db
+      .query("kycKeputusanOtomatis")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .collect(),
+  );
+}
+
+describe("keputusan otomatis KYC", () => {
+  it("Seluruh pemeriksaan lulus → KYC otomatis VERIFIED, tercatat lengkap sekali", async () => {
+    const { t, nasabah } = await siapkanDua();
+    await siapkanMesin(t, nasabah.sesi);
+
+    const hasil = await nasabah.sesi.mutation(api.kyc.ajukanKyc, {});
+    expect(hasil.status).toBe("VERIFIED");
+    expect(hasil.otomatis).toEqual({ keputusan: "VERIFIED", diterapkan: true });
+
+    const keputusan = await keputusanMesin(t, nasabah.userId);
+    expect(keputusan).toHaveLength(1);
+    const k = keputusan[0]!;
+    expect(k).toMatchObject({
+      statusSebelum: "PENDING_REVIEW",
+      keputusan: "VERIFIED",
+      alasan: "otomatis_semua_pemeriksaan_lulus",
+      versiAturan: VERSI_ATURAN_AUTO_KYC,
+      sumber: "otomatis",
+      aktor: "sistem",
+      diterapkan: true,
+    });
+    // Waktu pemeriksaan + hasil SETIAP rule + dari mana faktanya berasal.
+    expect(typeof k.waktu).toBe("number");
+    expect(k.aturan).toHaveLength(9);
+    expect(k.aturan.every((r) => r.status === "lulus")).toBe(true);
+    expect(k.aturan.some((r) => r.id === "nomor_wa_terverifikasi" && r.sumber === "server")).toBe(
+      true,
+    );
+    expect(k.aturan.some((r) => r.id === "ocr_tersedia_threshold" && r.sumber === "klien")).toBe(
+      true,
+    );
+    // Sidik jari: bahan idempotensi, dan TIDAK memuat data pribadi.
+    expect(k.sidikJari).toContain(VERSI_ATURAN_AUTO_KYC);
+    expect(k.sidikJari).not.toContain(NIK_MESIN);
+
+    // Jejak: riwayat + audit menulis aktor "sistem" beserta dasar aturannya.
+    const { riwayat, audit, loans } = await t.run(async (ctx) => ({
+      riwayat: await ctx.db.query("kycRiwayat").collect(),
+      audit: await ctx.db.query("auditLog").collect(),
+      loans: await ctx.db.query("loans").collect(),
+    }));
+    const jejak = riwayat.find((r) => r.ke === "VERIFIED");
+    expect(jejak).toMatchObject({
+      aktor: "sistem",
+      aktorLabel: "Sistem (keputusan otomatis)",
+      alasan: "otomatis_semua_pemeriksaan_lulus",
+      versiAturan: VERSI_ATURAN_KYC,
+    });
+    expect(typeof jejak?.waktu).toBe("number");
+    expect(audit.some((a) => a.aksi === "kyc_verified")).toBe(true);
+    // VERIFIED hanya berarti proses KYC berhasil — bukan pinjaman/dana.
+    expect(loans).toHaveLength(0);
+  });
+
+  it("Ada pemeriksaan yang gagal → mesin hanya mencatat; petugas tetap bisa memverifikasi", async () => {
+    const { t, admin, nasabah } = await siapkanDua();
+    // Nomor WhatsApp sengaja BELUM diverifikasi lewat OTP.
+    await siapkanMesin(t, nasabah.sesi, { wa: false });
+
+    const hasil = await nasabah.sesi.mutation(api.kyc.ajukanKyc, {});
+    // Mesin TIDAK menurunkan status: pengajuan tetap di antrean petugas.
+    expect(hasil.status).toBe("PENDING_REVIEW");
+    expect(hasil.otomatis).toEqual({ keputusan: "NEEDS_CORRECTION", diterapkan: false });
+
+    const keputusan = await keputusanMesin(t, nasabah.userId);
+    expect(keputusan).toHaveLength(1);
+    const k = keputusan[0]!;
+    expect(k).toMatchObject({ keputusan: "NEEDS_CORRECTION", diterapkan: false });
+    const gagal = k.aturan.filter((r) => r.status === "gagal");
+    expect(gagal.map((r) => r.id)).toContain("nomor_wa_terverifikasi");
+    // Hasil yang gagal DIKATAKAN apa adanya: pesan OTP hanya soal kontrol nomor.
+    expect(gagal.map((r) => r.pesan).join(" ")).toMatch(/OTP/i);
+    expect(k.ringkasan.length).toBeGreaterThan(0);
+
+    // Di sisi nasabah keputusan mesin terlihat, dengan status tetap menunggu.
+    const saya = await nasabah.sesi.query(api.kyc.kycSaya, {});
+    expect(saya.status).toBe("PENDING_REVIEW");
+    expect(saya.keputusanOtomatis).toMatchObject({
+      keputusan: "NEEDS_CORRECTION",
+      diterapkan: false,
+      versiAturan: VERSI_ATURAN_AUTO_KYC,
+    });
+
+    // Dan yang PENTING: petugas tetap bisa memverifikasi (tidak terkunci).
+    await expect(
+      admin.sesi.mutation(api.kyc.tinjauKyc, {
+        userId: nasabah.userId,
+        keputusan: "VERIFIED",
+      }),
+    ).resolves.toMatchObject({ ok: true, status: "VERIFIED" });
+  });
+
+  it("OCR belum tersedia → bukan gagal, tapi belum pasti: dicatat, ditinjau petugas", async () => {
+    const { t, nasabah } = await siapkanDua();
+    await siapkanMesin(t, nasabah.sesi, { ocr: false });
+
+    const hasil = await nasabah.sesi.mutation(api.kyc.ajukanKyc, {});
+    expect(hasil.status).toBe("PENDING_REVIEW");
+    expect(hasil.otomatis).toEqual({ keputusan: "PENDING_REVIEW", diterapkan: false });
+
+    const k = (await keputusanMesin(t, nasabah.userId))[0]!;
+    expect(k).toMatchObject({
+      keputusan: "PENDING_REVIEW",
+      alasan: "otomatis_menunggu_peninjauan",
+      diterapkan: false,
+    });
+    // Tidak ada yang GAGAL; yang ada adalah pemeriksaan yang tak bisa dipastikan.
+    expect(k.aturan.filter((r) => r.status === "gagal")).toHaveLength(0);
+    const takPasti = k.aturan.filter((r) => r.status === "tidak_pasti").map((r) => r.id);
+    expect(takPasti).toContain("ocr_tersedia_threshold");
+    expect(takPasti).toContain("ocr_konsisten");
+    expect(takPasti).toContain("tanpa_ketidaksesuaian_material");
+  });
+
+  it("IDEMPOTEN: fakta yang sama saat kirim ulang tidak membuat keputusan kedua", async () => {
+    const { t, nasabah } = await siapkanDua();
+    const berkas = await siapkanMesin(t, nasabah.sesi, { wa: false });
+
+    await nasabah.sesi.mutation(api.kyc.ajukanKyc, {});
+    const pertama = await keputusanMesin(t, nasabah.userId);
+    expect(pertama).toHaveLength(1);
+
+    // Kirim ulang TANPA mengubah fakta yang diperiksa mesin.
+    await simpanUlang(nasabah.sesi, berkas);
+    const ulang = await nasabah.sesi.mutation(api.kyc.ajukanKyc, {});
+    expect(ulang.status).toBe("PENDING_REVIEW");
+    expect(ulang.otomatis?.diterapkan).toBe(false);
+
+    const kedua = await keputusanMesin(t, nasabah.userId);
+    // Satu keputusan per sidik jari: barisnya tidak digandakan dan tidak diubah.
+    expect(kedua).toHaveLength(1);
+    expect(kedua[0]).toMatchObject({ _id: pertama[0]!._id, waktu: pertama[0]!.waktu });
+  });
+
+  it("Nasabah memperbaiki, kirim ulang → mesin mencatat keputusan BARU dan memverifikasi", async () => {
+    const { t, nasabah } = await siapkanDua();
+    const berkas = await siapkanMesin(t, nasabah.sesi, { wa: false });
+
+    await nasabah.sesi.mutation(api.kyc.ajukanKyc, {});
+    expect((await keputusanMesin(t, nasabah.userId))[0]?.keputusan).toBe("NEEDS_CORRECTION");
+
+    // Nasabah melengkapi kekurangannya (nomor WhatsApp diverifikasi lewat OTP),
+    // lalu mengirim ulang. Fakta berubah ⇒ sidik jari berubah ⇒ keputusan baru.
+    await simpanUlang(nasabah.sesi, berkas);
+    await verifikasiWa(nasabah.sesi);
+    const ulang = await nasabah.sesi.mutation(api.kyc.ajukanKyc, {});
+
+    expect(ulang.status).toBe("VERIFIED");
+    expect(ulang.otomatis).toEqual({ keputusan: "VERIFIED", diterapkan: true });
+    const keputusan = await keputusanMesin(t, nasabah.userId);
+    expect(keputusan).toHaveLength(2);
+    expect(keputusan.map((k) => [k.keputusan, k.diterapkan])).toEqual([
+      ["NEEDS_CORRECTION", false],
+      ["VERIFIED", true],
+    ]);
+    expect(keputusan[0]!.sidikJari).not.toBe(keputusan[1]!.sidikJari);
   });
 });

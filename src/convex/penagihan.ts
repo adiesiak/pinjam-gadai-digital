@@ -1176,7 +1176,7 @@ export const bukaPengaduan = mutation({
     const sah = validasiPengaduan(args.isi);
     if (!sah.ok) throw new Error(sah.alasan);
 
-    let loanId = args.loanId;
+    const loanId = args.loanId;
     let userId: IdT<"users"> | undefined;
     let nomorReferensi: string | undefined;
     if (loanId !== undefined) {

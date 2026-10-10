@@ -1418,6 +1418,36 @@ const schema = defineSchema(
           metode: v.string(),
         }),
       ),
+      /**
+       * HASIL OCR KTP — snapshot SAJA, berasal dari perangkat nasabah.
+       *
+       * OCR berjalan LOKAL di peramban (`lib/kycOcrMesin.ts`) dan TIDAK pernah
+       * mengirim gambar ke server mana pun. Yang disimpan di sini hanyalah teks
+       * yang sudah dibaca mesin itu, dipakai MESIN KEPUTUSAN OTOMATIS
+       * (`lib/kycAutoApproval.ts`) untuk menilai keterbacaan & kecocokan dengan
+       * isian.
+       *
+       * PENTING: ini bukti berlabel `sumber: "klien"` — bukan fakta server.
+       * OCR tidak membuktikan keaslian KTP dan tidak memverifikasi Dukcapil;
+       * karena itu mesin memperlakukannya sebagai saran, bukan bukti sekuat
+       * hasil pemeriksaan berkas server (`berkasTerverifikasi`).
+       *
+       * Dibuang saat berkas KTP diganti (lihat `simpanProgresKyc`) karena hasil
+       * lama mewakili foto lama.
+       */
+      ocrKtp: v.optional(
+        v.object({
+          /** Keyakinan mesin OCR 0–100. */
+          konfidensi: v.number(),
+          nik: v.union(v.string(), v.null()),
+          nama: v.union(v.string(), v.null()),
+          alamat: v.union(v.string(), v.null()),
+          /** Waktu server saat snapshot dicatat. */
+          pada: v.number(),
+          /** Asal snapshot — saat ini selalu "klien". */
+          sumber: v.string(),
+        }),
+      ),
       alamat: v.optional(v.string()),
       pekerjaan: v.optional(v.string()),
       /** Rupiah bulat. */
@@ -1495,6 +1525,58 @@ const schema = defineSchema(
         }),
       ),
     }).index("by_user", ["userId"]),
+
+    /**
+     * KEPUTUSAN OTOMATIS KYC — APPEND-ONLY, satu baris per pemeriksaan mesin.
+     *
+     * Kenapa perlu tabel sendiri (bukan hanya menambah kolom di `kycProfil`):
+     * keputusan otomatis harus bisa ditelusuri — APA yang diperiksa, hasil tiap
+     * pemeriksaan, atas dasar VERSI ATURAN apa, dan kapan. Menyimpannya sebagai
+     * riwayat append-only berarti pemeriksaan ulang tidak menimpa bukti lama.
+     *
+     * `sidikJari` adalah cap dari masukan (id + status pemeriksaan, TANPA data
+     * pribadi) + versi aturan + status tujuan. Baris terakhir dengan sidik jari
+     * yang sama dilewati, sehingga prosesnya IDEMPOTEN: klik ganda atau
+     * pemeriksaan ulang atas data yang tak berubah tidak menulis keputusan dan
+     * tidak mengubah status dua kali.
+     *
+     * `diterapkan: false` menandai pemeriksaan yang tidak mengubah status
+     * (mis. hasil `PENDING_REVIEW` ketika status memang sudah menunggu tinjauan)
+     * — tetap dicatat sebagai jejak, bukan dihilangkan.
+     */
+    kycKeputusanOtomatis: defineTable({
+      userId: v.id("users"),
+      waktu: v.number(),
+      /** Status sebelum mesin berjalan — untuk jejak transisi. */
+      statusSebelum: kycStatusValidator,
+      /** Status yang DITUJU mesin (VERIFIED | NEEDS_CORRECTION | PENDING_REVIEW). */
+      keputusan: kycStatusValidator,
+      /** Kode alasan terstruktur (mis. "otomatis_semua_pemeriksaan_lulus"). */
+      alasan: v.string(),
+      /** Kalimat alasan untuk dibaca manusia. */
+      ringkasan: v.string(),
+      /** Versi aturan keputusan otomatis (`lib/kycAutoApproval.ts`). */
+      versiAturan: v.string(),
+      /** Asal keputusan — saat ini selalu "otomatis". */
+      sumber: v.string(),
+      /** Aktor pencatat — saat ini selalu "sistem". */
+      aktor: aktorKycValidator,
+      /** Cap masukan untuk idempotensi (tanpa data pribadi). */
+      sidikJari: v.string(),
+      /** true bila keputusan ini benar-benar mengubah status nasabah. */
+      diterapkan: v.boolean(),
+      /** Hasil setiap pemeriksaan — apa adanya, termasuk yang gagal/tidak pasti. */
+      aturan: v.array(
+        v.object({
+          id: v.string(),
+          judul: v.string(),
+          status: v.string(),
+          sumber: v.string(),
+          pesan: v.string(),
+          detail: v.array(v.string()),
+        }),
+      ),
+    }).index("by_user", ["userId", "waktu"]),
 
     /**
      * Riwayat perubahan status KYC — APPEND-ONLY.

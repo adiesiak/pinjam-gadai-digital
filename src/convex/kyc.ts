@@ -22,6 +22,12 @@ import {
 } from "../lib/kycAturan";
 import { VERSI_PERSETUJUAN_KYC, persetujuanAktif } from "../lib/persetujuanKyc";
 import {
+  bolehTerapkanOtomatis,
+  putuskanKycOtomatis,
+  type MasukanKeputusanKyc,
+  type TeknisBerkas,
+} from "../lib/kycAutoApproval";
+import {
   bolehTransisi,
   keputusanWajibAlasan,
   kekuranganKyc,
@@ -409,6 +415,188 @@ async function selaraskanDataDiri(
 }
 
 /**
+ * Bukti TEKNIS satu berkas menurut pemeriksaan SERVER (`berkasTerverifikasi`).
+ *
+ * Mesin keputusan otomatis memakainya untuk menilai keterbacaan berkas tanpa
+ * mempercayai klaim klien: "terverifikasiServer" berarti action pemeriksa isi
+ * (magic bytes) sudah menandai berkas ini. Dimensi null berarti tidak tercatat
+ * (mis. baris lama) — mesin memperlakukannya sebagai "tidak pasti", bukan
+ * "lulus".
+ */
+async function teknisBerkasOtomatis(
+  ctx: MutationCtx,
+  id: Id<"_storage"> | undefined,
+): Promise<TeknisBerkas> {
+  if (id === undefined) {
+    return { ada: false, terverifikasiServer: false, lebar: null, tinggi: null };
+  }
+  const penanda = await ctx.db
+    .query("berkasTerverifikasi")
+    .withIndex("by_storageId", (q) => q.eq("storageId", id))
+    .first();
+  if (penanda === null) {
+    return { ada: true, terverifikasiServer: false, lebar: null, tinggi: null };
+  }
+  return {
+    ada: true,
+    terverifikasiServer: true,
+    lebar: penanda.lebar ?? null,
+    tinggi: penanda.tinggi ?? null,
+  };
+}
+
+/**
+ * Proyeksi satu keputusan otomatis untuk dibaca nasabah & petugas.
+ *
+ * Satu tempat supaya kedua sisi melihat dasar yang sama (versi aturan, sumber,
+ * aktor, hasil tiap pemeriksaan) — dan terutama `diterapkan`: hasil yang TIDAK
+ * diterapkan berarti mesin hanya mencatat pemeriksaannya, status TIDAK berubah,
+ * sehingga pembacanya tidak menyangka status berubah sendiri.
+ */
+function proyeksiKeputusanOtomatis(row: Doc<"kycKeputusanOtomatis">) {
+  return {
+    waktu: row.waktu,
+    statusSebelum: row.statusSebelum as StatusKyc,
+    keputusan: row.keputusan as StatusKyc,
+    alasan: row.alasan,
+    ringkasan: row.ringkasan,
+    versiAturan: row.versiAturan,
+    sumber: row.sumber,
+    aktor: row.aktor,
+    diterapkan: row.diterapkan,
+    aturan: row.aturan,
+  };
+}
+
+/**
+ * Jalankan mesin keputusan otomatis KYC lalu terapkan hasilnya.
+ *
+ * Kenapa di SINI, bukan di klien: seluruh pemeriksaan diturunkan dari data yang
+ * sudah tersimpan di server (kelengkapan, bukti berkas dari `berkasTerverifikasi`,
+ * bukti OTP). Klien hanya boleh menghadirkan snapshot OCR — itu pun ditandai
+ * `sumber: "klien"` dan diperlakukan sebagai saran, bukan bukti.
+ *
+ * Status hanya bisa berubah bila keputusan mesin adalah `VERIFIED`
+ * (`bolehTerapkanOtomatis`) DAN status SEKARANG `PENDING_REVIEW` serta
+ * transisinya sah untuk aktor `sistem` (lihat `lib/kycStatus.ts`). Hasil
+ * `PENDING_REVIEW` maupun `NEEDS_CORRECTION` hanya DICATAT sebagai bahan
+ * peninjauan: `NEEDS_CORRECTION` adalah keputusan "nasabah harus memperbaiki"
+ * milik petugas, dan dari sana hanya nasabah yang bisa mengirim ulang — mesin
+ * yang menerbitkannya sendiri akan menutup pengajuan dari jalur verifikasi
+ * petugas. Jadi petugas tetap pemutusnya, dengan hasil pemeriksaan mesin
+ * lengkap di tangannya.
+ *
+ * IDEMPOTEN: satu keputusan per SIDIK JARI. Sidik jari dirangkum dari hasil
+ * semua pemeriksaan + versi aturan + status yang dituju, jadi selama fakta yang
+ * dibaca mesin tidak berubah — mis. nasabah mengirim ulang tanpa mengubah data
+ * yang diperiksa — pemeriksaan ulang berhenti tanpa menulis keputusan/jejak
+ * kedua. Fakta yang berubah selalu mengubah sidik jari, sehingga keputusan baru
+ * memang layak dicatat.
+ */
+async function terapkanKeputusanOtomatis(
+  ctx: MutationCtx,
+  args: { userId: Id<"users">; sekarang: number },
+): Promise<{ keputusan: StatusKyc; diterapkan: boolean; idempoten: boolean }> {
+  const row = await ctx.db
+    .query("kycProfil")
+    .withIndex("by_user", (q) => q.eq("userId", args.userId))
+    .first();
+  if (row === null) {
+    throw new Error("Baris KYC tidak ditemukan untuk keputusan otomatis.");
+  }
+
+  const [ktp, selfie, bukti] = await Promise.all([
+    teknisBerkasOtomatis(ctx, row.ktpId),
+    teknisBerkasOtomatis(ctx, row.selfieKtpId),
+    teknisBerkasOtomatis(ctx, row.buktiPenghasilanId),
+  ]);
+
+  const masukan: MasukanKeputusanKyc = {
+    isian: {
+      namaLengkap: row.namaLengkap ?? null,
+      nik: row.nik ?? null,
+      nomorWhatsApp: row.nomorWhatsApp ?? null,
+      alamat: row.alamat ?? null,
+      penghasilanBulanan: row.penghasilanBulanan ?? null,
+      sumberPenghasilan: row.sumberPenghasilan ?? null,
+      ktpId: row.ktpId ?? null,
+      selfieKtpId: row.selfieKtpId ?? null,
+      buktiPenghasilanId: row.buktiPenghasilanId ?? null,
+    },
+    persetujuanAktif: persetujuanAktif(row.persetujuan),
+    nomorWaTerverifikasi: nomorWaCocok(row.nomorWhatsAppTerverifikasi, row.nomorWhatsApp),
+    teknis: { ktp, selfie, bukti },
+    ocr:
+      row.ocrKtp === undefined
+        ? null
+        : {
+            konfidensi: row.ocrKtp.konfidensi,
+            nik: row.ocrKtp.nik,
+            nama: row.ocrKtp.nama,
+            alamat: row.ocrKtp.alamat,
+          },
+  };
+
+  const hasil = putuskanKycOtomatis(masukan);
+  const statusSebelum = row.status as StatusKyc;
+
+  const terakhir = await ctx.db
+    .query("kycKeputusanOtomatis")
+    .withIndex("by_user", (q) => q.eq("userId", args.userId))
+    .order("desc")
+    .first();
+  if (terakhir !== null && terakhir.sidikJari === hasil.sidikJari) {
+    // Sidik jari sama ⇒ kesimpulan mesin juga sama (versi aturan + status tujuan
+    // ikut di dalamnya), jadi keputusan yang sudah tercatat masih berlaku.
+    return { keputusan: hasil.target, diterapkan: false, idempoten: true };
+  }
+
+  const bolehTerapkan =
+    statusSebelum === "PENDING_REVIEW" &&
+    bolehTerapkanOtomatis(hasil.target) &&
+    bolehTransisi(statusSebelum, hasil.target, "sistem");
+
+  await ctx.db.insert("kycKeputusanOtomatis", {
+    userId: args.userId,
+    waktu: args.sekarang,
+    statusSebelum,
+    keputusan: hasil.target,
+    alasan: hasil.alasan,
+    ringkasan: hasil.ringkasan,
+    versiAturan: hasil.versiAturan,
+    sumber: "otomatis",
+    aktor: "sistem",
+    sidikJari: hasil.sidikJari,
+    diterapkan: bolehTerapkan,
+    aturan: hasil.aturan.map((r) => ({
+      id: r.id,
+      judul: r.judul,
+      status: r.status,
+      sumber: r.sumber,
+      pesan: r.pesan,
+      detail: r.detail,
+    })),
+  });
+
+  if (bolehTerapkan) {
+    const olehLabel = "Sistem (keputusan otomatis)";
+    await ubahStatus(ctx, row, {
+      ke: hasil.target,
+      aktor: "sistem",
+      aktorLabel: olehLabel,
+      alasan: hasil.alasan,
+      // Ringkasan mesin selalu panjang (>3 karakter), jadi syarat alasan untuk
+      // NEEDS_CORRECTION/REJECTED terpenuhi tanpa teks tambahan.
+      catatan: hasil.ringkasan,
+      sekarang: args.sekarang,
+      keputusan: { olehLabel, catatan: hasil.ringkasan },
+    });
+  }
+
+  return { keputusan: hasil.target, diterapkan: bolehTerapkan, idempoten: false };
+}
+
+/**
  * Tandai nomor WhatsApp KYC sebagai TERVERIFIKASI lewat kode OTP.
  *
  * Sengaja fungsi biasa (bukan mutation publik): satu-satunya pemanggilnya
@@ -504,6 +692,8 @@ export const kycSaya = query({
         // Belum ada baris = tidak ada bukti OTP apa pun.
         nomorWhatsAppTerverifikasi: null,
         nomorWhatsAppTerbukti: false,
+        // Belum ada baris = belum ada keputusan otomatis apa pun.
+        keputusanOtomatis: null,
         // Belum ada baris = belum ada persetujuan apa pun yang tercatat.
         persetujuan: null,
         persetujuanAktif: false,
@@ -530,6 +720,13 @@ export const kycSaya = query({
       .query("kycRiwayat")
       .withIndex("by_user", (q) => q.eq("userId", userId))
       .collect();
+    // Keputusan otomatis TERAKHIR — supaya nasabah bisa melihat APA yang
+    // diperiksa mesin dan mengapa, bukan hanya status akhirnya.
+    const keputusanOtomatis = await ctx.db
+      .query("kycKeputusanOtomatis")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .order("desc")
+      .first();
     const r = ringkas(row);
 
     return {
@@ -610,6 +807,14 @@ export const kycSaya = query({
       diputuskanPada: row.diputuskanPada ?? null,
       diputuskanOlehLabel: row.diputuskanOlehLabel ?? null,
       keputusanCatatan: row.keputusanCatatan ?? null,
+      /**
+       * Hasil keputusan otomatis terakhir (mesin `lib/kycAutoApproval.ts`):
+       * waktu, status tujuan, alasan, versi aturan, sumber, aktor, dan hasil
+       * SETIAP pemeriksaan. Nasabah melihat ini untuk tahu apa yang diminta
+       * mesin — bukan untuk menyimpulkan identitasnya sudah terbukti sah.
+       */
+      keputusanOtomatis:
+        keputusanOtomatis === null ? null : proyeksiKeputusanOtomatis(keputusanOtomatis),
       diperbaruiPada: row.diperbaruiPada,
       // Terbaru dulu. `waktu` saja tidak cukup: dua perubahan yang tercatat di
       // milidetik yang sama membuat urutannya tidak tentu, sehingga kejadian
@@ -789,6 +994,25 @@ export const simpanProgresKyc = mutation({
     ktpId: v.optional(v.union(v.id("_storage"), v.null())),
     selfieKtpId: v.optional(v.union(v.id("_storage"), v.null())),
     buktiPenghasilanId: v.optional(v.union(v.id("_storage"), v.null())),
+    /**
+     * Snapshot OCR KTP terbaru dari peramban (`lib/kycOcrMesin.ts`), atau `null`
+     * untuk membuangnya. `undefined` (tidak dikirim) berarti "pertahankan yang
+     * tersimpan" — kecuali berkas KTP berubah, yang otomatis membuangnya.
+     *
+     * Disimpan bersama simpanan lain (bukan lewat mutation terpisah) supaya
+     * snapshot selalu sejalan dengan berkas KTP yang benar-benar tersimpan.
+     */
+    ocrKtp: v.optional(
+      v.union(
+        v.object({
+          konfidensi: v.number(),
+          nik: v.union(v.string(), v.null()),
+          nama: v.union(v.string(), v.null()),
+          alamat: v.union(v.string(), v.null()),
+        }),
+        v.null(),
+      ),
+    ),
   },
   handler: async (ctx, args) => {
     const { userId, label } = await requireNasabah(ctx);
@@ -874,6 +1098,27 @@ export const simpanProgresKyc = mutation({
       throw new Error("Isian KYC ditolak: Sumber penghasilan minimal 3 karakter.");
     }
 
+    // Snapshot OCR mengikuti FOTO KTP. Yang dikirim sekarang dipakai; bila tidak
+    // dikirim, yang lama dipertahankan KECUALI berkas KTP berubah (teks lama
+    // mewakili gambar lain). `null` eksplisit berarti membuangnya.
+    const ocrKtpBerikut =
+      args.ocrKtp === undefined
+        ? dokumen.ktpId === (lama?.ktpId ?? null)
+          ? lama?.ocrKtp
+          : undefined
+        : args.ocrKtp === null
+          ? undefined
+          : {
+              konfidensi: Number.isFinite(args.ocrKtp.konfidensi)
+                ? Math.max(0, Math.min(100, args.ocrKtp.konfidensi))
+                : 0,
+              nik: args.ocrKtp.nik === null ? null : args.ocrKtp.nik.slice(0, 32),
+              nama: args.ocrKtp.nama === null ? null : args.ocrKtp.nama.slice(0, 120),
+              alamat: args.ocrKtp.alamat === null ? null : args.ocrKtp.alamat.slice(0, 300),
+              pada: sekarang,
+              sumber: "klien",
+            };
+
     // `null` pada dokumen berarti "kosongkan berkas ini" — di Convex, patch
     // dengan `undefined` yang menghapus kolomnya (pola yang sama dipakai
     // `dataDiriProfil.ts` saat menghapus foto KTP lama).
@@ -889,6 +1134,7 @@ export const simpanProgresKyc = mutation({
         normalisasiNomorWa(isian.nomorWhatsApp) === normalisasiNomorWa(lama?.nomorWhatsApp)
           ? lama?.nomorWhatsAppTerverifikasi
           : undefined,
+      ocrKtp: ocrKtpBerikut,
       diperbaruiPada: sekarang,
     };
 
@@ -1043,7 +1289,18 @@ export const ajukanKyc = mutation({
       });
     }
 
-    return { status: "PENDING_REVIEW" as StatusKyc };
+    // KEPUTUSAN OTOMATIS dijalankan SETELAH pengajuan tersimpan dan status sudah
+    // `PENDING_REVIEW`. Mesin hanya boleh MENERAPKAN `VERIFIED` (seluruh
+    // pemeriksaan yang bisa diverifikasi mesin lulus) — `NEEDS_CORRECTION` dan
+    // `PENDING_REVIEW` hanya dicatat sebagai bahan peninjauan, dan status
+    // dibiarkan menunggu petugas. Idempoten — dijalankan ulang atas data yang
+    // tidak berubah, ia tidak menulis keputusan/jejak kedua.
+    const otomatis = await terapkanKeputusanOtomatis(ctx, { userId, sekarang });
+    const akhir = await ctx.db.get(row._id);
+    return {
+      status: (akhir?.status ?? otomatis.keputusan) as StatusKyc,
+      otomatis: { keputusan: otomatis.keputusan, diterapkan: otomatis.diterapkan },
+    };
   },
 });
 
@@ -1118,6 +1375,11 @@ export const detailKycAdmin = query({
       .query("kycRiwayat")
       .withIndex("by_user", (q) => q.eq("userId", userId))
       .collect();
+    const keputusanOtomatis = await ctx.db
+      .query("kycKeputusanOtomatis")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .order("desc")
+      .first();
 
     return {
       userId,
@@ -1239,6 +1501,15 @@ export const detailKycAdmin = query({
               olehLabel: row.persetujuan.olehLabel,
             },
       persetujuanAktif: persetujuanAktif(row.persetujuan),
+      /**
+       * Hasil pemeriksaan otomatis TERAKHIR — apa yang diperiksa mesin, apa yang
+       * GAGAL / belum pasti, dan apakah hasilnya sampai mengubah status. Mesin
+       * hanya boleh MENERAPKAN `VERIFIED`, jadi hasil lain di sini adalah bahan
+       * pertimbangan petugas sebelum memutuskan (bukan keputusan yang sudah
+       * berjalan di belakang mereka).
+       */
+      keputusanOtomatis:
+        keputusanOtomatis === null ? null : proyeksiKeputusanOtomatis(keputusanOtomatis),
       url: { ktp, selfie, buktiPenghasilan: bukti },
       // Lihat catatan yang sama di `kycSaya`: pemecah seri `_creationTime`
       // menjaga urutan "terbaru dulu" tetap pasti di panel petugas.

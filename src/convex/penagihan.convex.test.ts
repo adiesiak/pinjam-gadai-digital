@@ -248,10 +248,12 @@ describe("kewenangan per kasus", () => {
     const pindah = await kasusUntuk(t);
     expect(pindah?.petugasLabel).toBe("petugas2@pindai.test");
     expect(pindah?.petugasUserId).toBe(dua.userId);
-    // Pelepasan juga tercatat audit, bukan hanya penugasan.
+    // Pelepasan juga tercatat audit, bukan hanya penugasan — dan SETIAP
+    // penugasan/pelepasan meninggalkan tepat satu entri, jadi empat panggilan di
+    // atas berarti empat entri (yang satu pun tidak boleh hilang dari jejak).
     const audit = await t.run((ctx) => ctx.db.query("auditLog").collect());
     const penugasan = audit.filter((a) => a.aksi === "tugaskan_penagihan");
-    expect(penugasan).toHaveLength(3);
+    expect(penugasan).toHaveLength(4);
     expect(penugasan.some((a) => a.detail === "Penugasan dilepas.")).toBe(true);
   });
 });
@@ -804,13 +806,29 @@ describe("pengaduan & penyelesaian", () => {
     expect(daftarPengaduan[0].status).toBe("baru");
     expect(daftarPengaduan[0].nomorReferensi).toBe("PGD-UJI-1");
 
+    // Tidak ada LOMPATAN status: dari "baru" pengaduan harus ditinjau dulu
+    // (`TRANSISI_PENGADUAN` di lib/penagihan.ts). Ditolak SEBELUM sempat
+    // ditutup, bukan hanya karena catatannya kosong.
     await expect(
       admin.sesi.mutation(api.penagihan.tanganiPengaduan, {
         pengaduanId: dibuat.pengaduanId,
         status: "selesai",
       }),
+    ).rejects.toThrow(/tidak diizinkan/);
+
+    // Penutupan WAJIB beralasan — diuji pada transisi yang memang sah.
+    await expect(
+      admin.sesi.mutation(api.penagihan.tanganiPengaduan, {
+        pengaduanId: dibuat.pengaduanId,
+        status: "ditolak",
+      }),
     ).rejects.toThrow(/minimal 10 karakter/);
 
+    await admin.sesi.mutation(api.penagihan.tanganiPengaduan, {
+      pengaduanId: dibuat.pengaduanId,
+      status: "ditinjau",
+      penyelesaian: "Pengaduan diterima dan sedang ditinjau.",
+    });
     await admin.sesi.mutation(api.penagihan.tanganiPengaduan, {
       pengaduanId: dibuat.pengaduanId,
       status: "selesai",

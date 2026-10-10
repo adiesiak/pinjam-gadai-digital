@@ -195,6 +195,12 @@ export function KycDetailRingkas({ detail }: { detail: DetailKycTampil }) {
         )}
       </p>
 
+      {/* HASIL PEMERIKSAAN OTOMATIS: apa yang sudah diperiksa mesin sebelum
+          petugas memutuskan — termasuk hasil yang TIDAK diterapkan. */}
+      {detail.keputusanOtomatis !== null && (
+        <KeputusanOtomatisKyc keputusan={detail.keputusanOtomatis} />
+      )}
+
       {/* Dasar ATURAN putusan terakhir: "terverifikasi" tanpa menyebut atas
           aturan apa tidak bisa ditelusuri bila aturannya berubah. */}
       {detail.aturanTerverifikasi !== null && (
@@ -279,6 +285,46 @@ export function KycDetailRingkas({ detail }: { detail: DetailKycTampil }) {
           );
         })}
       </div>
+    </div>
+  );
+}
+
+/**
+ * HASIL PEMERIKSAAN OTOMATIS terakhir — bahan pertimbangan petugas.
+ *
+ * Petugas perlu melihat APA yang sudah diperiksa mesin, apa yang GAGAL atau
+ * belum bisa dipastikan, dan — yang paling penting — apakah hasilnya sampai
+ * mengubah status. Mesin hanya boleh MENERAPKAN `VERIFIED`, jadi hasil lain di
+ * sini murni catatan: keputusan tetap milik petugas, dan pengajuan tidak
+ * tertutup dari jalur verifikasi mereka.
+ */
+export function KeputusanOtomatisKyc({
+  keputusan,
+}: {
+  keputusan: NonNullable<DetailKycTampil["keputusanOtomatis"]>;
+}) {
+  return (
+    <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-[11px] leading-5 text-slate-700">
+      <p className="font-semibold text-slate-900">
+        Pemeriksaan otomatis terakhir: {LABEL_STATUS_KYC[keputusan.keputusan as StatusKyc]} ·{" "}
+        {keputusan.diterapkan ? "sudah mengubah status" : "status TIDAK diubah"} ·{" "}
+        {waktu(keputusan.waktu)}
+      </p>
+      <p className="mt-1">{keputusan.ringkasan}</p>
+      <ul className="mt-1.5 space-y-1">
+        {keputusan.aturan.map((r) => (
+          <li key={r.id}>
+            <span className="font-medium">
+              {r.status === "lulus" ? "Lulus" : r.status === "gagal" ? "Gagal" : "Belum pasti"}
+            </span>{" "}
+            — {r.judul}: {r.pesan}
+          </li>
+        ))}
+      </ul>
+      <p className="mt-1.5 text-[10px]">
+        Aturan {keputusan.versiAturan} · sumber {keputusan.sumber} · pelaku {keputusan.aktor}. Pemeriksaan
+        otomatis tidak membuktikan keaslian KTP dan tidak diverifikasi ke Dukcapil.
+      </p>
     </div>
   );
 }

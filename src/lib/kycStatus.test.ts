@@ -71,6 +71,11 @@ eq(bolehTransisi("IN_PROGRESS", "VERIFIED", "sistem"), false, "sistem tidak memv
 eq(bolehTransisi("PENDING_REVIEW", "VERIFIED", "admin"), true, "petugas memverifikasi");
 eq(bolehTransisi("PENDING_REVIEW", "REJECTED", "admin"), true, "petugas menolak");
 eq(bolehTransisi("PENDING_REVIEW", "NEEDS_CORRECTION", "admin"), true, "petugas minta perbaikan");
+// Mesin otomatis hanya boleh MENAIKKAN ke VERIFIED; NEEDS_CORRECTION tetap milik
+// petugas, supaya pengajuan tidak tertutup dari jalur verifikasi mereka.
+eq(bolehTransisi("PENDING_REVIEW", "NEEDS_CORRECTION", "sistem"), false, "mesin tidak meminta perbaikan sendiri");
+eq(bolehTransisi("PENDING_REVIEW", "VERIFIED", "sistem"), true, "mesin boleh memverifikasi bila semua pemeriksaan lulus");
+eq(bolehTransisi("PENDING_REVIEW", "REJECTED", "sistem"), false, "mesin tidak pernah menolak");
 eq(bolehTransisi("PENDING_REVIEW", "VERIFIED", "nasabah"), false, "nasabah bukan pemutus");
 // Menyunting pengajuan yang sedang ditinjau = menariknya kembali (lihat
 // statusSetelahSunting). Tanpa tepi ini, aturan murni akan meminta transisi

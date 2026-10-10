@@ -19,11 +19,13 @@ import { renderToStaticMarkup } from "react-dom/server";
 
 import {
   KycKeputusanAlert,
+  KycPemeriksaanOtomatis,
   KycRiwayatList,
   KycStatusHeader,
   KycStatusStrip,
   type RiwayatKycTampil,
 } from "./kyc-views";
+import { VERSI_ATURAN_AUTO_KYC } from "@/lib/kycAutoApproval";
 import { KETERANGAN_STATUS_KYC, KYC_STATUS, LABEL_STATUS_KYC, ringkasStatusKyc } from "@/lib/kycStatus";
 
 let passed = 0;
@@ -203,6 +205,51 @@ for (const status of KYC_STATUS) {
     /bukan persetujuan pinjaman/.test(ringkasStatusKyc("VERIFIED")),
     "ringkasan VERIFIED tetap menyebut bukan persetujuan pinjaman",
   );
+}
+
+// ===== 7. Kartu pemeriksaan otomatis: hasil yang TIDAK diterapkan tidak boleh
+// tampak seperti status yang sudah diputuskan mesin =====
+const keputusanMesin = {
+  waktu: 1_700_000_000_000,
+  statusSebelum: "PENDING_REVIEW" as const,
+  keputusan: "NEEDS_CORRECTION" as const,
+  alasan: "otomatis_perlu_perbaikan",
+  ringkasan: "Pemeriksaan otomatis menemukan 1 hal yang perlu diperbaiki.",
+  versiAturan: VERSI_ATURAN_AUTO_KYC,
+  sumber: "otomatis",
+  aktor: "sistem" as const,
+  diterapkan: false,
+  aturan: [
+    {
+      id: "nomor_wa_terverifikasi",
+      judul: "Nomor WhatsApp sudah terverifikasi",
+      status: "gagal",
+      sumber: "server",
+      pesan: "Nomor WhatsApp belum diverifikasi lewat kode OTP.",
+      detail: ["Verifikasi OTP nomor WhatsApp belum selesai"],
+    },
+  ],
+};
+{
+  const html = renderToStaticMarkup(<KycPemeriksaanOtomatis keputusan={keputusanMesin} />);
+  ada(html, "Pemeriksaan otomatis terakhir", "kartu pemeriksaan otomatis tampil");
+  ada(html, "belum mengubah status", "hasil yang tidak diterapkan ditandai jelas");
+  ada(html, "Gagal", "pemeriksaan yang gagal ditandai");
+  ada(html, "belum diverifikasi lewat kode OTP", "alasan dari mesin ditampilkan apa adanya");
+  ada(html, VERSI_ATURAN_AUTO_KYC, "versi aturan mesin tampil agar bisa ditelusuri");
+  ada(html, "Dukcapil", "batas yang tidak diklaim tetap disebut");
+  bersih(html, "kartu pemeriksaan otomatis tidak diterapkan");
+}
+{
+  // Hasil yang DITERAPKAN (mesin menaikkan ke VERIFIED) tidak perlu kalimat itu.
+  const html = renderToStaticMarkup(
+    <KycPemeriksaanOtomatis
+      keputusan={{ ...keputusanMesin, keputusan: "VERIFIED", diterapkan: true }}
+    />,
+  );
+  ok(!html.includes("belum mengubah status"), "hasil yang diterapkan tidak disebut belum berlaku");
+  ada(html, VERSI_ATURAN_AUTO_KYC, "versi aturan tetap tampil");
+  bersih(html, "kartu pemeriksaan otomatis diterapkan");
 }
 
 if (failed > 0) {

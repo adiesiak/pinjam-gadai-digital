@@ -11,7 +11,8 @@
  *
  * Batas penting yang dijaga di sini dan di seluruh modul:
  * - Status KYC TIDAK berarti pinjaman disetujui dan TIDAK berarti dana cair.
- * - Hanya PETUGAS yang boleh memutuskan (VERIFIED/REJECTED/NEEDS_CORRECTION);
+ * - Hanya PETUGAS yang boleh memutuskan REJECTED/NEEDS_CORRECTION; mesin
+ *   otomatis hanya boleh MENAIKKAN ke VERIFIED (lihat `TRANSISI_SAH`), dan
  *   perubahan data oleh nasabah tidak pernah bisa menaikkan status sendiri.
  * - Setiap transisi wajib punya aktor dan (untuk keputusan) alasan.
  *
@@ -41,10 +42,18 @@ export type AktorKyc = "nasabah" | "admin" | "sistem";
  *
  * Daftar ini sengaja tertutup: apa pun yang tidak ada di sini ditolak server.
  * Aturan yang paling penting:
- * - `VERIFIED` hanya bisa datang dari `PENDING_REVIEW` oleh petugas — tidak ada
- *   jalan dari data yang diisi sendiri langsung menjadi terverifikasi.
- * - `REJECTED`/`NEEDS_CORRECTION` juga keputusan petugas, dan keduanya wajib
- *   beralasan (dipaksa di server) supaya nasabah tahu apa yang harus diperbaiki.
+ * - `VERIFIED` hanya bisa datang dari `PENDING_REVIEW` — tidak ada jalan dari
+ *   data yang diisi sendiri langsung menjadi terverifikasi. Pelakunya petugas
+ *   ATAU sistem (mesin keputusan otomatis, `lib/kycAutoApproval.ts`), yang
+ *   hanya menaikkan status setelah SELURUH pemeriksaan wajib yang bisa
+ *   diverifikasi mesin lulus.
+ * - `REJECTED` DAN `NEEDS_CORRECTION` tetap keputusan PETUGAS saja: keduanya
+ *   wajib beralasan (dipaksa di server) supaya nasabah tahu apa yang harus
+ *   diperbaiki, dan dari `NEEDS_CORRECTION` hanya nasabah yang bisa mengirim
+ *   ulang. Mesin otomatis karena itu TIDAK PERNAH menurunkan status sendiri —
+ *   hasil pemeriksaannya yang gagal hanya dicatat sebagai bahan peninjauan
+ *   (`bolehTerapkanOtomatis()`), supaya pengajuan tidak tertutup dari jalur
+ *   verifikasi petugas.
  * - `VERIFIED` → `REVERIFICATION_REQUIRED` dipicu SISTEM saat data identitas
  *   penting berubah; petugas juga boleh memicunya (mis. dokumen dicurigai).
  * - `PENDING_REVIEW` → `IN_PROGRESS` hanya oleh nasabah: menyunting pengajuan
@@ -54,7 +63,12 @@ export const TRANSISI_SAH: Record<StatusKyc, ReadonlyArray<{ ke: StatusKyc; oleh
   NOT_STARTED: [{ ke: "IN_PROGRESS", oleh: ["nasabah"] }],
   IN_PROGRESS: [{ ke: "PENDING_REVIEW", oleh: ["nasabah"] }],
   PENDING_REVIEW: [
-    { ke: "VERIFIED", oleh: ["admin"] },
+    // `sistem` = mesin keputusan otomatis. Ia hanya menaikkan ke VERIFIED bila
+    // semua pemeriksaan wajib lulus. `NEEDS_CORRECTION` dan `REJECTED` sengaja
+    // tetap milik petugas: dari NEEDS_CORRECTION hanya nasabah yang bisa
+    // mengirim ulang, jadi mesin yang menerbitkannya sendiri akan menghalangi
+    // petugas memutuskan.
+    { ke: "VERIFIED", oleh: ["admin", "sistem"] },
     { ke: "NEEDS_CORRECTION", oleh: ["admin"] },
     { ke: "REJECTED", oleh: ["admin"] },
     // Nasabah boleh MENARIK pengajuan yang sedang ditinjau dengan menyunting
