@@ -628,17 +628,17 @@ export function KycSection() {
   // kembali ke halaman dan server sudah memiliki progres tersimpan, supaya user
   // tahu sesuatu tidak hilang.
   const adaProgresTersimpan =
-    data.adaBaris &&
-    (data.isian.namaLengkap ||
-      data.isian.nik ||
-      data.isian.nomorWhatsApp ||
-      data.isian.alamat ||
-      data.isian.pekerjaan ||
-      data.isian.sumberPenghasilan ||
-      data.isian.catatanPeminjam ||
-      data.dokumen.ktpId ||
-      data.dokumen.selfieKtpId ||
-      data.dokumen.buktiPenghasilanId);
+    data?.adaBaris &&
+    (data?.isian.namaLengkap ||
+      data?.isian.nik ||
+      data?.isian.nomorWhatsApp ||
+      data?.isian.alamat ||
+      data?.isian.pekerjaan ||
+      data?.isian.sumberPenghasilan ||
+      data?.isian.catatanPeminjam ||
+      data?.dokumen.ktpId ||
+      data?.dokumen.selfieKtpId ||
+      data?.dokumen.buktiPenghasilanId);
 
   useEffect(() => {
     if (!lifecycle.isPageRestored) return;
