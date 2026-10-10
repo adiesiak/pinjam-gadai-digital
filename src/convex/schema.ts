@@ -882,7 +882,15 @@ const schema = defineSchema(
       // Filter penghapusan di panel Audit Trail membaca aksi langsung dari
       // indeks ini — bukan menyaring N entri terbaru, yang bisa kehilangan
       // penghapusan lama karena aksi hapus jarang terjadi.
-      .index("by_aksi", ["aksi", "waktu"]),
+      .index("by_aksi", ["aksi", "waktu"])
+      /**
+       * Jejak audit PER SUBJEK — dipakai detail KYC petugas untuk menampilkan
+       * "apa saja yang pernah terjadi pada nasabah ini" tanpa memindai seluruh
+       * tabel audit. `target` diisi id pengguna untuk aksi ber-subjek nasabah
+       * (mis. seluruh aksi KYC & data diri), dan nomor referensi untuk aksi
+       * ber-subjek dokumen (pinjaman/kredit/gadai).
+       */
+      .index("by_target", ["target", "waktu"]),
 
     /**
      * Catatan pengajuan penggadaian barang. Taksiran dan keputusan disimpan

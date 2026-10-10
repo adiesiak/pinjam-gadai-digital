@@ -348,6 +348,68 @@ export function bandingkanKtpDenganForm(
   return beda;
 }
 
+/**
+ * Field yang dianggap MATERIAL bila teks KTP berbeda dari isian: NIK dan nama.
+ *
+ * Perbedaan alamat tetap dilaporkan, tetapi TIDAK material — alamat di KTP bisa
+ * ditulis singkat/dipotong, dan itu bukan tanda identitas berbeda. Daftar ini
+ * satu tempat supaya mesin keputusan otomatis dan panel petugas memakai ambang
+ * yang SAMA; dua daftar berbeda berarti dua kesimpulan berbeda atas data yang
+ * sama.
+ */
+export const FIELD_MATERIAL_KTP = ["nik", "nama"] as const;
+
+export type FieldMaterialKtp = (typeof FIELD_MATERIAL_KTP)[number];
+
+/** true bila `field` termasuk perbedaan material. */
+export function fieldMaterialKtp(field: string): boolean {
+  return (FIELD_MATERIAL_KTP as readonly string[]).includes(field);
+}
+
+/** Snapshot OCR KTP minimum yang dibutuhkan pembandingan (tanpa keyakinan). */
+export type SnapshotOcrKtp = {
+  nik: string | null;
+  nama: string | null;
+  alamat: string | null;
+};
+
+/**
+ * Bandingkan snapshot OCR dengan isian, dipisah MATERIAL vs LUNAK.
+ *
+ * Hanya field yang BERHASIL dibaca mesin yang bisa berbeda (lihat
+ * `bandingkanKtpDenganForm`). Dipakai bersama oleh mesin keputusan otomatis dan
+ * panel petugas — supaya "ketidaksesuaian material" tidak berbeda arti di dua
+ * layar yang membacanya.
+ */
+export function bandingkanOcrDenganIsian(
+  ocr: SnapshotOcrKtp,
+  isian: { namaLengkap: string; nik: string; alamat: string },
+): { material: Ketidaksesuaian[]; lunak: Ketidaksesuaian[] } {
+  const beda = bandingkanKtpDenganForm(
+    {
+      nik: ocr.nik,
+      nama: ocr.nama,
+      tempatLahir: null,
+      tanggalLahir: null,
+      jenisKelamin: null,
+      alamat: ocr.alamat,
+      rtRw: null,
+      kelurahan: null,
+      kecamatan: null,
+      agama: null,
+      statusPerkawinan: null,
+      pekerjaan: null,
+      kewarganegaraan: null,
+      berlakuHingga: null,
+    },
+    isian,
+  );
+  return {
+    material: beda.filter((b) => fieldMaterialKtp(b.field)),
+    lunak: beda.filter((b) => !fieldMaterialKtp(b.field)),
+  };
+}
+
 /* ==========================================================================
  * Tingkat keyakinan & keputusan tindakan
  * ========================================================================== */

@@ -20,6 +20,18 @@ import {
   VERSI_ATURAN_KYC,
   type SlotBerkasAturan,
 } from "../lib/kycAturan";
+import {
+  cacahPerStatus,
+  hasilDariTeks,
+  rentangTanggal,
+  saringKycAdmin,
+  statusDariTeks,
+  statusDokumenKyc,
+  tanggalAcuan,
+  type BarisSaringKyc,
+  type FilterKyc,
+} from "../lib/kycAdmin";
+import { bandingkanOcrDenganIsian } from "../lib/kycOcr";
 import { VERSI_PERSETUJUAN_KYC, persetujuanAktif } from "../lib/persetujuanKyc";
 import {
   bolehTerapkanOtomatis,
@@ -1317,53 +1329,175 @@ const STATUS_ANTREAN: StatusKyc[] = [
   "IN_PROGRESS",
 ];
 
-/** Daftar KYC untuk panel admin, dengan cacah per status. */
+/**
+ * Daftar KYC untuk panel petugas — pencarian, saringan, dan cacah.
+ *
+ * Aturan penyaringan TIDAK ditulis ulang di sini: semuanya dari
+ * `lib/kycAdmin.ts` (murni & diuji), lalu dipakai juga oleh uji penyaring itu
+ * sendiri. Jadi daftar yang dilihat petugas tidak bisa berbeda dari yang
+ * dihitung server.
+ *
+ * Nilai saringan dari klien TIDAK dipercaya apa adanya: status & hasil yang
+ * tidak dikenal jatuh kembali ke "tanpa saringan" (`statusDariTeks`,
+ * `hasilDariTeks`), dan tanggal yang tidak berbentuk `YYYY-MM-DD` diabaikan.
+ *
+ * Fakta yang MAHAL hanya diambil bila saringannya memang meminta:
+ * - keputusan otomatis terakhir per baris → hanya untuk saringan `otomatis_*`;
+ * - penanda `berkasTerverifikasi` tiap slot → hanya untuk
+ *   `dokumen_belum_diperiksa`.
+ * Daftar tanpa saringan hasil karena itu tetap ringan.
+ *
+ * `cacah` dihitung dari baris yang lolos saringan SELAIN status — angka di
+ * tombol status berarti "berapa hasil yang muncul bila status ini dipilih",
+ * bukan angka tabel yang tidak nyambung dengan pencarian yang aktif.
+ */
 export const daftarKycAdmin = query({
-  args: { status: v.optional(v.string()) },
-  handler: async (ctx, { status }) => {
+  args: {
+    status: v.optional(v.string()),
+    /** Kata kunci: nama, email, atau kode nasabah. */
+    cari: v.optional(v.string()),
+    /** Saringan hasil pemeriksaan (`lib/kycAdmin.ts`). */
+    hasil: v.optional(v.string()),
+    /** Tanggal `YYYY-MM-DD`; `sampai` inklusif. */
+    dari: v.optional(v.string()),
+    sampai: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
     await requireAdminSession(ctx);
     const rows = await ctx.db.query("kycProfil").collect();
     const users = await ctx.db.query("users").collect();
-    const namaPerUser = new Map(users.map((u) => [u._id as string, u.name ?? u.email ?? "—"]));
-    const emailPerUser = new Map(users.map((u) => [u._id as string, u.email ?? null]));
+    const userPerId = new Map(users.map((u) => [u._id as string, u]));
 
-    const cacah: Record<string, number> = {};
-    for (const s of STATUS_ANTREAN) cacah[s] = 0;
+    const { dari, sampai } = rentangTanggal(args.dari, args.sampai);
+    const filter: FilterKyc = {
+      cari: args.cari ?? "",
+      status: statusDariTeks(args.status),
+      hasil: hasilDariTeks(args.hasil),
+      dari,
+      sampai,
+    };
+
+    const perluKeputusan = filter.hasil.startsWith("otomatis_");
+    const perluBerkas = filter.hasil === "dokumen_belum_diperiksa";
+
+    /** Keputusan otomatis TERAKHIR milik satu nasabah (bila saringan minta). */
+    const bacaKeputusan = async (userId: Id<"users">) => {
+      if (!perluKeputusan) return null;
+      const k = await ctx.db
+        .query("kycKeputusanOtomatis")
+        .withIndex("by_user", (q) => q.eq("userId", userId))
+        .order("desc")
+        .first();
+      return k === null ? null : { keputusan: k.keputusan as StatusKyc, diterapkan: k.diterapkan, waktu: k.waktu };
+    };
+
+    /**
+     * Ada berkas yang TERTAUT tetapi belum lolos pemeriksaan isi di server
+     * (bila saringan minta). Slot yang belum diunggah TIDAK termasuk — itu
+     * sudah dilaporkan sebagai `kekurangan`.
+     */
+    const bacaBerkasBelumDiperiksa = async (r: Doc<"kycProfil">) => {
+      if (!perluBerkas) return false;
+      const slots = [r.ktpId, r.selfieKtpId, r.buktiPenghasilanId];
+      for (const id of slots) {
+        if (id === undefined) continue;
+        const penanda = await ctx.db
+          .query("berkasTerverifikasi")
+          .withIndex("by_storageId", (q) => q.eq("storageId", id))
+          .first();
+        if (penanda === null) return true;
+      }
+      return false;
+    };
+
+    const baris: Array<{ row: Doc<"kycProfil">; saring: BarisSaringKyc & { kunci: string } }> = [];
     for (const r of rows) {
-      if (cacah[r.status] !== undefined) cacah[r.status] += 1;
+      const u = userPerId.get(r.userId);
+      baris.push({
+        row: r,
+        saring: {
+          kunci: r._id as string,
+          nama: u?.name ?? u?.email ?? "—",
+          email: u?.email ?? null,
+          kodePeminjam: u?.kodePeminjam ?? null,
+          status: r.status as StatusKyc,
+          kekurangan: kekuranganKyc(ringkas(r)),
+          aturanUsang: aturanUsang(r.aturanTerverifikasi?.versi),
+          nomorWhatsAppTerbukti: nomorWaCocok(r.nomorWhatsAppTerverifikasi, r.nomorWhatsApp),
+          verifikasiUlangTertunda: perluVerifikasiUlang(stempel(r), ringkas(r)),
+          dokumenBelumDiperiksa: await bacaBerkasBelumDiperiksa(r),
+          diajukanPada: r.diajukanPada ?? null,
+          diperbaruiPada: r.diperbaruiPada,
+          keputusanOtomatis: await bacaKeputusan(r.userId),
+        },
+      });
     }
 
-    const saring = status === undefined || status === "" ? null : status;
-    const item = rows
-      .filter((r) => saring === null || r.status === saring)
-      .sort((a, b) => (b.diajukanPada ?? b.diperbaruiPada) - (a.diajukanPada ?? a.diperbaruiPada))
+    // Cacah per status: saringan yang sama TANPA bagian status.
+    const lolosTanpaStatus = saringKycAdmin(
+      baris.map((b) => b.saring),
+      { ...filter, status: null },
+    );
+    const cacah = cacahPerStatus(lolosTanpaStatus);
+    const kunciLolos = new Set(lolosTanpaStatus.map((b) => b.kunci));
+
+    const item = baris
+      .filter((b) => kunciLolos.has(b.saring.kunci))
+      .filter((b) => filter.status === null || b.saring.status === filter.status)
+      .sort((a, b) => tanggalAcuan(b.saring) - tanggalAcuan(a.saring))
       .slice(0, 100)
-      .map((r) => ({
+      .map(({ row: r, saring: s }) => ({
         userId: r.userId,
-        nama: namaPerUser.get(r.userId) ?? "—",
-        email: emailPerUser.get(r.userId) ?? null,
-        status: r.status as StatusKyc,
-        kekurangan: kekuranganKyc(ringkas(r)),
+        nama: s.nama,
+        email: s.email,
+        /** Kode pseudonim nasabah — dipakai petugas menyebut kasus tanpa NIK. */
+        kodePeminjam: s.kodePeminjam,
+        status: s.status,
+        kekurangan: s.kekurangan,
         /** Putusan terakhir diambil dengan aturan yang sudah tidak berlaku. */
-        aturanUsang: aturanUsang(r.aturanTerverifikasi?.versi),
+        aturanUsang: s.aturanUsang,
+        /** Nomor WhatsApp benar-benar dibuktikan lewat OTP (bukan "kode terkirim"). */
+        nomorWhatsAppTerbukti: s.nomorWhatsAppTerbukti,
+        verifikasiUlangTertunda: s.verifikasiUlangTertunda,
+        /** Keputusan mesin terakhir — apa pun hasilnya (bahan peninjauan). */
+        keputusanOtomatis: s.keputusanOtomatis ?? null,
         diajukanPada: r.diajukanPada ?? null,
         diperbaruiPada: r.diperbaruiPada,
         diputuskanPada: r.diputuskanPada ?? null,
       }));
 
-    return { item, cacah, total: rows.length };
+    return {
+      item,
+      cacah,
+      total: rows.length,
+      tampil: item.length,
+      /** Urutan status yang ditampilkan panel (IN_PROGRESS = sedang diproses). */
+      urutanStatus: STATUS_ANTREAN,
+    };
   },
 });
 
-/** Detail satu KYC (termasuk URL dokumen ber-watermark) + riwayatnya. */
+/**
+ * Detail satu KYC untuk petugas: identitas, bukti OTP, status tiap dokumen,
+ * hasil OCR beserta ketidaksesuaiannya, hasil pemeriksaan otomatis, riwayat
+ * status, dan jejak audit nasabah ini.
+ *
+ * URL dokumen KTP/selfie keluar HANYA dari sini (dan `admin.dokumenKycUrls`):
+ * keduanya menuntut admin ber-TOTP, dan URL-nya bertanda tangan + berumur
+ * pendek dari Convex storage. Tidak ada query sisi penyedia dana / pemantau
+ * yang mengembalikan berkas identitas.
+ */
 export const detailKycAdmin = query({
   args: { userId: v.id("users") },
   handler: async (ctx, { userId }) => {
     await requireAdminSession(ctx);
-    const row = await ctx.db
-      .query("kycProfil")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
-      .first();
+    const [row, user] = await Promise.all([
+      ctx.db
+        .query("kycProfil")
+        .withIndex("by_user", (q) => q.eq("userId", userId))
+        .first(),
+      ctx.db.get(userId),
+    ]);
     if (row === null) return null;
 
     const [ktp, selfie, bukti] = await Promise.all([
@@ -1380,10 +1514,21 @@ export const detailKycAdmin = query({
       .withIndex("by_user", (q) => q.eq("userId", userId))
       .order("desc")
       .first();
+    // Jejak audit PER NASABAH ini (bukan 20 entri admin terakhir, yang bisa
+    // sama sekali tidak menyangkut dirinya). Dibaca dari indeks `by_target`:
+    // aksi ber-subjek nasabah mencatat id pengguna di kolom `target`.
+    const auditTerkait = await ctx.db
+      .query("auditLog")
+      .withIndex("by_target", (q) => q.eq("target", userId))
+      .order("desc")
+      .take(20);
 
     return {
       userId,
       status: row.status as StatusKyc,
+      /** Kode pseudonim + email: cara petugas menyebut nasabah tanpa NIK. */
+      kodePeminjam: user?.kodePeminjam ?? null,
+      email: user?.email ?? null,
       namaLengkap: row.namaLengkap ?? null,
       nik: row.nik ?? null,
       nomorWhatsApp: row.nomorWhatsApp ?? null,
@@ -1411,11 +1556,54 @@ export const detailKycAdmin = query({
         row.nomorWhatsAppTerverifikasi,
         row.nomorWhatsApp,
       ),
+      /**
+       * HASIL OCR KTP yang tersimpan (snapshot dari perangkat nasabah, sumber
+       * "klien"). Ditampilkan apa adanya sebagai PEMBACAAN — bukan bukti
+       * keaslian KTP. `null` berarti mesin OCR belum pernah dijalankan/di-simpan,
+       * dan itu dinyatakan apa-adanya, bukan ditampilkan sebagai teks kosong.
+       */
+      ocrKtp:
+        row.ocrKtp === undefined
+          ? null
+          : {
+              konfidensi: row.ocrKtp.konfidensi,
+              nik: row.ocrKtp.nik,
+              nama: row.ocrKtp.nama,
+              alamat: row.ocrKtp.alamat,
+              pada: row.ocrKtp.pada,
+              sumber: row.ocrKtp.sumber,
+            },
+      /**
+       * KETIDAKSESUAIAN teks KTP ↔ isian, dipisah material (NIK/nama) dan lunak
+       * (mis. alamat). Hanya field yang benar-benar terbaca mesin yang bisa
+       * dilaporkan; daftar kosong berarti tidak ada perbedaan yang TERBACA —
+       * BUKAN "data pasti cocok".
+       */
+      ketidaksesuaian:
+        row.ocrKtp === undefined
+          ? { material: [], lunak: [] }
+          : bandingkanOcrDenganIsian(row.ocrKtp, {
+              namaLengkap: row.namaLengkap ?? "",
+              nik: row.nik ?? "",
+              alamat: row.alamat ?? "",
+            }),
       diajukanPada: row.diajukanPada ?? null,
       diputuskanPada: row.diputuskanPada ?? null,
       diputuskanOlehLabel: row.diputuskanOlehLabel ?? null,
       keputusanCatatan: row.keputusanCatatan ?? null,
       verifikasiUlangTertunda: perluVerifikasiUlang(stempel(row), ringkas(row)),
+      /**
+       * JEJAK AUDIT nasabah ini (baris append-only dari `auditLog`), terbaru
+       * dulu. Inilah jawaban atas "apa saja yang pernah terjadi pada data ini" —
+       * terpisah dari riwayat STATUS di bawah, yang hanya mencatat transisi.
+       */
+      audit: auditTerkait.map((a) => ({
+        aksi: a.aksi,
+        aktorLabel: a.aktorLabel,
+        detail: a.detail ?? null,
+        target: a.target ?? null,
+        waktu: a.waktu,
+      })),
       // ===== Dasar aturan verifikasi =====
       versiAturan: VERSI_ATURAN_KYC,
       aturanTerverifikasi:
@@ -1442,7 +1630,15 @@ export const detailKycAdmin = query({
             return {
               slot,
               label,
+              /** false = tidak ada id berkas tersimpan di baris KYC. */
+              tertaut: false,
               ada: false,
+              /** Keadaan slot untuk petugas (`lib/kycAdmin.ts`). */
+              statusDokumen: statusDokumenKyc({
+                diunggah: false,
+                diperiksaServer: false,
+                aturanUsang: false,
+              }),
               jenis: null,
               ukuranByte: null,
               contentType: null,
@@ -1476,7 +1672,14 @@ export const detailKycAdmin = query({
           return {
             slot,
             label,
+            /** true = ada berkas tersimpan, walau belum diperiksa isinya. */
+            tertaut: true,
             ada: penanda !== null,
+            statusDokumen: statusDokumenKyc({
+              diunggah: true,
+              diperiksaServer: penanda !== null,
+              aturanUsang: aturanUsang(penanda?.versiAturan),
+            }),
             jenis: penanda?.jenis ?? null,
             ukuranByte: penanda?.ukuranByte ?? null,
             contentType: penanda?.contentType ?? null,

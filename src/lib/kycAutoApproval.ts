@@ -43,7 +43,7 @@
 import { DIMENSI_MIN, RASIO_MAKS, periksaUkuranGambar, type DimensiGambar } from "./kyc";
 import {
   AMBANG_KEYAKINAN_TINGGI,
-  bandingkanKtpDenganForm,
+  bandingkanOcrDenganIsian,
   CATATAN_NIK,
   periksaFormatNik,
   nilaiHasilOcr,
@@ -408,26 +408,27 @@ function periksaOcrTersedia(m: MasukanKeputusanKyc): HasilRuleKyc {
   );
 }
 
-/** Bangun daftar ketidaksesuaian OCR↔isian (hanya bila OCR ada). */
+/**
+ * Bangun daftar ketidaksesuaian OCR↔isian (hanya bila OCR ada).
+ *
+ * Pemisahan material/lunak memakai `bandingkanOcrDenganIsian` dari
+ * `lib/kycOcr.ts` — sumber yang SAMA dengan panel petugas, supaya "material"
+ * tidak berbeda arti antara keputusan mesin dan layar peninjauan.
+ */
 function bedaOcrDenganIsian(m: MasukanKeputusanKyc): {
   ada: boolean;
   material: string[];
   lunak: string[];
 } {
   if (m.ocr === null) return { ada: false, material: [], lunak: [] };
-  const form = {
+  const beda = bandingkanOcrDenganIsian(m.ocr, {
     namaLengkap: m.isian.namaLengkap ?? "",
     nik: m.isian.nik ?? "",
     alamat: m.isian.alamat ?? "",
-  };
-  const beda = bandingkanKtpDenganForm(dataKtpDariOcr(m.ocr), form);
-  const material = beda
-    .filter((b) => b.field === "nik" || b.field === "nama")
-    .map((b) => `${b.label} tidak cocok (KTP: "${b.ocr}" vs isian: "${b.form}")`);
-  const lunak = beda
-    .filter((b) => b.field !== "nik" && b.field !== "nama")
-    .map((b) => `${b.label} tidak cocok (KTP: "${b.ocr}" vs isian: "${b.form}")`);
-  return { ada: true, material, lunak };
+  });
+  const pesan = (b: { label: string; ocr: string; form: string }) =>
+    `${b.label} tidak cocok (KTP: "${b.ocr}" vs isian: "${b.form}")`;
+  return { ada: true, material: beda.material.map(pesan), lunak: beda.lunak.map(pesan) };
 }
 
 /** 6. Data OCR konsisten dengan data yang diinput. */
