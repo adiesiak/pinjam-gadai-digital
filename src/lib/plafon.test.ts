@@ -3,6 +3,7 @@ import { LOAN_LIMITS } from "./loan";
 import {
   clampPlafon,
   pesanPlafonTerlampaui,
+  pesanPlafonTersediaTerlampaui,
   apakahPelunasanTepatWaktu,
   PLAFON_BATAS,
   PLAFON_DEFAULT,
@@ -12,6 +13,7 @@ import {
   plafonDasarDariRiwayat,
   plafonEfektif,
   pokokDalamPlafon,
+  ringkasPlafon,
   tanggalJatuhTempoPinjaman,
 } from "./plafon";
 import {
@@ -82,6 +84,47 @@ ok("pokok tunai di atas plafon ditolak", !pokokDalamPlafon(1_000_001, 1_000_000)
 ok("pokok tunai di bawah minimum ditolak", !pokokDalamPlafon(50_000, 1_000_000));
 ok("default sama dengan batas mesin tunai awal", PLAFON_DEFAULT === LOAN_LIMITS.maxPokok);
 ok("pesan menyebut plafon", pesanPlafonTerlampaui(2_000_000).includes("2.000.000"));
+
+// ===== Plafon MASTER: maksimal / terpakai / tersedia =====
+// Nasabah plafon Rp1 juta tanpa utang: seluruh plafon tersedia.
+const rKosong = ringkasPlafon(1_000_000, []);
+eq("plafon kosong → maksimal", rKosong.maksimal, 1_000_000);
+eq("plafon kosong → terpakai nol", rKosong.terpakai, 0);
+eq("plafon kosong → tersedia penuh", rKosong.tersedia, 1_000_000);
+eq("plafon kosong → tidak ada pinjaman aktif", rKosong.jumlahAktif, 0);
+
+// Contoh dari ketentuan produk: plafon 1jt, pinjaman #001 500rb aktif.
+const rAktif = ringkasPlafon(1_000_000, [{ status: "didanai", pokokPinjaman: 500_000 }]);
+eq("pinjaman aktif mengurangi tersedia", rAktif.terpakai, 500_000);
+eq("tersedia = maksimal − terpakai", rAktif.tersedia, 500_000);
+eq("pinjaman aktif dihitung", rAktif.jumlahAktif, 1);
+
+// Pengajuan yang belum cair dan pinjaman lunas TIDAK menahan plafon.
+const rCampuran = ringkasPlafon(1_000_000, [
+  { status: "didanai", pokokPinjaman: 400_000 },
+  { status: "diajukan", pokokPinjaman: 300_000 },
+  { status: "ditinjau", pokokPinjaman: 300_000 },
+  { status: "ditolak", pokokPinjaman: 300_000 },
+  { status: "lunas", pokokPinjaman: 300_000 },
+]);
+eq("hanya pinjaman didanai yang menahan", rCampuran.terpakai, 400_000);
+eq("lunas melepas kembali plafon", rCampuran.tersedia, 600_000);
+
+// Terpakai tidak pernah membuat tersedia negatif.
+const rLebih = ringkasPlafon(1_000_000, [
+  { status: "didanai", pokokPinjaman: 700_000 },
+  { status: "didanai", pokokPinjaman: 700_000 },
+]);
+eq("tersedia dijepit di nol bila utang melebihi plafon", rLebih.tersedia, 0);
+eq("dua pinjaman aktif dihitung", rLebih.jumlahAktif, 2);
+
+// Plafon maksimal tetap dijepit ke rentang sah.
+eq("ringkas menjepit maksimal", ringkasPlafon(99_000_000, []).maksimal, PLAFON_BATAS.maks);
+
+const pesanTersedia = pesanPlafonTersediaTerlampaui(rAktif);
+ok("pesan tersedia menyebut plafon maksimal", pesanTersedia.includes("1.000.000"));
+ok("pesan tersedia menyebut nominal terpakai", pesanTersedia.includes("500.000"));
+ok("pesan tersedia menyebut sisa tersedia", pesanTersedia.includes("500.000"));
 
 // Kebijakan penerbitan kredit barang tak lagi diwarisi dari plafon tunai.
 eq("batas pokok kredit barang tetap Rp10 juta", KREDIT_BARANG_POKOK_MAKS, 10_000_000);

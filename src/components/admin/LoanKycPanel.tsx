@@ -1,5 +1,5 @@
 import { useAction, useQuery } from "convex/react";
-import { Loader2, MapPin, Send } from "lucide-react";
+import { Loader2, MapPin, Send, Users } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -7,9 +7,12 @@ import { WatermarkedDoc } from "@/components/WatermarkedDoc";
 import { Button } from "@/components/ui/button";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
+import { LABEL_STATUS_KYC, type StatusKyc } from "@/lib/kycStatus";
 import { formatRupiah } from "@/lib/money";
 
+import { formatDate } from "./admin-format";
 import { type LoanRow } from "./admin-shared";
+import { NasabahDetailDialog } from "./NasabahDetailDialog";
 
 /**
  * Panel data pengajuan, koordinat perangkat, dan pesan WhatsApp terkait catatan aplikasi.
@@ -18,6 +21,8 @@ export function LoanKycPanel({ row }: { row: LoanRow }) {
   const urls = useQuery(api.admin.dokumenKycUrls, { loanId: row._id });
   const sendWa = useAction(api.whatsapp.sendReminder);
   const [waBusy, setWaBusy] = useState(false);
+  /** Nasabah pemilik pengajuan yang profil lengkapnya sedang dibuka. */
+  const [profilTarget, setProfilTarget] = useState<Id<"users"> | null>(null);
 
   const lokasi = row.lokasiAjukan;
   const petaHref = lokasi
@@ -44,6 +49,21 @@ export function LoanKycPanel({ row }: { row: LoanRow }) {
       <p className="text-xs leading-5 text-muted-foreground">
         NIK, foto, selfie, slip, dan koordinat adalah data yang diunggah/dikirim ke aplikasi. Peninjauan keaslian dokumen, penghasilan, dan lokasi dilakukan tim PINDAI melalui panel ini.
       </p>
+      {/* MASTER vs TRANSAKSI: profil, KYC, plafon, dan riwayat NASABAH (bukan
+          salinan dokumen per pengajuan) dibuka eksplisit lewat tombol ini. */}
+      <div className="flex flex-wrap items-center gap-2">
+        <Button size="sm" variant="outline" onClick={() => setProfilTarget(row.userIdPeminjam)}>
+          <Users className="mr-1.5 size-4" /> Lihat Profil Nasabah
+        </Button>
+        <span className="text-[11px] leading-4 text-muted-foreground">
+          KYC terhubung ke nasabah (satu status), bukan ke pengajuan ini.
+        </span>
+      </div>
+      {profilTarget !== null && (
+        <NasabahDetailDialog userId={profilTarget} onClose={() => setProfilTarget(null)} />
+      )}
+
+      <RingkasPengajuan loanId={row._id} />
       {urls === undefined ? (
         <div className="flex items-center gap-2 py-2 text-sm text-muted-foreground">
           <Loader2 className="size-4 animate-spin" /> Memuat data KYC…
@@ -130,6 +150,62 @@ export function LoanKycPanel({ row }: { row: LoanRow }) {
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+/**
+ * Ringkasan DETAIL PENGAJUAN dari master: nomor, nasabah, status KYC, nominal,
+ * tenor, dana bersih, kewajiban, status, pendanaan, pencairan, pembayaran, dan
+ * keterlambatan. Dibaca dari query khusus (`nasabah.detailPengajuan`) yang
+ * menghitung nilai dari SNAPSHOT baris pinjaman — bukan dari tarif hari ini.
+ */
+function RingkasPengajuan({ loanId }: { loanId: Id<"loans"> }) {
+  const detail = useQuery(api.nasabah.detailPengajuan, { loanId });
+  if (detail === undefined || detail === null) return null;
+  const baris: Array<[string, string]> = [
+    ["Nomor pengajuan", detail.nomorReferensi],
+    ["Nasabah", detail.nasabah.nama.toUpperCase()],
+    [
+      "Status KYC",
+      detail.kyc ? LABEL_STATUS_KYC[detail.kyc.status as StatusKyc] : "Belum ada KYC",
+    ],
+    ["Nominal disetujui", formatRupiah(detail.nominal)],
+    [
+      "Tenor",
+      detail.tenorBulan !== null ? `${detail.tenorBulan} bulan` : `${detail.tenorHari} hari`,
+    ],
+    ["Dana bersih", formatRupiah(detail.finansial.danaBersih)],
+    ["Total kewajiban", formatRupiah(detail.finansial.totalKewajibanPelunasan)],
+    ["Kewajiban saat ini", detail.kewajibanSaatIni === null ? "—" : formatRupiah(detail.kewajibanSaatIni)],
+    ["Pencairan", detail.didanaiPada === null ? "Belum cair" : formatDate(detail.didanaiPada)],
+    [
+      "Pendanaan",
+      detail.pendanaan.totalDisalurkan > 0
+        ? `${formatRupiah(detail.pendanaan.totalDisalurkan)}${detail.pendanaan.pendanaNama ? ` · ${detail.pendanaan.pendanaNama}` : ""}`
+        : "Belum ada alokasi dana",
+    ],
+    ["Pembayaran tercatat", `${detail.pembayaran.length} bukti`],
+    [
+      "Keterlambatan",
+      detail.hariTerlambat > 0
+        ? `${detail.hariTerlambat} hari · denda ${formatRupiah(detail.dendaTerlambat)}`
+        : "Tidak ada",
+    ],
+  ];
+  return (
+    <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5">
+      <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
+        Detail pengajuan (master)
+      </p>
+      <dl className="mt-2 grid gap-x-4 gap-y-1.5 text-xs sm:grid-cols-2">
+        {baris.map(([label, nilai]) => (
+          <div key={label} className="flex justify-between gap-2">
+            <dt className="text-muted-foreground">{label}</dt>
+            <dd className="text-right font-medium tabular-nums text-navy">{nilai}</dd>
+          </div>
+        ))}
+      </dl>
     </div>
   );
 }

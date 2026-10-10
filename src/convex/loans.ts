@@ -20,10 +20,12 @@ import {
 import {
   apakahPelunasanTepatWaktu,
   pesanPlafonTerlampaui,
+  pesanPlafonTersediaTerlampaui,
   PLAFON_KENAIKAN_PER_PELUNASAN,
   PLAFON_NAIK_SETELAH_LUNAS,
   plafonPeminjam,
   pokokDalamPlafon,
+  ringkasPlafon,
 } from "../lib/plafon";
 import { assertPokokPinjamanValid,
   calculateRepayment,
@@ -323,9 +325,23 @@ export const createLoanApplication = mutation({
     // 1 juta, admin bisa naikkan/turunkan per orang — lib/plafon.ts).
     // Skema bulanan (tenorBulan diisi) memakai mesin yang sama dengan plafon
     // yang sama; plafon hanya memotong sisi atas pokok.
+    // Plafon MASTER nasabah (maksimal) + riwayat pinjaman → plafon TERSEDIA.
+    // Pinjaman aktif/terutang mengurangi jatah pengajuan berikutnya, dan
+    // perhitungannya dilakukan di server — bukan dipercaya dari frontend.
     const plafon = await plafonPeminjam(ctx, userId);
-    if (!pokokDalamPlafon(args.pokokPinjaman, plafon)) {
-      throw new Error(pesanPlafonTerlampaui(plafon));
+    const pinjamanNasabah = await ctx.db
+      .query("loans")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .collect();
+    const ringkas = ringkasPlafon(plafon, pinjamanNasabah);
+    if (!pokokDalamPlafon(args.pokokPinjaman, ringkas.tersedia)) {
+      // Ada utang berjalan → sebut maksimal/terpakai/tersedia; belum ada utang
+      // → pesan sederhana (perilaku lama, dipakai tes perbatasan).
+      throw new Error(
+        ringkas.terpakai > 0
+          ? pesanPlafonTersediaTerlampaui(ringkas)
+          : pesanPlafonTerlampaui(ringkas.maksimal),
+      );
     }
     let tenorBulanSim: number | undefined;
     if (args.tenorBulan !== undefined) {
@@ -423,10 +439,22 @@ export const createLoanApplication = mutation({
     }
     await ensureKodePeminjam(ctx, userId);
 
+    // Ikat pengajuan ke MASTER KYC nasabah (bila sudah ada). Yang disimpan hanya
+    // REFERENSI + snapshot status — dokumen KTP/selfie tetap satu tempat di
+    // kycProfil, tidak dibaca ulang dari setiap pengajuan.
+    const kycRow = await ctx.db
+      .query("kycProfil")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .first();
+
     const now = Date.now();
     const nomorReferensi = referenceNumber(now);
     const loanId = await ctx.db.insert("loans", {
       userId,
+      // Relasi eksplisit LoanApplication → Borrower/Nasabah.
+      nasabahUserId: userId,
+      kycProfilId: kycRow?._id,
+      kycStatusSaatPengajuan: kycRow?.status ?? "NOT_STARTED",
       // Pokok yang disetujui = pengajuan sampai admin memutuskan lain; angka
       // aslinya tetap tersimpan di `pokokDiajukan` untuk jejak pengajuan.
       pokokPinjaman: quote.pokok,

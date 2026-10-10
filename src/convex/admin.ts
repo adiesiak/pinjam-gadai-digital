@@ -22,6 +22,7 @@ import {
   apakahPelunasanTepatWaktu,
   clampPlafon,
   plafonEfektif,
+  ringkasPlafon,
 } from "../lib/plafon";
 import { clampPersenBunga, persenBungaEfektif } from "../lib/bunga";
 import { simpanDataDiriProfil, bacaProfilUntukForm } from "./dataDiriProfil";
@@ -101,6 +102,10 @@ export const daftarPlafonPeminjam = query({
       email: string | null;
       plafonPribadi: number | null;
       plafonEfektif: number;
+      /** Pokok pinjaman aktif/terutang yang menahan plafon (server). */
+      plafonTerpakai: number;
+      /** Sisa plafon yang masih dapat diajukan (server). */
+      plafonTersedia: number;
       persenBungaPribadi: number | null;
       persenBungaEfektif: number;
       jumlahPelunasanTepatWaktu: number;
@@ -140,16 +145,22 @@ export const daftarPlafonPeminjam = query({
       ) {
         continue;
       }
+      const plafonEfektifNilai = plafonEfektif(
+        user.plafonPinjaman,
+        cfg.plafonPinjaman,
+        pelunasanTepatWaktuPerUser.get(id) ?? 0,
+      );
+      // Maksimal/terpakai/tersedia dihitung di SERVER dari master + pinjaman
+      // aktif, supaya panel dan validasi pengajuan tidak mungkin berbeda angka.
+      const ringkas = ringkasPlafon(plafonEfektifNilai, pinjamanUser);
       hasil.push({
         userId: id,
         nama,
         email: user.email ?? null,
         plafonPribadi: user.plafonPinjaman ?? null,
-        plafonEfektif: plafonEfektif(
-          user.plafonPinjaman,
-          cfg.plafonPinjaman,
-          pelunasanTepatWaktuPerUser.get(id) ?? 0,
-        ),
+        plafonEfektif: plafonEfektifNilai,
+        plafonTerpakai: ringkas.terpakai,
+        plafonTersedia: ringkas.tersedia,
         persenBungaPribadi: user.persenBunga ?? null,
         persenBungaEfektif: persenBungaEfektif(user.persenBunga, cfg.persenBunga),
         jumlahPelunasanTepatWaktu: pelunasanTepatWaktuPerUser.get(id) ?? 0,

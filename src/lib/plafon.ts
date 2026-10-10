@@ -124,9 +124,60 @@ export function clampPlafon(nilai: number): Rupiah {
 }
 
 /**
+ * Status pinjaman yang MENAHAN plafon (aktif/terutang).
+ *
+ * Hanya pinjaman yang benar-benar cair (`didanai`) yang mengurangi plafon
+ * tersedia: pengajuan yang masih `diajukan`/`disetujui`/`ditolak` belum menjadi
+ * utang. `lunas` melepas kembali plafon yang tadinya terpakai. Ini satu-satunya
+ * tempat aturannya ditulis supaya UI dan validasi server tidak bisa berbeda.
+ */
+export const STATUS_MENAHAN_PLAFON: readonly string[] = ["didanai"];
+
+/** Ringkasan plafon MASTER satu nasabah — maksimal/terpakai/tersedia. */
+export type RingkasanPlafon = {
+  /** Plafon maksimal efektif (override admin atau progresif), rupiah bulat. */
+  maksimal: Rupiah;
+  /** Jumlah pokok pinjaman aktif/terutang yang menahan plafon. */
+  terpakai: Rupiah;
+  /** Sisa yang masih boleh diajukan (maksimal − terpakai, tidak pernah negatif). */
+  tersedia: Rupiah;
+  /** Jumlah pinjaman yang masih menahan plafon. */
+  jumlahAktif: number;
+};
+
+/**
+ * Hitung ringkasan plafon dari master maksimal + riwayat pinjaman nasabah.
+ * PURE: tidak membaca database — pemanggil (server) yang menyediakan datanya,
+ * sehingga angka yang dilihat UI berasal dari perhitungan backend yang sama
+ * dengan yang dipakai validasi pengajuan.
+ */
+export function ringkasPlafon(
+  maksimal: number,
+  pinjaman: readonly { status: string; pokokPinjaman: number }[],
+): RingkasanPlafon {
+  const maks = clampPlafon(maksimal);
+  let terpakai = 0;
+  let jumlahAktif = 0;
+  for (const p of pinjaman) {
+    if (!STATUS_MENAHAN_PLAFON.includes(p.status)) continue;
+    if (!Number.isSafeInteger(p.pokokPinjaman) || p.pokokPinjaman <= 0) continue;
+    terpakai += p.pokokPinjaman;
+    jumlahAktif += 1;
+  }
+  return {
+    maksimal: maks,
+    terpakai,
+    tersedia: Math.max(0, maks - terpakai) as Rupiah,
+    jumlahAktif,
+  };
+}
+
+/**
  * Apakah pokok pinjaman tunai boleh diajukan di bawah plafon ini?
  * Tenor skema tetap divalidasi engine-nya masing-masing — fungsi ini hanya
  * memotong sisi atas (dan tetap menghormati minimum pokok tunai).
+ * Dipakai dengan PLAFON TERSEDIA (bukan maksimal) agar pinjaman aktif benar
+ * benar mengurangi jatah pengajuan berikutnya.
  */
 export function pokokDalamPlafon(pokok: Rupiah, plafon: Rupiah): boolean {
   return (
@@ -136,10 +187,24 @@ export function pokokDalamPlafon(pokok: Rupiah, plafon: Rupiah): boolean {
   );
 }
 
-/** Pesan penolakan tunai untuk pokok di atas plafon efektif. */
+/** Pesan penolakan tunai untuk pokok di atas plafon efektif (belum ada utang). */
 export function pesanPlafonTerlampaui(plafon: Rupiah): string {
   return (
     `Batas pinjaman Anda saat ini ${formatRupiah(plafon)}. ` +
     "Kurangi jumlah pinjaman atau hubungi tim PINDAI jika ingin menanyakan perubahan batas."
+  );
+}
+
+/**
+ * Pesan penolakan saat plafon MAKSIMAL masih cukup, tetapi plafon TERSEDIA
+ * sudah berkurang karena pinjaman aktif. Angkanya menyebut maksimal, terpakai,
+ * dan tersedia supaya nasabah paham kenapa pengajuan ditolak.
+ */
+export function pesanPlafonTersediaTerlampaui(ringkas: RingkasanPlafon): string {
+  return (
+    `Plafon Anda ${formatRupiah(ringkas.maksimal)}, dan ${formatRupiah(ringkas.terpakai)} ` +
+    `sedang dipakai pinjaman berjalan — sisa yang dapat diajukan ${formatRupiah(ringkas.tersedia)}` +
+    (ringkas.jumlahAktif > 1 ? ` (${ringkas.jumlahAktif} pinjaman aktif). ` : " (1 pinjaman aktif). ") +
+    "Lunasi pinjaman berjalan atau ajukan nominal yang lebih kecil."
   );
 }

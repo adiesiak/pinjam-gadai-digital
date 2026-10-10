@@ -304,9 +304,29 @@ const schema = defineSchema(
           waktu: v.number(),
         }),
       ),
+      // ===== Relasi ke MASTER NASABAH & KYC =====
+      // Kolom di atas (nik, WA, dok KTP/selfie/slip) adalah SNAPSHOT pengajuan
+      // yang dipertahankan untuk audit & data lama. MASTER data nasabah hidup di
+      // `nasabahProfil` dan MASTER KYC di `kycProfil` — bukan di baris pinjaman.
+      // Tiga kolom berikut mengikat pengajuan ke master itu tanpa menyalin
+      // dokumen: satu nasabah → satu KYC → banyak pengajuan.
+      /**
+       * Referensi eksplisit ke akun NASABAH pemilik pengajuan (Borrower).
+       * Selalu sama dengan `userId` pada pengajuan baru; diberi nama sendiri
+       * supaya relasi LoanApplication → Borrower/Nasabah terbaca jelas dan tetap
+       * stabil walau penamaan field pemilik berubah.
+       */
+      nasabahUserId: v.optional(v.id("users")),
+      /** Baris KYC master yang dipakai saat pengajuan dikirim (bila ada). */
+      kycProfilId: v.optional(v.id("kycProfil")),
+      /** Snapshot status KYC saat pengajuan dikirim — untuk audit keputusan. */
+      kycStatusSaatPengajuan: v.optional(kycStatusValidator),
+      /** Penanda baris lama yang sudah dilekati relasi master oleh migrasi. */
+      migrasiPada: v.optional(v.number()),
     })
       .index("by_user", ["userId"])
       .index("by_status", ["status"])
+      .index("by_nasabah", ["nasabahUserId"])
       // Model 1 pinjaman = 1 pendana: dipakai ruang penyedia dana, portofolio
       // penyedia dana, dan rekap admin supaya semuanya membaca sumber yang sama.
       .index("by_pendana", ["pendanaId"]),
@@ -349,6 +369,12 @@ const schema = defineSchema(
        * acuan karena panel admin selalu menimpa saat disimpan.
        */
       sumber: v.optional(v.union(v.literal("admin"), v.literal("nasabah"))),
+      /**
+       * Penanda bahwa baris ini DIBUAT oleh alat migrasi data lama (bukan oleh
+       * admin/nasabah). Dipakai supaya migrasi dapat dibatalkan dengan aman:
+       * hanya baris berpenanda inilah yang boleh dihapus kembali.
+       */
+      dibuatMigrasi: v.optional(v.boolean()),
       /**
        * PUTUSAN verifikasi identitas oleh petugas — sengaja TERPISAH dari
        * keputusan pinjaman (status di tabel `loans`).

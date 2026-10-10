@@ -30,6 +30,7 @@ import {
 import { EmptyQueue, MetrikKartu } from "@/components/admin/admin-shared";
 import { DataDiriDialog } from "@/components/admin/DataDiriDialog";
 import { DuplikatNasabahPanel } from "@/components/admin/DuplikatNasabahPanel";
+import { NasabahDetailDialog } from "@/components/admin/NasabahDetailDialog";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { formatRupiah } from "@/lib/money";
@@ -71,6 +72,8 @@ export function PlafonPanel() {
   const [hapusTarget, setHapusTarget] = useState<{ userId: Id<"users">; nama: string } | null>(null);
   /** Nasabah yang data dirinya sedang diisi/disunting lewat dialog. */
   const [dataDiriTarget, setDataDiriTarget] = useState<{ userId: Id<"users">; nama: string } | null>(null);
+  /** Nasabah yang profil lengkapnya (KYC, plafon, riwayat) sedang dibuka. */
+  const [detailTarget, setDetailTarget] = useState<{ userId: Id<"users"> } | null>(null);
   /** Halaman daftar nasabah yang sedang dilihat (10 baris per halaman). */
   const [halaman, setHalaman] = useState(0);
   const data = useQuery(api.admin.daftarPlafonPeminjam, { cari: cari || undefined });
@@ -322,6 +325,10 @@ export function PlafonPanel() {
                         bunga khusus: {formatPersen(r.persenBungaPribadi)}
                       </Badge>
                     )}
+                    <Badge className="border-sky-200 bg-sky-100 text-sky-700">
+                      tersedia {formatRupiah(r.plafonTersedia)}
+                      {r.plafonTerpakai > 0 ? ` · terpakai ${formatRupiah(r.plafonTerpakai)}` : ""}
+                    </Badge>
                     {!r.adaDataDiri ? (
                       <Badge className="border-slate-200 bg-slate-100 text-slate-600">
                         data diri belum diisi
@@ -486,6 +493,14 @@ export function PlafonPanel() {
                     <Button
                       size="sm"
                       variant="outline"
+                      onClick={() => setDetailTarget({ userId: r.userId as Id<"users"> })}
+                    >
+                      <Users className="mr-1 size-4" />
+                      <span className="ml-1">Profil nasabah</span>
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
                       onClick={() =>
                         setDataDiriTarget({ userId: r.userId as Id<"users">, nama: r.nama })
                       }
@@ -579,6 +594,14 @@ export function PlafonPanel() {
         <DataDiriDialog
           userId={dataDiriTarget.userId}
           onClose={() => setDataDiriTarget(null)}
+        />
+      )}
+
+      {/* Detail master nasabah: KYC, plafon, profil risiko, dan riwayat. */}
+      {detailTarget !== null && (
+        <NasabahDetailDialog
+          userId={detailTarget.userId}
+          onClose={() => setDetailTarget(null)}
         />
       )}
 
