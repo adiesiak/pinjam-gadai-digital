@@ -141,8 +141,8 @@ export function ContractSigningDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       {/* `p-0 sm:p-0` wajib: header/kaki dialog ini menempel ke tepi (full-bleed),
           jadi padding bawaan DialogContent harus mati di semua breakpoint. */}
-      <DialogContent className="max-h-[92dvh] overflow-hidden p-0 sm:max-w-3xl sm:p-0">
-        <DialogHeader className="border-b border-slate-200 px-5 py-5 pr-12 text-left sm:px-6">
+      <DialogContent className="flex max-h-[92dvh] w-full flex-col overflow-hidden p-0 sm:max-w-4xl sm:p-0">
+        <DialogHeader className="shrink-0 border-b border-slate-200 px-5 py-5 pr-12 text-left sm:px-6">
           <div className="flex flex-wrap items-center gap-2">
             <Badge variant="outline" className="border-primary/25 bg-primary/5 text-primary">
               {fullySigned ? <BadgeCheck className="size-3.5" /> : <PenLine className="size-3.5" />}
@@ -158,7 +158,7 @@ export function ContractSigningDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="min-h-0 space-y-5 overflow-y-auto px-5 py-5 sm:px-6">
+        <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-5 py-5 sm:px-6">
           <section aria-label="Pratinjau syarat dan ketentuan" className="space-y-2">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div>
@@ -173,7 +173,7 @@ export function ContractSigningDialog({
               title={`Pratinjau ${title}`}
               srcDoc={wrapContractHtml(html)}
               sandbox=""
-              className="h-72 w-full rounded-xl border border-slate-200 bg-white sm:h-80"
+              className="h-96 w-full rounded-xl border border-slate-200 bg-white sm:h-[30rem]"
             />
           </section>
 
@@ -287,24 +287,41 @@ export function ContractSigningDialog({
           )}
         </div>
 
-        {!fullySigned && signingDisabledReason === null && (
-          <div className="flex flex-col-reverse gap-2 border-t border-slate-200 bg-slate-50/70 px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
-            <p className="text-xs text-muted-foreground">
-              {consentChecked && hasSignature
-                ? "Persetujuan dan tanda tangan siap disimpan pada perjanjian."
-                : "Centang persetujuan dan bubuhkan tanda tangan untuk melanjutkan."}
-            </p>
+        {/* Sticky action bar: Batal selalu tersedia; tindakan utama hanya aktif
+            bila perjanjian belum ditandatangani dan penandatanganan dibuka. */}
+        <div className="flex shrink-0 flex-col-reverse gap-2 border-t border-slate-200 bg-slate-50/70 px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+          <p className="text-xs text-muted-foreground">
+            {fullySigned
+              ? "Perjanjian ini sudah ditandatangani dan tercatat di ledger internal."
+              : signingDisabledReason !== null
+                ? "Penandatanganan perjanjian dinonaktifkan untuk pengajuan ini."
+                : consentChecked && hasSignature
+                  ? "Persetujuan dan tanda tangan siap disimpan pada perjanjian."
+                  : "Centang persetujuan dan bubuhkan tanda tangan untuk melanjutkan."}
+          </p>
+          <div className="flex items-center justify-end gap-2">
             <Button
               type="button"
-              className="gradient-primary min-w-52 border-0"
-              disabled={busy || !consentChecked || !hasSignature}
-              onClick={() => void submit()}
+              variant="outline"
+              className="rounded-xl"
+              disabled={busy}
+              onClick={() => onOpenChange(false)}
             >
-              {busy ? <Loader2 className="mr-2 size-4 animate-spin" /> : <PenLine className="mr-2 size-4" />}
-              {busy ? "Menyimpan…" : "Simpan perjanjian"}
+              Batal
             </Button>
+            {!fullySigned && signingDisabledReason === null && (
+              <Button
+                type="button"
+                className="min-w-52 rounded-xl border-0 bg-[#064E3B] text-white hover:bg-[#021E17]"
+                disabled={busy || !consentChecked || !hasSignature}
+                onClick={() => void submit()}
+              >
+                {busy ? <Loader2 className="mr-2 size-4 animate-spin" /> : <PenLine className="mr-2 size-4" />}
+                {busy ? "Menyimpan…" : "Setujui & Tandatangani Perjanjian"}
+              </Button>
+            )}
           </div>
-        )}
+        </div>
       </DialogContent>
     </Dialog>
   );

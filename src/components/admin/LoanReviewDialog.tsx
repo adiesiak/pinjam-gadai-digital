@@ -777,7 +777,7 @@ export function LoanReviewDialog({
           terlihat saat isi digulir. */}
       <DialogContent
         showCloseButton={false}
-        className="flex max-h-[90dvh] w-full max-w-4xl flex-col gap-0 overflow-hidden p-0 sm:max-w-4xl sm:p-0"
+        className="flex max-h-[90dvh] w-full flex-col gap-0 overflow-hidden p-0 sm:max-w-4xl sm:p-0"
       >
         {/* Header fixed */}
         {header}

@@ -109,30 +109,100 @@ function blokTandaTanganPeminjam(
   </div>`;
 }
 
-/** Ikon brankas (vault) untuk cap PINDAI — SVG inline agar ikut tercetak. */
-const BRANKAS_SVG = `<svg class="cap-brankas" viewBox="0 0 48 48" role="img" aria-label="Logo brankas PINDAI" xmlns="http://www.w3.org/2000/svg">
-  <rect x="5" y="9" width="38" height="30" rx="4" fill="none" stroke="currentColor" stroke-width="2.5"/>
-  <circle cx="22" cy="24" r="8" fill="none" stroke="currentColor" stroke-width="2.5"/>
-  <circle cx="22" cy="24" r="1.8" fill="currentColor"/>
-  <path d="M22 13.5v3M22 31.5v3M11.5 24h3M29.5 24h3" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
-  <path d="M35 19h4M35 24h4M35 29h4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+/**
+ * Logo perisai (shield) dengan gembok — ikon resmi PINDAI pada KOP dokumen.
+ * SVG inline (bukan berkas eksternal) supaya tetap muncul di pratinjau iframe
+ * yang di-sandbox maupun saat dokumen dicetak/diunduh PDF.
+ */
+const LOGO_SHIELD_SVG = `<svg class="kop-logo" viewBox="0 0 32 32" role="img" aria-label="Logo PINDAI" xmlns="http://www.w3.org/2000/svg">
+  <path d="M16 2.6 4.6 6.9v8c0 7 4.7 12.6 11.4 14.5 6.7-1.9 11.4-7.5 11.4-14.5v-8L16 2.6Z" fill="none" stroke="currentColor" stroke-width="2"/>
+  <rect x="11.4" y="14.2" width="9.2" height="8" rx="1.6" fill="none" stroke="currentColor" stroke-width="2"/>
+  <path d="M13.4 14.2v-2.3a2.6 2.6 0 0 1 5.2 0v2.3" fill="none" stroke="currentColor" stroke-width="2"/>
 </svg>`;
 
-/** Cap PINDAI dengan logo brankas pada bagian tanda tangan Platform. */
-function blokStempelPindai(): string {
-  return `<div class="pindai-stamp" aria-label="Cap PINDAI dengan logo brankas">
-      ${BRANKAS_SVG}
-      <strong>CAP PINDAI</strong>
-      <small>PINJAM GADAI DIGITAL</small>
-    </div>`;
-}
+/**
+ * Stempel digital PINDAI berbentuk bulat dengan teks melingkar. Warna diambil
+ * dari `currentColor` (`.stamp-bulat` → merah bata) supaya stempel terasa
+ * seperti cap fisik namun tetap bersih saat dicetak.
+ */
+const STAMP_BULAT_SVG = `<svg class="stamp-bulat" viewBox="0 0 120 120" role="img" aria-label="Stempel verifikasi ledger PINDAI" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+  <defs><path id="pindai-stamp-ring" d="M60,60 m-45,0 a45,45 0 1,1 90,0 a45,45 0 1,1 -90,0"/></defs>
+  <circle cx="60" cy="60" r="57" fill="none" stroke="currentColor" stroke-width="2"/>
+  <circle cx="60" cy="60" r="40" fill="none" stroke="currentColor" stroke-width="1"/>
+  <text><textPath href="#pindai-stamp-ring" xlink:href="#pindai-stamp-ring" startOffset="50%" text-anchor="middle">VERIFIED LEDGER · PINDAI DIGITAL STAMP</textPath></text>
+  <text class="kecil" x="60" y="57" text-anchor="middle">PINDAI</text>
+  <text class="kecil" x="60" y="69" text-anchor="middle">E-SIGN</text>
+</svg>`;
 
+/** Blok tanda tangan Platform (Pihak Pertama) memakai stempel bulat PINDAI. */
 function blokPlatform(): string {
   return `<div>
-    <div class="ttd-slot">${blokStempelPindai()}</div>
+    <div class="ttd-slot">${STAMP_BULAT_SVG}</div>
     <p class="garis">Pinjam Gadai Digital</p>
     <p>PINDAI — Pihak Pertama</p>
   </div>`;
+}
+
+/**
+ * KOP surat: logo + identitas PINDAI di kiri, badge versi syarat + nomor
+ * referensi dokumen di kanan. Dipakai oleh surat perjanjian pinjaman & gadai.
+ */
+function kopSurat(jenis: "pinjaman" | "gadai" | "pendanaan", meta: ContractMeta): string {
+  return `<header class="kop">
+    <div class="kop-kiri">
+      ${LOGO_SHIELD_SVG}
+      <div>
+        <p class="kop-judul">PINJAM GADAI DIGITAL (PINDAI)</p>
+        <p class="kop-sub">Platform Layanan Keuangan &amp; Ledger Digital</p>
+      </div>
+    </div>
+    <div class="kop-kanan">
+      <span class="kop-badge">Syarat ${CONTRACT_TERMS_VERSION}</span>
+      <span class="kop-ref">Ref: ${escapeHtml(nomorContract(jenis, meta.nomorReferensi))}</span>
+    </div>
+  </header>`;
+}
+
+/** Footer legal dokumen — tampil di dasar setiap surat perjanjian. */
+function footerDokumen(): string {
+  return `<footer class="footer-dok">
+    <span>Dokumen ini sah dan diterbitkan secara elektronik melalui sistem pencatatan internal PT Pinjam Gadai Digital (PINDAI).</span>
+    <span>Legalitas &amp; Verifikasi: support@pindai.id | www.pindai.id</span>
+  </footer>`;
+}
+
+/** Tabel rincian keuangan (garis tipis) untuk skema harian. */
+function rincianKeuanganHarian(quote: LoanQuote): string {
+  return `<table class="rincian">
+    <thead>
+      <tr><th>Komponen</th><th style="text-align:right">Nominal</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Pokok pinjaman</td><td class="angka">${formatRupiah(quote.pokok)}</td></tr>
+      <tr><td>Potongan admin (2%)</td><td class="angka">${formatRupiah(quote.biayaAdmin)}</td></tr>
+      <tr><td>Biaya platform</td><td class="angka">${formatRupiah(quote.biayaPlatform)}</td></tr>
+      <tr><td>Dana bersih diterima (98% dari pokok)</td><td class="angka">${formatRupiah(quote.danaBersihDitransfer)}</td></tr>
+      <tr><td>Bunga</td><td class="angka">${formatRupiah(quote.bunga)}</td></tr>
+      <tr class="total"><td>Total kewajiban (130% dari pokok)</td><td class="angka">${formatRupiah(quote.totalKewajibanPelunasan)}</td></tr>
+    </tbody>
+  </table>`;
+}
+
+/** Tabel rincian keuangan (garis tipis) untuk skema bulanan. */
+function rincianKeuanganBulanan(bulanan: SimulasiBulanan): string {
+  return `<table class="rincian">
+    <thead>
+      <tr><th>Komponen</th><th style="text-align:right">Nominal</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Pokok acuan</td><td class="angka">${formatRupiah(bulanan.pokokDibiayai)}</td></tr>
+      <tr><td>Uang muka (0%)</td><td class="angka">${formatRupiah(bulanan.dp)}</td></tr>
+      <tr><td>Potongan di muka (2%)</td><td class="angka">${formatRupiah(bulanan.potonganDiMuka)}</td></tr>
+      <tr><td>Dana bersih diterima</td><td class="angka">${formatRupiah(bulanan.danaDiterima)}</td></tr>
+      <tr><td>Bunga/margin total (${bulanan.persenBungaPerBulan}%/bulan, flat)</td><td class="angka">${formatRupiah(bulanan.bungaTotal)}</td></tr>
+      <tr class="total"><td>Total pengembalian (${bulanan.tenorBulan} bulan)</td><td class="angka">${formatRupiah(bulanan.totalPengembalian)}</td></tr>
+    </tbody>
+  </table>`;
 }
 
 /** Blok para pihak yang dipakai perjanjian pinjaman dan gadai. */
@@ -189,8 +259,8 @@ export function buildPinjamanContract(
       : `Cicilan bulanan dibayar sesuai jadwal pada Pasal 2. Setiap perubahan status dicatat pada ledger internal aplikasi. Denda keterlambatan 1% per hari dari pokok, maksimum 15%.`;
   return `
   <div class="contract">
+    ${kopSurat("pinjaman", meta)}
     <h1>${judulContract("pinjaman")}</h1>
-    <p class="nomor">Nomor: ${escapeHtml(nomorContract("pinjaman", meta.nomorReferensi))} · Syarat ${CONTRACT_TERMS_VERSION}</p>
     ${blokParaPihak()}
 
     <p>Perjanjian ini dibuat dan disetujui pada <strong>${tgl}</strong> atas data pengajuan yang tersimpan di aplikasi PINDAI.</p>
@@ -207,6 +277,8 @@ export function buildPinjamanContract(
     <h2>Pasal 2 — Biaya, Bunga, dan Total Kewajiban</h2>
     <ol>${pasalFinansial}
     </ol>
+    <p><strong>Ringkasan rincian keuangan:</strong></p>
+    ${bulanan === null ? rincianKeuanganHarian(quote) : rincianKeuanganBulanan(bulanan)}
 
     <h2>Pasal 3 — Cara dan Waktu Pelunasan</h2>
     <p>${pasalKewajiban}</p>
@@ -221,6 +293,7 @@ export function buildPinjamanContract(
       ${blokTandaTanganPeminjam(namaHurufBesar(peminjam.namaLengkap), "Peminjam — Pihak Kedua", meta)}
       ${blokPlatform()}
     </div>
+    ${footerDokumen()}
   </div>`;
 }
 
@@ -245,8 +318,8 @@ export function buildGadaiContract(
 
   return `
   <div class="contract">
+    ${kopSurat("gadai", meta)}
     <h1>${judulContract("gadai")}</h1>
-    <p class="nomor">Nomor: ${escapeHtml(nomorContract("gadai", meta.nomorReferensi))} · Syarat ${CONTRACT_TERMS_VERSION}</p>
     ${blokParaPihak()}
     <p>Akad ini dibuat dan disetujui pada <strong>${tgl}</strong> atas data pengajuan yang tersimpan di aplikasi PINDAI.</p>
     <p><strong>Pihak Pertama:</strong> Pinjam Gadai Digital (PINDAI).</p>
@@ -284,5 +357,6 @@ export function buildGadaiContract(
       ${blokTandaTanganPeminjam(namaHurufBesar(peminjam.namaLengkap), "Peminjam — Pihak Kedua", meta)}
       ${blokPlatform()}
     </div>
+    ${footerDokumen()}
   </div>`;
 }
