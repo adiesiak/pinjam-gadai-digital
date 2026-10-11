@@ -1,9 +1,10 @@
 import { useQuery } from "convex/react";
 import L from "leaflet";
-import { Loader2 } from "lucide-react";
-import { useEffect, useRef } from "react";
+import { Loader2, MapPin, Radio, ShieldX, Users } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { api } from "@/convex/_generated/api";
 import { labelTandaLokasi } from "@/lib/lokasi";
 import { namaHurufBesar } from "@/lib/nama";
@@ -16,6 +17,8 @@ const OSM_ATTRIBUTION = "&copy; OpenStreetMap contributors";
 /** Basemap cadangan bila tile OSM tidak dapat dimuat dari jaringan pengguna. */
 const FALLBACK_TILE_URL = "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png";
 
+type FilterStatus = "semua" | "aman" | "diLuar";
+
 export function LiveLocationMap() {
   const data = useQuery(api.admin.petaPeminjam);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -23,6 +26,10 @@ export function LiveLocationMap() {
   const layerRef = useRef<L.LayerGroup | null>(null);
   const dataRef = useRef<typeof data>(undefined);
   const drawRef = useRef<(() => void) | null>(null);
+  const markerRef = useRef<Record<string, L.CircleMarker>>({});
+
+  const [filter, setFilter] = useState<FilterStatus>("semua");
+  const [targetId, setTargetId] = useState<string | null>(null);
 
   // Radix Tabs menyimpan konten tab non-aktif dengan atribut `hidden`
   // (lihat @radix-ui/react-tabs → Presence). Leaflet yang diinisialisasi pada
@@ -47,12 +54,15 @@ export function LiveLocationMap() {
       // Selagi data server belum tiba, gambar dulu baseline gudang dari
       // konfigurasi default supaya peta tidak pernah tampil kosong.
       const current = dataRef.current;
-      const vault = current?.vault ?? { lat: DEFAULT_CONFIG.vaultLat, lng: DEFAULT_CONFIG.vaultLng };
+      const vault =
+        current?.vault ?? { lat: DEFAULT_CONFIG.vaultLat, lng: DEFAULT_CONFIG.vaultLng };
       if (!validCoord(vault.lat, vault.lng)) {
         console.error("Koordinat gudang tidak valid", vault);
         return;
       }
       layer.clearLayers();
+      Object.keys(markerRef.current).forEach((k) => delete markerRef.current[k]);
+
       L.circleMarker([vault.lat, vault.lng], {
         radius: 10,
         color: "#1f6a62",
@@ -62,6 +72,7 @@ export function LiveLocationMap() {
       })
         .bindTooltip("Titik acuan konfigurasi (bukan posisi gudang terverifikasi)", { direction: "top" })
         .addTo(layer);
+
       const radiusKm =
         current !== undefined && Number.isFinite(current.gpsMismatchKm)
           ? Math.max(0, current.gpsMismatchKm)
@@ -74,14 +85,12 @@ export function LiveLocationMap() {
         weight: 1,
         dashArray: "6 6",
       }).addTo(layer);
-      const titikPeminjam: L.LatLngTuple[] = [];
-      for (const r of current?.rows ?? []) {
+
+      const filteredRows = current?.rows ?? [];
+      for (const r of filteredRows) {
         if (!r.posisi || !validCoord(r.posisi.lat, r.posisi.lng)) continue;
-        titikPeminjam.push([r.posisi.lat, r.posisi.lng]);
-        // Titik yang dicurigai palsu dibedakan warnanya: merah tetap untuk
-        // mismatch (di luar radius), karena itu masalah operasional lain.
         const warna = r.tanda.length > 0 ? "#b45309" : r.mismatch ? "#a5303a" : "#17544e";
-        L.circleMarker([r.posisi.lat, r.posisi.lng], {
+        const marker = L.circleMarker([r.posisi.lat, r.posisi.lng], {
           radius: 7,
           color: warna,
           fillColor: warna,
@@ -100,14 +109,20 @@ export function LiveLocationMap() {
             { direction: "top" },
           )
           .addTo(layer);
+        markerRef.current[r.userId] = marker;
       }
+
       map.invalidateSize({ pan: false });
       // Satu titik tidak punya luasan, sehingga fitBounds akan melompat ke zoom
       // maksimum (peta nyaris kosong). Pakai tampilan kota bila belum ada
       // posisi peminjam.
-      if (titikPeminjam.length === 0) {
+      const visible = filteredRows.filter(
+        (r) => r.posisi && validCoord(r.posisi.lat, r.posisi.lng),
+      );
+      if (visible.length === 0) {
         map.setView([vault.lat, vault.lng], 12, { animate: false });
       } else {
+        const titikPeminjam = visible.map((r) => [r.posisi!.lat, r.posisi!.lng] as L.LatLngTuple);
         const bounds = L.latLngBounds(titikPeminjam);
         bounds.extend([vault.lat, vault.lng]);
         map.fitBounds(bounds, { animate: false, padding: [30, 30], maxZoom: 15 });
@@ -186,6 +201,7 @@ export function LiveLocationMap() {
       const map = mapRef.current;
       mapRef.current = null;
       layerRef.current = null;
+      markerRef.current = {};
       map?.remove();
     };
   }, []);
@@ -195,138 +211,184 @@ export function LiveLocationMap() {
     drawRef.current?.();
   }, [data]);
 
+  useEffect(() => {
+    if (targetId === null || !markerRef.current[targetId]) return;
+    const marker = markerRef.current[targetId];
+    const map = mapRef.current;
+    if (map === null) return;
+    const latlng = marker.getLatLng();
+    map.flyTo(latlng, 15, { animate: true, duration: 0.6 });
+    setTimeout(() => {
+      map.invalidateSize({ pan: false });
+      drawRef.current?.();
+    }, 650);
+  }, [targetId]);
+
+  if (data === undefined) {
+    return (
+      <div className="flex items-center gap-2 py-10 text-sm text-muted-foreground">
+        <Loader2 className="size-4 animate-spin" /> Memuat peta lokasi…
+      </div>
+    );
+  }
+
+  const filteredRows =
+    filter === "semua"
+      ? data.rows
+      : filter === "aman"
+        ? data.rows.filter((r) => !r.mismatch && r.tanda.length === 0)
+        : data.rows.filter((r) => r.mismatch || r.tanda.length > 0);
+
+  const stats = {
+    semua: data.rows.length,
+    aman: data.rows.filter((r) => !r.mismatch && r.tanda.length === 0).length,
+    diLuar: data.rows.filter((r) => r.mismatch || r.tanda.length > 0).length,
+  };
+
   return (
-    <div className="space-y-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-sm text-muted-foreground">
+    <div className="animate-masuk flex min-h-0 flex-col gap-4 md:flex-row">
+      {/* sidebar kiri: peta 70% */}
+      <div className="flex min-h-0 flex-1 flex-col gap-3 md:w-[70%]">
+        <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+          <div className="flex items-center gap-2 text-slate-600">
+            <MapPin className="size-4" />
+            <span className="font-medium text-navy">Live Location &amp; Geofencing</span>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <FilterChip selected={filter === "semua"} onClick={() => setFilter("semua")}>
+              Semua ({stats.semua})
+            </FilterChip>
+            <FilterChip selected={filter === "aman"} onClick={() => setFilter("aman")}>
+              Aman ({stats.aman})
+            </FilterChip>
+            <FilterChip selected={filter === "diLuar"} onClick={() => setFilter("diLuar")}>
+              Di Luar Ambang Jarak ({stats.diLuar})
+            </FilterChip>
+          </div>
+        </div>
+
+        <div className="relative min-h-0 flex-1 overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 shadow-sm md:h-[420px]">
+          <div
+            ref={containerRef}
+            role="region"
+            aria-label="Peta koordinat yang dilaporkan perangkat"
+            className="absolute inset-0 z-0 bg-[#ddd]"
+          />
+          {data === undefined && (
+            <div className="pointer-events-none absolute inset-x-0 top-3 z-10 flex justify-center">
+              <span className="inline-flex items-center gap-2 rounded-full bg-white/90 px-3 py-1 text-xs text-muted-foreground shadow-sm">
+                <Loader2 className="size-4 animate-spin" /> Memuat titik lokasi…
+              </span>
+            </div>
+          )}
+
+          {/* Floating Map Legend */}
+          <div className="absolute right-3 top-3 z-20 rounded-xl border border-slate-200 bg-white/95 backdrop-blur px-3 py-2 shadow-sm">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+              Legenda Radius
+            </p>
+            <ul className="mt-1 space-y-1">
+              <li className="flex items-center gap-2 text-xs text-slate-700">
+                <span className="flex size-2.5 shrink-0 rounded-full border border-emerald-500 bg-emerald-500" />
+                Radius Aman
+              </li>
+              <li className="flex items-center gap-2 text-xs text-slate-700">
+                <span className="flex size-2.5 shrink-0 rounded-full border border-red-500 bg-red-500" />
+                Di Luar Ambang Jarak
+              </li>
+              <li className="flex items-center gap-2 text-xs text-slate-700">
+                <span className="flex size-2.5 shrink-0 rounded-full border border-amber-500 bg-amber-500" />
+                Pola Koordinat Ditandai
+              </li>
+            </ul>
+          </div>
+        </div>
+
+        <p className="text-xs text-muted-foreground">
           OpenStreetMap — koordinat yang dilaporkan perangkat dan titik acuan konfigurasi. Penanda jarak/pola dihitung otomatis dari koordinat yang dilaporkan. Ambang pola {data?.gpsMismatchKm ?? DEFAULT_CONFIG.gpsMismatchKm} km.
         </p>
-        <div className="flex flex-wrap items-center gap-2 text-xs">
-          <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100">Dalam ambang jarak</Badge>
-          <Badge className="bg-red-100 text-red-700 hover:bg-red-100">Di luar ambang jarak</Badge>
-          <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-100">Pola koordinat ditandai</Badge>
+      </div>
+
+      {/* sidebar kanan: live feed 30% */}
+      <div className="flex min-h-0 flex-1 flex-col gap-3 border-t md:border-t-0 md:border-l border-slate-200 md:w-[30%]">
+        <div className="flex items-center gap-2 text-xs">
+          <Users className="size-4 text-primary" />
+          <span className="font-semibold text-navy">Live Geofence Feed</span>
+          <span className="text-muted-foreground">· {filteredRows.length} nasabah tampil</span>
+        </div>
+
+        <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-auto rounded-2xl border border-slate-200 bg-slate-50 p-3">
+          {filteredRows.length === 0 ? (
+            <p className="flex h-24 items-center justify-center text-sm text-muted-foreground">
+              Tidak ada nasabah sesuai filter.
+            </p>
+          ) : (
+            filteredRows.map((r) => (
+              <Button
+                key={r.userId}
+                type="button"
+                variant="ghost"
+                className={`justify-start gap-2 rounded-xl px-3 py-2 text-left transition-colors hover:bg-white ${
+                  r.mismatch ? "border-l-2 border-l-red-400" : r.tanda.length > 0 ? "border-l-2 border-l-amber-400" : ""
+                }`}
+                onClick={() => setTargetId(r.userId)}
+              >
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    {r.mismatch ? (
+                      <ShieldX className="shrink-0 size-3.5 text-red-600" />
+                    ) : r.tanda.length > 0 ? (
+                      <Radio className="shrink-0 size-3.5 text-amber-600" />
+                    ) : (
+                      <Radio className="shrink-0 size-3.5 text-emerald-600" />
+                    )}
+                    <span className="truncate font-medium text-navy">
+                      {namaHurufBesar(r.namaLengkap)}
+                    </span>
+                  </div>
+                  <p className="mt-0.5 truncate text-[11px] text-muted-foreground">
+                    {r.nomorReferensi}
+                    {r.jarakVaultKm !== null ? ` · ${r.jarakVaultKm.toFixed(1)} km` : ""}
+                  </p>
+                  <p className="mt-0.5 text-[11px] text-muted-foreground">
+                    {r.mismatch
+                      ? "di luar ambang jarak"
+                      : r.tanda.length > 0
+                        ? labelTandaLokasi(r.tanda[r.tanda.length - 1])
+                        : r.jarakVaultKm !== null
+                          ? `sekitar gudang (${r.jarakVaultKm.toFixed(1)} km)`
+                          : "—"}
+                  </p>
+                </div>
+              </Button>
+            ))
+          )}
         </div>
       </div>
-      <div
-        className="relative h-[55dvh] min-h-[280px] max-h-[420px] overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 shadow-sm sm:h-[420px]"
-      >
-        <div
-          ref={containerRef}
-          role="region"
-          aria-label="Peta koordinat yang dilaporkan perangkat"
-          className="absolute inset-0 z-0 bg-[#ddd]"
-        />
-        {data === undefined && (
-          <div className="pointer-events-none absolute inset-x-0 top-3 z-10 flex justify-center">
-            <span className="inline-flex items-center gap-2 rounded-full bg-white/90 px-3 py-1 text-xs text-muted-foreground shadow-sm">
-              <Loader2 className="size-4 animate-spin" /> Memuat titik lokasi…
-            </span>
-          </div>
-        )}
-      </div>
-      {data !== undefined && (
-        <ul className="animate-masuk divide-y divide-slate-200 rounded-2xl border border-slate-200 bg-white">
-          {data.rows
-            .filter((r) => r.mismatch || r.tanda.length > 0)
-            .map((r) => (
-              <li key={r.userId} className="flex flex-col items-start justify-between gap-2 px-3 py-3 text-sm sm:flex-row sm:items-center sm:gap-3 sm:px-5">
-                <span className="min-w-0">
-                  {r.mismatch && (
-                    <Badge className="mr-2 bg-red-100 text-red-700 hover:bg-red-100">Di luar ambang jarak</Badge>
-                  )}
-                  {r.tanda.length > 0 && (
-                    <Badge className="mr-2 bg-amber-100 text-amber-800 hover:bg-amber-100">Pola koordinat ditandai</Badge>
-                  )}
-                  {namaHurufBesar(r.namaLengkap)} · {r.nomorReferensi}
-                </span>
-                <span className="shrink-0 tabular-nums text-xs text-muted-foreground sm:text-sm">
-                  {r.tanda.length > 0
-                    ? "koordinat berulang (indikator otomatis)"
-                    : r.jarakVaultKm !== null
-                      ? `${r.jarakVaultKm.toFixed(1)} km dari titik acuan`
-                      : ""}
-                </span>
-              </li>
-            ))}
-          {data.rows.every((r) => !r.mismatch && r.tanda.length === 0) && (
-            <li className="px-5 py-3 text-sm text-muted-foreground">
-              Tidak ada koordinat yang melampaui ambang pola saat ini. Hasil otomatis ini bukan konfirmasi lokasi fisik.
-            </li>
-          )}
-        </ul>
-      )}
-      <PeringatanLokasiTerbaru />
     </div>
   );
 }
 
-/**
- * Riwayat peringatan "lokasi dicurigai" — termasuk status pengiriman
- * WhatsApp-nya, sehingga tim tahu bila pesan tidak sampai karena gateway WA
- * belum diaktifkan atau nomor nasabah belum lengkap di KYC.
- */
-function PeringatanLokasiTerbaru() {
-  const rows = useQuery(api.admin.peringatanLokasiTerbaru, {});
-  if (rows === undefined) {
-    return (
-      <p className="flex items-center gap-2 text-sm text-muted-foreground">
-        <Loader2 className="size-4 animate-spin" /> Memuat peringatan lokasi…
-      </p>
-    );
-  }
-  if (rows.length === 0) return null;
+function FilterChip({
+  children,
+  selected,
+  onClick,
+}: {
+  children: React.ReactNode;
+  selected: boolean;
+  onClick: () => void;
+}) {
   return (
-    <div className="animate-masuk rounded-2xl border border-amber-200 bg-white">
-      <p className="border-b border-amber-100 bg-amber-50/70 px-5 py-3 text-sm font-medium text-amber-900">
-        Peringatan lokasi terbaru (dikirim otomatis ke nasabah)
-      </p>
-      <ul className="divide-y divide-slate-200">
-        {rows.map((r) => (
-          <li
-            key={r._id}
-            className="flex flex-wrap items-center justify-between gap-3 px-5 py-3 text-sm"
-          >
-            <span className="min-w-0">
-              <span className="font-medium">{r.nama}</span>
-              {r.nomorReferensi !== null && (
-                <span className="text-muted-foreground"> · {r.nomorReferensi}</span>
-              )}
-              <span className="mt-1 block text-xs text-muted-foreground">
-                {r.tanda.map(labelTandaLokasi).join(", ")} ·{" "}
-                {new Date(r.waktu).toLocaleString("id-ID")}
-              </span>
-            </span>
-            <span className="flex shrink-0 flex-wrap items-center gap-2">
-              <Badge
-                className={
-                  r.waStatus === "terkirim"
-                    ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-100"
-                    : "bg-slate-100 text-slate-600 hover:bg-slate-100"
-                }
-              >
-                {r.waStatus === "terkirim"
-                  ? "WA terkirim"
-                  : r.waStatus === "tanpa_nomor"
-                    ? "WA: nomor belum ada"
-                    : r.waStatus === "dinonaktifkan"
-                      ? "WA: belum diaktifkan"
-                      : r.waStatus === "gagal"
-                        ? "WA gagal"
-                        : "WA: menunggu"}
-              </Badge>
-              <Badge
-                className={
-                  r.dibacaPada === null
-                    ? "bg-amber-100 text-amber-800 hover:bg-amber-100"
-                    : "bg-slate-100 text-slate-600 hover:bg-slate-100"
-                }
-              >
-                {r.dibacaPada === null ? "Belum diakui nasabah" : "Sudah diakui"}
-              </Badge>
-            </span>
-          </li>
-        ))}
-      </ul>
-    </div>
+    <Button
+      type="button"
+      variant={selected ? "default" : "outline"}
+      size="sm"
+      className={`rounded-full px-3 text-[11px] font-medium ${
+        selected ? "bg-[#064E3B] text-white hover:bg-[#021E17]" : "border-slate-200 text-slate-600 hover:bg-slate-100"
+      }`}
+      onClick={onClick}
+    >
+      {children}
+    </Button>
   );
 }

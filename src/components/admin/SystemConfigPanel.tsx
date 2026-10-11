@@ -1,7 +1,5 @@
 import { useMutation, useQuery } from "convex/react";
-import { Loader2, MapPin, QrCode, Settings2 } from "lucide-react";
-
-const RsrIcon = Settings2;
+import { Loader2, MapPin, QrCode, RefreshCw, Settings2, ShieldAlert } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -22,19 +20,19 @@ import {
 import { PanelMemuat } from "./admin-shared";
 import { RiwayatConfigPanel } from "./RiwayatConfigPanel";
 
-import type { ComponentType, ReactNode } from "react";
+import type { ReactNode } from "react";
 
 type ConfigForm = Omit<SystemConfig, "versi">;
 
 function DividerLabel({ children }: { children: ReactNode }) {
   return (
     <div className="border-t border-slate-100 pt-4">
-      <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">{children}</p>
+      <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+        {children}
+      </p>
     </div>
   );
 }
-
-const Rsr: ComponentType<{ className?: string }> = Settings2;
 
 function SuffixInput({
   id,
@@ -49,8 +47,6 @@ function SuffixInput({
   mono,
   withHint,
   hint,
-  danger,
-  warn,
 }: {
   id: string;
   label: string;
@@ -64,8 +60,6 @@ function SuffixInput({
   mono?: boolean;
   withHint?: boolean;
   hint?: string;
-  danger?: boolean;
-  warn?: boolean;
 }) {
   const numeric = typeof value === "number" ? String(value) : value;
   return (
@@ -97,9 +91,7 @@ function SuffixInput({
           {suffix}
         </span>
       </div>
-      {withHint && hint && (
-        <p className="mt-1 text-[11px] leading-4 text-muted-foreground">{hint}</p>
-      )}
+      {withHint && hint && <p className="mt-1 text-[11px] leading-4 text-muted-foreground">{hint}</p>}
     </div>
   );
 }
@@ -156,14 +148,12 @@ function DangerBox({
   title,
   children,
   action,
-  actionLabel,
   onAction,
   busy,
 }: {
   title: string;
   children: React.ReactNode;
   action?: React.ReactNode;
-  actionLabel?: string;
   onAction?: () => void;
   busy?: boolean;
 }) {
@@ -261,9 +251,7 @@ export function SystemConfigPanel() {
 
   const simpan = async () => {
     await wrapBusyStatus("Konfigurasi", async () => {
-      await save({
-        ...form,
-      } as Parameters<typeof save>[0]);
+      await save({ ...form } as Parameters<typeof save>[0]);
     });
   };
 
@@ -278,7 +266,9 @@ export function SystemConfigPanel() {
         </div>
         <div className="flex items-center gap-2">
           {status && (
-            <p className={`rounded-lg px-3 py-1 text-xs font-medium ${status.ok ? "bg-emerald-50 text-emerald-800" : "bg-red-50 text-red-700"}`}>
+            <p
+              className={`rounded-lg px-3 py-1 text-xs font-medium ${status.ok ? "bg-emerald-50 text-emerald-800" : "bg-red-50 text-red-700"}`}
+            >
               {status.text}
             </p>
           )}
@@ -288,7 +278,7 @@ export function SystemConfigPanel() {
       <Tabs value="finansial" className="space-y-5">
         <TabsList className="w-full justify-start rounded-xl border border-slate-200 bg-white p-1.5 shadow-sm sm:w-auto">
           <TabsTrigger value="finansial" className="gap-2 text-sm">
-            <Rspr className="size-4" />
+            <QrCode className="size-4" />
             Tab 1 · Parameter Finansial &amp; Rekening
           </TabsTrigger>
           <TabsTrigger value="geo" className="gap-2 text-sm">
@@ -300,15 +290,18 @@ export function SystemConfigPanel() {
             Tab 3 · Aturan Sesi &amp; Sistem Toggles
           </TabsTrigger>
           <TabsTrigger value="danger" className="gap-2 text-sm">
-            <Loader2 className="size-4" />
+            <ShieldAlert className="size-4" />
             Tab 4 · Danger Zone &amp; Riwayat Versi
           </TabsTrigger>
         </TabsList>
 
+        {/* TAB 1 — FINANSIAL & REKENING */}
         <TabsContent value="finansial" className="space-y-5 m-0">
           <div className="grid gap-5 xl:grid-cols-2">
             <div className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-              <p className="flex items-center gap-2 text-sm font-semibold text-navy">                  <RsrIcon className="size-4 text-primary" /> Asumsi Finansial &amp; Perhitungan
+              <p className="flex items-center gap-2 text-sm font-semibold text-navy">
+                <QrCode className="size-4 text-primary" />
+                Asumsi Finansial &amp; Perhitungan
               </p>
 
               <div className="grid gap-4 sm:grid-cols-2">
@@ -345,7 +338,7 @@ export function SystemConfigPanel() {
                   step={0.5}
                   suffix="%"
                   onChange={(v) => upd("persenBunga", Number(v) || 0)}
-                  hint="Bunga flat default untuk skema harian & bulanan."
+                  hint="Bunga flat default untuk skema harian &amp; bulanan."
                   withHint
                 />
                 <SuffixInput
@@ -382,7 +375,9 @@ export function SystemConfigPanel() {
               </div>
 
               <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">Rekening QRIS</p>
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                  Rekening QRIS
+                </p>
                 <div className="mt-3 grid gap-3 sm:grid-cols-2">
                   <div>
                     <Label htmlFor="cfg-payee">Nama pemilik rekening</Label>
@@ -432,7 +427,9 @@ export function SystemConfigPanel() {
                   />
                 )}
                 <div className="mt-3 flex items-center gap-3">
-                  <Label htmlFor="cfg-qris-file" className="sr-only">Unggah gambar QRIS</Label>
+                  <Label htmlFor="cfg-qris-file" className="sr-only">
+                    Ungah gambar QRIS
+                  </Label>
                   <Input
                     id="cfg-qris-file"
                     type="file"
@@ -501,7 +498,8 @@ export function SystemConfigPanel() {
 
             <div className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
               <p className="flex items-center gap-2 text-sm font-semibold text-navy">
-                <QrCode className="size-4 text-primary" /> Ringkasan Finansial
+                <QrCode className="size-4 text-emerald-600" />
+                Ringkasan Finansial
               </p>
               <p className="text-xs text-muted-foreground">
                 Nilai di bawah ini adalah asumsi sistem yang dihitung dari konfigurasi. Angka nyata transaksi mengikuti ledger internal.
@@ -509,39 +507,57 @@ export function SystemConfigPanel() {
 
               <dl className="mt-3 grid grid-cols-2 gap-3">
                 <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-                  <dt className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">Potongan Admin</dt>
+                  <dt className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+                    Potongan Admin
+                  </dt>
                   <dd className="mt-1 text-lg font-semibold tabular-nums text-navy">{form.persenAdmin}%</dd>
                 </div>
                 <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-                  <dt className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">Biaya Platform</dt>
+                  <dt className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+                    Biaya Platform
+                  </dt>
                   <dd className="mt-1 text-lg font-semibold tabular-nums text-navy">{form.persenPlatform}%</dd>
                 </div>
                 <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-                  <dt className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">Bunga Flat</dt>
+                  <dt className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+                    Bunga Flat
+                  </dt>
                   <dd className="mt-1 text-lg font-semibold tabular-nums text-navy">{form.persenBunga}%</dd>
                 </div>
                 <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-                  <dt className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">Maks LTV Gadai</dt>
+                  <dt className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+                    Maks LTV Gadai
+                  </dt>
                   <dd className="mt-1 text-lg font-semibold tabular-nums text-navy">{form.maxLtvPersen}%</dd>
                 </div>
                 <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-                  <dt className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">Plafon Default</dt>
-                  <dd className="mt-1 text-lg font-semibold tabular-nums text-navy">{formatRupiah(form.plafonPinjaman)}</dd>
+                  <dt className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+                    Plafon Default
+                  </dt>
+                  <dd className="mt-1 text-lg font-semibold tabular-nums text-navy">
+                    {formatRupiah(form.plafonPinjaman)}
+                  </dd>
                 </div>
                 <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-                  <dt className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">Biaya Integrasi Lama</dt>
-                  <dd className="mt-1 text-lg font-semibold tabular-nums text-navy">{form.persenBiayaIntegrasi}%</dd>
+                  <dt className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+                    Biaya Integrasi Lama
+                  </dt>
+                  <dd className="mt-1 text-lg font-semibold tabular-nums text-navy">
+                    {form.persenBiayaIntegrasi}%
+                  </dd>
                 </div>
               </dl>
             </div>
           </div>
         </TabsContent>
 
+        {/* TAB 2 — GEOFENCING & KEAMANAN LOKASI */}
         <TabsContent value="geo" className="space-y-5 m-0">
           <div className="grid gap-5 xl:grid-cols-2">
             <div className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
               <p className="flex items-center gap-2 text-sm font-semibold text-navy">
-                <MapPin className="size-4 text-primary" /> Titik Referensi &amp; Ambang Lokasi
+                <MapPin className="size-4 text-primary" />
+                Titik Referensi &amp; Ambang Lokasi
               </p>
 
               <div className="grid gap-4 sm:grid-cols-2">
@@ -628,11 +644,12 @@ export function SystemConfigPanel() {
 
             <div className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
               <p className="flex items-center gap-2 text-sm font-semibold text-navy">
-                <MapPin className="size-4 text-emerald-600" /> Titik Referensi Konfigurasi
+                <MapPin className="size-4 text-emerald-600" />
+                Titik Referensi Konfigurasi
               </p>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div>
-                  <Label htmlFor="cfg-vlat">Latitude vault</Label>
+                  <Label htmlFor="cfg-vlat-2">Latitude vault</Label>
                   <Input
                     id="cfg-vlat-2"
                     type="number"
@@ -643,7 +660,7 @@ export function SystemConfigPanel() {
                   />
                 </div>
                 <div>
-                  <Label htmlFor="cfg-vlng">Longitude vault</Label>
+                  <Label htmlFor="cfg-vlng-2">Longitude vault</Label>
                   <Input
                     id="cfg-vlng-2"
                     type="number"
@@ -666,11 +683,13 @@ export function SystemConfigPanel() {
           </div>
         </TabsContent>
 
+        {/* TAB 3 — ATURAN SESI & SISTEM TOGGLES */}
         <TabsContent value="sesi" className="space-y-5 m-0">
           <div className="grid gap-5 xl:grid-cols-2">
             <div className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
               <p className="flex items-center gap-2 text-sm font-semibold text-navy">
-                <Settings2 className="size-4 text-primary" /> Aturan Sesi &amp; Sistem Toggles
+                <Settings2 className="size-4 text-primary" />
+                Aturan Sesi &amp; Sistem Toggles
               </p>
 
               <SuffixInput
@@ -685,7 +704,9 @@ export function SystemConfigPanel() {
               />
 
               <div className="space-y-3">
-                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">Card Toggles Sistem</p>
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                  Card Toggles Sistem
+                </p>
                 <SwitchRow
                   htmlFor="cfg-maintenance"
                   label="Mode Perawatan"
@@ -713,30 +734,48 @@ export function SystemConfigPanel() {
 
             <div className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
               <p className="flex items-center gap-2 text-sm font-semibold text-navy">
-                <Settings2 className="size-4 text-emerald-600" /> Ringkasan Toggles
+                <Settings2 className="size-4 text-emerald-600" />
+                Ringkasan Toggles
               </p>
               <dl className="mt-3 grid grid-cols-2 gap-3">
                 <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-                  <dt className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">Sesi Timeout</dt>
-                  <dd className="mt-1 text-lg font-semibold tabular-nums text-navy">{form.sessionTimeoutMenit} menit</dd>
+                  <dt className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+                    Sesi Timeout
+                  </dt>
+                  <dd className="mt-1 text-lg font-semibold tabular-nums text-navy">
+                    {form.sessionTimeoutMenit} menit
+                  </dd>
                 </div>
                 <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-                  <dt className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">Mode Perawatan</dt>
-                  <dd className="mt-1 text-lg font-semibold tabular-nums text-navy">{form.maintenanceMode ? "Aktif" : "Nonaktif"}</dd>
+                  <dt className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+                    Mode Perawatan
+                  </dt>
+                  <dd className="mt-1 text-lg font-semibold tabular-nums text-navy">
+                    {form.maintenanceMode ? "Aktif" : "Nonaktif"}
+                  </dd>
                 </div>
                 <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-                  <dt className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">Gerbang Lokasi</dt>
-                  <dd className="mt-1 text-lg font-semibold tabular-nums text-navy">{form.lokasiWajib ? "Wajib" : "Opsional"}</dd>
+                  <dt className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+                    Gerbang Lokasi
+                  </dt>
+                  <dd className="mt-1 text-lg font-semibold tabular-nums text-navy">
+                    {form.lokasiWajib ? "Wajib" : "Opsional"}
+                  </dd>
                 </div>
                 <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-                  <dt className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">Lokasi Latar</dt>
-                  <dd className="mt-1 text-lg font-semibold tabular-nums text-navy">{form.wajibAplikasiNative ? "Wajib" : "Nonaktif"}</dd>
+                  <dt className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+                    Lokasi Latar
+                  </dt>
+                  <dd className="mt-1 text-lg font-semibold tabular-nums text-navy">
+                    {form.wajibAplikasiNative ? "Wajib" : "Nonaktif"}
+                  </dd>
                 </div>
               </dl>
             </div>
           </div>
         </TabsContent>
 
+        {/* TAB 4 — DANGER ZONE & RIWAYAT VERSI */}
         <TabsContent value="danger" className="space-y-5 m-0">
           <div className="grid gap-5 xl:grid-cols-2">
             <DangerBox
@@ -783,14 +822,21 @@ export function SystemConfigPanel() {
             <span className="font-medium text-navy">{data.diperbaruiOleh}</span>
             <span className="text-muted-foreground">·</span>
             <span className="text-muted-foreground">
-              {data.auditTerbaru?.[0] ? new Date(data.auditTerbaru[0].waktu ?? Date.now()).toLocaleString("id-ID") : "—"}
+              {data.auditTerbaru?.[0]
+                ? new Date(data.auditTerbaru[0].waktu ?? Date.now()).toLocaleString("id-ID")
+                : "—"}
             </span>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <Button variant="outline" size="sm" disabled={busy} onClick={() => setStatus(null)}>
               Batal
             </Button>
-            <Button size="sm" className="bg-[#064E3B] text-white hover:bg-[#021E17]" disabled={busy} onClick={simpan}>
+            <Button
+              size="sm"
+              className="bg-[#064E3B] text-white hover:bg-[#021E17]"
+              disabled={busy}
+              onClick={simpan}
+            >
               {busy ? <Loader2 className="mr-1.5 size-4 animate-spin" /> : null}
               Simpan Konfigurasi
             </Button>

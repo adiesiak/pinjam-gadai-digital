@@ -11,7 +11,6 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { api } from "@/convex/_generated/api";
-import { formatRupiah } from "@/lib/money";
 
 /** Default UI fallback bila server belum mengirim teks publik (non-destructive). */
 const FALLBACK = {
@@ -65,42 +64,6 @@ function FieldGroup({ title, children }: { title: string; children: ReactNode })
         {title}
       </h4>
       <div className="mt-4 space-y-4">{children}</div>
-    </div>
-  );
-}
-
-function Field({
-  htmlFor,
-  children,
-  suffix,
-  size,
-}: {
-  htmlFor: string;
-  children: ReactNode;
-  suffix?: string;
-  size?: "sm" | "md";
-}) {
-  const cols = size === "sm" ? "min-w-0 flex-1" : "min-w-0 flex-1 space-y-1";
-  return (
-    <div className={cols}>
-      <Label htmlFor={htmlFor} className="text-xs">
-        {children}
-      </Label>
-      <div className="mt-1 flex items-stretch rounded-xl border border-slate-200 bg-white shadow-sm">
-        <Input
-          id={htmlFor}
-          className={`min-w-0 ${suffix ? "pr-14" : ""} shadow-none focus-visible:ring-2 `}
-          style={suffix ? undefined : undefined}
-          readOnly
-          tabIndex={-1}
-          aria-readonly="true"
-        />
-        {suffix ? (
-          <span className="flex shrink-0 items-center border-l border-slate-200 bg-slate-50 px-3 text-xs tabular-nums text-slate-600">
-            {suffix}
-          </span>
-        ) : null}
-      </div>
     </div>
   );
 }
@@ -192,6 +155,16 @@ function SwitchRow({
   );
 }
 
+function DividerLabel({ children }: { children: ReactNode }) {
+  return (
+    <div className="border-t border-slate-100 pt-4">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+        {children}
+      </p>
+    </div>
+  );
+}
+
 export function AnnouncementCms() {
   const row = useQuery(api.announcements.getCmsRow);
   const publik = useQuery(api.announcements.getPublic);
@@ -205,10 +178,9 @@ export function AnnouncementCms() {
 
   const d = (key: string, fb: string | boolean | number): string | boolean | number =>
     (draft?.[key] as string | undefined) ?? fb;
-  const db = (key: string, fb: boolean): boolean =>
-    (draft?.[key] as boolean | undefined) ?? fb;
-  const ds = (key: string, fb: string): string =>
-    (draft?.[key] as string | undefined) ?? fb;
+  const db = (key: string, fb: boolean): boolean => (draft?.[key] as boolean | undefined) ?? fb;
+  const ds = (key: string, fb: string): string => (draft?.[key] as string | undefined) ?? fb;
+  const dn = (key: string, fb: number): number => (draft?.[key] as number | undefined) ?? fb;
 
   if (row === undefined || publik === undefined) {
     return (
@@ -320,33 +292,19 @@ export function AnnouncementCms() {
   };
 
   return (
-    <div className="animate-masuk space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+    <div className="animate-masuk flex min-h-0 flex-col gap-5">
+      {/* HEADER */}
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="text-lg font-semibold tracking-tight text-navy">Banner &amp; Pengumuman Sistem</h2>
-          <p className="mt-1 text-sm text-muted-foreground">Edit teks dan tampilan publik. Semua perubahan langsung tampil di halaman utama setelah disimpan.</p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {status && (
-            <p className={`rounded-lg px-3 py-1.5 text-xs font-medium ${status.ok ? "bg-emerald-50 text-emerald-800" : "bg-red-50 text-red-700"}`}>
-              <Check className="mr-1.5 size-3.5 shrink-0" />
-              {status.text}
-            </p>
-          )}
-          <Button variant="outline" disabled={busy} onClick={bersihkanTeksLama}>
-            Bersihkan teks lama
-          </Button>
-          <Button variant="outline" disabled={busy} onClick={kembalikanDefault}>
-            Reset ke default
-          </Button>
-          <Button disabled={!draft || busy} onClick={simpan}>
-            {busy ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
-            Simpan perubahan
-          </Button>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Edit teks dan tampilan publik. Semua perubahan langsung tampil di halaman utama setelah disimpan.
+          </p>
         </div>
       </div>
 
-      <Tabs value="tab-1" className="space-y-5">
+      {/* BODY: form kiri + preview kanan */}
+      <Tabs value="tab-1" className="flex-1 space-y-5">
         <TabsList className="w-full justify-start rounded-xl border border-slate-200 bg-white p-1.5 shadow-sm sm:w-auto">
           <TabsTrigger value="tab-1" className="gap-2 text-sm">
             <MessageSquare className="size-4" />
@@ -366,9 +324,9 @@ export function AnnouncementCms() {
           </TabsTrigger>
         </TabsList>
 
-        <div className="grid gap-5 xl:grid-cols-2">
-          {/* PANEL KIRI: form input */}
-          <div className="space-y-5">
+        <div className="grid gap-5 min-h-0 xl:grid-cols-2 xl:gap-6">
+          {/* KIRI — FORM INPUT */}
+          <div className="flex min-h-0 flex-col gap-5">
             <TabsContent value="tab-1" className="space-y-3 m-0">
               <FieldGroup title="Top Running Bar">
                 <FieldEdit
@@ -707,7 +665,9 @@ export function AnnouncementCms() {
                   placeholder={FALLBACK.androidNote}
                 />
                 <DividerLabel>Template pesan WhatsApp</DividerLabel>
-                <p className="text-xs text-muted-foreground">Placeholder singkat untuk pratinjau CMS (pengiriman sesungguhnya memakai template gateway di menu WhatsApp).</p>
+                <p className="text-xs text-muted-foreground">
+                  Placeholder singkat untuk pratinjau CMS (pengiriman sesungguhnya memakai template gateway di menu WhatsApp).
+                </p>
                 <FieldEdit
                   htmlFor="cms-wa-teks"
                   label={current.waTemplateLabel}
@@ -721,16 +681,16 @@ export function AnnouncementCms() {
             </TabsContent>
           </div>
 
-          {/* PANEL KANAN: split-screen live preview */}
-          <div className="min-w-0">
-            <div className="sticky top-24 rounded-xl border border-slate-200 bg-white shadow-sm">
+          {/* KANAN — LIVE MOCKUP SIMULATOR */}
+          <div className="flex min-h-0 flex-col">
+            <div className="sticky top-24 flex min-h-0 flex-col rounded-xl border border-slate-200 bg-white shadow-sm">
               <div className="flex items-center gap-2 border-b border-slate-200 px-4 py-3">
                 <ArrowLeftRight className="size-4 text-primary" />
                 <span className="text-sm font-semibold text-navy">Live Mockup Simulator</span>
                 <span className="ml-auto text-[11px] text-muted-foreground">50% · pratinjau real-time</span>
               </div>
               <Separator />
-              <div className="p-4">
+              <div className="flex-1 overflow-auto p-4">
                 <SitePreview values={current} />
               </div>
             </div>
@@ -746,15 +706,34 @@ export function AnnouncementCms() {
             {!draft ? "Tidak ada perubahan yang ditahan." : "Ada perubahan yang belum tersimpan."}
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <Button variant="outline" size="sm" disabled={busy || !draft} onClick={() => setDraft({ ...draft })}>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={busy || !draft}
+              onClick={() => setDraft({ ...draft })}
+            >
               <ArrowLeftRight className="mr-1.5 size-3.5" />
               Reset ke Default
             </Button>
-            <Button variant="outline" size="sm" disabled={busy || !draft} onClick={bersihkanTeksLama}>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={busy || !draft}
+              onClick={bersihkanTeksLama}
+            >
               Bersihkan Teks Lama
             </Button>
-            <Button size="sm" className="bg-[#064E3B] text-white hover:bg-[#021E17]" disabled={busy || !draft} onClick={simpan}>
-              {busy ? <Loader2 className="mr-1.5 size-4 animate-spin" /> : <Check className="mr-1.5 size-4" />}
+            <Button
+              size="sm"
+              className="bg-[#064E3B] text-white hover:bg-[#021E17]"
+              disabled={busy || !draft}
+              onClick={simpan}
+            >
+              {busy ? (
+                <Loader2 className="mr-1.5 size-4 animate-spin" />
+              ) : (
+                <Check className="mr-1.5 size-4" />
+              )}
               Simpan Perubahan
             </Button>
           </div>
@@ -764,18 +743,51 @@ export function AnnouncementCms() {
   );
 }
 
-function DividerLabel({ children }: { children: ReactNode }) {
-  return (
-    <div className="border-t border-slate-100 pt-4">
-      <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">{children}</p>
-    </div>
-  );
-}
-
-/** Simulasi halaman publik mini, hanya UI (tidak render halaman sebenarnya).*
- * Catatan: ini adalah pratinjau CMS — tidak ada akses backend di sini.*
+/** Simulasi halaman publik mini, hanya UI (tidak render halaman sebenarnya).
+ *  Catatan: ini adalah pratinjau CMS — tidak ada akses backend di sini.
  */
-function SitePreview({ values }: { values: typeof current }) {
+function SitePreview({ values }: { values: {
+  barTeks: string;
+  barTautan: string;
+  barAktif: boolean;
+  popupJudul: string;
+  popupIsi: string;
+  popupCta: string;
+  popupAktif: boolean;
+  floatJudul: string;
+  floatIsi: string;
+  floatCta: string;
+  floatAktif: boolean;
+  floatDelayDetik: number;
+  logoTeks: string;
+  nav1: string;
+  nav2: string;
+  nav3: string;
+  nav4: string;
+  heroBadge: string;
+  heroJudul: string;
+  heroJudul2: string;
+  heroSub: string;
+  heroCta1: string;
+  heroCta2: string;
+  chip1Label: string;
+  chip1Nilai: string;
+  chip2Label: string;
+  chip2Nilai: string;
+  layananJudul: string;
+  layananSub: string;
+  pinjamanJudul: string;
+  pinjamanIsi: string;
+  pinjamanCta: string;
+  gadaiJudul: string;
+  gadaiIsi: string;
+  gadaiCta: string;
+  apkUrl: string;
+  waTeks: string;
+  androidNote: string;
+  waTemplateLabel: string;
+  apkLabel: string;
+}}) {
   const bar = values.barTeks;
   if (!bar) return null;
   return (
@@ -800,14 +812,9 @@ function SitePreview({ values }: { values: typeof current }) {
 
       {/* Nav */}
       <div className="flex items-center gap-4 rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs text-navy">
-        {[
-          { label: values.nav1, active: false },
-          { label: values.nav2, active: false },
-          { label: values.nav3, active: false },
-          { label: values.nav4, active: false },
-        ].map((item) => (
-          <span key={item.label} className="font-medium text-navy">
-            {item.label}
+        {[values.nav1, values.nav2, values.nav3, values.nav4].map((label) => (
+          <span key={label} className="font-medium text-navy">
+            {label}
           </span>
         ))}
       </div>
@@ -891,9 +898,6 @@ function SitePreview({ values }: { values: typeof current }) {
           <span className="mt-1 inline-flex h-6 w-6 rotate-45 cursor-pointer rounded-full border border-slate-300" />
         </div>
       )}
-
-      {/* Android/WA footer preview */}
-
     </div>
   );
 }
