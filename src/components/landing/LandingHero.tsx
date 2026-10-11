@@ -1,32 +1,48 @@
 import { useReducedMotion } from "framer-motion";
-import { ArrowRight, Lock, ShieldCheck, Sparkles } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { ArrowRight, Lock, ShieldCheck, Sparkles, TriangleAlert } from "lucide-react";
+import { Component, useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router";
 
 import { Button } from "@/components/ui/button";
 import { VaultLogo } from "@/components/VaultLogo";
-import type { HandleLaut } from "./lautScene";
+import {
+  landingTemplateInfo,
+  landingTemplatePreset,
+  templateLandingAman,
+  type LandingTemplateId,
+} from "@/lib/landingTemplate";
+import type { HandleTemplate } from "./templateScene";
 
 /**
- * Hero PINDAI — "kartu finansial hijau muncul dari laut malam".
+ * Hero landing PINDAI — SATU komponen untuk ENAM template 3D.
+ *
+ * Konten hero (eyebrow, judul, deskripsi, CTA, poin kepercayaan, kartu merek)
+ * sengaja TIDAK diduplikasi ke setiap template: yang berbeda antar template
+ * hanyalah adegan 3D-nya. Ganti template = ganti pengalaman visual, bukan ganti
+ * konten. Adegan dipilih dari ID template aktif (`lib/landingTemplate.ts`) dan
+ * hanya SATU scene yang hidup pada satu waktu — preset di dalam
+ * `templateScene.ts` yang menentukan gambarannya.
  *
  * Susunan lapisan (belakang → depan):
- *   1. Gradien gelap CSS  — selalu ada; ini juga fallback bila WebGL gagal.
- *   2. `<canvas>` WebGL    — langit, bulan, gerbang brass, air, riak (satu draw
- *      call, dimuat malas lewat `import("./lautScene")`).
- *   3. Riak CSS            — hanya tampil saat WebGL tidak tersedia.
+ *   1. Gradien gelap CSS bertema template — selalu ada; ini juga fallback bila
+ *      WebGL gagal. Warnanya berasal dari palet template, bukan warna acak baru.
+ *   2. `<canvas>` WebGL — langit/bulan/air (Moonlit), partikel emerald (Floating
+ *      Green Card), kisi & gerbang (Digital Gate), cincin orbit (Orbit), brankas
+ *      (Vault), atau kota + jaringan cahaya (City). Dimuat malas lewat
+ *      `import("./templateScene")` supaya mesin 3D tidak ada di bundel awal.
+ *   3. Fallback statis — hanya tampil saat WebGL tidak tersedia/gagal.
  *   4. Konten hero + kartu 3D (CSS transform) — selalu DOM, jadi teks/CTA tidak
  *      pernah bergantung pada 3D.
  *
- * INTERAKSI KARTU (yang membuatnya terasa seperti objek fisik):
- *   - Pointer mouse di atas KARTU memiringkannya mengikuti cursor
- *     (rotateY ±14°, rotateX ±10°) dengan peredaman lerp — bukan lompatan.
- *   - Saat pointer masuk, kartu terangkat (translateY) + membesar sedikit
- *     (scale) + glow hijau PINDAI naik, dan kilau permukaan mengikuti pointer
- *     (`--mx`/`--my`). Saat keluar, semuanya kembali perlahan ke netral.
- *   - Sentuh: `touch-action: pan-y` di panggung membuat gulir VERTIKAL tetap
- *     milik halaman, sedangkan geser horizontal menggerakkan tilt. Tidak pernah
- *     `preventDefault`, jadi scroll tidak bisa terkunci.
+ * INTERAKSI (yang membuatnya terasa seperti objek fisik):
+ *   - Pointer di atas KARTU memiringkannya mengikuti cursor (rotateY ±14°,
+ *     rotateX ±10°) dengan peredaman lerp — bukan lompatan.
+ *   - Saat pointer masuk, kartu terangkat + membesar sedikit + glow hijau PINDAI
+ *     naik, dan kilau permukaan mengikuti pointer (`--mx`/`--my`). Adegan 3D ikut
+ *     menerima sinyal hover (`setHover`) — itulah yang membuat Vault membuka
+ *     cincinnya dan kartu Floating terangkat.
+ *   - Sentuh: `touch-action: pan-y` membuat gulir VERTIKAL tetap milik halaman,
+ *     sedangkan geser horizontal menggerakkan tilt. Tidak pernah `preventDefault`.
  *   - TIDAK ADA rotasi 360°/auto-rotate. Kartu hanya bergerak karena pengguna.
  *
  * Prinsip yang dijaga:
@@ -36,11 +52,15 @@ import type { HandleLaut } from "./lautScene";
  *  - `prefers-reduced-motion` menonaktifkan tilt, angkat, parallax, riak, dan
  *    loop animasi; yang tersisa hanya komposisi statis.
  *  - Semua akses window/document ada di dalam effect (aman untuk Electron).
+ *  - Mobile: DPR dibatasi lebih ketat dan mode ringan mengurangi partikel/loop.
  *
- * Warna mengikuti identitas hijau PINDAI (lihat token `--pindai-*` di
- * `src/index.css`); biru hanya tersisa sebagai cahaya bulan pendukung.
+ * Catatan penamaan: kelas CSS (`hero-laut`, `laut-dasar`, `laut-fallback`)
+ * dipertahankan apa adanya karena token itulah yang sudah ada di `index.css`.
+ * Latar tiap template diatur lewat palet template, bukan kelas baru per template.
  */
-export interface HeroLautProps {
+export interface LandingHeroProps {
+  /** ID template aktif; nilai tak dikenal jatuh ke template default. */
+  template?: LandingTemplateId;
   eyebrow: string;
   judul1: string;
   judul2: string;
@@ -61,8 +81,18 @@ const ANGKAT_PX = 22;
 const SKALA_HOVER = 0.045;
 /** Faktor peredaman gerak menuju target (0..1 per frame). */
 const LERP = 0.12;
+/** DPR maksimum desktop; perangkat kecil dibatasi lebih ketat (lihat `dprUntuk`). */
+const DPR_DESKTOP = 1.75;
+const DPR_MOBILE = 1.4;
 
-type Gerak = { tx: number; ty: number; x: number; y: number; angkat: number; angkatTarget: number };
+type Gerak = {
+  tx: number;
+  ty: number;
+  x: number;
+  y: number;
+  angkat: number;
+  angkatTarget: number;
+};
 
 /** Tulis transform kartu dari keadaan gerak (dipakai loop & saat menetap). */
 function tulisTransform(kartu: HTMLDivElement | null, k: Gerak): void {
@@ -73,17 +103,37 @@ function tulisTransform(kartu: HTMLDivElement | null, k: Gerak): void {
     `rotateX(${k.y.toFixed(3)}deg) rotateY(${k.x.toFixed(3)}deg)`;
 }
 
-export function HeroLaut(props: HeroLautProps) {
+/** Batas DPR per perangkat: menghemat piksel retina tanpa terlihat pecah. */
+function dprUntuk(hp: boolean): number {
+  if (typeof window === "undefined") return 1;
+  return Math.min(window.devicePixelRatio || 1, hp ? DPR_MOBILE : DPR_DESKTOP);
+}
+
+export function LandingHero(props: LandingHeroProps) {
+  // Dinormalkan di batas komponen: nilai tak dikenal dari API/kode lain tetap
+  // menghasilkan template yang dapat dirender, bukan halaman kosong.
+  const template = templateLandingAman(props.template);
+  const info = landingTemplateInfo(template);
+  const preset = landingTemplatePreset(template);
+  /** Hanya Moonlit yang punya air — riak hanya bermakna di sana. */
+  const beriak = preset === 0;
+
   const reduce = useReducedMotion() === true;
   const sectionRef = useRef<HTMLElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const panggungRef = useRef<HTMLDivElement | null>(null);
   const kartuRef = useRef<HTMLDivElement | null>(null);
   const kilauRef = useRef<HTMLDivElement | null>(null);
-  const sceneRef = useRef<HandleLaut | null>(null);
-  const [gagal, setGagal] = useState(false);
+  const sceneRef = useRef<HandleTemplate | null>(null);
+  /**
+   * Preset yang gagal membangun WebGL. Disimpan sebagai PRESET (bukan boolean)
+   * supaya `gagal` otomatis kembali false ketika template diganti — tanpa
+   * memanggil setState di dalam effect.
+   */
+  const [gagalPreset, setGagalPreset] = useState<number | null>(null);
+  const gagal = gagalPreset === preset;
 
-  // Keadaan gerak kartu + parallax pointer laut (-1..1).
+  // Keadaan gerak kartu + parallax pointer scene (-1..1).
   const gerakRef = useRef<Gerak>({ tx: 0, ty: 0, x: 0, y: 0, angkat: 0, angkatTarget: 0 });
   const loopRef = useRef(0);
   const riakTerakhirRef = useRef(0);
@@ -95,20 +145,25 @@ export function HeroLaut(props: HeroLautProps) {
     const canvas = canvasRef.current;
     if (canvas === null) return;
     let dibatalkan = false;
-    let handle: HandleLaut | null = null;
+    let handle: HandleTemplate | null = null;
     let rafUkur = 0;
 
-    const dpr = Math.min(
-      typeof window === "undefined" ? 1 : window.devicePixelRatio || 1,
-      // Batas DPR: menghemat piksel pada layar retina tanpa terlihat pecah.
-      1.75,
-    );
+    const hp =
+      typeof window !== "undefined" &&
+      (window.matchMedia?.("(max-width: 767px)").matches === true ||
+        (window.matchMedia?.("(pointer: coarse)").matches === true &&
+          window.innerWidth < 1024));
 
     void (async () => {
       try {
-        const mod = await import("./lautScene");
+        const mod = await import("./templateScene");
         if (dibatalkan) return;
-        handle = mod.buatLautScene(canvas, { reduceMotion: reduce, dpr });
+        handle = mod.buatSceneTemplate(canvas, {
+          preset,
+          reduceMotion: reduce,
+          dpr: dprUntuk(hp),
+          ringan: hp,
+        });
       } catch {
         handle = null;
       }
@@ -118,7 +173,7 @@ export function HeroLaut(props: HeroLautProps) {
         return;
       }
       if (handle === null) {
-        setGagal(true);
+        setGagalPreset(preset);
         return;
       }
       sceneRef.current = handle;
@@ -144,7 +199,7 @@ export function HeroLaut(props: HeroLautProps) {
       sceneRef.current = null;
       handle?.destroy();
     };
-  }, [reduce]);
+  }, [preset, reduce]);
 
   /* ── Hentikan loop saat hero keluar layar atau tab disembunyikan. ── */
   useEffect(() => {
@@ -227,6 +282,7 @@ export function HeroLaut(props: HeroLautProps) {
   );
 
   const onKartuMasuk = useCallback(() => {
+    sceneRef.current?.setHover(true);
     if (reduce) return;
     gerakRef.current.angkatTarget = 1;
     kartuRef.current?.classList.add("kartu-3d--naik");
@@ -236,9 +292,9 @@ export function HeroLaut(props: HeroLautProps) {
 
   const onKartuGerak = useCallback(
     (e: React.PointerEvent<HTMLElement>) => {
-      if (reduce) return;
       if (e.pointerType === "touch" && !sentuhAktifRef.current) return;
       onKartuMasuk();
+      if (reduce) return;
       terapkanTilt(e.clientX, e.clientY);
     },
     [onKartuMasuk, reduce, terapkanTilt],
@@ -246,9 +302,10 @@ export function HeroLaut(props: HeroLautProps) {
 
   const onKartuSentuh = useCallback(
     (e: React.PointerEvent<HTMLElement>) => {
-      if (reduce || e.pointerType !== "touch") return;
+      if (e.pointerType !== "touch") return;
       sentuhAktifRef.current = true;
       onKartuMasuk();
+      if (reduce) return;
       terapkanTilt(e.clientX, e.clientY);
     },
     [onKartuMasuk, reduce, terapkanTilt],
@@ -257,6 +314,7 @@ export function HeroLaut(props: HeroLautProps) {
   /** Kembalikan kartu ke netral dengan lembut (pointer keluar / selesai). */
   const onKartuLepas = useCallback(() => {
     sentuhAktifRef.current = false;
+    sceneRef.current?.setHover(false);
     const k = gerakRef.current;
     k.angkatTarget = 0;
     k.tx = 0;
@@ -266,10 +324,9 @@ export function HeroLaut(props: HeroLautProps) {
     pastikanLoop();
   }, [pastikanLoop]);
 
-  /* ── Section: parallax laut + riak. Tidak pernah preventDefault → scroll. ── */
+  /* ── Section: parallax scene + riak. Tidak pernah preventDefault → scroll. ── */
   const onSectionGerak = useCallback(
     (e: React.PointerEvent<HTMLElement>) => {
-      if (reduce) return;
       if (e.pointerType === "touch" && !sentuhAktifRef.current) return;
       const section = sectionRef.current;
       if (section === null) return;
@@ -279,6 +336,7 @@ export function HeroLaut(props: HeroLautProps) {
       const py = Math.min(1, Math.max(0, (e.clientY - rect.top) / rect.height));
 
       sceneRef.current?.setPointer(px * 2 - 1, py * 2 - 1);
+      if (reduce || !beriak) return;
 
       // Riak: dibatasi jeda waktu DAN jarak supaya tidak menumpuk.
       const now = performance.now();
@@ -295,13 +353,13 @@ export function HeroLaut(props: HeroLautProps) {
         }
       }
     },
-    [reduce],
+    [beriak, reduce],
   );
 
   const onSectionTekan = useCallback(
     (e: React.PointerEvent<HTMLElement>) => {
-      if (reduce) return;
       if (e.pointerType === "touch") sentuhAktifRef.current = true;
+      if (reduce || !beriak) return;
       const section = sectionRef.current;
       const handle = sceneRef.current;
       if (section === null || handle === null) return;
@@ -311,7 +369,7 @@ export function HeroLaut(props: HeroLautProps) {
       const py = Math.min(1, Math.max(0, (e.clientY - rect.top) / rect.height));
       handle.tambahRiak(px, Math.max(0.06, Math.min(1 - py, handle.horizonUv - 0.02)));
     },
-    [reduce],
+    [beriak, reduce],
   );
 
   const onSectionLepas = useCallback(() => {
@@ -326,10 +384,18 @@ export function HeroLaut(props: HeroLautProps) {
       onPointerUp={onSectionLepas}
       onPointerCancel={onSectionLepas}
       aria-labelledby="hero-judul"
-      className="hero-laut relative isolate overflow-hidden border-b border-slate-800/60 bg-[#04100c] text-white"
+      data-template={template}
+      className="hero-laut relative isolate overflow-hidden border-b border-slate-800/60 text-white"
+      style={{ backgroundColor: info.palet[2] }}
     >
       {/* 1. Gradien dasar — selalu ada, sekaligus fallback WebGL. */}
-      <div aria-hidden="true" className="laut-dasar pointer-events-none absolute inset-0" />
+      <div
+        aria-hidden="true"
+        className="laut-dasar pointer-events-none absolute inset-0"
+        style={{
+          backgroundImage: `radial-gradient(120% 90% at 22% 18%, ${info.palet[0]}cc, transparent 62%), radial-gradient(90% 70% at 78% 82%, ${info.palet[1]}22, transparent 70%)`,
+        }}
+      />
 
       {/* 2. Adegan WebGL (dekoratif — tidak pernah mencuri pointer). */}
       <canvas
@@ -340,20 +406,30 @@ export function HeroLaut(props: HeroLautProps) {
         }`}
       />
 
-      {/* 3. Riak CSS — hanya saat WebGL tidak tersedia/gagal. */}
+      {/* 3. Fallback statis — hanya saat WebGL tidak tersedia/gagal. */}
       {gagal && (
         <div aria-hidden="true" className="laut-fallback pointer-events-none absolute inset-0">
-          <span className="laut-riak-css laut-riak-css--1" />
-          <span className="laut-riak-css laut-riak-css--2" />
-          <span className="laut-riak-css laut-riak-css--3" />
+          {beriak && (
+            <>
+              <span className="laut-riak-css laut-riak-css--1" />
+              <span className="laut-riak-css laut-riak-css--2" />
+              <span className="laut-riak-css laut-riak-css--3" />
+            </>
+          )}
+          <span
+            className="absolute left-1/2 top-1/2 size-[24rem] -translate-x-1/2 -translate-y-1/2 rounded-full opacity-40 blur-3xl"
+            style={{ backgroundColor: info.palet[0] }}
+          />
         </div>
       )}
 
-      {/* Cahaya bulan — lapisan lembut di atas semua, memperkuat rim light kartu.
-          Biru sengaja diredam: hanya pendukung suasana malam. */}
+      {/* Cahaya aksen — lembut, memperkuat rim light kartu. Bukan warna dominan. */}
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute -right-24 top-[12%] size-[26rem] rounded-full bg-[radial-gradient(circle,rgba(190,208,255,0.12),transparent_62%)] blur-2xl sm:size-[34rem]"
+        className="pointer-events-none absolute -right-24 top-[12%] size-[26rem] rounded-full blur-2xl sm:size-[34rem]"
+        style={{
+          background: `radial-gradient(circle, ${info.palet[1]}1f, transparent 62%)`,
+        }}
       />
 
       {/* 4. Konten */}
@@ -432,6 +508,20 @@ export function HeroLaut(props: HeroLautProps) {
               Verifikasi OTP WhatsApp
             </span>
           </div>
+
+          {/* Hanya saat WebGL gagal: pengunjung diberi tahu tanpa kehilangan CTA. */}
+          {gagal && (
+            <p
+              role="status"
+              className="mt-6 flex max-w-lg items-start gap-2 rounded-xl border border-white/15 bg-white/[0.05] px-3.5 py-2.5 text-xs leading-5 text-slate-300"
+            >
+              <TriangleAlert className="mt-0.5 size-3.5 shrink-0 text-[#e6d3a5]" aria-hidden="true" />
+              <span>
+                Pengalaman 3D tidak dapat dimuat pada perangkat ini. PINDAI tetap dapat digunakan
+                seperti biasa lewat tombol di atas.
+              </span>
+            </p>
+          )}
         </div>
 
         {/* Kartu finansial 3D — objek merek yang bisa disentuh, bukan alat bayar. */}
@@ -462,7 +552,8 @@ export function HeroLaut(props: HeroLautProps) {
       {/* Pelebur ke bagian berikutnya. */}
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-b from-transparent to-[#04100c]"
+        className="pointer-events-none absolute inset-x-0 bottom-0 h-24"
+        style={{ backgroundImage: `linear-gradient(to bottom, transparent, ${info.palet[2]})` }}
       />
     </section>
   );
@@ -518,4 +609,30 @@ function KartuFinansial() {
       </div>
     </div>
   );
+}
+
+/**
+ * Batas kesalahan untuk pengalaman 3D.
+ *
+ * Hero ini sengaja tidak membangun pohon React 3D (canvas digambar langsung),
+ * jadi kegagalan WebGL sudah ditangani lewat `gagal`. Boundary ini menangkap
+ * kegagalan RENDER yang tak terduga (mis. dari komponen kartu) supaya halaman
+ * depan tidak pernah crash: yang tampil adalah fallback statis + jalan masuk
+ * ke produk, bukan layar putih.
+ */
+export class TemplateBoundary extends Component<{ children: ReactNode; fallback: ReactNode }> {
+  state = { rusak: false };
+
+  static getDerivedStateFromError() {
+    return { rusak: true };
+  }
+
+  componentDidCatch(error: unknown) {
+    // Dicatat untuk debugging; tidak ada layanan logging yang dipanggil diam-diam.
+    console.error("Landing template gagal dirender:", error);
+  }
+
+  render() {
+    return this.state.rusak ? this.props.fallback : this.props.children;
+  }
 }

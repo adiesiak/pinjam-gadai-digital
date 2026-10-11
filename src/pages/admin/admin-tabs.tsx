@@ -8,6 +8,7 @@ import {
   LayoutDashboard,
   Lock,
   Map as MapIcon,
+  Sparkles,
   MessageSquare,
   Package,
   Send,
@@ -26,6 +27,7 @@ import { AnnouncementCms } from "@/components/admin/AnnouncementCms";
 import { AplikasiAndroidPanel } from "@/components/admin/AplikasiAndroidPanel";
 import { AuditTrailPanel } from "@/components/admin/AuditTrailPanel";
 import { BackupPanel } from "@/components/admin/BackupPanel";
+import { LandingTemplatePanel } from "@/components/admin/LandingTemplatePanel";
 import { LiveLocationMap } from "@/components/admin/LiveLocationMap";
 import { KreditQueuePanel } from "@/components/admin/KreditQueuePanel";
 import { KycPanel } from "@/components/admin/KycPanel";
@@ -273,6 +275,14 @@ export function AdminTabs({
           Icon: PanelsTopLeft,
         },
         {
+          value: "landing",
+          label: "Landing Page · Template 3D",
+          hint: "Pratinjau dan aktifkan salah satu dari enam template landing page 3D.",
+          badge: null,
+          hitung: "tidak",
+          Icon: Sparkles,
+        },
+        {
           value: "aplikasi",
           label: "Aplikasi Android",
           hint: "Ganti splash screen, logo di dalam aplikasi, nama, dan warna tanpa build ulang.",
@@ -386,6 +396,7 @@ export function AdminTabs({
     whatsapp: <WhatsAppPanel />,
     config: <SystemConfigPanel />,
     template: <WebsiteTemplatePanel />,
+    landing: <LandingTemplatePanel />,
     aplikasi: <AplikasiAndroidPanel />,
     loglogin: <LoginSecurityPanel onOpenSetup={onOpenSetup} />,
     bi: <PanelBiKesehatan />,

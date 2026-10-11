@@ -1450,9 +1450,11 @@
 }
 
 /* =====================================================================
- * HERO LAUT — kartu finansial 3D di atas laut malam.
+ * HERO LANDING — kartu finansial 3D di atas panggung WebGL bertema.
  *
- * Dipakai oleh `components/landing/HeroLaut.tsx`. Ditulis sebagai CSS biasa
+ * Dipakai oleh `components/landing/LandingHero.tsx` untuk KEENAM template 3D
+ * (adegan latarnya digambar `templateScene.ts`; kelas di sini mengurus panggung,
+ * kartu, kilau, dan riak fallback). Ditulis sebagai CSS biasa
  * (bukan utilitas Tailwind) karena berisi gradient bertumpuk, bayangan
  * berlapis, dan animasi riak yang lebih ringkas di sini ketimbang sebagai
  * kelas arbitrer yang panjang.

@@ -49,7 +49,7 @@ import {
 import { api } from "@/convex/_generated/api";
 import { RoleDashboardMenu } from "@/components/RoleDashboardMenu";
 import { Reveal } from "@/components/Reveal";
-import { HeroLaut } from "@/components/landing/HeroLaut";
+import { LandingHero, TemplateBoundary } from "@/components/landing/LandingHero";
 import { VaultLogo } from "@/components/VaultLogo";
 import { CMS_DEFAULTS } from "@/lib/cms-defaults";
 import { CONTRACT_TERMS_VERSION } from "@/lib/contract";
@@ -1259,8 +1259,62 @@ export function PromoSection({ sudahMasuk }: { sudahMasuk: boolean }) {
   );
 }
 
+/**
+ * Hero darurat: dipakai HANYA bila render pengalaman 3D gagal total.
+ *
+ * Isinya sengaja statis dan lengkap (judul + jalan masuk ke produk) supaya
+ * pengunjung tidak pernah menerima layar putih, dan tetap tahu langkah
+ * berikutnya. Tidak ada WebGL, tidak ada animasi frame — aman di perangkat apa
+ * pun, termasuk Electron tanpa akselerasi.
+ */
+function HeroDarurat({
+  judul1,
+  judul2,
+  ctaLabel,
+  href,
+}: {
+  judul1: string;
+  judul2: string;
+  ctaLabel: string;
+  href: string;
+}) {
+  return (
+    <section
+      aria-labelledby="hero-darurat-judul"
+      className="relative overflow-hidden border-b border-slate-800/60 bg-[#04100c] text-white"
+    >
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 bg-[radial-gradient(120%_90%_at_22%_18%,rgba(15,61,58,0.85),transparent_62%)]"
+      />
+      <div className="relative mx-auto w-full max-w-3xl px-4 py-16 sm:px-6 sm:py-20">
+        <h1
+          id="hero-darurat-judul"
+          className="text-[2.15rem] font-semibold leading-[1.1] tracking-[-0.035em] sm:text-5xl"
+        >
+          {judul1}
+          <br />
+          <span className="font-serif font-medium italic text-[#e6d3a5]">{judul2}</span>
+        </h1>
+        <p className="mt-6 max-w-xl text-sm leading-6 text-slate-300">
+          Pengalaman 3D tidak dapat dimuat pada perangkat ini. PINDAI tetap dapat digunakan seperti
+          biasa.
+        </p>
+        <Button asChild className="mt-8 h-12 rounded-full bg-[#1f6a62] px-6 text-white hover:bg-[#175a53]">
+          <Link to={href}>
+            {ctaLabel}
+            <ArrowRight className="ml-2 size-4" aria-hidden="true" />
+          </Link>
+        </Button>
+      </div>
+    </section>
+  );
+}
+
 export default function Landing() {
   const cms = useQuery(api.announcements.getPublic);
+  /** Template 3D aktif — dibaca dari konfigurasi backend, bukan dipatok di kode. */
+  const landingTemplate = useQuery(api.system.getLandingTemplatePublic, {});
   const { isAuthenticated, isLoading, user } = useAuth();
   const c = (v: string | undefined, fallback: string) => v ?? fallback;
   const accountHref = isLoading || !isAuthenticated
@@ -1539,22 +1593,35 @@ export default function Landing() {
       </header>
 
       <main id="konten" tabIndex={-1}>
-        {/* Hero — kartu finansial 3D di atas laut malam (lihat
-            components/landing/HeroLaut.tsx). Konten, CTA, dan CMS tetap di sini;
-            3D-nya hanya penguat visual dan punya fallback CSS bila WebGL mati. */}
-        <HeroLaut
-          eyebrow={c(cms?.heroBadge, "PINDAI · Pinjaman dan Gadai Digital")}
-          judul1={heroJudul1}
-          judul2={heroJudul2}
-          deskripsi={c(
-            cms?.heroSub,
-            "Kenali pilihan pinjaman dan gadai, pahami biaya serta ketentuannya, dan kelola pengajuan secara digital melalui PINDAI.",
-          )}
-          ctaUtama={{ label: accountCta, href: accountHref, disabled: isLoading }}
-          ctaSekunder={{ label: "Pelajari Cara Kerja", onClick: scrollToSteps }}
-          mikro="Informasi biaya, ketentuan, dan hasil pengajuan mengikuti produk serta proses verifikasi yang berlaku."
-          sudahMasuk={isAuthenticated}
-        />
+        {/* Hero — pengalaman 3D sesuai TEMPLATE AKTIF (lihat
+            components/landing/LandingHero.tsx + templateScene.ts). Konten, CTA,
+            dan CMS tetap di sini; yang berganti antar template hanya adegan 3D.
+            Batas kesalahan memastikan halaman tetap tampil bila render gagal. */}
+        <TemplateBoundary
+          fallback={
+            <HeroDarurat
+              judul1={heroJudul1}
+              judul2={heroJudul2}
+              ctaLabel={accountCta}
+              href={accountHref}
+            />
+          }
+        >
+          <LandingHero
+            template={landingTemplate?.template}
+            eyebrow={c(cms?.heroBadge, "PINDAI · Pinjaman dan Gadai Digital")}
+            judul1={heroJudul1}
+            judul2={heroJudul2}
+            deskripsi={c(
+              cms?.heroSub,
+              "Kenali pilihan pinjaman dan gadai, pahami biaya serta ketentuannya, dan kelola pengajuan secara digital melalui PINDAI.",
+            )}
+            ctaUtama={{ label: accountCta, href: accountHref, disabled: isLoading }}
+            ctaSekunder={{ label: "Pelajari Cara Kerja", onClick: scrollToSteps }}
+            mikro="Informasi biaya, ketentuan, dan hasil pengajuan mengikuti produk serta proses verifikasi yang berlaku."
+            sudahMasuk={isAuthenticated}
+          />
+        </TemplateBoundary>
 
         <FactRibbon />
 

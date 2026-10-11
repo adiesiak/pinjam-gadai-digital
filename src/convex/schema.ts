@@ -944,6 +944,24 @@ const schema = defineSchema(
           v.literal("karnival"),
         ),
       ),
+      /**
+       * Template pengalaman 3D landing page publik (route `/`). Hanya ID dari
+       * allowlist `lib/landingTemplate.ts` yang disimpan — frontend memuat
+       * komponen berdasarkan ID ini, jadi tidak ada nama komponen atau kode
+       * arbitrer yang bisa datang dari klien. Sama seperti `tema`, kolom ini
+       * TIDAK ikut ditimpa `saveConfig` agar penggantian template 3D tidak
+       * bergantung pada penyimpanan form konfigurasi.
+       */
+      landingTemplate: v.optional(
+        v.union(
+          v.literal("moonlit"),
+          v.literal("floating-green"),
+          v.literal("digital-gate"),
+          v.literal("orbit"),
+          v.literal("vault"),
+          v.literal("city"),
+        ),
+      ),
       /** Waktu terakhir konfigurasi diperbarui. */
       diperbaruiPada: v.number(),
     }).index("by_slot", ["slot"]),
