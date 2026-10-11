@@ -54,6 +54,7 @@ export const STATUS_PINJAMAN = [
   "ditinjau",
   "didanai",
   "ditolak",
+  "dibatalkan",
   "lunas",
 ] as const;
 
@@ -84,11 +85,16 @@ export const LABEL_STATUS_PINJAMAN: Record<StatusPinjaman, string> = {
   ditinjau: "Ditinjau",
   didanai: "Disalurkan",
   ditolak: "Ditolak",
+  dibatalkan: "Dibatalkan",
   lunas: "Lunas",
 };
 
-/** Status yang menutup posisi: tidak boleh dipindahkan lagi oleh admin. */
-export const STATUS_TERKUNCI: readonly string[] = ["lunas"];
+/**
+ * Status yang menutup posisi: tidak boleh dipindahkan lagi oleh admin.
+ * `dibatalkan` ikut terkunci — pengajuan yang sudah ditarik tidak dihidupkan
+ * kembali lewat perpindahan status (nasabah membuat pengajuan baru).
+ */
+export const STATUS_TERKUNCI: readonly string[] = ["lunas", "dibatalkan"];
 
 /**
  * Status kanonik dari ejaan tersimpan apa pun.
@@ -97,6 +103,7 @@ export const STATUS_TERKUNCI: readonly string[] = ["lunas"];
 export function statusKanonik(status: string): StatusPinjaman | null {
   if (status === "didanai") return "didanai";
   if (status === "ditolak") return "ditolak";
+  if (status === "dibatalkan") return "dibatalkan";
   if (status === "lunas") return "lunas";
   if (
     status === "ditinjau" ||
@@ -110,6 +117,29 @@ export function statusKanonik(status: string): StatusPinjaman | null {
 /** Apakah baris (ejaan tersimpan apa pun) sedang berada di tahap tinjauan. */
 export function diTahapTinjauan(status: string): boolean {
   return statusKanonik(status) === "ditinjau";
+}
+
+/**
+ * Apakah pengajuan ini masih boleh DIBATALKAN pemiliknya.
+ *
+ * Hanya posisi pra-pencairan: begitu dana ditandai tersalurkan (`didanai`)
+ * atau sudah tertutup (`lunas`), kewajiban berjalan dan pembatalan lewat tombol
+ * bukan jalur yang sah — perubahannya harus lewat admin dan tetap beraudit.
+ */
+export function bolehDibatalkan(status: string): boolean {
+  return statusKanonik(status) === "ditinjau";
+}
+
+/**
+ * Status yang berarti "tidak ada kewajiban berjalan".
+ * Dipakai laporan & ringkasan agar pengajuan yang ditolak/dibatalkan tidak
+ * pernah dihitung sebagai utang.
+ */
+export const STATUS_TANPA_KEWAJIBAN: readonly string[] = ["ditolak", "dibatalkan"];
+
+/** True bila baris ini ditolak atau dibatalkan (bukan utang). */
+export function tanpaKewajiban(status: string): boolean {
+  return STATUS_TANPA_KEWAJIBAN.includes(status);
 }
 
 /** Label tampil untuk status tersimpan apa pun — "Ditinjau" bila tak dikenali. */
@@ -161,7 +191,9 @@ export function validasiUbahStatus(
     return {
       ok: false,
       alasan:
-        "Pinjaman yang sudah lunas tidak dapat diubah lagi — posisinya sudah ditutup.",
+        dari === "dibatalkan"
+          ? "Pengajuan yang sudah dibatalkan tidak dapat dipindahkan lagi — buat pengajuan baru bila masih dibutuhkan."
+          : "Pinjaman yang sudah lunas tidak dapat diubah lagi — posisinya sudah ditutup.",
     };
   }
   if (keStatusTersimpan(ke) === dari) {
@@ -209,7 +241,7 @@ export function nominalDisetujui(
 
 /** Pinjaman yang pendanaannya sudah tersalurkan — nominal tidak boleh diubah. */
 export function nominalTerkunci(status: string): boolean {
-  return status === "didanai" || status === "lunas";
+  return status === "didanai" || status === "lunas" || status === "dibatalkan";
 }
 
 // =====================================================================

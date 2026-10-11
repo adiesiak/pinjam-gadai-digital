@@ -10,8 +10,27 @@ import { describe, expect, it } from "vitest";
 
 import { api } from "./_generated/api";
 import schema from "./schema";
-import { buatSesi, type KonteksUji } from "./test.helpers";
+import { buatSesi as buatSesiDasar, seedKycTerverifikasiEmail, type KonteksUji } from "./test.helpers";
 import { modules } from "./test.setup";
+
+/**
+ * `buatSesi` + KYC `VERIFIED` untuk peran peminjam.
+ *
+ * Sejak gerbang KYC dipasang (`requireKycTerverifikasi`), pengajuan finansial
+ * hanya dilayani bila modul KYC nasabah sudah VERIFIED. Berkas tes ini menguji
+ * hal LAIN, jadi peminjamnya sengaja selalu siap-KYC; gerbang KYC sendiri
+ * diuji di `kyc.convex.test.ts`.
+ */
+async function buatSesi(
+  t: Parameters<typeof buatSesiDasar>[0],
+  nama: string,
+  opsi: Parameters<typeof buatSesiDasar>[2],
+): ReturnType<typeof buatSesiDasar> {
+  const sesi = await buatSesiDasar(t, nama, opsi);
+  if (opsi.role === "peminjam") await seedKycTerverifikasiEmail(t, opsi.email);
+  return sesi;
+}
+
 
 /** Id pengguna uji berdasarkan email (helper lokal, tanpa asumsi urutan). */
 async function idPengguna(t: KonteksUji, email: string) {

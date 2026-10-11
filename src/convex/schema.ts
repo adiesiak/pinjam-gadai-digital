@@ -90,6 +90,8 @@ export const loanStatusValidator = v.union(
   v.literal("ditolak"),
   // Pinjaman yang telah didanai penuh oleh penyedia dana (dana bersih telah dicairkan).
   v.literal("didanai"),
+  // Peminjam (atau admin) menarik pengajuan SEBELUM dana ditandai tersalurkan.
+  v.literal("dibatalkan"),
   // Kewajiban 130% telah dibayar penuh oleh Peminjam.
   v.literal("lunas"),
 );
@@ -104,6 +106,8 @@ export const loanStatusKanonikValidator = v.union(
   v.literal("ditinjau"),
   v.literal("didanai"),
   v.literal("ditolak"),
+  // Pembatalan pengajuan pra-pencairan — sah dipilih admin maupun nasabah.
+  v.literal("dibatalkan"),
   v.literal("lunas"),
 );
 export type LoanStatusKanonikValue = Infer<typeof loanStatusKanonikValidator>;
@@ -242,6 +246,14 @@ const schema = defineSchema(
        * tidak berubah walau override nasabah diubah kemudian.
        */
       persenBunga: v.optional(v.number()),
+      /**
+       * Waktu keputusan admin TERAKHIR atas pengajuan ini (perpindahan status
+       * oleh petugas lewat `setLoanStatus`). Dipakai sebagai dasar waktu
+       * notifikasi "status pinjaman berubah" dan jejak "kapan diputuskan".
+       * Kosong pada baris lama (sebelum kolom ada) — notifikasi tidak dikarang
+       * dengan menebak waktu dari `_creationTime`.
+       */
+      diputuskanPada: v.optional(v.number()),
       /** Terisi saat pinjaman didanai penuh dan dana bersih dicairkan. */
       didanaiPada: v.optional(v.number()),
       /** Terisi saat kewajiban 130% (+ denda bila terlambat) dibayar penuh. */
@@ -323,6 +335,12 @@ const schema = defineSchema(
       kycStatusSaatPengajuan: v.optional(kycStatusValidator),
       /** Penanda baris lama yang sudah dilekati relasi master oleh migrasi. */
       migrasiPada: v.optional(v.number()),
+      /** Waktu pengajuan DIBATALKAN (status `dibatalkan`) — pra-pencairan saja. */
+      dibatalkanPada: v.optional(v.number()),
+      /** Label aktor pembatalan (nasabah/admin) untuk jejak cepat di baris. */
+      dibatalkanOleh: v.optional(v.string()),
+      /** Alasan pembatalan — opsional, tidak pernah diwajibkan. */
+      alasanPembatalan: v.optional(v.string()),
     })
       .index("by_user", ["userId"])
       .index("by_status", ["status"])
@@ -330,6 +348,89 @@ const schema = defineSchema(
       // Model 1 pinjaman = 1 pendana: dipakai ruang penyedia dana, portofolio
       // penyedia dana, dan rekap admin supaya semuanya membaca sumber yang sama.
       .index("by_pendana", ["pendanaId"]),
+
+    /**
+     * DRAF pengajuan pinjaman tunai — pekerjaan yang belum dikirim.
+     *
+     * Sengaja BUKAN baris di `loans`: draf bukan pengajuan resmi. Menyatukannya
+     * ke `loans` akan membuat laporan ("total aplikasi"), antrean review admin,
+     * ruang penyedia dana, dan alokasi dana ikut menghitung sesuatu yang belum
+     * diajukan — persis kelas galat integritas yang dihindari.
+     *
+     * Hanya memuat isian NON-IDENTITAS (nominal, tenor, tujuan, catatan). NIK,
+     * nomor rekening, dokumen, dan tanda tangan baru dikumpulkan saat pengajuan
+     * benar-benar dikirim, sehingga tidak ada data pribadi yang tersimpan tanpa
+     * dasar persetujuan (lihat `lib/persetujuanKyc.ts`).
+     */
+    draftPinjaman: defineTable({
+      userId: v.id("users"),
+      /** Hanya satu nilai: draf selalu draf sampai dikirim atau dihapus. */
+      status: v.literal("draft"),
+      /** Skema harga terpilih: "harian" (1 jt / 30 hari) atau "bulanan". */
+      skema: v.string(),
+      pokokPinjaman: v.number(),
+      tenorHari: v.number(),
+      tenorBulan: v.optional(v.number()),
+      tujuan: v.string(),
+      catatanPeminjam: v.optional(v.string()),
+      dibuatPada: v.number(),
+      diperbaruiPada: v.number(),
+    }).index("by_user", ["userId"]),
+
+    /**
+     * RIWAYAT konfigurasi sistem — append-only, satu baris per perubahan.
+     *
+     * Menjawab "siapa mengubah apa, dari nilai berapa ke berapa, sejak kapan".
+     * `sebelumJson`/`sesudahJson` menyimpan snapshot penuh supaya arah balik
+     * (rollback) tidak perlu menebak, sedangkan `perubahanJson` menyimpan daftar
+     * ringkas hasil `bandingkanConfig` (lib murni) untuk ditampilkan langsung.
+     *
+     * Sengaja TIDAK pernah diubah setelah ditulis: rollback membuat VERSI BARU
+     * yang menyalin nilai lama — ia tidak menghapus atau menulis ulang sejarah.
+     * Transaksi lama tetap memakai snapshot parameternya sendiri (mis.
+     * `loans.persenBunga`), jadi mengubah konfigurasi tidak pernah menggeser
+     * angka transaksi yang sudah tercatat.
+     */
+    configRiwayat: defineTable({
+      slot: v.string(),
+      /** Versi yang DICIPTAKAN baris ini. */
+      versi: v.number(),
+      /** Jenis perubahan: penyimpanan biasa atau rollback ke versi lama. */
+      jenis: v.union(v.literal("simpan"), v.literal("rollback")),
+      /** Versi sumber saat rollback (kosong untuk penyimpanan biasa). */
+      dariVersi: v.optional(v.number()),
+      /** Waktu konfigurasi versi ini mulai BERLAKU (server). */
+      berlakuSejak: v.number(),
+      diubahOleh: v.string(),
+      diubahOlehUserId: v.optional(v.id("users")),
+      catatan: v.optional(v.string()),
+      sebelumJson: v.string(),
+      sesudahJson: v.string(),
+      perubahanJson: v.string(),
+      dibuatPada: v.number(),
+    })
+      .index("by_slot_versi", ["slot", "versi"])
+      .index("by_slot_dibuatPada", ["slot", "dibuatPada"]),
+
+    /**
+     * Kunci idempotensi mutasi sensitif (lihat `convex/idempotensi.ts`).
+     *
+     * Satu baris = satu (pengguna, kunci). Menyimpan HASIL operasi supaya
+     * pengiriman ulang karena jaringan mengembalikan jawaban yang sama alih-alih
+     * membuat transaksi kedua. Baris lama dibersihkan cron harian.
+     */
+    idempotencyKeys: defineTable({
+      userId: v.id("users"),
+      /** Kunci acak dari klien; unik per pengguna. */
+      kunci: v.string(),
+      /** Nama operasi pemilik kunci — kunci tidak boleh dipakai lintas operasi. */
+      operasi: v.string(),
+      /** Hasil operasi yang berhasil, diserialkan sebagai JSON. */
+      hasilJson: v.string(),
+      dibuatPada: v.number(),
+    })
+      .index("by_user_kunci", ["userId", "kunci"])
+      .index("by_dibuatPada", ["dibuatPada"]),
 
     /**
      * Data diri nasabah yang diisi/diperbarui ADMIN — satu baris per pengguna.
@@ -402,6 +503,33 @@ const schema = defineSchema(
         }),
       ),
     }).index("by_user", ["userId"]),
+
+    /**
+     * OVERRIDE risiko nasabah — keputusan petugas atas grade hasil model.
+     *
+     * APPEND-ONLY dan sengaja TIDAK menyimpan "grade yang berlaku" di tabel
+     * lain: baris terbaru (per `dibuatPada`) adalah yang berlaku, sehingga
+     * riwayat keputusan tidak bisa ditulis ulang. Setiap baris menyimpan grade
+     * SISTEM saat itu juga (`gradeSistem`/`skorSistem`), supaya selisih antara
+     * hitungan mesin dan keputusan manusia selalu terlihat — bukan tersembunyi.
+     *
+     * Override TIDAK mengubah `loans`, `plafon`, atau transfer apa pun; ia
+     * hanya mengubah GRADE yang ditampilkan/dipertimbangkan peninjau, dan
+     * seluruhnya tercatat di `auditLog` (aksi "override_risiko").
+     */
+    risikoOverride: defineTable({
+      userId: v.id("users"),
+      /** Grade hasil model sistem saat override dibuat (rekam jejak selisih). */
+      gradeSistem: v.string(),
+      skorSistem: v.number(),
+      /** Grade pilihan petugas — salah satu `GRADE_RISIKO` (A–E). */
+      gradeOverride: v.string(),
+      /** Alasan wajib, minimal `PANJANG_MIN_ALASAN_OVERRIDE` karakter. */
+      alasan: v.string(),
+      olehUserId: v.id("users"),
+      olehLabel: v.string(),
+      dibuatPada: v.number(),
+    }).index("by_user_dibuatPada", ["userId", "dibuatPada"]),
 
     /**
      * Konfigurasi API WhatsApp — hanya bisa dibaca/diubah admin.
@@ -762,6 +890,8 @@ const schema = defineSchema(
      */
     systemConfig: defineTable({
       slot: v.string(),
+      /** Nomor versi konfigurasi yang berlaku; 1 = default sebelum perubahan. */
+      versi: v.optional(v.number()),
       /** Kill switch: blokir semua pengajuan & pencairan baru. */
       killSwitch: v.optional(v.boolean()),
       /** Mode perawatan: frontend menampilkan halaman pengumuman. */
@@ -1910,6 +2040,12 @@ const schema = defineSchema(
       isi: v.string(),
       /** Salah satu `STATUS_PENGADUAN`. */
       status: v.string(),
+      /**
+       * Salah satu `PRIORITAS_PENGADUAN`. Opsional karena baris lama belum
+       * punya prioritas; pembaca memperlakukannya sebagai "normal".
+       */
+      prioritas: v.optional(v.string()),
+      prioritasDiubahPada: v.optional(v.number()),
       petugasUserId: v.optional(v.id("users")),
       petugasLabel: v.optional(v.string()),
       penyelesaian: v.optional(v.string()),
@@ -1920,6 +2056,31 @@ const schema = defineSchema(
       .index("by_status", ["status"])
       .index("by_user", ["userId"])
       .index("by_loan", ["loanId"]),
+
+    /**
+     * PESAN dalam utas pengaduan nasabah (helpdesk) — append-only.
+     *
+     * Pengaduan sebelumnya hanya menyimpan SATU uraian, sehingga percakapan
+     * lanjutan (petugas minta klarifikasi → nasabah menjawab → petugas
+     * menyelesaikan) tidak punya tempat. Tabel ini menyimpan tiap pesan apa
+     * adanya beserta arahnya, supaya urutan percakapan tidak bisa ditulis ulang
+     * dan tiap pihak tahu siapa yang berbicara.
+     *
+     * Isi berkas lampiran TIDAK disimpan di sini: hanya NAMA berkasnya sebagai
+     * penanda, karena berkas sensitif tetap dikelola modul KYC/berkas.
+     */
+    pengaduanPesan: defineTable({
+      pengaduanId: v.id("pengaduanNasabah"),
+      /** Arah pesan: dari nasabah atau dari petugas PINDAI. */
+      arah: v.union(v.literal("nasabah"), v.literal("petugas")),
+      isi: v.string(),
+      penulisUserId: v.optional(v.id("users")),
+      penulisLabel: v.string(),
+      lampiranNama: v.optional(v.string()),
+      dibuatPada: v.number(),
+    })
+      .index("by_pengaduan", ["pengaduanId"])
+      .index("by_pengaduan_dibuatPada", ["pengaduanId", "dibuatPada"]),
   },
   {
     schemaValidation: false,

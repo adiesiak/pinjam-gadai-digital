@@ -839,6 +839,124 @@ export const LABEL_KATEGORI_PENGADUAN: Record<KategoriPengaduan, string> = {
   lainnya: "Lainnya",
 };
 
+// --- Prioritas & utas pengaduan (helpdesk) ---------------------------
+//
+// Pengaduan tanpa prioritas membuat antrean mustahil diurutkan: petugas tidak
+// tahu mana yang harus dilihat lebih dulu. Prioritas di bawah ini adalah
+// SATU-SATUNYA sumber urutannya, dan ia disimpan di baris pengaduan (bukan
+// dihitung ulang di UI) supaya keputusan petugas bisa ditinjau.
+
+export const PRIORITAS_PENGADUAN = ["rendah", "normal", "tinggi", "kritis"] as const;
+export type PrioritasPengaduan = (typeof PRIORITAS_PENGADUAN)[number];
+
+export const LABEL_PRIORITAS_PENGADUAN: Record<PrioritasPengaduan, string> = {
+  rendah: "Rendah",
+  normal: "Normal",
+  tinggi: "Tinggi",
+  kritis: "Kritis",
+};
+
+/** Bobot urutan — makin besar makin didahulukan (dipakai untuk sortir). */
+export const BOBOT_PRIORITAS_PENGADUAN: Record<PrioritasPengaduan, number> = {
+  rendah: 1,
+  normal: 2,
+  tinggi: 3,
+  kritis: 4,
+};
+
+/** Baris lama tanpa prioritas diperlakukan "normal", bukan gagal dibaca. */
+export function prioritasEfektif(nilai: string | undefined): PrioritasPengaduan {
+  return (PRIORITAS_PENGADUAN as readonly string[]).includes(nilai ?? "")
+    ? (nilai as PrioritasPengaduan)
+    : "normal";
+}
+
+/**
+ * Prioritas bawaan dari kategori — titik awal yang masuk akal, tetap dapat
+ * diubah petugas. Sengaja TIDAK memakai data nasabah: kategori saja.
+ */
+export function prioritasBawaan(kategori: string): PrioritasPengaduan {
+  switch (kategori) {
+    case "salah_tagih":
+    case "salah_nominal":
+    case "petugas_tidak_sesuai_prosedur":
+      return "tinggi";
+    case "kesulitan_bayar":
+      return "tinggi";
+    default:
+      return "normal";
+  }
+}
+
+export function validasiPrioritasPengaduan(nilai: string): HasilValidasi {
+  if (!(PRIORITAS_PENGADUAN as readonly string[]).includes(nilai)) {
+    return {
+      ok: false,
+      alasan: `Prioritas "${nilai}" tidak dikenali. Pilih salah satu: ${PRIORITAS_PENGADUAN.join(", ")}.`,
+    };
+  }
+  return { ok: true };
+}
+
+/**
+ * Kanal pengaduan yang dibuka NASABAH SENDIRI dari aplikasi.
+ *
+ * Dipisahkan dari `SALURAN_TINDAKAN` (kanal yang dipakai petugas mencatat
+ * kontak) karena keduanya menjawab pertanyaan berbeda: "nasabah menulis di
+ * mana" versus "petugas menghubungi lewat apa". Menyatukannya membuat laporan
+ * kanal mencampur dua hal yang tidak sebanding.
+ */
+export const KANAL_PENGADUAN_MANDIRI = "aplikasi" as const;
+
+export const LABEL_KANAL_PENGADUAN: Record<string, string> = {
+  [KANAL_PENGADUAN_MANDIRI]: "Aplikasi PINDAI",
+};
+
+/** Label kanal pengaduan — kanal petugas memakai `labelSaluran`-nya sendiri. */
+export function labelKanalPengaduan(kanal: string): string {
+  return LABEL_KANAL_PENGADUAN[kanal] ?? kanal;
+}
+
+/**
+ * Boleh membalas utas pengaduan?
+ *
+ * Nasabah hanya boleh menambah pesan selama pengaduannya BELUM ditutup. Setelah
+ * Selesai/Ditolak, percakapan berhenti — bukan karena balasan tidak diinginkan,
+ * tetapi karena keputusan sudah diambil dan peninjauannya harus lewat keputusan
+ * baru (kembali ke Ditinjau), bukan terselip di dalam utas.
+ */
+export function bolehBalasPengaduan(status: string): HasilValidasi {
+  if (status === "selesai" || status === "ditolak") {
+    return {
+      ok: false,
+      alasan:
+        "Pengaduan sudah ditutup. Kirim pengaduan baru bila ada hal baru yang perlu ditangani.",
+    };
+  }
+  if (!(STATUS_PENGADUAN as readonly string[]).includes(status)) {
+    return { ok: false, alasan: `Status pengaduan "${status}" tidak dikenali.` };
+  }
+  return { ok: true };
+}
+
+/** Panjang pesan utas — cukup pendek untuk cepat, cukup jelas untuk ditinjau. */
+export const PANJANG_MIN_PESAN_PENGADUAN = 2;
+export const PANJANG_MAKS_PESAN_PENGADUAN = 1200;
+
+export function validasiPesanPengaduan(isi: string): HasilValidasi {
+  const bersih = isi.trim();
+  if (bersih.length < PANJANG_MIN_PESAN_PENGADUAN) {
+    return { ok: false, alasan: "Pesan tidak boleh kosong." };
+  }
+  if (bersih.length > PANJANG_MAKS_PESAN_PENGADUAN) {
+    return {
+      ok: false,
+      alasan: `Pesan maksimal ${PANJANG_MAKS_PESAN_PENGADUAN} karakter.`,
+    };
+  }
+  return { ok: true };
+}
+
 export const PANJANG_MIN_PENGADUAN = 10;
 export const PANJANG_MAKS_PENGADUAN = 1200;
 

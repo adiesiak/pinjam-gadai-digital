@@ -13,6 +13,12 @@ import { requireAdminSession } from "./adminAuthz";
 import { audit, getConfig } from "./system";
 import { requireGerbangLokasi } from "./lokasi";
 import { ensureKodePeminjam } from "./peminjamCode";
+import { requireKycTerverifikasi } from "./kyc";
+import {
+  ambilHasilIdempoten,
+  kunciIdempotensiValidator,
+  simpanHasilIdempoten,
+} from "./idempotensi";
 import { formatRupiah } from "../lib/money";
 import { rejectUnverifiedMoneyMovement } from "./paymentGuard";
 import type { Doc, Id } from "./_generated/dataModel";
@@ -135,9 +141,19 @@ export const ajukanKreditBarang = mutation({
     nomorRekening: v.string(),
     nomorWhatsApp: v.string(),
     catatanPeminjam: v.optional(v.string()),
+    /** Kunci idempotensi opsional — lihat `loans.createLoanApplication`. */
+    kunciIdempotensi: kunciIdempotensiValidator,
   },
   handler: async (ctx, args) => {
     const { userId, user } = await peminjamMasuk(ctx);
+    const hasilLama = await ambilHasilIdempoten<{
+      appId: Id<"kreditBarang">;
+      nomorReferensi: string;
+    }>(ctx, userId, args.kunciIdempotensi, "kredit.create");
+    if (hasilLama !== null) return hasilLama;
+    // Gerbang KYC wajib: pengajuan finansial hanya dilayani bila modul KYC
+    // nasabah sudah VERIFIED (diperiksa server, bukan dari klien).
+    await requireKycTerverifikasi(ctx, userId);
     await requireGerbangLokasi(ctx, userId, user);
     const sys = await getConfig(ctx);
     if (sys.killSwitch) throw new Error("Pengajuan sementara dihentikan oleh sistem (kill switch aktif). Coba lagi nanti.");
@@ -197,7 +213,7 @@ export const ajukanKreditBarang = mutation({
       nomorWhatsApp: wa,
       catatanPeminjam: args.catatanPeminjam?.trim() || undefined,
     });
-    return {
+    const hasil = {
       appId: kreditId,
       nomorReferensi: referensi,
       dp: quote.dp,
@@ -205,6 +221,8 @@ export const ajukanKreditBarang = mutation({
       cicilanPerBulan: quote.cicilanPerBulan,
       totalDibayarKonsumen: quote.totalDibayarKonsumen,
     };
+    await simpanHasilIdempoten(ctx, userId, args.kunciIdempotensi, "kredit.create", hasil);
+    return hasil;
   },
 });
 

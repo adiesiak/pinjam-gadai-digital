@@ -14,6 +14,13 @@ export const THEME_PRESETS = ["tinta", "pesisir", "terakota", "salju", "karnival
 export type ThemePreset = (typeof THEME_PRESETS)[number];
 
 export type SystemConfig = {
+  /**
+   * Nomor versi konfigurasi yang BERLAKU sekarang. Naik satu setiap penyimpanan
+   * atau rollback; riwayat lengkapnya ada di tabel `configRiwayat`. Dipakai UI
+   * untuk menunjukkan "versi berapa yang sedang berlaku" dan sebagai titik
+   * balik rollback.
+   */
+  versi: number;
   tema: ThemePreset;
   killSwitch: boolean;
   maintenanceMode: boolean;
@@ -59,6 +66,7 @@ export type SystemConfig = {
 };
 
 export const DEFAULT_CONFIG: SystemConfig = {
+  versi: 1,
   tema: "tinta",
   killSwitch: false,
   maintenanceMode: false,

@@ -58,6 +58,7 @@ export const TAB_DASHBOARD = [
   "diri",
   "kyc",
   "riwayat",
+  "bantuan",
 ] as const;
 
 /** Tab dashboard dari parameter URL, atau null bila tidak berlaku. */

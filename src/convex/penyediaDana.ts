@@ -62,6 +62,7 @@ import { kunciNamaPendana, pinjamanMilikPendana } from "./pendanaKepemilikan";
 import { namaHurufBesar } from "../lib/nama";
 import { nominalDisetujui, nominalTerkunci } from "../lib/statusPinjaman";
 import { ROLES } from "./schema";
+import { bulatkanTitikWilayah } from "../lib/geo";
 import { audit, getConfig } from "./system";
 
 /** Batas baris per kategori; daftar selalu diurutkan dari yang terbaru. */
@@ -383,7 +384,11 @@ async function requireBerkasPemohon(ctx: QueryCtx) {
 export const daftarPengajuan = query({
   args: {},
   handler: async (ctx) => {
-    await requirePengamat(ctx);
+    const { user } = await requirePengamat(ctx);
+    // Presisi penuh hanya untuk panel admin. Ruang penyedia dana/pengamat
+    // menerima koordinat tingkat wilayah (≈1 km) supaya peta tetap berguna
+    // tanpa membuka lokasi presisi seorang peminjam kepada pihak luar.
+    const presisiPenuh = user.role === ROLES.ADMIN;
     // Kebijakan bunga & potongan admin dibaca dari Pengaturan Sistem.
     const cfg = await getConfig(ctx);
     // Patokan waktu untuk penilaian kepercayaan: jam server saat query dibaca.
@@ -452,7 +457,9 @@ export const daftarPengajuan = query({
     const lokasiCache = new Map<Id<"users">, LokasiTitik | null>();
     async function lokasiUntuk(userId: Id<"users">): Promise<LokasiTitik | null> {
       if (lokasiCache.has(userId)) return lokasiCache.get(userId) ?? null;
-      const titik = await lokasiPerangkat(ctx, userId);
+      const mentah = await lokasiPerangkat(ctx, userId);
+      const titik =
+        mentah === null || presisiPenuh ? mentah : bulatkanTitikWilayah(mentah);
       lokasiCache.set(userId, titik);
       return titik;
     }    // Catatan transfer dibaca SEKALI, dipetakan per pinjaman untuk seluruh baris.
@@ -768,7 +775,9 @@ const BATAS_PETA = 150;
 export const titikPeminjam = query({
   args: {},
   handler: async (ctx) => {
-    await requirePengamat(ctx);
+    const { user } = await requirePengamat(ctx);
+    // Lihat daftarPengajuan: peta ruang penyedia dana memakai tingkat wilayah.
+    const presisiPenuh = user.role === ROLES.ADMIN;
     const cfg = await getConfig(ctx);
 
     const [loans, pawns, kredit] = await Promise.all([
@@ -790,11 +799,12 @@ export const titikPeminjam = query({
     ): Promise<void> {
       if (sudah.has(userId) || rows.length >= BATAS_PETA) return;
       sudah.add(userId);
-      const posisi = await lokasiPerangkat(ctx, userId);
-      if (posisi === null) {
+      const mentah = await lokasiPerangkat(ctx, userId);
+      if (mentah === null) {
         tanpaTitik += 1;
         return;
       }
+      const posisi = presisiPenuh ? mentah : bulatkanTitikWilayah(mentah);
       const peminjam = await ctx.db.get(userId);
       rows.push({
         userId,

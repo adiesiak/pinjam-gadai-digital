@@ -495,6 +495,72 @@ export const daftarkanPerangkat = mutation({
 });
 
 /**
+ * Daftar perangkat aplikasi MILIK pengguna yang sedang masuk.
+ *
+ * Token perangkat TIDAK pernah dikirim ke sini: token adalah kredensial yang
+ * membolehkan pengiriman titik lokasi tanpa sesi, jadi ia hanya keluar sekali
+ * saat perangkat didaftarkan (`daftarkanPerangkat`). Yang dibutuhkan layar
+ * keamanan hanyalah "perangkat apa saja yang masih terhubung dan kapan terakhir
+ * terlihat", dan itu memang tersedia.
+ */
+export const perangkatSaya = query({
+  args: {},
+  handler: async (ctx) => {
+    const { userId } = await penggunaMasuk(ctx);
+    const rows = await ctx.db
+      .query("perangkat")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .take(50);
+    const sekarang = Date.now();
+    return rows
+      .sort((a, b) => b.terakhirDilihat - a.terakhirDilihat)
+      .map((d) => ({
+        _id: d._id,
+        deviceId: d.deviceId,
+        platform: d.platform,
+        versiApp: d.versiApp,
+        terdaftarPada: d.terdaftarPada,
+        terakhirDilihat: d.terakhirDilihat,
+        /**
+         * Perangkat dianggap aktif bila mengirim denyut dalam 24 jam terakhir.
+         * Batas ini sama dengan yang dipakai sinyal kesehatan admin, sehingga
+         * nasabah dan petugas melihat keadaan yang sama.
+         */
+        aktif: sekarang - d.terakhirDilihat <= 24 * 60 * 60 * 1000,
+        /**
+         * Ada/tidaknya token — bukan nilainya. Perangkat tanpa token tidak bisa
+         * mengirim titik dari luar WebView, dan itu perlu terlihat nasabah.
+         */
+        punyaToken: d.token !== undefined,
+      }));
+  },
+});
+
+/**
+ * Cabut satu perangkat MILIK pengguna: tokennya dimatikan dan barisnya dihapus.
+ *
+ * Konsekuensinya disengaja: layanan lokasi di perangkat itu kehilangan
+ * kredensial, sehingga pengiriman titik lewat `POST /lokasi/heartbeat` ditolak
+ * sampai aplikasi dibuka lagi dan mendaftar ulang. Itulah satu-satunya cara
+ * mencabut akses lokasi sebuah perangkat yang hilang/dijual.
+ *
+ * Kepemilikan diperiksa di server; perangkat milik akun lain dilaporkan sama
+ * seperti tidak ada.
+ */
+export const cabutPerangkat = mutation({
+  args: { perangkatId: v.id("perangkat") },
+  handler: async (ctx, { perangkatId }) => {
+    const { userId } = await penggunaMasuk(ctx);
+    const baris = await ctx.db.get(perangkatId);
+    if (baris === null || baris.userId !== userId) {
+      throw new Error("Perangkat tidak ditemukan.");
+    }
+    await ctx.db.delete(perangkatId);
+    return { ok: true as const };
+  },
+});
+
+/**
  * Heartbeat lokasi TANPA sesi Convex Auth.
  *
  * Dipakai layanan lokasi yang berjalan di luar WebView (foreground service

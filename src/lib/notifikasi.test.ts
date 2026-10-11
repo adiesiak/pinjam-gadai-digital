@@ -91,6 +91,7 @@ ok(
 // ===== tautan hanya ke tab dashboard yang ada =====
 eq(tabDariTautan("/dashboard?tab=jadwal"), "jadwal", "tab jadwal diterima");
 eq(tabDariTautan("/dashboard?tab=riwayat"), "riwayat", "tab riwayat diterima");
+eq(tabDariTautan("/dashboard?tab=bantuan"), "bantuan", "tab bantuan diterima (tujuan notifikasi pengaduan)");
 eq(tabDariTautan("/dashboard?tab=tidak-ada"), null, "tab tak dikenal ditolak");
 eq(tabDariTautan("/dashboard"), null, "tautan tanpa parameter tidak dipaksa");
 eq(tabDariTautan("https://contoh.com/dashboard?tab=jadwal"), "jadwal", "tautan bertanya tetap dibaca");

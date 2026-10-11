@@ -1,0 +1,521 @@
+import { useReducedMotion } from "framer-motion";
+import { ArrowRight, Lock, ShieldCheck, Sparkles } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Link } from "react-router";
+
+import { Button } from "@/components/ui/button";
+import { VaultLogo } from "@/components/VaultLogo";
+import type { HandleLaut } from "./lautScene";
+
+/**
+ * Hero PINDAI — "kartu finansial hijau muncul dari laut malam".
+ *
+ * Susunan lapisan (belakang → depan):
+ *   1. Gradien gelap CSS  — selalu ada; ini juga fallback bila WebGL gagal.
+ *   2. `<canvas>` WebGL    — langit, bulan, gerbang brass, air, riak (satu draw
+ *      call, dimuat malas lewat `import("./lautScene")`).
+ *   3. Riak CSS            — hanya tampil saat WebGL tidak tersedia.
+ *   4. Konten hero + kartu 3D (CSS transform) — selalu DOM, jadi teks/CTA tidak
+ *      pernah bergantung pada 3D.
+ *
+ * INTERAKSI KARTU (yang membuatnya terasa seperti objek fisik):
+ *   - Pointer mouse di atas KARTU memiringkannya mengikuti cursor
+ *     (rotateY ±14°, rotateX ±10°) dengan peredaman lerp — bukan lompatan.
+ *   - Saat pointer masuk, kartu terangkat (translateY) + membesar sedikit
+ *     (scale) + glow hijau PINDAI naik, dan kilau permukaan mengikuti pointer
+ *     (`--mx`/`--my`). Saat keluar, semuanya kembali perlahan ke netral.
+ *   - Sentuh: `touch-action: pan-y` di panggung membuat gulir VERTIKAL tetap
+ *     milik halaman, sedangkan geser horizontal menggerakkan tilt. Tidak pernah
+ *     `preventDefault`, jadi scroll tidak bisa terkunci.
+ *   - TIDAK ADA rotasi 360°/auto-rotate. Kartu hanya bergerak karena pengguna.
+ *
+ * Prinsip yang dijaga:
+ *  - Headline, deskripsi, dan CTA SELALU tampil tanpa WebGL.
+ *  - Tidak ada `setState` per frame: tilt, angkat, dan parallax ditulis langsung
+ *    ke `style` lewat ref di dalam satu rAF yang berhenti saat idle.
+ *  - `prefers-reduced-motion` menonaktifkan tilt, angkat, parallax, riak, dan
+ *    loop animasi; yang tersisa hanya komposisi statis.
+ *  - Semua akses window/document ada di dalam effect (aman untuk Electron).
+ *
+ * Warna mengikuti identitas hijau PINDAI (lihat token `--pindai-*` di
+ * `src/index.css`); biru hanya tersisa sebagai cahaya bulan pendukung.
+ */
+export interface HeroLautProps {
+  eyebrow: string;
+  judul1: string;
+  judul2: string;
+  deskripsi: string;
+  ctaUtama: { label: string; href: string; disabled?: boolean };
+  ctaSekunder: { label: string; onClick: () => void };
+  mikro: string;
+  sudahMasuk: boolean;
+}
+
+/** Selang minimum antar riak (ms) — mencegah banjir riak tiap frame pointer. */
+const JEDA_RIAK_MS = 190;
+/** Batas kemiringan: cukup terasa, tidak sampai membuat kartu terbalik. */
+const ROT_Y_MAKS = 14;
+const ROT_X_MAKS = 10;
+/** Angkat (px) & tambahan skala saat pointer berada di atas kartu. */
+const ANGKAT_PX = 22;
+const SKALA_HOVER = 0.045;
+/** Faktor peredaman gerak menuju target (0..1 per frame). */
+const LERP = 0.12;
+
+type Gerak = { tx: number; ty: number; x: number; y: number; angkat: number; angkatTarget: number };
+
+/** Tulis transform kartu dari keadaan gerak (dipakai loop & saat menetap). */
+function tulisTransform(kartu: HTMLDivElement | null, k: Gerak): void {
+  if (kartu === null) return;
+  kartu.style.transform =
+    `translate3d(0, ${(-k.angkat * ANGKAT_PX).toFixed(2)}px, 0) ` +
+    `scale(${(1 + k.angkat * SKALA_HOVER).toFixed(4)}) ` +
+    `rotateX(${k.y.toFixed(3)}deg) rotateY(${k.x.toFixed(3)}deg)`;
+}
+
+export function HeroLaut(props: HeroLautProps) {
+  const reduce = useReducedMotion() === true;
+  const sectionRef = useRef<HTMLElement | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const panggungRef = useRef<HTMLDivElement | null>(null);
+  const kartuRef = useRef<HTMLDivElement | null>(null);
+  const kilauRef = useRef<HTMLDivElement | null>(null);
+  const sceneRef = useRef<HandleLaut | null>(null);
+  const [gagal, setGagal] = useState(false);
+
+  // Keadaan gerak kartu + parallax pointer laut (-1..1).
+  const gerakRef = useRef<Gerak>({ tx: 0, ty: 0, x: 0, y: 0, angkat: 0, angkatTarget: 0 });
+  const loopRef = useRef(0);
+  const riakTerakhirRef = useRef(0);
+  const posisiRiakRef = useRef({ x: 0.5, y: 0.5 });
+  const sentuhAktifRef = useRef(false);
+
+  /* ── Bangun adegan WebGL (dimuat malas). Bila gagal → fallback CSS. ── */
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (canvas === null) return;
+    let dibatalkan = false;
+    let handle: HandleLaut | null = null;
+    let rafUkur = 0;
+
+    const dpr = Math.min(
+      typeof window === "undefined" ? 1 : window.devicePixelRatio || 1,
+      // Batas DPR: menghemat piksel pada layar retina tanpa terlihat pecah.
+      1.75,
+    );
+
+    void (async () => {
+      try {
+        const mod = await import("./lautScene");
+        if (dibatalkan) return;
+        handle = mod.buatLautScene(canvas, { reduceMotion: reduce, dpr });
+      } catch {
+        handle = null;
+      }
+      if (dibatalkan) {
+        handle?.destroy();
+        handle = null;
+        return;
+      }
+      if (handle === null) {
+        setGagal(true);
+        return;
+      }
+      sceneRef.current = handle;
+      handle.setUkuran(canvas.clientWidth || 1, canvas.clientHeight || 1);
+
+      // Ukuran awal mungkin belum final saat lazy-load selesai — ukur ulang
+      // sekali pada frame berikutnya, lalu biarkan ResizeObserver menangani.
+      rafUkur = requestAnimationFrame(() => {
+        if (!dibatalkan) handle?.setUkuran(canvas.clientWidth || 1, canvas.clientHeight || 1);
+      });
+    })();
+
+    const ro = new ResizeObserver(() => {
+      const h = sceneRef.current;
+      if (h !== null) h.setUkuran(canvas.clientWidth || 1, canvas.clientHeight || 1);
+    });
+    ro.observe(canvas);
+
+    return () => {
+      dibatalkan = true;
+      if (rafUkur !== 0) cancelAnimationFrame(rafUkur);
+      ro.disconnect();
+      sceneRef.current = null;
+      handle?.destroy();
+    };
+  }, [reduce]);
+
+  /* ── Hentikan loop saat hero keluar layar atau tab disembunyikan. ── */
+  useEffect(() => {
+    const section = sectionRef.current;
+    if (section === null) return;
+    let terlihat = true;
+    const terapkan = () => sceneRef.current?.setAktif(terlihat && !document.hidden);
+    const io = new IntersectionObserver(
+      (entries) => {
+        terlihat = entries.some((e) => e.isIntersecting);
+        terapkan();
+      },
+      { threshold: 0.05 },
+    );
+    io.observe(section);
+    document.addEventListener("visibilitychange", terapkan);
+    return () => {
+      io.disconnect();
+      document.removeEventListener("visibilitychange", terapkan);
+    };
+  }, []);
+
+  /* ── Loop gerak kartu. Ditulis ke `style` (bukan setState) & berhenti idle. ── */
+  const pastikanLoop = useCallback(() => {
+    if (loopRef.current !== 0) return;
+    const langkah = () => {
+      const k = gerakRef.current;
+      k.x += (k.tx - k.x) * LERP;
+      k.y += (k.ty - k.y) * LERP;
+      k.angkat += (k.angkatTarget - k.angkat) * LERP;
+      const nyaman =
+        Math.abs(k.tx - k.x) < 0.01 &&
+        Math.abs(k.ty - k.y) < 0.01 &&
+        Math.abs(k.angkatTarget - k.angkat) < 0.002;
+      if (nyaman) {
+        k.x = k.tx;
+        k.y = k.ty;
+        k.angkat = k.angkatTarget;
+        tulisTransform(kartuRef.current, k);
+        loopRef.current = 0;
+        return;
+      }
+      tulisTransform(kartuRef.current, k);
+      loopRef.current = requestAnimationFrame(langkah);
+    };
+    loopRef.current = requestAnimationFrame(langkah);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (loopRef.current !== 0) cancelAnimationFrame(loopRef.current);
+      loopRef.current = 0;
+    };
+  }, []);
+
+  /* ── Kartu: tilt mengikuti pointer + highlight permukaan. ── */
+  const terapkanTilt = useCallback(
+    (clientX: number, clientY: number) => {
+      const panggung = panggungRef.current;
+      if (panggung === null) return;
+      const rect = panggung.getBoundingClientRect();
+      if (rect.width === 0 || rect.height === 0) return;
+      const px = Math.min(1, Math.max(0, (clientX - rect.left) / rect.width));
+      const py = Math.min(1, Math.max(0, (clientY - rect.top) / rect.height));
+      const nx = px * 2 - 1;
+      const ny = py * 2 - 1;
+
+      const k = gerakRef.current;
+      k.tx = nx * ROT_Y_MAKS; // cursor kanan → miring kanan
+      k.ty = -ny * ROT_X_MAKS; // cursor atas → miring atas
+      pastikanLoop();
+
+      const kilau = kilauRef.current;
+      if (kilau !== null) {
+        kilau.style.setProperty("--mx", `${(px * 100).toFixed(2)}%`);
+        kilau.style.setProperty("--my", `${(py * 100).toFixed(2)}%`);
+      }
+    },
+    [pastikanLoop],
+  );
+
+  const onKartuMasuk = useCallback(() => {
+    if (reduce) return;
+    gerakRef.current.angkatTarget = 1;
+    kartuRef.current?.classList.add("kartu-3d--naik");
+    if (kilauRef.current !== null) kilauRef.current.style.opacity = "1";
+    pastikanLoop();
+  }, [pastikanLoop, reduce]);
+
+  const onKartuGerak = useCallback(
+    (e: React.PointerEvent<HTMLElement>) => {
+      if (reduce) return;
+      if (e.pointerType === "touch" && !sentuhAktifRef.current) return;
+      onKartuMasuk();
+      terapkanTilt(e.clientX, e.clientY);
+    },
+    [onKartuMasuk, reduce, terapkanTilt],
+  );
+
+  const onKartuSentuh = useCallback(
+    (e: React.PointerEvent<HTMLElement>) => {
+      if (reduce || e.pointerType !== "touch") return;
+      sentuhAktifRef.current = true;
+      onKartuMasuk();
+      terapkanTilt(e.clientX, e.clientY);
+    },
+    [onKartuMasuk, reduce, terapkanTilt],
+  );
+
+  /** Kembalikan kartu ke netral dengan lembut (pointer keluar / selesai). */
+  const onKartuLepas = useCallback(() => {
+    sentuhAktifRef.current = false;
+    const k = gerakRef.current;
+    k.angkatTarget = 0;
+    k.tx = 0;
+    k.ty = 0;
+    kartuRef.current?.classList.remove("kartu-3d--naik");
+    if (kilauRef.current !== null) kilauRef.current.style.opacity = "0";
+    pastikanLoop();
+  }, [pastikanLoop]);
+
+  /* ── Section: parallax laut + riak. Tidak pernah preventDefault → scroll. ── */
+  const onSectionGerak = useCallback(
+    (e: React.PointerEvent<HTMLElement>) => {
+      if (reduce) return;
+      if (e.pointerType === "touch" && !sentuhAktifRef.current) return;
+      const section = sectionRef.current;
+      if (section === null) return;
+      const rect = section.getBoundingClientRect();
+      if (rect.width === 0 || rect.height === 0) return;
+      const px = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
+      const py = Math.min(1, Math.max(0, (e.clientY - rect.top) / rect.height));
+
+      sceneRef.current?.setPointer(px * 2 - 1, py * 2 - 1);
+
+      // Riak: dibatasi jeda waktu DAN jarak supaya tidak menumpuk.
+      const now = performance.now();
+      const jauh =
+        Math.abs(px - posisiRiakRef.current.x) + Math.abs(py - posisiRiakRef.current.y) > 0.02;
+      if (now - riakTerakhirRef.current > JEDA_RIAK_MS && jauh) {
+        riakTerakhirRef.current = now;
+        posisiRiakRef.current = { x: px, y: py };
+        const handle = sceneRef.current;
+        if (handle !== null) {
+          // Riak selalu di laut: uv.y (dari bawah) di bawah horizon.
+          const uvY = Math.min(1 - py, handle.horizonUv - 0.02);
+          handle.tambahRiak(px, Math.max(0.06, uvY));
+        }
+      }
+    },
+    [reduce],
+  );
+
+  const onSectionTekan = useCallback(
+    (e: React.PointerEvent<HTMLElement>) => {
+      if (reduce) return;
+      if (e.pointerType === "touch") sentuhAktifRef.current = true;
+      const section = sectionRef.current;
+      const handle = sceneRef.current;
+      if (section === null || handle === null) return;
+      const rect = section.getBoundingClientRect();
+      if (rect.width === 0 || rect.height === 0) return;
+      const px = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
+      const py = Math.min(1, Math.max(0, (e.clientY - rect.top) / rect.height));
+      handle.tambahRiak(px, Math.max(0.06, Math.min(1 - py, handle.horizonUv - 0.02)));
+    },
+    [reduce],
+  );
+
+  const onSectionLepas = useCallback(() => {
+    sentuhAktifRef.current = false;
+  }, []);
+
+  return (
+    <section
+      ref={sectionRef}
+      onPointerMove={onSectionGerak}
+      onPointerDown={onSectionTekan}
+      onPointerUp={onSectionLepas}
+      onPointerCancel={onSectionLepas}
+      aria-labelledby="hero-judul"
+      className="hero-laut relative isolate overflow-hidden border-b border-slate-800/60 bg-[#04100c] text-white"
+    >
+      {/* 1. Gradien dasar — selalu ada, sekaligus fallback WebGL. */}
+      <div aria-hidden="true" className="laut-dasar pointer-events-none absolute inset-0" />
+
+      {/* 2. Adegan WebGL (dekoratif — tidak pernah mencuri pointer). */}
+      <canvas
+        ref={canvasRef}
+        aria-hidden="true"
+        className={`pointer-events-none absolute inset-0 size-full transition-opacity duration-700 ${
+          gagal ? "opacity-0" : "opacity-100"
+        }`}
+      />
+
+      {/* 3. Riak CSS — hanya saat WebGL tidak tersedia/gagal. */}
+      {gagal && (
+        <div aria-hidden="true" className="laut-fallback pointer-events-none absolute inset-0">
+          <span className="laut-riak-css laut-riak-css--1" />
+          <span className="laut-riak-css laut-riak-css--2" />
+          <span className="laut-riak-css laut-riak-css--3" />
+        </div>
+      )}
+
+      {/* Cahaya bulan — lapisan lembut di atas semua, memperkuat rim light kartu.
+          Biru sengaja diredam: hanya pendukung suasana malam. */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute -right-24 top-[12%] size-[26rem] rounded-full bg-[radial-gradient(circle,rgba(190,208,255,0.12),transparent_62%)] blur-2xl sm:size-[34rem]"
+      />
+
+      {/* 4. Konten */}
+      <div className="relative mx-auto grid w-full max-w-7xl items-center gap-12 px-4 pb-14 pt-12 sm:px-6 sm:pb-20 sm:pt-16 lg:grid-cols-[1.02fr_0.98fr] lg:gap-10 lg:pb-24 lg:pt-20">
+        <div className="relative z-10 max-w-xl">
+          <p
+            className="motion-slide-up inline-flex items-center gap-2 rounded-full border border-[#c9a86a]/30 bg-white/[0.04] px-3.5 py-1.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#e6d3a5] backdrop-blur"
+            style={{ animationDelay: "0.02s" }}
+          >
+            <Sparkles className="size-3.5" aria-hidden="true" />
+            {props.eyebrow}
+          </p>
+
+          <h1
+            id="hero-judul"
+            className="motion-slide-up mt-6 text-[2.15rem] font-semibold leading-[1.08] tracking-[-0.035em] text-white min-[480px]:text-[2.7rem] sm:text-5xl lg:text-[3.6rem]"
+            style={{ animationDelay: "0.08s" }}
+          >
+            {props.judul1}
+            <br />
+            <span className="font-serif font-medium italic text-[#e6d3a5]">{props.judul2}</span>
+          </h1>
+
+          <p
+            className="motion-slide-up mt-6 max-w-lg text-base leading-7 text-slate-300/90 sm:text-lg sm:leading-8"
+            style={{ animationDelay: "0.14s" }}
+          >
+            {props.deskripsi}
+          </p>
+
+          <div
+            className="motion-slide-up mt-8 flex flex-wrap items-center gap-3"
+            style={{ animationDelay: "0.2s" }}
+          >
+            <Button
+              asChild
+              disabled={props.ctaUtama.disabled}
+              className="animate-sheen h-12 rounded-full bg-[#1f6a62] px-6 text-white ring-1 ring-[#c9a86a]/40 transition-transform hover:-translate-y-0.5 hover:bg-[#175a53]"
+            >
+              <Link to={props.ctaUtama.href}>
+                {props.ctaUtama.label}
+                <ArrowRight className="ml-2 size-4" aria-hidden="true" />
+              </Link>
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={props.ctaSekunder.onClick}
+              className="group h-12 rounded-full border-white/25 bg-white/[0.04] px-6 text-white hover:bg-white/10 hover:text-white"
+            >
+              {props.ctaSekunder.label}
+              <ArrowRight
+                className="ml-2 size-4 transition-transform group-hover:translate-x-0.5"
+                aria-hidden="true"
+              />
+            </Button>
+          </div>
+
+          <p
+            className="motion-slide-up mt-6 max-w-lg text-xs leading-5 text-slate-400"
+            style={{ animationDelay: "0.26s" }}
+          >
+            {props.mikro}
+          </p>
+
+          <div
+            className="motion-slide-up mt-8 flex flex-wrap items-center gap-x-6 gap-y-3 border-t border-white/10 pt-5 text-xs font-medium text-slate-300 sm:text-sm"
+            style={{ animationDelay: "0.32s" }}
+          >
+            <span className="flex items-center gap-2">
+              <ShieldCheck className="size-4 text-[#e6d3a5]" aria-hidden="true" />
+              Rincian biaya terbuka
+            </span>
+            <span className="flex items-center gap-2">
+              <Lock className="size-4 text-[#e6d3a5]" aria-hidden="true" />
+              Verifikasi OTP WhatsApp
+            </span>
+          </div>
+        </div>
+
+        {/* Kartu finansial 3D — objek merek yang bisa disentuh, bukan alat bayar. */}
+        <div className="relative mx-auto w-full max-w-md lg:max-w-none">
+          <div
+            ref={panggungRef}
+            className="kartu-panggung motion-scale pointer-events-auto"
+            style={{ animationDelay: "0.16s" }}
+            onPointerEnter={onKartuMasuk}
+            onPointerMove={onKartuGerak}
+            onPointerDown={onKartuSentuh}
+            onPointerLeave={onKartuLepas}
+            onPointerUp={onKartuLepas}
+            onPointerCancel={onKartuLepas}
+          >
+            <div ref={kartuRef} className="kartu-3d">
+              <KartuFinansial />
+              <div ref={kilauRef} className="kartu-3d__kilau" aria-hidden="true" />
+            </div>
+          </div>
+          <div aria-hidden="true" className="kartu-3d__bayangan" />
+          <p className="mt-6 text-center text-[11px] uppercase tracking-[0.26em] text-slate-500 lg:text-left">
+            {props.sudahMasuk ? "Sesi aktif" : "Akun PINDAI"} · Pinjam &amp; gadai digital
+          </p>
+        </div>
+      </div>
+
+      {/* Pelebur ke bagian berikutnya. */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-b from-transparent to-[#04100c]"
+      />
+    </section>
+  );
+}
+
+/**
+ * Muka kartu. Sengaja HANYA identitas merek: tanpa nomor kartu, masa berlaku,
+ * CVV, data pengguna, atau logo pihak ketiga — ini objek brand, bukan alat bayar.
+ */
+function KartuFinansial() {
+  return (
+    <div className="kartu-3d__muka">
+      <div aria-hidden="true" className="kartu-3d__tepi" />
+      <div className="relative flex items-start justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <VaultLogo size={44} />
+          <div>
+            <p className="text-sm font-semibold tracking-[0.22em] text-white">PINDAI</p>
+            <p className="mt-0.5 text-[9px] font-medium uppercase tracking-[0.28em] text-[#c9a86a]">
+              Pinjam dan Gadai Digital
+            </p>
+          </div>
+        </div>
+        {/* Chip brass bergaya — dekoratif, bukan chip pembayaran asli. */}
+        <div className="kartu-3d__chip" aria-hidden="true">
+          <span />
+          <span />
+          <span />
+        </div>
+      </div>
+
+      <div className="relative mt-10 flex items-center gap-3 sm:mt-12">
+        <span aria-hidden="true" className="text-lg leading-none text-[#c9a86a]">
+          &#9671;
+        </span>
+        <span
+          aria-hidden="true"
+          className="h-px flex-1 bg-gradient-to-r from-white/25 via-white/10 to-transparent"
+        />
+      </div>
+
+      <div className="relative mt-8 flex items-end justify-between gap-4 sm:mt-10">
+        <div>
+          <p className="text-[9px] uppercase tracking-[0.3em] text-white/45">Merek</p>
+          <p className="mt-1 text-base font-semibold tracking-[0.18em] text-white/90">PINDAI</p>
+        </div>
+        <div className="text-right">
+          <p className="text-[9px] uppercase tracking-[0.3em] text-white/45">Layanan</p>
+          <p className="mt-1 text-xs font-medium tracking-[0.14em] text-white/80">
+            PINJAMAN · GADAI
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}

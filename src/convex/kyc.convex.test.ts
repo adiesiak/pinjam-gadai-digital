@@ -1440,3 +1440,95 @@ describe("konsol pemeriksaan KYC di panel petugas", () => {
 function lewatSaringanSorted(ids: Id<"users">[]): string[] {
   return [...ids].map((id) => String(id)).sort();
 }
+
+/**
+ * Gerbang KYC pada pengajuan finansial.
+ *
+ * Sebelum ini modul KYC berdiri sendiri tanpa mengikat pengajuan: nasabah bisa
+ * mengirim pinjaman/gadai/kredit tanpa status VERIFIED. Tes ini memastikan
+ * gerbangnya HIDUP di server (bukan hanya peringatan di UI) dan bahwa setelah
+ * VERIFIED jalur pengajuan kembali normal.
+ */
+describe("gerbang KYC pada pengajuan finansial", () => {
+  const TITIK = { lat: -6.2, lng: 106.816666, akurasi: 25 };
+
+  /** Peminjam dengan lokasi aktif — supaya yang diuji benar-benar gerbang KYC. */
+  async function peminjamSiap(t: KonteksUji, email: string) {
+    const { sesi, userId } = await siapkanPengguna(t, "gerbang-kyc", {
+      email,
+      role: "peminjam",
+    });
+    await sesi.mutation(api.lokasi.catatLokasi, { ...TITIK, sumber: "web" });
+    return { sesi, userId };
+  }
+
+  const GADAI = {
+    deskripsiBarang: "iPhone 14 Pro 256 GB lengkap dengan kotak",
+    kategori: "Elektronik",
+    alamatPenilaian: "Jl. Merdeka No. 10, Jakarta Pusat",
+    namaLengkap: "Rani Peminjam",
+    namaBank: "BCA",
+    nomorRekening: "1234567890",
+  };
+
+  const KREDIT = {
+    namaBarang: "Kulkas dua pintu",
+    kategori: "Elektronik",
+    merchant: "Tokopedia",
+    hargaBarang: 1_000_000,
+    dpPersen: 0,
+    tenorBulan: 6,
+    marginPersenPerBulan: 3,
+    namaLengkap: "Rani Peminjam",
+    nik: "3201234567890003",
+    nomorRekening: "1234567892",
+    nomorWhatsApp: "628123456791",
+  };
+
+  async function tandaiVerified(t: KonteksUji, userId: Id<"users">): Promise<void> {
+    const now = Date.now();
+    await t.run((ctx) =>
+      ctx.db.insert("kycProfil", {
+        userId,
+        status: "VERIFIED",
+        namaLengkap: "RANI PEMINJAM",
+        nik: "3201234567890003",
+        nomorWhatsApp: "628123456791",
+        dibuatPada: now,
+        diperbaruiPada: now,
+      }),
+    );
+  }
+
+  it("menolak pengajuan gadai sebelum KYC VERIFIED", async () => {
+    const t = convexTest(schema, modules);
+    const { sesi } = await peminjamSiap(t, "gerbang-gadai@pindai.test");
+    await expect(sesi.mutation(api.loans.createPawnApplication, GADAI)).rejects.toThrow(
+      /KYC diperlukan sebelum pengajuan dapat dikirim/i,
+    );
+  });
+
+  it("menolak pengajuan kredit barang sebelum KYC VERIFIED", async () => {
+    const t = convexTest(schema, modules);
+    const { sesi } = await peminjamSiap(t, "gerbang-kredit@pindai.test");
+    await expect(
+      sesi.mutation(api.kredit.ajukanKreditBarang, KREDIT),
+    ).rejects.toThrow(/KYC diperlukan sebelum pengajuan dapat dikirim/i);
+  });
+
+  it("melayani pengajuan gadai setelah KYC VERIFIED", async () => {
+    const t = convexTest(schema, modules);
+    const { sesi, userId } = await peminjamSiap(t, "gerbang-gadai-ok@pindai.test");
+    await tandaiVerified(t, userId);
+    await expect(sesi.mutation(api.loans.createPawnApplication, GADAI)).resolves.toBeDefined();
+  });
+
+  it("melayani pengajuan kredit barang setelah KYC VERIFIED", async () => {
+    const t = convexTest(schema, modules);
+    const { sesi, userId } = await peminjamSiap(t, "gerbang-kredit-ok@pindai.test");
+    await tandaiVerified(t, userId);
+    await expect(
+      sesi.mutation(api.kredit.ajukanKreditBarang, KREDIT),
+    ).resolves.toBeDefined();
+  });
+});

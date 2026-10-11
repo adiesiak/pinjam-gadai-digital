@@ -134,7 +134,7 @@ function hitungTab(html: string): Map<string, number> {
   const html = renderToStaticMarkup(<LoanQueueSection loans={LOANS} onOpen={() => {}} />);
   const tab = hitungTab(html);
 
-  // Empat status yang ditampilkan, bukan enam.
+  // Status yang ditampilkan punya sub-tabnya masing-masing (tanpa ejaan lama).
   ada(html, "Disalurkan", "tombol sub-tab \"Disalurkan\" tampil");
   ada(html, "Ditinjau", "tombol sub-tab \"Ditinjau\" tampil");
   eq(/Belum didanai/.test(html), false, "label tahap \"Belum didanai\" sudah tidak ada");
@@ -149,10 +149,11 @@ function hitungTab(html: string): Map<string, number> {
   eq(tab.get("Disalurkan"), 1, "jumlah \"Disalurkan\" = pinjaman berjalan");
   eq(tab.get("Lunas"), 1, "jumlah \"Lunas\" = pinjaman lunas");
   eq(tab.get("Ditolak"), 1, "jumlah \"Ditolak\" = pengajuan ditolak");
+  eq(tab.get("Dibatalkan"), 1, "jumlah \"Dibatalkan\" = pengajuan ditarik nasabah");
   eq(tab.get("Ditinjau"), 3, "jumlah \"Ditinjau\" = ejaan diajukan + review + disetujui");
 
   // Invarian yang dulu bocor: tab status harus menjumlah ke "Semua".
-  const jumlahTab = ["Ditinjau", "Disalurkan", "Ditolak", "Lunas"].reduce(
+  const jumlahTab = ["Ditinjau", "Disalurkan", "Ditolak", "Dibatalkan", "Lunas"].reduce(
     (total, label) => total + (tab.get(label) ?? 0),
     0,
   );

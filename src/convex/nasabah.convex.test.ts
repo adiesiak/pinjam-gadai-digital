@@ -189,6 +189,7 @@ describe("master nasabah ↔ KYC ↔ plafon ↔ pengajuan", () => {
       email: "habis@pindai.test",
       role: "peminjam",
     });
+    await seedKyc(t, userId, "VERIFIED");
     await aktifkanLokasi(peminjam);
     // Pinjaman aktif 1 juta menutup seluruh plafon default.
     await seedPinjamanDidanai(t, userId, PLAFON_DEFAULT, "PGD-SEED-HABIS");

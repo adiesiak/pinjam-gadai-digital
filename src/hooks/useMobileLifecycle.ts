@@ -9,8 +9,10 @@ import * as React from "react";
  *  - TIDAK memicu reload / router.refresh / replace / push secara otomatis.
  *  - TIDAK membuat OTP session / form / upload baru hanya karena halaman
  *    menjadi visible lagi.
- *  - Hanya mengekspos sinyal "halaman kembali" + meta non-sensitif yang bisa
- *    dipakai consumer untuk resume UI (mis. "progress dipulihkan").
+ *  - Hanya mengekspos sinyal "halaman kembali". Persistensi isian TIDAK
+ *    dilakukan di sini: pemanggil yang tahu apa yang boleh disimpan (lihat
+ *    `lib/drafPengaduan.ts`), dan `markRestored()` hanya menandai bahwa
+ *    pemanggil sudah selesai memulihkan.
  */
 
 function isSupported(): boolean {
@@ -30,17 +32,8 @@ interface MobileLifecycleState {
   isHidden: boolean;
 }
 
-type StashMeta = {
-  /** Tempat (tahap) terakhir yang dituju/dilihat user, kalau relevan. */
-  lastStep?: string;
-  /** Sinyal non-sensitif bahwa ada unggahan bersifat lokal yang belum tersimpan. */
-  hasLocalPreview?: boolean;
-};
-
 interface UseMobileLifecycleReturn {
   state: MobileLifecycleState;
-  /** Meta non-sensitif yang bisa ditumpuk/dibaca oleh consumer untuk resume. */
-  stash: StashMeta;
   /** Panggil untuk menandai bahwa consumer sudah meresume state (mis. draft). */
   markRestored: () => void;
 }
@@ -70,7 +63,6 @@ export function useMobileLifecycle(): UseMobileLifecycleReturn {
     return { isPageRestored: false, isActive: true, isHidden: false };
   });
 
-  const stashRef = React.useRef<StashMeta>({});
   const restoredRef = React.useRef(false);
 
   const markRestored = React.useCallback(() => {
@@ -126,21 +118,8 @@ export function useMobileLifecycle(): UseMobileLifecycleReturn {
     };
   }, []);
 
-  // Biarkan consumer men-scan state restaurasi sekali saja saat
-  // mereka siap (setelah data server termuat).
-  const handleRestoredOnce = React.useCallback(
-    (onRestored: () => void) => {
-      if (state.isPageRestored && !restoredRef.current) {
-        restoredRef.current = true;
-        onRestored();
-      }
-    },
-    [state.isPageRestored],
-  );
-
   return {
     state,
-    stash: stashRef.current,
     markRestored,
   };
 }

@@ -662,6 +662,37 @@ export async function tandaiNomorWaTerverifikasi(
 }
 
 /* ==========================================================================
+ * Gerbang KYC — dipakai modul finansial
+ * ========================================================================== */
+
+/**
+ * Gerbang KERAS: layanan finansial (pengajuan pinjaman, gadai, kredit barang)
+ * hanya dilayani bila modul KYC nasabah sudah `VERIFIED`.
+ *
+ * Membaca MASTER `kycProfil`, bukan payload pengajuan: status `VERIFIED` hanya
+ * dapat ditetapkan server (keputusan mesin ber-aturan atau petugas ber-TOTP),
+ * sehingga gerbang ini tidak dapat dilewati dari klien. Ditempatkan di sini —
+ * bukan diulang di tiap modul — supaya satu pesan galat dipakai semua jalur.
+ *
+ * Catatan produk: `VERIFIED` berarti identitas sudah diperiksa; ia BUKAN
+ * persetujuan pinjaman dan tidak menjanjikan dana cair.
+ */
+export async function requireKycTerverifikasi(
+  ctx: Pick<QueryCtx, "db"> | Pick<MutationCtx, "db">,
+  userId: Id<"users">,
+): Promise<void> {
+  const row = await ctx.db
+    .query("kycProfil")
+    .withIndex("by_user", (q) => q.eq("userId", userId))
+    .first();
+  if (row === null || row.status !== "VERIFIED") {
+    throw new Error(
+      "KYC diperlukan sebelum pengajuan dapat dikirim. Selesaikan verifikasi KYC Anda lebih dulu, lalu kirim pengajuan kembali.",
+    );
+  }
+}
+
+/* ==========================================================================
  * Query — nasabah
  * ========================================================================== */
 

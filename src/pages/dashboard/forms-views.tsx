@@ -1,9 +1,10 @@
 import { useAction, useMutation, useQuery } from "convex/react";
-import { ArrowRight, Camera, Loader2, MapPin, ShieldCheck, Upload } from "lucide-react";
+import { ArrowRight, Camera, Loader2, MapPin, Save, ShieldCheck, Upload } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
 import SignaturePad from "signature_pad";
 
+import { PeringatanKyc } from "@/components/kyc/PeringatanKyc";
 import { Button } from "@/components/ui/button";
 import { BilahTakTentu } from "@/components/ui/loading";
 import {
@@ -66,7 +67,14 @@ function simulasiBulananAman(pokok: number, tenorBulan: number, persenBunga?: nu
 }
 
 /** Formulir pengajuan pinjaman. */
-export function LoanForm({ onCreated }: { onCreated: (ref: string) => void }) {
+export function LoanForm({
+  onCreated,
+  onBukaKyc,
+}: {
+  onCreated: (ref: string) => void;
+  /** Pindah ke tab Verifikasi KYC — dipakai gerbang KYC di UI. */
+  onBukaKyc?: () => void;
+}) {
   // Skema harian (1 jt / 30 hari) atau bulanan (1/3/6 bulan) — dua paket
   // harga berbeda; formulir menampilkan rincian sesuai skema terpilih.
   const [skema, setSkema] = useState<"harian" | "bulanan">("harian");
@@ -372,6 +380,65 @@ export function LoanForm({ onCreated }: { onCreated: (ref: string) => void }) {
   // gunakan batas awal agar penggeser tidak melewati batas yang berlaku.
   const plafonQuery = useQuery(api.lokasi.plafonSaya, {});
   const plafonSaya = plafonQuery ?? PLAFON_DEFAULT;
+  // Gerbang KYC: server menolak pengajuan tanpa KYC VERIFIED, jadi UI
+  // mencerminkannya lebih dulu supaya formulir panjang tidak diisi sia-sia.
+  const kycQuery = useQuery(api.kyc.kycSaya, {});
+  const kycSiap = kycQuery?.status === "VERIFIED";
+
+  // ===== Draf pengajuan (tabel `draftPinjaman`) =====
+  // Draf menyimpan isian NON-IDENTITAS supaya pekerjaan tidak hilang saat
+  // nasabah pindah ke WhatsApp/galeri atau menutup halaman. Draf BUKAN
+  // pengajuan: ia tidak menahan plafon, tidak masuk antrean review, dan
+  // pengirimannya tetap lewat tombol "Kirim Pengajuan" (yang digerbangi KYC).
+  const draftQuery = useQuery(api.draftPinjaman.draftSaya, {});
+  const simpanDraft = useMutation(api.draftPinjaman.simpanDraft);
+  const hapusDraft = useMutation(api.draftPinjaman.hapusDraft);
+  const [draftId, setDraftId] = useState<Id<"draftPinjaman"> | null>(null);
+  const [draftDipulihkan, setDraftDipulihkan] = useState(false);
+  const [draftBusy, setDraftBusy] = useState(false);
+  const [draftNotice, setDraftNotice] = useState<string | null>(null);
+
+  // Pulihkan draf SEKALI saat query selesai memuat.
+  useEffect(() => {
+    if (draftDipulihkan || draftQuery === undefined) return;
+    queueMicrotask(() => {
+      setDraftDipulihkan(true);
+      if (draftQuery === null) return;
+      setDraftId(draftQuery._id);
+      setSkema(draftQuery.skema === "bulanan" ? "bulanan" : "harian");
+      setPokok(draftQuery.pokokPinjaman);
+      setTenorHari(String(draftQuery.tenorHari));
+      if (draftQuery.tenorBulan !== null) setTenorBulan(String(draftQuery.tenorBulan));
+      setTujuan(draftQuery.tujuan);
+      if (draftQuery.catatanPeminjam !== null) setCatatanPeminjam(draftQuery.catatanPeminjam);
+      setDraftNotice("Draf dipulihkan — lanjutkan isian Anda, lalu kirim bila sudah siap.");
+    });
+  }, [draftQuery, draftDipulihkan]);
+
+  const simpanDraf = async () => {
+    if (draftBusy) return;
+    setDraftBusy(true);
+    setError(null);
+    try {
+      const hasil = await simpanDraft({
+        ...(draftId !== null ? { draftId } : {}),
+        skema,
+        pokokPinjaman: pokok,
+        tenorHari: bulanan ? 30 : Number(tenorHari),
+        ...(bulanan ? { tenorBulan: tenorBulanNum } : {}),
+        tujuan: tujuan.trim(),
+        ...(catatanPeminjam.trim() !== "" ? { catatanPeminjam: catatanPeminjam.trim() } : {}),
+      });
+      setDraftId(hasil.draftId);
+      setDraftNotice(
+        "Draf tersimpan di server. Anda dapat menutup halaman dan melanjutkannya kapan saja.",
+      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Draf gagal disimpan. Silakan coba lagi.");
+    } finally {
+      setDraftBusy(false);
+    }
+  };
   // Batas per skema: harian Rp100 ribu–Rp1 juta / bulanan mengikuti aturan skema,
   // keduanya tidak boleh melebihi batas pinjaman efektif (maks. Rp10 juta).
   const MIN = bulanan ? BULANAN_LIMITS.minPokok : LOAN_LIMITS.minPokok;
@@ -561,6 +628,13 @@ export function LoanForm({ onCreated }: { onCreated: (ref: string) => void }) {
         dokSlipGajiId: dokSlipId,
         lokasiAjukan: lokasi,
       });
+      // Pengajuan sudah menjadi catatan resmi — drafnya tidak diperlukan lagi.
+      if (draftId !== null) {
+        await hapusDraft({ draftId }).catch(() => {
+          /* Gagal menghapus draf tidak menggagalkan pengajuan yang sudah tercatat. */
+        });
+        setDraftId(null);
+      }
       onCreated(result.nomorReferensi);
       setTujuan("");
       setNamaLengkap("");
@@ -1150,10 +1224,44 @@ export function LoanForm({ onCreated }: { onCreated: (ref: string) => void }) {
         </p>
       )}
 
+      {draftNotice !== null && (
+        <p
+          role="status"
+          className="rounded-xl border border-sky-200 bg-sky-50 px-3 py-2 text-xs leading-5 text-sky-900"
+        >
+          {draftNotice}
+        </p>
+      )}
+
+      <Button
+        type="button"
+        variant="outline"
+        className="w-full"
+        disabled={draftBusy || submitting}
+        onClick={simpanDraf}
+      >
+        {draftBusy ? (
+          <>
+            <Loader2 className="mr-2 size-4 animate-spin" /> Menyimpan draf…
+          </>
+        ) : (
+          <>
+            <Save className="mr-2 size-4" /> Simpan draf (bukan pengajuan)
+          </>
+        )}
+      </Button>
+
+      {kycQuery !== undefined && !kycSiap && <PeringatanKyc onBukaKyc={onBukaKyc} />}
+
       <Button
         type="submit"
         className="w-full"
-        disabled={submitting || cameraDoc !== null || Object.values(dok).some((file) => file.busy)}
+        disabled={
+          submitting ||
+          !kycSiap ||
+          cameraDoc !== null ||
+          Object.values(dok).some((file) => file.busy)
+        }
       >
         {submitting ? (
           <>
@@ -1173,7 +1281,14 @@ export function LoanForm({ onCreated }: { onCreated: (ref: string) => void }) {
 }
 
 /** Formulir pengajuan gadai. */
-export function PawnForm({ onCreated }: { onCreated: () => void }) {
+export function PawnForm({
+  onCreated,
+  onBukaKyc,
+}: {
+  onCreated: () => void;
+  /** Pindah ke tab Verifikasi KYC — dipakai gerbang KYC di UI. */
+  onBukaKyc?: () => void;
+}) {
   const [deskripsiBarang, setDeskripsiBarang] = useState("");
   const [kategori, setKategori] = useState<string>("");
   const [alamatPenilaian, setAlamatPenilaian] = useState("");
@@ -1190,6 +1305,9 @@ export function PawnForm({ onCreated }: { onCreated: () => void }) {
   }, [error]);
 
   const createPawn = useMutation(api.loans.createPawnApplication);
+  // Lihat LoanForm: gerbang KYC dicerminkan di UI; server tetap penentu.
+  const kycQuery = useQuery(api.kyc.kycSaya, {});
+  const kycSiap = kycQuery?.status === "VERIFIED";
 
   // Lihat LoanForm: kunci sekali-pakai menutup celah antara klik dan render
   // ulang tombol, dan peringatan keluar hanya muncul bila isian benar-benar diisi.
@@ -1356,7 +1474,9 @@ export function PawnForm({ onCreated }: { onCreated: () => void }) {
         </p>
       )}
 
-      <Button type="submit" className="w-full" disabled={submitting}>
+      {kycQuery !== undefined && !kycSiap && <PeringatanKyc onBukaKyc={onBukaKyc} />}
+
+      <Button type="submit" className="w-full" disabled={submitting || !kycSiap}>
         {submitting ? (
           <>
             <Loader2 className="mr-2 size-4 animate-spin" /> Mengirim…

@@ -2,8 +2,11 @@
 import {
   AMBANG_TUNGGAKAN_BATAS,
   AMBANG_TUNGGAKAN_DEFAULT,
+  BOBOT_PRIORITAS_PENGADUAN,
   JAM_KONTAK_DEFAULT,
   PANJANG_MAKS_PESAN,
+  PANJANG_MAKS_PESAN_PENGADUAN,
+  PRIORITAS_PENGADUAN,
   STATUS_KASUS_TERTUTUP,
   bolehHubungiPihak,
   bolehKontakSekarang,
@@ -16,11 +19,15 @@ import {
   maskRekening,
   periksaPesanPenagihan,
   pesanPengingatNetral,
+  prioritasBawaan,
+  prioritasEfektif,
   ringkasLaporanPenagihan,
   validasiAmbang,
   validasiJanjiBayar,
   validasiJamKontak,
   validasiPembayaran,
+  validasiPesanPengaduan,
+  validasiPrioritasPengaduan,
   validasiPengaduan,
   validasiPenyelesaian,
   validasiTransisiKasus,
@@ -447,6 +454,32 @@ const laporanKosong = ringkasLaporanPenagihan([]);
 eq(laporanKosong.totalKasus, 0, "laporan kosong: total 0");
 eq(laporanKosong.totalSisaKewajiban, 0, "laporan kosong: sisa kewajiban 0");
 eqJson(laporanKosong.perPetugas, [], "laporan kosong: tanpa petugas");
+
+
+// --- Prioritas & utas pengaduan (helpdesk) ---------------------------------
+eq(PRIORITAS_PENGADUAN.length, 4, "prioritas: empat tingkat");
+eq(BOBOT_PRIORITAS_PENGADUAN.kritis > BOBOT_PRIORITAS_PENGADUAN.tinggi, true, "prioritas: kritis di atas tinggi");
+eq(BOBOT_PRIORITAS_PENGADUAN.tinggi > BOBOT_PRIORITAS_PENGADUAN.normal, true, "prioritas: tinggi di atas normal");
+eq(BOBOT_PRIORITAS_PENGADUAN.normal > BOBOT_PRIORITAS_PENGADUAN.rendah, true, "prioritas: normal di atas rendah");
+
+eq(prioritasEfektif(undefined), "normal", "prioritas kosong (baris lama) → normal");
+eq(prioritasEfektif("entah"), "normal", "prioritas tak dikenal → normal (fail-safe)");
+eq(prioritasEfektif("kritis"), "kritis", "prioritas sah diteruskan apa adanya");
+
+eq(prioritasBawaan("salah_tagih"), "tinggi", "tagihan salah → prioritas tinggi");
+eq(prioritasBawaan("salah_nominal"), "tinggi", "nominal salah → prioritas tinggi");
+eq(prioritasBawaan("petugas_tidak_sesuai_prosedur"), "tinggi", "petugas melanggar prosedur → tinggi");
+eq(prioritasBawaan("kesulitan_bayar"), "tinggi", "kesulitan bayar → tinggi");
+eq(prioritasBawaan("permintaan_penjelasan"), "normal", "permintaan penjelasan → normal");
+eq(prioritasBawaan("lainnya"), "normal", "kategori lain → normal");
+
+eq(validasiPrioritasPengaduan("kritis").ok, true, "prioritas sah diterima");
+eq(validasiPrioritasPengaduan("URGENT").ok, false, "prioritas tak dikenal ditolak");
+
+eq(validasiPesanPengaduan("Terima kasih, kami cek dulu.").ok, true, "pesan wajar diterima");
+eq(validasiPesanPengaduan("  ").ok, false, "pesan kosong ditolak");
+eq(validasiPesanPengaduan("x".repeat(PANJANG_MAKS_PESAN_PENGADUAN + 1)).ok, false, "pesan terlalu panjang ditolak");
+eq(validasiPesanPengaduan("x".repeat(PANJANG_MAKS_PESAN_PENGADUAN)).ok, true, "pesan tepat di batas maksimum diterima");
 
 if (failed > 0) {
   console.error(`\n${failed} gagal, ${passed} lulus`);

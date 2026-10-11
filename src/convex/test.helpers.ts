@@ -182,3 +182,64 @@ export async function simpanBerkasUji(
     return id;
   });
 }
+
+/**
+ * Baris KYC master berstatus `VERIFIED` untuk satu pengguna.
+ *
+ * Latar: sejak gerbang KYC dipasang (`requireKycTerverifikasi`), pengajuan
+ * finansial — pinjaman, gadai, dan kredit barang — hanya dilayani bila modul
+ * KYC nasabah sudah `VERIFIED`. Tes yang menguji jalur SESUDAH gerbang memakai
+ * helper ini agar tidak tersandung gerbang itu; tes gerbang KYC sendiri
+ * (`kyc.convex.test.ts`) sengaja TIDAK memakainya.
+ */
+export async function seedKycTerverifikasi(
+  t: SesiUji,
+  userId: Id<"users">,
+): Promise<Id<"kycProfil">> {
+  const now = Date.now();
+  return t.run((ctx) =>
+    ctx.db.insert("kycProfil", {
+      userId,
+      status: "VERIFIED",
+      namaLengkap: "RANI PEMINJAM",
+      nik: "3201234567890003",
+      nomorWhatsApp: "628123456791",
+      dibuatPada: now,
+      diperbaruiPada: now,
+    }),
+  );
+}
+
+/**
+ * Tandai nasabah (dicari lewat email) ber-KYC `VERIFIED`.
+ * Varian email dipakai berkas tes yang membuat pengguna lewat `buatSesi`.
+ */
+export async function seedKycTerverifikasiEmail(
+  t: KonteksUji,
+  email: string,
+): Promise<void> {
+  const user = await t.run((ctx) =>
+    ctx.db
+      .query("users")
+      .withIndex("email", (q) => q.eq("email", email))
+      .first(),
+  );
+  if (user === null) {
+    throw new Error(`Pengguna uji dengan email ${email} tidak ditemukan.`);
+  }
+  await seedKycTerverifikasi(t, user._id);
+}
+
+/**
+ * Buang `versi` dari objek konfigurasi sebelum dikirim ke `saveConfig`.
+ *
+ * Nomor versi dimiliki SERVER (lihat `system.saveConfig`): ia dinaikkan sendiri
+ * tiap penyimpanan dan dicatat di riwayat. Mengirimkannya dari klien membuat
+ * validasi menolak argumen (field tak dikenal) — dan memang tidak boleh, karena
+ * versi bukan pengaturan yang diubah admin.
+ */
+export function tanpaVersiConfig<T extends { versi: number }>(config: T): Omit<T, "versi"> {
+  return Object.fromEntries(
+    Object.entries(config as Record<string, unknown>).filter(([kunci]) => kunci !== "versi"),
+  ) as Omit<T, "versi">;
+}

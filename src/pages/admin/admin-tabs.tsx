@@ -1,5 +1,6 @@
 import { useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from "react";
 import {
+  Activity,
   BellRing,
   ClipboardList,
   Database,
@@ -30,6 +31,7 @@ import { KreditQueuePanel } from "@/components/admin/KreditQueuePanel";
 import { KycPanel } from "@/components/admin/KycPanel";
 import { LoginSecurityPanel } from "@/components/admin/LoginSecurityPanel";
 import { DpdTab, LelangTab, LoanAllocationQueueTab } from "@/components/admin/OperationsTabs";
+import { PanelBiKesehatan } from "@/components/admin/PanelBiKesehatan";
 import { SystemConfigPanel } from "@/components/admin/SystemConfigPanel";
 import { PlafonPanel } from "@/components/admin/PlafonPanel";
 import { WhatsAppPanel } from "@/components/admin/WhatsAppPanel";
@@ -287,6 +289,14 @@ export function AdminTabs({
           Icon: ShieldCheck,
         },
         {
+          value: "bi",
+          label: "BI & Kesehatan",
+          hint: "Metrik bisnis yang siap dihitung dan sinyal kesehatan sistem.",
+          badge: null,
+          hitung: "tidak",
+          Icon: Activity,
+        },
+        {
           value: "audit",
           label: "Audit Trail",
           hint: "Jejak seluruh tindakan admin.",
@@ -378,6 +388,7 @@ export function AdminTabs({
     template: <WebsiteTemplatePanel />,
     aplikasi: <AplikasiAndroidPanel />,
     loglogin: <LoginSecurityPanel onOpenSetup={onOpenSetup} />,
+    bi: <PanelBiKesehatan />,
     audit: <AuditTrailPanel />,
     backup: <BackupPanel />,
   };

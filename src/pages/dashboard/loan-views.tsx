@@ -1,14 +1,77 @@
+import { useMutation } from "convex/react";
 import { ArrowRight, CalendarClock, Send, Wallet } from "lucide-react";
+import { useState } from "react";
+import { toast } from "sonner";
 
 import { StatusBadge } from "@/components/StatusBadge";
+import { api } from "@/convex/_generated/api";
 import { ManualPaymentEvidenceForm } from "@/components/ManualPaymentEvidenceForm";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import type { Id } from "@/convex/_generated/dataModel";
 import { formatRupiah } from "@/lib/money";
+import { bolehDibatalkan } from "@/lib/statusPinjaman";
 import { EmptyState } from "./empty-state";
 import { formatDate, type LoanScheduleRow } from "./shared";
+
+/**
+ * Tombol pembatalan pengajuan milik peminjam sendiri.
+ *
+ * Konfirmasi dua langkah (bukan dialog) supaya tidak ada aksi tak sengaja, dan
+ * tanpa menambah state di komponen induk. Server tetap penjaga: pengajuan yang
+ * sudah punya alokasi dana atau sudah tersalurkan ditolak dengan alasannya
+ * (`loans.batalkanPengajuan`).
+ */
+function TombolBatalkan({ loanId }: { loanId: Id<"loans"> }) {
+  const batalkan = useMutation(api.loans.batalkanPengajuan);
+  const [konfirmasi, setKonfirmasi] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  if (!konfirmasi) {
+    return (
+      <Button
+        size="sm"
+        variant="ghost"
+        className="shrink-0 rounded-full text-destructive hover:text-destructive"
+        onClick={() => setKonfirmasi(true)}
+      >
+        Batalkan
+      </Button>
+    );
+  }
+  return (
+    <span className="flex shrink-0 items-center gap-1">
+      <Button
+        size="sm"
+        variant="destructive"
+        disabled={busy}
+        onClick={async () => {
+          setBusy(true);
+          try {
+            await batalkan({ loanId });
+            toast.success("Pengajuan dibatalkan. Batas pinjaman Anda tidak berubah.");
+            setKonfirmasi(false);
+          } catch (err) {
+            toast.error(err instanceof Error ? err.message : "Pengajuan gagal dibatalkan.");
+          } finally {
+            setBusy(false);
+          }
+        }}
+      >
+        Ya, batalkan
+      </Button>
+      <Button
+        size="sm"
+        variant="ghost"
+        disabled={busy}
+        onClick={() => setKonfirmasi(false)}
+      >
+        Tidak
+      </Button>
+    </span>
+  );
+}
 
 /** Status pill (Lunas / Menunggu / Terlambat) sesuai semantik warna. */
 function ScheduleBadge({ state }: { state: "lunas" | "menunggu" | "overdue" }) {
@@ -97,11 +160,11 @@ export function ActiveLoanSection({
           <h3 className="text-sm font-semibold">Status catatan lainnya</h3>
           <ul className="mt-3 divide-y divide-slate-200 rounded-2xl border border-slate-200 bg-white">
             {lainnya.map((l) => (
-              <li key={l._id}>
+              <li key={l._id} className="flex items-center gap-2 px-5 py-4">
                 <button
                   type="button"
                   onClick={() => onOpenDetail(l._id)}
-                  className="flex w-full items-center justify-between gap-4 px-5 py-4 text-left transition-colors hover:bg-slate-50"
+                  className="flex min-w-0 flex-1 items-center justify-between gap-4 text-left"
                 >
                   <div className="min-w-0">
                     <p className="truncate text-sm font-medium tabular-nums">
@@ -117,6 +180,7 @@ export function ActiveLoanSection({
                   </div>
                   <StatusBadge status={l.status} kind="loan" />
                 </button>
+                {bolehDibatalkan(l.status) && <TombolBatalkan loanId={l._id} />}
               </li>
             ))}
           </ul>

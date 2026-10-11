@@ -109,6 +109,7 @@ type Aturan = {
     statusPembayaran: OpsiNilai[];
     statusPengaduan: OpsiNilai[];
     kategoriPengaduan: string[];
+    prioritasPengaduan: OpsiNilai[];
     jenisPenyelesaian: OpsiNilai[];
     pihakDihubungi: string[];
   };
@@ -213,8 +214,21 @@ type Pengaduan = {
   isi: string;
   status: string;
   statusLabel: string;
+  prioritas: string;
+  prioritasLabel: string;
+  jumlahPesan: number;
+  pesanTerakhir: string | null;
+  pesanTerakhirArah: string | null;
   petugasLabel: string | null;
   penyelesaian: string | null;
+  dibuatPada: number;
+};
+
+type PesanPengaduan = {
+  _id: Id<"pengaduanPesan">;
+  arah: string;
+  isi: string;
+  penulisLabel: string;
   dibuatPada: number;
 };
 
@@ -249,6 +263,14 @@ const SALURAN_LANGSUNG = ["whatsapp", "telepon", "sms", "tatap_muka"];
 
 function labelSaluran(nilai: string): string {
   return (LABEL_SALURAN_TINDAKAN as Record<string, string>)[nilai] ?? nilai;
+}
+
+/** Warna lencana prioritas — kritis harus langsung terlihat di antrean. */
+function nadaPrioritas(prioritas: string): string {
+  if (prioritas === "kritis") return "border-destructive/30 bg-destructive/10 text-destructive";
+  if (prioritas === "tinggi") return "border-amber-200 bg-amber-50 text-amber-700";
+  if (prioritas === "rendah") return "border-slate-200 bg-slate-100 text-slate-600";
+  return "border-primary/20 bg-primary/5 text-primary";
 }
 
 function labelKategoriPengaduan(nilai: string): string {
@@ -1117,6 +1139,114 @@ function CatatanJanjiAktif({ nominal, tanggal }: { nominal: number; tanggal: num
 /* Bagian: pengaduan                                                    */
 /* ==================================================================== */
 
+/**
+ * Daftar pesan dalam utas — MURNI (tanpa server) supaya bisa diuji dengan
+ * `renderToStaticMarkup` (lihat `PenagihanPengaduan.render.test.tsx`).
+ *
+ * Arah pesan selalu ditampilkan ("Petugas"/"Nasabah") dan tidak pernah
+ * disimpulkan dari warna saja, supaya tetap terbaca tanpa penglihatan warna.
+ */
+export function DaftarPesanUtas({ pesan }: { pesan: PesanPengaduan[] }) {
+  if (pesan.length === 0) {
+    return <p className="mt-1 text-[11px] text-muted-foreground">Belum ada pesan.</p>;
+  }
+  return (
+    <ul className="mt-2 space-y-2">
+      {pesan.map((m) => (
+        <li
+          key={m._id}
+          className={
+            m.arah === "petugas"
+              ? "rounded-lg border border-primary/20 bg-white px-3 py-2"
+              : "rounded-lg border border-slate-200 bg-white px-3 py-2"
+          }
+        >
+          <p className="text-[11px] font-medium text-muted-foreground">
+            {m.arah === "petugas" ? "Petugas" : "Nasabah"} · {m.penulisLabel} ·{" "}
+            {formatDate(m.dibuatPada)}
+          </p>
+          <p className="mt-0.5 text-sm leading-6 text-slate-700">{m.isi}</p>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/**
+ * Utas percakapan satu pengaduan.
+ *
+ * Ditampilkan hanya saat petugas membukanya (bukan untuk setiap baris): utas
+ * memuat pesan nasabah dari WhatsApp/telepon, jadi membacanya harus merupakan
+ * tindakan sadar petugas — bukan efek samping memuat daftar.
+ *
+ * Riwayat dan pengirim pesan tidak dapat disunting: server hanya menerima
+ * penambahan (`tambahPesanPengaduan`).
+ */
+function UtasPengaduan({ pengaduanId }: { pengaduanId: Id<"pengaduanNasabah"> }) {
+  const data = useQuery(api.penagihan.pesanPengaduan, { pengaduanId });
+  const tambah = useMutation(api.penagihan.tambahPesanPengaduan);
+  const [pesan, setPesan] = useState("");
+  const [dariNasabah, setDariNasabah] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  return (
+    <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
+      <p className="text-xs font-semibold text-navy">Utas percakapan</p>
+      {data === undefined ? (
+        <PanelMemuat baris={2} />
+      ) : (
+        <DaftarPesanUtas pesan={data as unknown as PesanPengaduan[]} />
+      )}
+      <div className="mt-3 space-y-2">
+        <Label htmlFor={`pesan-${pengaduanId}`}>Tambah pesan</Label>
+        <Textarea
+          id={`pesan-${pengaduanId}`}
+          value={pesan}
+          onChange={(e) => setPesan(e.target.value)}
+          rows={2}
+          placeholder="Tuliskan balasan atau catatan percakapan apa adanya."
+        />
+        <label className="flex items-center gap-2 text-xs text-slate-600">
+          <input
+            type="checkbox"
+            checked={dariNasabah}
+            onChange={(e) => setDariNasabah(e.target.checked)}
+          />
+          Pesan ini dari nasabah (dicatat petugas)
+        </label>
+        <div className="flex justify-end">
+          <Button
+            size="sm"
+            disabled={busy || pesan.trim().length < 2}
+            onClick={async () => {
+              setBusy(true);
+              try {
+                await tambah({
+                  pengaduanId,
+                  isi: pesan,
+                  arah: dariNasabah ? "nasabah" : "petugas",
+                });
+                toast.success("Pesan ditambahkan ke utas pengaduan.");
+                setPesan("");
+                setDariNasabah(false);
+              } catch (error) {
+                toast.error(
+                  error instanceof Error ? error.message : "Pesan gagal disimpan.",
+                );
+              } finally {
+                setBusy(false);
+              }
+            }}
+          >
+            {busy ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
+            Kirim pesan
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function PengaduanBagian({ aturan, kasus }: { aturan: Aturan; kasus: BarisKasus[] }) {
   const data = useQuery(api.penagihan.daftarPengaduan);
   const buka = useMutation(api.penagihan.bukaPengaduan);
@@ -1127,6 +1257,10 @@ function PengaduanBagian({ aturan, kasus }: { aturan: Aturan; kasus: BarisKasus[
   const [kategori, setKategori] = useState("permintaan_penjelasan");
   const [isi, setIsi] = useState("");
   const [catatanTangani, setCatatanTangani] = useState<Record<string, string>>({});
+  const ubahPrioritas = useMutation(api.penagihan.ubahPrioritasPengaduan);
+  const [prioritasPilih, setPrioritasPilih] = useState<Record<string, string>>({});
+  const [catatanPrioritas, setCatatanPrioritas] = useState<Record<string, string>>({});
+  const [utasTerbuka, setUtasTerbuka] = useState<Record<string, boolean>>({});
 
   const jalankan = async (kunci: string, aksi: () => Promise<unknown>, pesan: string) => {
     setBusy(kunci);
@@ -1254,12 +1388,81 @@ function PengaduanBagian({ aturan, kasus }: { aturan: Aturan; kasus: BarisKasus[
                       {p.petugasLabel ? ` · ditangani ${p.petugasLabel}` : ""}
                     </p>
                   </div>
-                  <Badge variant="outline">{p.statusLabel}</Badge>
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <Badge className={nadaPrioritas(p.prioritas)}>
+                      Prioritas {p.prioritasLabel}
+                    </Badge>
+                    <Badge variant="outline">{p.statusLabel}</Badge>
+                  </div>
                 </div>
                 <p className="mt-2 text-sm leading-6 text-slate-700">{p.isi}</p>
                 {p.penyelesaian !== null && (
                   <p className="mt-1 text-xs text-slate-600">Penyelesaian: {p.penyelesaian}</p>
                 )}
+                <div className="mt-3 flex flex-wrap items-end gap-2">
+                  <div className="min-w-40">
+                    <Label htmlFor={`prioritas-${p._id}`}>Prioritas</Label>
+                    <Select
+                      value={prioritasPilih[p._id] ?? p.prioritas}
+                      onValueChange={(v) =>
+                        setPrioritasPilih((m) => ({ ...m, [p._id]: v }))
+                      }
+                    >
+                      <SelectTrigger id={`prioritas-${p._id}`} className="w-full">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {aturan.daftar.prioritasPengaduan.map((o) => (
+                          <SelectItem key={o.nilai} value={o.nilai}>
+                            {o.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="min-w-56 flex-1">
+                    <Label htmlFor={`catatan-prioritas-${p._id}`}>
+                      Catatan prioritas (wajib bila Kritis)
+                    </Label>
+                    <Input
+                      id={`catatan-prioritas-${p._id}`}
+                      value={catatanPrioritas[p._id] ?? ""}
+                      onChange={(e) =>
+                        setCatatanPrioritas((m) => ({ ...m, [p._id]: e.target.value }))
+                      }
+                      placeholder="mis. nasabah mengancam menyebarkan data"
+                    />
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={busy !== null}
+                    onClick={() =>
+                      void jalankan(
+                        `prioritas-${p._id}`,
+                        () =>
+                          ubahPrioritas({
+                            pengaduanId: p._id,
+                            prioritas: prioritasPilih[p._id] ?? p.prioritas,
+                            catatan: catatanPrioritas[p._id],
+                          }),
+                        "Prioritas pengaduan diperbarui.",
+                      )
+                    }
+                  >
+                    Simpan prioritas
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() =>
+                      setUtasTerbuka((m) => ({ ...m, [p._id]: !m[p._id] }))
+                    }
+                  >
+                    {utasTerbuka[p._id] ? "Tutup utas" : `Buka utas (${p.jumlahPesan})`}
+                  </Button>
+                </div>
+                {utasTerbuka[p._id] && <UtasPengaduan pengaduanId={p._id} />}
                 <div className="mt-3 flex flex-wrap items-end gap-2">
                   <div className="min-w-56 flex-1">
                     <Label htmlFor={`selesaikan-${p._id}`}>Catatan penyelesaian / alasan</Label>
