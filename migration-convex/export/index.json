@@ -1,0 +1,74 @@
+{
+  "tabel": [
+    {
+      "nama_tabel_convex": "users",
+      "nama_file": "users.jsonl",
+      "jenis": "dokumen",
+      "penting": "referensi utama sebagian besar entitas",
+      "sensitif": ["email"]
+    },
+    {
+      "nama_tabel_convex": "nasabahProfil",
+      "nama_file": "nasabahProfil.jsonl",
+      "jenis": "dokumen",
+      "penting": "identitas nasabah",
+      "sensitif": ["nik", "namaLengkap", "nomorWhatsApp", "fotoKtpId"]
+    },
+    {
+      "nama_tabel_convex": "kycProfil",
+      "nama_file": "kycProfil.jsonl",
+      "jenis": "dokumen",
+      "penting": "status identitas",
+      "sensitif": ["nik", "nomorWhatsApp", "namaLengkap", "alamat", "penghasilanBulanan", "namaBank", "nomorRekening", "keputusanCatatan"]
+    },
+    {
+      "nama_tabel_convex": "kreditBarang",
+      "nama_file": "kreditBarang.jsonl",
+      "jenis": "dokumen",
+      "penting": "pinjaman barang",
+      "sensitif": ["namaLengkap", "nik", "nomorRekening", "nomorWhatsApp"]
+    },
+    {
+      "nama_tabel_convex": "loans",
+      "nama_file": "loans.jsonl",
+      "jenis": "dokumen",
+      "penting": "pinjaman tunai",
+      "sensitif": ["namaLengkap", "nik", "nomorWhatsApp", "nomorRekening", "namaBank"]
+    },
+    {
+      "nama_tabel_convex": "fundings",
+      "nama_file": "fundings.jsonl",
+      "jenis": "dokumen",
+      "penting": "alokasi pendanaan per pinjaman",
+      "sensitif": []
+    },
+    {
+      "nama_tabel_convex": "deposits",
+      "nama_file": "deposits.jsonl",
+      "jenis": "dokumen",
+      "penting": "pencatatan uang masuk",
+      "sensitif": ["namaBank", "nomorRekening"]
+    },
+    {
+      "nama_tabel_convex": "withdrawals",
+      "nama_file": "withdrawals.jsonl",
+      "jenis": "dokumen",
+      "penting": "penarikan dana",
+      "sensitif": ["namaBank", "nomorRekening"]
+    },
+    {
+      "nama_tabel_convex": "penyediaDana",
+      "nama_file": "penyediaDana.jsonl",
+      "jenis": "dokumen",
+      "penting": "penyedia dana",
+      "sensitif": ["email"]
+    }
+  ],
+  "catatan_relasi": [
+    "loans.userId merujuk ke users._id",
+    "nasabahProfil.userId merujuk ke users._id",
+    "kycProfil.userId merujuk ke users._id",
+    "loans.nasabahUserId dan loans.userId biasanya merujuk ke pengguna yang sama",
+    "hubungkan relasi ini secara eksplisit saat import ke sistem tujuan"
+  ]
+}

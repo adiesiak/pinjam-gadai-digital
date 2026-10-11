@@ -1,0 +1,16 @@
+{
+  "paket": "migration-convex",
+  "versi_paket": "1.0.0",
+  "asal_sistem": "Convex snapshot via convex export",
+  "asal_sistem_tujuan": "belum ditetapkan",
+  "waktu_ekspor": null,
+  "waktu_ekspor_iso": null,
+  "volume_awal_dokumen": 73,
+  "volume_per_tabel": {},
+  "storage_milik_sistem": "kosong saat pemeriksaan awal",
+  "catatan": [
+    "Isi file tabel adalah contoh placeholder.",
+    "Segera ganti dengan output ekspor asli setelah convex export selesai.",
+    "Data sensitif harus dipisah sesuai petunjuk sensitif/ sebelum dipindahkan."
+  ]
+}

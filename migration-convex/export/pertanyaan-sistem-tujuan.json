@@ -1,0 +1,10 @@
+{
+  "pertanyaan": [
+    "Sistem tujuan: tetap Convex (deploy lain), PostgreSQL, MySQL, MongoDB, Firebase, atau lain-lain?",
+    "Apakah sistem tujuan pakai id berbasis object/dokumen seperti Convex, atau auto-increment/primary key biasa?",
+    "Apakah Anda mewajibkan enkripsi NIK/nomor rekening/email di sistem tujuan?",
+    "Apakah Anda ingin menyimpan referensi _id Convex lama untuk audit, atau cukup map ke id baru dan hindari menyimpan _id lama?",
+    "Apakah ada script konversi khusus yang Anda ingin Saya buat (mis. generate SQL DDL + insert, atau dokumen JSON/JSONL ke Mongo/Firebase)?",
+    "Apakah _storage mungkin berubah dari kosong menjadi ada di masa depan, sehingga cara pindah file perlu disiapkan juga?"
+  ]
+}

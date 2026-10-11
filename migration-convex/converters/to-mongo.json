@@ -1,0 +1,25 @@
+{
+  "keterangan": "Contoh format dokumen MongoDB. Sesuaikan nama koleksi dan field dengan sistem tujuan.",
+  "contoh": {
+    "users": [
+      {
+        "_id": "users_contoh_001",
+        "nama": "Nama Pengguna",
+        "email": "email@contoh.com",
+        "role": "peminjam",
+        "plafonPinjaman": null,
+        "persenBunga": null,
+        "kodePeminjam": "KODE_CONTOH"
+      }
+    ],
+    "nasabahProfil": [
+      {
+        "_id": "nasabahProfil_contoh_001",
+        "userId": "users_contoh_001",
+        "namaLengkap": "Nama Lengkap",
+        "nik": "0123456789012345",
+        "nomorWhatsApp": "6281234567890"
+      }
+    ]
+  }
+}

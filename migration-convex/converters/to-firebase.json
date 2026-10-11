@@ -1,0 +1,22 @@
+{
+  "keterangan": "Contoh struktur dokumen Firebase. Sesuaikan nama koleksi/nodes dengan sistem tujuan.",
+  "contoh": {
+    "users": {
+      "users_contoh_001": {
+        "nama": "Nama Pengguna",
+        "email": "email@contoh.com",
+        "role": "peminjam",
+        "plafonPinjaman": null,
+        "persenBunga": null
+      }
+    },
+    "nasabahProfil": {
+      "nasabahProfil_contoh_001": {
+        "userId": "users_contoh_001",
+        "namaLengkap": "Nama Lengkap",
+        "nik": "0123456789012345",
+        "nomorWhatsApp": "6281234567890"
+      }
+    }
+  }
+}
