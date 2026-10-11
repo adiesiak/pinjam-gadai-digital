@@ -14,6 +14,11 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { CONTRACT_TERMS_VERSION } from "@/lib/contract";
+import {
+  bolehKirimPerjanjian,
+  KELAS_TOMBOL_SETUJU_PERJANJIAN,
+  tandaTanganSiap,
+} from "@/lib/perjanjianTtd";
 
 import { ContractPrintButton } from "./ContractPrintButton";
 import { wrapContractHtml } from "./contract-doc";
@@ -61,7 +66,11 @@ export function ContractSigningDialog({
   if (open !== prevOpen) {
     setPrevOpen(open);
     if (open) {
-      setConsentChecked(false);
+      // Persetujuan diisi otomatis saat modal dibuka: peminjam tidak perlu
+      // mencentang manual lebih dulu, dan tombol tanda tangan langsung siap
+      // begitu ada goresan. Kotak ini TETAP bisa dimatikan sendiri sebelum
+      // menekan tombol, jadi menarik persetujuan masih mungkin.
+      setConsentChecked(true);
       setHasSignature(false);
       setError(null);
     }
@@ -72,6 +81,10 @@ export function ContractSigningDialog({
     signedAt !== null &&
     consentAt !== null &&
     consentVersion === CONTRACT_TERMS_VERSION;
+
+  // Ada goresan baru di kanvas, atau gambar tanda tangan lama yang sudah
+  // termuat — lihat `tandaTanganSiap()` di `@/lib/perjanjianTtd`.
+  const siapTandaTangan = tandaTanganSiap(hasSignature, signature);
 
   useEffect(() => {
     if (!open || fullySigned || signingDisabledReason !== null) return;
@@ -84,8 +97,17 @@ export function ContractSigningDialog({
       minWidth: 1.2,
       maxWidth: 2.4,
     });
-    const updateSignature = () => setHasSignature(!pad.isEmpty());
-    pad.addEventListener("endStroke", updateSignature);
+    // Menggambar = menyetujui. `beginStroke` menyalakan persetujuan lebih dulu
+    // (saat itu kanvas masih kosong), lalu `endStroke` menyegarkan keadaan
+    // tanda tangan. Dua peristiwa dipasang supaya peminjam yang menyentuh kanvas
+    // tetapi belum menyelesaikan satu goresan tetap tercentang saat menggambar.
+    const mulaiGores = () => setConsentChecked(true);
+    const selesaiGores = () => {
+      setHasSignature(!pad.isEmpty());
+      if (!pad.isEmpty()) setConsentChecked(true);
+    };
+    pad.addEventListener("beginStroke", mulaiGores);
+    pad.addEventListener("endStroke", selesaiGores);
     padRef.current = pad;
 
     const resize = () => {
@@ -104,7 +126,8 @@ export function ContractSigningDialog({
     window.addEventListener("resize", resize);
     return () => {
       window.removeEventListener("resize", resize);
-      pad.removeEventListener("endStroke", updateSignature);
+      pad.removeEventListener("beginStroke", mulaiGores);
+      pad.removeEventListener("endStroke", selesaiGores);
       pad.off();
       if (padRef.current === pad) padRef.current = null;
     };
@@ -112,11 +135,22 @@ export function ContractSigningDialog({
 
   const submit = async () => {
     const pad = padRef.current;
+    // Persetujuan tetap dijaga di sini: kotak yang dimatikan sendiri oleh
+    // pengguna tidak boleh diam-diam dianggap setuju. Karena kotaknya terisi
+    // otomatis, keadaan ini hanya terjadi bila pengguna memang membatalkannya.
     if (!consentChecked) {
       setError("Peminjam perlu menyetujui syarat dan ketentuan terlebih dahulu.");
       return;
     }
-    if (!pad || pad.isEmpty()) {
+    // Goresan baru dipakai bila ada; kalau tidak, gambar tersimpan pada
+    // perjanjian ini yang dikirim ulang (hanya memperbarui catatan persetujuan).
+    const dataUrl =
+      pad !== null && !pad.isEmpty()
+        ? pad.toDataURL("image/png")
+        : signature !== null
+          ? signature
+          : null;
+    if (dataUrl === null) {
       setHasSignature(false);
       setError("Tanda tangan Peminjam masih kosong.");
       return;
@@ -125,7 +159,7 @@ export function ContractSigningDialog({
     setBusy(true);
     setError(null);
     try {
-      await onSign(pad.toDataURL("image/png"));
+      await onSign(dataUrl);
       toast.success("Catatan persetujuan aplikasi dan gambar tanda tangan tersimpan.");
       onOpenChange(false);
     } catch (cause) {
@@ -225,7 +259,8 @@ export function ContractSigningDialog({
                     Gambar tanda tangan pada pengajuan
                   </h3>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    Area ini menyimpan goresan sebagai gambar pada pengajuan.
+                    Area ini menyimpan goresan sebagai gambar pada pengajuan. Kotak persetujuan
+                    tercentang otomatis begitu peminjam mulai menggambar di sini.
                   </p>
                 </div>
                 <div className="relative overflow-hidden rounded-xl border border-slate-200 bg-white">
@@ -274,7 +309,9 @@ export function ContractSigningDialog({
                     Saya telah membaca dan menyetujui isi perjanjian ini
                     (versi {CONTRACT_TERMS_VERSION}).
                   </span>{" "}
-                  Penandatanganan ini dicatat pada perjanjian.
+                  Penandatanganan ini dicatat pada perjanjian. Kotak ini terisi otomatis saat
+                  perjanjian dibuka dan saat tanda tangan dibubuhkan — peminjam masih bisa
+                  membatalkannya sendiri sebelum menekan tombol kirim.
                 </span>
               </label>
             </>
@@ -295,9 +332,11 @@ export function ContractSigningDialog({
               ? "Perjanjian ini sudah ditandatangani dan tercatat di ledger internal."
               : signingDisabledReason !== null
                 ? "Penandatanganan perjanjian dinonaktifkan untuk pengajuan ini."
-                : consentChecked && hasSignature
+                : siapTandaTangan && consentChecked
                   ? "Persetujuan dan tanda tangan siap disimpan pada perjanjian."
-                  : "Centang persetujuan dan bubuhkan tanda tangan untuk melanjutkan."}
+                  : siapTandaTangan
+                    ? "Persetujuan belum dicentang — centang kembali untuk menyimpan."
+                    : "Bubuhkan tanda tangan pada kanvas untuk mengaktifkan tombol kirim."}
           </p>
           <div className="flex items-center justify-end gap-2">
             <Button
@@ -312,8 +351,15 @@ export function ContractSigningDialog({
             {!fullySigned && signingDisabledReason === null && (
               <Button
                 type="button"
-                className="min-w-52 rounded-xl border-0 bg-[#064E3B] text-white hover:bg-[#021E17]"
-                disabled={busy || !consentChecked || !hasSignature}
+                // Deep Emerald solid + kursor/aturan aktif dari `@/lib/perjanjianTtd`.
+                // Persetujuan terisi otomatis saat modal dibuka, jadi satu klik di
+                // sini langsung menyelesaikan pencatatan ke Convex.
+                className={KELAS_TOMBOL_SETUJU_PERJANJIAN}
+                disabled={!bolehKirimPerjanjian({
+                  busy,
+                  consentChecked,
+                  siap: siapTandaTangan,
+                })}
                 onClick={() => void submit()}
               >
                 {busy ? <Loader2 className="mr-2 size-4 animate-spin" /> : <PenLine className="mr-2 size-4" />}
