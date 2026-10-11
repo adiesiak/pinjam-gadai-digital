@@ -1,5 +1,6 @@
 import { useAction, useMutation, useQuery } from "convex/react";
 import {
+  AlertTriangle,
   CheckCircle2,
   ChevronDown,
   FileCheck,
@@ -12,8 +13,9 @@ import {
   Trash2,
   Users,
   Wallet,
+  X,
 } from "lucide-react";
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 
 import { EContractWidget } from "@/components/EContract";
@@ -90,10 +92,9 @@ export function LoanReviewDialog({
   const [nominalPendana, setNominalPendana] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const tabLabelRef = useRef<HTMLDivElement | null>(null);
 
-  /** Kurung bahaya yang bisa dibuka-tutup soft di footer (bukan destroy). */
-  const [bukaOpsiBahaya, setBukaOpsiBahaya] = useState(false);
+  /** Accordion Danger Zone di dasar modal (bukan destroy sampai dikonfirmasi). */
+  const [bukaDanger, setBukaDanger] = useState(false);
   // Galat penghapusan dipisah dari `error` supaya pesannya tampil TEPAT di
   // samping tombol Hapus dan centang "Hapus menyeluruh" — bukan jauh di bagian
   // atas dialog tempat admin tidak melihatnya setelah menggulir ke bawah.
@@ -148,13 +149,6 @@ export function LoanReviewDialog({
   // muncul, dan di situlah centang "Hapus menyeluruh" dibutuhkan.
   const sudahBerpindahDana =
     row.status === "didanai" || row.status === "lunas" || row.pendanaNama != null;
-
-  // Soferna UI yang belum dikerjakan di langkah ini:
-  // - link "Lihat riwayat hapus" belum terhubung ke layar Audit Trail khusus.
-  // - tombol "Hapus sementara (tanam ulang)" belum punya fungsi backend.
-  const futureAktif = false;
-  const alreadyDeleted = false;
-
 
   const runDelete = async () => {
     // Konfirmasi tetap diminta supaya penghapusan tidak terjadi karena salah
@@ -241,44 +235,51 @@ export function LoanReviewDialog({
     : null;
 
   // ── Header (fixed) ──────────────────────────────────────────────────────
+  // Label status memakai istilah yang dibaca admin, dipetakan dari empat status
+  // kanonik: belum diputuskan → "Ditinjau", dana sudah turun → "Disalurkan",
+  // ditolak → "Ditolak", selesai → "Lunas" (dipakai bersama ruang pendana).
+  const statusLabel =
+    row.status === "lunas"
+      ? "Lunas"
+      : row.status === "didanai"
+        ? "Disalurkan"
+        : row.status === "ditolak"
+          ? "Ditolak"
+          : "Ditinjau";
+  const statusKelas =
+    row.status === "lunas" || row.status === "didanai"
+      ? "border-emerald-200/80 bg-emerald-100 text-emerald-800"
+      : row.status === "ditolak"
+        ? "border-rose-200/80 bg-rose-100 text-rose-800"
+        : "border-amber-200/80 bg-amber-100 text-amber-800";
+
   const header = (
-    <div className="flex border-b border-slate-200 bg-white p-5">
-      <div className="flex flex-1 items-center gap-4 min-w-0">
-        <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-emerald-800 text-emerald-50 font-bold tracking-tight">
-          {row.pokokPinjaman.toString().slice(0, 2)}
-        </div>
-        <div className="min-w-0">
-          <DialogTitle className="text-base font-semibold text-slate-900 tabular-nums">
-            Pokok pinjaman · {formatRupiah(row.pokokPinjaman)}
-          </DialogTitle>
-          <DialogDescription className="mt-0.5 text-xs text-muted-foreground tabular-nums">
-            Catatan pengajuan internal · {row.nomorReferensi} · {formatDate(row._creationTime)}
-          </DialogDescription>
-        </div>
+    <div className="flex items-center gap-4 border-b border-slate-200 bg-white px-5 py-4 pr-14">
+      <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-[#064E3B] text-sm font-bold tracking-tight text-emerald-50">
+        {String(row.pokokPinjaman).slice(0, 2)}
       </div>
-      <div className="flex flex-wrap items-center gap-2 shrink-0">
-        {row.status !== "lunas" && (
-          <Button
-            size="sm"
-            className="h-8 text-xs text-slate-500"
-            onClick={onClose}
-            aria-label="Tutup modal"
-          >
-            Tutup
-          </Button>
-        )}
-        <span
-          className="inline-flex items-center rounded-full border border-amber-200/80 bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-800 shadow-sm"
-          aria-label={`Status pinjaman: ${row.status}`}
-        >
-          Status:{" "}
-          {row.status === "lunas"
-            ? "Lunas"
-            : row.status === "didanai"
-              ? "Didanai"
-              : "Belum lunas"}
-        </span>
+      <div className="min-w-0 flex-1">
+        <DialogTitle className="truncate text-base font-semibold text-slate-900 tabular-nums">
+          {formatRupiah(row.pokokPinjaman)} · {namaHurufBesar(row.namaLengkap)}
+        </DialogTitle>
+        <DialogDescription className="mt-0.5 truncate text-xs text-muted-foreground tabular-nums">
+          {row.nomorReferensi} · diajukan {formatDate(row._creationTime)}
+        </DialogDescription>
       </div>
+      <span
+        className={`inline-flex shrink-0 items-center rounded-full border px-3 py-1 text-xs font-semibold shadow-sm ${statusKelas}`}
+        aria-label={`Status pinjaman: ${statusLabel}`}
+      >
+        {statusLabel}
+      </span>
+      <button
+        type="button"
+        onClick={onClose}
+        aria-label="Tutup modal"
+        className="absolute right-3 top-3.5 inline-flex size-8 items-center justify-center rounded-full text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        <X className="size-4" />
+      </button>
     </div>
   );
 
@@ -638,121 +639,80 @@ export function LoanReviewDialog({
     </div>
   );
 
-  // ── Danger-zone dropdown (dipakai di footer) ──────────────────────────
-  // Jangan memakan lebar footer; hanya muncul saat dibutuhkan, dan berisi set
-  // lengkap opsi hapus/tanam ulang.
-  const opsiBahaya = (
-    <div className="relative">
+  // ── Danger Zone accordion (dasar modal) ────────────────────────────────
+  // Aksi hapus dipisah dari footer aksi utama dan disembunyikan di dalam
+  // accordion paling bawah supaya tidak pernah tertekan karena salah klik.
+  const dangerZone = (
+    <div className="rounded-2xl border border-red-200 bg-red-50/70">
       <button
         type="button"
-        className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-medium text-slate-700 shadow-sm transition-colors hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        aria-expanded={bukaOpsiBahaya}
-        aria-haspopup="menu"
-        onClick={() => setBukaOpsiBahaya((x) => !x)}
+        onClick={() => setBukaDanger((x) => !x)}
+        aria-expanded={bukaDanger}
+        className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300"
       >
-        Opsi Bahaya
+        <span className="flex items-center gap-2">
+          <AlertTriangle className="size-4 text-red-600" />
+          <span className="text-sm font-semibold text-red-800">
+            Danger Zone · Hapus Pinjaman
+          </span>
+        </span>
         <ChevronDown
-          className={`size-3.5 transition-transform duration-150 ${bukaOpsiBahaya ? "rotate-180" : ""}`}
+          className={`size-4 shrink-0 text-red-700 transition-transform duration-150 ${bukaDanger ? "rotate-180" : ""}`}
         />
       </button>
-      {bukaOpsiBahaya && (
-        <>
-          <div
-            className="fixed inset-0 z-20"
-            aria-hidden
-            onClick={() => setBukaOpsiBahaya(false)}
-          />
-          <div
-            role="menu"
-            className="absolute right-0 z-30 mt-2 w-64 rounded-xl border border-red-200 bg-white p-2 shadow-xl shadow-red-900/10"
-          >
-            <div className="px-2 py-1.5">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-red-700">
-                Hapus & Pemulihan
-              </p>
-              {alreadyDeleted && (
-                <p className="mt-0.5 text-xs text-red-700">
-                  Data pemohon sudah dihapus dari baris admin. UI ini hanya tersedia untuk
-                  penyetelan tambahan.
-                </p>
-              )}
-            </div>
-            <button
-              type="button"
-              role="menuitem"
-              className="flex w-full items-start gap-2 rounded-lg px-2 py-2 text-xs leading-5 text-red-800 transition-colors hover:bg-red-50"
-              onClick={() => {
-                setBukaOpsiBahaya(false);
-                setHapusMenyeluruh(true);
-                if (tabLabelRef.current) tabLabelRef.current.focus();
-              }}
+
+      {bukaDanger && (
+        <div className="space-y-3 border-t border-red-200 px-4 py-4">
+          <p className="text-xs leading-5 text-red-700">
+            Menghapus pinjaman <strong>{row.nomorReferensi}</strong> tidak dapat dibatalkan.
+            Penghapusan tetap tercatat di Audit Trail.
+          </p>
+
+          <label className="flex items-start gap-2 text-xs leading-5 text-red-800">
+            <Checkbox
+              checked={hapusMenyeluruh}
+              onCheckedChange={(v) => setHapusMenyeluruh(v === true)}
+              className="mt-0.5 border-red-300 data-[state=checked]:bg-red-600 data-[state=checked]:text-white"
+              aria-label="Hapus menyeluruh termasuk data turunan"
+            />
+            <span>
+              <span className="font-semibold">Hapus menyeluruh</span> — ikut menghapus
+              alokasi dana, catatan transfer, dan bukti bayar. Jurnal ledger tetap utuh
+              sebagai riwayat.
+            </span>
+          </label>
+
+          {errorHapus && (
+            <p
+              role="alert"
+              className="rounded-md border border-red-300 bg-white px-3 py-2 text-xs text-red-700"
             >
-              <span className="mt-0.5 shrink-0">
-                <Trash2 className="size-3.5" />
-              </span>
-              <span className="min-w-0">
-                <span className="font-semibold">Hapus menyeluruh</span>
-                <br />
-                <span className="text-red-700">
-                  Hapus baris admin dan turunan (pembayaran, bukti, alokasi). Jurnal ledger
-                  tetap utuh.
-                </span>
-              </span>
-            </button>
-            {futureAktif && (
-              <button
-                type="button"
-                role="menuitem"
-                className="flex w-full items-start gap-2 rounded-lg px-2 py-2 text-xs leading-5 text-amber-800 transition-colors hover:bg-amber-50"
-                onClick={() => {
-                  setBukaOpsiBahaya(false);
-                  if (tabLabelRef.current) tabLabelRef.current.focus();
-                }}
-              >
-                <span className="mt-0.5 shrink-0">
-                  <Trash2 className="size-3.5" />
-                </span>
-                <span className="min-w-0">
-                  <span className="font-semibold">Hapus sementara (tanam ulang)</span>
-                  <br />
-                  <span className="text-amber-700">
-                    Sembunyikan dari antrean admin tanpa menghapus data. Bisa ditampilkan
-                    kembali nanti.
-                  </span>
-                </span>
-              </button>
+              {errorHapus}
+            </p>
+          )}
+
+          <Button
+            type="button"
+            variant="destructive"
+            disabled={busy !== null}
+            onClick={() => void runDelete()}
+            className="w-full sm:w-auto"
+          >
+            {busy === "delete" ? (
+              <Loader2 className="mr-2 size-4 animate-spin" />
+            ) : (
+              <Trash2 className="mr-2 size-4" />
             )}
-            <div className="mt-2 border-t border-red-200/60 pb-2 pt-2">
-              <button
-                type="button"
-                role="menuitem"
-                className="flex w-full items-start gap-2 rounded-lg px-2 py-2 text-xs leading-5 text-muted-foreground transition-colors hover:bg-slate-100"
-                onClick={() => {
-                  setBukaOpsiBahaya(false);
-                  if (tabLabelRef.current) tabLabelRef.current.focus();
-                }}
-              >
-                <span className="mt-0.5 shrink-0">
-                  <Trash2 className="size-3.5" />
-                </span>
-                <span className="min-w-0">
-                  <span className="font-semibold">Lihat riwayat hapus</span>
-                  <br />
-                  <span className="text-muted-foreground">
-                    Buka Audit Trail khusus pinjaman ini.
-                  </span>
-                </span>
-              </button>
-            </div>
-          </div>
-        </>
+            Hapus Pinjaman{hapusMenyeluruh ? " (menyeluruh)" : ""}
+          </Button>
+        </div>
       )}
     </div>
   );
 
-  // ── Footer aksi (sticky) ───────────────────────────────────────────────
+  // ── Footer aksi (menempel di dasar modal) ──────────────────────────────
   const footerAksi = (
-    <div className="sticky bottom-0 left-0 right-0 z-10 border-t border-slate-200 bg-white p-4 shadow-lg flex flex-wrap items-center justify-between gap-3">
+    <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 bg-white px-5 py-4 shadow-[0_-6px_16px_-12px_rgba(15,23,42,0.5)]">
       {row.status === "lunas" ? (
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
           <CheckCircle2 className="size-4 text-emerald-600" />
@@ -760,38 +720,49 @@ export function LoanReviewDialog({
         </div>
       ) : (
         <>
-          <Button
-            disabled={busy !== null}
-            onClick={() =>
-              run("status", () =>
-                ubahStatus({
-                  loanId: row._id,
-                  status: statusTujuan,
-                  ...(statusTujuan !== "ditolak" && nominal.trim() !== ""
-                    ? { pokokDisetujui: Number(nominal) }
-                    : {}),
-                }),
-              )
-            }
-            className="rounded-xl px-4 py-2 text-sm font-medium bg-slate-800 text-white hover:bg-slate-900"
-          >
-            {busy === "status" ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
-            Simpan status & kirim WA
-          </Button>
+          <p className="min-w-0 flex-1 text-xs text-muted-foreground">
+            Keputusan tersimpan ke ledger internal dan tercatat di Audit Trail.
+          </p>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              variant="outline"
+              disabled={busy !== null}
+              onClick={() => run("tolak", () => ubahStatus({ loanId: row._id, status: "ditolak" }))}
+              className="rounded-xl border-rose-200 px-4 text-sm font-medium text-rose-700 hover:bg-rose-50"
+            >
+              {busy === "tolak" ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
+              Tolak
+            </Button>
 
-          {row.status !== "didanai" && (
             <Button
               disabled={busy !== null}
-              onClick={() => run("fund", () => fund({ loanId: row._id }))}
-              className="rounded-xl px-5 py-2 text-sm font-semibold bg-emerald-700 text-white hover:bg-emerald-800"
+              onClick={() =>
+                run("status", () =>
+                  ubahStatus({
+                    loanId: row._id,
+                    status: statusTujuan,
+                    ...(statusTujuan !== "ditolak" && nominal.trim() !== ""
+                      ? { pokokDisetujui: Number(nominal) }
+                      : {}),
+                  }),
+                )
+              }
+              className="rounded-xl bg-slate-800 px-4 text-sm font-medium text-white hover:bg-slate-900"
             >
-              {busy === "fund" ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
-              Tandai tersalurkan
+              {busy === "status" ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
+              Simpan status &amp; kirim WA
             </Button>
-          )}
 
-          <div className="flex items-end justify-end gap-2">
-            {opsiBahaya}
+            {row.status !== "didanai" && (
+              <Button
+                disabled={busy !== null}
+                onClick={() => run("fund", () => fund({ loanId: row._id }))}
+                className="rounded-xl bg-[#064E3B] px-5 text-sm font-semibold text-white hover:bg-[#021E17]"
+              >
+                {busy === "fund" ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
+                Tandai dana tersalurkan
+              </Button>
+            )}
           </div>
         </>
       )}
@@ -800,46 +771,56 @@ export function LoanReviewDialog({
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-h-[90dvh] overflow-y-auto p-0">
-        <div className="flex flex-col gap-0">
-          {/* Header fixed */}
-          {header}
+      {/* Lebar (`max-w-4xl`) + tinggi (`max-h-[90dvh]`) tetap: header & footer
+          menempel, hanya area tab yang menggulir. Tombol tutup bawaan
+          dimatikan karena header memakai tombol X-nya sendiri agar tetap
+          terlihat saat isi digulir. */}
+      <DialogContent
+        showCloseButton={false}
+        className="flex max-h-[90dvh] w-full max-w-4xl flex-col gap-0 overflow-hidden p-0 sm:max-w-4xl sm:p-0"
+      >
+        {/* Header fixed */}
+        {header}
 
-          {/* Tab row */}
-          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as typeof activeTab)}>
-            <div className="flex flex-wrap gap-2 px-5 pt-4 bg-slate-50 border-b border-slate-200">
-              <TabsList className="flex-none rounded-xl border border-slate-200 bg-white p-1.5 shadow-sm">
-                <TabsTrigger value="detail" className="gap-2 text-sm">
-                  <FileText className="size-4" />
-                  Detail & Dokumen
-                </TabsTrigger>
-                <TabsTrigger value="aliran" className="gap-2 text-sm">
-                  <Wallet className="size-4" />
-                  Aliran Uang & Pendana
-                </TabsTrigger>
-                <TabsTrigger value="perjanjian" className="gap-2 text-sm">
-                  <FileCheck className="size-4" />
-                  Perjanjian & WhatsApp
-                </TabsTrigger>
-              </TabsList>
-            </div>
+        <Tabs
+          value={activeTab}
+          onValueChange={(v) => setActiveTab(v as typeof activeTab)}
+          className="flex min-h-0 flex-1 flex-col gap-0"
+        >
+          <div className="flex flex-wrap gap-2 border-b border-slate-200 bg-slate-50 px-5 pt-4">
+            <TabsList className="h-auto w-full flex-wrap justify-start rounded-xl border border-slate-200 bg-white p-1.5 shadow-sm">
+              <TabsTrigger value="detail" className="gap-2 text-sm">
+                <FileText className="size-4" />
+                Detail &amp; Dokumen
+              </TabsTrigger>
+              <TabsTrigger value="aliran" className="gap-2 text-sm">
+                <Wallet className="size-4" />
+                Aliran Uang &amp; Pendana
+              </TabsTrigger>
+              <TabsTrigger value="perjanjian" className="gap-2 text-sm">
+                <FileCheck className="size-4" />
+                Perjanjian &amp; WhatsApp
+              </TabsTrigger>
+            </TabsList>
+          </div>
 
-            <div className="p-6 overflow-y-auto flex-1 space-y-6">
-              <TabsContent value="detail" className="mt-0">
-                {tabDetail}
-              </TabsContent>
-              <TabsContent value="aliran" className="mt-0">
-                {tabAliran}
-              </TabsContent>
-              <TabsContent value="perjanjian" className="mt-0">
-                {tabPerjanjian}
-              </TabsContent>
-            </div>
-          </Tabs>
+          <div className="min-h-0 flex-1 space-y-6 overflow-y-auto p-6">
+            <TabsContent value="detail" className="mt-0">
+              {tabDetail}
+            </TabsContent>
+            <TabsContent value="aliran" className="mt-0">
+              {tabAliran}
+            </TabsContent>
+            <TabsContent value="perjanjian" className="mt-0">
+              {tabPerjanjian}
+            </TabsContent>
 
-          {/* Footer sticky */}
-          {footerAksi}
-        </div>
+            {row.status !== "lunas" && dangerZone}
+          </div>
+        </Tabs>
+
+        {/* Footer menempel */}
+        {footerAksi}
       </DialogContent>
     </Dialog>
   );

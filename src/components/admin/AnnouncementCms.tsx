@@ -175,6 +175,9 @@ export function AnnouncementCms() {
   const [busy, setBusy] = useState(false);
   const [draft, setDraft] = useState<Record<string, string | boolean | number> | null>(null);
   const [status, setStatus] = useState<{ text: string; ok: boolean } | null>(null);
+  // Tab aktif disimpan di state — sebelumnya `value` dipatok, sehingga mengklik
+  // tab lain tidak memindahkan panel (form tetap di Tab 1).
+  const [tab, setTab] = useState("tab-1");
 
   const d = (key: string, fb: string | boolean | number): string | boolean | number =>
     (draft?.[key] as string | undefined) ?? fb;
@@ -304,8 +307,12 @@ export function AnnouncementCms() {
       </div>
 
       {/* BODY: form kiri + preview kanan */}
-      <Tabs value="tab-1" className="flex-1 space-y-5">
-        <TabsList className="w-full justify-start rounded-xl border border-slate-200 bg-white p-1.5 shadow-sm sm:w-auto">
+      <Tabs
+        value={tab}
+        onValueChange={setTab}
+        className="flex-1 space-y-5"
+      >
+        <TabsList className="flex h-auto w-full flex-wrap justify-start gap-1 rounded-xl border border-slate-200 bg-white p-1.5 shadow-sm">
           <TabsTrigger value="tab-1" className="gap-2 text-sm">
             <MessageSquare className="size-4" />
             Tab 1 · Banner &amp; Pengumuman
@@ -709,8 +716,8 @@ export function AnnouncementCms() {
             <Button
               variant="outline"
               size="sm"
-              disabled={busy || !draft}
-              onClick={() => setDraft({ ...draft })}
+              disabled={busy}
+              onClick={kembalikanDefault}
             >
               <ArrowLeftRight className="mr-1.5 size-3.5" />
               Reset ke Default
@@ -718,7 +725,7 @@ export function AnnouncementCms() {
             <Button
               variant="outline"
               size="sm"
-              disabled={busy || !draft}
+              disabled={busy}
               onClick={bersihkanTeksLama}
             >
               Bersihkan Teks Lama

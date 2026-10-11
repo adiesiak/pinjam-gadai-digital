@@ -9,10 +9,19 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { api } from "@/convex/_generated/api";
 
+/** Label chip memakai awalan "+ " supaya jelas tindakannya menyisipkan. */
 const TEMPLATE_CHIPS: { label: string; value: string }[] = [
   { label: "{nama}", value: "{nama}" },
   { label: "{ref}", value: "{ref}" },
@@ -21,6 +30,9 @@ const TEMPLATE_CHIPS: { label: string; value: string }[] = [
   { label: "{sisa}", value: "{sisa}" },
   { label: "{denda}", value: "{denda}" },
 ];
+
+/** Bidang template yang bisa disasar chip variabel. */
+type BidangTemplate = "pengingat" | "lokasi" | "status";
 
 function Chip({
   label,
@@ -34,13 +46,15 @@ function Chip({
   return (
     <button
       type="button"
-      className={`inline-flex items-center rounded-full border px-3 py-1 text-[11px] font-medium transition-colors ${
+      className={`inline-flex items-center gap-1 rounded-full border px-3 py-1 text-[11px] font-medium transition-colors ${
         selected
           ? "border-emerald-300 bg-emerald-50 text-emerald-800"
           : "border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100"
       }`}
       onClick={onClick}
     >
+      <span aria-hidden className="text-emerald-700">+
+      </span>
       {label}
     </button>
   );
@@ -65,6 +79,11 @@ export function WhatsAppPanel() {
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<{ text: string; ok: boolean } | null>(null);
   const [testPreview, setTestPreview] = useState<{ to: string; text: string } | null>(null);
+  // Tab aktif + bidang template yang terakhir difokus, supaya chip variabel
+  // menyisipkan ke textarea yang sedang dipakai admin — bukan selalu ke yang
+  // pertama.
+  const [tab, setTab] = useState("gateway");
+  const [bidangAktif, setBidangAktif] = useState<BidangTemplate>("pengingat");
 
   if (data === undefined) {
     return (
@@ -135,7 +154,10 @@ export function WhatsAppPanel() {
   };
 
   const insertChip = (value: string) => {
-    setTemplate((prev) => (prev ?? "").concat(value));
+    const sisip = (prev: string | null) => (prev ?? "").concat(value);
+    if (bidangAktif === "status") setTemplateStatus(sisip);
+    else if (bidangAktif === "lokasi") setTemplateLokasi(sisip);
+    else setTemplate(sisip);
   };
 
   return (
@@ -158,8 +180,8 @@ export function WhatsAppPanel() {
         </div>
       </div>
 
-      <Tabs value="gateway" className="flex-1 space-y-4">
-        <TabsList className="w-full justify-start rounded-xl border border-slate-200 bg-white p-1.5 shadow-sm sm:w-auto">
+      <Tabs value={tab} onValueChange={setTab} className="flex-1 space-y-4">
+        <TabsList className="flex h-auto w-full flex-wrap justify-start gap-1 rounded-xl border border-slate-200 bg-white p-1.5 shadow-sm">
           <TabsTrigger value="gateway" className="gap-2 text-sm">
             <MessageSquare className="size-4" />
             Tab 1 · Gateway &amp; Template Pesan
@@ -261,6 +283,7 @@ export function WhatsAppPanel() {
                   rows={4}
                   value={template ?? ""}
                   onChange={(e) => setTemplate(e.target.value)}
+                  onFocus={() => setBidangAktif("pengingat")}
                   placeholder="{nama}, {ref}, {jumlah}, {tanggal}, {sisa}, {denda}"
                 />
                 <p className="text-xs leading-5 text-muted-foreground">
@@ -280,6 +303,7 @@ export function WhatsAppPanel() {
                   rows={4}
                   value={templateStatus ?? ""}
                   onChange={(e) => setTemplateStatus(e.target.value)}
+                  onFocus={() => setBidangAktif("status")}
                   placeholder="Kosongkan untuk memakai template bawaan"
                 />
                 <p className="text-xs leading-5 text-muted-foreground">
@@ -304,6 +328,7 @@ export function WhatsAppPanel() {
                   rows={4}
                   value={templateLokasi ?? ""}
                   onChange={(e) => setTemplateLokasi(e.target.value)}
+                  onFocus={() => setBidangAktif("lokasi")}
                   placeholder="Kosongkan untuk memakai template bawaan"
                 />
                 <p className="text-xs leading-5 text-muted-foreground">
@@ -430,37 +455,72 @@ export function WhatsAppPanel() {
 
             {/* KANAN — LOG PENGIRIMAN */}
             <div className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm xl:col-span-3">
-              <p className="text-sm font-semibold text-navy">Log pengiriman (terbaru)</p>
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-sm font-semibold text-navy">Log pengiriman (terbaru)</p>
+                <span className="text-[11px] text-muted-foreground">
+                  {data.logs.length} baris
+                </span>
+              </div>
               {data.logs.length === 0 ? (
                 <p className="mt-3 text-xs text-muted-foreground">Belum ada pengiriman.</p>
               ) : (
-                <ul className="mt-3 max-h-96 space-y-2 overflow-y-auto pr-1">
-                  {data.logs.map((log) => (
-                    <li key={log._id} className="rounded-xl border border-slate-200 px-3 py-2">
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="truncate text-xs font-medium tabular-nums">
-                          {log.nomorTujuan}
-                        </span>
-                        <Badge
-                          className={
-                            log.status === "terkirim"
-                              ? "bg-emerald-100 text-emerald-800 hover:bg-emerald-100"
-                              : "bg-red-100 text-red-700 hover:bg-red-100"
-                          }
-                        >
-                          {log.status}
-                        </Badge>
-                      </div>
-                      <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
-                        {log.isiPesan}
-                      </p>
-                      <p className="mt-1 text-[11px] text-muted-foreground">
-                        {new Date(log.waktu).toLocaleString("id-ID")} · jenis {log.jenis}
-                        {log.respon ? ` · ${log.respon.slice(0, 80)}` : ""}
-                      </p>
-                    </li>
-                  ))}
-                </ul>
+                <div className="mt-3 max-h-96 overflow-y-auto rounded-xl border border-slate-200">
+                  <Table>
+                    <TableHeader className="sticky top-0 bg-slate-50">
+                      <TableRow>
+                        <TableHead className="text-[11px] uppercase tracking-[0.12em]">
+                          Waktu
+                        </TableHead>
+                        <TableHead className="text-[11px] uppercase tracking-[0.12em]">
+                          Nomor tujuan
+                        </TableHead>
+                        <TableHead className="text-[11px] uppercase tracking-[0.12em]">
+                          Jenis
+                        </TableHead>
+                        <TableHead className="text-[11px] uppercase tracking-[0.12em]">
+                          Status
+                        </TableHead>
+                        <TableHead className="text-[11px] uppercase tracking-[0.12em]">
+                          Pesan
+                        </TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {data.logs.map((log) => (
+                        <TableRow key={log._id}>
+                          <TableCell className="align-top text-[11px] tabular-nums text-muted-foreground">
+                            {new Date(log.waktu).toLocaleString("id-ID")}
+                          </TableCell>
+                          <TableCell className="align-top text-xs font-medium tabular-nums">
+                            {log.nomorTujuan}
+                          </TableCell>
+                          <TableCell className="align-top text-xs text-muted-foreground">
+                            {log.jenis}
+                          </TableCell>
+                          <TableCell className="align-top">
+                            <Badge
+                              className={
+                                log.status === "terkirim"
+                                  ? "bg-emerald-100 text-emerald-800 hover:bg-emerald-100"
+                                  : "bg-red-100 text-red-700 hover:bg-red-100"
+                              }
+                            >
+                              {log.status}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="max-w-[16rem] whitespace-normal align-top text-xs text-slate-700">
+                            <span className="line-clamp-2">{log.isiPesan}</span>
+                            {log.respon && (
+                              <span className="mt-0.5 block truncate text-[11px] text-muted-foreground">
+                                {log.respon.slice(0, 80)}
+                              </span>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
               )}
             </div>
           </div>

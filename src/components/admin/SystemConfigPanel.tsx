@@ -223,6 +223,9 @@ export function SystemConfigPanel() {
   const [uploadingQr, setUploadingQr] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<{ text: string; ok: boolean } | null>(null);
+  // Tab aktif disimpan di state — sebelumnya `value` dipatok sehingga tab lain
+  // tidak bisa dibuka.
+  const [tab, setTab] = useState("finansial");
 
   if (data === undefined) {
     return <PanelMemuat />;
@@ -275,8 +278,8 @@ export function SystemConfigPanel() {
         </div>
       </div>
 
-      <Tabs value="finansial" className="space-y-5">
-        <TabsList className="w-full justify-start rounded-xl border border-slate-200 bg-white p-1.5 shadow-sm sm:w-auto">
+      <Tabs value={tab} onValueChange={setTab} className="space-y-5">
+        <TabsList className="flex h-auto w-full flex-wrap justify-start gap-1 rounded-xl border border-slate-200 bg-white p-1.5 shadow-sm">
           <TabsTrigger value="finansial" className="gap-2 text-sm">
             <QrCode className="size-4" />
             Tab 1 · Parameter Finansial &amp; Rekening
@@ -557,38 +560,8 @@ export function SystemConfigPanel() {
             <div className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
               <p className="flex items-center gap-2 text-sm font-semibold text-navy">
                 <MapPin className="size-4 text-primary" />
-                Titik Referensi &amp; Ambang Lokasi
+                Ambang Jarak &amp; Retensi Lokasi
               </p>
-
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div>
-                  <Label htmlFor="cfg-vlat">Latitude Vault</Label>
-                  <Input
-                    id="cfg-vlat"
-                    type="number"
-                    step="any"
-                    value={form.vaultLat}
-                    onChange={(e) => upd("vaultLat", Number(e.target.value) || 0)}
-                    className="mt-1.5 shadow-none focus-visible:ring-2 tabular-nums"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="cfg-vlng">Longitude Vault</Label>
-                  <Input
-                    id="cfg-vlng"
-                    type="number"
-                    step="any"
-                    value={form.vaultLng}
-                    onChange={(e) => upd("vaultLng", Number(e.target.value) || 0)}
-                    className="mt-1.5 shadow-none focus-visible:ring-2 tabular-nums"
-                  />
-                </div>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Koordinat ini adalah titik referensi konfigurasi untuk peta dan perhitungan jarak GPS.
-              </p>
-
-              <DividerLabel>Ambang Jarak</DividerLabel>
               <SuffixInput
                 id="cfg-mismatch"
                 label="Ambang Jarak (Km)"
@@ -649,9 +622,9 @@ export function SystemConfigPanel() {
               </p>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div>
-                  <Label htmlFor="cfg-vlat-2">Latitude vault</Label>
+                  <Label htmlFor="cfg-vlat">Latitude Vault</Label>
                   <Input
-                    id="cfg-vlat-2"
+                    id="cfg-vlat"
                     type="number"
                     step="any"
                     value={form.vaultLat}
@@ -660,9 +633,9 @@ export function SystemConfigPanel() {
                   />
                 </div>
                 <div>
-                  <Label htmlFor="cfg-vlng-2">Longitude vault</Label>
+                  <Label htmlFor="cfg-vlng">Longitude Vault</Label>
                   <Input
-                    id="cfg-vlng-2"
+                    id="cfg-vlng"
                     type="number"
                     step="any"
                     value={form.vaultLng}
@@ -828,7 +801,18 @@ export function SystemConfigPanel() {
             </span>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <Button variant="outline" size="sm" disabled={busy} onClick={() => setStatus(null)}>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={busy}
+              onClick={() => {
+                // "Batal" mengembalikan form ke nilai tersimpan terakhir, bukan
+                // sekadar membersihkan pesan status.
+                setForm({ ...DEFAULT_CONFIG, ...data.config } as ConfigForm);
+                setError(null);
+                setStatus(null);
+              }}
+            >
               Batal
             </Button>
             <Button
