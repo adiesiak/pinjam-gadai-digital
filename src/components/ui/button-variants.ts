@@ -35,6 +35,8 @@ const buttonVariants = cva(
           "hover:bg-secondary hover:text-secondary-foreground active:scale-[0.98] active:bg-secondary/70 dark:hover:bg-accent/50",
         // Tautan: garis bawah juga muncul saat fokus keyboard, bukan hanya hover.
         link: "text-primary underline-offset-4 hover:underline focus-visible:underline active:opacity-80",
+        primary:
+          "bg-navy text-white shadow-sm hover:bg-navy/90 hover:shadow active:scale-[0.98] active:bg-navy/95",
       },
       size: {
         default: "h-9 px-4 py-2 has-[>svg]:px-3",

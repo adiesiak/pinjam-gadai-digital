@@ -40,24 +40,46 @@ import { cn } from "@/lib/utils";
  */
 const ID_PENANDA_AKTIF = "tab-dashboard-aktif";
 
+/** Kelompok navigasi sidebar Peminjam. */
+const NAV_GROUPS = [
+  {
+    label: "Pinjaman & Gadai",
+    items: [
+      ["pinjaman", "Catatan Pinjaman", <Wallet key="i" className="size-4" />] as const,
+      ["jadwal", "Jadwal Angsuran", <CalendarClock key="i" className="size-4" />] as const,
+      ["gadai", "Catatan Gadai", <Package key="i" className="size-4" />] as const,
+      ["form", "Form Pengajuan", <Send key="i" className="size-4" />] as const,
+    ],
+  },
+  {
+    label: "Dokumen & Ledger",
+    items: [
+      ["kontrak", "Dokumen Perjanjian", <FileText key="i" className="size-4" />] as const,
+      ["riwayat", "Riwayat Ledger", <ScrollText key="i" className="size-4" />] as const,
+    ],
+  },
+  {
+    label: "Profil & Bantuan",
+    items: [
+      ["diri", "Data Diri", <IdCard key="i" className="size-4" />] as const,
+      // KYC berdiri sendiri, terpisah dari Data Diri: yang pertama adalah proses
+      // verifikasi identitas oleh petugas (punya status & riwayat), yang kedua
+      // hanyalah isian data diri yang dipakai mengisi formulir pengajuan.
+      ["kyc", "Verifikasi KYC", <ShieldCheck key="i" className="size-4" />] as const,
+      ["bantuan", "Bantuan", <HelpCircle key="i" className="size-4" />] as const,
+    ],
+  },
+] as const;
+
+/** Semua tab datar (untuk dropdown selebar di layar sempit). */
+const ALL_TABS = [
+  ...NAV_GROUPS[0].items,
+  ...NAV_GROUPS[1].items,
+  ...NAV_GROUPS[2].items,
+] as Array<[string, string, React.ReactNode]>;
+
 /** Item navigasi tab: [nilai, label, ikon]. */
-const TABS: Array<[string, string, React.ReactNode]> = [
-  ["pinjaman", "Catatan Pinjaman", <Wallet key="i" className="size-4" />],
-  ["jadwal", "Jadwal Angsuran", <CalendarClock key="i" className="size-4" />],
-  ["gadai", "Catatan Gadai", <Package key="i" className="size-4" />],
-  ["kontrak", "Dokumen Perjanjian", <FileText key="i" className="size-4" />],
-  ["form", "Form Pengajuan", <Send key="i" className="size-4" />],
-  ["diri", "Data Diri", <IdCard key="i" className="size-4" />],
-  // KYC berdiri sendiri, terpisah dari Data Diri: yang pertama adalah proses
-  // verifikasi identitas oleh petugas (punya status & riwayat), yang kedua
-  // hanyalah isian data diri yang dipakai mengisi formulir pengajuan.
-  ["kyc", "Verifikasi KYC", <ShieldCheck key="i" className="size-4" />],
-  ["riwayat", "Riwayat Ledger", <ScrollText key="i" className="size-4" />],
-  // Bantuan berdiri sendiri, terpisah dari Riwayat: yang pertama adalah tempat
-  // nasabah berbicara dengan petugas (punya status & utas), yang kedua adalah
-  // catatan transaksi yang sudah terjadi.
-  ["bantuan", "Bantuan", <HelpCircle key="i" className="size-4" />],
-];
+const TABS: Array<[string, string, React.ReactNode]> = ALL_TABS;
 
 /**
  * Indikator jumlah pada item tab: `neutral` (informasi), `warning` (perlu
@@ -131,7 +153,7 @@ export function DashboardTabNav({
             </SelectValue>
           </SelectTrigger>
           <SelectContent>
-            {TABS.map(([value, label]) => (
+            {ALL_TABS.map(([value, label]) => (
               <SelectItem key={value} value={value}>
                 {teksMenu(value, label)}
               </SelectItem>
@@ -156,47 +178,58 @@ export function DashboardTabNav({
           aria-label="Navigasi dashboard Peminjam"
           className="hidden h-auto w-full flex-col items-stretch justify-start gap-1 overflow-visible rounded-2xl border border-slate-200 bg-white p-1.5 shadow-sm lg:flex"
         >
-          {TABS.map(([value, label, icon]) => {
-            const badge = badges?.[value];
-            const sedangAktif = value === activeTab;
-            return (
-              <TabsTrigger
-                key={value}
-                value={value}
-                className="group relative isolate h-auto w-auto flex-none shrink-0 justify-start gap-2.5 rounded-xl px-3 py-2.5 text-xs font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 data-[state=active]:bg-transparent data-[state=active]:text-primary-foreground data-[state=active]:shadow-none data-[state=active]:hover:bg-transparent lg:w-full"
-              >
-                {/* Pill penanda: satu elemen yang sama, berpindah antar tab. */}
-                {sedangAktif && (
-                  <motion.span
-                    aria-hidden
-                    layoutId={ID_PENANDA_AKTIF}
-                    className="absolute inset-0 rounded-xl bg-primary shadow-sm"
-                    transition={
-                      reduce ? transitionReduced : { duration: DURATION.normal, ease: EASE_OUT }
-                    }
-                  />
-                )}
-                <span className="relative inline-flex items-center gap-2.5">
-                  <span className="inline-flex align-middle">{icon}</span>
-                  <span className="whitespace-nowrap lg:whitespace-normal lg:text-left">
-                    {label}
-                  </span>
+          {NAV_GROUPS.map((grup) => (
+            <div key={grup.label} className="flex flex-col gap-0.5">
+              <div className="mx-2 mt-1 flex items-center gap-1.5">
+                <span className="h-px flex-1 bg-slate-100" />
+                <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">
+                  {grup.label}
                 </span>
-                {badge !== undefined && badge.count > 0 && (
-                  <span
-                    aria-label={`${badge.count} item`}
-                    className={cn(
-                      "relative ml-auto inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[10px] font-semibold tabular-nums",
-                      badgeToneClass(badge.tone),
-                      "group-data-[state=active]:bg-white/25 group-data-[state=active]:text-primary-foreground",
-                    )}
+                <span className="h-px flex-1 bg-slate-100" />
+              </div>
+              {grup.items.map(([value, label, icon]) => {
+                const badge = badges?.[value];
+                const sedangAktif = value === activeTab;
+                return (
+                  <TabsTrigger
+                    key={value}
+                    value={value}
+                    className="group relative isolate h-auto w-auto flex-none shrink-0 justify-start gap-2.5 rounded-xl px-3 py-2.5 text-xs font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 data-[state=active]:bg-transparent data-[state=active]:text-primary-foreground data-[state=active]:shadow-none data-[state=active]:hover:bg-transparent lg:w-full"
                   >
-                    {badge.count > 99 ? "99+" : badge.count}
-                  </span>
-                )}
-              </TabsTrigger>
-            );
-          })}
+                    {/* Pill penanda: satu elemen yang sama, berpindah antar tab. */}
+                    {sedangAktif && (
+                      <motion.span
+                        aria-hidden
+                        layoutId={ID_PENANDA_AKTIF}
+                        className="absolute inset-0 rounded-xl bg-primary shadow-sm"
+                        transition={
+                          reduce ? transitionReduced : { duration: DURATION.normal, ease: EASE_OUT }
+                        }
+                      />
+                    )}
+                    <span className="relative inline-flex items-center gap-2.5">
+                      <span className="inline-flex align-middle">{icon}</span>
+                      <span className="whitespace-nowrap lg:whitespace-normal lg:text-left">
+                        {label}
+                      </span>
+                    </span>
+                    {badge !== undefined && badge.count > 0 && (
+                      <span
+                        aria-label={`${badge.count} item`}
+                        className={cn(
+                          "relative ml-auto inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[10px] font-semibold tabular-nums",
+                          badgeToneClass(badge.tone),
+                          "group-data-[state=active]:bg-white/25 group-data-[state=active]:text-primary-foreground",
+                        )}
+                      >
+                        {badge.count > 99 ? "99+" : badge.count}
+                      </span>
+                    )}
+                  </TabsTrigger>
+                );
+              })}
+            </div>
+          ))}
         </TabsList>
       </LayoutGroup>
     </>

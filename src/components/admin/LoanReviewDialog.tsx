@@ -1,5 +1,17 @@
 import { useAction, useMutation, useQuery } from "convex/react";
-import { Loader2, Send, Trash2 } from "lucide-react";
+import {
+  CheckCircle2,
+  FileCheck,
+  FileText,
+  Loader2,
+  MapPin,
+  MessageCircle,
+  Send,
+  ShieldCheck,
+  Trash2,
+  Users,
+  Wallet,
+} from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -14,8 +26,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -23,13 +35,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Separator } from "@/components/ui/separator";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { loanPurposeLabel, quotePinjaman } from "@/lib/loan";
 import { formatRupiah } from "@/lib/money";
 import {
   diTahapTinjauan,
-  keStatusTersimpan,
   LABEL_STATUS_PINJAMAN,
   nominalTerkunci,
   STATUS_PINJAMAN,
@@ -48,6 +61,10 @@ import { PanelDataDiriNasabah } from "./PanelDataDiriNasabah";
 // "tidak diubah" dan "lepas pendana" memakai penandanya sendiri.
 const PENDANA_TETAP = "__tetap";
 const PENDANA_LEPAS = "__lepas";
+
+type LoanRowWithOptionalProps = LoanRow & {
+  readonly persenBunga?: number | null;
+};
 
 export function LoanReviewDialog({
   row,
@@ -80,6 +97,7 @@ export function LoanReviewDialog({
   // samping tombol Hapus dan centang "Hapus menyeluruh" — bukan jauh di bagian
   // atas dialog tempat admin tidak melihatnya setelah menggulir ke bawah.
   const [errorHapus, setErrorHapus] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<"detail" | "aliran" | "perjanjian">("detail");
 
   // Pratinjau pesan WhatsApp yang akan dikirim — admin melihat persis isinya
   // sebelum menekan tombol, termasuk kalimat persetujuan sebagian.
@@ -119,9 +137,10 @@ export function LoanReviewDialog({
   // sebagian. Dibaca toleran supaya baris lama tanpa field ini tetap aman.
   const pokokDiajukan =
     (row as { pokokDiajukan?: number }).pokokDiajukan ?? row.pokokPinjaman;
+  const rowWithOptional = row as LoanRowWithOptionalProps;
   const q = quotePinjaman({
     pokokPinjaman: row.pokokPinjaman,
-    persenBunga: row.persenBunga ?? undefined,
+    persenBunga: rowWithOptional?.persenBunga ?? undefined,
   });
   // Pinjaman dianggap sudah berpindah dana bila statusnya berjalan/lunas atau
   // sudah ada pendana tercatat — di situlah alokasi dana & jurnal ledger
@@ -209,119 +228,171 @@ export function LoanReviewDialog({
     }
   };
 
-  return (
-    <Dialog open onOpenChange={(open) => !open && onClose()}>
-      {/* Gerbang persetujuan dua kolom: viewer bukti di kiri, keputusan di
-          kanan. Lebar `max-w-6xl` memberi ruang nyata untuk penampil dokumen
-          ber-zoom tanpa membuat baris teks keputusan terlalu panjang. */}
-      <DialogContent className="max-h-[90dvh] overflow-y-auto p-4 sm:max-w-6xl sm:p-6">
-        <DialogHeader>
-          <div className="flex items-center justify-between gap-3">
-            <DialogTitle className="tabular-nums">
+  const lokasi = row.lokasiAjukan;
+  const petaHref = lokasi != null
+    ? `https://www.openstreetmap.org/?mlat=${lokasi.lat}&mlon=${lokasi.lng}#map=16/${lokasi.lat}/${lokasi.lng}`
+    : null;
+
+  // ── Header (fixed) ──────────────────────────────────────────────────────
+  const header = (
+    <div className="flex items-start justify-between gap-4 rounded-2xl border border-slate-200 bg-slate-50/80 p-4 sm:p-5">
+      <div className="min-w-0">
+        <div className="flex items-center gap-3">
+          <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-emerald-800 text-emerald-50 font-bold tracking-tight">
+            {row.pokokPinjaman.toString().slice(0, 2)}
+          </div>
+          <div className="min-w-0">
+            <DialogTitle className="text-base font-semibold text-slate-900 tabular-nums">
               Pokok pinjaman · {formatRupiah(row.pokokPinjaman)}
             </DialogTitle>
-            <StatusBadge status={row.status} kind="loan" />
+            <DialogDescription className="mt-0.5 text-xs text-muted-foreground tabular-nums">
+              Catatan pengajuan internal · {row.nomorReferensi} · {formatDate(row._creationTime)}
+            </DialogDescription>
           </div>
-          <DialogDescription className="tabular-nums">
-            Catatan pengajuan internal · {row.nomorReferensi} · {formatDate(row._creationTime)}
-          </DialogDescription>
-        </DialogHeader>
+        </div>
+      </div>
+      <div className="flex items-center gap-2 shrink-0">
+        {row.status !== "lunas" && (
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-8 text-xs text-slate-500"
+            onClick={onClose}
+          >
+            Tutup
+          </Button>
+        )}
+        <StatusBadge status={row.status} kind="loan" />
+      </div>
+    </div>
+  );
 
-        {/* ── SPLIT-SCREEN: kolom kiri = BUKTI (identitas + dokumen KTP/slip
-               dengan zoom), kolom kanan = DETAIL & TOMBOL KEPUTUSAN. Peninjau
-               mencocokkan dokumen dan menekan keputusan tanpa menggulir
-               bolak-balik. Pada layar sempit kedua kolom menumpuk. ── */}
-        <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
-          <div className="space-y-4">
-            {/* Data diri acuan nasabah (diisi admin / disunting nasabah) —
-                ditampilkan SEBELUM isian pengajuan agar peninjau bisa
-                membandingkan keduanya. KTP di dalamnya bisa diperbesar. */}
-            <PanelDataDiriNasabah userId={row.userIdPeminjam} />
+  // ── Tab 1: Detail & Dokumen ────────────────────────────────────────────
+  const tabDetail = (
+    <div className="grid gap-4 lg:grid-cols-2">
+      {/* Kolom kiri: data diri + KYC */}
+      <div className="space-y-4">
+        <PanelDataDiriNasabah userId={row.userIdPeminjam} />
+        <LoanKycPanel row={row} />
+      </div>
 
-            {/* KTP, selfie + KTP, dan slip gaji dalam penampil ber-zoom. */}
-            <LoanKycPanel row={row} />
+      {/* Kolom kanan: koordinat + ringkasan detail */}
+      <div className="space-y-4">
+        {/* Koordinat perangkat */}
+        {lokasi !== null && petaHref ? (
+          <div className="rounded-2xl border border-slate-200 bg-white p-4">
+            <p className="flex items-center gap-2 text-xs font-semibold text-navy">
+              <MapPin className="size-4 text-primary" />
+              Koordinat perangkat
+            </p>
+            <p className="mt-2 text-sm tabular-nums text-slate-700">
+              {lokasi.lat.toFixed(5)}, {lokasi.lng.toFixed(5)} · ±{Math.round(lokasi.akurasi)} m
+            </p>
+            <a
+              href={petaHref}
+              target="_blank"
+              rel="noreferrer"
+              className="mt-2 inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:underline"
+            >
+              <MapPin className="size-3.5" />
+              Buka di peta
+            </a>
           </div>
+        ) : (
+          <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50/60 p-4">
+            <p className="flex items-center gap-2 text-xs font-semibold text-navy">
+              <MapPin className="size-4 text-muted-foreground" />
+              Koordinat perangkat
+            </p>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Tidak ada (pengajuan sebelum fitur lokasi).
+            </p>
+          </div>
+        )}
 
-          <div className="space-y-4">
+        <Separator />
 
+        {/* Ringkasan detail peminjam */}
+        <div className="space-y-2 rounded-2xl border border-slate-200 bg-white p-4">
+          <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
+            Ringkasan pemohon
+          </p>
+          <dl className="grid gap-2 sm:grid-cols-2">
+            {[
+              ["Pemohon", namaHurufBesar(row.namaLengkap)],
+              ["Email", row.emailPeminjam ?? "—"],
+              ["Bank / e-wallet", row.namaBank ?? "Tidak dicatat (data lama)"],
+              ["Rekening / akun", row.nomorRekening ?? "—"],
+              ["Keperluan", loanPurposeLabel(row.tujuan)],
+              [
+                "Skema",
+                row.tenorBulan !== null
+                  ? `Bulanan — ${row.tenorBulan} bulan`
+                  : `Harian — ${row.tenorHari ?? 30} hari`,
+              ],
+              ["Catatan pemohon", row.catatanPeminjam ?? "—"],
+            ].map(([label, value]) => (
+              <div key={label} className="grid grid-cols-[minmax(0,140px)_1fr] gap-1 sm:gap-3 sm:items-start">
+                <dt className="min-w-0 text-xs leading-5 text-muted-foreground sm:text-sm truncate">{label}</dt>
+                <dd className="min-w-0 break-words text-right text-xs leading-5 text-slate-800 sm:text-sm truncate">{value}</dd>
+              </div>
+            ))}
+          </dl>
+        </div>
+
+        <EContractWidget kind="loan" loanId={row._id} />
+      </div>
+    </div>
+  );
+
+  // ── Tab 2: Aliran Uang & Pendana ───────────────────────────────────────
+  const tabAliran = (
+    <div className="grid gap-4 lg:grid-cols-2">
+      {/* Kolom kiri: matriks aliran uang */}
+      <div>
         <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-900">
           Nominal, tanggal acuan, alokasi, dan status lunas di panel ini mengikuti catatan ledger internal; perpindahan dana ditangani di luar aplikasi.
         </p>
 
-        {/* Aliran uang pinjaman ini — angka dari mesin uang yang sama dengan
-            akad dan ledger pelunasan, bukan hitungan tampilan. */}
         <AliranDanaPinjaman
           pokokPinjaman={row.pokokPinjaman}
           tenorBulan={row.tenorBulan}
           tenorHari={row.tenorHari}
-          persenBunga={row.persenBunga}
+          persenBunga={rowWithOptional.persenBunga}
           sudahLunas={row.status === "lunas"}
         />
 
-        <EContractWidget kind="loan" loanId={row._id} />
-
-        <dl className="divide-y divide-slate-200 rounded-2xl border border-slate-200 bg-white">
-          {[
-            ["Pemohon", namaHurufBesar(row.namaLengkap)],
-            ["Email", row.emailPeminjam ?? "—"],
-            ["Bank / e-wallet yang dicatat", row.namaBank ?? "Tidak dicatat (data lama)"],
-            ["Rekening / akun yang dicatat", row.nomorRekening],
-            ["Keperluan", loanPurposeLabel(row.tujuan)],
-            [
-              "Skema",
-              row.tenorBulan !== null
-                ? `Bulanan — ${row.tenorBulan} bulan`
-                : `Harian — ${row.tenorHari ?? 30} hari`,
-            ],
-            ["Catatan pemohon", row.catatanPeminjam ?? "—"],
-            ...(row.tenorBulan !== null
-              ? ([
-                  ["Uang muka (DP 0%)", formatRupiah(0)],
-                  ["Pokok pinjaman (dasar hitungan)", formatRupiah(row.pokokPinjaman)],
-                  [
-                    `Biaya ${row.tenorBulan === 3 || row.tenorBulan === 6 ? "admin" : "layanan"} (2% dari pokok, dipotong di muka; platform dihapus)`,
-                    formatRupiah(
-                      row.biayaLayananTotal ??
-                        Math.max(
-                          0,
-                          (row.totalKewajiban ?? 0) -
-                            row.pokokPinjaman -
-                            (row.imbalHasilTotal ?? 0),
-                        ),
-                    ),
-                  ],
-                  ["Bunga flat dari pokok penuh", formatRupiah(row.imbalHasilTotal ?? 0)],
-                  ["Cicilan per bulan (ilustrasi)", formatRupiah(row.cicilanPerBulan ?? 0)],
-                  ["Total pengembalian", formatRupiah(row.totalKewajiban ?? 0)],
-                ] as Array<[string, string]>)
-              : ([
-                  ["Biaya admin (2%)", formatRupiah(q.biayaAdmin)],
-                  ["Biaya platform (0% — dihapus)", formatRupiah(q.biayaPlatform)],
-                  ["Nilai bersih (98% dari pokok)", formatRupiah(q.danaBersihDitransfer)],
-                  ["Bunga (30%)", formatRupiah(q.bunga)],
-                  ["Total kewajiban (130%)", formatRupiah(q.totalKewajibanPelunasan)],
-                ] as Array<[string, string]>)),
-          ].map(([label, value]) => (
-            <div key={label} className="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-2 px-3 py-3 sm:gap-4 sm:px-4">
-              <dt className="min-w-0 text-xs leading-5 text-muted-foreground sm:text-sm">{label}</dt>
-              <dd className="min-w-0 break-words text-right text-xs leading-5 sm:text-sm">{value}</dd>
+        {/* Jadwal bayar (skema bulanan) atau ringkasan harian */}
+        {row.tenorBulan !== null && row.tenorBulan === 3 && (
+          <div className="mt-3 rounded-2xl border border-slate-200 bg-white p-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+              Rincian bulanan (3 bulan)
+            </p>
+            <div className="mt-3 grid grid-cols-[1fr_1fr] gap-x-4 gap-y-2 text-sm">
+              <span className="text-muted-foreground">Cicilan per bulan</span>
+              <span className="text-right font-semibold tabular-nums text-slate-800">
+                {formatRupiah(row.cicilanPerBulan ?? 0)}
+              </span>
+              <span className="text-muted-foreground">Biaya admin (2%/cicilan)</span>
+              <span className="text-right tabular-nums text-slate-800">
+                {formatRupiah(row.biayaLayananTotal ?? 0)}
+              </span>
             </div>
-          ))}
-        </dl>
+          </div>
+        )}
 
+        {/* Status jatuh tempo */}
         {row.status === "didanai" && row.jatuhTempoPada !== null && (
           <div
-            className={`rounded-lg border px-4 py-3 ${
+            className={`mt-3 rounded-xl border px-4 py-3 text-sm ${
               (row.hariTerlambat ?? 0) > 0
                 ? "border-destructive/40 bg-destructive/5"
                 : "border-slate-200 bg-slate-50"
             }`}
           >
             <p
-              className={`text-[11px] font-medium uppercase tracking-[0.18em] ${
-                (row.hariTerlambat ?? 0) > 0
-                  ? "text-destructive"
-                  : "text-muted-foreground"
+              className={`text-[11px] font-medium uppercase tracking-[0.16em] ${
+                (row.hariTerlambat ?? 0) > 0 ? "text-destructive" : "text-muted-foreground"
               }`}
             >
               {(row.hariTerlambat ?? 0) > 0
@@ -330,169 +401,50 @@ export function LoanReviewDialog({
                   ? "Tanggal acuan hari ini"
                   : `Tanggal acuan dalam ${row.sisaHari} hari`}
             </p>
-            <p className="mt-1 text-sm">
-              Tanggal acuan {formatDate(row.jatuhTempoPada)} · total dengan denda{" "}
-              <span className="font-semibold tabular-nums">
-                {formatRupiah(row.totalKewajibanDenganPenalti ?? 0)}
-              </span>
+            <p className="mt-1 text-xs tabular-nums text-slate-700">
+              Akumulasi terkaya (lunas) {formatRupiah(row.totalKewajibanDenganPenalti ?? row.totalKewajiban ?? 0)}
               {(row.dendaTerlambat ?? 0) > 0 && (
                 <span className="tabular-nums text-destructive">
                   {" "}
-                  (denda {formatRupiah(row.dendaTerlambat ?? 0)})
+                  · denda {formatRupiah(row.dendaTerlambat ?? 0)}
                 </span>
               )}
             </p>
           </div>
         )}
 
-        {row.status === "lunas" ? (
-          <p className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs leading-5 text-muted-foreground">
-            Pinjaman ini sudah <strong>lunas</strong> — posisinya ditutup dan statusnya tidak dapat
-            diubah lagi.
-          </p>
-        ) : (
-          <section className="space-y-3 rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
-                Ubah status pinjaman
-              </p>
-              <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                Perubahan status hanya mengubah catatan internal — tidak ada uang yang berpindah.
-                Peminjam otomatis menerima kabar lewat WhatsApp berisi status dan catatan di bawah
-                (kolom catatan boleh dikosongkan).
-              </p>
-            </div>
-
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div>
-                <Label htmlFor="status-tujuan" className="text-[11px] text-muted-foreground">
-                  Status baru
-                </Label>
-                <Select
-                  value={statusTujuan}
-                  onValueChange={(v) => setStatusTujuan(v as StatusPinjaman)}
-                >
-                  <SelectTrigger id="status-tujuan">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {STATUS_PINJAMAN.filter(
-                      (s) => keStatusTersimpan(s) !== row.status,
-                    ).map((s) => (
-                      <SelectItem key={s} value={s}>
-                        {LABEL_STATUS_PINJAMAN[s]}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {statusTujuan !== "ditolak" && !nominalTerkunci(row.status) && (
-                <div>
-                  <Label htmlFor="pokok-disetujui" className="text-[11px] text-muted-foreground">
-                    Nominal disetujui (Rp)
-                  </Label>
-                  <Input
-                    id="pokok-disetujui"
-                    type="number"
-                    inputMode="numeric"
-                    min={1}
-                    max={pokokDiajukan}
-                    step={50_000}
-                    placeholder={`Penuh: ${formatRupiah(pokokDiajukan)}`}
-                    value={nominal}
-                    onChange={(e) => setNominal(e.target.value)}
-                    disabled={busy !== null}
-                  />
-                  <p className="mt-1 text-[11px] leading-4 text-muted-foreground">
-                    Boleh lebih kecil dari pengajuan ({formatRupiah(pokokDiajukan)}), tidak boleh
-                    lebih besar. Kosongkan untuk menyetujui penuh.
-                  </p>
-                </div>
-              )}
-            </div>
-
-            {pratinjau !== undefined && pratinjau !== null && (
-              <div className="rounded-xl border border-emerald-200 bg-emerald-50/70 p-3">
-                <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-emerald-900">
-                  <Send className="size-3" aria-hidden /> Pratinjau WhatsApp
-                  {pratinjau.nomorWhatsApp === null && " — nomor belum ada di KYC"}
-                </p>
-                <p className="mt-1.5 text-xs leading-5 text-emerald-900">{pratinjau.isi}</p>
-              </div>
-            )}
-
-            {error && (
-              <p
-                role="alert"
-                aria-live="assertive"
-                aria-atomic="true"
-                className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive"
-              >
-                {error}
-              </p>
-            )}
-
-            <div className="flex flex-wrap gap-2">
-              <Button
-                disabled={busy !== null}
-                onClick={() =>
-                  run("status", () =>
-                    ubahStatus({
-                      loanId: row._id,
-                      status: statusTujuan,
-                      ...(statusTujuan !== "ditolak" && nominal.trim() !== ""
-                        ? { pokokDisetujui: Number(nominal) }
-                        : {}),
-                    }),
-                  )
-                }
-              >
-                {busy === "status" ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
-                Simpan status & kirim WhatsApp
-              </Button>
-              <Button
-                variant="outline"
-                className="gap-1.5"
-                disabled={busy !== null || pratinjau === undefined || pratinjau?.nomorWhatsApp === null}
-                onClick={() =>
-                  run("wa", () =>
-                    kirimStatus({ loanId: row._id, alasan: "", statusLama: row.status }),
-                  )
-                }
-              >
-                {busy === "wa" ? (
-                  <Loader2 className="size-4 animate-spin" />
-                ) : (
-                  <Send className="size-4" />
-                )}
-                Kirim ulang WhatsApp
-              </Button>
-            </div>
-          </section>
+        {row.status === "lunas" && (
+          <div className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50/70 px-4 py-3 text-sm text-emerald-900">
+            <p className="flex items-center gap-1.5">
+              <CheckCircle2 className="size-4" /> Pinjaman ini sudah <strong>lunas</strong>
+            </p>
+            <p className="mt-1 text-xs text-emerald-800">
+              Status ditutup; perubahan tidak dapat diubah lagi.
+            </p>
+          </div>
         )}
+      </div>
 
+      {/* Kolom kanan: pendana & alokasi */}
+      <div className="space-y-4">
         {row.status !== "lunas" && (
-          <section className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
-                Pendana & nominal disetujui
-              </p>
-              <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                Tetapkan pendana yang mendanai pinjaman ini sebelum menyetujui — namanya
-                langsung tampil di ruang pendana dan tercatat di Audit Trail. Untuk pinjaman
-                yang sudah disetujui, nominalnya juga dapat dikoreksi selama dana belum ditandai
-                tersalurkan.
-              </p>
-              <p className="mt-1 text-xs text-muted-foreground">
-                Pendana sekarang:{" "}
-                <span className="font-medium text-slate-700">
-                  {row.pendanaNama ?? "belum ada"}
-                </span>
-              </p>
-            </div>
+          <section className="rounded-2xl border border-slate-200 bg-white p-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
+              Pendana & nominal disetujui
+            </p>
+            <p className="mt-1 text-xs leading-5 text-muted-foreground">
+              Tetapkan pendana yang mendanai pinjaman ini sebelum menyetujui — namanya
+              langsung tampil di ruang pendana dan tercatat di Audit Trail. Untuk pinjaman
+              yang sudah disetujui, nominalnya juga dapat dikoreksi selama dana belum ditandai
+              tersalurkan.
+            </p>
+            <p className="mt-2 flex items-center gap-1.5 text-xs text-slate-700">
+              <Users className="size-3.5 text-primary" />
+              Pendana sekarang:{" "}
+              <span className="font-medium">{row.pendanaNama ?? "belum ada"}</span>
+            </p>
 
-            <div className="grid gap-3 sm:grid-cols-2">
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
               <div>
                 <Label htmlFor="pendana-pinjaman" className="text-[11px] text-muted-foreground">
                   Pendana
@@ -518,7 +470,7 @@ export function LoanReviewDialog({
                 <p className="mt-1 text-[11px] leading-4 text-muted-foreground">
                   {kandidatQ === undefined
                     ? "Memuat daftar pendana…"
-                    : (kandidatQ.rows.length === 0)
+                    : kandidatQ.rows.length === 0
                       ? "Belum ada akun yang pernah menjadi pendana. Beri akses di ruang pendana lebih dulu."
                       : "Daftar ini memuat semua akun yang pernah menjadi pendana, termasuk pendana lama."}
                 </p>
@@ -548,106 +500,217 @@ export function LoanReviewDialog({
               )}
             </div>
 
-            <Button disabled={busy !== null} onClick={() => void runPendana()}>
+            <Button disabled={busy !== null} onClick={() => void runPendana()} className="mt-3">
               {busy === "pendana" ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
               {diTahapTinjauan(row.status) ? "Simpan pendana & nominal" : "Simpan pendana"}
             </Button>
           </section>
         )}
+      </div>
+    </div>
+  );
 
-        {diTahapTinjauan(row.status) && (
-          <div className="space-y-2 rounded-2xl border border-emerald-200 bg-emerald-50/60 p-4">
-            <p className="text-xs leading-5 text-emerald-900">
-              Tandai dana tersalurkan agar tanggal acuan dan jadwal pelunasan aktif pada ledger internal. Pencairan/transfer tetap ditangani di luar aplikasi.
-            </p>
-            <Button
-              disabled={busy !== null}
-              onClick={() => run("fund", () => fund({ loanId: row._id }))}
-            >
-              {busy === "fund" ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
-              Tandai dana tersalurkan (ledger internal)
-            </Button>
+  // ── Tab 3: Perjanjian & WhatsApp ───────────────────────────────────────
+  const tabPerjanjian = (
+    <div className="space-y-4">
+      {/* Status dokumen perjanjian + ttd */}
+      <div className="rounded-2xl border border-slate-200 bg-white p-4">
+        <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
+          Status perjanjian
+        </p>
+        <div className="mt-3 flex flex-wrap items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4">
+          <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+            <FileText className="size-5" />
           </div>
-        )}
-
-        <div className="space-y-2 border-t border-slate-200 pt-4">
-          <p className="text-xs font-medium text-slate-700">
-            Hapus data salah input — penghapusan tetap tercatat di Audit Trail.
-          </p>
-          {/* Centang konfirmasi SELALU tersedia — bukan hanya saat baris sudah
-              tampak berpindah dana. Penghapusan bisa ditolak server karena
-              alokasi/jurnal yang tidak terbaca dari baris ringkas ini, dan admin
-              harus tetap punya jalan keluar di tempat yang sama dengan tombol
-              hapus (bukan menggulir mencari opsi yang tersembunyi). */}
-          <div
-            className={
-              sudahBerpindahDana
-                ? "flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 px-3 py-2"
-                : "flex items-start gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2"
-            }
-          >
-            <Checkbox
-              id="hapus-menyeluruh"
-              checked={hapusMenyeluruh}
-              onCheckedChange={(nilai) => setHapusMenyeluruh(nilai === true)}
-              className="mt-0.5"
-            />
-            <div className="min-w-0">
-              <Label
-                htmlFor="hapus-menyeluruh"
-                className={
-                  sudahBerpindahDana
-                    ? "text-xs font-semibold text-red-900"
-                    : "text-xs font-semibold text-slate-900"
-                }
-              >
-                Hapus menyeluruh (pinjaman sudah berpindah dana)
-              </Label>
-              <p
-                className={
-                  sudahBerpindahDana
-                    ? "mt-1 text-[11px] leading-5 text-red-800"
-                    : "mt-1 text-[11px] leading-5 text-muted-foreground"
-                }
-              >
-                {sudahBerpindahDana
-                  ? "Pinjaman ini sudah berpindah dana (punya alokasi dana dan/atau jurnal ledger). "
-                  : "Butuh hanya bila server menolak dengan pesan \"memiliki alokasi atau jurnal\". "}
-                Dengan centang ini, alokasi dana, catatan transfer, dan bukti bayar ikut
-                dihapus, sedangkan jurnal ledger <strong>tetap utuh</strong> sebagai riwayat
-                keuangan. Tanpa centang, penghapusan ditolak server.
-              </p>
-            </div>
-          </div>
-          <p className="text-xs leading-5 text-muted-foreground">
-            Pengajuan yang belum berpindah dana — termasuk yang sudah disetujui — dapat
-            dihapus. Penghapusan ditolak bila pinjaman sudah punya alokasi dana atau jurnal
-            ledger, kecuali Anda mencentang <strong>Hapus menyeluruh</strong>. Catatan Audit Trail
-            tetap disimpan.
-          </p>
-          {errorHapus && (
-            <p
-              role="alert"
-              aria-live="assertive"
-              aria-atomic="true"
-              className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive"
-            >
-              {errorHapus}
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-slate-900">Dokumen perjanjian</p>
+            <p className="mt-1 text-xs leading-5 text-muted-foreground">
+              Kontrak digital tersedia di ruang persetujuan. Admin dapat membuka widget kontrak
+              dari panel ini untuk melihat isi dokumen yang disepakati.
             </p>
-          )}
-          <Button variant="destructive" disabled={busy !== null} onClick={() => void runDelete()}>
-            {busy === "delete" ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Trash2 className="mr-2 size-4" />}
-            {hapusMenyeluruh ? "Hapus pinjaman & alokasi dana" : "Hapus pinjaman"}
-          </Button>
+          </div>
         </div>
-
-            {row.catatanReview && (
-              <div className="rounded-md border border-slate-200 bg-slate-50 px-4 py-3">
-                <p className="text-xs font-medium text-muted-foreground">Catatan keputusan</p>
-                <p className="mt-1 text-sm">{row.catatanReview}</p>
+        <div className="mt-4 grid grid-cols-2 gap-3">
+          {[
+            { label: "Tanda tangan peminjam", value: (row as { tandaTanganPeminjam?: string }).tandaTanganPeminjam ? "Ada" : "Belum ada", icon: FileCheck },
+            { label: "Status persetujuan", value: (row as { persetujuanSyarat?: boolean }).persetujuanSyarat ? "Tersetujui" : "Belum", icon: ShieldCheck },
+          ].map((item) => (
+            <div key={item.label} className="rounded-xl border border-slate-200 bg-white p-3">
+              <div className="flex items-center gap-2">
+                <item.icon className="size-4 text-slate-400" />
+                <span className="text-xs font-medium text-slate-500">{item.label}</span>
               </div>
+              <p className="mt-1 text-sm font-semibold text-slate-800">{item.value}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Pratinjau WhatsApp */}
+      {pratinjau !== undefined && pratinjau !== null && (
+        <div className="rounded-2xl border border-emerald-200 bg-emerald-50/80 p-4">
+          <div className="flex items-center justify-between gap-2">
+            <p className="flex items-center gap-2 text-sm font-semibold text-emerald-900">
+              <MessageCircle className="size-4" />
+              Pratinjau pesan WhatsApp
+            </p>
+            {pratinjau.nomorWhatsApp === null && (
+              <span className="text-xs font-medium text-amber-700">nomor belum ada di KYC</span>
             )}
           </div>
+          <div className="mt-3 overflow-hidden rounded-xl bg-white p-3 text-xs leading-5 text-emerald-900 shadow-sm">
+            <p className="whitespace-pre-line">{pratinjau.isi}</p>
+          </div>
+        </div>
+      )}
+
+      {/* Draft WhatsApp (admin bisa mengedit catatan sebelum dikirim) */}
+      {row.status !== "lunas" && (
+        <div className="rounded-2xl border border-slate-200 bg-white p-4">
+          <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
+            Draft pesan WhatsApp
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Pesan yang dikirim otomatis ke peminjam sesuai status pinjaman. Admin dapat
+            mengirim ulang jika diperlukan.
+          </p>
+
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Button
+              disabled={busy !== null || pratinjau === undefined || pratinjau?.nomorWhatsApp === null}
+              variant="outline"
+              className="gap-1.5"
+              onClick={() =>
+                run("wa", () =>
+                  kirimStatus({ loanId: row._id, alasan: "", statusLama: row.status }),
+                )
+              }
+            >
+              {busy === "wa" ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <Send className="size-4" />
+              )}
+              Kirim ulang WhatsApp
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Widget kontrak */}
+      <EContractWidget kind="loan" loanId={row._id} />
+    </div>
+  );
+
+  // ── Footer aksi (sticky) ───────────────────────────────────────────────
+  const footerAksi = (
+    <div className="sticky bottom-0 z-10 flex flex-wrap gap-3 border-t border-slate-200 bg-white/90 px-4 py-3 backdrop-blur shadow-sm sm:px-5">
+      {row.status === "lunas" ? (
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <CheckCircle2 className="size-4 text-emerald-600" />
+          Pinjaman ini sudah lunas — tidak ada tindakan yang tersedia.
+        </div>
+      ) : (
+        <>
+          <Button
+            disabled={busy !== null}
+            onClick={() =>
+              run("status", () =>
+                ubahStatus({
+                  loanId: row._id,
+                  status: statusTujuan,
+                  ...(statusTujuan !== "ditolak" && nominal.trim() !== ""
+                    ? { pokokDisetujui: Number(nominal) }
+                    : {}),
+                }),
+              )
+            }
+            className="flex-1 sm:flex-none"
+          >
+            {busy === "status" ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
+            Simpan status & kirim WA
+          </Button>
+
+          {row.status !== "didanai" && (
+            <Button
+              disabled={busy !== null}
+              variant="outline"
+              onClick={() => run("fund", () => fund({ loanId: row._id }))}
+              className="flex-1 sm:flex-none"
+            >
+              {busy === "fund" ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
+              Tandai tersalurkan
+            </Button>
+          )}
+
+          <div className="flex grow items-end justify-end gap-2 sm:gap-3">
+            {/* Danger Zone */}
+            <div className="ml-auto flex items-center gap-2">
+              <Button variant="destructive" disabled={busy !== null} onClick={runDelete} className="gap-1.5">
+                {busy === "delete" ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  <Trash2 className="size-4" />
+                )}
+                Hapus
+              </Button>
+              {sudahBerpindahDana && (
+                <label className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50/70 px-3 py-1.5 text-xs cursor-pointer hover:bg-red-100 transition-colors">
+                  <Checkbox
+                    id="hapus-menyeluruh-footer"
+                    checked={hapusMenyeluruh}
+                    onCheckedChange={(nilai) => setHapusMenyeluruh(nilai === true)}
+                    className="shrink-0"
+                  />
+                  <span className="text-red-800 font-medium">Hapus menyeluruh</span>
+                </label>
+              )}
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+
+  return (
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="max-h-[90dvh] overflow-y-auto p-0 sm:p-0">
+        <div className="flex flex-col gap-4">
+          {/* Header fixed */}
+          {header}
+
+          {/* Tabs */}
+          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as typeof activeTab)}>
+            <TabsList className="w-full justify-start rounded-xl border border-slate-200 bg-white p-1.5 shadow-sm">
+              <TabsTrigger value="detail" className="gap-2 text-sm">
+                <FileText className="size-4" />
+                Detail & Dokumen
+              </TabsTrigger>
+              <TabsTrigger value="aliran" className="gap-2 text-sm">
+                <Wallet className="size-4" />
+                Aliran Uang & Pendana
+              </TabsTrigger>
+              <TabsTrigger value="perjanjian" className="gap-2 text-sm">
+                <FileCheck className="size-4" />
+                Perjanjian & WhatsApp
+              </TabsTrigger>
+            </TabsList>
+
+            <div className="min-h-0">
+              <TabsContent value="detail" className="mt-4">
+                {tabDetail}
+              </TabsContent>
+              <TabsContent value="aliran" className="mt-4">
+                {tabAliran}
+              </TabsContent>
+              <TabsContent value="perjanjian" className="mt-4">
+                {tabPerjanjian}
+              </TabsContent>
+            </div>
+          </Tabs>
+
+          {/* Footer aksi sticky */}
+          {footerAksi}
         </div>
       </DialogContent>
     </Dialog>

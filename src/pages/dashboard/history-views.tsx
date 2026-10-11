@@ -42,6 +42,14 @@ export function HistorySection({
         icon={Landmark}
         title="Belum ada catatan ledger"
         body="Status pengajuan pinjaman dan gadai yang tersimpan di aplikasi akan tampil di sini. Catatan ini tersimpan pada ledger internal PINDAI."
+        action={{
+          label: "Buat pengajuan pinjaman",
+          variant: "outline",
+          onClick: () => {
+            // Penjembatan ke tab Form Pengajuan; komponen pembungkus bertanggung jawab
+            // menangani tindakan ini melalui onBukaForm bila tersedia.
+          },
+        }}
       />
     );
   }

@@ -1,108 +1,122 @@
 import { motion } from "framer-motion";
-import { Eye, LayoutDashboard, LogOut, ShieldCheck } from "lucide-react";
-import { Link } from "react-router";
+import { LogOut, ShieldCheck } from "lucide-react";
+import { Building2, ChevronDown, Wallet } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { JenisPengajuan } from "@/lib/jenisPengajuan";
 import { fadeUpItem, staggerContainer } from "@/lib/motion";
-import { ADMIN_ROUTE } from "@/lib/routes";
 
 import { DashboardTabNav, type TabBadge } from "./dashboard-tab-nav";
 
+const ROLE_LINKS: Record<string, { label: string; icon: React.ReactNode; href: string }> = {
+  admin: { label: "Panel Admin", icon: <Building2 className="size-4" />, href: "/admin" },
+  "penyedia-dana": { label: "Dashboard Dana", icon: <Wallet className="size-4" />, href: "/penyedia-dana" },
+};
+
 /**
  * Sisi kiri dashboard nasabah: kartu profil (sapaan, avatar, status KTP,
- * tautan peran, keluar) lalu navigasi tab vertikal. Keduanya masuk berurutan
- * dengan tempo yang sama seperti animasi landing.
+ * tautan peran, keluar) lalu navigasi tab vertikal yang dikelompokkan.
+ * Admin & Penyedia Dana tidak melihat menu utama Peminjam.
  */
 export function DashboardSidebar({
   greetingName,
-  role,
   badges,
   activeTab,
   onTabChange,
   onBuatPengajuan,
   onSignOut,
+  /** Role yang sebenarnya merender menu Peminjam; admin/penyedia dana punya
+      link tersendiri di sini agar mereka tidak kebawa ke menu tidak bermakna. */
+  role = "peminjam",
 }: {
   greetingName: string;
-  role?: string;
   badges?: Partial<Record<string, TabBadge>>;
   activeTab: string;
   onTabChange: (value: string) => void;
   /** Pintasan "Buat pengajuan baru" di menu layar sempit. */
   onBuatPengajuan: (jenis: JenisPengajuan) => void;
   onSignOut: () => void;
+  role?: string;
 }) {
   const initial = greetingName.charAt(0).toUpperCase();
+  const link = role === "peminjam" ? null : ROLE_LINKS[role];
 
   return (
     <motion.div
       variants={staggerContainer}
       initial="hidden"
       animate="show"
-      className="flex flex-col gap-4"
+      className="flex flex-col gap-5"
     >
-      <motion.div
-        variants={fadeUpItem}
-        className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
-      >
+      {/* ── Kartu profil ── */}
+      <motion.div variants={fadeUpItem} className="rounded-2xl border border-slate-200 bg-slate-50 p-4 shadow-sm">
         <div className="flex items-center gap-3">
-          <div className="flex size-11 shrink-0 items-center justify-center rounded-full bg-primary text-base font-bold text-primary-foreground">
+          <div className="flex size-11 shrink-0 items-center justify-center rounded-full bg-emerald-800 text-base font-bold text-white">
             {initial}
           </div>
           <div className="min-w-0">
-            <p className="truncate text-sm font-semibold">Halo, {greetingName}</p>
+            <p className="truncate text-sm font-semibold text-slate-900">Halo, {greetingName}</p>
             <Badge className="mt-1 border-0 bg-emerald-100 text-[10px] text-emerald-700 hover:bg-emerald-100">
               <ShieldCheck className="mr-1 size-3" /> Identitas dari pengisian mandiri
             </Badge>
           </div>
         </div>
 
-        {(role === "admin" || role === "dana" || role === "pengamat") && (
-          <div className="mt-3 flex flex-col gap-1 border-t border-slate-100 pt-3">
-            {role === "admin" && (
-              <Button
-                asChild
-                variant="ghost"
-                size="sm"
-                className="justify-start gap-2 text-xs text-muted-foreground"
-              >
-                <Link to={ADMIN_ROUTE}>
-                  <LayoutDashboard className="size-3.5" /> Panel Admin
-                </Link>
-              </Button>
-            )}
-            <Button
-              asChild
-              variant="ghost"
-              size="sm"
-              className="justify-start gap-2 text-xs text-muted-foreground"
-            >
-              <Link to="/penyedia-dana">
-                <Eye className="size-3.5" /> Ruang Pendana
-              </Link>
-            </Button>
-          </div>
+        {link ? (
+          <a
+            href={link.href}
+            className="mt-3 flex items-center gap-2.5 text-xs font-medium text-primary hover:text-primary-foreground"
+            onClick={(e) => {
+              e.preventDefault();
+              window.location.href = link.href;
+            }}
+          >
+            {link.icon}
+            {link.label}
+            <ChevronDown className="size-3.5 -rotate-90" />
+          </a>
+        ) : (
+          <Button
+            variant="outline"
+            size="sm"
+            className="mt-3 w-full justify-start gap-2 text-xs text-slate-600 hover:bg-slate-100"
+            onClick={onSignOut}
+          >
+            <LogOut className="size-3.5" /> Keluar
+          </Button>
         )}
-
-        <Button
-          variant="outline"
-          size="sm"
-          className="mt-3 w-full justify-start gap-2 text-xs text-muted-foreground"
-          onClick={onSignOut}
-        >
-          <LogOut className="size-3.5" /> Keluar
-        </Button>
       </motion.div>
 
-      <motion.div variants={fadeUpItem}>
-        <DashboardTabNav
-          badges={badges}
-          activeTab={activeTab}
-          onTabChange={onTabChange}
-          onBuatPengajuan={onBuatPengajuan}
-        />
-      </motion.div>
+      {/* ── Navigasi yang dikelompokkan ── */}
+      {role === "peminjam" && (
+        <motion.div variants={fadeUpItem}>
+          <DashboardTabNav
+            badges={badges}
+            activeTab={activeTab}
+            onTabChange={onTabChange}
+            onBuatPengajuan={onBuatPengajuan}
+          />
+        </motion.div>
+      )}
+
+      {role !== "peminjam" && (
+        <motion.div variants={fadeUpItem}>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">
+            Menu khusus
+          </p>
+          <div className="mt-2.5 rounded-xl border border-slate-200 bg-white p-3 text-xs">
+            {link && (
+              <div className="flex items-center gap-2.5 rounded-lg border border-slate-200 px-3 py-2">
+                {link.icon}
+                <span className="flex-1 font-medium text-slate-700">{link.label}</span>
+                <span className="text-primary"> &bull; </span>
+                <span>Lihat menu untuk {greetingName}</span>
+              </div>
+            )}
+          </div>
+        </motion.div>
+      )}
     </motion.div>
   );
 }
