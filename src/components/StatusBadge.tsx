@@ -19,13 +19,14 @@ import { diTahapTinjauan } from "@/lib/statusPinjaman";
  *   dikenali), bukan dipaksa masuk kategori yang salah.
  *
  * Warnanya pil lembut bergaris tipis (bukan isian pejal): badge muncul puluhan
- * kali per layar, jadi harus mudah dibaca tanpa berteriak.
+ * kali per layar, jadi harus mudah dibaca tanpa berteriak. Nadanya soft-tint
+ * kontras tinggi — latar sangat muda, huruf pekat, dan tepi tipis senada.
  */
-const PIL = "inline-flex items-center rounded-full border px-3 py-1 text-[11px] font-semibold";
-const HIJAU = "border-emerald-300 bg-emerald-100 text-emerald-800";
-const KUNING = "border-amber-300 bg-amber-100 text-amber-800";
-const MERAH = "border-rose-300 bg-rose-100 text-rose-800";
-const ABU = "border-slate-300 bg-slate-100 text-slate-700";
+const PIL = "inline-flex items-center rounded-md border px-2.5 py-1 text-[11px] font-semibold";
+const HIJAU = "border-emerald-200 bg-emerald-50 text-emerald-800";
+const KUNING = "border-amber-200 bg-amber-50 text-amber-900";
+const MERAH = "border-rose-200 bg-rose-50 text-rose-800";
+const ABU = "border-slate-200 bg-slate-100 text-slate-800";
 
 /** Status gadai yang berarti "berjalan atau sudah selesai" → hijau. */
 const PAWN_HIJAU = new Set(["aktif", "lunas_dilepas"]);

@@ -78,8 +78,15 @@ export function KartuPendana({
   rincianPerkiraan,
   namaTampil,
   onPilih,
+  aktif = false,
 }: {
   r: RekapPendana;
+  /**
+   * Kartu ini sedang menyaring tabel di bawahnya. Ditandai cincin hijau +
+   * latar hijau sangat tipis supaya pendana yang dipilih sekali klik langsung
+   * terbaca — dan bisa dilepas dengan klik ulang.
+   */
+  aktif?: boolean;
   /**
    * Klik kartu → saring tabel transaksi ke pendana ini (opsional).
    *
@@ -109,11 +116,16 @@ export function KartuPendana({
   const bisaDiklik = onPilih !== undefined;
   return (
     <div
-      className={`rounded-2xl border border-slate-200/80 border-t-2 border-t-emerald-500/60 bg-white p-4 shadow-sm transition-all hover:shadow-md ${
+      className={`rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition-all hover:shadow-md ${
+        aktif
+          ? "border-emerald-300 bg-emerald-50/20 ring-2 ring-emerald-600"
+          : ""
+      } ${
         bisaDiklik
-          ? "cursor-pointer hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+          ? "cursor-pointer hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2"
           : ""
       }`}
+      {...(aktif ? { "aria-pressed": true } : {})}
       {...(bisaDiklik
         ? {
             role: "button" as const,

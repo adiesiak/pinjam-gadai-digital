@@ -57,7 +57,7 @@ export function DanaTersalurkanPendana({
               className="mt-1.5 h-3 w-full overflow-hidden rounded-full bg-slate-100 ring-1 ring-slate-200/70 ring-inset"
             >
               <span
-                className="block h-full rounded-full bg-gradient-to-r from-blue-600 to-indigo-500"
+                className="block h-full rounded-full bg-emerald-600"
                 style={{ width: `${b.persen}%` }}
               />
             </div>

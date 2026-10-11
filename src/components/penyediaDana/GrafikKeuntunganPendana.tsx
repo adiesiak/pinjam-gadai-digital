@@ -64,11 +64,11 @@ export function GrafikKeuntunganPendana({
               className="mt-1.5 flex h-3 w-full overflow-hidden rounded-full bg-slate-100"
             >
               <span
-                className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-teal-400"
+                className="h-full rounded-full bg-emerald-600"
                 style={{ width: `${b.persenSudahCair}%` }}
               />
               <span
-                className="h-full rounded-full bg-gradient-to-r from-amber-400 to-orange-400"
+                className="h-full rounded-full bg-amber-400"
                 style={{ width: `${b.persenPerkiraan}%` }}
               />
             </div>

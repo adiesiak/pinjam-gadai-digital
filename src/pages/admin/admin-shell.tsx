@@ -176,7 +176,7 @@ export function AdminHeader({
             className={
               killConfirm
                 ? "rounded-full border border-red-500/60 bg-red-50 text-red-700 hover:bg-red-100 hover:text-red-800"
-                : "rounded-full border border-red-500/30 bg-transparent text-red-600 hover:bg-red-50 hover:text-red-700"
+                : "rounded-full border border-red-300 bg-transparent text-red-600 hover:bg-red-50 hover:text-red-700"
             }
             disabled={killBusy || !ready}
             onClick={onToggleKill}
@@ -238,7 +238,7 @@ export function AdminStats({ stats }: { stats: AdminStatsData }) {
     >
       <motion.div
         variants={fadeUpItem}
-        className="group rounded-xl border border-slate-200/80 bg-white p-3 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md min-[380px]:rounded-2xl min-[380px]:p-4 sm:p-5"
+        className="group rounded-xl border border-slate-200/80 border-l-4 border-l-emerald-700 bg-white p-3 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md min-[380px]:rounded-2xl min-[380px]:p-4 sm:p-5"
       >
         <Tabs
           value={headlineTab}
@@ -279,7 +279,7 @@ export function AdminStats({ stats }: { stats: AdminStatsData }) {
         <motion.div
           key={label}
           variants={fadeUpItem}
-          className="group rounded-xl border border-slate-200/80 bg-white p-3 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md min-[380px]:rounded-2xl min-[380px]:p-4 sm:p-5"
+          className="group rounded-xl border border-slate-200/80 border-l-4 border-l-emerald-700 bg-white p-3 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md min-[380px]:rounded-2xl min-[380px]:p-4 sm:p-5"
         >
           <div className="flex items-start justify-between gap-2">
             <p className="text-xs font-medium leading-5 text-muted-foreground">{label}</p>
