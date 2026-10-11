@@ -30,6 +30,7 @@ import { toast } from "sonner";
 import { StatusKycBadge } from "@/components/StatusKycBadge";
 import { WatermarkedDoc } from "@/components/WatermarkedDoc";
 import { UnggahDokumen, type DokumenTerunggah } from "@/components/admin/pengajuan-manual/UnggahDokumen";
+import { KameraLive } from "@/components/kyc/KameraLive";
 import { PindaiKtpOcr } from "@/components/kyc/PindaiKtpOcr";
 import type { DataKtp } from "@/lib/kycOcr";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -96,7 +97,15 @@ import {
   RINGKASAN_PERSETUJUAN_KYC,
   VERSI_PERSETUJUAN_KYC,
 } from "@/lib/persetujuanKyc";
+import {
+  bersihkanIsian,
+  ringkasPemulihan,
+  type IsianDraftKyc,
+  type KunciDraftKyc,
+} from "@/lib/draftKyc";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/hooks/use-auth";
+import { useDraftKyc } from "@/hooks/useDraftKyc";
 import { useMobileLifecycle } from "@/hooks/useMobileLifecycle";
 import {
   simpanStempelOtp,
@@ -182,7 +191,172 @@ const IKON_TAHAP: Record<IdTahapKyc, typeof IdCard> = {
 };
 
 /**
- * Daftar tahap: rel vertikal di layar lebar, chip bergulir di layar sempit.
+ * Jeda tombol "Kirim kode" sebelum boleh ditekan lagi (detik) — ketentuan
+ * produk. Server punya pembatas sendiri yang lebih panjang, jadi hitung mundur
+ * ini adalah lapisan UX, bukan pengganti penjagaan di server.
+ */
+const DETIK_UBAH_KIRIM_ULANG_OTP = 30;
+
+/* ==========================================================================
+ * STEPPER TIGA STAGE (bagian tampilan MURNI)
+ * ========================================================================== */
+
+/**
+ * Peta 7 langkah KYC ke 3 stage besar.
+ *
+ * Kenapa dipetakan, bukan mengganti `TAHAPAN_KYC`: urutan, syarat, dan transisi
+ * status tetap milik `lib/kycTahapan.ts` & `lib/kycStatus.ts`. Peta ini HANYA
+ * lapisan navigasi di atasnya, sehingga mengubah tampilan tidak bisa mengubah
+ * aturan pengajuan.
+ *
+ * Urutannya sengaja mengikuti alur data: kontak & OTP lebih dulu (petugas butuh
+ * nomor aktif), lalu identitas visual (KTP + selfie), terakhir rekening &
+ * finansial sebagai data pencairan.
+ */
+export const STAGE_KYC: ReadonlyArray<{
+  nomor: 1 | 2 | 3;
+  judul: string;
+  ringkas: string;
+  tahap: readonly IdTahapKyc[];
+}> = [
+  {
+    nomor: 1,
+    judul: "Kontak & OTP",
+    ringkas: "Persetujuan pemrosesan data, identitas, dan nomor WhatsApp aktif.",
+    tahap: ["persetujuan", "identitas", "whatsapp"],
+  },
+  {
+    nomor: 2,
+    judul: "Live KTP & Selfie",
+    ringkas: "Foto KTP dan selfie diambil langsung dari kamera aplikasi.",
+    tahap: ["ktp", "selfie"],
+  },
+  {
+    nomor: 3,
+    judul: "Rekening & Finansial",
+    ringkas: "Alamat, pekerjaan, penghasilan, dan rekening pencairan.",
+    tahap: ["alamat", "pendukung"],
+  },
+];
+
+/** Stage yang memuat sebuah langkah (1–3); dipakai menentukan posisi & navigasi. */
+export function stageUntukTahap(id: IdTahapKyc): 1 | 2 | 3 {
+  const stage = STAGE_KYC.find((s) => s.tahap.includes(id));
+  return stage?.nomor ?? 1;
+}
+
+/** Semua langkah dalam satu stage, sesuai urutan `STAGE_KYC`. */
+export function tahapStage(nomor: 1 | 2 | 3): readonly IdTahapKyc[] {
+  return STAGE_KYC.find((s) => s.nomor === nomor)?.tahap ?? [];
+}
+
+/**
+ * Bilah progres 3 stage di atas wizard — menggantikan daftar 7 langkah
+ * memanjang sebagai navigasi utama.
+ *
+ * Status tiap stage diringkas dari langkah-langkah di dalamnya: "lengkap" hanya
+ * bila SELURUH langkahnya lengkap; "perlu-diperbaiki" bila ada langkah yang
+ * ditandai petugas; selebihnya "belum". Ringkasan ini sengaja dihitung dari
+ * data yang sama dengan daftar detail, jadi dua tempat tidak bisa berbeda arti.
+ */
+export function KycStepperTigaTahap({
+  aktif,
+  statusPerTahap,
+  onPilih,
+  terkunci,
+}: {
+  aktif: IdTahapKyc;
+  statusPerTahap: Record<IdTahapKyc, StatusTahapKyc>;
+  /** Dipanggil dengan langkah PERTAMA stage yang dipilih. */
+  onPilih: (id: IdTahapKyc) => void;
+  /** true selama persetujuan belum tercatat (hanya stage 1 yang boleh dibuka). */
+  terkunci: boolean;
+}) {
+  const stageAktif = stageUntukTahap(aktif);
+  return (
+    <nav aria-label="Tahapan verifikasi KYC" className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
+      <ol className="flex flex-col gap-2 sm:flex-row sm:items-stretch">
+        {STAGE_KYC.map((stage) => {
+          const statusLangkah = stage.tahap.map((id) => statusPerTahap[id]);
+          const ringkas: StatusTahapKyc = statusLangkah.includes("perlu-diperbaiki")
+            ? "perlu-diperbaiki"
+            : statusLangkah.every((s) => s === "lengkap")
+              ? "lengkap"
+              : "belum";
+          const iniAktif = stage.nomor === stageAktif;
+          const bolehDibuka = !terkunci || stage.nomor === 1;
+          const selesai = statusLangkah.filter((s) => s === "lengkap").length;
+          return (
+            <li key={stage.nomor} className="min-w-0 flex-1">
+              <button
+                type="button"
+                onClick={() => {
+                  const pertama = stage.tahap[0];
+                  if (pertama !== undefined) onPilih(pertama);
+                }}
+                disabled={!bolehDibuka}
+                aria-current={iniAktif ? "step" : undefined}
+                className={cn(
+                  "flex h-full w-full items-start gap-2.5 rounded-xl border px-3 py-2.5 text-left transition-colors",
+                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 focus-visible:ring-offset-2",
+                  iniAktif
+                    ? "border-emerald-300 bg-emerald-50"
+                    : "border-slate-200 bg-white hover:bg-slate-50",
+                  !bolehDibuka && "cursor-not-allowed opacity-60",
+                )}
+              >
+                <span
+                  className={cn(
+                    "flex size-7 shrink-0 items-center justify-center rounded-lg text-[11px] font-semibold",
+                    ringkas === "lengkap"
+                      ? "bg-emerald-800 text-white"
+                      : iniAktif
+                        ? "bg-emerald-100 text-emerald-900"
+                        : "bg-slate-100 text-slate-500",
+                  )}
+                  aria-hidden
+                >
+                  {ringkas === "lengkap" ? <CheckCircle2 className="size-4" /> : stage.nomor}
+                </span>
+                <span className="min-w-0 flex-1">
+                  {/* Satu string, bukan beberapa node teks: label stage harus
+                      terbaca utuh (termasuk oleh pembaca layar) sebagai
+                      "Stage 1: Kontak & OTP". */}
+                  <span className="block text-xs font-semibold text-slate-900">
+                    {`Stage ${stage.nomor}: ${stage.judul}`}
+                  </span>
+                  <span className="mt-0.5 block text-[10px] leading-4 text-slate-500">
+                    {ringkas === "lengkap"
+                      ? `Selesai (${selesai}/${stage.tahap.length} langkah)`
+                      : ringkas === "perlu-diperbaiki"
+                        ? "Perlu perbaikan dari petugas"
+                        : `${selesai}/${stage.tahap.length} langkah siap`}
+                  </span>
+                  {iniAktif && (
+                    <span className="mt-1 block text-[10px] leading-4 text-emerald-900">
+                      {stage.ringkas}
+                    </span>
+                  )}
+                </span>
+                {!bolehDibuka && <Lock className="size-3.5 shrink-0 text-slate-400" aria-hidden />}
+              </button>
+            </li>
+          );
+        })}
+      </ol>
+    </nav>
+  );
+}
+
+/**
+ * Daftar tahap DALAM satu stage: rel vertikal di layar lebar, chip bergulir di
+ * layar sempit.
+ *
+ * Daftar ini sengaja disaring per stage (`saring`): navigasi utama sekarang ada
+ * di bilah 3 stage di atas, jadi 7 langkah tidak lagi tampil memanjang sekaligus
+ * — yang terlihat hanya langkah-langkah stage yang sedang dibuka. Nomor langkah
+ * diambil dari posisinya di `TAHAPAN_KYC`, bukan dari posisi tampil, supaya
+ * penomoran tidak berubah hanya karena penyaringan.
  *
  * Status tiap tahap ditampilkan sebagai teks (bukan hanya warna), dan tahap aktif
  * memakai `aria-current="step"` supaya pembaca layar tahu posisinya.
@@ -192,17 +366,23 @@ export function KycDaftarTahap({
   statusPerTahap,
   onPilih,
   terkunci,
+  saring,
 }: {
   aktif: IdTahapKyc;
   statusPerTahap: Record<IdTahapKyc, StatusTahapKyc>;
   onPilih: (id: IdTahapKyc) => void;
   /** true bila tahap ini belum boleh dibuka (persetujuan belum tercatat). */
   terkunci: boolean;
+  /** Bila diisi, hanya langkah dalam daftar ini yang ditampilkan. */
+  saring?: readonly IdTahapKyc[];
 }) {
+  const daftar =
+    saring === undefined ? TAHAPAN_KYC : TAHAPAN_KYC.filter((t) => saring.includes(t.id));
   return (
     <nav aria-label="Tahapan pengisian KYC" className="lg:sticky lg:top-6">
       <ol className="flex gap-2 overflow-x-auto pb-1 lg:flex-col lg:gap-1.5 lg:overflow-visible lg:pb-0">
-        {TAHAPAN_KYC.map((tahap, urutan) => {
+        {daftar.map((tahap) => {
+          const urutan = TAHAPAN_KYC.indexOf(tahap);
           const status = statusPerTahap[tahap.id];
           const iniAktif = tahap.id === aktif;
           const Ikon = IKON_TAHAP[tahap.id];
@@ -571,6 +751,36 @@ export function KycSection() {
   const [otpBusy, setOtpBusy] = useState(false);
   const [otpResumeStatus, setOtpResumeStatus] = useState<string | null>(null);
   const [restoredNote, setRestoredNote] = useState<string | null>(null);
+  /** Sisa detik sebelum tombol "Kirim kode" boleh ditekan lagi (30 detik). */
+  const [detikUlangOtp, setDetikUlangOtp] = useState(0);
+  /** Slot yang sedang dibuka di kamera live; `null` = tidak ada kamera aktif. */
+  const [kameraSlot, setKameraSlot] = useState<SlotBerkasUi | null>(null);
+  /** Foto hasil kamera live, menunggu diproses lewat jalur unggah yang sama. */
+  const [berkasKamera, setBerkasKamera] = useState<File | null>(null);
+  /** Kolom yang dipulihkan dari draft localStorage, untuk memberi tahu pengguna. */
+  const [kolomDipulihkan, setKolomDipulihkan] = useState<KunciDraftKyc[]>([]);
+  /** Isian hasil gabungan draft (server selalu menang); null bila tak ada draft. */
+  const [isianDipulihkan, setIsianDipulihkan] = useState<IsianDraftKyc | null>(null);
+
+  // --- Draft lokal (anti-data-loss) ---
+  // Kunci penyimpanan per pengguna. Tanpa pengguna yang diketahui, draft tidak
+  // ditulis sama sekali — lebih baik kehilangan draft daripada mencampurnya
+  // dengan akun lain di perangkat yang sama.
+  const { user } = useAuth();
+  const stempelAwal = data === undefined ? "" : `${data.adaBaris}:${data.diperbaruiPada ?? 0}`;
+  const isianUntukDraft: IsianDraftKyc = bersihkanIsian(
+    (draft !== null && draft.stempel.startsWith(stempelAwal) ? draft.isian : data?.isian) ?? {},
+  );
+  const { pulihkan: pulihkanDraft, bersihkan: bersihkanDraft } = useDraftKyc({
+    userId: user?._id ?? "",
+    isian: isianUntukDraft,
+    // Selama persetujuan belum tercatat, formulir memang terkunci — tidak ada
+    // yang perlu diamankan, dan menulis draft justru bisa memulihkan isian yang
+    // belum boleh dipakai.
+    aktif: data?.persetujuanAktif === true,
+  });
+  const sudahCobaPulih = useRef(false);
+
   // Nilai terakhir pratinjau juga dipegang ref supaya URL objeknya bisa
   // dibersihkan saat komponen dilepas. Efek pembersih ini sengaja ditulis
   // SEBELUM cabang "sedang memuat" di bawah: kalau diletakkan sesudahnya,
@@ -671,6 +881,30 @@ export function KycSection() {
       adaProgresTersimpan,
     ]);
 
+  // --- Pulihkan draft SEKALI, saat baris KYC dari server pertama diketahui ---
+  // Dijalankan lewat efek (bukan saat render) supaya render ganda di mode ketat
+  // tidak membuang hasil pemulihan, dan hanya sekali supaya ketikan pengguna
+  // sesudahnya tidak pernah ditimpa draft.
+  useEffect(() => {
+    if (sudahCobaPulih.current || data === undefined) return;
+    sudahCobaPulih.current = true;
+    if (!data.persetujuanAktif) return;
+    const hasil = pulihkanDraft(bersihkanIsian(data.isian));
+    if (hasil.dipulihkan.length === 0) return;
+    setIsianDipulihkan(hasil.isian);
+    setKolomDipulihkan(hasil.dipulihkan);
+    auditOtpEvent("KYC_DRAFT_LOKAL_DIPULIHKAN", { jumlah: hasil.dipulihkan.length });
+  }, [data, pulihkanDraft]);
+
+  // Hitung mundur kirim ulang OTP: satu `setTimeout` per detik, dibatalkan saat
+  // detiknya habis atau komponen berganti tahap — tidak ada interval yang
+  // tertinggal hidup.
+  useEffect(() => {
+    if (detikUlangOtp === 0) return;
+    const timer = window.setTimeout(() => setDetikUlangOtp((n) => Math.max(0, n - 1)), 1000);
+    return () => window.clearTimeout(timer);
+  }, [detikUlangOtp]);
+
   if (data === undefined) {
     return (
       <div className="flex items-center gap-2 rounded-2xl border border-border bg-card px-5 py-10 text-sm text-muted-foreground">
@@ -694,7 +928,12 @@ export function KycSection() {
   // server) — tanpa `useEffect` yang bisa menimpa ketikan yang belum disimpan.
   const stempelServer = `${dataPasti.adaBaris}:${dataPasti.diperbaruiPada ?? 0}:${dataPasti.persetujuan?.versi ?? "-"}`;
   const draftAktif = draft !== null && draft.stempel === stempelServer ? draft : null;
-  const isian: IsianKycLengkap = draftAktif?.isian ?? dataPasti.isian;
+  // Urutan kepercayaan: ketikan pengguna (`draftAktif`) → isian server yang sudah
+  // ditambal draft lokal → isian server apa adanya. Draft hanya menambal kolom
+  // kosong, jadi nilai yang sudah tersimpan tidak pernah diturunkan.
+  const isian: IsianKycLengkap =
+    draftAktif?.isian ??
+    (isianDipulihkan === null ? dataPasti.isian : { ...dataPasti.isian, ...isianDipulihkan });
   const berkas: Record<SlotBerkasUi, BerkasDraft | null> = draftAktif?.berkas ?? {
     ktp:
       dokumenTersimpan.ktpId === null
@@ -743,6 +982,21 @@ export function KycSection() {
 
   const ubah = (kunci: keyof IsianKycLengkap, nilai: string) =>
     setDraft({ stempel: stempelServer, isian: { ...isian, [kunci]: nilai }, berkas });
+
+  /**
+   * Normalisasi nomor WhatsApp SAAT DIKETIK: `08xxx` (dan `8xxx`) langsung
+   * disimpan sebagai `628xxx`, jadi peminjam tidak perlu menghapus nol di depan
+   * sendiri — sumber kesalahan format yang paling sering. Hanya digit yang
+   * diterima, dan bentuk `62…` yang sudah benar dibiarkan apa adanya.
+   */
+  const ubahNomorWa = (mentah: string) => {
+    const digit = mentah.replace(/\D/g, "").slice(0, 15);
+    let rapi = digit;
+    if (rapi.startsWith("08")) rapi = `628${rapi.slice(2)}`;
+    else if (rapi.startsWith("8")) rapi = `62${rapi}`;
+    else if (rapi.startsWith("0")) rapi = `62${rapi.slice(1)}`;
+    ubah("nomorWhatsApp", rapi);
+  };
   /**
    * Pasang/lepas pratinjau lokal satu slot. URL objek yang digantikan langsung
    * dicabut supaya blob lama tidak menumpuk di memori tab.
@@ -881,6 +1135,10 @@ export function KycSection() {
       } else {
         toast.success("Pengajuan KYC dikirim untuk peninjauan petugas.");
       }
+      // Pengajuan sudah di server: draft lokal tidak berlaku lagi dan dibuang
+      // HANYA di titik ini, supaya refresh sebelum terkirim masih memulihkan.
+      bersihkanDraft();
+      setKolomDipulihkan([]);
     } catch (err) {
       setGalat(err instanceof Error ? err.message : "Pengajuan KYC gagal. Coba lagi.");
     } finally {
@@ -907,6 +1165,11 @@ export function KycSection() {
     try {
       const hasil = await mintaOtp({ tujuan: "verifikasi_nomor" });
       if (hasil.ok) {
+        // Hitung mundur 30 detik pada tombol kirim: mencegah pengguna menekan
+        // berulang dan menghabiskan kuota gateway. Server tetap punya pembatas
+        // sendiri (`OTP_COOLDOWN_MS`); pesannya ditampilkan apa adanya bila
+        // hitung mundur ini selesai lebih dulu.
+        setDetikUlangOtp(DETIK_UBAH_KIRIM_ULANG_OTP);
         toast.success("Kode verifikasi dikirim ke WhatsApp nomor Anda. Berlaku 5 menit.");
       } else {
         setGalat(hasil.pesan);
@@ -985,7 +1248,7 @@ export function KycSection() {
   }
 
   return (
-    <section className="space-y-4">
+    <section className="space-y-4 rounded-3xl bg-slate-50 p-3 sm:p-4">
       <KycStatusHeader
         status={data.status}
         kekurangan={data.kekurangan}
@@ -1056,6 +1319,25 @@ export function KycSection() {
           </p>
         </div>
       )}
+      {/* Draft lokal yang dipulihkan. Kalimatnya menyebut KOLOM apa saja yang
+          dikembalikan supaya pengguna tahu asal datanya, bukan dikejutkan. */}
+      {kolomDipulihkan.length > 0 && ringkasPemulihan(kolomDipulihkan) !== null && (
+        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs leading-5 text-emerald-900 dark:border-emerald-900/50 dark:bg-emerald-950/40 dark:text-emerald-200">
+          <p className="flex items-center gap-2 font-semibold">
+            <CheckCircle2 className="size-3.5 shrink-0" aria-hidden /> Isian Anda dipulihkan
+          </p>
+          <p className="mt-1">{ringkasPemulihan(kolomDipulihkan)}</p>
+          <p className="mt-1">Periksa kembali isiannya, lalu simpan seperti biasa.</p>
+        </div>
+      )}
+
+      <KycStepperTigaTahap
+        aktif={tahap.id}
+        statusPerTahap={statusPerTahap}
+        onPilih={menuju}
+        terkunci={terkunci}
+      />
+
       {otpResumeStatus !== null && otpResumeStatus !== "Sesi OTP ditemukan; harap verifikasi ulang kode." && (
         <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-100">
           <p className="flex items-center gap-2 font-semibold">
@@ -1070,6 +1352,7 @@ export function KycSection() {
           statusPerTahap={statusPerTahap}
           onPilih={menuju}
           terkunci={terkunci}
+          saring={tahapStage(stageUntukTahap(tahap.id))}
         />
 
         <div
@@ -1238,7 +1521,7 @@ export function KycSection() {
                   label={LABEL_SLOT_BERKAS[slotDokumen]}
                   keterangan={
                     slotDokumen === "ktp"
-                      ? "Pastikan seluruh sisi KTP terlihat dan teksnya terbaca sebelum menyimpan."
+                      ? "Foto diambil lewat kamera aplikasi. Seluruh sisi KTP harus terlihat dan teksnya terbaca."
                       : "Diperlukan agar petugas bisa mencocokkan wajah Anda dengan foto KTP. Wajah dan KTP harus terlihat dalam satu foto, tanpa penutup wajah."
                   }
                   accept="image/jpeg,image/png,image/webp"
@@ -1252,8 +1535,30 @@ export function KycSection() {
                       setOcrKtp(null);
                     }
                   }}
+                  // Galeri dimatikan untuk KTP & selfie: berkas WAJIB datang dari
+                  // kamera dalam aplikasi, sehingga tidak ada jalan memilih foto
+                  // lama dari galeri.
+                  onMintaKamera={() => setKameraSlot(slotDokumen)}
+                  berkasKamera={berkasKamera}
+                  onBerkasKameraDiproses={() => setBerkasKamera(null)}
                   mintaUrl={() => buatUrl({})}
                   periksa={(id, label) => periksa({ id, label }).then(() => undefined)}
+                  disabled={busy}
+                />
+                <KameraLive
+                  buka={kameraSlot === slotDokumen}
+                  onTutup={() => setKameraSlot(null)}
+                  judul={
+                    slotDokumen === "ktp" ? "Ambil foto KTP (kamera langsung)" : "Ambil selfie dengan KTP (kamera langsung)"
+                  }
+                  keterangan={
+                    slotDokumen === "ktp"
+                      ? "Kamera dibuka di dalam PINDAI — aplikasi kamera HP tidak dibuka, jadi pengisian tidak terputus."
+                      : "Pastikan wajah dan KTP Anda berada dalam bingkai, tanpa penutup wajah."
+                  }
+                  bingkai={slotDokumen === "ktp" ? "ktp" : "selfie"}
+                  arahAwal={slotDokumen === "ktp" ? "belakang" : "depan"}
+                  onAmbil={(file) => setBerkasKamera(file)}
                   disabled={busy}
                 />
                 {slotDokumen === "ktp" && fileKtp !== null && (
@@ -1310,7 +1615,7 @@ export function KycSection() {
                   inputMode="tel"
                   className="tabular-nums"
                   value={isian.nomorWhatsApp}
-                  onChange={(e) => ubah("nomorWhatsApp", e.target.value)}
+                  onChange={(e) => ubahNomorWa(e.target.value)}
                   placeholder="6281234567890"
                   autoComplete="tel"
                   required
@@ -1367,7 +1672,7 @@ export function KycSection() {
                         type="button"
                         variant="outline"
                         size="sm"
-                        disabled={busy || otpBusy}
+                        disabled={busy || otpBusy || detikUlangOtp > 0}
                         onClick={kirimKodeOtp}
                       >
                         {otpBusy ? (
@@ -1375,7 +1680,9 @@ export function KycSection() {
                         ) : (
                           <Phone className="size-4" />
                         )}
-                        Kirim kode ke WhatsApp
+                        {detikUlangOtp > 0
+                          ? `Kirim ulang dalam ${detikUlangOtp} detik`
+                          : "Kirim kode ke WhatsApp"}
                       </Button>
                       <Input
                         inputMode="numeric"
@@ -1634,7 +1941,7 @@ export function KycSection() {
             {indeks < TAHAPAN_KYC.length - 1 ? (
               <Button
                 type="button"
-                className="gap-1.5"
+                className="gap-1.5 rounded-xl bg-emerald-800 px-6 py-2.5 font-semibold text-white hover:bg-emerald-900"
                 disabled={busy || (terkunci && tahap.id !== "persetujuan")}
                 onClick={() => void simpanDanLanjut()}
               >

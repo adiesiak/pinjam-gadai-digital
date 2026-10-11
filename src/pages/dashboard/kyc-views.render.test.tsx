@@ -21,8 +21,13 @@ import { renderToStaticMarkup } from "react-dom/server";import {
   KycRiwayatList,
   KycStatusHeader,
   KycStatusStrip,
+  KycStepperTigaTahap,
+  STAGE_KYC,
+  stageUntukTahap,
+  tahapStage,
   type RiwayatKycTampil,
 } from "./kyc-views";
+import { ID_TAHAP_KYC, type IdTahapKyc, type StatusTahapKyc } from "@/lib/kycTahapan";
 import { VERSI_ATURAN_AUTO_KYC } from "@/lib/kycAutoApproval";
 import { KETERANGAN_STATUS_KYC, KYC_STATUS, LABEL_STATUS_KYC, ringkasStatusKyc } from "@/lib/kycStatus";
 
@@ -251,6 +256,102 @@ const keputusanMesin = {
   ok(!html.includes("belum mengubah status"), "hasil yang diterapkan tidak disebut belum berlaku");
   ada(html, VERSI_ATURAN_AUTO_KYC, "versi aturan tetap tampil");
   bersih(html, "kartu pemeriksaan otomatis diterapkan");
+}
+
+// ===== 8. Peta 3 stage: menutupi SEMUA langkah, tanpa duplikat =====
+{
+  const semua = STAGE_KYC.flatMap((s) => [...s.tahap]);
+  ok(semua.length === ID_TAHAP_KYC.length, "jumlah langkah di stepper = jumlah langkah KYC");
+  for (const id of ID_TAHAP_KYC) {
+    ok(
+      semua.filter((x) => x === id).length === 1,
+      `langkah ${id} muncul tepat sekali di peta stage`,
+    );
+  }
+  ok(tahapStage(1).length === 3, "stage 1 memuat 3 langkah");
+  ok(tahapStage(2).length === 2, "stage 2 memuat 2 langkah");
+  ok(tahapStage(3).length === 2, "stage 3 memuat 2 langkah");
+
+  const harapan: Record<IdTahapKyc, 1 | 2 | 3> = {
+    persetujuan: 1,
+    identitas: 1,
+    whatsapp: 1,
+    ktp: 2,
+    selfie: 2,
+    alamat: 3,
+    pendukung: 3,
+  };
+  for (const id of ID_TAHAP_KYC) {
+    ok(stageUntukTahap(id) === harapan[id], `stage ${id} = ${harapan[id]} (ketentuan produk)`);
+  }
+}
+
+// ===== 9. Bilah 3 stage: label, posisi aktif, ringkasan status, kunci =====
+function statusNetral(): Record<IdTahapKyc, StatusTahapKyc> {
+  return Object.fromEntries(ID_TAHAP_KYC.map((id) => [id, "belum"])) as Record<
+    IdTahapKyc,
+    StatusTahapKyc
+  >;
+}
+{
+  const html = renderToStaticMarkup(
+    <KycStepperTigaTahap
+      aktif="identitas"
+      statusPerTahap={statusNetral()}
+      onPilih={() => {}}
+      terkunci={false}
+    />,
+  );
+  ada(html, "Stage 1: Kontak &amp; OTP", "stage 1 berlabel sesuai ketentuan");
+  ada(html, "Stage 2: Live KTP &amp; Selfie", "stage 2 berlabel sesuai ketentuan");
+  ada(html, "Stage 3: Rekening &amp; Finansial", "stage 3 berlabel sesuai ketentuan");
+  ok(
+    (html.match(/aria-current="step"/g) ?? []).length === 1,
+    "hanya satu stage bertanda aktif",
+  );
+  ada(html, "0/3 langkah siap", "stage 1 melaporkan hitungan langkah nyata");
+  ok(!html.includes("Selesai"), "stage kosong tidak diklaim selesai");
+  bersih(html, "bilah 3 stage");
+}
+{
+  // Semua langkah stage 2 lengkap → diringkas menjadi "Selesai"; stage 1 belum.
+  const status = statusNetral();
+  status.ktp = "lengkap";
+  status.selfie = "lengkap";
+  const html = renderToStaticMarkup(
+    <KycStepperTigaTahap aktif="ktp" statusPerTahap={status} onPilih={() => {}} terkunci={false} />,
+  );
+  ada(html, "Selesai (2/2 langkah)", "stage lengkap diringkas jadi selesai");
+  ada(html, "0/3 langkah siap", "stage lain tetap melaporkan kekurangannya");
+  bersih(html, "bilah 3 stage dengan stage lengkap");
+}
+{
+  // Sebelum persetujuan tercatat: hanya stage 1 boleh dibuka.
+  const html = renderToStaticMarkup(
+    <KycStepperTigaTahap
+      aktif="persetujuan"
+      statusPerTahap={statusNetral()}
+      onPilih={() => {}}
+      terkunci
+    />,
+  );
+  ok(
+    (html.match(/disabled=""/g) ?? []).length === 2,
+    "stage 2 & 3 terkunci sebelum persetujuan tercatat",
+  );
+  ada(html, "Stage 1: Kontak &amp; OTP", "stage 1 tetap tampil saat terkunci");
+  bersih(html, "bilah 3 stage terkunci");
+}
+{
+  // Satu langkah ditandai petugas → stage-nya menyebut perbaikan.
+  const status = statusNetral();
+  status.selfie = "perlu-diperbaiki";
+  const html = renderToStaticMarkup(
+    <KycStepperTigaTahap aktif="selfie" statusPerTahap={status} onPilih={() => {}} terkunci={false} />,
+  );
+  ada(html, "Perlu perbaikan dari petugas", "stage dengan langkah bermasalah diberi tanda");
+  ok(!html.includes("Selesai ("), "stage bermasalah tidak diklaim selesai");
+  bersih(html, "bilah 3 stage dengan perbaikan");
 }
 
 if (failed > 0) {

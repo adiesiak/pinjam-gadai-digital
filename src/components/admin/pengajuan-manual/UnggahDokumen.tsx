@@ -1,5 +1,5 @@
-import { FileCheck2, ImageUp, Loader2, Trash2 } from "lucide-react";
-import { useRef, useState } from "react";
+import { Camera, FileCheck2, ImageUp, Loader2, Trash2 } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -39,6 +39,9 @@ export function UnggahDokumen({
   disabled = false,
   accept = "image/*,application/pdf",
   onBerkasDipilih,
+  onMintaKamera,
+  berkasKamera,
+  onBerkasKameraDiproses,
 }: {
   label: string;
   keterangan: string;
@@ -65,6 +68,21 @@ export function UnggahDokumen({
    * cara unggah atau menitipkan berkas ke server lebih dulu.
    */
   onBerkasDipilih?: (file: File) => void;
+  /**
+   * Bila diisi, pemilih berkas galeri DIGANTI tombol kamera untuk slot ini dan
+   * `accept` tidak lagi dipakai. Modul KYC memakainya untuk KTP & selfie: berkas
+   * harus datang dari kamera dalam aplikasi (lihat `components/kyc/KameraLive`),
+   * bukan dari galeri.
+   */
+  onMintaKamera?: () => void;
+  /**
+   * Berkas hasil tangkapan kamera live. Diproses lewat jalur unggah yang SAMA
+   * dengan berkas yang dipilih (unggah → periksa isi → simpan), sehingga tidak
+   * ada jalur kedua yang bisa berbeda perilakunya.
+   */
+  berkasKamera?: File | null;
+  /** Dipanggil setelah `berkasKamera` selesai diproses (berhasil atau gagal). */
+  onBerkasKameraDiproses?: () => void;
 }) {
   const inputRef = useRef<HTMLInputElement | null>(null);
   /** Tahap proses yang sedang berjalan — menentukan label yang ditampilkan. */
@@ -110,6 +128,21 @@ export function UnggahDokumen({
     }
   };
 
+  /**
+   * Berkas dari kamera live diproses lewat `pilih` yang sama. Fungsi dipegang
+   * ref supaya efek ini tidak bergantung pada identitas `pilih` (yang berubah
+   * setiap render) — kalau bukan, satu berkas bisa diunggah dua kali.
+   */
+  const pilihRef = useRef(pilih);
+  pilihRef.current = pilih;
+  useEffect(() => {
+    if (berkasKamera === null || berkasKamera === undefined) return;
+    void pilihRef.current(berkasKamera).finally(() => onBerkasKameraDiproses?.());
+    // `onBerkasKameraDiproses` sengaja tidak menjadi dependensi: pemanggil boleh
+    // mengirim closure baru setiap render tanpa memicu unggahan ulang.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [berkasKamera]);
+
   return (
     <div
       aria-busy={busy || undefined}
@@ -118,17 +151,30 @@ export function UnggahDokumen({
       <Label className={KELAS_LABEL}>{label}</Label>
       <p className="mt-1 text-[11px] leading-4 text-muted-foreground">{keterangan}</p>
       <div className="mt-2 flex flex-wrap items-center gap-1.5">
-        <Button
-          type="button"
-          size="sm"
-          variant="outline"
-          className="h-8 gap-1 px-2.5"
-          disabled={disabled || busy}
-          onClick={() => inputRef.current?.click()}
-        >
-          {busy ? <Loader2 className="size-3.5 animate-spin" /> : <ImageUp className="size-3.5" />}
-          {nilai === null ? "Pilih berkas" : "Ganti berkas"}
-        </Button>
+        {onMintaKamera === undefined ? (
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="h-8 gap-1 px-2.5"
+            disabled={disabled || busy}
+            onClick={() => inputRef.current?.click()}
+          >
+            {busy ? <Loader2 className="size-3.5 animate-spin" /> : <ImageUp className="size-3.5" />}
+            {nilai === null ? "Pilih berkas" : "Ganti berkas"}
+          </Button>
+        ) : (
+          <Button
+            type="button"
+            size="sm"
+            className="h-8 gap-1 rounded-xl bg-emerald-800 px-2.5 font-semibold text-white hover:bg-emerald-900"
+            disabled={disabled || busy}
+            onClick={onMintaKamera}
+          >
+            {busy ? <Loader2 className="size-3.5 animate-spin" /> : <Camera className="size-3.5" />}
+            {nilai === null ? "Buka Kamera Live" : "Foto Ulang (Kamera)"}
+          </Button>
+        )}
         {nilai !== null && (
           <>
             <span className="flex min-w-0 items-center gap-1 text-[11px] text-emerald-700">
@@ -148,14 +194,18 @@ export function UnggahDokumen({
           </>
         )}
       </div>
-      <input
-        ref={inputRef}
-        type="file"
-        accept={accept}
-        className="hidden"
-        aria-label={`Berkas ${label}`}
-        onChange={(event) => void pilih(event.target.files?.[0])}
-      />
+      {/* Pemilih galeri tidak dirender sama sekali saat kamera live dipakai:
+          tanpa elemen `input type=file`, tidak ada jalan pintas ke galeri. */}
+      {onMintaKamera === undefined && (
+        <input
+          ref={inputRef}
+          type="file"
+          accept={accept}
+          className="hidden"
+          aria-label={`Berkas ${label}`}
+          onChange={(event) => void pilih(event.target.files?.[0])}
+        />
+      )}
       {busy &&
         (tahap === "periksa" ? (
           <BilahProgres
