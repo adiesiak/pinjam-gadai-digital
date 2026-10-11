@@ -47,9 +47,11 @@ import {
   type PawnRow,
 } from "@/components/admin/admin-shared";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { RingkasanAnalitik } from "@/components/admin/RingkasanAnalitik";
 import {
   hitungMenunggu,
   jumlahPerhatianLokasi,
+  NILAI_MODUL_ADMIN,
   ringkasGrup,
   type BobotGrup,
   type NilaiModulAdmin,
@@ -385,7 +387,23 @@ export function AdminTabs({
   // tanpa isinya langsung menjadi galat kompilasi — menutup R2 di akarnya.
   const panel: Record<NilaiModulAdmin, ReactNode> = {
     "hari-ini": (
-      <MejaKerja overview={overview} stats={stats} onBukaModul={pilihMenu} />
+      <div className="space-y-4">
+        <MejaKerja overview={overview} stats={stats} onBukaModul={pilihMenu} />
+        {/* Analitik & peringatan risiko diletakkan SETELAH meja kerja: yang
+            menuntut tindakan hari ini tetap paling atas, grafik jadi konteks. */}
+        <RingkasanAnalitik
+          stats={stats}
+          overview={overview}
+          onBukaModul={(modul) => {
+            // `modul` datang sebagai string dari `lib/analitikAdmin` (sengaja
+            // bebas tipe UI). Di sini nilainya divalidasi ke daftar modul admin
+            // sebelum dipakai, jadi nilai asing tidak pernah membuka tab fiktif.
+            if ((NILAI_MODUL_ADMIN as readonly string[]).includes(modul)) {
+              pilihMenu(modul as NilaiModulAdmin);
+            }
+          }}
+        />
+      </div>
     ),
     pinjaman: <LoanQueueSection loans={overview.loans} onOpen={onOpenLoan} />,
     gadai: <PawnQueueSection pawns={overview.pawns} onOpen={onOpenPawn} />,

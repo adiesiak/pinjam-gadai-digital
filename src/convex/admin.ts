@@ -32,6 +32,12 @@ import { rejectUnverifiedMoneyMovement } from "./paymentGuard";
 import { hapusTurunanAkun, totalTurunanAkun } from "./hapusAkunTurunan";
 import { quoteKreditBarang } from "../lib/kredit";
 import { STATUS_MENUNGGU } from "../lib/admin-queue";
+import {
+  AMBANG_PENGHASILAN_RISIKO,
+  HARI_TREN,
+  MS_HARI,
+} from "../lib/analitikAdmin";
+import { statusKanonik } from "../lib/statusPinjaman";
 import type { Id } from "./_generated/dataModel";
 import {
   kelompokkanJurnalYatim,
@@ -1569,6 +1575,84 @@ export const trenPendapatanBulanan = query({
       });
     }
     return hasil;
+  },
+});
+
+/**
+ * ANALITIK 30 HARI untuk "Ringkasan Hari Ini": peristiwa pencairan/pelunasan,
+ * komposisi status pinjaman, dan jumlah pengajuan yang penghasilannya di bawah
+ * ambang kewajaran.
+ *
+ * Pembagian tanggung jawabnya sengaja tegas: server hanya mengumpulkan PERISTIWA
+ * MENTAH (waktu + nominal) di dalam rentang 30 hari, lalu `lib/analitikAdmin.ts`
+ * yang mengelompokkannya per hari, mengisi hari kosong dengan nol, dan menghitung
+ * persentase donut. Kalau pembulatan hari dilakukan di dua tempat, cepat atau
+ * lambat grafik dan daftar akan berbeda angka.
+ *
+ * Pinjaman TANPA `didanaiPada` dikelompokkan sebagai berjalan (bukan jatuh
+ * tempo): tanpa tanggal pencairan, jatuh temponya tidak bisa dibuktikan, dan
+ * menuduh sesuatu yang tidak bisa dihitung bukan dasar yang layak untuk
+ * peringatan risiko.
+ */
+export const adminAnalitik = query({
+  args: {},
+  handler: async (ctx) => {
+    await requireAdmin(ctx);
+    const sekarang = Date.now();
+    const batas = sekarang - (HARI_TREN - 1) * MS_HARI;
+
+    const loans = await ctx.db.query("loans").collect();
+    const profil = await ctx.db.query("nasabahProfil").collect();
+    const penghasilanPerUser = new Map<string, number | undefined>();
+    for (const p of profil) penghasilanPerUser.set(p.userId, p.penghasilanBulanan);
+
+    const peristiwa: Array<{
+      tipe: "pencairan" | "pelunasan";
+      waktu: number;
+      jumlah: number;
+    }> = [];
+    let lancar = 0;
+    let jatuhTempo = 0;
+    let ditinjau = 0;
+    let pendapatanDiBawahAmbang = 0;
+
+    for (const l of loans) {
+      const kanonik = statusKanonik(l.status);
+      if (kanonik === "ditinjau") {
+        ditinjau += 1;
+        const diajukan = l.diajukanPada ?? l._creationTime;
+        if (diajukan >= batas) {
+          const penghasilan = penghasilanPerUser.get(l.userId);
+          if (penghasilan !== undefined && penghasilan < AMBANG_PENGHASILAN_RISIKO) {
+            pendapatanDiBawahAmbang += 1;
+          }
+        }
+      }
+
+      if (kanonik === "didanai") {
+        const jatuhTempoPada =
+          l.didanaiPada === undefined ? null : l.didanaiPada + l.tenorHari * MS_HARI;
+        if (jatuhTempoPada !== null && jatuhTempoPada < sekarang) jatuhTempo += 1;
+        else lancar += 1;
+      }
+
+      // Nominal yang dibandingkan adalah POKOK pinjaman: itulah angka yang
+      // benar-benar berpindah saat pencairan, dan angka yang sama dipakai untuk
+      // kedua seri sehingga trennya bisa dibandingkan apel-ke-apel.
+      if (l.didanaiPada !== undefined && l.didanaiPada >= batas) {
+        peristiwa.push({ tipe: "pencairan", waktu: l.didanaiPada, jumlah: l.pokokPinjaman });
+      }
+      if (l.lunasPada !== undefined && l.lunasPada >= batas) {
+        peristiwa.push({ tipe: "pelunasan", waktu: l.lunasPada, jumlah: l.pokokPinjaman });
+      }
+    }
+
+    return {
+      peristiwa,
+      komposisi: { lancar, ditinjau, jatuhTempo },
+      pendapatanDiBawahAmbang,
+      dihitungPada: sekarang,
+    };
   },
 });
 
