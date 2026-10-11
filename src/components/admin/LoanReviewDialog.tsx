@@ -1,6 +1,7 @@
 import { useAction, useMutation, useQuery } from "convex/react";
 import {
   CheckCircle2,
+  ChevronDown,
   FileCheck,
   FileText,
   Loader2,
@@ -12,18 +13,16 @@ import {
   Users,
   Wallet,
 } from "lucide-react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { EContractWidget } from "@/components/EContract";
-import { StatusBadge } from "@/components/StatusBadge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -43,9 +42,7 @@ import { loanPurposeLabel, quotePinjaman } from "@/lib/loan";
 import { formatRupiah } from "@/lib/money";
 import {
   diTahapTinjauan,
-  LABEL_STATUS_PINJAMAN,
   nominalTerkunci,
-  STATUS_PINJAMAN,
   type StatusPinjaman,
 } from "@/lib/statusPinjaman";
 
@@ -93,6 +90,10 @@ export function LoanReviewDialog({
   const [nominalPendana, setNominalPendana] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const tabLabelRef = useRef<HTMLDivElement | null>(null);
+
+  /** Kurung bahaya yang bisa dibuka-tutup soft di footer (bukan destroy). */
+  const [bukaOpsiBahaya, setBukaOpsiBahaya] = useState(false);
   // Galat penghapusan dipisah dari `error` supaya pesannya tampil TEPAT di
   // samping tombol Hapus dan centang "Hapus menyeluruh" — bukan jauh di bagian
   // atas dialog tempat admin tidak melihatnya setelah menggulir ke bawah.
@@ -147,6 +148,12 @@ export function LoanReviewDialog({
   // muncul, dan di situlah centang "Hapus menyeluruh" dibutuhkan.
   const sudahBerpindahDana =
     row.status === "didanai" || row.status === "lunas" || row.pendanaNama != null;
+
+  // Soferna UI yang belum dikerjakan di langkah ini:
+  // - link "Lihat riwayat hapus" belum terhubung ke layar Audit Trail khusus.
+  // - tombol "Hapus sementara (tanam ulang)" belum punya fungsi backend.
+  const futureAktif = false;
+  const alreadyDeleted = false;
 
 
   const runDelete = async () => {
@@ -235,34 +242,42 @@ export function LoanReviewDialog({
 
   // ── Header (fixed) ──────────────────────────────────────────────────────
   const header = (
-    <div className="flex items-start justify-between gap-4 rounded-2xl border border-slate-200 bg-slate-50/80 p-4 sm:p-5">
-      <div className="min-w-0">
-        <div className="flex items-center gap-3">
-          <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-emerald-800 text-emerald-50 font-bold tracking-tight">
-            {row.pokokPinjaman.toString().slice(0, 2)}
-          </div>
-          <div className="min-w-0">
-            <DialogTitle className="text-base font-semibold text-slate-900 tabular-nums">
-              Pokok pinjaman · {formatRupiah(row.pokokPinjaman)}
-            </DialogTitle>
-            <DialogDescription className="mt-0.5 text-xs text-muted-foreground tabular-nums">
-              Catatan pengajuan internal · {row.nomorReferensi} · {formatDate(row._creationTime)}
-            </DialogDescription>
-          </div>
+    <div className="flex border-b border-slate-200 bg-white p-5">
+      <div className="flex flex-1 items-center gap-4 min-w-0">
+        <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-emerald-800 text-emerald-50 font-bold tracking-tight">
+          {row.pokokPinjaman.toString().slice(0, 2)}
+        </div>
+        <div className="min-w-0">
+          <DialogTitle className="text-base font-semibold text-slate-900 tabular-nums">
+            Pokok pinjaman · {formatRupiah(row.pokokPinjaman)}
+          </DialogTitle>
+          <DialogDescription className="mt-0.5 text-xs text-muted-foreground tabular-nums">
+            Catatan pengajuan internal · {row.nomorReferensi} · {formatDate(row._creationTime)}
+          </DialogDescription>
         </div>
       </div>
-      <div className="flex items-center gap-2 shrink-0">
+      <div className="flex flex-wrap items-center gap-2 shrink-0">
         {row.status !== "lunas" && (
           <Button
             size="sm"
-            variant="ghost"
             className="h-8 text-xs text-slate-500"
             onClick={onClose}
+            aria-label="Tutup modal"
           >
             Tutup
           </Button>
         )}
-        <StatusBadge status={row.status} kind="loan" />
+        <span
+          className="inline-flex items-center rounded-full border border-amber-200/80 bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-800 shadow-sm"
+          aria-label={`Status pinjaman: ${row.status}`}
+        >
+          Status:{" "}
+          {row.status === "lunas"
+            ? "Lunas"
+            : row.status === "didanai"
+              ? "Didanai"
+              : "Belum lunas"}
+        </span>
       </div>
     </div>
   );
@@ -332,9 +347,16 @@ export function LoanReviewDialog({
               ],
               ["Catatan pemohon", row.catatanPeminjam ?? "—"],
             ].map(([label, value]) => (
-              <div key={label} className="grid grid-cols-[minmax(0,140px)_1fr] gap-1 sm:gap-3 sm:items-start">
-                <dt className="min-w-0 text-xs leading-5 text-muted-foreground sm:text-sm truncate">{label}</dt>
-                <dd className="min-w-0 break-words text-right text-xs leading-5 text-slate-800 sm:text-sm truncate">{value}</dd>
+              <div
+                key={label}
+                className="grid grid-cols-[minmax(0,140px)_1fr] gap-1 sm:gap-3 sm:items-start"
+              >
+                <dt className="min-w-0 text-xs leading-5 text-muted-foreground sm:text-sm truncate">
+                  {label}
+                </dt>
+                <dd className="min-w-0 break-words text-right text-xs leading-5 text-slate-800 sm:text-sm truncate">
+                  {value}
+                </dd>
               </div>
             ))}
           </dl>
@@ -351,7 +373,8 @@ export function LoanReviewDialog({
       {/* Kolom kiri: matriks aliran uang */}
       <div>
         <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-900">
-          Nominal, tanggal acuan, alokasi, dan status lunas di panel ini mengikuti catatan ledger internal; perpindahan dana ditangani di luar aplikasi.
+          Nominal, tanggal acuan, alokasi, dan status lunas di panel ini mengikuti catatan ledger
+          internal; perpindahan dana ditangani di luar aplikasi.
         </p>
 
         <AliranDanaPinjaman
@@ -435,8 +458,8 @@ export function LoanReviewDialog({
             <p className="mt-1 text-xs leading-5 text-muted-foreground">
               Tetapkan pendana yang mendanai pinjaman ini sebelum menyetujui — namanya
               langsung tampil di ruang pendana dan tercatat di Audit Trail. Untuk pinjaman
-              yang sudah disetujui, nominalnya juga dapat dikoreksi selama dana belum ditandai
-              tersalurkan.
+              yang sudah disetujui, nominalnya juga dapat dikoreksi selama dana belum
+              ditandai tersalurkan.
             </p>
             <p className="mt-2 flex items-center gap-1.5 text-xs text-slate-700">
               <Users className="size-3.5 text-primary" />
@@ -493,7 +516,8 @@ export function LoanReviewDialog({
                     disabled={busy !== null}
                   />
                   <p className="mt-1 text-[11px] leading-4 text-muted-foreground">
-                    Koreksi nominal yang sudah disetujui — tidak boleh melebihi pengajuan{" "}
+                    Koreksi nominal yang sudah disetujui — tidak boleh melebihi
+                    pengajuan{" "}
                     {formatRupiah(pokokDiajukan)}. Kosongkan bila tidak diubah.
                   </p>
                 </div>
@@ -532,8 +556,20 @@ export function LoanReviewDialog({
         </div>
         <div className="mt-4 grid grid-cols-2 gap-3">
           {[
-            { label: "Tanda tangan peminjam", value: (row as { tandaTanganPeminjam?: string }).tandaTanganPeminjam ? "Ada" : "Belum ada", icon: FileCheck },
-            { label: "Status persetujuan", value: (row as { persetujuanSyarat?: boolean }).persetujuanSyarat ? "Tersetujui" : "Belum", icon: ShieldCheck },
+            {
+              label: "Tanda tangan peminjam",
+              value: (row as { tandaTanganPeminjam?: string }).tandaTanganPeminjam
+                ? "Ada"
+                : "Belum ada",
+              icon: FileCheck,
+            },
+            {
+              label: "Status persetujuan",
+              value: (row as { persetujuanSyarat?: boolean }).persetujuanSyarat
+                ? "Tersetujui"
+                : "Belum",
+              icon: ShieldCheck,
+            },
           ].map((item) => (
             <div key={item.label} className="rounded-xl border border-slate-200 bg-white p-3">
               <div className="flex items-center gap-2">
@@ -602,9 +638,121 @@ export function LoanReviewDialog({
     </div>
   );
 
+  // ── Danger-zone dropdown (dipakai di footer) ──────────────────────────
+  // Jangan memakan lebar footer; hanya muncul saat dibutuhkan, dan berisi set
+  // lengkap opsi hapus/tanam ulang.
+  const opsiBahaya = (
+    <div className="relative">
+      <button
+        type="button"
+        className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-medium text-slate-700 shadow-sm transition-colors hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        aria-expanded={bukaOpsiBahaya}
+        aria-haspopup="menu"
+        onClick={() => setBukaOpsiBahaya((x) => !x)}
+      >
+        Opsi Bahaya
+        <ChevronDown
+          className={`size-3.5 transition-transform duration-150 ${bukaOpsiBahaya ? "rotate-180" : ""}`}
+        />
+      </button>
+      {bukaOpsiBahaya && (
+        <>
+          <div
+            className="fixed inset-0 z-20"
+            aria-hidden
+            onClick={() => setBukaOpsiBahaya(false)}
+          />
+          <div
+            role="menu"
+            className="absolute right-0 z-30 mt-2 w-64 rounded-xl border border-red-200 bg-white p-2 shadow-xl shadow-red-900/10"
+          >
+            <div className="px-2 py-1.5">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-red-700">
+                Hapus & Pemulihan
+              </p>
+              {alreadyDeleted && (
+                <p className="mt-0.5 text-xs text-red-700">
+                  Data pemohon sudah dihapus dari baris admin. UI ini hanya tersedia untuk
+                  penyetelan tambahan.
+                </p>
+              )}
+            </div>
+            <button
+              type="button"
+              role="menuitem"
+              className="flex w-full items-start gap-2 rounded-lg px-2 py-2 text-xs leading-5 text-red-800 transition-colors hover:bg-red-50"
+              onClick={() => {
+                setBukaOpsiBahaya(false);
+                setHapusMenyeluruh(true);
+                if (tabLabelRef.current) tabLabelRef.current.focus();
+              }}
+            >
+              <span className="mt-0.5 shrink-0">
+                <Trash2 className="size-3.5" />
+              </span>
+              <span className="min-w-0">
+                <span className="font-semibold">Hapus menyeluruh</span>
+                <br />
+                <span className="text-red-700">
+                  Hapus baris admin dan turunan (pembayaran, bukti, alokasi). Jurnal ledger
+                  tetap utuh.
+                </span>
+              </span>
+            </button>
+            {futureAktif && (
+              <button
+                type="button"
+                role="menuitem"
+                className="flex w-full items-start gap-2 rounded-lg px-2 py-2 text-xs leading-5 text-amber-800 transition-colors hover:bg-amber-50"
+                onClick={() => {
+                  setBukaOpsiBahaya(false);
+                  if (tabLabelRef.current) tabLabelRef.current.focus();
+                }}
+              >
+                <span className="mt-0.5 shrink-0">
+                  <Trash2 className="size-3.5" />
+                </span>
+                <span className="min-w-0">
+                  <span className="font-semibold">Hapus sementara (tanam ulang)</span>
+                  <br />
+                  <span className="text-amber-700">
+                    Sembunyikan dari antrean admin tanpa menghapus data. Bisa ditampilkan
+                    kembali nanti.
+                  </span>
+                </span>
+              </button>
+            )}
+            <div className="mt-2 border-t border-red-200/60 pb-2 pt-2">
+              <button
+                type="button"
+                role="menuitem"
+                className="flex w-full items-start gap-2 rounded-lg px-2 py-2 text-xs leading-5 text-muted-foreground transition-colors hover:bg-slate-100"
+                onClick={() => {
+                  setBukaOpsiBahaya(false);
+                  if (tabLabelRef.current) tabLabelRef.current.focus();
+                }}
+              >
+                <span className="mt-0.5 shrink-0">
+                  <Trash2 className="size-3.5" />
+                </span>
+                <span className="min-w-0">
+                  <span className="font-semibold">Lihat riwayat hapus</span>
+                  <br />
+                  <span className="text-muted-foreground">
+                    Buka Audit Trail khusus pinjaman ini.
+                  </span>
+                </span>
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+
   // ── Footer aksi (sticky) ───────────────────────────────────────────────
   const footerAksi = (
-    <div className="sticky bottom-0 z-10 flex flex-wrap gap-3 border-t border-slate-200 bg-white/90 px-4 py-3 backdrop-blur shadow-sm sm:px-5">
+    <div className="sticky bottom-0 left-0 right-0 z-10 border-t border-slate-200 bg-white p-4 shadow-lg flex flex-wrap items-center justify-between gap-3">
       {row.status === "lunas" ? (
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
           <CheckCircle2 className="size-4 text-emerald-600" />
@@ -625,7 +773,7 @@ export function LoanReviewDialog({
                 }),
               )
             }
-            className="flex-1 sm:flex-none"
+            className="rounded-xl px-4 py-2 text-sm font-medium bg-slate-800 text-white hover:bg-slate-900"
           >
             {busy === "status" ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
             Simpan status & kirim WA
@@ -634,38 +782,16 @@ export function LoanReviewDialog({
           {row.status !== "didanai" && (
             <Button
               disabled={busy !== null}
-              variant="outline"
               onClick={() => run("fund", () => fund({ loanId: row._id }))}
-              className="flex-1 sm:flex-none"
+              className="rounded-xl px-5 py-2 text-sm font-semibold bg-emerald-700 text-white hover:bg-emerald-800"
             >
               {busy === "fund" ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
               Tandai tersalurkan
             </Button>
           )}
 
-          <div className="flex grow items-end justify-end gap-2 sm:gap-3">
-            {/* Danger Zone */}
-            <div className="ml-auto flex items-center gap-2">
-              <Button variant="destructive" disabled={busy !== null} onClick={runDelete} className="gap-1.5">
-                {busy === "delete" ? (
-                  <Loader2 className="size-4 animate-spin" />
-                ) : (
-                  <Trash2 className="size-4" />
-                )}
-                Hapus
-              </Button>
-              {sudahBerpindahDana && (
-                <label className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50/70 px-3 py-1.5 text-xs cursor-pointer hover:bg-red-100 transition-colors">
-                  <Checkbox
-                    id="hapus-menyeluruh-footer"
-                    checked={hapusMenyeluruh}
-                    onCheckedChange={(nilai) => setHapusMenyeluruh(nilai === true)}
-                    className="shrink-0"
-                  />
-                  <span className="text-red-800 font-medium">Hapus menyeluruh</span>
-                </label>
-              )}
-            </div>
+          <div className="flex items-end justify-end gap-2">
+            {opsiBahaya}
           </div>
         </>
       )}
@@ -674,42 +800,44 @@ export function LoanReviewDialog({
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-h-[90dvh] overflow-y-auto p-0 sm:p-0">
-        <div className="flex flex-col gap-4">
+      <DialogContent className="max-h-[90dvh] overflow-y-auto p-0">
+        <div className="flex flex-col gap-0">
           {/* Header fixed */}
           {header}
 
-          {/* Tabs */}
+          {/* Tab row */}
           <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as typeof activeTab)}>
-            <TabsList className="w-full justify-start rounded-xl border border-slate-200 bg-white p-1.5 shadow-sm">
-              <TabsTrigger value="detail" className="gap-2 text-sm">
-                <FileText className="size-4" />
-                Detail & Dokumen
-              </TabsTrigger>
-              <TabsTrigger value="aliran" className="gap-2 text-sm">
-                <Wallet className="size-4" />
-                Aliran Uang & Pendana
-              </TabsTrigger>
-              <TabsTrigger value="perjanjian" className="gap-2 text-sm">
-                <FileCheck className="size-4" />
-                Perjanjian & WhatsApp
-              </TabsTrigger>
-            </TabsList>
+            <div className="flex flex-wrap gap-2 px-5 pt-4 bg-slate-50 border-b border-slate-200">
+              <TabsList className="flex-none rounded-xl border border-slate-200 bg-white p-1.5 shadow-sm">
+                <TabsTrigger value="detail" className="gap-2 text-sm">
+                  <FileText className="size-4" />
+                  Detail & Dokumen
+                </TabsTrigger>
+                <TabsTrigger value="aliran" className="gap-2 text-sm">
+                  <Wallet className="size-4" />
+                  Aliran Uang & Pendana
+                </TabsTrigger>
+                <TabsTrigger value="perjanjian" className="gap-2 text-sm">
+                  <FileCheck className="size-4" />
+                  Perjanjian & WhatsApp
+                </TabsTrigger>
+              </TabsList>
+            </div>
 
-            <div className="min-h-0">
-              <TabsContent value="detail" className="mt-4">
+            <div className="p-6 overflow-y-auto flex-1 space-y-6">
+              <TabsContent value="detail" className="mt-0">
                 {tabDetail}
               </TabsContent>
-              <TabsContent value="aliran" className="mt-4">
+              <TabsContent value="aliran" className="mt-0">
                 {tabAliran}
               </TabsContent>
-              <TabsContent value="perjanjian" className="mt-4">
+              <TabsContent value="perjanjian" className="mt-0">
                 {tabPerjanjian}
               </TabsContent>
             </div>
           </Tabs>
 
-          {/* Footer aksi sticky */}
+          {/* Footer sticky */}
           {footerAksi}
         </div>
       </DialogContent>
