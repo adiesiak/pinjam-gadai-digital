@@ -9,6 +9,7 @@
  */
 import {
   bolehTransisi,
+  isKycVerified,
   keputusanWajibAlasan,
   kekuranganKyc,
   keteranganNomorWa,
@@ -175,6 +176,21 @@ ok(keteranganNomorWa(false).includes("belum dibuktikan"), "kalimat nomor belum d
 ok(
   keteranganNomorWa(true) !== keteranganNomorWa(false),
   "dua keadaan nomor tidak memakai kalimat yang sama",
+);
+
+// ===== 9. Jalur pengajuan cepat (pasca-KYC) =====
+// Hanya status TERVERIFIKASI yang membuka formulir cepat; status lain — termasuk
+// PENDING_REVIEW dan NEEDS_CORRECTION — tetap harus melewati wizard.
+ok(isKycVerified("VERIFIED"), "status VERIFIED membuka jalur pengajuan cepat");
+for (const s of KYC_STATUS as readonly StatusKyc[]) {
+  if (s === "VERIFIED") continue;
+  ok(!isKycVerified(s), `status ${s} TIDAK membuka jalur pengajuan cepat`);
+}
+ok(!isKycVerified(null), "status belum termuat bukan berarti terverifikasi");
+ok(!isKycVerified(undefined), "status tidak diketahui bukan berarti terverifikasi");
+ok(
+  isKycVerified("VERIFIED") === statusFinal("VERIFIED"),
+  "jalur cepat sejalan dengan definisi status final",
 );
 
 console.log(`kycStatus.test: ${passed} lulus, ${failed} gagal`);

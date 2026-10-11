@@ -104,6 +104,21 @@ export function statusFinal(status: StatusKyc): boolean {
   return status === "VERIFIED";
 }
 
+/**
+ * true bila identitas nasabah sudah TERVERIFIKASI.
+ *
+ * Satu-satunya keadaan yang membuka jalur pengajuan cepat: wizard KYC tidak
+ * lagi ditampilkan dan pengajuan diajukan dari formulir satu halaman. Pemeriksaan
+ * ini juga yang dipakai server (`requireKycTerverifikasi` di `convex/loans.ts`),
+ * jadi UI tidak pernah menampilkan jalan pintas yang pasti ditolak server.
+ *
+ * Menerima `null`/`undefined` karena status dari server bisa belum termuat —
+ * belum diketahui TIDAK sama dengan terverifikasi.
+ */
+export function isKycVerified(status: StatusKyc | null | undefined): boolean {
+  return status === "VERIFIED";
+}
+
 /** true bila transisi `dari → ke` sah untuk aktor tersebut. */
 export function bolehTransisi(dari: StatusKyc, ke: StatusKyc, oleh: AktorKyc): boolean {
   if (dari === ke) return false;

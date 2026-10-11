@@ -9,6 +9,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  dataUrlKeFile,
+  kompresKanvasKeJpeg,
+  ringkasKompresi,
+  TAKARAN_FOTO_KYC,
+  type HasilKompresi,
+} from "@/lib/kompresiFoto";
 import { cn } from "@/lib/utils";
 
 /** Arah kamera yang ingin dipakai lebih dulu. */
@@ -80,6 +87,8 @@ export function KameraLive({
   const [arah, setArah] = useState<ArahKamera>(arahAwal);
   const [siap, setSiap] = useState(false);
   const [galat, setGalat] = useState<string | null>(null);
+  /** Hasil kompresi terakhir — ditampilkan supaya ukuran berkas terlihat. */
+  const [hasilTerakhir, setHasilTerakhir] = useState<HasilKompresi | null>(null);
   const [jumlahKamera, setJumlahKamera] = useState(1);
   /** Dinaikkan tombol "Coba lagi": memaksa efek membuka ulang kamera. */
   const [percobaanKe, setPercobaanKe] = useState(0);
@@ -182,19 +191,19 @@ export function KameraLive({
       return;
     }
     ctx.drawImage(video, 0, 0, lebar, tinggi);
-    kanvas.toBlob(
-      (blob) => {
-        if (blob === null) {
-          setGalat("Foto gagal diproses. Coba ambil ulang.");
-          return;
-        }
-        const nama = `${bingkai === "ktp" ? "ktp" : "selfie"}-live-${Date.now()}.jpg`;
-        onAmbil(new File([blob], nama, { type: "image/jpeg" }));
-        onTutup();
-      },
-      "image/jpeg",
-      0.92,
-    );
+    // Kompresi SEBELUM berkas dibuat: JPEG 0,7, sisi ≤1600 px, target ≤500 KB.
+    // Di sini juga titik penghematan terbesar di HP kelas bawah — berkas 3–4 MB
+    // dari kamera menjadi ratusan KB, jadi unggahan singkat dan tab tidak mudah
+    // di-refresh sistem operasi.
+    const hasil = kompresKanvasKeJpeg(kanvas);
+    if (!hasil.sesuaiTarget) {
+      setGalat(ringkasKompresi(hasil));
+      return;
+    }
+    setHasilTerakhir(hasil);
+    const nama = `${bingkai === "ktp" ? "ktp" : "selfie"}-live-${Date.now()}.jpg`;
+    onAmbil(dataUrlKeFile(hasil.dataUrl, nama));
+    onTutup();
   };
 
   const beralihKamera = () => setArah((lama) => (lama === "depan" ? "belakang" : "depan"));
@@ -300,8 +309,15 @@ export function KameraLive({
         </div>
         <p className="text-[10px] leading-4 text-slate-500">
           Foto diambil langsung di dalam PINDAI dan tidak pernah dikirim ke mana pun sebelum Anda
-          menekan Simpan. Aplikasi kamera HP tidak dibuka, jadi pengisian tidak terputus.
+          menekan Simpan. Aplikasi kamera HP tidak dibuka, jadi pengisian tidak terputus. Setiap foto
+          dikompres di perangkat ini dulu (JPEG {Math.round(TAKARAN_FOTO_KYC.kualitas * 100)}%,
+          maksimal {Math.round(TAKARAN_FOTO_KYC.maksByte / 1024)} KB) supaya unggahan singkat.
         </p>
+        {hasilTerakhir !== null && (
+          <p role="status" className="text-[10px] leading-4 text-emerald-700">
+            {ringkasKompresi(hasilTerakhir)}
+          </p>
+        )}
       </DialogContent>
     </Dialog>
   );

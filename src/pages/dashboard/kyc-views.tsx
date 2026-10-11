@@ -32,6 +32,7 @@ import { WatermarkedDoc } from "@/components/WatermarkedDoc";
 import { UnggahDokumen, type DokumenTerunggah } from "@/components/admin/pengajuan-manual/UnggahDokumen";
 import { KameraLive } from "@/components/kyc/KameraLive";
 import { PindaiKtpOcr } from "@/components/kyc/PindaiKtpOcr";
+import { PengajuanCepatSection } from "./pengajuan-cepat-views";
 import type { DataKtp } from "@/lib/kycOcr";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -82,6 +83,7 @@ import {
 } from "@/lib/kycTahapan";
 import {
   bolehTransisi,
+  isKycVerified,
   KETERANGAN_STATUS_KYC,
   keteranganNomorWa,
   LABEL_STATUS_KYC,
@@ -761,6 +763,12 @@ export function KycSection() {
   const [kolomDipulihkan, setKolomDipulihkan] = useState<KunciDraftKyc[]>([]);
   /** Isian hasil gabungan draft (server selalu menang); null bila tak ada draft. */
   const [isianDipulihkan, setIsianDipulihkan] = useState<IsianDraftKyc | null>(null);
+  /**
+   * Nasabah TERVERIFIKASI bisa memilih melihat data KYC-nya sekali lagi.
+   * Bawaannya `false`: wizard tujuh tahap disembunyikan dan yang tampil adalah
+   * formulir pengajuan cepat satu halaman.
+   */
+  const [bukaDataKyc, setBukaDataKyc] = useState(false);
 
   // --- Draft lokal (anti-data-loss) ---
   // Kunci penyimpanan per pengguna. Tanpa pengguna yang diketahui, draft tidak
@@ -922,6 +930,32 @@ export function KycSection() {
     selfie: dokumenTersimpan.selfieKtpId,
     bukti: dokumenTersimpan.buktiPenghasilanId,
   };
+
+  // ===== Jalur pengajuan cepat (pasca-KYC) =====
+  // Identitas sudah TERVERIFIKASI: wizard tujuh tahap tidak lagi ditampilkan,
+  // dan pengajuan diajukan dari satu halaman. Semua data identitas diambil dari
+  // baris KYC yang sudah diperiksa petugas — tidak ada yang diketik ulang, dan
+  // tidak ada mutasi server baru. Nasabah tetap bisa membuka kembali data KYC-nya
+  // (mis. ingin mengganti rekening) lewat tautan di halaman itu.
+  if (isKycVerified(dataPasti.status) && !bukaDataKyc) {
+    return (
+      <PengajuanCepatSection
+        ktp={{
+          namaLengkap: dataPasti.isian.namaLengkap,
+          nik: dataPasti.isian.nik,
+          nomorWhatsApp: dataPasti.isian.nomorWhatsApp,
+          penghasilanBulanan: penghasilanDariTeks(dataPasti.isian.penghasilan),
+          sumberPenghasilan: dataPasti.isian.sumberPenghasilan,
+          namaBank: dataPasti.isian.namaBank,
+          nomorRekening: dataPasti.isian.nomorRekening,
+          dokKtpId: dokumenTersimpan.ktpId,
+          dokSelfieKtpId: dokumenTersimpan.selfieKtpId,
+          dokSlipGajiId: dokumenTersimpan.buktiPenghasilanId,
+        }}
+        onLihatDataKyc={() => setBukaDataKyc(true)}
+      />
+    );
+  }
   // Draft hanya berlaku untuk data tersimpan yang SAMA: stempel berubah setiap
   // kali server mencatat simpanan baru, sehingga setelah simpan berhasil layar
   // otomatis menampilkan nilai yang benar-benar tersimpan (sudah dinormalkan
@@ -1269,6 +1303,17 @@ export function KycSection() {
             persetujuan pinjaman dan bukan bukti dana cair. Mengubah nama, NIK, atau berkas
             identitas akan memicu verifikasi ulang.
           </p>
+          {bukaDataKyc && (
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="mt-2 gap-1.5 rounded-xl"
+              onClick={() => setBukaDataKyc(false)}
+            >
+              <ArrowRight className="size-3.5" aria-hidden /> Kembali ke pengajuan cepat
+            </Button>
+          )}
         </div>
       )}
 
