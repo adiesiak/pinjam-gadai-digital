@@ -4,6 +4,7 @@ import { Component, useCallback, useEffect, useRef, useState, type ReactNode } f
 import { Link } from "react-router";
 
 import { Button } from "@/components/ui/button";
+import { Slider } from "@/components/ui/slider";
 import { VaultLogo } from "@/components/VaultLogo";
 import {
   landingTemplateInfo,
@@ -26,10 +27,11 @@ import type { HandleTemplate } from "./templateScene";
  * Susunan lapisan (belakang → depan):
  *   1. Gradien gelap CSS bertema template — selalu ada; ini juga fallback bila
  *      WebGL gagal. Warnanya berasal dari palet template, bukan warna acak baru.
- *   2. `<canvas>` WebGL — langit/bulan/air (Moonlit), partikel emerald (Floating
- *      Green Card), kisi & gerbang (Digital Gate), cincin orbit (Orbit), brankas
- *      (Vault), atau kota + jaringan cahaya (City). Dimuat malas lewat
- *      `import("./templateScene")` supaya mesin 3D tidak ada di bundel awal.
+ *   2. `<canvas>` WebGL — kartu emerald matte (3D Premium Card), brankas siber
+ *      (Cyber Vault), maskot A.I. (Cyber Mascot), jaringan ledger (Ledger
+ *      Matrix), koin simulator (Loan Simulator), atau portal kuantum (Quantum
+ *      Portal). Dimuat malas lewat `import("./templateScene")` supaya mesin 3D
+ *      tidak ada di bundel awal.
  *   3. Fallback statis — hanya tampil saat WebGL tidak tersedia/gagal.
  *   4. Konten hero + kartu 3D (CSS transform) — selalu DOM, jadi teks/CTA tidak
  *      pernah bergantung pada 3D.
@@ -39,11 +41,15 @@ import type { HandleTemplate } from "./templateScene";
  *     rotateX ±10°) dengan peredaman lerp — bukan lompatan.
  *   - Saat pointer masuk, kartu terangkat + membesar sedikit + glow hijau PINDAI
  *     naik, dan kilau permukaan mengikuti pointer (`--mx`/`--my`). Adegan 3D ikut
- *     menerima sinyal hover (`setHover`) — itulah yang membuat Vault membuka
- *     cincinnya dan kartu Floating terangkat.
+ *     menerima sinyal hover (`setHover`) — itulah yang membuat brankas (Vault)
+ *     membuka cincinnya, maskot A.I. menyapa, dan portal menyala.
  *   - Sentuh: `touch-action: pan-y` membuat gulir VERTIKAL tetap milik halaman,
  *     sedangkan geser horizontal menggerakkan tilt. Tidak pernah `preventDefault`.
  *   - TIDAK ADA rotasi 360°/auto-rotate. Kartu hanya bergerak karena pengguna.
+ *   - Gulir halaman diteruskan ke adegan (`setSkrol`) sehingga template 3D
+ *     Premium Card berputar mengikuti posisi gulir, bukan berputar sendiri.
+ *   - Pada template 3D Interactive Loan Simulator, slider tenor di dalam hero
+ *     menggerakkan `setSlider` (putaran koin + radius cincin kedalaman).
  *
  * Prinsip yang dijaga:
  *  - Headline, deskripsi, dan CTA SELALU tampil tanpa WebGL.
@@ -115,10 +121,18 @@ export function LandingHero(props: LandingHeroProps) {
   const template = templateLandingAman(props.template);
   const info = landingTemplateInfo(template);
   const preset = landingTemplatePreset(template);
-  /** Hanya Moonlit yang punya air — riak hanya bermakna di sana. */
-  const beriak = preset === 0;
+  /**
+   * Riak permukaan hanya bermakna pada scene ber-air. Keenam template baru
+   * (kartu premium, vault, maskot, ledger, simulator, portal) tidak punya air,
+   * jadi jalur riak sengaja nonaktif — API `tambahRiak` tetap ada di mesin 3D
+   * agar template ber-air bisa ditambahkan lagi tanpa mengubah antarmuka.
+   */
+  const beriak: boolean = false;
 
   const reduce = useReducedMotion() === true;
+  /** Template simulator menampilkan kontrol tenor di dalam hero. */
+  const simulator = template === "loan-simulator";
+  const [tenorBulan, setTenorBulan] = useState(6);
   const sectionRef = useRef<HTMLElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const panggungRef = useRef<HTMLDivElement | null>(null);
@@ -139,6 +153,13 @@ export function LandingHero(props: LandingHeroProps) {
   const riakTerakhirRef = useRef(0);
   const posisiRiakRef = useRef({ x: 0.5, y: 0.5 });
   const sentuhAktifRef = useRef(false);
+  /**
+   * Nilai interaksi dokumen yang harus langsung dipakai begitu adegan selesai
+   * dibangun (lazy import). Disimpan di ref supaya tidak ada setState per frame
+   * dan nilai tetap benar walau pengguna sudah menggulir/menggeser lebih dulu.
+   */
+  const skrolRef = useRef(0);
+  const sliderRef = useRef(0.5);
 
   /* ── Bangun adegan WebGL (dimuat malas). Bila gagal → fallback CSS. ── */
   useEffect(() => {
@@ -177,6 +198,9 @@ export function LandingHero(props: LandingHeroProps) {
         return;
       }
       sceneRef.current = handle;
+      // Terapkan interaksi dokumen yang sudah terjadi sebelum adegan siap.
+      handle.setSkrol(skrolRef.current);
+      handle.setSlider(sliderRef.current);
       handle.setUkuran(canvas.clientWidth || 1, canvas.clientHeight || 1);
 
       // Ukuran awal mungkin belum final saat lazy-load selesai — ukur ulang
@@ -200,6 +224,44 @@ export function LandingHero(props: LandingHeroProps) {
       handle?.destroy();
     };
   }, [preset, reduce]);
+
+  /*
+   * ── Gulir halaman → putaran/kedalaman adegan (`setSkrol`) ──
+   * Dihitung dari posisi hero terhadap viewport, dibaca di dalam rAF supaya
+   * satu gulir tidak memicu puluhan penulisan uniform. Listener pasif: gulir
+   * milik halaman, bukan milik hero.
+   */
+  useEffect(() => {
+    const section = sectionRef.current;
+    if (section === null) return;
+    let raf = 0;
+    const hitung = () => {
+      raf = 0;
+      const rect = section.getBoundingClientRect();
+      const tinggi = rect.height || 1;
+      const nilai = Math.min(1, Math.max(0, -rect.top / tinggi));
+      skrolRef.current = nilai;
+      sceneRef.current?.setSkrol(nilai);
+    };
+    const onSkrol = () => {
+      if (raf !== 0) return;
+      raf = requestAnimationFrame(hitung);
+    };
+    hitung();
+    window.addEventListener("scroll", onSkrol, { passive: true });
+    return () => {
+      window.removeEventListener("scroll", onSkrol);
+      if (raf !== 0) cancelAnimationFrame(raf);
+    };
+  }, []);
+
+  /* ── Slider simulator → putaran koin (`setSlider`), hanya template 5. ── */
+  useEffect(() => {
+    if (!simulator) return;
+    const nilai = Math.min(1, Math.max(0, (tenorBulan - 1) / 23));
+    sliderRef.current = nilai;
+    sceneRef.current?.setSlider(nilai);
+  }, [simulator, tenorBulan]);
 
   /* ── Hentikan loop saat hero keluar layar atau tab disembunyikan. ── */
   useEffect(() => {
@@ -388,12 +450,43 @@ export function LandingHero(props: LandingHeroProps) {
       className="hero-laut relative isolate overflow-hidden border-b border-slate-800/60 text-white"
       style={{ backgroundColor: info.palet[2] }}
     >
-      {/* 1. Gradien dasar — selalu ada, sekaligus fallback WebGL. */}
+      {/* 1. Gradien dasar Deep Space Emerald — selalu ada, sekaligus fallback
+             WebGL. Kuningan (gold foil) TIDAK dipakai sebagai wash latar;
+             aksen emas hanya pada chip/logo kartu. */}
       <div
         aria-hidden="true"
         className="laut-dasar pointer-events-none absolute inset-0"
         style={{
-          backgroundImage: `radial-gradient(120% 90% at 22% 18%, ${info.palet[0]}cc, transparent 62%), radial-gradient(90% 70% at 78% 82%, ${info.palet[1]}22, transparent 70%)`,
+          backgroundImage: `radial-gradient(120% 90% at 22% 18%, ${info.palet[0]}cc, transparent 62%), radial-gradient(90% 70% at 78% 82%, #10B98122, transparent 70%)`,
+        }}
+      />
+
+      {/* 1b. Atmosfer: debu emerald halus (emerald dust) yang mengambang. */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 opacity-80"
+        style={{
+          backgroundImage:
+            "radial-gradient(1.6px 1.6px at 18% 24%, rgba(110,231,183,0.55), transparent 60%)," +
+            "radial-gradient(1.4px 1.4px at 62% 12%, rgba(52,211,153,0.45), transparent 60%)," +
+            "radial-gradient(1.8px 1.8px at 82% 46%, rgba(16,185,129,0.40), transparent 60%)," +
+            "radial-gradient(1.3px 1.3px at 34% 72%, rgba(110,231,183,0.38), transparent 60%)," +
+            "radial-gradient(1.5px 1.5px at 72% 84%, rgba(52,211,153,0.34), transparent 60%)",
+          backgroundSize: "320px 260px",
+        }}
+      />
+
+      {/* 1c. Light trails digital samar — memberi kedalaman, bukan subjek. */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 opacity-60"
+        style={{
+          backgroundImage:
+            "linear-gradient(90deg, transparent, rgba(110,231,183,0.28) 50%, transparent)," +
+            "linear-gradient(90deg, transparent, rgba(16,185,129,0.20) 50%, transparent)",
+          backgroundSize: "100% 1px, 100% 1px",
+          backgroundPosition: "0 26%, 0 62%",
+          backgroundRepeat: "no-repeat",
         }}
       />
 
@@ -450,7 +543,7 @@ export function LandingHero(props: LandingHeroProps) {
           >
             {props.judul1}
             <br />
-            <span className="font-serif font-medium italic text-[#e6d3a5]">{props.judul2}</span>
+            <span className="font-serif font-medium italic text-[#6EE7B7]">{props.judul2}</span>
           </h1>
 
           <p
@@ -467,7 +560,7 @@ export function LandingHero(props: LandingHeroProps) {
             <Button
               asChild
               disabled={props.ctaUtama.disabled}
-              className="animate-sheen h-12 rounded-full bg-[#1f6a62] px-6 text-white ring-1 ring-[#c9a86a]/40 transition-transform hover:-translate-y-0.5 hover:bg-[#175a53]"
+              className="animate-sheen h-12 rounded-full bg-[#064E3B] px-6 text-white ring-1 ring-[#c9a86a]/40 transition-transform hover:-translate-y-0.5 hover:bg-[#0B5F49]"
             >
               <Link to={props.ctaUtama.href}>
                 {props.ctaUtama.label}
@@ -500,14 +593,45 @@ export function LandingHero(props: LandingHeroProps) {
             style={{ animationDelay: "0.32s" }}
           >
             <span className="flex items-center gap-2">
-              <ShieldCheck className="size-4 text-[#e6d3a5]" aria-hidden="true" />
+              <ShieldCheck className="size-4 text-[#6EE7B7]" aria-hidden="true" />
               Rincian biaya terbuka
             </span>
             <span className="flex items-center gap-2">
-              <Lock className="size-4 text-[#e6d3a5]" aria-hidden="true" />
+              <Lock className="size-4 text-[#6EE7B7]" aria-hidden="true" />
               Verifikasi OTP WhatsApp
             </span>
           </div>
+
+          {/* Simulasi tenor hanya pada template 3D Interactive Loan Simulator:
+              menggerakkan putaran koin & cincin kedalaman di adegan 3D. */}
+          {simulator && (
+            <div
+              className="motion-slide-up mt-6 max-w-lg rounded-2xl border border-white/10 bg-white/[0.04] p-4 backdrop-blur"
+              style={{ animationDelay: "0.28s" }}
+            >
+              <div className="flex items-baseline justify-between gap-3">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#6EE7B7]">
+                  Simulasi tenor
+                </p>
+                <p className="text-sm font-semibold tabular-nums text-white">
+                  {tenorBulan} bulan
+                </p>
+              </div>
+              <Slider
+                className="mt-3"
+                min={1}
+                max={24}
+                step={1}
+                value={[tenorBulan]}
+                onValueChange={(v) => setTenorBulan(v[0] ?? 1)}
+                aria-label="Simulasi tenor dalam bulan"
+              />
+              <p className="mt-2 text-[11px] leading-5 text-slate-400">
+                Geser untuk melihat koin dan cincin kedalaman bergerak. Angka ini ilustrasi
+                interaksi visual — rincian biaya mengikuti produk yang berlaku.
+              </p>
+            </div>
+          )}
 
           {/* Hanya saat WebGL gagal: pengunjung diberi tahu tanpa kehilangan CTA. */}
           {gagal && (
@@ -515,7 +639,7 @@ export function LandingHero(props: LandingHeroProps) {
               role="status"
               className="mt-6 flex max-w-lg items-start gap-2 rounded-xl border border-white/15 bg-white/[0.05] px-3.5 py-2.5 text-xs leading-5 text-slate-300"
             >
-              <TriangleAlert className="mt-0.5 size-3.5 shrink-0 text-[#e6d3a5]" aria-hidden="true" />
+              <TriangleAlert className="mt-0.5 size-3.5 shrink-0 text-[#6EE7B7]" aria-hidden="true" />
               <span>
                 Pengalaman 3D tidak dapat dimuat pada perangkat ini. PINDAI tetap dapat digunakan
                 seperti biasa lewat tombol di atas.

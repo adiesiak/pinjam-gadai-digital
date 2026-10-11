@@ -1281,7 +1281,7 @@ function HeroDarurat({
   return (
     <section
       aria-labelledby="hero-darurat-judul"
-      className="relative overflow-hidden border-b border-slate-800/60 bg-[#04100c] text-white"
+      className="relative overflow-hidden border-b border-slate-800/60 bg-[#021E17] text-white"
     >
       <div
         aria-hidden="true"

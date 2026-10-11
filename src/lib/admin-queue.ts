@@ -19,9 +19,10 @@
  * Seluruh nilai tab panel admin, urut sesuai peta di dokumen desain §4.
  * 16 modul lama + `hari-ini` + `aplikasi` = 18 (panel "Ledger internal" dihapus
  * dari panel admin; query ledger tetap dipakai halaman /qc).
- * Tambah `penagihan` nanti di GRUP_NAV bila /admin diberi tab penagihan; nilai ini
- * dipakai admin-ui jadi tipe-nilai yang valid. Menambah modul di sini akan memaksa
- * `panel` di `admin-tabs.tsx` menambahkan isinya.
+ * `killswitch` ditambahkan agar pintu darurat punya tempat di sidebar
+ * (Keamanan & audit) selain tombol di header — memakai mutation
+ * `system.setKillSwitch` yang sudah ada, tanpa backend baru.
+ * Menambah modul di sini akan memaksa `panel` di `admin-tabs.tsx` menambahkan isinya.
  */
 export const NILAI_MODUL_ADMIN = [
   "hari-ini",
@@ -45,6 +46,7 @@ export const NILAI_MODUL_ADMIN = [
   "audit",
   "backup",
   "bi",
+  "killswitch",
 ] as const;
 
 export type NilaiModulAdmin = (typeof NILAI_MODUL_ADMIN)[number];
@@ -75,33 +77,28 @@ export const GRUP_NAV: readonly GrupNav[] = [
     default: "hari-ini",
   },
   {
-    id: "antrean",
-    label: "Antrean",
-    modul: ["pinjaman", "gadai", "kredit", "kyc", "alokasi", "dpd", "lelang"],
+    id: "operasional",
+    label: "Operasional",
+    modul: ["pinjaman", "gadai", "kredit", "kyc", "alokasi", "plafon", "akses"],
     default: "pinjaman",
   },
   {
-    id: "nasabah",
-    label: "Nasabah",
-    modul: ["plafon", "akses", "lokasi"],
-    default: "plafon",
+    id: "pemantauan",
+    label: "Pemantauan",
+    modul: ["dpd", "lokasi", "lelang", "bi"],
+    default: "dpd",
+  },
+  {
+    id: "konten",
+    label: "Konten",
+    modul: ["landing", "template", "pengumuman", "whatsapp", "aplikasi"],
+    default: "landing",
   },
   {
     id: "sistem",
     label: "Sistem",
-    modul: [
-      "pengumuman",
-      "whatsapp",
-      "config",
-      "template",
-      "landing",
-      "aplikasi",
-      "loglogin",
-      "bi",
-      "audit",
-      "backup",
-    ],
-    default: "pengumuman",
+    modul: ["config", "backup", "audit", "loglogin", "killswitch"],
+    default: "config",
   },
 ];
 

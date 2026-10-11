@@ -1,9 +1,10 @@
 import {
   ClipboardList,
   LayoutDashboard,
+  LayoutTemplate,
+  LineChart,
   Search,
   Settings2,
-  Users,
 } from "lucide-react";
 import { useState, type ComponentType } from "react";
 
@@ -21,8 +22,8 @@ import {
 import { cn } from "@/lib/utils";
 
 /**
- * Navigasi panel admin untuk layar kecil: bilah bawah 4 tab, strip chip modul,
- * dan sheet "Cari menu". Menggantikan `<select>` berisi 17 opsi, yang
+ * Navigasi panel admin untuk layar kecil: bilah bawah 5 tab, strip chip modul,
+ * dan sheet "Cari menu". Menggantikan `<select>` berisi puluhan opsi, yang
  * menyembunyikan isi tiap menu dan memotong lencana di dalam `<option>`.
  *
  * Sidebar desktop tidak diubah dan tetap dipakai di `admin-tabs.tsx`.
@@ -51,11 +52,12 @@ export type GrupNavData = {
 /** Item menu yang sudah dilengkapi nama grupnya, untuk pencarian. */
 type ItemRata = ItemNav & { grup: string };
 
-/** Ikon tab bawah per id grup. Bilah bawah diuji memastikan keempatnya terisi. */
+/** Ikon tab bawah per id grup — satu ikon untuk masing-masing lima kategori. */
 const IKON_GRUP: Record<string, ComponentType<{ className?: string }>> = {
   "hari-ini": LayoutDashboard,
-  antrean: ClipboardList,
-  nasabah: Users,
+  operasional: ClipboardList,
+  pemantauan: LineChart,
+  konten: LayoutTemplate,
   sistem: Settings2,
 };
 
@@ -186,8 +188,8 @@ export function AdminNav({
         </div>
       </div>
 
-      {/* Bilah bawah: 4 tab. Sengaja bukan `role="tablist"` — ini pintu masuk
-          navigasi, bukan penyaring satu daftar (lihat catatan `SubTabFilter`). */}
+      {/* Bilah bawah: 5 tab kategori. Sengaja bukan `role="tablist"` — ini pintu
+          masuk navigasi, bukan penyaring satu daftar (lihat `SubTabFilter`). */}
       <nav
         aria-label="Menu operasi"
         className="fixed bottom-0 left-[env(safe-area-inset-left)] right-[env(safe-area-inset-right)] z-30 border-t border-slate-200 bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden"
@@ -208,7 +210,7 @@ export function AdminNav({
                   if (!aktif) onPilih(grupNav.default);
                 }}
                 className={cn(
-                  "m-1.5 flex min-h-12 flex-1 flex-col items-center justify-center gap-0.5 rounded-xl px-1 py-1.5 text-[11px] font-semibold transition-colors",
+                  "m-1 flex min-h-12 flex-1 flex-col items-center justify-center gap-0.5 rounded-xl px-0.5 py-1.5 text-[10px] font-semibold transition-colors sm:m-1.5 sm:px-1 sm:text-[11px]",
                   aktif
                     ? "gradient-primary text-white"
                     : "text-slate-500 hover:bg-slate-50 hover:text-navy",

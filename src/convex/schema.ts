@@ -955,12 +955,12 @@ const schema = defineSchema(
        */
       landingTemplate: v.optional(
         v.union(
-          v.literal("moonlit"),
-          v.literal("floating-green"),
-          v.literal("digital-gate"),
-          v.literal("orbit"),
-          v.literal("vault"),
-          v.literal("city"),
+          v.literal("premium-card"),
+          v.literal("cyber-vault"),
+          v.literal("ai-mascot"),
+          v.literal("ledger-matrix"),
+          v.literal("loan-simulator"),
+          v.literal("quantum-portal"),
         ),
       ),
       /** Waktu terakhir konfigurasi diperbarui. */

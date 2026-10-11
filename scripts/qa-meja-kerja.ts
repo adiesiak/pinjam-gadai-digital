@@ -9,7 +9,7 @@
  * Run: bun scripts/qa-meja-kerja.ts
  */
 import { mock } from "bun:test";
-import { ClipboardList, Landmark, Package, ShieldCheck } from "lucide-react";
+import { BellRing, ClipboardList, Landmark, MapPin, Package, ShieldCheck } from "lucide-react";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
@@ -22,6 +22,7 @@ mock.module("leaflet", () => ({ default: {} }));
 const { AdminTabs } = await import("@/pages/admin/admin-tabs");
 const { MejaKerja } = await import("@/pages/admin/meja-kerja");
 const { AdminNav, IsiCariMenu } = await import("@/components/admin/admin-nav");
+const { NILAI_MODUL_ADMIN } = await import("@/lib/admin-queue");
 
 let lulus = 0;
 let gagal = 0;
@@ -135,7 +136,7 @@ const tabs = (o: Props["overview"], s: Props["stats"]) =>
 // ===== A. Tab default + panel "Hari Ini" terpasang =====
 const html = tabs(overview, stats0);
 const t = teksDari(html);
-cek("A1 region berlabel Hari Ini", html.includes('aria-label="Hari Ini"'));
+cek("A1 region berlabel Ringkasan Hari Ini", html.includes('aria-label="Ringkasan Hari Ini"'));
 cek("A2 tab Hari Ini ditandai aktif", html.includes('aria-current="page"'));
 cek("A3 bilah bawah terpasang (pengganti select)", html.includes('aria-label="Menu operasi"'));
 cek("A4 kartu Perlu keputusan", t.includes("Perlu keputusan"));
@@ -150,18 +151,19 @@ cek("A12 tanpa undefined", !t.includes("undefined"));
 
 // ===== B. R3: lencana informasi tidak dijumlahkan =====
 // Lencana gabungan grup kini terlihat di bilah bawah pada tab yang tidak aktif,
-// jadi R3 diuji tepat pada angka tab memakai menu asli.
+// jadi R3 diuji tepat pada angka tab memakai menu asli. Nama tab mengikuti lima
+// kategori yang diminta (Hari Ini · Operasional · Pemantauan · Konten · Sistem).
 const bilah = bilahDari(html);
 cek(
-  "B1 tab Antrean = 4 (bukan 11)",
-  lencanaTab(bilah, "Antrean") === "4",
-  "dapat: " + lencanaTab(bilah, "Antrean"),
+  "B1 tab Operasional = 2 (bukan 11)",
+  lencanaTab(bilah, "Operasional") === "2",
+  "dapat: " + lencanaTab(bilah, "Operasional"),
 );
-cek("B2 angka 11 (4+7) tidak muncul", !bilah.includes(">11<"));
+cek("B2 angka 11 (2+2+7) tidak muncul", !bilah.includes(">11<"));
 cek(
-  "B3 tab Nasabah = 4 (perhatian lokasi)",
-  lencanaTab(bilah, "Nasabah") === "4",
-  "dapat: " + lencanaTab(bilah, "Nasabah"),
+  "B3 tab Pemantauan = 6 (terlambat 2 + perhatian lokasi 4)",
+  lencanaTab(bilah, "Pemantauan") === "6",
+  "dapat: " + lencanaTab(bilah, "Pemantauan"),
 );
 cek(
   "B4 tab Sistem tanpa lencana (hanya OK)",
@@ -173,14 +175,38 @@ cek("B6 ledger seimbang -> tanpa tanda seru", !bilah.includes(">!<"));
 
 // Sidebar desktop tetap menguji perbaikan yang sama (grup, bukan tab).
 cek(
-  "B7 sidebar: grup Pengajuan = 2 (bukan 9)",
-  badgeGrup(html, "Pengajuan &amp; tindakan") === "2",
-  "dapat: " + badgeGrup(html, "Pengajuan &amp; tindakan"),
+  "B7 sidebar: grup Operasional & tindakan = 2 (bukan 9)",
+  badgeGrup(html, "Operasional &amp; tindakan") === "2",
+  "dapat: " + badgeGrup(html, "Operasional &amp; tindakan"),
 );
 cek(
-  "B8 sidebar: grup Pemantauan = 6",
-  badgeGrup(html, "Pemantauan") === "6",
-  "dapat: " + badgeGrup(html, "Pemantauan"),
+  "B8 sidebar: grup Pemantauan & finansial = 6",
+  badgeGrup(html, "Pemantauan &amp; finansial") === "6",
+  "dapat: " + badgeGrup(html, "Pemantauan &amp; finansial"),
+);
+// Lima kategori sidebar yang diminta harus benar-benar ada, dan setiap modul
+// tetap berada di dalam tepat satu grup.
+cek(
+  "B9 lima kategori sidebar terpasang",
+  [
+    "Operasional &amp; tindakan",
+    "Pemantauan &amp; finansial",
+    "CMS &amp; template website",
+    "Pemeliharaan sistem",
+    "Keamanan &amp; audit",
+  ].every((judul) => html.includes(`${judul}</span>`)),
+);
+// Isi grup yang tertutup tidak dirender Radix (bukan `forceMount`), jadi yang
+// bisa diperiksa dari markup adalah JUDUL grup + daftar modul di data menu.
+cek(
+  "B10 grup pemeliharaan & keamanan terpasang",
+  html.includes("Pemeliharaan sistem</span>") && html.includes("Keamanan &amp; audit</span>"),
+);
+cek(
+  "B10b modul pemeliharaan & kill switch terdaftar",
+  ["config", "backup", "audit", "loglogin", "killswitch"].every((modul) =>
+    (NILAI_MODUL_ADMIN as readonly string[]).includes(modul),
+  ),
 );
 
 // ===== C. Panel "Ledger internal" sudah tidak ada di menu admin =====
@@ -188,7 +214,13 @@ cek(
 // berlencana bila ada modul Sistem yang benar-benar menunggu tindakan.
 cek("C1 tab Sistem tanpa lencana", lencanaTab(bilah, "Sistem") === undefined);
 cek("C2 tanpa tanda seru palsu", !bilah.includes(">!<"));
-cek("C3 item ledger hilang dari sidebar", !html.includes("Ledger internal"));
+// Panel lama bernama persis "Ledger internal" sudah dihapus dari menu admin;
+// modul penggantinya bernama "Ledger Internal & Kesehatan Sistem" (gabungan
+// metrik BI + keseimbangan ledger) dan itu memang yang diinginkan.
+cek(
+  "C3 panel Ledger internal lama tidak kembali",
+  !html.includes('aria-label="Ledger internal"'),
+);
 
 // ===== D. Aturan angka: "belum siap" bukan 0 =====
 const mMemuat = renderToStaticMarkup(
@@ -227,8 +259,9 @@ cek("E3 tanpa tanda pisah", !tmNol.includes("—"));
 // ===== F. Tiap produk membaca array-nya sendiri =====
 // Panjang tiap array sengaja berbeda (1/2/3) supaya salah pasang array
 // (mis. lencana gadai dihitung dari `overview.loans`) menghasilkan angka lain:
-// antrean = pinjaman 1 + gadai 2 + kredit 3 + dpd 2 (stats0) = 8,
-// salah pasang akan memberi 7 / 6 / 9, bukan 8.
+// Operasional = pinjaman 1 + gadai 2 + kredit 3 = 6,
+// Pemantauan = dpd 2 (stats0) + perhatian lokasi 4 = 6.
+// Salah pasang akan memberi angka lain (mis. 5 / 7 / 8), bukan 6.
 const htmlCampur = tabs(
   {
     loans: [pinjaman(1, "diajukan")],
@@ -243,14 +276,19 @@ const htmlCampur = tabs(
 );
 const bilahCampur = bilahDari(htmlCampur);
 cek(
-  "F1 tab Antrean = 8 (1+2+3+2)",
-  lencanaTab(bilahCampur, "Antrean") === "8",
-  "dapat: " + lencanaTab(bilahCampur, "Antrean"),
+  "F1 tab Operasional = 6 (1+2+3)",
+  lencanaTab(bilahCampur, "Operasional") === "6",
+  "dapat: " + lencanaTab(bilahCampur, "Operasional"),
 );
 cek(
-  "F2 sidebar: grup Pengajuan = 6 (1+2+3)",
-  badgeGrup(htmlCampur, "Pengajuan &amp; tindakan") === "6",
-  "dapat: " + badgeGrup(htmlCampur, "Pengajuan &amp; tindakan"),
+  "F2 sidebar: grup Operasional & tindakan = 6 (1+2+3)",
+  badgeGrup(htmlCampur, "Operasional &amp; tindakan") === "6",
+  "dapat: " + badgeGrup(htmlCampur, "Operasional &amp; tindakan"),
+);
+cek(
+  "F3 tab Pemantauan tetap 6 (keterlambatan + lokasi)",
+  lencanaTab(bilahCampur, "Pemantauan") === "6",
+  "dapat: " + lencanaTab(bilahCampur, "Pemantauan"),
 );
 
 // ===== G. Bilah bawah + strip chip (AdminNav) =====
@@ -263,17 +301,28 @@ const itemMenu = (
   Icon: unknown,
 ): ItemNav => ({ value, label, hint, badge, hitung, Icon }) as unknown as ItemNav;
 
+// Nama grup & nilai modul mengikuti `GRUP_NAV` yang berlaku (lima kategori),
+// karena bilah bawah meratakan modul lewat `grupDariModul` — grup yang tidak
+// dikenal tidak akan pernah muncul sebagai tab.
 const menuUji: GrupNavData[] = [
   {
-    judul: "Antrean",
+    judul: "Operasional & tindakan",
     items: [
       itemMenu("pinjaman", "Pinjaman", "Tinjau pengajuan pinjaman tunai.", "2", "menunggu", ClipboardList),
       itemMenu("gadai", "Gadai", "Nilai barang jaminan.", "1", "menunggu", Package),
     ],
   },
   {
-    judul: "Sistem & keamanan",
-    items: [        itemMenu("audit", "Audit Trail", "Jejak seluruh tindakan admin.", "OK", "tidak", Landmark),
+    judul: "Pemantauan & finansial",
+    items: [
+      itemMenu("dpd", "Jatuh Tempo", "Pinjaman yang melewati tanggal acuan.", "2", "menunggu", BellRing),
+      itemMenu("lokasi", "Pemantauan lokasi", "Titik lokasi perangkat peminjam.", "1", "menunggu", MapPin),
+    ],
+  },
+  {
+    judul: "Keamanan & audit",
+    items: [
+      itemMenu("audit", "Audit Trail", "Jejak seluruh tindakan admin.", "OK", "tidak", Landmark),
       itemMenu("loglogin", "Keamanan Login", "Riwayat login dan status TOTP.", null, "tidak", ShieldCheck),
     ],
   },
@@ -287,7 +336,7 @@ const htmlNav = nav("pinjaman");
 const bilahNav = bilahDari(htmlNav);
 
 cek("G1 bilah bawah berlabel Menu operasi", htmlNav.includes('aria-label="Menu operasi"'));
-for (const label of ["Hari Ini", "Antrean", "Nasabah", "Sistem"]) {
+for (const label of ["Hari Ini", "Operasional", "Pemantauan", "Konten", "Sistem"]) {
   cek(`G2 tab ${label} tersedia`, bilahNav.includes(label));
 }
 cek(
@@ -296,12 +345,22 @@ cek(
   "jumlah: " + (bilahNav.match(/aria-current="page"/g) ?? []).length,
 );
 const jumlahIkon = (bilahNav.match(/<svg/g) ?? []).length;
-cek("G4 empat ikon di bilah bawah", jumlahIkon === 4, "ikon: " + jumlahIkon);
-// Nama ikon dipatok satu per satu: peta ikon yang bolong akan jatuh ke
-// cadangan LayoutDashboard, sehingga tab lain ikut memakai ikon hari-ini.
-for (const nama of ["layout-dashboard", "clipboard-list", "users", "settings2"]) {
-  cek(`G4b ikon ${nama} terpasang`, bilahNav.includes(`lucide-${nama}`));
-}
+cek("G4 lima ikon di bilah bawah", jumlahIkon === 5, "ikon: " + jumlahIkon);
+// Tiap tab harus punya ikon BERBEDA: peta ikon yang bolong akan jatuh ke
+// cadangan LayoutDashboard, sehingga dua tab memakai ikon yang sama. Nama kelas
+// ikon tidak dipatok satu per satu karena lucide mengganti alias antar versi
+// (mis. `LineChart` kini merender `lucide-chart-line`).
+// Nama dinormalkan (huruf/angka saja) karena lucide menuliskan kelas alias DAN
+// kelas kanonik untuk ikon yang sama (mis. `lucide-settings2` +
+// `lucide-settings-2`), sehingga satu ikon bisa terhitung dua kali.
+const ikonBilah = new Set(
+  [...bilahNav.matchAll(/lucide-([a-z0-9-]+)/g)].map((m) => m[1].replace(/[^a-z0-9]/g, "")),
+);
+cek(
+  "G4b tiap tab punya ikon berbeda (tanpa ikon cadangan ganda)",
+  ikonBilah.size === 5,
+  "ikon: " + [...ikonBilah].join(", "),
+);
 cek(
   "G4c tanpa ikon cadangan (layout-dashboard sekali)",
   (bilahNav.match(/layout-dashboard/g) ?? []).length === 1,
@@ -315,9 +374,9 @@ cek("G6 chip modul aktif ditandai aria-pressed", htmlNav.includes('aria-pressed=
 cek("G7 chip membawa lencana", htmlNav.includes(">2<") && htmlNav.includes(">1<"));
 cek("G8 ada pintu Cari…", htmlNav.includes("Cari…"));
 cek(
-  "G9 tab tidak aktif memakai ringkasGrup (Antrean = 3)",
-  lencanaTab(bilahDari(nav("plafon")), "Antrean") === "3",
-  "dapat: " + lencanaTab(bilahDari(nav("plafon")), "Antrean"),
+  "G9 tab tidak aktif memakai ringkasGrup (Pemantauan = 3)",
+  lencanaTab(bilahDari(nav("plafon")), "Pemantauan") === "3",
+  "dapat: " + lencanaTab(bilahDari(nav("plafon")), "Pemantauan"),
 );
 // Saat grup Sistem aktif, chip modul memakai lencana yang sama dengan sidebar.
 const htmlNavSistem = nav("audit");
@@ -346,15 +405,17 @@ cek("H1 input pencarian berlabel", htmlCari.includes('aria-label="Cari menu"'));
 cek("H2 input ter-autofokus", /autofocus/i.test(htmlCari));
 cek(
   "H3 semua modul tampil saat kueri kosong",
-  ["Pinjaman", "Gadai", "Audit Trail", "Keamanan Login"].every((x) => tCari.includes(x)),
+  ["Pinjaman", "Gadai", "Jatuh Tempo", "Pemantauan lokasi", "Audit Trail", "Keamanan Login"].every(
+    (x) => tCari.includes(x),
+  ),
 );
-cek("H4 nama grup tampil di baris", tCari.includes("Sistem & keamanan"));
+cek("H4 nama grup tampil di baris", tCari.includes("Keamanan & audit"));
 const barisCari = (htmlCari.match(/cmdk-item/g) ?? []).length;
-cek("H5 semua baris hasil dirender", barisCari === 4, "baris: " + barisCari);
+cek("H5 semua baris hasil dirender", barisCari === 6, "baris: " + barisCari);
 // Setiap baris harus berupa opsi yang bisa dipilih pembaca layar.
 cek(
   "H6 tiap baris berperan option",
-  (htmlCari.match(/role="option"/g) ?? []).length === 4,
+  (htmlCari.match(/role="option"/g) ?? []).length === 6,
   "jumlah: " + (htmlCari.match(/role="option"/g) ?? []).length,
 );
 cek("H7 lencana tampil di baris", htmlCari.includes(">2<") && htmlCari.includes(">OK<"));

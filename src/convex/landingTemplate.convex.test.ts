@@ -36,7 +36,7 @@ describe("template landing 3D: pembacaan publik", () => {
   it("memakai default saat baris konfigurasi belum ada", async () => {
     const t = convexTest(schema, modules);
     const hasil = await t.query(api.system.getLandingTemplatePublic, {});
-    expect(hasil.template).toBe("moonlit");
+    expect(hasil.template).toBe("premium-card");
   });
 
   it("menormalkan nilai tak dikenal menjadi default, bukan error", async () => {
@@ -51,7 +51,7 @@ describe("template landing 3D: pembacaan publik", () => {
       });
     });
     const hasil = await t.query(api.system.getLandingTemplatePublic, {});
-    expect(hasil.template).toBe("moonlit");
+    expect(hasil.template).toBe("premium-card");
   });
 });
 
@@ -59,7 +59,7 @@ describe("template landing 3D: otorisasi backend", () => {
   it("menolak tamu yang belum masuk", async () => {
     const t = convexTest(schema, modules);
     await expect(
-      t.mutation(api.system.setLandingTemplate, { template: "orbit" }),
+      t.mutation(api.system.setLandingTemplate, { template: "cyber-vault" }),
     ).rejects.toThrow();
   });
 
@@ -75,15 +75,15 @@ describe("template landing 3D: otorisasi backend", () => {
     });
 
     await expect(
-      peminjam.mutation(api.system.setLandingTemplate, { template: "orbit" }),
+      peminjam.mutation(api.system.setLandingTemplate, { template: "cyber-vault" }),
     ).rejects.toThrow();
     await expect(
-      pendana.mutation(api.system.setLandingTemplate, { template: "orbit" }),
+      pendana.mutation(api.system.setLandingTemplate, { template: "cyber-vault" }),
     ).rejects.toThrow();
 
     // Tidak ada yang tersimpan: permintaan tidak sah tidak boleh berbekas.
     const hasil = await t.query(api.system.getLandingTemplatePublic, {});
-    expect(hasil.template).toBe("moonlit");
+    expect(hasil.template).toBe("premium-card");
   });
 
   it("menolak ID di luar allowlist walau sesinya admin", async () => {
@@ -114,12 +114,17 @@ describe("template landing 3D: penggantian oleh admin", () => {
     });
 
     const hasil = await asAdmin.mutation(api.system.setLandingTemplate, {
-      template: "vault",
+      template: "ledger-matrix",
     });
-    expect(hasil).toMatchObject({ ok: true, template: "vault", sebelumnya: "moonlit", berubah: true });
+    expect(hasil).toMatchObject({
+      ok: true,
+      template: "ledger-matrix",
+      sebelumnya: "premium-card",
+      berubah: true,
+    });
 
     const publik = await t.query(api.system.getLandingTemplatePublic, {});
-    expect(publik.template).toBe("vault");
+    expect(publik.template).toBe("ledger-matrix");
 
     const baris = await t.run(async (ctx) =>
       ctx.db
@@ -127,7 +132,7 @@ describe("template landing 3D: penggantian oleh admin", () => {
         .withIndex("by_slot", (q) => q.eq("slot", "global"))
         .first(),
     );
-    expect(baris?.landingTemplate).toBe("vault");
+    expect(baris?.landingTemplate).toBe("ledger-matrix");
     // Ganti template TIDAK menyentuh versi form maupun tema visual.
     expect(baris?.versi).toBe(7);
     expect(baris?.tema).toBe("salju");
@@ -138,8 +143,8 @@ describe("template landing 3D: penggantian oleh admin", () => {
     const t = convexTest(schema, modules);
     const asAdmin = await admin(t);
 
-    await asAdmin.mutation(api.system.setLandingTemplate, { template: "digital-gate" });
-    await asAdmin.mutation(api.system.setLandingTemplate, { template: "city" });
+    await asAdmin.mutation(api.system.setLandingTemplate, { template: "ai-mascot" });
+    await asAdmin.mutation(api.system.setLandingTemplate, { template: "quantum-portal" });
 
     const audit = await t.run(async (ctx) =>
       ctx.db
@@ -149,8 +154,8 @@ describe("template landing 3D: penggantian oleh admin", () => {
     );
     expect(audit).toHaveLength(2);
     const terbaru = audit[audit.length - 1];
-    expect(terbaru.detail).toContain("DIGITAL GATE");
-    expect(terbaru.detail).toContain("PINDAI CITY");
+    expect(terbaru.detail).toContain("3D CYBER MASCOT (A.I. ASSISTANT)");
+    expect(terbaru.detail).toContain("3D GATEWAY & QUANTUM PORTAL");
     expect(terbaru.aktorUserId).toBeDefined();
     expect(terbaru.waktu).toBeGreaterThan(0);
   });
@@ -159,9 +164,9 @@ describe("template landing 3D: penggantian oleh admin", () => {
     const t = convexTest(schema, modules);
     const asAdmin = await admin(t);
 
-    await asAdmin.mutation(api.system.setLandingTemplate, { template: "floating-green" });
+    await asAdmin.mutation(api.system.setLandingTemplate, { template: "loan-simulator" });
     const ulang = await asAdmin.mutation(api.system.setLandingTemplate, {
-      template: "floating-green",
+      template: "loan-simulator",
     });
     expect(ulang.berubah).toBe(false);
 
@@ -178,7 +183,7 @@ describe("template landing 3D: penggantian oleh admin", () => {
     const t = convexTest(schema, modules);
     const asAdmin = await admin(t);
 
-    await asAdmin.mutation(api.system.setLandingTemplate, { template: "orbit" });
+    await asAdmin.mutation(api.system.setLandingTemplate, { template: "cyber-vault" });
     const tema = await asAdmin.mutation(api.system.setWebsiteTemplate, { tema: "karnival" });
 
     expect(tema.ok).toBe(true);
@@ -186,6 +191,6 @@ describe("template landing 3D: penggantian oleh admin", () => {
     expect(publik.tema).toBe("karnival");
     // Ganti tema warna tidak mengembalikan template 3D ke default.
     const landing = await t.query(api.system.getLandingTemplatePublic, {});
-    expect(landing.template).toBe("orbit");
+    expect(landing.template).toBe("cyber-vault");
   });
 });

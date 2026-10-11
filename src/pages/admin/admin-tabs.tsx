@@ -11,6 +11,7 @@ import {
   Sparkles,
   MessageSquare,
   Package,
+  Power,
   Send,
   SlidersHorizontal,
   Settings2,
@@ -30,6 +31,7 @@ import { BackupPanel } from "@/components/admin/BackupPanel";
 import { LandingTemplatePanel } from "@/components/admin/LandingTemplatePanel";
 import { LiveLocationMap } from "@/components/admin/LiveLocationMap";
 import { KreditQueuePanel } from "@/components/admin/KreditQueuePanel";
+import { KillSwitchPanel } from "@/components/admin/KillSwitchPanel";
 import { KycPanel } from "@/components/admin/KycPanel";
 import { LoginSecurityPanel } from "@/components/admin/LoginSecurityPanel";
 import { DpdTab, LelangTab, LoanAllocationQueueTab } from "@/components/admin/OperationsTabs";
@@ -120,11 +122,11 @@ export function AdminTabs({
 
   const menu: AdminTabGroup[] = [
     {
-      judul: "Ringkasan",
+      judul: "Operasional & tindakan",
       items: [
         {
           value: "hari-ini",
-          label: "Hari Ini",
+          label: "Ringkasan Hari Ini",
           hint: "Ringkasan pekerjaan yang perlu ditindak hari ini.",
           // Sengaja tanpa lencana: satu angka di sini akan mencampur empat
           // metrik berbeda (keputusan, keterlambatan, lokasi, ledger) dan justru
@@ -133,14 +135,9 @@ export function AdminTabs({
           hitung: "tidak",
           Icon: LayoutDashboard,
         },
-      ],
-    },
-    {
-      judul: "Pengajuan & tindakan",
-      items: [
         {
           value: "pinjaman",
-          label: "Pinjaman",
+          label: "Pengajuan Pinjaman",
           hint: "Tinjau pengajuan pinjaman tunai, atau catat pengajuan yang diterima di luar aplikasi.",
           badge: `${hitungMenunggu(overview.loans, "pinjaman")}`,
           hitung: "menunggu",
@@ -148,7 +145,7 @@ export function AdminTabs({
         },
         {
           value: "gadai",
-          label: "Gadai",
+          label: "Pengajuan Gadai",
           hint: "Tinjau pengajuan gadai dan nilai barang jaminan, atau catat pengajuan manual.",
           badge: `${hitungMenunggu(overview.pawns, "gadai")}`,
           hitung: "menunggu",
@@ -156,7 +153,7 @@ export function AdminTabs({
         },
         {
           value: "kredit",
-          label: "Kredit Barang",
+          label: "Pengajuan Kredit Barang",
           hint: "Tinjau pengajuan kredit barang, atau catat pengajuan manual atas nama nasabah.",
           badge: `${hitungMenunggu(overview.kredit, "kredit")}`,
           hitung: "menunggu",
@@ -180,10 +177,26 @@ export function AdminTabs({
           hitung: "info",
           Icon: Wallet,
         },
+        {
+          value: "plafon",
+          label: "Plafon Nasabah",
+          hint: "Kelola plafon, bunga efektif, dan skor risiko per nasabah.",
+          badge: null,
+          hitung: "tidak",
+          Icon: SlidersHorizontal,
+        },
+        {
+          value: "akses",
+          label: "Nasabah & Pendana",
+          hint: "Kelola hak akses dan posisi pendana, termasuk akses lihat saja.",
+          badge: null,
+          hitung: "tidak",
+          Icon: Wallet,
+        },
       ],
     },
     {
-      judul: "Pemantauan",
+      judul: "Pemantauan & finansial",
       items: [
         {
           value: "lokasi",
@@ -197,7 +210,7 @@ export function AdminTabs({
         },
         {
           value: "dpd",
-          label: "Tanggal acuan",
+          label: "Jatuh Tempo",
           hint: "Pinjaman yang melewati tanggal acuan pelunasan.",
           badge: stats ? `${stats.pinjamanTerlambat}` : null,
           hitung: "menunggu",
@@ -205,41 +218,44 @@ export function AdminTabs({
         },
         {
           value: "lelang",
-          label: "Kalkulator lelang jaminan",
+          label: "Kalkulator Lelang Jaminan",
           hint: "Kalkulator nilai lelang untuk barang jaminan.",
           badge: null,
           hitung: "tidak",
           Icon: Gavel,
         },
-      ],
-    },
-    {
-      judul: "Nasabah & pendana",
-      items: [
         {
-          value: "plafon",
-          label: "Plafon Nasabah",
-          hint: "Atur plafon pinjaman per nasabah.",
+          value: "bi",
+          label: "Ledger Internal & Kesehatan Sistem",
+          hint: "Metrik bisnis siap dihitung, keseimbangan ledger internal, dan sinyal kesehatan sistem.",
           badge: null,
           hitung: "tidak",
-          Icon: SlidersHorizontal,
-        },
-        {
-          value: "akses",
-          label: "Kelola Pendana",
-          hint: "Kelola akses dan posisi pendana.",
-          badge: null,
-          hitung: "tidak",
-          Icon: Wallet,
+          Icon: Activity,
         },
       ],
     },
     {
-      judul: "Komunikasi",
+      judul: "CMS & template website",
       items: [
+        {
+          value: "landing",
+          label: "Landing Page · Template 3D",
+          hint: "Pratinjau dan aktifkan salah satu dari enam template landing page 3D.",
+          badge: null,
+          hitung: "tidak",
+          Icon: Sparkles,
+        },
+        {
+          value: "template",
+          label: "Template Website",
+          hint: "Teks dan tampilan halaman publik.",
+          badge: null,
+          hitung: "tidak",
+          Icon: PanelsTopLeft,
+        },
         {
           value: "pengumuman",
-          label: "Pengumuman",
+          label: "Banner & Pengumuman Sistem",
           hint: "Terbitkan pengumuman untuk pengguna aplikasi.",
           badge: null,
           hitung: "tidak",
@@ -253,35 +269,6 @@ export function AdminTabs({
           hitung: "tidak",
           Icon: Send,
         },
-      ],
-    },
-    {
-      judul: "Sistem & keamanan",
-      items: [
-        {
-          value: "config",
-          label: "Pengaturan Sistem",
-          hint: "Kebijakan sistem: bunga, potongan admin atas uang yang kembali, mode pemeliharaan.",
-          badge: null,
-          hitung: "tidak",
-          Icon: Settings2,
-        },
-        {
-          value: "template",
-          label: "Template Website",
-          hint: "Teks dan tampilan halaman publik.",
-          badge: null,
-          hitung: "tidak",
-          Icon: PanelsTopLeft,
-        },
-        {
-          value: "landing",
-          label: "Landing Page · Template 3D",
-          hint: "Pratinjau dan aktifkan salah satu dari enam template landing page 3D.",
-          badge: null,
-          hitung: "tidak",
-          Icon: Sparkles,
-        },
         {
           value: "aplikasi",
           label: "Aplikasi Android",
@@ -290,37 +277,55 @@ export function AdminTabs({
           hitung: "tidak",
           Icon: Smartphone,
         },
+      ],
+    },
+    {
+      judul: "Pemeliharaan sistem",
+      items: [
         {
-          value: "loglogin",
-          label: "Keamanan Login",
-          hint: "Riwayat login dan status verifikasi TOTP.",
+          value: "config",
+          label: "Pengaturan Parameter Bisnis (Bunga/Limit/Biaya)",
+          hint: "Bunga, potongan admin atas uang yang kembali, limit/biaya, dan Mode Pemeliharaan sistem.",
           badge: null,
           hitung: "tidak",
-          Icon: ShieldCheck,
+          Icon: Settings2,
         },
         {
-          value: "bi",
-          label: "BI & Kesehatan",
-          hint: "Metrik bisnis yang siap dihitung dan sinyal kesehatan sistem.",
+          value: "backup",
+          label: "Backup & Snapshot Database",
+          hint: "Cadangan data dan pemulihan sistem.",
           badge: null,
           hitung: "tidak",
-          Icon: Activity,
+          Icon: Database,
         },
+      ],
+    },
+    {
+      judul: "Keamanan & audit",
+      items: [
         {
           value: "audit",
-          label: "Audit Trail",
-          hint: "Jejak seluruh tindakan admin.",
+          label: "Audit Trail (Timeline Log)",
+          hint: "Jejak seluruh tindakan admin dalam bentuk timeline berwarna.",
           badge: null,
           hitung: "tidak",
           Icon: Lock,
         },
         {
-          value: "backup",
-          label: "Backup & Keamanan",
-          hint: "Cadangan data dan pemulihan sistem.",
+          value: "loglogin",
+          label: "Session & Keamanan Login",
+          hint: "Riwayat login, perangkat sesi, dan status verifikasi TOTP.",
           badge: null,
           hitung: "tidak",
-          Icon: Database,
+          Icon: ShieldCheck,
+        },
+        {
+          value: "killswitch",
+          label: "Kill Switch Darurat",
+          hint: "Blokir seluruh pengajuan baru — eksekusi wajib mengetik BEKUKAN.",
+          badge: null,
+          hitung: "tidak",
+          Icon: Power,
         },
       ],
     },
@@ -399,6 +404,7 @@ export function AdminTabs({
     landing: <LandingTemplatePanel />,
     aplikasi: <AplikasiAndroidPanel />,
     loglogin: <LoginSecurityPanel onOpenSetup={onOpenSetup} />,
+    killswitch: <KillSwitchPanel />,
     bi: <PanelBiKesehatan />,
     audit: <AuditTrailPanel />,
     backup: <BackupPanel />,

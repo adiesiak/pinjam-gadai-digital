@@ -3,7 +3,7 @@ import { BadgeCheck, IdCard, ShieldX } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { MemuatBaris } from "@/components/ui/loading";
-import { WatermarkedDoc } from "@/components/WatermarkedDoc";
+import { PenampilDokumen } from "./PenampilDokumen";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { formatRupiah } from "@/lib/money";
@@ -117,7 +117,11 @@ export function DataDiriRingkas({ data }: { data: DataDiriTampil }) {
             ))}
           </dl>
           {data.fotoKtpUrl !== null ? (
-            <WatermarkedDoc src={data.fotoKtpUrl} label="KTP tersimpan" />
+            <PenampilDokumen
+              src={data.fotoKtpUrl}
+              label="KTP tersimpan"
+              petunjuk="Perbesar untuk mencocokkan NIK/nama dengan isian pengajuan."
+            />
           ) : (
             <p className="inline-flex w-full items-center justify-center rounded-xl border border-dashed border-slate-300 px-3 py-4 text-xs text-muted-foreground">
               Belum ada foto KTP tersimpan.

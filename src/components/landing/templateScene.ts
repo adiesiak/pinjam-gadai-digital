@@ -3,13 +3,13 @@
  * shader, ENAM preset visual berbeda.
  *
  * Kenapa WebGL mentah (tanpa Three.js/R3F/Drei): yang dibutuhkan hanya SATU
- * bidang penuh layar, lalu seluruh langit, bulan, gerbang, air, kisi digital,
- * cincin orbit, brankas, dan kota digambar di dalam satu draw call. Menambahkan
- * mesin scene 3D lengkap untuk itu berarti membawa geometri, material, dan
- * renderer yang tidak dipakai — bertentangan dengan aturan proyek (bundle
- * ringan, tanpa dependensi baru demi visual). Modul ini juga menggantikan
- * `lautScene.ts` lama: preset 0 di bawah ini adalah adegan laut malam yang sama,
- * kini menjadi salah satu dari enam template.
+ * bidang penuh layar, lalu seluruh ruang Deep Space Emerald, kartu premium,
+ * brankas siber, maskot A.I., jaringan ledger, koin simulator, dan portal
+ * digambar di dalam satu draw call. Menambahkan mesin scene 3D lengkap untuk itu
+ * berarti membawa geometri, material, dan renderer yang tidak dipakai —
+ * bertentangan dengan aturan proyek (bundle ringan, tanpa dependensi baru demi
+ * visual). Mesin ini tetap lapisan yang sama seperti sebelumnya; yang berganti
+ * adalah palet dan keenam adegannya.
  *
  * Arsitektur:
  *  - `buatSceneTemplate(canvas, opsi)` mengembalikan `HandleTemplate`, atau
@@ -19,12 +19,14 @@
  *    `landingTemplatePreset()`, jadi hanya SATU scene yang hidup pada satu waktu
  *    (halaman publik memuat template aktif; panel admin hanya memuat yang
  *    sedang di-preview).
+ *  - Interaksi dokumen (kemajuan gulir halaman, nilai slider simulator) masuk
+ *    sebagai uniform `uSkrol`/`uSlider` lewat `setSkrol`/`setSlider`.
  *
  * Batas yang dijaga:
  *  - Tanpa React, tanpa akses DOM saat impor → aman dimuat malas & aman di
  *    Electron (semua pemakaian window/document ada di dalam fungsi).
- *  - Tanpa `setState` per frame: parallax, hover, dan riak ditulis sebagai uniform
- *    di dalam satu rAF internal yang ditutup `destroy()`.
+ *  - Tanpa `setState` per frame: parallax, hover, gulir, dan slider ditulis
+ *    sebagai uniform di dalam satu rAF internal yang ditutup `destroy()`.
  *  - Waktu naik dari delta frame (bukan jam dinding) supaya tidak melompat
  *    setelah tab dijeda.
  *  - `prefers-reduced-motion` → satu frame statis, tanpa loop.
@@ -32,6 +34,8 @@
  *    fallback statis.
  *  - Mode ringan (mobile) mengurangi jumlah partikel/langkah loop lewat uniform
  *    `uRingan`, bukan dengan menurunkan kualitas visual utama.
+ *  - Kuningan (gold foil) hanya dipakai sebagai aksen tipis pada tepi/logo
+ *    kartu dan tepi koin — bukan warna dominan adegan.
  */
 
 export interface OpsiTemplate {
@@ -52,6 +56,16 @@ export interface HandleTemplate {
   setHover(aktif: boolean): void;
   /** Titik sumber riak dalam koordinat uv (x 0..1 kiri→kanan, y 0..1 bawah→atas). */
   tambahRiak(x: number, y: number): void;
+  /**
+   * Kemajuan gulir halaman 0..1. Dipakai template yang berputar saat digulir
+   * (3D Premium Card) dan untuk menggeser kedalaman kamera.
+   */
+  setSkrol(nilai: number): void;
+  /**
+   * Nilai slider simulator 0..1 (template 3D Interactive Loan Simulator).
+   * Menggerakkan putaran koin & radius cincin kedalaman.
+   */
+  setSlider(nilai: number): void;
   /** Jeda/lanjutkan loop (dipakai saat hero keluar layar atau tab disembunyikan). */
   setAktif(aktif: boolean): void;
   /** Perbarui ukuran kanvas (dipanggil ResizeObserver). */
@@ -75,7 +89,7 @@ void main() {
 /**
  * Satu shader untuk enam scene. `uPreset` memilih cabangnya; semua preset
  * berbagi prolog (aspect, parallax pointer, waktu, vignette, grain) supaya
- * nuansanya tetap satu keluarga: PINDAI Green.
+ * nuansanya tetap satu keluarga: Deep Space Emerald.
  */
 const FRAG = `
 precision highp float;
@@ -91,16 +105,25 @@ uniform int   uJumlahRipple;
 uniform float uReduce;
 uniform int   uPreset;
 uniform float uRingan;
+/* Interaksi dokumen: kemajuan gulir halaman (0..1) & nilai slider simulator. */
+uniform float uSkrol;
+uniform float uSlider;
 
 const float HORIZON = 0.46;
 
-/* Hijau PINDAI — dipakai semua preset supaya identitas merek konsisten. */
-const vec3 GREEN_DEEP = vec3(0.004, 0.028, 0.024);
-const vec3 GREEN_MID  = vec3(0.012, 0.075, 0.064);
-const vec3 GREEN_RIM  = vec3(0.055, 0.230, 0.196);
-const vec3 GREEN_GLOW = vec3(0.190, 0.560, 0.430);
-const vec3 BRASS      = vec3(0.790, 0.660, 0.415);
-const vec3 MOON       = vec3(0.740, 0.815, 0.985);
+/*
+ * Palet Deep Space Emerald — identitas PINDAI Green.
+ *   SPACE_DEEP   #021E17  ruang paling gelap (latar)
+ *   EMERALD      #064E3B  bidang utama (emerald pekat)
+ *   EMERALD_MID  #10B981  rim & cahaya
+ *   EMERALD_LT   #6EE7B7  glow partikel
+ *   GOLD_FOIL    #C9A86A  AKSEN TIPIS saja (tepi/logo/koin)
+ */
+const vec3 SPACE_DEEP  = vec3(0.008, 0.118, 0.090);
+const vec3 EMERALD     = vec3(0.024, 0.306, 0.231);
+const vec3 EMERALD_MID = vec3(0.063, 0.725, 0.506);
+const vec3 EMERALD_LT  = vec3(0.431, 0.906, 0.718);
+const vec3 GOLD_FOIL   = vec3(0.788, 0.659, 0.416);
 
 float hash21(vec2 p) {
   vec3 p3 = fract(vec3(p.xyx) * vec3(0.1031, 0.1030, 0.0973));
@@ -122,8 +145,7 @@ float ring(float d, float r, float w) {
  * Garis kisi: 1 tepat di garis, 0 jauh dari garis. Lebar garis diberikan
  * dalam satuan q (bukan lebar piksel) supaya shader tetap dapat dikompilasi
  * di WebGL1 tanpa ekstensi turunan standar (GL_OES_standard_derivatives) —
- * fwidth tidak dipakai sama sekali. Antialiasing kasar ditutup oleh peredaman di
- * pemanggilnya (lantai kisi hanya terlihat di dekat horizon).
+ * fwidth tidak dipakai sama sekali.
  */
 float grid(vec2 q, float w) {
   vec2 f = abs(fract(q) - 0.5);
@@ -131,354 +153,313 @@ float grid(vec2 q, float w) {
   return garis;
 }
 
-float waves(vec2 q, float t) {
-  float w = 0.0;
-  w += sin(q.x * 2.7 + q.y * 8.0 + t * 0.55) * 0.55;
-  w += sin(q.x * 6.3 - q.y * 5.0 + t * 0.80) * 0.26;
-  w += sin(q.x * 15.0 + q.y * 12.0 + t * 1.30) * 0.12;
-  return w;
-}
-
-/* ---------- 01 · MOONLIT PINDAI ---------- */
-vec3 sceneMoonlit(vec2 uv, vec2 p, float aspect, float t) {
-  vec3 moonCol = MOON;
-  vec2 moonPos = vec2(0.17 * aspect, 0.34);
-
-  float skyT = clamp((p.y + 0.1) / 0.8, 0.0, 1.0);
-  vec3 skyTop = vec3(0.008, 0.030, 0.024);
-  vec3 skyHor = vec3(0.034, 0.092, 0.078);
-  vec3 col = mix(skyHor, skyTop, pow(skyT, 0.85));
-
-  float md = length(p - moonPos);
-  col += moonCol * exp(-md * md * 6.0) * 0.16;
-  col += moonCol * (1.0 - smoothstep(0.058, 0.088, md)) * 0.6;
-
-  if (p.y > 0.03) {
-    vec2 sp = p * 22.0;
-    float h = hash21(floor(sp));
-    if (h > 0.956) {
-      vec2 fp = fract(sp) - 0.5;
-      float tw = 0.6 + 0.4 * sin(t * 1.6 + h * 40.0);
-      float star = (1.0 - smoothstep(0.0, 0.42, length(fp))) * tw;
-      col += vec3(0.75, 0.82, 1.0) * star * 0.55 * smoothstep(0.03, 0.30, p.y);
-    }
-  }
-
-  /* Gerbang kuningan di horizon. */
-  float gateX = -0.02 * aspect;
-  float gateH = 0.40;
-  float halfW = 0.145;
-  float pw = 0.022;
-  float lh = 0.030;
-  float g = 1e9;
-  g = min(g, sdBox(p - vec2(gateX - halfW, gateH * 0.5), vec2(pw * 0.5, gateH * 0.5)));
-  g = min(g, sdBox(p - vec2(gateX + halfW, gateH * 0.5), vec2(pw * 0.5, gateH * 0.5)));
-  g = min(g, sdBox(p - vec2(gateX, gateH - lh * 0.5), vec2(halfW + pw, lh * 0.5)));
-  float hw2 = 0.088;
-  float gh2 = 0.30;
-  g = min(g, sdBox(p - vec2(gateX - hw2, gh2 * 0.5), vec2(pw * 0.34, gh2 * 0.5)));
-  g = min(g, sdBox(p - vec2(gateX + hw2, gh2 * 0.5), vec2(pw * 0.34, gh2 * 0.5)));
-  g = min(g, sdBox(p - vec2(gateX, gh2), vec2(hw2, lh * 0.38)));
-
-  float gateMask = 1.0 - smoothstep(0.0, 0.007, g);
-  float gateGlow = exp(-max(g, 0.0) * 24.0) * 0.30;
-  vec3 brass = mix(BRASS * 0.5, BRASS, clamp(p.y / gateH, 0.0, 1.0));
-  col = mix(col, brass * 0.92, gateMask * 0.88);
-  col += brass * gateGlow * (0.45 + 0.55 * gateMask);
-
-  /* Air + riak. */
-  float d = HORIZON - uv.y;
-  if (d > 0.0) {
-    float persp = 1.0 / (d + 0.055);
-    vec2 wq = vec2(p.x * persp * 0.30, persp);
-    float h = waves(wq, t);
-
-    float rippleH = 0.0;
-    for (int i = 0; i < 6; i++) {
-      if (i < uJumlahRipple) {
-        vec3 r = uRipples[i];
-        float age = uWaktu - r.z;
-        if (age >= 0.0 && age <= 3.2) {
-          vec2 rp = vec2((r.x - 0.5) * aspect, r.y - HORIZON);
-          float dist = length(p - rp);
-          float radius = age * 0.30;
-          float tepi = (dist - radius) * 13.0;
-          float ringR = exp(-tepi * tepi);
-          rippleH += ringR * exp(-age * 1.1) * exp(-dist * 1.25);
-        }
-      }
-    }
-
-    float hTotal = h + rippleH * 2.4;
-    vec3 water = mix(vec3(0.026, 0.072, 0.062), vec3(0.006, 0.024, 0.020), smoothstep(0.0, 0.5, d));
-    water += vec3(0.016, 0.052, 0.046) * smoothstep(0.55, 1.0, hTotal * 0.5 + 0.5);
-
-    float lane = exp(-abs(p.x - moonPos.x) * 1.9);
-    float glitter = smoothstep(0.30, 1.0, sin(h * 7.0 + wq.y * 6.0 + t * 0.9) * 0.5 + 0.5);
-    water += moonCol * lane * exp(-d * 3.0) * (0.10 + 0.85 * glitter) * 0.95;
-    water += moonCol * rippleH * 0.95;
-
-    col = mix(col, water, smoothstep(0.0, 0.012, d));
-  }
-
-  vec3 haze = mix(vec3(0.040, 0.096, 0.082), moonCol, 0.22);
-  col = mix(col, haze, exp(-abs(p.y) * 6.0) * 0.55);
-  return col;
-}
-
-/* ---------- 02 · FLOATING GREEN CARD ---------- */
-vec3 sceneFloating(vec2 uv, vec2 p, float aspect, float t) {
-  vec3 col = mix(GREEN_MID * 0.6, GREEN_DEEP, clamp(uv.y * 1.2, 0.0, 1.0));
-
-  /* Sorot kartu melayang sebagai focal point (naik sedikit saat hover). */
-  vec2 card = vec2(0.12 * aspect, -0.06 + uHover * 0.035);
-  float cd = length((p - card) * vec2(1.0, 1.15));
-  float halo = exp(-cd * cd * 9.0);
-  col += GREEN_GLOW * halo * (0.30 + 0.30 * uHover);
-
-  /* Sisi kartu: glow lebih tajam dari lighting pointer. */
-  vec2 light = vec2(-0.22 * aspect, 0.20);
-  float ld = length(p - light);
-  col += GREEN_GLOW * exp(-ld * ld * 22.0) * 0.55;
-  col += GREEN_RIM * exp(-length(p - card) * 5.0) * 0.22;
-
-  /* Partikel halus naik perlahan (jumlah dikurangi di mode ringan). */
-  float langkah = mix(14.0, 7.0, uRingan);
-  vec2 sp = p * 9.0;
-  sp.y += t * 0.45;
+/**
+ * Debu emerald halus: bintik cahaya hijau yang melayang naik perlahan.
+ * Mengembalikan intensitas 0..1. Dipakai semua scene supaya atmosfer
+ * "emerald dust" konsisten; jumlahnya berkurang di mode ringan.
+ */
+float debuEmerald(vec2 q, float t, float ambang, float ringan) {
+  float skala = mix(8.0, 5.0, ringan);
+  vec2 sp = vec2(q.x * skala, q.y * skala + t * 0.45);
   vec2 sel = floor(sp);
   float h = hash21(sel);
-  if (h > 0.62) {
-    vec2 fp = fract(sp) - 0.5 - vec2(0.0, (h - 0.5) * 0.6);
-    float part = 1.0 - smoothstep(0.0, 0.16, length(fp));
-    float tw = 0.55 + 0.45 * sin(t * 1.3 + h * 30.0);
-    col += GREEN_GLOW * part * tw * 0.35;
-  }
-  col += GREEN_RIM * 0.02 * langkah;
+  if (h < ambang) return 0.0;
+  vec2 fp = fract(sp) - 0.5;
+  float bintik = 1.0 - smoothstep(0.0, 0.17, length(fp));
+  float tw = 0.55 + 0.45 * sin(t * 1.3 + h * 30.0);
+  return bintik * tw;
+}
 
-  /* Lapisan kedalaman: pita gelap tipis memberi kesan ruang, bukan dinding. */
-  float band = sin(p.y * 12.0 + t * 0.25) * 0.5 + 0.5;
-  col *= 0.94 + 0.06 * band;
+/**
+ * Light trail digital samar: pita cahaya horizontal tipis yang bergeser
+ * perlahan. Sengaja sangat redup — ia memberi kedalaman, bukan menjadi subjek.
+ */
+float jalurCahaya(vec2 p, float t, float baris) {
+  float y = sin(p.x * 1.6 + t * 0.35 + baris * 2.1) * 0.42 + baris * 0.28 - 0.28;
+  return exp(-abs(p.y - y) * 22.0);
+}
+
+/* ---------- 01 · 3D PREMIUM CARD (TILT & SCROLL) ---------- */
+vec3 scenePremiumCard(vec2 uv, vec2 p, float aspect, float t) {
+  vec3 col = mix(EMERALD * 0.55, SPACE_DEEP, clamp(uv.y * 1.15, 0.0, 1.0));
+
+  /* Scroll rotation: kartu miring mengikuti kemajuan gulir halaman. */
+  float gulir = uSkrol * 1.0 + uPointer.x * 0.16;
+  vec2 q = p - vec2(0.0, -0.02 + uHover * 0.030);
+  float ca = cos(gulir * 0.9);
+  float sa = sin(gulir * 0.9);
+  q = vec2(q.x * ca - q.y * sa, q.x * sa + q.y * ca);
+  q.y /= max(0.40, cos(gulir * 0.55));
+
+  vec2 setengah = vec2(0.172 * aspect, 0.112);
+  float sd = sdBox(q, setengah) - 0.014;
+  float badan = 1.0 - smoothstep(0.0, 0.0022, sd);
+  float tepi = 1.0 - smoothstep(0.0, 0.0026, abs(sd));
+
+  /* Material emerald matte: warna dasar + gradien cahaya dari pointer. */
+  float cahaya = clamp(0.5 - (q.y / 0.112) * 0.5, 0.0, 1.0);
+  vec3 matte = mix(EMERALD * 0.70, EMERALD * 1.18, cahaya);
+  col = mix(col, matte, badan * 0.94);
+
+  /* Gold foil: HANYA garis tepi tipis + satu strip, sesuai aturan aksen. */
+  col += GOLD_FOIL * tepi * 0.50;
+  col += GOLD_FOIL * (1.0 - smoothstep(0.0, 0.0016, abs(q.y + 0.052))) * badan * 0.20;
+
+  /* Rim light emerald dari tepi kartu. */
+  col += EMERALD_MID * exp(-max(sd, 0.0) * 26.0) * (0.30 + 0.45 * uHover);
+  col += EMERALD_LT * exp(-dot(p, p) * 30.0) * 0.10;
+
+  /* Atmosfer: debu emerald + jalur cahaya digital samar. */
+  col += EMERALD_LT * debuEmerald(p, t, 0.86, uRingan) * 0.26 * (1.0 - 0.4 * uRingan);
+  col += EMERALD_MID * jalurCahaya(p, t, 0.0) * 0.09;
+  col += EMERALD_MID * jalurCahaya(p, t, 1.0) * 0.06;
+
   return col;
 }
 
-/* ---------- 03 · DIGITAL GATE ---------- */
-vec3 sceneGate(vec2 uv, vec2 p, float aspect, float t) {
-  vec3 col = mix(vec3(0.008, 0.040, 0.034), GREEN_DEEP, clamp(uv.y, 0.0, 1.0));
-
-  /* Lantai kisi dengan perspektif. */
-  float d = HORIZON - uv.y;
-  if (d > 0.0) {
-    vec2 gq = vec2(p.x / max(d + 0.05, 0.02), 1.0 / max(d + 0.05, 0.02));
-    float g = grid(gq * vec2(0.45, 0.30), 0.05);
-    col += GREEN_GLOW * g * 0.22 * smoothstep(0.0, 0.10, d);
-  }
-
-  /* Gerbang: rangka bercahaya yang bergeser mengikuti pointer (gate response). */
-  vec2 gatePos = vec2(uPointer.x * 0.035, uPointer.y * 0.020);
-  vec2 gp = p - gatePos;
-  float w = 0.185;
-  float h = 0.240;
-  float frame = sdBox(gp, vec2(w, h)) - 0.006;
-  float dalam = sdBox(gp, vec2(w - 0.022, h - 0.022));
-  float tepiGerbang = (1.0 - smoothstep(0.0, 0.006, abs(frame))) * 0.9;
-  tepiGerbang += (1.0 - smoothstep(0.0, 0.005, abs(dalam))) * 0.55;
-  col += GREEN_GLOW * tepiGerbang;
-
-  /* Kabut di dalam gerbang + garis pemindai naik. */
-  float maskDalam = 1.0 - smoothstep(-0.010, 0.004, dalam);
-  col += GREEN_RIM * maskDalam * 0.35;
-  float scan = fract(uv.y * 1.4 - t * 0.16);
-  col += GREEN_GLOW * maskDalam * exp(-scan * 34.0) * 0.55;
-
-  /* Jalur cahaya horizontal melintas. */
-  for (int i = 0; i < 4; i++) {
-    float fi = float(i);
-    float jalur = fract(t * (0.10 + fi * 0.035) + fi * 0.27);
-    float y = -0.45 + jalur * 1.10;
-    float tebal = 1.0 - smoothstep(0.0, 0.0035 + fi * 0.001, abs(p.y - y));
-    float panjang = exp(-abs(p.x + uPointer.x * 0.06) * 1.4);
-    col += GREEN_GLOW * tebal * panjang * (0.55 - fi * 0.08) * (1.0 - 0.6 * uRingan);
-  }
-
-  /* Partikel kisi halus. */
-  vec2 sp = (p + gatePos) * 11.0;
-  float hh = hash21(floor(sp));
-  if (hh > 0.93) {
-    vec2 fp = fract(sp) - 0.5;
-    col += GREEN_GLOW * (1.0 - smoothstep(0.0, 0.3, length(fp))) * 0.30;
-  }
-
-  col = mix(col, vec3(0.012, 0.058, 0.048), exp(-abs(p.y) * 5.0) * 0.35);
-  return col;
-}
-
-/* ---------- 04 · PINDAI ORBIT ---------- */
-vec3 sceneOrbit(vec2 uv, vec2 p, float aspect, float t) {
-  vec3 col = GREEN_DEEP * 1.15;
-  col += GREEN_RIM * exp(-length(p) * 2.6) * 0.22;
-
-  /* Kartu sebagai focal utama — bukan cincin. */
-  col += GREEN_GLOW * exp(-dot(p, p) * 16.0) * (0.34 + 0.16 * uHover);
-
-  /* Dua cincin orbit dengan kedalaman berbeda. */
-  for (int i = 0; i < 2; i++) {
-    float fi = float(i);
-    float rot = t * (0.055 + fi * 0.045) + fi * 1.7;
-    float ca = cos(rot);
-    float sa = sin(rot);
-    vec2 q = vec2(p.x * ca - p.y * sa, p.x * sa + p.y * ca);
-    /* Cincin elips tipis dengan radius berbeda, respons pointer dibedakan. */
-    vec2 skala = vec2(1.0, 0.42 + fi * 0.10);
-    float dd = length(q * skala);
-    float r = 0.30 + fi * 0.115;
-    float cincin = ring(dd, r, 0.0022 + fi * 0.0012);
-    vec3 warna = mix(GREEN_GLOW, BRASS, fi * 0.35);
-    col += warna * cincin * (0.55 - fi * 0.12) * (1.0 - 0.35 * uRingan);
-
-    /* Node digital di cincin: parallax mengikuti pointer per kedalaman. */
-    float langkahNode = mix(10.0, 6.0, uRingan);
-    float sudut = atan(q.y, q.x);
-    float slot = floor((sudut / 6.2831853 + 0.5) * langkahNode);
-    float hn = hash21(vec2(slot, fi));
-    if (hn > 0.42) {
-      float sudutNode = (slot / langkahNode + 0.5 / langkahNode - 0.5) * 6.2831853 + rot;
-      vec2 npos = vec2(cos(sudutNode) * r / skala.x, sin(sudutNode) * r / skala.y);
-      npos += uPointer * (0.014 + fi * 0.010);
-      float nd = length(p - npos);
-      float pulse = 0.55 + 0.45 * sin(t * 1.9 + hn * 25.0);
-      col += mix(GREEN_GLOW, BRASS, fi * 0.5) * (1.0 - smoothstep(0.0, 0.013, nd)) * pulse;
-    }
-  }
-
-  col += GREEN_GLOW * (1.0 - smoothstep(0.0, 0.030, length(p))) * 0.55;
-  return col;
-}
-
-/* ---------- 05 · PINDAI VAULT ---------- */
-vec3 sceneVault(vec2 uv, vec2 p, float aspect, float t) {
-  vec3 col = GREEN_DEEP;
+/* ---------- 02 · 3D CYBER VAULT & ASSET SECURITY ---------- */
+vec3 sceneCyberVault(vec2 uv, vec2 p, float aspect, float t) {
+  vec3 col = SPACE_DEEP;
   /* Parallax kamera: seluruh ruang bergeser halus bersama pointer. */
-  vec2 q = p - uPointer * 0.020;
+  vec2 q = p - uPointer * 0.022;
 
-  col += GREEN_RIM * exp(-dot(q, q) * 3.4) * 0.30;
+  col += EMERALD * exp(-dot(q, q) * 3.0) * 0.60;
+  col += EMERALD_MID * exp(-dot(q, q) * 4.2) * 0.22;
 
-  /* Cincin mekanis berlapis. uHover membuka sedikit celah antar cincin. */
-  float buka = uHover * 0.022;
+  /* Cincin mekanis berlapis; uHover membuka sedikit celah antar cincin. */
+  float buka = uHover * 0.024;
   for (int i = 0; i < 4; i++) {
     float fi = float(i);
     float r = 0.245 + fi * 0.095 + buka * (1.0 + fi * 0.25);
     float dd = length(q);
-    float tebal = 0.0026 + fi * 0.0011;
+    float tebal = 0.0024 + fi * 0.0010;
     float arah = (mod(fi, 2.0) < 0.5) ? 1.0 : -1.0;
-    float putar = t * (0.055 / (1.0 + fi * 0.4)) * arah;
+    float putar = t * (0.060 / (1.0 + fi * 0.4)) * arah;
 
     /* Segmen: cincin terputus-putus seperti roda mekanis. */
     float sudut = atan(q.y, q.x) + putar;
-    float segmen = smoothstep(0.24, 0.42, abs(fract(sudut / 6.2831853 * (10.0 + fi * 6.0)) - 0.5));
+    float segmen = smoothstep(0.22, 0.42, abs(fract(sudut / 6.2831853 * (10.0 + fi * 6.0)) - 0.5));
     float cincin = ring(dd, r, tebal) * segmen;
-    vec3 warna = mix(GREEN_GLOW, BRASS, 0.20 + fi * 0.18);
-    col += warna * cincin * (0.85 - fi * 0.13) * (1.0 - 0.30 * uRingan);
-
-    /* Spoke pendek antar cincin untuk kesan mekanis (bukan brankas klasik). */
-    if (fi < 2.0) {
-      float spokeA = sudut * (6.0 + fi * 4.0);
-      float spoke = (1.0 - smoothstep(0.0, 0.06, abs(fract(spokeA / 3.1415927) - 0.5)));
-      float antar = (1.0 - smoothstep(0.0, 0.20, abs(dd - (r + 0.048)))) * (dd > r ? 1.0 : 0.0);
-      col += GREEN_RIM * spoke * antar * 0.32;
-    }
+    vec3 warna = mix(EMERALD_MID, EMERALD_LT, 0.15 + fi * 0.18);
+    col += warna * cincin * (0.90 - fi * 0.14) * (1.0 - 0.30 * uRingan);
   }
 
-  /* Ruang dalam: semakin terang saat hover, kartu di pusat tetap focal. */
-  col += GREEN_GLOW * exp(-dot(q, q) * 26.0) * (0.34 + 0.55 * uHover);
-  col += BRASS * exp(-dot(q, q) * 60.0) * 0.30;
+  /* Inti brankas: pendar emerald berdenyut — jaminan terkunci & terpantau. */
+  float denyut = 0.62 + 0.38 * sin(t * 1.4);
+  col += EMERALD_MID * exp(-dot(q, q) * 26.0) * (0.30 + 0.55 * uHover) * denyut;
+  col += EMERALD_LT * exp(-dot(q, q) * 70.0) * 0.35;
 
   /* Pintu area dalam — dua daun yang menyempit saat hover (membuka sedikit). */
   float daun = sdBox(q, vec2(0.075 - uHover * 0.016, 0.115));
-  float tepiDaun = 1.0 - smoothstep(0.0, 0.005, abs(daun));
-  col += GREEN_GLOW * tepiDaun * 0.35;
+  col += EMERALD_LT * (1.0 - smoothstep(0.0, 0.005, abs(daun))) * 0.40;
 
-  /* Partikel debu ruang. */
-  vec2 sp = (q + uPointer * 0.01) * 13.0;
-  float h = hash21(floor(sp));
-  if (h > 0.955) {
-    col += GREEN_GLOW * (1.0 - smoothstep(0.0, 0.3, length(fract(sp) - 0.5))) * 0.28;
-  }
+  /* Debu emerald ruang. */
+  col += EMERALD_LT * debuEmerald(q, t * 1.1, 0.94, uRingan) * 0.24;
   return col;
 }
 
-/* ---------- 06 · PINDAI CITY ---------- */
-vec3 sceneCity(vec2 uv, vec2 p, float aspect, float t) {
-  vec3 col = mix(vec3(0.014, 0.062, 0.052), GREEN_DEEP, clamp(uv.y * 1.1, 0.0, 1.0));
-  float dasar = -0.30;
+/* ---------- 03 · 3D CYBER MASCOT (A.I. ASSISTANT) ---------- */
+vec3 sceneAiMascot(vec2 uv, vec2 p, float aspect, float t) {
+  vec3 col = mix(EMERALD * 0.45, SPACE_DEEP, clamp(uv.y * 1.20, 0.0, 1.0));
 
-  /* Dua lapis skyline: lapis depan bergeser lebih banyak (parallax kedalaman). */
-  for (int lapis = 0; lapis < 2; lapis++) {
-    float fl = float(lapis);
-    vec2 q = p + uPointer * (0.012 + fl * 0.026);
-    float tinggiLapis = 0.30 - fl * 0.10;
-    float kolom = floor(q.x * (7.0 + fl * 4.0));
-    float h = hash21(vec2(kolom, fl * 3.7));
-    float lebar = 0.030 + h * 0.020;
-    float tinggi = 0.045 + h * tinggiLapis;
-    float cx = (kolom + 0.5) / (7.0 + fl * 4.0);
-    float dx = abs(q.x - cx) - lebar * 0.5;
-    float dy = abs(q.y - (dasar + tinggi * 0.5)) - tinggi * 0.5;
-    float blok = sdBox(vec2(dx, dy), vec2(0.0));
-    float gedung = 1.0 - smoothstep(0.0, 0.0016, blok);
+  /* Maskot melayang: naik-turun pelan seperti bernapas. */
+  float napas = sin(t * 1.1) * 0.008;
+  vec2 m = vec2(0.02 * aspect + uPointer.x * 0.030, -0.02 + napas + uPointer.y * 0.020);
+  vec2 q = (p - m) / vec2(1.0, 0.92);
 
-    vec3 warna = mix(GREEN_RIM * 0.55, GREEN_MID * 1.6, fl * 0.7);
-    col = mix(col, warna, gedung * (0.72 - fl * 0.16));
+  float kepala = length(q);
+  float badan = 1.0 - smoothstep(0.085, 0.090, kepala);
+  float tepi = 1.0 - smoothstep(0.0, 0.0035, abs(kepala - 0.088));
 
-    /* Jendela menyala — hanya gedung, hanya sebagian kecil. */
-    if (blok < 0.0) {
-      vec2 jendela = q * vec2(34.0, 26.0);
-      float j = hash21(floor(jendela) + vec2(kolom, fl * 11.0));
-      if (j > 0.72) {
-        float nyala = 0.55 + 0.45 * sin(t * 0.9 + j * 40.0);
-        col += mix(GREEN_GLOW, BRASS, 0.25) * (1.0 - smoothstep(0.0, 0.36, length(fract(jendela) - 0.5))) * nyala * 0.55;
+  vec3 matte = mix(EMERALD * 0.55, EMERALD * 1.05, clamp(0.5 - q.y * 3.0, 0.0, 1.0));
+  col = mix(col, matte, badan * 0.92);
+  col += EMERALD_LT * tepi * (0.55 + 0.25 * uHover);
+
+  /* Visor: pita gelap di depan kepala. */
+  float visor = 1.0 - smoothstep(0.0, 0.0026, abs(sdBox(q - vec2(0.0, 0.012), vec2(0.062, 0.020))));
+  col = mix(col, SPACE_DEEP * 0.55, visor * badan);
+
+  /* Mata mengikuti kursor — inti interaksi maskot. */
+  vec2 sorot = vec2(uPointer.x * 0.016, uPointer.y * 0.008);
+  for (int i = 0; i < 2; i++) {
+    float fi = float(i);
+    float arahX = (fi < 0.5) ? -1.0 : 1.0;
+    vec2 mata = vec2(arahX * 0.026 + sorot.x, 0.014 + sorot.y);
+    float d = length(q - mata);
+    float kelopak = 0.55 + 0.45 * sin(t * 0.9 + fi * 3.1);
+    col += EMERALD_LT * exp(-d * d * 2600.0) * (0.85 + 0.15 * uHover);
+    col += EMERALD_MID * exp(-d * d * 420.0) * 0.35 * kelopak;
+  }
+
+  /* Antena tipis di atas kepala. */
+  float antena = (1.0 - smoothstep(0.0, 0.0030, abs(q.x))) *
+    smoothstep(0.088, 0.100, kepala) * (1.0 - smoothstep(0.130, 0.140, kepala));
+  col += EMERALD_MID * antena * 0.60;
+
+  /* Orbit partikel mengelilingi maskot (elips = kedalaman). */
+  float orbitR = 0.145 + 0.006 * sin(t * 1.3);
+  float sudut = atan(q.y, q.x) + t * 0.25;
+  float slot = floor((sudut / 6.2831853 + 0.5) * 12.0);
+  float hs = hash21(vec2(slot, 7.0));
+  if (hs > 0.45) {
+    float sa2 = (slot / 12.0 + 0.5 / 12.0 - 0.5) * 6.2831853 + t * 0.25;
+    vec2 npos = vec2(cos(sa2) * orbitR * 1.25, sin(sa2) * orbitR * 0.58);
+    float nd = length(p - (m + npos));
+    float pulse = 0.55 + 0.45 * sin(t * 2.1 + hs * 20.0);
+    col += EMERALD_LT * (1.0 - smoothstep(0.0, 0.010, nd)) * pulse * 0.70;
+  }
+
+  col += EMERALD_LT * debuEmerald(p, t * 0.9, 0.90, uRingan) * 0.22;
+  return col;
+}
+
+/* ---------- 04 · 3D LEDGER MATRIX & NODE NETWORK ---------- */
+vec3 sceneLedgerMatrix(vec2 uv, vec2 p, float aspect, float t) {
+  vec3 col = SPACE_DEEP;
+  vec2 q = p - uPointer * 0.018;
+
+  /* Lantai kisi perspektif: dasar "matrix" ledger internal. */
+  float d = HORIZON - uv.y;
+  if (d > 0.0) {
+    vec2 gq = vec2(q.x / max(d + 0.05, 0.02), 1.0 / max(d + 0.05, 0.02));
+    col += EMERALD_MID * grid(gq * vec2(0.50, 0.34), 0.045) * 0.16 * smoothstep(0.0, 0.10, d);
+  }
+
+  /* Balok 3D transparan + node berdenyut, dalam tiga baris kedalaman. */
+  for (int i = 0; i < 3; i++) {
+    float fi = float(i);
+    float y = -0.14 + fi * 0.14;
+    float kolom = 5.0 + fi;
+    float geser = uPointer.x * (0.006 + fi * 0.004);
+    for (int j = 0; j < 5; j++) {
+      float fj = float(j);
+      if (fj < kolom) {
+        float x = (fj / (kolom - 1.0) - 0.5) * 0.92 * aspect;
+        vec2 node = vec2(x, y) - vec2(geser, uPointer.y * (0.004 + fi * 0.003));
+        float bd = sdBox(q - node, vec2(0.028, 0.020));
+
+        /* Balok tembus pandang + tepi bercahaya. */
+        col += EMERALD * (1.0 - smoothstep(0.0, 0.0018, bd)) * 0.30;
+        col += EMERALD_MID * (1.0 - smoothstep(0.0, 0.0018, abs(bd))) * 0.55;
+
+        /* Titik node berdenyut. */
+        float hs = hash21(vec2(fi * 5.0 + fj, 3.0));
+        float pulse = 0.5 + 0.5 * sin(t * 1.7 + hs * 30.0);
+        float nd = length(q - node);
+        col += EMERALD_LT * exp(-nd * nd * 5200.0) * (0.5 + 0.5 * pulse) * (0.7 + 0.3 * uHover);
       }
     }
   }
 
-  /* Jalan + jalur cahaya jaringan (rumah → toko → node → PINDAI → kota). */
-  float jalan = 1.0 - smoothstep(0.0, 0.0035, abs(p.y - (dasar + 0.004)));
-  col += GREEN_GLOW * jalan * 0.28;
-
-  for (int i = 0; i < 3; i++) {
-    float fi = float(i);
-    float y0 = dasar + 0.03 + fi * 0.085;
-    float x0 = -0.62 + fi * 0.30;
-    float x1 = 0.34 + fi * 0.16;
-    float laju = 0.16 + fi * 0.07;
-    float jalanX = mix(x0, x1, fract(t * laju + fi * 0.33));
-
-    /* Garis jaringan tipis. */
-    float seg = 1.0 - smoothstep(0.0, 0.0030, abs(p.y - y0));
-    float batas = step(x0 - 0.02, p.x) * step(p.x, x1 + 0.02);
-    col += GREEN_RIM * seg * batas * 0.42;
-
-    /* Titik cahaya berjalan di sepanjang garis. */
-    float titik = 1.0 - smoothstep(0.0, 0.016, length(p - vec2(jalanX, y0)));
-    col += GREEN_GLOW * titik * batas * 1.15;
-    float titik2 = 1.0 - smoothstep(0.0, 0.013, length(p - vec2(mix(x1, x0, fract(t * laju + fi * 0.33 + 0.5)), y0)));
-    col += BRASS * titik2 * batas * 0.75;
+  /* Pulse transaksi: jalur cahaya yang melintas di tiap baris. */
+  for (int k = 0; k < 3; k++) {
+    float fk = float(k);
+    float y = -0.14 + fk * 0.14;
+    float jalan = fract(t * (0.14 + fk * 0.05) + fk * 0.31);
+    float x = (-0.5 + jalan) * aspect;
+    col += EMERALD_LT * (1.0 - smoothstep(0.0, 0.014, length(q - vec2(x, y)))) * 1.05;
   }
 
-  /* Node pusat PINDAI — focal point tetap stabil di tengah. */
-  vec2 node = vec2(0.06 * aspect, dasar + 0.22);
-  float nd = length(p - node);
-  float denyut = 0.62 + 0.38 * sin(t * 1.5);
-  col += GREEN_GLOW * exp(-nd * nd * 46.0) * (0.55 + 0.45 * uHover) * denyut;
-  col += BRASS * ring(nd, 0.085, 0.0035) * 0.55;
+  /* Light trails samar + debu emerald. */
+  col += EMERALD_MID * jalurCahaya(p, t, 1.0) * 0.10;
+  col += EMERALD_LT * debuEmerald(q, t * 0.8, 0.93, uRingan) * 0.20;
+  col = mix(col, EMERALD * 0.50, exp(-abs(p.y) * 5.0) * 0.30);
+  return col;
+}
 
-  /* Rumah & toko kecil sebagai asal jaringan (kiri bawah, tetap sederhana). */
-  float rumah = 1.0 - smoothstep(0.0, 0.0016, sdBox(p - vec2(-0.56, dasar + 0.055), vec2(0.032, 0.030)));
-  col = mix(col, GREEN_RIM * 0.75, rumah * 0.75);
-  float toko = 1.0 - smoothstep(0.0, 0.0016, sdBox(p - vec2(-0.28, dasar + 0.070), vec2(0.040, 0.045)));
-  col = mix(col, GREEN_RIM * 0.9, toko * 0.75);
+/* ---------- 05 · 3D INTERACTIVE LOAN SIMULATOR ---------- */
+vec3 sceneLoanSimulator(vec2 uv, vec2 p, float aspect, float t) {
+  vec3 col = mix(EMERALD * 0.50, SPACE_DEEP, clamp(uv.y * 1.20, 0.0, 1.0));
+  vec2 q = p - uPointer * 0.016;
 
-  col = mix(col, vec3(0.020, 0.070, 0.058), exp(-abs(p.y - dasar) * 4.0) * 0.30);
+  /* Cincin kedalaman: radius mengikuti nilai slider (tenor). */
+  float r0 = 0.20 + uSlider * 0.10;
+  for (int i = 0; i < 3; i++) {
+    float fi = float(i);
+    float r = r0 + fi * 0.055;
+    float dd = length(q * vec2(1.0, 0.72));
+    col += EMERALD_MID * ring(dd, r, 0.0026 + fi * 0.0012) * (0.55 - fi * 0.13);
+  }
+
+  /* Koin 3D: lebar menyusut mengikuti putaran → terasa berputar. */
+  float putar = t * 0.6 + uSlider * 6.2831853;
+  float lebar = 0.115 * abs(cos(putar)) + 0.010;
+  vec2 c = vec2(0.0, 0.02 + uHover * 0.020);
+  vec2 setengahKoin = vec2(lebar, 0.115);
+  float koin = 1.0 - smoothstep(0.0, 0.0018, sdBox(q - c, setengahKoin));
+  vec3 koinWarna = mix(EMERALD * 0.85, EMERALD_MID, clamp(0.5 - (q.y - c.y) * 4.0, 0.0, 1.0));
+  col = mix(col, koinWarna, koin * 0.95);
+
+  float tepiKoin = 1.0 - smoothstep(0.0, 0.0026, abs(sdBox(q - c, setengahKoin)));
+  col += EMERALD_LT * tepiKoin * 0.75;
+  col += GOLD_FOIL * tepiKoin * 0.20;
+
+  /* Muka koin: cincin dalam berdenyut. */
+  float dalam = 1.0 - smoothstep(0.0, 0.0022, abs(sdBox(q - c, vec2(lebar * 0.62, 0.072))));
+  col += EMERALD_LT * dalam * 0.35 * (0.6 + 0.4 * sin(t * 2.0));
+
+  /* Garis skala di bawah koin: menandai nilai slider bergerak. */
+  float skalaY = -0.20;
+  float tanda = 1.0 - smoothstep(0.0, 0.0022, abs(q.y - skalaY));
+  float batas = step(-0.24, q.x) * step(q.x, 0.24);
+  col += EMERALD_MID * tanda * batas * 0.35;
+  float penunjuk = 1.0 - smoothstep(0.0, 0.0040, length(q - vec2(-0.24 + uSlider * 0.48, skalaY)));
+  col += EMERALD_LT * penunjuk * 0.90;
+
+  col += EMERALD_LT * debuEmerald(q, t * 1.2, 0.92, uRingan) * 0.22;
+  return col;
+}
+
+/* ---------- 06 · 3D GATEWAY & QUANTUM PORTAL ---------- */
+vec3 sceneQuantumPortal(vec2 uv, vec2 p, float aspect, float t) {
+  vec3 col = SPACE_DEEP;
+  vec2 q = p - uPointer * 0.030;
+
+  /* Cakram portal: lubang energi emerald. */
+  float dd = length(q);
+  col += EMERALD * exp(-dd * dd * 2.6) * 0.55;
+
+  /* Geometri berputar: dua lapis poligon bersudut. */
+  for (int i = 0; i < 2; i++) {
+    float fi = float(i);
+    float arah = (mod(fi, 2.0) < 0.5) ? 1.0 : -1.0;
+    float putar = t * (0.18 + fi * 0.10) * arah;
+    float sudut = atan(q.y, q.x) + putar;
+    float sisi = 6.0 + fi * 3.0;
+    float seg = floor((sudut / 6.2831853 + 0.5) * sisi) / sisi;
+    float sudutSeg = seg * 6.2831853;
+    float rp = 0.30 * (0.86 + fi * 0.14) / max(cos(sudut - sudutSeg), 0.55);
+    float tepi = ring(dd, rp, 0.0030);
+    col += mix(EMERALD_MID, EMERALD_LT, fi * 0.5) * tepi * (0.85 - fi * 0.20) * (1.0 - 0.30 * uRingan);
+  }
+
+  /* Kabut dalam portal + garis pindai naik. */
+  float dalam = 1.0 - smoothstep(0.0, 0.30, dd);
+  col += EMERALD_MID * dalam * 0.18;
+  float scan = fract(uv.y * 1.5 - t * 0.18);
+  col += EMERALD_LT * dalam * exp(-scan * 30.0) * 0.55;
+
+  /* Partikel melayang keluar dari portal (jumlah diturunkan di mode ringan). */
+  float langkah = mix(26.0, 14.0, uRingan);
+  vec2 sp = vec2(q.x * 9.0, q.y * 9.0 - t * 0.55);
+  vec2 sel = floor(sp);
+  float h = hash21(sel);
+  if (h > 0.72) {
+    vec2 fp = fract(sp) - 0.5;
+    float part = 1.0 - smoothstep(0.0, 0.18, length(fp));
+    float tw = 0.5 + 0.5 * sin(t * 1.6 + h * 33.0);
+    col += EMERALD_LT * part * tw * 0.42 * (1.0 - 0.5 * uRingan);
+  }
+  col += EMERALD_MID * 0.02 * langkah;
+
+  /* Lantai jaringan tipis sebagai dasar portal. */
+  float d = HORIZON - uv.y;
+  if (d > 0.0) {
+    vec2 gq = vec2(q.x / max(d + 0.05, 0.02), 1.0 / max(d + 0.05, 0.02));
+    col += EMERALD_MID * grid(gq * vec2(0.42, 0.30), 0.05) * 0.18 * smoothstep(0.0, 0.10, d);
+  }
+
+  col = mix(col, SPACE_DEEP + EMERALD * 0.25, exp(-abs(p.y) * 4.0) * 0.25);
   return col;
 }
 
@@ -492,17 +473,17 @@ void main() {
 
   vec3 col;
   if (uPreset == 0) {
-    col = sceneMoonlit(uv, p, aspect, t);
+    col = scenePremiumCard(uv, p, aspect, t);
   } else if (uPreset == 1) {
-    col = sceneFloating(uv, p, aspect, t);
+    col = sceneCyberVault(uv, p, aspect, t);
   } else if (uPreset == 2) {
-    col = sceneGate(uv, p, aspect, t);
+    col = sceneAiMascot(uv, p, aspect, t);
   } else if (uPreset == 3) {
-    col = sceneOrbit(uv, p, aspect, t);
+    col = sceneLedgerMatrix(uv, p, aspect, t);
   } else if (uPreset == 4) {
-    col = sceneVault(uv, p, aspect, t);
+    col = sceneLoanSimulator(uv, p, aspect, t);
   } else {
-    col = sceneCity(uv, p, aspect, t);
+    col = sceneQuantumPortal(uv, p, aspect, t);
   }
 
   col *= 1.0 - 0.42 * length(uv - vec2(0.5));
@@ -603,11 +584,17 @@ export function buatSceneTemplate(
   const uReduce = gl.getUniformLocation(prog, "uReduce");
   const uPreset = gl.getUniformLocation(prog, "uPreset");
   const uRinganUniform = gl.getUniformLocation(prog, "uRingan");
+  const uSkrolUniform = gl.getUniformLocation(prog, "uSkrol");
+  const uSliderUniform = gl.getUniformLocation(prog, "uSlider");
 
   const pointerTujuan = { x: 0, y: 0 };
   const pointerKini = { x: 0, y: 0 };
   let hoverTujuan = 0;
   let hoverKini = 0;
+  let skrolTujuan = 0;
+  let skrolKini = 0;
+  let sliderTujuan = 0;
+  let sliderKini = 0;
   const ripples = new Float32Array(6 * 3);
   ripples.fill(-999);
   let jumlahRipple = 0;
@@ -638,6 +625,8 @@ export function buatSceneTemplate(
     gl.uniform1f(uReduce, opsi.reduceMotion ? 1 : 0);
     gl.uniform1i(uPreset, opsi.preset);
     gl.uniform1f(uRinganUniform, opsi.ringan ? 1 : 0);
+    gl.uniform1f(uSkrolUniform, skrolKini);
+    gl.uniform1f(uSliderUniform, sliderKini);
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
   };
 
@@ -654,6 +643,8 @@ export function buatSceneTemplate(
     pointerKini.x += (pointerTujuan.x - pointerKini.x) * 0.06;
     pointerKini.y += (pointerTujuan.y - pointerKini.y) * 0.06;
     hoverKini += (hoverTujuan - hoverKini) * 0.08;
+    skrolKini += (skrolTujuan - skrolKini) * 0.06;
+    sliderKini += (sliderTujuan - sliderKini) * 0.05;
 
     gambar();
     if (aktif) frame = requestAnimationFrame(langkah);
@@ -700,6 +691,12 @@ export function buatSceneTemplate(
       ripples[i * 3 + 2] = waktu;
       ripplesDitulis += 1;
       jumlahRipple = Math.min(6, jumlahRipple + 1);
+    },
+    setSkrol(nilai) {
+      skrolTujuan = Math.max(0, Math.min(1, nilai));
+    },
+    setSlider(nilai) {
+      sliderTujuan = Math.max(0, Math.min(1, nilai));
     },
     setAktif(nilai) {
       if (nilai === aktif) return;

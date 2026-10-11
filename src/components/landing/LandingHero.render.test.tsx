@@ -9,7 +9,7 @@
  *     `pointer-events-none` — tidak ada yang mencuri pointer dari kartu maupun
  *     dari tombol CTA.
  *  3. Identitas merek: CTA utama memakai hijau PINDAI (`#1f6a62`), latar hero
- *     memakai gelap hijau PINDAI (`#04100c`) pada template default.
+ *     memakai Deep Space Emerald PINDAI (`#021E17`) pada template default.
  *  4. Tidak ada rotasi otomatis/360° di markup (kartu hanya bergerak oleh
  *     pengguna, bukan animasi CSS `rotate`).
  *  5. KEENAM template dapat dirender — masing-masing menandai dirinya lewat
@@ -76,8 +76,8 @@ const jumlahPointerNone = html.split("pointer-events-none").length - 1;
 ok(jumlahPointerNone >= 4, `beberapa lapisan dekoratif pointer-events-none (${jumlahPointerNone})`);
 
 // ── 3. Identitas hijau PINDAI, bukan biru/kuningan sebagai utama ──
-ok(html.includes("#1f6a62"), "CTA utama memakai hijau PINDAI (#1f6a62)");
-ok(html.includes("#04100c"), "latar hero memakai gelap hijau PINDAI (#04100c)");
+ok(html.includes("#064E3B"), "CTA utama memakai Deep Emerald PINDAI (#064E3B)");
+ok(html.includes("#021E17"), "latar hero memakai Deep Space Emerald PINDAI (#021E17)");
 ok(
   !/class="[^"]*bg-\[#e6d3a5\]/.test(html),
   "CTA utama tidak lagi memakai kuningan sebagai warna tombol",

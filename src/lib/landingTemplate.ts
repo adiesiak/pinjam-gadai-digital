@@ -10,28 +10,34 @@
  * Modul ini SENGAJA tanpa React dan tanpa import Convex supaya dapat dipakai
  * baik oleh schema/mutation backend maupun panel admin dan landing page publik.
  *
- * Konvensi warna tetap identitas PINDAI Green: hijau emerald sebagai warna
- * dominan, kuningan (brass) hanya aksen. Biru tidak pernah dipakai sebagai
- * palet utama template.
+ * Konvensi warna tetap identitas PINDAI Green: Deep Space Emerald (#021E17 →
+ * #064E3B) sebagai latar dan warna dominan, hijau muda sebagai rim/glow, dan
+ * kuningan (gold foil) HANYA sebagai aksen tipis pada chip/logo kartu. Biru
+ * tidak pernah dipakai sebagai palet utama template.
+ *
+ * Mengganti ID template TIDAK merusak konfigurasi lama: nilai yang tak dikenal
+ * dinormalkan ke `DEFAULT_LANDING_TEMPLATE` (`templateLandingAman`), jadi
+ * landing page lama tetap tampil utuh setelah daftar ini berganti.
  */
 
 /** ID template yang sah — urutannya juga menjadi nomor preset pada mesin 3D. */
 export const LANDING_TEMPLATE_IDS = [
-  "moonlit",
-  "floating-green",
-  "digital-gate",
-  "orbit",
-  "vault",
-  "city",
+  "premium-card",
+  "cyber-vault",
+  "ai-mascot",
+  "ledger-matrix",
+  "loan-simulator",
+  "quantum-portal",
 ] as const;
 
 export type LandingTemplateId = (typeof LANDING_TEMPLATE_IDS)[number];
 
 /**
  * Template cadangan. Dipakai saat konfigurasi tidak terbaca, nilainya tak
- * dikenal, atau template aktif gagal dimuat — landing page tidak boleh kosong.
+ * dikenal (termasuk ID template lama), atau template aktif gagal dimuat —
+ * landing page tidak boleh kosong.
  */
-export const DEFAULT_LANDING_TEMPLATE: LandingTemplateId = "moonlit";
+export const DEFAULT_LANDING_TEMPLATE: LandingTemplateId = "premium-card";
 
 export type LandingTemplateInfo = {
   id: LandingTemplateId;
@@ -48,58 +54,58 @@ export type LandingTemplateInfo = {
 /** Enam template, urut sesuai penomoran resmi. */
 export const LANDING_TEMPLATES: readonly LandingTemplateInfo[] = [
   {
-    id: "moonlit",
+    id: "premium-card",
     nomor: "01",
-    nama: "Moonlit PINDAI",
+    nama: "3D Premium Card (Tilt & Scroll)",
     deskripsi:
-      "Pengalaman finansial sinematik: laut malam, riak air, gerbang kuningan, dan kartu PINDAI yang mengikuti pointer.",
-    interaksi: ["Mouse tilt", "Hover lift", "Pointer lighting", "Water ripple", "Parallax"],
-    palet: ["#0f3d3a", "#c9a86a", "#04100c"],
+      "Kartu PINDAI material emerald matte dengan aksen gold foil tipis. Memiringkan diri mengikuti kursor dan menyesuaikan sudut saat halaman digulir.",
+    interaksi: ["Mouse tilt", "Scroll rotation", "Gold foil accent", "Hover lift", "Pointer lighting"],
+    palet: ["#064E3B", "#C9A86A", "#021E17"],
   },
   {
-    id: "floating-green",
+    id: "cyber-vault",
     nomor: "02",
-    nama: "Floating Green Card",
+    nama: "3D Cyber Vault & Asset Security",
     deskripsi:
-      "Fintech premium modern: kartu PINDAI melayang sebagai focal point dengan cahaya emerald dan partikel halus.",
-    interaksi: ["Mouse tilt", "Hover lift", "Highlight cursor", "Parallax", "Soft particles"],
-    palet: ["#1f6a62", "#7fe3b8", "#061512"],
+      "Brankas 3D melayang dengan pendar hijau emerald berlapis, visualisasi bahwa jaminan tersimpan terkunci dan terpantau.",
+    interaksi: ["Camera parallax", "Vault membuka saat hover", "Ring rotation", "Emerald pulse", "Depth"],
+    palet: ["#064E3B", "#34D399", "#021E17"],
   },
   {
-    id: "digital-gate",
+    id: "ai-mascot",
     nomor: "03",
-    nama: "Digital Gate",
+    nama: "3D Cyber Mascot (A.I. Assistant)",
     deskripsi:
-      "Gerbang digital futuristik: kisi elektronik, jalur cahaya hijau, dan kartu yang menanggapi arah pointer.",
-    interaksi: ["Cursor parallax", "Gate response", "Card tilt", "Light trails", "Fog halus"],
-    palet: ["#0c3b34", "#4fd6a4", "#03100d"],
+      "Maskot A.I. Cyber Assistant 3D yang melayang dan menjaga kontak mata dengan kursor pengunjung, siap menjawab pertanyaan produk.",
+    interaksi: ["Mata mengikuti kursor", "Hover respons", "Cahaya pointer", "Orbit partikel", "Napas halus"],
+    palet: ["#04372A", "#5EEAD4", "#021E17"],
   },
   {
-    id: "orbit",
+    id: "ledger-matrix",
     nomor: "04",
-    nama: "PINDAI Orbit",
+    nama: "3D Ledger Matrix & Node Network",
     deskripsi:
-      "Kartu PINDAI sebagai pusat orbit: dua cincin berputar, node digital, dan kedalaman lapisan berbeda.",
-    interaksi: ["Card tilt", "Orbit depth", "Pointer lighting", "Node parallax", "Camera halus"],
-    palet: ["#12463d", "#62e0aa", "#04120f"],
+      "Jaringan node dan balok 3D transparan yang menyalurkan pulse transaksi — gambaran ledger internal yang tercatat dan dapat ditelusuri.",
+    interaksi: ["Node network", "Pulse transaksi", "Mouse parallax", "Grid depth", "Light trails"],
+    palet: ["#04372A", "#6EE7B7", "#021E17"],
   },
   {
-    id: "vault",
+    id: "loan-simulator",
     nomor: "05",
-    nama: "PINDAI Vault",
+    nama: "3D Interactive Loan Simulator",
     deskripsi:
-      "Gerbang aman futuristik: cincin mekanis berlapis yang membuka sedikit saat hover, kartu di pusat ruang.",
-    interaksi: ["Camera parallax", "Vault response", "Ring movement", "Hover membuka", "Depth"],
-    palet: ["#0e3a34", "#c9a86a", "#050f0d"],
+      "Simulator 3D interaktif: geser tenor dan koin emerald berputar mengikuti perubahan, memberi gambaran biaya sebelum mengajukan.",
+    interaksi: ["Slider tenor", "Koin 3D berputar", "Live counter", "Mouse tilt", "Depth ring"],
+    palet: ["#064E3B", "#FBBF24", "#021E17"],
   },
   {
-    id: "city",
+    id: "quantum-portal",
     nomor: "06",
-    nama: "PINDAI City",
+    nama: "3D Gateway & Quantum Portal",
     deskripsi:
-      "Ekosistem finansial terhubung: miniatur kota low-poly dengan jalur cahaya rumah → toko → node → PINDAI.",
-    interaksi: ["Camera parallax", "City depth", "Network pulse", "Light trails", "Focal stabil"],
-    palet: ["#113f38", "#8ff0c4", "#051411"],
+      "Gerbang portal berstruktur geometri dengan partikel melayang, menandai pintu masuk digital ke layanan PINDAI.",
+    interaksi: ["Portal particle", "Geometri berputar", "Cursor parallax", "Scan ring", "Depth fog"],
+    palet: ["#021E17", "#4ADE80", "#021E17"],
   },
 ];
 
@@ -132,7 +138,7 @@ export function landingTemplateInfo(nilai: string | null | undefined): LandingTe
   return info ?? LANDING_TEMPLATES[0];
 }
 
-/** Nama tampilan template, mis. "04 — PINDAI Orbit". */
+/** Nama tampilan template, mis. "04 — 3D LEDGER MATRIX & NODE NETWORK". */
 export function labelTemplateLanding(nilai: string | null | undefined): string {
   const info = landingTemplateInfo(nilai);
   return `${info.nomor} — ${info.nama.toUpperCase()}`;

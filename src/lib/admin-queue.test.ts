@@ -391,8 +391,8 @@ eq(
 
 eq(
   NILAI_MODUL_ADMIN.length,
-  21,
-  "21 nilai modul yang ada (bi di PHASE 5, landing di Template 3D)",
+  22,
+  "22 nilai modul yang ada (bi, landing, + killswitch di Keamanan & audit)",
 );
 eq(
   new Set(NILAI_MODUL_ADMIN).size,
@@ -409,21 +409,21 @@ for (const modul of NILAI_MODUL_ADMIN) {
   eq(dariGrup.includes(modul), true, `modul ${modul} ada di GRUP_NAV`);
 }
 
-// Empat tab bawah, sesuai desain.
+// Lima tab bawah: Hari Ini · Operasional · Pemantauan · Konten · Sistem.
 eq(
   GRUP_NAV.map((g) => g.id).join(","),
-  "hari-ini,antrean,nasabah,sistem",
-  "empat tab bawah berurutan",
+  "hari-ini,operasional,pemantauan,konten,sistem",
+  "lima tab bawah berurutan",
 );
 eq(
   GRUP_NAV.map((g) => g.modul.length).join(","),
-  "1,7,3,10",
-  "jumlah modul tiap tab (1+7+3+10 = 21; penagihan belum masuk GRUP_NAV)",
+  "1,7,4,5,5",
+  "jumlah modul tiap tab (1+7+4+5+5 = 22)",
 );
 eq(
   GRUP_NAV.reduce((total, g) => total + g.modul.length, 0),
   NILAI_MODUL_ADMIN.length,
-  "GRUP_NAV memuat seluruh modul yang sudah ada (21)",
+  "GRUP_NAV memuat seluruh modul yang sudah ada (22)",
 );
 
 // Modul default tiap grup harus salah satu anggotanya.

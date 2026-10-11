@@ -211,7 +211,10 @@ export function LoanReviewDialog({
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-h-[90dvh] overflow-y-auto p-4 sm:max-w-xl sm:p-6">
+      {/* Gerbang persetujuan dua kolom: viewer bukti di kiri, keputusan di
+          kanan. Lebar `max-w-6xl` memberi ruang nyata untuk penampil dokumen
+          ber-zoom tanpa membuat baris teks keputusan terlalu panjang. */}
+      <DialogContent className="max-h-[90dvh] overflow-y-auto p-4 sm:max-w-6xl sm:p-6">
         <DialogHeader>
           <div className="flex items-center justify-between gap-3">
             <DialogTitle className="tabular-nums">
@@ -224,12 +227,22 @@ export function LoanReviewDialog({
           </DialogDescription>
         </DialogHeader>
 
-        {/* Data diri acuan nasabah (diisi admin / disunting nasabah) —
-            ditampilkan SEBELUM isian pengajuan agar peninjau bisa
-            membandingkan keduanya. */}
-        <PanelDataDiriNasabah userId={row.userIdPeminjam} />
+        {/* ── SPLIT-SCREEN: kolom kiri = BUKTI (identitas + dokumen KTP/slip
+               dengan zoom), kolom kanan = DETAIL & TOMBOL KEPUTUSAN. Peninjau
+               mencocokkan dokumen dan menekan keputusan tanpa menggulir
+               bolak-balik. Pada layar sempit kedua kolom menumpuk. ── */}
+        <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
+          <div className="space-y-4">
+            {/* Data diri acuan nasabah (diisi admin / disunting nasabah) —
+                ditampilkan SEBELUM isian pengajuan agar peninjau bisa
+                membandingkan keduanya. KTP di dalamnya bisa diperbesar. */}
+            <PanelDataDiriNasabah userId={row.userIdPeminjam} />
 
-        <LoanKycPanel row={row} />
+            {/* KTP, selfie + KTP, dan slip gaji dalam penampil ber-zoom. */}
+            <LoanKycPanel row={row} />
+          </div>
+
+          <div className="space-y-4">
 
         <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-900">
           Nominal, tanggal acuan, alokasi, dan status lunas di panel ini mengikuti catatan ledger internal; perpindahan dana ditangani di luar aplikasi.
@@ -628,12 +641,14 @@ export function LoanReviewDialog({
           </Button>
         </div>
 
-        {row.catatanReview && (
-          <div className="rounded-md border border-slate-200 bg-slate-50 px-4 py-3">
-            <p className="text-xs font-medium text-muted-foreground">Catatan keputusan</p>
-            <p className="mt-1 text-sm">{row.catatanReview}</p>
+            {row.catatanReview && (
+              <div className="rounded-md border border-slate-200 bg-slate-50 px-4 py-3">
+                <p className="text-xs font-medium text-muted-foreground">Catatan keputusan</p>
+                <p className="mt-1 text-sm">{row.catatanReview}</p>
+              </div>
+            )}
           </div>
-        )}
+        </div>
       </DialogContent>
     </Dialog>
   );

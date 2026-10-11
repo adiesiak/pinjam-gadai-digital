@@ -173,8 +173,8 @@ export function LandingTemplatePanel() {
             <article
               key={template.id}
               data-template={template.id}
-              className={`overflow-hidden rounded-2xl border bg-white transition-shadow ${
-                terpilih ? "border-primary ring-2 ring-primary/15" : "border-slate-200 hover:shadow-md"
+              className={`overflow-hidden rounded-2xl border bg-white shadow-sm transition-all hover:shadow-md ${
+                terpilih ? "border-emerald-300 ring-2 ring-emerald-600/20" : "border-slate-200"
               }`}
             >
               {/* Miniatur CSS bertema palet template — BUKAN canvas WebGL. Enam
@@ -225,8 +225,8 @@ export function LandingTemplatePanel() {
                     </p>
                   </div>
                   {terpilih && (
-                    <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-emerald-50 px-2 py-1 text-[10px] font-semibold text-emerald-800">
-                      <Check className="size-3" /> Aktif
+                    <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-emerald-300 bg-emerald-100 px-2 py-1 text-[10px] font-semibold text-emerald-800">
+                      <Check className="size-3" /> Aktif · Sedang digunakan
                     </span>
                   )}
                 </div>
@@ -319,7 +319,7 @@ export function LandingTemplatePanel() {
           <div
             ref={panggungRef}
             className="relative w-full overflow-hidden rounded-xl border border-slate-800"
-            style={{ height: TINGGI_PRATINJAU, backgroundColor: "#04100c" }}
+            style={{ height: TINGGI_PRATINJAU, backgroundColor: "#021E17" }}
             onClickCapture={tahanTautan}
           >
             <div

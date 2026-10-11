@@ -3,7 +3,7 @@ import { Loader2, MapPin, Send, Users } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
-import { WatermarkedDoc } from "@/components/WatermarkedDoc";
+import { PenampilDokumen } from "./PenampilDokumen";
 import { Button } from "@/components/ui/button";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
@@ -86,14 +86,16 @@ export function LoanKycPanel({ row }: { row: LoanRow }) {
               Sumber: <span className="text-navy">{urls.sumberPenghasilan ?? "—"}</span>
             </p>
           </div>
-          <div className="grid gap-2 sm:grid-cols-3">
+          {/* Penampil ber-zoom: peninjau harus bisa memperbesar NIK/nama bank
+            sebelum memutuskan — lihat `PenampilDokumen`. */}
+          <div className="grid gap-3 sm:grid-cols-3">
             {([
               ["KTP", urls.ktpUrl],
               ["Selfie + KTP", urls.selfieUrl],
               ["Slip gaji", urls.slipUrl],
             ] as const).map(([label, url]) =>
               url ? (
-                <WatermarkedDoc key={label} src={url} label={label} />
+                <PenampilDokumen key={label} src={url} label={label} />
               ) : (
                 <span
                   key={label}

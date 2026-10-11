@@ -15,6 +15,7 @@ import {
 import { loanPurposeLabel } from "@/lib/loan";
 import { formatRupiah } from "@/lib/money";
 import { namaHurufBesar } from "@/lib/nama";
+import { ringkasJumlah } from "@/lib/saringanPengajuan";
 import { SUB_TAB_GADAI, SUB_TAB_PINJAMAN } from "@/lib/subTabAntrean";
 import { Input } from "@/components/ui/input";
 
@@ -83,6 +84,12 @@ export function LoanQueueSection({
         <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
         <Input aria-label="Cari peminjam atau pengajuan tunai" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Cari nama, email, referensi, atau keperluan…" className="pl-9" />
       </div>
+      {/* Counter filter hub: berapa baris yang tampil dibanding seluruh antrean,
+          supaya admin tahu saringan masih menyembunyikan data. */}
+      <p aria-live="polite" className="text-[11px] tabular-nums text-muted-foreground">
+        {ringkasJumlah(filteredLoans.length, loans.length)}
+        {search.trim() !== "" || aktif.id !== SUB_TAB_PINJAMAN[0].id ? " · filter aktif" : ""}
+      </p>
       {filteredLoans.length === 0 ? (
         <p className="rounded-2xl border border-dashed border-slate-200 bg-white px-5 py-8 text-center text-sm text-muted-foreground">
           {search.trim()
@@ -167,6 +174,11 @@ export function PawnQueueSection({
             <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input aria-label="Cari pemohon atau pengajuan gadai" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Cari nama, email, referensi, barang, atau kategori…" className="pl-9" />
           </div>
+          {/* Counter filter hub — aturan yang sama dengan antrean pinjaman. */}
+          <p aria-live="polite" className="text-[11px] tabular-nums text-muted-foreground">
+            {ringkasJumlah(filteredPawns.length, pawns.length)}
+            {search.trim() !== "" || aktif.id !== SUB_TAB_GADAI[0].id ? " · filter aktif" : ""}
+          </p>
           {filteredPawns.length === 0 ? (
             <p className="rounded-2xl border border-dashed border-slate-200 bg-white px-5 py-8 text-center text-sm text-muted-foreground">
               {search.trim()

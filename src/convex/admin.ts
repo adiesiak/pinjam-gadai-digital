@@ -25,6 +25,7 @@ import {
   ringkasPlafon,
 } from "../lib/plafon";
 import { clampPersenBunga, persenBungaEfektif } from "../lib/bunga";
+import { profilRisiko } from "../lib/risikoNasabah";
 import { simpanDataDiriProfil, bacaProfilUntukForm } from "./dataDiriProfil";
 import { ensureKodePeminjam } from "./peminjamCode";
 import { rejectUnverifiedMoneyMovement } from "./paymentGuard";
@@ -70,6 +71,25 @@ export const daftarPlafonPeminjam = query({
       if (p.namaLengkap.trim() !== "") namaDataDiriPerUser.set(p.userId, p.namaLengkap);
       if (p.fotoKtpId !== undefined) adaFotoKtp.add(p.userId);
     }
+    // Kelengkapan data diri & status KYC untuk penilaian risiko per nasabah.
+    // Dibaca SEKALI di luar loop supaya daftar 100 baris tidak memicu 100 query.
+    const dataDiriLengkap = new Set<string>();
+    for (const p of profil) {
+      if (
+        p.nik.trim().length > 0 &&
+        (p.alamat ?? "").trim().length > 0 &&
+        (p.namaBank ?? "").trim().length > 0 &&
+        (p.nomorRekening ?? "").trim().length > 0
+      ) {
+        dataDiriLengkap.add(p.userId);
+      }
+    }
+    const kycTerverifikasi = new Set<string>();
+    for (const k of await ctx.db.query("kycProfil").collect()) {
+      if (k.status === "VERIFIED") kycTerverifikasi.add(k.userId);
+    }
+    /** Acuan waktu penilaian risiko — sama untuk seluruh baris dalam satu muatan. */
+    const sekarang = Date.now();
     const pelunasanTepatWaktuPerUser = new Map<string, number>();
     for (const loan of loans) {
       if (!apakahPelunasanTepatWaktu(loan)) continue;
@@ -115,6 +135,12 @@ export const daftarPlafonPeminjam = query({
       adaDataDiri: boolean;
       /** true bila foto KTP nasabah ini sudah tersimpan. */
       adaFotoKtp: boolean;
+      /** Grade risiko A–E dari model yang sama dengan detail nasabah. */
+      risikoGrade: string;
+      risikoSkor: number;
+      risikoKategori: string;
+      /** false = belum ada riwayat, jadi belum layak diberi grade penilaian. */
+      risikoDinilai: boolean;
     }> = [];
     for (const id of idPeminjam) {
       const user = (await ctx.db.get(id as never)) as
@@ -129,6 +155,33 @@ export const daftarPlafonPeminjam = query({
       if (user === null) continue;
       const pinjamanUser = loans.filter((l) => l.userId === id);
       const kreditUser = kredits.filter((k) => k.userId === id);
+      // Grade risiko memakai MODEL YANG SAMA dengan detail nasabah
+      // (`profilRisiko` murni + turunan pelunasan), sehingga angka di tabel dan
+      // di dialog profil tidak pernah berbeda untuk orang yang sama.
+      const risikoNasabah = profilRisiko(
+        pinjamanUser.map((l) => {
+          const info = pelunasanPinjaman(
+            {
+              pokokPinjaman: l.pokokPinjaman,
+              status: l.status,
+              tenorHari: l.tenorHari,
+              tenorBulan: l.tenorBulan,
+              didanaiPada: l.didanaiPada,
+              persenBunga: l.persenBunga,
+            },
+            sekarang,
+          );
+          return {
+            status: l.status,
+            hariTerlambat: info?.hariTerlambat ?? 0,
+            tepatWaktu: apakahPelunasanTepatWaktu(l),
+          };
+        }),
+        {
+          dataDiriLengkap: dataDiriLengkap.has(id),
+          kycTerverifikasi: kycTerverifikasi.has(id),
+        },
+      );
       const nama = namaTampil(
         [
           namaPinjamanPerUser.get(id)?.nama,
@@ -168,6 +221,10 @@ export const daftarPlafonPeminjam = query({
         pinjamanAktif: pinjamanUser.filter((l) => l.status === "didanai").length,
         adaDataDiri: adaDataDiri.has(id),
         adaFotoKtp: adaFotoKtp.has(id),
+        risikoGrade: risikoNasabah.grade,
+        risikoSkor: risikoNasabah.skor,
+        risikoKategori: risikoNasabah.kategori,
+        risikoDinilai: risikoNasabah.dinilai,
       });
     }
     hasil.sort((a, b) => b.jumlahPengajuan - a.jumlahPengajuan || a.nama.localeCompare(b.nama));

@@ -308,35 +308,48 @@ export function EmptyQueue({
   );
 }
 
+/** Kelas bersama satu lencana kesehatan sistem (statis, bukan berjalan). */
+const KELAS_KESEHATAN = "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[11px] font-medium";
+const KESEHATAN_BAIK = "border-emerald-200 bg-emerald-50 text-emerald-700";
+const KESEHATAN_PERHATIAN = "border-amber-200 bg-amber-50 text-amber-800";
+const KESEHATAN_DARURAT = "border-red-200 bg-red-50 text-red-700 font-semibold";
+
+/**
+ * System Health Badges — pengganti running text (marquee) di kepala panel.
+ *
+ * Marquee lama memaksa admin menunggu teks berjalan untuk melihat status
+ * keamanan; lencana statis di pojok kanan menampilkan ketiganya sekaligus dan
+ * bisa dibaca kapan saja. Isinya tidak berubah: SSL, keseimbangan ledger,
+ * kesiapan backup — plus peringatan merah bila kill switch sedang aktif.
+ */
 export function SecurityBar({ seimbang, killSwitch }: { seimbang: boolean; killSwitch: boolean }) {
   return (
-    <div className={`animate-masuk overflow-hidden border-b ${killSwitch ? "border-red-200 bg-red-50" : "border-slate-200 bg-slate-50"}`}>
-      <div className="animate-marquee flex w-max items-center gap-8 py-1.5 text-[11px] font-medium text-navy">
-        {[0, 1].map((dup) => (
-          <div key={dup} className="flex items-center gap-8 pr-8" aria-hidden={dup === 1}>
-            <span className="flex items-center gap-1.5">
-              <ShieldCheck className="size-3.5 text-emerald-600" /> SSL Aktif
-            </span>
-            <span className="flex items-center gap-1.5">
-              {seimbang ? (
-                <><Lock className="size-3.5 text-emerald-600" /> Ledger Seimbang</>
-              ) : (
-                <><ShieldAlert className="size-3.5 animate-pulse text-amber-600" /> Ledger menunggu transaksi</>
-              )}
-            </span>
-            <span className="flex items-center gap-1.5">
-              <Database className="size-3.5 text-sky-600" /> Backup Siap
-            </span>
-            <span className="text-muted-foreground">
-              Pengumuman sistem: semua aksi admin tercatat di audit trail.
-            </span>
-            {killSwitch && (
-              <span className="flex items-center gap-1.5 font-bold text-red-600">
-                <ShieldAlert className="size-3.5 animate-pulse" /> KILL SWITCH AKTIF — pengajuan diblokir
-              </span>
-            )}
-          </div>
-        ))}
+    <div className={`border-b ${killSwitch ? "border-red-200 bg-red-50/60" : "border-slate-200 bg-slate-50"}`}>
+      <div
+        role="status"
+        aria-label="Kesehatan sistem"
+        className="mx-auto flex w-full max-w-7xl flex-wrap items-center justify-end gap-1.5 px-3 py-1.5 sm:px-6"
+      >
+        <span className={`${KELAS_KESEHATAN} ${KESEHATAN_BAIK}`}>
+          <ShieldCheck className="size-3.5" aria-hidden="true" /> SSL Aktif
+        </span>
+        {seimbang ? (
+          <span className={`${KELAS_KESEHATAN} ${KESEHATAN_BAIK}`}>
+            <Lock className="size-3.5" aria-hidden="true" /> Ledger Seimbang
+          </span>
+        ) : (
+          <span className={`${KELAS_KESEHATAN} ${KESEHATAN_PERHATIAN}`}>
+            <ShieldAlert className="size-3.5" aria-hidden="true" /> Ledger menunggu transaksi
+          </span>
+        )}
+        <span className={`${KELAS_KESEHATAN} ${KESEHATAN_BAIK}`}>
+          <Database className="size-3.5" aria-hidden="true" /> Backup Siap
+        </span>
+        {killSwitch && (
+          <span className={`${KELAS_KESEHATAN} ${KESEHATAN_DARURAT}`}>
+            <ShieldAlert className="size-3.5 animate-pulse" aria-hidden="true" /> Kill switch aktif — pengajuan diblokir
+          </span>
+        )}
       </div>
     </div>
   );

@@ -133,18 +133,23 @@ export function NotAdminView() {
   );
 }
 
-/** Header panel admin: brand, kill switch, tautan profil. */
+/**
+ * Header panel admin: brand, kill switch, tautan profil.
+ *
+ * Tombol kill switch kini membuka DIALOG pengaman ganda (mengetik `BEKUKAN`)
+ * alih-alih "klik dua kali": salah klik tidak lagi cukup untuk memblokir semua
+ * pengajuan. Saat kill switch sedang aktif, label tombol berubah menjadi
+ * tindakan pemulihan (matikan) yang berjalan tanpa dialog.
+ */
 export function AdminHeader({
   killSwitch,
   ready,
   killBusy,
-  killConfirm,
   onToggleKill,
 }: {
   killSwitch: boolean;
   ready: boolean;
   killBusy: boolean;
-  killConfirm: boolean;
   onToggleKill: () => void;
 }) {
   return (
@@ -172,12 +177,10 @@ export function AdminHeader({
           <Button
             size="sm"
             variant="outline"
-            aria-label={killSwitch ? "Matikan kill switch" : killConfirm ? "Konfirmasi aktivasi kill switch" : "Aktifkan kill switch darurat"}
-            className={
-              killConfirm
-                ? "rounded-full border border-red-500/60 bg-red-50 text-red-700 hover:bg-red-100 hover:text-red-800"
-                : "rounded-full border border-red-300 bg-transparent text-red-600 hover:bg-red-50 hover:text-red-700"
+            aria-label={
+              killSwitch ? "Matikan kill switch" : "Aktifkan kill switch darurat"
             }
+            className="rounded-full border border-red-300 bg-transparent text-red-600 hover:bg-red-50 hover:text-red-700"
             disabled={killBusy || !ready}
             onClick={onToggleKill}
           >
@@ -187,13 +190,9 @@ export function AdminHeader({
               <ShieldAlert className="size-4 sm:mr-2" />
             )}
             <span className="hidden sm:inline">
-              {killSwitch
-                ? "Matikan Kill Switch"
-                : killConfirm
-                  ? "Klik lagi untuk konfirmasi!"
-                  : "Kill Switch Darurat"}
+              {killSwitch ? "Matikan Kill Switch" : "Kill Switch Darurat"}
             </span>
-            <span className="sm:hidden">{killSwitch ? "Matikan" : killConfirm ? "Konfirmasi" : "Darurat"}</span>
+            <span className="sm:hidden">{killSwitch ? "Matikan" : "Darurat"}</span>
           </Button>
         </div>
       </div>

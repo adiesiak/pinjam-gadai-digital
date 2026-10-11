@@ -25,33 +25,48 @@ export function WatermarkedDoc({ src, label }: { src: string; label?: string }) 
         className={`max-h-56 w-full object-contain ${loaded ? "" : "hidden"}`}
         draggable={false}
       />
-      {loaded && (
-        <div className="pointer-events-none absolute inset-0 select-none">
-          <div className="absolute inset-0 flex items-center justify-center">
-            <span className="-rotate-[24deg] text-lg font-black uppercase tracking-[0.3em] text-sky-500/25">
-              VERIFIKASI PINDAI
-            </span>
-          </div>
-          <div className="absolute left-2 top-2 rounded-md bg-white/70 px-1.5 py-0.5 text-[9px] font-semibold text-sky-700">
-            {label}
-          </div>
-          <div className="absolute bottom-2 right-2 flex items-center gap-1 rounded-md bg-white/70 px-1.5 py-0.5 text-[9px] font-medium text-emerald-700">
-            <ShieldCheck className="size-3.5" /> TERPROTEKSI
-          </div>
-          <div className="absolute inset-0 opacity-[0.06]" aria-hidden>
-            <svg width="100%" height="100%">
-              <defs>
-                <pattern id="wm-grid" width="24" height="24" patternUnits="userSpaceOnUse">
-                  <text x="2" y="14" fontSize="7" fill="#1f6a62" fontFamily="sans-serif">
-                    PINDAI
-                  </text>
-                </pattern>
-              </defs>
-              <rect width="100%" height="100%" fill="url(#wm-grid)" />
-            </svg>
-          </div>
+      {loaded && <LapisanTandaAir label={label} />}
+    </div>
+  );
+}
+
+/**
+ * Lapisan tanda air "VERIFIKASI PINDAI" — dipakai bersama oleh `WatermarkedDoc`
+ * (tampilan ringkas) dan `PenampilDokumen` (penampil ber-zoom di gerbang
+ * persetujuan). Dipisah supaya aturan perlindungan dokumen hanya ditulis SEKALI:
+ * salinan layar apa pun selalu membawa jejak verifikasi.
+ *
+ * `id` pola SVG diberi awalan agar dua penampil di satu halaman tidak saling
+ * menimpa pola satu sama lain.
+ */
+export function LapisanTandaAir({ label }: { label?: string }) {
+  return (
+    <div className="pointer-events-none absolute inset-0 select-none">
+      <div className="absolute inset-0 flex items-center justify-center">
+        <span className="-rotate-[24deg] text-lg font-black uppercase tracking-[0.3em] text-sky-500/25">
+          VERIFIKASI PINDAI
+        </span>
+      </div>
+      {label !== undefined && (
+        <div className="absolute left-2 top-2 rounded-md bg-white/70 px-1.5 py-0.5 text-[9px] font-semibold text-sky-700">
+          {label}
         </div>
       )}
+      <div className="absolute bottom-2 right-2 flex items-center gap-1 rounded-md bg-white/70 px-1.5 py-0.5 text-[9px] font-medium text-emerald-700">
+        <ShieldCheck className="size-3.5" /> TERPROTEKSI
+      </div>
+      <div className="absolute inset-0 opacity-[0.06]" aria-hidden>
+        <svg width="100%" height="100%">
+          <defs>
+            <pattern id="wm-grid" width="24" height="24" patternUnits="userSpaceOnUse">
+              <text x="2" y="14" fontSize="7" fill="#1f6a62" fontFamily="sans-serif">
+                PINDAI
+              </text>
+            </pattern>
+          </defs>
+          <rect width="100%" height="100%" fill="url(#wm-grid)" />
+        </svg>
+      </div>
     </div>
   );
 }

@@ -70,7 +70,7 @@ ok(
 ok(isLandingTemplateId(DEFAULT_LANDING_TEMPLATE), "default template ada di allowlist");
 
 // ===== 2. Allowlist menolak yang tidak sah =====
-ok(isLandingTemplateId("orbit"), "ID sah diterima");
+ok(isLandingTemplateId("cyber-vault"), "ID sah diterima");
 ok(!isLandingTemplateId("ORBIT"), "ID beda huruf besar ditolak (whitelist persis)");
 ok(!isLandingTemplateId(""), "string kosong ditolak");
 ok(!isLandingTemplateId("__proto__"), "kunci proto ditolak");
@@ -78,10 +78,10 @@ ok(!isLandingTemplateId("<script>"), "injeksi nama komponen ditolak");
 ok(!isLandingTemplateId(null), "null ditolak");
 ok(!isLandingTemplateId(undefined), "undefined ditolak");
 ok(!isLandingTemplateId(4), "angka ditolak");
-ok(!isLandingTemplateId({ template: "orbit" }), "objek ditolak");
+ok(!isLandingTemplateId({ template: "cyber-vault" }), "objek ditolak");
 
 // ===== 3. Fallback aman =====
-eq(templateLandingAman("vault"), "vault", "ID sah dikembalikan apa adanya");
+eq(templateLandingAman("cyber-vault"), "cyber-vault", "ID sah dikembalikan apa adanya");
 eq(templateLandingAman(null), DEFAULT_LANDING_TEMPLATE, "null → default");
 eq(templateLandingAman(undefined), DEFAULT_LANDING_TEMPLATE, "undefined → default");
 eq(templateLandingAman(""), DEFAULT_LANDING_TEMPLATE, "kosong → default");
@@ -91,8 +91,16 @@ eq(
   DEFAULT_LANDING_TEMPLATE,
   "info template tak dikenal memakai metadata default",
 );
-eq(landingTemplateInfo("city").nomor, "06", "info template sah memakai metadatanya sendiri");
-eq(labelTemplateLanding("orbit"), "04 — PINDAI ORBIT", "label template lengkap dengan nomor");
+eq(
+  landingTemplateInfo("quantum-portal").nomor,
+  "06",
+  "info template sah memakai metadatanya sendiri",
+);
+eq(
+  labelTemplateLanding("ledger-matrix"),
+  "04 — 3D LEDGER MATRIX & NODE NETWORK",
+  "label template lengkap dengan nomor",
+);
 eq(
   labelTemplateLanding(undefined),
   `01 — ${landingTemplateInfo(DEFAULT_LANDING_TEMPLATE).nama.toUpperCase()}`,
@@ -100,8 +108,8 @@ eq(
 );
 
 // ===== 4. Nomor preset scene =====
-eq(landingTemplatePreset("moonlit"), 0, "preset pertama = moonlit");
-eq(landingTemplatePreset("city"), 5, "preset terakhir = city");
+eq(landingTemplatePreset("premium-card"), 0, "preset pertama = premium-card");
+eq(landingTemplatePreset("quantum-portal"), 5, "preset terakhir = quantum-portal");
 eq(landingTemplatePreset("asing"), 0, "preset tak dikenal jatuh ke preset default");
 ok(
   LANDING_TEMPLATE_IDS.every((id, index) => landingTemplatePreset(id) === index),
