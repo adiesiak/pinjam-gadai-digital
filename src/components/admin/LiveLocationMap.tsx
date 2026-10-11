@@ -1,14 +1,14 @@
 import { useQuery } from "convex/react";
 import L from "leaflet";
-import { Loader2, MapPin, Radio, ShieldX, Users } from "lucide-react";
+import { Loader2, MapPin, Users } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { api } from "@/convex/_generated/api";
-import { labelTandaLokasi } from "@/lib/lokasi";
 import { namaHurufBesar } from "@/lib/nama";
 import { DEFAULT_CONFIG } from "@/lib/system-config";
+
+import { KartuFeedLokasi } from "./KartuFeedLokasi";
 
 import "leaflet/dist/leaflet.css";
 
@@ -90,6 +90,15 @@ export function LiveLocationMap() {
       for (const r of filteredRows) {
         if (!r.posisi || !validCoord(r.posisi.lat, r.posisi.lng)) continue;
         const warna = r.tanda.length > 0 ? "#b45309" : r.mismatch ? "#a5303a" : "#17544e";
+        const rincian =
+          `<strong>${namaHurufBesar(r.namaLengkap)}</strong><br/>${r.nomorReferensi} · status ledger: ${r.statusPinjaman}<br/>` +
+          (r.tanda.length > 0 ? "POLA KOORDINAT DICURIGAI (OTOMATIS)" : "") +
+          (r.tanda.length > 0 && r.jarakVaultKm !== null ? " · " : "") +
+          (r.mismatch
+            ? "DI LUAR AMBANG JARAK (OTOMATIS)"
+            : r.jarakVaultKm !== null
+              ? `${r.jarakVaultKm.toFixed(1)} km dari titik acuan`
+              : "");
         const marker = L.circleMarker([r.posisi.lat, r.posisi.lng], {
           radius: 7,
           color: warna,
@@ -97,17 +106,10 @@ export function LiveLocationMap() {
           fillOpacity: 0.85,
           weight: 2,
         })
-          .bindTooltip(
-            `<strong>${namaHurufBesar(r.namaLengkap)}</strong><br/>${r.nomorReferensi} · status ledger: ${r.statusPinjaman}<br/>` +
-              (r.tanda.length > 0 ? "POLA KOORDINAT DICURIGAI (OTOMATIS)" : "") +
-              (r.tanda.length > 0 && r.jarakVaultKm !== null ? " · " : "") +
-              (r.mismatch
-                ? "DI LUAR AMBANG JARAK (OTOMATIS)"
-                : r.jarakVaultKm !== null
-                  ? `${r.jarakVaultKm.toFixed(1)} km dari titik acuan`
-                  : ""),
-            { direction: "top" },
-          )
+          // Satu rincian dipakai untuk tooltip (hover) dan popup (klik kartu) —
+          // supaya keterangan di kedua tempat tidak pernah berbeda.
+          .bindTooltip(rincian, { direction: "top" })
+          .bindPopup(rincian, { autoPan: true })
           .addTo(layer);
         markerRef.current[r.userId] = marker;
       }
@@ -176,6 +178,11 @@ export function LiveLocationMap() {
     };
 
     ensureMap();
+    // Pemicu ukur ulang tepat setelah mount: kontainer baru saja tampil dan
+    // Leaflet kadang masih membaca ukuran 0 × 0 px sebelum tata letak stabil.
+    const timerUkur = window.setTimeout(() => {
+      mapRef.current?.invalidateSize();
+    }, 200);
     if (typeof ResizeObserver !== "undefined") {
       resizeObserver = new ResizeObserver(() => {
         ensureMap();
@@ -195,6 +202,7 @@ export function LiveLocationMap() {
 
     return () => {
       disposed = true;
+      window.clearTimeout(timerUkur);
       resizeObserver?.disconnect();
       intersectionObserver?.disconnect();
       drawRef.current = null;
@@ -212,16 +220,18 @@ export function LiveLocationMap() {
   }, [data]);
 
   useEffect(() => {
-    if (targetId === null || !markerRef.current[targetId]) return;
+    if (targetId === null) return;
     const marker = markerRef.current[targetId];
     const map = mapRef.current;
-    if (map === null) return;
+    if (marker === undefined || map === null) return;
+    // Terbang ke titik nasabah lalu buka popup detailnya. SENGAJA tidak
+    // menggambar ulang setelah terbang: `draw()` memanggil `fitBounds` dan
+    // membuat ulang marker, yang akan mengembalikan zoom dan menutup popup.
     const latlng = marker.getLatLng();
     map.flyTo(latlng, 15, { animate: true, duration: 0.6 });
-    setTimeout(() => {
-      map.invalidateSize({ pan: false });
-      drawRef.current?.();
-    }, 650);
+    marker.openPopup();
+    const timer = window.setTimeout(() => map.invalidateSize({ pan: false }), 650);
+    return () => window.clearTimeout(timer);
   }, [targetId]);
 
   if (data === undefined) {
@@ -267,7 +277,7 @@ export function LiveLocationMap() {
           </div>
         </div>
 
-        <div className="relative min-h-0 flex-1 overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 shadow-sm md:h-[420px]">
+        <div className="relative h-[580px] w-full overflow-hidden rounded-2xl border border-slate-200 shadow-sm">
           <div
             ref={containerRef}
             role="region"
@@ -283,7 +293,7 @@ export function LiveLocationMap() {
           )}
 
           {/* Floating Map Legend */}
-          <div className="absolute right-3 top-3 z-20 rounded-xl border border-slate-200 bg-white/95 backdrop-blur px-3 py-2 shadow-sm">
+          <div className="absolute right-3 top-3 z-20 rounded-xl bg-white/90 p-3 text-xs shadow-md backdrop-blur-md">
             <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
               Legenda Radius
             </p>
@@ -317,50 +327,14 @@ export function LiveLocationMap() {
           <span className="text-muted-foreground">· {filteredRows.length} nasabah tampil</span>
         </div>
 
-        <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-auto rounded-2xl border border-slate-200 bg-slate-50 p-3">
+        <div className="flex max-h-[580px] flex-col gap-3 overflow-y-auto pr-2">
           {filteredRows.length === 0 ? (
             <p className="flex h-24 items-center justify-center text-sm text-muted-foreground">
               Tidak ada nasabah sesuai filter.
             </p>
           ) : (
             filteredRows.map((r) => (
-              <Button
-                key={r.userId}
-                type="button"
-                variant="ghost"
-                className={`justify-start gap-2 rounded-xl px-3 py-2 text-left transition-colors hover:bg-white ${
-                  r.mismatch ? "border-l-2 border-l-red-400" : r.tanda.length > 0 ? "border-l-2 border-l-amber-400" : ""
-                }`}
-                onClick={() => setTargetId(r.userId)}
-              >
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    {r.mismatch ? (
-                      <ShieldX className="shrink-0 size-3.5 text-red-600" />
-                    ) : r.tanda.length > 0 ? (
-                      <Radio className="shrink-0 size-3.5 text-amber-600" />
-                    ) : (
-                      <Radio className="shrink-0 size-3.5 text-emerald-600" />
-                    )}
-                    <span className="truncate font-medium text-navy">
-                      {namaHurufBesar(r.namaLengkap)}
-                    </span>
-                  </div>
-                  <p className="mt-0.5 truncate text-[11px] text-muted-foreground">
-                    {r.nomorReferensi}
-                    {r.jarakVaultKm !== null ? ` · ${r.jarakVaultKm.toFixed(1)} km` : ""}
-                  </p>
-                  <p className="mt-0.5 text-[11px] text-muted-foreground">
-                    {r.mismatch
-                      ? "di luar ambang jarak"
-                      : r.tanda.length > 0
-                        ? labelTandaLokasi(r.tanda[r.tanda.length - 1])
-                        : r.jarakVaultKm !== null
-                          ? `sekitar gudang (${r.jarakVaultKm.toFixed(1)} km)`
-                          : "—"}
-                  </p>
-                </div>
-              </Button>
+              <KartuFeedLokasi key={r.userId} r={r} onPilih={setTargetId} />
             ))
           )}
         </div>
