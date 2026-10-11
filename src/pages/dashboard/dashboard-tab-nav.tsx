@@ -124,7 +124,8 @@ export function DashboardTabNav({
   // maupun wajah trigger-nya, supaya keduanya tidak pernah berbeda.
   const teksMenu = (value: string, label: string) => {
     const jumlah = badges?.[value]?.count;
-    return jumlah ? `${label} · ${jumlah}` : label;
+    if (!jumlah) return label;
+    return `${label} · ${jumlah}`;
   };
 
   return (
