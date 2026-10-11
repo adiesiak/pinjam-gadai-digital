@@ -3,6 +3,7 @@ import { FunctionReturnType } from "convex/server";
 import {
   CalendarDays,
   CheckCircle2,
+  FileText,
   FileWarning,
   History,
   Loader2,
@@ -38,6 +39,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import {
@@ -47,7 +49,6 @@ import {
   FILTER_KYC_KOSONG,
   judulKonfirmasiKeputusan,
   LABEL_FILTER_HASIL_KYC,
-  LABEL_KEPUTUSAN_KYC,
   LABEL_STATUS_DOKUMEN_KYC,
   rentangTanggal,
   ringkasFilterKyc,
@@ -71,8 +72,12 @@ import { cn } from "@/lib/utils";
  * KONSOL PEMERIKSAAN KYC — sisi petugas.
  *
  * Satu tempat untuk mencari satu nasabah di antara seluruh pengajuan KYC,
- * menyaringnya menurut status/tanggal/HASIL PEMERIKSAAN, memeriksa identitas
+ * menyaringnya menurut status/tanggal/HASIL PEMENTADAN, memeriksa identitas
  * secara terstruktur, lalu memutuskan.
+ *
+ * Tata letak: SPLIT VIEW 40% daftar : 60% rincian. Kolom kanan berketinggian
+ * tetap dengan STICKY ACTION HEADER, sehingga tombol keputusan selalu terlihat
+ * tanpa menggulir — isi dokumen saja yang bergulir di dalam sub-tab.
  *
  * Aturan yang dipegang di sini:
  * - PENYARINGAN ada di server (`convex/kyc.ts` memakai `lib/kycAdmin.ts`); panel
@@ -111,6 +116,12 @@ const URUTAN_SARING: StatusKyc[] = [
   ...KYC_STATUS.filter((s) => s === "NOT_STARTED"),
 ];
 
+/** Penanda "tanpa saringan status" untuk `Select` (Radix menolak nilai kosong). */
+const SEMUA_STATUS = "__semua";
+
+/** Sub-tab panel rincian. */
+type TabDetail = "berkas" | "identitas" | "sistem";
+
 function waktu(ms: number | null): string {
   if (ms === null) return "—";
   return new Date(ms).toLocaleString("id-ID", { dateStyle: "medium", timeStyle: "short" });
@@ -143,6 +154,9 @@ function Tanda({ nada, children }: { nada: "amber" | "merah" | "hijau" | "abu"; 
 /**
  * Satu baris antrean: identitas, kode nasabah, tanda pemeriksaan, status.
  *
+ * Nama ditampilkan UTUH (tanpa `truncate`) supaya petugas bisa membedakan dua
+ * nasabah bernama panjang tanpa membuka satu per satu; baris boleh membungkus.
+ *
  * Catatan soal lencana "mesin": keputusan otomatis adalah fakta MAHAL (satu
  * pembacaan berindeks per baris), jadi `daftarKycAdmin` hanya mengisinya saat
  * saringan hasil mesin memang dipilih. Kalau `keputusanOtomatis` null, lencana
@@ -159,53 +173,61 @@ export function BarisKyc({
   onPilih: (userId: Id<"users">) => void;
 }) {
   const mesin = item.keputusanOtomatis;
+  const berkasKurang = item.kekurangan.length > 0;
   return (
     <button
       type="button"
       onClick={() => onPilih(item.userId)}
       aria-pressed={aktif}
       className={cn(
-        "flex w-full flex-wrap items-center gap-2 rounded-xl border px-3 py-2.5 text-left transition-colors",
-        aktif ? "border-primary/40 bg-primary/[0.06]" : "border-slate-200 bg-white hover:bg-slate-50",
+        "flex w-full flex-col gap-2 rounded-xl border px-3 py-2.5 text-left transition-colors",
+        aktif
+          ? "border-emerald-600 bg-emerald-50/40"
+          : "border-slate-200 bg-white hover:bg-slate-50",
       )}
     >
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-medium">{item.nama}</p>
-        <p className="truncate text-[11px] text-muted-foreground">
-          {item.email ?? "tanpa email"} · {item.kodePeminjam ?? "tanpa kode nasabah"} · diajukan{" "}
-          {waktu(item.diajukanPada)}
-        </p>
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0 flex-1">
+          <p className="break-words text-sm font-semibold text-navy">{item.nama}</p>
+          <p className="mt-0.5 break-words text-[11px] leading-4 text-muted-foreground">
+            {item.email ?? "tanpa email"} · {item.kodePeminjam ?? "tanpa kode nasabah"}
+          </p>
+          <p className="mt-0.5 text-[11px] text-muted-foreground">
+            diajukan {waktu(item.diajukanPada)}
+          </p>
+        </div>
+        <StatusKycBadge status={item.status} />
       </div>
-      {item.kekurangan.length > 0 && (
-        <Tanda nada="amber">
+
+      <div className="flex flex-wrap items-center gap-1.5">
+        <Tanda nada={berkasKurang ? "amber" : "hijau"}>
           <FileWarning className="size-3.5 shrink-0" aria-hidden />
-          {item.kekurangan.length} berkas/isi kurang
+          {berkasKurang ? `${item.kekurangan.length} berkas/isi kurang` : "berkas lengkap"}
         </Tanda>
-      )}
-      {!item.nomorWhatsAppTerbukti && (
-        <Tanda nada="amber">
-          <ShieldAlert className="size-3.5 shrink-0" aria-hidden /> WhatsApp belum OTP
-        </Tanda>
-      )}
-      {item.verifikasiUlangTertunda && (
-        <Tanda nada="merah">
-          <ShieldAlert className="size-3.5 shrink-0" aria-hidden /> perlu verifikasi ulang
-        </Tanda>
-      )}
-      {/* Putusan yang diambil dengan aturan lama harus kelihatan DARI DAFTAR —
-          bukan hanya setelah membuka satu per satu. */}
-      {item.aturanUsang && (
-        <Tanda nada="amber">
-          <ShieldAlert className="size-3.5 shrink-0" aria-hidden /> aturan lama
-        </Tanda>
-      )}
-      {mesin !== null && (
-        <Tanda nada={mesin.diterapkan === true ? "hijau" : "abu"}>
-          mesin: {LABEL_STATUS_KYC[mesin.keputusan]}
-          {mesin.diterapkan === true ? "" : " (tidak diterapkan)"}
-        </Tanda>
-      )}
-      <StatusKycBadge status={item.status} />
+        {!item.nomorWhatsAppTerbukti && (
+          <Tanda nada="amber">
+            <ShieldAlert className="size-3.5 shrink-0" aria-hidden /> WhatsApp belum OTP
+          </Tanda>
+        )}
+        {item.verifikasiUlangTertunda && (
+          <Tanda nada="merah">
+            <ShieldAlert className="size-3.5 shrink-0" aria-hidden /> perlu verifikasi ulang
+          </Tanda>
+        )}
+        {/* Putusan yang diambil dengan aturan lama harus kelihatan DARI DAFTAR —
+            bukan hanya setelah membuka satu per satu. */}
+        {item.aturanUsang && (
+          <Tanda nada="amber">
+            <ShieldAlert className="size-3.5 shrink-0" aria-hidden /> aturan lama
+          </Tanda>
+        )}
+        {mesin !== null && (
+          <Tanda nada={mesin.diterapkan === true ? "hijau" : "abu"}>
+            mesin: {LABEL_STATUS_KYC[mesin.keputusan]}
+            {mesin.diterapkan === true ? "" : " (tidak diterapkan)"}
+          </Tanda>
+        )}
+      </div>
     </button>
   );
 }
@@ -424,8 +446,56 @@ export function KycAuditRingkas({ audit }: { audit: DetailKycTampil["audit"] }) 
   );
 }
 
-/** Rincian satu pengajuan menurut urutan pemeriksaan petugas. */
-export function KycDetailRingkas({ detail }: { detail: DetailKycTampil }) {
+/* ---------------------------------------------------------------------------
+ * Bagian-bagian rincian.
+ *
+ * Dipisah menjadi komponen kecil supaya KONSOL dapat menyusunnya ulang ke
+ * dalam sub-tab TANPA menyalin markup: `KycDetailRingkas` merangkainya kembali
+ * persis seperti sebelumnya (dipakai uji render), sedangkan panel memakai
+ * potongan yang sama di tab yang sesuai.
+ * ------------------------------------------------------------------------- */
+
+/** Kepala rincian: status, waktu diajukan/diputuskan, dan penjelasan statusnya. */
+function KycKepalaRingkas({ detail }: { detail: DetailKycTampil }) {
+  return (
+    <>
+      <div className="flex flex-wrap items-center gap-2">
+        <StatusKycBadge status={detail.status} />
+        <span className="text-[11px] text-muted-foreground">
+          Diajukan {waktu(detail.diajukanPada)} · keputusan terakhir {waktu(detail.diputuskanPada)}
+          {detail.diputuskanOlehLabel === null ? "" : ` oleh ${detail.diputuskanOlehLabel}`}
+        </span>
+      </div>
+      <p className="text-xs leading-5 text-muted-foreground">
+        {KETERANGAN_STATUS_KYC[detail.status]}
+      </p>
+    </>
+  );
+}
+
+/** Dasar pemrosesan data (PDP) — wajib ada sebelum verifikasi. */
+function KycPdpRingkas({ detail }: { detail: DetailKycTampil }) {
+  if (detail.persetujuanAktif) {
+    return (
+      <p className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-[11px] leading-5 text-emerald-900 dark:border-emerald-900/40 dark:bg-emerald-950/40 dark:text-emerald-200">
+        Persetujuan pemrosesan data tercatat {waktu(detail.persetujuan?.pada ?? null)} (versi{" "}
+        {detail.persetujuan?.versi ?? "—"}) oleh {detail.persetujuan?.olehLabel ?? "—"}.
+      </p>
+    );
+  }
+  return (
+    <p
+      role="alert"
+      className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-[11px] leading-5 text-red-900 dark:border-red-900/40 dark:bg-red-950/40 dark:text-red-200"
+    >
+      Nasabah <strong>belum memiliki persetujuan pemrosesan data yang berlaku</strong>. Jangan
+      verifikasi identitas sebelum dasar pemrosesan tercatat.
+    </p>
+  );
+}
+
+/** Tabel data identitas tersimpan. */
+function KycIdentitasRingkas({ detail }: { detail: DetailKycTampil }) {
   const barisIsian: Array<[string, React.ReactNode]> = [
     ["Kode nasabah", detail.kodePeminjam ?? "—"],
     ["Email", detail.email ?? "—"],
@@ -441,231 +511,252 @@ export function KycDetailRingkas({ detail }: { detail: DetailKycTampil }) {
     ["Sumber penghasilan", detail.sumberPenghasilan ?? "—"],
     ["Catatan nasabah", detail.catatanPeminjam ?? "—"],
   ];
-
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2">
-        <StatusKycBadge status={detail.status} />
-        <span className="text-[11px] text-muted-foreground">
-          Diajukan {waktu(detail.diajukanPada)} · keputusan terakhir {waktu(detail.diputuskanPada)}
-          {detail.diputuskanOlehLabel === null ? "" : ` oleh ${detail.diputuskanOlehLabel}`}
-        </span>
-      </div>
-      <p className="text-xs leading-5 text-muted-foreground">
-        {KETERANGAN_STATUS_KYC[detail.status]}
-      </p>
+    <div className="space-y-2">
+      <JudulBagian
+        ikon={ShieldCheck}
+        judul="Data identitas"
+        keterangan="Nilai yang tersimpan setelah dinormalkan server (nama huruf besar, NIK digit saja)."
+      />
+      <dl className="divide-y divide-slate-200 overflow-hidden rounded-xl border border-slate-200 bg-white">
+        {barisIsian.map(([label, nilai]) => (
+          <Baris key={label} label={label} nilai={nilai} />
+        ))}
+      </dl>
+    </div>
+  );
+}
 
-      {/* ===== 1. Dasar pemrosesan ===== */}
-      {detail.persetujuanAktif ? (
-        <p className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-[11px] leading-5 text-emerald-900 dark:border-emerald-900/40 dark:bg-emerald-950/40 dark:text-emerald-200">
-          Persetujuan pemrosesan data tercatat {waktu(detail.persetujuan?.pada ?? null)} (versi{" "}
-          {detail.persetujuan?.versi ?? "—"}) oleh {detail.persetujuan?.olehLabel ?? "—"}.
+/** Status bukti OTP nomor WhatsApp. */
+function KycOtpRingkas({ detail }: { detail: DetailKycTampil }) {
+  return (
+    <div className="space-y-2">
+      <JudulBagian
+        ikon={ScanLine}
+        judul="Status OTP WhatsApp"
+        keterangan="Kode OTP membuktikan nomor itu AKTIF dan dikuasai pemakainya — bukan bahwa nomor itu milik nama di KTP."
+      />
+      <p
+        className={
+          detail.nomorWhatsAppTerbukti
+            ? "rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-[11px] leading-5 text-emerald-900 dark:border-emerald-900/40 dark:bg-emerald-950/40 dark:text-emerald-200"
+            : "rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] leading-5 text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/40 dark:text-amber-100"
+        }
+      >
+        {detail.nomorWhatsAppTerbukti ? (
+          <>
+            Nomor WhatsApp <strong>dibuktikan aktif lewat kode OTP</strong> (
+            {detail.nomorWhatsAppTerverifikasi?.metode ?? "wa_otp"}) pada{" "}
+            {waktu(detail.nomorWhatsAppTerverifikasi?.pada ?? null)}.
+          </>
+        ) : detail.nomorWhatsAppTerverifikasi === null ? (
+          <>
+            Nomor WhatsApp <strong>belum diverifikasi</strong> lewat kode OTP.
+          </>
+        ) : (
+          <>
+            Bukti OTP terakhir <strong>tidak lagi cocok</strong> dengan nomor yang tersimpan (nomor
+            berubah setelah diverifikasi) — minta nasabah memverifikasi ulang nomornya.
+          </>
+        )}
+      </p>
+    </div>
+  );
+}
+
+/** Grid berkas KTP/selfie/bukti penghasilan beserta metadata pemeriksaannya. */
+function KycDokumenRingkas({ detail }: { detail: DetailKycTampil }) {
+  return (
+    <div className="space-y-2">
+      <JudulBagian
+        ikon={FileWarning}
+        judul="Status dokumen"
+        keterangan="“Siap” berarti ISI berkas sudah diperiksa server (magic bytes) — bukan penilaian bahwa KTP-nya asli."
+      />
+      {detail.kekurangan.length > 0 && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] leading-5 text-amber-900">
+          <p className="font-semibold">Isian belum lengkap — tidak bisa diverifikasi:</p>
+          <ul className="mt-1 list-disc pl-4">
+            {detail.kekurangan.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {/* URL dipisah dari metadata pemeriksaannya karena `WatermarkedDoc`
+          tidak menerima `src` null. */}
+      <div className="grid gap-3 sm:grid-cols-3">
+        {detail.berkas.map((meta) => {
+          const url =
+            meta.slot === "ktp"
+              ? detail.url.ktp
+              : meta.slot === "selfie"
+                ? detail.url.selfie
+                : detail.url.buktiPenghasilan;
+          return (
+            <div key={meta.slot} className="space-y-1">
+              {url === null ? (
+                <div className="flex h-28 items-center justify-center rounded-xl border border-dashed border-slate-300 bg-slate-50 text-[11px] text-muted-foreground">
+                  {meta.label}: belum diunggah
+                </div>
+              ) : (
+                <WatermarkedDoc src={url} label={meta.label} />
+              )}
+              <p className="text-[10px] leading-4 font-medium text-slate-700">
+                {LABEL_STATUS_DOKUMEN_KYC[meta.statusDokumen as keyof typeof LABEL_STATUS_DOKUMEN_KYC] ??
+                  meta.statusDokumen}
+              </p>
+              {meta.ada ? (
+                <p className="text-[10px] leading-4 text-muted-foreground">
+                  Diperiksa server: {meta.jenis ?? "—"} · {ukuranBerkas(meta.ukuranByte)} ·{" "}
+                  {meta.lebar !== null && meta.tinggi !== null
+                    ? `${meta.lebar}×${meta.tinggi} px`
+                    : "dimensi —"}{" "}
+                  · sidik jari {(meta.sidikJari ?? "—").slice(0, 12)} · aturan{" "}
+                  {meta.versiAturan ?? "—"}
+                </p>
+              ) : meta.tertaut ? (
+                <p className="text-[10px] leading-4 text-muted-foreground">
+                  Berkas tersimpan, tetapi ISI-nya belum lolos pemeriksaan server — jadi belum bisa
+                  dinilai dari sini.
+                </p>
+              ) : (
+                <p className="text-[10px] leading-4 text-muted-foreground">
+                  Belum ada berkas tersimpan untuk slot ini.
+                </p>
+              )}
+              {meta.aturanUsang && (
+                <p className="text-[10px] leading-4 font-medium text-amber-800">
+                  Berkas ini diperiksa dengan aturan lama — pertimbangkan memeriksa ulang.
+                </p>
+              )}
+              {meta.dipakaiAkunLain > 0 && (
+                <p role="alert" className="text-[10px] leading-4 font-medium text-red-700">
+                  Berkas dengan isi yang sama dipakai di {meta.dipakaiAkunLain} akun lain — periksa
+                  kemungkinan penyalahgunaan identitas.
+                </p>
+              )}
+            </div>
+          );
+        })}
+      </div>
+      <p className="text-[10px] leading-4 text-muted-foreground">
+        Dokumen ini privat: URL-nya bertanda tangan & berumur pendek, hanya keluar untuk admin
+        ber-TOTP, dan tidak pernah ditampilkan ke pendana atau pemantau.
+      </p>
+    </div>
+  );
+}
+
+/** Hasil OCR KTP. */
+function KycOcrRingkas({ detail }: { detail: DetailKycTampil }) {
+  return (
+    <div className="space-y-2">
+      <JudulBagian
+        ikon={ScanLine}
+        judul="Hasil OCR KTP"
+        keterangan="Pemindaian berjalan di perangkat nasabah; hasilnya tersimpan sebagai bacaan mesin (sumber: klien)."
+      />
+      <OcrKtpKyc ocr={detail.ocrKtp} />
+    </div>
+  );
+}
+
+/** Ketidaksesuaian teks KTP terhadap isian. */
+function KycKetidaksesuaianRingkas({ detail }: { detail: DetailKycTampil }) {
+  return (
+    <div className="space-y-2">
+      <JudulBagian
+        ikon={ShieldAlert}
+        judul="Ketidaksesuaian data"
+        keterangan="Perbedaan material (NIK/nama) dan lunak (mis. alamat) antara teks KTP dan isian."
+      />
+      <KetidaksesuaianKtp
+        ketidaksesuaian={detail.ketidaksesuaian}
+        adaOcr={detail.ocrKtp !== null}
+      />
+    </div>
+  );
+}
+
+/** Hasil pemeriksaan otomatis terakhir. */
+function KycOtomatisRingkas({ detail }: { detail: DetailKycTampil }) {
+  return (
+    <div className="space-y-2">
+      <JudulBagian
+        ikon={ShieldAlert}
+        judul="Hasil pemeriksaan otomatis"
+        keterangan="Mesin hanya boleh MENERAPKAN “Terverifikasi”. Hasil lain adalah bahan peninjauan, bukan keputusan."
+      />
+      {detail.keputusanOtomatis === null ? (
+        <p className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-[11px] leading-5 text-slate-700">
+          Mesin keputusan otomatis belum pernah memeriksa pengajuan ini (pemeriksaan berjalan saat
+          pengajuan dikirim).
         </p>
       ) : (
-        <p
-          role="alert"
-          className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-[11px] leading-5 text-red-900 dark:border-red-900/40 dark:bg-red-950/40 dark:text-red-200"
-        >
-          Nasabah <strong>belum memiliki persetujuan pemrosesan data yang berlaku</strong>. Jangan
-          verifikasi identitas sebelum dasar pemrosesan tercatat.
-        </p>
+        <KeputusanOtomatisKyc keputusan={detail.keputusanOtomatis} />
       )}
+    </div>
+  );
+}
 
-      {/* ===== 2. Data identitas ===== */}
-      <div className="space-y-2">
-        <JudulBagian
-          ikon={ShieldCheck}
-          judul="Data identitas"
-          keterangan="Nilai yang tersimpan setelah dinormalkan server (nama huruf besar, NIK digit saja)."
-        />
-        <dl className="divide-y divide-slate-200 overflow-hidden rounded-xl border border-slate-200 bg-white">
-          {barisIsian.map(([label, nilai]) => (
-            <Baris key={label} label={label} nilai={nilai} />
-          ))}
-        </dl>
-      </div>
+/** Dasar aturan putusan (bila sudah pernah diverifikasi). */
+function KycAturanRingkas({ detail }: { detail: DetailKycTampil }) {
+  if (detail.aturanTerverifikasi === null) return null;
+  return (
+    <p
+      className={
+        detail.aturanUsang
+          ? "rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] leading-5 text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/40 dark:text-amber-100"
+          : "rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-[11px] leading-5 text-slate-700"
+      }
+    >
+      Diverifikasi dengan aturan <strong>{detail.aturanTerverifikasi.versi}</strong> pada{" "}
+      {waktu(detail.aturanTerverifikasi.pada)} (aturan berlaku: {detail.versiAturan}).
+      {detail.keteranganAturanUsang === null ? "" : ` ${detail.keteranganAturanUsang}`}
+    </p>
+  );
+}
 
-      {/* ===== 3. Status OTP ===== */}
-      <div className="space-y-2">
-        <JudulBagian
-          ikon={ScanLine}
-          judul="Status OTP WhatsApp"
-          keterangan="Kode OTP membuktikan nomor itu AKTIF dan dikuasai pemakainya — bukan bahwa nomor itu milik nama di KTP."
-        />
-        <p
-          className={
-            detail.nomorWhatsAppTerbukti
-              ? "rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-[11px] leading-5 text-emerald-900 dark:border-emerald-900/40 dark:bg-emerald-950/40 dark:text-emerald-200"
-              : "rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] leading-5 text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/40 dark:text-amber-100"
-          }
-        >
-          {detail.nomorWhatsAppTerbukti ? (
-            <>
-              Nomor WhatsApp <strong>dibuktikan aktif lewat kode OTP</strong> (
-              {detail.nomorWhatsAppTerverifikasi?.metode ?? "wa_otp"}) pada{" "}
-              {waktu(detail.nomorWhatsAppTerverifikasi?.pada ?? null)}.
-            </>
-          ) : detail.nomorWhatsAppTerverifikasi === null ? (
-            <>
-              Nomor WhatsApp <strong>belum diverifikasi</strong> lewat kode OTP.
-            </>
-          ) : (
-            <>
-              Bukti OTP terakhir <strong>tidak lagi cocok</strong> dengan nomor yang tersimpan (nomor
-              berubah setelah diverifikasi) — minta nasabah memverifikasi ulang nomornya.
-            </>
-          )}
-        </p>
-      </div>
+/** Riwayat transisi status. */
+function KycRiwayatSection({ detail }: { detail: DetailKycTampil }) {
+  return (
+    <div className="space-y-2">
+      <JudulBagian ikon={History} judul="Riwayat KYC" keterangan="Setiap transisi status beserta aktor dan alasannya." />
+      <KycRiwayatRingkas riwayat={detail.riwayat} />
+    </div>
+  );
+}
 
-      {/* ===== 4. Status dokumen ===== */}
-      <div className="space-y-2">
-        <JudulBagian
-          ikon={FileWarning}
-          judul="Status dokumen"
-          keterangan="“Siap” berarti ISI berkas sudah diperiksa server (magic bytes) — bukan penilaian bahwa KTP-nya asli."
-        />
-        {detail.kekurangan.length > 0 && (
-          <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] leading-5 text-amber-900">
-            <p className="font-semibold">Isian belum lengkap — tidak bisa diverifikasi:</p>
-            <ul className="mt-1 list-disc pl-4">
-              {detail.kekurangan.map((item) => (
-                <li key={item}>{item}</li>
-              ))}
-            </ul>
-          </div>
-        )}
-        {/* URL dipisah dari metadata pemeriksaannya karena `WatermarkedDoc`
-            tidak menerima `src` null. */}
-        <div className="grid gap-3 sm:grid-cols-3">
-          {detail.berkas.map((meta) => {
-            const url =
-              meta.slot === "ktp"
-                ? detail.url.ktp
-                : meta.slot === "selfie"
-                  ? detail.url.selfie
-                  : detail.url.buktiPenghasilan;
-            return (
-              <div key={meta.slot} className="space-y-1">
-                {url === null ? (
-                  <div className="flex h-28 items-center justify-center rounded-xl border border-dashed border-slate-300 bg-slate-50 text-[11px] text-muted-foreground">
-                    {meta.label}: belum diunggah
-                  </div>
-                ) : (
-                  <WatermarkedDoc src={url} label={meta.label} />
-                )}
-                <p className="text-[10px] leading-4 font-medium text-slate-700">
-                  {LABEL_STATUS_DOKUMEN_KYC[meta.statusDokumen as keyof typeof LABEL_STATUS_DOKUMEN_KYC] ??
-                    meta.statusDokumen}
-                </p>
-                {meta.ada ? (
-                  <p className="text-[10px] leading-4 text-muted-foreground">
-                    Diperiksa server: {meta.jenis ?? "—"} · {ukuranBerkas(meta.ukuranByte)} ·{" "}
-                    {meta.lebar !== null && meta.tinggi !== null
-                      ? `${meta.lebar}×${meta.tinggi} px`
-                      : "dimensi —"}{" "}
-                    · sidik jari {(meta.sidikJari ?? "—").slice(0, 12)} · aturan{" "}
-                    {meta.versiAturan ?? "—"}
-                  </p>
-                ) : meta.tertaut ? (
-                  <p className="text-[10px] leading-4 text-muted-foreground">
-                    Berkas tersimpan, tetapi ISI-nya belum lolos pemeriksaan server — jadi belum bisa
-                    dinilai dari sini.
-                  </p>
-                ) : (
-                  <p className="text-[10px] leading-4 text-muted-foreground">
-                    Belum ada berkas tersimpan untuk slot ini.
-                  </p>
-                )}
-                {meta.aturanUsang && (
-                  <p className="text-[10px] leading-4 font-medium text-amber-800">
-                    Berkas ini diperiksa dengan aturan lama — pertimbangkan memeriksa ulang.
-                  </p>
-                )}
-                {meta.dipakaiAkunLain > 0 && (
-                  <p role="alert" className="text-[10px] leading-4 font-medium text-red-700">
-                    Berkas dengan isi yang sama dipakai di {meta.dipakaiAkunLain} akun lain — periksa
-                    kemungkinan penyalahgunaan identitas.
-                  </p>
-                )}
-              </div>
-            );
-          })}
-        </div>
-        <p className="text-[10px] leading-4 text-muted-foreground">
-          Dokumen ini privat: URL-nya bertanda tangan & berumur pendek, hanya keluar untuk admin
-          ber-TOTP, dan tidak pernah ditampilkan ke pendana atau pemantau.
-        </p>
-      </div>
+/** Jejak audit append-only. */
+function KycAuditSection({ detail }: { detail: DetailKycTampil }) {
+  return (
+    <div className="space-y-2">
+      <JudulBagian
+        ikon={ScrollText}
+        judul="Audit trail"
+        keterangan="Jejak append-only semua aksi atas nasabah ini (20 terbaru). Sumber: auditLog."
+      />
+      <KycAuditRingkas audit={detail.audit} />
+    </div>
+  );
+}
 
-      {/* ===== 5. Hasil OCR & 6. Ketidaksesuaian ===== */}
-      <div className="space-y-2">
-        <JudulBagian
-          ikon={ScanLine}
-          judul="Hasil OCR KTP"
-          keterangan="Pemindaian berjalan di perangkat nasabah; hasilnya tersimpan sebagai bacaan mesin (sumber: klien)."
-        />
-        <OcrKtpKyc ocr={detail.ocrKtp} />
-      </div>
-      <div className="space-y-2">
-        <JudulBagian
-          ikon={ShieldAlert}
-          judul="Ketidaksesuaian data"
-          keterangan="Perbedaan material (NIK/nama) dan lunak (mis. alamat) antara teks KTP dan isian."
-        />
-        <KetidaksesuaianKtp
-          ketidaksesuaian={detail.ketidaksesuaian}
-          adaOcr={detail.ocrKtp !== null}
-        />
-      </div>
-
-      {/* ===== 7. Hasil pemeriksaan otomatis ===== */}
-      <div className="space-y-2">
-        <JudulBagian
-          ikon={ShieldAlert}
-          judul="Hasil pemeriksaan otomatis"
-          keterangan="Mesin hanya boleh MENERAPKAN “Terverifikasi”. Hasil lain adalah bahan peninjauan, bukan keputusan."
-        />
-        {detail.keputusanOtomatis === null ? (
-          <p className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-[11px] leading-5 text-slate-700">
-            Mesin keputusan otomatis belum pernah memeriksa pengajuan ini (pemeriksaan berjalan saat
-            pengajuan dikirim).
-          </p>
-        ) : (
-          <KeputusanOtomatisKyc keputusan={detail.keputusanOtomatis} />
-        )}
-      </div>
-
-      {/* ===== 8. Dasar aturan ===== */}
-      {detail.aturanTerverifikasi !== null && (
-        <p
-          className={
-            detail.aturanUsang
-              ? "rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] leading-5 text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/40 dark:text-amber-100"
-              : "rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-[11px] leading-5 text-slate-700"
-          }
-        >
-          Diverifikasi dengan aturan <strong>{detail.aturanTerverifikasi.versi}</strong> pada{" "}
-          {waktu(detail.aturanTerverifikasi.pada)} (aturan berlaku: {detail.versiAturan}).
-          {detail.keteranganAturanUsang === null ? "" : ` ${detail.keteranganAturanUsang}`}
-        </p>
-      )}
-
-      {/* ===== 9. Riwayat status ===== */}
-      <div className="space-y-2">
-        <JudulBagian ikon={History} judul="Riwayat KYC" keterangan="Setiap transisi status beserta aktor dan alasannya." />
-        <KycRiwayatRingkas riwayat={detail.riwayat} />
-      </div>
-
-      {/* ===== 10. Audit trail ===== */}
-      <div className="space-y-2">
-        <JudulBagian
-          ikon={ScrollText}
-          judul="Audit trail"
-          keterangan="Jejak append-only semua aksi atas nasabah ini (20 terbaru). Sumber: auditLog."
-        />
-        <KycAuditRingkas audit={detail.audit} />
-      </div>
+/** Rincian satu pengajuan menurut urutan pemeriksaan petugas (bentuk lengkap). */
+export function KycDetailRingkas({ detail }: { detail: DetailKycTampil }) {
+  return (
+    <div className="space-y-4">
+      <KycKepalaRingkas detail={detail} />
+      <KycPdpRingkas detail={detail} />
+      <KycIdentitasRingkas detail={detail} />
+      <KycOtpRingkas detail={detail} />
+      <KycDokumenRingkas detail={detail} />
+      <KycOcrRingkas detail={detail} />
+      <KycKetidaksesuaianRingkas detail={detail} />
+      <KycOtomatisRingkas detail={detail} />
+      <KycAturanRingkas detail={detail} />
+      <KycRiwayatSection detail={detail} />
+      <KycAuditSection detail={detail} />
     </div>
   );
 }
@@ -722,6 +813,30 @@ export function IsiKonfirmasiKeputusan({
  * Panel yang tersambung server
  * ========================================================================== */
 
+/**
+ * Tiga tombol keputusan utama. Kelasnya SENGAJA eksplisit supaya bobot
+ * visualnya menandai tingkat risiko: Setujui = solid emerald, Minta Perbaikan =
+ * outline amber, Tolak = ghost merah.
+ */
+const AKSI_UTAMA: Array<{ ke: StatusKyc; label: string; kelas: string }> = [
+  {
+    ke: "NEEDS_CORRECTION",
+    label: "Minta Perbaikan",
+    kelas: "border border-amber-300 text-amber-700 hover:bg-amber-50 rounded-xl px-4 py-2 text-xs font-semibold",
+  },
+  {
+    ke: "REJECTED",
+    label: "Tolak KYC",
+    kelas: "text-red-600 hover:bg-red-50 rounded-xl px-4 py-2 text-xs font-semibold",
+  },
+  {
+    ke: "VERIFIED",
+    label: "Setujui Verifikasi KYC",
+    kelas:
+      "bg-emerald-800 hover:bg-emerald-900 text-white font-semibold px-5 py-2 rounded-xl text-xs shadow-sm",
+  },
+];
+
 export function KycPanel() {
   const [cari, setCari] = useState("");
   const [status, setStatus] = useState<StatusKyc | null>(null);
@@ -733,6 +848,7 @@ export function KycPanel() {
   const [konfirmasi, setKonfirmasi] = useState<StatusKyc | null>(null);
   const [busy, setBusy] = useState(false);
   const [galat, setGalat] = useState<string | null>(null);
+  const [tab, setTab] = useState<TabDetail>("berkas");
 
   // Saringan dikirim apa adanya ke server; ia yang memutuskan hasilnya.
   const daftar = useQuery(api.kyc.daftarKycAdmin, {
@@ -754,6 +870,13 @@ export function KycPanel() {
     setHasil(FILTER_KYC_KOSONG.hasil);
     setDari("");
     setSampai("");
+  };
+
+  const pilihNasabah = (id: Id<"users">) => {
+    setDipilih(id);
+    setCatatan("");
+    setGalat(null);
+    setTab("berkas");
   };
 
   /** Kirim keputusan ke server — HANYA setelah dikonfirmasi petugas. */
@@ -780,6 +903,7 @@ export function KycPanel() {
   const tujuan = detail === null || detail === undefined ? [] : tujuanSah(detail.status, "admin");
   const catatanCukup = catatan.trim().length >= 3;
   const cacah = daftar?.cacah ?? null;
+  const totalSemua = cacah === null ? null : Object.values(cacah).reduce((t, n) => t + n, 0);
 
   /** Aturan mesin yang masih gagal / belum pasti — dipakai peringatan konfirmasi. */
   const ditandaiMesin =
@@ -789,233 +913,312 @@ export function KycPanel() {
           .filter((r) => r.status !== "lulus")
           .map((r) => r.judul);
 
+  const detailSiap = detail !== null && detail !== undefined;
+
   return (
-    <div className="space-y-4">
-      {/* ===== Pencarian & saringan ===== */}
-      <div className="space-y-2">
-        <div className="relative min-w-0">
-          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            className="pl-9 pr-10"
-            aria-label="Cari nasabah berdasarkan nama, email, atau kode nasabah"
-            placeholder="Cari nama, email, atau kode nasabah…"
-            value={cari}
-            onChange={(e) => setCari(e.target.value)}
-          />
-          {cari !== "" && (
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-sm"
-              aria-label="Bersihkan pencarian"
-              className="absolute right-1.5 top-1/2 -translate-y-1/2 text-muted-foreground"
-              onClick={() => setCari("")}
-            >
-              <X className="size-4" />
-            </Button>
-          )}
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2">
-          <Select value={hasil} onValueChange={(v) => setHasil(v as FilterHasilKyc)}>
-            <SelectTrigger className="w-[min(100%,260px)]" aria-label="Saring menurut hasil pemeriksaan">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {FILTER_HASIL_KYC.map((pilihan) => (
-                <SelectItem key={pilihan} value={pilihan}>
-                  {LABEL_FILTER_HASIL_KYC[pilihan]}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          <div className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-2 py-1.5">
-            <CalendarDays className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
-            <Input
-              type="date"
-              aria-label="Diajukan dari tanggal"
-              value={dari}
-              max={sampai === "" ? undefined : sampai}
-              onChange={(e) => setDari(e.target.value)}
-              className="h-7 w-[150px] border-0 px-1 text-xs shadow-none focus-visible:ring-0"
-            />
-            <span className="text-[11px] text-muted-foreground">s/d</span>
-            <Input
-              type="date"
-              aria-label="Diajukan sampai tanggal"
-              value={sampai}
-              min={dari === "" ? undefined : dari}
-              onChange={(e) => setSampai(e.target.value)}
-              className="h-7 w-[150px] border-0 px-1 text-xs shadow-none focus-visible:ring-0"
-            />
-          </div>
-
-          {adaFilterKyc(filterRingkas) && (
-            <Button type="button" variant="outline" size="sm" onClick={kosongkanFilter}>
-              Kosongkan filter
-            </Button>
-          )}
-          <p className="ml-auto text-xs tabular-nums text-muted-foreground">
-            {daftar === undefined
-              ? "Memuat…"
-              : ringkasJumlahKyc(daftar.tampil, daftar.total)}
-          </p>
-        </div>
-
-        {/* Cacah per status: angka mengikuti saringan yang aktif (kecuali status). */}
-        <div role="group" aria-label="Saring menurut status KYC" className="flex flex-wrap items-center gap-1.5">
-          <button
-            type="button"
-            onClick={() => setStatus(null)}
-            aria-pressed={status === null}
-            className={cn(
-              "rounded-full border px-3 py-1 text-[11px] font-medium",
-              status === null
-                ? "border-primary/40 bg-primary/10 text-primary"
-                : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50",
-            )}
-          >
-            Semua {cacah === null ? "" : `(${Object.values(cacah).reduce((t, n) => t + n, 0)})`}
-          </button>
-          {URUTAN_SARING.map((s) => (
-            <button
-              key={s}
-              type="button"
-              onClick={() => setStatus(s)}
-              aria-pressed={status === s}
-              className={cn(
-                "rounded-full border px-3 py-1 text-[11px] font-medium",
-                status === s
-                  ? "border-primary/40 bg-primary/10 text-primary"
-                  : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50",
-              )}
-            >
-              {LABEL_STATUS_KYC[s]} {cacah === null ? "" : `(${cacah[s] ?? 0})`}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {galat !== null && (
-        <p role="alert" className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-800">
-          {galat}
-        </p>
-      )}
-
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,340px)_minmax(0,1fr)]">
-        {/* ===== Daftar antrean ===== */}
-        <div className="space-y-2">
-          {daftar === undefined ? (
-            <SkeletonBarisDaftar baris={4} />
-          ) : daftar.item.length === 0 ? (
-            <div className="rounded-2xl border border-slate-200 bg-white p-4 text-xs leading-5 text-muted-foreground">
-              {adaFilterKyc(filterRingkas) ? (
-                <>
-                  Tidak ada pengajuan KYC yang cocok dengan {ringkasFilterKyc(filterRingkas).join(" dan ")}.
-                  Kosongkan filter untuk melihat seluruh antrean.
-                </>
-              ) : (
-                <>Belum ada pengajuan KYC pada status ini.</>
+    <div className="animate-masuk flex flex-col gap-4 lg:h-[calc(100vh-100px)] lg:overflow-hidden">
+      {/* ===== Split view 40% daftar : 60% rincian ===== */}
+      <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
+        {/* ---------- KOLOM KIRI: daftar antrean ---------- */}
+        <section className="flex min-h-0 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+          {/* Header kolom kiri: pencarian + saringan ringkas */}
+          <div className="shrink-0 space-y-2.5 border-b border-slate-200 bg-slate-50/70 p-3">
+            <div className="relative min-w-0">
+              <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                className="bg-white pl-9 pr-10"
+                aria-label="Cari nasabah berdasarkan nama, email, atau kode nasabah"
+                placeholder="Cari nama, email, atau kode nasabah…"
+                value={cari}
+                onChange={(e) => setCari(e.target.value)}
+              />
+              {cari !== "" && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label="Bersihkan pencarian"
+                  className="absolute right-1.5 top-1/2 -translate-y-1/2 text-muted-foreground"
+                  onClick={() => setCari("")}
+                >
+                  <X className="size-4" />
+                </Button>
               )}
             </div>
-          ) : (
-            daftar.item.map((item) => (
-              <BarisKyc
-                key={item.userId}
-                item={item}
-                aktif={item.userId === dipilih}
-                onPilih={(id) => {
-                  setDipilih(id);
-                  setCatatan("");
-                  setGalat(null);
-                }}
-              />
-            ))
-          )}
-        </div>
 
-        {/* ===== Rincian + keputusan ===== */}
-        <div className="min-w-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
-          {dipilih === null ? (
-            <p className="flex items-center gap-2 text-xs text-muted-foreground">
-              <ShieldCheck className="size-4" aria-hidden /> Pilih satu pengajuan untuk melihat isian,
-              berkasnya, hasil pemeriksaan, dan memutuskan.
+            <div className="grid grid-cols-2 gap-2">
+              <Select
+                value={status ?? SEMUA_STATUS}
+                onValueChange={(v) => setStatus(v === SEMUA_STATUS ? null : (v as StatusKyc))}
+              >
+                <SelectTrigger className="w-full bg-white" aria-label="Saring menurut status KYC">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={SEMUA_STATUS}>
+                    Semua status{totalSemua === null ? "" : ` (${totalSemua})`}
+                  </SelectItem>
+                  {URUTAN_SARING.map((s) => (
+                    <SelectItem key={s} value={s}>
+                      {LABEL_STATUS_KYC[s]} {cacah === null ? "" : `(${cacah[s] ?? 0})`}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <Select value={hasil} onValueChange={(v) => setHasil(v as FilterHasilKyc)}>
+                <SelectTrigger className="w-full bg-white" aria-label="Saring menurut hasil pemeriksaan">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {FILTER_HASIL_KYC.map((pilihan) => (
+                    <SelectItem key={pilihan} value={pilihan}>
+                      {LABEL_FILTER_HASIL_KYC[pilihan]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="flex min-w-0 flex-1 items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-2 py-1.5">
+                <CalendarDays className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
+                <Input
+                  type="date"
+                  aria-label="Diajukan dari tanggal"
+                  value={dari}
+                  max={sampai === "" ? undefined : sampai}
+                  onChange={(e) => setDari(e.target.value)}
+                  className="h-7 min-w-0 flex-1 border-0 px-1 text-xs shadow-none focus-visible:ring-0"
+                />
+                <span className="text-[11px] text-muted-foreground">s/d</span>
+                <Input
+                  type="date"
+                  aria-label="Diajukan sampai tanggal"
+                  value={sampai}
+                  min={dari === "" ? undefined : dari}
+                  onChange={(e) => setSampai(e.target.value)}
+                  className="h-7 min-w-0 flex-1 border-0 px-1 text-xs shadow-none focus-visible:ring-0"
+                />
+              </div>
+              {adaFilterKyc(filterRingkas) && (
+                <Button type="button" variant="outline" size="sm" onClick={kosongkanFilter}>
+                  Kosongkan
+                </Button>
+              )}
+            </div>
+
+            <p className="text-[11px] tabular-nums text-muted-foreground">
+              {daftar === undefined
+                ? "Memuat…"
+                : ringkasJumlahKyc(daftar.tampil, daftar.total)}
             </p>
+          </div>
+
+          {galat !== null && (
+            <p
+              role="alert"
+              className="shrink-0 border-b border-red-200 bg-red-50 px-3 py-2 text-xs text-red-800"
+            >
+              {galat}
+            </p>
+          )}
+
+          {/* Daftar bergulir sendiri — tidak menggoyangkan kolom kanan */}
+          <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-3">
+            {daftar === undefined ? (
+              <SkeletonBarisDaftar baris={4} />
+            ) : daftar.item.length === 0 ? (
+              <div className="rounded-2xl border border-slate-200 bg-white p-4 text-xs leading-5 text-muted-foreground">
+                {adaFilterKyc(filterRingkas) ? (
+                  <>
+                    Tidak ada pengajuan KYC yang cocok dengan {ringkasFilterKyc(filterRingkas).join(" dan ")}.
+                    Kosongkan filter untuk melihat seluruh antrean.
+                  </>
+                ) : (
+                  <>Belum ada pengajuan KYC pada status ini.</>
+                )}
+              </div>
+            ) : (
+              daftar.item.map((item) => (
+                <BarisKyc
+                  key={item.userId}
+                  item={item}
+                  aktif={item.userId === dipilih}
+                  onPilih={pilihNasabah}
+                />
+              ))
+            )}
+          </div>
+        </section>
+
+        {/* ---------- KOLOM KANAN: rincian + keputusan ---------- */}
+        <section className="flex min-h-0 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm lg:h-[calc(100vh-100px)]">
+          {dipilih === null ? (
+            /* Empty state: belum ada nasabah dipilih */
+            <div className="flex flex-1 flex-col items-center justify-center gap-3 p-10 text-center">
+              <div className="relative flex size-16 items-center justify-center rounded-2xl border border-slate-200 bg-slate-50">
+                <FileText className="size-7 text-slate-400" aria-hidden />
+                <span className="absolute -bottom-1.5 -right-1.5 flex size-6 items-center justify-center rounded-full bg-emerald-800 text-white">
+                  <ShieldCheck className="size-3.5" aria-hidden />
+                </span>
+              </div>
+              <p className="text-sm font-semibold text-navy">Belum ada pengajuan dipilih</p>
+              <p className="max-w-sm text-xs leading-5 text-muted-foreground">
+                Pilih satu pengajuan KYC di daftar sebelah kiri untuk melihat foto berkas, hasil OCR,
+                data identitas, dan mengambil keputusan verifikasi.
+              </p>
+            </div>
           ) : detail === undefined ? (
-            <p className="flex items-center gap-2 text-xs text-muted-foreground">
+            <p className="flex flex-1 items-center justify-center gap-2 text-xs text-muted-foreground">
               <Loader2 className="size-4 animate-spin" /> Memuat rincian…
             </p>
           ) : detail === null ? (
-            <p className="text-xs text-muted-foreground">
+            <p className="flex flex-1 items-center justify-center px-6 text-center text-xs text-muted-foreground">
               Baris KYC nasabah ini tidak ditemukan (mungkin akunnya sudah dihapus).
             </p>
           ) : (
-            <div className="space-y-4">
-              <KycDetailRingkas detail={detail} />
+            <>
+              {/* STICKY ACTION HEADER — selalu terlihat, keputusan tanpa menggulir */}
+              <header className="sticky top-0 z-20 shrink-0 border-b border-slate-200 bg-white p-4 shadow-sm">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="break-words text-sm font-semibold text-navy">
+                      {detail.namaLengkap ?? "Nasabah"}
+                    </p>
+                    <div className="mt-1 flex flex-wrap items-center gap-2">
+                      <StatusKycBadge status={detail.status} />
+                      <span className="text-[11px] text-muted-foreground tabular-nums">
+                        {detail.kodePeminjam ?? "tanpa kode nasabah"} · diajukan{" "}
+                        {waktu(detail.diajukanPada)}
+                      </span>
+                    </div>
+                  </div>
 
-              <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-                <p className="flex items-center gap-1.5 text-xs font-semibold text-navy">
-                  <ShieldAlert className="size-3.5" aria-hidden /> Keputusan petugas
-                </p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {AKSI_UTAMA.map((aksi) => {
+                      const sah = tujuan.includes(aksi.ke);
+                      const butuhAlasan = keputusanWajibAlasan(aksi.ke);
+                      const terkunci = busy || !sah || (butuhAlasan && !catatanCukup);
+                      return (
+                        <Button
+                          key={aksi.ke}
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className={cn(aksi.kelas, !sah && "opacity-50")}
+                          disabled={terkunci}
+                          title={
+                            !sah
+                              ? "Tidak sah dari status KYC saat ini"
+                              : butuhAlasan && !catatanCukup
+                                ? "Isi catatan minimal 3 karakter"
+                                : undefined
+                          }
+                          onClick={() => setKonfirmasi(aksi.ke)}
+                        >
+                          {aksi.ke === "VERIFIED" ? (
+                            <CheckCircle2 className="mr-1.5 size-3.5" />
+                          ) : (
+                            <ShieldAlert className="mr-1.5 size-3.5" />
+                          )}
+                          {aksi.label}
+                        </Button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Catatan keputusan — ikut menempel agar tak perlu menggulir */}
                 {tujuan.length === 0 ? (
-                  <p className="mt-1 text-[11px] leading-5 text-muted-foreground">
+                  <p className="mt-2 text-[11px] leading-5 text-muted-foreground">
                     Tidak ada keputusan yang sah dari status ini. Nasabah harus mengajukan lebih dulu
                     (status Menunggu peninjauan).
                   </p>
                 ) : (
-                  <>
-                    <p className="mt-1 text-[11px] leading-5 text-muted-foreground">
-                      Status VERIFIED berarti identitas sudah diperiksa — bukan persetujuan pinjaman
-                      dan bukan bukti dana cair. Setiap keputusan dikonfirmasi dulu, lalu dicatat
-                      server-side.
-                    </p>
+                  <div className="mt-3 space-y-1">
                     <Input
-                      className="mt-2 bg-white"
+                      className="bg-white"
                       aria-label="Catatan keputusan"
                       placeholder="Catatan keputusan (wajib untuk menolak / minta perbaikan)"
                       value={catatan}
                       maxLength={300}
                       onChange={(e) => setCatatan(e.target.value)}
                     />
-                    <div className="mt-2 flex flex-wrap gap-1.5">
-                      {tujuan.map((ke) => {
-                        const butuhAlasan = keputusanWajibAlasan(ke);
-                        return (
-                          <Button
-                            key={ke}
-                            type="button"
-                            size="sm"
-                            variant={ke === "VERIFIED" ? "default" : "outline"}
-                            className="gap-1.5"
-                            disabled={busy || (butuhAlasan && !catatanCukup)}
-                            title={
-                              butuhAlasan && !catatanCukup ? "Isi catatan minimal 3 karakter" : undefined
-                            }
-                            onClick={() => setKonfirmasi(ke)}
-                          >
-                            {ke === "VERIFIED" ? (
-                              <CheckCircle2 className="size-3.5" />
-                            ) : (
-                              <ShieldAlert className="size-3.5" />
-                            )}
-                            {LABEL_KEPUTUSAN_KYC[ke] ?? LABEL_STATUS_KYC[ke]}
-                          </Button>
-                        );
-                      })}
-                    </div>
-                    {tujuan.some((ke) => keputusanWajibAlasan(ke)) && !catatanCukup && (
-                      <p className="mt-1.5 text-[11px] text-amber-800">
-                        Menolak atau meminta perbaikan wajib disertai catatan (minimal 3 karakter) —
-                        nasabah membacanya.
-                      </p>
-                    )}
-                  </>
+                    <p className="text-[11px] leading-4 text-muted-foreground">
+                      Status VERIFIED berarti identitas sudah diperiksa — bukan persetujuan pinjaman
+                      dan bukan bukti dana cair.
+                      {tujuan.some((ke) => keputusanWajibAlasan(ke)) && !catatanCukup
+                        ? " Menolak atau meminta perbaikan wajib disertai catatan (minimal 3 karakter) — nasabah membacanya."
+                        : ""}
+                    </p>
+                  </div>
                 )}
-              </div>
-            </div>
+              </header>
+
+              {/* SUB-TAB INTERNAL — hanya area baca yang bergulir */}
+              <Tabs
+                value={tab}
+                onValueChange={(v) => setTab(v as TabDetail)}
+                className="flex min-h-0 flex-1 flex-col gap-0"
+              >
+                <div className="shrink-0 border-b border-slate-200 bg-slate-50/70 px-4 pt-3">
+                  <TabsList className="flex h-auto w-full flex-wrap justify-start gap-1 rounded-xl border border-slate-200 bg-white p-1.5 shadow-sm">
+                    <TabsTrigger value="berkas" className="gap-1.5 text-xs">
+                      <FileWarning className="size-3.5" />
+                      Foto Berkas &amp; OCR
+                    </TabsTrigger>
+                    <TabsTrigger value="identitas" className="gap-1.5 text-xs">
+                      <ShieldCheck className="size-3.5" />
+                      Data Identitas Nasabah
+                    </TabsTrigger>
+                    <TabsTrigger value="sistem" className="gap-1.5 text-xs">
+                      <History className="size-3.5" />
+                      Hasil Sistem &amp; Riwayat
+                    </TabsTrigger>
+                  </TabsList>
+                </div>
+
+                <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-5">
+                  <TabsContent value="berkas" className="mt-0 space-y-4">
+                    <KycDokumenRingkas detail={detail} />
+                    <KycOcrRingkas detail={detail} />
+                    <KycKetidaksesuaianRingkas detail={detail} />
+                  </TabsContent>
+
+                  <TabsContent value="identitas" className="mt-0 space-y-4">
+                    <KycIdentitasRingkas detail={detail} />
+                    <KycOtpRingkas detail={detail} />
+                  </TabsContent>
+
+                  <TabsContent value="sistem" className="mt-0 space-y-4">
+                    <section className="space-y-2">
+                      <JudulBagian
+                        ikon={ShieldCheck}
+                        judul="Persetujuan pemrosesan data (PDP)"
+                        keterangan="Dasar pemrosesan yang wajib ada sebelum identitas diverifikasi."
+                      />
+                      <KycPdpRingkas detail={detail} />
+                    </section>
+                    <KycOtomatisRingkas detail={detail} />
+                    {detail.aturanTerverifikasi !== null && (
+                      <section className="space-y-2">
+                        <JudulBagian
+                          ikon={ScrollText}
+                          judul="Dasar aturan putusan"
+                          keterangan="Versi aturan yang dipakai saat putusan terakhir diambil."
+                        />
+                        <KycAturanRingkas detail={detail} />
+                      </section>
+                    )}
+                    <KycRiwayatSection detail={detail} />
+                    <KycAuditSection detail={detail} />
+                  </TabsContent>
+                </div>
+              </Tabs>
+            </>
           )}
-        </div>
+        </section>
       </div>
 
       {/* ===== Dialog konfirmasi satu keputusan ===== */}
@@ -1026,7 +1229,7 @@ export function KycPanel() {
         }}
       >
         <AlertDialogContent>
-          {konfirmasi !== null && detail !== null && detail !== undefined && (
+          {konfirmasi !== null && detailSiap && (
             <>
               <AlertDialogHeader>
                 <AlertDialogTitle>
