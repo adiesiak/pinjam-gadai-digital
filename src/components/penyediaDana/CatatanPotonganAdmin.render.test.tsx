@@ -4,7 +4,7 @@
  *
  * Halaman utuhnya membaca Convex (useQuery/useAuth) dan peta Leaflet, sehingga
  * tidak bisa dirender di luar aplikasi; kotak penjelasannya sendiri murni,
- * jadi langsung dirender di sini. Yang dijaga: penyedia dana benar-benar melihat KEPERLUAN potongan admin
+ * jadi langsung dirender di sini. Yang dijaga: pendana benar-benar melihat KEPERLUAN potongan admin
  * — server & operasional, collect/penagihan lapangan, dan asuransi yang
  * menjamin pokok pinjaman beserta Imbal Hasilnya cair dalam 14 hari kerja —
  * bukan hanya angkanya, dan persentasenya mengikuti Pengaturan Sistem.
@@ -42,11 +42,11 @@ ada(PERSEHARI, "Server &amp; operasional PINDAI", "keperluan server & operasiona
 ada(PERSEHARI, "Collect / penagihan lapangan", "collect / penagihan lapangan");
 ada(
   PERSEHARI,
-  "Asuransi — jaminan pokok pinjaman maupun Imbal Hasilnya cair ke penyedia dana dalam 14 hari kerja.",
+  "Asuransi — jaminan pokok pinjaman maupun Imbal Hasilnya cair ke pendana dalam 14 hari kerja.",
   "asuransi: jaminan pokok + Imbal Hasil cair dalam 14 hari kerja",
 );
 ada(PERSEHARI, "14 hari kerja", "jangka waktu jaminan disebut eksplisit");
-ada(PERSEHARI, "penyedia dana", "penerima jaminan disebut: penyedia dana");
+ada(PERSEHARI, "pendana", "penerima jaminan disebut: pendana");
 
 // Tiga butir, tidak lebih — tidak ada butir kosong atau tergabung.
 ok(

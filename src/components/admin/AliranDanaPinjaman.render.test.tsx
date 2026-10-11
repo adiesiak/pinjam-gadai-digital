@@ -34,8 +34,8 @@ const LABEL = [
   "Potongan di muka 2% (biaya admin)",
   "Diterima peminjam",
   "Potongan 5% dari uang yang kembali",
-  "Diterima penyedia dana",
-  "Imbal Hasil bersih penyedia dana",
+  "Diterima pendana",
+  "Imbal Hasil bersih pendana",
   "Pendapatan platform",
 ];
 
@@ -53,8 +53,8 @@ ada(harian, "Kembali (pokok + Imbal Hasil 30%)", "label baris kembali harian");
 ada(harian, "Rp 980.000", "diterima peminjam");
 ada(harian, "Rp 1.300.000", "uang yang kembali");
 ada(harian, "− Rp 65.000", "potongan 5% dari uang yang kembali");
-ada(harian, "Rp 1.235.000", "diterima penyedia dana");
-ada(harian, "Rp 235.000", "Imbal Hasil bersih penyedia dana");
+ada(harian, "Rp 1.235.000", "diterima pendana");
+ada(harian, "Rp 235.000", "Imbal Hasil bersih pendana");
 ada(
   harian,
   "Proyeksi kebijakan yang berlaku; yang dibukukan ledger adalah angka saat pelunasan.",
@@ -72,15 +72,15 @@ ada(menengah, "− Rp 10.000", "potongan di muka 2% dari Rp500.000");
 ada(menengah, "Rp 490.000", "diterima peminjam");
 ada(menengah, "Rp 650.000", "uang yang kembali");
 ada(menengah, "− Rp 32.500", "potongan 5% = Rp32.500");
-ada(menengah, "Rp 617.500", "diterima penyedia dana");
-ada(menengah, "Rp 117.500", "Imbal Hasil bersih penyedia dana");
+ada(menengah, "Rp 617.500", "diterima pendana");
+ada(menengah, "Rp 117.500", "Imbal Hasil bersih pendana");
 ada(menengah, "Rp 42.500", "pendapatan platform satu pinjaman");
 bersih(menengah, "markup pinjaman pokok menengah");
 
 // ===== Pinjaman bulanan: Imbal Hasil = bunga SELAMA TENOR =====
 // Pokok Rp2.000.000, 3 bulan @10%/bulan: potongan di muka Rp40.000, cicilan
 // total Rp2.651.999 (termasuk biaya admin cicilan), potongan platform 5% dari
-// pokok + Imbal Hasil tenor (Rp2.600.000) = Rp130.000, penyedia dana Rp2.470.000.
+// pokok + Imbal Hasil tenor (Rp2.600.000) = Rp130.000, pendana Rp2.470.000.
 const bulanan = renderToStaticMarkup(
   <AliranDanaPinjaman pokokPinjaman={2_000_000} tenorBulan={3} persenBunga={10} />,
 );
@@ -88,8 +88,8 @@ ada(bulanan, "skema bulanan 3 bulan", "skema bulanan disebut");
 ada(bulanan, "Kembali (pokok + Imbal Hasil 3 bulan @10%)", "baris kembali menyebut tenor & tarif");
 ada(bulanan, "Rp 2.651.999", "total kas yang dibayar peminjam");
 ada(bulanan, "− Rp 130.000", "potongan platform dari pokok + Imbal Hasil tenor");
-ada(bulanan, "Rp 2.470.000", "diterima penyedia dana");
-ada(bulanan, "Rp 470.000", "Imbal Hasil bersih penyedia dana (600.000 − 130.000)");
+ada(bulanan, "Rp 2.470.000", "diterima pendana");
+ada(bulanan, "Rp 470.000", "Imbal Hasil bersih pendana (600.000 − 130.000)");
 ada(bulanan, "Rp 170.000", "pendapatan platform (40.000 + 130.000)");
 bersih(bulanan, "markup pinjaman bulanan");
 

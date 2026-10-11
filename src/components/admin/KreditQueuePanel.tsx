@@ -26,40 +26,27 @@ const STATUS_LABEL: Record<string, string> = {
   lunas: "Lunas (ledger)",
 };
 
+/**
+ * Warna chip status kredit barang — mengikuti SATU sistem warna yang sama
+ * dengan `components/StatusBadge`: hijau = berjalan/selesai, kuning = menunggu
+ * tindakan, merah muda = ditolak, abu = di luar ketiganya.
+ */
+const KREDIT_KELAS: Record<string, string> = {
+  didanai: "border-emerald-300 bg-emerald-100 text-emerald-800",
+  lunas: "border-emerald-300 bg-emerald-100 text-emerald-800",
+  disetujui: "border-emerald-300 bg-emerald-100 text-emerald-800",
+  ditolak: "border-rose-300 bg-rose-100 text-rose-800",
+  sedang_ditinjau: "border-amber-300 bg-amber-100 text-amber-800",
+};
+
 function KreditStatusBadge({ status }: { status: string }) {
-  if (status === "didanai") {
-    return (
-      <Badge className="gradient-primary border-0 text-primary-foreground">
-        {STATUS_LABEL[status] ?? status}
-      </Badge>
-    );
-  }
-  if (status === "lunas") {
-    return (
-      <Badge className="border-primary/30 bg-primary/10 text-accent-foreground">
-        {STATUS_LABEL[status] ?? status}
-      </Badge>
-    );
-  }
-  if (status === "disetujui") {
-    return (
-      <Badge className="border-primary/30 bg-primary/10 text-accent-foreground">
-        {STATUS_LABEL[status] ?? status}
-      </Badge>
-    );
-  }
-  if (status === "ditolak") {
-    return <Badge variant="destructive">{STATUS_LABEL[status] ?? status}</Badge>;
-  }
-  if (status === "sedang_ditinjau") {
-    return (
-      <Badge className="border-gold/40 bg-gold/15 text-gold-foreground">
-        {STATUS_LABEL[status] ?? status}
-      </Badge>
-    );
-  }
   return (
-    <Badge variant="outline" className="text-muted-foreground">
+    <Badge
+      variant="outline"
+      className={`inline-flex items-center rounded-full border px-3 py-1 text-[11px] font-semibold ${
+        KREDIT_KELAS[status] ?? "border-slate-300 bg-slate-100 text-slate-700"
+      }`}
+    >
       {STATUS_LABEL[status] ?? status}
     </Badge>
   );

@@ -2,7 +2,7 @@ import { barDanaTersalurkan, type SumberDanaTersalurkan } from "@/lib/grafikKeun
 import { formatRupiah } from "@/lib/money";
 
 /**
- * Total dana tersalurkan per penyedia dana (ruang penyedia dana).
+ * Total dana tersalurkan per pendana (ruang pendana).
  *
  * Menjawab: "berapa pokok yang sudah saya salurkan ke peminjam, dan berapa
  * penyedia lain menyalurkan?" Angka pokoknya tetap ditulis sebagai teks di
@@ -21,7 +21,7 @@ export function DanaTersalurkanPendana({
   namaTampil,
 }: {
   rekap: readonly SumberDanaTersalurkan[];
-  /** Penyamaran nama penyedia dana untuk tampilan (bawaan: apa adanya). */
+  /** Penyamaran nama pendana untuk tampilan (bawaan: apa adanya). */
   namaTampil?: (nama: string) => string;
 }) {
   const tampil = namaTampil ?? ((nama: string) => nama);
@@ -31,11 +31,11 @@ export function DanaTersalurkanPendana({
 
   return (
     <section
-      aria-label="Total dana tersalurkan per penyedia dana"
-      className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5"
+      aria-label="Total dana tersalurkan per pendana"
+      className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm transition-all hover:shadow-md sm:p-5"
     >
       <div className="flex flex-wrap items-baseline justify-between gap-2 border-b border-slate-100 pb-3">
-        <h3 className="text-sm font-semibold text-navy">Dana tersalurkan per penyedia dana</h3>
+        <h3 className="text-sm font-semibold text-navy">Dana tersalurkan per pendana</h3>
         <p className="text-sm font-semibold tabular-nums text-navy">
           Total {formatRupiah(total)}
         </p>
@@ -57,7 +57,7 @@ export function DanaTersalurkanPendana({
               className="mt-1.5 h-3 w-full overflow-hidden rounded-full bg-slate-100 ring-1 ring-slate-200/70 ring-inset"
             >
               <span
-                className="block h-full rounded-full bg-primary"
+                className="block h-full rounded-full bg-gradient-to-r from-blue-600 to-indigo-500"
                 style={{ width: `${b.persen}%` }}
               />
             </div>
@@ -71,7 +71,7 @@ export function DanaTersalurkanPendana({
 
       <p className="mt-3 text-[10px] leading-4 text-muted-foreground">
         Total dana tersalurkan semua penyedia {formatRupiah(total)}, dengan{" "}
-        {formatRupiah(totalBerjalan)} masih berjalan. Panjang batang dibandingkan dengan penyedia dana
+        {formatRupiah(totalBerjalan)} masih berjalan. Panjang batang dibandingkan dengan pendana
         terbesar.
       </p>
     </section>

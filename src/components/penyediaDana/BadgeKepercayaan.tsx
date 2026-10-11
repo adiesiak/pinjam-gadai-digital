@@ -1,5 +1,5 @@
 /**
- * Dua penanda kerja untuk tabel penyedia dana / admin:
+ * Dua penanda kerja untuk tabel pendana / admin:
  *
  *  1. `TampilanJatuhTempo` — tanggal jatuh tempo yang sengaja dicetak **tebal
  *     dan berwarna**, disertai lencana hitung hari ("Sisa 12 hari",
@@ -152,13 +152,19 @@ export function TampilanJatuhTempoRingkas({ tampilan }: { tampilan: DataJatuhTem
 /**
  * Lencana indeks kepercayaan peminjam. `tampilkanRingkas` menambah satu baris
  * angka pendukung ("2 tepat waktu · 0 terlambat") untuk ruang yang lega.
+ *
+ * `tanpaSkor` membuang angka `skor/100` dari lencana — dipakai saat pemanggil
+ * menaruh angkanya di `ChipSkorRisiko` (warna mengikuti rentang skor) supaya
+ * angka yang sama tidak tercetak dua kali di baris yang sama.
  */
 export function BadgeKepercayaan({
   kepercayaan,
   tampilkanRingkas = false,
+  tanpaSkor = false,
 }: {
   kepercayaan: RingkasKepercayaan;
   tampilkanRingkas?: boolean;
+  tanpaSkor?: boolean;
 }) {
   return (
     <span className="inline-flex flex-col items-start gap-1">
@@ -172,7 +178,9 @@ export function BadgeKepercayaan({
       >
         {IKON_TINGKAT[kepercayaan.tingkat]}
         {kepercayaan.label}
-        <span className="font-mono tabular-nums opacity-80">{kepercayaan.skor}/100</span>
+        {!tanpaSkor && (
+          <span className="font-mono tabular-nums opacity-80">{kepercayaan.skor}/100</span>
+        )}
       </Badge>
       {tampilkanRingkas && (
         <span className="text-[10px] text-muted-foreground">{kepercayaan.ringkas}</span>

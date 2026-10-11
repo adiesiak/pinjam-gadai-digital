@@ -61,7 +61,7 @@ export function LoanReviewDialog({
   const deleteLoan = useMutation(api.loans.hapusPinjaman);
   const kirimStatus = useAction(api.whatsapp.kirimStatusPinjaman);
   // Penetapan pendana + koreksi nominal memakai jalur yang sama dengan ruang
-  // penyedia dana, sehingga nama pendana langsung tampil di sana.
+  // pendana, sehingga nama pendana langsung tampil di sana.
   const simpanPendana = useMutation(api.penyediaDana.ubahDataPinjaman);
 
   // Sasaran status memakai EMPAT status kanonik. "Disalurkan" adalah langkah
@@ -87,7 +87,7 @@ export function LoanReviewDialog({
     api.whatsapp.previewStatusPinjaman,
     row === null ? ("skip" as const) : { loanId: row._id, alasan: "" },
   );
-  // Kandidat pendana = semua akun yang pernah menjadi penyedia dana. Hanya
+  // Kandidat pendana = semua akun yang pernah menjadi pendana. Hanya
   // admin (sesi TOTP) yang boleh membacanya, sama seperti server.
   const kandidatQ = useQuery(
     api.penyediaDana.kandidatPendana,
@@ -124,7 +124,7 @@ export function LoanReviewDialog({
     persenBunga: row.persenBunga ?? undefined,
   });
   // Pinjaman dianggap sudah berpindah dana bila statusnya berjalan/lunas atau
-  // sudah ada penyedia dana tercatat — di situlah alokasi dana & jurnal ledger
+  // sudah ada pendana tercatat — di situlah alokasi dana & jurnal ledger
   // muncul, dan di situlah centang "Hapus menyeluruh" dibutuhkan.
   const sudahBerpindahDana =
     row.status === "didanai" || row.status === "lunas" || row.pendanaNama != null;
@@ -466,8 +466,8 @@ export function LoanReviewDialog({
                 Pendana & nominal disetujui
               </p>
               <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                Tetapkan penyedia dana yang mendanai pinjaman ini sebelum menyetujui — namanya
-                langsung tampil di ruang penyedia dana dan tercatat di Audit Trail. Untuk pinjaman
+                Tetapkan pendana yang mendanai pinjaman ini sebelum menyetujui — namanya
+                langsung tampil di ruang pendana dan tercatat di Audit Trail. Untuk pinjaman
                 yang sudah disetujui, nominalnya juga dapat dikoreksi selama dana belum ditandai
                 tersalurkan.
               </p>
@@ -506,8 +506,8 @@ export function LoanReviewDialog({
                   {kandidatQ === undefined
                     ? "Memuat daftar pendana…"
                     : (kandidatQ.rows.length === 0)
-                      ? "Belum ada akun yang pernah menjadi pendana. Beri akses di ruang penyedia dana lebih dulu."
-                      : "Daftar ini memuat semua akun yang pernah menjadi penyedia dana, termasuk pendana lama."}
+                      ? "Belum ada akun yang pernah menjadi pendana. Beri akses di ruang pendana lebih dulu."
+                      : "Daftar ini memuat semua akun yang pernah menjadi pendana, termasuk pendana lama."}
                 </p>
               </div>
 

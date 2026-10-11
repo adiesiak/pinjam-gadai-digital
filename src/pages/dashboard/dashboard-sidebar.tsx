@@ -79,7 +79,7 @@ export function DashboardSidebar({
               className="justify-start gap-2 text-xs text-muted-foreground"
             >
               <Link to="/penyedia-dana">
-                <Eye className="size-3.5" /> Ruang Penyedia Dana
+                <Eye className="size-3.5" /> Ruang Pendana
               </Link>
             </Button>
           </div>

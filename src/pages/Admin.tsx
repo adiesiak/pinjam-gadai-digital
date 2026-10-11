@@ -172,23 +172,26 @@ export default function Admin() {
         tabIndex={-1}
         className="mx-auto w-full max-w-7xl flex-1 px-3 py-4 pb-24 sm:px-6 sm:py-8 sm:pb-24 lg:pb-8"
       >
-        <section className="animate-masuk relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-4 sm:rounded-3xl sm:p-8">
-          <div className="absolute right-0 top-0 h-full w-1/3 bg-gradient-to-l from-emerald-50/80 to-transparent" aria-hidden="true" />
+        {/* Panel judul memakai gradasi emerald dalam + lencana kaca, sama seperti
+            kartu judul ruang pendana, supaya identitas visual PINDAI konsisten
+            antara ruang tim dan ruang mitra. */}
+        <section className="animate-masuk relative overflow-hidden rounded-2xl bg-gradient-to-br from-emerald-950 via-emerald-900 to-teal-950 p-4 text-white shadow-sm sm:rounded-3xl sm:p-8">
+          <div className="absolute right-0 top-0 h-full w-1/3 bg-gradient-to-l from-teal-900/40 to-transparent" aria-hidden="true" />
           <div className="relative flex flex-col justify-between gap-6 sm:flex-row sm:items-end">
             <div className="max-w-2xl">
-              <p className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-primary">
+              <p className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-emerald-300">
                 <ShieldCheck className="size-4" /> Ruang Operasional Tim
               </p>
-              <h1 className="mt-3 text-xl font-semibold tracking-tight text-navy sm:text-3xl">
+              <h1 className="mt-3 text-xl font-semibold tracking-tight text-white sm:text-3xl">
                 Ringkasan sistem hari ini
               </h1>
-              <p className="mt-2 text-sm leading-6 text-muted-foreground">
+              <p className="mt-2 text-sm leading-6 text-white/70">
                 Tinjau catatan pengajuan, lihat koordinat yang dilaporkan perangkat, dan kelola status data nasabah.
               </p>
             </div>
-            <div className="flex w-fit items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-2 text-[11px] font-medium text-emerald-800 sm:text-xs">
+            <div className="flex w-fit items-center gap-2 rounded-2xl border border-white/15 bg-white/10 px-3 py-2 text-[11px] font-medium text-white backdrop-blur-md sm:text-xs">
               <Activity className="size-3.5" />
-              <span className="size-1.5 animate-pulse rounded-full bg-emerald-500" />
+              <span className="size-1.5 animate-pulse rounded-full bg-emerald-400" />
               Data internal aplikasi
             </div>
           </div>

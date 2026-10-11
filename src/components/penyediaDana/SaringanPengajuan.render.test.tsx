@@ -67,12 +67,12 @@ ada(kosong, 'aria-label="Saring daftar pengajuan"', "saringan diberi nama untuk 
 ada(kosong, "Cari nama peminjam", "label saringan nama");
 ada(kosong, 'type="search"', "kolom nama bertipe search");
 ada(kosong, 'placeholder="Nama, kode peminjam, atau no. referensi"', "petunjuk kolom nama");
-ada(kosong, "Penyedia dana", "label saringan penyedia dana");
-ada(kosong, 'aria-label="Penyedia dana"', "trigger pendana diberi nama");
+ada(kosong, "Pendana", "label saringan pendana");
+ada(kosong, 'aria-label="Pendana"', "trigger pendana diberi nama");
 ada(kosong, "Menampilkan 13 dari 13 pengajuan pada tab ini", "jumlah tampil vs total");
 ok(
-  kosong.includes("Semua penyedia dana"),
-  "tanpa pilihan, trigger menyebut \"Semua penyedia dana\"",
+  kosong.includes("Semua pendana"),
+  "tanpa pilihan, trigger menyebut \"Semua pendana\"",
 );
 ok(!kosong.includes("Kosongkan filter"), "tombol kosongkan tidak muncul tanpa filter");
 ok(!kosong.includes("filter aktif"), "tanpa filter tidak diklaim sedang menyaring");
@@ -87,8 +87,8 @@ ada(tersaring, "Kosongkan filter", "tombol kosongkan muncul saat ada filter");
 // Wajah trigger harus menyebut pendana yang dipilih, bukan label "semua".
 ok(tersaring.includes(">ROBERT<") || tersaring.includes("ROBERT</span>"), "trigger menyebut pendana terpilih");
 ok(
-  !tersaring.includes(">Semua penyedia dana<") && !tersaring.includes("Semua penyedia dana</span>"),
-  "trigger tidak lagi menyebut \"Semua penyedia dana\" saat pendana dipilih",
+  !tersaring.includes(">Semua pendana<") && !tersaring.includes("Semua pendana</span>"),
+  "trigger tidak lagi menyebut \"Semua pendana\" saat pendana dipilih",
 );
 
 // Nilai sentinel tidak boleh bocor ke layar.
@@ -105,7 +105,7 @@ ok(!spasiSaja.includes("Kosongkan filter"), "spasi saja bukan filter aktif");
 
 // ===== Tab gadai: tanpa pilihan pendana =====
 const gadai = render({ tampilkanPendana: false });
-ok(!gadai.includes('aria-label="Penyedia dana"'), "tab gadai tanpa pilihan pendana");
+ok(!gadai.includes('aria-label="Pendana"'), "tab gadai tanpa pilihan pendana");
 ada(gadai, "Cari nama peminjam", "tab gadai tetap punya saringan nama");
 ada(gadai, "Menampilkan 13 dari 13 pengajuan pada tab ini", "tab gadai tetap menghitung jumlah");
 

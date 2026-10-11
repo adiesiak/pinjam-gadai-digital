@@ -1,12 +1,14 @@
 import { TriangleAlert } from "lucide-react";
+import type { ReactNode } from "react";
 
+import { IstilahBantuan } from "./IstilahBantuan";
 import { formatRupiah } from "@/lib/money";
 
 /** Angka ringkasan keuntungan yang dibutuhkan komponen ini. */
 export type AngkaRingkasanKeuntungan = {
-  /** Keuntungan penyedia dana yang sudah dibukukan (pinjaman lunas). */
+  /** Keuntungan pendana yang sudah dibukukan (pinjaman lunas). */
   totalKeuntunganPendanaLunas: number;
-  /** Keuntungan penyedia dana yang masih perkiraan (pinjaman berjalan). */
+  /** Keuntungan pendana yang masih perkiraan (pinjaman berjalan). */
   totalKeuntunganPendanaBelumLunas: number;
   /** Jumlah keduanya. */
   totalKeuntunganPendana: number;
@@ -26,7 +28,8 @@ function KartuAngka({
   catatan,
   warna,
 }: {
-  judul: string;
+  /** Boleh teks atau teks + ikon bantuan (tooltip istilah). */
+  judul: ReactNode;
   nilai: string;
   catatan: string;
   warna: "emerald" | "amber" | "slate";
@@ -53,10 +56,14 @@ function KartuAngka({
   }[warna];
 
   return (
-    <div className={`relative overflow-hidden rounded-2xl border px-4 py-3 ${gaya.kotak}`}>
+    <div
+      className={`relative overflow-hidden rounded-2xl border px-4 py-3 transition-all hover:-translate-y-0.5 hover:shadow-md ${gaya.kotak}`}
+    >
       {/* Garis warna di tepi kiri: penanda blok yang terbaca sebelum angkanya. */}
       <span aria-hidden className={`absolute inset-y-0 left-0 w-1 ${gaya.garis}`} />
-      <p className={`text-[10px] font-semibold uppercase tracking-[0.16em] ${gaya.judul}`}>
+      <p
+        className={`flex items-center gap-1 text-[10px] font-semibold uppercase tracking-[0.16em] ${gaya.judul}`}
+      >
         {judul}
       </p>
       <p className={`mt-1.5 text-xl font-semibold tabular-nums leading-tight ${gaya.angka}`}>
@@ -68,13 +75,13 @@ function KartuAngka({
 }
 
 /**
- * Ringkasan keuntungan penyedia dana — bentuk ringkas di puncak ruang penyedia
+ * Ringkasan keuntungan pendana — bentuk ringkas di puncak ruang penyedia
  * dana (dan panel admin yang menampilkannya).
  *
- * Pertanyaan penyedia dana cuma dua: **berapa yang sudah jadi uang** dan
+ * Pertanyaan pendana cuma dua: **berapa yang sudah jadi uang** dan
  * **berapa yang masih perkiraan**. Karena itu angkanya dipisah menjadi kartu,
  * bukan dirangkai menjadi kalimat bertumpuk, dan pemisahan itu diberi label
- * yang sama dengan yang dipakai di kartu tiap penyedia dana ("Sudah lunas ·
+ * yang sama dengan yang dipakai di kartu tiap pendana ("Sudah lunas ·
  * dibukukan" vs "Belum lunas · perkiraan").
  *
  * Murni presentasional — tanpa Convex — supaya bisa dirender langsung oleh uji
@@ -86,29 +93,53 @@ export function RingkasanKeuntungan({
   ringkasan: AngkaRingkasanKeuntungan;
 }) {
   return (
-    <section aria-label="Ringkasan keuntungan penyedia dana" className="animate-masuk mt-3">
+    <section aria-label="Ringkasan keuntungan pendana" className="animate-masuk mt-3">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h2 className="text-lg font-semibold tracking-tight text-navy">Ringkasan keuntungan</h2>
         <p className="text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
-          Seluruh penyedia dana
+          Seluruh pendana
         </p>
       </div>
 
       <div className="mt-2 grid gap-2 sm:grid-cols-3">
         <KartuAngka
-          judul="Sudah lunas · dibukukan"
+          judul={
+            <>
+              Sudah lunas · dibukukan
+              <IstilahBantuan
+                istilah="dibukukan"
+                penjelasan="Pinjaman sudah lunas, sehingga keuntungannya sudah final dan menjadi hak pendana."
+              />
+            </>
+          }
           nilai={formatRupiah(ringkasan.totalKeuntunganPendanaLunas)}
-          catatan="keuntungan yang sudah menjadi hak penyedia dana"
+          catatan="keuntungan yang sudah menjadi hak pendana"
           warna="emerald"
         />
         <KartuAngka
-          judul="Belum lunas · perkiraan"
+          judul={
+            <>
+              Belum lunas · perkiraan
+              <IstilahBantuan
+                istilah="perkiraan"
+                penjelasan="Hitungan atas pinjaman yang masih berjalan — belum dibukukan dan belum menjadi uang pendana."
+              />
+            </>
+          }
           nilai={formatRupiah(ringkasan.totalKeuntunganPendanaBelumLunas)}
           catatan="hitungan atas pinjaman yang masih berjalan — belum dibukukan"
           warna="amber"
         />
         <KartuAngka
-          judul="Total keuntungan pendana"
+          judul={
+            <>
+              Total keuntungan pendana
+              <IstilahBantuan
+                istilah="total keuntungan"
+                penjelasan="Gabungan keuntungan yang sudah dibukukan dan yang masih perkiraan."
+              />
+            </>
+          }
           nilai={formatRupiah(ringkasan.totalKeuntunganPendana)}
           catatan="dibukukan + perkiraan"
           warna="slate"
@@ -116,7 +147,7 @@ export function RingkasanKeuntungan({
       </div>
 
       <p className="mt-2 max-w-3xl text-xs leading-5 text-muted-foreground">
-        Angka <strong>perkiraan</strong> baru menjadi uang penyedia dana saat pinjamannya lunas.
+        Angka <strong>perkiraan</strong> baru menjadi uang pendana saat pinjamannya lunas.
         Potongan admin {formatRupiah(ringkasan.totalKeuntunganAdmin)} (sudah dibukukan{" "}
         {formatRupiah(ringkasan.totalKeuntunganAdminLunas)} · perkiraan{" "}
         {formatRupiah(ringkasan.totalKeuntunganAdminBelumLunas)}) diambil dari uang yang kembali,

@@ -214,7 +214,7 @@ export function AdminTabs({
       ],
     },
     {
-      judul: "Nasabah & penyedia dana",
+      judul: "Nasabah & pendana",
       items: [
         {
           value: "plafon",
@@ -226,8 +226,8 @@ export function AdminTabs({
         },
         {
           value: "akses",
-          label: "Kelola Penyedia Dana",
-          hint: "Kelola akses dan posisi penyedia dana.",
+          label: "Kelola Pendana",
+          hint: "Kelola akses dan posisi pendana.",
           badge: null,
           hitung: "tidak",
           Icon: Wallet,

@@ -1,5 +1,6 @@
 import { Coins } from "lucide-react";
 
+import { IstilahBantuan } from "@/components/penyediaDana/IstilahBantuan";
 import { MetrikKartu } from "./admin-shared";
 import { formatRupiah } from "@/lib/money";
 import {
@@ -58,8 +59,12 @@ export function AliranDanaPinjaman({
           <p className="text-sm font-semibold text-navy">Aliran uang pinjaman ini</p>
           <p className="mt-0.5 text-xs leading-5 text-muted-foreground">
             Pokok {formatRupiah(rincian.pokok)} · {skema} · dipotong{" "}
-            {rincian.persenPotonganDiMuka}% di muka, lalu {rincian.persenPotonganPenyedia}% dari
-            uang yang kembali.
+            {rincian.persenPotonganDiMuka}% di muka
+            <IstilahBantuan
+              istilah="potongan di muka"
+              penjelasan="Dipotong sekali di awal dari pokok pinjaman (biaya admin), sehingga dana yang cair ke peminjam lebih kecil dari pokok."
+            />
+            , lalu {rincian.persenPotonganPenyedia}% dari uang yang kembali.
           </p>
         </div>
         <span className="flex size-8 shrink-0 items-center justify-center rounded-xl border border-emerald-100 bg-emerald-50 text-emerald-700">

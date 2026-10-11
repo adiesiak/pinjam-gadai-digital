@@ -60,8 +60,8 @@ const label = [
   "Diterima peminjam",
   "Kembali (pokok + Imbal Hasil 30%)",
   "Potongan 5% dari uang yang kembali",
-  "Diterima penyedia dana",
-  "Imbal Hasil bersih penyedia dana",
+  "Diterima pendana",
+  "Imbal Hasil bersih pendana",
   "Pendapatan platform",
 ];
 for (const teks of label) ada(html, teks, `label rincian "${teks}"`);
@@ -74,7 +74,7 @@ ada(html, "Rp 980.000", "dana yang diterima peminjam");
 ada(html, "Rp 1.300.000", "uang yang kembali");
 ada(html, "− Rp 65.000", "potongan 5% dari uang yang kembali");
 ada(html, "Rp 1.235.000", "uang yang diterima penyedia dana");
-ada(html, "Rp 235.000", "Imbal Hasil bersih penyedia dana");
+ada(html, "Rp 235.000", "Imbal Hasil bersih pendana");
 ada(html, "Rp 85.000", "pendapatan platform satu pinjaman");
 
 // Pilihan pokok: admin bisa memeriksa nominal lain tanpa membuka modul lain.
@@ -121,7 +121,7 @@ ada(htmlKecil, "Rp 490.000", "diterima peminjam");
 ada(htmlKecil, "Rp 650.000", "uang yang kembali");
 ada(htmlKecil, "− Rp 32.500", "potongan 5% dari yang kembali");
 ada(htmlKecil, "Rp 617.500", "diterima penyedia dana");
-ada(htmlKecil, "Rp 117.500", "Imbal Hasil bersih penyedia dana");
+ada(htmlKecil, "Rp 117.500", "Imbal Hasil bersih pendana");
 ada(htmlKecil, "Rp 42.500", "pendapatan platform");
 ok(
   !htmlKecil.includes("Rp 1.235.000"),

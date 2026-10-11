@@ -103,7 +103,7 @@ export function WhatsAppPanel() {
             dsb). API key diisi di environment variabel <code className="rounded bg-slate-100 px-1 py-0.5 text-[11px]">WHATSAPP_API_KEY</code> — tidak pernah disimpan di database.
           </p>
           <p className="mt-2 text-xs leading-5 text-muted-foreground">
-            Kode OTP (verifikasi nomor KYC & persetujuan transaksi penyedia dana)
+            Kode OTP (verifikasi nomor KYC & persetujuan transaksi pendana)
             memakai jalur yang berbeda: mesin OTP memanggil Fonnte langsung dari
             server dengan token <code className="rounded bg-slate-100 px-1 py-0.5 text-[11px]">FONNTE_TOKEN</code>,
             jadi pengaturan gateway di atas tidak memengaruhinya.

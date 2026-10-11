@@ -100,7 +100,7 @@ function Kepala({ hasil }: { hasil: HasilQc | null }) {
             QC Konsistensi PINDAI
           </h1>
           <p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">
-            Sebelas pemeriksaan yang menghitung ulang angka pada data asli: ruang penyedia dana,
+            Sebelas pemeriksaan yang menghitung ulang angka pada data asli: ruang pendana,
             panel admin, dan rekonsiliasi keduanya. Suite gagal begitu satu invariant uang
             dilanggar.
           </p>

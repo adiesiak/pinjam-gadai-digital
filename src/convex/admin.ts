@@ -1884,7 +1884,7 @@ export const seedLoanApplication = internalMutation({      args: {
       penghasilanBulanan: args.penghasilanBulanan,
       sumberPenghasilan: args.sumberPenghasilan,
       pendanaId: args.danaId,
-      pendanaNama: dana.name ?? "Penyedia Dana",
+      pendanaNama: dana.name ?? "Pendana",
       lokasiAjukan: {
         lat: -6.2147,
         lng: 106.8456,

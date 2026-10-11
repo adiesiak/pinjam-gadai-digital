@@ -37,7 +37,7 @@ import { formatRupiah } from "@/lib/money";
 import { LABEL_METODE_TRANSFER } from "@/lib/transferPendana";
 
 /**
- * Pencatatan transfer keuntungan penyedia dana — satu-satunya panel admin tempat
+ * Pencatatan transfer keuntungan pendana — satu-satunya panel admin tempat
  * peringatan "belum dicatat" di ruang /penyedia-dana bisa diselesaikan.
  *
  * PINDAI tidak memindahkan uang: admin mentransfer keuntungan di luar sistem,

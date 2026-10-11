@@ -1,8 +1,8 @@
 /**
- * Uji render "Dana tersalurkan per penyedia dana" di /penyedia-dana.
+ * Uji render "Dana tersalurkan per pendana" di /penyedia-dana.
  * Run: bun src/components/penyediaDana/DanaTersalurkanPendana.render.test.tsx
  *
- * Yang dijaga: total dana tersalurkan tiap penyedia dana benar-benar tampil
+ * Yang dijaga: total dana tersalurkan tiap pendana benar-benar tampil
  * sebagai angka (bukan hanya batang), jumlahnya sama dengan jumlah baris, dan
  * angka modal ini tidak boleh tertukar dengan angka keuntungan — keuntungan
  * punya kartunya sendiri.
@@ -86,8 +86,8 @@ const REKAP = [
 const html = renderToStaticMarkup(<DanaTersalurkanPendana rekap={REKAP} />);
 
 // Judul + total semua penyedia di kepala kartu.
-ada(html, "Dana tersalurkan per penyedia dana", "judul kartu");
-ada(html, "Total dana tersalurkan per penyedia dana", "kartu punya nama untuk pembaca layar");
+ada(html, "Dana tersalurkan per pendana", "judul kartu");
+ada(html, "Total dana tersalurkan per pendana", "kartu punya nama untuk pembaca layar");
 ada(html, "Total Rp 13.000.000", "total dana tersalurkan semua penyedia");
 
 // Setiap penyedia: nama, total, hitungan pinjaman, dan sisa yang berjalan.
@@ -130,7 +130,7 @@ ada(
 );
 ada(
   html,
-  "Panjang batang dibandingkan dengan penyedia dana terbesar.",
+  "Panjang batang dibandingkan dengan pendana terbesar.",
   "skala batang dijelaskan",
 );
 // Kartu ini soal modal: tidak boleh memakai istilah keuntungan.

@@ -27,6 +27,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { ChipSkorRisiko } from "@/components/penyediaDana/ChipSkorRisiko";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import {
@@ -189,8 +190,8 @@ export function PanelRisikoNasabah({
         </div>
       </div>
 
-      <p className="mt-2 text-xs text-muted-foreground">
-        Skor sistem: <b className="tabular-nums text-navy">{skor}/100</b>
+      <p className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+        Skor sistem: <ChipSkorRisiko skor={skor} />
         {dinilai ? "" : " · belum ada riwayat pinjaman, skor netral"}
       </p>
 

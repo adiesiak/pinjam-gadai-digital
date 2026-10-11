@@ -1,8 +1,8 @@
 /**
- * Uji render grafik keuntungan per penyedia dana di /penyedia-dana.
+ * Uji render grafik keuntungan per pendana di /penyedia-dana.
  * Run: bun src/components/penyediaDana/GrafikKeuntunganPendana.render.test.tsx
  *
- * Yang dijaga: grafik tidak boleh membuat penyedia dana membaca angka
+ * Yang dijaga: grafik tidak boleh membuat pendana membaca angka
  * perkiraan sebagai uang yang sudah masuk. Karena itu bagian "sudah cair" dan
  * "perkiraan" harus benar-benar terpisah di markup — warnanya berbeda, lebarnya
  * berbeda, dan angkanya tetap tertulis sebagai teks (bukan hanya batang).
@@ -66,13 +66,13 @@ const REKAP = [
 const html = renderToStaticMarkup(<GrafikKeuntunganPendana rekap={REKAP} />);
 
 // Judul + keterangan cara membacanya.
-ada(html, "Keuntungan per penyedia dana", "judul grafik");
-ada(html, "Grafik keuntungan per penyedia dana", "grafik punya nama untuk pembaca layar");
+ada(html, "Keuntungan per pendana", "judul grafik");
+ada(html, "Grafik keuntungan per pendana", "grafik punya nama untuk pembaca layar");
 ada(html, "Sudah cair", "keterangan warna hijau");
 ada(html, "Perkiraan", "keterangan warna kuning");
 ada(html, "belum menjadi uang sampai pinjamannya lunas", "catatan bahwa kuning belum jadi uang");
 
-// Setiap penyedia dana muncul dengan angkanya sebagai teks — bukan hanya batang.
+// Setiap pendana muncul dengan angkanya sebagai teks — bukan hanya batang.
 for (const r of REKAP) ada(html, r.nama, `nama ${r.nama} tampil`);
 ada(html, "Rp 1.645.000", "total keuntungan terbesar (Robert) tampil sebagai teks");
 ada(html, "Rp 1.175.000", "total keuntungan Asep tampil sebagai teks");

@@ -22,7 +22,7 @@ import {
 } from "@/lib/rekonsiliasi";
 
 /**
- * Rekonsiliasi posisi penyedia dana — kecil, baca-saja.
+ * Rekonsiliasi posisi pendana — kecil, baca-saja.
  *
  * Membandingkan total tiap pendana antara panel admin ini (`daftarInvestor`)
  * dan rekap ruang /penyedia-dana (`daftarPengajuan.rekapPendana`). Keduanya
@@ -88,7 +88,7 @@ function NilaiBanding({
   );
 }
 
-/** Satu baris penyedia dana pada tabel rekonsiliasi. */
+/** Satu baris pendana pada tabel rekonsiliasi. */
 function Baris({ r }: { r: BarisRekonsiliasi }) {
   const meta = META_STATUS[r.status];
   return (
@@ -272,7 +272,7 @@ export function RekonsiliasiPendana() {
               <TableHeader>
                 <TableRow className="bg-slate-50/80">
                   {[
-                    "Penyedia dana",
+                    "Pendana",
                     "Jumlah pinjaman",
                     "Saldo berjalan",
                     "Bunga",

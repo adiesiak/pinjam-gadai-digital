@@ -14,18 +14,18 @@
  * | Potongan di muka 2% (biaya admin) | 2% × pokok | Rp20.000 |
  * | Diterima peminjam | pokok − potongan di muka | Rp980.000 |
  * | Kembali (pokok + Imbal Hasil 30%) | 130% × pokok | Rp1.300.000 |
- * | Potongan penyedia 5% | 5% × total yang kembali | Rp65.000 |
- * | Diterima penyedia dana | total kembali − potongan | Rp1.235.000 |
- * | Imbal Hasil bersih penyedia dana | diterima − pokok | Rp235.000 |
- * | Pendapatan platform | potongan di muka + potongan penyedia | Rp85.000 |
+ * | Potongan pendana 5% | 5% × total yang kembali | Rp65.000 |
+ * | Diterima pendana | total kembali − potongan | Rp1.235.000 |
+ * | Imbal Hasil bersih pendana | diterima − pokok | Rp235.000 |
+ * | Pendapatan platform | potongan di muka + potongan pendana | Rp85.000 |
  *
  * SATU PINTU UANG (penting): kedua paruh rincian ini diambil dari mesin uang
  * yang sama dengan yang menagih dan membukukan, bukan dihitung ulang di UI:
  *  - paruh pertama dari `quoteLoan` (lib/loan.ts) — potongan di muka, dana
  *    bersih, bunga, dan total kembali yang tercetak di akad;
  *  - paruh kedua dari `bagiHasilPinjaman` (lib/bagiHasil.ts) — potongan
- *    platform dan hak penyedia dana yang **persis sama** dengan yang dijurnal
- *    `convex/loans.ts` saat pelunasan dan ditampilkan ruang penyedia dana.
+ *    platform dan hak pendana yang **persis sama** dengan yang dijurnal
+ *    `convex/loans.ts` saat pelunasan dan ditampilkan ruang pendana.
  *
  * Kalau kedua mesin itu suatu saat berbeda, fungsi ini MELEMPAR (lihat
  * `pastikanMesinSepakat`) alih-alih menggambar angka yang tidak akan pernah
@@ -83,7 +83,7 @@ export type RincianAliranDana = {
   potonganDiMuka: Rupiah;
   /** Dana yang benar-benar diterima peminjam = pokok − potongan di muka. */
   diterimaPeminjam: Rupiah;
-  /** Imbal Hasil (bunga) penyedia dana, persen flat dari pokok (30%). */
+  /** Imbal Hasil (bunga) pendana, persen flat dari pokok (30%). */
   persenImbalHasil: number;
   /** Imbal Hasil (bunga) dalam rupiah. */
   imbalHasil: Rupiah;
@@ -93,9 +93,9 @@ export type RincianAliranDana = {
   persenPotonganPenyedia: number;
   /** Potongan platform = persen × total yang kembali (pembulatan ke bawah). */
   potonganPenyedia: Rupiah;
-  /** Uang yang diterima penyedia dana = total kembali − potongan. */
+  /** Uang yang diterima pendana = total kembali − potongan. */
   diterimaPenyedia: Rupiah;
-  /** Imbal Hasil bersih penyedia dana = diterima penyedia − pokok. */
+  /** Imbal Hasil bersih pendana = diterima pendana − pokok. */
   imbalBersihPenyedia: Rupiah;
   /** Total jasa platform satu pinjaman = potongan di muka + potongan penyedia. */
   pendapatanPlatform: Rupiah;
@@ -133,7 +133,7 @@ function pastikanMesinSepakat(
  *
  * `persenPotonganPenyedia` sengaja punya nilai bawaan dari `bagiHasil.ts`
  * (`POTONGAN_ADMIN_DEFAULT_PERSEN`) supaya tarifnya hanya hidup di satu tempat —
- * kartu, ruang penyedia dana, dan ledger memakai tarif yang sama.
+ * kartu, ruang pendana, dan ledger memakai tarif yang sama.
  *
  * Melempar bila pokok bukan rupiah bulat positif atau di luar batas bisnis
  * (`LOAN_LIMITS`) — kartu admin tidak boleh menggambar contoh pinjaman yang
@@ -199,7 +199,7 @@ export function labelPotonganRincian(nilai: Rupiah): string {
 export type BarisRincian = {
   label: string;
   nilai: Rupiah;
-  /** `masuk` ke peminjam/penyedia, `keluar` dari penerimaan, `total` penjumlahan. */
+  /** `masuk` ke peminjam/pendana, `keluar` dari penerimaan, `total` penjumlahan. */
   arah: "kotor" | "potongan" | "bersih" | "total";
 };
 
@@ -233,8 +233,8 @@ export function barisRincianAliran(
       nilai: r.potonganPenyedia,
       arah: "potongan",
     },
-    { label: "Diterima penyedia dana", nilai: r.diterimaPenyedia, arah: "bersih" },
-    { label: "Imbal Hasil bersih penyedia dana", nilai: r.imbalBersihPenyedia, arah: "bersih" },
+    { label: "Diterima pendana", nilai: r.diterimaPenyedia, arah: "bersih" },
+    { label: "Imbal Hasil bersih pendana", nilai: r.imbalBersihPenyedia, arah: "bersih" },
     { label: "Pendapatan platform", nilai: r.pendapatanPlatform, arah: "total" },
   ];
 }
@@ -258,7 +258,7 @@ export function rincianPinjamanNyata(
 ): RincianAliranDana {
   const pokok = pinjaman.pokokPinjaman;
   // Data warisan dengan pokok tidak sah tetap ditampilkan apa adanya (tanpa
-  // perhitungan), sama seperti ruang penyedia dana — satu baris aneh tidak
+  // perhitungan), sama seperti ruang pendana — satu baris aneh tidak
   // boleh merobohkan detail pinjaman admin.
   if (!Number.isSafeInteger(pokok) || pokok <= 0) {
     const nol = 0;

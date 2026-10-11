@@ -1,4 +1,7 @@
 import { BadgeCheck, TriangleAlert, Wallet } from "lucide-react";
+import type { KeyboardEvent as ReactKeyboardEvent, ReactNode } from "react";
+
+import { IstilahBantuan } from "./IstilahBantuan";
 
 import { Badge } from "@/components/ui/badge";
 import type { RekapPendana } from "@/convex/penyediaDana";
@@ -33,7 +36,8 @@ function BarisNilai({
   kelas,
   garis,
 }: {
-  label: string;
+  /** Boleh berupa teks atau teks + ikon bantuan (tooltip istilah). */
+  label: ReactNode;
   nilai: string;
   kelas: string;
   garis?: boolean;
@@ -44,14 +48,14 @@ function BarisNilai({
         garis === true ? " border-t border-slate-100 pt-1.5" : ""
       }`}
     >
-      <dt className="text-muted-foreground">{label}</dt>
+      <dt className="flex items-center gap-1 text-muted-foreground">{label}</dt>
       <dd className={`tabular-nums ${kelas}`}>{nilai}</dd>
     </div>
   );
 }
 
 /**
- * Kartu rekap satu penyedia dana (model 1 pinjaman = 1 pendana).
+ * Kartu rekap satu pendana (model 1 pinjaman = 1 pendana).
  *
  * Disusun tiga blok supaya tidak perlu diurai sebagai satu daftar angka panjang,
  * dan supaya pertanyaan utamanya — "keuntungan saya yang mana yang sudah benar-
@@ -73,17 +77,28 @@ export function KartuPendana({
   r,
   rincianPerkiraan,
   namaTampil,
+  onPilih,
 }: {
   r: RekapPendana;
   /**
+   * Klik kartu → saring tabel transaksi ke pendana ini (opsional).
+   *
+   * Kartu ini tidak memakai `<button>`: di dalamnya ada `<details>` yang bisa
+   * dibuka-tutup, dan tombol bersarang tidak sah. Karena itu peran tombol
+   * dipasang pada elemen kartu (`role="button"` + Enter/Space), lengkap dengan
+   * fokus keyboard. Klik pada lipatan rincian dihentikan agar membuka rincian
+   * tidak ikut menyaring tabel.
+   */
+  onPilih?: (nama: string) => void;
+  /**
    * Pinjaman berjalan milik penyedia ini yang membentuk baris "Belum lunas
    * (perkiraan)". Diringkas dalam `<details>` (tertutup secara bawaan) supaya
-   * laporan tetap ringkas, tetapi bisa dibuka saat penyedia dana ingin tahu
+   * laporan tetap ringkas, tetapi bisa dibuka saat pendana ingin tahu
    * angka perkiraan itu datang dari mana. Jumlah barisnya = angka perkiraan.
    */
   rincianPerkiraan?: readonly RincianPerkiraan[];
   /**
-   * Penyamaran nama untuk tampilan (ruang penyedia dana menyamarkan identitas).
+   * Penyamaran nama untuk tampilan (ruang pendana menyamarkan identitas).
    * Bawaan: nama apa adanya, sehingga pratinjau admin dan uji markup lama tetap
    * menampilkan nama penuh.
    */
@@ -91,8 +106,29 @@ export function KartuPendana({
 }) {
   const rincian = rincianPerkiraan ?? [];
   const tampil = namaTampil ?? ((nama: string) => nama);
+  const bisaDiklik = onPilih !== undefined;
   return (
-    <div className="rounded-2xl border border-slate-200 border-t-2 border-t-gold/50 bg-white p-4 shadow-sm">
+    <div
+      className={`rounded-2xl border border-slate-200/80 border-t-2 border-t-emerald-500/60 bg-white p-4 shadow-sm transition-all hover:shadow-md ${
+        bisaDiklik
+          ? "cursor-pointer hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+          : ""
+      }`}
+      {...(bisaDiklik
+        ? {
+            role: "button" as const,
+            tabIndex: 0,
+            "aria-label": `Saring tabel transaksi untuk pendana ${tampil(r.nama)}`,
+            onClick: () => onPilih(r.nama),
+            onKeyDown: (event: ReactKeyboardEvent<HTMLDivElement>) => {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                onPilih(r.nama);
+              }
+            },
+          }
+        : {})}
+    >
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="inline-flex items-center gap-1.5 font-semibold uppercase text-navy">
           <Wallet className="size-3.5 text-primary" aria-hidden /> {tampil(r.nama)}
@@ -101,7 +137,7 @@ export function KartuPendana({
 
       {/* Modal: angka pokok yang harus tetap ada di rekap — berapa pinjaman yang
           tercatat, berapa dana yang sudah tersalurkan, dan berapa pokok yang
-          masih berjalan. Sengaja berlabel, bukan kalimat kecil: penyedia dana
+          masih berjalan. Sengaja berlabel, bukan kalimat kecil: pendana
           memakai ketiganya untuk mencocokkan catatannya sendiri. */}
       <dl className="mt-3 space-y-1.5 text-xs">
         <BarisNilai
@@ -122,7 +158,7 @@ export function KartuPendana({
       </dl>
 
       {/* Blok keuntungan: uang yang sudah cair dipisah dari yang masih perkiraan.
-          Menggabung keduanya membuat penyedia dana membaca uang yang belum cair
+          Menggabung keduanya membuat pendana membaca uang yang belum cair
           sebagai haknya. */}
       <div className="mt-3 rounded-xl border border-emerald-100 bg-emerald-50/50 px-3 py-2.5">
         <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-emerald-800">
@@ -130,21 +166,43 @@ export function KartuPendana({
         </p>
         <dl className="mt-2 space-y-1.5 text-xs">
           <BarisNilai
-            label="Sudah lunas (dibukukan)"
+            label={
+              <>
+                Sudah lunas (dibukukan)
+                <IstilahBantuan
+                  istilah="dibukukan"
+                  penjelasan="Angka ini sudah final: pinjamannya lunas, sehingga keuntungannya sudah menjadi hak pendana."
+                />
+              </>
+            }
             nilai={rupiah(r.keuntunganPendanaLunas)}
             kelas="font-semibold text-emerald-700"
           />
           <BarisNilai
             label={
-              r.jumlahAktif > 0
-                ? `Belum lunas (perkiraan) · ${r.jumlahAktif} pinjaman berjalan`
-                : "Belum lunas (perkiraan)"
+              <>
+                {r.jumlahAktif > 0
+                  ? `Belum lunas (perkiraan) · ${r.jumlahAktif} pinjaman berjalan`
+                  : "Belum lunas (perkiraan)"}
+                <IstilahBantuan
+                  istilah="perkiraan"
+                  penjelasan="Hitungan atas pinjaman yang masih berjalan. Angka ini baru menjadi uang pendana setelah pinjamannya lunas."
+                />
+              </>
             }
             nilai={rupiah(r.keuntunganPendanaBelumLunas)}
             kelas="font-medium text-amber-700"
           />
           <BarisNilai
-            label="Total keuntungan"
+            label={
+              <>
+                Total keuntungan
+                <IstilahBantuan
+                  istilah="total keuntungan"
+                  penjelasan="Gabungan keuntungan yang sudah dibukukan dan yang masih perkiraan (belum cair)."
+                />
+              </>
+            }
             nilai={rupiah(r.keuntunganPendana)}
             kelas="font-semibold text-emerald-800"
             garis
@@ -152,7 +210,11 @@ export function KartuPendana({
         </dl>
 
         {rincian.length > 0 && (
-          <details className="mt-2 border-t border-emerald-100 pt-1.5">
+          <details
+            className="mt-2 border-t border-emerald-100 pt-1.5"
+            // Membuka rincian tidak boleh ikut menyaring tabel di bawah.
+            onClick={(event) => event.stopPropagation()}
+          >
             <summary className="cursor-pointer text-[10px] font-semibold uppercase tracking-[0.12em] text-emerald-800">
               Rincian {rincian.length} pinjaman berjalan
             </summary>
@@ -179,11 +241,17 @@ export function KartuPendana({
       </p>
 
       {/* Potongan admin: satu baris total; pemisahan sudah/belum dibukukan cukup
-          sebagai catatan kecil karena ini bukan bagian uang penyedia dana. */}
+          sebagai catatan kecil karena ini bukan bagian uang pendana. */}
       <dl className="mt-3 border-t border-slate-100 pt-2 text-xs">
         <div>
           <div className="flex items-baseline justify-between gap-2">
-            <dt className="text-muted-foreground">Potongan admin (total)</dt>
+            <dt className="flex items-center gap-1 text-muted-foreground">
+              Potongan admin (total)
+              <IstilahBantuan
+                istilah="potongan admin"
+                penjelasan="Diambil dari uang yang kembali (pokok + Imbal Hasil), bukan dari Imbal Hasil saja — pokok tetap kembali utuh."
+              />
+            </dt>
             <dd className="tabular-nums font-semibold text-amber-700">
               {rupiah(r.keuntunganAdmin)}
             </dd>

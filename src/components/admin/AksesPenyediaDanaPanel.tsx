@@ -14,7 +14,7 @@ import { PenyediaDanaTable } from "./PenyediaDanaTable";
 import { RekonsiliasiPendana } from "./RekonsiliasiPendana";
 
 /**
- * Panel Kelola Penyedia Dana — dua jalur akses lihat saja:
+ * Panel Kelola Pendana — dua jalur akses lihat saja:
  *
  * 1. **Kode akses bersama** — satu kode untuk tim pemantau. Kode ditampilkan
  *    SEKALI di sini (yang tersimpan hanya hash-nya), bisa dipakai beberapa
@@ -98,7 +98,7 @@ export function AksesPenyediaDanaPanel() {
     try {
       await buatPendana({ nama, email: target });
       toast.success(
-        `Pendana ${nama} dibuat. Minta ia masuk lewat /auth dengan email ${target}, lalu ruang penyedia dana langsung terbuka.`,
+        `Pendana ${nama} dibuat. Minta ia masuk lewat /auth dengan email ${target}, lalu ruang pendana langsung terbuka.`,
       );
       setNamaPendana("");
       setEmailPendana("");
@@ -149,7 +149,7 @@ export function AksesPenyediaDanaPanel() {
     <div className="animate-masuk space-y-5">
       <div>
         <p className="flex items-center gap-2 text-sm font-semibold">
-          <Eye className="size-4 text-primary" /> Kelola penyedia dana (lihat saja)
+          <Eye className="size-4 text-primary" /> Kelola pendana (lihat saja)
         </p>
         <p className="mt-1 text-xs leading-5 text-muted-foreground">
           Memberi akses membuka halaman <strong>/penyedia-dana</strong>: daftar pengajuan
@@ -158,7 +158,7 @@ export function AksesPenyediaDanaPanel() {
           Nama lengkap pemohon dan
           titik lokasi terakhirnya ditampilkan; NIK, nomor rekening, dan nomor WhatsApp tidak
           dikirim sebagai kolom terpisah. <strong>Berkas identitas pemohon (KTP, selfie, slip,
-          foto barang, tanda tangan) hanya dibuka untuk akun beremail dengan peran penyedia dana
+          foto barang, tanda tangan) hanya dibuka untuk akun beremail dengan peran pendana
           di bawah</strong> — sesi kode akses bersama tidak dapat membukanya. Semua perubahan akses
           tercatat di Audit Trail.
         </p>
@@ -277,7 +277,7 @@ export function AksesPenyediaDanaPanel() {
           <UserPlus className="size-4 text-primary" /> Buat pendana baru
         </p>
         <p className="mt-1 text-xs leading-5 text-muted-foreground">
-          Buat akun penyedia dana yang <strong>langsung punya akses</strong> ke{" "}
+          Buat akun pendana yang <strong>langsung punya akses</strong> ke{" "}
           <strong>/penyedia-dana</strong>. Setelah dibuat, pendana masuk lewat{" "}
           <span className="font-medium text-slate-700">/auth</span> dengan email ini (kode
           OTP) — akunnya otomatis tertaut dan ruang langsung terbuka. Untuk akun yang
@@ -381,10 +381,10 @@ export function AksesPenyediaDanaPanel() {
       {/* ===== Pencatatan transfer keuntungan ===== */}
       <PencatatanTransferPendana />
 
-      {/* ===== Daftar penyedia dana + posisi dananya ===== */}
+      {/* ===== Daftar pendana + posisi dananya ===== */}
       <PenyediaDanaTable />
 
-      {/* ===== Rekonsiliasi panel vs rekap ruang penyedia dana ===== */}
+      {/* ===== Rekonsiliasi panel vs rekap ruang pendana ===== */}
       <RekonsiliasiPendana />
     </div>
   );

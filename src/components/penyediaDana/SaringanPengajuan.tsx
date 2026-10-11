@@ -16,8 +16,8 @@ import { ringkasJumlah } from "@/lib/saringanPengajuan";
 export const SEMUA_PENDANA = "__semua__";
 
 /**
- * Saringan di atas tabel pengajuan ruang penyedia dana: cari nama peminjam
- * (nama, kode pseudonim, atau nomor referensi) dan pilih penyedia dana.
+ * Saringan di atas tabel pengajuan ruang pendana: cari nama peminjam
+ * (nama, kode pseudonim, atau nomor referensi) dan pilih pendana.
  *
  * Murni presentasional — seluruh penyaringan dikerjakan `@/lib/saringanPengajuan`,
  * jadi komponen ini hanya menampilkan keadaan dan meneruskan perubahan.
@@ -93,26 +93,26 @@ export function SaringanPengajuan({
               id="label-saring-pendana"
               className="text-[11px] font-semibold uppercase tracking-[0.1em] text-slate-500"
             >
-              Penyedia dana
+              Pendana
             </p>
             <Select
               value={pendana === "" ? SEMUA_PENDANA : pendana}
               onValueChange={(nilai) => onPendana(nilai === SEMUA_PENDANA ? "" : nilai)}
             >
               <SelectTrigger
-                aria-label="Penyedia dana"
+                aria-label="Pendana"
                 aria-labelledby="label-saring-pendana"
                 className="mt-1.5 w-full"
               >
                 {/* Label dipasang manual: wajah trigger Radix hanya terisi dari
                     `<SelectItem>` yang sudah pernah dirender, sehingga tanpa
                     children dropdown tampak kosong sampai menu dibuka. */}
-                <SelectValue placeholder="Semua penyedia dana">
-                  {pendana === "" ? "Semua penyedia dana" : tampilNama(pendana)}
+                <SelectValue placeholder="Semua pendana">
+                  {pendana === "" ? "Semua pendana" : tampilNama(pendana)}
                 </SelectValue>
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value={SEMUA_PENDANA}>Semua penyedia dana</SelectItem>
+                <SelectItem value={SEMUA_PENDANA}>Semua pendana</SelectItem>
                 {pilihanPendana.map((nama) => (
                   <SelectItem key={nama} value={nama}>
                     {tampilNama(nama)}

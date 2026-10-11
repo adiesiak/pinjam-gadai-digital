@@ -2,12 +2,12 @@ import { formatRupiah } from "@/lib/money";
 import { barKeuntungan, type SumberBarKeuntungan } from "@/lib/grafikKeuntungan";
 
 /**
- * Grafik batang keuntungan per penyedia dana (ruang penyedia dana).
+ * Grafik batang keuntungan per pendana (ruang pendana).
  *
- * Menjawab satu pertanyaan dengan cepat: "siapa penyedia dana dengan keuntungan
+ * Menjawab satu pertanyaan dengan cepat: "siapa pendana dengan keuntungan
  * paling besar, dan berapa bagian yang masih diperkirakan?" Setiap batang
  * dipisah dua warna — hijau = sudah dibukukan (pinjaman lunas), kuning =
- * masih perkiraan (pinjaman berjalan) — sehingga penyedia dana tidak membaca
+ * masih perkiraan (pinjaman berjalan) — sehingga pendana tidak membaca
  * uang yang belum cair sebagai uang yang sudah masuk.
  *
  * Batangnya sengaja hanya visual (`aria-hidden`); angka rupiahnya tetap
@@ -21,7 +21,7 @@ export function GrafikKeuntunganPendana({
   namaTampil,
 }: {
   rekap: readonly SumberBarKeuntungan[];
-  /** Penyamaran nama penyedia dana untuk tampilan (bawaan: apa adanya). */
+  /** Penyamaran nama pendana untuk tampilan (bawaan: apa adanya). */
   namaTampil?: (nama: string) => string;
 }) {
   const tampil = namaTampil ?? ((nama: string) => nama);
@@ -31,11 +31,11 @@ export function GrafikKeuntunganPendana({
 
   return (
     <section
-      aria-label="Grafik keuntungan per penyedia dana"
-      className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5"
+      aria-label="Grafik keuntungan per pendana"
+      className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm transition-all hover:shadow-md sm:p-5"
     >
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h3 className="text-sm font-semibold text-navy">Keuntungan per penyedia dana</h3>
+        <h3 className="text-sm font-semibold text-navy">Keuntungan per pendana</h3>
         <div className="flex flex-wrap items-center gap-3 text-[10px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
           <span className="inline-flex items-center gap-1.5">
             <span aria-hidden className="size-2.5 rounded-full bg-emerald-500" />
@@ -61,14 +61,14 @@ export function GrafikKeuntunganPendana({
             </div>
             <div
               aria-hidden
-              className="mt-1.5 flex h-2.5 w-full overflow-hidden rounded-full bg-slate-100"
+              className="mt-1.5 flex h-3 w-full overflow-hidden rounded-full bg-slate-100"
             >
               <span
-                className="h-full bg-emerald-500"
+                className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-teal-400"
                 style={{ width: `${b.persenSudahCair}%` }}
               />
               <span
-                className="h-full bg-amber-400"
+                className="h-full rounded-full bg-gradient-to-r from-amber-400 to-orange-400"
                 style={{ width: `${b.persenPerkiraan}%` }}
               />
             </div>
@@ -80,7 +80,7 @@ export function GrafikKeuntunganPendana({
       </ul>
 
       <p className="mt-3 text-[10px] leading-4 text-muted-foreground">
-        Panjang batang dibandingkan dengan penyedia dana terbesar. Bagian kuning adalah
+        Panjang batang dibandingkan dengan pendana terbesar. Bagian kuning adalah
         perhitungan atas pinjaman yang masih berjalan — belum menjadi uang sampai pinjamannya
         lunas.
       </p>

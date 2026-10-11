@@ -594,7 +594,7 @@ export function KycDetailRingkas({ detail }: { detail: DetailKycTampil }) {
         </div>
         <p className="text-[10px] leading-4 text-muted-foreground">
           Dokumen ini privat: URL-nya bertanda tangan & berumur pendek, hanya keluar untuk admin
-          ber-TOTP, dan tidak pernah ditampilkan ke penyedia dana atau pemantau.
+          ber-TOTP, dan tidak pernah ditampilkan ke pendana atau pemantau.
         </p>
       </div>
 

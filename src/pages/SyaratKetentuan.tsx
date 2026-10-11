@@ -141,7 +141,7 @@ const PASAL: Pasal[] = [
           akun tim yang berwenang.
         </Ayat>
         <Ayat>
-          Akses &ldquo;lihat saja&rdquo; untuk ruang penyedia dana diberikan dan dapat dicabut oleh
+          Akses &ldquo;lihat saja&rdquo; untuk ruang pendana diberikan dan dapat dicabut oleh
           admin, baik per akun email maupun lewat kode akses bersama. Setiap perubahan akses
           tercatat pada audit trail.
         </Ayat>
@@ -289,24 +289,24 @@ const PASAL: Pasal[] = [
   },
   {
     id: "penyedia-dana",
-    judul: "Penyedia Dana (Imbal Hasil)",
+    judul: "Pendana (Imbal Hasil)",
     ikon: <Wallet className="size-4" />,
     isi: (
       <>
         <ul className="list-disc space-y-1.5 pl-5">
           <Ayat>
-            Model pendanaan pada PINDAI adalah <strong>1 pinjaman = 1 penyedia dana</strong> (tanpa
+            Model pendanaan pada PINDAI adalah <strong>1 pinjaman = 1 pendana</strong> (tanpa
             alokasi bertingkat).
           </Ayat>
           <Ayat>
-            Imbal hasil penyedia dana berasal dari bunga pinjaman. Admin mengambil potongan sebesar
+            Imbal hasil pendana berasal dari bunga pinjaman. Admin mengambil potongan sebesar
             persentase yang berlaku (default <strong>5%</strong>) dari <strong>uang yang kembali</strong>
             (pokok + Imbal Hasil), bukan dari pokok. Contoh: pokok {"Rp1.000.000"} dengan Imbal Hasil
-            30% kembali {"Rp1.300.000"}; potongan 5% = {"Rp65.000"}, sehingga penyedia dana menerima{" "}
-            {"Rp1.235.000"}. Sisa rupiah dari pembulatan selalu menjadi hak penyedia dana.
+            30% kembali {"Rp1.300.000"}; potongan 5% = {"Rp65.000"}, sehingga pendana menerima{" "}
+            {"Rp1.235.000"}. Sisa rupiah dari pembulatan selalu menjadi hak pendana.
           </Ayat>
           <Ayat>
-            Ruang penyedia dana bersifat <strong>baca saja</strong>; angka yang tampil diturunkan
+            Ruang pendana bersifat <strong>baca saja</strong>; angka yang tampil diturunkan
             dari catatan pinjaman yang sama dan bukan nilai cache.
           </Ayat>
         </ul>
@@ -444,7 +444,7 @@ export default function SyaratKetentuan() {
             </h1>
             <p className="mt-3 text-sm leading-6 text-slate-600">
               Ketentuan pemakaian aplikasi PINDAI — pinjaman, gadai, kredit barang, dan ruang
-              penyedia dana. Harap dibaca sebelum mengajukan.
+              pendana. Harap dibaca sebelum mengajukan.
             </p>
             <div className="mt-4 flex flex-wrap items-center gap-2 text-[11px] text-slate-500">
               <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 font-medium">

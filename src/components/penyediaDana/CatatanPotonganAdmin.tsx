@@ -3,10 +3,10 @@ import { ShieldCheck } from "lucide-react";
 /**
  * Untuk apa bagian admin dipakai — bukan hanya berapa besarnya.
  *
- * Penyedia dana melihat "Potongan admin (dari uang kembali)" di banyak tempat;
+ * Pendana melihat "Potongan admin (dari uang kembali)" di banyak tempat;
  * kotak ini menjelaskan tujuannya: menopang server & operasional, penagihan
  * lapangan (collect), dan asuransi yang menjamin pokok pinjaman beserta Imbal
- * Hasilnya cair ke penyedia dana dalam 14 hari kerja. Selalu tampil (tidak
+ * Hasilnya cair ke pendana dalam 14 hari kerja. Selalu tampil (tidak
  * bergantung pada ada tidaknya rekap pendana) karena ini keterangan kebijakan,
  * bukan angka.
  *
@@ -17,7 +17,7 @@ export function CatatanPotonganAdmin({ persen }: { persen: number }) {
   const baris = [
     "Server & operasional PINDAI — biaya sistem, penyimpanan berkas, dan pemantauan lokasi.",
     "Collect / penagihan lapangan untuk pinjaman yang lewat jatuh tempo, supaya Imbal Hasil tetap terkejar.",
-    "Asuransi — jaminan pokok pinjaman maupun Imbal Hasilnya cair ke penyedia dana dalam 14 hari kerja.",
+    "Asuransi — jaminan pokok pinjaman maupun Imbal Hasilnya cair ke pendana dalam 14 hari kerja.",
   ];
   return (
     <section className="animate-masuk mt-3 max-w-3xl rounded-2xl border border-slate-200 border-l-4 border-l-gold bg-white px-5 py-4 shadow-sm">

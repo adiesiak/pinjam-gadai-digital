@@ -31,7 +31,7 @@ function tanggalRingkas(ms: number | null): string {
   });
 }
 
-/** Satu kartu penyedia dana, untuk tampilan tanpa batasan kolom pada layar sempit. */
+/** Satu kartu pendana, untuk tampilan tanpa batasan kolom pada layar sempit. */
 function KartuPenawaran({
   r,
 }: {
@@ -137,7 +137,7 @@ export function PenyediaDanaTable() {
     <div className="animate-masuk space-y-5">
       <div>
         <p className="flex items-center gap-2 text-sm font-semibold">
-          <Eye className="size-4 text-primary" /> Kelola penyedia dana (lihat saja)
+          <Eye className="size-4 text-primary" /> Kelola pendana (lihat saja)
         </p>
         <p className="mt-1 text-xs leading-5 text-muted-foreground">
           Memberi akses membuka halaman <strong>/penyedia-dana</strong>: daftar pengajuan
@@ -145,7 +145,7 @@ export function PenyediaDanaTable() {
           mengubah data — modulnya tidak memiliki mutation transaksi. Nama lengkap pemohon dan
           titik lokasi terakhirnya ditampilkan; NIK, nomor rekening, dan nomor WhatsApp tidak
           dikirim sebagai kolom terpisah. <strong>Berkas identitas pemohon (KTP, selfie, slip,
-          foto barang, tanda tangan) hanya dibuka untuk akun beremail dengan peran penyedia dana
+          foto barang, tanda tangan) hanya dibuka untuk akun beremail dengan peran pendana
           di bawah</strong> — sesi kode akses bersama tidak dapat membukanya. Semua perubahan akses
           tercatat di Audit Trail.
         </p>
@@ -313,7 +313,7 @@ export function PenyediaDanaTable() {
         </p>
       </form>
 
-      {/* ===== Daftar penyedia dana (tampilan kartu, tanpa scroll horizontal) ===== */}
+      {/* ===== Daftar pendana (tampilan kartu, tanpa scroll horizontal) ===== */}
       <div className="overflow-x-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
         <div className="space-y-3 px-4 pt-4 sm:px-5 sm:pt-5 md:hidden">
           {status !== undefined && (

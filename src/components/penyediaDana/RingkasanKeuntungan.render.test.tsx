@@ -1,10 +1,10 @@
 /**
- * Uji render "Ringkasan keuntungan" di puncak ruang penyedia dana.
+ * Uji render "Ringkasan keuntungan" di puncak ruang pendana.
  * Run: bun src/components/penyediaDana/RingkasanKeuntungan.render.test.tsx
  *
  * Yang dijaga: angka yang sudah dibukukan dan angka yang masih diperkirakan
  * tidak boleh tertukar atau tergabung, dan ringkasannya harus terbaca sebagai
- * tiga angka (bukan kalimat bertumpuk) — penyedia dana yang membacanya tidak
+ * tiga angka (bukan kalimat bertumpuk) — pendana yang membacanya tidak
  * boleh menyimpulkan uang yang belum cair sebagai haknya.
  */
 import { renderToStaticMarkup } from "react-dom/server";
@@ -53,8 +53,8 @@ const html = renderToStaticMarkup(<RingkasanKeuntungan ringkasan={ANGKA} />);
 
 // Judul + cakupan (menyeluruh, bukan milik satu akun).
 ada(html, "Ringkasan keuntungan", "judul ringkasan");
-ada(html, "Seluruh penyedia dana", "cakupan angka dinyatakan supaya tidak salah baca");
-ada(html, "Ringkasan keuntungan penyedia dana", "bagian punya nama untuk pembaca layar");
+ada(html, "Seluruh pendana", "cakupan angka dinyatakan supaya tidak salah baca");
+ada(html, "Ringkasan keuntungan pendana", "bagian punya nama untuk pembaca layar");
 
 // Tiga angka utama, masing-masing di kartunya sendiri.
 const sudah = kartu(html, "Sudah lunas · dibukukan");
@@ -66,7 +66,7 @@ ok(belum.includes("Rp 2.585.000"), "kartu perkiraan memuat angka perkiraan");
 ok(!belum.includes("Rp 705.000"), "kartu perkiraan tidak memuat angka yang sudah cair");
 ok(total.includes("Rp 3.290.000"), "kartu total memuat jumlah keduanya");
 ok(
-  sudah.includes("keuntungan yang sudah menjadi hak penyedia dana"),
+  sudah.includes("keuntungan yang sudah menjadi hak pendana"),
   "kartu dibukukan menjelaskan artinya",
 );
 ok(
@@ -78,7 +78,7 @@ ok(
 // (`<strong>` di tengah kalimat termasuk markup — diperiksa apa adanya.)
 ada(
   html,
-  "Angka <strong>perkiraan</strong> baru menjadi uang penyedia dana saat pinjamannya lunas.",
+  "Angka <strong>perkiraan</strong> baru menjadi uang pendana saat pinjamannya lunas.",
   "catatan jujur tentang angka perkiraan",
 );
 ada(html, "Angka <strong>perkiraan</strong>", "kata \"perkiraan\" sendiri ditandai tegas");

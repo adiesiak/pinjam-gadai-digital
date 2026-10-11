@@ -140,7 +140,7 @@ export function AnnouncementCms() {
   return (
     <div className="animate-masuk space-y-6">
       <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-900">
-        Teks CMS yang tersimpan menggantikan default di halaman utama. Periksa semua bar, popup, widget, hero, dan kartu layanan agar tidak mengklaim transfer, pencairan, atau pembayaran/pelunasan yang terverifikasi; nilai CMS yang sudah tersimpan tidak diubah oleh audit ini — pakai tombol "Bersihkan teks lama" agar teks lama era penyedia dana dikembalikan ke default baru.
+        Teks CMS yang tersimpan menggantikan default di halaman utama. Periksa semua bar, popup, widget, hero, dan kartu layanan agar tidak mengklaim transfer, pencairan, atau pembayaran/pelunasan yang terverifikasi; nilai CMS yang sudah tersimpan tidak diubah oleh audit ini — pakai tombol "Bersihkan teks lama" agar teks lama era pendana dikembalikan ke default baru.
       </div>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-xs leading-5 text-muted-foreground">

@@ -48,10 +48,25 @@ function bersih(html: string, label: string): void {
   ok(!html.includes("[object Object]"), `${label} tanpa "[object Object]"`);
   ok(!html.includes("NaN"), `${label} tanpa "NaN"`);
 }
-/** Isi satu baris nilai: dari labelnya sampai penutup barisnya. */
+/**
+ * Isi satu baris nilai: dari labelnya sampai penutup barisnya.
+ *
+ * Label sekarang boleh diikuti ikon bantuan (tooltip istilah), jadi yang dicari
+ * bukan lagi "label</dt>" melainkan "label berada DI DALAM sebuah <dt>". Syarat
+ * "harus di dalam <dt>" sengaja dipertahankan — justru lebih tepat daripada
+ * sekadar mencocokkan teks label di mana pun.
+ */
 function baris(html: string, label: string): string {
-  const mulai = html.indexOf(`${label}</dt>`);
-  ok(mulai !== -1, `baris "${label}" ada`);
+  let mulai = -1;
+  for (let i = html.indexOf(label); i !== -1; i = html.indexOf(label, i + 1)) {
+    const dtBuka = html.lastIndexOf("<dt", i);
+    const dtTutup = html.lastIndexOf("</dt>", i);
+    if (dtBuka !== -1 && dtBuka > dtTutup) {
+      mulai = dtBuka;
+      break;
+    }
+  }
+  ok(mulai !== -1, `baris "${label}" ada di dalam <dt>`);
   if (mulai === -1) return "";
   const selesai = html.indexOf("</div>", mulai);
   return selesai === -1 ? html.slice(mulai) : html.slice(mulai, selesai);
@@ -137,8 +152,8 @@ ok(
 // ===== Potongan admin dipisah dengan aturan yang sama, tapi cukup satu baris =====
 ada(html, "Potongan admin (total)", "label potongan admin");
 ok(
-  html.includes(
-    'Potongan admin (total)</dt><dd class="tabular-nums font-semibold text-amber-700">Rp 455.000',
+  baris(html, "Potongan admin (total)").includes(
+    'tabular-nums font-semibold text-amber-700">Rp 455.000',
   ),
   "potongan admin memuat totalnya",
 );
@@ -154,7 +169,9 @@ ada(html, "1 belum dicatat", "catatan transfer yang belum dibuat ditandai");
 // tersalurkan, saldo berjalan, keuntungan sudah/belum lunas, total, potongan
 // admin, transfer) tetap ada, tanpa baris tambahan yang membuat kartu kembali
 // menjadi daftar panjang.
-const label = [...html.matchAll(/<dt[^>]*>([^<]*)<\/dt>/g)].map((m) => m[1]);
+const label = [...html.matchAll(/<dt[^>]*>([\s\S]*?)<\/dt>/g)].map((m) =>
+  m[1].replace(/<[^>]*>/g, "").trim(),
+);
 eq(
   JSON.stringify(label),
   JSON.stringify([
@@ -196,8 +213,8 @@ ada(
   "label perkiraan ikut menyesuaikan jumlah pinjaman berjalan",
 );
 ok(
-  htmlBaru.includes(
-    'Sudah lunas (dibukukan)</dt><dd class="tabular-nums font-semibold text-emerald-700">Rp 0',
+  baris(htmlBaru, "Sudah lunas (dibukukan)").includes(
+    'tabular-nums font-semibold text-emerald-700">Rp 0',
   ),
   "bagian yang sudah cair nol, bukan angka perkiraan",
 );

@@ -618,7 +618,7 @@ const FAQ_ITEMS = [
   },
   {
     q: "Apakah data saya dibagikan ke pihak lain?",
-    a: "Tidak ke publik. Riwayat pengajuan Anda hanya dapat dibuka oleh akun Anda sendiri, tim PINDAI, dan penyedia dana yang diberi akses terbatas oleh admin. Di ruang penyedia dana, nama orang disamarkan dan dokumen identitas (KTP, selfie, bukti penghasilan, tanda tangan) tidak pernah dibagikan; lokasi hanya ditampilkan pada tingkat wilayah (perkiraan), bukan titik presisi.",
+    a: "Tidak ke publik. Riwayat pengajuan Anda hanya dapat dibuka oleh akun Anda sendiri, tim PINDAI, dan pendana yang diberi akses terbatas oleh admin. Di ruang pendana, nama orang disamarkan dan dokumen identitas (KTP, selfie, bukti penghasilan, tanda tangan) tidak pernah dibagikan; lokasi hanya ditampilkan pada tingkat wilayah (perkiraan), bukan titik presisi.",
   },
 ] as const;
 
