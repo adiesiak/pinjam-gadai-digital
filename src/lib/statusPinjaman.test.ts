@@ -1,17 +1,19 @@
 /** Run: bun src/lib/statusPinjaman.test.ts */
 import {
+  LABEL_STATUS_PINJAMAN,
+  STATUS_PINJAMAN,
+  TEMPLATE_STATUS_DEFAULT,
+  bolehDibatalkan,
   diTahapTinjauan,
   keStatusTersimpan,
   labelStatusPinjaman,
-  LABEL_STATUS_PINJAMAN,
   nominalDisetujui,
   nominalTerkunci,
   pesanPerubahanStatus,
   statusKanonik,
-  STATUS_PINJAMAN,
-  TEMPLATE_STATUS_DEFAULT,
-  validasiUbahStatus,
+  tanpaKewajiban,
   type StatusPinjaman,
+  validasiUbahStatus,
 } from "./statusPinjaman";
 
 let passed = 0;
@@ -62,13 +64,25 @@ gagal(
 
 // ===== Pemetaan status kanonik ↔ tersimpan =====
 
-// Empat status yang dipakai aplikasi.
-eq(STATUS_PINJAMAN.length, 4, "tepat empat status pinjaman");
+// Status yang dipakai aplikasi. `dibatalkan` ditambahkan untuk pengajuan yang
+// ditarik nasabah SEBELUM pencairan — ia bukan utang dan tidak menahan plafon.
+eq(STATUS_PINJAMAN.length, 5, "tepat lima status pinjaman");
 eq(
   STATUS_PINJAMAN.join(","),
-  "ditinjau,didanai,ditolak,lunas",
-  "empat status: ditinjau, disalurkan (didanai), ditolak, lunas",
+  "ditinjau,didanai,ditolak,dibatalkan,lunas",
+  "status: ditinjau, disalurkan (didanai), ditolak, dibatalkan, lunas",
 );
+// Pembatalan hanya sah selama pengajuan belum tersalurkan.
+eq(bolehDibatalkan("diajukan"), true, "pengajuan baru boleh dibatalkan");
+eq(bolehDibatalkan("disetujui"), true, "nominal sudah diputuskan, belum cair → boleh");
+eq(bolehDibatalkan("didanai"), false, "sudah cair → tidak boleh dibatalkan sendiri");
+eq(bolehDibatalkan("lunas"), false, "sudah lunas → tidak boleh dibatalkan");
+eq(bolehDibatalkan("dibatalkan"), false, "sudah dibatalkan → tidak berulang");
+eq(statusKanonik("dibatalkan"), "dibatalkan", "dibatalkan dikenali");
+eq(labelStatusPinjaman("dibatalkan"), "Dibatalkan", "dibatalkan berlabel Dibatalkan");
+eq(tanpaKewajiban("dibatalkan"), true, "dibatalkan bukan utang");
+eq(tanpaKewajiban("ditolak"), true, "ditolak bukan utang");
+eq(tanpaKewajiban("didanai"), false, "didanai adalah utang berjalan");
 // Tiga ejaan lama adalah satu tahap: "Ditinjau".
 for (const s of ["diajukan", "sedang_direview", "disetujui"]) {
   eq(statusKanonik(s), "ditinjau", `${s} → ditinjau`);

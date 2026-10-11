@@ -21,9 +21,9 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { v } from "convex/values";
 
-import { query, type QueryCtx } from "./_generated/server";
+import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import { requireAdminSession } from "./adminAuthz";
-import { getConfig } from "./system";
+import { audit, getConfig } from "./system";
 import { persenBungaEfektif } from "../lib/bunga";
 import { pelunasanPinjaman, quotePinjaman, simulasiBulananPinjaman } from "../lib/loan";
 import {
@@ -31,7 +31,13 @@ import {
   plafonPeminjam,
   ringkasPlafon,
 } from "../lib/plafon";
-import { profilRisiko } from "../lib/risikoNasabah";
+import {
+  profilRisiko,
+  ringkasRisiko,
+  validasiOverrideRisiko,
+  type GradeRisiko,
+  type OverrideRisikoAktif,
+} from "../lib/risikoNasabah";
 import type { Doc, Id } from "./_generated/dataModel";
 
 /** Batas riwayat yang dikembalikan per nasabah — cukup untuk layar detail. */
@@ -39,6 +45,70 @@ const BATAS_RIWAYAT = 100;
 
 /** Baris pinjaman apa adanya dari DB — bentuk dokumen `loans`. */
 type LoanDoc = Doc<"loans">;
+
+/** Label aktor admin untuk audit trail (nama/email, bukan id mentah). */
+function labelAktorNasabah(user: { email?: string; name?: string }): string {
+  return user.email ?? user.name ?? "admin";
+}
+
+/**
+ * Kelengkapan data diri = baris profil ada DAN kolom inti terisi.
+ *
+ * Sengaja tidak cukup "baris ada": profil yang dibuat migrasi bisa ada tanpa
+ * NIK/alamat/rekening. Aturan ini satu tempat, dipakai penilaian risiko.
+ */
+function dataDiriLengkapProfil(profil: Doc<"nasabahProfil"> | null): boolean {
+  if (profil === null) return false;
+  return (
+    profil.nik.trim().length > 0 &&
+    (profil.alamat ?? "").trim().length > 0 &&
+    (profil.namaBank ?? "").trim().length > 0 &&
+    (profil.nomorRekening ?? "").trim().length > 0
+  );
+}
+
+/**
+ * Hitung profil risiko dari riwayat pinjaman + konteks identitas nasabah.
+ * Dipakai BERSAMA oleh detail nasabah dan override admin, supaya grade sistem
+ * yang direkam saat override adalah hasil model yang sama persis.
+ */
+function hitungProfilRisiko(
+  loans: readonly LoanDoc[],
+  profil: Doc<"nasabahProfil"> | null,
+  kyc: Doc<"kycProfil"> | null,
+  now: number,
+) {
+  return profilRisiko(
+    loans.map((l) => ({
+      status: l.status,
+      hariTerlambat: turunanPelunasan(l, now).hariTerlambat,
+      tepatWaktu: apakahPelunasanTepatWaktu(l),
+    })),
+    {
+      dataDiriLengkap: dataDiriLengkapProfil(profil),
+      kycTerverifikasi: kyc?.status === "VERIFIED",
+    },
+  );
+}
+
+/** Baris override risiko terakhir untuk satu nasabah (null bila belum ada). */
+async function ambilOverrideAktif(
+  ctx: QueryCtx | MutationCtx,
+  userId: Id<"users">,
+): Promise<OverrideRisikoAktif | null> {
+  const row = await ctx.db
+    .query("risikoOverride")
+    .withIndex("by_user_dibuatPada", (q) => q.eq("userId", userId))
+    .order("desc")
+    .first();
+  if (row === null) return null;
+  return {
+    gradeOverride: row.gradeOverride as GradeRisiko,
+    alasan: row.alasan,
+    olehLabel: row.olehLabel,
+    dibuatPada: row.dibuatPada,
+  };
+}
 
 /** Turunan pelunasan satu pinjaman beserta status keterlambatannya. */
 function turunanPelunasan(loan: LoanDoc, now: number) {
@@ -150,7 +220,7 @@ export const plafonRingkasSaya = query({
  * Gerbang admin untuk seluruh data lintas-nasabah di berkas ini.
  * `requireAdminSession` menuntut peran admin + TOTP terverifikasi pada sesi.
  */
-async function requireAdmin(ctx: QueryCtx) {
+async function requireAdmin(ctx: QueryCtx | MutationCtx) {
   return requireAdminSession(ctx);
 }
 
@@ -256,6 +326,26 @@ export const detailNasabah = query({
       (l) => turunanPelunasan(l, now).hariTerlambat > 0,
     ).length;
 
+    // Profil risiko + override admin: grade SISTEM selalu ikut dikirim supaya
+    // peninjau bisa melihat selisih antara hitungan mesin dan keputusan petugas.
+    const profilRisikoNasabah = hitungProfilRisiko(loans, profil, kyc, now);
+    const overrideAktif = await ambilOverrideAktif(ctx, userId);
+    const risiko = ringkasRisiko(profilRisikoNasabah.grade, overrideAktif);
+    const riwayatOverride = (
+      await ctx.db
+        .query("risikoOverride")
+        .withIndex("by_user_dibuatPada", (q) => q.eq("userId", userId))
+        .order("desc")
+        .take(BATAS_RIWAYAT)
+    ).map((r) => ({
+      gradeSistem: r.gradeSistem,
+      skorSistem: r.skorSistem,
+      gradeOverride: r.gradeOverride,
+      alasan: r.alasan,
+      olehLabel: r.olehLabel,
+      dibuatPada: r.dibuatPada,
+    }));
+
     return {
       userId,
       nama: user.name ?? user.email ?? "Nasabah",
@@ -295,13 +385,9 @@ export const detailNasabah = query({
         pinjamanTerlambat: jumlahTerlambat,
         pelunasanTepatWaktu: loans.filter(apakahPelunasanTepatWaktu).length,
       },
-      profilRisiko: profilRisiko(
-        diurut.map((l) => ({
-          status: l.status,
-          hariTerlambat: turunanPelunasan(l, now).hariTerlambat,
-          tepatWaktu: apakahPelunasanTepatWaktu(l),
-        })),
-      ),
+      profilRisiko: profilRisikoNasabah,
+      risiko,
+      riwayatOverrideRisiko: riwayatOverride,
       riwayatPengajuan: riwayatPengajuan.slice(-BATAS_RIWAYAT),
       riwayatPembayaran: riwayatPembayaran.slice(0, BATAS_RIWAYAT),
     };
@@ -402,6 +488,80 @@ export const detailPengajuan = query({
           nomorReferensi: r.nomorReferensi,
           referensi: r.referensiTransfer,
         })),
+    };
+  },
+});
+
+/**
+ * OVERRIDE RISIKO (admin ber-TOTP) — ganti grade yang BERLAKU, dengan alasan.
+ *
+ * Append-only: tiap keputusan menambah baris baru dan tidak menghapus riwayat.
+ * Grade hasil model sistem direkam apa adanya, sehingga selisih antara
+ * hitungan mesin dan keputusan petugas selalu terlihat dan dapat ditinjau.
+ *
+ * Yang TIDAK dilakukan fungsi ini: mengubah plafon, pinjaman, pembayaran, atau
+ * perpindahan dana apa pun. Override hanya memengaruhi GRADE penilaian yang
+ * ditampilkan di detail nasabah, dan seluruhnya tercatat di `auditLog`.
+ */
+export const overrideRisiko = mutation({
+  args: {
+    userId: v.id("users"),
+    grade: v.string(),
+    alasan: v.string(),
+  },
+  handler: async (ctx, { userId, grade, alasan }) => {
+    const admin = await requireAdmin(ctx);
+    const sah = validasiOverrideRisiko(grade, alasan);
+    if (!sah.ok) throw new Error(sah.alasan);
+
+    const [user, profil, kyc, loans] = await Promise.all([
+      ctx.db.get(userId),
+      ctx.db
+        .query("nasabahProfil")
+        .withIndex("by_user", (q) => q.eq("userId", userId))
+        .first(),
+      ctx.db
+        .query("kycProfil")
+        .withIndex("by_user", (q) => q.eq("userId", userId))
+        .first(),
+      ctx.db
+        .query("loans")
+        .withIndex("by_user", (q) => q.eq("userId", userId))
+        .collect(),
+    ]);
+    if (user === null) throw new Error("Nasabah tidak ditemukan.");
+
+    const now = Date.now();
+    const sistem = hitungProfilRisiko(loans, profil, kyc, now);
+    const gradeOverride = grade as GradeRisiko;
+    const alasanBersih = alasan.trim();
+    const actor = labelAktorNasabah(admin.user);
+
+    const overrideId = await ctx.db.insert("risikoOverride", {
+      userId,
+      gradeSistem: sistem.grade,
+      skorSistem: sistem.skor,
+      gradeOverride,
+      alasan: alasanBersih,
+      olehUserId: admin.userId,
+      olehLabel: actor,
+      dibuatPada: now,
+    });
+
+    await audit(
+      ctx,
+      admin.userId,
+      actor,
+      "override_risiko",
+      user.email ?? user.name ?? "nasabah",
+      `Grade ${sistem.grade} (skor ${sistem.skor}) → ${gradeOverride} · ${alasanBersih}`,
+    );
+
+    return {
+      ok: true,
+      overrideId,
+      gradeSistem: sistem.grade,
+      skorSistem: sistem.skor,
     };
   },
 });

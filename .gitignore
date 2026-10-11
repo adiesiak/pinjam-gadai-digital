@@ -2,4 +2,9 @@
 .env.keys
 node_modules
 dist
+# Tipe Convex yang dihasilkan kode (`convex dev` / `convex deploy`). Tidak
+# di-commit: yang ada di sandbox ini hanya stub buatan skrip, bukan keluaran
+# codegen sungguhan, dan stub bisa bentrok dengan `api.d.ts`/`api.js` asli.
 src/convex/_generated
+# Kunci deploy Convex — JANGAN pernah di-commit.
+.convex-deploy-key

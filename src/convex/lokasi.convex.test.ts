@@ -24,15 +24,39 @@ import { describe, expect, it, vi } from "vitest";
 import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import schema from "./schema";
-import { buatSesi, type SesiUji } from "./test.helpers";
+import {
+  buatSesi as buatSesiDasar,
+  seedKycTerverifikasiEmail,
+  type SesiUji,
+  tanpaVersiConfig,
+} from "./test.helpers";
 import { modules } from "./test.setup";
+
+/**
+ * `buatSesi` + KYC `VERIFIED` untuk peran peminjam.
+ *
+ * Sejak gerbang KYC dipasang (`requireKycTerverifikasi`), pengajuan finansial
+ * hanya dilayani bila modul KYC nasabah sudah VERIFIED. Berkas tes ini menguji
+ * hal LAIN, jadi peminjamnya sengaja selalu siap-KYC; gerbang KYC sendiri
+ * diuji di `kyc.convex.test.ts`.
+ */
+async function buatSesi(
+  t: Parameters<typeof buatSesiDasar>[0],
+  nama: string,
+  opsi: Parameters<typeof buatSesiDasar>[2],
+): ReturnType<typeof buatSesiDasar> {
+  const sesi = await buatSesiDasar(t, nama, opsi);
+  if (opsi.role === "peminjam") await seedKycTerverifikasiEmail(t, opsi.email);
+  return sesi;
+}
+
 import { DEFAULT_CONFIG } from "../lib/system-config";
 
 /** Nyalakan kebijakan "wajib aplikasi" lewat akun admin. */
 async function aktifkanKebijakan(t: ReturnType<typeof convexTest>, email: string) {
   const asAdmin = await buatSesi(t, "admin-app", { email, role: "admin" });
   await asAdmin.mutation(api.system.saveConfig, {
-    ...DEFAULT_CONFIG,
+    ...tanpaVersiConfig(DEFAULT_CONFIG),
     wajibAplikasiNative: true,
   });
 }
@@ -217,7 +241,7 @@ describe("gerbang lokasi wajib", () => {
     });
 
     await asAdmin.mutation(api.system.saveConfig, {
-      ...DEFAULT_CONFIG,
+      ...tanpaVersiConfig(DEFAULT_CONFIG),
       lokasiWajib: false,
     });
 
@@ -803,7 +827,7 @@ describe("retensi jejak lokasi (job cron harian)", () => {
       role: "admin",
     });
     await asAdmin.mutation(api.system.saveConfig, {
-      ...DEFAULT_CONFIG,
+      ...tanpaVersiConfig(DEFAULT_CONFIG),
       retensiLokasiHari: hari,
     });
   }
@@ -892,20 +916,20 @@ describe("retensi jejak lokasi (job cron harian)", () => {
 
     await expect(
       asAdmin.mutation(api.system.saveConfig, {
-        ...DEFAULT_CONFIG,
+        ...tanpaVersiConfig(DEFAULT_CONFIG),
         retensiLokasiHari: 1,
       }),
     ).rejects.toThrow("Retensi jejak lokasi harus");
     await expect(
       asAdmin.mutation(api.system.saveConfig, {
-        ...DEFAULT_CONFIG,
+        ...tanpaVersiConfig(DEFAULT_CONFIG),
         retensiLokasiHari: 5_000,
       }),
     ).rejects.toThrow("Retensi jejak lokasi harus");
 
     // Nilai sah tetap tersimpan dan terbaca kembali oleh admin.
     await asAdmin.mutation(api.system.saveConfig, {
-      ...DEFAULT_CONFIG,
+      ...tanpaVersiConfig(DEFAULT_CONFIG),
       retensiLokasiHari: 120,
     });
     const data = await asAdmin.query(api.system.getConfigAdmin, {});

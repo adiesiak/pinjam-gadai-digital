@@ -3,6 +3,7 @@ import { IdCard, Loader2, ShieldCheck } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { PerangkatSesiSaya } from "@/components/PerangkatSesiSaya";
 import { FormDataDiri } from "@/components/DataDiriForm";
 import { Badge } from "@/components/ui/badge";
 import { api } from "@/convex/_generated/api";
@@ -57,6 +58,7 @@ export function DataDiriSection() {
         : "Belum pernah diubah";
 
   return (
+    <div className="space-y-4">
     <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
@@ -134,5 +136,7 @@ export function DataDiriSection() {
         />
       </div>
     </section>
+    <PerangkatSesiSaya />
+    </div>
   );
 }

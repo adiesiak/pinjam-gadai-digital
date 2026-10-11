@@ -1711,6 +1711,7 @@ describe("lokasi & berkas peminjam di ruang penyedia dana", () => {
     const awal = await dana.query(api.penyediaDana.daftarPengajuan, {});
     const barisAwal = awal.pinjaman.find((b) => b.nomorReferensi === "PGD-LOKASI-1");
     expect(barisAwal?.lokasi?.sumber).toBe("pengajuan");
+    // Ruang penyedia dana menerima koordinat tingkat wilayah (2 desimal).
     expect(barisAwal?.lokasi?.lat).toBeCloseTo(-6.9);
 
     // Setelah perangkat mengirim titik: status terkini menang atas titik pengajuan.
@@ -1730,8 +1731,48 @@ describe("lokasi & berkas peminjam di ruang penyedia dana", () => {
     expect(barisAkhir?.lokasi?.sumber).toBe("aplikasi");
     expect(barisAkhir?.lokasi?.tanda).toEqual(["koordinat_berulang"]);
     // Gadai & kredit ikut memakai titik yang sama (satu peminjam).
-    expect(akhir.gadai[0]?.lokasi?.lat).toBeCloseTo(-6.175392);
-    expect(akhir.kredit[0]?.lokasi?.lat).toBeCloseTo(-6.175392);
+    // -6.175392 dibulatkan ke -6.18: ruang penyedia dana TIDAK menerima lokasi
+    // presisi peminjam (hanya tingkat wilayah ≈1 km).
+    expect(akhir.gadai[0]?.lokasi?.lat).toBeCloseTo(-6.18);
+    expect(akhir.kredit[0]?.lokasi?.lat).toBeCloseTo(-6.18);
+    expect(akhir.gadai[0]?.lokasi?.lng).toBeCloseTo(106.83);
+  });
+
+  it("ruang penyedia dana hanya menerima koordinat tingkat wilayah; admin presisi penuh", async () => {
+    const t = convexTest(schema, modules);
+    const { userId } = await siapkanPengguna(t, "rani-presisi", {
+      email: "rani-presisi@pindai.test",
+      role: "peminjam",
+    });
+    const { sesi: dana } = await siapkanPengguna(t, "penyedia-presisi", {
+      email: "penyedia-presisi@pindai.test",
+      role: "dana",
+    });
+    await seedPengajuan(t, userId);
+    await t.run((ctx) =>
+      ctx.db.insert("lokasiStatus", {
+        userId,
+        lat: -6.175392,
+        lng: 106.827153,
+        akurasi: 12,
+        waktu: 1_800_000_000_000,
+        sumber: "aplikasi",
+      }),
+    );
+
+    // Penyedia dana: dibulatkan ke 2 desimal (≈1 km).
+    const sebagaiDana = await dana.query(api.penyediaDana.titikPeminjam, {});
+    expect(sebagaiDana.rows[0]?.posisi.lat).toBeCloseTo(-6.18);
+    expect(sebagaiDana.rows[0]?.posisi.lng).toBeCloseTo(106.83);
+
+    // Admin memakai query yang sama dan tetap menerima presisi penuh.
+    const { sesi: admin } = await siapkanPengguna(t, "admin-presisi", {
+      email: "admin-presisi@pindai.test",
+      role: "admin",
+    });
+    const sebagaiAdmin = await admin.query(api.penyediaDana.titikPeminjam, {});
+    expect(sebagaiAdmin.rows[0]?.posisi.lat).toBeCloseTo(-6.175392, 5);
+    expect(sebagaiAdmin.rows[0]?.posisi.lng).toBeCloseTo(106.827153, 5);
   });
 
   it("berkasPengajuan tidak pernah membocorkan dokumen identitas ke ruang penyedia dana", async () => {

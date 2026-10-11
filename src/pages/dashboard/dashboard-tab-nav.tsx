@@ -2,6 +2,7 @@ import { LayoutGroup, motion, useReducedMotion } from "framer-motion";
 import {
   CalendarClock,
   FileText,
+  HelpCircle,
   IdCard,
   LayoutGrid,
   Package,
@@ -52,6 +53,10 @@ const TABS: Array<[string, string, React.ReactNode]> = [
   // hanyalah isian data diri yang dipakai mengisi formulir pengajuan.
   ["kyc", "Verifikasi KYC", <ShieldCheck key="i" className="size-4" />],
   ["riwayat", "Riwayat Ledger", <ScrollText key="i" className="size-4" />],
+  // Bantuan berdiri sendiri, terpisah dari Riwayat: yang pertama adalah tempat
+  // nasabah berbicara dengan petugas (punya status & utas), yang kedua adalah
+  // catatan transaksi yang sudah terjadi.
+  ["bantuan", "Bantuan", <HelpCircle key="i" className="size-4" />],
 ];
 
 /**

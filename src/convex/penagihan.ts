@@ -19,6 +19,7 @@
  *  - tampilan kontak/finansial utuh di daftar kerja. Daftar hanya memuat nomor
  *    tersamar; nomor utuh dibuka lewat mutation yang MENCATAT AUDIT.
  */
+import { getAuthUserId } from "@convex-dev/auth/server";
 import { v } from "convex/values";
 
 import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
@@ -32,23 +33,30 @@ import {
   JAM_KONTAK_DEFAULT,
   JENIS_PENYELESAIAN,
   JENIS_TINDAKAN,
+  BOBOT_PRIORITAS_PENGADUAN,
+  KANAL_PENGADUAN_MANDIRI,
   KATEGORI_PENGADUAN,
   LABEL_HASIL_TINDAKAN,
   LABEL_JENIS_PENYELESAIAN,
+  LABEL_KATEGORI_PENGADUAN,
   LABEL_JENIS_TINDAKAN,
   LABEL_STATUS_JANJI,
   LABEL_STATUS_KASUS,
   LABEL_STATUS_PEMBAYARAN,
+  LABEL_PRIORITAS_PENGADUAN,
   LABEL_STATUS_PENGADUAN,
+  PANJANG_MAKS_PESAN_PENGADUAN,
   PIHAK_DIHUBUNGI,
   SALURAN_KONTAK_LANGSUNG,
   SALURAN_TINDAKAN,
   STATUS_JANJI,
   STATUS_KASUS,
   STATUS_PEMBAYARAN,
+  PRIORITAS_PENGADUAN,
   STATUS_PENGADUAN,
   TAHAP_TUNGGAKAN,
   URUTAN_ESKALASI,
+  bolehBalasPengaduan,
   bolehHubungiPihak,
   bolehKontakSekarang,
   eskalasiBerikutnya,
@@ -57,6 +65,8 @@ import {
   maskNomorTelepon,
   maskRekening,
   periksaPesanPenagihan,
+  prioritasBawaan,
+  prioritasEfektif,
   pesanPengingatNetral,
   ringkasLaporanPenagihan,
   tingkatEskalasi,
@@ -65,12 +75,15 @@ import {
   validasiJamKontak,
   validasiPembayaran,
   validasiPengaduan,
+  validasiPesanPengaduan,
+  validasiPrioritasPengaduan,
   validasiPenyelesaian,
   validasiTransisiKasus,
   validasiTransisiPengaduan,
   type AmbangTunggakan,
   type JamKontak,
   type JenisPenyelesaian,
+  type PrioritasPengaduan,
   type StatusPembayaran,
 } from "../lib/penagihan";
 import type { Doc, Id as IdT } from "./_generated/dataModel";
@@ -83,6 +96,12 @@ const BATAS_KASUS = 300;
 
 /** Panjang minimum alasan pada keputusan yang mengubah keadaan nasabah. */
 const MIN_ALASAN = 10;
+
+/** Batas pengaduan milik sendiri yang dikirim ke layar nasabah. */
+const BATAS_PENGADUAN_SAYA = 20;
+
+/** Batas pesan utas terakhir yang diperiksa per pengaduan nasabah. */
+const BATAS_PESAN_SAYA = 50;
 
 async function requireAdmin(ctx: QueryCtx | MutationCtx) {
   return requireAdminSession(ctx);
@@ -386,6 +405,10 @@ export const aturanPenagihan = query({
           label: LABEL_STATUS_PENGADUAN[s],
         })),
         kategoriPengaduan: KATEGORI_PENGADUAN,
+        prioritasPengaduan: PRIORITAS_PENGADUAN.map((p) => ({
+          nilai: p,
+          label: LABEL_PRIORITAS_PENGADUAN[p],
+        })),
         jenisPenyelesaian: JENIS_PENYELESAIAN.map((s) => ({
           nilai: s,
           label: LABEL_JENIS_PENYELESAIAN[s],
@@ -502,24 +525,90 @@ export const riwayatPenagihan = query({
   },
 });
 
-/** Daftar pengaduan nasabah — terbaru lebih dulu. */
+/**
+ * Daftar pengaduan nasabah (helpdesk) — diurutkan PRIORITAS lalu terbaru.
+ *
+ * Urutan sebelumnya murni waktu, sehingga pengaduan kritis bisa tenggelam di
+ * bawah catatan ringan. Sekarang urutan berasal dari bobot prioritas yang
+ * tersimpan di baris (lihat `PRIORITAS_PENGADUAN`), dengan waktu sebagai
+ * pemecah seri. Tiap baris juga membawa ringkasan utas supaya petugas tahu
+ * apakah pengaduan sudah pernah dibalas.
+ */
 export const daftarPengaduan = query({
   args: {},
   handler: async (ctx) => {
     await requireAdmin(ctx);
     const rows = await ctx.db.query("pengaduanNasabah").order("desc").take(BATAS_KASUS);
-    return rows.map((p) => ({
-      _id: p._id,
-      nomorReferensi: p.nomorReferensi ?? null,
-      kanal: p.kanal,
-      kategori: p.kategori,
-      isi: p.isi,
-      status: p.status,
-      statusLabel: LABEL_STATUS_PENGADUAN[p.status as keyof typeof LABEL_STATUS_PENGADUAN] ?? p.status,
-      petugasLabel: p.petugasLabel ?? null,
-      penyelesaian: p.penyelesaian ?? null,
-      dibuatPada: p.dibuatPada,
-      ditutupPada: p.ditutupPada ?? null,
+    const pesan = await ctx.db.query("pengaduanPesan").order("desc").take(BATAS_KASUS * 4);
+    const ringkasUtas = new Map<
+      string,
+      { jumlah: number; terakhir: string | null; terakhirPada: number | null; terakhirArah: string | null }
+    >();
+    // `pesan` sudah terurut desc → kemunculan pertama satu pengaduan = terbaru.
+    for (const m of pesan) {
+      const kunci = m.pengaduanId as string;
+      const ada = ringkasUtas.get(kunci);
+      if (ada === undefined) {
+        ringkasUtas.set(kunci, {
+          jumlah: 1,
+          terakhir: m.isi,
+          terakhirPada: m.dibuatPada,
+          terakhirArah: m.arah,
+        });
+      } else {
+        ada.jumlah += 1;
+      }
+    }
+    return rows
+      .map((p) => {
+        const prioritas = prioritasEfektif(p.prioritas);
+        const utas = ringkasUtas.get(p._id as string);
+        return {
+          _id: p._id,
+          nomorReferensi: p.nomorReferensi ?? null,
+          kanal: p.kanal,
+          kategori: p.kategori,
+          isi: p.isi,
+          status: p.status,
+          statusLabel:
+            LABEL_STATUS_PENGADUAN[p.status as keyof typeof LABEL_STATUS_PENGADUAN] ?? p.status,
+          prioritas,
+          prioritasLabel: LABEL_PRIORITAS_PENGADUAN[prioritas],
+          prioritasBobot: BOBOT_PRIORITAS_PENGADUAN[prioritas],
+          jumlahPesan: utas?.jumlah ?? 0,
+          pesanTerakhir: utas?.terakhir ?? null,
+          pesanTerakhirPada: utas?.terakhirPada ?? null,
+          pesanTerakhirArah: utas?.terakhirArah ?? null,
+          petugasLabel: p.petugasLabel ?? null,
+          penyelesaian: p.penyelesaian ?? null,
+          dibuatPada: p.dibuatPada,
+          ditutupPada: p.ditutupPada ?? null,
+        };
+      })
+      .sort(
+        (a, b) => b.prioritasBobot - a.prioritasBobot || b.dibuatPada - a.dibuatPada,
+      );
+  },
+});
+
+/** Utas percakapan satu pengaduan — urut kronologis (paling lama dulu). */
+export const pesanPengaduan = query({
+  args: { pengaduanId: v.id("pengaduanNasabah") },
+  handler: async (ctx, { pengaduanId }) => {
+    await requireAdmin(ctx);
+    const pengaduan = await ctx.db.get(pengaduanId);
+    if (pengaduan === null) throw new Error("Pengaduan tidak ditemukan.");
+    const rows = await ctx.db
+      .query("pengaduanPesan")
+      .withIndex("by_pengaduan_dibuatPada", (q) => q.eq("pengaduanId", pengaduanId))
+      .take(BATAS_KASUS);
+    return rows.map((m) => ({
+      _id: m._id,
+      arah: m.arah,
+      isi: m.isi,
+      penulisLabel: m.penulisLabel,
+      lampiranNama: m.lampiranNama ?? null,
+      dibuatPada: m.dibuatPada,
     }));
   },
 });
@@ -1157,6 +1246,33 @@ export const perbaruiStatusPembayaran = mutation({
   },
 });
 
+/**
+ * Sesi NASABAH wajib untuk pengaduan mandiri.
+ *
+ * Tamu ditolak dengan sengaja: pengaduan tanpa akun tidak bisa ditindaklanjuti
+ * (tidak ada cara menghubungi kembali, tidak ada utas yang bisa dibalas), dan
+ * menampungnya hanya akan menciptakan antrean yang tak bisa dijawab.
+ */
+async function requireNasabahPengaduan(ctx: QueryCtx | MutationCtx) {
+  const userId = await getAuthUserId(ctx);
+  if (userId === null) {
+    throw new Error("Masuk terlebih dahulu untuk mengirim atau membaca pengaduan.");
+  }
+  const user = await ctx.db.get(userId);
+  if (user === null) throw new Error("Pengguna tidak ditemukan.");
+  if (user.isAnonymous === true) {
+    throw new Error(
+      "Akun tamu tidak dapat mengirim pengaduan. Masuk dengan akun terverifikasi agar pengaduan dapat ditindaklanjuti.",
+    );
+  }
+  return { userId, user };
+}
+
+/** Label penulis untuk pesan nasabah — nama/email, bukan id mentah. */
+function labelNasabahPengaduan(user: { email?: string; name?: string }): string {
+  return user.name ?? user.email ?? "Nasabah";
+}
+
 /** Buka pengaduan nasabah (kanal apa pun yang dicatat petugas). */
 export const bukaPengaduan = mutation({
   args: {
@@ -1186,6 +1302,7 @@ export const bukaPengaduan = mutation({
       nomorReferensi = loan.nomorReferensi;
     }
     const now = Date.now();
+    const prioritas = prioritasBawaan(args.kategori);
     const id = await ctx.db.insert("pengaduanNasabah", {
       loanId,
       userId,
@@ -1194,8 +1311,20 @@ export const bukaPengaduan = mutation({
       kategori: args.kategori,
       isi: args.isi.trim(),
       status: "baru",
+      // Prioritas bawaan dari kategori — titik awal yang bisa diubah petugas.
+      prioritas,
       dibuatPada: now,
       diperbaruiPada: now,
+    });
+    // Uraian awal menjadi pesan PERTAMA utas, sehingga percakapan lengkap
+    // terbaca di satu tempat (bukan terpisah antara kolom `isi` dan balasan).
+    await ctx.db.insert("pengaduanPesan", {
+      pengaduanId: id,
+      arah: "nasabah",
+      isi: args.isi.trim(),
+      penulisUserId: userId,
+      penulisLabel: `Nasabah via ${args.kanal}`,
+      dibuatPada: now,
     });
     await audit(
       ctx,
@@ -1203,7 +1332,7 @@ export const bukaPengaduan = mutation({
       labelAktor(admin.user),
       "buka_pengaduan",
       nomorReferensi ?? "pengaduan umum",
-      `Kategori ${args.kategori} via ${args.kanal}.`,
+      `Kategori ${args.kategori} via ${args.kanal} · prioritas ${LABEL_PRIORITAS_PENGADUAN[prioritas]}.`,
     );
     return { ok: true, pengaduanId: id };
   },
@@ -1257,3 +1386,303 @@ export const tanganiPengaduan = mutation({
  * saja — impor tipe ini tidak menarik kode server ke bundel klien).
  */
 export type { BarisKasus };
+
+/**
+ * Ubah PRIORITAS satu pengaduan (helpdesk). Wajib beralasan jika menaikkan ke
+ * "kritis" supaya keputusan mendahulukan satu nasabah di atas yang lain dapat
+ * ditinjau. Selalu menulis satu entri audit.
+ */
+export const ubahPrioritasPengaduan = mutation({
+  args: {
+    pengaduanId: v.id("pengaduanNasabah"),
+    prioritas: v.string(),
+    catatan: v.optional(v.string()),
+  },
+  handler: async (ctx, { pengaduanId, prioritas, catatan }) => {
+    const admin = await requireAdmin(ctx);
+    const sah = validasiPrioritasPengaduan(prioritas);
+    if (!sah.ok) throw new Error(sah.alasan);
+
+    const pengaduan = await ctx.db.get(pengaduanId);
+    if (pengaduan === null) throw new Error("Pengaduan tidak ditemukan.");
+
+    const sekarang = prioritasEfektif(pengaduan.prioritas);
+    if (sekarang === prioritas) {
+      throw new Error(
+        `Pengaduan sudah berprioritas ${LABEL_PRIORITAS_PENGADUAN[sekarang]}.`,
+      );
+    }
+    const catatanBersih = (catatan ?? "").trim();
+    if (prioritas === "kritis" && catatanBersih.length < MIN_ALASAN) {
+      throw new Error(
+        `Menaikkan prioritas ke Kritis butuh alasan minimal ${MIN_ALASAN} karakter.`,
+      );
+    }
+
+    const now = Date.now();
+    const actor = labelAktor(admin.user);
+    await ctx.db.patch(pengaduanId, {
+      prioritas,
+      prioritasDiubahPada: now,
+      diperbaruiPada: now,
+    });
+    await audit(
+      ctx,
+      admin.userId,
+      actor,
+      "ubah_prioritas_pengaduan",
+      pengaduan.nomorReferensi ?? "pengaduan umum",
+      `${LABEL_PRIORITAS_PENGADUAN[sekarang]} → ${LABEL_PRIORITAS_PENGADUAN[prioritas as PrioritasPengaduan]}${
+        catatanBersih === "" ? "" : ` · ${catatanBersih}`
+      }`,
+    );
+    return { ok: true };
+  },
+});
+
+/**
+ * Tambah pesan pada utas pengaduan — APPEND-ONLY, tidak ada sunting/hapus.
+ *
+ * Pesan dari petugas otomatis menandai penanggung jawab, sehingga antrean tahu
+ * siapa yang sedang menangani. Pesan TIDAK mengubah status pengaduan: status
+ * tetap dipindahkan lewat `tanganiPengaduan` supaya tiap perubahan keadaan
+ * punya alasannya sendiri.
+ */
+export const tambahPesanPengaduan = mutation({
+  args: {
+    pengaduanId: v.id("pengaduanNasabah"),
+    isi: v.string(),
+    /** "petugas" (bawaan) atau "nasabah" bila pesan nasabah dicatat petugas. */
+    arah: v.optional(v.string()),
+  },
+  handler: async (ctx, { pengaduanId, isi, arah }) => {
+    const admin = await requireAdmin(ctx);
+    const sah = validasiPesanPengaduan(isi);
+    if (!sah.ok) throw new Error(sah.alasan);
+
+    const pengaduan = await ctx.db.get(pengaduanId);
+    if (pengaduan === null) throw new Error("Pengaduan tidak ditemukan.");
+
+    const arahPesan = arah === "nasabah" ? "nasabah" : "petugas";
+    if (
+      pengaduan.status === "selesai" ||
+      pengaduan.status === "ditolak"
+    ) {
+      throw new Error(
+        "Pengaduan sudah ditutup. Pindahkan kembali ke Ditinjau untuk membalas.",
+      );
+    }
+
+    const now = Date.now();
+    const actor = labelAktor(admin.user);
+    const pesanId = await ctx.db.insert("pengaduanPesan", {
+      pengaduanId,
+      arah: arahPesan,
+      isi: isi.trim(),
+      penulisUserId: arahPesan === "petugas" ? admin.userId : pengaduan.userId,
+      penulisLabel: arahPesan === "petugas" ? actor : "Nasabah (dicatat petugas)",
+      dibuatPada: now,
+    });
+
+    await ctx.db.patch(pengaduanId, {
+      diperbaruiPada: now,
+      // Pesan petugas menandai siapa yang menangani — tanpa mengubah status.
+      ...(arahPesan === "petugas"
+        ? { petugasUserId: admin.userId, petugasLabel: actor }
+        : {}),
+    });
+
+    await audit(
+      ctx,
+      admin.userId,
+      actor,
+      "pesan_pengaduan",
+      pengaduan.nomorReferensi ?? "pengaduan umum",
+      `Pesan ${arahPesan} (${isi.trim().length} karakter, maks ${PANJANG_MAKS_PESAN_PENGADUAN}).`,
+    );
+
+    return { ok: true, pesanId };
+  },
+});
+
+/* ==================================================================== */
+/* Pengaduan sisi NASABAH (helpdesk mandiri)                            */
+/* ==================================================================== */
+
+/**
+ * Daftar pengaduan MILIK nasabah yang sedang masuk.
+ *
+ * Hanya baris dengan `userId` milik pemanggil yang dikembalikan — tidak ada
+ * parameter id di sini, jadi tidak ada cara meminta pengaduan orang lain.
+ * Ringkasan utas ikut dikirim supaya nasabah tahu apakah sudah ada balasan
+ * tanpa harus membuka satu per satu.
+ */
+export const pengaduanSaya = query({
+  args: {},
+  handler: async (ctx) => {
+    const { userId } = await requireNasabahPengaduan(ctx);
+    const rows = await ctx.db
+      .query("pengaduanNasabah")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .order("desc")
+      .take(BATAS_KASUS);
+    const dipakai = rows.slice(0, BATAS_PENGADUAN_SAYA);
+
+    const hasil = [];
+    for (const p of dipakai) {
+      const pesan = await ctx.db
+        .query("pengaduanPesan")
+        .withIndex("by_pengaduan_dibuatPada", (q) => q.eq("pengaduanId", p._id))
+        .order("desc")
+        .take(BATAS_PESAN_SAYA);
+      const terakhir = pesan[0] ?? null;
+      const prioritas = prioritasEfektif(p.prioritas);
+      hasil.push({
+        _id: p._id,
+        nomorReferensi: p.nomorReferensi ?? null,
+        kanal: p.kanal,
+        kategori: p.kategori,
+        kategoriLabel:
+          LABEL_KATEGORI_PENGADUAN[p.kategori as keyof typeof LABEL_KATEGORI_PENGADUAN] ??
+          p.kategori,
+        isi: p.isi,
+        status: p.status,
+        statusLabel:
+          LABEL_STATUS_PENGADUAN[p.status as keyof typeof LABEL_STATUS_PENGADUAN] ?? p.status,
+        prioritas,
+        prioritasLabel: LABEL_PRIORITAS_PENGADUAN[prioritas],
+        penyelesaian: p.penyelesaian ?? null,
+        dibuatPada: p.dibuatPada,
+        diperbaruiPada: p.diperbaruiPada,
+        ditutupPada: p.ditutupPada ?? null,
+        jumlahPesan: pesan.length,
+        pesanTerakhir: terakhir === null ? null : terakhir.isi,
+        pesanTerakhirArah: terakhir === null ? null : terakhir.arah,
+        pesanTerakhirPada: terakhir === null ? null : terakhir.dibuatPada,
+        // Boleh dibalas? Dihitung server supaya UI dan aturan tidak berbeda.
+        bolehBalas: bolehBalasPengaduan(p.status).ok,
+      });
+    }
+    return hasil;
+  },
+});
+
+/** Utas percakapan SATU pengaduan milik nasabah (urut kronologis). */
+export const pesanPengaduanSaya = query({
+  args: { pengaduanId: v.id("pengaduanNasabah") },
+  handler: async (ctx, { pengaduanId }) => {
+    const { userId } = await requireNasabahPengaduan(ctx);
+    const pengaduan = await ctx.db.get(pengaduanId);
+    // Pesan "tidak ditemukan" yang sama untuk pengaduan orang lain: tidak ada
+    // informasi apa pun yang bocor tentang keberadaan pengaduan tersebut.
+    if (pengaduan === null || pengaduan.userId !== userId) {
+      throw new Error("Pengaduan tidak ditemukan.");
+    }
+    const rows = await ctx.db
+      .query("pengaduanPesan")
+      .withIndex("by_pengaduan_dibuatPada", (q) => q.eq("pengaduanId", pengaduanId))
+      .take(BATAS_KASUS);
+    return rows.map((m) => ({
+      _id: m._id,
+      arah: m.arah,
+      isi: m.isi,
+      penulisLabel: m.penulisLabel,
+      dibuatPada: m.dibuatPada,
+    }));
+  },
+});
+
+/**
+ * Buka pengaduan DARI APLIKASI (nasabah sendiri).
+ *
+ * Berbeda dari `bukaPengaduan` (petugas mencatat keluhan yang masuk lewat
+ * WhatsApp/telepon), di sini nasabah adalah penulisnya. Karena itu `kanal`
+ * ditetapkan server (`aplikasi`), bukan diterima dari klien — nasabah tidak
+ * bisa mengaku-aku dihubungi lewat kanal tertentu, dan laporan kanal tetap
+ * bersih.
+ */
+export const bukaPengaduanSaya = mutation({
+  args: {
+    kategori: v.string(),
+    isi: v.string(),
+    loanId: v.optional(v.id("loans")),
+  },
+  handler: async (ctx, { kategori, isi, loanId }) => {
+    const { userId, user } = await requireNasabahPengaduan(ctx);
+    if (!(KATEGORI_PENGADUAN as readonly string[]).includes(kategori)) {
+      throw new Error(`Kategori pengaduan "${kategori}" tidak dikenali.`);
+    }
+    const sah = validasiPengaduan(isi);
+    if (!sah.ok) throw new Error(sah.alasan);
+
+    let nomorReferensi: string | undefined;
+    if (loanId !== undefined) {
+      const loan = await ctx.db.get(loanId);
+      // Kepemilikan diperiksa di SERVER: pengaduan tidak boleh menempel pada
+      // catatan pinjaman orang lain hanya karena id-nya ditebak.
+      if (loan === null || loan.userId !== userId) {
+        throw new Error("Catatan pinjaman itu bukan milik akun Anda.");
+      }
+      nomorReferensi = loan.nomorReferensi;
+    }
+
+    const now = Date.now();
+    const prioritas = prioritasBawaan(kategori);
+    const id = await ctx.db.insert("pengaduanNasabah", {
+      loanId,
+      userId,
+      nomorReferensi,
+      kanal: KANAL_PENGADUAN_MANDIRI,
+      kategori,
+      isi: isi.trim(),
+      status: "baru",
+      prioritas,
+      dibuatPada: now,
+      diperbaruiPada: now,
+    });
+    await ctx.db.insert("pengaduanPesan", {
+      pengaduanId: id,
+      arah: "nasabah",
+      isi: isi.trim(),
+      penulisUserId: userId,
+      penulisLabel: labelNasabahPengaduan(user),
+      dibuatPada: now,
+    });
+    return { ok: true as const, pengaduanId: id };
+  },
+});
+
+/**
+ * Nasabah menambah pesan pada pengaduannya sendiri (append-only).
+ *
+ * Nasabah TIDAK bisa memindahkan status, menutup, atau menandai selesai —
+ * keputusan tetap milik petugas. Yang bisa ia lakukan hanyalah menambah
+ * keterangan; itu batas yang disengaja supaya "selesai" selalu berarti ada
+ * pihak yang bertanggung jawab menutupnya.
+ */
+export const balasPengaduanSaya = mutation({
+  args: { pengaduanId: v.id("pengaduanNasabah"), isi: v.string() },
+  handler: async (ctx, { pengaduanId, isi }) => {
+    const { userId, user } = await requireNasabahPengaduan(ctx);
+    const pengaduan = await ctx.db.get(pengaduanId);
+    if (pengaduan === null || pengaduan.userId !== userId) {
+      throw new Error("Pengaduan tidak ditemukan.");
+    }
+    const sah = validasiPesanPengaduan(isi);
+    if (!sah.ok) throw new Error(sah.alasan);
+    const boleh = bolehBalasPengaduan(pengaduan.status);
+    if (!boleh.ok) throw new Error(boleh.alasan);
+
+    const now = Date.now();
+    const pesanId = await ctx.db.insert("pengaduanPesan", {
+      pengaduanId,
+      arah: "nasabah",
+      isi: isi.trim(),
+      penulisUserId: userId,
+      penulisLabel: labelNasabahPengaduan(user),
+      dibuatPada: now,
+    });
+    await ctx.db.patch(pengaduanId, { diperbaruiPada: now });
+    return { ok: true as const, pesanId };
+  },
+});

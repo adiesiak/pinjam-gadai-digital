@@ -3,6 +3,7 @@ import { Link2, Loader2, PackageCheck, Send, ShoppingBag, TrendingUp } from "luc
 import { useMemo, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
+import { PeringatanKyc } from "@/components/kyc/PeringatanKyc";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -97,7 +98,14 @@ function StatusKreditBadge({ status }: { status: string }) {
  * Form pengajuan kredit barang: barang dari merchant mitra, tenor, dan ringkasan
  * pembayaran. Angka final selalu dihitung ulang server-side.
  */
-export function KreditBarangForm({ onCreated }: { onCreated: (ref: string) => void }) {
+export function KreditBarangForm({
+  onCreated,
+  onBukaKyc,
+}: {
+  onCreated: (ref: string) => void;
+  /** Pindah ke tab Verifikasi KYC — dipakai gerbang KYC di UI. */
+  onBukaKyc?: () => void;
+}) {
   const [namaBarang, setNamaBarang] = useState("");
   const [kategori, setKategori] = useState("");
   const [merchant, setMerchant] = useState("");
@@ -117,6 +125,10 @@ export function KreditBarangForm({ onCreated }: { onCreated: (ref: string) => vo
   const [error, setError] = useState<string | null>(null);
 
   const ajukan = useMutation(api.kredit.ajukanKreditBarang);
+  // Gerbang KYC: server menolak pengajuan tanpa KYC VERIFIED; UI mencerminkan
+  // lebih dulu supaya formulir tidak diisi sia-sia.
+  const kycQuery = useQuery(api.kyc.kycSaya, {});
+  const kycSiap = kycQuery?.status === "VERIFIED";
   // Batas kredit barang terpisah dari plafon pinjaman tunai: tenor baru
   // 1/3/6 bulan memakai DP 0%, sehingga harga = pokok dibiayai.
   const hargaMaksPlafon = KREDIT_BARANG_POKOK_MAKS;
@@ -495,7 +507,9 @@ export function KreditBarangForm({ onCreated }: { onCreated: (ref: string) => vo
         </p>
       )}
 
-      <Button type="submit" className="w-full" disabled={submitting}>
+      {kycQuery !== undefined && !kycSiap && <PeringatanKyc onBukaKyc={onBukaKyc} />}
+
+      <Button type="submit" className="w-full" disabled={submitting || !kycSiap}>
         {submitting ? (
           <>
             <Loader2 className="mr-2 size-4 animate-spin" /> Mengirim…{" "}

@@ -4,6 +4,8 @@ import { v } from "convex/values";
 import type { Id } from "./_generated/dataModel";
 import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import { formatRupiahAman } from "../lib/money";
+import { LABEL_STATUS_KYC, type StatusKyc } from "../lib/kycStatus";
+import { LABEL_STATUS_PENGADUAN } from "../lib/penagihan";
 
 /**
  * Pusat notifikasi in-app PINDAI.
@@ -19,6 +21,9 @@ import { formatRupiahAman } from "../lib/money";
  * | `lokasiPeringatan`     | peringatan              | `dibacaPada` (bawaan tabel)|
  * | `manualPaymentReceipts`| info / sukses / error   | `notifikasiBaca`          |
  * | `pengumuman` (CMS)     | info                    | `notifikasiBaca`          |
+ * | `pengaduanNasabah` + `pengaduanPesan` | info / sukses / peringatan | `notifikasiBaca` |
+ * | `kycRiwayat`           | info / sukses / peringatan | `notifikasiBaca`        |
+ * | `loans` (status berubah) | info / sukses / peringatan | `notifikasiBaca`      |
  *
  * Konsekuensinya penting dan disengaja:
  *
@@ -58,10 +63,16 @@ const BATAS_PER_SUMBER = 6;
 const BATAS_TOTAL = 18;
 /** Batas pinjaman yang diperiksa pengingatnya (paling baru lebih dulu). */
 const BATAS_PINJAMAN = 25;
+/** Batas keputusan KYC terakhir yang diperiksa (paling baru lebih dulu). */
+const BATAS_RIWAYAT_KYC = 5;
+/** Batas pengaduan yang diperiksa kabar terbarunya (paling baru lebih dulu). */
+const BATAS_PENGADUAN = 8;
+/** Batas pesan petugas yang diperiksa per pengaduan. */
+const BATAS_PESAN_PENGADUAN = 4;
 
 /** Notifikasi beserta rujukan internalnya — dipakai untuk menandai dibaca. */
 type ItemInternal = NotifikasiItem & {
-  sumber: "pengingat" | "lokasi" | "bukti" | "pengumuman";
+  sumber: "pengingat" | "lokasi" | "bukti" | "pengumuman" | "pengaduan" | "kyc" | "pinjaman";
   /** Id baris sumber, bila sumbernya berbaris (pengingat/lokasi/bukti). */
   ref: string | null;
 };
@@ -231,6 +242,204 @@ async function susunNotifikasi(
       dibaca: false,
     });
   }
+
+  // ===== Sumber 5: pengaduan nasabah (helpdesk dua arah)
+  //
+  // Yang menjadi notifikasi HANYA perbuatan PETUGAS pada pengaduan nasabah:
+  // perpindahan status dan balasan. Pesan yang nasabah tulis sendiri tidak
+  // pernah muncul sebagai notifikasi untuk dirinya — memberitahukan orang atas
+  // tulisannya sendiri adalah kebisingan, bukan informasi.
+  const pengaduan = await ctx.db
+    .query("pengaduanNasabah")
+    .withIndex("by_user", (q) => q.eq("userId", userId))
+    .collect();
+  const pengaduanTerbaru = [...pengaduan]
+    .sort((a, b) => b.diperbaruiPada - a.diperbaruiPada)
+    .slice(0, BATAS_PENGADUAN);
+
+  const itemPengaduan: ItemInternal[] = [];
+  for (const p of pengaduanTerbaru) {
+    const statusLabel =
+      LABEL_STATUS_PENGADUAN[p.status as keyof typeof LABEL_STATUS_PENGADUAN] ?? p.status;
+    // Status "baru" berarti belum ada petugas yang menyentuhnya — itu keadaan
+    // pengaduan yang baru dikirim sendiri.
+    if (p.status !== "baru" && p.petugasLabel !== undefined) {
+      const jenis: NotifikasiJenis =
+        p.status === "selesai" ? "sukses" : p.status === "ditolak" ? "peringatan" : "info";
+      const penyelesaian = (p.penyelesaian ?? "").trim();
+      itemPengaduan.push({
+        kunci: `pengaduan-status:${p._id}:${p.status}`,
+        sumber: "pengaduan",
+        ref: p._id,
+        jenis,
+        judul: `Pengaduan Anda berstatus ${statusLabel}`,
+        ringkasan: `${p.nomorReferensi ?? "pengaduan umum"} · ditangani ${p.petugasLabel} · ${kalimatWaktu(p.ditutupPada ?? p.diperbaruiPada, sekarang)}.${
+          penyelesaian === "" ? "" : ` Penyelesaian: ${penyelesaian}`
+        }`,
+        waktu: p.ditutupPada ?? p.diperbaruiPada,
+        tautan: "/dashboard?tab=bantuan",
+        dibaca: false,
+      });
+    }
+
+    const pesan = await ctx.db
+      .query("pengaduanPesan")
+      .withIndex("by_pengaduan_dibuatPada", (q) => q.eq("pengaduanId", p._id))
+      .order("desc")
+      .take(BATAS_PESAN_PENGADUAN);
+    for (const m of pesan) {
+      if (m.arah !== "petugas") continue;
+      itemPengaduan.push({
+        kunci: `pengaduan-pesan:${m._id}`,
+        sumber: "pengaduan",
+        ref: m._id,
+        jenis: "info",
+        judul: "Ada balasan pada pengaduan Anda",
+        ringkasan: `${p.nomorReferensi ?? "pengaduan umum"} · ${m.penulisLabel} · ${kalimatWaktu(m.dibuatPada, sekarang)}. ${m.isi}`,
+        waktu: m.dibuatPada,
+        tautan: "/dashboard?tab=bantuan",
+        dibaca: false,
+      });
+    }
+  }
+  item.push(...itemPengaduan.slice(0, BATAS_PER_SUMBER));
+
+  // ===== Sumber 6: keputusan KYC (verifikasi identitas)
+  //
+  // Sumbernya `kycRiwayat` — catatan transisi yang sudah ada dan append-only.
+  // Yang menjadi notifikasi hanya KEPUTUSAN yang mengubah nasib pengajuan:
+  // VERIFIED (lolos), REJECTED (ditolak), NEEDS_CORRECTION (perlu diperbaiki),
+  // dan REVERIFICATION_REQUIRED (perlu diulang). Transisi ke IN_PROGRESS/
+  // NOT_STARTED dilewati karena itu langkah nasabah sendiri, bukan kabar.
+  const riwayatKyc = await ctx.db
+    .query("kycRiwayat")
+    .withIndex("by_user", (q) => q.eq("userId", userId))
+    .order("desc")
+    .take(BATAS_RIWAYAT_KYC);
+  const itemKyc: ItemInternal[] = [];
+  for (const r of riwayatKyc) {
+    const keputusan: NotifikasiJenis | null =
+      r.ke === "VERIFIED"
+        ? "sukses"
+        : r.ke === "REJECTED"
+          ? "peringatan"
+          : r.ke === "NEEDS_CORRECTION" || r.ke === "REVERIFICATION_REQUIRED"
+            ? "peringatan"
+            : null;
+    if (keputusan === null) continue;
+    const judulKyc =
+      r.ke === "VERIFIED"
+        ? "Verifikasi identitas Anda selesai"
+        : r.ke === "REJECTED"
+          ? "Verifikasi identitas Anda ditolak"
+          : r.ke === "NEEDS_CORRECTION"
+            ? "Verifikasi identitas perlu diperbaiki"
+            : "Verifikasi identitas perlu diulang";
+    itemKyc.push({
+      kunci: `kyc:${r._id}`,
+      sumber: "kyc",
+      ref: r._id,
+      jenis: keputusan,
+      judul: judulKyc,
+      ringkasan: `${LABEL_STATUS_KYC[r.ke as StatusKyc] ?? r.ke} · diputuskan oleh ${r.aktorLabel} · ${kalimatWaktu(r.waktu, sekarang)}.${
+        r.catatan === undefined || r.catatan.trim() === "" ? "" : ` Catatan: ${r.catatan.trim()}`
+      }`,
+      waktu: r.waktu,
+      tautan: "/dashboard?tab=kyc",
+      dibaca: false,
+    });
+  }
+  item.push(...itemKyc);
+
+  // ===== Sumber 7: status pinjaman berubah
+  //
+  // Waktunya diambil dari tanggal yang MEMANG menandai perpindahan itu
+  // (didanaiPada/lunasPada/dibatalkanPada) atau `diputuskanPada` untuk keputusan
+  // admin (ditolak/ditinjau). Baris lama tanpa penanda dilewati — lebih baik
+  // tidak ada notifikasi daripada notifikasi bertanggal karangan.
+  const itemPinjaman: ItemInternal[] = [];
+  for (const loan of pinjamanTerbaru) {
+    if (loan.status === "dibatalkan") {
+      const waktu = loan.dibatalkanPada ?? loan.diputuskanPada;
+      if (waktu === undefined) continue;
+      itemPinjaman.push({
+        kunci: `pinjaman:${loan._id}:dibatalkan`,
+        sumber: "pinjaman",
+        ref: loan._id,
+        jenis: "info",
+        judul: "Pengajuan Anda dibatalkan",
+        ringkasan: `${loan.nomorReferensi} · ${kalimatWaktu(waktu, sekarang)}. Catatan ini bukan utang; hubungi tim PINDAI bila perlu pengajuan baru.`,
+        waktu,
+        tautan: "/dashboard?tab=pinjaman",
+        dibaca: false,
+      });
+      continue;
+    }
+    if (loan.status === "ditolak") {
+      const waktu = loan.diputuskanPada ?? loan.lunasPada;
+      if (waktu === undefined) continue;
+      const catatan = (loan.catatanReview ?? "").trim();
+      itemPinjaman.push({
+        kunci: `pinjaman:${loan._id}:ditolak`,
+        sumber: "pinjaman",
+        ref: loan._id,
+        jenis: "peringatan",
+        judul: "Pengajuan pinjaman ditolak",
+        ringkasan: `${loan.nomorReferensi} · diputuskan ${kalimatWaktu(waktu, sekarang)}.${
+          catatan === "" ? "" : ` Catatan petugas: ${catatan}`
+        }`,
+        waktu,
+        tautan: "/dashboard?tab=pinjaman",
+        dibaca: false,
+      });
+      continue;
+    }
+    if (loan.status === "lunas") {
+      const waktu = loan.lunasPada;
+      if (waktu === undefined) continue;
+      itemPinjaman.push({
+        kunci: `pinjaman:${loan._id}:lunas`,
+        sumber: "pinjaman",
+        ref: loan._id,
+        jenis: "sukses",
+        judul: "Pinjaman tercatat lunas",
+        ringkasan: `${loan.nomorReferensi} · ${kalimatWaktu(waktu, sekarang)}. Kewajiban pada catatan PINDAI sudah terpenuhi; perpindahan dana ditangani di luar aplikasi.`,
+        waktu,
+        tautan: "/dashboard?tab=pinjaman",
+        dibaca: false,
+      });
+      continue;
+    }
+    if (loan.status === "didanai" && loan.didanaiPada !== undefined) {
+      const label = referensiPinjaman.get(loan._id) ?? loan.nomorReferensi;
+      itemPinjaman.push({
+        kunci: `pinjaman:${loan._id}:didanai`,
+        sumber: "pinjaman",
+        ref: loan._id,
+        jenis: "sukses",
+        judul: "Pinjaman Anda mulai berjalan",
+        ringkasan: `${label} · dicatat berjalan ${kalimatWaktu(loan.didanaiPada, sekarang)}. Jadwal angsuran dan total kewajiban dapat dilihat pada tab Jadwal.`,
+        waktu: loan.didanaiPada,
+        tautan: "/dashboard?tab=jadwal",
+        dibaca: false,
+      });
+      continue;
+    }
+    if (loan.status === "sedang_direview" && loan.diputuskanPada !== undefined) {
+      itemPinjaman.push({
+        kunci: `pinjaman:${loan._id}:ditinjau`,
+        sumber: "pinjaman",
+        ref: loan._id,
+        jenis: "info",
+        judul: "Pengajuan pinjaman sedang ditinjau",
+        ringkasan: `${loan.nomorReferensi} · masuk peninjauan ${kalimatWaktu(loan.diputuskanPada, sekarang)}. Tidak ada yang perlu Anda lakukan sekarang.`,
+        waktu: loan.diputuskanPada,
+        tautan: "/dashboard?tab=pinjaman",
+        dibaca: false,
+      });
+    }
+  }
+  item.push(...itemPinjaman.slice(0, BATAS_PER_SUMBER));
 
   // ===== Keadaan baca untuk sumber yang memakai tabel `notifikasiBaca`
   const baca = await ctx.db

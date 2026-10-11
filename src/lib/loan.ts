@@ -342,6 +342,7 @@ export const LOAN_STATUS_FLOW = [
   "sedang_direview",
   "disetujui",
   "ditolak",
+  "dibatalkan",
   "didanai",
   "lunas",
 ] as const;
@@ -352,7 +353,7 @@ export type LoanStatus = (typeof LOAN_STATUS_FLOW)[number];
  * Label & penjelasan status pinjaman.
  *
  * Aplikasi mengenal EMPAT status yang ditampilkan: Ditinjau, Disalurkan,
- * Ditolak, Lunas (lihat `lib/statusPinjaman.ts`). Tiga ejaan lama
+ * Ditolak, Dibatalkan, Lunas (lihat `lib/statusPinjaman.ts`). Tiga ejaan lama
  * (`diajukan`, `sedang_direview`, `disetujui`) adalah satu tahap yang sama,
  * jadi ketiganya berlabel **Ditinjau**; `didanai` berlabel **Disalurkan**.
  * Penjelasannya tetap dibedakan supaya tim tahu sub-tahap yang tercatat.
@@ -382,6 +383,12 @@ export function loanStatusMeta(status: LoanStatus): {
       return {
         label: "Ditolak",
         description: "Catatan pengajuan tidak dilanjutkan dalam alur aplikasi. Anda dapat membuat catatan baru.",
+      };
+    case "dibatalkan":
+      return {
+        label: "Dibatalkan",
+        description:
+          "Pengajuan ditarik sebelum dana ditandai tersalurkan. Posisi ini bukan utang; pengajuan baru dapat dibuat kapan saja.",
       };
     case "didanai":
       return {

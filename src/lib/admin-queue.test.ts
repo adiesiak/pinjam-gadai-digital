@@ -389,7 +389,7 @@ eq(
 
 // ===== Peta modul & grup (dokumen desain §4) =====
 
-eq(NILAI_MODUL_ADMIN.length, 19, "19 nilai modul yang ada");
+eq(NILAI_MODUL_ADMIN.length, 20, "20 nilai modul yang ada (bi ditambahkan di PHASE 5)");
 eq(
   new Set(NILAI_MODUL_ADMIN).size,
   NILAI_MODUL_ADMIN.length,
@@ -413,13 +413,13 @@ eq(
 );
 eq(
   GRUP_NAV.map((g) => g.modul.length).join(","),
-  "1,7,3,8",
-  "jumlah modul tiap tab (1+7+3+8 = 19; penagihan belum masuk GRUP_NAV)",
+  "1,7,3,9",
+  "jumlah modul tiap tab (1+7+3+9 = 20; penagihan belum masuk GRUP_NAV)",
 );
 eq(
   GRUP_NAV.reduce((total, g) => total + g.modul.length, 0),
   NILAI_MODUL_ADMIN.length,
-  "GRUP_NAV memuat seluruh modul yang sudah ada (19)",
+  "GRUP_NAV memuat seluruh modul yang sudah ada (20)",
 );
 
 // Modul default tiap grup harus salah satu anggotanya.

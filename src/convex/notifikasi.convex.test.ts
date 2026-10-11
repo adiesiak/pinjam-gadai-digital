@@ -5,7 +5,8 @@
  * Yang dijaga di sini adalah janji modulnya, bukan tampilannya:
  *
  * - daftar SELALU dihitung dari catatan nyata (pengingat, peringatan lokasi,
- *   bukti pembayaran, pengumuman) — tidak ada baris contoh yang dikarang,
+ *   bukti pembayaran, pengumuman, keputusan KYC, dan perpindahan status
+ *   pinjaman) — tidak ada baris contoh yang dikarang,
  * - urutan mengikuti waktu server, terbaru lebih dulu,
  * - keadaan baca milik masing-masing pengguna dan tersimpan di server; peringatan
  *   lokasi memakai `dibacaPada` pada barisnya sendiri (satu keadaan, satu tempat),
@@ -32,10 +33,11 @@ type Fixture = {
   lokasiId: Id<"lokasiPeringatan">;
   buktiId: Id<"manualPaymentReceipts">;
   pengumumanPada: number;
+  kycRiwayatId: Id<"kycRiwayat">;
 };
 
 /**
- * Isi keempat sumber notifikasi untuk satu pengguna. Bentuk barisnya sama
+ * Isi sumber notifikasi untuk satu pengguna. Bentuk barisnya sama
  * dengan yang ditulis proses nyata (cron pengingat, heuristik lokasi, unggahan
  * bukti pembayaran, CMS pengumuman) — bukan bentuk khusus untuk tes.
  */
@@ -102,12 +104,24 @@ async function isiNotifikasi(
       diperbaruiPada: pengumumanPada,
     });
 
-    return { loanId, pengingatId, lokasiId, buktiId, pengumumanPada };
+    // Keputusan KYC oleh petugas: transisi ini yang menjadi kabar bagi nasabah.
+    const kycRiwayatId = await ctx.db.insert("kycRiwayat", {
+      userId,
+      dari: "PENDING_REVIEW",
+      ke: "NEEDS_CORRECTION",
+      aktor: "admin",
+      aktorLabel: "admin@pindai.test",
+      alasan: "dokumen_buram",
+      catatan: "Ulangi foto KTP.",
+      waktu: T0 + 500,
+    });
+
+    return { loanId, pengingatId, lokasiId, buktiId, pengumumanPada, kycRiwayatId };
   });
 }
 
 describe("pusat notifikasi: daftar dari sumber nyata", () => {
-  it("menyusun item dari keempat sumber, terurut waktu server terbaru dulu", async () => {
+  it("menyusun item dari sumber nyata (termasuk status pinjaman), terurut waktu server terbaru dulu", async () => {
     const t = convexTest(schema, modules);
     const { sesi, userId } = await siapkanPengguna(t, "peminjam-notif", {
       email: "peminjam-notif@pindai.test",
@@ -122,28 +136,52 @@ describe("pusat notifikasi: daftar dari sumber nyata", () => {
       `bukti:${f.buktiId}`,
       `pengumuman:${f.pengumumanPada}`,
       `lokasi:${f.lokasiId}`,
+      `kyc:${f.kycRiwayatId}`,
       `pengingat:${f.pengingatId}`,
+      // Sumber baru: perpindahan status pinjaman (waktu dari didanaiPada).
+      `pinjaman:${f.loanId}:didanai`,
     ]);
-    expect(hasil.belumDibaca).toBe(4);
+    expect(hasil.belumDibaca).toBe(6);
+
+    const cari = (kunci: string) => {
+      const it = hasil.item.find((x) => x.kunci === kunci);
+      if (it === undefined) throw new Error(`tidak ada item ${kunci}`);
+      return it;
+    };
+
+    // Item status pinjaman: kabar nyata dari perpindahan status, bukan karangan.
+    const pinjaman = cari(`pinjaman:${f.loanId}:didanai`);
+    expect(pinjaman.jenis).toBe("sukses");
+    expect(pinjaman.judul).toBe("Pinjaman Anda mulai berjalan");
+    expect(pinjaman.ringkasan).toContain("PND-NOTIF-1");
+    expect(pinjaman.tautan).toBe("/dashboard?tab=jadwal");
+
+    // Item keputusan KYC: hanya transisi keputusan yang menjadi kabar.
+    const kyc = cari(`kyc:${f.kycRiwayatId}`);
+    expect(kyc.jenis).toBe("peringatan");
+    expect(kyc.judul).toBe("Verifikasi identitas perlu diperbaiki");
+    expect(kyc.ringkasan).toContain("admin@pindai.test");
+    expect(kyc.ringkasan).toContain("Ulangi foto KTP.");
+    expect(kyc.tautan).toBe("/dashboard?tab=kyc");
 
     // Keempat jenis dibedakan, dan isinya berasal dari catatan nyata.
-    const pengingat = hasil.item[3];
+    const pengingat = cari(`pengingat:${f.pengingatId}`);
     expect(pengingat.jenis).toBe("error");
     expect(pengingat.judul).toBe("Catatan pinjaman terlambat 2 hari");
     expect(pengingat.ringkasan).toContain("PND-NOTIF-1");
     expect(pengingat.tautan).toBe("/dashboard?tab=jadwal");
 
-    const lokasi = hasil.item[2];
+    const lokasi = cari(`lokasi:${f.lokasiId}`);
     expect(lokasi.jenis).toBe("peringatan");
     expect(lokasi.ringkasan).toContain("koordinat_identik");
     // Status pengiriman WhatsApp dilaporkan apa adanya — bukan diasumsikan.
     expect(lokasi.ringkasan).toContain("tercatat terkirim");
 
-    const bukti = hasil.item[0];
+    const bukti = cari(`bukti:${f.buktiId}`);
     expect(bukti.jenis).toBe("info");
     expect(bukti.tautan).toBe("/dashboard?tab=riwayat");
 
-    const pengumuman = hasil.item[1];
+    const pengumuman = cari(`pengumuman:${f.pengumumanPada}`);
     expect(pengumuman.jenis).toBe("info");
     expect(pengumuman.ringkasan).toBe(
       "Jadwal layanan kantor berubah selama libur nasional.",
@@ -199,7 +237,13 @@ describe("pusat notifikasi: daftar dari sumber nyata", () => {
     const baca = await t.run((ctx) => ctx.db.query("notifikasiBaca").collect());
     expect(baca.every((b) => b.userId === userIdA)).toBe(true);
     expect(baca.map((b) => b.kunci).sort()).toEqual(
-      [`bukti:${f.buktiId}`, `pengumuman:${f.pengumumanPada}`, `pengingat:${f.pengingatId}`].sort(),
+      [
+        `bukti:${f.buktiId}`,
+        `pengumuman:${f.pengumumanPada}`,
+        `kyc:${f.kycRiwayatId}`,
+        `pengingat:${f.pengingatId}`,
+        `pinjaman:${f.loanId}:didanai`,
+      ].sort(),
     );
   });
 
@@ -227,7 +271,7 @@ describe("pusat notifikasi: menandai dibaca", () => {
     expect(hasil).toEqual({ ok: true, sudahDibaca: false });
 
     const setelah = await sesi.query(api.notifikasi.daftar, {});
-    expect(setelah.belumDibaca).toBe(3);
+    expect(setelah.belumDibaca).toBe(5);
     expect(setelah.item.find((it) => it.kunci === `pengingat:${f.pengingatId}`)?.dibaca).toBe(true);
 
     // Satu baris baca, dan pengulangan tidak menambah baris kedua.
@@ -262,7 +306,7 @@ describe("pusat notifikasi: menandai dibaca", () => {
 
     const setelah = await sesi.query(api.notifikasi.daftar, {});
     expect(setelah.item.find((it) => it.kunci === `lokasi:${f.lokasiId}`)?.dibaca).toBe(true);
-    expect(setelah.belumDibaca).toBe(3);
+    expect(setelah.belumDibaca).toBe(5);
   });
 
   it("menghormati dibacaPada yang sudah ada dan tidak menimpanya", async () => {
@@ -275,7 +319,7 @@ describe("pusat notifikasi: menandai dibaca", () => {
 
     const hasil = await sesi.query(api.notifikasi.daftar, {});
     expect(hasil.item.find((it) => it.kunci === `lokasi:${f.lokasiId}`)?.dibaca).toBe(true);
-    expect(hasil.belumDibaca).toBe(3);
+    expect(hasil.belumDibaca).toBe(5);
 
     await sesi.mutation(api.notifikasi.tandaiDibaca, { kunci: `lokasi:${f.lokasiId}` });
     const baris = await t.run((ctx) => ctx.db.get(f.lokasiId));
@@ -306,7 +350,7 @@ describe("pusat notifikasi: menandai dibaca", () => {
     const f = await isiNotifikasi(t, userId);
 
     const hasil = await sesi.mutation(api.notifikasi.tandaiSemuaDibaca, {});
-    expect(hasil).toEqual({ ok: true, ditandai: 4 });
+    expect(hasil).toEqual({ ok: true, ditandai: 6 });
 
     const setelah = await sesi.query(api.notifikasi.daftar, {});
     expect(setelah.belumDibaca).toBe(0);

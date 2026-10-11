@@ -43,6 +43,7 @@ export const NILAI_MODUL_ADMIN = [
   "loglogin",
   "audit",
   "backup",
+  "bi",
 ] as const;
 
 export type NilaiModulAdmin = (typeof NILAI_MODUL_ADMIN)[number];
@@ -94,6 +95,7 @@ export const GRUP_NAV: readonly GrupNav[] = [
       "template",
       "aplikasi",
       "loglogin",
+      "bi",
       "audit",
       "backup",
     ],

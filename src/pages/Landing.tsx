@@ -7,8 +7,6 @@ import {
   useReducedMotion,
   useScroll,
   useSpring,
-  useTransform,
-  type Variants,
 } from "framer-motion";
 import {
   ArrowRight,
@@ -16,7 +14,6 @@ import {
   Banknote,
   Calculator,
   Download,
-  Eye,
   Landmark,
   Lock,
   Megaphone,
@@ -52,6 +49,7 @@ import {
 import { api } from "@/convex/_generated/api";
 import { RoleDashboardMenu } from "@/components/RoleDashboardMenu";
 import { Reveal } from "@/components/Reveal";
+import { HeroLaut } from "@/components/landing/HeroLaut";
 import { VaultLogo } from "@/components/VaultLogo";
 import { CMS_DEFAULTS } from "@/lib/cms-defaults";
 import { CONTRACT_TERMS_VERSION } from "@/lib/contract";
@@ -153,67 +151,6 @@ function SectionHeading({
   );
 }
 
-/** Ornamen dial brankas raksasa di latar hero — berputar mengikuti gulir agar
- *  halaman terasa seperti membuka brankas saat dibaca. */
-function HeroVaultDial() {
-  const reduce = useReducedMotion();
-  const { scrollY } = useScroll();
-  const putar = useTransform(scrollY, [0, 900], reduce ? [0, 0] : [6, 150]);
-  const segmen = Array.from({ length: 24 }, (_, i) => i);
-
-  return (
-    <motion.div
-      aria-hidden="true"
-      style={{ rotate: putar }}
-      className="pointer-events-none absolute -right-28 top-10 hidden size-[22rem] sm:block lg:-right-20 lg:size-[30rem]"
-    >
-      <svg viewBox="0 0 200 200" className="size-full">
-        <circle cx="100" cy="100" r="97" fill="none" stroke="#b99b62" strokeOpacity="0.42" strokeWidth="0.7" />
-        <circle
-          cx="100"
-          cy="100"
-          r="86"
-          fill="none"
-          stroke="#0f3d3a"
-          strokeOpacity="0.14"
-          strokeWidth="0.7"
-          strokeDasharray="4 8"
-        />
-        {segmen.map((i) => (
-          <line
-            key={i}
-            x1="100"
-            y1="13"
-            x2="100"
-            y2={i % 3 === 0 ? "26" : "19"}
-            stroke="#b99b62"
-            strokeOpacity={i % 3 === 0 ? 0.5 : 0.26}
-            strokeWidth={i % 3 === 0 ? 1.6 : 0.9}
-            transform={`rotate(${i * 15} 100 100)`}
-          />
-        ))}
-        <circle cx="100" cy="100" r="52" fill="none" stroke="#0f3d3a" strokeOpacity="0.12" strokeWidth="0.8" />
-        <circle cx="100" cy="100" r="34" fill="none" stroke="#b99b62" strokeOpacity="0.45" strokeWidth="1.1" />
-        {[0, 90, 180, 270].map((derajat) => (
-          <line
-            key={derajat}
-            x1="100"
-            y1="66"
-            x2="100"
-            y2="80"
-            stroke="#b99b62"
-            strokeOpacity="0.5"
-            strokeWidth="2.4"
-            strokeLinecap="round"
-            transform={`rotate(${derajat} 100 100)`}
-          />
-        ))}
-        <circle cx="100" cy="100" r="5" fill="#b99b62" fillOpacity="0.32" />
-      </svg>
-    </motion.div>
-  );
-}
-
 /** Dua kolom pembanding di bagian "Batas yang jelas": apa yang dikerjakan
  *  aplikasi dan apa yang sepenuhnya berjalan di luar aplikasi. */
 const DIJALANKAN = [
@@ -244,16 +181,6 @@ const DI_LUAR_APLIKASI = [
   },
   { judul: "Penyedia pembayaran", isi: "Belum ada kanal pembayaran yang terhubung ke sistem." },
 ] as const;
-
-const heroContainer: Variants = {
-  hidden: {},
-  show: { transition: { staggerChildren: 0.09, delayChildren: 0.04 } },
-};
-
-const heroItem: Variants = {
-  hidden: { opacity: 0, y: 18 },
-  show: { opacity: 1, y: 0, transition: { duration: 0.62, ease: EASE_OUT } },
-};
 
 /** Angka yang menghitung naik saat terlihat — mati saat reduced-motion. */
 function CountUp({
@@ -297,35 +224,6 @@ function CountUp({
       })}
       {suffix}
     </span>
-  );
-}
-
-/** Lapisan cahaya latar: dua bola lembut yang mengapung perlahan. */
-function GlowField() {
-  return (
-    <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden">
-      <div className="animate-drift absolute -left-24 top-[-6rem] size-[24rem] rounded-full bg-primary/10 blur-3xl" />
-      <div className="animate-drift-reverse absolute -right-24 bottom-[-9rem] size-[30rem] rounded-full bg-[#cbb47e]/20 blur-3xl" />
-    </div>
-  );
-}
-
-/** Latar berpetak bergaya buku besar yang bergeser sangat lambat. */
-function LedgerGrid({ className = "" }: { className?: string }) {
-  const mask =
-    "radial-gradient(ellipse 75% 65% at 50% 0%, #000 30%, transparent 100%)";
-  return (
-    <div
-      aria-hidden="true"
-      className={`animate-grid-pan pointer-events-none absolute inset-0 ${className}`}
-      style={{
-        backgroundImage:
-          "linear-gradient(to right, rgba(15,61,58,0.08) 1px, transparent 1px), linear-gradient(to bottom, rgba(15,61,58,0.08) 1px, transparent 1px)",
-        backgroundSize: "48px 48px",
-        maskImage: mask,
-        WebkitMaskImage: mask,
-      }}
-    />
   );
 }
 
@@ -720,7 +618,7 @@ const FAQ_ITEMS = [
   },
   {
     q: "Apakah data saya dibagikan ke pihak lain?",
-    a: "Tidak. Riwayat pengajuan hanya dapat dibuka oleh akun terkait dan tim PINDAI; data tidak ditampilkan ke pihak eksternal.",
+    a: "Tidak ke publik. Riwayat pengajuan Anda hanya dapat dibuka oleh akun Anda sendiri, tim PINDAI, dan penyedia dana yang diberi akses terbatas oleh admin. Di ruang penyedia dana, nama orang disamarkan dan dokumen identitas (KTP, selfie, bukti penghasilan, tanda tangan) tidak pernah dibagikan; lokasi hanya ditampilkan pada tingkat wilayah (perkiraan), bukan titik presisi.",
   },
 ] as const;
 
@@ -1374,19 +1272,19 @@ export default function Landing() {
     ? "Memuat ruang…"
     : isAuthenticated
       ? "Buka dashboard"
-      : c(cms?.heroCta1, CMS_DEFAULTS.hero.cta1);
+      : c(cms?.heroCta1, "Ajukan Sekarang");
 
   const logoTeks = c(cms?.logoTeks, "PINDAI");
-  const heroJudul1 = c(cms?.heroJudul, CMS_DEFAULTS.hero.judul1);
-  const heroJudul2 = c(cms?.heroJudul2, CMS_DEFAULTS.hero.judul2);
+  const heroJudul1 = c(cms?.heroJudul, "Solusi Finansial, Lebih Jelas");
+  const heroJudul2 = c(cms?.heroJudul2, "dalam Genggaman.");
 
   const navItems = [
-    { href: "#pinjaman", label: c(cms?.nav1, "Pinjaman") },
-    { href: "#gadai", label: c(cms?.nav2, "Gadai") },
+    { href: "#pinjaman", label: c(cms?.nav1, "Produk") },
+    { href: "#cara-kerja", label: "Cara Kerja" },
     { href: "#biaya", label: "Biaya" },
     { href: "#kalkulator", label: c(cms?.nav3, "Kalkulator") },
     { href: "#keamanan", label: c(cms?.nav4, "Keamanan") },
-    { href: "#tanya", label: "Tanya" },
+    { href: "#tanya", label: "FAQ" },
   ];
 
   const reduce = useReducedMotion();
@@ -1467,21 +1365,35 @@ export default function Landing() {
     document.getElementById("kalkulator")?.scrollIntoView({ behavior: "smooth" });
   };
 
+  const scrollToSteps = () => {
+    document.getElementById("cara-kerja")?.scrollIntoView({ behavior: "smooth" });
+  };
+
   const steps = [
     {
+      icon: Shapes,
+      title: "Pilih layanan",
+      body: "Tentukan layanan yang sesuai: pinjaman tunai, gadai barang, atau kredit barang.",
+    },
+    {
       icon: Landmark,
-      title: "Isi data",
-      body: "Masukkan parameter pinjaman dan informasi pengajuan yang ingin dicatat di akun Anda.",
+      title: "Lengkapi data",
+      body: "Isi data diri, unggah dokumen KYC, dan verifikasi nomor WhatsApp lewat kode OTP.",
     },
     {
       icon: ShieldCheck,
-      title: "Tinjau rincian",
-      body: "Lihat perhitungan biaya, bunga, dan status review internal. Data yang diisi tercatat pada ledger internal.",
+      title: "Ikuti proses verifikasi",
+      body: "Pengajuan diperiksa petugas. Status terverifikasi berarti identitas sudah diproses — bukan persetujuan pinjaman.",
     },
     {
-      icon: Banknote,
-      title: "Pantau ledger",
-      body: "Ikuti perubahan status dan riwayat di dashboard. PINDAI mencatat setiap perubahan pada ledger internal.",
+      icon: Scale,
+      title: "Tinjau ketentuan",
+      body: "Nominal, biaya, potongan, tenor, dan kewajiban ditampilkan sebelum Anda menyetujui.",
+    },
+    {
+      icon: BadgeCheck,
+      title: "Selesaikan proses",
+      body: "Status, jadwal, dan riwayat tercatat di dashboard akun dan dapat Anda pantau kapan saja.",
     },
   ];
 
@@ -1516,7 +1428,7 @@ export default function Landing() {
           {/* `gap-6` di lg, `gap-8` hanya di xl: dengan enam item dan label dari
               CMS yang bisa lebih panjang, jarak 32px pada 1024px membuat baris
               ini nyaris menyentuh tombol aksi di kanan. */}
-          <nav aria-label="Navigasi utama" className="hidden items-center gap-6 text-sm text-slate-600 lg:flex xl:gap-8">
+          <nav aria-label="Navigasi utama" className="hidden items-center gap-5 whitespace-nowrap text-sm text-slate-600 xl:flex xl:gap-7">
             {navItems.map(({ href, label }) => (
               <a
                 key={href}
@@ -1563,7 +1475,7 @@ export default function Landing() {
               aria-expanded={menuOpen}
               aria-controls="nav-mobile"
               aria-label={menuOpen ? "Tutup menu navigasi" : "Buka menu navigasi"}
-              className="-mr-2 inline-flex size-10 items-center justify-center rounded-lg text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900 lg:hidden"
+              className="-mr-2 inline-flex size-10 items-center justify-center rounded-lg text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900 xl:hidden"
             >
               {menuOpen ? <X className="size-5" /> : <Menu className="size-5" />}
             </button>
@@ -1579,7 +1491,7 @@ export default function Landing() {
               animate={{ height: "auto", opacity: 1 }}
               exit={{ height: 0, opacity: 0 }}
               transition={{ duration: 0.18, ease: "easeOut" }}
-              className="absolute inset-x-0 top-full overflow-hidden border-b border-slate-200 bg-white shadow-lg lg:hidden"
+              className="absolute inset-x-0 top-full overflow-hidden border-b border-slate-200 bg-white shadow-lg xl:hidden"
             >
               <nav aria-label="Navigasi utama" className="grid gap-0.5 px-4 py-3">
                 {showAdminShortcut && (
@@ -1627,154 +1539,24 @@ export default function Landing() {
       </header>
 
       <main id="konten" tabIndex={-1}>
-        {/* Hero — nuansa arsip finansial, tinta dan kertas. */}
-        <section className="relative isolate overflow-hidden border-b border-slate-200 bg-[radial-gradient(ellipse_at_18%_0%,#edf4f0_0%,transparent_42%),linear-gradient(135deg,#fbfaf6_0%,#ffffff_52%,#f5f1e8_100%)]">
-          <LedgerGrid />
-          <GlowField />
-          <div aria-hidden="true" className="pointer-events-none absolute -right-32 top-16 size-80 rounded-full border border-primary/10 sm:size-[30rem]" />
-          <HeroVaultDial />
-          <div className="relative mx-auto grid w-full max-w-7xl items-center gap-10 px-4 py-14 sm:gap-12 sm:px-8 sm:py-24 lg:grid-cols-[1.05fr_0.95fr] lg:gap-16 lg:py-28">
-            <motion.div
-              variants={heroContainer}
-              initial="hidden"
-              animate="show"
-              className="relative z-10"
-            >
-              <motion.span
-                variants={heroItem}
-                className="inline-flex items-center gap-2 rounded-full border border-primary/15 bg-white/80 px-3.5 py-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-primary backdrop-blur"
-              >
-                <span className="relative flex size-2">
-                  <span className="absolute inline-flex size-full animate-ping rounded-full bg-[#b99b62]/70" />
-                  <span className="relative inline-flex size-2 rounded-full bg-[#b99b62]" />
-                </span>
-                {c(cms?.heroBadge, CMS_DEFAULTS.hero.badge)}
-              </motion.span>
-              <motion.h1
-                variants={heroItem}
-                className="mt-6 max-w-3xl text-[2.1rem] font-semibold leading-[1.08] tracking-[-0.04em] text-slate-950 min-[480px]:text-[2.65rem] sm:mt-7 sm:leading-[1.04] sm:tracking-[-0.045em] sm:text-6xl lg:text-[4.5rem]"
-              >
-                {heroJudul1}<br />
-                <span className="font-serif font-medium italic text-primary">{heroJudul2}</span>
-              </motion.h1>
-              <motion.p
-                variants={heroItem}
-                className="mt-6 max-w-xl text-base leading-7 text-slate-600 sm:text-lg sm:leading-8"
-              >
-                {c(cms?.heroSub, CMS_DEFAULTS.hero.sub)}
-              </motion.p>
-              <motion.div variants={heroItem} className="mt-8 flex flex-wrap items-center gap-3">
-                <Button
-                  asChild
-                  disabled={isLoading}
-                  className="animate-sheen h-12 rounded-full bg-primary px-6 text-white transition-transform hover:-translate-y-0.5 hover:bg-primary/90"
-                >
-                  <Link to={accountHref}>
-                    {accountCta}
-                    <ArrowRight className="ml-2 size-4" />
-                  </Link>
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={scrollToCalculator}
-                  className="group h-12 rounded-full border-slate-300 bg-white/70 px-6 text-slate-700 hover:bg-white"
-                >
-                  Lihat kalkulator
-                  <ArrowRight className="ml-2 size-4 transition-transform group-hover:translate-x-0.5" />
-                </Button>
-              </motion.div>
-              <motion.div
-                variants={heroItem}
-                className="mt-9 flex flex-wrap items-center gap-x-6 gap-y-3 border-t border-slate-300/70 pt-5 text-xs font-medium text-slate-600 sm:text-sm"
-              >
-                <span className="flex items-center gap-2"><BadgeCheck className="size-4 text-primary" />Rincian biaya terbuka</span>
-                <span className="flex items-center gap-2"><Lock className="size-4 text-primary" />Riwayat per akun</span>
-                <span className="flex items-center gap-2"><Calculator className="size-4 text-primary" />Angka kalkulator</span>
-              </motion.div>
-            </motion.div>
+        {/* Hero — kartu finansial 3D di atas laut malam (lihat
+            components/landing/HeroLaut.tsx). Konten, CTA, dan CMS tetap di sini;
+            3D-nya hanya penguat visual dan punya fallback CSS bila WebGL mati. */}
+        <HeroLaut
+          eyebrow={c(cms?.heroBadge, "PINDAI · Pinjaman dan Gadai Digital")}
+          judul1={heroJudul1}
+          judul2={heroJudul2}
+          deskripsi={c(
+            cms?.heroSub,
+            "Kenali pilihan pinjaman dan gadai, pahami biaya serta ketentuannya, dan kelola pengajuan secara digital melalui PINDAI.",
+          )}
+          ctaUtama={{ label: accountCta, href: accountHref, disabled: isLoading }}
+          ctaSekunder={{ label: "Pelajari Cara Kerja", onClick: scrollToSteps }}
+          mikro="Informasi biaya, ketentuan, dan hasil pengajuan mengikuti produk serta proses verifikasi yang berlaku."
+          sudahMasuk={isAuthenticated}
+        />
 
-            <motion.div
-              initial={{ opacity: 0, y: 24, rotate: 1.5 }}
-              animate={{ opacity: 1, y: 0, rotate: 0 }}
-              transition={{ duration: 0.7, delay: 0.12, ease: EASE_OUT }}
-              whileHover={{ y: -4 }}
-              className="relative mx-auto w-full max-w-lg"
-            >
-              <div className="absolute -inset-3 rounded-[2rem] border border-[#b99b62]/35" aria-hidden="true" />
-              <div
-                aria-hidden="true"
-                className="animate-spin-slow pointer-events-none absolute -right-8 -top-10 size-32 rounded-full border border-dashed border-[#b99b62]/30"
-              />
-              <div className="relative overflow-hidden rounded-[1.75rem] bg-[#0f3d3a] p-5 text-[#f7f4ec] sm:p-8">
-                <div className="absolute -right-16 -top-24 size-64 rounded-full border border-white/10" aria-hidden="true" />
-                <div className="absolute -right-6 -top-14 size-44 rounded-full border border-[#cbb47e]/20" aria-hidden="true" />
-                <div className="relative">
-                  <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
-                    <div className="flex min-w-0 items-center gap-3">
-                      <VaultLogo size={46} />
-                      <div className="min-w-0">
-                        <p className="truncate text-[10px] font-semibold uppercase tracking-[0.2em] text-white/55">Ruang catatan PINDAI</p>
-                        <p className="mt-1 text-sm font-semibold">{c(cms?.chip1Label, CMS_DEFAULTS.chips.chip1.label)}</p>
-                      </div>
-                    </div>
-                    <span className="rounded-full border border-[#d8c28c]/35 bg-[#d8c28c]/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#e6d3a5]">Kalkulator</span>
-                  </div>
-                  <div className="mt-6 rounded-2xl border border-white/10 bg-white/[0.07] p-4 backdrop-blur-sm sm:mt-8 sm:p-6">
-                    <p className="text-xs text-white/60">{c(cms?.chip2Label, CMS_DEFAULTS.chips.chip2.label)}</p>
-                    <p className="mt-1 text-3xl font-semibold tracking-tight text-white sm:text-4xl">{c(cms?.chip2Nilai, CMS_DEFAULTS.chips.chip2.nilai)}</p>
-                    <div className="mt-4 grid grid-cols-2 gap-2.5 sm:mt-5 sm:gap-3">
-                      <div className="rounded-xl border border-white/10 bg-black/10 p-3">
-                        <p className="text-[10px] uppercase tracking-[0.13em] text-white/50">Hitung biaya</p>
-                        <p className="mt-1 text-sm font-medium">Terbuka di awal</p>
-                      </div>
-                      <div className="rounded-xl border border-white/10 bg-black/10 p-3">
-                        <p className="text-[10px] uppercase tracking-[0.13em] text-white/50">Status</p>
-                        <p className="mt-1 text-sm font-medium">Catatan internal</p>
-                      </div>
-                    </div>
-                  </div>
-                  <motion.ul
-                    initial="hidden"
-                    animate="show"
-                    variants={{ hidden: {}, show: { transition: { staggerChildren: 0.12, delayChildren: 0.55 } } }}
-                    className="mt-4 space-y-2"
-                  >
-                    {[
-                      ["Biaya tenor", "dipotong di muka"],
-                      ["Bunga", "flat dari pokok penuh"],
-                      ["Status", "catatan ledger internal"],
-                    ].map(([label, value]) => (
-                      <motion.li
-                        key={label}
-                        variants={{
-                          hidden: { opacity: 0, x: -10 },
-                          show: { opacity: 1, x: 0, transition: { duration: 0.45, ease: EASE_OUT } },
-                        }}
-                        className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-black/10 px-3.5 py-2 text-xs"
-                      >
-                        <span className="text-white/55">{label}</span>
-                        <span className="font-medium text-white/85">{value}</span>
-                      </motion.li>
-                    ))}
-                  </motion.ul>
-                  <div className="mt-5 flex items-start gap-3 border-t border-white/15 pt-4">
-                    <Eye className="mt-0.5 size-4 shrink-0 text-[#d8c28c]" />
-                    <p className="text-xs leading-5 text-white/65">Tercatat pada ledger internal PINDAI.</p>
-                  </div>
-                </div>
-              </div>
-              <motion.div
-                animate={{ y: [0, -5, 0] }}
-                transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
-                className="absolute -bottom-5 -left-2 flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2.5 text-xs font-semibold text-slate-700 sm:-left-7"
-              >
-                <ShieldCheck className="size-4 text-primary" /> Transparan sejak awal
-              </motion.div>
-            </motion.div>
-          </div>
-          <FactRibbon />
-        </section>
+        <FactRibbon />
 
         <PitaAngka />
 
@@ -1939,11 +1721,11 @@ export default function Landing() {
                 <SectionHeading
                   folio="04"
                   eyebrow="Alur pengajuan"
-                  title="Tiga langkah"
-                  description="Proses ringkas dengan angka yang sama seperti yang Anda lihat di kalkulator."
+                  title="Cara kerja"
+                  description="Lima langkah, dengan angka yang sama seperti yang Anda lihat di kalkulator."
                 />
               </Reveal>
-              <div className="relative mt-8">
+              <div id="cara-kerja" className="relative mt-8 scroll-mt-24">
                 <div aria-hidden="true" className="absolute bottom-3 left-5 top-3 w-px bg-slate-200" />
                 <motion.div
                   aria-hidden="true"

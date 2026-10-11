@@ -9,7 +9,7 @@ import { describe, expect, it } from "vitest";
 import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import schema from "./schema";
-import { siapkanPengguna, type KonteksUji } from "./test.helpers";
+import { siapkanPengguna, type KonteksUji, tanpaVersiConfig } from "./test.helpers";
 import { modules } from "./test.setup";
 import { DEFAULT_CONFIG } from "../lib/system-config";
 
@@ -99,7 +99,7 @@ describe("integrasi pinjaman ke ledger internal", () => {
     });
 
     await admin.mutation(api.system.saveConfig, {
-      ...DEFAULT_CONFIG,
+      ...tanpaVersiConfig(DEFAULT_CONFIG),
       persenBiayaIntegrasi: 5,
     });
     const loanId = await siapkanPinjaman(t, userId, 1_000_000, "disetujui");

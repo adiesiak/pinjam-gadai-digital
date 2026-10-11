@@ -10,6 +10,7 @@ import {
   type ThemePreset,
 } from "../lib/system-config";
 import { clampPlafon } from "../lib/plafon";
+import { bandingkanConfig, type PerubahanConfig } from "../lib/bandingkanConfig";
 import {
   AKSI_PER_JENIS,
   rangkumAuditHapus,
@@ -68,6 +69,7 @@ export async function getConfig(ctx: QueryCtx): Promise<SystemConfig> {
     .first();
   if (row === null) return { ...DEFAULT_CONFIG };
   return {
+    versi: row.versi ?? DEFAULT_CONFIG.versi,
     tema: row.tema ?? DEFAULT_CONFIG.tema,
     killSwitch: row.killSwitch ?? DEFAULT_CONFIG.killSwitch,
     maintenanceMode: row.maintenanceMode ?? DEFAULT_CONFIG.maintenanceMode,
@@ -220,7 +222,156 @@ export const auditPenghapusan = query({
   },
 });
 
-/** Simpan konfigurasi — mencatat audit + deteksi perubahan kill switch. */
+/** Konfigurasi tanpa nomor versi — bentuk yang divalidasi & disimpan. */
+type ConfigBersih = Omit<SystemConfig, "versi">;
+
+/** Masukan mentah: kolom teks boleh kosong/absen (dinormalkan menjadi ""). */
+type ConfigMasuk = Omit<
+  SystemConfig,
+  | "versi"
+  | "rekeningUsahaNama"
+  | "rekeningUsahaBank"
+  | "rekeningUsahaNomor"
+  | "qrisMerchantNama"
+  | "qrisImageId"
+> & {
+  rekeningUsahaNama?: string;
+  rekeningUsahaBank?: string;
+  rekeningUsahaNomor?: string;
+  qrisMerchantNama?: string;
+  qrisImageId?: Id<"_storage"> | null;
+};
+
+/**
+ * Validasi + normalkan masukan konfigurasi. SATU tempat dipakai oleh
+ * `saveConfig` MAUPUN `rollbackConfig`, supaya nilai lama yang dipulihkan
+ * melewati pemeriksaan yang sama dengan nilai baru — bukan jalan pintas.
+ */
+async function bersihkanConfigMasuk(
+  ctx: MutationCtx,
+  input: ConfigMasuk,
+): Promise<ConfigBersih> {
+  if (
+    input.persenAdmin < 0 ||
+    input.persenPlatform < 0 ||
+    input.persenBunga < 0 ||
+    input.persenBiayaIntegrasi < 0
+  ) {
+    throw new Error("Persentase biaya/bunga tidak boleh negatif.");
+  }
+  if (input.persenBiayaIntegrasi > 100) {
+    throw new Error("Biaya integrasi pinjaman lama tidak boleh lebih dari 100%.");
+  }
+  if (!Number.isSafeInteger(input.lokasiMaxUmurMenit) || input.lokasiMaxUmurMenit < 1) {
+    throw new Error("Batas umur lokasi harus minimal 1 menit.");
+  }
+  if (input.maxLtvPersen <= 0 || input.maxLtvPersen > 100) {
+    throw new Error("LTV maksimum harus di antara 1–100%.");
+  }
+  if (
+    !Number.isSafeInteger(input.retensiLokasiHari) ||
+    input.retensiLokasiHari < RETENSI_LOKASI_BATAS.min ||
+    input.retensiLokasiHari > RETENSI_LOKASI_BATAS.maks
+  ) {
+    throw new Error(
+      `Retensi jejak lokasi harus ${RETENSI_LOKASI_BATAS.min}–${RETENSI_LOKASI_BATAS.maks} hari.`,
+    );
+  }
+  const nomorUsaha = (input.rekeningUsahaNomor ?? "").trim();
+  const digitsOnly = Array.from(nomorUsaha).every(
+    (character) => character >= "0" && character <= "9",
+  );
+  if (nomorUsaha !== "" && (nomorUsaha.length < 6 || nomorUsaha.length > 20 || !digitsOnly)) {
+    throw new Error("Nomor rekening usaha harus 6–20 digit angka.");
+  }
+  if (input.qrisImageId) {
+    const metadata = await ctx.storage.getMetadata(input.qrisImageId);
+    if (
+      !metadata ||
+      metadata.size > 5_000_000 ||
+      !["image/jpeg", "image/png", "image/webp"].includes(metadata.contentType ?? "")
+    ) {
+      throw new Error("QRIS harus berupa gambar JPG, PNG, atau WebP maksimal 5 MB.");
+    }
+  }
+  return {
+    ...input,
+    qrisImageId: input.qrisImageId ?? null,
+    plafonPinjaman: clampPlafon(input.plafonPinjaman),
+    rekeningUsahaNama: (input.rekeningUsahaNama ?? "").trim(),
+    rekeningUsahaBank: (input.rekeningUsahaBank ?? "").trim(),
+    rekeningUsahaNomor: nomorUsaha,
+    qrisMerchantNama: (input.qrisMerchantNama ?? "").trim(),
+  };
+}
+
+/** Tulis konfigurasi yang BERLAKU beserta nomor versinya. */
+async function tulisConfigBerlaku(
+  ctx: MutationCtx,
+  cfg: ConfigBersih,
+  versi: number,
+  now: number,
+): Promise<void> {
+  const existing = await ctx.db
+    .query("systemConfig")
+    .withIndex("by_slot", (q) => q.eq("slot", SYSTEM_SLOT))
+    .first();
+  const patch = { slot: SYSTEM_SLOT, ...cfg, versi, diperbaruiPada: now };
+  if (existing === null) {
+    await ctx.db.insert("systemConfig", patch);
+  } else {
+    await ctx.db.patch(existing._id, patch);
+  }
+}
+
+/** Catat satu baris riwayat (append-only) berisi snapshot lama & baru. */
+/** Snapshot konfigurasi untuk dibandingkan — tanpa `versi` (metadata). */
+function tanpaKunciVersi(config: ConfigBersih): Record<string, unknown> {
+  return Object.fromEntries(
+    Object.entries(config as unknown as Record<string, unknown>).filter(
+      ([kunci]) => kunci !== "versi",
+    ),
+  );
+}
+
+async function catatRiwayatConfig(
+  ctx: MutationCtx,
+  opsi: {
+    versi: number;
+    jenis: "simpan" | "rollback";
+    dariVersi?: number;
+    sebelum: ConfigBersih;
+    sesudah: ConfigBersih;
+    berlakuSejak: number;
+    diubahOleh: string;
+    diubahOlehUserId?: Id<"users">;
+    catatan?: string;
+  },
+): Promise<void> {
+  // `versi` adalah metadata baris ini sendiri (selalu naik), bukan pengaturan
+  // yang diubah admin — dibuang dari daftar perubahan supaya riwayat hanya
+  // menampilkan keputusan yang benar-benar diambil.
+  const perubahan = bandingkanConfig(
+    tanpaKunciVersi(opsi.sebelum),
+    tanpaKunciVersi(opsi.sesudah),
+  );
+  await ctx.db.insert("configRiwayat", {
+    slot: SYSTEM_SLOT,
+    versi: opsi.versi,
+    jenis: opsi.jenis,
+    ...(opsi.dariVersi !== undefined ? { dariVersi: opsi.dariVersi } : {}),
+    berlakuSejak: opsi.berlakuSejak,
+    diubahOleh: opsi.diubahOleh,
+    ...(opsi.diubahOlehUserId !== undefined ? { diubahOlehUserId: opsi.diubahOlehUserId } : {}),
+    ...(opsi.catatan !== undefined && opsi.catatan !== "" ? { catatan: opsi.catatan } : {}),
+    sebelumJson: JSON.stringify(opsi.sebelum),
+    sesudahJson: JSON.stringify(opsi.sesudah),
+    perubahanJson: JSON.stringify(perubahan),
+    dibuatPada: Date.now(),
+  });
+}
+
+/** Simpan konfigurasi — mencatat versi baru + riwayat + audit. */
 export const saveConfig = mutation({
   args: {
     tema: v.union(
@@ -256,73 +407,142 @@ export const saveConfig = mutation({
   },
   handler: async (ctx, args) => {
     const { userId, user } = await requireAdmin(ctx);
-    if (
-      args.persenAdmin < 0 ||
-      args.persenPlatform < 0 ||
-      args.persenBunga < 0 ||
-      args.persenBiayaIntegrasi < 0
-    ) {
-      throw new Error("Persentase biaya/bunga tidak boleh negatif.");
-    }
-    if (args.persenBiayaIntegrasi > 100) {
-      throw new Error("Biaya integrasi pinjaman lama tidak boleh lebih dari 100%.");
-    }
-    if (!Number.isSafeInteger(args.lokasiMaxUmurMenit) || args.lokasiMaxUmurMenit < 1) {
-      throw new Error("Batas umur lokasi harus minimal 1 menit.");
-    }
-    if (args.maxLtvPersen <= 0 || args.maxLtvPersen > 100) {
-      throw new Error("LTV maksimum harus di antara 1–100%.");
-    }
-    if (
-      !Number.isSafeInteger(args.retensiLokasiHari) ||
-      args.retensiLokasiHari < RETENSI_LOKASI_BATAS.min ||
-      args.retensiLokasiHari > RETENSI_LOKASI_BATAS.maks
-    ) {
-      throw new Error(
-        `Retensi jejak lokasi harus ${RETENSI_LOKASI_BATAS.min}–${RETENSI_LOKASI_BATAS.maks} hari.`,
-      );
-    }
-    // Plafon global: disimpan ter-clamp (bukan ditolak) supaya tetap sah.
-    args.plafonPinjaman = clampPlafon(args.plafonPinjaman);
-    const nomorUsaha = (args.rekeningUsahaNomor ?? "").trim();
-    const digitsOnly = Array.from(nomorUsaha).every((character) => character >= "0" && character <= "9");
-    if (nomorUsaha !== "" && (nomorUsaha.length < 6 || nomorUsaha.length > 20 || !digitsOnly)) {
-      throw new Error("Nomor rekening usaha harus 6–20 digit angka.");
-    }
-    args.rekeningUsahaNama = args.rekeningUsahaNama?.trim() ?? "";
-    args.rekeningUsahaBank = args.rekeningUsahaBank?.trim() ?? "";
-    args.rekeningUsahaNomor = nomorUsaha;
-    args.qrisMerchantNama = args.qrisMerchantNama?.trim() ?? "";
-    if (args.qrisImageId) {
-      const metadata = await ctx.storage.getMetadata(args.qrisImageId);
-      if (!metadata || metadata.size > 5_000_000 ||
-        !["image/jpeg", "image/png", "image/webp"].includes(metadata.contentType ?? "")) {
-        throw new Error("QRIS harus berupa gambar JPG, PNG, atau WebP maksimal 5 MB.");
-      }
-    }
     const label = user.email ?? user.name ?? "admin";
+    const bersih = await bersihkanConfigMasuk(ctx, {
+      tema: args.tema,
+      killSwitch: args.killSwitch,
+      maintenanceMode: args.maintenanceMode,
+      persenAdmin: args.persenAdmin,
+      persenPlatform: args.persenPlatform,
+      persenBunga: args.persenBunga,
+      persenBiayaIntegrasi: args.persenBiayaIntegrasi,
+      maxLtvPersen: args.maxLtvPersen,
+      sessionTimeoutMenit: args.sessionTimeoutMenit,
+      vaultLat: args.vaultLat,
+      vaultLng: args.vaultLng,
+      gpsMismatchKm: args.gpsMismatchKm,
+      pencairanMaxKm: args.pencairanMaxKm,
+      lokasiWajib: args.lokasiWajib,
+      lokasiMaxUmurMenit: args.lokasiMaxUmurMenit,
+      wajibAplikasiNative: args.wajibAplikasiNative,
+      retensiLokasiHari: args.retensiLokasiHari,
+      plafonPinjaman: args.plafonPinjaman,
+      rekeningUsahaNama: args.rekeningUsahaNama,
+      rekeningUsahaBank: args.rekeningUsahaBank,
+      rekeningUsahaNomor: args.rekeningUsahaNomor,
+      qrisMerchantNama: args.qrisMerchantNama,
+      qrisImageId: args.qrisImageId,
+      manualDepositEnabled: args.manualDepositEnabled,
+    });
     const prev = await getConfig(ctx);
-    const existing = await ctx.db
-      .query("systemConfig")
-      .withIndex("by_slot", (q) => q.eq("slot", SYSTEM_SLOT))
-      .first();
-    const patch = { slot: SYSTEM_SLOT, ...args, diperbaruiPada: Date.now() };
-    if (existing === null) {
-      await ctx.db.insert("systemConfig", patch);
-    } else {
-      await ctx.db.patch(existing._id, patch);
-    }
+    const now = Date.now();
+    const versi = prev.versi + 1;
+    await tulisConfigBerlaku(ctx, bersih, versi, now);
+    await catatRiwayatConfig(ctx, {
+      versi,
+      jenis: "simpan",
+      sebelum: prev,
+      sesudah: bersih,
+      berlakuSejak: now,
+      diubahOleh: label,
+      diubahOlehUserId: userId,
+    });
+    const killBerubah = bersih.killSwitch !== prev.killSwitch;
     await audit(
       ctx,
       userId,
       label,
-      args.killSwitch !== prev.killSwitch ? "kill_switch" : "ubah_config",
+      killBerubah ? "kill_switch" : "ubah_config",
       "systemConfig",
-      args.killSwitch !== prev.killSwitch
-        ? `Kill switch ${args.killSwitch ? "DIAKTIFKAN" : "DINONAKTIFKAN"}`
-        : "Konfigurasi sistem diperbarui",
+      killBerubah
+        ? `Kill switch ${bersih.killSwitch ? "DIAKTIFKAN" : "DINONAKTIFKAN"} (versi ${versi})`
+        : `Konfigurasi sistem diperbarui ke versi ${versi}`,
     );
-    return { ok: true };
+    return { ok: true as const, versi };
+  },
+});
+
+/**
+ * Riwayat versi konfigurasi (terbaru lebih dulu).
+ *
+ * Menyajikan `lama → baru` per kunci (hasil `bandingkanConfig`) supaya panel
+ * admin tidak perlu menghitung selisih di klien. Nilai sensitif tidak ada di
+ * konfigurasi ini, jadi snapshot boleh dikembalikan apa adanya kepada admin.
+ */
+export const riwayatConfig = query({
+  args: { batas: v.optional(v.number()) },
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx);
+    const batas = Math.min(Math.max(args.batas ?? 25, 1), 100);
+    const rows = await ctx.db
+      .query("configRiwayat")
+      .withIndex("by_slot_dibuatPada", (q) => q.eq("slot", SYSTEM_SLOT))
+      .order("desc")
+      .take(batas);
+    return rows.map((r) => ({
+      versi: r.versi,
+      jenis: r.jenis,
+      dariVersi: r.dariVersi ?? null,
+      berlakuSejak: r.berlakuSejak,
+      diubahOleh: r.diubahOleh,
+      catatan: r.catatan ?? null,
+      dibuatPada: r.dibuatPada,
+      perubahan: JSON.parse(r.perubahanJson) as PerubahanConfig[],
+    }));
+  },
+});
+
+/**
+ * Kembalikan konfigurasi ke NILAI versi tertentu sebagai VERSI BARU.
+ *
+ * Riwayat tidak pernah ditulis ulang: rollback menambah baris versi baru yang
+ * menyalin nilai versi lama, dengan `dariVersi` sebagai jejak asal. Nilai yang
+ * dipulihkan melewati validasi yang sama dengan penyimpanan biasa. Transaksi
+ * yang sudah tercatat tetap memakai snapshot parameternya sendiri, sehingga
+ * rollback hanya memengaruhi pengajuan BARU.
+ */
+export const rollbackConfig = mutation({
+  args: { versi: v.number(), catatan: v.optional(v.string()) },
+  handler: async (ctx, args) => {
+    const { userId, user } = await requireAdmin(ctx);
+    const label = user.email ?? user.name ?? "admin";
+    const target = await ctx.db
+      .query("configRiwayat")
+      .withIndex("by_slot_versi", (q) => q.eq("slot", SYSTEM_SLOT).eq("versi", args.versi))
+      .first();
+    if (target === null) {
+      throw new Error(`Versi ${args.versi} tidak ada di riwayat konfigurasi.`);
+    }
+    const snapshot = JSON.parse(target.sesudahJson) as ConfigBersih;
+    const bersih = await bersihkanConfigMasuk(ctx, snapshot);
+    const prev = await getConfig(ctx);
+    if (prev.versi === args.versi) {
+      throw new Error(`Versi ${args.versi} sedang berlaku — tidak ada yang perlu dikembalikan.`);
+    }
+    const now = Date.now();
+    const versiBaru = prev.versi + 1;
+    await tulisConfigBerlaku(ctx, bersih, versiBaru, now);
+    const catatan = args.catatan?.trim();
+    await catatRiwayatConfig(ctx, {
+      versi: versiBaru,
+      jenis: "rollback",
+      dariVersi: args.versi,
+      sebelum: prev,
+      sesudah: bersih,
+      berlakuSejak: now,
+      diubahOleh: label,
+      diubahOlehUserId: userId,
+      catatan: catatan && catatan !== "" ? catatan : `Rollback ke nilai versi ${args.versi}`,
+    });
+    await audit(
+      ctx,
+      userId,
+      label,
+      "rollback_config",
+      "systemConfig",
+      `Konfigurasi dikembalikan ke nilai versi ${args.versi} sebagai versi baru ${versiBaru}. Riwayat lama tidak diubah; transaksi lama tetap memakai snapshot parameternya.`,
+    );
+    return { ok: true as const, versi: versiBaru };
   },
 });
 

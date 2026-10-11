@@ -30,6 +30,7 @@ import {
   TombolBuatPengajuan,
 } from "./dashboard/form-pengajuan-views";
 import { GadaiBillingSection } from "./dashboard/gadai-views";
+import { HelpdeskSayaView } from "./dashboard/helpdesk-views";
 import { HistorySection } from "./dashboard/history-views";
 import { ActiveLoanSection, ScheduleSection } from "./dashboard/loan-views";
 import { DueReminderBanner, LokasiPeringatanBanner } from "./dashboard/notice-views";
@@ -132,6 +133,10 @@ export default function Dashboard() {
   // menahan seluruh dashboard saat masih dimuat: tanpa data, tabnya cukup tanpa
   // lencana.
   const kyc = useQuery(api.kyc.kycSaya, argsPeminjam);
+  // Notifikasi dibaca untuk LENCANA tab Bantuan: jumlah kabar pengaduan yang
+  // belum dibaca. Query yang sama sudah dipakai lonceng di header, jadi Convex
+  // melayani satu langganan (bukan dua permintaan terpisah).
+  const notifikasi = useQuery(api.notifikasi.daftar, argsPeminjam);
 
   const [loanDetailId, setLoanDetailId] = useState<Id<"loans"> | null>(null);
   const [pawnDetailId, setPawnDetailId] = useState<Id<"pawns"> | null>(null);
@@ -235,6 +240,15 @@ export default function Dashboard() {
   const jumlahKontrak = contracts ? contracts.pinjaman.length + contracts.gadai.length : 0;
 
   const tabBadges: Partial<Record<string, TabBadge>> = {};
+  // Kabar pengaduan dikenali dari tautannya — satu-satunya tujuan yang menunjuk
+  // tab Bantuan. Lencana hanya muncul bila ada yang belum dibaca.
+  const kabarBantuan =
+    notifikasi === undefined
+      ? 0
+      : notifikasi.item.filter(
+          (n) => !n.dibaca && n.tautan === "/dashboard?tab=bantuan",
+        ).length;
+  if (kabarBantuan > 0) tabBadges.bantuan = { count: kabarBantuan, tone: "warning" };
   if (pinjamanAktif > 0) tabBadges.pinjaman = { count: pinjamanAktif };
   if (tagihanTerlambat > 0) tabBadges.jadwal = { count: tagihanTerlambat, tone: "danger" };
   else if (tagihanDekat > 0) tabBadges.jadwal = { count: tagihanDekat, tone: "warning" };
@@ -356,6 +370,7 @@ export default function Dashboard() {
                   <FormPengajuanSection
                     jenis={jenisPengajuan}
                     onUbahJenis={setJenisPengajuan}
+                    onBukaKyc={() => gantiTab("kyc")}
                   />
                 </TabsContent>
 
@@ -383,6 +398,16 @@ export default function Dashboard() {
                     />
                     <ManualPaymentEvidenceHistory />
                   </div>
+                </TabsContent>
+
+                {/* ============ TAB 7: BANTUAN (pengaduan nasabah) ============ */}
+                <TabsContent value="bantuan" className="mt-8 animate-masuk">
+                  <HelpdeskSayaView
+                    loans={(loans ?? []).map((l) => ({
+                      _id: l._id,
+                      nomorReferensi: l.nomorReferensi,
+                    }))}
+                  />
                 </TabsContent>
               </>
             )}

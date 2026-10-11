@@ -16,6 +16,7 @@ import {
 } from "@/lib/system-config";
 
 import { PanelMemuat } from "./admin-shared";
+import { RiwayatConfigPanel } from "./RiwayatConfigPanel";
 
 export function SystemConfigPanel() {
   const data = useQuery(api.system.getConfigAdmin);
@@ -294,6 +295,7 @@ export function SystemConfigPanel() {
           <p className="mt-1 text-sm font-medium text-navy">{data.diperbaruiOleh}</p>
         </div>
       </div>
+      <RiwayatConfigPanel />
     </div>
   );
 }

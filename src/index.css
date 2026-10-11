@@ -1448,3 +1448,221 @@
     animation: none;
   }
 }
+
+/* =====================================================================
+ * HERO LAUT — kartu finansial 3D di atas laut malam.
+ *
+ * Dipakai oleh `components/landing/HeroLaut.tsx`. Ditulis sebagai CSS biasa
+ * (bukan utilitas Tailwind) karena berisi gradient bertumpuk, bayangan
+ * berlapis, dan animasi riak yang lebih ringkas di sini ketimbang sebagai
+ * kelas arbitrer yang panjang.
+ *
+ * WARNA — identitas hijau PINDAI. Hero adalah OBJEK MEREK gelap, jadi token
+ * warnanya sengaja NILAI TETAP, bukan `--primary` (yang berubah antar tema:
+ * pesisir biru, terakota cokelat, dst). Hero harus tetap hijau PINDAI di tema
+ * mana pun. Nilai diambil dari merek yang sudah ada di repo: hijau PINDAI
+ * `#0f3d3a` (VaultLogo & `--primary` tema bawaan), aksen `#1f6a62` (`sky-600`),
+ * emerald dalam `#082724` (`sky-950`), dan kuningan `#c9a86a` / `#e6d3a5`.
+ * Biru hanya tersisa sebagai cahaya bulan (pendukung), bukan warna dominan.
+ *
+ * 3D-nya CSS murni: `perspective` di panggung, tilt di anaknya. Tidak ada
+ * library 3D dan tidak ada layout yang bergantung pada efek ini.
+ * ===================================================================== */
+
+.hero-laut {
+  --pindai-ink: #04100c; /* near-black hijau — langit & latar hero */
+  --pindai-deep: #082724; /* emerald dalam */
+  --pindai-green: #0f3d3a; /* hijau PINDAI (merek) */
+  --pindai-green-terang: #1f6a62; /* aksen hijau */
+  --pindai-brass: #c9a86a; /* kuningan */
+  --pindai-brass-terang: #e6d3a5; /* kuningan terang (teks aksen) */
+}
+
+/* Langit + horizon dasar. Selalu tampil; ini juga latar fallback WebGL. */
+.laut-dasar {
+  background:
+    radial-gradient(70% 45% at 30% 60%, rgba(15, 61, 58, 0.62), transparent 70%),
+    radial-gradient(42% 30% at 22% 40%, rgba(190, 208, 255, 0.08), transparent 70%),
+    linear-gradient(180deg, #04100c 0%, #06201c 38%, #030d0a 46%, #04100c 100%);
+}
+
+/* Permukaan laut versi CSS — dipakai saat WebGL tidak tersedia/gagal. */
+.laut-fallback {
+  background:
+    radial-gradient(60% 40% at 30% 44%, rgba(31, 106, 98, 0.18), transparent 70%),
+    linear-gradient(
+      180deg,
+      transparent 45%,
+      rgba(8, 32, 28, 0.9) 46%,
+      rgba(4, 16, 12, 0.95) 100%
+    );
+}
+
+/* Riak CSS (fallback). Beberapa cincin tipis yang meluruh pelan. */
+.laut-riak-css {
+  position: absolute;
+  top: 44%;
+  left: 50%;
+  width: 12rem;
+  height: 12rem;
+  margin: -6rem 0 0 -6rem;
+  border-radius: 9999px;
+  border: 1px solid rgba(150, 224, 202, 0.22);
+  opacity: 0;
+  animation: pindai-riak 6.5s ease-out infinite;
+}
+.laut-riak-css--2 {
+  animation-delay: 2.1s;
+}
+.laut-riak-css--3 {
+  animation-delay: 4.2s;
+}
+@media (min-width: 1024px) {
+  .laut-riak-css {
+    left: 68%;
+  }
+}
+@keyframes pindai-riak {
+  0% {
+    transform: scale(0.35);
+    opacity: 0;
+  }
+  22% {
+    opacity: 0.5;
+  }
+  100% {
+    transform: scale(1.65);
+    opacity: 0;
+  }
+}
+
+/* Panggung & kartu 3D.
+   `touch-action: pan-y` = vertikal tetap menggulir halaman, sedangkan geser
+   HORIZONTAL di area kartu diserahkan ke kita (tilt). Ini yang membuat
+   interaksi sentuh tidak pernah mengunci scroll. */
+.kartu-panggung {
+  perspective: 1200px;
+  touch-action: pan-y;
+  cursor: grab;
+}
+.kartu-panggung:active {
+  cursor: grabbing;
+}
+.kartu-3d {
+  position: relative;
+  transform-style: preserve-3d;
+  transform: rotateX(0deg) rotateY(0deg);
+  will-change: transform;
+  border-radius: 1.5rem;
+}
+
+/* Muka kartu — hijau PINDAI dalam + tepi brass. Objek merek, bukan alat bayar. */
+.kartu-3d__muka {
+  position: relative;
+  display: flex;
+  aspect-ratio: 1.6 / 1;
+  min-height: 13rem;
+  flex-direction: column;
+  justify-content: space-between;
+  overflow: hidden;
+  border-radius: 1.5rem;
+  border: 1px solid rgba(201, 168, 106, 0.35);
+  padding: 1.5rem;
+  background:
+    radial-gradient(120% 90% at 14% 0%, rgba(31, 106, 98, 0.45), transparent 55%),
+    linear-gradient(155deg, #0e3b35 0%, #0a2a25 45%, #061713 100%);
+  box-shadow:
+    0 30px 60px -30px rgba(0, 0, 0, 0.9),
+    0 22px 52px -30px rgba(31, 106, 98, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  transition: box-shadow 0.35s ease;
+}
+
+/* Kartu terangkat → glow hijau PINDAI naik, bayangan lebih dalam. */
+.kartu-3d--naik .kartu-3d__muka {
+  box-shadow:
+    0 42px 80px -34px rgba(0, 0, 0, 0.92),
+    0 28px 64px -28px rgba(31, 106, 98, 0.72),
+    inset 0 1px 0 rgba(255, 255, 255, 0.13);
+}
+
+/* Tepi brass + kilau statis pada permukaan. */
+.kartu-3d__tepi {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  box-shadow: inset 0 0 0 1px rgba(226, 199, 140, 0.16);
+  background: linear-gradient(
+    120deg,
+    rgba(226, 199, 140, 0.14),
+    transparent 30%,
+    transparent 70%,
+    rgba(226, 199, 140, 0.1)
+  );
+}
+
+/* Chip brass dekoratif. */
+.kartu-3d__chip {
+  display: grid;
+  width: 2.6rem;
+  height: 2rem;
+  place-items: center;
+  border-radius: 0.45rem;
+  background: linear-gradient(135deg, #d8bd83, #9c7c3f 60%, #c8a865);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.25),
+    0 4px 10px -6px rgba(0, 0, 0, 0.8);
+}
+.kartu-3d__chip span {
+  display: block;
+  width: 60%;
+  height: 1px;
+  background: rgba(60, 42, 18, 0.5);
+}
+
+/* Kilau yang mengikuti pointer (posisi dari variabel --mx/--my). Nuansa hijau
+   lembut + sedikit kuningan, bukan sorotan putih dingin. */
+.kartu-3d__kilau {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.35s ease;
+  mix-blend-mode: screen;
+  background: radial-gradient(
+    circle at var(--mx, 50%) var(--my, 50%),
+    rgba(214, 255, 240, 0.22),
+    rgba(150, 224, 202, 0.08) 32%,
+    transparent 60%
+  );
+}
+
+/* Bayangan/refleksi lembut di bawah kartu (kesan memantul di air). */
+.kartu-3d__bayangan {
+  height: 5rem;
+  max-width: 88%;
+  margin: 0.5rem auto 0;
+  border-radius: 1.5rem;
+  background: linear-gradient(180deg, rgba(31, 106, 98, 0.34), transparent 82%);
+  filter: blur(16px);
+  opacity: 0.55;
+}
+
+/* Reduced motion: kartu diam, riak CSS mati, kilau tidak beranimasi. */
+@media (prefers-reduced-motion: reduce) {
+  .laut-riak-css {
+    animation: none;
+    opacity: 0.25;
+  }
+  .kartu-3d {
+    transform: none !important;
+  }
+  .kartu-3d__kilau {
+    transition: none;
+  }
+  .kartu-3d__muka {
+    transition: none;
+  }
+}

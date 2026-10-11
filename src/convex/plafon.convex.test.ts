@@ -20,8 +20,33 @@ import { describe, expect, it } from "vitest";
 import { api } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import schema from "./schema";
-import { siapkanPengguna, type KonteksUji, type SesiUji } from "./test.helpers";
+import {
+  seedKycTerverifikasi,
+  siapkanPengguna as siapkanPenggunaDasar,
+  type KonteksUji,
+  type SesiUji,
+  tanpaVersiConfig,
+} from "./test.helpers";
 import { modules } from "./test.setup";
+
+/**
+ * `siapkanPengguna` + KYC `VERIFIED` untuk peran peminjam.
+ *
+ * Sejak gerbang KYC dipasang (`requireKycTerverifikasi`), pengajuan finansial
+ * hanya dilayani bila modul KYC nasabah sudah VERIFIED. Berkas ini menguji
+ * plafon, bukan KYC, jadi peminjamnya selalu siap-KYC; gerbang KYC sendiri
+ * diuji di `kyc.convex.test.ts`.
+ */
+async function siapkanPengguna(
+  t: Parameters<typeof siapkanPenggunaDasar>[0],
+  nama: string,
+  opsi: Parameters<typeof siapkanPenggunaDasar>[2],
+): ReturnType<typeof siapkanPenggunaDasar> {
+  const hasil = await siapkanPenggunaDasar(t, nama, opsi);
+  if (opsi.role === "peminjam") await seedKycTerverifikasi(t, hasil.userId);
+  return hasil;
+}
+
 import { PLAFON_BATAS, PLAFON_DEFAULT } from "../lib/plafon";
 import { DEFAULT_CONFIG } from "../lib/system-config";
 import { CONTRACT_TERMS_VERSION } from "../lib/contract";
@@ -706,7 +731,7 @@ describe("plafon pinjaman per nasabah", () => {
     });
 
     await admin.mutation(api.system.saveConfig, {
-      ...DEFAULT_CONFIG,
+      ...tanpaVersiConfig(DEFAULT_CONFIG),
       plafonPinjaman: 999_000_000,
     });
     const jejak = await admin.query(api.system.getConfigAdmin, {});

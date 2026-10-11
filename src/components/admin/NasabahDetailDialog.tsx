@@ -18,6 +18,7 @@ import type { Id } from "@/convex/_generated/dataModel";
 import { LABEL_STATUS_KYC, NADA_STATUS_KYC, type StatusKyc } from "@/lib/kycStatus";
 import { formatRupiah } from "@/lib/money";
 import { formatDate } from "./admin-format";
+import { PanelRisikoNasabah } from "./PanelRisikoNasabah";
 
 /**
  * DETAIL NASABAH (panel admin) — satu pintu yang memisahkan MASTER nasabah dari
@@ -89,14 +90,15 @@ export function NasabahDetailDialog({
               </div>
               <Badge
                 className={
-                  detail.profilRisiko.kategori === "TINGGI"
+                  detail.risiko.gradeEfektif === "D" || detail.risiko.gradeEfektif === "E"
                     ? "border-destructive/30 bg-destructive/10 text-destructive"
-                    : detail.profilRisiko.kategori === "BARU"
-                      ? "border-slate-200 bg-slate-100 text-slate-600"
+                    : detail.risiko.gradeEfektif === "C"
+                      ? "border-amber-200 bg-amber-50 text-amber-700"
                       : "border-emerald-200 bg-emerald-100 text-emerald-700"
                 }
               >
-                Risiko {detail.profilRisiko.kategori} · {detail.profilRisiko.skor}/100
+                Risiko {detail.profilRisiko.kategori} · grade {detail.risiko.gradeEfektif} ·{" "}
+                {detail.profilRisiko.skor}/100
               </Badge>
             </div>
 
@@ -135,21 +137,15 @@ export function NasabahDetailDialog({
               <Kartu kecil label="Tepat waktu" nilai={`${detail.ringkasan.pelunasanTepatWaktu}`} />
             </section>
 
-            {/* ===== Profil risiko ===== */}
-            <section className="rounded-2xl border border-slate-200 bg-white p-3">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-                Penilaian risiko nasabah
-              </p>
-              <ul className="mt-2 space-y-1 text-xs text-muted-foreground">
-                {detail.profilRisiko.faktor.map((f) => (
-                  <li key={f}>· {f}</li>
-                ))}
-              </ul>
-              <p className="mt-2 text-[10px] leading-4 text-muted-foreground">
-                Skor ini alat bantu tampilan dari riwayat tersimpan — bukan keputusan
-                otomatis, dan tetap ditinjau petugas.
-              </p>
-            </section>
+            {/* ===== Profil risiko (berbobot + override berjejak) ===== */}
+            <PanelRisikoNasabah
+              userId={userId}
+              dinilai={detail.profilRisiko.dinilai}
+              skor={detail.profilRisiko.skor}
+              komponen={detail.profilRisiko.komponen}
+              risiko={detail.risiko}
+              riwayatOverride={detail.riwayatOverrideRisiko}
+            />
 
             {/* ===== Lihat KYC (opt-in, ber-otorisasi) ===== */}
             <section className="rounded-2xl border border-slate-200 bg-white p-3">

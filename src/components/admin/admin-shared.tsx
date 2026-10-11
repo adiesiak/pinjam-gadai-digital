@@ -25,7 +25,14 @@ export type LoanRow = {
   /** Bunga khusus nasabah (persen); null = default Pengaturan Sistem. */
   persenBunga: number | null;
   tujuan: string;
-  status: "diajukan" | "sedang_direview" | "disetujui" | "ditolak" | "didanai" | "lunas";
+  status:
+    | "diajukan"
+    | "sedang_direview"
+    | "disetujui"
+    | "ditolak"
+    | "dibatalkan"
+    | "didanai"
+    | "lunas";
   catatanReview?: string;
   namaLengkap: string;
   namaBank: string | null;

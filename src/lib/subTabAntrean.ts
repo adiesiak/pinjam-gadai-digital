@@ -53,6 +53,12 @@ export const SUB_TAB_PINJAMAN: readonly OpsiSubTab<LoanRow>[] = [
     cocok: (pinjaman) => pinjaman.status === "ditolak",
   },
   {
+    id: "dibatalkan",
+    label: "Dibatalkan",
+    hint: "Pengajuan yang ditarik nasabah sebelum dana ditandai tersalurkan — bukan utang.",
+    cocok: (pinjaman) => pinjaman.status === "dibatalkan",
+  },
+  {
     id: "lunas",
     label: "Lunas",
     hint: "Kewajiban yang sudah selesai di ledger internal.",

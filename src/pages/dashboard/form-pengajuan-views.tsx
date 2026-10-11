@@ -161,9 +161,12 @@ export function TombolBuatPengajuan({
 export function FormPengajuanSection({
   jenis,
   onUbahJenis,
+  onBukaKyc,
 }: {
   jenis: JenisPengajuan;
   onUbahJenis: (jenis: JenisPengajuan) => void;
+  /** Pindah ke tab Verifikasi KYC — dipakai gerbang KYC di tiap formulir. */
+  onBukaKyc?: () => void;
 }) {
   const aktif = jenisPengajuanAktif(jenis);
 
@@ -197,6 +200,7 @@ export function FormPengajuanSection({
       <div key={aktif.id} className="mt-6 min-w-0 animate-masuk">
         {aktif.id === "pinjaman" && (
           <LoanForm
+            onBukaKyc={onBukaKyc}
             onCreated={(ref) =>
               toast.success(`Catatan pengajuan tersimpan — referensi ${ref}.`)
             }
@@ -204,6 +208,7 @@ export function FormPengajuanSection({
         )}
         {aktif.id === "gadai" && (
           <PawnForm
+            onBukaKyc={onBukaKyc}
             onCreated={() =>
               toast.success("Catatan pengajuan gadai tersimpan pada ledger internal.")
             }
@@ -212,6 +217,7 @@ export function FormPengajuanSection({
         {aktif.id === "kredit" && (
           <div className="space-y-8">
             <KreditBarangForm
+              onBukaKyc={onBukaKyc}
               onCreated={(ref) =>
                 toast.success(
                   `Catatan pengajuan kredit barang tersimpan — referensi ${ref}.`,

@@ -51,10 +51,18 @@ import { getConfig, audit } from "./system";
 import { requireGerbangLokasi } from "./lokasi";
 import { requireAdminSession } from "./adminAuthz";
 import { ensureKodePeminjam } from "./peminjamCode";
+import { requireKycTerverifikasi } from "./kyc";
+import {
+  ambilHasilIdempoten,
+  kunciIdempotensiValidator,
+  simpanHasilIdempoten,
+} from "./idempotensi";
 import { rejectUnverifiedMoneyMovement } from "./paymentGuard";
 import {
+  bolehDibatalkan,
   diTahapTinjauan,
   keStatusTersimpan,
+  labelStatusPinjaman,
   nominalDisetujui,
   nominalTerkunci,
   validasiUbahStatus,
@@ -307,10 +315,25 @@ export const createLoanApplication = mutation({
       akurasi: v.number(),
       waktu: v.number(),
     }),
+    /**
+     * Kunci idempotensi opsional — pengiriman ulang karena jaringan dengan
+     * kunci yang sama mengembalikan pengajuan yang SAMA, bukan yang kedua.
+     */
+    kunciIdempotensi: kunciIdempotensiValidator,
   },
   returns: v.object({ appId: v.id("loans"), nomorReferensi: v.string() }),
   handler: async (ctx, args) => {
     const { userId, user } = await requirePeminjam(ctx);
+    // Gerbang KYC wajib: pengajuan finansial hanya dilayani bila modul KYC
+    // nasabah sudah VERIFIED (diperiksa server, bukan dari klien).
+    // Pengiriman ulang (retry jaringan / tombol ganda) tidak boleh melahirkan
+    // pengajuan kedua: kunci yang sama mengembalikan hasil yang sama.
+    const hasilLama = await ambilHasilIdempoten<{
+      appId: Id<"loans">;
+      nomorReferensi: string;
+    }>(ctx, userId, args.kunciIdempotensi, "pinjaman.create");
+    if (hasilLama !== null) return hasilLama;
+    await requireKycTerverifikasi(ctx, userId);
     // Gerbang lokasi: titik GPS segar wajib ada di server, dan koordinat yang
     // dikirim bersama pengajuan harus cocok dengan lokasi perangkat tercatat.
     await requireGerbangLokasi(ctx, userId, user, args.lokasiAjukan);
@@ -491,7 +514,9 @@ export const createLoanApplication = mutation({
       nomorReferensi,
       `Peminjam menyetujui Syarat & Ketentuan ${CONTRACT_TERMS_VERSION} saat mengirim pengajuan.`,
     );
-    return { appId: loanId, nomorReferensi };
+    const hasil = { appId: loanId, nomorReferensi };
+    await simpanHasilIdempoten(ctx, userId, args.kunciIdempotensi, "pinjaman.create", hasil);
+    return hasil;
   },
 });
 
@@ -798,9 +823,21 @@ export const createPawnApplication = mutation({
     namaBank: v.string(),
     nomorRekening: v.string(),
     catatanPeminjam: v.optional(v.string()),
+    /** Kunci idempotensi opsional — lihat `createLoanApplication`. */
+    kunciIdempotensi: kunciIdempotensiValidator,
   },
   handler: async (ctx, args) => {
     const { userId, user } = await requirePeminjam(ctx);
+    const hasilLama = await ambilHasilIdempoten<{ appId: Id<"pawns"> }>(
+      ctx,
+      userId,
+      args.kunciIdempotensi,
+      "gadai.create",
+    );
+    if (hasilLama !== null) return hasilLama;
+    // Gerbang KYC wajib: pengajuan finansial hanya dilayani bila modul KYC
+    // nasabah sudah VERIFIED (diperiksa server, bukan dari klien).
+    await requireKycTerverifikasi(ctx, userId);
     // Gerbang lokasi: gadai juga hanya dilayani dengan GPS aktif & segar.
     await requireGerbangLokasi(ctx, userId, user);
     // Kill switch: blokir seluruh pengajuan baru saat darurat.
@@ -845,7 +882,7 @@ export const createPawnApplication = mutation({
     }
 
     await ensureKodePeminjam(ctx, userId);
-    await ctx.db.insert("pawns", {
+    const pawnId = await ctx.db.insert("pawns", {
       userId,
       deskripsiBarang: deskripsi,
       kategori: args.kategori,
@@ -857,6 +894,9 @@ export const createPawnApplication = mutation({
       status: "diajukan",
       nomorReferensi: referenceNumber(Date.now()),
     });
+    const hasil = { appId: pawnId };
+    await simpanHasilIdempoten(ctx, userId, args.kunciIdempotensi, "gadai.create", hasil);
+    return hasil;
   },
 });
 
@@ -998,6 +1038,10 @@ async function setLoanStatus(
   }
   await ctx.db.patch(loanId, {
     status,
+    // Jejak "kapan diputuskan" untuk SEMUA perpindahan status oleh admin —
+    // dipakai laporan dan notifikasi nasabah. Status yang punya tanggal acuan
+    // sendiri (didanaiPada/lunasPada) tetap memakai tanggal itu untuk hitungan.
+    diputuskanPada: Date.now(),
     catatanReview: alasan || undefined,
     // `pokokDiajukan` diisi sekali saja: pengajuan asli tidak ikut berubah bila
     // admin menyesuaikan nominalnya.
@@ -1122,6 +1166,70 @@ export const ubahStatusPinjaman = mutation({
       args.reason,
       args.pokokDisetujui,
     ),
+});
+
+/**
+ * PEMINJAM menarik pengajuannya sendiri (status `dibatalkan`).
+ *
+ * Aturan yang dijaga:
+ * - hanya pemiliknya, dan hanya selama pengajuan BELUM tersalurkan
+ *   (`bolehDibatalkan` = masih tahap tinjauan);
+ * - pengajuan yang sudah punya ALOKASI dana dari penyedia dana tidak boleh
+ *   ditarik sendiri — alokasi itu tidak boleh menjadi yatim. Pesannya mengarah
+ *   ke tim PINDAI, bukan gagal diam-diam;
+ * - pembatalan TIDAK mengubah plafon: yang menahan plafon hanya pinjaman
+ *   `didanai`, dan pengajuan ini belum pernah menjadi utang;
+ * - jejaknya selalu masuk audit trail.
+ */
+export const batalkanPengajuan = mutation({
+  args: {
+    loanId: v.id("loans"),
+    /** Alasan opsional — tidak pernah diwajibkan. */
+    alasan: v.optional(v.string()),
+  },
+  returns: v.object({ ok: v.literal(true), status: v.literal("dibatalkan") }),
+  handler: async (ctx, args) => {
+    const { userId, user } = await requirePeminjam(ctx);
+    const loan = await ctx.db.get(args.loanId);
+    if (loan === null) throw new Error("Pengajuan tidak ditemukan.");
+    if (loan.userId !== userId) {
+      throw new Error("Pengajuan ini bukan milik Anda.");
+    }
+    if (!bolehDibatalkan(loan.status)) {
+      throw new Error(
+        `Pengajuan berstatus ${labelStatusPinjaman(loan.status)} tidak dapat dibatalkan sendiri. Hubungi tim PINDAI bila perlu perubahan.`,
+      );
+    }
+    const alokasi = await ctx.db
+      .query("fundings")
+      .withIndex("by_loan", (q) => q.eq("loanId", args.loanId))
+      .first();
+    if (alokasi !== null) {
+      throw new Error(
+        "Pengajuan ini sudah memiliki alokasi dana dari penyedia dana, jadi tidak dapat dibatalkan sendiri. Hubungi tim PINDAI untuk menyesuaikannya.",
+      );
+    }
+    const alasan = args.alasan?.trim() ?? "";
+    if (alasan.length > 300) {
+      throw new Error("Alasan pembatalan maksimal 300 karakter.");
+    }
+    const now = Date.now();
+    await ctx.db.patch(args.loanId, {
+      status: "dibatalkan",
+      dibatalkanPada: now,
+      dibatalkanOleh: user.email ?? user.name ?? "peminjam",
+      ...(alasan !== "" ? { alasanPembatalan: alasan } : {}),
+    });
+    await audit(
+      ctx,
+      userId,
+      user.email ?? user.name ?? "peminjam",
+      "pengajuan_dibatalkan",
+      loan.nomorReferensi,
+      `Peminjam menarik pengajuan ${loan.nomorReferensi} sebelum pencairan. Pengajuan bukan utang; plafon tidak berubah.${alasan !== "" ? ` Alasan: ${alasan}` : ""}`,
+    );
+    return { ok: true, status: "dibatalkan" } as const;
+  },
 });
 
 /**
