@@ -1,8 +1,9 @@
 import { useQuery } from "convex/react";
-import { CheckCircle2, GitCompareArrows, TriangleAlert } from "lucide-react";
+import { CheckCircle2, GitCompareArrows, Info, TriangleAlert } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { MemuatBaris } from "@/components/ui/loading";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   Table,
   TableBody,
@@ -51,19 +52,19 @@ const LABEL_METRIK: Record<keyof MetrikPendana, string> = {
 
 const META_STATUS: Record<StatusRekonsiliasi, { label: string; className: string }> = {
   cocok: {
-    label: "cocok",
-    className: "border-0 bg-emerald-100 text-emerald-700 hover:bg-emerald-100",
+    label: "Cocok",
+    className: "border-0 bg-emerald-100 text-emerald-800 hover:bg-emerald-100",
   },
   selisih: {
-    label: "selisih",
+    label: "Selisih",
     className: "border-0 bg-amber-100 text-amber-800 hover:bg-amber-100",
   },
   tanpa_rekap: {
-    label: "tanpa rekap",
+    label: "Tanpa Rekap",
     className: "border-0 bg-slate-200 text-slate-700 hover:bg-slate-200",
   },
   tanpa_akun: {
-    label: "tanpa akun",
+    label: "Tanpa Akun",
     className: "border-0 bg-red-100 text-red-700 hover:bg-red-100",
   },
 };
@@ -205,53 +206,58 @@ export function RekonsiliasiPendana() {
   const adaMasalah = ringkasan.selisih + ringkasan.tanpaRekap + ringkasan.tanpaAkun > 0;
 
   return (
-    <section className="animate-masuk rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="flex items-center gap-2 text-sm font-semibold">
-          <GitCompareArrows className="size-4 text-primary" /> Rekonsiliasi pendana
-        </p>
-        {semuaCocok ? (
-          <Badge className="border-0 bg-emerald-100 text-emerald-700 hover:bg-emerald-100">
-            <CheckCircle2 className="mr-1 size-3" /> semua cocok
+    <section className="animate-masuk rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+      <header className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <span className="flex size-9 items-center justify-center rounded-xl bg-emerald-50 text-emerald-800">
+            <GitCompareArrows className="size-4" />
+          </span>
+          <div>
+            <h3 className="flex items-center gap-1.5 font-bold text-slate-900">
+              Rekonsiliasi &amp; Auditing Pendana
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    aria-label="Penjelasan rekonsiliasi"
+                    className="text-muted-foreground transition-colors hover:text-slate-700"
+                  >
+                    <Info className="size-3.5" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent className="max-w-xs">
+                  Membandingkan panel ini dengan rekap ruang pendana. Keduanya dihitung dari baris
+                  pinjaman yang sama, jadi selisih menandakan pemetaan pendana — bukan perbedaan
+                  rumus.
+                </TooltipContent>
+              </Tooltip>
+            </h3>
+            <p className="text-xs text-muted-foreground">
+              Sel berbentuk <span className="font-medium text-slate-700">panel / rekap</span>.
+            </p>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge
+            className={
+              semuaCocok
+                ? "border-0 bg-emerald-100 text-emerald-800 hover:bg-emerald-100"
+                : "border-0 bg-amber-100 text-amber-800 hover:bg-amber-100"
+            }
+          >
+            {semuaCocok && <CheckCircle2 className="mr-1 size-3" />}
+            {ringkasan.jumlahPendana} Pendana
+            <span className="mx-1 opacity-50">|</span>
+            {ringkasan.cocok} Cocok
           </Badge>
-        ) : (
-          adaMasalah && (
-            <Badge className="border-0 bg-amber-100 text-amber-800 hover:bg-amber-100">
+          {adaMasalah && !semuaCocok && (
+            <Badge variant="outline" className="border-amber-200 bg-amber-50 text-amber-800">
               <TriangleAlert className="mr-1 size-3" /> perlu ditinjau
             </Badge>
-          )
-        )}
-      </div>
-
-      <p className="mt-1 text-xs leading-5 text-muted-foreground">
-        Membandingkan panel ini dengan rekap ruang <strong>/penyedia-dana</strong>. Sel berbentuk{" "}
-        <span className="font-medium text-slate-700">panel / rekap</span>. Keduanya dihitung dari
-        baris pinjaman yang sama, jadi selisih menandakan pemetaan pendana — bukan perbedaan rumus.
-      </p>
-
-      <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
-        <Badge variant="outline" className="border-slate-200 text-muted-foreground">
-          {ringkasan.jumlahPendana} pendana
-        </Badge>
-        <Badge variant="outline" className="border-emerald-200 bg-emerald-50 text-emerald-800">
-          {ringkasan.cocok} cocok
-        </Badge>
-        {ringkasan.selisih > 0 && (
-          <Badge variant="outline" className="border-amber-200 bg-amber-50 text-amber-800">
-            {ringkasan.selisih} selisih
-          </Badge>
-        )}
-        {ringkasan.tanpaRekap > 0 && (
-          <Badge variant="outline" className="border-slate-200 text-muted-foreground">
-            {ringkasan.tanpaRekap} tanpa rekap
-          </Badge>
-        )}
-        {ringkasan.tanpaAkun > 0 && (
-          <Badge variant="outline" className="border-red-200 bg-red-50 text-red-700">
-            {ringkasan.tanpaAkun} tanpa akun
-          </Badge>
-        )}
-      </div>
+          )}
+        </div>
+      </header>
 
       {rows.length === 0 ? (
         <p className="mt-3 rounded-xl border border-slate-200 bg-slate-50/60 px-4 py-6 text-center text-xs text-muted-foreground">
@@ -276,7 +282,7 @@ export function RekonsiliasiPendana() {
                     "Jumlah pinjaman",
                     "Saldo berjalan",
                     "Bunga",
-                    "Keuntungan pendana",
+                    "Keuntungan Pendana",
                     "Status",
                   ].map((kolom) => (
                     <TableHead

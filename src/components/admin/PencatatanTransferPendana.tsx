@@ -3,6 +3,7 @@ import {
   Ban,
   CheckCircle2,
   Coins,
+  Info,
   Loader2,
   RotateCcw,
   TriangleAlert,
@@ -31,6 +32,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { formatRupiah } from "@/lib/money";
@@ -81,15 +83,15 @@ const META_STATUS: Record<
   { label: string; className: string }
 > = {
   belum_dicatat: {
-    label: "belum dicatat",
+    label: "Belum Dicatat",
     className: "border-0 bg-amber-100 text-amber-800 hover:bg-amber-100",
   },
   dicatat: {
-    label: "sudah dicatat",
-    className: "border-0 bg-emerald-100 text-emerald-700 hover:bg-emerald-100",
+    label: "Sudah Dicatat",
+    className: "border-0 bg-emerald-100 text-emerald-800 hover:bg-emerald-100",
   },
   dibatalkan: {
-    label: "catatan dibatalkan",
+    label: "Catatan Dibatalkan",
     className: "border-0 bg-slate-200 text-slate-700 hover:bg-slate-200",
   },
 };
@@ -189,28 +191,48 @@ export function PencatatanTransferPendana() {
   const adaBelum = ringkasan.jumlahBelumDicatat > 0;
 
   return (
-    <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="flex items-center gap-2 text-sm font-semibold">
-          <Coins className="size-4 text-primary" /> Pencatatan transfer keuntungan
-        </p>
+    <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+      <header className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <span className="flex size-9 items-center justify-center rounded-xl bg-emerald-50 text-emerald-800">
+            <Coins className="size-4" />
+          </span>
+          <div>
+            <h3 className="flex items-center gap-1.5 font-bold text-slate-900">
+              Pencatatan Transfer Keuntungan
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    aria-label="Penjelasan pencatatan transfer"
+                    className="text-muted-foreground transition-colors hover:text-slate-700"
+                  >
+                    <Info className="size-3.5" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent className="max-w-xs">
+                  PINDAI tidak memindahkan uang. Nominal dihitung server dari pokok pinjaman, jadi
+                  angka yang tercatat selalu sama dengan hak pendana. Catatan yang salah dibatalkan
+                  (dengan alasan), bukan diubah — keduanya masuk Audit Trail. Kewajiban transfer
+                  hanya muncul setelah pinjaman lunas.
+                </TooltipContent>
+              </Tooltip>
+            </h3>
+            <p className="text-xs text-muted-foreground">
+              Catat transfer setelah uang benar-benar dikirim — nominal dihitung server.
+            </p>
+          </div>
+        </div>
         {adaBelum ? (
           <Badge className="border-0 bg-amber-100 text-amber-800 hover:bg-amber-100">
             <TriangleAlert className="mr-1 size-3" /> {ringkasan.jumlahBelumDicatat} belum dicatat
           </Badge>
         ) : (
-          <Badge className="border-0 bg-emerald-100 text-emerald-700 hover:bg-emerald-100">
+          <Badge className="border-0 bg-emerald-100 text-emerald-800 hover:bg-emerald-100">
             <CheckCircle2 className="mr-1 size-3" /> semua tercatat
           </Badge>
         )}
-      </div>
-
-      <p className="mt-1 text-xs leading-5 text-muted-foreground">
-        PINDAI tidak memindahkan uang. Setelah Anda mentransfer keuntungan pendana di luar sistem,
-        catat di sini — <strong>nominal dihitung server</strong> dari pokok pinjaman, bukan diketik
-        admin. Catatan yang salah dibatalkan (dengan alasan), bukan diubah; keduanya masuk Audit
-        Trail. Kewajiban transfer hanya muncul setelah pinjaman <strong>lunas</strong>.
-      </p>
+      </header>
 
       {adaBelum && (
         <p className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1 text-[11px] font-medium text-amber-800">
@@ -220,17 +242,23 @@ export function PencatatanTransferPendana() {
         </p>
       )}
 
-      <dl className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+      <dl className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
         <MetrikKartu
-          label="Belum dicatat"
-          nilai={<span className="text-amber-700">{ringkasan.jumlahBelumDicatat}</span>}
+          label="Belum Dicatat"
+          nilai={<span className="text-lg font-bold text-amber-700">{ringkasan.jumlahBelumDicatat}</span>}
         />
         <MetrikKartu
-          label="Nilai belum dicatat"
-          nilai={<span className="text-amber-700">{formatRupiah(ringkasan.nilaiBelumDicatat)}</span>}
+          label="Nilai Belum Dicatat"
+          nilai={<span className="font-bold text-amber-700">{formatRupiah(ringkasan.nilaiBelumDicatat)}</span>}
         />
-        <MetrikKartu label="Sudah dicatat" nilai={ringkasan.jumlahTercatat} />
-        <MetrikKartu label="Nilai sudah dicatat" nilai={formatRupiah(ringkasan.nilaiTercatat)} />
+        <MetrikKartu
+          label="Sudah Dicatat"
+          nilai={<span className="text-lg font-bold text-emerald-800">{ringkasan.jumlahTercatat}</span>}
+        />
+        <MetrikKartu
+          label="Nilai Sudah Dicatat"
+          nilai={<span className="font-bold text-emerald-800">{formatRupiah(ringkasan.nilaiTercatat)}</span>}
+        />
       </dl>
 
       {rows.length === 0 ? (
@@ -263,7 +291,7 @@ export function PencatatanTransferPendana() {
                     </p>
                   </div>
                   <div className="flex shrink-0 flex-col items-end gap-1">
-                    <span className="text-sm font-semibold tabular-nums text-emerald-700">
+                    <span className="text-sm font-bold tabular-nums text-emerald-800">
                       {formatRupiah(r.keuntunganPendana)}
                     </span>
                     <Badge className={meta.className}>{meta.label}</Badge>
@@ -297,13 +325,13 @@ export function PencatatanTransferPendana() {
                   {(tercatat || r.transfer.status === "dibatalkan") && (
                     <Button
                       size="sm"
-                      variant="outline"
-                      className="gap-1.5"
+                      variant="ghost"
+                      className="gap-1.5 text-red-600 hover:bg-red-50 hover:text-red-700"
                       disabled={r.transfer.status === "dibatalkan"}
                       onClick={() => bukaBatal(r)}
                     >
                       {tercatat ? <Ban className="size-3.5" /> : <RotateCcw className="size-3.5" />}
-                      Batalkan catatan
+                      Batalkan Catatan
                     </Button>
                   )}
                 </div>

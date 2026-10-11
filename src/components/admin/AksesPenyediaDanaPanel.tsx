@@ -1,5 +1,16 @@
 import { useMutation, useQuery } from "convex/react";
-import { Copy, Eye, KeyRound, Loader2, MailPlus, ShieldX, UserPlus } from "lucide-react";
+import {
+  Coins,
+  Copy,
+  GitCompareArrows,
+  Info,
+  KeyRound,
+  Loader2,
+  MailPlus,
+  ShieldX,
+  UserPlus,
+  Users,
+} from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -7,6 +18,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { api } from "@/convex/_generated/api";
 
 import { PencatatanTransferPendana } from "./PencatatanTransferPendana";
@@ -14,21 +27,27 @@ import { PenyediaDanaTable } from "./PenyediaDanaTable";
 import { RekonsiliasiPendana } from "./RekonsiliasiPendana";
 
 /**
- * Panel Kelola Pendana — dua jalur akses lihat saja:
+ * NASABAH & PENDANA — tiga tab utama, satu tempat.
  *
- * 1. **Kode akses bersama** — satu kode untuk tim pemantau. Kode ditampilkan
- *    SEKALI di sini (yang tersimpan hanya hash-nya), bisa dipakai beberapa
- *    orang bersamaan, dan langsung diputus dengan menerbitkan kode baru atau
- *    menonaktifkannya.
- * 2. **Per akun email** — akses tetap untuk satu alamat tertentu lewat
- *    "Beri akses".
+ * 1. Manajemen Akun & Hak Akses — buat pendana baru, beri akses per email,
+ *    kelola kode akses bersama/tamu, dan daftar akun pendana & pemantau.
+ * 2. Pencatatan Transfer Keuntungan — catat transfer keuntungan yang sudah
+ *    dikirim di luar sistem (nominal dihitung server).
+ * 3. Rekonsiliasi & Auditing Pendana — bandingkan posisi panel dengan rekap
+ *    ruang pendana.
  *
- * Keduanya hanya membuka halaman /penyedia-dana (baca saja). Satu-satunya
- * pencatatan di modul `convex/penyediaDana.ts` adalah pencatatan transfer
- * keuntungan, dan itu KHUSUS admin (bukan pemegang akses lihat saja) — lihat
- * `PencatatanTransferPendana`. Identitas pemohon tampil sebagai kode pseudonim,
- * dan setiap perubahan tercatat di Audit Trail.
+ * Semua binding data Convex tetap: `aksesBersama.statusKodeBersama`,
+ * `penyediaDana.{ubahAkses,buatPendana,daftarInvestor}`, dan
+ * `aksesBersama.{terbitkanKodeBersama,nonaktifkanKodeBersama}`. Satu kode
+ * akses bersama ditampilkan SEKALI di sini (yang tersimpan hanya hash-nya).
  */
+
+/** Kelas kartu bersama panel ini. */
+const KARTU = "rounded-2xl border border-slate-200 bg-white p-6 shadow-sm";
+
+/** Tombol aksi utama dengan aksen Deep Emerald. */
+const TOMBOL_EMERALD = "gap-2 rounded-xl bg-[#064E3B] text-white hover:bg-[#04361f]";
+
 function tanggalRingkas(ms: number | null): string {
   if (ms === null) return "—";
   return new Date(ms).toLocaleString("id-ID", {
@@ -40,19 +59,98 @@ function tanggalRingkas(ms: number | null): string {
   });
 }
 
-export function AksesPenyediaDanaPanel() {
+/** Kartu Kiri: buat akun pendana baru yang langsung berakses. */
+function KartuBuatPendana() {
+  const [nama, setNama] = useState("");
+  const [email, setEmail] = useState("");
+  const [busy, setBusy] = useState(false);
+  const buatPendana = useMutation(api.penyediaDana.buatPendana);
+
+  const kirim = async (event: React.FormEvent) => {
+    event.preventDefault();
+    const namaBersih = nama.trim();
+    const target = email.trim().toLowerCase();
+    if (namaBersih === "") {
+      toast.error("Isi nama pendana yang akan dibuat.");
+      return;
+    }
+    if (target === "") {
+      toast.error("Isi alamat email pendana yang akan dibuat.");
+      return;
+    }
+    setBusy(true);
+    try {
+      await buatPendana({ nama: namaBersih, email: target });
+      toast.success(`Pendana ${namaBersih} dibuat. Minta ia masuk lewat /auth dengan email ${target}.`);
+      setNama("");
+      setEmail("");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Gagal membuat pendana.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <form onSubmit={kirim} className={KARTU}>
+      <header className="flex items-center gap-2">
+        <span className="flex size-9 items-center justify-center rounded-xl bg-emerald-50 text-emerald-800">
+          <UserPlus className="size-4" />
+        </span>
+        <div>
+          <h3 className="font-bold text-slate-900">Buat Pendana Baru</h3>
+          <p className="text-xs text-muted-foreground">
+            Akun langsung berakses; pendana masuk lewat OTP email.
+          </p>
+        </div>
+      </header>
+
+      <div className="mt-4 space-y-3">
+        <div>
+          <Label htmlFor="pendana-nama" className="text-xs text-muted-foreground">
+            Nama pendana
+          </Label>
+          <Input
+            id="pendana-nama"
+            autoComplete="off"
+            placeholder="mis. Robert Tanaya"
+            value={nama}
+            onChange={(e) => setNama(e.target.value)}
+            disabled={busy}
+            className="mt-1"
+          />
+        </div>
+        <div>
+          <Label htmlFor="pendana-email" className="text-xs text-muted-foreground">
+            Email pendana
+          </Label>
+          <Input
+            id="pendana-email"
+            type="email"
+            inputMode="email"
+            autoComplete="off"
+            placeholder="nama@contoh.com"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            disabled={busy}
+            className="mt-1"
+          />
+        </div>
+        <Button type="submit" className={`w-full ${TOMBOL_EMERALD}`} disabled={busy}>
+          {busy ? <Loader2 className="size-4 animate-spin" /> : <UserPlus className="size-4" />}
+          Buat Pendana
+        </Button>
+      </div>
+    </form>
+  );
+}
+
+/** Kartu Kanan: beri akses lihat-saja ke akun beremail yang sudah terdaftar. */
+function KartuBeriAkses() {
   const [email, setEmail] = useState("");
   const [alasan, setAlasan] = useState("");
-  const [namaPendana, setNamaPendana] = useState("");
-  const [emailPendana, setEmailPendana] = useState("");
-  const [busy, setBusy] = useState<string | null>(null);
-  const [kodeBaru, setKodeBaru] = useState<string | null>(null);
-
-  const status = useQuery(api.aksesBersama.statusKodeBersama, {});
+  const [busy, setBusy] = useState(false);
   const ubahAkses = useMutation(api.penyediaDana.ubahAkses);
-  const buatPendana = useMutation(api.penyediaDana.buatPendana);
-  const terbitkanKode = useMutation(api.aksesBersama.terbitkanKodeBersama);
-  const nonaktifkanKode = useMutation(api.aksesBersama.nonaktifkanKodeBersama);
 
   const kirim = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -61,7 +159,7 @@ export function AksesPenyediaDanaPanel() {
       toast.error("Isi alamat email akun yang akan diberi akses.");
       return;
     }
-    setBusy("form");
+    setBusy(true);
     try {
       const hasil = await ubahAkses({
         email: target,
@@ -78,39 +176,73 @@ export function AksesPenyediaDanaPanel() {
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Gagal memberi akses.");
     } finally {
-      setBusy(null);
+      setBusy(false);
     }
   };
 
-  const buatBaru = async (event: React.FormEvent) => {
-    event.preventDefault();
-    const nama = namaPendana.trim();
-    const target = emailPendana.trim().toLowerCase();
-    if (nama === "") {
-      toast.error("Isi nama pendana yang akan dibuat.");
-      return;
-    }
-    if (target === "") {
-      toast.error("Isi alamat email pendana yang akan dibuat.");
-      return;
-    }
-    setBusy("buat");
-    try {
-      await buatPendana({ nama, email: target });
-      toast.success(
-        `Pendana ${nama} dibuat. Minta ia masuk lewat /auth dengan email ${target}, lalu ruang pendana langsung terbuka.`,
-      );
-      setNamaPendana("");
-      setEmailPendana("");
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Gagal membuat pendana.");
-    } finally {
-      setBusy(null);
-    }
-  };
+  return (
+    <form onSubmit={kirim} className={KARTU}>
+      <header className="flex items-center gap-2">
+        <span className="flex size-9 items-center justify-center rounded-xl bg-emerald-50 text-emerald-800">
+          <MailPlus className="size-4" />
+        </span>
+        <div>
+          <h3 className="font-bold text-slate-900">Beri Akses Email</h3>
+          <p className="text-xs text-muted-foreground">
+            Untuk akun yang sudah terdaftar (pernah masuk dengan email).
+          </p>
+        </div>
+      </header>
+
+      <div className="mt-4 space-y-3">
+        <div>
+          <Label htmlFor="akses-email" className="text-xs text-muted-foreground">
+            Email akun
+          </Label>
+          <Input
+            id="akses-email"
+            type="email"
+            inputMode="email"
+            autoComplete="off"
+            placeholder="nama@contoh.com"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            disabled={busy}
+            className="mt-1"
+          />
+        </div>
+        <div>
+          <Label htmlFor="akses-alasan" className="text-xs text-muted-foreground">
+            Alasan (opsional)
+          </Label>
+          <Input
+            id="akses-alasan"
+            placeholder="mis. mitra pendanaan terverifikasi"
+            value={alasan}
+            onChange={(e) => setAlasan(e.target.value)}
+            disabled={busy}
+            className="mt-1"
+          />
+        </div>
+        <Button type="submit" className={`w-full ${TOMBOL_EMERALD}`} disabled={busy}>
+          {busy ? <Loader2 className="size-4 animate-spin" /> : <MailPlus className="size-4" />}
+          Beri Akses
+        </Button>
+      </div>
+    </form>
+  );
+}
+
+/** Kartu Tengah: kode akses bersama/tamu — versi, pemantau aktif, dan aksi. */
+function KartuKodeBersama() {
+  const status = useQuery(api.aksesBersama.statusKodeBersama, {});
+  const terbitkanKode = useMutation(api.aksesBersama.terbitkanKodeBersama);
+  const nonaktifkanKode = useMutation(api.aksesBersama.nonaktifkanKodeBersama);
+  const [busy, setBusy] = useState(false);
+  const [kodeBaru, setKodeBaru] = useState<string | null>(null);
 
   const terbitkan = async () => {
-    setBusy("kode");
+    setBusy(true);
     try {
       const hasil = await terbitkanKode({});
       setKodeBaru(hasil.kode);
@@ -118,7 +250,20 @@ export function AksesPenyediaDanaPanel() {
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Gagal menerbitkan kode.");
     } finally {
-      setBusy(null);
+      setBusy(false);
+    }
+  };
+
+  const matikan = async () => {
+    setBusy(true);
+    try {
+      await nonaktifkanKode({});
+      setKodeBaru(null);
+      toast.success("Kode dinonaktifkan — seluruh pemantau diputus.");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Gagal menonaktifkan kode.");
+    } finally {
+      setBusy(false);
     }
   };
 
@@ -132,260 +277,167 @@ export function AksesPenyediaDanaPanel() {
     }
   };
 
-  const matikan = async () => {
-    setBusy("kode");
-    try {
-      await nonaktifkanKode({});
-      setKodeBaru(null);
-      toast.success("Kode dinonaktifkan — seluruh pemantau diputus.");
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Gagal menonaktifkan kode.");
-    } finally {
-      setBusy(null);
-    }
-  };
-
   return (
-    <div className="animate-masuk space-y-5">
-      <div>
-        <p className="flex items-center gap-2 text-sm font-semibold">
-          <Eye className="size-4 text-primary" /> Kelola pendana (lihat saja)
-        </p>
-        <p className="mt-1 text-xs leading-5 text-muted-foreground">
-          Memberi akses membuka halaman <strong>/penyedia-dana</strong>: daftar pengajuan
-          pinjaman, gadai, dan kredit barang dalam mode baca. Pemegang akses tidak dapat
-          mengubah data apa pun; pencatatan transfer keuntungan di bawah hanya untuk admin.
-          Nama lengkap pemohon dan
-          titik lokasi terakhirnya ditampilkan; NIK, nomor rekening, dan nomor WhatsApp tidak
-          dikirim sebagai kolom terpisah. <strong>Berkas identitas pemohon (KTP, selfie, slip,
-          foto barang, tanda tangan) hanya dibuka untuk akun beremail dengan peran pendana
-          di bawah</strong> — sesi kode akses bersama tidak dapat membukanya. Semua perubahan akses
-          tercatat di Audit Trail.
-        </p>
-      </div>
-
-      {/* ===== Kode akses bersama ===== */}
-      <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <p className="flex items-center gap-2 text-sm font-semibold">
-            <KeyRound className="size-4 text-primary" /> Kode akses bersama
-          </p>
-          {status === undefined ? (
-            <Loader2 className="size-4 animate-spin text-muted-foreground" />
-          ) : (
-            <Badge
-              className={
-                status.aktif
-                  ? "border-0 bg-emerald-100 text-emerald-700 hover:bg-emerald-100"
-                  : "border-0 bg-slate-100 text-slate-600 hover:bg-slate-100"
-              }
-            >
-              {status.aktif
-                ? "aktif"
-                : status.adaKode
-                  ? "nonaktif"
-                  : "belum diterbitkan"}
-            </Badge>
-          )}
-        </div>
-
-        <p className="mt-1 text-xs leading-5 text-muted-foreground">
-          Satu kode untuk tim pemantau: bagikan tautan{" "}
-          <span className="font-medium text-slate-700">/akses-bersama</span> beserta kodenya.
-          Setiap orang memakai sesi tamunya sendiri sehingga beberapa orang dapat membukanya
-          bersamaan. Kode ditampilkan sekali dan tersimpan hanya sebagai hash.
-        </p>
-
-        {status !== undefined && (
-          <dl className="mt-3 grid gap-3 text-xs sm:grid-cols-3">
-            <div>
-              <dt className="text-muted-foreground">Versi kode</dt>
-              <dd className="mt-0.5 font-semibold tabular-nums">{status.versi}</dd>
-            </div>
-            <div>
-              <dt className="text-muted-foreground">Pemantau aktif</dt>
-              <dd className="mt-0.5 font-semibold tabular-nums">
-                {status.pemakaiAktif} dari {status.pemakaiTercatat} tercatat
-              </dd>
-            </div>
-            <div>
-              <dt className="text-muted-foreground">Terbit terakhir</dt>
-              <dd className="mt-0.5 font-semibold">{tanggalRingkas(status.diterbitkanPada)}</dd>
-            </div>
-          </dl>
-        )}
-
-        {status?.blokirSampai !== null && status?.blokirSampai !== undefined && (
-          <p className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] leading-5 text-amber-800">
-            Pemakaian kode dibekukan sementara karena percobaan gagal beruntun — aktif lagi
-            setelah {tanggalRingkas(status.blokirSampai)}.
-            {status.gagalDalamJendela > 0 && ` (${status.gagalDalamJendela} percobaan tercatat)`}
-          </p>
-        )}
-
-        {kodeBaru !== null && (
-          <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-amber-800">
-              Kode baru — ditampilkan sekali
-            </p>
-            <div className="mt-2 flex flex-wrap items-center gap-2">
-              <code className="rounded-lg border border-amber-200 bg-white px-3 py-1.5 font-mono text-sm tracking-[0.12em] text-slate-900">
-                {kodeBaru}
-              </code>
-              <Button size="sm" variant="outline" className="gap-1.5" onClick={() => void salinKode()}>
-                <Copy className="size-3.5" /> Salin
-              </Button>
-            </div>
-            <p className="mt-2 text-[11px] leading-5 text-amber-800">
-              Kode ini tidak dapat dilihat lagi setelah panel ditutup. Bagikan hanya kepada
-              orang yang Anda percaya; siapa pun yang memegangnya bisa membaca ruang pantau.
+    <section className={KARTU}>
+      <header className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <span className="flex size-9 items-center justify-center rounded-xl bg-emerald-50 text-emerald-800">
+            <KeyRound className="size-4" />
+          </span>
+          <div>
+            <h3 className="flex items-center gap-1.5 font-bold text-slate-900">
+              Kode Akses Bersama / Tamu
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    aria-label="Penjelasan kode akses bersama"
+                    className="text-muted-foreground transition-colors hover:text-slate-700"
+                  >
+                    <Info className="size-3.5" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent className="max-w-xs">
+                  Bagikan tautan /akses-bersama beserta kodenya. Setiap orang memakai sesi tamunya
+                  sendiri, jadi beberapa orang dapat membukanya bersamaan. Kode hanya tampil sekali
+                  dan tersimpan sebagai hash.
+                </TooltipContent>
+              </Tooltip>
+            </h3>
+            <p className="text-xs text-muted-foreground">
+              Satu kode untuk tim pemantau — terbit baru memutus semua pemakai lama.
             </p>
           </div>
-        )}
-
-        <div className="mt-3 flex flex-wrap gap-2">
-          <Button size="sm" className="gap-2" disabled={busy === "kode"} onClick={() => void terbitkan()}>
-            {busy === "kode" ? (
-              <Loader2 className="size-4 animate-spin" />
-            ) : (
-              <KeyRound className="size-4" />
-            )}
-            {status?.adaKode ? "Terbitkan kode baru" : "Terbitkan kode"}
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            className="gap-2"
-            disabled={busy === "kode" || status?.aktif !== true}
-            onClick={() => void matikan()}
+        </div>
+        {status === undefined ? (
+          <Loader2 className="size-4 animate-spin text-muted-foreground" />
+        ) : (
+          <Badge
+            className={
+              status.aktif
+                ? "border-0 bg-emerald-100 text-emerald-800 hover:bg-emerald-100"
+                : "border-0 bg-slate-100 text-slate-600 hover:bg-slate-100"
+            }
           >
-            <ShieldX className="size-4" /> Nonaktifkan kode
-          </Button>
+            {status.aktif ? "Aktif" : status.adaKode ? "Nonaktif" : "Belum diterbitkan"}
+          </Badge>
+        )}
+      </header>
+
+      <dl className="mt-4 grid gap-3 sm:grid-cols-3">
+        <div className="rounded-xl border border-slate-100 bg-slate-50/60 px-4 py-3">
+          <dt className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-400">
+            Versi Kode
+          </dt>
+          <dd className="mt-1 text-lg font-bold tabular-nums text-emerald-800">
+            {status === undefined ? "—" : status.versi}
+          </dd>
         </div>
-        <p className="mt-2 text-[11px] leading-5 text-muted-foreground">
-          Menerbitkan kode baru atau menonaktifkannya langsung memutus seluruh pemantau lama —
-          mereka perlu kode terbaru untuk masuk lagi.
-        </p>
-      </section>
-
-      {/* ===== Buat pendana baru (langsung berakses) ===== */}
-      <form
-        onSubmit={buatBaru}
-        className="rounded-2xl border border-primary/25 bg-primary/[0.03] p-4 shadow-sm sm:p-5"
-      >
-        <p className="flex items-center gap-2 text-sm font-semibold">
-          <UserPlus className="size-4 text-primary" /> Buat pendana baru
-        </p>
-        <p className="mt-1 text-xs leading-5 text-muted-foreground">
-          Buat akun pendana yang <strong>langsung punya akses</strong> ke{" "}
-          <strong>/penyedia-dana</strong>. Setelah dibuat, pendana masuk lewat{" "}
-          <span className="font-medium text-slate-700">/auth</span> dengan email ini (kode
-          OTP) — akunnya otomatis tertaut dan ruang langsung terbuka. Untuk akun yang
-          sudah terdaftar, pakai “Beri akses” di bawah.
-        </p>
-        <div className="mt-3 grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] sm:items-end">
-          <div>
-            <Label htmlFor="pendana-nama" className="text-[11px] text-muted-foreground">
-              Nama pendana
-            </Label>
-            <Input
-              id="pendana-nama"
-              autoComplete="off"
-              placeholder="mis. Robert Tanaya"
-              value={namaPendana}
-              onChange={(e) => setNamaPendana(e.target.value)}
-              disabled={busy === "buat"}
-            />
-          </div>
-          <div>
-            <Label htmlFor="pendana-email" className="text-[11px] text-muted-foreground">
-              Email pendana
-            </Label>
-            <Input
-              id="pendana-email"
-              type="email"
-              inputMode="email"
-              autoComplete="off"
-              placeholder="nama@contoh.com"
-              value={emailPendana}
-              onChange={(e) => setEmailPendana(e.target.value)}
-              disabled={busy === "buat"}
-            />
-          </div>
-          <Button type="submit" className="gap-2" disabled={busy === "buat"}>
-            {busy === "buat" ? (
-              <Loader2 className="size-4 animate-spin" />
-            ) : (
-              <UserPlus className="size-4" />
-            )}
-            Buat pendana
-          </Button>
+        <div className="rounded-xl border border-slate-100 bg-slate-50/60 px-4 py-3">
+          <dt className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-400">
+            Pemantau Aktif
+          </dt>
+          <dd className="mt-1 text-lg font-bold tabular-nums text-emerald-800">
+            {status === undefined ? "—" : status.pemakaiAktif}
+            <span className="ml-1 text-xs font-medium text-muted-foreground">
+              / {status === undefined ? "—" : status.pemakaiTercatat} tercatat
+            </span>
+          </dd>
         </div>
-        <p className="mt-2 text-[11px] leading-5 text-muted-foreground">
-          Email tidak boleh sudah dipakai akun lain. Akun dibuat tanpa kata sandi — akses
-          masuk tetap lewat kode OTP email agar aktivasi sadar pemiliknya.
-        </p>
-      </form>
-
-      {/* ===== Akses per akun email ===== */}
-      <form
-        onSubmit={kirim}
-        className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5"
-      >
-        <p className="flex items-center gap-2 text-sm font-semibold">
-          <MailPlus className="size-4 text-primary" /> Akses tetap per akun email
-        </p>
-        <div className="mt-3 grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] sm:items-end">
-          <div>
-            <Label htmlFor="akses-email" className="text-[11px] text-muted-foreground">
-              Email akun
-            </Label>
-            <Input
-              id="akses-email"
-              type="email"
-              inputMode="email"
-              autoComplete="off"
-              placeholder="nama@contoh.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              disabled={busy === "form"}
-            />
-          </div>
-          <div>
-            <Label htmlFor="akses-alasan" className="text-[11px] text-muted-foreground">
-              Alasan (opsional)
-            </Label>
-            <Input
-              id="akses-alasan"
-              placeholder="mis. mitra pendanaan terverifikasi"
-              value={alasan}
-              onChange={(e) => setAlasan(e.target.value)}
-              disabled={busy === "form"}
-            />
-          </div>
-          <Button type="submit" className="gap-2" disabled={busy === "form"}>
-            {busy === "form" ? (
-              <Loader2 className="size-4 animate-spin" />
-            ) : (
-              <MailPlus className="size-4" />
-            )}
-            Beri akses
-          </Button>
+        <div className="rounded-xl border border-slate-100 bg-slate-50/60 px-4 py-3">
+          <dt className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-400">
+            Terbit Terakhir
+          </dt>
+          <dd className="mt-1 text-sm font-bold text-slate-900">
+            {status === undefined ? "—" : tanggalRingkas(status.diterbitkanPada)}
+          </dd>
         </div>
-        <p className="mt-2 text-[11px] leading-5 text-muted-foreground">
-          Akun harus sudah terdaftar (pernah masuk dengan email). Akun tamu dan akun tim (admin)
-          tidak dapat diberi akses ini.
+      </dl>
+
+      {status?.blokirSampai !== null && status?.blokirSampai !== undefined && (
+        <p className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-800">
+          Pemakaian kode dibekukan sementara karena percobaan gagal beruntun — aktif lagi setelah{" "}
+          {tanggalRingkas(status.blokirSampai)}.
+          {status.gagalDalamJendela > 0 && ` (${status.gagalDalamJendela} percobaan tercatat)`}
         </p>
-      </form>
+      )}
 
-      {/* ===== Pencatatan transfer keuntungan ===== */}
-      <PencatatanTransferPendana />
+      {kodeBaru !== null && (
+        <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-amber-800">
+            Kode baru — ditampilkan sekali
+          </p>
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <code className="rounded-lg border border-amber-200 bg-white px-3 py-1.5 font-mono text-sm tracking-[0.12em] text-slate-900">
+              {kodeBaru}
+            </code>
+            <Button size="sm" variant="outline" className="gap-1.5" onClick={() => void salinKode()}>
+              <Copy className="size-3.5" /> Salin
+            </Button>
+          </div>
+          <p className="mt-2 text-[11px] leading-5 text-amber-800">
+            Kode ini tidak dapat dilihat lagi setelah panel ditutup. Bagikan hanya kepada orang yang
+            Anda percaya.
+          </p>
+        </div>
+      )}
 
-      {/* ===== Daftar pendana + posisi dananya ===== */}
+      <div className="mt-4 flex flex-wrap gap-2">
+        <Button className={TOMBOL_EMERALD} disabled={busy} onClick={() => void terbitkan()}>
+          {busy ? <Loader2 className="size-4 animate-spin" /> : <KeyRound className="size-4" />}
+          Terbitkan Kode Baru
+        </Button>
+        <Button
+          variant="outline"
+          className="gap-2 rounded-xl"
+          disabled={busy || status?.aktif !== true}
+          onClick={() => void matikan()}
+        >
+          <ShieldX className="size-4" /> Nonaktifkan
+        </Button>
+      </div>
+    </section>
+  );
+}
+
+/** Tab 1 — manajemen akun & hak akses. */
+function TabAkunAkses() {
+  return (
+    <div className="space-y-5">
+      <div className="grid gap-5 lg:grid-cols-2">
+        <KartuBuatPendana />
+        <KartuBeriAkses />
+      </div>
+      <KartuKodeBersama />
       <PenyediaDanaTable />
-
-      {/* ===== Rekonsiliasi panel vs rekap ruang pendana ===== */}
-      <RekonsiliasiPendana />
     </div>
+  );
+}
+
+export function AksesPenyediaDanaPanel() {
+  return (
+    <Tabs defaultValue="akun" className="flex flex-col gap-4">
+      <TabsList className="flex h-auto w-full flex-wrap justify-start gap-1 rounded-2xl border border-slate-200 bg-white p-1.5 shadow-sm [--primary:#064E3B]">
+        <TabsTrigger value="akun" className="gap-2 text-xs sm:text-sm">
+          <Users className="size-3.5" /> Manajemen Akun &amp; Hak Akses
+        </TabsTrigger>
+        <TabsTrigger value="transfer" className="gap-2 text-xs sm:text-sm">
+          <Coins className="size-3.5" /> Pencatatan Transfer Keuntungan
+        </TabsTrigger>
+        <TabsTrigger value="rekon" className="gap-2 text-xs sm:text-sm">
+          <GitCompareArrows className="size-3.5" /> Rekonsiliasi &amp; Auditing Pendana
+        </TabsTrigger>
+      </TabsList>
+
+      <TabsContent value="akun" className="mt-0">
+        <TabAkunAkses />
+      </TabsContent>
+      <TabsContent value="transfer" className="mt-0">
+        <PencatatanTransferPendana />
+      </TabsContent>
+      <TabsContent value="rekon" className="mt-0">
+        <RekonsiliasiPendana />
+      </TabsContent>
+    </Tabs>
   );
 }
