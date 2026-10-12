@@ -3,8 +3,15 @@
 
 <head>
   <meta charset="UTF-8" />
-  <link rel="icon" type="image/svg+xml" href="/logo.svg?v=pindai-2" />
-  <link rel="apple-touch-icon" href="/logo.svg?v=pindai-2" />
+  <!-- `?v=` adalah penghancur cache ikon. Nilainya dinaikkan setiap kali HTML
+       ini perlu dibaca ulang oleh server pengembangan: halaman pratinjau yang
+       menyimpan HTML lama masih meminta id modul inline (`?html-proxy&index=…`)
+       dari proses server sebelumnya, dan Vite menolaknya dengan "No matching
+       HTML proxy module found". Mengubah berkas HTML membuat server menggambar
+       ulang HTML ini dan memuat ulang halaman, jadi id proxy yang diminta
+       selalu ada di proses yang sedang berjalan. -->
+  <link rel="icon" type="image/svg+xml" href="/logo.svg?v=pindai-3" />
+  <link rel="apple-touch-icon" href="/logo.svg?v=pindai-3" />
   <link rel="manifest" href="/manifest.webmanifest" />
   <!-- `viewport-fit=cover` membuat `env(safe-area-inset-*)` benar-benar bernilai
        di perangkat bertakik (iOS/Android), sehingga bar bawah admin dan pil
