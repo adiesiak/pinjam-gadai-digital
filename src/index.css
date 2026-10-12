@@ -656,11 +656,19 @@
   /* Latar hero: putih → kertas sangat tipis. */
   .clay-hero {
     background-color: var(--background);
-    background-image: linear-gradient(180deg, var(--muted) 0%, var(--background) 42%);
+    background-image: linear-gradient(
+      180deg,
+      var(--muted) 0%,
+      var(--background) 42%
+    );
   }
   /* Header modal pengumuman. */
   .gradient-hero-modal {
-    background: linear-gradient(180deg, var(--muted) 0%, var(--background) 100%);
+    background: linear-gradient(
+      180deg,
+      var(--muted) 0%,
+      var(--background) 100%
+    );
   }
   /* Tab aktif — aksen solid. */
   [data-slot="tabs-trigger"][data-state="active"] {
@@ -779,7 +787,8 @@
      Durasi memakai token: `--motion-fast` (umpan balik), `--motion-normal`
      (perpindahan kecil), `--motion-slow` (masuknya bagian halaman). */
   .motion-fade {
-    animation: pindai-motion-fade var(--motion-normal) var(--motion-ease-out) both;
+    animation: pindai-motion-fade var(--motion-normal) var(--motion-ease-out)
+      both;
   }
   @keyframes pindai-motion-fade {
     from {
@@ -791,7 +800,8 @@
   }
 
   .motion-slide-up {
-    animation: pindai-motion-slide-up var(--motion-slow) var(--motion-ease-out) both;
+    animation: pindai-motion-slide-up var(--motion-slow) var(--motion-ease-out)
+      both;
   }
   @keyframes pindai-motion-slide-up {
     from {
@@ -804,7 +814,8 @@
     }
   }
   .motion-slide-down {
-    animation: pindai-motion-slide-down var(--motion-slow) var(--motion-ease-out) both;
+    animation: pindai-motion-slide-down var(--motion-slow)
+      var(--motion-ease-out) both;
   }
   @keyframes pindai-motion-slide-down {
     from {
@@ -817,7 +828,8 @@
     }
   }
   .motion-slide-left {
-    animation: pindai-motion-slide-left var(--motion-slow) var(--motion-ease-out) both;
+    animation: pindai-motion-slide-left var(--motion-slow)
+      var(--motion-ease-out) both;
   }
   @keyframes pindai-motion-slide-left {
     from {
@@ -830,7 +842,8 @@
     }
   }
   .motion-slide-right {
-    animation: pindai-motion-slide-right var(--motion-slow) var(--motion-ease-out) both;
+    animation: pindai-motion-slide-right var(--motion-slow)
+      var(--motion-ease-out) both;
   }
   @keyframes pindai-motion-slide-right {
     from {
@@ -844,7 +857,8 @@
   }
 
   .motion-scale {
-    animation: pindai-motion-scale var(--motion-normal) var(--motion-ease-out) both;
+    animation: pindai-motion-scale var(--motion-normal) var(--motion-ease-out)
+      both;
   }
   @keyframes pindai-motion-scale {
     from {
@@ -906,10 +920,12 @@
      `.motion-pulse-loop` secara sadar: animasi terus-menerus hanya dibenarkan
      bila statusnya memang terus berubah. */
   .motion-pulse {
-    animation: pindai-motion-pulse var(--motion-slow) var(--motion-ease-in-out) 3;
+    animation: pindai-motion-pulse var(--motion-slow) var(--motion-ease-in-out)
+      3;
   }
   .motion-pulse-loop {
-    animation: pindai-motion-pulse var(--motion-slow) var(--motion-ease-in-out) infinite;
+    animation: pindai-motion-pulse var(--motion-slow) var(--motion-ease-in-out)
+      infinite;
   }
   @keyframes pindai-motion-pulse {
     0%,
@@ -935,7 +951,8 @@
      ikon status pada tombol (sukses/gagal). Skalanya kecil (0,6 → 1) dan hanya
      membesar SEDIKIT, jadi terbaca tegas tanpa terasa memantul. */
   .motion-check-in {
-    animation: pindai-motion-check var(--motion-fast) var(--motion-ease-out) both;
+    animation: pindai-motion-check var(--motion-fast) var(--motion-ease-out)
+      both;
   }
   @keyframes pindai-motion-check {
     from {
@@ -1142,10 +1159,22 @@
     gap: 1.5rem;
     padding: 0 1.5rem;
     background: #f8fafc;
-    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    font-family:
+      system-ui,
+      -apple-system,
+      "Segoe UI",
+      Roboto,
+      sans-serif;
   }
-  .pb__boot * { box-sizing: border-box; }
-  .pb__grup { display: flex; flex-direction: column; align-items: center; gap: 1.5rem; }
+  .pb__boot * {
+    box-sizing: border-box;
+  }
+  .pb__grup {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1.5rem;
+  }
   .pb__stage {
     position: relative;
     display: flex;
@@ -1155,7 +1184,11 @@
     justify-content: center;
     perspective: 900px;
   }
-  .pb__vault { position: relative; z-index: 1; display: block; }
+  .pb__vault {
+    position: relative;
+    z-index: 1;
+    display: block;
+  }
   .pb__halo {
     position: absolute;
     inset: 14%;
@@ -1178,8 +1211,17 @@
     transform-origin: center;
     animation: pb-dial 5s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
   }
-  .pb__brand { display: flex; flex-direction: column; align-items: center; gap: 0.375rem; }
-  .pb__line { display: flex; align-items: baseline; gap: 0.375rem; }
+  .pb__brand {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.375rem;
+  }
+  .pb__line {
+    display: flex;
+    align-items: baseline;
+    gap: 0.375rem;
+  }
   .pb__kata {
     font-size: 1.125rem;
     font-weight: 900;
@@ -1187,7 +1229,12 @@
     text-transform: uppercase;
     color: #0f3d3a;
   }
-  .pb__titik { width: 0.375rem; height: 0.375rem; border-radius: 9999px; background: #b99b62; }
+  .pb__titik {
+    width: 0.375rem;
+    height: 0.375rem;
+    border-radius: 9999px;
+    background: #b99b62;
+  }
   .pb__sub {
     display: flex;
     align-items: center;
@@ -1198,9 +1245,26 @@
     text-transform: uppercase;
     color: #94a3b8;
   }
-  .pb__sub i { display: block; width: 1rem; height: 1px; background: #b99b62; }
-  .pb__progress { display: flex; flex-direction: column; align-items: center; gap: 0.5rem; width: 13rem; }
-  .pb__track { width: 100%; height: 0.25rem; overflow: hidden; border-radius: 9999px; background: #e2e8f0; }
+  .pb__sub i {
+    display: block;
+    width: 1rem;
+    height: 1px;
+    background: #b99b62;
+  }
+  .pb__progress {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    width: 13rem;
+  }
+  .pb__track {
+    width: 100%;
+    height: 0.25rem;
+    overflow: hidden;
+    border-radius: 9999px;
+    background: #e2e8f0;
+  }
   .pb__bar {
     display: block;
     height: 100%;
@@ -1209,21 +1273,63 @@
     background: #0f3d3a;
     animation: pb-bar 1.5s ease-in-out infinite;
   }
-  .pb__label { margin: 0; font-size: 0.75rem; font-weight: 500; color: #64748b; }
-  @keyframes pb-dial { 0%, 100% { transform: rotate(0deg); } 50% { transform: rotate(66deg); } }
+  .pb__label {
+    margin: 0;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: #64748b;
+  }
+  @keyframes pb-dial {
+    0%,
+    100% {
+      transform: rotate(0deg);
+    }
+    50% {
+      transform: rotate(66deg);
+    }
+  }
   @keyframes pb-halo {
-    0%, 100% { opacity: 0.5; transform: scale(0.9); }
-    50% { opacity: 1; transform: scale(1.06); }
+    0%,
+    100% {
+      opacity: 0.5;
+      transform: scale(0.9);
+    }
+    50% {
+      opacity: 1;
+      transform: scale(1.06);
+    }
   }
   @keyframes pb-scan {
-    0% { top: 16%; opacity: 0; }
-    15% { opacity: 1; }
-    85% { opacity: 1; }
-    100% { top: 84%; opacity: 0; }
+    0% {
+      top: 16%;
+      opacity: 0;
+    }
+    15% {
+      opacity: 1;
+    }
+    85% {
+      opacity: 1;
+    }
+    100% {
+      top: 84%;
+      opacity: 0;
+    }
   }
-  @keyframes pb-bar { 0% { transform: translateX(-110%); } 100% { transform: translateX(320%); } }
+  @keyframes pb-bar {
+    0% {
+      transform: translateX(-110%);
+    }
+    100% {
+      transform: translateX(320%);
+    }
+  }
   @media (prefers-reduced-motion: reduce) {
-    .pb__dial, .pb__halo, .pb__scan, .pb__bar { animation: none; }
+    .pb__dial,
+    .pb__halo,
+    .pb__scan,
+    .pb__bar {
+      animation: none;
+    }
   }
 }
 
@@ -1247,24 +1353,67 @@
   will-change: background-position;
 }
 .salju-flake--1 {
-  background-image: radial-gradient(1.5px 1.5px at 24px 22px, rgba(255, 255, 255, 0.95), transparent),
-    radial-gradient(1.5px 1.5px at 120px 90px, rgba(255, 255, 255, 0.7), transparent),
-    radial-gradient(1.5px 1.5px at 74px 160px, rgba(255, 255, 255, 0.85), transparent),
-    radial-gradient(1.5px 1.5px at 168px 48px, rgba(255, 255, 255, 0.6), transparent);
+  background-image:
+    radial-gradient(
+      1.5px 1.5px at 24px 22px,
+      rgba(255, 255, 255, 0.95),
+      transparent
+    ),
+    radial-gradient(
+      1.5px 1.5px at 120px 90px,
+      rgba(255, 255, 255, 0.7),
+      transparent
+    ),
+    radial-gradient(
+      1.5px 1.5px at 74px 160px,
+      rgba(255, 255, 255, 0.85),
+      transparent
+    ),
+    radial-gradient(
+      1.5px 1.5px at 168px 48px,
+      rgba(255, 255, 255, 0.6),
+      transparent
+    );
   background-size: 210px 210px;
   animation: salju-turun 16s linear infinite;
 }
 .salju-flake--2 {
-  background-image: radial-gradient(2.4px 2.4px at 40px 30px, rgba(255, 255, 255, 0.9), transparent),
-    radial-gradient(2.4px 2.4px at 150px 120px, rgba(255, 255, 255, 0.7), transparent),
-    radial-gradient(2.4px 2.4px at 96px 200px, rgba(255, 255, 255, 0.82), transparent);
+  background-image:
+    radial-gradient(
+      2.4px 2.4px at 40px 30px,
+      rgba(255, 255, 255, 0.9),
+      transparent
+    ),
+    radial-gradient(
+      2.4px 2.4px at 150px 120px,
+      rgba(255, 255, 255, 0.7),
+      transparent
+    ),
+    radial-gradient(
+      2.4px 2.4px at 96px 200px,
+      rgba(255, 255, 255, 0.82),
+      transparent
+    );
   background-size: 260px 260px;
   animation: salju-turun 11s linear infinite;
 }
 .salju-flake--3 {
-  background-image: radial-gradient(3.4px 3.4px at 60px 40px, rgba(255, 255, 255, 0.92), transparent),
-    radial-gradient(3.4px 3.4px at 190px 150px, rgba(255, 255, 255, 0.72), transparent),
-    radial-gradient(3.4px 3.4px at 130px 250px, rgba(255, 255, 255, 0.85), transparent);
+  background-image:
+    radial-gradient(
+      3.4px 3.4px at 60px 40px,
+      rgba(255, 255, 255, 0.92),
+      transparent
+    ),
+    radial-gradient(
+      3.4px 3.4px at 190px 150px,
+      rgba(255, 255, 255, 0.72),
+      transparent
+    ),
+    radial-gradient(
+      3.4px 3.4px at 130px 250px,
+      rgba(255, 255, 255, 0.85),
+      transparent
+    );
   background-size: 320px 320px;
   animation: salju-turun 7.5s linear infinite;
 }
@@ -1321,19 +1470,23 @@
   0%,
   100% {
     transform: translateY(0) rotate(0deg);
-    filter: hue-rotate(0deg) brightness(1) drop-shadow(0 2px 6px rgba(120, 160, 190, 0.35));
+    filter: hue-rotate(0deg) brightness(1)
+      drop-shadow(0 2px 6px rgba(120, 160, 190, 0.35));
   }
   25% {
     transform: translateY(-1px) rotate(-3deg);
-    filter: hue-rotate(-20deg) brightness(1.08) drop-shadow(0 2px 8px rgba(120, 160, 190, 0.45));
+    filter: hue-rotate(-20deg) brightness(1.08)
+      drop-shadow(0 2px 8px rgba(120, 160, 190, 0.45));
   }
   50% {
     transform: translateY(0) rotate(2deg);
-    filter: hue-rotate(14deg) brightness(1.04) drop-shadow(0 2px 6px rgba(120, 160, 190, 0.4));
+    filter: hue-rotate(14deg) brightness(1.04)
+      drop-shadow(0 2px 6px rgba(120, 160, 190, 0.4));
   }
   75% {
     transform: translateY(-1px) rotate(-1deg);
-    filter: hue-rotate(-8deg) brightness(1.1) drop-shadow(0 2px 9px rgba(120, 160, 190, 0.5));
+    filter: hue-rotate(-8deg) brightness(1.1)
+      drop-shadow(0 2px 9px rgba(120, 160, 190, 0.5));
   }
 }
 [data-theme="salju"] .vault-dial {
@@ -1483,15 +1636,27 @@
 /* Langit + horizon dasar. Selalu tampil; ini juga latar fallback WebGL. */
 .laut-dasar {
   background:
-    radial-gradient(70% 45% at 30% 60%, rgba(15, 61, 58, 0.62), transparent 70%),
-    radial-gradient(42% 30% at 22% 40%, rgba(190, 208, 255, 0.08), transparent 70%),
+    radial-gradient(
+      70% 45% at 30% 60%,
+      rgba(15, 61, 58, 0.62),
+      transparent 70%
+    ),
+    radial-gradient(
+      42% 30% at 22% 40%,
+      rgba(190, 208, 255, 0.08),
+      transparent 70%
+    ),
     linear-gradient(180deg, #04100c 0%, #06201c 38%, #030d0a 46%, #04100c 100%);
 }
 
 /* Permukaan laut versi CSS — dipakai saat WebGL tidak tersedia/gagal. */
 .laut-fallback {
   background:
-    radial-gradient(60% 40% at 30% 44%, rgba(31, 106, 98, 0.18), transparent 70%),
+    radial-gradient(
+      60% 40% at 30% 44%,
+      rgba(31, 106, 98, 0.18),
+      transparent 70%
+    ),
     linear-gradient(
       180deg,
       transparent 45%,
@@ -1555,217 +1720,37 @@
   transform-style: preserve-3d;
   transform: rotateX(0deg) rotateY(0deg);
   will-change: transform;
-  border-radius: 1.5rem;
+  /* Radius disamakan dengan kartunya (`rounded-2xl`): lapisan kilau memakai
+     `border-radius: inherit`, jadi keduanya harus sama agar kilau tidak
+     menyembul sedikit di sudut. */
+  border-radius: 1rem;
 }
 
-/* Muka kartu — KACA PREMIUM: hijau PINDAI tembus pandang + blur, tepi brass.
-   Objek merek, bukan alat bayar (angka di kartu adalah contoh, lihat
-   `KartuFinansial`).
+/* Kartu hero obsidian (`KartuHeroPindai`) di panggung ini.
 
-   Rasio 1.586:1 = rasio kartu ID-1 sungguhan (85,6 × 54 mm), jadi proporsinya
-   terasa benar di tangan. `backdrop-filter` membuat adegan 3D di belakang kartu
-   samar terlihat — inilah yang membuatnya terbaca sebagai kaca, bukan sekadar
-   gradien hijau. Warna tetap hijau PINDAI gelap agar teks putih tetap kontras. */
-.kartu-3d__muka {
-  position: relative;
-  display: flex;
-  aspect-ratio: 1.586 / 1;
-  min-height: 15.5rem;
-  flex-direction: column;
-  justify-content: space-between;
-  overflow: hidden;
-  border-radius: 1.5rem;
-  border: 1px solid rgba(226, 199, 140, 0.42);
-  padding: 1.5rem;
-  background:
-    linear-gradient(
-      150deg,
-      rgba(255, 255, 255, 0.1) 0%,
-      rgba(255, 255, 255, 0.02) 34%,
-      transparent 62%
-    ),
-    radial-gradient(120% 90% at 12% -10%, rgba(31, 106, 98, 0.55), transparent 58%),
-    radial-gradient(90% 70% at 100% 112%, rgba(201, 168, 106, 0.18), transparent 62%),
-    linear-gradient(
-      155deg,
-      rgba(14, 59, 53, 0.82) 0%,
-      rgba(10, 42, 37, 0.86) 45%,
-      rgba(6, 23, 19, 0.9) 100%
-    );
-  backdrop-filter: blur(14px) saturate(1.25);
-  -webkit-backdrop-filter: blur(14px) saturate(1.25);
-  box-shadow:
-    0 30px 60px -30px rgba(0, 0, 0, 0.9),
-    0 22px 52px -30px rgba(31, 106, 98, 0.55),
-    inset 0 1px 0 rgba(255, 255, 255, 0.16),
-    inset 0 -20px 44px -30px rgba(0, 0, 0, 0.6);
-  transition: box-shadow 0.35s ease;
-}
-
-/* Layar kecil: blur diturunkan. Di ponsel kartu bergerak bersama adegan WebGL,
-   dan blur besar adalah beban GPU termahal di hero ini. */
-@media (max-width: 767px) {
-  .kartu-3d__muka {
-    backdrop-filter: blur(8px) saturate(1.2);
-    -webkit-backdrop-filter: blur(8px) saturate(1.2);
-  }
-}
-
-/* Kartu terangkat → glow hijau PINDAI naik, bayangan lebih dalam. */
-.kartu-3d--naik .kartu-3d__muka {
+   Permukaan, chip, dan tipografi kartu hidup di dalam komponen React-nya
+   (Tailwind), bukan di sini — yang tersisa di CSS hanya dua keadaan yang
+   dikendalikan JS panggung lewat kelas pada `.kartu-3d`:
+   - TERANGKAT (`--naik`): pendaran emerald naik, bayangan lebih dalam;
+   - DISERET (`--putar`): `backdrop-filter` dimatikan. Menghitung ulang blur
+     tiap frame sambil kartu berputar adalah kombinasi paling berat di hero ini
+     (WebGL + blur); permukaan obsidiannya tetap terbaca tanpa blur. */
+.kartu-3d--naik [data-kartu="obsidian-batik"] {
   box-shadow:
     0 42px 80px -34px rgba(0, 0, 0, 0.92),
-    0 28px 64px -28px rgba(31, 106, 98, 0.72),
-    inset 0 1px 0 rgba(255, 255, 255, 0.13);
+    0 0 64px -8px rgba(16, 185, 129, 0.5);
 }
 
-/* Kartu sedang DISERET (putaran bebas, sudut boleh lewat 360°):
-   - glow dinaikkan supaya terasa terangkat saat diputar;
-   - `backdrop-filter` dimatikan SELAMA seret: menghitung ulang blur tiap frame
-     sambil kartu berputar adalah kombinasi paling berat (WebGL + blur).
-     Permukaannya tetap tembus pandang, jadi bedanya nyaris tak terlihat di
-     tengah gerakan cepat, sementara putarannya tetap mulus. */
+/* Kartu sedang DISERET (putaran bebas, sudut boleh lewat 360°). */
 .kartu-3d--putar {
   cursor: grabbing;
 }
-.kartu-3d--putar .kartu-3d__muka {
+.kartu-3d--putar [data-kartu="obsidian-batik"] {
   box-shadow:
     0 46px 88px -34px rgba(0, 0, 0, 0.94),
-    0 30px 70px -26px rgba(31, 106, 98, 0.8),
-    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+    0 0 72px -6px rgba(16, 185, 129, 0.55);
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
-}
-
-/* Tepi brass + kilau statis pada permukaan. */
-.kartu-3d__tepi {
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  pointer-events: none;
-  box-shadow: inset 0 0 0 1px rgba(226, 199, 140, 0.16);
-  background: linear-gradient(
-    120deg,
-    rgba(226, 199, 140, 0.14),
-    transparent 30%,
-    transparent 70%,
-    rgba(226, 199, 140, 0.1)
-  );
-}
-
-/* Lapisan kaca di atas permukaan: pita sorotan diagonal + garis cahaya tipis di
-   tepi atas (pantulan kaca). `screen` membuatnya hanya menerangkan — tidak
-   pernah menggelapkan teks di bawahnya. */
-.kartu-3d__kaca {
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  pointer-events: none;
-  opacity: 0.9;
-  mix-blend-mode: screen;
-  background:
-    linear-gradient(
-      115deg,
-      rgba(255, 255, 255, 0.16) 4%,
-      rgba(255, 255, 255, 0.03) 26%,
-      transparent 44%
-    ),
-    linear-gradient(to bottom, rgba(255, 255, 255, 0.12), transparent 20%);
-}
-
-/* Pita holografik vertikal — penanda keaslian kartu premium. Garis tipis hijau
-   PINDAI + kuningan, dengan kilau yang berjalan pelan. Kilaunya hanya memakai
-   `transform`, jadi tetap di jalur compositor dan tidak mengganggu tata letak. */
-.kartu-3d__hologram {
-  position: relative;
-  width: 0.7rem;
-  height: 2.5rem;
-  margin-top: 0.1rem;
-  overflow: hidden;
-  border-radius: 0.35rem;
-  background: repeating-linear-gradient(
-    100deg,
-    rgba(201, 168, 106, 0.85) 0 1px,
-    rgba(110, 231, 183, 0.7) 1px 3px,
-    rgba(255, 255, 255, 0.28) 3px 4px,
-    rgba(31, 106, 98, 0.8) 4px 6px
-  );
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.25);
-}
-.kartu-3d__hologram::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.8), transparent);
-  transform: translateX(-120%);
-  animation: pindai-holo 5.5s ease-in-out infinite;
-}
-@keyframes pindai-holo {
-  0%,
-  100% {
-    transform: translateX(-120%);
-  }
-  50% {
-    transform: translateX(120%);
-  }
-}
-
-/* Tipografi data kartu: label kecil, nomor bergradasi, dan nilai pendek
-   (masa berlaku / CVV / merek). Angka memakai `tabular-nums` supaya lebarnya
-   tidak bergoyang saat kartu berputar. */
-.kartu-3d__label {
-  font-size: 0.5rem;
-  font-weight: 500;
-  letter-spacing: 0.26em;
-  text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.45);
-}
-.kartu-3d__nomor {
-  display: flex;
-  gap: 0.55rem;
-  margin-top: 0.3rem;
-  font-size: 1.05rem;
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-  letter-spacing: 0.14em;
-  color: #f4fffb;
-}
-/* Gradasi logam pada angka hanya dipasang bila peramban benar-benar mendukung
-   `background-clip: text`; tanpa penjagaan ini `<span>` angkanya bisa hilang. */
-@supports ((-webkit-background-clip: text) or (background-clip: text)) {
-  .kartu-3d__nomor {
-    background: linear-gradient(100deg, #ffffff 0%, #e6f6f0 45%, #ffffff 100%);
-    -webkit-background-clip: text;
-    background-clip: text;
-    -webkit-text-fill-color: transparent;
-  }
-}
-.kartu-3d__meta {
-  margin-top: 0.25rem;
-  font-size: 0.8rem;
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-  letter-spacing: 0.16em;
-  color: rgba(255, 255, 255, 0.9);
-}
-
-/* Chip brass dekoratif. */
-.kartu-3d__chip {
-  display: grid;
-  width: 2.6rem;
-  height: 2rem;
-  place-items: center;
-  border-radius: 0.45rem;
-  background: linear-gradient(135deg, #d8bd83, #9c7c3f 60%, #c8a865);
-  box-shadow:
-    inset 0 0 0 1px rgba(255, 255, 255, 0.25),
-    0 4px 10px -6px rgba(0, 0, 0, 0.8);
-}
-.kartu-3d__chip span {
-  display: block;
-  width: 60%;
-  height: 1px;
-  background: rgba(60, 42, 18, 0.5);
 }
 
 /* Kilau yang mengikuti pointer (posisi dari variabel --mx/--my). Nuansa hijau
@@ -1808,18 +1793,6 @@
   }
   .kartu-3d__kilau {
     transition: none;
-  }
-  .kartu-3d__muka {
-    transition: none;
-    /* Tampilan kaca tidak hilang saat gerak dikurangi; blur tetap dipasang
-       karena kartu di sini memang tidak pernah berputar/bergerak, sehingga tidak
-       ada yang memaksa penghitungan ulang tiap frame. */
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
-  }
-  .kartu-3d__hologram::after {
-    animation: none;
-    opacity: 0;
   }
 }
 
@@ -2066,7 +2039,9 @@
    Isian yang ditandai tidak sah (`aria-invalid`, `:user-invalid`) dikecualikan:
    nada merah dari mesin validasi harus tetap menang, bukan ditimpa hijau. */
 .focus-glow:focus:where(:not([aria-invalid="true"]):not(:user-invalid)),
-.focus-glow:focus-visible:where(:not([aria-invalid="true"]):not(:user-invalid)) {
+.focus-glow:focus-visible:where(
+    :not([aria-invalid="true"]):not(:user-invalid)
+  ) {
   background-color: rgb(255 255 255 / 0.98);
   border-color: color-mix(in oklab, var(--primary) 60%, transparent);
   box-shadow: 0 0 0 4px color-mix(in oklab, var(--primary) 12%, transparent);

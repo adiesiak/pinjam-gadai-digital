@@ -1,17 +1,30 @@
 import { useReducedMotion } from "framer-motion";
-import { ArrowRight, Lock, ShieldCheck, Sparkles, TriangleAlert } from "lucide-react";
-import { Component, useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import {
+  ArrowRight,
+  Lock,
+  ShieldCheck,
+  Sparkles,
+  TriangleAlert,
+} from "lucide-react";
+import {
+  Component,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { Link } from "react-router";
 
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
-import { VaultLogo } from "@/components/VaultLogo";
 import {
   landingTemplateInfo,
   landingTemplatePreset,
   templateLandingAman,
   type LandingTemplateId,
 } from "@/lib/landingTemplate";
+import { KartuHeroPindai } from "./KartuHeroPindai";
 import type { HandleTemplate } from "./templateScene";
 
 /**
@@ -170,7 +183,14 @@ export function LandingHero(props: LandingHeroProps) {
   const gagal = gagalPreset === preset;
 
   // Keadaan gerak kartu + parallax pointer scene (-1..1).
-  const gerakRef = useRef<Gerak>({ tx: 0, ty: 0, x: 0, y: 0, angkat: 0, angkatTarget: 0 });
+  const gerakRef = useRef<Gerak>({
+    tx: 0,
+    ty: 0,
+    x: 0,
+    y: 0,
+    angkat: 0,
+    angkatTarget: 0,
+  });
   const loopRef = useRef(0);
   const riakTerakhirRef = useRef(0);
   const posisiRiakRef = useRef({ x: 0.5, y: 0.5 });
@@ -229,13 +249,15 @@ export function LandingHero(props: LandingHeroProps) {
       // Ukuran awal mungkin belum final saat lazy-load selesai — ukur ulang
       // sekali pada frame berikutnya, lalu biarkan ResizeObserver menangani.
       rafUkur = requestAnimationFrame(() => {
-        if (!dibatalkan) handle?.setUkuran(canvas.clientWidth || 1, canvas.clientHeight || 1);
+        if (!dibatalkan)
+          handle?.setUkuran(canvas.clientWidth || 1, canvas.clientHeight || 1);
       });
     })();
 
     const ro = new ResizeObserver(() => {
       const h = sceneRef.current;
-      if (h !== null) h.setUkuran(canvas.clientWidth || 1, canvas.clientHeight || 1);
+      if (h !== null)
+        h.setUkuran(canvas.clientWidth || 1, canvas.clientHeight || 1);
     });
     ro.observe(canvas);
 
@@ -291,7 +313,8 @@ export function LandingHero(props: LandingHeroProps) {
     const section = sectionRef.current;
     if (section === null) return;
     let terlihat = true;
-    const terapkan = () => sceneRef.current?.setAktif(terlihat && !document.hidden);
+    const terapkan = () =>
+      sceneRef.current?.setAktif(terlihat && !document.hidden);
     const io = new IntersectionObserver(
       (entries) => {
         terlihat = entries.some((e) => e.isIntersecting);
@@ -469,7 +492,12 @@ export function LandingHero(props: LandingHeroProps) {
       if (e.pointerType === "touch") sentuhAktifRef.current = true;
       onKartuMasuk();
       if (reduce) return;
-      seretRef.current = { aktif: true, x: e.clientX, y: e.clientY, berputar: false };
+      seretRef.current = {
+        aktif: true,
+        x: e.clientX,
+        y: e.clientY,
+        berputar: false,
+      };
       kartuRef.current?.classList.add("kartu-3d--putar");
       // Penangkapan pointer membuat seretan tetap terlacak walau kursor keluar
       // dari kotak kartu, dan `pointerup` tetap sampai ke elemen ini sehingga
@@ -519,7 +547,9 @@ export function LandingHero(props: LandingHeroProps) {
       // Riak: dibatasi jeda waktu DAN jarak supaya tidak menumpuk.
       const now = performance.now();
       const jauh =
-        Math.abs(px - posisiRiakRef.current.x) + Math.abs(py - posisiRiakRef.current.y) > 0.02;
+        Math.abs(px - posisiRiakRef.current.x) +
+          Math.abs(py - posisiRiakRef.current.y) >
+        0.02;
       if (now - riakTerakhirRef.current > JEDA_RIAK_MS && jauh) {
         riakTerakhirRef.current = now;
         posisiRiakRef.current = { x: px, y: py };
@@ -545,7 +575,10 @@ export function LandingHero(props: LandingHeroProps) {
       if (rect.width === 0 || rect.height === 0) return;
       const px = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
       const py = Math.min(1, Math.max(0, (e.clientY - rect.top) / rect.height));
-      handle.tambahRiak(px, Math.max(0.06, Math.min(1 - py, handle.horizonUv - 0.02)));
+      handle.tambahRiak(
+        px,
+        Math.max(0.06, Math.min(1 - py, handle.horizonUv - 0.02)),
+      );
     },
     [beriak, reduce],
   );
@@ -638,7 +671,10 @@ export function LandingHero(props: LandingHeroProps) {
 
       {/* 3. Fallback statis — hanya saat WebGL tidak tersedia/gagal. */}
       {gagal && (
-        <div aria-hidden="true" className="laut-fallback pointer-events-none absolute inset-0">
+        <div
+          aria-hidden="true"
+          className="laut-fallback pointer-events-none absolute inset-0"
+        >
           {beriak && (
             <>
               <span className="laut-riak-css laut-riak-css--1" />
@@ -680,7 +716,9 @@ export function LandingHero(props: LandingHeroProps) {
           >
             {props.judul1}
             <br />
-            <span className="font-serif font-medium italic text-[#6EE7B7]">{props.judul2}</span>
+            <span className="font-serif font-medium italic text-[#6EE7B7]">
+              {props.judul2}
+            </span>
           </h1>
 
           <p
@@ -730,7 +768,10 @@ export function LandingHero(props: LandingHeroProps) {
             style={{ animationDelay: "0.32s" }}
           >
             <span className="flex items-center gap-2">
-              <ShieldCheck className="size-4 text-[#6EE7B7]" aria-hidden="true" />
+              <ShieldCheck
+                className="size-4 text-[#6EE7B7]"
+                aria-hidden="true"
+              />
               Rincian biaya terbuka
             </span>
             <span className="flex items-center gap-2">
@@ -764,8 +805,9 @@ export function LandingHero(props: LandingHeroProps) {
                 aria-label="Simulasi tenor dalam bulan"
               />
               <p className="mt-2 text-[11px] leading-5 text-slate-400">
-                Geser untuk melihat koin dan cincin kedalaman bergerak. Angka ini ilustrasi
-                interaksi visual — rincian biaya mengikuti produk yang berlaku.
+                Geser untuk melihat koin dan cincin kedalaman bergerak. Angka
+                ini ilustrasi interaksi visual — rincian biaya mengikuti produk
+                yang berlaku.
               </p>
             </div>
           )}
@@ -776,16 +818,19 @@ export function LandingHero(props: LandingHeroProps) {
               role="status"
               className="mt-6 flex max-w-lg items-start gap-2 rounded-xl border border-white/15 bg-white/[0.05] px-3.5 py-2.5 text-xs leading-5 text-slate-300"
             >
-              <TriangleAlert className="mt-0.5 size-3.5 shrink-0 text-[#6EE7B7]" aria-hidden="true" />
+              <TriangleAlert
+                className="mt-0.5 size-3.5 shrink-0 text-[#6EE7B7]"
+                aria-hidden="true"
+              />
               <span>
-                Pengalaman 3D tidak dapat dimuat pada perangkat ini. PINDAI tetap dapat digunakan
-                seperti biasa lewat tombol di atas.
+                Pengalaman 3D tidak dapat dimuat pada perangkat ini. PINDAI
+                tetap dapat digunakan seperti biasa lewat tombol di atas.
               </span>
             </p>
           )}
         </div>
 
-        {/* Kartu finansial 3D — objek merek yang bisa disentuh, bukan alat bayar.
+        {/* Kartu hero 3D — objek merek yang bisa disentuh, bukan alat bayar.
             Pembungkusnya mengambang perlahan (`.animate-float`, 7 detik
             naik-turun) seperti mockup melayang; animasi ini ada di pembungkus,
             bukan di panggung, sehingga kemiringan/putaran kartu yang dikendalikan
@@ -808,13 +853,27 @@ export function LandingHero(props: LandingHeroProps) {
             onPointerCancel={selesaiSeret}
           >
             <div ref={kartuRef} className="kartu-3d">
-              <KartuFinansial />
-              <div ref={kilauRef} className="kartu-3d__kilau" aria-hidden="true" />
+              {/* Tilt + angkat kartu diurus panggung di atas, jadi kartunya
+                  diminta TIDAK mengurus geraknya sendiri (`interaktif={false}`)
+                  supaya tidak ada dua kemiringan bertumpuk. Kilau permukaan
+                  tetap dari lapisan `.kartu-3d__kilau` milik panggung ini. */}
+              <KartuHeroPindai
+                interaktif={false}
+                className="lg:max-w-none"
+                nama="Budi Setiawan"
+                terverifikasi
+              />
+              <div
+                ref={kilauRef}
+                className="kartu-3d__kilau"
+                aria-hidden="true"
+              />
             </div>
           </div>
           <div aria-hidden="true" className="kartu-3d__bayangan" />
           <p className="mt-6 text-center text-[11px] uppercase tracking-[0.26em] text-slate-500 lg:text-left">
-            {props.sudahMasuk ? "Sesi aktif" : "Akun PINDAI"} · Pinjam &amp; gadai digital
+            {props.sudahMasuk ? "Sesi aktif" : "Akun PINDAI"} · Pinjam &amp;
+            gadai digital
           </p>
         </div>
       </div>
@@ -823,89 +882,11 @@ export function LandingHero(props: LandingHeroProps) {
       <div
         aria-hidden="true"
         className="pointer-events-none absolute inset-x-0 bottom-0 h-24"
-        style={{ backgroundImage: `linear-gradient(to bottom, transparent, ${info.palet[2]})` }}
+        style={{
+          backgroundImage: `linear-gradient(to bottom, transparent, ${info.palet[2]})`,
+        }}
       />
     </section>
-  );
-}
-
-/**
- * Muka kartu — OBJEK MEREK, bukan alat bayar.
- *
- * Premium & kaca: permukaan `.kartu-3d__muka` tembus pandang + `backdrop-filter`,
- * jadi adegan 3D di belakangnya samar terlihat (kaca sungguhan, bukan gradien
- * hiasan). Di atasnya ada lapisan kilau `.kartu-3d__kaca`, pita holografik
- * `.kartu-3d__hologram`, dan tepi brass.
- *
- * Angka pada kartu adalah CONTOH yang mustahil menjadi kartu sungguhan —
- * `0000 0000 0000 0000`, `00/00`, `000`. Tidak ada data pengguna, nomor
- * telepon, ataupun logo pihak ketiga. Baris angka diberi `aria-hidden` (kartu
- * ini dekoratif; pembaca layar tidak perlu mendengar angka palsu) dan ditemani
- * keterangan kecil "Kartu contoh · bukan alat bayar" supaya tidak ada yang
- * mengira PINDAI menerbitkan kartu.
- */
-function KartuFinansial() {
-  return (
-    <div className="kartu-3d__muka">
-      <div aria-hidden="true" className="kartu-3d__tepi" />
-      <div aria-hidden="true" className="kartu-3d__kaca" />
-
-      <div className="relative flex items-start justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <VaultLogo size={44} />
-          <div>
-            <p className="text-sm font-semibold tracking-[0.22em] text-white">PINDAI</p>
-            <p className="mt-0.5 text-[9px] font-medium uppercase tracking-[0.28em] text-[#e6d3a5]">
-              Pinjam dan Gadai Digital
-            </p>
-          </div>
-        </div>
-        <div className="flex items-start gap-2">
-          {/* Pita holografik — penanda keaslian kartu premium (dekoratif). */}
-          <div className="kartu-3d__hologram" aria-hidden="true" />
-          {/* Chip brass bergaya — dekoratif, bukan chip pembayaran asli. */}
-          <div className="kartu-3d__chip" aria-hidden="true">
-            <span />
-            <span />
-            <span />
-          </div>
-        </div>
-      </div>
-
-      <div aria-hidden="true" className="relative mt-6">
-        <p className="kartu-3d__label">Nomor kartu</p>
-        <p className="kartu-3d__nomor">
-          <span>0000</span>
-          <span>0000</span>
-          <span>0000</span>
-          <span>0000</span>
-        </p>
-      </div>
-
-      <div aria-hidden="true" className="relative mt-5 flex items-end justify-between gap-5 sm:mt-6">
-        <div>
-          <p className="kartu-3d__label">Berlaku hingga</p>
-          <p className="kartu-3d__meta">00/00</p>
-        </div>
-        <div>
-          <p className="kartu-3d__label">CVV</p>
-          <p className="kartu-3d__meta">000</p>
-        </div>
-        <div className="ml-auto text-right">
-          <p className="kartu-3d__label">Merek</p>
-          <p className="kartu-3d__meta">PINDAI</p>
-        </div>
-      </div>
-
-      <div className="relative mt-4 flex items-center justify-between gap-3 border-t border-white/10 pt-3">
-        <p className="text-[8px] font-medium uppercase tracking-[0.2em] text-white/45">
-          Kartu contoh · bukan alat bayar
-        </p>
-        <p className="text-[9px] font-medium uppercase tracking-[0.16em] text-white/60">
-          Pinjaman · Gadai
-        </p>
-      </div>
-    </div>
   );
 }
 
@@ -918,7 +899,10 @@ function KartuFinansial() {
  * depan tidak pernah crash: yang tampil adalah fallback statis + jalan masuk
  * ke produk, bukan layar putih.
  */
-export class TemplateBoundary extends Component<{ children: ReactNode; fallback: ReactNode }> {
+export class TemplateBoundary extends Component<{
+  children: ReactNode;
+  fallback: ReactNode;
+}> {
   state = { rusak: false };
 
   static getDerivedStateFromError() {
