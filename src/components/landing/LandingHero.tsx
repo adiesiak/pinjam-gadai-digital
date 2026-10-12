@@ -608,17 +608,15 @@ export function LandingHero(props: LandingHeroProps) {
         className="pointer-events-none absolute inset-0 bg-[#042F2E] bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(6,78,59,0.8),rgba(4,47,46,1))]"
       />
 
-      {/* 0b. Dua Ambient Glow Orb transparan: orb kiri-atas berdenyut lembut,
-              orb kanan-bawah tenang. Keduanya memberi kedalaman ruang tanpa
-              menambah satu pun elemen yang bisa diklik. */}
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute -left-20 -top-20 h-96 w-96 animate-pulse rounded-full bg-emerald-500/20 blur-3xl"
-      />
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute -right-20 top-1/3 h-96 w-96 rounded-full bg-teal-400/15 blur-3xl"
-      />
+      {/* 0b. Dua orb glow samar DIHAPUS (audit antislop + DESIGN.md §4).
+              Alasannya ditulis supaya tidak dikembalikan tanpa berpikir:
+              (a) orb blur di belakang hero termasuk keluarga default yang
+                  dilarang R-01, dan (b) orb berdenyut memakai `animate-pulse`
+                  tanpa peristiwa apa pun — pelanggaran R-19 (gerak berulang
+                  tanpa tujuan). Titik fokus panggung ini adalah KARTU, dan
+                  pendaran ganda emerald di kartu itu satu-satunya glow yang
+                  boleh menonjol (R-13: maksimal 1–2 elemen). Lapisan 0 di
+                  bawah tetap ada sebagai lantai warna panggung. */}
 
       {/* 1. Gradien dasar Deep Space Emerald — selalu ada, sekaligus fallback
              WebGL. Kuningan (gold foil) TIDAK dipakai sebagai wash latar;

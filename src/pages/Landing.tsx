@@ -2139,11 +2139,12 @@ export default function Landing() {
                     Syarat &amp; Ketentuan
                   </Link>
                 </li>
+                {/* Titik biru berdenyut di baris ini DIHAPUS (audit antislop).
+                    Ia meminjam bahasa indikator "sedang berjalan" untuk baris
+                    keterangan statis tanpa peristiwa apa pun: titik dekoratif
+                    (R-31) sekaligus pulsa tanpa ujung (R-19). Labelnya sendiri
+                    sudah menjelaskan, jadi tidak perlu penanda. */}
                 <li className="flex items-center gap-2">
-                  <span className="relative flex size-2">
-                    <span className="absolute inline-flex size-full animate-ping rounded-full bg-sky-400 opacity-70" />
-                    <span className="relative inline-flex size-2 rounded-full bg-sky-500" />
-                  </span>
                   <span className="text-slate-500">Perhitungan ledger internal</span>
                 </li>
               </ul>

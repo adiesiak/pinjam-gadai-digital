@@ -328,7 +328,7 @@ export function LoanReviewDialog({
   // jadi identitas pengajuan + lencana status selalu terlihat saat admin membaca
   // dokumen. `pr-14` menyisakan ruang untuk tombol tutup X.
   const header = (
-    <div className="sticky top-0 z-20 flex items-center gap-4 border-b border-slate-200/60 bg-white/70 px-5 py-5 pr-14 backdrop-blur-md">
+    <div className="sticky top-0 z-20 flex items-center gap-4 border-b border-slate-200/60 bg-white px-5 py-5 pr-14">
       <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-[#064E3B] text-sm font-bold tracking-tight text-emerald-50">
         {String(row.pokokPinjaman).slice(0, 2)}
       </div>
@@ -424,7 +424,7 @@ export function LoanReviewDialog({
       {kotakRingkas}
 
       {/* Rincian pendukung: bukan dihapus, hanya ditutup sampai diminta. */}
-      <section className="rounded-2xl border border-slate-200/80 bg-white/70 p-3 backdrop-blur-sm">
+      <section className="rounded-2xl border border-slate-200/80 bg-white p-3">
         <button
           type="button"
           onClick={() => setBukaRincian((x) => !x)}
@@ -460,7 +460,7 @@ export function LoanReviewDialog({
       <div className="flex min-w-0 flex-col gap-3">
         {/* Koordinat perangkat */}
         {lokasi !== null && petaHref ? (
-          <div className="rounded-2xl border border-slate-200/80 bg-white/80 p-4 backdrop-blur-md">
+          <div className="rounded-2xl border border-slate-200/80 bg-white p-4">
             <p className="flex items-center gap-2 text-xs font-semibold text-navy">
               <MapPin className="size-4 text-primary" />
               Koordinat perangkat
@@ -493,7 +493,7 @@ export function LoanReviewDialog({
         <Separator />
 
         {/* Ringkasan detail peminjam */}
-        <div className="space-y-2 rounded-2xl border border-slate-200/80 bg-white/80 p-4 backdrop-blur-md">
+        <div className="space-y-2 rounded-2xl border border-slate-200/80 bg-white p-4">
           <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
             Ringkasan pemohon
           </p>
@@ -542,7 +542,7 @@ export function LoanReviewDialog({
     <div className="grid gap-4 md:grid-cols-2 md:gap-5">
       {/* Kolom kiri: matriks aliran uang — rapat, tanpa gulir horizontal */}
       <div className="flex min-w-0 flex-col gap-3">
-        <p className="rounded-2xl border border-amber-200/70 bg-amber-50/80 px-4 py-3 text-xs leading-5 text-amber-900 backdrop-blur-sm">
+        <p className="rounded-2xl border border-amber-200/70 bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-900">
           Nominal, tanggal acuan, alokasi, dan status lunas di panel ini mengikuti catatan ledger
           internal; perpindahan dana ditangani di luar aplikasi.
         </p>
@@ -557,7 +557,7 @@ export function LoanReviewDialog({
 
         {/* Jadwal bayar (skema bulanan) atau ringkasan harian */}
         {row.tenorBulan !== null && row.tenorBulan === 3 && (
-          <div className="rounded-2xl border border-slate-200/80 bg-white/80 p-4 backdrop-blur-md">
+          <div className="rounded-2xl border border-slate-200/80 bg-white p-4">
             <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
               Rincian bulanan (3 bulan)
             </p>
@@ -607,7 +607,7 @@ export function LoanReviewDialog({
         )}
 
         {row.status === "lunas" && (
-          <div className="rounded-2xl border border-emerald-200/80 bg-emerald-50/70 px-4 py-3 text-sm text-emerald-900 backdrop-blur-sm">
+          <div className="rounded-2xl border border-emerald-200/80 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
             <p className="flex items-center gap-1.5">
               <CheckCircle2 className="size-4" /> Pinjaman ini sudah <strong>lunas</strong>
             </p>
@@ -623,7 +623,7 @@ export function LoanReviewDialog({
           aliran dengan penentuan pendananya tanpa menggulir bolak-balik. */}
       <div className="min-w-0 space-y-3">
         {row.status !== "lunas" && (
-          <section className="rounded-2xl border border-slate-200/80 bg-white/85 p-4 backdrop-blur-md">
+          <section className="rounded-2xl border border-slate-200/80 bg-white p-4">
             <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
               Pendana & nominal disetujui
             </p>
@@ -714,11 +714,11 @@ export function LoanReviewDialog({
   const tabPerjanjian = (
     <div className="space-y-3">
       {/* Status dokumen perjanjian + ttd */}
-      <div className="rounded-2xl border border-slate-200/80 bg-white/80 p-4 backdrop-blur-md">
+      <div className="rounded-2xl border border-slate-200/80 bg-white p-4">
         <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
           Status perjanjian
         </p>
-        <div className="mt-3 flex flex-wrap items-start gap-3 rounded-2xl border border-emerald-900/10 bg-white/90 p-4 backdrop-blur-sm">
+        <div className="mt-3 flex flex-wrap items-start gap-3 rounded-2xl border border-emerald-900/10 bg-white p-4">
           <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
             <FileText className="size-5" />
           </div>
@@ -749,7 +749,7 @@ export function LoanReviewDialog({
           ].map((item) => (
             <div
               key={item.label}
-              className="rounded-2xl border border-slate-200/80 bg-white/80 p-3 backdrop-blur-md"
+              className="rounded-2xl border border-slate-200/80 bg-white p-3"
             >
               <div className="flex items-center gap-2">
                 <item.icon className="size-4 text-slate-400" />
@@ -763,7 +763,7 @@ export function LoanReviewDialog({
 
       {/* Pratinjau WhatsApp */}
       {pratinjau !== undefined && pratinjau !== null && (
-        <div className="rounded-2xl border border-slate-200/80 bg-white/80 p-4 backdrop-blur-md">
+        <div className="rounded-2xl border border-slate-200/80 bg-white p-4">
           <div className="flex items-center justify-between gap-2">
             <p className="flex items-center gap-2 text-sm font-semibold text-emerald-900">
               <MessageCircle className="size-4" />
@@ -783,7 +783,7 @@ export function LoanReviewDialog({
 
       {/* Draft WhatsApp (admin bisa mengedit catatan sebelum dikirim) */}
       {row.status !== "lunas" && (
-        <div className="rounded-2xl border border-slate-200/80 bg-white/80 p-4 backdrop-blur-md">
+        <div className="rounded-2xl border border-slate-200/80 bg-white p-4">
           <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
             Draft pesan WhatsApp
           </p>
@@ -823,7 +823,7 @@ export function LoanReviewDialog({
   // Aksi hapus dipisah dari footer aksi utama dan disembunyikan di dalam
   // accordion paling bawah supaya tidak pernah tertekan karena salah klik.
   const dangerZone = (
-    <div className="rounded-xl border border-rose-200/60 bg-rose-50/60 p-3 text-rose-700 backdrop-blur-sm">
+    <div className="rounded-xl border border-rose-200/60 bg-rose-50 p-3 text-rose-700">
       <button
         type="button"
         onClick={() => setBukaDanger((x) => !x)}
@@ -894,7 +894,7 @@ export function LoanReviewDialog({
   // Footer aksi kaca: menempel di dasar modal, jadi keputusan bisa disimpan
   // tanpa menggulir balik setelah membaca dokumen panjang.
   const footerAksi = (
-    <div className="sticky bottom-0 z-20 flex flex-wrap items-center justify-between gap-3 border-t border-slate-200/60 bg-white/80 p-4 shadow-lg backdrop-blur-md">
+    <div className="sticky bottom-0 z-20 flex flex-wrap items-center justify-between gap-3 border-t border-slate-200/60 bg-white p-4 shadow-lg">
       {row.status === "lunas" ? (
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
           <CheckCircle2 className="size-4 text-emerald-600" />
@@ -963,8 +963,8 @@ export function LoanReviewDialog({
           onValueChange={(v) => setActiveTab(v as typeof activeTab)}
           className="flex min-h-0 flex-1 flex-col gap-0"
         >
-          <div className="flex flex-wrap gap-2 border-b border-slate-200/60 bg-white/60 px-5 pt-4 backdrop-blur-md">
-            <TabsList className="h-auto w-full flex-wrap justify-start rounded-xl border border-white/80 bg-white/80 p-1.5 shadow-xs backdrop-blur-md">
+          <div className="flex flex-wrap gap-2 border-b border-slate-200/60 bg-white px-5 pt-4">
+            <TabsList className="h-auto w-full flex-wrap justify-start rounded-xl border border-white/80 bg-white p-1.5 shadow-xs">
               <TabsTrigger value="detail" className="gap-2 text-sm">
                 <FileText className="size-4" />
                 Detail &amp; Dokumen
