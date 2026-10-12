@@ -5,10 +5,11 @@
 **Metode.** Suite tes otomatis penuh (`bun run test`: 37 berkas / 362 tes vitest
 plus seluruh tes render & logika pra-vitest, termasuk 37 berkas tes Convex) lalu
 inspeksi kode untuk alur yang disebut checklist dan tidak punya tes langsung.
-**Batas:** tidak ada browser/E2E harness di lingkungan ini, jadi tidak ada
-klik-uji nyata, tidak ada penyimpanan cookie yang diamati, dan tidak ada
-pengamatan update realtime secara langsung. Semua status "Pass" di bawah
-bersandar pada tes otomatis dan inspeksi kode, bukan pada sesi interaktif.
+**Batas:** klik-uji nyata dan pengamatan storage dilakukan di **Chromium
+headless** (Playwright, viewport 390×844) terhadap preview `localhost:5173`;
+hasilnya ada di §5. Update *realtime* (langganan Convex) tetap tidak diamati
+langsung. Status "Pass" pada §1 tetap bersandar pada tes otomatis + inspeksi kode,
+kecuali yang eksplisit menyebut §5.
 
 ---
 
@@ -101,6 +102,37 @@ logika backend yang terputus pada modul di atas.
   tes render & logika pra-vitest lulus (0 gagal). Dijalankan **setelah** perbaikan
   B1.
 - **Error console**: tidak dapat diperiksa tanpa browser (batas lingkungan).
-- **Yang tidak terverifikasi**: klik-uji nyata, penghapusan cookie saat logout,
-  dan update realtime alur approval — diverifikasi lewat tes otomatis/inspeksi,
-  bukan sesi peramban.
+- **Yang terverifikasi di peramban nyata**: klik-uji landing/nav/CTA, redirect
+  rute terlindungi, serta login-tamu dan **logout yang benar-benar menghapus token
+  sesi** (§5).
+- **Yang tetap tidak terverifikasi**: update realtime alur approval (langganan
+  Convex) — tidak diamati langsung.
+
+---
+
+## 5. Pengujian peramban nyata (klik-uji headless Chromium) — 2026-10-12
+
+Alat: Chromium headless (Playwright) terhadap preview `http://localhost:5173`,
+viewport 390×844 (lebar ponsel). Skrip: `/tmp/pwtest/test.mjs`, `test2.mjs`,
+`test3.mjs`.
+
+| Skenario | Hasil | Bukti |
+|---|---|---|
+| Landing render | **Pass** | `title` = "PINDAI — Pinjaman dan Gadai Digital"; `h1` = "Pinjam & Gadai Digital…"; 9 tautan nav; 0 error konsol. |
+| Navigasi anchor | **Pass** | Klik tautan "Biaya" → URL berakhir `#biaya`. |
+| CTA masuk | **Pass** | Klik CTA → `/auth`. |
+| Rute terlindungi tanpa sesi | **Pass** | `/dashboard`, `/penyedia-dana`, `/promo`, `/qc`, dan rute admin rahasia semuanya → `…/auth?returnTo=<rute>`. |
+| `/admin` (asumsi checklist) | **Pass (aman)** | `/admin` **bukan** rute nyata → halaman 404 NotFound; panel admin berada di rute rahasia `ADMIN_ROUTE` (`/7c91f4d2…`) yang tetap terproteksi. |
+| Login tamu (sesi nyata) | **Pass** | Tab "Akses Cepat" → "Lanjut sebagai tamu" (`signIn("anonymous")`) → `/dashboard`; localStorage bertambah `__convexAuthJWT_<ns>` + `__convexAuthRefreshToken_<ns>`. |
+| **Logout menghapus sesi** | **Pass** | Klik "Masuk / buat akun dengan email OTP" (memanggil `signOut()`) → **kedua kunci token hilang** dari localStorage; tersisa `pindai.sessionId` saja; URL → `/auth?returnTo=%2Fdashboard`. |
+| **Cookie saat logout** | **N/A (bukan bug)** | `ctx.cookies()` dan `document.cookie` **kosong di semua langkah** — aplikasi tidak memakai cookie untuk autentikasi. Sesi disimpan di localStorage oleh Convex Auth (`convexAuthJWT`/`convexAuthRefreshToken`, lihat `@convex-dev/auth/dist/react/client.js`). Jadi permintaan "hapus cookie saat logout" tidak berlaku pada arsitektur ini. |
+| Error konsol | **Pass** | 0 error CSP/network/runtime sepanjang alur. |
+
+Catatan penting: `pindai.sessionId` (id perangkat acak) **sengaja tidak dihapus**
+saat logout — ia bukan kredensial, hanya penanda perangkat untuk heartbeat
+"sesi tunggal" (`src/lib/session.ts`). Yang dihapus saat logout adalah token
+autentikasi (`__convexAuthJWT` + refresh token).
+
+Alat uji dipasang di luar proyek (`/tmp/pwtest`, browser di
+`~/.cache/ms-playwright`); tidak ada berkas proyek yang diubah untuk pengujian ini.
+`bun`/`node` proyek tetap bersih dari dependensi pengujian.
