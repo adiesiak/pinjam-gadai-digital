@@ -7,20 +7,33 @@
 > kebenaran yang sudah dicicipi mata manusia. Tajamkan atau ganti begitu pemilik produk menulis
 > arahnya sendiri; jangan pernah menambah janji produk ke berkas ini.
 
+## Brief dari pemilik produk
+
+Tiga jawaban ini berasal dari **pemilik produk**, bukan dari agen, dan menang atas arah karangan
+agen di bagian mana pun yang berbenturan dengannya:
+
+- **Produk:** keseluruhannya — pinjam, gadai, ruang Pendana, dan meja kerja admin/QC.
+- **Audiens prioritas:** nasabah peminjam / penggadai. Kalau dua pilihan saling menekan, yang menang
+  adalah pilihan yang memudahkan nasabah memahami biaya dan menyelesaikan pengajuan.
+- **Mood:** koperasi digital — hangat, ramah, membumi.
+
 ## Identitas
 
 PINDAI adalah layanan **pinjam dan gadai digital** untuk orang yang butuh dana cepat tanpa akses
 bank yang nyaman, **plus** ruang bagi Pendana terverifikasi dan meja kerja admin/QC. Satu produk,
-tiga pembaca: nasabah peminjam, Pendana, petugas.
+tiga pembaca: nasabah peminjam, Pendana, petugas — dengan **nasabah peminjam sebagai pembaca
+pertama**: dialah yang datang dalam keadaan terdesak dan paling sering tersesat di istilah.
 
-Yang harus terasa saat dibuka: **ini lembaga yang mencatat.** Ada urutan, ada angka yang bisa
-ditelusuri, ada tanda tangan. Bukan aplikasi yang menjanjikan cepat kaya, dan bukan pula kalkulator
-dingin yang tidak peduli pada orangnya.
+Yang harus terasa saat dibuka: **ini koperasi yang mencatat dan mengenal anggotanya.** Ada urutan,
+ada angka yang bisa ditelusuri, ada tanda tangan — tapi juga ada orang yang menjelaskan, bukan
+formulir yang membentak. Bukan aplikasi yang menjanjikan cepat kaya, dan bukan kalkulator dingin.
 
 ## Kepribadian
 
-- **Benar:** *tertib* (baris rapi, satuan jelas, angka rata), *hangat tapi rapi* (kertas hangat,
-  bukan putih lab), *terang-terangan* (biaya, potongan, dan status ditulis apa adanya).
+- **Benar:** *membumi* (bahasa sehari-hari, istilah dijelaskan di tempat, tidak ada jarak
+  korporat), *hangat* (kertas hangat dan sapaan manusia, bukan putih lab dan robot), *tertib*
+  (baris rapi, satuan jelas, angka rata), *terang-terangan* (biaya, potongan, dan status ditulis
+  apa adanya, sebelum tanda tangan).
 - **Hindari:** *mewah palsu* (emas berkilau, kaca premium, tanpa isi), *renyah ala startup*
   (emoji, bahasa gaul di layar uang), *dingin-korporat tanpa penulis* (teks generik yang bisa
   ditempel ke produk apa pun).
@@ -55,9 +68,11 @@ setiap baris. Nama berkas, nomor referensi, dan NIK bertopeng memakai huruf mono
 
 ## Mood dan rujukan
 
-- **Rujukan rasa:** buku besar pegadaian tua — kertas hangat, garis tinta, cap kuningan, tulisan
-  tangan petugas yang rapi; papan teller bank yang bersih dan terang; koperasi yang mengenal
-  nasabahnya dengan nama.
+- **Rujukan rasa utama — koperasi digital.** Ruang bersama yang anggotanya dikenal dengan nama:
+  petugas menjelaskan, angka ditunjukkan, tidak ada dinding kaca antara lembaga dan orang. Hangat
+  dan membumi, tapi tetap tertib karena ini uang.
+- **Ekspresi visualnya** diambil dari buku besar pegadaian tua: kertas hangat, garis tinta, cap
+  kuningan, tulisan yang rapi. Bukan "koperasi jadul": tetap layar modern, hanya tidak dingin.
 - **Tidak boleh muncul:** gradien ungu-biru, glow neon, kaca tembus pandang tanpa alasan, emoji di
   layar uang, lencana "AI-powered", angka atau testimoni yang tidak berasal dari data nyata.
 
@@ -69,7 +84,9 @@ Alasannya: produk uang yang harus dipercaya tidak boleh berteriak seperti portof
 (ENERGY 3), tapi juga tidak boleh sedatar halaman pemerintah (ENERGY 1) karena nasabah datang
 dalam keadaan terdesak dan butuh satu jalan yang jelas. Halaman berubah bentuk antar bagian
 (hero → rincian biaya → unggah dokumen → buku besar admin) tapi tetap satu keluarga (RHYTHM 2).
-Gerak dipakai untuk menjelaskan kedatangan dan perubahan (RHYTHM/MOTION 2), bukan untuk menghibur.
+Gerak dipakai untuk menjelaskan kedatangan dan perubahan (RHYTHM/MOTION 2), bukan untuk menghibur
+— mood koperasi digital menuntut kehangatan yang datang dari bahasa dan kertas, bukan dari gerakan
+yang ramai.
 
 ## Tuas
 
