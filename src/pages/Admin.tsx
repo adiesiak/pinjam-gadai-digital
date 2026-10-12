@@ -1,7 +1,7 @@
 import { useMutation, useQuery } from "convex/react";
 import { Activity, ShieldCheck } from "lucide-react";
 import { useState } from "react";
-import { Navigate } from "react-router";
+import { Navigate, useNavigate } from "react-router";
 import { LoadingScreen } from "@/components/LoadingScreen";
 import { toast } from "sonner";
 
@@ -31,7 +31,8 @@ import { Button } from "@/components/ui/button";
  * mudah disunting dan dirawat.
  */
 export default function Admin() {
-  const { isLoading, isAuthenticated } = useAuth();
+  const { isLoading, isAuthenticated, signOut } = useAuth();
+  const navigate = useNavigate();
   const gate = useQuery(
     api.security.totpGateStatus,
     isAuthenticated ? {} : "skip",
@@ -164,6 +165,12 @@ export default function Admin() {
     setKonfirmasiKill(true);
   };
 
+  /** Tombol keluar header: akhiri sesi admin lalu kembali ke halaman publik. */
+  const handleSignOut = async () => {
+    await signOut();
+    navigate("/");
+  };
+
   return (
     <div className="bg-ambient-glass flex min-h-screen flex-col text-foreground">
       <SecurityBar seimbang={ledger?.seimbang === true} killSwitch={sysCfg?.killSwitch === true} />
@@ -172,6 +179,7 @@ export default function Admin() {
         ready={sysCfg !== undefined}
         killBusy={killBusy}
         onToggleKill={handleToggleKill}
+        onSignOut={() => void handleSignOut()}
       />
 
       {/* Pengaman ganda kill switch — wajib mengetik BEKUKAN. */}

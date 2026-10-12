@@ -7,6 +7,7 @@ import {
   ClipboardList,
   Landmark,
   Loader2,
+  LogOut,
   Package,
   ShieldAlert,
   ShieldCheck,
@@ -134,23 +135,29 @@ export function NotAdminView() {
 }
 
 /**
- * Header panel admin: brand, kill switch, tautan profil.
+ * Header panel admin: brand, kill switch, tautan profil, tombol keluar.
  *
  * Tombol kill switch kini membuka DIALOG pengaman ganda (mengetik `BEKUKAN`)
  * alih-alih "klik dua kali": salah klik tidak lagi cukup untuk memblokir semua
  * pengajuan. Saat kill switch sedang aktif, label tombol berubah menjadi
  * tindakan pemulihan (matikan) yang berjalan tanpa dialog.
+ *
+ * Tombol keluar duduk paling kanan supaya jalur keluar selalu di tempat yang
+ * sama seperti bar atas ruang nasabah — sebelumnya panel admin sama sekali
+ * tidak punya jalan keluar selain menunggu sesi kedaluwarsa.
  */
 export function AdminHeader({
   killSwitch,
   ready,
   killBusy,
   onToggleKill,
+  onSignOut,
 }: {
   killSwitch: boolean;
   ready: boolean;
   killBusy: boolean;
   onToggleKill: () => void;
+  onSignOut: () => void;
 }) {
   return (
     <header className="animate-masuk glass-nav sticky top-0 z-40">
@@ -193,6 +200,19 @@ export function AdminHeader({
               {killSwitch ? "Matikan Kill Switch" : "Kill Switch Darurat"}
             </span>
             <span className="sm:hidden">{killSwitch ? "Matikan" : "Darurat"}</span>
+          </Button>
+          {/* Keluar di paling kanan: teksnya disembunyikan di layar sempit agar
+              baris kepala tidak berdesakan dengan lonceng dan kill switch,
+              sehingga di ponsel ia tinggal ikon dengan label pembaca layar. */}
+          <Button
+            size="sm"
+            variant="outline"
+            aria-label="Keluar dari akun"
+            className="rounded-full text-slate-600 hover:bg-slate-100"
+            onClick={onSignOut}
+          >
+            <LogOut className="size-4 sm:mr-2" />
+            <span className="hidden sm:inline">Keluar</span>
           </Button>
         </div>
       </div>
