@@ -982,6 +982,19 @@
     }
   }
 
+  /* Sembunyikan BILAH gulir pada deret yang memang digeser mendatar (mis.
+     stepper tahap KYC di ponsel) tanpa menghilangkan kemampuan menggulirnya:
+     hanya bilah-nya yang dimatikan, gulir lewat jari dan papan tik tetap ada.
+     Dipakai bersama `overflow-x-auto`; tanpa itu deretnya tetap bisa digeser,
+     hanya terlihat bilah di bawahnya. */
+  .no-scrollbar {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
   /* Garis bawah judul yang tumbuh saat disorot.
      Muncul pada hover DAN saat fokus keyboard (`:focus-visible`), jadi penanda
      ini tidak pernah hanya bisa dicapai dengan tetikus. Temponya dari motion

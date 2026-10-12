@@ -200,7 +200,7 @@ export function KartuHeroPindai({
         role="group"
         aria-label={labelKartu}
         className={cn(
-          "aspect-[1.586/1] w-full max-w-md rounded-2xl relative p-6 overflow-hidden transition-all duration-500 hover:scale-[1.02]",
+          "aspect-[1.586/1] w-full max-w-md rounded-2xl relative p-4 text-xs sm:p-6 sm:text-sm overflow-hidden transition-all duration-500 hover:scale-[1.02]",
           // Permukaan CERAH: kertas hangat setengah tembus dengan `backdrop-blur`,
           // jadi kartu tetap "kaca" (satu titik fokus per layar, DESIGN.md §4)
           // tanpa memakai permukaan gelap.
@@ -335,19 +335,19 @@ export function KartuHeroPindai({
         <div className="relative">
           <p
             aria-hidden="true"
-            className="font-mono text-emerald-800 tracking-widest text-lg"
+            className="font-mono text-emerald-800 tracking-widest text-sm sm:text-lg"
           >
             {nomorTampil}
           </p>
-          <p className="mt-2 text-[10px] font-semibold uppercase tracking-[0.24em] text-emerald-700">
+          <p className="mt-2 text-[10px] font-semibold uppercase tracking-[0.24em] text-emerald-700 sm:text-xs">
             {statusTeks}
           </p>
 
           <div
             aria-hidden="true"
-            className="mt-3 flex items-end justify-between gap-4"
+            className="mt-3 flex items-end justify-between gap-3"
           >
-            <p>
+            <p className="min-w-0">
               <span className="block text-[9px] font-medium uppercase tracking-[0.24em] text-slate-600">
                 Valid thru
               </span>
@@ -355,11 +355,11 @@ export function KartuHeroPindai({
                 {masaBerlakuTampil}
               </span>
             </p>
-            <p className="text-right">
+            <p className="min-w-0 text-right">
               <span className="block text-[9px] font-medium uppercase tracking-[0.24em] text-slate-600">
                 Cardholder
               </span>
-              <span className="block text-slate-900 font-semibold tracking-wider">
+              <span className="block truncate text-slate-900 font-semibold tracking-wider">
                 {namaTampil}
               </span>
             </p>

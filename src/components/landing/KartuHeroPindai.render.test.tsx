@@ -48,7 +48,7 @@ function bersih(html: string, label: string): void {
   const html = renderToStaticMarkup(<KartuHeroPindai />);
   ada(
     html,
-    "aspect-[1.586/1] w-full max-w-md rounded-2xl relative p-6 overflow-hidden transition-all duration-500 hover:scale-[1.02]",
+    "aspect-[1.586/1] w-full max-w-md rounded-2xl relative p-4 text-xs sm:p-6 sm:text-sm overflow-hidden transition-all duration-500 hover:scale-[1.02]",
     "kelas ukuran & bentuk kartu persis seperti permintaan",
   );
   // Tanpa lantai tinggi, kartu selebar ponsel akan lebih pendek daripada isinya
@@ -191,7 +191,7 @@ function bersih(html: string, label: string): void {
   const html = renderToStaticMarkup(<KartuHeroPindai />);
   ada(
     html,
-    "font-mono text-emerald-800 tracking-widest text-lg",
+    "font-mono text-emerald-800 tracking-widest text-sm sm:text-lg",
     "kelas nomor kartu persis seperti permintaan",
   );
   ada(html, "1234 5678 9012 3456", "nomor contoh 16 digit tampil berkelompok");

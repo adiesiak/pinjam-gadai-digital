@@ -100,7 +100,7 @@ for (const status of KYC_STATUS) {
       total={7}
     />,
   );
-  ada(lengkap, "Lengkap — siap diajukan.", "keadaan lengkap tampil");
+  ada(lengkap, "Lengkap, siap diajukan.", "keadaan lengkap tampil");
   ok(!lengkap.includes("sebelum bisa diajukan"), "tidak mengeluh kekurangan saat lengkap");
   bersih(lengkap, "judul status lengkap");
 }

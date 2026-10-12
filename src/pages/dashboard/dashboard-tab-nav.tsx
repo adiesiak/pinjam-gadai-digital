@@ -183,7 +183,7 @@ export function DashboardTabNav({
             <div key={grup.label} className="flex flex-col gap-0.5">
               <div className="mx-2 mt-1 flex items-center gap-1.5">
                 <span className="h-px flex-1 bg-slate-100" />
-                <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">
+                <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-600">
                   {grup.label}
                 </span>
                 <span className="h-px flex-1 bg-slate-100" />

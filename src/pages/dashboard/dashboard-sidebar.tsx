@@ -100,20 +100,24 @@ export function DashboardSidebar({
         </motion.div>
       )}
 
-      {role !== "peminjam" && (
+      {/* Kotak "Menu khusus" HANYA dirender bila peran ini benar-benar punya
+          pintasan menu. Tanpa penjaga ini, peran yang tidak ada di ROLE_LINKS
+          (mis. `member`/`pengamat`) mendapat kotak berbingkai KOSONG — melayang
+          dan memakan ruang di layar ponsel. */}
+      {role !== "peminjam" && link && (
         <motion.div variants={fadeUpItem}>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-600">
             Menu khusus
           </p>
           <div className="mt-2.5 rounded-xl border border-slate-200 bg-white p-3 text-xs">
-            {link && (
-              <div className="flex items-center gap-2.5 rounded-lg border border-slate-200 px-3 py-2">
-                {link.icon}
-                <span className="flex-1 font-medium text-slate-700">{link.label}</span>
-                <span className="text-primary"> &bull; </span>
-                <span>Lihat menu untuk {greetingName}</span>
-              </div>
-            )}
+            <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 rounded-lg border border-slate-200 px-3 py-2">
+              {link.icon}
+              <span className="min-w-0 flex-1 truncate font-medium text-slate-700">
+                {link.label}
+              </span>
+              <span className="text-primary"> &bull; </span>
+              <span className="min-w-0 truncate">Lihat menu untuk {greetingName}</span>
+            </div>
           </div>
         </motion.div>
       )}

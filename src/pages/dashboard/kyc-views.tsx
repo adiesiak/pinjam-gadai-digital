@@ -173,7 +173,7 @@ function kalimatAlasan(alasan: string): string {
 }
 
 function waktu(ms: number | null): string {
-  if (ms === null) return "—";
+  if (ms === null) return "Belum ada";
   return new Date(ms).toLocaleString("id-ID", { dateStyle: "medium", timeStyle: "short" });
 }
 
@@ -382,7 +382,10 @@ export function KycDaftarTahap({
     saring === undefined ? TAHAPAN_KYC : TAHAPAN_KYC.filter((t) => saring.includes(t.id));
   return (
     <nav aria-label="Tahapan pengisian KYC" className="lg:sticky lg:top-20">
-      <ol className="flex gap-2 overflow-x-auto pb-1 lg:flex-col lg:gap-1.5 lg:overflow-visible lg:pb-0">
+      {/* `no-scrollbar scroll-smooth` + `flex-nowrap`: deret tahap dipakai
+          sebagai slider mendatar di ponsel (bilah gulirnya disembunyikan,
+          geseran tetap halus), lalu menumpuk vertikal sejak `lg`. */}
+      <ol className="no-scrollbar flex flex-nowrap gap-2 overflow-x-auto scroll-smooth pb-1 lg:flex-col lg:gap-1.5 lg:overflow-visible lg:pb-0">
         {daftar.map((tahap) => {
           const urutan = TAHAPAN_KYC.indexOf(tahap);
           const status = statusPerTahap[tahap.id];
@@ -497,7 +500,7 @@ export function KycStatusHeader({
           </p>
           <p className="mt-1 text-xs font-medium text-foreground">
             {lengkap
-              ? "Lengkap — siap diajukan."
+              ? "Lengkap, siap diajukan."
               : `${kekurangan.length} hal sebelum bisa diajukan.`}
           </p>
           {!lengkap && (
@@ -2068,7 +2071,7 @@ export function KycPemeriksaanOtomatis({
       )}
       <ul className="mt-2 space-y-1">
         {keputusan.aturan.map((r) => (
-          <li key={r.id} className="flex items-start gap-2 text-[11px]">
+          <li key={r.id} className="flex flex-col gap-2.5 text-[11px] sm:flex-row sm:items-start">
             <span
               className={`mt-0.5 inline-flex shrink-0 items-center rounded-full border px-1.5 py-0.5 font-medium ${
                 r.status === "lulus"
@@ -2081,7 +2084,9 @@ export function KycPemeriksaanOtomatis({
               {r.status === "lulus" ? "Lulus" : r.status === "gagal" ? "Gagal" : "Belum pasti"}
             </span>
             <span className="min-w-0">
-              <span className="font-medium">{r.judul}</span> — {r.pesan}
+              <span className="font-medium">{r.judul}</span>
+              {" · "}
+              {r.pesan}
               {r.detail.length > 0 && (
                 <span className="block text-muted-foreground">{r.detail.join("; ")}.</span>
               )}
