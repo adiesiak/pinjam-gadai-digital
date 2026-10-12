@@ -16,6 +16,7 @@
  *    tidak pernah memunculkan "undefined"/"NaN"/"[object Object]".
  */
 import { renderToStaticMarkup } from "react-dom/server";import {
+  KycDaftarTahap,
   KycKeputusanAlert,
   KycPemeriksaanOtomatis,
   KycRiwayatList,
@@ -352,6 +353,31 @@ function statusNetral(): Record<IdTahapKyc, StatusTahapKyc> {
   ada(html, "Perlu perbaikan dari petugas", "stage dengan langkah bermasalah diberi tanda");
   ok(!html.includes("Selesai ("), "stage bermasalah tidak diklaim selesai");
   bersih(html, "bilah 3 stage dengan perbaikan");
+}
+
+// ===== 10. Deret tahap DALAM satu stage =====
+// Yang dijaga: yang tampil hanya langkah stage yang sedang dibuka (bukan tujuh
+// langkah sekaligus), tahap aktif ditandai sekali untuk pembaca layar, dan
+// penanda "Opsional" tetap ada pada langkah yang memang boleh dilewati.
+{
+  const html = renderToStaticMarkup(
+    <KycDaftarTahap
+      aktif="pendukung"
+      statusPerTahap={statusNetral()}
+      onPilih={() => {}}
+      terkunci={false}
+      saring={tahapStage(3)}
+    />,
+  );
+  ada(html, "Informasi pendukung", "langkah stage 3 tampil di deret");
+  ada(html, "Alamat", "langkah opsional stage 3 tetap tampil");
+  ada(html, "Opsional", "penanda opsional ada pada langkah opsional");
+  ok(!html.includes("Nomor WhatsApp"), "deret hanya memuat langkah stage ini");
+  ok(
+    (html.match(/aria-current="step"/g) ?? []).length === 1,
+    "hanya satu langkah ditandai aktif di deret",
+  );
+  bersih(html, "deret tahap satu stage");
 }
 
 if (failed > 0) {

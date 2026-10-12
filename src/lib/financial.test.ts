@@ -3,7 +3,7 @@
  * Runs with `bun test`-compatible asserts but kept dependency-free so it can
  * execute via tsx/node as a plain script.
  */
-import { formatRupiah, parseRupiah, percentOf } from "./money";
+import { formatRupiah, kelompokkanDigit, parseRupiah, percentOf } from "./money";
 import { calculateRepayment, quoteLoan, requote } from "./loan";
 
 let passed = 0;
@@ -40,6 +40,13 @@ eq(percentOf(999_999, 3), 30_000, "3% dari 999.999 (29.999,97 → 30.000)");
 // ---- parseRupiah ----
 eq(parseRupiah("2.500.000"), 2_500_000, "parse format Indonesia");
 eq(parseRupiah("2500000"), 2_500_000, "parse digit polos");
+// ---- kelompokkanDigit: tampilan kolom masukan uang ----
+eq(kelompokkanDigit("8000000"), "8.000.000", "digit mentah dikelompokkan");
+eq(kelompokkanDigit("8.000.000"), "8.000.000", "teks berkelompok dari server tidak berubah");
+eq(kelompokkanDigit("Rp 2.500.000"), "2.500.000", "awalan Rp diabaikan");
+eq(kelompokkanDigit(""), "", "kosong tetap kosong");
+eq(kelompokkanDigit("abc"), "", "tanpa digit tetap kosong");
+
 throws(() => parseRupiah("99.999"), "di bawah minimum ditolak");
 throws(() => parseRupiah("abc"), "input non-numerik ditolak");
 throws(() => parseRupiah("-1000"), "negatif ditolak");

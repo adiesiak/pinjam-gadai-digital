@@ -49,6 +49,27 @@ export function formatRupiahAman(v: Rupiah): string {
 }
 
 /**
+ * Kelompokkan ribuan untuk KOLOM MASUKAN uang, tanpa awalan "Rp".
+ *
+ * Kenapa terpisah dari `formatRupiah`: kolom masukan menyimpan digit mentah
+ * (pengguna mengetik "8000000"), sedangkan yang harus TERBACA di layar adalah
+ * "8.000.000". Tanpa pengelompokan, satu nol yang salah hitung tidak terlihat;
+ * dan nilai yang datang dari server dalam bentuk sudah berkelompok
+ * ("8.000.000") sempat tampil berbeda dari ketikan berikutnya, sehingga kolom
+ * terasa melompat begitu mulai diketik.
+ *
+ * Non-digit diabaikan, jadi teks berkelompok maupun digit mentah menghasilkan
+ * tampilan yang sama. Hasilnya tetap teks: kolom masukan tidak boleh memaksa
+ * `Number` pada nilai yang mungkin belum lengkap, dan digit di atas 15 angka
+ * dikembalikan apa adanya karena presisi `Number` sudah tidak dapat dipercaya.
+ */
+export function kelompokkanDigit(teks: string): string {
+  const digit = teks.replace(/\D/g, "");
+  if (digit === "" || digit.length > 15) return digit;
+  return Number(digit).toLocaleString("id-ID");
+}
+
+/**
  * Parse user input into integer rupiah. Accepts "2.500.000", "2500000",
  * "2,5 juta"-free plain digits with optional separators. Rounds HALF-UP when
  * the user types decimals — the half cent goes to the user, never to the house.

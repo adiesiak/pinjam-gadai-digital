@@ -60,6 +60,7 @@ import { Progress } from "@/components/ui/progress";
 import { Textarea } from "@/components/ui/textarea";
 import { api } from "@/convex/_generated/api";
 import { penghasilanDariTeks } from "@/lib/dataDiri";
+import { kelompokkanDigit } from "@/lib/money";
 import {
   galatTahapKyc,
   ID_TAHAP_KYC,
@@ -351,6 +352,21 @@ export function KycStepperTigaTahap({
 }
 
 /**
+ * Penanda bidang yang boleh dikosongkan.
+ *
+ * Yang menentukan bidang itu menghalangi pengajuan adalah aturan server
+ * (`kekuranganKyc`), bukan bentuk labelnya. Tanpa penanda, nasabah mengisi
+ * kolom yang tidak diminta atau ragu menekan simpan karena merasa belum lengkap.
+ */
+function PenandaOpsional() {
+  return (
+    <span className="rounded-full bg-muted px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wide text-muted-foreground">
+      Opsional
+    </span>
+  );
+}
+
+/**
  * Daftar tahap DALAM satu stage: rel vertikal di layar lebar, chip bergulir di
  * layar sempit.
  *
@@ -380,12 +396,40 @@ export function KycDaftarTahap({
 }) {
   const daftar =
     saring === undefined ? TAHAPAN_KYC : TAHAPAN_KYC.filter((t) => saring.includes(t.id));
+  const deretRef = useRef<HTMLOListElement | null>(null);
+
+  /**
+   * Geser tahap yang sedang dibuka ke tengah deret.
+   *
+   * Kenapa: di ponsel deret ini dipakai sebagai slider mendatar, dan tahap aktif
+   * sering berada di luar tepi kanan (mis. setelah "Simpan & lanjut" dari tahap
+   * sebelumnya) sehingga yang terbaca justru potongan namanya. Menggeser sendiri
+   * membuat tahap yang sedang diisi selalu utuh tanpa pengguna harus menebak ada
+   * isi di sebelah kanan.
+   *
+   * Hanya `scrollLeft` wadahnya sendiri yang disentuh (bukan `scrollIntoView`)
+   * supaya halaman tidak ikut tergulir, dan tidak ada apa pun yang digeser bila
+   * deretnya memang muat penuh (layar lebar).
+   */
+  useEffect(() => {
+    const deret = deretRef.current;
+    if (deret === null) return;
+    if (deret.scrollWidth <= deret.clientWidth) return;
+    const tahapAktif = deret.querySelector<HTMLElement>('[aria-current="step"]');
+    if (tahapAktif === null) return;
+    const tengah = tahapAktif.offsetLeft - (deret.clientWidth - tahapAktif.offsetWidth) / 2;
+    deret.scrollTo({ left: Math.max(0, tengah), behavior: "smooth" });
+  }, [aktif]);
+
   return (
     <nav aria-label="Tahapan pengisian KYC" className="lg:sticky lg:top-20">
       {/* `no-scrollbar scroll-smooth` + `flex-nowrap`: deret tahap dipakai
           sebagai slider mendatar di ponsel (bilah gulirnya disembunyikan,
           geseran tetap halus), lalu menumpuk vertikal sejak `lg`. */}
-      <ol className="no-scrollbar flex flex-nowrap gap-2 overflow-x-auto scroll-smooth pb-1 lg:flex-col lg:gap-1.5 lg:overflow-visible lg:pb-0">
+      <ol
+        ref={deretRef}
+        className="no-scrollbar flex flex-nowrap gap-2 overflow-x-auto scroll-smooth pb-1 lg:flex-col lg:gap-1.5 lg:overflow-visible lg:pb-0"
+      >
         {daftar.map((tahap) => {
           const urutan = TAHAPAN_KYC.indexOf(tahap);
           const status = statusPerTahap[tahap.id];
@@ -425,11 +469,7 @@ export function KycDaftarTahap({
                   <span className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
                     <Ikon className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
                     <span className="truncate">{tahap.judul}</span>
-                    {!tahap.wajib && (
-                      <span className="rounded-full bg-muted px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wide text-muted-foreground">
-                        Opsional
-                      </span>
-                    )}
+                    {!tahap.wajib && <PenandaOpsional />}
                   </span>
                   <span className="mt-0.5 block truncate text-[10px] text-muted-foreground">
                     {LABEL_STATUS_TAHAP[status]}
@@ -636,6 +676,31 @@ export function KycRiwayatList({ riwayat }: { riwayat: RiwayatKycTampil[] }) {
     </div>
   );
 }
+
+/**
+ * Saran bank/e-wallet untuk kolom pencairan.
+ *
+ * Kolomnya tetap bebas diisi; daftar ini hanya mempercepat pengetikan dan
+ * mengurangi salah ketik nama bank, yang membuat petugas tidak bisa mencocokkan
+ * tujuan pencairan. Bank besar lebih dulu, lalu dompet digital.
+ */
+const SARAN_BANK_DAN_EWALLET = [
+  "BCA",
+  "BRI",
+  "BNI",
+  "Mandiri",
+  "BSI",
+  "BTN",
+  "CIMB Niaga",
+  "Permata",
+  "Danamon",
+  "Bank Jago",
+  "DANA",
+  "OVO",
+  "GoPay",
+  "ShopeePay",
+  "LinkAja",
+] as const;
 
 /** Petunjuk foto yang harus dibaca sebelum mengunggah dokumen. */
 export function KycPetunjukFoto({ tahapId }: { tahapId: IdTahapKyc }) {
@@ -1814,13 +1879,18 @@ export function KycSection() {
                       >
                         Rp
                       </span>
+                      {/* Yang TERLIHAT selalu bentuk berkelompok ("8.000.000"),
+                          sedangkan yang disimpan tetap digit mentah. Nilai dari
+                          server juga sudah berkelompok, jadi tanpa pengelompokan
+                          ini kolom berubah bentuk begitu satu angka diketik. */}
                       <Input
                         id="kyc-penghasilan"
                         inputMode="numeric"
+                        autoComplete="off"
                         className="pl-8 tabular-nums"
-                        value={isian.penghasilan}
+                        value={kelompokkanDigit(isian.penghasilan)}
                         onChange={(e) => ubah("penghasilan", e.target.value.replace(/\D/g, ""))}
-                        placeholder="5000000"
+                        placeholder="5.000.000"
                         aria-invalid={galatTahap.some((g) => g.kunci === "penghasilan")}
                         disabled={busy}
                       />
@@ -1830,7 +1900,9 @@ export function KycSection() {
                         .filter((g) => g.kunci === "penghasilan")
                         .map((g) => ({ message: g.pesan }))}
                     />
-                    <FieldDescription>Rupiah bulat, tanpa tanda titik atau koma.</FieldDescription>
+                    <FieldDescription>
+                      Angka saja, pemisah ribuan ditambahkan otomatis.
+                    </FieldDescription>
                   </Field>
                   <Field data-invalid={galatTahap.some((g) => g.kunci === "sumberPenghasilan")}>
                     <FieldLabel htmlFor="kyc-sumber">Sumber penghasilan</FieldLabel>
@@ -1849,15 +1921,26 @@ export function KycSection() {
                     />
                   </Field>
                   <Field data-invalid={galatTahap.some((g) => g.kunci === "namaBank")}>
-                    <FieldLabel htmlFor="kyc-bank">Bank / e-wallet</FieldLabel>
+                    <FieldLabel htmlFor="kyc-bank">
+                      Bank / e-wallet <PenandaOpsional />
+                    </FieldLabel>
                     <Input
                       id="kyc-bank"
+                      list="kyc-bank-saran"
+                      autoComplete="off"
                       value={isian.namaBank}
                       onChange={(e) => ubah("namaBank", e.target.value)}
-                      placeholder="Mis. BCA"
+                      placeholder="Mis. BCA, DANA"
                       aria-invalid={galatTahap.some((g) => g.kunci === "namaBank")}
                       disabled={busy}
                     />
+                    {/* `datalist` bawaan browser: memberi saran ketik tanpa
+                        menutup kolom bagi bank lain yang tidak ada di daftar. */}
+                    <datalist id="kyc-bank-saran">
+                      {SARAN_BANK_DAN_EWALLET.map((nama) => (
+                        <option key={nama} value={nama} />
+                      ))}
+                    </datalist>
                     <FieldError
                       errors={galatTahap
                         .filter((g) => g.kunci === "namaBank")
@@ -1865,14 +1948,20 @@ export function KycSection() {
                     />
                   </Field>
                   <Field data-invalid={galatTahap.some((g) => g.kunci === "nomorRekening")}>
-                    <FieldLabel htmlFor="kyc-rekening">Nomor rekening</FieldLabel>
+                    <FieldLabel htmlFor="kyc-rekening">
+                      Nomor rekening <PenandaOpsional />
+                    </FieldLabel>
                     <Input
                       id="kyc-rekening"
                       inputMode="numeric"
+                      autoComplete="off"
+                      // Batas 20 angka mengikuti aturan pencairan pinjaman
+                      // ("6 sampai 20 angka"), bukan batas KYC yang lebih longgar.
+                      maxLength={20}
                       className="tabular-nums"
                       value={isian.nomorRekening}
                       onChange={(e) => ubah("nomorRekening", e.target.value.replace(/\D/g, ""))}
-                      placeholder="Opsional"
+                      placeholder="Mis. 1234567890"
                       aria-invalid={galatTahap.some((g) => g.kunci === "nomorRekening")}
                       disabled={busy}
                     />
@@ -1882,18 +1971,20 @@ export function KycSection() {
                         .map((g) => ({ message: g.pesan }))}
                     />
                     <FieldDescription>
-                      Dipakai bila pengajuan disetujui. Di ringkasan ditampilkan bertopeng (
-                      {maskRekening(isian.nomorRekening)}).
+                      6 sampai 20 angka. Dipakai bila pengajuan disetujui; di ringkasan tampil
+                      bertopeng ({maskRekening(isian.nomorRekening)}).
                     </FieldDescription>
                   </Field>
                   <Field>
-                    <FieldLabel htmlFor="kyc-catatan">Catatan untuk petugas</FieldLabel>
+                    <FieldLabel htmlFor="kyc-catatan">
+                      Catatan untuk petugas <PenandaOpsional />
+                    </FieldLabel>
                     <Textarea
                       id="kyc-catatan"
                       rows={2}
                       value={isian.catatanPeminjam}
                       onChange={(e) => ubah("catatanPeminjam", e.target.value)}
-                      placeholder="Opsional, mis. jadwal terbaik untuk dihubungi"
+                      placeholder="Mis. jadwal terbaik untuk dihubungi"
                       disabled={busy}
                     />
                   </Field>
