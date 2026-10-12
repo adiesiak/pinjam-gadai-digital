@@ -440,8 +440,16 @@
  * sebagai tinta — peran itu dilayani bersamaan, jadi teks `emerald-950`
  * (dua tempat) tetap gelap. Perlu tinjauan mata sebelum tema ini dijadikan
  * tema situs utama.
+ *
+ * Selektor kedua (`[data-wajah="obsidian"]`) membuat wajah ini bisa dipakai
+ * SATU sub-pohon saja: halaman yang memasang atribut itu memakai palet obsidian
+ * walau preset tema aktifnya `tinta`. Dipakai halaman masuk (`/auth`) — lihat
+ * `components/auth/auth-shared.tsx` dan `DESIGN.md` §3E. Karena properti kustom
+ * diwariskan, seluruh isi sub-pohon itu (kartu, medan, tombol) ikut gelap tanpa
+ * satu pun kelas gelap yang ditulis ulang di komponen.
  */
-:root:where([data-theme="obsidian"]) {
+:root:where([data-theme="obsidian"]),
+:where([data-wajah="obsidian"]) {
   --background: #030712;
   --foreground: #e6e8ee;
   --card: #0b0f19;
@@ -537,11 +545,13 @@
  * berikut), dan aturan ini mengembalikan `text-white*` ke hampir-putih agar
  * teks di atas tombol berwarna dan permukaan gelap tetap terbaca.
  */
-:root:where([data-theme="obsidian"]) {
+:root:where([data-theme="obsidian"]),
+:where([data-wajah="obsidian"]) {
   --color-white: #0b0f19;
 }
 
-:root:where([data-theme="obsidian"]) [class*="text-white"] {
+:root:where([data-theme="obsidian"]) [class*="text-white"],
+:where([data-wajah="obsidian"]) [class*="text-white"] {
   color: #f7f8fa;
 }
 

@@ -91,6 +91,21 @@ Motif Batik Parang dipasang sebagai **satu lapisan untuk seluruh halaman** landi
 
 Batas yang disepakati: opasitas ditahan di **6%** supaya terbaca sebagai air-tanda, bukan gambar di atas halaman; polanya **statis** (tidak ada animasi, jadi tidak ada yang perlu dikecualikan dari `prefers-reduced-motion`); dan karena lapisannya menyatu di atas latar seksi, teks, kartu, serta tombol tetap harus melewati pemeriksaan kontras seperti biasa — bukan dianggap aman karena "cuma tekstur".
 
+### E. Wajah obsidian halaman masuk (`/auth`) — keputusan pemilik
+
+Halaman masuk memakai **wajah obsidian**, bukan wajah kertas `tinta`, dan itu berlaku di tema apa pun yang sedang aktif. Mekanismenya bukan kelas gelap yang ditulis ulang di komponen, melainkan satu atribut: pembungkus halaman (`LatarAuth`) memasang `data-wajah="obsidian"`, dan blok token obsidian di `src/index.css` ikut cocok dengan selektor itu. Karena properti kustom diwariskan, seluruh isi sub-pohon — kartu, medan input, tombol, tab, lencana — memakai palet obsidian tanpa satu pun warna dipaku di kelas.
+
+Alasan memilih cara ini (bukan menempel `bg-slate-900/80` di tiap elemen): palet tetap punya satu sumber, wajah lain tidak ikut berubah, dan preset tema tetap bisa mengganti warna hanya dengan mengganti token. `auth-shared.render.test.tsx` menjaga dua hal sekaligus: atribut `data-wajah="obsidian"` harus tetap ada, dan kedua berkas jalur masuk harus **bersih dari warna heksadesimal**.
+
+Aturan yang mengikat halaman ini:
+
+- Latar: `bg-slate-950` + pendaran radial dari `--color-emerald-950` ke `--color-slate-950` (keduanya token, jadi gradiennya ikut tema). Pendaran ini satu-satunya di layar.
+- Kartu jalur nasabah: kaca padat + **satu garis emerald tipis** sebagai penanda batas, tanpa pendaran.
+- Kartu jalur SUPER ADMIN: titik fokus tunggal halaman ini, memikul **pendaran ganda emerald** (garis dalam `ring-1 ring-emerald-500/60` + pendaran luar `shadow-[0_0_50px_-12px_rgba(16,185,129,0.3)]`), sama seperti kartu hero di §3A. Kartu nasabah tidak boleh ikut menyala.
+- Tombol aksi, tile merek, dan tombol langkah admin mengambil warna dari `--primary` lewat utilitas `.gradient-primary` — emas di wajah ini, hijau tinta bila wajahnya kelak diganti.
+- Nama merek memakai emas (`text-amber-300`) dan ikon gembok lencana admin memakai emas (`text-amber-400`), sejalan dengan logam emas §2.
+- Tab aktif memakai tint emerald; tab inaktif tetap netral terang.
+
 ## 4. Anti-Slop Checkpoints for PINDAI
 
 - No Generic Cards, and glass stays at the focal point (keputusan pemilik): kaca obsidian + pendaran emerald ganda hanya untuk **satu titik fokus per layar** (mis. kartu hero, atau satu kartu angka utama). Kartu lain memakai permukaan padat, tanpa blur dan tanpa pendaran; garis emerald tipis boleh tetap ada sebagai penanda batas. Teknik kaca/glow di tempat lain harus punya alasan tertulis, bukan diulang karena resep ini ada.

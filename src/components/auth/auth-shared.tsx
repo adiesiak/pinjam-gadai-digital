@@ -63,29 +63,48 @@ export type TabPintuMasuk = typeof TAB_MASUK | typeof TAB_CEPAT;
    Tailwind v4 tetap menemukannya saat memindai berkas sumber.
    ========================================================================== */
 
-/** Latar halaman: gradient ambient emerald lembut di atas slate terang. */
+/**
+ * Latar halaman: pendaran radial emerald di tepi atas yang luruh ke warna
+ * latar tema. Kedua ujung gradiennya memakai token (`--color-emerald-950`,
+ * `--color-slate-950`), bukan nilai tetap — jadi halaman masuk tidak perlu
+ * ditulis ulang ketika wajahnya berganti.
+ */
 export const KELAS_LATAR =
-  "bg-slate-50 bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(6,78,59,0.15),rgba(255,255,255,0))] min-h-screen flex items-center justify-center p-4 text-slate-800";
-
-/** Kartu utama: glassmorphism di atas latar ambient. */
-export const KELAS_KARTU =
-  "bg-white/85 backdrop-blur-xl border border-white/90 shadow-xl rounded-3xl p-8 max-w-md w-full";
+  "bg-slate-950 bg-[radial-gradient(ellipse_90%_70%_at_50%_-15%,var(--color-emerald-950),var(--color-slate-950)_70%)] min-h-screen flex items-center justify-center p-4 text-slate-800";
 
 /**
- * Kartu jalur SUPER ADMIN: sedikit lebih tegas (opasitas & bayangan lebih
- * tinggi) karena formulirnya lebih panjang dan berisi token rahasia — kartu
- * harus terbaca sebagai satu bidang utuh, bukan tembus pandang.
+ * Kartu utama: kaca di atas latar ambient. Garis batasnya sengaja emerald,
+ * bukan `border-white/90`: pada wajah gelap `white` dipetakan ke permukaan
+ * obsidian, sehingga garis putih tadi berubah menjadi garis gelap yang tidak
+ * terlihat. Satu garis emerald tipis tetap ada sebagai penanda batas
+ * (DESIGN.md §4) — tanpa pendaran, karena pendaran hanya untuk satu titik
+ * fokus per layar dan di halaman ini titik itu adalah kartu jalur admin.
+ */
+export const KELAS_KARTU =
+  "bg-white/85 backdrop-blur-xl border border-emerald-500/30 shadow-xl rounded-3xl p-8 max-w-md w-full";
+
+/**
+ * Kartu jalur SUPER ADMIN: titik fokus halaman ini. Bidangnya lebih padat
+ * (formulirnya panjang dan memuat token rahasia, jadi harus terbaca sebagai
+ * satu bidang utuh) dan ia yang memikul **pendaran ganda emerald**: garis
+ * dalam (`ring`) + pendaran luar (`shadow`), sama seperti kartu hero di
+ * DESIGN.md §3A. Tidak ada kartu lain di layar yang memakai pendaran ini.
  */
 export const KELAS_KARTU_ADMIN =
-  "bg-white/90 backdrop-blur-xl border border-white/90 shadow-2xl rounded-3xl p-8 max-w-md w-full";
+  "bg-white/90 backdrop-blur-xl border border-emerald-500/40 ring-1 ring-emerald-500/60 shadow-[0_0_50px_-12px_rgba(16,185,129,0.3)] rounded-3xl p-8 max-w-md w-full";
 
 /** Medan administratif: cincin fokus emerald-600 (lebih tegas dari jalur nasabah). */
 export const KELAS_INPUT_ADMIN =
   "w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-emerald-600 focus:border-emerald-600 outline-none transition-all disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400";
 
-/** Tombol aksi utama jalur admin: hijau PINDAI, jelas aktif/nonaktif. */
+/**
+ * Tombol aksi utama jalur admin. Warna datang dari token `--primary` lewat
+ * utilitas `.gradient-primary` (emas di wajah gelap, hijau tinta di wajah
+ * kertas) — sebelumnya nilai hijau gelapnya dipaku di kelas, sehingga wajah
+ * apa pun berakhir dengan tombol yang sama.
+ */
 export const KELAS_TOMBOL_ADMIN =
-  "w-full mt-4 bg-[#064E3B] hover:bg-[#042F2E] text-white font-medium py-3 rounded-xl shadow-md transition-all active:scale-[0.98] flex justify-center items-center gap-2 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500 disabled:shadow-none disabled:active:scale-100";
+  "w-full mt-4 gradient-primary text-primary-foreground font-semibold py-3 rounded-xl shadow-md transition-all active:scale-[0.98] flex justify-center items-center gap-2 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500 disabled:shadow-none disabled:active:scale-100";
 
 /** Tautan kecil di dalam kartu admin (Aktivasi password, Lupa kata sandi). */
 export const KELAS_TAUTAN_ADMIN =
@@ -97,7 +116,7 @@ export const KELAS_INPUT =
 
 /** Tombol aksi utama kartu (email / WhatsApp → kode verifikasi). */
 export const KELAS_TOMBOL_UTAMA =
-  "w-full mt-3 bg-[#064E3B] hover:bg-[#042F2E] text-white font-medium py-3 rounded-xl shadow-md transition-all active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60";
+  "w-full mt-3 gradient-primary text-primary-foreground font-semibold py-3 rounded-xl shadow-md transition-all active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60";
 
 /** Tombol sekunder beraksen hijau untuk peminjam lama (nomor WhatsApp). */
 export const KELAS_TOMBOL_WA =
@@ -113,7 +132,7 @@ export const KELAS_TOMBOL_WA =
  */
 export function LatarAuth({ children }: { children: ReactNode }) {
   return (
-    <div id="konten" tabIndex={-1} className={KELAS_LATAR}>
+    <div id="konten" tabIndex={-1} data-wajah="obsidian" className={KELAS_LATAR}>
       {children}
     </div>
   );
@@ -146,11 +165,12 @@ export function KepalaMerekAuth() {
         className="group flex items-center gap-3 transition-opacity hover:opacity-90"
         aria-label="PINDAI — kembali ke beranda"
       >
-        <span className="flex size-11 items-center justify-center rounded-2xl bg-[#064E3B] text-lg font-bold text-emerald-50 shadow-md transition-transform group-hover:scale-105">
+        {/* Tile merek: logam emas, sejalan dengan kartu hero (DESIGN.md §3A). */}
+        <span className="flex size-11 items-center justify-center rounded-2xl gradient-primary text-lg font-bold text-primary-foreground shadow-md transition-transform group-hover:scale-105">
           P
         </span>
         <span className="flex flex-col text-left leading-tight">
-          <span className="text-base font-semibold tracking-[0.22em] text-slate-900">
+          <span className="text-base font-semibold tracking-[0.22em] text-amber-300">
             PINDAI
           </span>
           <span className="text-[11px] tracking-wide text-slate-500">
@@ -198,14 +218,14 @@ export function TabPintuMasuk() {
     >
       <TabsTrigger
         value={TAB_MASUK}
-        className="h-9 w-full gap-1.5 rounded-xl text-sm font-semibold text-slate-500 data-[state=active]:bg-white data-[state=active]:text-emerald-900 data-[state=active]:shadow-sm"
+        className="h-9 w-full gap-1.5 rounded-xl text-sm font-semibold text-slate-500 data-[state=active]:bg-emerald-950/40 data-[state=active]:text-emerald-300 data-[state=active]:shadow-sm"
       >
         <LogIn className="size-4" aria-hidden="true" />
         Masuk Akun
       </TabsTrigger>
       <TabsTrigger
         value={TAB_CEPAT}
-        className="h-9 w-full gap-1.5 rounded-xl text-sm font-semibold text-slate-500 data-[state=active]:bg-white data-[state=active]:text-emerald-900 data-[state=active]:shadow-sm"
+        className="h-9 w-full gap-1.5 rounded-xl text-sm font-semibold text-slate-500 data-[state=active]:bg-emerald-950/40 data-[state=active]:text-emerald-300 data-[state=active]:shadow-sm"
       >
         <Zap className="size-4" aria-hidden="true" />
         Akses Cepat
@@ -222,7 +242,7 @@ export function TabPintuMasuk() {
 export function BadgeAksesAdmin() {
   return (
     <span className="bg-emerald-50 text-emerald-800 text-xs font-semibold px-3 py-1 rounded-full border border-emerald-200/50 mb-3 inline-flex items-center gap-1.5">
-      <Lock className="size-3.5" aria-hidden="true" />
+      <Lock className="size-3.5 text-amber-400" aria-hidden="true" />
       Akses Super Admin Terproteksi
     </span>
   );
@@ -376,7 +396,10 @@ const WARNA_KEKUATAN: Record<
   { bar: string; teks: string }
 > = {
   kosong: { bar: "bg-slate-300", teks: "text-slate-500" },
-  lemah: { bar: "bg-red-500", teks: "text-red-600" },
+  // Label "Lemah" memakai merah TERANG, bukan `red-600`: kartu halaman masuk
+  // kini berlatar obsidian, dan merah gelap di atas permukaan gelap hanya
+  // mencapai 3,97:1 — gagal AA untuk teks sekecil ini.
+  lemah: { bar: "bg-red-500", teks: "text-red-400" },
   sedang: { bar: "bg-amber-400", teks: "text-amber-600" },
   "sangat-kuat": { bar: "bg-emerald-600", teks: "text-emerald-700" },
 };
@@ -537,7 +560,7 @@ export function HitungMundurToken({
         <span
           className={cn(
             "font-mono font-semibold tabular-nums",
-            habis ? "text-red-600" : "text-slate-800",
+            habis ? "text-red-400" : "text-slate-800",
           )}
         >
           {formatSisaToken(sisa)}
