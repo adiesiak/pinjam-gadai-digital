@@ -42,7 +42,7 @@ export function LoanKycPanel({ row }: { row: LoanRow }) {
   };
 
   return (
-    <div className="space-y-3 rounded-2xl border border-slate-200/80 bg-white p-4">
+    <div className="space-y-3 rounded-2xl border border-slate-200/80 bg-white/80 p-4 backdrop-blur-md">
       <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
         Data pengajuan peminjam
       </p>
@@ -115,7 +115,7 @@ export function LoanKycPanel({ row }: { row: LoanRow }) {
               ),
             )}
           </div>
-          <div className="rounded-2xl border border-emerald-900/10 bg-white px-4 py-3">
+          <div className="rounded-2xl border border-emerald-900/10 bg-white/90 px-4 py-3 backdrop-blur-sm">
             <p className="flex items-center gap-1.5 text-xs font-medium">
               <MapPin className="size-3.5 text-primary" /> Koordinat perangkat yang dicatat saat pengajuan
             </p>
@@ -205,7 +205,7 @@ function RingkasPengajuan({ loanId }: { loanId: Id<"loans"> }) {
     ],
   ];
   return (
-    <div className="rounded-2xl border border-emerald-900/10 bg-white px-4 py-3">
+    <div className="rounded-2xl border border-emerald-900/10 bg-white/90 px-4 py-3 backdrop-blur-sm">
       <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
         Detail pengajuan (master)
       </p>
@@ -233,7 +233,7 @@ function RiwayatLokasiMini({ userId }: { userId: Id<"users"> }) {
     );
   }
   return (
-    <div className="rounded-2xl border border-emerald-900/10 bg-white px-4 py-3">
+    <div className="rounded-2xl border border-emerald-900/10 bg-white/90 px-4 py-3 backdrop-blur-sm">
       <p className="text-xs font-medium">Koordinat perangkat yang tercatat ({riwayat.length})</p>
       <ul className="mt-1.5 space-y-1">
         {riwayat.map((t) => (

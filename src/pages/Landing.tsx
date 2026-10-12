@@ -125,7 +125,7 @@ function SectionHeading({
         />
         <span
           className={`text-[11px] font-semibold uppercase tracking-[0.18em] ${
-            gelap ? "text-[#e6d3a5]" : "text-[#8a6a2f]"
+            gelap ? "text-[#e6d3a5]" : "text-[#9c7b3a]"
           }`}
         >
           {eyebrow}
@@ -157,7 +157,7 @@ const DIJALANKAN = [
   { judul: "Mencatat pengajuan", isi: "Parameter pinjaman, gadai, atau kredit tersimpan di akun Anda." },
   {
     judul: "Menghitung biaya",
-    isi: "Bunga, potongan di muka, dan cicilan berasal dari rumus sistem, bukan angka yang diketik manual.",
+    isi: "Bunga, potongan di muka, dan cicilan berasal dari rumus sistem — bukan angka yang diketik manual.",
   },
   {
     judul: "Meninjau status",
@@ -279,7 +279,7 @@ const ISI_BRANKAS: ReadonlyArray<{
     label: "Pinjaman harian",
     rak: "Laci 01",
     Icon: Banknote,
-    judul: "Skema harian: 7 sampai 30 hari",
+    judul: "Skema harian — 7 sampai 30 hari",
     isi: "Kewajiban dihitung sekali di akhir tenor: bunga flat 30% dari pokok dengan potongan 2% dipotong di muka.",
     baris: [
       ["Nomor referensi", "PDI-••••-••"],
@@ -295,7 +295,7 @@ const ISI_BRANKAS: ReadonlyArray<{
     label: "Pinjaman bulanan",
     rak: "Laci 02",
     Icon: Landmark,
-    judul: "Skema bulanan: tenor 1 / 3 / 6 bulan",
+    judul: "Skema bulanan — tenor 1 / 3 / 6 bulan",
     isi: "Cicilan rata dari pokok penuh: angsuran berisi pokok dan bunga saja karena biaya tenor dipotong di muka.",
     baris: [
       ["Nomor referensi", "PDI-••••-••"],
@@ -311,7 +311,7 @@ const ISI_BRANKAS: ReadonlyArray<{
     label: "Kredit barang",
     rak: "Laci 03",
     Icon: Package,
-    judul: "Kredit barang: elektronik & mitra",
+    judul: "Kredit barang — elektronik & mitra",
     isi: "Barang menjadi objek pembiayaan: nominal, tenor, dan cicilan dihitung dari harga barang yang diajukan.",
     baris: [
       ["Nomor referensi", "PDI-••••-••"],
@@ -345,6 +345,8 @@ function IsiBrankas() {
           WebkitMaskImage: "radial-gradient(ellipse 80% 70% at 18% 20%, #000 8%, transparent 72%)",
         }}
       />
+      <div aria-hidden="true" className="animate-drift pointer-events-none absolute -left-28 top-6 size-72 rounded-full bg-[#cbb47e]/15 blur-3xl" />
+      <div aria-hidden="true" className="animate-drift-reverse pointer-events-none absolute -bottom-24 -right-16 size-80 rounded-full bg-white/[0.07] blur-3xl" />
 
       <div className="relative mx-auto w-full max-w-6xl px-4 sm:px-6">
         <Reveal>
@@ -353,13 +355,13 @@ function IsiBrankas() {
             eyebrow="Isi brankas"
             gelap
             title="Catatan yang bisa Anda periksa"
-            description="Setiap pengajuan menyimpan parameter yang dipakai menghitung angkanya: nominal, tenor, biaya, dan status. Pilih satu laci untuk melihat contoh catatannya."
+            description="Setiap pengajuan menyimpan parameter yang dipakai menghitung angkanya — nominal, tenor, biaya, dan status. Pilih satu laci untuk melihat contoh catatannya."
           />
         </Reveal>
 
         <div className="mt-8 grid gap-6 sm:mt-10 lg:grid-cols-[0.9fr_1.1fr] lg:gap-10">
           <Reveal className="h-full">
-            <div className="flex h-full flex-col gap-2 rounded-2xl border border-white/10 bg-white/[0.05] p-2.5">
+            <div className="flex h-full flex-col gap-2 rounded-2xl border border-white/10 bg-white/[0.05] p-2.5 backdrop-blur-sm">
               {ISI_BRANKAS.map(({ id, label, rak, Icon }) => {
                 const dipilih = id === aktif;
                 return (
@@ -430,7 +432,7 @@ function IsiBrankas() {
                   <div className="relative">
                     <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#e4dccb] py-3.5 pl-12 pr-4 sm:pl-14 sm:pr-6">
                       <div className="min-w-0">
-                        <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#8a6a2f]">
+                        <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#9c7b3a]">
                           Contoh catatan · {skema.rak}
                         </p>
                         <p className="mt-1 text-sm font-semibold text-[#0f3d3a]">{skema.judul}</p>
@@ -600,7 +602,7 @@ const FAQ_ITEMS = [
   },
   {
     q: "Dari mana angka cicilan di kalkulator berasal?",
-    a: "Seluruh angka dihitung aplikasi dari nominal dan tenor yang Anda pilih, bukan nilai yang diketik manual. Skema harian memakai 2% dipotong di muka dan bunga 30%; skema bulanan memakai bunga flat dari pokok penuh 30% (tenor 1 bulan), 25% (tenor 3 bulan), dan 20% (tenor 6 bulan).",
+    a: "Seluruh angka dihitung aplikasi dari nominal dan tenor yang Anda pilih — bukan nilai yang diketik manual. Skema harian memakai 2% dipotong di muka dan bunga 30%; skema bulanan memakai bunga flat dari pokok penuh 30% (tenor 1 bulan), 25% (tenor 3 bulan), dan 20% (tenor 6 bulan).",
   },
   {
     q: "Kapan biaya dipotong?",
@@ -612,7 +614,7 @@ const FAQ_ITEMS = [
   },
   {
     q: "Bagaimana status pengajuan ditentukan?",
-    a: "Tim PINDAI meninjau pengajuan dan mengubah statusnya di panel admin, dan setiap perubahan tercatat pada audit log. Persetujuan pengajuan bukan jaminan pencairan dana, dan status di dashboard adalah catatan internal.",
+    a: "Tim PINDAI meninjau pengajuan dan mengubah statusnya di panel admin — tercatat pada audit log. Persetujuan pengajuan bukan jaminan pencairan dana, dan status di dashboard adalah catatan internal.",
   },
   {
     q: "Apakah data saya dibagikan ke pihak lain?",
@@ -852,7 +854,7 @@ function LiveCalculator() {
                 ],
                 [
                   sim.tenorBulan === 3 || sim.tenorBulan === 6
-                    ? `Biaya admin 2% (${formatRupiah(sim.biayaAdminTotal)}) dipotong di muka, biaya platform dihapus`
+                    ? `Biaya admin 2% (${formatRupiah(sim.biayaAdminTotal)}) dipotong di muka — biaya platform dihapus`
                     : "Biaya layanan 2% (dipotong di muka)",
                   formatRupiah(sim.biayaLayananTotal),
                   false,
@@ -1073,7 +1075,7 @@ const PITA_LENCANA: Record<string, string> = {
 const PROMO_POIN: Array<{ judul: string; isi: string; Icon: typeof Download }> = [
   {
     judul: "PNG 1080 × 1350",
-    isi: "Rasio 4:5, siap diunggah ke Instagram, WhatsApp, dan Facebook.",
+    isi: "Rasio 4:5 — siap diunggah ke Instagram, WhatsApp, dan Facebook.",
     Icon: Download,
   },
   {
@@ -1112,6 +1114,10 @@ export function PromoSection({ sudahMasuk }: { sudahMasuk: boolean }) {
         aria-hidden="true"
         className="animate-spin-slow pointer-events-none absolute -left-28 top-6 size-72 rounded-full border border-dashed border-[#b99b62]/25"
       />
+      <div
+        aria-hidden="true"
+        className="animate-drift pointer-events-none absolute -right-24 bottom-0 size-80 rounded-full bg-[#cbb47e]/15 blur-3xl"
+      />
 
       <div className="relative mx-auto grid w-full max-w-6xl gap-10 px-4 py-16 sm:px-6 sm:py-20 lg:grid-cols-[0.92fr_1.08fr] lg:items-center lg:gap-14">
         <div className="min-w-0">
@@ -1120,7 +1126,7 @@ export function PromoSection({ sudahMasuk }: { sudahMasuk: boolean }) {
               folio="08"
               eyebrow="Materi kampanye"
               title="Poster promo siap dibagikan"
-              description={`${semuaPoster.length} poster berukuran 1080 × 1350 px untuk Instagram, WhatsApp, dan Facebook, dengan identitas visual yang sama, tanpa klaim persetujuan.`}
+              description={`${semuaPoster.length} poster berukuran 1080 × 1350 px untuk Instagram, WhatsApp, dan Facebook — identitas visual yang sama, tanpa klaim persetujuan.`}
             />
           </Reveal>
 
@@ -1143,7 +1149,7 @@ export function PromoSection({ sudahMasuk }: { sudahMasuk: boolean }) {
                 }}
                 className="flex items-start gap-3"
               >
-                <span className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-lg border border-[#b99b62]/30 bg-white text-[#8a6a2f]">
+                <span className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-lg border border-[#b99b62]/30 bg-white text-[#9c7b3a]">
                   <Icon className="size-4" aria-hidden="true" />
                 </span>
                 <span className="min-w-0">
@@ -1430,7 +1436,7 @@ export default function Landing() {
     },
     {
       icon: ShieldCheck,
-      title: "Ikuti proses verifikasi",        body: "Pengajuan diperiksa petugas. Status terverifikasi berarti identitas sudah diproses, bukan persetujuan pinjaman.",
+      title: "Ikuti proses verifikasi",        body: "Pengajuan diperiksa petugas. Status terverifikasi berarti identitas sudah diproses — bukan persetujuan pinjaman.",
     },
     {
       icon: Scale,
@@ -1445,7 +1451,7 @@ export default function Landing() {
   ];
 
   return (
-    <div className="tekstur-parang min-h-screen bg-white text-slate-900">
+    <div className="min-h-screen bg-white text-slate-900">
       {/* Bilah kemajuan baca */}
       <motion.div
         aria-hidden="true"
@@ -1456,10 +1462,10 @@ export default function Landing() {
       {/* Navbar */}
       <header
         ref={headerRef}
-        className={`sticky top-0 z-40 border-b bg-white pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)] transition-[border-color,box-shadow] duration-300 ${
+        className={`sticky top-0 z-40 border-b pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)] backdrop-blur transition-[background-color,border-color,box-shadow] duration-300 ${
           scrolled
-            ? "border-slate-200 shadow-[0_10px_30px_-24px_rgba(15,61,58,0.55)]"
-            : "border-slate-200/70"
+            ? "border-slate-200 bg-white/95 shadow-[0_10px_30px_-24px_rgba(15,61,58,0.55)]"
+            : "border-slate-200/70 bg-white/80"
         }`}
       >
         <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between px-4 sm:px-6">
@@ -1723,7 +1729,7 @@ export default function Landing() {
                 folio="03"
                 eyebrow="Rincian biaya"
                 title="Angka terbuka sejak awal"
-                description="Setiap potongan dihitung aplikasi dari nominal dan tenor yang Anda pilih. Tidak ada biaya tersembunyi, dan perpindahan dana tetap ditangani di luar aplikasi."
+                description="Setiap potongan dihitung aplikasi dari nominal dan tenor yang Anda pilih. Tidak ada biaya tersembunyi — dan perpindahan dana tetap ditangani di luar aplikasi."
               />
             </Reveal>
 
@@ -2018,6 +2024,8 @@ export default function Landing() {
             transition={{ duration: 0.6, ease: EASE_OUT }}
             className="relative isolate overflow-hidden rounded-[1.75rem] bg-[#0f3d3a] px-5 py-12 text-center sm:px-12 sm:py-14"
           >
+            <div aria-hidden="true" className="animate-drift pointer-events-none absolute -left-24 -top-24 size-72 rounded-full bg-[#cbb47e]/25 blur-3xl" />
+            <div aria-hidden="true" className="animate-drift-reverse pointer-events-none absolute -bottom-28 -right-20 size-80 rounded-full bg-white/10 blur-3xl" />
             <div aria-hidden="true" className="animate-spin-slow pointer-events-none absolute -right-16 -top-16 size-64 rounded-full border border-dashed border-white/15" />
             <div aria-hidden="true" className="pointer-events-none absolute bottom-5 left-5 hidden size-32 opacity-80 sm:block">
               <svg viewBox="0 0 120 120" className="animate-spin-slow size-full text-[#d8c28c]">

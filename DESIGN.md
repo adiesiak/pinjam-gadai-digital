@@ -85,13 +85,7 @@ Card Details:
 - Card Hover State: Smooth 3D tilt effect (`hover:scale-[1.02] transition-all duration-500`) with dynamic light reflection over the glass surface.
 - Security Feedback: Password strength meters and 32-character token auto-trimmers must render in real-time with sharp emerald status indicators.
 
-### D. Tekstur Batik Parang se-halaman (keputusan pemilik)
-
-Motif Batik Parang dipasang sebagai **satu lapisan untuk seluruh halaman** landing, bukan pola yang ditempel ulang di setiap seksi: kelas `.tekstur-parang` di `src/index.css` memasang satu lapisan `position: fixed` ber-`pointer-events: none`, dan pembungkus halaman di `src/pages/Landing.tsx` hanya menambahkan kelas itu sekali. Bentuk parangnya digambar sebagai topeng SVG putih, sedangkan warnanya datang dari token `--gold` tema yang sedang aktif, sehingga motifnya ikut berganti wajah (kuningan di `tinta`, emas di `obsidian`) tanpa digambar ulang per tema.
-
-Batas yang disepakati: opasitas ditahan di **6%** supaya terbaca sebagai air-tanda, bukan gambar di atas halaman; polanya **statis** (tidak ada animasi, jadi tidak ada yang perlu dikecualikan dari `prefers-reduced-motion`); dan karena lapisannya menyatu di atas latar seksi, teks, kartu, serta tombol tetap harus melewati pemeriksaan kontras seperti biasa — bukan dianggap aman karena "cuma tekstur".
-
-### E. Wajah obsidian halaman masuk (`/auth`) — keputusan pemilik
+### D. Wajah obsidian halaman masuk (`/auth`) — keputusan pemilik
 
 Halaman masuk memakai **wajah obsidian**, bukan wajah kertas `tinta`, dan itu berlaku di tema apa pun yang sedang aktif. Mekanismenya bukan kelas gelap yang ditulis ulang di komponen, melainkan satu atribut: pembungkus halaman (`LatarAuth`) memasang `data-wajah="obsidian"`, dan blok token obsidian di `src/index.css` ikut cocok dengan selektor itu. Karena properti kustom diwariskan, seluruh isi sub-pohon — kartu, medan input, tombol, tab, lencana — memakai palet obsidian tanpa satu pun warna dipaku di kelas.
 

@@ -160,11 +160,11 @@
   --input: #cdc5b3;
   --ring: #1f6a62;
   /* Semantik nilai & status positif: kuningan. */
-  --gold: #8a6a2f;
+  --gold: #9c7b3a;
   --gold-foreground: #6e5523;
   --navy: #0f3d3a;
   --chart-1: #0f3d3a;
-  --chart-2: #8a6a2f;
+  --chart-2: #9c7b3a;
   --chart-3: #827a68;
   --chart-4: #a79e8b;
   --chart-5: #cdc5b3;
@@ -444,7 +444,7 @@
  * Selektor kedua (`[data-wajah="obsidian"]`) membuat wajah ini bisa dipakai
  * SATU sub-pohon saja: halaman yang memasang atribut itu memakai palet obsidian
  * walau preset tema aktifnya `tinta`. Dipakai halaman masuk (`/auth`) — lihat
- * `components/auth/auth-shared.tsx` dan `DESIGN.md` §3E. Karena properti kustom
+ * `components/auth/auth-shared.tsx` dan `DESIGN.md` §3D. Karena properti kustom
  * diwariskan, seluruh isi sub-pohon itu (kartu, medan, tombol) ikut gelap tanpa
  * satu pun kelas gelap yang ditulis ulang di komponen.
  */
@@ -674,42 +674,6 @@
   }
   .dot-texture {
     background-image: none;
-  }
-  /*
-   * Tekstur Batik Parang se-halaman (keputusan pemilik — DESIGN.md §3D).
-   *
-   * SATU lapisan untuk seluruh halaman, bukan pola yang ditempel ulang di tiap
-   * seksi. Bentuknya digambar sebagai topeng putih, sedangkan warnanya datang
-   * dari `--gold` tema aktif — jadi motifnya ikut berganti wajah (tinta
-   * kuningan, obsidian emas) tanpa digambar ulang per tema.
-   *
-   * Polanya berulang tepat pada 48 px (periode kisi diagonalnya), dan tiap
-   * kotak sudah memuat satu langkah kisi di luar tepinya, jadi tidak ada
-   * jahitan yang terlihat antar ubin.
-   *
-   * Statis sepenuhnya: tidak ada animasi, jadi tidak ada yang perlu
-   * dikecualikan dari `prefers-reduced-motion`. Opasitasnya ditahan di 6%
-   * supaya terbaca sebagai tekstur air-tanda, bukan gambar di atas halaman.
-   */
-  .tekstur-parang {
-    /* Satu definisi topeng, dipakai dua properti di bawah supaya URI 1 KB ini
-       tidak ditulis dua kali. */
-    --parang-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='48' height='48' viewBox='0 0 48 48'%3E%3Cdefs%3E%3Cg id='b'%3E%3Cpath d='M0 -11C7 -7 7 -3 0 1C-7 5-7 9 0 13' fill='none' stroke='white' stroke-width='2.1' stroke-linecap='round'/%3E%3Ccircle cx='8.2' cy='-2' r='1.5'/%3E%3C/g%3E%3C/defs%3E%3Cuse href='%23b' transform='translate(-24 -24) rotate(45)'/%3E%3Cuse href='%23b' transform='translate(-24 24) rotate(45)'/%3E%3Cuse href='%23b' transform='translate(-24 72) rotate(45)'/%3E%3Cuse href='%23b' transform='translate(0 0) rotate(45)'/%3E%3Cuse href='%23b' transform='translate(0 48) rotate(45)'/%3E%3Cuse href='%23b' transform='translate(24 -24) rotate(45)'/%3E%3Cuse href='%23b' transform='translate(24 24) rotate(45)'/%3E%3Cuse href='%23b' transform='translate(24 72) rotate(45)'/%3E%3Cuse href='%23b' transform='translate(48 0) rotate(45)'/%3E%3Cuse href='%23b' transform='translate(48 48) rotate(45)'/%3E%3Cuse href='%23b' transform='translate(72 -24) rotate(45)'/%3E%3Cuse href='%23b' transform='translate(72 24) rotate(45)'/%3E%3Cuse href='%23b' transform='translate(72 72) rotate(45)'/%3E%3C/svg%3E");
-  }
-  .tekstur-parang::before {
-    content: "";
-    position: fixed;
-    inset: 0;
-    z-index: 30;
-    pointer-events: none;
-    background-color: var(--gold);
-    opacity: 0.06;
-    -webkit-mask-image: var(--parang-mask);
-    mask-image: var(--parang-mask);
-    -webkit-mask-repeat: repeat;
-    mask-repeat: repeat;
-    -webkit-mask-size: 96px 96px;
-    mask-size: 96px 96px;
   }
   /* Kartu terangkat halus saat disorot. */
   .card-lift {
