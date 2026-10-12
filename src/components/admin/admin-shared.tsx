@@ -209,9 +209,25 @@ export function SubTabFilter<T>({
  * laptop, tabel 12 kolom hanya bisa dibaca dengan menggeser mendatar, jadi
  * barisnya ditampilkan sebagai kartu berisi metrik 2 kolom.
  */
-export function MetrikKartu({ label, nilai }: { label: string; nilai: ReactNode }) {
+export function MetrikKartu({
+  label,
+  nilai,
+  className,
+}: {
+  label: string;
+  nilai: ReactNode;
+  /**
+   * Kelas tambahan untuk kartu ini — dipakai pemanggil yang memerlukan permukaan
+   * berbeda (mis. kaca di modal detail pinjaman). Bawaannya tetap kartu netral
+   * abu-abu yang sudah dipakai panel-panel lain, jadi tidak ada panel yang
+   * berubah tampilannya karena penambahan ini.
+   */
+  className?: string;
+}) {
   return (
-    <div className="min-w-0 rounded-xl border border-slate-100 bg-slate-50/60 px-3 py-2">
+    <div
+      className={cn("min-w-0 rounded-xl border border-slate-100 bg-slate-50/60 px-3 py-2", className)}
+    >
       <dt className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400">
         {label}
       </dt>

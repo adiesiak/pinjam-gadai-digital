@@ -61,6 +61,14 @@ import { PanelDataDiriNasabah } from "./PanelDataDiriNasabah";
 const PENDANA_TETAP = "__tetap";
 const PENDANA_LEPAS = "__lepas";
 
+/**
+ * Micro-interaction tombol aksi modal: sedikit lebih terang + bayangan naik saat
+ * disorot, mengecil saat ditekan. Temponya memakai token gerak aplikasi
+ * (`--motion-normal` = 200 ms) supaya terasa sama dengan tombol lain di PINDAI.
+ */
+const MICRO_TOMBOL =
+  "transition-all duration-[var(--motion-normal)] hover:shadow-md hover:brightness-105 active:scale-95";
+
 type LoanRowWithOptionalProps = LoanRow & {
   readonly persenBunga?: number | null;
 };
@@ -253,16 +261,21 @@ export function LoanReviewDialog({
         ? "border-rose-200/80 bg-rose-100 text-rose-800"
         : "border-amber-200/80 bg-amber-100 text-amber-800";
 
+  // Header kaca: menempel di puncak modal (area tab di bawahnya yang menggulir),
+  // jadi identitas pengajuan + lencana status selalu terlihat saat admin membaca
+  // dokumen. `pr-14` menyisakan ruang untuk tombol tutup X.
   const header = (
-    <div className="flex items-center gap-4 border-b border-slate-200 bg-white px-5 py-4 pr-14">
+    <div className="sticky top-0 z-20 flex items-center gap-4 border-b border-slate-200/60 bg-white/70 px-5 py-5 pr-14 backdrop-blur-md">
       <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-[#064E3B] text-sm font-bold tracking-tight text-emerald-50">
         {String(row.pokokPinjaman).slice(0, 2)}
       </div>
       <div className="min-w-0 flex-1">
-        <DialogTitle className="truncate text-base font-semibold text-slate-900 tabular-nums">
+        {/* Tanpa `truncate`: nominal dan nama pemohon dibaca utuh, termasuk pada
+            nama panjang — admin memverifikasi identitas dari baris ini. */}
+        <DialogTitle className="break-words text-base font-semibold text-slate-900 tabular-nums">
           {formatRupiah(row.pokokPinjaman)} · {namaHurufBesar(row.namaLengkap)}
         </DialogTitle>
-        <DialogDescription className="mt-0.5 truncate text-xs text-muted-foreground tabular-nums">
+        <DialogDescription className="mt-0.5 break-words text-xs text-muted-foreground tabular-nums">
           {row.nomorReferensi} · diajukan {formatDate(row._creationTime)}
         </DialogDescription>
       </div>
@@ -292,11 +305,12 @@ export function LoanReviewDialog({
         <LoanKycPanel row={row} />
       </div>
 
-      {/* Kolom kanan: koordinat + ringkasan detail */}
-      <div className="space-y-4">
+      {/* Kolom kanan: koordinat dulu, lalu ringkasan, lalu kontrak — disusun
+          vertikal rapat (`flex flex-col gap-3`) supaya mata turun satu jalur. */}
+      <div className="flex min-w-0 flex-col gap-3">
         {/* Koordinat perangkat */}
         {lokasi !== null && petaHref ? (
-          <div className="rounded-2xl border border-slate-200 bg-white p-4">
+          <div className="rounded-2xl border border-slate-200/80 bg-white/80 p-4 backdrop-blur-md">
             <p className="flex items-center gap-2 text-xs font-semibold text-navy">
               <MapPin className="size-4 text-primary" />
               Koordinat perangkat
@@ -329,7 +343,7 @@ export function LoanReviewDialog({
         <Separator />
 
         {/* Ringkasan detail peminjam */}
-        <div className="space-y-2 rounded-2xl border border-slate-200 bg-white p-4">
+        <div className="space-y-2 rounded-2xl border border-slate-200/80 bg-white/80 p-4 backdrop-blur-md">
           <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
             Ringkasan pemohon
           </p>
@@ -350,12 +364,14 @@ export function LoanReviewDialog({
             ].map(([label, value]) => (
               <div
                 key={label}
-                className="grid grid-cols-[minmax(0,140px)_1fr] gap-1 sm:gap-3 sm:items-start"
+                className="grid gap-0.5 sm:grid-cols-[minmax(0,140px)_1fr] sm:items-start sm:gap-3"
               >
-                <dt className="min-w-0 text-xs leading-5 text-muted-foreground sm:text-sm truncate">
+                <dt className="min-w-0 text-xs leading-5 text-muted-foreground sm:text-sm">
                   {label}
                 </dt>
-                <dd className="min-w-0 break-words text-right text-xs leading-5 text-slate-800 sm:text-sm truncate">
+                {/* Tanpa `truncate`: email, nama, bank, dan nomor rekening harus
+                    terbaca utuh — nilainya disalin admin untuk verifikasi. */}
+                <dd className="min-w-0 break-words text-sm leading-5 text-slate-800">
                   {value}
                 </dd>
               </div>
@@ -370,10 +386,10 @@ export function LoanReviewDialog({
 
   // ── Tab 2: Aliran Uang & Pendana ───────────────────────────────────────
   const tabAliran = (
-    <div className="grid gap-4 lg:grid-cols-2">
-      {/* Kolom kiri: matriks aliran uang */}
-      <div>
-        <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-900">
+    <div className="grid gap-4 md:grid-cols-2 md:gap-5">
+      {/* Kolom kiri: matriks aliran uang — rapat, tanpa gulir horizontal */}
+      <div className="flex min-w-0 flex-col gap-3">
+        <p className="rounded-2xl border border-amber-200/70 bg-amber-50/80 px-4 py-3 text-xs leading-5 text-amber-900 backdrop-blur-sm">
           Nominal, tanggal acuan, alokasi, dan status lunas di panel ini mengikuti catatan ledger
           internal; perpindahan dana ditangani di luar aplikasi.
         </p>
@@ -388,7 +404,7 @@ export function LoanReviewDialog({
 
         {/* Jadwal bayar (skema bulanan) atau ringkasan harian */}
         {row.tenorBulan !== null && row.tenorBulan === 3 && (
-          <div className="mt-3 rounded-2xl border border-slate-200 bg-white p-4">
+          <div className="rounded-2xl border border-slate-200/80 bg-white/80 p-4 backdrop-blur-md">
             <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
               Rincian bulanan (3 bulan)
             </p>
@@ -408,7 +424,7 @@ export function LoanReviewDialog({
         {/* Status jatuh tempo */}
         {row.status === "didanai" && row.jatuhTempoPada !== null && (
           <div
-            className={`mt-3 rounded-xl border px-4 py-3 text-sm ${
+            className={`rounded-2xl border px-4 py-3 text-sm ${
               (row.hariTerlambat ?? 0) > 0
                 ? "border-destructive/40 bg-destructive/5"
                 : "border-slate-200 bg-slate-50"
@@ -438,7 +454,7 @@ export function LoanReviewDialog({
         )}
 
         {row.status === "lunas" && (
-          <div className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50/70 px-4 py-3 text-sm text-emerald-900">
+          <div className="rounded-2xl border border-emerald-200/80 bg-emerald-50/70 px-4 py-3 text-sm text-emerald-900 backdrop-blur-sm">
             <p className="flex items-center gap-1.5">
               <CheckCircle2 className="size-4" /> Pinjaman ini sudah <strong>lunas</strong>
             </p>
@@ -449,10 +465,12 @@ export function LoanReviewDialog({
         )}
       </div>
 
-      {/* Kolom kanan: pendana & alokasi */}
-      <div className="space-y-4">
+      {/* Kolom kanan: pendana & alokasi disandingkan dengan matriks di desktop
+          (dua kolom `md:grid-cols-2`), jadi admin bisa membandingkan angka
+          aliran dengan penentuan pendananya tanpa menggulir bolak-balik. */}
+      <div className="min-w-0 space-y-3">
         {row.status !== "lunas" && (
-          <section className="rounded-2xl border border-slate-200 bg-white p-4">
+          <section className="rounded-2xl border border-slate-200/80 bg-white/85 p-4 backdrop-blur-md">
             <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
               Pendana & nominal disetujui
             </p>
@@ -525,7 +543,11 @@ export function LoanReviewDialog({
               )}
             </div>
 
-            <Button disabled={busy !== null} onClick={() => void runPendana()} className="mt-3">
+            <Button
+              disabled={busy !== null}
+              onClick={() => void runPendana()}
+              className="mt-3 transition-all duration-[var(--motion-normal)] hover:brightness-105 hover:shadow-md active:scale-95"
+            >
               {busy === "pendana" ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
               {diTahapTinjauan(row.status) ? "Simpan pendana & nominal" : "Simpan pendana"}
             </Button>
@@ -537,13 +559,13 @@ export function LoanReviewDialog({
 
   // ── Tab 3: Perjanjian & WhatsApp ───────────────────────────────────────
   const tabPerjanjian = (
-    <div className="space-y-4">
+    <div className="space-y-3">
       {/* Status dokumen perjanjian + ttd */}
-      <div className="rounded-2xl border border-slate-200 bg-white p-4">
+      <div className="rounded-2xl border border-slate-200/80 bg-white/80 p-4 backdrop-blur-md">
         <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
           Status perjanjian
         </p>
-        <div className="mt-3 flex flex-wrap items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4">
+        <div className="mt-3 flex flex-wrap items-start gap-3 rounded-2xl border border-emerald-900/10 bg-white/90 p-4 backdrop-blur-sm">
           <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
             <FileText className="size-5" />
           </div>
@@ -572,7 +594,10 @@ export function LoanReviewDialog({
               icon: ShieldCheck,
             },
           ].map((item) => (
-            <div key={item.label} className="rounded-xl border border-slate-200 bg-white p-3">
+            <div
+              key={item.label}
+              className="rounded-2xl border border-slate-200/80 bg-white/80 p-3 backdrop-blur-md"
+            >
               <div className="flex items-center gap-2">
                 <item.icon className="size-4 text-slate-400" />
                 <span className="text-xs font-medium text-slate-500">{item.label}</span>
@@ -585,7 +610,7 @@ export function LoanReviewDialog({
 
       {/* Pratinjau WhatsApp */}
       {pratinjau !== undefined && pratinjau !== null && (
-        <div className="rounded-2xl border border-emerald-200 bg-emerald-50/80 p-4">
+        <div className="rounded-2xl border border-slate-200/80 bg-white/80 p-4 backdrop-blur-md">
           <div className="flex items-center justify-between gap-2">
             <p className="flex items-center gap-2 text-sm font-semibold text-emerald-900">
               <MessageCircle className="size-4" />
@@ -595,7 +620,9 @@ export function LoanReviewDialog({
               <span className="text-xs font-medium text-amber-700">nomor belum ada di KYC</span>
             )}
           </div>
-          <div className="mt-3 overflow-hidden rounded-xl bg-white p-3 text-xs leading-5 text-emerald-900 shadow-sm">
+          {/* Gelembung bergaya chat: isi pesan apa adanya (font-mono + baris
+              dipertahankan) supaya admin melihat persis yang diterima peminjam. */}
+          <div className="mt-3 rounded-2xl border border-emerald-200/80 bg-emerald-50/80 p-4 font-mono text-xs leading-5 text-emerald-950">
             <p className="whitespace-pre-line">{pratinjau.isi}</p>
           </div>
         </div>
@@ -603,7 +630,7 @@ export function LoanReviewDialog({
 
       {/* Draft WhatsApp (admin bisa mengedit catatan sebelum dikirim) */}
       {row.status !== "lunas" && (
-        <div className="rounded-2xl border border-slate-200 bg-white p-4">
+        <div className="rounded-2xl border border-slate-200/80 bg-white/80 p-4 backdrop-blur-md">
           <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
             Draft pesan WhatsApp
           </p>
@@ -616,7 +643,7 @@ export function LoanReviewDialog({
             <Button
               disabled={busy !== null || pratinjau === undefined || pratinjau?.nomorWhatsApp === null}
               variant="outline"
-              className="gap-1.5"
+              className="gap-1.5 transition-all duration-[var(--motion-normal)] hover:shadow-md hover:brightness-105 active:scale-95"
               onClick={() =>
                 run("wa", () =>
                   kirimStatus({ loanId: row._id, alasan: "", statusLama: row.status }),
@@ -643,36 +670,36 @@ export function LoanReviewDialog({
   // Aksi hapus dipisah dari footer aksi utama dan disembunyikan di dalam
   // accordion paling bawah supaya tidak pernah tertekan karena salah klik.
   const dangerZone = (
-    <div className="rounded-2xl border border-red-200 bg-red-50/70">
+    <div className="rounded-xl border border-rose-200/60 bg-rose-50/60 p-3 text-rose-700 backdrop-blur-sm">
       <button
         type="button"
         onClick={() => setBukaDanger((x) => !x)}
         aria-expanded={bukaDanger}
-        className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300"
+        className="flex w-full items-center justify-between gap-3 rounded-lg px-1 py-1 text-left transition-colors duration-[var(--motion-fast)] hover:bg-rose-100/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-300"
       >
         <span className="flex items-center gap-2">
-          <AlertTriangle className="size-4 text-red-600" />
-          <span className="text-sm font-semibold text-red-800">
+          <AlertTriangle className="size-4 text-rose-600" />
+          <span className="text-sm font-semibold text-rose-800">
             Danger Zone · Hapus Pinjaman
           </span>
         </span>
         <ChevronDown
-          className={`size-4 shrink-0 text-red-700 transition-transform duration-150 ${bukaDanger ? "rotate-180" : ""}`}
+          className={`size-4 shrink-0 text-rose-700 transition-transform duration-[var(--motion-normal)] ${bukaDanger ? "rotate-180" : ""}`}
         />
       </button>
 
       {bukaDanger && (
-        <div className="space-y-3 border-t border-red-200 px-4 py-4">
-          <p className="text-xs leading-5 text-red-700">
+        <div className="mt-2 space-y-3 border-t border-rose-200/60 px-1 pt-3">
+          <p className="text-xs leading-5 text-rose-700">
             Menghapus pinjaman <strong>{row.nomorReferensi}</strong> tidak dapat dibatalkan.
             Penghapusan tetap tercatat di Audit Trail.
           </p>
 
-          <label className="flex items-start gap-2 text-xs leading-5 text-red-800">
+          <label className="flex items-start gap-2 text-xs leading-5 text-rose-800">
             <Checkbox
               checked={hapusMenyeluruh}
               onCheckedChange={(v) => setHapusMenyeluruh(v === true)}
-              className="mt-0.5 border-red-300 data-[state=checked]:bg-red-600 data-[state=checked]:text-white"
+              className="mt-0.5 border-rose-300 data-[state=checked]:bg-rose-600 data-[state=checked]:text-white"
               aria-label="Hapus menyeluruh termasuk data turunan"
             />
             <span>
@@ -685,7 +712,7 @@ export function LoanReviewDialog({
           {errorHapus && (
             <p
               role="alert"
-              className="rounded-md border border-red-300 bg-white px-3 py-2 text-xs text-red-700"
+              className="rounded-md border border-rose-300 bg-white px-3 py-2 text-xs text-rose-700"
             >
               {errorHapus}
             </p>
@@ -696,7 +723,7 @@ export function LoanReviewDialog({
             variant="destructive"
             disabled={busy !== null}
             onClick={() => void runDelete()}
-            className="w-full sm:w-auto"
+            className={`w-full sm:w-auto ${MICRO_TOMBOL}`}
           >
             {busy === "delete" ? (
               <Loader2 className="mr-2 size-4 animate-spin" />
@@ -711,8 +738,10 @@ export function LoanReviewDialog({
   );
 
   // ── Footer aksi (menempel di dasar modal) ──────────────────────────────
+  // Footer aksi kaca: menempel di dasar modal, jadi keputusan bisa disimpan
+  // tanpa menggulir balik setelah membaca dokumen panjang.
   const footerAksi = (
-    <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 bg-white px-5 py-4 shadow-[0_-6px_16px_-12px_rgba(15,23,42,0.5)]">
+    <div className="sticky bottom-0 z-20 flex flex-wrap items-center justify-between gap-3 border-t border-slate-200/60 bg-white/80 p-4 shadow-lg backdrop-blur-md">
       {row.status === "lunas" ? (
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
           <CheckCircle2 className="size-4 text-emerald-600" />
@@ -728,7 +757,7 @@ export function LoanReviewDialog({
               variant="outline"
               disabled={busy !== null}
               onClick={() => run("tolak", () => ubahStatus({ loanId: row._id, status: "ditolak" }))}
-              className="rounded-xl border-rose-200 px-4 text-sm font-medium text-rose-700 hover:bg-rose-50"
+              className={`rounded-xl border-rose-200 px-4 text-sm font-medium text-rose-700 hover:bg-rose-50 ${MICRO_TOMBOL}`}
             >
               {busy === "tolak" ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
               Tolak
@@ -747,7 +776,7 @@ export function LoanReviewDialog({
                   }),
                 )
               }
-              className="rounded-xl bg-slate-800 px-4 text-sm font-medium text-white hover:bg-slate-900"
+              className={`rounded-xl bg-slate-800 px-4 text-sm font-medium text-white hover:bg-slate-900 ${MICRO_TOMBOL}`}
             >
               {busy === "status" ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
               Simpan status &amp; kirim WA
@@ -757,7 +786,7 @@ export function LoanReviewDialog({
               <Button
                 disabled={busy !== null}
                 onClick={() => run("fund", () => fund({ loanId: row._id }))}
-                className="rounded-xl bg-[#064E3B] px-5 text-sm font-semibold text-white hover:bg-[#021E17]"
+                className={`rounded-xl bg-[#064E3B] px-5 text-sm font-semibold text-white hover:bg-[#021E17] ${MICRO_TOMBOL}`}
               >
                 {busy === "fund" ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
                 Tandai dana tersalurkan
@@ -771,13 +800,19 @@ export function LoanReviewDialog({
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
-      {/* Lebar (`max-w-4xl`) + tinggi (`max-h-[90dvh]`) tetap: header & footer
-          menempel, hanya area tab yang menggulir. Tombol tutup bawaan
-          dimatikan karena header memakai tombol X-nya sendiri agar tetap
-          terlihat saat isi digulir. */}
+      {/* Lebar (`max-w-5xl`) + tinggi (`max-h-[88vh]`) tetap: header & footer
+          menempel, hanya area tab yang menggulir. Tombol tutup bawaan dimatikan
+          karena header memakai tombol X-nya sendiri agar tetap terlihat saat isi
+          digulir.
+
+          Permukaan kacanya (`bg-white/85 backdrop-blur-xl border border-white/80
+          shadow-2xl`) datang dari kelas `glass-modal` di `index.css` — nilainya
+          setara, jadi tidak ditulis ulang sebagai utilitas di sini supaya tidak
+          ada dua sumber kebenaran. Utilitas kaca di bawah tetap ditulis sebagai
+          penanda niat bila kelas itu kelak diubah. */}
       <DialogContent
         showCloseButton={false}
-        className="flex max-h-[90dvh] w-full flex-col gap-0 overflow-hidden p-0 sm:max-w-4xl sm:p-0"
+        className="glass-modal flex max-h-[88vh] w-full max-w-5xl flex-col gap-0 overflow-hidden rounded-3xl border border-white/80 bg-white/85 p-0 shadow-2xl backdrop-blur-xl sm:max-w-5xl sm:p-0"
       >
         {/* Header fixed */}
         {header}
@@ -787,8 +822,8 @@ export function LoanReviewDialog({
           onValueChange={(v) => setActiveTab(v as typeof activeTab)}
           className="flex min-h-0 flex-1 flex-col gap-0"
         >
-          <div className="flex flex-wrap gap-2 border-b border-slate-200 bg-slate-50 px-5 pt-4">
-            <TabsList className="h-auto w-full flex-wrap justify-start rounded-xl border border-slate-200 bg-white p-1.5 shadow-sm">
+          <div className="flex flex-wrap gap-2 border-b border-slate-200/60 bg-white/60 px-5 pt-4 backdrop-blur-md">
+            <TabsList className="h-auto w-full flex-wrap justify-start rounded-xl border border-white/80 bg-white/80 p-1.5 shadow-xs backdrop-blur-md">
               <TabsTrigger value="detail" className="gap-2 text-sm">
                 <FileText className="size-4" />
                 Detail &amp; Dokumen
@@ -804,7 +839,7 @@ export function LoanReviewDialog({
             </TabsList>
           </div>
 
-          <div className="min-h-0 flex-1 space-y-6 overflow-y-auto p-6">
+          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain p-5 sm:p-6">
             <TabsContent value="detail" className="mt-0">
               {tabDetail}
             </TabsContent>

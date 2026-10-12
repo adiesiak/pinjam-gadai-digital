@@ -21,6 +21,11 @@ import {
  * Kejujuran status: selama pinjaman belum lunas, angkanya adalah proyeksi
  * kebijakan yang berlaku — bukan dana yang sudah berpindah. Karena itu
  * `sudahLunas` mengubah keterangannya, bukan angkanya.
+ *
+ * Tata letak: matriksnya RAPAT empat kolom di desktop (dua di ponsel) tanpa
+ * gulir horizontal, dan setiap kartu memakai permukaan kaca yang menyala tepinya
+ * saat disorot — angka yang paling sering dibandingkan admin jadi mudah
+ * dipindai mata.
  */
 export function AliranDanaPinjaman({
   pokokPinjaman,
@@ -52,7 +57,7 @@ export function AliranDanaPinjaman({
   return (
     <section
       aria-label="Aliran uang pinjaman ini"
-      className="rounded-2xl border border-slate-200 bg-white p-3 sm:p-4"
+      className="rounded-2xl border border-slate-200/80 bg-white/80 p-4 shadow-xs backdrop-blur-md"
     >
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
@@ -72,10 +77,13 @@ export function AliranDanaPinjaman({
         </span>
       </div>
 
-      <dl className="mt-3 grid grid-cols-1 gap-2 min-[380px]:grid-cols-2 lg:grid-cols-4">
+      <dl className="mb-6 mt-3 grid grid-cols-2 gap-3 md:grid-cols-4">
         {baris.map((b) => (
           <MetrikKartu
             key={b.label}
+            // Permukaan kaca di atas latar buram modal; tepinya menyala emerald
+            // saat disorot supaya kartu yang sedang dibaca jelas.
+            className="border-slate-200/80 bg-white/80 shadow-xs backdrop-blur-md transition-all duration-[var(--motion-normal)] hover:border-emerald-500/40"
             label={b.label}
             nilai={
               b.arah === "potongan" ? (
@@ -88,7 +96,7 @@ export function AliranDanaPinjaman({
         ))}
       </dl>
 
-      <p className="mt-2 text-[11px] leading-4 text-muted-foreground">
+      <p className="text-[11px] leading-4 text-muted-foreground">
         {sudahLunas
           ? "Pinjaman sudah lunas: angka ini yang dibukukan ledger saat pelunasan."
           : "Proyeksi kebijakan yang berlaku; yang dibukukan ledger adalah angka saat pelunasan."}

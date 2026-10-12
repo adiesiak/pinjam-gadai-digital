@@ -42,7 +42,7 @@ export function LoanKycPanel({ row }: { row: LoanRow }) {
   };
 
   return (
-    <div className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4">
+    <div className="space-y-3 rounded-2xl border border-slate-200/80 bg-white/80 p-4 backdrop-blur-md">
       <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
         Data pengajuan peminjam
       </p>
@@ -87,26 +87,35 @@ export function LoanKycPanel({ row }: { row: LoanRow }) {
             </p>
           </div>
           {/* Penampil ber-zoom: peninjau harus bisa memperbesar NIK/nama bank
-            sebelum memutuskan — lihat `PenampilDokumen`. */}
-          <div className="grid gap-3 sm:grid-cols-3">
+            sebelum memutuskan — lihat `PenampilDokumen`.
+
+            Tiga dokumen (NIK, selfie, slip) disusun rapat tiga kolom tanpa gulir
+            horizontal. Tiap sel memakai kursor & pembesaran halus saat disorot,
+            jadi jelas bahwa fotonya bisa dibuka — bukan sekadar gambar diam. */}
+          <div className="grid grid-cols-3 gap-3">
             {([
               ["KTP", urls.ktpUrl],
               ["Selfie + KTP", urls.selfieUrl],
               ["Slip gaji", urls.slipUrl],
             ] as const).map(([label, url]) =>
               url ? (
-                <PenampilDokumen key={label} src={url} label={label} />
+                <div
+                  key={label}
+                  className="cursor-pointer transition-transform duration-[var(--motion-normal)] hover:scale-105"
+                >
+                  <PenampilDokumen src={url} label={label} />
+                </div>
               ) : (
                 <span
                   key={label}
-                  className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-dashed border-slate-300 px-3 py-6 text-xs text-muted-foreground"
+                  className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-dashed border-slate-300 px-3 py-6 text-center text-xs text-muted-foreground"
                 >
                   {label} tidak tersedia
                 </span>
               ),
             )}
           </div>
-          <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5">
+          <div className="rounded-2xl border border-emerald-900/10 bg-white/90 px-4 py-3 backdrop-blur-sm">
             <p className="flex items-center gap-1.5 text-xs font-medium">
               <MapPin className="size-3.5 text-primary" /> Koordinat perangkat yang dicatat saat pengajuan
             </p>
@@ -196,7 +205,7 @@ function RingkasPengajuan({ loanId }: { loanId: Id<"loans"> }) {
     ],
   ];
   return (
-    <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5">
+    <div className="rounded-2xl border border-emerald-900/10 bg-white/90 px-4 py-3 backdrop-blur-sm">
       <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
         Detail pengajuan (master)
       </p>
@@ -224,7 +233,7 @@ function RiwayatLokasiMini({ userId }: { userId: Id<"users"> }) {
     );
   }
   return (
-    <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5">
+    <div className="rounded-2xl border border-emerald-900/10 bg-white/90 px-4 py-3 backdrop-blur-sm">
       <p className="text-xs font-medium">Koordinat perangkat yang tercatat ({riwayat.length})</p>
       <ul className="mt-1.5 space-y-1">
         {riwayat.map((t) => (
