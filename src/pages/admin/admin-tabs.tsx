@@ -30,6 +30,7 @@ import { AuditTrailPanel } from "@/components/admin/AuditTrailPanel";
 import { BackupPanel } from "@/components/admin/BackupPanel";
 import { LandingTemplatePanel } from "@/components/admin/LandingTemplatePanel";
 import { LiveLocationMap } from "@/components/admin/LiveLocationMap";
+import { VerifikasiLokasiPanel } from "@/components/admin/VerifikasiLokasiPanel";
 import { KreditQueuePanel } from "@/components/admin/KreditQueuePanel";
 import { KillSwitchPanel } from "@/components/admin/KillSwitchPanel";
 import { KycPanel } from "@/components/admin/KycPanel";
@@ -410,7 +411,15 @@ export function AdminTabs({
     kredit: <KreditQueuePanel />,
     kyc: <KycPanel />,
     alokasi: <LoanAllocationQueueTab onOpen={onOpenLoan} />,
-    lokasi: <LiveLocationMap />,
+    // Peta live + audit verifikasi dari tautan WhatsApp: dua sisi data lokasi
+    // yang sama (titik dari `/cek-status` juga mengalir ke peta lewat jejak
+    // lokasi), jadi sengaja satu modul — bukan tab tersendiri di sidebar.
+    lokasi: (
+      <div className="space-y-4">
+        <LiveLocationMap />
+        <VerifikasiLokasiPanel />
+      </div>
+    ),
     dpd: <DpdTab />,
     lelang: <LelangTab />,
     plafon: <PlafonPanel />,

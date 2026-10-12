@@ -178,4 +178,151 @@ http.route({
   }),
 });
 
+/**
+ * ENDPOINT HALAMAN CEK STATUS (tautan WhatsApp).
+ *
+ * Kenapa lewat HTTP action, bukan mutasi Convex biasa: hanya HTTP action yang
+ * memegang header permintaan, sehingga **IP pemakai** bisa dibaca server
+ * (`x-forwarded-for` / `cf-connecting-ip`) — bukan diklaim klien. Audit
+ * verifikasi memang harus bisa dipertanggungjawabkan siapa-dari-mana, dan IP
+ * yang dikirim klien tidak bisa dipercaya.
+ *
+ * Ketiganya publik (peminjam belum tentu punya akun aktif) tetapi tidak pernah
+ * menerima kredensial: otorisasinya adalah token tautan 128 bit milik satu
+ * pinjaman, dan setiap batas (jeda ping, kuota harian, jumlah unggahan)
+ * ditegakkan di mutasi internal, bukan di klien.
+ */
+
+/** Batas body JSON endpoint cek-status — cukup untuk satu titik/verifikasi. */
+const MAX_BODY_CEK_STATUS = 2_048;
+
+/** IP pemakai dari header proxy; string kosong bila tidak ada. */
+function ipPemakai(request: Request): string {
+  const diteruskan = (request.headers.get("x-forwarded-for") ?? "").split(",")[0]?.trim() ?? "";
+  const kandidat = diteruskan !== "" ? diteruskan : (request.headers.get("cf-connecting-ip") ?? "").trim();
+  return kandidat.slice(0, 64);
+}
+
+/** User agent pemakai (dipotong agar tidak membengkakkan baris audit). */
+function uaPemakai(request: Request): string {
+  return (request.headers.get("user-agent") ?? "").slice(0, 200);
+}
+
+/** Urai body JSON objek dengan batas ukuran; null bila tidak sah. */
+function uraiObjek(mentah: string): Record<string, unknown> | null {
+  if (mentah.length > MAX_BODY_CEK_STATUS) return null;
+  try {
+    const nilai: unknown = JSON.parse(mentah);
+    if (typeof nilai !== "object" || nilai === null || Array.isArray(nilai)) return null;
+    return nilai as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+}
+
+for (const lokasiCekStatus of ["/api/cek-status/titik", "/api/cek-status/url-unggah", "/api/cek-status/verifikasi"]) {
+  http.route({
+    path: lokasiCekStatus,
+    method: "OPTIONS",
+    handler: httpAction(async () => new Response(null, { status: 204, headers: CORS })),
+  });
+}
+
+http.route({
+  path: "/api/cek-status/url-unggah",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    const isi = uraiObjek(await request.text());
+    if (isi === null) return balas(400, { ok: false, error: "Body harus berupa objek JSON yang wajar." });
+    const token = typeof isi.token === "string" ? isi.token : "";
+    try {
+      const hasil = await ctx.runMutation(internal.tautanStatus.urlUnggahSelfie, { token });
+      if (!hasil.ok) return balas(403, { ok: false, error: hasil.pesan });
+      return balas(200, { ok: true, url: hasil.url, maksByte: hasil.maksByte });
+    } catch (err) {
+      const pesan = err instanceof Error ? err.message : "Gagal menyiapkan unggahan foto.";
+      return balas(400, { ok: false, error: pesan });
+    }
+  }),
+});
+
+http.route({
+  path: "/api/cek-status/titik",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    const isi = uraiObjek(await request.text());
+    if (isi === null) return balas(400, { ok: false, error: "Body harus berupa objek JSON yang wajar." });
+    const token = typeof isi.token === "string" ? isi.token : "";
+    const lat = angkaMasuk(isi, "lat");
+    const lng = angkaMasuk(isi, "lng");
+    const akurasi = angkaMasuk(isi, "akurasi");
+    if (lat === null || lng === null || akurasi === null) {
+      return balas(400, { ok: false, error: "`lat`, `lng`, dan `akurasi` wajib berupa angka." });
+    }
+    try {
+      const hasil = await ctx.runMutation(internal.tautanStatus.updateBorrowerLiveLocation, {
+        token,
+        lat,
+        lng,
+        akurasi,
+        ipAddress: ipPemakai(request),
+        userAgent: uaPemakai(request),
+      });
+      // Ping yang terlalu rapat diabaikan dengan status 200: itu bukan galat
+      // pengguna, dan klien tidak perlu menampilkan apa pun.
+      if (!hasil.ok) return balas(200, { ok: false, diabaikan: true, error: hasil.pesan });
+      return balas(200, { ok: true, waktu: hasil.waktu, catatan: hasil.catatan });
+    } catch (err) {
+      const pesan = err instanceof Error ? err.message : "Gagal menyimpan titik lokasi.";
+      return balas(400, { ok: false, error: pesan });
+    }
+  }),
+});
+
+http.route({
+  path: "/api/cek-status/verifikasi",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    const isi = uraiObjek(await request.text());
+    if (isi === null) return balas(400, { ok: false, error: "Body harus berupa objek JSON yang wajar." });
+    const token = typeof isi.token === "string" ? isi.token : "";
+    const fileId = typeof isi.fileId === "string" ? isi.fileId : "";
+    const diambilPada = angkaMasuk(isi, "diambilPada");
+    if (fileId === "" || diambilPada === null) {
+      return balas(400, { ok: false, error: "`fileId` dan `diambilPada` wajib dikirim." });
+    }
+    // Bentuk ID penyimpanan disaring DI SINI (panjang & karakter) supaya
+    // permintaan yang jelas ngawur tidak sampai ke penyimpanan; kebenaran ID-nya
+    // sendiri diperiksa mutasi lewat keberadaan baris `_storage`.
+    if (!/^[A-Za-z0-9_-]{8,128}$/.test(fileId)) {
+      return balas(400, {
+        ok: false,
+        error: "ID berkas foto tidak sah. Ambil ulang foto verifikasi dari halaman ini.",
+      });
+    }
+    const lat = angkaMasuk(isi, "lat");
+    const lng = angkaMasuk(isi, "lng");
+    const akurasi = angkaMasuk(isi, "akurasi");
+    try {
+      const hasil = await ctx.runMutation(internal.tautanStatus.catatVerifikasi, {
+        token,
+        // Mutasi memverifikasi bahwa berkasnya benar-benar ada dan ukurannya
+        // wajar; ID yang tidak ada berakhir sebagai pesan jujur ke peminjam.
+        selfieFileId: fileId,
+        diambilPada,
+        ...(lat !== null ? { lat } : {}),
+        ...(lng !== null ? { lng } : {}),
+        ...(akurasi !== null ? { akurasi } : {}),
+        ipAddress: ipPemakai(request),
+        userAgent: uaPemakai(request),
+      });
+      if (!hasil.ok) return balas(400, { ok: false, error: hasil.pesan });
+      return balas(200, { ok: true, waktu: hasil.waktu });
+    } catch (err) {
+      const pesan = err instanceof Error ? err.message : "Gagal menyimpan verifikasi.";
+      return balas(400, { ok: false, error: pesan });
+    }
+  }),
+});
+
 export default http;

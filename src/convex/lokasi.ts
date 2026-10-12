@@ -68,7 +68,7 @@ const PLATFORM_APLIKASI: readonly string[] = ["android", "ios"];
  * tidak dipakai karena PRNG non-kriptografis bisa diprediksi — token perangkat
  * adalah kredensial yang mengautentikasi endpoint heartbeat.
  */
-function acakHex(panjangByte: number): string {
+export function acakHex(panjangByte: number): string {
   const bytes = new Uint8Array(panjangByte);
   const webCrypto = typeof crypto === "undefined" ? undefined : crypto;
   if (webCrypto === undefined || typeof webCrypto.getRandomValues !== "function") {

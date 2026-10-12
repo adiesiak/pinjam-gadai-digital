@@ -1,13 +1,15 @@
 import { useQuery } from "convex/react";
-import { BellRing, Gavel, Send, Wallet } from "lucide-react";
+import { BellRing, Gavel, Wallet } from "lucide-react";
 import { useState } from "react";
 
 import { StatusBadge } from "@/components/StatusBadge";
+import { TombolInfoTagihanWA } from "@/components/admin/TombolInfoTagihanWA";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { api } from "@/convex/_generated/api";
 import { formatRupiah, parseRupiah } from "@/lib/money";
 import { namaHurufBesar } from "@/lib/nama";
+import { AMBANG_SEGERA_HARI, tanggalRingkas } from "@/lib/jatuhTempo";
 
 import { formatDate } from "./admin-format";
 import { EmptyQueue, PanelMemuat, QueueRow, type LoanRow } from "./admin-shared";
@@ -59,40 +61,61 @@ export function DpdTab() {
   if (overview === undefined) {
     return <PanelMemuat />;
   }
-  const terlambat = overview.loans.filter((l) => l.status === "didanai" && (l.hariTerlambat ?? 0) > 0);
-  if (terlambat.length === 0) {
-    return <EmptyQueue icon={BellRing} title="Tidak ada tanggal acuan yang terlewati" />;
+  // Dua kelompok yang memang perlu dikabari: yang sudah melewati tanggal acuan,
+  // dan yang tinggal ≤ 3 hari lagi (termasuk H-3 dan H-1 untuk template
+  // pengingat). Pinjaman lunas/ditolak tidak pernah masuk daftar ini.
+  const perluDiingatkan = overview.loans.filter(
+    (l) =>
+      l.status === "didanai" &&
+      ((l.hariTerlambat ?? 0) > 0 || (l.sisaHari !== null && l.sisaHari <= AMBANG_SEGERA_HARI)),
+  );
+  if (perluDiingatkan.length === 0) {
+    return (
+      <EmptyQueue
+        icon={BellRing}
+        title="Tidak ada pinjaman yang mendekati atau melewati jatuh tempo"
+        deskripsi="Baris muncul di sini saat sisa hari ≤ 3 atau tanggal acuan pelunasan sudah terlewati."
+      />
+    );
   }
   return (
     <div className="animate-masuk space-y-3">
       <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900">
-        Daftar ini memuat tanggal acuan yang dihitung aplikasi, bukan tunggakan/tagihan terverifikasi. Tautan WhatsApp membuka draf untuk ditinjau; pastikan isi pesan dan penerima sebelum mengirim.
+        Daftar ini memuat tanggal acuan yang dihitung aplikasi, bukan tunggakan/tagihan terverifikasi. Tombolnya membuat tautan cek status resmi lalu membuka draf WhatsApp (H-3/H-1 otomatis sesuai sisa hari) — pesannya selalu ditinjau admin sebelum dikirim, dan tautan itu membuka halaman kwitansi resmi PINDAI.
       </p>
       <ul className="divide-y divide-slate-200 rounded-2xl border border-slate-200 bg-white">
-        {terlambat.map((l) => {
-          const waText = encodeURIComponent(
-            `Halo. Catatan aplikasi PINDAI ${l.nomorReferensi} menampilkan tanggal acuan yang terlewati ${l.hariTerlambat ?? 0} hari, dengan kewajiban ${formatRupiah(l.totalKewajibanDenganPenalti ?? 0)} dan denda ${formatRupiah(l.dendaTerlambat ?? 0)}. Ini hanya catatan ledger internal, bukan tagihan, tunggakan terverifikasi, bukti pembayaran, atau kewajiban aktual. Untuk pertanyaan, gunakan kanal resmi yang telah Anda konfirmasi.`,
-          );
-          const waNomor = l.nomorWhatsApp ?? "";
+        {perluDiingatkan.map((l) => {
+          const terlambatHari = l.hariTerlambat ?? 0;
+          const naik = l.sisaHari !== null && l.sisaHari <= AMBANG_SEGERA_HARI && terlambatHari === 0;
+          const jenisDraf =
+            l.sisaHari === 3 ? "H-3" : l.sisaHari === 1 ? "H-1" : naik ? "H-segera" : "terlambat";
           return (
-            <li key={l._id} className="flex flex-wrap items-center justify-between gap-3 px-5 py-4">
+            <li key={l._id} className="flex flex-wrap items-start justify-between gap-3 px-5 py-4">
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium">Data pemohon: {namaHurufBesar(l.namaLengkap)} — pokok pinjaman {formatRupiah(l.pokokPinjaman)}</p>
-                <p className="mt-1 truncate text-xs text-muted-foreground">
-                  {l.nomorReferensi} · tanggal acuan terlewati {l.hariTerlambat} hari · denda {formatRupiah(l.dendaTerlambat ?? 0)} · kewajiban {formatRupiah(l.totalKewajibanDenganPenalti ?? 0)}
+                <p className="truncate text-sm font-medium">
+                  Data pemohon: {namaHurufBesar(l.namaLengkap)} — pokok pinjaman{' '}
+                  {formatRupiah(l.pokokPinjaman)}
+                </p>
+                <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                  {l.nomorReferensi} ·{' '}
+                  {terlambatHari > 0
+                    ? `tanggal acuan terlewati ${terlambatHari} hari`
+                    : `sisa ${l.sisaHari ?? 0} hari menuju jatuh tempo`}
+                  {l.jatuhTempoPada !== null ? ` (${tanggalRingkas(l.jatuhTempoPada)})` : ""} · denda{' '}
+                  {formatRupiah(l.dendaTerlambat ?? 0)} · kewajiban{' '}
+                  {formatRupiah(l.totalKewajibanDenganPenalti ?? 0)} · draf {jenisDraf}
                 </p>
               </div>
-              <div className="flex shrink-0 items-center gap-2">
-                {waNomor && (
-                  <a
-                    href={`https://wa.me/${waNomor}?text=${waText}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500 px-3 py-1.5 text-xs font-semibold text-white transition-transform hover:-translate-y-0.5 hover:bg-emerald-600"
-                  >
-                    <Send className="size-4" /> Tinjau pesan WA
-                  </a>
-                )}
+              <div className="flex shrink-0 flex-wrap items-center gap-2">
+                <TombolInfoTagihanWA
+                  loanId={l._id}
+                  namaPeminjam={l.namaLengkap}
+                  nomorReferensi={l.nomorReferensi}
+                  nomorWhatsApp={l.nomorWhatsApp ?? null}
+                  tanggalTeks={l.jatuhTempoPada !== null ? tanggalRingkas(l.jatuhTempoPada) : null}
+                  totalKewajiban={l.totalKewajibanDenganPenalti ?? null}
+                  sisaHari={naik ? l.sisaHari : 99}
+                />
                 <StatusBadge status={l.status} kind="loan" />
               </div>
             </li>

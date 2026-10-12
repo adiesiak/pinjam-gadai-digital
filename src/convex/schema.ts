@@ -640,6 +640,105 @@ const schema = defineSchema(
       .index("by_waktu", ["waktu"]),
 
     /**
+     * TAUTAN STATUS per pinjaman — token acak yang dikirim admin lewat WhatsApp
+     * dan membuka halaman `/cek-status/<token>`.
+     *
+     * Kenapa token, bukan nomor referensi: nomor referensi berurutan dan mudah
+     * dicacah, sehingga halaman status berbasis referensi membocorkan nama,
+     * nominal, dan tanggal jatuh tempo nasabah lain (lihat `lib/tautanStatus`).
+     * Satu baris = satu token; token lama dibiarkan sebagai riwayat sampai
+     * kedaluwarsa, dan tautan baru dibuat bila yang lama sudah lewat masa
+     * berlakunya.
+     */
+    tautanVerifikasi: defineTable({
+      loanId: v.id("loans"),
+      /** Token heksadesimal (32 karakter) — satu-satunya kunci halaman publik. */
+      token: v.string(),
+      dibuatPada: v.number(),
+      kedaluwarsaPada: v.number(),
+      /** Admin yang membuat tautan (jejak audit). */
+      dibuatOlehUserId: v.optional(v.id("users")),
+      /** Berapa kali halaman dibuka — dipakai panel admin melihat respons nasabah. */
+      jumlahBuka: v.optional(v.number()),
+      terakhirDibuka: v.optional(v.number()),
+      /** Titik lokasi terakhir dari tautan ini (pembatas jeda ping). */
+      terakhirPing: v.optional(v.number()),
+      /** Jumlah titik pada hari yang sama (`hariPing`) — pembatas kuota harian. */
+      jumlahPing: v.optional(v.number()),
+      /** Indeks hari (epoch ms / 86.400.000) kapan `jumlahPing` terakhir diisi. */
+      hariPing: v.optional(v.number()),
+      /** Berapa berkas selfie yang pernah diunggah dari tautan ini. */
+      jumlahUnggah: v.optional(v.number()),
+      /** Waktu verifikasi selfie terakhir berhasil disimpan. */
+      diverifikasiPada: v.optional(v.number()),
+    })
+      .index("by_token", ["token"])
+      .index("by_loan", ["loanId"]),
+
+    /**
+     * RIWAYAT LOKASI dari tautan WhatsApp (`updatedAt` = waktu server).
+     *
+     * Ditulis setiap kali halaman `/cek-status` mengirim titik (tiap ±10 detik
+     * selama halaman terbuka) dan saat verifikasi selfie. Titik yang lolos
+     * pemeriksaan juga disalin ke `lokasiJejak` supaya peta live admin, deteksi
+     * lokasi palsu, dan retensi memakai satu jalur yang sama; baris di sini
+     * menyimpan asal-usulnya (`source`) beserta IP/UA pemakai.
+     */
+    live_locations: defineTable({
+      borrowerId: v.id("users"),
+      loanId: v.optional(v.id("loans")),
+      latitude: v.number(),
+      longitude: v.number(),
+      /** Akurasi GPS dalam meter seperti dilaporkan perangkat. */
+      accuracy: v.number(),
+      /** "whatsapp_link_click" (ping berkala) atau "verifikasi_tautan". */
+      source: v.string(),
+      updatedAt: v.number(),
+      /** IP pemakai dari header HTTP action (bukan klaim klien). */
+      ipAddress: v.optional(v.string()),
+      userAgent: v.optional(v.string()),
+      /**
+       * Catatan bila titik TIDAK ikut tersalin ke jejak resmi (mis. ditolak
+       * pemeriksa lokasi palsu). Titiknya tetap disimpan di sini sebagai bukti
+       * apa yang benar-benar dilaporkan perangkat.
+       */
+      catatan: v.optional(v.string()),
+    })
+      .index("by_loan", ["loanId"])
+      .index("by_borrower", ["borrowerId"])
+      .index("by_updatedAt", ["updatedAt"]),
+
+    /**
+     * AUDIT VERIFIKASI: hasil foto selfie + waktu + koordinat + IP/UA pemakai.
+     *
+     * Append-only — satu baris per verifikasi yang benar-benar diterima server.
+     * Berkas fotonya ada di penyimpanan Convex (`_storage`); baris ini menyimpan
+     * ID-nya, ukuran berkas, dan seluruh konteks pengambilan supaya tim audit
+     * bisa mempertanggungjawabkan siapa mengirim apa, kapan, dan dari mana.
+     */
+    verifikasiLokasi: defineTable({
+      loanId: v.id("loans"),
+      borrowerId: v.id("users"),
+      tautanId: v.id("tautanVerifikasi"),
+      selfieFileId: v.id("_storage"),
+      /** Ukuran berkas yang benar-benar tersimpan (byte). */
+      selfieByte: v.number(),
+      /** Waktu pengambilan menurut perangkat peminjam. */
+      diambilPada: v.number(),
+      /** Waktu server menerimanya — pembanding jam perangkat. */
+      diterimaPada: v.number(),
+      latitude: v.optional(v.number()),
+      longitude: v.optional(v.number()),
+      accuracy: v.optional(v.number()),
+      ipAddress: v.optional(v.string()),
+      userAgent: v.optional(v.string()),
+      /** Selalu "verifikasi_tautan" untuk jalur ini (lihat `lib/tautanStatus`). */
+      sumber: v.string(),
+    })
+      .index("by_loan", ["loanId"])
+      .index("by_diterima", ["diterimaPada"]),
+
+    /**
      * Proteksi otentikasi (2FA TOTP admin & OTP WA pendana) — satu baris per
      * pengguna. Secret TOTP disimpan terpisah dari profil agar rotasi mudah.
      */

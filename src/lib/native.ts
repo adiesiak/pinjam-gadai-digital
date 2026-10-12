@@ -271,19 +271,30 @@ export async function simpanTokenPerangkat(
 }
 
 /**
- * URL endpoint heartbeat HTTP.
+ * Asal domain HTTP action Convex (tanpa garis miring di ujung).
  *
- * HTTP action Convex hidup di domain `.convex.site`, sedangkan klien WebSocket
- * memakai `.convex.cloud`. Karena itu URL diturunkan bila domain situs tidak
- * disediakan lewat env.
+ * HTTP action hidup di domain `.convex.site`, sedangkan klien WebSocket memakai
+ * `.convex.cloud`. Karena itu asal diturunkan bila domain situs tidak
+ * disediakan lewat env. Dipakai heartbeat lokasi native DAN halaman verifikasi
+ * `/cek-status` — dua jalur yang memang memanggil HTTP action, jadi aturan
+ * penurunan domainnya tidak boleh berbeda satu sama lain.
  */
-export function urlHeartbeatLokasi(
+export function dasarSitusConvex(
   urlConvex: string | undefined,
   urlSitus?: string | undefined,
 ): string | null {
   const dasar = (urlSitus && urlSitus !== "" ? urlSitus : urlConvex ?? "").trim();
   if (dasar === "") return null;
-  const situs = dasar.replace(/\/+$/, "").replace(/\.convex\.cloud$/, ".convex.site");
+  return dasar.replace(/\/+$/, "").replace(/\.convex\.cloud$/, ".convex.site");
+}
+
+/** URL endpoint heartbeat HTTP. */
+export function urlHeartbeatLokasi(
+  urlConvex: string | undefined,
+  urlSitus?: string | undefined,
+): string | null {
+  const situs = dasarSitusConvex(urlConvex, urlSitus);
+  if (situs === null) return null;
   return `${situs}/lokasi/heartbeat`;
 }
 
