@@ -1,5 +1,5 @@
 /**
- * Logika MURNI untuk kartu hero PINDAI ("Warm Paper & Brass Batik Parang") —
+ * Logika MURNI untuk kartu hero PINDAI ("Warm Paper & Brass Batik Kawung") —
  * tanpa React, jadi bisa diuji langsung (`kartuNasabah.test.ts`).
  *
  * Tiga hal dikumpulkan di sini karena kegagalannya berbahaya kalau ditulis di

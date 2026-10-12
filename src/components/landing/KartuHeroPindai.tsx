@@ -1,8 +1,8 @@
 /**
- * KARTU HERO PINDAI — "Warm Paper & Brass Batik Parang".
+ * KARTU HERO PINDAI — "Warm Paper & Brass Batik Kawung".
  *
  * Objek MEREK untuk hero landing: kaca CERAH (kertas hangat, bukan obsidian)
- * dengan motif batik parang modern (garis kuningan #c9a86a + petrol #1f6a62),
+ * dengan motif batik kawung modern (garis kuningan #c9a86a + titik petrol #1f6a62),
  * aksen logam kuningan pada logo/chip/nomor, garis ganda kuningan di tepi, dan
  * cucian kuningan + petrol di dua sudut. Keputusan pemilik 2026-10-12: titik
  * fokus halaman ikut satu wajah terang, jadi permukaan gelapnya ditinggalkan
@@ -45,6 +45,34 @@ const MAKS_DERAJAT_Y = 9;
 /** Label status bawaan kartu. */
 const STATUS_CONTOH = "TERAKREDITASI & AMAN";
 
+/**
+ * Motif KAWUNG: satu unit = empat kelopak lonjong mengelilingi satu titik.
+ * Ukuran tiap kelopak sudah menunjuk ke arah pusatnya, jadi tidak ada
+ * transformasi rotasi yang perlu dihitung.
+ */
+const KELOPAK_KAWUNG: ReadonlyArray<
+  readonly [number, number, number, number]
+> = [
+  // [geser x, geser y, rx, ry] dari titik pusat unit
+  [0, -15, 7, 10],
+  [15, 0, 10, 7],
+  [0, 15, 7, 10],
+  [-15, 0, 10, 7],
+];
+
+/**
+ * Titik pusat unit kawung: tengah petak plus keempat sudutnya. Bentuk yang
+ * digambar di sudut dipakai bersama empat petak yang bertemu di sana, jadi
+ * motifnya bersambung tanpa jahitan walau petaknya hanya 64 x 64.
+ */
+const UNIT_KAWUNG: ReadonlyArray<readonly [number, number]> = [
+  [32, 32],
+  [0, 0],
+  [64, 0],
+  [0, 64],
+  [64, 64],
+];
+
 export interface KartuHeroPindaiProps {
   /** Nama nasabah. Kosong atau belum terverifikasi → "CARDHOLDER". */
   nama?: string;
@@ -82,7 +110,7 @@ export function KartuHeroPindai({
   const [bisaHover, setBisaHover] = useState(false);
   const panggungRef = useRef<HTMLDivElement | null>(null);
   /** Id unik pola batik: dua kartu di satu halaman tidak boleh berbagi `id`. */
-  const idParang = `parang-${useId().replace(/[^a-zA-Z0-9]/g, "")}`;
+  const idKawung = `kawung-${useId().replace(/[^a-zA-Z0-9]/g, "")}`;
 
   useEffect(() => {
     if (
@@ -201,47 +229,44 @@ export function KartuHeroPindai({
           className="pointer-events-none absolute -bottom-24 -right-16 size-48 rounded-full bg-[radial-gradient(circle,rgba(31,106,98,0.28),transparent_72%)]"
         />
 
-        {/* ── Motif Batik Parang modern: kuningan + petrol, dipasang tipis
+        {/* ── Motif batik KAWUNG: kelopak kuningan + titik petrol, dipasang tipis
             (opacity-15) dengan `mix-blend-multiply` supaya garisnya menyerap ke
-            kertas — terbaca sebagai tekstur taktil, bukan gambar di atas kartu. ── */}
+            kertas — terbaca sebagai tekstur taktil, bukan gambar di atas kartu.
+            Anyaman geometrisnya dipilih menggantikan parang karena lebih tenang
+            dan sejalan dengan wajah buku besar (DESIGN.md §3A). ── */}
         <svg
           aria-hidden="true"
           className="pointer-events-none absolute inset-0 size-full opacity-15 mix-blend-multiply"
         >
           <defs>
             <pattern
-              id={idParang}
-              width="72"
-              height="72"
+              id={idKawung}
+              width="64"
+              height="64"
               patternUnits="userSpaceOnUse"
               patternTransform="rotate(-45)"
             >
-              <path
-                d="M0 14 C 14 4, 30 24, 44 14 S 72 4, 88 14"
-                fill="none"
-                stroke="#c9a86a"
-                strokeWidth="3.2"
-                strokeLinecap="round"
-              />
-              <path
-                d="M0 34 C 14 24, 30 44, 44 34 S 72 24, 88 34"
-                fill="none"
-                stroke="#1f6a62"
-                strokeWidth="2.2"
-                strokeLinecap="round"
-              />
-              <path
-                d="M0 52 C 14 42, 30 62, 44 52 S 72 42, 88 52"
-                fill="none"
-                stroke="#c9a86a"
-                strokeWidth="1.4"
-                strokeLinecap="round"
-              />
-              <circle cx="62" cy="22" r="2.2" fill="#c9a86a" />
-              <circle cx="20" cy="44" r="1.7" fill="#1f6a62" />
+              {UNIT_KAWUNG.map(([ux, uy]) => (
+                <g key={`${ux}-${uy}`}>
+                  {KELOPAK_KAWUNG.map(([dx, dy, rx, ry]) => (
+                    <ellipse
+                      key={`${dx}-${dy}`}
+                      cx={ux + dx}
+                      cy={uy + dy}
+                      rx={rx}
+                      ry={ry}
+                      fill="none"
+                      stroke="#c9a86a"
+                      strokeWidth="2.4"
+                      strokeLinecap="round"
+                    />
+                  ))}
+                  <circle cx={ux} cy={uy} r="2.4" fill="#1f6a62" />
+                </g>
+              ))}
             </pattern>
           </defs>
-          <rect width="100%" height="100%" fill={`url(#${idParang})`} />
+          <rect width="100%" height="100%" fill={`url(#${idKawung})`} />
         </svg>
 
         {/* ── Cucian warna: kuningan tipis di kiri atas, petrol tipis di kanan

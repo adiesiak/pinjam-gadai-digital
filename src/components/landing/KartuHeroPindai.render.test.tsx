@@ -1,12 +1,12 @@
 /**
- * Uji render kartu hero PINDAI ("Warm Paper & Brass Batik Parang").
+ * Uji render kartu hero PINDAI ("Warm Paper & Brass Batik Kawung").
  * Run: bun src/components/landing/KartuHeroPindai.render.test.tsx
  *
  * Yang dijaga (tanpa browser — render statis):
  *  1. Token desain yang diminta benar-benar ada di MARKUP: ukuran/rasio kartu,
  *     permukaan CERAH (kertas + kaca, bukan obsidian) dengan garis ganda
- *     kuningan, dua cucian sudut, motif batik parang (kuningan #c9a86a +
- *     petrol #1f6a62, `opacity-15 mix-blend-multiply`), chip logam kuningan +
+ *     kuningan, dua cucian sudut, motif batik kawung (kelopak kuningan #c9a86a +
+ *     titik petrol #1f6a62, `opacity-15 mix-blend-multiply`), chip logam kuningan +
  *     ikon contactless, dan baris data (nomor monospace, status, masa berlaku,
  *     nama pemegang) yang tetap di atas ambang kontras WCAG AA di kertas terang.
  *  2. Sisi kanan atas BENAR-BENAR kosong: tidak ada pita holografik/deret ikon
@@ -91,7 +91,7 @@ function bersih(html: string, label: string): void {
   bersih(html, "kartu bawaan");
 }
 
-// ===== 2. Motif batik parang + cucian warna emas/emerald =====
+// ===== 2. Motif batik kawung + cucian warna kuningan/petrol =====
 {
   const html = renderToStaticMarkup(<KartuHeroPindai />);
   ada(
@@ -101,12 +101,26 @@ function bersih(html: string, label: string): void {
   );
   ada(html, "#c9a86a", "motif memakai kuningan");
   ada(html, "#1f6a62", "motif memakai rona petrol");
-  ada(html, 'patternTransform="rotate(-45)"', "motif parang miring diagonal");
+  ada(html, 'patternTransform="rotate(-45)"', "anyaman kawung miring diagonal");
   ada(
     html,
     'patternUnits="userSpaceOnUse"',
     "motif dipasang sebagai pola berulang",
   );
+  ada(html, 'width="64" height="64"', "petak motif 64 x 64");
+  // Kawung: satu unit = empat kelopak + satu titik pusat, digambar di tengah
+  // petak dan di keempat sudutnya (sudut dipakai bersama petak tetangga), jadi
+  // markup harus memuat 5 x 4 kelopak dan 5 titik pusat.
+  ok(
+    (html.match(/<ellipse/g) ?? []).length === 20,
+    "lima unit x empat kelopak kawung dirender",
+  );
+  ok(
+    (html.match(/r="2\.4"/g) ?? []).length === 5,
+    "satu titik pusat petrol di tiap unit kawung",
+  );
+  // Parang lama harus benar-benar hilang, bukan cuma ditambahi.
+  tidakAda(html, '<path d="M0 14 C', "motif parang lama tidak tersisa");
   ada(
     html,
     "radial-gradient(120%_90%_at_15%_-10%,rgba(201,168,106,0.2),transparent_55%)",
@@ -302,8 +316,8 @@ function bersih(html: string, label: string): void {
       <KartuHeroPindai />
     </>,
   );
-  const id = [...dua.matchAll(/id="(parang-[A-Za-z0-9]+)"/g)].map((m) => m[1]);
-  ok(id.length === 2, "setiap kartu merender satu pola batik");
+  const id = [...dua.matchAll(/id="(kawung-[A-Za-z0-9]+)"/g)].map((m) => m[1]);
+  ok(id.length === 2, "setiap kartu merender satu pola kawung");
   ok(id[0] !== id[1], "dua kartu memakai id pola batik yang berbeda");
   ada(dua, `url(#${id[0]})`, "rect motif menunjuk pola miliknya sendiri");
   bersih(dua, "dua kartu");
