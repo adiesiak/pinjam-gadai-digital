@@ -302,13 +302,17 @@ export const _catatPengiriman = internalMutation({
 /**
  * Kirim satu pesan lewat Fonnte dari SERVER.
  *
+ * Diekspor supaya klaim peminjam lama (`convex/klaimPeminjam.ts`) memakai jalur
+ * pengiriman yang sama: satu tempat yang membaca `FONNTE_TOKEN`, satu timeout,
+ * dan satu cara membaca balasan gateway.
+ *
  * Token dibaca dari `process.env.FONNTE_TOKEN` (environment variable Convex) dan
  * hanya dipakai sebagai header permintaan — tidak dikembalikan, tidak dicatat,
  * dan tidak pernah masuk ke pesan galat. Semua kegagalan (token kosong, HTTP
  * gagal, `status: false`, timeout, koneksi gagal) dikembalikan sebagai hasil,
  * bukan dilempar, supaya action bisa menjawab dengan pesan yang jujur.
  */
-async function kirimFonnte(
+export async function kirimFonnte(
   nomor: string,
   pesan: string,
 ): Promise<{ terkirim: boolean; pesan: string }> {

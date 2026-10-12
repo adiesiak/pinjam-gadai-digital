@@ -14,6 +14,7 @@ import {
   InputOTPSlot,
 } from "@/components/ui/input-otp";
 
+import { KlaimPeminjamLama } from "@/components/klaim/KlaimPeminjamLama";
 import { FadeIn } from "@/components/Reveal";
 import { useAuth } from "@/hooks/use-auth";
 import { api } from "@/convex/_generated/api";
@@ -28,6 +29,7 @@ import {
   Loader2,
   LockKeyhole,
   Mail,
+  MessageCircle,
   ShieldAlert,
   ShieldCheck,
   UserX,
@@ -144,7 +146,12 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
    */
   const jalurAdmin =
     authMode === "admin" || searchParams.get("returnTo") === ADMIN_ROUTE;
-  const [clientStep, setClientStep] = useState<"signIn" | { email: string }>("signIn");
+  // Langkah jalur nasabah: nomor email → kode email, atau jalur "klaim" untuk
+  // PEMINJAM LAMA (nomor WhatsApp lama → kode WhatsApp, lihat
+  // `components/klaim/KlaimPeminjamLama`).
+  const [clientStep, setClientStep] = useState<"signIn" | "klaim" | { email: string }>(
+    "signIn",
+  );
   const [adminStep, setAdminStep] = useState<AdminStep>("signIn");
   const [otp, setOtp] = useState("");
   const [adminOtp, setAdminOtp] = useState("");
@@ -263,7 +270,9 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
       setError("Jawaban verifikasi anti-bot salah.");
       return;
     }
-    if (clientStep === "signIn") return;
+    // Hanya langkah kode email yang dilanjutkan di sini; "klaim" memakai
+    // formulirnya sendiri (`KlaimPeminjamLama`) dan tidak pernah sampai ke sini.
+    if (typeof clientStep !== "object") return;
     setIsLoading(true);
     try {
       const formData = new FormData(event.currentTarget);
@@ -570,9 +579,46 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                             Punya kode akses bersama? Masuk di sini
                           </Link>
                         </Button>
+
+                        {/* Pintu PEMINJAM LAMA (web lama): nomor WhatsApp → kode
+                            OTP → sesi akun PEMILIK data impor, sehingga dashboard
+                            langsung berisi riwayat — bukan form kosong. */}
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="mt-1.5 w-full border-emerald-700/25 bg-emerald-50/60 text-emerald-900 transition-all duration-200 hover:bg-emerald-50 hover:text-emerald-900 active:scale-95"
+                          onClick={() => {
+                            setError(null);
+                            setClientStep("klaim");
+                          }}
+                          disabled={isLoading}
+                        >
+                          <MessageCircle className="mr-2 size-4" />
+                          Peminjam lama? Masuk dengan nomor WhatsApp
+                        </Button>
                       </div>
                     </CardContent>
                   </form>
+                </>
+              ) : clientStep === "klaim" ? (
+                <>
+                  <CardHeader className="text-center">
+                    <CardTitle className="text-xl">Pemulihan akun web lama</CardTitle>
+                    <CardDescription>
+                      Masuk dengan nomor WhatsApp yang Anda pakai pada PINDAI sebelumnya.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="pb-6">
+                    <KlaimPeminjamLama
+                      onKembali={() => {
+                        setError(null);
+                        setClientStep("signIn");
+                      }}
+                    />
+                    <p className="mt-3 text-center text-[11px] leading-5 text-muted-foreground">
+                      Belum pernah mengajukan dari web lama? Kembali dan daftar dengan email.
+                    </p>
+                  </CardContent>
                 </>
               ) : (
                 <>

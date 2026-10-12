@@ -32,6 +32,7 @@ import {
 import { GadaiBillingSection } from "./dashboard/gadai-views";
 import { HelpdeskSayaView } from "./dashboard/helpdesk-views";
 import { HistorySection } from "./dashboard/history-views";
+import { RingkasanPeminjamLama } from "./dashboard/klaim-views";
 import { ActiveLoanSection, ScheduleSection } from "./dashboard/loan-views";
 import { DueReminderBanner, LokasiPeringatanBanner } from "./dashboard/notice-views";
 import { SummaryCards } from "./dashboard/summary-cards";
@@ -137,6 +138,11 @@ export default function Dashboard() {
   // belum dibaca. Query yang sama sudah dipakai lonceng di header, jadi Convex
   // melayani satu langganan (bukan dua permintaan terpisah).
   const notifikasi = useQuery(api.notifikasi.daftar, argsPeminjam);
+  // Klaim peminjam lama: satu query memberi tahu apakah akun ini menerima berkas
+  // lewat klaim, portofolio historisnya, dan apakah masih ada data lama yang
+  // bisa ditautkan. Tanpa itu, nasabah dari web lama bisa mendarat di layar
+  // kosong meski berkasnya sudah ada di akun pemilik data.
+  const klaim = useQuery(api.klaimPeminjam.ringkasanKlaimSaya, argsPeminjam);
 
   const [loanDetailId, setLoanDetailId] = useState<Id<"loans"> | null>(null);
   const [pawnDetailId, setPawnDetailId] = useState<Id<"pawns"> | null>(null);
@@ -305,6 +311,11 @@ export default function Dashboard() {
               <RingkasanMemuat />
             ) : (
               <>
+                {/* Riwayat & tawaran klaim PEMINJAM LAMA diletakkan paling atas:
+                    pemakai dari web lama harus lebih dulu melihat bahwa datanya
+                    ada, bukan form pengajuan yang kosong. */}
+                <RingkasanPeminjamLama klaim={klaim} />
+
                 {/* Pengingat jatuh tempo live — CTA membuka detail pembayaran. */}
                 {dueReminder !== null && (
                   <DueReminderBanner

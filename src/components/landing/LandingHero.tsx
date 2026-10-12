@@ -566,6 +566,27 @@ export function LandingHero(props: LandingHeroProps) {
       className="hero-laut relative isolate overflow-hidden border-b border-slate-800/60 text-white"
       style={{ backgroundColor: info.palet[2] }}
     >
+      {/* 0. Ambient mesh gradient Deep Emerald (#042F2E → #064E3B). Lapisan ini
+             adalah "lantai" panggung: selalu ada, di bawah semua lapisan lain,
+             sehingga hero tidak pernah bergantung pada WebGL untuk punya warna
+             identitas. `aria-hidden` + `pointer-events-none`: murni dekoratif. */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 bg-[#042F2E] bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(6,78,59,0.8),rgba(4,47,46,1))]"
+      />
+
+      {/* 0b. Dua Ambient Glow Orb transparan: orb kiri-atas berdenyut lembut,
+              orb kanan-bawah tenang. Keduanya memberi kedalaman ruang tanpa
+              menambah satu pun elemen yang bisa diklik. */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute -left-20 -top-20 h-96 w-96 animate-pulse rounded-full bg-emerald-500/20 blur-3xl"
+      />
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute -right-20 top-1/3 h-96 w-96 rounded-full bg-teal-400/15 blur-3xl"
+      />
+
       {/* 1. Gradien dasar Deep Space Emerald — selalu ada, sekaligus fallback
              WebGL. Kuningan (gold foil) TIDAK dipakai sebagai wash latar;
              aksen emas hanya pada chip/logo kartu. */}
@@ -764,8 +785,17 @@ export function LandingHero(props: LandingHeroProps) {
           )}
         </div>
 
-        {/* Kartu finansial 3D — objek merek yang bisa disentuh, bukan alat bayar. */}
-        <div className="relative mx-auto w-full max-w-md lg:max-w-none">
+        {/* Kartu finansial 3D — objek merek yang bisa disentuh, bukan alat bayar.
+            Pembungkusnya mengambang perlahan (`.animate-float`, 7 detik
+            naik-turun) seperti mockup melayang; animasi ini ada di pembungkus,
+            bukan di panggung, sehingga kemiringan/putaran kartu yang dikendalikan
+            pointer tidak pernah bertabrakan dengan gerak mengambangnya. Saat
+            gerak dikurangi (`prefers-reduced-motion`), kartunya diam. */}
+        <div
+          className={`relative mx-auto w-full max-w-md lg:max-w-none ${
+            reduce ? "" : "animate-float"
+          }`}
+        >
           <div
             ref={panggungRef}
             className="kartu-panggung motion-scale pointer-events-auto"

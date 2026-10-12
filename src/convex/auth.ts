@@ -14,6 +14,7 @@ import {
   pesanSandiNonAdmin,
 } from "./auth/enumerasi";
 import { emailOtp } from "./auth/emailOtp";
+import { whatsappOtp } from "./auth/whatsappOtp";
 import { internal } from "./_generated/api";
 import { ROLES } from "./schema";
 
@@ -140,10 +141,19 @@ const adminPassword: typeof passwordProvider = {
 };
 
 export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
-  providers: [emailOtp, adminPassword, Anonymous],
+  // `whatsappOtp` = pintu masuk PEMINJAM LAMA dari web lama: pembuktian nomor
+  // lewat OTP WhatsApp, lalu sesi diberikan untuk akun pemilik data impor itu
+  // sendiri (bukan akun baru yang kosong). Verifikasi kode + penautannya hidup
+  // di `convex/klaimPeminjam.ts`, bukan di provider ini.
+  providers: [emailOtp, adminPassword, whatsappOtp, Anonymous],
   callbacks: {
     async afterUserCreatedOrUpdated(ctx, { userId, provider, type }) {
       const user = await ctx.db.get(userId);
+      // Provider WhatsApp OTP hanya cocok untuk akun PEMINJAM: `authorize`-nya
+      // menolak nomor tanpa data lama, dan akun yang dibuatnya adalah akun
+      // hasil impor/klaim (tidak pernah akun admin tanpa peran). Sesi yang
+      // diberikan tetap sesi biasa — pembatas peran setelahnya berlaku sama.
+      //
       // Email OTP publik tetap tersedia untuk peminjam/penyedia dana, tetapi tidak
       // untuk admin. Permintaan kode tidak boleh membocorkan status admin,
       // jadi tahap pertama dibalas seperti email biasa (email kodenya sendiri

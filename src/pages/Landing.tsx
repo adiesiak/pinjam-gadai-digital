@@ -1778,8 +1778,22 @@ export default function Landing() {
         </section>
 
         {/* Kalkulator + langkah */}
-        <section id="kalkulator" className="mx-auto w-full max-w-6xl scroll-mt-24 px-4 py-16 sm:px-6 sm:py-20">
-          <div className="grid gap-10 lg:grid-cols-2">
+        <section
+          id="kalkulator"
+          className="relative mx-auto w-full max-w-6xl scroll-mt-24 px-4 py-16 sm:px-6 sm:py-20"
+        >
+          {/* Ambang transisi dari hero gelap ke area terang (full-bleed), lalu pola
+              titik samar Deep Emerald (#064E3B) sebagai aksen latar. Keduanya
+              dekoratif, `aria-hidden`, dan tidak pernah mencuri pointer. */}
+          <span
+            aria-hidden="true"
+            className="pointer-events-none absolute left-1/2 top-0 h-64 w-screen -translate-x-1/2 bg-gradient-to-b from-[#042F2E] via-slate-50 to-slate-100/90"
+          />
+          <span
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0 bg-[radial-gradient(#064E3B_1px,transparent_1px)] [background-size:24px_24px] opacity-15"
+          />
+          <div className="relative grid gap-10 lg:grid-cols-2">
             <Reveal>
               <LiveCalculator />
             </Reveal>
@@ -1903,7 +1917,13 @@ export default function Landing() {
 
         {/* Tanya jawab */}
         <section id="tanya" className="relative scroll-mt-24 border-t border-slate-200">
-          <div className="mx-auto w-full max-w-3xl px-4 py-16 sm:px-6 sm:py-20">
+          {/* Aksen pola titik di belakang tanya jawab — sama dengan kalkulator,
+              supaya transisi dari hero gelap terasa satu rangkaian. */}
+          <span
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0 bg-[radial-gradient(#064E3B_1px,transparent_1px)] [background-size:24px_24px] opacity-15"
+          />
+          <div className="relative mx-auto w-full max-w-3xl px-4 py-16 sm:px-6 sm:py-20">
             <Reveal>
               <SectionHeading
                 folio="06"

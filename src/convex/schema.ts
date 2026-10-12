@@ -342,13 +342,27 @@ const schema = defineSchema(
       dibatalkanOleh: v.optional(v.string()),
       /** Alasan pembatalan — opsional, tidak pernah diwajibkan. */
       alasanPembatalan: v.optional(v.string()),
+      /**
+       * Penanda KLAIM PEMINJAM LAMA (`convex/klaimPeminjam.ts`): akun yang
+       * menjadi pemilik baris ini SEBELUM kepemilikannya ditautkan ke akun sesi
+       * aktif. Nilai finansial baris tidak pernah berubah karena klaim — hanya
+       * `userId` + penanda ini yang ditulis, supaya asal-usulnya tetap terlacak.
+       */
+      klaimDariUserId: v.optional(v.id("users")),
+      /** Waktu kepemilikan baris ini berpindah karena klaim peminjam lama. */
+      klaimPada: v.optional(v.number()),
     })
       .index("by_user", ["userId"])
       .index("by_status", ["status"])
       .index("by_nasabah", ["nasabahUserId"])
       // Model 1 pinjaman = 1 pendana: dipakai ruang pendana, portofolio
       // pendana, dan rekap admin supaya semuanya membaca sumber yang sama.
-      .index("by_pendana", ["pendanaId"]),
+      .index("by_pendana", ["pendanaId"])
+      // Pencarian pemilik data lama lewat NOMOR WhatsApp (klaim/login peminjam
+      // lama, `convex/klaimPeminjam.ts`). Nomor disimpan sudah ternormalisasi
+      // (62…) oleh jalur pengajuan, jadi kecocokan bisa lewat indeks ini —
+      // bukan pemindaian seluruh tabel.
+      .index("by_nomorWhatsApp", ["nomorWhatsApp"]),
 
     /**
      * DRAF pengajuan pinjaman tunai — pekerjaan yang belum dikirim.
@@ -503,7 +517,12 @@ const schema = defineSchema(
           catatan: v.optional(v.string()),
         }),
       ),
-    }).index("by_user", ["userId"]),
+    })
+      .index("by_user", ["userId"])
+      // Master nasabah dicari lewat nomor WhatsApp saat klaim akun lama
+      // (`convex/klaimPeminjam.ts`) — satu-satunya jalan supaya peminjam lama
+      // bisa ditemukan TANPA memindai semua baris.
+      .index("by_nomorWhatsApp", ["nomorWhatsApp"]),
 
     /**
      * OVERRIDE risiko nasabah — keputusan petugas atas grade hasil model.
@@ -1092,6 +1111,10 @@ const schema = defineSchema(
       persetujuanSyaratPada: v.optional(v.number()),
       /** Versi syarat dan ketentuan yang disetujui. */
       persetujuanSyaratVersi: v.optional(v.string()),
+      /** Penanda klaim peminjam lama — lihat catatan pada tabel `loans`. */
+      klaimDariUserId: v.optional(v.id("users")),
+      /** Waktu kepemilikan baris ini berpindah karena klaim peminjam lama. */
+      klaimPada: v.optional(v.number()),
     })
       .index("by_user", ["userId"])
       .index("by_status", ["status"]),
@@ -1165,6 +1188,10 @@ const schema = defineSchema(
       didanaiPada: v.optional(v.number()),
       /** Terisi saat cicilan terakhir dibayar penuh oleh Konsumen. */
       lunasPada: v.optional(v.number()),
+      /** Penanda klaim peminjam lama — lihat catatan pada tabel `loans`. */
+      klaimDariUserId: v.optional(v.id("users")),
+      /** Waktu kepemilikan baris ini berpindah karena klaim peminjam lama. */
+      klaimPada: v.optional(v.number()),
     })
       .index("by_user", ["userId"])
       .index("by_status", ["status"]),
@@ -1681,7 +1708,11 @@ const schema = defineSchema(
           pada: v.number(),
         }),
       ),
-    }).index("by_user", ["userId"]),
+    })
+      .index("by_user", ["userId"])
+      // Profil KYC juga sumber nomor WhatsApp terverifikasi; dipakai klaim
+      // akun lama untuk menemukan pemilik data impor lewat nomornya.
+      .index("by_nomorWhatsApp", ["nomorWhatsApp"]),
 
     /**
      * KEPUTUSAN OTOMATIS KYC — APPEND-ONLY, satu baris per pemeriksaan mesin.
@@ -2100,6 +2131,85 @@ const schema = defineSchema(
     })
       .index("by_pengaduan", ["pengaduanId"])
       .index("by_pengaduan_dibuatPada", ["pengaduanId", "dibuatPada"]),
+
+    /**
+     * TANTANGAN OTP KLAIM PEMINJAM LAMA — kode yang dikirim ke NOMOR WhatsApp.
+     *
+     * Kenapa tabel ini terpisah dari `waOtpChallenges`: tantangan di sana
+     * SELALU milik pengguna yang sedang masuk (`userId` wajib), sedangkan klaim
+     * peminjam lama justru terjadi SEBELUM ada sesi — pemiliknya adalah nomor
+     * itu sendiri. Menumpangkan baris tanpa pemilik ke tabel ber-`userId` akan
+     * membuat setiap pembaca lama ikut membaca baris yang bukan miliknya.
+     *
+     * Aturan yang tetap sama dengan OTP lain: hanya HASH + salt yang disimpan
+     * (kode aslinya tidak pernah ditulis), sekali pakai, berumur 5 menit, punya
+     * batas percobaan, dan dibatasi laju per nomor & per IP.
+     */
+    klaimOtp: defineTable({
+      /** Nomor tujuan ternormalisasi (62… tanpa +) — kode hanya sah untuk ini. */
+      nomor: v.string(),
+      /** SHA-256(salt + ":" + kode) dalam heksadesimal. */
+      kodeHash: v.string(),
+      /** Salt acak per kode (hex). */
+      salt: v.string(),
+      dibuatPada: v.number(),
+      kedaluwarsaPada: v.number(),
+      maksPercobaan: v.number(),
+      percobaanGagal: v.number(),
+      /** Terisi saat kode dipakai — sekali pakai, tidak bisa diulang. */
+      dipakaiPada: v.optional(v.number()),
+      /** Akun sesi yang memakai kode ini (jejak siapa yang mengklaim). */
+      dipakaiOlehUserId: v.optional(v.id("users")),
+      /** "menunggu" | "terkirim" | "gagal" — hasil kirim, bukan status klaim. */
+      statusPengiriman: v.string(),
+      /** Respon Fonnte yang sudah dipotong (tanpa token). */
+      responPengiriman: v.optional(v.string()),
+      /** IP klien (dikirim klien) untuk pembatas laju & jejak audit. */
+      ip: v.optional(v.string()),
+      userAgent: v.optional(v.string()),
+      /**
+       * Snapshot jumlah berkas lama yang ditemukan saat kode diminta. Dipakai
+       * untuk memberi tahu pemakai bahwa nomornya memang punya data lama —
+       * tanpa membocorkan isinya sebelum kode diverifikasi.
+       */
+      berkasLama: v.number(),
+    })
+      .index("by_nomor", ["nomor"])
+      .index("by_ip", ["ip"]),
+
+    /**
+     * JEJAK PENAUTAN KLAIM PEMINJAM LAMA — APPEND-ONLY, satu baris per klaim.
+     *
+     * Kenapa dicatat terstruktur (bukan hanya kalimat di `auditLog`): perpindahan
+     * kepemilikan berkas adalah perubahan paling sensitif di aplikasi ini, jadi
+     * harus bisa dijawab "berkas apa saja yang berpindah, dari akun siapa, ke
+     * akun siapa, dan kapan" tanpa membaca prosa. Baris di sini TIDAK PERNAH
+     * diubah/dihapus; pembatalan pun dicatat sebagai baris baru.
+     */
+    klaimPeminjam: defineTable({
+      /** Akun tujuan — sesi aktif yang menerima berkas lama. */
+      userId: v.id("users"),
+      /** Nomor WhatsApp yang dibuktikan lewat OTP (ternormalisasi). */
+      nomor: v.string(),
+      /** Pemilik lama berkas, bila berbeda dari akun tujuan. */
+      akunLamaUserId: v.optional(v.id("users")),
+      /** Label akun tujuan & pemilik lama (snapshot agar tetap terbaca). */
+      userIdLabel: v.string(),
+      akunLamaLabel: v.optional(v.string()),
+      pada: v.number(),
+      /** Cara masuk: "otp_whatsapp" | "sesi_aktif". */
+      metode: v.string(),
+      pinjaman: v.number(),
+      gadai: v.number(),
+      kredit: v.number(),
+      masterNasabah: v.number(),
+      /** Total pokok pinjaman yang berpindah — rupiah bulat. */
+      pokokPinjaman: v.number(),
+      keterangan: v.string(),
+    })
+      .index("by_user", ["userId"])
+      .index("by_nomor", ["nomor"])
+      .index("by_pada", ["pada"]),
   },
   {
     schemaValidation: false,
