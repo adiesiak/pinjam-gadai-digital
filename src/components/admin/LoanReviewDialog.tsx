@@ -25,6 +25,7 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -42,11 +43,9 @@ import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { loanPurposeLabel, quotePinjaman } from "@/lib/loan";
 import { formatRupiah } from "@/lib/money";
-import {
-  diTahapTinjauan,
-  nominalTerkunci,
-  type StatusPinjaman,
-} from "@/lib/statusPinjaman";
+import { rincianPinjamanNyata } from "@/lib/rincianAliranDana";
+import type { StatusKyc } from "@/lib/kycStatus";
+import { STATUS_TERKUNCI, diTahapTinjauan, nominalTerkunci } from "@/lib/statusPinjaman";
 
 import { namaHurufBesar } from "@/lib/nama";
 
@@ -55,6 +54,12 @@ import { type LoanRow } from "./admin-shared";
 import { AliranDanaPinjaman } from "./AliranDanaPinjaman";
 import { LoanKycPanel } from "./LoanKycPanel";
 import { PanelDataDiriNasabah } from "./PanelDataDiriNasabah";
+import { PenampilDokumen } from "./PenampilDokumen";
+import {
+  KotakAksiAdmin,
+  KotakMetrikPengajuan,
+  KotakProfilNasabah,
+} from "./RingkasanEksekutifPengajuan";
 
 // Sentinel NON-kosong: Radix Select menolak `<SelectItem value="">`, jadi
 // "tidak diubah" dan "lepas pendana" memakai penandanya sendiri.
@@ -88,11 +93,6 @@ export function LoanReviewDialog({
   // pendana, sehingga nama pendana langsung tampil di sana.
   const simpanPendana = useMutation(api.penyediaDana.ubahDataPinjaman);
 
-  // Sasaran status memakai EMPAT status kanonik. "Disalurkan" adalah langkah
-  // berikutnya yang paling sering diambil, jadi itu bawaannya untuk pinjaman
-  // yang belum tersalurkan.
-  const [statusTujuan, setStatusTujuan] = useState<StatusPinjaman>("didanai");
-  const [nominal, setNominal] = useState("");
   // Konfirmasi khusus: pinjaman yang sudah berpindah dana (punya alokasi/jurnal)
   // hanya boleh dihapus bila admin menyatakannya sadar. Default mati.
   const [hapusMenyeluruh, setHapusMenyeluruh] = useState(false);
@@ -108,6 +108,10 @@ export function LoanReviewDialog({
   // atas dialog tempat admin tidak melihatnya setelah menggulir ke bawah.
   const [errorHapus, setErrorHapus] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"detail" | "aliran" | "perjanjian">("detail");
+  /** Modal lampiran foto KTP/selfie — dibuka dari Kotak Profil Nasabah. */
+  const [lampiranTerbuka, setLampiranTerbuka] = useState(false);
+  /** Rincian lengkap (data diri, KYC, koordinat, kontrak) disembunyikan dulu. */
+  const [bukaRincian, setBukaRincian] = useState(false);
 
   // Pratinjau pesan WhatsApp yang akan dikirim — admin melihat persis isinya
   // sebelum menekan tombol, termasuk kalimat persetujuan sebagian.
@@ -121,6 +125,20 @@ export function LoanReviewDialog({
     api.penyediaDana.kandidatPendana,
     row === null ? ("skip" as const) : {},
   );
+  // Profil & risiko NASABAH (bukan salinan di baris pinjaman): status KYC dan
+  // skor integritas dibaca dari master, supaya kotak ringkas tidak pernah
+  // menampilkan penilaian yang sudah kedaluwarsa. Query-nya sama dengan yang
+  // dipakai panel "Lihat Profil Nasabah", jadi tidak ada perhitungan kedua.
+  const profilQ = useQuery(
+    api.nasabah.detailNasabah,
+    row === null ? ("skip" as const) : { userId: row.userIdPeminjam },
+  );
+  // URL lampiran KYC (KTP/selfie/slip) hanya dibaca peninjau admin; dipakai
+  // tombol kecil di kotak profil agar gambar dokumen tidak memenuhi layar.
+  const dokumenQ = useQuery(
+    api.admin.dokumenKycUrls,
+    row === null ? ("skip" as const) : { loanId: row._id },
+  );
 
   // Sasaran status & nominal menyesuaikan saat dialog dibuka untuk baris lain.
   //
@@ -133,13 +151,13 @@ export function LoanReviewDialog({
   const [idTerakhir, setIdTerakhir] = useState<string | null>(idBaris);
   if (idBaris !== idTerakhir) {
     setIdTerakhir(idBaris);
-    setStatusTujuan(row?.status === "didanai" ? "lunas" : "didanai");
-    setNominal("");
     setPendana(PENDANA_TETAP);
     setNominalPendana("");
     setHapusMenyeluruh(false);
     setError(null);
     setErrorHapus(null);
+    setLampiranTerbuka(false);
+    setBukaRincian(false);
   }
 
   if (row === null) return null;
@@ -157,6 +175,51 @@ export function LoanReviewDialog({
   // muncul, dan di situlah centang "Hapus menyeluruh" dibutuhkan.
   const sudahBerpindahDana =
     row.status === "didanai" || row.status === "lunas" || row.pendanaNama != null;
+
+  // ===== Ringkasan eksekutif (tiga kotak) =====
+  // Angka metrik diambil dari mesin uang yang SAMA dengan ledger
+  // (`rincianPinjamanNyata` → `quoteLoan`/`bagiHasilPinjaman`), bukan rumus yang
+  // ditulis ulang di JSX kotak.
+  const rincian = rincianPinjamanNyata({
+    pokokPinjaman: row.pokokPinjaman,
+    tenorBulan: row.tenorBulan,
+    persenBunga: rowWithOptional.persenBunga ?? null,
+  });
+  const tenorTeks =
+    row.tenorBulan !== null ? `${row.tenorBulan} bulan` : `${row.tenorHari ?? 30} hari`;
+  const lampiranSiap =
+    dokumenQ !== undefined &&
+    dokumenQ !== null &&
+    Boolean(dokumenQ.ktpUrl || dokumenQ.selfieUrl || dokumenQ.slipUrl);
+  const jumlahLampiran =
+    dokumenQ === undefined || dokumenQ === null
+      ? 0
+      : [dokumenQ.ktpUrl, dokumenQ.selfieUrl, dokumenQ.slipUrl].filter((u) => u !== null)
+          .length;
+
+  // Tombol kotak aksi memakai aturan transisi yang sama dengan server
+  // (`lib/statusPinjaman`): "Setujui" = pindah ke Disalurkan (`didanai`),
+  // "Tolak" = `ditolak`; posisi yang sudah ditutup tidak ditawari tindakan.
+  const bolehSetujui = row.status !== "didanai" && !STATUS_TERKUNCI.includes(row.status);
+  const bolehTolak = !STATUS_TERKUNCI.includes(row.status) && row.status !== "ditolak";
+  const bolehKirimWa =
+    row.status !== "lunas" && (pratinjau?.nomorWhatsApp ?? null) !== null;
+  const terkunciTeks =
+    row.status === "lunas"
+      ? "Pinjaman sudah lunas — posisinya ditutup."
+      : row.status === "dibatalkan"
+        ? "Pengajuan sudah dibatalkan; nasabah membuat pengajuan baru bila masih dibutuhkan."
+        : row.status === "ditolak"
+          ? "Pengajuan ini sudah ditolak."
+          : row.status === "didanai"
+            ? "Pengajuan sudah disetujui dan dananya ditandai tersalurkan."
+            : undefined;
+  const waTerkunciTeks =
+    pratinjau == null
+      ? "Pratinjau pesan WhatsApp sedang dimuat."
+      : pratinjau.nomorWhatsApp === null
+        ? "Nomor WhatsApp nasabah belum ada di data KYC."
+        : undefined;
 
   const runDelete = async () => {
     // Konfirmasi tetap diminta supaya penghapusan tidak terjadi karena salah
@@ -296,9 +359,96 @@ export function LoanReviewDialog({
     </div>
   );
 
+  // ── Ringkasan eksekutif: tiga kotak yang menentukan keputusan ──────────
+  // Urutannya METRIK → PROFIL → AKSI: mata membaca nominal & tagihan dulu,
+  // lalu memastikan siapa nasabahnya, baru memutuskan. Rincian panjang (data
+  // diri, KYC, koordinat, kontrak, aliran dana) tetap tersedia di bawah, tetapi
+  // TERTUTUP — supaya layar pertama bukan dinding data.
+  const kotakRingkas = (
+    <div className="grid gap-3 lg:grid-cols-3">
+      <KotakMetrikPengajuan
+        pokok={row.pokokPinjaman}
+        tenorTeks={tenorTeks}
+        potonganDiMuka={rincian.potonganDiMuka}
+        bunga={rincian.imbalHasil}
+        totalPelunasan={rincian.totalKembali}
+        namaBank={row.namaBank}
+        nomorRekening={row.nomorRekening}
+      />
+      <KotakProfilNasabah
+        nama={namaHurufBesar(row.namaLengkap)}
+        nomorWhatsApp={row.nomorWhatsApp ?? profilQ?.profil?.nomorWhatsApp ?? null}
+        statusKyc={
+          profilQ === undefined
+            ? undefined
+            : ((profilQ?.kyc?.status ?? null) as StatusKyc | null)
+        }
+        skor={profilQ?.profilRisiko.skor ?? null}
+        skorDinilai={profilQ?.profilRisiko.dinilai ?? true}
+        grade={profilQ?.profilRisiko.grade ?? null}
+        gradeSistem={profilQ?.risiko.gradeSistem}
+        gradeDitimpa={profilQ?.risiko.ditimpa ?? false}
+        lampiranSiap={lampiranSiap}
+        jumlahLampiran={jumlahLampiran}
+        onLihatLampiran={() => setLampiranTerbuka(true)}
+      />
+      <KotakAksiAdmin
+        busy={busy}
+        labelSetujui={
+          row.status === "disetujui" ? "Tandai dana tersalurkan" : "Setujui Pengajuan"
+        }
+        bolehSetujui={bolehSetujui}
+        bolehTolak={bolehTolak}
+        bolehKirimWa={bolehKirimWa}
+        sudahLunas={row.status === "lunas"}
+        setujuTerkunci={bolehSetujui ? undefined : terkunciTeks}
+        waTerkunci={bolehKirimWa ? undefined : waTerkunciTeks}
+        onSetujui={() =>
+          void (row.status === "disetujui"
+            ? run("setuju", () => fund({ loanId: row._id }))
+            : run("setuju", () => ubahStatus({ loanId: row._id, status: "didanai" })))
+        }
+        onTolak={() => void run("tolak", () => ubahStatus({ loanId: row._id, status: "ditolak" }))}
+        onKirimWa={() =>
+          void run("wa", () =>
+            kirimStatus({ loanId: row._id, alasan: "", statusLama: row.status }),
+          )
+        }
+      />
+    </div>
+  );
+
   // ── Tab 1: Detail & Dokumen ────────────────────────────────────────────
   const tabDetail = (
-    <div className="grid gap-4 lg:grid-cols-2">
+    <div className="space-y-4">
+      {kotakRingkas}
+
+      {/* Rincian pendukung: bukan dihapus, hanya ditutup sampai diminta. */}
+      <section className="rounded-2xl border border-slate-200/80 bg-white/70 p-3 backdrop-blur-sm">
+        <button
+          type="button"
+          onClick={() => setBukaRincian((x) => !x)}
+          aria-expanded={bukaRincian}
+          className="flex w-full items-start justify-between gap-3 rounded-lg px-1 py-1 text-left transition-colors duration-[var(--motion-fast)] hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <span className="min-w-0">
+            <span className="flex items-center gap-2 text-sm font-semibold text-slate-800">
+              <FileText className="size-4 text-primary" aria-hidden="true" />
+              Rincian lengkap &amp; lampiran pengajuan
+            </span>
+            <span className="mt-0.5 block text-[11px] leading-4 text-muted-foreground">
+              Data diri tersimpan, KYC &amp; foto dokumen, koordinat perangkat, kontrak digital,
+              dan rincian aliran dana.
+            </span>
+          </span>
+          <ChevronDown
+            className={`size-4 shrink-0 text-slate-500 transition-transform duration-[var(--motion-normal)] ${bukaRincian ? "rotate-180" : ""}`}
+            aria-hidden="true"
+          />
+        </button>
+
+        {bukaRincian && (
+          <div className="mt-3 grid gap-4 lg:grid-cols-2">
       {/* Kolom kiri: data diri + KYC */}
       <div className="space-y-4">
         <PanelDataDiriNasabah userId={row.userIdPeminjam} />
@@ -381,6 +531,9 @@ export function LoanReviewDialog({
 
         <EContractWidget kind="loan" loanId={row._id} />
       </div>
+          </div>
+        )}
+      </section>
     </div>
   );
 
@@ -750,37 +903,24 @@ export function LoanReviewDialog({
       ) : (
         <>
           <p className="min-w-0 flex-1 text-xs text-muted-foreground">
-            Keputusan tersimpan ke ledger internal dan tercatat di Audit Trail.
+            Keputusan cepat ada di kotak <strong>Aksi admin</strong> (tab Detail &amp; Dokumen):
+            setujui, tolak, atau kirim notifikasi WhatsApp — semuanya tercatat di Audit Trail.
           </p>
           <div className="flex flex-wrap items-center gap-2">
-            <Button
-              variant="outline"
-              disabled={busy !== null}
-              onClick={() => run("tolak", () => ubahStatus({ loanId: row._id, status: "ditolak" }))}
-              className={`rounded-xl border-rose-200 px-4 text-sm font-medium text-rose-700 hover:bg-rose-50 ${MICRO_TOMBOL}`}
-            >
-              {busy === "tolak" ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
-              Tolak
-            </Button>
-
-            <Button
-              disabled={busy !== null}
-              onClick={() =>
-                run("status", () =>
-                  ubahStatus({
-                    loanId: row._id,
-                    status: statusTujuan,
-                    ...(statusTujuan !== "ditolak" && nominal.trim() !== ""
-                      ? { pokokDisetujui: Number(nominal) }
-                      : {}),
-                  }),
-                )
-              }
-              className={`rounded-xl bg-slate-800 px-4 text-sm font-medium text-white hover:bg-slate-900 ${MICRO_TOMBOL}`}
-            >
-              {busy === "status" ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
-              Simpan status &amp; kirim WA
-            </Button>
+            {/* Setelah dana ditandai tersalurkan, langkah berikutnya adalah
+                menutup posisi — bukan mengulang keputusan. */}
+            {row.status === "didanai" && (
+              <Button
+                disabled={busy !== null}
+                onClick={() =>
+                  run("lunas", () => ubahStatus({ loanId: row._id, status: "lunas" }))
+                }
+                className={`rounded-xl bg-slate-800 px-4 text-sm font-medium text-white hover:bg-slate-900 ${MICRO_TOMBOL}`}
+              >
+                {busy === "lunas" ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
+                Tandai lunas
+              </Button>
+            )}
 
             {row.status !== "didanai" && (
               <Button
@@ -799,6 +939,7 @@ export function LoanReviewDialog({
   );
 
   return (
+    <>
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       {/* Lebar (`max-w-5xl`) + tinggi (`max-h-[88vh]`) tetap: header & footer
           menempel, hanya area tab yang menggulir. Tombol tutup bawaan dimatikan
@@ -858,5 +999,52 @@ export function LoanReviewDialog({
         {footerAksi}
       </DialogContent>
     </Dialog>
+
+    {/* Lampiran foto: dibuka dari kotak Profil Nasabah sebagai MODAL, supaya
+        gambar dokumen tidak memenuhi layar review (angka & keputusan tetap
+        terlihat di belakangnya). Tanda air verifikasi ikut tampil saat foto
+        diperbesar — lihat `PenampilDokumen`. */}
+    <Dialog open={lampiranTerbuka} onOpenChange={setLampiranTerbuka}>
+      <DialogContent className="max-h-[85vh] w-full overflow-y-auto sm:max-w-3xl">
+        <DialogHeader>
+          <DialogTitle>Lampiran foto KTP &amp; selfie</DialogTitle>
+          <DialogDescription>
+            Lampiran pengajuan {row.nomorReferensi} — {namaHurufBesar(row.namaLengkap)}. Foto
+            diambil dari baris KYC nasabah (satu tempat), bukan salinan per pengajuan.
+          </DialogDescription>
+        </DialogHeader>
+
+        {dokumenQ === undefined ? (
+          <p className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Loader2 className="size-4 animate-spin" /> Memuat lampiran…
+          </p>
+        ) : dokumenQ === null ? (
+          <p className="text-sm text-muted-foreground">
+            Lampiran tidak ditemukan untuk pengajuan ini. Nasabah dapat mengunggahnya di tab
+            Verifikasi KYC.
+          </p>
+        ) : (
+          <div className="grid gap-3 sm:grid-cols-3">
+            {([
+              ["KTP", dokumenQ.ktpUrl],
+              ["Selfie + KTP", dokumenQ.selfieUrl],
+              ["Bukti penghasilan", dokumenQ.slipUrl],
+            ] as const).map(([label, url]) =>
+              url ? (
+                <PenampilDokumen key={label} src={url} label={label} />
+              ) : (
+                <span
+                  key={label}
+                  className="inline-flex items-center justify-center rounded-xl border border-dashed border-slate-300 px-3 py-8 text-center text-xs text-muted-foreground"
+                >
+                  {label} tidak tersedia
+                </span>
+              ),
+            )}
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }

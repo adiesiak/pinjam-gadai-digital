@@ -10,7 +10,11 @@
  *     periksaBerkasIdentitas. Pemeriksaan berkas dijalankan SERVER setelah
  *     membaca berkas dari Convex storage (lihat convex/berkasIdentitas.ts),
  *     sebab batas ukuran dan jenis berkas yang hanya diperiksa di peramban
- *     bisa dilewati siapa pun yang mengirim langsung ke URL unggah.
+ *     bisa dilewati siapa pun yang mengirim langsung ke URL unggah;
+ *  3. PEMAKAIAN ULANG — identitasPengajuanDariKyc: isian & berkas KYC yang
+ *     sudah diverifikasi dipakai lagi di formulir pengajuan, sehingga bagian
+ *     data diri tidak ditanyakan dua kali (dan tidak pernah disembunyikan
+ *     ketika datanya ternyata belum lengkap).
  *
  * Batas yang jujur: tipe MIME ditentukan klien saat mengunggah, jadi tipe itu
  * bukan bukti. Karena itu isi berkas tetap diperiksa dari magic bytes-nya.
@@ -314,4 +318,105 @@ export function periksaUkuranGambar(label: string, dimensi: DimensiGambar | null
     return `${label} tampak terpotong (rasio sisi ${rasio.toFixed(1)}:1 terlalu jauh). Unggah ulang berkas utuh.`;
   }
   return null;
+}
+
+/* ==========================================================================
+ * Identitas SIAP PAKAI dari KYC yang sudah terverifikasi
+ * ========================================================================== */
+
+/**
+ * Isian & berkas KYC yang tersimpan pada satu nasabah — bentuk minimal yang
+ * dibutuhkan pengajuan pinjaman. Semua opsional: nilainya datang dari server
+ * dan bisa belum termuat. "Belum diketahui" bukan "kosong".
+ */
+export type RingkasIdentitasKyc = {
+  namaLengkap?: string | null;
+  nik?: string | null;
+  nomorWhatsApp?: string | null;
+  /**
+   * Rupiah bulat MENTAH dari baris KYC. Sengaja dipisah dari teks penghasilan
+   * yang diformat untuk tampilan: formulir tidak pernah menghitung uang dari
+   * teks berformat.
+   */
+  penghasilanBulanan?: number | null;
+  sumberPenghasilan?: string | null;
+  /**
+   * Id berkas di Convex storage. Berkas ini tetap MURNI (tanpa Convex), jadi
+   * id-nya bertipe `string`; pemanggil memetakannya ke `Id<"_storage">` saat
+   * mengirim pengajuan.
+   */
+  ktpId?: string | null;
+  selfieKtpId?: string | null;
+  buktiPenghasilanId?: string | null;
+};
+
+/** Identitas lengkap yang bisa dipakai ulang tanpa menanyakan ulang nasabah. */
+export type IdentitasPengajuan = {
+  namaLengkap: string;
+  nik: string;
+  nomorWhatsApp: string;
+  penghasilanBulanan: number;
+  sumberPenghasilan: string;
+  dokKtpId: string;
+  dokSelfieKtpId: string;
+  dokSlipGajiId: string;
+};
+
+/**
+ * Pakai ulang isian & berkas KYC yang SUDAH diverifikasi petugas.
+ *
+ * Kenapa: pengajuan pinjaman menyimpan NIK/WA/penghasilan + tiga berkas
+ * identitas. Bila status KYC nasabah sudah `VERIFIED` (server memeriksa ini
+ * sendiri di `requireKycTerverifikasi`), menanyakan hal yang sama lagi hanya
+ * menambah pekerjaan dan peluang salah ketik. Formulir menyembunyikan bagian
+ * itu dan mengambil nilainya dari sini.
+ *
+ * Mengembalikan `null` bila datanya belum lengkap/valid — pemanggil WAJIB tetap
+ * menampilkan bagian data diri saat itu terjadi, bukan mengirim pengajuan yang
+ * pasti ditolak server. Bentuk isiannya diperiksa dengan aturan yang SAMA
+ * dengan `validateKycInput` (dipakai form dan server), jadi "null" di sini
+ * berarti "jangan sembunyikan apa pun".
+ *
+ * Nama diambil dari KYC, bukan dari isian baru: server menulis nama itu ke
+ * akad & ledger, dan nama itulah yang sudah diperiksa petugas.
+ */
+export function identitasPengajuanDariKyc(kyc: RingkasIdentitasKyc): IdentitasPengajuan | null {
+  const namaLengkap = (kyc.namaLengkap ?? "").trim();
+  const nik = (kyc.nik ?? "").replace(/\s+/g, "");
+  const nomorWhatsApp = (kyc.nomorWhatsApp ?? "").replace(/[\s+-]/g, "");
+  const sumberPenghasilan = (kyc.sumberPenghasilan ?? "").trim();
+  const penghasilanBulanan = kyc.penghasilanBulanan ?? 0;
+  const dokKtpId = kyc.ktpId ?? null;
+  const dokSelfieKtpId = kyc.selfieKtpId ?? null;
+  const dokSlipGajiId = kyc.buktiPenghasilanId ?? null;
+
+  if (namaLengkap.length < 3) return null;
+  if (validateKycInput({ nik, nomorWhatsApp, penghasilanBulanan, sumberPenghasilan }) !== null) {
+    return null;
+  }
+  // Tanpa ketiga berkas, pengajuan tetap ditolak server: status VERIFIED saja
+  // tidak cukup bila berkasnya hilang dari baris KYC.
+  if (dokKtpId === null || dokSelfieKtpId === null || dokSlipGajiId === null) return null;
+
+  return {
+    namaLengkap,
+    nik,
+    nomorWhatsApp,
+    penghasilanBulanan,
+    sumberPenghasilan,
+    dokKtpId,
+    dokSelfieKtpId,
+    dokSlipGajiId,
+  };
+}
+
+/**
+ * NIK untuk DIBACA MANUSIA di layar nasabah: empat angka pertama, lalu sisanya
+ * bertopeng. Nomor identitas tetap bisa dipastikan orangnya benar tanpa
+ * tercetak utuh di layar yang mungkin dilihat orang lain.
+ */
+export function sensorNik(nik: string): string {
+  const bersih = nik.replace(/\D/g, "");
+  if (bersih.length < 8) return bersih;
+  return `${bersih.slice(0, 4)}${"•".repeat(bersih.length - 8)}${bersih.slice(-4)}`;
 }

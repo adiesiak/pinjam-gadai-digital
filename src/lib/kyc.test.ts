@@ -1,11 +1,13 @@
 /** Run: bun src/lib/kyc.test.ts */
 import {
   dimensiGambar,
+  identitasPengajuanDariKyc,
   MAX_FILE_BYTES,
   periksaBerkasIdentitas,
   periksaIsiGambar,
   periksaUkuranGambar,
   jenisGambarDariByte,
+  sensorNik,
   validateKycInput,
 } from "./kyc";
 
@@ -228,6 +230,97 @@ const gambar = (contentType: string) => ({ size: 4000, contentType });
   cocok(validateKycInput({ ...dasar, nik: "123" }), /16 angka/, "NIK pendek ditolak");
   cocok(validateKycInput({ ...dasar, nomorWhatsApp: "+62812" }), /62/, "WA tanpa 62 ditolak");
   cocok(validateKycInput({ ...dasar, penghasilanBulanan: 0 }), /penghasilan/i, "penghasilan 0 ditolak");
+}
+
+// ===== 6. pemakaian ulang identitas KYC di formulir pengajuan =====
+{
+  const lengkap = {
+    namaLengkap: "Rani Peminjam",
+    nik: "3271012345678901",
+    nomorWhatsApp: "6281234567890",
+    penghasilanBulanan: 4_000_000,
+    sumberPenghasilan: "Usaha warung",
+    ktpId: "ktp_1",
+    selfieKtpId: "selfie_1",
+    buktiPenghasilanId: "slip_1",
+  };
+  const hasil = identitasPengajuanDariKyc(lengkap);
+  eq(hasil?.nik, "3271012345678901", "identitas terpakai ulang: NIK dibawa apa adanya");
+  eq(hasil?.nomorWhatsApp, "6281234567890", "identitas terpakai ulang: WA dinormalkan");
+  eq(hasil?.dokKtpId, "ktp_1", "identitas terpakai ulang: berkas KTP ikut dipakai");
+  eq(hasil?.dokSlipGajiId, "slip_1", "identitas terpakai ulang: bukti penghasilan ikut dipakai");
+  eq(
+    identitasPengajuanDariKyc({ ...lengkap, nomorWhatsApp: "62812 3456 7890" })?.nomorWhatsApp,
+    "6281234567890",
+    "identitas terpakai ulang: spasi pada nomor WA dibersihkan",
+  );
+  eq(
+    identitasPengajuanDariKyc({ ...lengkap, nik: "3271 0123 4567 8901" })?.nik,
+    "3271012345678901",
+    "identitas terpakai ulang: spasi pada NIK dibersihkan",
+  );
+
+  // Bentuk yang BELUM lengkap harus mengembalikan null: pemanggil tetap
+  // menampilkan bagian data diri, bukan mengirim pengajuan yang pasti ditolak.
+  eq(identitasPengajuanDariKyc({}), null, "tanpa isian: tidak bisa dipakai ulang");
+  eq(
+    identitasPengajuanDariKyc({ ...lengkap, nik: "123" }),
+    null,
+    "NIK tidak sah: tidak bisa dipakai ulang",
+  );
+  eq(
+    identitasPengajuanDariKyc({ ...lengkap, nomorWhatsApp: "0812345678" }),
+    null,
+    "WA tanpa 62: tidak bisa dipakai ulang",
+  );
+  eq(
+    identitasPengajuanDariKyc({ ...lengkap, penghasilanBulanan: null }),
+    null,
+    "penghasilan kosong: tidak bisa dipakai ulang",
+  );
+  eq(
+    identitasPengajuanDariKyc({ ...lengkap, penghasilanBulanan: 2_500_000.5 }),
+    null,
+    "penghasilan bukan rupiah bulat: tidak bisa dipakai ulang",
+  );
+  eq(
+    identitasPengajuanDariKyc({ ...lengkap, sumberPenghasilan: "  " }),
+    null,
+    "sumber penghasilan kosong: tidak bisa dipakai ulang",
+  );
+  eq(
+    identitasPengajuanDariKyc({ ...lengkap, namaLengkap: "Al" }),
+    null,
+    "nama terlalu pendek: tidak bisa dipakai ulang",
+  );
+  eq(
+    identitasPengajuanDariKyc({ ...lengkap, selfieKtpId: null }),
+    null,
+    "berkas selfie hilang: tidak bisa dipakai ulang",
+  );
+  eq(
+    identitasPengajuanDariKyc({ ...lengkap, buktiPenghasilanId: undefined }),
+    null,
+    "berkas bukti penghasilan hilang: tidak bisa dipakai ulang",
+  );
+
+  // NIK yang ditampilkan ke nasabah selalu bertopeng, bukan utuh.
+  eq(sensorNik("3271012345678901"), "3271••••••••8901", "NIK 16 angka: 4 depan + 4 belakang");
+  eq(sensorNik("1234"), "1234", "NIK terlalu pendek tidak ditopengi");
+  eq(sensorNik("3271-0123-4567-8901"), "3271••••••••8901", "NIK bertanda baca tetap bertopeng");
+
+  // Regresi penting: bentuk yang MELEWATI validateKycInput harus juga diterima
+  // di sini, jadi tidak ada isian yang lolos server tetapi ditolak UI.
+  eq(
+    validateKycInput({
+      nik: lengkap.nik,
+      nomorWhatsApp: lengkap.nomorWhatsApp,
+      penghasilanBulanan: lengkap.penghasilanBulanan,
+      sumberPenghasilan: lengkap.sumberPenghasilan,
+    }),
+    null,
+    "isian contoh memang sah menurut validateKycInput",
+  );
 }
 
 console.log(`kyc.test: ${passed} lulus, ${failed} gagal`);

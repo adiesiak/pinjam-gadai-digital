@@ -4,7 +4,10 @@ import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
 import SignaturePad from "signature_pad";
 
-import { PeringatanKyc } from "@/components/kyc/PeringatanKyc";
+import {
+  IdentitasKycTerverifikasi,
+  PeringatanKyc,
+} from "@/components/kyc/PeringatanKyc";
 import { Button } from "@/components/ui/button";
 import { BilahTakTentu } from "@/components/ui/loading";
 import {
@@ -30,7 +33,14 @@ import { Id } from "@/convex/_generated/dataModel";
 import { useCegahTinggalkan, useKirimSekali } from "@/hooks/use-cegah-tinggalkan";
 import { CONTRACT_TERMS_VERSION } from "@/lib/contract";
 import { adaPerubahan } from "@/lib/formInteraksi";
-import { KYC_FILES, MAX_FILE_BYTES, validateKycInput, type KycFileKey } from "@/lib/kyc";
+import {
+  KYC_FILES,
+  MAX_FILE_BYTES,
+  identitasPengajuanDariKyc,
+  validateKycInput,
+  type KycFileKey,
+} from "@/lib/kyc";
+import { isKycVerified } from "@/lib/kycStatus";
 import {
   BULANAN_LIMITS,
   hitungSimulasiBulanan,
@@ -383,7 +393,28 @@ export function LoanForm({
   // Gerbang KYC: server menolak pengajuan tanpa KYC VERIFIED, jadi UI
   // mencerminkannya lebih dulu supaya formulir panjang tidak diisi sia-sia.
   const kycQuery = useQuery(api.kyc.kycSaya, {});
-  const kycSiap = kycQuery?.status === "VERIFIED";
+  const kycSiap = isKycVerified(kycQuery?.status);
+  // Identitas yang SUDAH diperiksa petugas dipakai ulang: bagian data diri &
+  // dokumen tidak ditanyakan dua kali. `null` berarti belum bisa dipakai ulang
+  // (status belum VERIFIED, isian belum lengkap, atau berkasnya hilang dari
+  // baris KYC) — dan saat itu formulir menampilkan bagian data diri seperti
+  // biasa, jadi tidak pernah ada isian yang "hilang" tanpa jejak.
+  const identitasKyc = kycSiap
+    ? identitasPengajuanDariKyc({
+        namaLengkap: kycQuery?.isian.namaLengkap,
+        nik: kycQuery?.isian.nik,
+        nomorWhatsApp: kycQuery?.isian.nomorWhatsApp,
+        penghasilanBulanan: kycQuery?.isian.penghasilanBulanan,
+        sumberPenghasilan: kycQuery?.isian.sumberPenghasilan,
+        ktpId: kycQuery?.dokumen.ktpId,
+        selfieKtpId: kycQuery?.dokumen.selfieKtpId,
+        buktiPenghasilanId: kycQuery?.dokumen.buktiPenghasilanId,
+      })
+    : null;
+  const identitasTersimpan = identitasKyc !== null;
+  // Nama untuk akad & ledger: dari KYC bila sudah terverifikasi, kalau tidak
+  // dari isian formulir.
+  const namaPengajuan = identitasKyc === null ? namaLengkap : identitasKyc.namaLengkap;
 
   // ===== Draf pengajuan (tabel `draftPinjaman`) =====
   // Draf menyimpan isian NON-IDENTITAS supaya pekerjaan tidak hilang saat
@@ -549,7 +580,8 @@ export function LoanForm({
       setError("Pilih tujuan pinjaman.");
       return;
     }
-    if (namaLengkap.trim().length < 3) {
+    // Nama diambil dari KYC saat identitas sudah terverifikasi.
+    if (namaPengajuan.trim().length < 3) {
       setError("Nama lengkap harus berisi minimal 3 karakter.");
       return;
     }
@@ -561,20 +593,26 @@ export function LoanForm({
       setError("Nomor rekening atau dompet digital harus berisi 6 sampai 20 angka.");
       return;
     }
-    const kycError = validateKycInput({
-      nik,
-      nomorWhatsApp,
-      penghasilanBulanan: penghasilan,
-      sumberPenghasilan,
-    });
-    if (kycError) {
-      setError(kycError);
-      return;
-    }    if (!dok.ktp.id || !dok.selfie.id || !dok.slip.id) {
-      setError(
-        "Lengkapi foto KTP, selfie sambil memegang KTP, dan bukti penghasilan (kamera atau berkas).",
-      );
-      return;
+    // Bagian data diri hanya diperiksa saat formulir memang menanyakannya:
+    // ketika KYC sudah terverifikasi, nilainya diambil dari baris KYC nasabah
+    // (lihat `identitasPengajuanDariKyc`) dan tidak ada isian untuk diperiksa.
+    if (!identitasTersimpan) {
+      const kycError = validateKycInput({
+        nik,
+        nomorWhatsApp,
+        penghasilanBulanan: penghasilan,
+        sumberPenghasilan,
+      });
+      if (kycError) {
+        setError(kycError);
+        return;
+      }
+      if (!dok.ktp.id || !dok.selfie.id || !dok.slip.id) {
+        setError(
+          "Lengkapi foto KTP, selfie sambil memegang KTP, dan bukti penghasilan (kamera atau berkas).",
+        );
+        return;
+      }
     }
     if (lokasi === null) {
       setError("Lokasi Anda belum tercatat. Izinkan akses lokasi, lalu pilih 'Ambil lokasi'.");
@@ -595,9 +633,12 @@ export function LoanForm({
   /** Kirim pengajuan setelah pengguna mencentang Syarat & Ketentuan. */
   const kirimPengajuan = async () => {
     const pad = padRef.current;
-    const dokKtpId = dok.ktp.id;
-    const dokSelfieId = dok.selfie.id;
-    const dokSlipId = dok.slip.id;
+    // Identitas pengiriman: dari isian formulir, ATAU dari baris KYC nasabah
+    // ketika identitasnya sudah terverifikasi. Keduanya menghasilkan muatan
+    // yang sama — server tetap memeriksa berkasnya sendiri.
+    const dokKtpId = identitasKyc === null ? dok.ktp.id : identitasKyc.dokKtpId;
+    const dokSelfieId = identitasKyc === null ? dok.selfie.id : identitasKyc.dokSelfieKtpId;
+    const dokSlipId = identitasKyc === null ? dok.slip.id : identitasKyc.dokSlipGajiId;
     // Jaga-jaga: jangan kirim bila dokumen/lokasi hilang antara validasi dan klik setuju.
     if (pad === null || !dokKtpId || !dokSelfieId || !dokSlipId || lokasi === null) return;
     // Satu pengiriman saja, walau tombol setuju ditekan berulang.
@@ -612,20 +653,25 @@ export function LoanForm({
         tenorHari: bulanan ? 30 : Number(tenorHari),
         tenorBulan: bulanan ? tenorBulanNum : undefined,
         tujuan,
-        namaLengkap,
+        namaLengkap: namaPengajuan,
         namaBank,
         nomorRekening,
         catatanPeminjam: catatanPeminjam.trim() ? catatanPeminjam : undefined,
         tandaTangan: ttdDataUrl,
         // Persetujuan Syarat & Ketentuan dicatat server bersama versinya.
         persetujuanSyarat: true,
-        nik: nik.replace(/\s+/g, ""),
-        nomorWhatsApp: nomorWhatsApp.replace(/[\s+-]/g, ""),
-        penghasilanBulanan: penghasilan,
-        sumberPenghasilan,
-        dokKtpId,
-        dokSelfieKtpId: dokSelfieId,
-        dokSlipGajiId: dokSlipId,
+        nik: identitasKyc === null ? nik.replace(/\s+/g, "") : identitasKyc.nik,
+        nomorWhatsApp:
+          identitasKyc === null
+            ? nomorWhatsApp.replace(/[\s+-]/g, "")
+            : identitasKyc.nomorWhatsApp,
+        penghasilanBulanan:
+          identitasKyc === null ? penghasilan : identitasKyc.penghasilanBulanan,
+        sumberPenghasilan:
+          identitasKyc === null ? sumberPenghasilan : identitasKyc.sumberPenghasilan,
+        dokKtpId: dokKtpId as Id<"_storage">,
+        dokSelfieKtpId: dokSelfieId as Id<"_storage">,
+        dokSlipGajiId: dokSlipId as Id<"_storage">,
         lokasiAjukan: lokasi,
       });
       // Pengajuan sudah menjadi catatan resmi — drafnya tidak diperlukan lagi.
@@ -658,6 +704,16 @@ export function LoanForm({
       <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-900">
         Formulir ini mencatat pengajuan dan perkiraan hitungannya. Data, dokumen, gambar tanda tangan, dan lokasi yang Anda kirim hanya menjadi masukan. Data identitas dan lokasi Anda dicatat sebagai masukan pengajuan; perpindahan dana ditangani di luar aplikasi.
       </p>
+      {/* Identitas sudah diperiksa petugas: formulir ini fokus pada parameter
+          pengajuan, dan buktinya ditampilkan di sini — bukan sekadar disembunyikan. */}
+      {identitasKyc !== null && (
+        <IdentitasKycTerverifikasi
+          namaLengkap={identitasKyc.namaLengkap}
+          nik={identitasKyc.nik}
+          nomorWhatsApp={identitasKyc.nomorWhatsApp}
+          onBukaKyc={onBukaKyc}
+        />
+      )}
       {/* Jumlah pinjaman */}
       <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
         {/* Pemilih skema harga: harian 1 jt / 30 hari, atau bulanan 1/3/6 bulan. */}
@@ -843,10 +899,14 @@ export function LoanForm({
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <div className="space-y-2">
-          <Label htmlFor="nama">Nama lengkap</Label>
-          <Input id="nama" value={namaLengkap} onChange={(e) => setNamaLengkap(e.target.value)} placeholder="Tulis nama lengkap" autoComplete="name" required aria-required="true" minLength={3} aria-invalid={error !== null && namaLengkap.trim().length < 3} aria-describedby={error !== null && namaLengkap.trim().length < 3 ? "loan-form-error" : undefined} disabled={submitting} />
-        </div>
+        {/* Nama hanya ditanyakan bila belum ada identitas terverifikasi: saat
+            sudah terverifikasi, nama yang dipakai akad adalah nama di KYC. */}
+        {identitasKyc === null && (
+          <div className="space-y-2">
+            <Label htmlFor="nama">Nama lengkap</Label>
+            <Input id="nama" value={namaLengkap} onChange={(e) => setNamaLengkap(e.target.value)} placeholder="Tulis nama lengkap" autoComplete="name" required aria-required="true" minLength={3} aria-invalid={error !== null && namaLengkap.trim().length < 3} aria-describedby={error !== null && namaLengkap.trim().length < 3 ? "loan-form-error" : undefined} disabled={submitting} />
+          </div>
+        )}
         <div className="space-y-2">
           <Label htmlFor="bank-tujuan">Nama bank atau dompet digital</Label>
           <Input id="bank-tujuan" value={namaBank} onChange={(e) => setNamaBank(e.target.value)} placeholder="BCA, Mandiri, DANA, OVO, GoPay" autoComplete="off" required aria-required="true" minLength={2} maxLength={60} aria-invalid={error !== null && (namaBank.trim().length < 2 || namaBank.trim().length > 60)} aria-describedby={error !== null && (namaBank.trim().length < 2 || namaBank.trim().length > 60) ? "loan-form-error" : undefined} disabled={submitting} />
@@ -893,7 +953,11 @@ export function LoanForm({
         </div>
       </div>
 
-      {/* Data diri dan dokumen */}
+      {/* Data diri dan dokumen — hanya saat identitasnya belum terverifikasi.
+          Setelah VERIFIED, isian & berkasnya dipakai ulang dari baris KYC
+          (badge hijau di atas formulir), sehingga tidak ada yang ditanyakan
+          dua kali; berkas yang sudah diperiksa petugas tidak diunggah ulang. */}
+      {!identitasTersimpan && (
       <div className="rounded-2xl border border-slate-200 bg-white p-4">
         <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
           Data diri dan dokumen (wajib)
@@ -1095,6 +1159,7 @@ export function LoanForm({
           })}
         </div>
       </div>
+      )}
 
       {/* Lokasi perangkat */}
       <div className="rounded-2xl border border-slate-200 bg-white p-4">

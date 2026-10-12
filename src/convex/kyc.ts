@@ -723,6 +723,7 @@ export const kycSaya = query({
           alamat: "",
           pekerjaan: "",
           penghasilan: "",
+          penghasilanBulanan: null,
           sumberPenghasilan: "",
           namaBank: "",
           nomorRekening: "",
@@ -787,6 +788,14 @@ export const kycSaya = query({
           row.penghasilanBulanan === undefined
             ? ""
             : new Intl.NumberFormat("id-ID").format(row.penghasilanBulanan),
+        /**
+         * Angka MENTAH penghasilan (rupiah bulat, `null` bila belum diisi).
+         * Teks `penghasilan` di atas untuk DIBACA; nilai ini untuk DIKIRIM —
+         * formulir pengajuan memakainya ulang saat KYC sudah terverifikasi
+         * (`lib/kyc.identitasPengajuanDariKyc`), dan mengurai teks berformat
+         * di klien adalah cara paling mudah salah menghitung uang.
+         */
+        penghasilanBulanan: row.penghasilanBulanan ?? null,
         sumberPenghasilan: row.sumberPenghasilan ?? "",
         namaBank: row.namaBank ?? "",
         nomorRekening: row.nomorRekening ?? "",
