@@ -1315,20 +1315,41 @@
       opacity: 0;
     }
   }
+  /* Bilah proses berayun dari tepi kiri ke tepi kanan jalurnya, jadi ia SELALU
+     terlihat sepanjang siklus. Versi lama berlari keluar jalur
+     (`translateX(-110%)` → `translateX(320%)`), sehingga ada bagian siklus di
+     mana jalurnya tampak kosong — pada pemuatan yang singkat itu terbaca
+     sebagai "garisnya tidak jalan". */
   @keyframes pb-bar {
-    0% {
-      transform: translateX(-110%);
-    }
+    0%,
     100% {
-      transform: translateX(320%);
+      transform: translateX(0);
+    }
+    50% {
+      transform: translateX(200%);
+    }
+  }
+  /* Saat gerak dikurangi, bilah TIDAK dibekukan: ia cukup berdenyut opasitas
+     supaya "sedang memuat" tetap terbaca tanpa satu pun gerak translasi. Versi
+     lama mematikan animasinya, sehingga bilah 33% tinggal sebagai garis yang
+     tampak macet. */
+  @keyframes pb-bar-fade {
+    0%,
+    100% {
+      opacity: 0.45;
+    }
+    50% {
+      opacity: 1;
     }
   }
   @media (prefers-reduced-motion: reduce) {
     .pb__dial,
     .pb__halo,
-    .pb__scan,
-    .pb__bar {
+    .pb__scan {
       animation: none;
+    }
+    .pb__bar {
+      animation: pb-bar-fade 1.8s ease-in-out infinite;
     }
   }
 }

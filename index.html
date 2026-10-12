@@ -143,9 +143,13 @@
       85% { opacity: 1; }
       100% { top: 84%; opacity: 0; }
     }
-    @keyframes pb-bar { 0% { transform: translateX(-110%); } 100% { transform: translateX(320%); } }
+    /* Bilah berayun di dalam jalurnya (selalu terlihat). Saat gerak dikurangi,
+       ia berdenyut opasitas, bukan dibekukan. Nilainya sama dengan index.css. */
+    @keyframes pb-bar { 0%, 100% { transform: translateX(0); } 50% { transform: translateX(200%); } }
+    @keyframes pb-bar-fade { 0%, 100% { opacity: 0.45; } 50% { opacity: 1; } }
     @media (prefers-reduced-motion: reduce) {
-      .pb__dial, .pb__halo, .pb__scan, .pb__bar { animation: none; }
+      .pb__dial, .pb__halo, .pb__scan { animation: none; }
+      .pb__bar { animation: pb-bar-fade 1.8s ease-in-out infinite; }
     }
   </style>
 </head>

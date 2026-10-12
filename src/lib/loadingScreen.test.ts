@@ -124,6 +124,8 @@ for (const [nilai, label] of [
   ["width: 33%", "lebar bilah proses"],
   ["pb-dial 5s", "durasi putaran jarum"],
   ["pb-bar 1.5s", "durasi bilah proses"],
+  ["translateX(200%)", "titik balik bilah proses di dalam jalurnya"],
+  ["pb-bar-fade 1.8s", "denyut bilah saat gerak dikurangi"],
 ] as const) {
   cek(css.includes(nilai) && halaman.includes(nilai), `${label} sama di index.css & index.html`);
 }
@@ -164,6 +166,18 @@ for (const kelas of ["pb__dial", "pb__halo", "pb__scan", "pb__bar"]) {
   cek(reduksiCss.includes(kelas), `reduced-motion ${kelas} ada di index.css`);
   cek(reduksiHtml.includes(kelas), `reduced-motion ${kelas} ada di index.html`);
 }
+
+// Bilah proses TIDAK boleh dibekukan saat gerak dikurangi: bilah 33% yang diam
+// terbaca seperti garis yang macet (itulah keluhan "garis loadingnya tidak
+// jalan"). Saat gerak dikurangi ia berdenyut opasitas, tanpa gerak translasi.
+cek(
+  !/\.pb__bar\s*\{[^}]*animation:\s*none/.test(reduksiCss),
+  "index.css: bilah proses tetap berdenyut, tidak dibekukan",
+);
+cek(
+  !/\.pb__bar\s*\{[^}]*animation:\s*none/.test(reduksiHtml),
+  "index.html: bilah proses tetap berdenyut, tidak dibekukan",
+);
 
 cek(/role="status"/.test(html) && /aria-live="polite"/.test(html), "label status live ada di komponen");
 cek(html.includes("Memeriksa akses admin…"), "label yang diminta benar-benar tampil");
