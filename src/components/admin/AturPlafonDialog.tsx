@@ -309,7 +309,7 @@ export function AturPlafonDialog({
         </div>
 
         {/* Kaki tetap: satu tombol simpan untuk plafon DAN bunga. */}
-        <div className="sticky bottom-0 -mx-4 mt-1 flex shrink-0 justify-end gap-2 border-t border-slate-200 bg-slate-50 px-4 py-3 sm:-mx-6 sm:px-6 sm:py-4">
+        <div className="glass-dock sticky bottom-0 -mx-4 mt-1 flex shrink-0 justify-end gap-2 px-4 py-3 sm:-mx-6 sm:px-6 sm:py-4">
           <Button type="button" variant="ghost" disabled={busy} onClick={onClose}>
             Batal
           </Button>

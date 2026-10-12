@@ -238,6 +238,56 @@ const css = baca("src/index.css");
 const blokReduce = css.slice(css.indexOf("@media (prefers-reduced-motion: reduce)"));
 ada(blokReduce, ".motion-check-in", "reduce: animasi tanda centang dimatikan");
 ada(blokReduce, ".card-lift", "reduce: pengangkatan kartu dimatikan");
+ada(blokReduce, ".micro-metric", "reduce: pengangkatan kartu angka dimatikan");
+ada(blokReduce, ".badge-pop", "reduce: animasi lencana dimatikan");
+ada(blokReduce, ".badge-dot--hidup", "reduce: denyut titik status dimatikan");
+ada(blokReduce, ".shimmer-pass::after", "reduce: kilau batang grafik dimatikan");
+ada(blokReduce, ".bar-tumbuh", "reduce: luncuran batang grafik dimatikan");
+
+// ===== 3. Lapisan kaca, batang bergerak, dan lencana dinamis =====
+// Kelas ini dipakai lintas portal (Peminjam, Admin, Ruang Pendana). Kalau salah
+// satu hilang dari stylesheet, permukaannya diam-diam kehilangan efeknya tanpa
+// ada uji komponen yang gagal — jadi keberadaannya diperiksa di sini, berikut
+// pemicu kaca otomatis dan keyframes yang dipakainya.
+const PENDINGIN = [
+  ".bg-ambient-glass",
+  ".glass-nav",
+  ".glass-dock",
+  ".glass-card",
+  ".glass-note",
+  ".glass-modal",
+  ".micro-metric",
+  ".badge-pop",
+  ".badge-dot--hidup",
+  ".badge-dot--tunggu",
+  ".chip-glass",
+  ".focus-glow",
+  ".bar-tumbuh",
+  ".shimmer-pass",
+];
+for (const kelas of PENDINGIN) ada(css, kelas, `stylesheet memuat ${kelas}`);
+ada(
+  css,
+  ":where(:is(.rounded-2xl, .rounded-3xl).border.bg-white)",
+  "kaca otomatis untuk pola kartu lama",
+);
+ada(css, "@keyframes pindai-shimmer", "keyframes kilau batang ada");
+ada(css, "@keyframes pindai-bar-tumbuh", "keyframes luncuran batang ada");
+ada(css, "@keyframes pindai-badge-pop", "keyframes lencana dinamis ada");
+ada(css, "--bar-lebar", "batang grafik memakai variabel panjang target");
+
+// Kaca otomatis hanya boleh menyentuh latar + blur: tepi, `ring`, dan bayangan
+// tetap milik pemanggil supaya penanda keadaan (kartu terpilih) tidak hilang.
+{
+  const mulai = css.indexOf(":where(:is(.rounded-2xl, .rounded-3xl).border.bg-white)");
+  const blok = css.slice(mulai, css.indexOf("}", mulai));
+  ada(blok, "background-color", "kaca otomatis: latar jadi transparan");
+  ada(blok, "backdrop-filter", "kaca otomatis: memakai blur");
+  // Dicek sebagai deklarasi (`:`) — keduanya memang boleh muncul di daftar
+  // `transition`, asal tidak dipakai untuk mengunci nilainya.
+  ok(!/border-color\s*:/.test(blok), "kaca otomatis tidak mengunci warna tepi");
+  ok(!/box-shadow\s*:/.test(blok), "kaca otomatis tidak mengunci bayangan/ring");
+}
 
 if (failed > 0) {
   console.error(`\n${failed} gagal, ${passed} lulus`);

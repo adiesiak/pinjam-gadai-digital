@@ -437,7 +437,7 @@ export function AdminTabs({
       {/* Desktop: sidebar accordion — setiap grup menu bisa dibuka-tutup sendiri. */}
       <nav
         aria-label="Navigasi panel admin"
-        className="animate-masuk hidden lg:sticky lg:top-20 lg:z-30 lg:block lg:max-h-[calc(100vh-6rem)] lg:w-64 lg:shrink-0 lg:self-start lg:overflow-y-auto lg:overscroll-contain lg:rounded-2xl lg:border lg:border-slate-200 lg:bg-white lg:p-2"
+        className="animate-masuk hidden lg:sticky lg:top-20 lg:z-30 lg:block lg:max-h-[calc(100vh-6rem)] lg:w-64 lg:shrink-0 lg:self-start lg:overflow-y-auto lg:overscroll-contain lg:rounded-2xl lg:border lg:border-white/70 lg:bg-white/75 lg:p-2 lg:shadow-sm lg:backdrop-blur-md"
       >
         <Accordion
           type="multiple"

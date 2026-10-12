@@ -179,7 +179,7 @@ export default function Dashboard() {
 
   if (isAnonymous) {
     return (
-      <div className="flex min-h-screen flex-col overflow-x-clip bg-slate-50 text-slate-900">
+      <div className="bg-ambient-glass flex min-h-screen flex-col overflow-x-clip text-slate-900">
         <DashboardHeader />
         <main className="mx-auto flex w-full max-w-4xl flex-1 items-center px-4 py-12 sm:px-6">
           <section className="w-full rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-10">
@@ -270,7 +270,7 @@ export default function Dashboard() {
     // aktif (heartbeat ke server). Admin dan penyedia dana dikecualikan — sama
     // seperti PERAN_WAJIB_LOKASI di convex/lokasi.ts (hanya peminjam/member).
     <LocationGate aktif={role !== "admin" && role !== "dana"}>
-      <div className="flex min-h-screen flex-col overflow-x-clip bg-slate-50 text-slate-900">
+      <div className="bg-ambient-glass flex min-h-screen flex-col overflow-x-clip text-slate-900">
         {/* Bar pengumuman global dirender di main.tsx (AnnouncementBar). */}
 
       {/* ===== Bar atas ===== */}
@@ -287,7 +287,7 @@ export default function Dashboard() {
           className="flex flex-col gap-5 lg:flex-row lg:items-start lg:gap-8"
         >
           {/* ===== Sisi kiri: profil + navigasi tab ===== */}
-          <aside className="w-full shrink-0 lg:sticky lg:top-6 lg:w-64">
+          <aside className="w-full shrink-0 lg:sticky lg:top-20 lg:w-64">
             <DashboardSidebar
               greetingName={greetingName}
               role={user?.role}

@@ -12,6 +12,11 @@ import { ShieldCheck } from "lucide-react";
  *
  * Murni presentasional — tanpa Convex — supaya bisa dirender langsung oleh uji
  * markup (`CatatanPotonganAdmin.render.test.tsx`).
+ *
+ * Permukaannya `glass-note` — kaca yang opasitasnya lebih tinggi daripada
+ * kartu biasa (blur 6 px) supaya kalimat panjang tetap nyaman dibaca. Garis
+ * emas di tepi kiri dipindah menjadi elemen di dalam kotak, karena tepi
+ * `glass-note` sendiri sudah memakai warna tepi bawaan kelas itu.
  */
 export function CatatanPotonganAdmin({ persen }: { persen: number }) {
   const baris = [
@@ -20,7 +25,8 @@ export function CatatanPotonganAdmin({ persen }: { persen: number }) {
     "Asuransi — jaminan pokok pinjaman maupun Imbal Hasilnya cair ke pendana dalam 14 hari kerja.",
   ];
   return (
-    <section className="animate-masuk mt-3 max-w-3xl rounded-2xl border border-slate-200 border-l-4 border-l-gold bg-white px-5 py-4 shadow-sm">
+    <section className="animate-masuk glass-note relative mt-3 max-w-3xl overflow-hidden rounded-2xl border px-5 py-4 shadow-sm">
+      <span aria-hidden className="absolute inset-y-0 left-0 w-1 bg-gold" />
       <p className="inline-flex items-center gap-2 text-xs font-semibold text-navy">
         <ShieldCheck className="size-3.5 shrink-0 text-primary" aria-hidden />
         Potongan admin {persen}% bukan sekadar biaya — keperluan inilah yang dibiayai

@@ -142,7 +142,10 @@ export function KartuPendana({
         : {})}
     >
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="inline-flex items-center gap-1.5 font-semibold uppercase text-navy">
+        {/* Chip nama: latar putih transparan buram yang merespon hover dengan
+            lembut (`.chip-glass`), jadi nama pendana terbaca sebagai satu unit
+            tanpa menambah warna baru ke kartunya. */}
+        <p className="chip-glass inline-flex items-center gap-1.5 px-2.5 py-1 font-semibold uppercase text-navy">
           <Wallet className="size-3.5 text-primary" aria-hidden /> {tampil(r.nama)}
         </p>
       </div>

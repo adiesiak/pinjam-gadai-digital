@@ -9,6 +9,11 @@ import { cn } from "@/lib/utils"
  * perubahan yang dipicu pemanggil (mis. `hover:border-primary/40`) terasa halus
  * tanpa perlu menulis durasi sendiri.
  *
+ * Permukaannya memakai `.glass-card` (kaca tipis `backdrop-blur` dengan tepi
+ * putih transparan) yang menimpa isian `bg-card` bawaan tema, sehingga kartu
+ * tetap benar di semua preset tema. Karena kelas kaca sudah membawa transisinya
+ * sendiri, pemanggil tidak lagi perlu menulis `transition-all`.
+ *
  * `hover` (opsional) menyalakan pengangkatan ringan untuk kartu yang benar-benar
  * bisa diklik/dibuka (`card-lift`: naik 2 px + bayangan lebih dalam). Sengaja
  * opsional: kartu informasi statis tidak boleh bergerak hanya karena kursor
@@ -29,7 +34,7 @@ function Card({
       data-slot="card"
       data-hover={hover ? "true" : undefined}
       className={cn(
-        "bg-card text-card-foreground clay-card flex flex-col gap-6 rounded-xl border py-6 shadow-sm",
+        "text-card-foreground clay-card glass-card flex flex-col gap-6 rounded-2xl border py-6 shadow-sm",
         hover
           ? "card-lift"
           : "transition-[border-color,box-shadow] duration-[var(--motion-normal)] ease-[var(--motion-ease-out)]",

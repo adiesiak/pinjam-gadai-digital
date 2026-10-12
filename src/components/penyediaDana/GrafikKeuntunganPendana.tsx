@@ -1,5 +1,19 @@
+import type { CSSProperties } from "react";
+
 import { formatRupiah } from "@/lib/money";
 import { barKeuntungan, type SumberBarKeuntungan } from "@/lib/grafikKeuntungan";
+
+/**
+ * Panjang segmen batang.
+ *
+ * `--bar-lebar` wajib ikut ditulis: `.bar-tumbuh` menganimasikan `width` dari 0%
+ * ke variabel itu dengan `fill: both`, jadi nilai akhir setelah animasi datang
+ * dari variabel — bukan dari `width` inline. Keduanya sengaja ditulis dari angka
+ * yang sama supaya batang tetap tepat panjangnya walau animasi dimatikan.
+ */
+function gayaBar(persen: number): CSSProperties {
+  return { width: `${persen}%`, "--bar-lebar": `${persen}%` } as CSSProperties;
+}
 
 /**
  * Grafik batang keuntungan per pendana (ruang pendana).
@@ -13,6 +27,11 @@ import { barKeuntungan, type SumberBarKeuntungan } from "@/lib/grafikKeuntungan"
  * Batangnya sengaja hanya visual (`aria-hidden`); angka rupiahnya tetap
  * ditulis sebagai teks di sebelah setiap batang, jadi pembaca layar dan
  * pengguna tanpa grafik mendapat informasi yang sama (Zero Fake Data).
+ *
+ * Batangnya meluncur dari 0 ke panjang target saat kartu masuk layar
+ * (`.bar-tumbuh`, 1,2 detik) dengan kilau tipis berjalan di atasnya
+ * (`.shimmer-pass`), sehingga besar-kecilnya keuntungan antarpendana terbaca
+ * sebagai gerakan, bukan sekadar garis diam.
  *
  * Murni presentasional — panjang batang dihitung `lib/grafikKeuntungan`.
  */
@@ -32,7 +51,7 @@ export function GrafikKeuntunganPendana({
   return (
     <section
       aria-label="Grafik keuntungan per pendana"
-      className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm transition-all hover:shadow-md sm:p-5"
+      className="glass-card micro-metric rounded-2xl border p-4 shadow-sm sm:p-5"
     >
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h3 className="text-sm font-semibold text-navy">Keuntungan per pendana</h3>
@@ -64,12 +83,12 @@ export function GrafikKeuntunganPendana({
               className="mt-1.5 flex h-3 w-full overflow-hidden rounded-full bg-slate-100"
             >
               <span
-                className="h-full rounded-full bg-emerald-600"
-                style={{ width: `${b.persenSudahCair}%` }}
+                className="bar-tumbuh shimmer-pass h-full rounded-full bg-emerald-600"
+                style={gayaBar(b.persenSudahCair)}
               />
               <span
-                className="h-full rounded-full bg-amber-400"
-                style={{ width: `${b.persenPerkiraan}%` }}
+                className="bar-tumbuh shimmer-pass h-full rounded-full bg-amber-400"
+                style={gayaBar(b.persenPerkiraan)}
               />
             </div>
             <p className="mt-1 text-[10px] tabular-nums text-muted-foreground">

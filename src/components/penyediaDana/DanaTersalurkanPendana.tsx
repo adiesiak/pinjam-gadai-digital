@@ -1,5 +1,16 @@
+import type { CSSProperties } from "react";
+
 import { barDanaTersalurkan, type SumberDanaTersalurkan } from "@/lib/grafikKeuntungan";
 import { formatRupiah } from "@/lib/money";
+
+/**
+ * Panjang batang: `width` untuk nilai akhir, `--bar-lebar` untuk titik akhir
+ * animasi `.bar-tumbuh` (animasi memakai `fill: both`, jadi nilai akhirnya
+ * datang dari variabel ini).
+ */
+function gayaBar(persen: number): CSSProperties {
+  return { width: `${persen}%`, "--bar-lebar": `${persen}%` } as CSSProperties;
+}
 
 /**
  * Total dana tersalurkan per pendana (ruang pendana).
@@ -14,7 +25,9 @@ import { formatRupiah } from "@/lib/money";
  * (`GrafikKeuntunganPendana`), supaya modal dan hasil tidak tertukar.
  *
  * Batangnya dekoratif (`aria-hidden`); nilainya ada sebagai teks (Zero Fake
- * Data). Murni presentasional — panjang batang dihitung `lib/grafikKeuntungan`.
+ * Data). Batang meluncur dari 0 ke panjang target saat kartu masuk layar dan
+ * diberi kilau berjalan (`.bar-tumbuh` + `.shimmer-pass`). Murni presentasional
+ * — panjang batang dihitung `lib/grafikKeuntungan`.
  */
 export function DanaTersalurkanPendana({
   rekap,
@@ -32,7 +45,7 @@ export function DanaTersalurkanPendana({
   return (
     <section
       aria-label="Total dana tersalurkan per pendana"
-      className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm transition-all hover:shadow-md sm:p-5"
+      className="glass-card micro-metric rounded-2xl border p-4 shadow-sm sm:p-5"
     >
       <div className="flex flex-wrap items-baseline justify-between gap-2 border-b border-slate-100 pb-3">
         <h3 className="text-sm font-semibold text-navy">Dana tersalurkan per pendana</h3>
@@ -57,8 +70,8 @@ export function DanaTersalurkanPendana({
               className="mt-1.5 h-3 w-full overflow-hidden rounded-full bg-slate-100 ring-1 ring-slate-200/70 ring-inset"
             >
               <span
-                className="block h-full rounded-full bg-emerald-600"
-                style={{ width: `${b.persen}%` }}
+                className="bar-tumbuh shimmer-pass block h-full rounded-full bg-emerald-600"
+                style={gayaBar(b.persen)}
               />
             </div>
             <p className="mt-1 text-[10px] tabular-nums text-muted-foreground">

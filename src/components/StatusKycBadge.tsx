@@ -9,6 +9,10 @@ import { cn } from "@/lib/utils";
  * bisa berbeda pendapat kalau labelnya ditulis ulang di masing-masing. Karena
  * itu label dan nada diambil dari `lib/kycStatus.ts`: teks selalu ikut tampil
  * bersama warnanya, sehingga status tidak pernah hanya dibedakan warna.
+ *
+ * Lencana ini juga memakai `.badge-pop`: status KYC adalah hal pertama yang
+ * dicari nasabah di dashboard, jadi ia masuk dengan membesar halus dan
+ * merespon hover — tanpa mengubah teks maupun nadanya.
  */
 export function StatusKycBadge({
   status,
@@ -18,7 +22,7 @@ export function StatusKycBadge({
   className?: string;
 }) {
   return (
-    <Badge className={cn("border", NADA_STATUS_KYC[status], className)}>
+    <Badge className={cn("badge-pop border", NADA_STATUS_KYC[status], className)}>
       {LABEL_STATUS_KYC[status]}
     </Badge>
   );

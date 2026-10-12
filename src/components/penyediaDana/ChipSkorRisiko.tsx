@@ -15,6 +15,10 @@
  * Warna TIDAK pernah menjadi satu-satunya penanda: angkanya selalu ikut tercetak,
  * dan `title` memuat kalimat penjelas — jadi tetap terbaca tanpa penglihatan warna.
  *
+ * Angkanya juga memakai `.badge-pop` (masuk membesar, membesar lagi saat
+ * disorot dengan pendar emerald) — skor integritas adalah angka yang paling
+ * sering dibandingkan pendana antar pengajuan, jadi ia layak menarik mata.
+ *
  * Murni presentasional (tanpa Convex) dan dapat diuji tanpa server.
  */
 import { cn } from "@/lib/utils";
@@ -56,7 +60,7 @@ export function ChipSkorRisiko({
   return (
     <span
       className={cn(
-        "inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold tabular-nums",
+        "badge-pop inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold tabular-nums",
         kelasSkorRisiko(skor),
         className,
       )}

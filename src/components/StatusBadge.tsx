@@ -21,8 +21,15 @@ import { diTahapTinjauan } from "@/lib/statusPinjaman";
  * Warnanya pil lembut bergaris tipis (bukan isian pejal): badge muncul puluhan
  * kali per layar, jadi harus mudah dibaca tanpa berteriak. Nadanya soft-tint
  * kontras tinggi — latar sangat muda, huruf pekat, dan tepi tipis senada.
+ *
+ * "Hidup" dan "menunggu tindakan" juga ditandai titik kecil yang bergerak
+ * (`.badge-dot--hidup` berdenyut, `.badge-dot--tunggu` memancar). Gerakan itu
+ * sengaja hanya pada dua nada ini: kalau semua status bergerak, tabel penuh
+ * aplikasi justru jadi berisik. Titiknya dekoratif (`aria-hidden`) karena
+ * statusnya tetap dibaca sebagai teks lencana, dan teks itu tidak pernah
+ * berubah karena penambahan ini.
  */
-const PIL = "inline-flex items-center rounded-md border px-2.5 py-1 text-[11px] font-semibold";
+const PIL = "inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-[11px] font-semibold";
 const HIJAU = "border-emerald-200 bg-emerald-50 text-emerald-800";
 const KUNING = "border-amber-200 bg-amber-50 text-amber-900";
 const MERAH = "border-rose-200 bg-rose-50 text-rose-800";
@@ -45,23 +52,27 @@ export function StatusBadge({
       ? loanStatusMeta(status as LoanStatus)
       : pawnStatusMeta(status as PawnStatus);
 
-  const kelas =
+  const nada: "hijau" | "kuning" | "merah" | "abu" =
     status === "ditolak"
-      ? MERAH
+      ? "merah"
       : kind === "loan" && (status === "lunas" || status === "didanai")
-        ? HIJAU
+        ? "hijau"
         : kind === "loan" && diTahapTinjauan(status)
-          ? KUNING
+          ? "kuning"
           : kind === "loan" && status === "disetujui"
-            ? HIJAU
+            ? "hijau"
             : kind === "pawn" && PAWN_HIJAU.has(status)
-              ? HIJAU
+              ? "hijau"
               : kind === "pawn" && PAWN_KUNING.has(status)
-                ? KUNING
-                : ABU;
+                ? "kuning"
+                : "abu";
+
+  const kelas = nada === "hijau" ? HIJAU : nada === "kuning" ? KUNING : nada === "merah" ? MERAH : ABU;
 
   return (
     <Badge variant="outline" className={`${PIL} ${kelas}`}>
+      {nada === "hijau" && <span aria-hidden className="badge-dot badge-dot--hidup" />}
+      {nada === "kuning" && <span aria-hidden className="badge-dot badge-dot--tunggu" />}
       {meta.label}
     </Badge>
   );

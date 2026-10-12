@@ -19,6 +19,20 @@ import type { GrupNavData, ItemNav } from "@/components/admin/admin-nav";
 // dimuat. Panel itu tidak dirender di sini (hanya tab aktif), jadi cukup distub.
 mock.module("leaflet", () => ({ default: {} }));
 
+// Tab "Hari Ini" memuat `RingkasanAnalitik`, satu-satunya panel di jalur ini yang
+// membaca server lewat `useQuery` (tanpa provider di render statis, hook itu
+// melempar galat). Harness ini memang tidak menyentuh Convex, jadi hook-nya
+// distub dengan nilai "data belum tiba" — persis keadaan di peramban sebelum
+// langganan pertama mengirim data. Yang diuji tetap teks & lencana tab, bukan
+// angka analitik (itu diuji `RingkasanAnalitik.render.test.tsx` dari sisi murni).
+mock.module("convex/react", () => ({
+  useQuery: () => undefined,
+  useQueries: () => ({ results: [] }),
+  useMutation: () => async () => undefined,
+  useAction: () => async () => undefined,
+  useConvex: () => ({}),
+}));
+
 const { AdminTabs } = await import("@/pages/admin/admin-tabs");
 const { MejaKerja } = await import("@/pages/admin/meja-kerja");
 const { AdminNav, IsiCariMenu } = await import("@/components/admin/admin-nav");

@@ -156,6 +156,10 @@ export function TampilanJatuhTempoRingkas({ tampilan }: { tampilan: DataJatuhTem
  * `tanpaSkor` membuang angka `skor/100` dari lencana — dipakai saat pemanggil
  * menaruh angkanya di `ChipSkorRisiko` (warna mengikuti rentang skor) supaya
  * angka yang sama tidak tercetak dua kali di baris yang sama.
+ *
+ * Lencananya memakai `.badge-pop` (muncul membesar + merespon hover) sehingga
+ * penanda "nasabah baru" atau "riwayat pembayaran kuat" langsung terlihat saat
+ * baris masuk ke layar. Kelas warna pejal tiap tingkat tetap sama persis.
  */
 export function BadgeKepercayaan({
   kepercayaan,
@@ -171,7 +175,7 @@ export function BadgeKepercayaan({
       <Badge
         variant="outline"
         className={cn(
-          "gap-1 border text-[11px] font-bold shadow-sm",
+          "badge-pop gap-1 border text-[11px] font-bold shadow-sm",
           KELAS_TINGKAT[kepercayaan.tingkat],
         )}
         title={`${kepercayaan.alasan.join(" · ")} (skor internal PINDAI, bukan skor kredit lembaga)`}

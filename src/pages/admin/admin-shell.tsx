@@ -153,7 +153,7 @@ export function AdminHeader({
   onToggleKill: () => void;
 }) {
   return (
-    <header className="animate-masuk sticky top-0 z-40 border-b border-slate-200 bg-white/95 backdrop-blur">
+    <header className="animate-masuk glass-nav sticky top-0 z-40">
       <div className="mx-auto flex min-h-14 w-full max-w-7xl items-center justify-between gap-2 px-3 py-2 sm:min-h-16 sm:gap-3 sm:px-6">
         <div className="flex min-w-0 items-center gap-2 sm:gap-3">
           <VaultLogo size={40} className="size-9 shrink-0 sm:size-10" />
@@ -237,8 +237,11 @@ export function AdminStats({ stats }: { stats: AdminStatsData }) {
     >
       <motion.div
         variants={fadeUpItem}
-        className="group rounded-xl border border-slate-200/80 border-l-4 border-l-emerald-700 bg-white p-3 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md min-[380px]:rounded-2xl min-[380px]:p-4 sm:p-5"
+        className="glass-card micro-metric group relative overflow-hidden rounded-xl border p-3 shadow-sm min-[380px]:rounded-2xl min-[380px]:p-4 sm:p-5"
       >
+        {/* Penanda emerald di tepi kiri — dipasang sebagai garis di dalam kartu
+            supaya warnanya tidak ikut ditimpa tepi putih transparan `.glass-card`. */}
+        <span aria-hidden className="absolute inset-y-0 left-0 w-1 bg-emerald-700" />
         <Tabs
           value={headlineTab}
           onValueChange={(value) => setHeadlineTab(value as "pinjaman" | "gadai" | "kredit")}
@@ -278,8 +281,9 @@ export function AdminStats({ stats }: { stats: AdminStatsData }) {
         <motion.div
           key={label}
           variants={fadeUpItem}
-          className="group rounded-xl border border-slate-200/80 border-l-4 border-l-emerald-700 bg-white p-3 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md min-[380px]:rounded-2xl min-[380px]:p-4 sm:p-5"
+          className="glass-card micro-metric group relative overflow-hidden rounded-xl border p-3 shadow-sm min-[380px]:rounded-2xl min-[380px]:p-4 sm:p-5"
         >
+          <span aria-hidden className="absolute inset-y-0 left-0 w-1 bg-emerald-700" />
           <div className="flex items-start justify-between gap-2">
             <p className="text-xs font-medium leading-5 text-muted-foreground">{label}</p>
             <span className={`flex size-8 shrink-0 items-center justify-center rounded-xl border ${toneClass[tone]}`}>

@@ -27,7 +27,7 @@ function PlafonKartu({ schedule }: { schedule: LoanScheduleRow[] }) {
   const warna = persen >= 80 ? "bg-amber-500" : persen >= 50 ? "bg-emerald-500" : "bg-emerald-400";
 
   return (
-    <div className="min-w-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+    <div className="glass-card micro-metric min-w-0 rounded-2xl border p-4 shadow-sm sm:p-5">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-xs text-muted-foreground">Limit Plafon Tersedia</p>
@@ -57,9 +57,11 @@ function PlafonKartu({ schedule }: { schedule: LoanScheduleRow[] }) {
         </span>
       </div>
       <div className="mt-3 flex items-center gap-2">
+        {/* `shimmer-pass` menambahkan kilau tipis yang berjalan di atas bilah,
+            jadi progres limit plafon tidak terlihat sebagai garis statis. */}
         <Progress
           value={persen}
-          className="h-2 flex-1"
+          className="shimmer-pass h-2 flex-1"
         />
         <span className="shrink-0 text-[11px] font-semibold tabular-nums text-slate-500">{persen}%</span>
       </div>
@@ -138,7 +140,7 @@ function TagihanKartu({ schedule }: { schedule: LoanScheduleRow[] }) {
     : null;
 
   return (
-    <div className="min-w-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+    <div className="glass-card micro-metric min-w-0 rounded-2xl border p-4 shadow-sm sm:p-5">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-xs text-muted-foreground">Tagihan Aktif Bulan Ini</p>
@@ -162,6 +164,7 @@ function TagihanKartu({ schedule }: { schedule: LoanScheduleRow[] }) {
               </>
             ) : (
               <>
+                <span aria-hidden className="badge-dot badge-dot--hidup mr-1" />
                 <CheckCircle className="mr-1 size-3.5" aria-hidden />
                 Aman
               </>
@@ -203,7 +206,7 @@ function KycKartu({ status }: { status: string | null }) {
     status === "REVERIFICATION_REQUIRED";
 
   return (
-    <div className="min-w-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+    <div className="glass-card micro-metric min-w-0 rounded-2xl border p-4 shadow-sm sm:p-5">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-xs text-muted-foreground">Status Verifikasi KYC</p>

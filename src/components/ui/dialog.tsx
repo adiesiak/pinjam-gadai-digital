@@ -65,7 +65,11 @@ function DialogContent({
           // pinjaman, form multi-bagian) tidak lagi terpotong di luar layar.
           // `p-4` di mobile memberi ruang baca lebih lebar; `sm:p-6` kembali ke
           // jarak desktop. Pemanggil boleh menimpanya lewat `className`.
-          "bg-white data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 fixed top-[50%] left-[50%] z-50 grid w-full max-w-[calc(100%-2rem)] max-h-[calc(100dvh-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 overflow-y-auto overscroll-contain rounded-2xl border border-slate-200 p-4 shadow-lg duration-200 outline-none sm:max-w-lg sm:p-6",
+          //
+          // Permukaan modal memakai `.glass-modal`: kaca tebal (blur 20 px) dengan
+          // tepi putih transparan dan bayangan dalam, jadi modal jelas berdiri di
+          // depan halaman yang ikut terlihat samar di belakangnya.
+          "glass-modal data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 fixed top-[50%] left-[50%] z-50 grid w-full max-w-[calc(100%-2rem)] max-h-[calc(100dvh-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 overflow-y-auto overscroll-contain rounded-2xl border p-4 duration-200 outline-none sm:max-w-lg sm:p-6",
           className
         )}
         {...props}

@@ -165,7 +165,7 @@ export default function Admin() {
   };
 
   return (
-    <div className="flex min-h-screen flex-col bg-slate-50 text-foreground">
+    <div className="bg-ambient-glass flex min-h-screen flex-col text-foreground">
       <SecurityBar seimbang={ledger?.seimbang === true} killSwitch={sysCfg?.killSwitch === true} />
       <AdminHeader
         killSwitch={killAktif}

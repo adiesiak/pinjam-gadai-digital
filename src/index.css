@@ -1668,3 +1668,349 @@
     transition: none;
   }
 }
+
+/* ==========================================================================
+   Lapisan GLASSMORPHISM & MICRO-INTERACTION (Ruang Pendana, Admin, Peminjam)
+   ==========================================================================
+
+   Kenapa kelas bersama, bukan menempelkan `backdrop-blur` + `transition-all
+   duration-300` di setiap komponen:
+
+   - Repo ini sudah punya aturan gerak yang DIUJI
+     (`microinteraction.render.test.tsx` menolak `transition-all` dan durasi
+     ad-hoc di primitif UI, `motion.test.ts` menuntut setiap kelas `.motion-*`
+     punya opt-out reduced-motion). Menulis efeknya sekali di sini menjaga
+     aturan itu tetap benar, dan tiap komponen cukup memakai satu kelas.
+   - Warna kaca memakai token tema (`--card`, `--primary`, `--border`), jadi
+     efek kaca tetap benar di semua preset tema (pesisir, gelap, dan lainnya)
+     tanpa menulis ulang kelasnya per tema.
+   - Kelas ini sengaja TIDAK berada di `@layer utilities`: utilities Tailwind
+     (mis. `bg-white`, `border-slate-200`) berasal dari pemanggil, dan efek kaca
+     tidak boleh diam-diam kalah oleh satu utilitas yang tertinggal. Tidak ada
+     properti tata letak (width/height/margin) yang diubah — hanya warna,
+     bayangan, blur, dan transform, sehingga tidak memicu layout shift. */
+
+/* Latar ambient "Soft Slate" dengan aksen Deep Emerald (#064E3B) sangat tipis.
+   Dipakai di kulit portal (Peminjam, Admin, Ruang Pendana), bukan di landing
+   yang punya panggungnya sendiri. */
+.bg-ambient-glass {
+  background-color: #f8fafc;
+  background-image: linear-gradient(
+    to bottom right,
+    #f8fafc 0%,
+    rgb(236 253 245 / 20%) 45%,
+    #f1f5f9 100%
+  );
+}
+
+/* Top navigation & sticky action header. */
+.glass-nav {
+  background-color: rgb(255 255 255 / 0.7);
+  border-bottom: 1px solid rgb(255 255 255 / 0.6);
+  box-shadow: 0 1px 2px rgb(15 23 42 / 0.04);
+  backdrop-filter: blur(12px) saturate(1.1);
+  -webkit-backdrop-filter: blur(12px) saturate(1.1);
+}
+
+/* Sticky action header di dasar panel (baris tombol simpan/batal). Sama seperti
+   `.glass-nav`, tetapi tepinya di atas karena menempel ke bawah panel. */
+.glass-dock {
+  background-color: rgb(255 255 255 / 0.7);
+  border-top: 1px solid rgb(255 255 255 / 0.6);
+  box-shadow: 0 -1px 2px rgb(15 23 42 / 0.04);
+  backdrop-filter: blur(12px) saturate(1.1);
+  -webkit-backdrop-filter: blur(12px) saturate(1.1);
+}
+
+/* ===== Kaca otomatis untuk kartu bawaan lama =====
+   Aplikasi ini sudah punya pola kontainer yang sangat seragam:
+   `rounded-2xl border border-slate-200 bg-white` (kartu, section, daftar).
+   Alih-alih menulis ulang ratusan kelas di puluhan berkas — yang berisiko
+   menghilangkan kelas fungsional (grid, padding, grid-cols) dan memecah uji
+   markup — pola itu sendiri yang dijadikan pemicu: elemen yang sekaligus
+   membulat 1rem+, punya tepi penuh, dan berlatar `bg-white` mendapat permukaan
+   kaca (latar sedikit transparan + blur + tepi putih halus + bayangan lembut).
+
+   Kunci amannya `:where(...)`: spesifisitasnya nol, jadi TIDAK ada kelas yang
+   ditimpa secara paksa — hanya nilai yang tadinya datang dari utilitas
+   (yang berada di `@layer utilities`, kalah dari CSS tanpa layer), sehingga
+   pemanggil tetap bisa menimpanya, mis. `.glass-card:hover` atau
+   `bg-emerald-50/60` pada kartu bertema. Tidak ada properti tata letak
+   (width/height/margin/padding/display) yang diubah, jadi tidak ada
+   pergeseran tata letak.
+
+   Sengaja HANYA latar + blur yang diubah: warna tepi, `ring`, dan bayangan
+   tetap milik pemanggil, karena di aplikasi ini beberapa kartu memakai ketiganya
+   sebagai penanda keadaan (mis. kartu pendana terpilih: `border-emerald-300` +
+   `ring-2 ring-emerald-600`). Kalau aturan ini ikut mengunci tepi/bayangan,
+   penanda keadaan itu ikut hilang. Transisinya sendiri menyertakan transform,
+   tepi, dan bayangan supaya `hover:-translate-y-0.5` / `hover:shadow-md` milik
+   pemanggil tetap halus. */
+:where(:is(.rounded-2xl, .rounded-3xl).border.bg-white) {
+  background-color: color-mix(in oklab, var(--card) 78%, transparent);
+  backdrop-filter: blur(12px) saturate(1.05);
+  -webkit-backdrop-filter: blur(12px) saturate(1.05);
+  transition:
+    background-color var(--motion-normal) var(--motion-ease-out),
+    transform var(--motion-normal) var(--motion-ease-out),
+    border-color var(--motion-normal) var(--motion-ease-out),
+    box-shadow var(--motion-normal) var(--motion-ease-out);
+}
+
+/* Kartu, kontainer, dan kartu angka ringkasan. */
+.glass-card {
+  background-color: color-mix(in oklab, var(--card) 75%, transparent);
+  border-color: rgb(255 255 255 / 0.8);
+  backdrop-filter: blur(12px) saturate(1.05);
+  -webkit-backdrop-filter: blur(12px) saturate(1.05);
+  box-shadow:
+    0 1px 2px oklch(0.3 0.02 75 / 0.05),
+    0 10px 30px -24px oklch(0.3 0.02 75 / 0.28);
+  transition:
+    background-color var(--motion-normal) var(--motion-ease-out),
+    transform var(--motion-normal) var(--motion-ease-out),
+    border-color var(--motion-normal) var(--motion-ease-out),
+    box-shadow var(--motion-normal) var(--motion-ease-out);
+}
+.glass-card:hover {
+  background-color: color-mix(in oklab, var(--card) 82%, transparent);
+  box-shadow:
+    0 1px 2px oklch(0.3 0.02 75 / 0.05),
+    0 16px 36px -24px oklch(0.3 0.02 75 / 0.34);
+}
+
+/* Kotak teks panjang & keterangan paragraf: opasitas lebih tinggi supaya
+   kalimatnya tetap nyaman dibaca (kontras lebih penting daripada efek kaca). */
+.glass-note {
+  background-color: color-mix(in oklab, var(--card) 92%, transparent);
+  border: 1px solid color-mix(in oklab, var(--primary) 10%, transparent);
+  border-radius: 1rem;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+/* Container modal (overlay-nya diatur `DialogOverlay`). */
+.glass-modal {
+  background-color: color-mix(in oklab, var(--card) 90%, transparent);
+  border-color: rgb(255 255 255 / 0.8);
+  backdrop-filter: blur(20px) saturate(1.1);
+  -webkit-backdrop-filter: blur(20px) saturate(1.1);
+  box-shadow:
+    0 24px 60px -20px oklch(0.3 0.02 75 / 0.35),
+    0 2px 8px oklch(0.3 0.02 75 / 0.12);
+}
+
+/* Kartu & angka ringkasan: terangkat halus, tepi menyala emerald, lalu turun
+   kembali saat ditekan. Hanya transform/bayangan yang dianimasikan. */
+.micro-metric {
+  transition:
+    transform var(--motion-normal) var(--motion-ease-out),
+    box-shadow var(--motion-normal) var(--motion-ease-out),
+    border-color var(--motion-normal) var(--motion-ease-out),
+    background-color var(--motion-normal) var(--motion-ease-out);
+}
+.micro-metric:hover {
+  transform: translateY(-4px);
+  border-color: rgb(16 185 129 / 0.4);
+  background-color: rgb(255 255 255 / 0.9);
+  box-shadow: 0 12px 30px rgb(6 78 59 / 0.1);
+}
+.micro-metric:active {
+  transform: translateY(0) scale(0.99);
+}
+
+/* Lencana dinamis: masuk dengan membesar, lalu membesar lagi saat disorot. */
+.badge-pop {
+  animation: pindai-badge-pop var(--motion-slow) var(--motion-ease-out) both;
+  transition:
+    transform var(--motion-normal) var(--motion-ease-out),
+    box-shadow var(--motion-normal) var(--motion-ease-out);
+}
+.badge-pop:hover {
+  transform: scale(1.05);
+  box-shadow: 0 0 12px rgb(16 185 129 / 0.35);
+  cursor: pointer;
+}
+@keyframes pindai-badge-pop {
+  from {
+    transform: scale(0.8);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* Titik indikator status: hijau emerald berdenyut (berjalan/selesai) dan
+   kuning berkedip (menunggu tindakan). Titik selalu dekoratif (`aria-hidden`)
+   karena statusnya sudah dibaca sebagai teks lencana. */
+.badge-dot {
+  position: relative;
+  display: inline-block;
+  width: 0.5rem;
+  height: 0.5rem;
+  flex: none;
+  border-radius: 999px;
+}
+.badge-dot--hidup {
+  background-color: rgb(16 185 129 / 1);
+  box-shadow: 0 0 8px rgb(16 185 129 / 0.8);
+  animation: pindai-dot-denyut 1.8s var(--motion-ease-in-out) infinite;
+}
+@keyframes pindai-dot-denyut {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.5;
+    transform: scale(0.8);
+  }
+}
+.badge-dot--tunggu {
+  background-color: rgb(245 158 11 / 1);
+}
+.badge-dot--tunggu::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  background-color: rgb(245 158 11 / 0.7);
+  animation: pindai-dot-kedip 1.6s var(--motion-ease-out) infinite;
+}
+@keyframes pindai-dot-kedip {
+  0% {
+    transform: scale(1);
+    opacity: 0.9;
+  }
+  70%,
+  100% {
+    transform: scale(2.4);
+    opacity: 0;
+  }
+}
+
+/* Chip nama pendana: latar transparan buram yang merespon hover lembut. */
+.chip-glass {
+  border-radius: 999px;
+  background-color: rgb(255 255 255 / 0.55);
+  border: 1px solid rgb(255 255 255 / 0.7);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  transition:
+    background-color var(--motion-fast) var(--motion-ease-out),
+    border-color var(--motion-fast) var(--motion-ease-out);
+}
+.chip-glass:hover {
+  background-color: rgb(255 255 255 / 0.8);
+  border-color: color-mix(in oklab, var(--primary) 25%, transparent);
+}
+
+/* Fokus isian form: cincin emerald lembut, hanya saat benar-benar difokus.
+   Isian yang ditandai tidak sah (`aria-invalid`, `:user-invalid`) dikecualikan:
+   nada merah dari mesin validasi harus tetap menang, bukan ditimpa hijau. */
+.focus-glow:focus:where(:not([aria-invalid="true"]):not(:user-invalid)),
+.focus-glow:focus-visible:where(:not([aria-invalid="true"]):not(:user-invalid)) {
+  background-color: rgb(255 255 255 / 0.98);
+  border-color: color-mix(in oklab, var(--primary) 60%, transparent);
+  box-shadow: 0 0 0 4px color-mix(in oklab, var(--primary) 12%, transparent);
+  outline: none;
+}
+
+/* ===== Batang grafik: meluncur dari 0 ke nilai target + kilau bergeser ===== */
+/* Panjang target WAJIB ditulis ulang sebagai `--bar-lebar` oleh pemanggil
+   (mis. `style={{ width: "42%", "--bar-lebar": "42%" }}`), karena animasi
+   dengan `fill: both` terus berlaku setelah selesai; tanpa variabel itu batang
+   akan berakhir di 100%. Saat gerak dikurangi, batang langsung tampil pada
+   panjang akhirnya. */
+.bar-tumbuh {
+  animation: pindai-bar-tumbuh 1.2s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+@keyframes pindai-bar-tumbuh {
+  from {
+    width: 0%;
+  }
+  to {
+    width: var(--bar-lebar, 100%);
+  }
+}
+/* Kilau putih tipis yang berjalan dari kiri ke kanan di atas batang. */
+.shimmer-pass {
+  position: relative;
+  overflow: hidden;
+}
+.shimmer-pass::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background-image: linear-gradient(
+    to right,
+    transparent,
+    rgb(255 255 255 / 30%),
+    transparent
+  );
+  animation: pindai-shimmer 2.5s var(--motion-ease-in-out) infinite;
+}
+@keyframes pindai-shimmer {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(100%);
+  }
+}
+
+/* Durasi buka-tutup accordion rincian: 0,35 detik sesuai ketentuan produk
+   (Radix sudah menganimasikan tinggi lewat `--radix-accordion-content-height`;
+   di sini hanya temponya yang disamakan). */
+[data-slot="accordion-content"] {
+  --accordion-durasi: 0.35s;
+}
+[data-slot="accordion-content"][data-state="open"] {
+  animation-duration: var(--accordion-durasi);
+}
+[data-slot="accordion-content"][data-state="closed"] {
+  animation-duration: var(--accordion-durasi);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .badge-pop {
+    animation: none;
+    transition: none;
+  }
+  .badge-pop:hover {
+    transform: none;
+  }
+  .micro-metric {
+    transition: none;
+  }
+  .micro-metric:hover,
+  .micro-metric:active {
+    transform: none;
+  }
+  .glass-card {
+    transition: none;
+  }
+  /* Kaca otomatis (pola `rounded-2xl border bg-white`) juga tidak perlu
+     menganimasikan perubahan latarnya saat gerak dikurangi. */
+  :where(:is(.rounded-2xl, .rounded-3xl).border.bg-white) {
+    transition: none;
+  }
+  .chip-glass {
+    transition: none;
+  }
+  .bar-tumbuh {
+    animation: none;
+  }
+  .shimmer-pass::after {
+    animation: none;
+    opacity: 0;
+  }
+  .badge-dot--hidup,
+  .badge-dot--tunggu::after {
+    animation: none;
+  }
+}

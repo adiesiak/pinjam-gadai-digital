@@ -305,6 +305,11 @@ function BadgePseudonim({ kode }: { kode: string | null }) {
  * aksen vertikal 4px di sisi kiri (emerald) sebagai penanda blok, sehingga
  * "kartu ringkasan utama" terbaca sebelum angkanya dibaca. Nadanya senada
  * dengan seluruh halaman — satu keluarga hijau, bukan warna-warni.
+ *
+ * Permukaannya memakai kaca tipis (`.glass-card`) + pengangkatan halus saat
+ * disorot (`.micro-metric`). Garis aksennya tetap digambar sebagai elemen di
+ * dalam kartu, bukan `border-l`, karena tepi `.glass-card` sudah punya warna
+ * tepi sendiri.
  */
 function KartuRingkasan({
   label,
@@ -318,7 +323,8 @@ function KartuRingkasan({
   icon: React.ReactNode;
 }) {
   return (
-    <div className="min-w-0 rounded-2xl border border-slate-200 border-l-4 border-l-emerald-700 bg-white p-4 shadow-sm transition-all hover:shadow-md">
+    <div className="glass-card micro-metric relative min-w-0 overflow-hidden rounded-2xl border p-4 shadow-sm">
+      <span aria-hidden className="absolute inset-y-0 left-0 w-1 bg-emerald-700" />
       <div className="flex items-center gap-2">
         <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700">
           {icon}
@@ -1038,7 +1044,7 @@ function BagianBerkas({
         <FileText className="size-3.5" aria-hidden /> Berkas pengajuan
       </p>
       {!boleh ? (
-        <p className="mt-2 flex items-start gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs leading-5 text-muted-foreground">
+        <p className="glass-note mt-2 flex items-start gap-2 rounded-2xl border px-3 py-2 text-xs leading-5 text-muted-foreground">
           <Lock className="mt-0.5 size-3.5 shrink-0 text-slate-400" aria-hidden />
           Berkas non-identitas (mis. foto barang jaminan) hanya dibuka untuk akun pendana
           beremail yang ditunjuk admin. Sesi kode akses bersama dapat melihat angka pengajuan dan
@@ -1085,7 +1091,7 @@ function BagianBerkas({
               ))}
             </div>
           )}
-          <p className="mt-3 flex items-start gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-[11px] leading-5 text-muted-foreground">
+          <p className="glass-note mt-3 flex items-start gap-2 rounded-2xl border px-3 py-2 text-[11px] leading-5 text-muted-foreground">
             <Lock className="mt-0.5 size-3.5 shrink-0 text-slate-400" aria-hidden />
             Dokumen identitas peminjam (KTP, selfie dengan KTP, bukti penghasilan, tanda tangan)
             tidak dibagikan ke ruang pendana. Peninjauannya dilakukan tim PINDAI yang
@@ -1560,7 +1566,7 @@ function FormUbahPinjaman({ row, onClose }: { row: BarisPinjaman; onClose: () =>
   return (
     <form className="flex max-h-[75dvh] flex-col" onSubmit={kirim}>
       <div className="flex-1 space-y-4 overflow-y-auto overscroll-contain px-5 py-4 sm:px-6">
-        <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs leading-6 text-muted-foreground">
+        <div className="glass-note rounded-2xl border px-4 py-3 text-xs leading-6 text-muted-foreground">
         <span className="font-medium uppercase text-slate-700">{namaHurufBesar(row.namaLengkap)}</span> ·{" "}
         <span className="font-mono">{row.nomorReferensi}</span>
         <br />
@@ -1705,7 +1711,7 @@ function FormUbahPinjaman({ row, onClose }: { row: BarisPinjaman; onClose: () =>
       </div>
 
       {/* Kaki tetap: selalu terlihat di dasar modal, apa pun panjang formnya. */}
-      <div className="sticky bottom-0 flex shrink-0 justify-end gap-2 border-t border-slate-200 bg-slate-50 px-6 py-4">
+      <div className="glass-dock sticky bottom-0 z-20 flex shrink-0 justify-end gap-2 px-6 py-4">
         <Button type="button" variant="ghost" onClick={onClose} disabled={busy}>
           Batal
         </Button>
@@ -1892,13 +1898,13 @@ function IsiRuang() {
       : [];
 
   return (
-    <div className="flex min-h-screen flex-col overflow-x-clip bg-slate-50 text-slate-900">
+    <div className="bg-ambient-glass flex min-h-screen flex-col overflow-x-clip text-slate-900">
       {/*
        * Bilah atas: tetap menempel saat menggulir karena ruang ini panjang, dan
        * diberi garis kuningan tipis di puncaknya sebagai penanda identitas
        * PINDAI — bahasa warna "tinta & kuningan" yang sudah dipakai aplikasi.
        */}
-      <header className="animate-masuk sticky top-0 z-40 border-t-2 border-gold bg-white/90 pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)] backdrop-blur">
+      <header className="animate-masuk glass-nav sticky top-0 z-40 border-t-2 border-gold pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)]">
         <div className="mx-auto flex h-14 w-full max-w-6xl items-center justify-between gap-3 px-4 sm:px-6">
           <Link to="/dashboard" className="flex shrink-0 items-center gap-2.5">
             <VaultLogo size={32} className="size-8 shrink-0" />
@@ -1942,7 +1948,7 @@ function IsiRuang() {
              * tidak ada tempat pertama yang benar-benar menangkap mata dan
              * keterangan panjang mendorong tabel jauh ke bawah layar.
              */}
-            <section className="animate-masuk relative overflow-hidden rounded-3xl border border-slate-200 bg-gradient-to-br from-white via-emerald-50/50 to-white px-5 py-6 shadow-sm sm:px-8 sm:py-8">
+            <section className="animate-masuk relative overflow-hidden rounded-3xl border border-slate-200 bg-gradient-to-br from-white via-emerald-50/50 to-white px-5 py-6 shadow-sm backdrop-blur-md sm:px-8 sm:py-8">
               {/* Satu garis hijau PINDAI di puncak panel — penanda identitas,
                   bukan gradasi pelangi. */}
               <span aria-hidden className="absolute inset-x-0 top-0 h-1 bg-emerald-700/80" />

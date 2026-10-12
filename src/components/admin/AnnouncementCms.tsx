@@ -706,7 +706,7 @@ export function AnnouncementCms() {
       </Tabs>
 
       {/* STICKY ACTION FOOTER BAR */}
-      <div className="sticky bottom-0 z-20 border-t border-slate-200 bg-white/95 backdrop-blur px-4 py-3 shadow-sm sm:px-6">
+      <div className="glass-dock sticky bottom-0 z-20 px-4 py-3 sm:px-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
             <span className="inline-flex h-2 w-2 rounded-full bg-emerald-500" />

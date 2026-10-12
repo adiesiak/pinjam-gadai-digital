@@ -381,7 +381,7 @@ export function KycDaftarTahap({
   const daftar =
     saring === undefined ? TAHAPAN_KYC : TAHAPAN_KYC.filter((t) => saring.includes(t.id));
   return (
-    <nav aria-label="Tahapan pengisian KYC" className="lg:sticky lg:top-6">
+    <nav aria-label="Tahapan pengisian KYC" className="lg:sticky lg:top-20">
       <ol className="flex gap-2 overflow-x-auto pb-1 lg:flex-col lg:gap-1.5 lg:overflow-visible lg:pb-0">
         {daftar.map((tahap) => {
           const urutan = TAHAPAN_KYC.indexOf(tahap);
