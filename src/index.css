@@ -1558,26 +1558,57 @@
   border-radius: 1.5rem;
 }
 
-/* Muka kartu — hijau PINDAI dalam + tepi brass. Objek merek, bukan alat bayar. */
+/* Muka kartu — KACA PREMIUM: hijau PINDAI tembus pandang + blur, tepi brass.
+   Objek merek, bukan alat bayar (angka di kartu adalah contoh, lihat
+   `KartuFinansial`).
+
+   Rasio 1.586:1 = rasio kartu ID-1 sungguhan (85,6 × 54 mm), jadi proporsinya
+   terasa benar di tangan. `backdrop-filter` membuat adegan 3D di belakang kartu
+   samar terlihat — inilah yang membuatnya terbaca sebagai kaca, bukan sekadar
+   gradien hijau. Warna tetap hijau PINDAI gelap agar teks putih tetap kontras. */
 .kartu-3d__muka {
   position: relative;
   display: flex;
-  aspect-ratio: 1.6 / 1;
-  min-height: 13rem;
+  aspect-ratio: 1.586 / 1;
+  min-height: 15.5rem;
   flex-direction: column;
   justify-content: space-between;
   overflow: hidden;
   border-radius: 1.5rem;
-  border: 1px solid rgba(201, 168, 106, 0.35);
+  border: 1px solid rgba(226, 199, 140, 0.42);
   padding: 1.5rem;
   background:
-    radial-gradient(120% 90% at 14% 0%, rgba(31, 106, 98, 0.45), transparent 55%),
-    linear-gradient(155deg, #0e3b35 0%, #0a2a25 45%, #061713 100%);
+    linear-gradient(
+      150deg,
+      rgba(255, 255, 255, 0.1) 0%,
+      rgba(255, 255, 255, 0.02) 34%,
+      transparent 62%
+    ),
+    radial-gradient(120% 90% at 12% -10%, rgba(31, 106, 98, 0.55), transparent 58%),
+    radial-gradient(90% 70% at 100% 112%, rgba(201, 168, 106, 0.18), transparent 62%),
+    linear-gradient(
+      155deg,
+      rgba(14, 59, 53, 0.82) 0%,
+      rgba(10, 42, 37, 0.86) 45%,
+      rgba(6, 23, 19, 0.9) 100%
+    );
+  backdrop-filter: blur(14px) saturate(1.25);
+  -webkit-backdrop-filter: blur(14px) saturate(1.25);
   box-shadow:
     0 30px 60px -30px rgba(0, 0, 0, 0.9),
     0 22px 52px -30px rgba(31, 106, 98, 0.55),
-    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    inset 0 1px 0 rgba(255, 255, 255, 0.16),
+    inset 0 -20px 44px -30px rgba(0, 0, 0, 0.6);
   transition: box-shadow 0.35s ease;
+}
+
+/* Layar kecil: blur diturunkan. Di ponsel kartu bergerak bersama adegan WebGL,
+   dan blur besar adalah beban GPU termahal di hero ini. */
+@media (max-width: 767px) {
+  .kartu-3d__muka {
+    backdrop-filter: blur(8px) saturate(1.2);
+    -webkit-backdrop-filter: blur(8px) saturate(1.2);
+  }
 }
 
 /* Kartu terangkat → glow hijau PINDAI naik, bayangan lebih dalam. */
@@ -1586,6 +1617,24 @@
     0 42px 80px -34px rgba(0, 0, 0, 0.92),
     0 28px 64px -28px rgba(31, 106, 98, 0.72),
     inset 0 1px 0 rgba(255, 255, 255, 0.13);
+}
+
+/* Kartu sedang DISERET (putaran bebas, sudut boleh lewat 360°):
+   - glow dinaikkan supaya terasa terangkat saat diputar;
+   - `backdrop-filter` dimatikan SELAMA seret: menghitung ulang blur tiap frame
+     sambil kartu berputar adalah kombinasi paling berat (WebGL + blur).
+     Permukaannya tetap tembus pandang, jadi bedanya nyaris tak terlihat di
+     tengah gerakan cepat, sementara putarannya tetap mulus. */
+.kartu-3d--putar {
+  cursor: grabbing;
+}
+.kartu-3d--putar .kartu-3d__muka {
+  box-shadow:
+    0 46px 88px -34px rgba(0, 0, 0, 0.94),
+    0 30px 70px -26px rgba(31, 106, 98, 0.8),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
 
 /* Tepi brass + kilau statis pada permukaan. */
@@ -1602,6 +1651,102 @@
     transparent 70%,
     rgba(226, 199, 140, 0.1)
   );
+}
+
+/* Lapisan kaca di atas permukaan: pita sorotan diagonal + garis cahaya tipis di
+   tepi atas (pantulan kaca). `screen` membuatnya hanya menerangkan — tidak
+   pernah menggelapkan teks di bawahnya. */
+.kartu-3d__kaca {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0.9;
+  mix-blend-mode: screen;
+  background:
+    linear-gradient(
+      115deg,
+      rgba(255, 255, 255, 0.16) 4%,
+      rgba(255, 255, 255, 0.03) 26%,
+      transparent 44%
+    ),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.12), transparent 20%);
+}
+
+/* Pita holografik vertikal — penanda keaslian kartu premium. Garis tipis hijau
+   PINDAI + kuningan, dengan kilau yang berjalan pelan. Kilaunya hanya memakai
+   `transform`, jadi tetap di jalur compositor dan tidak mengganggu tata letak. */
+.kartu-3d__hologram {
+  position: relative;
+  width: 0.7rem;
+  height: 2.5rem;
+  margin-top: 0.1rem;
+  overflow: hidden;
+  border-radius: 0.35rem;
+  background: repeating-linear-gradient(
+    100deg,
+    rgba(201, 168, 106, 0.85) 0 1px,
+    rgba(110, 231, 183, 0.7) 1px 3px,
+    rgba(255, 255, 255, 0.28) 3px 4px,
+    rgba(31, 106, 98, 0.8) 4px 6px
+  );
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.25);
+}
+.kartu-3d__hologram::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.8), transparent);
+  transform: translateX(-120%);
+  animation: pindai-holo 5.5s ease-in-out infinite;
+}
+@keyframes pindai-holo {
+  0%,
+  100% {
+    transform: translateX(-120%);
+  }
+  50% {
+    transform: translateX(120%);
+  }
+}
+
+/* Tipografi data kartu: label kecil, nomor bergradasi, dan nilai pendek
+   (masa berlaku / CVV / merek). Angka memakai `tabular-nums` supaya lebarnya
+   tidak bergoyang saat kartu berputar. */
+.kartu-3d__label {
+  font-size: 0.5rem;
+  font-weight: 500;
+  letter-spacing: 0.26em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.45);
+}
+.kartu-3d__nomor {
+  display: flex;
+  gap: 0.55rem;
+  margin-top: 0.3rem;
+  font-size: 1.05rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.14em;
+  color: #f4fffb;
+}
+/* Gradasi logam pada angka hanya dipasang bila peramban benar-benar mendukung
+   `background-clip: text`; tanpa penjagaan ini `<span>` angkanya bisa hilang. */
+@supports ((-webkit-background-clip: text) or (background-clip: text)) {
+  .kartu-3d__nomor {
+    background: linear-gradient(100deg, #ffffff 0%, #e6f6f0 45%, #ffffff 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+}
+.kartu-3d__meta {
+  margin-top: 0.25rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.16em;
+  color: rgba(255, 255, 255, 0.9);
 }
 
 /* Chip brass dekoratif. */
@@ -1666,6 +1811,15 @@
   }
   .kartu-3d__muka {
     transition: none;
+    /* Tampilan kaca tidak hilang saat gerak dikurangi; blur tetap dipasang
+       karena kartu di sini memang tidak pernah berputar/bergerak, sehingga tidak
+       ada yang memaksa penghitungan ulang tiap frame. */
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+  }
+  .kartu-3d__hologram::after {
+    animation: none;
+    opacity: 0;
   }
 }
 

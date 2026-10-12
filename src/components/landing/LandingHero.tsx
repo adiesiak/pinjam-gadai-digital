@@ -43,9 +43,14 @@ import type { HandleTemplate } from "./templateScene";
  *     naik, dan kilau permukaan mengikuti pointer (`--mx`/`--my`). Adegan 3D ikut
  *     menerima sinyal hover (`setHover`) — itulah yang membuat brankas (Vault)
  *     membuka cincinnya, maskot A.I. menyapa, dan portal menyala.
+ *   - Seret (pointer ditekan lalu digeser) = PUTARAN BEBAS: sudut menumpuk
+ *     (`PUTAR_Y_PER_PX` derajat per piksel) sehingga kartu bisa diputar penuh
+ *     360° atau lebih oleh pengguna. Setelah dilepas, kartu menetap pada
+ *     kelipatan putaran terdekat — arah putaran tidak pernah dibalik paksa.
  *   - Sentuh: `touch-action: pan-y` membuat gulir VERTIKAL tetap milik halaman,
- *     sedangkan geser horizontal menggerakkan tilt. Tidak pernah `preventDefault`.
- *   - TIDAK ADA rotasi 360°/auto-rotate. Kartu hanya bergerak karena pengguna.
+ *     sedangkan geser horizontal memutar kartu. Tidak pernah `preventDefault`.
+ *   - TIDAK ADA rotasi otomatis/spin sendiri: kartu hanya bergerak karena
+ *     pengguna (hover memiringkan terbatas; seret memutar bebas).
  *   - Gulir halaman diteruskan ke adegan (`setSkrol`) sehingga template 3D
  *     Premium Card berputar mengikuti posisi gulir, bukan berputar sendiri.
  *   - Pada template 3D Interactive Loan Simulator, slider tenor di dalam hero
@@ -79,9 +84,18 @@ export interface LandingHeroProps {
 
 /** Selang minimum antar riak (ms) — mencegah banjir riak tiap frame pointer. */
 const JEDA_RIAK_MS = 190;
-/** Batas kemiringan: cukup terasa, tidak sampai membuat kartu terbalik. */
+/** Batas kemiringan saat HOVER: cukup terasa, tidak sampai membuat kartu terbalik. */
 const ROT_Y_MAKS = 14;
 const ROT_X_MAKS = 10;
+/**
+ * Putaran saat DISERET: derajat per piksel. Sumbu Y bebas (bisa lewat 360°
+ * untuk melihat sisi belakang), sumbu X tetap dibatasi `ROT_X_MAKS` supaya
+ * kartu tidak pernah tenggelam ke dalam panggung.
+ */
+const PUTAR_Y_PER_PX = 0.72;
+const PUTAR_X_PER_PX = 0.34;
+/** Ambang (derajat) yang menandai seretan sebagai putaran sungguhan. */
+const PUTAR_MIN_DERAJAT = 4;
 /** Angkat (px) & tambahan skala saat pointer berada di atas kartu. */
 const ANGKAT_PX = 22;
 const SKALA_HOVER = 0.045;
@@ -98,6 +112,14 @@ type Gerak = {
   y: number;
   angkat: number;
   angkatTarget: number;
+};
+
+/** Keadaan seret kartu: posisi pointer terakhir + apakah sudah benar-benar berputar. */
+type Seret = {
+  aktif: boolean;
+  x: number;
+  y: number;
+  berputar: boolean;
 };
 
 /** Tulis transform kartu dari keadaan gerak (dipakai loop & saat menetap). */
@@ -153,6 +175,7 @@ export function LandingHero(props: LandingHeroProps) {
   const riakTerakhirRef = useRef(0);
   const posisiRiakRef = useRef({ x: 0.5, y: 0.5 });
   const sentuhAktifRef = useRef(false);
+  const seretRef = useRef<Seret>({ aktif: false, x: 0, y: 0, berputar: false });
   /**
    * Nilai interaksi dokumen yang harus langsung dipakai begitu adegan selesai
    * dibangun (lazy import). Disimpan di ref supaya tidak ada setState per frame
@@ -300,6 +323,14 @@ export function LandingHero(props: LandingHeroProps) {
         k.x = k.tx;
         k.y = k.ty;
         k.angkat = k.angkatTarget;
+        // Putaran bebas bisa menumpuk (mis. 720°). Dinormalkan HANYA saat sudah
+        // menetap (x === tx): mengurangi kelipatan 360° pada keduanya tidak
+        // mengubah gambar sama sekali, tetapi menjaga angkanya tetap kecil.
+        const kelipatan = Math.round(k.tx / 360);
+        if (kelipatan !== 0) {
+          k.tx -= kelipatan * 360;
+          k.x = k.tx;
+        }
         tulisTransform(kartuRef.current, k);
         loopRef.current = 0;
         return;
@@ -318,29 +349,65 @@ export function LandingHero(props: LandingHeroProps) {
   }, []);
 
   /* ── Kartu: tilt mengikuti pointer + highlight permukaan. ── */
-  const terapkanTilt = useCallback(
-    (clientX: number, clientY: number) => {
+  /**
+   * Kilau permukaan mengikuti posisi pointer relatif panggung.
+   * Mengembalikan posisi ternormalisasi (0..1) supaya pemanggil tidak perlu
+   * mengukur ulang panggung, atau `null` bila panggung belum punya ukuran.
+   */
+  const perbaruiKilau = useCallback(
+    (clientX: number, clientY: number): { px: number; py: number } | null => {
       const panggung = panggungRef.current;
-      if (panggung === null) return;
+      if (panggung === null) return null;
       const rect = panggung.getBoundingClientRect();
-      if (rect.width === 0 || rect.height === 0) return;
+      if (rect.width === 0 || rect.height === 0) return null;
       const px = Math.min(1, Math.max(0, (clientX - rect.left) / rect.width));
       const py = Math.min(1, Math.max(0, (clientY - rect.top) / rect.height));
-      const nx = px * 2 - 1;
-      const ny = py * 2 - 1;
-
-      const k = gerakRef.current;
-      k.tx = nx * ROT_Y_MAKS; // cursor kanan → miring kanan
-      k.ty = -ny * ROT_X_MAKS; // cursor atas → miring atas
-      pastikanLoop();
-
       const kilau = kilauRef.current;
       if (kilau !== null) {
         kilau.style.setProperty("--mx", `${(px * 100).toFixed(2)}%`);
         kilau.style.setProperty("--my", `${(py * 100).toFixed(2)}%`);
       }
+      return { px, py };
     },
-    [pastikanLoop],
+    [],
+  );
+
+  const terapkanTilt = useCallback(
+    (clientX: number, clientY: number) => {
+      const posisi = perbaruiKilau(clientX, clientY);
+      if (posisi === null) return;
+      const k = gerakRef.current;
+      k.tx = (posisi.px * 2 - 1) * ROT_Y_MAKS; // cursor kanan → miring kanan
+      k.ty = -(posisi.py * 2 - 1) * ROT_X_MAKS; // cursor atas → miring atas
+      pastikanLoop();
+    },
+    [pastikanLoop, perbaruiKilau],
+  );
+
+  /**
+   * Putaran bebas saat kartu diseret.
+   *
+   * Beda dari `terapkanTilt` yang MENETAPKAN sudut (maksimum ±14°), di sini sudut
+   * DITAMBAH dari pergerakan pointer: makin jauh seretan, makin besar putaran,
+   * dan nilainya boleh melewati 360° sehingga kartu bisa dilihat dari sisi
+   * belakang. Tidak ada animasi otomatis — semuanya berasal dari gerak pengguna.
+   */
+  const putarKartu = useCallback(
+    (clientX: number, clientY: number) => {
+      const seret = seretRef.current;
+      const k = gerakRef.current;
+      k.tx += (clientX - seret.x) * PUTAR_Y_PER_PX;
+      k.ty = Math.max(
+        -ROT_X_MAKS,
+        Math.min(ROT_X_MAKS, k.ty - (clientY - seret.y) * PUTAR_X_PER_PX),
+      );
+      seret.x = clientX;
+      seret.y = clientY;
+      if (Math.abs(k.tx) >= PUTAR_MIN_DERAJAT) seret.berputar = true;
+      perbaruiKilau(clientX, clientY);
+      pastikanLoop();
+    },
+    [pastikanLoop, perbaruiKilau],
   );
 
   const onKartuMasuk = useCallback(() => {
@@ -352,39 +419,88 @@ export function LandingHero(props: LandingHeroProps) {
     pastikanLoop();
   }, [pastikanLoop, reduce]);
 
-  const onKartuGerak = useCallback(
-    (e: React.PointerEvent<HTMLElement>) => {
-      if (e.pointerType === "touch" && !sentuhAktifRef.current) return;
-      onKartuMasuk();
-      if (reduce) return;
-      terapkanTilt(e.clientX, e.clientY);
-    },
-    [onKartuMasuk, reduce, terapkanTilt],
-  );
-
-  const onKartuSentuh = useCallback(
-    (e: React.PointerEvent<HTMLElement>) => {
-      if (e.pointerType !== "touch") return;
-      sentuhAktifRef.current = true;
-      onKartuMasuk();
-      if (reduce) return;
-      terapkanTilt(e.clientX, e.clientY);
-    },
-    [onKartuMasuk, reduce, terapkanTilt],
-  );
-
-  /** Kembalikan kartu ke netral dengan lembut (pointer keluar / selesai). */
-  const onKartuLepas = useCallback(() => {
+  /**
+   * Kembalikan kartu ke netral dengan lembut (pointer keluar / selesai).
+   *
+   * Bila seretan sudah benar-benar memutar kartu, sudutnya DISELARASKAN ke
+   * kelipatan 360° terdekat: kartu menetap pada tampak depan tanpa berputar balik
+   * melewati seluruh putaran yang baru saja dilakukan pengguna. Dideklarasikan
+   * sebelum handler seret karena dipakai di dalamnya (mis. saat tombol sudah
+   * dilepas di luar jendela).
+   */
+  const selesaiSeret = useCallback(() => {
     sentuhAktifRef.current = false;
+    const seret = seretRef.current;
+    seret.aktif = false;
     sceneRef.current?.setHover(false);
     const k = gerakRef.current;
     k.angkatTarget = 0;
-    k.tx = 0;
-    k.ty = 0;
-    kartuRef.current?.classList.remove("kartu-3d--naik");
+    if (seret.berputar) {
+      k.tx = Math.round(k.tx / 360) * 360;
+      k.ty = 0;
+      seret.berputar = false;
+    } else {
+      k.tx = 0;
+      k.ty = 0;
+    }
+    kartuRef.current?.classList.remove("kartu-3d--naik", "kartu-3d--putar");
     if (kilauRef.current !== null) kilauRef.current.style.opacity = "0";
     pastikanLoop();
   }, [pastikanLoop]);
+
+  /**
+   * Pointer keluar dari kotak kartu. Kalau kartu sedang diseret, seretannya
+   * SENGAJA dilanjutkan: pointer sudah ditangkap (`setPointerCapture`), jadi
+   * pengguna boleh memutar kartu sambil menggeser kursor keluar dari kartu.
+   * Kalau tidak sedang diseret, cukup kembalikan kartu ke netral.
+   */
+  const onKartuKeluar = useCallback(() => {
+    if (seretRef.current.aktif) return;
+    selesaiSeret();
+  }, [selesaiSeret]);
+
+  /**
+   * Mulai menyeret kartu (pointer ditekan). Berlaku untuk mouse MAUPUN sentuh:
+   * seret adalah satu-satunya jalan masuk ke putaran bebas, sedangkan melintas
+   * tanpa menekan hanya memiringkan kartu.
+   */
+  const mulaiSeret = useCallback(
+    (e: React.PointerEvent<HTMLElement>) => {
+      if (e.pointerType === "touch") sentuhAktifRef.current = true;
+      onKartuMasuk();
+      if (reduce) return;
+      seretRef.current = { aktif: true, x: e.clientX, y: e.clientY, berputar: false };
+      kartuRef.current?.classList.add("kartu-3d--putar");
+      // Penangkapan pointer membuat seretan tetap terlacak walau kursor keluar
+      // dari kotak kartu, dan `pointerup` tetap sampai ke elemen ini sehingga
+      // putaran tidak pernah "nyangkut" setengah jalan.
+      e.currentTarget.setPointerCapture?.(e.pointerId);
+    },
+    [onKartuMasuk, reduce],
+  );
+
+  const onKartuGerak = useCallback(
+    (e: React.PointerEvent<HTMLElement>) => {
+      onKartuMasuk();
+      if (reduce) return;
+      const seret = seretRef.current;
+      if (seret.aktif) {
+        // Jaring pengaman: tombol sudah dilepas di luar jendela → selesaikan
+        // seretan dengan perilaku yang sama seperti `pointerup`.
+        if (e.buttons === 0) {
+          selesaiSeret();
+          return;
+        }
+        putarKartu(e.clientX, e.clientY);
+        return;
+      }
+      // Sentuh tanpa menekan kartu tidak memiringkan apa pun (gulir tetap milik
+      // halaman); mouse yang hanya melintas tetap mendapat tilt terbatas.
+      if (e.pointerType === "touch") return;
+      terapkanTilt(e.clientX, e.clientY);
+    },
+    [onKartuMasuk, putarKartu, reduce, selesaiSeret, terapkanTilt],
+  );
 
   /* ── Section: parallax scene + riak. Tidak pernah preventDefault → scroll. ── */
   const onSectionGerak = useCallback(
@@ -656,10 +772,10 @@ export function LandingHero(props: LandingHeroProps) {
             style={{ animationDelay: "0.16s" }}
             onPointerEnter={onKartuMasuk}
             onPointerMove={onKartuGerak}
-            onPointerDown={onKartuSentuh}
-            onPointerLeave={onKartuLepas}
-            onPointerUp={onKartuLepas}
-            onPointerCancel={onKartuLepas}
+            onPointerDown={mulaiSeret}
+            onPointerLeave={onKartuKeluar}
+            onPointerUp={selesaiSeret}
+            onPointerCancel={selesaiSeret}
           >
             <div ref={kartuRef} className="kartu-3d">
               <KartuFinansial />
@@ -684,52 +800,80 @@ export function LandingHero(props: LandingHeroProps) {
 }
 
 /**
- * Muka kartu. Sengaja HANYA identitas merek: tanpa nomor kartu, masa berlaku,
- * CVV, data pengguna, atau logo pihak ketiga — ini objek brand, bukan alat bayar.
+ * Muka kartu — OBJEK MEREK, bukan alat bayar.
+ *
+ * Premium & kaca: permukaan `.kartu-3d__muka` tembus pandang + `backdrop-filter`,
+ * jadi adegan 3D di belakangnya samar terlihat (kaca sungguhan, bukan gradien
+ * hiasan). Di atasnya ada lapisan kilau `.kartu-3d__kaca`, pita holografik
+ * `.kartu-3d__hologram`, dan tepi brass.
+ *
+ * Angka pada kartu adalah CONTOH yang mustahil menjadi kartu sungguhan —
+ * `0000 0000 0000 0000`, `00/00`, `000`. Tidak ada data pengguna, nomor
+ * telepon, ataupun logo pihak ketiga. Baris angka diberi `aria-hidden` (kartu
+ * ini dekoratif; pembaca layar tidak perlu mendengar angka palsu) dan ditemani
+ * keterangan kecil "Kartu contoh · bukan alat bayar" supaya tidak ada yang
+ * mengira PINDAI menerbitkan kartu.
  */
 function KartuFinansial() {
   return (
     <div className="kartu-3d__muka">
       <div aria-hidden="true" className="kartu-3d__tepi" />
+      <div aria-hidden="true" className="kartu-3d__kaca" />
+
       <div className="relative flex items-start justify-between gap-4">
         <div className="flex items-center gap-3">
           <VaultLogo size={44} />
           <div>
             <p className="text-sm font-semibold tracking-[0.22em] text-white">PINDAI</p>
-            <p className="mt-0.5 text-[9px] font-medium uppercase tracking-[0.28em] text-[#c9a86a]">
+            <p className="mt-0.5 text-[9px] font-medium uppercase tracking-[0.28em] text-[#e6d3a5]">
               Pinjam dan Gadai Digital
             </p>
           </div>
         </div>
-        {/* Chip brass bergaya — dekoratif, bukan chip pembayaran asli. */}
-        <div className="kartu-3d__chip" aria-hidden="true">
-          <span />
-          <span />
-          <span />
+        <div className="flex items-start gap-2">
+          {/* Pita holografik — penanda keaslian kartu premium (dekoratif). */}
+          <div className="kartu-3d__hologram" aria-hidden="true" />
+          {/* Chip brass bergaya — dekoratif, bukan chip pembayaran asli. */}
+          <div className="kartu-3d__chip" aria-hidden="true">
+            <span />
+            <span />
+            <span />
+          </div>
         </div>
       </div>
 
-      <div className="relative mt-10 flex items-center gap-3 sm:mt-12">
-        <span aria-hidden="true" className="text-lg leading-none text-[#c9a86a]">
-          &#9671;
-        </span>
-        <span
-          aria-hidden="true"
-          className="h-px flex-1 bg-gradient-to-r from-white/25 via-white/10 to-transparent"
-        />
+      <div aria-hidden="true" className="relative mt-6">
+        <p className="kartu-3d__label">Nomor kartu</p>
+        <p className="kartu-3d__nomor">
+          <span>0000</span>
+          <span>0000</span>
+          <span>0000</span>
+          <span>0000</span>
+        </p>
       </div>
 
-      <div className="relative mt-8 flex items-end justify-between gap-4 sm:mt-10">
+      <div aria-hidden="true" className="relative mt-5 flex items-end justify-between gap-5 sm:mt-6">
         <div>
-          <p className="text-[9px] uppercase tracking-[0.3em] text-white/45">Merek</p>
-          <p className="mt-1 text-base font-semibold tracking-[0.18em] text-white/90">PINDAI</p>
+          <p className="kartu-3d__label">Berlaku hingga</p>
+          <p className="kartu-3d__meta">00/00</p>
         </div>
-        <div className="text-right">
-          <p className="text-[9px] uppercase tracking-[0.3em] text-white/45">Layanan</p>
-          <p className="mt-1 text-xs font-medium tracking-[0.14em] text-white/80">
-            PINJAMAN · GADAI
-          </p>
+        <div>
+          <p className="kartu-3d__label">CVV</p>
+          <p className="kartu-3d__meta">000</p>
         </div>
+        <div className="ml-auto text-right">
+          <p className="kartu-3d__label">Merek</p>
+          <p className="kartu-3d__meta">PINDAI</p>
+        </div>
+      </div>
+
+      <div className="relative mt-4 flex items-center justify-between gap-3 border-t border-white/10 pt-3">
+        <p className="text-[8px] font-medium uppercase tracking-[0.2em] text-white/45">
+          Kartu contoh · bukan alat bayar
+        </p>
+        <p className="text-[9px] font-medium uppercase tracking-[0.16em] text-white/60">
+          Pinjaman · Gadai
+        </p>
       </div>
     </div>
   );
