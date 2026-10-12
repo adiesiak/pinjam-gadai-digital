@@ -1,9 +1,12 @@
 /**
- * KARTU HERO PINDAI — "Black Obsidian Glass & Luxury Batik Parang".
+ * KARTU HERO PINDAI — "Warm Paper & Brass Batik Parang".
  *
- * Objek MEREK untuk hero landing: kaca obsidian hitam dengan motif batik parang
- * modern (garis emas tua #D4AF37 + rona emerald pudar), aksen logam emas pada
- * logo/chip/nomor, dan pendaran emerald ganda (ring + glow + sudut bercahaya).
+ * Objek MEREK untuk hero landing: kaca CERAH (kertas hangat, bukan obsidian)
+ * dengan motif batik parang modern (garis kuningan #c9a86a + petrol #1f6a62),
+ * aksen logam kuningan pada logo/chip/nomor, garis ganda kuningan di tepi, dan
+ * cucian kuningan + petrol di dua sudut. Keputusan pemilik 2026-10-12: titik
+ * fokus halaman ikut satu wajah terang, jadi permukaan gelapnya ditinggalkan
+ * (lihat DESIGN.md §3A).
  *
  * Kenapa kartunya "kartu contoh": PINDAI tidak menerbitkan kartu pembayaran.
  * Angka di kartu karena itu CONTOH, dan baris data (nomor, masa berlaku, nama)
@@ -152,7 +155,7 @@ export function KartuHeroPindai({
     // `transform`, jadi kalau disatukan salah satunya akan saling menimpa.
     <div
       ref={panggungRef}
-      data-kartu-panggung="obsidian-batik"
+      data-kartu-panggung="kertas-batik"
       className="[perspective:1000px] [transform-style:preserve-3d]"
       style={{
         transform: "rotateX(var(--tilt-x, 0deg)) rotateY(var(--tilt-y, 0deg))",
@@ -165,13 +168,19 @@ export function KartuHeroPindai({
       onPointerCancel={lepaskanPointer}
     >
       <div
-        data-kartu="obsidian-batik"
+        data-kartu="kertas-batik"
         role="group"
         aria-label={labelKartu}
         className={cn(
           "aspect-[1.586/1] w-full max-w-md rounded-2xl relative p-6 overflow-hidden transition-all duration-500 hover:scale-[1.02]",
-          "bg-slate-950/90 backdrop-blur-2xl border border-emerald-500/40 shadow-[0_0_50px_-12px_rgba(16,185,129,0.3)]",
-          "ring-2 ring-emerald-500/60 ring-offset-2 ring-offset-slate-950",
+          // Permukaan CERAH: kertas hangat setengah tembus dengan `backdrop-blur`,
+          // jadi kartu tetap "kaca" (satu titik fokus per layar, DESIGN.md §4)
+          // tanpa memakai permukaan gelap.
+          "bg-[linear-gradient(135deg,rgba(255,255,255,0.94)_0%,rgba(253,250,241,0.9)_52%,rgba(241,237,227,0.92)_100%)] backdrop-blur-2xl border border-[#c9a86a]/55 shadow-[0_20px_45px_-26px_rgba(28,26,21,0.45)]",
+          // Garis ganda pengganti ring emerald: tepi luar kuningan redup + celah
+          // kertas tipis di dalamnya, jadi kartu tetap punya tepi tegas di atas
+          // latar terang.
+          "ring-1 ring-[#c9a86a]/35 ring-offset-2 ring-offset-white/60",
           // Lantai tinggi: pada lebar kartu kecil (ponsel), rasio 1.586:1
           // menghasilkan kotak yang lebih pendek daripada kebutuhan tiga baris
           // isi, dan `overflow-hidden` akan memotong baris bawah (nama +
@@ -181,23 +190,23 @@ export function KartuHeroPindai({
           className,
         )}
       >
-        {/* ── Pendaran emerald di sudut-sudut kartu (ganti pseudo-element: isi
-            yang sama, tapi terlihat di DOM dan bisa diuji). ── */}
+        {/* ── Cucian sudut: kuningan di kiri atas, petrol di kanan bawah (ganti
+            pseudo-element: isi yang sama, tapi terlihat di DOM dan bisa diuji). ── */}
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute -left-20 -top-24 size-48 rounded-full bg-[radial-gradient(circle,rgba(16,185,129,0.38),transparent_70%)]"
+          className="pointer-events-none absolute -left-20 -top-24 size-48 rounded-full bg-[radial-gradient(circle,rgba(201,168,106,0.5),transparent_70%)]"
         />
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute -bottom-24 -right-16 size-48 rounded-full bg-[radial-gradient(circle,rgba(16,185,129,0.3),transparent_72%)]"
+          className="pointer-events-none absolute -bottom-24 -right-16 size-48 rounded-full bg-[radial-gradient(circle,rgba(31,106,98,0.28),transparent_72%)]"
         />
 
-        {/* ── Motif Batik Parang modern: gradasi emas tua redup + emerald pudar,
-            dipasang tipis (opacity-15) dengan `mix-blend-overlay` supaya terbaca
-            sebagai tekstur taktil, bukan gambar di atas kartu. ── */}
+        {/* ── Motif Batik Parang modern: kuningan + petrol, dipasang tipis
+            (opacity-15) dengan `mix-blend-multiply` supaya garisnya menyerap ke
+            kertas — terbaca sebagai tekstur taktil, bukan gambar di atas kartu. ── */}
         <svg
           aria-hidden="true"
-          className="pointer-events-none absolute inset-0 size-full opacity-15 mix-blend-overlay"
+          className="pointer-events-none absolute inset-0 size-full opacity-15 mix-blend-multiply"
         >
           <defs>
             <pattern
@@ -210,60 +219,61 @@ export function KartuHeroPindai({
               <path
                 d="M0 14 C 14 4, 30 24, 44 14 S 72 4, 88 14"
                 fill="none"
-                stroke="#D4AF37"
+                stroke="#c9a86a"
                 strokeWidth="3.2"
                 strokeLinecap="round"
               />
               <path
                 d="M0 34 C 14 24, 30 44, 44 34 S 72 24, 88 34"
                 fill="none"
-                stroke="#10B981"
+                stroke="#1f6a62"
                 strokeWidth="2.2"
                 strokeLinecap="round"
               />
               <path
                 d="M0 52 C 14 42, 30 62, 44 52 S 72 42, 88 52"
                 fill="none"
-                stroke="#D4AF37"
+                stroke="#c9a86a"
                 strokeWidth="1.4"
                 strokeLinecap="round"
               />
-              <circle cx="62" cy="22" r="2.2" fill="#D4AF37" />
-              <circle cx="20" cy="44" r="1.7" fill="#10B981" />
+              <circle cx="62" cy="22" r="2.2" fill="#c9a86a" />
+              <circle cx="20" cy="44" r="1.7" fill="#1f6a62" />
             </pattern>
           </defs>
           <rect width="100%" height="100%" fill={`url(#${idParang})`} />
         </svg>
 
-        {/* ── Cucian warna: emas tua redup di kiri atas, emerald pudar di kanan
-            bawah — inilah yang memberi kesan obsidian "kaya tekstur". ── */}
+        {/* ── Cucian warna: kuningan tipis di kiri atas, petrol tipis di kanan
+            bawah — inilah yang membuat kertasnya terbaca "kaya tekstur", bukan
+            putih kosong. ── */}
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute inset-0 bg-[radial-gradient(120%_90%_at_15%_-10%,rgba(212,175,55,0.16),transparent_55%),radial-gradient(90%_80%_at_100%_110%,rgba(16,185,129,0.14),transparent_60%)]"
+          className="pointer-events-none absolute inset-0 bg-[radial-gradient(120%_90%_at_15%_-10%,rgba(201,168,106,0.2),transparent_55%),radial-gradient(90%_80%_at_100%_110%,rgba(31,106,98,0.1),transparent_60%)]"
         />
 
         {/* ── Kilau yang mengikuti pointer (light reflect). ── */}
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute inset-0 mix-blend-overlay transition-opacity duration-300"
+          className="pointer-events-none absolute inset-0 mix-blend-multiply transition-opacity duration-300"
           style={{
             opacity: "var(--kilau-opasitas, 0)",
             background:
-              "radial-gradient(circle at var(--kilau-x, 50%) var(--kilau-y, 30%), rgba(255,255,255,0.35), rgba(16,185,129,0.12) 35%, transparent 62%)",
+              "radial-gradient(circle at var(--kilau-x, 50%) var(--kilau-y, 30%), rgba(201,168,106,0.35), rgba(31,106,98,0.12) 38%, transparent 62%)",
           }}
         />
 
         {/* ── Kepala kartu: logo emas mengkilap, KIRI ATAS saja. Sisi kanan
             sengaja kosong supaya bersih & elegan. ── */}
         <header className="relative flex items-center">
-          <p className="text-amber-300 font-bold tracking-wider flex items-center gap-2">
+          <p className="text-emerald-700 font-bold tracking-wider flex items-center gap-2">
             <span
               aria-hidden="true"
               className="flex size-8 items-center justify-center rounded-lg bg-gradient-to-br from-amber-100 via-amber-400 to-amber-700 text-xs font-black text-slate-950 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.35)]"
             >
               P
             </span>
-            <span className="drop-shadow-[0_1px_3px_rgba(212,175,55,0.45)]">
+            <span>
               PINDAI
             </span>
           </p>
@@ -279,15 +289,15 @@ export function KartuHeroPindai({
         <div className="relative my-auto flex items-center gap-3">
           <div
             aria-hidden="true"
-            className="bg-gradient-to-br from-amber-200 via-amber-400 to-amber-600 rounded-md w-12 h-9 shadow-inner border border-amber-200/50 flex flex-col justify-center gap-[3px] px-1.5"
+            className="bg-gradient-to-br from-amber-200 via-amber-400 to-amber-600 rounded-md w-12 h-9 shadow-inner border border-emerald-800/30 flex flex-col justify-center gap-[3px] px-1.5"
           >
-            <span className="h-px w-full bg-amber-900/35" />
-            <span className="h-px w-full bg-amber-900/35" />
-            <span className="h-px w-full bg-amber-900/35" />
+            <span className="h-px w-full bg-emerald-900/35" />
+            <span className="h-px w-full bg-emerald-900/35" />
+            <span className="h-px w-full bg-emerald-900/35" />
           </div>
           {/* Ikon contactless: busur `Wifi` diputar 90° agar membuka ke kanan. */}
           <Wifi
-            className="size-5 rotate-90 text-amber-300/90"
+            className="size-5 rotate-90 text-emerald-700/90"
             aria-hidden="true"
           />
         </div>
@@ -300,11 +310,11 @@ export function KartuHeroPindai({
         <div className="relative">
           <p
             aria-hidden="true"
-            className="font-mono text-amber-200/90 tracking-widest text-lg drop-shadow-sm"
+            className="font-mono text-emerald-800 tracking-widest text-lg"
           >
             {nomorTampil}
           </p>
-          <p className="mt-2 text-[10px] font-semibold uppercase tracking-[0.24em] text-emerald-300">
+          <p className="mt-2 text-[10px] font-semibold uppercase tracking-[0.24em] text-emerald-700">
             {statusTeks}
           </p>
 
@@ -313,25 +323,25 @@ export function KartuHeroPindai({
             className="mt-3 flex items-end justify-between gap-4"
           >
             <p>
-              <span className="block text-[9px] font-medium uppercase tracking-[0.24em] text-slate-400">
+              <span className="block text-[9px] font-medium uppercase tracking-[0.24em] text-slate-600">
                 Valid thru
               </span>
-              <span className="block font-mono text-xs tracking-widest text-amber-200/80">
+              <span className="block font-mono text-xs tracking-widest text-emerald-800">
                 {masaBerlakuTampil}
               </span>
             </p>
             <p className="text-right">
-              <span className="block text-[9px] font-medium uppercase tracking-[0.24em] text-slate-400">
+              <span className="block text-[9px] font-medium uppercase tracking-[0.24em] text-slate-600">
                 Cardholder
               </span>
-              <span className="block text-amber-300 font-semibold tracking-wider">
+              <span className="block text-slate-900 font-semibold tracking-wider">
                 {namaTampil}
               </span>
             </p>
           </div>
 
           {catatan !== "" && (
-            <p className="mt-3 text-[9px] uppercase tracking-[0.18em] text-slate-500">
+            <p className="mt-3 text-[9px] uppercase tracking-[0.18em] text-slate-600">
               {catatan}
             </p>
           )}

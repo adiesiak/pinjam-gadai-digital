@@ -1,6 +1,6 @@
 /**
- * Logika MURNI untuk kartu hero PINDAI ("Black Obsidian Glass & Luxury Batik
- * Parang") — tanpa React, jadi bisa diuji langsung (`kartuNasabah.test.ts`).
+ * Logika MURNI untuk kartu hero PINDAI ("Warm Paper & Brass Batik Parang") —
+ * tanpa React, jadi bisa diuji langsung (`kartuNasabah.test.ts`).
  *
  * Tiga hal dikumpulkan di sini karena kegagalannya berbahaya kalau ditulis di
  * dalam JSX:

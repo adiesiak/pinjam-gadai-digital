@@ -60,7 +60,7 @@ ok(
   "tanpa kelas panggung tilt hero",
 );
 ok(
-  html.includes('data-kartu-panggung="obsidian-batik"'),
+  html.includes('data-kartu-panggung="kertas-batik"'),
   "tilt tetap milik komponen kartu",
 );
 ok(!html.includes("kartu-3d"), "tanpa kelas kartu 3D");
@@ -106,7 +106,7 @@ ok(html.includes("Verifikasi OTP WhatsApp"), "poin kepercayaan kedua ada");
 
 // ── 4. Objek merek: kartu contoh ──
 ok(
-  html.includes('data-kartu="obsidian-batik"'),
+  html.includes('data-kartu="kertas-batik"'),
   "kartu merek tetap tampil (permukaan KartuHeroPindai)",
 );
 ok(

@@ -1,13 +1,14 @@
 /**
- * Uji render kartu hero PINDAI ("Black Obsidian Glass & Luxury Batik Parang").
+ * Uji render kartu hero PINDAI ("Warm Paper & Brass Batik Parang").
  * Run: bun src/components/landing/KartuHeroPindai.render.test.tsx
  *
  * Yang dijaga (tanpa browser — render statis):
  *  1. Token desain yang diminta benar-benar ada di MARKUP: ukuran/rasio kartu,
- *     permukaan obsidian + pendaran emerald ganda (ring + glow), dua pendaran
- *     sudut, motif batik parang (emas #D4AF37 + emerald, `opacity-15
- *     mix-blend-overlay`), chip logam emas + ikon contactless, dan baris data
- *     emas (nomor monospace, status emerald, masa berlaku, nama pemegang).
+ *     permukaan CERAH (kertas + kaca, bukan obsidian) dengan garis ganda
+ *     kuningan, dua cucian sudut, motif batik parang (kuningan #c9a86a +
+ *     petrol #1f6a62, `opacity-15 mix-blend-multiply`), chip logam kuningan +
+ *     ikon contactless, dan baris data (nomor monospace, status, masa berlaku,
+ *     nama pemegang) yang tetap di atas ambang kontras WCAG AA di kertas terang.
  *  2. Sisi kanan atas BENAR-BENAR kosong: tidak ada pita holografik/deret ikon
  *     yang dihapus dari desain lama.
  *  3. Kartu jujur: baris data contoh ditandai `aria-hidden`, dan catatan
@@ -42,7 +43,7 @@ function bersih(html: string, label: string): void {
   ok(!html.includes("[object Object]"), `${label} tanpa "[object Object]"`);
 }
 
-// ===== 1. Wadah utama, permukaan obsidian, pendaran ganda =====
+// ===== 1. Wadah utama, permukaan cerah, garis ganda =====
 {
   const html = renderToStaticMarkup(<KartuHeroPindai />);
   ada(
@@ -59,25 +60,33 @@ function bersih(html: string, label: string): void {
   );
   ada(
     html,
-    "bg-slate-950/90 backdrop-blur-2xl border border-emerald-500/40 shadow-[0_0_50px_-12px_rgba(16,185,129,0.3)]",
-    "permukaan obsidian + glow emerald persis seperti permintaan",
+    "bg-[linear-gradient(135deg,rgba(255,255,255,0.94)_0%,rgba(253,250,241,0.9)_52%,rgba(241,237,227,0.92)_100%)] backdrop-blur-2xl border border-[#c9a86a]/55 shadow-[0_20px_45px_-26px_rgba(28,26,21,0.45)]",
+    "permukaan cerah: kertas hangat berkaca + tepi kuningan",
   );
   ada(
     html,
-    "ring-2 ring-emerald-500/60 ring-offset-2 ring-offset-slate-950",
-    "garis ganda emerald (ring + offset) persis seperti permintaan",
+    "ring-1 ring-[#c9a86a]/35 ring-offset-2 ring-offset-white/60",
+    "garis ganda kuningan (ring + offset) persis seperti permintaan",
   );
-  ada(html, 'data-kartu="obsidian-batik"', "kartu punya penanda data-kartu");
+  // Permukaan gelap lama harus benar-benar hilang, bukan sekadar ditimpa.
+  tidakAda(html, "bg-slate-950/90", "permukaan obsidian tidak dipakai lagi");
+  tidakAda(html, "ring-emerald-500/60", "ring emerald lama tidak tersisa");
+  ada(html, 'data-kartu="kertas-batik"', "kartu punya penanda data-kartu");
   ada(html, 'role="group"', "kartu dikelompokkan untuk pembaca layar");
   ada(
     html,
     'aria-label="Kartu contoh PINDAI"',
     "label kartu contoh tanpa data nasabah",
   );
-  ok(
-    (html.match(/bg-\[radial-gradient\(circle,rgba\(16,185,129/g) ?? [])
-      .length === 2,
-    "dua pendaran emerald di sudut kartu",
+  ada(
+    html,
+    "bg-[radial-gradient(circle,rgba(201,168,106,0.5),transparent_70%)]",
+    "cucian kuningan di sudut kiri atas",
+  );
+  ada(
+    html,
+    "bg-[radial-gradient(circle,rgba(31,106,98,0.28),transparent_72%)]",
+    "cucian petrol di sudut kanan bawah",
   );
   bersih(html, "kartu bawaan");
 }
@@ -87,11 +96,11 @@ function bersih(html: string, label: string): void {
   const html = renderToStaticMarkup(<KartuHeroPindai />);
   ada(
     html,
-    "opacity-15 mix-blend-overlay",
-    "lapisan motif dipasang tipis & menyatu",
+    "opacity-15 mix-blend-multiply",
+    "lapisan motif dipasang tipis & menyerap ke kertas",
   );
-  ada(html, "#D4AF37", "motif memakai emas tua redup");
-  ada(html, "#10B981", "motif memakai rona emerald");
+  ada(html, "#c9a86a", "motif memakai kuningan");
+  ada(html, "#1f6a62", "motif memakai rona petrol");
   ada(html, 'patternTransform="rotate(-45)"', "motif parang miring diagonal");
   ada(
     html,
@@ -100,13 +109,13 @@ function bersih(html: string, label: string): void {
   );
   ada(
     html,
-    "radial-gradient(120%_90%_at_15%_-10%,rgba(212,175,55,0.16),transparent_55%)",
-    "cucian emas tua di kiri atas",
+    "radial-gradient(120%_90%_at_15%_-10%,rgba(201,168,106,0.2),transparent_55%)",
+    "cucian kuningan di kiri atas",
   );
   ada(
     html,
-    "radial-gradient(90%_80%_at_100%_110%,rgba(16,185,129,0.14),transparent_60%)",
-    "cucian emerald pudar di kanan bawah",
+    "radial-gradient(90%_80%_at_100%_110%,rgba(31,106,98,0.1),transparent_60%)",
+    "cucian petrol tipis di kanan bawah",
   );
   ada(html, "var(--kilau-x", "kilau mengikuti posisi pointer (light reflect)");
   ada(html, "var(--kilau-opasitas, 0)", "kilau redup sebelum pointer masuk");
@@ -118,8 +127,8 @@ function bersih(html: string, label: string): void {
   const html = renderToStaticMarkup(<KartuHeroPindai />);
   ada(
     html,
-    "text-amber-300 font-bold tracking-wider flex items-center gap-2",
-    "kelas logo emas persis seperti permintaan",
+    "text-emerald-700 font-bold tracking-wider flex items-center gap-2",
+    "kelas wordmark kuningan gelap persis seperti permintaan",
   );
   ada(html, "PINDAI", "teks merek tampil");
   ada(
@@ -137,8 +146,8 @@ function bersih(html: string, label: string): void {
   const html = renderToStaticMarkup(<KartuHeroPindai />);
   ada(
     html,
-    "bg-gradient-to-br from-amber-200 via-amber-400 to-amber-600 rounded-md w-12 h-9 shadow-inner border border-amber-200/50",
-    "kelas chip logam emas persis seperti permintaan",
+    "bg-gradient-to-br from-amber-200 via-amber-400 to-amber-600 rounded-md w-12 h-9 shadow-inner border border-emerald-800/30",
+    "kelas chip logam kuningan persis seperti permintaan",
   );
   // Pita chip memusatkan dirinya dengan `my-auto` (sisa tinggi dibagi sama besar
   // di atas dan di bawahnya), dan blok nomor TIDAK boleh ikut memakai `mt-auto`:
@@ -157,7 +166,7 @@ function bersih(html: string, label: string): void {
   ada(html, "lucide-wifi", "ikon contactless/NFC dirender di samping chip");
   ada(html, "rotate-90", "ikon contactless diputar membuka ke kanan");
   ok(
-    (html.match(/bg-amber-900\/35/g) ?? []).length === 3,
+    (html.match(/bg-emerald-900\/35/g) ?? []).length === 3,
     "chip punya tiga garis kontak",
   );
   bersih(html, "chip");
@@ -168,23 +177,28 @@ function bersih(html: string, label: string): void {
   const html = renderToStaticMarkup(<KartuHeroPindai />);
   ada(
     html,
-    "font-mono text-amber-200/90 tracking-widest text-lg drop-shadow-sm",
+    "font-mono text-emerald-800 tracking-widest text-lg",
     "kelas nomor kartu persis seperti permintaan",
   );
   ada(html, "1234 5678 9012 3456", "nomor contoh 16 digit tampil berkelompok");
   ada(html, "TERAKREDITASI &amp; AMAN", "status/akreditasi tampil");
-  ada(html, "text-emerald-300", "status memakai emerald light");
+  ada(html, "text-emerald-700", "status memakai kuningan gelap");
+  // Di kertas terang, token teks lama yang redup (amber/emerald terang, slate-400)
+  // akan jatuh di bawah 4.5:1 — jadi tidak boleh tersisa di kartu ini.
+  tidakAda(html, "text-amber-300", "tanpa teks kuningan terang di kertas");
+  tidakAda(html, "text-amber-200", "tanpa teks kuningan pucat di kertas");
+  tidakAda(html, "text-slate-400", "tanpa label abu pucat di kertas");
   ada(html, "Valid thru", "label masa berlaku tampil");
   ada(
     html,
-    "text-amber-200/80",
+    "text-emerald-800",
     "kelas masa berlaku persis seperti permintaan",
   );
   ada(html, "12/29", "masa berlaku contoh tampil");
   ada(html, "Cardholder", "label pemegang kartu tampil");
   ada(
     html,
-    "text-amber-300 font-semibold tracking-wider",
+    "text-slate-900 font-semibold tracking-wider",
     "kelas nama pemegang persis seperti permintaan",
   );
   ada(html, "CARDHOLDER", "tanpa data terverifikasi → CARDHOLDER");
@@ -272,7 +286,7 @@ function bersih(html: string, label: string): void {
   const html = renderToStaticMarkup(<KartuHeroPindai />);
   ada(
     html,
-    'data-kartu-panggung="obsidian-batik"',
+    'data-kartu-panggung="kertas-batik"',
     "kartu punya panggung tilt",
   );
   ada(html, "[perspective:1000px]", "panggung memakai perspektif");
