@@ -159,7 +159,7 @@ export function KepalaMerekAuth() {
         </span>
       </Link>
 
-      <ul className="mt-5 grid w-full grid-cols-3 divide-x divide-slate-200 overflow-hidden rounded-2xl border border-slate-200 bg-white/70 text-center shadow-xs backdrop-blur-sm">
+      <ul className="mt-5 grid w-full grid-cols-3 divide-x divide-slate-200 overflow-hidden rounded-2xl border border-slate-200 bg-white text-center shadow-xs">
         {LENCANA_FITUR.map(({ label, ikon: Ikon }) => (
           <li
             key={label}

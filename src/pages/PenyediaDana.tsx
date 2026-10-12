@@ -2663,7 +2663,7 @@ function IsiRuang() {
             terpisah dari angka yang ditampilkan di layar ini.
           </p>
           <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-4">
-            <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-gold">
+            <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#d8c28c]">
               PINDAI · ruang pendana (lihat saja)
             </span>
             <Link

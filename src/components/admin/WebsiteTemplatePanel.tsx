@@ -21,7 +21,7 @@ const TEMPLATES: TemplateInfo[] = [
     id: "tinta",
     nama: "Tinta & Kuningan",
     deskripsi: "Karakter profesional dengan aksen hijau tinta dan nuansa kertas hangat.",
-    warna: ["#0f3d3a", "#9c7b3a", "#f1ede3"],
+    warna: ["#0f3d3a", "#8a6a2f", "#f1ede3"],
     latar: "#f8f6f1",
     tinta: "#1c1a15",
   },

@@ -57,7 +57,7 @@ export function AliranDanaPinjaman({
   return (
     <section
       aria-label="Aliran uang pinjaman ini"
-      className="rounded-2xl border border-slate-200/80 bg-white/80 p-4 shadow-xs backdrop-blur-md"
+      className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-xs"
     >
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
@@ -83,7 +83,7 @@ export function AliranDanaPinjaman({
             key={b.label}
             // Permukaan kaca di atas latar buram modal; tepinya menyala emerald
             // saat disorot supaya kartu yang sedang dibaca jelas.
-            className="border-slate-200/80 bg-white/80 shadow-xs backdrop-blur-md transition-all duration-[var(--motion-normal)] hover:border-emerald-500/40"
+            className="border-slate-200/80 bg-white shadow-xs transition-all duration-[var(--motion-normal)] hover:border-emerald-500/40"
             label={b.label}
             nilai={
               b.arah === "potongan" ? (

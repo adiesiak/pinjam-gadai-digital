@@ -153,7 +153,7 @@ export function AdminNav({
   return (
     <>
       {/* Strip chip: modul milik tab yang sedang aktif + pintu ke pencarian. */}
-      <div className="animate-masuk sticky top-14 z-30 -mx-3 border-y border-slate-200 bg-white/95 px-3 py-2 backdrop-blur sm:-mx-6 sm:top-16 sm:px-6 lg:hidden">
+      <div className="animate-masuk sticky top-14 z-30 -mx-3 border-y border-slate-200 bg-white px-3 py-2 sm:-mx-6 sm:top-16 sm:px-6 lg:hidden">
         <div role="group" aria-label="Pilih modul" className="flex flex-wrap items-center gap-1.5">
           {itemGrup.map((item) => {
             const aktif = item.value === activeTab;
@@ -192,7 +192,7 @@ export function AdminNav({
           masuk navigasi, bukan penyaring satu daftar (lihat `SubTabFilter`). */}
       <nav
         aria-label="Menu operasi"
-        className="fixed bottom-0 left-[env(safe-area-inset-left)] right-[env(safe-area-inset-right)] z-30 border-t border-slate-200 bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden"
+        className="fixed bottom-0 left-[env(safe-area-inset-left)] right-[env(safe-area-inset-right)] z-30 border-t border-slate-200 bg-white pb-[env(safe-area-inset-bottom)] lg:hidden"
       >
         <div className="mx-auto flex w-full max-w-7xl items-stretch">
           {GRUP_NAV.map((grupNav) => {

@@ -700,7 +700,7 @@ export function LandingHero(props: LandingHeroProps) {
       <div className="relative mx-auto grid w-full max-w-7xl items-center gap-12 px-4 pb-14 pt-12 sm:px-6 sm:pb-20 sm:pt-16 lg:grid-cols-[1.02fr_0.98fr] lg:gap-10 lg:pb-24 lg:pt-20">
         <div className="relative z-10 max-w-xl">
           <p
-            className="motion-slide-up inline-flex items-center gap-2 rounded-full border border-[#c9a86a]/30 bg-white/[0.04] px-3.5 py-1.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#e6d3a5] backdrop-blur"
+            className="motion-slide-up inline-flex items-center gap-2 rounded-full border border-[#c9a86a]/30 bg-white/[0.04] px-3.5 py-1.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#e6d3a5]"
             style={{ animationDelay: "0.02s" }}
           >
             <Sparkles className="size-3.5" aria-hidden="true" />
@@ -782,7 +782,7 @@ export function LandingHero(props: LandingHeroProps) {
               menggerakkan putaran koin & cincin kedalaman di adegan 3D. */}
           {simulator && (
             <div
-              className="motion-slide-up mt-6 max-w-lg rounded-2xl border border-white/10 bg-white/[0.04] p-4 backdrop-blur"
+              className="motion-slide-up mt-6 max-w-lg rounded-2xl border border-white/10 bg-white/[0.04] p-4"
               style={{ animationDelay: "0.28s" }}
             >
               <div className="flex items-baseline justify-between gap-3">
