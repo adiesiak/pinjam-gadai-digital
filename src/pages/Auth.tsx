@@ -1,19 +1,28 @@
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import {
   InputOTP,
   InputOTPGroup,
   InputOTPSlot,
 } from "@/components/ui/input-otp";
+import { Tabs, TabsContent } from "@/components/ui/tabs";
 
+import {
+  KepalaMerekAuth,
+  KepalaPane,
+  KartuAuth,
+  LatarAuth,
+  LencanaKeamanan,
+  MedanEmailMasuk,
+  PesanKesalahan,
+  TAB_CEPAT,
+  TAB_MASUK,
+  TabPintuMasuk,
+  TautanBeranda,
+  TombolLanjutEmail,
+  TombolWhatsappPeminjamLama,
+  type TabPintuMasuk as TabAuth,
+} from "@/components/auth/auth-shared";
 import { KlaimPeminjamLama } from "@/components/klaim/KlaimPeminjamLama";
 import { FadeIn } from "@/components/Reveal";
 import { useAuth } from "@/hooks/use-auth";
@@ -23,18 +32,14 @@ import { ADMIN_ROUTE } from "@/lib/routes";
 import {
   ArrowLeft,
   ArrowRight,
-  BadgeCheck,
-  CalendarClock,
   KeyRound,
   Loader2,
   LockKeyhole,
   Mail,
-  MessageCircle,
   ShieldAlert,
   ShieldCheck,
   UserX,
-  Vault,
-  LogIn,
+  Zap,
 } from "lucide-react";
 import { Suspense, useEffect, useRef, useState, type FormEvent } from "react";
 import { useMutation } from "convex/react";
@@ -149,9 +154,15 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
   // Langkah jalur nasabah: nomor email → kode email, atau jalur "klaim" untuk
   // PEMINJAM LAMA (nomor WhatsApp lama → kode WhatsApp, lihat
   // `components/klaim/KlaimPeminjamLama`).
-  const [clientStep, setClientStep] = useState<"signIn" | "klaim" | { email: string }>(
-    "signIn",
-  );
+  const [clientStep, setClientStep] = useState<
+    "signIn" | "klaim" | { email: string }
+  >("signIn");
+  /**
+   * Tab kartu masuk. "Masuk Akun" adalah DEFAULT (email → kode verifikasi);
+   * "Akses Cepat" mengumpulkan pintu yang jarang dipakai (tamu & kode akses
+   * bersama) supaya satu layar tidak menawarkan semua aksi sekaligus.
+   */
+  const [tab, setTab] = useState<TabAuth>(TAB_MASUK);
   const [adminStep, setAdminStep] = useState<AdminStep>("signIn");
   const [otp, setOtp] = useState("");
   const [adminOtp, setAdminOtp] = useState("");
@@ -309,7 +320,11 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
           await recordSuccessfulLogin("password");
         } else {
           setAdminOtp("");
-          setAdminStep({ kind: "code", email: adminEmail, purpose: "activation" });
+          setAdminStep({
+            kind: "code",
+            email: adminEmail,
+            purpose: "activation",
+          });
         }
       } else if (adminStep === "activate") {
         if (newPassword.length < 8) {
@@ -334,7 +349,11 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
         setNewPassword("");
         setConfirmPassword("");
         setAdminOtp("");
-        setAdminStep({ kind: "code", email: adminEmail, purpose: "activation" });
+        setAdminStep({
+          kind: "code",
+          email: adminEmail,
+          purpose: "activation",
+        });
       } else if (adminStep === "reset") {
         await signIn("password", { flow: "reset", email: adminEmail });
         setAdminOtp("");
@@ -348,7 +367,9 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
       if (/invalid credentials/i.test(message)) {
         setError("Email atau kata sandi Super Admin tidak sesuai.");
       } else if (/account.*exist|already exists/i.test(message)) {
-        setError("Password sudah aktif. Silakan masuk atau gunakan Lupa kata sandi.");
+        setError(
+          "Password sudah aktif. Silakan masuk atau gunakan Lupa kata sandi.",
+        );
       } else if (/terlalu banyak permintaan token/i.test(message)) {
         setError(
           "Terlalu banyak permintaan token dalam 15 menit. Coba lagi nanti — token yang sudah dikirim sebelumnya tetap berlaku sampai kedaluwarsa.",
@@ -362,7 +383,9 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
           "Terlalu banyak percobaan masuk. Tunggu beberapa menit, atau isi kode TOTP aplikasi autentikator untuk masuk sekarang.",
         );
       } else if (/account.*not found|could not find/i.test(message)) {
-        setError("Password belum diaktifkan atau akun tidak ditemukan. Gunakan Aktivasi password.");
+        setError(
+          "Password belum diaktifkan atau akun tidak ditemukan. Gunakan Aktivasi password.",
+        );
       } else {
         setError("Permintaan gagal. Periksa kembali email dan coba lagi.");
       }
@@ -392,7 +415,10 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
     setIsLoading(true);
     try {
       const result = await signIn("password", {
-        flow: adminStep.purpose === "reset" ? "reset-verification" : "email-verification",
+        flow:
+          adminStep.purpose === "reset"
+            ? "reset-verification"
+            : "email-verification",
         email: adminStep.email,
         code: adminOtp,
         ...(adminStep.purpose === "reset" ? { newPassword } : {}),
@@ -401,7 +427,9 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
         throw new Error("Token verifikasi tidak valid.");
       }
       await recordSuccessfulLogin(
-        adminStep.purpose === "reset" ? "password_reset" : "password_activation",
+        adminStep.purpose === "reset"
+          ? "password_reset"
+          : "password_activation",
       );
       setNewPassword("");
       setConfirmPassword("");
@@ -409,7 +437,9 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
       console.error("Admin OTP verification error:", error);
       setKegagalan((k) => k + 1);
       await recordFailedAttempt(adminStep.email.toLowerCase());
-      setError("Token verifikasi salah atau kedaluwarsa. Periksa email dan coba lagi.");
+      setError(
+        "Token verifikasi salah atau kedaluwarsa. Periksa email dan coba lagi.",
+      );
       setAdminOtp("");
     } finally {
       setIsLoading(false);
@@ -444,193 +474,142 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
       ? `client-${typeof clientStep === "string" ? clientStep : "kode"}`
       : `admin-${typeof adminStep === "string" ? adminStep : `kode-${adminStep.purpose}`}`;
 
-  /* Kartu auth: perpaduan antara kartu kolom (Login) dan kartu dasar (rest). */
-  const cardStyle =
-    "gap-6 rounded-2xl border-border/60 shadow-sm bg-card clay-card text-card-foreground";
-
   return (
-    <div
-      id="konten"
-      tabIndex={-1}
-      className="flex min-h-screen flex-col bg-background text-foreground"
-    >
-      <div className="flex-1" />
+    <LatarAuth>
+      <FadeIn className="w-full">
+        <div className="flex w-full flex-col items-center">
+          <KepalaMerekAuth />
 
-      <FadeIn className="flex items-center justify-center px-4 py-10 sm:px-6">
-        <div className="flex w-full max-w-lg flex-col items-center">
-          {/* Brand minimalis — logo abu dengan titik kuning, teks PINDAI di bawah */}
-          <Link
-            to="/"
-            className="group flex items-center gap-2.5 text-sm font-semibold tracking-[0.18em] text-foreground transition-colors hover:text-primary"
-          >
-            <span className="flex size-8 items-center justify-center rounded-lg border border-slate-300 bg-white text-slate-800 font-bold text-base shadow-sm group-hover:border-primary/40 group-hover:text-primary transition-colors">
-              P
-            </span>
-            PINDAI
-          </Link>
-          <p className="mt-2 text-xs text-muted-foreground tracking-wide">
-            Pinjam &amp; Gadai Digital
-          </p>
+          {/* Satu langkah = satu kartu; kunci animasi masuk tetap per langkah. */}
+          <div key={langkahKey} className="animate-masuk mt-8 w-full">
+            <KartuAuth>
+              {authMode === "client" ? (
+                clientStep === "signIn" ? (
+                  <>
+                    <Tabs
+                      value={tab}
+                      onValueChange={(value) => {
+                        setTab(value as TabAuth);
+                        setError(null);
+                      }}
+                      className="block"
+                    >
+                      <TabPintuMasuk />
 
-          {/* Mitra kepercayaan — tiga ikon kecil di sebelah logo */}
-          <ul className="mt-4 flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-xs text-muted-foreground">
-            <li className="flex items-center gap-1.5">
-              <BadgeCheck className="size-3.5 text-sky-700" />
-              Pencatatan ledger
-            </li>
-            <li className="flex items-center gap-1.5">
-              <Vault className="size-3.5 text-sky-700" />
-              Pencatatan gadai
-            </li>
-            <li className="flex items-center gap-1.5">
-              <CalendarClock className="size-3.5 text-sky-700" />
-              Jadwal angsuran
-            </li>
-          </ul>
-
-          {/* Kartu login — putih, nama field jelas, aksi utama kontras */}
-          <Card key={langkahKey} className={`animate-masuk mt-8 w-full ${cardStyle}`}>
-            {authMode === "client" ? (
-              clientStep === "signIn" ? (
-                <>
-                  <CardHeader className="text-center">
-                    <CardTitle className="text-xl">Masuk atau buat akun</CardTitle>
-                    <CardDescription>
-                      Masuk untuk mencatat pengajuan pinjaman atau gadai
-                    </CardDescription>
-                  </CardHeader>
-                  <form onSubmit={handleEmailSubmit}>
-                    <CardContent>
-                      <div className="relative flex items-center gap-2">
-                        <div className="relative flex-1">
-                          <Mail className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                          <Input
-                            name="email"
-                            aria-label="Alamat email"
-                            placeholder="nama@contoh.com"
-                            type="email"
-                            className="pl-9"
+                      {/* Tab 1 — MASUK AKUN (default): email → kode verifikasi. */}
+                      <TabsContent value={TAB_MASUK} className="mt-6">
+                        <KepalaPane
+                          judul="Masuk atau buat akun"
+                          keterangan="Masuk untuk mencatat pengajuan pinjaman atau gadai."
+                          ikon={<ShieldCheck className="size-5" />}
+                        />
+                        <form
+                          onSubmit={handleEmailSubmit}
+                          className="space-y-3"
+                        >
+                          <MedanEmailMasuk isLoading={isLoading} />
+                          {error && <PesanKesalahan pesan={error} />}
+                          <CaptchaChallenge
+                            visible={captchaWajib}
+                            a={captcha.a}
+                            b={captcha.b}
+                            value={captchaJawab}
+                            onChange={setCaptchaJawab}
                             disabled={isLoading}
-                            required
                           />
-                        </div>
-                        <Button
-                          type="submit"
-                          variant="outline"
-                          size="icon"
-                          aria-label="Kirim kode verifikasi"
-                          disabled={isLoading}
-                        >
-                          {isLoading ? (
-                            <Loader2 className="size-4 animate-spin" />
-                          ) : (
-                            <ArrowRight className="size-4" />
-                          )}
-                        </Button>
-                      </div>
-                      {error && (
-                        <p role="alert" className="mt-2 text-sm text-destructive">
-                          {error}
-                        </p>
-                      )}
+                          <TombolLanjutEmail isLoading={isLoading} />
+                          {/* Pintu PEMINJAM LAMA (data impor web lama): nomor
+                              WhatsApp → kode OTP → sesi akun PEMILIK data
+                              impor, jadi dashboard langsung berisi riwayat. */}
+                          <TombolWhatsappPeminjamLama
+                            disabled={isLoading}
+                            onClick={() => {
+                              setError(null);
+                              setClientStep("klaim");
+                            }}
+                          />
+                        </form>
+                      </TabsContent>
 
-                      <CaptchaChallenge
-                        visible={captchaWajib}
-                        a={captcha.a}
-                        b={captcha.b}
-                        value={captchaJawab}
-                        onChange={setCaptchaJawab}
-                        disabled={isLoading}
-                      />
+                      {/* Tab 2 — AKSES CEPAT: tamu & kode akses bersama. */}
+                      <TabsContent value={TAB_CEPAT} className="mt-6">
+                        <KepalaPane
+                          judul="Akses cepat"
+                          keterangan="Coba aplikasi sebagai tamu, atau masuk sebagai pemantau dengan kode akses bersama."
+                          ikon={<Zap className="size-5" />}
+                        />
+                        <div className="space-y-3">
+                          <button
+                            type="button"
+                            onClick={handleGuestLogin}
+                            disabled={isLoading}
+                            className="flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-700 shadow-xs transition-all hover:bg-slate-50 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            <UserX className="size-4" aria-hidden="true" />
+                            Lanjut sebagai tamu
+                          </button>
+                          <p className="text-xs leading-5 text-slate-500">
+                            Sesi tamu hanya bisa melihat. Data yang sudah diisi
+                            tetap tersimpan di akun tamu dan bisa dilanjutkan
+                            setelah Anda masuk dengan email.
+                          </p>
 
-                      <div className="mt-4">
-                        <div className="relative">
-                          <div className="absolute inset-0 flex items-center">
-                            <span className="w-full border-t" />
-                          </div>
-                          <div className="relative flex justify-center text-xs uppercase">
-                            <span className="bg-card px-2 text-muted-foreground">
-                              atau
-                            </span>
-                          </div>
-                        </div>
-
-                        <Button
-                          type="button"
-                          variant="outline"
-                          className="mt-4 w-full"
-                          onClick={handleGuestLogin}
-                          disabled={isLoading}
-                        >
-                          <UserX className="mr-2 size-4" />
-                          Lanjut sebagai tamu
-                        </Button>
-
-                        {/* Pintu khusus pemantau penyedia dana — satu kode
-                            bersama, akses lihat saja. */}
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          className="mt-1.5 w-full text-xs text-muted-foreground"
-                          asChild
-                        >
-                          <Link to="/akses-bersama">
-                            <KeyRound className="mr-2 size-3.5" />
+                          {/* Pintu khusus pemantau penyedia dana — satu kode
+                              bersama, akses lihat saja. */}
+                          <Link
+                            to="/akses-bersama"
+                            className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-slate-300 px-4 py-3 text-sm font-medium text-slate-600 transition-all hover:border-emerald-600/40 hover:bg-emerald-50/60 hover:text-emerald-900"
+                          >
+                            <KeyRound className="size-4" aria-hidden="true" />
                             Punya kode akses bersama? Masuk di sini
                           </Link>
-                        </Button>
 
-                        {/* Pintu PEMINJAM LAMA (web lama): nomor WhatsApp → kode
-                            OTP → sesi akun PEMILIK data impor, sehingga dashboard
-                            langsung berisi riwayat — bukan form kosong. */}
-                        <Button
-                          type="button"
-                          variant="outline"
-                          className="mt-1.5 w-full border-emerald-700/25 bg-emerald-50/60 text-emerald-900 transition-all duration-200 hover:bg-emerald-50 hover:text-emerald-900 active:scale-95"
-                          onClick={() => {
-                            setError(null);
-                            setClientStep("klaim");
-                          }}
-                          disabled={isLoading}
-                        >
-                          <MessageCircle className="mr-2 size-4" />
-                          Peminjam lama? Masuk dengan nomor WhatsApp
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </form>
-                </>
-              ) : clientStep === "klaim" ? (
-                <>
-                  <CardHeader className="text-center">
-                    <CardTitle className="text-xl">Pemulihan akun web lama</CardTitle>
-                    <CardDescription>
-                      Masuk dengan nomor WhatsApp yang Anda pakai pada PINDAI sebelumnya.
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="pb-6">
+                          {error && <PesanKesalahan pesan={error} />}
+                          {/* Verifikasi anti-bot yang sama juga menjaga aksi
+                              tamu, jadi harus terlihat di tab ini. */}
+                          <CaptchaChallenge
+                            visible={captchaWajib}
+                            a={captcha.a}
+                            b={captcha.b}
+                            value={captchaJawab}
+                            onChange={setCaptchaJawab}
+                            disabled={isLoading}
+                          />
+                        </div>
+                      </TabsContent>
+                    </Tabs>
+                  </>
+                ) : clientStep === "klaim" ? (
+                  <>
+                    <KepalaPane
+                      judul="Pemulihan akun web lama"
+                      keterangan="Masuk dengan nomor WhatsApp yang Anda pakai pada PINDAI sebelumnya."
+                      ikon={<KeyRound className="size-5" />}
+                    />
                     <KlaimPeminjamLama
                       onKembali={() => {
                         setError(null);
                         setClientStep("signIn");
                       }}
                     />
-                    <p className="mt-3 text-center text-[11px] leading-5 text-muted-foreground">
-                      Belum pernah mengajukan dari web lama? Kembali dan daftar dengan email.
+                    <p className="mt-3 text-center text-[11px] leading-5 text-slate-500">
+                      Belum pernah mengajukan dari web lama? Kembali dan daftar
+                      dengan email.
                     </p>
-                  </CardContent>
-                </>
-              ) : (
-                <>
-                  <CardHeader className="text-center">
-                    <CardTitle>Cek email Anda</CardTitle>
-                    <CardDescription>
-                      Kami mengirim kode verifikasi ke {clientStep.email}
-                    </CardDescription>
-                  </CardHeader>
-                  <form onSubmit={handleOtpSubmit}>
-                    <CardContent className="pb-4">
-                      <input type="hidden" name="email" value={clientStep.email} />
+                  </>
+                ) : (
+                  <>
+                    <KepalaPane
+                      judul="Cek email Anda"
+                      keterangan={`Kami mengirim kode verifikasi ke ${clientStep.email}`}
+                      ikon={<Mail className="size-5" />}
+                    />
+                    <form onSubmit={handleOtpSubmit} className="space-y-3">
+                      <input
+                        type="hidden"
+                        name="email"
+                        value={clientStep.email}
+                      />
                       <input type="hidden" name="code" value={otp} />
 
                       <VerificationCodeField
@@ -639,9 +618,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                         disabled={isLoading}
                       />
                       {error && (
-                        <p role="alert" className="mt-2 text-center text-sm text-destructive">
-                          {error}
-                        </p>
+                        <PesanKesalahan pesan={error} className="text-center" />
                       )}
                       <CaptchaChallenge
                         visible={captchaWajib}
@@ -651,11 +628,9 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                         onChange={setCaptchaJawab}
                         disabled={isLoading}
                       />
-                    </CardContent>
-                    <CardFooter className="flex-col gap-2">
                       <Button
                         type="submit"
-                        className="w-full bg-primary font-medium text-primary-foreground hover:bg-primary/90"
+                        className="h-12 w-full rounded-xl bg-[#064E3B] font-medium text-white hover:bg-[#042F2E]"
                         disabled={isLoading || otp.length !== 6}
                       >
                         {isLoading ? (
@@ -683,27 +658,28 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                       >
                         Gunakan email lain
                       </Button>
-                    </CardFooter>
-                  </form>
-                </>
-              )
-            ) : (
-              <>
-                {adminStep === "signIn" && (
-                  <>
-                    <CardHeader className="text-center">
-                      <div className="mx-auto flex size-10 items-center justify-center rounded-xl border border-primary/20 bg-primary/5 text-primary">
-                        <ShieldCheck className="size-5" />
-                      </div>
-                      <CardTitle className="text-xl">Akses Super Admin</CardTitle>
-                      <CardDescription>
-                        Masuk dengan kata sandi. Verifikasi TOTP tetap berlaku sesuai pengaturan akun.
-                      </CardDescription>
-                    </CardHeader>
-                    <form ref={adminFormRef} onSubmit={handleAdminSubmit}>
-                      <CardContent className="space-y-4">
+                    </form>
+                  </>
+                )
+              ) : (
+                <>
+                  {adminStep === "signIn" && (
+                    <>
+                      <KepalaPane
+                        judul="Akses Super Admin"
+                        keterangan="Masuk dengan kata sandi. Verifikasi TOTP tetap berlaku sesuai pengaturan akun."
+                        ikon={<ShieldCheck className="size-5" />}
+                      />
+                      <form
+                        ref={adminFormRef}
+                        onSubmit={handleAdminSubmit}
+                        className="space-y-4"
+                      >
                         <div className="space-y-2">
-                          <label htmlFor="admin-email" className="text-sm font-medium">
+                          <label
+                            htmlFor="admin-email"
+                            className="text-sm font-medium"
+                          >
                             Email Super Admin
                           </label>
                           <Input
@@ -712,13 +688,18 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                             autoComplete="username"
                             placeholder="admin@contoh.com"
                             value={adminEmail}
-                            onChange={(event) => setAdminEmail(event.target.value)}
+                            onChange={(event) =>
+                              setAdminEmail(event.target.value)
+                            }
                             disabled={isLoading}
                             required
                           />
                         </div>
                         <div className="space-y-2">
-                          <label htmlFor="admin-password" className="text-sm font-medium">
+                          <label
+                            htmlFor="admin-password"
+                            className="text-sm font-medium"
+                          >
                             Kata sandi
                           </label>
                           <Input
@@ -727,14 +708,19 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                             autoComplete="current-password"
                             placeholder="Kata sandi admin"
                             value={adminPassword}
-                            onChange={(event) => setAdminPassword(event.target.value)}
+                            onChange={(event) =>
+                              setAdminPassword(event.target.value)
+                            }
                             disabled={isLoading}
                             required
                           />
                         </div>
                         {butuhTotp && (
                           <div className="space-y-2">
-                            <label htmlFor="admin-totp" className="text-sm font-medium">
+                            <label
+                              htmlFor="admin-totp"
+                              className="text-sm font-medium"
+                            >
                               Kode TOTP (pemulihan)
                             </label>
                             <Input
@@ -745,21 +731,22 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                               placeholder="123456"
                               value={adminTotp}
                               onChange={(event) =>
-                                setAdminTotp(event.target.value.replace(/\D/g, "").slice(0, 6))
+                                setAdminTotp(
+                                  event.target.value
+                                    .replace(/\D/g, "")
+                                    .slice(0, 6),
+                                )
                               }
                               disabled={isLoading}
                             />
                             <p className="text-xs leading-5 text-muted-foreground">
-                              Batas percobaan sedang aktif. Isi kode dari aplikasi
-                              autentikator untuk masuk sekarang — kata sandi tetap wajib benar.
+                              Batas percobaan sedang aktif. Isi kode dari
+                              aplikasi autentikator untuk masuk sekarang — kata
+                              sandi tetap wajib benar.
                             </p>
                           </div>
                         )}
-                        {error && (
-                          <p role="alert" className="text-sm text-destructive">
-                            {error}
-                          </p>
-                        )}
+                        {error && <PesanKesalahan pesan={error} />}
                         <CaptchaChallenge
                           visible={captchaWajib}
                           a={captcha.a}
@@ -768,7 +755,11 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                           onChange={setCaptchaJawab}
                           disabled={isLoading}
                         />
-                        <Button type="submit" className="w-full" disabled={isLoading}>
+                        <Button
+                          type="submit"
+                          className="w-full"
+                          disabled={isLoading}
+                        >
                           {isLoading ? (
                             <Loader2 className="mr-2 size-4 animate-spin" />
                           ) : (
@@ -796,26 +787,23 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                             Lupa kata sandi?
                           </Button>
                         </div>
-                      </CardContent>
-                    </form>
-                  </>
-                )}
+                      </form>
+                    </>
+                  )}
 
-                {adminStep === "activate" && (
-                  <>
-                    <CardHeader className="text-center">
-                      <div className="mx-auto flex size-10 items-center justify-center rounded-xl border border-primary/20 bg-primary/5 text-primary">
-                        <KeyRound className="size-5" />
-                      </div>
-                      <CardTitle className="text-xl">Aktivasi password admin</CardTitle>
-                      <CardDescription>
-                        Aktivasi hanya berlaku untuk akun yang belum punya kata sandi. Token 32 karakter dikirim ke email terverifikasi; kalau kata sandi sudah pernah aktif, tidak ada token yang dikirim — kembali dan gunakan Masuk atau Lupa kata sandi.
-                      </CardDescription>
-                    </CardHeader>
-                    <form onSubmit={handleAdminSubmit}>
-                      <CardContent className="space-y-4">
+                  {adminStep === "activate" && (
+                    <>
+                      <KepalaPane
+                        judul="Aktivasi password admin"
+                        keterangan="Aktivasi hanya berlaku untuk akun yang belum punya kata sandi. Token 32 karakter dikirim ke email terverifikasi; kalau kata sandi sudah pernah aktif, tidak ada token yang dikirim — kembali dan gunakan Masuk atau Lupa kata sandi."
+                        ikon={<KeyRound className="size-5" />}
+                      />
+                      <form onSubmit={handleAdminSubmit} className="space-y-4">
                         <div className="space-y-2">
-                          <label htmlFor="activate-admin-email" className="text-sm font-medium">
+                          <label
+                            htmlFor="activate-admin-email"
+                            className="text-sm font-medium"
+                          >
                             Email Super Admin terverifikasi
                           </label>
                           <Input
@@ -824,13 +812,18 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                             autoComplete="username"
                             placeholder="admin@contoh.com"
                             value={adminEmail}
-                            onChange={(event) => setAdminEmail(event.target.value)}
+                            onChange={(event) =>
+                              setAdminEmail(event.target.value)
+                            }
                             disabled={isLoading}
                             required
                           />
                         </div>
                         <div className="space-y-2">
-                          <label htmlFor="activate-admin-password" className="text-sm font-medium">
+                          <label
+                            htmlFor="activate-admin-password"
+                            className="text-sm font-medium"
+                          >
                             Buat kata sandi (minimal 8 karakter)
                           </label>
                           <Input
@@ -838,14 +831,19 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                             type="password"
                             autoComplete="new-password"
                             value={newPassword}
-                            onChange={(event) => setNewPassword(event.target.value)}
+                            onChange={(event) =>
+                              setNewPassword(event.target.value)
+                            }
                             disabled={isLoading}
                             required
                             minLength={8}
                           />
                         </div>
                         <div className="space-y-2">
-                          <label htmlFor="activate-admin-confirm" className="text-sm font-medium">
+                          <label
+                            htmlFor="activate-admin-confirm"
+                            className="text-sm font-medium"
+                          >
                             Ulangi kata sandi
                           </label>
                           <Input
@@ -853,17 +851,15 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                             type="password"
                             autoComplete="new-password"
                             value={confirmPassword}
-                            onChange={(event) => setConfirmPassword(event.target.value)}
+                            onChange={(event) =>
+                              setConfirmPassword(event.target.value)
+                            }
                             disabled={isLoading}
                             required
                             minLength={8}
                           />
                         </div>
-                        {error && (
-                          <p role="alert" className="text-sm text-destructive">
-                            {error}
-                          </p>
-                        )}
+                        {error && <PesanKesalahan pesan={error} />}
                         <CaptchaChallenge
                           visible={captchaWajib}
                           a={captcha.a}
@@ -872,7 +868,11 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                           onChange={setCaptchaJawab}
                           disabled={isLoading}
                         />
-                        <Button type="submit" className="w-full" disabled={isLoading}>
+                        <Button
+                          type="submit"
+                          className="w-full"
+                          disabled={isLoading}
+                        >
                           {isLoading ? (
                             <Loader2 className="mr-2 size-4 animate-spin" />
                           ) : (
@@ -881,7 +881,9 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                           Kirim token aktivasi
                         </Button>
                         <p className="text-center text-xs text-muted-foreground">
-                          Setelah token dikirim, kolom verifikasi akan terbuka. Jika token sudah ada di email tetapi layar belum berpindah:
+                          Setelah token dikirim, kolom verifikasi akan terbuka.
+                          Jika token sudah ada di email tetapi layar belum
+                          berpindah:
                         </p>
                         <Button
                           type="button"
@@ -898,8 +900,6 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                         >
                           Saya sudah menerima token — buka kolom verifikasi
                         </Button>
-                      </CardContent>
-                      <CardFooter>
                         <Button
                           type="button"
                           variant="ghost"
@@ -907,28 +907,26 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                           onClick={() => setAdminFlow("signIn")}
                           disabled={isLoading}
                         >
-                          <ArrowLeft className="mr-2 size-4" /> Kembali ke masuk admin
+                          <ArrowLeft className="mr-2 size-4" /> Kembali ke masuk
+                          admin
                         </Button>
-                      </CardFooter>
-                    </form>
-                  </>
-                )}
+                      </form>
+                    </>
+                  )}
 
-                {adminStep === "reset" && (
-                  <>
-                    <CardHeader className="text-center">
-                      <div className="mx-auto flex size-10 items-center justify-center rounded-xl border border-primary/20 bg-primary/5 text-primary">
-                        <Mail className="size-5" />
-                      </div>
-                      <CardTitle className="text-xl">Reset kata sandi admin</CardTitle>
-                      <CardDescription>
-                        Token 32 karakter dikirim ke email terdaftar kalau kata sandi sudah pernah diaktifkan. Kalau belum, kembali dan gunakan Aktivasi password lebih dulu.
-                      </CardDescription>
-                    </CardHeader>
-                    <form onSubmit={handleAdminSubmit}>
-                      <CardContent className="space-y-4">
+                  {adminStep === "reset" && (
+                    <>
+                      <KepalaPane
+                        judul="Reset kata sandi admin"
+                        keterangan="Token 32 karakter dikirim ke email terdaftar kalau kata sandi sudah pernah diaktifkan. Kalau belum, kembali dan gunakan Aktivasi password lebih dulu."
+                        ikon={<Mail className="size-5" />}
+                      />
+                      <form onSubmit={handleAdminSubmit} className="space-y-4">
                         <div className="space-y-2">
-                          <label htmlFor="reset-admin-email" className="text-sm font-medium">
+                          <label
+                            htmlFor="reset-admin-email"
+                            className="text-sm font-medium"
+                          >
                             Email Super Admin
                           </label>
                           <Input
@@ -937,16 +935,14 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                             autoComplete="username"
                             placeholder="admin@contoh.com"
                             value={adminEmail}
-                            onChange={(event) => setAdminEmail(event.target.value)}
+                            onChange={(event) =>
+                              setAdminEmail(event.target.value)
+                            }
                             disabled={isLoading}
                             required
                           />
                         </div>
-                        {error && (
-                          <p role="alert" className="text-sm text-destructive">
-                            {error}
-                          </p>
-                        )}
+                        {error && <PesanKesalahan pesan={error} />}
                         <CaptchaChallenge
                           visible={captchaWajib}
                           a={captcha.a}
@@ -955,7 +951,11 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                           onChange={setCaptchaJawab}
                           disabled={isLoading}
                         />
-                        <Button type="submit" className="w-full" disabled={isLoading}>
+                        <Button
+                          type="submit"
+                          className="w-full"
+                          disabled={isLoading}
+                        >
                           {isLoading ? (
                             <Loader2 className="mr-2 size-4 animate-spin" />
                           ) : (
@@ -963,8 +963,6 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                           )}
                           Kirim token reset
                         </Button>
-                      </CardContent>
-                      <CardFooter>
                         <Button
                           type="button"
                           variant="ghost"
@@ -972,36 +970,43 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                           onClick={() => setAdminFlow("signIn")}
                           disabled={isLoading}
                         >
-                          <ArrowLeft className="mr-2 size-4" /> Kembali ke masuk admin
+                          <ArrowLeft className="mr-2 size-4" /> Kembali ke masuk
+                          admin
                         </Button>
-                      </CardFooter>
-                    </form>
-                  </>
-                )}
+                      </form>
+                    </>
+                  )}
 
-                {isAdminCodeStep && (
-                  <>
-                    <CardHeader className="text-center">
-                      <div className="mx-auto flex size-10 items-center justify-center rounded-xl border border-primary/20 bg-primary/5 text-primary">
-                        {adminStep.purpose === "reset" ? (
-                          <LockKeyhole className="size-5" />
-                        ) : (
-                          <Mail className="size-5" />
-                        )}
-                      </div>
-                      <CardTitle className="text-xl">
-                        {adminStep.purpose === "reset" ? "Verifikasi reset password" : "Verifikasi aktivasi password"}
-                      </CardTitle>
-                      <CardDescription>
-                        {adminStep.purpose === "reset"
-                          ? `Tempel token 32 karakter alfanumerik yang dikirim ke ${adminStep.email} apabila kata sandi sudah pernah diaktifkan. Berlaku 15 menit; perhatikan huruf besar/kecil.`
-                          : `Kalau kata sandi belum pernah aktif, token 32 karakter dikirim ke ${adminStep.email} dan berlaku 15 menit. Kalau sudah aktif, tidak ada token yang dikirim — kembali dan gunakan Masuk atau Lupa kata sandi.`}
-                      </CardDescription>
-                    </CardHeader>
-                    <form onSubmit={handleAdminCodeSubmit}>
-                      <CardContent className="space-y-4">
+                  {isAdminCodeStep && (
+                    <>
+                      <KepalaPane
+                        judul={
+                          adminStep.purpose === "reset"
+                            ? "Verifikasi reset password"
+                            : "Verifikasi aktivasi password"
+                        }
+                        keterangan={
+                          adminStep.purpose === "reset"
+                            ? `Tempel token 32 karakter alfanumerik yang dikirim ke ${adminStep.email} apabila kata sandi sudah pernah diaktifkan. Berlaku 15 menit; perhatikan huruf besar/kecil.`
+                            : `Kalau kata sandi belum pernah aktif, token 32 karakter dikirim ke ${adminStep.email} dan berlaku 15 menit. Kalau sudah aktif, tidak ada token yang dikirim — kembali dan gunakan Masuk atau Lupa kata sandi.`
+                        }
+                        ikon={
+                          adminStep.purpose === "reset" ? (
+                            <LockKeyhole className="size-5" />
+                          ) : (
+                            <Mail className="size-5" />
+                          )
+                        }
+                      />
+                      <form
+                        onSubmit={handleAdminCodeSubmit}
+                        className="space-y-4"
+                      >
                         <div className="space-y-2">
-                          <label htmlFor="admin-verification-token" className="text-sm font-medium">
+                          <label
+                            htmlFor="admin-verification-token"
+                            className="text-sm font-medium"
+                          >
                             Token verifikasi (32 karakter)
                           </label>
                           <Input
@@ -1013,19 +1018,27 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                             placeholder="Tempel token dari email di sini"
                             value={adminOtp}
                             onChange={(event) =>
-                              setAdminOtp(event.target.value.replace(/[^a-zA-Z0-9]/g, "").slice(0, 32))
+                              setAdminOtp(
+                                event.target.value
+                                  .replace(/[^a-zA-Z0-9]/g, "")
+                                  .slice(0, 32),
+                              )
                             }
                             disabled={isLoading}
                             required
                           />
                           <p className="text-xs text-muted-foreground">
-                            {adminOtp.length}/32 karakter · huruf besar dan kecil harus sama seperti di email.
+                            {adminOtp.length}/32 karakter · huruf besar dan
+                            kecil harus sama seperti di email.
                           </p>
                         </div>
                         {adminStep.purpose === "reset" && (
                           <>
                             <div className="space-y-2">
-                              <label htmlFor="reset-new-password" className="text-sm font-medium">
+                              <label
+                                htmlFor="reset-new-password"
+                                className="text-sm font-medium"
+                              >
                                 Kata sandi baru (minimal 8 karakter)
                               </label>
                               <Input
@@ -1033,14 +1046,19 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                                 type="password"
                                 autoComplete="new-password"
                                 value={newPassword}
-                                onChange={(event) => setNewPassword(event.target.value)}
+                                onChange={(event) =>
+                                  setNewPassword(event.target.value)
+                                }
                                 disabled={isLoading}
                                 required
                                 minLength={8}
                               />
                             </div>
                             <div className="space-y-2">
-                              <label htmlFor="reset-confirm-password" className="text-sm font-medium">
+                              <label
+                                htmlFor="reset-confirm-password"
+                                className="text-sm font-medium"
+                              >
                                 Ulangi kata sandi baru
                               </label>
                               <Input
@@ -1048,7 +1066,9 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                                 type="password"
                                 autoComplete="new-password"
                                 value={confirmPassword}
-                                onChange={(event) => setConfirmPassword(event.target.value)}
+                                onChange={(event) =>
+                                  setConfirmPassword(event.target.value)
+                                }
                                 disabled={isLoading}
                                 required
                                 minLength={8}
@@ -1057,9 +1077,10 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                           </>
                         )}
                         {error && (
-                          <p role="alert" className="text-center text-sm text-destructive">
-                            {error}
-                          </p>
+                          <PesanKesalahan
+                            pesan={error}
+                            className="text-center"
+                          />
                         )}
                         <CaptchaChallenge
                           visible={captchaWajib}
@@ -1069,8 +1090,6 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                           onChange={setCaptchaJawab}
                           disabled={isLoading}
                         />
-                      </CardContent>
-                      <CardFooter className="flex-col gap-2">
                         <Button
                           type="submit"
                           className="w-full"
@@ -1081,7 +1100,9 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                           ) : (
                             <ShieldCheck className="mr-2 size-4" />
                           )}
-                          {adminStep.purpose === "reset" ? "Verifikasi & ganti password" : "Verifikasi & aktifkan password"}
+                          {adminStep.purpose === "reset"
+                            ? "Verifikasi & ganti password"
+                            : "Verifikasi & aktifkan password"}
                         </Button>
                         <Button
                           type="button"
@@ -1090,69 +1111,61 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                           onClick={() => setAdminFlow("signIn")}
                           disabled={isLoading}
                         >
-                          <ArrowLeft className="mr-2 size-4" /> Kembali ke masuk admin
+                          <ArrowLeft className="mr-2 size-4" /> Kembali ke masuk
+                          admin
                         </Button>
-                      </CardFooter>
-                    </form>
-                  </>
-                )}
-              </>
-            )}
-
-            {/* Jalur admin tidak pernah ditawarkan di halaman auth publik — hanya
-                tampil bila pengunjung datang lewat pintu tersembunyi. */}
-            {jalurAdmin &&
-              ((authMode === "client" && clientStep === "signIn") ||
-                (authMode === "admin" && adminStep === "signIn")) && (
-                <div className="px-6 pb-6">
-                  <div className="relative">
-                    <div className="absolute inset-0 flex items-center">
-                      <span className="w-full border-t" />
-                    </div>
-                    <div className="relative flex justify-center text-xs uppercase">
-                      <span className="bg-card px-2 text-muted-foreground">jalur admin</span>
-                    </div>
-                  </div>
-                  <Button
-                    type="button"
-                    variant="link"
-                    className="mt-2 w-full text-xs"
-                    onClick={() => switchAuthMode(authMode === "client" ? "admin" : "client")}
-                    disabled={isLoading}
-                  >
-                    {authMode === "client"
-                      ? "Masuk sebagai Super Admin"
-                      : "Belum punya kata sandi? Masuk / buat akun dengan OTP email"}
-                  </Button>
-                </div>
+                      </form>
+                    </>
+                  )}
+                </>
               )}
-          </Card>
 
-          {/* Aksi lanjutan: login klaim langsung untuk link dari OTP */}
-          <div className="mt-6 w-full max-w-sm text-center">
-            <Link
-              to={`/auth?returnTo=${encodeURIComponent(redirect)}`}
-              className="inline-flex items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-sky-700"
-            >
-              <LogIn className="size-3.5" />
-              Kembali ke halaman login
-            </Link>
+              {/* Jalur admin tidak pernah ditawarkan di halaman auth publik —
+                  hanya tampil bila pengunjung datang lewat pintu tersembunyi. */}
+              {jalurAdmin &&
+                ((authMode === "client" && clientStep === "signIn") ||
+                  (authMode === "admin" && adminStep === "signIn")) && (
+                  <div className="mt-6 border-t border-slate-200/80 pt-4">
+                    <Button
+                      type="button"
+                      variant="link"
+                      className="w-full text-xs whitespace-normal text-slate-500 hover:text-emerald-800"
+                      onClick={() =>
+                        switchAuthMode(
+                          authMode === "client" ? "admin" : "client",
+                        )
+                      }
+                      disabled={isLoading}
+                    >
+                      {authMode === "client"
+                        ? "Masuk sebagai Super Admin"
+                        : "Belum punya kata sandi? Masuk / buat akun dengan OTP email"}
+                    </Button>
+                  </div>
+                )}
+
+              {/* Indikator keamanan: bagian terakhir kartu, sebelum navigasi. */}
+              <LencanaKeamanan />
+            </KartuAuth>
+          </div>
+
+          {/* Navigasi bawah kartu + persetujuan, satu blok yang rapi. */}
+          <div className="mt-6 flex w-full flex-col items-center gap-3 text-center">
+            <TautanBeranda />
+            <p className="text-[11px] leading-5 text-slate-500">
+              Dengan masuk, Anda menyetujui{" "}
+              <Link
+                to="/syarat-ketentuan"
+                className="font-medium text-emerald-800 underline underline-offset-2 hover:text-emerald-700"
+              >
+                Syarat &amp; Ketentuan
+              </Link>
+              .
+            </p>
           </div>
         </div>
       </FadeIn>
-
-      <footer className="px-6 pb-6 text-center text-[11px] leading-5 text-muted-foreground">
-        Dengan masuk, Anda menyetujui{" "}
-        <Link
-          to="/syarat-ketentuan"
-          className="font-medium text-primary underline underline-offset-2 hover:text-primary/80"
-        >
-          Syarat &amp; Ketentuan
-        </Link>
-        .
-      </footer>
-      <div className="flex-1" />
-    </div>
+    </LatarAuth>
   );
 }
 
