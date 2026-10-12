@@ -419,6 +419,132 @@
   --color-slate-950: #2b1c25;
 }
 
+/*
+ * Preset gelap "obsidian" — arah pemilik produk (DESIGN.md: Black Obsidian
+ * Glass, Polished Gold, Double Emerald Glow). Preset ini SATU-SATUNYA yang
+ * gelap, jadi dua hal berbeda dari preset terang di atas:
+ *
+ * 1) Nilai yang DIKUNCI arah pemilik dipakai apa adanya: `slate-950` =
+ *    `#030712` (Background Deep), `emerald-500` = `#10B981` dan
+ *    `emerald-600` = `#059669` (Emerald Glow), serta skala `amber` memakai
+ *    emas asli supaya `from-amber-200 via-amber-400 to-amber-600` terbaca
+ *    sebagai logam emas, bukan oranye bata.
+ * 2) Skala netral DIBALIK maksudnya: shade rendah (50–300) menjadi permukaan
+ *    dan garis gelap, shade tinggi (400–900) menjadi teks terang, karena
+ *    komponen yang sudah ada memakai `bg-slate-50` untuk permukaan dan
+ *    `text-slate-900` untuk tinta. Tanpa pembalikan itu, panel putih dan teks
+ *    nyaris hitam akan bertabrakan dengan latar `#030712`.
+ *
+ * Batas yang diketahui: `emerald-950` dan `bg-slate-950` dipakai sebagai
+ * permukaan tergelap, sedangkan `text-emerald-900`/`text-slate-900` dipakai
+ * sebagai tinta — peran itu dilayani bersamaan, jadi teks `emerald-950`
+ * (dua tempat) tetap gelap. Perlu tinjauan mata sebelum tema ini dijadikan
+ * tema situs utama.
+ */
+:root:where([data-theme="obsidian"]) {
+  --background: #030712;
+  --foreground: #e6e8ee;
+  --card: #0b0f19;
+  --card-foreground: #e6e8ee;
+  --popover: #0b0f19;
+  --popover-foreground: #e6e8ee;
+  --primary: #d4af37;
+  --primary-foreground: #0b0a06;
+  --secondary: #131826;
+  --secondary-foreground: #e6e8ee;
+  --muted: #0f1420;
+  --muted-foreground: #9aa4b6;
+  --accent: #131826;
+  --accent-foreground: #e6e8ee;
+  --destructive: #e2565f;
+  --border: #1c2333;
+  --input: #232b3d;
+  --ring: #10b981;
+  --gold: #d4af37;
+  --gold-foreground: #f4e3af;
+  --navy: #0b1220;
+  --chart-1: #10b981;
+  --chart-2: #d4af37;
+  --chart-3: #4fb9a0;
+  --chart-4: #9aa4b6;
+  --chart-5: #5b6880;
+  --sidebar: #0b0f19;
+  --sidebar-foreground: #e6e8ee;
+  --sidebar-primary: #d4af37;
+  --sidebar-primary-foreground: #0b0a06;
+  --sidebar-accent: #131826;
+  --sidebar-accent-foreground: #e6e8ee;
+  --sidebar-border: #1c2333;
+  --sidebar-ring: #10b981;
+
+  /* Netral graphite dingin: 50–300 permukaan & garis, 400–900 tinta. */
+  --color-slate-50: #0a0f1c;
+  --color-slate-100: #101625;
+  --color-slate-200: #1a2233;
+  --color-slate-300: #262f44;
+  --color-slate-400: #8b95a7;
+  --color-slate-500: #a3adbe;
+  --color-slate-600: #b9c1cf;
+  --color-slate-700: #c9d0da;
+  --color-slate-800: #dbe1e9;
+  --color-slate-900: #eef1f5;
+  --color-slate-950: #030712;
+
+  /* Aksen brand: hijau tinta digeser ke keluarga emerald agar hidup di gelap. */
+  --color-sky-50: #07211d;
+  --color-sky-100: #0a2f28;
+  --color-sky-200: #0d4137;
+  --color-sky-300: #115747;
+  --color-sky-400: #17705c;
+  --color-sky-500: #1f8f74;
+  --color-sky-600: #2fb894;
+  --color-sky-700: #5ccbae;
+  --color-sky-800: #8ddcc6;
+  --color-sky-900: #bdedde;
+  --color-sky-950: #07211d;
+
+  /* Nilai uang & status positif: emerald asli (dikunci arah pemilik). */
+  --color-emerald-50: #04231a;
+  --color-emerald-100: #063120;
+  --color-emerald-200: #08402c;
+  --color-emerald-300: #2fd39b;
+  --color-emerald-400: #17bd8c;
+  --color-emerald-500: #10b981;
+  --color-emerald-600: #059669;
+  --color-emerald-700: #34d399;
+  --color-emerald-800: #6ee7b7;
+  --color-emerald-900: #a7f3d0;
+  --color-emerald-950: #022c22;
+
+  /* Emas metalik: skala amber memakai emas asli, bukan oranye bata. */
+  --color-amber-50: #fffbeb;
+  --color-amber-100: #fef3c7;
+  --color-amber-200: #fde68a;
+  --color-amber-300: #fcd34d;
+  --color-amber-400: #fbbf24;
+  --color-amber-500: #f59e0b;
+  --color-amber-600: #d97706;
+  --color-amber-700: #b45309;
+  --color-amber-800: #92400e;
+  --color-amber-900: #78350f;
+  --color-amber-950: #451a03;
+}
+
+/*
+ * `bg-white` dan `text-white` membaca variabel yang SAMA (`--color-white`),
+ * jadi memetakan permukaan ke `bg-white` tidak bisa dipisahkan dari teks.
+ * Di tema obsidian, permukaan `bg-white` menjadi kaca obsidian (lihat aturan
+ * berikut), dan aturan ini mengembalikan `text-white*` ke hampir-putih agar
+ * teks di atas tombol berwarna dan permukaan gelap tetap terbaca.
+ */
+:root:where([data-theme="obsidian"]) {
+  --color-white: #0b0f19;
+}
+
+:root:where([data-theme="obsidian"]) [class*="text-white"] {
+  color: #f7f8fa;
+}
+
 .dark {
   --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);

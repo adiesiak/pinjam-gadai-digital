@@ -10,7 +10,14 @@ import type { Id } from "../convex/_generated/dataModel";
  */
 export const RETENSI_LOKASI_BATAS = { min: 7, maks: 730 } as const;
 
-export const THEME_PRESETS = ["tinta", "pesisir", "terakota", "salju", "karnival"] as const;
+export const THEME_PRESETS = [
+  "tinta",
+  "pesisir",
+  "terakota",
+  "salju",
+  "karnival",
+  "obsidian",
+] as const;
 export type ThemePreset = (typeof THEME_PRESETS)[number];
 
 export type SystemConfig = {

@@ -399,6 +399,7 @@ export const saveConfig = mutation({
       v.literal("terakota"),
       v.literal("salju"),
       v.literal("karnival"),
+      v.literal("obsidian"),
     ),
     killSwitch: v.boolean(),
     maintenanceMode: v.boolean(),
@@ -583,6 +584,7 @@ export const setWebsiteTemplate = mutation({
       v.literal("terakota"),
       v.literal("salju"),
       v.literal("karnival"),
+      v.literal("obsidian"),
     ),
   },
   handler: async (ctx, { tema }) => {

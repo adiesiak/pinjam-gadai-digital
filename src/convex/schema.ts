@@ -1061,6 +1061,7 @@ const schema = defineSchema(
           v.literal("terakota"),
           v.literal("salju"),
           v.literal("karnival"),
+          v.literal("obsidian"),
         ),
       ),
       /**
