@@ -6,6 +6,7 @@ import SignaturePad from "signature_pad";
 
 import {
   IdentitasKycTerverifikasi,
+  MedanDariKyc,
   PeringatanKyc,
 } from "@/components/kyc/PeringatanKyc";
 import { Button } from "@/components/ui/button";
@@ -36,6 +37,7 @@ import { adaPerubahan } from "@/lib/formInteraksi";
 import {
   KYC_FILES,
   MAX_FILE_BYTES,
+  identitasDasarKyc,
   identitasPengajuanDariKyc,
   validateKycInput,
   type KycFileKey,
@@ -1372,7 +1374,12 @@ export function PawnForm({
   const createPawn = useMutation(api.loans.createPawnApplication);
   // Lihat LoanForm: gerbang KYC dicerminkan di UI; server tetap penentu.
   const kycQuery = useQuery(api.kyc.kycSaya, {});
-  const kycSiap = kycQuery?.status === "VERIFIED";
+  const kycSiap = isKycVerified(kycQuery?.status);
+  // Gadai hanya menyimpan NAMA pemohon (tanpa NIK/WA/berkas), jadi hanya nama
+  // yang dipakai ulang dari KYC. Nama bank & rekening tetap diisi di sini:
+  // keduanya tujuan pencairan yang perlu dipastikan ulang per pengajuan.
+  const identitasKyc = kycSiap ? identitasDasarKyc(kycQuery?.isian) : identitasDasarKyc(null);
+  const namaGadai = identitasKyc.namaLengkap !== "" ? identitasKyc.namaLengkap : namaLengkap;
 
   // Lihat LoanForm: kunci sekali-pakai menutup celah antara klik dan render
   // ulang tombol, dan peringatan keluar hanya muncul bila isian benar-benar diisi.
@@ -1419,7 +1426,8 @@ export function PawnForm({
       setError("Masukkan alamat tempat barang berada dengan lebih lengkap (minimal 10 karakter).");
       return;
     }
-    if (namaLengkap.trim().length < 3) {
+    // Nama yang diperiksa adalah nama YANG DIKIRIM: dari KYC bila ada.
+    if (namaGadai.trim().length < 3) {
       setError("Nama lengkap harus berisi minimal 3 karakter.");
       return;
     }
@@ -1438,7 +1446,7 @@ export function PawnForm({
         deskripsiBarang,
         kategori,
         alamatPenilaian,
-        namaLengkap,
+        namaLengkap: namaGadai,
         namaBank,
         nomorRekening,
         catatanPeminjam: catatanPeminjam.trim() ? catatanPeminjam : undefined,
@@ -1460,8 +1468,21 @@ export function PawnForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
+      {/* Nama sudah diperiksa petugas lewat KYC: pengajuan gadai tidak perlu
+          menanyakannya lagi, dan buktinya ditampilkan di sini. */}
+      {identitasKyc.namaLengkap !== "" && (
+        <IdentitasKycTerverifikasi
+          namaLengkap={identitasKyc.namaLengkap}
+          petunjuk="Bagian nama pemohon tidak perlu diisi ulang — pengajuan gadai ini memakai nama dari KYC yang sudah diperiksa petugas. Isi cukup data barang, alamat, rekening, dan catatan."
+          onBukaKyc={onBukaKyc}
+        />
+      )}
       <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-900">
-        Formulir ini hanya mencatat informasi yang Anda isi. Aplikasi belum memeriksa nama, alamat, atau barang Anda. Aplikasi juga tidak menjamin akan ada kunjungan, pemeriksaan, atau penyimpanan barang, dan perpindahan dana ditangani di luar aplikasi.
+        Formulir ini hanya mencatat informasi yang Anda isi.{" "}
+        {identitasKyc.namaLengkap !== ""
+          ? "Nama pemohon memakai data KYC yang sudah diperiksa petugas; alamat dan barang yang Anda isi belum diperiksa."
+          : "Aplikasi belum memeriksa nama, alamat, atau barang Anda."}{" "}
+        Aplikasi juga tidak menjamin akan ada kunjungan, pemeriksaan, atau penyimpanan barang, dan perpindahan dana ditangani di luar aplikasi.
       </p>
       <div className="space-y-2">
         <Label htmlFor="barang">Jelaskan barang yang Anda ajukan</Label>
@@ -1502,10 +1523,21 @@ export function PawnForm({
         </p>
       </div>
       <div className="grid gap-4 sm:grid-cols-2">
-        <div className="space-y-2">
-          <Label htmlFor="nama-gadai">Nama lengkap</Label>
-          <Input id="nama-gadai" value={namaLengkap} onChange={(e) => setNamaLengkap(e.target.value)} placeholder="Tulis nama lengkap" autoComplete="name" required aria-required="true" minLength={3} aria-invalid={error !== null && namaLengkap.trim().length < 3} aria-describedby={error !== null && namaLengkap.trim().length < 3 ? "pawn-form-error" : undefined} disabled={submitting} />
-        </div>
+        {/* Nama dari KYC bila sudah diperiksa petugas; kalau belum, medan
+            isiannya tetap tampil (lihat LoanForm: satu pola untuk semua produk). */}
+        {identitasKyc.namaLengkap !== "" ? (
+          <MedanDariKyc
+            id="nama-gadai"
+            label="Nama lengkap"
+            nilai={identitasKyc.namaLengkap}
+            petunjuk="Nama ini yang tercatat pada pengajuan gadai."
+          />
+        ) : (
+          <div className="space-y-2">
+            <Label htmlFor="nama-gadai">Nama lengkap</Label>
+            <Input id="nama-gadai" value={namaLengkap} onChange={(e) => setNamaLengkap(e.target.value)} placeholder="Tulis nama lengkap" autoComplete="name" required aria-required="true" minLength={3} aria-invalid={error !== null && namaLengkap.trim().length < 3} aria-describedby={error !== null && namaLengkap.trim().length < 3 ? "pawn-form-error" : undefined} disabled={submitting} />
+          </div>
+        )}
         <div className="space-y-2">
           <Label htmlFor="bank-gadai">Nama bank atau dompet digital</Label>
           <Input id="bank-gadai" value={namaBank} onChange={(e) => setNamaBank(e.target.value)} placeholder="BCA, Mandiri, DANA, OVO, GoPay" autoComplete="off" required aria-required="true" minLength={2} maxLength={60} aria-invalid={error !== null && (namaBank.trim().length < 2 || namaBank.trim().length > 60)} aria-describedby={error !== null && (namaBank.trim().length < 2 || namaBank.trim().length > 60) ? "pawn-form-error" : undefined} disabled={submitting} />

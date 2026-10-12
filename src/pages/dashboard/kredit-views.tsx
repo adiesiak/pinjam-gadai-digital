@@ -3,7 +3,11 @@ import { Link2, Loader2, PackageCheck, Send, ShoppingBag, TrendingUp } from "luc
 import { useMemo, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
-import { PeringatanKyc } from "@/components/kyc/PeringatanKyc";
+import {
+  IdentitasKycTerverifikasi,
+  MedanDariKyc,
+  PeringatanKyc,
+} from "@/components/kyc/PeringatanKyc";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -27,6 +31,8 @@ import {
   quoteKreditBarang,
   skemaBulananKredit,
 } from "@/lib/kredit";
+import { identitasDasarKyc } from "@/lib/kyc";
+import { isKycVerified } from "@/lib/kycStatus";
 import { formatRupiah, parseRupiah } from "@/lib/money";
 import { cn } from "@/lib/utils";
 
@@ -128,7 +134,23 @@ export function KreditBarangForm({
   // Gerbang KYC: server menolak pengajuan tanpa KYC VERIFIED; UI mencerminkan
   // lebih dulu supaya formulir tidak diisi sia-sia.
   const kycQuery = useQuery(api.kyc.kycSaya, {});
-  const kycSiap = kycQuery?.status === "VERIFIED";
+  const kycSiap = isKycVerified(kycQuery?.status);
+  // Identitas pemohon (nama, NIK, nomor WhatsApp) datang dari KYC bila sudah
+  // diperiksa petugas; kalau belum, medan isiannya tetap tampil seperti biasa.
+  // Pemakaian ulangnya PER-RUAS: satu nilai yang tidak sah hanya menyisakan
+  // medan itu, bukan menyembunyikan seluruh bagian data pemohon.
+  const identitasKyc = kycSiap ? identitasDasarKyc(kycQuery?.isian) : identitasDasarKyc(null);
+  const namaKredit = identitasKyc.namaLengkap !== "" ? identitasKyc.namaLengkap : namaLengkap;
+  const nikKredit = identitasKyc.nik !== "" ? identitasKyc.nik : nik.replace(/\s+/g, "");
+  const waKredit =
+    identitasKyc.nomorWhatsApp !== ""
+      ? identitasKyc.nomorWhatsApp
+      : nomorWhatsApp.replace(/[\s+-]/g, "");
+  // Sekurang-kurangnya satu ruas dipakai ulang → badge hijau & medan read-only.
+  const adaIdentitasKyc =
+    identitasKyc.namaLengkap !== "" ||
+    identitasKyc.nik !== "" ||
+    identitasKyc.nomorWhatsApp !== "";
   // Batas kredit barang terpisah dari plafon pinjaman tunai: tenor baru
   // 1/3/6 bulan memakai DP 0%, sehingga harga = pokok dibiayai.
   const hargaMaksPlafon = KREDIT_BARANG_POKOK_MAKS;
@@ -182,11 +204,12 @@ export function KreditBarangForm({
       setError(err instanceof Error ? err.message : "Harga barang tidak valid.");
       return;
     }
-    if (namaLengkap.trim().length < 3) {
+    // Diperiksa dari nilai YANG DIKIRIM: dari KYC bila ada, kalau tidak dari isian.
+    if (namaKredit.trim().length < 3) {
       setError("Nama lengkap wajib diisi (minimal 3 karakter).");
       return;
     }
-    if (!/^\d{16}$/.test(nik.replace(/\s+/g, ""))) {
+    if (!/^\d{16}$/.test(nikKredit)) {
       setError("NIK harus 16 digit angka sesuai KTP.");
       return;
     }
@@ -194,7 +217,7 @@ export function KreditBarangForm({
       setError("Nomor rekening harus 6–20 digit angka.");
       return;
     }
-    if (!/^62\d{8,13}$/.test(nomorWhatsApp.replace(/[\s+-]/g, ""))) {
+    if (!/^62\d{8,13}$/.test(waKredit)) {
       setError("Nomor WhatsApp wajib format 62… (mis. 6281234567890).");
       return;
     }
@@ -210,10 +233,10 @@ export function KreditBarangForm({
         dpPersen,
         tenorBulan,
         marginPersenPerBulan,
-        namaLengkap,
-        nik: nik.replace(/\s+/g, ""),
+        namaLengkap: namaKredit,
+        nik: nikKredit,
         nomorRekening,
-        nomorWhatsApp: nomorWhatsApp.replace(/[\s+-]/g, ""),
+        nomorWhatsApp: waKredit,
         catatanPeminjam: catatanPeminjam.trim() ? catatanPeminjam : undefined,
       });
       onCreated(result.nomorReferensi);
@@ -232,6 +255,19 @@ export function KreditBarangForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
+      {/* Identitas sudah diperiksa petugas: bagian data pemohon yang bisa
+          dipakai ulang tidak ditanyakan lagi — bukti & ringkasannya justru
+          ditampilkan di sini, supaya tidak ada yang tersembunyi diam-diam. */}
+      {adaIdentitasKyc && (
+        <IdentitasKycTerverifikasi
+          namaLengkap={identitasKyc.namaLengkap}
+          nik={identitasKyc.nik}
+          nomorWhatsApp={identitasKyc.nomorWhatsApp}
+          petunjuk="Bagian data pemohon (nama, NIK, dan nomor WhatsApp) tidak perlu diisi ulang — pengajuan ini memakai data KYC yang sudah diperiksa petugas. Isi cukup data barang, nomor rekening, dan catatan."
+          onBukaKyc={onBukaKyc}
+        />
+      )}
+
       {/* ===== Barang ===== */}
       <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
         <p className="flex items-center gap-2 text-sm font-semibold">
@@ -433,32 +469,50 @@ export function KreditBarangForm({
       {/* ===== Data pemohon ===== */}
       <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
         <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
-          Data pemohon (wajib)
+          Data pemohon {adaIdentitasKyc ? "(nama, NIK & WhatsApp dari KYC)" : "(wajib)"}
         </p>
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
-          <div className="space-y-2">
-            <Label htmlFor="kredit-nama">Nama yang dicatat</Label>
-            <Input
+          {identitasKyc.namaLengkap !== "" ? (
+            <MedanDariKyc
               id="kredit-nama"
-              value={namaLengkap}
-              onChange={(e) => setNamaLengkap(e.target.value)}
-              placeholder="Nama yang Anda masukkan"
-              disabled={submitting}
+              label="Nama yang dicatat"
+              nilai={identitasKyc.namaLengkap}
+              petunjuk="Nama ini yang tercatat pada kontrak kredit barang."
             />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="kredit-nik">NIK (16 digit; data masukan)</Label>
-            <Input
+          ) : (
+            <div className="space-y-2">
+              <Label htmlFor="kredit-nama">Nama yang dicatat</Label>
+              <Input
+                id="kredit-nama"
+                value={namaLengkap}
+                onChange={(e) => setNamaLengkap(e.target.value)}
+                placeholder="Nama yang Anda masukkan"
+                disabled={submitting}
+              />
+            </div>
+          )}
+          {identitasKyc.nik !== "" ? (
+            <MedanDariKyc
               id="kredit-nik"
-              inputMode="numeric"
-              maxLength={16}
-              value={nik}
-              onChange={(e) => setNik(e.target.value.replace(/\D/g, ""))}
-              placeholder="3204xxxxxxxxxxxx"
-              className="tabular-nums"
-              disabled={submitting}
+              label="NIK (16 digit)"
+              nilai={identitasKyc.nik}
+              petunjuk="NIK dari data KYC yang sudah diperiksa petugas."
             />
-          </div>
+          ) : (
+            <div className="space-y-2">
+              <Label htmlFor="kredit-nik">NIK (16 digit; data masukan)</Label>
+              <Input
+                id="kredit-nik"
+                inputMode="numeric"
+                maxLength={16}
+                value={nik}
+                onChange={(e) => setNik(e.target.value.replace(/\D/g, ""))}
+                placeholder="3204xxxxxxxxxxxx"
+                className="tabular-nums"
+                disabled={submitting}
+              />
+            </div>
+          )}
           <div className="space-y-2">
             <Label htmlFor="kredit-rekening">Nomor rekening (informasi yang dicatat)</Label>
             <Input
@@ -471,18 +525,27 @@ export function KreditBarangForm({
               disabled={submitting}
             />
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="kredit-wa">Nomor WhatsApp (informasi yang dicatat)</Label>
-            <Input
+          {identitasKyc.nomorWhatsApp !== "" ? (
+            <MedanDariKyc
               id="kredit-wa"
-              inputMode="numeric"
-              value={nomorWhatsApp}
-              onChange={(e) => setNomorWhatsApp(e.target.value.replace(/[^\d+]/g, ""))}
-              placeholder="6281234567890"
-              className="tabular-nums"
-              disabled={submitting}
+              label="Nomor WhatsApp"
+              nilai={identitasKyc.nomorWhatsApp}
+              petunjuk="Nomor ini dipakai untuk kabar status pengajuan."
             />
-          </div>
+          ) : (
+            <div className="space-y-2">
+              <Label htmlFor="kredit-wa">Nomor WhatsApp (informasi yang dicatat)</Label>
+              <Input
+                id="kredit-wa"
+                inputMode="numeric"
+                value={nomorWhatsApp}
+                onChange={(e) => setNomorWhatsApp(e.target.value.replace(/[^\d+]/g, ""))}
+                placeholder="6281234567890"
+                className="tabular-nums"
+                disabled={submitting}
+              />
+            </div>
+          )}
         </div>
       </div>
 
@@ -523,7 +586,7 @@ export function KreditBarangForm({
       <p className="text-center text-xs leading-5 text-muted-foreground">
         Pokok kredit barang maksimal {formatRupiah(KREDIT_BARANG_POKOK_MAKS)} dan tenor 1, 3,
         atau maksimal 6 bulan dalam model kredit barang. Batas ini terpisah dari plafon pinjaman tunai.
-        Data pemohon, barang, tautan, dan harga mengikuti pengisian pengajuan; status review tercatat pada ledger internal.
+        Data barang, tautan, dan harga mengikuti pengisian pengajuan; data pemohon memakai data KYC bila identitasnya sudah terverifikasi petugas. Status review tercatat pada ledger internal.
       </p>
     </form>
   );

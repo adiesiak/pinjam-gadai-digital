@@ -1,6 +1,7 @@
 /** Run: bun src/lib/kyc.test.ts */
 import {
   dimensiGambar,
+  identitasDasarKyc,
   identitasPengajuanDariKyc,
   MAX_FILE_BYTES,
   periksaBerkasIdentitas,
@@ -320,6 +321,62 @@ const gambar = (contentType: string) => ({ size: 4000, contentType });
     }),
     null,
     "isian contoh memang sah menurut validateKycInput",
+  );
+}
+
+// ===== 7. identitas dasar (tanpa berkas) untuk kredit barang & gadai =====
+{
+  // Belum termuat: belum diketahui, jadi semua ruas kosong — TIDAK menebak.
+  eq(identitasDasarKyc(null).namaLengkap, "", "belum termuat: nama kosong");
+  eq(identitasDasarKyc(undefined).nik, "", "belum termuat: NIK kosong");
+  eq(identitasDasarKyc(null).nomorWhatsApp, "", "belum termuat: WA kosong");
+
+  const dasar = identitasDasarKyc({
+    namaLengkap: "  Rani Peminjam  ",
+    nik: "3271 0123 4567 8901",
+    nomorWhatsApp: "+62 812-3456-7890",
+  });
+  eq(dasar.namaLengkap, "Rani Peminjam", "nama dipotong spasinya");
+  eq(dasar.nik, "3271012345678901", "NIK dinormalkan");
+  eq(dasar.nomorWhatsApp, "6281234567890", "WA dinormalkan");
+
+  // Ruas yang tidak sah dikosongkan SENDIRI-SENDIRI: formulir tetap
+  // menanyakan ruas itu saja, tanpa menyembunyikan ruas lain.
+  const nikRusak = identitasDasarKyc({
+    namaLengkap: "Rani Peminjam",
+    nik: "123",
+    nomorWhatsApp: "6281234567890",
+  });
+  eq(nikRusak.nik, "", "NIK tidak sah: ruas NIK kosong");
+  eq(nikRusak.namaLengkap, "Rani Peminjam", "NIK rusak tidak mengosongkan nama");
+  eq(nikRusak.nomorWhatsApp, "6281234567890", "NIK rusak tidak mengosongkan WA");
+
+  const waRusak = identitasDasarKyc({
+    namaLengkap: "Rani Peminjam",
+    nik: "3271012345678901",
+    nomorWhatsApp: "0812345678",
+  });
+  eq(waRusak.nomorWhatsApp, "", "WA tanpa 62: ruas WA kosong");
+  eq(waRusak.nik, "3271012345678901", "WA rusak tidak mengosongkan NIK");
+
+  const namaPendek = identitasDasarKyc({ namaLengkap: "Al" });
+  eq(namaPendek.namaLengkap, "", "nama terlalu pendek: ruas nama kosong");
+
+  // Bentuk yang dipakai ulang formulir harus lolos aturan server: nama >= 3,
+  // NIK 16 angka, WA 62…
+  eq(
+    identitasPengajuanDariKyc({
+      namaLengkap: dasar.namaLengkap,
+      nik: dasar.nik,
+      nomorWhatsApp: dasar.nomorWhatsApp,
+      penghasilanBulanan: 4_000_000,
+      sumberPenghasilan: "Usaha warung",
+      ktpId: "ktp_1",
+      selfieKtpId: "selfie_1",
+      buktiPenghasilanId: "slip_1",
+    })?.nik,
+    "3271012345678901",
+    "identitas dasar cocok dengan jalur pinjaman tunai",
   );
 }
 

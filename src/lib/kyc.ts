@@ -411,6 +411,47 @@ export function identitasPengajuanDariKyc(kyc: RingkasIdentitasKyc): IdentitasPe
 }
 
 /**
+ * Identitas DASAR (tanpa berkas) yang bisa dipakai ulang formulir pengajuan:
+ * nama, NIK, dan nomor WhatsApp. Dipakai formulir yang tidak menyimpan foto
+ * identitas — kredit barang dan gadai mencatat isian saja, sedangkan pinjaman
+ * tunai memakai `identitasPengajuanDariKyc` yang sekaligus membawa berkas KYC.
+ *
+ * Setiap ruas berdiri sendiri: ruas yang isiannya tidak sah/ belum ada bernilai
+ * `""`, dan formulir tetap menampilkan medan isian untuk ruas ITU saja. Ini
+ * penting — kalau satu nilai gagal, tidak ada isian lain yang ikut disembunyikan
+ * secara diam-diam.
+ */
+export type IdentitasDasarKyc = {
+  /** Nama KYC (dipotong spasi tepinya); `""` bila terlalu pendek/ belum ada. */
+  namaLengkap: string;
+  /** NIK 16 angka tanpa spasi; `""` bila tidak sah. */
+  nik: string;
+  /** Nomor WhatsApp format 62… tanpa spasi/tanda; `""` bila tidak sah. */
+  nomorWhatsApp: string;
+};
+
+/**
+ * Ambil identitas dasar dari baris KYC nasabah — aman untuk data yang belum
+ * termuat (`null`/`undefined` berarti belum diketahui, bukan tidak sah).
+ *
+ * Tidak menerima `status` sebagai argumen: pemanggil yang memutuskan kapan
+ * pemakaian ulang boleh dilakukan (`isKycVerified`), sedangkan berkas ini hanya
+ * memastikan BENTUK nilainya sah — sama seperti penjaga di server.
+ */
+export function identitasDasarKyc(
+  kyc: RingkasIdentitasKyc | null | undefined,
+): IdentitasDasarKyc {
+  const nik = (kyc?.nik ?? "").replace(/\s+/g, "");
+  const nomorWhatsApp = (kyc?.nomorWhatsApp ?? "").replace(/[\s+-]/g, "");
+  const namaMentah = (kyc?.namaLengkap ?? "").trim();
+  return {
+    namaLengkap: namaMentah.length >= 3 ? namaMentah : "",
+    nik: /^\d{16}$/.test(nik) ? nik : "",
+    nomorWhatsApp: /^62\d{8,13}$/.test(nomorWhatsApp) ? nomorWhatsApp : "",
+  };
+}
+
+/**
  * NIK untuk DIBACA MANUSIA di layar nasabah: empat angka pertama, lalu sisanya
  * bertopeng. Nomor identitas tetap bisa dipastikan orangnya benar tanpa
  * tercetak utuh di layar yang mungkin dilihat orang lain.

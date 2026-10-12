@@ -102,9 +102,20 @@ parameter pengajuan saja — nominal, tenor, tujuan, rekening, tanda tangan.
 - `kyc.kycSaya.isian.penghasilanBulanan` ditambahkan sebagai angka MENTAH
   (aditif) — teks `penghasilan` yang terformat tetap ada untuk dibaca manusia,
   sedangkan formulir tidak boleh menghitung uang dari teks berformat.
-- Gadai & kredit barang tidak diubah pada langkah ini: kedua produk itu tidak
-  meminta unggahan dokumen, isian identitasnya cukup ditulis sekali di
-  formulirnya sendiri.
+- Dua produk lain memakai pola yang sama dengan aturan berbeda, karena server
+  meminta hal berbeda: **kredit barang** memakai ulang nama, NIK, dan nomor
+  WhatsApp (`lib/kyc.identitasDasarKyc`) sementara nomor rekening tetap diisi di
+  formulirnya; **gadai** hanya memakai ulang NAMA (server memang tidak meminta
+  NIK/WA untuk gadai), sedangkan nama bank & rekening tetap diisi karena
+  keduanya tujuan pencairan yang perlu dipastikan ulang per pengajuan.
+- Pemakaian ulang di kredit/gadai bersifat **per-ruas**: satu nilai yang tidak
+  sah hanya menyisakan medan isian untuk ruas itu (`identitasDasarKyc`
+  mengosongkan ruas yang tidak sah), bukan menyembunyikan seluruh bagian data
+  pemohon. Ruas yang dipakai ulang ditampilkan sebagai DATA read-only dengan
+  penanda "dari KYC" (`MedanDariKyc`), bukan input yang dinonaktifkan.
+- Validasi formulir memeriksa nilai yang BENAR-BENAR dikirim (KYC bila ada,
+  isian sebagai cadangan), sehingga aturan server (nama ≥ 3, NIK 16 angka, WA
+  62…) tetap ditegakkan sebelum tombol kirim ditekan.
 
 **2. Review pengajuan di dashboard admin jadi tiga kotak ringkas.**
 `components/admin/RingkasanEksekutifPengajuan.tsx` (presentasional, diuji di

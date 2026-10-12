@@ -1,5 +1,5 @@
 /**
- * Gerbang KYC di sisi UI — dua wajah untuk satu aturan yang sama.
+ * Gerbang KYC di sisi UI — tiga wajah untuk satu aturan yang sama.
  *
  * Server menolak pengajuan finansial bila modul KYC nasabah belum `VERIFIED`
  * (lihat `requireKycTerverifikasi` di `convex/kyc.ts`). `PeringatanKyc` MEMBERI
@@ -12,10 +12,15 @@
  * bukan sekadar menyembunyikan isian, supaya nasabah tetap melihat data mana
  * yang dipakai pengajuannya.
  *
- * Keduanya bukan pengaman: pengaman sesungguhnya ada di server. Karena itu
+ * `MedanDariKyc` adalah wujud ketiga di dalam FORMULIR: satu medan yang nilainya
+ * datang dari KYC, bukan dari isian nasabah. Dipakai per-ruas (nama/NIK/nomor
+ * WA) supaya bagian yang bisa dipakai ulang hilang dari layar TANPA
+ * menyembunyikan ruas yang datanya belum ada.
+ *
+ * Ketiganya bukan pengaman: pengaman sesungguhnya ada di server. Karena itu
  * `PeringatanKyc` sengaja tidak menyembunyikan formulir, hanya menonaktifkan
- * tombol kirim, dan badge hijau ini hanya muncul bila pemanggil sudah memegang
- * isian KYC yang lengkap (`lib/kyc.identitasPengajuanDariKyc`).
+ * tombol kirim, dan pemakaian ulang hanya terjadi bila pemanggil memegang isian
+ * KYC yang sah (`lib/kyc.identitasPengajuanDariKyc` / `identitasDasarKyc`).
  */
 import { BadgeCheck, ShieldAlert } from "lucide-react";
 
@@ -59,19 +64,79 @@ export function PeringatanKyc({ onBukaKyc }: { onBukaKyc?: () => void }) {
  * lewat tab Verifikasi KYC — formulir pengajuan tidak bisa diam-diam
  * menggantinya.
  */
+/**
+ * Satu MEDAN FORMULIR yang nilainya dipakai ulang dari KYC.
+ *
+ * Bentuknya sengaja read-only (bukan `<input disabled>`): nilainya bukan isian
+ * yang dinonaktifkan, melainkan DATA yang sudah diperiksa petugas. Menampilkannya
+ * sebagai teks + penanda "dari KYC" membuat batas itu jelas — nasabah tidak
+ * mencoba mengetik di kotak yang tidak bisa diubah, dan kalau perlu mengubahnya
+ * ia tahu jalurnya lewat tab Verifikasi KYC.
+ *
+ * Nilai yang ditampilkan adalah nilai yang BENAR-BENAR dikirim pengajuan;
+ * pemanggil memakai sumber yang sama untuk validasi & muatan mutation.
+ */
+export function MedanDariKyc({
+  id,
+  label,
+  nilai,
+  petunjuk,
+}: {
+  id: string;
+  label: string;
+  nilai: string;
+  /** Keterangan tambahan di bawah medan (mis. "dipakai untuk kontrak"). */
+  petunjuk?: string;
+}) {
+  return (
+    <div className="space-y-2">
+      <span id={`${id}-label`} className="flex flex-wrap items-center gap-1.5 text-sm font-medium leading-none">
+        {label}
+        <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">
+          <BadgeCheck className="size-3" aria-hidden="true" />
+          dari KYC
+        </span>
+      </span>
+      <p
+        id={id}
+        aria-labelledby={`${id}-label`}
+        className="flex min-h-9 items-center break-words rounded-md border border-emerald-200 bg-emerald-50/60 px-3 py-1.5 text-sm tabular-nums text-emerald-950"
+      >
+        {nilai}
+      </p>
+      {petunjuk !== undefined && (
+        <p className="text-xs leading-5 text-muted-foreground">{petunjuk}</p>
+      )}
+    </div>
+  );
+}
+
 export function IdentitasKycTerverifikasi({
   namaLengkap,
-  nik,
-  nomorWhatsApp,
+  nik = "",
+  nomorWhatsApp = "",
+  petunjuk,
   onBukaKyc,
 }: {
   namaLengkap: string;
   /** NIK apa adanya dari KYC; ditampilkan bertopeng oleh komponen ini. */
-  nik: string;
-  nomorWhatsApp: string;
+  nik?: string;
+  nomorWhatsApp?: string;
+  /**
+   * Kalimat pengantar yang disesuaikan produknya (pinjaman tunai / kredit
+   * barang / gadai). Bawaannya menyebut parameter pinjaman tunai.
+   */
+  petunjuk?: string;
   /** Pindah ke tab Verifikasi KYC untuk memeriksa/mengubah data. */
   onBukaKyc?: () => void;
 }) {
+  // Hanya ruas yang BENAR-BENAR dipakai yang ditampilkan: kalau KYC belum
+  // menyimpan NIK (atau formulirnya tidak memakainya), menampilkan "NIK: —"
+  // justru membuat nasabah ragu datanya terpakai.
+  const baris: Array<[string, string]> = [["Nama sesuai KYC", namaLengkap]];
+  if (nik !== "") baris.push(["NIK", sensorNik(nik)]);
+  if (nomorWhatsApp !== "") baris.push(["WhatsApp", nomorWhatsApp]);
+
   return (
     <div
       role="status"
@@ -82,18 +147,11 @@ export function IdentitasKycTerverifikasi({
         ✓ Identitas &amp; KYC Terverifikasi. Data disimpan aman.
       </p>
       <p className="mt-1 text-xs leading-5">
-        Bagian data diri dan dokumen tidak perlu diisi ulang — pengajuan ini memakai data KYC
-        yang sudah diperiksa petugas. Isi cukup nominal, tenor, tujuan, rekening, dan tanda
-        tangan.
+        {petunjuk ??
+          "Bagian data diri dan dokumen tidak perlu diisi ulang — pengajuan ini memakai data KYC yang sudah diperiksa petugas. Isi cukup nominal, tenor, tujuan, rekening, dan tanda tangan."}
       </p>
       <dl className="mt-2 grid gap-x-4 gap-y-1 text-xs sm:grid-cols-3">
-        {(
-          [
-            ["Nama sesuai KYC", namaLengkap],
-            ["NIK", sensorNik(nik)],
-            ["WhatsApp", nomorWhatsApp],
-          ] as const
-        ).map(([label, nilai]) => (
+        {baris.map(([label, nilai]) => (
           <div key={label} className="min-w-0">
             <dt className="text-emerald-800/80">{label}</dt>
             <dd className="break-words font-medium tabular-nums text-emerald-950">{nilai}</dd>
