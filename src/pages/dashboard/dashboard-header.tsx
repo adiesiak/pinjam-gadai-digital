@@ -9,9 +9,12 @@ import { VaultLogo } from "@/components/VaultLogo";
  * `role` opsional menyesuaikan penanda ruang untuk admin/penyedia dana.
  */
 export function DashboardHeader({ role = "peminjam" }: { role?: string }) {
+  // Peran tersimpan memakai nilai "dana" (lihat `ROLES.DANA` di schema), bukan
+  // "penyedia-dana" (itu nama rute). Keduanya diterima supaya akun pendana tidak
+  // salah diberi label "Dashboard Peminjam".
   const label = role === "admin"
     ? "Dashboard Admin"
-    : role === "penyedia-dana"
+    : role === "dana" || role === "penyedia-dana"
       ? "Dashboard Dana"
       : "Dashboard Peminjam";
 

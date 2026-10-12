@@ -11,6 +11,9 @@ import { DashboardTabNav, type TabBadge } from "./dashboard-tab-nav";
 
 const ROLE_LINKS: Record<string, { label: string; icon: React.ReactNode; href: string }> = {
   admin: { label: "Panel Admin", icon: <Building2 className="size-4" />, href: "/admin" },
+  // Nilai peran yang benar-benar tersimpan adalah `dana`; `penyedia-dana` adalah
+  // nama rute. Keduanya dipetakan supaya akun pendana tetap mendapat pintasannya.
+  dana: { label: "Dashboard Dana", icon: <Wallet className="size-4" />, href: "/penyedia-dana" },
   "penyedia-dana": { label: "Dashboard Dana", icon: <Wallet className="size-4" />, href: "/penyedia-dana" },
 };
 
