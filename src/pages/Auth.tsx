@@ -8,17 +8,27 @@ import {
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 
 import {
+  BadgeAksesAdmin,
+  HitungMundurToken,
+  KELAS_INPUT_ADMIN,
+  KELAS_TAUTAN_ADMIN,
   KepalaMerekAuth,
   KepalaPane,
   KartuAuth,
   LatarAuth,
   LencanaKeamanan,
+  MedanAdmin,
   MedanEmailMasuk,
+  MedanTokenAdmin,
+  MeterKekuatanSandi,
+  PesanInfo,
   PesanKesalahan,
   TAB_CEPAT,
   TAB_MASUK,
   TabPintuMasuk,
   TautanBeranda,
+  TombolAdmin,
+  TombolKembaliAdmin,
   TombolLanjutEmail,
   TombolWhatsappPeminjamLama,
   type TabPintuMasuk as TabAuth,
@@ -29,8 +39,9 @@ import { useAuth } from "@/hooks/use-auth";
 import { api } from "@/convex/_generated/api";
 import { getClientIp, getUserAgent } from "@/lib/session";
 import { ADMIN_ROUTE } from "@/lib/routes";
+import { nilaiKekuatanSandi, pesanGalatAdmin } from "@/lib/authAdmin";
+import { cn } from "@/lib/utils";
 import {
-  ArrowLeft,
   ArrowRight,
   KeyRound,
   Loader2,
@@ -171,6 +182,13 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
   /** Pemulihan batas percobaan kata sandi: kode TOTP aplikasi autentikator. */
   const [adminTotp, setAdminTotp] = useState("");
   const [butuhTotp, setButuhTotp] = useState(false);
+  /** Catatan informasi (bukan galat): mis. konfirmasi token baru terkirim. */
+  const [info, setInfo] = useState<string | null>(null);
+  /**
+   * Epoch ms saat token 32 karakter terakhir dikirim. `null` = belum ada token
+   * pada langkah ini, sehingga hitung mundur tidak ditampilkan sama sekali.
+   */
+  const [tokenMulaiPada, setTokenMulaiPada] = useState<number | null>(null);
   const adminFormRef = useRef<HTMLFormElement | null>(null);
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -204,6 +222,19 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
     }
   }, [authLoading, isAuthenticated, navigate, redirect]);
 
+  /**
+   * Timer token 32 karakter berjalan begitu langkah verifikasi terbuka. Server
+   * tetap pemegang aturan sesungguhnya (`adminPasswordOtp.maxAge` = 15 menit);
+   * yang ditampilkan di sini adalah sisa masa berlaku untuk token yang baru
+   * diminta pada sesi ini, supaya admin tahu kapan boleh minta token baru —
+   * bukan menunggu tanpa penjelasan. Kirim ulang token memakai `Date.now()`
+   * yang baru sehingga hitungannya mulai dari nol lagi.
+   */
+  useEffect(() => {
+    if (typeof adminStep !== "object") return;
+    setTokenMulaiPada((sebelumnya) => sebelumnya ?? Date.now());
+  }, [adminStep]);
+
   const recordFailedAttempt = async (identifier: string) => {
     try {
       const ip = await getClientIp();
@@ -228,6 +259,8 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
     setAdminTotp("");
     setButuhTotp(false);
     setError(null);
+    setInfo(null);
+    setTokenMulaiPada(null);
   };
 
   /**
@@ -307,6 +340,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
       return;
     }
     setIsLoading(true);
+    setInfo(null);
     try {
       if (adminStep === "signIn") {
         const result = await signIn("password", {
@@ -363,32 +397,14 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
       console.error("Admin password flow error:", error);
       setKegagalan((k) => k + 1);
       await recordFailedAttempt(adminEmail.toLowerCase() || "admin");
-      const message = error instanceof Error ? error.message : "";
-      if (/invalid credentials/i.test(message)) {
-        setError("Email atau kata sandi Super Admin tidak sesuai.");
-      } else if (/account.*exist|already exists/i.test(message)) {
-        setError(
-          "Password sudah aktif. Silakan masuk atau gunakan Lupa kata sandi.",
-        );
-      } else if (/terlalu banyak permintaan token/i.test(message)) {
-        setError(
-          "Terlalu banyak permintaan token dalam 15 menit. Coba lagi nanti — token yang sudah dikirim sebelumnya tetap berlaku sampai kedaluwarsa.",
-        );
-      } else if (/terlalu banyak percobaan masuk/i.test(message)) {
+      const { pesan, pulihDenganTotp } = pesanGalatAdmin(error);
+      if (pulihDenganTotp === true) {
         // Jalur pemulihan: admin yang memegang kode TOTP tidak perlu menunggu
         // 15 menit — kata sandi tetap wajib benar.
         setButuhTotp(true);
         setAdminTotp("");
-        setError(
-          "Terlalu banyak percobaan masuk. Tunggu beberapa menit, atau isi kode TOTP aplikasi autentikator untuk masuk sekarang.",
-        );
-      } else if (/account.*not found|could not find/i.test(message)) {
-        setError(
-          "Password belum diaktifkan atau akun tidak ditemukan. Gunakan Aktivasi password.",
-        );
-      } else {
-        setError("Permintaan gagal. Periksa kembali email dan coba lagi.");
       }
+      setError(pesan);
     } finally {
       setIsLoading(false);
     }
@@ -402,6 +418,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
       return;
     }
     if (typeof adminStep === "string") return;
+    setInfo(null);
     if (adminStep.purpose === "reset") {
       if (newPassword.length < 8) {
         setError("Kata sandi baru minimal 8 karakter.");
@@ -466,6 +483,54 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
     }
   };
 
+  /**
+   * Kirim ulang token SETELAH masa berlakunya habis. Sumber token sama dengan
+   * langkah asalnya — tidak ada jalur server baru: reset memakai flow `reset`
+   * (cukup email), sedangkan aktivasi memakai flow `signUp` yang WAJIB membawa
+   * kata sandi. Karena kata sandi sengaja tidak disimpan setelah token pertama
+   * terkirim, aktivasi dikembalikan ke langkahnya agar admin mengisi ulang —
+   * tetap tanpa memuat ulang halaman.
+   */
+  const kirimUlangToken = async () => {
+    setError(null);
+    setInfo(null);
+    if (typeof adminStep !== "object") return;
+    const email = adminStep.email;
+    if (adminStep.purpose === "activation") {
+      setAdminFlow("activate");
+      setInfo(
+        "Demi keamanan, kata sandi tidak disimpan. Isi email & kata sandi baru sekali lagi, lalu kirim token aktivasi baru.",
+      );
+      return;
+    }
+    setIsLoading(true);
+    try {
+      await signIn("password", { flow: "reset", email });
+      setTokenMulaiPada(Date.now());
+      setInfo(`Token baru sudah dikirim ke ${email}.`);
+    } catch (error) {
+      console.error("Admin token resend error:", error);
+      setError(pesanGalatAdmin(error).pesan);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  /** Buka kolom verifikasi tanpa memuat ulang halaman (timer diarm oleh efek). */
+  const bukaLangkahKode = (purpose: "activation" | "reset") => {
+    setAdminFlow({ kind: "code", email: adminEmail.trim(), purpose });
+  };
+
+  /**
+   * Syarat tombol kirim langkah kata sandi: 8+ karakter (batas server) dan
+   * konfirmasi cocok. Meter kekuatan sandi sengaja TIDAK jadi penjaga di sini —
+   * ia hanya menyarankan, supaya kata sandi sah tidak terkunci karena meternya
+   * belum hijau.
+   */
+  const sandiBaruSiap =
+    nilaiKekuatanSandi(newPassword).panjangCukup &&
+    newPassword === confirmPassword;
+
   const isAdminCodeStep = typeof adminStep !== "string";
 
   /* Kunci animasi masuk kartu: satu transisi halus setiap langkah berganti. */
@@ -482,7 +547,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
 
           {/* Satu langkah = satu kartu; kunci animasi masuk tetap per langkah. */}
           <div key={langkahKey} className="animate-masuk mt-8 w-full">
-            <KartuAuth>
+            <KartuAuth varian={authMode === "admin" ? "admin" : "nasabah"}>
               {authMode === "client" ? (
                 clientStep === "signIn" ? (
                   <>
@@ -663,6 +728,11 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                 )
               ) : (
                 <>
+                  {/* Badge keamanan tampil di semua langkah jalur admin. */}
+                  <div className="flex justify-center">
+                    <BadgeAksesAdmin />
+                  </div>
+
                   {adminStep === "signIn" && (
                     <>
                       <KepalaPane
@@ -675,55 +745,35 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                         onSubmit={handleAdminSubmit}
                         className="space-y-4"
                       >
-                        <div className="space-y-2">
-                          <label
-                            htmlFor="admin-email"
-                            className="text-sm font-medium"
-                          >
-                            Email Super Admin
-                          </label>
-                          <Input
-                            id="admin-email"
-                            type="email"
-                            autoComplete="username"
-                            placeholder="admin@contoh.com"
-                            value={adminEmail}
-                            onChange={(event) =>
-                              setAdminEmail(event.target.value)
-                            }
-                            disabled={isLoading}
-                            required
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <label
-                            htmlFor="admin-password"
-                            className="text-sm font-medium"
-                          >
-                            Kata sandi
-                          </label>
-                          <Input
-                            id="admin-password"
-                            type="password"
-                            autoComplete="current-password"
-                            placeholder="Kata sandi admin"
-                            value={adminPassword}
-                            onChange={(event) =>
-                              setAdminPassword(event.target.value)
-                            }
-                            disabled={isLoading}
-                            required
-                          />
-                        </div>
+                        <MedanAdmin
+                          id="admin-email"
+                          label="Email Super Admin"
+                          tipe="email"
+                          nilai={adminEmail}
+                          onUbah={setAdminEmail}
+                          autoComplete="username"
+                          placeholder="admin@contoh.com"
+                          nonaktif={isLoading}
+                        />
+                        <MedanAdmin
+                          id="admin-password"
+                          label="Kata sandi"
+                          tipe="password"
+                          nilai={adminPassword}
+                          onUbah={setAdminPassword}
+                          autoComplete="current-password"
+                          placeholder="Kata sandi admin"
+                          nonaktif={isLoading}
+                        />
                         {butuhTotp && (
                           <div className="space-y-2">
                             <label
                               htmlFor="admin-totp"
-                              className="text-sm font-medium"
+                              className="text-sm font-medium text-slate-700"
                             >
                               Kode TOTP (pemulihan)
                             </label>
-                            <Input
+                            <input
                               id="admin-totp"
                               inputMode="numeric"
                               autoComplete="one-time-code"
@@ -738,8 +788,12 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                                 )
                               }
                               disabled={isLoading}
+                              className={cn(
+                                KELAS_INPUT_ADMIN,
+                                "font-mono tracking-wider",
+                              )}
                             />
-                            <p className="text-xs leading-5 text-muted-foreground">
+                            <p className="text-xs leading-5 text-slate-500">
                               Batas percobaan sedang aktif. Isi kode dari
                               aplikasi autentikator untuk masuk sekarang — kata
                               sandi tetap wajib benar.
@@ -747,6 +801,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                           </div>
                         )}
                         {error && <PesanKesalahan pesan={error} />}
+                        {info && <PesanInfo pesan={info} />}
                         <CaptchaChallenge
                           visible={captchaWajib}
                           a={captcha.a}
@@ -755,37 +810,40 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                           onChange={setCaptchaJawab}
                           disabled={isLoading}
                         />
-                        <Button
-                          type="submit"
-                          className="w-full"
-                          disabled={isLoading}
+                        <TombolAdmin
+                          memuat={isLoading}
+                          nonaktif={
+                            adminEmail.trim() === "" || adminPassword === ""
+                          }
+                          ikon={
+                            <LockKeyhole
+                              className="size-4"
+                              aria-hidden="true"
+                            />
+                          }
                         >
-                          {isLoading ? (
-                            <Loader2 className="mr-2 size-4 animate-spin" />
-                          ) : (
-                            <LockKeyhole className="mr-2 size-4" />
-                          )}
                           Masuk sebagai Super Admin
-                        </Button>
-                        <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
-                          <Button
+                        </TombolAdmin>
+                        <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1">
+                          <button
                             type="button"
-                            variant="link"
-                            className="h-auto px-0 text-xs"
+                            className={KELAS_TAUTAN_ADMIN}
                             onClick={() => setAdminFlow("activate")}
                             disabled={isLoading}
                           >
                             Aktivasi password
-                          </Button>
-                          <Button
+                          </button>
+                          <span aria-hidden="true" className="text-slate-300">
+                            •
+                          </span>
+                          <button
                             type="button"
-                            variant="link"
-                            className="h-auto px-0 text-xs"
+                            className={KELAS_TAUTAN_ADMIN}
                             onClick={() => setAdminFlow("reset")}
                             disabled={isLoading}
                           >
                             Lupa kata sandi?
-                          </Button>
+                          </button>
                         </div>
                       </form>
                     </>
@@ -799,67 +857,50 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                         ikon={<KeyRound className="size-5" />}
                       />
                       <form onSubmit={handleAdminSubmit} className="space-y-4">
-                        <div className="space-y-2">
-                          <label
-                            htmlFor="activate-admin-email"
-                            className="text-sm font-medium"
-                          >
-                            Email Super Admin terverifikasi
-                          </label>
-                          <Input
-                            id="activate-admin-email"
-                            type="email"
-                            autoComplete="username"
-                            placeholder="admin@contoh.com"
-                            value={adminEmail}
-                            onChange={(event) =>
-                              setAdminEmail(event.target.value)
-                            }
-                            disabled={isLoading}
-                            required
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <label
-                            htmlFor="activate-admin-password"
-                            className="text-sm font-medium"
-                          >
-                            Buat kata sandi (minimal 8 karakter)
-                          </label>
-                          <Input
+                        <MedanAdmin
+                          id="activate-admin-email"
+                          label="Email Super Admin terverifikasi"
+                          tipe="email"
+                          nilai={adminEmail}
+                          onUbah={setAdminEmail}
+                          autoComplete="username"
+                          placeholder="admin@contoh.com"
+                          nonaktif={isLoading}
+                        />
+                        <div>
+                          <MedanAdmin
                             id="activate-admin-password"
-                            type="password"
+                            label="Buat kata sandi (minimal 8 karakter)"
+                            tipe="password"
+                            nilai={newPassword}
+                            onUbah={setNewPassword}
                             autoComplete="new-password"
-                            value={newPassword}
-                            onChange={(event) =>
-                              setNewPassword(event.target.value)
-                            }
-                            disabled={isLoading}
-                            required
-                            minLength={8}
+                            minPanjang={8}
+                            nonaktif={isLoading}
                           />
+                          <MeterKekuatanSandi sandi={newPassword} />
                         </div>
-                        <div className="space-y-2">
-                          <label
-                            htmlFor="activate-admin-confirm"
-                            className="text-sm font-medium"
-                          >
-                            Ulangi kata sandi
-                          </label>
-                          <Input
+                        <div>
+                          <MedanAdmin
                             id="activate-admin-confirm"
-                            type="password"
+                            label="Ulangi kata sandi"
+                            tipe="password"
+                            nilai={confirmPassword}
+                            onUbah={setConfirmPassword}
                             autoComplete="new-password"
-                            value={confirmPassword}
-                            onChange={(event) =>
-                              setConfirmPassword(event.target.value)
+                            minPanjang={8}
+                            petunjuk={
+                              confirmPassword === ""
+                                ? undefined
+                                : newPassword === confirmPassword
+                                  ? "Kedua kata sandi sudah sama."
+                                  : "Ulangi kata sandi belum sama dengan yang di atas."
                             }
-                            disabled={isLoading}
-                            required
-                            minLength={8}
+                            nonaktif={isLoading}
                           />
                         </div>
                         {error && <PesanKesalahan pesan={error} />}
+                        {info && <PesanInfo pesan={info} />}
                         <CaptchaChallenge
                           visible={captchaWajib}
                           a={captcha.a}
@@ -868,48 +909,33 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                           onChange={setCaptchaJawab}
                           disabled={isLoading}
                         />
-                        <Button
-                          type="submit"
-                          className="w-full"
-                          disabled={isLoading}
+                        <TombolAdmin
+                          memuat={isLoading}
+                          nonaktif={adminEmail.trim() === "" || !sandiBaruSiap}
+                          ikon={<Mail className="size-4" aria-hidden="true" />}
                         >
-                          {isLoading ? (
-                            <Loader2 className="mr-2 size-4 animate-spin" />
-                          ) : (
-                            <Mail className="mr-2 size-4" />
-                          )}
                           Kirim token aktivasi
-                        </Button>
-                        <p className="text-center text-xs text-muted-foreground">
-                          Setelah token dikirim, kolom verifikasi akan terbuka.
-                          Jika token sudah ada di email tetapi layar belum
-                          berpindah:
+                        </TombolAdmin>
+                        <p className="text-center text-xs leading-5 text-slate-500">
+                          Setelah token dikirim, kolom verifikasi terbuka dan
+                          hitung mundur 15 menit mulai berjalan. Kalau token
+                          sudah ada di email tetapi layar belum berpindah:
                         </p>
-                        <Button
+                        <button
                           type="button"
-                          variant="link"
-                          className="w-full whitespace-normal text-center text-xs"
-                          onClick={() =>
-                            setAdminFlow({
-                              kind: "code",
-                              email: adminEmail.trim(),
-                              purpose: "activation",
-                            })
-                          }
-                          disabled={isLoading || !adminEmail.trim()}
+                          className={cn(
+                            KELAS_TAUTAN_ADMIN,
+                            "w-full text-center",
+                          )}
+                          onClick={() => bukaLangkahKode("activation")}
+                          disabled={isLoading || adminEmail.trim() === ""}
                         >
                           Saya sudah menerima token — buka kolom verifikasi
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          className="w-full"
+                        </button>
+                        <TombolKembaliAdmin
                           onClick={() => setAdminFlow("signIn")}
-                          disabled={isLoading}
-                        >
-                          <ArrowLeft className="mr-2 size-4" /> Kembali ke masuk
-                          admin
-                        </Button>
+                          nonaktif={isLoading}
+                        />
                       </form>
                     </>
                   )}
@@ -922,27 +948,18 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                         ikon={<Mail className="size-5" />}
                       />
                       <form onSubmit={handleAdminSubmit} className="space-y-4">
-                        <div className="space-y-2">
-                          <label
-                            htmlFor="reset-admin-email"
-                            className="text-sm font-medium"
-                          >
-                            Email Super Admin
-                          </label>
-                          <Input
-                            id="reset-admin-email"
-                            type="email"
-                            autoComplete="username"
-                            placeholder="admin@contoh.com"
-                            value={adminEmail}
-                            onChange={(event) =>
-                              setAdminEmail(event.target.value)
-                            }
-                            disabled={isLoading}
-                            required
-                          />
-                        </div>
+                        <MedanAdmin
+                          id="reset-admin-email"
+                          label="Email Super Admin"
+                          tipe="email"
+                          nilai={adminEmail}
+                          onUbah={setAdminEmail}
+                          autoComplete="username"
+                          placeholder="admin@contoh.com"
+                          nonaktif={isLoading}
+                        />
                         {error && <PesanKesalahan pesan={error} />}
+                        {info && <PesanInfo pesan={info} />}
                         <CaptchaChallenge
                           visible={captchaWajib}
                           a={captcha.a}
@@ -951,28 +968,17 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                           onChange={setCaptchaJawab}
                           disabled={isLoading}
                         />
-                        <Button
-                          type="submit"
-                          className="w-full"
-                          disabled={isLoading}
+                        <TombolAdmin
+                          memuat={isLoading}
+                          nonaktif={adminEmail.trim() === ""}
+                          ikon={<Mail className="size-4" aria-hidden="true" />}
                         >
-                          {isLoading ? (
-                            <Loader2 className="mr-2 size-4 animate-spin" />
-                          ) : (
-                            <Mail className="mr-2 size-4" />
-                          )}
                           Kirim token reset
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          className="w-full"
+                        </TombolAdmin>
+                        <TombolKembaliAdmin
                           onClick={() => setAdminFlow("signIn")}
-                          disabled={isLoading}
-                        >
-                          <ArrowLeft className="mr-2 size-4" /> Kembali ke masuk
-                          admin
-                        </Button>
+                          nonaktif={isLoading}
+                        />
                       </form>
                     </>
                   )}
@@ -1002,78 +1008,48 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                         onSubmit={handleAdminCodeSubmit}
                         className="space-y-4"
                       >
-                        <div className="space-y-2">
-                          <label
-                            htmlFor="admin-verification-token"
-                            className="text-sm font-medium"
-                          >
-                            Token verifikasi (32 karakter)
-                          </label>
-                          <Input
-                            id="admin-verification-token"
-                            aria-label="Token verifikasi admin 32 karakter"
-                            autoComplete="one-time-code"
-                            className="h-12 font-mono text-center text-base tracking-wider"
-                            maxLength={32}
-                            placeholder="Tempel token dari email di sini"
-                            value={adminOtp}
-                            onChange={(event) =>
-                              setAdminOtp(
-                                event.target.value
-                                  .replace(/[^a-zA-Z0-9]/g, "")
-                                  .slice(0, 32),
-                              )
-                            }
-                            disabled={isLoading}
-                            required
-                          />
-                          <p className="text-xs text-muted-foreground">
-                            {adminOtp.length}/32 karakter · huruf besar dan
-                            kecil harus sama seperti di email.
-                          </p>
-                        </div>
+                        <MedanTokenAdmin
+                          nilai={adminOtp}
+                          onUbah={setAdminOtp}
+                          nonaktif={isLoading}
+                        />
+                        <HitungMundurToken
+                          mulaiPada={tokenMulaiPada}
+                          onKirimUlang={() => void kirimUlangToken()}
+                          sibuk={isLoading}
+                        />
                         {adminStep.purpose === "reset" && (
                           <>
-                            <div className="space-y-2">
-                              <label
-                                htmlFor="reset-new-password"
-                                className="text-sm font-medium"
-                              >
-                                Kata sandi baru (minimal 8 karakter)
-                              </label>
-                              <Input
+                            <div>
+                              <MedanAdmin
                                 id="reset-new-password"
-                                type="password"
+                                label="Kata sandi baru (minimal 8 karakter)"
+                                tipe="password"
+                                nilai={newPassword}
+                                onUbah={setNewPassword}
                                 autoComplete="new-password"
-                                value={newPassword}
-                                onChange={(event) =>
-                                  setNewPassword(event.target.value)
-                                }
-                                disabled={isLoading}
-                                required
-                                minLength={8}
+                                minPanjang={8}
+                                nonaktif={isLoading}
                               />
+                              <MeterKekuatanSandi sandi={newPassword} />
                             </div>
-                            <div className="space-y-2">
-                              <label
-                                htmlFor="reset-confirm-password"
-                                className="text-sm font-medium"
-                              >
-                                Ulangi kata sandi baru
-                              </label>
-                              <Input
-                                id="reset-confirm-password"
-                                type="password"
-                                autoComplete="new-password"
-                                value={confirmPassword}
-                                onChange={(event) =>
-                                  setConfirmPassword(event.target.value)
-                                }
-                                disabled={isLoading}
-                                required
-                                minLength={8}
-                              />
-                            </div>
+                            <MedanAdmin
+                              id="reset-confirm-password"
+                              label="Ulangi kata sandi baru"
+                              tipe="password"
+                              nilai={confirmPassword}
+                              onUbah={setConfirmPassword}
+                              autoComplete="new-password"
+                              minPanjang={8}
+                              petunjuk={
+                                confirmPassword === ""
+                                  ? undefined
+                                  : newPassword === confirmPassword
+                                    ? "Kedua kata sandi sudah sama."
+                                    : "Ulangi kata sandi belum sama dengan yang di atas."
+                              }
+                              nonaktif={isLoading}
+                            />
                           </>
                         )}
                         {error && (
@@ -1082,6 +1058,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                             className="text-center"
                           />
                         )}
+                        {info && <PesanInfo pesan={info} />}
                         <CaptchaChallenge
                           visible={captchaWajib}
                           a={captcha.a}
@@ -1090,30 +1067,27 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                           onChange={setCaptchaJawab}
                           disabled={isLoading}
                         />
-                        <Button
-                          type="submit"
-                          className="w-full"
-                          disabled={isLoading || adminOtp.length !== 32}
+                        <TombolAdmin
+                          memuat={isLoading}
+                          nonaktif={
+                            adminOtp.length !== 32 ||
+                            (adminStep.purpose === "reset" && !sandiBaruSiap)
+                          }
+                          ikon={
+                            <ShieldCheck
+                              className="size-4"
+                              aria-hidden="true"
+                            />
+                          }
                         >
-                          {isLoading ? (
-                            <Loader2 className="mr-2 size-4 animate-spin" />
-                          ) : (
-                            <ShieldCheck className="mr-2 size-4" />
-                          )}
                           {adminStep.purpose === "reset"
                             ? "Verifikasi & ganti password"
                             : "Verifikasi & aktifkan password"}
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          className="w-full"
+                        </TombolAdmin>
+                        <TombolKembaliAdmin
                           onClick={() => setAdminFlow("signIn")}
-                          disabled={isLoading}
-                        >
-                          <ArrowLeft className="mr-2 size-4" /> Kembali ke masuk
-                          admin
-                        </Button>
+                          nonaktif={isLoading}
+                        />
                       </form>
                     </>
                   )}
