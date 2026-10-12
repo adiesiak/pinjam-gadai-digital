@@ -1445,7 +1445,7 @@ export default function Landing() {
   ];
 
   return (
-    <div className="min-h-screen bg-white text-slate-900">
+    <div className="tekstur-parang min-h-screen bg-white text-slate-900">
       {/* Bilah kemajuan baca */}
       <motion.div
         aria-hidden="true"
