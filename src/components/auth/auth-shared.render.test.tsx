@@ -5,14 +5,9 @@
  *
  * Yang dijaga:
  *  1. Token desain yang diminta benar-benar MUNCUL di markup — bukan sekadar
- *     ada di kode: pendaran radial emerald + `min-h-screen` pada latar,
- *     `bg-white/85 backdrop-blur-xl` pada kartu, kelas input fokus emerald,
- *     tombol aksi token-based (`.gradient-primary` + `text-primary-foreground`),
- *     tombol WhatsApp peminjam lama, serta lencana keamanan.
- *  1b. **Halaman masuk memakai wajah obsidian.** Atribut `data-wajah="obsidian"`
- *     pada latar harus tetap ada, dan tidak boleh ada nilai warna yang dipaku
- *     di kelas jalur masuk: kalau hex masuk lagi, wajahnya berhenti mengikuti
- *     sistem tema dan halaman ini kembali terang tanpa ada yang menyadari.
+ *     ada di kode: gradient ambient + `min-h-screen` pada latar, `bg-white/85
+ *     backdrop-blur-xl` pada kartu, kelas input fokus emerald, tombol hijau
+ *     `#064E3B`, tombol WhatsApp peminjam lama, serta lencana keamanan.
  *  2. Segmented tab: "Masuk Akun" AKTIF secara default dan "Akses Cepat" belum
  *     — pintu email tetap yang pertama dilihat pengunjung.
  *  3. `pages/Auth.tsx` memakai potongan ini sambil TETAP memanggil logika
@@ -100,30 +95,10 @@ function bacaSumber(relatif: string): string {
   );
   ada(
     latar,
-    "bg-slate-950 bg-[radial-gradient(ellipse_90%_70%_at_50%_-15%,var(--color-emerald-950),var(--color-slate-950)_70%)] min-h-screen flex items-center justify-center p-4 text-slate-800",
+    "bg-slate-50 bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(6,78,59,0.15),rgba(255,255,255,0))] min-h-screen flex items-center justify-center p-4 text-slate-800",
     "kelas latar halaman persis seperti permintaan",
   );
-  ada(
-    latar,
-    'data-wajah="obsidian"',
-    "latar meminta wajah obsidian supaya halaman masuk gelap di tema apa pun",
-  );
   ada(latar, 'id="konten"', "latar tetap jadi target tautan lompat-ke-konten");
-
-  // Wajah halaman masuk harus datang dari sistem tema, bukan dari nilai yang
-  // dipaku di kelas: satu hex yang masuk lagi akan mengunci halaman ini pada
-  // satu warna dan melewatkan seluruh token obsidian.
-  const sumberAuth = bacaSumber("components/auth/auth-shared.tsx");
-  const sumberHalaman = bacaSumber("pages/Auth.tsx");
-  for (const [nama, sumber] of [
-    ["auth-shared.tsx", sumberAuth],
-    ["Auth.tsx", sumberHalaman],
-  ] as const) {
-    ok(
-      !/#[0-9a-fA-F]{6}/.test(sumber),
-      `${nama} bersih dari warna heksadesimal yang dipaku`,
-    );
-  }
   ada(latar, 'tabindex="-1"', "konten tetap bisa difokus program");
   ada(latar, "isi", "anak latar dirender");
 
@@ -134,7 +109,7 @@ function bacaSumber(relatif: string): string {
   );
   ada(
     kartu,
-    "bg-white/85 backdrop-blur-xl border border-emerald-500/30 shadow-xl rounded-3xl p-8 max-w-md w-full",
+    "bg-white/85 backdrop-blur-xl border border-white/90 shadow-xl rounded-3xl p-8 max-w-md w-full",
     "kelas kartu glassmorphism persis seperti permintaan",
   );
   ada(kartu, "isi", "anak kartu dirender");
@@ -220,7 +195,7 @@ function bacaSumber(relatif: string): string {
   ada(utama, 'type="submit"', "tombol utama mengirim formulir");
   ada(
     utama,
-    "w-full mt-3 gradient-primary text-primary-foreground font-semibold py-3 rounded-xl shadow-md transition-all active:scale-[0.98]",
+    "w-full mt-3 bg-[#064E3B] hover:bg-[#042F2E] text-white font-medium py-3 rounded-xl shadow-md transition-all active:scale-[0.98]",
     "kelas tombol utama persis seperti permintaan",
   );
   bersih(utama, "tombol utama");
@@ -382,25 +357,13 @@ function bacaSumber(relatif: string): string {
   );
   ada(
     kartuAdmin,
-    "bg-white/90 backdrop-blur-xl border border-emerald-500/40 ring-1 ring-emerald-500/60 shadow-[0_0_50px_-12px_rgba(16,185,129,0.3)] rounded-3xl p-8 max-w-md w-full",
+    "bg-white/90 backdrop-blur-xl border border-white/90 shadow-2xl rounded-3xl p-8 max-w-md w-full",
     "kelas kartu admin persis seperti permintaan",
   );
   ok(
     kartuAdmin.includes(KELAS_KARTU_ADMIN),
     "kartu admin memakai varian tegas",
   );
-  // Pendaran ganda emerald = garis dalam (ring) + pendaran luar (shadow).
-  for (const garis of ["ring-1 ring-emerald-500/60", "shadow-[0_0_50px_-12px_rgba(16,185,129,0.3)]"]) {
-    ada(kartuAdmin, garis, `kartu admin memikul pendaran ganda: ${garis}`);
-  }
-  // Titik fokus tunggal: kartu jalur nasabah TIDAK boleh ikut menyala.
-  const kartuNasabah = render(
-    <KartuAuth>
-      <span>isi</span>
-    </KartuAuth>,
-  );
-  tidakAda(kartuNasabah, "ring-1", "kartu nasabah tanpa cincin pendaran (satu titik fokus per layar)");
-  tidakAda(kartuNasabah, "shadow-[0_0_50px", "kartu nasabah tanpa pendaran luar");
 
   const medanEmail = render(
     <MedanAdmin
@@ -491,10 +454,6 @@ function bacaSumber(relatif: string): string {
   const lemah = render(<MeterKekuatanSandi sandi="aaaaaaaa" />);
   ada(lemah, "Kekuatan: Lemah", "8 huruf kecil tetap Lemah");
   ada(lemah, "bg-red-500", "bar merah saat lemah");
-  // Label keadaan ikut dijaga kontrasnya: kartu halaman masuk berlatar obsidian,
-  // jadi merah gelap (`red-600`, 3,97:1) gagal AA untuk teks sekecil ini.
-  ada(lemah, "text-red-400", "label Lemah memakai merah terang yang terbaca di latar gelap");
-  tidakAda(lemah, "text-red-600", "merah gelap tidak dipakai lagi di atas permukaan obsidian");
   ada(lemah, 'aria-valuenow="1"', "skor 1 diumumkan");
   ok(jumlah(lemah, "— terpenuhi") === 1, "hanya syarat panjang yang terpenuhi");
 
@@ -577,8 +536,7 @@ function bacaSumber(relatif: string): string {
     />,
   );
   ada(habis, "00:00", "token kedaluwarsa tampil 00:00");
-  ada(habis, "text-red-400", "angka kedaluwarsa ditandai merah terang");
-  tidakAda(habis, "text-red-600", "angka kedaluwarsa tidak memakai merah gelap");
+  ada(habis, "text-red-600", "angka kedaluwarsa ditandai merah");
   tidakAda(
     habis.split("Kirim Ulang Token")[0] ?? "",
     'disabled=""',
@@ -604,9 +562,10 @@ function bacaSumber(relatif: string): string {
   );
   ada(tombol, 'type="submit"', "tombol admin mengirim formulir");
   for (const kelas of [
-    "gradient-primary",
-    "text-primary-foreground",
-    "font-semibold",
+    "bg-[#064E3B]",
+    "hover:bg-[#042F2E]",
+    "text-white",
+    "font-medium",
     "py-3",
     "rounded-xl",
     "shadow-md",

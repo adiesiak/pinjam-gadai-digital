@@ -15,14 +15,13 @@ Core Feel: Exclusive, reassuringly heavy, clean, and high-tech (tactile glass an
 
 Anti-Slop Directive: No generic centered cards with plain black backgrounds, no random floating particles, and no rounded buttons with generic blue gradients. Every element must feel weighted, purposeful, and polished.
 
-### Dua wajah, satu sistem (keputusan pemilik)
+### Satu wajah: mode terang (keputusan pemilik)
 
-Satu sistem tema, dua wajah yang dipilih lewat preset tema:
+Seluruh halaman — nasabah, verifikasi aset, ruang Pendana, meja kerja super-admin, dan halaman masuk — memakai **satu wajah terang**: preset bawaan `tinta` (kertas hangat, hijau tinta, kuningan).
 
-- **Wajah publik (preset bawaan `tinta`)** — nasabah peminjam/penggadai: kertas hangat, hijau tinta, kuningan. Hangat, ramah, membumi.
-- **Wajah premium (preset `obsidian`)** — verifikasi aset, ruang Pendana, dan meja kerja super-admin: obsidian, emas metalik, pendaran emerald.
+Wajah gelap `obsidian` yang sempat dicoba **dicabut seluruhnya**: presetnya tidak lagi terdaftar di `src/lib/system-config.ts`, kartunya hilang dari panel admin, dan blok token gelapnya dihapus dari `src/index.css`. Tidak ada lagi aturan yang cocok dengan `data-theme="obsidian"` maupun `data-wajah="obsidian"`, jadi tidak ada jalan mengaktifkan tampilan gelap.
 
-Keduanya berbagi token, tipografi, kosakata, dan komponen yang sama. Yang berganti hanya palet preset — bukan struktur, bukan susunan halaman, bukan nama istilah.
+Catatan status: kartu hero landing (`components/landing/KartuHeroPindai.tsx`) tetap objek merek berpermukaan gelap. Itu bawaan palet `tinta` sendiri (`--color-slate-950: #12110c`), bukan sisa tema obsidian — lihat §3A.
 
 ## 2. Color Palette & Lighting System
 
@@ -42,21 +41,9 @@ Keduanya berbagi token, tipografi, kosakata, dan komponen yang sama. Yang bergan
 - Inner Ring: `ring-1 ring-emerald-500/60`
 - Outer Shadow/Glow: `shadow-[0_0_50px_-12px_rgba(16,185,129,0.3)]`
 
-### Cara kelas di atas dirender (preset `obsidian`)
+### Cara palet dirender (preset `tinta`)
 
-Skala utilitas Tailwind di proyek ini dipetakan ulang per tema, jadi kelas di atas baru menghasilkan warna yang dimaksud **ketika preset `obsidian` aktif**. Di preset itu nilainya dikunci seperti ini (`src/index.css`):
-
-| Kelas | Dirender sebagai |
-|---|---|
-| `bg-slate-950` | `#030712` (Background Deep) |
-| `bg-slate-950/90` | permukaan kaca; `bg-white` juga menjadi `#0b0f19` (Glass Container) |
-| `emerald-500` / `emerald-600` | `#10B981` / `#059669` |
-| `text-emerald-300` | `#2fd39b` (terbaca di latar gelap) |
-| `amber-200` → `amber-400` → `amber-600` | `#fde68a` → `#fbbf24` → `#d97706` (logam emas) |
-| `--primary` | `#d4af37` (aksi utama = emas, teks di atasnya nyaris hitam) |
-| `--ring` | `#10B981` (fokus emerald) |
-
-Dua akibat yang perlu diketahui sebelum tema ini dijadikan tema situs utama: skala `amber` di preset obsidian menanggung **emas**, sehingga lencana peringatan yang memakai `amber-*` ikut tampak keemasan; dan skala netralnya dibalik (shade rendah = permukaan, shade tinggi = tinta) karena komponen lama memakai `bg-slate-50` untuk permukaan dan `text-slate-900` untuk tinta. Tema lain tidak terpengaruh: `tinta` tetap bawaan.
+Skala utilitas Tailwind di proyek ini dipetakan ulang per preset, jadi kelas nama-warna baru menghasilkan warna yang dimaksud **ketika presetnya aktif**. Di preset bawaan `tinta` (`src/index.css`), nilai yang dipakai ditulis di blok `@theme` dan `:root`: `slate` adalah netral kertas hangat (permukaan terang, tinta gelap), `emerald` menanggung kuningan untuk nilai uang & status positif, `amber` menanggung oranye bata untuk peringatan, dan `sky` menanggung hijau tinta tua sebagai aksen brand. Empat preset lain (`pesisir`, `terakota`, `salju`, `karnival`) memetakan ulang skala yang sama dengan paletnya sendiri.
 
 ## 3. Component Design Rules
 
@@ -84,21 +71,6 @@ Card Details:
 
 - Card Hover State: Smooth 3D tilt effect (`hover:scale-[1.02] transition-all duration-500`) with dynamic light reflection over the glass surface.
 - Security Feedback: Password strength meters and 32-character token auto-trimmers must render in real-time with sharp emerald status indicators.
-
-### D. Wajah obsidian halaman masuk (`/auth`) — keputusan pemilik
-
-Halaman masuk memakai **wajah obsidian**, bukan wajah kertas `tinta`, dan itu berlaku di tema apa pun yang sedang aktif. Mekanismenya bukan kelas gelap yang ditulis ulang di komponen, melainkan satu atribut: pembungkus halaman (`LatarAuth`) memasang `data-wajah="obsidian"`, dan blok token obsidian di `src/index.css` ikut cocok dengan selektor itu. Karena properti kustom diwariskan, seluruh isi sub-pohon — kartu, medan input, tombol, tab, lencana — memakai palet obsidian tanpa satu pun warna dipaku di kelas.
-
-Alasan memilih cara ini (bukan menempel `bg-slate-900/80` di tiap elemen): palet tetap punya satu sumber, wajah lain tidak ikut berubah, dan preset tema tetap bisa mengganti warna hanya dengan mengganti token. `auth-shared.render.test.tsx` menjaga dua hal sekaligus: atribut `data-wajah="obsidian"` harus tetap ada, dan kedua berkas jalur masuk harus **bersih dari warna heksadesimal**.
-
-Aturan yang mengikat halaman ini:
-
-- Latar: `bg-slate-950` + pendaran radial dari `--color-emerald-950` ke `--color-slate-950` (keduanya token, jadi gradiennya ikut tema). Pendaran ini satu-satunya di layar.
-- Kartu jalur nasabah: kaca padat + **satu garis emerald tipis** sebagai penanda batas, tanpa pendaran.
-- Kartu jalur SUPER ADMIN: titik fokus tunggal halaman ini, memikul **pendaran ganda emerald** (garis dalam `ring-1 ring-emerald-500/60` + pendaran luar `shadow-[0_0_50px_-12px_rgba(16,185,129,0.3)]`), sama seperti kartu hero di §3A. Kartu nasabah tidak boleh ikut menyala.
-- Tombol aksi, tile merek, dan tombol langkah admin mengambil warna dari `--primary` lewat utilitas `.gradient-primary` — emas di wajah ini, hijau tinta bila wajahnya kelak diganti.
-- Nama merek memakai emas (`text-amber-300`) dan ikon gembok lencana admin memakai emas (`text-amber-400`), sejalan dengan logam emas §2.
-- Tab aktif memakai tint emerald; tab inaktif tetap netral terang.
 
 ## 4. Anti-Slop Checkpoints for PINDAI
 

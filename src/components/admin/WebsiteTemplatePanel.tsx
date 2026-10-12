@@ -26,15 +26,6 @@ const TEMPLATES: TemplateInfo[] = [
     tinta: "#1c1a15",
   },
   {
-    id: "obsidian",
-    nama: "Obsidian",
-    deskripsi:
-      "Wajah gelap premium: permukaan obsidian, emas metalik, dan pendaran emerald (arah DESIGN.md). Perlu tinjauan mata sebelum dijadikan tema utama.",
-    warna: ["#d4af37", "#10b981", "#0b0f19"],
-    latar: "#030712",
-    tinta: "#e6e8ee",
-  },
-  {
     id: "pesisir",
     nama: "Pesisir",
     deskripsi: "Tampilan segar bernuansa biru laut, cocok untuk kesan terbuka dan tenang.",

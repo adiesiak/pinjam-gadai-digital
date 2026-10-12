@@ -16,9 +16,24 @@ export const THEME_PRESETS = [
   "terakota",
   "salju",
   "karnival",
-  "obsidian",
 ] as const;
 export type ThemePreset = (typeof THEME_PRESETS)[number];
+
+/**
+ * Normalkan nilai tema dari penyimpanan ke preset yang benar-benar ada.
+ *
+ * Preset yang pernah tersedia lalu dicabut masih TERSIMPAN di dokumen lama.
+ * Menghapusnya dari skema akan membuat konfigurasi itu gagal dibaca dan seluruh
+ * panel admin ikut mati; jadi nilai asing tidak ditolak, melainkan dikembalikan
+ * ke bawaan `tinta`. Akibatnya situs selalu tampil terang, dan penyimpanan
+ * berikutnya sudah menulis nilai yang sah.
+ */
+export function temaAman(nilai: unknown): ThemePreset {
+  return typeof nilai === "string" &&
+    (THEME_PRESETS as readonly string[]).includes(nilai)
+    ? (nilai as ThemePreset)
+    : DEFAULT_CONFIG.tema;
+}
 
 export type SystemConfig = {
   /**

@@ -695,7 +695,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                       />
                       <Button
                         type="submit"
-                        className="h-12 w-full rounded-xl gradient-primary font-semibold text-primary-foreground"
+                        className="h-12 w-full rounded-xl bg-[#064E3B] font-medium text-white hover:bg-[#042F2E]"
                         disabled={isLoading || otp.length !== 6}
                       >
                         {isLoading ? (

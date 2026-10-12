@@ -6,6 +6,7 @@ import {
   DEFAULT_CONFIG,
   RETENSI_LOKASI_BATAS,
   THEME_PRESETS,
+  temaAman,
   type SystemConfig,
   type ThemePreset,
 } from "../lib/system-config";
@@ -71,7 +72,7 @@ export async function getConfig(ctx: QueryCtx): Promise<SystemConfig> {
   if (row === null) return { ...DEFAULT_CONFIG };
   return {
     versi: row.versi ?? DEFAULT_CONFIG.versi,
-    tema: row.tema ?? DEFAULT_CONFIG.tema,
+    tema: temaAman(row.tema),
     killSwitch: row.killSwitch ?? DEFAULT_CONFIG.killSwitch,
     maintenanceMode: row.maintenanceMode ?? DEFAULT_CONFIG.maintenanceMode,
     persenAdmin: row.persenAdmin ?? DEFAULT_CONFIG.persenAdmin,
@@ -399,7 +400,6 @@ export const saveConfig = mutation({
       v.literal("terakota"),
       v.literal("salju"),
       v.literal("karnival"),
-      v.literal("obsidian"),
     ),
     killSwitch: v.boolean(),
     maintenanceMode: v.boolean(),
@@ -584,7 +584,6 @@ export const setWebsiteTemplate = mutation({
       v.literal("terakota"),
       v.literal("salju"),
       v.literal("karnival"),
-      v.literal("obsidian"),
     ),
   },
   handler: async (ctx, { tema }) => {
