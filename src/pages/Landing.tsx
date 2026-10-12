@@ -49,7 +49,7 @@ import {
 import { api } from "@/convex/_generated/api";
 import { RoleDashboardMenu } from "@/components/RoleDashboardMenu";
 import { Reveal } from "@/components/Reveal";
-import { LandingHero, TemplateBoundary } from "@/components/landing/LandingHero";
+import { HeroBoundary, LandingHero } from "@/components/landing/LandingHero";
 import { VaultLogo } from "@/components/VaultLogo";
 import { CMS_DEFAULTS } from "@/lib/cms-defaults";
 import { CONTRACT_TERMS_VERSION } from "@/lib/contract";
@@ -1260,12 +1260,12 @@ export function PromoSection({ sudahMasuk }: { sudahMasuk: boolean }) {
 }
 
 /**
- * Hero darurat: dipakai HANYA bila render pengalaman 3D gagal total.
+ * Hero darurat: dipakai HANYA bila render hero gagal tak terduga.
  *
  * Isinya sengaja statis dan lengkap (judul + jalan masuk ke produk) supaya
  * pengunjung tidak pernah menerima layar putih, dan tetap tahu langkah
- * berikutnya. Tidak ada WebGL, tidak ada animasi frame — aman di perangkat apa
- * pun, termasuk Electron tanpa akselerasi.
+ * berikutnya. Tanpa gambar dan tanpa animasi — aman di perangkat apa pun,
+ * termasuk Electron tanpa akselerasi.
  */
 function HeroDarurat({
   judul1,
@@ -1279,28 +1279,25 @@ function HeroDarurat({
   href: string;
 }) {
   return (
+    // Pemisah ke bagian berikutnya digambar `FactRibbon` di bawahnya.
     <section
       aria-labelledby="hero-darurat-judul"
-      className="relative overflow-hidden border-b border-slate-800/60 bg-[#021E17] text-white"
+      className="bg-slate-50"
     >
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-0 bg-[radial-gradient(120%_90%_at_22%_18%,rgba(15,61,58,0.85),transparent_62%)]"
-      />
-      <div className="relative mx-auto w-full max-w-3xl px-4 py-16 sm:px-6 sm:py-20">
+      <div className="mx-auto w-full max-w-3xl px-4 py-16 sm:px-6 sm:py-20">
         <h1
           id="hero-darurat-judul"
-          className="text-[2.15rem] font-semibold leading-[1.1] tracking-[-0.035em] sm:text-5xl"
+          className="text-[2.15rem] font-semibold leading-[1.1] tracking-[-0.035em] text-slate-900 sm:text-5xl"
         >
           {judul1}
           <br />
-          <span className="font-serif font-medium italic text-[#e6d3a5]">{judul2}</span>
+          <span className="font-serif font-medium italic text-primary">{judul2}</span>
         </h1>
-        <p className="mt-6 max-w-xl text-sm leading-6 text-slate-300">
-          Pengalaman 3D tidak dapat dimuat pada perangkat ini. PINDAI tetap dapat digunakan seperti
-          biasa.
+        <p className="mt-6 max-w-xl text-sm leading-6 text-slate-600">
+          Bagian ini tidak dapat dimuat sepenuhnya. PINDAI tetap dapat dipakai
+          seperti biasa lewat tombol di bawah.
         </p>
-        <Button asChild className="mt-8 h-12 rounded-full bg-[#1f6a62] px-6 text-white hover:bg-[#175a53]">
+        <Button asChild className="mt-8 h-12 rounded-full bg-primary px-6 text-white hover:bg-primary/90">
           <Link to={href}>
             {ctaLabel}
             <ArrowRight className="ml-2 size-4" aria-hidden="true" />
@@ -1313,8 +1310,6 @@ function HeroDarurat({
 
 export default function Landing() {
   const cms = useQuery(api.announcements.getPublic);
-  /** Template 3D aktif — dibaca dari konfigurasi backend, bukan dipatok di kode. */
-  const landingTemplate = useQuery(api.system.getLandingTemplatePublic, {});
   const { isAuthenticated, isLoading, user } = useAuth();
   const c = (v: string | undefined, fallback: string) => v ?? fallback;
   const accountHref = isLoading || !isAuthenticated
@@ -1592,11 +1587,10 @@ export default function Landing() {
       </header>
 
       <main id="konten" tabIndex={-1}>
-        {/* Hero — pengalaman 3D sesuai TEMPLATE AKTIF (lihat
-            components/landing/LandingHero.tsx + templateScene.ts). Konten, CTA,
-            dan CMS tetap di sini; yang berganti antar template hanya adegan 3D.
-            Batas kesalahan memastikan halaman tetap tampil bila render gagal. */}
-        <TemplateBoundary
+        {/* Hero — satu panggung statis (lihat components/landing/LandingHero.tsx).
+            Konten, CTA, dan CMS tetap di sini. Batas kesalahan tetap dipasang
+            sebagai jaring pengaman bila render hero gagal tak terduga. */}
+        <HeroBoundary
           fallback={
             <HeroDarurat
               judul1={heroJudul1}
@@ -1607,7 +1601,6 @@ export default function Landing() {
           }
         >
           <LandingHero
-            template={landingTemplate?.template}
             eyebrow={c(cms?.heroBadge, "PINDAI · Pinjaman dan Gadai Digital")}
             judul1={heroJudul1}
             judul2={heroJudul2}
@@ -1620,7 +1613,7 @@ export default function Landing() {
             mikro="Informasi biaya, ketentuan, dan hasil pengajuan mengikuti produk serta proses verifikasi yang berlaku."
             sudahMasuk={isAuthenticated}
           />
-        </TemplateBoundary>
+        </HeroBoundary>
 
         <FactRibbon />
 

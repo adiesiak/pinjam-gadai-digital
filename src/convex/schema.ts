@@ -1065,12 +1065,18 @@ const schema = defineSchema(
         ),
       ),
       /**
-       * Template pengalaman 3D landing page publik (route `/`). Hanya ID dari
-       * allowlist `lib/landingTemplate.ts` yang disimpan — frontend memuat
-       * komponen berdasarkan ID ini, jadi tidak ada nama komponen atau kode
-       * arbitrer yang bisa datang dari klien. Sama seperti `tema`, kolom ini
-       * TIDAK ikut ditimpa `saveConfig` agar penggantian template 3D tidak
-       * bergantung pada penyimpanan form konfigurasi.
+       * SISA FITUR YANG SUDAH DICABUT: template 3D landing page publik.
+       *
+       * Enam adegan WebGL-nya sudah dihapus dari frontend (hero landing kini
+       * satu panggung terang yang statis), begitu pula query dan mutation yang
+       * mengubahnya — jadi tidak ada kode yang membaca atau menulis kolom ini
+       * lagi.
+       *
+       * Kolom beserta union-nya SENGAJA dibiarkan apa adanya: mencabutnya dari
+       * skema membuat baris `systemConfig` lama yang masih menyimpan nilai ini
+       * gagal validasi saat dibaca. Membersihkannya butuh mutasi pembersih
+       * tersendiri — tidak sepadan untuk satu kolom opsional yang tidak
+       * mengganggu apa pun.
        */
       landingTemplate: v.optional(
         v.union(

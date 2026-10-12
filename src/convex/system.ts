@@ -11,7 +11,6 @@ import {
   type ThemePreset,
 } from "../lib/system-config";
 import { clampPlafon } from "../lib/plafon";
-import { isLandingTemplateId, labelTemplateLanding, templateLandingAman } from "../lib/landingTemplate";
 import { bandingkanConfig, type PerubahanConfig } from "../lib/bandingkanConfig";
 import {
   AKSI_PER_JENIS,
@@ -131,24 +130,6 @@ export const getPaymentInstructions = query({
 export const getThemePublic = query({
   args: {},
   handler: async (ctx) => ({ tema: (await getConfig(ctx)).tema }),
-});
-
-/**
- * Template 3D landing page aktif — dibaca pengunjung publik di route `/`.
- *
- * Nilai tak dikenal (atau kolom yang belum pernah diset) dinormalkan menjadi
- * template default, bukan dilempar sebagai error: halaman depan tidak boleh
- * kosong hanya karena konfigurasi lama/tidak valid.
- */
-export const getLandingTemplatePublic = query({
-  args: {},
-  handler: async (ctx) => {
-    const row = await ctx.db
-      .query("systemConfig")
-      .withIndex("by_slot", (q) => q.eq("slot", SYSTEM_SLOT))
-      .first();
-    return { template: templateLandingAman(row?.landingTemplate) };
-  },
 });
 
 /** Konfigurasi untuk semua pengguna ter-autentikasi (status kill switch & maintenance). */
@@ -613,71 +594,6 @@ export const setWebsiteTemplate = mutation({
       `Template warna website diubah menjadi ${tema}.`,
     );
     return { ok: true };
-  },
-});
-
-/**
- * Ganti template 3D landing page publik (Panel Admin → Landing Page → Template 3D).
- *
- * Keamanan: hanya admin dengan sesi sah (`requireAdminSession`) yang boleh
- * menulis, dan nilainya WAJIB ada di allowlist `lib/landingTemplate.ts`. Klien
- * tidak pernah mengirim nama komponen atau kode — hanya ID template — sehingga
- * tidak ada jalan untuk memuat komponen arbitrer dari frontend.
- *
- * Ini adalah jalur yang sama dengan `setWebsiteTemplate`: satu patch pada baris
- * `systemConfig` tanpa menyentuh versi konfigurasi form, supaya penggantian
- * template tidak perlu deploy ulang dan tidak mengubah nilai operasional lain.
- * Perubahan TIDAK memengaruhi transaksi yang sudah berjalan.
- *
- * Dua admin yang mengganti bersamaan: Convex mengeksekusi mutation secara
- * transaksional, jadi yang berlaku adalah penulisan terakhir; SETIAP percobaan
- * tetap meninggalkan satu baris audit berisi template asal dan tujuan, sehingga
- * riwayat tidak pernah hilang meski ada balapan.
- */
-export const setLandingTemplate = mutation({
-  args: {
-    template: v.union(
-      v.literal("premium-card"),
-      v.literal("cyber-vault"),
-      v.literal("ai-mascot"),
-      v.literal("ledger-matrix"),
-      v.literal("loan-simulator"),
-      v.literal("quantum-portal"),
-    ),
-  },
-  handler: async (ctx, { template }) => {
-    const { userId, user } = await requireAdmin(ctx);
-    const label = user.email ?? user.name ?? "admin";
-    if (!isLandingTemplateId(template)) {
-      throw new Error("Template 3D landing page tidak valid.");
-    }
-    const existing = await ctx.db
-      .query("systemConfig")
-      .withIndex("by_slot", (q) => q.eq("slot", SYSTEM_SLOT))
-      .first();
-    const sebelumnya = templateLandingAman(existing?.landingTemplate);
-    if (sebelumnya === template) {
-      return { ok: true as const, template, sebelumnya, berubah: false };
-    }
-    const now = Date.now();
-    if (existing === null) {
-      await ctx.db.insert("systemConfig", {
-        slot: SYSTEM_SLOT,
-        landingTemplate: template,
-        diperbaruiPada: now,
-      });
-    } else {
-      await ctx.db.patch(existing._id, { landingTemplate: template, diperbaruiPada: now });
-    }
-    await audit(
-      ctx,
-      userId,
-      label,
-      "template_landing_3d",
-      "Landing page publik (/)",
-      `Template 3D landing page: ${labelTemplateLanding(sebelumnya)} → ${labelTemplateLanding(template)}.`,
-    );
-    return { ok: true as const, template, sebelumnya, berubah: true };
   },
 });
 

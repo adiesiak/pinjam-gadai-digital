@@ -40,7 +40,6 @@ export const NILAI_MODUL_ADMIN = [
   "whatsapp",
   "config",
   "template",
-  "landing",
   "aplikasi",
   "loglogin",
   "audit",
@@ -91,8 +90,8 @@ export const GRUP_NAV: readonly GrupNav[] = [
   {
     id: "konten",
     label: "Konten",
-    modul: ["landing", "template", "pengumuman", "whatsapp", "aplikasi"],
-    default: "landing",
+    modul: ["template", "pengumuman", "whatsapp", "aplikasi"],
+    default: "template",
   },
   {
     id: "sistem",
