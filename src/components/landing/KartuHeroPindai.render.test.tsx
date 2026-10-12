@@ -140,6 +140,20 @@ function bersih(html: string, label: string): void {
     "bg-gradient-to-br from-amber-200 via-amber-400 to-amber-600 rounded-md w-12 h-9 shadow-inner border border-amber-200/50",
     "kelas chip logam emas persis seperti permintaan",
   );
+  // Pita chip memusatkan dirinya dengan `my-auto` (sisa tinggi dibagi sama besar
+  // di atas dan di bawahnya), dan blok nomor TIDAK boleh ikut memakai `mt-auto`:
+  // dua penyerap sisa ruang sekaligus membagi jarak jadi tiga bagian sehingga
+  // chip melenceng naik dari kiri tengah (DESIGN.md §3A).
+  ada(
+    html,
+    'class="relative my-auto flex items-center gap-3"',
+    "chip duduk di kiri tengah (pita memusatkan diri lewat sisa tinggi)",
+  );
+  tidakAda(
+    html,
+    'class="relative mt-auto"',
+    "blok nomor tidak lagi menyerap sisa ruang (penyerap kedua menggeser chip)",
+  );
   ada(html, "lucide-wifi", "ikon contactless/NFC dirender di samping chip");
   ada(html, "rotate-90", "ikon contactless diputar membuka ke kanan");
   ok(

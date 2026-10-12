@@ -269,8 +269,14 @@ export function KartuHeroPindai({
           </p>
         </header>
 
-        {/* ── Chip EMV logam emas + ikon contactless, di kiri tengah. ── */}
-        <div className="relative flex items-center gap-3">
+        {/* ── Chip EMV logam emas + ikon contactless, di kiri tengah.
+            `my-auto` menyerap sisa tinggi kartu sama besar di atas dan di bawah
+            pita ini, jadi chip benar-benar duduk di kiri tengah seperti
+            DESIGN.md §3A. Tanpa itu, seluruh sisa ruang jatuh ke atas blok
+            nomor dan chip naik menempel di bawah logo. `my-auto` dipilih bukan
+            `flex-1` supaya pita tidak bisa terhimpit jadi nol tinggi saat ruang
+            kartu sempit. ── */}
+        <div className="relative my-auto flex items-center gap-3">
           <div
             aria-hidden="true"
             className="bg-gradient-to-br from-amber-200 via-amber-400 to-amber-600 rounded-md w-12 h-9 shadow-inner border border-amber-200/50 flex flex-col justify-center gap-[3px] px-1.5"
@@ -287,8 +293,11 @@ export function KartuHeroPindai({
         </div>
 
         {/* ── Identitas kartu & nasabah (bawah). Baris data ditandai
-            `aria-hidden`: angka contoh tidak perlu dibacakan. ── */}
-        <div className="relative mt-auto">
+            `aria-hidden`: angka contoh tidak perlu dibacakan. Blok ini tidak
+            lagi memakai `mt-auto`: sisa tinggi sudah diserap `my-auto` milik pita
+            chip, dan dua sumber sisa ruang sekaligus akan membagi jarak jadi tiga
+            bagian sehingga chip melenceng dari tengah. ── */}
+        <div className="relative">
           <p
             aria-hidden="true"
             className="font-mono text-amber-200/90 tracking-widest text-lg drop-shadow-sm"
