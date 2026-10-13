@@ -1,5 +1,5 @@
-import { ChevronDown, Eye, LayoutDashboard, Megaphone, ShieldCheck } from "lucide-react";
-import { Link } from "react-router";
+import { ChevronDown, Eye, LayoutDashboard, LogOut, Megaphone, ShieldCheck } from "lucide-react";
+import { Link, useNavigate } from "react-router";
 
 import { useAuth } from "@/hooks/use-auth";
 import { ADMIN_ROUTE } from "@/lib/routes";
@@ -9,12 +9,14 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
 /** Pintasan ke ruang kerja yang tersedia untuk peran akun saat ini. */
 export function RoleDashboardMenu() {
-  const { isAuthenticated, isLoading, user } = useAuth();
+  const { isAuthenticated, isLoading, signOut, user } = useAuth();
+  const navigate = useNavigate();
   const role = user?.role;
 
   const dashboardPeminjam = {
@@ -65,6 +67,11 @@ export function RoleDashboardMenu() {
 
   if (isLoading || !isAuthenticated) return null;
 
+  const keluar = async () => {
+    await signOut();
+    navigate("/");
+  };
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -99,6 +106,22 @@ export function RoleDashboardMenu() {
             </DropdownMenuItem>
           );
         })}
+        {/* Keluar ada di sini, bukan di kartu profil: di sana tempatnya dipakai
+            pintasan ruang, jadi peran pendana/admin tidak punya tombol keluar.
+            Menu ini terlihat di kepala bar semua peran dan semua lebar layar. */}
+        <DropdownMenuSeparator />
+        <DropdownMenuItem
+          className="cursor-pointer items-start gap-3 px-3 py-2.5"
+          onSelect={() => void keluar()}
+        >
+          <LogOut className="mt-0.5 size-4 shrink-0" />
+          <span className="grid gap-0.5">
+            <span className="text-sm font-medium">Keluar</span>
+            <span className="text-xs leading-4 text-muted-foreground">
+              Akhiri sesi akun di perangkat ini
+            </span>
+          </span>
+        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );

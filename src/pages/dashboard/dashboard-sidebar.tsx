@@ -66,7 +66,7 @@ export function DashboardSidebar({
           </div>
         </div>
 
-        {link ? (
+        {link && (
           <a
             href={link.href}
             className="mt-3 flex items-center gap-2.5 text-xs font-medium text-primary hover:text-primary-foreground"
@@ -79,16 +79,18 @@ export function DashboardSidebar({
             {link.label}
             <ChevronDown className="size-3.5 -rotate-90" />
           </a>
-        ) : (
-          <Button
-            variant="outline"
-            size="sm"
-            className="mt-3 w-full justify-start gap-2 text-xs text-slate-600 hover:bg-slate-100"
-            onClick={onSignOut}
-          >
-            <LogOut className="size-3.5" /> Keluar
-          </Button>
         )}
+        {/* Tombol keluar selalu ada di kartu profil. Dulu ia dirender hanya
+            untuk peran Peminjam (sebagai cabang `else` dari pintasan ruang),
+            jadi akun pendana/admin kehilangan jalan keluar di sini. */}
+        <Button
+          variant="outline"
+          size="sm"
+          className="mt-3 w-full justify-start gap-2 text-xs text-slate-600 hover:bg-slate-100"
+          onClick={onSignOut}
+        >
+          <LogOut className="size-3.5" /> Keluar
+        </Button>
       </motion.div>
 
       {/* ── Navigasi yang dikelompokkan ── */}
