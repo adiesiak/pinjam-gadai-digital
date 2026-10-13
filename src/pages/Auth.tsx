@@ -1105,10 +1105,14 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                 ((authMode === "client" && clientStep === "signIn") ||
                   (authMode === "admin" && adminStep === "signIn")) && (
                   <div className="mt-6 border-t border-slate-200/80 pt-4">
+                    {/* `h-auto`: label jalur admin→nasabah membungkus jadi dua
+                        baris di layar 360px, sedangkan `h-9` bawaan mengunci
+                        tinggi kotaknya ke 36px — teksnya melimpah keluar kotak
+                        dan sisa luberan itu tidak ikut bisa diketuk. */}
                     <Button
                       type="button"
                       variant="link"
-                      className="w-full text-xs whitespace-normal text-slate-500 hover:text-emerald-800"
+                      className="h-auto w-full text-xs whitespace-normal text-slate-500 hover:text-emerald-800"
                       onClick={() =>
                         switchAuthMode(
                           authMode === "client" ? "admin" : "client",

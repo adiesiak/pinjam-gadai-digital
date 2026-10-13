@@ -357,6 +357,14 @@ function aturanAktif(css: string): string {
     "halaman memakai tombol WhatsApp bersama",
   );
   ada(halaman, "<LencanaKeamanan />", "lencana keamanan di dasar kartu");
+  // Label jalur admin→nasabah membungkus jadi dua baris di 360px; tanpa
+  // `h-auto`, `h-9` bawaan mengunci kotaknya ke 36px sehingga teksnya melimpah
+  // keluar kotak dan area ketuknya tidak ikut membesar.
+  ada(
+    halaman,
+    "h-auto w-full text-xs whitespace-normal",
+    "tombol alih jalur admin tumbuh mengikuti teksnya",
+  );
   ada(halaman, "<TautanBeranda />", "navigasi bawah menuju beranda");
   tidakAda(halaman, "Kembali ke halaman login", "tautan lama sudah diganti");
   tidakAda(
@@ -541,6 +549,14 @@ function aturanAktif(css: string): string {
     token,
     "font-mono tracking-wider bg-slate-50/80",
     "token memakai font monospace di atas latar lembut",
+  );
+  // Di layar 360px kartu hanya menyisakan ≈264px; medan monospace tanpa
+  // `min-w-0` menolak menyusut di samping tombol `shrink-0`, jadi barisnya
+  // melampaui tepi kartu dan tombol tempelnya terpotong.
+  ada(
+    token,
+    "min-w-0",
+    "medan token boleh menyusut di samping tombol tempel",
   );
   ada(
     token,

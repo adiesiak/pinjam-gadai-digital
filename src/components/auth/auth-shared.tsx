@@ -476,6 +476,10 @@ export function MedanTokenAdmin({
       >
         Token verifikasi (32 karakter)
       </label>
+      {/* `min-w-0` pada medan token: tanpa itu medan monospace ini menolak
+          menyusut di bawah lebar bawaan peramban (≈240px), sedangkan tombol
+          "Tempel Token" di sebelahnya `shrink-0` — barisnya lalu melampaui
+          tepi kartu dan tombolnya terpotong di layar 360px. */}
       <div className="flex items-stretch gap-2">
         <input
           id="admin-verification-token"
@@ -488,7 +492,7 @@ export function MedanTokenAdmin({
           disabled={nonaktif}
           className={cn(
             KELAS_INPUT_ADMIN,
-            "font-mono tracking-wider bg-slate-50/80",
+            "font-mono tracking-wider bg-slate-50/80 min-w-0",
           )}
           required
         />
