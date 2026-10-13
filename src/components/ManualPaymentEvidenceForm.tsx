@@ -277,7 +277,7 @@ export function ManualPaymentEvidenceHistory() {
     <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-4">
       <h3 className="text-sm font-semibold">Riwayat bukti pembayaran yang dikirim</h3>
       <ul className="mt-2 divide-y divide-slate-100">
-        {rows.map((row) => <li key={row._id} className="flex flex-wrap items-center justify-between gap-2 py-2 text-xs"><span>{row.nomorReferensi} · {formatRupiah(row.jumlah)} · {row.jenis}</span><span className="text-muted-foreground">{row.status === "dicocokkan" ? "Mutasi dicocokkan — saldo tidak berubah" : row.status === "ditolak" ? `Ditolak${row.catatanAdmin ? `: ${row.catatanAdmin}` : ""}` : "Menunggu pencocokan"}</span></li>)}
+        {rows.map((row) => <li key={row._id} className="flex flex-wrap items-center justify-between gap-2 py-2 text-xs"><span>{row.nomorReferensi} · {formatRupiah(row.jumlah)} · {row.jenis}</span><span className="text-muted-foreground">{row.status === "dicocokkan" ? "Mutasi dicocokkan, saldo tidak berubah" : row.status === "ditolak" ? `Ditolak${row.catatanAdmin ? `: ${row.catatanAdmin}` : ""}` : "Menunggu pencocokan"}</span></li>)}
       </ul>
     </section>
   );

@@ -53,7 +53,7 @@ function unduhAset(aset: Aset, diam = false): boolean {
     tautan.click();
     tautan.remove();
     if (!diam) {
-      toast.success(`PNG diunduh — ${aset.berkas} (${aset.canvas[0]} × ${aset.canvas[1]}).`);
+      toast.success(`PNG diunduh: ${aset.berkas} (${aset.canvas[0]} × ${aset.canvas[1]}).`);
     }
     return true;
   } catch {

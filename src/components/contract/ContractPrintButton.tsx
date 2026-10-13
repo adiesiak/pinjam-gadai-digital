@@ -16,7 +16,7 @@ export function ContractPrintButton({
   const cetak = () => {
     const w = window.open("", "_blank");
     if (!w) {
-      toast.error("Popup diblokir browser — izinkan popup untuk mencetak catatan.");
+      toast.error("Popup diblokir browser. Izinkan popup untuk mencetak catatan.");
       return;
     }
     w.document.write(wrapContractHtml(html));

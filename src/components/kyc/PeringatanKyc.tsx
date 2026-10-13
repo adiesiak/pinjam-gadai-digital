@@ -148,7 +148,7 @@ export function IdentitasKycTerverifikasi({
       </p>
       <p className="mt-1 text-xs leading-5">
         {petunjuk ??
-          "Bagian data diri dan dokumen tidak perlu diisi ulang — pengajuan ini memakai data KYC yang sudah diperiksa petugas. Isi cukup nominal, tenor, tujuan, rekening, dan tanda tangan."}
+          "Data diri dan dokumen dipakai dari KYC yang sudah diperiksa petugas. Isi cukup nominal, tenor, tujuan, rekening, dan tanda tangan."}
       </p>
       <dl className="mt-2 grid gap-x-4 gap-y-1 text-xs sm:grid-cols-3">
         {baris.map(([label, nilai]) => (

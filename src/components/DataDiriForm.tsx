@@ -303,7 +303,7 @@ export function FormDataDiri({
                   Memeriksa apakah NIK ini sudah terdaftar…
                 </>
               ) : tahapKembar === "galat" ? (
-                "Pemeriksaan NIK gagal dijalankan — simpan tetap divalidasi server."
+                "Pemeriksaan NIK gagal dijalankan; simpan tetap divalidasi server."
               ) : temuanKembar === null ? (
                 <>
                   <CheckCircle2 className="size-3 shrink-0" aria-hidden />

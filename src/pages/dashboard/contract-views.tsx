@@ -67,7 +67,7 @@ export function MyContractsSection({
       <EmptyState
         icon={ScrollText}
         title="Belum ada perjanjian"
-        body="Perjanjian pinjaman dan gadai yang tersimpan di aplikasi akan tampil di sini bersama status tanda tangannya."
+        body="Perjanjian pinjaman dan gadai tersimpan tampil di sini bersama status tanda tangannya."
       />
     );
   }
@@ -204,7 +204,7 @@ function LoanContractCard({
           <p className="mt-0.5 text-xs text-muted-foreground">
             {c.lokasiAjukan
               ? `Koordinat perangkat yang dikirim ${c.lokasiAjukan.lat.toFixed(4)}, ${c.lokasiAjukan.lng.toFixed(4)}`
-              : "Koordinat perangkat —"}{" "}
+              : "Koordinat perangkat belum dicatat"}{" "}
             · {c.tandaTanganAda ? "gambar tanda tangan tercatat" : "belum ada gambar yang tercatat"}
           </p>
         </div>
@@ -227,7 +227,7 @@ function ContractPreviewButton({ html }: { html: string }) {
       onClick={() => {
         const w = window.open("", "_blank");
         if (!w) {
-          toast.error("Popup diblokir browser — izinkan popup untuk melihat dokumen.");
+          toast.error("Popup diblokir browser. Izinkan popup untuk melihat dokumen.");
           return;
         }
         w.document.write(wrapContractHtml(html));

@@ -440,7 +440,7 @@ export function HelpdeskSayaView({
           <EmptyState
             icon={HelpCircle}
             title="Belum ada pengaduan"
-            body="Pengaduan yang Anda kirim akan muncul di sini beserta status, balasan petugas, dan penyelesaiannya."
+            body="Pengaduan Anda tampil di sini beserta status, balasan petugas, dan penyelesaiannya."
           />
         ) : (
           <ul className="space-y-3">

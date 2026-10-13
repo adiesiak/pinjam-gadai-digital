@@ -335,7 +335,7 @@ export function ContractSigningDialog({
                 : siapTandaTangan && consentChecked
                   ? "Persetujuan dan tanda tangan siap disimpan pada perjanjian."
                   : siapTandaTangan
-                    ? "Persetujuan belum dicentang — centang kembali untuk menyimpan."
+                    ? "Persetujuan belum dicentang; centang kembali untuk menyimpan."
                     : "Bubuhkan tanda tangan pada kanvas untuk mengaktifkan tombol kirim."}
           </p>
           <div className="flex items-center justify-end gap-2">

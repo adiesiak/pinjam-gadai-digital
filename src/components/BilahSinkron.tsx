@@ -59,7 +59,7 @@ export function BilahSinkron() {
         ) : (
           <>
             <Spinner className="size-3.5 shrink-0 text-slate-500" />
-            <span className="truncate">Proses panjang sedang berjalan — jangan tutup halaman…</span>
+            <span className="truncate">Proses panjang sedang berjalan. Jangan tutup halaman…</span>
           </>
         )}
       </div>

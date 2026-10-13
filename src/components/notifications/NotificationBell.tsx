@@ -158,7 +158,7 @@ export function NotificationBell() {
           galat={
             galatAksi ??
             (terputus
-              ? "Koneksi ke server terputus — daftar ini mungkin belum segar. Menyambung ulang otomatis."
+              ? "Koneksi ke server terputus; daftar ini mungkin belum segar. Menyambung ulang otomatis."
               : null)
           }
           onCoba={terputus ? () => window.location.reload() : undefined}

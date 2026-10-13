@@ -202,7 +202,7 @@ export function FormPengajuanSection({
           <LoanForm
             onBukaKyc={onBukaKyc}
             onCreated={(ref) =>
-              toast.success(`Catatan pengajuan tersimpan — referensi ${ref}.`)
+              toast.success(`Catatan pengajuan tersimpan: referensi ${ref}.`)
             }
           />
         )}
@@ -220,7 +220,7 @@ export function FormPengajuanSection({
               onBukaKyc={onBukaKyc}
               onCreated={(ref) =>
                 toast.success(
-                  `Catatan pengajuan kredit barang tersimpan — referensi ${ref}.`,
+                  `Catatan pengajuan kredit barang tersimpan: referensi ${ref}.`,
                 )
               }
             />

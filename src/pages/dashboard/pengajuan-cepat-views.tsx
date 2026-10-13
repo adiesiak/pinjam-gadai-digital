@@ -276,7 +276,7 @@ export function PengajuanCepatSection({
       setTtdKosong(true);
       setSetujuSyarat(false);
       setRekeningBenar(false);
-      toast.success(`Pengajuan tersimpan — referensi ${hasil.nomorReferensi}.`);
+      toast.success(`Pengajuan tersimpan: referensi ${hasil.nomorReferensi}.`);
       onCreated?.(hasil.nomorReferensi);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Pengajuan gagal dikirim. Silakan coba lagi.");

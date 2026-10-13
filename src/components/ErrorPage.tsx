@@ -32,7 +32,7 @@ export interface ErrorPageProps {
 export function ErrorPage({
   kode = "Kendala sistem",
   judul = "Terjadi kendala teknis",
-  deskripsi = "PINDAI tidak dapat menyelesaikan permintaan Anda saat ini. Tidak ada data atau dana yang hilang — silakan coba lagi sebentar lagi.",
+  deskripsi = "PINDAI tidak dapat menyelesaikan permintaan Anda saat ini. Tidak ada data atau dana yang hilang; silakan coba lagi sebentar lagi.",
   primaryLabel,
   primaryHref,
   onPrimary,

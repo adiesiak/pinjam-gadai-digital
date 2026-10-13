@@ -71,7 +71,7 @@ const STATUS_META: Record<string, { label: string; className: string; descriptio
   disetujui: {
     label: "Disetujui (status aplikasi)",
     className: "border-primary/30 bg-primary/10 text-accent-foreground",
-    description: "Status pengajuan pada ledger internal berubah menjadi disetujui. Tidak ada pembayaran ke merchant.",
+    description: "Status di ledger internal berubah menjadi disetujui. Tidak ada pembayaran ke merchant.",
   },
   ditolak: {
     label: "Ditolak",
@@ -82,7 +82,7 @@ const STATUS_META: Record<string, { label: string; className: string; descriptio
     label: "Alokasi historis (ledger)",
     className: "gradient-primary border-0 text-primary-foreground",
     description:
-      "Status historis pada ledger mencatat alokasi yang pernah dimasukkan. Cicilan ditangani di luar aplikasi dan belum tersedia sebagai tindakan di sini.",
+      "Status historis: alokasi yang pernah dimasukkan. Cicilan ditangani di luar aplikasi, belum tersedia sebagai tindakan di sini.",
   },
   lunas: {
     label: "Lunas (ledger)",
@@ -263,7 +263,7 @@ export function KreditBarangForm({
           namaLengkap={identitasKyc.namaLengkap}
           nik={identitasKyc.nik}
           nomorWhatsApp={identitasKyc.nomorWhatsApp}
-          petunjuk="Bagian data pemohon (nama, NIK, dan nomor WhatsApp) tidak perlu diisi ulang — pengajuan ini memakai data KYC yang sudah diperiksa petugas. Isi cukup data barang, nomor rekening, dan catatan."
+          petunjuk="Data pemohon (nama, NIK, nomor WhatsApp) dipakai dari KYC yang sudah diperiksa petugas. Isi cukup data barang, nomor rekening, dan catatan."
           onBukaKyc={onBukaKyc}
         />
       )}
@@ -428,7 +428,7 @@ export function KreditBarangForm({
                   <dd className="tabular-nums">{formatRupiah(preview.biayaAdmin)}</dd>
                 </div>
                 <div className="flex flex-col gap-1 px-3 py-2 text-sm sm:flex-row sm:items-baseline sm:justify-between">
-                  <dt className="text-muted-foreground">Biaya platform (0% — dihapus)</dt>
+                  <dt className="text-muted-foreground">Biaya platform (0%)</dt>
                   <dd className="tabular-nums">{formatRupiah(preview.biayaPlatform)}</dd>
                 </div>
                 <div className="flex flex-col gap-1 bg-slate-50 px-3 py-2.5 text-sm sm:flex-row sm:items-baseline sm:justify-between">
@@ -458,8 +458,8 @@ export function KreditBarangForm({
           <p className="mt-2 text-xs leading-5 text-muted-foreground">
             {KREDIT_TENOR_BIAYA_ADMIN_PLATFORM.includes(tenorBulan)
               ? tenorBulan === 3 || tenorBulan === 6
-                ? "Biaya admin 2% dipotong di muka (biaya platform dihapus); setiap cicilan ditambah biaya admin 2% dari nominal cicilan."
-                : "Biaya admin 2% dipotong di muka dari dana yang diterima (biaya platform dihapus)."
+                ? "Biaya admin 2% dipotong di muka (platform 0%); setiap cicilan ditambah biaya admin 2% dari nominal cicilan."
+                : "Biaya admin 2% dipotong di muka dari dana yang diterima (platform 0%)."
               : "Biaya layanan 3% dimodelkan dalam skema tenor ini (kontrak lama)."} Kredit barang ini bukan pencairan uang tunai; PINDAI tidak membeli barang atau mengirim dana ke merchant.
           </p>
           </>
@@ -608,7 +608,7 @@ export function KreditSayaSection() {
       <EmptyState
         icon={ShoppingBag}
         title="Belum ada pengajuan kredit barang"
-        body="Buat catatan pengajuan barang, uang muka, tenor, dan perhitungan cicilan. Pembelian dan pembayaran ditangani di luar aplikasi."
+        body="Catat barang, uang muka, tenor, dan cicilan. Pembelian dan pembayaran ditangani di luar aplikasi."
       />
     );
   }
@@ -661,7 +661,7 @@ export function KreditSayaSection() {
                     <dd className="tabular-nums">{k.biayaAdmin !== null ? formatRupiah(k.biayaAdmin) : "—"}</dd>
                   </div>
                   <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between sm:gap-3">
-                    <dt className="text-muted-foreground">Biaya platform (0% — dihapus)</dt>
+                    <dt className="text-muted-foreground">Biaya platform (0%)</dt>
                     <dd className="tabular-nums">{k.biayaPlatform !== null ? formatRupiah(k.biayaPlatform) : "—"}</dd>
                   </div>
                   {(k.tenorBulan === 3 || k.tenorBulan === 6) && (

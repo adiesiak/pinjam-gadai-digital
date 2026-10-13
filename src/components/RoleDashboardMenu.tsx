@@ -30,7 +30,7 @@ export function RoleDashboardMenu() {
   const ruangPenyediaDana = {
     href: "/penyedia-dana",
     label: "Ruang Pendana",
-    description: "Pantau pengajuan nasabah — hanya baca",
+    description: "Pantau pengajuan nasabah (hanya baca)",
     icon: Eye,
   };
 

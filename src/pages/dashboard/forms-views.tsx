@@ -444,7 +444,7 @@ export function LoanForm({
       if (draftQuery.tenorBulan !== null) setTenorBulan(String(draftQuery.tenorBulan));
       setTujuan(draftQuery.tujuan);
       if (draftQuery.catatanPeminjam !== null) setCatatanPeminjam(draftQuery.catatanPeminjam);
-      setDraftNotice("Draf dipulihkan — lanjutkan isian Anda, lalu kirim bila sudah siap.");
+      setDraftNotice("Draf dipulihkan. Lanjutkan isian Anda, lalu kirim bila sudah siap.");
     });
   }, [draftQuery, draftDipulihkan]);
 
@@ -623,7 +623,7 @@ export function LoanForm({
     // Tanda tangan wajib — pengajuan tidak diteruskan tanpa gambar tanda tangan.
     const pad = padRef.current;
     if (pad === null || pad.isEmpty()) {
-      setError("Tanda tangan wajib: bubuhkan tanda tangan pada area tanda tangan sebelum mengirim pengajuan.");
+      setError("Tanda tangan wajib diisi di area tanda tangan sebelum mengirim.");
       return;
     }
 
@@ -1227,7 +1227,7 @@ export function LoanForm({
 
           <ul className="space-y-2 text-sm leading-6 text-slate-600">
             {[
-              "PINDAI mencatat pengajuan, perhitungan, dan status pada ledger internal — bukan memindahkan dana.",
+              "PINDAI mencatat pengajuan, perhitungan, dan status di ledger internal, bukan memindahkan dana.",
               "Bunga flat 30% dari pokok dan biaya dipotong di muka sesuai tenor yang dipilih.",
               "Persetujuan pengajuan bukan jaminan pencairan; keputusan dibuat tim PINDAI dan tercatat pada audit trail.",
               "Keterlambatan dikenai denda 1% per hari dari pokok (maksimum 15%).",
@@ -1341,7 +1341,7 @@ export function LoanForm({
         )}
       </Button>
       <p className="text-center text-xs leading-5 text-muted-foreground">
-        Batas awal pinjaman adalah Rp1 juta. Jika pinjaman minimal Rp1 juta tercatat lunas tepat waktu di aplikasi, batas dapat naik hingga Rp10 juta. Catatan aplikasi tersimpan pada ledger internal PINDAI. Batas pinjaman Anda saat ini {formatRupiah(MAX)}. {bulanan ? "Jumlah cicilan ini hanya perkiraan. Aplikasi dapat mencatat pinjaman lunas sekaligus setelah masa pinjaman berakhir; catatan ini tersimpan pada ledger internal PINDAI." : `Pinjaman harian paling lama ${LOAN_LIMITS.maxTenorHari} hari.`} Perpindahan dana ditangani di luar aplikasi.
+        Batas awal Rp1 juta. Kalau pinjaman minimal Rp1 juta tercatat lunas tepat waktu, batasnya bisa naik sampai Rp10 juta. Batas Anda saat ini {formatRupiah(MAX)}. {bulanan ? "Jumlah cicilan ini perkiraan; pelunasan dicatat penuh saat tenor berakhir." : `Pinjaman harian paling lama ${LOAN_LIMITS.maxTenorHari} hari.`} Semua tersimpan di ledger internal PINDAI, dan perpindahan dana ditangani di luar aplikasi.
       </p>
     </form>
   );
@@ -1473,7 +1473,7 @@ export function PawnForm({
       {identitasKyc.namaLengkap !== "" && (
         <IdentitasKycTerverifikasi
           namaLengkap={identitasKyc.namaLengkap}
-          petunjuk="Bagian nama pemohon tidak perlu diisi ulang — pengajuan gadai ini memakai nama dari KYC yang sudah diperiksa petugas. Isi cukup data barang, alamat, rekening, dan catatan."
+          petunjuk="Nama pemohon dipakai dari KYC yang sudah diperiksa petugas. Isi cukup data barang, alamat, rekening, dan catatan."
           onBukaKyc={onBukaKyc}
         />
       )}

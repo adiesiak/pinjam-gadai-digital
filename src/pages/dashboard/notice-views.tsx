@@ -98,7 +98,7 @@ export function LokasiPeringatanBanner() {
             setBusy(true);
             try {
               await akui({ id: peringatan.id });
-              toast.success("Terima kasih — peringatan ditutup.");
+              toast.success("Terima kasih, peringatan ditutup.");
             } catch (e) {
               toast.error(e instanceof Error ? e.message : "Gagal menutup peringatan.");
             } finally {
@@ -163,8 +163,8 @@ export function LocationConsentCard() {
     status === undefined
       ? "Memuat status pelacakan…"
       : status.aktif
-        ? "Aktif — aplikasi mengirim koordinat yang dilaporkan perangkat secara berkala selama persetujuan berlaku. Nonaktifkan kapan saja."
-        : "Belum aktif. Aktifkan jika Anda bersedia membagikan koordinat yang dilaporkan perangkat secara berkala (dapat dicabut kapan saja).";
+        ? "Aktif. Aplikasi mengirim koordinat dari perangkat secara berkala selama persetujuan berlaku; nonaktifkan kapan saja."
+        : "Belum aktif. Aktifkan kalau Anda bersedia membagikan koordinat dari perangkat secara berkala; bisa dicabut kapan saja.";
 
   return (
     <section className="mt-6 flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white px-5 py-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">

@@ -43,7 +43,7 @@ export function PawnVaultSection({
       <EmptyState
         icon={Package}
         title="Belum ada jaminan gadai"
-        body="Ajukan catatan gadai melalui tab Form Pengajuan Baru. Lokasi dan kondisi barang dicatat dari masukan pengajuan."
+        body="Ajukan catatan gadai lewat tab Form Pengajuan Baru. Lokasi dan kondisi barang dicatat dari masukan pengajuan."
       />
     );
   }
@@ -160,7 +160,7 @@ function VaultMapCard() {
           fillOpacity: 0.9,
           weight: 3,
         })
-          .bindTooltip("Titik referensi konfigurasi PINDAI — tidak menunjukkan lokasi barang", {
+          .bindTooltip("Titik referensi konfigurasi PINDAI, bukan lokasi barang", {
             direction: "top",
           })
           .addTo(map);

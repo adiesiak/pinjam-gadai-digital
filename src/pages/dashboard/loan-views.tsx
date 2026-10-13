@@ -145,7 +145,7 @@ export function ActiveLoanSection({
     return (        <EmptyState
           icon={Wallet}
           title="Belum ada catatan pinjaman aktif di ledger"
-        body="Catatan dengan status internal aktif akan tampil di sini. Angka alokasi dan pelunasan mengikuti pencatatan ledger internal."
+        body="Catatan berstatus aktif tampil di sini. Angka alokasi dan pelunasan mengikuti ledger internal."
       />
     );
   }
@@ -237,7 +237,7 @@ function ActiveLoanCard({
             {loan.simulasiBulanan !== null && (loan.tenorBulan === 3 || loan.tenorBulan === 6) ? (
               <>
                 <RincianBaris label="Biaya admin (2%, dipotong di muka)" value={formatRupiah(loan.simulasiBulanan.biayaAdminTotal)} />
-                <RincianBaris label="Biaya platform (0% — dihapus)" value={formatRupiah(loan.simulasiBulanan.biayaPlatformTotal)} />
+                <RincianBaris label="Biaya platform (0%)" value={formatRupiah(loan.simulasiBulanan.biayaPlatformTotal)} />
                 <RincianBaris label="Biaya admin cicilan (2% per bayar)" value={formatRupiah(loan.simulasiBulanan.biayaAdminCicilanTotal)} />
               </>
             ) : loan.simulasiBulanan !== null ? (
@@ -336,7 +336,7 @@ export function ScheduleSection({ schedule }: { schedule: LoanScheduleRow[] }) {
       <EmptyState
         icon={CalendarClock}
         title="Belum ada jadwal angsuran"
-        body="Jadwal angsuran dan tanggal acuan tampil berdasarkan status ledger; ini bukan tagihan atau bukti pencairan dana."
+        body="Jadwal angsuran dan tanggal acuan mengikuti status ledger; ini bukan tagihan atau bukti pencairan dana."
       />
     );
   }
@@ -377,7 +377,7 @@ export function ScheduleSection({ schedule }: { schedule: LoanScheduleRow[] }) {
                 {l.tenorBulan !== null && (
                   <p className="mt-1 max-w-xl text-xs leading-5 text-amber-800">
                     {l.tenorBulan === 3 || l.tenorBulan === 6
-                      ? "Biaya admin 2% dipotong di muka dari dana yang diterima (biaya platform dihapus); cicilan berisi pokok dan bunga, ditambah biaya admin cicilan 2% dari nominal cicilan yang dibayar setiap bulan. Jadwal bersifat ilustrasi."
+                      ? "Biaya admin 2% dipotong di muka dari dana yang diterima (platform 0%); cicilan berisi pokok dan bunga, ditambah biaya admin cicilan 2% dari nominal cicilan. Jadwal bersifat ilustrasi."
                       : "Biaya layanan 2% dipotong di muka dari dana yang diterima. Jadwal hanya ilustrasi."}
                   </p>
                 )}

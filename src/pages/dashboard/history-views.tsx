@@ -41,7 +41,7 @@ export function HistorySection({
       <EmptyState
         icon={Landmark}
         title="Belum ada catatan ledger"
-        body="Status pengajuan pinjaman dan gadai yang tersimpan di aplikasi akan tampil di sini. Catatan ini tersimpan pada ledger internal PINDAI."
+        body="Status pengajuan pinjaman dan gadai tampil di sini. Catatan ini tersimpan pada ledger internal PINDAI."
         action={{
           label: "Buat pengajuan pinjaman",
           variant: "outline",

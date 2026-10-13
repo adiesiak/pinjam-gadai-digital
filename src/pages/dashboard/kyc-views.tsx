@@ -1205,11 +1205,11 @@ export function KycSection() {
       // otomatis, hanya menunjuk pemeriksaan yang gagal.
       if (hasil.status === "VERIFIED") {
         toast.success(
-          "Seluruh syarat yang bisa diperiksa sistem terpenuhi — KYC otomatis terverifikasi.",
+          "Seluruh syarat yang bisa diperiksa sistem terpenuhi. KYC otomatis terverifikasi.",
         );
       } else if (hasil.otomatis?.keputusan === "NEEDS_CORRECTION") {
         toast.warning(
-          "Pemeriksaan otomatis menemukan hal yang bisa Anda rapikan. Lihat panel pemeriksaan otomatis; petugas juga tetap meninjau pengajuan ini.",
+          "Pemeriksaan otomatis menemukan hal yang bisa dirapikan. Lihat panel pemeriksaan otomatis; petugas tetap meninjau pengajuan ini.",
         );
       } else {
         toast.success("Pengajuan KYC dikirim untuk peninjauan petugas.");
@@ -1612,7 +1612,7 @@ export function KycSection() {
                   keterangan={
                     slotDokumen === "ktp"
                       ? "Foto diambil lewat kamera aplikasi. Seluruh sisi KTP harus terlihat dan teksnya terbaca."
-                      : "Diperlukan agar petugas bisa mencocokkan wajah Anda dengan foto KTP. Wajah dan KTP harus terlihat dalam satu foto, tanpa penutup wajah."
+                      : "Petugas memakai foto ini untuk mencocokkan wajah Anda dengan KTP. Wajah dan KTP harus terlihat dalam satu foto, tanpa penutup wajah."
                   }
                   accept="image/jpeg,image/png,image/webp"
                   nilai={berkas[slotDokumen]}
@@ -1643,7 +1643,7 @@ export function KycSection() {
                   }
                   keterangan={
                     slotDokumen === "ktp"
-                      ? "Kamera dibuka di dalam PINDAI — aplikasi kamera HP tidak dibuka, jadi pengisian tidak terputus."
+                      ? "Kamera dibuka di dalam PINDAI, bukan aplikasi kamera HP, jadi pengisian tidak terputus."
                       : "Pastikan wajah dan KTP Anda berada dalam bingkai, tanpa penutup wajah."
                   }
                   bingkai={slotDokumen === "ktp" ? "ktp" : "selfie"}
@@ -1670,7 +1670,7 @@ export function KycSection() {
                 {pratinjau[slotDokumen]?.url != null && (
                   <WatermarkedDoc
                     src={pratinjau[slotDokumen]!.url!}
-                    label={`Pratinjau ${LABEL_SLOT_BERKAS[slotDokumen].toLowerCase()}${pratinjau[slotDokumen]!.nama === "" ? "" : ` (${pratinjau[slotDokumen]!.nama})`} — belum tersimpan`}
+                    label={`Pratinjau ${LABEL_SLOT_BERKAS[slotDokumen].toLowerCase()}${pratinjau[slotDokumen]!.nama === "" ? "" : ` (${pratinjau[slotDokumen]!.nama})`} (belum tersimpan)`}
                   />
                 )}
                 {berkas[slotDokumen] === null && data.url[slotDokumen] !== null && (
@@ -1983,7 +1983,7 @@ export function KycSection() {
                   {pratinjau.bukti?.url != null && (
                     <WatermarkedDoc
                       src={pratinjau.bukti.url}
-                      label={`Pratinjau bukti penghasilan${pratinjau.bukti.nama === "" ? "" : ` (${pratinjau.bukti.nama})`} — belum tersimpan`}
+                      label={`Pratinjau bukti penghasilan${pratinjau.bukti.nama === "" ? "" : ` (${pratinjau.bukti.nama})`} (belum tersimpan)`}
                     />
                   )}
                   {berkasTersimpan.bukti !== null && (
@@ -2086,7 +2086,7 @@ export function KycSection() {
               {data.status === "VERIFIED"
                 ? "Identitas sudah terverifikasi. Mengubah nama, NIK, atau berkas memicu verifikasi ulang."
                 : data.status === "REJECTED"
-                  ? "Perbaiki data yang diminta petugas lalu simpan — pengajuan dimulai ulang otomatis."
+                  ? "Perbaiki data yang diminta petugas lalu simpan; pengajuan dimulai ulang otomatis."
                   : data.status === "PENDING_REVIEW"
                     ? "Sedang menunggu peninjauan petugas. Menyimpan perubahan menarik pengajuan kembali."
                     : data.lengkap
