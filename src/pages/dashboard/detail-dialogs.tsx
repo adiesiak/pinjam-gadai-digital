@@ -11,6 +11,8 @@ import {
 import { SkeletonDetail } from "@/components/ui/loading";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
+import { MessageCircle } from "lucide-react";
+
 import { Button } from "@/components/ui/button";
 import type { SimulasiBulanan } from "@/lib/bulanan";
 import { loanPurposeLabel, loanStatusMeta, type LoanQuote } from "@/lib/loan";
@@ -201,29 +203,46 @@ export function LoanDetailDialog({
                   loan.pelunasan.hariTerlambat > 0 ? "border-red-200 bg-red-50/60" : "border-slate-200"
                 }`}
               >
-                <p className="text-sm font-medium">Cara pelunasan</p>
+                <p className="text-sm font-semibold text-slate-900">Informasi pelunasan</p>
                 <dl className="mt-3 space-y-1.5 text-sm">
                   <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4">
-                    <dt className="text-muted-foreground">Tanggal acuan</dt>
+                    <dt className="text-muted-foreground">Jatuh tempo</dt>
                     <dd className="tabular-nums">{formatDate(loan.pelunasan.jatuhTempoPada)}</dd>
                   </div>
                   {loan.pelunasan.hariTerlambat > 0 ? (
                     <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4">
-                      <dt className="text-red-600">Tanggal acuan terlampaui {loan.pelunasan.hariTerlambat} hari</dt>
+                      <dt className="text-red-600">Terlambat {loan.pelunasan.hariTerlambat} hari</dt>
                       <dd className="tabular-nums text-red-600">+{formatRupiah(loan.pelunasan.dendaTerlambat)}</dd>
                     </div>
                   ) : (
                     <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4">
                       <dt className="text-muted-foreground">Sisa waktu</dt>
                       <dd className="tabular-nums">
-                        {loan.pelunasan.sisaHari === 0 ? "Hari ini" : `${loan.pelunasan.sisaHari} hari`}
+                        {loan.pelunasan.sisaHari === 0
+                          ? "Hari ini"
+                          : `${loan.pelunasan.sisaHari} hari lagi`}
                       </dd>
                     </div>
                   )}
                 </dl>
-                <p className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900">
-                  Pelunasan belum tersedia di aplikasi; status pelunasan diperbarui oleh tim PINDAI.
+                {/* Satu kalimat penjelas, hanya di sini: pembayaran memang di luar
+                    aplikasi, jadi tidak ada tombol bayar maupun unggah bukti. */}
+                <p className="mt-3 text-xs leading-5 text-slate-600">
+                  Pembayaran dilakukan di luar aplikasi dan aplikasi ini hanya mencatat.
+                  Status <span className="font-medium">Lunas</span> diperbarui oleh tim PINDAI
+                  setelah pembayaran dicatat, bukan diubah dari sini.
                 </p>
+                <div className="mt-3">
+                  <Button asChild variant="outline" size="sm" className="gap-1.5">
+                    <a
+                      href="https://wa.me/6281234567890?text=Halo%20CS%20PINDAI%2C%20saya%20ingin%20bertanya%20tentang%20pelunasan%20pinjaman%20saya."
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      <MessageCircle className="size-3.5" aria-hidden /> Hubungi CS
+                    </a>
+                  </Button>
+                </div>
               </div>
             )}
 
@@ -308,7 +327,7 @@ export function PawnDetailDialog({
               </div>
             )}
 
-            <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900">
+            <p className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs leading-5 text-slate-600">
               Status ini mengikuti catatan PINDAI. Pembayaran gadai dan perubahan status terkait pelepasan dinonaktifkan.
             </p>
           </div>

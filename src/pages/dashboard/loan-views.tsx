@@ -134,12 +134,34 @@ function RincianBaris({
 export function ActiveLoanSection({
   schedule,
   onOpenDetail,
+  batas,
 }: {
   schedule: Array<LoanScheduleRow>;
   onOpenDetail: (id: Id<"loans">) => void;
+  /**
+   * Jumlah kartu yang dirender. Ringkasan memakai `1` supaya hanya kewajiban
+   * TERDEKAT yang tampil sebagai kartu; tanpa batas, semua pinjaman aktif
+   * dirender (dipakai bila bagian ini dipasang di halaman daftar).
+   */
+  batas?: number;
 }) {
-  const aktif = schedule.filter((l) => l.status === "didanai");
-  const lainnya = schedule.filter((l) => l.status !== "didanai" && l.status !== "lunas");
+  // Urut dari jatuh tempo paling dekat: "kewajiban terdekat" harus benar-benar
+  // yang paling dekat, bukan sekadar baris pertama dari server.
+  const aktifTerurut = schedule
+    .filter((l) => l.status === "didanai")
+    .sort(
+      (a, b) =>
+        (a.pelunasan?.jatuhTempoPada ?? Number.POSITIVE_INFINITY) -
+        (b.pelunasan?.jatuhTempoPada ?? Number.POSITIVE_INFINITY),
+    );
+  const aktif = batas === undefined ? aktifTerurut : aktifTerurut.slice(0, batas);
+  // Daftar "status catatan lainnya" hanya bagian dari halaman daftar; saat
+  // kartunya dibatasi (Ringkasan), bagian itu tidak ikut supaya tidak ada
+  // catatan yang muncul dua kali di satu layar.
+  const lainnya =
+    batas === undefined
+      ? schedule.filter((l) => l.status !== "didanai" && l.status !== "lunas")
+      : [];
 
   if (aktif.length === 0) {
     return (        <EmptyState
@@ -172,7 +194,7 @@ export function ActiveLoanSection({
                     </p>
                     <p className="mt-1 truncate text-xs text-muted-foreground">{l.nomorReferensi}</p>
                     {(l.pokokDiajukan ?? l.pokokPinjaman) !== l.pokokPinjaman && (
-                      <p className="mt-1 text-xs text-amber-700">
+                      <p className="mt-1 text-xs text-slate-600">
                         Diajukan {formatRupiah(l.pokokDiajukan ?? l.pokokPinjaman)} · disetujui{" "}
                         {formatRupiah(l.pokokPinjaman)}
                       </p>
@@ -307,7 +329,7 @@ function ActiveLoanCard({
         )}
       </dl>
 
-      <p className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-900">
+      <p className="mt-4 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs leading-5 text-slate-600">
         Semua nominal, status aktif, dana bersih, dan status pelunasan di halaman ini mengikuti catatan PINDAI. Pelunasan ditangani di luar aplikasi dan statusnya diperbarui oleh tim PINDAI. {bulanan ? "Jadwal bulanan bersifat ilustrasi." : "Nilai kewajiban mengikuti perhitungan aplikasi."}
       </p>
 
@@ -316,10 +338,10 @@ function ActiveLoanCard({
           <div className="flex flex-wrap items-baseline justify-between gap-2 text-xs">
             <span className="font-medium">
               {terlambat
-                ? `Tanggal acuan terlewati ${loan.pelunasan.hariTerlambat} hari`
+                ? `Jatuh tempo terlewati ${loan.pelunasan.hariTerlambat} hari`
                 : loan.pelunasan.sisaHari === 0
-                  ? "Tanggal acuan: hari ini"
-                  : `${loan.pelunasan.sisaHari} hari menuju tanggal acuan`}
+                  ? "Jatuh tempo: hari ini"
+                  : `Jatuh tempo ${loan.pelunasan.sisaHari} hari lagi`}
             </span>
             <span className="tabular-nums text-muted-foreground">
               {formatDate(loan.pelunasan.jatuhTempoPada)}
@@ -347,13 +369,6 @@ function ActiveLoanCard({
         </div>
       )}
 
-      <ManualPaymentEvidenceForm
-        jenis="pinjaman"
-        targetId={loan._id}
-        reference={loan.nomorReferensi}
-        suggestedAmount={loan.pelunasan?.totalKewajibanDenganPenalti ?? loan.totalKewajiban}
-      />
-
       <div className="mt-5 flex flex-wrap gap-2">
         <Button asChild variant="outline">
           <a
@@ -378,7 +393,7 @@ export function ScheduleSection({ schedule }: { schedule: LoanScheduleRow[] }) {
       <EmptyState
         icon={CalendarClock}
         title="Belum ada jadwal angsuran"
-        body="Jadwal angsuran dan tanggal acuan mengikuti catatan PINDAI; ini bukan tagihan atau bukti pencairan dana."
+        body="Jadwal angsuran dan jatuh tempo mengikuti catatan PINDAI; ini bukan tagihan atau bukti pencairan dana."
       />
     );
   }
@@ -415,7 +430,7 @@ export function ScheduleSection({ schedule }: { schedule: LoanScheduleRow[] }) {
                   {l.tenorBulan !== null ? `${l.tenorBulan} bulan` : `${l.tenorHari} hari`}
                 </p>
                 {l.tenorBulan !== null && (
-                  <p className="mt-1 max-w-xl text-xs leading-5 text-amber-800">
+                  <p className="mt-1 max-w-xl text-xs leading-5 text-slate-600">
                     {l.tenorBulan === 3 || l.tenorBulan === 6
                       ? "Biaya admin 2% dipotong di muka dari dana yang diterima (platform 0%); cicilan berisi pokok dan bunga, ditambah biaya admin cicilan 2% dari nominal cicilan. Jadwal bersifat ilustrasi."
                       : "Biaya layanan 2% dipotong di muka dari dana yang diterima. Jadwal hanya ilustrasi."}
@@ -465,7 +480,7 @@ export function ScheduleSection({ schedule }: { schedule: LoanScheduleRow[] }) {
               )}
             </dl>
             {!lunas && (
-              <p className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900">
+              <p className="mt-4 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs leading-5 text-slate-600">
                 Pembayaran belum tersedia di aplikasi; statusnya diperbarui oleh tim PINDAI. Tanggal dan nilai di atas mengikuti catatan PINDAI.
               </p>
             )}

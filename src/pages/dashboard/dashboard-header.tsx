@@ -9,15 +9,6 @@ import { VaultLogo } from "@/components/VaultLogo";
  * `role` opsional menyesuaikan penanda ruang untuk admin/penyedia dana.
  */
 export function DashboardHeader({ role = "peminjam" }: { role?: string }) {
-  // Peran tersimpan memakai nilai "dana" (lihat `ROLES.DANA` di schema), bukan
-  // "penyedia-dana" (itu nama rute). Keduanya diterima supaya akun pendana tidak
-  // salah diberi label "Dashboard Peminjam".
-  const label = role === "admin"
-    ? "Dashboard Admin"
-    : role === "dana" || role === "penyedia-dana"
-      ? "Dashboard Dana"
-      : "Dashboard Peminjam";
-
   return (
     // `pl/pr` inset takik: pada ponsel lanskap, konten bar atas tidak masuk ke
     // area takik kiri/kanan (nilainya 0 di perangkat tanpa takik).
@@ -31,9 +22,6 @@ export function DashboardHeader({ role = "peminjam" }: { role?: string }) {
         </Link>
 
         <div className="flex items-center gap-1.5 sm:gap-2">
-          <span className="hidden rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[10px] font-medium uppercase tracking-[0.16em] text-muted-foreground sm:inline-flex">
-            {label}
-          </span>
           {/* Lonceng hanya untuk akun terverifikasi (tamu tidak punya catatan
               yang bisa diberitakan). Komponennya sendiri yang memutuskan. */}
           <NotificationBell />

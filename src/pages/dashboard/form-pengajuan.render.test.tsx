@@ -27,7 +27,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { Tabs } from "@/components/ui/tabs";
 import { JENIS_PENGAJUAN } from "@/lib/jenisPengajuan";
 
-import { DashboardTabNav } from "./dashboard-tab-nav";
+import { DashboardBottomNav, DashboardTabNav } from "./dashboard-tab-nav";
 import { PemilihJenisPengajuan, TombolBuatPengajuan } from "./form-pengajuan-views";
 
 let passed = 0;
@@ -107,107 +107,36 @@ function renderMenuDashboard(
 ) {
   return renderToStaticMarkup(
     <Tabs value={activeTab}>
-      <DashboardTabNav
-        activeTab={activeTab}
-        onTabChange={() => {}}
-        onBuatPengajuan={() => {}}
-        badges={badges}
-      />
+      <DashboardTabNav activeTab={activeTab} onTabChange={() => {}} badges={badges} />
     </Tabs>,
   );
 }
 
-/** Wajah dropdown menu dashboard pada layar sempit. */
-function wajahMenuDashboard(
-  activeTab: string,
-  badges?: Parameters<typeof DashboardTabNav>[0]["badges"],
-) {
-  return wajahDropdown(renderMenuDashboard(activeTab, badges), "Menu dashboard Peminjam");
-}
-
-// Tab "Kredit Barang" sudah dihapus dari navigasi (catatan kreditnya kini
-// menjadi bagian dari tab Form Pengajuan). Labelnya tidak boleh tertinggal di
-// daftar tab, sedangkan jenis pengajuan kreditnya tetap ada.
-const htmlMenuDashboard = renderMenuDashboard("form");
-ok("tab Kredit Barang sudah hilang dari navigasi", !htmlMenuDashboard.includes("Kredit Barang"));
-for (const label of [
+// Menu dashboard kini DATAR: lima menu, satu menu satu halaman. Tidak ada lagi
+// pintu bertingkat maupun pengalih menu di layar sempit (digantikan bilah
+// bawah), jadi label halaman yang dihapus tidak boleh tertinggal.
+const MENU_DASHBOARD = [
+  "Ringkasan",
+  "Ajukan Pinjaman",
   "Catatan Pinjaman",
-  "Jadwal Angsuran",
-  "Catatan Gadai",
-  "Dokumen Perjanjian",
-  "Form Pengajuan",
-  "Riwayat",
-]) {
-  ok(`navigasi masih memuat tab "${label}"`, htmlMenuDashboard.includes(label));
-}
-
-const wajahMenuForm = wajahMenuDashboard("form");
-ok("dropdown menu dashboard punya wajah", wajahMenuForm.length > 0);
-ok("dropdown menu dashboard menyebut menu aktif", wajahMenuForm.includes("Form Pengajuan"));
-ok("dropdown menu dashboard bukan menu lain", !wajahMenuForm.includes("Kredit Barang"));
-
-const wajahMenuPinjaman = wajahMenuDashboard("pinjaman", {
-  pinjaman: { count: 2, tone: "warning" },
-});
-ok(
-  "dropdown menu dashboard menyebut jumlah item menu aktif",
-  wajahMenuPinjaman.includes("Catatan Pinjaman · 2"),
-);
-
-// --- Kelas tab aktif yang dulu MATI karena aturan global ---------------------
-// Aturan `[data-slot="tabs-trigger"][data-state="active"]` di `src/index.css`
-// spesifisitasnya (0,3,0), lebih tinggi daripada utilitas
-// `data-[state=active]:*` pemanggil (0,2,0). Dulu trigger di sini menulis
-// `data-[state=active]:bg-transparent` untuk memberi ruang bagi pill yang
-// meluncur — dan kelas itu tidak pernah menang: latar `--primary` tetap dicat,
-// sehingga muncul blok hijau seketika di tab baru PLUS pill yang meluncur ke
-// sana. Perbaikannya: trigger melepas diri dari aturan global dengan penanda
-// `data-penanda-gerak`, dan `bg-transparent` yang sudah tidak berguna dibuang.
-const jumlahTab = htmlMenuDashboard.split('role="tab"').length - 1;
-ok("navigasi dashboard merender semua tabnya", jumlahTab === 9);
-ok(
-  "setiap tab melepas diri dari aturan tab-aktif global (data-penanda-gerak)",
-  htmlMenuDashboard.split('data-penanda-gerak=""').length - 1 === jumlahTab,
-);
-ok(
-  "tab aktif tetap mewarnai hurufnya sendiri di atas penanda",
-  htmlMenuDashboard.split("data-[state=active]:text-primary-foreground").length - 1 === jumlahTab,
-);
-ok(
-  "kelas latar transparan yang mati tidak dipakai lagi",
-  !htmlMenuDashboard.includes("data-[state=active]:bg-transparent"),
-);
-
-// --- Lima pintu bergrup: tiap tujuan lama tetap punya barisnya ----------------
-//
-// Kriteria yang dijaga BUKAN "jumlah baris menu tetap sama", melainkan tiap
-// halaman dashboard masih bisa dijangkau. Menyusun ulang menu jadi lima pintu
-// mudah menghilangkan satu tujuan tanpa ada yang menyadarinya, jadi tiap tab
-// dari `Dashboard.tsx` dicocokkan ke baris menu di sini.
-const PINTU = [
-  "Catatan Pinjaman",
-  "Form Pengajuan",
-  "Catatan Gadai",
-  "Dokumen Perjanjian",
-  "Data Diri & KYC",
+  "Profil & Rekening",
+  "Status KYC",
 ];
-// `renderToStaticMarkup` menulis "&" sebagai "&amp;", jadi teksnya dibaca dari
-// salinan yang sudah dikembalikan ke bentuk aslinya — kalau tidak, label pintu
-// yang memuat "&" selalu tampak hilang.
+const htmlMenuDashboard = renderMenuDashboard("form");
 const teksMenuDashboard = htmlMenuDashboard.replace(/&amp;/g, "&");
-for (const label of PINTU) {
-  ok(`pintu "${label}" tampil di menu layanan`, teksMenuDashboard.includes(label));
+for (const label of MENU_DASHBOARD) {
+  ok(`menu "${label}" punya barisnya`, teksMenuDashboard.includes(label));
 }
-
-// Bagian yang menggantung di bawah pintu: tetap ada, dengan huruf lebih kecil
-// dan menjorok (`pl-9`) supaya terbaca sebagai bagian dari pintunya.
-const BAGIAN = ["Jadwal Angsuran", "Riwayat", "Verifikasi KYC", "Bantuan"];
-for (const label of BAGIAN) {
-  ok(`bagian "${label}" tetap punya barisnya`, teksMenuDashboard.includes(label));
-}
+ok("menu tanpa halaman tidak dirender", !teksMenuDashboard.includes("Bantuan"));
+ok("tab Kredit Barang sudah hilang dari navigasi", !teksMenuDashboard.includes("Kredit Barang"));
 ok(
-  "bagian pintu dibuat menjorok, bukan sejajar pintunya",
-  (htmlMenuDashboard.match(/class="[^"]*pl-9[^"]*"/g) ?? []).length === BAGIAN.length,
+  "hanya satu menu yang ditandai aktif",
+  htmlMenuDashboard.split('aria-current="page"').length - 1 === 1,
+);
+ok("menu aktif memakai latar emerald-50", htmlMenuDashboard.includes("bg-emerald-50"));
+ok(
+  "lencana cacah item tampil di menu",
+  renderMenuDashboard("pinjaman", { pinjaman: { count: 2 } }).includes(">2<"),
 );
 
 // Setiap halaman dashboard wajib punya barisnya di menu.
@@ -215,23 +144,29 @@ const sumberDashboard = bacaSumber("pages/Dashboard.tsx");
 const nilaiTabDashboard = [...sumberDashboard.matchAll(/<TabsContent value="([a-z]+)"/g)].map(
   (cocok) => cocok[1],
 );
-ok("tab dashboard terbaca dari sumbernya", nilaiTabDashboard.length === 9);
+ok("dashboard hanya punya lima halaman", nilaiTabDashboard.length === 5);
 const sumberMenu = bacaSumber("pages/dashboard/dashboard-tab-nav.tsx");
 for (const nilai of nilaiTabDashboard) {
-  ok(`tujuan tab "${nilai}" masih ada di menu layanan`, sumberMenu.includes(`value: "${nilai}"`));
+  ok(`halaman "${nilai}" punya baris menunya`, sumberMenu.includes(`value: "${nilai}"`));
 }
 
-// Kartu menu layar sempit menyebut PINTU dari bagian yang sedang dibuka, dan
-// saat pintunya sendiri yang terbuka ia memakai label kartu yang umum (tidak
-// mengulang nama pintu tepat di atas nama barisnya).
-ok(
-  "kartu menu sempit menyebut pintu saat bagiannya yang terbuka",
-  renderMenuDashboard("jadwal").includes("Catatan Pinjaman"),
+// Bilah bawah (layar sempit): lima tombol, nama pendek di layar + nama lengkap
+// untuk pembaca layar, dan penanda menu aktif.
+const htmlBilahBawah = renderToStaticMarkup(
+  <DashboardBottomNav
+    activeTab="pinjaman"
+    onTabChange={() => {}}
+    badges={{ pinjaman: { count: 2 } }}
+  />,
 );
+ok("bilah bawah merender lima tombol", htmlBilahBawah.split("<button").length - 1 === 5);
+ok("bilah bawah menandai menu aktif", htmlBilahBawah.includes('aria-current="page"'));
 ok(
-  "kartu menu sempit memakai label umum saat pintunya sendiri yang terbuka",
-  renderMenuDashboard("pinjaman").includes("Menu layanan"),
+  "bilah bawah memakai nama lengkap sebagai label",
+  htmlBilahBawah.includes('aria-label="Catatan Pinjaman"'),
 );
+ok("bilah bawah hanya tampil di layar sempit", htmlBilahBawah.includes("lg:hidden"));
+ok("bilah bawah benar-benar dipasang di dashboard", sumberDashboard.includes("<DashboardBottomNav"));
 
 // --- CTA "Buat pengajuan baru" di tab lain ----------------------------------
 

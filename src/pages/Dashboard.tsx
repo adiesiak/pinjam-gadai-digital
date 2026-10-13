@@ -1,6 +1,6 @@
 import { useQuery } from "convex/react";
-import { Menu, TrendingUp } from "lucide-react";
-import { useEffect, useState } from "react";
+import { FilePlus2, TrendingUp } from "lucide-react";
+import { useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import { tabDariParams } from "@/lib/notifikasi";
 import { Button } from "@/components/ui/button";
@@ -9,16 +9,8 @@ import { formatRupiah } from "@/lib/money";
 import type { FunctionReturnType } from "convex/server";
 
 import { LocationGate } from "@/components/LocationGate";
-import { ManualPaymentEvidenceHistory } from "@/components/ManualPaymentEvidenceForm";
 import { FadeIn } from "@/components/Reveal";
 import { SkeletonBarisDaftar, SkeletonKartu } from "@/components/ui/loading";
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
@@ -37,22 +29,13 @@ import {
 import { DashboardFooter } from "./dashboard/dashboard-footer";
 import { DashboardHeader } from "./dashboard/dashboard-header";
 import { DashboardSidebar } from "./dashboard/dashboard-sidebar";
-import { badgeToneClass, labelTujuan, type TabBadge } from "./dashboard/dashboard-tab-nav";
-import { LoanDetailDialog, PawnDetailDialog } from "./dashboard/detail-dialogs";
-import {
-  FormPengajuanSection,
-  TombolBuatPengajuan,
-} from "./dashboard/form-pengajuan-views";
-import { GadaiBillingSection } from "./dashboard/gadai-views";
-import { HelpdeskSayaView } from "./dashboard/helpdesk-views";
-import { HistorySection } from "./dashboard/history-views";
-import { RingkasanPeminjamLama } from "./dashboard/klaim-views";
-import { ActiveLoanSection, ScheduleSection } from "./dashboard/loan-views";
+import { DashboardBottomNav, type TabBadge } from "./dashboard/dashboard-tab-nav";
+import { LoanDetailDialog } from "./dashboard/detail-dialogs";
+import { FormPengajuanSection } from "./dashboard/form-pengajuan-views";
+import { CatatanPinjamanSection } from "./dashboard/history-views";
+import { ActiveLoanSection } from "./dashboard/loan-views";
 import { DueReminderBanner, LokasiPeringatanBanner } from "./dashboard/notice-views";
 import { SummaryCards } from "./dashboard/summary-cards";
-import { PawnVaultSection } from "./dashboard/vault-views";
-
-type CreditHistory = FunctionReturnType<typeof api.loans.myLoanCreditHistory>;
 
 /**
  * Rangka pemuatan dashboard: bentuknya mengikuti kartu ringkasan + daftar
@@ -82,44 +65,6 @@ function RingkasanMemuat() {
   );
 }
 
-function CreditProgressCard({ history }: { history: CreditHistory }) {
-  return (
-    <section className="mt-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
-      <div className="flex items-start gap-3">
-        <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-          <TrendingUp className="size-5" />
-        </span>
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-baseline justify-between gap-2">
-            <h2 className="text-sm font-semibold">Riwayat progres plafon tunai</h2>
-            <span className="text-xs tabular-nums text-muted-foreground">
-              {history.jumlahPelunasanTepatWaktu} entri pelunasan tepat waktu
-            </span>
-          </div>
-          <p className="mt-1 text-lg font-semibold tabular-nums text-primary">
-            Plafon tercatat {formatRupiah(history.plafonEfektif)}
-          </p>
-          <p className="mt-1 text-xs leading-5 text-muted-foreground">
-            Catatan pinjaman tunai minimal Rp 1 juta yang berstatus lunas di PINDAI pada atau sebelum tanggal acuan dapat menambah plafon internal Rp 1 juta, hingga Rp 10 juta. Status dan tanggal ini mengikuti catatan PINDAI, bukan skor biro kredit atau jaminan pengajuan disetujui.
-          </p>
-          {history.riwayat.length > 0 && (
-            <ul className="mt-3 flex flex-wrap gap-2">
-              {history.riwayat.slice(0, 3).map((loan) => (
-                <li key={loan.nomorReferensi} className="rounded-lg bg-slate-50 px-3 py-2 text-xs">
-                  <span className="font-medium tabular-nums">{formatRupiah(loan.pokokPinjaman)}</span>
-                  <span className="ml-2 text-muted-foreground">
-                    Status lunas{loan.lunasPada ? ` · ${new Date(loan.lunasPada).toLocaleDateString("id-ID")}` : ""}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      </div>
-    </section>
-  );
-}
-
 /**
  * Dashboard nasabah, PINDAI.
  * Hanya merangkai modul di ./dashboard/*; tiap bagian hidup di file sendiri
@@ -139,32 +84,13 @@ export default function Dashboard() {
   const argsPeminjam = user === undefined || isAnonymous ? ("skip" as const) : {};
   const loans = useQuery(api.loans.listMyLoans, argsPeminjam);
   const summary = useQuery(api.loans.myLoanSummary, argsPeminjam);
-  const creditHistory = useQuery(api.loans.myLoanCreditHistory, argsPeminjam);
-  const pawns = useQuery(api.loans.listMyPawns, argsPeminjam);
   const dueReminder = useQuery(api.loans.dueReminder, argsPeminjam);
   const schedule = useQuery(api.loans.myLoanSchedule, argsPeminjam);
-  const contracts = useQuery(api.loans.myContracts, argsPeminjam);
   // Status KYC dipakai untuk lencana tab (butuh tindakan nasabah), tidak ikut
   // menahan seluruh dashboard saat masih dimuat: tanpa data, tabnya cukup tanpa
   // lencana.
   const kyc = useQuery(api.kyc.kycSaya, argsPeminjam);
-  // Notifikasi dibaca untuk LENCANA tab Bantuan: jumlah kabar pengaduan yang
-  // belum dibaca. Query yang sama sudah dipakai lonceng di header, jadi Convex
-  // melayani satu langganan (bukan dua permintaan terpisah).
-  const notifikasi = useQuery(api.notifikasi.daftar, argsPeminjam);
-  // Klaim peminjam lama: satu query memberi tahu apakah akun ini menerima berkas
-  // lewat klaim, portofolio historisnya, dan apakah masih ada data lama yang
-  // bisa ditautkan. Tanpa itu, nasabah dari web lama bisa mendarat di layar
-  // kosong meski berkasnya sudah ada di akun pemilik data.
-  const klaim = useQuery(api.klaimPeminjam.ringkasanKlaimSaya, argsPeminjam);
-  // Pemeriksaan SERVER untuk grup menu admin di sidebar. `user.role` saja tidak
-  // cukup: query yang sama (`security.totpGateStatus`) yang memutuskan akses di
-  // `Admin.tsx`, jadi menunya muncul hanya bila server memang mengenali akun ini
-  // sebagai admin — bukan sekadar disembunyikan di UI.
-  const gateAdmin = useQuery(api.security.totpGateStatus, argsPeminjam);
-
   const [loanDetailId, setLoanDetailId] = useState<Id<"loans"> | null>(null);
-  const [pawnDetailId, setPawnDetailId] = useState<Id<"pawns"> | null>(null);
 
   // Tab yang sedang dibuka. Parameter `?tab=…` (mis. dari pusat notifikasi)
   // diutamakan selama masih ada di URL, lalu pilihan pengguna mengambil alih,
@@ -187,28 +113,6 @@ export default function Dashboard() {
   );
   /** Tahap KYC yang dipilih dari menu sidebar; null = modul memilih sendiri. */
   const [tahapKyc, setTahapKyc] = useState<IdTahapKyc | null>(null);
-
-  /**
-   * Drawer menu untuk layar sempit. Kolom kiri tetap hidup hanya pada `lg` ke
-   * atas; di bawah itu menu dibuka dari satu tombol "Menu" supaya kartu profil,
-   * menu layanan, dan tahap KYC tidak lagi menumpuk di atas konten yang sedang
-   * dibaca.
-   */
-  const [menuTerbuka, setMenuTerbuka] = useState(false);
-  // Memilih bagian menutup drawer sendiri, jadi isi yang dipilih langsung
-  // terlihat tanpa satu ketukan tambahan.
-  useEffect(() => setMenuTerbuka(false), [activeTab]);
-  // Layar melebar ke ukuran desktop: kolom kiri tetap sudah muncul, jadi lapisan
-  // drawer tidak perlu menggantung di atas konten.
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const kueri = window.matchMedia("(min-width: 1024px)");
-    const saatBerubah = () => {
-      if (kueri.matches) setMenuTerbuka(false);
-    };
-    kueri.addEventListener("change", saatBerubah);
-    return () => kueri.removeEventListener("change", saatBerubah);
-  }, []);
 
   /** Buka halaman Form Pengajuan dengan jenis yang sudah dipilih. */
   const bukaPengajuan = (jenis: JenisPengajuan) => {
@@ -284,11 +188,8 @@ export default function Dashboard() {
   const isLoading =
     loans === undefined ||
     summary === undefined ||
-    creditHistory === undefined ||
-    pawns === undefined ||
     dueReminder === undefined ||
-    schedule === undefined ||
-    contracts === undefined;
+    schedule === undefined;
 
   const greetingName = user?.name ?? user?.email?.split("@")[0] ?? "Nasabah";
 
@@ -305,26 +206,12 @@ export default function Dashboard() {
       l.pelunasan.hariTerlambat === 0 &&
       l.pelunasan.sisaHari <= 7,
   ).length;
-  const gadaiAktif = (pawns ?? []).filter(
-    (p) => p.status === "aktif" || p.status === "menunggu_pelepasan",
-  ).length;
-  const jumlahKontrak = contracts ? contracts.pinjaman.length + contracts.gadai.length : 0;
-
   const tabBadges: Partial<Record<string, TabBadge>> = {};
-  // Kabar pengaduan dikenali dari tautannya, satu-satunya tujuan yang menunjuk
-  // tab Bantuan. Lencana hanya muncul bila ada yang belum dibaca.
-  const kabarBantuan =
-    notifikasi === undefined
-      ? 0
-      : notifikasi.item.filter(
-          (n) => !n.dibaca && n.tautan === "/dashboard?tab=bantuan",
-        ).length;
-  if (kabarBantuan > 0) tabBadges.bantuan = { count: kabarBantuan, tone: "warning" };
   if (pinjamanAktif > 0) tabBadges.pinjaman = { count: pinjamanAktif };
-  if (tagihanTerlambat > 0) tabBadges.jadwal = { count: tagihanTerlambat, tone: "danger" };
-  else if (tagihanDekat > 0) tabBadges.jadwal = { count: tagihanDekat, tone: "warning" };
-  if (gadaiAktif > 0) tabBadges.gadai = { count: gadaiAktif };
-  if (jumlahKontrak > 0) tabBadges.kontrak = { count: jumlahKontrak };
+  // Lencana kewajiban menempel di Ringkasan: di situlah kartu jatuh tempo
+  // terdekat berada, jadi angkanya menunjuk halaman yang benar.
+  if (tagihanTerlambat > 0) tabBadges.ringkasan = { count: tagihanTerlambat, tone: "danger" };
+  else if (tagihanDekat > 0) tabBadges.ringkasan = { count: tagihanDekat, tone: "warning" };
   // Hanya status yang MENUNGGU TINDAKAN NASABAH yang diberi lencana, VERIFIED
   // dan PENDING_REVIEW bukan pekerjaan pengguna.
   if (
@@ -336,11 +223,7 @@ export default function Dashboard() {
     tabBadges.kyc = { count: 1, tone: kyc.status === "REJECTED" ? "danger" : "warning" };
   }
 
-  /**
-   * Isi menu — SATU isi untuk dua wadah: kolom kiri pada `lg` ke atas dan drawer
-   * pada layar sempit. Disimpan sebagai elemen, bukan disalin, supaya keduanya
-   * tidak pernah berbeda (mis. menu admin muncul di satu wadah saja).
-   */
+  /** Isi kolom kiri (layar lebar): kartu profil, lima menu, tahap KYC, Keluar. */
   const isiMenu = (
     <DashboardSidebar
       greetingName={greetingName}
@@ -349,9 +232,7 @@ export default function Dashboard() {
       badges={tabBadges}
       activeTab={activeTab}
       onTabChange={gantiTab}
-      onBuatPengajuan={bukaPengajuan}
       onSignOut={handleSignOut}
-      adminTerverifikasi={gateAdmin?.isAdmin === true}
       kycMenu={
         dataMenuKyc === null ? null : (
           <KycMenuSidebar
@@ -364,9 +245,6 @@ export default function Dashboard() {
       }
     />
   );
-  /** Lencana bagian yang sedang terbuka; dipakai pemicu menu layar sempit. */
-  const lencanaTab = tabBadges[activeTab];
-
   return (
     // Gerbang lokasi wajib: Peminjam tidak bisa memakai dashboard tanpa GPS
     // aktif (heartbeat ke server). Admin dan penyedia dana dikecualikan, sama
@@ -381,7 +259,7 @@ export default function Dashboard() {
       <main
         id="konten"
         tabIndex={-1}
-        className="mx-auto w-full max-w-7xl flex-1 px-4 py-5 sm:px-6 sm:py-8"
+        className="mx-auto w-full max-w-7xl flex-1 px-4 py-5 pb-24 sm:px-6 sm:py-8 sm:pb-24 lg:pb-8"
       >
         <Tabs
           value={activeTab}
@@ -393,70 +271,16 @@ export default function Dashboard() {
             {isiMenu}
           </aside>
 
-          {/* ===== Pemicu menu di layar sempit ===== */}
-          {/* Menggantikan kolom kiri: di bawah `lg` menu dibuka sebagai drawer,
-              jadi menunya tidak lagi menumpuk di atas konten. Pemicunya menyebut
-              bagian yang sedang terbuka, jadi penanda posisi tetap ada tanpa
-              membuka menu. */}
-          <button
-            type="button"
-            onClick={() => setMenuTerbuka(true)}
-            aria-haspopup="dialog"
-            aria-expanded={menuTerbuka}
-            className="flex w-full items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-left shadow-sm transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 lg:hidden"
-          >
-            <Menu className="size-4 shrink-0 text-primary" aria-hidden />
-            <span className="min-w-0 flex-1">
-              <span className="block text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">
-                Menu
-              </span>
-              <span className="block truncate text-sm font-semibold text-slate-900">
-                {labelTujuan(activeTab)}
-              </span>
-            </span>
-            {lencanaTab !== undefined && lencanaTab.count > 0 && (
-              <span
-                className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold tabular-nums ${badgeToneClass(lencanaTab.tone)}`}
-              >
-                {lencanaTab.count > 99 ? "99+" : lencanaTab.count}
-              </span>
-            )}
-          </button>
-
-          {/* Drawer menu: memuat isi menu yang SAMA dengan kolom kiri. Radix
-              yang mengurus fokus terperangkap, Esc, klik latar, dan aria-modal. */}
-          <Sheet open={menuTerbuka} onOpenChange={setMenuTerbuka}>
-            <SheetContent
-              side="left"
-              className="w-[86%] max-w-sm gap-0 overflow-y-auto p-4 sm:p-5"
-            >
-              <SheetHeader className="p-0">
-                <SheetTitle className="text-sm">Menu dashboard</SheetTitle>
-                <SheetDescription className="text-xs leading-5">
-                  Pilih bagian, lihat tahap verifikasi identitas, atau kelola akun Anda.
-                </SheetDescription>
-              </SheetHeader>
-              <div className="mt-4">{isiMenu}</div>
-            </SheetContent>
-          </Sheet>
-
           {/* ===== Kolom konten ===== */}
           <FadeIn className="min-w-0 flex-1">
             {isLoading ? (
               <RingkasanMemuat />
             ) : (
               <>
-                {/* Riwayat & tawaran klaim PEMINJAM LAMA diletakkan paling atas:
-                    pemakai dari web lama harus lebih dulu melihat bahwa datanya
-                    ada, bukan form pengajuan yang kosong. */}
-                <RingkasanPeminjamLama klaim={klaim} />
-
-                {/* Pengingat jatuh tempo live, CTA membuka detail pembayaran. */}
+                {/* Pengingat jatuh tempo live. Satu-satunya pengingat di layar;
+                    membukanya berarti membuka rincian pinjaman terkait. */}
                 {dueReminder !== null && (
-                  <DueReminderBanner
-                    reminder={dueReminder}
-                    onLihatDetail={setLoanDetailId}
-                  />
+                  <DueReminderBanner reminder={dueReminder} onLihatDetail={setLoanDetailId} />
                 )}
 
                 {/* Peringatan lokasi dicurigai, ditulis server saat titik
@@ -466,57 +290,37 @@ export default function Dashboard() {
                 {/* Status lokasi wajib tampil sebagai pil di kanan bawah,
                     gerbangnya sendiri membungkus seluruh dashboard. */}
 
-                {/* ===== Ringkasan keuangan ===== */}
-                {/* Status KYC dioper apa adanya: `null` berarti belum terbaca,
-                    bukan "butuh tindakan". Tanpa ini kartu KYC di Ringkasan bisa
-                    berbunyi berlawanan dengan modul KYC di bawahnya. */}
-                <SummaryCards
-                  schedule={schedule ?? []}
-                  kycStatus={kyc === undefined ? null : kyc.status}
-                  onBukaKyc={() => gantiTab("kyc")}
-                />
-                {creditHistory && <CreditProgressCard history={creditHistory} />}
-
-                {/* Status KYC tampil di SEMUA tab, nasabah tidak perlu membuka
-                    tab KYC untuk tahu di mana posisinya. */}
-                {/* Pil status ini mengajak pindah ke tab KYC, di tab KYC
-                    sendiri ia hanya mengulang judul kartu tepat di bawahnya,
-                    jadi disembunyikan saat tab itu yang sedang dibuka. */}
-                {kyc !== undefined && activeTab !== "kyc" && (
-                  <KycStatusStrip status={kyc.status} onBuka={() => gantiTab("kyc")} />
-                )}
-
-                {/* ============ TAB 1: PINJAMAN AKTIF ============ */}
-                <TabsContent value="pinjaman" className="mt-8 animate-masuk">
-                  <TombolBuatPengajuan
-                    jenis="pinjaman"
-                    onClick={() => bukaPengajuan("pinjaman")}
-                  />
+                {/* ===== TAB 1: RINGKASAN =====
+                    Tiga hal saja: kewajiban terdekat (satu kartu), tiga angka
+                    pokok (limit, tagihan bulan ini, status KYC), lalu satu jalan
+                    ke pengajuan. Riwayat dan formulir punya halamannya sendiri,
+                    jadi tidak ada bagian yang muncul dua kali di layar. */}
+                <TabsContent value="ringkasan" className="mt-6 animate-masuk">
                   <ActiveLoanSection
                     schedule={schedule ?? []}
                     onOpenDetail={setLoanDetailId}
+                    batas={1}
                   />
+                  <SummaryCards
+                    schedule={schedule ?? []}
+                    kycStatus={kyc === undefined ? null : kyc.status}
+                    onBukaKyc={() => gantiTab("kyc")}
+                  />
+                  <Button
+                    type="button"
+                    className="mt-4 w-full gap-2 bg-emerald-800 text-white hover:bg-emerald-900 sm:w-auto"
+                    onClick={() => bukaPengajuan("pinjaman")}
+                  >
+                    <FilePlus2 className="size-4" aria-hidden />
+                    Ajukan Pinjaman
+                  </Button>
                 </TabsContent>
 
-                {/* ============ TAB 2: JADWAL ANGSURAN ============ */}
-                <TabsContent value="jadwal" className="mt-8 animate-masuk">
-                  <ScheduleSection schedule={schedule ?? []} />
-                </TabsContent>
-
-                {/* ============ TAB 3: JAMINAN GADAI ============ */}
-                <TabsContent value="gadai" className="mt-8 animate-masuk">
-                  <TombolBuatPengajuan jenis="gadai" onClick={() => bukaPengajuan("gadai")} />
-                  <div className="space-y-8">
-                    <GadaiBillingSection pawns={pawns ?? []} />
-                    <PawnVaultSection pawns={pawns ?? []} onOpenDetail={setPawnDetailId} />
-                  </div>
-                </TabsContent>
-
-                {/* ============ TAB 4: E-CONTRACT ============
-                    Kredit barang tidak punya tab sendiri lagi: formulir dan
-                    catatannya berada di tab Form Pengajuan. */}
-                <TabsContent value="kontrak" className="mt-8 animate-masuk">
-                  <MyContractsSection contracts={contracts} />
+                {/* ===== TAB 2: CATATAN PINJAMAN =====
+                    Daftar semua pinjaman dengan saringan status; rincian satu
+                    pinjaman dibuka lewat dialog, bukan kartu kedua di layar. */}
+                <TabsContent value="pinjaman" className="mt-6 animate-masuk">
+                  <CatatanPinjamanSection loans={loans ?? []} onOpenLoan={setLoanDetailId} />
                 </TabsContent>
 
                 {/* ===== TAB 5: FORM PENGAJUAN, satu halaman, tiga jenis =====
@@ -545,28 +349,6 @@ export default function Dashboard() {
                   <KycSection tahapPilihan={tahapKyc} onPilihTahap={setTahapKyc} />
                 </TabsContent>
 
-                {/* ============ TAB 6: RIWAYAT ============ */}
-                <TabsContent value="riwayat" className="mt-8 animate-masuk">
-                  <div className="space-y-6">
-                    <HistorySection
-                      loans={loans ?? []}
-                      pawns={pawns ?? []}
-                      onOpenLoan={setLoanDetailId}
-                      onOpenPawn={setPawnDetailId}
-                    />
-                    <ManualPaymentEvidenceHistory />
-                  </div>
-                </TabsContent>
-
-                {/* ============ TAB 7: BANTUAN (pengaduan nasabah) ============ */}
-                <TabsContent value="bantuan" className="mt-8 animate-masuk">
-                  <HelpdeskSayaView
-                    loans={(loans ?? []).map((l) => ({
-                      _id: l._id,
-                      nomorReferensi: l.nomorReferensi,
-                    }))}
-                  />
-                </TabsContent>
               </>
             )}
           </FadeIn>
@@ -574,7 +356,13 @@ export default function Dashboard() {
       </main>
 
         <LoanDetailDialog loanId={loanDetailId} onClose={() => setLoanDetailId(null)} />
-        <PawnDetailDialog pawnId={pawnDetailId} onClose={() => setPawnDetailId(null)} />
+
+        {/* Navigasi bawah untuk layar sempit; kolom kiri hanya muncul di `lg`. */}
+        <DashboardBottomNav
+          badges={tabBadges}
+          activeTab={activeTab}
+          onTabChange={gantiTab}
+        />
 
         <DashboardFooter />
       </div>

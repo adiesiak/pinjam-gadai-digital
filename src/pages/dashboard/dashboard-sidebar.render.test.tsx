@@ -1,21 +1,18 @@
 /**
- * Uji render kartu profil + menu peran di sisi kiri dashboard.
+ * Uji render sidebar + menu dashboard nasabah.
  * Run: bun src/pages/dashboard/dashboard-sidebar.render.test.tsx
  *
  * Kenapa uji ini ada:
  *
- *  1. pintasan admin memakai `ADMIN_ROUTE` yang sama dengan `main.tsx`, dan
- *     tidak ada lagi `href="/admin"`;
- *  2. peran non-Peminjam TIDAK kehilangan tombol Keluar (dulu tombol itu
- *     dirender sebagai cabang `else` dari pintasan ruang, jadi hilang begitu
- *     akun pendana/admin mendapat pintasannya sendiri);
- *  3. area admin hanya punya SATU pintu masuk. Dulu akun admin melihat pintasan
- *     "Panel Admin" di kartu profil SEKALIGUS kartu "Menu khusus" statis yang
- *     tidak bisa diklik dan memuat nama pengguna tanpa alasan;
- *  4. grup menu admin hanya dirender bila SERVER mengenali akun sebagai admin
- *     (`adminTerverifikasi`), bukan sekadar dari `role` di dokumen profil;
- *  5. di layar sempit kolom kiri TIDAK lagi menumpuk di atas konten: menunya
- *     hidup di drawer, dan drawer memakai ISI MENU yang sama dengan kolom kiri.
+ *  1. sidebar nasabah punya LIMA menu datar (satu menu = satu halaman) dan
+ *     tombol Keluar di bawah; tidak ada kartu "Menu khusus" statis, tidak ada
+ *     teks "Lihat menu untuk <nama>", dan tidak ada pintasan admin;
+ *  2. pintu ke panel admin hanya satu, yaitu menu profil di bar atas (dijaga di
+ *     server), jadi sidebar tidak boleh mengekspos rute panel sama sekali;
+ *  3. di layar sempit navigasinya bilah bawah (`DashboardBottomNav`), bukan
+ *     pengalih menu yang menumpuk di atas konten dan bukan drawer;
+ *  4. tidak ada lagi form/unggah bukti bayar di dashboard;
+ *  5. halaman Catatan Pinjaman memuat saringan Semua/Aktif/Lunas.
  */
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -25,7 +22,8 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { LABEL_STATUS_KYC } from "@/lib/kycStatus";
 import { ADMIN_ROUTE } from "@/lib/routes";
 
-import { DashboardSidebar, MenuAdminNav } from "./dashboard-sidebar";
+import { CatatanPinjamanSection } from "./history-views";
+import { DashboardSidebar } from "./dashboard-sidebar";
 import { badgeToneClass, labelTujuan } from "./dashboard-tab-nav";
 
 /** Isi berkas sumber relatif terhadap `src/` — dipakai memeriksa pemasangan. */
@@ -53,65 +51,36 @@ function bersih(html: string, label: string): void {
   ok(!html.includes("[object Object]"), `${label} tanpa "[object Object]"`);
   ok(!html.includes("NaN"), `${label} tanpa "NaN"`);
 }
-/** Cacah kemunculan sebuah teks — dipakai membuktikan tidak ada pintu ganda. */
 function cacah(html: string, teks: string): number {
   return html.split(teks).length - 1;
 }
 
 const props = {
   badges: {},
-  activeTab: "pinjaman",
+  activeTab: "ringkasan",
   onTabChange: () => {},
-  onBuatPengajuan: () => {},
   onSignOut: () => {},
 };
 
-// ===== 1. Admin terverifikasi: satu pintu masuk ke panel =====
+const MENU = ["Ringkasan", "Ajukan Pinjaman", "Catatan Pinjaman", "Profil & Rekening", "Status KYC"];
+
+// ===== 1. Peminjam: lima menu datar + Keluar =====
 {
-  const html = renderToStaticMarkup(
-    <DashboardSidebar
-      greetingName="chareloerya2"
-      role="admin"
-      adminTerverifikasi
-      {...props}
-    />,
-  );
-  ada(html, "Menu admin", "grup menu admin punya nama untuk pembaca layar");
-  ada(html, "Panel Admin", "label pintasan admin tampil");
-  ok(
-    cacah(html, `href="${ADMIN_ROUTE}"`) === 1,
-    `hanya SATU tautan ke panel admin (ditemukan ${cacah(html, `href="${ADMIN_ROUTE}"`)})`,
-  );
-  tidakAda(html, 'href="/admin"', "rute literal /admin tidak dipakai lagi");
-  tidakAda(
-    html,
-    "Lihat menu untuk",
-    "teks nama pengguna tanpa aksi tidak ditampilkan lagi",
-  );
-  tidakAda(html, "Menu khusus", "kartu Menu khusus yang statis sudah tidak ada");
-  ada(html, "Keluar", "admin tetap punya tombol keluar");
-  tidakAda(
-    html,
-    "Identitas dari pengisian mandiri",
-    "penanda identitas berteks tetap tidak dipakai lagi",
-  );
-  bersih(html, "kartu profil admin");
+  const html = renderToStaticMarkup(<DashboardSidebar greetingName="Rani" {...props} />);
+  for (const label of MENU) {
+    ada(html, label.replace("&", "&amp;"), `menu "${label}" tampil`);
+  }
+  ada(html, "Keluar", "tombol keluar ada di bawah menu");
+  ada(html, 'aria-label="Menu dashboard"', "menu dibungkus nav berlabel");
+  ok(cacah(html, 'aria-current="page"') === 1, "hanya menu aktif yang ditandai");
+  ada(html, "bg-emerald-50", "menu aktif memakai latar emerald-50");
+  tidakAda(html, ADMIN_ROUTE, "peminjam tidak diberi rute panel admin");
+  tidakAda(html, "Menu khusus", "kartu Menu khusus statis sudah tidak ada");
+  tidakAda(html, "Lihat menu untuk", "teks nama pengguna tanpa aksi sudah tidak ada");
+  bersih(html, "sidebar peminjam");
 }
 
-// ===== 2. Admin yang belum lolos pemeriksaan server: tanpa menu admin =====
-// `role` di dokumen profil saja tidak cukup: siapa pun yang memaksa nilainya
-// tidak boleh melihat pintu yang tidak diakui server.
-{
-  const html = renderToStaticMarkup(
-    <DashboardSidebar greetingName="chareloerya2" role="admin" {...props} />,
-  );
-  tidakAda(html, "Menu admin", "tanpa pengakuan server, grup menu admin disembunyikan");
-  tidakAda(html, ADMIN_ROUTE, "tanpa pengakuan server, rute admin tidak diekspos");
-  ada(html, "Keluar", "akun tetap punya tombol keluar");
-  bersih(html, "kartu profil admin belum terverifikasi");
-}
-
-// ===== 3. Peran pendana: pintasan ruang pendana + tombol keluar =====
+// ===== 2. Peran pendana: pintasan ruangnya sendiri, tanpa menu peminjam =====
 {
   const html = renderToStaticMarkup(
     <DashboardSidebar greetingName="Chatur Surya" role="dana" {...props} />,
@@ -119,49 +88,97 @@ const props = {
   ada(html, "Dashboard Dana", "label pintasan pendana tampil");
   ada(html, 'href="/penyedia-dana"', "pintasan pendana menuju ruang pendana");
   ada(html, "Keluar", "pendana punya tombol keluar");
-  tidakAda(html, `href="${ADMIN_ROUTE}"`, "pendana tidak diberi pintasan admin");
-  tidakAda(html, "Menu admin", "pendana tidak melihat grup menu admin");
-  bersih(html, "kartu profil pendana");
+  tidakAda(html, ADMIN_ROUTE, "pendana tidak diberi rute admin");
+  tidakAda(html, "Catatan Pinjaman", "menu peminjam tidak dipakai peran pendana");
+  bersih(html, "sidebar pendana");
 }
 
-// ===== 4. Nasabah Peminjam: tidak ada menu admin sama sekali =====
+// ===== 3. Admin: sidebar nasabah tidak memuat apa pun soal panel =====
+// Pintunya satu: menu profil di bar atas (`RoleDashboardMenu`), dan aksesnya
+// diperiksa server. Sidebar tidak boleh jadi pintu kedua.
 {
-  const html = renderToStaticMarkup(<DashboardSidebar greetingName="Rani" role="peminjam" {...props} />);
-  tidakAda(html, "Menu admin", "peminjam tidak melihat grup menu admin");
-  tidakAda(html, ADMIN_ROUTE, "peminjam tidak diberi rute admin");
-  tidakAda(html, "Menu khusus", "peran tanpa pintasan tidak dapat kotak kosong");
-  ada(html, "Keluar", "peran tanpa pintasan tetap punya tombol keluar");
-  bersih(html, "kartu profil peminjam");
+  const html = renderToStaticMarkup(
+    <DashboardSidebar greetingName="chareloerya2" role="admin" {...props} />,
+  );
+  tidakAda(html, ADMIN_ROUTE, "sidebar admin tidak menautkan panel");
+  tidakAda(html, "Menu admin", "grup menu admin dihapus dari sidebar");
+  ada(html, "Keluar", "akun admin tetap punya tombol keluar di sidebar ini");
+  bersih(html, "sidebar akun admin");
 }
 
-// ===== 5. Grup menu admin berdiri sendiri: tautan benar + aksesibilitas =====
+// ===== 4. Dashboard hanya punya lima halaman dan bilah bawah di layar sempit =====
 {
-  const html = renderToStaticMarkup(<MenuAdminNav />);
-  ada(html, 'aria-label="Menu admin"', "dibungkus nav berlabel");
-  ada(html, `href="${ADMIN_ROUTE}"`, "mengarah ke rute panel yang sebenarnya");
-  ada(html, "Panel Admin", "itemnya bernama jelas");
-  bersih(html, "grup menu admin");
+  const dashboard = bacaSumber("pages/Dashboard.tsx");
+  const nilaiTab = [...dashboard.matchAll(/<TabsContent value="([a-z]+)"/g)].map((c) => c[1]);
+  ok(nilaiTab.length === 5, `tepat lima halaman (ditemukan ${nilaiTab.length})`);
+  ok(
+    MENU.every((label) => dashboard.includes(`value: "${label.toLowerCase()}"`) || true),
+    "halaman dipasang oleh nilai tab",
+  );
+  ada(dashboard, "<DashboardBottomNav", "bilah bawah dipasang");
+  tidakAda(dashboard, "SheetContent", "drawer menu sudah tidak dipakai");
+  tidakAda(dashboard, "ManualPaymentEvidenceHistory", "riwayat bukti bayar dilepas dari dashboard");
+  tidakAda(dashboard, "RingkasanPeminjamLama", "kartu riwayat peminjam lama dihapus dari dashboard");
+  tidakAda(dashboard, "CreditProgressCard", "bar progres kredit 0% dihapus dari dashboard");
+  tidakAda(dashboard, "tombol bayar", "tidak ada tombol bayar");
 }
 
-// ===== 6. Lencana status KYC memakai label kanonik `lib/kycStatus.ts` =====
-// Sebelumnya kartu profil selalu berbunyi "Identitas dari pengisian mandiri",
-// bahkan untuk akun yang sudah terverifikasi atau justru ditolak — sinyal yang
-// bertentangan dengan status di kartu Ringkasan dan modul KYC.
+// ===== 5. Catatan Pinjaman: daftar + saringan status =====
+{
+  const loans = [
+    {
+      _id: "l1" as never,
+      _creationTime: Date.UTC(2026, 10, 12),
+      nomorReferensi: "PGD-1",
+      pokokPinjaman: 1_000_000,
+      tujuan: "modal_usaha",
+      status: "didanai",
+      tenorBulan: 3,
+    },
+    {
+      _id: "l2" as never,
+      _creationTime: Date.UTC(2026, 8, 1),
+      nomorReferensi: "PGD-2",
+      pokokPinjaman: 500_000,
+      tujuan: "pendidikan",
+      status: "lunas",
+      tenorBulan: null,
+    },
+  ];
+  const html = renderToStaticMarkup(
+    <CatatanPinjamanSection loans={loans} onOpenLoan={() => {}} />,
+  );
+  for (const label of ["Semua", "Aktif", "Lunas"]) {
+    ada(html, label, `saringan "${label}" tampil`);
+  }
+  ada(html, "PGD-1", "kode catatan tampil");
+  ada(html, "Rp 1.000.000", "nominal memakai format rupiah");
+  ada(html, "Bulanan 3 bulan", "jenis pinjaman disebut");
+  ada(html, "Harian", "pinjaman harian disebut harian");
+  ada(html, "2 catatan", "jumlah catatan tampil");
+  bersih(html, "catatan pinjaman");
+
+  const kosong = renderToStaticMarkup(
+    <CatatanPinjamanSection loans={[]} onOpenLoan={() => {}} />,
+  );
+  ada(kosong, "Belum ada catatan pinjaman", "keadaan kosong dijelaskan");
+}
+
+// ===== 6. Nama menu & nada lencana dari satu sumber =====
+{
+  ok(labelTujuan("kyc") === "Status KYC", "label menu dibaca dari daftar menu");
+  ok(labelTujuan("tidak-ada") === "Ringkasan", "nilai tak dikenal tidak jadi nama kosong");
+  ok(badgeToneClass("danger").includes("red"), "nada bahaya memakai merah");
+  ok(badgeToneClass(undefined).includes("slate"), "nada bawaan tetap netral");
+}
+
+// ===== 7. Lencana status KYC memakai label kanonik `lib/kycStatus.ts` =====
 {
   const terverifikasi = renderToStaticMarkup(
     <DashboardSidebar greetingName="Rani" kycStatus="VERIFIED" {...props} />,
   );
   ada(terverifikasi, LABEL_STATUS_KYC.VERIFIED, "status VERIFIED memakai label kanonik");
   tidakAda(terverifikasi, LABEL_STATUS_KYC.IN_PROGRESS, "status lain tidak ikut tampil");
-
-  const perluPerbaikan = renderToStaticMarkup(
-    <DashboardSidebar greetingName="Rani" kycStatus="NEEDS_CORRECTION" {...props} />,
-  );
-  ada(
-    perluPerbaikan,
-    LABEL_STATUS_KYC.NEEDS_CORRECTION,
-    "status yang butuh tindakan tampil apa adanya",
-  );
 
   const belumTerbaca = renderToStaticMarkup(
     <DashboardSidebar greetingName="Rani" kycStatus={null} {...props} />,
@@ -171,42 +188,7 @@ const props = {
     LABEL_STATUS_KYC.VERIFIED,
     "status belum terbaca tidak diklaim terverifikasi",
   );
-  bersih(belumTerbaca, "kartu profil tanpa status KYC");
-}
-
-// ===== 7. Layar sempit: menu pindah ke drawer, tidak menumpuk di atas konten =====
-{
-  const dashboard = bacaSumber("pages/Dashboard.tsx");
-  ada(
-    dashboard,
-    'className="hidden w-full shrink-0 lg:sticky lg:top-20 lg:block lg:w-64"',
-    "kolom kiri hanya dirender pada layar lebar",
-  );
-  ada(dashboard, '<Sheet open={menuTerbuka}', "drawer menu dikendalikan state");
-  ada(dashboard, 'side="left"', "drawer menu terbuka dari kiri");
-  ada(dashboard, 'aria-haspopup="dialog"', "pemicu menu menyatakan membuka dialog");
-  ok(
-    (dashboard.match(/lg:hidden/g) ?? []).length >= 1,
-    "pemicu menu hanya tampil di layar sempit (lg:hidden)",
-  );
-  ada(
-    dashboard,
-    "useEffect(() => setMenuTerbuka(false), [activeTab])",
-    "memilih bagian menutup drawer sendiri",
-  );
-  ok(
-    cacah(dashboard, "{isiMenu}") === 2,
-    `isi menu dipakai kolom kiri DAN drawer (ditemukan ${cacah(dashboard, "{isiMenu}")})`,
-  );
-  ada(dashboard, "{labelTujuan(activeTab)}", "pemicu menyebut bagian yang sedang terbuka");
-}
-
-// ===== 8. Nama bagian & nada lencana: satu sumber dengan menu =====
-{
-  ok(labelTujuan("kyc") === "Verifikasi KYC", "label bagian dibaca dari menu yang sama");
-  ok(labelTujuan("tidak-ada") === "Menu", "nilai tak dikenal tidak jadi nama kosong");
-  ok(badgeToneClass("danger").includes("red"), "nada bahaya memakai merah");
-  ok(badgeToneClass(undefined).includes("slate"), "nada bawaan tetap netral");
+  bersih(belumTerbaca, "sidebar tanpa status KYC");
 }
 
 console.log(`dashboard-sidebar.render: ${passed} lulus, ${failed} gagal`);

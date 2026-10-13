@@ -88,14 +88,18 @@ ok(
   "empat jenis tidak pernah berbagi nada yang sama",
 );
 
-// ===== tautan hanya ke tab dashboard yang ada =====
-eq(tabDariTautan("/dashboard?tab=jadwal"), "jadwal", "tab jadwal diterima");
-eq(tabDariTautan("/dashboard?tab=riwayat"), "riwayat", "tab riwayat diterima");
-eq(tabDariTautan("/dashboard?tab=bantuan"), "bantuan", "tab bantuan diterima (tujuan notifikasi pengaduan)");
+// ===== tautan hanya ke halaman dashboard yang ada =====
+eq(tabDariTautan("/dashboard?tab=ringkasan"), "ringkasan", "halaman ringkasan diterima");
+eq(tabDariTautan("/dashboard?tab=pinjaman"), "pinjaman", "halaman catatan pinjaman diterima");
+// Nama tab lama masih tersimpan di tautan notifikasi di database, jadi dipetakan
+// ke halaman terdekatnya alih-alih ditolak (dan mendarat di halaman default).
+eq(tabDariTautan("/dashboard?tab=jadwal"), "ringkasan", "tab lama jadwal diarahkan ke ringkasan");
+eq(tabDariTautan("/dashboard?tab=riwayat"), "pinjaman", "tab lama riwayat diarahkan ke catatan pinjaman");
+eq(tabDariTautan("/dashboard?tab=bantuan"), "ringkasan", "tab lama bantuan diarahkan ke ringkasan");
 eq(tabDariTautan("/dashboard?tab=tidak-ada"), null, "tab tak dikenal ditolak");
 eq(tabDariTautan("/dashboard"), null, "tautan tanpa parameter tidak dipaksa");
-eq(tabDariTautan("https://contoh.com/dashboard?tab=jadwal"), "jadwal", "tautan bertanya tetap dibaca");
-eq(tabDariParams(new URLSearchParams("?tab=gadai")), "gadai", "parameter URL langsung dibaca");
+eq(tabDariTautan("https://contoh.com/dashboard?tab=jadwal"), "ringkasan", "tautan bertanya tetap dibaca");
+eq(tabDariParams(new URLSearchParams("?tab=gadai")), "pinjaman", "parameter URL langsung dibaca");
 eq(tabDariParams(new URLSearchParams("")), null, "parameter kosong tidak menghasilkan tab");
 
 console.log(`notifikasi.test: ${passed} lulus, ${failed} gagal`);

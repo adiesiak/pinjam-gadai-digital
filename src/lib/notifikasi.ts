@@ -50,22 +50,34 @@ export const JENIS_NOTIFIKASI: Record<NotifikasiJenis, { label: string; kelas: s
  * di server tidak pernah mengirim pengguna ke tab yang tidak ada.
  */
 export const TAB_DASHBOARD = [
-  "pinjaman",
-  "jadwal",
-  "gadai",
-  "kontrak",
+  "ringkasan",
   "form",
+  "pinjaman",
   "diri",
   "kyc",
-  "riwayat",
-  "bantuan",
 ] as const;
 
 /** Tab dashboard dari parameter URL, atau null bila tidak berlaku. */
+/**
+ * Tab lama yang masih tersimpan di tautan notifikasi di database.
+ *
+ * Halaman nasabah sekarang lima; nama lama dipetakan ke halaman TERDEKATNYA
+ * supaya tautan yang sudah tersimpan tidak mendarat di halaman default tanpa
+ * penjelasan. Pemetaan ini dihapus bersama tautan lama terakhir.
+ */
+const TAB_LAMA: Record<string, string> = {
+  jadwal: "ringkasan",
+  riwayat: "pinjaman",
+  gadai: "pinjaman",
+  kontrak: "pinjaman",
+  bantuan: "ringkasan",
+};
+
 export function tabDariParams(params: URLSearchParams): string | null {
   const tab = params.get("tab");
   if (tab === null) return null;
-  return (TAB_DASHBOARD as readonly string[]).includes(tab) ? tab : null;
+  if ((TAB_DASHBOARD as readonly string[]).includes(tab)) return tab;
+  return TAB_LAMA[tab] ?? null;
 }
 
 /** Tab dashboard dari tautan notifikasi, atau null bila tidak berlaku. */

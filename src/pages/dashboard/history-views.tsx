@@ -1,123 +1,154 @@
-import { Landmark } from "lucide-react";
+import { useState } from "react";
+import { FileText } from "lucide-react";
 
 import { StatusBadge } from "@/components/StatusBadge";
 import type { Id } from "@/convex/_generated/dataModel";
 import { loanPurposeLabel } from "@/lib/loan";
 import { formatRupiah } from "@/lib/money";
+import { cn } from "@/lib/utils";
 
 import { EmptyState } from "./empty-state";
 import { formatDate } from "./shared";
 
-/** Tab 6 — riwayat catatan pinjaman dan gadai pada aplikasi. */
-export function HistorySection({
+type BarisPinjaman = {
+  _id: Id<"loans">;
+  _creationTime: number;
+  nomorReferensi: string;
+  pokokPinjaman: number;
+  /** Nominal asli pengajuan — beda bila disetujui sebagian. */
+  pokokDiajukan?: number;
+  tujuan: string;
+  status: string;
+  /** Ada = skema bulanan; kosong = skema harian. Dipakai menyebut jenisnya. */
+  tenorBulan?: number | null;
+};
+
+/**
+ * Saringan status halaman Catatan Pinjaman.
+ *
+ * Hanya tiga, dan artinya dibaca dari status yang memang ada di catatan:
+ * "Aktif" = pinjaman yang sudah disalurkan dan belum lunas, "Lunas" = status
+ * lunas dari tim. Sisanya (menunggu, dibatalkan) tetap terlihat di "Semua" —
+ * tidak ada saringan yang menyembunyikan catatan tanpa jalan kembali.
+ */
+const SARINGAN = [
+  { nilai: "semua", label: "Semua" },
+  { nilai: "aktif", label: "Aktif" },
+  { nilai: "lunas", label: "Lunas" },
+] as const;
+
+type NilaiSaringan = (typeof SARINGAN)[number]["nilai"];
+
+/** Nama jenis pinjaman dari tenor yang tersimpan. */
+function jenisPinjaman(loan: BarisPinjaman): string {
+  return loan.tenorBulan === null || loan.tenorBulan === undefined
+    ? "Harian"
+    : `Bulanan ${loan.tenorBulan} bulan`;
+}
+
+/**
+ * Halaman "Catatan Pinjaman": daftar SEMUA pinjaman nasabah dengan saringan
+ * status, satu baris per pinjaman. Rincian dibuka lewat dialog, jadi daftar ini
+ * tetap pendek dan tidak mengulang angka yang sudah ada di Ringkasan.
+ *
+ * Yang tidak ada di sini: pembayaran. Pelunasan dicatat tim PINDAI di luar
+ * aplikasi, jadi tidak ada tombol bayar atau unggah bukti di halaman mana pun.
+ */
+export function CatatanPinjamanSection({
   loans,
-  pawns,
   onOpenLoan,
-  onOpenPawn,
 }: {
-  loans: Array<{
-    _id: Id<"loans">;
-    _creationTime: number;
-    nomorReferensi: string;
-    pokokPinjaman: number;
-    /** Nominal asli pengajuan — beda bila disetujui sebagian. */
-    pokokDiajukan?: number;
-    tujuan: string;
-    status: string;
-  }>;
-  pawns: Array<{
-    _id: Id<"pawns">;
-    _creationTime: number;
-    nomorReferensi: string;
-    deskripsiBarang: string;
-    kategori: string;
-    status: string;
-  }>;
+  loans: BarisPinjaman[];
   onOpenLoan: (id: Id<"loans">) => void;
-  onOpenPawn: (id: Id<"pawns">) => void;
 }) {
-  if (loans.length === 0 && pawns.length === 0) {
-    return (
-      <EmptyState
-        icon={Landmark}
-        title="Belum ada riwayat"
-        body="Status pengajuan pinjaman dan gadai tampil di sini. Catatan ini tersimpan di PINDAI."
-        action={{
-          label: "Buat pengajuan pinjaman",
-          variant: "outline",
-          onClick: () => {
-            // Penjembatan ke tab Form Pengajuan; komponen pembungkus bertanggung jawab
-            // menangani tindakan ini melalui onBukaForm bila tersedia.
-          },
-        }}
-      />
-    );
-  }
+  const [saringan, setSaringan] = useState<NilaiSaringan>("semua");
+
+  const tampil = loans.filter((loan) => {
+    if (saringan === "aktif") return loan.status === "didanai";
+    if (saringan === "lunas") return loan.status === "lunas";
+    return true;
+  });
+
   return (
-    <div className="grid gap-8 lg:grid-cols-2">
-      <section className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-900 lg:col-span-2">
-        Riwayat ini hanya menampilkan data dan status pada aplikasi. Nilai dan status mengikuti catatan PINDAI.
-      </section>
-      <section>
-        <h3 className="text-sm font-semibold">Catatan pinjaman</h3>
-        {loans.length === 0 ? (
-          <p className="mt-3 text-xs text-muted-foreground">Belum ada.</p>
-        ) : (
-          <ul className="mt-3 divide-y divide-slate-200 rounded-2xl border border-slate-200 bg-white">
-            {loans.map((l) => (
-              <li key={l._id}>
-                <button
-                  type="button"
-                  onClick={() => onOpenLoan(l._id)}
-                  className="flex w-full items-center justify-between gap-4 px-5 py-4 text-left transition-colors hover:bg-slate-50"
-                >
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-medium tabular-nums">
-                      Pokok tersimpan {formatRupiah(l.pokokPinjaman)}
-                    </p>
-                    <p className="mt-1 truncate text-xs text-muted-foreground">
-                      {l.nomorReferensi} · {loanPurposeLabel(l.tujuan)} · {formatDate(l._creationTime)}
-                    </p>
-                    {(l.pokokDiajukan ?? l.pokokPinjaman) !== l.pokokPinjaman && (
-                      <p className="mt-1 text-xs text-amber-700">
-                        Diajukan {formatRupiah(l.pokokDiajukan ?? l.pokokPinjaman)} · disetujui{" "}
-                        {formatRupiah(l.pokokPinjaman)}
-                      </p>
-                    )}
-                  </div>
-                  <StatusBadge status={l.status} kind="loan" />
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-      <section>
-        <h3 className="text-sm font-semibold">Catatan gadai</h3>
-        {pawns.length === 0 ? (
-          <p className="mt-3 text-xs text-muted-foreground">Belum ada.</p>
-        ) : (
-          <ul className="mt-3 divide-y divide-slate-200 rounded-2xl border border-slate-200 bg-white">
-            {pawns.map((p) => (
-              <li key={p._id}>
-                <button
-                  type="button"
-                  onClick={() => onOpenPawn(p._id)}
-                  className="flex w-full items-center justify-between gap-4 px-5 py-4 text-left transition-colors hover:bg-slate-50"
-                >
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-medium">{p.deskripsiBarang}</p>
-                    <p className="mt-1 truncate text-xs text-muted-foreground">
-                      {p.nomorReferensi} · {p.kategori} · {formatDate(p._creationTime)}
-                    </p>
-                  </div>
-                  <StatusBadge status={p.status} kind="pawn" />
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-    </div>
+    <section className="min-w-0">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="text-sm font-semibold text-slate-900">Catatan Pinjaman</h2>
+        <span className="text-xs tabular-nums text-slate-500">
+          {loans.length} catatan
+        </span>
+      </div>
+
+      {/* Saringan status: tiga tombol, bukan dropdown, karena jumlahnya kecil dan
+          pengguna membandingkannya sekilas. */}
+      <div role="group" aria-label="Saring catatan pinjaman" className="mt-3 flex flex-wrap gap-2">
+        {SARINGAN.map((s) => {
+          const aktif = s.nilai === saringan;
+          return (
+            <button
+              key={s.nilai}
+              type="button"
+              aria-pressed={aktif}
+              onClick={() => setSaringan(s.nilai)}
+              className={cn(
+                "rounded-full border px-3 py-1.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-800 focus-visible:ring-offset-2",
+                aktif
+                  ? "border-emerald-800 bg-emerald-50 text-emerald-900"
+                  : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-900",
+              )}
+            >
+              {s.label}
+            </button>
+          );
+        })}
+      </div>
+
+      {tampil.length === 0 ? (
+        <div className="mt-4">
+          <EmptyState
+            icon={FileText}
+            title={loans.length === 0 ? "Belum ada catatan pinjaman" : "Tidak ada catatan di saringan ini"}
+            body={
+              loans.length === 0
+                ? "Pengajuan yang Anda kirim akan tampil di sini beserta statusnya."
+                : "Coba saringan lain; seluruh catatan tetap ada di Semua."
+            }
+          />
+        </div>
+      ) : (
+        <ul className="mt-4 divide-y divide-slate-200 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+          {tampil.map((loan) => (
+            <li key={loan._id}>
+              <button
+                type="button"
+                onClick={() => onOpenLoan(loan._id)}
+                className="flex w-full flex-wrap items-center justify-between gap-2 px-4 py-3.5 text-left transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-800"
+              >
+                <span className="min-w-0 flex-1">
+                  <span className="block break-words text-sm font-semibold tabular-nums text-slate-900">
+                    {formatRupiah(loan.pokokPinjaman)}
+                  </span>
+                  <span className="mt-0.5 block break-words text-xs text-slate-500">
+                    {loan.nomorReferensi} · {formatDate(loan._creationTime)} ·{" "}
+                    {jenisPinjaman(loan)} · {loanPurposeLabel(loan.tujuan)}
+                  </span>
+                  {(loan.pokokDiajukan ?? loan.pokokPinjaman) !== loan.pokokPinjaman && (
+                    <span className="mt-0.5 block break-words text-xs text-slate-600">
+                      Diajukan {formatRupiah(loan.pokokDiajukan ?? loan.pokokPinjaman)} · disetujui{" "}
+                      {formatRupiah(loan.pokokPinjaman)}
+                    </span>
+                  )}
+                </span>
+                <StatusBadge status={loan.status} kind="loan" />
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <p className="mt-3 text-xs leading-5 text-slate-500">
+        Status diambil dari catatan PINDAI. Status Lunas diubah oleh tim PINDAI setelah
+        pembayaran dicatat di luar aplikasi.
+      </p>
+    </section>
   );
 }
