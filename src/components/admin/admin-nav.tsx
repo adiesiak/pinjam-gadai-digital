@@ -6,7 +6,7 @@ import {
   Search,
   Settings2,
 } from "lucide-react";
-import { useState, type ComponentType } from "react";
+import { useEffect, useState, type ComponentType } from "react";
 
 import { LencanaTab } from "@/components/admin/admin-shared";
 import { Command, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
@@ -25,6 +25,10 @@ import { cn } from "@/lib/utils";
  * Navigasi panel admin untuk layar kecil: bilah bawah 5 tab, strip chip modul,
  * dan sheet "Cari menu". Menggantikan `<select>` berisi puluhan opsi, yang
  * menyembunyikan isi tiap menu dan memotong lencana di dalam `<option>`.
+ *
+ * Strip chip digeser mendatar satu baris, bukan dibungkus. Membungkus dulu
+ * membuat grup "Sistem" setinggi empat baris (label sepanjang "Ledger Internal
+ * & Kesehatan Sistem"), sehingga bilah sticky menutupi hampir separuh layar.
  *
  * Sidebar desktop tidak diubah dan tetap dipakai di `admin-tabs.tsx`.
  *
@@ -135,6 +139,15 @@ export function AdminNav({
 }) {
   const [cariTerbuka, setCariTerbuka] = useState(false);
 
+  /** Deret chip digeser ke chip aktif, termasuk saat modul dibuka dari bilah
+   *  bawah atau sheet pencarian. `block: "nearest"` mencegah lompatan vertikal;
+   *  kehalusan geseran mengikuti `motion-safe:scroll-smooth` di wadahnya. */
+  useEffect(() => {
+    document
+      .getElementById(`chip-modul-${activeTab}`)
+      ?.scrollIntoView({ inline: "nearest", block: "nearest" });
+  }, [activeTab]);
+
   const itemPerId = new Map(rata(menu).map((item) => [item.value, item]));
   const grupAktif = grupDariModul(activeTab) ?? GRUP_NAV[0].id;
   const grup = GRUP_NAV.find((satu) => satu.id === grupAktif) ?? GRUP_NAV[0];
@@ -152,35 +165,47 @@ export function AdminNav({
 
   return (
     <>
-      {/* Strip chip: modul milik tab yang sedang aktif + pintu ke pencarian. */}
-      <div className="animate-masuk sticky top-14 z-30 -mx-3 border-y border-slate-200 bg-white/95 px-3 py-2 backdrop-blur sm:-mx-6 sm:top-16 sm:px-6 lg:hidden">
-        <div role="group" aria-label="Pilih modul" className="flex flex-wrap items-center gap-1.5">
-          {itemGrup.map((item) => {
-            const aktif = item.value === activeTab;
-            return (
-              <button
-                key={item.value}
-                type="button"
-                aria-pressed={aktif}
-                title={item.hint}
-                onClick={() => onPilih(item.value)}
-                className={cn(
-                  "flex min-h-10 items-center gap-1.5 rounded-xl border px-3 py-1.5 text-left text-xs font-semibold transition-colors",
-                  aktif
-                    ? "border-primary bg-primary text-primary-foreground"
-                    : "border-slate-200 bg-white text-slate-600 hover:border-primary hover:text-primary",
-                )}
-              >
-                <item.Icon className="size-3.5 shrink-0" />
-                <span className="whitespace-normal leading-4">{item.label}</span>
-                <LencanaTab badge={item.badge} />
-              </button>
-            );
-          })}
+      {/* Strip chip: modul milik tab yang sedang aktif, satu baris yang digeser
+          mendatar. Chip aktif selalu digulirkan ke dalam pandangan, dan pintu
+          "Cari…" duduk tetap di kanan agar pencarian tidak pernah jauh. */}
+      <div className="animate-masuk sticky top-14 z-30 -mx-3 border-y border-slate-200 bg-white/95 backdrop-blur sm:-mx-6 sm:top-16 lg:hidden">
+        <div className="flex items-center gap-2 px-3 py-2 sm:px-6">
+          <div
+            role="group"
+            aria-label="Pilih modul"
+            className="no-scrollbar flex min-w-0 flex-1 flex-nowrap items-center gap-2 overflow-x-auto py-0.5 motion-safe:scroll-smooth"
+          >
+            {itemGrup.map((item) => {
+              const aktif = item.value === activeTab;
+              return (
+                <button
+                  key={item.value}
+                  id={`chip-modul-${item.value}`}
+                  type="button"
+                  aria-pressed={aktif}
+                  title={item.hint}
+                  onClick={() => onPilih(item.value)}
+                  className={cn(
+                    // Lebar dibatasi supaya satu chip tidak menelan seluruh
+                    // baris; label panjang dipotong dan teks penuhnya tetap
+                    // terbaca di kartu judul modul tepat di bawah deret ini.
+                    "flex min-h-11 max-w-[16rem] shrink-0 items-center gap-1.5 rounded-xl border px-3 py-1.5 text-left text-xs font-semibold transition-colors",
+                    aktif
+                      ? "border-primary bg-primary text-primary-foreground"
+                      : "border-slate-200 bg-white text-slate-600 hover:border-primary hover:text-primary",
+                  )}
+                >
+                  <item.Icon className="size-3.5 shrink-0" />
+                  <span className="truncate leading-4">{item.label}</span>
+                  <LencanaTab badge={item.badge} />
+                </button>
+              );
+            })}
+          </div>
           <button
             type="button"
             onClick={() => setCariTerbuka(true)}
-            className="flex min-h-10 items-center gap-1.5 rounded-xl border border-dashed border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 transition-colors hover:border-primary hover:text-primary"
+            className="flex min-h-11 shrink-0 items-center gap-1.5 rounded-xl border border-dashed border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 transition-colors hover:border-primary hover:text-primary"
           >
             <Search className="size-3.5 shrink-0" />
             Cari…

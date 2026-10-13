@@ -1002,8 +1002,7 @@
      menghilangkan kemampuan menggulirnya: hanya bilah-nya yang dimatikan, gulir
      lewat jari dan papan tik tetap ada. Dipakai bersama `overflow-x-auto`; tanpa
      itu deretnya tetap bisa digeser, hanya terlihat bilah di bawahnya.
-     Catatan: deret tahap KYC berhenti memakainya (audit-005 #10, tiga langkah
-     stage kini menumpuk penuh lebar), jadi saat ini belum ada pemakaiannya. */
+     Dipakai deret chip modul panel admin (`admin-nav.tsx`). */
   .no-scrollbar {
     scrollbar-width: none;
     -ms-overflow-style: none;
