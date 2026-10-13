@@ -37,7 +37,7 @@ export function GadaiBillingSection({
       <h2 className="text-lg font-semibold">Proyeksi gadai dan catatan internal</h2>
       <Separator className="my-4" />
       <p className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-900">
-        Pembayaran belum tersedia di aplikasi; statusnya diperbarui oleh tim PINDAI. Saldo pokok dan status mengikuti pencatatan ledger internal.
+        Pembayaran belum tersedia di aplikasi; statusnya diperbarui oleh tim PINDAI. Saldo pokok dan status mengikuti catatan PINDAI.
       </p>
       <div className="space-y-4">
         {berjalan.map((pawn) => (
@@ -61,7 +61,7 @@ export function GadaiBillingSection({
                 <p className="text-xs text-muted-foreground">{pawn.nomorReferensi}</p>
               </div>
               <Badge className="border-0 bg-slate-200 text-slate-700 hover:bg-slate-200">
-                Pokok ledger Rp0 — belum ada pelunasan tercatat
+                Pokok Rp 0 — belum ada pelunasan tercatat
               </Badge>
             </div>
             <p className="mt-3 text-xs leading-5 text-muted-foreground">
@@ -108,7 +108,7 @@ function GadaiProjectionCard({
       </div>
       <dl className="mt-4 grid gap-2 text-sm sm:grid-cols-2">
         <div className="flex justify-between gap-3">
-          <dt className="text-muted-foreground">Sisa pokok pada ledger</dt>
+          <dt className="text-muted-foreground">Sisa pokok</dt>
           <dd className="font-semibold tabular-nums">{formatRupiah(pawn.sisa)}</dd>
         </div>
         <div className="flex justify-between gap-3">
@@ -118,7 +118,7 @@ function GadaiProjectionCard({
       </dl>
       <div className="mt-4">
         <div className="flex justify-between gap-3 text-xs text-muted-foreground">
-          <span>Pokok yang tercatat di ledger</span>
+          <span>Pokok yang tercatat</span>
           <span className="tabular-nums">{formatRupiah(tercatat)} / {formatRupiah(pawn.pokok)}</span>
         </div>
         <Progress value={persenTercatat} className="mt-2" />

@@ -1,11 +1,12 @@
 import { useQuery } from "convex/react";
-import { FileText, Loader2, ScrollText } from "lucide-react";
+import { FileText, ScrollText } from "lucide-react";
 import { useMemo } from "react";
 import { toast } from "sonner";
 
 import { ContractPrintButton } from "@/components/EContract";
 import { wrapContractHtml } from "@/components/contract/contract-doc";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { MemuatBaris } from "@/components/ui/loading";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
@@ -98,7 +99,7 @@ export function MyContractsSection({
                   <div className="min-w-0">
                     <p className="truncate text-sm font-semibold">{c.deskripsiBarang}</p>
                     <p className="mt-0.5 text-xs text-muted-foreground">
-                      Catatan {c.nomorReferensi} · taksiran pada ledger{" "}
+                      Catatan {c.nomorReferensi} · taksiran PINDAI{" "}
                       {c.nilaiTaksiran !== undefined ? formatRupiah(c.nilaiTaksiran) : "—"}
                     </p>
                   </div>
@@ -242,7 +243,15 @@ function ContractPreviewButton({ html }: { html: string }) {
 function PawnContractActions({ pawnId, pawnRef }: { pawnId: Id<"pawns">; pawnRef: string }) {
   const detail = useQuery(api.loans.getMyPawn, { pawnId });
   if (detail === undefined) {
-    return <Loader2 className="size-4 animate-spin text-muted-foreground" />;
+    // Rangka tombol, bukan spinner: tinggi dan lebarnya sama dengan deret aksi
+    // sungguhan, jadi baris tabel tidak bergeser saat data tiba.
+    return (
+      <div className="flex shrink-0 gap-2">
+        <span className="sr-only">Memuat aksi perjanjian…</span>
+        <Skeleton className="h-8 w-20 rounded-xl" />
+        <Skeleton className="h-8 w-20 rounded-xl" />
+      </div>
+    );
   }
   if (detail === null || detail.nilaiTaksiran === undefined) {
     return <span className="text-xs text-muted-foreground">Menunggu catatan taksiran</span>;

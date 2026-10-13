@@ -11,11 +11,138 @@ import {
 import { SkeletonDetail } from "@/components/ui/loading";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
-import { loanPurposeLabel, loanStatusMeta } from "@/lib/loan";
+import { Button } from "@/components/ui/button";
+import type { SimulasiBulanan } from "@/lib/bulanan";
+import { loanPurposeLabel, loanStatusMeta, type LoanQuote } from "@/lib/loan";
 import { formatRupiah } from "@/lib/money";
 import { pawnStatusMeta, type PawnStatus } from "@/lib/pawn";
 
 import { formatDate } from "./shared";
+
+type BarisRincian = [label: string, nilai: string, nada?: "tebal" | "net"];
+
+/** Field pinjaman yang dibutuhkan rincian biaya (bentuknya dari `getMyLoan`). */
+type RincianPinjamanInput = {
+  tujuan: string;
+  pokokPinjaman: number;
+  tenorBulan: number | null;
+  totalKewajiban: number;
+  quote: LoanQuote;
+  simulasiBulanan: SimulasiBulanan | null;
+};
+
+/**
+ * Rincian biaya pinjaman dalam kelompok yang BISA DIJUMLAHKAN sendiri.
+ *
+ * - "Yang harus Anda bayar": pokok + bunga (+ biaya admin cicilan pada tenor 3/6
+ *   bulan) = total. Baris bunga inilah yang dulu tidak pernah ditampilkan,
+ *   sehingga daftarnya tampak kurang dari totalnya.
+ * - "Potongan di muka": biaya admin 2% dan platform 0% yang dipotong dari dana
+ *   yang Anda terima — TIDAK menambah total kewajiban, jadi dipisah.
+ *
+ * Angka tidak dihitung ulang di sini: semuanya dibaca dari hasil server
+ * (`quote` / `simulasiBulanan`), termasuk baris penyeimbang untuk data lama.
+ */
+function RincianPinjaman({ loan, final }: { loan: RincianPinjamanInput; final: boolean }) {
+  const bulanan = loan.tenorBulan !== null;
+  const tenorAdminCicilan = loan.tenorBulan === 3 || loan.tenorBulan === 6;
+
+  const pengajuan: BarisRincian[] = [["Keperluan", loanPurposeLabel(loan.tujuan)]];
+  if (bulanan) pengajuan.push(["Tenor pengajuan", `${loan.tenorBulan} bulan`]);
+
+  const bayar: BarisRincian[] = [["Pokok pinjaman", formatRupiah(loan.pokokPinjaman)]];
+  const potongan: BarisRincian[] = [];
+
+  if (bulanan) {
+    if (loan.simulasiBulanan !== null) {
+      bayar.push(["Bunga selama tenor", formatRupiah(loan.simulasiBulanan.bungaTotal)]);
+      if (tenorAdminCicilan) {
+        bayar.push([
+          "Biaya admin cicilan (2% per bayar)",
+          formatRupiah(loan.simulasiBulanan.biayaAdminCicilanTotal),
+        ]);
+        potongan.push(
+          ["Biaya admin (2%, dipotong di muka)", formatRupiah(loan.simulasiBulanan.biayaAdminTotal)],
+          ["Biaya platform (0%)", formatRupiah(loan.simulasiBulanan.biayaPlatformTotal)],
+        );
+      } else {
+        potongan.push([
+          "Biaya layanan (2%, dipotong di muka)",
+          formatRupiah(loan.simulasiBulanan.biayaLayananTotal),
+        ]);
+      }
+      potongan.push([
+        "Dana bersih yang Anda terima (belum dicairkan)",
+        formatRupiah(loan.simulasiBulanan.danaDiterima),
+        "net",
+      ]);
+    } else if (loan.totalKewajiban > loan.pokokPinjaman) {
+      // Pinjaman lama tanpa simulasi tersimpan: sisanya ditampilkan sebagai satu
+      // baris gabungan supaya total tetap bisa dijumlahkan dari baris di atasnya.
+      bayar.push([
+        "Bunga & biaya selama tenor",
+        formatRupiah(loan.totalKewajiban - loan.pokokPinjaman),
+      ]);
+    }
+    bayar.push([
+      `Total yang harus dibayar (${loan.tenorBulan} bulan)`,
+      formatRupiah(loan.totalKewajiban),
+      "tebal",
+    ]);
+  } else {
+    bayar.push(["Bunga pinjaman", formatRupiah(loan.quote.bunga)]);
+    bayar.push(["Total yang harus dibayar", formatRupiah(loan.quote.totalKewajibanPelunasan), "tebal"]);
+    potongan.push(
+      ["Biaya admin (2%, dipotong di muka)", formatRupiah(loan.quote.biayaAdmin)],
+      ["Biaya platform (0%)", formatRupiah(loan.quote.biayaPlatform)],
+      [
+        "Dana bersih yang Anda terima (98%, belum ditransfer)",
+        formatRupiah(loan.quote.danaBersihDitransfer),
+        "net",
+      ],
+    );
+  }
+
+  const kelompok: { judul: string; baris: BarisRincian[] }[] = [
+    { judul: "Pengajuan", baris: pengajuan },
+    { judul: final ? "Yang harus Anda bayar" : "Perkiraan yang harus Anda bayar", baris: bayar },
+  ];
+  if (potongan.length > 0) {
+    kelompok.push({
+      judul: final ? "Potongan di muka" : "Perkiraan potongan di muka",
+      baris: potongan,
+    });
+  }
+
+  return (
+    <div className="space-y-3">
+      {kelompok.map((k) => (
+        <div key={k.judul} className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+          <p className="border-b border-slate-200 bg-slate-50 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-600">
+            {k.judul}
+          </p>
+          <dl className="divide-y divide-slate-200">
+            {k.baris.map(([label, nilai, nada]) => (
+              <div
+                key={label}
+                className="flex flex-col gap-1 px-4 py-3 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4"
+              >
+                <dt className="text-sm text-muted-foreground">{label}</dt>
+                <dd
+                  className={`text-sm tabular-nums sm:text-right ${
+                    nada === "tebal" ? "font-semibold" : nada === "net" ? "font-semibold text-emerald-700" : ""
+                  }`}
+                >
+                  {nilai}
+                </dd>
+              </div>
+            ))}
+          </dl>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 /** Dialog rincian pinjaman + aksi pelunasan. */
 export function LoanDetailDialog({
@@ -26,6 +153,9 @@ export function LoanDetailDialog({
   onClose: () => void;
 }) {
   const loan = useQuery(api.loans.getMyLoan, loanId ? { loanId } : "skip");
+  // Angka baru FINAL setelah pinjaman benar-benar dicairkan; sebelum itu semua
+  // nominal masih perkiraan dan labelnya menyebut itu apa adanya.
+  const angkaFinal = loan?.status === "didanai" || loan?.status === "lunas";
 
   return (
     <Dialog open={loanId !== null} onOpenChange={(open) => !open && onClose()}>
@@ -56,55 +186,7 @@ export function LoanDetailDialog({
               {loanStatusMeta(loan.status).description}
             </p>
 
-            <dl className="divide-y divide-slate-200 rounded-2xl border border-slate-200 bg-white">
-              {(loan.tenorBulan !== null
-                ? [
-                    ["Keperluan", loanPurposeLabel(loan.tujuan)],
-                    ["Tenor pengajuan", `${loan.tenorBulan} bulan`],
-                    ["Pokok pengajuan tersimpan di Convex", formatRupiah(loan.pokokPinjaman)],
-                    ...(loan.simulasiBulanan !== null && (loan.tenorBulan === 3 || loan.tenorBulan === 6)
-                      ? [
-                          ["Biaya admin perkiraan (2%, dipotong di muka)", formatRupiah(loan.simulasiBulanan.biayaAdminTotal)],
-                          ["Biaya platform perkiraan (0%)", formatRupiah(loan.simulasiBulanan.biayaPlatformTotal)],
-                          ["Total potongan di muka perkiraan (2%)", formatRupiah(loan.simulasiBulanan.biayaLayananTotal)],
-                          [
-                            "Biaya admin cicilan perkiraan (2% per bayar)",
-                            formatRupiah(loan.simulasiBulanan.biayaAdminCicilanTotal),
-                          ],
-                        ]
-                      : loan.simulasiBulanan !== null
-                        ? [["Biaya layanan perkiraan (2%, dipotong di muka)", formatRupiah(loan.simulasiBulanan.biayaLayananTotal)]]
-                        : []),
-                    ["Total kewajiban perkiraan", formatRupiah(loan.totalKewajiban)],
-                  ]
-                : [
-                    ["Keperluan", loanPurposeLabel(loan.tujuan)],
-                    ["Pokok pengajuan tersimpan di Convex", formatRupiah(loan.pokokPinjaman)],
-                    ["Biaya admin perkiraan (2%)", formatRupiah(loan.quote.biayaAdmin)],
-                    ["Biaya platform perkiraan (0%)", formatRupiah(loan.quote.biayaPlatform)],
-                    ["Perkiraan potongan di muka (2%)", formatRupiah(loan.quote.totalPotonganDiMuka)],
-                    ["Perkiraan nilai bersih (98%)", formatRupiah(loan.quote.danaBersihDitransfer)],
-                    ["Total kewajiban perkiraan", formatRupiah(loan.quote.totalKewajibanPelunasan)],
-                  ]
-              ).map(([label, value], index, semua) => (
-                <div
-                  key={label}
-                  className="flex flex-col gap-1 px-4 py-3 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4"
-                >
-                  <dt className="text-sm text-muted-foreground">{label}</dt>
-                  <dd
-                    className={`text-sm tabular-nums sm:text-right ${
-                      label.startsWith("Perkiraan nilai bersih") ||
-                      index === semua.length - 1
-                        ? "font-semibold"
-                        : ""
-                    }`}
-                  >
-                    {value}
-                  </dd>
-                </div>
-              ))}
-            </dl>
+            <RincianPinjaman loan={loan} final={angkaFinal} />
 
             {loan.catatanReview && (
               <div className="rounded-md border border-slate-200 bg-slate-50 px-4 py-3">
@@ -119,7 +201,7 @@ export function LoanDetailDialog({
                   loan.pelunasan.hariTerlambat > 0 ? "border-red-200 bg-red-50/60" : "border-slate-200"
                 }`}
               >
-                <p className="text-sm font-medium">Pelunasan pada ledger</p>
+                <p className="text-sm font-medium">Cara pelunasan</p>
                 <dl className="mt-3 space-y-1.5 text-sm">
                   <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4">
                     <dt className="text-muted-foreground">Tanggal acuan</dt>
@@ -140,10 +222,21 @@ export function LoanDetailDialog({
                   )}
                 </dl>
                 <p className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900">
-                  Pelunasan belum tersedia di aplikasi; status pelunasan diperbarui oleh tim PINDAI pada ledger internal.
+                  Pelunasan belum tersedia di aplikasi; status pelunasan diperbarui oleh tim PINDAI.
                 </p>
               </div>
             )}
+
+            {/* Footer lengket: jalan keluar selalu terlihat tanpa menggulir balik
+                ke atas, dan di ponsel tombolnya selebar dialog. Tidak ada tombol
+                "Lunasi sekarang" di sini karena pembayaran memang BELUM tersedia
+                di aplikasi (lihat catatan di blok pelunasan di atas) — tombol
+                bayar yang tidak bekerja akan menyesatkan. */}
+            <div className="sticky bottom-0 -mx-4 -mb-4 flex flex-col gap-2 border-t border-slate-200 bg-white/95 px-4 py-3 backdrop-blur sm:-mx-6 sm:-mb-6 sm:px-6">
+              <Button variant="outline" className="h-11 w-full" onClick={onClose}>
+                Tutup
+              </Button>
+            </div>
           </div>
         )}
       </DialogContent>
@@ -216,7 +309,7 @@ export function PawnDetailDialog({
             )}
 
             <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900">
-              Status ini mengikuti pencatatan ledger internal. Pembayaran gadai dan perubahan status terkait pelepasan dinonaktifkan.
+              Status ini mengikuti catatan PINDAI. Pembayaran gadai dan perubahan status terkait pelepasan dinonaktifkan.
             </p>
           </div>
         )}

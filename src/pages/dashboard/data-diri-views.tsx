@@ -1,5 +1,7 @@
 import { useMutation, useQuery } from "convex/react";
-import { IdCard, Loader2, ShieldCheck } from "lucide-react";
+import { IdCard, ShieldCheck } from "lucide-react";
+
+import { Skeleton } from "@/components/ui/skeleton";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -43,9 +45,17 @@ export function DataDiriSection() {
   };
 
   if (data === undefined) {
+    // Rangka kartu, bukan spinner: bentuknya mengikuti isi sungguhan (judul,
+    // baris data, tombol), jadi tata letaknya tidak melompat saat isi tiba dan
+    // pemakai tahu apa yang sedang dimuat.
     return (
-      <div className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-5 py-10 text-sm text-muted-foreground">
-        <Loader2 className="size-4 animate-spin" /> Memuat data diri…
+      <div className="space-y-3 rounded-2xl border border-slate-200 bg-white px-5 py-6">
+        <span className="sr-only">Memuat data diri…</span>
+        <Skeleton className="h-4 w-40" />
+        <Skeleton className="h-3 w-full" />
+        <Skeleton className="h-3 w-5/6" />
+        <Skeleton className="h-3 w-2/3" />
+        <Skeleton className="h-9 w-36 rounded-xl" />
       </div>
     );
   }

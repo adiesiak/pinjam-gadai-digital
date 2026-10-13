@@ -3,13 +3,18 @@ import { ArrowRight, CalendarClock, Send, Wallet } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
-import { StatusBadge } from "@/components/StatusBadge";
+import {
+  JatuhTempoBadge,
+  StatusBadge,
+  statusTagihanDari,
+  type StatusTagihan,
+} from "@/components/StatusBadge";
 import { api } from "@/convex/_generated/api";
 import { ManualPaymentEvidenceForm } from "@/components/ManualPaymentEvidenceForm";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import type { Id } from "@/convex/_generated/dataModel";
+import { ringkasJatuhTempo } from "@/lib/jatuhTempo";
 import { formatRupiah } from "@/lib/money";
 import { bolehDibatalkan } from "@/lib/statusPinjaman";
 import { EmptyState } from "./empty-state";
@@ -73,26 +78,21 @@ function TombolBatalkan({ loanId }: { loanId: Id<"loans"> }) {
   );
 }
 
-/** Status pill (Lunas / Menunggu / Terlambat) sesuai semantik warna. */
-function ScheduleBadge({ state }: { state: "lunas" | "menunggu" | "overdue" }) {
-  if (state === "lunas") {
-    return (
-      <Badge className="border-0 bg-emerald-100 text-emerald-700 hover:bg-emerald-100">
-        Lunas (ledger)
-      </Badge>
-    );
-  }
-  if (state === "overdue") {
-    return (
-      <Badge className="border-0 bg-red-100 text-red-700 hover:bg-red-100">Melewati tanggal acuan</Badge>
-    );
-  }
+/** Satu baris rincian biaya pinjaman (label kiri, nilai kanan). */
+/**
+ * Judul kelompok baris rincian. Dipakai memisahkan "yang Anda bayar" dari
+ * "potongan di muka" supaya pembaca tahu baris mana yang dijumlahkan.
+ */
+function RincianJudul({ children }: { children: React.ReactNode }) {
   return (
-    <Badge className="border-0 bg-amber-100 text-amber-700 hover:bg-amber-100">Belum dicatat</Badge>
+    <div className="flex flex-col gap-1 border-t border-slate-200 bg-slate-50 px-4 pt-3 pb-1">
+      <dt className="w-full text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-600">
+        {children}
+      </dt>
+    </div>
   );
 }
 
-/** Satu baris rincian biaya pinjaman (label kiri, nilai kanan). */
 function RincianBaris({
   label,
   value,
@@ -144,8 +144,8 @@ export function ActiveLoanSection({
   if (aktif.length === 0) {
     return (        <EmptyState
           icon={Wallet}
-          title="Belum ada catatan pinjaman aktif di ledger"
-        body="Catatan berstatus aktif tampil di sini. Angka alokasi dan pelunasan mengikuti ledger internal."
+          title="Belum ada pinjaman aktif"
+        body="Pinjaman yang sedang berjalan tampil di sini. Angka alokasi dan pelunasan mengikuti catatan PINDAI."
       />
     );
   }
@@ -200,6 +200,11 @@ function ActiveLoanCard({
   const q = loan.quote;
   const bulanan = loan.tenorBulan !== null;
   const terlambat = (loan.pelunasan?.hariTerlambat ?? 0) > 0;
+  // Status tagihan satu-satunya: nada dari `lib/jatuhTempo.ts` diterjemahkan ke
+  // kosakata Aman / Segera jatuh tempo / Terlambat / Belum dicairkan.
+  const statusTagihan: StatusTagihan = terlambat
+    ? "terlambat"
+    : statusTagihanDari(ringkasJatuhTempo(loan, Date.now()).nada);
   return (
     <article className="card-lift rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -211,15 +216,7 @@ function ActiveLoanCard({
           <h3 className="mt-1 text-lg font-semibold">Catatan pinjaman tunai</h3>
         </div>
         <div className="flex items-center gap-2">
-          {terlambat ? (
-            <Badge className="border-0 bg-red-100 text-red-700 hover:bg-red-100">
-              Melewati tanggal acuan
-            </Badge>
-          ) : (
-            <Badge className="border-0 bg-emerald-100 text-emerald-700 hover:bg-emerald-100">
-              Aktif (ledger)
-            </Badge>
-          )}
+          <JatuhTempoBadge status={statusTagihan} />
           <Button size="sm" variant="ghost" className="rounded-full" onClick={() => onOpenDetail(loan._id)}>
             Detail <ArrowRight className="ml-1 size-3.5" />
           </Button>
@@ -229,44 +226,89 @@ function ActiveLoanCard({
       <dl className="mt-5 divide-y divide-slate-200 overflow-hidden rounded-2xl border border-slate-200">
         {bulanan ? (
           <>
-            <RincianBaris
-              label="Dana bersih setelah potongan di muka (belum dicairkan)"
-              value={formatRupiah(loan.simulasiBulanan?.danaDiterima ?? loan.pokokPinjaman)}
-              tone="net"
-            />
+            <RincianJudul>Yang Anda bayar</RincianJudul>
+            <RincianBaris label="Pokok pinjaman" value={formatRupiah(loan.pokokPinjaman)} />
+            {loan.simulasiBulanan !== null ? (
+              <RincianBaris
+                label="Bunga selama tenor"
+                value={formatRupiah(loan.simulasiBulanan.bungaTotal)}
+              />
+            ) : null}
             {loan.simulasiBulanan !== null && (loan.tenorBulan === 3 || loan.tenorBulan === 6) ? (
-              <>
-                <RincianBaris label="Biaya admin (2%, dipotong di muka)" value={formatRupiah(loan.simulasiBulanan.biayaAdminTotal)} />
-                <RincianBaris label="Biaya platform (0%)" value={formatRupiah(loan.simulasiBulanan.biayaPlatformTotal)} />
-                <RincianBaris label="Biaya admin cicilan (2% per bayar)" value={formatRupiah(loan.simulasiBulanan.biayaAdminCicilanTotal)} />
-              </>
-            ) : loan.simulasiBulanan !== null ? (
-              <RincianBaris label="Biaya layanan (2%, dipotong di muka)" value={formatRupiah(loan.simulasiBulanan.biayaLayananTotal)} />
+              <RincianBaris
+                label="Biaya admin cicilan (2% per bayar)"
+                value={formatRupiah(loan.simulasiBulanan.biayaAdminCicilanTotal)}
+              />
+            ) : null}
+            {loan.simulasiBulanan === null && loan.totalKewajiban > loan.pokokPinjaman ? (
+              <RincianBaris
+                label="Bunga & biaya selama tenor"
+                value={formatRupiah(loan.totalKewajiban - loan.pokokPinjaman)}
+              />
             ) : null}
             <RincianBaris
-              label={`Total pembayaran (${loan.tenorBulan} bulan)`}
+              label={`Total yang harus dibayar (${loan.tenorBulan} bulan)`}
               value={formatRupiah(loan.totalKewajiban)}
               tone="total"
             />
+            {/* Potongan di muka mengurangi dana yang diterima, jadi tidak ikut
+                ditambahkan ke total di atas. Dipisah supaya rinciannya bisa
+                dijumlahkan tanpa selisih yang tak dijelaskan. */}
+            <RincianJudul>Potongan di muka</RincianJudul>
+            {loan.simulasiBulanan !== null ? (
+              loan.tenorBulan === 3 || loan.tenorBulan === 6 ? (
+                <>
+                  <RincianBaris
+                    label="Biaya admin (2%, dipotong di muka)"
+                    value={formatRupiah(loan.simulasiBulanan.biayaAdminTotal)}
+                  />
+                  <RincianBaris
+                    label="Biaya platform (0%)"
+                    value={formatRupiah(loan.simulasiBulanan.biayaPlatformTotal)}
+                  />
+                </>
+              ) : (
+                <RincianBaris
+                  label="Biaya layanan (2%, dipotong di muka)"
+                  value={formatRupiah(loan.simulasiBulanan.biayaLayananTotal)}
+                />
+              )
+            ) : null}
+            {loan.simulasiBulanan !== null ? (
+              <RincianBaris
+                label="Dana bersih yang Anda terima (belum dicairkan)"
+                value={formatRupiah(loan.simulasiBulanan.danaDiterima)}
+                tone="net"
+              />
+            ) : null}
           </>
         ) : (
           <>
+            <RincianJudul>Yang Anda bayar</RincianJudul>
+            <RincianBaris label="Pokok pinjaman" value={formatRupiah(q.pokok)} />
+            <RincianBaris label="Bunga pinjaman" value={formatRupiah(q.bunga)} />
             <RincianBaris
-              label="Nilai bersih (belum ditransfer)"
-              value={formatRupiah(q.danaBersihDitransfer)}
-              tone="net"
-            />
-            <RincianBaris
-              label="Total pembayaran"
+              label="Total yang harus dibayar"
               value={formatRupiah(q.totalKewajibanPelunasan)}
               tone="total"
+            />
+            <RincianJudul>Potongan di muka</RincianJudul>
+            <RincianBaris
+              label="Biaya admin (2%, dipotong di muka)"
+              value={formatRupiah(q.biayaAdmin)}
+            />
+            <RincianBaris label="Biaya platform (0%)" value={formatRupiah(q.biayaPlatform)} />
+            <RincianBaris
+              label="Dana bersih yang Anda terima (belum ditransfer)"
+              value={formatRupiah(q.danaBersihDitransfer)}
+              tone="net"
             />
           </>
         )}
       </dl>
 
       <p className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-900">
-        Semua nominal, status aktif, dana bersih, dan status pelunasan di halaman ini mengikuti pencatatan ledger internal PINDAI. Pelunasan ditangani di luar aplikasi dan statusnya diperbarui oleh tim PINDAI. {bulanan ? "Jadwal bulanan bersifat ilustrasi." : "Nilai kewajiban mengikuti perhitungan aplikasi."}
+        Semua nominal, status aktif, dana bersih, dan status pelunasan di halaman ini mengikuti catatan PINDAI. Pelunasan ditangani di luar aplikasi dan statusnya diperbarui oleh tim PINDAI. {bulanan ? "Jadwal bulanan bersifat ilustrasi." : "Nilai kewajiban mengikuti perhitungan aplikasi."}
       </p>
 
       {loan.pelunasan && (
@@ -336,7 +378,7 @@ export function ScheduleSection({ schedule }: { schedule: LoanScheduleRow[] }) {
       <EmptyState
         icon={CalendarClock}
         title="Belum ada jadwal angsuran"
-        body="Jadwal angsuran dan tanggal acuan mengikuti status ledger; ini bukan tagihan atau bukti pencairan dana."
+        body="Jadwal angsuran dan tanggal acuan mengikuti catatan PINDAI; ini bukan tagihan atau bukti pencairan dana."
       />
     );
   }
@@ -346,11 +388,9 @@ export function ScheduleSection({ schedule }: { schedule: LoanScheduleRow[] }) {
       {schedule.map((l, idx) => {
         const lunas = l.status === "lunas";
         const overdue = !lunas && (l.pelunasan?.hariTerlambat ?? 0) > 0;
-        const state: "lunas" | "menunggu" | "overdue" = lunas
+        const state: StatusTagihan = lunas
           ? "lunas"
-          : overdue
-            ? "overdue"
-            : "menunggu";
+          : statusTagihanDari(ringkasJatuhTempo(l, Date.now()).nada);
         return (
           <li
             key={l._id}
@@ -382,7 +422,7 @@ export function ScheduleSection({ schedule }: { schedule: LoanScheduleRow[] }) {
                   </p>
                 )}
               </div>
-              <ScheduleBadge state={state} />
+              <JatuhTempoBadge status={state} />
             </div>
             <dl className="mt-3 grid gap-x-8 gap-y-1.5 text-sm sm:grid-cols-2">
               <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4">
@@ -426,7 +466,7 @@ export function ScheduleSection({ schedule }: { schedule: LoanScheduleRow[] }) {
             </dl>
             {!lunas && (
               <p className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900">
-                Pembayaran belum tersedia di aplikasi; statusnya diperbarui oleh tim PINDAI. Tanggal dan nilai di atas mengikuti pencatatan ledger internal.
+                Pembayaran belum tersedia di aplikasi; statusnya diperbarui oleh tim PINDAI. Tanggal dan nilai di atas mengikuti catatan PINDAI.
               </p>
             )}
           </li>

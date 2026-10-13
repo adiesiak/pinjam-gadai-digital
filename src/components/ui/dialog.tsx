@@ -76,15 +76,15 @@ function DialogContent({
       >
         {children}
         {showCloseButton && (
-          // Sasaran sentuh 36px: ikon tetap 16px di posisi visual yang sama
-          // (6px offset + 10px padding = 16px), jadi tombol tutup nyaman
-          // ditekan jempol di ponsel, bukan hanya dengan tetikus.
+          // Sasaran sentuh 44px (14px padding + ikon 16px) mengikuti ukuran
+          // minimum jempol di ponsel; ikonnya sendiri tetap 16px di posisi
+          // visual yang sama, jadi tombolnya tidak tampak lebih besar.
           <DialogPrimitive.Close
             data-slot="dialog-close"
-            className="ring-offset-background focus-visible:ring-ring data-[state=open]:bg-accent data-[state=open]:text-muted-foreground absolute top-1.5 right-1.5 flex items-center justify-center rounded-full p-2.5 text-slate-500 opacity-70 transition-[opacity,background-color,color] hover:bg-slate-100 hover:text-slate-700 hover:opacity-100 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-hidden disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
+            className="ring-offset-background focus-visible:ring-ring data-[state=open]:bg-accent data-[state=open]:text-muted-foreground absolute top-1 right-1 flex items-center justify-center rounded-full p-3.5 text-slate-500 opacity-70 transition-[opacity,background-color,color] hover:bg-slate-100 hover:text-slate-700 hover:opacity-100 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-hidden disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
           >
             <XIcon />
-            <span className="sr-only">Close</span>
+            <span className="sr-only">Tutup</span>
           </DialogPrimitive.Close>
         )}
       </DialogPrimitive.Content>

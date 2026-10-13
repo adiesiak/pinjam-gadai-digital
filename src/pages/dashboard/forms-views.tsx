@@ -764,8 +764,8 @@ export function LoanForm({
           {melebihiPlafon && plafonSaya !== undefined
             ? `Batas pinjaman Anda ${formatRupiah(plafonSaya)}. Kurangi jumlah pinjaman agar tidak melebihi batas.`
             : bulanan
-              ? `Ini hanya perkiraan, bukan persetujuan pinjaman. Batas pinjaman Anda ${formatRupiah(MAX)}. Catatan pinjaman yang ditandai lunas tepat waktu di aplikasi dapat menaikkan batas hingga Rp10 juta. Catatan ini tersimpan pada ledger internal PINDAI.`
-              : `Ini hanya perkiraan, bukan persetujuan pinjaman. Jumlah pinjaman harian ${formatRupiah(LOAN_LIMITS.minPokok)} sampai ${formatRupiah(MAX)}, paling lama ${LOAN_LIMITS.maxTenorHari} hari. Catatan pinjaman yang ditandai lunas tepat waktu di aplikasi dapat menaikkan batas hingga Rp10 juta. Catatan ini tersimpan pada ledger internal PINDAI.`}
+              ? `Ini hanya perkiraan, bukan persetujuan pinjaman. Batas pinjaman Anda ${formatRupiah(MAX)}. Catatan pinjaman yang ditandai lunas tepat waktu di aplikasi dapat menaikkan batas hingga Rp10 juta. Catatan ini tersimpan di PINDAI.`
+              : `Ini hanya perkiraan, bukan persetujuan pinjaman. Jumlah pinjaman harian ${formatRupiah(LOAN_LIMITS.minPokok)} sampai ${formatRupiah(MAX)}, paling lama ${LOAN_LIMITS.maxTenorHari} hari. Catatan pinjaman yang ditandai lunas tepat waktu di aplikasi dapat menaikkan batas hingga Rp10 juta. Catatan ini tersimpan di PINDAI.`}
         </p>
 
         {/* Ringkasan peminjam: nilai bersih dan total pembayaran. */}
@@ -1227,7 +1227,7 @@ export function LoanForm({
 
           <ul className="space-y-2 text-sm leading-6 text-slate-600">
             {[
-              "PINDAI mencatat pengajuan, perhitungan, dan status di ledger internal, bukan memindahkan dana.",
+              "PINDAI mencatat pengajuan, perhitungan, dan status — bukan memindahkan dana.",
               "Bunga flat 30% dari pokok dan biaya dipotong di muka sesuai tenor yang dipilih.",
               "Persetujuan pengajuan bukan jaminan pencairan; keputusan dibuat tim PINDAI dan tercatat pada audit trail.",
               "Keterlambatan dikenai denda 1% per hari dari pokok (maksimum 15%).",
@@ -1341,7 +1341,7 @@ export function LoanForm({
         )}
       </Button>
       <p className="text-center text-xs leading-5 text-muted-foreground">
-        Batas awal Rp1 juta. Kalau pinjaman minimal Rp1 juta tercatat lunas tepat waktu, batasnya bisa naik sampai Rp10 juta. Batas Anda saat ini {formatRupiah(MAX)}. {bulanan ? "Jumlah cicilan ini perkiraan; pelunasan dicatat penuh saat tenor berakhir." : `Pinjaman harian paling lama ${LOAN_LIMITS.maxTenorHari} hari.`} Semua tersimpan di ledger internal PINDAI, dan perpindahan dana ditangani di luar aplikasi.
+        Batas awal Rp1 juta. Kalau pinjaman minimal Rp1 juta tercatat lunas tepat waktu, batasnya bisa naik sampai Rp10 juta. Batas Anda saat ini {formatRupiah(MAX)}. {bulanan ? "Jumlah cicilan ini perkiraan; pelunasan dicatat penuh saat tenor berakhir." : `Pinjaman harian paling lama ${LOAN_LIMITS.maxTenorHari} hari.`} Semua tersimpan di PINDAI, dan perpindahan dana ditangani di luar aplikasi.
       </p>
     </form>
   );

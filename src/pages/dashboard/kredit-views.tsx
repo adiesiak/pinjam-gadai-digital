@@ -71,7 +71,7 @@ const STATUS_META: Record<string, { label: string; className: string; descriptio
   disetujui: {
     label: "Disetujui (status aplikasi)",
     className: "border-primary/30 bg-primary/10 text-accent-foreground",
-    description: "Status di ledger internal berubah menjadi disetujui. Tidak ada pembayaran ke merchant.",
+    description: "Status berubah menjadi disetujui di catatan PINDAI. Tidak ada pembayaran ke merchant.",
   },
   ditolak: {
     label: "Ditolak",
@@ -79,16 +79,16 @@ const STATUS_META: Record<string, { label: string; className: string; descriptio
     description: "Catatan pengajuan tidak dilanjutkan dalam alur aplikasi. Anda dapat membuat catatan baru.",
   },
   didanai: {
-    label: "Alokasi historis (ledger)",
+    label: "Alokasi historis",
     className: "gradient-primary border-0 text-primary-foreground",
     description:
       "Status historis: alokasi yang pernah dimasukkan. Cicilan ditangani di luar aplikasi, belum tersedia sebagai tindakan di sini.",
   },
   lunas: {
-    label: "Lunas (ledger)",
+    label: "Lunas",
     className: "border-primary/30 bg-primary/10 text-accent-foreground",
     description:
-      "Status lunas tercatat pada ledger internal.",
+      "Status lunas tercatat pada catatan PINDAI.",
   },
 };
 
@@ -274,7 +274,7 @@ export function KreditBarangForm({
           <ShoppingBag className="size-4 text-primary" /> Barang yang dicantumkan
         </p>
         <p className="mt-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900">
-          Informasi barang, tautan, merchant, dan harga berasal dari masukan pengguna. Pengajuan mencatat data pada ledger internal; pembelian dan pembayaran ke merchant ditangani di luar aplikasi.
+          Informasi barang, tautan, merchant, dan harga berasal dari masukan pengguna. Pengajuan mencatat data di PINDAI; pembelian dan pembayaran ke merchant ditangani di luar aplikasi.
         </p>
         <div className="mt-4 space-y-2">
           <Label htmlFor="kredit-nama-barang">Nama barang</Label>
@@ -586,7 +586,7 @@ export function KreditBarangForm({
       <p className="text-center text-xs leading-5 text-muted-foreground">
         Pokok kredit barang maksimal {formatRupiah(KREDIT_BARANG_POKOK_MAKS)} dan tenor 1, 3,
         atau maksimal 6 bulan dalam model kredit barang. Batas ini terpisah dari plafon pinjaman tunai.
-        Data barang, tautan, dan harga mengikuti pengisian pengajuan; data pemohon memakai data KYC bila identitasnya sudah terverifikasi petugas. Status review tercatat pada ledger internal.
+        Data barang, tautan, dan harga mengikuti pengisian pengajuan; data pemohon memakai data KYC bila identitasnya sudah terverifikasi petugas. Status review tercatat pada catatan PINDAI.
       </p>
     </form>
   );

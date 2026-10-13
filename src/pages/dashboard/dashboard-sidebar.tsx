@@ -1,10 +1,11 @@
 import { motion } from "framer-motion";
-import { LogOut, ShieldCheck } from "lucide-react";
+import { LogOut } from "lucide-react";
 import { Building2, ChevronDown, Wallet } from "lucide-react";
 
-import { Badge } from "@/components/ui/badge";
+import { StatusKycBadge } from "@/components/StatusKycBadge";
 import { Button } from "@/components/ui/button";
 import type { JenisPengajuan } from "@/lib/jenisPengajuan";
+import type { StatusKyc } from "@/lib/kycStatus";
 import { fadeUpItem, staggerContainer } from "@/lib/motion";
 import { ADMIN_ROUTE } from "@/lib/routes";
 
@@ -35,6 +36,8 @@ export function DashboardSidebar({
   onTabChange,
   onBuatPengajuan,
   onSignOut,
+  /** Status KYC kanonik; `null` = belum terbaca (lencana disembunyikan). */
+  kycStatus = null,
   /** Menu tahap KYC, ditaruh tepat di bawah kotak menu peran. null = sembunyikan. */
   kycMenu = null,
   /** Role yang sebenarnya merender menu Peminjam; admin/penyedia dana punya
@@ -50,6 +53,7 @@ export function DashboardSidebar({
   onSignOut: () => void;
   role?: string;
   kycMenu?: React.ReactNode;
+  kycStatus?: StatusKyc | null;
 }) {
   const initial = greetingName.charAt(0).toUpperCase();
   const link = role === "peminjam" ? null : ROLE_LINKS[role];
@@ -69,9 +73,12 @@ export function DashboardSidebar({
           </div>
           <div className="min-w-0">
             <p className="truncate text-sm font-semibold text-slate-900">Halo, {greetingName}</p>
-            <Badge className="mt-1 border-0 bg-emerald-100 text-[10px] text-emerald-700 hover:bg-emerald-100">
-              <ShieldCheck className="mr-1 size-3" /> Identitas dari pengisian mandiri
-            </Badge>
+            {/* Lencana status kanonik. Sebelumnya di sini ada teks tetap
+                "Identitas dari pengisian mandiri" yang berbunyi sama walau
+                statusnya sudah terverifikasi maupun ditolak. */}
+            {kycStatus === null || kycStatus === undefined ? null : (
+              <StatusKycBadge status={kycStatus} className="mt-1" />
+            )}
           </div>
         </div>
 

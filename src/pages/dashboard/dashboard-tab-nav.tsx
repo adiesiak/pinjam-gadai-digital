@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select,
   SelectContent,
@@ -52,7 +52,7 @@ const ID_PENANDA_AKTIF = "tab-dashboard-aktif";
  * membuat pemakai baru harus membaca semuanya untuk menemukan satu halaman, dan
  * menu yang paling sering dipakai (catatan pinjaman) tenggelam di antaranya.
  * Di sini tiap pintu adalah satu tujuan yang benar-benar dibuka orang; bagian
- * yang hanya masuk akal dari pintu itu (jadwal angsuran, riwayat ledger, KYC,
+ * yang hanya masuk akal dari pintu itu (jadwal angsuran, riwayat, KYC,
  * bantuan) menggantung DI BAWAHNYA dengan huruf lebih kecil dan menjorok ke
  * dalam. Karena pintu memuat tujuannya sendiri sebagai baris pertama, tidak ada
  * tujuan yang dipindahkan ke menu lain dan tidak ada baris yang tampil dua kali.
@@ -97,7 +97,7 @@ const PINTU_LAYANAN: ReadonlyArray<{
     anak: [
       {
         value: "riwayat",
-        label: "Riwayat Ledger",
+        label: "Riwayat",
         icon: <ScrollText className="size-3.5" />,
       },
     ],
@@ -228,7 +228,12 @@ function BarisLayanan({
 }
 
 /**
- * Menu layanan dashboard Peminjam (sisi kiri) — dirender di dalam <Tabs>.
+ * Menu layanan dashboard Peminjam (sisi kiri).
+ *
+ * Menu ini membawa akar `<Tabs>`-nya SENDIRI (nilainya tetap dari prop
+ * `activeTab`/`onTabChange`), supaya bisa dipasang di mana saja — sidebar,
+ * panel samping, maupun langsung di dalam `<Tabs>` halaman. Tanpa akar sendiri,
+ * `TabsList` melempar galat saat dirender di luar `<Tabs>`.
  *
  * Layar lebar: lima pintu layanan, dengan bagian yang menggantung di bawah
  * pintunya. Layar sempit: satu kartu menu menonjol berisi pemilih bagian
@@ -273,7 +278,10 @@ export function DashboardTabNav({
   };
 
   return (
-    <>
+    // `contents` = akar Tabs ini tidak membentuk kotak sendiri, jadi susunan
+    // DOM-nya sama dengan sebelum ia dibungkus: isi menu tetap anak langsung
+    // dari wadah pemanggil.
+    <Tabs value={activeTab} onValueChange={onTabChange} className="contents">
       <div className="rounded-2xl border border-primary/25 bg-primary/[0.05] p-3 shadow-sm lg:hidden">
         <div className="flex items-center gap-2.5">
           <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground">
@@ -358,6 +366,6 @@ export function DashboardTabNav({
           ))}
         </TabsList>
       </LayoutGroup>
-    </>
+    </Tabs>
   );
 }

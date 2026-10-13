@@ -181,7 +181,7 @@ export function FormPengajuanSection({
           <p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">
             Pinjaman, gadai, dan kredit barang diajukan dari satu halaman ini. Pilih
             jenisnya di menu dropdown, lalu isi formulir yang muncul. Semua angka
-            dihitung aplikasi dan tercatat pada ledger internal PINDAI.
+            dihitung aplikasi dan tercatat di PINDAI.
           </p>
         </div>
         <span className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-slate-600">
@@ -210,7 +210,7 @@ export function FormPengajuanSection({
           <PawnForm
             onBukaKyc={onBukaKyc}
             onCreated={() =>
-              toast.success("Catatan pengajuan gadai tersimpan pada ledger internal.")
+              toast.success("Catatan pengajuan gadai tersimpan.")
             }
           />
         )}

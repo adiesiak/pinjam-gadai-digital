@@ -86,14 +86,14 @@ function CreditProgressCard({ history }: { history: CreditHistory }) {
           <div className="flex flex-wrap items-baseline justify-between gap-2">
             <h2 className="text-sm font-semibold">Riwayat progres plafon tunai</h2>
             <span className="text-xs tabular-nums text-muted-foreground">
-              {history.jumlahPelunasanTepatWaktu} entri status lunas tepat waktu pada ledger
+              {history.jumlahPelunasanTepatWaktu} entri pelunasan tepat waktu
             </span>
           </div>
           <p className="mt-1 text-lg font-semibold tabular-nums text-primary">
             Plafon tercatat {formatRupiah(history.plafonEfektif)}
           </p>
           <p className="mt-1 text-xs leading-5 text-muted-foreground">
-            Catatan pinjaman tunai minimal Rp1 juta yang berstatus lunas di ledger pada atau sebelum tanggal acuan dapat menambah plafon internal Rp1 juta, hingga Rp10 juta. Status dan tanggal ini mengikuti pencatatan ledger internal, bukan skor biro kredit atau jaminan pengajuan disetujui.
+            Catatan pinjaman tunai minimal Rp 1 juta yang berstatus lunas di PINDAI pada atau sebelum tanggal acuan dapat menambah plafon internal Rp 1 juta, hingga Rp 10 juta. Status dan tanggal ini mengikuti catatan PINDAI, bukan skor biro kredit atau jaminan pengajuan disetujui.
           </p>
           {history.riwayat.length > 0 && (
             <ul className="mt-3 flex flex-wrap gap-2">
@@ -101,7 +101,7 @@ function CreditProgressCard({ history }: { history: CreditHistory }) {
                 <li key={loan.nomorReferensi} className="rounded-lg bg-slate-50 px-3 py-2 text-xs">
                   <span className="font-medium tabular-nums">{formatRupiah(loan.pokokPinjaman)}</span>
                   <span className="ml-2 text-muted-foreground">
-                    Status lunas (ledger){loan.lunasPada ? ` · ${new Date(loan.lunasPada).toLocaleDateString("id-ID")}` : ""}
+                    Status lunas{loan.lunasPada ? ` · ${new Date(loan.lunasPada).toLocaleDateString("id-ID")}` : ""}
                   </span>
                 </li>
               ))}
@@ -223,16 +223,16 @@ export default function Dashboard() {
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">Mode tamu · baca saja</p>
             <h1 className="mt-3 text-3xl font-semibold tracking-tight">Kenali PINDAI sebelum membuat akun.</h1>
             <p className="mt-4 max-w-2xl text-sm leading-7 text-muted-foreground">
-              Sebagai tamu, Anda dapat membaca informasi umum. Setelah masuk dengan email, Anda dapat mengelola data akun dan catatan pengajuan pada ledger internal; perpindahan dana ditangani di luar aplikasi.
+              Sebagai tamu, Anda dapat membaca informasi umum. Setelah masuk dengan email, Anda dapat mengelola data akun dan catatan pengajuan di PINDAI; perpindahan dana ditangani di luar aplikasi.
             </p>
             <div className="mt-7 grid gap-3 sm:grid-cols-2">
               <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
                 <h2 className="text-sm font-semibold">Pinjaman harian</h2>
-                <p className="mt-2 text-sm leading-6 text-muted-foreground">Ilustrasi ledger: asumsi biaya admin 2% (biaya platform dihapus), dan bunga flat 30%. Angka ini bukan pencairan atau tagihan; status lunas hanya perubahan catatan internal.</p>
+                <p className="mt-2 text-sm leading-6 text-muted-foreground">Ilustrasi: asumsi biaya admin 2% (biaya platform dihapus), dan bunga flat 30%. Angka ini bukan pencairan atau tagihan; status lunas hanya perubahan catatan internal.</p>
               </div>
               <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
                 <h2 className="text-sm font-semibold">Pinjaman bulanan</h2>
-                <p className="mt-2 text-sm leading-6 text-muted-foreground">Ilustrasi ledger: asumsi biaya layanan 5% (tenor 3/6) atau 3% (tenor 1) dipotong di muka, dan bunga flat dari pokok penuh (30% tenor 1 bulan, 25% tenor 3 bulan, 20% tenor 6 bulan). Jadwal dan status lunas hanya catatan internal; tidak ada pembayaran aktual.</p>
+                <p className="mt-2 text-sm leading-6 text-muted-foreground">Ilustrasi: asumsi biaya layanan 5% (tenor 3/6) atau 3% (tenor 1) dipotong di muka, dan bunga flat dari pokok penuh (30% tenor 1 bulan, 25% tenor 3 bulan, 20% tenor 6 bulan). Jadwal dan status lunas hanya catatan internal; tidak ada pembayaran aktual.</p>
               </div>
             </div>
             <div className="mt-7 flex flex-wrap gap-3">
@@ -328,6 +328,7 @@ export default function Dashboard() {
             <DashboardSidebar
               greetingName={greetingName}
               role={user?.role}
+              kycStatus={kyc === undefined ? null : kyc.status}
               badges={tabBadges}
               activeTab={activeTab}
               onTabChange={gantiTab}
@@ -373,7 +374,14 @@ export default function Dashboard() {
                     gerbangnya sendiri membungkus seluruh dashboard. */}
 
                 {/* ===== Ringkasan keuangan ===== */}
-                <SummaryCards schedule={schedule ?? []} />
+                {/* Status KYC dioper apa adanya: `null` berarti belum terbaca,
+                    bukan "butuh tindakan". Tanpa ini kartu KYC di Ringkasan bisa
+                    berbunyi berlawanan dengan modul KYC di bawahnya. */}
+                <SummaryCards
+                  schedule={schedule ?? []}
+                  kycStatus={kyc === undefined ? null : kyc.status}
+                  onBukaKyc={() => gantiTab("kyc")}
+                />
                 {creditHistory && <CreditProgressCard history={creditHistory} />}
 
                 {/* Status KYC tampil di SEMUA tab, nasabah tidak perlu membuka

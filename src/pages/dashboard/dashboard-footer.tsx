@@ -4,7 +4,7 @@ export function DashboardFooter() {
     <footer className="border-t border-slate-200 bg-white">
       <div className="mx-auto w-full max-w-7xl px-4 py-6 text-xs leading-5 text-muted-foreground sm:px-6">
         <p className="font-medium text-slate-600">
-          PINDAI · ledger pinjaman &amp; gadai internal.
+          PINDAI · pencatatan pinjaman &amp; gadai.
         </p>
         {/* Daftar ringkas, bukan satu paragraf: tiap ketentuan berdiri sendiri
             sehingga tidak memenuhi beberapa layar ponsel dengan tembok teks. */}
@@ -21,7 +21,7 @@ export function DashboardFooter() {
             Bunga flat dari pokok penuh: 30% (tenor 1 bulan), 25% (tenor 3
             bulan), 20% (tenor 6 bulan) per bulan.
           </li>
-          <li>Angka dan status mengikuti pencatatan ledger internal PINDAI.</li>
+          <li>Angka dan status mengikuti catatan PINDAI.</li>
         </ul>
       </div>
     </footer>

@@ -977,6 +977,28 @@ const SARAN_BANK_DAN_EWALLET = [
 ] as const;
 
 /**
+ * Saran sumber penghasilan untuk kolom tahap pendukung.
+ *
+ * Bentuk kolomnya sama dengan kolom bank di bawah: saran ketik, bukan pilihan
+ * tertutup, karena satu orang sering punya lebih dari satu sumber (mis. gaji +
+ * usaha sampingan) dan tidak semua pekerjaan punya satu nama baku. Daftarnya
+ * sengaja memakai kata yang dipakai orang sehari-hari, bukan istilah kategori
+ * kredit.
+ */
+const SARAN_SUMBER_PENGHASILAN = [
+  "Gaji bulanan",
+  "Usaha sendiri",
+  "Freelance",
+  "Dagang",
+  "Hasil tani",
+  "Buruh harian",
+  "Pensiunan",
+] as const;
+
+/** Batas karakter catatan nasabah — dijaga di layar, server menerima teks apa pun. */
+const MAKS_CATATAN_KYC = 500;
+
+/**
  * Petunjuk foto sebagai akordeon tertutup: di tahap ini ruangnya dipakai lebih
  * dulu untuk mengunggah, dan isinya tetap satu sumber dengan `petunjukTahap`.
  */
@@ -2353,17 +2375,28 @@ export function KycSection({
                     <FieldLabel htmlFor="kyc-sumber">Sumber penghasilan</FieldLabel>
                     <Input
                       id="kyc-sumber"
+                      list="kyc-sumber-saran"
+                      autoComplete="off"
                       value={isian.sumberPenghasilan}
                       onChange={(e) => ubah("sumberPenghasilan", e.target.value)}
-                      placeholder="Mis. gaji bulanan, usaha warung"
+                      placeholder="Pilih dari daftar atau tulis sendiri"
                       aria-invalid={galatTahap.some((g) => g.kunci === "sumberPenghasilan")}
                       disabled={busy}
                     />
+                    <datalist id="kyc-sumber-saran">
+                      {SARAN_SUMBER_PENGHASILAN.map((nama) => (
+                        <option key={nama} value={nama} />
+                      ))}
+                    </datalist>
                     <FieldError
                       errors={galatTahap
                         .filter((g) => g.kunci === "sumberPenghasilan")
                         .map((g) => ({ message: g.pesan }))}
                     />
+                    <FieldDescription>
+                      Tekan kolomnya untuk melihat pilihan, atau tulis sendiri bila tidak ada yang
+                      cocok. Boleh menyebut lebih dari satu sumber.
+                    </FieldDescription>
                   </Field>
                   <Field data-invalid={galatTahap.some((g) => g.kunci === "namaBank")}>
                     <FieldLabel htmlFor="kyc-bank">
@@ -2427,11 +2460,16 @@ export function KycSection({
                     <Textarea
                       id="kyc-catatan"
                       rows={2}
+                      maxLength={MAKS_CATATAN_KYC}
                       value={isian.catatanPeminjam}
                       onChange={(e) => ubah("catatanPeminjam", e.target.value)}
-                      placeholder="Mis. jadwal terbaik untuk dihubungi"
+                      placeholder="Mis. lebih enak dihubungi sore hari setelah jam 4"
                       disabled={busy}
                     />
+                    <FieldDescription>
+                      {isian.catatanPeminjam.length}/{MAKS_CATATAN_KYC} karakter. Petugas membaca ini
+                      sebelum menghubungi Anda.
+                    </FieldDescription>
                   </Field>
                 </FieldGroup>
 

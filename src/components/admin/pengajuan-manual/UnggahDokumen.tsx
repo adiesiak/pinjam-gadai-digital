@@ -1,6 +1,17 @@
 import { Camera, FileCheck2, ImageUp, Loader2, Trash2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { BilahProgres } from "@/components/ui/loading";
@@ -181,16 +192,41 @@ export function UnggahDokumen({
               <FileCheck2 className="size-3.5 shrink-0" />
               <span className="truncate">{nilai.nama}</span>
             </span>
-            <Button
-              type="button"
-              size="sm"
-              variant="ghost"
-              className="h-8 gap-1 px-2 text-destructive hover:bg-destructive/10 hover:text-destructive"
-              disabled={disabled || busy}
-              onClick={() => onUbah(null)}
-            >
-              <Trash2 className="size-3.5" /> Hapus
-            </Button>
+            {/* Menghapus berkas tidak bisa dibatalkan, jadi tombolnya membuka
+                konfirmasi dulu. Dialog ini juga bisa ditutup dengan Esc, klik
+                latar, atau tombol Batal — bukan hanya dengan tepat menekan
+                tombol kecil di layar ponsel. */}
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  className="h-8 gap-1 px-2 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                  disabled={disabled || busy}
+                >
+                  <Trash2 className="size-3.5" /> Hapus
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Hapus {label}?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Berkas yang sudah diunggah tidak bisa dikembalikan. Anda perlu memilih atau
+                    memotret ulang berkasnya setelah ini.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Batal</AlertDialogCancel>
+                  <AlertDialogAction
+                    className="bg-destructive text-white hover:bg-destructive/90"
+                    onClick={() => onUbah(null)}
+                  >
+                    Ya, hapus
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </>
         )}
       </div>

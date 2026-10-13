@@ -15,6 +15,7 @@
  */
 import { renderToStaticMarkup } from "react-dom/server";
 
+import { LABEL_STATUS_KYC } from "@/lib/kycStatus";
 import { ADMIN_ROUTE } from "@/lib/routes";
 
 import { DashboardSidebar } from "./dashboard-sidebar";
@@ -62,7 +63,11 @@ const props = {
   );
   ada(html, "Lihat menu untuk chareloerya2", "keterangan pintasan menyebut nama");
   ada(html, "Keluar", "admin tetap punya tombol keluar");
-  ada(html, "Identitas dari pengisian mandiri", "penanda identitas tetap ada");
+  tidakAda(
+    html,
+    "Identitas dari pengisian mandiri",
+    "penanda identitas berteks tetap tidak dipakai lagi",
+  );
   bersih(html, "kartu profil admin");
 }
 
@@ -86,6 +91,37 @@ const props = {
   tidakAda(html, "Menu khusus", "peran tanpa pintasan tidak dapat kotak kosong");
   ada(html, "Keluar", "peran tanpa pintasan tetap punya tombol keluar");
   bersih(html, "kartu profil tanpa pintasan");
+}
+
+// ===== 4. Lencana status KYC memakai label kanonik `lib/kycStatus.ts` =====
+// Sebelumnya kartu profil selalu berbunyi "Identitas dari pengisian mandiri",
+// bahkan untuk akun yang sudah terverifikasi atau justru ditolak — sinyal yang
+// bertentangan dengan status di kartu Ringkasan dan modul KYC.
+{
+  const terverifikasi = renderToStaticMarkup(
+    <DashboardSidebar greetingName="Rani" kycStatus="VERIFIED" {...props} />,
+  );
+  ada(terverifikasi, LABEL_STATUS_KYC.VERIFIED, "status VERIFIED memakai label kanonik");
+  tidakAda(terverifikasi, LABEL_STATUS_KYC.IN_PROGRESS, "status lain tidak ikut tampil");
+
+  const perluPerbaikan = renderToStaticMarkup(
+    <DashboardSidebar greetingName="Rani" kycStatus="NEEDS_CORRECTION" {...props} />,
+  );
+  ada(
+    perluPerbaikan,
+    LABEL_STATUS_KYC.NEEDS_CORRECTION,
+    "status yang butuh tindakan tampil apa adanya",
+  );
+
+  const belumTerbaca = renderToStaticMarkup(
+    <DashboardSidebar greetingName="Rani" kycStatus={null} {...props} />,
+  );
+  tidakAda(
+    belumTerbaca,
+    LABEL_STATUS_KYC.VERIFIED,
+    "status belum terbaca tidak diklaim terverifikasi",
+  );
+  bersih(belumTerbaca, "kartu profil tanpa status KYC");
 }
 
 console.log(`dashboard-sidebar.render: ${passed} lulus, ${failed} gagal`);

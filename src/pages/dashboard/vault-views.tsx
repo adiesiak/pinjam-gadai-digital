@@ -94,7 +94,7 @@ export function PawnVaultSection({
                 )}
                 {dalamVault && (
                   <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4">
-                    <dt className="text-muted-foreground">Status ledger</dt>
+                    <dt className="text-muted-foreground">Status catatan</dt>
                     <dd>Aktif (bukan status lokasi barang)</dd>
                   </div>
                 )}
@@ -226,7 +226,7 @@ function VaultMapCard() {
         />
       </div>
       <p className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-900">
-        Peta hanya menampilkan koordinat referensi yang dikonfigurasi. Peta dan status ledger mengikuti pencatatan internal PINDAI.
+        Peta hanya menampilkan koordinat referensi yang dikonfigurasi. Peta dan status mengikuti catatan internal PINDAI.
       </p>
     </section>
   );

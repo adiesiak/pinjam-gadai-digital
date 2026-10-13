@@ -136,7 +136,7 @@ for (const label of [
   "Catatan Gadai",
   "Dokumen Perjanjian",
   "Form Pengajuan",
-  "Riwayat Ledger",
+  "Riwayat",
 ]) {
   ok(`navigasi masih memuat tab "${label}"`, htmlMenuDashboard.includes(label));
 }
@@ -201,7 +201,7 @@ for (const label of PINTU) {
 
 // Bagian yang menggantung di bawah pintu: tetap ada, dengan huruf lebih kecil
 // dan menjorok (`pl-9`) supaya terbaca sebagai bagian dari pintunya.
-const BAGIAN = ["Jadwal Angsuran", "Riwayat Ledger", "Verifikasi KYC", "Bantuan"];
+const BAGIAN = ["Jadwal Angsuran", "Riwayat", "Verifikasi KYC", "Bantuan"];
 for (const label of BAGIAN) {
   ok(`bagian "${label}" tetap punya barisnya`, teksMenuDashboard.includes(label));
 }
