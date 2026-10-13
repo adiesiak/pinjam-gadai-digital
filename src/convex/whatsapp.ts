@@ -27,6 +27,7 @@ import {
   TEMPLATE_STATUS_DEFAULT,
 } from "../lib/statusPinjaman";
 import { validasiGatewayUrl } from "../lib/waUrl";
+import { uraiResponFonnte } from "../lib/otpWa";
 
 /**
  * Integrasi WhatsApp untuk pengingat penagihan.
@@ -82,6 +83,17 @@ async function getSettings(ctx: QueryCtx): Promise<WaSettings> {
     .withIndex("by_slot", (q) => q.eq("slot", SLOT))
     .first();
   return row ?? {};
+}
+
+/**
+ * Token gateway WhatsApp dari environment. `WHATSAPP_API_KEY` adalah nama yang
+ * dipakai panel admin; `FONNTE_TOKEN` lama tetap dibaca sebagai cadangan supaya
+ * deployment yang sudah berjalan (termasuk OTP) tidak mati saat jalur gateway
+ * disatukan.
+ */
+export function apiKeyGatewayWa(): string {
+  const utama = (process.env.WHATSAPP_API_KEY ?? "").trim();
+  return utama !== "" ? utama : (process.env.FONNTE_TOKEN ?? "").trim();
 }
 
 /** Konfigurasi + log + statistik untuk tab WhatsApp di panel admin. */
@@ -346,8 +358,60 @@ export const previewMessage = query({
   },
 });
 
-/** Kirim via gateway token-based. Tidak melempar — hasil dinilai pemanggil. */
-async function kirimViaGateway(
+/** Batas tunggu gateway; di atas ini pengiriman dianggap timeout. */
+const GATEWAY_TIMEOUT_MS = 10_000;
+
+/**
+ * Endpoint Fonnte resmi (`api.fonnte.com`) diperlakukan khusus karena formatnya
+ * berbeda dari gateway JSON generik: datanya form-urlencoded (`target`/`message`)
+ * dan balasan HTTP 200 bisa berarti GAGAL (`{"status": false}`). Tanpa cabang ini,
+ * OTP yang memakai gateway panel akan lolos begitu saja pada HTTP 200 walaupun
+ * Fonnte menolak mengirim.
+ */
+function endpointFonnte(url: string): boolean {
+  try {
+    return new URL(url).hostname.toLowerCase() === "api.fonnte.com";
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Balasan JSON gateway generik: bila 2xx-nya memuat penanda gagal eksplisit
+ * (`status: false` / `success: false`), kiriman TIDAK dianggap berhasil. Nama
+ * field berbeda antar penyedia, jadi penandanya dicari, bukan diandaikan.
+ */
+function penolakanEksplisit(teks: string): string | null {
+  let data: unknown;
+  try {
+    data = JSON.parse(teks);
+  } catch {
+    return null;
+  }
+  if (data === null || typeof data !== "object" || Array.isArray(data)) return null;
+  const rec = data as Record<string, unknown>;
+  if (rec.status !== false && rec.success !== false) return null;
+  const alasan =
+    typeof rec.reason === "string"
+      ? rec.reason
+      : typeof rec.message === "string"
+        ? rec.message
+        : typeof rec.detail === "string"
+          ? rec.detail
+          : "tanpa alasan";
+  return `Gateway menolak: ${alasan.slice(0, 160)}`;
+}
+
+/**
+ * Kirim satu pesan lewat gateway token-based yang DIATUR ADMIN. Tidak melempar —
+ * hasil dinilai pemanggil.
+ *
+ * Dipakai SELURUH jalur pengiriman (pengingat, kabar status, peringatan lokasi,
+ * dan OTP) supaya satu konfigurasi gateway + satu token environment melayani
+ * semua pesan. Perubahan penyedia tetap tidak perlu deploy ulang: endpoint dan
+ * nama field diatur admin, sedangkan endpoint Fonnte ditangani sesuai formatnya.
+ */
+export async function kirimViaGateway(
   apiKey: string,
   settings: WaSettings,
   nomor: string,
@@ -359,31 +423,62 @@ async function kirimViaGateway(
   if (!cekUrl.ok) {
     return { ok: false, respon: `Endpoint gateway ditolak: ${cekUrl.alasan}` };
   }
+  const url = settings.apiUrl ?? "";
   const header = settings.authHeader ?? "Authorization";
   const prefix = settings.authPrefix ?? "";
-  const body = JSON.stringify({
-    [settings.fieldNomor ?? "target"]: nomor,
-    [settings.fieldPesan ?? "message"]: isi,
-  });
+  const fonnte = endpointFonnte(url);
+  const body = fonnte
+    ? new URLSearchParams({
+        [settings.fieldNomor?.trim() || "target"]: nomor,
+        [settings.fieldPesan?.trim() || "message"]: isi,
+        countryCode: "62",
+      }).toString()
+    : JSON.stringify({
+        [settings.fieldNomor ?? "target"]: nomor,
+        [settings.fieldPesan ?? "message"]: isi,
+      });
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), GATEWAY_TIMEOUT_MS);
   try {
-    const res = await fetch(settings.apiUrl ?? "", {
+    const res = await fetch(url, {
       method: "POST",
       // Tanpa mengikuti redirect: URL publik yang mengalihkan ke alamat
       // internal tidak boleh ikut dikejar (redirect-based SSRF).
       redirect: "error",
+      signal: controller.signal,
       headers: {
-        "Content-Type": "application/json",
+        "Content-Type": fonnte
+          ? "application/x-www-form-urlencoded"
+          : "application/json",
         [header]: `${prefix}${apiKey}`,
       },
       body,
     });
     const text = (await res.text()).slice(0, 500);
-    return { ok: res.ok, respon: `HTTP ${res.status}: ${text}` };
+    if (fonnte) {
+      const hasil = uraiResponFonnte(res.status, text);
+      return { ok: hasil.terkirim, respon: hasil.pesan };
+    }
+    if (!res.ok) {
+      return { ok: false, respon: `HTTP ${res.status}: ${text}` };
+    }
+    const ditolak = penolakanEksplisit(text);
+    if (ditolak !== null) return { ok: false, respon: ditolak };
+    return { ok: true, respon: `HTTP ${res.status}: ${text}` };
   } catch (err) {
+    const nama = err instanceof Error ? err.name : "";
+    if (nama === "AbortError" || nama === "TimeoutError") {
+      return {
+        ok: false,
+        respon: `Pengiriman ke gateway timeout (${Math.round(GATEWAY_TIMEOUT_MS / 1000)} detik). Coba lagi.`,
+      };
+    }
     return {
       ok: false,
       respon: err instanceof Error ? err.message : "Koneksi gagal",
     };
+  } finally {
+    clearTimeout(timer);
   }
 }
 
@@ -426,7 +521,7 @@ export const sendReminder = action({
         Date.now(),
       ).isi;
 
-    const apiKey = process.env.WHATSAPP_API_KEY ?? "";
+    const apiKey = apiKeyGatewayWa();
     let status = "gagal";
     let respon = "";
     if (settings.aktif !== true || !settings.apiUrl) {
@@ -628,7 +723,7 @@ async function kirimPesanStatus(
   loanId: Id<"loans">,
   olehUserId: Id<"users"> | undefined,
 ): Promise<{ ok: boolean; status: string; respon: string }> {
-  const apiKey = process.env.WHATSAPP_API_KEY ?? "";
+  const apiKey = apiKeyGatewayWa();
   let status: string;
   let respon: string;
   if (settings.aktif !== true || !settings.apiUrl) {
@@ -664,7 +759,7 @@ export const sendTest = action({
     if (userId === null) throw new Error("Harus masuk terlebih dahulu.");
     await ctx.runQuery(api.security.assertAdminSession, {});
     const settings: WaSettings = await ctx.runQuery(internal.whatsapp._getSettings, {});
-    const apiKey = process.env.WHATSAPP_API_KEY ?? "";
+    const apiKey = apiKeyGatewayWa();
     let status = "gagal";
     let respon = "";
     if (settings.aktif !== true || !settings.apiUrl) {
@@ -753,7 +848,7 @@ export const kirimPeringatanLokasi = internalAction({
       denda: "",
     });
 
-    const apiKey = process.env.WHATSAPP_API_KEY ?? "";
+    const apiKey = apiKeyGatewayWa();
     let status: string;
     let respon: string;
     if (data.nomorWhatsApp === null) {

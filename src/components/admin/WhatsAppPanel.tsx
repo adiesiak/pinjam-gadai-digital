@@ -205,11 +205,11 @@ export function WhatsAppPanel() {
                   <code className="rounded bg-slate-100 px-1 py-0.5 text-[11px]">WHATSAPP_API_KEY</code> — tidak pernah disimpan di database.
                 </p>
                 <p className="mt-2 text-xs leading-5 text-muted-foreground">
-                  Kode OTP (verifikasi nomor KYC &amp; persetujuan transaksi pendana)
-                  memakai jalur yang berbeda: mesin OTP memanggil Fonnte langsung dari
-                  server dengan token{" "}
-                  <code className="rounded bg-slate-100 px-1 py-0.5 text-[11px]">FONNTE_TOKEN</code>,
-                  jadi pengaturan gateway di atas tidak memengaruhinya.
+                  Kode OTP (login WhatsApp, verifikasi nomor KYC, dan persetujuan
+                  transaksi pendana) ikut memakai gateway yang SAMA di atas: satu
+                  endpoint dan satu token untuk semua pesan. OTP hanya terkirim saat
+                  gateway ini diaktifkan, jadi tidak ada lagi setelan terpisah yang
+                  harus diisi.
                 </p>
               </div>
 
@@ -344,8 +344,9 @@ export function WhatsAppPanel() {
                 <div>
                   <p className="text-sm font-medium">Aktifkan pengiriman</p>
                   <p className="mt-0.5 text-xs text-muted-foreground">
-                    Pesan aktif dikirim lewat gateway yang dikonfigurasi. Saat nonaktif, percobaan kirim
-                    tetap tercatat di log dengan status gagal.
+                    Pesan dan kode OTP dikirim lewat gateway yang dikonfigurasi. Saat
+                    nonaktif, pengiriman dihentikan: OTP tidak berangkat dan pesan
+                    tercatat di log sebagai gagal.
                   </p>
                 </div>
                 <Switch checked={aktif} onCheckedChange={setAktif} />

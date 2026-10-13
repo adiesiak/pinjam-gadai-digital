@@ -7,6 +7,7 @@ import {
   internalMutation,
   internalQuery,
   mutation,
+  type ActionCtx,
   type MutationCtx,
   type QueryCtx,
 } from "./_generated/server";
@@ -14,6 +15,7 @@ import type { Id } from "./_generated/dataModel";
 import { ROLES } from "./schema";
 import { catatLogin } from "./security";
 import { tandaiNomorWaTerverifikasi } from "./kyc";
+import { apiKeyGatewayWa, kirimViaGateway, type WaSettings } from "./whatsapp";
 import {
   buatSaltOtp,
   cocokKodeOtp,
@@ -43,10 +45,12 @@ import {
  * kode OTP adalah kredensial berumur pendek. Agar tidak bisa dipakai ulang,
  * diintip, atau ditebak, seluruh aturan hidup di satu tempat:
  *
- * - **Hanya backend yang memanggil Fonnte.** Pengiriman terjadi di action
- *   (`mintaOtpWa`); browser tidak pernah melihat token, endpoint, maupun isi
- *   permintaan. Token dibaca dari environment variable `FONNTE_TOKEN` —
- *   tidak pernah masuk source code, database, log, atau balasan API.
+ * - **Hanya backend yang mengirim.** Pengiriman terjadi di action (`mintaOtpWa`);
+ *   browser tidak pernah melihat token, endpoint, maupun isi permintaan. Token
+ *   dibaca dari environment variable (`WHATSAPP_API_KEY`; `FONNTE_TOKEN` lama
+ *   tetap dibaca sebagai cadangan) — tidak pernah masuk source code, database,
+ *   log, atau balasan API. Endpointnya satu sumber dengan pengingat penagihan:
+ *   gateway yang DIATUR ADMIN di panel WhatsApp (lihat `kirimPesanOtp`).
  * - **Hanya hash yang disimpan.** Tabel `waOtpChallenges` menyimpan
  *   `SHA-256(salt + ":" + kode)`; kode aslinya tidak pernah ditulis ke mana pun
  *   (bahkan `waLogs` hanya mencatat bahwa kode dikirim).
@@ -56,7 +60,7 @@ import {
  *   tidak bisa dipakai di tujuan lain, dan OTP milik orang lain tidak berguna.
  * - **Umur 5 menit, sekali pakai, maksimal 5 percobaan**, plus cooldown kirim
  *   ulang dan pembatas laju per pengguna, per nomor, dan per IP.
- * - **Kirim ≠ verifikasi.** Respons sukses Fonnte hanya mengisi
+ * - **Kirim ≠ verifikasi.** Respons sukses gateway hanya mengisi
  *   `statusPengiriman`; status "nomor terverifikasi" atau izin transaksi baru
  *   diberikan oleh `verifikasiOtpWa` setelah kode benar-benar dicocokkan.
  *
@@ -329,11 +333,12 @@ export const _catatPengiriman = internalMutation({
 });
 
 /**
- * Kirim satu pesan lewat Fonnte dari SERVER.
+ * Jalur CADANGAN: kirim satu pesan lewat Fonnte LANGSUNG dari server.
  *
- * Diekspor supaya klaim peminjam lama (`convex/klaimPeminjam.ts`) memakai jalur
- * pengiriman yang sama: satu tempat yang membaca `FONNTE_TOKEN`, satu timeout,
- * dan satu cara membaca balasan gateway.
+ * Dipakai `kirimPesanOtp` hanya ketika panel admin belum punya endpoint gateway
+ * sama sekali — supaya deployment lama yang cuma mengisi `FONNTE_TOKEN` tidak
+ * kehilangan OTP saat jalur gateway disatukan. Setelah operator menyimpan
+ * gateway di panel, jalur ini tidak lagi dilewati.
  *
  * Token dibaca dari `process.env.FONNTE_TOKEN` (environment variable Convex) dan
  * hanya dipakai sebagai header permintaan — tidak dikembalikan, tidak dicatat,
@@ -341,7 +346,7 @@ export const _catatPengiriman = internalMutation({
  * gagal, `status: false`, timeout, koneksi gagal) dikembalikan sebagai hasil,
  * bukan dilempar, supaya action bisa menjawab dengan pesan yang jujur.
  */
-export async function kirimFonnte(
+async function kirimFonnte(
   nomor: string,
   pesan: string,
 ): Promise<{ terkirim: boolean; pesan: string }> {
@@ -394,7 +399,50 @@ export async function kirimFonnte(
 }
 
 /**
- * Minta kode OTP WhatsApp (action — satu-satunya jalur yang menghubungi Fonnte).
+ * Kirim satu pesan OTP lewat gateway WhatsApp yang DIATUR ADMIN.
+ *
+ * Urutan prioritas:
+ *  1. Bila panel admin sudah punya endpoint gateway, OTP memakai endpoint +
+ *     token yang sama dengan pesan penagihan (`WHATSAPP_API_KEY`, atau
+ *     `FONNTE_TOKEN` sebagai cadangan). Operator cukup mengatur gateway di
+ *     panel — tidak ada lagi jalur OTP terpisah yang perlu dikonfigurasi dua
+ *     kali.
+ *  2. Bila panel BELUM diisi endpoint (deployment lama yang hanya punya
+ *     `FONNTE_TOKEN`), jalur Fonnte langsung tetap dipakai agar login tidak
+ *     mati sebelum operator menyimpan konfigurasi.
+ *
+ * Tidak melempar: hasil dikembalikan supaya action bisa menjawab jujur.
+ */
+export async function kirimPesanOtp(
+  ctx: ActionCtx,
+  nomor: string,
+  pesan: string,
+): Promise<{ terkirim: boolean; pesan: string }> {
+  const settings: WaSettings = await ctx.runQuery(internal.whatsapp._getSettings, {});
+  if ((settings.apiUrl ?? "").trim() === "") {
+    return kirimFonnte(nomor, pesan);
+  }
+  if (settings.aktif !== true) {
+    return {
+      terkirim: false,
+      pesan:
+        "Pengiriman WhatsApp dimatikan di panel admin, jadi kode tidak dikirim. Aktifkan gateway di panel WhatsApp lalu coba lagi.",
+    };
+  }
+  const apiKey = apiKeyGatewayWa();
+  if (apiKey === "") {
+    return {
+      terkirim: false,
+      pesan:
+        "Token gateway WhatsApp belum diisi pada environment deployment (WHATSAPP_API_KEY), jadi kode tidak dikirim. Hubungi pengelola agar menambahkannya.",
+    };
+  }
+  const hasil = await kirimViaGateway(apiKey, settings, nomor, pesan);
+  return { terkirim: hasil.ok, pesan: hasil.respon };
+}
+
+/**
+ * Minta kode OTP WhatsApp (action — satu-satunya jalur yang mengirim kode).
  *
  * Urutan yang dijaga: gerbang peran & nomor → pembatas laju (cooldown, per
  * pengguna, per nomor, per IP) → simpan HASH kode → kirim → catat hasil.
@@ -447,7 +495,7 @@ export const mintaOtpWa = action({
       return { ok: false, terkirim: false, pesan: izin.pesan, sisaDetik: izin.sisaDetik };
     }
 
-    const hasil = await kirimFonnte(dasar.nomor, pesanOtp(tujuan, kode));
+    const hasil = await kirimPesanOtp(ctx, dasar.nomor, pesanOtp(tujuan, kode));
     await ctx.runMutation(internal.otpWhatsapp._catatPengiriman, {
       challengeId: izin.challengeId,
       terkirim: hasil.terkirim,

@@ -173,7 +173,7 @@ export function pesanOtp(tujuan: TujuanOtp, kode: string): string {
 export function terjemahAlasanFonnte(teks: string): string {
   const t = teks.toLowerCase();
   if (t.includes("token")) {
-    return "Token Fonnte ditolak — periksa FONNTE_TOKEN pada environment deployment.";
+    return "Token gateway ditolak — periksa WHATSAPP_API_KEY (cadangan lama: FONNTE_TOKEN) pada environment deployment.";
   }
   if (t.includes("quota")) return "Kuota pengiriman Fonnte habis.";
   if (t.includes("target invalid")) return "Nomor tujuan tidak valid menurut Fonnte.";

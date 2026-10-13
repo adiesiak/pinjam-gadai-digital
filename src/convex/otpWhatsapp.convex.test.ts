@@ -617,3 +617,170 @@ describe("OTP WhatsApp (Fonnte)", () => {
     }
   });
 });
+
+// ===== OTP lewat gateway yang DIATUR PANEL ADMIN =====
+
+const KUNCI_PANEL = "kunci-panel-uji";
+
+type KeluarGateway = {
+  url: string;
+  auth: string | null;
+  contentType: string | null;
+  body: string;
+};
+
+/** Ganti `fetch` dengan gateway palsu + isi token panel dari environment. */
+function pasangGatewayPanel(respons: string, status = 200) {
+  const asli = globalThis.fetch;
+  const keluar: KeluarGateway[] = [];
+  process.env.WHATSAPP_API_KEY = KUNCI_PANEL;
+  globalThis.fetch = (async (
+    url: unknown,
+    init?: { body?: unknown; headers?: Record<string, string> },
+  ) => {
+    keluar.push({
+      url: String(url),
+      auth: init?.headers?.Authorization ?? null,
+      contentType: init?.headers?.["Content-Type"] ?? null,
+      body: String(init?.body ?? ""),
+    });
+    return new Response(respons, {
+      status,
+      headers: { "Content-Type": "application/json" },
+    });
+  }) as unknown as typeof fetch;
+  return {
+    keluar,
+    pulihkan: () => {
+      globalThis.fetch = asli;
+      delete process.env.WHATSAPP_API_KEY;
+    },
+  };
+}
+
+/** Simpan konfigurasi gateway seperti tombol "Simpan" di panel admin. */
+async function setelGateway(
+  t: KonteksUji,
+  patch: {
+    apiUrl: string;
+    aktif?: boolean;
+    authHeader?: string;
+    authPrefix?: string;
+    fieldNomor?: string;
+    fieldPesan?: string;
+  },
+) {
+  await t.run(async (ctx) => {
+    await ctx.db.insert("waSettings", {
+      slot: "global",
+      apiUrl: patch.apiUrl,
+      authHeader: patch.authHeader ?? "Authorization",
+      authPrefix: patch.authPrefix ?? "",
+      fieldNomor: patch.fieldNomor ?? "target",
+      fieldPesan: patch.fieldPesan ?? "message",
+      aktif: patch.aktif ?? true,
+      templatePengingat: "{nama} {jumlah}",
+      diperbaruiPada: Date.now(),
+    });
+  });
+}
+
+describe("OTP WhatsApp lewat gateway panel admin", () => {
+  it("memakai endpoint, nama field, dan token panel — bukan jalur Fonnte langsung", async () => {
+    const t = convexTest(schema, modules);
+    const { sesi } = await siapkan(t);
+    await setelGateway(t, {
+      apiUrl: "https://wa.example.com/kirim",
+      fieldNomor: "phone",
+      fieldPesan: "text",
+    });
+    // FONNTE_TOKEN sengaja TIDAK diisi: kalau jalur lama yang terpakai, kirim
+    // akan gagal. Keberhasilan di sini membuktikan gateway panel yang dipakai.
+    delete process.env.FONNTE_TOKEN;
+    const gateway = pasangGatewayPanel(JSON.stringify({ success: true }));
+    try {
+      const minta = await mintaKode(sesi);
+      expect(minta).toMatchObject({ ok: true, terkirim: true });
+      expect(gateway.keluar).toHaveLength(1);
+      const kirim = gateway.keluar[0];
+      expect(kirim.url).toBe("https://wa.example.com/kirim");
+      expect(kirim.auth).toBe(KUNCI_PANEL);
+      expect(kirim.contentType).toBe("application/json");
+      const body = JSON.parse(kirim.body) as Record<string, string>;
+      expect(body.phone).toBe(NOMOR);
+      const kode = body.text.match(/\d{6}/)?.[0] ?? "";
+      expect(kode).toHaveLength(6);
+
+      // Kode yang berangkat lewat gateway panel tetap bisa diverifikasi.
+      expect(await cocokkan(sesi, "verifikasi_nomor", kode)).toEqual({ ok: true });
+    } finally {
+      gateway.pulihkan();
+    }
+  });
+
+  it("endpoint Fonnte di panel tetap form-urlencoded, token dibaca dari WHATSAPP_API_KEY", async () => {
+    const t = convexTest(schema, modules);
+    const { sesi } = await siapkan(t);
+    await setelGateway(t, { apiUrl: "https://api.fonnte.com/send" });
+    delete process.env.FONNTE_TOKEN;
+    const gateway = pasangGatewayPanel(JSON.stringify({ status: true, detail: "success" }));
+    try {
+      const minta = await mintaKode(sesi);
+      expect(minta).toMatchObject({ ok: true, terkirim: true });
+      const kirim = gateway.keluar[0];
+      expect(kirim.auth).toBe(KUNCI_PANEL);
+      expect(kirim.contentType).toBe("application/x-www-form-urlencoded");
+      const body = new URLSearchParams(kirim.body);
+      expect(body.get("target")).toBe(NOMOR);
+      expect(body.get("message")).toMatch(/\d{6}/);
+    } finally {
+      gateway.pulihkan();
+    }
+  });
+
+  it("balasan Fonnte status:false dari gateway panel dianggap gagal", async () => {
+    const t = convexTest(schema, modules);
+    const { sesi, userId } = await siapkan(t);
+    await setelGateway(t, { apiUrl: "https://api.fonnte.com/send" });
+    const gateway = pasangGatewayPanel(JSON.stringify({ status: false, reason: "token invalid" }));
+    try {
+      const hasil = await mintaKode(sesi);
+      expect(hasil).toMatchObject({ ok: false, terkirim: false });
+      expect(hasil.pesan).toMatch(/WHATSAPP_API_KEY/);
+      const rows = await tantangan(t, userId);
+      expect(rows[0].statusPengiriman).toBe("gagal");
+    } finally {
+      gateway.pulihkan();
+    }
+  });
+
+  it("gateway panel nonaktif: tidak mengirim dan tidak menyentuh jaringan", async () => {
+    const t = convexTest(schema, modules);
+    const { sesi } = await siapkan(t);
+    await setelGateway(t, { apiUrl: "https://wa.example.com/kirim", aktif: false });
+    const gateway = pasangGatewayPanel(JSON.stringify({ success: true }));
+    try {
+      const hasil = await mintaKode(sesi);
+      expect(hasil).toMatchObject({ ok: false, terkirim: false });
+      expect(hasil.pesan).toMatch(/panel admin/i);
+      expect(gateway.keluar).toHaveLength(0);
+    } finally {
+      gateway.pulihkan();
+    }
+  });
+
+  it("gateway panel aktif tanpa token: pesannya menunjuk WHATSAPP_API_KEY", async () => {
+    const t = convexTest(schema, modules);
+    const { sesi } = await siapkan(t);
+    await setelGateway(t, { apiUrl: "https://wa.example.com/kirim" });
+    delete process.env.FONNTE_TOKEN;
+    delete process.env.WHATSAPP_API_KEY;
+    try {
+      const hasil = await mintaKode(sesi);
+      expect(hasil).toMatchObject({ ok: false, terkirim: false });
+      expect(hasil.pesan).toMatch(/WHATSAPP_API_KEY/);
+    } finally {
+      delete process.env.WHATSAPP_API_KEY;
+    }
+  });
+});

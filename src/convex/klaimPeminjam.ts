@@ -12,7 +12,9 @@
  *  1. `mintaKodeKlaim` (action, TANPA sesi) — peminjam mengetik nomor WhatsApp
  *     lamanya. Nomor itu dicari sebagai PEMILIK data lama lewat indeks
  *     `by_nomorWhatsApp` (loans / nasabahProfil / kycProfil). Kalau memang ada
- *     data lama, kode 6 digit dikirim ke nomor itu lewat Fonnte. Kalau tidak
+ *     data lama, kode 6 digit dikirim ke nomor itu lewat gateway WhatsApp yang
+ *     diatur admin (Fonnte langsung hanya sebagai cadangan bila panel belum
+ *     diisi). Kalau tidak
  *     ada, permintaan dijawab jujur "nomor belum terdaftar" — bukan dibuatkan
  *     akun kosong.
  *  2. Kode itu dipakai di salah satu dari dua jalur:
@@ -65,7 +67,7 @@ import type { Doc, Id } from "./_generated/dataModel";
 import { ROLES } from "./schema";
 import { catatLogin } from "./security";
 import { audit } from "./system";
-import { kirimFonnte } from "./otpWhatsapp";
+import { kirimPesanOtp } from "./otpWhatsapp";
 import {
   adaDataLama,
   BERKAS_LAMA_KOSONG,
@@ -439,7 +441,7 @@ export const mintaKodeKlaim = action({
       };
     }
 
-    const hasil = await kirimFonnte(bersih, pesanOtpKlaim(kode));
+    const hasil = await kirimPesanOtp(ctx, bersih, pesanOtpKlaim(kode));
     await ctx.runMutation(internal.klaimPeminjam._catatPengirimanKlaim, {
       challengeId: izin.challengeId,
       terkirim: hasil.terkirim,

@@ -120,7 +120,7 @@ eq(sukses.terkirim, true, "status true = terkirim");
 eq(uraiResponFonnte(200, JSON.stringify({ status: false, reason: "token invalid" })).terkirim, false, "token invalid bukan terkirim");
 ok(
   uraiResponFonnte(200, JSON.stringify({ status: false, reason: "token invalid" })).pesan.includes(
-    "FONNTE_TOKEN",
+    "WHATSAPP_API_KEY",
   ),
   "token invalid menjelaskan env var mana",
 );
