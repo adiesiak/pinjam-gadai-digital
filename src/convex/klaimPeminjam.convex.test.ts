@@ -195,6 +195,59 @@ describe("mintaKodeKlaim", () => {
     }
   });
 
+  it("pengiriman klaim yang gagal tidak memakan kuota; yang berhasil tetap membatasi", async () => {
+    const t = convexTest(schema, modules);
+    await seedPeminjamLama(t);
+
+    // Token gateway belum diisi → setiap permintaan gagal DI PENGIRIMAN. Nasabah
+    // tidak pernah menerima kode apa pun, jadi kuota per nomor tidak boleh
+    // terpakai: kalau terpakai, ia terkunci satu jam tepat saat operator baru
+    // selesai memasang tokennya.
+    const asli = globalThis.fetch;
+    delete process.env.FONNTE_TOKEN;
+    try {
+      for (let i = 0; i < 7; i += 1) {
+        const hasil = await t.action(api.klaimPeminjam.mintaKodeKlaim, {
+          nomor: NOMOR,
+          ip: "10.0.0.9",
+        });
+        expect(hasil.ok).toBe(false);
+        expect(hasil.pesan).toMatch(/FONNTE_TOKEN/);
+      }
+    } finally {
+      globalThis.fetch = asli;
+    }
+
+    // Barisnya tetap tercatat (kode yang mungkin terkirim sebagian masih bisa
+    // diverifikasi), tetapi semuanya berstatus gagal.
+    const gagal = await t.run((ctx) => ctx.db.query("klaimOtp").collect());
+    expect(gagal).toHaveLength(7);
+    expect(gagal.every((b) => b.statusPengiriman === "gagal")).toBe(true);
+
+    // Token terpasang → permintaan berikutnya LANGSUNG dikirim…
+    const fonnte = pasangFonnte();
+    try {
+      const sukses = await t.action(api.klaimPeminjam.mintaKodeKlaim, {
+        nomor: NOMOR,
+        ip: "10.0.0.9",
+      });
+      expect(sukses).toMatchObject({ ok: true, terkirim: true });
+      expect(fonnte.keluar).toHaveLength(1);
+
+      // …dan sejak itu cooldown berlaku lagi untuk kiriman yang benar-benar
+      // terkirim: percobaan berikutnya ditahan tanpa menghubungi gateway.
+      const cepat = await t.action(api.klaimPeminjam.mintaKodeKlaim, {
+        nomor: NOMOR,
+        ip: "10.0.0.9",
+      });
+      expect(cepat.ok).toBe(false);
+      expect(cepat.pesan).toMatch(/Tunggu \d+ detik/);
+      expect(fonnte.keluar).toHaveLength(1);
+    } finally {
+      fonnte.pulihkan();
+    }
+  });
+
   it("menahan klaim saat satu nomor tercatat pada lebih dari satu akun", async () => {
     const t = convexTest(schema, modules);
     await seedPeminjamLama(t);

@@ -385,6 +385,49 @@ describe("OTP WhatsApp (Fonnte)", () => {
     }
   });
 
+  it("pengiriman yang gagal tidak memakan kuota; yang berhasil tetap dibatasi", async () => {
+    const t = convexTest(schema, modules);
+    const { sesi, userId } = await siapkan(t);
+
+    // Gateway bermasalah: seluruh percobaan gagal DI PENGIRIMAN. Kode seperti ini
+    // tidak pernah sampai ke pengguna, jadi ia tidak boleh menghabiskan kuota —
+    // kalau dihitung, orang yang mencoba lagi justru terkunci satu jam tepat saat
+    // operator sedang memasang tokennya.
+    const gagal = pasangFonnte({ jenis: "gagal", reason: "insufficient quota" });
+    try {
+      for (let i = 0; i < 7; i += 1) {
+        const hasil = await mintaKode(sesi);
+        expect(hasil).toMatchObject({ ok: false, terkirim: false });
+        // Pesannya soal pengiriman, bukan "kuota permintaan habis".
+        expect(hasil.pesan).not.toMatch(/Terlalu banyak/);
+      }
+    } finally {
+      gagal.pulihkan();
+    }
+
+    // Baris tantangannya tetap tercatat — kode yang terkirim sebagian masih bisa
+    // diverifikasi sampai kedaluwarsa — tetapi semuanya berstatus gagal.
+    const gagalRows = await tantangan(t, userId);
+    expect(gagalRows).toHaveLength(7);
+    expect(gagalRows.every((b) => b.statusPengiriman === "gagal")).toBe(true);
+
+    // Gateway sehat: permintaan berikutnya LANGSUNG boleh dikirim…
+    const sehat = pasangFonnte({ jenis: "sukses" });
+    try {
+      expect(await mintaKode(sesi)).toMatchObject({ ok: true, terkirim: true });
+      expect(sehat.keluar).toHaveLength(1);
+
+      // …dan sejak itu cooldown berlaku lagi untuk kiriman yang benar-benar
+      // terkirim: percobaan berikutnya ditahan tanpa menghubungi gateway.
+      const cepat = await mintaKode(sesi);
+      expect(cepat).toMatchObject({ ok: false, terkirim: false });
+      expect(cepat.pesan).toMatch(/Tunggu \d+ detik/);
+      expect(sehat.keluar).toHaveLength(1);
+    } finally {
+      sehat.pulihkan();
+    }
+  });
+
   it("Fonnte gagal: kode tidak terkirim dan nomor TIDAK menjadi terverifikasi", async () => {
     const t = convexTest(schema, modules);
     const { sesi, userId } = await siapkan(t);

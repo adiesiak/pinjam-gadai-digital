@@ -153,7 +153,22 @@ export const _nomorUntukTujuan = internalQuery({
 async function tantanganPengguna(
   ctx: QueryCtx,
   userId: Id<"users">,
-): Promise<Array<{ _id: Id<"waOtpChallenges">; dibuatPada: number; tujuan: string; dipakaiPada?: number; nomor: string; kedaluwarsaPada: number; percobaanGagal: number; maksPercobaan: number; kodeHash: string; salt: string }>> {
+): Promise<
+  Array<{
+    _id: Id<"waOtpChallenges">;
+    dibuatPada: number;
+    tujuan: string;
+    dipakaiPada?: number;
+    nomor: string;
+    kedaluwarsaPada: number;
+    percobaanGagal: number;
+    maksPercobaan: number;
+    kodeHash: string;
+    salt: string;
+    /** "menunggu" | "terkirim" | "gagal" — dipakai pembatas laju. */
+    statusPengiriman: string;
+  }>
+> {
   const rows = await ctx.db
     .query("waOtpChallenges")
     .withIndex("by_user", (q) => q.eq("userId", userId))
@@ -205,8 +220,16 @@ export const _simpanPermintaan = internalMutation({
     const sejak = sekarang - OTP_JENDELA_MS;
     const dalamJendela = semua.filter((b) => b.dibuatPada >= sejak);
 
+    // KUOTA dihitung dari percobaan yang benar-benar berangkat. Pengiriman yang
+    // GAGAL (token gateway belum diisi, gateway menolak, timeout) tidak pernah
+    // sampai ke pengguna, jadi menghitungnya sebagai kuota hanya mengunci orang
+    // yang mencoba lagi SELAMA operator membereskan konfigurasi. Baris berstatus
+    // "menunggu" (pengiriman sedang berjalan) tetap dihitung supaya klik ganda
+    // tidak melewati pembatas ini.
+    const terpakai = dalamJendela.filter((b) => b.statusPengiriman !== "gagal");
+
     // 1) Cooldown kirim ulang untuk pengguna + tujuan yang sama.
-    const terakhirTujuan = dalamJendela.find((b) => b.tujuan === args.tujuan) ?? null;
+    const terakhirTujuan = terpakai.find((b) => b.tujuan === args.tujuan) ?? null;
     const sisa = sisaDetikCooldown(terakhirTujuan?.dibuatPada ?? null, sekarang);
     if (sisa > 0) {
       return {
@@ -217,7 +240,7 @@ export const _simpanPermintaan = internalMutation({
     }
 
     // 2) Batas per pengguna.
-    if (dalamJendela.length >= OTP_MAKS_PER_USER) {
+    if (terpakai.length >= OTP_MAKS_PER_USER) {
       return {
         ok: false as const,
         pesan: `Terlalu banyak permintaan kode dalam satu jam (maksimal ${OTP_MAKS_PER_USER}). Coba lagi nanti.`,
@@ -230,7 +253,10 @@ export const _simpanPermintaan = internalMutation({
       .query("waOtpChallenges")
       .withIndex("by_nomor", (q) => q.eq("nomor", args.nomor))
       .collect();
-    if (perNomor.filter((b) => b.dibuatPada >= sejak).length >= OTP_MAKS_PER_NOMOR) {
+    if (
+      perNomor.filter((b) => b.dibuatPada >= sejak && b.statusPengiriman !== "gagal").length >=
+      OTP_MAKS_PER_NOMOR
+    ) {
       return {
         ok: false as const,
         pesan:
@@ -245,7 +271,10 @@ export const _simpanPermintaan = internalMutation({
         .query("waOtpChallenges")
         .withIndex("by_ip", (q) => q.eq("ip", args.ip))
         .collect();
-      if (perIp.filter((b) => b.dibuatPada >= sejak).length >= OTP_MAKS_PER_IP) {
+      if (
+        perIp.filter((b) => b.dibuatPada >= sejak && b.statusPengiriman !== "gagal").length >=
+        OTP_MAKS_PER_IP
+      ) {
         return {
           ok: false as const,
           pesan: "Terlalu banyak permintaan kode dari jaringan ini. Coba lagi nanti.",

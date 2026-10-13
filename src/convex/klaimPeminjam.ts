@@ -250,7 +250,16 @@ export const _simpanPermintaanKlaim = internalMutation({
     const sejak = sekarang - KLAIM_JENDELA_MS;
     const dalamJendela = semua.filter((b) => b.dibuatPada >= sejak);
 
-    const terakhir = dalamJendela.reduce<number | null>(
+    // KUOTA dihitung dari percobaan yang benar-benar berangkat. Pengiriman yang
+    // GAGAL (token gateway belum diisi, gateway menolak, timeout) tidak pernah
+    // sampai ke siapa pun, jadi menghitungnya sebagai kuota hanya mengunci orang
+    // yang mencoba lagi SELAMA operator membereskan konfigurasi — pesannya pun
+    // menyesatkan ("sudah menerima terlalu banyak kode" padahal tidak ada satu
+    // pun kode yang terkirim). Baris berstatus "menunggu" (pengiriman sedang
+    // berjalan) tetap dihitung supaya klik ganda tidak melewati pembatas ini.
+    const terpakai = dalamJendela.filter((b) => b.statusPengiriman !== "gagal");
+
+    const terakhir = terpakai.reduce<number | null>(
       (maks, b) => (maks === null || b.dibuatPada > maks ? b.dibuatPada : maks),
       null,
     );
@@ -263,7 +272,7 @@ export const _simpanPermintaanKlaim = internalMutation({
       };
     }
 
-    if (dalamJendela.length >= KLAIM_MAKS_PER_NOMOR) {
+    if (terpakai.length >= KLAIM_MAKS_PER_NOMOR) {
       return {
         ok: false as const,
         pesan: `Nomor ini sudah menerima terlalu banyak kode dalam satu jam (maksimal ${KLAIM_MAKS_PER_NOMOR}). Coba lagi nanti.`,
@@ -276,7 +285,10 @@ export const _simpanPermintaanKlaim = internalMutation({
         .query("klaimOtp")
         .withIndex("by_ip", (q) => q.eq("ip", args.ip))
         .collect();
-      if (perIp.filter((b) => b.dibuatPada >= sejak).length >= KLAIM_MAKS_PER_IP) {
+      if (
+        perIp.filter((b) => b.dibuatPada >= sejak && b.statusPengiriman !== "gagal").length >=
+        KLAIM_MAKS_PER_IP
+      ) {
         return {
           ok: false as const,
           pesan: "Terlalu banyak permintaan kode dari jaringan ini. Coba lagi nanti.",
