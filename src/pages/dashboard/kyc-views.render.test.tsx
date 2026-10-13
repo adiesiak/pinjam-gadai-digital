@@ -778,12 +778,8 @@ ok(
   ada(dashboard, "onPilih={pilihTahapKyc}", "menu sidebar memakai satu penangan pilih tahap");
 }
 
-// ===== 16. Tahap yang dibuka tidak berpindah sendiri selama pengisian =====
-// Kalau tahap aktif dihitung ULANG dari isian live tiap render, begitu satu tahap
-// menjadi "lengkap" — usai mengetik alamat atau mengunggah foto — wizard melompat
-// ke tahap lain tanpa pengguna menekan apa pun. Tahap pembuka karena itu dikunci
-// sekali, dan hanya tindakan pengguna (Sebelumnya / Simpan & lanjut / menu tahap)
-// yang memindahkannya.
+// 16. Tahap pembuka dikunci sekali, bukan dihitung ulang tiap render: kalau
+// dihitung ulang, wizard melompat sendiri begitu tahap yang diisi jadi lengkap.
 {
   const modul = bacaSumber("pages/dashboard/kyc-views.tsx");
   ada(modul, "tahapAwal.current === null", "tahap pembuka dihitung sekali lalu dikunci");

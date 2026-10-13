@@ -364,18 +364,8 @@ export function progresKyc(
 }
 
 /**
- * Tahap BELUM lengkap yang paling awal menurut URUTAN `TAHAPAN_KYC` — termasuk
- * tahap opsional yang masih kosong.
- *
- * Dipakai wizard supaya pengisian berjalan tahap demi tahap: setelah satu
- * langkah beres, yang dibuka adalah langkah BERIKUTNYA dalam daftar. Tanpa ini
- * `tahapDisarankan` melompat ke tahap wajib pertama yang belum siap, sehingga
- * pengguna yang baru selesai di kontak WhatsApp langsung dilempar ke
- * "Informasi pendukung" dan melewati tahap alamat serta kontak darurat tanpa
- * pernah melihatnya.
- *
- * `persetujuan` sengaja dilewati: ia pintu masuk (persetujuan pemrosesan),
- * bukan langkah isian, dan dijaga terpisah di `tahapDisarankan`.
+ * Tahap BELUM lengkap paling awal menurut urutan `TAHAPAN_KYC`, termasuk tahap
+ * opsional yang masih kosong. `persetujuan` dilewati: pintu masuk, bukan isian.
  */
 export function tahapBerikutnyaUrut(
   isian: IsianKycLengkap,
@@ -394,8 +384,7 @@ export function tahapBerikutnyaUrut(
  *
  * Saat petugas meminta perbaikan atau menolak, pengguna diantar ke tahap yang
  * memang perlu diubah — bukan ke tahap pertama yang membuatnya mengulang semua
- * dari awal. Sesudah itu ia maju berurutan (lihat `tahapBerikutnyaUrut`), tidak
- * melompati tahap yang belum diisi.
+ * dari awal. Sesudah itu ia maju berurutan (lihat `tahapBerikutnyaUrut`).
  */
 export function tahapDisarankan(
   status: string,
@@ -406,17 +395,16 @@ export function tahapDisarankan(
   const perluPerbaikan = status === "NEEDS_CORRECTION" || status === "REJECTED";
   const opsiEfektif: OpsiStatusTahap = { ...opsi, perluPerbaikan };
 
-  // 1) Tahap yang benar-benar bermasalah (nilai salah atau diminta petugas).
+  // Nilai salah atau diminta petugas lebih dulu.
   for (const tahap of TAHAPAN_KYC) {
     if (tahap.id === "persetujuan") continue;
     if (statusTahapKyc(tahap.id, isian, berkas, opsiEfektif) === "perlu-diperbaiki") {
       return tahap.id;
     }
   }
-  // 2) Selama persetujuan belum tercatat, pintu masuknya tetap tahap persetujuan.
+  // Selama izin belum tercatat, pintu masuknya tetap persetujuan.
   if (!opsiEfektif.persetujuanAktif) return "persetujuan";
-  // 3) Sesudah itu: tahap berikutnya menurut urutan daftar, bukan tahap wajib
-  //    pertama yang belum siap.
+  // Lalu maju berurutan, bukan ke tahap wajib pertama yang belum siap.
   return tahapBerikutnyaUrut(isian, berkas, opsiEfektif);
 }
 

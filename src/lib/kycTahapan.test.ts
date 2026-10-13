@@ -414,11 +414,7 @@ eq(
   );
 }
 
-// ===== 8b. Wizard maju BERURUTAN, tidak melompati tahap (termasuk opsional) =====
-// Kasus nyata: identitas sampai WhatsApp beres, kontak darurat dikosongkan
-// (tahap opsional), bukti penghasilan sudah diunggah. Versi lama membuka
-// "Informasi pendukung" karena itu tahap wajib pertama yang belum siap,
-// sehingga tahap kontak darurat terlewati tanpa pernah terlihat.
+// 8b. Wizard maju berurutan: tahap opsional yang belum diisi tidak dilewati.
 {
   const tanpaDarurat: IsianKycLengkap = {
     ...ISIAN_LENGKAP,
