@@ -542,7 +542,12 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
   return (
     <LatarAuth>
       <FadeIn className="w-full">
-        <div className="flex w-full flex-col items-center">
+        {/* Kolom tunggal selebar kartu, dipusatkan. Sebelumnya kolom ini
+            `w-full` tanpa batas lebar: karena `items-center` hanya bekerja pada
+            anak flex yang tidak selebar induknya, kartu masuk (jalur nasabah
+            maupun admin) ikut rata kiri dan bilah lencana fitur melar
+            sepanjang layar lebar. */}
+        <div className="mx-auto flex w-full max-w-md flex-col items-center">
           <KepalaMerekAuth />
 
           {/* Satu langkah = satu kartu; kunci animasi masuk tetap per langkah. */}

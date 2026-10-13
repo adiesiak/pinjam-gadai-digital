@@ -334,6 +334,14 @@ function aturanAktif(css: string): string {
     "tab default halaman = Masuk Akun",
   );
   ada(halaman, "<LatarAuth>", "halaman memakai latar ambient bersama");
+  // Kolom halaman digenggam di satu lebar dan dipusatkan. Tanpa `max-w-md`,
+  // kolomnya `w-full` sehingga `items-center` tidak menggenggam apa pun: kartu
+  // masuk (jalur nasabah maupun admin) menempel di tepi kiri layar lebar.
+  ada(
+    halaman,
+    "mx-auto flex w-full max-w-md flex-col items-center",
+    "kolom halaman dipusatkan selebar kartu",
+  );
   ada(
     halaman,
     "<KartuAuth varian=",
