@@ -13,14 +13,25 @@
  *     "Panel Admin" di kartu profil SEKALIGUS kartu "Menu khusus" statis yang
  *     tidak bisa diklik dan memuat nama pengguna tanpa alasan;
  *  4. grup menu admin hanya dirender bila SERVER mengenali akun sebagai admin
- *     (`adminTerverifikasi`), bukan sekadar dari `role` di dokumen profil.
+ *     (`adminTerverifikasi`), bukan sekadar dari `role` di dokumen profil;
+ *  5. di layar sempit kolom kiri TIDAK lagi menumpuk di atas konten: menunya
+ *     hidup di drawer, dan drawer memakai ISI MENU yang sama dengan kolom kiri.
  */
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+
 import { renderToStaticMarkup } from "react-dom/server";
 
 import { LABEL_STATUS_KYC } from "@/lib/kycStatus";
 import { ADMIN_ROUTE } from "@/lib/routes";
 
 import { DashboardSidebar, MenuAdminNav } from "./dashboard-sidebar";
+import { badgeToneClass, labelTujuan } from "./dashboard-tab-nav";
+
+/** Isi berkas sumber relatif terhadap `src/` — dipakai memeriksa pemasangan. */
+function bacaSumber(relatif: string): string {
+  return readFileSync(fileURLToPath(new URL(`../../${relatif}`, import.meta.url)), "utf8");
+}
 
 let passed = 0;
 let failed = 0;
@@ -161,6 +172,41 @@ const props = {
     "status belum terbaca tidak diklaim terverifikasi",
   );
   bersih(belumTerbaca, "kartu profil tanpa status KYC");
+}
+
+// ===== 7. Layar sempit: menu pindah ke drawer, tidak menumpuk di atas konten =====
+{
+  const dashboard = bacaSumber("pages/Dashboard.tsx");
+  ada(
+    dashboard,
+    'className="hidden w-full shrink-0 lg:sticky lg:top-20 lg:block lg:w-64"',
+    "kolom kiri hanya dirender pada layar lebar",
+  );
+  ada(dashboard, '<Sheet open={menuTerbuka}', "drawer menu dikendalikan state");
+  ada(dashboard, 'side="left"', "drawer menu terbuka dari kiri");
+  ada(dashboard, 'aria-haspopup="dialog"', "pemicu menu menyatakan membuka dialog");
+  ok(
+    (dashboard.match(/lg:hidden/g) ?? []).length >= 1,
+    "pemicu menu hanya tampil di layar sempit (lg:hidden)",
+  );
+  ada(
+    dashboard,
+    "useEffect(() => setMenuTerbuka(false), [activeTab])",
+    "memilih bagian menutup drawer sendiri",
+  );
+  ok(
+    cacah(dashboard, "{isiMenu}") === 2,
+    `isi menu dipakai kolom kiri DAN drawer (ditemukan ${cacah(dashboard, "{isiMenu}")})`,
+  );
+  ada(dashboard, "{labelTujuan(activeTab)}", "pemicu menyebut bagian yang sedang terbuka");
+}
+
+// ===== 8. Nama bagian & nada lencana: satu sumber dengan menu =====
+{
+  ok(labelTujuan("kyc") === "Verifikasi KYC", "label bagian dibaca dari menu yang sama");
+  ok(labelTujuan("tidak-ada") === "Menu", "nilai tak dikenal tidak jadi nama kosong");
+  ok(badgeToneClass("danger").includes("red"), "nada bahaya memakai merah");
+  ok(badgeToneClass(undefined).includes("slate"), "nada bawaan tetap netral");
 }
 
 console.log(`dashboard-sidebar.render: ${passed} lulus, ${failed} gagal`);

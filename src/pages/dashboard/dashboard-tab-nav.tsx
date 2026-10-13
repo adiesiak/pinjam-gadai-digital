@@ -145,7 +145,17 @@ const SEMUA_TUJUAN: ReadonlyArray<{ value: string; label: string; pintu: string 
  */
 export type TabBadge = { count: number; tone?: "neutral" | "warning" | "danger" };
 
-function badgeToneClass(tone: TabBadge["tone"]): string {
+/**
+ * Label satu tujuan dari nilai tabnya — SATU sumber dengan menu di sidebar.
+ * Dipakai pemicu drawer di layar sempit supaya nama bagian yang tampil di sana
+ * tidak pernah berbeda dari nama di dalam menu.
+ */
+export function labelTujuan(value: string): string {
+  return SEMUA_TUJUAN.find((tujuan) => tujuan.value === value)?.label ?? "Menu";
+}
+
+/** Kelas lencana cacah item — dipakai menu sidebar DAN pemicu drawer. */
+export function badgeToneClass(tone: TabBadge["tone"]): string {
   if (tone === "danger") return "bg-red-100 text-red-700";
   if (tone === "warning") return "bg-amber-100 text-amber-700";
   return "bg-slate-100 text-slate-600";

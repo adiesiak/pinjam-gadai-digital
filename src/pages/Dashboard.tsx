@@ -1,6 +1,6 @@
 import { useQuery } from "convex/react";
-import { TrendingUp } from "lucide-react";
-import { useState } from "react";
+import { Menu, TrendingUp } from "lucide-react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import { tabDariParams } from "@/lib/notifikasi";
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,13 @@ import { LocationGate } from "@/components/LocationGate";
 import { ManualPaymentEvidenceHistory } from "@/components/ManualPaymentEvidenceForm";
 import { FadeIn } from "@/components/Reveal";
 import { SkeletonBarisDaftar, SkeletonKartu } from "@/components/ui/loading";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
@@ -30,7 +37,7 @@ import {
 import { DashboardFooter } from "./dashboard/dashboard-footer";
 import { DashboardHeader } from "./dashboard/dashboard-header";
 import { DashboardSidebar } from "./dashboard/dashboard-sidebar";
-import type { TabBadge } from "./dashboard/dashboard-tab-nav";
+import { badgeToneClass, labelTujuan, type TabBadge } from "./dashboard/dashboard-tab-nav";
 import { LoanDetailDialog, PawnDetailDialog } from "./dashboard/detail-dialogs";
 import {
   FormPengajuanSection,
@@ -181,6 +188,28 @@ export default function Dashboard() {
   /** Tahap KYC yang dipilih dari menu sidebar; null = modul memilih sendiri. */
   const [tahapKyc, setTahapKyc] = useState<IdTahapKyc | null>(null);
 
+  /**
+   * Drawer menu untuk layar sempit. Kolom kiri tetap hidup hanya pada `lg` ke
+   * atas; di bawah itu menu dibuka dari satu tombol "Menu" supaya kartu profil,
+   * menu layanan, dan tahap KYC tidak lagi menumpuk di atas konten yang sedang
+   * dibaca.
+   */
+  const [menuTerbuka, setMenuTerbuka] = useState(false);
+  // Memilih bagian menutup drawer sendiri, jadi isi yang dipilih langsung
+  // terlihat tanpa satu ketukan tambahan.
+  useEffect(() => setMenuTerbuka(false), [activeTab]);
+  // Layar melebar ke ukuran desktop: kolom kiri tetap sudah muncul, jadi lapisan
+  // drawer tidak perlu menggantung di atas konten.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const kueri = window.matchMedia("(min-width: 1024px)");
+    const saatBerubah = () => {
+      if (kueri.matches) setMenuTerbuka(false);
+    };
+    kueri.addEventListener("change", saatBerubah);
+    return () => kueri.removeEventListener("change", saatBerubah);
+  }, []);
+
   /** Buka halaman Form Pengajuan dengan jenis yang sudah dipilih. */
   const bukaPengajuan = (jenis: JenisPengajuan) => {
     setJenisPengajuan(jenis);
@@ -307,6 +336,37 @@ export default function Dashboard() {
     tabBadges.kyc = { count: 1, tone: kyc.status === "REJECTED" ? "danger" : "warning" };
   }
 
+  /**
+   * Isi menu — SATU isi untuk dua wadah: kolom kiri pada `lg` ke atas dan drawer
+   * pada layar sempit. Disimpan sebagai elemen, bukan disalin, supaya keduanya
+   * tidak pernah berbeda (mis. menu admin muncul di satu wadah saja).
+   */
+  const isiMenu = (
+    <DashboardSidebar
+      greetingName={greetingName}
+      role={user?.role}
+      kycStatus={kyc === undefined ? null : kyc.status}
+      badges={tabBadges}
+      activeTab={activeTab}
+      onTabChange={gantiTab}
+      onBuatPengajuan={bukaPengajuan}
+      onSignOut={handleSignOut}
+      adminTerverifikasi={gateAdmin?.isAdmin === true}
+      kycMenu={
+        dataMenuKyc === null ? null : (
+          <KycMenuSidebar
+            aktif={tahapKyc ?? dataMenuKyc.tahapAktif}
+            statusPerTahap={dataMenuKyc.statusPerTahap}
+            terkunci={dataMenuKyc.terkunci}
+            onPilih={pilihTahapKyc}
+          />
+        )
+      }
+    />
+  );
+  /** Lencana bagian yang sedang terbuka; dipakai pemicu menu layar sempit. */
+  const lencanaTab = tabBadges[activeTab];
+
   return (
     // Gerbang lokasi wajib: Peminjam tidak bisa memakai dashboard tanpa GPS
     // aktif (heartbeat ke server). Admin dan penyedia dana dikecualikan, sama
@@ -328,30 +388,57 @@ export default function Dashboard() {
           onValueChange={gantiTab}
           className="flex flex-col gap-5 lg:flex-row lg:items-start lg:gap-8"
         >
-          {/* ===== Sisi kiri: profil + navigasi tab ===== */}
-          <aside className="w-full shrink-0 lg:sticky lg:top-20 lg:w-64">
-            <DashboardSidebar
-              greetingName={greetingName}
-              role={user?.role}
-              kycStatus={kyc === undefined ? null : kyc.status}
-              badges={tabBadges}
-              activeTab={activeTab}
-              onTabChange={gantiTab}
-              onBuatPengajuan={bukaPengajuan}
-              onSignOut={handleSignOut}
-              adminTerverifikasi={gateAdmin?.isAdmin === true}
-              kycMenu={
-                dataMenuKyc === null ? null : (
-                  <KycMenuSidebar
-                    aktif={tahapKyc ?? dataMenuKyc.tahapAktif}
-                    statusPerTahap={dataMenuKyc.statusPerTahap}
-                    terkunci={dataMenuKyc.terkunci}
-                    onPilih={pilihTahapKyc}
-                  />
-                )
-              }
-            />
+          {/* ===== Sisi kiri: profil + navigasi tab (hanya lg ke atas) ===== */}
+          <aside className="hidden w-full shrink-0 lg:sticky lg:top-20 lg:block lg:w-64">
+            {isiMenu}
           </aside>
+
+          {/* ===== Pemicu menu di layar sempit ===== */}
+          {/* Menggantikan kolom kiri: di bawah `lg` menu dibuka sebagai drawer,
+              jadi menunya tidak lagi menumpuk di atas konten. Pemicunya menyebut
+              bagian yang sedang terbuka, jadi penanda posisi tetap ada tanpa
+              membuka menu. */}
+          <button
+            type="button"
+            onClick={() => setMenuTerbuka(true)}
+            aria-haspopup="dialog"
+            aria-expanded={menuTerbuka}
+            className="flex w-full items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-left shadow-sm transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 lg:hidden"
+          >
+            <Menu className="size-4 shrink-0 text-primary" aria-hidden />
+            <span className="min-w-0 flex-1">
+              <span className="block text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+                Menu
+              </span>
+              <span className="block truncate text-sm font-semibold text-slate-900">
+                {labelTujuan(activeTab)}
+              </span>
+            </span>
+            {lencanaTab !== undefined && lencanaTab.count > 0 && (
+              <span
+                className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold tabular-nums ${badgeToneClass(lencanaTab.tone)}`}
+              >
+                {lencanaTab.count > 99 ? "99+" : lencanaTab.count}
+              </span>
+            )}
+          </button>
+
+          {/* Drawer menu: memuat isi menu yang SAMA dengan kolom kiri. Radix
+              yang mengurus fokus terperangkap, Esc, klik latar, dan aria-modal. */}
+          <Sheet open={menuTerbuka} onOpenChange={setMenuTerbuka}>
+            <SheetContent
+              side="left"
+              className="w-[86%] max-w-sm gap-0 overflow-y-auto p-4 sm:p-5"
+            >
+              <SheetHeader className="p-0">
+                <SheetTitle className="text-sm">Menu dashboard</SheetTitle>
+                <SheetDescription className="text-xs leading-5">
+                  Pilih bagian, lihat tahap verifikasi identitas, atau kelola akun Anda.
+                </SheetDescription>
+              </SheetHeader>
+              <div className="mt-4">{isiMenu}</div>
+            </SheetContent>
+          </Sheet>
 
           {/* ===== Kolom konten ===== */}
           <FadeIn className="min-w-0 flex-1">
