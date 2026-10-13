@@ -6,11 +6,15 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { JenisPengajuan } from "@/lib/jenisPengajuan";
 import { fadeUpItem, staggerContainer } from "@/lib/motion";
+import { ADMIN_ROUTE } from "@/lib/routes";
 
 import { DashboardTabNav, type TabBadge } from "./dashboard-tab-nav";
 
 const ROLE_LINKS: Record<string, { label: string; icon: React.ReactNode; href: string }> = {
-  admin: { label: "Panel Admin", icon: <Building2 className="size-4" />, href: "/admin" },
+  // Panel admin TIDAK berada di `/admin`: rutenya disamarkan di `lib/routes.ts`
+  // (sengaja tidak ditautkan dari halaman publik). Jalur admin yang masih
+  // menulis `/admin` akan mendarat di halaman "tidak ditemukan".
+  admin: { label: "Panel Admin", icon: <Building2 className="size-4" />, href: ADMIN_ROUTE },
   // Nilai peran yang benar-benar tersimpan adalah `dana`; `penyedia-dana` adalah
   // nama rute. Keduanya dipetakan supaya akun pendana tetap mendapat pintasannya.
   dana: { label: "Dashboard Dana", icon: <Wallet className="size-4" />, href: "/penyedia-dana" },
