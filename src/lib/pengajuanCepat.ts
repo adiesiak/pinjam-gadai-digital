@@ -8,8 +8,9 @@
  *
  * Batas yang dijaga di sini:
  * - Nominal tidak pernah melewati batas produk (Rp 100.000–Rp 1 juta) MAUPUN
- *   plafon nasabah yang berlaku. Server memakai aturan yang sama, jadi UI tidak
- *   menawarkan angka yang pasti ditolak.
+ *   SISA batas pinjaman nasabah (plafon master dipotong pokok pinjaman berjalan).
+ *   Server memakai sisa yang sama (`ringkasPlafon`), jadi UI tidak menawarkan
+ *   angka yang pasti ditolak.
  * - Data identitas TIDAK diketik ulang: syarat yang diperiksa server diambil
  *   dari baris KYC yang sudah terverifikasi. Kalau salah satu bagiannya kosong
  *   (mis. rekening belum diisi), pengajuan ditolak di klien dengan kalimat yang
@@ -25,30 +26,45 @@ import { LOAN_LIMITS, TENOR_OPTIONS } from "./loan";
 import { formatRupiah } from "./money";
 import { PLAFON_DEFAULT } from "./plafon";
 
-/** Batas nominal pengajuan cepat: batas produk ∧ plafon nasabah. */
-export type BatasNominalCepat = { min: number; maks: number };
+/** Batas nominal pengajuan cepat: batas produk ∧ SISA batas pinjaman nasabah. */
+export type BatasNominalCepat = {
+  min: number;
+  /** Batas atas yang boleh diketik atau dipilih. `0` saat tidak ada sisa. */
+  maks: number;
+  /** `false` = sisa batas nasabah sudah terpakai habis, jadi tak ada nominal sah. */
+  adaSisa: boolean;
+};
 
 /**
- * Batas nominal yang boleh diajukan. Plafon yang belum termuat (atau tidak
- * wajar) jatuh ke `PLAFON_DEFAULT` — batas produk — supaya penggeser tidak
- * pernah menampilkan rentang kosong.
+ * Batas nominal yang boleh diajukan, dihitung dari SISA batas pinjaman nasabah
+ * (`nasabah.plafonRingkasSaya.tersedia` — plafon master dipotong pokok pinjaman
+ * berjalan; perhitungan server yang sama dengan validasi pengajuan).
+ *
+ * Sisa yang belum termuat jatuh ke `PLAFON_DEFAULT` supaya rentangnya tidak
+ * pernah kosong, dan angka itu hanya bisa lebih kecil dari yang berlaku — bukan
+ * lebih besar. Sisa nol dikembalikan apa adanya supaya layar menampilkan
+ * "belum ada sisa", bukan tawaran yang pasti ditolak server.
  */
-export function batasNominalCepat(plafon?: number | null): BatasNominalCepat {
-  const dasar =
-    typeof plafon === "number" && Number.isFinite(plafon) && plafon > 0
-      ? Math.floor(plafon)
+export function batasNominalCepat(sisaBatas?: number | null): BatasNominalCepat {
+  const min = LOAN_LIMITS.minPokok;
+  const angka =
+    typeof sisaBatas === "number" && Number.isFinite(sisaBatas)
+      ? Math.max(0, Math.floor(sisaBatas))
       : PLAFON_DEFAULT;
-  const maks = Math.min(LOAN_LIMITS.maxPokok, Math.max(LOAN_LIMITS.minPokok, dasar));
-  return { min: LOAN_LIMITS.minPokok, maks };
+  const maks = Math.min(LOAN_LIMITS.maxPokok, angka);
+  const adaSisa = maks >= min;
+  return { min, maks: adaSisa ? maks : 0, adaSisa };
 }
 
 /**
  * Nominal awal yang ditawarkan: setengah dari batas, dibulatkan ke bawah ke
- * kelipatan Rp 50.000. Nasabah yang plafonnya kecil (Rp 1 juta) tetap mendapat
- * angka yang wajar, bukan batas maksimum yang membuatnya kaget.
+ * kelipatan Rp 50.000. Nasabah yang batasnya kecil (Rp 1 juta) tetap mendapat
+ * angka yang wajar, bukan batas maksimum yang membuatnya kaget. Tanpa sisa
+ * (atau saat batasnya belum termuat) pengajuan cepat tidak menawarkan nominal.
  */
-export function nominalAwalCepat(plafon?: number | null): number {
-  const { min, maks } = batasNominalCepat(plafon);
+export function nominalAwalCepat(sisaBatas?: number | null): number {
+  const { min, maks, adaSisa } = batasNominalCepat(sisaBatas);
+  if (!adaSisa) return 0;
   const setengah = Math.floor(maks / 2 / 50_000) * 50_000;
   return Math.min(maks, Math.max(min, setengah));
 }
@@ -143,7 +159,7 @@ export function ktpTerverifikasiLengkap(ktp: KtpTerverifikasi): boolean {
 export function validasiPengajuanCepat(
   isian: IsianPengajuanCepat,
   ktp: KtpTerverifikasi,
-  plafon?: number | null,
+  sisaBatas?: number | null,
 ): string | null {
   // Data KYC diperiksa LEBIH DULU: tanpa itu tidak ada gunanya menilai nominal.
   // Pesannya mengantar nasabah ke halaman verifikasi KYC, karena di situlah
@@ -153,17 +169,27 @@ export function validasiPengajuanCepat(
     return `Data KYC terverifikasi belum lengkap: ${kurang.join(" ")} Perbaiki lewat halaman verifikasi KYC, lalu kembali ke sini.`;
   }
 
-  const { min, maks } = batasNominalCepat(plafon);
+  const { min, maks, adaSisa } = batasNominalCepat(sisaBatas);
+  // Sisa batas habis karena pinjaman berjalan yang belum lunas: sebutkan alasannya
+  // apa adanya, karena mengurangi nominal pun tidak akan menolong.
+  if (!adaSisa) {
+    return (
+      "Sisa batas pinjaman Anda belum cukup untuk pengajuan ini. " +
+      "Lunasi pinjaman berjalan lebih dulu, atau hubungi tim PINDAI bila batasnya perlu ditinjau."
+    );
+  }
   if (!Number.isInteger(isian.pokokPinjaman) || isian.pokokPinjaman < min) {
     return `Jumlah pinjaman minimal ${formatRupiah(min)}.`;
   }
   if (isian.pokokPinjaman > maks) {
-    // Plafon nasabah yang lebih kecil dari batas produk disebut angkanya, supaya
+    // Sisa batas nasabah yang lebih kecil dari batas produk disebut angkanya, supaya
     // nasabah tahu batas itu miliknya sendiri — bukan batas umum yang dirahasiakan.
-    const sebutPlafon =
-      typeof plafon === "number" && Number.isFinite(plafon) && plafon > 0 && plafon < LOAN_LIMITS.maxPokok;
+    const sebutSisa =
+      typeof sisaBatas === "number" &&
+      Number.isFinite(sisaBatas) &&
+      maks < LOAN_LIMITS.maxPokok;
     return `Jumlah pinjaman maksimal ${formatRupiah(maks)} untuk pengajuan ini.${
-      sebutPlafon ? ` Plafon Anda ${formatRupiah(Math.floor(plafon))}.` : ""
+      sebutSisa ? ` Sisa batas pinjaman Anda ${formatRupiah(maks)}.` : ""
     }`;
   }
   if (!(TENOR_OPTIONS as readonly number[]).includes(isian.tenorHari)) {

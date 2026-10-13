@@ -693,9 +693,12 @@ export const peringatanSaya = query({
 });
 
 /**
- * Plafon pinjaman nasabah ini — untuk slider & pesan di form pengajuan.
- * Server memakai fungsi yang sama (lib/plafon.plafonPeminjam), jadi UI dan
- * validasi tidak mungkin berbeda angka.
+ * Plafon MASTER nasabah ini (maksimal, sebelum dipotong pinjaman berjalan).
+ *
+ * Layar nasabah JANGAN memakai angka ini sebagai batas pengajuan: batas yang
+ * bisa diajukan adalah SISA setelah pinjaman berjalan, dan itulah yang kembali
+ * dari `nasabah.plafonRingkasSaya`. Memakai nilai maksimal di layar pengajuan
+ * pernah membuat batas yang tertulis lebih besar dari yang diterima server.
  */
 export const plafonSaya = query({
   args: {},

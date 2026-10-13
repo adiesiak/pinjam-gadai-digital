@@ -55,7 +55,16 @@ import {
   TENOR_OPTIONS,
 } from "@/lib/loan";
 import { formatRupiah } from "@/lib/money";
-import { pesanPlafonTerlampaui, PLAFON_DEFAULT } from "@/lib/plafon";
+import {
+  batasDiajukan,
+  kalimatBatasPlafon,
+  pesanPlafonTerlampaui,
+  pesanPlafonTersediaTerlampaui,
+  PLAFON_DEFAULT,
+  PLAFON_NAIK_SETELAH_LUNAS,
+  pokokDalamPlafon,
+  type RingkasanPlafon,
+} from "@/lib/plafon";
 import {
   COLLATERAL_CATEGORIES,
   LTV_HINTS,
@@ -388,10 +397,13 @@ export function LoanForm({
   const bungaSaya = bungaQuery ?? undefined;
   const sim = bulanan ? simulasiBulananAman(pokok, tenorBulanNum, bungaSaya) : null;
   const q = quotePinjaman({ pokokPinjaman: pokok, persenBunga: bungaSaya });
-  // Batas pinjaman mengurangi jumlah maksimum kedua pilihan. Selama data dimuat,
-  // gunakan batas awal agar penggeser tidak melewati batas yang berlaku.
-  const plafonQuery = useQuery(api.lokasi.plafonSaya, {});
-  const plafonSaya = plafonQuery ?? PLAFON_DEFAULT;
+  // Batas pinjaman dari SERVER (`nasabah.plafonRingkasSaya`): plafon master
+  // dipotong pokok pinjaman berjalan, memakai `ringkasPlafon` yang sama dengan
+  // validasi `loans.createLoanApplication`. Selama belum termuat, `ringkas` null
+  // dan layar tidak menyebut angka batas apa pun — penggesernya pun terkunci.
+  const plafonQuery = useQuery(api.nasabah.plafonRingkasSaya, {});
+  const ringkas: RingkasanPlafon | null = plafonQuery ?? null;
+  const batasTerbaca = ringkas !== null;
   // Gerbang KYC: server menolak pengajuan tanpa KYC VERIFIED, jadi UI
   // mencerminkannya lebih dulu supaya formulir panjang tidak diisi sia-sia.
   const kycQuery = useQuery(api.kyc.kycSaya, {});
@@ -473,38 +485,54 @@ export function LoanForm({
     }
   };
   // Batas per skema: harian Rp100 ribu–Rp1 juta / bulanan mengikuti aturan skema,
-  // keduanya tidak boleh melebihi batas pinjaman efektif (maks. Rp10 juta).
+  // keduanya tidak boleh melebihi SISA batas pinjaman nasabah.
   const MIN = bulanan ? BULANAN_LIMITS.minPokok : LOAN_LIMITS.minPokok;
   const BATAS_SKEMA = bulanan ? BULANAN_LIMITS.maxPokok : LOAN_LIMITS.maxPokok;
-  const MAX = Math.min(BATAS_SKEMA, plafonSaya ?? BATAS_SKEMA);
+  // Sisa yang boleh ditawarkan = TERSEDIA dari server, dipotong batas skema.
+  // Belum termuat → batas awal hanya menahan penggeser; angkanya tidak dicetak.
+  const sisaBatas = batasDiajukan(ringkas?.tersedia ?? PLAFON_DEFAULT, BATAS_SKEMA);
+  const adaSisa = sisaBatas >= MIN;
+  const MAX = adaSisa ? sisaBatas : MIN;
   const STEP = bulanan ? 100_000 : 50_000;
-  const melebihiPlafon = plafonSaya !== undefined && pokok > MAX;
 
-  // Query plafon dapat datang terlambat atau berubah akibat override admin.
+  // Kalimat batas & keterangan nominal disusun dari ANGKA SERVER yang sama:
+  // kartu ringkasan, penggeser, dan pesan galat tidak bisa saling bertentangan.
+  const ungkapBatas =
+    ringkas === null
+      ? "Batas pinjaman Anda sedang dibaca dari server."
+      : kalimatBatasPlafon(ringkas);
+  const keteranganNominal = !adaSisa
+    ? `${ungkapBatas} Belum ada sisa yang bisa diajukan untuk skema ini — lunasi pinjaman berjalan lebih dulu, atau hubungi tim PINDAI bila batasnya perlu ditinjau.`
+    : !batasTerbaca
+      ? "Ini hanya perkiraan, bukan persetujuan pinjaman. Batas pinjaman Anda sedang dibaca; penggeser terbuka setelah angkanya tersimpan."
+      : bulanan
+        ? `Ini hanya perkiraan, bukan persetujuan pinjaman. ${ungkapBatas} Catatan pinjaman yang ditandai lunas tepat waktu di aplikasi dapat menaikkan batas hingga ${formatRupiah(PLAFON_NAIK_SETELAH_LUNAS)}.`
+        : `Ini hanya perkiraan, bukan persetujuan pinjaman. Jumlah pinjaman harian ${formatRupiah(MIN)} sampai ${formatRupiah(MAX)}, paling lama ${LOAN_LIMITS.maxTenorHari} hari. ${ungkapBatas} Catatan pinjaman yang ditandai lunas tepat waktu di aplikasi dapat menaikkan batas hingga ${formatRupiah(PLAFON_NAIK_SETELAH_LUNAS)}.`;
+
+  // Query batas dapat datang terlambat atau berubah akibat override admin.
   // Batasi jumlah pinjaman agar penggeser dan perkiraan mengikuti batas terbaru.
   useEffect(() => {
-    const batasAtas = Math.min(BATAS_SKEMA, plafonSaya);
     let batal = false;
     queueMicrotask(() => {
       if (!batal) {
-        setPokok((sebelumnya) => Math.min(Math.max(sebelumnya, MIN), batasAtas));
+        setPokok((sebelumnya) => Math.min(Math.max(sebelumnya, MIN), MAX));
       }
     });
     return () => {
       batal = true;
     };
-  }, [plafonSaya, BATAS_SKEMA, MIN]);
+  }, [MAX, MIN]);
 
   // Saat pilihan atau batas berubah, sesuaikan jumlah agar tetap dalam rentang yang diizinkan.
   const gantiSkema = (next: "harian" | "bulanan") => {
     setSkema(next);
     setError(null);
     setPokok((p) => {
-      const batasAtas =
-        next === "bulanan"
-          ? Math.min(BULANAN_LIMITS.maxPokok, plafonSaya ?? BULANAN_LIMITS.maxPokok)
-          : Math.min(LOAN_LIMITS.maxPokok, plafonSaya ?? LOAN_LIMITS.maxPokok);
-      return Math.min(Math.max(p, LOAN_LIMITS.minPokok), batasAtas);
+      const batasAtas = batasDiajukan(
+        ringkas?.tersedia ?? PLAFON_DEFAULT,
+        next === "bulanan" ? BULANAN_LIMITS.maxPokok : LOAN_LIMITS.maxPokok,
+      );
+      return Math.min(Math.max(p, LOAN_LIMITS.minPokok), Math.max(batasAtas, LOAN_LIMITS.minPokok));
     });
   };
 
@@ -569,9 +597,17 @@ export function LoanForm({
       );
       return;
     }
-    if (plafonSaya !== undefined && pokok > plafonSaya) {
-      // Tampilkan alasan yang sama dengan pemeriksaan batas di server.
-      setError(pesanPlafonTerlampaui(plafonSaya));
+    if (!adaSisa) {
+      setError(keteranganNominal);
+      return;
+    }
+    if (ringkas !== null && !pokokDalamPlafon(pokok, ringkas.tersedia)) {
+      // Kalimat yang sama persis dengan `loans.createLoanApplication`.
+      setError(
+        ringkas.terpakai > 0
+          ? pesanPlafonTersediaTerlampaui(ringkas)
+          : pesanPlafonTerlampaui(ringkas.maksimal),
+      );
       return;
     }
     if (!bulanan && !tenorHari) {
@@ -740,33 +776,36 @@ export function LoanForm({
             </button>
           ))}
         </div>
-        <div className="mt-4 flex flex-wrap items-baseline justify-between gap-2">
-          <span id="nominal-pinjaman-label" className="text-sm font-medium">Jumlah pinjaman</span>
-          <span className="text-lg font-semibold tabular-nums text-primary">{formatRupiah(pokok)}</span>
-        </div>
-        <Slider
-          className="mt-4"
-          value={[pokok]}
-          min={MIN}
-          max={MAX}
-          step={STEP}
-          onValueChange={(v) => setPokok(v[0] ?? MIN)}
-          id="nominal-pinjaman"
-          aria-label="Jumlah pinjaman dalam rupiah"
-          aria-labelledby="nominal-pinjaman-label"
-          aria-valuetext={formatRupiah(pokok)}
-        />
-        <div className="mt-1.5 flex justify-between text-[10px] text-muted-foreground">
-          <span>{formatRupiah(MIN)}</span>
-          <span>{formatRupiah(MAX)}</span>
-        </div>
-        <p className={`mt-2 text-xs leading-5 ${melebihiPlafon ? "text-destructive" : "text-muted-foreground"}`}>
-          {melebihiPlafon && plafonSaya !== undefined
-            ? `Batas pinjaman Anda ${formatRupiah(plafonSaya)}. Kurangi jumlah pinjaman agar tidak melebihi batas.`
-            : bulanan
-              ? `Ini hanya perkiraan, bukan persetujuan pinjaman. Batas pinjaman Anda ${formatRupiah(MAX)}. Catatan pinjaman yang ditandai lunas tepat waktu di aplikasi dapat menaikkan batas hingga Rp10 juta. Catatan ini tersimpan di PINDAI.`
-              : `Ini hanya perkiraan, bukan persetujuan pinjaman. Jumlah pinjaman harian ${formatRupiah(LOAN_LIMITS.minPokok)} sampai ${formatRupiah(MAX)}, paling lama ${LOAN_LIMITS.maxTenorHari} hari. Catatan pinjaman yang ditandai lunas tepat waktu di aplikasi dapat menaikkan batas hingga Rp10 juta. Catatan ini tersimpan di PINDAI.`}
-        </p>
+        {/* Penggeser hanya muncul saat memang ada sisa: batas atas yang dicetak
+            belum pernah lebih tinggi dari yang diterima server, dan keadaan
+            "sisa habis" dijelaskan sebagai kalimat, bukan rentang palsu. */}
+        {adaSisa && (
+          <>
+            <div className="mt-4 flex flex-wrap items-baseline justify-between gap-2">
+              <span id="nominal-pinjaman-label" className="text-sm font-medium">Jumlah pinjaman</span>
+              <span className="text-lg font-semibold tabular-nums text-primary">{formatRupiah(pokok)}</span>
+            </div>
+            <Slider
+              className="mt-4"
+              value={[pokok]}
+              min={MIN}
+              max={MAX}
+              step={STEP}
+              disabled={submitting || !batasTerbaca}
+              onValueChange={(v) => setPokok(v[0] ?? MIN)}
+              id="nominal-pinjaman"
+              aria-label="Jumlah pinjaman dalam rupiah"
+              aria-labelledby="nominal-pinjaman-label"
+              aria-valuetext={formatRupiah(pokok)}
+            />
+            <div className="mt-1.5 flex justify-between text-[10px] text-muted-foreground">
+              <span>{formatRupiah(MIN)}</span>
+              {/* Batas atas baru dicetak setelah server menjawab. */}
+              <span>{batasTerbaca ? formatRupiah(MAX) : "…"}</span>
+            </div>
+          </>
+        )}
+        <p className="mt-2 text-xs leading-5 text-muted-foreground">{keteranganNominal}</p>
 
         {/* Ringkasan peminjam: nilai bersih dan total pembayaran. */}
         {bulanan && sim !== null ? (
@@ -1326,6 +1365,8 @@ export function LoanForm({
         disabled={
           submitting ||
           !kycSiap ||
+          !batasTerbaca ||
+          !adaSisa ||
           cameraDoc !== null ||
           Object.values(dok).some((file) => file.busy)
         }
@@ -1341,7 +1382,7 @@ export function LoanForm({
         )}
       </Button>
       <p className="text-center text-xs leading-5 text-muted-foreground">
-        Batas awal Rp1 juta. Kalau pinjaman minimal Rp1 juta tercatat lunas tepat waktu, batasnya bisa naik sampai Rp10 juta. Batas Anda saat ini {formatRupiah(MAX)}. {bulanan ? "Jumlah cicilan ini perkiraan; pelunasan dicatat penuh saat tenor berakhir." : `Pinjaman harian paling lama ${LOAN_LIMITS.maxTenorHari} hari.`} Semua tersimpan di PINDAI, dan perpindahan dana ditangani di luar aplikasi.
+        Batas awal {formatRupiah(PLAFON_DEFAULT)}. Pinjaman minimal Rp1 juta yang tercatat lunas tepat waktu menaikkan batas sampai {formatRupiah(PLAFON_NAIK_SETELAH_LUNAS)}. {ungkapBatas} {bulanan ? "Jumlah cicilan ini perkiraan; pelunasan dicatat penuh saat tenor berakhir." : `Pinjaman harian paling lama ${LOAN_LIMITS.maxTenorHari} hari.`} Semua tersimpan di PINDAI, dan perpindahan dana ditangani di luar aplikasi.
       </p>
     </form>
   );

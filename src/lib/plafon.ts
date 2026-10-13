@@ -173,6 +173,22 @@ export function ringkasPlafon(
 }
 
 /**
+ * Batas atas pengajuan yang boleh DITAWARKAN ke nasabah.
+ *
+ * Selalu dari plafon TERSEDIA (plafon master − pokok pinjaman berjalan), bukan
+ * plafon maksimal: angka terbesar yang tampil di layar harus sama dengan angka
+ * terbesar yang lolos `pokokDalamPlafon` di `loans.createLoanApplication`.
+ * Batas produk (mis. Rp1 juta untuk skema harian) hanya memotong sisi atasnya.
+ * Hasilnya boleh nol — artinya memang tidak ada sisa yang bisa diajukan, dan
+ * pemanggil wajib menampilkan keadaan itu apa adanya, bukan penggeser kosong.
+ */
+export function batasDiajukan(tersedia: number, batasProduk: number): Rupiah {
+  const sisa = Number.isFinite(tersedia) ? Math.max(0, Math.floor(tersedia)) : 0;
+  const produk = Number.isFinite(batasProduk) ? Math.max(0, Math.floor(batasProduk)) : 0;
+  return Math.min(sisa, produk) as Rupiah;
+}
+
+/**
  * Apakah pokok pinjaman tunai boleh diajukan di bawah plafon ini?
  * Tenor skema tetap divalidasi engine-nya masing-masing — fungsi ini hanya
  * memotong sisi atas (dan tetap menghormati minimum pokok tunai).
@@ -206,5 +222,24 @@ export function pesanPlafonTersediaTerlampaui(ringkas: RingkasanPlafon): string 
     `sedang dipakai pinjaman berjalan — sisa yang dapat diajukan ${formatRupiah(ringkas.tersedia)}` +
     (ringkas.jumlahAktif > 1 ? ` (${ringkas.jumlahAktif} pinjaman aktif). ` : " (1 pinjaman aktif). ") +
     "Lunasi pinjaman berjalan atau ajukan nominal yang lebih kecil."
+  );
+}
+
+/**
+ * Kalimat baku "batas mana yang berlaku" untuk seluruh layar nasabah.
+ *
+ * Maksimal dan terpakai hanya disebut saat ada pinjaman yang benar-benar
+ * menahan plafon; tanpa itu satu angka saja yang perlu dibaca. Angkanya dari
+ * ringkasan SERVER (`ringkasPlafon`) — sumber yang sama dengan validasi
+ * pengajuan — sehingga kartu ringkasan, formulir, dan jalur cepat tidak
+ * mungkin menyebut batas yang berbeda.
+ */
+export function kalimatBatasPlafon(ringkas: RingkasanPlafon): string {
+  if (ringkas.jumlahAktif === 0) {
+    return `Batas pinjaman Anda ${formatRupiah(ringkas.tersedia)}.`;
+  }
+  return (
+    `Batas pinjaman Anda ${formatRupiah(ringkas.maksimal)}, dan ${formatRupiah(ringkas.terpakai)} ` +
+    `sedang dipakai pinjaman berjalan — yang bisa diajukan sekarang ${formatRupiah(ringkas.tersedia)}.`
   );
 }

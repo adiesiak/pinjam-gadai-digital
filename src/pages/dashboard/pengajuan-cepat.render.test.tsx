@@ -72,13 +72,22 @@ ada(cepat, "tandaTangan:", "tanda tangan tetap dikirim (syarat server)");
 ada(cepat, "lokasiAjukan: lokasi", "titik GPS tetap dikirim (syarat server)");
 ada(cepat, "dokKtpId,", "id dokumen KYC dipakai ulang, tidak diunggah lagi");
 
-// Aturan validasi berasal dari modul murni, bukan ditulis ulang di JSX.
-ada(cepat, 'validasiPengajuanCepat(isianCepat, ktp, plafon)', "validasi memakai aturan bersama");
+// Aturan validasi berasal dari modul murni, bukan ditulis ulang di JSX — dan
+// parameternya SISA batas pinjaman dari server, bukan plafon maksimal: batas
+// yang tertulis di layar harus sama dengan yang diterima validasi pengajuan.
+ada(cepat, 'validasiPengajuanCepat(isianCepat, ktp, sisaBatas)', "validasi memakai aturan bersama atas sisa batas");
 ada(cepat, 'from "@/lib/pengajuanCepat"', "komponen memakai modul aturan pengajuan cepat");
+ada(cepat, "api.nasabah.plafonRingkasSaya", "sisa batas dibaca dari ringkasan plafon server");
+tidakAda(cepat, "api.lokasi.plafonSaya", "tidak memakai plafon maksimal sebagai batas pengajuan");
+ada(cepat, "kalimatBatasPlafon", "kalimat batas memakai sumber kata yang sama dengan layar lain");
 
-// Nominal mengikuti batas plafon, bukan angka bebas.
-ada(cepat, "batasNominalCepat(plafon)", "batas nominal mengikuti plafon");
-ada(cepat, "disabled={submitting || kurangKtp.length > 0}", "tombol terkunci saat data KYC kurang");
+// Nominal mengikuti sisa batas, bukan angka bebas.
+ada(cepat, "batasNominalCepat(sisaBatas)", "batas nominal mengikuti sisa batas pinjaman");
+ada(
+  cepat,
+  "disabled={submitting || kurangKtp.length > 0 || !batas.adaSisa}",
+  "tombol terkunci saat data KYC kurang atau sisa batas habis",
+);
 
 // ===== 3. Perkabelan di modul KYC: wizard dilewati saat TERVERIFIKASI =====
 const kyc = baca("./kyc-views.tsx");

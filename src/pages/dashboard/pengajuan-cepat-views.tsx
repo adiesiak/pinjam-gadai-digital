@@ -38,7 +38,7 @@ import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { useKirimSekali } from "@/hooks/use-cegah-tinggalkan";
 import { maskRekening } from "@/lib/kycTahapan";
-import { LOAN_PURPOSE_OPTIONS, quotePinjaman, TENOR_OPTIONS } from "@/lib/loan";
+import { LOAN_LIMITS, LOAN_PURPOSE_OPTIONS, quotePinjaman, TENOR_OPTIONS } from "@/lib/loan";
 import { formatRupiah } from "@/lib/money";
 import {
   batasNominalCepat,
@@ -50,7 +50,7 @@ import {
   type KtpTerverifikasi,
   type IsianPengajuanCepat,
 } from "@/lib/pengajuanCepat";
-import { PLAFON_DEFAULT } from "@/lib/plafon";
+import { kalimatBatasPlafon, type RingkasanPlafon } from "@/lib/plafon";
 
 /** Data KYC terverifikasi dengan id dokumen yang sudah pasti (bukan string bebas). */
 export type DataKycTerverifikasi = Omit<
@@ -108,13 +108,18 @@ export function PengajuanCepatSection({
   onLihatDataKyc?: () => void;
   onCreated?: (nomorReferensi: string) => void;
 }) {
-  const plafonQuery = useQuery(api.lokasi.plafonSaya, {});
-  const plafon = plafonQuery ?? PLAFON_DEFAULT;
+  // SISA batas pinjaman dari server (`nasabah.plafonRingkasSaya`): plafon master
+  // dipotong pokok pinjaman berjalan. Angka yang sama dengan validasi pengajuan,
+  // jadi nominal yang ditawarkan di sini tidak mungkin ditolak karena batas — dan
+  // tanpa sisa, layar mengatakannya, bukan menawarkan angka yang pasti gagal.
+  const plafonQuery = useQuery(api.nasabah.plafonRingkasSaya, {});
+  const ringkas: RingkasanPlafon | null = plafonQuery ?? null;
+  const sisaBatas = ringkas?.tersedia; // undefined selama belum termuat
   const bungaQuery = useQuery(api.lokasi.bungaSaya, {});
   const createLoan = useMutation(api.loans.createLoanApplication);
 
-  const batas = batasNominalCepat(plafon);
-  const [pokok, setPokok] = useState(() => nominalAwalCepat(plafon));
+  const batas = batasNominalCepat(sisaBatas);
+  const [pokok, setPokok] = useState(() => nominalAwalCepat(sisaBatas));
   const [tenorHari, setTenorHari] = useState<string>(String(TENOR_CEPAT[TENOR_CEPAT.length - 1]));
   const [tujuan, setTujuan] = useState<string>("");
   const [rekeningBenar, setRekeningBenar] = useState(false);
@@ -125,7 +130,7 @@ export function PengajuanCepatSection({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Plafon bisa berubah (override admin / pinjaman lain disalurkan). Nominal
+  // Sisa batas bisa berubah (override admin / pinjaman lain disalurkan). Nominal
   // dijaga tetap di dalam rentang yang berlaku — bukan dibiarkan menunjuk angka
   // yang akan ditolak server. Dijadwalkan sebagai microtask karena setState
   // langsung di dalam badan efek dilarang aturan react-hooks.
@@ -133,12 +138,16 @@ export function PengajuanCepatSection({
     let batal = false;
     queueMicrotask(() => {
       if (batal) return;
-      setPokok((sebelumnya) => Math.min(Math.max(sebelumnya, batas.min), batas.maks));
+      setPokok((sebelumnya) =>
+        batas.adaSisa
+          ? Math.min(Math.max(sebelumnya, batas.min), batas.maks)
+          : batas.min,
+      );
     });
     return () => {
       batal = true;
     };
-  }, [batas.min, batas.maks]);
+  }, [batas.adaSisa, batas.min, batas.maks]);
 
   // ===== Tanda tangan (canvas) =====
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -226,7 +235,7 @@ export function PengajuanCepatSection({
 
   const kirim = async () => {
     setError(null);
-    const pesan = validasiPengajuanCepat(isianCepat, ktp, plafon);
+    const pesan = validasiPengajuanCepat(isianCepat, ktp, sisaBatas);
     if (pesan !== null) {
       setError(pesan);
       return;
@@ -350,7 +359,7 @@ export function PengajuanCepatSection({
                     const angka = Number(e.target.value.replace(/\D/g, ""));
                     setPokok(Number.isFinite(angka) ? Math.min(angka, batas.maks) : batas.min);
                   }}
-                  disabled={submitting}
+                  disabled={submitting || !batas.adaSisa}
                   aria-describedby="cepat-pokok-batas"
                 />
               </div>
@@ -363,16 +372,39 @@ export function PengajuanCepatSection({
                     variant="outline"
                     size="sm"
                     className="h-9 rounded-xl tabular-nums"
-                    disabled={submitting}
+                    disabled={submitting || !batas.adaSisa}
                     onClick={() => setPokok(n)}
                   >
                     {formatRupiah(n)}
                   </Button>
                 ))}
             </div>
+            {/* Rentang nominal memakai SISA batas dari server; saat sisa habis
+                penjelasannya yang tampil, bukan rentang yang tak bisa dipakai. */}
             <p id="cepat-pokok-batas" className="mt-1 text-[11px] leading-4 text-muted-foreground">
-              Antara {formatRupiah(batas.min)} dan {formatRupiah(batas.maks)} (plafon Anda{" "}
-              {formatRupiah(plafon)}).
+              {!batas.adaSisa ? (
+                <>
+                  Belum ada sisa batas pinjaman yang bisa diajukan.{" "}
+                  {ringkas === null ? "" : `${kalimatBatasPlafon(ringkas)} `}
+                  Lunasi pinjaman berjalan lebih dulu, atau hubungi tim PINDAI bila batasnya perlu
+                  ditinjau.
+                </>
+              ) : ringkas === null ? (
+                <>
+                  Antara {formatRupiah(batas.min)} dan {formatRupiah(batas.maks)}. Sisa batas pinjaman
+                  Anda sedang dibaca dari server.
+                </>
+              ) : batas.maks < LOAN_LIMITS.maxPokok ? (
+                <>
+                  Antara {formatRupiah(batas.min)} dan {formatRupiah(batas.maks)}.{" "}
+                  {kalimatBatasPlafon(ringkas)}
+                </>
+              ) : (
+                <>
+                  Antara {formatRupiah(batas.min)} dan {formatRupiah(batas.maks)} (batas pengajuan
+                  cepat).
+                </>
+              )}
             </p>
           </div>
 
@@ -570,7 +602,7 @@ export function PengajuanCepatSection({
           <Button
             type="button"
             className="min-w-52 cursor-pointer gap-1.5 rounded-xl border-0 bg-emerald-800 text-white hover:bg-emerald-900 disabled:cursor-not-allowed"
-            disabled={submitting || kurangKtp.length > 0}
+            disabled={submitting || kurangKtp.length > 0 || !batas.adaSisa}
             onClick={() => void kirim()}
           >
             {submitting ? (

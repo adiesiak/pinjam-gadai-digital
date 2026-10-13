@@ -3,8 +3,8 @@
  * Run: bun src/lib/pengajuanCepat.test.ts
  *
  * Yang dijaga: setelah identitas TERVERIFIKASI, satu halaman pengajuan hanya
- * boleh menawarkan angka yang memang diterima server (batas produk ∧ plafon
- * nasabah), dan data identitas yang sudah tersimpan tidak boleh diminta ulang —
+ * boleh menawarkan angka yang memang diterima server (batas produk ∧ SISA batas
+ * pinjaman nasabah), dan data identitas yang sudah tersimpan tidak boleh diminta ulang —
  * tetapi juga tidak boleh diam-diam dianggap lengkap bila ada bagian yang kosong.
  */
 import {
@@ -66,22 +66,29 @@ const SIAP: IsianPengajuanCepat = {
 };
 
 // ===== 1. Batas nominal =====
+// Batas atas selalu = SISA batas nasabah, dipotong batas produk.
 eq(batasNominalCepat(null).min, LOAN_LIMITS.minPokok, "batas bawah = batas produk");
-eq(batasNominalCepat(null).maks, LOAN_LIMITS.maxPokok, "tanpa plafon, batas atas = batas produk");
-eq(batasNominalCepat(3_000_000).maks, LOAN_LIMITS.maxPokok, "plafon besar tetap dipotong batas produk");
-eq(batasNominalCepat(600_000).maks, 600_000, "plafon kecil menjadi batas atas");
-eq(batasNominalCepat(0).maks, LOAN_LIMITS.maxPokok, "plafon nol tidak menghasilkan rentang kosong");
-eq(batasNominalCepat(Number.NaN).maks, LOAN_LIMITS.maxPokok, "plafon tidak wajar diabaikan");
-eq(batasNominalCepat(50_000).maks, LOAN_LIMITS.minPokok, "plafon di bawah minimum dinaikkan ke minimum");
+eq(batasNominalCepat(null).maks, LOAN_LIMITS.maxPokok, "sisa belum termuat, batas atas = batas produk");
+eq(batasNominalCepat(3_000_000).maks, LOAN_LIMITS.maxPokok, "sisa besar tetap dipotong batas produk");
+eq(batasNominalCepat(600_000).maks, 600_000, "sisa kecil menjadi batas atas");
+eq(batasNominalCepat(Number.NaN).maks, LOAN_LIMITS.maxPokok, "sisa tidak wajar diabaikan");
+
+// Sisa habis BUKAN rentang palsu: ditandai supaya layar menampilkan alasannya.
+eq(batasNominalCepat(0).maks, 0, "sisa nol tidak menawarkan nominal");
+ok(!batasNominalCepat(0).adaSisa, "sisa nol ditandai habis");
+ok(!batasNominalCepat(50_000).adaSisa, "sisa di bawah minimum produk ditandai habis");
+ok(!batasNominalCepat(-500_000).adaSisa, "sisa negatif ditandai habis");
+ok(batasNominalCepat(null).adaSisa, "sisa belum termuat tetap boleh diisi (batas awal)");
 
 // Nominal awal selalu di dalam rentang dan berkelipatan 50 ribu.
-for (const plafon of [null, 100_000, 400_000, 1_000_000, 5_000_000]) {
-  const { min, maks } = batasNominalCepat(plafon);
-  const awal = nominalAwalCepat(plafon);
-  ok(awal >= min && awal <= maks, `nominal awal ${awal} berada di rentang plafon ${String(plafon)}`);
-  eq(awal % 50_000, 0, `nominal awal kelipatan 50 ribu (plafon ${String(plafon)})`);
+for (const sisa of [null, 100_000, 400_000, 1_000_000, 5_000_000]) {
+  const { min, maks } = batasNominalCepat(sisa);
+  const awal = nominalAwalCepat(sisa);
+  ok(awal >= min && awal <= maks, `nominal awal ${awal} berada di rentang sisa ${String(sisa)}`);
+  eq(awal % 50_000, 0, `nominal awal kelipatan 50 ribu (sisa ${String(sisa)})`);
 }
-eq(nominalAwalCepat(1_000_000), 500_000, "plafon 1 juta menawarkan 500 ribu");
+eq(nominalAwalCepat(1_000_000), 500_000, "sisa 1 juta menawarkan 500 ribu");
+eq(nominalAwalCepat(0), 0, "sisa habis tidak menawarkan nominal awal");
 
 // Tenor pada pengajuan cepat = tenor produk.
 eq(TENOR_CEPAT, TENOR_OPTIONS, "pilihan tenor memakai daftar tenor produk");
@@ -120,10 +127,18 @@ const tolak = (ubah: Partial<IsianPengajuanCepat>, ktp: KtpTerverifikasi = KTP, 
 
 ada(tolak({ pokokPinjaman: 50_000 }), "minimal", "nominal di bawah minimum ditolak");
 ada(tolak({ pokokPinjaman: 2_000_000 }), "maksimal", "nominal di atas batas ditolak");
-ada(tolak({ pokokPinjaman: 700_000 }, KTP, 600_000), "Plafon Anda", "plafon nasabah disebut saat jadi batas");
+ada(tolak({ pokokPinjaman: 700_000 }, KTP, 600_000), "Sisa batas pinjaman Anda", "sisa batas nasabah disebut saat jadi batas");
+ada(tolak({ pokokPinjaman: 700_000 }, KTP, 600_000), "600.000", "angka sisa batas yang sama ikut disebut");
 ok(
-  !tolak({ pokokPinjaman: 2_000_000 }, KTP, 5_000_000).includes("Plafon Anda"),
-  "saat batas produk yang berlaku, plafon tidak perlu disebut",
+  !tolak({ pokokPinjaman: 2_000_000 }, KTP, 5_000_000).includes("Sisa batas pinjaman Anda"),
+  "saat batas produk yang berlaku, sisa batas tidak perlu disebut",
+);
+// Sisa habis: disarankan melunasi, bukan disuruh mengurangi nominal.
+ada(tolak({ pokokPinjaman: 500_000 }, KTP, 0), "Sisa batas pinjaman Anda belum cukup", "sisa habis dijelaskan alasannya");
+ada(tolak({ pokokPinjaman: 500_000 }, KTP, 0), "Lunasi pinjaman berjalan", "sisa habis menunjuk jalan keluarnya");
+ok(
+  !tolak({ pokokPinjaman: 500_000 }, KTP, 0).includes("maksimal"),
+  "sisa habis tidak menawarkan nominal maksimal palsu",
 );
 ada(tolak({ pokokPinjaman: 500_000.5 }), "minimal", "nominal pecahan ditolak");
 ada(tolak({ tenorHari: 45 }), "Pilih lama pinjaman", "tenor di luar daftar ditolak");

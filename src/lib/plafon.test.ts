@@ -1,7 +1,9 @@
 /** Uji kebijakan plafon tunai dan kredit barang (tanpa server). */
 import { LOAN_LIMITS } from "./loan";
 import {
+  batasDiajukan,
   clampPlafon,
+  kalimatBatasPlafon,
   pesanPlafonTerlampaui,
   pesanPlafonTersediaTerlampaui,
   apakahPelunasanTepatWaktu,
@@ -125,6 +127,38 @@ const pesanTersedia = pesanPlafonTersediaTerlampaui(rAktif);
 ok("pesan tersedia menyebut plafon maksimal", pesanTersedia.includes("1.000.000"));
 ok("pesan tersedia menyebut nominal terpakai", pesanTersedia.includes("500.000"));
 ok("pesan tersedia menyebut sisa tersedia", pesanTersedia.includes("500.000"));
+
+// ===== Batas yang boleh DITAWARKAN: sisa tersedia dipotong batas produk =====
+// Angka ini yang dipakai penggeser formulir: tidak pernah di atas sisa, dan
+// tidak pernah di atas batas produk (mis. Rp1 juta harian).
+eq("batas diajukan = tersedia bila di bawah batas produk", batasDiajukan(1_000_000, 10_000_000), 1_000_000);
+eq("batas diajukan dipotong batas produk", batasDiajukan(5_000_000, 1_000_000), 1_000_000);
+eq("batas diajukan nol saat sisa habis", batasDiajukan(0, 1_000_000), 0);
+eq("batas diajukan mengabaikan angka negatif", batasDiajukan(-500_000, 1_000_000), 0);
+eq("batas diajukan tidak pernah melebihi sisa", batasDiajukan(400_000, 10_000_000), 400_000);
+
+// ===== Kalimat batas: satu angka tanpa utang, tiga angka saat sisa berkurang =====
+eq(
+  "tanpa utang hanya menyebut satu angka",
+  kalimatBatasPlafon(rKosong),
+  "Batas pinjaman Anda Rp 1.000.000.",
+);
+ok(
+  "dengan utang menyebut plafon maksimal",
+  kalimatBatasPlafon(rAktif).includes("Batas pinjaman Anda Rp 1.000.000"),
+);
+ok(
+  "dengan utang menyebut nominal terpakai",
+  kalimatBatasPlafon(rAktif).includes("Rp 500.000 sedang dipakai pinjaman berjalan"),
+);
+ok(
+  "dengan utang menyebut sisa yang bisa diajukan",
+  kalimatBatasPlafon(rAktif).includes("yang bisa diajukan sekarang Rp 500.000"),
+);
+ok(
+  "sisa habis disebut apa adanya sebagai Rp 0",
+  kalimatBatasPlafon(rLebih).includes("yang bisa diajukan sekarang Rp 0"),
+);
 
 // Kebijakan penerbitan kredit barang tak lagi diwarisi dari plafon tunai.
 eq("batas pokok kredit barang tetap Rp10 juta", KREDIT_BARANG_POKOK_MAKS, 10_000_000);
