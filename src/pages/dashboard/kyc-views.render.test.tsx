@@ -801,12 +801,12 @@ ok(
   bersih(html, "menu tahap sidebar dengan kontak darurat");
 }
 
-// ===== 15. Pemasangan: tepat di bawah kotak Menu khusus, dan terbagi state =====
+// ===== 15. Pemasangan: tepat di bawah menu peran/admin, dan terbagi state =====
 {
   const sidebar = bacaSumber("pages/dashboard/dashboard-sidebar.tsx");
   ok(
-    sidebar.indexOf("Menu khusus") < sidebar.indexOf("kycMenu !== null"),
-    "menu tahap KYC dirender tepat di bawah kotak Menu khusus",
+    sidebar.indexOf("<MenuAdminNav />") < sidebar.indexOf("kycMenu !== null"),
+    "menu tahap KYC dirender tepat di bawah menu peran/admin",
   );
   ok(sidebar.includes("kycMenu"), "sidebar menerima menu tahap dari pemanggilnya");
 

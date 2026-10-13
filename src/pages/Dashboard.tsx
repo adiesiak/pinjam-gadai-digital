@@ -150,6 +150,11 @@ export default function Dashboard() {
   // bisa ditautkan. Tanpa itu, nasabah dari web lama bisa mendarat di layar
   // kosong meski berkasnya sudah ada di akun pemilik data.
   const klaim = useQuery(api.klaimPeminjam.ringkasanKlaimSaya, argsPeminjam);
+  // Pemeriksaan SERVER untuk grup menu admin di sidebar. `user.role` saja tidak
+  // cukup: query yang sama (`security.totpGateStatus`) yang memutuskan akses di
+  // `Admin.tsx`, jadi menunya muncul hanya bila server memang mengenali akun ini
+  // sebagai admin — bukan sekadar disembunyikan di UI.
+  const gateAdmin = useQuery(api.security.totpGateStatus, argsPeminjam);
 
   const [loanDetailId, setLoanDetailId] = useState<Id<"loans"> | null>(null);
   const [pawnDetailId, setPawnDetailId] = useState<Id<"pawns"> | null>(null);
@@ -334,6 +339,7 @@ export default function Dashboard() {
               onTabChange={gantiTab}
               onBuatPengajuan={bukaPengajuan}
               onSignOut={handleSignOut}
+              adminTerverifikasi={gateAdmin?.isAdmin === true}
               kycMenu={
                 dataMenuKyc === null ? null : (
                   <KycMenuSidebar

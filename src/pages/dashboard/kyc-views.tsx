@@ -564,8 +564,8 @@ export function KycMenuSidebar({
 }) {
   return (
     <section aria-label="Tahap verifikasi KYC" className="hidden lg:block">
-      {/* Gaya label disamakan dengan "Menu khusus" supaya kolom ini terbaca
-          sebagai satu sistem menu. */}
+      {/* Gaya label disamakan dengan judul grup menu di sidebar ("Admin",
+          "Menu layanan") supaya kolom ini terbaca sebagai satu sistem menu. */}
       <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-600">
         Tahap verifikasi
       </p>
