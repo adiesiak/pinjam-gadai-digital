@@ -32,6 +32,7 @@ import {
   type FilterKyc,
 } from "../lib/kycAdmin";
 import { bandingkanOcrDenganIsian } from "../lib/kycOcr";
+import { galatKontakDarurat } from "../lib/kycTahapan";
 import { VERSI_PERSETUJUAN_KYC, persetujuanAktif } from "../lib/persetujuanKyc";
 import {
   bolehTerapkanOtomatis,
@@ -1165,6 +1166,24 @@ export const simpanProgresKyc = mutation({
       throw new Error("Isian KYC ditolak: Sumber penghasilan minimal 3 karakter.");
     }
 
+    // 3) Kontak darurat: tahap opsional, tetapi nilai yang DIISI harus masuk
+    // akal — memakai aturan yang sama dengan modul KYC (`galatKontakDarurat`).
+    // Hanya kolom yang DIKIRIM sekarang yang diperiksa: baris lama yang tidak
+    // punya kolom ini (atau menyimpan nilai keliru) tetap bisa disunting tanpa
+    // harus membereskannya lebih dulu, persis seperti isian data diri di atas.
+    const galatDarurat = galatKontakDarurat(isian);
+    const dikirimDarurat: Array<[keyof typeof galatDarurat, string | undefined]> = [
+      ["namaKontakDarurat", args.namaKontakDarurat],
+      ["nomorKontakDarurat", args.nomorKontakDarurat],
+      ["hubunganKontakDarurat", args.hubunganKontakDarurat],
+    ];
+    for (const [kunci, nilai] of dikirimDarurat) {
+      const pesan = galatDarurat[kunci];
+      if (pesan !== undefined && (nilai ?? "").trim() !== "") {
+        throw new Error(`Isian KYC ditolak: ${pesan}`);
+      }
+    }
+
     // Snapshot OCR mengikuti FOTO KTP. Yang dikirim sekarang dipakai; bila tidak
     // dikirim, yang lama dipertahankan KECUALI berkas KTP berubah (teks lama
     // mewakili gambar lain). `null` eksplisit berarti membuangnya.
@@ -1311,6 +1330,23 @@ export const ajukanKyc = mutation({
 
     if ((row.sumberPenghasilan ?? "").trim().length < 3) {
       throw new Error("Sumber penghasilan wajib diisi (minimal 3 karakter).");
+    }
+
+    // Kontak darurat opsional, jadi ia TIDAK menghalangi pengajuan saat kosong.
+    // Tetapi bila terisi, pengajuan adalah gerbang terakhirnya: nilai yang tidak
+    // masuk akal harus dibereskan di sini, bukan dibiarkan ikut terkirim ke
+    // petugas. Aturannya sama dengan modul KYC, bukan tafsiran kedua.
+    const galatDarurat = galatKontakDarurat({
+      namaKontakDarurat: row.namaKontakDarurat,
+      nomorKontakDarurat: row.nomorKontakDarurat,
+      hubunganKontakDarurat: row.hubunganKontakDarurat,
+    });
+    const pesanDarurat =
+      galatDarurat.namaKontakDarurat ??
+      galatDarurat.nomorKontakDarurat ??
+      galatDarurat.hubunganKontakDarurat;
+    if (pesanDarurat !== undefined) {
+      throw new Error(`Kontak darurat perlu diperbaiki: ${pesanDarurat}`);
     }
     for (const [id, nama] of [
       [row.ktpId ?? null, "Foto KTP"],

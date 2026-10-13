@@ -23,8 +23,9 @@ const ROLE_LINKS: Record<string, { label: string; icon: React.ReactNode; href: s
 
 /**
  * Sisi kiri dashboard nasabah: kartu profil (sapaan, avatar, status KTP,
- * tautan peran, keluar), navigasi tab vertikal yang dikelompokkan, lalu menu
- * tahap KYC selama verifikasinya belum selesai.
+ * tautan peran, keluar), menu layanan lima pintu (lihat
+ * `dashboard-tab-nav.tsx`), lalu menu tahap KYC selama verifikasinya belum
+ * selesai.
  * Admin & Penyedia Dana tidak melihat menu utama Peminjam.
  */
 export function DashboardSidebar({

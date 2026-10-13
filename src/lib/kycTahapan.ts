@@ -424,22 +424,45 @@ export function galatKyc(isian: IsianKycLengkap): GalatKyc {
     galat.sumberPenghasilan = "Sumber penghasilan wajib diisi, mis. gaji atau usaha.";
   }
 
-  // Kontak darurat opsional: kosong selalu boleh, tapi nilai yang TERISI harus
-  // masuk akal. Nomor yang salah ketik lebih buruk daripada kosong — saat
-  // dibutuhkan, yang dihubungi justru tidak pernah tersambung.
-  // `?? ""` bukan hiasan: baris KYC lama (dan draft yang tersimpan sebelum
-  // tahap ini ada) tidak punya kolom ini sama sekali, sementara fungsi ini juga
-  // dipanggil atas data tersimpan, bukan hanya atas form yang sedang diisi.
-  const namaDarurat = (isian.namaKontakDarurat ?? "").trim();
-  if (namaDarurat !== "" && namaDarurat.length < 3) {
+  // Aturan kontak darurat hidup di `galatKontakDarurat` supaya server memakai
+  // aturan yang SAMA saat menyimpan & mengajukan (lihat `convex/kyc.ts`).
+  return { ...galat, ...galatKontakDarurat(isian) };
+}
+
+/** Galat tiap kolom kontak darurat; kolom yang tidak bermasalah tidak muncul. */
+export type GalatKontakDarurat = {
+  namaKontakDarurat?: string;
+  nomorKontakDarurat?: string;
+  hubunganKontakDarurat?: string;
+};
+
+/**
+ * Aturan tahap KONTAK DARURAT, satu tempat untuk aplikasi dan server.
+ *
+ * Tahap ini opsional: kosong selalu boleh. Yang tidak boleh adalah nilai yang
+ * DIISI tetapi tidak masuk akal — nomor yang salah ketik lebih buruk daripada
+ * kosong, karena saat dibutuhkan orang yang dihubungi tidak pernah tersambung.
+ *
+ * `?? ""` bukan hiasan: baris KYC lama (dan draft yang tersimpan sebelum tahap
+ * ini ada) tidak punya kolom ini sama sekali, sementara fungsi ini juga dipanggil
+ * atas data tersimpan, bukan hanya atas form yang sedang diisi.
+ */
+export function galatKontakDarurat(isian: {
+  namaKontakDarurat?: string;
+  nomorKontakDarurat?: string;
+  hubunganKontakDarurat?: string;
+}): GalatKontakDarurat {
+  const galat: GalatKontakDarurat = {};
+  const nama = (isian.namaKontakDarurat ?? "").trim();
+  if (nama !== "" && nama.length < 3) {
     galat.namaKontakDarurat = "Nama kontak darurat minimal 3 karakter bila diisi.";
   }
-  const nomorDarurat = (isian.nomorKontakDarurat ?? "").replace(/[\s+-]/g, "");
-  if (nomorDarurat !== "" && !/^62\d{8,13}$/.test(nomorDarurat)) {
+  const nomor = (isian.nomorKontakDarurat ?? "").replace(/[\s+-]/g, "");
+  if (nomor !== "" && !/^62\d{8,13}$/.test(nomor)) {
     galat.nomorKontakDarurat = "Nomor kontak darurat harus format 62… dan hanya angka.";
   }
-  const hubunganDarurat = (isian.hubunganKontakDarurat ?? "").trim();
-  if (hubunganDarurat !== "" && hubunganDarurat.length < 3) {
+  const hubungan = (isian.hubunganKontakDarurat ?? "").trim();
+  if (hubungan !== "" && hubungan.length < 3) {
     galat.hubunganKontakDarurat = "Hubungan minimal 3 karakter bila diisi, mis. keluarga.";
   }
   return galat;
@@ -455,12 +478,10 @@ export type GalatTahapKyc = {
  * modul KYC (server memaksanya minimal 3 karakter saat mengajukan), + kontak
  * darurat yang aturannya hanya berlaku BILA kolomnya diisi.
  */
-export type GalatKyc = GalatDataDiri & {
-  sumberPenghasilan?: string;
-  namaKontakDarurat?: string;
-  nomorKontakDarurat?: string;
-  hubunganKontakDarurat?: string;
-};
+export type GalatKyc = GalatDataDiri &
+  GalatKontakDarurat & {
+    sumberPenghasilan?: string;
+  };
 
 /** Label tiap slot berkas — satu tempat, dipakai UI dan pesan galat. */
 export const LABEL_SLOT_BERKAS: Record<SlotBerkasKyc, string> = {

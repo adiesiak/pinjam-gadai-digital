@@ -11,12 +11,17 @@
  *    (tab pinjaman → "Buat pengajuan pinjaman").
  * 4. Tab "Kredit Barang" yang dihapus tidak lagi muncul di daftar navigasi,
  *    sementara jenis pengajuan kreditnya tetap ada di dropdown form.
+ * 5. Menu layanan tersusun LIMA PINTU dan tidak ada tujuan yang hilang: setiap
+ *    `<TabsContent value="…">` di `Dashboard.tsx` wajib punya barisnya di menu,
+ *    sehingga tab baru tidak bisa ditambahkan tanpa pintunya.
  *
  * Formulir pinjaman/gadai/kredit sengaja tidak dirender: ketiganya membaca Convex
  * (`useQuery`/`useMutation`), jadi di luar aplikasi mereka tidak punya klien.
  * Perubahan label pada dropdown tenor pinjaman diverifikasi lewat `tsc`/`eslint`
  * dan pembacaan kode, bukan di sini.
  */
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { renderToStaticMarkup } from "react-dom/server";
 
 import { Tabs } from "@/components/ui/tabs";
@@ -35,6 +40,11 @@ function ok(label: string, syarat: boolean) {
     failed += 1;
     console.error(`✗ ${label}`);
   }
+}
+
+/** Isi berkas sumber relatif terhadap `src/` (mis. "pages/Dashboard.tsx"). */
+function bacaSumber(relatif: string): string {
+  return readFileSync(fileURLToPath(new URL(`../../${relatif}`, import.meta.url)), "utf8");
 }
 
 /** Isi `<button aria-label="…">…</button>` — "wajah" sebuah dropdown. */
@@ -166,6 +176,61 @@ ok(
 ok(
   "kelas latar transparan yang mati tidak dipakai lagi",
   !htmlMenuDashboard.includes("data-[state=active]:bg-transparent"),
+);
+
+// --- Lima pintu bergrup: tiap tujuan lama tetap punya barisnya ----------------
+//
+// Kriteria yang dijaga BUKAN "jumlah baris menu tetap sama", melainkan tiap
+// halaman dashboard masih bisa dijangkau. Menyusun ulang menu jadi lima pintu
+// mudah menghilangkan satu tujuan tanpa ada yang menyadarinya, jadi tiap tab
+// dari `Dashboard.tsx` dicocokkan ke baris menu di sini.
+const PINTU = [
+  "Catatan Pinjaman",
+  "Form Pengajuan",
+  "Catatan Gadai",
+  "Dokumen Perjanjian",
+  "Data Diri & KYC",
+];
+// `renderToStaticMarkup` menulis "&" sebagai "&amp;", jadi teksnya dibaca dari
+// salinan yang sudah dikembalikan ke bentuk aslinya — kalau tidak, label pintu
+// yang memuat "&" selalu tampak hilang.
+const teksMenuDashboard = htmlMenuDashboard.replace(/&amp;/g, "&");
+for (const label of PINTU) {
+  ok(`pintu "${label}" tampil di menu layanan`, teksMenuDashboard.includes(label));
+}
+
+// Bagian yang menggantung di bawah pintu: tetap ada, dengan huruf lebih kecil
+// dan menjorok (`pl-9`) supaya terbaca sebagai bagian dari pintunya.
+const BAGIAN = ["Jadwal Angsuran", "Riwayat Ledger", "Verifikasi KYC", "Bantuan"];
+for (const label of BAGIAN) {
+  ok(`bagian "${label}" tetap punya barisnya`, teksMenuDashboard.includes(label));
+}
+ok(
+  "bagian pintu dibuat menjorok, bukan sejajar pintunya",
+  (htmlMenuDashboard.match(/class="[^"]*pl-9[^"]*"/g) ?? []).length === BAGIAN.length,
+);
+
+// Setiap halaman dashboard wajib punya barisnya di menu.
+const sumberDashboard = bacaSumber("pages/Dashboard.tsx");
+const nilaiTabDashboard = [...sumberDashboard.matchAll(/<TabsContent value="([a-z]+)"/g)].map(
+  (cocok) => cocok[1],
+);
+ok("tab dashboard terbaca dari sumbernya", nilaiTabDashboard.length === 9);
+const sumberMenu = bacaSumber("pages/dashboard/dashboard-tab-nav.tsx");
+for (const nilai of nilaiTabDashboard) {
+  ok(`tujuan tab "${nilai}" masih ada di menu layanan`, sumberMenu.includes(`value: "${nilai}"`));
+}
+
+// Kartu menu layar sempit menyebut PINTU dari bagian yang sedang dibuka, dan
+// saat pintunya sendiri yang terbuka ia memakai label kartu yang umum (tidak
+// mengulang nama pintu tepat di atas nama barisnya).
+ok(
+  "kartu menu sempit menyebut pintu saat bagiannya yang terbuka",
+  renderMenuDashboard("jadwal").includes("Catatan Pinjaman"),
+);
+ok(
+  "kartu menu sempit memakai label umum saat pintunya sendiri yang terbuka",
+  renderMenuDashboard("pinjaman").includes("Menu layanan"),
 );
 
 // --- CTA "Buat pengajuan baru" di tab lain ----------------------------------

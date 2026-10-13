@@ -222,6 +222,72 @@ describe("alur KYC mandiri", () => {
     expect(await t.run((ctx) => ctx.db.query("loans").collect())).toHaveLength(0);
   });
 
+  it("Kontak darurat: opsional, tetapi nilai yang diisi diperiksa server juga", async () => {
+    const { t, nasabah } = await siapkanDua();
+    await setujui(nasabah.sesi);
+
+    // Nilai yang tidak masuk akal ditolak SERVER, bukan hanya dikunci di layar:
+    // nomor kontak darurat yang salah ketik justru tidak berguna saat dibutuhkan.
+    await expect(
+      nasabah.sesi.mutation(api.kyc.simpanProgresKyc, { nomorKontakDarurat: "0812345678" }),
+    ).rejects.toThrow(/Nomor kontak darurat harus format 62/);
+    await expect(
+      nasabah.sesi.mutation(api.kyc.simpanProgresKyc, { namaKontakDarurat: "Al" }),
+    ).rejects.toThrow(/Nama kontak darurat minimal 3 karakter/);
+    await expect(
+      nasabah.sesi.mutation(api.kyc.simpanProgresKyc, { hubunganKontakDarurat: "x" }),
+    ).rejects.toThrow(/Hubungan minimal 3 karakter/);
+
+    // Nilai yang sah tersimpan dan kembali lewat query yang sama dengan UI.
+    await nasabah.sesi.mutation(api.kyc.simpanProgresKyc, {
+      namaKontakDarurat: "Siti Rahayu",
+      nomorKontakDarurat: "6281299887766",
+      hubunganKontakDarurat: "Kakak",
+    });
+    const tersimpan = await nasabah.sesi.query(api.kyc.kycSaya, {});
+    expect(tersimpan.isian.namaKontakDarurat).toBe("Siti Rahayu");
+    expect(tersimpan.isian.nomorKontakDarurat).toBe("6281299887766");
+    expect(tersimpan.isian.hubunganKontakDarurat).toBe("Kakak");
+
+    // Menyimpan sebagian tidak menghapus kolom lain (yang tidak dikirim tetap).
+    await nasabah.sesi.mutation(api.kyc.simpanProgresKyc, { hubunganKontakDarurat: "Adik" });
+    const sesudah = await nasabah.sesi.query(api.kyc.kycSaya, {});
+    expect(sesudah.isian.namaKontakDarurat).toBe("Siti Rahayu");
+    expect(sesudah.isian.nomorKontakDarurat).toBe("6281299887766");
+    expect(sesudah.isian.hubunganKontakDarurat).toBe("Adik");
+
+    // OPSIONAL: kolom ini tidak pernah muncul sebagai kekurangan pengajuan.
+    expect(sesudah.kekurangan.join(" ")).not.toMatch(/darurat/i);
+
+    // Kontak darurat yang sah tidak menahan pengajuan yang lengkap.
+    await kirimLengkap(t, nasabah.sesi);
+    expect((await nasabah.sesi.query(api.kyc.kycSaya, {})).status).toBe("PENDING_REVIEW");
+
+    // Baris yang MENYIMPAN nomor keliru (mis. diisi sebelum aturan ini ada)
+    // tetap bisa disunting — hanya kolom yang dikirim yang diperiksa — tetapi
+    // tidak boleh diajukan sebelum dibereskan: pengajuan adalah gerbang akhirnya.
+    await t.run(async (ctx) => {
+      const row = await ctx.db
+        .query("kycProfil")
+        .withIndex("by_user", (q) => q.eq("userId", nasabah.userId))
+        .first();
+      if (row === null) throw new Error("baris KYC uji tidak ada");
+      await ctx.db.patch(row._id, { nomorKontakDarurat: "0812" });
+    });
+    await nasabah.sesi.mutation(api.kyc.simpanProgresKyc, { alamat: "Jalan Baru No. 3, Bogor" });
+    await expect(nasabah.sesi.mutation(api.kyc.ajukanKyc, {})).rejects.toThrow(
+      /Kontak darurat perlu diperbaiki/,
+    );
+
+    // Dikosongkan pun sah: yang salah hanya nilai yang DIISI tetapi keliru.
+    await nasabah.sesi.mutation(api.kyc.simpanProgresKyc, { nomorKontakDarurat: "" });
+    const hasil = await nasabah.sesi.mutation(api.kyc.ajukanKyc, {});
+    expect(hasil.status).toBe("PENDING_REVIEW");
+    const akhir = await nasabah.sesi.query(api.kyc.kycSaya, {});
+    expect(akhir.isian.nomorKontakDarurat).toBe("");
+    expect(akhir.isian.namaKontakDarurat).toBe("Siti Rahayu");
+  });
+
   it("Mengajukan peninjauan menuntut isian lengkap DAN berkas yang diperiksa server", async () => {
     const { t, nasabah } = await siapkanDua();
     await nasabah.sesi.mutation(api.kyc.mulaiKyc, {});

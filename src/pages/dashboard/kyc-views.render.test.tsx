@@ -725,6 +725,39 @@ ok(
   bersih(html, "menu tahap sidebar");
 }
 
+// ===== 14b. Menu sidebar pada tahap 3: kontak darurat ikut terbaca =====
+//
+// Langkah "Kontak darurat" ditambahkan ke tahap terakhir, jadi menu sidebar —
+// tempat nasabah melihat langkah mana yang berikutnya — harus menyebutnya juga,
+// bukan hanya formnya. Tanpa uji ini, langkah baru bisa hanya muncul di modul
+// isi dan nasabah di kolom sidebar tetap melihat tiga langkah lama.
+{
+  const html = renderToStaticMarkup(
+    <KycMenuSidebar
+      aktif="darurat"
+      statusPerTahap={statusNetral()}
+      terkunci={false}
+      onPilih={() => {}}
+    />,
+  ).replace(/&amp;/g, "&");
+  ada(html, "Tahap 3: Alamat & Rekening", "kontak darurat berada di kelompok tahap 3");
+  ada(html, "Kontak darurat", "langkah kontak darurat tampil di menu sidebar");
+  ada(
+    html,
+    "Informasi pendukung",
+    "langkah sesudahnya tetap terlihat di kelompok yang sama",
+  );
+  ok(
+    !html.includes("Nomor WhatsApp"),
+    "langkah tahap 1 tidak ikut tampil saat tahap 3 yang dibuka",
+  );
+  ok(
+    (html.match(/aria-current="step"/g) ?? []).length === 2,
+    "stage aktif dan langkah aktif masing-masing ditandai sekali",
+  );
+  bersih(html, "menu tahap sidebar dengan kontak darurat");
+}
+
 // ===== 15. Pemasangan: tepat di bawah kotak Menu khusus, dan terbagi state =====
 {
   const sidebar = bacaSumber("pages/dashboard/dashboard-sidebar.tsx");

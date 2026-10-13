@@ -15,6 +15,8 @@
  */
 import { kekuranganKyc } from "./kycStatus";
 import {
+  galatKontakDarurat,
+  galatKyc,
   galatTahapKyc,
   kekuranganKlien,
   kekuranganLokalTahap,
@@ -300,6 +302,55 @@ eq(
       (g) => g.kunci === "namaKontakDarurat",
     ),
     "nama kontak darurat yang terlalu pendek ditandai pada kolomnya sendiri",
+  );
+}
+
+// ===== 6c. Aturan kontak darurat: satu fungsi untuk aplikasi DAN server =====
+//
+// `galatKontakDarurat` dipakai modul KYC (lewat `galatKyc`) sekaligus
+// `convex/kyc.ts` saat menyimpan dan mengajukan. Bagian ini mengunci bentuk
+// keluarannya dan membuktikan `galatKyc` benar-benar memakai fungsi itu, supaya
+// menambah aturan di satu tempat tidak bisa tertinggal di tempat lain — server
+// yang lebih longgar daripada layar adalah celah, bukan kemudahan.
+{
+  eq(
+    Object.keys(galatKontakDarurat({})).length,
+    0,
+    "tanpa isian, kontak darurat tidak menghasilkan galat",
+  );
+  eq(
+    Object.keys(
+      galatKontakDarurat({
+        namaKontakDarurat: "",
+        nomorKontakDarurat: "",
+        hubunganKontakDarurat: "",
+      }),
+    ).length,
+    0,
+    "kolom kosong selalu boleh: tahap ini opsional",
+  );
+  const salah = galatKontakDarurat({
+    namaKontakDarurat: "Al",
+    nomorKontakDarurat: "0812345678",
+    hubunganKontakDarurat: "x",
+  });
+  eq(
+    Object.keys(salah).join(","),
+    "namaKontakDarurat,nomorKontakDarurat,hubunganKontakDarurat",
+    "tiap kolom yang bermasalah dilaporkan pada kolomnya sendiri",
+  );
+  ok(
+    galatKontakDarurat({ nomorKontakDarurat: "6281299887766" }).nomorKontakDarurat === undefined,
+    "nomor berformat 62… diterima",
+  );
+  ok(
+    galatKontakDarurat({ nomorKontakDarurat: "62 812-9988-7766" }).nomorKontakDarurat === undefined,
+    "spasi dan tanda hubung pada nomor dimaafkan",
+  );
+  eq(
+    galatKyc({ ...ISIAN_KOSONG, nomorKontakDarurat: "0812" }).nomorKontakDarurat,
+    galatKontakDarurat({ nomorKontakDarurat: "0812" }).nomorKontakDarurat,
+    "galatKyc memakai aturan yang sama, bukan salinannya",
   );
 }
 
