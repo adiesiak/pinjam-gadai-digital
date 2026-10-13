@@ -48,6 +48,7 @@ export const ID_TAHAP_KYC = [
   "selfie",
   "whatsapp",
   "alamat",
+  "darurat",
   "pendukung",
 ] as const;
 
@@ -121,6 +122,19 @@ export const TAHAPAN_KYC: readonly TahapKyc[] = [
     wajib: false,
   },
   {
+    id: "darurat",
+    judul: "Kontak darurat",
+    ringkas: "Nama, nomor, dan hubungan orang yang bisa dihubungi",
+    isian: ["namaKontakDarurat", "nomorKontakDarurat", "hubunganKontakDarurat"],
+    berkas: [],
+    // OPSIONAL, dan itu keputusan sadar: menambah langkah WAJIB akan menahan
+    // pengajuan nasabah yang sudah terverifikasi dan sudah mengirim data lebih
+    // dulu, padahal kolom ini hanya penghubung saat nasabah tidak bisa dihubungi
+    // — bukan bukti identitas. Karena opsional, tahap ini tidak pernah muncul di
+    // `kekuranganKyc()` dan pihak yang belum mengisinya tetap bisa mengajukan.
+    wajib: false,
+  },
+  {
     id: "pendukung",
     judul: "Informasi pendukung",
     ringkas: "Penghasilan, rekening, dan bukti pendukung",
@@ -131,7 +145,13 @@ export const TAHAPAN_KYC: readonly TahapKyc[] = [
 ];
 
 export type SlotBerkasKyc = "ktp" | "selfie" | "bukti";
-export type KunciIsianKyc = keyof DataDiriForm | "sumberPenghasilan" | "catatanPeminjam";
+export type KunciIsianKyc =
+  | keyof DataDiriForm
+  | "sumberPenghasilan"
+  | "catatanPeminjam"
+  | "namaKontakDarurat"
+  | "nomorKontakDarurat"
+  | "hubunganKontakDarurat";
 
 /** Isian KYC seperti yang dikirim/diterima UI (semua string, seperti form). */
 export type IsianKycLengkap = {
@@ -145,6 +165,9 @@ export type IsianKycLengkap = {
   namaBank: string;
   nomorRekening: string;
   catatanPeminjam: string;
+  namaKontakDarurat: string;
+  nomorKontakDarurat: string;
+  hubunganKontakDarurat: string;
 };
 
 /** Berkas yang sudah tertaut pada tiap slot (null = belum ada). */
@@ -400,6 +423,25 @@ export function galatKyc(isian: IsianKycLengkap): GalatKyc {
     // di tahap pendukung — bukan diam-diam lolos di klien.
     galat.sumberPenghasilan = "Sumber penghasilan wajib diisi, mis. gaji atau usaha.";
   }
+
+  // Kontak darurat opsional: kosong selalu boleh, tapi nilai yang TERISI harus
+  // masuk akal. Nomor yang salah ketik lebih buruk daripada kosong — saat
+  // dibutuhkan, yang dihubungi justru tidak pernah tersambung.
+  // `?? ""` bukan hiasan: baris KYC lama (dan draft yang tersimpan sebelum
+  // tahap ini ada) tidak punya kolom ini sama sekali, sementara fungsi ini juga
+  // dipanggil atas data tersimpan, bukan hanya atas form yang sedang diisi.
+  const namaDarurat = (isian.namaKontakDarurat ?? "").trim();
+  if (namaDarurat !== "" && namaDarurat.length < 3) {
+    galat.namaKontakDarurat = "Nama kontak darurat minimal 3 karakter bila diisi.";
+  }
+  const nomorDarurat = (isian.nomorKontakDarurat ?? "").replace(/[\s+-]/g, "");
+  if (nomorDarurat !== "" && !/^62\d{8,13}$/.test(nomorDarurat)) {
+    galat.nomorKontakDarurat = "Nomor kontak darurat harus format 62… dan hanya angka.";
+  }
+  const hubunganDarurat = (isian.hubunganKontakDarurat ?? "").trim();
+  if (hubunganDarurat !== "" && hubunganDarurat.length < 3) {
+    galat.hubunganKontakDarurat = "Hubungan minimal 3 karakter bila diisi, mis. keluarga.";
+  }
   return galat;
 }
 
@@ -410,9 +452,15 @@ export type GalatTahapKyc = {
 
 /**
  * Galat isian KYC: aturan data diri + `sumberPenghasilan` yang hanya ada di
- * modul KYC (server memaksanya minimal 3 karakter saat mengajukan).
+ * modul KYC (server memaksanya minimal 3 karakter saat mengajukan), + kontak
+ * darurat yang aturannya hanya berlaku BILA kolomnya diisi.
  */
-export type GalatKyc = GalatDataDiri & { sumberPenghasilan?: string };
+export type GalatKyc = GalatDataDiri & {
+  sumberPenghasilan?: string;
+  namaKontakDarurat?: string;
+  nomorKontakDarurat?: string;
+  hubunganKontakDarurat?: string;
+};
 
 /** Label tiap slot berkas — satu tempat, dipakai UI dan pesan galat. */
 export const LABEL_SLOT_BERKAS: Record<SlotBerkasKyc, string> = {
@@ -427,7 +475,9 @@ export function galatIsianTahap(id: IdTahapKyc, isian: IsianKycLengkap): GalatTa
   const galat = galatKyc(isian);
   const hasil: GalatTahapKyc[] = [];
   for (const kunci of tahap.isian) {
-    const pesan = galat[kunci as keyof GalatDataDiri];
+    // Dibaca dari `GalatKyc` (bukan `GalatDataDiri`): kontak darurat bukan bagian
+    // `DataDiriForm`, jadi galatnya hanya ada di tipe yang lebih luas ini.
+    const pesan = galat[kunci as keyof GalatKyc];
     if (pesan !== undefined) hasil.push({ kunci, pesan });
   }
   return hasil;

@@ -69,6 +69,9 @@ const ISIAN_KOSONG: IsianKycLengkap = {
   namaBank: "",
   nomorRekening: "",
   catatanPeminjam: "",
+  namaKontakDarurat: "",
+  nomorKontakDarurat: "",
+  hubunganKontakDarurat: "",
 };
 
 const BERKAS_KOSONG: BerkasKyc = { ktp: null, selfie: null, bukti: null };
@@ -84,6 +87,9 @@ const ISIAN_LENGKAP: IsianKycLengkap = {
   namaBank: "BCA",
   nomorRekening: "1234567890",
   catatanPeminjam: "",
+  namaKontakDarurat: "Siti Rahayu",
+  nomorKontakDarurat: "6281299887766",
+  hubunganKontakDarurat: "Keluarga",
 };
 
 const BERKAS_LENGKAP: BerkasKyc = {
@@ -101,13 +107,13 @@ const OPSI_SIAP: OpsiStatusTahap = {
 // ===== 1. Pemisahan tahap sesuai ketentuan =====
 eq(
   TAHAPAN_KYC.map((t) => t.id).join(","),
-  "persetujuan,identitas,ktp,selfie,whatsapp,alamat,pendukung",
-  "urutan tahap: persetujuan → identitas → KTP → selfie → WhatsApp → alamat → pendukung",
+  "persetujuan,identitas,ktp,selfie,whatsapp,alamat,darurat,pendukung",
+  "urutan tahap: persetujuan → identitas → KTP → selfie → WhatsApp → alamat → kontak darurat → pendukung",
 );
-eq(TAHAPAN_KYC.length, 7, "tujuh tahap pengisian");
+eq(TAHAPAN_KYC.length, 8, "delapan tahap pengisian (kontak darurat ditambahkan ke tujuh tahap lama)");
 ok(
-  TAHAPAN_KYC.filter((t) => !t.wajib).map((t) => t.id).join(",") === "alamat",
-  "hanya alamat yang opsional (boleh dilewati)",
+  TAHAPAN_KYC.filter((t) => !t.wajib).map((t) => t.id).join(",") === "alamat,darurat",
+  "hanya alamat dan kontak darurat yang opsional (boleh dilewati)",
 );
 // NIK hanya ada di tahap identitas, tidak ikut tercampur ke tahap lain.
 ok(
@@ -157,9 +163,13 @@ eq(
     ...OPSI_SIAP,
     persetujuanAktif: false,
   });
-  eq(progres.selesai, 1, "hanya tahap opsional yang tidak menghalangi saat semua kosong");
-  eq(progres.total, 7, "total tahap dilaporkan");
-  eq(progres.persen, 14, "persen kesiapan dihitung dari tahap, bukan dikarang");
+  eq(
+    progres.selesai,
+    2,
+    "hanya dua tahap opsional (alamat & kontak darurat) yang tidak menghalangi saat semua kosong",
+  );
+  eq(progres.total, 8, "total tahap dilaporkan");
+  eq(progres.persen, 25, "persen kesiapan dihitung dari tahap, bukan dikarang");
   eq(progres.tahapBerikutnya, "persetujuan", "lanjutkan proses mulai dari persetujuan");
 }
 
@@ -236,12 +246,60 @@ eq(
 {
   const tanpaAlamat: IsianKycLengkap = { ...ISIAN_LENGKAP, alamat: "", pekerjaan: "" };
   const progres = progresKyc(tanpaAlamat, BERKAS_LENGKAP, OPSI_SIAP);
-  eq(progres.selesai, 7, "alamat kosong tidak menghalangi kesiapan pengajuan");
+  eq(progres.selesai, 8, "alamat kosong tidak menghalangi kesiapan pengajuan");
   eq(progres.persen, 100, "semua tahap siap walau alamat dilewati");
   eq(
     statusTahapKyc("alamat", { ...ISIAN_LENGKAP, alamat: "Jl." }, BERKAS_LENGKAP, OPSI_SIAP),
     "perlu-diperbaiki",
     "alamat terlalu pendek tetap ditandai salah",
+  );
+}
+
+// ===== 6b. Kontak darurat opsional: kosong aman, salah nilai tetap ditandai,
+// dan tidak pernah menahan pengajuan =====
+{
+  const isianTanpaDarurat: IsianKycLengkap = {
+    ...ISIAN_LENGKAP,
+    namaKontakDarurat: "",
+    nomorKontakDarurat: "",
+    hubunganKontakDarurat: "",
+  };
+  eq(
+    statusTahapKyc("darurat", isianTanpaDarurat, BERKAS_LENGKAP, OPSI_SIAP),
+    "belum",
+    "kontak darurat kosong dilaporkan belum diisi, bukan pura-pura siap",
+  );
+  eq(
+    progresKyc(isianTanpaDarurat, BERKAS_LENGKAP, OPSI_SIAP).persen,
+    100,
+    "kontak darurat yang dikosongkan tidak menahan pengajuan",
+  );
+  eq(
+    kekuranganKlien(isianTanpaDarurat, BERKAS_LENGKAP, 5_000_000).length,
+    0,
+    "kontak darurat tidak pernah masuk kekurangan wajib",
+  );
+  eq(
+    statusTahapKyc(
+      "darurat",
+      { ...ISIAN_LENGKAP, nomorKontakDarurat: "0812" },
+      BERKAS_LENGKAP,
+      OPSI_SIAP,
+    ),
+    "perlu-diperbaiki",
+    "nomor kontak darurat tanpa kode 62 ditandai salah",
+  );
+  ok(
+    galatTahapKyc("darurat", { ...ISIAN_LENGKAP, nomorKontakDarurat: "0812" }).some((g) =>
+      /62/.test(g.pesan),
+    ),
+    "pesan galat nomor kontak darurat menyebut aturan 62…",
+  );
+  ok(
+    galatTahapKyc("darurat", { ...ISIAN_LENGKAP, namaKontakDarurat: "Al" }).some(
+      (g) => g.kunci === "namaKontakDarurat",
+    ),
+    "nama kontak darurat yang terlalu pendek ditandai pada kolomnya sendiri",
   );
 }
 

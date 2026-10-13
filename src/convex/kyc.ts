@@ -84,7 +84,10 @@ type KunciIsianKyc =
   | "sumberPenghasilan"
   | "namaBank"
   | "nomorRekening"
-  | "catatanPeminjam";
+  | "catatanPeminjam"
+  | "namaKontakDarurat"
+  | "nomorKontakDarurat"
+  | "hubunganKontakDarurat";
 
 /** Gerbang jalur mandiri: harus masuk, dan bukan akun tamu. */
 async function requireNasabah(ctx: QueryCtx): Promise<{ userId: Id<"users">; label: string }> {
@@ -728,6 +731,9 @@ export const kycSaya = query({
           namaBank: "",
           nomorRekening: "",
           catatanPeminjam: "",
+          namaKontakDarurat: "",
+          nomorKontakDarurat: "",
+          hubunganKontakDarurat: "",
         },
         dokumen: { ktpId: null, selfieKtpId: null, buktiPenghasilanId: null },
         url: { ktp: null, selfie: null, buktiPenghasilan: null },
@@ -800,6 +806,9 @@ export const kycSaya = query({
         namaBank: row.namaBank ?? "",
         nomorRekening: row.nomorRekening ?? "",
         catatanPeminjam: row.catatanPeminjam ?? "",
+        namaKontakDarurat: row.namaKontakDarurat ?? "",
+        nomorKontakDarurat: row.nomorKontakDarurat ?? "",
+        hubunganKontakDarurat: row.hubunganKontakDarurat ?? "",
       },
       dokumen: {
         ktpId: row.ktpId ?? null,
@@ -1043,6 +1052,9 @@ export const simpanProgresKyc = mutation({
     namaBank: v.optional(v.string()),
     nomorRekening: v.optional(v.string()),
     catatanPeminjam: v.optional(v.string()),
+    namaKontakDarurat: v.optional(v.string()),
+    nomorKontakDarurat: v.optional(v.string()),
+    hubunganKontakDarurat: v.optional(v.string()),
     ktpId: v.optional(v.union(v.id("_storage"), v.null())),
     selfieKtpId: v.optional(v.union(v.id("_storage"), v.null())),
     buktiPenghasilanId: v.optional(v.union(v.id("_storage"), v.null())),
@@ -1088,6 +1100,9 @@ export const simpanProgresKyc = mutation({
       namaBank: args.namaBank ?? lama?.namaBank,
       nomorRekening: args.nomorRekening ?? lama?.nomorRekening,
       catatanPeminjam: args.catatanPeminjam ?? lama?.catatanPeminjam,
+      namaKontakDarurat: args.namaKontakDarurat ?? lama?.namaKontakDarurat,
+      nomorKontakDarurat: args.nomorKontakDarurat ?? lama?.nomorKontakDarurat,
+      hubunganKontakDarurat: args.hubunganKontakDarurat ?? lama?.hubunganKontakDarurat,
     };
     const penghasilanBulanan =
       args.penghasilanBulanan === undefined
@@ -1577,6 +1592,9 @@ export const detailKycAdmin = query({
       penghasilanBulanan: row.penghasilanBulanan ?? null,
       sumberPenghasilan: row.sumberPenghasilan ?? null,
       catatanPeminjam: row.catatanPeminjam ?? null,
+      namaKontakDarurat: row.namaKontakDarurat ?? null,
+      nomorKontakDarurat: row.nomorKontakDarurat ?? null,
+      hubunganKontakDarurat: row.hubunganKontakDarurat ?? null,
       kekurangan: kekuranganKyc(ringkas(row)),
       /**
        * Hasil pemeriksaan nomor WhatsApp untuk petugas: nomor, waktu, cara, dan

@@ -10,6 +10,7 @@ import {
   CircleDashed,
   Clock3,
   CreditCard,
+  HeartHandshake,
   IdCard,
   Info,
   Loader2,
@@ -197,6 +198,10 @@ const IKON_TAHAP: Record<IdTahapKyc, typeof IdCard> = {
   selfie: Camera,
   whatsapp: Phone,
   alamat: MapPin,
+  // Bukan lagi ikon telepon biasa: `whatsapp` sudah memakai `Phone`, dan dua
+  // langkah dengan ikon yang sama membuat daftar tahap tidak bisa dibedakan
+  // sekilas. `HeartHandshake` menandai orang yang dihubungi saat keadaan darurat.
+  darurat: HeartHandshake,
   pendukung: Wallet,
 };
 
@@ -212,7 +217,7 @@ const DETIK_UBAH_KIRIM_ULANG_OTP = 30;
  * ========================================================================== */
 
 /**
- * Peta 7 langkah KYC ke 3 stage besar.
+ * Peta langkah KYC ke 3 stage besar.
  *
  * Kenapa dipetakan, bukan mengganti `TAHAPAN_KYC`: urutan, syarat, dan transisi
  * status tetap milik `lib/kycTahapan.ts` & `lib/kycStatus.ts`. Peta ini HANYA
@@ -247,9 +252,12 @@ export const STAGE_KYC: ReadonlyArray<{
   },
   {
     nomor: 3,
-    judul: "Rekening & Finansial",
-    ringkas: "Alamat, pekerjaan, penghasilan, dan rekening pencairan.",
-    tahap: ["alamat", "pendukung"],
+    // Judul ini ikut berubah saat kontak darurat masuk ke stage 3: "Rekening &
+    // Finansial" tidak lagi mewakili isinya, dan label yang tidak cocok dengan
+    // isinya membuat nasabah salah menebak di mana harus mengisi alamat.
+    judul: "Alamat & Rekening",
+    ringkas: "Alamat tinggal, kontak darurat, penghasilan, dan rekening pencairan.",
+    tahap: ["alamat", "darurat", "pendukung"],
   },
 ];
 
@@ -312,7 +320,7 @@ export function menuTahapKyc(data: {
 }
 
 /**
- * Bilah progres 3 tahap besar di atas wizard, menggantikan daftar 7 langkah
+ * Bilah progres 3 tahap besar di atas wizard, menggantikan daftar langkah
  * memanjang sebagai navigasi utama.
  *
  * Status tiap stage diringkas dari langkah-langkah di dalamnya: "lengkap" hanya
@@ -435,7 +443,7 @@ function PenandaOpsional() {
  * Daftar tahap DALAM satu stage: satu kolom penuh lebar di semua ukuran layar.
  *
  * Daftar ini sengaja disaring per stage (`saring`): navigasi utama ada di bilah 3
- * stage, jadi 7 langkah tidak lagi tampil memanjang sekaligus dan yang terlihat
+ * stage, jadi seluruh langkah tidak lagi tampil memanjang sekaligus dan yang terlihat
  * hanya langkah-langkah stage yang sedang dibuka. Nomor langkah diambil dari
  * posisinya di `TAHAPAN_KYC`, bukan dari posisi tampil, supaya penomoran tidak
  * berubah hanya karena penyaringan.
@@ -915,6 +923,21 @@ export function KycRiwayatList({ riwayat }: { riwayat: RiwayatKycTampil[] }) {
  * mengurangi salah ketik nama bank, yang membuat petugas tidak bisa mencocokkan
  * tujuan pencairan. Bank besar lebih dulu, lalu dompet digital.
  */
+/**
+ * Saran hubungan kontak darurat. Sama seperti daftar bank di bawah: hanya
+ * mempercepat pengetikan, kolomnya tetap bebas diisi karena hubungan keluarga
+ * tidak selalu punya satu kata yang pas.
+ */
+const SARAN_HUBUNGAN_DARURAT = [
+  "Keluarga",
+  "Pasangan",
+  "Orang tua",
+  "Anak",
+  "Saudara",
+  "Teman",
+  "Rekan kerja",
+] as const;
+
 const SARAN_BANK_DAN_EWALLET = [
   "BCA",
   "BRI",
@@ -1202,6 +1225,15 @@ export function KycSection({
       data?.isian.catatanPeminjam !== null &&
       data?.isian.catatanPeminjam !== undefined &&
       data?.isian.catatanPeminjam !== "" ||
+      data?.isian.namaKontakDarurat !== null &&
+      data?.isian.namaKontakDarurat !== undefined &&
+      data?.isian.namaKontakDarurat !== "" ||
+      data?.isian.nomorKontakDarurat !== null &&
+      data?.isian.nomorKontakDarurat !== undefined &&
+      data?.isian.nomorKontakDarurat !== "" ||
+      data?.isian.hubunganKontakDarurat !== null &&
+      data?.isian.hubunganKontakDarurat !== undefined &&
+      data?.isian.hubunganKontakDarurat !== "" ||
       data?.dokumen.ktpId !== null &&
       data?.dokumen.ktpId !== undefined &&
       data?.dokumen.ktpId !== "" ||
@@ -1484,6 +1516,9 @@ export function KycSection({
         namaBank: isian.namaBank,
         nomorRekening: isian.nomorRekening,
         catatanPeminjam: isian.catatanPeminjam,
+        namaKontakDarurat: isian.namaKontakDarurat,
+        nomorKontakDarurat: isian.nomorKontakDarurat,
+        hubunganKontakDarurat: isian.hubunganKontakDarurat,
         ktpId: berkas.ktp?.id ?? null,
         selfieKtpId: berkas.selfie?.id ?? null,
         buktiPenghasilanId: berkas.bukti?.id ?? null,
@@ -2166,7 +2201,90 @@ export function KycSection({
               </FieldGroup>
             )}
 
-            {/* ===== Tahap 7: informasi pendukung ===== */}
+            {/* ===== Tahap 7: kontak darurat (opsional) =====
+                Kolom ini tidak pernah menghalangi pengajuan; ia hanya jalan
+                menghubungi nasabah saat nomor utamanya tidak aktif. Karena itu
+                seluruh deskripsinya menyebut "opsional" dan galatnya hanya
+                muncul bila kolomnya diisi dengan nilai yang salah. */}
+            {tahap.id === "darurat" && !terkunci && (
+              <FieldGroup>
+                <Field data-invalid={galatTahap.some((g) => g.kunci === "namaKontakDarurat")}>
+                  <FieldLabel htmlFor="kyc-darurat-nama">
+                    Nama kontak darurat <PenandaOpsional />
+                  </FieldLabel>
+                  <Input
+                    id="kyc-darurat-nama"
+                    value={isian.namaKontakDarurat}
+                    onChange={(e) => ubah("namaKontakDarurat", e.target.value)}
+                    placeholder="Mis. Siti Rahayu"
+                    aria-invalid={galatTahap.some((g) => g.kunci === "namaKontakDarurat")}
+                    disabled={busy}
+                  />
+                  <FieldError
+                    errors={galatTahap
+                      .filter((g) => g.kunci === "namaKontakDarurat")
+                      .map((g) => ({ message: g.pesan }))}
+                  />
+                  <FieldDescription>
+                    Opsional. Dipakai hanya bila petugas perlu menghubungi Anda dan nomor Anda sendiri
+                    tidak bisa dihubungi.
+                  </FieldDescription>
+                </Field>
+                <Field data-invalid={galatTahap.some((g) => g.kunci === "nomorKontakDarurat")}>
+                  <FieldLabel htmlFor="kyc-darurat-nomor">
+                    Nomor WhatsApp / telepon kontak darurat <PenandaOpsional />
+                  </FieldLabel>
+                  <Input
+                    id="kyc-darurat-nomor"
+                    inputMode="tel"
+                    autoComplete="off"
+                    value={isian.nomorKontakDarurat}
+                    onChange={(e) => ubah("nomorKontakDarurat", e.target.value)}
+                    placeholder="62812xxxxxxx"
+                    aria-invalid={galatTahap.some((g) => g.kunci === "nomorKontakDarurat")}
+                    disabled={busy}
+                  />
+                  <FieldError
+                    errors={galatTahap
+                      .filter((g) => g.kunci === "nomorKontakDarurat")
+                      .map((g) => ({ message: g.pesan }))}
+                  />
+                  <FieldDescription>
+                    Format 62… seperti nomor WhatsApp Anda. Angka yang salah ketik lebih buruk daripada
+                    kolom ini kosong.
+                  </FieldDescription>
+                </Field>
+                <Field data-invalid={galatTahap.some((g) => g.kunci === "hubunganKontakDarurat")}>
+                  <FieldLabel htmlFor="kyc-darurat-hubungan">
+                    Hubungan dengan Anda <PenandaOpsional />
+                  </FieldLabel>
+                  <Input
+                    id="kyc-darurat-hubungan"
+                    list="kyc-darurat-hubungan-saran"
+                    autoComplete="off"
+                    value={isian.hubunganKontakDarurat}
+                    onChange={(e) => ubah("hubunganKontakDarurat", e.target.value)}
+                    placeholder="Mis. keluarga, pasangan, teman"
+                    aria-invalid={galatTahap.some((g) => g.kunci === "hubunganKontakDarurat")}
+                    disabled={busy}
+                  />
+                  {/* `datalist` bawaan browser: saran ketik tanpa menutup kolom
+                      bagi hubungan lain yang tidak ada di daftar. */}
+                  <datalist id="kyc-darurat-hubungan-saran">
+                    {SARAN_HUBUNGAN_DARURAT.map((nama) => (
+                      <option key={nama} value={nama} />
+                    ))}
+                  </datalist>
+                  <FieldError
+                    errors={galatTahap
+                      .filter((g) => g.kunci === "hubunganKontakDarurat")
+                      .map((g) => ({ message: g.pesan }))}
+                  />
+                </Field>
+              </FieldGroup>
+            )}
+
+            {/* ===== Tahap 8: informasi pendukung ===== */}
             {tahap.id === "pendukung" && !terkunci && (
               <div className="space-y-4">
                 <FieldGroup>

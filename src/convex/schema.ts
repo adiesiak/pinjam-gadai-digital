@@ -1740,6 +1740,15 @@ const schema = defineSchema(
       ),
       alamat: v.optional(v.string()),
       pekerjaan: v.optional(v.string()),
+      /**
+       * KONTAK DARURAT — opsional, dan sengaja TIDAK ikut `kekuranganKyc()`:
+       * kolom ini bukan bukti identitas, hanya jalan menghubungi nasabah bila
+       * nomor utamanya tidak aktif. Jadi ia tidak pernah menahan pengajuan,
+       * termasuk bagi nasabah yang datanya sudah tersimpan sebelum kolom ini ada.
+       */
+      namaKontakDarurat: v.optional(v.string()),
+      nomorKontakDarurat: v.optional(v.string()),
+      hubunganKontakDarurat: v.optional(v.string()),
       /** Rupiah bulat. */
       penghasilanBulanan: v.optional(v.number()),
       sumberPenghasilan: v.optional(v.string()),

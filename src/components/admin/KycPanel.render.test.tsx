@@ -86,6 +86,11 @@ const detail = (overrides: Partial<DetailKycTampil> = {}): DetailKycTampil => ({
   pekerjaan: "Karyawan swasta",
   penghasilanBulanan: 5_000_000,
   sumberPenghasilan: "Gaji bulanan",
+  // Kontak darurat ikut diisi di contoh ini supaya barisnya benar-benar diuji;
+  // nasabah lama bisa `null` di ketiga kolom, dan itu juga ditangani panel.
+  namaKontakDarurat: "Siti Rahayu",
+  nomorKontakDarurat: "6281299887766",
+  hubunganKontakDarurat: "Keluarga",
   catatanPeminjam: null,
   kekurangan: [],
   diajukanPada: 1_700_000_000_000,

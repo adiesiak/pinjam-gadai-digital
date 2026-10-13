@@ -509,6 +509,16 @@ function KycIdentitasRingkas({ detail }: { detail: DetailKycTampil }) {
       detail.penghasilanBulanan === null ? "—" : formatRupiah(detail.penghasilanBulanan),
     ],
     ["Sumber penghasilan", detail.sumberPenghasilan ?? "—"],
+    // Kontak darurat ditampilkan untuk PETUGAS: satu-satunya gunanya kolom ini
+    // adalah saat nomor utama tidak bisa dihubungi, dan itu selalu terjadi saat
+    // petugas sedang bekerja.
+    [
+      "Kontak darurat",
+      detail.namaKontakDarurat === null
+        ? "—"
+        : `${detail.namaKontakDarurat}${detail.hubunganKontakDarurat === null ? "" : ` (${detail.hubunganKontakDarurat})`}`,
+    ],
+    ["Nomor kontak darurat", detail.nomorKontakDarurat ?? "—"],
     ["Catatan nasabah", detail.catatanPeminjam ?? "—"],
   ];
   return (

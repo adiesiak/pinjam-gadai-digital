@@ -386,7 +386,7 @@ const aturanTigaStatus = [
   }
   ok(tahapStage(1).length === 3, "stage 1 memuat 3 langkah");
   ok(tahapStage(2).length === 2, "stage 2 memuat 2 langkah");
-  ok(tahapStage(3).length === 2, "stage 3 memuat 2 langkah");
+  ok(tahapStage(3).length === 3, "stage 3 memuat alamat, kontak darurat, dan pendukung");
 
   const harapan: Record<IdTahapKyc, 1 | 2 | 3> = {
     persetujuan: 1,
@@ -395,6 +395,7 @@ const aturanTigaStatus = [
     ktp: 2,
     selfie: 2,
     alamat: 3,
+    darurat: 3,
     pendukung: 3,
   };
   for (const id of ID_TAHAP_KYC) {
@@ -420,7 +421,11 @@ function statusNetral(): Record<IdTahapKyc, StatusTahapKyc> {
   );
   ada(html, "Tahap 1: Kontak &amp; OTP", "stage 1 berlabel sesuai ketentuan");
   ada(html, "Tahap 2: Live KTP &amp; Selfie", "stage 2 berlabel sesuai ketentuan");
-  ada(html, "Tahap 3: Rekening &amp; Finansial", "stage 3 berlabel sesuai ketentuan");
+  ada(
+    html,
+    "Tahap 3: Alamat &amp; Rekening",
+    "stage 3 berlabel sesuai isinya (alamat, kontak darurat, rekening)",
+  );
   ok(!html.includes("Stage "), "antarmuka tidak memakai istilah 'Stage'");
   ok(
     (html.match(/aria-current="step"/g) ?? []).length === 1,
@@ -629,6 +634,9 @@ const isianKosong: IsianKycLengkap = {
   namaBank: "",
   nomorRekening: "",
   catatanPeminjam: "",
+  namaKontakDarurat: "",
+  nomorKontakDarurat: "",
+  hubunganKontakDarurat: "",
 };
 const dokumenKosong = { ktpId: null, selfieKtpId: null, buktiPenghasilanId: null };
 for (const status of KYC_STATUS) {

@@ -31,8 +31,8 @@ export const VERSI_DRAFT_KYC = 1;
 
 /**
  * Kolom isian yang boleh dipulihkan dari draft. Sengaja teks biasa
- * (nama/NIK/WA/alamat/pekerjaan/penghasilan/bank/rekening/catatan) — persis
- * kolom yang diketik pengguna di seluruh 7 tahap.
+ * (nama/NIK/WA/alamat/pekerjaan/penghasilan/bank/rekening/catatan/kontak
+ * darurat) — persis kolom yang diketik pengguna di seluruh tahap.
  */
 export const KUNCI_DRAFT_KYC = [
   "namaLengkap",
@@ -45,6 +45,9 @@ export const KUNCI_DRAFT_KYC = [
   "namaBank",
   "nomorRekening",
   "catatanPeminjam",
+  "namaKontakDarurat",
+  "nomorKontakDarurat",
+  "hubunganKontakDarurat",
 ] as const;
 
 export type KunciDraftKyc = (typeof KUNCI_DRAFT_KYC)[number];
@@ -175,6 +178,9 @@ export const LABEL_KUNCI_DRAFT: Record<KunciDraftKyc, string> = {
   namaBank: "Bank / e-wallet",
   nomorRekening: "Nomor rekening",
   catatanPeminjam: "Catatan",
+  namaKontakDarurat: "Nama kontak darurat",
+  nomorKontakDarurat: "Nomor kontak darurat",
+  hubunganKontakDarurat: "Hubungan kontak darurat",
 };
 
 /**
