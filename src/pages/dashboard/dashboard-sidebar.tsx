@@ -23,7 +23,8 @@ const ROLE_LINKS: Record<string, { label: string; icon: React.ReactNode; href: s
 
 /**
  * Sisi kiri dashboard nasabah: kartu profil (sapaan, avatar, status KTP,
- * tautan peran, keluar) lalu navigasi tab vertikal yang dikelompokkan.
+ * tautan peran, keluar), navigasi tab vertikal yang dikelompokkan, lalu menu
+ * tahap KYC selama verifikasinya belum selesai.
  * Admin & Penyedia Dana tidak melihat menu utama Peminjam.
  */
 export function DashboardSidebar({
@@ -33,6 +34,8 @@ export function DashboardSidebar({
   onTabChange,
   onBuatPengajuan,
   onSignOut,
+  /** Menu tahap KYC, ditaruh tepat di bawah kotak menu peran. null = sembunyikan. */
+  kycMenu = null,
   /** Role yang sebenarnya merender menu Peminjam; admin/penyedia dana punya
       link tersendiri di sini agar mereka tidak kebawa ke menu tidak bermakna. */
   role = "peminjam",
@@ -45,6 +48,7 @@ export function DashboardSidebar({
   onBuatPengajuan: (jenis: JenisPengajuan) => void;
   onSignOut: () => void;
   role?: string;
+  kycMenu?: React.ReactNode;
 }) {
   const initial = greetingName.charAt(0).toUpperCase();
   const link = role === "peminjam" ? null : ROLE_LINKS[role];
@@ -111,7 +115,7 @@ export function DashboardSidebar({
 
       {/* Kotak "Menu khusus" HANYA dirender bila peran ini benar-benar punya
           pintasan menu. Tanpa penjaga ini, peran yang tidak ada di ROLE_LINKS
-          (mis. `member`/`pengamat`) mendapat kotak berbingkai KOSONG — melayang
+          (mis. `member`/`pengamat`) mendapat kotak berbingkai kosong, melayang,
           dan memakan ruang di layar ponsel. */}
       {role !== "peminjam" && link && (
         <motion.div variants={fadeUpItem}>
@@ -130,6 +134,11 @@ export function DashboardSidebar({
           </div>
         </motion.div>
       )}
+
+      {/* Menu tahap KYC menempel TEPAT di bawah kotak menu peran: ia hilang
+          sendiri begitu identitas terverifikasi (`tampilkanMenuTahapKyc`), jadi
+          setelah selesai yang tersisa di sidebar hanya menu layanan. */}
+      {kycMenu !== null && <motion.div variants={fadeUpItem}>{kycMenu}</motion.div>}
     </motion.div>
   );
 }

@@ -17,31 +17,52 @@
  *  - setiap kekurangan yang punya tahap tampil sebagai tombol menuju tahap itu;
  *  - baris aksi tahap hanya punya SATU aksi utama, menyebut sisa isian selama
  *    pengajuan belum boleh dikirim, dan membaca keadaan simpan di sebelahnya;
- *  - petunjuk foto tertutup sejak awal supaya kolom unggah tampil lebih dulu.
+ *  - petunjuk foto tertutup sejak awal supaya kolom unggah tampil lebih dulu;
+ *  - menu tahap KYC di sidebar hanya ada selama verifikasinya belum selesai,
+ *    statusnya diambil dari data tersimpan, dan letaknya tepat di bawah menu
+ *    peran (dijaga dengan membaca urutan berkasnya).
  */
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+
 import { renderToStaticMarkup } from "react-dom/server";import {
   KycBarisAksi,
   KycDaftarTahap,
   KycKeputusanAlert,
+  KycMenuSidebar,
   KycPemeriksaanOtomatis,
   KycPetunjukFoto,
   KycRiwayatList,
   KycStatusHeader,
   KycStatusStrip,
   KycStepperTigaTahap,
+  menuTahapKyc,
   STAGE_KYC,
   stageUntukTahap,
   tahapStage,
+  tampilkanMenuTahapKyc,
   type RiwayatKycTampil,
 } from "./kyc-views";
 import {
   ID_TAHAP_KYC,
   petunjukTahap,
   type IdTahapKyc,
+  type IsianKycLengkap,
   type StatusTahapKyc,
 } from "@/lib/kycTahapan";
 import { VERSI_ATURAN_AUTO_KYC } from "@/lib/kycAutoApproval";
-import { KETERANGAN_STATUS_KYC, KYC_STATUS, LABEL_STATUS_KYC, ringkasStatusKyc } from "@/lib/kycStatus";
+import {
+  isKycVerified,
+  KETERANGAN_STATUS_KYC,
+  KYC_STATUS,
+  LABEL_STATUS_KYC,
+  ringkasStatusKyc,
+} from "@/lib/kycStatus";
+
+/** Isi berkas sumber relatif terhadap folder `src/`. */
+function bacaSumber(relatif: string): string {
+  return readFileSync(fileURLToPath(new URL(`../../${relatif}`, import.meta.url)), "utf8");
+}
 
 let passed = 0;
 let failed = 0;
@@ -526,6 +547,126 @@ const aksiDasar = {
   // satu baris yang bisa dibuka tanpa isi.
   const html = renderToStaticMarkup(<KycPetunjukFoto tahapId="identitas" />);
   ok(html === "", "tahap tanpa petunjuk foto tidak menambah akordeon kosong");
+}
+
+// ===== 13. Menu tahap pindah ke sidebar: kapan ada, dan apa isinya =====
+const isianKosong: IsianKycLengkap = {
+  namaLengkap: "",
+  nik: "",
+  nomorWhatsApp: "",
+  alamat: "",
+  pekerjaan: "",
+  penghasilan: "",
+  sumberPenghasilan: "",
+  namaBank: "",
+  nomorRekening: "",
+  catatanPeminjam: "",
+};
+const dokumenKosong = { ktpId: null, selfieKtpId: null, buktiPenghasilanId: null };
+for (const status of KYC_STATUS) {
+  ok(
+    tampilkanMenuTahapKyc(status) === (status !== "NOT_STARTED" && !isKycVerified(status)),
+    `tampilnya menu tahap untuk status ${status} mengikuti aturan bersama`,
+  );
+}
+ok(
+  !tampilkanMenuTahapKyc("VERIFIED"),
+  "setelah identitas terverifikasi, sidebar hanya memuat menu layanan",
+);
+{
+  const belum = menuTahapKyc({
+    status: "IN_PROGRESS",
+    kekurangan: [],
+    persetujuanAktif: false,
+    isian: isianKosong,
+    dokumen: dokumenKosong,
+  });
+  ok(belum.terkunci, "tahap masih terkunci selama persetujuan belum tercatat");
+  ok(belum.tahapAktif === "persetujuan", "KYC baru mulai membuka tahap persetujuan");
+  ok(
+    ID_TAHAP_KYC.every((id) => belum.statusPerTahap[id] === "belum"),
+    "tanpa isian, tidak ada tahap yang diklaim siap",
+  );
+
+  const mulai = menuTahapKyc({
+    status: "IN_PROGRESS",
+    kekurangan: ["Foto KTP"],
+    persetujuanAktif: true,
+    isian: isianKosong,
+    dokumen: { ...dokumenKosong, ktpId: "berkas-ktp" },
+  });
+  ok(!mulai.terkunci, "tahap terbuka setelah persetujuan tercatat");
+  ok(mulai.tahapAktif === "identitas", "tahap berikutnya mengikuti aturan progres");
+  ok(mulai.statusPerTahap.persetujuan === "lengkap", "persetujuan tercatat dianggap lengkap");
+  ok(
+    mulai.statusPerTahap.ktp === "sebagian",
+    "berkas KTP ada tapi kekurangan dari server tetap dihitung",
+  );
+  ok(mulai.statusPerTahap.selfie === "belum", "tahap tanpa isian tidak ikut diklaim siap");
+
+  const perbaikan = menuTahapKyc({
+    status: "NEEDS_CORRECTION",
+    kekurangan: [],
+    persetujuanAktif: true,
+    isian: isianKosong,
+    dokumen: { ...dokumenKosong, ktpId: "berkas-ktp", selfieKtpId: "berkas-selfie" },
+  });
+  ok(
+    perbaikan.statusPerTahap.ktp === "perlu-diperbaiki",
+    "permintaan perbaikan menandai tahap dokumen",
+  );
+  ok(
+    perbaikan.tahapAktif === "ktp",
+    "permintaan perbaikan mengantar ke dokumen bermasalah, bukan mengulang dari awal",
+  );
+}
+
+// ===== 14. Menu tahap di sidebar: isinya sama dengan navigasi di modul =====
+{
+  const status = statusNetral();
+  status.persetujuan = "lengkap";
+  status.identitas = "lengkap";
+  const html = renderToStaticMarkup(
+    <KycMenuSidebar aktif="ktp" statusPerTahap={status} terkunci={false} onPilih={() => {}} />,
+  );
+  ada(html, "Tahap verifikasi", "menu sidebar punya judulnya sendiri");
+  ada(
+    html,
+    "hidden lg:block",
+    "menu ini hanya muncul di kolom sidebar, tidak menumpuk di atas formulir ponsel",
+  );
+  ada(html, "Tahap 1: Kontak &amp; OTP", "bilah 3 tahap ikut dipindah ke sidebar");
+  ada(html, "Selfie dengan KTP", "langkah stage yang dibuka tampil di menu");
+  ok(
+    !html.includes("Nomor WhatsApp") && !html.includes("Informasi pendukung"),
+    "daftar di menu hanya memuat langkah stage yang sedang dibuka",
+  );
+  ok(!html.includes("lg:flex-row"), "tiga kartu tahap tetap menumpuk di kolom sempit");
+  ok(
+    (html.match(/aria-current="step"/g) ?? []).length === 2,
+    "stage aktif dan langkah aktif masing-masing ditandai sekali",
+  );
+  bersih(html, "menu tahap sidebar");
+}
+
+// ===== 15. Pemasangan: tepat di bawah kotak Menu khusus, dan terbagi state =====
+{
+  const sidebar = bacaSumber("pages/dashboard/dashboard-sidebar.tsx");
+  ok(
+    sidebar.indexOf("Menu khusus") < sidebar.indexOf("kycMenu !== null"),
+    "menu tahap KYC dirender tepat di bawah kotak Menu khusus",
+  );
+  ok(sidebar.includes("kycMenu"), "sidebar menerima menu tahap dari pemanggilnya");
+
+  const dashboard = bacaSumber("pages/Dashboard.tsx");
+  ada(dashboard, "tampilkanMenuTahapKyc(kyc.status)", "tampilnya menu diputuskan status KYC");
+  ada(dashboard, "kycMenu={", "menu tahap dioper ke sidebar");
+  ada(
+    dashboard,
+    "<KycSection tahapPilihan={tahapKyc} onPilihTahap={setTahapKyc} />",
+    "pilihan tahap dibagi antara sidebar dan modul KYC",
+  );
+  ada(dashboard, "onPilih={pilihTahapKyc}", "menu sidebar memakai satu penangan pilih tahap");
 }
 
 if (failed > 0) {

@@ -3,12 +3,12 @@
  * Run: bun src/pages/dashboard/pengajuan-cepat.render.test.tsx
  *
  * Kenapa uji ini ada: begitu identitas TERVERIFIKASI, wizard tujuh tahap tidak
- * boleh lagi muncul — yang tampil harus formulir satu halaman dengan empat isian
+ * boleh lagi muncul, yang tampil harus formulir satu halaman dengan empat isian
  * (nominal, tenor, keperluan, konfirmasi rekening tersimpan) dan SATU tombol
  * kirim. Karena formulirnya membaca Convex (dan tidak bisa dirender di luar
  * aplikasi), yang diperiksa di sini:
  *
- *  1. **Kartu rekening tersimpan** dirender langsung (murni, tanpa hook) —
+ *  1. **Kartu rekening tersimpan** dirender langsung (murni, tanpa hook),
  *     membuktikan nomor rekening hanya tampil BERTopeng.
  *  2. **Sumber komponen** dibaca sebagai teks: keempat isian ada, mutasi server
  *     yang dipakai tetap `loans.createLoanApplication` (tidak ada mutasi baru),
@@ -87,15 +87,23 @@ ada(kyc, "<PengajuanCepatSection", "jalur cepat merender formulir satu halaman")
 ada(kyc, 'dokKtpId: dokumenTersimpan.ktpId', "id dokumen diambil dari data KYC tersimpan");
 ada(kyc, "onLihatDataKyc={() => setBukaDataKyc(true)}", "nasabah masih bisa membuka data KYC");
 
-const posisiCepat = kyc.indexOf("isKycVerified(dataPasti.status) && !bukaDataKyc");
-const posisiWizard = kyc.indexOf("<KycStepperTigaTahap");
-ok(posisiCepat > 0 && posisiWizard > 0, "kedua jalur (cepat & wizard) ada di modul");
+// Pencarian dibatasi pada `KycSection`: sejak tahap KYC juga tampil di menu
+// sidebar, `<KycStepperTigaTahap` dipakai di luar wizard, jadi urutan di berkas
+// bukan lagi bukti yang benar. Yang diperiksa: urutan KEDUA jalur di dalam
+// komponen yang memuatnya.
+const mulaiSection = kyc.indexOf("export function KycSection(");
+const posisiCepat = kyc.indexOf("isKycVerified(dataPasti.status) && !bukaDataKyc", mulaiSection);
+const posisiWizard = kyc.indexOf("<KycStepperTigaTahap", mulaiSection);
+ok(
+  mulaiSection > 0 && posisiCepat > mulaiSection && posisiWizard > 0,
+  "kedua jalur (cepat & wizard) ada di KycSection",
+);
 ok(
   posisiCepat < posisiWizard,
   "jalur cepat diperiksa SEBELUM wizard dirender, jadi wizard benar-benar dilewati",
 );
 ok(
-  kyc.indexOf("<PengajuanCepatSection") < posisiWizard,
+  kyc.indexOf("<PengajuanCepatSection", mulaiSection) < posisiWizard,
   "formulir cepat berada di cabang sebelum render wizard",
 );
 

@@ -16,10 +16,17 @@ import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { useAuth } from "@/hooks/use-auth";
+import type { IdTahapKyc } from "@/lib/kycTahapan";
 
 import { MyContractsSection } from "./dashboard/contract-views";
 import { DataDiriSection } from "./dashboard/data-diri-views";
-import { KycSection, KycStatusStrip } from "./dashboard/kyc-views";
+import {
+  KycMenuSidebar,
+  KycSection,
+  KycStatusStrip,
+  menuTahapKyc,
+  tampilkanMenuTahapKyc,
+} from "./dashboard/kyc-views";
 import { DashboardFooter } from "./dashboard/dashboard-footer";
 import { DashboardHeader } from "./dashboard/dashboard-header";
 import { DashboardSidebar } from "./dashboard/dashboard-sidebar";
@@ -166,11 +173,35 @@ export default function Dashboard() {
   const [jenisPengajuan, setJenisPengajuan] = useState<JenisPengajuan>(
     JENIS_PENGAJUAN_AWAL,
   );
+  /** Tahap KYC yang dipilih dari menu sidebar; null = modul memilih sendiri. */
+  const [tahapKyc, setTahapKyc] = useState<IdTahapKyc | null>(null);
 
   /** Buka halaman Form Pengajuan dengan jenis yang sudah dipilih. */
   const bukaPengajuan = (jenis: JenisPengajuan) => {
     setJenisPengajuan(jenis);
     gantiTab("form");
+  };
+
+  /**
+   * Data menu tahap KYC untuk sidebar. Hanya ada selama verifikasinya belum
+   * selesai (`tampilkanMenuTahapKyc`), dan dihitung dari data yang SUDAH
+   * tersimpan: kolom sidebar tidak memegang draft lokal modul KYC.
+   */
+  const dataMenuKyc =
+    kyc !== undefined && tampilkanMenuTahapKyc(kyc.status)
+      ? menuTahapKyc({
+          status: kyc.status,
+          kekurangan: kyc.kekurangan,
+          persetujuanAktif: kyc.persetujuanAktif,
+          isian: kyc.isian,
+          dokumen: kyc.dokumen,
+        })
+      : null;
+
+  /** Buka satu tahap dari menu sidebar: pilih tahapnya, lalu pindah ke tab KYC. */
+  const pilihTahapKyc = (id: IdTahapKyc) => {
+    setTahapKyc(id);
+    gantiTab("kyc");
   };
 
   const handleSignOut = async () => {
@@ -302,6 +333,16 @@ export default function Dashboard() {
               onTabChange={gantiTab}
               onBuatPengajuan={bukaPengajuan}
               onSignOut={handleSignOut}
+              kycMenu={
+                dataMenuKyc === null ? null : (
+                  <KycMenuSidebar
+                    aktif={tahapKyc ?? dataMenuKyc.tahapAktif}
+                    statusPerTahap={dataMenuKyc.statusPerTahap}
+                    terkunci={dataMenuKyc.terkunci}
+                    onPilih={pilihTahapKyc}
+                  />
+                )
+              }
             />
           </aside>
 
@@ -397,8 +438,10 @@ export default function Dashboard() {
                     Terpisah dari formulir pengajuan: menyimpan KYC tidak membuat
                     catatan pinjaman apa pun, dan status VERIFIED bukan
                     persetujuan pinjaman. */}
-                <TabsContent value="kyc" className="mt-8 min-w-0 animate-masuk">
-                  <KycSection />
+                {/* Batas 48rem: sejak navigasi tahap pindah ke sidebar, kolom isi
+                    KYC jadi lebih lebar daripada formulirnya. */}
+                <TabsContent value="kyc" className="mt-8 min-w-0 max-w-3xl animate-masuk">
+                  <KycSection tahapPilihan={tahapKyc} onPilihTahap={setTahapKyc} />
                 </TabsContent>
 
                 {/* ============ TAB 6: RIWAYAT ============ */}

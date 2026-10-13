@@ -265,6 +265,53 @@ export function tahapStage(nomor: 1 | 2 | 3): readonly IdTahapKyc[] {
 }
 
 /**
+ * Menu tahap di sidebar hanya berguna selama KYC belum selesai: begitu identitas
+ * terverifikasi, modulnya menampilkan halaman pengajuan cepat dan sidebar cukup
+ * memuat menu layanan. Sebelum KYC dimulai pun belum ada tahap untuk dipilih.
+ */
+export function tampilkanMenuTahapKyc(status: StatusKyc): boolean {
+  return status !== "NOT_STARTED" && !isKycVerified(status);
+}
+
+/**
+ * Rekap menu tahap dari baris KYC yang TERSIMPAN: status tiap tahap, tahap yang
+ * paling masuk akal dibuka, dan apakah tahapnya masih terkunci.
+ *
+ * Dipakai kolom sidebar, yang hanya memegang hasil query, jadi statusnya
+ * mengikuti yang sudah tersimpan; draft yang belum disimpan bisa membuat modul
+ * KYC di kolom isi tampak lebih maju daripada menunya.
+ */
+export function menuTahapKyc(data: {
+  status: StatusKyc;
+  kekurangan: readonly string[];
+  persetujuanAktif: boolean;
+  isian: IsianKycLengkap;
+  dokumen: { ktpId: string | null; selfieKtpId: string | null; buktiPenghasilanId: string | null };
+}): {
+  statusPerTahap: Record<IdTahapKyc, StatusTahapKyc>;
+  tahapAktif: IdTahapKyc;
+  terkunci: boolean;
+} {
+  const berkas: BerkasKyc = {
+    ktp: data.dokumen.ktpId,
+    selfie: data.dokumen.selfieKtpId,
+    bukti: data.dokumen.buktiPenghasilanId,
+  };
+  const opsi: OpsiStatusTahap = {
+    kekurangan: data.kekurangan,
+    perluPerbaikan: data.status === "NEEDS_CORRECTION",
+    persetujuanAktif: data.persetujuanAktif,
+  };
+  return {
+    statusPerTahap: Object.fromEntries(
+      ID_TAHAP_KYC.map((id) => [id, statusTahapKyc(id, data.isian, berkas, opsi)]),
+    ) as Record<IdTahapKyc, StatusTahapKyc>,
+    tahapAktif: tahapDisarankan(data.status, data.isian, berkas, opsi),
+    terkunci: !data.persetujuanAktif,
+  };
+}
+
+/**
  * Bilah progres 3 tahap besar di atas wizard, menggantikan daftar 7 langkah
  * memanjang sebagai navigasi utama.
  *
@@ -282,6 +329,7 @@ export function KycStepperTigaTahap({
   statusPerTahap,
   onPilih,
   terkunci,
+  tumpuk = false,
 }: {
   aktif: IdTahapKyc;
   statusPerTahap: Record<IdTahapKyc, StatusTahapKyc>;
@@ -289,11 +337,13 @@ export function KycStepperTigaTahap({
   onPilih: (id: IdTahapKyc) => void;
   /** true selama persetujuan belum tercatat (hanya stage 1 yang boleh dibuka). */
   terkunci: boolean;
+  /** Tetap menumpuk di semua lebar: menu sidebar hanya selebar 16rem. */
+  tumpuk?: boolean;
 }) {
   const stageAktif = stageUntukTahap(aktif);
   return (
     <nav aria-label="Tahapan verifikasi KYC" className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
-      <ol className="flex flex-col gap-2 lg:flex-row lg:items-stretch">
+      <ol className={cn("flex flex-col gap-2", !tumpuk && "lg:flex-row lg:items-stretch")}>
         {STAGE_KYC.map((stage) => {
           const statusLangkah = stage.tahap.map((id) => statusPerTahap[id]);
           const ringkas: StatusTahapKyc = statusLangkah.includes("perlu-diperbaiki")
@@ -330,7 +380,7 @@ export function KycStepperTigaTahap({
                       ? "bg-emerald-800 text-white"
                       : iniAktif
                         ? "bg-emerald-100 text-emerald-900"
-                        : "bg-slate-100 text-slate-500",
+                        : "bg-muted text-muted-foreground",
                   )}
                   aria-hidden
                 >
@@ -343,7 +393,7 @@ export function KycStepperTigaTahap({
                   <span className="block text-xs font-semibold text-slate-900">
                     {`Tahap ${stage.nomor}: ${stage.judul}`}
                   </span>
-                  <span className="mt-0.5 block text-[10px] leading-4 text-slate-500">
+                  <span className="mt-0.5 block text-[10px] leading-4 text-muted-foreground">
                     {ringkas === "lengkap"
                       ? `Selesai (${selesai}/${stage.tahap.length} langkah)`
                       : ringkas === "perlu-diperbaiki"
@@ -356,7 +406,7 @@ export function KycStepperTigaTahap({
                     </span>
                   )}
                 </span>
-                {!bolehDibuka && <Lock className="size-3.5 shrink-0 text-slate-400" aria-hidden />}
+                {!bolehDibuka && <Lock className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />}
               </button>
             </li>
           );
@@ -384,11 +434,11 @@ function PenandaOpsional() {
 /**
  * Daftar tahap DALAM satu stage: satu kolom penuh lebar di semua ukuran layar.
  *
- * Daftar ini sengaja disaring per stage (`saring`): navigasi utama sekarang ada
- * di bilah 3 stage di atas, jadi 7 langkah tidak lagi tampil memanjang sekaligus
- * sehingga yang terlihat hanya langkah-langkah stage yang sedang dibuka. Nomor langkah
- * diambil dari posisinya di `TAHAPAN_KYC`, bukan dari posisi tampil, supaya
- * penomoran tidak berubah hanya karena penyaringan.
+ * Daftar ini sengaja disaring per stage (`saring`): navigasi utama ada di bilah 3
+ * stage, jadi 7 langkah tidak lagi tampil memanjang sekaligus dan yang terlihat
+ * hanya langkah-langkah stage yang sedang dibuka. Nomor langkah diambil dari
+ * posisinya di `TAHAPAN_KYC`, bukan dari posisi tampil, supaya penomoran tidak
+ * berubah hanya karena penyaringan.
  *
  * Status tiap tahap ditampilkan sebagai teks (bukan hanya warna), dan tahap aktif
  * memakai `aria-current="step"` supaya pembaca layar tahu posisinya.
@@ -411,12 +461,13 @@ export function KycDaftarTahap({
   const daftar =
     saring === undefined ? TAHAPAN_KYC : TAHAPAN_KYC.filter((t) => saring.includes(t.id));
   return (
-    <nav aria-label="Tahapan pengisian KYC" className="lg:sticky lg:top-20">
-      {/* Satu kolom penuh lebar di SEMUA ukuran: pada ponsel inilah yang membuat
-          seluruh langkah stage terlihat tanpa geseran mendatar, dan pada `lg`
-          kolomnya sudah sempit (17rem) sehingga bentuk yang sama tetap pas.
-          Deret mendatar + `min-w-[13rem]` dihapus karena menaruh sebagian
-          langkah di luar layar dan memaksa pengguna menggeser (audit-005 #10). */}
+    <nav aria-label="Tahapan pengisian KYC">
+      {/* Satu kolom penuh lebar di SEMUA ukuran: di bawah `lg` inilah yang
+          membuat seluruh langkah stage terlihat tanpa geseran mendatar, dan
+          sejak `lg` kolomnya mengecil (sidebar 16rem) sehingga bentuk yang sama
+          tetap pas. Deret mendatar + `min-w-[13rem]` dihapus karena menaruh
+          sebagian langkah di luar layar dan memaksa pengguna menggeser
+          (audit-005 #10). */}
       <ol className="flex flex-col gap-2 lg:gap-1.5">
         {daftar.map((tahap) => {
           const urutan = TAHAPAN_KYC.indexOf(tahap);
@@ -470,6 +521,53 @@ export function KycDaftarTahap({
         })}
       </ol>
     </nav>
+  );
+}
+
+/**
+ * Menu tahap KYC untuk kolom sidebar, tepat di bawah menu peran: bilah 3 tahap
+ * yang selalu menumpuk, plus langkah-langkah stage yang sedang dibuka.
+ *
+ * Isinya memakai komponen yang sama dengan navigasi di `KycSection`, jadi dua
+ * tempat tidak bisa menampilkan tahap yang berbeda arti. Di bawah `lg` ia tidak
+ * dirender: sidebar menumpuk di atas formulir, dan kartu tahap di sana hanya
+ * mendorong isian ke bawah layar.
+ */
+export function KycMenuSidebar({
+  aktif,
+  statusPerTahap,
+  terkunci,
+  onPilih,
+}: {
+  aktif: IdTahapKyc;
+  statusPerTahap: Record<IdTahapKyc, StatusTahapKyc>;
+  terkunci: boolean;
+  onPilih: (id: IdTahapKyc) => void;
+}) {
+  return (
+    <section aria-label="Tahap verifikasi KYC" className="hidden lg:block">
+      {/* Gaya label disamakan dengan "Menu khusus" supaya kolom ini terbaca
+          sebagai satu sistem menu. */}
+      <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-600">
+        Tahap verifikasi
+      </p>
+      <div className="mt-2.5 space-y-2">
+        <KycStepperTigaTahap
+          aktif={aktif}
+          statusPerTahap={statusPerTahap}
+          onPilih={onPilih}
+          terkunci={terkunci}
+          tumpuk
+        />
+        <KycDaftarTahap
+          aktif={aktif}
+          statusPerTahap={statusPerTahap}
+          onPilih={onPilih}
+          terkunci={terkunci}
+          saring={tahapStage(stageUntukTahap(aktif))}
+        />
+      </div>
+    </section>
   );
 }
 
@@ -934,7 +1032,15 @@ type DraftKyc = {
   berkas: Record<SlotBerkasUi, BerkasDraft | null>;
 };
 
-export function KycSection() {
+export function KycSection({
+  tahapPilihan: tahapPilihanAtas = null,
+  onPilihTahap,
+}: {
+  /** Tahap yang dipilih dari menu sidebar; null berarti modul memilih sendiri. */
+  tahapPilihan?: IdTahapKyc | null;
+  /** Dipanggil saat tahap berganti, supaya menu sidebar ikut berpindah. */
+  onPilihTahap?: (id: IdTahapKyc) => void;
+} = {}) {
   const data = useQuery(api.kyc.kycSaya);
   const mulai = useMutation(api.kyc.mulaiKyc);
   const setujui = useMutation(api.kyc.catatPersetujuanKyc);
@@ -963,7 +1069,11 @@ export function KycSection() {
     nama: string | null;
     alamat: string | null;
   } | null>(null);
-  const [tahapPilihan, setTahapPilihan] = useState<IdTahapKyc | null>(null);
+  const [tahapLokal, setTahapLokal] = useState<IdTahapKyc | null>(null);
+  // Dua sumber: pilihan dari menu sidebar (diprop-kan pemanggil) dan pilihan di
+  // dalam modul. Yang dari pemanggil menang bila ada, tapi modul tetap bisa
+  // dipakai sendiri tanpa prop itu (mis. di luar dashboard).
+  const tahapPilihan = tahapPilihanAtas ?? tahapLokal;
   const [centangSetuju, setCentangSetuju] = useState(false);
   const [busy, setBusy] = useState(false);
   const [galat, setGalat] = useState<string | null>(null);
@@ -1331,7 +1441,8 @@ export function KycSection() {
   };
 
   const menuju = (id: IdTahapKyc) => {
-    setTahapPilihan(id);
+    setTahapLokal(id);
+    onPilihTahap?.(id);
     setGalat(null);
   };
 
@@ -1350,7 +1461,8 @@ export function KycSection() {
       const pesan = err instanceof Error ? err.message : "Langkah KYC gagal. Coba lagi.";
       setGalat(pesan);
       if (pesanButuhPersetujuan(pesan) || pesanVersiPersetujuanBerubah(pesan)) {
-        setTahapPilihan("persetujuan");
+        // Lewat `menuju` supaya menu sidebar ikut berpindah ke tahap 1.
+        menuju("persetujuan");
       }
       return false;
     } finally {
@@ -1625,13 +1737,6 @@ export function KycSection() {
         </div>
       )}
 
-      <KycStepperTigaTahap
-        aktif={tahap.id}
-        statusPerTahap={statusPerTahap}
-        onPilih={menuju}
-        terkunci={terkunci}
-      />
-
       {otpResumeStatus !== null && otpResumeStatus !== "Sesi OTP ditemukan; harap verifikasi ulang kode." && (
         <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-900">
           <p className="flex items-center gap-2 font-semibold">
@@ -1640,14 +1745,26 @@ export function KycSection() {
         </div>
       )}
 
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,17rem)_minmax(0,1fr)] lg:items-start lg:gap-6">
-        <KycDaftarTahap
-          aktif={tahap.id}
-          statusPerTahap={statusPerTahap}
-          onPilih={menuju}
-          terkunci={terkunci}
-          saring={tahapStage(stageUntukTahap(tahap.id))}
-        />
+      <div className="grid gap-4 lg:gap-6">
+        {/* Navigasi tahap hanya di bawah `lg`: sejak `lg` tahapnya ada di kolom
+            sidebar (`KycMenuSidebar`), jadi kolom isi ini memuat formulirnya
+            saja. Di ponsel sidebar menumpuk di atas isi, dan tiga kartu tahap di
+            sana hanya mendorong isian ke bawah layar. */}
+        <div className="space-y-2 lg:hidden">
+          <KycStepperTigaTahap
+            aktif={tahap.id}
+            statusPerTahap={statusPerTahap}
+            onPilih={menuju}
+            terkunci={terkunci}
+          />
+          <KycDaftarTahap
+            aktif={tahap.id}
+            statusPerTahap={statusPerTahap}
+            onPilih={menuju}
+            terkunci={terkunci}
+            saring={tahapStage(stageUntukTahap(tahap.id))}
+          />
+        </div>
 
         <div
           id="kyc-tahap-isi"
