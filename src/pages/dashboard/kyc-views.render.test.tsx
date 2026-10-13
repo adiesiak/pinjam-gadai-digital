@@ -35,6 +35,7 @@ import { fileURLToPath } from "node:url";
 
 import { renderToStaticMarkup } from "react-dom/server";import {
   KycBarisAksi,
+  KycBilahTahapLekat,
   KycDaftarAturanOtomatis,
   KycKeputusanAlert,
   KycMenuSidebar,
@@ -47,8 +48,12 @@ import { renderToStaticMarkup } from "react-dom/server";import {
   labelAktorKyc,
   menuTahapKyc,
   progresStageKyc,
+  ringkasStatusStage,
   STAGE_KYC,
+  stageKyc,
   stageUntukTahap,
+  tahapBerikutStage,
+  tahapSebelumStage,
   tahapStage,
   tahapUntukPilihStage,
   tampilkanMenuTahapKyc,
@@ -853,10 +858,165 @@ ok(
   ada(modul, "const tujuan = tahapUntukPilihStage(", "bilah stage memakai aturan pilih stage");
   ada(
     modul,
-    "progres.tahapBerikutnya === tahap.id",
+    "stageUntukTahap(progres.tahapBerikutnya) === nomorStage",
     "pintasan rumpun isian kurang disembunyikan saat isian itu ada di tahap ini",
   );
   ada(modul, "bolehLanjut={!terkunci}", "tombol maju mati selama persetujuan belum tercatat");
+}
+
+// 18. SATU LAYAR PER TAHAP: seluruh langkah sebuah tahap dirender bersama, dan
+// perpindahan lewat tombol utama melangkah satu TAHAP, bukan satu langkah.
+{
+  const modul = bacaSumber("pages/dashboard/kyc-views.tsx");
+  // Tahap 1 memuat tiga langkah, jadi ketiganya harus dirender dari nomor
+  // tahapnya — bukan dari langkah yang kebetulan menjadi pintu masuk.
+  ada(modul, "{nomorStage === 1 && (", "langkah persetujuan dirender dari nomor tahap");
+  ada(modul, "{nomorStage === 1 && !terkunci && (", "identitas & WhatsApp ikut satu layar");
+  ok(
+    (modul.match(/nomorStage === 1 && !terkunci && \(/g) ?? []).length === 2,
+    "identitas dan nomor WhatsApp keduanya dirender di tahap 1",
+  );
+  ada(
+    modul,
+    '(["ktp", "selfie"] as const).map((slotDokumen) => (',
+    "KTP dan selfie dirender bersama sebagai dua kotak unggah",
+  );
+  ada(modul, "{nomorStage === 2 &&", "tahap dokumen memakai nomor tahap, bukan langkah tunggal");
+  ada(
+    modul,
+    "berkasKamera={kameraSlot === slotDokumen ? berkasKamera : null}",
+    "hasil kamera hanya masuk ke slot dokumen yang kameranya sedang terbuka",
+  );
+  ok(
+    (modul.match(/nomorStage === 3 && !terkunci && \(/g) ?? []).length === 3,
+    "alamat, kontak darurat, dan pendukung tampil di tahap 3",
+  );
+  ok(
+    !modul.includes('tahap.id === "identitas"') &&
+      !modul.includes('tahap.id === "pendukung"') &&
+      !modul.includes("TAHAPAN_KYC[indeks"),
+    "tidak ada lagi cabang per langkah yang menghalangi isian satu tahap untuk tampil bersama",
+  );
+  ada(modul, "const nomorStage = tahapBesar.nomor;", "nomor tahap diturunkan dari satu hitungan");
+  ada(modul, "onLanjut={() => void simpanDanLanjut()}", "tombol utama tetap satu pintu simpan");
+  ok(
+    !modul.includes("indeks"),
+    "sisa penanda indeks langkah sudah tidak dipakai lagi",
+  );
+}
+
+// 18b. Perpindahan antar-TAHAP: fungsi murni yang dipakai tombol Kembali/Lanjut.
+{
+  ok(tahapSebelumStage("persetujuan") === null, "tahap pertama tidak punya tempat mundur");
+  ok(
+    tahapSebelumStage("pendukung") === "ktp",
+    "Kembali dari tahap 3 menuju langkah pertama tahap 2, bukan mengulang dari awal",
+  );
+  ok(
+    tahapSebelumStage("alamat") === "ktp",
+    "Kembali dari langkah mana pun di tahap 3 tetap menuju tahap 2",
+  );
+  ok(tahapBerikutStage("pendukung") === null, "tahap terakhir tidak menawarkan lanjut");
+  ok(
+    tahapBerikutStage("identitas") === "ktp",
+    "Lanjut dari tahap 1 langsung ke langkah pertama tahap 2",
+  );
+  ok(
+    tahapBerikutStage("selfie") === "alamat",
+    "Lanjut dari tahap 2 melewati semua langkahnya, bukan satu langkah",
+  );
+  ok(tahapSebelumStage("ktp") === "persetujuan", "Kembali dari tahap 2 menuju pintu tahap 1");
+  ok(stageKyc(2).judul === "Live KTP & Selfie", "judul tahap diambil dari satu sumber");
+  ok(stageKyc(2).tahap.length === 2, "tahap 2 tetap berisi dua langkah");
+}
+
+// 18c. Ringkasan status satu tahap: satu arti untuk bilah sidebar, bilah lekat,
+// dan lencana di kepala kartu.
+{
+  const status = statusNetral();
+  ok(
+    ringkasStatusStage(status, 2) === "belum",
+    "tahap tanpa isian diringkas sebagai belum diisi",
+  );
+  status.ktp = "lengkap";
+  ok(
+    ringkasStatusStage(status, 2) === "belum",
+    "satu langkah lengkap belum membuat seluruh tahap disebut selesai",
+  );
+  status.selfie = "lengkap";
+  ok(ringkasStatusStage(status, 2) === "lengkap", "seluruh langkah lengkap berarti tahap selesai");
+  status.selfie = "perlu-diperbaiki";
+  ok(
+    ringkasStatusStage(status, 2) === "perlu-diperbaiki",
+    "permintaan perbaikan pada satu langkah menandai seluruh tahapnya",
+  );
+  status.selfie = "sebagian";
+  ok(
+    ringkasStatusStage(status, 2) === "belum",
+    "tahap yang masih diisi belum diklaim selesai",
+  );
+}
+
+// 18d. Bilah tahap lekat di ponsel: penghitung "Tahap X dari 3" tidak hilang saat
+// isian panjang digulung, dan penghitung di kartu status tidak digandakan.
+{
+  const html = renderToStaticMarkup(
+    <KycBilahTahapLekat
+      aktif="alamat"
+      statusPerTahap={statusNetral()}
+      terkunci={false}
+      onPilih={() => {}}
+    />,
+  );
+  ada(html, "sticky top-14", "bilah tahap menempel tepat di bawah bar atas (h-14)");
+  ada(html, "lg:hidden", "bilah ini hanya untuk ponsel; di lg tahapnya ada di sidebar");
+  ada(html, "Tahap 3 dari 3", "penghitung tahap terbaca di bilah lekat");
+  ada(html, "Alamat &amp; Rekening", "nama tahap yang sedang dibuka ikut terbaca");
+  ada(
+    html,
+    'aria-label="Tahap verifikasi KYC: 0 dari 3 tahap selesai"',
+    "bilah kemajuan melaporkan diri ke pembaca layar",
+  );
+  ok(
+    (html.match(/aria-current="step"/g) ?? []).length === 1,
+    "hanya satu tahap bertanda aktif di bilah lekat",
+  );
+  ok(!html.includes("Selesai"), "tahap kosong tidak diklaim selesai di bilah lekat");
+  ada(html, "min-h-9", "tombol tahap cukup tinggi untuk ditekan ibu jari");
+  bersih(html, "bilah tahap lekat");
+
+  const penuh = renderToStaticMarkup(
+    <KycBilahTahapLekat
+      aktif="pendukung"
+      statusPerTahap={statusLengkap()}
+      terkunci={false}
+      onPilih={() => {}}
+    />,
+  );
+  ada(penuh, "3 dari 3 tahap selesai", "tiga tahap lengkap terbaca di bilah lekat");
+  bersih(penuh, "bilah tahap lekat saat semua lengkap");
+
+  const terkunci = renderToStaticMarkup(
+    <KycBilahTahapLekat
+      aktif="persetujuan"
+      statusPerTahap={statusNetral()}
+      terkunci
+      onPilih={() => {}}
+    />,
+  );
+  ok(
+    (terkunci.match(/disabled=""/g) ?? []).length === 2,
+    "tahap 2 & 3 tidak bisa dibuka sebelum persetujuan tercatat",
+  );
+
+  // Penghitung di kartu status disembunyikan di ponsel: kalau tidak, nasabah
+  // membaca "Tahap X dari 3" dua kali dalam satu layar.
+  const modul = bacaSumber("pages/dashboard/kyc-views.tsx");
+  ada(
+    modul,
+    'className="mt-3 hidden flex-wrap items-center gap-x-3 gap-y-2 lg:flex"',
+    "penghitung di kartu status disembunyikan di ponsel supaya tidak muncul dua kali",
+  );
 }
 
 if (failed > 0) {

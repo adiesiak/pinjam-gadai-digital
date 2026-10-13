@@ -83,7 +83,6 @@ import {
   tahapDariKekurangan,
   tahapDisarankan,
   tahapKyc,
-  TAHAPAN_KYC,
   type BerkasKyc,
   type IdTahapKyc,
   type IsianKycLengkap,
@@ -214,8 +213,8 @@ export function progresStageKyc(
   statusPerTahap: Record<IdTahapKyc, StatusTahapKyc>,
   aktif: IdTahapKyc,
 ): { nomor: 1 | 2 | 3; lengkap: number; total: 3; persen: number } {
-  const lengkap = STAGE_KYC.filter((stage) =>
-    stage.tahap.every((id) => statusPerTahap[id] === "lengkap"),
+  const lengkap = STAGE_KYC.filter(
+    (stage) => ringkasStatusStage(statusPerTahap, stage.nomor) === "lengkap",
   ).length;
   return {
     nomor: stageUntukTahap(aktif),
@@ -315,6 +314,48 @@ export function tahapStage(nomor: 1 | 2 | 3): readonly IdTahapKyc[] {
   return STAGE_KYC.find((s) => s.nomor === nomor)?.tahap ?? [];
 }
 
+/** Definisi satu stage (judul, ringkasan, dan langkah-langkahnya). */
+export function stageKyc(nomor: 1 | 2 | 3): (typeof STAGE_KYC)[number] {
+  return STAGE_KYC.find((s) => s.nomor === nomor) ?? STAGE_KYC[0];
+}
+
+/**
+ * Ringkasan status SATU tahap dari status langkah-langkah di dalamnya.
+ *
+ * Dipakai bersama oleh bilah 3 tahap di sidebar, bilah lekat di ponsel, dan
+ * lencana di kepala kartu tahap. Kalau tiap tempat menghitung sendiri, satu
+ * layar bisa menyebut "Selesai" sementara layar lain menyebut "Belum diisi"
+ * untuk tahap yang sama.
+ */
+export function ringkasStatusStage(
+  statusPerTahap: Record<IdTahapKyc, StatusTahapKyc>,
+  nomor: 1 | 2 | 3,
+): StatusTahapKyc {
+  const statusLangkah = tahapStage(nomor).map((id) => statusPerTahap[id]);
+  if (statusLangkah.includes("perlu-diperbaiki")) return "perlu-diperbaiki";
+  return statusLangkah.every((s) => s === "lengkap") ? "lengkap" : "belum";
+}
+
+/**
+ * Langkah pertama tahap BERIKUTNYA, atau `null` bila yang dibuka tahap terakhir.
+ *
+ * Tombol "Lanjut" memindahkan satu TAHAP, bukan satu langkah: seluruh isian
+ * satu tahap ada di layar yang sama, jadi melangkah per isian hanya mengulang
+ * layar yang baru saja diisi.
+ */
+export function tahapBerikutStage(aktif: IdTahapKyc): IdTahapKyc | null {
+  const nomor = stageUntukTahap(aktif);
+  if (nomor === 3) return null;
+  return tahapStage((nomor + 1) as 2 | 3)[0] ?? null;
+}
+
+/** Langkah pertama tahap SEBELUMNYA, atau `null` bila sudah di tahap pertama. */
+export function tahapSebelumStage(aktif: IdTahapKyc): IdTahapKyc | null {
+  const nomor = stageUntukTahap(aktif);
+  if (nomor === 1) return null;
+  return tahapStage((nomor - 1) as 1 | 2)[0] ?? null;
+}
+
 /**
  * Menu tahap di sidebar hanya berguna selama KYC belum selesai: begitu identitas
  * terverifikasi, modulnya menampilkan halaman pengajuan cepat dan sidebar cukup
@@ -406,12 +447,7 @@ export function KycStepperTigaTahap({
     <nav aria-label="Tahapan verifikasi KYC" className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
       <ol className={cn("flex flex-col gap-2", !tumpuk && "lg:flex-row lg:items-stretch")}>
         {STAGE_KYC.map((stage) => {
-          const statusLangkah = stage.tahap.map((id) => statusPerTahap[id]);
-          const ringkas: StatusTahapKyc = statusLangkah.includes("perlu-diperbaiki")
-            ? "perlu-diperbaiki"
-            : statusLangkah.every((s) => s === "lengkap")
-              ? "lengkap"
-              : "belum";
+          const ringkas = ringkasStatusStage(statusPerTahap, stage.nomor);
           const iniAktif = stage.nomor === stageAktif;
           const bolehDibuka = !terkunci || stage.nomor === 1;
           return (
@@ -497,6 +533,41 @@ function PenandaOpsional() {
 }
 
 /**
+ * Judul satu LANGKAH di dalam kartu tahap.
+ *
+ * Satu tahap memuat dua sampai tiga langkah (mis. tahap 3 = alamat, kontak
+ * darurat, informasi pendukung), jadi tiap rumpun isian perlu namanya sendiri —
+ * tanpa itu nasabah hanya melihat satu kartu panjang tanpa penanda bagian mana
+ * yang sedang diisi.
+ *
+ * Lencana keadaannya memakai `LABEL_STATUS_TAHAP` yang sama dengan lencana
+ * tahap, sehingga tidak ada dua istilah untuk keadaan yang sama.
+ */
+function JudulLangkah({ id, status }: { id: IdTahapKyc; status: StatusTahapKyc }) {
+  const langkah = tahapKyc(id);
+  return (
+    <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+      <h4 id={`kyc-langkah-${id}`} className="text-xs font-semibold text-foreground">
+        {langkah.judul}
+      </h4>
+      {!langkah.wajib && <PenandaOpsional />}
+      <span
+        className={cn(
+          "rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
+          status === "lengkap"
+            ? "bg-emerald-100 text-emerald-700"
+            : status === "perlu-diperbaiki"
+              ? "bg-amber-100 text-amber-800"
+              : "bg-muted text-muted-foreground",
+        )}
+      >
+        {LABEL_STATUS_TAHAP[status]}
+      </span>
+    </div>
+  );
+}
+
+/**
  * Menu tahap KYC untuk kolom sidebar, tepat di bawah menu peran: bilah 3 tahap
  * yang selalu menumpuk.
  *
@@ -538,6 +609,85 @@ export function KycMenuSidebar({
   );
 }
 
+/**
+ * Bilah tahap LEKAT untuk ponsel: satu baris "Tahap X dari 3" + bilah kemajuan +
+ * tiga tombol tahap, menempel tepat di bawah bar atas (h-14).
+ *
+ * Kenapa terpisah dari `KycStepperTigaTahap`: di ponsel tiga kartu tahap yang
+ * menumpuk memakan hampir sepertiga layar dan ikut tergulung ke atas begitu
+ * isian mulai diisi, sehingga nasabah kehilangan jejak tahap mana yang sedang
+ * dibuka. Bentuknya karena itu diringkas menjadi satu baris yang menempel, dan
+ * sejak `lg` bilah ini hilang — di sana tahapnya sudah ada di kolom sidebar dan
+ * penghitung di kartu status yang menggantikannya.
+ *
+ * Angka yang dipakai sama dengan penghitung di kartu status (`progresStageKyc`),
+ * jadi dua tempat itu tidak bisa menyebut tahap yang berbeda.
+ */
+export function KycBilahTahapLekat({
+  aktif,
+  statusPerTahap,
+  terkunci,
+  onPilih,
+}: {
+  aktif: IdTahapKyc;
+  statusPerTahap: Record<IdTahapKyc, StatusTahapKyc>;
+  /** true selama persetujuan belum tercatat (hanya tahap 1 yang boleh dibuka). */
+  terkunci: boolean;
+  /** Dipanggil dengan langkah pertama tahap yang dipilih. */
+  onPilih: (id: IdTahapKyc) => void;
+}) {
+  const tahap = progresStageKyc(statusPerTahap, aktif);
+  const stage = stageKyc(tahap.nomor);
+  return (
+    <div className="sticky top-14 z-20 -mx-3 border-b border-border bg-slate-50/95 px-3 py-2 backdrop-blur-sm sm:-mx-4 sm:px-4 lg:hidden">
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-xs font-semibold text-foreground">Tahap {tahap.nomor} dari 3</p>
+        <p className="min-w-0 truncate text-[11px] text-muted-foreground">{stage.judul}</p>
+      </div>
+      <Progress
+        value={tahap.persen}
+        aria-label={`Tahap verifikasi KYC: ${tahap.lengkap} dari 3 tahap selesai`}
+        className="mt-1.5 h-1.5"
+      />
+      <ol className="mt-2 flex gap-1.5" aria-label="Tahapan verifikasi KYC">
+        {STAGE_KYC.map((s) => {
+          const ringkas = ringkasStatusStage(statusPerTahap, s.nomor);
+          const iniAktif = s.nomor === tahap.nomor;
+          const bolehDibuka = !terkunci || s.nomor === 1;
+          return (
+            <li key={s.nomor} className="min-w-0 flex-1">
+              <button
+                type="button"
+                onClick={() => {
+                  const tujuan = tahapUntukPilihStage(s.nomor, aktif);
+                  if (tujuan !== null) onPilih(tujuan);
+                }}
+                disabled={!bolehDibuka}
+                aria-current={iniAktif ? "step" : undefined}
+                className={cn(
+                  "flex min-h-9 w-full items-center justify-center gap-1 rounded-lg border px-2 text-[11px] font-medium transition-colors",
+                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 focus-visible:ring-offset-2",
+                  iniAktif
+                    ? "border-emerald-300 bg-emerald-50 text-emerald-900"
+                    : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50",
+                  !bolehDibuka && "cursor-not-allowed opacity-60",
+                )}
+              >
+                {/* Ikut ditandai agar tahap yang sudah selesai bisa dikenali
+                    tanpa membuka kartunya satu per satu. */}
+                {ringkas === "lengkap" && (
+                  <CheckCircle2 className="size-3.5 shrink-0" aria-hidden />
+                )}
+                Tahap {s.nomor}
+              </button>
+            </li>
+          );
+        })}
+      </ol>
+    </div>
+  );
+}
+
 /** Judul modul + penghitung tunggal "Tahap X dari 3". */
 export function KycStatusHeader({
   status,
@@ -575,7 +725,7 @@ export function KycStatusHeader({
           Hitungan per langkah — "2 dari 8 tahap siap", "0/3 langkah" — dibuang:
           dengan tiga angka berbeda di layar, nasabah menghitung sendiri dan
           mengira harus mengisi delapan hal sebelum boleh mengirim. */}
-      <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2">
+      <div className="mt-3 hidden flex-wrap items-center gap-x-3 gap-y-2 lg:flex">
         <p className="text-xs font-semibold text-foreground">
           Tahap {tahap.nomor} dari {tahap.total}
         </p>
@@ -1347,9 +1497,22 @@ export function KycSection({
   }
   const tahapAktif = tahapPilihan ?? tahapAwal.current;
   const tahap = tahapKyc(tahapAktif);
-  const galatTahap = galatTahapKyc(tahap.id, isian, berkasUntukStatus);
-  const kurangTahap = kekuranganLokalTahap(tahap.id, isian, berkasUntukStatus);
-  const indeks = TAHAPAN_KYC.findIndex((t) => t.id === tahap.id);
+  // Satu hitungan untuk nomor tahap, bilah kemajuan, dan bilah lekat di ponsel:
+  // `progresStageKyc` menurunkan semuanya dari `statusPerTahap` yang sama.
+  const tahapBesar = progresStageKyc(statusPerTahap, tahap.id);
+  const nomorStage = tahapBesar.nomor;
+  const stage = stageKyc(nomorStage);
+  const langkahStage = tahapStage(nomorStage);
+  // Galat & kekurangan dihitung untuk SELURUH langkah tahap ini, bukan hanya
+  // langkah yang menjadi pintu masuk. Sejak satu tahap tampil dalam satu layar,
+  // pesan di dekat isian harus tetap muncul walau pengguna masuk dari langkah
+  // lain di tahap yang sama; kunci isian unik per langkah, jadi penyaringan per
+  // kunci tetap menemukan pesan yang benar.
+  const galatTahap = langkahStage.flatMap((id) => galatTahapKyc(id, isian, berkasUntukStatus));
+  const kurangTahap = langkahStage.flatMap((id) =>
+    kekuranganLokalTahap(id, isian, berkasUntukStatus),
+  );
+  const ringkasStage = ringkasStatusStage(statusPerTahap, nomorStage);
   // Tombol "ajukan" hanya aktif bila transisinya memang SAH menurut
   // `lib/kycStatus.ts`, bukan sekadar "isian lengkap". Dengan begitu nasabah
   // tidak pernah diantar ke tombol yang pasti ditolak server: setelah DITOLAK
@@ -1379,9 +1542,6 @@ export function KycSection({
         : dataPasti.status === "PENDING_REVIEW"
           ? "Sedang menunggu peninjauan petugas. Menyimpan perubahan menarik pengajuan kembali."
           : null;
-  /** Slot dokumen tahap ini (KTP/selfie), atau null bila bukan tahap dokumen. */
-  const slotDokumen: SlotBerkasUi | null =
-    tahap.id === "ktp" ? "ktp" : tahap.id === "selfie" ? "selfie" : null;
 
   const ubah = (kunci: keyof IsianKycLengkap, nilai: string) =>
     setDraft({ stempel: stempelServer, isian: { ...isian, [kunci]: nilai }, berkas });
@@ -1596,14 +1756,14 @@ export function KycSection({
     }
   };
 
-  /** Simpan lalu pindah ke tahap berikutnya (tanpa memaksa bila ada galat). */
+  /** Simpan lalu pindah ke TAHAP berikutnya (tanpa memaksa bila ada galat). */
   const simpanDanLanjut = async () => {
     // Tanpa toast: simpanan sudah dibiasakan lewat autosave, jadi "Lanjut" cukup
     // memindahkan tahap dan tidak menambah notifikasi untuk hal yang sama.
     const berhasil = await simpanProgres({ diam: true });
     if (!berhasil) return;
-    const berikutnya = TAHAPAN_KYC[indeks + 1];
-    if (berikutnya !== undefined) menuju(berikutnya.id);
+    const berikutnya = tahapBerikutStage(tahapPilihan ?? tahapAwal.current ?? "persetujuan");
+    if (berikutnya !== null) menuju(berikutnya);
   };
 
   /**
@@ -1808,14 +1968,15 @@ export function KycSection({
             sidebar (`KycMenuSidebar`), jadi kolom isi ini memuat formulirnya
             saja. Di ponsel sidebar menumpuk di atas isi, dan tiga kartu tahap di
             sana hanya mendorong isian ke bawah layar. */}
-        <div className="space-y-2 lg:hidden">
-          <KycStepperTigaTahap
-            aktif={tahap.id}
-            statusPerTahap={statusPerTahap}
-            onPilih={menuju}
-            terkunci={terkunci}
-          />
-        </div>
+        {/* Navigasi tahap untuk ponsel. Sejak `lg` tahapnya ada di kolom sidebar,
+            jadi bilah ini hilang dan penghitung di kartu status yang
+            menggantikannya. */}
+        <KycBilahTahapLekat
+          aktif={tahap.id}
+          statusPerTahap={statusPerTahap}
+          terkunci={terkunci}
+          onPilih={menuju}
+        />
 
         <div
           id="kyc-tahap-isi"
@@ -1824,38 +1985,44 @@ export function KycSection({
           className="min-w-0 rounded-2xl border border-border bg-card p-4 shadow-sm sm:p-5"
         >
           <p className="sr-only" role="status" aria-live="polite">
-            Tahap {stageUntukTahap(tahap.id)} dari 3: {tahap.judul}
+            Tahap {nomorStage} dari 3: {stage.judul}
           </p>
           <div className="flex flex-wrap items-start justify-between gap-2">
             <div className="min-w-0">
-              <JudulTahap nomor={stageUntukTahap(tahap.id)} judul={tahap.judul} />
-              <p className="mt-0.5 text-xs leading-5 text-muted-foreground">{tahap.ringkas}</p>
+              <JudulTahap nomor={nomorStage} judul={stage.judul} />
+              <p className="mt-0.5 text-xs leading-5 text-muted-foreground">{stage.ringkas}</p>
             </div>
             <span
               className={cn(
                 "rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
-                statusPerTahap[tahap.id] === "lengkap"
+                ringkasStage === "lengkap"
                   ? "bg-emerald-100 text-emerald-700"
-                  : statusPerTahap[tahap.id] === "perlu-diperbaiki"
+                  : ringkasStage === "perlu-diperbaiki"
                     ? "bg-amber-100 text-amber-800"
                     : "bg-muted text-muted-foreground",
               )}
             >
-              {LABEL_STATUS_TAHAP[statusPerTahap[tahap.id]]}
+              {LABEL_STATUS_TAHAP[ringkasStage]}
             </span>
           </div>
 
-          {terkunci && tahap.id !== "persetujuan" && (
+          {terkunci && langkahStage.length > 1 && (
             <p className="mt-3 flex items-start gap-2 rounded-xl border border-border bg-muted/50 px-3 py-2 text-[11px] leading-4 text-muted-foreground">
               <Lock className="mt-0.5 size-3.5 shrink-0" aria-hidden />
-              Tahap ini terbuka setelah persetujuan pemrosesan data tercatat di server.
+              Langkah lain di tahap ini terbuka setelah persetujuan pemrosesan data tercatat di
+              server.
             </p>
           )}
 
           <div className="mt-4">
-            {/* ===== Tahap 1: persetujuan & penjelasan pemrosesan data ===== */}
-            {tahap.id === "persetujuan" && (
-              <div className="space-y-4">
+            {/* Tahap 1, langkah 1: persetujuan & penjelasan pemrosesan data. */}
+            {nomorStage === 1 && (
+              <section
+                aria-labelledby="kyc-langkah-persetujuan"
+                className="border-t border-border pt-4 first:border-t-0 first:pt-0"
+              >
+              <JudulLangkah id="persetujuan" status={statusPerTahap.persetujuan} />
+              <div className="mt-3 space-y-4">
                 {/* Ringkasan 3 poin (data apa, untuk apa, siapa yang melihat) + satu
                     kalimat soal lokasi perangkat. Sisanya tetap ada persis seperti
                     teksnya, tapi di balik "Baca selengkapnya", supaya kotak
@@ -1942,21 +2109,27 @@ export function KycSection({
                       onClick={() => void setujuiPemrosesan()}
                     >
                       {busy ? <Loader2 className="size-4 animate-spin" /> : <ShieldCheck className="size-4" />}
-                      Setujui & lanjut
+                      Setujui & isi data
                     </Button>
                     {!centangSetuju && (
                       <p className="text-[11px] leading-4 text-muted-foreground">
-                        Tahap berikutnya terkunci sampai Anda menyetujui pemrosesan data.
+                        Isian di layar ini terbuka setelah Anda menyetujui pemrosesan data.
                       </p>
                     )}
                   </div>
                 )}
               </div>
+              </section>
             )}
 
-            {/* ===== Tahap 2: data identitas ===== */}
-            {tahap.id === "identitas" && !terkunci && (
-              <FieldSet>
+            {/* Tahap 1, langkah 2: data identitas. */}
+            {nomorStage === 1 && !terkunci && (
+              <section
+                aria-labelledby="kyc-langkah-identitas"
+                className="border-t border-border pt-4 first:border-t-0 first:pt-0"
+              >
+              <JudulLangkah id="identitas" status={statusPerTahap.identitas} />
+              <FieldSet className="mt-3">
                 <FieldLegend variant="label" className="sr-only">
                   Data identitas
                 </FieldLegend>
@@ -2008,10 +2181,21 @@ export function KycSection({
                   </Field>
                 </FieldGroup>
               </FieldSet>
+              </section>
             )}
 
-            {/* ===== Tahap 3 & 4: dokumen KTP dan selfie ===== */}
-            {slotDokumen !== null && !terkunci && (
+            {/* Tahap 2: dokumen KTP dan selfie. Dua kotak unggah, masing-masing
+                sudah membawa judulnya sendiri dari `LABEL_SLOT_BERKAS`, jadi
+                tidak perlu judul langkah tambahan yang mengulang nama yang
+                sama. */}
+            {nomorStage === 2 &&
+              !terkunci &&
+              (["ktp", "selfie"] as const).map((slotDokumen) => (
+              <section
+                key={slotDokumen}
+                aria-label={LABEL_SLOT_BERKAS[slotDokumen]}
+                className="border-t border-border pt-4 first:border-t-0 first:pt-0"
+              >
               <div className="space-y-3">
                 <UnggahDokumen
                   label={LABEL_SLOT_BERKAS[slotDokumen]}
@@ -2035,7 +2219,11 @@ export function KycSection({
                   // kamera dalam aplikasi, sehingga tidak ada jalan memilih foto
                   // lama dari galeri.
                   onMintaKamera={() => setKameraSlot(slotDokumen)}
-                  berkasKamera={berkasKamera}
+                  // Hasil kamera hanya diberikan ke slot yang kameranya sedang
+                  // TERBUKA. Sejak KTP dan selfie tampil dalam satu layar, dua
+                  // kotak unggah hidup berdampingan; tanpa penjagaan ini satu
+                  // tangkapan foto akan diunggah ke kedua slot sekaligus.
+                  berkasKamera={kameraSlot === slotDokumen ? berkasKamera : null}
                   onBerkasKameraDiproses={() => setBerkasKamera(null)}
                   mintaUrl={() => buatUrl({})}
                   periksa={(id, label) => periksa({ id, label }).then(() => undefined)}
@@ -2092,19 +2280,25 @@ export function KycSection({
                 )}
                 {/* Petunjuk di bawah kolom unggah supaya peringatan "sesuai
                     petunjuk di atas" tetap menunjuk ke tempat yang benar. */}
-                <KycPetunjukFoto tahapId={tahap.id} />
-                {statusPerTahap[tahap.id] === "perlu-diperbaiki" && (
+                <KycPetunjukFoto tahapId={slotDokumen} />
+                {statusPerTahap[slotDokumen] === "perlu-diperbaiki" && (
                   <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] leading-4 text-amber-900">
                     Petugas meminta berkas ini diganti. Unggah foto baru sesuai petunjuk di atas, lalu
                     simpan.
                   </p>
                 )}
               </div>
-            )}
+              </section>
+            ))}
 
-            {/* ===== Tahap 5: nomor WhatsApp ===== */}
-            {tahap.id === "whatsapp" && !terkunci && (
-              <div className="max-w-md space-y-3">
+            {/* Tahap 1, langkah 3: nomor WhatsApp + verifikasi OTP. */}
+            {nomorStage === 1 && !terkunci && (
+              <section
+                aria-labelledby="kyc-langkah-whatsapp"
+                className="border-t border-border pt-4 first:border-t-0 first:pt-0"
+              >
+              <JudulLangkah id="whatsapp" status={statusPerTahap.whatsapp} />
+              <div className="mt-3 max-w-md space-y-3">
               <Field
                 data-invalid={galatTahap.some((g) => g.kunci === "nomorWhatsApp")}
               >
@@ -2211,11 +2405,17 @@ export function KycSection({
                   </p>
                 )}
               </div>
+              </section>
             )}
 
-            {/* ===== Tahap 6: alamat (opsional) ===== */}
-            {tahap.id === "alamat" && !terkunci && (
-              <FieldGroup>
+            {/* Tahap 3, langkah 1: alamat & pekerjaan. */}
+            {nomorStage === 3 && !terkunci && (
+              <section
+                aria-labelledby="kyc-langkah-alamat"
+                className="border-t border-border pt-4 first:border-t-0 first:pt-0"
+              >
+              <JudulLangkah id="alamat" status={statusPerTahap.alamat} />
+              <FieldGroup className="mt-3">
                 <Field data-invalid={galatTahap.some((g) => g.kunci === "alamat")}>
                   <FieldLabel htmlFor="kyc-alamat">Alamat tempat tinggal</FieldLabel>
                   <Textarea
@@ -2248,17 +2448,32 @@ export function KycSection({
                   <FieldError
                     errors={galatTahap.filter((g) => g.kunci === "pekerjaan").map((g) => ({ message: g.pesan }))}
                   />
+                  <FieldDescription>
+                    Sebutkan yang paling menggambarkan penghasilan Anda sekarang, mis. “karyawan
+                    swasta” atau “pedagang pasar”.
+                  </FieldDescription>
                 </Field>
               </FieldGroup>
+              </section>
             )}
 
-            {/* ===== Tahap 7: kontak darurat (opsional) =====
+            {/* Tahap 3, langkah 2: KONTAK DARURAT (opsional).
                 Kolom ini tidak pernah menghalangi pengajuan; ia hanya jalan
-                menghubungi nasabah saat nomor utamanya tidak aktif. Karena itu
-                seluruh deskripsinya menyebut "opsional" dan galatnya hanya
-                muncul bila kolomnya diisi dengan nilai yang salah. */}
-            {tahap.id === "darurat" && !terkunci && (
-              <FieldGroup>
+                menghubungi nasabah saat nomor utamanya tidak aktif. Kalimat
+                pengantar menyebut aturannya sekaligus — "opsional" per kolom
+                membuat orang mengira boleh mengisi separuh, padahal yang ditolak
+                hanya nilai yang salah bentuk. */}
+            {nomorStage === 3 && !terkunci && (
+              <section
+                aria-labelledby="kyc-langkah-darurat"
+                className="border-t border-border pt-4 first:border-t-0 first:pt-0"
+              >
+              <JudulLangkah id="darurat" status={statusPerTahap.darurat} />
+              <FieldGroup className="mt-3">
+                <p className="text-[11px] leading-4 text-muted-foreground">
+                  Boleh dikosongkan seluruhnya. Kolom yang dibiarkan kosong tidak menahan pengajuan;
+                  yang ditolak hanya kolom yang diisi dengan nilai berbentuk salah.
+                </p>
                 <Field data-invalid={galatTahap.some((g) => g.kunci === "namaKontakDarurat")}>
                   <FieldLabel htmlFor="kyc-darurat-nama">
                     Nama kontak darurat <PenandaOpsional />
@@ -2277,8 +2492,8 @@ export function KycSection({
                       .map((g) => ({ message: g.pesan }))}
                   />
                   <FieldDescription>
-                    Opsional. Dipakai hanya bila petugas perlu menghubungi Anda dan nomor Anda sendiri
-                    tidak bisa dihubungi.
+                    Dipakai hanya bila petugas perlu menghubungi Anda dan nomor Anda sendiri tidak bisa
+                    dihubungi.
                   </FieldDescription>
                 </Field>
                 <Field data-invalid={galatTahap.some((g) => g.kunci === "nomorKontakDarurat")}>
@@ -2331,13 +2546,23 @@ export function KycSection({
                       .filter((g) => g.kunci === "hubunganKontakDarurat")
                       .map((g) => ({ message: g.pesan }))}
                   />
+                  <FieldDescription>
+                    Dipakai petugas untuk memperkenalkan diri saat menelepon, mis. “saya dari PINDAI,
+                    rekan kerja Bapak”.
+                  </FieldDescription>
                 </Field>
               </FieldGroup>
+              </section>
             )}
 
-            {/* ===== Tahap 8: informasi pendukung ===== */}
-            {tahap.id === "pendukung" && !terkunci && (
-              <div className="space-y-4">
+            {/* Tahap 3, langkah 3: informasi pendukung + bukti penghasilan. */}
+            {nomorStage === 3 && !terkunci && (
+              <section
+                aria-labelledby="kyc-langkah-pendukung"
+                className="border-t border-border pt-4 first:border-t-0 first:pt-0"
+              >
+              <JudulLangkah id="pendukung" status={statusPerTahap.pendukung} />
+              <div className="mt-3 space-y-4">
                 <FieldGroup>
                   <Field data-invalid={galatTahap.some((g) => g.kunci === "penghasilan")}>
                     <FieldLabel htmlFor="kyc-penghasilan">Penghasilan per bulan</FieldLabel>
@@ -2426,6 +2651,10 @@ export function KycSection({
                         .filter((g) => g.kunci === "namaBank")
                         .map((g) => ({ message: g.pesan }))}
                     />
+                    <FieldDescription>
+                      Bank atau dompet digital tempat dana dicairkan bila pengajuan disetujui, mis.
+                      “BCA” atau “DANA”. Nama di luar daftar saran tetap diterima.
+                    </FieldDescription>
                   </Field>
                   <Field data-invalid={galatTahap.some((g) => g.kunci === "nomorRekening")}>
                     <FieldLabel htmlFor="kyc-rekening">
@@ -2522,26 +2751,36 @@ export function KycSection({
                   </dl>
                 </div>
               </div>
+              </section>
             )}
-          </div>            {/* ===== Yang masih kurang di tahap ini ===== */}
-            {(galatTahap.length > 0 || kurangTahap.length > 0) &&
-              !(tahap.id === "persetujuan") && (
-                <div className="mt-4 rounded-xl border border-border bg-muted/40 px-3 py-2">
-                  <p className="text-[11px] font-semibold text-foreground">Tahap ini belum lengkap</p>
-                  <ul className="mt-1 list-disc space-y-0.5 pl-4 text-[11px] leading-4 text-muted-foreground">
-                    {[...galatTahap.map((g) => g.pesan), ...kurangTahap].map((pesan) => (
-                      <li key={pesan}>{pesan}</li>
-                    ))}
-                  </ul>
-                </div>
-              )}
+          </div>
+
+          {/* Satu daftar "yang masih kurang" per TAHAP — bukan per kolom: pesan
+              tiap kolom sudah muncul tepat di bawah kolomnya (`FieldError`),
+              jadi mengulang seluruhnya di sini hanya mengucapkan kalimat yang
+              sama dua kali. Yang tersisa adalah label kelengkapan dari aturan
+              yang sama dengan server (`kekuranganKyc`), termasuk berkas yang
+              belum diunggah — satu-satunya hal yang tidak punya baris galat
+              sendiri. */}
+          {!terkunci && kurangTahap.length > 0 && (
+            <div className="mt-4 rounded-xl border border-border bg-muted/40 px-3 py-2">
+              <p className="text-[11px] font-semibold text-foreground">
+                Yang masih kurang di tahap ini
+              </p>
+              <ul className="mt-1 list-disc space-y-0.5 pl-4 text-[11px] leading-4 text-muted-foreground">
+                {kurangTahap.map((pesan) => (
+                  <li key={pesan}>{pesan}</li>
+                ))}
+              </ul>
+            </div>
+          )}
 
             {/* Aksi utama tahap ini. */}
             <KycBarisAksi
               busy={busy}
               menyimpan={menyimpan}
-              bolehKembali={indeks > 0}
-              tahapTerakhir={stageUntukTahap(tahap.id) === 3}
+              bolehKembali={tahapSebelumStage(tahap.id) !== null}
+              tahapTerakhir={nomorStage === 3}
               // Saat persetujuan belum tercatat server menolak semua simpanan
               // (`pastikanPersetujuan`), jadi tombol maju di sini hanya berakhir galat.
               bolehLanjut={!terkunci}
@@ -2552,14 +2791,16 @@ export function KycSection({
               tersimpanPada={data.diperbaruiPada}
               catatan={catatanAksi}
               onSebelumnya={() => {
-                const sebelumnya = TAHAPAN_KYC[indeks - 1];
-                if (sebelumnya !== undefined) menuju(sebelumnya.id);
+                const sebelumnya = tahapSebelumStage(tahap.id);
+                if (sebelumnya !== null) menuju(sebelumnya);
               }}
               onLanjut={() => void simpanDanLanjut()}
               onAjukan={() => void ajukanPeninjauan()}
               onBukaKurang={() => menuju(progres.tahapBerikutnya)}
               judulTujuan={
-                progres.tahapBerikutnya === tahap.id
+                // Pintasan ini hanya berguna bila isian yang kurang ada di tahap
+                // LAIN; kalau masih di tahap ini, isiannya sudah ada di layar.
+                stageUntukTahap(progres.tahapBerikutnya) === nomorStage
                   ? null
                   : tahapKyc(progres.tahapBerikutnya).judul
               }

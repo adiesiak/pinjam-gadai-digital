@@ -96,13 +96,14 @@ ada(kyc, "<PengajuanCepatSection", "jalur cepat merender formulir satu halaman")
 ada(kyc, 'dokKtpId: dokumenTersimpan.ktpId', "id dokumen diambil dari data KYC tersimpan");
 ada(kyc, "onLihatDataKyc={() => setBukaDataKyc(true)}", "nasabah masih bisa membuka data KYC");
 
-// Pencarian dibatasi pada `KycSection`: sejak tahap KYC juga tampil di menu
-// sidebar, `<KycStepperTigaTahap` dipakai di luar wizard, jadi urutan di berkas
-// bukan lagi bukti yang benar. Yang diperiksa: urutan KEDUA jalur di dalam
-// komponen yang memuatnya.
+// Pencarian dibatasi pada `KycSection`, dan penanda "wizard"-nya adalah kartu
+// tahap itu sendiri (`id="kyc-tahap-isi"`) — bukan lagi `<KycStepperTigaTahap`,
+// yang sejak bilah tahap pindah ke sidebar/bilah lekat ponsel tidak lagi
+// dirender di dalam wizard. Yang diperiksa tetap sama: urutan KEDUA jalur di
+// dalam komponen yang memuatnya.
 const mulaiSection = kyc.indexOf("export function KycSection(");
 const posisiCepat = kyc.indexOf("isKycVerified(dataPasti.status) && !bukaDataKyc", mulaiSection);
-const posisiWizard = kyc.indexOf("<KycStepperTigaTahap", mulaiSection);
+const posisiWizard = kyc.indexOf('id="kyc-tahap-isi"', mulaiSection);
 ok(
   mulaiSection > 0 && posisiCepat > mulaiSection && posisiWizard > 0,
   "kedua jalur (cepat & wizard) ada di KycSection",
