@@ -364,11 +364,38 @@ export function progresKyc(
 }
 
 /**
+ * Tahap BELUM lengkap yang paling awal menurut URUTAN `TAHAPAN_KYC` — termasuk
+ * tahap opsional yang masih kosong.
+ *
+ * Dipakai wizard supaya pengisian berjalan tahap demi tahap: setelah satu
+ * langkah beres, yang dibuka adalah langkah BERIKUTNYA dalam daftar. Tanpa ini
+ * `tahapDisarankan` melompat ke tahap wajib pertama yang belum siap, sehingga
+ * pengguna yang baru selesai di kontak WhatsApp langsung dilempar ke
+ * "Informasi pendukung" dan melewati tahap alamat serta kontak darurat tanpa
+ * pernah melihatnya.
+ *
+ * `persetujuan` sengaja dilewati: ia pintu masuk (persetujuan pemrosesan),
+ * bukan langkah isian, dan dijaga terpisah di `tahapDisarankan`.
+ */
+export function tahapBerikutnyaUrut(
+  isian: IsianKycLengkap,
+  berkas: BerkasKyc,
+  opsi: OpsiStatusTahap,
+): IdTahapKyc {
+  for (const tahap of TAHAPAN_KYC) {
+    if (tahap.id === "persetujuan") continue;
+    if (statusTahapKyc(tahap.id, isian, berkas, opsi) !== "lengkap") return tahap.id;
+  }
+  return "pendukung";
+}
+
+/**
  * Tahap yang paling masuk akal dibuka lebih dulu.
  *
  * Saat petugas meminta perbaikan atau menolak, pengguna diantar ke tahap yang
  * memang perlu diubah — bukan ke tahap pertama yang membuatnya mengulang semua
- * dari awal. Sesudah itu: tahap pertama yang masih menghalangi pengajuan.
+ * dari awal. Sesudah itu ia maju berurutan (lihat `tahapBerikutnyaUrut`), tidak
+ * melompati tahap yang belum diisi.
  */
 export function tahapDisarankan(
   status: string,
@@ -386,8 +413,11 @@ export function tahapDisarankan(
       return tahap.id;
     }
   }
-  // 2) Tahap pertama yang masih menghalangi pengajuan.
-  return progresKyc(isian, berkas, opsiEfektif).tahapBerikutnya;
+  // 2) Selama persetujuan belum tercatat, pintu masuknya tetap tahap persetujuan.
+  if (!opsiEfektif.persetujuanAktif) return "persetujuan";
+  // 3) Sesudah itu: tahap berikutnya menurut urutan daftar, bukan tahap wajib
+  //    pertama yang belum siap.
+  return tahapBerikutnyaUrut(isian, berkas, opsiEfektif);
 }
 
 /* ==========================================================================

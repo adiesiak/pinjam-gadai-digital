@@ -1145,6 +1145,11 @@ export function KycSection({
     aktif: data?.persetujuanAktif === true,
   });
   const sudahCobaPulih = useRef(false);
+  /**
+   * Tahap pembuka, dihitung SEKALI saat data pertama tiba lalu dikunci. Lihat
+   * pemakaiannya di bagian tahap aktif.
+   */
+  const tahapAwal = useRef<IdTahapKyc | null>(null);
 
   // Nilai terakhir pratinjau juga dipegang ref supaya URL objeknya bisa
   // dibersihkan saat komponen dilepas. Efek pembersih ini sengaja ditulis
@@ -1364,7 +1369,15 @@ export function KycSection({
   const progres = progresKyc(isian, berkasUntukStatus, opsi);
 
   const terkunci = !dataPasti.persetujuanAktif;
-  const tahapAktif = tahapPilihan ?? tahapDisarankan(dataPasti.status, isian, berkasUntukStatus, opsi);
+  // Dikunci pada nilai pertama, bukan dihitung ulang tiap render: begitu satu
+  // tahap menjadi "lengkap" — misalnya nomor WhatsApp selesai diverifikasi —
+  // wizard akan berpindah tahap SENDIRI tepat saat pengguna sedang mengisi.
+  // Sesudah terkunci, hanya tindakan pengguna yang memindahkan tahap: tombol
+  // "Sebelumnya"/"Simpan & lanjut" dan menu tahap.
+  if (tahapAwal.current === null) {
+    tahapAwal.current = tahapDisarankan(dataPasti.status, isian, berkasUntukStatus, opsi);
+  }
+  const tahapAktif = tahapPilihan ?? tahapAwal.current;
   const tahap = tahapKyc(tahapAktif);
   const galatTahap = galatTahapKyc(tahap.id, isian, berkasUntukStatus);
   const kurangTahap = kekuranganLokalTahap(tahap.id, isian, berkasUntukStatus);

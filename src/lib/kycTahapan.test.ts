@@ -30,6 +30,7 @@ import {
   petunjukTahap,
   progresKyc,
   statusTahapKyc,
+  tahapBerikutnyaUrut,
   tahapDariKekurangan,
   tahapDisarankan,
   TAHAPAN_KYC,
@@ -412,6 +413,59 @@ eq(
     "tahap yang belum selesai dipilih untuk dilanjutkan",
   );
 }
+
+// ===== 8b. Wizard maju BERURUTAN, tidak melompati tahap (termasuk opsional) =====
+// Kasus nyata: identitas sampai WhatsApp beres, kontak darurat dikosongkan
+// (tahap opsional), bukti penghasilan sudah diunggah. Versi lama membuka
+// "Informasi pendukung" karena itu tahap wajib pertama yang belum siap,
+// sehingga tahap kontak darurat terlewati tanpa pernah terlihat.
+{
+  const tanpaDarurat: IsianKycLengkap = {
+    ...ISIAN_LENGKAP,
+    namaKontakDarurat: "",
+    nomorKontakDarurat: "",
+    hubunganKontakDarurat: "",
+  };
+  eq(
+    statusTahapKyc("darurat", tanpaDarurat, BERKAS_LENGKAP, OPSI_SIAP),
+    "belum",
+    "kontak darurat kosong: belum diisi",
+  );
+  eq(
+    progresKyc(tanpaDarurat, BERKAS_LENGKAP, OPSI_SIAP).tahapBerikutnya,
+    "pendukung",
+    "yang dianggap menghalangi pengajuan hanya tahap wajib",
+  );
+  eq(
+    tahapBerikutnyaUrut(tanpaDarurat, BERKAS_LENGKAP, OPSI_SIAP),
+    "darurat",
+    "urutan tahap berhenti di kontak darurat yang belum diisi",
+  );
+  eq(
+    tahapDisarankan("IN_PROGRESS", tanpaDarurat, BERKAS_LENGKAP, OPSI_SIAP),
+    "darurat",
+    "wizard membuka kontak darurat, tidak melompat ke informasi pendukung",
+  );
+  eq(
+    tahapDisarankan("IN_PROGRESS", ISIAN_LENGKAP, BERKAS_LENGKAP, OPSI_SIAP),
+    "pendukung",
+    "semua tahap beres → berhenti di tahap terakhir",
+  );
+  eq(
+    tahapBerikutnyaUrut(ISIAN_KOSONG, BERKAS_KOSONG, OPSI_SIAP),
+    "identitas",
+    "proses baru dimulai dari tahap identitas",
+  );
+  eq(
+    tahapDisarankan("IN_PROGRESS", ISIAN_KOSONG, BERKAS_KOSONG, {
+      ...OPSI_SIAP,
+      persetujuanAktif: false,
+    }),
+    "persetujuan",
+    "pintu masuk persetujuan menang atas urutan tahap",
+  );
+}
+
 
 // ===== 9. Berkas yang belum diunggah dilaporkan per slot =====
 {
