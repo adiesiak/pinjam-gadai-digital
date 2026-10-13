@@ -543,7 +543,7 @@ export function LoanReviewDialog({
       {/* Kolom kiri: matriks aliran uang — rapat, tanpa gulir horizontal */}
       <div className="flex min-w-0 flex-col gap-3">
         <p className="rounded-2xl border border-amber-200/70 bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-900">
-          Nominal, tanggal acuan, alokasi, dan status lunas di panel ini mengikuti catatan ledger
+          Nominal, jatuh tempo, alokasi, dan status lunas di panel ini mengikuti catatan internal
           internal; perpindahan dana ditangani di luar aplikasi.
         </p>
 

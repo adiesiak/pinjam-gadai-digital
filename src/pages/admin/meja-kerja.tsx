@@ -1,6 +1,8 @@
 import { motion } from "framer-motion";
-import { BellRing, ChevronRight, ClipboardList, Coins, MapPin } from "lucide-react";
+import { BellRing, ChevronRight, ClipboardList, Coins, MapPin, ShieldCheck } from "lucide-react";
 import { useState, type ComponentType } from "react";
+
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 
 import { MetrikKartu, type AdminOverviewData } from "@/components/admin/admin-shared";
 import { Button } from "@/components/ui/button";
@@ -122,22 +124,33 @@ export function MejaKerja({
   overview,
   stats,
   onBukaModul,
+  kycMenunggu = null,
   pokokContohAwal,
+  aliranTerbukaAwal = false,
 }: {
   overview: AdminOverviewData;
   stats: AdminStatsData | undefined;
   /** Pindah ke modul yang menangani kartu ini. */
   onBukaModul: (modul: NilaiModulAdmin) => void;
+  /** Pengajuan KYC yang menunggu peninjauan; `null` = belum diketahui. */
+  kycMenunggu?: number | null;
   /**
    * Pokok contoh yang terpilih saat panel dibuka. Bawaannya pinjaman terbesar
    * yang bisa diajukan; hanya dipakai uji render untuk memastikan angka kartu
    * benar-benar mengikuti pilihan admin.
    */
   pokokContohAwal?: number;
+  /**
+   * Buka panel "Aliran uang satu pinjaman" sejak awal. Bawaannya TERTUTUP:
+   * ini simulasi kebijakan, bukan pekerjaan hari ini, jadi ia tidak boleh menjadi
+   * hal pertama yang dibaca di halaman Ringkasan. Uji render memakainya untuk
+   * memeriksa angka di dalamnya.
+   */
+  aliranTerbukaAwal?: boolean;
 }) {
   // Rincian aliran uang itu kebijakan, bukan data server: tidak punya keadaan
   // "memuat", dan karena murni dari `lib/rincianAliranDana` ia tidak bisa
-  // berbeda dari akad/tagihan maupun dari yang dijurnal ledger saat pelunasan.
+  // berbeda dari akad/tagihan maupun dari yang dicatat internal saat pelunasan.
   //
   // Pokoknya bisa dipilih admin supaya perjalanan uang bisa diperiksa pada
   // nominal kecil sampai maksimum — bukan hanya pada satu contoh.
@@ -148,6 +161,7 @@ export function MejaKerja({
   const barisAliran = barisRincianAliran(rincian);
 
   const perluKeputusan = angkaRingkas(jumlahPerluKeputusan(overview));
+  const kycPending = angkaRingkas(kycMenunggu ?? undefined);
   const terlambat = angkaRingkas(stats?.pinjamanTerlambat);
   const lokasi = angkaRingkas(
     stats === undefined ? undefined : jumlahPerhatianLokasi(stats),
@@ -155,7 +169,7 @@ export function MejaKerja({
 
   return (
     <motion.section
-      aria-label="Ringkasan hari ini"
+      aria-label="Perlu tindakan"
       variants={staggerContainer}
       initial="hidden"
       animate="show"
@@ -163,18 +177,26 @@ export function MejaKerja({
     >
       <Kartu
         Icon={ClipboardList}
-        label="Perlu keputusan"
+        label="Pengajuan menunggu keputusan"
         angka={perluKeputusan}
         tone="amber"
         cta="Tinjau antrean"
         onBuka={() => onBukaModul("pinjaman")}
       />
       <Kartu
+        Icon={ShieldCheck}
+        label="KYC menunggu verifikasi"
+        angka={kycPending}
+        tone="sky"
+        cta="Buka verifikasi KYC"
+        onBuka={() => onBukaModul("kyc")}
+      />
+      <Kartu
         Icon={BellRing}
-        label="Lewat tanggal acuan"
+        label="Lewat jatuh tempo"
         angka={terlambat}
         tone={terlambat.memuat || terlambat.teks === "0" ? "mint" : "red"}
-        cta="Buka tanggal acuan"
+        cta="Buka jatuh tempo"
         onBuka={() => onBukaModul("dpd")}
       />
       <Kartu
@@ -186,77 +208,92 @@ export function MejaKerja({
         onBuka={() => onBukaModul("lokasi")}
       />
 
-      {/* Rincian aliran uang satu pinjaman — melintang satu baris penuh di
-          bawah keempat kartu, supaya admin bisa memeriksa seluruh perjalanan
-          uang tanpa membuka modul lain. */}
+      {/* Simulasi kebijakan "Aliran uang satu pinjaman" — TERTUTUP secara bawaan.
+          Ia bukan pekerjaan hari ini, jadi tidak boleh menjadi hal pertama yang
+          dibaca; angkanya memakai fungsi hitung yang sudah ada, tanpa rumus baru. */}
       <motion.div
         variants={fadeUpItem}
         className="rounded-xl border border-slate-200 bg-white p-3 min-[380px]:rounded-2xl min-[380px]:p-4 sm:col-span-2 sm:p-5 xl:col-span-4"
       >
-        <div className="flex items-start justify-between gap-2">
-          <div className="min-w-0">
-            <p className="text-sm font-semibold text-navy">Aliran uang satu pinjaman</p>
-            <p className="mt-0.5 text-xs leading-5 text-muted-foreground">
-              {kalimatContohAliran(rincian)}
-            </p>
-          </div>
-          <span className="flex size-8 shrink-0 items-center justify-center rounded-xl border border-emerald-100 bg-emerald-50 text-emerald-700">
-            <Coins className="size-4" />
-          </span>
-        </div>
-
-        {/* Pilihan pokok: rincian di bawah ikut berubah, jadi admin bisa
-            memeriksa nominal kecil maupun maksimum tanpa membuka modul lain. */}
-        <div
-          role="group"
-          aria-label="Pilih pokok pinjaman contoh"
-          className="mt-3 flex flex-wrap gap-1.5"
+        <Accordion
+          type="single"
+          collapsible
+          defaultValue={aliranTerbukaAwal ? "aliran" : ""}
+          className="flex flex-col"
         >
-          {PILIHAN_POKOK_RINCIAN.map((pokok) => {
-            const aktif = pokok === rincian.pokok;
-            return (
-              <button
-                key={pokok}
-                type="button"
-                aria-pressed={aktif}
-                onClick={() => setPokokContoh(pokok)}
-                className={`rounded-full border px-3 py-1 text-[11px] font-medium tabular-nums transition-colors ${
-                  aktif
-                    ? "border-emerald-200 bg-emerald-50 text-emerald-800"
-                    : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:text-navy"
-                }`}
+          <AccordionItem value="aliran" className="border-b-0">
+            <AccordionTrigger className="items-start gap-3 py-0 hover:no-underline">
+              <span className="flex min-w-0 flex-1 items-start gap-2 text-left">
+                <span className="min-w-0">
+                  <span className="block text-sm font-semibold text-navy">
+                    Aliran uang satu pinjaman
+                  </span>
+                  <span className="mt-0.5 block text-xs leading-5 text-muted-foreground">
+                    {kalimatContohAliran(rincian)}
+                  </span>
+                </span>
+                <span className="flex size-8 shrink-0 items-center justify-center rounded-xl border border-emerald-100 bg-emerald-50 text-emerald-700">
+                  <Coins className="size-4" />
+                </span>
+              </span>
+            </AccordionTrigger>
+            <AccordionContent className="pt-3">
+              {/* Pilihan pokok: rincian di bawah ikut berubah, jadi admin bisa
+                  memeriksa nominal kecil maupun maksimum tanpa membuka modul lain. */}
+              <div
+                role="group"
+                aria-label="Pilih pokok pinjaman contoh"
+                className="flex flex-wrap gap-1.5"
               >
-                {formatRupiah(pokok)}
-              </button>
-            );
-          })}
-        </div>
+                {PILIHAN_POKOK_RINCIAN.map((pokok) => {
+                  const aktif = pokok === rincian.pokok;
+                  return (
+                    <button
+                      key={pokok}
+                      type="button"
+                      aria-pressed={aktif}
+                      onClick={() => setPokokContoh(pokok)}
+                      className={`rounded-full border px-3 py-1 text-[11px] font-medium tabular-nums transition-colors ${
+                        aktif
+                          ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+                          : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:text-navy"
+                      }`}
+                    >
+                      {formatRupiah(pokok)}
+                    </button>
+                  );
+                })}
+              </div>
 
-        <dl className="mt-3 grid grid-cols-1 gap-2 min-[380px]:grid-cols-2 lg:grid-cols-4">
-          {barisAliran.map((baris) => (
-            <MetrikKartu
-              key={baris.label}
-              label={baris.label}
-              nilai={
-                baris.arah === "potongan" ? (
-                  <span className="text-amber-700">{labelPotonganRincian(baris.nilai)}</span>
-                ) : baris.arah === "total" ? (
-                  <span className="text-navy">{formatRupiah(baris.nilai)}</span>
-                ) : (
-                  formatRupiah(baris.nilai)
-                )
-              }
-            />
-          ))}
-        </dl>
+              <dl className="mt-3 grid grid-cols-1 gap-2 min-[380px]:grid-cols-2 lg:grid-cols-4">
+                {barisAliran.map((baris) => (
+                  <MetrikKartu
+                    key={baris.label}
+                    label={baris.label}
+                    nilai={
+                      baris.arah === "potongan" ? (
+                        <span className="text-amber-700">{labelPotonganRincian(baris.nilai)}</span>
+                      ) : baris.arah === "total" ? (
+                        <span className="text-navy">{formatRupiah(baris.nilai)}</span>
+                      ) : (
+                        formatRupiah(baris.nilai)
+                      )
+                    }
+                  />
+                ))}
+              </dl>
 
-        {/* Sengaja tanpa tanda pisah "—": di panel ini karakter itu berarti
-            "data server belum termuat" (lihat D1/E4 di scripts/qa-meja-kerja.ts),
-            jadi teks biasa tidak boleh memakainya atau admin salah membacanya. */}
-        <p className="mt-2 text-[11px] leading-4 text-muted-foreground">
-          Contoh kebijakan perhitungan satu pinjaman, bukan angka ledger hari ini.
-          Rincian pinjaman yang sedang berjalan ada di detail pinjaman masing-masing.
-        </p>
+              {/* Sengaja tanpa tanda pisah "—": di panel ini karakter itu berarti
+                  "data server belum termuat" (lihat D1/E4 di scripts/qa-meja-kerja.ts),
+                  jadi teks biasa tidak boleh memakainya atau admin salah membacanya. */}
+              <p className="mt-2 text-[11px] leading-4 text-muted-foreground">
+                Contoh kebijakan perhitungan satu pinjaman, bukan angka catatan
+                internal hari ini. Rincian pinjaman yang sedang berjalan ada di detail
+                pinjaman masing-masing.
+              </p>
+            </AccordionContent>
+          </AccordionItem>
+        </Accordion>
       </motion.div>
     </motion.section>
   );

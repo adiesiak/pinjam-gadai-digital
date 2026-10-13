@@ -14,7 +14,7 @@ import {
  *
  * Komponen ini sengaja presentasional: seluruh angkanya datang dari
  * `lib/rincianAliranDana` → `lib/bagiHasil.ts`, mesin yang sama dengan yang
- * menagih Peminjam dan membukukan ledger saat pelunasan. Tidak ada rumus uang
+ * menagih Peminjam dan mencatat internal saat pelunasan. Tidak ada rumus uang
  * di dalam JSX, sehingga panel tidak bisa menampilkan angka yang berbeda dari
  * yang benar-benar dibayarkan.
  *
@@ -98,8 +98,8 @@ export function AliranDanaPinjaman({
 
       <p className="text-[11px] leading-4 text-muted-foreground">
         {sudahLunas
-          ? "Pinjaman sudah lunas: angka ini yang dibukukan ledger saat pelunasan."
-          : "Proyeksi kebijakan yang berlaku; yang dibukukan ledger adalah angka saat pelunasan."}
+          ? "Pinjaman sudah lunas: angka ini yang dicatat internal saat pelunasan."
+          : "Proyeksi kebijakan yang berlaku; yang dicatat internal adalah angka saat pelunasan."}
       </p>
     </section>
   );

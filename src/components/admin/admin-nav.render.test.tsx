@@ -46,7 +46,7 @@ function cacah(haystack: string, jarum: string): number {
 
 /** Label modul disalin dari `admin-tabs.tsx` supaya uji memakai teks sungguhan. */
 const LABEL: Record<string, string> = {
-  "hari-ini": "Ringkasan Hari Ini",
+  "hari-ini": "Ringkasan",
   pinjaman: "Pengajuan Pinjaman",
   gadai: "Pengajuan Gadai",
   kredit: "Pengajuan Kredit Barang",
@@ -55,9 +55,9 @@ const LABEL: Record<string, string> = {
   plafon: "Plafon Nasabah",
   akses: "Nasabah & Pendana",
   dpd: "Jatuh Tempo",
-  lokasi: "Peta Live Location",
+  lokasi: "Peta lokasi nasabah",
   lelang: "Kalkulator Lelang Jaminan",
-  bi: "Ledger Internal & Kesehatan Sistem",
+  bi: "Catatan Internal & Kesehatan Sistem",
   template: "Template Website",
   pengumuman: "Banner & Pengumuman Sistem",
   whatsapp: "WhatsApp",
@@ -159,7 +159,7 @@ ok(
 // ===== 3. Isi chip tidak dikorbankan demi satu baris =====
 {
   const html = gambar("bi");
-  ada(html, "Ledger Internal", "label panjang tetap utuh di DOM");
+  ada(html, "Catatan Internal", "label panjang tetap utuh di DOM");
   ada(html, "Jatuh Tempo", "modul lain di grup yang sama tetap hadir");
   ada(html, "Cari…", "pintu pencarian tetap terjangkau");
   ada(html, "title=", "petunjuk modul tetap tersedia sebagai tooltip");
@@ -169,7 +169,7 @@ ok(
 // Lencana tetap terbaca setelah dipotong lebarnya.
 {
   const html = gambar("dpd");
-  ada(html, "Peta Live Location", "modul berlencana hadir di deret");
+  ada(html, "Peta lokasi nasabah", "modul berlencana hadir di deret");
   ada(html, "17", "lencana angka tetap tampil di samping label");
 }
 

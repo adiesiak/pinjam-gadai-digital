@@ -147,7 +147,7 @@ export function AppraisalDialog({
           </div>
           {ltvPersen !== null && (
             <p id="appraisal-ltv-status" role="status" aria-live="polite" className={ltvMelebihi ? "text-xs font-medium text-destructive" : "text-xs font-medium text-emerald-600"}>
-              Perhitungan LTV pada ledger: {ltvPersen}% dari harga yang dimasukkan (maksimum aplikasi 70%); nilai pasar mengikuti masukan pengajuan.
+              Perhitungan LTV pada catatan internal: {ltvPersen}% dari harga yang dimasukkan (maksimum aplikasi 70%); nilai pasar mengikuti masukan pengajuan.
             </p>
           )}
           <div className="grid gap-3 sm:grid-cols-2">
@@ -173,7 +173,7 @@ export function AppraisalDialog({
             </div>
           </div>
           <p className="text-xs leading-5 text-muted-foreground">
-            Acuan perhitungan kategori {pawn.kategori}: {hint}. Nilai pasar, taksiran, kondisi, dan kode rak mengikuti pencatatan internal pada ledger. Menyimpan taksiran memperbarui status pengajuan pada ledger internal.
+            Acuan perhitungan kategori {pawn.kategori}: {hint}. Nilai pasar, taksiran, kondisi, dan kode rak mengikuti pencatatan internal. Menyimpan taksiran memperbarui status pengajuan pada catatan internal.
           </p>
         </div>
 

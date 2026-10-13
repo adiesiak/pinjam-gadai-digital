@@ -148,7 +148,7 @@ export function LoanKycPanel({ row }: { row: LoanRow }) {
                 </Button>
                 <a
                   href={`https://wa.me/${row.nomorWhatsApp}?text=${encodeURIComponent(
-                    `Halo. Pesan ini merujuk pada catatan aplikasi PINDAI ${row.nomorReferensi}: angka kewajiban ${formatRupiah(row.totalKewajibanDenganPenalti ?? 0)}${(row.hariTerlambat ?? 0) > 0 ? ` dan denda ${formatRupiah(row.dendaTerlambat ?? 0)} dengan tanggal acuan terlewati ${row.hariTerlambat ?? 0} hari` : ""}. Angka dan status ini hanya catatan ledger internal; bukan tagihan, tunggakan terverifikasi, bukti transfer, atau kewajiban pembayaran aktual. Untuk pertanyaan, gunakan kanal resmi PINDAI yang sudah Anda konfirmasi.`,
+                    `Halo. Pesan ini merujuk pada catatan aplikasi PINDAI ${row.nomorReferensi}: angka kewajiban ${formatRupiah(row.totalKewajibanDenganPenalti ?? 0)}${(row.hariTerlambat ?? 0) > 0 ? ` dan denda ${formatRupiah(row.dendaTerlambat ?? 0)} dengan jatuh tempo terlewati ${row.hariTerlambat ?? 0} hari` : ""}. Angka dan status ini hanya catatan internal aplikasi; bukan tagihan, tunggakan terverifikasi, bukti transfer, atau kewajiban pembayaran aktual. Untuk pertanyaan, gunakan kanal resmi PINDAI yang sudah Anda konfirmasi.`,
                   )}`}
                   target="_blank"
                   rel="noreferrer"

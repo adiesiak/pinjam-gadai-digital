@@ -1,7 +1,7 @@
 import { useMutation, useQuery } from "convex/react";
-import { Activity, ShieldCheck } from "lucide-react";
+import { ShieldCheck } from "lucide-react";
 import { useState } from "react";
-import { Navigate, useNavigate } from "react-router";
+import { Navigate } from "react-router";
 import { LoadingScreen } from "@/components/LoadingScreen";
 import { toast } from "sonner";
 
@@ -9,19 +9,14 @@ import { TotpGate, TotpSetupDialog } from "@/components/TotpGate";
 import { AppraisalDialog } from "@/components/admin/AppraisalDialog";
 import { LoanReviewDialog } from "@/components/admin/LoanReviewDialog";
 import { PawnReviewDialog } from "@/components/admin/PawnReviewDialog";
-import { SecurityBar, type LoanRow, type PawnRow } from "@/components/admin/admin-shared";
-import { DialogBekukan } from "@/components/admin/KillSwitchPanel";
-import { KerangkaAdmin, SkeletonKartu } from "@/components/ui/loading";
+import { type LoanRow, type PawnRow } from "@/components/admin/admin-shared";
+import { KerangkaAdmin } from "@/components/ui/loading";
 import { api } from "@/convex/_generated/api";
 import { useAuth } from "@/hooks/use-auth";
+import { hitungMenunggu } from "@/lib/admin-queue";
 import { ADMIN_ROUTE } from "@/lib/routes";
 
-import {
-  AdminHeader,
-  AdminStats,
-  BootstrapAdminView,
-  NotAdminView,
-} from "./admin/admin-shell";
+import { AdminHeader, BootstrapAdminView, NotAdminView } from "./admin/admin-shell";
 import { AdminTabs } from "./admin/admin-tabs";
 import { Button } from "@/components/ui/button";
 
@@ -31,8 +26,7 @@ import { Button } from "@/components/ui/button";
  * mudah disunting dan dirawat.
  */
 export default function Admin() {
-  const { isLoading, isAuthenticated, signOut } = useAuth();
-  const navigate = useNavigate();
+  const { isLoading, isAuthenticated } = useAuth();
   const gate = useQuery(
     api.security.totpGateStatus,
     isAuthenticated ? {} : "skip",
@@ -50,14 +44,6 @@ export default function Admin() {
   // Cacah antrean verifikasi identitas untuk lencana menu. Hanya dihitung saat
   // sesi admin sudah terverifikasi TOTP; sebelum itu query dilewati.
   const kycAntrean = useQuery(api.kyc.daftarKycAdmin, adminVerified ? {} : "skip");
-  const setKill = useMutation(api.system.setKillSwitch);
-  const [killBusy, setKillBusy] = useState(false);
-  /**
-   * Pengaman ganda kill switch: menyalakannya wajib lewat dialog yang meminta
-   * admin mengetik `BEKUKAN`. Mematikannya tidak — pemulihan harus cepat.
-   */
-  const [konfirmasiKill, setKonfirmasiKill] = useState(false);
-  const killAktif = sysCfg?.killSwitch === true;
 
   const [loanDetail, setLoanDetail] = useState<LoanRow | null>(null);
   const [pawnDetail, setPawnDetail] = useState<PawnRow | null>(null);
@@ -138,120 +124,35 @@ export default function Admin() {
     return <KerangkaAdmin />;
   }
 
-  /** Jalankan perubahan kill switch (dipakai tombol header maupun panel). */
-  const jalankanKill = async (nilai: boolean) => {
-    setKillBusy(true);
-    try {
-      await setKill({ aktif: nilai });
-      toast.warning(
-        nilai
-          ? "KILL SWITCH DARURAT DIAKTIFKAN — semua pengajuan diblokir."
-          : "Kill switch dinonaktifkan — sistem normal.",
-      );
-      setKonfirmasiKill(false);
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Gagal mengubah kill switch.");
-    } finally {
-      setKillBusy(false);
-    }
-  };
-
-  /** Tombol header: menyalakan → dialog pengaman ganda; mematikan → langsung. */
-  const handleToggleKill = () => {
-    if (killAktif) {
-      void jalankanKill(false);
-      return;
-    }
-    setKonfirmasiKill(true);
-  };
-
-  /** Tombol keluar header: akhiri sesi admin lalu kembali ke halaman publik. */
-  const handleSignOut = async () => {
-    await signOut();
-    navigate("/");
+  /**
+   * Cacah pengajuan yang belum diputuskan per produk, untuk KPI Ringkasan.
+   * Memakai `hitungMenunggu` yang sama dengan lencana menu, jadi angka KPI dan
+   * lencana tidak bisa berbeda.
+   */
+  const menunggu = {
+    pinjaman: hitungMenunggu(overview.loans, "pinjaman"),
+    gadai: hitungMenunggu(overview.pawns, "gadai"),
+    kredit: hitungMenunggu(overview.kredit, "kredit"),
   };
 
   return (
-    <div className="bg-ambient-glass flex min-h-screen flex-col text-foreground">
-      <SecurityBar seimbang={ledger?.seimbang === true} killSwitch={sysCfg?.killSwitch === true} />
-      <AdminHeader
-        killSwitch={killAktif}
-        ready={sysCfg !== undefined}
-        killBusy={killBusy}
-        onToggleKill={handleToggleKill}
-        onSignOut={() => void handleSignOut()}
-      />
-
-      {/* Pengaman ganda kill switch — wajib mengetik BEKUKAN. */}
-      <DialogBekukan
-        open={konfirmasiKill}
-        onOpenChange={setKonfirmasiKill}
-        busy={killBusy}
-        onKonfirmasi={() => void jalankanKill(true)}
-      />
-
-      {/* `pb-24` menyisakan ruang untuk bilah navigasi bawah (hanya < lg),
-          agar baris terakhir tidak tertutup. `lg:pb-8` mengembalikannya. */}
-      <main
-        id="konten"
-        tabIndex={-1}
-        className="mx-auto w-full max-w-7xl flex-1 px-3 py-4 pb-24 sm:px-6 sm:py-8 sm:pb-24 lg:pb-8"
-      >
-        {/* Panel judul sengaja dibuat SLIM dan pekat emerald: ia pengingat
-            konteks, bukan panggung — sehingga tabel kerja tetap bagian paling
-            terang di layar. Identitas PINDAI Green tetap terjaga. */}
-        <section className="animate-masuk relative overflow-hidden rounded-2xl bg-emerald-950 p-4 text-white shadow-sm sm:rounded-3xl sm:px-6 sm:py-5">
-          <span
-            aria-hidden
-            className="absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-emerald-500/0 via-emerald-400/70 to-emerald-500/0"
+    <div className="min-h-screen bg-slate-50 text-foreground">
+      <AdminTabs
+        header={(judul) => (
+          <AdminHeader
+            judul={judul}
+            killSwitch={sysCfg?.killSwitch}
+            seimbang={ledger?.seimbang}
           />
-          <div className="relative flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="min-w-0">
-              <p className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-emerald-300">
-                <ShieldCheck className="size-3.5" /> Ruang Operasional Tim
-              </p>
-              <h1 className="mt-1.5 text-lg font-semibold tracking-tight sm:text-xl">
-                Ringkasan sistem hari ini
-              </h1>
-              <p className="mt-1 text-xs leading-5 text-emerald-100/75 sm:text-sm">
-                Tinjau catatan pengajuan, lihat koordinat yang dilaporkan perangkat, dan kelola status data nasabah.
-              </p>
-            </div>
-            <div className="flex w-fit shrink-0 items-center gap-2 rounded-xl border border-emerald-700/60 bg-emerald-900/60 px-3 py-1.5 text-[11px] font-medium text-emerald-100">
-              <Activity className="size-3.5" />
-              <span className="size-1.5 animate-pulse rounded-full bg-emerald-400" />
-              Data internal aplikasi
-            </div>
-          </div>
-        </section>
-
-        {/* Statistik datang lebih lambat dari antrean pada sebagian sesi. Kartu
-            rangka memakai tinggi & kisi yang sama supaya panel tidak melompat
-            saat angkanya menggantikan rangka. */}
-        {stats ? (
-          <AdminStats stats={stats} />
-        ) : (
-          <div
-            role="status"
-            aria-live="polite"
-            className="mt-4 grid grid-cols-1 gap-2 sm:mt-5 sm:grid-cols-3 sm:gap-3"
-          >
-            <span className="sr-only">Memuat statistik operasional…</span>
-            {[0, 1, 2].map((i) => (
-              <SkeletonKartu key={i} className="rounded-xl p-3 sm:rounded-2xl sm:p-5" />
-            ))}
-          </div>
         )}
-
-        <AdminTabs
-          overview={overview}
-          stats={stats}
-          onOpenLoan={setLoanDetail}
-          onOpenPawn={setPawnDetail}
-          onOpenSetup={() => setTotpSetupOpen(true)}
-          kycMenunggu={kycAntrean === undefined ? null : (kycAntrean.cacah.PENDING_REVIEW ?? 0)}
-        />
-      </main>
+        overview={overview}
+        stats={stats}
+        menunggu={menunggu}
+        onOpenLoan={setLoanDetail}
+        onOpenPawn={setPawnDetail}
+        onOpenSetup={() => setTotpSetupOpen(true)}
+        kycMenunggu={kycAntrean === undefined ? null : (kycAntrean.cacah.PENDING_REVIEW ?? 0)}
+      />
 
       {/* Dialogs */}
       <LoanReviewDialog row={loanDetail} onClose={() => setLoanDetail(null)} />

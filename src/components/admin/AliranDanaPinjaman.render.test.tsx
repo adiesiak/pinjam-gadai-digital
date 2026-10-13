@@ -57,7 +57,7 @@ ada(harian, "Rp 1.235.000", "diterima pendana");
 ada(harian, "Rp 235.000", "Imbal Hasil bersih pendana");
 ada(
   harian,
-  "Proyeksi kebijakan yang berlaku; yang dibukukan ledger adalah angka saat pelunasan.",
+  "Proyeksi kebijakan yang berlaku; yang dicatat internal adalah angka saat pelunasan.",
   "pinjaman belum lunas ditandai proyeksi",
 );
 ada(harian, "aria-label=\"Aliran uang pinjaman ini\"", "kartu punya nama untuk pembaca layar");
@@ -99,7 +99,7 @@ const lunas = renderToStaticMarkup(
 );
 ada(
   lunas,
-  "Pinjaman sudah lunas: angka ini yang dibukukan ledger saat pelunasan.",
+  "Pinjaman sudah lunas: angka ini yang dicatat internal saat pelunasan.",
   "pinjaman lunas ditandai sudah dibukukan",
 );
 ok(

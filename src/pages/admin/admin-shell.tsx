@@ -5,21 +5,21 @@ import {
   BadgeCheck,
   CircleDollarSign,
   ClipboardList,
+  Coins,
+  Info,
   Landmark,
   Loader2,
-  LogOut,
   Package,
-  ShieldAlert,
   ShieldCheck,
 } from "lucide-react";
 import { Link } from "react-router";
 
 import { CountUp } from "@/components/CountUp";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { formatRupiah } from "@/lib/money";
 import { fadeUpItem, staggerContainer } from "@/lib/motion";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
@@ -135,189 +135,299 @@ export function NotAdminView() {
 }
 
 /**
- * Header panel admin: brand, kill switch, tautan profil, tombol keluar.
+ * Status sistem — satu indikator di kepala panel.
  *
- * Tombol kill switch kini membuka DIALOG pengaman ganda (mengetik `BEKUKAN`)
- * alih-alih "klik dua kali": salah klik tidak lagi cukup untuk memblokir semua
- * pengajuan. Saat kill switch sedang aktif, label tombol berubah menjadi
- * tindakan pemulihan (matikan) yang berjalan tanpa dialog.
+ * Dulu tiga chip (SSL / keseimbangan ledger / backup) mengapung di baris
+ * terpisah di atas header, dan salah satunya berbunyi "Ledger". Sekarang satu
+ * titik berwarna + popover: titik hijau berarti tidak ada yang perlu dibaca,
+ * titik kuning/merah berarti ada keadaan darurat yang harus dilihat. Tiga chip
+ * tidak lagi memakan satu baris penuh untuk informasi yang jarang berubah.
+ */
+export function StatusSistem({
+  killSwitch,
+  seimbang,
+}: {
+  /** Pembacaan `system.getStatusPublic`: undefined selama belum termuat. */
+  killSwitch: boolean | undefined;
+  /** Keseimbangan catatan internal dari `admin.ledgerSummary`. */
+  seimbang: boolean | undefined;
+}) {
+  const adaMasalah = killSwitch === true || seimbang === false;
+  const belumTerbaca = killSwitch === undefined || seimbang === undefined;
+  const judul = adaMasalah ? "Status sistem: perlu diperiksa" : "Status sistem: normal";
+
+  const baris: Array<{ label: string; nilai: string; nada: "baik" | "perhatian" | "darurat" }> = [
+    {
+      label: "Pengajuan baru",
+      nilai:
+        killSwitch === undefined
+          ? "Belum terbaca"
+          : killSwitch
+            ? "Diblokir — kill switch aktif"
+            : "Dibuka",
+      nada: killSwitch === true ? "darurat" : "baik",
+    },
+    {
+      label: "Catatan internal",
+      nilai: seimbang === undefined ? "Belum terbaca" : seimbang ? "Seimbang" : "Menunggu transaksi",
+      nada: seimbang === false ? "perhatian" : "baik",
+    },
+  ];
+  // Baris "cadangan data" dihapus bersama chip lamanya: tidak ada query yang
+  // bisa membuktikan kesiapan backup dari sini, dan klaim "siap" tanpa dasar
+  // justru membuat indikator ini tidak bisa dipercaya.
+
+  const nadaTitik = adaMasalah ? "bg-red-500" : belumTerbaca ? "bg-slate-400" : "bg-emerald-600";
+
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button
+          size="sm"
+          variant="outline"
+          className="rounded-full gap-2 border-slate-200 text-slate-700 hover:bg-slate-50"
+          aria-label={judul}
+        >
+          <span aria-hidden className={`size-2 shrink-0 rounded-full ${nadaTitik}`} />
+          <span className="hidden sm:inline">Status sistem</span>
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent align="end" className="w-72 p-3">
+        <p className="text-xs font-semibold text-slate-900">Status sistem</p>
+        <ul className="mt-2 space-y-1.5">
+          {baris.map((b) => (
+            <li key={b.label} className="flex items-start justify-between gap-3 text-[11px] leading-5">
+              <span className="text-muted-foreground">{b.label}</span>
+              <span
+                className={`text-right font-medium ${
+                  b.nada === "darurat"
+                    ? "text-red-700"
+                    : b.nada === "perhatian"
+                      ? "text-amber-700"
+                      : "text-emerald-800"
+                }`}
+              >
+                {b.nilai}
+              </span>
+            </li>
+          ))}
+        </ul>
+        <p className="mt-2 border-t border-slate-100 pt-2 text-[11px] leading-4 text-muted-foreground">
+          Kill switch darurat sekarang diatur dari menu Keamanan &amp; Audit, bukan dari kepala panel.
+        </p>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+/**
+ * Kepala panel admin — duduk di kolom KONTEN, bukan di atas sidebar.
  *
- * Tombol keluar duduk paling kanan supaya jalur keluar selalu di tempat yang
- * sama seperti bar atas ruang nasabah — sebelumnya panel admin sama sekali
- * tidak punya jalan keluar selain menunggu sesi kedaluwarsa.
+ * Isinya sengaja sedikit: judul/breadcrumb modul yang sedang dibuka, lonceng
+ * notifikasi, satu indikator status sistem, dan menu profil (beralih ke mode
+ * nasabah / keluar). Tombol kill switch DIKELUARKAN dari sini: tindakan darurat
+ * semacam itu tidak boleh menjadi tombol paling mudah dijangkau di kepala panel.
  */
 export function AdminHeader({
+  judul,
   killSwitch,
-  ready,
-  killBusy,
-  onToggleKill,
-  onSignOut,
+  seimbang,
 }: {
-  killSwitch: boolean;
-  ready: boolean;
-  killBusy: boolean;
-  onToggleKill: () => void;
-  onSignOut: () => void;
+  /** Label modul yang sedang dibuka — dipakai breadcrumb. */
+  judul: string;
+  killSwitch: boolean | undefined;
+  seimbang: boolean | undefined;
 }) {
   return (
-    <header className="animate-masuk glass-nav sticky top-0 z-40">
-      <div className="mx-auto flex min-h-14 w-full max-w-7xl items-center justify-between gap-2 px-3 py-2 sm:min-h-16 sm:gap-3 sm:px-6">
+    <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/90 backdrop-blur">
+      <div className="flex min-h-14 w-full items-center justify-between gap-2 px-3 py-2 sm:min-h-16 sm:px-6">
         <div className="flex min-w-0 items-center gap-2 sm:gap-3">
-          <VaultLogo size={40} className="size-9 shrink-0 sm:size-10" />
-          <div className="min-w-0">
-            <p className="truncate text-xs font-bold tracking-[0.1em] text-navy sm:text-sm sm:tracking-[0.12em]">PANEL ADMIN</p>
-            <p className="hidden truncate text-[11px] text-muted-foreground min-[360px]:block">PINDAI · Pinjam & Gadai Digital</p>
-          </div>
-          <Badge className="hidden border border-emerald-200 bg-emerald-50 text-emerald-800 hover:bg-emerald-50 md:inline-flex">
-            <ShieldCheck className="mr-1 size-3.5" /> Admin terverifikasi
-          </Badge>
+          <VaultLogo size={40} className="size-9 shrink-0 sm:size-10 lg:hidden" />
+          <nav aria-label="Breadcrumb" className="min-w-0">
+            <ol className="flex min-w-0 items-center gap-1.5 text-[11px] text-muted-foreground">
+              <li className="shrink-0">Panel admin</li>
+              <li aria-hidden className="shrink-0">
+                /
+              </li>
+              <li className="min-w-0 truncate text-sm font-semibold text-slate-900">{judul}</li>
+            </ol>
+          </nav>
         </div>
         <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
           {/* Lonceng yang sama dengan dashboard nasabah: sumbernya catatan milik
               pengguna yang sedang masuk, jadi tidak ada notifikasi orang lain. */}
           <NotificationBell />
+          <StatusSistem killSwitch={killSwitch} seimbang={seimbang} />
+          {/* Menu profil: pintu keluar dan perpindahan ke mode nasabah ada di
+              dalamnya, jadi kepala panel tidak penuh tombol. */}
           <RoleDashboardMenu />
-          {/* Kill switch sengaja dibuat "ghost outline" merah, bukan tombol merah
-              pejal: ini tindakan darurat yang jarang dipakai, jadi ia harus tetap
-              terbaca sebagai peringatan tanpa mendominasi (dan menutupi) tombol
-              kerja sehari-hari di kepala panel. */}
-          <Button
-            size="sm"
-            variant="outline"
-            aria-label={
-              killSwitch ? "Matikan kill switch" : "Aktifkan kill switch darurat"
-            }
-            className="rounded-full border border-red-300 bg-transparent text-red-600 hover:bg-red-50 hover:text-red-700"
-            disabled={killBusy || !ready}
-            onClick={onToggleKill}
-          >
-            {killBusy ? (
-              <Loader2 className="size-4 animate-spin sm:mr-2" />
-            ) : (
-              <ShieldAlert className="size-4 sm:mr-2" />
-            )}
-            <span className="hidden sm:inline">
-              {killSwitch ? "Matikan Kill Switch" : "Kill Switch Darurat"}
-            </span>
-            <span className="sm:hidden">{killSwitch ? "Matikan" : "Darurat"}</span>
-          </Button>
-          {/* Keluar di paling kanan: teksnya disembunyikan di layar sempit agar
-              baris kepala tidak berdesakan dengan lonceng dan kill switch,
-              sehingga di ponsel ia tinggal ikon dengan label pembaca layar. */}
-          <Button
-            size="sm"
-            variant="outline"
-            aria-label="Keluar dari akun"
-            className="rounded-full text-slate-600 hover:bg-slate-100"
-            onClick={onSignOut}
-          >
-            <LogOut className="size-4 sm:mr-2" />
-            <span className="hidden sm:inline">Keluar</span>
-          </Button>
         </div>
       </div>
     </header>
   );
 }
 
+/** Produk yang punya angka "sedang berjalan" dan antrean pengajuan. */
+export type ProdukAdmin = "pinjaman" | "gadai" | "kredit";
+
+const NAMA_PRODUK: Record<ProdukAdmin, string> = {
+  pinjaman: "Pinjaman tunai",
+  gadai: "Gadai barang",
+  kredit: "Kredit barang",
+};
+
 /**
- * Kartu statistik ringkas admin. Hanya angka penting (volume pinjaman &
- * keuntungan) yang ditampilkan sebagai kartu; sisa hitungan operasional
- * dipindah menjadi lencana angka di samping nama menu (lihat admin-tabs).
+ * Empat KPI seragam + SATU bar filter produk.
+ *
+ * Sebelumnya pinjaman/gadai/kredit dipilih lewat tab DI DALAM satu kartu judul,
+ * jadi hanya satu kartu yang punya slot angka dan dua kartu lain berdiri timpang.
+ * Sekarang filternya satu bar di atas empat kartu berbobot sama — dua di antaranya
+ * (sedang berjalan & menunggu keputusan) mengikuti produk yang dipilih, sisanya
+ * angka global yang memang tidak dipecah per produk, dan itu ditulis di kartunya.
  */
-export function AdminStats({ stats }: { stats: AdminStatsData }) {
-  const [headlineTab, setHeadlineTab] = useState<"pinjaman" | "gadai" | "kredit">("pinjaman");
+export function AdminStats({
+  stats,
+  menunggu,
+}: {
+  stats: AdminStatsData;
+  /** Cacah pengajuan yang belum diputuskan, per produk (dari `hitungMenunggu`). */
+  menunggu: Record<ProdukAdmin, number>;
+}) {
+  const [produk, setProduk] = useState<ProdukAdmin>("pinjaman");
 
-  const toneClass = {
-    red: "text-red-700 bg-red-50 border-red-100",
-    amber: "text-amber-700 bg-amber-50 border-amber-100",
-    mint: "text-emerald-700 bg-emerald-50 border-emerald-100",
-    sky: "text-sky-700 bg-sky-50 border-sky-100",
-  } as const;
+  const berjalan: Record<ProdukAdmin, number> = {
+    pinjaman: stats.totalPinjamanBerjalan,
+    gadai: stats.totalGadaiBerjalan,
+    kredit: stats.totalKreditBerjalan,
+  };
 
-  // Kartu utama: satu angka "sedang berjalan" yang bisa ditukar antar produk.
-  const headline = [
-    { value: "pinjaman", tab: "Pinjaman", label: "Total pinjaman sedang berjalan", angka: stats.totalPinjamanBerjalan, tone: "mint", Icon: CircleDollarSign },
-    { value: "gadai", tab: "Gadai", label: "Total gadai sedang berjalan", angka: stats.totalGadaiBerjalan, tone: "sky", Icon: Landmark },
-    { value: "kredit", tab: "Kredit", label: "Total kredit sedang berjalan", angka: stats.totalKreditBerjalan, tone: "amber", Icon: Package },
-  ] as const;
-
-  const items = [
-    { label: "Total pinjaman diajukan", angka: stats.totalPinjamanDiajukan, tone: "amber", Icon: ClipboardList, catatan: null as string | null },
-    { label: "Keuntungan admin sudah tercatat", angka: stats.keuntunganAdminTercatat, tone: "mint", Icon: BadgeCheck, catatan: `Belum tercatat ${formatRupiah(stats.keuntunganAdminBelumTercatat)}` as string | null },
+  const kartu = [
+    {
+      key: "berjalan",
+      label: `Sedang berjalan — ${NAMA_PRODUK[produk]}`,
+      nilai: berjalan[produk],
+      rupiah: true,
+      Icon: CircleDollarSign,
+      catatan: null as string | null,
+    },
+    {
+      key: "menunggu",
+      label: `Menunggu keputusan — ${NAMA_PRODUK[produk]}`,
+      nilai: menunggu[produk],
+      rupiah: false,
+      Icon: ClipboardList,
+      catatan: null as string | null,
+    },
+    {
+      key: "terlambat",
+      label: "Pinjaman lewat jatuh tempo",
+      nilai: stats.pinjamanTerlambat,
+      rupiah: false,
+      Icon: Landmark,
+      // Angka ini memang hanya pinjaman tunai — beda produk punya menu sendiri,
+      // jadi keterangannya ditulis, bukan dibiarkan tampak berlaku untuk semua.
+      catatan: "Hanya pinjaman tunai; gadai & kredit ada di menunya sendiri.",
+    },
   ] as const;
 
   return (
-    <motion.section
-      aria-label="Statistik operasional"
-      variants={staggerContainer}
-      initial="hidden"
-      animate="show"
-      className="mt-4 grid grid-cols-1 gap-2 sm:mt-5 sm:grid-cols-3 sm:gap-3"
-    >
-      <motion.div
-        variants={fadeUpItem}
-        className="glass-card micro-metric group relative overflow-hidden rounded-xl border p-3 shadow-sm min-[380px]:rounded-2xl min-[380px]:p-4 sm:p-5"
-      >
-        {/* Penanda emerald di tepi kiri — dipasang sebagai garis di dalam kartu
-            supaya warnanya tidak ikut ditimpa tepi putih transparan `.glass-card`. */}
-        <span aria-hidden className="absolute inset-y-0 left-0 w-1 bg-emerald-700" />
-        <Tabs
-          value={headlineTab}
-          onValueChange={(value) => setHeadlineTab(value as "pinjaman" | "gadai" | "kredit")}
-        >
-          <TabsList
-            aria-label="Pilih produk: pinjaman, gadai, atau kredit"
-            className="h-auto w-fit gap-1 rounded-full bg-slate-100/80 p-1"
+    <section aria-label="Statistik operasional" className="mt-5">
+      {/* Satu bar filter produk untuk seluruh ringkasan — bukan tab di dalam kartu. */}
+      <div role="group" aria-label="Saring produk" className="flex flex-wrap items-center gap-2">
+        <span className="text-[11px] font-medium text-muted-foreground">Produk</span>
+        {(Object.keys(NAMA_PRODUK) as ProdukAdmin[]).map((id) => (
+          <button
+            key={id}
+            type="button"
+            aria-pressed={produk === id}
+            onClick={() => setProduk(id)}
+            className={`min-h-9 rounded-xl border px-3 text-[11px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-800 focus-visible:ring-offset-2 ${
+              produk === id
+                ? "border-emerald-800 bg-emerald-800 text-white"
+                : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:text-slate-900"
+            }`}
           >
-            {headline.map((h) => (
-              <TabsTrigger
-                key={h.value}
-                value={h.value}
-                className="h-7 gap-1 rounded-full px-2.5 text-[11px] font-semibold data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm"
-              >
-                <h.Icon className="size-3.5" />
-                {h.tab}
-              </TabsTrigger>
-            ))}
-          </TabsList>
-          {headline.map((h) => (
-            <TabsContent key={h.value} value={h.value} className="mt-1">
-              <div className="flex items-start justify-between gap-2">
-                <p className="text-xs font-medium leading-5 text-muted-foreground">{h.label}</p>
-                <span className={`flex size-8 shrink-0 items-center justify-center rounded-xl border ${toneClass[h.tone]}`}>
-                  <h.Icon className="size-4" />
-                </span>
-              </div>
-              <p className="mt-2 break-words text-lg font-bold tracking-tight tabular-nums text-navy min-[380px]:mt-3 min-[380px]:text-xl sm:text-2xl">
-                <CountUp value={h.angka} format={formatRupiah} />
-              </p>
-            </TabsContent>
-          ))}
-        </Tabs>
-      </motion.div>
+            {NAMA_PRODUK[id].split(" ")[0]}
+          </button>
+        ))}
+      </div>
 
-      {items.map(({ label, angka, tone, Icon, catatan }) => (
+      <motion.div
+        variants={staggerContainer}
+        initial="hidden"
+        animate="show"
+        className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4"
+      >
+        {kartu.map(({ key, label, nilai, rupiah, Icon, catatan }) => (
+          <motion.div
+            key={key}
+            variants={fadeUpItem}
+            className={`rounded-2xl border bg-white p-4 shadow-sm ${
+              key === "terlambat" && nilai > 0 ? "border-amber-200" : "border-slate-200/80"
+            }`}
+          >
+            <div className="flex items-start justify-between gap-2">
+              <p className="text-xs font-medium leading-5 text-muted-foreground">{label}</p>
+              <span className="flex size-8 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 text-slate-600">
+                <Icon className="size-4" />
+              </span>
+            </div>
+            <p className="mt-2 break-words text-xl font-semibold tabular-nums text-slate-900 sm:text-2xl">
+              <CountUp value={nilai} format={rupiah ? formatRupiah : undefined} />
+            </p>
+            {catatan !== null && (
+              <p className="mt-1 text-[11px] leading-4 text-muted-foreground">{catatan}</p>
+            )}
+          </motion.div>
+        ))}
+
+        {/* Keuntungan admin: SATU kartu dua baris + tooltip yang menjelaskan
+            bedanya "tercatat" dan "belum tercatat" — bukan dua kartu berbeda. */}
         <motion.div
-          key={label}
           variants={fadeUpItem}
-          className="glass-card micro-metric group relative overflow-hidden rounded-xl border p-3 shadow-sm min-[380px]:rounded-2xl min-[380px]:p-4 sm:p-5"
+          className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm"
         >
-          <span aria-hidden className="absolute inset-y-0 left-0 w-1 bg-emerald-700" />
           <div className="flex items-start justify-between gap-2">
-            <p className="text-xs font-medium leading-5 text-muted-foreground">{label}</p>
-            <span className={`flex size-8 shrink-0 items-center justify-center rounded-xl border ${toneClass[tone]}`}>
-              <Icon className="size-4" />
-            </span>
+            <p className="text-xs font-medium leading-5 text-muted-foreground">Keuntungan admin</p>
+            <TooltipProvider delayDuration={200}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    aria-label="Apa bedanya tercatat dan belum tercatat?"
+                    className="flex size-8 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 text-slate-600 hover:text-slate-900"
+                  >
+                    <Info className="size-4" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent className="max-w-64 text-[11px] leading-5">
+                  Tercatat = bagian admin dari pinjaman yang sudah lunas dan sudah
+                  dibukukan. Belum tercatat = bagian dari pinjaman yang masih berjalan;
+                  angkanya masih bisa berubah sampai pelunasan.
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </div>
-          <p className="mt-2 break-words text-lg font-bold tracking-tight tabular-nums text-navy min-[380px]:mt-3 min-[380px]:text-xl sm:text-2xl">
-            <CountUp value={angka} format={formatRupiah} />
-          </p>
-          {catatan !== null && (
-            <p className="mt-1 text-[11px] leading-4 text-muted-foreground">{catatan}</p>
-          )}
+          <dl className="mt-2 space-y-1">
+            <div className="flex items-baseline justify-between gap-2">
+              <dt className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                <Coins className="size-3.5" aria-hidden /> Tercatat
+              </dt>
+              <dd className="text-lg font-semibold tabular-nums text-slate-900">
+                <CountUp value={stats.keuntunganAdminTercatat} format={formatRupiah} />
+              </dd>
+            </div>
+            <div className="flex items-baseline justify-between gap-2">
+              <dt className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                <BadgeCheck className="size-3.5" aria-hidden /> Belum tercatat
+              </dt>
+              <dd className="text-sm font-medium tabular-nums text-slate-600">
+                <CountUp value={stats.keuntunganAdminBelumTercatat} format={formatRupiah} />
+              </dd>
+            </div>
+          </dl>
         </motion.div>
-      ))}
-    </motion.section>
+      </motion.div>
+    </section>
   );
 }

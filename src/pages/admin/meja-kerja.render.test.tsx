@@ -32,7 +32,13 @@ function bersih(html: string, label: string): void {
   ok(!html.includes("NaN"), `${label} tanpa "NaN"`);
 }
 
-/** Panel dirender tanpa data server: `stats` belum siap. */
+/**
+ * Panel dirender tanpa data server: `stats` belum siap.
+ *
+ * Simulasi "Aliran uang satu pinjaman" sekarang TERTUTUP secara bawaan di layar
+ * (ia bukan pekerjaan hari ini), jadi panelnya dibuka lewat `aliranTerbukaAwal`
+ * supaya angka kebijakannya tetap bisa diperiksa di sini.
+ */
 function renderPanel(pokokContohAwal?: number): string {
   return renderToStaticMarkup(
     <MejaKerja
@@ -40,11 +46,18 @@ function renderPanel(pokokContohAwal?: number): string {
       stats={undefined}
       onBukaModul={() => {}}
       pokokContohAwal={pokokContohAwal}
+      aliranTerbukaAwal
     />,
   );
 }
 
 const html = renderPanel();
+
+// Barisan pertama = "Perlu tindakan": tiga hal yang menunggu admin hari ini.
+ada(html, "Pengajuan menunggu keputusan", "kartu pengajuan menunggu");
+ada(html, "KYC menunggu verifikasi", "kartu KYC menunggu");
+ada(html, "Lewat jatuh tempo", "kartu jatuh tempo (istilah baru, bukan 'tanggal acuan')");
+ok(!html.includes("tanggal acuan"), "tidak ada lagi istilah 'tanggal acuan'");
 
 // Kartu baru itu ada dan bisa ditemukan admin.
 ada(html, "Aliran uang satu pinjaman", "judul kartu");
@@ -98,8 +111,12 @@ ada(
 ada(html, "sm:col-span-2", "kartu rincian melintang 2 kolom di layar kecil");
 ada(html, "xl:col-span-4", "kartu rincian melintang penuh di desktop");
 
-// Angka contoh TIDAK boleh disamarkan sebagai angka ledger hari ini.
-ada(html, "bukan angka ledger hari ini", "keterangan bahwa ini contoh kebijakan");
+// Angka contoh TIDAK boleh disamarkan sebagai angka catatan internal hari ini.
+ada(
+  html,
+  "bukan angka catatan internal hari ini",
+  "keterangan bahwa ini contoh kebijakan",
+);
 
 // Aturan panel: sumber belum siap → tanda pisah, bukan nol.
 ada(html, "—", "kartu pekerjaan menampilkan tanda pisah saat data belum siap");

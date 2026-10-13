@@ -1854,7 +1854,7 @@ export function PenagihanPanel() {
             <EmptyQueue
               icon={BellRing}
               title="Tidak ada keterlambatan tercatat"
-              deskripsi="Kasus akan muncul di sini saat catatan pinjaman melewati tanggal acuan aplikasi."
+              deskripsi="Kasus akan muncul di sini saat catatan pinjaman melewati jatuh tempo aplikasi."
               poin={[
                 "Klasifikasi tunggakan mengikuti ambang yang dapat diatur",
                 "Penugasan petugas beserta riwayat komunikasi",

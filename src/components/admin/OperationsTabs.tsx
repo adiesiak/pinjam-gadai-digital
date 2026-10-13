@@ -61,7 +61,7 @@ export function DpdTab() {
   if (overview === undefined) {
     return <PanelMemuat />;
   }
-  // Dua kelompok yang memang perlu dikabari: yang sudah melewati tanggal acuan,
+  // Dua kelompok yang memang perlu dikabari: yang sudah melewati jatuh tempo,
   // dan yang tinggal ≤ 3 hari lagi (termasuk H-3 dan H-1 untuk template
   // pengingat). Pinjaman lunas/ditolak tidak pernah masuk daftar ini.
   const perluDiingatkan = overview.loans.filter(
@@ -74,14 +74,14 @@ export function DpdTab() {
       <EmptyQueue
         icon={BellRing}
         title="Tidak ada pinjaman yang mendekati atau melewati jatuh tempo"
-        deskripsi="Baris muncul di sini saat sisa hari ≤ 3 atau tanggal acuan pelunasan sudah terlewati."
+        deskripsi="Baris muncul di sini saat sisa hari ≤ 3 atau jatuh tempo pelunasan sudah terlewati."
       />
     );
   }
   return (
     <div className="animate-masuk space-y-3">
       <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900">
-        Daftar ini memuat tanggal acuan yang dihitung aplikasi, bukan tunggakan/tagihan terverifikasi. Tombolnya membuat tautan cek status resmi lalu membuka draf WhatsApp (H-3/H-1 otomatis sesuai sisa hari) — pesannya selalu ditinjau admin sebelum dikirim, dan tautan itu membuka halaman kwitansi resmi PINDAI.
+        Daftar ini memuat jatuh tempo yang dihitung aplikasi, bukan tunggakan/tagihan terverifikasi. Tombolnya membuat tautan cek status resmi lalu membuka draf WhatsApp (H-3/H-1 otomatis sesuai sisa hari) — pesannya selalu ditinjau admin sebelum dikirim, dan tautan itu membuka halaman kwitansi resmi PINDAI.
       </p>
       <ul className="divide-y divide-slate-200 rounded-2xl border border-slate-200 bg-white">
         {perluDiingatkan.map((l) => {
@@ -99,7 +99,7 @@ export function DpdTab() {
                 <p className="mt-1 text-xs leading-5 text-muted-foreground">
                   {l.nomorReferensi} ·{' '}
                   {terlambatHari > 0
-                    ? `tanggal acuan terlewati ${terlambatHari} hari`
+                    ? `jatuh tempo terlewati ${terlambatHari} hari`
                     : `sisa ${l.sisaHari ?? 0} hari menuju jatuh tempo`}
                   {l.jatuhTempoPada !== null ? ` (${tanggalRingkas(l.jatuhTempoPada)})` : ""} · denda{' '}
                   {formatRupiah(l.dendaTerlambat ?? 0)} · kewajiban{' '}
@@ -136,7 +136,7 @@ export function LelangTab() {
   return (
     <div className="animate-masuk space-y-4">
       <p className="text-sm text-muted-foreground">
-        Kalkulator hipotetis: masukkan angka contoh untuk dibandingkan dengan kewajiban pada ledger. Harga/nilai barang dan kode rak mengikuti pencatatan internal. Tampilan ini tidak melaksanakan lelang, penjualan, pelunasan, ataupun pengembalian barang/dana.
+        Kalkulator hipotetis: masukkan angka contoh untuk dibandingkan dengan kewajiban pada catatan internal. Harga/nilai barang dan kode rak mengikuti pencatatan internal. Tampilan ini tidak melaksanakan lelang, penjualan, pelunasan, ataupun pengembalian barang/dana.
       </p>
       {kandidat.length === 0 ? (
         <EmptyQueue icon={Gavel} title="Belum ada barang gadai aktif untuk kalkulator lelang" />

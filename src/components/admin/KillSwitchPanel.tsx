@@ -14,32 +14,40 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { api } from "@/convex/_generated/api";
 
 /**
  * Kill switch & pemeliharaan darurat PINDAI.
  *
- * Panel ini TIDAK menambah backend baru: ia memakai mutation
- * `system.setKillSwitch` dan query `system.getStatusPublic` yang sudah dipakai
- * tombol di header. Yang ditambahkan hanyalah tempatnya di sidebar
- * (Pemeliharaan sistem / Keamanan & audit) dan pengaman ganda sebelum eksekusi.
+ * Tempatnya di sidebar: Keamanan & audit — BUKAN tombol di kepala panel lagi.
+ * Tindakan darurat tidak boleh menjadi tombol paling mudah dijangkau saat
+ * admin sedang bekerja cepat.
  *
  * Menyalakan kill switch memblokir pengajuan baru. Karena itu eksekusinya
- * mewajibkan admin MENGETIK kata `BEKUKAN` — bukan sekadar klik dua kali.
- * Mematikannya kembali tidak memerlukan kata kunci (tindakan pemulihan harus
- * selalu bisa dilakukan cepat).
+ * mewajibkan admin MENGETIK kata `NONAKTIFKAN` DAN mengisi alasan — bukan
+ * sekadar klik dua kali. Mematikannya kembali tidak memerlukan keduanya:
+ * tindakan pemulihan harus selalu bisa dilakukan cepat.
  */
 
 /** Kata yang wajib diketik admin sebelum kill switch dinyalakan. */
-export const KATA_KONFIRMASI_KILL = "BEKUKAN";
+export const KATA_KONFIRMASI_KILL = "NONAKTIFKAN";
+
+/** Panjang minimum alasan sebelum kill switch boleh dinyalakan. */
+export const MIN_ALASAN_KILL = 10;
 
 /**
- * Benar hanya bila teks konfirmasi sama persis dengan `BEKUKAN`
+ * Benar hanya bila teks konfirmasi sama persis dengan `NONAKTIFKAN`
  * (spasi tepi diabaikan, huruf besar/kecil tidak). Dipisah dari komponen
  * supaya bisa diuji tanpa React/DOM — inilah gerbang pengamannya.
  */
 export function konfirmasiKillSah(teks: string): boolean {
   return teks.trim().toUpperCase() === KATA_KONFIRMASI_KILL;
+}
+
+/** Apakah alasan cukup panjang untuk dicatat admin sebelum memblokir pengajuan. */
+export function alasanKillSah(teks: string): boolean {
+  return teks.trim().length >= MIN_ALASAN_KILL;
 }
 
 /**
@@ -58,12 +66,17 @@ export function DialogBekukan({
   onKonfirmasi: () => void;
 }) {
   const [teks, setTeks] = useState("");
+  const [alasan, setAlasan] = useState("");
   const sah = konfirmasiKillSah(teks);
+  const alasanSah = alasanKillSah(alasan);
 
-  // Reset saat dialog dibuka ulang: kata kunci tidak pernah "terbawa" dari
-  // percobaan sebelumnya.
+  // Reset saat dialog dibuka ulang: kata kunci dan alasan tidak pernah "terbawa"
+  // dari percobaan sebelumnya.
   const ubahTerbuka = (nilai: boolean) => {
-    if (!nilai) setTeks("");
+    if (!nilai) {
+      setTeks("");
+      setAlasan("");
+    }
     onOpenChange(nilai);
   };
 
@@ -73,7 +86,7 @@ export function DialogBekukan({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-red-700">
             <ShieldAlert className="size-5" aria-hidden="true" />
-            Aktifkan Kill Switch Darurat?
+            Nonaktifkan alur pengajuan baru?
           </DialogTitle>
           <DialogDescription className="leading-6">
             Semua <strong>pengajuan baru diblokir</strong> sampai kill switch dimatikan kembali.
@@ -82,23 +95,41 @@ export function DialogBekukan({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-2">
-          <Label htmlFor="konfirmasi-bekukan">
-            Ketik <span className="font-mono font-bold">BEKUKAN</span> untuk melanjutkan
-          </Label>
-          <Input
-            id="konfirmasi-bekukan"
-            autoComplete="off"
-            autoFocus
-            value={teks}
-            onChange={(e) => setTeks(e.target.value)}
-            placeholder="BEKUKAN"
-            aria-invalid={teks !== "" && !sah}
-            className="font-mono uppercase"
-          />
-          <p className="text-[11px] leading-5 text-muted-foreground">
-            Pengaman ganda ini mencegah kill switch aktif karena salah klik.
-          </p>
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="konfirmasi-nonaktifkan">
+              Ketik <span className="font-mono font-bold">NONAKTIFKAN</span> untuk melanjutkan
+            </Label>
+            <Input
+              id="konfirmasi-nonaktifkan"
+              autoComplete="off"
+              autoFocus
+              value={teks}
+              onChange={(e) => setTeks(e.target.value)}
+              placeholder="NONAKTIFKAN"
+              aria-invalid={teks !== "" && !sah}
+              className="font-mono uppercase"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="alasan-nonaktifkan">
+              Alasan pemblokiran (wajib, minimal {MIN_ALASAN_KILL} karakter)
+            </Label>
+            <Textarea
+              id="alasan-nonaktifkan"
+              value={alasan}
+              onChange={(e) => setAlasan(e.target.value)}
+              placeholder="mis. dugaan penyalahgunaan akun; menunggu pemeriksaan tim"
+              aria-invalid={alasan !== "" && !alasanSah}
+              rows={3}
+            />
+            <p className="text-[11px] leading-5 text-muted-foreground">
+              Pengaman berlapis ini mencegah kill switch aktif karena salah klik. Alasan ini tidak
+              ikut terkirim ke server — mutasi <code>system.setKillSwitch</code> hanya menerima
+              status aktif/nonaktif — jadi catat juga di tiket atau kanal tim bila perlu ditelusuri.
+            </p>
+          </div>
         </div>
 
         <DialogFooter>
@@ -107,12 +138,12 @@ export function DialogBekukan({
           </Button>
           <Button
             type="button"
-            disabled={!sah || busy}
+            disabled={!sah || !alasanSah || busy}
             onClick={onKonfirmasi}
             className="bg-red-600 text-white hover:bg-red-700"
           >
             {busy ? <Loader2 className="mr-1.5 size-4 animate-spin" /> : null}
-            Aktifkan Kill Switch
+            Nonaktifkan alur pengajuan
           </Button>
         </DialogFooter>
       </DialogContent>

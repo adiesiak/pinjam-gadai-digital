@@ -137,7 +137,7 @@ export function AuditTrailPanel() {
           <div className="min-w-0">
             <p className="text-sm font-semibold text-navy">Penghapusan data</p>
             <p className="mt-1 text-xs leading-5 text-muted-foreground">
-              Setiap penghapusan menyimpan alasan dan jumlah baris yang ikut terhapus. Jurnal ledger
+              Setiap penghapusan menyimpan alasan dan jumlah baris yang ikut terhapus. Jurnal catatan internal
               tidak pernah dihapus — angka &quot;dipertahankan&quot; di bawah menunjukkan jejak
               keuangan yang tetap ada.
             </p>

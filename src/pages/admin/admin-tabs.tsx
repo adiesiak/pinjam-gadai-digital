@@ -46,6 +46,7 @@ import {
   type PawnRow,
 } from "@/components/admin/admin-shared";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { SkeletonKartu } from "@/components/ui/loading";
 import { RingkasanAnalitik } from "@/components/admin/RingkasanAnalitik";
 import {
   hitungMenunggu,
@@ -58,7 +59,7 @@ import {
 
 import { MejaKerja } from "./meja-kerja";
 import { LoanQueueSection, PawnQueueSection } from "./queue-views";
-import { type AdminStatsData } from "./admin-shell";
+import { AdminStats, type AdminStatsData, type ProdukAdmin } from "./admin-shell";
 
 type TabIcon = typeof ClipboardList;
 
@@ -97,15 +98,27 @@ const KELAS_ITEM_AKTIF = "gradient-primary text-white";
 
 /** Tab navigasi + seluruh konten tab panel admin. */
 export function AdminTabs({
+  header = () => null,
   overview,
   stats,
+  menunggu = { pinjaman: 0, gadai: 0, kredit: 0 },
   onOpenLoan,
   onOpenPawn,
   onOpenSetup,
   kycMenunggu = null,
 }: {
+  /**
+   * Kepala panel (judul/breadcrumb, notifikasi, status sistem, menu profil).
+   * Dipanggil dengan label modul yang sedang aktif supaya breadcrumb-nya selalu
+   * menunjuk halaman yang benar — sumber labelnya tetap di komponen ini.
+   *
+   * Ia duduk di KOLOM KONTEN kanan, bukan di atas sidebar.
+   */
+  header?: (judul: string) => ReactNode;
   overview: AdminOverviewData;
   stats: AdminStatsData | undefined;
+  /** Cacah pengajuan menunggu keputusan per produk — untuk KPI di Ringkasan. */
+  menunggu?: Record<ProdukAdmin, number>;
   onOpenLoan: (l: LoanRow) => void;
   onOpenPawn: (p: PawnRow) => void;
   onOpenSetup: () => void;
@@ -121,16 +134,19 @@ export function AdminTabs({
   // ringkasan dulu berarti admin melihat apa yang menunggu sebelum memilih modul.
   const [activeTab, setActiveTab] = useState<NilaiModulAdmin>("hari-ini");
 
+  // Enam grup tetap: Operasional → Nasabah → Pemantauan → Konten → Sistem →
+  // Keamanan & Audit. "Ringkasan" tetap di dalam Operasional supaya meja kerja
+  // dan antrean yang ditanganinya tidak terpisah.
   const menu: AdminTabGroup[] = [
     {
-      judul: "Operasional & tindakan",
+      judul: "Operasional",
       items: [
         {
           value: "hari-ini",
-          label: "Ringkasan Hari Ini",
-          hint: "Ringkasan pekerjaan yang perlu ditindak hari ini.",
-          // Sengaja tanpa lencana: satu angka di sini akan mencampur empat
-          // metrik berbeda (keputusan, keterlambatan, lokasi, ledger) dan justru
+          label: "Ringkasan",
+          hint: "Pekerjaan yang perlu ditindak hari ini.",
+          // Sengaja tanpa lencana: satu angka di sini akan mencampur beberapa
+          // metrik berbeda (keputusan, keterlambatan, lokasi) dan justru
           // melebih-lebihkan — kesalahan yang sama seperti pada R3.
           badge: null,
           hitung: "tidak",
@@ -197,22 +213,26 @@ export function AdminTabs({
       ],
     },
     {
-      judul: "Pemantauan & finansial",
+      judul: "Pemantauan",
       items: [
         {
           value: "lokasi",
-          label: "Peta Live Location",
-          hint: "Peta titik lokasi terakhir yang dilaporkan perangkat peminjam.",
-          // Notifikasi lokasi: pola koordinat dicurigai, pola lokasi ditandai,
-          // peringatan belum diakui, dan pinjaman tanpa titik perangkat.
-          badge: stats ? `${jumlahPerhatianLokasi(stats)}` : null,
-          hitung: "menunggu",
+          label: "Peta lokasi nasabah",
+          // Angka "perhatian lokasi" digabung dari empat sebab (koordinat
+          // dicurigai, lokasi ditandai, peringatan belum diakui, pinjaman tanpa
+          // titik perangkat). Satu angka gabungan di samping menu tidak bisa
+          // dibaca sebagai antrean kerja, jadi lencananya DIHAPUS: cacahannya
+          // ada di kartu "Perlu tindakan" di halaman Ringkasan, yang menyebut
+          // sebabnya satu per satu.
+          hint: "Peta titik lokasi terakhir yang dilaporkan perangkat peminjam. Jumlah titik yang perlu ditinjau ada di Ringkasan.",
+          badge: null,
+          hitung: "tidak",
           Icon: MapIcon,
         },
         {
           value: "dpd",
           label: "Jatuh Tempo",
-          hint: "Pinjaman yang melewati tanggal acuan pelunasan.",
+          hint: "Pinjaman yang melewati jatuh tempo pelunasan.",
           badge: stats ? `${stats.pinjamanTerlambat}` : null,
           hitung: "menunggu",
           Icon: BellRing,
@@ -227,8 +247,8 @@ export function AdminTabs({
         },
         {
           value: "bi",
-          label: "Ledger Internal & Kesehatan Sistem",
-          hint: "Metrik bisnis siap dihitung, keseimbangan ledger internal, dan sinyal kesehatan sistem.",
+          label: "Catatan Internal & Kesehatan Sistem",
+          hint: "Metrik bisnis siap dihitung, keseimbangan catatan internal, dan sinyal kesehatan sistem.",
           badge: null,
           hitung: "tidak",
           Icon: Activity,
@@ -236,7 +256,7 @@ export function AdminTabs({
       ],
     },
     {
-      judul: "CMS & template website",
+      judul: "Konten",
       items: [
         {
           value: "template",
@@ -273,7 +293,7 @@ export function AdminTabs({
       ],
     },
     {
-      judul: "Pemeliharaan sistem",
+      judul: "Sistem",
       items: [
         {
           value: "config",
@@ -315,7 +335,7 @@ export function AdminTabs({
         {
           value: "killswitch",
           label: "Kill Switch Darurat",
-          hint: "Blokir seluruh pengajuan baru — eksekusi wajib mengetik BEKUKAN.",
+          hint: "Blokir seluruh pengajuan baru — eksekusi wajib mengetik NONAKTIFKAN dan mengisi alasan.",
           badge: null,
           hitung: "tidak",
           Icon: Power,
@@ -324,15 +344,19 @@ export function AdminTabs({
     },
   ];
 
-  /** Grup sidebar yang sedang dibuka — bisa dibuka-tutup bebas oleh admin. */
-  const [grupTerbuka, setGrupTerbuka] = useState<string[]>([menu[0].judul]);
+  /**
+   * Accordion sidebar bersifat TUNGGAL: satu grup terbuka pada satu waktu, jadi
+   * sidebar tidak pernah menumpuk semua daftar sekaligus dan scroll-nya tetap
+   * satu (sidebar sendiri).
+   */
+  const [grupTerbuka, setGrupTerbuka] = useState<string>(menu[0].judul);
 
-  /** Pindah menu sekaligus pastikan grupnya terbuka, agar item aktif selalu terlihat
-   *  di sidebar (mis. setelah memilih menu lewat select di layar kecil). */
+  /** Pindah menu sekaligus pastikan grupnya terbuka, agar item aktif selalu
+   *  terlihat di sidebar (mis. setelah memilih menu dari bilah bawah di ponsel). */
   const pilihMenu = (value: NilaiModulAdmin) => {
     setActiveTab(value);
     const grup = menu.find((g) => g.items.some((item) => item.value === value));
-    if (grup) setGrupTerbuka((sebelumnya) => (sebelumnya.includes(grup.judul) ? sebelumnya : [...sebelumnya, grup.judul]));
+    if (grup) setGrupTerbuka(grup.judul);
   };
 
   /**
@@ -379,9 +403,31 @@ export function AdminTabs({
   const panel: Record<NilaiModulAdmin, ReactNode> = {
     "hari-ini": (
       <div className="space-y-4">
-        <MejaKerja overview={overview} stats={stats} onBukaModul={pilihMenu} />
-        {/* Analitik & peringatan risiko diletakkan SETELAH meja kerja: yang
-            menuntut tindakan hari ini tetap paling atas, grafik jadi konteks. */}
+        {/* Sapaan satu baris menggantikan banner gelap "Ringkasan sistem hari
+            ini": tidak ada lagi permukaan emerald-950 di kepala halaman. */}
+        <p className="text-sm leading-6 text-slate-600">
+          Selamat bekerja. Berikut yang perlu ditindak hari ini, urut dari yang paling mendesak.
+        </p>
+        {/* Urutan tetap: (1) Perlu tindakan, (2) empat KPI seragam,
+            (3) dua grafik. Yang menuntut tindakan selalu paling atas. */}
+        <MejaKerja
+          overview={overview}
+          stats={stats}
+          onBukaModul={pilihMenu}
+          kycMenunggu={kycMenunggu}
+        />
+        {stats === undefined ? (
+          <div role="status" aria-live="polite" className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <span className="sr-only">Memuat statistik operasional…</span>
+            {[0, 1, 2, 3].map((i) => (
+              <SkeletonKartu key={i} className="rounded-2xl p-4" />
+            ))}
+          </div>
+        ) : (
+          <AdminStats stats={stats} menunggu={menunggu} />
+        )}
+        {/* Grafik & peringatan risiko diletakkan setelah KPI: grafik jadi
+            konteks, bukan hal pertama yang dibaca. */}
         <RingkasanAnalitik
           stats={stats}
           overview={overview}
@@ -427,20 +473,23 @@ export function AdminTabs({
   };
 
   return (
-    <div className="mt-4 flex min-w-0 flex-col gap-4 sm:mt-6 sm:gap-5 lg:flex-row lg:items-start lg:gap-6">
-      {/* Layar kecil: bilah bawah + strip chip modul + sheet pencarian.
-          Menggantikan `<select>` 17 opsi yang menyembunyikan isi tiap menu. */}
-      <AdminNav menu={menu} activeTab={activeTab} onPilih={pilihMenu} />
-
-      {/* Desktop: sidebar accordion — setiap grup menu bisa dibuka-tutup sendiri. */}
+    <div className="min-h-screen bg-slate-50 lg:pl-64">
+      {/* Desktop: sidebar TETAP (fixed) setinggi layar, 256px, dengan satu area
+          gulir — dirinya sendiri. Header, KPI, dan isi modul duduk di kolom
+          kanan, jadi tidak ada baris statistik yang menempel di atas sidebar. */}
       <nav
         aria-label="Navigasi panel admin"
-        className="animate-masuk hidden lg:sticky lg:top-20 lg:z-30 lg:block lg:max-h-[calc(100vh-6rem)] lg:w-64 lg:shrink-0 lg:self-start lg:overflow-y-auto lg:overscroll-contain lg:rounded-2xl lg:border lg:border-white/70 lg:bg-white/75 lg:p-2 lg:shadow-sm lg:backdrop-blur-md"
+        className="hidden lg:fixed lg:inset-y-0 lg:left-0 lg:z-30 lg:flex lg:h-screen lg:w-64 lg:flex-col lg:overflow-y-auto lg:overscroll-contain lg:border-r lg:border-slate-200 lg:bg-white lg:px-3 lg:py-4"
       >
+        <p className="px-3 pb-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+          Panel admin
+        </p>
+        {/* Accordion TUNGGAL: satu grup terbuka pada satu waktu. */}
         <Accordion
-          type="multiple"
+          type="single"
+          collapsible
           value={grupTerbuka}
-          onValueChange={setGrupTerbuka}
+          onValueChange={(nilai) => setGrupTerbuka(nilai === "" ? menu[0].judul : nilai)}
           className="flex flex-col"
         >
           {menu.map((grup) => (
@@ -492,32 +541,47 @@ export function AdminTabs({
         </Accordion>
       </nav>
 
-      <div className="min-w-0 flex-1 space-y-4 sm:space-y-5">
-        {aktif && (
-          <div className="animate-masuk flex items-start gap-3 rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
-            <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-              <aktif.Icon className="size-4" />
-            </span>
-            <div className="min-w-0">
-              <p className="text-sm font-semibold text-navy">{aktif.label}</p>
-              <p className="mt-0.5 text-xs leading-5 text-muted-foreground">{aktif.hint}</p>
-            </div>
-          </div>
-        )}
+      {/* Kepala panel duduk di kolom kanan, bukan di atas sidebar. */}
+      {header(aktif?.label ?? "Ringkasan")}
 
-        {/* R4: panel menunjuk balik ke tombolnya (`aria-labelledby`) sekaligus
-            tetap punya `aria-label` sebagai cadangan. */}
-        <div
-          key={activeTab}
-          id={`panel-${aktif?.value}`}
-          role="region"
-          aria-label={aktif?.label}
-          aria-labelledby={aktif ? `tab-${aktif.value}` : undefined}
-          className="min-w-0 animate-masuk"
-        >
-          {panel[activeTab]}
+      {/* Layar kecil: bilah bawah + strip chip modul + sheet pencarian.
+          Menggantikan `<select>` 17 opsi yang menyembunyikan isi tiap menu. */}
+      <AdminNav menu={menu} activeTab={activeTab} onPilih={pilihMenu} />
+
+      <main
+        id="konten"
+        tabIndex={-1}
+        className="mx-auto w-full max-w-7xl px-3 py-4 pb-24 sm:px-6 sm:py-6 lg:pb-8"
+      >
+        <div className="min-w-0 space-y-4 sm:space-y-5">
+          {/* Kartu judul modul DIHILANGKAN pada Ringkasan: label menu di sidebar
+              sudah berbunyi sama, jadi kartu itu hanya mengulang judul. */}
+          {aktif && aktif.value !== "hari-ini" && (
+            <div className="flex items-start gap-3 rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
+              <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-800">
+                <aktif.Icon className="size-4" />
+              </span>
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-slate-900">{aktif.label}</p>
+                <p className="mt-0.5 text-xs leading-5 text-muted-foreground">{aktif.hint}</p>
+              </div>
+            </div>
+          )}
+
+          {/* Panel menunjuk balik ke tombolnya (`aria-labelledby`) sekaligus
+              tetap punya `aria-label` sebagai cadangan. */}
+          <div
+            key={activeTab}
+            id={`panel-${aktif?.value}`}
+            role="region"
+            aria-label={aktif?.label}
+            aria-labelledby={aktif ? `tab-${aktif.value}` : undefined}
+            className="min-w-0 animate-masuk"
+          >
+            {panel[activeTab]}
+          </div>
         </div>
-      </div>
+      </main>
     </div>
   );
 }
