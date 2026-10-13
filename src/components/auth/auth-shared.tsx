@@ -189,6 +189,15 @@ const LENCANA_FITUR: { label: string; ikon: LucideIcon }[] = [
  * Segmented control di kepala kartu: memisahkan alur masuk biasa dari pintu
  * "akses cepat" (tamu & kode akses bersama) supaya satu layar tidak
  * menumpuk terlalu banyak pilihan sekaligus. Harus berada di dalam `<Tabs>`.
+ *
+ * Tab AKTIF memakai pasangan yang sama dengan panel lain — `bg-primary` +
+ * `text-primary-foreground` (10,9:1 di preset bawaan). Sebelumnya kelas di
+ * sini menulis `bg-white text-emerald-900`: latar putihnya memang tidak pernah
+ * terpakai karena aturan `[data-slot="tabs-trigger"][data-state="active"]` di
+ * `src/index.css` memaksa latar `--primary`, sementara teks cokelat gelapnya
+ * BENAR-BENAR diwariskan ke atas hijau #0f3d3a — 1:1, jadi hurufnya tenggelam.
+ * Label pasif memakai `slate-600` (5,7:1 di atas track kertas) karena
+ * `slate-500` hanya 3,8:1, di bawah ambang 4,5:1 untuk teks 14px.
  */
 export function TabPintuMasuk() {
   return (
@@ -198,14 +207,14 @@ export function TabPintuMasuk() {
     >
       <TabsTrigger
         value={TAB_MASUK}
-        className="h-9 w-full gap-1.5 rounded-xl text-sm font-semibold text-slate-500 data-[state=active]:bg-white data-[state=active]:text-emerald-900 data-[state=active]:shadow-sm"
+        className="h-9 w-full gap-1.5 rounded-xl text-sm font-semibold text-slate-600 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm"
       >
         <LogIn className="size-4" aria-hidden="true" />
         Masuk Akun
       </TabsTrigger>
       <TabsTrigger
         value={TAB_CEPAT}
-        className="h-9 w-full gap-1.5 rounded-xl text-sm font-semibold text-slate-500 data-[state=active]:bg-white data-[state=active]:text-emerald-900 data-[state=active]:shadow-sm"
+        className="h-9 w-full gap-1.5 rounded-xl text-sm font-semibold text-slate-600 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm"
       >
         <Zap className="size-4" aria-hidden="true" />
         Akses Cepat

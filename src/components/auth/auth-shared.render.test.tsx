@@ -85,6 +85,14 @@ function bacaSumber(relatif: string): string {
     "utf8",
   );
 }
+/** Isi aturan tab aktif di `src/index.css` — latar & warna hurufnya harus satu paket. */
+function aturanAktif(css: string): string {
+  return (
+    /\[data-slot="tabs-trigger"\]\[data-state="active"\]\s*\{([^}]*)\}/.exec(
+      css,
+    )?.[1] ?? ""
+  );
+}
 
 // ===== 1. Latar ambient & kartu glassmorphism =====
 {
@@ -156,6 +164,35 @@ function bacaSumber(relatif: string): string {
     potongan[2].includes("Akses Cepat") &&
       potongan[2].includes('aria-selected="false"'),
     "Akses Cepat belum aktif sampai dipilih",
+  );
+  // KETERBACAAN tab aktif: aturan global `[data-slot="tabs-trigger"]
+  // [data-state="active"]` mengecat latar `--primary` (#0f3d3a), jadi teksnya
+  // wajib `--primary-foreground` (10,9:1). Sebelumnya komponen ini menulis
+  // `text-emerald-900` #43341a yang praktis sebenderang latarnya — 1:1.
+  ada(
+    tab,
+    "data-[state=active]:bg-primary data-[state=active]:text-primary-foreground",
+    "tab aktif memakai pasangan latar/teks yang kontras",
+  );
+  tidakAda(
+    tab,
+    "data-[state=active]:text-emerald-900",
+    "teks cokelat gelap tidak lagi diwariskan ke atas hijau --primary",
+  );
+  ada(
+    tab,
+    "text-slate-600",
+    "label pasif memakai slate-600 (5,7:1), bukan slate-500 (3,8:1)",
+  );
+
+  // Penjaga akar masalah: aturan globalnya sendiri harus memasang latar DAN
+  // warna huruf bersama-sama, supaya pemanggil berikutnya tidak bisa lagi
+  // mewariskan teks gelap ke atas `--primary`.
+  const aturanTab = aturanAktif(bacaSumber("index.css"));
+  ok(
+    aturanTab.includes("background-color: var(--primary)") &&
+      aturanTab.includes("color: var(--primary-foreground)"),
+    "aturan tab aktif memasang latar dan warna huruf bersama-sama",
   );
   bersih(tab, "segmented tab");
 }

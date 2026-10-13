@@ -670,10 +670,18 @@
       var(--background) 100%
     );
   }
-  /* Tab aktif — aksen solid. */
+  /* Tab aktif — aksen solid. Latar DAN warna hurufnya dipasang bersama di
+     sini, bukan diserahkan ke pemanggil: `--primary` (#0f3d3a) adalah hijau
+     tinta tua, jadi teks gelap apa pun yang diwariskan dari kelas pemanggil
+     tenggelam di atasnya (mis. `emerald-900` #43341a hanya 1:1 — hurufnya
+     praktis hilang, itulah yang terjadi pada tab "Masuk Akun"/"Akses Cepat"
+     di halaman auth). Pasangan `--primary-foreground` lolos AA di kelima
+     preset yang dipakai: 10,9:1 (tinta), 7,5:1 (pesisir), 7,2:1 (terakota),
+     6,6:1 (salju), 5,2:1 (karnival). */
   [data-slot="tabs-trigger"][data-state="active"] {
     background-image: none;
     background-color: var(--primary);
+    color: var(--primary-foreground);
   }
 }
 
