@@ -501,6 +501,7 @@ export function ringkasOcrKtp(ktp: DataKtp): BarisRingkasOcr[] {
 
 /** Peringatan tetap yang wajib tampil di setiap layar hasil OCR. */
 export const CATATAN_OCR =
-  "OCR hanya membaca teks dari gambar. Ia tidak membuktikan keaslian KTP dan " +
-  "tidak memverifikasi data ke Dukcapil. Hasil OCR tidak membuat status " +
-  "verifikasi menjadi VERIFIED — keputusan tetap pada petugas.";
+  "Pembacaan foto hanya menyalin teks yang terlihat di gambar. Ia tidak " +
+  "membuktikan keaslian KTP dan tidak mencocokkan data ke Dukcapil. Hasilnya " +
+  "juga tidak otomatis membuat status verifikasi menjadi VERIFIED — keputusan " +
+  "tetap pada petugas.";

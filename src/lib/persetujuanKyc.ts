@@ -58,7 +58,7 @@ export const POIN_PERSETUJUAN_KYC: readonly PoinPersetujuan[] = [
   },
   {
     judul: "Tempat penyimpanan",
-    isi: "Data tersimpan terenkripsi pada layanan basis data dan penyimpanan berkas (Convex) yang servernya berada di luar Indonesia, dengan dasar transfer yang sah dan akses terbatas.",
+    isi: "Data tersimpan terenkripsi pada layanan basis data dan penyimpanan berkas kami, yang servernya berada di luar Indonesia, dengan dasar transfer yang sah dan akses terbatas.",
   },
   {
     judul: "Hak Anda",

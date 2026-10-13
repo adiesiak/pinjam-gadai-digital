@@ -106,7 +106,7 @@ export function PindaiKtpOcr({
       setStatus("siap");
       onHasil?.(ktp, konfidensi);
     } catch (err) {
-      setGalat(err instanceof Error ? err.message : "OCR gagal dijalankan.");
+      setGalat(err instanceof Error ? err.message : "Pembacaan foto gagal dijalankan.");
       setStatus("galat");
     }
   };
@@ -122,7 +122,7 @@ export function PindaiKtpOcr({
     <div className="rounded-xl border border-border bg-card p-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-          <ScanText className="size-3.5" aria-hidden /> Bantu isi dari foto KTP (OCR)
+          <ScanText className="size-3.5" aria-hidden /> Bantu isi dari foto KTP
         </p>
         <div className="flex items-center gap-2">
           {tingkat !== null && (
@@ -149,8 +149,8 @@ export function PindaiKtpOcr({
       </div>
 
       <p className="mt-1.5 text-[11px] leading-4 text-muted-foreground">
-        Pindai dilakukan di perangkat Anda; foto tidak dikirim ke server OCR mana pun. Hasil OCR
-        hanya saran untuk diisi — selalu periksa dan koreksi di kolom formulir.
+        Pembacaan dilakukan di perangkat Anda; fotonya tidak dikirim ke mana pun. Hasilnya hanya
+        saran untuk diisikan — selalu periksa dan betulkan di kolom formulir.
       </p>
 
       {status === "memuat" && (

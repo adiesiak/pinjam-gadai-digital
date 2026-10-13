@@ -15,8 +15,13 @@
  *  - riwayat menampilkan waktu, aktor, alasan yang sudah diterjemahkan, dan
  *    tidak pernah memunculkan "undefined"/"NaN"/"[object Object]";
  *  - setiap kekurangan yang punya tahap tampil sebagai tombol menuju tahap itu;
- *  - baris aksi tahap hanya punya SATU aksi utama, menyebut sisa isian selama
- *    pengajuan belum boleh dikirim, dan membaca keadaan simpan di sebelahnya;
+ *  - kemajuan dilaporkan oleh SATU penghitung "Tahap X dari 3" + bilahnya, dan
+ *    tidak ada hitungan langkah kedua ("2 dari 8", "0/3 langkah") di layar;
+ *  - baris aksi tahap hanya punya SATU tombol utama (Lanjut di tahap 1–2,
+ *    Ajukan verifikasi di tahap 3) plus "Kembali", dengan sisa wajib sebagai
+ *    satu baris yang bisa diklik dan indikator "Tersimpan otomatis HH.mm";
+ *  - daftar langkah kedua (di modul maupun sidebar) sudah tidak dirender;
+ *  - riwayat pemeriksaan baru muncul setelah pengajuan keluar dari pengisian;
  *  - petunjuk foto tertutup sejak awal supaya kolom unggah tampil lebih dulu;
  *  - kartu pemeriksaan otomatis menyembunyikan daftar per aturan di balik lipatan
  *    yang tertutup sejak awal, sementara putusan mesin dan cacah hasil yang perlu
@@ -31,7 +36,6 @@ import { fileURLToPath } from "node:url";
 import { renderToStaticMarkup } from "react-dom/server";import {
   KycBarisAksi,
   KycDaftarAturanOtomatis,
-  KycDaftarTahap,
   KycKeputusanAlert,
   KycMenuSidebar,
   KycPemeriksaanOtomatis,
@@ -40,12 +44,15 @@ import { renderToStaticMarkup } from "react-dom/server";import {
   KycStatusHeader,
   KycStatusStrip,
   KycStepperTigaTahap,
+  labelAktorKyc,
   menuTahapKyc,
+  progresStageKyc,
   STAGE_KYC,
   stageUntukTahap,
   tahapStage,
   tahapUntukPilihStage,
   tampilkanMenuTahapKyc,
+  tampilkanRiwayatKyc,
   type RiwayatKycTampil,
 } from "./kyc-views";
 import {
@@ -98,13 +105,13 @@ for (const status of KYC_STATUS) {
       kekurangan={["Foto KTP", "Bukti penghasilan"]}
       lengkap={false}
       onBuka={() => {}}
-      persen={0}
-      selesai={0}
-      total={7}
+      tahapAktif="ktp"
+      statusPerTahap={statusNetral()}
     />,
   );
   ada(html, LABEL_STATUS_KYC[status], `label status ${status} mengikuti lib/kycStatus`);
   ada(html, KETERANGAN_STATUS_KYC[status], `penjelasan status ${status} mengikuti lib/kycStatus`);
+  ada(html, "Tahap 2 dari 3", `judul status ${status} memakai penghitung tunggal`);
   bersih(html, `judul status ${status}`);
 }
 
@@ -116,19 +123,22 @@ for (const status of KYC_STATUS) {
       kekurangan={["NIK 16 angka", "Selfie dengan KTP"]}
       lengkap={false}
       onBuka={() => {}}
-      persen={29}
-      selesai={2}
-      total={7}
+      tahapAktif="persetujuan"
+      statusPerTahap={statusNetral()}
     />,
   );
   ada(kurang, "NIK 16 angka", "kekurangan NIK tampil");
   ada(kurang, "Selfie dengan KTP", "kekurangan selfie tampil");
   ada(kurang, "2 hal sebelum bisa diajukan", "jumlah kekurangan dilaporkan");
-  ada(kurang, "2 dari 7 tahap siap", "progres tahap dilaporkan dengan angka nyata");
+  ada(kurang, "Tahap 1 dari 3", "penghitung tunggal menyebut posisi tahap");
+  ok(
+    !/\d+ dari \d+ tahap siap/.test(kurang) && !/\d+\/\d+ langkah/.test(kurang),
+    "tidak ada hitungan langkah kedua di kartu status",
+  );
   ada(
     kurang,
-    'aria-label="Kesiapan pengajuan KYC: 29 persen"',
-    "bilah kesiapan melaporkan angkanya ke pembaca layar",
+    'aria-label="Tahap verifikasi KYC: 0 dari 3 tahap selesai"',
+    "bilah tahap melaporkan kemajuannya ke pembaca layar",
   );
   ok(
     !kurang.includes("Perubahan terakhir"),
@@ -148,12 +158,13 @@ for (const status of KYC_STATUS) {
       kekurangan={[]}
       lengkap
       onBuka={() => {}}
-      persen={100}
-      selesai={7}
-      total={7}
+      tahapAktif="pendukung"
+      statusPerTahap={statusLengkap()}
     />,
   );
   ada(lengkap, "Lengkap, siap diajukan.", "keadaan lengkap tampil");
+  ada(lengkap, "Tahap 3 dari 3", "tahap terakhir disebut apa adanya");
+  ada(lengkap, "3 dari 3 tahap selesai", "bilah tahap penuh setelah semua lengkap");
   ok(!lengkap.includes("sebelum bisa diajukan"), "tidak mengeluh kekurangan saat lengkap");
   bersih(lengkap, "judul status lengkap");
 }
@@ -167,9 +178,8 @@ for (const status of KYC_STATUS) {
       kekurangan={[]}
       lengkap
       onBuka={() => {}}
-      persen={100}
-      selesai={7}
-      total={7}
+      tahapAktif="pendukung"
+      statusPerTahap={statusLengkap()}
     />,
   );
   const penjelasan = KETERANGAN_STATUS_KYC.VERIFIED;
@@ -237,7 +247,9 @@ for (const status of KYC_STATUS) {
   const html = renderToStaticMarkup(<KycRiwayatList riwayat={riwayat} />);
   ada(html, "Data identitas penting berubah", "alasan diterjemahkan ke kalimat");
   ok(!html.includes("data_identitas_berubah"), "kode alasan mentah tidak ditampilkan");
-  ada(html, "rani@pindai.test", "aktor nasabah tampil");
+  ada(html, "oleh Anda", 'pelaku nasabah disebut "Anda", bukan alamat emailnya');
+  ada(html, "oleh Sistem", "aktor sistem diterjemahkan, bukan kode mentahnya");
+  ok(!html.includes("rani@pindai.test"), "email pelaku tidak pernah ditampilkan");
   ada(html, "Nasabah memulai modul KYC", "alasan memulai diterjemahkan");
   ada(html, LABEL_STATUS_KYC.REVERIFICATION_REQUIRED, "status tujuan tampil sebagai label");
   ada(html, "Baru", "status awal ditandai sebagai baris baru");
@@ -411,6 +423,13 @@ function statusNetral(): Record<IdTahapKyc, StatusTahapKyc> {
     StatusTahapKyc
   >;
 }
+/** Semua langkah lengkap: dipakai menguji keadaan selesai & persen penuh. */
+function statusLengkap(): Record<IdTahapKyc, StatusTahapKyc> {
+  return Object.fromEntries(ID_TAHAP_KYC.map((id) => [id, "lengkap"])) as Record<
+    IdTahapKyc,
+    StatusTahapKyc
+  >;
+}
 {
   const html = renderToStaticMarkup(
     <KycStepperTigaTahap
@@ -432,7 +451,9 @@ function statusNetral(): Record<IdTahapKyc, StatusTahapKyc> {
     (html.match(/aria-current="step"/g) ?? []).length === 1,
     "hanya satu stage bertanda aktif",
   );
-  ada(html, "0/3 langkah siap", "stage 1 melaporkan hitungan langkah nyata");
+  ada(html, "Sedang diisi", "stage yang dibuka menyebut keadaannya");
+  ada(html, "Belum diisi", "stage lain menyebut keadaannya tanpa angka langkah");
+  ok(!/\d+\/\d+ langkah/.test(html), "bilah 3 tahap tidak lagi melaporkan hitungan langkah");
   ok(!html.includes("Selesai"), "stage kosong tidak diklaim selesai");
   // Reflow (audit-005 #11): tiga kartu berisi baru sejajar sejak `lg`, bukan
   // sejak `sm`, supaya nama stage tidak membungkus di lebar tablet.
@@ -450,8 +471,8 @@ function statusNetral(): Record<IdTahapKyc, StatusTahapKyc> {
   const html = renderToStaticMarkup(
     <KycStepperTigaTahap aktif="ktp" statusPerTahap={status} onPilih={() => {}} terkunci={false} />,
   );
-  ada(html, "Selesai (2/2 langkah)", "stage lengkap diringkas jadi selesai");
-  ada(html, "0/3 langkah siap", "stage lain tetap melaporkan kekurangannya");
+  ada(html, "Selesai", "stage lengkap diringkas jadi selesai");
+  ok(!/\d+\/\d+ langkah/.test(html), "ringkasan stage tanpa hitungan langkah kedua");
   bersih(html, "bilah 3 stage dengan stage lengkap");
 }
 {
@@ -479,7 +500,7 @@ function statusNetral(): Record<IdTahapKyc, StatusTahapKyc> {
     <KycStepperTigaTahap aktif="selfie" statusPerTahap={status} onPilih={() => {}} terkunci={false} />,
   );
   ada(html, "Perlu perbaikan dari petugas", "stage dengan langkah bermasalah diberi tanda");
-  ok(!html.includes("Selesai ("), "stage bermasalah tidak diklaim selesai");
+  ok(!html.includes("Selesai"), "stage bermasalah tidak diklaim selesai");
   bersih(html, "bilah 3 stage dengan perbaikan");
 }
 
@@ -501,55 +522,63 @@ function statusNetral(): Record<IdTahapKyc, StatusTahapKyc> {
   );
 }
 
-// ===== 10. Deret tahap DALAM satu stage =====
-// Yang dijaga: yang tampil hanya langkah stage yang sedang dibuka (bukan tujuh
-// langkah sekaligus), tahap aktif ditandai sekali untuk pembaca layar, dan
-// penanda "Opsional" tetap ada pada langkah yang memang boleh dilewati.
+// ===== 10. Satu penghitung, tanpa daftar langkah kedua =====
+// Yang dijaga: tidak ada lagi deret langkah kedua di modul maupun sidebar, dan
+// tidak ada hitungan per langkah — angka yang dibaca nasabah hanya "Tahap X
+// dari 3". Pengaruh kemajuan dihitung fungsi murni di bawah, jadi penghitung dan
+// bilahnya tidak bisa berbeda arti.
 {
-  const html = renderToStaticMarkup(
-    <KycDaftarTahap
-      aktif="pendukung"
-      statusPerTahap={statusNetral()}
-      onPilih={() => {}}
-      terkunci={false}
-      saring={tahapStage(3)}
-    />,
-  );
-  ada(html, "Informasi pendukung", "langkah stage 3 tampil di deret");
-  ada(html, "Alamat", "langkah opsional stage 3 tetap tampil");
-  ada(html, "Opsional", "penanda opsional ada pada langkah opsional");
-  ok(!html.includes("Nomor WhatsApp"), "deret hanya memuat langkah stage ini");
+  const modul = bacaSumber("pages/dashboard/kyc-views.tsx");
+  ok(!modul.includes("KycDaftarTahap"), "daftar langkah kedua sudah dihapus dari modul KYC");
+  ok(!modul.includes("TAHAPAN_KYC.length"), 'tidak ada lagi hitungan "X dari 8" di modul KYC');
+  ada(modul, "Sisa wajib: {sisaWajib} isian", "sisa isian wajib berdiri sebagai satu baris");
+  ada(modul, "Tersimpan otomatis", "umpan balik simpan memakai indikator simpan otomatis");
+  ada(modul, "AUTOSAVE_DIAM_MS", "isian disimpan sendiri setelah berhenti diketik");
+  ada(modul, "Baca selengkapnya", "penjelasan persetujuan punya akordeon lengkapnya");
   ok(
-    (html.match(/aria-current="step"/g) ?? []).length === 1,
-    "hanya satu langkah ditandai aktif di deret",
+    !modul.includes("Ringkasan singkat"),
+    "ringkasan 3 poin menggantikan kotak ringkasan lama yang mengulang penjelasan",
   );
-  // Tata letak (audit-005 #10): seluruh langkah stage harus muat di kolom,
-  // bukan deret mendatar yang menyembunyikan sebagian langkah di luar layar.
+}
+{
+  // Fungsi ringkas kemajuan: satu sumber angka untuk penghitung & bilahnya.
+  const status = statusNetral();
+  const awal = progresStageKyc(status, "persetujuan");
+  ok(awal.nomor === 1 && awal.lengkap === 0 && awal.persen === 0, "tahap 1 belum ada yang selesai");
+  status.persetujuan = "lengkap";
+  status.identitas = "lengkap";
+  status.whatsapp = "lengkap";
+  const satu = progresStageKyc(status, "ktp");
   ok(
-    !html.includes("overflow-x-auto") && !html.includes("min-w-[13rem]"),
-    "deret langkah tanpa geseran mendatar dan tanpa lebar tetap",
+    satu.nomor === 2 && satu.lengkap === 1 && satu.persen === 33,
+    "stage 1 lengkap → tahap 2 dari 3, bilah 33 persen",
   );
-  ok(
-    html.includes("flex flex-col gap-2"),
-    "deret langkah menumpuk satu kolom penuh lebar",
-  );
-  bersih(html, "deret tahap satu stage");
+  const semua = progresStageKyc(statusLengkap(), "pendukung");
+  ok(semua.lengkap === 3 && semua.persen === 100, "tiga stage lengkap → bilah penuh");
+}
+{
+  // Riwayat baru ditampilkan setelah pengajuan keluar dari pengisian.
+  ok(!tampilkanRiwayatKyc("IN_PROGRESS") && !tampilkanRiwayatKyc("NOT_STARTED"), "riwayat disembunyikan selama masih diisi");
+  for (const status of ["PENDING_REVIEW", "NEEDS_CORRECTION", "REJECTED", "VERIFIED", "REVERIFICATION_REQUIRED"] as const) {
+    ok(tampilkanRiwayatKyc(status), `riwayat tampil pada status ${status}`);
+  }
+  ok(labelAktorKyc("nasabah") === "Anda", "pelaku nasabah dibaca sebagai Anda");
+  ok(labelAktorKyc("admin") === "Petugas", "pelaku petugas dibaca sebagai Petugas");
+  ok(labelAktorKyc("sistem") === "Sistem", "pelaku sistem dibaca sebagai Sistem");
 }
 
 // ===== 11. Baris aksi satu tahap: satu aksi utama, umpan balik di dekatnya =====
 const aksiDasar = {
   busy: false,
-  indeks: 0,
-  total: 7,
-  bolehSimpan: false,
-  bolehLanjut: false,
+  bolehKembali: true,
+  tahapTerakhir: false,
+  bolehLanjut: true,
   bolehAjukan: false,
   tampilkanAjukan: true,
   labelAjukan: "Ajukan peninjauan",
-  sisaKurang: 3,
+  sisaWajib: 3,
   judulTujuan: "Nomor WhatsApp",
   onSebelumnya: () => {},
-  onSimpan: () => {},
   onLanjut: () => {},
   onAjukan: () => {},
   onBukaKurang: () => {},
@@ -562,83 +591,68 @@ const aksiDasar = {
     (html.match(/bg-emerald-800/g) ?? []).length === 1,
     "hanya SATU tombol pejal (aksi utama) di baris aksi",
   );
-  ada(html, "Simpan &amp; lanjut", "aksi utama tetap tombol yang berpindah tahap");
-  ada(html, "Sebelumnya", "navigasi mundur tetap ada");
-  ok(
-    (html.match(/disabled=""/g) ?? []).length === 3,
-    "mundur, simpan, dan lanjut mati saat tahap pertama & persetujuan belum tercatat",
-  );
-  ada(html, "Siap diajukan setelah 3 isian lagi", "tombol gerbang menyebut sisa isian");
-  ada(
-    html,
-    "buka Nomor WhatsApp",
-    "tombol gerbang menyebut tahap tujuan, bukan melompat tanpa penjelasan",
-  );
-  ada(html, "h-11", "target sentuh baris aksi setinggi 44px, bukan 36px");
-  // `whitespace-nowrap` + `shrink-0` bawaan tombol akan melampaui tepi kartu di
-  // layar 320px, jadi tombol berlabel panjang ini harus boleh membungkus.
-  ada(html, "whitespace-normal", "tombol gerbang boleh membungkus di layar sempit");
+  ada(html, "Lanjut", "aksi utama tahap 1–2 bernama Lanjut");
+  ada(html, "Kembali", "navigasi mundur bernama Kembali");
+  ada(html, "Sisa wajib: 3 isian", "sisa isian wajib selalu terlihat di atas tombol");
+  ada(html, "buka Nomor WhatsApp", "baris sisa wajib menyebut tahap tujuannya");
+  ok(!html.includes("Simpan progres"), "tidak ada tombol simpan manual");
+  ok(!html.includes("Siap diajukan setelah"), "tidak ada tombol gerbang kedua");
   ok(
     !html.includes("Ajukan peninjauan"),
     "label ajukan tidak muncul selagi transisi itu belum sah",
   );
+  ada(html, "h-11", "target sentuh baris aksi setinggi 44px, bukan 36px");
   ada(html, "Belum ada isian tersimpan", "keadaan simpan dinyatakan apa adanya");
   ada(html, 'role="status"', "umpan balik simpan diumumkan pembaca layar");
   ada(html, "sticky bottom-0", "baris aksi menempel selama formulir panjang");
-  bersih(html, "baris aksi terkunci");
+  bersih(html, "baris aksi tahap lanjut");
 }
 {
-  // Tahap yang boleh diajukan: tombol ajukan menggantikan "lanjut", dan keadaan
-  // simpan dibaca di baris yang sama.
+  // Tahap terakhir + transisi sah: tombol utamanya mengajukan, bukan melanjutkan.
   const siap = {
     ...aksiDasar,
-    indeks: 6,
-    bolehSimpan: true,
+    tahapTerakhir: true,
     bolehAjukan: true,
     labelAjukan: "Kirim ulang pengajuan",
-    sisaKurang: 0,
-    catatan: "Sedang menunggu peninjauan petugas. Menyimpan perubahan menarik pengajuan kembali.",
+    sisaWajib: 0,
   };
-  const sedangSimpan = renderToStaticMarkup(
-    <KycBarisAksi {...siap} menyimpan tersimpanPada={null} />,
+  const html = renderToStaticMarkup(
+    <KycBarisAksi {...siap} menyimpan={false} tersimpanPada={null} catatan={null} />,
   );
-  ada(sedangSimpan, "Kirim ulang pengajuan", "label ajukan mengikuti langkah status yang sah");
+  ada(html, "Kirim ulang pengajuan", "tahap terakhir memakai label ajukan yang sah menurut status");
+  ok(!html.includes("Lanjut"), "tahap terakhir tidak menawarkan lanjut");
+  ok(!html.includes("Sisa wajib"), "tanpa sisa wajib barisnya tidak dirender");
   ok(
-    !sedangSimpan.includes("Siap diajukan setelah"),
-    "tanpa sisa isian tidak ada tombol gerbang",
+    (html.match(/bg-emerald-800/g) ?? []).length === 1,
+    "tetap satu tombol pejal di tahap terakhir",
   );
-
-  // Isian yang kurang ada di tahap yang SEDANG dibuka: tidak ada tempat lain
-  // yang perlu dituju, jadi pintasannya tidak dirender — daftar "Tahap ini belum
-  // lengkap" di atasnya sudah menyebut apa yang kurang.
-  const kurangDiTahapIni = renderToStaticMarkup(
+  bersih(html, "baris aksi siap diajukan");
+}
+{
+  // Aksi yang sedang berjalan dan keadaan simpan terbaca di baris yang sama.
+  const html = renderToStaticMarkup(
     <KycBarisAksi
       {...aksiDasar}
-      judulTujuan={null}
-      menyimpan={false}
-      tersimpanPada={null}
-      catatan={null}
+      menyimpan
+      tersimpanPada={1_700_000_000_000}
+      catatan="Sedang menunggu peninjauan petugas."
     />,
   );
+  ada(html, "Menyimpan…", "keadaan menyimpan terbaca di sebelah tombolnya");
+  ada(html, "Sedang menunggu peninjauan petugas.", "keadaan status yang perlu dijelaskan ikut terbaca");
+  bersih(html, "baris aksi saat menyimpan");
+}
+{
+  // Waktu simpan otomatis dibaca sebagai jam:menit (HH.mm), bukan tanggal panjang.
+  const html = renderToStaticMarkup(
+    <KycBarisAksi {...aksiDasar} menyimpan={false} tersimpanPada={1_700_000_000_000} catatan={null} />,
+  );
   ok(
-    !kurangDiTahapIni.includes("Siap diajukan setelah"),
-    "tidak ada tombol pintasan saat isian yang kurang berada di tahap ini",
+    /Tersimpan otomatis \d{2}\.\d{2}/.test(html),
+    "waktu simpan otomatis dibaca sebagai jam:menit",
   );
-  ada(kurangDiTahapIni, "Sebelumnya", "navigasi mundur tetap ada tanpa pintasan");
-  ok(!sedangSimpan.includes("Simpan &amp; lanjut"), "tahap terakhir tidak menawarkan lanjut");
-  ada(sedangSimpan, "Menyimpan…", "keadaan menyimpan terbaca di sebelah tombolnya");
-  ada(
-    sedangSimpan,
-    "Sedang menunggu peninjauan petugas.",
-    "keadaan status yang perlu dijelaskan ada di baris aksi",
-  );
-  bersih(sedangSimpan, "baris aksi siap diajukan");
-
-  const sudahSimpan = renderToStaticMarkup(
-    <KycBarisAksi {...siap} menyimpan={false} tersimpanPada={1_700_000_000_000} />,
-  );
-  ada(sudahSimpan, "Tersimpan", "waktu simpan terakhir dibaca di sebelah tombolnya");
-  ok(!sudahSimpan.includes("Menyimpan…"), "umpan balik simpan tidak ditinggalkan menyala");
+  ok(!html.includes("Menyimpan…"), "umpan balik simpan tidak ditinggalkan menyala");
+  bersih(html, "baris aksi setelah autosave");
 }
 
 // ===== 12. Petunjuk foto: tertutup sejak awal, isinya tetap satu sumber =====
@@ -755,25 +769,23 @@ ok(
     "menu ini hanya muncul di kolom sidebar, tidak menumpuk di atas formulir ponsel",
   );
   ada(html, "Tahap 1: Kontak &amp; OTP", "bilah 3 tahap ikut dipindah ke sidebar");
-  ada(html, "Selfie dengan KTP", "langkah stage yang dibuka tampil di menu");
   ok(
-    !html.includes("Nomor WhatsApp") && !html.includes("Informasi pendukung"),
-    "daftar di menu hanya memuat langkah stage yang sedang dibuka",
+    !html.includes("Selfie dengan KTP") && !html.includes("Informasi pendukung"),
+    "tidak ada daftar langkah kedua di menu sidebar",
   );
   ok(!html.includes("lg:flex-row"), "tiga kartu tahap tetap menumpuk di kolom sempit");
   ok(
-    (html.match(/aria-current="step"/g) ?? []).length === 2,
-    "stage aktif dan langkah aktif masing-masing ditandai sekali",
+    (html.match(/aria-current="step"/g) ?? []).length === 1,
+    "hanya stage aktif yang ditandai di menu sidebar",
   );
   bersih(html, "menu tahap sidebar");
 }
 
-// ===== 14b. Menu sidebar pada tahap 3: kontak darurat ikut terbaca =====
+// ===== 14b. Menu sidebar pada tahap 3: hanya bilah 3 tahap, tanpa daftar ulang =====
 //
-// Langkah "Kontak darurat" ditambahkan ke tahap terakhir, jadi menu sidebar —
-// tempat nasabah melihat langkah mana yang berikutnya — harus menyebutnya juga,
-// bukan hanya formnya. Tanpa uji ini, langkah baru bisa hanya muncul di modul
-// isi dan nasabah di kolom sidebar tetap melihat tiga langkah lama.
+// Sidebar selebar 16rem hanya muat satu bentuk navigasi. Daftar langkah kedua di
+// sana membuat nasabah menebak mana yang harus ditekan, jadi yang tersisa hanya
+// bilah 3 tahap — dan itu pun harus menyebut tahap 3 sebagai tahap yang dibuka.
 {
   const html = renderToStaticMarkup(
     <KycMenuSidebar
@@ -783,22 +795,16 @@ ok(
       onPilih={() => {}}
     />,
   ).replace(/&amp;/g, "&");
-  ada(html, "Tahap 3: Alamat & Rekening", "kontak darurat berada di kelompok tahap 3");
-  ada(html, "Kontak darurat", "langkah kontak darurat tampil di menu sidebar");
-  ada(
-    html,
-    "Informasi pendukung",
-    "langkah sesudahnya tetap terlihat di kelompok yang sama",
+  ada(html, "Tahap 3: Alamat & Rekening", "tahap 3 ikut terbaca di sidebar");
+  ok(
+    !html.includes("Kontak darurat") && !html.includes("Informasi pendukung"),
+    "langkah-langkah tahap 3 tidak diulang sebagai daftar kedua",
   );
   ok(
-    !html.includes("Nomor WhatsApp"),
-    "langkah tahap 1 tidak ikut tampil saat tahap 3 yang dibuka",
+    (html.match(/aria-current="step"/g) ?? []).length === 1,
+    "hanya stage aktif yang ditandai di menu sidebar",
   );
-  ok(
-    (html.match(/aria-current="step"/g) ?? []).length === 2,
-    "stage aktif dan langkah aktif masing-masing ditandai sekali",
-  );
-  bersih(html, "menu tahap sidebar dengan kontak darurat");
+  bersih(html, "menu tahap sidebar pada tahap 3");
 }
 
 // ===== 15. Pemasangan: tepat di bawah menu peran/admin, dan terbagi state =====

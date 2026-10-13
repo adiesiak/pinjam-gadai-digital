@@ -36,7 +36,8 @@ const tanpaBerkas = renderToStaticMarkup(
 
 ada(tanpaBerkas, "Bantu isi dari foto KTP", "judul panel tampil");
 ada(tanpaBerkas, "Pindai teks KTP", "tombol pindai tampil");
-ada(tanpaBerkas, "tidak dikirim ke server OCR mana pun", "menegaskan pemindaian lokal");
+ada(tanpaBerkas, "fotonya tidak dikirim ke mana pun", "menegaskan pemindaian lokal");
+ok(!tanpaBerkas.includes("OCR"), "istilah teknis OCR tidak dipakai di muka nasabah");
 ada(tanpaBerkas, "tidak membuktikan keaslian", "menegaskan OCR bukan bukti keaslian");
 ok(tanpaBerkas.includes(CATATAN_OCR.slice(0, 20)), "catatan OCR tetap tampil");
 // Tanpa berkas: tombol harus nonaktif (jangan biarkan mengklik tanpa gambar).

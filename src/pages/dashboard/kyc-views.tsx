@@ -186,24 +186,59 @@ function waktu(ms: number | null): string {
   return new Date(ms).toLocaleString("id-ID", { dateStyle: "medium", timeStyle: "short" });
 }
 
+/** Jam:menit lokal bentuk `HH.mm`, untuk indikator simpan otomatis. */
+function jamMenit(ms: number): string {
+  return new Date(ms).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" });
+}
+
+/**
+ * Pelaku pada riwayat, dalam kata yang dipakai nasabah sehari-hari.
+ *
+ * `aktorLabel` tidak dipakai: isinya bisa memuat email atau id internal petugas,
+ * dan nasabah tidak butuh tahu siapa orangnya — cukup dari pihak mana perubahan
+ * itu datang.
+ */
+export function labelAktorKyc(aktor: string): string {
+  return aktor === "nasabah" ? "Anda" : aktor === "admin" ? "Petugas" : "Sistem";
+}
+
+/**
+ * Kemajuan 3 tahap besar: nomor tahap yang sedang diisi, berapa tahap yang sudah
+ * lengkap, dan persennya. Satu-satunya sumber angka bagi penghitung "Tahap X
+ * dari 3", supaya tidak ada dua hitungan berbeda di layar yang sama.
+ *
+ * Sebuah tahap dihitung lengkap hanya bila SELURUH langkah di dalamnya lengkap —
+ * aturannya sengaja sama dengan bilah 3 tahap di atasnya.
+ */
+export function progresStageKyc(
+  statusPerTahap: Record<IdTahapKyc, StatusTahapKyc>,
+  aktif: IdTahapKyc,
+): { nomor: 1 | 2 | 3; lengkap: number; total: 3; persen: number } {
+  const lengkap = STAGE_KYC.filter((stage) =>
+    stage.tahap.every((id) => statusPerTahap[id] === "lengkap"),
+  ).length;
+  return {
+    nomor: stageUntukTahap(aktif),
+    lengkap,
+    total: 3,
+    persen: Math.round((lengkap / 3) * 100),
+  };
+}
+
+/**
+ * Riwayat pemeriksaan baru berguna setelah pengajuan keluar dari pengisian.
+ *
+ * Selama statusnya "Sedang diisi" tidak ada keputusan petugas untuk dibaca, jadi
+ * kartunya hanya memakan ruang di bawah formulir yang masih panjang. Setelah
+ * diajukan, riwayatnya justru yang paling dicari nasabah.
+ */
+export function tampilkanRiwayatKyc(status: StatusKyc): boolean {
+  return status !== "IN_PROGRESS" && status !== "NOT_STARTED";
+}
+
 /* ==========================================================================
  * Bagian tampilan MURNI (bisa dirender & diuji tanpa Convex)
  * ========================================================================== */
-
-/** Ikon tiap tahap, dipisah karena `lib/kycTahapan.ts` sengaja tanpa React. */
-const IKON_TAHAP: Record<IdTahapKyc, typeof IdCard> = {
-  persetujuan: Lock,
-  identitas: IdCard,
-  ktp: CreditCard,
-  selfie: Camera,
-  whatsapp: Phone,
-  alamat: MapPin,
-  // Bukan lagi ikon telepon biasa: `whatsapp` sudah memakai `Phone`, dan dua
-  // langkah dengan ikon yang sama membuat daftar tahap tidak bisa dibedakan
-  // sekilas. `HeartHandshake` menandai orang yang dihubungi saat keadaan darurat.
-  darurat: HeartHandshake,
-  pendukung: Wallet,
-};
 
 /**
  * Jeda tombol "Kirim kode" sebelum boleh ditekan lagi (detik), ketentuan
@@ -211,6 +246,14 @@ const IKON_TAHAP: Record<IdTahapKyc, typeof IdCard> = {
  * ini adalah lapisan UX, bukan pengganti penjagaan di server.
  */
 const DETIK_UBAH_KIRIM_ULANG_OTP = 30;
+
+/**
+ * Jeda sebelum isian yang baru diketik disimpan sendiri (ms).
+ *
+ * Cukup lama agar nasabah tidak memicu satu simpanan per huruf, cukup pendek
+ * agar indikator "Tersimpan otomatis" terasa langsung.
+ */
+const AUTOSAVE_DIAM_MS = 1200;
 
 /* ==========================================================================
  * STEPPER TIGA STAGE (bagian tampilan MURNI)
@@ -371,7 +414,6 @@ export function KycStepperTigaTahap({
               : "belum";
           const iniAktif = stage.nomor === stageAktif;
           const bolehDibuka = !terkunci || stage.nomor === 1;
-          const selesai = statusLangkah.filter((s) => s === "lengkap").length;
           return (
             <li key={stage.nomor} className="min-w-0 flex-1">
               <button
@@ -411,12 +453,17 @@ export function KycStepperTigaTahap({
                   <span className="block text-xs font-semibold text-slate-900">
                     {`Tahap ${stage.nomor}: ${stage.judul}`}
                   </span>
+                  {/* Tanpa hitungan langkah: penghitung "Tahap X dari 3" di atas
+                      dan kartu sisa wajib sudah menyebut kemajuannya, dan angka
+                      ketiga (mis. "1/3 langkah") membuat nasabah menghitung sendiri. */}
                   <span className="mt-0.5 block text-[10px] leading-4 text-muted-foreground">
                     {ringkas === "lengkap"
-                      ? `Selesai (${selesai}/${stage.tahap.length} langkah)`
+                      ? "Selesai"
                       : ringkas === "perlu-diperbaiki"
                         ? "Perlu perbaikan dari petugas"
-                        : `${selesai}/${stage.tahap.length} langkah siap`}
+                        : iniAktif
+                          ? "Sedang diisi"
+                          : "Belum diisi"}
                   </span>
                   {iniAktif && (
                     <span className="mt-1 block text-[10px] leading-4 text-emerald-900">
@@ -450,106 +497,15 @@ function PenandaOpsional() {
 }
 
 /**
- * Daftar tahap DALAM satu stage: satu kolom penuh lebar di semua ukuran layar.
- *
- * Daftar ini sengaja disaring per stage (`saring`): navigasi utama ada di bilah 3
- * stage, jadi seluruh langkah tidak lagi tampil memanjang sekaligus dan yang terlihat
- * hanya langkah-langkah stage yang sedang dibuka. Nomor langkah diambil dari
- * posisinya di `TAHAPAN_KYC`, bukan dari posisi tampil, supaya penomoran tidak
- * berubah hanya karena penyaringan.
- *
- * Status tiap tahap ditampilkan sebagai teks (bukan hanya warna), dan tahap aktif
- * memakai `aria-current="step"` supaya pembaca layar tahu posisinya.
- */
-export function KycDaftarTahap({
-  aktif,
-  statusPerTahap,
-  onPilih,
-  terkunci,
-  saring,
-}: {
-  aktif: IdTahapKyc;
-  statusPerTahap: Record<IdTahapKyc, StatusTahapKyc>;
-  onPilih: (id: IdTahapKyc) => void;
-  /** true bila tahap ini belum boleh dibuka (persetujuan belum tercatat). */
-  terkunci: boolean;
-  /** Bila diisi, hanya langkah dalam daftar ini yang ditampilkan. */
-  saring?: readonly IdTahapKyc[];
-}) {
-  const daftar =
-    saring === undefined ? TAHAPAN_KYC : TAHAPAN_KYC.filter((t) => saring.includes(t.id));
-  return (
-    <nav aria-label="Tahapan pengisian KYC">
-      {/* Satu kolom penuh lebar di SEMUA ukuran: di bawah `lg` inilah yang
-          membuat seluruh langkah stage terlihat tanpa geseran mendatar, dan
-          sejak `lg` kolomnya mengecil (sidebar 16rem) sehingga bentuk yang sama
-          tetap pas. Deret mendatar + `min-w-[13rem]` dihapus karena menaruh
-          sebagian langkah di luar layar dan memaksa pengguna menggeser
-          (audit-005 #10). */}
-      <ol className="flex flex-col gap-2 lg:gap-1.5">
-        {daftar.map((tahap) => {
-          const urutan = TAHAPAN_KYC.indexOf(tahap);
-          const status = statusPerTahap[tahap.id];
-          const iniAktif = tahap.id === aktif;
-          const Ikon = IKON_TAHAP[tahap.id];
-          const bolehDibuka = !terkunci || tahap.id === "persetujuan";
-          return (
-            <li key={tahap.id} className="min-w-0">
-              <button
-                type="button"
-                onClick={() => onPilih(tahap.id)}
-                disabled={!bolehDibuka}
-                aria-current={iniAktif ? "step" : undefined}
-                className={cn(
-                  "flex w-full items-center gap-2.5 rounded-xl border px-3 py-2.5 text-left transition-colors",
-                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2",
-                  iniAktif
-                    ? "border-primary/40 bg-primary/[0.07]"
-                    : "border-border bg-card hover:bg-muted",
-                  !bolehDibuka && "cursor-not-allowed opacity-60",
-                )}
-              >
-                <span
-                  className={cn(
-                    "flex size-7 shrink-0 items-center justify-center rounded-lg text-[11px] font-semibold",
-                    status === "lengkap"
-                      ? "bg-emerald-100 text-emerald-700"
-                      : iniAktif
-                        ? "bg-primary text-primary-foreground"
-                        : "bg-muted text-muted-foreground",
-                  )}
-                  aria-hidden
-                >
-                  {status === "lengkap" ? <CheckCircle2 className="size-4" /> : urutan + 1}
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
-                    <Ikon className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
-                    <span className="truncate">{tahap.judul}</span>
-                    {!tahap.wajib && <PenandaOpsional />}
-                  </span>
-                  <span className="mt-0.5 block truncate text-[10px] text-muted-foreground">
-                    {LABEL_STATUS_TAHAP[status]}
-                  </span>
-                </span>
-                {!bolehDibuka && <Lock className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />}
-              </button>
-            </li>
-          );
-        })}
-      </ol>
-    </nav>
-  );
-}
-
-/**
  * Menu tahap KYC untuk kolom sidebar, tepat di bawah menu peran: bilah 3 tahap
- * yang selalu menumpuk, plus langkah-langkah stage yang sedang dibuka.
+ * yang selalu menumpuk.
  *
  * Isinya memakai komponen yang sama dengan navigasi di `KycSection`, jadi dua
- * tempat tidak bisa menampilkan tahap yang berbeda arti. Di bawah `lg` ia tidak
- * dirender: sidebar menumpuk di atas formulir, dan kartu tahap di sana hanya
- * mendorong isian ke bawah layar.
+ * tempat tidak bisa menampilkan tahap yang berbeda arti. Daftar langkah per
+ * stage TIDAK diulang di sini: bilah 3 tahap sudah menjadi navigasinya, dan
+ * daftar kedua di kolom sempit hanya membuat nasabah menebak mana yang ditekan.
+ * Di bawah `lg` ia tidak dirender: sidebar menumpuk di atas formulir, dan kartu
+ * tahap di sana hanya mendorong isian ke bawah layar.
  */
 export function KycMenuSidebar({
   aktif,
@@ -569,7 +525,7 @@ export function KycMenuSidebar({
       <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-600">
         Tahap verifikasi
       </p>
-      <div className="mt-2.5 space-y-2">
+      <div className="mt-2.5">
         <KycStepperTigaTahap
           aktif={aktif}
           statusPerTahap={statusPerTahap}
@@ -577,37 +533,30 @@ export function KycMenuSidebar({
           terkunci={terkunci}
           tumpuk
         />
-        <KycDaftarTahap
-          aktif={aktif}
-          statusPerTahap={statusPerTahap}
-          onPilih={onPilih}
-          terkunci={terkunci}
-          saring={tahapStage(stageUntukTahap(aktif))}
-        />
       </div>
     </section>
   );
 }
 
-/** Judul modul + progres kesiapan pengajuan. */
+/** Judul modul + penghitung tunggal "Tahap X dari 3". */
 export function KycStatusHeader({
   status,
   kekurangan,
   lengkap,
-  persen,
-  selesai,
-  total,
+  tahapAktif,
+  statusPerTahap,
   onBuka,
 }: {
   status: StatusKyc;
   kekurangan: string[];
   lengkap: boolean;
-  persen: number;
-  selesai: number;
-  total: number;
+  /** Langkah yang sedang dibuka; menentukan nomor tahap besarnya. */
+  tahapAktif: IdTahapKyc;
+  statusPerTahap: Record<IdTahapKyc, StatusTahapKyc>;
   /** Buka tahap yang menangani sebuah label kekurangan. */
   onBuka: (id: IdTahapKyc) => void;
 }) {
+  const tahap = progresStageKyc(statusPerTahap, tahapAktif);
   return (
     <div className="rounded-2xl border border-border bg-card p-4 shadow-sm sm:p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -622,20 +571,20 @@ export function KycStatusHeader({
         <StatusKycBadge status={status} />
       </div>
 
-      {/* Kesiapan dalam satu baris (label, bilah, hitungan): kartu ini berdiri di
-          atas bilah 3 tahap, jadi tiap barisnya harus membawa keterangan baru. */}
+      {/* PENGHITUNG TUNGGAL (permintaan pemilik): "Tahap X dari 3" + bilahnya.
+          Hitungan per langkah — "2 dari 8 tahap siap", "0/3 langkah" — dibuang:
+          dengan tiga angka berbeda di layar, nasabah menghitung sendiri dan
+          mengira harus mengisi delapan hal sebelum boleh mengirim. */}
       <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-          Kesiapan pengajuan
+        <p className="text-xs font-semibold text-foreground">
+          Tahap {tahap.nomor} dari {tahap.total}
         </p>
         <Progress
-          value={persen}
-          aria-label={`Kesiapan pengajuan KYC: ${persen} persen`}
+          value={tahap.persen}
+          aria-label={`Tahap verifikasi KYC: ${tahap.lengkap} dari ${tahap.total} tahap selesai`}
           className="h-1.5 min-w-32 flex-1"
         />
-        <p className="text-xs tabular-nums text-muted-foreground">
-          {selesai} dari {total} tahap siap
-        </p>
+        <p className="text-xs text-muted-foreground">{STAGE_KYC[tahap.nomor - 1]?.judul}</p>
       </div>
       <div className="mt-2">
         <p className="text-xs font-medium text-foreground">
@@ -708,29 +657,29 @@ export function KycStatusStrip({ status, onBuka }: { status: StatusKyc; onBuka: 
 }
 
 /**
- * Baris aksi satu tahap: satu tombol pejal (aksi utama), umpan balik simpan di
- * sebelahnya, dan menempel di dasar kartu selama formulirnya panjang. Tingginya
- * 44px supaya nyaman ditekan dengan ibu jari, bukan 36px seperti tombol lain.
+ * Baris aksi satu tahap: SATU tombol utama (emerald) plus tombol "Kembali",
+ * umpan balik simpan otomatis di sebelahnya, dan satu baris "Sisa wajib" di
+ * atasnya. Menempel di dasar kartu selama formulirnya panjang. Tingginya 44px
+ * supaya nyaman ditekan dengan ibu jari, bukan 36px seperti tombol lain.
  *
- * Selama transisi pengajuan belum sah, tombol ajukan diganti tombol pintasan
- * yang menyebut sisa isian DAN tahap tujuannya; `Simpan progres` jadi tombol
- * hantu karena bedanya hanya pindah tahap atau tidak.
+ * Tombol "Simpan progres" dihapus karena simpan berjalan sendiri (lihat efek
+ * autosave di `KycSection`): tombol simpan manual hanya menambah satu pilihan
+ * yang tidak mengubah apa pun. Tombol gerbang "Siap diajukan setelah N isian
+ * lagi" juga dihapus — sisa wajibnya kini satu baris penuh yang bisa diklik.
  */
 export function KycBarisAksi({
   busy,
   menyimpan,
-  indeks,
-  total,
-  bolehSimpan,
+  bolehKembali,
+  tahapTerakhir,
   bolehLanjut,
   bolehAjukan,
   tampilkanAjukan,
   labelAjukan,
-  sisaKurang,
+  sisaWajib,
   tersimpanPada,
   catatan,
   onSebelumnya,
-  onSimpan,
   onLanjut,
   onAjukan,
   onBukaKurang,
@@ -739,95 +688,76 @@ export function KycBarisAksi({
   busy: boolean;
   /** Sedang menyimpan progres (bukan aksi lain seperti verifikasi OTP). */
   menyimpan: boolean;
-  indeks: number;
-  total: number;
-  bolehSimpan: boolean;
+  /** false di tahap pertama: tidak ada tempat mundur. */
+  bolehKembali: boolean;
+  /** true di tahap terakhir: tombol utamanya "Ajukan verifikasi". */
+  tahapTerakhir: boolean;
   bolehLanjut: boolean;
   bolehAjukan: boolean;
   /** false untuk status VERIFIED: tidak ada lagi yang perlu diajukan. */
   tampilkanAjukan: boolean;
   labelAjukan: string;
-  /** Jumlah isian yang masih menghalangi pengajuan. */
-  sisaKurang: number;
+  /** Jumlah isian WAJIB yang masih menghalangi pengajuan. */
+  sisaWajib: number;
   /**
    * Judul tahap yang menampung isian kurang, atau `null` bila tahap itu memang
-   * yang sedang dibuka: menyebut tujuannya supaya tombolnya tidak memindahkan
-   * pengguna tanpa penjelasan, dan tidak dirender sama sekali saat tidak ada
-   * tempat lain yang perlu dituju.
+   * yang sedang dibuka: menyebut tujuannya supaya baris sisa wajib tidak
+   * memindahkan pengguna tanpa penjelasan.
    */
   judulTujuan: string | null;
   tersimpanPada: number | null;
   /** Kalimat keadaan yang perlu dijelaskan (mis. menunggu peninjauan). */
   catatan: string | null;
   onSebelumnya: () => void;
-  onSimpan: () => void;
   onLanjut: () => void;
   onAjukan: () => void;
   onBukaKurang: () => void;
 }) {
-  const ajukanTerkunci = tampilkanAjukan && !bolehAjukan && sisaKurang > 0;
+  // Satu tombol utama per layar: di tahap terakhir ia mengajukan, di tahap lain
+  // ia melanjutkan. Labelnya ikut status, jadi nasabah tidak pernah menemukan
+  // tombol yang pasti ditolak server.
+  const pakaiAjukan = tahapTerakhir && tampilkanAjukan;
+  const labelUtama = pakaiAjukan ? labelAjukan : "Lanjut";
+  const bolehUtama = !busy && (pakaiAjukan ? bolehAjukan : bolehLanjut);
   return (
     <div className="sticky bottom-0 z-10 mt-4 border-t border-border bg-card pt-3">
+      {/* Sisa wajib WAJIB selalu terlihat (kriteria selesai) dan bisa diklik
+          untuk melompat ke isian yang kurang. Dulu ini tombol Outline yang
+          bersaing dengan aksi utama; sebagai satu baris penuh ia terbaca sebagai
+          keterangan, bukan pilihan kedua. */}
+      {sisaWajib > 0 && (
+        <button
+          type="button"
+          onClick={onBukaKurang}
+          className="mb-2 flex w-full flex-wrap items-center gap-1.5 rounded-xl border border-amber-200 bg-amber-50/70 px-3 py-2 text-left text-[11px] font-medium leading-4 text-amber-900 transition-colors hover:bg-amber-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 focus-visible:ring-offset-2"
+        >
+          <AlertTriangle className="size-3.5 shrink-0" aria-hidden />
+          <span>Sisa wajib: {sisaWajib} isian</span>
+          {judulTujuan !== null && <span className="break-words">· buka {judulTujuan}</span>}
+          <ArrowRight className="ml-auto size-3.5 shrink-0" aria-hidden />
+        </button>
+      )}
+
       <div className="flex flex-wrap items-center gap-2">
         <Button
           type="button"
           variant="outline"
           className="h-11 gap-1.5"
-          disabled={busy || indeks === 0}
+          disabled={busy || !bolehKembali}
           onClick={onSebelumnya}
         >
-          <ArrowLeft className="size-4" /> Sebelumnya
+          <ArrowLeft className="size-4" /> Kembali
         </Button>
 
         <Button
           type="button"
-          variant="ghost"
-          className="h-11 gap-1.5 text-muted-foreground"
-          disabled={busy || !bolehSimpan}
-          onClick={onSimpan}
+          className="h-11 gap-1.5 rounded-xl bg-emerald-800 px-6 py-2.5 font-semibold text-white hover:bg-emerald-900"
+          disabled={!bolehUtama}
+          onClick={pakaiAjukan ? onAjukan : onLanjut}
         >
-          {menyimpan ? (
-            <Loader2 className="size-4 animate-spin" />
-          ) : (
-            <Save className="size-4" />
-          )}
-          Simpan progres
+          {pakaiAjukan ? <ShieldCheck className="size-4" /> : <ArrowRight className="size-4" />}
+          {labelUtama}
         </Button>
-
-        {indeks < total - 1 ? (
-          <Button
-            type="button"
-            className="h-11 gap-1.5 rounded-xl bg-emerald-800 px-6 py-2.5 font-semibold text-white hover:bg-emerald-900"
-            disabled={busy || !bolehLanjut}
-            onClick={onLanjut}
-          >
-            <Upload className="size-4" /> Simpan & lanjut
-          </Button>
-        ) : null}
-
-        {tampilkanAjukan && bolehAjukan && (
-          <Button type="button" className="h-11 gap-1.5" disabled={busy} onClick={onAjukan}>
-            <ShieldCheck className="size-4" />
-            {labelAjukan}
-          </Button>
-        )}
-
-        {ajukanTerkunci && judulTujuan !== null && (
-          <Button
-            type="button"
-            variant="outline"
-            // Labelnya satu kalimat penuh, jadi tombol ini boleh membungkus dan
-            // menyusut: `whitespace-nowrap` + `shrink-0` bawaan tombol membuatnya
-            // melampaui tepi kartu di layar sempit.
-            className="h-auto min-h-11 shrink gap-1.5 whitespace-normal py-2 text-left"
-            disabled={busy}
-            onClick={onBukaKurang}
-          >
-            <ArrowRight className="size-4" /> Siap diajukan setelah {sisaKurang} isian lagi
-            {" · buka "}
-            {judulTujuan}
-          </Button>
-        )}
       </div>
 
       <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] leading-4 text-muted-foreground">
@@ -841,7 +771,7 @@ export function KycBarisAksi({
               <CheckCircle2 className="size-3.5 shrink-0 text-emerald-700" aria-hidden />
               {tersimpanPada === null
                 ? "Belum ada isian tersimpan"
-                : `Tersimpan ${waktu(tersimpanPada)}`}
+                : `Tersimpan otomatis ${jamMenit(tersimpanPada)}`}
             </>
           )}
         </span>
@@ -920,8 +850,7 @@ export function KycRiwayatList({ riwayat }: { riwayat: RiwayatKycTampil[] }) {
                 {LABEL_STATUS_KYC[item.ke as StatusKyc]}
               </p>
               <p className="mt-0.5 text-[11px] leading-4 text-muted-foreground">
-                {kalimatAlasan(item.alasan)} · oleh {item.aktorLabel} ({item.aktor}) ·{" "}
-                {waktu(item.waktu)}
+                {kalimatAlasan(item.alasan)} · oleh {labelAktorKyc(item.aktor)} · {waktu(item.waktu)}
               </p>
               {item.catatan !== null && (
                 <p className="mt-1 rounded-lg bg-muted px-2 py-1 text-[11px] leading-4 text-foreground">
@@ -1066,7 +995,10 @@ function JudulTahap({ nomor, judul }: { nomor: number; judul: string }) {
       tabIndex={-1}
       className="text-sm font-semibold text-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
     >
-      {nomor}. {judul}
+      {/* Tanpa nomor: judul ini menyebut LANGKAH mana yang dibuka, sementara
+          nomor yang dibaca nasabah adalah "Tahap X dari 3" di atasnya. */}
+      {judul}
+      <span className="sr-only"> (tahap {nomor} dari 3)</span>
     </h3>
   );
 }
@@ -1438,10 +1370,11 @@ export function KycSection({
    * sudah siap" atau "ajukan aktif setelah semua tahap wajib siap" dibuang
    * karena tombol ajukan sudah menyebut sendiri sisa isiannya.
    */
+  // Peringatan verifikasi ulang untuk status VERIFIED TIDAK diulang di sini: kartu
+  // hijau di atas formulir sudah menyebutnya, dan kalimat yang sama dua kali
+  // membuat nasabah mengira ada dua syarat berbeda.
   const catatanAksi =
-    dataPasti.status === "VERIFIED"
-      ? "Identitas sudah terverifikasi. Mengubah nama, NIK, atau berkas memicu verifikasi ulang."
-      : dataPasti.status === "REJECTED"
+    dataPasti.status === "REJECTED"
         ? "Perbaiki data yang diminta petugas lalu simpan; pengajuan dimulai ulang otomatis."
         : dataPasti.status === "PENDING_REVIEW"
           ? "Sedang menunggu peninjauan petugas. Menyimpan perubahan menarik pengajuan kembali."
@@ -1517,8 +1450,9 @@ export function KycSection({
         alamat: ktp.alamat ?? isian.alamat,
       },
       berkas,
-    });
-    toast.success("Hasil OCR diterapkan ke formulir. Periksa dan koreksi sebelum menyimpan.");
+    });                    toast.success(
+                      "Data yang terbaca dari foto diisikan ke formulir. Periksa dulu, lalu betulkan yang perlu.",
+                    );
   };
 
   const menuju = (id: IdTahapKyc) => {
@@ -1581,6 +1515,45 @@ export function KycSection({
     return berhasil;
   };
 
+  /**
+   * Kunci isian yang terakhir dikirim ke server. Dipakai efek autosave supaya
+   * data yang sama tidak disimpan berulang kali: tanpa kunci ini, perubahan
+   * `busy` saat menyimpan akan menjadwalkan simpanan berikutnya tanpa henti.
+   */
+  const kunciAutosave =
+    draft === null
+      ? null
+      : JSON.stringify([
+          draft.isian,
+          draft.berkas.ktp?.id ?? null,
+          draft.berkas.selfie?.id ?? null,
+          draft.berkas.bukti?.id ?? null,
+          ocrKtp,
+        ]);
+  const kunciAutosaveTerakhir = useRef<string | null>(null);
+
+  /**
+   * Autosave: isian yang sudah berhenti diketik disimpan sendiri.
+   *
+   * Toast sengaja dibungkam (`diam`) — yang memberi kabar cukup indikator kecil
+   * "Tersimpan otomatis HH.mm" di bawah tombol utama. Selama persetujuan belum
+   * tercatat atau ada aksi lain berjalan, simpanan ditunda karena server akan
+   * menolaknya (`pastikanPersetujuan`).
+   */
+  useEffect(() => {
+    if (kunciAutosave === null) {
+      kunciAutosaveTerakhir.current = null;
+      return;
+    }
+    if (terkunci || busy) return;
+    if (kunciAutosaveTerakhir.current === kunciAutosave) return;
+    const timer = window.setTimeout(() => {
+      kunciAutosaveTerakhir.current = kunciAutosave;
+      void simpanProgres({ diam: true });
+    }, AUTOSAVE_DIAM_MS);
+    return () => window.clearTimeout(timer);
+  }, [kunciAutosave, terkunci, busy]);
+
   const setujuiPemrosesan = async () => {
     const berhasil = await jalankan(() => setujui({ versi: VERSI_PERSETUJUAN_KYC }));
     if (berhasil) {
@@ -1625,7 +1598,9 @@ export function KycSection({
 
   /** Simpan lalu pindah ke tahap berikutnya (tanpa memaksa bila ada galat). */
   const simpanDanLanjut = async () => {
-    const berhasil = await simpanProgres();
+    // Tanpa toast: simpanan sudah dibiasakan lewat autosave, jadi "Lanjut" cukup
+    // memindahkan tahap dan tidak menambah notifikasi untuk hal yang sama.
+    const berhasil = await simpanProgres({ diam: true });
     if (!berhasil) return;
     const berikutnya = TAHAPAN_KYC[indeks + 1];
     if (berikutnya !== undefined) menuju(berikutnya.id);
@@ -1732,9 +1707,8 @@ export function KycSection({
         status={data.status}
         kekurangan={data.kekurangan}
         lengkap={data.lengkap}
-        persen={progres.persen}
-        selesai={progres.selesai}
-        total={progres.total}
+        tahapAktif={tahap.id}
+        statusPerTahap={statusPerTahap}
         onBuka={menuju}
       />
 
@@ -1841,13 +1815,6 @@ export function KycSection({
             onPilih={menuju}
             terkunci={terkunci}
           />
-          <KycDaftarTahap
-            aktif={tahap.id}
-            statusPerTahap={statusPerTahap}
-            onPilih={menuju}
-            terkunci={terkunci}
-            saring={tahapStage(stageUntukTahap(tahap.id))}
-          />
         </div>
 
         <div
@@ -1857,11 +1824,11 @@ export function KycSection({
           className="min-w-0 rounded-2xl border border-border bg-card p-4 shadow-sm sm:p-5"
         >
           <p className="sr-only" role="status" aria-live="polite">
-            Tahap {indeks + 1} dari {TAHAPAN_KYC.length}: {tahap.judul}
+            Tahap {stageUntukTahap(tahap.id)} dari 3: {tahap.judul}
           </p>
           <div className="flex flex-wrap items-start justify-between gap-2">
             <div className="min-w-0">
-              <JudulTahap nomor={indeks + 1} judul={tahap.judul} />
+              <JudulTahap nomor={stageUntukTahap(tahap.id)} judul={tahap.judul} />
               <p className="mt-0.5 text-xs leading-5 text-muted-foreground">{tahap.ringkas}</p>
             </div>
             <span
@@ -1889,24 +1856,59 @@ export function KycSection({
             {/* ===== Tahap 1: persetujuan & penjelasan pemrosesan data ===== */}
             {tahap.id === "persetujuan" && (
               <div className="space-y-4">
-                <div className="rounded-xl border border-border bg-muted/40 p-3">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-                    Ringkasan singkat
-                  </p>
-                  <p className="mt-1 text-xs leading-5 text-foreground">
-                    Data identitas Anda dipakai hanya untuk memverifikasi identitas dan menilai
-                    kelayakan. Hanya petugas PINDAI ber-TOTP yang dapat melihatnya, dokumen
-                    ditampilkan ber-watermark, dan setiap keputusan tercatat di jejak audit.
-                  </p>
-                </div>
-                <ul className="grid gap-3 sm:grid-cols-2">
-                  {POIN_PERSETUJUAN_KYC.map((poin) => (
-                    <li key={poin.judul} className="rounded-xl border border-border bg-card p-3">
-                      <p className="text-xs font-semibold text-foreground">{poin.judul}</p>
-                      <p className="mt-1 text-[11px] leading-4 text-muted-foreground">{poin.isi}</p>
+                {/* Ringkasan 3 poin (data apa, untuk apa, siapa yang melihat) + satu
+                    kalimat soal lokasi perangkat. Sisanya tetap ada persis seperti
+                    teksnya, tapi di balik "Baca selengkapnya", supaya kotak
+                    centangnya tidak tenggelam di bawah delapan kartu penjelasan. */}
+                <ol className="space-y-2.5">
+                  {POIN_PERSETUJUAN_KYC.slice(0, 3).map((poin, urutan) => (
+                    <li key={poin.judul} className="flex gap-2.5">
+                      <span
+                        className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-[10px] font-semibold text-emerald-900"
+                        aria-hidden
+                      >
+                        {urutan + 1}
+                      </span>
+                      <span className="min-w-0">
+                        <span className="block text-xs font-semibold text-foreground">
+                          {poin.judul}
+                        </span>
+                        <span className="mt-0.5 block text-[11px] leading-4 text-muted-foreground">
+                          {poin.isi}
+                        </span>
+                      </span>
                     </li>
                   ))}
-                </ul>
+                </ol>
+
+                <p className="rounded-xl border border-border bg-muted/40 p-3 text-[11px] leading-4 text-muted-foreground">
+                  Saat Anda mengirim pengajuan, lokasi perangkat dicatat sekali untuk memastikan
+                  pengajuan dibuat dari tempat yang wajar. Tidak ada pelacakan yang berjalan terus.
+                </p>
+
+                <Accordion
+                  type="single"
+                  collapsible
+                  className="rounded-xl border border-border bg-card px-3"
+                >
+                  <AccordionItem value="sisanya" className="border-b-0">
+                    <AccordionTrigger className="py-3 text-xs font-semibold text-foreground hover:no-underline">
+                      Baca selengkapnya ({POIN_PERSETUJUAN_KYC.length - 3} poin lain)
+                    </AccordionTrigger>
+                    <AccordionContent>
+                      <ul className="space-y-3 pb-1">
+                        {POIN_PERSETUJUAN_KYC.slice(3).map((poin) => (
+                          <li key={poin.judul}>
+                            <p className="text-xs font-semibold text-foreground">{poin.judul}</p>
+                            <p className="mt-0.5 text-[11px] leading-4 text-muted-foreground">
+                              {poin.isi}
+                            </p>
+                          </li>
+                        ))}
+                      </ul>
+                    </AccordionContent>
+                  </AccordionItem>
+                </Accordion>
 
                 {data.persetujuanAktif ? (
                   <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-[11px] leading-5 text-emerald-900">
@@ -2502,7 +2504,7 @@ export function KycSection({
 
                 <div className="rounded-xl border border-border bg-muted/40 p-3">
                   <p className="flex items-center gap-1.5 text-[11px] font-semibold text-foreground">
-                    <CircleDashed className="size-3.5" aria-hidden /> Ringkasan bertopeng
+                    <CircleDashed className="size-3.5" aria-hidden /> Ringkasan data Anda
                   </p>
                   <dl className="mt-2 space-y-1 text-[11px] leading-4 text-muted-foreground">
                     <div className="flex justify-between gap-3">
@@ -2538,23 +2540,21 @@ export function KycSection({
             <KycBarisAksi
               busy={busy}
               menyimpan={menyimpan}
-              indeks={indeks}
-              total={TAHAPAN_KYC.length}
-              bolehSimpan={!terkunci}
+              bolehKembali={indeks > 0}
+              tahapTerakhir={stageUntukTahap(tahap.id) === 3}
               // Saat persetujuan belum tercatat server menolak semua simpanan
               // (`pastikanPersetujuan`), jadi tombol maju di sini hanya berakhir galat.
               bolehLanjut={!terkunci}
               bolehAjukan={bolehAjukan}
               tampilkanAjukan={data.status !== "VERIFIED"}
               labelAjukan={labelAjukan}
-              sisaKurang={data.kekurangan.length}
+              sisaWajib={data.kekurangan.length}
               tersimpanPada={data.diperbaruiPada}
               catatan={catatanAksi}
               onSebelumnya={() => {
                 const sebelumnya = TAHAPAN_KYC[indeks - 1];
                 if (sebelumnya !== undefined) menuju(sebelumnya.id);
               }}
-              onSimpan={() => void simpanProgres()}
               onLanjut={() => void simpanDanLanjut()}
               onAjukan={() => void ajukanPeninjauan()}
               onBukaKurang={() => menuju(progres.tahapBerikutnya)}
@@ -2571,7 +2571,7 @@ export function KycSection({
         <KycPemeriksaanOtomatis keputusan={data.keputusanOtomatis} />
       )}
 
-      <KycRiwayatList riwayat={data.riwayat} />
+      {tampilkanRiwayatKyc(data.status) && <KycRiwayatList riwayat={data.riwayat} />}
     </section>
   );
 }
