@@ -777,7 +777,16 @@
   /* Muncul halus saat elemen baru dirender — dipakai untuk langkah auth, panel
      tab dashboard, header, dan banner. Easing serta jaraknya selaras dengan
      animasi masuk landing. Sejak motion token ada, temponya memakai
-     `--motion-slow` (380 ms) supaya seluruh aplikasi seragam. */
+     `--motion-slow` (380 ms) supaya seluruh aplikasi seragam.
+
+     PENTING: keyframe akhir memakai `transform: none`, bukan `translateY(0)`.
+     Dengan `animation-fill-mode: both`, `translateY(0)` akan MENETAP sebagai
+     transform non-none setelah animasi selesai; elemen ber-transform menjadi
+     containing block, dan itu mematahkan `position: sticky` pada keturunannya
+     — tombol aksi KYC ("Sebelumnya / Simpan progres / Simpan & lanjut") dan
+     bar simpan panel admin ikut menggulir bersama halaman. `none` membuat
+     containing block itu hilang total. Gerak masuknya tidak berubah:
+     interpolasi `translateY(10px)` → `none` diperlakukan sebagai 10px → 0. */
   .animate-masuk {
     animation: pindai-masuk var(--motion-slow) var(--motion-ease-out) both;
   }
@@ -788,7 +797,7 @@
     }
     to {
       opacity: 1;
-      transform: translateY(0);
+      transform: none;
     }
   }
 
