@@ -234,25 +234,25 @@ export function LiveLocationMap() {
     return () => window.clearTimeout(timer);
   }, [targetId]);
 
-  if (data === undefined) {
-    return (
-      <div className="flex items-center gap-2 py-10 text-sm text-muted-foreground">
-        <Loader2 className="size-4 animate-spin" /> Memuat peta lokasi…
-      </div>
-    );
-  }
+  // TIDAK ada early-return di sini, dan itu bukan kelalaian: kontainer peta
+  // WAJIB sudah ada pada render pertama. Efek inisialisasi Leaflet memasang
+  // dirinya sekali (`[]`), dan keluar lebih awal bila `containerRef.current`
+  // belum ada — kalau kontainernya baru muncul setelah data tiba, efek itu tidak
+  // pernah dijalankan ulang, peta tidak pernah dibuat, dan yang tampil hanyalah
+  // kotak abu-abu kosong seterusnya. Selagi menunggu, peta sudah menggambar
+  // titik acuan dari konfigurasi default (lihat `draw`), jadi tidak pernah
+  // benar-benar kosong.
+  const baris = data?.rows ?? [];
+  const diLuarAmbang = (r: (typeof baris)[number]) => r.mismatch || r.tanda.length > 0;
+  const dalamAmbang = (r: (typeof baris)[number]) => !r.mismatch && r.tanda.length === 0;
 
   const filteredRows =
-    filter === "semua"
-      ? data.rows
-      : filter === "aman"
-        ? data.rows.filter((r) => !r.mismatch && r.tanda.length === 0)
-        : data.rows.filter((r) => r.mismatch || r.tanda.length > 0);
+    filter === "semua" ? baris : filter === "aman" ? baris.filter(dalamAmbang) : baris.filter(diLuarAmbang);
 
   const stats = {
-    semua: data.rows.length,
-    aman: data.rows.filter((r) => !r.mismatch && r.tanda.length === 0).length,
-    diLuar: data.rows.filter((r) => r.mismatch || r.tanda.length > 0).length,
+    semua: baris.length,
+    aman: baris.filter(dalamAmbang).length,
+    diLuar: baris.filter(diLuarAmbang).length,
   };
 
   return (
@@ -324,11 +324,17 @@ export function LiveLocationMap() {
         <div className="flex items-center gap-2 text-xs">
           <Users className="size-4 text-primary" />
           <span className="font-semibold text-navy">Live Geofence Feed</span>
-          <span className="text-muted-foreground">· {filteredRows.length} nasabah tampil</span>
+          {data !== undefined && (
+            <span className="text-muted-foreground">· {filteredRows.length} nasabah tampil</span>
+          )}
         </div>
 
         <div className="flex max-h-[580px] flex-col gap-3 overflow-y-auto pr-2">
-          {filteredRows.length === 0 ? (
+          {data === undefined ? (
+            <p className="flex h-24 items-center justify-center gap-2 text-sm text-muted-foreground">
+              <Loader2 className="size-4 animate-spin" /> Memuat feed lokasi…
+            </p>
+          ) : filteredRows.length === 0 ? (
             <p className="flex h-24 items-center justify-center text-sm text-muted-foreground">
               Tidak ada nasabah sesuai filter.
             </p>

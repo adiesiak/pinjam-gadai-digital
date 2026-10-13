@@ -8,6 +8,8 @@
  * peta admin di lingkungan tanpa browser (Leaflet tidak bisa diimpor tanpa DOM,
  * karena itu kartu dipisah dari `LiveLocationMap`).
  */
+import { readFileSync } from "node:fs";
+
 import { renderToStaticMarkup } from "react-dom/server";
 
 import { KartuFeedLokasi, type BarisFeedLokasi } from "./KartuFeedLokasi";
@@ -89,6 +91,35 @@ const tanpaPilih = () => {};
   );
   ada(html, "jarak tidak diketahui", "jarak kosong dinyatakan jujur");
   bersih(html, "kartu tanpa jarak");
+}
+
+// ===== 5. Penjagaan "peta blank" di LiveLocationMap =====
+// Peta Leaflet dibuat oleh efek berdep `[]` yang keluar lebih awal bila
+// `containerRef.current` belum ada. Karena itu komponen ini TIDAK boleh
+// me-return lebih awal selagi data belum tiba: kontainer peta baru akan muncul
+// setelah efek itu terlanjur dilewati, efeknya tidak dijalankan ulang (dep `[]`),
+// peta tidak pernah dibuat, dan yang tampil hanya kotak abu-abu kosong
+// seterusnya. Uji ini menjaga sifat itu lewat sumbernya — Leaflet tidak bisa
+// diimpor tanpa DOM, jadi render langsung bukan pilihan.
+{
+  const sumber = readFileSync(new URL("./LiveLocationMap.tsx", import.meta.url), "utf8");
+  ok(
+    !/if \(data === undefined\) \{\s*return/.test(sumber),
+    "tidak ada early-return yang menghalangi kontainer peta selagi data belum tiba",
+  );
+  ada(sumber, "ref={containerRef}", "kontainer peta tetap dirender sejak render pertama");
+  ada(sumber, "const baris = data?.rows ?? [];", "baris feed dibaca aman sebelum data tiba");
+  ok(!/data\.rows/.test(sumber), "tidak ada pembacaan data.rows tanpa penjagaan");
+  ada(
+    sumber,
+    "Memuat titik lokasi…",
+    "penanda memuat hidup DI ATAS peta, bukan menggantikan petanya",
+  );
+  ada(
+    sumber,
+    "data?.gpsMismatchKm ?? DEFAULT_CONFIG.gpsMismatchKm",
+    "ambang pola tetap terbaca sebelum data tiba",
+  );
 }
 
 console.log(`\nKartuFeedLokasi.render: ${passed} passed, ${failed} failed`);
