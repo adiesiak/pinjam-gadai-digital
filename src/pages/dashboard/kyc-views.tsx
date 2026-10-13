@@ -320,6 +320,16 @@ export function menuTahapKyc(data: {
 }
 
 /**
+ * Tahap yang dibuka bila sebuah stage dipilih dari bilah 3 stage: langkah
+ * PERTAMA stage itu. `null` bila stage itu memang sedang dibuka — memilih stage
+ * yang sudah aktif tidak boleh memindahkan pengguna ke langkah lain di dalamnya.
+ */
+export function tahapUntukPilihStage(nomor: 1 | 2 | 3, aktif: IdTahapKyc): IdTahapKyc | null {
+  if (stageUntukTahap(aktif) === nomor) return null;
+  return tahapStage(nomor)[0] ?? null;
+}
+
+/**
  * Bilah progres 3 tahap besar di atas wizard, menggantikan daftar langkah
  * memanjang sebagai navigasi utama.
  *
@@ -341,7 +351,7 @@ export function KycStepperTigaTahap({
 }: {
   aktif: IdTahapKyc;
   statusPerTahap: Record<IdTahapKyc, StatusTahapKyc>;
-  /** Dipanggil dengan langkah PERTAMA stage yang dipilih. */
+  /** Dipanggil dengan tahap yang harus dibuka; tak dipanggil bila stage sudah aktif. */
   onPilih: (id: IdTahapKyc) => void;
   /** true selama persetujuan belum tercatat (hanya stage 1 yang boleh dibuka). */
   terkunci: boolean;
@@ -367,8 +377,8 @@ export function KycStepperTigaTahap({
               <button
                 type="button"
                 onClick={() => {
-                  const pertama = stage.tahap[0];
-                  if (pertama !== undefined) onPilih(pertama);
+                  const tujuan = tahapUntukPilihStage(stage.nomor, aktif);
+                  if (tujuan !== null) onPilih(tujuan);
                 }}
                 disabled={!bolehDibuka}
                 aria-current={iniAktif ? "step" : undefined}
@@ -702,9 +712,9 @@ export function KycStatusStrip({ status, onBuka }: { status: StatusKyc; onBuka: 
  * sebelahnya, dan menempel di dasar kartu selama formulirnya panjang. Tingginya
  * 44px supaya nyaman ditekan dengan ibu jari, bukan 36px seperti tombol lain.
  *
- * Selama transisi pengajuan belum sah, tombol ajukan diganti tombol yang
- * menyebut sisa isiannya; `Simpan progres` jadi tombol hantu karena bedanya
- * hanya pindah tahap atau tidak.
+ * Selama transisi pengajuan belum sah, tombol ajukan diganti tombol pintasan
+ * yang menyebut sisa isian DAN tahap tujuannya; `Simpan progres` jadi tombol
+ * hantu karena bedanya hanya pindah tahap atau tidak.
  */
 export function KycBarisAksi({
   busy,
@@ -724,6 +734,7 @@ export function KycBarisAksi({
   onLanjut,
   onAjukan,
   onBukaKurang,
+  judulTujuan,
 }: {
   busy: boolean;
   /** Sedang menyimpan progres (bukan aksi lain seperti verifikasi OTP). */
@@ -738,6 +749,13 @@ export function KycBarisAksi({
   labelAjukan: string;
   /** Jumlah isian yang masih menghalangi pengajuan. */
   sisaKurang: number;
+  /**
+   * Judul tahap yang menampung isian kurang, atau `null` bila tahap itu memang
+   * yang sedang dibuka: menyebut tujuannya supaya tombolnya tidak memindahkan
+   * pengguna tanpa penjelasan, dan tidak dirender sama sekali saat tidak ada
+   * tempat lain yang perlu dituju.
+   */
+  judulTujuan: string | null;
   tersimpanPada: number | null;
   /** Kalimat keadaan yang perlu dijelaskan (mis. menunggu peninjauan). */
   catatan: string | null;
@@ -794,7 +812,7 @@ export function KycBarisAksi({
           </Button>
         )}
 
-        {ajukanTerkunci && (
+        {ajukanTerkunci && judulTujuan !== null && (
           <Button
             type="button"
             variant="outline"
@@ -806,6 +824,8 @@ export function KycBarisAksi({
             onClick={onBukaKurang}
           >
             <ArrowRight className="size-4" /> Siap diajukan setelah {sisaKurang} isian lagi
+            {" · buka "}
+            {judulTujuan}
           </Button>
         )}
       </div>
@@ -2483,7 +2503,9 @@ export function KycSection({
               indeks={indeks}
               total={TAHAPAN_KYC.length}
               bolehSimpan={!terkunci}
-              bolehLanjut={!(terkunci && tahap.id !== "persetujuan")}
+              // Saat persetujuan belum tercatat server menolak semua simpanan
+              // (`pastikanPersetujuan`), jadi tombol maju di sini hanya berakhir galat.
+              bolehLanjut={!terkunci}
               bolehAjukan={bolehAjukan}
               tampilkanAjukan={data.status !== "VERIFIED"}
               labelAjukan={labelAjukan}
@@ -2498,6 +2520,11 @@ export function KycSection({
               onLanjut={() => void simpanDanLanjut()}
               onAjukan={() => void ajukanPeninjauan()}
               onBukaKurang={() => menuju(progres.tahapBerikutnya)}
+              judulTujuan={
+                progres.tahapBerikutnya === tahap.id
+                  ? null
+                  : tahapKyc(progres.tahapBerikutnya).judul
+              }
             />
         </div>
       </div>

@@ -44,6 +44,7 @@ import { renderToStaticMarkup } from "react-dom/server";import {
   STAGE_KYC,
   stageUntukTahap,
   tahapStage,
+  tahapUntukPilihStage,
   tampilkanMenuTahapKyc,
   type RiwayatKycTampil,
 } from "./kyc-views";
@@ -482,6 +483,24 @@ function statusNetral(): Record<IdTahapKyc, StatusTahapKyc> {
   bersih(html, "bilah 3 stage dengan perbaikan");
 }
 
+// 9b. Memilih stage: stage yang sedang dibuka tidak memindahkan langkah.
+{
+  ok(
+    tahapUntukPilihStage(1, "identitas") === null,
+    "stage 1 yang sedang dibuka tidak melempar ke persetujuan",
+  );
+  ok(
+    tahapUntukPilihStage(3, "pendukung") === null,
+    "stage 3 yang sedang dibuka tidak melempar mundur ke alamat",
+  );
+  ok(tahapUntukPilihStage(3, "ktp") === "alamat", "stage lain dibuka dari langkah pertamanya");
+  ok(tahapUntukPilihStage(2, "pendukung") === "ktp", "stage 2 dibuka dari foto KTP");
+  ok(
+    tahapUntukPilihStage(1, "pendukung") === "persetujuan",
+    "stage 1 dibuka dari pintu persetujuan",
+  );
+}
+
 // ===== 10. Deret tahap DALAM satu stage =====
 // Yang dijaga: yang tampil hanya langkah stage yang sedang dibuka (bukan tujuh
 // langkah sekaligus), tahap aktif ditandai sekali untuk pembaca layar, dan
@@ -528,6 +547,7 @@ const aksiDasar = {
   tampilkanAjukan: true,
   labelAjukan: "Ajukan peninjauan",
   sisaKurang: 3,
+  judulTujuan: "Nomor WhatsApp",
   onSebelumnya: () => {},
   onSimpan: () => {},
   onLanjut: () => {},
@@ -549,6 +569,11 @@ const aksiDasar = {
     "mundur, simpan, dan lanjut mati saat tahap pertama & persetujuan belum tercatat",
   );
   ada(html, "Siap diajukan setelah 3 isian lagi", "tombol gerbang menyebut sisa isian");
+  ada(
+    html,
+    "buka Nomor WhatsApp",
+    "tombol gerbang menyebut tahap tujuan, bukan melompat tanpa penjelasan",
+  );
   ada(html, "h-11", "target sentuh baris aksi setinggi 44px, bukan 36px");
   // `whitespace-nowrap` + `shrink-0` bawaan tombol akan melampaui tepi kartu di
   // layar 320px, jadi tombol berlabel panjang ini harus boleh membungkus.
@@ -582,6 +607,24 @@ const aksiDasar = {
     !sedangSimpan.includes("Siap diajukan setelah"),
     "tanpa sisa isian tidak ada tombol gerbang",
   );
+
+  // Isian yang kurang ada di tahap yang SEDANG dibuka: tidak ada tempat lain
+  // yang perlu dituju, jadi pintasannya tidak dirender — daftar "Tahap ini belum
+  // lengkap" di atasnya sudah menyebut apa yang kurang.
+  const kurangDiTahapIni = renderToStaticMarkup(
+    <KycBarisAksi
+      {...aksiDasar}
+      judulTujuan={null}
+      menyimpan={false}
+      tersimpanPada={null}
+      catatan={null}
+    />,
+  );
+  ok(
+    !kurangDiTahapIni.includes("Siap diajukan setelah"),
+    "tidak ada tombol pintasan saat isian yang kurang berada di tahap ini",
+  );
+  ada(kurangDiTahapIni, "Sebelumnya", "navigasi mundur tetap ada tanpa pintasan");
   ok(!sedangSimpan.includes("Simpan &amp; lanjut"), "tahap terakhir tidak menawarkan lanjut");
   ada(sedangSimpan, "Menyimpan…", "keadaan menyimpan terbaca di sebelah tombolnya");
   ada(
@@ -792,6 +835,22 @@ ok(
     !modul.includes("const tahapAktif = tahapPilihan ?? tahapDisarankan("),
     "tahap aktif tidak lagi dihitung ulang dari isian live tiap render",
   );
+}
+
+// 17. Jalur perpindahan tahap: hanya lewat tindakan yang menyebut tujuannya.
+{
+  const modul = bacaSumber("pages/dashboard/kyc-views.tsx");
+  ok(
+    (modul.match(/setTahapLokal\(/g) ?? []).length === 1,
+    "perpindahan tahap lewat satu pintu (`menuju`), bukan tersebar di banyak efek",
+  );
+  ada(modul, "const tujuan = tahapUntukPilihStage(", "bilah stage memakai aturan pilih stage");
+  ada(
+    modul,
+    "progres.tahapBerikutnya === tahap.id",
+    "pintasan rumpun isian kurang disembunyikan saat isian itu ada di tahap ini",
+  );
+  ada(modul, "bolehLanjut={!terkunci}", "tombol maju mati selama persetujuan belum tercatat");
 }
 
 if (failed > 0) {
