@@ -312,6 +312,12 @@ function statusNetral(): Record<IdTahapKyc, StatusTahapKyc> {
   );
   ada(html, "0/3 langkah siap", "stage 1 melaporkan hitungan langkah nyata");
   ok(!html.includes("Selesai"), "stage kosong tidak diklaim selesai");
+  // Reflow (audit-005 #11): tiga kartu berisi baru sejajar sejak `lg`, bukan
+  // sejak `sm`, supaya nama stage tidak membungkus di lebar tablet.
+  ok(
+    html.includes("lg:flex-row") && !html.includes("sm:flex-row"),
+    "bilah 3 stage baru menjejer sejak lg, tidak dipadatkan dari sm",
+  );
   bersih(html, "bilah 3 stage");
 }
 {
@@ -376,6 +382,16 @@ function statusNetral(): Record<IdTahapKyc, StatusTahapKyc> {
   ok(
     (html.match(/aria-current="step"/g) ?? []).length === 1,
     "hanya satu langkah ditandai aktif di deret",
+  );
+  // Tata letak (audit-005 #10): seluruh langkah stage harus muat di kolom,
+  // bukan deret mendatar yang menyembunyikan sebagian langkah di luar layar.
+  ok(
+    !html.includes("overflow-x-auto") && !html.includes("min-w-[13rem]"),
+    "deret langkah tanpa geseran mendatar dan tanpa lebar tetap",
+  );
+  ok(
+    html.includes("flex flex-col gap-2"),
+    "deret langkah menumpuk satu kolom penuh lebar",
   );
   bersih(html, "deret tahap satu stage");
 }

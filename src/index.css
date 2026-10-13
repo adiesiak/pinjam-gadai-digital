@@ -982,11 +982,12 @@
     }
   }
 
-  /* Sembunyikan BILAH gulir pada deret yang memang digeser mendatar (mis.
-     stepper tahap KYC di ponsel) tanpa menghilangkan kemampuan menggulirnya:
-     hanya bilah-nya yang dimatikan, gulir lewat jari dan papan tik tetap ada.
-     Dipakai bersama `overflow-x-auto`; tanpa itu deretnya tetap bisa digeser,
-     hanya terlihat bilah di bawahnya. */
+  /* Sembunyikan BILAH gulir pada deret yang memang digeser mendatar, tanpa
+     menghilangkan kemampuan menggulirnya: hanya bilah-nya yang dimatikan, gulir
+     lewat jari dan papan tik tetap ada. Dipakai bersama `overflow-x-auto`; tanpa
+     itu deretnya tetap bisa digeser, hanya terlihat bilah di bawahnya.
+     Catatan: deret tahap KYC berhenti memakainya (audit-005 #10, tiga langkah
+     stage kini menumpuk penuh lebar), jadi saat ini belum ada pemakaiannya. */
   .no-scrollbar {
     scrollbar-width: none;
     -ms-overflow-style: none;

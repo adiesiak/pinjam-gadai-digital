@@ -261,6 +261,10 @@ export function tahapStage(nomor: 1 | 2 | 3): readonly IdTahapKyc[] {
  * bila SELURUH langkahnya lengkap; "perlu-diperbaiki" bila ada langkah yang
  * ditandai petugas; selebihnya "belum". Ringkasan ini sengaja dihitung dari
  * data yang sama dengan daftar detail, jadi dua tempat tidak bisa berbeda arti.
+ *
+ * Reflow (audit-005 #11): tiga kartu baru sejajar SEJAK `lg`. Di bawah itu
+ * bilahnya menumpuk karena tiap kartu memuat dua sampai tiga baris teks, jadi
+ * menjejerkannya pada 640px membuat nama stage membungkus dan sulit dibaca.
  */
 export function KycStepperTigaTahap({
   aktif,
@@ -278,7 +282,7 @@ export function KycStepperTigaTahap({
   const stageAktif = stageUntukTahap(aktif);
   return (
     <nav aria-label="Tahapan verifikasi KYC" className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
-      <ol className="flex flex-col gap-2 sm:flex-row sm:items-stretch">
+      <ol className="flex flex-col gap-2 lg:flex-row lg:items-stretch">
         {STAGE_KYC.map((stage) => {
           const statusLangkah = stage.tahap.map((id) => statusPerTahap[id]);
           const ringkas: StatusTahapKyc = statusLangkah.includes("perlu-diperbaiki")
@@ -367,8 +371,7 @@ function PenandaOpsional() {
 }
 
 /**
- * Daftar tahap DALAM satu stage: rel vertikal di layar lebar, chip bergulir di
- * layar sempit.
+ * Daftar tahap DALAM satu stage: satu kolom penuh lebar di semua ukuran layar.
  *
  * Daftar ini sengaja disaring per stage (`saring`): navigasi utama sekarang ada
  * di bilah 3 stage di atas, jadi 7 langkah tidak lagi tampil memanjang sekaligus
@@ -396,40 +399,14 @@ export function KycDaftarTahap({
 }) {
   const daftar =
     saring === undefined ? TAHAPAN_KYC : TAHAPAN_KYC.filter((t) => saring.includes(t.id));
-  const deretRef = useRef<HTMLOListElement | null>(null);
-
-  /**
-   * Geser tahap yang sedang dibuka ke tengah deret.
-   *
-   * Kenapa: di ponsel deret ini dipakai sebagai slider mendatar, dan tahap aktif
-   * sering berada di luar tepi kanan (mis. setelah "Simpan & lanjut" dari tahap
-   * sebelumnya) sehingga yang terbaca justru potongan namanya. Menggeser sendiri
-   * membuat tahap yang sedang diisi selalu utuh tanpa pengguna harus menebak ada
-   * isi di sebelah kanan.
-   *
-   * Hanya `scrollLeft` wadahnya sendiri yang disentuh (bukan `scrollIntoView`)
-   * supaya halaman tidak ikut tergulir, dan tidak ada apa pun yang digeser bila
-   * deretnya memang muat penuh (layar lebar).
-   */
-  useEffect(() => {
-    const deret = deretRef.current;
-    if (deret === null) return;
-    if (deret.scrollWidth <= deret.clientWidth) return;
-    const tahapAktif = deret.querySelector<HTMLElement>('[aria-current="step"]');
-    if (tahapAktif === null) return;
-    const tengah = tahapAktif.offsetLeft - (deret.clientWidth - tahapAktif.offsetWidth) / 2;
-    deret.scrollTo({ left: Math.max(0, tengah), behavior: "smooth" });
-  }, [aktif]);
-
   return (
     <nav aria-label="Tahapan pengisian KYC" className="lg:sticky lg:top-20">
-      {/* `no-scrollbar scroll-smooth` + `flex-nowrap`: deret tahap dipakai
-          sebagai slider mendatar di ponsel (bilah gulirnya disembunyikan,
-          geseran tetap halus), lalu menumpuk vertikal sejak `lg`. */}
-      <ol
-        ref={deretRef}
-        className="no-scrollbar flex flex-nowrap gap-2 overflow-x-auto scroll-smooth pb-1 lg:flex-col lg:gap-1.5 lg:overflow-visible lg:pb-0"
-      >
+      {/* Satu kolom penuh lebar di SEMUA ukuran: pada ponsel inilah yang membuat
+          seluruh langkah stage terlihat tanpa geseran mendatar, dan pada `lg`
+          kolomnya sudah sempit (17rem) sehingga bentuk yang sama tetap pas.
+          Deret mendatar + `min-w-[13rem]` dihapus karena menaruh sebagian
+          langkah di luar layar dan memaksa pengguna menggeser (audit-005 #10). */}
+      <ol className="flex flex-col gap-2 lg:gap-1.5">
         {daftar.map((tahap) => {
           const urutan = TAHAPAN_KYC.indexOf(tahap);
           const status = statusPerTahap[tahap.id];
@@ -437,14 +414,14 @@ export function KycDaftarTahap({
           const Ikon = IKON_TAHAP[tahap.id];
           const bolehDibuka = !terkunci || tahap.id === "persetujuan";
           return (
-            <li key={tahap.id} className="shrink-0 lg:shrink">
+            <li key={tahap.id} className="min-w-0">
               <button
                 type="button"
                 onClick={() => onPilih(tahap.id)}
                 disabled={!bolehDibuka}
                 aria-current={iniAktif ? "step" : undefined}
                 className={cn(
-                  "flex w-full min-w-[13rem] items-center gap-2.5 rounded-xl border px-3 py-2.5 text-left transition-colors lg:min-w-0",
+                  "flex w-full items-center gap-2.5 rounded-xl border px-3 py-2.5 text-left transition-colors",
                   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2",
                   iniAktif
                     ? "border-primary/40 bg-primary/[0.07]"
@@ -456,7 +433,7 @@ export function KycDaftarTahap({
                   className={cn(
                     "flex size-7 shrink-0 items-center justify-center rounded-lg text-[11px] font-semibold",
                     status === "lengkap"
-                      ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300"
+                      ? "bg-emerald-100 text-emerald-700"
                       : iniAktif
                         ? "bg-primary text-primary-foreground"
                         : "bg-muted text-muted-foreground",
@@ -582,7 +559,7 @@ export function KycStatusStrip({ status, onBuka }: { status: StatusKyc; onBuka: 
       className={cn(
         "mt-4 flex w-full flex-wrap items-center gap-2 rounded-2xl border px-4 py-3 text-left transition-colors",
         perluTindakan
-          ? "border-amber-200 bg-amber-50/70 hover:bg-amber-50 dark:border-amber-900/50 dark:bg-amber-950/40 dark:hover:bg-amber-950/60"
+          ? "border-amber-200 bg-amber-50/70 hover:bg-amber-50"
           : "border-border bg-card hover:bg-muted",
       )}
     >
@@ -612,8 +589,8 @@ export function KycKeputusanAlert({
   if (!keputusanWajibAlasan(status) && status !== "REVERIFICATION_REQUIRED") return null;
   const nada =
     status === "REJECTED"
-      ? "border-red-200 bg-red-50 text-red-900 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-200"
-      : "border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-100";
+      ? "border-red-200 bg-red-50 text-red-900"
+      : "border-amber-200 bg-amber-50 text-amber-900";
   const judul =
     status === "REJECTED"
       ? "Pengajuan KYC ditolak"
@@ -1362,7 +1339,7 @@ export function KycSection() {
       />
 
       {data.status === "VERIFIED" && (
-        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs leading-5 text-emerald-900 dark:border-emerald-900/50 dark:bg-emerald-950/40 dark:text-emerald-200">
+        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs leading-5 text-emerald-900">
           <p className="flex items-center gap-1.5 font-semibold">
             <BadgeCheck className="size-3.5 shrink-0" aria-hidden /> Identitas terverifikasi
           </p>
@@ -1386,7 +1363,7 @@ export function KycSection() {
       )}
 
       {data.status === "PENDING_REVIEW" && (
-        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-100">
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-900">
           <p className="flex items-center gap-1.5 font-semibold">
             <Clock3 className="size-3.5 shrink-0" aria-hidden /> Menunggu peninjauan petugas
           </p>
@@ -1426,7 +1403,7 @@ export function KycSection() {
 
       {/* Notifikasi pemulihan progres / status sesi saat kembali dari latar. */}
       {restoredNote !== null && (
-        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs leading-5 text-emerald-900 dark:border-emerald-900/50 dark:bg-emerald-950/40 dark:text-emerald-200">
+        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs leading-5 text-emerald-900">
           <p className="flex items-center gap-2 font-semibold">
             <CheckCircle2 className="size-3.5 shrink-0" aria-hidden /> {restoredNote}
           </p>
@@ -1435,7 +1412,7 @@ export function KycSection() {
       {/* Draft lokal yang dipulihkan. Kalimatnya menyebut KOLOM apa saja yang
           dikembalikan supaya pengguna tahu asal datanya, bukan dikejutkan. */}
       {kolomDipulihkan.length > 0 && ringkasPemulihan(kolomDipulihkan) !== null && (
-        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs leading-5 text-emerald-900 dark:border-emerald-900/50 dark:bg-emerald-950/40 dark:text-emerald-200">
+        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs leading-5 text-emerald-900">
           <p className="flex items-center gap-2 font-semibold">
             <CheckCircle2 className="size-3.5 shrink-0" aria-hidden /> Isian Anda dipulihkan
           </p>
@@ -1452,7 +1429,7 @@ export function KycSection() {
       />
 
       {otpResumeStatus !== null && otpResumeStatus !== "Sesi OTP ditemukan; harap verifikasi ulang kode." && (
-        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-100">
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-900">
           <p className="flex items-center gap-2 font-semibold">
             <Clock3 className="size-3.5 shrink-0" aria-hidden /> {otpResumeStatus}
           </p>
@@ -1486,9 +1463,9 @@ export function KycSection() {
               className={cn(
                 "rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
                 statusPerTahap[tahap.id] === "lengkap"
-                  ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300"
+                  ? "bg-emerald-100 text-emerald-700"
                   : statusPerTahap[tahap.id] === "perlu-diperbaiki"
-                    ? "bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-200"
+                    ? "bg-amber-100 text-amber-800"
                     : "bg-muted text-muted-foreground",
               )}
             >
@@ -1527,7 +1504,7 @@ export function KycSection() {
                 </ul>
 
                 {data.persetujuanAktif ? (
-                  <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-[11px] leading-5 text-emerald-900 dark:border-emerald-900/50 dark:bg-emerald-950/40 dark:text-emerald-200">
+                  <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-[11px] leading-5 text-emerald-900">
                     <p className="flex items-center gap-1.5 font-semibold">
                       <CheckCircle2 className="size-3.5 shrink-0" aria-hidden /> Persetujuan tercatat
                       di server
@@ -1697,7 +1674,7 @@ export function KycSection() {
                   />
                 )}
                 {berkas[slotDokumen] === null && data.url[slotDokumen] !== null && (
-                  <p className="text-[11px] leading-4 text-amber-700 dark:text-amber-300">
+                  <p className="text-[11px] leading-4 text-amber-700">
                     Berkas lama akan diganti setelah Anda menyimpan.
                   </p>
                 )}
@@ -1708,7 +1685,7 @@ export function KycSection() {
                   />
                 )}
                 {statusPerTahap[tahap.id] === "perlu-diperbaiki" && (
-                  <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] leading-4 text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-100">
+                  <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] leading-4 text-amber-900">
                     Petugas meminta berkas ini diganti. Unggah foto baru sesuai petunjuk di atas, lalu
                     simpan.
                   </p>
@@ -1775,7 +1752,7 @@ export function KycSection() {
                   )}
                   {normalisasiNomorWa(isian.nomorWhatsApp) !==
                   normalisasiNomorWa(data.isian.nomorWhatsApp) ? (
-                    <p className="mt-2 text-[11px] leading-5 text-amber-700 dark:text-amber-300">
+                    <p className="mt-2 text-[11px] leading-5 text-amber-700">
                       Simpan dulu nomor di atas, lalu kirim kode verifikasi — kode hanya berlaku untuk
                       nomor yang tersimpan.
                     </p>
@@ -1820,7 +1797,7 @@ export function KycSection() {
                 </div>
 
                 {otpResumeStatus !== null && (
-                  <p className="text-[11px] leading-4 text-amber-700 dark:text-amber-300" role="status">
+                  <p className="text-[11px] leading-4 text-amber-700" role="status">
                     {otpResumeStatus}
                   </p>
                 )}
