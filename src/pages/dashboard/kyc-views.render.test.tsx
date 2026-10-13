@@ -18,6 +18,9 @@
  *  - baris aksi tahap hanya punya SATU aksi utama, menyebut sisa isian selama
  *    pengajuan belum boleh dikirim, dan membaca keadaan simpan di sebelahnya;
  *  - petunjuk foto tertutup sejak awal supaya kolom unggah tampil lebih dulu;
+ *  - kartu pemeriksaan otomatis menyembunyikan daftar per aturan di balik lipatan
+ *    yang tertutup sejak awal, sementara putusan mesin dan cacah hasil yang perlu
+ *    diperhatikan tetap terbaca tanpa membukanya;
  *  - menu tahap KYC di sidebar hanya ada selama verifikasinya belum selesai,
  *    statusnya diambil dari data tersimpan, dan letaknya tepat di bawah menu
  *    peran (dijaga dengan membaca urutan berkasnya).
@@ -27,6 +30,7 @@ import { fileURLToPath } from "node:url";
 
 import { renderToStaticMarkup } from "react-dom/server";import {
   KycBarisAksi,
+  KycDaftarAturanOtomatis,
   KycDaftarTahap,
   KycKeputusanAlert,
   KycMenuSidebar,
@@ -284,15 +288,79 @@ const keputusanMesin = {
     },
   ],
 };
+/** Tiga status sekaligus, dipakai bersama oleh uji kepala lipatan dan isinya. */
+const aturanTigaStatus = [
+  ...keputusanMesin.aturan,
+  {
+    id: "foto_ktp_terbaca",
+    judul: "Foto KTP terbaca",
+    status: "lulus",
+    sumber: "server",
+    pesan: "Foto KTP terbaca.",
+    detail: [],
+  },
+  {
+    id: "ocr_tersedia_threshold",
+    judul: "Hasil OCR tersedia",
+    status: "tidak_pasti",
+    sumber: "server",
+    pesan: "Hasil OCR belum tersimpan.",
+    detail: ["Keyakinan OCR di bawah ambang yang dipakai"],
+  },
+];
 {
   const html = renderToStaticMarkup(<KycPemeriksaanOtomatis keputusan={keputusanMesin} />);
   ada(html, "Pemeriksaan otomatis terakhir", "kartu pemeriksaan otomatis tampil");
   ada(html, "belum mengubah status", "hasil yang tidak diterapkan ditandai jelas");
-  ada(html, "Gagal", "pemeriksaan yang gagal ditandai");
-  ada(html, "belum diverifikasi lewat kode OTP", "alasan dari mesin ditampilkan apa adanya");
   ada(html, VERSI_ATURAN_AUTO_KYC, "versi aturan mesin tampil agar bisa ditelusuri");
   ada(html, "Dukcapil", "batas yang tidak diklaim tetap disebut");
+  // Daftar sampai sembilan aturan bisa setinggi layar ponsel sendiri, jadi ia
+  // hidup di dalam lipatan yang tertutup sejak awal. Yang tetap terbaca tanpa
+  // membukanya: jumlah pemeriksaan dan cacah hasil yang perlu diperhatikan.
+  ada(html, "Rincian 1 pemeriksaan", "jumlah pemeriksaan tampil di kepala lipatan");
+  ada(html, "1 gagal", "cacah gagal terbaca sebelum lipatan dibuka");
+  ada(html, 'hidden=""', "daftar per aturan tertutup sejak awal");
+  // Kepala lipatan harus tetap 44px dan tidak mewarisi tinggi bawaan akordeon
+  // (`py-4`), sebab kalau `cn`/tailwind-merge gagal menimpa, kartunya kembali
+  // setinggi versi yang justru dipadatkan ini.
+  ada(html, "min-h-11", "kepala lipatan setinggi target sentuh 44px");
+  ok(!html.includes("py-4"), "tinggi bawaan akordeon sudah ditimpa kepala lipatan");
+  ok(
+    !html.includes("belum diverifikasi lewat kode OTP"),
+    "rincian tidak ikut dirender selama lipatan tertutup",
+  );
   bersih(html, "kartu pemeriksaan otomatis tidak diterapkan");
+}
+{
+  // Cacah hanya menyebut yang perlu ditindaklanjuti: aturan yang lulus tidak
+  // menambah angka di kepala lipatan.
+  const html = renderToStaticMarkup(
+    <KycPemeriksaanOtomatis keputusan={{ ...keputusanMesin, aturan: aturanTigaStatus }} />,
+  );
+  ada(html, "Rincian 3 pemeriksaan", "jumlah pemeriksaan mengikuti data");
+  ada(html, "1 gagal", "cacah gagal tepat");
+  ada(html, "1 belum pasti", "cacah belum pasti tepat");
+  ok(!html.includes("lulus"), "aturan yang lulus tidak menambah angka di kepala lipatan");
+  bersih(html, "kepala lipatan dengan tiga status");
+}
+{
+  // Isi lipatan diuji langsung pada daftarnya, sebab lipatan yang tertutup tidak
+  // merender isinya sama sekali.
+  const html = renderToStaticMarkup(<KycDaftarAturanOtomatis aturan={aturanTigaStatus} />);
+  ada(html, "Gagal", "pemeriksaan yang gagal ditandai");
+  ada(html, "Belum pasti", "pemeriksaan yang belum pasti ditandai");
+  ada(html, "Lulus", "pemeriksaan yang lulus ditandai");
+  ada(html, "belum diverifikasi lewat kode OTP", "alasan dari mesin ditampilkan apa adanya");
+  ada(
+    html,
+    "Verifikasi OTP nomor WhatsApp belum selesai.",
+    "rincian pengukuran ikut tampil dan ditutup titik",
+  );
+  ok(
+    (html.match(/<li /g) ?? []).length === aturanTigaStatus.length,
+    "setiap aturan dapat satu baris, tanpa baris tambahan",
+  );
+  bersih(html, "daftar aturan mesin");
 }
 {
   // Hasil yang DITERAPKAN (mesin menaikkan ke VERIFIED) tidak perlu kalimat itu.

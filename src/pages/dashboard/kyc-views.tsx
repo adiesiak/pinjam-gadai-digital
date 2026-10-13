@@ -2394,21 +2394,38 @@ export function KycSection({
  * DITERAPKAN tidak mengubah status apa pun. Mesin hanya menerapkan `VERIFIED`;
  * hasil lain dicatat sebagai bahan peninjauan, jadi tanpa kalimat itu nasabah
  * bisa menyangka statusnya sudah diputuskan mesin padahal masih menunggu petugas.
+ *
+ * Bentuk ringkas secara bawaan: daftar sampai sembilan aturan dengan pesan dan
+ * rinciannya bisa setinggi layar ponsel sendiri, dan kartu ini muncul persis di
+ * bawah tahap yang sedang dikerjakan. Yang selalu terlihat: putusan mesin, cacah
+ * hasil yang perlu diperhatikan, dan peringatan status di atas. Daftar lengkapnya
+ * dibuka atas permintaan; tidak ada keterangan yang dihapus, hanya pindah lipatan,
+ * dan urutan aturannya tetap sama dengan yang dipakai meja kerja petugas.
  */
 export function KycPemeriksaanOtomatis({
   keputusan,
 }: {
   keputusan: NonNullable<DataKyc["keputusanOtomatis"]>;
 }) {
+  // Hanya cacah yang PERLU DIPERHATIKAN diberi angka; "lulus" cukup diwakili
+  // selisihnya terhadap jumlah aturan, jadi barisnya tidak menumpuk empat angka
+  // yang tiga di antaranya tidak perlu ditindaklanjuti.
+  const cacahGagal = keputusan.aturan.filter((r) => r.status === "gagal").length;
+  const cacahBelumPasti = keputusan.aturan.filter((r) => r.status === "tidak_pasti").length;
+  const cacat = [
+    cacahGagal > 0 ? `${cacahGagal} gagal` : null,
+    cacahBelumPasti > 0 ? `${cacahBelumPasti} belum pasti` : null,
+  ].filter((teks): teks is string => teks !== null);
+
   return (
     <div className="rounded-2xl border border-border bg-card p-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
+      <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
         <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
           <ShieldAlert className="size-3.5" aria-hidden /> Pemeriksaan otomatis terakhir
         </p>
         <span className="text-[11px] text-muted-foreground">{waktu(keputusan.waktu)}</span>
       </div>
-      <p className="mt-1.5 text-[12px] leading-5 text-muted-foreground">{keputusan.ringkasan}</p>
+      <p className="mt-1.5 text-[12px] leading-5 text-foreground">{keputusan.ringkasan}</p>
       {/* Hasil yang TIDAK diterapkan tidak mengubah status apa pun. Tanpa
           kalimat ini, nasabah bisa menyangka statusnya sudah diputuskan mesin. */}
       {!keputusan.diterapkan && (
@@ -2417,35 +2434,68 @@ export function KycPemeriksaanOtomatis({
           petugas. Perbaiki hal di bawah lalu kirim ulang untuk diperiksa lagi.
         </p>
       )}
-      <ul className="mt-2 space-y-1">
-        {keputusan.aturan.map((r) => (
-          <li key={r.id} className="flex flex-col gap-2.5 text-[11px] sm:flex-row sm:items-start">
-            <span
-              className={`mt-0.5 inline-flex shrink-0 items-center rounded-full border px-1.5 py-0.5 font-medium ${
-                r.status === "lulus"
-                  ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-                  : r.status === "gagal"
-                    ? "border-red-200 bg-red-50 text-red-700"
-                    : "border-amber-200 bg-amber-50 text-amber-800"
-              }`}
-            >
-              {r.status === "lulus" ? "Lulus" : r.status === "gagal" ? "Gagal" : "Belum pasti"}
-            </span>
-            <span className="min-w-0">
-              <span className="font-medium">{r.judul}</span>
-              {" · "}
-              {r.pesan}
-              {r.detail.length > 0 && (
-                <span className="block text-muted-foreground">{r.detail.join("; ")}.</span>
+      <Accordion type="single" collapsible className="mt-1.5">
+        <AccordionItem value="rincian" className="border-b-0">
+          <AccordionTrigger className="min-h-11 gap-2 px-1 py-2 text-[11px] font-medium text-muted-foreground hover:no-underline">
+            <span className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5 text-left">
+              Rincian {keputusan.aturan.length} pemeriksaan
+              {cacat.length > 0 && (
+                <span className="font-semibold text-foreground">{cacat.join(" · ")}</span>
               )}
             </span>
-          </li>
-        ))}
-      </ul>
+          </AccordionTrigger>
+          <AccordionContent className="pb-0">
+            <KycDaftarAturanOtomatis aturan={keputusan.aturan} />
+          </AccordionContent>
+        </AccordionItem>
+      </Accordion>
       <p className="mt-2 border-t border-border pt-2 text-[10px] leading-4 text-muted-foreground">
         Versi aturan {keputusan.versiAturan} · sumber {keputusan.sumber} · pelaku {keputusan.aktor}.
         Keputusan otomatis tidak membuktikan keaslian KTP dan tidak diverifikasi ke Dukcapil.
       </p>
     </div>
+  );
+}
+
+/**
+ * Daftar hasil per aturan: lencana status, judul, pesan mesin apa adanya, lalu
+ * rincian pengukurannya.
+ *
+ * Dipisah dari kartunya karena lipatan hanya merender isinya saat dibuka, jadi
+ * tanpa pemisahan ini tidak ada cara menguji isi tersembunyi itu. Urutannya
+ * sengaja persis urutan aturan mesin, sama dengan yang dibaca petugas di meja
+ * kerja, supaya kedua sisi bisa dibandingkan baris per baris.
+ */
+export function KycDaftarAturanOtomatis({
+  aturan,
+}: {
+  aturan: NonNullable<DataKyc["keputusanOtomatis"]>["aturan"];
+}) {
+  return (
+    <ul className="space-y-1.5">
+      {aturan.map((r) => (
+        <li key={r.id} className="flex flex-col gap-2.5 text-[11px] sm:flex-row sm:items-start">
+          <span
+            className={`mt-0.5 inline-flex shrink-0 items-center rounded-full border px-1.5 py-0.5 font-medium ${
+              r.status === "lulus"
+                ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                : r.status === "gagal"
+                  ? "border-red-200 bg-red-50 text-red-700"
+                  : "border-amber-200 bg-amber-50 text-amber-800"
+            }`}
+          >
+            {r.status === "lulus" ? "Lulus" : r.status === "gagal" ? "Gagal" : "Belum pasti"}
+          </span>
+          <span className="min-w-0">
+            <span className="font-medium">{r.judul}</span>
+            {" · "}
+            {r.pesan}
+            {r.detail.length > 0 && (
+              <span className="block text-muted-foreground">{r.detail.join("; ")}.</span>
+            )}
+          </span>
+        </li>
+      ))}
+    </ul>
   );
 }
