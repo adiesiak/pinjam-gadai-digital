@@ -75,7 +75,7 @@ function unduhPoster(p: PromoPoster): void {
     document.body.appendChild(tautan);
     tautan.click();
     tautan.remove();
-    toast.success(`PNG diunduh — ${p.file} (1080 × 1350).`);
+    toast.success(`PNG diunduh: ${p.file} (1080 × 1350).`);
   } catch {
     toast.error("Gagal membuat PNG. Coba lagi.");
   }

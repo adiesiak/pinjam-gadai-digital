@@ -82,13 +82,13 @@ export type PromoPoster = {
 };
 
 export const TAGLINE = "PINJAM • GADAI DIGITAL";
-export const SHARE_TEKS = "Kenali PINDAI — Pinjam & Gadai Digital.";
+export const SHARE_TEKS = "Kenali PINDAI: Pinjam & Gadai Digital.";
 
 /** Daftar 9 poster kampanye — urutan tampil mengikuti `order`. */
 export const promoPosters: PromoPoster[] = [
   {
     id: "pinjaman",
-    title: "Pinjaman — Dana Cepat",
+    title: "Pinjaman: Dana Cepat",
     category: "Pinjaman",
     badge: "BUTUH DANA?",
     headline: "Dana Cepat,\nTanpa Ribet.",
@@ -103,11 +103,11 @@ export const promoPosters: PromoPoster[] = [
     file: "pindai-pinjaman.png",
     aksen: "emas",
     bentuk: "teks",
-    disclaimer: "Informasi umum — bukan penawaran. Syarat & ketentuan berlaku.",
+    disclaimer: "Informasi umum, bukan penawaran. Syarat & ketentuan berlaku.",
   },
   {
     id: "gadai",
-    title: "Gadai — Ubah Barang",
+    title: "Gadai: Ubah Barang",
     category: "Gadai",
     badge: "PUNYA BARANG BERHARGA?",
     headline: "Ubah Barang\nJadi Dana.",
@@ -121,11 +121,11 @@ export const promoPosters: PromoPoster[] = [
     file: "pindai-gadai.png",
     aksen: "jingga",
     bentuk: "teks",
-    disclaimer: "Informasi umum — bukan penawaran. Syarat & ketentuan berlaku.",
+    disclaimer: "Informasi umum, bukan penawaran. Syarat & ketentuan berlaku.",
   },
   {
     id: "kredit",
-    title: "Kredit — Bawa Pulang",
+    title: "Kredit: Bawa Pulang",
     category: "Kredit",
     badge: "MAU BARANG YANG DIBUTUHKAN?",
     headline: "Bawa Pulang,\nCicil Tenang.",
@@ -145,11 +145,11 @@ export const promoPosters: PromoPoster[] = [
     file: "pindai-kredit.png",
     aksen: "toska",
     bentuk: "teks",
-    disclaimer: "Informasi umum — bukan penawaran. Syarat & ketentuan berlaku.",
+    disclaimer: "Informasi umum, bukan penawaran. Syarat & ketentuan berlaku.",
   },
   {
     id: "cara-kerja",
-    title: "Cara Kerja — Semua Digital",
+    title: "Cara Kerja: Semua Digital",
     category: "Informasi",
     badge: "SEMUANYA DIGITAL",
     headline: "Ajukan.\nPeriksa.\nSelesaikan.",
@@ -169,11 +169,11 @@ export const promoPosters: PromoPoster[] = [
       { teks: "Ajukan" },
       { teks: "Pantau Status" },
     ],
-    disclaimer: "Alur ilustratif — ketentuan teknis berlaku di aplikasi.",
+    disclaimer: "Alur ilustratif; ketentuan teknis berlaku di aplikasi.",
   },
   {
     id: "biaya",
-    title: "Biaya — Transparan",
+    title: "Biaya: Transparan",
     category: "Informasi",
     badge: "TRANSPARANSI DI DEPAN",
     headline: "Tahu Biayanya,\nSebelum Memutuskan.",
@@ -200,7 +200,7 @@ export const promoPosters: PromoPoster[] = [
   },
   {
     id: "keamanan",
-    title: "Keamanan — Data Terjaga",
+    title: "Keamanan: Data Terjaga",
     category: "Keamanan",
     badge: "KEAMANAN DIGITAL",
     headline: "Data Anda,\nKami Jaga.",
@@ -224,7 +224,7 @@ export const promoPosters: PromoPoster[] = [
   },
   {
     id: "faq",
-    title: "FAQ — Pertanyaan & Jawaban",
+    title: "FAQ: Pertanyaan & Jawaban",
     category: "Informasi",
     badge: "MASIH BINGUNG?",
     headline: "Pertanyaan Anda,\nJawabannya Ada.",
@@ -244,11 +244,11 @@ export const promoPosters: PromoPoster[] = [
       { teks: "Bagaimana proses pengajuan?" },
       { teks: "Bagaimana cara melihat status?" },
     ],
-    disclaimer: "Jawaban ringkas — ketentuan lengkap tersedia di aplikasi.",
+    disclaimer: "Jawaban ringkas; ketentuan lengkap tersedia di aplikasi.",
   },
   {
     id: "trust",
-    title: "Brand — Kenali PINDAI",
+    title: "Brand: Kenali PINDAI",
     category: "Brand",
     badge: "KENALI PINDAI",
     headline: "Transparan.\nDigital.\nTerukur.",
@@ -270,11 +270,11 @@ export const promoPosters: PromoPoster[] = [
       { teks: "INFORMASI JELAS" },
     ],
     tautan: ["Privasi", "Ketentuan", "Keamanan", "Kontak"],
-    disclaimer: "Materi brand — bukan klaim sertifikasi atau legalitas.",
+    disclaimer: "Materi brand, bukan klaim sertifikasi atau legalitas.",
   },
   {
     id: "cta",
-    title: "CTA — PINDAI Dulu",
+    title: "CTA: PINDAI Dulu",
     category: "Brand",
     badge: "PINDAI",
     headline: "Saat Butuh,\nPINDAI Dulu.",
@@ -290,7 +290,7 @@ export const promoPosters: PromoPoster[] = [
     aksen: "emas",
     bentuk: "hero",
     layanan: ["PINJAMAN", "GADAI", "KREDIT"],
-    disclaimer: "Informasi umum — bukan penawaran. Syarat & ketentuan berlaku.",
+    disclaimer: "Informasi umum, bukan penawaran. Syarat & ketentuan berlaku.",
   },
 ];
 

@@ -224,7 +224,7 @@ function aturanAktif(css: string): string {
   ada(
     medan,
     'name="email"',
-    "nama field tetap `email` — FormData submit tidak berubah",
+    "nama field tetap `email` sehingga FormData submit tidak berubah",
   );
   ada(medan, 'type="email"', "tipe email dipakai untuk papan ketik ponsel");
   ada(medan, 'for="masuk-email"', "label menunjuk medannya");
@@ -498,7 +498,7 @@ function aturanAktif(css: string): string {
   ada(kosong, "8+ Karakter", "syarat panjang tampil");
   ada(kosong, "Huruf Besar &amp; Angka/Simbol", "syarat campuran tampil");
   ok(
-    jumlah(kosong, "— belum terpenuhi") === 2,
+    jumlah(kosong, "(belum terpenuhi)") === 2,
     "dua syarat ditandai belum terpenuhi",
   );
   bersih(kosong, "meter kosong");
@@ -507,20 +507,20 @@ function aturanAktif(css: string): string {
   ada(lemah, "Kekuatan: Lemah", "8 huruf kecil tetap Lemah");
   ada(lemah, "bg-red-500", "bar merah saat lemah");
   ada(lemah, 'aria-valuenow="1"', "skor 1 diumumkan");
-  ok(jumlah(lemah, "— terpenuhi") === 1, "hanya syarat panjang yang terpenuhi");
+  ok(jumlah(lemah, "(terpenuhi)") === 1, "hanya syarat panjang yang terpenuhi");
 
   const sedang = render(<MeterKekuatanSandi sandi="KataSandiPanjang" />);
   ada(sedang, "Kekuatan: Sedang", "huruf besar + panjang = Sedang");
   ada(sedang, "bg-amber-400", "bar kuning saat sedang");
   ada(sedang, 'aria-valuenow="2"', "skor 2 diumumkan");
-  ok(jumlah(sedang, "— terpenuhi") === 1, "angka/simbol belum terpenuhi");
+  ok(jumlah(sedang, "(terpenuhi)") === 1, "angka/simbol belum terpenuhi");
 
   const kuat = render(<MeterKekuatanSandi sandi="Rahasia#2026" />);
   ada(kuat, "Kekuatan: Sangat Kuat", "kombinasi lengkap = Sangat Kuat");
   ada(kuat, "bg-emerald-600", "bar emerald saat sangat kuat");
   ada(kuat, "width:100%", "bar penuh saat sangat kuat");
   ada(kuat, 'aria-valuenow="3"', "skor 3 diumumkan");
-  ok(jumlah(kuat, "— terpenuhi") === 2, "kedua syarat ditandai terpenuhi");
+  ok(jumlah(kuat, "(terpenuhi)") === 2, "kedua syarat ditandai terpenuhi");
 }
 
 // ===== 9. Token 32 karakter: tempel sekali klik & hitung mundur =====

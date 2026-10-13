@@ -60,7 +60,7 @@ export const ASET_PROFIL: readonly AsetProfil[] = [
     id: "foto-profil",
     label: "Foto Profil WhatsApp",
     keterangan:
-      "Brankas PINDAI berdiri di atas landasan kuningan, disinari segel di sekelilingnya. Lambang dan judul sengaja diperbesar agar tetap terbaca saat WhatsApp menampilkan foto profil seukuran thumbnail. Seluruh isi berada di dalam lingkaran aman, jadi tetap utuh saat dipotong bulat.",
+      "Brankas PINDAI berdiri di atas landasan kuningan. Lambang dan judul diperbesar agar tetap terbaca di foto profil WhatsApp seukuran thumbnail. Isinya berada di dalam lingkaran aman, jadi tetap utuh saat dipotong bulat.",
     canvas: [1080, 1080],
     ratioLabel: "1:1 · dipotong bulat",
     berkas: "pindai-foto-profil-whatsapp.png",
@@ -69,7 +69,7 @@ export const ASET_PROFIL: readonly AsetProfil[] = [
     id: "background-profil",
     label: "Background Profil WhatsApp",
     keterangan:
-      "Sampul 16:9 untuk profil WhatsApp Business. Blok brand di tengah-atas, lalu band buku besar bertepi kuningan di bawah garis batas — bagian yang boleh tertutup foto profil, diisi ornamen bukan ruang kosong.",
+      "Sampul 16:9 untuk profil WhatsApp Business. Blok brand di tengah-atas dan band buku besar bertepi kuningan di bawah garis batas. Bagian yang boleh tertutup foto profil diisi ornamen, bukan ruang kosong.",
     canvas: [1600, 900],
     ratioLabel: "16:9",
     berkas: "pindai-background-profil-whatsapp.png",

@@ -157,7 +157,7 @@ const DIJALANKAN = [
   { judul: "Mencatat pengajuan", isi: "Parameter pinjaman, gadai, atau kredit tersimpan di akun Anda." },
   {
     judul: "Menghitung biaya",
-    isi: "Bunga, potongan di muka, dan cicilan berasal dari rumus sistem — bukan angka yang diketik manual.",
+    isi: "Bunga, potongan di muka, dan cicilan dihitung sistem, bukan diketik manual.",
   },
   {
     judul: "Meninjau status",
@@ -279,8 +279,8 @@ const ISI_BRANKAS: ReadonlyArray<{
     label: "Pinjaman harian",
     rak: "Laci 01",
     Icon: Banknote,
-    judul: "Skema harian — 7 sampai 30 hari",
-    isi: "Kewajiban dihitung sekali di akhir tenor: bunga flat 30% dari pokok dengan potongan 2% dipotong di muka.",
+    judul: "Skema harian (7 sampai 30 hari)",
+    isi: "Kewajiban dihitung sekali di akhir tenor: bunga flat 30% dari pokok, potongan 2% di muka.",
     baris: [
       ["Nomor referensi", "PDI-••••-••"],
       ["Pokok perhitungan", "Rp 100 rb – Rp 1 jt"],
@@ -295,8 +295,8 @@ const ISI_BRANKAS: ReadonlyArray<{
     label: "Pinjaman bulanan",
     rak: "Laci 02",
     Icon: Landmark,
-    judul: "Skema bulanan — tenor 1 / 3 / 6 bulan",
-    isi: "Cicilan rata dari pokok penuh: angsuran berisi pokok dan bunga saja karena biaya tenor dipotong di muka.",
+    judul: "Skema bulanan (tenor 1 / 3 / 6 bulan)",
+    isi: "Cicilan rata dari pokok penuh: angsuran berisi pokok dan bunga; biaya tenor dipotong di muka.",
     baris: [
       ["Nomor referensi", "PDI-••••-••"],
       ["Nominal", "Rp 500 rb – Rp 10 jt"],
@@ -311,8 +311,8 @@ const ISI_BRANKAS: ReadonlyArray<{
     label: "Kredit barang",
     rak: "Laci 03",
     Icon: Package,
-    judul: "Kredit barang — elektronik & mitra",
-    isi: "Barang menjadi objek pembiayaan: nominal, tenor, dan cicilan dihitung dari harga barang yang diajukan.",
+    judul: "Kredit barang (elektronik & mitra)",
+    isi: "Nominal, tenor, dan cicilan dihitung dari harga barang yang diajukan.",
     baris: [
       ["Nomor referensi", "PDI-••••-••"],
       ["Nilai pembiayaan", "Hingga Rp 10 jt"],
@@ -355,7 +355,7 @@ function IsiBrankas() {
             eyebrow="Isi brankas"
             gelap
             title="Catatan yang bisa Anda periksa"
-            description="Setiap pengajuan menyimpan parameter yang dipakai menghitung angkanya — nominal, tenor, biaya, dan status. Pilih satu laci untuk melihat contoh catatannya."
+            description="Setiap pengajuan menyimpan nominal, tenor, biaya, dan statusnya. Pilih satu laci untuk melihat contoh catatannya."
           />
         </Reveal>
 
@@ -598,27 +598,27 @@ function SchemeCard({
 const FAQ_ITEMS = [
   {
     q: "Apakah PINDAI mengirim uang ke rekening saya?",
-    a: "Tidak. PINDAI mencatat pengajuan, perhitungan, dan status pada ledger internal. Perpindahan dana ditangani di luar aplikasi, dan belum ada penyedia pembayaran yang terhubung.",
+    a: "Tidak. PINDAI hanya mencatat pengajuan, perhitungan, dan status di ledger internal. Perpindahan dana ditangani di luar aplikasi; belum ada penyedia pembayaran yang terhubung.",
   },
   {
     q: "Dari mana angka cicilan di kalkulator berasal?",
-    a: "Seluruh angka dihitung aplikasi dari nominal dan tenor yang Anda pilih — bukan nilai yang diketik manual. Skema harian memakai 2% dipotong di muka dan bunga 30%; skema bulanan memakai bunga flat dari pokok penuh 30% (tenor 1 bulan), 25% (tenor 3 bulan), dan 20% (tenor 6 bulan).",
+    a: "Semua angka dihitung aplikasi dari nominal dan tenor yang Anda pilih, bukan angka yang diketik manual. Harian: potongan di muka 2% dan bunga flat 30%. Bulanan: bunga flat 30% (1 bulan), 25% (3 bulan), 20% (6 bulan).",
   },
   {
     q: "Kapan biaya dipotong?",
-    a: "Biaya tenor dipotong di muka dari dana yang diterima, bukan diangsur. Tenor 3 dan 6 bulan juga dikenai biaya admin cicilan 2% dari nominal cicilan yang dibayar bersama setiap cicilan.",
+    a: "Biaya dipotong di muka dari dana yang diterima, bukan diangsur. Tenor 3 dan 6 bulan juga dikenai biaya admin cicilan 2% dari nominal cicilan.",
   },
   {
     q: "Apa yang dicatat untuk gadai?",
-    a: "Deskripsi barang, nilai taksiran, pokok gadai, sewa modal, dan kode rak vault dicatat sebagai data internal. PINDAI belum menjalankan pemeriksaan fisik, penyimpanan, atau pelelangan barang.",
+    a: "Deskripsi barang, nilai taksiran, pokok gadai, sewa modal, dan kode rak vault dicatat internal. PINDAI belum menjalankan pemeriksaan fisik, penyimpanan, atau pelelangan barang.",
   },
   {
     q: "Bagaimana status pengajuan ditentukan?",
-    a: "Tim PINDAI meninjau pengajuan dan mengubah statusnya di panel admin — tercatat pada audit log. Persetujuan pengajuan bukan jaminan pencairan dana, dan status di dashboard adalah catatan internal.",
+    a: "Tim PINDAI meninjau pengajuan dan mengubah statusnya di panel admin; perubahannya tercatat di audit log. Persetujuan bukan jaminan pencairan dana, dan status di dashboard adalah catatan internal.",
   },
   {
     q: "Apakah data saya dibagikan ke pihak lain?",
-    a: "Tidak ke publik. Riwayat pengajuan Anda hanya dapat dibuka oleh akun Anda sendiri, tim PINDAI, dan pendana yang diberi akses terbatas oleh admin. Di ruang pendana, nama orang disamarkan dan dokumen identitas (KTP, selfie, bukti penghasilan, tanda tangan) tidak pernah dibagikan; lokasi hanya ditampilkan pada tingkat wilayah (perkiraan), bukan titik presisi.",
+    a: "Tidak ke publik. Riwayat pengajuan hanya bisa dibuka akun Anda, tim PINDAI, dan pendana yang diberi akses terbatas oleh admin. Di ruang pendana, nama disamarkan dan dokumen identitas (KTP, selfie, bukti penghasilan, tanda tangan) tidak dibagikan; lokasi hanya tampil per wilayah, bukan titik presisi.",
   },
 ] as const;
 
@@ -626,22 +626,22 @@ const FAQ_ITEMS = [
 const RINGKASAN_SYARAT: Array<{ judul: string; isi: string; Icon: typeof Scale }> = [
   {
     judul: "Pencatatan internal, bukan transfer dana",
-    isi: "PINDAI mencatat pengajuan, perhitungan, dan status pada ledger internal. Perpindahan dana ditangani di luar aplikasi.",
+    isi: "PINDAI mencatat pengajuan, perhitungan, dan status di ledger internal. Perpindahan dana di luar aplikasi.",
     Icon: Landmark,
   },
   {
     judul: "Biaya transparan",
-    isi: "Bunga flat 30% dari pokok dan biaya dipotong di muka sesuai tenor. Semua angka dihitung aplikasi, bukan diketik manual.",
+    isi: "Bunga flat 30% dari pokok; biaya dipotong di muka sesuai tenor. Angka dihitung aplikasi.",
     Icon: Percent,
   },
   {
     judul: "Akun & keamanan",
-    isi: "Jaga kerahasiaan akun Anda; verifikasi TOTP dan audit trail melindungi setiap tindakan di sistem.",
+    isi: "Jaga kerahasiaan akun Anda. TOTP dan audit trail mencatat setiap tindakan admin.",
     Icon: Lock,
   },
   {
     judul: "Data pribadi",
-    isi: "Riwayat pengajuan hanya dapat dibuka oleh akun terkait dan tim PINDAI, tidak dibagikan ke pihak eksternal.",
+    isi: "Riwayat pengajuan hanya dapat dibuka akun terkait dan tim PINDAI.",
     Icon: ShieldCheck,
   },
   {
@@ -854,7 +854,7 @@ function LiveCalculator() {
                 ],
                 [
                   sim.tenorBulan === 3 || sim.tenorBulan === 6
-                    ? `Biaya admin 2% (${formatRupiah(sim.biayaAdminTotal)}) dipotong di muka — biaya platform dihapus`
+                    ? `Biaya admin 2% (${formatRupiah(sim.biayaAdminTotal)}) dipotong di muka (platform 0%)`
                     : "Biaya layanan 2% (dipotong di muka)",
                   formatRupiah(sim.biayaLayananTotal),
                   false,
@@ -1075,7 +1075,7 @@ const PITA_LENCANA: Record<string, string> = {
 const PROMO_POIN: Array<{ judul: string; isi: string; Icon: typeof Download }> = [
   {
     judul: "PNG 1080 × 1350",
-    isi: "Rasio 4:5 — siap diunggah ke Instagram, WhatsApp, dan Facebook.",
+    isi: "Rasio 4:5, siap diunggah ke Instagram, WhatsApp, dan Facebook.",
     Icon: Download,
   },
   {
@@ -1126,7 +1126,7 @@ export function PromoSection({ sudahMasuk }: { sudahMasuk: boolean }) {
               folio="08"
               eyebrow="Materi kampanye"
               title="Poster promo siap dibagikan"
-              description={`${semuaPoster.length} poster berukuran 1080 × 1350 px untuk Instagram, WhatsApp, dan Facebook — identitas visual yang sama, tanpa klaim persetujuan.`}
+              description={`${semuaPoster.length} poster berukuran 1080 × 1350 px untuk Instagram, WhatsApp, dan Facebook.`}
             />
           </Reveal>
 
@@ -1431,7 +1431,7 @@ export default function Landing() {
     },
     {
       icon: ShieldCheck,
-      title: "Ikuti proses verifikasi",        body: "Pengajuan diperiksa petugas. Status terverifikasi berarti identitas sudah diproses — bukan persetujuan pinjaman.",
+      title: "Ikuti proses verifikasi",        body: "Petugas memeriksa pengajuan. Status terverifikasi berarti identitas sudah diproses, bukan persetujuan pinjaman.",
     },
     {
       icon: Scale,
@@ -1606,11 +1606,11 @@ export default function Landing() {
             judul2={heroJudul2}
             deskripsi={c(
               cms?.heroSub,
-              "Kenali pilihan pinjaman dan gadai, pahami biaya serta ketentuannya, dan kelola pengajuan secara digital melalui PINDAI.",
+              "Kenali pilihan pinjaman, gadai, dan kredit barang, beserta biaya dan ketentuannya.",
             )}
             ctaUtama={{ label: accountCta, href: accountHref, disabled: isLoading }}
             ctaSekunder={{ label: "Pelajari Cara Kerja", onClick: scrollToSteps }}
-            mikro="Informasi biaya, ketentuan, dan hasil pengajuan mengikuti produk serta proses verifikasi yang berlaku."
+            mikro="Biaya, ketentuan, dan hasil pengajuan mengikuti produk dan proses verifikasi."
             sudahMasuk={isAuthenticated}
           />
         </HeroBoundary>
@@ -1722,7 +1722,7 @@ export default function Landing() {
                 folio="03"
                 eyebrow="Rincian biaya"
                 title="Angka terbuka sejak awal"
-                description="Setiap potongan dihitung aplikasi dari nominal dan tenor yang Anda pilih. Tidak ada biaya tersembunyi — dan perpindahan dana tetap ditangani di luar aplikasi."
+                description="Setiap potongan dihitung aplikasi dari nominal dan tenor yang Anda pilih. Dana tetap ditangani di luar aplikasi."
               />
             </Reveal>
 
@@ -1730,7 +1730,7 @@ export default function Landing() {
               <SchemeCard
                 badge="Skema harian"
                 title="7–30 hari · Rp 100 rb–1 jt"
-                body="Cocok untuk kebutuhan jangka pendek. Satu kali pelunasan pada akhir tenor dan semua potongan terlihat sejak awal."
+                body="Untuk kebutuhan jangka pendek. Pelunasan sekali di akhir tenor, dan semua potongan terlihat sejak awal."
                 rows={[
                   { label: "Biaya admin 2% (platform dihapus)", value: "2% dari pokok" },
                   { label: "Nilai bersih diterima", value: "98% dari pokok" },
@@ -1746,7 +1746,7 @@ export default function Landing() {
                 delay={0.12}
                 badge="Skema bulanan"
                 title="1/3/6 bulan · hingga Rp 10 jt"
-                body="Cicilan rata dari pokok penuh: angsurannya berisi pokok dan bunga saja, karena biaya tenor dipotong di muka."
+                body="Cicilan rata dari pokok penuh: angsuran berisi pokok dan bunga; biaya tenor dipotong di muka."
                 rows={[
                   { label: "Biaya admin 2% (platform dihapus)", value: "2% dipotong di muka" },
                   { label: "Biaya admin cicilan (tenor 3 & 6)", value: "2% per bayar" },
@@ -1846,7 +1846,7 @@ export default function Landing() {
                 folio="05"
                 eyebrow="Batas yang jelas"
                 title="Pencatatan & batas ledger"
-                description="Dua kolom ini memisahkan apa yang dikerjakan aplikasi dan apa yang sepenuhnya berjalan di luar aplikasi."
+                description="Dua kolom ini memisahkan apa yang dikerjakan aplikasi dan apa yang berjalan di luar aplikasi."
               />
             </Reveal>
             <div className="mt-8 grid gap-4 sm:mt-10 lg:grid-cols-2 lg:gap-5">

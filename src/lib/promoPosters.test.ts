@@ -93,7 +93,7 @@ for (const frasa of TERLARANG) {
   ok(!seluruhTeks.includes(frasa), `tidak memuat klaim terlarang: "${frasa}"`);
 }
 ok(!JSON.stringify(promoPosters).includes("investor"), 'istilah "Pendana" tidak diganti');
-ok(SHARE_TEKS === "Kenali PINDAI — Pinjam & Gadai Digital.", "teks share sesuai spesifikasi");
+ok(SHARE_TEKS === "Kenali PINDAI: Pinjam & Gadai Digital.", "teks share sesuai spesifikasi");
 eq(TAGLINE, "PINJAM • GADAI DIGITAL", "tagline resmi");
 
 // ===== 6. Angka mengikuti sistem, bukan hard-coded =====

@@ -499,7 +499,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
     if (adminStep.purpose === "activation") {
       setAdminFlow("activate");
       setInfo(
-        "Demi keamanan, kata sandi tidak disimpan. Isi email & kata sandi baru sekali lagi, lalu kirim token aktivasi baru.",
+        "Kata sandi tidak disimpan. Isi email dan kata sandi baru sekali lagi, lalu kirim token aktivasi baru.",
       );
       return;
     }
@@ -853,7 +853,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                     <>
                       <KepalaPane
                         judul="Aktivasi password admin"
-                        keterangan="Aktivasi hanya berlaku untuk akun yang belum punya kata sandi. Token 32 karakter dikirim ke email terverifikasi; kalau kata sandi sudah pernah aktif, tidak ada token yang dikirim — kembali dan gunakan Masuk atau Lupa kata sandi."
+                        keterangan="Aktivasi hanya untuk akun yang belum punya kata sandi. Token 32 karakter dikirim ke email terverifikasi. Kalau kata sandi sudah aktif, tidak ada token yang dikirim; kembali dan gunakan Masuk atau Lupa kata sandi."
                         ikon={<KeyRound className="size-5" />}
                       />
                       <form onSubmit={handleAdminSubmit} className="space-y-4">
@@ -944,7 +944,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                     <>
                       <KepalaPane
                         judul="Reset kata sandi admin"
-                        keterangan="Token 32 karakter dikirim ke email terdaftar kalau kata sandi sudah pernah diaktifkan. Kalau belum, kembali dan gunakan Aktivasi password lebih dulu."
+                        keterangan="Token 32 karakter dikirim ke email terdaftar kalau kata sandi sudah aktif. Kalau belum, kembali dan gunakan Aktivasi password lebih dulu."
                         ikon={<Mail className="size-5" />}
                       />
                       <form onSubmit={handleAdminSubmit} className="space-y-4">
@@ -994,7 +994,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                         keterangan={
                           adminStep.purpose === "reset"
                             ? `Tempel token 32 karakter alfanumerik yang dikirim ke ${adminStep.email} apabila kata sandi sudah pernah diaktifkan. Berlaku 15 menit; perhatikan huruf besar/kecil.`
-                            : `Kalau kata sandi belum pernah aktif, token 32 karakter dikirim ke ${adminStep.email} dan berlaku 15 menit. Kalau sudah aktif, tidak ada token yang dikirim — kembali dan gunakan Masuk atau Lupa kata sandi.`
+                            : `Kalau kata sandi belum aktif, token 32 karakter dikirim ke ${adminStep.email} dan berlaku 15 menit. Kalau sudah aktif, tidak ada token yang dikirim; kembali dan gunakan Masuk atau Lupa kata sandi.`
                         }
                         ikon={
                           adminStep.purpose === "reset" ? (

@@ -144,7 +144,7 @@ export function KepalaMerekAuth() {
       <Link
         to="/"
         className="group flex items-center gap-3 transition-opacity hover:opacity-90"
-        aria-label="PINDAI — kembali ke beranda"
+        aria-label="PINDAI, kembali ke beranda"
       >
         <span className="flex size-11 items-center justify-center rounded-2xl bg-[#064E3B] text-lg font-bold text-emerald-50 shadow-md transition-transform group-hover:scale-105">
           P
@@ -414,7 +414,7 @@ function SyaratSandi({
       )}
       {label}
       <span className="sr-only">
-        {terpenuhi ? " — terpenuhi" : " — belum terpenuhi"}
+        {terpenuhi ? " (terpenuhi)" : " (belum terpenuhi)"}
       </span>
     </span>
   );
@@ -447,7 +447,7 @@ export function MedanTokenAdmin({
       navigator.clipboard?.readText === undefined
     ) {
       setGalatTempel(
-        "Papan klip tidak tersedia di peramban ini — tempel manual (Ctrl/Cmd + V).",
+        "Papan klip tidak tersedia di peramban ini; tempel manual (Ctrl/Cmd + V).",
       );
       return;
     }
@@ -456,14 +456,14 @@ export function MedanTokenAdmin({
       const bersih = bersihkanToken(teks);
       if (bersih === "") {
         setGalatTempel(
-          "Papan klip tidak berisi token — salin token dari email lebih dulu.",
+          "Papan klip tidak berisi token; salin token dari email lebih dulu.",
         );
         return;
       }
       onUbah(bersih);
     } catch {
       setGalatTempel(
-        "Tidak diizinkan membaca papan klip — tempel manual (Ctrl/Cmd + V).",
+        "Tidak diizinkan membaca papan klip; tempel manual (Ctrl/Cmd + V).",
       );
     }
   };

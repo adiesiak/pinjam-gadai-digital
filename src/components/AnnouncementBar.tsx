@@ -78,7 +78,7 @@ export function AnnouncementBar() {
           </>
         ) : null}
         {sysStatus?.killSwitch
-          ? " Layanan pengajuan sementara dijeda — coba lagi nanti."
+          ? " Layanan pengajuan sementara dijeda. Coba lagi nanti."
           : ""}
       </span>
 
