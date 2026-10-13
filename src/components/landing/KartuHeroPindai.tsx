@@ -200,7 +200,17 @@ export function KartuHeroPindai({
         role="group"
         aria-label={labelKartu}
         className={cn(
-          "aspect-[1.586/1] w-full max-w-md rounded-2xl relative p-4 text-xs sm:p-6 sm:text-sm overflow-hidden transition-all duration-500 hover:scale-[1.02]",
+          // Rasio kartu kredit hanya dipasang sejak 426px, dan itu bukan angka
+          // hiasan: `aspect-ratio` MEMINDAHKAN `min-height` ke sumbu lebar, jadi
+          // lantai tinggi di bawah (248px) menuntut lebar minimum 248 x 1,586 =
+          // 393,3px. Di layar 320-425px (lebar isi = layar - 2 x 16px) lantai
+          // itu memaksa kartu 393px sehingga menjulur keluar tepi kanan, dan
+          // `body` memakai `overflow-x: clip` (src/index.css) — jadi yang tampil
+          // adalah kartu terpotong di sisi kanan, bukan halaman yang bisa
+          // digeser. Diukur di Chromium: 320px → kartu 393,3px (89,3px di luar
+          // layar), 390px → 19,3px di luar layar. Dari 426px ke atas lantai itu
+          // selalu muat, jadi bentuk kartu kredit kembali utuh.
+          "min-[426px]:aspect-[1.586/1] w-full max-w-md rounded-2xl relative p-4 text-xs sm:p-6 sm:text-sm overflow-hidden transition-all duration-500 hover:scale-[1.02]",
           // Permukaan CERAH: kertas hangat setengah tembus dengan `backdrop-blur`,
           // jadi kartu tetap "kaca" (satu titik fokus per layar, DESIGN.md §4)
           // tanpa memakai permukaan gelap.
@@ -213,7 +223,9 @@ export function KartuHeroPindai({
           // menghasilkan kotak yang lebih pendek daripada kebutuhan tiga baris
           // isi, dan `overflow-hidden` akan memotong baris bawah (nama +
           // catatan). Kartu tetap mengikuti rasio saat ada ruang, lalu tumbuh
-          // (bukan memotong) saat ruangnya sempit.
+          // (bukan memotong) saat ruangnya sempit. Lantai ini hanya mengurus
+          // sumbu tinggi; batas lebar sudah dijaga pembatas 426px di atas, dan
+          // keduanya wajib ada bersamaan.
           "min-h-[15.5rem] isolate flex flex-col",
           className,
         )}

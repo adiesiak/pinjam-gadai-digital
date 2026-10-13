@@ -48,8 +48,16 @@ function bersih(html: string, label: string): void {
   const html = renderToStaticMarkup(<KartuHeroPindai />);
   ada(
     html,
-    "aspect-[1.586/1] w-full max-w-md rounded-2xl relative p-4 text-xs sm:p-6 sm:text-sm overflow-hidden transition-all duration-500 hover:scale-[1.02]",
+    "min-[426px]:aspect-[1.586/1] w-full max-w-md rounded-2xl relative p-4 text-xs sm:p-6 sm:text-sm overflow-hidden transition-all duration-500 hover:scale-[1.02]",
     "kelas ukuran & bentuk kartu persis seperti permintaan",
+  );
+  // Rasio kartu harus selalu punya pembatas lebar. Tanpa itu, `aspect-ratio`
+  // memindahkan `min-h-[15.5rem]` menjadi min-width 393,3px (248 x 1,586),
+  // sehingga kartu menjulur keluar tepi kanan pada 320-425px dan terpotong
+  // `overflow-x: clip` milik `body` (terukur, lihat catatan di komponen).
+  ok(
+    !/(^|["\s])aspect-\[1\.586\/1\]/.test(html),
+    "rasio kartu tidak pernah dipasang tanpa pembatas lebar",
   );
   // Tanpa lantai tinggi, kartu selebar ponsel akan lebih pendek daripada isinya
   // dan baris bawah (nama + catatan) terpotong `overflow-hidden`.
