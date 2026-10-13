@@ -2106,7 +2106,7 @@ function IsiRuang() {
               >
                 <TabsTrigger
                   value="belum"
-                  className="group h-9 flex-none gap-2 rounded-xl px-3 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-100 data-[state=active]:bg-navy data-[state=active]:text-white data-[state=active]:shadow-sm"
+                  className="group h-9 flex-none gap-2 rounded-xl px-3 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-100 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm"
                 >
                   <Timer className="size-3.5" /> Ditinjau
                   <span className="rounded-full bg-slate-100 px-1.5 text-[10px] font-semibold tabular-nums text-slate-500 group-data-[state=active]:bg-white/15 group-data-[state=active]:text-white">
@@ -2115,7 +2115,7 @@ function IsiRuang() {
                 </TabsTrigger>
                 <TabsTrigger
                   value="didanai"
-                  className="group h-9 flex-none gap-2 rounded-xl px-3 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-100 data-[state=active]:bg-navy data-[state=active]:text-white data-[state=active]:shadow-sm"
+                  className="group h-9 flex-none gap-2 rounded-xl px-3 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-100 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm"
                 >
                   <HandCoins className="size-3.5" /> Disalurkan
                   <span className="rounded-full bg-slate-100 px-1.5 text-[10px] font-semibold tabular-nums text-slate-500 group-data-[state=active]:bg-white/15 group-data-[state=active]:text-white">
@@ -2124,7 +2124,7 @@ function IsiRuang() {
                 </TabsTrigger>
                 <TabsTrigger
                   value="lunas"
-                  className="group h-9 flex-none gap-2 rounded-xl px-3 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-100 data-[state=active]:bg-navy data-[state=active]:text-white data-[state=active]:shadow-sm"
+                  className="group h-9 flex-none gap-2 rounded-xl px-3 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-100 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm"
                 >
                   <BadgeCheck className="size-3.5" /> Lunas
                   <span className="rounded-full bg-slate-100 px-1.5 text-[10px] font-semibold tabular-nums text-slate-500 group-data-[state=active]:bg-white/15 group-data-[state=active]:text-white">
@@ -2133,7 +2133,7 @@ function IsiRuang() {
                 </TabsTrigger>
                 <TabsTrigger
                   value="ditolak"
-                  className="group h-9 flex-none gap-2 rounded-xl px-3 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-100 data-[state=active]:bg-navy data-[state=active]:text-white data-[state=active]:shadow-sm"
+                  className="group h-9 flex-none gap-2 rounded-xl px-3 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-100 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm"
                 >
                   <XCircle className="size-3.5" /> Ditolak
                   <span className="rounded-full bg-slate-100 px-1.5 text-[10px] font-semibold tabular-nums text-slate-500 group-data-[state=active]:bg-white/15 group-data-[state=active]:text-white">
@@ -2142,7 +2142,7 @@ function IsiRuang() {
                 </TabsTrigger>
                 <TabsTrigger
                   value="gadai"
-                  className="group h-9 flex-none gap-2 rounded-xl px-3 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-100 data-[state=active]:bg-navy data-[state=active]:text-white data-[state=active]:shadow-sm"
+                  className="group h-9 flex-none gap-2 rounded-xl px-3 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-100 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm"
                 >
                   <Package className="size-3.5" /> Gadai
                   <span className="rounded-full bg-slate-100 px-1.5 text-[10px] font-semibold tabular-nums text-slate-500 group-data-[state=active]:bg-white/15 group-data-[state=active]:text-white">
@@ -2151,7 +2151,7 @@ function IsiRuang() {
                 </TabsTrigger>
                 <TabsTrigger
                   value="kredit"
-                  className="group h-9 flex-none gap-2 rounded-xl px-3 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-100 data-[state=active]:bg-navy data-[state=active]:text-white data-[state=active]:shadow-sm"
+                  className="group h-9 flex-none gap-2 rounded-xl px-3 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-100 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm"
                 >
                   <ShoppingBag className="size-3.5" /> Kredit Barang
                   <span className="rounded-full bg-slate-100 px-1.5 text-[10px] font-semibold tabular-nums text-slate-500 group-data-[state=active]:bg-white/15 group-data-[state=active]:text-white">
@@ -2160,7 +2160,7 @@ function IsiRuang() {
                 </TabsTrigger>
                 <TabsTrigger
                   value="lokasi"
-                  className="group h-9 flex-none gap-2 rounded-xl px-3 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-100 data-[state=active]:bg-navy data-[state=active]:text-white data-[state=active]:shadow-sm"
+                  className="group h-9 flex-none gap-2 rounded-xl px-3 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-100 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm"
                 >
                   <MapPin className="size-3.5" /> Lokasi live
                   {titik !== undefined && (

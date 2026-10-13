@@ -677,8 +677,16 @@
      praktis hilang, itulah yang terjadi pada tab "Masuk Akun"/"Akses Cepat"
      di halaman auth). Pasangan `--primary-foreground` lolos AA di kelima
      preset yang dipakai: 10,9:1 (tinta), 7,5:1 (pesisir), 7,2:1 (terakota),
-     6,6:1 (salju), 5,2:1 (karnival). */
-  [data-slot="tabs-trigger"][data-state="active"] {
+     6,6:1 (salju), 5,2:1 (karnival).
+     PENGECUALIAN `[data-penanda-gerak]`: aturan ini spesifisitasnya (0,3,0)
+     lebih tinggi daripada utilitas pemanggil (0,2,0), jadi tab yang menggambar
+     penanda aktifnya SENDIRI tidak bisa mengalahkannya lewat
+     `data-[state=active]:bg-transparent` — kelas itu mati, latar `--primary`
+     tetap dicat, dan penanda gesernya jadi terlihat dobel (satu blok hijau
+     muncul seketika di tab baru, plus satu pill meluncur ke sana). Tab seperti
+     itu melepas diri dengan atribut ini dan TIDAK menulis latar transparan
+     sama sekali; contohnya `pages/dashboard/dashboard-tab-nav.tsx`. */
+  [data-slot="tabs-trigger"][data-state="active"]:not([data-penanda-gerak]) {
     background-image: none;
     background-color: var(--primary);
     color: var(--primary-foreground);

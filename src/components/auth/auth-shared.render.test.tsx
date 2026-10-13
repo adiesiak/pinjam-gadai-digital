@@ -85,10 +85,15 @@ function bacaSumber(relatif: string): string {
     "utf8",
   );
 }
-/** Isi aturan tab aktif di `src/index.css` — latar & warna hurufnya harus satu paket. */
+/**
+ * Isi aturan tab aktif di `src/index.css` — latar & warna hurufnya harus satu
+ * paket. Selektor boleh berakhir pengecualian `:not([data-penanda-gerak])`:
+ * tab yang menggambar penanda aktifnya sendiri (mis. navigasi dashboard
+ * Peminjam) menandai dirinya dengan atribut itu supaya tidak dicat dua kali.
+ */
 function aturanAktif(css: string): string {
   return (
-    /\[data-slot="tabs-trigger"\]\[data-state="active"\]\s*\{([^}]*)\}/.exec(
+    /\[data-slot="tabs-trigger"\]\[data-state="active"\]:not\(\[data-penanda-gerak\]\)\s*\{([^}]*)\}/.exec(
       css,
     )?.[1] ?? ""
   );
@@ -188,11 +193,21 @@ function aturanAktif(css: string): string {
   // Penjaga akar masalah: aturan globalnya sendiri harus memasang latar DAN
   // warna huruf bersama-sama, supaya pemanggil berikutnya tidak bisa lagi
   // mewariskan teks gelap ke atas `--primary`.
-  const aturanTab = aturanAktif(bacaSumber("index.css"));
+  const sumberCss = bacaSumber("index.css");
+  const aturanTab = aturanAktif(sumberCss);
   ok(
     aturanTab.includes("background-color: var(--primary)") &&
       aturanTab.includes("color: var(--primary-foreground)"),
     "aturan tab aktif memasang latar dan warna huruf bersama-sama",
+  );
+  // Tab yang menggambar penanda aktifnya sendiri harus punya jalan keluar dari
+  // aturan global di atas; tanpa `:not([data-penanda-gerak])`, latar `--primary`
+  // tetap dicat walau pemanggil menulis `bg-transparent` (spesifisitas 0,3,0
+  // mengalahkan utilitas 0,2,0) dan penanda gesernya terlihat dobel.
+  ada(
+    sumberCss,
+    '[data-slot="tabs-trigger"][data-state="active"]:not([data-penanda-gerak])',
+    "aturan tab aktif punya pengecualian untuk tab ber-penanda geser",
   );
   bersih(tab, "segmented tab");
 }

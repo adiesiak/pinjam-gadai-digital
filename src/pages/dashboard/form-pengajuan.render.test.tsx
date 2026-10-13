@@ -144,6 +144,30 @@ ok(
   wajahMenuPinjaman.includes("Catatan Pinjaman · 2"),
 );
 
+// --- Kelas tab aktif yang dulu MATI karena aturan global ---------------------
+// Aturan `[data-slot="tabs-trigger"][data-state="active"]` di `src/index.css`
+// spesifisitasnya (0,3,0), lebih tinggi daripada utilitas
+// `data-[state=active]:*` pemanggil (0,2,0). Dulu trigger di sini menulis
+// `data-[state=active]:bg-transparent` untuk memberi ruang bagi pill yang
+// meluncur — dan kelas itu tidak pernah menang: latar `--primary` tetap dicat,
+// sehingga muncul blok hijau seketika di tab baru PLUS pill yang meluncur ke
+// sana. Perbaikannya: trigger melepas diri dari aturan global dengan penanda
+// `data-penanda-gerak`, dan `bg-transparent` yang sudah tidak berguna dibuang.
+const jumlahTab = htmlMenuDashboard.split('role="tab"').length - 1;
+ok("navigasi dashboard merender semua tabnya", jumlahTab === 9);
+ok(
+  "setiap tab melepas diri dari aturan tab-aktif global (data-penanda-gerak)",
+  htmlMenuDashboard.split('data-penanda-gerak=""').length - 1 === jumlahTab,
+);
+ok(
+  "tab aktif tetap mewarnai hurufnya sendiri di atas penanda",
+  htmlMenuDashboard.split("data-[state=active]:text-primary-foreground").length - 1 === jumlahTab,
+);
+ok(
+  "kelas latar transparan yang mati tidak dipakai lagi",
+  !htmlMenuDashboard.includes("data-[state=active]:bg-transparent"),
+);
+
 // --- CTA "Buat pengajuan baru" di tab lain ----------------------------------
 
 for (const jenis of JENIS_PENGAJUAN) {

@@ -195,7 +195,22 @@ export function DashboardTabNav({
                   <TabsTrigger
                     key={value}
                     value={value}
-                    className="group relative isolate h-auto w-auto flex-none shrink-0 justify-start gap-2.5 rounded-xl px-3 py-2.5 text-xs font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 data-[state=active]:bg-transparent data-[state=active]:text-primary-foreground data-[state=active]:shadow-none data-[state=active]:hover:bg-transparent lg:w-full"
+                    // Penanda geser menggambar latar aktifnya SENDIRI (`bg-primary`
+                    // pada `motion.span` di bawah), jadi trigger ini wajib dilepas
+                    // dari aturan global `[data-slot="tabs-trigger"]
+                    // [data-state="active"]` di `src/index.css`. Aturan itu
+                    // spesifisitasnya (0,3,0) — lebih tinggi daripada utilitas
+                    // `data-[state=active]:*` pemanggil (0,2,0) — sehingga latar
+                    // `--primary` tetap dicat walau pemanggil menulis
+                    // `bg-transparent`, dan penandanya terlihat dobel: satu blok
+                    // hijau muncul seketika di tab baru, plus satu pill meluncur ke
+                    // sana. Atribut di bawah inilah pengecualian yang dipakai
+                    // aturan itu. Karena latarnya kini tidak dicat siapa pun,
+                    // trigger tidak perlu menulis latar transparan sendiri; yang
+                    // masih perlu hanya warna huruf di atas pill dan pembatal
+                    // latar hover warisan.
+                    data-penanda-gerak=""
+                    className="group relative isolate h-auto w-auto flex-none shrink-0 justify-start gap-2.5 rounded-xl px-3 py-2.5 text-xs font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 data-[state=active]:text-primary-foreground data-[state=active]:shadow-none data-[state=active]:hover:bg-transparent data-[state=active]:hover:text-primary-foreground lg:w-full"
                   >
                     {/* Pill penanda: satu elemen yang sama, berpindah antar tab. */}
                     {sedangAktif && (
