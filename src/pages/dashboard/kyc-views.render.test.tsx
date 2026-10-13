@@ -13,12 +13,18 @@
  *  - keputusan yang merugikan selalu menampilkan catatan petugas dan siapa yang
  *    memutuskan;
  *  - riwayat menampilkan waktu, aktor, alasan yang sudah diterjemahkan, dan
- *    tidak pernah memunculkan "undefined"/"NaN"/"[object Object]".
+ *    tidak pernah memunculkan "undefined"/"NaN"/"[object Object]";
+ *  - setiap kekurangan yang punya tahap tampil sebagai tombol menuju tahap itu;
+ *  - baris aksi tahap hanya punya SATU aksi utama, menyebut sisa isian selama
+ *    pengajuan belum boleh dikirim, dan membaca keadaan simpan di sebelahnya;
+ *  - petunjuk foto tertutup sejak awal supaya kolom unggah tampil lebih dulu.
  */
 import { renderToStaticMarkup } from "react-dom/server";import {
+  KycBarisAksi,
   KycDaftarTahap,
   KycKeputusanAlert,
   KycPemeriksaanOtomatis,
+  KycPetunjukFoto,
   KycRiwayatList,
   KycStatusHeader,
   KycStatusStrip,
@@ -28,7 +34,12 @@ import { renderToStaticMarkup } from "react-dom/server";import {
   tahapStage,
   type RiwayatKycTampil,
 } from "./kyc-views";
-import { ID_TAHAP_KYC, type IdTahapKyc, type StatusTahapKyc } from "@/lib/kycTahapan";
+import {
+  ID_TAHAP_KYC,
+  petunjukTahap,
+  type IdTahapKyc,
+  type StatusTahapKyc,
+} from "@/lib/kycTahapan";
 import { VERSI_ATURAN_AUTO_KYC } from "@/lib/kycAutoApproval";
 import { KETERANGAN_STATUS_KYC, KYC_STATUS, LABEL_STATUS_KYC, ringkasStatusKyc } from "@/lib/kycStatus";
 
@@ -60,7 +71,7 @@ for (const status of KYC_STATUS) {
       status={status}
       kekurangan={["Foto KTP", "Bukti penghasilan"]}
       lengkap={false}
-      diperbaruiPada={1_700_000_000_000}
+      onBuka={() => {}}
       persen={0}
       selesai={0}
       total={7}
@@ -78,7 +89,7 @@ for (const status of KYC_STATUS) {
       status="IN_PROGRESS"
       kekurangan={["NIK 16 angka", "Selfie dengan KTP"]}
       lengkap={false}
-      diperbaruiPada={null}
+      onBuka={() => {}}
       persen={29}
       selesai={2}
       total={7}
@@ -88,14 +99,29 @@ for (const status of KYC_STATUS) {
   ada(kurang, "Selfie dengan KTP", "kekurangan selfie tampil");
   ada(kurang, "2 hal sebelum bisa diajukan", "jumlah kekurangan dilaporkan");
   ada(kurang, "2 dari 7 tahap siap", "progres tahap dilaporkan dengan angka nyata");
-  ada(kurang, "Belum ada isian", "tanpa isian menjelaskan keadaannya");
+  ada(
+    kurang,
+    'aria-label="Kesiapan pengajuan KYC: 29 persen"',
+    "bilah kesiapan melaporkan angkanya ke pembaca layar",
+  );
+  ok(
+    !kurang.includes("Perubahan terakhir"),
+    "kartu kesiapan tidak lagi memuat kotak perubahan terakhir",
+  );
+  // Dua kekurangan di atas keduanya punya tahap, jadi keduanya harus jadi tombol
+  // yang menyebut tahap tujuannya — bukan teks yang harus ditebak sendiri.
+  ok(
+    (kurang.match(/aria-label="[^"]+: buka /g) ?? []).length === 2,
+    "kekurangan yang punya tahap jadi tombol menuju tahapnya",
+  );
+  ada(kurang, "NIK 16 angka: buka Data identitas", "tombol menunjuk tahap yang benar");
 
   const lengkap = renderToStaticMarkup(
     <KycStatusHeader
       status="IN_PROGRESS"
       kekurangan={[]}
       lengkap
-      diperbaruiPada={1_700_000_000_000}
+      onBuka={() => {}}
       persen={100}
       selesai={7}
       total={7}
@@ -114,7 +140,7 @@ for (const status of KYC_STATUS) {
       status="VERIFIED"
       kekurangan={[]}
       lengkap
-      diperbaruiPada={1_700_000_000_000}
+      onBuka={() => {}}
       persen={100}
       selesai={7}
       total={7}
@@ -303,9 +329,10 @@ function statusNetral(): Record<IdTahapKyc, StatusTahapKyc> {
       terkunci={false}
     />,
   );
-  ada(html, "Stage 1: Kontak &amp; OTP", "stage 1 berlabel sesuai ketentuan");
-  ada(html, "Stage 2: Live KTP &amp; Selfie", "stage 2 berlabel sesuai ketentuan");
-  ada(html, "Stage 3: Rekening &amp; Finansial", "stage 3 berlabel sesuai ketentuan");
+  ada(html, "Tahap 1: Kontak &amp; OTP", "stage 1 berlabel sesuai ketentuan");
+  ada(html, "Tahap 2: Live KTP &amp; Selfie", "stage 2 berlabel sesuai ketentuan");
+  ada(html, "Tahap 3: Rekening &amp; Finansial", "stage 3 berlabel sesuai ketentuan");
+  ok(!html.includes("Stage "), "antarmuka tidak memakai istilah 'Stage'");
   ok(
     (html.match(/aria-current="step"/g) ?? []).length === 1,
     "hanya satu stage bertanda aktif",
@@ -346,7 +373,7 @@ function statusNetral(): Record<IdTahapKyc, StatusTahapKyc> {
     (html.match(/disabled=""/g) ?? []).length === 2,
     "stage 2 & 3 terkunci sebelum persetujuan tercatat",
   );
-  ada(html, "Stage 1: Kontak &amp; OTP", "stage 1 tetap tampil saat terkunci");
+  ada(html, "Tahap 1: Kontak &amp; OTP", "stage 1 tetap tampil saat terkunci");
   bersih(html, "bilah 3 stage terkunci");
 }
 {
@@ -394,6 +421,107 @@ function statusNetral(): Record<IdTahapKyc, StatusTahapKyc> {
     "deret langkah menumpuk satu kolom penuh lebar",
   );
   bersih(html, "deret tahap satu stage");
+}
+
+// ===== 11. Baris aksi satu tahap: satu aksi utama, umpan balik di dekatnya =====
+const aksiDasar = {
+  busy: false,
+  indeks: 0,
+  total: 7,
+  bolehSimpan: false,
+  bolehLanjut: false,
+  bolehAjukan: false,
+  tampilkanAjukan: true,
+  labelAjukan: "Ajukan peninjauan",
+  sisaKurang: 3,
+  onSebelumnya: () => {},
+  onSimpan: () => {},
+  onLanjut: () => {},
+  onAjukan: () => {},
+  onBukaKurang: () => {},
+};
+{
+  const html = renderToStaticMarkup(
+    <KycBarisAksi {...aksiDasar} menyimpan={false} tersimpanPada={null} catatan={null} />,
+  );
+  ok(
+    (html.match(/bg-emerald-800/g) ?? []).length === 1,
+    "hanya SATU tombol pejal (aksi utama) di baris aksi",
+  );
+  ada(html, "Simpan &amp; lanjut", "aksi utama tetap tombol yang berpindah tahap");
+  ada(html, "Sebelumnya", "navigasi mundur tetap ada");
+  ok(
+    (html.match(/disabled=""/g) ?? []).length === 3,
+    "mundur, simpan, dan lanjut mati saat tahap pertama & persetujuan belum tercatat",
+  );
+  ada(html, "Siap diajukan setelah 3 isian lagi", "tombol gerbang menyebut sisa isian");
+  ok(
+    !html.includes("Ajukan peninjauan"),
+    "label ajukan tidak muncul selagi transisi itu belum sah",
+  );
+  ada(html, "Belum ada isian tersimpan", "keadaan simpan dinyatakan apa adanya");
+  ada(html, 'role="status"', "umpan balik simpan diumumkan pembaca layar");
+  ada(html, "sticky bottom-0", "baris aksi menempel selama formulir panjang");
+  bersih(html, "baris aksi terkunci");
+}
+{
+  // Tahap yang boleh diajukan: tombol ajukan menggantikan "lanjut", dan keadaan
+  // simpan dibaca di baris yang sama.
+  const siap = {
+    ...aksiDasar,
+    indeks: 6,
+    bolehSimpan: true,
+    bolehAjukan: true,
+    labelAjukan: "Kirim ulang pengajuan",
+    sisaKurang: 0,
+    catatan: "Sedang menunggu peninjauan petugas. Menyimpan perubahan menarik pengajuan kembali.",
+  };
+  const sedangSimpan = renderToStaticMarkup(
+    <KycBarisAksi {...siap} menyimpan tersimpanPada={null} />,
+  );
+  ada(sedangSimpan, "Kirim ulang pengajuan", "label ajukan mengikuti langkah status yang sah");
+  ok(
+    !sedangSimpan.includes("Siap diajukan setelah"),
+    "tanpa sisa isian tidak ada tombol gerbang",
+  );
+  ok(!sedangSimpan.includes("Simpan &amp; lanjut"), "tahap terakhir tidak menawarkan lanjut");
+  ada(sedangSimpan, "Menyimpan…", "keadaan menyimpan terbaca di sebelah tombolnya");
+  ada(
+    sedangSimpan,
+    "Sedang menunggu peninjauan petugas.",
+    "keadaan status yang perlu dijelaskan ada di baris aksi",
+  );
+  bersih(sedangSimpan, "baris aksi siap diajukan");
+
+  const sudahSimpan = renderToStaticMarkup(
+    <KycBarisAksi {...siap} menyimpan={false} tersimpanPada={1_700_000_000_000} />,
+  );
+  ada(sudahSimpan, "Tersimpan", "waktu simpan terakhir dibaca di sebelah tombolnya");
+  ok(!sudahSimpan.includes("Menyimpan…"), "umpan balik simpan tidak ditinggalkan menyala");
+}
+
+// ===== 12. Petunjuk foto: tertutup sejak awal, isinya tetap satu sumber =====
+{
+  const html = renderToStaticMarkup(<KycPetunjukFoto tahapId="ktp" />);
+  ada(
+    html,
+    `Petunjuk foto (${petunjukTahap("ktp").length} langkah)`,
+    "judul petunjuk menyebut jumlah langkahnya",
+  );
+  ada(html, 'aria-expanded="false"', "petunjuk tertutup sejak awal");
+  ada(html, 'data-slot="accordion-trigger"', "judulnya tetap kontrol yang bisa dibuka");
+  const butirPertama = petunjukTahap("ktp")[0];
+  ok(
+    butirPertama !== undefined && !html.includes(butirPertama.judul),
+    "isi petunjuk tidak dirender selama tertutup",
+  );
+  bersih(html, "petunjuk foto tertutup");
+}
+{
+  // Tahap tanpa petunjuk tidak memunculkan akordeon kosong yang hanya menambah
+  // satu baris yang bisa dibuka tanpa isi.
+  const html = renderToStaticMarkup(<KycPetunjukFoto tahapId="identitas" />);
+  ok(html === "", "tahap tanpa petunjuk foto tidak menambah akordeon kosong");
 }
 
 if (failed > 0) {

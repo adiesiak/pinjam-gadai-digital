@@ -337,7 +337,10 @@ export default function Dashboard() {
 
                 {/* Status KYC tampil di SEMUA tab — nasabah tidak perlu membuka
                     tab KYC untuk tahu di mana posisinya. */}
-                {kyc !== undefined && (
+                {/* Pil status ini mengajak pindah ke tab KYC — di tab KYC
+                    sendiri ia hanya mengulang judul kartu tepat di bawahnya,
+                    jadi disembunyikan saat tab itu yang sedang dibuka. */}
+                {kyc !== undefined && activeTab !== "kyc" && (
                   <KycStatusStrip status={kyc.status} onBuka={() => gantiTab("kyc")} />
                 )}
 
