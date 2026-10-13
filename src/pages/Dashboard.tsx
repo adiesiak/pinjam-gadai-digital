@@ -60,7 +60,7 @@ function RingkasanMemuat() {
       </div>
       {/* Daftarnya sudah punya wilayah statusnya sendiri; di sini isinya cukup
           dilihat, sementara pengumumannya dipegang teks "Memuat data Anda…" di
-          atas — supaya pembaca layar tidak mendengar dua pengumuman sekaligus. */}
+          atas, supaya pembaca layar tidak mendengar dua pengumuman sekaligus. */}
       <div aria-hidden="true">
         <SkeletonBarisDaftar baris={3} className="rounded-2xl border border-slate-200 bg-white p-5" />
       </div>
@@ -107,7 +107,7 @@ function CreditProgressCard({ history }: { history: CreditHistory }) {
 }
 
 /**
- * Dashboard nasabah — PINDAI.
+ * Dashboard nasabah, PINDAI.
  * Hanya merangkai modul di ./dashboard/*; tiap bagian hidup di file sendiri
  * agar mudah disunting dan dirawat.
  *
@@ -130,7 +130,7 @@ export default function Dashboard() {
   const dueReminder = useQuery(api.loans.dueReminder, argsPeminjam);
   const schedule = useQuery(api.loans.myLoanSchedule, argsPeminjam);
   const contracts = useQuery(api.loans.myContracts, argsPeminjam);
-  // Status KYC dipakai untuk lencana tab (butuh tindakan nasabah) — tidak ikut
+  // Status KYC dipakai untuk lencana tab (butuh tindakan nasabah), tidak ikut
   // menahan seluruh dashboard saat masih dimuat: tanpa data, tabnya cukup tanpa
   // lencana.
   const kyc = useQuery(api.kyc.kycSaya, argsPeminjam);
@@ -148,7 +148,7 @@ export default function Dashboard() {
   const [pawnDetailId, setPawnDetailId] = useState<Id<"pawns"> | null>(null);
 
   // Tab yang sedang dibuka. Parameter `?tab=…` (mis. dari pusat notifikasi)
-  // diutamakan selama masih ada di URL, lalu pilihan pengguna mengambil alih —
+  // diutamakan selama masih ada di URL, lalu pilihan pengguna mengambil alih,
   // jadi tautan notifikasi selalu membuka tab yang dimaksud, tanpa memaksa
   // pengguna tetap terkunci di tab itu setelah ia berpindah sendiri.
   const [parameter, setParameter] = useSearchParams();
@@ -246,7 +246,7 @@ export default function Dashboard() {
   const jumlahKontrak = contracts ? contracts.pinjaman.length + contracts.gadai.length : 0;
 
   const tabBadges: Partial<Record<string, TabBadge>> = {};
-  // Kabar pengaduan dikenali dari tautannya — satu-satunya tujuan yang menunjuk
+  // Kabar pengaduan dikenali dari tautannya, satu-satunya tujuan yang menunjuk
   // tab Bantuan. Lencana hanya muncul bila ada yang belum dibaca.
   const kabarBantuan =
     notifikasi === undefined
@@ -260,7 +260,7 @@ export default function Dashboard() {
   else if (tagihanDekat > 0) tabBadges.jadwal = { count: tagihanDekat, tone: "warning" };
   if (gadaiAktif > 0) tabBadges.gadai = { count: gadaiAktif };
   if (jumlahKontrak > 0) tabBadges.kontrak = { count: jumlahKontrak };
-  // Hanya status yang MENUNGGU TINDAKAN NASABAH yang diberi lencana — VERIFIED
+  // Hanya status yang MENUNGGU TINDAKAN NASABAH yang diberi lencana, VERIFIED
   // dan PENDING_REVIEW bukan pekerjaan pengguna.
   if (
     kyc !== undefined &&
@@ -273,7 +273,7 @@ export default function Dashboard() {
 
   return (
     // Gerbang lokasi wajib: Peminjam tidak bisa memakai dashboard tanpa GPS
-    // aktif (heartbeat ke server). Admin dan penyedia dana dikecualikan — sama
+    // aktif (heartbeat ke server). Admin dan penyedia dana dikecualikan, sama
     // seperti PERAN_WAJIB_LOKASI di convex/lokasi.ts (hanya peminjam/member).
     <LocationGate aktif={role !== "admin" && role !== "dana"}>
       <div className="bg-ambient-glass flex min-h-screen flex-col overflow-x-clip text-slate-900">
@@ -316,7 +316,7 @@ export default function Dashboard() {
                     ada, bukan form pengajuan yang kosong. */}
                 <RingkasanPeminjamLama klaim={klaim} />
 
-                {/* Pengingat jatuh tempo live — CTA membuka detail pembayaran. */}
+                {/* Pengingat jatuh tempo live, CTA membuka detail pembayaran. */}
                 {dueReminder !== null && (
                   <DueReminderBanner
                     reminder={dueReminder}
@@ -324,20 +324,20 @@ export default function Dashboard() {
                   />
                 )}
 
-                {/* Peringatan lokasi dicurigai — ditulis server saat titik
+                {/* Peringatan lokasi dicurigai, ditulis server saat titik
                     lokasi nasabah ditandai (mis. koordinat beku berulang). */}
                 <LokasiPeringatanBanner />
 
-                {/* Status lokasi wajib tampil sebagai pil di kanan bawah —
+                {/* Status lokasi wajib tampil sebagai pil di kanan bawah,
                     gerbangnya sendiri membungkus seluruh dashboard. */}
 
                 {/* ===== Ringkasan keuangan ===== */}
                 <SummaryCards schedule={schedule ?? []} />
                 {creditHistory && <CreditProgressCard history={creditHistory} />}
 
-                {/* Status KYC tampil di SEMUA tab — nasabah tidak perlu membuka
+                {/* Status KYC tampil di SEMUA tab, nasabah tidak perlu membuka
                     tab KYC untuk tahu di mana posisinya. */}
-                {/* Pil status ini mengajak pindah ke tab KYC — di tab KYC
+                {/* Pil status ini mengajak pindah ke tab KYC, di tab KYC
                     sendiri ia hanya mengulang judul kartu tepat di bawahnya,
                     jadi disembunyikan saat tab itu yang sedang dibuka. */}
                 {kyc !== undefined && activeTab !== "kyc" && (
@@ -377,7 +377,7 @@ export default function Dashboard() {
                   <MyContractsSection contracts={contracts} />
                 </TabsContent>
 
-                {/* ===== TAB 5: FORM PENGAJUAN — satu halaman, tiga jenis =====
+                {/* ===== TAB 5: FORM PENGAJUAN, satu halaman, tiga jenis =====
                     Peminjam memilih pinjaman / gadai / kredit barang lewat menu
                     dropdown; hanya formulir jenis itu yang dirender. */}
                 <TabsContent value="form" className="mt-8 min-w-0 animate-masuk">
@@ -388,12 +388,12 @@ export default function Dashboard() {
                   />
                 </TabsContent>
 
-                {/* ===== TAB: DATA DIRI — sunting mandiri nasabah ===== */}
+                {/* ===== TAB: DATA DIRI, sunting mandiri nasabah ===== */}
                 <TabsContent value="diri" className="mt-8 min-w-0 animate-masuk">
                   <DataDiriSection />
                 </TabsContent>
 
-                {/* ===== TAB: VERIFIKASI KYC — modul mandiri =====
+                {/* ===== TAB: VERIFIKASI KYC, modul mandiri =====
                     Terpisah dari formulir pengajuan: menyimpan KYC tidak membuat
                     catatan pinjaman apa pun, dan status VERIFIED bukan
                     persetujuan pinjaman. */}

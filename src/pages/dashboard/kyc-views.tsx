@@ -128,7 +128,7 @@ import {
 } from "@/lib/otpResume";
 
 /**
- * MODUL KYC — antarmuka nasabah.
+ * MODUL KYC, antarmuka nasabah.
  *
  * Alurnya berjenjang supaya data sensitif tidak diminta sekaligus:
  * 1) persetujuan pemrosesan data → 2) data identitas → 3) foto KTP →
@@ -139,12 +139,12 @@ import {
  * - **Persetujuan lebih dulu.** Tahap 2–7 terkunci selama server belum mencatat
  *   persetujuan; server juga menolak menyimpan isian/berkas apa pun tanpa itu.
  * - **Progres dari server.** Status, kelengkapan, dan keputusan petugas selalu
- *   dibaca dari `kycSaya` — antarmuka tidak pernah menyimpulkan sendiri, dan
+ *   dibaca dari `kycSaya`, antarmuka tidak pernah menyimpulkan sendiri, dan
  *   status "Terverifikasi" hanya muncul bila backend mengirimkannya.
  * - **Privasi di tampilan.** NIK, nomor WhatsApp, dan nomor rekening hanya
  *   ditampilkan bertopeng (`maskNik` dan kawan-kawan) di ringkasan; nilai utuh
  *   hanya ada di isian yang sedang diketik pemiliknya. Tidak ada data pribadi
- *   yang masuk URL, `console`, atau pesan notifikasi — halaman ini tidak pernah
+ *   yang masuk URL, `console`, atau pesan notifikasi, halaman ini tidak pernah
  *   menulis ke `location`/`console`, dan pesan yang ditampilkan hanya kalimat
  *   dari server.
  * - **Gagal dengan jelas.** Setiap kegagalan (simpan, unggah, ajukan) tampil
@@ -189,7 +189,7 @@ function waktu(ms: number | null): string {
  * Bagian tampilan MURNI (bisa dirender & diuji tanpa Convex)
  * ========================================================================== */
 
-/** Ikon tiap tahap — dipisah karena `lib/kycTahapan.ts` sengaja tanpa React. */
+/** Ikon tiap tahap, dipisah karena `lib/kycTahapan.ts` sengaja tanpa React. */
 const IKON_TAHAP: Record<IdTahapKyc, typeof IdCard> = {
   persetujuan: Lock,
   identitas: IdCard,
@@ -201,7 +201,7 @@ const IKON_TAHAP: Record<IdTahapKyc, typeof IdCard> = {
 };
 
 /**
- * Jeda tombol "Kirim kode" sebelum boleh ditekan lagi (detik) — ketentuan
+ * Jeda tombol "Kirim kode" sebelum boleh ditekan lagi (detik), ketentuan
  * produk. Server punya pembatas sendiri yang lebih panjang, jadi hitung mundur
  * ini adalah lapisan UX, bukan pengganti penjagaan di server.
  */
@@ -265,7 +265,7 @@ export function tahapStage(nomor: 1 | 2 | 3): readonly IdTahapKyc[] {
 }
 
 /**
- * Bilah progres 3 tahap besar di atas wizard — menggantikan daftar 7 langkah
+ * Bilah progres 3 tahap besar di atas wizard, menggantikan daftar 7 langkah
  * memanjang sebagai navigasi utama.
  *
  * Status tiap stage diringkas dari langkah-langkah di dalamnya: "lengkap" hanya
@@ -386,7 +386,7 @@ function PenandaOpsional() {
  *
  * Daftar ini sengaja disaring per stage (`saring`): navigasi utama sekarang ada
  * di bilah 3 stage di atas, jadi 7 langkah tidak lagi tampil memanjang sekaligus
- * — yang terlihat hanya langkah-langkah stage yang sedang dibuka. Nomor langkah
+ * sehingga yang terlihat hanya langkah-langkah stage yang sedang dibuka. Nomor langkah
  * diambil dari posisinya di `TAHAPAN_KYC`, bukan dari posisi tampil, supaya
  * penomoran tidak berubah hanya karena penyaringan.
  *
@@ -506,10 +506,8 @@ export function KycStatusHeader({
         <StatusKycBadge status={status} />
       </div>
 
-      {/* Satu baris untuk seluruh kesiapan: label · bilah · hitungan. Versi
-          sebelumnya menumpuk tiga blok (label+hitungan, bilah, lalu kalimat),
-          dan kartu ini berdiri di atas bilah 3 tahap yang juga melaporkan
-          progres — jadi tiap baris di sini harus membawa keterangan baru. */}
+      {/* Kesiapan dalam satu baris (label, bilah, hitungan): kartu ini berdiri di
+          atas bilah 3 tahap, jadi tiap barisnya harus membawa keterangan baru. */}
       <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2">
         <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
           Kesiapan pengajuan
@@ -594,19 +592,13 @@ export function KycStatusStrip({ status, onBuka }: { status: StatusKyc; onBuka: 
 }
 
 /**
- * Baris aksi satu tahap: SATU aksi utama, umpan balik simpan di sebelahnya.
+ * Baris aksi satu tahap: satu tombol pejal (aksi utama), umpan balik simpan di
+ * sebelahnya, dan menempel di dasar kartu selama formulirnya panjang. Tingginya
+ * 44px supaya nyaman ditekan dengan ibu jari, bukan 36px seperti tombol lain.
  *
- * Keputusan yang disengaja:
- * - `Simpan & lanjut` satu-satunya tombol pejal; `Simpan progres` turun jadi
- *   tombol hantu karena bedanya hanya "pindah tahap atau tidak".
- * - Keadaan simpan (`Menyimpan…` / `Tersimpan <waktu>`) dibaca tepat di
- *   sebelah tombolnya — bukan di kotak terpisah di kepala kartu, jauh dari
- *   tindakan yang menyebabkannya.
- * - Selagi pengajuan belum boleh dikirim, tombol ajukan diganti tombol yang
- *   MENYEBUT sisa isiannya dan melompat ke tahap yang kurang; tombol mati tanpa
- *   sebab hanya membuat pengguna menebak.
- * - Barisnya menempel di dasar layar (`sticky bottom-0`) supaya tombol utama
- *   tetap terjangkau saat pengguna berada di dasar formulir yang panjang.
+ * Selama transisi pengajuan belum sah, tombol ajukan diganti tombol yang
+ * menyebut sisa isiannya; `Simpan progres` jadi tombol hantu karena bedanya
+ * hanya pindah tahap atau tidak.
  */
 export function KycBarisAksi({
   busy,
@@ -651,12 +643,12 @@ export function KycBarisAksi({
 }) {
   const ajukanTerkunci = tampilkanAjukan && !bolehAjukan && sisaKurang > 0;
   return (
-    <div className="sticky bottom-0 z-10 mt-4 border-t border-border bg-card/95 pt-3 backdrop-blur">
+    <div className="sticky bottom-0 z-10 mt-4 border-t border-border bg-card pt-3">
       <div className="flex flex-wrap items-center gap-2">
         <Button
           type="button"
           variant="outline"
-          className="gap-1.5"
+          className="h-11 gap-1.5"
           disabled={busy || indeks === 0}
           onClick={onSebelumnya}
         >
@@ -666,7 +658,7 @@ export function KycBarisAksi({
         <Button
           type="button"
           variant="ghost"
-          className="gap-1.5 text-muted-foreground"
+          className="h-11 gap-1.5 text-muted-foreground"
           disabled={busy || !bolehSimpan}
           onClick={onSimpan}
         >
@@ -681,7 +673,7 @@ export function KycBarisAksi({
         {indeks < total - 1 ? (
           <Button
             type="button"
-            className="gap-1.5 rounded-xl bg-emerald-800 px-6 py-2.5 font-semibold text-white hover:bg-emerald-900"
+            className="h-11 gap-1.5 rounded-xl bg-emerald-800 px-6 py-2.5 font-semibold text-white hover:bg-emerald-900"
             disabled={busy || !bolehLanjut}
             onClick={onLanjut}
           >
@@ -690,7 +682,7 @@ export function KycBarisAksi({
         ) : null}
 
         {tampilkanAjukan && bolehAjukan && (
-          <Button type="button" className="gap-1.5" disabled={busy} onClick={onAjukan}>
+          <Button type="button" className="h-11 gap-1.5" disabled={busy} onClick={onAjukan}>
             <ShieldCheck className="size-4" />
             {labelAjukan}
           </Button>
@@ -700,7 +692,10 @@ export function KycBarisAksi({
           <Button
             type="button"
             variant="outline"
-            className="gap-1.5"
+            // Labelnya satu kalimat penuh, jadi tombol ini boleh membungkus dan
+            // menyusut: `whitespace-nowrap` + `shrink-0` bawaan tombol membuatnya
+            // melampaui tepi kartu di layar sempit.
+            className="h-auto min-h-11 shrink gap-1.5 whitespace-normal py-2 text-left"
             disabled={busy}
             onClick={onBukaKurang}
           >
@@ -775,7 +770,7 @@ export function KycKeputusanAlert({
   );
 }
 
-/** Riwayat perubahan status — waktu, aktor, alasan, catatan. */
+/** Riwayat perubahan status, waktu, aktor, alasan, catatan. */
 export function KycRiwayatList({ riwayat }: { riwayat: RiwayatKycTampil[] }) {
   if (riwayat.length === 0) {
     return (
@@ -841,14 +836,8 @@ const SARAN_BANK_DAN_EWALLET = [
 ] as const;
 
 /**
- * Petunjuk foto sebagai akordeon yang tertutup sejak awal.
- *
- * Alasannya: petunjuk ini duduk persis di samping kolom unggah dan panjangnya
- * empat sampai lima butir, jadi dalam keadaan selalu terbuka ia mengambil ruang
- * besar dari satu-satunya hal yang perlu dikerjakan nasabah di tahap ini (mengunggah
- * foto). Judulnya menyebut jumlah langkahnya, jadi yang belum pernah mengunggah
- * tahu isinya bukan sekadar hiasan. Isinya tetap satu-satunya sumber petunjuk —
- * tidak ada versi ringkas yang berbeda agar dua tempat tidak bisa berbeda arti.
+ * Petunjuk foto sebagai akordeon tertutup: di tahap ini ruangnya dipakai lebih
+ * dulu untuk mengunggah, dan isinya tetap satu sumber dengan `petunjukTahap`.
  */
 export function KycPetunjukFoto({ tahapId }: { tahapId: IdTahapKyc }) {
   const petunjuk = petunjukTahap(tahapId);
@@ -860,7 +849,7 @@ export function KycPetunjukFoto({ tahapId }: { tahapId: IdTahapKyc }) {
       className="rounded-xl border border-border bg-muted/40 px-3"
     >
       <AccordionItem value="petunjuk" className="border-b-0">
-        <AccordionTrigger className="py-2.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground hover:no-underline">
+        <AccordionTrigger className="py-2.5 text-xs font-semibold text-muted-foreground hover:no-underline">
           <span className="flex items-center gap-1.5">
             <Camera className="size-3.5" aria-hidden /> Petunjuk foto ({petunjuk.length} langkah)
           </span>
@@ -885,7 +874,7 @@ export function KycPetunjukFoto({ tahapId }: { tahapId: IdTahapKyc }) {
           </ul>
           <p className="mt-2 border-t border-border pt-2 text-[10px] leading-4 text-muted-foreground">
             Aplikasi hanya memeriksa format (JPG/PNG/WEBP), ukuran, dan keterbacaan berkas. Keaslian
-            KTP tidak ditentukan dari format atau kualitas gambar — penilaian akhir tetap pada
+            KTP tidak ditentukan dari format atau kualitas gambar, penilaian akhir tetap pada
             petugas.
           </p>
         </AccordionContent>
@@ -900,7 +889,7 @@ export function KycPetunjukFoto({ tahapId }: { tahapId: IdTahapKyc }) {
  *
  * Sengaja komponen terpisah: di `KycSection` ada cabang "sedang memuat" sebelum
  * JSX, dan hook yang ditulis setelah cabang seperti itu membuat jumlah hook
- * berbeda antara render termuat dan belum termuat — pelanggaran aturan hook.
+ * berbeda antara render termuat dan belum termuat, pelanggaran aturan hook.
  */
 function JudulTahap({ nomor, judul }: { nomor: number; judul: string }) {
   const ref = useRef<HTMLHeadingElement | null>(null);
@@ -928,7 +917,7 @@ type SlotBerkasUi = "ktp" | "selfie" | "bukti";
 
 /**
  * Pratinjau berkas yang dipilih pengguna tetapi BELUM tersimpan di server.
- * `url` adalah URL objek lokal (`URL.createObjectURL`) — hanya hidup di tab ini,
+ * `url` adalah URL objek lokal (`URL.createObjectURL`), hanya hidup di tab ini,
  * tidak pernah dikirim ke mana pun, dan dibersihkan saat berkas diganti atau
  * halaman ditinggalkan. `null` bila browser tidak mendukungnya.
  */
@@ -939,7 +928,7 @@ type BerkasDraft = DokumenTerunggah & { file?: File };
 
 /** Isian yang sudah disunting pengguna tetapi belum tersimpan. */
 type DraftKyc = {
-  /** Stempel data tersimpan saat draft dibuat — draft diabaikan bila server berubah. */
+  /** Stempel data tersimpan saat draft dibuat, draft diabaikan bila server berubah. */
   stempel: string;
   isian: IsianKycLengkap;
   berkas: Record<SlotBerkasUi, BerkasDraft | null>;
@@ -955,19 +944,19 @@ export function KycSection() {
   const periksa = useAction(api.berkasIdentitas.periksaIsiBerkasKyc);
   // OTP WhatsApp: satu-satunya jalur verifikasi nomor, dijalankan mesin OTP di
   // server (`convex/otpWhatsapp.ts`). Halaman ini tidak pernah memegang token
-  // maupun memanggil gateway — hanya meminta kode dan mengirim kode yang diketik.
+  // maupun memanggil gateway, hanya meminta kode dan mengirim kode yang diketik.
   const mintaOtp = useAction(api.otpWhatsapp.mintaOtpWa);
   const verifikasiOtp = useMutation(api.otpWhatsapp.verifikasiOtpWa);
 
   const [draft, setDraft] = useState<DraftKyc | null>(null);
   /** Pratinjau berkas yang baru dipilih (belum tersimpan) per slot. */
   const [pratinjau, setPratinjau] = useState<Partial<Record<SlotBerkasUi, PratinjauLokal>>>({});
-  // Berkas KTP yang sedang dipilih — dipegang terpisah supaya OCR bisa dibaca
+  // Berkas KTP yang sedang dipilih, dipegang terpisah supaya OCR bisa dibaca
   // dari berkas asli di perangkat (tidak perlu bolak-balik ke storage).
   const [fileKtp, setFileKtp] = useState<File | null>(null);
   // Snapshot OCR KTP terakhir (hasil mesin, apa adanya). Dikirim bareng simpanan
   // supaya mesin keputusan otomatis di server bisa menilai keterbacaan & kecocokan
-  // teks KTP — snapshot mewakili APA yang dibaca mesin, bukan yang dikoreksi.
+  // teks KTP, snapshot mewakili APA yang dibaca mesin, bukan yang dikoreksi.
   const [ocrKtp, setOcrKtp] = useState<{
     konfidensi: number;
     nik: string | null;
@@ -993,7 +982,7 @@ export function KycSection() {
   /** Isian hasil gabungan draft (server selalu menang); null bila tak ada draft. */
   const [isianDipulihkan, setIsianDipulihkan] = useState<IsianDraftKyc | null>(null);
   /**
-   * Menandai penyimpanan progres yang sedang berjalan — bukan semua aksi.
+   * Menandai penyimpanan progres yang sedang berjalan, bukan semua aksi.
    * Baris aksi memakainya untuk menulis "Menyimpan…", dan itu tidak boleh
    * menyala saat pengguna sedang memverifikasi OTP atau mengunggah berkas.
    */
@@ -1007,7 +996,7 @@ export function KycSection() {
 
   // --- Draft lokal (anti-data-loss) ---
   // Kunci penyimpanan per pengguna. Tanpa pengguna yang diketahui, draft tidak
-  // ditulis sama sekali — lebih baik kehilangan draft daripada mencampurnya
+  // ditulis sama sekali, lebih baik kehilangan draft daripada mencampurnya
   // dengan akun lain di perangkat yang sama.
   const { user } = useAuth();
   const stempelAwal = data === undefined ? "" : `${data.adaBaris}:${data.diperbaruiPada ?? 0}`;
@@ -1017,7 +1006,7 @@ export function KycSection() {
   const { pulihkan: pulihkanDraft, bersihkan: bersihkanDraft } = useDraftKyc({
     userId: user?._id ?? "",
     isian: isianUntukDraft,
-    // Selama persetujuan belum tercatat, formulir memang terkunci — tidak ada
+    // Selama persetujuan belum tercatat, formulir memang terkunci, tidak ada
     // yang perlu diamankan, dan menulis draft justru bisa memulihkan isian yang
     // belum boleh dipakai.
     aktif: data?.persetujuanAktif === true,
@@ -1140,7 +1129,7 @@ export function KycSection() {
   }, [data, pulihkanDraft]);
 
   // Hitung mundur kirim ulang OTP: satu `setTimeout` per detik, dibatalkan saat
-  // detiknya habis atau komponen berganti tahap — tidak ada interval yang
+  // detiknya habis atau komponen berganti tahap, tidak ada interval yang
   // tertinggal hidup.
   useEffect(() => {
     if (detikUlangOtp === 0) return;
@@ -1169,7 +1158,7 @@ export function KycSection() {
   // ===== Jalur pengajuan cepat (pasca-KYC) =====
   // Identitas sudah TERVERIFIKASI: wizard tujuh tahap tidak lagi ditampilkan,
   // dan pengajuan diajukan dari satu halaman. Semua data identitas diambil dari
-  // baris KYC yang sudah diperiksa petugas — tidak ada yang diketik ulang, dan
+  // baris KYC yang sudah diperiksa petugas, tidak ada yang diketik ulang, dan
   // tidak ada mutasi server baru. Nasabah tetap bisa membuka kembali data KYC-nya
   // (mis. ingin mengganti rekening) lewat tautan di halaman itu.
   if (isKycVerified(dataPasti.status) && !bukaDataKyc) {
@@ -1194,7 +1183,7 @@ export function KycSection() {
   // Draft hanya berlaku untuk data tersimpan yang SAMA: stempel berubah setiap
   // kali server mencatat simpanan baru, sehingga setelah simpan berhasil layar
   // otomatis menampilkan nilai yang benar-benar tersimpan (sudah dinormalkan
-  // server) — tanpa `useEffect` yang bisa menimpa ketikan yang belum disimpan.
+  // server), tanpa `useEffect` yang bisa menimpa ketikan yang belum disimpan.
   const stempelServer = `${dataPasti.adaBaris}:${dataPasti.diperbaruiPada ?? 0}:${dataPasti.persetujuan?.versi ?? "-"}`;
   const draftAktif = draft !== null && draft.stempel === stempelServer ? draft : null;
   // Urutan kepercayaan: ketikan pengguna (`draftAktif`) → isian server yang sudah
@@ -1239,7 +1228,7 @@ export function KycSection() {
   const kurangTahap = kekuranganLokalTahap(tahap.id, isian, berkasUntukStatus);
   const indeks = TAHAPAN_KYC.findIndex((t) => t.id === tahap.id);
   // Tombol "ajukan" hanya aktif bila transisinya memang SAH menurut
-  // `lib/kycStatus.ts` — bukan sekadar "isian lengkap". Dengan begitu nasabah
+  // `lib/kycStatus.ts`, bukan sekadar "isian lengkap". Dengan begitu nasabah
   // tidak pernah diantar ke tombol yang pasti ditolak server: setelah DITOLAK
   // ia harus menyunting data dulu (pengajuan dimulai ulang), dan setelah
   // TERVERIFIKASI tidak ada lagi yang perlu diajukan.
@@ -1276,7 +1265,7 @@ export function KycSection() {
   /**
    * Normalisasi nomor WhatsApp SAAT DIKETIK: `08xxx` (dan `8xxx`) langsung
    * disimpan sebagai `628xxx`, jadi peminjam tidak perlu menghapus nol di depan
-   * sendiri — sumber kesalahan format yang paling sering. Hanya digit yang
+   * sendiri, sumber kesalahan format yang paling sering. Hanya digit yang
    * diterima, dan bentuk `62…` yang sudah benar dibiarkan apa adanya.
    */
   const ubahNomorWa = (mentah: string) => {
@@ -1325,7 +1314,7 @@ export function KycSection() {
   /**
    * Terapkan hasil OCR ke draf formulir. Nilai yang tidak terbaca TIDAK
    * menimpa isian yang sudah ada, dan pengguna tetap bisa mengoreksi kolomnya
-   * sebelum menyimpan — OCR tidak pernah menyimpan sendiri ke server.
+   * sebelum menyimpan, OCR tidak pernah menyimpan sendiri ke server.
    */
   const terapkanOcrKtp = (ktp: DataKtp) => {
     setDraft({
@@ -1414,7 +1403,7 @@ export function KycSection() {
       const hasil = await ajukan({});
       // Mesin hanya menerapkan VERIFIED sendiri. Hasil lain (ada yang gagal /
       // belum bisa dipastikan) DICATAT sebagai bahan peninjauan, jadi statusnya
-      // tetap menunggu petugas — pesannya pun tidak menjanjikan perbaikan
+      // tetap menunggu petugas, pesannya pun tidak menjanjikan perbaikan
       // otomatis, hanya menunjuk pemeriksaan yang gagal.
       if (hasil.status === "VERIFIED") {
         toast.success(
@@ -1448,7 +1437,7 @@ export function KycSection() {
 
   /**
    * Minta kode OTP ke nomor yang TERSIMPAN. Server menolak (dan itu memang
-   * benar) bila nomor belum tersimpan atau permintaan terlalu sering — pesannya
+   * benar) bila nomor belum tersimpan atau permintaan terlalu sering, pesannya
    * ditampilkan apa adanya.
    */
   const kirimKodeOtp = async () => {
@@ -1559,7 +1548,7 @@ export function KycSection() {
             <BadgeCheck className="size-3.5 shrink-0" aria-hidden /> Identitas terverifikasi
           </p>
           <p className="mt-1">
-            Status ini dikonfirmasi server: identitas Anda sudah diperiksa petugas — bukan
+            Status ini dikonfirmasi server: identitas Anda sudah diperiksa petugas, bukan
             persetujuan pinjaman dan bukan bukti dana cair. Mengubah nama, NIK, atau berkas
             identitas akan memicu verifikasi ulang.
           </p>
@@ -1726,7 +1715,7 @@ export function KycSection() {
                     </p>
                     <p className="mt-1">
                       {waktu(data.persetujuan?.pada ?? null)} · versi teks{" "}
-                      {data.persetujuan?.versi ?? "—"}. Menarik persetujuan dapat dilakukan lewat tim
+                      {data.persetujuan?.versi ?? "tidak tercatat"}. Menarik persetujuan dapat dilakukan lewat tim
                       PINDAI dan berarti pengajuan KYC tidak dapat dilanjutkan.
                     </p>
                   </div>
@@ -1898,10 +1887,8 @@ export function KycSection() {
                     label={`${LABEL_SLOT_BERKAS[slotDokumen]} tersimpan`}
                   />
                 )}
-                {/* Petunjuk menyusul SETELAH kolom unggah dan hasilnya: nasabah
-                    lebih dulu melihat tempat menaruh fotonya, lalu membuka
-                    petunjuknya bila perlu. Peringatan "sesuai petunjuk di atas"
-                    di bawah tetap menunjuk ke tempat yang benar. */}
+                {/* Petunjuk di bawah kolom unggah supaya peringatan "sesuai
+                    petunjuk di atas" tetap menunjuk ke tempat yang benar. */}
                 <KycPetunjukFoto tahapId={tahap.id} />
                 {statusPerTahap[tahap.id] === "perlu-diperbaiki" && (
                   <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] leading-4 text-amber-900">
@@ -1939,7 +1926,7 @@ export function KycSection() {
                 />
                 <FieldDescription>
                   Diawali kode negara 62 tanpa tanda +. Petugas memakai nomor ini untuk menghubungi
-                  Anda soal pengajuan — nomor tidak ditampilkan ke pengguna lain
+                  Anda soal pengajuan, nomor tidak ditampilkan ke pengguna lain
                   {isian.nomorWhatsApp.trim() === "" ? "" : ` (tersimpan sebagai ${maskWhatsApp(isian.nomorWhatsApp)})`}.
                 </FieldDescription>
               </Field>
@@ -1972,7 +1959,7 @@ export function KycSection() {
                   {normalisasiNomorWa(isian.nomorWhatsApp) !==
                   normalisasiNomorWa(data.isian.nomorWhatsApp) ? (
                     <p className="mt-2 text-[11px] leading-5 text-amber-700">
-                      Simpan dulu nomor di atas, lalu kirim kode verifikasi — kode hanya berlaku untuk
+                      Simpan dulu nomor di atas, lalu kirim kode verifikasi, kode hanya berlaku untuk
                       nomor yang tersimpan.
                     </p>
                   ) : (
@@ -2247,7 +2234,7 @@ export function KycSection() {
                 </div>
               )}
 
-            {/* ===== Baris aksi ===== */}
+            {/* Aksi utama tahap ini. */}
             <KycBarisAksi
               busy={busy}
               menyimpan={menyimpan}
@@ -2283,7 +2270,7 @@ export function KycSection() {
 }
 
 /**
- * KOTAK HASIL PEMERIKSAAN OTOMATIS — sisi nasabah.
+ * KOTAK HASIL PEMERIKSAAN OTOMATIS, sisi nasabah.
  *
  * Menampilkan waktu, alasan, hasil SETIAP pemeriksaan, versi aturan, sumber, dan
  * pelakunya. Yang tidak boleh hilang: keterangan bahwa hasil yang belum
@@ -2309,7 +2296,7 @@ export function KycPemeriksaanOtomatis({
           kalimat ini, nasabah bisa menyangka statusnya sudah diputuskan mesin. */}
       {!keputusan.diterapkan && (
         <p className="mt-1 text-[11px] leading-5 text-muted-foreground">
-          Hasil ini <strong>belum mengubah status</strong> — pengajuan tetap menunggu keputusan
+          Hasil ini <strong>belum mengubah status</strong>, pengajuan tetap menunggu keputusan
           petugas. Perbaiki hal di bawah lalu kirim ulang untuk diperiksa lagi.
         </p>
       )}

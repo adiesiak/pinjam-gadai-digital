@@ -7,7 +7,7 @@
  * dan daftar riwayat. Yang dijaga:
  *
  *  - SETIAP dari tujuh status tampil dengan label & kalimat penjelasnya dari
- *    `lib/kycStatus.ts` — bukan label yang ditulis ulang di komponen;
+ *    `lib/kycStatus.ts`, bukan label yang ditulis ulang di komponen;
  *  - VERIFIED secara eksplisit menyebut bukan persetujuan pinjaman/pencairan;
  *  - kekurangan isian terlihat sebagai daftar sebelum pengajuan bisa dikirim;
  *  - keputusan yang merugikan selalu menampilkan catatan petugas dan siapa yang
@@ -109,7 +109,7 @@ for (const status of KYC_STATUS) {
     "kartu kesiapan tidak lagi memuat kotak perubahan terakhir",
   );
   // Dua kekurangan di atas keduanya punya tahap, jadi keduanya harus jadi tombol
-  // yang menyebut tahap tujuannya — bukan teks yang harus ditebak sendiri.
+  // yang menyebut tahap tujuannya, bukan teks yang harus ditebak sendiri.
   ok(
     (kurang.match(/aria-label="[^"]+: buka /g) ?? []).length === 2,
     "kekurangan yang punya tahap jadi tombol menuju tahapnya",
@@ -455,6 +455,10 @@ const aksiDasar = {
     "mundur, simpan, dan lanjut mati saat tahap pertama & persetujuan belum tercatat",
   );
   ada(html, "Siap diajukan setelah 3 isian lagi", "tombol gerbang menyebut sisa isian");
+  ada(html, "h-11", "target sentuh baris aksi setinggi 44px, bukan 36px");
+  // `whitespace-nowrap` + `shrink-0` bawaan tombol akan melampaui tepi kartu di
+  // layar 320px, jadi tombol berlabel panjang ini harus boleh membungkus.
+  ada(html, "whitespace-normal", "tombol gerbang boleh membungkus di layar sempit");
   ok(
     !html.includes("Ajukan peninjauan"),
     "label ajukan tidak muncul selagi transisi itu belum sah",
