@@ -255,8 +255,8 @@ export function buildPinjamanContract(
       <li><strong>Ilustrasi cicilan rata: bulan pertama ${formatRupiah(bulanan.cicilanPerBulan)}, bulan terakhir ${formatRupiah(bulanan.cicilanTerakhir)}; total ${formatRupiah(bulanan.totalPengembalian)} untuk ${bulanan.tenorBulan} bulan (sudah termasuk pokok, bunga, dan biaya admin cicilan).</strong> Rincian per bulan: ${bulanan.jadwal.map((angsuran) => `bulan ${angsuran.bulan} ${formatRupiah(angsuran.total)}`).join("; ")}. Jadwal bersifat ilustrasi; perubahan status lunas di aplikasi dicatat sebagai entri ledger.</li>`;
   const pasalKewajiban =
     bulanan === null
-      ? `Kewajiban dilunasi dalam ${tenorHari} hari sejak tanggal pencairan. Pelunasan ditangani di luar aplikasi dan statusnya dicatat tim PINDAI pada ledger internal. Denda keterlambatan 1% per hari dari pokok, maksimum 15%.`
-      : `Cicilan bulanan dibayar sesuai jadwal pada Pasal 2. Setiap perubahan status dicatat pada ledger internal aplikasi. Denda keterlambatan 1% per hari dari pokok, maksimum 15%.`;
+      ? `Kewajiban dilunasi dalam ${tenorHari} hari sejak tanggal pencairan. Pelunasan ditangani di luar aplikasi dan statusnya dicatat tim PINDAI pada ledger internal. Denda keterlambatan 2% per hari dari pokok, maksimum 100%.`
+      : `Cicilan bulanan dibayar sesuai jadwal pada Pasal 2. Setiap perubahan status dicatat pada ledger internal aplikasi. Denda keterlambatan 2% per hari dari pokok, maksimum 100%.`;
   return `
   <div class="contract">
     ${kopSurat("pinjaman", meta)}

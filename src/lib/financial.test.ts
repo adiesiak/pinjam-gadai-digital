@@ -99,19 +99,22 @@ eq(r2.dendaTerlambat, 0, "repayment tepat waktu tanpa denda");
 eq(r2.totalKewajibanDenganPenalti, 13_000_000, "repayment total 130%");
 
 const r3 = calculateRepayment(10_000_000, 30, didanai, jatuhTempo + 10 * 24 * 60 * 60 * 1000);
-eq(r3.dendaTerlambat, 1_000_000, "denda 10 hari × 1% × pokok");
+eq(r3.dendaTerlambat, 2_000_000, "denda 10 hari × 2% × pokok");
 
 const r4 = calculateRepayment(10_000_000, 30, didanai, jatuhTempo + 40 * 24 * 60 * 60 * 1000);
-eq(r4.dendaTerlambat, 1_500_000, "denda di-cap maksimum 15% dari pokok (15 hari × 1%)");
+eq(r4.dendaTerlambat, 8_000_000, "denda 40 hari = 80% dari pokok");
+
+const r4Cap = calculateRepayment(10_000_000, 30, didanai, jatuhTempo + 60 * 24 * 60 * 60 * 1000);
+eq(r4Cap.dendaTerlambat, 10_000_000, "denda di-cap maksimum 100% dari pokok (50 hari × 2%)");
 
 // ---- denda tidak boleh negatif / desimal ----
 const r5 = calculateRepayment(333_333, 30, didanai, jatuhTempo + 1 * 24 * 60 * 60 * 1000);
 eq(
   r5.dendaTerlambat,
-  Math.round(333_333 * 0.01) === Math.floor(333_333 * 0.01) + 1
-    ? Math.floor(333_333 * 0.01) + 1
-    : Math.floor(333_333 * 0.01),
-  "denda 333.333 × 1% dibulatkan half-up",
+  Math.round(333_333 * 0.02) === Math.floor(333_333 * 0.02) + 1
+    ? Math.floor(333_333 * 0.02) + 1
+    : Math.floor(333_333 * 0.02),
+  "denda 333.333 × 2% dibulatkan half-up",
 );
 eq(
   r5.pokok + r5.bunga + r5.dendaTerlambat,

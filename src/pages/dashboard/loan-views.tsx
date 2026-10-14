@@ -363,7 +363,7 @@ function ActiveLoanCard({
           />
           {terlambat && (
             <p className="mt-2 text-xs text-destructive">
-              Denda: {formatRupiah(loan.pelunasan.dendaTerlambat)} (1%/hari, maks 15%)
+              Denda: {formatRupiah(loan.pelunasan.dendaTerlambat)} (2%/hari, maks 100%)
             </p>
           )}
         </div>

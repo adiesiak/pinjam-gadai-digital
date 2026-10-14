@@ -651,7 +651,7 @@ const RINGKASAN_SYARAT: Array<{ judul: string; isi: string; Icon: typeof Scale }
   },
   {
     judul: "Keputusan & pelunasan",
-    isi: "Persetujuan pengajuan bukan jaminan pencairan. Keterlambatan dikenai denda 1% per hari dari pokok (maksimum 15%).",
+    isi: "Persetujuan pengajuan bukan jaminan pencairan. Keterlambatan dikenai denda 2% per hari dari pokok (maksimum 100%).",
     Icon: Scale,
   },
 ];

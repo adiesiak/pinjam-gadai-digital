@@ -1269,7 +1269,7 @@ export function LoanForm({
               "PINDAI mencatat pengajuan, perhitungan, dan status — bukan memindahkan dana.",
               "Bunga flat 30% dari pokok dan biaya dipotong di muka sesuai tenor yang dipilih.",
               "Persetujuan pengajuan bukan jaminan pencairan; keputusan dibuat tim PINDAI dan tercatat pada audit trail.",
-              "Keterlambatan dikenai denda 1% per hari dari pokok (maksimum 15%).",
+              "Keterlambatan dikenai denda 2% per hari dari pokok (maksimum 100%).",
               "Data dan dokumen yang Anda kirim hanya dibuka oleh akun Anda dan tim PINDAI.",
             ].map((item) => (
               <li key={item} className="flex gap-2">

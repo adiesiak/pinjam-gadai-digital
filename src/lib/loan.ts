@@ -63,16 +63,16 @@ export const DEFAULT_TENOR_HARI: Tenor = 30;
 
 /**
  * Kebijakan denda keterlambatan (dihitung server, integer exact):
- * - 1% dari pokok pinjaman per hari keterlambatan;
- * - dibatasi maksimum 15% dari pokok (15 hari terlambat).
+ * - 2% dari pokok pinjaman per hari keterlambatan;
+ * - dibatasi maksimum 100% dari pokok (50 hari terlambat). 
  * Tidak ada grace period: jatuh tempo dilewati satu hari penuh = denda 1 hari.
  */
 export const LATE_FEE_POLICY = {
-  percentPerDay: 1,
-  maxPercent: 15,
+  percentPerDay: 2,
+  maxPercent: 100,
 } as const;
 
-/** Persen keterlambatan maksimum = 15% / 1% per hari = 15 hari. */
+/** Hari denda maksimum = cap denda dibagi persentase denda harian. */
 export const MAX_LATE_DAYS = Math.floor(
   LATE_FEE_POLICY.maxPercent / LATE_FEE_POLICY.percentPerDay,
 );
@@ -198,7 +198,7 @@ export interface RepaymentQuote extends LoanQuote {
  * Hitung kewajiban pelunasan live untuk pinjaman yang sudah didanai.
  * Semua turunan (jatuh tempo, keterlambatan, denda) dihitung dari data
  * tersimpan — tidak pernah diinput klien — dengan aritmetika integer exact:
- * denda = pokok × (1% × hari) dibulatkan HALF-UP per rupiah.
+ * denda = pokok × (2% × hari) dibulatkan HALF-UP per rupiah.
  */
 export function calculateRepayment(
   pokok: Rupiah,
@@ -219,8 +219,7 @@ export function calculateRepayment(
   const sisaHari = Math.max(0, Math.ceil(sisaMs / DAY_MS));
   const hariTerlambat = Math.max(0, Math.floor(-sisaMs / DAY_MS));
 
-  // Denda: 1% × pokok × hari, di-cap 15% dari pokok. percentOf menangani
-  // pembulatan HALF-UP; hari di-cap dulu agar hasil selalu dalam batas bisnis.
+  // Denda: 2% × pokok × hari, di-cap 100% dari pokok. Hari di-cap dulu agar hasil tidak melewati kebijakan.
   const hariDenda = Math.min(hariTerlambat, MAX_LATE_DAYS);
   const dendaTerlambat =
     hariDenda === 0
@@ -266,7 +265,7 @@ export const BULAN_MS = 30 * 86_400_000;
 /**
  * Turunan pelunasan live untuk pinjaman yang sudah didanai. Skema bulanan
  * memakai total cicilan dari lib/bulanan dan denda flat yang sama
- * (1% pokok/hari, cap 15%). Mengembalikan null bila belum didanai.
+ * (2% pokok/hari, cap 100%). Mengembalikan null bila belum didanai.
  */
 export function pelunasanPinjaman(
   loan: {
@@ -394,7 +393,7 @@ export function loanStatusMeta(status: LoanStatus): {
       return {
         label: "Disalurkan",
         description:
-          "Dana ditandai tersalurkan pada ledger internal. Tombol pelunasan mencatat perubahan status dan seluruh kewajiban sekaligus. Keterlambatan menambah perhitungan denda 1% per hari dari pokok (maksimum 15%).",
+          "Dana ditandai tersalurkan pada ledger internal. Tombol pelunasan mencatat perubahan status dan seluruh kewajiban sekaligus. Keterlambatan menambah perhitungan denda 2% per hari dari pokok (maksimum 100%).",
       };
     case "lunas":
       return {
