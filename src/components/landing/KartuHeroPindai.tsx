@@ -14,12 +14,14 @@ export interface BatikPatternProps {
 }
 
 export function BatikPattern({
-  warna = "#5b9bd5",
-  opacity = 0.15,
+  warna = "#1884e8",
+  opacity = 0.9,
   className,
 }: BatikPatternProps) {
   const id = `mega-mendung-${useId().replace(/[^a-zA-Z0-9]/g, "")}`;
-  const opacityAman = Math.min(0.2, Math.max(0, opacity));
+  const opacityAman = Math.min(1, Math.max(0, opacity));
+  const bentukAwan =
+    "M-32 76C-12 76-5 66-6 54C-7 40 3 32 14 35C25 38 26 51 18 56C12 60 5 55 9 48C3 50 1 57 5 63C12 73 25 72 36 64C47 55 43 45 56 40C69 36 78 46 92 40C107 34 112 18 103 10C94 2 80 8 81 17C82 24 91 26 95 19C95 30 82 35 71 29C58 22 46 25 35 33C24 20 9 21-2 27C-17 35-23 52-17 66C-20 72-26 75-32 75Z";
 
   return (
     <svg
@@ -32,18 +34,58 @@ export function BatikPattern({
       preserveAspectRatio="none"
     >
       <defs>
-        <pattern id={id} width="180" height="120" patternUnits="userSpaceOnUse">
-          <g
-            fill="none"
-            stroke={warna}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth="1.6"
-          >
-            <path d="M-18 82c18 0 22-13 22-25 0-15 10-25 25-25s25 10 25 25c0-21 14-35 34-35s34 14 34 35c0-15 10-25 25-25s25 10 25 25c0 12 4 25 22 25" />
-            <path d="M-18 91c25 0 32-17 32-34 0-11 7-18 18-18s18 7 18 18c0-25 17-42 42-42s42 17 42 42c0-11 7-18 18-18s18 7 18 18c0 17 7 34 32 34" />
-            <path d="M-18 100c31 0 42-21 42-43 0-7 4-11 11-11s11 4 11 11c0-30 21-50 50-50s50 20 50 50c0-7 4-11 11-11s11 4 11 11c0 22 11 43 42 43" />
-            <path d="M18 69c10-2 15-9 15-18 0-8 5-13 13-13M162 69c-10-2-15-9-15-18 0-8-5-13-13-13" />
+        <pattern id={id} width="240" height="170" patternUnits="userSpaceOnUse">
+          <g transform="translate(12 8)">
+            <path
+              d={bentukAwan}
+              fill="#0d55b6"
+              stroke="#62c4ff"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth="5"
+            />
+            <path
+              d={bentukAwan}
+              fill="none"
+              stroke="#effaff"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth="1.8"
+            />
+            <path
+              d="M13 61C5 53 9 44 16 45C22 46 22 52 18 54C14 55 12 51 15 49M72 28C66 21 69 13 76 13C82 13 83 19 79 21C76 22 74 19 76 17"
+              fill="none"
+              stroke="#a4e5ff"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth="2.6"
+            />
+          </g>
+          <g transform="translate(232 166) rotate(180) scale(0.78)">
+            <path
+              d={bentukAwan}
+              fill="#104aab"
+              stroke="#59b9f4"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth="5"
+            />
+            <path
+              d={bentukAwan}
+              fill="none"
+              stroke="#e5f7ff"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth="1.8"
+            />
+            <path
+              d="M13 61C5 53 9 44 16 45C22 46 22 52 18 54C14 55 12 51 15 49M72 28C66 21 69 13 76 13C82 13 83 19 79 21C76 22 74 19 76 17"
+              fill="none"
+              stroke="#9bdcff"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth="2.6"
+            />
           </g>
         </pattern>
       </defs>
@@ -54,7 +96,7 @@ export function BatikPattern({
 
 function CardWordmark() {
   return (
-    <span className="font-sans text-lg font-semibold leading-none tracking-[0.24em] text-emerald-700">
+    <span className="font-sans text-lg font-semibold leading-none tracking-[0.24em] text-white">
       PINDAI
     </span>
   );
@@ -77,7 +119,7 @@ function MastercardMark() {
       </svg>
       <span
         aria-hidden="true"
-        className="mt-0.5 text-[7px] font-semibold text-[#1c1a15]"
+        className="mt-0.5 text-[7px] font-semibold text-white"
         style={{ fontFamily: '"Mark for MC", Helvetica, Arial, sans-serif' }}
       >
         mastercard
@@ -88,7 +130,7 @@ function MastercardMark() {
 
 function PindaiCardMark() {
   return (
-    <span className="inline-flex items-center gap-1.5 text-[8px] font-semibold tracking-[0.12em] text-emerald-800">
+    <span className="inline-flex items-center gap-1.5 text-[8px] font-semibold tracking-[0.12em] text-white">
       <svg
         aria-hidden="true"
         viewBox="0 0 28 14"
@@ -452,16 +494,14 @@ export function PindaiCard3D({ className }: KartuHeroPindaiProps) {
         <article
           aria-hidden="true"
           data-kartu="pindai-hero"
-          className="relative isolate aspect-[1.586/1] w-full overflow-hidden rounded-[4.5%] border border-[#c9a86a]/55 bg-white/90 p-5 text-[#1c1a15] shadow-[0_20px_45px_-26px_rgba(28,26,21,0.45),inset_0_1px_1px_rgba(255,255,255,0.7),inset_0_-1px_1px_rgba(28,26,21,0.06)] ring-1 ring-[#c9a86a]/35 ring-offset-2 ring-offset-white/60 backdrop-blur-2xl sm:p-6"
+          className="relative isolate aspect-[1.586/1] w-full overflow-hidden rounded-[4.5%] border border-[#91d9ff]/70 bg-[#07184f] p-5 text-white shadow-[0_20px_45px_-26px_rgba(5,12,45,0.7),inset_0_1px_1px_rgba(255,255,255,0.22),inset_0_-1px_1px_rgba(0,0,0,0.35)] ring-1 ring-[#91d9ff]/45 ring-offset-2 ring-offset-white/60 sm:p-6"
           style={{
             transformStyle: "preserve-3d",
             background:
-              "linear-gradient(135deg, rgba(255,255,255,0.94), rgba(241,237,227,0.92))",
-            backdropFilter: "blur(24px)",
-            WebkitBackdropFilter: "blur(24px)",
+              "linear-gradient(135deg, #102d86 0%, #07184f 48%, #06133f 100%)",
           }}
         >
-          <BatikPattern warna="#5b9bd5" opacity={0.15} />
+          <BatikPattern warna="#1884e8" opacity={0.9} />
           <svg
             aria-hidden="true"
             className="pointer-events-none absolute inset-0 size-full opacity-[0.035]"
@@ -519,17 +559,17 @@ export function PindaiCard3D({ className }: KartuHeroPindaiProps) {
                   "translate3d(var(--layer-x, 0px), var(--layer-y, 0px), 15px)",
               }}
             >
-              <p className="text-[10px] font-semibold uppercase tracking-[0.13em] text-[#1c1a15] sm:text-xs">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.13em] text-white sm:text-xs">
                 BUDI SANTOSO
               </p>
               <div className="mt-2 flex items-end justify-between gap-2">
                 <div className="min-w-0">
-                  <p className="font-mono text-xs tabular-nums tracking-[0.12em] text-emerald-800 sm:text-sm">
+                  <p className="font-mono text-xs tabular-nums tracking-[0.12em] text-white sm:text-sm">
                     {NOMOR_TAMPILAN}
                   </p>
-                  <p className="mt-1 text-[8px] font-medium tracking-[0.12em] text-slate-600">
+                  <p className="mt-1 text-[8px] font-medium tracking-[0.12em] text-white/80">
                     BERLAKU SAMPAI{" "}
-                    <span className="font-mono text-slate-900">12/29</span>
+                    <span className="font-mono text-white">12/29</span>
                   </p>
                 </div>
                 <PindaiCardMark />

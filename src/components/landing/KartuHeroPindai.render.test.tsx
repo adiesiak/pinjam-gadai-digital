@@ -1,5 +1,5 @@
 /**
- * Uji render kartu hero PINDAI: Mega Mendung biru langit di atas kaca kertas hangat.
+ * Uji render kartu hero PINDAI: Mega Mendung biru bertingkat di atas nila gelap.
  * Run: bun src/components/landing/KartuHeroPindai.render.test.tsx
  *
  * Yang dijaga (tanpa browser — render statis):
@@ -38,7 +38,7 @@ function bersih(html: string, label: string): void {
   ok(!html.includes("[object Object]"), `${label} tanpa "[object Object]"`);
 }
 
-// ===== 1. Wadah utama, kertas berkaca, tepi kuningan =====
+// ===== 1. Wadah utama, dasar nila, kontur biru muda =====
 {
   const html = renderToStaticMarkup(<PindaiCard3D />);
   ada(html, "aspect-[1.586/1]", "rasio ISO ID-1 diterapkan pada semua ukuran");
@@ -48,11 +48,11 @@ function bersih(html: string, label: string): void {
     "lebar kartu dibatasi pada ponsel dan desktop",
   );
   ada(html, "rounded-[4.5%]", "radius kartu mengikuti spesifikasi fisik");
-  ada(html, "border-[#c9a86a]/55", "bingkai kartu bertepi kuningan");
-  ada(html, "bg-white/90", "permukaan kartu kertas berkaca");
-  ada(html, "backdrop-blur-2xl", "kartu memakai efek blur kaca");
-  ada(html, "rgba(241,237,227,0.92)", "permukaan memakai gradasi kertas gading");
-  ada(html, "ring-[#c9a86a]/35", "bingkai luar kuningan terlihat");
+  ada(html, "border-[#91d9ff]/70", "bingkai kartu bertepi biru muda");
+  ada(html, "bg-[#07184f]", "permukaan kartu memakai dasar nila gelap");
+  ada(html, "#102d86", "permukaan memakai gradasi biru bertingkat");
+  ada(html, "#06133f", "gradasi berakhir pada nila pekat");
+  ada(html, "ring-[#91d9ff]/45", "bingkai luar biru muda terlihat");
   ada(html, "ring-offset-2", "celah ring ganda dipertahankan");
   // Permukaan gelap lama harus benar-benar hilang, bukan sekadar ditimpa.
   tidakAda(html, "bg-slate-950/90", "permukaan obsidian tidak dipakai lagi");
@@ -66,7 +66,7 @@ function bersih(html: string, label: string): void {
   bersih(html, "kartu bawaan");
 }
 
-// ===== 2. Motif batik Mega Mendung biru langit, halus, dan berulang =====
+// ===== 2. Motif Mega Mendung biru bertingkat dengan kontur putih =====
 {
   const html = renderToStaticMarkup(<PindaiCard3D />);
   ada(
@@ -74,15 +74,19 @@ function bersih(html: string, label: string): void {
     "mega-mendung-",
     "SVG memakai pola Mega Mendung berulang dengan id unik",
   );
-  ada(html, 'opacity="0.15"', "motif Mega Mendung dibatasi ke opasitas rendah");
-  ada(html, "#5b9bd5", "motif memakai garis biru langit");
+  ada(html, 'opacity="0.9"', "motif biru pekat mengikuti referensi visual");
+  ada(html, "#1884e8", "motif memakai warna biru langit");
+  ada(html, "#0d55b6", "awan memakai bidang biru tua");
+  ada(html, "#62c4ff", "kontur awan memakai biru muda terang");
+  ada(html, "#effaff", "garis tepi putih memperjelas motif");
   ada(
     html,
     'patternUnits="userSpaceOnUse"',
     "motif dipasang sebagai pola berulang",
   );
-  ada(html, "M-18 82c18 0", "kontur awan Mega Mendung dirender");
-  ada(html, "M-18 91c25 0", "lapisan awan berulang menjaga karakter Mega Mendung");
+  ada(html, "M-32 76C-12 76", "bentuk awan Mega Mendung berlekuk dirender");
+  ada(html, "M95 30", "awan memiliki pusaran khas Mega Mendung");
+  ada(html, "#a4e5ff", "pusaran mendapat kontur biru es");
   tidakAda(html, "batik-kawung-", "motif Kawung sudah tidak dipakai");
   ada(
     html,
@@ -117,6 +121,7 @@ function bersih(html: string, label: string): void {
   const html = renderToStaticMarkup(<PindaiCard3D />);
   ada(html, 'viewBox="0 0 56 42"', "chip kuningan ditampilkan");
   ada(html, "#F6E27A", "chip memakai gradien emas");
+  ada(html, "text-white", "wordmark dan data kartu tetap kontras di atas nila");
   ada(html, "M8 9a4 4 0 0 1 0 6", "ikon contactless ditampilkan");
   bersih(html, "chip");
 }
