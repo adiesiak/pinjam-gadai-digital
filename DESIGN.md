@@ -7,7 +7,7 @@ This file supplies explicit, intentional visual direction for PINDAI. anti-slop 
 
 Theme: Warm Paper, Polished Brass, & Double Line Glow
 
-PINDAI is a premium, high-security fintech platform. The visual identity bridges Indonesian heritage (Batik Kawung) with layered paper-and-glass financial UI.
+PINDAI is a premium, high-security fintech platform. The visual identity bridges Indonesian heritage (Batik Mega Mendung) with layered paper-and-glass financial UI.
 
 Primary Persona: High-end wealth tracking, credit asset verification, and super-admin ledger control.
 
@@ -61,7 +61,7 @@ Skala utilitas Tailwind di proyek ini dipetakan ulang per preset, jadi kelas nam
 - Aspect Ratio: Standard credit card aspect ratio (`aspect-[1.586/1]`).
 - Frame: Rounded-2xl dengan garis ganda kuningan (ring luar + celah kertas di dalamnya), bukan pendaran emerald.
 - Surface: Kertas gading berkaca (`linear-gradient(135deg, rgba(255,255,255,0.94) → rgba(241,237,227,0.92))` + blur 24px) dengan garis kuningan dan pantulan lembut.
-- Texture Pattern: Kawung (`#c9a86a` kuningan, titik pusat `#1f6a62` petrol, opasitas 15%). Empat kelopak lonjong mengitari titik pusat dalam petak 64 × 64 yang berulang dan bersambung; motif geometris ini menjadi tekstur warisan yang halus agar data kartu tetap mudah dibaca.
+- Texture Pattern: Mega Mendung biru langit (`#5b9bd5`, opasitas 15%). Lengkung awan bertingkat memakai garis luar dan garis kontur berulang dalam unit 180 × 120; teksturnya halus agar data kartu tetap mudah dibaca.
 
 Card Details:
 
@@ -87,4 +87,4 @@ Card Details:
 - No Generic Cards, and glass stays at the focal point (keputusan pemilik): kaca kertas cerah + garis ganda kuningan hanya untuk **satu titik fokus per layar** (mis. kartu hero, atau satu kartu angka utama). Kartu lain memakai permukaan padat, tanpa blur dan tanpa pendaran; garis emerald tipis boleh tetap ada sebagai penanda batas. Teknik kaca/glow di tempat lain harus punya alasan tertulis, bukan diulang karena resep ini ada.
 - No Placeholder Icons: Do not sprinkle unnecessary shopping cart or world icons on credit cards or dashboards.
 - No Mismatched Gradients: Gradients are strictly reserved for Gold metallic finishes (`from-amber-200 via-amber-400 to-amber-600`) and Emerald lighting cues.
-- Authentic Cultural Fusion: motif batik Kawung tetap halus (`opacity-15`), sebagai tekstur latar yang bermakna, bukan grafis yang mendominasi.
+- Authentic Cultural Fusion: motif batik Mega Mendung biru langit tetap halus (`opacity-15`), sebagai tekstur latar yang bermakna, bukan grafis yang mendominasi.

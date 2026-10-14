@@ -1,10 +1,10 @@
 /**
- * Uji render kartu hero PINDAI: Kawung kuningan-petrol di atas kaca kertas hangat.
+ * Uji render kartu hero PINDAI: Mega Mendung biru langit di atas kaca kertas hangat.
  * Run: bun src/components/landing/KartuHeroPindai.render.test.tsx
  *
  * Yang dijaga (tanpa browser — render statis):
  *  1. Token desain yang diminta benar-benar ada di MARKUP: ukuran/rasio kartu,
- *     permukaan gading berkaca, motif Kawung, chip kuningan, ikon
+ *     permukaan gading berkaca, motif Mega Mendung, chip kuningan, ikon
  *     contactless, wordmark, dan data kartu demo.
  *  2. Sisi kanan atas BENAR-BENAR kosong: tidak ada pita holografik/deret ikon
  *     yang dihapus dari desain lama.
@@ -66,25 +66,24 @@ function bersih(html: string, label: string): void {
   bersih(html, "kartu bawaan");
 }
 
-// ===== 2. Motif batik Kawung berulang, halus, dan bersambung =====
+// ===== 2. Motif batik Mega Mendung biru langit, halus, dan berulang =====
 {
   const html = renderToStaticMarkup(<PindaiCard3D />);
   ada(
     html,
-    "batik-kawung-",
-    "SVG memakai pola Kawung berulang dengan id unik",
+    "mega-mendung-",
+    "SVG memakai pola Mega Mendung berulang dengan id unik",
   );
-  ada(html, 'opacity="0.15"', "motif Kawung dibatasi ke opasitas rendah");
-  ada(html, "#c9a86a", "motif memakai garis kuningan");
-  ada(html, "#1f6a62", "titik motif memakai warna petrol");
+  ada(html, 'opacity="0.15"', "motif Mega Mendung dibatasi ke opasitas rendah");
+  ada(html, "#5b9bd5", "motif memakai garis biru langit");
   ada(
     html,
     'patternUnits="userSpaceOnUse"',
     "motif dipasang sebagai pola berulang",
   );
-  ada(html, "rotate(270)", "empat kelopak Kawung mengitari titik pusat");
-  ada(html, "width=\"64\" height=\"64\"", "pola Kawung memakai unit bersambung 64px");
-  tidakAda(html, "mega-mendung-", "motif Mega Mendung sudah tidak dipakai");
+  ada(html, "M-18 82c18 0", "kontur awan Mega Mendung dirender");
+  ada(html, "M-18 91c25 0", "lapisan awan berulang menjaga karakter Mega Mendung");
+  tidakAda(html, "batik-kawung-", "motif Kawung sudah tidak dipakai");
   ada(
     html,
     'preserveAspectRatio="none"',
@@ -165,10 +164,10 @@ function bersih(html: string, label: string): void {
       <PindaiCard3D />
     </>,
   );
-  const id = [...dua.matchAll(/id="(batik-kawung-[A-Za-z0-9]+)"/g)].map(
+  const id = [...dua.matchAll(/id="(mega-mendung-[A-Za-z0-9]+)"/g)].map(
     (m) => m[1],
   );
-  ok(id.length === 2, "setiap kartu merender satu pola Kawung");
+  ok(id.length === 2, "setiap kartu merender satu pola Mega Mendung");
   ok(id[0] !== id[1], "dua kartu memakai id pola batik yang berbeda");
   ada(dua, `url(#${id[0]})`, "rect motif menunjuk pola miliknya sendiri");
   bersih(dua, "dua kartu");
