@@ -3,12 +3,10 @@
  * Run: bun src/components/landing/LandingHero.render.test.tsx
  *
  * Yang dijaga (tanpa browser — render statis):
- *  1. Tidak ada sisa mesin 3D: tanpa `<canvas>`, tanpa panggung tilt
- *     (`.kartu-panggung`/`.kartu-3d`), dan tanpa atribut `data-template` —
- *     fitur template WebGL sudah dicabut, bukan sekadar dimatikan.
- *  2. Permukaan terang: section memakai kertas hangat (`bg-slate-50`), bukan
- *     panggung gelap. Pemisah ke bagian berikutnya milik `FactRibbon`, jadi hero
- *     tidak menggambar garis kedua di bawahnya.
+ *  1. Kartu 3D tetap dibuat lokal tanpa WebGL, dan memakai panggung tilt CSS
+ *     yang sudah ada, bukan template adegan terpisah.
+ *  2. Permukaan terang dengan latar hijau-kertas dan tiga bubble emerald,
+ *     tanpa panggung gelap.
  *  3. Konten tidak bergantung pada apa pun yang bisa gagal dimuat: judul, dua
  *     CTA, catatan mikro, dan poin kepercayaan semuanya ada di markup.
  *  4. Objek merek tetap ada (kartu contoh) berikut pernyataan bahwa nomornya
@@ -66,7 +64,10 @@ ok(!html.includes("hero-laut"), "tanpa kelas hero gelap");
 ok(!/rotate-360|animate-spin/.test(html), "tanpa kelas spin/rotasi 360°");
 
 // ── 2. Permukaan terang, bukan panggung gelap ──
-ok(html.includes("bg-slate-50"), "section memakai kertas hangat (bg-slate-50)");
+ok(
+  html.includes("bg-[#f4f7f5]"),
+  "section memakai latar hijau-kertas yang terang",
+);
 ok(
   !html.includes("border-b border-slate-200"),
   "tanpa garis bawah ganda (pemisah milik FactRibbon)",
@@ -98,7 +99,7 @@ ok(
 );
 ok(
   html.includes("Kartu contoh · bukan alat bayar"),
-  "kartu menyatakan dirinya contoh, bukan alat bayar",
+  "hero menyatakan kartu contoh bukan alat bayar",
 );
 ok(
   html.includes("bg-emerald-200/65"),
@@ -110,7 +111,7 @@ ok(
 );
 ok(html.includes("relative z-10"), "konten hero berada di atas bubble");
 ok(
-  html.includes("overflow-hidden bg-slate-50"),
+  html.includes("overflow-hidden bg-[#f4f7f5]"),
   "bubble dibatasi rapi dalam hero",
 );
 ok(

@@ -18,7 +18,7 @@ export interface BatikPatternProps {
 }
 
 export function BatikPattern({
-  warna = "url(#mega-mendung-emerald)",
+  warna = "#34d399",
   opacity = 0.42,
   className,
 }: BatikPatternProps) {
@@ -36,11 +36,6 @@ export function BatikPattern({
       preserveAspectRatio="none"
     >
       <defs>
-        <linearGradient id="mega-mendung-emerald" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stopColor="#047857" />
-          <stop offset="0.55" stopColor="#059669" />
-          <stop offset="1" stopColor="#10b981" />
-        </linearGradient>
         <pattern id={id} width="188" height="132" patternUnits="userSpaceOnUse">
           <path
             d="M88 142c-35-18-37-44-4-58 19-8 39-7 56 2 19 10 28 27 23 44-5 14-20 23-40 24M102 125c-24-13-26-30-4-40 14-6 28-5 40 2 13 7 19 18 15 29-4 9-14 15-28 17M116 109c-13-8-14-17-2-22 8-3 16-3 23 1 7 4 10 10 8 15-2 5-8 8-16 9M-18 40c23-21 49-22 67-2 14 15 33 17 50 5 10-7 17-18 19-32M-9 51c18-16 38-17 52-2 18 19 43 22 64 7 13-9 21-23 23-40M0 62c13-12 27-13 37-2 21 23 52 27 78 9 17-12 27-30 29-50"
@@ -79,7 +74,12 @@ export function CardWordmark() {
 export function PindaiCardMark() {
   return (
     <span className="inline-flex items-center gap-1.5 text-[8px] font-semibold tracking-[0.12em] text-[#fff8dc]">
-      <svg aria-hidden="true" viewBox="0 0 28 14" className="h-3.5 w-7" fill="none">
+      <svg
+        aria-hidden="true"
+        viewBox="0 0 28 14"
+        className="h-3.5 w-7"
+        fill="none"
+      >
         <circle cx="9" cy="7" r="5.25" stroke="#34d399" strokeWidth="1.5" />
         <circle cx="20" cy="7" r="3.25" fill="#d4af37" />
       </svg>
@@ -439,10 +439,10 @@ export function PindaiCard3D({ className }: KartuHeroPindaiProps) {
         <article
           aria-hidden="true"
           data-kartu="pindai-hero"
-          className="relative isolate aspect-[1.586/1] w-full overflow-hidden rounded-[4.5%] border border-emerald-950/40 bg-emerald-900 p-5 text-white shadow-[inset_0_1px_1px_rgba(255,255,255,0.18),inset_0_-1px_1px_rgba(0,0,0,0.2)] sm:p-6"
+          className="relative isolate aspect-[1.586/1] w-full overflow-hidden rounded-[4.5%] border border-emerald-950/50 bg-emerald-900 p-5 text-[#fff8dc] shadow-[0_20px_45px_-26px_rgba(28,26,21,0.45),inset_0_1px_1px_rgba(255,255,255,0.18),inset_0_-1px_1px_rgba(0,0,0,0.2)] ring-1 ring-[#c9a86a]/35 ring-offset-2 ring-offset-white/60 sm:p-6"
           style={{ transformStyle: "preserve-3d" }}
         >
-          <BatikPattern warna="url(#mega-mendung-emerald)" opacity={0.42} />
+          <BatikPattern warna="#34d399" opacity={0.2} />
           <svg
             aria-hidden="true"
             className="pointer-events-none absolute inset-0 size-full opacity-[0.035]"
@@ -502,11 +502,12 @@ export function PindaiCard3D({ className }: KartuHeroPindaiProps) {
               </p>
               <div className="mt-2 flex items-end justify-between gap-2">
                 <div className="min-w-0">
-                  <p className="font-mono text-xs tabular-nums tracking-[0.12em] text-white [text-shadow:0_1px_0_rgba(255,255,255,0.06),0_-1px_0_rgba(0,0,0,0.16)] sm:text-sm">
+                  <p className="font-mono text-xs tabular-nums tracking-[0.12em] text-[#fff8dc] [text-shadow:0_1px_0_rgba(255,255,255,0.06),0_-1px_0_rgba(0,0,0,0.16)] sm:text-sm">
                     {NOMOR_TAMPILAN}
                   </p>
                   <p className="mt-1 text-[8px] font-medium tracking-[0.12em] text-white/80">
-                    BERLAKU SAMPAI <span className="font-mono text-white">12/29</span>
+                    BERLAKU SAMPAI{" "}
+                    <span className="font-mono text-white">12/29</span>
                   </p>
                 </div>
                 <PindaiCardMark />

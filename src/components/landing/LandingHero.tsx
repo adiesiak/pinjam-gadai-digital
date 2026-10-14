@@ -20,14 +20,14 @@ export function LandingHero(props: LandingHeroProps) {
   return (
     <section
       aria-labelledby="hero-judul"
-      className="relative w-full overflow-hidden bg-[#f8fafc]"
+      className="relative w-full overflow-hidden bg-[#f4f7f5]"
     >
       <div
         aria-hidden="true"
         className="pointer-events-none absolute inset-0 z-0 overflow-hidden"
       >
-        <span className="absolute -right-28 top-[8%] size-[220px] rounded-full bg-[#a7f3d0]/65 blur-2xl sm:right-[4%] sm:top-[8%] sm:size-[480px]" />
-        <span className="absolute -left-16 -top-12 size-[150px] rounded-full bg-[#d1fae5]/65 blur-xl sm:-left-20 sm:-top-24 sm:size-[280px]" />
+        <span className="absolute -right-28 top-[8%] size-[220px] rounded-full bg-emerald-200/65 blur-2xl sm:right-[4%] sm:top-[8%] sm:size-[480px]" />
+        <span className="absolute -left-16 -top-12 size-[150px] rounded-full bg-emerald-100/70 blur-xl sm:-left-20 sm:-top-24 sm:size-[280px]" />
         <span className="absolute -bottom-16 left-[8%] size-[110px] rounded-full bg-[#a7f3d0]/55 blur-2xl sm:bottom-4 sm:left-[34%] sm:size-[160px]" />
       </div>
 
@@ -98,7 +98,7 @@ export function LandingHero(props: LandingHeroProps) {
           >
             <span className="flex items-center gap-2">
               <ShieldCheck
-                className="size-4 text-emerald-900"
+                className="size-4 text-[#065f46]"
                 aria-hidden="true"
               />
               Rincian biaya terbuka
@@ -112,7 +112,10 @@ export function LandingHero(props: LandingHeroProps) {
 
         <div className="relative mx-auto w-full max-w-[340px] lg:max-w-[420px]">
           <PindaiCard3D />
-          <p className="mt-4 text-center text-xs leading-5 text-[#334155]">
+          <p className="mt-3 text-center text-[11px] font-semibold uppercase tracking-[0.12em] text-[#064e3b]">
+            Kartu contoh · bukan alat bayar
+          </p>
+          <p className="mt-3 text-center text-xs leading-5 text-[#334155]">
             Contoh hitungan ilustratif. PINDAI hanya mencatat, pembayaran dan
             pencairan dilakukan di luar aplikasi.
           </p>
