@@ -14,14 +14,14 @@ export interface BatikPatternProps {
 }
 
 export function BatikPattern({
-  warna = "#1884e8",
-  opacity = 0.9,
+  warna = "#5b9bd5",
+  opacity = 0.32,
   className,
 }: BatikPatternProps) {
   const id = `mega-mendung-${useId().replace(/[^a-zA-Z0-9]/g, "")}`;
-  const opacityAman = Math.min(1, Math.max(0, opacity));
-  const bentukAwan =
-    "M-32 76C-12 76-5 66-6 54C-7 40 3 32 14 35C25 38 26 51 18 56C12 60 5 55 9 48C3 50 1 57 5 63C12 73 25 72 36 64C47 55 43 45 56 40C69 36 78 46 92 40C107 34 112 18 103 10C94 2 80 8 81 17C82 24 91 26 95 19C95 30 82 35 71 29C58 22 46 25 35 33C24 20 9 21-2 27C-17 35-23 52-17 66C-20 72-26 75-32 75Z";
+  const opacityAman = Math.min(0.4, Math.max(0, opacity));
+  const awanBulat =
+    "M8 66H116C128 66 136 58 136 47C136 37 128 29 117 29C114 17 104 10 92 10C80 10 71 18 68 30C65 20 56 14 45 14C31 14 21 24 20 38C11 39 5 46 5 55C5 60 6 64 8 66Z";
 
   return (
     <svg
@@ -31,72 +31,53 @@ export function BatikPattern({
         className,
       )}
       opacity={opacityAman}
+      viewBox="0 0 420 265"
       preserveAspectRatio="none"
     >
       <defs>
-        <pattern id={id} width="240" height="170" patternUnits="userSpaceOnUse">
-          <g transform="translate(12 8)">
+        <pattern id={id} width="140" height="66.25" patternUnits="userSpaceOnUse">
+          <g transform="translate(0 2) scale(1 0.9)">
             <path
-              d={bentukAwan}
-              fill="#0d55b6"
-              stroke="#62c4ff"
+              d={awanBulat}
+              fill="rgba(91,155,213,0.08)"
+              stroke={warna}
               strokeLinecap="round"
               strokeLinejoin="round"
-              strokeWidth="5"
+              strokeWidth="2.2"
             />
             <path
-              d={bentukAwan}
+              d="M13 59H115C122 59 128 54 128 47C128 40 123 35 116 35C112 24 103 18 92 18C81 18 73 25 70 36C67 27 57 22 46 22C35 22 27 30 26 42C18 43 13 48 13 55Z"
               fill="none"
-              stroke="#effaff"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth="1.8"
+              stroke={warna}
+              strokeOpacity="0.75"
+              strokeWidth="1.4"
             />
             <path
-              d="M13 61C5 53 9 44 16 45C22 46 22 52 18 54C14 55 12 51 15 49M72 28C66 21 69 13 76 13C82 13 83 19 79 21C76 22 74 19 76 17"
+              d="M21 52H112C117 52 121 49 121 45C121 41 118 38 114 38C109 28 101 25 92 25C83 25 76 31 72 42C69 34 58 30 48 30C40 30 34 35 32 44C25 45 21 48 21 52Z"
               fill="none"
-              stroke="#a4e5ff"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth="2.6"
-            />
-          </g>
-          <g transform="translate(232 166) rotate(180) scale(0.78)">
-            <path
-              d={bentukAwan}
-              fill="#104aab"
-              stroke="#59b9f4"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth="5"
+              stroke={warna}
+              strokeOpacity="0.55"
+              strokeWidth="1.1"
             />
             <path
-              d={bentukAwan}
+              d="M20 54C18 47 23 43 28 43C33 43 36 46 36 50C36 53 34 55 31 55C29 55 28 53 29 51C25 52 25 57 29 59C34 61 40 58 41 52C42 44 35 38 27 39M84 30C84 24 89 19 95 19C101 19 105 23 105 28C105 32 102 35 98 35C95 35 93 33 94 30C90 32 91 37 96 39C102 41 109 37 110 31"
               fill="none"
-              stroke="#e5f7ff"
+              stroke={warna}
               strokeLinecap="round"
               strokeLinejoin="round"
-              strokeWidth="1.8"
-            />
-            <path
-              d="M13 61C5 53 9 44 16 45C22 46 22 52 18 54C14 55 12 51 15 49M72 28C66 21 69 13 76 13C82 13 83 19 79 21C76 22 74 19 76 17"
-              fill="none"
-              stroke="#9bdcff"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth="2.6"
+              strokeWidth="1.6"
             />
           </g>
         </pattern>
       </defs>
-      <rect width="100%" height="100%" fill={`url(#${id})`} />
+      <rect width="420" height="265" fill={`url(#${id})`} />
     </svg>
   );
 }
 
 function CardWordmark() {
   return (
-    <span className="font-sans text-lg font-semibold leading-none tracking-[0.24em] text-white">
+    <span className="font-sans text-lg font-semibold leading-none tracking-[0.24em] text-emerald-700">
       PINDAI
     </span>
   );
@@ -119,7 +100,7 @@ function MastercardMark() {
       </svg>
       <span
         aria-hidden="true"
-        className="mt-0.5 text-[7px] font-semibold text-white"
+        className="mt-0.5 text-[7px] font-semibold text-[#1c1a15]"
         style={{ fontFamily: '"Mark for MC", Helvetica, Arial, sans-serif' }}
       >
         mastercard
@@ -130,7 +111,7 @@ function MastercardMark() {
 
 function PindaiCardMark() {
   return (
-    <span className="inline-flex items-center gap-1.5 text-[8px] font-semibold tracking-[0.12em] text-white">
+    <span className="inline-flex items-center gap-1.5 text-[8px] font-semibold tracking-[0.12em] text-emerald-800">
       <svg
         aria-hidden="true"
         viewBox="0 0 28 14"
@@ -494,14 +475,16 @@ export function PindaiCard3D({ className }: KartuHeroPindaiProps) {
         <article
           aria-hidden="true"
           data-kartu="pindai-hero"
-          className="relative isolate aspect-[1.586/1] w-full overflow-hidden rounded-[4.5%] border border-[#91d9ff]/70 bg-[#07184f] p-5 text-white shadow-[0_20px_45px_-26px_rgba(5,12,45,0.7),inset_0_1px_1px_rgba(255,255,255,0.22),inset_0_-1px_1px_rgba(0,0,0,0.35)] ring-1 ring-[#91d9ff]/45 ring-offset-2 ring-offset-white/60 sm:p-6"
+          className="relative isolate aspect-[1.586/1] w-full overflow-hidden rounded-[4.5%] border border-[#c9a86a]/55 bg-white/90 p-5 text-[#1c1a15] shadow-[0_20px_45px_-26px_rgba(28,26,21,0.45),inset_0_1px_1px_rgba(255,255,255,0.7),inset_0_-1px_1px_rgba(28,26,21,0.06)] ring-1 ring-[#c9a86a]/35 ring-offset-2 ring-offset-white/60 backdrop-blur-2xl sm:p-6"
           style={{
             transformStyle: "preserve-3d",
             background:
-              "linear-gradient(135deg, #102d86 0%, #07184f 48%, #06133f 100%)",
+              "linear-gradient(135deg, rgba(255,255,255,0.94), rgba(241,237,227,0.92))",
+            backdropFilter: "blur(24px)",
+            WebkitBackdropFilter: "blur(24px)",
           }}
         >
-          <BatikPattern warna="#1884e8" opacity={0.9} />
+          <BatikPattern warna="#5b9bd5" opacity={0.32} />
           <svg
             aria-hidden="true"
             className="pointer-events-none absolute inset-0 size-full opacity-[0.035]"
@@ -559,17 +542,17 @@ export function PindaiCard3D({ className }: KartuHeroPindaiProps) {
                   "translate3d(var(--layer-x, 0px), var(--layer-y, 0px), 15px)",
               }}
             >
-              <p className="text-[10px] font-semibold uppercase tracking-[0.13em] text-white sm:text-xs">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.13em] text-[#1c1a15] sm:text-xs">
                 BUDI SANTOSO
               </p>
               <div className="mt-2 flex items-end justify-between gap-2">
                 <div className="min-w-0">
-                  <p className="font-mono text-xs tabular-nums tracking-[0.12em] text-white sm:text-sm">
+                  <p className="font-mono text-xs tabular-nums tracking-[0.12em] text-emerald-800 sm:text-sm">
                     {NOMOR_TAMPILAN}
                   </p>
-                  <p className="mt-1 text-[8px] font-medium tracking-[0.12em] text-white/80">
+                  <p className="mt-1 text-[8px] font-medium tracking-[0.12em] text-slate-600">
                     BERLAKU SAMPAI{" "}
-                    <span className="font-mono text-white">12/29</span>
+                    <span className="font-mono text-slate-900">12/29</span>
                   </p>
                 </div>
                 <PindaiCardMark />
