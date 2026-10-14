@@ -98,8 +98,8 @@ ok(
   "kartu merek tetap tampil (permukaan PindaiCard3D)",
 );
 ok(
-  html.includes("Kartu contoh · bukan alat bayar"),
-  "hero menyatakan kartu contoh bukan alat bayar",
+  !html.includes("Kartu contoh · bukan alat bayar"),
+  "label kartu contoh yang dihapus tidak tampil di hero",
 );
 ok(
   html.includes("bg-emerald-200/65"),
@@ -115,8 +115,8 @@ ok(
   "bubble dibatasi rapi dalam hero",
 );
 ok(
-  html.includes("Rp 1.300.000"),
-  "total ilustrasi disediakan sebagai teks yang terlihat",
+  !html.includes("Rp 1.300.000"),
+  "total kewajiban ilustrasi tidak muncul di hero",
 );
 ok(
   !html.includes("Contoh hitungan ilustratif"),
