@@ -119,8 +119,8 @@ ok(
   "total ilustrasi disediakan sebagai teks yang terlihat",
 );
 ok(
-  html.includes("pembayaran dan pencairan dilakukan di luar aplikasi"),
-  "batas proses pembayaran tetap jelas",
+  !html.includes("Contoh hitungan ilustratif"),
+  "paragraf ilustratif yang dihapus tidak tampil di hero",
 );
 
 // ── 5. Penanda sesi & kebersihan markup ──

@@ -115,10 +115,6 @@ export function LandingHero(props: LandingHeroProps) {
           <p className="mt-3 text-center text-[11px] font-semibold uppercase tracking-[0.12em] text-[#064e3b]">
             Kartu contoh · bukan alat bayar
           </p>
-          <p className="mt-3 text-center text-xs leading-5 text-[#334155]">
-            Contoh hitungan ilustratif. PINDAI hanya mencatat, pembayaran dan
-            pencairan dilakukan di luar aplikasi.
-          </p>
           <p className="mt-2 text-center text-[11px] font-medium text-[#334155]">
             {props.sudahMasuk ? "Sesi aktif" : "Akun PINDAI"} · Pinjam &amp;
             gadai digital
