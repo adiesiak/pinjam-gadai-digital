@@ -21,6 +21,28 @@ import { Link } from "react-router";
 
 import { Button } from "@/components/ui/button";
 import { CONTRACT_TERMS_VERSION } from "@/lib/contract";
+import { formatRupiah } from "@/lib/money";
+import {
+  LOAN_LIMITS,
+  LATE_FEE_POLICY,
+  PINDAI_PRICING,
+  TENOR_OPTIONS,
+} from "@/lib/loan";
+import {
+  BULANAN_LIMITS,
+  BULANAN_PRICING,
+  TENOR_BULANAN_OPTIONS,
+  persenBungaPerBulan,
+} from "@/lib/bulanan";
+import { GADAI_PRICING } from "@/lib/gadai";
+import { KREDIT_BARANG_POKOK_MAKS } from "@/lib/kredit";
+import { MAX_FILE_BYTES, GAMBAR_DITERIMA } from "@/lib/kyc";
+import { LOKASI_KEBIJAKAN } from "@/lib/lokasi";
+import { DEFAULT_CONFIG } from "@/lib/system-config";
+import {
+  bagiHasilPinjaman,
+  POTONGAN_ADMIN_DEFAULT_PERSEN,
+} from "@/lib/bagiHasil";
 
 /**
  * Halaman Syarat & Ketentuan (publik).
@@ -32,7 +54,12 @@ import { CONTRACT_TERMS_VERSION } from "@/lib/contract";
  * yang berlaku di kode, bukan dikarang bebas.
  */
 
-const TERAKHIR_DIPERBARUI = "3 Oktober 2026";
+const TERAKHIR_DIPERBARUI = "14 Oktober 2026";
+const CONTOH_BAGI_HASIL = bagiHasilPinjaman(
+  1_000_000,
+  PINDAI_PRICING.bungaPercent,
+  POTONGAN_ADMIN_DEFAULT_PERSEN,
+);
 
 type Pasal = {
   id: string;
@@ -57,7 +84,9 @@ function Catatan({
       : "border-slate-200 bg-slate-50/70 text-slate-700";
   const Ikon = tone === "penting" ? Scale : BookOpen;
   return (
-    <div className={`mt-4 rounded-xl border px-4 py-3 text-xs leading-6 ${gaya}`}>
+    <div
+      className={`mt-4 rounded-xl border px-4 py-3 text-xs leading-6 ${gaya}`}
+    >
       <p className="flex items-center gap-2 font-semibold">
         <Ikon className="size-3.5 shrink-0" aria-hidden />
         {judul}
@@ -79,14 +108,15 @@ const PASAL: Pasal[] = [
     isi: (
       <>
         <p className="text-sm leading-7 text-slate-600">
-          Dengan mengakses atau memakai aplikasi PINDAI — termasuk membuat akun, mengajukan
-          pinjaman, gadai, atau kredit barang — Anda dianggap telah membaca, memahami, dan
-          menyetujui seluruh ketentuan pada halaman ini. Bila tidak setuju, mohon berhenti
-          menggunakan layanan.
+          Dengan mengakses atau memakai aplikasi PINDAI, termasuk membuat akun
+          atau mengajukan pinjaman, gadai, maupun kredit barang, Anda dianggap
+          telah membaca, memahami, dan menyetujui ketentuan pada halaman ini.
+          Bila tidak setuju, mohon berhenti menggunakan layanan.
         </p>
         <Catatan judul="Ringkas">
-          Syarat ini adalah ringkasan umum. Untuk setiap pengajuan yang disetujui, berlaku pula
-          perjanjian (akad) khusus yang ditandatangani pada halaman kontrak aplikasi.
+          Syarat ini adalah ringkasan umum. Untuk setiap pengajuan yang
+          disetujui, berlaku pula perjanjian (akad) khusus yang ditandatangani
+          pada halaman kontrak aplikasi.
         </Catatan>
       </>
     ),
@@ -98,27 +128,28 @@ const PASAL: Pasal[] = [
     isi: (
       <>
         <p className="text-sm leading-7 text-slate-600">
-          PINDAI adalah <strong>aplikasi pencatatan</strong> pengajuan pinjaman, gadai, dan
-          pembukuan (ledger) internal. Aplikasi membantu menyusun angka, jadwal, dan status
-          kewajiban secara transparan.
+          PINDAI adalah <strong>aplikasi pencatatan</strong> pengajuan pinjaman,
+          gadai, dan pembukuan (ledger) internal. Aplikasi membantu menyusun
+          angka, jadwal, dan status kewajiban secara transparan.
         </p>
         <ul className="mt-3 list-disc space-y-1.5 pl-5">
           <Ayat>
-            PINDAI <strong>tidak</strong> memindahkan uang secara otomatis dan tidak menjadi
-            penyelenggara transfer dana.
+            PINDAI <strong>tidak</strong> memindahkan uang secara otomatis dan
+            tidak menjadi penyelenggara transfer dana.
           </Ayat>
           <Ayat>
-            Pencairan dana, pembayaran ke merchant, inspeksi, penyerahan, dan penitipan barang
-            jaminan ditangani di luar aplikasi.
+            Pencairan dana, pembayaran ke merchant, inspeksi, penyerahan, dan
+            penitipan barang jaminan ditangani di luar aplikasi.
           </Ayat>
           <Ayat>
-            Setiap perubahan status (mis. &ldquo;lunas&rdquo;) adalah pencatatan pada ledger
-            internal aplikasi, bukan bukti mutasi rekening bank.
+            Setiap perubahan status (mis. &ldquo;lunas&rdquo;) adalah pencatatan
+            pada ledger internal aplikasi, bukan bukti mutasi rekening bank.
           </Ayat>
         </ul>
         <Catatan tone="penting" judul="Bukan bukti mutasi bank">
-          Angka pada aplikasi adalah catatan internal. Selalu verifikasi pengiriman/penerimaan
-          dana melalui kanal resmi dan rekening yang benar sebelum bertransaksi.
+          Angka pada aplikasi adalah catatan internal. Selalu verifikasi
+          pengiriman/penerimaan dana melalui kanal resmi dan rekening yang benar
+          sebelum bertransaksi.
         </Catatan>
       </>
     ),
@@ -130,20 +161,22 @@ const PASAL: Pasal[] = [
     isi: (
       <ul className="list-disc space-y-1.5 pl-5">
         <Ayat>
-          Anda wajib memberikan data yang benar, terbaru, dan milik Anda sendiri.
+          Anda wajib memberikan data yang benar, terbaru, dan milik Anda
+          sendiri.
         </Ayat>
         <Ayat>
-          Akun peminjam masuk dengan verifikasi email (kode OTP). Jangan bagikan kode masuk kepada
-          siapa pun; aktivitas yang memakai akun Anda dianggap sebagai tindakan Anda.
+          Akun peminjam masuk dengan verifikasi email (kode OTP). Jangan bagikan
+          kode masuk kepada siapa pun; aktivitas yang memakai akun Anda dianggap
+          sebagai tindakan Anda.
         </Ayat>
         <Ayat>
-          Tim admin memakai verifikasi dua faktor (TOTP). Akses panel operasional terbatas untuk
-          akun tim yang berwenang.
+          Tim admin memakai verifikasi dua faktor (TOTP). Akses panel
+          operasional terbatas untuk akun tim yang berwenang.
         </Ayat>
         <Ayat>
-          Akses &ldquo;lihat saja&rdquo; untuk ruang pendana diberikan dan dapat dicabut oleh
-          admin, baik per akun email maupun lewat kode akses bersama. Setiap perubahan akses
-          tercatat pada audit trail.
+          Akses &ldquo;lihat saja&rdquo; untuk ruang pendana diberikan dan dapat
+          dicabut oleh admin, baik per akun email maupun lewat kode akses
+          bersama. Setiap perubahan akses tercatat pada audit trail.
         </Ayat>
         <Ayat>
           Segera hubungi pengurus bila mencurigai penyalahgunaan akun.
@@ -159,27 +192,36 @@ const PASAL: Pasal[] = [
       <>
         <ul className="list-disc space-y-1.5 pl-5">
           <Ayat>
-            Untuk menilai pengajuan, Anda dapat diminta mengunggah data identitas (mis. KTP),
-            foto/slip terkait, serta informasi bank/e-wallet dan rekening.
+            Untuk menilai pengajuan, Anda dapat diminta mengunggah data
+            identitas (mis. KTP), foto/slip terkait, serta informasi
+            bank/e-wallet dan rekening.
           </Ayat>
           <Ayat>
-            Saat mengajukan, aplikasi mencatat <strong>lokasi perangkat (GPS)</strong> beserta
-            waktu sebagai metadata pengajuan. Titik lokasi hanya tampil untuk keperluan peninjauan
-            internal.
+            Alur Peminjam memerlukan izin{" "}
+            <strong>lokasi perangkat (GPS)</strong>. Saat aplikasi digunakan,
+            titik lokasi dikirim berkala, sekitar setiap{" "}
+            {LOKASI_KEBIJAKAN.intervalDetik}
+            detik. Aksi transaksi tertentu memerlukan titik terbaru, dengan
+            batas umur bawaan {DEFAULT_CONFIG.lokasiMaxUmurMenit} menit. Browser
+            tidak mengirim titik lokasi saat halaman atau aplikasi ditutup.
           </Ayat>
           <Ayat>
-            Identitas sensitif (seperti NIK, nomor rekening, dan nomor WhatsApp) tidak ditampilkan
-            sebagai kolom terbuka pada ruang pemantau umum; sebagian hanya tersedia bagi peran yang
-            berwenang.
+            Dokumen gambar untuk proses identitas menerima{" "}
+            {GAMBAR_DITERIMA.join(", ")} dengan batas ukuran{" "}
+            {Math.round(MAX_FILE_BYTES / (1024 * 1024))} MB per berkas. Akses
+            data dibatasi menurut akun dan peran. Jika akses ruang pendana
+            diberikan, ruang tersebut menampilkan ringkasan pinjaman, bukan
+            dokumen identitas.
           </Ayat>
           <Ayat>
-            Anda bertanggung jawab memastikan data yang Anda berikan benar dan boleh dibagikan.
+            Anda bertanggung jawab memastikan data yang Anda berikan benar dan
+            boleh dibagikan.
           </Ayat>
         </ul>
         <Catatan judul="Pseudonim peminjam">
-          Di beberapa tampilan, peminjam ditandai dengan kode pseudonim acak (mis.{" "}
-          <span className="font-mono">PMN-…</span>) sebagai penanda stabil antar-ruang, bukan
-          identitas asli.
+          Di beberapa tampilan, peminjam ditandai dengan kode pseudonim acak
+          (mis. <span className="font-mono">PMN-…</span>) sebagai penanda stabil
+          antar-ruang, bukan identitas asli.
         </Catatan>
       </>
     ),
@@ -192,21 +234,35 @@ const PASAL: Pasal[] = [
       <>
         <ul className="list-disc space-y-1.5 pl-5">
           <Ayat>
-            Pokok pinjaman tunai mengikuti batas yang berlaku pada aplikasi (saat ini mulai
-            Rp100.000 hingga Rp1.000.000), dengan pilihan tenor 7, 14, atau 30 hari.
+            Pokok pinjaman tunai mengikuti batas aplikasi, saat ini{" "}
+            {formatRupiah(LOAN_LIMITS.minPokok)}
+            sampai {formatRupiah(LOAN_LIMITS.maxPokok)}, dengan pilihan tenor{" "}
+            {TENOR_OPTIONS.join(", ")} hari. Pinjaman bulanan menggunakan pokok{" "}
+            {formatRupiah(BULANAN_LIMITS.minPokok)} sampai{" "}
+            {formatRupiah(BULANAN_LIMITS.maxPokok)}, dengan pilihan tenor{" "}
+            {TENOR_BULANAN_OPTIONS.join(", ")} bulan.
           </Ayat>
           <Ayat>
-            <strong>Biaya admin 2%</strong> dari pokok — biaya platform dihapus (0%), sehingga total
-            potongan di muka <strong>2%</strong>. Dana bersih yang diterima dihitung 98% dari pokok
-            dan diteruskan sesuai proses pencairan.
+            <strong>Biaya admin {PINDAI_PRICING.adminFeePercent}%</strong> dari
+            pokok. Biaya platform
+            {PINDAI_PRICING.platformFeePercent}%, sehingga total potongan di
+            muka {PINDAI_PRICING.upfrontDeductionPercent}% dan dana bersih pada
+            hitungan sebesar {PINDAI_PRICING.netDisbursementPercent}% dari
+            pokok.
           </Ayat>
           <Ayat>
-            <strong>Bunga pinjaman 30%</strong> dari pokok, sehingga total kewajiban pelunasan
-            menjadi 130% dari pokok (contoh: pokok Rp1.000.000 → total kewajiban Rp1.300.000).
+            <strong>Bunga pinjaman {PINDAI_PRICING.bungaPercent}%</strong> dari
+            pokok, sehingga total kewajiban pelunasan pada hitungan menjadi{" "}
+            {PINDAI_PRICING.totalRepaymentPercent}% dari pokok.
           </Ayat>
           <Ayat>
-            Persentase dapat berubah lewat Pengaturan Sistem; angka yang berlaku tercantum pada
-            setiap pengajuan dan perjanjian.
+            Untuk pinjaman bulanan, bunga flat per bulan dari pokok penuh adalah{" "}
+            {persenBungaPerBulan(1)}%, {persenBungaPerBulan(3)}%, atau{" "}
+            {persenBungaPerBulan(6)}% sesuai tenor. Potongan awal{" "}
+            {BULANAN_PRICING.biayaLayananPersen}% berlaku pada skema bulanan;
+            tenor 3 dan 6 bulan juga memiliki biaya admin cicilan{" "}
+            {BULANAN_PRICING.biayaAdminCicilanPersen}% dari cicilan setiap
+            bulan. Periksa angka khusus pada pengajuan dan perjanjian Anda.
           </Ayat>
         </ul>
       </>
@@ -220,16 +276,22 @@ const PASAL: Pasal[] = [
       <>
         <ul className="list-disc space-y-1.5 pl-5">
           <Ayat>
-            Kewajiban dilunasi dalam tenor yang dipilih sejak tanggal pendanaan dicatat di
-            aplikasi.
+            Kewajiban dilunasi dalam tenor yang dipilih sejak tanggal pendanaan
+            dicatat di aplikasi.
           </Ayat>
           <Ayat>
-            Denda keterlambatan sebesar <strong>1% per hari dari pokok</strong>, dibatasi
-            maksimum <strong>15% dari pokok</strong>. Tidak ada masa tenggang: melewati satu hari
-            penuh jatuh tempo terhitung satu hari denda.
+            Denda keterlambatan sebesar{" "}
+            <strong>
+              {LATE_FEE_POLICY.percentPerDay}% per hari dari pokok
+            </strong>
+            , dibatasi maksimum{" "}
+            <strong>{LATE_FEE_POLICY.maxPercent}% dari pokok</strong>. Tidak ada
+            masa tenggang: melewati satu hari penuh jatuh tempo terhitung satu
+            hari denda.
           </Ayat>
           <Ayat>
-            Pelunasan ditangani di luar aplikasi; statusnya dicatat tim PINDAI pada ledger internal.
+            Pelunasan ditangani di luar aplikasi; statusnya dicatat tim PINDAI
+            pada ledger internal.
           </Ayat>
         </ul>
       </>
@@ -243,24 +305,28 @@ const PASAL: Pasal[] = [
       <>
         <ul className="list-disc space-y-1.5 pl-5">
           <Ayat>
-            Nilai taksiran dan harga pasar ditetapkan tim PINDAI. Rasio pinjaman terhadap taksiran
-            (LTV) mengikuti batas aplikasi (default hingga 60%).
+            Batas hitung internal gadai maksimal {GADAI_PRICING.ltvMaxPercent}%
+            dari harga pasar yang dicantumkan. Nilai taksiran aplikasi bukan
+            pemeriksaan fisik barang.
           </Ayat>
           <Ayat>
-            Pokok gadai dikenakan potongan 1% di muka; nilai bersih dihitung 99% dari pokok dan
-            diteruskan sesuai proses pencairan.
+            Pokok gadai dikenakan potongan{" "}
+            {GADAI_PRICING.upfrontDeductionPercent}% di muka; nilai bersih pada
+            hitungan adalah {GADAI_PRICING.netDisbursementPercent}% dari pokok.
           </Ayat>
           <Ayat>
-            Sewa modal dihitung per 30 hari dari sisa pokok sesuai persentase yang tercantum pada
-            akad.
+            Sewa modal {GADAI_PRICING.sewaModalMinPercent} sampai{" "}
+            {GADAI_PRICING.sewaModalMaxPercent}% per
+            {GADAI_PRICING.periodeHari} hari dihitung dari sisa pokok.
           </Ayat>
           <Ayat>
-            Barang disimpan sesuai kode lokasi penyimpanan. Pengembalian barang dilakukan setelah
-            kewajiban dilunasi dan dikonfirmasi langsung dengan petugas PINDAI.
+            Pemeriksaan, penitipan, dan pengembalian barang ditangani di luar
+            aplikasi. Status ledger tidak membuktikan barang disimpan atau
+            dikembalikan.
           </Ayat>
           <Ayat>
-            Penyelesaian atau lelang jaminan dilaksanakan sesuai ketentuan yang berlaku; angka pada
-            aplikasi menjadi acuan perhitungan.
+            Penyelesaian atau lelang jaminan dilaksanakan sesuai ketentuan yang
+            berlaku; angka pada aplikasi menjadi acuan perhitungan.
           </Ayat>
         </ul>
       </>
@@ -273,16 +339,29 @@ const PASAL: Pasal[] = [
     isi: (
       <ul className="list-disc space-y-1.5 pl-5">
         <Ayat>
-          Kredit barang memakai skema bulanan dengan uang muka (DP) dan tenor yang dipilih (mis. 1,
-          3, atau 6 bulan).
+          Pengajuan baru kredit barang memakai skema bulanan dengan DP{" "}
+          {BULANAN_PRICING.dpPersen}% dan pilihan tenor{" "}
+          {TENOR_BULANAN_OPTIONS.join(", ")} bulan. Batas pokok pembiayaan
+          adalah{" "}
+          {new Intl.NumberFormat("id-ID", {
+            style: "currency",
+            currency: "IDR",
+            maximumFractionDigits: 0,
+          }).format(KREDIT_BARANG_POKOK_MAKS)}
+          .
         </Ayat>
         <Ayat>
-          Biaya layanan dipotong di muka; bunga/margin dihitung flat dari pokok acuan untuk setiap
-          bulan sesuai persentase yang tercantum pada pengajuan.
+          Biaya awal {BULANAN_PRICING.biayaLayananPersen}% dipotong di muka.
+          Bunga flat per bulan dari pokok penuh adalah {persenBungaPerBulan(1)}
+          %, {persenBungaPerBulan(3)}%, atau {persenBungaPerBulan(6)}% sesuai
+          tenor. Pada tenor 3 dan 6 bulan, biaya admin cicilan{" "}
+          {BULANAN_PRICING.biayaAdminCicilanPersen}% dari cicilan dibayar tiap
+          bulan.
         </Ayat>
         <Ayat>
-          Rincian cicilan per bulan bersifat ilustrasi; setiap perubahan status dicatat pada ledger
-          internal.
+          Jadwal cicilan per bulan adalah ilustrasi, bukan catatan pembayaran
+          tiap angsuran. Tim PINDAI memperbarui status pelunasan penuh pada
+          ledger setelah kewajiban dinyatakan selesai.
         </Ayat>
       </ul>
     ),
@@ -295,24 +374,31 @@ const PASAL: Pasal[] = [
       <>
         <ul className="list-disc space-y-1.5 pl-5">
           <Ayat>
-            Model pendanaan pada PINDAI adalah <strong>1 pinjaman = 1 pendana</strong> (tanpa
-            alokasi bertingkat).
+            Model pendanaan saat ini adalah{" "}
+            <strong>1 pinjaman untuk 1 pendana</strong>.
           </Ayat>
           <Ayat>
-            Imbal hasil pendana berasal dari bunga pinjaman. Admin mengambil potongan sebesar
-            persentase yang berlaku (default <strong>5%</strong>) dari <strong>uang yang kembali</strong>
-            (pokok + Imbal Hasil), bukan dari pokok. Contoh: pokok {"Rp1.000.000"} dengan Imbal Hasil
-            30% kembali {"Rp1.300.000"}; potongan 5% = {"Rp65.000"}, sehingga pendana menerima{" "}
-            {"Rp1.235.000"}. Sisa rupiah dari pembulatan selalu menjadi hak pendana.
+            Imbal hasil pendana berasal dari bunga pinjaman. Persentase potongan
+            admin mengikuti Pengaturan Sistem; nilai bawaan saat ini{" "}
+            {POTONGAN_ADMIN_DEFAULT_PERSEN}%. Untuk pinjaman harian, dasar
+            potongan adalah pokok dan bunga yang kembali. Pada pinjaman bulanan,
+            biaya admin cicilan, bila berlaku, tidak masuk ke dasar potongan.
+            Contoh harian: pokok {formatRupiah(1_000_000)} dengan bunga{" "}
+            {PINDAI_PRICING.bungaPercent}% menghasilkan kewajiban{" "}
+            {formatRupiah(CONTOH_BAGI_HASIL.totalLunas)}. Dengan potongan
+            bawaan, pendana menerima{" "}
+            {formatRupiah(CONTOH_BAGI_HASIL.pendanaTerima)} dan potongan admin
+            sebesar {formatRupiah(CONTOH_BAGI_HASIL.potonganAdmin)}. Sisa rupiah
+            pembulatan menjadi hak pendana.
           </Ayat>
           <Ayat>
-            Ruang pendana bersifat <strong>baca saja</strong>; angka yang tampil diturunkan
-            dari catatan pinjaman yang sama dan bukan nilai cache.
+            Ruang pendana bersifat <strong>baca saja</strong>; angka yang tampil
+            diturunkan dari catatan pinjaman yang sama dan bukan nilai cache.
           </Ayat>
         </ul>
         <Catatan tone="penting" judul="Penyelesaian dana">
-          Pencairan dana kepada penyedia, setoran, dan penarikan tetap mengikuti proses operasional
-          yang ada dan verifikasi admin.
+          Pencairan dana kepada penyedia, setoran, dan penarikan tetap mengikuti
+          proses operasional yang ada dan verifikasi admin.
         </Catatan>
       </>
     ),
@@ -324,15 +410,16 @@ const PASAL: Pasal[] = [
     isi: (
       <ul className="list-disc space-y-1.5 pl-5">
         <Ayat>
-          Dilarang memberikan data palsu, memakai identitas orang lain, atau memalsukan dokumen.
+          Dilarang memberikan data palsu, memakai identitas orang lain, atau
+          memalsukan dokumen.
         </Ayat>
         <Ayat>
-          Dilarang menyalahgunakan akses, memanipulasi lokasi/perangkat, atau menyerang, memindai,
-          atau mengganggu sistem.
+          Dilarang menyalahgunakan akses, memanipulasi lokasi/perangkat, atau
+          menyerang, memindai, atau mengganggu sistem.
         </Ayat>
         <Ayat>
-          Pelanggaran dapat berakibat penolakan pengajuan, pemblokiran akun, dan/atau tindakan
-          sesuai ketentuan yang berlaku.
+          Pelanggaran dapat berakibat penolakan pengajuan, pemblokiran akun,
+          dan/atau tindakan sesuai ketentuan yang berlaku.
         </Ayat>
       </ul>
     ),
@@ -344,16 +431,17 @@ const PASAL: Pasal[] = [
     isi: (
       <ul className="list-disc space-y-1.5 pl-5">
         <Ayat>
-          PINDAI menyediakan alat pencatatan dan penilaian; keputusan apakah suatu pengajuan
-          disetujui berada pada tim PINDAI.
+          PINDAI menyediakan alat pencatatan dan penilaian; keputusan apakah
+          suatu pengajuan disetujui berada pada tim PINDAI.
         </Ayat>
         <Ayat>
-          Aplikasi disediakan &ldquo;sebagaimana adanya&rdquo;. Kami berupaya menjaga ketersediaan
-          dan ketepatan, namun tidak menjamin layanan bebas gangguan.
+          Aplikasi disediakan &ldquo;sebagaimana adanya&rdquo;. Kami berupaya
+          menjaga ketersediaan dan ketepatan, namun tidak menjamin layanan bebas
+          gangguan.
         </Ayat>
         <Ayat>
-          Verifikasi rekening dan kanal pembayaran resmi tetap menjadi tanggung jawab pengguna
-          sebelum melakukan transaksi di luar aplikasi.
+          Verifikasi rekening dan kanal pembayaran resmi tetap menjadi tanggung
+          jawab pengguna sebelum melakukan transaksi di luar aplikasi.
         </Ayat>
       </ul>
     ),
@@ -364,10 +452,11 @@ const PASAL: Pasal[] = [
     ikon: <FileText className="size-4" />,
     isi: (
       <p className="text-sm leading-7 text-slate-600">
-        Ketentuan ini dapat diperbarui sewaktu-waktu. Setiap kali syarat akad berubah secara
-        material, versinya dinaikkan (saat ini{" "}
-        <span className="font-mono text-xs">{CONTRACT_TERMS_VERSION}</span>) dan dicatat pada
-        perjanjian terkait. Versi terbaru selalu tersedia pada halaman ini.
+        Ketentuan ini dapat diperbarui sewaktu-waktu. Setiap kali syarat akad
+        berubah secara material, versinya dinaikkan (saat ini{" "}
+        <span className="font-mono text-xs">{CONTRACT_TERMS_VERSION}</span>) dan
+        dicatat pada perjanjian terkait. Versi terbaru selalu tersedia pada
+        halaman ini.
       </p>
     ),
   },
@@ -377,8 +466,9 @@ const PASAL: Pasal[] = [
     ikon: <Gavel className="size-4" />,
     isi: (
       <p className="text-sm leading-7 text-slate-600">
-        Ketentuan ini tunduk pada hukum yang berlaku di Indonesia. Untuk pertanyaan mengenai syarat
-        dan ketentuan, hubungi pengurus PINDAI melalui kanal resmi yang tercantum pada aplikasi.
+        Ketentuan ini tunduk pada hukum yang berlaku di Indonesia. Untuk
+        pertanyaan mengenai syarat dan ketentuan, hubungi pengurus PINDAI
+        melalui kanal resmi yang tercantum pada aplikasi.
       </p>
     ),
   },
@@ -391,7 +481,9 @@ function Wordmark() {
         P
       </span>
       <span className="flex flex-col leading-none">
-        <span className="text-sm font-black uppercase tracking-[0.16em] text-primary">PINDAI</span>
+        <span className="text-sm font-black uppercase tracking-[0.16em] text-primary">
+          PINDAI
+        </span>
         <span className="mt-0.5 text-[9px] font-semibold uppercase tracking-[0.13em] text-slate-400">
           Pinjam · Gadai Digital
         </span>
@@ -443,8 +535,8 @@ export default function SyaratKetentuan() {
               Syarat &amp; Ketentuan
             </h1>
             <p className="mt-3 text-sm leading-6 text-slate-600">
-              Ketentuan pemakaian aplikasi PINDAI — pinjaman, gadai, kredit barang, dan ruang
-              pendana. Harap dibaca sebelum mengajukan.
+              Ketentuan pemakaian aplikasi PINDAI untuk pinjaman, gadai, kredit
+              barang, dan ruang pendana. Harap dibaca sebelum mengajukan.
             </p>
             <div className="mt-4 flex flex-wrap items-center gap-2 text-[11px] text-slate-500">
               <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 font-medium">
@@ -473,7 +565,9 @@ export default function SyaratKetentuan() {
                     href={`#${pasal.id}`}
                     className="flex gap-2 rounded-lg px-2 py-1 text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-900"
                   >
-                    <span className="tabular-nums text-slate-400">{i + 1}.</span>
+                    <span className="tabular-nums text-slate-400">
+                      {i + 1}.
+                    </span>
                     <span className="min-w-0">{pasal.judul}</span>
                   </a>
                 </li>
@@ -498,7 +592,9 @@ export default function SyaratKetentuan() {
                     {pasal.ikon}
                   </span>
                   <span className="min-w-0">
-                    <span className="tabular-nums text-slate-400">Pasal {i + 1}.</span>{" "}
+                    <span className="tabular-nums text-slate-400">
+                      Pasal {i + 1}.
+                    </span>{" "}
                     {pasal.judul}
                   </span>
                 </h2>
@@ -510,9 +606,13 @@ export default function SyaratKetentuan() {
 
         <div className="mt-8 flex flex-col items-center justify-between gap-2 rounded-2xl border border-slate-200 bg-white px-5 py-4 text-xs text-slate-500 sm:flex-row">
           <span className="flex items-center gap-1.5">
-            <Lock className="size-3.5" /> Versi syarat {CONTRACT_TERMS_VERSION} · {TERAKHIR_DIPERBARUI}
+            <Lock className="size-3.5" /> Versi syarat {CONTRACT_TERMS_VERSION}{" "}
+            · {TERAKHIR_DIPERBARUI}
           </span>
-          <Link to="/" className="link-underline font-medium text-primary hover:text-primary/80">
+          <Link
+            to="/"
+            className="link-underline font-medium text-primary hover:text-primary/80"
+          >
             Kembali ke beranda
           </Link>
         </div>
