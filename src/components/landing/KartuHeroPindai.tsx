@@ -56,7 +56,6 @@ export function BatikPattern({
   );
 }
 
-
 function CardWordmark() {
   return (
     <span className="font-sans text-lg font-semibold leading-none tracking-[0.24em] text-[#fff8dc]">
@@ -68,7 +67,12 @@ function CardWordmark() {
 function PindaiCardMark() {
   return (
     <span className="inline-flex items-center gap-1.5 text-[8px] font-semibold tracking-[0.12em] text-[#fff8dc]">
-      <svg aria-hidden="true" viewBox="0 0 28 14" className="h-3.5 w-7" fill="none">
+      <svg
+        aria-hidden="true"
+        viewBox="0 0 28 14"
+        className="h-3.5 w-7"
+        fill="none"
+      >
         <circle cx="9" cy="7" r="5.25" stroke="#34d399" strokeWidth="1.5" />
         <circle cx="20" cy="7" r="3.25" fill="#d4af37" />
       </svg>
@@ -141,8 +145,18 @@ function GoldChip() {
 
 function IkonContactless() {
   return (
-    <svg aria-hidden="true" className="size-6 text-[#d4af37]" viewBox="0 0 24 24" fill="none">
-      <path d="M8 9a4 4 0 0 1 0 6M11 6a8 8 0 0 1 0 12M14 3a12 12 0 0 1 0 18" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    <svg
+      aria-hidden="true"
+      className="size-6 text-[#d4af37]"
+      viewBox="0 0 24 24"
+      fill="none"
+    >
+      <path
+        d="M8 9a4 4 0 0 1 0 6M11 6a8 8 0 0 1 0 12M14 3a12 12 0 0 1 0 18"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+      />
     </svg>
   );
 }
