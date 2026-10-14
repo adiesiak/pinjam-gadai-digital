@@ -2,8 +2,14 @@ import { useReducedMotion } from "framer-motion";
 import { useEffect, useId, useRef, useState, type PointerEvent } from "react";
 
 import { cn } from "@/lib/utils";
+import { formatRupiah } from "@/lib/money";
+import { quoteLoan } from "@/lib/loan";
+import { DEMO_CARD_NUMBER } from "@/lib/demoCardNumber";
 
 export const TILT_MAKSIMUM_DERAJAT = 12;
+const POKOK_CONTOH = 1_000_000;
+const TENOR_CONTOH_HARI = 30;
+const NOMOR_TAMPILAN = DEMO_CARD_NUMBER;
 
 export interface BatikPatternProps {
   warna?: string;
@@ -55,6 +61,96 @@ export function BatikPattern({
 }
 
 
+function CardWordmark() {
+  return (
+    <span className="font-sans text-lg font-semibold leading-none tracking-[0.24em] text-[#fff8dc]">
+      PINDAI
+    </span>
+  );
+}
+
+function PindaiCardMark() {
+  return (
+    <span className="inline-flex items-center gap-1.5 text-[8px] font-semibold tracking-[0.12em] text-[#fff8dc]">
+      <svg aria-hidden="true" viewBox="0 0 28 14" className="h-3.5 w-7" fill="none">
+        <circle cx="9" cy="7" r="5.25" stroke="#34d399" strokeWidth="1.5" />
+        <circle cx="20" cy="7" r="3.25" fill="#d4af37" />
+      </svg>
+      PINDAI CARD
+    </span>
+  );
+}
+
+function GoldChip() {
+  const id = `chip-gold-${useId().replace(/[^a-zA-Z0-9]/g, "")}`;
+
+  return (
+    <svg
+      aria-hidden="true"
+      className="block h-[42px] w-14 shrink-0"
+      viewBox="0 0 56 42"
+      fill="none"
+    >
+      <defs>
+        <linearGradient
+          id={id}
+          x1="0"
+          y1="0"
+          x2="56"
+          y2="42"
+          gradientUnits="userSpaceOnUse"
+        >
+          <stop stopColor="#F6E27A" />
+          <stop offset="0.28" stopColor="#D4AF37" />
+          <stop offset="0.55" stopColor="#B8860B" />
+          <stop offset="0.78" stopColor="#8A6A1F" />
+          <stop offset="1" stopColor="#E8C85A" />
+        </linearGradient>
+        <linearGradient
+          id={`${id}-shine`}
+          x1="3"
+          y1="5"
+          x2="24"
+          y2="27"
+          gradientUnits="userSpaceOnUse"
+        >
+          <stop stopColor="white" stopOpacity="0.24" />
+          <stop offset="1" stopColor="white" stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      <rect
+        x="0.5"
+        y="0.5"
+        width="55"
+        height="41"
+        rx="6"
+        fill={`url(#${id})`}
+        stroke="#8A6A1F"
+      />
+      <rect
+        x="1"
+        y="1"
+        width="54"
+        height="40"
+        rx="5.5"
+        fill={`url(#${id}-shine)`}
+      />
+      <g stroke="#8A6A1F" strokeOpacity="0.5" strokeWidth="0.85">
+        <rect x="19" y="10" width="18" height="22" rx="4" />
+        <path d="M19 14H8a4 4 0 0 0-4 4v6a4 4 0 0 0 4 4h11M37 14h11a4 4 0 0 1 4 4v6a4 4 0 0 1-4 4H37M28 10v22M4 21h15m18 0h15" />
+      </g>
+    </svg>
+  );
+}
+
+function IkonContactless() {
+  return (
+    <svg aria-hidden="true" className="size-6 text-[#d4af37]" viewBox="0 0 24 24" fill="none">
+      <path d="M8 9a4 4 0 0 1 0 6M11 6a8 8 0 0 1 0 12M14 3a12 12 0 0 1 0 18" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
 }
@@ -100,6 +196,8 @@ export function PindaiCard3D({ className }: KartuHeroPindaiProps) {
   const [needsMotionPermission, setNeedsMotionPermission] = useState(false);
   const [kartuTerlihat, setKartuTerlihat] = useState(false);
   const [halamanAktif, setHalamanAktif] = useState(true);
+  const quote = quoteLoan(POKOK_CONTOH);
+
   useEffect(() => {
     const stage = stageRef.current;
     if (!stage) return;
@@ -353,6 +451,52 @@ export function PindaiCard3D({ className }: KartuHeroPindaiProps) {
                 "radial-gradient(circle at var(--glare-x, 50%) var(--glare-y, 50%), rgba(255,255,255,0.18), transparent 62%)",
             }}
           />
+          <div
+            className="relative flex h-full flex-col justify-between"
+            style={{ transformStyle: "preserve-3d" }}
+          >
+            <header
+              className="flex items-start justify-between"
+              style={{
+                transform:
+                  "translate3d(var(--layer-x, 0px), var(--layer-y, 0px), 24px)",
+              }}
+            >
+              <CardWordmark />
+              <IkonContactless />
+            </header>
+            <div
+              className="flex items-center"
+              style={{
+                transform:
+                  "translate3d(var(--layer-x, 0px), var(--layer-y, 0px), 26px)",
+              }}
+            >
+              <GoldChip />
+            </div>
+            <div
+              style={{
+                transform:
+                  "translate3d(var(--layer-x, 0px), var(--layer-y, 0px), 15px)",
+              }}
+            >
+              <p className="text-[10px] font-semibold uppercase tracking-[0.13em] text-[#fff8dc] sm:text-xs">
+                BUDI SANTOSO
+              </p>
+              <div className="mt-2 flex items-end justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="font-mono text-xs tabular-nums tracking-[0.12em] text-[#fff8dc] sm:text-sm">
+                    {NOMOR_TAMPILAN}
+                  </p>
+                  <p className="mt-1 text-[8px] font-medium tracking-[0.12em] text-white/80">
+                    BERLAKU SAMPAI{" "}
+                    <span className="font-mono text-white">12/29</span>
+                  </p>
+                </div>
+                <PindaiCardMark />
+              </div>
+            </div>
+          </div>
         </article>
       </div>
       {needsMotionPermission && !reduceMotion && (
@@ -364,6 +508,20 @@ export function PindaiCard3D({ className }: KartuHeroPindaiProps) {
           Aktifkan gerak kartu
         </button>
       )}
+      <dl className="mt-3 grid grid-cols-3 gap-2 text-center text-[11px] leading-4 text-slate-700">
+        <div>
+          <dt>Pokok contoh</dt>
+          <dd>{formatRupiah(quote.pokok)}</dd>
+        </div>
+        <div>
+          <dt>Tenor contoh</dt>
+          <dd>{TENOR_CONTOH_HARI} hari</dd>
+        </div>
+        <div>
+          <dt>Total kewajiban ilustrasi</dt>
+          <dd>{formatRupiah(quote.totalKewajibanPelunasan)}</dd>
+        </div>
+      </dl>
       <p className="mt-3 text-center text-[11px] font-medium text-slate-700">
         PINDAI · Pinjaman dan gadai digital
       </p>
