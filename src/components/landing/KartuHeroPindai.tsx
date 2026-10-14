@@ -9,17 +9,26 @@ const NOMOR_TAMPILAN = DEMO_CARD_NUMBER;
 
 export interface BatikPatternProps {
   warna?: string;
+  warnaTitik?: string;
   opacity?: number;
   className?: string;
 }
 
 export function BatikPattern({
-  warna = "#5b9bd5",
-  opacity = 0.42,
+  warna = "#c9a86a",
+  warnaTitik = "#1f6a62",
+  opacity = 0.15,
   className,
 }: BatikPatternProps) {
-  const id = `mega-mendung-${useId().replace(/[^a-zA-Z0-9]/g, "")}`;
+  const id = `batik-kawung-${useId().replace(/[^a-zA-Z0-9]/g, "")}`;
   const opacityAman = Math.min(0.2, Math.max(0, opacity));
+  const titikKawung = [
+    [32, 32],
+    [0, 0],
+    [64, 0],
+    [0, 64],
+    [64, 64],
+  ] as const;
 
   return (
     <svg
@@ -32,23 +41,27 @@ export function BatikPattern({
       preserveAspectRatio="none"
     >
       <defs>
-        <pattern id={id} width="188" height="132" patternUnits="userSpaceOnUse">
-          <path
-            d="M88 142c-35-18-37-44-4-58 19-8 39-7 56 2 19 10 28 27 23 44-5 14-20 23-40 24M102 125c-24-13-26-30-4-40 14-6 28-5 40 2 13 7 19 18 15 29-4 9-14 15-28 17M116 109c-13-8-14-17-2-22 8-3 16-3 23 1 7 4 10 10 8 15-2 5-8 8-16 9M-18 40c23-21 49-22 67-2 14 15 33 17 50 5 10-7 17-18 19-32M-9 51c18-16 38-17 52-2 18 19 43 22 64 7 13-9 21-23 23-40M0 62c13-12 27-13 37-2 21 23 52 27 78 9 17-12 27-30 29-50"
+        <pattern id={id} width="64" height="64" patternUnits="userSpaceOnUse">
+          <g
             fill="none"
             stroke={warna}
             strokeLinecap="round"
             strokeLinejoin="round"
-            strokeWidth="2.5"
-          />
-          <path
-            d="M190 48c-22-20-47-21-64-2-13 14-31 16-47 5-9-7-16-17-18-30M181 59c-17-15-36-16-49-2-17 18-41 21-61 7-12-9-20-22-22-38M172 70c-12-11-25-12-35-2-20 22-49 25-74 8-16-11-25-28-27-47"
-            fill="none"
-            stroke={warna}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth="2"
-          />
+            strokeWidth="1.2"
+          >
+            {titikKawung.map(([x, y]) => (
+              <g key={`${x}-${y}`} transform={`translate(${x} ${y})`}>
+                {[0, 90, 180, 270].map((sudut) => (
+                  <path
+                    key={sudut}
+                    d="M0 0 C-6 -5 -7 -16 0 -23 C7 -16 6 -5 0 0"
+                    transform={`rotate(${sudut})`}
+                  />
+                ))}
+                <circle r="2" fill={warnaTitik} stroke="none" />
+              </g>
+            ))}
+          </g>
         </pattern>
       </defs>
       <rect width="100%" height="100%" fill={`url(#${id})`} />
@@ -465,7 +478,7 @@ export function PindaiCard3D({ className }: KartuHeroPindaiProps) {
             WebkitBackdropFilter: "blur(24px)",
           }}
         >
-          <BatikPattern warna="#5b9bd5" opacity={0.2} />
+          <BatikPattern warna="#c9a86a" warnaTitik="#1f6a62" opacity={0.15} />
           <svg
             aria-hidden="true"
             className="pointer-events-none absolute inset-0 size-full opacity-[0.035]"

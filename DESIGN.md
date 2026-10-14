@@ -61,11 +61,11 @@ Skala utilitas Tailwind di proyek ini dipetakan ulang per preset, jadi kelas nam
 - Aspect Ratio: Standard credit card aspect ratio (`aspect-[1.586/1]`).
 - Frame: Rounded-2xl dengan garis ganda kuningan (ring luar + celah kertas di dalamnya), bukan pendaran emerald.
 - Surface: Kertas gading berkaca (`linear-gradient(135deg, rgba(255,255,255,0.94) → rgba(241,237,227,0.92))` + blur 24px) dengan garis kuningan dan pantulan lembut.
-- Texture Pattern: Mega Mendung biru langit (`#5b9bd5`, opasitas 20%) memberi aksen awan yang berakar pada motif lokal, tetap cukup halus agar data kartu mudah dibaca.
+- Texture Pattern: Kawung (`#c9a86a` kuningan, titik pusat `#1f6a62` petrol, opasitas 15%). Empat kelopak lonjong mengitari titik pusat dalam petak 64 × 64 yang berulang dan bersambung; motif geometris ini menjadi tekstur warisan yang halus agar data kartu tetap mudah dibaca.
 
 Card Details:
 
-- Top Left: wordmark PINDAI tinta + kontakless kuningan; kanan atas lingkaran merah-oranye dengan wordmark Mastercard memakai `Mark for MC` bila terpasang dan fallback Helvetica/Arial sesuai panduan Mastercard.
+- Top Left: wordmark PINDAI tinta. Kanan atas menampilkan simbol lingkaran merah-oranye dan tulisan `mastercard`; teks memakai `Mark for MC` bila tersedia pada perangkat, dengan fallback Helvetica/Arial sesuai panduan Mastercard. Font Mastercard tidak dibundel karena tidak ditemukan aset font resmi yang tersedia untuk penggunaan publik.
 - Center Left: chip logam kuningan (garis kontak `emerald-900/35`, tepi `emerald-800/30`).
 - Bottom: nomor monospace `text-emerald-800`, tanggal `12/29` monospace `text-slate-900`, nama pemegang `text-slate-900`, dan label kecil `text-slate-600` agar terbaca di atas permukaan terang.
 - Logo Mastercard adalah penanda brand kartu; area kanan lain tetap kosong agar tidak menambah ornamen yang tidak perlu.
@@ -87,4 +87,4 @@ Card Details:
 - No Generic Cards, and glass stays at the focal point (keputusan pemilik): kaca kertas cerah + garis ganda kuningan hanya untuk **satu titik fokus per layar** (mis. kartu hero, atau satu kartu angka utama). Kartu lain memakai permukaan padat, tanpa blur dan tanpa pendaran; garis emerald tipis boleh tetap ada sebagai penanda batas. Teknik kaca/glow di tempat lain harus punya alasan tertulis, bukan diulang karena resep ini ada.
 - No Placeholder Icons: Do not sprinkle unnecessary shopping cart or world icons on credit cards or dashboards.
 - No Mismatched Gradients: Gradients are strictly reserved for Gold metallic finishes (`from-amber-200 via-amber-400 to-amber-600`) and Emerald lighting cues.
-- Authentic Cultural Fusion: Batik Kawung patterns must remain subtle (`opacity-15`), acting as a rich background texture rather than an overwhelming graphic.
+- Authentic Cultural Fusion: motif batik Kawung tetap halus (`opacity-15`), sebagai tekstur latar yang bermakna, bukan grafis yang mendominasi.
