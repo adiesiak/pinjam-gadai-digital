@@ -31,7 +31,7 @@ export const DEFAULTS = {
     badge: "Pinjaman & ledger internal",
     judul: "Pinjam & Gadai Digital",
     judul2: "Transparan",
-    sub: "Lihat perhitungan pinjaman, gadai, dan cicilan di ledger internal. Persetujuan, pembayaran via QRIS/bank, dan status tercatat di ledger internal PINDAI.",
+    sub: "Lihat perhitungan pinjaman, gadai, dan cicilan di ledger internal PINDAI. Persetujuan dan status dicatat di aplikasi; perpindahan dana ditangani di luar aplikasi.",
     cta1: "Ajukan Pinjaman",
     cta2: "Gadaikan Barang",
   },
@@ -48,7 +48,7 @@ export const DEFAULTS = {
     pinjamanCta: "Ajukan sekarang",
     gadaiJudul: "Gadai Digital",
     gadaiIsi:
-      "Catat data barang dan nilai taksiran untuk pengajuan gadai. Sewa modal 5–10% per 30 hari dihitung dari sisa pokok. Status dan pembayaran tercatat di ledger internal; pemeriksaan fisik dan penitipan barang ditangani di luar aplikasi.",
+      "Catat data barang dan nilai taksiran untuk pengajuan gadai. Sewa modal 5–10% per 30 hari dihitung dari sisa pokok. Status tercatat di ledger internal; pemeriksaan fisik, penitipan barang, dan perpindahan dana ditangani di luar aplikasi.",
     gadaiCta: "Gadaikan barang",
   },
 } as const;

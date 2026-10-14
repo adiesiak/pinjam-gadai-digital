@@ -595,7 +595,7 @@ function SchemeCard({
 }
 
 /** Tanya jawab ringkas — memakai Accordion bawaan proyek. */
-const FAQ_ITEMS = [
+export const FAQ_ITEMS = [
   {
     q: "Apakah PINDAI mengirim uang ke rekening saya?",
     a: "Tidak. PINDAI hanya mencatat pengajuan, perhitungan, dan status di ledger internal. Perpindahan dana ditangani di luar aplikasi; belum ada penyedia pembayaran yang terhubung.",
@@ -682,7 +682,7 @@ function rupiahToSlider(r: Rupiah, min: number, max: number, steps: number): num
   return Math.round((Math.log(clamped / min) / Math.log(max / min)) * steps);
 }
 
-function LiveCalculator() {
+export function LiveCalculator() {
   const [skema, setSkema] = useState<"harian" | "bulanan">("harian");
   const bulanan = skema === "bulanan";
   const [amount, setAmount] = useState<Rupiah>(LOAN_LIMITS.maxPokok);

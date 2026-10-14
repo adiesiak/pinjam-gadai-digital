@@ -20,6 +20,8 @@ import { THEME_PRESETS, type ThemePreset } from "@/lib/system-config";
 import { api } from "@/convex/_generated/api";
 
 import { Promo } from "./pages/Promo";
+import PublicInfoPage from "./pages/PublicInfoPage";
+import LandingHome from "./pages/LandingHome";
 
 /**
  * Bungkus importer rute dengan percobaan ulang. Kegagalan memuat modul
@@ -42,6 +44,7 @@ function denganPercobaan<M>(muat: () => Promise<M>, maksPercobaan = 3): () => Pr
 
 // Lazy load route components for better code splitting
 const Landing = lazy(denganPercobaan(() => import("./pages/Landing.tsx")));
+const PublicLanding = lazy(denganPercobaan(() => import("./pages/LandingHome.tsx")));
 const AuthPage = lazy(denganPercobaan(() => import("./pages/Auth.tsx")));
 const Dashboard = lazy(denganPercobaan(() => import("./pages/Dashboard.tsx")));
 const Admin = lazy(denganPercobaan(() => import("./pages/Admin.tsx")));
@@ -270,7 +273,14 @@ createRoot(document.getElementById("root")!).render(
           <RouteErrorBoundary>
             <Suspense fallback={<RouteLoading />}>
               <Routes>
-                <Route path="/" element={<Landing />} />
+                <Route path="/" element={<PublicLanding />} />
+                <Route path="/biaya" element={<PublicInfoPage />} />
+                <Route path="/cara-kerja" element={<PublicInfoPage />} />
+                <Route path="/layanan/pinjaman-tunai" element={<PublicInfoPage />} />
+                <Route path="/layanan/gadai" element={<PublicInfoPage />} />
+                <Route path="/layanan/kredit-barang" element={<PublicInfoPage />} />
+                <Route path="/keamanan" element={<PublicInfoPage />} />
+                <Route path="/faq" element={<PublicInfoPage />} />
                 <Route
                   path="/auth"
                   element={<AuthPage redirectAfterAuth="/dashboard" />}
