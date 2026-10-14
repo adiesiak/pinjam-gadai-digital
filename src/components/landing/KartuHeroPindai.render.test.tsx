@@ -75,11 +75,13 @@ function bersih(html: string, label: string): void {
   );
   ada(html, 'opacity="0.32"', "motif awan biru dibatasi agar teks tetap terbaca");
   ada(html, "#5b9bd5", "motif memakai warna biru langit");
-  ada(html, "rgba(91,155,213,0.08)", "bidang awan tetap transparan di atas kertas");
+  ada(html, "rgba(91,155,213,0.06)", "bidang awan tetap transparan di atas kertas");
   ada(html, 'viewBox="0 0 420 265"', "bidang motif mengikuti rasio kartu");
-  ada(html, 'width="140" height="66.25"', "kisi awan mengisi kartu tanpa potongan");
-  ada(html, "M8 66H116", "kontur luar awan Mega Mendung dirender");
-  ada(html, "M20 54C18 47", "pusaran awan dirender di dalam unit");
+  ada(html, 'width="140" height="88.333333"', "kisi 3 × 3 awan mengisi kartu tanpa potongan");
+  ada(html, "M16 96C31 96", "kontur Mega Mendung memanjang bertingkat dirender");
+  ada(html, "M40 88C53 88", "lapisan kontur mengikuti bentuk awan utama");
+  ada(html, "M23 91C16 86", "pusaran awan khas Mega Mendung dirender");
+  ada(html, "M16 96C31 96", "unit mengulang motif awan memanjang dengan pusaran, bukan ikon baris");
   ada(
     html,
     'patternUnits="userSpaceOnUse"',

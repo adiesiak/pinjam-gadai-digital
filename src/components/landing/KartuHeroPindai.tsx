@@ -20,8 +20,8 @@ export function BatikPattern({
 }: BatikPatternProps) {
   const id = `mega-mendung-${useId().replace(/[^a-zA-Z0-9]/g, "")}`;
   const opacityAman = Math.min(0.4, Math.max(0, opacity));
-  const awanBulat =
-    "M8 66H116C128 66 136 58 136 47C136 37 128 29 117 29C114 17 104 10 92 10C80 10 71 18 68 30C65 20 56 14 45 14C31 14 21 24 20 38C11 39 5 46 5 55C5 60 6 64 8 66Z";
+  const awanMendung =
+    "M16 96C31 96 39 86 34 77C30 70 20 71 18 78C17 83 23 86 27 82C29 80 27 77 24 78C33 64 47 61 59 72C72 52 91 51 105 68C120 44 143 43 159 63C170 50 185 52 193 65C201 79 191 94 176 96H16Z";
 
   return (
     <svg
@@ -35,37 +35,37 @@ export function BatikPattern({
       preserveAspectRatio="none"
     >
       <defs>
-        <pattern id={id} width="140" height="66.25" patternUnits="userSpaceOnUse">
-          <g transform="translate(0 2) scale(1 0.9)">
+        <pattern id={id} width="140" height="88.333333" patternUnits="userSpaceOnUse">
+          <g transform="translate(3 6) scale(0.66 0.78)">
             <path
-              d={awanBulat}
-              fill="rgba(91,155,213,0.08)"
+              d={awanMendung}
+              fill="rgba(91,155,213,0.06)"
               stroke={warna}
               strokeLinecap="round"
               strokeLinejoin="round"
-              strokeWidth="2.2"
+              strokeWidth="2.4"
             />
             <path
-              d="M13 59H115C122 59 128 54 128 47C128 40 123 35 116 35C112 24 103 18 92 18C81 18 73 25 70 36C67 27 57 22 46 22C35 22 27 30 26 42C18 43 13 48 13 55Z"
+              d="M40 88C53 88 59 80 55 73C52 67 45 68 43 74C42 78 46 81 50 78C61 68 73 68 83 78C96 61 111 61 124 77C138 59 156 57 169 72C178 63 188 64 193 74C198 83 191 88 178 88H40Z"
               fill="none"
               stroke={warna}
-              strokeOpacity="0.75"
-              strokeWidth="1.4"
+              strokeOpacity="0.72"
+              strokeWidth="1.5"
             />
             <path
-              d="M21 52H112C117 52 121 49 121 45C121 41 118 38 114 38C109 28 101 25 92 25C83 25 76 31 72 42C69 34 58 30 48 30C40 30 34 35 32 44C25 45 21 48 21 52Z"
+              d="M58 82C69 82 73 77 70 73C68 69 63 70 62 74C71 67 81 70 88 80C101 64 114 65 125 80C138 64 152 63 164 77C171 70 181 70 185 78C187 81 185 83 181 83H58Z"
               fill="none"
               stroke={warna}
-              strokeOpacity="0.55"
-              strokeWidth="1.1"
+              strokeOpacity="0.52"
+              strokeWidth="1.15"
             />
             <path
-              d="M20 54C18 47 23 43 28 43C33 43 36 46 36 50C36 53 34 55 31 55C29 55 28 53 29 51C25 52 25 57 29 59C34 61 40 58 41 52C42 44 35 38 27 39M84 30C84 24 89 19 95 19C101 19 105 23 105 28C105 32 102 35 98 35C95 35 93 33 94 30C90 32 91 37 96 39C102 41 109 37 110 31"
+              d="M23 91C16 86 18 78 24 77C29 76 32 81 29 84C27 86 24 84 25 82C22 84 24 89 29 89C36 89 39 81 35 75M166 65C162 57 168 51 174 54C179 56 178 62 174 63C171 64 169 61 172 59C167 59 167 65 172 68"
               fill="none"
               stroke={warna}
               strokeLinecap="round"
               strokeLinejoin="round"
-              strokeWidth="1.6"
+              strokeWidth="1.7"
             />
           </g>
         </pattern>
