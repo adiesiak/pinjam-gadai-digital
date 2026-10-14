@@ -8,8 +8,8 @@
  *     rendah, chip logam kuningan, ikon contactless, dan data contoh tetap.
  *  2. Sisi kanan atas BENAR-BENAR kosong: tidak ada pita holografik/deret ikon
  *     yang dihapus dari desain lama.
- *  3. Kartu menampilkan nomor demo non-pembayaran tetap, wordmark, tanggal,
- *     dan tanda PINDAI CARD, tanpa rincian pinjaman tambahan.
+ *  3. Bagian isi kartu yang dipilih kosong: hanya permukaan emerald, motif,
+ *     tepi, bayangan, dan glare yang dipertahankan.
  *  4. Dua kartu di satu halaman tidak berbagi `id` pola batik (kalau berbagi,
  *     SVG kedua akan memakai pola pertama) — id datang dari `useId()`, jadi
  *     huruf besar/kecilnya tidak bisa ditebak dan diuji apa adanya.
@@ -52,7 +52,6 @@ function bersih(html: string, label: string): void {
   ada(html, "bg-emerald-900", "permukaan kartu emerald-900");
   ada(html, "ring-[#c9a86a]/35", "bingkai luar kuningan terlihat");
   ada(html, "ring-offset-2", "celah ring ganda dipertahankan");
-  ada(html, "#fff8dc", "wordmark gading kontras di atas emerald");
   // Permukaan gelap lama harus benar-benar hilang, bukan sekadar ditimpa.
   tidakAda(html, "bg-slate-950/90", "permukaan obsidian tidak dipakai lagi");
   tidakAda(html, "ring-emerald-500/60", "ring emerald lama tidak tersisa");
@@ -96,38 +95,33 @@ function bersih(html: string, label: string): void {
   bersih(html, "lapisan motif");
 }
 
-// ===== 3. Kepala kartu: logo emas, sisi kanan kosong =====
+// ===== 3. Konten kartu dipilih untuk dihapus =====
 {
   const html = renderToStaticMarkup(<PindaiCard3D />);
-  ada(html, "PINDAI", "wordmark teks PINDAI tampil");
-  ada(html, "tracking-[0.24em]", "wordmark kapital bertracking lebar");
-  tidakAda(html, ">P</span>", "mark P tidak digunakan");
+  tidakAda(html, "PINDAI CARD", "tanda kartu dihapus");
+  tidakAda(html, "BUDI SANTOSO", "nama contoh dihapus");
+  tidakAda(html, "9001 2345 6789 0123", "nomor demo dihapus dari kartu");
+  tidakAda(html, "12/29", "tanggal contoh dihapus");
   tidakAda(html, "hologram", "pita holografik lama benar-benar dihapus");
   tidakAda(html, "kartu-3d__", "kartu tidak lagi bergantung pada kelas lama");
-  bersih(html, "kepala kartu");
+  bersih(html, "permukaan kartu tanpa isi");
 }
 
-// ===== 4. Chip EMV + contactless di kiri tengah =====
+// ===== 4. Chip EMV + ikon contactless sudah dihapus =====
 {
   const html = renderToStaticMarkup(<PindaiCard3D />);
-  ada(html, 'viewBox="0 0 56 42"', "chip SVG berukuran 56 x 42");
-  ada(html, "#F6E27A", "chip memakai gradien emas metalik inline");
-  ada(html, 'stroke-opacity="0.5"', "jalur kontak memakai stroke halus");
-  ada(
-    html,
-    "M8 9a4 4 0 0 1 0 6",
-    "ikon contactless ditampilkan di samping chip",
-  );
+  tidakAda(html, 'viewBox="0 0 56 42"', "chip dekoratif ikut dihapus");
+  tidakAda(html, "M8 9a4 4 0 0 1 0 6", "ikon contactless ikut dihapus");
   bersih(html, "chip");
 }
 
-// ===== 5. Rincian hitungan dan disclaimer =====
+// ===== 5. Data identitas dan rincian ilustrasi sudah dihapus =====
 {
   const html = renderToStaticMarkup(<PindaiCard3D />);
-  ada(html, "9001 2345 6789 0123", "nomor demo tetap ditampilkan");
-  ada(html, "BUDI SANTOSO", "nama contoh terlihat");
-  ada(html, "12/29", "tanggal contoh tampil");
-  ada(html, "PINDAI CARD", "tanda kartu tampil");
+  tidakAda(html, "9001 2345 6789 0123", "nomor demo tidak tampil");
+  tidakAda(html, "BUDI SANTOSO", "nama contoh tidak tampil");
+  tidakAda(html, "12/29", "tanggal contoh tidak tampil");
+  tidakAda(html, "PINDAI CARD", "tanda kartu tidak tampil");
   tidakAda(html, "Pokok contoh", "rincian pokok dihapus");
   tidakAda(html, "Tenor contoh", "rincian tenor dihapus");
   tidakAda(html, "Total kewajiban ilustrasi", "rincian total dihapus");
