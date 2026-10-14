@@ -1,11 +1,9 @@
 /**
  * Halaman /promo — "Poster Promo PINDAI", brand asset center untuk kampanye.
  *
- * Sembilan poster 1080 × 1350 (rasio 4:5) dirender dari data `promoPosters`
- * lewat komposer Canvas 2D (`lib/promoPosterGambar`) sehingga pratinjau, modal,
- * dan PNG unduhan SEMUA memakai desain yang sama — tidak ada elemen UI situs
- * yang ikut masuk ke gambar. Konten (badge, headline, CTA, dst.) berasal dari
- * data sehingga kelak bisa diedit admin tanpa menyentuh kode gambar.
+ * Sembilan poster dirender dari data `promoPosters` lewat Canvas 2D dalam tiga
+ * ukuran sosial. Pratinjau, modal, dan PNG unduhan memakai desain yang sama;
+ * satu pilihan rasio mengubah komposisi dan ukuran kanvas, bukan sekadar crop.
  *
  * Gerak halaman memakai bahasa animasi PINDAI yang sama dengan landing
  * (`framer-motion` + `lib/motion`): header masuk berurutan, pil filter aktif
@@ -23,7 +21,12 @@
  */
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router";
-import { AnimatePresence, motion, useReducedMotion, type Variants } from "framer-motion";
+import {
+  AnimatePresence,
+  motion,
+  useReducedMotion,
+  type Variants,
+} from "framer-motion";
 import { toast } from "sonner";
 
 import { AsetAndroid } from "@/components/AsetAndroid";
@@ -36,7 +39,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Download, Eye, Link2, Share2, Shapes, Smartphone } from "lucide-react";
+import {
+  Download,
+  Eye,
+  Link2,
+  Share2,
+  Shapes,
+  Smartphone,
+  Copy,
+} from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
 
 import {
   KATEGORI_POSTER,
@@ -45,39 +57,70 @@ import {
   tautanPoster,
   type PromoPoster,
 } from "@/lib/promoPosters";
-import { UKURAN_POSTER, gambarPoster } from "@/lib/promoPosterGambar";
+import {
+  UKURAN_POSTER,
+  gambarPoster,
+  type RasioPoster,
+  type UkuranPoster,
+} from "@/lib/promoPosterGambar";
 import { ASET_ANDROID } from "@/lib/asetAndroid";
 import { EASE_OUT } from "@/lib/motion";
 
-/** Skala kanvas kartu (540 px → 1/2 dari 1080) supaya pratinjau tetap ringan. */
+/** Lebar kartu setengah ukuran sumber untuk menjaga pratinjau tetap ringan. */
 const SKALA_KARTU = 0.5;
-const LEBAR_KARTU = Math.round(UKURAN_POSTER.lebar * SKALA_KARTU);
+const LEBAR_KARTU = Math.round(UKURAN_POSTER.potret.lebar * SKALA_KARTU);
 
-/** Kanvas PNG berukuran penuh — dibuat segagal mungkin di luar layar. */
-function kanvasPenuh(p: PromoPoster): HTMLCanvasElement | null {
+function kanvasPenuh(
+  p: PromoPoster,
+  rasio: RasioPoster,
+): HTMLCanvasElement | null {
+  const ukuran = UKURAN_POSTER[rasio];
   const kanvas = document.createElement("canvas");
-  kanvas.width = UKURAN_POSTER.lebar;
-  kanvas.height = UKURAN_POSTER.tinggi;
+  kanvas.width = ukuran.lebar;
+  kanvas.height = ukuran.tinggi;
   const ctx = kanvas.getContext("2d");
   if (!ctx) return null;
-  gambarPoster(ctx, p);
+  gambarPoster(ctx, p, ukuran);
   return kanvas;
 }
 
-/** Unduh PNG 1080 × 1350 dengan nama dari data. */
-function unduhPoster(p: PromoPoster): void {
+function unduhPoster(p: PromoPoster, rasio: RasioPoster): void {
   try {
-    const kanvas = kanvasPenuh(p);
+    const kanvas = kanvasPenuh(p, rasio);
     if (!kanvas) throw new Error("kanvas");
     const tautan = document.createElement("a");
     tautan.href = kanvas.toDataURL("image/png");
-    tautan.download = p.file;
+    tautan.download = p.file.replace(/\.png$/i, `-${rasio}.png`);
     document.body.appendChild(tautan);
     tautan.click();
     tautan.remove();
-    toast.success(`PNG diunduh: ${p.file} (1080 × 1350).`);
+    toast.success(`PNG ${ukuranLabel(rasio)} diunduh.`);
   } catch {
     toast.error("Gagal membuat PNG. Coba lagi.");
+  }
+}
+
+function ukuranLabel(rasio: RasioPoster): string {
+  return UKURAN_POSTER[rasio].label;
+}
+
+function captionPoster(p: PromoPoster): string {
+  return [
+    p.headline.replace(/\n/g, " "),
+    p.description,
+    p.caption,
+    p.disclaimer,
+  ]
+    .filter(Boolean)
+    .join("\n\n");
+}
+
+async function salinCaption(p: PromoPoster): Promise<void> {
+  try {
+    await navigator.clipboard.writeText(captionPoster(p));
+    toast.success("Caption dan keterangannya disalin.");
+  } catch {
+    toast.error("Gagal menyalin caption.");
   }
 }
 
@@ -95,20 +138,35 @@ async function salinTautan(p: PromoPoster, diam = false): Promise<void> {
  * Bagikan: Web Share API bila tersedia (berbagi berkas PNG bila didukung,
  * selain itu teks + tautan), jatuh ke salin tautan bila tidak tersedia.
  */
-async function bagikanPoster(p: PromoPoster): Promise<void> {
-  if (typeof navigator !== "undefined" && typeof navigator.share === "function") {
+async function bagikanPoster(
+  p: PromoPoster,
+  rasio: RasioPoster,
+): Promise<void> {
+  if (
+    typeof navigator !== "undefined" &&
+    typeof navigator.share === "function"
+  ) {
     try {
-      const kanvas = kanvasPenuh(p);
+      const kanvas = kanvasPenuh(p, rasio);
       const blob = await new Promise<Blob | null>((selesai) =>
         kanvas?.toBlob(selesai, "image/png"),
       );
-      const berkas = blob ? new File([blob], p.file, { type: "image/png" }) : null;
-      const nav = navigator as Navigator & { canShare?: (d: ShareData) => boolean };
+      const namaBerkas = p.file.replace(/\.png$/i, `-${rasio}.png`);
+      const berkas = blob
+        ? new File([blob], namaBerkas, { type: "image/png" })
+        : null;
+      const nav = navigator as Navigator & {
+        canShare?: (d: ShareData) => boolean;
+      };
       if (berkas && nav.canShare?.({ files: [berkas] })) {
         await nav.share({ files: [berkas], text: SHARE_TEKS });
         return;
       }
-      await nav.share({ title: "PINDAI", text: SHARE_TEKS, url: tautanPoster(p.id) });
+      await nav.share({
+        title: "PINDAI",
+        text: SHARE_TEKS,
+        url: tautanPoster(p.id),
+      });
       return;
     } catch (err) {
       if (err instanceof DOMException && err.name === "AbortError") return;
@@ -148,60 +206,77 @@ function varianGaleri(reduce: boolean): Variants {
       opacity: 1,
       y: 0,
       scale: 1,
-      transition: { duration: 0.42, delay: Math.min(i, 8) * 0.05, ease: EASE_OUT },
+      transition: {
+        duration: 0.42,
+        delay: Math.min(i, 8) * 0.05,
+        ease: EASE_OUT,
+      },
     }),
-    keluar: { opacity: 0, y: -12, scale: 0.985, transition: { duration: 0.2, ease: EASE_OUT } },
+    keluar: {
+      opacity: 0,
+      y: -12,
+      scale: 0.985,
+      transition: { duration: 0.2, ease: EASE_OUT },
+    },
   };
 }
 
 /**
- * Kanvas poster — menggambar `poster` pada lebar piksel tertentu (rasio 4:5).
- * Menggambar terjadi di efek, bukan saat render, sesuai aturan kemurnian React.
+ * Kanvas poster menggambar pada ukuran terpilih. Efek menjaga render React tetap murni.
  */
 function KanvasPoster({
   poster,
   lebar,
+  ukuran,
   className,
 }: {
   poster: PromoPoster;
   lebar: number;
+  ukuran: UkuranPoster;
   className?: string;
 }) {
   const ref = useRef<HTMLCanvasElement>(null);
+  const [siap, setSiap] = useState(false);
 
   useEffect(() => {
     const kanvas = ref.current;
     if (!kanvas) return;
     const ctx = kanvas.getContext("2d");
     if (!ctx) return;
-    const skala = lebar / UKURAN_POSTER.lebar;
+    setSiap(false);
+    const skala = lebar / ukuran.lebar;
 
-    const gambar = (sumber?: HTMLImageElement): void => {
+    const gambar = (): void => {
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.clearRect(0, 0, kanvas.width, kanvas.height);
       ctx.scale(skala, skala);
-      gambarPoster(ctx, poster, sumber);
+      gambarPoster(ctx, poster, ukuran);
+      setSiap(true);
     };
 
-    if (poster.image) {
-      const img = new Image();
-      img.onload = () => gambar(img);
-      img.onerror = () => gambar();
-      img.src = poster.image;
-    } else {
-      gambar();
-    }
-  }, [poster, lebar]);
+    gambar();
+  }, [poster, lebar, ukuran]);
 
   return (
-    <canvas
-      ref={ref}
-      width={lebar}
-      height={Math.round((lebar * UKURAN_POSTER.tinggi) / UKURAN_POSTER.lebar)}
-      className={className}
-      aria-label={`Poster ${poster.title}`}
-      role="img"
-    />
+    <span
+      className="relative block w-full overflow-hidden bg-slate-100"
+      style={{ aspectRatio: `${ukuran.lebar} / ${ukuran.tinggi}` }}
+    >
+      {!siap && (
+        <Skeleton
+          aria-label={`Memuat poster ${poster.title}`}
+          className="absolute inset-0 rounded-none"
+        />
+      )}
+      <canvas
+        ref={ref}
+        width={lebar}
+        height={Math.round((lebar * ukuran.tinggi) / ukuran.lebar)}
+        className={`${className ?? ""} ${siap ? "" : "invisible"}`}
+        aria-label={`Poster ${poster.title}, ${ukuran.label} piksel`}
+        role="img"
+      />
+    </span>
   );
 }
 
@@ -209,9 +284,13 @@ function KanvasPoster({
 function KartuPoster({
   poster,
   onLihat,
+  rasio,
+  onSalinCaption,
 }: {
   poster: PromoPoster;
   onLihat: (p: PromoPoster) => void;
+  rasio: RasioPoster;
+  onSalinCaption: (p: PromoPoster) => void;
 }) {
   return (
     <article className="group flex h-full flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm transition-[transform,box-shadow,border-color] duration-300 hover:-translate-y-1 hover:border-slate-300 hover:shadow-lg">
@@ -224,13 +303,16 @@ function KartuPoster({
         <KanvasPoster
           poster={poster}
           lebar={LEBAR_KARTU}
+          ukuran={UKURAN_POSTER[rasio]}
           className="block h-auto w-full transition-transform duration-500 ease-out group-hover:scale-[1.03]"
         />
       </button>
 
       <div className="flex items-start justify-between gap-2 px-1">
         <div className="min-w-0">
-          <h3 className="truncate text-sm font-semibold text-slate-900">{poster.title}</h3>
+          <h3 className="truncate text-sm font-semibold text-slate-900">
+            {poster.title}
+          </h3>
           <p className="mt-0.5 text-xs text-muted-foreground">{poster.badge}</p>
         </div>
         <Badge variant="outline" className="shrink-0 text-[11px]">
@@ -242,15 +324,23 @@ function KartuPoster({
         <Button
           size="sm"
           className="rounded-full transition-transform hover:-translate-y-0.5"
-          onClick={() => unduhPoster(poster)}
+          onClick={() => unduhPoster(poster, rasio)}
         >
-          <Download className="size-4" /> Unduh PNG
+          <Download className="size-4" /> Unduh {ukuranLabel(rasio)}
+        </Button>
+        <Button
+          size="sm"
+          variant="ghost"
+          className="rounded-full"
+          onClick={() => onSalinCaption(poster)}
+        >
+          <Copy className="size-4" /> Salin caption
         </Button>
         <Button
           size="sm"
           variant="outline"
           className="rounded-full transition-transform hover:-translate-y-0.5"
-          onClick={() => void bagikanPoster(poster)}
+          onClick={() => void bagikanPoster(poster, rasio)}
         >
           <Share2 className="size-4" /> Bagikan
         </Button>
@@ -270,6 +360,7 @@ function KartuPoster({
 export function Promo() {
   const reduce = useReducedMotion() ?? false;
   const [kategori, setKategori] = useState<string>("Semua");
+  const [rasio, setRasio] = useState<RasioPoster>("potret");
   const [params, setParams] = useSearchParams();
 
   const posterAktif = useMemo(() => promoPostersAktif(), []);
@@ -286,7 +377,8 @@ export function Promo() {
   // dan tombol kembali browser otomatis menutup — tanpa efek sinkronisasi.
   const idTerbuka = params.get("poster");
   const terbuka = useMemo(
-    () => (idTerbuka ? (posterAktif.find((p) => p.id === idTerbuka) ?? null) : null),
+    () =>
+      idTerbuka ? (posterAktif.find((p) => p.id === idTerbuka) ?? null) : null,
     [idTerbuka, posterAktif],
   );
 
@@ -337,15 +429,19 @@ export function Promo() {
               Materi kampanye PINDAI untuk berbagai kebutuhan.
             </p>
           </motion.div>
-          <motion.div variants={itemHeader} className="flex flex-col items-start gap-2 sm:items-end">
+          <motion.div
+            variants={itemHeader}
+            className="flex flex-col items-start gap-2 sm:items-end"
+          >
             <p className="text-xs tabular-nums text-muted-foreground">
-              {posterAktif.length} poster · 1080 × 1350 px · siap Instagram / WhatsApp / Facebook
+              {posterAktif.length} poster · 3 ukuran PNG · untuk feed dan story
             </p>
             <a
               href="#aset-android"
               className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1.5 text-xs font-semibold text-navy transition-colors hover:border-slate-300 hover:bg-slate-50"
             >
-              <Smartphone className="size-3.5" /> Aset Android ({ASET_ANDROID.length} berkas) ↓
+              <Smartphone className="size-3.5" /> Aset Android (
+              {ASET_ANDROID.length} berkas) ↓
             </a>
           </motion.div>
         </motion.header>
@@ -357,6 +453,29 @@ export function Promo() {
         <h2 className="mt-12 border-b border-border pb-3 text-lg font-semibold tracking-tight text-foreground">
           Poster kampanye
         </h2>
+
+        <div
+          className="mt-5 flex flex-wrap items-center gap-2"
+          role="group"
+          aria-label="Ukuran poster PNG"
+        >
+          {(Object.keys(UKURAN_POSTER) as RasioPoster[]).map((key) => (
+            <button
+              key={key}
+              type="button"
+              aria-pressed={rasio === key}
+              onClick={() => setRasio(key)}
+              className={`min-h-11 rounded-lg border px-3 text-xs font-semibold ${rasio === key ? "border-emerald-700 bg-emerald-700 text-white" : "border-border bg-card text-foreground hover:bg-slate-50"}`}
+            >
+              {key === "persegi"
+                ? "Persegi"
+                : key === "potret"
+                  ? "Potret"
+                  : "Story"}{" "}
+              · {UKURAN_POSTER[key].label}
+            </button>
+          ))}
+        </div>
 
         {/* Filter kategori — pil aktif bergeser mulus antar tombol. */}
         <motion.nav
@@ -386,11 +505,15 @@ export function Promo() {
                     layoutId="promo-filter-pil"
                     className="absolute inset-0 -z-10 rounded-full bg-primary"
                     transition={
-                      reduce ? { duration: 0 } : { type: "spring", stiffness: 380, damping: 32 }
+                      reduce
+                        ? { duration: 0 }
+                        : { type: "spring", stiffness: 380, damping: 32 }
                     }
                   />
                 )}
-                <span className={`relative ${aktif ? "text-primary-foreground" : ""}`}>
+                <span
+                  className={`relative ${aktif ? "text-primary-foreground" : ""}`}
+                >
                   {k}
                 </span>
               </button>
@@ -427,7 +550,12 @@ export function Promo() {
                   exit="keluar"
                   className="h-full"
                 >
-                  <KartuPoster poster={p} onLihat={bukaPratinjau} />
+                  <KartuPoster
+                    poster={p}
+                    onLihat={bukaPratinjau}
+                    rasio={rasio}
+                    onSalinCaption={(pilihan) => void salinCaption(pilihan)}
+                  />
                 </motion.div>
               ))}
             </AnimatePresence>
@@ -442,10 +570,11 @@ export function Promo() {
           className="mt-10 border-t border-border pt-5 text-xs leading-5 text-muted-foreground"
         >
           Aset aplikasi Android dibuat dari painter yang sama dengan poster dan
-          lambang brand di dalam aplikasi, jadi ikon peluncur di perangkat tampil
-          identik dengan logo di situs. Seluruh poster memakai identitas visual
-          PINDAI yang sama dan tidak memuat klaim persetujuan maupun keamanan
-          absolut. Angka biaya dan ketentuan mengikuti konfigurasi sistem.
+          lambang brand di dalam aplikasi, jadi ikon peluncur di perangkat
+          tampil identik dengan logo di situs. Seluruh poster memakai identitas
+          visual PINDAI yang sama dan tidak memuat klaim persetujuan maupun
+          keamanan absolut. Angka biaya dan ketentuan mengikuti konfigurasi
+          sistem.
         </motion.footer>
       </main>
 
@@ -460,7 +589,7 @@ export function Promo() {
           <DialogHeader className="sr-only">
             <DialogTitle>{terbuka?.title ?? "Pratinjau poster"}</DialogTitle>
             <DialogDescription>
-              Pratinjau poster kampanye PINDAI berukuran 1080 × 1350 piksel.
+              Pratinjau poster kampanye PINDAI dalam ukuran yang dipilih.
             </DialogDescription>
           </DialogHeader>
 
@@ -473,26 +602,34 @@ export function Promo() {
                 className="flex w-full max-w-5xl items-center justify-between gap-3 pr-10 text-white"
               >
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-semibold">{terbuka.title}</p>
+                  <p className="truncate text-sm font-semibold">
+                    {terbuka.title}
+                  </p>
                   <p className="text-xs text-white/60">
-                    {terbuka.category} · {terbuka.file} · 1080 × 1350
+                    {terbuka.category} · {terbuka.file} · {ukuranLabel(rasio)}
                   </p>
                 </div>
-                <Badge variant="outline" className="shrink-0 border-white/30 text-white/80">
+                <Badge
+                  variant="outline"
+                  className="shrink-0 border-white/30 text-white/80"
+                >
                   {terbuka.nomor} / 09
                 </Badge>
               </motion.div>
 
               <motion.div
-                key={terbuka.id}
-                initial={reduce ? { opacity: 0 } : { opacity: 0, scale: 0.95, y: 12 }}
+                key={`${terbuka.id}-${rasio}`}
+                initial={
+                  reduce ? { opacity: 0 } : { opacity: 0, scale: 0.95, y: 12 }
+                }
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 transition={{ duration: 0.42, ease: EASE_OUT }}
                 className="flex w-full items-center justify-center"
               >
                 <KanvasPoster
                   poster={terbuka}
-                  lebar={UKURAN_POSTER.lebar}
+                  lebar={UKURAN_POSTER[rasio].lebar}
+                  ukuran={UKURAN_POSTER[rasio]}
                   className="block h-auto max-h-[68dvh] w-auto max-w-full rounded-xl shadow-2xl"
                 />
               </motion.div>
@@ -503,13 +640,23 @@ export function Promo() {
                 transition={{ duration: 0.4, delay: 0.12, ease: EASE_OUT }}
                 className="flex w-full max-w-5xl flex-wrap items-center justify-center gap-2"
               >
-                <Button className="rounded-full" onClick={() => unduhPoster(terbuka)}>
-                  <Download className="size-4" /> Unduh PNG
+                <Button
+                  className="rounded-full"
+                  onClick={() => unduhPoster(terbuka, rasio)}
+                >
+                  <Download className="size-4" /> Unduh {ukuranLabel(rasio)}
                 </Button>
                 <Button
                   variant="secondary"
                   className="rounded-full"
-                  onClick={() => void bagikanPoster(terbuka)}
+                  onClick={() => void salinCaption(terbuka)}
+                >
+                  <Copy className="size-4" /> Salin caption
+                </Button>
+                <Button
+                  variant="secondary"
+                  className="rounded-full"
+                  onClick={() => void bagikanPoster(terbuka, rasio)}
                 >
                   <Share2 className="size-4" /> Bagikan
                 </Button>

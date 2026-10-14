@@ -19,7 +19,8 @@
  * (tanpa ikon clip-art), tagline tampil paling dulu dan paling besar di antara
  * konten poster — lihat `lib/promoPosterGambar.ts`.
  */
-import { KREDIT_TENOR_PENGAJUAN_OPTIONS } from "./kredit";
+import { quoteLoan } from "./loan";
+import { formatRupiah } from "./money";
 
 export type KategoriPoster =
   | "Pinjaman"
@@ -78,6 +79,11 @@ export type PromoPoster = {
   layanan?: string[];
   /** CTA sekunder pada poster hero. */
   subCta?: string;
+  /** Keterangan kecil yang dapat menyebutkan proses dilakukan di luar aplikasi. */
+  caption?: string;
+  /** Keterangan legalitas opsional, hanya tampil bila ada isinya. */
+  legalitas?: string;
+  /** Disclaimer wajib pada setiap poster. */
   disclaimer: string;
 };
 
@@ -85,17 +91,23 @@ export const TAGLINE = "PINJAM • GADAI DIGITAL";
 export const SHARE_TEKS = "Kenali PINDAI: Pinjam & Gadai Digital.";
 
 /** Daftar 9 poster kampanye — urutan tampil mengikuti `order`. */
+const contohPinjaman = quoteLoan(500_000);
+const rincianBiaya = [
+  { judul: "Pokok", teks: formatRupiah(contohPinjaman.pokok) },
+  { judul: "Biaya admin", teks: formatRupiah(contohPinjaman.biayaAdmin) },
+  { judul: "Total kewajiban", teks: formatRupiah(contohPinjaman.totalKewajibanPelunasan) },
+];
+
 export const promoPosters: PromoPoster[] = [
   {
     id: "pinjaman",
-    title: "Pinjaman: Dana Cepat",
+    title: "Pinjaman: Ajukan dan Pantau",
     category: "Pinjaman",
-    badge: "BUTUH DANA?",
-    headline: "Dana Cepat,\nTanpa Ribet.",
-    description:
-      "Ajukan kebutuhan dana secara digital dengan informasi yang jelas.",
-    features: ["Tenor fleksibel", "Pengajuan digital", "Informasi biaya transparan"],
-    cta: "Ajukan Sekarang →",
+    badge: "PINJAMAN DIGITAL",
+    headline: "Ajukan, Pantau Status",
+    description: "Ajukan pinjaman secara online dan lihat status pengajuan di akun PINDAI.",
+    features: ["Pengajuan tercatat di akun", "Status pengajuan dapat dilihat"],
+    cta: "Pelajari Pengajuan",
     image: null,
     enabled: true,
     order: 1,
@@ -107,13 +119,13 @@ export const promoPosters: PromoPoster[] = [
   },
   {
     id: "gadai",
-    title: "Gadai: Ubah Barang",
+    title: "Gadai: Catat Pengajuan",
     category: "Gadai",
-    badge: "PUNYA BARANG BERHARGA?",
-    headline: "Ubah Barang\nJadi Dana.",
-    description: "Ajukan gadai dengan proses taksiran yang transparan.",
-    features: ["Taksiran transparan", "Barang tersimpan aman", "Proses terstruktur"],
-    cta: "Taksir Barang →",
+    badge: "PENGAJUAN GADAI",
+    headline: "Catat Pengajuan Gadai",
+    description: "Buat catatan pengajuan dan lihat statusnya melalui akun PINDAI.",
+    features: ["Informasi barang tercatat", "Status pengajuan dapat dilihat"],
+    cta: "Lihat Informasi Gadai",
     image: null,
     enabled: true,
     order: 2,
@@ -125,19 +137,13 @@ export const promoPosters: PromoPoster[] = [
   },
   {
     id: "kredit",
-    title: "Kredit: Bawa Pulang",
+    title: "Kredit: Cek Simulasi",
     category: "Kredit",
-    badge: "MAU BARANG YANG DIBUTUHKAN?",
-    headline: "Bawa Pulang,\nCicil Tenang.",
-    description:
-      "Dapatkan barang yang Anda butuhkan dengan pilihan tenor yang tersedia.",
-    features: [
-      "DP sesuai ketentuan",
-      // Angka tenor diambil dari konfigurasi produk, bukan ditulis di sini.
-      `Tenor ${KREDIT_TENOR_PENGAJUAN_OPTIONS.join(" / ")} bulan`,
-      "Pilihan barang",
-    ],
-    cta: "Mulai Cicil →",
+    badge: "SEBELUM MENGAJUKAN",
+    headline: "Cek Simulasi Kredit",
+    description: "Periksa simulasi biaya dan tenor sebelum mengajukan kredit barang.",
+    features: ["Simulasi mengikuti fungsi hitung aplikasi", "Tenor tersedia ditampilkan pada formulir"],
+    cta: "Lihat Simulasi",
     image: null,
     enabled: true,
     order: 3,
@@ -149,13 +155,13 @@ export const promoPosters: PromoPoster[] = [
   },
   {
     id: "cara-kerja",
-    title: "Cara Kerja: Semua Digital",
+    title: "Cara Kerja: Catatan Digital",
     category: "Informasi",
-    badge: "SEMUANYA DIGITAL",
-    headline: "Ajukan.\nPeriksa.\nSelesaikan.",
-    description: "Semua proses dapat dipantau melalui akun PINDAI.",
+    badge: "ALUR PENGAJUAN",
+    headline: "Pengajuan Tercatat Digital",
+    description: "Data pengajuan dan status yang tersedia dicatat di akun PINDAI.",
     features: [],
-    cta: "Lihat Cara Kerja →",
+    cta: "Lihat Cara Kerja",
     image: null,
     enabled: true,
     order: 4,
@@ -164,23 +170,22 @@ export const promoPosters: PromoPoster[] = [
     aksen: "emas",
     bentuk: "langkah",
     items: [
-      { teks: "Daftar" },
-      { teks: "Lengkapi Data" },
-      { teks: "Ajukan" },
-      { teks: "Pantau Status" },
+      { teks: "Isi data yang diminta" },
+      { teks: "Kirim pengajuan" },
+      { teks: "Periksa status pada akun" },
     ],
-    disclaimer: "Alur ilustratif; ketentuan teknis berlaku di aplikasi.",
+    caption: "Pembayaran dan pencairan dilakukan di luar aplikasi.",
+    disclaimer: "Alur dapat berbeda menurut jenis pengajuan dan hasil pemeriksaan.",
   },
   {
     id: "biaya",
-    title: "Biaya: Transparan",
+    title: "Biaya: Contoh Perhitungan",
     category: "Informasi",
-    badge: "TRANSPARANSI DI DEPAN",
-    headline: "Tahu Biayanya,\nSebelum Memutuskan.",
-    description:
-      "PINDAI menampilkan komponen biaya dan kewajiban secara jelas sebelum pengajuan diselesaikan.",
+    badge: "CONTOH PINJAMAN",
+    headline: "Lihat Contoh Perhitungan",
+    description: "Contoh di bawah dihitung dengan fungsi pinjaman yang digunakan aplikasi.",
     features: [],
-    cta: "Lihat Kalkulator →",
+    cta: "Periksa Simulasi",
     image: null,
     enabled: true,
     order: 5,
@@ -188,31 +193,21 @@ export const promoPosters: PromoPoster[] = [
     file: "pindai-biaya.png",
     aksen: "emas",
     bentuk: "baris",
-    // Placeholder — angka sebenarnya mengikuti konfigurasi sistem/kalkulator.
-    items: [
-      { judul: "POKOK", teks: "Rp …" },
-      { judul: "BIAYA", teks: "Rp …" },
-      { judul: "TOTAL KEWAJIBAN", teks: "Rp …" },
-    ],
+    items: rincianBiaya,
     pemisah: ["+", "="],
-    catatan: "Periksa simulasi sebelum melanjutkan.",
-    disclaimer: "Nilai mengikuti konfigurasi sistem. Periksa kalkulator PINDAI.",
+    catatan: `Contoh pokok ${formatRupiah(contohPinjaman.pokok)}.`,
+    caption: "Hasil dapat berbeda menurut nominal, skema, dan ketentuan yang berlaku.",
+    disclaimer: "Ini contoh perhitungan pinjaman harian, bukan penawaran atau persetujuan.",
   },
   {
     id: "keamanan",
-    title: "Keamanan: Data Terjaga",
+    title: "Keamanan: Fitur yang Tersedia",
     category: "Keamanan",
-    badge: "KEAMANAN DIGITAL",
-    headline: "Data Anda,\nKami Jaga.",
-    description:
-      "PINDAI dirancang dengan kontrol keamanan dan proses verifikasi untuk membantu menjaga data pengguna.",
-    features: [
-      "Verifikasi identitas",
-      "Perlindungan data",
-      "Kontrol akses",
-      "Riwayat aktivitas",
-    ],
-    cta: "Lihat Keamanan →",
+    badge: "FITUR APLIKASI",
+    headline: "Kenali Fitur Pengamanan",
+    description: "Aplikasi menyediakan pemeriksaan identitas, pembatasan akses, dan catatan aktivitas admin.",
+    features: ["Verifikasi identitas pengajuan", "Akses berbasis peran", "Riwayat aktivitas admin"],
+    cta: "Lihat Kebijakan",
     image: null,
     enabled: true,
     order: 6,
@@ -220,17 +215,17 @@ export const promoPosters: PromoPoster[] = [
     file: "pindai-keamanan.png",
     aksen: "toska",
     bentuk: "kartu",
-    disclaimer: "Kontrol keamanan membantu, namun tidak menghapus seluruh risiko digital.",
+    disclaimer: "Fitur ini bukan jaminan bebas risiko. Hindari membagikan kode masuk.",
   },
   {
     id: "faq",
-    title: "FAQ: Pertanyaan & Jawaban",
+    title: "FAQ: Sebelum Mengajukan",
     category: "Informasi",
-    badge: "MASIH BINGUNG?",
-    headline: "Pertanyaan Anda,\nJawabannya Ada.",
+    badge: "INFORMASI PENGAJUAN",
+    headline: "Pahami Sebelum Mengajukan",
     description: "",
     features: [],
-    cta: "Lihat FAQ →",
+    cta: "Lihat FAQ",
     image: null,
     enabled: true,
     order: 7,
@@ -248,14 +243,13 @@ export const promoPosters: PromoPoster[] = [
   },
   {
     id: "trust",
-    title: "Brand: Kenali PINDAI",
+    title: "Brand: Catatan Digital",
     category: "Brand",
-    badge: "KENALI PINDAI",
-    headline: "Transparan.\nDigital.\nTerukur.",
-    description:
-      "PINDAI menghadirkan pengalaman pinjam, gadai, dan kredit dalam satu platform digital.",
+    badge: "PINJAMAN, GADAI, KREDIT",
+    headline: "PINDAI, Catatan Digital",
+    description: "PINDAI mencatat pengajuan pinjaman, gadai, dan kredit.",
     features: [],
-    cta: "Kenali PINDAI →",
+    cta: "Kenali PINDAI",
     image: null,
     enabled: true,
     order: 8,
@@ -274,14 +268,13 @@ export const promoPosters: PromoPoster[] = [
   },
   {
     id: "cta",
-    title: "CTA: PINDAI Dulu",
+    title: "Mulai dari Informasi",
     category: "Brand",
     badge: "PINDAI",
-    headline: "Saat Butuh,\nPINDAI Dulu.",
-    description: "Pinjaman, gadai, dan kredit\ndalam satu platform digital.",
+    headline: "Mulai dari Informasi",
+    description: "Pelajari catatan pengajuan pinjaman, gadai, dan kredit.",
     features: [],
-    cta: "Mulai Sekarang →",
-    subCta: "Pelajari PINDAI",
+    cta: "Lihat Informasi",
     image: null,
     enabled: true,
     order: 9,
@@ -290,7 +283,8 @@ export const promoPosters: PromoPoster[] = [
     aksen: "emas",
     bentuk: "hero",
     layanan: ["PINJAMAN", "GADAI", "KREDIT"],
-    disclaimer: "Informasi umum, bukan penawaran. Syarat & ketentuan berlaku.",
+    caption: "Pembayaran dan pencairan dilakukan di luar aplikasi.",
+    disclaimer: "Informasi umum saja. Periksa ketentuan sebelum membuat pengajuan.",
   },
 ];
 

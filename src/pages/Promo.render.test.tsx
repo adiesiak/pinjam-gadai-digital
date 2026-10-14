@@ -20,6 +20,7 @@ import { MemoryRouter } from "react-router";
 
 import { ASET_ANDROID, PANDUAN_ANDROID } from "@/lib/asetAndroid";
 import { KATEGORI_POSTER, promoPostersAktif } from "@/lib/promoPosters";
+import { UKURAN_POSTER } from "@/lib/promoPosterGambar";
 
 import { Promo } from "./Promo";
 
@@ -62,26 +63,43 @@ const html = renderToStaticMarkup(
 // ===== Header =====
 ada(html, "Brand asset center", "label halaman");
 ada(html, "Poster Promo", "judul halaman");
-ada(html, "Materi kampanye PINDAI untuk berbagai kebutuhan.", "keterangan halaman");
 ada(
   html,
-  `${poster.length} poster · 1080 × 1350 px`,
-  "ringkasan jumlah poster dan ukurannya",
+  "Materi kampanye PINDAI untuk berbagai kebutuhan.",
+  "keterangan halaman",
 );
+ada(
+  html,
+  `${poster.length} poster · 3 ukuran PNG`,
+  "ringkasan jumlah poster dan pilihan ukuran",
+);
+ada(
+  html,
+  'aria-label="Ukuran poster PNG"',
+  "pilihan ukuran poster memiliki label aksesibel",
+);
+for (const [nama, ukuran] of Object.entries(UKURAN_POSTER)) {
+  ada(html, `${ukuran.label}`, `ukuran ${nama} tersedia`);
+}
 
 // ===== Filter kategori =====
 ada(html, 'aria-label="Filter kategori poster"', "navigasi filter bernama");
-for (const k of KATEGORI_POSTER) ada(html, `>${k}</span>`, `pil filter "${k}" ada`);
+for (const k of KATEGORI_POSTER)
+  ada(html, `>${k}</span>`, `pil filter "${k}" ada`);
+const awalFilter = html.indexOf('<nav aria-label="Filter kategori poster"');
+const akhirFilter = html.indexOf("</nav>", awalFilter) + "</nav>".length;
+const htmlFilter = html.slice(awalFilter, akhirFilter);
 ok(
-  jumlah(html, 'aria-pressed="true"') === 1,
+  jumlah(htmlFilter, 'aria-pressed="true"') === 1,
   "tepat satu pil filter ditandai aktif",
 );
 ok(
-  jumlah(html, 'aria-pressed="false"') === KATEGORI_POSTER.length - 1,
+  jumlah(htmlFilter, 'aria-pressed="false"') === KATEGORI_POSTER.length - 1,
   "pil filter selebihnya ditandai tidak aktif",
 );
 ok(
-  html.indexOf(">Semua</span>") > html.indexOf('aria-pressed="true"'),
+  htmlFilter.indexOf(">Semua</span>") >
+    htmlFilter.indexOf('aria-pressed="true"'),
   "pil aktif bawaan adalah Semua",
 );
 // Latar pil aktif adalah elemen terpisah di dalam tombol (satu pil yang
@@ -108,26 +126,49 @@ ok(
 );
 for (const p of poster) {
   const judul = esc(p.title);
-  ada(html, `aria-label="Poster ${judul}"`, `kanvas poster "${p.title}"`);
+  ada(
+    html,
+    `aria-label="Poster ${judul}, ${UKURAN_POSTER.potret.label} piksel"`,
+    `kanvas poster "${p.title}" menunjukkan ukuran`,
+  );
   ada(html, `>${judul}</h3>`, `judul kartu "${p.title}"`);
-  ada(html, `aria-label="Buka pratinjau ${judul}"`, `tombol pratinjau "${p.title}"`);
+  ada(
+    html,
+    `aria-label="Buka pratinjau ${judul}"`,
+    `tombol pratinjau "${p.title}"`,
+  );
 }
 ok(
-  jumlah(html, "Unduh PNG") === poster.length + ASET_ANDROID.length,
-  "setiap kartu poster dan aset Android punya tombol unduh PNG",
+  jumlah(html, "Unduh 1080 × 1350") === poster.length,
+  "setiap kartu poster mengunduh ukuran potret yang dipilih",
 );
-ok(jumlah(html, "Bagikan") === poster.length, "setiap kartu punya tombol bagikan");
+ok(
+  jumlah(html, "Salin caption") === poster.length,
+  "setiap kartu menyediakan aksi salin caption",
+);
+ok(
+  jumlah(html, "Unduh PNG") === ASET_ANDROID.length,
+  "setiap aset Android punya tombol unduh PNG",
+);
+ok(
+  jumlah(html, "Bagikan") === poster.length,
+  "setiap kartu punya tombol bagikan",
+);
 // Galeri benar-benar terisi, dan pratinjau (portal) tidak ikut tercetak.
 ok(
   !html.includes("Belum ada poster aktif pada kategori ini."),
   "galeri terisi, bukan keadaan kosong",
 );
-ok(!html.includes("Salin Tautan"), "bilah alat pratinjau tidak tercetak saat tertutup");
+ok(
+  !html.includes("Salin Tautan"),
+  "bilah alat pratinjau tidak tercetak saat tertutup",
+);
 
 // ===== Gerak: keadaan awal tersembunyi benar-benar tercetak =====
 // Kartu galeri masuk dengan geser + skala kecil (varian `hidden`).
 ok(
-  jumlah(html, "opacity:0;transform:translateY(20px) scale(0.985)") === poster.length,
+  jumlah(html, "opacity:0;transform:translateY(20px) scale(0.985)") ===
+    poster.length,
   `setiap kartu galeri tercetak tersembunyi (${poster.length})`,
 );
 // Header masuk berurutan: dua item berjeda punya keadaan awal masing-masing.
@@ -135,7 +176,11 @@ ok(
   jumlah(html, "opacity:0;transform:translateY(12px)") >= 2,
   "item header berurutan masing-masing punya keadaan awal",
 );
-ada(html, "opacity:0;transform:rotate(-18deg)", "ikon header masuk berputar halus");
+ada(
+  html,
+  "opacity:0;transform:rotate(-18deg)",
+  "ikon header masuk berputar halus",
+);
 // Baris filter masuk setelah header (`delay`), bukan dari keadaan tak bergerak.
 ada(
   html,
@@ -145,7 +190,11 @@ ada(
 
 // ===== Seksi aset aplikasi Android =====
 ada(html, 'id="aset-android"', "jangkar seksi aset Android");
-ada(html, 'href="#aset-android"', "tautan lompat di header menuju aset Android");
+ada(
+  html,
+  'href="#aset-android"',
+  "tautan lompat di header menuju aset Android",
+);
 ada(html, "Aset aplikasi Android", "judul seksi aset Android");
 ok(
   html.indexOf("Aset aplikasi Android") < html.indexOf("Poster kampanye"),
@@ -162,17 +211,34 @@ ok(
 );
 ok(
   jumlah(html, "Transparan) ") === 0 &&
-    jumlah(html, ">Transparan<") + jumlah(html, ">Latar penuh<") === ASET_ANDROID.length,
+    jumlah(html, ">Transparan<") + jumlah(html, ">Latar penuh<") ===
+      ASET_ANDROID.length,
   "setiap aset Android menyebut aturan transparansinya",
 );
 for (const aset of ASET_ANDROID) {
   const label = esc(aset.label);
-  ada(html, `aria-label="Pratinjau ${label}"`, `pratinjau aset "${aset.label}"`);
+  ada(
+    html,
+    `aria-label="Pratinjau ${label}"`,
+    `pratinjau aset "${aset.label}"`,
+  );
   ada(html, `>${label}</h4>`, `judul kartu aset "${aset.label}"`);
-  ada(html, `${aset.canvas[0]} × ${aset.canvas[1]}`, `ukuran kanvas "${aset.label}"`);
+  ada(
+    html,
+    `${aset.canvas[0]} × ${aset.canvas[1]}`,
+    `ukuran kanvas "${aset.label}"`,
+  );
   ada(html, esc(aset.tujuan), `tujuan berkas "${aset.label}"`);
-  ada(html, `aria-label="Salin tujuan berkas ${label}"`, `tombol salin tujuan "${aset.label}"`);
-  ada(html, esc(aset.berkas), `nama berkas "${aset.berkas}" pada tabel panduan`);
+  ada(
+    html,
+    `aria-label="Salin tujuan berkas ${label}"`,
+    `tombol salin tujuan "${aset.label}"`,
+  );
+  ada(
+    html,
+    esc(aset.berkas),
+    `nama berkas "${aset.berkas}" pada tabel panduan`,
+  );
 }
 
 // ===== Panduan pasang: isinya harus ada di markup meski panelnya tertutup =====
@@ -187,10 +253,15 @@ for (const w of PANDUAN_ANDROID.warna) {
 for (const p of PANDUAN_ANDROID.potongan) {
   ada(html, esc(p.judul), `potongan kode "${p.judul}" ada`);
   ada(html, esc(p.berkas), `berkas tujuan potongan "${p.id}" ada`);
-  ada(html, `aria-label="Salin kode ${esc(p.judul)}"`, `tombol salin kode "${p.judul}"`);
+  ada(
+    html,
+    `aria-label="Salin kode ${esc(p.judul)}"`,
+    `tombol salin kode "${p.judul}"`,
+  );
 }
 ok(
-  html.includes("&lt;adaptive-icon") && html.includes("windowSplashScreenAnimatedIcon"),
+  html.includes("&lt;adaptive-icon") &&
+    html.includes("windowSplashScreenAnimatedIcon"),
   "potongan XML benar-benar tercetak di panduan",
 );
 
