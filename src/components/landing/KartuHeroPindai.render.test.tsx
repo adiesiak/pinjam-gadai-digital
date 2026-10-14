@@ -1,10 +1,10 @@
 /**
- * Uji render kartu hero PINDAI: Mega Mendung di atas kartu emerald-900.
+ * Uji render kartu hero PINDAI: Mega Mendung biru di atas kaca kertas hangat.
  * Run: bun src/components/landing/KartuHeroPindai.render.test.tsx
  *
  * Yang dijaga (tanpa browser — render statis):
  *  1. Token desain yang diminta benar-benar ada di MARKUP: ukuran/rasio kartu,
- *     permukaan emerald-900, motif Mega Mendung, chip kuningan, ikon
+ *     permukaan gading berkaca, motif Mega Mendung, chip kuningan, ikon
  *     contactless, wordmark, dan data kartu demo.
  *  2. Sisi kanan atas BENAR-BENAR kosong: tidak ada pita holografik/deret ikon
  *     yang dihapus dari desain lama.
@@ -38,7 +38,7 @@ function bersih(html: string, label: string): void {
   ok(!html.includes("[object Object]"), `${label} tanpa "[object Object]"`);
 }
 
-// ===== 1. Wadah utama, permukaan emerald, tepi kuningan =====
+// ===== 1. Wadah utama, kertas berkaca, tepi kuningan =====
 {
   const html = renderToStaticMarkup(<PindaiCard3D />);
   ada(html, "aspect-[1.586/1]", "rasio ISO ID-1 diterapkan pada semua ukuran");
@@ -48,8 +48,10 @@ function bersih(html: string, label: string): void {
     "lebar kartu dibatasi pada ponsel dan desktop",
   );
   ada(html, "rounded-[4.5%]", "radius kartu mengikuti spesifikasi fisik");
-  ada(html, "border-emerald-950/50", "bingkai kartu emerald gelap");
-  ada(html, "bg-emerald-900", "permukaan kartu emerald-900");
+  ada(html, "border-[#c9a86a]/55", "bingkai kartu bertepi kuningan");
+  ada(html, "bg-white/90", "permukaan kartu kertas berkaca");
+  ada(html, "backdrop-blur-2xl", "kartu memakai efek blur kaca");
+  ada(html, "rgba(241,237,227,0.92)", "permukaan memakai gradasi kertas gading");
   ada(html, "ring-[#c9a86a]/35", "bingkai luar kuningan terlihat");
   ada(html, "ring-offset-2", "celah ring ganda dipertahankan");
   // Permukaan gelap lama harus benar-benar hilang, bukan sekadar ditimpa.
@@ -73,7 +75,7 @@ function bersih(html: string, label: string): void {
     "SVG memakai pola Mega Mendung berulang dengan id unik",
   );
   ada(html, 'opacity="0.2"', "motif Mega Mendung dibatasi ke opasitas rendah");
-  ada(html, "#34d399", "motif memakai garis emerald terang");
+  ada(html, "#5b9bd5", "motif memakai garis biru langit");
   ada(
     html,
     'patternUnits="userSpaceOnUse"',
@@ -100,7 +102,9 @@ function bersih(html: string, label: string): void {
   const html = renderToStaticMarkup(<PindaiCard3D />);
   ada(html, "PINDAI", "wordmark tampil pada kartu");
   ada(html, "PINDAI CARD", "tanda kartu tampil");
-  ada(html, 'aria-label="Mastercard"', "logo Mastercard tampil di kartu");
+  ada(html, 'aria-label="Mastercard"', "tanda Mastercard tampil di kartu");
+  ada(html, ">mastercard</span>", "wordmark Mastercard tampil di kartu");
+  ada(html, "Mark for MC", "wordmark memakai font Mastercard dengan fallback");
   ada(html, "#eb001b", "lingkaran merah logo Mastercard tampil");
   ada(html, "#f79e1b", "lingkaran oranye logo Mastercard tampil");
   ada(html, "BUDI SANTOSO", "nama contoh ditampilkan");

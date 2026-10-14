@@ -60,16 +60,16 @@ Skala utilitas Tailwind di proyek ini dipetakan ulang per preset, jadi kelas nam
 
 - Aspect Ratio: Standard credit card aspect ratio (`aspect-[1.586/1]`).
 - Frame: Rounded-2xl dengan garis ganda kuningan (ring luar + celah kertas di dalamnya), bukan pendaran emerald.
-- Surface: Kertas hangat berkaca (`linear-gradient(135deg, rgba(255,255,255,0.94) → rgba(241,237,227,0.92))` + `backdrop-blur-2xl`).
-- Texture Pattern: Batik KAWUNG (`opacity-15 mix-blend-multiply`) supaya menyerap ke kertas, bukan melayang di atasnya. Satu unit = empat kelopak lonjong kuningan `#c9a86a` mengelilingi satu titik petrol `#1f6a62`; unitnya digambar di tengah petak 64 x 64 dan di keempat sudut petak (sudut dipakai bersama petak tetangga, jadi motifnya bersambung tanpa jahitan). Anyaman geometris ini dipilih menggantikan parang karena lebih tenang dan sejalan dengan wajah buku besar.
+- Surface: Kertas gading berkaca (`linear-gradient(135deg, rgba(255,255,255,0.94) → rgba(241,237,227,0.92))` + blur 24px) dengan garis kuningan dan pantulan lembut.
+- Texture Pattern: Mega Mendung biru langit (`#5b9bd5`, opasitas 20%) memberi aksen awan yang berakar pada motif lokal, tetap cukup halus agar data kartu mudah dibaca.
 
 Card Details:
 
-- Top Left: logo PINDAI kuningan (kotak logam bergradasi) + wordmark `text-emerald-700`.
-- Center Left: chip logam kuningan (garis kontak `emerald-900/35`, tepi `emerald-800/30`) + ikon contactless `text-emerald-700/90`.
-- Bottom: nomor monospace `text-emerald-800`, label status `text-emerald-700`, tanggal `12/29` monospace `text-emerald-800`, dan nama pemegang `text-slate-900`. Label kecil memakai `text-slate-600`. Semua pasangan ini lolos ambang WCAG AA di atas kertas (`emerald-800` 9.5:1, `emerald-700` 7.0:1, `slate-900` 16:1, `slate-600` 6.6:1); token lama yang dirancang untuk latar gelap (`amber-200/300`, `emerald-300`, `slate-400`) dilarang kembali ke kartu ini karena jatuh di bawah 4.5:1.
-- **Dua label berdampingan (keputusan pemilik):** label klaim `TERAKREDITASI & AMAN` tetap tampil, dan label penjaga `Kartu contoh · bukan alat bayar` tetap tampil bersamanya di kartu yang sama. Klaim tidak pernah berdiri sendiri tanpa penanda bahwa nomornya contoh. Pemilik produk yang memastikan klaim akreditasi itu punya dasar sebelum dipakai di produksi.
-- Top Right & Side Icons: STRICTLY OMITTED. Sisi kanan kartu harus tetap bersih (uncluttered space).
+- Top Left: wordmark PINDAI tinta + kontakless kuningan; kanan atas lingkaran merah-oranye dengan wordmark Mastercard memakai `Mark for MC` bila terpasang dan fallback Helvetica/Arial sesuai panduan Mastercard.
+- Center Left: chip logam kuningan (garis kontak `emerald-900/35`, tepi `emerald-800/30`).
+- Bottom: nomor monospace `text-emerald-800`, tanggal `12/29` monospace `text-slate-900`, nama pemegang `text-slate-900`, dan label kecil `text-slate-600` agar terbaca di atas permukaan terang.
+- Logo Mastercard adalah penanda brand kartu; area kanan lain tetap kosong agar tidak menambah ornamen yang tidak perlu.
+- Top right: wordmark Mastercard dan ikon contactless berada dalam satu kelompok agar identitas jaringan kartu mudah dikenali.
 
 ### B. Typography & Micro-copy
 

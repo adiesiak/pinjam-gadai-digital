@@ -14,7 +14,7 @@ export interface BatikPatternProps {
 }
 
 export function BatikPattern({
-  warna = "#34d399",
+  warna = "#5b9bd5",
   opacity = 0.42,
   className,
 }: BatikPatternProps) {
@@ -58,7 +58,7 @@ export function BatikPattern({
 
 function CardWordmark() {
   return (
-    <span className="font-sans text-lg font-semibold leading-none tracking-[0.24em] text-[#fff8dc]">
+    <span className="font-sans text-lg font-semibold leading-none tracking-[0.24em] text-emerald-700">
       PINDAI
     </span>
   );
@@ -66,32 +66,40 @@ function CardWordmark() {
 
 function MastercardMark() {
   return (
-    <svg
+    <span
       aria-label="Mastercard"
-      className="h-8 w-12"
-      viewBox="0 0 48 32"
+      className="flex flex-col items-center leading-none"
       role="img"
     >
-      <circle cx="18" cy="16" r="11" fill="#eb001b" />
-      <circle cx="30" cy="16" r="11" fill="#f79e1b" />
-      <path
-        d="M24 7.75a11 11 0 0 1 0 16.5 11 11 0 0 1 0-16.5Z"
-        fill="#ff5f00"
-      />
-    </svg>
+      <svg aria-hidden="true" className="h-6 w-9" viewBox="0 0 48 32">
+        <circle cx="18" cy="16" r="11" fill="#eb001b" />
+        <circle cx="30" cy="16" r="11" fill="#f79e1b" />
+        <path
+          d="M24 7.75a11 11 0 0 1 0 16.5 11 11 0 0 1 0-16.5Z"
+          fill="#ff5f00"
+        />
+      </svg>
+      <span
+        aria-hidden="true"
+        className="mt-0.5 text-[7px] font-semibold text-[#1c1a15]"
+        style={{ fontFamily: '"Mark for MC", Helvetica, Arial, sans-serif' }}
+      >
+        mastercard
+      </span>
+    </span>
   );
 }
 
 function PindaiCardMark() {
   return (
-    <span className="inline-flex items-center gap-1.5 text-[8px] font-semibold tracking-[0.12em] text-[#fff8dc]">
+    <span className="inline-flex items-center gap-1.5 text-[8px] font-semibold tracking-[0.12em] text-emerald-800">
       <svg
         aria-hidden="true"
         viewBox="0 0 28 14"
         className="h-3.5 w-7"
         fill="none"
       >
-        <circle cx="9" cy="7" r="5.25" stroke="#34d399" strokeWidth="1.5" />
+        <circle cx="9" cy="7" r="5.25" stroke="#1f6a62" strokeWidth="1.5" />
         <circle cx="20" cy="7" r="3.25" fill="#d4af37" />
       </svg>
       PINDAI CARD
@@ -448,10 +456,16 @@ export function PindaiCard3D({ className }: KartuHeroPindaiProps) {
         <article
           aria-hidden="true"
           data-kartu="pindai-hero"
-          className="relative isolate aspect-[1.586/1] w-full overflow-hidden rounded-[4.5%] border border-emerald-950/50 bg-emerald-900 p-5 text-[#fff8dc] shadow-[0_20px_45px_-26px_rgba(28,26,21,0.45),inset_0_1px_1px_rgba(255,255,255,0.18),inset_0_-1px_1px_rgba(0,0,0,0.2)] ring-1 ring-[#c9a86a]/35 ring-offset-2 ring-offset-white/60 sm:p-6"
-          style={{ transformStyle: "preserve-3d" }}
+          className="relative isolate aspect-[1.586/1] w-full overflow-hidden rounded-[4.5%] border border-[#c9a86a]/55 bg-white/90 p-5 text-[#1c1a15] shadow-[0_20px_45px_-26px_rgba(28,26,21,0.45),inset_0_1px_1px_rgba(255,255,255,0.7),inset_0_-1px_1px_rgba(28,26,21,0.06)] ring-1 ring-[#c9a86a]/35 ring-offset-2 ring-offset-white/60 backdrop-blur-2xl sm:p-6"
+          style={{
+            transformStyle: "preserve-3d",
+            background:
+              "linear-gradient(135deg, rgba(255,255,255,0.94), rgba(241,237,227,0.92))",
+            backdropFilter: "blur(24px)",
+            WebkitBackdropFilter: "blur(24px)",
+          }}
         >
-          <BatikPattern warna="#34d399" opacity={0.2} />
+          <BatikPattern warna="#5b9bd5" opacity={0.2} />
           <svg
             aria-hidden="true"
             className="pointer-events-none absolute inset-0 size-full opacity-[0.035]"
@@ -509,17 +523,17 @@ export function PindaiCard3D({ className }: KartuHeroPindaiProps) {
                   "translate3d(var(--layer-x, 0px), var(--layer-y, 0px), 15px)",
               }}
             >
-              <p className="text-[10px] font-semibold uppercase tracking-[0.13em] text-[#fff8dc] sm:text-xs">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.13em] text-[#1c1a15] sm:text-xs">
                 BUDI SANTOSO
               </p>
               <div className="mt-2 flex items-end justify-between gap-2">
                 <div className="min-w-0">
-                  <p className="font-mono text-xs tabular-nums tracking-[0.12em] text-[#fff8dc] sm:text-sm">
+                  <p className="font-mono text-xs tabular-nums tracking-[0.12em] text-emerald-800 sm:text-sm">
                     {NOMOR_TAMPILAN}
                   </p>
-                  <p className="mt-1 text-[8px] font-medium tracking-[0.12em] text-white/80">
+                  <p className="mt-1 text-[8px] font-medium tracking-[0.12em] text-slate-600">
                     BERLAKU SAMPAI{" "}
-                    <span className="font-mono text-white">12/29</span>
+                    <span className="font-mono text-slate-900">12/29</span>
                   </p>
                 </div>
                 <PindaiCardMark />
