@@ -9,7 +9,7 @@
  *  2. Sisi kanan atas BENAR-BENAR kosong: tidak ada pita holografik/deret ikon
  *     yang dihapus dari desain lama.
  *  3. Kartu menampilkan nomor demo non-pembayaran tetap, wordmark, tanggal,
- *     dan tanda PINDAI CARD. Nilai hitungan tetap tampil sebagai ilustrasi.
+ *     dan tanda PINDAI CARD, tanpa rincian pinjaman tambahan.
  *  4. Dua kartu di satu halaman tidak berbagi `id` pola batik (kalau berbagi,
  *     SVG kedua akan memakai pola pertama) — id datang dari `useId()`, jadi
  *     huruf besar/kecilnya tidak bisa ditebak dan diuji apa adanya.
@@ -128,12 +128,11 @@ function bersih(html: string, label: string): void {
   ada(html, "BUDI SANTOSO", "nama contoh terlihat");
   ada(html, "12/29", "tanggal contoh tampil");
   ada(html, "PINDAI CARD", "tanda kartu tampil");
-  ada(html, "Pokok contoh", "label pokok tampil");
-  ada(html, "Rp 1.000.000", "pokok contoh dihitung dari quoteLoan");
-  ada(html, "Tenor", "label tenor tampil");
-  ada(html, "30 hari", "tenor ilustrasi tampil");
-  ada(html, "Total kewajiban ilustrasi", "label total kewajiban tampil");
-  ada(html, "Rp 1.300.000", "total ilustrasi berasal dari quoteLoan");
+  tidakAda(html, "Pokok contoh", "rincian pokok dihapus");
+  tidakAda(html, "Tenor contoh", "rincian tenor dihapus");
+  tidakAda(html, "Total kewajiban ilustrasi", "rincian total dihapus");
+  tidakAda(html, "Rp 1.000.000", "nominal contoh tidak tampil di kartu");
+  tidakAda(html, "Rp 1.300.000", "total ilustrasi tidak tampil di kartu");
   tidakAda(
     html,
     "Kartu contoh · bukan alat bayar",
