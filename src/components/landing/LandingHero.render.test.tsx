@@ -52,8 +52,14 @@ const html = render();
 
 // ── 1. Kartu 3D dibuat lokal tanpa WebGL atau animasi spin ──
 ok(!html.includes("<canvas"), "tanpa kanvas WebGL");
-ok(html.includes('data-kartu-panggung="pindai-3d"'), "panggung tilt kartu aktif");
-ok(html.includes("rotateX(var(--tilt-x"), "tilt hanya diterapkan lewat CSS transform");
+ok(
+  html.includes('data-kartu-panggung="pindai-3d"'),
+  "panggung tilt kartu aktif",
+);
+ok(
+  html.includes("rotateX(var(--tilt-x"),
+  "tilt hanya diterapkan lewat CSS transform",
+);
 ok(!html.includes("data-template"), "tanpa atribut template");
 ok(!html.includes("laut-"), "tanpa kelas panggung laut/tema 3D");
 ok(!html.includes("hero-laut"), "tanpa kelas hero gelap");
@@ -94,20 +100,34 @@ ok(
   html.includes("Kartu contoh · bukan alat bayar"),
   "kartu menyatakan dirinya contoh, bukan alat bayar",
 );
-ok(html.includes("bg-emerald-200/65"), "bubble besar emerald terlihat di latar");
-ok(html.includes("bg-emerald-100/70"), "bubble emerald kedua hadir di kiri atas");
+ok(
+  html.includes("bg-emerald-200/65"),
+  "bubble besar emerald terlihat di latar",
+);
+ok(
+  html.includes("bg-emerald-100/70"),
+  "bubble emerald kedua hadir di kiri atas",
+);
 ok(html.includes("relative z-10"), "konten hero berada di atas bubble");
-ok(html.includes("overflow-hidden bg-slate-50"), "bubble dibatasi rapi dalam hero");
-ok(html.includes("Rp 1.300.000"), "total ilustrasi disediakan sebagai teks yang terlihat");
-ok(html.includes("pembayaran dan pencairan dilakukan di luar aplikasi"), "batas proses pembayaran tetap jelas");
+ok(
+  html.includes("overflow-hidden bg-slate-50"),
+  "bubble dibatasi rapi dalam hero",
+);
+ok(
+  html.includes("Rp 1.300.000"),
+  "total ilustrasi disediakan sebagai teks yang terlihat",
+);
+ok(
+  html.includes("pembayaran dan pencairan dilakukan di luar aplikasi"),
+  "batas proses pembayaran tetap jelas",
 );
 
 // ── 5. Penanda sesi & kebersihan markup ──
 ok(
   render(false).includes("Akun PINDAI"),
-  "belum masuk → penanda \"Akun PINDAI\"",
+  'belum masuk → penanda "Akun PINDAI"',
 );
-ok(render(true).includes("Sesi aktif"), "sudah masuk → penanda \"Sesi aktif\"");
+ok(render(true).includes("Sesi aktif"), 'sudah masuk → penanda "Sesi aktif"');
 ok(!html.includes("[object Object]"), 'tanpa "[object Object]"');
 ok(!html.includes("undefined"), 'tanpa "undefined"');
 ok(

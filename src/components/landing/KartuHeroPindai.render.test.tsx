@@ -4,11 +4,9 @@
  *
  * Yang dijaga (tanpa browser — render statis):
  *  1. Token desain yang diminta benar-benar ada di MARKUP: ukuran/rasio kartu,
- *     permukaan CERAH (kertas + kaca, bukan obsidian) dengan garis ganda
- *     kuningan, dua cucian sudut, motif batik kawung (kelopak kuningan #c9a86a +
- *     titik petrol #1f6a62, `opacity-15 mix-blend-multiply`), chip logam kuningan +
- *     ikon contactless, dan baris data (nomor monospace, status, masa berlaku,
- *     nama pemegang) yang tetap di atas ambang kontras WCAG AA di kertas terang.
+ *     permukaan CERAH putih/emerald-50, motif awan Mega Mendung emerald
+ *     beropasitas rendah, chip logam kuningan, ikon contactless, dan baris data
+ *     contoh yang tetap terbaca di atas permukaan kartu terang.
  *  2. Sisi kanan atas BENAR-BENAR kosong: tidak ada pita holografik/deret ikon
  *     yang dihapus dari desain lama.
  *  3. Kartu jujur: baris data contoh ditandai `aria-hidden`, dan catatan
@@ -21,7 +19,7 @@
  */
 import { renderToStaticMarkup } from "react-dom/server";
 
-import { PindaiCard3D } from "./KartuHeroPindai";
+import { PindaiCard3D, TILT_MAKSIMUM_DERAJAT } from "./KartuHeroPindai";
 
 let passed = 0;
 let failed = 0;
@@ -122,7 +120,7 @@ function bersih(html: string, label: string): void {
   const html = renderToStaticMarkup(<PindaiCard3D />);
   ada(html, 'viewBox="0 0 56 42"', "chip SVG berukuran 56 x 42");
   ada(html, "#F6E27A", "chip memakai gradien emas metalik inline");
-  ada(html, 'strokeOpacity="0.5"', "jalur kontak memakai stroke halus");
+  ada(html, 'stroke-opacity="0.5"', "jalur kontak memakai stroke halus");
   ada(
     html,
     "M8 9a4 4 0 0 1 0 6",
@@ -154,6 +152,10 @@ function bersih(html: string, label: string): void {
 
 // ===== 7. Panggung tilt & id pola batik yang unik =====
 {
+  ok(
+    TILT_MAKSIMUM_DERAJAT === 12,
+    "kemiringan dibatasi pada intensitas sedang ±12°",
+  );
   const html = renderToStaticMarkup(<PindaiCard3D />);
   ada(html, 'data-kartu-panggung="pindai-3d"', "kartu punya panggung tilt");
   ada(html, "[perspective:1000px]", "panggung memakai perspektif");
