@@ -14,8 +14,8 @@ export interface BatikPatternProps {
 }
 
 export function BatikPattern({
-  warna = "#5b9bd5",
-  opacity = 0.32,
+  warna = "#326eb1",
+  opacity = 0.4,
   className,
 }: BatikPatternProps) {
   const id = `mega-mendung-${useId().replace(/[^a-zA-Z0-9]/g, "")}`;
@@ -35,11 +35,11 @@ export function BatikPattern({
       preserveAspectRatio="none"
     >
       <defs>
-        <pattern id={id} width="140" height="88.333333" patternUnits="userSpaceOnUse">
-          <g transform="translate(3 6) scale(0.66 0.78)">
+        <pattern id={id} width="105" height="66.25" patternUnits="userSpaceOnUse">
+          <g transform="translate(3 2) scale(0.54 0.62)">
             <path
               d={awanMendung}
-              fill="rgba(91,155,213,0.06)"
+              fill="rgba(50,110,177,0.12)"
               stroke={warna}
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -48,21 +48,21 @@ export function BatikPattern({
             <path
               d="M40 88C53 88 59 80 55 73C52 67 45 68 43 74C42 78 46 81 50 78C61 68 73 68 83 78C96 61 111 61 124 77C138 59 156 57 169 72C178 63 188 64 193 74C198 83 191 88 178 88H40Z"
               fill="none"
-              stroke={warna}
-              strokeOpacity="0.72"
+              stroke="#5b9bd5"
+              strokeOpacity="0.88"
               strokeWidth="1.5"
             />
             <path
               d="M58 82C69 82 73 77 70 73C68 69 63 70 62 74C71 67 81 70 88 80C101 64 114 65 125 80C138 64 152 63 164 77C171 70 181 70 185 78C187 81 185 83 181 83H58Z"
               fill="none"
-              stroke={warna}
-              strokeOpacity="0.52"
+              stroke="#9bcdf0"
+              strokeOpacity="0.92"
               strokeWidth="1.15"
             />
             <path
               d="M23 91C16 86 18 78 24 77C29 76 32 81 29 84C27 86 24 84 25 82C22 84 24 89 29 89C36 89 39 81 35 75M166 65C162 57 168 51 174 54C179 56 178 62 174 63C171 64 169 61 172 59C167 59 167 65 172 68"
               fill="none"
-              stroke={warna}
+              stroke="#9bcdf0"
               strokeLinecap="round"
               strokeLinejoin="round"
               strokeWidth="1.7"
@@ -484,7 +484,7 @@ export function PindaiCard3D({ className }: KartuHeroPindaiProps) {
             WebkitBackdropFilter: "blur(24px)",
           }}
         >
-          <BatikPattern warna="#5b9bd5" opacity={0.32} />
+          <BatikPattern warna="#326eb1" opacity={0.4} />
           <svg
             aria-hidden="true"
             className="pointer-events-none absolute inset-0 size-full opacity-[0.035]"

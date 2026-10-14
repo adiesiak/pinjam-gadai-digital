@@ -73,15 +73,16 @@ function bersih(html: string, label: string): void {
     "mega-mendung-",
     "SVG memakai pola Mega Mendung berulang dengan id unik",
   );
-  ada(html, 'opacity="0.32"', "motif awan biru dibatasi agar teks tetap terbaca");
-  ada(html, "#5b9bd5", "motif memakai warna biru langit");
-  ada(html, "rgba(91,155,213,0.06)", "bidang awan tetap transparan di atas kertas");
+  ada(html, 'opacity="0.4"', "motif awan cukup jelas tetapi tetap ringan di atas gading");
+  ada(html, "#326eb1", "motif memakai warna biru batik yang dalam");
+  ada(html, "#9bcdf0", "kontur awan memakai aksen biru muda");
+  ada(html, "rgba(50,110,177,0.12)", "bidang awan tetap transparan di atas kertas");
   ada(html, 'viewBox="0 0 420 265"', "bidang motif mengikuti rasio kartu");
-  ada(html, 'width="140" height="88.333333"', "kisi 3 × 3 awan mengisi kartu tanpa potongan");
+  ada(html, 'width="105" height="66.25"', "motif rapat berulang di seluruh kartu");
   ada(html, "M16 96C31 96", "kontur Mega Mendung memanjang bertingkat dirender");
   ada(html, "M40 88C53 88", "lapisan kontur mengikuti bentuk awan utama");
   ada(html, "M23 91C16 86", "pusaran awan khas Mega Mendung dirender");
-  ada(html, "M16 96C31 96", "unit mengulang motif awan memanjang dengan pusaran, bukan ikon baris");
+  ada(html, "M16 96C31 96", "unit mengulang motif Mega Mendung berlapis, bukan ikon baris");
   ada(
     html,
     'patternUnits="userSpaceOnUse"',
