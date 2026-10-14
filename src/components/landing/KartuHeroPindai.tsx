@@ -15,13 +15,12 @@ export interface BatikPatternProps {
 
 export function BatikPattern({
   warna = "#326eb1",
-  opacity = 0.4,
+  opacity = 0.56,
   className,
 }: BatikPatternProps) {
-  const id = `mega-mendung-${useId().replace(/[^a-zA-Z0-9]/g, "")}`;
-  const opacityAman = Math.min(0.4, Math.max(0, opacity));
-  const awanMendung =
-    "M16 96C31 96 39 86 34 77C30 70 20 71 18 78C17 83 23 86 27 82C29 80 27 77 24 78C33 64 47 61 59 72C72 52 91 51 105 68C120 44 143 43 159 63C170 50 185 52 193 65C201 79 191 94 176 96H16Z";
+  const id = `batik-kawung-${useId().replace(/[^a-zA-Z0-9]/g, "")}`;
+  const opacityAman = Math.min(0.56, Math.max(0, opacity));
+  const kelopak = "M36 5C47 17 47 28 36 36C25 28 25 17 36 5Z";
 
   return (
     <svg
@@ -35,39 +34,24 @@ export function BatikPattern({
       preserveAspectRatio="none"
     >
       <defs>
-        <pattern id={id} width="105" height="66.25" patternUnits="userSpaceOnUse">
-          <g transform="translate(3 2) scale(0.54 0.62)">
+        <pattern id={id} width="72" height="72" patternUnits="userSpaceOnUse">
+          <g fill="rgba(50,110,177,0.16)" stroke={warna} strokeLinejoin="round" strokeWidth="1.7">
+            <path d={kelopak} />
+            <path d={kelopak} transform="rotate(90 36 36)" />
+            <path d={kelopak} transform="rotate(180 36 36)" />
+            <path d={kelopak} transform="rotate(270 36 36)" />
             <path
-              d={awanMendung}
-              fill="rgba(50,110,177,0.12)"
-              stroke={warna}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth="2.4"
-            />
-            <path
-              d="M40 88C53 88 59 80 55 73C52 67 45 68 43 74C42 78 46 81 50 78C61 68 73 68 83 78C96 61 111 61 124 77C138 59 156 57 169 72C178 63 188 64 193 74C198 83 191 88 178 88H40Z"
-              fill="none"
-              stroke="#5b9bd5"
-              strokeOpacity="0.88"
-              strokeWidth="1.5"
-            />
-            <path
-              d="M58 82C69 82 73 77 70 73C68 69 63 70 62 74C71 67 81 70 88 80C101 64 114 65 125 80C138 64 152 63 164 77C171 70 181 70 185 78C187 81 185 83 181 83H58Z"
+              d="M36 11C43 19 43 27 36 32C29 27 29 19 36 11ZM36 40C44 40 51 47 51 55M32 36C32 28 25 21 17 21M40 36C40 28 47 21 55 21M36 40C28 40 21 47 21 55"
               fill="none"
               stroke="#9bcdf0"
-              strokeOpacity="0.92"
-              strokeWidth="1.15"
-            />
-            <path
-              d="M23 91C16 86 18 78 24 77C29 76 32 81 29 84C27 86 24 84 25 82C22 84 24 89 29 89C36 89 39 81 35 75M166 65C162 57 168 51 174 54C179 56 178 62 174 63C171 64 169 61 172 59C167 59 167 65 172 68"
-              fill="none"
-              stroke="#9bcdf0"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth="1.7"
+              strokeWidth="1.1"
             />
           </g>
+          <circle cx="36" cy="36" r="3" fill="#c9a86a" />
+          <circle cx="8" cy="8" r="1.5" fill={warna} />
+          <circle cx="64" cy="8" r="1.5" fill={warna} />
+          <circle cx="8" cy="64" r="1.5" fill={warna} />
+          <circle cx="64" cy="64" r="1.5" fill={warna} />
         </pattern>
       </defs>
       <rect width="420" height="265" fill={`url(#${id})`} />
@@ -484,7 +468,7 @@ export function PindaiCard3D({ className }: KartuHeroPindaiProps) {
             WebkitBackdropFilter: "blur(24px)",
           }}
         >
-          <BatikPattern warna="#326eb1" opacity={0.4} />
+          <BatikPattern warna="#326eb1" opacity={0.56} />
           <svg
             aria-hidden="true"
             className="pointer-events-none absolute inset-0 size-full opacity-[0.035]"

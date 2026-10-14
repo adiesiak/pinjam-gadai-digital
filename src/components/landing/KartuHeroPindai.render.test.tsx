@@ -1,10 +1,10 @@
 /**
- * Uji render kartu hero PINDAI: Mega Mendung biru langit rapat di atas kertas gading.
+ * Uji render kartu hero PINDAI: Kawung biru berulang di atas kertas gading.
  * Run: bun src/components/landing/KartuHeroPindai.render.test.tsx
  *
  * Yang dijaga (tanpa browser — render statis):
  *  1. Token desain yang diminta benar-benar ada di MARKUP: ukuran/rasio kartu,
- *     permukaan gading berkaca, motif Mega Mendung, chip kuningan, ikon
+ *     permukaan gading berkaca, motif Kawung, chip kuningan, ikon
  *     contactless, wordmark, dan data kartu demo.
  *  2. Sisi kanan atas BENAR-BENAR kosong: tidak ada pita holografik/deret ikon
  *     yang dihapus dari desain lama.
@@ -65,30 +65,29 @@ function bersih(html: string, label: string): void {
   bersih(html, "kartu bawaan");
 }
 
-// ===== 2. Mega Mendung biru langit berulang rapat di seluruh kartu =====
+// ===== 2. Kawung biru jelas berulang di seluruh kartu =====
 {
   const html = renderToStaticMarkup(<PindaiCard3D />);
   ada(
     html,
-    "mega-mendung-",
-    "SVG memakai pola Mega Mendung berulang dengan id unik",
+    "batik-kawung-",
+    "SVG memakai pola Kawung berulang dengan id unik",
   );
-  ada(html, 'opacity="0.4"', "motif awan cukup jelas tetapi tetap ringan di atas gading");
+  ada(html, 'opacity="0.56"', "motif Kawung lebih tegas di atas kertas gading");
   ada(html, "#326eb1", "motif memakai warna biru batik yang dalam");
-  ada(html, "#9bcdf0", "kontur awan memakai aksen biru muda");
-  ada(html, "rgba(50,110,177,0.12)", "bidang awan tetap transparan di atas kertas");
+  ada(html, "#9bcdf0", "garis dalam memakai aksen biru muda");
+  ada(html, "rgba(50,110,177,0.16)", "bidang motif tetap transparan di atas kertas");
   ada(html, 'viewBox="0 0 420 265"', "bidang motif mengikuti rasio kartu");
-  ada(html, 'width="105" height="66.25"', "motif rapat berulang di seluruh kartu");
-  ada(html, "M16 96C31 96", "kontur Mega Mendung memanjang bertingkat dirender");
-  ada(html, "M40 88C53 88", "lapisan kontur mengikuti bentuk awan utama");
-  ada(html, "M23 91C16 86", "pusaran awan khas Mega Mendung dirender");
-  ada(html, "M16 96C31 96", "unit mengulang motif Mega Mendung berlapis, bukan ikon baris");
+  ada(html, 'width="72" height="72"', "motif Kawung berulang teratur di seluruh kartu");
+  ada(html, "M36 5C47 17 47 28 36 36", "kelopak Kawung memanjang tampil pada tiap arah");
+  ada(html, "rotate(90 36 36)", "empat kelopak Kawung tersusun simetris");
+  ada(html, "#c9a86a", "titik tengah Kawung memakai aksen kuningan");
   ada(
     html,
     'patternUnits="userSpaceOnUse"',
     "motif dipasang sebagai pola berulang",
   );
-  tidakAda(html, "batik-kawung-", "motif Kawung sudah tidak dipakai");
+  tidakAda(html, "M16 96C31 96", "kontur Mega Mendung telah dihapus");
   ada(
     html,
     'preserveAspectRatio="none"',
@@ -170,10 +169,10 @@ function bersih(html: string, label: string): void {
       <PindaiCard3D />
     </>,
   );
-  const id = [...dua.matchAll(/id="(mega-mendung-[A-Za-z0-9]+)"/g)].map(
+  const id = [...dua.matchAll(/id="(batik-kawung-[A-Za-z0-9]+)"/g)].map(
     (m) => m[1],
   );
-  ok(id.length === 2, "setiap kartu merender satu pola Mega Mendung");
+  ok(id.length === 2, "setiap kartu merender satu pola Kawung");
   ok(id[0] !== id[1], "dua kartu memakai id pola batik yang berbeda");
   ada(dua, `url(#${id[0]})`, "rect motif menunjuk pola miliknya sendiri");
   bersih(dua, "dua kartu");
