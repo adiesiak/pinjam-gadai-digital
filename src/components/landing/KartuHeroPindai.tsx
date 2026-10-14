@@ -2,13 +2,9 @@ import { useReducedMotion } from "framer-motion";
 import { useEffect, useId, useRef, useState, type PointerEvent } from "react";
 
 import { cn } from "@/lib/utils";
-import { formatRupiah } from "@/lib/money";
-import { quoteLoan } from "@/lib/loan";
 import { DEMO_CARD_NUMBER } from "@/lib/demoCardNumber";
 
 export const TILT_MAKSIMUM_DERAJAT = 12;
-const POKOK_CONTOH = 1_000_000;
-const TENOR_CONTOH_HARI = 30;
 const NOMOR_TAMPILAN = DEMO_CARD_NUMBER;
 
 export interface BatikPatternProps {
@@ -196,8 +192,6 @@ export function PindaiCard3D({ className }: KartuHeroPindaiProps) {
   const [needsMotionPermission, setNeedsMotionPermission] = useState(false);
   const [kartuTerlihat, setKartuTerlihat] = useState(false);
   const [halamanAktif, setHalamanAktif] = useState(true);
-  const quote = quoteLoan(POKOK_CONTOH);
-
   useEffect(() => {
     const stage = stageRef.current;
     if (!stage) return;
@@ -508,20 +502,6 @@ export function PindaiCard3D({ className }: KartuHeroPindaiProps) {
           Aktifkan gerak kartu
         </button>
       )}
-      <dl className="mt-3 grid grid-cols-3 gap-2 text-center text-[11px] leading-4 text-slate-700">
-        <div>
-          <dt>Pokok contoh</dt>
-          <dd>{formatRupiah(quote.pokok)}</dd>
-        </div>
-        <div>
-          <dt>Tenor contoh</dt>
-          <dd>{TENOR_CONTOH_HARI} hari</dd>
-        </div>
-        <div>
-          <dt>Total kewajiban ilustrasi</dt>
-          <dd>{formatRupiah(quote.totalKewajibanPelunasan)}</dd>
-        </div>
-      </dl>
       <p className="mt-3 text-center text-[11px] font-medium text-slate-700">
         PINDAI · Pinjaman dan gadai digital
       </p>

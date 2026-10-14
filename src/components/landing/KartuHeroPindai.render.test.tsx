@@ -9,7 +9,7 @@
  *  2. Sisi kanan atas BENAR-BENAR kosong: tidak ada pita holografik/deret ikon
  *     yang dihapus dari desain lama.
  *  3. Isi kartu menampilkan wordmark, chip, identitas serta nomor demo tetap;
- *     ringkasan pokok, tenor, dan total di bawah kartu tetap dihapus.
+ *     rincian pokok, tenor, dan total di bawah kartu tidak ditampilkan.
  *  4. Dua kartu di satu halaman tidak berbagi `id` pola batik (kalau berbagi,
  *     SVG kedua akan memakai pola pertama) — id datang dari `useId()`, jadi
  *     huruf besar/kecilnya tidak bisa ditebak dan diuji apa adanya.
@@ -117,15 +117,15 @@ function bersih(html: string, label: string): void {
   bersih(html, "chip");
 }
 
-// ===== 5. Isi kartu dan rincian pinjaman dipulihkan =====
+// ===== 5. Rincian pokok, tenor, dan total tidak ditampilkan =====
 {
   const html = renderToStaticMarkup(<PindaiCard3D />);
-  ada(html, "Pokok contoh", "rincian pokok dipulihkan");
-  ada(html, "Rp 1.000.000", "nominal pokok dihitung dari quoteLoan");
-  ada(html, "Tenor contoh", "rincian tenor dipulihkan");
-  ada(html, "30 hari", "tenor contoh dipulihkan");
-  ada(html, "Total kewajiban ilustrasi", "rincian total dipulihkan");
-  ada(html, "Rp 1.300.000", "total dihitung dari quoteLoan");
+  tidakAda(html, "Pokok contoh", "rincian pokok tetap dihapus");
+  tidakAda(html, "Tenor contoh", "rincian tenor tetap dihapus");
+  tidakAda(html, "Total kewajiban ilustrasi", "rincian total tetap dihapus");
+  tidakAda(html, "Rp 1.000.000", "nominal pokok tidak ditampilkan");
+  tidakAda(html, "30 hari", "tenor tidak ditampilkan");
+  tidakAda(html, "Rp 1.300.000", "total ilustrasi tidak ditampilkan");
   tidakAda(
     html,
     "Kartu contoh · bukan alat bayar",
