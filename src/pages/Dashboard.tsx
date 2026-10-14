@@ -1,6 +1,6 @@
-import { useQuery } from "convex/react";
-import { FilePlus2, TrendingUp } from "lucide-react";
-import { useState } from "react";
+import { useMutation, useQuery } from "convex/react";
+import { ArrowLeft, FilePlus2, TrendingUp } from "lucide-react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import { tabDariParams } from "@/lib/notifikasi";
 import { Button } from "@/components/ui/button";
@@ -77,11 +77,42 @@ export default function Dashboard() {
   const { user, isAnonymous, signOut } = useAuth();
   const navigate = useNavigate();
   const role = user?.role;
+  const adminPratinjauId =
+    role === "admin" && typeof window !== "undefined"
+      ? new URLSearchParams(window.location.search).get("lihatNasabah")
+      : null;
+  const pratinjauUserId = adminPratinjauId as Id<"users"> | null;
+  const dataPratinjau = useQuery(
+    api.nasabah.dashboardNasabahUntukAdmin,
+    pratinjauUserId === null ? "skip" : { userId: pratinjauUserId },
+  );
+  const catatLihatNasabah = useMutation(api.nasabah.catatLihatDashboardNasabah);
+  const [auditPratinjauSiap, setAuditPratinjauSiap] = useState(false);
+  useEffect(() => {
+    if (pratinjauUserId === null) {
+      setAuditPratinjauSiap(false);
+      return;
+    }
+    let aktif = true;
+    setAuditPratinjauSiap(false);
+    void catatLihatNasabah({ userId: pratinjauUserId }).then(
+      () => {
+        if (aktif) setAuditPratinjauSiap(true);
+      },
+      () => {
+        if (aktif) setAuditPratinjauSiap(false);
+      },
+    );
+    return () => {
+      aktif = false;
+    };
+  }, [pratinjauUserId, catatLihatNasabah]);
 
-  // Lewati query hanya saat profil pengguna masih dimuat atau pengguna tamu.
-  // Akun baru memang belum punya role; endpoint Peminjam mendukung role kosong,
-  // jadi menunggu role terisi akan membuat spinner abadi.
-  const argsPeminjam = user === undefined || isAnonymous ? ("skip" as const) : {};
+  // Lewati query nasabah saat profil masih dimuat, sesi tamu, atau pratinjau admin.
+  const argsPeminjam =
+    user === undefined || isAnonymous || adminPratinjauId !== null
+      ? ("skip" as const)
+      : {};
   const loans = useQuery(api.loans.listMyLoans, argsPeminjam);
   const summary = useQuery(api.loans.myLoanSummary, argsPeminjam);
   const dueReminder = useQuery(api.loans.dueReminder, argsPeminjam);
@@ -151,6 +182,76 @@ export default function Dashboard() {
     await signOut();
     navigate("/auth?returnTo=%2Fdashboard");
   };
+
+  if (adminPratinjauId !== null) {
+    if (dataPratinjau === undefined || !auditPratinjauSiap) {
+      return <RingkasanMemuat />;
+    }
+    if (dataPratinjau === null) {
+      return (
+        <main className="mx-auto flex min-h-screen max-w-3xl flex-col justify-center px-6 py-12">
+          <p className="text-sm text-muted-foreground">Nasabah tidak ditemukan atau pratinjau tidak diizinkan.</p>
+          <Button className="mt-4 w-fit" variant="outline" onClick={() => navigate(-1)}>
+            <ArrowLeft className="mr-2 size-4" /> Kembali ke panel admin
+          </Button>
+        </main>
+      );
+    }
+    return (
+      <div className="bg-ambient-glass min-h-screen px-4 py-6 text-slate-900 sm:px-6">
+        <main className="mx-auto max-w-5xl space-y-5">
+          <div className="flex flex-wrap items-start justify-between gap-4 rounded-2xl border border-amber-300 bg-amber-50 p-4">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-amber-900">Pratinjau Super Admin · baca saja</p>
+              <h1 className="mt-1 text-xl font-semibold">Dashboard {dataPratinjau.nama}</h1>
+              <p className="mt-1 text-sm text-amber-950/80">Data nasabah ditampilkan untuk pemeriksaan. Tidak ada tindakan atas nama nasabah di sini.</p>
+            </div>
+            <Button variant="outline" onClick={() => navigate(-1)}>
+              <ArrowLeft className="mr-2 size-4" /> Kembali ke panel admin
+            </Button>
+          </div>
+          <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {[
+              ["Semua pengajuan", dataPratinjau.jumlahPengajuan],
+              ["Pinjaman aktif", dataPratinjau.pinjamanAktif],
+              ["Menunggu tinjauan", dataPratinjau.pinjamanMenunggu],
+              ["Lunas", dataPratinjau.pinjamanLunas],
+            ].map(([label, jumlah]) => (
+              <div key={label} className="rounded-2xl border border-slate-200 bg-white p-4">
+                <p className="text-xs text-muted-foreground">{label}</p>
+                <p className="mt-2 text-2xl font-semibold tabular-nums">{jumlah}</p>
+              </div>
+            ))}
+          </section>
+          <section className="rounded-2xl border border-slate-200 bg-white p-5">
+            <h2 className="text-base font-semibold">Status akun</h2>
+            <dl className="mt-3 grid gap-3 text-sm sm:grid-cols-2">
+              <div><dt className="text-muted-foreground">Email</dt><dd>{dataPratinjau.email ?? "—"}</dd></div>
+              <div><dt className="text-muted-foreground">Kode nasabah</dt><dd>{dataPratinjau.kodePeminjam ?? "—"}</dd></div>
+              <div><dt className="text-muted-foreground">KYC</dt><dd>{dataPratinjau.kycStatus}</dd></div>
+              <div><dt className="text-muted-foreground">Data diri</dt><dd>{dataPratinjau.profilAda ? "Tersimpan" : "Belum diisi"}</dd></div>
+              <div><dt className="text-muted-foreground">Ditolak</dt><dd>{dataPratinjau.pinjamanDitolak}</dd></div>
+            </dl>
+          </section>
+          <section className="rounded-2xl border border-slate-200 bg-white p-5">
+            <h2 className="text-base font-semibold">Pengajuan terbaru</h2>
+            {dataPratinjau.pengajuanTerbaru.length === 0 ? (
+              <p className="mt-3 text-sm text-muted-foreground">Belum ada pengajuan.</p>
+            ) : (
+              <ul className="mt-3 divide-y divide-slate-100">
+                {dataPratinjau.pengajuanTerbaru.map((loan) => (
+                  <li key={loan.id} className="flex flex-wrap items-center justify-between gap-2 py-3 text-sm">
+                    <span>{loan.nomorReferensi} · {formatRupiah(loan.pokokPinjaman)}</span>
+                    <span className="text-muted-foreground">{loan.status} · {loan.tenorBulan === null ? `${loan.tenorHari} hari` : `${loan.tenorBulan} bulan`}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        </main>
+      </div>
+    );
+  }
 
   if (isAnonymous) {
     return (

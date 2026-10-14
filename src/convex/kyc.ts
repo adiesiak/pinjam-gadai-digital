@@ -11,6 +11,7 @@ import {
 } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import { requireAdminSession } from "./adminAuthz";
+import { ROLES } from "./schema";
 import { simpanDataDiriProfil } from "./dataDiriProfil";
 import { bacaDataDiri, galatDataDiri, type DataDiriForm } from "../lib/dataDiri";
 import { normalisasiNomorWa } from "../lib/otpWa";
@@ -96,6 +97,9 @@ async function requireNasabah(ctx: QueryCtx): Promise<{ userId: Id<"users">; lab
   if (userId === null) throw new Error("Harus masuk terlebih dahulu.");
   const user = await ctx.db.get(userId);
   if (user === null) throw new Error("Akun tidak ditemukan.");
+  if (user.role === ROLES.ADMIN) {
+    throw new Error("Modul KYC hanya untuk nasabah, bukan Super Admin.");
+  }
   if (user.isAnonymous === true) {
     throw new Error(
       "Akun tamu hanya dapat melihat informasi. Masuk dengan akun terverifikasi untuk memakai modul KYC.",
@@ -685,6 +689,9 @@ export async function requireKycTerverifikasi(
   ctx: Pick<QueryCtx, "db"> | Pick<MutationCtx, "db">,
   userId: Id<"users">,
 ): Promise<void> {
+  const user = await ctx.db.get(userId);
+  if (user?.role === ROLES.ADMIN) return;
+
   const row = await ctx.db
     .query("kycProfil")
     .withIndex("by_user", (q) => q.eq("userId", userId))

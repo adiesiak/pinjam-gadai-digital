@@ -395,6 +395,75 @@ export const detailNasabah = query({
 });
 
 /**
+ * Buka dashboard milik nasabah dalam pratinjau baca-saja. Akses tetap memakai
+ * sesi admin ber-TOTP dan ditulis ke audit trail sebelum data dikembalikan.
+ */
+export const dashboardNasabahUntukAdmin = query({
+  args: { userId: v.id("users") },
+  handler: async (ctx, { userId }) => {
+    await requireAdmin(ctx);
+    const user = await ctx.db.get(userId);
+    if (user === null) return null;
+
+    const [loans, profil, kyc] = await Promise.all([
+      ctx.db.query("loans").withIndex("by_user", (q) => q.eq("userId", userId)).collect(),
+      ctx.db.query("nasabahProfil").withIndex("by_user", (q) => q.eq("userId", userId)).first(),
+      ctx.db.query("kycProfil").withIndex("by_user", (q) => q.eq("userId", userId)).first(),
+    ]);
+    const pinjamanAktif = loans.filter((loan) => loan.status === "didanai").length;
+    const pinjamanLunas = loans.filter((loan) => loan.status === "lunas").length;
+    const pinjamanMenunggu = loans.filter((loan) =>
+      loan.status === "diajukan" || loan.status === "sedang_direview",
+    ).length;
+
+    return {
+      nama: user.name ?? user.email ?? "Nasabah",
+      email: user.email ?? null,
+      kodePeminjam: user.kodePeminjam ?? null,
+      role: user.role ?? null,
+      kycStatus: kyc?.status ?? "NOT_STARTED",
+      profilAda: profil !== null,
+      jumlahPengajuan: loans.length,
+      pinjamanAktif,
+      pinjamanLunas,
+      pinjamanMenunggu,
+      pinjamanDitolak: loans.filter((loan) => loan.status === "ditolak").length,
+      pengajuanTerbaru: [...loans]
+        .sort((a, b) => (b.diajukanPada ?? b._creationTime) - (a.diajukanPada ?? a._creationTime))
+        .slice(0, 20)
+        .map((loan) => ({
+          id: loan._id,
+          nomorReferensi: loan.nomorReferensi,
+          pokokPinjaman: loan.pokokPinjaman,
+          status: loan.status,
+          diajukanPada: loan.diajukanPada ?? loan._creationTime,
+          tenorHari: loan.tenorHari,
+          tenorBulan: loan.tenorBulan ?? null,
+        })),
+    };
+  },
+});
+
+/** Catat pembukaan pratinjau dashboard nasabah oleh Super Admin ber-TOTP. */
+export const catatLihatDashboardNasabah = mutation({
+  args: { userId: v.id("users") },
+  handler: async (ctx, { userId }) => {
+    const admin = await requireAdminSession(ctx);
+    const user = await ctx.db.get(userId);
+    if (user === null) throw new Error("Nasabah tidak ditemukan.");
+    await audit(
+      ctx,
+      admin.userId,
+      labelAktorNasabah(admin.user),
+      "lihat_dashboard_nasabah",
+      userId,
+      `Pratinjau dashboard baca-saja untuk ${user.email ?? user.name ?? userId}`,
+    );
+    return { ok: true };
+  },
+});
+
+/**
  * DETAIL PENGAJUAN (admin) — satu pengajuan lengkap: nasabah, status KYC,
  * nominal/tenor, biaya berlaku, dana bersih, kewajiban, status, pendanaan,
  * pencairan, pembayaran, dan keterlambatan.

@@ -108,7 +108,9 @@ async function requireUser(ctx: QueryCtx) {
   const user = await ctx.db.get(userId);
   if (user === null) throw new Error("Pengguna tidak ditemukan.");
   if (user.isAnonymous === true) {
-    throw new Error("Akun tamu hanya dapat melihat informasi. Masuk dengan akun terverifikasi untuk mengakses data dan transaksi.");
+    throw new Error(
+      "Akun tamu hanya dapat melihat informasi. Masuk dengan akun terverifikasi untuk mengakses data dan transaksi.",
+    );
   }
   return { userId, user };
 }

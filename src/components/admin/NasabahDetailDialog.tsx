@@ -9,6 +9,7 @@ import {
   ShieldQuestion,
 } from "lucide-react";
 import { useState, type ReactNode } from "react";
+import { useNavigate } from "react-router";
 
 import { StatusBadge } from "@/components/StatusBadge";
 import { WatermarkedDoc } from "@/components/WatermarkedDoc";
@@ -57,6 +58,7 @@ export function NasabahDetailDialog({
 }) {
   const [lihatKyc, setLihatKyc] = useState(false);
   const detail = useQuery(api.nasabah.detailNasabah, { userId });
+  const navigate = useNavigate();
 
   return (
     <Dialog
@@ -104,6 +106,18 @@ export function NasabahDetailDialog({
           <p className="py-10 text-sm text-muted-foreground">Nasabah tidak ditemukan.</p>
         ) : (
           <div className="space-y-5">
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5">
+              <p className="text-xs leading-5 text-amber-950">Buka pratinjau dashboard nasabah dalam mode baca-saja. Akses dicatat di audit trail.</p>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={detail.role === "admin"}
+                onClick={() => navigate(`/dashboard?lihatNasabah=${encodeURIComponent(userId)}`)}
+              >
+                Lihat dashboard
+              </Button>
+            </div>
             {/* ===== Kepala: identitas ===== */}
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="min-w-0">
