@@ -70,11 +70,11 @@ export default function LandingHome() {
   const accountLabel = isAuthenticated ? "Buka dashboard" : "Buat akun";
 
   return (
-    <div className="min-h-screen bg-white text-slate-900">
+    <div className="min-h-screen w-full overflow-x-hidden bg-white text-slate-900">
       <a className="skip-link" href="#konten">
         Lewati ke konten utama
       </a>
-      <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/95 backdrop-blur">
+      <header className="sticky top-0 z-40 border-b border-slate-200/80 bg-white">
         <div className="mx-auto flex min-h-16 w-full max-w-6xl items-center justify-between gap-3 px-4 sm:px-6">
           <Link
             to="/"
@@ -165,7 +165,7 @@ export default function LandingHome() {
             <Button
               asChild
               disabled={isLoading}
-              className="min-h-11 bg-primary text-white hover:bg-primary/90"
+              className="min-h-11 bg-[#065f46] text-white hover:bg-[#064e3b]"
             >
               <Link to={accountHref}>
                 {isLoading ? "Memuat…" : accountLabel}
@@ -198,7 +198,7 @@ export default function LandingHome() {
 
         <section
           aria-labelledby="layanan-title"
-          className="border-t border-slate-200 bg-slate-50/70"
+          className="border-t border-slate-200/80 bg-white"
         >
           <div className="mx-auto max-w-6xl px-4 py-14 sm:px-6 sm:py-18">
             <p className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-800">
@@ -206,7 +206,7 @@ export default function LandingHome() {
             </p>
             <h2
               id="layanan-title"
-              className="mt-2 text-2xl font-semibold tracking-tight sm:text-3xl"
+              className="mt-2 text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl"
             >
               Pilih layanan untuk ditinjau
             </h2>
@@ -258,7 +258,7 @@ export default function LandingHome() {
               <div className="mt-6 flex flex-wrap gap-3">
                 <Button
                   asChild
-                  className="min-h-11 bg-primary text-white hover:bg-primary/90"
+                  className="min-h-11 bg-[#065f46] text-white hover:bg-[#064e3b]"
                 >
                   <Link to="/biaya">Buka kalkulator</Link>
                 </Button>
@@ -296,7 +296,7 @@ export default function LandingHome() {
           </div>
         </section>
 
-        <section className="border-y border-slate-200 bg-slate-50/70">
+        <section className="border-y border-slate-200/80 bg-white">
           <div className="mx-auto flex max-w-6xl flex-col gap-5 px-4 py-10 sm:flex-row sm:items-center sm:justify-between sm:px-6">
             <div className="flex items-start gap-3">
               <BadgeCheck
