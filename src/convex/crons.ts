@@ -11,6 +11,8 @@ import { internal } from "./_generated/api";
  *   masih berjalan (ditahan sampai 400 hari sebagai bukti audit).
  * - UTC 18:00 — retensi kunci idempotensi: buang kunci lebih tua dari 7 hari
  *   (jauh melewati jendela retry jaringan mana pun).
+ * - UTC 18:15 — retensi jejak gerbang pengiriman: buang baris pembatas laju
+ *   yang lebih tua dari 7 hari (jejak `auditLog` pelanggarannya tetap ada).
  */
 const crons = cronJobs();
 
@@ -24,6 +26,13 @@ crons.daily(
   "bersihkan-kunci-idempotensi",
   { hourUTC: 18, minuteUTC: 0 },
   internal.idempotensi.bersihkanKunciLama,
+  {},
+);
+
+crons.daily(
+  "bersihkan-jejak-gerbang",
+  { hourUTC: 18, minuteUTC: 15 },
+  internal.gerbangKirim.bersihkanJejakGerbang,
   {},
 );
 

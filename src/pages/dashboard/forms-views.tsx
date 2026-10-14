@@ -9,6 +9,8 @@ import {
   MedanDariKyc,
   PeringatanKyc,
 } from "@/components/kyc/PeringatanKyc";
+import { JebakanFormulir } from "@/components/JebakanFormulir";
+import { kunciIdempotensiBaru } from "@/lib/gerbangKirim";
 import { Button } from "@/components/ui/button";
 import { BilahTakTentu } from "@/components/ui/loading";
 import {
@@ -109,6 +111,14 @@ export function LoanForm({
   const [catatanPeminjam, setCatatanPeminjam] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Jejak anti-pengiriman-palsu: cap waktu formulir dibuka dan kolom jebakan.
+  // Cap waktunya dibuat sekali saat komponen dipasang, jadi percobaan ulang
+  // setelah gagal tetap memakai waktu buka yang sama.
+  const [formDibukaPada] = useState(() => Date.now());
+  const [jebakan, setJebakan] = useState("");
+  // Satu kunci per formulir: percobaan ulang setelah gagal mengembalikan
+  // pengajuan yang SAMA, bukan yang kedua.
+  const [kunciKirim] = useState(() => kunciIdempotensiBaru());
   const errorRef = useRef<HTMLParagraphElement | null>(null);
   /** Tanda tangan wajib: true selama area tanda tangan masih kosong. */
   const [ttdKosong, setTtdKosong] = useState(true);
@@ -238,6 +248,9 @@ export function LoanForm({
   const [lokBusy, setLokBusy] = useState(false);
 
   const createLoan = useMutation(api.loans.createLoanApplication);
+  // Gerbang izin server: percobaan mencurigakan tercatat dan kunci sementara
+  // ditegakkan sebelum pengajuan dikirim.
+  const mintaIzin = useMutation(api.gerbangKirim.mintaIzinKirim);
   const generateUploadUrl = useMutation(api.loans.generateKycUploadUrl);
   // Periksa ISI berkas (magic bytes) sesudah unggah: batas "harus gambar" yang
   // hanya hidup di form dan metadata MIME bisa dilewati dengan mengirim berkas
@@ -683,6 +696,12 @@ export function LoanForm({
     if (!kirimSekali.kunci()) return;
     setSubmitting(true);
     try {
+      const izin = await mintaIzin({ jebakan, formDibukaPada });
+      if (!izin.ok) {
+        setError(izin.alasan ?? "Pengajuan tidak dapat diproses. Coba lagi.");
+        bukaKunciKirim();
+        return;
+      }
       const ttdDataUrl = pad.toDataURL("image/png");
 
       const result = await createLoan({
@@ -711,6 +730,9 @@ export function LoanForm({
         dokSelfieKtpId: dokSelfieId as Id<"_storage">,
         dokSlipGajiId: dokSlipId as Id<"_storage">,
         lokasiAjukan: lokasi,
+        jebakan,
+        formDibukaPada,
+        kunciIdempotensi: kunciKirim,
       });
       // Pengajuan sudah menjadi catatan resmi — drafnya tidak diperlukan lagi.
       if (draftId !== null) {
@@ -739,6 +761,7 @@ export function LoanForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
+      <JebakanFormulir nilai={jebakan} onUbah={setJebakan} />
       <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-900">
         Formulir ini mencatat pengajuan dan perkiraan hitungannya. Data, dokumen, gambar tanda tangan, dan lokasi yang Anda kirim hanya menjadi masukan. Data identitas dan lokasi Anda dicatat sebagai masukan pengajuan; perpindahan dana ditangani di luar aplikasi.
       </p>
@@ -1406,6 +1429,10 @@ export function PawnForm({
   const [catatanPeminjam, setCatatanPeminjam] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Jejak anti-pengiriman-palsu, sama seperti formulir pinjaman di berkas ini.
+  const [formDibukaPada] = useState(() => Date.now());
+  const [jebakan, setJebakan] = useState("");
+  const [kunciKirim] = useState(() => kunciIdempotensiBaru());
   const errorRef = useRef<HTMLParagraphElement | null>(null);
 
   useEffect(() => {
@@ -1413,6 +1440,8 @@ export function PawnForm({
   }, [error]);
 
   const createPawn = useMutation(api.loans.createPawnApplication);
+  /** Gerbang izin yang sama dengan formulir pinjaman di berkas ini. */
+  const mintaIzinGadai = useMutation(api.gerbangKirim.mintaIzinKirim);
   // Lihat LoanForm: gerbang KYC dicerminkan di UI; server tetap penentu.
   const kycQuery = useQuery(api.kyc.kycSaya, {});
   const kycSiap = isKycVerified(kycQuery?.status);
@@ -1483,6 +1512,12 @@ export function PawnForm({
     if (!kirimSekali.kunci()) return;
     setSubmitting(true);
     try {
+      const izin = await mintaIzinGadai({ jebakan, formDibukaPada });
+      if (!izin.ok) {
+        setError(izin.alasan ?? "Pengajuan tidak dapat diproses. Coba lagi.");
+        bukaKunciKirim();
+        return;
+      }
       await createPawn({
         deskripsiBarang,
         kategori,
@@ -1491,6 +1526,9 @@ export function PawnForm({
         namaBank,
         nomorRekening,
         catatanPeminjam: catatanPeminjam.trim() ? catatanPeminjam : undefined,
+        jebakan,
+        formDibukaPada,
+        kunciIdempotensi: kunciKirim,
       });
       onCreated();
       setDeskripsiBarang("");
@@ -1509,6 +1547,7 @@ export function PawnForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
+      <JebakanFormulir nilai={jebakan} onUbah={setJebakan} />
       {/* Nama sudah diperiksa petugas lewat KYC: pengajuan gadai tidak perlu
           menanyakannya lagi, dan buktinya ditampilkan di sini. */}
       {identitasKyc.namaLengkap !== "" && (

@@ -2325,6 +2325,28 @@ const schema = defineSchema(
       .index("by_user", ["userId"])
       .index("by_nomor", ["nomor"])
       .index("by_pada", ["pada"]),
+
+    /**
+     * JEJAK GERBANG PENGIRIMAN — pembatas laju & kunci sementara pengajuan.
+     *
+     * Satu baris per kejadian, dibedakan lewat `jenis`:
+     * - `"kirim"` = pengajuan yang DITERIMA (dasar pembatas 5 per menit);
+     * - `"pelanggaran"` = kiriman yang ditolak karena mencurigakan (dasar kunci
+     *   15 menit setelah 3 kali, lihat `convex/gerbangKirim.ts`).
+     *
+     * Sengaja dipisah dari `loginAttempts`: percobaan masuk yang gagal tidak
+     * boleh ikut memakan jatah pengajuan, dan sebaliknya. `sebab` hanya diisi
+     * pada baris pelanggaran. Barisnya dibuang cron harian setelah 7 hari;
+     * yang tetap tinggal adalah `auditLog` pelanggarannya.
+     */
+    gerbangKirim: defineTable({
+      kunci: v.string(),
+      jenis: v.string(),
+      sebab: v.optional(v.string()),
+      waktu: v.number(),
+    })
+      .index("by_kunci_jenis_waktu", ["kunci", "jenis", "waktu"])
+      .index("by_waktu", ["waktu"]),
   },
   {
     schemaValidation: false,

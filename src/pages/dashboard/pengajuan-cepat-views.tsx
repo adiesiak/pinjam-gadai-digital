@@ -37,6 +37,8 @@ import {
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { useKirimSekali } from "@/hooks/use-cegah-tinggalkan";
+import { JebakanFormulir } from "@/components/JebakanFormulir";
+import { kunciIdempotensiBaru } from "@/lib/gerbangKirim";
 import { maskRekening } from "@/lib/kycTahapan";
 import { LOAN_LIMITS, LOAN_PURPOSE_OPTIONS, quotePinjaman, TENOR_OPTIONS } from "@/lib/loan";
 import { formatRupiah } from "@/lib/money";
@@ -117,6 +119,9 @@ export function PengajuanCepatSection({
   const sisaBatas = ringkas?.tersedia; // undefined selama belum termuat
   const bungaQuery = useQuery(api.lokasi.bungaSaya, {});
   const createLoan = useMutation(api.loans.createLoanApplication);
+  // Gerbang izin server: mencatat percobaan mencurigakan dan menegakkan kunci
+  // sementara sebelum payload mahal apa pun disusun.
+  const mintaIzin = useMutation(api.gerbangKirim.mintaIzinKirim);
 
   const batas = batasNominalCepat(sisaBatas);
   const [pokok, setPokok] = useState(() => nominalAwalCepat(sisaBatas));
@@ -129,6 +134,14 @@ export function PengajuanCepatSection({
   const [ttdKosong, setTtdKosong] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Jejak anti-pengiriman-palsu. Cap waktu dibuat sekali saat komponen dipasang
+  // (bukan ulang tiap render), jadi percobaan ulang setelah gagal tetap memakai
+  // waktu buka yang sama. Kolom jebakan selalu kosong bagi pengguna sungguhan.
+  const [formDibukaPada] = useState(() => Date.now());
+  const [jebakan, setJebakan] = useState("");
+  // Satu kunci per formulir: percobaan ulang setelah gagal mengembalikan
+  // pengajuan yang SAMA, bukan yang kedua.
+  const [kunciKirim] = useState(() => kunciIdempotensiBaru());
 
   // Sisa batas bisa berubah (override admin / pinjaman lain disalurkan). Nominal
   // dijaga tetap di dalam rentang yang berlaku — bukan dibiarkan menunjuk angka
@@ -262,6 +275,12 @@ export function PengajuanCepatSection({
 
     setSubmitting(true);
     try {
+      const izin = await mintaIzin({ jebakan, formDibukaPada });
+      if (!izin.ok) {
+        setError(izin.alasan ?? "Pengajuan tidak dapat diproses. Coba lagi.");
+        kirimSekali.buka();
+        return;
+      }
       const hasil = await createLoan({
         pokokPinjaman: pokok,
         tenorHari: tenor,
@@ -280,6 +299,9 @@ export function PengajuanCepatSection({
         dokSelfieKtpId,
         dokSlipGajiId,
         lokasiAjukan: lokasi,
+        jebakan,
+        formDibukaPada,
+        kunciIdempotensi: kunciKirim,
       });
       pad.clear();
       setTtdKosong(true);
@@ -296,6 +318,7 @@ export function PengajuanCepatSection({
 
   return (
     <section className="space-y-4 rounded-3xl bg-slate-50 p-3 sm:p-4">
+      <JebakanFormulir nilai={jebakan} onUbah={setJebakan} />
       {/* Gerbang identitas sudah lewat: satu halaman ini menggantikan wizard. */}
       <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs leading-5 text-emerald-900 dark:border-emerald-900/50 dark:bg-emerald-950/40 dark:text-emerald-200">
         <p className="flex items-center gap-1.5 font-semibold">

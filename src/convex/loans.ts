@@ -57,6 +57,7 @@ import {
   kunciIdempotensiValidator,
   simpanHasilIdempoten,
 } from "./idempotensi";
+import { gerbangPengajuan } from "./gerbangKirim";
 import { rejectUnverifiedMoneyMovement } from "./paymentGuard";
 import {
   bolehDibatalkan,
@@ -397,6 +398,16 @@ export const createLoanApplication = mutation({
       waktu: v.number(),
     }),
     /**
+     * Jejak anti-pengiriman-palsu dari formulir, diperiksa `gerbangPengajuan`
+     * sebelum pekerjaan mahal apa pun. Kolom jebakan yang TERISI adalah tanda
+     * pengisi otomatis; `formDibukaPada` adalah cap waktu formulir dibuka, dan
+     * kiriman di bawah dua detik setelahnya ditolak. Keduanya opsional supaya
+     * pemanggil lama tidak pecah, dan ketiadaannya ditahan pembatas laju per
+     * akun di server.
+     */
+    jebakan: v.optional(v.string()),
+    formDibukaPada: v.optional(v.number()),
+    /**
      * Kunci idempotensi opsional — pengiriman ulang karena jaringan dengan
      * kunci yang sama mengembalikan pengajuan yang SAMA, bukan yang kedua.
      */
@@ -414,6 +425,14 @@ export const createLoanApplication = mutation({
       nomorReferensi: string;
     }>(ctx, userId, args.kunciIdempotensi, "pinjaman.create");
     if (hasilLama !== null) return hasilLama;
+    // Gerbang anti-pengiriman-palsu dijalankan sebelum gerbang KYC (yang mahal):
+    // kiriman robot dan pengiriman bertubi-tubi ditolak paling awal, dan setiap
+    // penolakan tercatat di auditLog sebagai pelanggaran gerbang.
+    await gerbangPengajuan(ctx, {
+      userId,
+      jebakan: args.jebakan,
+      formDibukaPada: args.formDibukaPada,
+    });
     await requireKycTerverifikasi(ctx, userId);
     // Gerbang lokasi: titik GPS segar wajib ada di server, dan koordinat yang
     // dikirim bersama pengajuan harus cocok dengan lokasi perangkat tercatat.
@@ -904,6 +923,9 @@ export const createPawnApplication = mutation({
     namaBank: v.string(),
     nomorRekening: v.string(),
     catatanPeminjam: v.optional(v.string()),
+    /** Jejak anti-pengiriman-palsu; aturannya sama dengan `createLoanApplication`. */
+    jebakan: v.optional(v.string()),
+    formDibukaPada: v.optional(v.number()),
     /** Kunci idempotensi opsional — lihat `createLoanApplication`. */
     kunciIdempotensi: kunciIdempotensiValidator,
   },
@@ -916,6 +938,13 @@ export const createPawnApplication = mutation({
       "gadai.create",
     );
     if (hasilLama !== null) return hasilLama;
+    // Gerbang anti-pengiriman-palsu: sama seperti pengajuan pinjaman, dijalankan
+    // sebelum gerbang KYC supaya kiriman robot ditolak paling awal.
+    await gerbangPengajuan(ctx, {
+      userId,
+      jebakan: args.jebakan,
+      formDibukaPada: args.formDibukaPada,
+    });
     // Gerbang KYC wajib: pengajuan finansial hanya dilayani bila modul KYC
     // nasabah sudah VERIFIED (diperiksa server, bukan dari klien).
     await requireKycTerverifikasi(ctx, userId);
