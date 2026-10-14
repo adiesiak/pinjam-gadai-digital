@@ -31,6 +31,7 @@ import { DashboardHeader } from "./dashboard/dashboard-header";
 import { DashboardSidebar } from "./dashboard/dashboard-sidebar";
 import { DashboardBottomNav, type TabBadge } from "./dashboard/dashboard-tab-nav";
 import { LoanDetailDialog } from "./dashboard/detail-dialogs";
+import { PersetujuanVerifikasiPembayaran } from "@/components/PersetujuanVerifikasiPembayaran";
 import { FormPengajuanSection } from "./dashboard/form-pengajuan-views";
 import { CatatanPinjamanSection } from "./dashboard/history-views";
 import { ActiveLoanSection } from "./dashboard/loan-views";
@@ -122,6 +123,8 @@ export default function Dashboard() {
   // lencana.
   const kyc = useQuery(api.kyc.kycSaya, argsPeminjam);
   const [loanDetailId, setLoanDetailId] = useState<Id<"loans"> | null>(null);
+  const [verifikasiTerbuka, setVerifikasiTerbuka] = useState(false);
+  const loanDetail = (loans ?? []).find((loan) => loan._id === loanDetailId) ?? null;
 
   // Tab yang sedang dibuka. Parameter `?tab=…` (mis. dari pusat notifikasi)
   // diutamakan selama masih ada di URL, lalu pilihan pengguna mengambil alih,
@@ -456,7 +459,19 @@ export default function Dashboard() {
         </Tabs>
       </main>
 
-        <LoanDetailDialog loanId={loanDetailId} onClose={() => setLoanDetailId(null)} />
+        <LoanDetailDialog
+          loanId={loanDetailId}
+          onClose={() => { setLoanDetailId(null); setVerifikasiTerbuka(false); }}
+          onMintaVerifikasi={() => setVerifikasiTerbuka(true)}
+        />
+        {loanDetailId !== null && (
+          <PersetujuanVerifikasiPembayaran
+            terbuka={verifikasiTerbuka}
+            loanId={loanDetailId}
+            nomorReferensi={loanDetail?.nomorReferensi ?? dueReminder?.nomorReferensi ?? "pinjaman"}
+            onTutup={() => setVerifikasiTerbuka(false)}
+          />
+        )}
 
         {/* Navigasi bawah untuk layar sempit; kolom kiri hanya muncul di `lg`. */}
         <DashboardBottomNav

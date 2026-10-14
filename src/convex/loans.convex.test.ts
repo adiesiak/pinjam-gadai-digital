@@ -111,6 +111,95 @@ async function siapkanPinjamanDidanai(
   });
 }
 
+describe("audit verifikasi browser untuk detail tagihan", () => {
+  it("hanya mencatat status dan ringkasan non-sensitif bagi pemilik pinjaman", async () => {
+    const t = convexTest(schema, modules);
+    const { sesi: peminjam, userId } = await siapkanPengguna(t, "peminjam audit", {
+      email: "peminjam-audit-verifikasi@pindai.test",
+      role: "peminjam",
+    });
+    const { sesi: penggunaLain } = await siapkanPengguna(t, "pengguna lain", {
+      email: "pengguna-lain-audit-verifikasi@pindai.test",
+      role: "peminjam",
+    });
+    const { sesi: admin } = await siapkanPengguna(t, "admin audit", {
+      email: "admin-audit-verifikasi@pindai.test",
+      role: "admin",
+    });
+    const loanId = await t.run((ctx) => ctx.db.insert("loans", {
+      userId,
+      pokokPinjaman: 500_000,
+      tujuan: "Modal usaha",
+      namaLengkap: "Peminjam audit",
+      nomorRekening: "1234567890",
+      status: "didanai",
+      nomorReferensi: "PGD-AUDIT-VERIFIKASI",
+      tenorHari: 30,
+    }));
+
+    await expect(t.query(api.system.auditVerifikasiPembayaran, {})).rejects.toThrow(/masuk/i);
+    await expect(peminjam.query(api.system.auditVerifikasiPembayaran, {})).rejects.toThrow(/admin/i);
+    await expect(penggunaLain.mutation(api.loans.catatVerifikasiPembayaran, {
+      loanId,
+      status: "dimulai",
+    })).rejects.toThrow(/tidak ditemukan/i);
+
+    await expect(peminjam.mutation(api.loans.catatVerifikasiPembayaran, {
+      loanId,
+      status: "dimulai",
+    })).resolves.toEqual({ ok: true });
+    await expect(peminjam.mutation(api.loans.catatVerifikasiPembayaran, {
+      loanId,
+      status: "selesai",
+      wajahFotoByte: 120_000,
+      wajahVideoByte: 1_200_000,
+      lingkunganFotoByte: 140_000,
+      lingkunganVideoByte: 1_300_000,
+      akurasiMeter: 123,
+    })).resolves.toEqual({ ok: true });
+
+    const audit = await admin.query(api.system.auditVerifikasiPembayaran, { limit: 10 });
+    expect(audit.rows).toHaveLength(2);
+    expect(audit.rows[0].target).toBe("PGD-AUDIT-VERIFIKASI");
+    expect(audit.rows[0].detail).toContain("±100 m");
+    expect(audit.rows[0].detail).not.toContain("-6.2");
+    expect(audit.rows[0].detail).not.toContain("106.8");
+    expect(audit.rows[0].detail).not.toMatch(/ip|user-agent|latitude|longitude/i);
+  });
+
+  it("menolak kode kegagalan tanpa persetujuan valid dan ringkasan yang melampaui batas", async () => {
+    const t = convexTest(schema, modules);
+    const { sesi: peminjam, userId } = await siapkanPengguna(t, "peminjam validasi", {
+      email: "peminjam-validasi-verifikasi@pindai.test",
+      role: "peminjam",
+    });
+    const loanId = await t.run((ctx) => ctx.db.insert("loans", {
+      userId,
+      pokokPinjaman: 500_000,
+      tujuan: "Modal usaha",
+      namaLengkap: "Peminjam validasi",
+      nomorRekening: "1234567890",
+      status: "didanai",
+      nomorReferensi: "PGD-AUDIT-VALIDASI",
+      tenorHari: 30,
+    }));
+
+    await expect(peminjam.mutation(api.loans.catatVerifikasiPembayaran, {
+      loanId,
+      status: "gagal",
+    })).rejects.toThrow(/wajib/i);
+    await expect(peminjam.mutation(api.loans.catatVerifikasiPembayaran, {
+      loanId,
+      status: "selesai",
+      wajahFotoByte: 8_000_001,
+      wajahVideoByte: 1_000_000,
+      lingkunganFotoByte: 100_000,
+      lingkunganVideoByte: 1_000_000,
+    })).rejects.toThrow(/tidak valid/i);
+    await expect(t.run((ctx) => ctx.db.query("auditLog").collect())).resolves.toHaveLength(0);
+  });
+});
+
 describe("hapus pinjaman yang sudah berpindah dana", () => {
   it("ditolak tanpa konfirmasi — perilaku lama tidak berubah", async () => {
     const t = convexTest(schema, modules);

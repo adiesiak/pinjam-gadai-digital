@@ -178,6 +178,29 @@ const BATAS_AUDIT_HAPUS = 100;
  * rincian TERSTRUKTUR; baris lama tanpa rincian cukup dilaporkan sebagai
  * `tanpaRincian`, tidak dikarang.
  */
+export const auditVerifikasiPembayaran = query({
+  args: { limit: v.optional(v.number()) },
+  handler: async (ctx, { limit }) => {
+    await requireAdmin(ctx);
+    const batas = Math.min(Math.max(limit ?? 60, 1), 100);
+    const rows = await ctx.db
+      .query("auditLog")
+      .withIndex("by_aksi", (q) => q.eq("aksi", "verifikasi_tagihan_browser"))
+      .order("desc")
+      .take(batas);
+    return {
+      rows: rows.map((row) => ({
+        _id: row._id,
+        aktorLabel: row.aktorLabel,
+        target: row.target ?? null,
+        detail: row.detail ?? "",
+        waktu: row.waktu,
+      })),
+      batas,
+    };
+  },
+});
+
 export const auditPenghapusan = query({
   args: {
     jenis: v.optional(

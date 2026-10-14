@@ -161,6 +161,85 @@ export const generatePaymentReceiptUploadUrl = mutation({
   },
 });
 
+/**
+ * Catat kejadian alur verifikasi browser setelah persetujuan eksplisit.
+ * Media tidak diunggah, ID berkas/koordinat mentah tidak disimpan, dan subjek
+ * harus pinjaman milik akun sesi. Log dibaca melalui query admin TOTP.
+ */
+export const catatVerifikasiPembayaran = mutation({
+  args: {
+    loanId: v.id("loans"),
+    status: v.union(v.literal("dimulai"), v.literal("selesai"), v.literal("gagal")),
+    wajahFotoByte: v.optional(v.number()),
+    wajahVideoByte: v.optional(v.number()),
+    lingkunganFotoByte: v.optional(v.number()),
+    lingkunganVideoByte: v.optional(v.number()),
+    akurasiMeter: v.optional(v.number()),
+    kodeGagal: v.optional(v.union(
+      v.literal("izin_ditolak"),
+      v.literal("kamera_tidak_tersedia"),
+      v.literal("lokasi_tidak_tersedia"),
+      v.literal("rekaman_gagal"),
+      v.literal("ukuran_tidak_valid"),
+      v.literal("audit_tidak_tersedia"),
+    )),
+  },
+  handler: async (ctx, args) => {
+    const { userId, user } = await requirePeminjam(ctx);
+    const loan = await ctx.db.get(args.loanId);
+    if (loan === null || loan.userId !== userId) {
+      throw new Error("Pinjaman tidak ditemukan.");
+    }
+
+    let detail: string;
+    if (args.status === "dimulai") {
+      if (args.kodeGagal !== undefined || args.wajahFotoByte !== undefined) {
+        throw new Error("Rincian permintaan verifikasi tidak valid.");
+      }
+      detail = "Persetujuan eksplisit diberikan; permintaan lokasi sekali dan dua kamera berurutan dimulai. Media tetap di browser, tidak diunggah.";
+    } else if (args.status === "selesai") {
+      const ukuran = [
+        args.wajahFotoByte,
+        args.wajahVideoByte,
+        args.lingkunganFotoByte,
+        args.lingkunganVideoByte,
+      ];
+      if (
+        ukuran.some((n) => n === undefined || !Number.isSafeInteger(n) || n <= 0) ||
+        (args.wajahFotoByte ?? 0) > 8_000_000 ||
+        (args.lingkunganFotoByte ?? 0) > 8_000_000 ||
+        (args.wajahVideoByte ?? 0) > 22_000_000 ||
+        (args.lingkunganVideoByte ?? 0) > 22_000_000 ||
+        ukuran.reduce<number>((total, n) => total + (n ?? 0), 0) > 60_000_000 ||
+        args.kodeGagal !== undefined ||
+        (args.akurasiMeter !== undefined &&
+          (!Number.isFinite(args.akurasiMeter) || args.akurasiMeter < 0 || args.akurasiMeter > 30_000))
+      ) {
+        throw new Error("Ringkasan media verifikasi tidak valid.");
+      }
+      const akurasiBulat = args.akurasiMeter === undefined
+        ? null
+        : Math.round(args.akurasiMeter / 50) * 50;
+      detail = `Perekaman browser selesai; foto wajah ${args.wajahFotoByte} B, video wajah ${args.wajahVideoByte} B, foto lingkungan ${args.lingkunganFotoByte} B, video lingkungan ${args.lingkunganVideoByte} B. Media tidak diunggah; koordinat tidak dicatat.${akurasiBulat === null ? "" : ` Akurasi GPS dibulatkan: ±${akurasiBulat} m.`}`;
+    } else {
+      if (args.kodeGagal === undefined) {
+        throw new Error("Kode kegagalan verifikasi wajib diisi.");
+      }
+      detail = `Verifikasi yang telah disetujui tidak selesai (${args.kodeGagal}). Tidak ada media yang diunggah.`;
+    }
+
+    await audit(
+      ctx,
+      userId,
+      user.email ?? user.name ?? "Peminjam",
+      "verifikasi_tagihan_browser",
+      loan.nomorReferensi,
+      detail,
+    );
+    return { ok: true as const };
+  },
+});
+
 /** Simpan bukti pembayaran sebagai antrean rekonsiliasi; tidak menyentuh ledger. */
 export const submitManualPaymentReceipt = mutation({
   args: {

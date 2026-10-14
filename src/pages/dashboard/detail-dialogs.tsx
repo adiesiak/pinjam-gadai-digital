@@ -150,9 +150,11 @@ function RincianPinjaman({ loan, final }: { loan: RincianPinjamanInput; final: b
 export function LoanDetailDialog({
   loanId,
   onClose,
+  onMintaVerifikasi,
 }: {
   loanId: Id<"loans"> | null;
   onClose: () => void;
+  onMintaVerifikasi: () => void;
 }) {
   const loan = useQuery(api.loans.getMyLoan, loanId ? { loanId } : "skip");
   // Angka baru FINAL setelah pinjaman benar-benar dicairkan; sebelum itu semua
@@ -232,7 +234,10 @@ export function LoanDetailDialog({
                   Status <span className="font-medium">Lunas</span> diperbarui oleh tim PINDAI
                   setelah pembayaran dicatat, bukan diubah dari sini.
                 </p>
-                <div className="mt-3">
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <Button variant="outline" size="sm" onClick={onMintaVerifikasi}>
+                    Verifikasi tagihan
+                  </Button>
                   <Button asChild variant="outline" size="sm" className="gap-1.5">
                     <a
                       href="https://wa.me/6281234567890?text=Halo%20CS%20PINDAI%2C%20saya%20ingin%20bertanya%20tentang%20pelunasan%20pinjaman%20saya."
