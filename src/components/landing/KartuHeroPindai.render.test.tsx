@@ -100,6 +100,9 @@ function bersih(html: string, label: string): void {
   const html = renderToStaticMarkup(<PindaiCard3D />);
   ada(html, "PINDAI", "wordmark tampil pada kartu");
   ada(html, "PINDAI CARD", "tanda kartu tampil");
+  ada(html, 'aria-label="Mastercard"', "logo Mastercard tampil di kartu");
+  ada(html, "#eb001b", "lingkaran merah logo Mastercard tampil");
+  ada(html, "#f79e1b", "lingkaran oranye logo Mastercard tampil");
   ada(html, "BUDI SANTOSO", "nama contoh ditampilkan");
   ada(html, "9001 2345 6789 0123", "nomor demo tetap ditampilkan");
   ada(html, "12/29", "tanggal contoh tampil");

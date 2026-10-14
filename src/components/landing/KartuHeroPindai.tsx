@@ -64,6 +64,24 @@ function CardWordmark() {
   );
 }
 
+function MastercardMark() {
+  return (
+    <svg
+      aria-label="Mastercard"
+      className="h-8 w-12"
+      viewBox="0 0 48 32"
+      role="img"
+    >
+      <circle cx="18" cy="16" r="11" fill="#eb001b" />
+      <circle cx="30" cy="16" r="11" fill="#f79e1b" />
+      <path
+        d="M24 7.75a11 11 0 0 1 0 16.5 11 11 0 0 1 0-16.5Z"
+        fill="#ff5f00"
+      />
+    </svg>
+  );
+}
+
 function PindaiCardMark() {
   return (
     <span className="inline-flex items-center gap-1.5 text-[8px] font-semibold tracking-[0.12em] text-[#fff8dc]">
@@ -471,7 +489,10 @@ export function PindaiCard3D({ className }: KartuHeroPindaiProps) {
               }}
             >
               <CardWordmark />
-              <IkonContactless />
+              <div className="flex items-center gap-2">
+                <MastercardMark />
+                <IkonContactless />
+              </div>
             </header>
             <div
               className="flex items-center"
