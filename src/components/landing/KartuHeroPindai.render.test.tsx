@@ -1,5 +1,5 @@
 /**
- * Uji render kartu hero PINDAI ("Warm Paper & Brass Batik Kawung").
+ * Uji render kartu hero PINDAI: Mega Mendung pada kartu putih/emerald-50.
  * Run: bun src/components/landing/KartuHeroPindai.render.test.tsx
  *
  * Yang dijaga (tanpa browser — render statis):
@@ -21,7 +21,7 @@
  */
 import { renderToStaticMarkup } from "react-dom/server";
 
-import { KartuHeroPindai } from "./KartuHeroPindai";
+import { PindaiCard3D } from "./KartuHeroPindai";
 
 let passed = 0;
 let failed = 0;
@@ -45,119 +45,73 @@ function bersih(html: string, label: string): void {
 
 // ===== 1. Wadah utama, permukaan cerah, garis ganda =====
 {
-  const html = renderToStaticMarkup(<KartuHeroPindai />);
+  const html = renderToStaticMarkup(<PindaiCard3D />);
+  ada(html, "aspect-[1.586/1]", "rasio ISO ID-1 diterapkan pada semua ukuran");
   ada(
     html,
-    "min-[426px]:aspect-[1.586/1] w-full max-w-md rounded-2xl relative p-4 text-xs sm:p-6 sm:text-sm overflow-hidden transition-all duration-500 hover:scale-[1.02]",
-    "kelas ukuran & bentuk kartu persis seperti permintaan",
+    "max-w-[340px] lg:max-w-[420px]",
+    "lebar kartu dibatasi pada ponsel dan desktop",
   );
-  // Rasio kartu harus selalu punya pembatas lebar. Tanpa itu, `aspect-ratio`
-  // memindahkan `min-h-[15.5rem]` menjadi min-width 393,3px (248 x 1,586),
-  // sehingga kartu menjulur keluar tepi kanan pada 320-425px dan terpotong
-  // `overflow-x: clip` milik `body` (terukur, lihat catatan di komponen).
-  ok(
-    !/(^|["\s])aspect-\[1\.586\/1\]/.test(html),
-    "rasio kartu tidak pernah dipasang tanpa pembatas lebar",
-  );
-  // Tanpa lantai tinggi, kartu selebar ponsel akan lebih pendek daripada isinya
-  // dan baris bawah (nama + catatan) terpotong `overflow-hidden`.
+  ada(html, "rounded-[4.5%]", "radius kartu mengikuti spesifikasi fisik");
   ada(
     html,
-    "min-h-[15.5rem]",
-    "kartu punya tinggi minimum supaya isi tidak terpotong di lebar kecil",
+    "border-emerald-950/40",
+    "bingkai kartu memakai tepi emerald gelap tipis",
   );
   ada(
     html,
-    "bg-[linear-gradient(135deg,rgba(255,255,255,0.94)_0%,rgba(253,250,241,0.9)_52%,rgba(241,237,227,0.92)_100%)] backdrop-blur-2xl border border-[#c9a86a]/55 shadow-[0_20px_45px_-26px_rgba(28,26,21,0.45)]",
-    "permukaan cerah: kertas hangat berkaca + tepi kuningan",
-  );
-  ada(
-    html,
-    "ring-1 ring-[#c9a86a]/35 ring-offset-2 ring-offset-white/60",
-    "garis ganda kuningan (ring + offset) persis seperti permintaan",
+    "from-white via-emerald-50 to-white",
+    "warna kartu putih/emerald-50 dipilih",
   );
   // Permukaan gelap lama harus benar-benar hilang, bukan sekadar ditimpa.
   tidakAda(html, "bg-slate-950/90", "permukaan obsidian tidak dipakai lagi");
   tidakAda(html, "ring-emerald-500/60", "ring emerald lama tidak tersisa");
-  ada(html, 'data-kartu="kertas-batik"', "kartu punya penanda data-kartu");
-  ada(html, 'role="group"', "kartu dikelompokkan untuk pembaca layar");
+  ada(html, 'data-kartu="pindai-hero"', "kartu punya penanda data-kartu");
   ada(
     html,
-    'aria-label="Kartu contoh PINDAI"',
-    "label kartu contoh tanpa data nasabah",
-  );
-  ada(
-    html,
-    "bg-[radial-gradient(circle,rgba(201,168,106,0.5),transparent_70%)]",
-    "cucian kuningan di sudut kiri atas",
-  );
-  ada(
-    html,
-    "bg-[radial-gradient(circle,rgba(31,106,98,0.28),transparent_72%)]",
-    "cucian petrol di sudut kanan bawah",
+    'aria-hidden="true"',
+    "kartu contoh dekoratif disembunyikan dari pembaca layar",
   );
   bersih(html, "kartu bawaan");
 }
 
-// ===== 2. Motif batik kawung + cucian warna kuningan/petrol =====
+// ===== 2. Motif batik Mega Mendung tone-on-tone =====
 {
-  const html = renderToStaticMarkup(<KartuHeroPindai />);
+  const html = renderToStaticMarkup(<PindaiCard3D />);
   ada(
     html,
-    "opacity-15 mix-blend-multiply",
-    "lapisan motif dipasang tipis & menyerap ke kertas",
+    "mega-mendung-",
+    "SVG memakai pola Mega Mendung berulang dengan id unik",
   );
-  ada(html, "#c9a86a", "motif memakai kuningan");
-  ada(html, "#1f6a62", "motif memakai rona petrol");
-  ada(html, 'patternTransform="rotate(-45)"', "anyaman kawung miring diagonal");
+  ada(html, 'opacity="0.17"', "motif tone-on-tone dibatasi ke opasitas rendah");
+  ada(html, "#a7f3d0", "motif memakai emerald-200");
   ada(
     html,
     'patternUnits="userSpaceOnUse"',
     "motif dipasang sebagai pola berulang",
   );
-  ada(html, 'width="64" height="64"', "petak motif 64 x 64");
-  // Kawung: satu unit = empat kelopak + satu titik pusat, digambar di tengah
-  // petak dan di keempat sudutnya (sudut dipakai bersama petak tetangga), jadi
-  // markup harus memuat 5 x 4 kelopak dan 5 titik pusat.
-  ok(
-    (html.match(/<ellipse/g) ?? []).length === 20,
-    "lima unit x empat kelopak kawung dirender",
-  );
-  ok(
-    (html.match(/r="2\.4"/g) ?? []).length === 5,
-    "satu titik pusat petrol di tiap unit kawung",
-  );
-  // Parang lama harus benar-benar hilang, bukan cuma ditambahi.
-  tidakAda(html, '<path d="M0 14 C', "motif parang lama tidak tersisa");
   ada(
     html,
-    "radial-gradient(120%_90%_at_15%_-10%,rgba(201,168,106,0.2),transparent_55%)",
-    "cucian kuningan di kiri atas",
+    'patternUnits="userSpaceOnUse"',
+    "motif Mega Mendung memakai pola SVG berulang",
   );
+  ada(html, "M-8 48c9-12", "kontur awan bertingkat Mega Mendung dirender");
   ada(
     html,
-    "radial-gradient(90%_80%_at_100%_110%,rgba(31,106,98,0.1),transparent_60%)",
-    "cucian petrol tipis di kanan bawah",
+    'preserveAspectRatio="none"',
+    "motif memenuhi bidang kartu tanpa raster",
   );
-  ada(html, "var(--kilau-x", "kilau mengikuti posisi pointer (light reflect)");
-  ada(html, "var(--kilau-opasitas, 0)", "kilau redup sebelum pointer masuk");
+  ada(html, "--glare-x", "kilau mengikuti gerak kartu");
+  ada(html, "rgba(255,255,255,0.18)", "kilau dibatasi ke opasitas 18 persen");
   bersih(html, "lapisan motif");
 }
 
 // ===== 3. Kepala kartu: logo emas, sisi kanan kosong =====
 {
-  const html = renderToStaticMarkup(<KartuHeroPindai />);
-  ada(
-    html,
-    "text-emerald-700 font-bold tracking-wider flex items-center gap-2",
-    "kelas wordmark kuningan gelap persis seperti permintaan",
-  );
-  ada(html, "PINDAI", "teks merek tampil");
-  ada(
-    html,
-    "from-amber-100 via-amber-400 to-amber-700",
-    "kotak logo bergradasi logam",
-  );
+  const html = renderToStaticMarkup(<PindaiCard3D />);
+  ada(html, "PINDAI", "wordmark teks PINDAI tampil");
+  ada(html, "tracking-[0.24em]", "wordmark kapital bertracking lebar");
+  tidakAda(html, ">P</span>", "mark P tidak digunakan");
   tidakAda(html, "hologram", "pita holografik lama benar-benar dihapus");
   tidakAda(html, "kartu-3d__", "kartu tidak lagi bergantung pada kelas lama");
   bersih(html, "kepala kartu");
@@ -165,66 +119,32 @@ function bersih(html: string, label: string): void {
 
 // ===== 4. Chip EMV + contactless di kiri tengah =====
 {
-  const html = renderToStaticMarkup(<KartuHeroPindai />);
+  const html = renderToStaticMarkup(<PindaiCard3D />);
+  ada(html, 'viewBox="0 0 56 42"', "chip SVG berukuran 56 x 42");
+  ada(html, "#F6E27A", "chip memakai gradien emas metalik inline");
+  ada(html, 'strokeOpacity="0.5"', "jalur kontak memakai stroke halus");
   ada(
     html,
-    "bg-gradient-to-br from-amber-200 via-amber-400 to-amber-600 rounded-md w-12 h-9 shadow-inner border border-emerald-800/30",
-    "kelas chip logam kuningan persis seperti permintaan",
-  );
-  // Pita chip memusatkan dirinya dengan `my-auto` (sisa tinggi dibagi sama besar
-  // di atas dan di bawahnya), dan blok nomor TIDAK boleh ikut memakai `mt-auto`:
-  // dua penyerap sisa ruang sekaligus membagi jarak jadi tiga bagian sehingga
-  // chip melenceng naik dari kiri tengah (DESIGN.md §3A).
-  ada(
-    html,
-    'class="relative my-auto flex items-center gap-3"',
-    "chip duduk di kiri tengah (pita memusatkan diri lewat sisa tinggi)",
-  );
-  tidakAda(
-    html,
-    'class="relative mt-auto"',
-    "blok nomor tidak lagi menyerap sisa ruang (penyerap kedua menggeser chip)",
-  );
-  ada(html, "lucide-wifi", "ikon contactless/NFC dirender di samping chip");
-  ada(html, "rotate-90", "ikon contactless diputar membuka ke kanan");
-  ok(
-    (html.match(/bg-emerald-900\/35/g) ?? []).length === 3,
-    "chip punya tiga garis kontak",
+    "M8 9a4 4 0 0 1 0 6",
+    "ikon contactless ditampilkan di samping chip",
   );
   bersih(html, "chip");
 }
 
-// ===== 5. Baris data: nomor, status, masa berlaku, nama =====
+// ===== 5. Rincian hitungan dan disclaimer =====
 {
-  const html = renderToStaticMarkup(<KartuHeroPindai />);
-  ada(
-    html,
-    "font-mono text-emerald-800 tracking-widest text-sm sm:text-lg",
-    "kelas nomor kartu persis seperti permintaan",
-  );
-  ada(html, "1234 5678 9012 3456", "nomor contoh 16 digit tampil berkelompok");
-  ada(html, "TERAKREDITASI &amp; AMAN", "status/akreditasi tampil");
-  ada(html, "text-emerald-700", "status memakai kuningan gelap");
-  // Di kertas terang, token teks lama yang redup (amber/emerald terang, slate-400)
-  // akan jatuh di bawah 4.5:1 — jadi tidak boleh tersisa di kartu ini.
-  tidakAda(html, "text-amber-300", "tanpa teks kuningan terang di kertas");
-  tidakAda(html, "text-amber-200", "tanpa teks kuningan pucat di kertas");
-  tidakAda(html, "text-slate-400", "tanpa label abu pucat di kertas");
-  ada(html, "Valid thru", "label masa berlaku tampil");
-  ada(
-    html,
-    "text-emerald-800",
-    "kelas masa berlaku persis seperti permintaan",
-  );
-  ada(html, "12/29", "masa berlaku contoh tampil");
-  ada(html, "Cardholder", "label pemegang kartu tampil");
-  ada(
-    html,
-    "text-slate-900 font-semibold tracking-wider",
-    "kelas nama pemegang persis seperti permintaan",
-  );
-  ada(html, "CARDHOLDER", "tanpa data terverifikasi → CARDHOLDER");
-  ada(html, "Kartu contoh · bukan alat bayar", "catatan contoh tampil");
+  const html = renderToStaticMarkup(<PindaiCard3D />);
+  ada(html, "8723 2923 9012 2930", "nomor dekoratif yang dipilih ditampilkan");
+  ada(html, "Contoh catatan pinjaman", "judul catatan pinjaman tampil");
+  ada(html, "Pokok", "label pokok tampil");
+  ada(html, "Rp 1.000.000", "pokok contoh dihitung dari quoteLoan");
+  ada(html, "Tenor", "label tenor tampil");
+  ada(html, "30 hari", "tenor ilustrasi tampil");
+  ada(html, "Total kewajiban", "label total kewajiban tampil");
+  ada(html, "Rp 1.300.000", "total ilustrasi berasal dari quoteLoan");
+  ada(html, "Kartu contoh · bukan alat bayar", "disclaimer pembayaran tampil");
+  tidakAda(html, "TERAKREDITASI &amp; AMAN", "klaim akreditasi dihapus");
+  tidakAda(html, "cardholder", "identitas pemegang lama dihapus");
   ok(
     (html.match(/aria-hidden="true"/g) ?? []).length >= 6,
     "lapisan dekoratif & baris data contoh ditandai aria-hidden",
@@ -232,85 +152,10 @@ function bersih(html: string, label: string): void {
   bersih(html, "baris data");
 }
 
-// ===== 6. Data dari prop: format nomor, nama terverifikasi, fallback =====
-{
-  const terverifikasi = renderToStaticMarkup(
-    <KartuHeroPindai
-      nama="Budi Setiawan"
-      terverifikasi
-      nomorKartu="1234-5678-9012-3456"
-    />,
-  );
-  ada(
-    terverifikasi,
-    "BUDI SETIAWAN",
-    "nama nasabah terverifikasi tampil huruf besar",
-  );
-  ada(
-    terverifikasi,
-    "1234 5678 9012 3456",
-    "nomor dengan tanda pisah tetap dinormalkan",
-  );
-  ada(
-    terverifikasi,
-    'aria-label="Kartu contoh PINDAI untuk BUDI SETIAWAN"',
-    "label kartu menyebut nama pemegang",
-  );
-  tidakAda(
-    terverifikasi,
-    "CARDHOLDER",
-    "nama terverifikasi menggantikan CARDHOLDER",
-  );
-
-  const belumVerifikasi = renderToStaticMarkup(
-    <KartuHeroPindai nama="Budi Setiawan" />,
-  );
-  ada(
-    belumVerifikasi,
-    "CARDHOLDER",
-    "nama tanpa verifikasi tidak pernah ditampilkan",
-  );
-  tidakAda(
-    belumVerifikasi,
-    "BUDI SETIAWAN",
-    "nama belum terverifikasi tidak bocor ke kartu",
-  );
-
-  const disesuaikan = renderToStaticMarkup(
-    <KartuHeroPindai
-      nama="Siti Aminah"
-      terverifikasi
-      nomorKartu="081234567890"
-      masaBerlaku="1/2"
-      statusTeks="PENGGUNA TERVERIFIKASI"
-      catatan=""
-    />,
-  );
-  ada(disesuaikan, "SITI AMINAH", "nama nasabah lain dirender");
-  ada(disesuaikan, "0812 3456 7890", "nomor pendek tetap dikelompokkan 4-4");
-  ada(
-    disesuaikan,
-    "12/29",
-    "masa berlaku tidak sah jatuh ke contoh, bukan teks mentah",
-  );
-  tidakAda(disesuaikan, "1/2", "masa berlaku tidak sah tidak ditampilkan");
-  ada(disesuaikan, "PENGGUNA TERVERIFIKASI", "status bisa diganti dari prop");
-  tidakAda(
-    disesuaikan,
-    "Kartu contoh · bukan alat bayar",
-    "catatan kosong menyembunyikan baris catatan",
-  );
-  bersih(disesuaikan, "kartu dengan data prop");
-}
-
 // ===== 7. Panggung tilt & id pola batik yang unik =====
 {
-  const html = renderToStaticMarkup(<KartuHeroPindai />);
-  ada(
-    html,
-    'data-kartu-panggung="kertas-batik"',
-    "kartu punya panggung tilt",
-  );
+  const html = renderToStaticMarkup(<PindaiCard3D />);
+  ada(html, 'data-kartu-panggung="pindai-3d"', "kartu punya panggung tilt");
   ada(html, "[perspective:1000px]", "panggung memakai perspektif");
   ada(
     html,
@@ -320,12 +165,14 @@ function bersih(html: string, label: string): void {
 
   const dua = renderToStaticMarkup(
     <>
-      <KartuHeroPindai />
-      <KartuHeroPindai />
+      <PindaiCard3D />
+      <PindaiCard3D />
     </>,
   );
-  const id = [...dua.matchAll(/id="(kawung-[A-Za-z0-9]+)"/g)].map((m) => m[1]);
-  ok(id.length === 2, "setiap kartu merender satu pola kawung");
+  const id = [...dua.matchAll(/id="(mega-mendung-[A-Za-z0-9]+)"/g)].map(
+    (m) => m[1],
+  );
+  ok(id.length === 2, "setiap kartu merender satu pola Mega Mendung");
   ok(id[0] !== id[1], "dua kartu memakai id pola batik yang berbeda");
   ada(dua, `url(#${id[0]})`, "rect motif menunjuk pola miliknya sendiri");
   bersih(dua, "dua kartu");

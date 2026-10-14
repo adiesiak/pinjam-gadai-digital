@@ -1,5 +1,5 @@
 /**
- * Uji render hero landing (`LandingHero`) — panggung terang yang statis.
+ * Uji render hero landing (`LandingHero`) dengan kartu 3D dan bubble emerald.
  * Run: bun src/components/landing/LandingHero.render.test.tsx
  *
  * Yang dijaga (tanpa browser — render statis):
@@ -50,33 +50,14 @@ function render(sudahMasuk = false): string {
 
 const html = render();
 
-// ── 1. Tidak ada sisa mesin 3D ──
-ok(!html.includes("<canvas"), "tanpa kanvas WebGL sama sekali");
-// Kartu merek tetap memakai pembungkusnya sendiri (`data-kartu-panggung` di
-// `KartuHeroPindai`, hover tilt DESIGN.md §3C), jadi yang diperiksa adalah kelas
-// CSS panggung hero — bukan sekadar nama atribut milik komponen kartu.
-ok(
-  !/class="[^"]*\bkartu-panggung\b/.test(html),
-  "tanpa kelas panggung tilt hero",
-);
-ok(
-  html.includes('data-kartu-panggung="kertas-batik"'),
-  "tilt tetap milik komponen kartu",
-);
-ok(!html.includes("kartu-3d"), "tanpa kelas kartu 3D");
-// Panggung hero tidak lagi memiringkan apa pun. Satu-satunya `perspective` yang
-// tersisa adalah milik komponen kartu sendiri (hover tilt, DESIGN.md §3C).
-ok(
-  (html.match(/perspective/g) ?? []).length === 1,
-  "hanya kartu yang memakai perspective (tanpa panggung tilt hero)",
-);
+// ── 1. Kartu 3D dibuat lokal tanpa WebGL atau animasi spin ──
+ok(!html.includes("<canvas"), "tanpa kanvas WebGL");
+ok(html.includes('data-kartu-panggung="pindai-3d"'), "panggung tilt kartu aktif");
+ok(html.includes("rotateX(var(--tilt-x"), "tilt hanya diterapkan lewat CSS transform");
 ok(!html.includes("data-template"), "tanpa atribut template");
 ok(!html.includes("laut-"), "tanpa kelas panggung laut/tema 3D");
 ok(!html.includes("hero-laut"), "tanpa kelas hero gelap");
-ok(
-  !/rotate-360|animate-spin/.test(html),
-  "tanpa kelas spin/rotasi 360°",
-);
+ok(!/rotate-360|animate-spin/.test(html), "tanpa kelas spin/rotasi 360°");
 
 // ── 2. Permukaan terang, bukan panggung gelap ──
 ok(html.includes("bg-slate-50"), "section memakai kertas hangat (bg-slate-50)");
@@ -106,12 +87,19 @@ ok(html.includes("Verifikasi OTP WhatsApp"), "poin kepercayaan kedua ada");
 
 // ── 4. Objek merek: kartu contoh ──
 ok(
-  html.includes('data-kartu="kertas-batik"'),
-  "kartu merek tetap tampil (permukaan KartuHeroPindai)",
+  html.includes('data-kartu="pindai-hero"'),
+  "kartu merek tetap tampil (permukaan PindaiCard3D)",
 );
 ok(
   html.includes("Kartu contoh · bukan alat bayar"),
   "kartu menyatakan dirinya contoh, bukan alat bayar",
+);
+ok(html.includes("bg-emerald-200/65"), "bubble besar emerald terlihat di latar");
+ok(html.includes("bg-emerald-100/70"), "bubble emerald kedua hadir di kiri atas");
+ok(html.includes("relative z-10"), "konten hero berada di atas bubble");
+ok(html.includes("overflow-hidden bg-slate-50"), "bubble dibatasi rapi dalam hero");
+ok(html.includes("Rp 1.300.000"), "total ilustrasi disediakan sebagai teks yang terlihat");
+ok(html.includes("pembayaran dan pencairan dilakukan di luar aplikasi"), "batas proses pembayaran tetap jelas");
 );
 
 // ── 5. Penanda sesi & kebersihan markup ──

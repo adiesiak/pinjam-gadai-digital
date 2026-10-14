@@ -1,389 +1,553 @@
-/**
- * KARTU HERO PINDAI — "Warm Paper & Brass Batik Kawung".
- *
- * Objek MEREK untuk hero landing: kaca CERAH (kertas hangat, bukan obsidian)
- * dengan motif batik kawung modern (garis kuningan #c9a86a + titik petrol #1f6a62),
- * aksen logam kuningan pada logo/chip/nomor, garis ganda kuningan di tepi, dan
- * cucian kuningan + petrol di dua sudut. Keputusan pemilik 2026-10-12: titik
- * fokus halaman ikut satu wajah terang, jadi permukaan gelapnya ditinggalkan
- * (lihat DESIGN.md §3A).
- *
- * Kenapa kartunya "kartu contoh": PINDAI tidak menerbitkan kartu pembayaran.
- * Angka di kartu karena itu CONTOH, dan baris data (nomor, masa berlaku, nama)
- * ditandai `aria-hidden` supaya pembaca layar tidak mendengar angka palsu.
- * Catatan kecil "Kartu contoh · bukan alat bayar" tetap terlihat di kartu.
- *
- * SIFATNYA REUSABLE:
- *  - Semua data masuk lewat prop; tidak ada query Convex, tidak ada state
- *    aplikasi. Halaman boleh mengirim data nasabah yang benar-benar ada.
- *  - Interaksi (tilt + kilau mengikuti pointer) hidup DI DALAM komponen ini dan
- *    hanya mengubah CSS variable — tidak me-render ulang per frame. Kirim
- *    `interaktif={false}` bila wadah luar (mis. panggung 3D hero) sudah
- *    mengurus gerak kartu, supaya tidak ada dua kemiringan bertumpuk.
- *  - Kemiringan mati saat `prefers-reduced-motion` atau perangkat tanpa hover
- *    (sentuh), jadi di ponsel kartu diam dan halaman tetap ringan.
- */
 import { useReducedMotion } from "framer-motion";
-import { Wifi } from "lucide-react";
 import { useEffect, useId, useRef, useState, type PointerEvent } from "react";
 
-import {
-  CATATAN_KARTU_CONTOH,
-  MASA_BERLAKU_CONTOH,
-  NAMA_PEMEGANG_KOSONG,
-  NOMOR_KARTU_CONTOH,
-  formatNomorKartu,
-  masaBerlakuKartu,
-  namaPemegangKartu,
-} from "@/lib/kartuNasabah";
+import { formatRupiah } from "@/lib/money";
+import { quoteLoan } from "@/lib/loan";
 import { cn } from "@/lib/utils";
 
-/** Batas kemiringan (derajat). Vertikal lebih kecil supaya tidak terasa mabuk. */
-const MAKS_DERAJAT_X = 6;
-const MAKS_DERAJAT_Y = 9;
+export const TILT_MAKSIMUM_DERAJAT = 12;
+const POKOK_CONTOH = 1_000_000;
+const TENOR_CONTOH_HARI = 30;
+const NOMOR_TAMPILAN = "8723 2923 9012 2930";
 
-/** Label status bawaan kartu. */
-const STATUS_CONTOH = "TERAKREDITASI & AMAN";
+export interface BatikPatternProps {
+  warna?: string;
+  opacity?: number;
+  className?: string;
+}
 
-/**
- * Motif KAWUNG: satu unit = empat kelopak lonjong mengelilingi satu titik.
- * Ukuran tiap kelopak sudah menunjuk ke arah pusatnya, jadi tidak ada
- * transformasi rotasi yang perlu dihitung.
- */
-const KELOPAK_KAWUNG: ReadonlyArray<
-  readonly [number, number, number, number]
-> = [
-  // [geser x, geser y, rx, ry] dari titik pusat unit
-  [0, -15, 7, 10],
-  [15, 0, 10, 7],
-  [0, 15, 7, 10],
-  [-15, 0, 10, 7],
-];
+export function BatikPattern({
+  warna = "#a7f3d0",
+  opacity = 0.17,
+  className,
+}: BatikPatternProps) {
+  const id = `mega-mendung-${useId().replace(/[^a-zA-Z0-9]/g, "")}`;
+  const opacityAman = Math.min(0.2, Math.max(0, opacity));
 
-/**
- * Titik pusat unit kawung: tengah petak plus keempat sudutnya. Bentuk yang
- * digambar di sudut dipakai bersama empat petak yang bertemu di sana, jadi
- * motifnya bersambung tanpa jahitan walau petaknya hanya 64 x 64.
- */
-const UNIT_KAWUNG: ReadonlyArray<readonly [number, number]> = [
-  [32, 32],
-  [0, 0],
-  [64, 0],
-  [0, 64],
-  [64, 64],
-];
+  return (
+    <svg
+      aria-hidden="true"
+      className={cn(
+        "pointer-events-none absolute inset-0 size-full",
+        className,
+      )}
+      opacity={opacityAman}
+      preserveAspectRatio="none"
+    >
+      <defs>
+        <pattern id={id} width="112" height="64" patternUnits="userSpaceOnUse">
+          <path
+            d="M-8 48c9-12 18-12 27 0 9-12 18-12 27 0 9-12 18-12 27 0 9-12 18-12 27 0 9-12 18-12 27 0M-8 56c9-12 18-12 27 0 9-12 18-12 27 0 9-12 18-12 27 0 9-12 18-12 27 0 9-12 18-12 27 0M20 31c7-9 14-9 21 0 7-9 14-9 21 0 7-9 14-9 21 0"
+            fill="none"
+            stroke={warna}
+            strokeLinecap="round"
+            strokeWidth="2"
+          />
+          <path
+            d="M8 20c5-6 10-6 15 0 5-6 10-6 15 0"
+            fill="none"
+            stroke={warna}
+            strokeLinecap="round"
+            strokeWidth="1.5"
+          />
+        </pattern>
+      </defs>
+      <rect width="100%" height="100%" fill={`url(#${id})`} />
+    </svg>
+  );
+}
+
+export function CardWordmark({
+  warnaKartu = "putih",
+}: {
+  warnaKartu?: "putih" | "emerald";
+}) {
+  return (
+    <span
+      aria-hidden="true"
+      className={cn(
+        "font-sans text-lg font-semibold leading-none tracking-[0.24em]",
+        warnaKartu === "emerald"
+          ? "text-[#d4af37] [text-shadow:0_1px_1px_rgba(138,106,31,0.18)]"
+          : "text-emerald-900 [text-shadow:0_1px_1px_rgba(6,78,59,0.12)]",
+      )}
+    >
+      {warnaKartu === "emerald" ? (
+        <span className="bg-gradient-to-r from-[#f6e27a] via-[#d4af37] to-[#b8860b] bg-clip-text text-transparent [-webkit-text-fill-color:transparent]">
+          PINDAI
+        </span>
+      ) : (
+        "PINDAI"
+      )}
+    </span>
+  );
+}
+
+export function GoldChip({ className }: { className?: string }) {
+  const id = `chip-gold-${useId().replace(/[^a-zA-Z0-9]/g, "")}`;
+
+  return (
+    <svg
+      aria-hidden="true"
+      className={cn("block h-[42px] w-14 shrink-0", className)}
+      viewBox="0 0 56 42"
+      fill="none"
+    >
+      <defs>
+        <linearGradient
+          id={id}
+          x1="0"
+          y1="0"
+          x2="56"
+          y2="42"
+          gradientUnits="userSpaceOnUse"
+        >
+          <stop stopColor="#F6E27A" />
+          <stop offset="0.28" stopColor="#D4AF37" />
+          <stop offset="0.55" stopColor="#B8860B" />
+          <stop offset="0.78" stopColor="#8A6A1F" />
+          <stop offset="1" stopColor="#E8C85A" />
+        </linearGradient>
+        <linearGradient
+          id={`${id}-shine`}
+          x1="3"
+          y1="5"
+          x2="24"
+          y2="27"
+          gradientUnits="userSpaceOnUse"
+        >
+          <stop stopColor="white" stopOpacity="0.24" />
+          <stop offset="1" stopColor="white" stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      <rect
+        x="0.5"
+        y="0.5"
+        width="55"
+        height="41"
+        rx="6"
+        fill={`url(#${id})`}
+        stroke="#8A6A1F"
+      />
+      <rect
+        x="1"
+        y="1"
+        width="54"
+        height="40"
+        rx="5.5"
+        fill={`url(#${id}-shine)`}
+      />
+      <g stroke="#8A6A1F" strokeOpacity="0.5" strokeWidth="0.85">
+        <rect x="19" y="10" width="18" height="22" rx="4" />
+        <path d="M19 14H8a4 4 0 0 0-4 4v6a4 4 0 0 0 4 4h11M37 14h11a4 4 0 0 1 4 4v6a4 4 0 0 1-4 4H37M28 10v22M4 21h15m18 0h15" />
+      </g>
+    </svg>
+  );
+}
+
+function IkonContactless() {
+  return (
+    <svg
+      aria-hidden="true"
+      className="size-6 text-[#b8860b]"
+      viewBox="0 0 24 24"
+      fill="none"
+    >
+      <path
+        d="M8 9a4 4 0 0 1 0 6M11 6a8 8 0 0 1 0 12M14 3a12 12 0 0 1 0 18"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+function clamp(value: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, value));
+}
+
+function terapkanGerak(
+  element: HTMLDivElement,
+  tiltX: number,
+  tiltY: number,
+  offsetX: number,
+  offsetY: number,
+  glare = true,
+) {
+  element.style.setProperty("--tilt-x", `${tiltX.toFixed(2)}deg`);
+  element.style.setProperty("--tilt-y", `${tiltY.toFixed(2)}deg`);
+  element.style.setProperty("--layer-x", `${offsetX.toFixed(2)}px`);
+  element.style.setProperty("--layer-y", `${offsetY.toFixed(2)}px`);
+  element.style.setProperty("--shadow-x", `${(-offsetX * 1.5).toFixed(2)}px`);
+  element.style.setProperty("--shadow-y", `${(-offsetY * 1.5).toFixed(2)}px`);
+  element.style.setProperty("--glare-opacity", glare ? "1" : "0");
+  element.style.setProperty("--glare-x", `${50 + offsetX * 4}%`);
+  element.style.setProperty("--glare-y", `${50 + offsetY * 4}%`);
+}
 
 export interface KartuHeroPindaiProps {
-  /** Nama nasabah. Kosong atau belum terverifikasi → "CARDHOLDER". */
   nama?: string;
-  /** Nasabah sudah lolos KYC/verifikasi. */
   terverifikasi?: boolean;
-  /** Nomor kartu; digitnya dikelompokkan 4-4-4-4. */
   nomorKartu?: string;
-  /** Masa berlaku "MM/YY". Bentuk lain jatuh ke contoh. */
   masaBerlaku?: string;
-  /** Label status kecil di atas tanggal. */
   statusTeks?: string;
-  /** Catatan paling bawah. Kirim "" untuk menyembunyikannya. */
   catatan?: string;
-  /** Tilt & kilau mengikuti pointer (matikan bila wadah luar sudah mengurus). */
   interaktif?: boolean;
   className?: string;
 }
 
-export function KartuHeroPindai({
-  nama,
-  terverifikasi = false,
-  nomorKartu = NOMOR_KARTU_CONTOH,
-  masaBerlaku = MASA_BERLAKU_CONTOH,
-  statusTeks = STATUS_CONTOH,
-  catatan = CATATAN_KARTU_CONTOH,
-  interaktif = true,
-  className,
-}: KartuHeroPindaiProps) {
-  const reduce = useReducedMotion() === true;
-  /**
-   * Tilt hanya untuk perangkat berpenunjuk presisi yang punya hover. Di layar
-   * sentuh tidak ada hover — memaksakan tilt hanya membuat kartu melompat saat
-   * disentuh, dan itu memakan frame yang lebih berguna untuk menggulir.
-   */
-  const [bisaHover, setBisaHover] = useState(false);
-  const panggungRef = useRef<HTMLDivElement | null>(null);
-  /** Id unik pola batik: dua kartu di satu halaman tidak boleh berbagi `id`. */
-  const idKawung = `kawung-${useId().replace(/[^a-zA-Z0-9]/g, "")}`;
+export function PindaiCard3D({ className }: KartuHeroPindaiProps) {
+  const reduceMotion = useReducedMotion() === true;
+  const stageRef = useRef<HTMLDivElement | null>(null);
+  const currentTiltRef = useRef({ x: 0, y: 0 });
+  const [touchActive, setTouchActive] = useState(false);
+  const [coarsePointer, setCoarsePointer] = useState(false);
+  const [sensorAllowed, setSensorAllowed] = useState(false);
+  const [sensorActive, setSensorActive] = useState(false);
+  const [needsMotionPermission, setNeedsMotionPermission] = useState(false);
+  const [kartuTerlihat, setKartuTerlihat] = useState(false);
+  const [halamanAktif, setHalamanAktif] = useState(true);
+  const quote = quoteLoan(POKOK_CONTOH);
+
+  useEffect(() => {
+    const stage = stageRef.current;
+    if (!stage) return;
+    const observer = new IntersectionObserver(([entry]) =>
+      setKartuTerlihat(entry.isIntersecting),
+    );
+    observer.observe(stage);
+    const onVisibilityChange = () =>
+      setHalamanAktif(document.visibilityState === "visible");
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    onVisibilityChange();
+    return () => {
+      observer.disconnect();
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !window.matchMedia) return;
+    const query = window.matchMedia("(pointer: coarse)");
+    const update = () => {
+      setCoarsePointer(query.matches);
+      const orientation = window.DeviceOrientationEvent as
+        | (typeof DeviceOrientationEvent & {
+            requestPermission?: () => Promise<string>;
+          })
+        | undefined;
+      const permissionRequired =
+        query.matches && typeof orientation?.requestPermission === "function";
+      setNeedsMotionPermission(permissionRequired);
+      if (query.matches && !permissionRequired && orientation)
+        setSensorAllowed(true);
+    };
+    update();
+    query.addEventListener?.("change", update);
+    return () => query.removeEventListener?.("change", update);
+  }, []);
+
+  useEffect(() => {
+    const stage = stageRef.current;
+    if (!stage || reduceMotion) return;
+    let visible = true;
+    let pageActive = document.visibilityState === "visible";
+    let frame = 0;
+    const startedAt = performance.now();
+
+    const pauseFrame = () => {
+      cancelAnimationFrame(frame);
+      frame = 0;
+    };
+    const animate = (now: number) => {
+      if (
+        !visible ||
+        !pageActive ||
+        !coarsePointer ||
+        sensorActive ||
+        touchActive
+      ) {
+        frame = 0;
+        return;
+      }
+      const phase = (((now - startedAt) % 8000) / 8000) * Math.PI * 2;
+      const x = Math.sin(phase) * 3;
+      const y = Math.cos(phase) * 3;
+      currentTiltRef.current = { x, y };
+      terapkanGerak(stage, x, y, (y / 3) * 2, (x / 3) * 2, false);
+      frame = requestAnimationFrame(animate);
+    };
+    const resumeFrame = () => {
+      if (
+        !frame &&
+        visible &&
+        pageActive &&
+        coarsePointer &&
+        !sensorActive &&
+        !touchActive
+      ) {
+        frame = requestAnimationFrame(animate);
+      }
+    };
+    const observer = new IntersectionObserver(([entry]) => {
+      visible = entry.isIntersecting;
+      if (!visible) {
+        pauseFrame();
+        terapkanGerak(stage, 0, 0, 0, 0, false);
+      } else resumeFrame();
+    });
+    observer.observe(stage);
+    const onVisibilityChange = () => {
+      pageActive = document.visibilityState === "visible";
+      if (!pageActive) pauseFrame();
+      else resumeFrame();
+    };
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    resumeFrame();
+
+    return () => {
+      pauseFrame();
+      observer.disconnect();
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
+  }, [
+    coarsePointer,
+    halamanAktif,
+    kartuTerlihat,
+    reduceMotion,
+    sensorActive,
+    touchActive,
+  ]);
 
   useEffect(() => {
     if (
-      typeof window === "undefined" ||
-      typeof window.matchMedia !== "function"
+      !sensorAllowed ||
+      !coarsePointer ||
+      reduceMotion ||
+      !kartuTerlihat ||
+      !halamanAktif
     )
       return;
-    const mq = window.matchMedia("(hover: hover) and (pointer: fine)");
-    const terapkan = () => setBisaHover(mq.matches);
-    terapkan();
-    if (typeof mq.addEventListener === "function") {
-      mq.addEventListener("change", terapkan);
-      return () => mq.removeEventListener("change", terapkan);
-    }
-    return undefined;
-  }, []);
+    const onOrientation = (event: DeviceOrientationEvent) => {
+      if (event.beta === null || event.gamma === null || !stageRef.current)
+        return;
+      setSensorActive(true);
+      const x = clamp(
+        event.beta / 5,
+        -TILT_MAKSIMUM_DERAJAT,
+        TILT_MAKSIMUM_DERAJAT,
+      );
+      const y = clamp(
+        event.gamma / 5,
+        -TILT_MAKSIMUM_DERAJAT,
+        TILT_MAKSIMUM_DERAJAT,
+      );
+      currentTiltRef.current = { x, y };
+      terapkanGerak(
+        stageRef.current,
+        x,
+        y,
+        clamp(y * 0.65, -8, 8),
+        clamp(x * 0.65, -8, 8),
+      );
+    };
+    window.addEventListener("deviceorientation", onOrientation, true);
+    return () =>
+      window.removeEventListener("deviceorientation", onOrientation, true);
+  }, [coarsePointer, halamanAktif, kartuTerlihat, reduceMotion, sensorAllowed]);
 
-  const tiltAktif = interaktif && !reduce && bisaHover;
-
-  const nomorTampil = formatNomorKartu(nomorKartu);
-  const masaBerlakuTampil = masaBerlakuKartu(masaBerlaku);
-  const namaTampil = namaPemegangKartu(nama, terverifikasi);
-  const labelKartu =
-    namaTampil === NAMA_PEMEGANG_KOSONG
-      ? "Kartu contoh PINDAI"
-      : `Kartu contoh PINDAI untuk ${namaTampil}`;
-
-  /** Tulis kemiringan + posisi kilau ke CSS variable (tanpa re-render). */
-  const ikutiPointer = (event: PointerEvent<HTMLDivElement>) => {
-    const panggung = panggungRef.current;
-    if (!tiltAktif || panggung === null) return;
-    const kotak = panggung.getBoundingClientRect();
-    if (kotak.width === 0 || kotak.height === 0) return;
-    const px = Math.min(
-      1,
-      Math.max(0, (event.clientX - kotak.left) / kotak.width),
+  const updatePointer = (event: PointerEvent<HTMLDivElement>) => {
+    if (
+      reduceMotion ||
+      !stageRef.current ||
+      (event.pointerType === "mouse" && coarsePointer)
+    )
+      return;
+    const bounds = stageRef.current.getBoundingClientRect();
+    const x = clamp((event.clientX - bounds.left) / bounds.width, 0, 1);
+    const y = clamp((event.clientY - bounds.top) / bounds.height, 0, 1);
+    const tiltX = (0.5 - y) * 2 * TILT_MAKSIMUM_DERAJAT;
+    const tiltY = (x - 0.5) * 2 * TILT_MAKSIMUM_DERAJAT;
+    if (event.pointerType === "touch") setTouchActive(true);
+    currentTiltRef.current = { x: tiltX, y: tiltY };
+    terapkanGerak(
+      stageRef.current,
+      tiltX,
+      tiltY,
+      (x - 0.5) * 16,
+      (y - 0.5) * 16,
     );
-    const py = Math.min(
-      1,
-      Math.max(0, (event.clientY - kotak.top) / kotak.height),
-    );
-    // Saat mengikuti pointer transisinya dipercepat; saat ditinggalkan diperlambat
-    // (lihat `lepaskanPointer`) supaya kartu balik dengan tenang, bukan menyentak.
-    panggung.style.transitionDuration = "90ms";
-    panggung.style.setProperty(
-      "--tilt-x",
-      `${((0.5 - py) * 2 * MAKS_DERAJAT_X).toFixed(2)}deg`,
-    );
-    panggung.style.setProperty(
-      "--tilt-y",
-      `${((px - 0.5) * 2 * MAKS_DERAJAT_Y).toFixed(2)}deg`,
-    );
-    panggung.style.setProperty("--kilau-x", `${(px * 100).toFixed(1)}%`);
-    panggung.style.setProperty("--kilau-y", `${(py * 100).toFixed(1)}%`);
-    panggung.style.setProperty("--kilau-opasitas", "1");
   };
 
-  const lepaskanPointer = () => {
-    const panggung = panggungRef.current;
-    if (panggung === null) return;
-    panggung.style.transitionDuration = "420ms";
-    panggung.style.setProperty("--tilt-x", "0deg");
-    panggung.style.setProperty("--tilt-y", "0deg");
-    panggung.style.setProperty("--kilau-opasitas", "0");
+  const resetPointer = () => {
+    setTouchActive(false);
+    currentTiltRef.current = { x: 0, y: 0 };
+    if (stageRef.current && !sensorActive)
+      terapkanGerak(stageRef.current, 0, 0, 0, 0, false);
+  };
+
+  const requestMotion = async () => {
+    const orientation = window.DeviceOrientationEvent as
+      | (typeof DeviceOrientationEvent & {
+          requestPermission?: () => Promise<string>;
+        })
+      | undefined;
+    if (!orientation?.requestPermission) return;
+    try {
+      const permission = await orientation.requestPermission();
+      setSensorAllowed(permission === "granted");
+      if (permission !== "granted") setNeedsMotionPermission(false);
+    } catch {
+      setNeedsMotionPermission(false);
+    }
   };
 
   return (
-    // Panggung terpisah dari kartunya sendiri: tilt dipasang di sini, sedangkan
-    // `hover:scale-[1.02]` tetap milik kartu — dua-duanya menyentuh properti
-    // `transform`, jadi kalau disatukan salah satunya akan saling menimpa.
     <div
-      ref={panggungRef}
-      data-kartu-panggung="kertas-batik"
-      className="[perspective:1000px] [transform-style:preserve-3d]"
-      style={{
-        transform: "rotateX(var(--tilt-x, 0deg)) rotateY(var(--tilt-y, 0deg))",
-        transitionProperty: "transform",
-        transitionDuration: "420ms",
-        transitionTimingFunction: "cubic-bezier(0.22, 1, 0.36, 1)",
-      }}
-      onPointerMove={tiltAktif ? ikutiPointer : undefined}
-      onPointerLeave={lepaskanPointer}
-      onPointerCancel={lepaskanPointer}
+      className={cn(
+        "relative w-full max-w-[340px] lg:max-w-[420px]",
+        className,
+      )}
     >
       <div
-        data-kartu="kertas-batik"
-        role="group"
-        aria-label={labelKartu}
-        className={cn(
-          // Rasio kartu kredit hanya dipasang sejak 426px, dan itu bukan angka
-          // hiasan: `aspect-ratio` MEMINDAHKAN `min-height` ke sumbu lebar, jadi
-          // lantai tinggi di bawah (248px) menuntut lebar minimum 248 x 1,586 =
-          // 393,3px. Di layar 320-425px (lebar isi = layar - 2 x 16px) lantai
-          // itu memaksa kartu 393px sehingga menjulur keluar tepi kanan, dan
-          // `body` memakai `overflow-x: clip` (src/index.css) — jadi yang tampil
-          // adalah kartu terpotong di sisi kanan, bukan halaman yang bisa
-          // digeser. Diukur di Chromium: 320px → kartu 393,3px (89,3px di luar
-          // layar), 390px → 19,3px di luar layar. Dari 426px ke atas lantai itu
-          // selalu muat, jadi bentuk kartu kredit kembali utuh.
-          "min-[426px]:aspect-[1.586/1] w-full max-w-md rounded-2xl relative p-4 text-xs sm:p-6 sm:text-sm overflow-hidden transition-all duration-500 hover:scale-[1.02]",
-          // Permukaan CERAH: kertas hangat setengah tembus dengan `backdrop-blur`,
-          // jadi kartu tetap "kaca" (satu titik fokus per layar, DESIGN.md §4)
-          // tanpa memakai permukaan gelap.
-          "bg-[linear-gradient(135deg,rgba(255,255,255,0.94)_0%,rgba(253,250,241,0.9)_52%,rgba(241,237,227,0.92)_100%)] backdrop-blur-2xl border border-[#c9a86a]/55 shadow-[0_20px_45px_-26px_rgba(28,26,21,0.45)]",
-          // Garis ganda pengganti ring emerald: tepi luar kuningan redup + celah
-          // kertas tipis di dalamnya, jadi kartu tetap punya tepi tegas di atas
-          // latar terang.
-          "ring-1 ring-[#c9a86a]/35 ring-offset-2 ring-offset-white/60",
-          // Lantai tinggi: pada lebar kartu kecil (ponsel), rasio 1.586:1
-          // menghasilkan kotak yang lebih pendek daripada kebutuhan tiga baris
-          // isi, dan `overflow-hidden` akan memotong baris bawah (nama +
-          // catatan). Kartu tetap mengikuti rasio saat ada ruang, lalu tumbuh
-          // (bukan memotong) saat ruangnya sempit. Lantai ini hanya mengurus
-          // sumbu tinggi; batas lebar sudah dijaga pembatas 426px di atas, dan
-          // keduanya wajib ada bersamaan.
-          "min-h-[15.5rem] isolate flex flex-col",
-          className,
-        )}
+        ref={stageRef}
+        data-kartu-panggung="pindai-3d"
+        className="relative [perspective:1000px] [transform-style:preserve-3d] [touch-action:pan-y]"
+        style={{
+          transform:
+            "rotateX(var(--tilt-x, 0deg)) rotateY(var(--tilt-y, 0deg))",
+          transition: reduceMotion ? "none" : "transform 120ms ease-out",
+          willChange: reduceMotion ? "auto" : "transform",
+        }}
+        onPointerMove={updatePointer}
+        onPointerLeave={resetPointer}
+        onPointerCancel={resetPointer}
       >
-        {/* ── Cucian sudut: kuningan di kiri atas, petrol di kanan bawah (ganti
-            pseudo-element: isi yang sama, tapi terlihat di DOM dan bisa diuji). ── */}
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute -left-20 -top-24 size-48 rounded-full bg-[radial-gradient(circle,rgba(201,168,106,0.5),transparent_70%)]"
-        />
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute -bottom-24 -right-16 size-48 rounded-full bg-[radial-gradient(circle,rgba(31,106,98,0.28),transparent_72%)]"
-        />
-
-        {/* ── Motif batik KAWUNG: kelopak kuningan + titik petrol, dipasang tipis
-            (opacity-15) dengan `mix-blend-multiply` supaya garisnya menyerap ke
-            kertas — terbaca sebagai tekstur taktil, bukan gambar di atas kartu.
-            Anyaman geometrisnya dipilih menggantikan parang karena lebih tenang
-            dan sejalan dengan wajah buku besar (DESIGN.md §3A). ── */}
-        <svg
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-0 size-full opacity-15 mix-blend-multiply"
-        >
-          <defs>
-            <pattern
-              id={idKawung}
-              width="64"
-              height="64"
-              patternUnits="userSpaceOnUse"
-              patternTransform="rotate(-45)"
-            >
-              {UNIT_KAWUNG.map(([ux, uy]) => (
-                <g key={`${ux}-${uy}`}>
-                  {KELOPAK_KAWUNG.map(([dx, dy, rx, ry]) => (
-                    <ellipse
-                      key={`${dx}-${dy}`}
-                      cx={ux + dx}
-                      cy={uy + dy}
-                      rx={rx}
-                      ry={ry}
-                      fill="none"
-                      stroke="#c9a86a"
-                      strokeWidth="2.4"
-                      strokeLinecap="round"
-                    />
-                  ))}
-                  <circle cx={ux} cy={uy} r="2.4" fill="#1f6a62" />
-                </g>
-              ))}
-            </pattern>
-          </defs>
-          <rect width="100%" height="100%" fill={`url(#${idKawung})`} />
-        </svg>
-
-        {/* ── Cucian warna: kuningan tipis di kiri atas, petrol tipis di kanan
-            bawah — inilah yang membuat kertasnya terbaca "kaya tekstur", bukan
-            putih kosong. ── */}
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-0 bg-[radial-gradient(120%_90%_at_15%_-10%,rgba(201,168,106,0.2),transparent_55%),radial-gradient(90%_80%_at_100%_110%,rgba(31,106,98,0.1),transparent_60%)]"
-        />
-
-        {/* ── Kilau yang mengikuti pointer (light reflect). ── */}
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-0 mix-blend-multiply transition-opacity duration-300"
+          className="pointer-events-none absolute -bottom-4 left-[8%] right-[8%] h-8 rounded-full bg-emerald-950/20 blur-[30px]"
           style={{
-            opacity: "var(--kilau-opasitas, 0)",
-            background:
-              "radial-gradient(circle at var(--kilau-x, 50%) var(--kilau-y, 30%), rgba(201,168,106,0.35), rgba(31,106,98,0.12) 38%, transparent 62%)",
+            transform: "translate(var(--shadow-x, 0px), var(--shadow-y, 0px))",
           }}
         />
-
-        {/* ── Kepala kartu: logo emas mengkilap, KIRI ATAS saja. Sisi kanan
-            sengaja kosong supaya bersih & elegan. ── */}
-        <header className="relative flex items-center">
-          <p className="text-emerald-700 font-bold tracking-wider flex items-center gap-2">
-            <span
-              aria-hidden="true"
-              className="flex size-8 items-center justify-center rounded-lg bg-gradient-to-br from-amber-100 via-amber-400 to-amber-700 text-xs font-black text-slate-950 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.35)]"
-            >
-              P
-            </span>
-            <span>
-              PINDAI
-            </span>
-          </p>
-        </header>
-
-        {/* ── Chip EMV logam emas + ikon contactless, di kiri tengah.
-            `my-auto` menyerap sisa tinggi kartu sama besar di atas dan di bawah
-            pita ini, jadi chip benar-benar duduk di kiri tengah seperti
-            DESIGN.md §3A. Tanpa itu, seluruh sisa ruang jatuh ke atas blok
-            nomor dan chip naik menempel di bawah logo. `my-auto` dipilih bukan
-            `flex-1` supaya pita tidak bisa terhimpit jadi nol tinggi saat ruang
-            kartu sempit. ── */}
-        <div className="relative my-auto flex items-center gap-3">
+        <article
+          aria-hidden="true"
+          data-kartu="pindai-hero"
+          className="relative isolate aspect-[1.586/1] w-full overflow-hidden rounded-[4.5%] border border-emerald-950/40 bg-gradient-to-br from-white via-emerald-50 to-white p-5 text-emerald-950 shadow-[inset_0_1px_1px_rgba(255,255,255,0.95),inset_0_-1px_1px_rgba(6,78,59,0.10)] sm:p-6"
+          style={{ transformStyle: "preserve-3d" }}
+        >
+          <BatikPattern warna="#a7f3d0" opacity={0.17} />
+          <svg
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0 size-full opacity-[0.035]"
+            viewBox="0 0 120 76"
+            preserveAspectRatio="none"
+          >
+            <filter id="pindai-card-noise">
+              <feTurbulence
+                type="fractalNoise"
+                baseFrequency="0.9"
+                numOctaves="2"
+                stitchTiles="stitch"
+              />
+            </filter>
+            <rect width="100%" height="100%" filter="url(#pindai-card-noise)" />
+          </svg>
           <div
             aria-hidden="true"
-            className="bg-gradient-to-br from-amber-200 via-amber-400 to-amber-600 rounded-md w-12 h-9 shadow-inner border border-emerald-800/30 flex flex-col justify-center gap-[3px] px-1.5"
-          >
-            <span className="h-px w-full bg-emerald-900/35" />
-            <span className="h-px w-full bg-emerald-900/35" />
-            <span className="h-px w-full bg-emerald-900/35" />
-          </div>
-          {/* Ikon contactless: busur `Wifi` diputar 90° agar membuka ke kanan. */}
-          <Wifi
-            className="size-5 rotate-90 text-emerald-700/90"
-            aria-hidden="true"
+            className="pointer-events-none absolute inset-0 z-20 bg-[linear-gradient(115deg,transparent_18%,rgba(255,255,255,0.18)_46%,transparent_68%)] transition-opacity duration-150"
+            style={{
+              opacity: reduceMotion ? 0.55 : "var(--glare-opacity, 0)",
+              backgroundImage:
+                "radial-gradient(circle at var(--glare-x, 50%) var(--glare-y, 50%), rgba(255,255,255,0.18), transparent 62%)",
+            }}
           />
-        </div>
-
-        {/* ── Identitas kartu & nasabah (bawah). Baris data ditandai
-            `aria-hidden`: angka contoh tidak perlu dibacakan. Blok ini tidak
-            lagi memakai `mt-auto`: sisa tinggi sudah diserap `my-auto` milik pita
-            chip, dan dua sumber sisa ruang sekaligus akan membagi jarak jadi tiga
-            bagian sehingga chip melenceng dari tengah. ── */}
-        <div className="relative">
-          <p
-            aria-hidden="true"
-            className="font-mono text-emerald-800 tracking-widest text-sm sm:text-lg"
-          >
-            {nomorTampil}
-          </p>
-          <p className="mt-2 text-[10px] font-semibold uppercase tracking-[0.24em] text-emerald-700 sm:text-xs">
-            {statusTeks}
-          </p>
-
           <div
-            aria-hidden="true"
-            className="mt-3 flex items-end justify-between gap-3"
+            className="relative flex h-full flex-col justify-between"
+            style={{ transformStyle: "preserve-3d" }}
           >
-            <p className="min-w-0">
-              <span className="block text-[9px] font-medium uppercase tracking-[0.24em] text-slate-600">
-                Valid thru
+            <header
+              className="flex items-start justify-between"
+              style={{
+                transform:
+                  "translate3d(var(--layer-x, 0px), var(--layer-y, 0px), 24px)",
+              }}
+            >
+              <CardWordmark />
+              <span className="text-[9px] font-semibold uppercase tracking-[0.16em] text-emerald-900/70">
+                Kartu contoh
               </span>
-              <span className="block font-mono text-xs tracking-widest text-emerald-800">
-                {masaBerlakuTampil}
-              </span>
-            </p>
-            <p className="min-w-0 text-right">
-              <span className="block text-[9px] font-medium uppercase tracking-[0.24em] text-slate-600">
-                Cardholder
-              </span>
-              <span className="block truncate text-slate-900 font-semibold tracking-wider">
-                {namaTampil}
-              </span>
-            </p>
+            </header>
+            <div
+              className="flex items-center gap-3"
+              style={{
+                transform:
+                  "translate3d(var(--layer-x, 0px), var(--layer-y, 0px), 26px)",
+              }}
+            >
+              <GoldChip />
+              <IkonContactless />
+            </div>
+            <div
+              style={{
+                transform:
+                  "translate3d(var(--layer-x, 0px), var(--layer-y, 0px), 15px)",
+              }}
+            >
+              <p className="text-[10px] font-semibold uppercase tracking-[0.13em] text-emerald-900 [text-shadow:0_1px_0_rgba(255,255,255,0.8),0_-1px_0_rgba(6,78,59,0.08)] sm:text-xs">
+                Contoh catatan pinjaman
+              </p>
+              <p className="mt-2 font-mono text-xs tracking-[0.12em] text-emerald-950 [text-shadow:0_1px_0_rgba(255,255,255,0.85),0_-1px_0_rgba(6,78,59,0.08)] sm:text-sm">
+                {NOMOR_TAMPILAN}
+              </p>
+              <dl className="mt-2 grid grid-cols-3 gap-2 text-[9px] font-medium leading-4 text-emerald-950 [text-shadow:0_1px_0_rgba(255,255,255,0.85),0_-1px_0_rgba(6,78,59,0.08)] sm:text-[10px]">
+                <div>
+                  <dt className="text-emerald-900/80">Pokok</dt>
+                  <dd>{formatRupiah(quote.pokok)}</dd>
+                </div>
+                <div>
+                  <dt className="text-emerald-900/80">Tenor</dt>
+                  <dd>{TENOR_CONTOH_HARI} hari</dd>
+                </div>
+                <div>
+                  <dt className="text-emerald-900/80">Total kewajiban</dt>
+                  <dd>{formatRupiah(quote.totalKewajibanPelunasan)}</dd>
+                </div>
+              </dl>
+              <p className="mt-2 text-[9px] font-semibold text-emerald-900">
+                Kartu contoh · bukan alat bayar
+              </p>
+            </div>
           </div>
-
-          {catatan !== "" && (
-            <p className="mt-3 text-[9px] uppercase tracking-[0.18em] text-slate-600">
-              {catatan}
-            </p>
-          )}
-        </div>
+        </article>
       </div>
+      <dl className="mt-3 grid grid-cols-3 gap-2 text-center text-[11px] leading-4 text-slate-700">
+        <div>
+          <dt>Pokok contoh</dt>
+          <dd>{formatRupiah(quote.pokok)}</dd>
+        </div>
+        <div>
+          <dt>Tenor contoh</dt>
+          <dd>{TENOR_CONTOH_HARI} hari</dd>
+        </div>
+        <div>
+          <dt>Total kewajiban ilustrasi</dt>
+          <dd>{formatRupiah(quote.totalKewajibanPelunasan)}</dd>
+        </div>
+      </dl>
+      {needsMotionPermission && !reduceMotion && (
+        <button
+          type="button"
+          onClick={requestMotion}
+          className="mx-auto mt-3 flex min-h-11 items-center rounded-lg px-3 text-xs font-medium text-emerald-900 underline decoration-emerald-800/50 underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-800"
+        >
+          Aktifkan gerak kartu
+        </button>
+      )}
+      <p className="mt-3 text-center text-[11px] font-medium text-slate-700">
+        PINDAI · Pinjaman dan gadai digital
+      </p>
     </div>
   );
 }
