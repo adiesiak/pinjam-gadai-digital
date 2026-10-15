@@ -34,26 +34,20 @@ import {
   type UrutanPendana,
 } from "@/lib/tabelPendana";
 
-/** Kolom terakhir: aksi per baris — tidak ikut diurutkan. */
+/** Kolom terakhir: aksi per baris, tidak ikut diurutkan. */
 const LABEL_AKSI = "Aksi";
 
 /**
- * Pembagian lebar kolom tabel, dalam persen dari lebar kontainer.
+ * Jatah lebar kolom dalam persen: nama, enam kolom angka, aksi.
  *
- * Ketujuh kolom angka sebelumnya selebar isi terpanjangnya (judul kolom yang
- * tidak boleh turun baris), sehingga tabel menuntut ~1460 px di kontainer
- * ~1100 px: kolom terakhir, "Total keuntungan", terpotong tepi kartu dan tidak
- * pernah terbaca. Sekarang tabelnya `table-fixed` dengan jatah lebar tetap, jadi
- * judul kolom boleh turun baris dan tidak ada kolom yang bisa keluar layar.
+ * Tabel `table-fixed` supaya tidak ada kolom yang terpotong tepi kartu.
  */
 const LEBAR_PENDANA = "w-[18%]";
 const LEBAR_ANGKA = "w-[11.5%]";
 const LEBAR_AKSI = "w-[13%]";
 
 /**
- * Garis rambut yang memisahkan gugus kolom: posisi dana, hasil pendana, dan
- * biaya. Tanpa pemisah ini, enam kolom angka berderet rata dan mata harus
- * mencocokkan angka ke judul kolom yang jauh di atasnya.
+ * Garis rambut pemisah gugus kolom: posisi dana, hasil pendana, biaya.
  */
 const PEMISAH = "border-l border-slate-200";
 
@@ -61,7 +55,7 @@ function rupiah(nilai: number): string {
   return formatRupiahAman(nilai);
 }
 
-/** Satu sel angka: rata kanan, lebar tetap, dan pembatas gugusnya. */
+/** Satu sel angka: rata kanan, lebar tetap, pembatas gugusnya ikut. */
 function SelAngka({
   nilai,
   pemisah = false,
@@ -125,13 +119,8 @@ function TransferPendana({ r, ringkas = false }: { r: RekapPendana; ringkas?: bo
 }
 
 /**
- * Isi yang dibuka saat satu baris diperluas.
- *
- * Dua hal yang tidak muat sebagai kolom, tetapi tetap harus bisa ditelusuri:
- * pinjaman mana saja yang membentuk angka perkiraan, dan bagaimana potongan
- * admin terbagi antara yang sudah dibukukan dan yang masih perkiraan. Keduanya
- * angka pendamping — bukan angka pokok — jadi tempatnya di balik lipatan, bukan
- * di baris utama yang harus tetap ringkas.
+ * Isi lipatan satu baris: pinjaman pembentuk angka perkiraan dan pembagian
+ * potongan admin, dua angka pendamping yang tidak muat sebagai kolom.
  */
 function IsiRincian({
   r,
@@ -143,10 +132,8 @@ function IsiRincian({
   return (
     <div className="grid gap-3 lg:grid-cols-2">
       {/*
-       * Dua lembar terpisah, bukan satu kisi tanpa bingkai: sebelumnya kedua
-       * daftar ini duduk berdampingan di dalam sel tabel selebar satu baris,
-       * sehingga label kanan dan angkanya terpisah jauh dan terbaca seperti dua
-       * kolom tabel yang tidak berhubungan.
+       * Dua lembar berlabel berdampingan: daftar tanpa bingkai membuat angka
+       * kanan terbaca seperti kolom tabel yang lain.
        */}
       <div className={`${FOLIO.jalur} p-3`}>
         <p className="text-xs font-semibold text-navy">
@@ -158,8 +145,8 @@ function IsiRincian({
           </p>
         ) : (
           <>
-            {/* Kepala kecil di atas angkanya: angka rata kanan jadi bisa
-                dipasangkan ke barisnya tanpa menebak. */}
+            {/* Kepala kecil di atas angkanya, supaya angka rata kanan tetap
+                bisa dipasangkan ke barisnya. */}
             <div className="mt-2 flex items-baseline justify-between gap-3 border-b border-slate-300 pb-1 text-xs text-slate-600">
               <span>Pinjaman (referensi · peminjam)</span>
               <span className="shrink-0">Perkiraan</span>
@@ -187,7 +174,7 @@ function IsiRincian({
       </div>
 
       <div className={`${FOLIO.jalur} p-3`}>
-        <p className="text-xs font-semibold text-navy">Angka pendamping baris ini</p>
+        <p className="text-xs font-semibold text-navy">Angka lain di baris ini</p>
         <dl className="mt-2">
           {[
             {
@@ -228,7 +215,7 @@ function IsiRincian({
 }
 
 /**
- * Tabel perbandingan pendana — satu-satunya permukaan rekap dana di ruang
+ * Tabel perbandingan pendana, satu-satunya permukaan rekap dana di ruang
  * pendana.
  *
  * Menjawab pertanyaan yang sama untuk SETIAP pendana dalam satu tatanan kolom:
@@ -239,13 +226,13 @@ function IsiRincian({
  * melihat pinjaman pembentuk angka perkiraan.
  *
  * Di layar sempit tabel 8 kolom tidak mungkin muat tanpa geser mendatar, jadi
- * setiap pendana ditampilkan sebagai kartu berisi angka yang sama — bukan tabel
+ * setiap pendana ditampilkan sebagai kartu berisi angka yang sama, bukan tabel
  * yang dipotong.
  *
  * Aturan urut dan penjumlahannya tinggal di `@/lib/tabelPendana` supaya bisa
  * diuji sebagai fungsi; komponen ini hanya menggambar.
  *
- * Murni presentasional — tanpa Convex — supaya bisa dirender langsung oleh uji
+ * Murni presentasional tanpa Convex, supaya bisa dirender langsung oleh uji
  * markup (`TabelPendana.render.test.tsx`).
  */
 export function TabelPendana({
@@ -258,7 +245,7 @@ export function TabelPendana({
 }: {
   rekap: readonly RekapPendana[];
   /**
-   * Pinjaman berjalan milik satu pendana — isi lipatan "Pembentuk angka
+   * Pinjaman berjalan milik satu pendana, isi lipatan "Pembentuk angka
    * perkiraan". Opsional: tanpa fungsi ini, rinciannya diterangkan sebagai
    * tidak ada, bukan dikosongkan tanpa keterangan.
    */
@@ -306,15 +293,16 @@ export function TabelPendana({
   if (rekap.length === 0) {
     return (
       <p className="rounded-lg border border-dashed border-slate-300 bg-slate-50/70 px-4 py-6 text-center text-xs text-muted-foreground">
-        Belum ada dana tersalurkan pada pendana mana pun.
+        Belum ada dana tersalurkan pada pendana mana pun. Rekap ini terisi
+        setelah ada pinjaman yang cair atas nama pendana.
       </p>
     );
   }
 
   return (
     <div className="animate-masuk">
-      {/* ===== Layar lebar: satu tabel yang bisa diurutkan ===== */}
-      {/* Lembar folio: kertas padat bergaris kepala kuningan, tanpa bayangan —
+      {/* Layar lebar: satu tabel yang bisa diurutkan */}
+      {/* Lembar folio: kertas padat bergaris kepala kuningan, tanpa bayangan:
           bayangan hanya dipakai satu lembar fokus di puncak halaman. */}
       <div className={`hidden overflow-hidden lg:block ${FOLIO.kertas}`}>
         <Table className="w-full table-fixed [&_th]:whitespace-normal [&_td]:whitespace-normal">
@@ -337,8 +325,8 @@ export function TabelPendana({
                       i === 1 || i === 3 || i === 6 ? PEMISAH : ""
                     }`}
                   >
-                    {/* Judul kolom rata dengan angkanya: judul angka rata kanan,
-                        sedangkan nama kolom pertama rata kiri. */}
+                    {/* Judul kolom rata dengan angkanya: kolom angka rata kanan,
+                        kolom nama rata kiri. */}
                     <button
                       type="button"
                       onClick={() => gantiUrut(kolom.kunci)}
@@ -459,7 +447,7 @@ export function TabelPendana({
         </Table>
       </div>
 
-      {/* ===== Layar sempit: kartu per pendana, angka yang sama ===== */}
+      {/* Layar sempit: kartu per pendana, angka yang sama */}
       <ul className="space-y-3 lg:hidden">
         {baris.map((r) => {
           const sedangAktif = aktif !== null && aktif === r.nama;
@@ -519,11 +507,14 @@ export function TabelPendana({
                 <TransferPendana r={r} ringkas />
               </div>
 
+              {/* Kartu ini yang tampil di layar sentuh, jadi tombolnya diberi
+                  tinggi sasaran sentuh 44 px; tombol di tabel cukup `size="sm"`. */}
               <div className="mt-3 flex flex-wrap items-center gap-2">
                 {onPilih !== undefined && (
                   <Button
                     variant={sedangAktif ? "default" : "outline"}
                     size="sm"
+                    className="min-h-11"
                     aria-pressed={sedangAktif}
                     onClick={() => onPilih(r.nama)}
                   >
@@ -533,6 +524,7 @@ export function TabelPendana({
                 <Button
                   variant="ghost"
                   size="sm"
+                  className="min-h-11"
                   aria-expanded={terbuka.includes(r.nama)}
                   onClick={() => toggle(r.nama)}
                 >
@@ -608,7 +600,7 @@ export function TabelPendana({
         Urutkan tabel dengan menekan judul kolom. Setiap baris dihitung dari pinjaman yang tercatat
         pada pendana itu, dan baris total menjumlahkan kolomnya. Kolom{" "}
         <strong className="font-semibold text-slate-800">Perkiraan (belum lunas)</strong> adalah
-        hitungan atas pinjaman yang masih berjalan — belum menjadi uang pendana sampai pinjamannya
+        hitungan atas pinjaman yang masih berjalan, belum menjadi uang pendana sampai pinjamannya
         lunas.
       </p>
     </div>

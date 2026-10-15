@@ -31,7 +31,7 @@ function cek(syarat: boolean, label: string): void {
 const baca = (jalur: string) => readFileSync(jalur, "utf8");
 const cacah = (teks: string, pola: RegExp) => (teks.match(pola) ?? []).length;
 
-// ===== 1. Tidak ada sisa kosakata lama di berkas ruang pendana =====
+// 1. Tidak ada sisa kosakata lama di berkas ruang pendana.
 const BERKAS = [
   "src/pages/PenyediaDana.tsx",
   "src/components/penyediaDana/KesehatanPortofolio.tsx",
@@ -63,11 +63,11 @@ for (const jalur of BERKAS) {
   cek(!isi.includes("shadow-sm"), `${jalur} tidak lagi memakai shadow-sm`);
 }
 
-// ===== 2. Satu titik fokus, dan hanya satu =====
+// 2. Satu titik fokus, dan hanya satu.
 const halaman = baca("src/pages/PenyediaDana.tsx");
 cek(cacah(halaman, /FOLIO\.fokus/g) === 1, "halaman punya tepat satu permukaan fokus");
 
-// ===== 3. Nomor indeks folio berurutan tanpa celah maupun kembar =====
+// 3. Nomor indeks folio berurutan tanpa celah maupun kembar.
 const nomorBagian = [...halaman.matchAll(/nomorFolio\((\d+)\)|nomor=\{(\d+)\}/g)]
   .map((m) => Number(m[1] ?? m[2]))
   .filter((n) => Number.isFinite(n));
@@ -87,11 +87,11 @@ cek(
 );
 cek(halaman.includes("Ringkasan Pendanaan"), "judul halaman tetap tercetak");
 
-// ===== 4. Kerangka memuat meniru lembar judul yang baru =====
+// 4. Kerangka memuat meniru lembar judul yang baru.
 const kerangka = baca("src/components/ui/loading.tsx");
 cek(kerangka.includes("ring-gold/35"), "rangka memuat memakai tepi kuningan lembar judul");
 
-// ===== 5. Markup bagian: nomor bagian ikut tercetak, kelas baru terpakai =====
+// 5. Markup bagian: nomor bagian ikut tercetak, kelas baru terpakai.
 const kesehatan = renderToStaticMarkup(
   createElement(KesehatanPortofolio, {
     angka: {
@@ -133,12 +133,9 @@ const keuntungan = renderToStaticMarkup(
 );
 cek(keuntungan.includes(">06<"), "nomor bagian 06 tercetak di ringkasan keuntungan");
 
-// ===== 6. Tabel pendana muat di kontainernya, tanpa kolom terpotong =====
-// Sebelumnya tiap kolom angka selebar isi terpanjang judulnya (judul kolom
-// dipaksa satu baris), sehingga tabel menuntut lebih lebar daripada kartunya:
-// kolom "Total keuntungan" terpotong tepi kartu. Kontrak yang dijaga di sini:
-// tabel `table-fixed`, lebar tiap kolom dipatok persen sampai jumlahnya ≤ 100,
-// judul dan sel boleh turun baris, dan semua angka rata kanan.
+// 6. Tabel pendana muat di kontainernya, tanpa kolom terpotong.
+// Kontraknya: `table-fixed`, lebar kolom dipatok persen sampai jumlahnya ≤ 100,
+// judul kolom dan sel boleh turun baris, dan semua angka rata kanan.
 const tabelSumber = baca("src/components/penyediaDana/TabelPendana.tsx");
 cek(tabelSumber.includes("table-fixed"), "tabel pendana memakai table-fixed");
 cek(
@@ -185,6 +182,29 @@ const rekapUji = [
 const tabelPendana = renderToStaticMarkup(
   createElement(TabelPendana, { rekap: rekapUji, onPilih: () => {} }),
 );
+// Baris rincian diuji pada baris yang dibuka: isinya tidak ada di DOM saat terlipat.
+const rincianTerbuka = renderToStaticMarkup(
+  createElement(TabelPendana, {
+    rekap: rekapUji,
+    bukaAwal: ["ROBERT"],
+    rincianPerkiraan: () => [
+      {
+        id: "p1",
+        nomorReferensi: "PGD-1",
+        namaLengkap: "HASBI SUKMANDA",
+        keuntunganPendana: 235_000,
+      },
+    ],
+  }),
+);
+for (const teks of [
+  "Pinjaman (referensi · peminjam)",
+  "Angka lain di baris ini",
+  "Potongan admin dibukukan",
+  "Jumlah baris di atas sama dengan kolom “Perkiraan (belum lunas)”.",
+]) {
+  cek(rincianTerbuka.includes(teks), `rincian baris terbuka memuat "${teks}"`);
+}
 const kepala = tabelPendana.slice(
   tabelPendana.indexOf("<thead"),
   tabelPendana.indexOf("</thead>"),
@@ -198,8 +218,8 @@ cek(
   `tujuh kepala kolom bisa diurutkan (ditemukan ${cacah(kepala, /aria-label="Urutkan menurut/g)})`,
 );
 
-// Tiap baris: sel pertama nama (rata kiri, memuat catatan transfer), enam sel
-// berikutnya angka (rata kanan), sel terakhir aksi.
+// Tiap baris: nama (rata kiri, memuat catatan transfer), enam angka (rata
+// kanan), lalu aksi.
 const barisTabel = tabelPendana
   .slice(tabelPendana.indexOf("<tbody"), tabelPendana.indexOf("</table>"))
   .split("<tr")

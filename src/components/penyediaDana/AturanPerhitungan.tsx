@@ -18,9 +18,8 @@ import { formatRupiah, percentOf } from "@/lib/money";
 type Aturan = { nomor: number; judul: string; isi: ReactNode };
 
 /**
- * Daftar dibagi dua kolom untuk layar lebar: tujuh aturan yang sebelumnya
- * menumpuk satu per satu kini terbaca dalam empat baris. Pembagiannya menurut
- * urutan indeks, jadi urutan bacanya tetap 1 sampai 7 di layar sempit maupun lebar.
+ * Bagi daftar jadi dua kolom di layar lebar menurut urutan indeks, supaya urutan
+ * bacanya tetap 1 sampai 7.
  */
 function bagiDua<T>(daftar: readonly T[]): readonly (readonly T[])[] {
   const tengah = Math.ceil(daftar.length / 2);
@@ -28,7 +27,7 @@ function bagiDua<T>(daftar: readonly T[]): readonly (readonly T[])[] {
 }
 
 /**
- * Panel "Aturan perhitungan" — satu tempat untuk semua cara angka di ruang ini
+ * Panel "Aturan perhitungan": satu tempat untuk semua cara angka di ruang ini
  * dihitung.
  *
  * Kenapa bentuknya begini: dulu penjelasan istilah ("dibukukan", "perkiraan",
@@ -41,7 +40,7 @@ function bagiDua<T>(daftar: readonly T[]): readonly (readonly T[])[] {
  * angkanya kembali ringkas tanpa ikon bantuan berulang.
  *
  * Isinya sengaja memakai persentase yang berlaku sekarang (dari Pengaturan
- * Sistem), bukan angka tetap yang ditulis di kode — jadi kalau pemilik produk
+ * Sistem), bukan angka tetap yang ditulis di kode, jadi kalau pemilik produk
  * mengubah tarifnya, penjelasannya ikut berubah.
  *
  * Bentuk accordion (dan bukan dinding teks): semua judul tetap terlihat
@@ -68,7 +67,7 @@ export function AturanPerhitungan({
    */
   bukaAwal?: readonly number[];
 }) {
-  // Contoh angka memakai `percentOf` — jalur aritmetika uang yang sama dengan
+  // Contoh angka memakai `percentOf`, jalur aritmetika uang yang sama dengan
   // perhitungan sebenarnya (Rule 3: uang tidak dibangun dari perkalian
   // pecahan), sehingga contohnya bulat dan tidak merobohkan pemformat rupiah.
   const contohPokok = 1_000_000;
@@ -110,7 +109,7 @@ export function AturanPerhitungan({
           <ul className="mt-1.5 space-y-1.5">
             <li className="flex gap-2">
               <span aria-hidden className="mt-2 size-1 shrink-0 rounded-full bg-primary" />
-              <span>Server &amp; operasional PINDAI — biaya sistem, penyimpanan berkas, dan pemantauan lokasi.</span>
+              <span>Server &amp; operasional PINDAI: biaya sistem, penyimpanan berkas, dan pemantauan lokasi.</span>
             </li>
             <li className="flex gap-2">
               <span aria-hidden className="mt-2 size-1 shrink-0 rounded-full bg-primary" />
@@ -122,14 +121,14 @@ export function AturanPerhitungan({
             <li className="flex gap-2">
               <span aria-hidden className="mt-2 size-1 shrink-0 rounded-full bg-primary" />
               <span>
-                Penanganan pinjaman bermasalah — pendampingan dan penyelesaian pinjaman yang tidak
+                Penanganan pinjaman bermasalah: pendampingan dan penyelesaian pinjaman yang tidak
                 lancar, termasuk biaya hukum bila diperlukan.
               </span>
             </li>
           </ul>
           <p className="mt-2">
             Potongan admin <strong>bukan jaminan</strong>. Dana pendanaan tidak dijamin oleh LPS
-            maupun pihak lain, kecuali ada perjanjian tertulis yang menyatakannya — rinciannya ada
+            maupun pihak lain, kecuali ada perjanjian tertulis yang menyatakannya, rinciannya ada
             di bagian “Risiko pendanaan”.
           </p>
         </>
@@ -163,7 +162,7 @@ export function AturanPerhitungan({
       isi: (
         <>
           <p>
-            <strong>Dana tersalurkan</strong> adalah pokok yang sudah cair ke peminjam — pinjaman
+            <strong>Dana tersalurkan</strong> adalah pokok yang sudah cair ke peminjam: pinjaman
             berjalan ditambah pinjaman yang sudah lunas. Angka ini catatan penyaluran, bukan laba.
           </p>
           <p className="mt-2">
@@ -180,7 +179,7 @@ export function AturanPerhitungan({
       isi: (
         <>
           <p>
-            Tenor ditulis dalam <strong>hari</strong> — satuannya sama di seluruh halaman ini.
+            Tenor ditulis dalam <strong>hari</strong>, satuannya sama di seluruh halaman ini.
             Jatuh tempo dihitung dari tanggal pendanaan ditambah tenor pinjaman.
           </p>
           <p className="mt-2">
@@ -198,7 +197,7 @@ export function AturanPerhitungan({
       isi: (
         <>
           <p>
-            Kewajiban transfer keuntungan baru muncul saat pinjamannya <strong>lunas</strong> —
+            Kewajiban transfer keuntungan baru muncul saat pinjamannya <strong>lunas</strong>,
             sebelum itu tidak ada uang pendana yang bisa ditransfer. Catatan transfer dibuat oleh
             admin dan menandai bahwa transfernya sudah dikerjakan.
           </p>
@@ -221,7 +220,7 @@ export function AturanPerhitungan({
           </p>
           <p className="mt-2">
             Tabel dibatasi jumlah baris terbaru yang dimuat halaman ini, jadi angka di sini adalah
-            ringkasan atas catatan yang benar-benar tersedia — bukan klaim total sepanjang masa.
+            ringkasan atas catatan yang benar-benar tersedia, bukan klaim total sepanjang masa.
           </p>
         </>
       ),
@@ -244,7 +243,7 @@ export function AturanPerhitungan({
         }
       />
       <p className="mt-1 max-w-3xl text-xs leading-5 text-muted-foreground">
-        Cara semua angka di halaman ini dihitung — dari bunga pinjaman sampai baris total tabel
+        Cara semua angka di halaman ini dihitung: dari bunga pinjaman sampai baris total tabel
         pendana. Buka aturan yang ingin Anda periksa.
       </p>
 
@@ -253,8 +252,8 @@ export function AturanPerhitungan({
           <Accordion
             key={bagian[0]?.nomor ?? 0}
             type="multiple"
-            /* Hanya aturan yang memang berada di kolom ini yang dibuka, supaya
-               pintu uji `bukaAwal` tetap membuka aturan yang benar. */
+            /* Hanya aturan di kolom ini yang dibuka, supaya `bukaAwal` tetap
+               membuka aturan yang benar. */
             defaultValue={bagian
               .filter((a) => bukaAwal.includes(a.nomor))
               .map((a) => `aturan-${a.nomor}`)}
@@ -265,8 +264,7 @@ export function AturanPerhitungan({
                 value={`aturan-${a.nomor}`}
                 className="border-slate-100"
               >
-                {/* `min-h-11` menjaga tinggi sasaran sentuh 44px walau bantalannya
-                    (py-2) dikecilkan supaya daftarnya tidak setinggi satu layar. */}
+                {/* min-h-11 menjaga sasaran sentuh 44px walau py-2 dikecilkan. */}
                 <AccordionTrigger className="min-h-11 items-center gap-3 py-2 text-sm font-medium text-navy hover:no-underline">
                   <span className="flex min-w-0 items-baseline gap-2 text-left">
                     <span className="text-xs font-semibold tabular-nums text-muted-foreground">

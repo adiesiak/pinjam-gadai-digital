@@ -56,9 +56,8 @@ export function BannerRisikoPendanaan() {
 }
 
 /**
- * Daftar dibagi dua kolom untuk layar lebar: dua belas judul yang sebelumnya
- * menumpuk satu per satu kini terbaca dalam enam baris. Pembagiannya menurut
- * urutan indeks, jadi urutan baca tetap 1 sampai 12 di layar sempit maupun lebar.
+ * Bagi daftar jadi dua kolom di layar lebar menurut urutan indeks, supaya
+ * urutan bacanya tetap 1 sampai 12.
  */
 function bagiDua<T>(daftar: readonly T[]): readonly (readonly T[])[] {
   const tengah = Math.ceil(daftar.length / 2);
@@ -66,9 +65,9 @@ function bagiDua<T>(daftar: readonly T[]): readonly (readonly T[])[] {
 }
 
 /**
- * Panel dua belas poin risiko — accordion tertutup secara bawaan supaya tidak
- * mendorong angka keuntungan jauh ke bawah, dan dipasang dua kolom di layar
- * lebar supaya dua belas judulnya tidak lebih tinggi dari satu layar penuh.
+ * Panel dua belas poin risiko: accordion tertutup secara bawaan supaya tidak
+ * mendorong angka keuntungan jauh ke bawah, dan dua kolom di layar lebar supaya
+ * dua belas judulnya tidak lebih tinggi dari satu layar penuh.
  */
 export function PanelRisikoPendanaan({
   bukaAwal = [],
@@ -101,8 +100,8 @@ export function PanelRisikoPendanaan({
           <Accordion
             key={bagian[0]?.nomor ?? 0}
             type="multiple"
-            /* Hanya poin yang memang berada di kolom ini yang dibuka, supaya
-               pintu uji `bukaAwal` tetap membuka poin yang benar. */
+            /* Hanya poin di kolom ini yang dibuka, supaya `bukaAwal` tetap
+               membuka poin yang benar. */
             defaultValue={bagian
               .filter((poin) => bukaAwal.includes(poin.nomor))
               .map((poin) => `poin-${poin.nomor}`)}
@@ -113,8 +112,7 @@ export function PanelRisikoPendanaan({
                 value={`poin-${poin.nomor}`}
                 className="border-slate-100"
               >
-                {/* `min-h-11` menjaga tinggi sasaran sentuh 44px walau bantalannya
-                    (py-2) dikecilkan supaya daftarnya tidak setinggi satu layar. */}
+                {/* min-h-11 menjaga sasaran sentuh 44px walau py-2 dikecilkan. */}
                 <AccordionTrigger className="min-h-11 items-center gap-3 py-2 text-sm font-medium text-navy hover:no-underline">
                   <span className="flex min-w-0 items-baseline gap-2 text-left">
                     <span className="text-xs font-semibold tabular-nums text-muted-foreground">
