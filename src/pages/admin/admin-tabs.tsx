@@ -1,4 +1,4 @@
-import { useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import {
   Activity,
   BellRing,
@@ -10,8 +10,6 @@ import {
   Map as MapIcon,
   MessageSquare,
   Package,
-  PanelLeftClose,
-  PanelLeftOpen,
   Power,
   Send,
   SlidersHorizontal,
@@ -24,6 +22,15 @@ import {
 } from "lucide-react";
 
 import { AdminNav } from "@/components/admin/admin-nav";
+import {
+  bacaSidebarTerbuka,
+  KELAS_GESER_KONTEN,
+  KUERI_LAYAR_SIDEBAR,
+  pintasanSidebar,
+  SidebarAdmin,
+  simpanSidebarTerbuka,
+  type GrupSidebar,
+} from "@/components/admin/admin-sidebar";
 import { AksesPenyediaDanaPanel } from "@/components/admin/AksesPenyediaDanaPanel";
 import { AnnouncementCms } from "@/components/admin/AnnouncementCms";
 import { AplikasiAndroidPanel } from "@/components/admin/AplikasiAndroidPanel";
@@ -42,87 +49,32 @@ import { PlafonPanel } from "@/components/admin/PlafonPanel";
 import { WhatsAppPanel } from "@/components/admin/WhatsAppPanel";
 import { WebsiteTemplatePanel } from "@/components/admin/WebsiteTemplatePanel";
 import {
-  LencanaTab,
   type AdminOverviewData,
   type LoanRow,
   type PawnRow,
 } from "@/components/admin/admin-shared";
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { SkeletonKartu } from "@/components/ui/loading";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useMediaQuery } from "@/hooks/use-media-query";
 import { cn } from "@/lib/utils";
 import { RingkasanAnalitik } from "@/components/admin/RingkasanAnalitik";
-import {
-  hitungMenunggu,
-  NILAI_MODUL_ADMIN,
-  ringkasGrup,
-  type BobotGrup,
-  type NilaiModulAdmin,
-} from "@/lib/admin-queue";
+import { hitungMenunggu, NILAI_MODUL_ADMIN, type NilaiModulAdmin } from "@/lib/admin-queue";
 
 import { MejaKerja } from "./meja-kerja";
 import { LoanQueueSection, PawnQueueSection } from "./queue-views";
-import { AdminStats, type AdminStatsData, type ProdukAdmin } from "./admin-shell";
+import {
+  AdminStats,
+  type AdminStatsData,
+  type KendaliMenuPonsel,
+  type ProdukAdmin,
+} from "./admin-shell";
 
-type TabIcon = typeof ClipboardList;
+/** Satu seksi menu beserta isinya — bentuknya dimiliki sidebar. */
+type AdminTabGroup = GrupSidebar;
 
-/** Satu menu operasional: nilai tab, label, penjelasan singkat, lencana, ikon. */
-type AdminTabItem = {
-  value: NilaiModulAdmin;
-  label: string;
-  /** Penjelasan satu baris — muncul saat tab aktif agar tim tahu isinya. */
-  hint: string;
-  badge: string | null;
-  /**
-   * Bobot lencana untuk ringkasan grup. Hanya `"menunggu"` yang dijumlahkan
-   * saat grup tertutup; lencana informasi (mis. pinjaman yang sudah disetujui)
-   * tidak boleh membuat grup tampak penuh pekerjaan.
-   */
-  hitung: BobotGrup;
-  Icon: TabIcon;
-};
-
-/** Kelompok menu agar daftar panjang tidak membingungkan. */
-type AdminTabGroup = {
-  judul: string;
-  items: AdminTabItem[];
-};
-
-/** Kelas bersama tombol menu di sidebar (bagian yang tidak berubah saat aktif). */
-const KELAS_ITEM =
-  "flex h-10 w-full items-center gap-2.5 rounded-xl px-3 text-left text-xs font-medium shadow-none transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 lg:min-h-10 lg:text-sm";
-const KELAS_ITEM_IDLE = "text-navy hover:bg-slate-50";
-const KELAS_ITEM_AKTIF = "gradient-primary text-white";
-
-/**
- * Sidebar bisa mengecil jadi bilah ikon (~64px).
- *
- * Alasannya ruang: halaman kerja yang paling padat (verifikasi KYC) butuh lebar
- * untuk buktinya, dan 192px sidebar yang tidak sedang dibaca adalah lebar yang
- * hilang. Pilihan petugas disimpan di localStorage; TANPA pilihan tersimpan,
- * sidebar mengecil sendiri di layar sampai 1440px supaya di laptop kerja panel
- * ini langsung lega. Menekan tombolnya menimpa bawaan itu secara permanen.
- */
-const KUERI_SIDEBAR_OTOMATIS = "(max-width: 1440px)";
-const KUNCI_SIDEBAR_ADMIN = "pindai.admin.sidebar-ikon";
-
-/** Pilihan sidebar yang tersimpan, atau `null` bila petugas belum pernah memilih. */
-export function bacaPilihanSidebar(): boolean | null {
-  try {
-    const nilai = window.localStorage.getItem(KUNCI_SIDEBAR_ADMIN);
-    return nilai === null ? null : nilai === "1";
-  } catch {
-    // localStorage bisa ditolak (mode privat); tanpa pilihan, bawaan layarlah
-    // yang berlaku. Ini bukan galat yang perlu menghentikan panel.
-    return null;
-  }
-}
-
-// `LencanaTab` pindah ke `@/components/admin/admin-shared` agar chip modul dan
-// bilah bawah di layar kecil memakai lencana yang sama persis.
-// `ringkasGrup` kini tinggal di `@/lib/admin-queue` (T2): hanya lencana yang
-// benar-benar menunggu tindakan yang dijumlahkan, dan logikanya diuji tanpa React.
+// `LencanaTab` tinggal di `@/components/admin/admin-shared` agar sidebar, chip
+// modul, dan bilah bawah memakai lencana yang sama persis.
+// `ringkasGrup` tinggal di `@/lib/admin-queue`: hanya lencana yang benar-benar
+// menunggu tindakan yang dijumlahkan, dan logikanya diuji tanpa React.
 
 /** Tab navigasi + seluruh konten tab panel admin. */
 export function AdminTabs({
@@ -138,11 +90,13 @@ export function AdminTabs({
   /**
    * Kepala panel (judul/breadcrumb, notifikasi, status sistem, menu profil).
    * Dipanggil dengan label modul yang sedang aktif supaya breadcrumb-nya selalu
-   * menunjuk halaman yang benar — sumber labelnya tetap di komponen ini.
+   * menunjuk halaman yang benar — sumber labelnya tetap di komponen ini — plus
+   * kendali laci menu, karena laci dipegang komponen ini sedangkan tombolnya
+   * duduk di kepala panel.
    *
    * Ia duduk di KOLOM KONTEN kanan, bukan di atas sidebar.
    */
-  header?: (judul: string) => ReactNode;
+  header?: (judul: string, menuPonsel: KendaliMenuPonsel) => ReactNode;
   overview: AdminOverviewData;
   stats: AdminStatsData | undefined;
   /** Cacah pengajuan menunggu keputusan per produk — untuk KPI di Ringkasan. */
@@ -162,21 +116,40 @@ export function AdminTabs({
   // ringkasan dulu berarti admin melihat apa yang menunggu sebelum memilih modul.
   const [activeTab, setActiveTab] = useState<NilaiModulAdmin>("hari-ini");
 
-  // Sidebar: bawaan mengikuti lebar layar, dan pilihan manual petugas (bila ada)
-  // selalu menang. `null` = belum pernah memilih.
-  const layarSempit = useMediaQuery(KUERI_SIDEBAR_OTOMATIS);
-  const [pilihanSidebar, setPilihanSidebar] = useState<boolean | null>(() => bacaPilihanSidebar());
-  const sidebarIkon = pilihanSidebar ?? layarSempit;
+  // Sidebar: bawaan terbuka, dan pilihan petugas yang tersimpan selalu menang.
+  // Laci ponsel sebaliknya — ia pintu yang dibuka dengan sengaja, bukan tempat
+  // mendarat, jadi selalu mulai tertutup.
+  const [sidebarTerbuka, setSidebarTerbuka] = useState<boolean>(() => bacaSidebarTerbuka());
+  const [drawerTerbuka, setDrawerTerbuka] = useState(false);
+  const layarLebar = useMediaQuery(KUERI_LAYAR_SIDEBAR);
 
-  const ubahSidebar = (ikon: boolean) => {
-    setPilihanSidebar(ikon);
-    try {
-      window.localStorage.setItem(KUNCI_SIDEBAR_ADMIN, ikon ? "1" : "0");
-    } catch {
-      // Gagal menyimpan pilihan bukan alasan menggagalkan tindakan: sidebar tetap
-      // berubah untuk sesi ini, hanya bawaannya yang tidak ikut berubah.
-    }
-  };
+  const ubahSidebar = useCallback((terbuka: boolean) => {
+    setSidebarTerbuka(terbuka);
+    simpanSidebarTerbuka(terbuka);
+  }, []);
+
+  // Ctrl+B (⌘B di Mac) membuka-tutup "menu": di layar lebar kolom sidebar,
+  // di layar kecil laci — sesuai apa yang sedang tampak.
+  useEffect(() => {
+    const tangani = (e: KeyboardEvent) => {
+      if (!pintasanSidebar(e)) return;
+      // Jangan rebut pintasan saat petugas sedang mengetik di formulir.
+      const target = e.target as HTMLElement | null;
+      const sedangMengetik =
+        target !== null &&
+        (target.isContentEditable ||
+          target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.tagName === "SELECT");
+      if (sedangMengetik) return;
+
+      e.preventDefault();
+      if (layarLebar) ubahSidebar(!sidebarTerbuka);
+      else setDrawerTerbuka((sebelumnya) => !sebelumnya);
+    };
+    document.addEventListener("keydown", tangani);
+    return () => document.removeEventListener("keydown", tangani);
+  }, [layarLebar, sidebarTerbuka, ubahSidebar]);
 
   // Enam grup tetap: Operasional → Nasabah → Pemantauan → Konten → Sistem →
   // Keamanan & Audit. "Ringkasan" tetap di dalam Operasional supaya meja kerja
@@ -389,96 +362,16 @@ export function AdminTabs({
   ];
 
   /**
-   * Accordion sidebar bersifat TUNGGAL: satu grup terbuka pada satu waktu, jadi
-   * sidebar tidak pernah menumpuk semua daftar sekaligus dan scroll-nya tetap
-   * satu (sidebar sendiri).
+   * Pindah menu, lalu tutup laci ponsel: tujuannya sudah tercapai, jadi lapisan
+   * gelapnya tidak perlu menghalangi isi yang baru terbuka.
    */
-  const [grupTerbuka, setGrupTerbuka] = useState<string>(menu[0].judul);
-
-  /** Pindah menu sekaligus pastikan grupnya terbuka, agar item aktif selalu
-   *  terlihat di sidebar (mis. setelah memilih menu dari bilah bawah di ponsel). */
   const pilihMenu = (value: NilaiModulAdmin) => {
     setActiveTab(value);
-    const grup = menu.find((g) => g.items.some((item) => item.value === value));
-    if (grup) setGrupTerbuka(grup.judul);
-  };
-
-  /**
-   * R5 — roving tabindex: panah kanan/bawah ke menu berikutnya, panah kiri/atas
-   * ke sebelumnya, plus Home/End di kelompok yang sama. Fokus lalu dipindah ke
-   * tombol tujuan supaya perpindahan keyboard terasa nyata.
-   *
-   * Satu handler biasa yang dipakai tiap tombol — bukan hook atau `useRef` per
-   * item, karena memanggil hook di dalam `.map()` melanggar aturan hooks.
-   */
-  const tanganiTombol = (
-    e: ReactKeyboardEvent<HTMLButtonElement>,
-    grup: AdminTabGroup,
-    value: NilaiModulAdmin,
-  ) => {
-    const daftar = grup.items.map((i) => i.value);
-    const sekarang = daftar.indexOf(value);
-    if (sekarang === -1) return;
-
-    let selanjutnya: NilaiModulAdmin | null = null;
-    if (e.key === "ArrowRight" || e.key === "ArrowDown") {
-      selanjutnya = daftar[(sekarang + 1) % daftar.length] ?? null;
-    } else if (e.key === "ArrowLeft" || e.key === "ArrowUp") {
-      selanjutnya = daftar[(sekarang - 1 + daftar.length) % daftar.length] ?? null;
-    } else if (e.key === "Home") {
-      selanjutnya = daftar[0] ?? null;
-    } else if (e.key === "End") {
-      selanjutnya = daftar[daftar.length - 1] ?? null;
-    }
-    if (selanjutnya === null || selanjutnya === value) return;
-
-    e.preventDefault();
-    pilihMenu(selanjutnya);
-    document.getElementById(`tab-${selanjutnya}`)?.focus();
+    setDrawerTerbuka(false);
   };
 
   const semuaItem = menu.flatMap((g) => g.items);
   const aktif = semuaItem.find((i) => i.value === activeTab) ?? semuaItem[0];
-
-  /** Satu modul sebagai bilah ikon (dipakai saat sidebar mengecil). */
-  const ikonModul = ({ value, label, badge, Icon }: AdminTabItem) => {
-    const iniAktif = value === activeTab;
-    return (
-      <TooltipProvider key={value} delayDuration={200}>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <button
-              type="button"
-              id={`tab-ikon-${value}`}
-              onClick={() => pilihMenu(value)}
-              aria-current={iniAktif ? "page" : undefined}
-              aria-controls={`panel-${value}`}
-              aria-label={label}
-              className={cn(
-                "relative flex size-10 items-center justify-center rounded-xl transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2",
-                iniAktif ? KELAS_ITEM_AKTIF : KELAS_ITEM_IDLE,
-              )}
-            >
-              <Icon className="size-4 shrink-0" />
-              {badge !== null && badge !== "0" && (
-                <span
-                  className={cn(
-                    "absolute -right-0.5 -top-0.5 rounded-full px-1 text-[9px] font-semibold tabular-nums",
-                    iniAktif ? "bg-white text-navy" : "bg-amber-100 text-amber-900",
-                  )}
-                >
-                  {badge}
-                </span>
-              )}
-            </button>
-          </TooltipTrigger>
-          <TooltipContent side="right" className="text-[11px]">
-            {label}
-          </TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
-    );
-  };
 
   /** Isi setiap menu — satu entri per nilai tab. */
   // `Record<NilaiModulAdmin, ReactNode>` yang ekshaustif: menambah nilai modul
@@ -556,126 +449,30 @@ export function AdminTabs({
   };
 
   return (
-    <div className={cn("min-h-screen bg-slate-50", sidebarIkon ? "lg:pl-16" : "lg:pl-64")}>
-      {/* Desktop: sidebar TETAP (fixed) setinggi layar — 256px, atau 64px dalam
-          mode ikon — dengan satu area gulir: dirinya sendiri. Header, KPI, dan
-          isi modul duduk di kolom kanan, jadi tidak ada baris statistik yang
-          menempel di atas sidebar. */}
-      <nav
-        aria-label="Navigasi panel admin"
-        className={cn(
-          "hidden lg:fixed lg:inset-y-0 lg:left-0 lg:z-30 lg:flex lg:h-screen lg:flex-col lg:overflow-y-auto lg:overscroll-contain lg:border-r lg:border-slate-200 lg:bg-white lg:py-4",
-          sidebarIkon ? "lg:w-16 lg:px-2" : "lg:w-64 lg:px-3",
-        )}
-      >
-        {!sidebarIkon && (
-          <p className="px-3 pb-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-            Panel admin
-          </p>
-        )}
+    <div
+      className={cn(
+        "kolom-admin min-h-screen bg-slate-50",
+        sidebarTerbuka ? KELAS_GESER_KONTEN.terbuka : KELAS_GESER_KONTEN.tertutup,
+      )}
+    >
+      {/* Sidebar: kolom tetap di layar lebar (240px / 72px), laci di layar kecil.
+          Kepala panel, KPI, dan isi modul duduk di kolom kanan. */}
+      <SidebarAdmin
+        menu={menu}
+        activeTab={activeTab}
+        onPilih={pilihMenu}
+        terbuka={sidebarTerbuka}
+        onToggle={ubahSidebar}
+        drawerTerbuka={drawerTerbuka}
+        onUbahDrawer={setDrawerTerbuka}
+      />
 
-        {sidebarIkon ? (
-          /* Mode ikon: daftar rata tanpa accordion. Judul grup tidak muat, jadi
-             setiap modul membawa nama lengkapnya lewat tooltip + aria-label. */
-          <div className="flex flex-col items-center">
-            {menu.map((grup, indeks) => (
-              <div
-                key={grup.judul}
-                className={cn(
-                  "flex flex-col items-center gap-0.5",
-                  indeks > 0 && "mt-1.5 w-full border-t border-slate-100 pt-1.5",
-                )}
-              >
-                {grup.items.map(ikonModul)}
-              </div>
-            ))}
-          </div>
-        ) : (
-          /* Accordion TUNGGAL: satu grup terbuka pada satu waktu. */
-          <Accordion
-            type="single"
-            collapsible
-            value={grupTerbuka}
-            onValueChange={(nilai) => setGrupTerbuka(nilai === "" ? menu[0].judul : nilai)}
-            className="flex flex-col"
-          >
-            {menu.map((grup) => (
-              <AccordionItem
-                key={grup.judul}
-                value={grup.judul}
-                // Buka/tutup hanya lewat klik pada judul (AccordionTrigger) —
-                // tanpa perilaku hover, supaya kursor yang sekadar lewat tidak
-                // ikut membuka atau menutup grup saat admin menelusuri menu.
-                className="border-b border-slate-100 last:border-b-0"
-              >
-                <AccordionTrigger className="items-center gap-2 rounded-lg px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground hover:text-navy hover:no-underline data-[state=open]:text-navy [&>svg]:size-3.5">
-                  <span className="flex-1 text-left">{grup.judul}</span>
-                  <LencanaTab badge={ringkasGrup(grup.items)} />
-                </AccordionTrigger>
-                <AccordionContent className="pb-1.5">
-                  <div className="flex flex-col gap-1">
-                    {grup.items.map(({ value, label, hint, badge, Icon }) => {
-                      const iniAktif = value === activeTab;
-                      return (
-                        <button
-                          key={value}
-                          type="button"
-                          id={`tab-${value}`}
-                          onClick={() => pilihMenu(value)}
-                          onKeyDown={(e) => tanganiTombol(e, grup, value)}
-                          title={hint}
-                          aria-current={iniAktif ? "page" : undefined}
-                          // R4: tombol menu dan panelnya kini saling menunjuk, jadi
-                          // pembaca layar tahu tombol mana yang mengendalikan isi mana.
-                          aria-controls={`panel-${value}`}
-                          // R5: hanya menu aktif yang masuk urutan Tab; sisanya
-                          // dijangkau lewat tombol panah (roving tabindex).
-                          tabIndex={iniAktif ? 0 : -1}
-                          className={`${KELAS_ITEM} ${iniAktif ? KELAS_ITEM_AKTIF : KELAS_ITEM_IDLE}`}
-                        >
-                          <Icon className="size-3.5 shrink-0" />
-                          <span className="min-w-0 flex-1 whitespace-normal break-words text-left leading-5">
-                            {label}
-                          </span>
-                          <LencanaTab badge={badge} />
-                        </button>
-                      );
-                    })}
-                  </div>
-                </AccordionContent>
-              </AccordionItem>
-            ))}
-          </Accordion>
-        )}
-
-        <button
-          type="button"
-          onClick={() => ubahSidebar(!sidebarIkon)}
-          aria-pressed={sidebarIkon}
-          aria-label={
-            sidebarIkon
-              ? "Lebarkan sidebar panel admin"
-              : "Kecilkan sidebar panel admin menjadi ikon"
-          }
-          title={sidebarIkon ? "Lebarkan sidebar" : "Kecilkan sidebar"}
-          className={cn(
-            "mt-3 flex min-h-9 items-center justify-center gap-2 rounded-xl border border-slate-200 text-[11px] font-semibold text-slate-600 transition-colors hover:border-slate-300 hover:text-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2",
-            sidebarIkon ? "w-10" : "w-full px-3",
-          )}
-        >
-          {sidebarIkon ? (
-            <PanelLeftOpen className="size-4 shrink-0" aria-hidden />
-          ) : (
-            <>
-              <PanelLeftClose className="size-4 shrink-0" aria-hidden />
-              Kecilkan menjadi ikon
-            </>
-          )}
-        </button>
-      </nav>
-
-      {/* Kepala panel duduk di kolom kanan, bukan di atas sidebar. */}
-      {header(aktif?.label ?? "Ringkasan")}
+      {/* Kepala panel duduk di kolom kanan, bukan di atas sidebar. Kendali laci
+          dioper supaya tombol menunya satu-satunya pintu menu di layar kecil. */}
+      {header(aktif?.label ?? "Ringkasan", {
+        terbuka: drawerTerbuka,
+        onToggle: () => setDrawerTerbuka((sebelumnya) => !sebelumnya),
+      })}
 
       {/* Layar kecil: bilah bawah + strip chip modul + sheet pencarian.
           Menggantikan `<select>` 17 opsi yang menyembunyikan isi tiap menu. */}
@@ -719,7 +516,18 @@ export function AdminTabs({
             id={`panel-${aktif?.value}`}
             role="region"
             aria-label={aktif?.label}
-            aria-labelledby={aktif ? (sidebarIkon ? `tab-ikon-${aktif.value}` : `tab-${aktif.value}`) : undefined}
+            // Hanya menunjuk tombol yang benar-benar terlihat: tombol laci saat
+            // laci terbuka, tombol kolom tetap saat kolomnya dirender. Kalau
+            // tidak ada keduanya, region ini tetap bernama lewat `aria-label`.
+            aria-labelledby={
+              aktif === undefined || (!drawerTerbuka && !layarLebar)
+                ? undefined
+                : drawerTerbuka
+                  ? `laci-${aktif.value}`
+                  : sidebarTerbuka
+                    ? `tab-${aktif.value}`
+                    : `tab-ikon-${aktif.value}`
+            }
             className="min-w-0 animate-masuk"
           >
             {panel[activeTab]}

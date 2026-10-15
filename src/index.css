@@ -2008,3 +2008,22 @@
     animation: none;
   }
 }
+
+/* Sidebar panel admin: buka-tutup lebar 240px ↔ 72px, plus geseran kolom konten
+   yang mengikutinya. Ini satu-satunya gerak di PINDAI yang menggerakkan properti
+   tata letak (`width`/`padding-left`); diminta pemilik secara eksplisit ("transisi
+   lebar halus, sekitar 200 ms") dan biayanya terbatas — hanya dua elemen yang
+   diukur ulang, dan isi kolom kanan tidak bergantung pada lebar sidebar. Tempo
+   serta kurvanya tetap token gerak, jadi terasa sama dengan perpindahan lain. */
+.sidebar-admin {
+  transition: width var(--motion-normal) var(--motion-ease-out);
+}
+.kolom-admin {
+  transition: padding-left var(--motion-normal) var(--motion-ease-out);
+}
+@media (prefers-reduced-motion: reduce) {
+  .sidebar-admin,
+  .kolom-admin {
+    transition: none;
+  }
+}

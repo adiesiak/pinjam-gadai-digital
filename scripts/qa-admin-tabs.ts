@@ -1,6 +1,7 @@
 /**
- * Harness SSR sidebar panel admin: mode ikon (runtuh), ingatan pilihan di
- * localStorage, dan penghapusan kartu judul pada modul Verifikasi KYC.
+ * Harness SSR sidebar panel admin: dua keadaan lebar (240px / 72px), ingatan
+ * pilihan di localStorage, pintasan Ctrl+B, dan penghapusan kartu judul pada
+ * modul Verifikasi KYC.
  * Run: bun scripts/qa-admin-tabs.ts
  *
  * Kenapa di `scripts/`, bukan `.render.test.tsx` di dalam `src/`: berkas ini
@@ -11,15 +12,15 @@
  *
  * Yang dijaga:
  *  - pilihan petugas tersimpan di localStorage benar-benar dibaca ulang, dan
- *    nilai yang tidak tersedia diperlakukan sebagai "belum memilih" — bukan
- *    ditebak menjadi salah satu mode;
- *  - sidebar tetap merender seluruh modulnya setelah ditambahkan mode ikon;
+ *    bawaannya TERBUKA saat belum pernah memilih atau saat localStorage ditolak;
+ *  - kolom sidebar merender seluruh modulnya sekaligus (bukan accordion), karena
+ *    semua menu harus terjangkau berurutan dengan Tab;
  *  - modul Verifikasi KYC tidak lagi memakai kartu judul generik dan kolomnya
  *    dilebarkan: itu yang memberi ruang pada area bukti.
  *
- * Batas uji: harness ini merender ke string, jadi keadaan "mengecil otomatis di
- * layar sampai 1440px" (lewat `matchMedia` di peramban) tidak bisa dijalankan di
- * sini; yang diuji adalah jalur pilihan tersimpan dan struktur berkasnya.
+ * Batas uji: harness ini merender ke string, jadi laci ponsel (portal Radix),
+ * transisi lebar, dan `matchMedia` tidak bisa dijalankan di sini; yang diuji
+ * adalah jalur pilihan tersimpan, markup kolom sidebar, dan kontrak di sumbernya.
  */
 import { mock } from "bun:test";
 import { readFileSync } from "node:fs";
@@ -63,7 +64,8 @@ mock.module("convex/react", () => ({
   AuthRefreshing: lewatkan,
 }));
 
-const { AdminTabs, bacaPilihanSidebar } = await import("@/pages/admin/admin-tabs");
+const { AdminTabs } = await import("@/pages/admin/admin-tabs");
+const { bacaSidebarTerbuka, pintasanSidebar } = await import("@/components/admin/admin-sidebar");
 
 let lulus = 0;
 let gagal = 0;
@@ -76,7 +78,7 @@ function cek(nama: string, syarat: boolean, info?: string): void {
   }
 }
 
-/** Jalankan `bacaPilihanSidebar` dengan localStorage tiruan, lalu kembalikan jendela. */
+/** Jalankan `bacaSidebarTerbuka` dengan localStorage tiruan, lalu kembalikan jendela. */
 function denganPenyimpanan(nilai: string | null, tersedia = true): boolean | null {
   const jendelaAsli = Object.getOwnPropertyDescriptor(globalThis, "window");
   Object.defineProperty(globalThis, "window", {
@@ -92,7 +94,7 @@ function denganPenyimpanan(nilai: string | null, tersedia = true): boolean | nul
     },
   });
   try {
-    return bacaPilihanSidebar();
+    return bacaSidebarTerbuka();
   } finally {
     if (jendelaAsli === undefined) {
       delete (globalThis as { window?: unknown }).window;
@@ -103,15 +105,31 @@ function denganPenyimpanan(nilai: string | null, tersedia = true): boolean | nul
 }
 
 // ===== 1. Pilihan sidebar yang tersimpan =====
-cek("1a tersimpan '1' berarti mode ikon", denganPenyimpanan("1") === true);
-cek("1b tersimpan '0' berarti sidebar lebar", denganPenyimpanan("0") === false);
-cek("1c belum pernah memilih berarti null", denganPenyimpanan(null) === null);
+cek("1a tersimpan '1' berarti terbuka", denganPenyimpanan("1") === true);
+cek("1b tersimpan '0' berarti menyempit jadi ikon", denganPenyimpanan("0") === false);
+cek("1c belum pernah memilih berarti TERBUKA (bawaan pertama)", denganPenyimpanan(null) === true);
 cek(
-  "1d localStorage yang tidak tersedia tidak menggagalkan panel",
-  denganPenyimpanan(null, false) === null,
+  "1d localStorage yang ditolak tidak menggagalkan panel (tetap terbuka)",
+  denganPenyimpanan(null, false) === true,
 );
 
-// ===== 2. Sidebar (keadaan bawaan) tetap memuat seluruh modulnya =====
+// Pintasan Ctrl+B (⌘B di Mac): hanya modifier itu, tanpa Shift/Alt, dan huruf
+// besar-kecil tidak berpengaruh.
+const tombol = (ubah: Partial<Parameters<typeof pintasanSidebar>[0]>) => ({
+  key: "b",
+  ctrlKey: false,
+  metaKey: false,
+  altKey: false,
+  shiftKey: false,
+  ...ubah,
+});
+cek("1e Ctrl+B dikenali", pintasanSidebar(tombol({ ctrlKey: true })));
+cek("1f Cmd+B dikenali", pintasanSidebar(tombol({ metaKey: true })));
+cek("1g B tanpa modifier tidak dikenali", !pintasanSidebar(tombol({})));
+cek("1h Ctrl+Shift+B tidak dikenali", !pintasanSidebar(tombol({ ctrlKey: true, shiftKey: true })));
+cek("1i Ctrl+B tanpa huruf b tidak dikenali", !pintasanSidebar(tombol({ ctrlKey: true, key: "c" })));
+
+// ===== 2. Sidebar (keadaan bawaan) memuat seluruh modulnya sekaligus =====
 const html = renderToStaticMarkup(
   createElement(AdminTabs, {
     overview: { loans: [], pawns: [], kredit: [] },
@@ -121,46 +139,117 @@ const html = renderToStaticMarkup(
     onOpenSetup: () => {},
   }),
 );
-cek("2a sidebar lebar memakai 256px", html.includes("lg:w-64"));
-cek("2b kolom konten digeser sesuai lebar sidebar", html.includes("lg:pl-64"));
-cek("2c tombol mengecilkan sidebar tersedia dan berlabel", html.includes("Kecilkan menjadi ikon"));
+cek("2a sidebar lebar 240px", html.includes("lg:w-60"));
+cek("2b kolom konten digeser sesuai lebar sidebar", html.includes("lg:pl-60"));
 cek(
-  "2d aria-label tombol sidebar ada untuk pembaca layar",
-  html.includes("Kecilkan sidebar panel admin menjadi ikon"),
+  "2c transisi lebar terpasang lewat kelas CSS",
+  html.includes("sidebar-admin") && html.includes("kolom-admin"),
 );
-cek("2e modul KYC tetap terdaftar di sidebar", html.includes('id="tab-kyc"'));
-cek("2f panel Ringkasan tetap terpasang", html.includes('id="panel-hari-ini"'));
-cek("2g region menyebut modulnya untuk pembaca layar", html.includes('aria-label="Ringkasan"'));
-cek("2h tanpa NaN", !html.includes("NaN"));
-cek("2i tanpa undefined", !html.includes("undefined"));
+cek(
+  "2d tombol buka/tutup memakai aria-expanded + aria-label",
+  html.includes('aria-label="Tutup menu"') && html.includes('aria-expanded="true"'),
+);
+cek("2e modul KYC terdaftar di sidebar", html.includes('id="tab-kyc"'));
+cek(
+  "2f semua menu terlihat tanpa klik (modul terakhir grup Sistem)",
+  html.includes('id="tab-backup"') && html.includes('id="tab-killswitch"'),
+);
+cek(
+  "2g pengelompokan tampil sebagai judul seksi berlabel",
+  html.includes('aria-label="Operasional"') && html.includes('aria-label="Keamanan &amp; audit"'),
+);
+cek("2h panel Ringkasan tetap terpasang", html.includes('id="panel-hari-ini"'));
+cek("2i region menyebut modulnya untuk pembaca layar", html.includes('aria-label="Ringkasan"'));
+cek("2j tanpa NaN", !html.includes("NaN"));
+cek("2k tanpa undefined", !html.includes("undefined"));
 
-// ===== 3. Kontrak di berkas: mode ikon, ambang 1440px, dan kartu KYC =====
+// ===== 3. Kontrak di berkas: dua lebar, laci ponsel, dan kartu KYC =====
 const sumber = readFileSync(
   fileURLToPath(new URL("../src/pages/admin/admin-tabs.tsx", import.meta.url)),
   "utf8",
 );
+const sumberSidebar = readFileSync(
+  fileURLToPath(new URL("../src/components/admin/admin-sidebar.tsx", import.meta.url)),
+  "utf8",
+);
+const sumberShell = readFileSync(
+  fileURLToPath(new URL("../src/pages/admin/admin-shell.tsx", import.meta.url)),
+  "utf8",
+);
+const css = readFileSync(fileURLToPath(new URL("../src/index.css", import.meta.url)), "utf8");
+
 cek(
-  "3a ambang mengecil otomatis 1440px",
-  sumber.includes('const KUERI_SIDEBAR_OTOMATIS = "(max-width: 1440px)"'),
+  "3a kunci penyimpanan pilihan sidebar",
+  sumberSidebar.includes('const KUNCI_SIDEBAR_ADMIN = "pindai.admin.sidebar-terbuka"'),
 );
 cek(
-  "3b kunci penyimpanan pilihan sidebar",
-  sumber.includes('const KUNCI_SIDEBAR_ADMIN = "pindai.admin.sidebar-ikon"'),
+  "3b dua lebar: 240px dan 72px",
+  sumberSidebar.includes("lg:w-60") && sumberSidebar.includes("lg:w-[4.5rem]"),
 );
-cek("3c lebar mode ikon ~64px", sumber.includes("lg:w-16"));
-cek("3d kolom konten mengikuti lebar mode ikon", sumber.includes("lg:pl-16"));
-cek("3e ikon modul punya aria-label dari nama modulnya", sumber.includes("aria-label={label}"));
 cek(
-  "3f kartu judul dilewati pada modul KYC",
+  "3c geseran kolom konten mengikuti kedua lebar",
+  sumberSidebar.includes("lg:pl-60") && sumberSidebar.includes("lg:pl-[4.5rem]"),
+);
+cek(
+  "3d transisi memakai token gerak dan mati saat reduced-motion",
+  /\.sidebar-admin \{[^}]*var\(--motion-normal\)/.test(css) &&
+    /\.kolom-admin \{[^}]*var\(--motion-normal\)/.test(css) &&
+    /\.sidebar-admin,\s*\n\s*\.kolom-admin \{\s*\n\s*transition: none;/.test(css),
+);
+cek(
+  "3e ikon modul punya aria-label dari nama modulnya",
+  sumberSidebar.includes("aria-label={label}"),
+);
+cek(
+  "3f tooltip nama menu muncul di sisi kanan ikon",
+  sumberSidebar.includes('side="right"'),
+);
+cek(
+  "3g tombol toggle memakai aria-expanded dan label buka/tutup",
+  sumberSidebar.includes("aria-expanded={terbuka}") &&
+    sumberSidebar.includes('terbuka ? "Tutup menu" : "Buka menu"'),
+);
+cek(
+  "3h ikon toggle berputar mengikuti keadaan",
+  sumberSidebar.includes("!tertutup &&") === false && sumberSidebar.includes('!terbuka && "rotate-180"'),
+);
+cek(
+  "3i laci ponsel dibuka dari kiri lewat Sheet",
+  sumberSidebar.includes('side="left"') &&
+    sumberSidebar.includes('id="menu-panel-admin"') &&
+    sumberSidebar.includes("drawerTerbuka"),
+);
+cek(
+  "3j laci tertutup saat panel pertama dibuka",
+  sumber.includes("useState(false)") && sumber.includes("setDrawerTerbuka(false)"),
+);
+cek(
+  "3k turunnya pintasan Ctrl+B terpasang di kepala panel",
+  sumber.includes("pintasanSidebar(e)") &&
+    sumber.includes('document.addEventListener("keydown", tangani)') &&
+    sumberShell.includes('aria-expanded={menuPonsel.terbuka}') &&
+    sumberShell.includes('menuPonsel.terbuka ? "Tutup menu" : "Buka menu"'),
+);
+cek(
+  "3l tombol lama di bawah sidebar sudah tidak ada, dan sidebar lepas dari accordion",
+  !sumber.includes("Kecilkan menjadi ikon") &&
+    !sumber.includes("PanelLeftClose") &&
+    !sumber.includes("PanelLeftOpen") &&
+    !sumber.includes("components/ui/accordion"),
+);
+cek(
+  "3m kartu judul dilewati pada modul KYC",
   sumber.includes('aktif.value !== "hari-ini" && aktif.value !== "kyc"'),
 );
 cek(
-  "3g kolom KYC memakai lebar penuh dengan padding rapat",
+  "3n kolom KYC memakai lebar penuh dengan padding rapat",
   sumber.includes('"max-w-none px-2 py-2 sm:px-3 sm:py-3 lg:pb-3"'),
 );
 cek(
-  "3h panel KYC menunjuk aria-labelledby tombol yang benar di kedua mode",
-  sumber.includes("sidebarIkon ? `tab-ikon-${aktif.value}` : `tab-${aktif.value}`"),
+  "3o panel menunjuk tombol yang benar: laci, kolom lebar, atau kolom ikon",
+  sumber.includes("laci-${aktif.value}") &&
+    sumber.includes("tab-ikon-${aktif.value}") &&
+    sumber.includes("tab-${aktif.value}"),
 );
 
 if (gagal > 0) {

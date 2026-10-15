@@ -9,7 +9,7 @@ import {
   Info,
   Landmark,
   Loader2,
-  Package,
+  Menu,
   ShieldCheck,
 } from "lucide-react";
 import { Link } from "react-router";
@@ -221,27 +221,54 @@ export function StatusSistem({
 }
 
 /**
+ * Kendali menu ponsel: laci menu dipegang `AdminTabs`, tombolnya duduk di sini.
+ * Tipenya dipisah supaya tanda tangan prop `header` dan komponen ini tidak bisa
+ * menyimpang satu sama lain.
+ */
+export type KendaliMenuPonsel = {
+  /** Laci sedang terbuka? Dipakai tombol untuk `aria-expanded`. */
+  terbuka: boolean;
+  onToggle: () => void;
+};
+
+/**
  * Kepala panel admin — duduk di kolom KONTEN, bukan di atas sidebar.
  *
  * Isinya sengaja sedikit: judul/breadcrumb modul yang sedang dibuka, lonceng
  * notifikasi, satu indikator status sistem, dan menu profil (beralih ke mode
  * nasabah / keluar). Tombol kill switch DIKELUARKAN dari sini: tindakan darurat
  * semacam itu tidak boleh menjadi tombol paling mudah dijangkau di kepala panel.
+ *
+ * Tombol menu hanya tampil di bawah `lg`, tempat kolom sidebar tidak dirender.
+ * Ia tanpa label teks karena tujuan utama ponsel tetap terlihat di bilah bawah —
+ * yang tersembunyi di baliknya hanya daftar menu lengkap.
  */
 export function AdminHeader({
   judul,
   killSwitch,
   seimbang,
+  menuPonsel,
 }: {
   /** Label modul yang sedang dibuka — dipakai breadcrumb. */
   judul: string;
   killSwitch: boolean | undefined;
   seimbang: boolean | undefined;
+  menuPonsel: KendaliMenuPonsel;
 }) {
   return (
     <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/90 backdrop-blur">
       <div className="flex min-h-14 w-full items-center justify-between gap-2 px-3 py-2 sm:min-h-16 sm:px-6">
         <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+          <button
+            type="button"
+            onClick={menuPonsel.onToggle}
+            aria-expanded={menuPonsel.terbuka}
+            aria-label={menuPonsel.terbuka ? "Tutup menu" : "Buka menu"}
+            aria-controls={menuPonsel.terbuka ? "menu-panel-admin" : undefined}
+            className="flex size-11 shrink-0 items-center justify-center rounded-xl text-slate-600 transition-colors hover:bg-slate-100 hover:text-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 lg:hidden"
+          >
+            <Menu className="size-5" aria-hidden />
+          </button>
           <VaultLogo size={40} className="size-9 shrink-0 sm:size-10 lg:hidden" />
           <nav aria-label="Breadcrumb" className="min-w-0">
             <ol className="flex min-w-0 items-center gap-1.5 text-[11px] text-muted-foreground">
