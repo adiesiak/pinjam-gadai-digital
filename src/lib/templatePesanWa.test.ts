@@ -7,7 +7,7 @@
  *    wajib yang benar-benar ada di teks bawaannya (bawaan yang tidak lolos
  *    validasinya sendiri adalah bug yang paling sulit terlihat);
  *  - placeholder asing ditolak, placeholder yang tidak diizinkan ditolak, dan
- *    placeholder yang tidak punya nilai diganti kata jujur — bukan dibiarkan
+ *    placeholder yang tidak punya nilai diganti kata jujur, bukan dibiarkan
  *    `{jumlah}` di tangan nasabah;
  *  - penjadwalan: H-3/H-1/hari H saja, keterlambatan maksimal satu pesan per
  *    hari, dan pengingat hanya untuk pinjaman yang masih berjalan;

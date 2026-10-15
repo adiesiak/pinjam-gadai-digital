@@ -1,9 +1,9 @@
 /**
- * Katalog template pesan WhatsApp PINDAI — MURNI, satu sumber untuk panel admin,
+ * Katalog template pesan WhatsApp PINDAI. MURNI, satu sumber untuk panel admin,
  * pengirim otomatis, dan uji. Tanpa Convex, React, DOM, atau `Date.now()`.
  *
  * Kenapa satu berkas: jenis pesan, placeholder wajibnya, teks bawaannya, dan
- * aturan penjadwalannya harus SAMA di tiga tempat yang berbeda —
+ * aturan penjadwalannya harus SAMA di tiga tempat yang berbeda:
  *  1. editor admin (chip placeholder, tombol "Lihat bawaan"/"Reset", preview),
  *  2. penegakan server saat menyimpan (`convex/whatsapp.ts`),
  *  3. pengirim otomatis (jenis pesan mana yang berhak dikirim hari ini).
@@ -65,7 +65,7 @@ export const PLACEHOLDER_WA = [
 
 export type PlaceholderWa = (typeof PLACEHOLDER_WA)[number];
 
-/** Keterangan satu placeholder — ditampilkan sebagai tooltip chip di editor. */
+/** Keterangan satu placeholder; ditampilkan sebagai tooltip chip di editor. */
 export const KETERANGAN_PLACEHOLDER_WA: Record<PlaceholderWa, string> = {
   nama: "Nama peminjam (huruf besar, seperti di ledger).",
   ref: "Nomor referensi pinjaman, mis. PGD-2026-0012.",
@@ -77,14 +77,14 @@ export const KETERANGAN_PLACEHOLDER_WA: Record<PlaceholderWa, string> = {
   jatuh_tempo: "Tanggal jatuh tempo; sama dengan {tanggal}.",
   metode_bayar: "Cara pembayaran yang tercatat di pengaturan sistem (rekening atau QRIS).",
   kontak: "Nomor kontak bantuan; bila belum diatur, pesan menyebut “balas pesan ini”.",
-  kode_otp: "Kode OTP sekali pakai — HANYA untuk template OTP.",
-  menit: "Masa berlaku kode OTP dalam menit — HANYA untuk template OTP.",
+  kode_otp: "Kode OTP sekali pakai, khusus untuk template OTP.",
+  menit: "Masa berlaku kode OTP dalam menit, khusus untuk template OTP.",
   status: "Status pinjaman yang baru.",
   alasan: "Alasan yang ditulis admin saat mengubah status.",
   diajukan: "Nominal yang diajukan nasabah.",
   disetujui: "Nominal yang disetujui admin.",
   kewajiban: "Total kewajiban setelah status baru berlaku.",
-  tautan: "Tautan halaman status pinjaman yang dibuat aplikasi — jangan diganti tautan lain.",
+  tautan: "Tautan halaman status pinjaman yang dibuat aplikasi; jangan diganti tautan lain.",
 };
 
 /** Placeholder yang boleh dipakai satu jenis template. */
@@ -122,7 +122,7 @@ export const PLACEHOLDER_WAJIB: Record<JenisTemplateWa, readonly PlaceholderWa[]
   status: ["status"],
 };
 
-/** Label ramah satu jenis — dipakai log pengiriman dan daftar di panel. */
+/** Label ramah satu jenis, dipakai log pengiriman dan daftar di panel. */
 export const LABEL_JENIS_WA: Record<JenisTemplateWa, string> = {
   pengingat_h3: "Pengingat H-3",
   pengingat_h1: "Pengingat H-1",
@@ -159,7 +159,7 @@ export const KETERANGAN_JENIS_WA: Record<JenisTemplateWa, string> = {
 /**
  * Teks bawaan tiap jenis.
  *
- * Nadanya sopan, netral, dan menyebut sumbernya sebagai catatan aplikasi —
+ * Nadanya sopan, netral, dan menyebut sumbernya sebagai catatan aplikasi:
  * bukan surat tagihan, bukan ancaman, dan tidak pernah menjanjikan perpindahan
  * dana. Nominal selalu lewat placeholder supaya angkanya datang dari ledger.
  */
@@ -266,7 +266,7 @@ export type HasilValidasiTemplate =
   | { ok: true; alasan: null }
   | { ok: false; alasan: string };
 
-/** Periksa satu template terhadap aturan jenisnya — kalimat siap tampil. */
+/** Periksa satu template terhadap aturan jenisnya; kalimat siap tampil. */
 export function validasiTemplateWa(jenis: JenisTemplateWa, teks: string): HasilValidasiTemplate {
   const isi = teks.trim();
   if (isi.length === 0) {
@@ -337,7 +337,7 @@ export function templateBerlaku(
     return {
       teks: TEMPLATE_BAWAAN_WA[jenis],
       dipakaiBawaan: true,
-      alasanBawaan: `Template tersimpan untuk ${LABEL_JENIS_WA[jenis]} tidak sah (${sah.alasan}) — pesan memakai teks bawaan.`,
+      alasanBawaan: `Template tersimpan untuk ${LABEL_JENIS_WA[jenis]} tidak sah (${sah.alasan}); pesan memakai teks bawaan.`,
     };
   }
   return { teks, dipakaiBawaan: false, alasanBawaan: null };
@@ -350,11 +350,11 @@ export function templateBerlaku(
 /** Waktu Indonesia Barat tidak memakai daylight saving, jadi offsetnya tetap. */
 export const WIB_OFFSET_MENIT = 7 * 60;
 
-/** Jendela kirim: hanya 08.00–20.00 WIB (batas 20.00 tidak termasuk). */
+/** Jendela kirim: hanya 08.00-20.00 WIB (batas 20.00 tidak termasuk). */
 export const JAM_KIRIM_MULAI = 8;
 export const JAM_KIRIM_SELESAI = 20;
 
-/** Jam (0–23) menurut WIB untuk satu waktu epoch ms. */
+/** Jam (0 sampai 23) menurut WIB untuk satu waktu epoch ms. */
 export function jamWib(waktuMs: number): number {
   return new Date(waktuMs + WIB_OFFSET_MENIT * 60_000).getUTCHours();
 }
@@ -366,7 +366,7 @@ export function dalamJamKirim(jam: number): boolean {
 
 /**
  * Jenis pengingat jatuh tempo dari sisa hari: H-3, H-1, atau hari H.
- * Sisa hari lain (mis. 2) tidak punya pengingat sendiri — mengirim pengingat
+ * Sisa hari lain (mis. 2) tidak punya pengingat sendiri: mengirim pengingat
  * setiap hari akan terasa menagih, dan itu bukan tujuan fitur ini.
  */
 export function jenisPengingatHari(sisaHari: number): JenisTemplateWa | null {
@@ -416,7 +416,7 @@ export function bolehKirimHariIni(
 /**
  * Apakah pinjaman masih berhak menerima pengingat otomatis.
  *
- * Hanya pinjaman yang masih berjalan (`didanai`) — begitu pembayaran tercatat
+ * Hanya pinjaman yang masih berjalan (`didanai`): begitu pembayaran tercatat
  * dan status berpindah (lunas/ditolak/ditinjau), pengingat berhenti dengan
  * sendirinya. Ini yang membuat "berhenti otomatis setelah pembayaran tercatat"
  * tidak bergantung pada ingatan siapa pun.
@@ -460,13 +460,13 @@ export type RencanaPengingat = { loanId: string; jenis: JenisTemplateWa };
  * Rencana kirim pengingat untuk SATU kali jalan penjadwal.
  *
  * Aturan yang ditegakkan di sini, berurutan:
- *  1. **Jendela kirim** — di luar 08.00–20.00 WIB tidak ada rencana sama sekali,
+ *  1. **Jendela kirim**: di luar 08.00-20.00 WIB tidak ada rencana sama sekali,
  *     jadi tidak ada pesan tengah malam meski cron berjalan tiap jam.
- *  2. **Berhenti setelah pembayaran** — hanya pinjaman yang masih berjalan
+ *  2. **Berhenti setelah pembayaran**: hanya pinjaman yang masih berjalan
  *     (`didanai`); setelah status berpindah, pinjaman itu tidak lagi dipilih.
- *  3. **H-3, H-1, hari H saja** — sisa hari lain tidak punya pengingat sendiri.
+ *  3. **H-3, H-1, hari H saja**: sisa hari lain tidak punya pengingat sendiri.
  *  4. **Maksimal satu pesan keterlambatan per hari**, dan satu kiriman per jenis
- *     per hari — idempoten walau penjadwal berjalan berkali-kali.
+ *     per hari; idempoten walau penjadwal berjalan berkali-kali.
  *
  * Fungsi ini MURNI: waktu dan riwayat masuk sebagai argumen, jadi keputusannya
  * bisa diuji sebagai skrip biasa tanpa jam atau database.
@@ -510,7 +510,7 @@ export function jenisRamahWa(jenis: string): string {
  * Teks metode pembayaran dari pengaturan sistem.
  *
  * Disusun apa adanya dari yang benar-benar diisi admin: kalau nomor rekening
- * belum ada, teksnya menyebut itu — bukan mengarang nomor. Rekening dan QRIS
+ * belum ada, teksnya menyebut itu, bukan mengarang nomor. Rekening dan QRIS
  * bisa dipakai bersamaan, jadi keduanya disebut bila keduanya terisi.
  */
 export function teksMetodeBayar(cfg: {

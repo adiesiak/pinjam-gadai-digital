@@ -1,14 +1,14 @@
 /**
  * Tes integrasi PENGIRIMAN PESAN WHATSAPP OTOMATIS (convex-test + vitest).
  *
- * Yang dijaga berkas ini — lewat action yang sama dengan yang dipakai aplikasi:
+ * Yang dijaga berkas ini, lewat action yang sama dengan yang dipakai aplikasi:
  *
  *  - gateway nonaktif / pinjaman sudah lunas: TIDAK ada pesan keluar dan TIDAK
  *    ada baris log palsu ("berhenti otomatis setelah pembayaran tercatat");
  *  - pesan hanya berangkat ke NOMOR PEMINJAM, dan setiap percobaan tercatat di
  *    `waLogs` dengan jenis yang bisa diterjemahkan jadi label ramah;
  *  - template yang diatur admin dipakai apa adanya, sedangkan template tersimpan
- *    yang tidak sah jatuh ke teks bawaan — tidak pernah dikirim cacat;
+ *    yang tidak sah jatuh ke teks bawaan, jadi tidak pernah ada pesan cacat;
  *  - peminjam tanpa nomor WhatsApp tidak dikirimi apa pun, tetapi kejadiannya
  *    tetap tercatat apa adanya.
  *
@@ -20,10 +20,10 @@
 import { convexTest } from "convex-test";
 import { describe, expect, it } from "vitest";
 
-import { internal } from "./_generated/api";
+import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import schema from "./schema";
-import { buatPengguna, type KonteksUji } from "./test.helpers";
+import { buatPengguna, siapkanPengguna, type KonteksUji } from "./test.helpers";
 import { modules } from "./test.setup";
 
 const NOMOR_PEMINJAM = "6281234567890";
@@ -106,6 +106,90 @@ async function seedGateway(
     }),
   );
 }
+
+/** Konfigurasi gateway yang sah, siap ditimpa per kasus uji. */
+function konfigurasiGerbang(templatesWa: Record<string, string>) {
+  return {
+    apiUrl: "https://api.fonnte.com/send",
+    authHeader: "Authorization",
+    authPrefix: "",
+    fieldNomor: "target",
+    fieldPesan: "message",
+    aktif: true,
+    templatesWa,
+  };
+}
+
+describe("saveConfig gerbang template pesan", () => {
+  it("template sah tersimpan, dan kolom lama dikosongkan", async () => {
+    const t = convexTest(schema, modules);
+    const admin = await siapkanPengguna(t, "admin", {
+      email: "admin-wa@pindai.test",
+      role: "admin",
+    });
+    await seedGateway(t, { aktif: true, templatesWa: {} });
+    // Baris lama berisi template di kolom lawas; sesudah simpan ia harus pindah.
+    await t.run(async (ctx) => {
+      const row = await ctx.db.query("waSettings").first();
+      if (row) await ctx.db.patch(row._id, { templatePengingat: "Halo {nama} {jumlah}" });
+    });
+
+    await admin.sesi.mutation(
+      api.whatsapp.saveConfig,
+      konfigurasiGerbang({ pengingat_h3: "Halo {nama}, jatuh tempo {jatuh_tempo}, total {jumlah}." }),
+    );
+
+    const tersimpan = await t.run(async (ctx) => ctx.db.query("waSettings").first());
+    expect(tersimpan?.templatesWa?.pengingat_h3).toBe(
+      "Halo {nama}, jatuh tempo {jatuh_tempo}, total {jumlah}.",
+    );
+    expect(tersimpan?.templatePengingat).toBeUndefined();
+    expect(tersimpan?.templateStatus).toBeUndefined();
+    expect(tersimpan?.templateLokasi).toBeUndefined();
+  });
+
+  it("template tanpa placeholder wajib ditolak dengan alasan yang bisa dibaca", async () => {
+    const t = convexTest(schema, modules);
+    const admin = await siapkanPengguna(t, "admin", {
+      email: "admin-wa2@pindai.test",
+      role: "admin",
+    });
+    await seedGateway(t, { aktif: true });
+    await expect(
+      admin.sesi.mutation(
+        api.whatsapp.saveConfig,
+        konfigurasiGerbang({ pengingat_h3: "Halo {nama}, jangan lupa besok." }),
+      ),
+    ).rejects.toThrow(/Pengingat H-3 tidak bisa disimpan/);
+    const tersimpan = await t.run(async (ctx) => ctx.db.query("waSettings").first());
+    expect(tersimpan?.templatesWa?.pengingat_h3).toBeUndefined();
+  });
+
+  it("jenis di luar katalog ditolak", async () => {
+    const t = convexTest(schema, modules);
+    const admin = await siapkanPengguna(t, "admin", {
+      email: "admin-wa3@pindai.test",
+      role: "admin",
+    });
+    await seedGateway(t, { aktif: true });
+    await expect(
+      admin.sesi.mutation(api.whatsapp.saveConfig, konfigurasiGerbang({ entah: "Halo {nama}" })),
+    ).rejects.toThrow(/Jenis template "entah" tidak dikenal/);
+  });
+
+  it("peta kosong tetap bisa disimpan dan berarti semua memakai bawaan", async () => {
+    const t = convexTest(schema, modules);
+    const admin = await siapkanPengguna(t, "admin", {
+      email: "admin-wa4@pindai.test",
+      role: "admin",
+    });
+    await seedGateway(t, { aktif: true });
+    await admin.sesi.mutation(api.whatsapp.saveConfig, konfigurasiGerbang({}));
+    const bawaan = await admin.sesi.query(api.whatsapp.getAdminConfig, {});
+    expect(bawaan.config.templatesWa).toEqual({});
+    expect(bawaan.config.aktif).toBe(true);
+  });
+});
 
 describe("pengingat WhatsApp otomatis", () => {
   it("gateway nonaktif: tidak ada pesan keluar dan tidak ada log", async () => {

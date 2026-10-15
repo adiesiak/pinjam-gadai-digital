@@ -13,7 +13,7 @@ import { internal } from "./_generated/api";
  *   (jauh melewati jendela retry jaringan mana pun).
  * - UTC 18:15 — retensi jejak gerbang pengiriman: buang baris pembatas laju
  *   yang lebih tua dari 7 hari (jejak `auditLog` pelanggarannya tetap ada).
- * - TIAP JAM — pengingat WhatsApp pengingat jatuh tempo & keterlambatan. Jenis
+ * - TIAP JAM: pengingat WhatsApp jatuh tempo & keterlambatan. Jenis
  *   yang berhak berangkat hari ini diputuskan `lib/templatePesanWa`, dan hanya
  *   antara 08.00-20.00 WIB; di luar itu penjadwal berhenti tanpa mengirim.
  */

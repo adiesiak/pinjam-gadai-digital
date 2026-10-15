@@ -103,7 +103,7 @@ export async function getConfig(ctx: QueryCtx): Promise<SystemConfig> {
  * Data penerimaan pembayaran untuk MERANGKAI PESAN (internal, tanpa gerbang
  * sesi): pengirim otomatis berjalan di action dan tidak punya sesi admin.
  *
- * Hanya field yang benar-benar dipakai template yang keluar dari sini —
+ * Hanya field yang benar-benar dipakai template yang keluar dari sini;
  * pengaturan lain (persentase, kill switch, koordinat) tetap di jalur admin.
  */
 export const _penerimaanInternal = internalQuery({

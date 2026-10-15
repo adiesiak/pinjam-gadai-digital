@@ -6,7 +6,7 @@
  * chip placeholder benar-benar muncul sesuai izin jenisnya, placeholder wajib
  * yang belum ada ditandai, validasi jenis tampil apa adanya, tombol
  * "Lihat bawaan"/"Reset" ada, dan pratinjau memakai nilai contoh (bukan
- * `{jumlah}` mentah) — persis yang akan dibaca admin sebelum menyimpan.
+ * `{jumlah}` mentah), persis yang akan dibaca admin sebelum menyimpan.
  */
 import { renderToStaticMarkup } from "react-dom/server";
 
@@ -79,6 +79,7 @@ const jenisTerpilih = (jenis: Parameters<typeof ManajemenTemplateWa>[0]["jenisAk
   // Pratinjau memakai nilai contoh, bukan placeholder mentah.
   ada(html, "RANI PUSPITA", "pratinjau menyapa nama contoh");
   ada(html, "Rp 1.500.000", "pratinjau memuat nominal contoh");
+  ada(html, "Data contoh, bukan data nasabah", "pratinjau menyatakan dirinya data contoh");
   ada(html, "Total kewajiban tercatat", "pratinjau memakai teks bawaan");
   bersih(html, "editor pengingat");
 }

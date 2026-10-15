@@ -1245,7 +1245,7 @@ export const perbaruiStatusPembayaran = mutation({
     );
     // Kabar "pembayaran dicatat" HANYA saat petugas mencatat uang diterima:
     // status "belum bayar" tidak mengabarkan apa pun. Pengiriman dijadwalkan
-    // setelah catatan tersimpan, dan pesannya menyebut yang tercatat — bukan
+    // setelah catatan tersimpan, dan pesannya menyebut yang tercatat, bukan
     // klaim bahwa transfer sudah diverifikasi bank.
     if (args.status !== "belum_bayar" && args.nominal > 0) {
       await ctx.scheduler.runAfter(0, internal.whatsapp._kirimKonfirmasiPembayaran, {

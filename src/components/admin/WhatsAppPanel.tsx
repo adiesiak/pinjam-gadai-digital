@@ -47,6 +47,24 @@ import {
  * Komponen di bawah hanya menampilkan aturan itu: chip yang menyisipkan,
  * penanda placeholder wajib yang belum ada, tombol "Lihat bawaan"/"Reset", dan
  * pratinjau yang dirangkai dengan nilai contoh yang sama dengan pengirim.
+ *
+ * Design Read: meja kerja admin PINDAI untuk petugas operasi, bahasa visual
+ * kertas hangat + kuningan (DESIGN.md), dial ENERGY 1 / RHYTHM 2 / MOTION 1.
+ *
+ * Alasan keputusan tampilan, satu baris masing-masing:
+ * - Warna: emerald-800/emerald-50 dan slate adalah token preset `tinta` yang
+ *   sudah dipakai panel admin ini (kuningan di atas kertas hangat), bukan warna
+ *   baru yang ditempel di atas sistem yang ada.
+ * - Bentuk pil hanya untuk chip placeholder, supaya baris chip terbaca sebagai
+ *   daftar sisipan dan bukan kontrol formulir; kartu, input, dan textarea tetap
+ *   beradius sedang sesuai konvensi panel admin.
+ * - Ikon `Undo2` (Lihat bawaan) dan `RotateCcw` (Reset) dipakai karena gambarnya
+ *   menyatakan arah tindakannya, dan set ikonnya sama dengan panel lain.
+ * - Pratinjau hadir di dalam editor, bukan di kartu terpisah, karena yang ingin
+ *   dilihat admin adalah perubahan pada template yang sedang ia sunting.
+ * - Label kelompok memakai huruf besar 11px dengan tracking ringan, sama seperti
+ *   header tabel panel ini: fungsinya menamai kelompok field, bukan menghias
+ *   judul, dan ia tidak pernah berdiri di atas sebuah headline.
  */
 
 /** Teks yang dipakai editor: kolom kosong berarti teks bawaan. */
@@ -123,7 +141,7 @@ export function EditorTemplateWa({
                 title={KETERANGAN_PLACEHOLDER_WA[nama]}
                 onClick={() => sisip(nama)}
                 disabled={sibuk}
-                className={`inline-flex min-h-8 items-center rounded-full border px-2.5 text-[11px] font-medium tabular-nums transition-colors disabled:opacity-50 ${
+                className={`inline-flex min-h-11 items-center rounded-full border px-3 text-[11px] font-medium tabular-nums transition-colors focus-visible:ring-2 focus-visible:ring-emerald-700 focus-visible:ring-offset-2 focus-visible:outline-none disabled:opacity-50 ${
                   wajib && !terpakai
                     ? "border-red-300 bg-red-50 text-red-700 hover:bg-red-100"
                     : terpakai
@@ -198,7 +216,7 @@ export function EditorTemplateWa({
             Pratinjau pesan
           </p>
           <span className="text-[11px] text-muted-foreground">
-            Nomor peminjam · contoh: {CONTOH_NILAI_WA.kontak}
+            Data contoh, bukan data nasabah
           </span>
         </div>
         <div className="mt-2 flex justify-end">
@@ -236,7 +254,7 @@ export function ManajemenTemplateWa({
         </p>
       </div>
 
-      <div className="flex flex-wrap gap-1.5" role="tablist" aria-label="Jenis template pesan">
+      <div className="flex flex-wrap gap-1.5" role="group" aria-label="Jenis template pesan">
         {JENIS_TEMPLATE_WA.map((jenis) => {
           const diubah = (nilai[jenis] ?? "").trim() !== "";
           const aktif = jenis === jenisAktif;
@@ -244,10 +262,9 @@ export function ManajemenTemplateWa({
             <button
               key={jenis}
               type="button"
-              role="tab"
-              aria-selected={aktif}
+              aria-pressed={aktif}
               onClick={() => onPilihJenis(jenis)}
-              className={`inline-flex min-h-8 items-center gap-1.5 rounded-full border px-3 text-[11px] font-medium transition-colors ${
+              className={`inline-flex min-h-11 items-center gap-1.5 rounded-full border px-3 text-[11px] font-medium transition-colors focus-visible:ring-2 focus-visible:ring-emerald-700 focus-visible:ring-offset-2 focus-visible:outline-none ${
                 aktif
                   ? "border-emerald-700 bg-emerald-800 text-white"
                   : "border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100"
@@ -341,7 +358,7 @@ export function WhatsAppPanel() {
   if (templates === null) {
     const awal: Record<string, string> = { ...(cfg.templatesWa ?? {}) };
     // Template dari kolom lama ikut dipindahkan bila sudah memenuhi aturan
-    // jenis barunya — supaya teks yang sudah dipakai tidak tampak "hilang".
+    // jenis barunya supaya teks yang sudah dipakai tidak tampak "hilang".
     const pindahanLegacy: [JenisTemplateWa, string | undefined][] = [
       ["info_tagihan", cfg.templatePengingat],
       ["status", cfg.templateStatus],
@@ -388,7 +405,7 @@ export function WhatsAppPanel() {
     if (nomorTes.trim().length < 8) return;
     setBusy("test");
     setError(null);
-    const previewText = "Tes integrasi WhatsApp PINDAI — abaikan pesan ini.";
+    const previewText = "Tes integrasi WhatsApp PINDAI, abaikan pesan ini.";
     setTestPreview({ to: nomorTes.trim(), text: previewText });
     try {
       await sendTest({ nomorTujuan: nomorTes.trim(), isiPesan: previewText });
@@ -435,18 +452,18 @@ export function WhatsAppPanel() {
           </TabsTrigger>
         </TabsList>
 
-        {/* TAB 1 — GATEWAY & TEMPLATE */}
+        {/* TAB 1: GATEWAY & TEMPLATE */}
         <TabsContent value="gateway" className="space-y-4 m-0">
           <div className="grid gap-5 min-h-0 xl:grid-cols-2 xl:gap-6">
-            {/* KIRI — KONEKSI */}
+            {/* KIRI: KONEKSI */}
             <div className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
               <div>
                 <p className="text-sm font-semibold">Koneksi gateway WhatsApp</p>
                 <p className="mt-1 text-xs leading-5 text-muted-foreground">
                   Bekerja dengan gateway berbasis token (Fonnte, Wablas, Meta Cloud API, dsb).
                   API key diisi di environment variabel{" "}
-                  <code className="rounded bg-slate-100 px-1 py-0.5 text-[11px]">WHATSAPP_API_KEY</code> —
-                  tidak pernah disimpan di database.
+                  <code className="rounded bg-slate-100 px-1 py-0.5 text-[11px]">WHATSAPP_API_KEY</code>,
+                  dan tidak pernah disimpan di database.
                 </p>
               </div>
 
@@ -536,7 +553,7 @@ export function WhatsAppPanel() {
               )}
             </div>
 
-            {/* KANAN — TEMPLATE PESAN */}
+            {/* KANAN: TEMPLATE PESAN */}
             <ManajemenTemplateWa
               nilai={templates}
               onChange={(jenis, teks) => setTemplates({ ...templates, [jenis]: teks })}
@@ -547,10 +564,10 @@ export function WhatsAppPanel() {
           </div>
         </TabsContent>
 
-        {/* TAB 2 — STATISTIK & LOG */}
+        {/* TAB 2: STATISTIK & LOG */}
         <TabsContent value="stats" className="space-y-4 m-0">
           <div className="grid gap-5 min-h-0 xl:grid-cols-5 xl:gap-6">
-            {/* KIRI — STATISTIK & TES */}
+            {/* KIRI: STATISTIK & TES */}
             <div className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm xl:col-span-2">
               <p className="flex items-center gap-2 text-sm font-semibold text-navy">
                 <Send className="size-4 text-primary" />
@@ -594,7 +611,7 @@ export function WhatsAppPanel() {
               )}
             </div>
 
-            {/* KANAN — LOG PENGIRIMAN */}
+            {/* KANAN: LOG PENGIRIMAN */}
             <div className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm xl:col-span-3">
               <div className="flex items-center justify-between gap-2">
                 <p className="text-sm font-semibold text-navy">Log pengiriman (terbaru)</p>

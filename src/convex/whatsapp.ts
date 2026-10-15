@@ -54,25 +54,19 @@ import { getConfig } from "./system";
 
 const SLOT = "global";
 
+/**
+ * Teks LAMA pesan pengingat manual dari daftar pinjaman.
+ *
+ * Hanya dipakai sebagai cadangan: pengirim sekarang mengambil template jenis
+ * `info_tagihan` dari katalog (`lib/templatePesanWa`), dan teks ini berlaku
+ * hanya di deployment yang belum pernah menyimpan template lewat panel. Satu
+ * sumber template tetap katalog; berkas ini tidak menyimpan salinan bawaan
+ * jenis lain supaya tidak ada dua "bawaan" untuk pesan yang sama.
+ */
 export const DEFAULT_TEMPLATE =
   "Halo {nama}, pengingat PINDAI untuk pinjaman {ref}. " +
-  "Jatuh tempo {tanggal} — total kewajiban Anda saat ini {jumlah}{denda}. " +
+  "Jatuh tempo {tanggal}, total kewajiban Anda saat ini {jumlah}{denda}. " +
   "Mohon lakukan pelunasan tepat waktu agar status kredit tetap baik. Terima kasih.";
-
-/**
- * Template peringatan lokasi dicurigai — dikirim OTOMATIS (bukan oleh admin),
- * maksimum sekali per 24 jam per nasabah.
- *
- * Nadanya sengaja menolong, bukan menuduh: koordinat beku juga bisa terjadi
- * pada perangkat dengan penghemat baterai agresif. Karena itu pesannya meminta
- * nasabah membuka aplikasi PINDAI, bukan mengancam sanksi.
- */
-export const DEFAULT_TEMPLATE_LOKASI =
-  "Halo {nama}, PINDAI mendeteksi lokasi perangkat Anda dikirim oleh aplikasi " +
-  "pihak ketiga (lokasi palsu/dibekukan), sehingga transaksi PINDAI bisa ditolak. " +
-  "Mohon hapus atau matikan aplikasi pengubah lokasi, lalu buka aplikasi PINDAI " +
-  "agar lokasi asli terkirim. Bila Anda memang memakai lokasi khusus atas " +
-  "persetujuan petugas PINDAI, abaikan pesan ini. Terima kasih.";
 
 export type WaSettings = {
   apiUrl?: string;
@@ -120,7 +114,7 @@ export function apiKeyGatewayWa(): string {
  * Nilai template: satu sumber untuk pratinjau, kirim manual, dan kirim otomatis
  * ========================================================================== */
 
-/** Awal hari UTC — batas "hari ini" saat memeriksa log pengiriman. */
+/** Awal hari UTC, yaitu batas "hari ini" saat memeriksa log pengiriman. */
 function awalHariUtc(ms: number): number {
   return Math.floor(ms / 86_400_000) * 86_400_000;
 }
@@ -153,7 +147,7 @@ type PinjamanPesan = {
 /**
  * NILAI tiap placeholder untuk satu pinjaman.
  *
- * Nominal, denda, dan tanggal jatuh tempo datang dari `lib/loan` — sumber yang
+ * Nominal, denda, dan tanggal jatuh tempo datang dari `lib/loan`, sumber yang
  * sama dengan dashboard dan tabel admin. Tidak ada angka yang diketik ulang,
  * dan tidak ada placeholder yang diisi karangan: yang tidak punya nilai
  * dibiarkan kosong supaya `rangkaiPesanWa` menggantinya dengan kata jujur.
@@ -198,7 +192,7 @@ function nilaiPesanPinjaman(
     year: "numeric",
   });
   return {
-    // Nama di pesan selalu HURUF BESAR (lib/nama.ts) — pesan, pratinjau, dan
+    // Nama di pesan selalu HURUF BESAR (lib/nama.ts); pesan, pratinjau, dan
     // tabel admin menampilkan orang yang sama dengan tulisan yang sama.
     nama: namaHurufBesar(loan.namaLengkap),
     ref: loan.nomorReferensi,
@@ -328,7 +322,7 @@ export const saveConfig = mutation({
       throw new Error("Nama header auth dan field body wajib diisi.");
     }
     // Validasi SERVER atas setiap template: editor sudah menahannya, tetapi
-    // serverlah yang memutuskan apa yang boleh tersimpan — permintaan yang
+    // serverlah yang memutuskan apa yang boleh tersimpan; permintaan yang
     // dibuat di luar panel tidak boleh menulis template cacat.
     const templatesWa: Record<string, string> = {};
     for (const [jenis, teks] of Object.entries(args.templatesWa)) {
@@ -452,7 +446,7 @@ export const _dataStatusPinjaman = internalQuery({
 /**
  * Rangkai isi pesan dari template + data pinjaman.
  *
- * Penggantian placeholder memakai `rangkaiPesanWa` (lib/templatePesanWa) — satu
+ * Penggantian placeholder memakai `rangkaiPesanWa` (lib/templatePesanWa), satu
  * renderer saja untuk seluruh berkas ini: placeholder yang tidak punya nilai
  * menjadi kata jujur, bukan `{jumlah}` yang sampai ke tangan nasabah.
  */
@@ -1087,7 +1081,7 @@ export const kirimPeringatanLokasi = internalAction({
  * Pengingat otomatis: H-3, H-1, hari H, dan keterlambatan
  * ========================================================================== */
 
-/** Batas pinjaman per satu kali jalan penjadwal — supaya action tidak menahan. */
+/** Batas pinjaman per satu kali jalan penjadwal, supaya action tidak menahan. */
 const BATAS_PENGINGAT_SEKALI_JALAN = 200;
 
 /**
@@ -1143,7 +1137,7 @@ export const _logPengingatHariIni = internalQuery({
  *
  * TIDAK PERNAH melempar, dan tidak melakukan apa pun saat gateway belum aktif
  * atau di luar jam kirim: cron tiap jam yang berisik di log bukan kegunaan.
- * Nomor tujuan HANYA nomor peminjam dari data KYC — tidak ada penerima lain.
+ * Nomor tujuan HANYA nomor peminjam dari data KYC; tidak ada penerima lain.
  */
 export const jalankanPengingatJatuhTempo = internalAction({
   args: {},
@@ -1222,7 +1216,7 @@ export const jalankanPengingatJatuhTempo = internalAction({
 });
 
 /**
- * Kabar "pembayaran dicatat" untuk satu pinjaman — dijadwalkan `penagihan`
+ * Kabar "pembayaran dicatat" untuk satu pinjaman; dijadwalkan oleh `penagihan`
  * setelah petugas mencatat pembayaran nasabah diterima.
  *
  * Yang disebut pesan hanya apa yang benar-benar tercatat: nominal yang dicatat
