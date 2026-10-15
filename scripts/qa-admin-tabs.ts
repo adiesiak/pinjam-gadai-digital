@@ -65,7 +65,8 @@ mock.module("convex/react", () => ({
 }));
 
 const { AdminTabs } = await import("@/pages/admin/admin-tabs");
-const { bacaSidebarTerbuka, pintasanSidebar } = await import("@/components/admin/admin-sidebar");
+const { bacaSidebarTerbuka, KELAS_GESER_KONTEN, KELAS_LEBAR_SIDEBAR, pintasanSidebar } =
+  await import("@/components/admin/admin-sidebar");
 
 let lulus = 0;
 let gagal = 0;
@@ -250,6 +251,86 @@ cek(
   sumber.includes("laci-${aktif.value}") &&
     sumber.includes("tab-ikon-${aktif.value}") &&
     sumber.includes("tab-${aktif.value}"),
+);
+
+// ===== 4. Keadaan menyempit, dirender lewat seluruh kerangka admin =====
+// Bagian 2 di atas hanya menguji keadaan bawaan (terbuka), sedangkan bagian 1
+// menguji pembacaan pilihannya saja. Yang belum terbukti: saat pilihannya
+// "menyempit", kolom sidebar DAN geseran kolom konten benar-benar berubah
+// bersamaan. Kalau salah satunya tertukar, sidebar 72px dengan konten menggeser
+// 240px — tata letaknya rusak tanpa satu pun galat tipe.
+const jendelaSebelumnya = Object.getOwnPropertyDescriptor(globalThis, "window");
+Object.defineProperty(globalThis, "window", {
+  configurable: true,
+  writable: true,
+  // `framer-motion` memasang pendengar ke `window` begitu global ini ada,
+  // jadi jendela tiruannya harus punya API peristiwa kosong juga.
+  value: {
+    localStorage: { getItem: () => "0", setItem: () => undefined },
+    addEventListener: () => {},
+    removeEventListener: () => {},
+    matchMedia: () => ({ matches: false, addEventListener: () => {}, removeEventListener: () => {} }),
+  },
+});
+let htmlSempit = "";
+let kendaliHeader: { terbuka: boolean; adaToggle: boolean; judul: string } | null = null;
+try {
+  htmlSempit = renderToStaticMarkup(
+    createElement(AdminTabs, {
+      header: (judul: string, menuPonsel: { terbuka: boolean; onToggle: () => void }) => {
+        kendaliHeader = {
+          terbuka: menuPonsel.terbuka,
+          adaToggle: typeof menuPonsel.onToggle === "function",
+          judul,
+        };
+        return null;
+      },
+      overview: { loans: [], pawns: [], kredit: [] },
+      stats: undefined,
+      onOpenLoan: () => {},
+      onOpenPawn: () => {},
+      onOpenSetup: () => {},
+    }),
+  );
+} finally {
+  if (jendelaSebelumnya === undefined) {
+    delete (globalThis as { window?: unknown }).window;
+  } else {
+    Object.defineProperty(globalThis, "window", jendelaSebelumnya);
+  }
+}
+
+cek("4a kolom sidebar menyempit jadi 72px", htmlSempit.includes("lg:w-[4.5rem]"));
+cek("4b kolom konten ikut menggeser 72px", htmlSempit.includes("lg:pl-[4.5rem]"));
+cek(
+  "4c tidak ada sisa kelas keadaan lebar",
+  !htmlSempit.includes("lg:w-60") && !htmlSempit.includes("lg:pl-60"),
+);
+cek(
+  "4d label menu diganti nama di aria-label",
+  htmlSempit.includes('id="tab-ikon-hari-ini"') && htmlSempit.includes('aria-label="Ringkasan"'),
+);
+cek(
+  "4e kepala panel menerima judul modul aktif dan kendali laci yang bisa diklik",
+  kendaliHeader !== null &&
+    kendaliHeader.judul === "Ringkasan" &&
+    kendaliHeader.terbuka === false &&
+    kendaliHeader.adaToggle,
+  JSON.stringify(kendaliHeader),
+);
+cek("4f tanpa NaN", !htmlSempit.includes("NaN"));
+cek("4g tanpa undefined", !htmlSempit.includes("undefined"));
+
+// Lebar kolom dan geseran konten harus sepasang di KEDUA keadaan, bukan hanya
+// sama-sama ada: `lg:w-60` wajib berpasangan dengan `lg:pl-60`.
+const ukuran = (kelas: string) => kelas.match(/lg:(?:w|pl)-(\S+)/)?.[1];
+cek(
+  "4h ukuran sidebar dan geseran konten sepasang di keadaan terbuka",
+  ukuran(KELAS_LEBAR_SIDEBAR.terbuka) === ukuran(KELAS_GESER_KONTEN.terbuka),
+);
+cek(
+  "4i ukuran sidebar dan geseran konten sepasang di keadaan menyempit",
+  ukuran(KELAS_LEBAR_SIDEBAR.tertutup) === ukuran(KELAS_GESER_KONTEN.tertutup),
 );
 
 if (gagal > 0) {
