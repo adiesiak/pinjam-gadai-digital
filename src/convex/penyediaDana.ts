@@ -310,8 +310,11 @@ const MENUNGGU_KREDIT = new Set(["diajukan", "sedang_ditinjau"]);
 /**
  * Gerbang ruang penyedia dana. Tamu (anonim) dan akun tanpa peran `dana`/`admin`
  * selalu ditolak — pemeriksaan dilakukan di server, bukan hanya di UI.
+ *
+ * Diekspor supaya modul lain yang melayani ruang yang SAMA memakai gerbang yang
+ * sama persis, bukan menyalin aturannya (lihat `convex/persetujuanRisiko.ts`).
  */
-async function requirePengamat(ctx: QueryCtx) {
+export async function requirePengamat(ctx: QueryCtx) {
   const userId = await getAuthUserId(ctx);
   if (userId === null) throw new Error("Harus masuk terlebih dahulu.");
 
@@ -1491,6 +1494,95 @@ export const daftarTransferPendana = query({
 });
 
 /**
+ * Laporan transfer keuntungan untuk ruang pendana: riwayat catatan yang sudah
+ * dibuat admin, ditambah antrean rekonsiliasi — pinjaman lunas berpendana yang
+ * keuntungannya belum punya catatan berlaku.
+ *
+ * Isinya catatan PEMBUKUAN, bukan bukti mutasi: PINDAI tidak memindahkan uang.
+ * Karena itu "belum dicatat" berarti admin belum mencatat transfernya, BUKAN
+ * berarti uang belum berpindah — pemberi kerja istilah ini tetap
+ * `src/lib/transferPendana.ts`.
+ *
+ * Baca-saja: tidak ada satu pun perubahan data di sini. Baris dibatasi
+ * `BATAS_BARIS` dari yang terbaru, dan pemanggil menerima penanda `terpotong`.
+ */
+export const laporanTransferPendana = query({
+  args: {},
+  handler: async (ctx) => {
+    const { userId, user } = await requirePengamat(ctx);
+    const cfg = await getConfig(ctx);
+
+    const semuaCatatan = await ctx.db.query("transferPendana").collect();
+    const rows = [...semuaCatatan]
+      .sort((a, b) => b.dicatatPada - a.dicatatPada)
+      .slice(0, BATAS_BARIS)
+      .map((b) => ({
+        id: b._id,
+        nomorReferensi: b.nomorReferensiPinjaman,
+        pendanaId: b.pendanaId ?? null,
+        pendanaNama: b.pendanaNama,
+        jumlah: b.jumlah,
+        metode: b.metode as string,
+        referensi: b.referensi ?? null,
+        catatan: b.catatan ?? null,
+        status: b.status as string,
+        dicatatPada: b.dicatatPada,
+        dicatatOlehLabel: b.dicatatOlehLabel,
+        dibatalkanPada: b.dibatalkanPada ?? null,
+        dibatalkanOlehLabel: b.dibatalkanOlehLabel ?? null,
+        alasanBatal: b.alasanBatal ?? null,
+      }));
+
+    const dicatat = rows.filter((r) => r.status === "dicatat");
+    const dibatalkan = rows.filter((r) => r.status === "dibatalkan");
+
+    // Antrean rekonsiliasi dibaca dari SELURUH catatan (lewat `petaTransfer`),
+    // bukan dari `rows` yang dibatasi: yang menentukan "belum dicatat" adalah
+    // catatan TERBARU per pinjaman, dan catatan lama bisa jatuh di luar batas.
+    const transferPerPinjaman = await petaTransfer(ctx);
+    const belum = (await ctx.db.query("loans").collect())
+      .filter(
+        (l) =>
+          l.status === "lunas" &&
+          (l.pendanaId !== undefined || l.pendanaNama !== undefined),
+      )
+      .filter(
+        (l) =>
+          (transferPerPinjaman.get(l._id) ?? ringkasTransfer([])).status !== "dicatat",
+      )
+      .map((l) => ({
+        loanId: l._id,
+        referensi: l.nomorReferensi,
+        pendanaId: l.pendanaId ?? null,
+        pendanaNama: l.pendanaNama ?? "Penyedia dana",
+        // Dihitung ulang di server dari kebijakan yang berlaku — angka klien
+        // tidak pernah dipakai untuk nominal.
+        jumlah: bagiPinjamanAman(l, cfg.persenBunga, cfg.persenAdmin).keuntunganPendana,
+        lunasPada: l.lunasPada ?? l.didanaiPada ?? l._creationTime,
+      }))
+      // Yang paling lama menunggu di atas: itu yang paling perlu ditindaklanjuti.
+      .sort((a, b) => a.lunasPada - b.lunasPada);
+
+    return {
+      rows,
+      terpotong: semuaCatatan.length > rows.length,
+      belum,
+      /** Id akun pembaca — UI menandai baris yang memang miliknya. */
+      idSaya: userId,
+      peran: user.role as string,
+      ringkasan: {
+        jumlahTercatat: dicatat.length,
+        nilaiTercatat: dicatat.reduce((total, r) => total + r.jumlah, 0),
+        jumlahDibatalkan: dibatalkan.length,
+        nilaiDibatalkan: dibatalkan.reduce((total, r) => total + r.jumlah, 0),
+        jumlahBelumDicatat: belum.length,
+        nilaiBelumDicatat: belum.reduce((total, r) => total + r.jumlah, 0),
+      },
+    };
+  },
+});
+
+/**
  * Beri/cabut akses ruang penyedia dana untuk satu akun (berdasarkan email).
  * Akses bersifat lihat saja: hanya mengubah peran akun, tanpa menyentuh
  * catatan pengajuan. Perubahan dicatat pada audit trail.
@@ -2074,12 +2166,17 @@ export const batalkanTransferPendana = mutation({
     const loan = await ctx.db.get(loanId);
     if (loan === null) throw new Error("Pinjaman tidak ditemukan.");
 
-    const berlaku = await ctx.db
-      .query("transferPendana")
-      .collect()
-      .then((rows) => rows.filter((r) => r.status === "dicatat"));
+    // Hanya baris milik PINJAMAN ini. Tanpa batas itu, satu pembatalan akan
+    // ikut menandai batal catatan milik pinjaman — dan pendana — lain, dan
+    // laporan pendana mereka akan terbaca seolah transfernya diurungkan.
+    const berlaku = (
+      await ctx.db
+        .query("transferPendana")
+        .withIndex("by_loan", (q) => q.eq("loanId", loanId))
+        .collect()
+    ).filter((r) => r.status === "dicatat");
     if (berlaku.length === 0) {
-      throw new Error("Tidak ada catatan transfer yang berlaku untuk dibatalkan.");
+      throw new Error("Tidak ada catatan transfer yang berlaku untuk pinjaman ini.");
     }
 
     const adminLabel = admin.email ?? admin.name ?? "admin";

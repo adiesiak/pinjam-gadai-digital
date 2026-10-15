@@ -937,6 +937,33 @@ const schema = defineSchema(
     }).index("by_user", ["userId"]),
 
     /**
+     * Persetujuan risiko pendanaan — catatan SISI SERVER, append-only.
+     *
+     * Pendana mencentang pernyataan risiko di ruang pendana, dan yang tersimpan
+     * adalah catatan server atas nama AKUN-nya: versi teks yang benar-benar
+     * dibaca (`versiTeks` mengacu `RISK_TEXT_VERSION` di
+     * `src/lib/teksRisikoPendanaan.ts`), waktu, dan peran saat menyetujui.
+     * Sengaja BUKAN `localStorage`: persetujuan harus tetap terbaca walau
+     * pembaca berganti perangkat, dan tidak bisa hilang karena peramban
+     * dibersihkan.
+     *
+     * Baris lama tidak pernah ditimpa atau dihapus. Bila kalimat risikonya
+     * berubah, `RISK_TEXT_VERSION` naik, pendana diminta menyetujui versi baru,
+     * dan riwayat versi sebelumnya tetap tersimpan sebagai jejak versi mana yang
+     * pernah disetujui siapa dan kapan.
+     */
+    persetujuanRisikoPendana: defineTable({
+      userId: v.id("users"),
+      /** Versi teks risiko yang disetujui (`RISK_TEXT_VERSION` saat itu). */
+      versiTeks: v.number(),
+      /** Peran akun saat menyetujui — hanya `dana` atau `pengamat`. */
+      peran: v.union(v.literal(ROLES.DANA), v.literal(ROLES.PENGAMAT)),
+      /** Kalimat persetujuan yang dibaca, disalin apa adanya saat menyetujui. */
+      pernyataan: v.string(),
+      disetujuiPada: v.number(),
+    }).index("by_user", ["userId"]),
+
+    /**
      * Status lokasi TERKINI per pengguna — dasar gerbang "lokasi wajib aktif".
      * Setiap aksi finansial (pengajuan, cicilan, pelunasan) hanya dilayani
      * bila titik terakhir masih segar, sehingga perangkat yang mematikan GPS

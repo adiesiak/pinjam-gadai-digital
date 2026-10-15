@@ -1,5 +1,6 @@
 import { useMutation, useQuery } from "convex/react";
 import {
+  ArrowLeftRight,
   BadgeCheck,
   Coins,
   Eye,
@@ -55,6 +56,8 @@ import { PetaLokasiPeminjam } from "@/components/penyediaDana/PetaLokasiPeminjam
 import { RingkasanKeuntungan } from "@/components/penyediaDana/RingkasanKeuntungan";
 import { SaringanPengajuan } from "@/components/penyediaDana/SaringanPengajuan";
 import { TabelPendana } from "@/components/penyediaDana/TabelPendana";
+import { LaporanTransferPendana } from "@/components/penyediaDana/LaporanTransferPendana";
+import { PersetujuanRisikoPendana } from "@/components/penyediaDana/PersetujuanRisikoPendana";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -1813,6 +1816,44 @@ function IsiRuang() {
     api.penyediaDana.titikPeminjam,
     user === undefined || !bolehLihat || tab !== "lokasi" ? ("skip" as const) : {},
   );
+  // Riwayat catatan transfer hanya dibaca saat tabnya dibuka — sama alasannya
+  // dengan titik lokasi: pembacaan tabel besar tidak ikut berjalan untuk
+  // pengunjung yang hanya melihat daftar pengajuan.
+  const laporanTransfer = useQuery(
+    api.penyediaDana.laporanTransferPendana,
+    user === undefined || !bolehLihat || tab !== "transfer" ? ("skip" as const) : {},
+  );
+  // Persetujuan risiko milik AKUN, bukan peramban: statusnya dibaca dari server
+  // supaya tetap terbaca saat pendana berganti perangkat.
+  const persetujuan = useQuery(
+    api.persetujuanRisiko.statusPersetujuanRisiko,
+    user === undefined || !bolehLihat ? ("skip" as const) : {},
+  );
+  const catatPersetujuan = useMutation(api.persetujuanRisiko.catatPersetujuanRisiko);
+  const [menyimpanSetuju, setMenyimpanSetuju] = useState(false);
+  const [galatSetuju, setGalatSetuju] = useState<string | null>(null);
+
+  /**
+   * Kirim persetujuan risiko atas VERSI teks yang sedang tampil.
+   *
+   * Versi ikut dikirim supaya server dapat menolak halaman yang sudah usang:
+   * yang disetujui harus kalimat yang benar-benar dibaca pendana, bukan kalimat
+   * lain yang kebetulan versinya lebih baru.
+   */
+  async function setujuiRisiko(versiTeks: number) {
+    setMenyimpanSetuju(true);
+    setGalatSetuju(null);
+    try {
+      await catatPersetujuan({ versiTeks });
+      toast.success("Persetujuan risiko tercatat atas nama akun Anda.");
+    } catch (err) {
+      setGalatSetuju(
+        err instanceof Error ? err.message : "Persetujuan gagal dicatat. Coba lagi.",
+      );
+    } finally {
+      setMenyimpanSetuju(false);
+    }
+  }
 
   // Pinjaman dipisah supaya ruang kerja pendana jelas: pengajuan baru yang
   // BELUM didanai, posisi yang SUDAH didanai (berjalan), riwayat lunas, dan
@@ -2200,6 +2241,23 @@ function IsiRuang() {
 
             <PanelRisikoPendanaan />
 
+            {/*
+             * Persetujuan risiko tepat sesudah panel risikonya, dan sebelum
+             * angka keuntungan mana pun: pertanyaan "sudahkah saya menyetujui
+             * ini?" dijawab setelah risikonya terbaca, bukan setelah angkanya
+             * ditafsirkan. Kartu ini tidak tampil selama status belum tiba.
+             */}
+            {persetujuan !== undefined && (
+              <PersetujuanRisikoPendana
+                status={persetujuan}
+                peran={persetujuan.peran}
+                bolehSetuju={persetujuan.bolehSetuju}
+                menyimpan={menyimpanSetuju}
+                galat={galatSetuju}
+                onSetuju={setujuiRisiko}
+              />
+            )}
+
             {/* Pengingat jatuh tempo pribadi pendana — sesudah keadaan dana dan
                 risikonya, tetapi sebelum aturan hitung dan angka keuntungan,
                 karena waktu yang mendesak harus terbaca lebih dahulu. Tidak
@@ -2331,12 +2389,26 @@ function IsiRuang() {
                     </span>
                   )}
                 </TabsTrigger>
+                {/* Lencana tab ini menghitung catatan yang MASIH MENUNGGU
+                    dicatat admin — satu angka yang benar-benar perlu dilihat
+                    pendana, bukan jumlah seluruh riwayat. */}
+                <TabsTrigger
+                  value="transfer"
+                  className="group h-9 flex-none gap-2 rounded-xl px-3 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-100 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm"
+                >
+                  <ArrowLeftRight className="size-3.5" /> Transfer
+                  {laporanTransfer !== undefined && (
+                    <span className="rounded-full bg-slate-100 px-1.5 text-xs font-semibold tabular-nums text-slate-500 group-data-[state=active]:bg-white/15 group-data-[state=active]:text-white">
+                      {laporanTransfer.ringkasan.jumlahBelumDicatat}
+                    </span>
+                  )}
+                </TabsTrigger>
               </TabsList>
 
               {/* Saringan di atas tabel data pinjaman — nama peminjam dan
                   pendana. Disembunyikan di tab peta: daftarnya bukan
                   pengajuan, dan tab gadai tidak punya kolom pendana. */}
-              {tab !== "lokasi" && (
+              {tab !== "lokasi" && tab !== "transfer" && (
                 <SaringanPengajuan
                   cari={filter.cari}
                   onCari={(nilai) => setFilter((lama) => ({ ...lama, cari: nilai }))}
@@ -2658,6 +2730,24 @@ function IsiRuang() {
                     </div>
                     <CatatanTerpotong terpotong={data.terpotong.kredit} batas={data.batas} />
                   </>
+                )}
+              </TabsContent>
+
+              {/* ===== Transfer keuntungan: riwayat catatan + rekonsiliasi ===== */}
+              <TabsContent value="transfer" className="mt-4">
+                {laporanTransfer === undefined ? (
+                  <p className="flex items-center justify-center gap-2 py-24 text-sm text-muted-foreground">
+                    <MemuatBaris teks="Memuat catatan transfer…" />
+                  </p>
+                ) : (
+                  <LaporanTransferPendana
+                    rows={laporanTransfer.rows}
+                    belum={laporanTransfer.belum}
+                    ringkasan={laporanTransfer.ringkasan}
+                    idSaya={laporanTransfer.idSaya}
+                    namaTampil={tampilNama}
+                    terpotong={laporanTransfer.terpotong}
+                  />
                 )}
               </TabsContent>
 

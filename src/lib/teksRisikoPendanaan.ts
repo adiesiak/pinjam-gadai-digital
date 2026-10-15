@@ -97,6 +97,17 @@ export const POIN_RISIKO_PENDANAAN: readonly PoinRisiko[] = [
   },
 ];
 
+/**
+ * Kalimat yang harus dicentang pendana sebelum persetujuannya dicatat.
+ *
+ * Disalin apa adanya ke catatan server saat disetujui, supaya yang tersimpan
+ * bukan sekadar nomor versi: kalimat yang dibaca benar-benar ikut tercatat.
+ * Kalimatnya ikut berubah bila `RISK_TEXT_VERSION` naik — perubahan bunyi
+ * persetujuan selalu berarti versi baru.
+ */
+export const PERNYATAAN_PERSETUJUAN =
+  "Saya sudah membaca seluruh poin risiko di atas. Saya paham dana pendanaan tidak dijamin, keuntungannya tidak pasti, dan pokok dana dapat berkurang atau tidak kembali sama sekali jika peminjam terlambat atau gagal membayar. Saya mendanai dengan dana yang siap saya tanggung risikonya.";
+
 /** Catatan kaki singkat yang diletakkan dekat angka keuntungan. */
 export const CATATAN_INTERNAL_SINGKAT =
   "Angka ini catatan internal PINDAI, bukan bukti transaksi. Pokok dan keuntungan dapat tidak kembali jika terjadi gagal bayar.";
