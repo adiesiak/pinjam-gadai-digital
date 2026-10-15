@@ -43,6 +43,15 @@ import { CatatanPotonganAdmin } from "@/components/penyediaDana/CatatanPotonganA
 import { ChipSkorRisiko } from "@/components/penyediaDana/ChipSkorRisiko";
 import { IstilahBantuan } from "@/components/penyediaDana/IstilahBantuan";
 import { DanaTersalurkanPendana } from "@/components/penyediaDana/DanaTersalurkanPendana";
+import {
+  KesehatanPortofolio,
+  type AngkaKesehatanPortofolio,
+} from "@/components/penyediaDana/KesehatanPortofolio";
+import {
+  BannerRisikoPendanaan,
+  PanelRisikoPendanaan,
+} from "@/components/penyediaDana/RisikoPendanaan";
+import { ANCHOR_RISIKO_PENDANAAN, CATATAN_INTERNAL_SINGKAT } from "@/lib/teksRisikoPendanaan";
 import { GrafikKeuntunganPendana } from "@/components/penyediaDana/GrafikKeuntunganPendana";
 import { KartuPendana, type RincianPerkiraan } from "@/components/penyediaDana/KartuPendana";
 import { PetaLokasiPeminjam } from "@/components/penyediaDana/PetaLokasiPeminjam";
@@ -97,7 +106,7 @@ import type {
 import { useAuth } from "@/hooks/use-auth";
 import { quoteKreditBarang } from "@/lib/kredit";
 import { BULAN_MS, quotePinjaman, simulasiBulananPinjaman } from "@/lib/loan";
-import { ringkasJatuhTempo } from "@/lib/jatuhTempo";
+import { batasPelunasan, ringkasJatuhTempo } from "@/lib/jatuhTempo";
 import type { RingkasKepercayaan } from "@/lib/kepercayaanPeminjam";
 import { formatRupiahAman } from "@/lib/money";
 import {
@@ -311,30 +320,65 @@ function BadgePseudonim({ kode }: { kode: string | null }) {
  * dalam kartu, bukan `border-l`, karena tepi `.glass-card` sudah punya warna
  * tepi sendiri.
  */
+/**
+ * Satu warna untuk satu makna, di keempat kartu angka atas.
+ *
+ * Sebelumnya semua kartu memakai garis emerald yang sama, sehingga "dana
+ * tersalurkan", "masih berjalan", "sudah dibukukan", dan "masih perkiraan"
+ * terbaca sebagai empat angka setara padahal maknanya berbeda. Sekarang:
+ * dibukukan = hijau tua penuh, perkiraan = pucat bergaris (bukan oranye yang
+ * terbaca seperti peringatan), tersalurkan = navy, berjalan = hijau separuh.
+ */
+const AKSEN_RINGKASAN = {
+  tersalurkan: { garis: "bg-navy", judul: "text-navy", kotak: "bg-navy/5" },
+  berjalan: { garis: "bg-emerald-700/50", judul: "text-emerald-800", kotak: "bg-emerald-50/40" },
+  dibukukan: { garis: "bg-emerald-700", judul: "text-emerald-800", kotak: "bg-emerald-50/70" },
+  perkiraan: {
+    garis: "bg-[repeating-linear-gradient(135deg,var(--color-slate-400)_0_4px,transparent_4px_8px)]",
+    judul: "text-slate-600",
+    kotak: "bg-slate-50",
+  },
+} as const;
+
 function KartuRingkasan({
   label,
   nilai,
   detail,
   icon,
+  aksen = "dibukukan",
+  catatanRisiko,
 }: {
   label: string;
   nilai: string;
   detail: string;
   icon: React.ReactNode;
+  /** Warna garis dan label: satu warna untuk satu makna. */
+  aksen?: keyof typeof AKSEN_RINGKASAN;
+  /** Catatan mikro risiko tepat di bawah angkanya. */
+  catatanRisiko?: string;
 }) {
+  const gaya = AKSEN_RINGKASAN[aksen];
   return (
-    <div className="glass-card micro-metric relative min-w-0 overflow-hidden rounded-2xl border p-4 shadow-sm">
-      <span aria-hidden className="absolute inset-y-0 left-0 w-1 bg-emerald-700" />
+    <div
+      className={`glass-card micro-metric relative min-w-0 overflow-hidden rounded-2xl border p-4 shadow-sm ${gaya.kotak}`}
+    >
+      <span aria-hidden className={`absolute inset-y-0 left-0 w-1 ${gaya.garis}`} />
       <div className="flex items-center gap-2">
-        <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700">
+        <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-white/80 text-emerald-700">
           {icon}
         </span>
-        <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-emerald-700">
+        <p className={`text-[10px] font-semibold uppercase tracking-[0.16em] ${gaya.judul}`}>
           {label}
         </p>
       </div>
       <p className="mt-2.5 text-2xl font-semibold tabular-nums leading-tight text-navy">{nilai}</p>
       <p className="mt-1 text-xs leading-5 text-muted-foreground">{detail}</p>
+      {catatanRisiko !== undefined && (
+        <p className="mt-1.5 flex items-start gap-1 text-[11px] leading-5 text-amber-900">
+          <TriangleAlert className="mt-0.5 size-3 shrink-0" aria-hidden />
+          <span>{catatanRisiko}</span>
+        </p>
+      )}
     </div>
   );
 }
@@ -1897,6 +1941,63 @@ function IsiRuang() {
           })
       : [];
 
+  /**
+   * Angka kesehatan portofolio, dihitung dari baris yang SAMA dengan tabel di
+   * bawah (bukan dari angka tersimpan): batas jatuh tempo memakai
+   * `batasPelunasan` — modul yang juga mengisi kolom "Jatuh tempo" — sehingga
+   * cacahan di sini tidak mungkin berbeda dari tabelnya.
+   *
+   * Tujuh hari ditulis sebagai konstanta hari, bukan angka ajaib: satuannya
+   * "hari" dan itu satuannya di seluruh halaman.
+   */
+  const barisBerjalan = (data?.pinjaman ?? []).filter((b) => b.status === "didanai");
+  const tujuhHariMs = 7 * 24 * 60 * 60 * 1000;
+  const kesehatan: AngkaKesehatanPortofolio = {
+    jatuhTempoSegera: {
+      jumlah: barisBerjalan.filter((b) => {
+        const batas = batasPelunasan(b);
+        return batas !== null && batas >= sekarang && batas <= sekarang + tujuhHariMs;
+      }).length,
+      nominal: barisBerjalan
+        .filter((b) => {
+          const batas = batasPelunasan(b);
+          return batas !== null && batas >= sekarang && batas <= sekarang + tujuhHariMs;
+        })
+        .reduce((total, b) => total + b.pokokPinjaman, 0),
+    },
+    terlambat: {
+      jumlah: barisBerjalan.filter((b) => {
+        const batas = batasPelunasan(b);
+        return batas !== null && batas < sekarang;
+      }).length,
+      nominal: barisBerjalan
+        .filter((b) => {
+          const batas = batasPelunasan(b);
+          return batas !== null && batas < sekarang;
+        })
+        .reduce((total, b) => total + b.pokokPinjaman, 0),
+    },
+    persenTerlambat: 0,
+    belumTerhubung: {
+      jumlah: barisBerjalan.filter((b) => b.pendana === null).length,
+      nominal: barisBerjalan
+        .filter((b) => b.pendana === null)
+        .reduce((total, b) => total + b.pokokPinjaman, 0),
+    },
+  };
+  // Rasio dihitung dari pokok yang berjalan, bukan jumlah baris: satu pinjaman
+  // besar yang terlambat tidak boleh terbaca seperti masalah kecil.
+  const pokokBerjalan = barisBerjalan.reduce((total, b) => total + b.pokokPinjaman, 0);
+  kesehatan.persenTerlambat =
+    pokokBerjalan > 0 ? (kesehatan.terlambat.nominal / pokokBerjalan) * 100 : 0;
+
+  /** Total posisi dana dari rekap pendana — angka yang sudah dihitung server. */
+  const rekapPendana = data?.rekapPendana ?? [];
+  const angkaPortofolio = {
+    danaTersalurkan: rekapPendana.reduce((total, r) => total + r.totalDisalurkan, 0),
+    saldoBerjalan: rekapPendana.reduce((total, r) => total + r.saldoBerjalan, 0),
+  };
+
   return (
     <div className="bg-ambient-glass flex min-h-screen flex-col overflow-x-clip text-slate-900">
       {/*
@@ -1948,7 +2049,10 @@ function IsiRuang() {
              * tidak ada tempat pertama yang benar-benar menangkap mata dan
              * keterangan panjang mendorong tabel jauh ke bawah layar.
              */}
-            <section className="animate-masuk relative overflow-hidden rounded-3xl border border-slate-200 bg-gradient-to-br from-white via-emerald-50/50 to-white px-5 py-6 shadow-sm backdrop-blur-md sm:px-8 sm:py-8">
+            <section
+              id="ringkasan"
+              className="animate-masuk relative scroll-mt-20 overflow-hidden rounded-3xl border border-slate-200 bg-gradient-to-br from-white via-emerald-50/50 to-white px-5 py-6 shadow-sm backdrop-blur-md sm:px-8 sm:py-8"
+            >
               {/* Satu garis hijau PINDAI di puncak panel — penanda identitas,
                   bukan gradasi pelangi. */}
               <span aria-hidden className="absolute inset-x-0 top-0 h-1 bg-emerald-700/80" />
@@ -1956,10 +2060,8 @@ function IsiRuang() {
                 Ruang pendana
               </p>
               <div className="mt-3 flex flex-wrap items-center gap-2">
-                <span className="inline-flex items-center gap-1.5 rounded-md border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-emerald-800">
-                  <Eye className="size-3" aria-hidden />{" "}
-                  {role === "admin" ? "Akses Super Admin · dapat mengoreksi" : "Akses lihat saja"}
-                </span>
+                {/* Badge peran hanya sekali, di bilah atas: mengulanginya di sini
+                    membuat dua label yang sama bersaing di layar sempit. */}
                 <span className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.14em] text-slate-600">
                   {bolehBerkas
                     ? "Berkas & lokasi terakhir ditampilkan"
@@ -1972,12 +2074,36 @@ function IsiRuang() {
                 )}
               </div>
               <h1 className="mt-4 text-3xl font-semibold tracking-tight text-navy sm:text-4xl">
-                Pengajuan Peminjam
+                Ringkasan Pendanaan
               </h1>
               <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-600">
-                Satu layar untuk memantau pengajuan dan posisi dana — pinjaman tunai, gadai, dan
-                kredit barang — beserta siapa pendananya.
+                Halaman ini memantau posisi dana pendana: berapa yang sudah tersalurkan, berapa
+                yang masih berjalan, dan berapa keuntungan yang sudah dibukukan maupun yang masih
+                perkiraan.
               </p>
+
+              {/* Peringatan risiko duduk tepat di bawah judul: pembaca harus tahu
+                  risikonya sebelum membaca angka keuntungan di bawahnya. */}
+              <BannerRisikoPendanaan />
+
+              {/* Navigasi jangkar: halaman ini panjang, dan empat bagian besarnya
+                  sekarang punya nama yang bisa dituju langsung. */}
+              <nav aria-label="Bagian halaman" className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5">
+                {[
+                  { id: "ringkasan", teks: "Ringkasan" },
+                  { id: ANCHOR_RISIKO_PENDANAAN, teks: "Risiko" },
+                  { id: "pendana", teks: "Pendana" },
+                  { id: "daftar-pengajuan", teks: "Daftar pinjaman" },
+                ].map((bagian) => (
+                  <a
+                    key={bagian.id}
+                    href={`#${bagian.id}`}
+                    className="text-xs font-medium text-emerald-800 underline decoration-emerald-300 underline-offset-4 hover:text-emerald-900"
+                  >
+                    {bagian.teks}
+                  </a>
+                ))}
+              </nav>
 
               {/* Keterangan panjang dipindah ke lipatan: tetap bisa dibaca siapa
                   pun yang membutuhkannya, tetapi tidak lagi menjadi dinding teks
@@ -2006,38 +2132,78 @@ function IsiRuang() {
               {/* Angka pokok ruang ini diletakkan di dalam panel judul supaya
                   tidak perlu digulir, dan dipisah garis rambut tipis agar tetap
                   terbaca sebagai empat angka yang setara. */}
-              <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              {/* Empat angka pokok pendana. Dua yang pertama adalah posisi dana,
+                  dua berikutnya adalah hasil: satu sudah dibukukan, satu masih
+                  perkiraan. Warnanya memisahkan dua makna terakhir itu. */}
+              <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                 <KartuRingkasan
-                  label="Pinjaman tunai"
-                  nilai={rupiah(data.ringkasan.nilaiPinjaman)}
-                  detail={`${data.ringkasan.jumlahPinjaman} pengajuan · pokok tercatat, semua status`}
+                  label="Dana tersalurkan"
+                  nilai={rupiah(angkaPortofolio.danaTersalurkan)}
+                  detail="pokok pinjaman berjalan + lunas, semua pendana"
+                  icon={<HandCoins className="size-4" />}
+                  aksen="tersalurkan"
+                />
+                <KartuRingkasan
+                  label="Masih berjalan"
+                  nilai={rupiah(angkaPortofolio.saldoBerjalan)}
+                  detail="pokok yang belum kembali dari peminjam"
                   icon={<Wallet className="size-4" />}
+                  aksen="berjalan"
+                  catatanRisiko="Dana ini belum kembali dan dapat terlambat atau tidak kembali."
                 />
                 <KartuRingkasan
-                  label="Gadai barang"
-                  nilai={rupiah(data.ringkasan.nilaiGadai)}
-                  detail={`${data.ringkasan.jumlahGadai} pengajuan · nilai taksiran tercatat`}
-                  icon={<Package className="size-4" />}
+                  label="Keuntungan dibukukan"
+                  nilai={rupiah(data.ringkasan.totalKeuntunganPendanaLunas)}
+                  detail="dari pinjaman lunas, sudah final"
+                  icon={<BadgeCheck className="size-4" />}
+                  aksen="dibukukan"
                 />
                 <KartuRingkasan
-                  label="Kredit barang"
-                  nilai={rupiah(data.ringkasan.nilaiKredit)}
-                  detail={`${data.ringkasan.jumlahKredit} pengajuan · harga barang`}
-                  icon={<ShoppingBag className="size-4" />}
-                />
-                <KartuRingkasan
-                  label="Menunggu review"
-                  nilai={String(data.ringkasan.menungguReview)}
-                  detail="status Ditinjau"
-                  icon={<Timer className="size-4" />}
+                  label="Estimasi keuntungan (perkiraan)"
+                  nilai={rupiah(data.ringkasan.totalKeuntunganPendanaBelumLunas)}
+                  detail="hitungan atas pinjaman yang masih berjalan"
+                  icon={<Coins className="size-4" />}
+                  aksen="perkiraan"
+                  catatanRisiko="Estimasi, bukan jaminan. Hanya terwujud jika pinjaman lunas."
                 />
               </div>
+
+              {/* Baris kecil: angka semua status dan dua produk tanpa pengajuan.
+                  Nominalnya digabung dari semua status (ditinjau, ditolak, lunas),
+                  jadi labelnya menyebut itu apa adanya, bukan "pinjaman tunai". */}
+              <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] leading-5 text-muted-foreground">
+                <span>
+                  Total nominal semua pengajuan:{" "}
+                  <strong className="font-semibold tabular-nums text-navy">
+                    {rupiah(data.ringkasan.nilaiPinjaman)}
+                  </strong>{" "}
+                  ({data.ringkasan.jumlahPinjaman} pengajuan, semua status termasuk ditolak)
+                </span>
+                <span>
+                  {data.ringkasan.jumlahGadai === 0 && data.ringkasan.jumlahKredit === 0
+                    ? "Produk lain: belum ada pengajuan"
+                    : `Produk lain: gadai ${data.ringkasan.jumlahGadai} · kredit barang ${data.ringkasan.jumlahKredit}`}
+                </span>
+                <span>{data.ringkasan.menungguReview} pengajuan menunggu review</span>
+              </div>
+
+              {/* Catatan mikro dekat angka: dipindahkan dari kaki halaman supaya
+                  terbaca bersama angkanya, bukan setelah menggulir jauh. */}
+              <p className="mt-2 max-w-3xl text-[11px] leading-5 text-muted-foreground">
+                {CATATAN_INTERNAL_SINGKAT}
+              </p>
             </section>
 
             {/* Pengingat jatuh tempo pribadi pendana — sebelum penjelasan
                 kebijakan dan angka keuntungan, karena waktu yang mendesak harus
                 terbaca lebih dahulu. Tidak tampil saat tidak ada pinjaman
                 berjalan atas nama pembaca. */}
+            {/* Kesehatan portofolio dulu, lalu penjelasan risikonya: keadaan dana
+                sebelum aturan mainnya. */}
+            <KesehatanPortofolio angka={kesehatan} />
+
+            <PanelRisikoPendanaan />
+
             <PengingatJatuhTempoPendana rows={jatuhTempoSaya} sekarang={sekarang} />
 
             <CatatanPotonganAdmin persen={data.ringkasan.persenPotonganAdmin} />
@@ -2050,7 +2216,10 @@ function IsiRuang() {
             {data.rekapPendana.length > 0 && (
               <section className="animate-masuk mt-6">
                 <div className="flex flex-wrap items-baseline justify-between gap-2 border-b border-slate-200 pb-3">
-                  <h2 className="flex items-center gap-2 text-lg font-semibold tracking-tight text-navy">
+                  <h2
+                    id="pendana"
+                    className="flex scroll-mt-24 items-center gap-2 text-lg font-semibold tracking-tight text-navy"
+                  >
                     <Coins className="size-4 text-primary" aria-hidden /> Rekap Dana Pendana
                   </h2>
                   <p className="max-w-md text-xs leading-5 text-muted-foreground">
