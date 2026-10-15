@@ -55,7 +55,6 @@ import { cn } from "@/lib/utils";
 import { RingkasanAnalitik } from "@/components/admin/RingkasanAnalitik";
 import {
   hitungMenunggu,
-  jumlahPerhatianLokasi,
   NILAI_MODUL_ADMIN,
   ringkasGrup,
   type BobotGrup,

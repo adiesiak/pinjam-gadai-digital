@@ -92,10 +92,10 @@ export function BingkaiBukti({
   const [ulangan, setUlangan] = useState(0);
   const rasio = rasioBukti(bukti);
 
-  // Berkas baru (atau percobaan ulang) selalu mulai dari keadaan memuat.
-  useEffect(() => {
-    setKeadaan(bukti.url === null ? "kosong" : "memuat");
-  }, [bukti.url, ulangan]);
+  // Berkas baru selalu mulai dari keadaan memuat — dan itu terjadi dengan
+  // sendirinya karena pemanggil memberi `key` yang memuat URL-nya, sehingga
+  // bingkai ini dipasang ulang saat URL berganti. Tidak perlu efek penyetel
+  // keadaan yang hanya menambah render bergantian.
 
   // Tanpa batas waktu, berkas yang tidak pernah selesai akan berputar selamanya.
   useEffect(() => {
@@ -242,6 +242,10 @@ export function IsiPenampilBukti({
   const [rotasi, setRotasi] = useState(0);
   const [geser, setGeser] = useState<Penunjuk>({ x: 0, y: 0 });
   const [siap, setSiap] = useState(false);
+  // Penampil mengikuti batas waktu yang sama dengan bingkai: berkas yang tidak
+  // selesai dimuat dalam 10 detik dinyatakan gagal, bukan diputar selamanya.
+  const [gagal, setGagal] = useState(false);
+  const [ulangan, setUlangan] = useState(0);
   const penunjuk = useRef(new Map<number, Penunjuk>());
   const jarakAwal = useRef<{ jarak: number; zoom: number } | null>(null);
   const wadah = useRef<HTMLDivElement | null>(null);
@@ -260,9 +264,20 @@ export function IsiPenampilBukti({
       onPindah((indeks + selisih + daftar.length) % daftar.length);
       aturUlang();
       setSiap(false);
+      setGagal(false);
+      setUlangan((n) => n + 1);
     },
     [daftar.length, indeks, onPindah, aturUlang],
   );
+
+  // Berkas yang ditampilkan berganti (atau dicoba ulang) selalu mulai dari
+  // keadaan memuat; perpindahan berkas menaikkan `ulangan`, dan `key` pada
+  // elemen gambar memaksa peramban memuatnya sekali lagi.
+  useEffect(() => {
+    if (siap || gagal) return;
+    const jeda = window.setTimeout(() => setGagal(true), BATAS_MUAT_BUKTI_MS);
+    return () => window.clearTimeout(jeda);
+  }, [siap, gagal, ulangan]);
 
   // Roda tetikus dipasang NON-pasif: menggulir di dalam penampil tidak boleh
   // ikut menggulir halaman di belakangnya.
@@ -409,18 +424,42 @@ export function IsiPenampilBukti({
         onPointerCancel={lepasSeret}
         className="relative flex min-h-[55dvh] flex-1 touch-none items-center justify-center overflow-hidden rounded-xl border border-slate-700 bg-slate-900"
       >
-        {!siap && (
+        {!siap && !gagal && (
           <span className="absolute inset-0 flex items-center justify-center gap-2 text-[11px] text-white">
             <Loader2 className="size-4 animate-spin" aria-hidden />
             Memuat berkas…
           </span>
         )}
+        {gagal && (
+          <div role="alert" className="absolute inset-0 flex flex-col items-center justify-center gap-2 px-4 text-center">
+            <AlertTriangle className="size-4 shrink-0 text-amber-300" aria-hidden />
+            <p className="text-[11px] leading-4 text-white">
+              Berkas tidak selesai dimuat dalam {BATAS_MUAT_BUKTI_MS / 1000} detik. Periksa koneksi
+              lalu coba lagi.
+            </p>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="border-white/40 bg-transparent text-white hover:bg-white/10"
+              onClick={() => {
+                setSiap(false);
+                setGagal(false);
+                setUlangan((n) => n + 1);
+              }}
+            >
+              <RefreshCw className="size-3.5" aria-hidden />
+              Coba lagi
+            </Button>
+          </div>
+        )}
         <img
+          key={ulangan}
           src={bukti.url ?? ""}
           alt={bukti.label}
           draggable={false}
           onLoad={() => setSiap(true)}
-          onError={() => setSiap(true)}
+          onError={() => setGagal(true)}
           style={{
             transform: `translate(${geser.x}px, ${geser.y}px) scale(${zoom}) rotate(${rotasi}deg)`,
           }}

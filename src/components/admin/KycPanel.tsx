@@ -157,13 +157,14 @@ function ukuranBerkas(byte: number | null): string {
 }
 
 /**
- * Lebar kolom daftar antrean (px).
+ * Lebar kolom daftar antrean (px) di layar lebar.
  *
  * Daftar ini alat bantu memilih, bukan isi pekerjaannya: yang diperiksa adalah
- * bukti di kolom detail. Karena itu lebarnya tetap 320px (bukan bagian dari grid
- * proporsional) supaya kolom detail selalu mengambil sisa lebar layar.
+ * bukti di kolom detail. Karena itu lebarnya tetap (bukan bagian dari grid
+ * proporsional) supaya kolom detail selalu mengambil sisa lebar layar, dan
+ * petugas bisa melipatnya sama sekali lewat tombol di baris atas.
  */
-const LEBAR_DAFTAR_KYC = 320;
+export const LEBAR_DAFTAR_KYC = 320;
 
 /** Ambang layar untuk mengubah daftar antrean menjadi laci yang bisa dibuka. */
 const KUERI_LAYAR_SEMPIT_KYC = "(max-width: 1279px)";
@@ -239,6 +240,11 @@ function Tanda({ nada, children }: { nada: "amber" | "merah" | "hijau" | "abu"; 
  * saringan hasil mesin memang dipilih. Kalau `keputusanOtomatis` null, lencana
  * mesin tidak ditampilkan sama sekali — bukan ditampilkan sebagai "belum ada
  * keputusan", karena yang tidak dibaca tidak boleh diklaim.
+ *
+ * Catatan soal warna: hijau hanya dipakai untuk hal yang benar-benar sudah
+ * diperiksa — status Terverifikasi, atau keputusan mesin yang diterapkan.
+ * Kuning/amber tetap milik status yang MENUNGGU, merah milik masalah. Karena itu
+ * baris 3 tidak menandai "berkas lengkap" (lihat komentarnya di bawah).
  */
 export function BarisKyc({
   item,
@@ -291,10 +297,16 @@ export function BarisKyc({
           yang menghalangi keputusan, hijau = pemeriksaan dasar sudah beres.
           Kuning/amber disimpan untuk status "menunggu" (lencana status di atas). */}
       <div className="flex flex-wrap items-center gap-1.5">
-        <Tanda nada={berkasKurang ? "merah" : "hijau"}>
-          <FileWarning className="size-3.5 shrink-0" aria-hidden />
-          {berkasKurang ? `${item.kekurangan.length} berkas/isi kurang` : "berkas lengkap"}
-        </Tanda>
+        {/* Hanya MASALAH yang diberi lencana. "Berkas lengkap" bukan hasil
+            pemeriksaan petugas — ia cuma berarti belum ada isian yang kurang —
+            jadi menandainya hijau akan menyamar sebagai berkas yang sudah
+            ditinjau. Hijau disimpan untuk status Terverifikasi di baris 1. */}
+        {berkasKurang && (
+          <Tanda nada="merah">
+            <FileWarning className="size-3.5 shrink-0" aria-hidden />
+            {`${item.kekurangan.length} berkas/isi kurang`}
+          </Tanda>
+        )}
         {!item.nomorWhatsAppTerbukti && (
           <Tanda nada="merah">
             <ShieldAlert className="size-3.5 shrink-0" aria-hidden /> WhatsApp belum OTP
@@ -992,13 +1004,25 @@ function KycDokumenRingkas({ detail }: { detail: DetailKycTampil }) {
         </TooltipProvider>
       </div>
 
+      {/* Area bukti diberi tinggi minimum 60% viewport dan minimal DUA kolom
+          foto (tiga berkas = 2 + 1). Satu berkas pun tetap satu kolom penuh:
+          memaksa dua kolom saat berkasnya tinggal satu hanya mengecilkan foto. */}
       {bandingkan && ktp !== undefined && selfie !== undefined ? (
         <BandingkanBukti kiri={ktp.bukti} kanan={selfie.bukti} />
       ) : (
-        <div className="grid min-h-[60dvh] grid-cols-2 content-start gap-3">
+        <div
+          className={cn(
+            "grid min-h-[60dvh] content-start gap-3",
+            slot.length > 1 ? "grid-cols-1 lg:grid-cols-2" : "grid-cols-1",
+          )}
+        >
           {slot.map(({ meta, bukti, url }) => (
             <div key={meta.slot} className="flex min-w-0 flex-col gap-1">
               <BingkaiBukti
+                // URL bertanda tangan bisa berganti saat pengajuan disegarkan;
+                // `key` memuat URL-nya membuat bingkai memulai pemuatan dari
+                // keadaan bersih, bukan menyisakan "sudah siap" dari URL lama.
+                key={url ?? "kosong"}
                 bukti={bukti}
                 onBuka={url === null ? undefined : () => buka(bukti.id)}
               />
@@ -1388,7 +1412,6 @@ export function KycPanel({ dipilihAwal = null }: { dipilihAwal?: Id<"users"> | n
 
   const tujuan = detail === null || detail === undefined ? [] : tujuanSah(detail.status, "admin");
   const statusSaatIni = detail === null || detail === undefined ? null : detail.status;
-  const catatanCukup = catatan.trim().length >= 3;
   const checklistSiap = checklistLengkap(checklist);
   const checklistKurangItem = checklistKurang(checklist);
   const cacah = daftar?.cacah ?? null;

@@ -17,6 +17,8 @@
  *  - riwayat menampilkan aktor dan alasan yang dibaca manusia;
  *  - tidak ada "undefined"/"NaN"/"[object Object]" di markup.
  */
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { renderToStaticMarkup } from "react-dom/server";
 
 import {
@@ -26,6 +28,7 @@ import {
   KycAuditRingkas,
   KycDetailRingkas,
   KycRiwayatRingkas,
+  LEBAR_DAFTAR_KYC,
   OcrKtpKyc,
   PINTASAN_KYC,
   lamaMenunggu,
@@ -34,6 +37,7 @@ import {
   type ItemKycTampil,
 } from "./KycPanel";
 import {
+  BATAS_MUAT_BUKTI_MS,
   BandingkanBukti,
   BingkaiBukti,
   CHECKLIST_KYC,
@@ -807,6 +811,78 @@ for (const status of KYC_STATUS) {
     kurang.includes("NIK terbaca jelas") && kurang.includes("Dokumen tidak buram/terpotong"),
     "item yang belum dicentang disebut namanya",
   );
+}
+
+// ===== 14a. Baris antrean: warna lencana mengikuti ARTINYA =====
+{
+  const menunggu = renderToStaticMarkup(
+    <BarisKyc item={item({ status: "PENDING_REVIEW" })} aktif={false} onPilih={() => {}} />,
+  );
+  ada(menunggu, "Menunggu peninjauan", "status menunggu memakai label bersama");
+  ok(
+    menunggu.includes("bg-amber-100"),
+    "status menunggu memakai kuning/amber — bukan hijau",
+  );
+  // "Berkas lengkap" bukan hasil pemeriksaan: tidak boleh jadi lencana hijau
+  // yang menyamar sebagai berkas yang sudah ditinjau.
+  ok(!menunggu.includes("berkas lengkap"), "berkas lengkap tidak diklaim hijau di daftar");
+  ada(menunggu, "menunggu ", "lama menunggu tampil di baris antrean");
+
+  const terverifikasi = renderToStaticMarkup(
+    <BarisKyc item={item({ status: "VERIFIED" })} aktif onPilih={() => {}} />,
+  );
+  ok(
+    terverifikasi.includes("bg-emerald-100"),
+    "status Terverifikasi memakai hijau, bukan kuning",
+  );
+  ok(!terverifikasi.includes("bg-amber-100"), "Terverifikasi tidak dicat kuning");
+
+  const masalah = renderToStaticMarkup(
+    <BarisKyc
+      item={item({
+        kekurangan: ["Bukti penghasilan"],
+        nomorWhatsAppTerbukti: false,
+      })}
+      aktif={false}
+      onPilih={() => {}}
+    />,
+  );
+  ada(masalah, "1 berkas/isi kurang", "kekurangan berkas disebut jumlahnya");
+  ada(masalah, "WhatsApp belum OTP", "masalah WhatsApp OTP ditandai dari daftar");
+  ok(masalah.includes("bg-red-50"), "tanda masalah memakai merah");
+
+  // Dua nasabah bernama sama dibedakan dari email + kode pengajuan, dan kode
+  // panjang tidak boleh pecah baris (dipotong di TENGAH).
+  const panjang = renderToStaticMarkup(
+    <BarisKyc
+      item={item({ kodePeminjam: "PGD-20261001-AB12-LONG", email: "rani@pindai.test" })}
+      aktif={false}
+      onPilih={() => {}}
+    />,
+  );
+  ada(panjang, "rani@pindai.test", "email tampil untuk membedakan nama yang sama");
+  ada(panjang, "whitespace-nowrap", "kode pengajuan tidak boleh pecah baris");
+  ada(panjang, "…", "kode panjang dipotong di tengah");
+  bersih(panjang, "baris antrean dengan kode panjang");
+}
+
+// ===== 14b. Kontrak tata letak ruang verifikasi (dibaca dari berkasnya) =====
+{
+  const panel = readFileSync(fileURLToPath(new URL("./KycPanel.tsx", import.meta.url)), "utf8");
+  const bukti = readFileSync(fileURLToPath(new URL("./BuktiKyc.tsx", import.meta.url)), "utf8");
+
+  ok(LEBAR_DAFTAR_KYC === 320, "lebar kolom daftar antrean 320px");
+  ada(panel, "xl:grid-cols-[320px_minmax(0,1fr)]", "daftar 320px dan detail mengambil sisa lebar");
+  ada(panel, "min-h-[60dvh]", "area bukti minimal 60% tinggi viewport");
+  ada(panel, "lg:grid-cols-2", "foto berkas minimal dua kolom di layar lebar");
+  ada(panel, "sticky bottom-0", "bar aksi menempel di bawah panel detail");
+  ada(panel, "KUERI_LAYAR_SEMPIT_KYC", "daftar antrean punya ambang laci untuk layar sempit");
+
+  // Tanpa batas waktu, berkas yang tidak selesai akan berputar selamanya.
+  ok(BATAS_MUAT_BUKTI_MS === 10_000, "batas tunggu berkas 10 detik");
+  const jumlahBatas = (bukti.match(/BATAS_MUAT_BUKTI_MS\)/g) ?? []).length;
+  ok(jumlahBatas >= 2, `batas tunggu dipakai di bingkai DAN penampil (ditemukan ${jumlahBatas})`);
+  ada(bukti, "Coba lagi", "berkas yang gagal bisa dicoba lagi");
 }
 
 // ===== 14. Kode pengajuan & lama menunggu =====
