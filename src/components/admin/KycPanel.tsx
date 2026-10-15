@@ -1,12 +1,20 @@
 import { useMutation, useQuery } from "convex/react";
 import { FunctionReturnType } from "convex/server";
 import {
-  CalendarDays,
+  Check,
   CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
+  Columns2,
+  Copy,
   FileText,
   FileWarning,
   History,
+  Keyboard,
+  ListFilter,
   Loader2,
+  PanelLeftClose,
+  PanelLeftOpen,
   ScanLine,
   ScrollText,
   Search,
@@ -14,11 +22,21 @@ import {
   ShieldCheck,
   X,
 } from "lucide-react";
-import { useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
+import {
+  BandingkanBukti,
+  BingkaiBukti,
+  CHECKLIST_KYC_KOSONG,
+  ChecklistVerifikasi,
+  checklistKurang,
+  checklistLengkap,
+  PenampilBukti,
+  type BuktiTampil,
+  type IdChecklistKyc,
+} from "@/components/admin/BuktiKyc";
 import { StatusKycBadge } from "@/components/StatusKycBadge";
-import { WatermarkedDoc } from "@/components/WatermarkedDoc";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -32,6 +50,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SkeletonBarisDaftar } from "@/components/ui/loading";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   Select,
   SelectContent,
@@ -39,7 +58,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import {
@@ -66,6 +87,7 @@ import {
   tujuanSah,
   type StatusKyc,
 } from "@/lib/kycStatus";
+import { useMediaQuery } from "@/hooks/use-media-query";
 import { cn } from "@/lib/utils";
 
 /**
@@ -134,6 +156,61 @@ function ukuranBerkas(byte: number | null): string {
   return `${Math.max(1, Math.round(byte / 1024))} KB`;
 }
 
+/**
+ * Lebar kolom daftar antrean (px).
+ *
+ * Daftar ini alat bantu memilih, bukan isi pekerjaannya: yang diperiksa adalah
+ * bukti di kolom detail. Karena itu lebarnya tetap 320px (bukan bagian dari grid
+ * proporsional) supaya kolom detail selalu mengambil sisa lebar layar.
+ */
+const LEBAR_DAFTAR_KYC = 320;
+
+/** Ambang layar untuk mengubah daftar antrean menjadi laci yang bisa dibuka. */
+const KUERI_LAYAR_SEMPIT_KYC = "(max-width: 1279px)";
+
+/** Nilai awal saringan status: "Perlu ditinjau" adalah antrean kerja sebenarnya. */
+const STATUS_AWAL_KYC: StatusKyc = "PENDING_REVIEW";
+
+/** Pintasan papan tombol di ruang verifikasi (hanya saat fokus tidak di isian). */
+export const PINTASAN_KYC = [
+  { tombol: "J", arti: "berikutnya" },
+  { tombol: "K", arti: "sebelumnya" },
+  { tombol: "A", arti: "setujui" },
+  { tombol: "R", arti: "minta perbaikan" },
+  { tombol: "X", arti: "tolak" },
+] as const;
+
+/**
+ * Potong di TENGAH, bukan di ujung.
+ *
+ * Kode pengajuan punya makna di dua ujungnya (awalan jenis + nomor urut, akhiran
+ * penanda hari), jadi memotong ekor akan menyembunyikan justru bagian yang
+ * membedakan dua pengajuan. Hasilnya selalu satu baris tanpa pecah kata.
+ */
+export function potongTengah(teks: string, maks: number): string {
+  if (teks.length <= maks) return teks;
+  const sisa = maks - 1;
+  const depan = Math.ceil(sisa / 2);
+  const belakang = sisa - depan;
+  return `${teks.slice(0, depan)}…${teks.slice(teks.length - belakang)}`;
+}
+
+/** Sudah berapa lama satu pengajuan menunggu tindakan. */
+export function lamaMenunggu(diajukanPada: number | null, sekarang: number): string {
+  if (diajukanPada === null) return "tanggal pengajuan tidak tercatat";
+  const menit = Math.floor(Math.max(0, sekarang - diajukanPada) / 60_000);
+  if (menit < 1) return "baru diajukan";
+  if (menit < 60) return `menunggu ${menit} menit`;
+  const jam = Math.floor(menit / 60);
+  if (jam < 24) return `menunggu ${jam} jam`;
+  return `menunggu ${Math.floor(jam / 24)} hari`;
+}
+
+/** Tanggal acuan urutan antrean: kapan diajukan, atau kapan terakhir diperbarui. */
+function acuanAntrean(item: ItemKycTampil): number {
+  return item.diajukanPada ?? item.diperbaruiPada;
+}
+
 /** Lencana kecil untuk hasil mesin / tanda pemeriksaan pada baris daftar. */
 function Tanda({ nada, children }: { nada: "amber" | "merah" | "hijau" | "abu"; children: React.ReactNode }) {
   const kelas = {
@@ -174,38 +251,52 @@ export function BarisKyc({
 }) {
   const mesin = item.keputusanOtomatis;
   const berkasKurang = item.kekurangan.length > 0;
+  const kode = item.kodePeminjam;
   return (
     <button
       type="button"
       onClick={() => onPilih(item.userId)}
       aria-pressed={aktif}
       className={cn(
-        "flex w-full flex-col gap-2 rounded-xl border px-3 py-2.5 text-left transition-colors",
+        "flex w-full flex-col gap-1.5 rounded-xl border px-2.5 py-2 text-left transition-colors",
         aktif
-          ? "border-emerald-600 bg-emerald-50/40"
+          ? "border-emerald-700 bg-emerald-50/60"
           : "border-slate-200 bg-white hover:bg-slate-50",
       )}
     >
+      {/* Baris 1: nama nasabah + status KYC-nya. */}
       <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0 flex-1">
-          <p className="break-words text-sm font-semibold text-navy">{item.nama}</p>
-          <p className="mt-0.5 break-words text-[11px] leading-4 text-muted-foreground">
-            {item.email ?? "tanpa email"} · {item.kodePeminjam ?? "tanpa kode nasabah"}
-          </p>
-          <p className="mt-0.5 text-[11px] text-muted-foreground">
-            diajukan {waktu(item.diajukanPada)}
-          </p>
-        </div>
+        <p className="min-w-0 flex-1 break-words text-[13px] font-semibold leading-5 text-navy">
+          {item.nama}
+        </p>
         <StatusKycBadge status={item.status} />
       </div>
 
+      {/* Baris 2: email + kode pengajuan. Dua nasabah bernama sama dibedakan
+          dari sini, dan kode panjang tidak pernah pecah baris. */}
+      <div className="flex items-center justify-between gap-2 text-[11px] leading-4">
+        <span className="min-w-0 truncate text-muted-foreground">
+          {item.email ?? "tanpa email"}
+        </span>
+        <span
+          className="shrink-0 whitespace-nowrap font-mono text-[10px] text-slate-600"
+          title={kode ?? "tanpa kode nasabah"}
+        >
+          {kode === null ? "tanpa kode nasabah" : potongTengah(kode, 18)}
+        </span>
+      </div>
+
+      {/* Baris 3: tanda masalah (atau berkas lengkap) + lama menunggu. */}
+      {/* Nada lencana mengikuti ARTINYA, bukan seleranya: merah = ada masalah
+          yang menghalangi keputusan, hijau = pemeriksaan dasar sudah beres.
+          Kuning/amber disimpan untuk status "menunggu" (lencana status di atas). */}
       <div className="flex flex-wrap items-center gap-1.5">
-        <Tanda nada={berkasKurang ? "amber" : "hijau"}>
+        <Tanda nada={berkasKurang ? "merah" : "hijau"}>
           <FileWarning className="size-3.5 shrink-0" aria-hidden />
           {berkasKurang ? `${item.kekurangan.length} berkas/isi kurang` : "berkas lengkap"}
         </Tanda>
         {!item.nomorWhatsAppTerbukti && (
-          <Tanda nada="amber">
+          <Tanda nada="merah">
             <ShieldAlert className="size-3.5 shrink-0" aria-hidden /> WhatsApp belum OTP
           </Tanda>
         )}
@@ -217,7 +308,7 @@ export function BarisKyc({
         {/* Putusan yang diambil dengan aturan lama harus kelihatan DARI DAFTAR —
             bukan hanya setelah membuka satu per satu. */}
         {item.aturanUsang && (
-          <Tanda nada="amber">
+          <Tanda nada="merah">
             <ShieldAlert className="size-3.5 shrink-0" aria-hidden /> aturan lama
           </Tanda>
         )}
@@ -227,8 +318,234 @@ export function BarisKyc({
             {mesin.diterapkan === true ? "" : " (tidak diterapkan)"}
           </Tanda>
         )}
+        <span className="ml-auto shrink-0 whitespace-nowrap text-[10px] tabular-nums text-slate-600">
+          {lamaMenunggu(item.diajukanPada, Date.now())}
+        </span>
       </div>
     </button>
+  );
+}
+
+/** Kendali saringan satu daftar antrean KYC (dipakai kolom tetap & laci). */
+type KendaliDaftarKyc = {
+  cari: string;
+  setCari: (nilai: string) => void;
+  status: StatusKyc | null;
+  setStatus: (nilai: StatusKyc | null) => void;
+  hasil: FilterHasilKyc;
+  setHasil: (nilai: FilterHasilKyc) => void;
+  dari: string;
+  setDari: (nilai: string) => void;
+  sampai: string;
+  setSampai: (nilai: string) => void;
+  kosongkan: () => void;
+};
+
+/**
+ * Isi daftar antrean: satu baris pencarian + status + tombol saringan lanjutan,
+ * lalu daftar pengajuan yang bergulir sendiri.
+ *
+ * Dipisah dari `KycPanel` karena markup yang sama dipakai dua tempat: kolom
+ * tetap di layar lebar dan laci di layar sempit. Yang berubah hanya pembungkusnya,
+ * jadi saringan tidak mungkin berbeda antara keduanya.
+ */
+function IsiDaftarKyc({
+  kendali,
+  daftar,
+  item,
+  filterRingkas,
+  dipilih,
+  onPilih,
+  idPrefix,
+}: {
+  kendali: KendaliDaftarKyc;
+  daftar: DaftarKyc | undefined;
+  /**
+   * Baris yang ditampilkan, SUDAH terurut oleh `KycPanel` (terlama dulu).
+   * Dikirim terpisah dari `daftar` supaya urutan tampilan dan urutan pintasan
+   * J/K tidak pernah berbeda.
+   */
+  item: readonly ItemKycTampil[];
+  filterRingkas: FilterKyc;
+  dipilih: Id<"users"> | null;
+  onPilih: (userId: Id<"users">) => void;
+  /** Awalan `id` agar label & kontrol laci tidak bentrok dengan kolom tetap. */
+  idPrefix: string;
+}) {
+  const saringanLanjutAktif = kendali.hasil !== "semua" || kendali.dari !== "" || kendali.sampai !== "";
+  const totalSemua =
+    daftar === undefined ? null : Object.values(daftar.cacah).reduce((t, n) => t + n, 0);
+
+  return (
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className="shrink-0 space-y-2 border-b border-slate-200 bg-slate-50/70 p-2">
+        <div className="flex items-center gap-1.5">
+          <div className="relative min-w-0 flex-1">
+            <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-slate-500" />
+            <Input
+              className="h-9 bg-white pl-8 pr-8 text-xs"
+              aria-label="Cari nasabah berdasarkan nama, email, atau kode pengajuan"
+              placeholder="Cari nama, email, atau kode…"
+              value={kendali.cari}
+              onChange={(e) => kendali.setCari(e.target.value)}
+            />
+            {kendali.cari !== "" && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                aria-label="Bersihkan pencarian"
+                className="absolute right-0.5 top-1/2 -translate-y-1/2 text-slate-600"
+                onClick={() => kendali.setCari("")}
+              >
+                <X className="size-4" />
+              </Button>
+            )}
+          </div>
+
+          <Select
+            value={kendali.status ?? SEMUA_STATUS}
+            onValueChange={(v) => kendali.setStatus(v === SEMUA_STATUS ? null : (v as StatusKyc))}
+          >
+            <SelectTrigger
+              className="h-9 w-[10.5rem] shrink-0 bg-white px-2.5 text-xs"
+              aria-label="Saring menurut status KYC"
+              title={
+                kendali.status === null ? "Semua status" : LABEL_STATUS_KYC[kendali.status]
+              }
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent className="min-w-[15rem]">
+              <SelectItem value={SEMUA_STATUS}>
+                Semua status{totalSemua === null ? "" : ` (${totalSemua})`}
+              </SelectItem>
+              {URUTAN_SARING.map((s) => (
+                <SelectItem key={s} value={s}>
+                  {LABEL_STATUS_KYC[s]} {daftar === undefined ? "" : `(${daftar.cacah[s] ?? 0})`}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                type="button"
+                variant="outline"
+                size="icon-sm"
+                className="relative shrink-0"
+                aria-label="Saringan lanjutan: hasil pemeriksaan dan rentang tanggal diajukan"
+                title="Saringan lanjutan"
+              >
+                <ListFilter className="size-4" aria-hidden />
+                {saringanLanjutAktif && (
+                  <span
+                    className="absolute -right-0.5 -top-0.5 size-2 rounded-full bg-emerald-700"
+                    aria-hidden
+                  />
+                )}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent align="end" className="w-80 space-y-3 p-3">
+              <div className="space-y-1.5">
+                <label
+                  className="text-[11px] font-semibold text-slate-800"
+                  htmlFor={`${idPrefix}-hasil`}
+                >
+                  Hasil pemeriksaan
+                </label>
+                <Select
+                  value={kendali.hasil}
+                  onValueChange={(v) => kendali.setHasil(v as FilterHasilKyc)}
+                >
+                  <SelectTrigger
+                    id={`${idPrefix}-hasil`}
+                    className="w-full bg-white text-xs"
+                    aria-label="Saring menurut hasil pemeriksaan"
+                  >
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="min-w-[19rem]">
+                    {FILTER_HASIL_KYC.map((pilihan) => (
+                      <SelectItem key={pilihan} value={pilihan}>
+                        {LABEL_FILTER_HASIL_KYC[pilihan]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1.5">
+                <p className="text-[11px] font-semibold text-slate-800">
+                  Rentang tanggal diajukan
+                </p>
+                <div className="flex items-center gap-1.5">
+                  <Input
+                    type="date"
+                    aria-label="Diajukan dari tanggal"
+                    value={kendali.dari}
+                    max={kendali.sampai === "" ? undefined : kendali.sampai}
+                    onChange={(e) => kendali.setDari(e.target.value)}
+                    className="h-8 min-w-0 flex-1 text-xs"
+                  />
+                  <span className="shrink-0 text-[11px] text-slate-600">s/d</span>
+                  <Input
+                    type="date"
+                    aria-label="Diajukan sampai tanggal"
+                    value={kendali.sampai}
+                    min={kendali.dari === "" ? undefined : kendali.dari}
+                    onChange={(e) => kendali.setSampai(e.target.value)}
+                    className="h-8 min-w-0 flex-1 text-xs"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between gap-2 border-t border-slate-100 pt-2">
+                <p className="text-[11px] leading-4 text-slate-600">
+                  {adaFilterKyc(filterRingkas) ? "Saringan aktif." : "Belum ada saringan."}
+                </p>
+                <Button type="button" size="sm" variant="outline" onClick={kendali.kosongkan}>
+                  Kosongkan
+                </Button>
+              </div>
+            </PopoverContent>
+          </Popover>
+        </div>
+
+        <p className="text-[11px] tabular-nums text-slate-600">
+          {daftar === undefined
+            ? "Memuat antrean…"
+            : `${ringkasJumlahKyc(daftar.tampil, daftar.total)} · urut terlama dulu`}
+        </p>
+      </div>
+
+      <div className="min-h-0 flex-1 space-y-1.5 overflow-y-auto p-2">
+        {daftar === undefined ? (
+          <SkeletonBarisDaftar baris={4} />
+        ) : item.length === 0 ? (
+          <div className="rounded-xl border border-slate-200 bg-white p-3 text-[11px] leading-5 text-slate-700">
+            {adaFilterKyc(filterRingkas) ? (
+              <>
+                Tidak ada pengajuan KYC yang cocok dengan {ringkasFilterKyc(filterRingkas).join(" dan ")}.
+                Kosongkan filter untuk melihat seluruh antrean.
+              </>
+            ) : (
+              <>Belum ada pengajuan KYC pada status ini.</>
+            )}
+          </div>
+        ) : (
+          item.map((baris) => (
+            <BarisKyc
+              key={baris.userId}
+              item={baris}
+              aktif={baris.userId === dipilih}
+              onPilih={onPilih}
+            />
+          ))
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -575,7 +892,54 @@ function KycOtpRingkas({ detail }: { detail: DetailKycTampil }) {
 }
 
 /** Grid berkas KTP/selfie/bukti penghasilan beserta metadata pemeriksaannya. */
+/**
+ * BUKTI BERKAS KTP/selfie/bukti penghasilan: grid besar bersisi rasio asli,
+ * penampil ber-zoom, dan mode bandingkan KTP ↔ selfie.
+ *
+ * Ini pekerjaan inti petugas, jadi fotonya yang paling banyak mendapat ruang:
+ * minimal dua kolom, area bukti minimal 60% tinggi layar, dan setiap foto bisa
+ * dibuka besar untuk melihat detail kecil (NIK, tanda tangan, kecocokan wajah).
+ * Metadata pemeriksaan server tetap ditulis di bawah tiap foto supaya tidak ada
+ * foto yang tampak "sudah dinilai" tanpa dasarnya.
+ */
 function KycDokumenRingkas({ detail }: { detail: DetailKycTampil }) {
+  const [bandingkan, setBandingkan] = useState(false);
+  const [penampil, setPenampil] = useState<number | null>(null);
+
+  const slot = detail.berkas.map((meta) => {
+    const url =
+      meta.slot === "ktp"
+        ? detail.url.ktp
+        : meta.slot === "selfie"
+          ? detail.url.selfie
+          : detail.url.buktiPenghasilan;
+    const bukti: BuktiTampil = {
+      id: meta.slot,
+      label: meta.label,
+      url,
+      lebar: meta.lebar,
+      tinggi: meta.tinggi,
+    };
+    return { meta, bukti, url };
+  });
+  const siapDibuka = slot.filter((s) => s.url !== null).map((s) => s.bukti);
+  const ktp = slot.find((s) => s.meta.slot === "ktp");
+  const selfie = slot.find((s) => s.meta.slot === "selfie");
+  const bisaBandingkan =
+    ktp !== undefined && ktp.url !== null && selfie !== undefined && selfie.url !== null;
+
+  const buka = (id: string) => {
+    const posisi = siapDibuka.findIndex((b) => b.id === id);
+    if (posisi >= 0) setPenampil(posisi);
+  };
+
+  // Berpindah pengajuan mengembalikan alat bantu ke keadaan awal: daftar berkas
+  // dan mode tampilan milik pengajuan sebelumnya tidak boleh terbawa.
+  useEffect(() => {
+    setPenampil(null);
+    setBandingkan(false);
+  }, [detail.userId]);
+
   return (
     <div className="space-y-2">
       <JudulBagian
@@ -593,25 +957,51 @@ function KycDokumenRingkas({ detail }: { detail: DetailKycTampil }) {
           </ul>
         </div>
       )}
-      {/* URL dipisah dari metadata pemeriksaannya karena `WatermarkedDoc`
-          tidak menerima `src` null. */}
-      <div className="grid gap-3 sm:grid-cols-3">
-        {detail.berkas.map((meta) => {
-          const url =
-            meta.slot === "ktp"
-              ? detail.url.ktp
-              : meta.slot === "selfie"
-                ? detail.url.selfie
-                : detail.url.buktiPenghasilan;
-          return (
-            <div key={meta.slot} className="space-y-1">
-              {url === null ? (
-                <div className="flex h-28 items-center justify-center rounded-xl border border-dashed border-slate-300 bg-slate-50 text-[11px] text-muted-foreground">
-                  {meta.label}: belum diunggah
-                </div>
-              ) : (
-                <WatermarkedDoc src={url} label={meta.label} />
-              )}
+
+      {/* Satu baris alat: cara membuka penampil + mode bandingkan. */}
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-[11px] leading-4 text-slate-700">
+          Klik foto untuk membuka penampil ber-zoom: gulir untuk zoom, tombol putar 90°, seret untuk
+          menggeser, dan panah untuk pindah berkas.
+        </p>
+        <TooltipProvider delayDuration={200}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              {/* Pembungkus `span` supaya alasan terkuncinya tetap terbaca
+                  meski tombolnya `disabled` (tombol mati tidak memicu tooltip). */}
+              <span className="shrink-0">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={bandingkan ? "sukses" : "outline"}
+                  aria-pressed={bandingkan}
+                  disabled={!bisaBandingkan}
+                  onClick={() => setBandingkan((b) => !b)}
+                >
+                  <Columns2 className="size-4" aria-hidden />
+                  Bandingkan KTP ↔ Selfie
+                </Button>
+              </span>
+            </TooltipTrigger>
+            <TooltipContent className="max-w-64 text-[11px] leading-5">
+              {bisaBandingkan
+                ? "Tampilkan foto KTP dan selfie berdampingan."
+                : "Butuh foto KTP dan selfie yang sudah diunggah."}
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      </div>
+
+      {bandingkan && ktp !== undefined && selfie !== undefined ? (
+        <BandingkanBukti kiri={ktp.bukti} kanan={selfie.bukti} />
+      ) : (
+        <div className="grid min-h-[60dvh] grid-cols-2 content-start gap-3">
+          {slot.map(({ meta, bukti, url }) => (
+            <div key={meta.slot} className="flex min-w-0 flex-col gap-1">
+              <BingkaiBukti
+                bukti={bukti}
+                onBuka={url === null ? undefined : () => buka(bukti.id)}
+              />
               <p className="text-[10px] leading-4 font-medium text-slate-700">
                 {LABEL_STATUS_DOKUMEN_KYC[meta.statusDokumen as keyof typeof LABEL_STATUS_DOKUMEN_KYC] ??
                   meta.statusDokumen}
@@ -647,13 +1037,21 @@ function KycDokumenRingkas({ detail }: { detail: DetailKycTampil }) {
                 </p>
               )}
             </div>
-          );
-        })}
-      </div>
+          ))}
+        </div>
+      )}
       <p className="text-[10px] leading-4 text-muted-foreground">
         Dokumen ini privat: URL-nya bertanda tangan & berumur pendek, hanya keluar untuk admin
         ber-TOTP, dan tidak pernah ditampilkan ke pendana atau pemantau.
       </p>
+
+      {/* Penampil ber-zoom: daftar berkasnya hanya yang benar-benar bisa dibuka. */}
+      <PenampilBukti
+        daftar={siapDibuka}
+        indeks={penampil}
+        onPindah={setPenampil}
+        onTutup={() => setPenampil(null)}
+      />
     </div>
   );
 }
@@ -828,37 +1226,61 @@ export function IsiKonfirmasiKeputusan({
  * visualnya menandai tingkat risiko: Setujui = solid emerald, Minta Perbaikan =
  * outline amber, Tolak = ghost merah.
  */
-const AKSI_UTAMA: Array<{ ke: StatusKyc; label: string; kelas: string }> = [
+const AKSI_UTAMA: Array<{
+  ke: StatusKyc;
+  label: string;
+  kelas: string;
+  ikon: React.ComponentType<{ className?: string; "aria-hidden"?: boolean }>;
+}> = [
   {
     ke: "NEEDS_CORRECTION",
     label: "Minta Perbaikan",
-    kelas: "border border-amber-300 text-amber-700 hover:bg-amber-50 rounded-xl px-4 py-2 text-xs font-semibold",
+    kelas:
+      "border border-amber-400 bg-white text-amber-800 hover:bg-amber-50 rounded-xl px-4 py-2 text-xs font-semibold",
+    ikon: FileWarning,
   },
   {
     ke: "REJECTED",
     label: "Tolak KYC",
-    kelas: "text-red-600 hover:bg-red-50 rounded-xl px-4 py-2 text-xs font-semibold",
+    kelas:
+      "border-2 border-red-600 bg-white text-red-700 hover:bg-red-50 rounded-xl px-4 py-2 text-xs font-semibold",
+    ikon: ShieldAlert,
   },
   {
     ke: "VERIFIED",
     label: "Setujui Verifikasi KYC",
     kelas:
       "bg-emerald-800 hover:bg-emerald-900 text-white font-semibold px-5 py-2 rounded-xl text-xs shadow-sm",
+    ikon: CheckCircle2,
   },
 ];
 
-export function KycPanel() {
+/**
+ * `dipilihAwal` hanya dipakai uji render (harness merender ke string, sehingga
+ * efek "buka pengajuan terlama" tidak pernah berjalan di sana). Di aplikasi,
+ * panel ini selalu dipanggil tanpa prop.
+ */
+export function KycPanel({ dipilihAwal = null }: { dipilihAwal?: Id<"users"> | null } = {}) {
   const [cari, setCari] = useState("");
-  const [status, setStatus] = useState<StatusKyc | null>(null);
+  // Bawaannya "Perlu ditinjau": itu antrean kerja petugas. Pengajuan yang masih
+  // "Sedang diisi" (belum diajukan nasabah) tidak ikut tampil sampai petugas
+  // mengubah saringannya sendiri.
+  const [status, setStatus] = useState<StatusKyc | null>(STATUS_AWAL_KYC);
   const [hasil, setHasil] = useState<FilterHasilKyc>("semua");
   const [dari, setDari] = useState("");
   const [sampai, setSampai] = useState("");
-  const [dipilih, setDipilih] = useState<Id<"users"> | null>(null);
+  const [dipilih, setDipilih] = useState<Id<"users"> | null>(dipilihAwal);
   const [catatan, setCatatan] = useState("");
+  const [catatanSalah, setCatatanSalah] = useState(false);
+  const [checklist, setChecklist] = useState<Record<IdChecklistKyc, boolean>>(CHECKLIST_KYC_KOSONG);
   const [konfirmasi, setKonfirmasi] = useState<StatusKyc | null>(null);
   const [busy, setBusy] = useState(false);
   const [galat, setGalat] = useState<string | null>(null);
   const [tab, setTab] = useState<TabDetail>("berkas");
+  const [daftarDilipat, setDaftarDilipat] = useState(false);
+  const [laciTerbuka, setLaciTerbuka] = useState(false);
+  const [tersalin, setTersalin] = useState(false);
+  const layarSempit = useMediaQuery(KUERI_LAYAR_SEMPIT_KYC);
 
   // Saringan dikirim apa adanya ke server; ia yang memutuskan hasilnya.
   const daftar = useQuery(api.kyc.daftarKycAdmin, {
@@ -874,24 +1296,75 @@ export function KycPanel() {
   const rentang = rentangTanggal(dari, sampai);
   const filterRingkas: FilterKyc = { cari, status, hasil, dari: rentang.dari, sampai: rentang.sampai };
 
-  const kosongkanFilter = () => {
+  const kosongkanFilter = useCallback(() => {
     setCari(FILTER_KYC_KOSONG.cari);
     setStatus(FILTER_KYC_KOSONG.status);
     setHasil(FILTER_KYC_KOSONG.hasil);
     setDari("");
     setSampai("");
-  };
+  }, []);
 
-  const pilihNasabah = (id: Id<"users">) => {
+  /**
+   * Buka satu pengajuan. Catatan, checklist, dan galat selalu direset: itu milik
+   * pengajuan yang sedang dibuka, bukan milik ruang kerja. Checklist keputusan
+   * sebelumnya tidak boleh ikut mencentang pengajuan berikutnya.
+   */
+  const pilihNasabah = useCallback((id: Id<"users">) => {
     setDipilih(id);
     setCatatan("");
+    setCatatanSalah(false);
+    setChecklist(CHECKLIST_KYC_KOSONG);
     setGalat(null);
     setTab("berkas");
-  };
+  }, []);
+
+  /**
+   * Urutan antrean: TERLAMA dulu.
+   *
+   * Server mengirim yang terbaru lebih dulu (bawaan untuk pemantauan), tetapi
+   * pekerjaan petugas adalah membereskan yang paling lama menunggu. Pengurutan
+   * ini murni tampilan atas baris yang sudah dikirim server; tidak ada baris yang
+   * ditambah atau disembunyikan di sini.
+   */
+  const itemAntrean = useMemo(
+    () => [...(daftar?.item ?? [])].sort((a, b) => acuanAntrean(a) - acuanAntrean(b)),
+    [daftar],
+  );
+
+  const indeksTerpilih = useMemo(
+    () => itemAntrean.findIndex((i) => i.userId === dipilih),
+    [itemAntrean, dipilih],
+  );
+
+  // Bukti pengajuan TERLAMA dibuka sendiri supaya petugas tidak menatap layar
+  // kosong. Berlaku juga saat pengajuan yang sedang dibuka keluar dari antrean
+  // (baru saja diputuskan, atau tersaring keluar): pilihan tidak boleh mengunci
+  // panel pada baris yang tidak ada lagi di daftar.
+  useEffect(() => {
+    if (itemAntrean.length === 0) return;
+    if (dipilih !== null && itemAntrean.some((i) => i.userId === dipilih)) return;
+    pilihNasabah(itemAntrean[0].userId);
+  }, [dipilih, itemAntrean, pilihNasabah]);
+
+  const pindahKe = useCallback(
+    (selisih: number) => {
+      const posisi = itemAntrean.findIndex((i) => i.userId === dipilih);
+      if (posisi < 0) return;
+      const tujuan = posisi + selisih;
+      if (tujuan < 0 || tujuan >= itemAntrean.length) return;
+      setLaciTerbuka(false);
+      pilihNasabah(itemAntrean[tujuan].userId);
+    },
+    [dipilih, itemAntrean, pilihNasabah],
+  );
 
   /** Kirim keputusan ke server — HANYA setelah dikonfirmasi petugas. */
   const putuskan = async (keputusan: StatusKyc) => {
     if (dipilih === null) return;
+    // Penerus dihitung SEBELUM keputusan dikirim: setelah tersimpan, pengajuan
+    // ini bisa keluar dari saringan (mis. saringan "Perlu ditinjau"), sehingga
+    // posisinya tidak lagi bisa dicari di daftar.
+    const berikutnya = itemAntrean[indeksTerpilih + 1]?.userId ?? null;
     setKonfirmasi(null);
     setBusy(true);
     setGalat(null);
@@ -902,7 +1375,10 @@ export function KycPanel() {
         ...(catatan.trim() === "" ? {} : { catatan: catatan.trim() }),
       });
       setCatatan("");
+      setCatatanSalah(false);
+      setChecklist(CHECKLIST_KYC_KOSONG);
       toast.success(`Keputusan tersimpan: ${LABEL_STATUS_KYC[keputusan]}. Tercatat di audit trail.`);
+      if (berikutnya !== null) pilihNasabah(berikutnya);
     } catch (err) {
       setGalat(err instanceof Error ? err.message : "Keputusan gagal disimpan.");
     } finally {
@@ -911,9 +1387,87 @@ export function KycPanel() {
   };
 
   const tujuan = detail === null || detail === undefined ? [] : tujuanSah(detail.status, "admin");
+  const statusSaatIni = detail === null || detail === undefined ? null : detail.status;
   const catatanCukup = catatan.trim().length >= 3;
+  const checklistSiap = checklistLengkap(checklist);
+  const checklistKurangItem = checklistKurang(checklist);
   const cacah = daftar?.cacah ?? null;
   const totalSemua = cacah === null ? null : Object.values(cacah).reduce((t, n) => t + n, 0);
+
+  const ubahChecklist = (id: IdChecklistKyc, tercentang: boolean) =>
+    setChecklist((nilai) => ({ ...nilai, [id]: tercentang }));
+
+  /**
+   * Minta konfirmasi satu keputusan, atau jelaskan kenapa belum bisa.
+   *
+   * Catatan yang kurang TIDAK mematikan tombolnya: petugas justru perlu bisa
+   * menekan Tolak/Minta Perbaikan untuk menandai kolom catatan merah. Yang
+   * benar-benar dikunci hanya yang tidak sah dari status sekarang dan Setujui
+   * dengan checklist wajib belum lengkap.
+   */
+  const mintaKonfirmasi = useCallback(
+    (ke: StatusKyc) => {
+      const sah = statusSaatIni === null ? [] : tujuanSah(statusSaatIni, "admin");
+      if (busy || !sah.includes(ke)) return;
+      if (keputusanWajibAlasan(ke) && catatan.trim().length < 3) {
+        setCatatanSalah(true);
+        return;
+      }
+      if (ke === "VERIFIED" && !checklistLengkap(checklist)) return;
+      setCatatanSalah(false);
+      setKonfirmasi(ke);
+    },
+    [busy, catatan, checklist, statusSaatIni],
+  );
+
+  /**
+   * Pintasan papan tombol ruang verifikasi.
+   *
+   * Diabaikan saat fokus berada di isian (petugas sedang menulis catatan) dan
+   * saat ada dialog terbuka (konfirmasi keputusan atau penampil berkas), supaya
+   * huruf yang diketik tidak pernah berubah menjadi keputusan.
+   */
+  useEffect(() => {
+    const tangani = (e: KeyboardEvent) => {
+      if (e.metaKey || e.ctrlKey || e.altKey || e.repeat) return;
+      const sasaran = e.target as HTMLElement | null;
+      if (
+        sasaran !== null &&
+        (sasaran.tagName === "INPUT" ||
+          sasaran.tagName === "TEXTAREA" ||
+          sasaran.tagName === "SELECT" ||
+          sasaran.isContentEditable)
+      ) {
+        return;
+      }
+      if (document.querySelector('[role="dialog"][data-state="open"]') !== null) return;
+      const tombol = e.key.toUpperCase();
+      if (tombol === "J") {
+        e.preventDefault();
+        pindahKe(1);
+      } else if (tombol === "K") {
+        e.preventDefault();
+        pindahKe(-1);
+      } else if (tombol === "A" || tombol === "R" || tombol === "X") {
+        e.preventDefault();
+        mintaKonfirmasi(tombol === "A" ? "VERIFIED" : tombol === "R" ? "NEEDS_CORRECTION" : "REJECTED");
+      }
+    };
+    document.addEventListener("keydown", tangani);
+    return () => document.removeEventListener("keydown", tangani);
+  }, [mintaKonfirmasi, pindahKe]);
+
+  /** Salin kode pengajuan tanpa harus menyeleksi teks monospace-nya. */
+  const salinKode = async (kode: string | null) => {
+    if (kode === null) return;
+    try {
+      await navigator.clipboard.writeText(kode);
+      setTersalin(true);
+      window.setTimeout(() => setTersalin(false), 2000);
+    } catch {
+      setGalat("Kode pengajuan tidak bisa disalin otomatis. Salin manual dari daftar antrean.");
+    }
+  };
 
   /** Aturan mesin yang masih gagal / belum pasti — dipakai peringatan konfirmasi. */
   const ditandaiMesin =
@@ -925,158 +1479,140 @@ export function KycPanel() {
 
   const detailSiap = detail !== null && detail !== undefined;
 
+  /** Alasan kecil yang ditulis di samping tombol yang sedang terkunci. */
+  const alasanNonaktif: string[] = [];
+  if (detailSiap && tujuan.length === 0) {
+    alasanNonaktif.push(
+      "Tidak ada keputusan yang sah dari status ini. Nasabah harus mengajukan lebih dulu (status Menunggu peninjauan).",
+    );
+  }
+
+  const kendali: KendaliDaftarKyc = {
+    cari,
+    setCari,
+    status,
+    setStatus,
+    hasil,
+    setHasil,
+    dari,
+    setDari,
+    sampai,
+    setSampai,
+    kosongkan: kosongkanFilter,
+  };
+
   return (
-    <div className="animate-masuk flex flex-col gap-4 lg:h-[calc(100vh-100px)] lg:overflow-hidden">
-      {/* ===== Split view 40% daftar : 60% rincian ===== */}
-      <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
-        {/* ---------- KOLOM KIRI: daftar antrean ---------- */}
-        <section className="flex min-h-0 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-          {/* Header kolom kiri: pencarian + saringan ringkas */}
-          <div className="shrink-0 space-y-2.5 border-b border-slate-200 bg-slate-50/70 p-3">
-            <div className="relative min-w-0">
-              <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                className="bg-white pl-9 pr-10"
-                aria-label="Cari nasabah berdasarkan nama, email, atau kode nasabah"
-                placeholder="Cari nama, email, atau kode nasabah…"
-                value={cari}
-                onChange={(e) => setCari(e.target.value)}
-              />
-              {cari !== "" && (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon-sm"
-                  aria-label="Bersihkan pencarian"
-                  className="absolute right-1.5 top-1/2 -translate-y-1/2 text-muted-foreground"
-                  onClick={() => setCari("")}
-                >
-                  <X className="size-4" />
-                </Button>
-              )}
-            </div>
-
-            <div className="grid grid-cols-2 gap-2">
-              <Select
-                value={status ?? SEMUA_STATUS}
-                onValueChange={(v) => setStatus(v === SEMUA_STATUS ? null : (v as StatusKyc))}
-              >
-                <SelectTrigger className="w-full bg-white" aria-label="Saring menurut status KYC">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={SEMUA_STATUS}>
-                    Semua status{totalSemua === null ? "" : ` (${totalSemua})`}
-                  </SelectItem>
-                  {URUTAN_SARING.map((s) => (
-                    <SelectItem key={s} value={s}>
-                      {LABEL_STATUS_KYC[s]} {cacah === null ? "" : `(${cacah[s] ?? 0})`}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              <Select value={hasil} onValueChange={(v) => setHasil(v as FilterHasilKyc)}>
-                <SelectTrigger className="w-full bg-white" aria-label="Saring menurut hasil pemeriksaan">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {FILTER_HASIL_KYC.map((pilihan) => (
-                    <SelectItem key={pilihan} value={pilihan}>
-                      {LABEL_FILTER_HASIL_KYC[pilihan]}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-2">
-              <div className="flex min-w-0 flex-1 items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-2 py-1.5">
-                <CalendarDays className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
-                <Input
-                  type="date"
-                  aria-label="Diajukan dari tanggal"
-                  value={dari}
-                  max={sampai === "" ? undefined : sampai}
-                  onChange={(e) => setDari(e.target.value)}
-                  className="h-7 min-w-0 flex-1 border-0 px-1 text-xs shadow-none focus-visible:ring-0"
-                />
-                <span className="text-[11px] text-muted-foreground">s/d</span>
-                <Input
-                  type="date"
-                  aria-label="Diajukan sampai tanggal"
-                  value={sampai}
-                  min={dari === "" ? undefined : dari}
-                  onChange={(e) => setSampai(e.target.value)}
-                  className="h-7 min-w-0 flex-1 border-0 px-1 text-xs shadow-none focus-visible:ring-0"
-                />
-              </div>
-              {adaFilterKyc(filterRingkas) && (
-                <Button type="button" variant="outline" size="sm" onClick={kosongkanFilter}>
-                  Kosongkan
-                </Button>
-              )}
-            </div>
-
-            <p className="text-[11px] tabular-nums text-muted-foreground">
-              {daftar === undefined
-                ? "Memuat…"
-                : ringkasJumlahKyc(daftar.tampil, daftar.total)}
-            </p>
-          </div>
-
-          {galat !== null && (
-            <p
-              role="alert"
-              className="shrink-0 border-b border-red-200 bg-red-50 px-3 py-2 text-xs text-red-800"
+    <div className="animate-masuk flex flex-col gap-3 lg:h-[calc(100dvh-8.5rem)] lg:overflow-hidden">
+      {/* ===== Baris ringkas: pintasan antrean (kiri) + cacah antrean (kanan).
+          Kartu judul modul sengaja tidak diulang di sini: namanya sudah ada di
+          breadcrumb kepala panel, dan tinggi layar lebih berharga untuk bukti. */}
+      <div className="flex shrink-0 flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center gap-1.5">
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={indeksTerpilih <= 0}
+            onClick={() => pindahKe(-1)}
+            aria-label="Pengajuan sebelumnya (pintasan K)"
+          >
+            <ChevronLeft className="size-4" aria-hidden />
+            Sebelumnya
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={indeksTerpilih < 0 || indeksTerpilih >= itemAntrean.length - 1}
+            onClick={() => pindahKe(1)}
+            aria-label="Pengajuan berikutnya (pintasan J)"
+          >
+            Berikutnya
+            <ChevronRight className="size-4" aria-hidden />
+          </Button>
+          <span className="text-[11px] tabular-nums text-slate-600">
+            {indeksTerpilih >= 0
+              ? `Pengajuan ${indeksTerpilih + 1} dari ${itemAntrean.length}`
+              : itemAntrean.length === 0
+                ? "Antrean kosong"
+                : "Belum ada pengajuan dipilih"}
+          </span>
+          {layarSempit ? (
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              aria-haspopup="dialog"
+              onClick={() => setLaciTerbuka(true)}
             >
-              {galat}
-            </p>
+              <ListFilter className="size-4" aria-hidden />
+              Daftar antrean
+            </Button>
+          ) : (
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              aria-pressed={daftarDilipat}
+              onClick={() => setDaftarDilipat((v) => !v)}
+            >
+              {daftarDilipat ? (
+                <PanelLeftOpen className="size-4" aria-hidden />
+              ) : (
+                <PanelLeftClose className="size-4" aria-hidden />
+              )}
+              {daftarDilipat ? "Tampilkan daftar" : "Lipat daftar"}
+            </Button>
           )}
+        </div>
+        <p className="text-xs font-medium tabular-nums text-slate-700" aria-live="polite">
+          {cacah === null
+            ? "Memuat antrean…"
+            : `${totalSemua ?? 0} pengajuan · ${cacah.PENDING_REVIEW ?? 0} perlu ditinjau`}
+        </p>
+      </div>
 
-          {/* Daftar bergulir sendiri — tidak menggoyangkan kolom kanan */}
-          <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-3">
-            {daftar === undefined ? (
-              <SkeletonBarisDaftar baris={4} />
-            ) : daftar.item.length === 0 ? (
-              <div className="rounded-2xl border border-slate-200 bg-white p-4 text-xs leading-5 text-muted-foreground">
-                {adaFilterKyc(filterRingkas) ? (
-                  <>
-                    Tidak ada pengajuan KYC yang cocok dengan {ringkasFilterKyc(filterRingkas).join(" dan ")}.
-                    Kosongkan filter untuk melihat seluruh antrean.
-                  </>
-                ) : (
-                  <>Belum ada pengajuan KYC pada status ini.</>
-                )}
-              </div>
-            ) : (
-              daftar.item.map((item) => (
-                <BarisKyc
-                  key={item.userId}
-                  item={item}
-                  aktif={item.userId === dipilih}
-                  onPilih={pilihNasabah}
-                />
-              ))
-            )}
-          </div>
+      {/* ===== Daftar antrean 320px (bisa dilipat) : rincian mengambil sisa lebar ===== */}
+      <div
+        className={cn(
+          "grid min-h-0 flex-1 grid-cols-1 gap-3",
+          !layarSempit && !daftarDilipat && "xl:grid-cols-[320px_minmax(0,1fr)]",
+        )}
+      >
+        {/* ---------- KOLOM KIRI: daftar antrean ---------- */}
+        <section
+          className={cn(
+            "min-h-0 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm",
+            layarSempit || daftarDilipat ? "hidden" : "hidden xl:flex",
+          )}
+        >
+          <IsiDaftarKyc
+            kendali={kendali}
+            daftar={daftar}
+            item={itemAntrean}
+            filterRingkas={filterRingkas}
+            dipilih={dipilih}
+            onPilih={pilihNasabah}
+            idPrefix="kolom"
+          />
+
         </section>
 
         {/* ---------- KOLOM KANAN: rincian + keputusan ---------- */}
-        <section className="flex min-h-0 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm lg:h-[calc(100vh-100px)]">
+        <section className="flex min-h-0 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
           {dipilih === null ? (
             /* Empty state: belum ada nasabah dipilih */
-            <div className="flex flex-1 flex-col items-center justify-center gap-3 p-10 text-center">
-              <div className="relative flex size-16 items-center justify-center rounded-2xl border border-slate-200 bg-slate-50">
-                <FileText className="size-7 text-slate-400" aria-hidden />
+            <div className="flex flex-1 flex-col items-center justify-center gap-2 p-8 text-center">
+              <div className="relative flex size-14 items-center justify-center rounded-2xl border border-slate-200 bg-slate-50">
+                <FileText className="size-6 text-slate-500" aria-hidden />
                 <span className="absolute -bottom-1.5 -right-1.5 flex size-6 items-center justify-center rounded-full bg-emerald-800 text-white">
                   <ShieldCheck className="size-3.5" aria-hidden />
                 </span>
               </div>
               <p className="text-sm font-semibold text-navy">Belum ada pengajuan dipilih</p>
               <p className="max-w-sm text-xs leading-5 text-muted-foreground">
-                Pilih satu pengajuan KYC di daftar sebelah kiri untuk melihat foto berkas, hasil OCR,
-                data identitas, dan mengambil keputusan verifikasi.
+                Pilih satu pengajuan KYC di daftar antrean untuk melihat foto berkas, hasil OCR, data
+                identitas, dan mengambil keputusan verifikasi.
               </p>
             </div>
           ) : detail === undefined ? (
@@ -1089,80 +1625,46 @@ export function KycPanel() {
             </p>
           ) : (
             <>
-              {/* STICKY ACTION HEADER — selalu terlihat, keputusan tanpa menggulir */}
-              <header className="sticky top-0 z-20 shrink-0 border-b border-slate-200 bg-white p-4 shadow-sm">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="break-words text-sm font-semibold text-navy">
-                      {detail.namaLengkap ?? "Nasabah"}
-                    </p>
-                    <div className="mt-1 flex flex-wrap items-center gap-2">
-                      <StatusKycBadge status={detail.status} />
-                      <span className="text-[11px] text-muted-foreground tabular-nums">
-                        {detail.kodePeminjam ?? "tanpa kode nasabah"} · diajukan{" "}
-                        {waktu(detail.diajukanPada)}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="flex flex-wrap items-center gap-2">
-                    {AKSI_UTAMA.map((aksi) => {
-                      const sah = tujuan.includes(aksi.ke);
-                      const butuhAlasan = keputusanWajibAlasan(aksi.ke);
-                      const terkunci = busy || !sah || (butuhAlasan && !catatanCukup);
-                      return (
-                        <Button
-                          key={aksi.ke}
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className={cn(aksi.kelas, !sah && "opacity-50")}
-                          disabled={terkunci}
-                          title={
-                            !sah
-                              ? "Tidak sah dari status KYC saat ini"
-                              : butuhAlasan && !catatanCukup
-                                ? "Isi catatan minimal 3 karakter"
-                                : undefined
-                          }
-                          onClick={() => setKonfirmasi(aksi.ke)}
-                        >
-                          {aksi.ke === "VERIFIED" ? (
-                            <CheckCircle2 className="mr-1.5 size-3.5" />
-                          ) : (
-                            <ShieldAlert className="mr-1.5 size-3.5" />
-                          )}
-                          {aksi.label}
-                        </Button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* Catatan keputusan — ikut menempel agar tak perlu menggulir */}
-                {tujuan.length === 0 ? (
-                  <p className="mt-2 text-[11px] leading-5 text-muted-foreground">
-                    Tidak ada keputusan yang sah dari status ini. Nasabah harus mengajukan lebih dulu
-                    (status Menunggu peninjauan).
+              {/* KEPALA RINGKAS satu baris: nama, status, kode (bisa disalin), tanggal. */}
+              <header className="shrink-0 border-b border-slate-200 bg-white px-3 py-2">
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                  <p className="min-w-0 truncate text-sm font-semibold text-navy">
+                    {detail.namaLengkap ?? "Nasabah"}
                   </p>
-                ) : (
-                  <div className="mt-3 space-y-1">
-                    <Input
-                      className="bg-white"
-                      aria-label="Catatan keputusan"
-                      placeholder="Catatan keputusan (wajib untuk menolak / minta perbaikan)"
-                      value={catatan}
-                      maxLength={300}
-                      onChange={(e) => setCatatan(e.target.value)}
-                    />
-                    <p className="text-[11px] leading-4 text-muted-foreground">
-                      Status VERIFIED berarti identitas sudah diperiksa — bukan persetujuan pinjaman
-                      dan bukan bukti dana cair.
-                      {tujuan.some((ke) => keputusanWajibAlasan(ke)) && !catatanCukup
-                        ? " Menolak atau meminta perbaikan wajib disertai catatan (minimal 3 karakter) — nasabah membacanya."
-                        : ""}
-                    </p>
-                  </div>
+                  <StatusKycBadge status={detail.status} className="shrink-0" />
+                  <span className="flex min-w-0 items-center gap-0.5 rounded-lg border border-slate-200 bg-slate-50 pl-1.5 pr-0.5">
+                    <code
+                      className="truncate font-mono text-[11px] text-slate-700"
+                      title={detail.kodePeminjam ?? "tanpa kode nasabah"}
+                    >
+                      {detail.kodePeminjam === null
+                        ? "tanpa kode nasabah"
+                        : potongTengah(detail.kodePeminjam, 20)}
+                    </code>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon-sm"
+                      className="size-6"
+                      aria-label="Salin kode pengajuan"
+                      title="Salin kode pengajuan"
+                      onClick={() => void salinKode(detail.kodePeminjam)}
+                    >
+                      {tersalin ? (
+                        <Check className="size-3.5 text-emerald-800" aria-hidden />
+                      ) : (
+                        <Copy className="size-3.5" aria-hidden />
+                      )}
+                    </Button>
+                  </span>
+                  <span className="ml-auto shrink-0 whitespace-nowrap text-[11px] tabular-nums text-slate-600">
+                    diajukan {waktu(detail.diajukanPada)}
+                  </span>
+                </div>
+                {galat !== null && (
+                  <p role="alert" className="mt-1 text-[11px] leading-4 text-red-700">
+                    {galat}
+                  </p>
                 )}
               </header>
 
@@ -1172,8 +1674,8 @@ export function KycPanel() {
                 onValueChange={(v) => setTab(v as TabDetail)}
                 className="flex min-h-0 flex-1 flex-col gap-0"
               >
-                <div className="shrink-0 border-b border-slate-200 bg-slate-50/70 px-4 pt-3">
-                  <TabsList className="flex h-auto w-full flex-wrap justify-start gap-1 rounded-xl border border-slate-200 bg-white p-1.5 shadow-sm">
+                <div className="shrink-0 border-b border-slate-200 bg-slate-50/70 px-2 pt-2">
+                  <TabsList className="flex h-auto w-full flex-wrap justify-start gap-1 rounded-xl border border-slate-200 bg-white p-1 shadow-sm">
                     <TabsTrigger value="berkas" className="gap-1.5 text-xs">
                       <FileWarning className="size-3.5" />
                       Foto Berkas &amp; OCR
@@ -1189,11 +1691,19 @@ export function KycPanel() {
                   </TabsList>
                 </div>
 
-                <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-5">
-                  <TabsContent value="berkas" className="mt-0 space-y-4">
-                    <KycDokumenRingkas detail={detail} />
-                    <KycOcrRingkas detail={detail} />
-                    <KycKetidaksesuaianRingkas detail={detail} />
+                <div className="min-h-0 flex-1 overflow-y-auto p-3">
+                  {/* Bukti di KIRI, hasil OCR di KANAN: petugas mencocokkan teks
+                      mesin dengan fotonya tanpa berpindah tab. */}
+                  <TabsContent value="berkas" className="mt-0">
+                    <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_minmax(0,24rem)]">
+                      <div className="min-w-0">
+                        <KycDokumenRingkas detail={detail} />
+                      </div>
+                      <aside className="min-w-0 space-y-3">
+                        <KycOcrRingkas detail={detail} />
+                        <KycKetidaksesuaianRingkas detail={detail} />
+                      </aside>
+                    </div>
                   </TabsContent>
 
                   <TabsContent value="identitas" className="mt-0 space-y-4">
@@ -1226,10 +1736,149 @@ export function KycPanel() {
                   </TabsContent>
                 </div>
               </Tabs>
+
+              {/* ===== BAR AKSI: checklist, catatan, dan tiga keputusan. Menempel
+                  di bawah panel sehingga selalu terlihat tanpa menggulir. ===== */}
+              <footer className="sticky bottom-0 z-20 shrink-0 space-y-2 border-t border-slate-200 bg-white p-3 shadow-[0_-2px_10px_rgba(15,23,42,0.06)] lg:static">
+                <ChecklistVerifikasi
+                  nilai={checklist}
+                  onUbah={ubahChecklist}
+                  nonaktif={busy || tujuan.length === 0}
+                />
+
+                <div className="flex flex-wrap items-end gap-2">
+                  <div className="min-w-[15rem] flex-1">
+                    <label
+                      className="text-[11px] font-semibold text-slate-800"
+                      htmlFor="catatan-keputusan-kyc"
+                    >
+                      Catatan keputusan{" "}
+                      {tujuan.some((ke) => keputusanWajibAlasan(ke))
+                        ? "(wajib untuk Tolak / Minta Perbaikan)"
+                        : "(opsional)"}
+                    </label>
+                    <Input
+                      id="catatan-keputusan-kyc"
+                      className={cn(
+                        "mt-1 h-9 bg-white text-xs",
+                        catatanSalah &&
+                          "border-red-600 focus-visible:border-red-700 focus-visible:ring-red-600/30",
+                      )}
+                      aria-invalid={catatanSalah || undefined}
+                      aria-describedby={catatanSalah ? "pesan-catatan-kyc" : undefined}
+                      placeholder="Catatan keputusan (nasabah membaca ini)"
+                      value={catatan}
+                      maxLength={300}
+                      onChange={(e) => {
+                        setCatatan(e.target.value);
+                        if (e.target.value.trim().length >= 3) setCatatanSalah(false);
+                      }}
+                    />
+                    {catatanSalah && (
+                      <p
+                        id="pesan-catatan-kyc"
+                        role="alert"
+                        className="mt-1 text-[11px] font-semibold leading-4 text-red-700"
+                      >
+                        {catatan.trim() === ""
+                          ? "Catatan wajib diisi"
+                          : "Catatan wajib diisi (minimal 3 karakter)"}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2">
+                    {AKSI_UTAMA.map((aksi) => {
+                      const sah = tujuan.includes(aksi.ke);
+                      const checklistMengunci = aksi.ke === "VERIFIED" && !checklistSiap;
+                      const terkunci = busy || !sah || checklistMengunci;
+                      const alasan = busy
+                        ? "Menunggu keputusan sebelumnya selesai disimpan."
+                        : !sah
+                          ? "Tidak sah dari status KYC saat ini."
+                          : checklistMengunci
+                            ? `Checklist wajib belum lengkap: ${checklistKurangItem.join(", ")}.`
+                            : null;
+                      const Ikon = aksi.ikon;
+                      return (
+                        <TooltipProvider key={aksi.ke} delayDuration={200}>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              {/* Pembungkus `span` supaya alasan terkunci tetap
+                                  terbaca saat tombolnya nonaktif. */}
+                              <span>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  className={cn(aksi.kelas, !sah && "opacity-60")}
+                                  disabled={terkunci}
+                                  aria-disabled={terkunci}
+                                  onClick={() => mintaKonfirmasi(aksi.ke)}
+                                >
+                                  <Ikon className="mr-1.5 size-3.5" aria-hidden />
+                                  {aksi.label}
+                                </Button>
+                              </span>
+                            </TooltipTrigger>
+                            <TooltipContent className="max-w-64 text-[11px] leading-5">
+                              {alasan ??
+                                `Kirim keputusan: ${aksi.label}. Ada dialog konfirmasi sebelum tersimpan.`}
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Microcopy yang tidak boleh hilang: VERIFIED bukan persetujuan pinjaman. */}
+                <p className="text-[11px] leading-4 text-slate-600">
+                  Status VERIFIED berarti identitas sudah diperiksa — bukan persetujuan pinjaman dan
+                  bukan bukti dana cair.
+                </p>
+
+                {alasanNonaktif.length > 0 && (
+                  <ul className="space-y-0.5 text-[11px] leading-4 text-slate-700">
+                    {alasanNonaktif.map((alasan) => (
+                      <li key={alasan}>{alasan}</li>
+                    ))}
+                  </ul>
+                )}
+
+                <p className="flex items-center gap-1.5 text-[11px] text-slate-600">
+                  <Keyboard className="size-3.5 shrink-0" aria-hidden />
+                  Pintasan: {PINTASAN_KYC.map((p) => `${p.tombol} ${p.arti}`).join(" · ")}
+                </p>
+              </footer>
             </>
           )}
         </section>
       </div>
+
+      {/* Laci daftar antrean untuk layar < 1280px. Isinya sama dengan kolom tetap. */}
+      <Sheet open={laciTerbuka} onOpenChange={setLaciTerbuka}>
+        <SheetContent side="left" className="flex w-[min(92vw,22rem)] flex-col gap-0 p-0">
+          <SheetHeader className="border-b border-slate-200 px-3 py-2 text-left">
+            <SheetTitle className="text-sm text-navy">Daftar antrean KYC</SheetTitle>
+            <SheetDescription className="text-[11px] leading-4 text-slate-600">
+              Pilih satu pengajuan untuk membukanya di panel detail.
+            </SheetDescription>
+          </SheetHeader>
+          <IsiDaftarKyc
+            kendali={kendali}
+            daftar={daftar}
+            item={itemAntrean}
+            filterRingkas={filterRingkas}
+            dipilih={dipilih}
+            onPilih={(id) => {
+              pilihNasabah(id);
+              setLaciTerbuka(false);
+            }}
+            idPrefix="laci"
+          />
+        </SheetContent>
+      </Sheet>
 
       {/* ===== Dialog konfirmasi satu keputusan ===== */}
       <AlertDialog

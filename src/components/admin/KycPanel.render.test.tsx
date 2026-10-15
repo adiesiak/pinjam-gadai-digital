@@ -27,9 +27,23 @@ import {
   KycDetailRingkas,
   KycRiwayatRingkas,
   OcrKtpKyc,
+  PINTASAN_KYC,
+  lamaMenunggu,
+  potongTengah,
   type DetailKycTampil,
   type ItemKycTampil,
 } from "./KycPanel";
+import {
+  BandingkanBukti,
+  BingkaiBukti,
+  CHECKLIST_KYC,
+  CHECKLIST_KYC_KOSONG,
+  ChecklistVerifikasi,
+  IsiPenampilBukti,
+  checklistKurang,
+  checklistLengkap,
+  type BuktiTampil,
+} from "./BuktiKyc";
 import { akibatKeputusanKyc, judulKonfirmasiKeputusan } from "@/lib/kycAdmin";
 import { StatusKycBadge } from "@/components/StatusKycBadge";
 import { keteranganAturanUsang, VERSI_ATURAN_KYC } from "@/lib/kycAturan";
@@ -696,6 +710,126 @@ for (const status of KYC_STATUS) {
     "peringatan override hanya muncul untuk verifikasi manual",
   );
   bersih(tanpaCatatan, "dialog konfirmasi tanpa catatan");
+}
+
+// ===== 10. Bukti berkas: bingkai besar, rangka rasio asli, dan slot kosong =====
+{
+  const kosong = renderToStaticMarkup(
+    <BingkaiBukti
+      bukti={{ id: "selfie", label: "Selfie dengan KTP", url: null, lebar: null, tinggi: null }}
+      onBuka={() => {}}
+    />,
+  );
+  ada(kosong, "Selfie dengan KTP: belum diunggah", "slot tanpa URL menyatakan apa adanya");
+  ok(!kosong.includes("Coba lagi"), "slot kosong bukan keadaan galat");
+  ok(!kosong.includes("Perbesar"), "slot kosong tidak menawarkan penampil bukti");
+  bersih(kosong, "bingkai kosong");
+
+  const memuat = renderToStaticMarkup(
+    <BingkaiBukti
+      bukti={{ id: "ktp", label: "Foto KTP", url: "https://example.test/ktp.png", lebar: 1600, tinggi: 900 }}
+      onBuka={() => {}}
+    />,
+  );
+  ada(memuat, "aspect-ratio:1.7", "rangka pemuatan mengikuti rasio asli berkas");
+  ada(memuat, "https://example.test/ktp.png", "berkas yang ada langsung dipasang di bingkainya");
+  ada(memuat, "Perbesar Foto KTP", "penampil bukti bisa dibuka dan berlabel");
+  ok(!memuat.includes("animate-spin"), "tidak ada pemintal tanpa batas pada bingkai berkas");
+  bersih(memuat, "bingkai memuat");
+}
+
+// ===== 11. Mode bandingkan: KTP dan selfie berdampingan =====
+{
+  const html = renderToStaticMarkup(
+    <BandingkanBukti
+      kiri={{ id: "ktp", label: "Foto KTP", url: "https://example.test/ktp.png", lebar: 1600, tinggi: 900 }}
+      kanan={{ id: "selfie", label: "Selfie dengan KTP", url: "https://example.test/selfie.png", lebar: 1200, tinggi: 1600 }}
+    />,
+  );
+  ada(html, "Foto KTP", "sisi kiri mode bandingkan tampil");
+  ada(html, "Selfie dengan KTP", "sisi kanan mode bandingkan tampil");
+  ada(html, "https://example.test/selfie.png", "selfie terpasang");
+  ada(html, "bukan hasil pencocokan mesin", "batas mode bandingkan dinyatakan");
+  ok(html.includes("md:grid-cols-2"), "keduanya dirender berdampingan, bukan bertumpuk");
+  bersih(html, "mode bandingkan");
+}
+
+// ===== 12. Penampil bukti: navigasi berkas, zoom, dan putar =====
+{
+  const daftar: BuktiTampil[] = [
+    { id: "ktp", label: "Foto KTP", url: "https://example.test/ktp.png", lebar: 1600, tinggi: 900 },
+    { id: "selfie", label: "Selfie dengan KTP", url: "https://example.test/selfie.png", lebar: 1200, tinggi: 1600 },
+    { id: "bukti", label: "Bukti penghasilan", url: "https://example.test/slip.png", lebar: 1080, tinggi: 720 },
+  ];
+  const html = renderToStaticMarkup(
+    <IsiPenampilBukti daftar={daftar} indeks={1} onPindah={() => {}} onTutup={() => {}} />,
+  );
+  ada(html, "Berkas 2 dari 3", "posisi berkas yang sedang dibuka dinyatakan");
+  ada(html, "zoom 100%", "tingkat zoom dinyatakan angkanya");
+  ada(html, 'aria-label="Berkas sebelumnya"', "tombol berkas sebelumnya berlabel");
+  ada(html, 'aria-label="Berkas berikutnya"', "tombol berkas berikutnya berlabel");
+  ada(html, 'aria-label="Putar foto 90 derajat"', "tombol putar 90 derajat tersedia dan berlabel");
+  ada(html, 'aria-label="Perbesar foto"', "tombol zoom masuk berlabel");
+  ada(html, "Gulir untuk zoom", "cara memakai penampil dijelaskan");
+  ada(html, "Tutup penampil", "penampil bisa ditutup tanpa papan tombol");
+  bersih(html, "penampil bukti");
+
+  const tunggal = renderToStaticMarkup(
+    <IsiPenampilBukti daftar={[daftar[0]]} indeks={0} onPindah={() => {}} onTutup={() => {}} />,
+  );
+  ok(
+    (tunggal.match(/disabled=""/g) ?? []).length === 2,
+    "navigasi berkas nonaktif bila hanya ada satu berkas",
+  );
+  bersih(tunggal, "penampil satu berkas");
+}
+
+// ===== 13. Checklist verifikasi dan aturan penguncian tombol Setujui =====
+{
+  const html = renderToStaticMarkup(
+    <ChecklistVerifikasi nilai={CHECKLIST_KYC_KOSONG} onUbah={() => {}} />,
+  );
+  for (const item of CHECKLIST_KYC) {
+    ada(html, item.label, `checklist memuat "${item.label}"`);
+  }
+  ada(html, "(0/4 tercentang)", "cacah checklist tampil");
+  ada(html, "(wajib)", "item wajib ditandai sebagai wajib");
+  bersih(html, "checklist kosong");
+
+  ok(!checklistLengkap(CHECKLIST_KYC_KOSONG), "checklist kosong belum lengkap");
+  ok(
+    checklistLengkap({ nama: true, nik: true, wajah: true, dokumen: true }),
+    "checklist lengkap dikenali",
+  );
+  const kurang = checklistKurang({ nama: true, nik: false, wajah: true, dokumen: false });
+  ok(kurang.length === 2, `dua item belum dicentang, dapat ${kurang.length}`);
+  ok(
+    kurang.includes("NIK terbaca jelas") && kurang.includes("Dokumen tidak buram/terpotong"),
+    "item yang belum dicentang disebut namanya",
+  );
+}
+
+// ===== 14. Kode pengajuan & lama menunggu =====
+{
+  ok(
+    potongTengah("PGD-20261001-AB12", 18) === "PGD-20261001-AB12",
+    "kode yang masih muat tidak dipotong",
+  );
+  const panjang = potongTengah("PGD-20261001-AB12-LONG", 12);
+  ok(panjang === "PGD-20…-LONG", `kode panjang dipotong di TENGAH, dapat "${panjang}"`);
+
+  ok(
+    lamaMenunggu(null, 1_700_000_000_000) === "tanggal pengajuan tidak tercatat",
+    "pengajuan tanpa tanggal tidak dikarang umurnya",
+  );
+  ok(lamaMenunggu(0, 30_000) === "baru diajukan", "pengajuan detik ini tidak disebut menunggu 0 menit");
+  ok(lamaMenunggu(0, 10 * 60_000) === "menunggu 10 menit", "hitungan menit tampil");
+  ok(lamaMenunggu(0, 3 * 3_600_000) === "menunggu 3 jam", "hitungan jam tampil");
+  ok(lamaMenunggu(0, 3 * 86_400_000) === "menunggu 3 hari", "hitungan hari tampil");
+  ok(
+    PINTASAN_KYC.map((p) => p.tombol).join("") === "JKARX",
+    "pintasan yang dijanjikan di panel memang J/K/A/R/X",
+  );
 }
 
 if (failed > 0) {
