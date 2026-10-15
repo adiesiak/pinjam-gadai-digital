@@ -145,13 +145,15 @@ export const KETERANGAN_JENIS_WA: Record<JenisTemplateWa, string> = {
   pengingat_hari_h: "Dikirim otomatis pada hari jatuh tempo.",
   terlambat_1: "Dikirim otomatis mulai hari pertama keterlambatan (maksimal satu pesan per hari).",
   terlambat_2: "Dikirim otomatis setelah keterlambatan berjalan satu minggu.",
-  konfirmasi_pembayaran: "Dikirim saat pembayaran nasabah tercatat di aplikasi.",
+  konfirmasi_pembayaran: "Dikirim saat petugas mencatat pembayaran nasabah diterima di aplikasi.",
   pelunasan: "Dikirim saat pinjaman tercatat lunas.",
   pencairan: "Dikirim saat pinjaman ditandai tersalurkan.",
   otp: "Dipakai untuk semua kode OTP (login WhatsApp, verifikasi nomor, persetujuan transaksi).",
   info_tagihan: "Dikirim manual petugas dari daftar pinjaman.",
   lokasi: "Dikirim otomatis maksimal sekali per 24 jam saat pola koordinat perangkat ditandai.",
-  status: "Dikirim otomatis setiap status pinjaman berubah.",
+  status:
+    "Dikirim otomatis setiap status pinjaman berubah, kecuali saat Lunas (memakai template Pelunasan) " +
+    "dan saat dana disalurkan (memakai template Pencairan).",
 };
 
 /**
@@ -181,8 +183,8 @@ export const TEMPLATE_BAWAAN_WA: Record<JenisTemplateWa, string> = {
     "kewajiban saat ini {jumlah}. Mohon segera lakukan pembayaran melalui {metode_bayar}, atau " +
     "hubungi kami di {kontak} untuk membicarakan penyelesaiannya. Terima kasih.",
   konfirmasi_pembayaran:
-    "Halo {nama}, terima kasih. Pembayaran sebesar {jumlah} untuk pinjaman {ref} sudah kami terima " +
-    "dan tercatat di aplikasi. Bila masih ada sisa kewajiban, kami kabari kembali. Terima kasih.",
+    "Halo {nama}, pembayaran sebesar {jumlah} untuk pinjaman {ref} sudah kami catat di aplikasi " +
+    "PINDAI. Bila masih ada sisa kewajiban, kami kabari kembali. Terima kasih.",
   pelunasan:
     "Halo {nama}, pinjaman {ref} sudah tercatat LUNAS. Terima kasih atas pembayarannya. Bila ada " +
     "pertanyaan, hubungi kami di {kontak}.",
@@ -421,6 +423,71 @@ export function bolehKirimHariIni(
  */
 export function masihBerhakDapatPengingat(status: string): boolean {
   return status === "didanai";
+}
+
+/**
+ * Jenis yang dikirim PENJADWAL otomatis (bukan oleh admin dan bukan oleh
+ * peristiwa lain): pengingat jatuh tempo dan pesan keterlambatan.
+ */
+export const JENIS_PENGINGAT_OTOMATIS = [
+  "pengingat_h3",
+  "pengingat_h1",
+  "pengingat_hari_h",
+  "terlambat_1",
+  "terlambat_2",
+] as const;
+
+/**
+ * Satu pinjaman yang sedang dipertimbangkan penjadwal: angkanya sudah dihitung
+ * pemanggil (`lib/loan`), termasuk jenis apa saja yang SUDAH berangkat hari ini
+ * (dibaca dari log pengiriman, bukan dari ingatan proses).
+ */
+export type KandidatPengingat = {
+  loanId: string;
+  status: string;
+  /** Hari menuju jatuh tempo; negatif berarti sudah lewat. */
+  sisaHari: number;
+  /** Hari keterlambatan; 0 berarti belum terlambat. */
+  hariTerlambat: number;
+  /** Jenis yang tercatat sudah terkirim hari ini untuk pinjaman ini. */
+  jenisHariIni: readonly string[];
+};
+
+/** Satu keputusan kirim: pinjaman mana, dengan template jenis apa. */
+export type RencanaPengingat = { loanId: string; jenis: JenisTemplateWa };
+
+/**
+ * Rencana kirim pengingat untuk SATU kali jalan penjadwal.
+ *
+ * Aturan yang ditegakkan di sini, berurutan:
+ *  1. **Jendela kirim** — di luar 08.00–20.00 WIB tidak ada rencana sama sekali,
+ *     jadi tidak ada pesan tengah malam meski cron berjalan tiap jam.
+ *  2. **Berhenti setelah pembayaran** — hanya pinjaman yang masih berjalan
+ *     (`didanai`); setelah status berpindah, pinjaman itu tidak lagi dipilih.
+ *  3. **H-3, H-1, hari H saja** — sisa hari lain tidak punya pengingat sendiri.
+ *  4. **Maksimal satu pesan keterlambatan per hari**, dan satu kiriman per jenis
+ *     per hari — idempoten walau penjadwal berjalan berkali-kali.
+ *
+ * Fungsi ini MURNI: waktu dan riwayat masuk sebagai argumen, jadi keputusannya
+ * bisa diuji sebagai skrip biasa tanpa jam atau database.
+ */
+export function rencanaPengingat(
+  sekarangMs: number,
+  kandidat: readonly KandidatPengingat[],
+): RencanaPengingat[] {
+  if (!dalamJamKirim(jamWib(sekarangMs))) return [];
+  const rencana: RencanaPengingat[] = [];
+  for (const k of kandidat) {
+    if (!masihBerhakDapatPengingat(k.status)) continue;
+    const jenis = jenisPesanJatuhTempo(k.sisaHari, k.hariTerlambat);
+    if (jenis === null) continue;
+    if (k.jenisHariIni.includes(jenis)) continue;
+    const sudahKirimKeterlambatanHariIni =
+      k.jenisHariIni.includes("terlambat_1") || k.jenisHariIni.includes("terlambat_2");
+    if (!bolehKirimHariIni(jenis, sudahKirimKeterlambatanHariIni)) continue;
+    rencana.push({ loanId: k.loanId, jenis });
+  }
+  return rencana;
 }
 
 /** Label ramah untuk jenis apa pun yang tersimpan di log (termasuk yang lama). */

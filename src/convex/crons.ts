@@ -13,6 +13,9 @@ import { internal } from "./_generated/api";
  *   (jauh melewati jendela retry jaringan mana pun).
  * - UTC 18:15 — retensi jejak gerbang pengiriman: buang baris pembatas laju
  *   yang lebih tua dari 7 hari (jejak `auditLog` pelanggarannya tetap ada).
+ * - TIAP JAM — pengingat WhatsApp pengingat jatuh tempo & keterlambatan. Jenis
+ *   yang berhak berangkat hari ini diputuskan `lib/templatePesanWa`, dan hanya
+ *   antara 08.00-20.00 WIB; di luar itu penjadwal berhenti tanpa mengirim.
  */
 const crons = cronJobs();
 
@@ -20,6 +23,16 @@ crons.daily(
   "daily-due-reminders",
   { hourUTC: 0, minuteUTC: 0 },
   internal.loans.generateDueReminders,
+);
+
+// Pengingat WhatsApp tiap jam. Jendela kirim 08.00-20.00 WIB TIDAK diatur di
+// sini melainkan di `lib/templatePesanWa.dalamJamKirim`: penjadwal yang berjalan
+// tiap jam membuat satu aturan yang sama berlaku untuk jam berapa pun, dan
+// pemanggilan di luar jendela berhenti tanpa menulis apa pun ke log.
+crons.hourly(
+  "pengingat-jatuh-tempo-wa",
+  { minuteUTC: 0 },
+  internal.whatsapp.jalankanPengingatJatuhTempo,
 );
 
 crons.daily(

@@ -586,6 +586,13 @@ const schema = defineSchema(
        * manual dari dialog review. Tidak pernah menagih uang.
        */
       templateStatus: v.optional(v.string()),
+      /**
+       * Template pesan per JENIS (kunci = JenisTemplateWa, mis. "pengingat_h3").
+       * Satu peta untuk semua jenis supaya menambah jenis baru tidak menambah
+       * kolom; isi, placeholder wajib, dan bawaannya satu sumber di
+       * `lib/templatePesanWa`. Kunci yang tidak ada = pakai teks bawaan.
+       */
+      templatesWa: v.optional(v.record(v.string(), v.string())),
       diperbaruiPada: v.optional(v.number()),
     }).index("by_slot", ["slot"]),
 

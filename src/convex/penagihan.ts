@@ -23,6 +23,7 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 import { v } from "convex/values";
 
 import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
+import { internal } from "./_generated/api";
 import { requireAdminSession } from "./adminAuthz";
 import { ROLES } from "./schema";
 import { audit } from "./system";
@@ -1242,6 +1243,16 @@ export const perbaruiStatusPembayaran = mutation({
       loan.nomorReferensi,
       `Status pembayaran: ${LABEL_STATUS_PEMBAYARAN[args.status as keyof typeof LABEL_STATUS_PEMBAYARAN] ?? args.status} · Rp ${args.nominal.toLocaleString("id-ID")} dari kewajiban Rp ${total.toLocaleString("id-ID")}. Catatan petugas — bukan bukti transfer dan tidak mengubah ledger.`,
     );
+    // Kabar "pembayaran dicatat" HANYA saat petugas mencatat uang diterima:
+    // status "belum bayar" tidak mengabarkan apa pun. Pengiriman dijadwalkan
+    // setelah catatan tersimpan, dan pesannya menyebut yang tercatat — bukan
+    // klaim bahwa transfer sudah diverifikasi bank.
+    if (args.status !== "belum_bayar" && args.nominal > 0) {
+      await ctx.scheduler.runAfter(0, internal.whatsapp._kirimKonfirmasiPembayaran, {
+        loanId: loan._id,
+        jumlah: args.nominal,
+      });
+    }
     return { ok: true };
   },
 });

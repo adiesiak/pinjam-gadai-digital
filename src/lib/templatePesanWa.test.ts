@@ -33,6 +33,8 @@ import {
   jenisPesanJatuhTempo,
   jenisRamahWa,
   masihBerhakDapatPengingat,
+  rencanaPengingat,
+  JENIS_PENGINGAT_OTOMATIS,
   placeholderDipakai,
   placeholderTakDikenal,
   placeholderTidakDiizinkan,
@@ -244,6 +246,88 @@ cek(
   teksMetodeBayar({}).includes("tercatat di aplikasi"),
   "tanpa rekening, pesan tidak mengarang nomor",
 );
+
+// ===== 10. Rencana kirim penjadwal otomatis =====
+{
+  // 01.00 UTC = 08.00 WIB, 00.30 UTC = 07.30 WIB.
+  const JAM_KERJA = Date.UTC(2026, 9, 15, 1, 0, 0);
+  const JAM_SEBELUM = Date.UTC(2026, 9, 15, 0, 30, 0);
+  const JAM_MALAM = Date.UTC(2026, 9, 15, 14, 0, 0); // 21.00 WIB
+  const dasar = { status: "didanai", jenisHariIni: [] as string[] };
+
+  sama(
+    rencanaPengingat(JAM_KERJA, [{ ...dasar, loanId: "a", sisaHari: 3, hariTerlambat: 0 }])[0]?.jenis,
+    "pengingat_h3",
+    "H-3 masuk rencana kirim",
+  );
+  sama(
+    rencanaPengingat(JAM_KERJA, [{ ...dasar, loanId: "a", sisaHari: 1, hariTerlambat: 0 }])[0]?.jenis,
+    "pengingat_h1",
+    "H-1 masuk rencana kirim",
+  );
+  sama(
+    rencanaPengingat(JAM_KERJA, [{ ...dasar, loanId: "a", sisaHari: 0, hariTerlambat: 0 }])[0]?.jenis,
+    "pengingat_hari_h",
+    "hari H masuk rencana kirim",
+  );
+  sama(
+    rencanaPengingat(JAM_KERJA, [{ ...dasar, loanId: "a", sisaHari: 2, hariTerlambat: 0 }]).length,
+    0,
+    "H-2 tidak mengirim apa pun",
+  );
+  sama(
+    rencanaPengingat(JAM_KERJA, [{ ...dasar, loanId: "a", sisaHari: -1, hariTerlambat: 1 }])[0]?.jenis,
+    "terlambat_1",
+    "hari pertama terlambat memakai tahap 1",
+  );
+  sama(
+    rencanaPengingat(JAM_KERJA, [{ ...dasar, loanId: "a", sisaHari: -9, hariTerlambat: 9 }])[0]?.jenis,
+    "terlambat_2",
+    "keterlambatan panjang memakai tahap 2",
+  );
+
+  // Jendela kirim: di luar 08.00–20.00 WIB tidak ada pesan sama sekali.
+  sama(
+    rencanaPengingat(JAM_SEBELUM, [{ ...dasar, loanId: "a", sisaHari: 3, hariTerlambat: 0 }]).length,
+    0,
+    "07.30 WIB belum boleh kirim",
+  );
+  sama(
+    rencanaPengingat(JAM_MALAM, [{ ...dasar, loanId: "a", sisaHari: 3, hariTerlambat: 0 }]).length,
+    0,
+    "21.00 WIB sudah lewat jendela kirim",
+  );
+
+  // Idempoten: jenis yang sudah berangkat hari ini tidak diulang.
+  sama(
+    rencanaPengingat(JAM_KERJA, [
+      { ...dasar, loanId: "a", sisaHari: 3, hariTerlambat: 0, jenisHariIni: ["pengingat_h3"] },
+    ]).length,
+    0,
+    "pengingat yang sudah terkirim hari ini tidak diulang",
+  );
+  sama(
+    rencanaPengingat(JAM_KERJA, [
+      { ...dasar, loanId: "a", sisaHari: -8, hariTerlambat: 8, jenisHariIni: ["terlambat_1"] },
+    ]).length,
+    0,
+    "keterlambatan maksimal satu pesan per hari",
+  );
+
+  // Berhenti otomatis setelah pembayaran tercatat.
+  sama(
+    rencanaPengingat(JAM_KERJA, [
+      { ...dasar, status: "lunas", loanId: "a", sisaHari: 0, hariTerlambat: 0 },
+    ]).length,
+    0,
+    "pinjaman lunas tidak lagi menerima pengingat",
+  );
+
+  // Daftar jenis otomatis adalah bagian dari katalog, bukan daftar terpisah.
+  for (const jenis of JENIS_PENGINGAT_OTOMATIS) {
+    cek(JENIS_TEMPLATE_WA.includes(jenis), `jenis otomatis ${jenis} ada di katalog`);
+  }
+}
 
 if (gagal > 0) {
   console.error(`\n${gagal} gagal, ${lulus} lulus`);

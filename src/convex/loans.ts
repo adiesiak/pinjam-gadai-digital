@@ -1376,6 +1376,14 @@ export const danaiPinjaman = mutation({
       loan.nomorReferensi,
       `${loan.namaLengkap} — dana ditandai tersalurkan pada ledger internal`,
     );
+    // Jalur tombol ini menghasilkan catatan yang SAMA dengan `ubahStatusPinjaman`
+    // (lihat catatan di sana), jadi kabar WhatsApp-nya juga harus sama: template
+    // `pencairan` berangkat dari sini, bukan hanya dari jalur ubah status.
+    await ctx.scheduler.runAfter(0, internal.whatsapp._kirimStatusPinjaman, {
+      loanId,
+      alasan: "Dana ditandai tersalurkan.",
+      statusLama: loan.status,
+    });
     return { ok: true };
   },
 });

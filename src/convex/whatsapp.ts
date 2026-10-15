@@ -28,6 +28,20 @@ import {
 } from "../lib/statusPinjaman";
 import { validasiGatewayUrl } from "../lib/waUrl";
 import { uraiResponFonnte } from "../lib/otpWa";
+import {
+  JENIS_TEMPLATE_WA,
+  LABEL_JENIS_WA,
+  dalamJamKirim,
+  jamWib,
+  rangkaiPesanWa,
+  rencanaPengingat,
+  teksMetodeBayar,
+  templateBerlaku,
+  validasiTemplateWa,
+  type JenisTemplateWa,
+  type KandidatPengingat,
+} from "../lib/templatePesanWa";
+import { getConfig } from "./system";
 
 /**
  * Integrasi WhatsApp untuk pengingat penagihan.
@@ -71,6 +85,12 @@ export type WaSettings = {
   templateLokasi?: string;
   /** Template kabar perubahan status pinjaman. */
   templateStatus?: string;
+  /**
+   * Template per JENIS pesan (kunci = `JenisTemplateWa`). Inilah sumber yang
+   * dipakai semua pengirim; kolom lama di atas hanya dibaca sebagai cadangan
+   * supaya deployment yang sudah berjalan tidak kehilangan teksnya.
+   */
+  templatesWa?: Record<string, string>;
 };
 
 async function requireAdmin(ctx: QueryCtx) {
@@ -94,6 +114,166 @@ async function getSettings(ctx: QueryCtx): Promise<WaSettings> {
 export function apiKeyGatewayWa(): string {
   const utama = (process.env.WHATSAPP_API_KEY ?? "").trim();
   return utama !== "" ? utama : (process.env.FONNTE_TOKEN ?? "").trim();
+}
+
+/* ==========================================================================
+ * Nilai template: satu sumber untuk pratinjau, kirim manual, dan kirim otomatis
+ * ========================================================================== */
+
+/** Awal hari UTC — batas "hari ini" saat memeriksa log pengiriman. */
+function awalHariUtc(ms: number): number {
+  return Math.floor(ms / 86_400_000) * 86_400_000;
+}
+
+/**
+ * Kalimat kontak bawaan saat nomor bantuan nasabah belum diatur di sistem.
+ * Sengaja bukan nomor karangan: template yang memanggil {kontak} menyuruh
+ * nasabah membalas pesan, dan itu selalu benar.
+ */
+const KONTAK_BAWAAN = "balas pesan ini";
+
+/**
+ * Kalimat pengganti tautan untuk pesan yang dikirim lewat gateway tanpa alamat
+ * publik. Tidak pernah memuat URL yang tidak ada.
+ */
+const TAUTAN_TANPA_ALAMAT = "halaman Cek Status di aplikasi PINDAI";
+
+/** Bidang pinjaman yang dibutuhkan semua template pesan. */
+type PinjamanPesan = {
+  namaLengkap: string;
+  nomorReferensi: string;
+  pokokPinjaman: number;
+  tenorHari?: number;
+  tenorBulan?: number;
+  didanaiPada?: number;
+  status: string;
+  persenBunga?: number;
+};
+
+/**
+ * NILAI tiap placeholder untuk satu pinjaman.
+ *
+ * Nominal, denda, dan tanggal jatuh tempo datang dari `lib/loan` — sumber yang
+ * sama dengan dashboard dan tabel admin. Tidak ada angka yang diketik ulang,
+ * dan tidak ada placeholder yang diisi karangan: yang tidak punya nilai
+ * dibiarkan kosong supaya `rangkaiPesanWa` menggantinya dengan kata jujur.
+ */
+function nilaiPesanPinjaman(
+  loan: PinjamanPesan,
+  opts: {
+    metodeBayar: string;
+    sekarang: number;
+    /** Nominal yang ditampilkan bila berbeda dari total kewajiban (mis. cicilan). */
+    jumlahTampil?: number | null;
+  },
+): Record<string, string | null> {
+  const pelunasan = pelunasanPinjaman(
+    {
+      pokokPinjaman: loan.pokokPinjaman,
+      status: loan.status,
+      tenorHari: loan.tenorHari,
+      tenorBulan: loan.tenorBulan,
+      didanaiPada: loan.didanaiPada,
+      persenBunga: loan.persenBunga,
+    },
+    opts.sekarang,
+  );
+  const totalKewajibanPenuh =
+    loan.tenorBulan !== undefined
+      ? simulasiBulananPinjaman({ ...loan, tenorBulan: loan.tenorBulan }).totalPengembalian
+      : quotePinjaman(loan).totalKewajibanPelunasan;
+  const total = pelunasan ? pelunasan.totalKewajibanDenganPenalti : totalKewajibanPenuh;
+  const denda = pelunasan ? pelunasan.dendaTerlambat : 0;
+  const jatuhTempoPada =
+    loan.didanaiPada !== undefined
+      ? (pelunasan?.jatuhTempoPada ??
+        loan.didanaiPada +
+          (loan.tenorBulan !== undefined
+            ? loan.tenorBulan * BULAN_MS
+            : (loan.tenorHari ?? 30) * 86_400_000))
+      : opts.sekarang;
+  const tanggal = new Date(jatuhTempoPada).toLocaleDateString("id-ID", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+  return {
+    // Nama di pesan selalu HURUF BESAR (lib/nama.ts) — pesan, pratinjau, dan
+    // tabel admin menampilkan orang yang sama dengan tulisan yang sama.
+    nama: namaHurufBesar(loan.namaLengkap),
+    ref: loan.nomorReferensi,
+    jumlah: formatRupiah(opts.jumlahTampil ?? total),
+    tanggal,
+    jatuh_tempo: tanggal,
+    sisa:
+      loan.tenorBulan !== undefined ? `${loan.tenorBulan} bulan` : `${loan.tenorHari ?? 30} hari`,
+    // {hari} hanya dipakai pengingat, dan tidak pernah negatif: pesan H-0
+    // berbunyi "0 hari", bukan "-1 hari".
+    hari: String(Math.max(0, pelunasan?.sisaHari ?? 0)),
+    denda: denda > 0 ? ` (sudah termasuk denda ${formatRupiah(denda)})` : "",
+    metode_bayar: opts.metodeBayar,
+    kontak: KONTAK_BAWAAN,
+    tautan: TAUTAN_TANPA_ALAMAT,
+  };
+}
+
+/**
+ * Teks template yang BERLAKU untuk satu jenis, berurutan:
+ * peta `templatesWa` (diisi panel admin) → kolom lama → teks bawaan katalog.
+ *
+ * Template tersimpan yang tidak lolos validasinya tidak dipakai sama sekali:
+ * pesan cacat tidak boleh sampai ke nasabah hanya karena admin salah ketik.
+ */
+function templateUntukJenis(
+  settings: WaSettings,
+  jenis: JenisTemplateWa,
+  lawas: string | undefined,
+): string {
+  const tersimpan = (settings.templatesWa?.[jenis] ?? "").trim();
+  if (tersimpan !== "") {
+    const sah = validasiTemplateWa(jenis, tersimpan);
+    if (sah.ok) return tersimpan;
+  }
+  const lama = (lawas ?? "").trim();
+  if (lama !== "") return lama;
+  return templateBerlaku(jenis, null).teks;
+}
+
+/** Template pesan manual dari daftar pinjaman (info tagihan & cek status). */
+function templateInfoTagihan(settings: WaSettings): string {
+  const tersimpan = (settings.templatesWa?.info_tagihan ?? "").trim();
+  if (tersimpan !== "") {
+    const sah = validasiTemplateWa("info_tagihan", tersimpan);
+    if (sah.ok) return tersimpan;
+  }
+  return (settings.templatePengingat ?? "").trim() || DEFAULT_TEMPLATE;
+}
+
+/** Metode pembayaran dari pengaturan sistem untuk QUERY (pratinjau). */
+async function metodeBayarQuery(ctx: QueryCtx): Promise<string> {
+  return teksMetodeBayar(await getConfig(ctx));
+}
+
+/** Metode pembayaran dari pengaturan sistem untuk ACTION (pengirim). */
+async function metodeBayarAction(ctx: ActionCtx): Promise<string> {
+  return teksMetodeBayar(
+    await ctx.runQuery(internal.system._penerimaanInternal, {}),
+  );
+}
+
+/**
+ * Pesan OTP dari template yang diatur admin, atau `null` bila belum diatur
+ * (pemanggil memakai pesan bawaan `lib/otpWa` yang menyebut keperluannya).
+ * Isi kode tidak pernah masuk log: yang dicatat pengirim hanya status kirim.
+ */
+export function pesanOtpDariTemplate(
+  settings: WaSettings,
+  kode: string,
+  menit: number,
+): string | null {
+  const tersimpan = (settings.templatesWa?.otp ?? "").trim();
+  if (tersimpan === "" || !validasiTemplateWa("otp", tersimpan).ok) return null;
+  return rangkaiPesanWa(tersimpan, { kode_otp: kode, menit: String(menit) }).isi;
 }
 
 /** Konfigurasi + log + statistik untuk tab WhatsApp di panel admin. */
@@ -125,11 +305,12 @@ export const saveConfig = mutation({
     fieldNomor: v.string(),
     fieldPesan: v.string(),
     aktif: v.boolean(),
-    templatePengingat: v.string(),
-    /** Template peringatan lokasi — opsional, kosong = pakai template bawaan. */
-    templateLokasi: v.optional(v.string()),
-    /** Template kabar perubahan status — opsional, kosong = pakai template bawaan. */
-    templateStatus: v.optional(v.string()),
+    /**
+     * Template pesan per jenis: kunci `JenisTemplateWa` → teks. Kunci kosong
+     * tidak dikirim (berarti "pakai teks bawaan"), dan setiap kunci yang dikenal
+     * diperiksa placeholderWAJIB + izinnya sebelum disimpan.
+     */
+    templatesWa: v.record(v.string(), v.string()),
   },
   handler: async (ctx, args) => {
     const { userId } = await requireAdmin(ctx);
@@ -143,24 +324,24 @@ export const saveConfig = mutation({
     const authHeader = args.authHeader.trim();
     const fieldNomor = args.fieldNomor.trim();
     const fieldPesan = args.fieldPesan.trim();
-    const template = args.templatePengingat.trim();
     if (!authHeader || !fieldNomor || !fieldPesan) {
       throw new Error("Nama header auth dan field body wajib diisi.");
     }
-    if (!template.includes("{jumlah}")) {
-      throw new Error("Template wajib memuat placeholder {jumlah}.");
-    }
-    // Template peringatan lokasi tidak menagih uang, jadi syaratnya beda:
-    // cukup menyapa nama nasabah (dan boleh dikosongkan untuk pakai bawaan).
-    const templateLokasi = args.templateLokasi?.trim() ?? "";
-    if (templateLokasi !== "" && !templateLokasi.includes("{nama}")) {
-      throw new Error("Template peringatan lokasi wajib memuat placeholder {nama}.");
-    }
-    // Template status menyapa nasabah dan wajib menyebut status barunya —
-    // pesan yang tidak menyebut status apa pun tidak memberi kabar apa-apa.
-    const templateStatus = args.templateStatus?.trim() ?? "";
-    if (templateStatus !== "" && !templateStatus.includes("{status}")) {
-      throw new Error("Template perubahan status wajib memuat placeholder {status}.");
+    // Validasi SERVER atas setiap template: editor sudah menahannya, tetapi
+    // serverlah yang memutuskan apa yang boleh tersimpan — permintaan yang
+    // dibuat di luar panel tidak boleh menulis template cacat.
+    const templatesWa: Record<string, string> = {};
+    for (const [jenis, teks] of Object.entries(args.templatesWa)) {
+      if (!(JENIS_TEMPLATE_WA as readonly string[]).includes(jenis)) {
+        throw new Error(`Jenis template "${jenis}" tidak dikenal.`);
+      }
+      const isi = teks.trim();
+      if (isi === "") continue; // kosong = pakai teks bawaan
+      const sah = validasiTemplateWa(jenis as JenisTemplateWa, isi);
+      if (!sah.ok) {
+        throw new Error(`${LABEL_JENIS_WA[jenis as JenisTemplateWa]} tidak bisa disimpan: ${sah.alasan}`);
+      }
+      templatesWa[jenis] = isi;
     }
     const existing = await ctx.db
       .query("waSettings")
@@ -173,9 +354,12 @@ export const saveConfig = mutation({
       fieldNomor,
       fieldPesan,
       aktif: args.aktif,
-      templatePengingat: template,
-      templateLokasi: templateLokasi === "" ? undefined : templateLokasi,
-      templateStatus: templateStatus === "" ? undefined : templateStatus,
+      templatesWa,
+      // Kolom template lama dikosongkan: isinya sudah pindah ke `templatesWa`,
+      // dan dua sumber untuk hal yang sama cepat atau lambat akan berbeda.
+      templatePengingat: undefined,
+      templateLokasi: undefined,
+      templateStatus: undefined,
       diperbaruiPada: Date.now(),
     };
     if (existing === null) {
@@ -224,6 +408,7 @@ export const _loanForMessage = internalQuery({
       tenorHari: loan.tenorHari,
       tenorBulan: loan.tenorBulan,
       didanaiPada: loan.didanaiPada,
+      persenBunga: loan.persenBunga,
       status: loan.status,
     };
   },
@@ -254,83 +439,32 @@ export const _dataStatusPinjaman = internalQuery({
       pokokDiajukan,
       pokokPinjaman: loan.pokokPinjaman,
       totalKewajiban,
+      // Dipakai template pelunasan/pencairan: tanggal jatuh tempo, tenor, dan
+      // snapshot bunga nasabah pada pinjaman ini.
+      tenorHari: loan.tenorHari ?? undefined,
+      tenorBulan: loan.tenorBulan ?? undefined,
+      didanaiPada: loan.didanaiPada ?? undefined,
+      persenBunga: loan.persenBunga ?? undefined,
     };
   },
 });
 
-/** Ganti placeholder template dengan data pinjaman. */
-export function renderTemplate(
-  template: string,
-  data: {
-    nama: string;
-    ref: string;
-    jumlah: string;
-    tanggal: string;
-    sisa: string;
-    denda: string;
-  },
-): string {
-  return template
-    .replace(/\{nama\}/g, data.nama)
-    .replace(/\{ref\}/g, data.ref)
-    .replace(/\{jumlah\}/g, data.jumlah)
-    .replace(/\{tanggal\}/g, data.tanggal)
-    .replace(/\{sisa\}/g, data.sisa)
-    .replace(/\{denda\}/g, data.denda);
-}
-
-/** Data pesan dari pinjaman — satu sumber untuk preview & kirim. */
+/**
+ * Rangkai isi pesan dari template + data pinjaman.
+ *
+ * Penggantian placeholder memakai `rangkaiPesanWa` (lib/templatePesanWa) — satu
+ * renderer saja untuk seluruh berkas ini: placeholder yang tidak punya nilai
+ * menjadi kata jujur, bukan `{jumlah}` yang sampai ke tangan nasabah.
+ */
 function pesanDariLoan(
   template: string,
-  loan: {
-    namaLengkap: string;
-    nomorReferensi: string;
-    pokokPinjaman: number;
-    tenorHari?: number;
-    tenorBulan?: number;
-    didanaiPada?: number;
-    status: string;
-  },
-  now: number,
-): { isi: string; denda: number; total: number } {
-  // Satu sumber kebenaran: skema harian (130%) dan skema bulanan sekaligus.
-  const pelunasan = pelunasanPinjaman(loan, now);
-  const totalKewajibanPenuh =
-    loan.tenorBulan !== undefined
-      ? simulasiBulananPinjaman({ ...loan, tenorBulan: loan.tenorBulan }).totalPengembalian
-      : quotePinjaman(loan).totalKewajibanPelunasan;
-  const total = pelunasan ? pelunasan.totalKewajibanDenganPenalti : totalKewajibanPenuh;
-  const denda = pelunasan ? pelunasan.dendaTerlambat : 0;
-  const jatuhTempo =
-    loan.didanaiPada !== undefined
-      ? pelunasan?.jatuhTempoPada ??
-        loan.didanaiPada +
-          (loan.tenorBulan !== undefined
-            ? loan.tenorBulan * BULAN_MS
-            : (loan.tenorHari ?? 30) * 86400000)
-      : now;
-  const tanggal = new Date(jatuhTempo).toLocaleDateString("id-ID", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
-  const dendaStr =
-    denda > 0 ? ` (sudah termasuk denda ${formatRupiah(denda)})` : "";
-  const isi = renderTemplate(template, {
-    // Nama di pesan selalu HURUF BESAR (lib/nama.ts) — pesan, pratinjau, dan
-    // ruang penyedia dana menampilkan orang yang sama dengan tulisan yang sama.
-    nama: namaHurufBesar(loan.namaLengkap),
-    ref: loan.nomorReferensi,
-    jumlah: formatRupiah(total),
-    tanggal,
-    // Tenor skema bulanan tampil sebagai "6 bulan", skema harian "30 hari".
-    sisa:
-      loan.tenorBulan !== undefined
-        ? `${loan.tenorBulan} bulan`
-        : `${loan.tenorHari ?? 30} hari`,
-    denda: dendaStr,
-  });
-  return { isi, denda, total };
+  loan: PinjamanPesan,
+  sekarang: number,
+  metodeBayar: string,
+): { isi: string } {
+  return {
+    isi: rangkaiPesanWa(template, nilaiPesanPinjaman(loan, { metodeBayar, sekarang })).isi,
+  };
 }
 
 /** Preview isi pesan untuk satu pinjaman (tanpa mengirim) — admin. */
@@ -342,17 +476,19 @@ export const previewMessage = query({
     const loan = await ctx.db.get(loanId);
     if (loan === null) throw new Error("Pinjaman tidak ditemukan.");
     const { isi } = pesanDariLoan(
-      s.templatePengingat ?? DEFAULT_TEMPLATE,
+      templateInfoTagihan(s),
       {
         namaLengkap: loan.namaLengkap,
         nomorReferensi: loan.nomorReferensi,
         pokokPinjaman: loan.pokokPinjaman,
-        tenorHari: loan.tenorHari,
-        tenorBulan: loan.tenorBulan,
-        didanaiPada: loan.didanaiPada,
+        tenorHari: loan.tenorHari ?? undefined,
+        tenorBulan: loan.tenorBulan ?? undefined,
+        didanaiPada: loan.didanaiPada ?? undefined,
+        persenBunga: loan.persenBunga ?? undefined,
         status: loan.status,
       },
       Date.now(),
+      await metodeBayarQuery(ctx),
     );
     return isi;
   },
@@ -508,17 +644,19 @@ export const sendReminder = action({
     const isi =
       isiPesan?.trim() ||
       pesanDariLoan(
-        settings.templatePengingat ?? DEFAULT_TEMPLATE,
+        templateInfoTagihan(settings),
         {
           namaLengkap: loan.namaLengkap,
           nomorReferensi: loan.nomorReferensi,
           pokokPinjaman: loan.pokokPinjaman,
-          tenorHari: loan.tenorHari,
-          tenorBulan: loan.tenorBulan,
-          didanaiPada: loan.didanaiPada,
+          tenorHari: loan.tenorHari ?? undefined,
+          tenorBulan: loan.tenorBulan ?? undefined,
+          didanaiPada: loan.didanaiPada ?? undefined,
+          persenBunga: loan.persenBunga ?? undefined,
           status: loan.status,
         },
         Date.now(),
+        await metodeBayarAction(ctx),
       ).isi;
 
     const apiKey = apiKeyGatewayWa();
@@ -537,7 +675,7 @@ export const sendReminder = action({
     await ctx.runMutation(internal.whatsapp._appendLog, {
       loanId,
       nomorTujuan: loan.nomorWhatsApp,
-      jenis: "pengingat",
+      jenis: "info_tagihan",
       isiPesan: isi,
       status,
       respon,
@@ -569,7 +707,9 @@ function pesanStatusDari(
   statusLama: string,
 ): string {
   return pesanPerubahanStatus(
-    settings.templateStatus?.trim() || TEMPLATE_STATUS_DEFAULT,
+    // Template `status` dari panel dipakai bila ada; selain itu teks lama
+    // `TEMPLATE_STATUS_DEFAULT` tetap berlaku persis seperti sebelumnya.
+    templateUntukJenis(settings, "status", settings.templateStatus || TEMPLATE_STATUS_DEFAULT),
     {
       nama: data.namaLengkap,
       nomorReferensi: data.nomorReferensi,
@@ -581,6 +721,48 @@ function pesanStatusDari(
       totalKewajiban: statusKanonik(data.status) === "ditolak" ? null : data.totalKewajiban,
     },
   );
+}
+
+/**
+ * Pilih template + rangkai isi kabar status pinjaman.
+ *
+ * Perpindahan yang punya template SENDIRI memakai template itu: Lunas memakai
+ * `pelunasan`, dana tersalurkan memakai `pencairan`. Selain itu kabar status
+ * umum (`status`) yang menyebut status baru, catatan, dan nominalnya. Ini juga
+ * yang membuat satu perpindahan hanya menghasilkan SATU pesan, bukan dua.
+ */
+function pesanKabarStatus(
+  settings: WaSettings,
+  data: PinjamanPesan & {
+    pokokDiajukan: number;
+    totalKewajiban: number;
+  },
+  catatan: string,
+  statusLama: string,
+  metodeBayar: string,
+  sekarang: number,
+): { isi: string; jenis: JenisTemplateWa } {
+  const kanonikBaru = statusKanonik(data.status);
+  const kanonikLama = statusKanonik(statusLama);
+  const jenisKhusus: JenisTemplateWa | null =
+    kanonikBaru === "lunas" && kanonikLama !== "lunas"
+      ? "pelunasan"
+      : kanonikBaru === "didanai" && kanonikLama !== "didanai"
+        ? "pencairan"
+        : null;
+  if (jenisKhusus !== null) {
+    return {
+      jenis: jenisKhusus,
+      isi: rangkaiPesanWa(
+        templateUntukJenis(settings, jenisKhusus, undefined),
+        nilaiPesanPinjaman(data, { metodeBayar, sekarang }),
+      ).isi,
+    };
+  }
+  return {
+    jenis: "status",
+    isi: pesanStatusDari(settings, data, catatan, statusLama),
+  };
 }
 
 /**
@@ -604,7 +786,7 @@ export const previewStatusPinjaman = query({
         : quotePinjaman(loan).totalKewajibanPelunasan;
     return {
       nomorWhatsApp: loan.nomorWhatsApp ?? null,
-      isi: pesanStatusDari(
+      isi: pesanKabarStatus(
         settings,
         {
           namaLengkap: loan.namaLengkap,
@@ -612,11 +794,17 @@ export const previewStatusPinjaman = query({
           status: loan.status,
           pokokDiajukan,
           pokokPinjaman: loan.pokokPinjaman,
+          tenorHari: loan.tenorHari ?? undefined,
+          tenorBulan: loan.tenorBulan ?? undefined,
+          didanaiPada: loan.didanaiPada ?? undefined,
+          persenBunga: loan.persenBunga ?? undefined,
           totalKewajiban,
         },
         alasan.trim() === "" ? "—" : alasan.trim(),
         loan.status,
-      ),
+        await metodeBayarQuery(ctx),
+        Date.now(),
+      ).isi,
     };
   },
 });
@@ -646,16 +834,26 @@ export const kirimStatusPinjaman = action({
       throw new Error("Peminjam belum punya nomor WhatsApp (lengkapi KYC).");
     }
 
-    const isi = pesanStatusDari(
+    const kabar = pesanKabarStatus(
       settings,
       data,
       alasan.trim() === "" ? "—" : alasan.trim(),
       statusLama ?? "ditinjau",
+      await metodeBayarAction(ctx),
+      Date.now(),
     );
 
-    const hasil = await kirimPesanStatus(ctx, settings, data.nomorWhatsApp, isi, loanId, userId);
+    const hasil = await kirimPesanStatus(
+      ctx,
+      settings,
+      data.nomorWhatsApp,
+      kabar.isi,
+      loanId,
+      userId,
+      kabar.jenis,
+    );
     if (!hasil.ok) throw new Error(hasil.respon);
-    return { ok: true, isi };
+    return { ok: true, isi: kabar.isi };
   },
 });
 
@@ -693,19 +891,22 @@ export const _kirimStatusPinjaman = internalAction({
     // Catatan opsional: tanpa catatan, template tidak boleh menyisakan kalimat
     // kosong ("Catatan dari tim: .") — sama dengan pratinjau dan kirim ulang.
     const catatan = alasan.trim() === "" ? "—" : alasan.trim();
-    const isi = pesanStatusDari(
+    const kabar = pesanKabarStatus(
       settings,
       data,
       catatan,
       statusLama ?? "ditinjau",
+      await metodeBayarAction(ctx),
+      Date.now(),
     );
     const hasil = await kirimPesanStatus(
       ctx,
       settings,
       data.nomorWhatsApp,
-      isi,
+      kabar.isi,
       loanId,
       undefined,
+      kabar.jenis,
     );
     return { status: hasil.status };
   },
@@ -722,6 +923,8 @@ async function kirimPesanStatus(
   isi: string,
   loanId: Id<"loans">,
   olehUserId: Id<"users"> | undefined,
+  /** Jenis ramah yang dicatat di log pengiriman (kunci katalog). */
+  jenis: string,
 ): Promise<{ ok: boolean; status: string; respon: string }> {
   const apiKey = apiKeyGatewayWa();
   let status: string;
@@ -741,7 +944,7 @@ async function kirimPesanStatus(
   await ctx.runMutation(internal.whatsapp._appendLog, {
     loanId,
     nomorTujuan: nomor,
-    jenis: "status_pinjaman",
+    jenis,
     isiPesan: isi,
     status,
     respon,
@@ -838,15 +1041,11 @@ export const kirimPeringatanLokasi = internalAction({
     if (data === null) return { status: "tidak_ada" };
 
     const settings: WaSettings = await ctx.runQuery(internal.whatsapp._getSettings, {});
-    const template = settings.templateLokasi?.trim() || DEFAULT_TEMPLATE_LOKASI;
-    const isi = renderTemplate(template, {
+    const isi = rangkaiPesanWa(templateUntukJenis(settings, "lokasi", settings.templateLokasi), {
       nama: data.nama,
-      ref: data.nomorReferensi ?? "—",
-      jumlah: "—",
-      tanggal: "—",
-      sisa: "—",
-      denda: "",
-    });
+      ref: data.nomorReferensi,
+      kontak: KONTAK_BAWAAN,
+    }).isi;
 
     const apiKey = apiKeyGatewayWa();
     let status: string;
@@ -868,6 +1067,8 @@ export const kirimPeringatanLokasi = internalAction({
 
     await ctx.runMutation(internal.whatsapp._appendLog, {
       nomorTujuan: data.nomorWhatsApp ?? "-",
+      // Kunci log lama tetap dipakai supaya riwayat yang sudah ada tidak
+      // terbelah dua; label ramahnya menunjuk jenis katalog yang sama.
       jenis: "lokasi_dicurigai",
       isiPesan: isi,
       status,
@@ -879,5 +1080,189 @@ export const kirimPeringatanLokasi = internalAction({
       keterangan: respon,
     });
     return { status };
+  },
+});
+
+/* ==========================================================================
+ * Pengingat otomatis: H-3, H-1, hari H, dan keterlambatan
+ * ========================================================================== */
+
+/** Batas pinjaman per satu kali jalan penjadwal — supaya action tidak menahan. */
+const BATAS_PENGINGAT_SEKALI_JALAN = 200;
+
+/**
+ * Pinjaman yang MASIH BERJALAN beserta bidang yang dibutuhkan template.
+ *
+ * Hanya status `didanai` yang dibaca: begitu pembayaran tercatat dan status
+ * berpindah (lunas/ditolak/ditinjau), pinjaman itu hilang dari daftar ini, dan
+ * pengingatnya berhenti dengan sendirinya tanpa perlu dimatikan siapa pun.
+ */
+export const _pinjamanPengingat = internalQuery({
+  args: {},
+  handler: async (ctx) => {
+    const loans = await ctx.db
+      .query("loans")
+      .withIndex("by_status", (q) => q.eq("status", "didanai"))
+      .take(BATAS_PENGINGAT_SEKALI_JALAN);
+    return loans.map((loan) => ({
+      loanId: loan._id,
+      namaLengkap: loan.namaLengkap,
+      nomorReferensi: loan.nomorReferensi,
+      nomorWhatsApp: loan.nomorWhatsApp ?? null,
+      pokokPinjaman: loan.pokokPinjaman,
+      tenorHari: loan.tenorHari ?? undefined,
+      tenorBulan: loan.tenorBulan ?? undefined,
+      didanaiPada: loan.didanaiPada ?? undefined,
+      persenBunga: loan.persenBunga ?? undefined,
+      status: loan.status,
+    }));
+  },
+});
+
+/**
+ * Jenis pesan yang SUDAH tercatat terkirim hari ini untuk satu pinjaman.
+ *
+ * Dibaca dari log pengiriman, bukan dari ingatan proses: penjadwal boleh
+ * berjalan berkali-kali dalam satu hari tanpa mengirim pesan yang sama dua kali.
+ */
+export const _logPengingatHariIni = internalQuery({
+  args: { loanId: v.id("loans"), sejak: v.number() },
+  handler: async (ctx, { loanId, sejak }) => {
+    const rows = await ctx.db
+      .query("waLogs")
+      .withIndex("by_loan", (q) => q.eq("loanId", loanId))
+      .collect();
+    return rows.filter((row) => row.waktu >= sejak).map((row) => row.jenis);
+  },
+});
+
+/**
+ * Kirim pengingat jatuh tempo & keterlambatan yang memang berhak berangkat
+ * SEKARANG. Dipanggil cron tiap jam; keputusan kirimnya murni di
+ * `lib/templatePesanWa.rencanaPengingat`.
+ *
+ * TIDAK PERNAH melempar, dan tidak melakukan apa pun saat gateway belum aktif
+ * atau di luar jam kirim: cron tiap jam yang berisik di log bukan kegunaan.
+ * Nomor tujuan HANYA nomor peminjam dari data KYC — tidak ada penerima lain.
+ */
+export const jalankanPengingatJatuhTempo = internalAction({
+  args: {},
+  handler: async (ctx) => {
+    const settings: WaSettings = await ctx.runQuery(internal.whatsapp._getSettings, {});
+    if (settings.aktif !== true || !settings.apiUrl) {
+      return { terkirim: 0, gagal: 0, tanpaNomor: 0, jumlahRencana: 0, alasan: "nonaktif" };
+    }
+    const now = Date.now();
+    if (!dalamJamKirim(jamWib(now))) {
+      return { terkirim: 0, gagal: 0, tanpaNomor: 0, jumlahRencana: 0, alasan: "luar_jam_kirim" };
+    }
+    const apiKey = apiKeyGatewayWa();
+    if (apiKey === "") {
+      return { terkirim: 0, gagal: 0, tanpaNomor: 0, jumlahRencana: 0, alasan: "tanpa_token" };
+    }
+
+    const sejak = awalHariUtc(now);
+    const pinjaman = await ctx.runQuery(internal.whatsapp._pinjamanPengingat, {});
+    const peta = new Map<string, (typeof pinjaman)[number]>();
+    const kandidat: KandidatPengingat[] = [];
+    for (const p of pinjaman) {
+      const info = pelunasanPinjaman(p, now);
+      if (info === null) continue;
+      peta.set(p.loanId, p);
+      kandidat.push({
+        loanId: p.loanId,
+        status: p.status,
+        sisaHari: info.sisaHari,
+        hariTerlambat: info.hariTerlambat,
+        jenisHariIni: await ctx.runQuery(internal.whatsapp._logPengingatHariIni, {
+          loanId: p.loanId,
+          sejak,
+        }),
+      });
+    }
+    const rencana = rencanaPengingat(now, kandidat);
+    const metodeBayar = await metodeBayarAction(ctx);
+
+    let terkirim = 0;
+    let gagal = 0;
+    let tanpaNomor = 0;
+    for (const r of rencana) {
+      const p = peta.get(r.loanId);
+      if (p === undefined) continue;
+      const isi = rangkaiPesanWa(
+        templateUntukJenis(settings, r.jenis, undefined),
+        nilaiPesanPinjaman(p, { metodeBayar, sekarang: now }),
+      ).isi;
+      if (p.nomorWhatsApp === null) {
+        await ctx.runMutation(internal.whatsapp._appendLog, {
+          loanId: p.loanId,
+          nomorTujuan: "-",
+          jenis: r.jenis,
+          isiPesan: "(tidak dikirim)",
+          status: "tanpa_nomor",
+          respon: "Peminjam belum punya nomor WhatsApp di data KYC.",
+        });
+        tanpaNomor += 1;
+        continue;
+      }
+      const hasil = await kirimViaGateway(apiKey, settings, p.nomorWhatsApp, isi);
+      await ctx.runMutation(internal.whatsapp._appendLog, {
+        loanId: p.loanId,
+        nomorTujuan: p.nomorWhatsApp,
+        jenis: r.jenis,
+        isiPesan: isi,
+        status: hasil.ok ? "terkirim" : "gagal",
+        respon: hasil.respon,
+      });
+      if (hasil.ok) terkirim += 1;
+      else gagal += 1;
+    }
+    return { terkirim, gagal, tanpaNomor, jumlahRencana: rencana.length, alasan: "jalan" };
+  },
+});
+
+/**
+ * Kabar "pembayaran dicatat" untuk satu pinjaman — dijadwalkan `penagihan`
+ * setelah petugas mencatat pembayaran nasabah diterima.
+ *
+ * Yang disebut pesan hanya apa yang benar-benar tercatat: nominal yang dicatat
+ * petugas, bukan klaim bahwa transfer sudah diverifikasi bank.
+ */
+export const _kirimKonfirmasiPembayaran = internalAction({
+  args: { loanId: v.id("loans"), jumlah: v.number() },
+  handler: async (ctx, { loanId, jumlah }): Promise<{ status: string }> => {
+    const data = await ctx.runQuery(internal.whatsapp._dataStatusPinjaman, { loanId });
+    if (data === null) return { status: "tidak_ada" };
+    if (!data.nomorWhatsApp) {
+      await ctx.runMutation(internal.whatsapp._appendLog, {
+        loanId,
+        nomorTujuan: "-",
+        jenis: "konfirmasi_pembayaran",
+        isiPesan: "(tidak dikirim)",
+        status: "tanpa_nomor",
+        respon: "Peminjam belum punya nomor WhatsApp di data KYC.",
+      });
+      return { status: "tanpa_nomor" };
+    }
+
+    const settings: WaSettings = await ctx.runQuery(internal.whatsapp._getSettings, {});
+    const isi = rangkaiPesanWa(
+      templateUntukJenis(settings, "konfirmasi_pembayaran", undefined),
+      nilaiPesanPinjaman(data, {
+        metodeBayar: await metodeBayarAction(ctx),
+        sekarang: Date.now(),
+        jumlahTampil: jumlah,
+      }),
+    ).isi;
+    const hasil = await kirimPesanStatus(
+      ctx,
+      settings,
+      data.nomorWhatsApp,
+      isi,
+      loanId,
+      undefined,
+      "konfirmasi_pembayaran",
+    );
+    return { status: hasil.status };
   },
 });

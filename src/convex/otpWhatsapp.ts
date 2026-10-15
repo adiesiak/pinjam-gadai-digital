@@ -15,7 +15,12 @@ import type { Id } from "./_generated/dataModel";
 import { ROLES } from "./schema";
 import { catatLogin } from "./security";
 import { tandaiNomorWaTerverifikasi } from "./kyc";
-import { apiKeyGatewayWa, kirimViaGateway, type WaSettings } from "./whatsapp";
+import {
+  apiKeyGatewayWa,
+  kirimViaGateway,
+  pesanOtpDariTemplate,
+  type WaSettings,
+} from "./whatsapp";
 import {
   buatSaltOtp,
   cocokKodeOtp,
@@ -495,7 +500,12 @@ export const mintaOtpWa = action({
       return { ok: false, terkirim: false, pesan: izin.pesan, sisaDetik: izin.sisaDetik };
     }
 
-    const hasil = await kirimPesanOtp(ctx, dasar.nomor, pesanOtp(tujuan, kode));
+    // Template OTP yang diatur admin dipakai bila ada; bila belum, pesan bawaan
+    // `lib/otpWa` yang menyebut keperluan kode tetap berlaku (perilaku lama).
+    const settings: WaSettings = await ctx.runQuery(internal.whatsapp._getSettings, {});
+    const pesan =
+      pesanOtpDariTemplate(settings, kode, OTP_MASA_BERLAKU_MS / 60_000) ?? pesanOtp(tujuan, kode);
+    const hasil = await kirimPesanOtp(ctx, dasar.nomor, pesan);
     await ctx.runMutation(internal.otpWhatsapp._catatPengiriman, {
       challengeId: izin.challengeId,
       terkirim: hasil.terkirim,

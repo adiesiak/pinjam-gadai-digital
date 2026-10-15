@@ -1,5 +1,5 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
-import { mutation, query, MutationCtx, QueryCtx } from "./_generated/server";
+import { mutation, query, internalQuery, MutationCtx, QueryCtx } from "./_generated/server";
 import { v } from "convex/values";
 import { requireAdminSession } from "./adminAuthz";
 import {
@@ -98,6 +98,26 @@ export async function getConfig(ctx: QueryCtx): Promise<SystemConfig> {
     manualDepositEnabled: row.manualDepositEnabled ?? DEFAULT_CONFIG.manualDepositEnabled,
   };
 }
+
+/**
+ * Data penerimaan pembayaran untuk MERANGKAI PESAN (internal, tanpa gerbang
+ * sesi): pengirim otomatis berjalan di action dan tidak punya sesi admin.
+ *
+ * Hanya field yang benar-benar dipakai template yang keluar dari sini —
+ * pengaturan lain (persentase, kill switch, koordinat) tetap di jalur admin.
+ */
+export const _penerimaanInternal = internalQuery({
+  args: {},
+  handler: async (ctx) => {
+    const cfg = await getConfig(ctx);
+    return {
+      rekeningUsahaNama: cfg.rekeningUsahaNama,
+      rekeningUsahaBank: cfg.rekeningUsahaBank,
+      rekeningUsahaNomor: cfg.rekeningUsahaNomor,
+      qrisMerchantNama: cfg.qrisMerchantNama,
+    };
+  },
+});
 
 /** Instruksi penerimaan manual untuk pengguna terautentikasi; tidak menyertakan rahasia. */
 export const getPaymentInstructions = query({
