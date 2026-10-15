@@ -18,6 +18,16 @@ import { formatRupiah, percentOf } from "@/lib/money";
 type Aturan = { nomor: number; judul: string; isi: ReactNode };
 
 /**
+ * Daftar dibagi dua kolom untuk layar lebar: tujuh aturan yang sebelumnya
+ * menumpuk satu per satu kini terbaca dalam empat baris. Pembagiannya menurut
+ * urutan indeks, jadi urutan bacanya tetap 1 sampai 7 di layar sempit maupun lebar.
+ */
+function bagiDua<T>(daftar: readonly T[]): readonly (readonly T[])[] {
+  const tengah = Math.ceil(daftar.length / 2);
+  return [daftar.slice(0, tengah), daftar.slice(tengah)];
+}
+
+/**
  * Panel "Aturan perhitungan" — satu tempat untuk semua cara angka di ruang ini
  * dihitung.
  *
@@ -34,8 +44,10 @@ type Aturan = { nomor: number; judul: string; isi: ReactNode };
  * Sistem), bukan angka tetap yang ditulis di kode — jadi kalau pemilik produk
  * mengubah tarifnya, penjelasannya ikut berubah.
  *
- * Bentuk accordion (dan bukan dinding teks): dua belas judul tetap terlihat
+ * Bentuk accordion (dan bukan dinding teks): semua judul tetap terlihat
  * sekaligus, sehingga pembaca bisa langsung menemukan aturan yang dicarinya.
+ * Di layar lebar daftarnya dipasang dua kolom supaya tujuh judulnya tidak
+ * menghabiskan satu layar sebelum bagian berikutnya terbaca.
  *
  * Murni presentasional, tanpa Convex, supaya bisa dirender langsung oleh uji
  * markup (`AturanPerhitungan.render.test.tsx`).
@@ -236,25 +248,41 @@ export function AturanPerhitungan({
         pendana. Buka aturan yang ingin Anda periksa.
       </p>
 
-      <Accordion
-        type="multiple"
-        className="mt-1"
-        defaultValue={bukaAwal.map((nomor) => `aturan-${nomor}`)}
-      >
-        {aturan.map((a) => (
-          <AccordionItem key={a.nomor} value={`aturan-${a.nomor}`} className="border-slate-100">
-            <AccordionTrigger className="gap-3 py-3 text-sm font-medium text-navy hover:no-underline">
-              <span className="flex min-w-0 items-baseline gap-2 text-left">
-                <span className="text-xs font-semibold tabular-nums text-muted-foreground">
-                  {a.nomor}.
-                </span>
-                <span className="min-w-0">{a.judul}</span>
-              </span>
-            </AccordionTrigger>
-            <AccordionContent className="text-xs leading-6 text-slate-700">{a.isi}</AccordionContent>
-          </AccordionItem>
+      <div className="mt-1 grid items-start gap-x-6 lg:grid-cols-2">
+        {bagiDua(aturan).map((bagian) => (
+          <Accordion
+            key={bagian[0]?.nomor ?? 0}
+            type="multiple"
+            /* Hanya aturan yang memang berada di kolom ini yang dibuka, supaya
+               pintu uji `bukaAwal` tetap membuka aturan yang benar. */
+            defaultValue={bagian
+              .filter((a) => bukaAwal.includes(a.nomor))
+              .map((a) => `aturan-${a.nomor}`)}
+          >
+            {bagian.map((a) => (
+              <AccordionItem
+                key={a.nomor}
+                value={`aturan-${a.nomor}`}
+                className="border-slate-100"
+              >
+                {/* `min-h-11` menjaga tinggi sasaran sentuh 44px walau bantalannya
+                    (py-2) dikecilkan supaya daftarnya tidak setinggi satu layar. */}
+                <AccordionTrigger className="min-h-11 items-center gap-3 py-2 text-sm font-medium text-navy hover:no-underline">
+                  <span className="flex min-w-0 items-baseline gap-2 text-left">
+                    <span className="text-xs font-semibold tabular-nums text-muted-foreground">
+                      {a.nomor}.
+                    </span>
+                    <span className="min-w-0">{a.judul}</span>
+                  </span>
+                </AccordionTrigger>
+                <AccordionContent className="text-xs leading-6 text-slate-700">
+                  {a.isi}
+                </AccordionContent>
+              </AccordionItem>
+            ))}
+          </Accordion>
         ))}
-      </Accordion>
+      </div>
     </section>
   );
 }

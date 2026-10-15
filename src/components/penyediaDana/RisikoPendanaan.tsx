@@ -56,9 +56,19 @@ export function BannerRisikoPendanaan() {
 }
 
 /**
+ * Daftar dibagi dua kolom untuk layar lebar: dua belas judul yang sebelumnya
+ * menumpuk satu per satu kini terbaca dalam enam baris. Pembagiannya menurut
+ * urutan indeks, jadi urutan baca tetap 1 sampai 12 di layar sempit maupun lebar.
+ */
+function bagiDua<T>(daftar: readonly T[]): readonly (readonly T[])[] {
+  const tengah = Math.ceil(daftar.length / 2);
+  return [daftar.slice(0, tengah), daftar.slice(tengah)];
+}
+
+/**
  * Panel dua belas poin risiko — accordion tertutup secara bawaan supaya tidak
- * mendorong angka keuntungan jauh ke bawah, tetapi bisa dibuka satu per satu
- * tanpa kehilangan tempat (dua belas judul tetap terlihat sekaligus).
+ * mendorong angka keuntungan jauh ke bawah, dan dipasang dua kolom di layar
+ * lebar supaya dua belas judulnya tidak lebih tinggi dari satu layar penuh.
  */
 export function PanelRisikoPendanaan({
   bukaAwal = [],
@@ -86,27 +96,41 @@ export function PanelRisikoPendanaan({
         }
       />
 
-      <Accordion
-        type="multiple"
-        className="mt-1"
-        defaultValue={bukaAwal.map((nomor) => `poin-${nomor}`)}
-      >
-        {POIN_RISIKO_PENDANAAN.map((poin) => (
-          <AccordionItem key={poin.nomor} value={`poin-${poin.nomor}`} className="border-slate-100">
-            <AccordionTrigger className="gap-3 py-3 text-sm font-medium text-navy hover:no-underline">
-              <span className="flex min-w-0 items-baseline gap-2 text-left">
-                <span className="text-xs font-semibold tabular-nums text-muted-foreground">
-                  {poin.nomor}.
-                </span>
-                <span className="min-w-0">{poin.judul}</span>
-              </span>
-            </AccordionTrigger>
-            <AccordionContent className="text-xs leading-6 text-slate-700">
-              {poin.isi}
-            </AccordionContent>
-          </AccordionItem>
+      <div className="mt-1 grid items-start gap-x-6 lg:grid-cols-2">
+        {bagiDua(POIN_RISIKO_PENDANAAN).map((bagian) => (
+          <Accordion
+            key={bagian[0]?.nomor ?? 0}
+            type="multiple"
+            /* Hanya poin yang memang berada di kolom ini yang dibuka, supaya
+               pintu uji `bukaAwal` tetap membuka poin yang benar. */
+            defaultValue={bagian
+              .filter((poin) => bukaAwal.includes(poin.nomor))
+              .map((poin) => `poin-${poin.nomor}`)}
+          >
+            {bagian.map((poin) => (
+              <AccordionItem
+                key={poin.nomor}
+                value={`poin-${poin.nomor}`}
+                className="border-slate-100"
+              >
+                {/* `min-h-11` menjaga tinggi sasaran sentuh 44px walau bantalannya
+                    (py-2) dikecilkan supaya daftarnya tidak setinggi satu layar. */}
+                <AccordionTrigger className="min-h-11 items-center gap-3 py-2 text-sm font-medium text-navy hover:no-underline">
+                  <span className="flex min-w-0 items-baseline gap-2 text-left">
+                    <span className="text-xs font-semibold tabular-nums text-muted-foreground">
+                      {poin.nomor}.
+                    </span>
+                    <span className="min-w-0">{poin.judul}</span>
+                  </span>
+                </AccordionTrigger>
+                <AccordionContent className="text-xs leading-6 text-slate-700">
+                  {poin.isi}
+                </AccordionContent>
+              </AccordionItem>
+            ))}
+          </Accordion>
         ))}
-      </Accordion>
+      </div>
     </section>
   );
 }

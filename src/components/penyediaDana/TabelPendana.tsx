@@ -37,8 +37,47 @@ import {
 /** Kolom terakhir: aksi per baris — tidak ikut diurutkan. */
 const LABEL_AKSI = "Aksi";
 
+/**
+ * Pembagian lebar kolom tabel, dalam persen dari lebar kontainer.
+ *
+ * Ketujuh kolom angka sebelumnya selebar isi terpanjangnya (judul kolom yang
+ * tidak boleh turun baris), sehingga tabel menuntut ~1460 px di kontainer
+ * ~1100 px: kolom terakhir, "Total keuntungan", terpotong tepi kartu dan tidak
+ * pernah terbaca. Sekarang tabelnya `table-fixed` dengan jatah lebar tetap, jadi
+ * judul kolom boleh turun baris dan tidak ada kolom yang bisa keluar layar.
+ */
+const LEBAR_PENDANA = "w-[18%]";
+const LEBAR_ANGKA = "w-[11.5%]";
+const LEBAR_AKSI = "w-[13%]";
+
+/**
+ * Garis rambut yang memisahkan gugus kolom: posisi dana, hasil pendana, dan
+ * biaya. Tanpa pemisah ini, enam kolom angka berderet rata dan mata harus
+ * mencocokkan angka ke judul kolom yang jauh di atasnya.
+ */
+const PEMISAH = "border-l border-slate-200";
+
 function rupiah(nilai: number): string {
   return formatRupiahAman(nilai);
+}
+
+/** Satu sel angka: rata kanan, lebar tetap, dan pembatas gugusnya. */
+function SelAngka({
+  nilai,
+  pemisah = false,
+  kelas = "",
+}: {
+  nilai: string;
+  pemisah?: boolean;
+  kelas?: string;
+}) {
+  return (
+    <TableCell
+      className={`px-2 py-2.5 text-right align-top tabular-nums ${pemisah ? PEMISAH : ""} ${kelas}`}
+    >
+      {nilai}
+    </TableCell>
+  );
 }
 
 /** Ikon penanda kolom yang sedang jadi dasar urutan. */
@@ -102,8 +141,14 @@ function IsiRincian({
   rincian: readonly RincianPerkiraan[];
 }) {
   return (
-    <div className="grid gap-4 sm:grid-cols-2">
-      <div>
+    <div className="grid gap-3 lg:grid-cols-2">
+      {/*
+       * Dua lembar terpisah, bukan satu kisi tanpa bingkai: sebelumnya kedua
+       * daftar ini duduk berdampingan di dalam sel tabel selebar satu baris,
+       * sehingga label kanan dan angkanya terpisah jauh dan terbaca seperti dua
+       * kolom tabel yang tidak berhubungan.
+       */}
+      <div className={`${FOLIO.jalur} p-3`}>
         <p className="text-xs font-semibold text-navy">
           Pembentuk angka perkiraan · {rincian.length} pinjaman berjalan
         </p>
@@ -112,56 +157,72 @@ function IsiRincian({
             Tidak ada pinjaman berjalan atas nama pendana ini, jadi angka perkiraannya Rp 0.
           </p>
         ) : (
-          <ul className="mt-1.5 space-y-1 text-xs">
-            {rincian.map((p) => (
-              <li key={p.id} className="flex items-baseline justify-between gap-3">
-                <span className={`min-w-0 truncate text-muted-foreground ${FOLIO.kode}`}>
-                  {p.nomorReferensi} · {namaHurufBesar(p.namaLengkap)}
-                </span>
-                <span className="shrink-0 tabular-nums font-medium text-amber-700">
-                  {rupiah(p.keuntunganPendana)}
-                </span>
-              </li>
-            ))}
-          </ul>
+          <>
+            {/* Kepala kecil di atas angkanya: angka rata kanan jadi bisa
+                dipasangkan ke barisnya tanpa menebak. */}
+            <div className="mt-2 flex items-baseline justify-between gap-3 border-b border-slate-300 pb-1 text-xs text-slate-600">
+              <span>Pinjaman (referensi · peminjam)</span>
+              <span className="shrink-0">Perkiraan</span>
+            </div>
+            <ul className="divide-y divide-slate-200">
+              {rincian.map((p) => (
+                <li
+                  key={p.id}
+                  className="flex items-baseline justify-between gap-3 py-1.5 text-xs"
+                >
+                  <span className={`min-w-0 truncate text-slate-600 ${FOLIO.kode}`}>
+                    {p.nomorReferensi} · {namaHurufBesar(p.namaLengkap)}
+                  </span>
+                  <span className="shrink-0 tabular-nums font-medium text-amber-700">
+                    {rupiah(p.keuntunganPendana)}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </>
         )}
-        <p className="mt-1.5 text-xs leading-5 text-muted-foreground">
+        <p className="mt-2 text-xs leading-5 text-muted-foreground">
           Jumlah baris di atas sama dengan kolom “Perkiraan (belum lunas)”.
         </p>
       </div>
 
-      <dl className="space-y-1.5 text-xs">
-        <div className="flex items-baseline justify-between gap-3">
-          <dt className="text-muted-foreground">Pinjaman (total · aktif · lunas)</dt>
-          <dd className="tabular-nums font-medium text-slate-900">
-            {r.jumlahPinjaman} · {r.jumlahAktif} · {r.jumlahLunas}
-          </dd>
-        </div>
-        <div className="flex items-baseline justify-between gap-3">
-          <dt className="text-muted-foreground">Potongan admin dibukukan</dt>
-          <dd className="tabular-nums font-medium text-slate-900">
-            {rupiah(r.keuntunganAdminLunas)}
-          </dd>
-        </div>
-        <div className="flex items-baseline justify-between gap-3">
-          <dt className="text-muted-foreground">Potongan admin perkiraan</dt>
-          <dd className="tabular-nums font-medium text-slate-900">
-            {rupiah(r.keuntunganAdminBelumLunas)}
-          </dd>
-        </div>
-        <div className="flex items-baseline justify-between gap-3">
-          <dt className="text-muted-foreground">Transfer keuntungan</dt>
-          <dd className="text-right">
-            <TransferPendana r={r} />
-          </dd>
-        </div>
-        <div className="flex items-baseline justify-between gap-3">
-          <dt className="text-muted-foreground">Transfer sudah dicatat</dt>
-          <dd className="tabular-nums font-medium text-slate-900">
-            {r.transferTercatat} pinjaman lunas
-          </dd>
-        </div>
-      </dl>
+      <div className={`${FOLIO.jalur} p-3`}>
+        <p className="text-xs font-semibold text-navy">Angka pendamping baris ini</p>
+        <dl className="mt-2">
+          {[
+            {
+              label: "Pinjaman (total · aktif · lunas)",
+              nilai: `${r.jumlahPinjaman} · ${r.jumlahAktif} · ${r.jumlahLunas}`,
+            },
+            {
+              label: "Potongan admin dibukukan",
+              nilai: rupiah(r.keuntunganAdminLunas),
+            },
+            {
+              label: "Potongan admin perkiraan",
+              nilai: rupiah(r.keuntunganAdminBelumLunas),
+            },
+            {
+              label: "Transfer sudah dicatat",
+              nilai: `${r.transferTercatat} pinjaman lunas`,
+            },
+          ].map((baris) => (
+            <div
+              key={baris.label}
+              className="flex items-baseline justify-between gap-3 border-b border-slate-200 py-1.5 text-xs last:border-b-0"
+            >
+              <dt className="min-w-0 text-slate-600">{baris.label}</dt>
+              <dd className="shrink-0 tabular-nums font-medium text-slate-900">{baris.nilai}</dd>
+            </div>
+          ))}
+          <div className="flex items-baseline justify-between gap-3 pt-1.5 text-xs">
+            <dt className="text-slate-600">Transfer keuntungan</dt>
+            <dd className="text-right">
+              <TransferPendana r={r} />
+            </dd>
+          </div>
+        </dl>
+      </div>
     </div>
   );
 }
@@ -256,14 +317,15 @@ export function TabelPendana({
       {/* Lembar folio: kertas padat bergaris kepala kuningan, tanpa bayangan —
           bayangan hanya dipakai satu lembar fokus di puncak halaman. */}
       <div className={`hidden overflow-hidden lg:block ${FOLIO.kertas}`}>
-        <Table className="w-full">
+        <Table className="w-full table-fixed [&_th]:whitespace-normal [&_td]:whitespace-normal">
           <TableCaption className="sr-only">
             Perbandingan dana tersalurkan, keuntungan, dan potongan admin per pendana
           </TableCaption>
           <TableHeader>
             <TableRow className={`${FOLIO.kepalaTabel} hover:bg-slate-50`}>
-              {KOLOM_PENDANA.map((kolom) => {
+              {KOLOM_PENDANA.map((kolom, i) => {
                 const jadiDasar = urutan.kunci === kolom.kunci;
+                const angka = i > 0;
                 return (
                   <TableHead
                     key={kolom.kunci}
@@ -271,13 +333,19 @@ export function TabelPendana({
                     aria-sort={
                       jadiDasar ? (urutan.arah === "naik" ? "ascending" : "descending") : "none"
                     }
-                    className="h-12 px-3 align-bottom"
+                    className={`h-auto px-2 py-2 align-bottom ${i === 0 ? LEBAR_PENDANA : LEBAR_ANGKA} ${
+                      i === 1 || i === 3 || i === 6 ? PEMISAH : ""
+                    }`}
                   >
+                    {/* Judul kolom rata dengan angkanya: judul angka rata kanan,
+                        sedangkan nama kolom pertama rata kiri. */}
                     <button
                       type="button"
                       onClick={() => gantiUrut(kolom.kunci)}
                       aria-label={`Urutkan menurut ${kolom.label}`}
-                      className="inline-flex w-full items-center gap-1.5 text-left text-xs font-semibold uppercase tracking-[0.1em] text-slate-600 transition-colors hover:text-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2"
+                      className={`inline-flex w-full items-center gap-1 text-xs font-semibold uppercase leading-tight tracking-[0.04em] text-slate-600 transition-colors hover:text-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2 ${
+                        angka ? "justify-end text-right" : "text-left"
+                      }`}
                     >
                       <span className="min-w-0">{kolom.label}</span>
                       <IkonUrut aktif={jadiDasar} arah={urutan.arah} />
@@ -285,8 +353,11 @@ export function TabelPendana({
                   </TableHead>
                 );
               })}
-              <TableHead scope="col" className="h-12 px-3 align-bottom text-right">
-                <span className="text-xs font-semibold uppercase tracking-[0.1em] text-slate-600">
+              <TableHead
+                scope="col"
+                className={`h-auto px-2 py-2 align-bottom text-right ${LEBAR_AKSI}`}
+              >
+                <span className="text-xs font-semibold uppercase tracking-[0.04em] text-slate-600">
                   {LABEL_AKSI}
                 </span>
               </TableHead>
@@ -305,7 +376,7 @@ export function TabelPendana({
                       sedangAktif ? "bg-emerald-50/60" : "hover:bg-slate-50"
                     }`}
                   >
-                    <TableCell className="px-3 py-3 align-top">
+                    <TableCell className="px-2 py-2.5 align-top">
                       <p className="inline-flex items-center gap-1.5 font-semibold uppercase text-navy">
                         <Wallet className="size-3.5 shrink-0 text-primary" aria-hidden />
                         {tampil(r.nama)}
@@ -317,25 +388,13 @@ export function TabelPendana({
                         <TransferPendana r={r} ringkas />
                       </div>
                     </TableCell>
-                    <TableCell className="px-3 py-3 text-right align-top font-medium tabular-nums text-slate-900">
-                      {rupiah(r.totalDisalurkan)}
-                    </TableCell>
-                    <TableCell className="px-3 py-3 text-right align-top tabular-nums text-slate-900">
-                      {rupiah(r.saldoBerjalan)}
-                    </TableCell>
-                    <TableCell className="px-3 py-3 text-right align-top font-semibold tabular-nums text-emerald-700">
-                      {rupiah(r.keuntunganPendanaLunas)}
-                    </TableCell>
-                    <TableCell className="px-3 py-3 text-right align-top font-medium tabular-nums text-amber-700">
-                      {rupiah(r.keuntunganPendanaBelumLunas)}
-                    </TableCell>
-                    <TableCell className="px-3 py-3 text-right align-top font-semibold tabular-nums text-emerald-800">
-                      {rupiah(r.keuntunganPendana)}
-                    </TableCell>
-                    <TableCell className="px-3 py-3 text-right align-top tabular-nums text-slate-900">
-                      {rupiah(r.keuntunganAdmin)}
-                    </TableCell>
-                    <TableCell className="px-3 py-3 align-top">
+                    <SelAngka nilai={rupiah(r.totalDisalurkan)} pemisah kelas="font-medium text-slate-900" />
+                    <SelAngka nilai={rupiah(r.saldoBerjalan)} kelas="text-slate-900" />
+                    <SelAngka nilai={rupiah(r.keuntunganPendanaLunas)} pemisah kelas="font-semibold text-emerald-700" />
+                    <SelAngka nilai={rupiah(r.keuntunganPendanaBelumLunas)} kelas="font-medium text-amber-700" />
+                    <SelAngka nilai={rupiah(r.keuntunganPendana)} kelas="font-semibold text-emerald-800" />
+                    <SelAngka nilai={rupiah(r.keuntunganAdmin)} pemisah kelas="text-slate-900" />
+                    <TableCell className="px-2 py-2.5 align-top">
                       <div className="flex flex-col items-end gap-1.5">
                         {onPilih !== undefined && (
                           <Button
@@ -374,7 +433,7 @@ export function TabelPendana({
               tampil, jadi pembaca bisa menjumlahkannya sendiri kapan saja. */}
           <TableFooter className="bg-slate-100/80">
             <TableRow className="border-t border-slate-200">
-              <TableCell className="px-3 py-3 align-top">
+              <TableCell className="px-2 py-2.5 align-top">
                 <p className="font-semibold text-navy">Total · {total.jumlahPendana} pendana</p>
                 <p className="mt-1 text-xs text-muted-foreground">
                   {total.jumlahPinjaman} pinjaman · {total.jumlahAktif} aktif · {total.jumlahLunas}{" "}
@@ -388,25 +447,13 @@ export function TabelPendana({
                       )})`}
                 </p>
               </TableCell>
-              <TableCell className="px-3 py-3 text-right align-top font-semibold tabular-nums text-slate-900">
-                {rupiah(total.totalDisalurkan)}
-              </TableCell>
-              <TableCell className="px-3 py-3 text-right align-top font-semibold tabular-nums text-slate-900">
-                {rupiah(total.saldoBerjalan)}
-              </TableCell>
-              <TableCell className="px-3 py-3 text-right align-top font-semibold tabular-nums text-emerald-700">
-                {rupiah(total.keuntunganPendanaLunas)}
-              </TableCell>
-              <TableCell className="px-3 py-3 text-right align-top font-semibold tabular-nums text-amber-700">
-                {rupiah(total.keuntunganPendanaBelumLunas)}
-              </TableCell>
-              <TableCell className="px-3 py-3 text-right align-top font-semibold tabular-nums text-emerald-800">
-                {rupiah(total.keuntunganPendana)}
-              </TableCell>
-              <TableCell className="px-3 py-3 text-right align-top font-semibold tabular-nums text-slate-900">
-                {rupiah(total.keuntunganAdmin)}
-              </TableCell>
-              <TableCell className="px-3 py-3 align-top" />
+              <SelAngka nilai={rupiah(total.totalDisalurkan)} pemisah kelas="font-semibold text-slate-900" />
+              <SelAngka nilai={rupiah(total.saldoBerjalan)} kelas="font-semibold text-slate-900" />
+              <SelAngka nilai={rupiah(total.keuntunganPendanaLunas)} pemisah kelas="font-semibold text-emerald-700" />
+              <SelAngka nilai={rupiah(total.keuntunganPendanaBelumLunas)} kelas="font-semibold text-amber-700" />
+              <SelAngka nilai={rupiah(total.keuntunganPendana)} kelas="font-semibold text-emerald-800" />
+              <SelAngka nilai={rupiah(total.keuntunganAdmin)} pemisah kelas="font-semibold text-slate-900" />
+              <TableCell className="px-2 py-2.5 align-top" />
             </TableRow>
           </TableFooter>
         </Table>
