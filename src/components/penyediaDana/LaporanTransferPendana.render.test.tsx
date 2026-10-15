@@ -12,6 +12,7 @@
  *     kosong tanpa keterangan.
  *  5. Kalimat "catatan pembukuan, bukan bukti mutasi" tidak pernah hilang —
  *     inilah batas yang tidak boleh disalahbaca pendana.
+ *  6. Teks yang dibaca pendana bebas em dash, dan sel kosong diisi kalimat.
  */
 import { renderToStaticMarkup } from "react-dom/server";
 
@@ -122,6 +123,17 @@ ada(html, "Rp 600.000", "nilai yang belum dicatat");
 // Batas yang tidak boleh disalahbaca.
 ada(html, "catatan pembukuan internal", "isi laporan disebut catatan pembukuan");
 ada(html, "bukan bukti mutasi bank/e-wallet dan bukan jaminan", "bukan bukti mutasi dinyatakan");
+
+// Copy yang dibaca pendana tidak memakai em dash (aturan copy UI).
+tidakAda(html, "—", "teks laporan bebas em dash");
+
+// Sel yang kosong diisi kalimat, bukan tanda pisah yang harus ditebak artinya.
+const tanpaIsian = render({
+  rows: [{ ...barisKe(1), referensi: null, catatan: null }],
+});
+ada(tanpaIsian, "Belum diisi", "referensi mutasi kosong ditulis apa adanya");
+ada(tanpaIsian, "Tanpa catatan tambahan.", "catatan kosong ditulis apa adanya");
+tidakAda(tanpaIsian, "—", "sel kosong tidak memakai em dash");
 
 // Saringan & ekspor.
 ada(html, 'aria-label="Laporan transfer keuntungan"', "bagian punya nama untuk pembaca layar");

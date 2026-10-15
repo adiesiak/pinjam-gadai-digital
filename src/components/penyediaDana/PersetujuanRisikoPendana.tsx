@@ -138,7 +138,7 @@ export function PersetujuanRisikoPendana({
             </div>
 
             <p className="mt-2 text-xs leading-6 text-amber-900">
-              Persetujuan ini disimpan di server atas nama akun Anda, bukan di peramban ini — jadi
+              Persetujuan ini disimpan di server atas nama akun Anda, bukan di peramban ini, jadi
               tetap terbaca walau Anda berganti perangkat. Membaca halaman ini saja belum menjadi
               persetujuan.
             </p>

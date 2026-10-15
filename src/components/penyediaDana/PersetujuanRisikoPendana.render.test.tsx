@@ -177,5 +177,9 @@ ada(gagal, 'role="alert"', "kegagalan diberitakan sebagai alert");
 ada(gagal, "Muat ulang halaman", "pesan kegagalan tampil apa adanya");
 bersih(gagal, "markup kegagalan");
 
+// ===== Copy yang dibaca pendana bebas em dash (aturan copy UI) =====
+ok(!belum.includes("—"), "kartu yang belum disetujui bebas em dash");
+ok(!gagal.includes("—"), "pesan kegagalan bebas em dash");
+
 console.log(`PersetujuanRisikoPendana.render.test: ${passed} lulus, ${failed} gagal`);
 if (failed > 0) process.exit(1);

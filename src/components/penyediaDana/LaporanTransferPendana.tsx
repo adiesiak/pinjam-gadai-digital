@@ -73,8 +73,8 @@ function waktuLengkap(waktu: number): string {
  * Satu angka ringkas dengan keterangan satu baris.
  *
  * Warna dipakai sebagai penanda makna (hijau = sudah dicatat, amber = masih
- * menunggu), sementara keterangannya selalu menuliskan makna itu dengan kata —
- * angka tidak boleh hanya bisa dibaca lewat warna.
+ * menunggu), sementara keterangannya selalu menuliskan makna itu dengan kata,
+ * sehingga angka tidak hanya bisa dibaca lewat warna.
  */
 function KartuAngka({
   label,
@@ -99,7 +99,7 @@ function KartuAngka({
         : "text-slate-700";
   return (
     <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3.5 shadow-sm">
-      <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">
+      <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.12em] text-slate-600">
         <span className={warna} aria-hidden>
           {icon}
         </span>
@@ -234,7 +234,7 @@ export function LaporanTransferPendana({
         <p className="text-sm font-medium text-navy">Belum ada catatan transfer keuntungan</p>
         <p className="mx-auto mt-2 max-w-xl text-xs leading-6 text-muted-foreground">
           Catatan transfer dibuat admin setelah pinjaman berstatus lunas, dan baru muncul di sini
-          setelah dicatat. Belum ada catatan berarti belum ada yang perlu diperiksa — bukan berarti
+          setelah dicatat. Belum ada catatan berarti belum ada yang perlu diperiksa, bukan berarti
           ada keuntungan yang hilang. PINDAI adalah pencatat: perpindahan uang tetap terjadi di bank
           atau e-wallet.
         </p>
@@ -287,14 +287,14 @@ export function LaporanTransferPendana({
       {/* ===== Saringan + ekspor ===== */}
       {rows.length > 0 && (
         <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-          <p className="flex items-center gap-2 border-b border-slate-100 bg-slate-50/70 px-4 py-2.5 text-xs font-semibold uppercase tracking-[0.16em] text-slate-500 sm:px-5">
+          <p className="flex items-center gap-2 border-b border-slate-100 bg-slate-50/70 px-4 py-2.5 text-xs font-semibold uppercase tracking-[0.16em] text-slate-600 sm:px-5">
             <ListFilter className="size-3.5 text-primary" aria-hidden /> Saring riwayat
           </p>
           <div className="grid gap-3 px-4 py-4 sm:grid-cols-3 sm:px-5">
             <div className="min-w-0 sm:col-span-1">
               <Label
                 htmlFor="saring-transfer"
-                className="text-xs font-semibold uppercase tracking-[0.1em] text-slate-500"
+                className="text-xs font-semibold uppercase tracking-[0.1em] text-slate-600"
               >
                 Cari
               </Label>
@@ -317,7 +317,7 @@ export function LaporanTransferPendana({
             <div className="min-w-0">
               <p
                 id="label-saring-status"
-                className="text-xs font-semibold uppercase tracking-[0.1em] text-slate-500"
+                className="text-xs font-semibold uppercase tracking-[0.1em] text-slate-600"
               >
                 Status catatan
               </p>
@@ -352,7 +352,7 @@ export function LaporanTransferPendana({
             <div className="min-w-0">
               <p
                 id="label-saring-periode"
-                className="text-xs font-semibold uppercase tracking-[0.1em] text-slate-500"
+                className="text-xs font-semibold uppercase tracking-[0.1em] text-slate-600"
               >
                 Periode
               </p>
@@ -463,7 +463,7 @@ export function LaporanTransferPendana({
                       {labelMetodeTransfer(b.metode)}
                     </TableCell>
                     <TableCell className="px-3 py-3 align-top text-xs text-slate-700">
-                      {b.referensi ?? "—"}
+                      {b.referensi ?? "Belum diisi"}
                     </TableCell>
                     <TableCell className="px-3 py-3 align-top">
                       <LencanaStatus status={b.status} />
@@ -474,9 +474,9 @@ export function LaporanTransferPendana({
                     <TableCell className="max-w-[16rem] px-3 py-3 align-top text-xs leading-5 text-slate-600">
                       {b.status === "dibatalkan"
                         ? `Dibatalkan ${b.dibatalkanPada === null ? "" : tanggal(b.dibatalkanPada)}${
-                            b.alasanBatal === null ? "" : ` — ${b.alasanBatal}`
+                            b.alasanBatal === null ? "" : `: ${b.alasanBatal}`
                           }`
-                        : (b.catatan ?? "—")}
+                        : (b.catatan ?? "Tanpa catatan tambahan.")}
                     </TableCell>
                   </TableRow>
                 ))}
@@ -512,7 +512,7 @@ export function LaporanTransferPendana({
                   </div>
                   <div className="flex items-baseline justify-between gap-3">
                     <dt className="text-muted-foreground">Referensi mutasi</dt>
-                    <dd className="text-right text-slate-800">{b.referensi ?? "—"}</dd>
+                    <dd className="text-right text-slate-800">{b.referensi ?? "Belum diisi"}</dd>
                   </div>
                   <div className="flex items-baseline justify-between gap-3">
                     <dt className="text-muted-foreground">Dicatat oleh</dt>
@@ -522,7 +522,7 @@ export function LaporanTransferPendana({
                 <p className="mt-2 text-xs leading-5 text-slate-600">
                   {b.status === "dibatalkan"
                     ? `Dibatalkan ${b.dibatalkanPada === null ? "" : tanggal(b.dibatalkanPada)}${
-                        b.alasanBatal === null ? "" : ` — ${b.alasanBatal}`
+                        b.alasanBatal === null ? "" : `: ${b.alasanBatal}`
                       }`
                     : (b.catatan ?? "Tanpa catatan tambahan.")}
                 </p>
@@ -570,7 +570,7 @@ export function LaporanTransferPendana({
       {/* ===== Antrean rekonsiliasi: pekerjaan admin, dipantau pendana ===== */}
       <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
         <div className="flex flex-wrap items-baseline justify-between gap-2 border-b border-slate-100 bg-slate-50/70 px-4 py-2.5 sm:px-5">
-          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-600">
             Antrean rekonsiliasi · {belum.length} pinjaman
           </p>
           <p className="text-xs font-semibold tabular-nums text-amber-800">
@@ -586,7 +586,7 @@ export function LaporanTransferPendana({
           <>
             <p className="px-4 pt-4 text-xs leading-6 text-muted-foreground sm:px-5">
               Daftar ini adalah pekerjaan admin: pinjaman sudah lunas, tetapi catatan transfernya
-              belum dibuat. Pendana cukup memantau di sini — urutan paling atas adalah yang paling
+              belum dibuat. Pendana cukup memantau di sini: urutan paling atas adalah yang paling
               lama menunggu.
             </p>
             <ul className="divide-y divide-slate-100 px-4 pb-2 sm:px-5">

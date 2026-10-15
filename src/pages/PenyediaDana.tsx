@@ -2245,8 +2245,13 @@ function IsiRuang() {
              * Persetujuan risiko tepat sesudah panel risikonya, dan sebelum
              * angka keuntungan mana pun: pertanyaan "sudahkah saya menyetujui
              * ini?" dijawab setelah risikonya terbaca, bukan setelah angkanya
-             * ditafsirkan. Kartu ini tidak tampil selama status belum tiba.
+             * ditafsirkan. Selama statusnya belum tiba, yang tampil baris memuat
+             * setinggi kartunya — supaya tidak ada lompatan tata letak saat
+             * kartunya masuk.
              */}
+            {persetujuan === undefined && bolehLihat && (
+              <MemuatBaris teks="Memuat status persetujuan risiko…" className="mt-4" />
+            )}
             {persetujuan !== undefined && (
               <PersetujuanRisikoPendana
                 status={persetujuan}
