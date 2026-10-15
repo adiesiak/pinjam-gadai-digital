@@ -394,19 +394,35 @@ export function KerangkaRuangPendana() {
     <div role="status" aria-live="polite" className="py-6 sm:py-9">
       <span className="sr-only">Memuat catatan pengajuan…</span>
       <div aria-hidden="true" className="space-y-6">
-        <div className="overflow-hidden rounded-3xl bg-navy px-5 py-6 sm:px-8 sm:py-8">
-          <Skeleton className="h-3 w-36 bg-white/20" />
-          <Skeleton className="mt-4 h-7 w-64 max-w-full bg-white/20" />
-          <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
-            {[0, 1, 2, 3].map((i) => (
-              <div key={i} className="rounded-2xl bg-white/10 p-3">
-                <Skeleton className="h-3 w-16 bg-white/25" />
-                <Skeleton className="mt-2.5 h-5 w-24 bg-white/25" />
-              </div>
-            ))}
+        {/*
+         * Lembar judul mengikuti halaman aslinya: satu angka pokok bertepi
+         * kuningan ganda, tiga angka pendukung di daftar bergaris di sebelahnya.
+         * Rangka yang bentuknya berbeda dari halaman akhir membuat tata letak
+         * melompat tepat saat data tiba.
+         */}
+        <div className="border-t-2 border-gold pt-5 sm:pt-6">
+          <Skeleton className="h-3 w-36" />
+          <Skeleton className="mt-4 h-7 w-64 max-w-full" />
+          <div className="mt-5 grid gap-5 lg:grid-cols-[22rem_minmax(0,1fr)]">
+            <div className="rounded-xl border border-gold/55 bg-white p-5 ring-1 ring-gold/35 ring-offset-2 ring-offset-white/60">
+              <Skeleton className="h-3 w-24" />
+              <Skeleton className="mt-3 h-8 w-40" />
+              <Skeleton className="mt-2 h-3 w-48" />
+            </div>
+            <div className="rounded-lg border border-slate-200 bg-slate-50/70 px-4 py-1.5">
+              {[0, 1, 2].map((i) => (
+                <div
+                  key={i}
+                  className="grid grid-cols-2 items-baseline gap-3 border-b border-slate-200 py-3 last:border-b-0"
+                >
+                  <Skeleton className="h-3 w-32" />
+                  <Skeleton className="ml-auto h-5 w-24" />
+                </div>
+              ))}
+            </div>
           </div>
         </div>
-        <Skeleton className="h-11 w-full rounded-2xl" />
+        <Skeleton className="h-10 w-full rounded-none" />
         <SkeletonTabel kolom={6} baris={6} />
       </div>
     </div>

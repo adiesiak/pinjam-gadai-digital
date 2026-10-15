@@ -2,8 +2,10 @@ import L from "leaflet";
 import { MapPin } from "lucide-react";
 import { useEffect, useRef } from "react";
 
+import { FOLIO } from "@/components/penyediaDana/folio";
 import { labelTandaLokasi } from "@/lib/lokasi";
 import { namaHurufBesar } from "@/lib/nama";
+import { cn } from "@/lib/utils";
 import type { TitikPeminjam } from "@/convex/penyediaDana";
 
 import "leaflet/dist/leaflet.css";
@@ -216,7 +218,7 @@ export function PetaLokasiPeminjam({
   }, [rows, vault]);
 
   return (
-    <div className="relative h-[52dvh] min-h-[280px] max-h-[440px] overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 shadow-sm sm:h-[440px]">
+    <div className="relative h-[52dvh] min-h-[280px] max-h-[440px] overflow-hidden rounded-lg border border-slate-200 bg-slate-50 sm:h-[440px]">
       <div
         ref={containerRef}
         role="region"
@@ -225,7 +227,12 @@ export function PetaLokasiPeminjam({
       />
       {rows.length === 0 && (
         <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center p-6">
-          <span className="flex max-w-sm items-center gap-2 rounded-2xl bg-white/95 px-4 py-3 text-center text-xs leading-5 text-muted-foreground shadow-sm">
+          <span
+            className={cn(
+              FOLIO.kertas,
+              "flex max-w-sm items-center gap-2 px-4 py-3 text-center text-xs leading-5 text-muted-foreground",
+            )}
+          >
             <MapPin className="size-4 shrink-0 text-primary" aria-hidden />
             Belum ada titik lokasi yang terkirim dari perangkat peminjam.
           </span>

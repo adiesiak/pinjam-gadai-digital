@@ -20,6 +20,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import type { RekapPendana } from "@/convex/penyediaDana";
+import { FOLIO } from "@/components/penyediaDana/folio";
 import { formatRupiahAman } from "@/lib/money";
 import { namaHurufBesar } from "@/lib/nama";
 import {
@@ -45,7 +46,7 @@ function IkonUrut({ aktif, arah }: { aktif: boolean; arah: ArahUrut }) {
   if (!aktif) {
     // slate-500, bukan slate-400: ikon ini penanda kolom yang bisa diurutkan,
     // dan 2,56:1 terlalu samar untuk dibaca sebagai penanda.
-    return <ChevronsUpDown className="size-3.5 shrink-0 text-slate-500" aria-hidden />;
+    return <ChevronsUpDown className="size-3.5 shrink-0 text-slate-600" aria-hidden />;
   }
   return arah === "naik" ? (
     <ArrowUp className="size-3.5 shrink-0 text-emerald-700" aria-hidden />
@@ -114,7 +115,7 @@ function IsiRincian({
           <ul className="mt-1.5 space-y-1 text-xs">
             {rincian.map((p) => (
               <li key={p.id} className="flex items-baseline justify-between gap-3">
-                <span className="min-w-0 truncate text-muted-foreground">
+                <span className={`min-w-0 truncate text-muted-foreground ${FOLIO.kode}`}>
                   {p.nomorReferensi} · {namaHurufBesar(p.namaLengkap)}
                 </span>
                 <span className="shrink-0 tabular-nums font-medium text-amber-700">
@@ -243,7 +244,7 @@ export function TabelPendana({
 
   if (rekap.length === 0) {
     return (
-      <p className="rounded-2xl border border-dashed border-slate-300 bg-white px-4 py-6 text-center text-xs text-muted-foreground">
+      <p className="rounded-lg border border-dashed border-slate-300 bg-slate-50/70 px-4 py-6 text-center text-xs text-muted-foreground">
         Belum ada dana tersalurkan pada pendana mana pun.
       </p>
     );
@@ -252,13 +253,15 @@ export function TabelPendana({
   return (
     <div className="animate-masuk">
       {/* ===== Layar lebar: satu tabel yang bisa diurutkan ===== */}
-      <div className="hidden overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm lg:block">
+      {/* Lembar folio: kertas padat bergaris kepala kuningan, tanpa bayangan —
+          bayangan hanya dipakai satu lembar fokus di puncak halaman. */}
+      <div className={`hidden overflow-hidden lg:block ${FOLIO.kertas}`}>
         <Table className="w-full">
           <TableCaption className="sr-only">
             Perbandingan dana tersalurkan, keuntungan, dan potongan admin per pendana
           </TableCaption>
           <TableHeader>
-            <TableRow className="border-b border-slate-200 bg-slate-50 hover:bg-slate-50">
+            <TableRow className={`${FOLIO.kepalaTabel} hover:bg-slate-50`}>
               {KOLOM_PENDANA.map((kolom) => {
                 const jadiDasar = urutan.kunci === kolom.kunci;
                 return (
@@ -299,7 +302,7 @@ export function TabelPendana({
                 <Fragment key={r.nama}>
                   <TableRow
                     className={`transition-colors ${
-                      sedangAktif ? "bg-emerald-50/70" : "hover:bg-emerald-50/40"
+                      sedangAktif ? "bg-emerald-50/60" : "hover:bg-slate-50"
                     }`}
                   >
                     <TableCell className="px-3 py-3 align-top">
@@ -417,8 +420,8 @@ export function TabelPendana({
           return (
             <li
               key={r.nama}
-              className={`rounded-2xl border bg-white p-4 shadow-sm ${
-                sedangAktif ? "border-emerald-300 ring-2 ring-emerald-600" : "border-slate-200"
+              className={`rounded-lg border bg-white p-4 ${
+                sedangAktif ? "border-emerald-600/50 bg-emerald-50/50" : "border-slate-200"
               }`}
             >
               <p className="inline-flex items-center gap-1.5 font-semibold uppercase text-navy">
@@ -501,7 +504,7 @@ export function TabelPendana({
 
         {/* Kartu total: di layar sempit, kaki tabel tidak terlihat, jadi
             jumlahnya mendapat kartunya sendiri. */}
-        <li className="rounded-2xl border border-slate-300 bg-slate-100/80 p-4 shadow-sm">
+        <li className="rounded-lg border border-slate-300 bg-slate-100/80 p-4">
           <p className="font-semibold text-navy">Total · {total.jumlahPendana} pendana</p>
           <p className="mt-1 text-xs text-muted-foreground">
             {total.jumlahPinjaman} pinjaman · {total.jumlahAktif} aktif · {total.jumlahLunas} lunas

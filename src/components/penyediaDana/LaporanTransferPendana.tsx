@@ -9,6 +9,7 @@ import {
 import { useState, type ReactNode } from "react";
 import { toast } from "sonner";
 
+import { FOLIO } from "@/components/penyediaDana/folio";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -98,7 +99,7 @@ function KartuAngka({
         ? "text-amber-800"
         : "text-slate-700";
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3.5 shadow-sm">
+    <div className="rounded-lg border border-slate-200 bg-white px-4 py-3.5">
       <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.12em] text-slate-600">
         <span className={warna} aria-hidden>
           {icon}
@@ -229,7 +230,7 @@ export function LaporanTransferPendana({
     return (
       <section
         aria-label="Laporan transfer keuntungan"
-        className="animate-masuk mt-4 rounded-2xl border border-dashed border-slate-300 bg-white px-4 py-8 text-center"
+        className="animate-masuk mt-4 rounded-lg border border-dashed border-slate-300 bg-white px-4 py-8 text-center"
       >
         <p className="text-sm font-medium text-navy">Belum ada catatan transfer keuntungan</p>
         <p className="mx-auto mt-2 max-w-xl text-xs leading-6 text-muted-foreground">
@@ -244,10 +245,8 @@ export function LaporanTransferPendana({
 
   return (
     <section aria-label="Laporan transfer keuntungan" className="animate-masuk mt-4 space-y-4">
-      <div>
-        <h2 className="text-lg font-semibold tracking-tight text-navy">
-          Riwayat transfer keuntungan
-        </h2>
+      <div className="border-b border-slate-200 pb-2">
+        <h2 className={FOLIO.judul}>Riwayat transfer keuntungan</h2>
         <p className="mt-1 max-w-3xl text-xs leading-6 text-muted-foreground">
           Isi laporan ini adalah <strong className="font-semibold text-slate-700">catatan
           pembukuan internal PINDAI</strong> bahwa admin sudah mentransfer keuntungan di luar
@@ -286,8 +285,8 @@ export function LaporanTransferPendana({
 
       {/* ===== Saringan + ekspor ===== */}
       {rows.length > 0 && (
-        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-          <p className="flex items-center gap-2 border-b border-slate-100 bg-slate-50/70 px-4 py-2.5 text-xs font-semibold uppercase tracking-[0.16em] text-slate-600 sm:px-5">
+        <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+          <p className="flex items-center gap-2 border-b border-gold/40 bg-slate-50 px-4 py-2.5 text-xs font-semibold uppercase tracking-[0.16em] text-slate-700 sm:px-5">
             <ListFilter className="size-3.5 text-primary" aria-hidden /> Saring riwayat
           </p>
           <div className="grid gap-3 px-4 py-4 sm:grid-cols-3 sm:px-5">
@@ -409,19 +408,19 @@ export function LaporanTransferPendana({
 
       {/* ===== Riwayat: tabel di layar lebar, kartu di layar sempit ===== */}
       {hasil.length === 0 ? (
-        <p className="rounded-2xl border border-dashed border-slate-300 bg-white px-4 py-6 text-center text-xs text-muted-foreground">
+        <p className="rounded-lg border border-dashed border-slate-300 bg-white px-4 py-6 text-center text-xs text-muted-foreground">
           Tidak ada catatan transfer yang cocok dengan saringan ini. Kosongkan filter untuk melihat
           seluruh riwayat.
         </p>
       ) : (
         <>
-          <div className="hidden overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm lg:block">
+          <div className="hidden overflow-hidden rounded-lg border border-slate-200 bg-white lg:block">
             <Table className="w-full">
               <TableCaption className="sr-only">
                 Riwayat catatan transfer keuntungan pendana
               </TableCaption>
               <TableHeader>
-                <TableRow className="border-b border-slate-200 bg-slate-50 hover:bg-slate-50">
+                <TableRow className="border-b border-gold/40 bg-slate-50 hover:bg-slate-50">
                   {[
                     "Waktu",
                     "Referensi",
@@ -449,7 +448,7 @@ export function LaporanTransferPendana({
                     <TableCell className="px-3 py-3 align-top text-xs tabular-nums text-slate-700">
                       {waktuLengkap(b.dicatatPada)}
                     </TableCell>
-                    <TableCell className="px-3 py-3 align-top text-xs font-medium text-navy">
+                    <TableCell className="px-3 py-3 align-top font-mono text-xs font-medium tabular-nums text-navy">
                       {b.nomorReferensi}
                     </TableCell>
                     <TableCell className="px-3 py-3 align-top text-xs text-slate-800">
@@ -486,9 +485,11 @@ export function LaporanTransferPendana({
 
           <ul className="space-y-3 lg:hidden">
             {potongan.baris.map((b) => (
-              <li key={b.id} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+              <li key={b.id} className="rounded-lg border border-slate-200 bg-white p-4">
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
-                  <p className="text-xs font-medium text-navy">{b.nomorReferensi}</p>
+                  <p className={`text-xs font-medium text-navy ${FOLIO.kode}`}>
+                    {b.nomorReferensi}
+                  </p>
                   <LencanaStatus status={b.status} />
                 </div>
                 <p className="mt-2 text-lg font-semibold tabular-nums text-slate-900">
@@ -531,7 +532,7 @@ export function LaporanTransferPendana({
           </ul>
 
           {/* ===== Paginasi: 10 baris per halaman ===== */}
-          <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+          <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-200 bg-white px-4 py-3">
             <p className="text-xs tabular-nums text-muted-foreground">
               {labelRentang(potongan, hasil.length)}
             </p>
@@ -568,8 +569,8 @@ export function LaporanTransferPendana({
       )}
 
       {/* ===== Antrean rekonsiliasi: pekerjaan admin, dipantau pendana ===== */}
-      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-        <div className="flex flex-wrap items-baseline justify-between gap-2 border-b border-slate-100 bg-slate-50/70 px-4 py-2.5 sm:px-5">
+      <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+        <div className="flex flex-wrap items-baseline justify-between gap-2 border-b border-gold/40 bg-slate-50 px-4 py-2.5 sm:px-5">
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-600">
             Antrean rekonsiliasi · {belum.length} pinjaman
           </p>
@@ -589,11 +590,11 @@ export function LaporanTransferPendana({
               belum dibuat. Pendana cukup memantau di sini: urutan paling atas adalah yang paling
               lama menunggu.
             </p>
-            <ul className="divide-y divide-slate-100 px-4 pb-2 sm:px-5">
+            <ul className="divide-y divide-slate-200 px-4 pb-2 sm:px-5">
               {belum.map((b) => (
                 <li key={b.loanId} className="flex flex-wrap items-baseline justify-between gap-2 py-3">
                   <div className="min-w-0">
-                    <p className="text-xs font-medium text-navy">{b.referensi}</p>
+                    <p className={`text-xs font-medium text-navy ${FOLIO.kode}`}>{b.referensi}</p>
                     <p className="mt-0.5 text-xs text-muted-foreground">
                       {namaTampil(b.pendanaNama)}
                       {b.pendanaId === idSaya && <PenandaMilikAnda />} · lunas {tanggal(b.lunasPada)}

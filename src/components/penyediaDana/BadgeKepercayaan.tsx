@@ -64,12 +64,12 @@ const KELAS_NADA: Record<NadaJatuhTempo, { teks: string; badge: string }> = {
     badge: "border-slate-300 bg-slate-100 text-slate-700 hover:bg-slate-100",
   },
   lunas: {
-    teks: "text-slate-500",
+    teks: "text-slate-600",
     badge: "border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-50",
   },
   belum_didanai: {
-    teks: "text-slate-500",
-    badge: "border-slate-200 bg-white text-slate-500 hover:bg-white",
+    teks: "text-slate-600",
+    badge: "border-slate-200 bg-white text-slate-600 hover:bg-white",
   },
 };
 
@@ -175,7 +175,7 @@ export function BadgeKepercayaan({
       <Badge
         variant="outline"
         className={cn(
-          "badge-pop gap-1 border text-xs font-bold shadow-sm",
+          "badge-pop gap-1 border text-xs font-bold",
           KELAS_TINGKAT[kepercayaan.tingkat],
         )}
         title={`${kepercayaan.alasan.join(" · ")} (skor internal PINDAI, bukan skor kredit lembaga)`}

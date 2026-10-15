@@ -1,6 +1,10 @@
 import { ShieldCheck, TriangleAlert } from "lucide-react";
 import { useState, type ReactNode } from "react";
 
+import {
+  CatatanKebijakan,
+  KepalaFolio,
+} from "@/components/penyediaDana/bagian-folio";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
@@ -87,19 +91,21 @@ export function PersetujuanRisikoPendana({
     return (
       <section
         aria-label="Persetujuan risiko pendanaan"
-        className="animate-masuk mt-4 rounded-2xl border border-amber-300/70 bg-amber-50 px-4 py-4 sm:px-5"
+        className="animate-masuk mt-4 rounded-lg border border-amber-300/70 bg-amber-50/40 px-4 py-4 sm:px-5"
       >
-        <div className="flex gap-3">
-          <TriangleAlert className="mt-0.5 size-4 shrink-0 text-amber-700" aria-hidden />
+        <KepalaFolio
+          nomor={4}
+          judul={`Persetujuan risiko pendanaan (versi ${status.versiBerlaku})`}
+          className="border-amber-300/60"
+          aksi={<TriangleAlert className="size-4 shrink-0 text-amber-700" aria-hidden />}
+        />
+        <div className="mt-3">
           <div className="min-w-0">
-            <h2 className="text-sm font-semibold tracking-tight text-amber-950">
-              Persetujuan risiko pendanaan (versi {status.versiBerlaku})
-            </h2>
             <p className="mt-1 text-xs leading-6 text-amber-950">{LABEL_PERLU_SETUJU}</p>
 
             {/* Kalimat pernyataan ditampilkan UTUH: yang disetujui adalah bunyinya,
                 jadi tidak boleh diringkas di sini. */}
-            <p className="mt-2 rounded-xl border border-amber-200 bg-white px-3 py-2 text-xs leading-6 text-amber-950">
+            <p className="mt-2 rounded-lg border border-amber-300/70 bg-white px-3 py-2 text-xs leading-6 text-amber-950">
               {PERNYATAAN_PERSETUJUAN}
             </p>
 
@@ -137,11 +143,11 @@ export function PersetujuanRisikoPendana({
               </a>
             </div>
 
-            <p className="mt-2 text-xs leading-6 text-amber-900">
+            <CatatanKebijakan label="Cara catatan disimpan" className="mt-3">
               Persetujuan ini disimpan di server atas nama akun Anda, bukan di peramban ini, jadi
               tetap terbaca walau Anda berganti perangkat. Membaca halaman ini saja belum menjadi
               persetujuan.
-            </p>
+            </CatatanKebijakan>
             {pesanGalat}
           </div>
         </div>
@@ -153,14 +159,16 @@ export function PersetujuanRisikoPendana({
   return (
     <section
       aria-label="Persetujuan risiko pendanaan"
-      className="animate-masuk mt-4 rounded-2xl border border-emerald-200 bg-emerald-50/60 px-4 py-4 sm:px-5"
+      className="animate-masuk mt-4 rounded-lg border border-emerald-300/70 bg-emerald-50/40 px-4 py-4 sm:px-5"
     >
-      <div className="flex gap-3">
-        <ShieldCheck className="mt-0.5 size-4 shrink-0 text-emerald-700" aria-hidden />
+      <KepalaFolio
+        nomor={4}
+        judul="Persetujuan risiko tercatat"
+        className="border-emerald-300/60"
+        aksi={<ShieldCheck className="size-4 shrink-0 text-emerald-700" aria-hidden />}
+      />
+      <div className="mt-3">
         <div className="min-w-0">
-          <h2 className="text-sm font-semibold tracking-tight text-emerald-950">
-            Persetujuan risiko tercatat
-          </h2>
           <p className="mt-1 text-xs leading-6 text-emerald-900">{LABEL_SUDAH_SETUJU}</p>
           {waktu !== null && (
             <p className="mt-1 text-xs leading-6 text-emerald-900">
@@ -176,7 +184,7 @@ export function PersetujuanRisikoPendana({
           {/* Riwayat hanya muncul bila ada lebih dari satu baris: satu versi tidak
               perlu daftar, dan versi lama wajib tetap terbaca saat teks berubah. */}
           {status.riwayat.length > 1 && (
-            <details className="mt-2 rounded-xl border border-emerald-200 bg-white px-3 py-2">
+            <details className="mt-2 rounded-lg border border-emerald-300/60 bg-white px-3 py-2">
               <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.16em] text-emerald-800">
                 Riwayat persetujuan ({status.riwayat.length})
               </summary>

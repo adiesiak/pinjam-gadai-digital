@@ -106,7 +106,7 @@ const bermasalah = renderToStaticMarkup(
     }}
   />,
 );
-cek("3a empat kartu kesehatan tampil", cacah(tenang, "rounded-2xl border px-4 py-3") === 4);
+cek("3a empat kartu kesehatan tampil", cacah(tenang, "rounded-lg border px-4 py-3") === 4);
 cek(
   "3b nilai nol tidak diberi warna peringatan",
   !tenang.includes("bg-amber-50/70"),

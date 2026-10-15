@@ -6,6 +6,8 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
+import { KepalaFolio } from "@/components/penyediaDana/bagian-folio";
+import { FOLIO } from "@/components/penyediaDana/folio";
 import {
   ANCHOR_RISIKO_PENDANAAN,
   JUDUL_RISIKO_PENDANAAN,
@@ -35,7 +37,7 @@ export function BannerRisikoPendanaan() {
   return (
     <section
       aria-label="Peringatan risiko pendanaan"
-      className="animate-masuk mt-4 rounded-2xl border border-amber-300/70 bg-amber-50 px-4 py-4 sm:px-5 sm:py-4"
+      className="animate-masuk mt-4 rounded-lg border border-amber-300/70 bg-amber-50 px-4 py-4 sm:px-5 sm:py-4"
     >
       <div className="flex gap-3">
         <TriangleAlert className="mt-0.5 size-4 shrink-0 text-amber-700" aria-hidden />
@@ -72,17 +74,17 @@ export function PanelRisikoPendanaan({
     <section
       id={ANCHOR_RISIKO_PENDANAAN}
       aria-label={JUDUL_RISIKO_PENDANAAN}
-      className="animate-masuk mt-4 scroll-mt-24 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm sm:px-5"
+      className={`animate-masuk mt-4 scroll-mt-24 px-4 py-3 sm:px-5 ${FOLIO.kertas}`}
     >
-      <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h2 className="flex items-center gap-2 text-base font-semibold tracking-tight text-navy">
-          <TriangleAlert className="size-4 shrink-0 text-amber-700" aria-hidden />
-          {JUDUL_RISIKO_PENDANAAN}
-        </h2>
-        <p className="text-xs font-medium text-muted-foreground">
-          {POIN_RISIKO_PENDANAAN.length} hal yang perlu Anda tahu sebelum mendanai
-        </p>
-      </div>
+      <KepalaFolio
+        nomor={3}
+        judul={JUDUL_RISIKO_PENDANAAN}
+        aksi={
+          <p className="text-xs font-medium text-muted-foreground">
+            {POIN_RISIKO_PENDANAAN.length} hal yang perlu Anda tahu sebelum mendanai
+          </p>
+        }
+      />
 
       <Accordion
         type="multiple"

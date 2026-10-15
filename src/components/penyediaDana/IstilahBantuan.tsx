@@ -32,7 +32,7 @@ export function IstilahBantuan({
         <button
           type="button"
           aria-label={`Penjelasan ${istilah}`}
-          className="inline-flex size-4 shrink-0 items-center justify-center rounded-full text-slate-500 transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1"
+          className="inline-flex size-4 shrink-0 items-center justify-center rounded-full text-slate-600 transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1"
         >
           <HelpCircle className="size-3.5" aria-hidden />
         </button>

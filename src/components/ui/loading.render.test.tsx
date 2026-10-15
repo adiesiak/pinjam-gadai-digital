@@ -107,7 +107,9 @@ ok(jumlah(kerangkaAdmin, /sm:grid-cols-3/g) >= 1, "kartu statistik rangka memaka
 
 const kerangkaPendana = render(<KerangkaRuangPendana />);
 ada(kerangkaPendana, "Memuat catatan pengajuan…", "rangka pendana menjelaskan dirinya");
-ada(kerangkaPendana, "bg-navy", "panel judul rangka pendana meniru panel aslinya");
+// Lembar judul halaman pendana kini kertas hangat bertepi kuningan ganda, jadi
+// rangkanya diperiksa lewat tepi kuningan itu — bukan lagi lewat bidang navy.
+ada(kerangkaPendana, "ring-gold/35", "lembar judul rangka pendana meniru lembar aslinya");
 ada(kerangkaPendana, "grid-cols-2", "baris angka rangka pendana punya kisi");
 
 // ===== 2. Batas yang tidak boleh dilanggar =====

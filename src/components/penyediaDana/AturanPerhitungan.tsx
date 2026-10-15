@@ -1,6 +1,7 @@
-import { Calculator } from "lucide-react";
 import type { ReactNode } from "react";
 
+import { KepalaFolio } from "@/components/penyediaDana/bagian-folio";
+import { FOLIO } from "@/components/penyediaDana/folio";
 import {
   Accordion,
   AccordionContent,
@@ -218,18 +219,18 @@ export function AturanPerhitungan({
   return (
     <section
       aria-label="Aturan perhitungan"
-      className="animate-masuk mt-3 scroll-mt-24 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm sm:px-5"
+      className={`animate-masuk mt-3 scroll-mt-24 px-4 py-3 sm:px-5 ${FOLIO.kertas}`}
       id="aturan-perhitungan"
     >
-      <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h2 className="flex items-center gap-2 text-base font-semibold tracking-tight text-navy">
-          <Calculator className="size-4 shrink-0 text-primary" aria-hidden />
-          Aturan perhitungan
-        </h2>
-        <p className="text-xs font-medium text-muted-foreground">
-          bunga {persenBunga}% · potongan admin {persenPotonganAdmin}%
-        </p>
-      </div>
+      <KepalaFolio
+        nomor={5}
+        judul="Aturan perhitungan"
+        aksi={
+          <p className="text-xs font-medium text-muted-foreground">
+            bunga {persenBunga}% · potongan admin {persenPotonganAdmin}%
+          </p>
+        }
+      />
       <p className="mt-1 max-w-3xl text-xs leading-5 text-muted-foreground">
         Cara semua angka di halaman ini dihitung — dari bunga pinjaman sampai baris total tabel
         pendana. Buka aturan yang ingin Anda periksa.

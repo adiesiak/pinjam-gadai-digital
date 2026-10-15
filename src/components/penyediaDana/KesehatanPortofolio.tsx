@@ -1,6 +1,8 @@
 import { CalendarClock, CircleAlert, Percent, Wallet } from "lucide-react";
 import type { ReactNode } from "react";
 
+import { KepalaFolio } from "@/components/penyediaDana/bagian-folio";
+import { FOLIO } from "@/components/penyediaDana/folio";
 import { formatRupiah } from "@/lib/money";
 
 /**
@@ -37,20 +39,20 @@ function KartuKesehatan({
   const gaya =
     nada === "perhatian"
       ? {
-          kotak: "border-amber-200 bg-amber-50/70",
+          kotak: "border-amber-300/70 bg-amber-50/70",
           judul: "text-amber-900",
           angka: "text-amber-900",
           ikon: "text-amber-700",
         }
       : {
           kotak: "border-slate-200 bg-white",
-          judul: "text-muted-foreground",
+          judul: "text-slate-600",
           angka: "text-navy",
           ikon: "text-primary",
         };
 
   return (
-    <div className={`rounded-2xl border px-4 py-3 ${gaya.kotak}`}>
+    <div className={`rounded-lg border px-4 py-3 ${gaya.kotak}`}>
       <p
         className={`flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] ${gaya.judul}`}
       >
@@ -59,7 +61,7 @@ function KartuKesehatan({
         </span>
         {label}
       </p>
-      <p className={`mt-1.5 text-lg font-semibold tabular-nums leading-tight ${gaya.angka}`}>
+      <p className={`mt-1.5 text-lg font-semibold leading-tight ${FOLIO.angka} ${gaya.angka}`}>
         {nilai}
       </p>
       <p className="mt-0.5 text-xs leading-5 text-muted-foreground">{catatan}</p>
@@ -83,14 +85,13 @@ export function KesehatanPortofolio({ angka }: { angka: AngkaKesehatanPortofolio
 
   return (
     <section aria-label="Kesehatan portofolio" className="animate-masuk mt-4">
-      <div className="flex flex-wrap items-baseline justify-between gap-2 border-b border-slate-200 pb-2">
-        <h2 className="text-base font-semibold tracking-tight text-navy">Kesehatan portofolio</h2>
-        <p className="text-xs text-muted-foreground">
-          Keadaan dana yang sedang berjalan, bukan catatan keuntungan
-        </p>
-      </div>
+      <KepalaFolio
+        nomor={2}
+        judul="Kesehatan portofolio"
+        catatan="Keadaan dana yang sedang berjalan, bukan catatan keuntungan"
+      />
 
-      <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
         <KartuKesehatan
           label="Jatuh tempo 7 hari"
           nilai={`${jatuhTempoSegera.jumlah} pinjaman`}
@@ -128,7 +129,7 @@ export function KesehatanPortofolio({ angka }: { angka: AngkaKesehatanPortofolio
       )}
 
       {belumTerhubung.jumlah > 0 && (
-        <p className="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-900">
+        <p className="mt-2 inline-flex items-center gap-1.5 rounded-md border border-amber-300/70 bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-900">
           <CircleAlert className="size-3.5 shrink-0" aria-hidden />
           {belumTerhubung.jumlah} pinjaman belum terhubung ke pendana
         </p>

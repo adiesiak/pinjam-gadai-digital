@@ -1,6 +1,7 @@
 import { ListFilter, RotateCcw, Search } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { FOLIO } from "@/components/penyediaDana/folio";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -56,18 +57,18 @@ export function SaringanPengajuan({
   return (
     <section
       aria-label="Saring daftar pengajuan"
-      className="animate-masuk mt-4 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"
+      className={`animate-masuk mt-4 overflow-hidden ${FOLIO.kertas}`}
     >
       {/* Kepala saringan: memberi nama pada bilah ini supaya saringan tidak
           terbaca sebagai bagian dari tabel di bawahnya. */}
-      <p className="flex items-center gap-2 border-b border-slate-100 bg-slate-50/70 px-4 py-2.5 text-xs font-semibold uppercase tracking-[0.16em] text-slate-500 sm:px-5">
+      <p className="flex items-center gap-2 border-b border-slate-200 bg-slate-50/70 px-4 py-2.5 text-xs font-semibold uppercase tracking-[0.16em] text-slate-600 sm:px-5">
         <ListFilter className="size-3.5 text-primary" aria-hidden /> Saring daftar
       </p>
       <div className="grid gap-3 px-4 py-4 sm:grid-cols-2 sm:px-5 lg:grid-cols-3">
         <div className="min-w-0 sm:col-span-2 lg:col-span-2">
           <Label
             htmlFor="saring-nama"
-            className="text-xs font-semibold uppercase tracking-[0.1em] text-slate-500"
+            className="text-xs font-semibold uppercase tracking-[0.1em] text-slate-600"
           >
             Cari nama peminjam
           </Label>
@@ -91,7 +92,7 @@ export function SaringanPengajuan({
           <div className="min-w-0">
             <p
               id="label-saring-pendana"
-              className="text-xs font-semibold uppercase tracking-[0.1em] text-slate-500"
+              className="text-xs font-semibold uppercase tracking-[0.1em] text-slate-600"
             >
               Pendana
             </p>
@@ -124,7 +125,7 @@ export function SaringanPengajuan({
         )}
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 px-4 py-3 sm:px-5">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-200 px-4 py-3 sm:px-5">
         <p className="text-xs tabular-nums text-muted-foreground">
           {ringkasJumlah(tampil, total)}
           {aktif ? " pada tab ini · filter aktif" : " pada tab ini"}
