@@ -2026,4 +2026,10 @@
   .kolom-admin {
     transition: none;
   }
+  /* Keterangan menu (di-portal ke body) dan laci ponsel masih membawa animasi
+     masuk dari Radix; keduanya ikut dimatikan saat gerak diminta berhenti. */
+  [data-slot="tooltip-content"],
+  .laci-admin {
+    animation: none;
+  }
 }

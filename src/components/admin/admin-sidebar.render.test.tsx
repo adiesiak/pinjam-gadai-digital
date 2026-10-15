@@ -245,9 +245,26 @@ const gambar = (terbuka: boolean, drawerTerbuka = false) =>
     "3e laci memakai sasaran sentuh 44px",
     sumber.includes('ukuranTombol="size-11"'),
   );
+  cek("3f kait CSS laci terpasang", sumber.includes('className="laci-admin '));
   cek(
-    "3f id tombol laci berbeda dari kolom tetap",
+    "3g id tombol laci berbeda dari kolom tetap",
     sumber.includes('awalanId="tab"') && sumber.includes("${awalanId}-${value}"),
+  );
+}
+
+// ===== 4. Gerak: transisi lebar 200ms, dan semuanya mati saat gerak diminta berhenti =====
+{
+  // Lebarnya dianimasikan CSS (bukan JS), jadi kontraknya diperiksa di stylesheet.
+  const css = readFileSync(fileURLToPath(new URL("../../index.css", import.meta.url)), "utf8");
+  cek(
+    "4a lebar sidebar dan geseran konten memakai tempo gerak 200ms",
+    /\.sidebar-admin \{[^}]*transition: width var\(--motion-normal\)/.test(css) &&
+      /\.kolom-admin \{[^}]*transition: padding-left var\(--motion-normal\)/.test(css),
+  );
+  cek(
+    "4b prefers-reduced-motion mematikan transisi lebar, tooltip, dan geseran laci",
+    /\.sidebar-admin,[\s\S]{0,80}\.kolom-admin \{[\s\S]{0,60}transition: none/.test(css) &&
+      /\[data-slot="tooltip-content"\],[\s\S]{0,40}\.laci-admin \{[\s\S]{0,40}animation: none/.test(css),
   );
 }
 

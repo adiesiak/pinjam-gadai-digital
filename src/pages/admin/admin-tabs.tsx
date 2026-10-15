@@ -204,7 +204,7 @@ export function AdminTabs({
         {
           value: "alokasi",
           label: "Pinjaman siap disalurkan",
-          hint: "Pinjaman yang keputusannya sudah tercatat — menunggu dana ditandai tersalurkan (status Ditinjau).",
+          hint: "Pinjaman yang keputusannya sudah tercatat, menunggu dana ditandai tersalurkan (status Ditinjau).",
           badge: stats ? `${stats.pinjamanDisetujui}` : null,
           // R3: keputusan yang sudah tercatat BUKAN pekerjaan tertunda — tandai
           // "info" supaya tidak ikut dijumlahkan pada ringkasan grup tertutup.
@@ -352,7 +352,7 @@ export function AdminTabs({
         {
           value: "killswitch",
           label: "Kill Switch Darurat",
-          hint: "Blokir seluruh pengajuan baru — eksekusi wajib mengetik NONAKTIFKAN dan mengisi alasan.",
+          hint: "Blokir seluruh pengajuan baru: eksekusi wajib mengetik NONAKTIFKAN dan mengisi alasan.",
           badge: null,
           hitung: "tidak",
           Icon: Power,

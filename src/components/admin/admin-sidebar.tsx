@@ -409,7 +409,9 @@ export function SidebarAdmin({
         <SheetContent
           side="left"
           id="menu-panel-admin"
-          className="w-72 max-w-[85vw] gap-0 border-r border-slate-200 p-0"
+          // `laci-admin` hanya jadi kait CSS: `prefers-reduced-motion` mematikan
+          // animasi geser masuk bawaan Radix lewat kelas ini.
+          className="laci-admin w-72 max-w-[85vw] gap-0 border-r border-slate-200 p-0"
         >
           <SheetHeader className="border-b border-slate-200 px-3 pt-3 pr-14 pb-0 text-left">
             <SheetTitle className="sr-only">Menu panel admin</SheetTitle>
