@@ -65,10 +65,15 @@ for (const jalur of BERKAS) {
 
 // 2. Satu titik fokus, dan hanya satu.
 const halaman = baca("src/pages/PenyediaDana.tsx");
-cek(cacah(halaman, /FOLIO\.fokus/g) === 1, "halaman punya tepat satu permukaan fokus");
+cek(
+  cacah(halaman, /FOLIO\.fokus/g) === 1,
+  "halaman punya tepat satu permukaan fokus",
+);
 
 // 3. Nomor indeks folio berurutan tanpa celah maupun kembar.
-const nomorBagian = [...halaman.matchAll(/nomorFolio\((\d+)\)|nomor=\{(\d+)\}/g)]
+const nomorBagian = [
+  ...halaman.matchAll(/nomorFolio\((\d+)\)|nomor=\{(\d+)\}/g),
+]
   .map((m) => Number(m[1] ?? m[2]))
   .filter((n) => Number.isFinite(n));
 const berkasBernomor = [
@@ -80,7 +85,9 @@ const berkasBernomor = [
 ].flatMap((jalur) =>
   [...baca(jalur).matchAll(/nomor=\{(\d+)\}/g)].map((m) => Number(m[1])),
 );
-const semuaNomor = [...new Set([...nomorBagian, ...berkasBernomor])].sort((a, b) => a - b);
+const semuaNomor = [...new Set([...nomorBagian, ...berkasBernomor])].sort(
+  (a, b) => a - b,
+);
 cek(
   semuaNomor.join(",") === "1,2,3,4,5,6,7,8",
   `nomor bagian 01 sampai 08 lengkap (ditemukan ${semuaNomor.join(",")})`,
@@ -89,7 +96,10 @@ cek(halaman.includes("Ringkasan Pendanaan"), "judul halaman tetap tercetak");
 
 // 4. Kerangka memuat meniru lembar judul yang baru.
 const kerangka = baca("src/components/ui/loading.tsx");
-cek(kerangka.includes("ring-gold/35"), "rangka memuat memakai tepi kuningan lembar judul");
+cek(
+  kerangka.includes("ring-gold/35"),
+  "rangka memuat memakai tepi kuningan lembar judul",
+);
 
 // 5. Markup bagian: nomor bagian ikut tercetak, kelas baru terpakai.
 const kesehatan = renderToStaticMarkup(
@@ -102,18 +112,26 @@ const kesehatan = renderToStaticMarkup(
     },
   }),
 );
-cek(kesehatan.includes("Kesehatan portofolio"), "judul bagian kesehatan tetap tercetak");
+cek(
+  kesehatan.includes("Kesehatan portofolio"),
+  "judul bagian kesehatan tetap tercetak",
+);
 cek(kesehatan.includes(">02<"), "nomor bagian 02 tercetak di kepala bagian");
 cek(
   cacah(kesehatan, /rounded-lg border px-4 py-3/g) === 4,
   "empat angka kesehatan memakai lembar folio yang sama",
 );
 
-const risiko = renderToStaticMarkup(createElement(PanelRisikoPendanaan, { bukaAwal: [1] }));
+const risiko = renderToStaticMarkup(
+  createElement(PanelRisikoPendanaan, { bukaAwal: [1] }),
+);
 cek(risiko.includes(">03<"), "nomor bagian 03 tercetak di panel risiko");
 
 const aturan = renderToStaticMarkup(
-  createElement(AturanPerhitungan, { persenBunga: 1.5, persenPotonganAdmin: 5 }),
+  createElement(AturanPerhitungan, {
+    persenBunga: 1.5,
+    persenPotonganAdmin: 5,
+  }),
 );
 cek(aturan.includes(">05<"), "nomor bagian 05 tercetak di aturan perhitungan");
 
@@ -131,7 +149,10 @@ const keuntungan = renderToStaticMarkup(
     },
   }),
 );
-cek(keuntungan.includes(">06<"), "nomor bagian 06 tercetak di ringkasan keuntungan");
+cek(
+  keuntungan.includes(">06<"),
+  "nomor bagian 06 tercetak di ringkasan keuntungan",
+);
 
 // 6. Tabel pendana muat di kontainernya, tanpa kolom terpotong.
 // Kontraknya: `table-fixed`, lebar kolom dipatok persen sampai jumlahnya ≤ 100,
@@ -143,20 +164,25 @@ cek(
   "judul kolom tabel boleh turun baris (tanpa whitespace-nowrap)",
 );
 cek(
-  tabelSumber.includes("[&_td]:whitespace-normal"),
-  "sel tabel mengikuti lebar kolom, bukan menuntut selebar isinya",
+  tabelSumber.includes("sticky top-0"),
+  "kepala kolom melekat saat isinya digulir",
 );
-
-const lebar = Object.fromEntries(
-  [...tabelSumber.matchAll(/const LEBAR_(\w+) = "w-\[(\d+(?:\.\d+)?)%\]"/g)].map((m) => [
-    m[1],
-    Number(m[2]),
-  ]),
-);
-const anggaran = lebar.PENDANA + 6 * lebar.ANGKA + lebar.AKSI;
 cek(
-  anggaran <= 100,
-  `jatah lebar kolom tidak melebihi kontainer (${anggaran}% = 1×${lebar.PENDANA}% + 6×${lebar.ANGKA}% + ${lebar.AKSI}%)`,
+  tabelSumber.includes("sticky bottom-0"),
+  "baris total menempel di dasar kotak gulir",
+);
+cek(
+  tabelSumber.includes("max-h-[min("),
+  "tabel dibatasi tingginya, jadi isinya digulir di dalam tabel, bukan di halaman",
+);
+cek(
+  tabelSumber.includes("w-[10rem]") && !/w-\[\d+%\]/.test(tabelSumber),
+  "kolom angka berlebar tetap: angkanya berdekatan, tidak ikut melebar bersama halaman",
+);
+cek(
+  tabelSumber.includes("min-w-[34rem]") &&
+    tabelSumber.includes("min-w-[74rem]"),
+  "lebar minimum menjaga kolom nama tetap terbaca saat enam kolom angka terbuka",
 );
 
 const rekapUji = [
@@ -210,36 +236,66 @@ const kepala = tabelPendana.slice(
   tabelPendana.indexOf("</thead>"),
 );
 cek(
-  cacah(kepala, /justify-end/g) === 6,
-  "enam judul kolom angka rata kanan, sejajar dengan angkanya",
+  cacah(kepala, /text-right/g) >= 2,
+  `dua judul kolom angka rata kanan, sejajar dengan angkanya (ditemukan ${cacah(kepala, /text-right/g)})`,
 );
 cek(
-  cacah(kepala, /aria-label="Urutkan menurut/g) === 7,
-  `tujuh kepala kolom bisa diurutkan (ditemukan ${cacah(kepala, /aria-label="Urutkan menurut/g)})`,
+  cacah(kepala, /aria-sort=/g) === 2,
+  `dua kolom angka membawa tanda urutannya (ditemukan ${cacah(kepala, /aria-sort=/g)})`,
+);
+cek(
+  cacah(kepala, /aria-label="Urutkan menurut/g) === 0,
+  "judul kolom bukan tombol: pengurutnya satu tempat di baris kendali",
+);
+cek(
+  tabelPendana.includes("Urutkan tabel menurut kolom"),
+  "pengurut kolom tersedia di baris kendali",
 );
 
-// Tiap baris: nama (rata kiri, memuat catatan transfer), enam angka (rata
-// kanan), lalu aksi.
-const barisTabel = tabelPendana
-  .slice(tabelPendana.indexOf("<tbody"), tabelPendana.indexOf("</table>"))
-  .split("<tr")
-  .slice(1)
-  .map((baris) => baris.split("<td").slice(1));
-const selAngka = barisTabel.flatMap((sel) => sel.slice(1, 7));
+// Tiap baris: nama (rata kiri, setinggi satu baris teks) + kolom angka yang
+// sedang terbuka. Bawaannya dua kolom modal; empat kolom hasil menyusul saat
+// gugusnya dinyalakan.
+const potongBaris = (html: string) =>
+  html
+    .slice(html.indexOf("<tbody"), html.indexOf("</table>"))
+    .split("<tr")
+    .slice(1)
+    .map((baris) => baris.split("<td").slice(1));
+const barisTabel = potongBaris(tabelPendana);
 cek(
-  barisTabel.every((sel) => sel.length === 8),
-  `tiap baris punya 8 sel (ditemukan ${barisTabel.map((s) => s.length).join(",")})`,
+  barisTabel.every((sel) => sel.length === 3),
+  `tiap baris punya 3 sel: nama + dua kolom modal (ditemukan ${barisTabel.map((s) => s.length).join(",")})`,
 );
-cek(selAngka.length === 12, `enam sel angka per baris, dua baris (ada ${selAngka.length})`);
 cek(
-  selAngka.every((sel) => sel.includes("text-right")),
+  barisTabel
+    .flatMap((sel) => sel.slice(1))
+    .every((sel) => sel.includes("text-right")),
   "semua sel angka rata kanan, sejajar judul kolomnya",
 );
-// Gugus kolom dipisah garis rambut: posisi dana | hasil pendana | biaya.
-const barisBadan = barisTabel[0];
+// Gugus kolom dipisah garis rambut antara nama dan angka pertamanya.
 cek(
-  barisBadan.filter((sel) => sel.includes("border-l")).length === 3,
-  "tiga pembatas gugus kolom di badan tabel",
+  barisTabel[0].filter((sel) => sel.includes("border-l")).length === 1,
+  "satu pembatas gugus memisahkan nama dari angkanya",
+);
+cek(
+  barisTabel[0][0].includes("py-1.5"),
+  "sel nama rapat: padding barisnya tidak lagi sedalam dua baris teks",
+);
+
+const htmlPenuh = renderToStaticMarkup(
+  createElement(TabelPendana, {
+    rekap: rekapUji,
+    gugusAwal: ["dana", "hasil"],
+  }),
+);
+const barisPenuh = potongBaris(htmlPenuh);
+cek(
+  barisPenuh.every((sel) => sel.length === 7),
+  `gugus hasil menambah empat kolom angka (ditemukan ${barisPenuh.map((s) => s.length).join(",")})`,
+);
+cek(
+  cacah(htmlPenuh, /aria-sort=/g) === 6,
+  `enam kolom angka membawa tanda urutannya saat kedua gugus terbuka (ditemukan ${cacah(htmlPenuh, /aria-sort=/g)})`,
 );
 
 const jumlah = lulus + gagal;

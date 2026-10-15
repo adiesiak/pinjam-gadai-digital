@@ -2375,8 +2375,9 @@ function IsiRuang() {
                  * grid kartu per pendana: angka yang sama dulu muncul tiga kali
                  * dengan susunan berbeda, sehingga membandingkan pendana berarti
                  * mencocokkan bacaan sendiri. Sekarang satu kolom = satu angka,
-                 * kepala kolomnya bisa diurutkan, dan kolomnya dijumlahkan di
-                 * baris total.
+                 * kepala kolomnya melekat saat tabelnya digulir, urutannya lewat
+                 * satu kontrol di atas tabel, dan kolomnya dijumlahkan di baris
+                 * total.
                  */}
                 <div className="mt-3">
                   <TabelPendana
