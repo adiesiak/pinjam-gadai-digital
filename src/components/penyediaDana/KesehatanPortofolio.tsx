@@ -52,7 +52,7 @@ function KartuKesehatan({
   return (
     <div className={`rounded-2xl border px-4 py-3 ${gaya.kotak}`}>
       <p
-        className={`flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] ${gaya.judul}`}
+        className={`flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] ${gaya.judul}`}
       >
         <span className={`shrink-0 ${gaya.ikon}`} aria-hidden>
           {icon}
@@ -62,7 +62,7 @@ function KartuKesehatan({
       <p className={`mt-1.5 text-lg font-semibold tabular-nums leading-tight ${gaya.angka}`}>
         {nilai}
       </p>
-      <p className="mt-0.5 text-[11px] leading-5 text-muted-foreground">{catatan}</p>
+      <p className="mt-0.5 text-xs leading-5 text-muted-foreground">{catatan}</p>
     </div>
   );
 }
@@ -85,7 +85,7 @@ export function KesehatanPortofolio({ angka }: { angka: AngkaKesehatanPortofolio
     <section aria-label="Kesehatan portofolio" className="animate-masuk mt-4">
       <div className="flex flex-wrap items-baseline justify-between gap-2 border-b border-slate-200 pb-2">
         <h2 className="text-base font-semibold tracking-tight text-navy">Kesehatan portofolio</h2>
-        <p className="text-[11px] text-muted-foreground">
+        <p className="text-xs text-muted-foreground">
           Keadaan dana yang sedang berjalan, bukan catatan keuntungan
         </p>
       </div>
@@ -122,13 +122,13 @@ export function KesehatanPortofolio({ angka }: { angka: AngkaKesehatanPortofolio
       </div>
 
       {terlambat.jumlah > 0 && (
-        <p className="mt-2 text-[11px] leading-5 text-amber-900">
+        <p className="mt-2 text-xs leading-5 text-amber-900">
           Keterlambatan menurunkan peluang dana kembali tepat waktu.
         </p>
       )}
 
       {belumTerhubung.jumlah > 0 && (
-        <p className="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1 text-[11px] font-medium text-amber-900">
+        <p className="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-900">
           <CircleAlert className="size-3.5 shrink-0" aria-hidden />
           {belumTerhubung.jumlah} pinjaman belum terhubung ke pendana
         </p>

@@ -79,7 +79,7 @@ export function PanelRisikoPendanaan({
           <TriangleAlert className="size-4 shrink-0 text-amber-700" aria-hidden />
           {JUDUL_RISIKO_PENDANAAN}
         </h2>
-        <p className="text-[11px] font-medium text-muted-foreground">
+        <p className="text-xs font-medium text-muted-foreground">
           {POIN_RISIKO_PENDANAAN.length} hal yang perlu Anda tahu sebelum mendanai
         </p>
       </div>
@@ -93,7 +93,7 @@ export function PanelRisikoPendanaan({
           <AccordionItem key={poin.nomor} value={`poin-${poin.nomor}`} className="border-slate-100">
             <AccordionTrigger className="gap-3 py-3 text-sm font-medium text-navy hover:no-underline">
               <span className="flex min-w-0 items-baseline gap-2 text-left">
-                <span className="text-[11px] font-semibold tabular-nums text-muted-foreground">
+                <span className="text-xs font-semibold tabular-nums text-muted-foreground">
                   {poin.nomor}.
                 </span>
                 <span className="min-w-0">{poin.judul}</span>

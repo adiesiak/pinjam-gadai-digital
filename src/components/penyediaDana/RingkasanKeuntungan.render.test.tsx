@@ -56,10 +56,11 @@ ada(html, "Ringkasan keuntungan", "judul ringkasan");
 ada(html, "Seluruh pendana", "cakupan angka dinyatakan supaya tidak salah baca");
 ada(html, "Ringkasan keuntungan pendana", "bagian punya nama untuk pembaca layar");
 
-// Tiga angka utama, masing-masing di kartunya sendiri.
-const sudah = kartu(html, "Sudah lunas · dibukukan");
-const belum = kartu(html, "Belum lunas · perkiraan");
-const total = kartu(html, "Total keuntungan pendana");
+// Tiga angka utama, masing-masing di kartunya sendiri — dengan label yang sama
+// persis seperti kepala kolom tabel rekap pendana.
+const sudah = kartu(html, "Dibukukan (lunas)");
+const belum = kartu(html, "Perkiraan (belum lunas)");
+const total = kartu(html, "Total keuntungan");
 ok(sudah.includes("Rp 705.000"), "kartu dibukukan memuat angka yang sudah cair");
 ok(!sudah.includes("Rp 2.585.000"), "kartu dibukukan tidak memuat angka perkiraan");
 ok(belum.includes("Rp 2.585.000"), "kartu perkiraan memuat angka perkiraan");
@@ -85,13 +86,18 @@ ada(html, "Angka <strong>perkiraan</strong>", "kata \"perkiraan\" sendiri ditand
 
 // Potongan admin tetap dijelaskan dengan istilah yang sama dengan kartunya.
 ada(html, "Potongan admin Rp 910.000", "total potongan admin");
-ada(html, "sudah dibukukan Rp 195.000", "potongan admin yang sudah dibukukan");
+ada(html, "dibukukan Rp 195.000", "potongan admin yang sudah dibukukan");
 ada(html, "perkiraan Rp 715.000", "potongan admin yang masih perkiraan");
 ada(html, "bukan dari Imbal Hasil saja — pokok tetap kembali utuh", "dasar potongan dijelaskan");
 
 // Transfer yang belum dicatat ditandai sebagai lencana, bukan baris kecil.
 ada(html, "1 transfer keuntungan belum dicatat", "peringatan transfer belum dicatat");
 ada(html, "Rp 235.000", "nilai transfer yang belum dicatat");
+
+// Istilahnya tidak lagi dijelaskan lewat ikon `?` berulang di sini: penjelasannya
+// dipindahkan ke satu panel "Aturan perhitungan", dan ringkasan ini menunjuk ke sana.
+ok(!html.includes("Penjelasan "), "tidak ada ikon bantuan berulang di kartu angka");
+ada(html, "Aturan perhitungan", "ringkasan menunjuk ke panel aturan perhitungan");
 
 bersih(html, "markup ringkasan");
 
