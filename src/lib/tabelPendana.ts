@@ -84,6 +84,26 @@ export const KOLOM_PENDANA: readonly { kunci: KunciUrut; label: string }[] = [
 ];
 
 /**
+ * Kolom yang benar-benar punya tempat di tabel — sekaligus satu-satunya
+ * pilihan pengurutnya.
+ *
+ * "Masih berjalan" tetap ada di daftar ini meski angkanya bukan kolom sendiri:
+ * ia keterangan di dalam sel "Dana tersalurkan", dan yang bisa diurutkan adalah
+ * angka yang bisa dibaca pembaca. Sebaliknya "Total keuntungan" tidak di sini —
+ * ia jumlah dari "Dibukukan (lunas)" dan "Perkiraan (belum lunas)", jadi
+ * menawarkannya sebagai dasar urutan berarti menawarkan angka yang tidak punya
+ * kolom untuk dicocokkan.
+ */
+export const KOLOM_URUT: readonly KunciUrut[] = [
+  "nama",
+  "tersalurkan",
+  "berjalan",
+  "dibukukan",
+  "perkiraan",
+  "admin",
+];
+
+/**
  * Urutan bawaan: dana tersalurkan terbesar lebih dulu — pendana terbesar paling
  * perlu dibaca lebih dulu, dan angkanya sama dengan urutan yang sudah dipakai
  * server (`rekapPendana`).
@@ -163,6 +183,27 @@ export function urutkanPendana<T extends SumberPendana>(
     }
     return a.nama.localeCompare(b.nama, "id-ID");
   });
+}
+
+/**
+ * Pangsa dana yang masih berjalan dari seluruh dana tersalurkan (0..1).
+ *
+ * Dipakai bilah kecil di bawah "Dana tersalurkan": ia menjawab berapa bagian
+ * dari uang yang sudah keluar itu belum kembali. Batas 0..1 dijaga di sini,
+ * bukan di komponennya, supaya baris dengan angka tak terduga (mis. saldo
+ * berjalan lebih besar dari dana tersalurkan karena koreksi manual) tidak
+ * membuat bilahnya melebar keluar sel.
+ *
+ * Masukannya cukup dua angka itu, bukan seluruh baris rekap: baris total
+ * (`TotalPendana`) juga punya keduanya, jadi satu aturan yang sama bisa dipakai
+ * untuk satu baris maupun untuk jumlah seluruh baris.
+ */
+export function pangsaBerjalan(
+  r: Pick<SumberPendana, "totalDisalurkan" | "saldoBerjalan">,
+): number {
+  if (r.totalDisalurkan <= 0) return 0;
+  const pangsa = r.saldoBerjalan / r.totalDisalurkan;
+  return Math.min(1, Math.max(0, pangsa));
 }
 
 /** Jumlah satu kolom di seluruh rekap — dasar baris total. */

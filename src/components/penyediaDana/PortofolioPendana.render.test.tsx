@@ -65,13 +65,20 @@ const html = renderToStaticMarkup(
 // ===== Milik siapa =====
 ada(html, "Alokasi atas nama", "panel menyebut alokasi ini milik siapa");
 ada(html, "ROBERT", "nama pemilik alokasi tercetak");
-ada(html, "8 pinjaman · 7 aktif · 1 lunas", "hitungan pinjaman ikut tercetak");
+ada(html, "8 pinjaman · 7 berjalan · 1 lunas", "hitungan pinjaman ikut tercetak");
 
 // ===== Angka: satu kolom = satu angka, label sama dengan tabel =====
 ada(html, "Dana tersalurkan", "label kolom dana tersalurkan dipakai apa adanya");
 ada(html, "Rp 7.000.000", "dana tersalurkan tercetak");
-ada(html, "Masih berjalan", "label saldo berjalan dipakai apa adanya");
-ada(html, "Rp 6.000.000", "saldo berjalan tercetak");
+// Saldo berjalan adalah BAGIAN dari dana tersalurkan, jadi ia tidak dicetak
+// sebagai angka kedua di sebelahnya: ia terbaca di bawah angka itu, dengan
+// bilah yang menunjukkan porsinya.
+ada(html, "Rp 6.000.000 masih berjalan", "saldo berjalan tercetak sebagai bagian dananya");
+ada(
+  html,
+  "86% dana tersalurkan masih berjalan",
+  "porsi yang masih berjalan diumumkan ke pembaca layar",
+);
 ada(html, "Total keuntungan", "label total keuntungan dipakai apa adanya");
 ada(html, "Rp 1.645.000", "total keuntungan tercetak");
 ada(html, "Dibukukan (lunas)", "angka yang sudah dibukukan dipisah");

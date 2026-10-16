@@ -9,7 +9,9 @@
  */
 import {
   KOLOM_PENDANA,
+  KOLOM_URUT,
   URUTAN_AWAL,
+  pangsaBerjalan,
   totalPendana,
   urutkanPendana,
   type UrutanPendana,
@@ -117,6 +119,57 @@ eq(
   JSON.stringify(["nama", "tersalurkan", "berjalan", "dibukukan", "perkiraan", "total", "admin"]),
   "setiap kolom punya kunci urutnya sendiri",
 );
+
+// ===== Kolom yang punya tempat di tabel =====
+// Pengurutnya sengaja hanya kolom yang bisa dicocokkan pembaca dengan angkanya
+// sendiri. "Total keuntungan" adalah jumlah dari dua kolom lain, jadi ia tidak
+// ditawarkan sebagai dasar urutan: urutan yang dasarnya harus dihitung sendiri
+// oleh pembaca bukan urutan yang bisa dibaca.
+eq(
+  JSON.stringify(KOLOM_URUT),
+  JSON.stringify([
+    "nama",
+    "tersalurkan",
+    "berjalan",
+    "dibukukan",
+    "perkiraan",
+    "admin",
+  ]),
+  "kolom yang ditawarkan sebagai dasar urutan",
+);
+ok(!KOLOM_URUT.includes("total"), "kolom jumlah tidak ditawarkan sebagai dasar urutan");
+ok(
+  KOLOM_URUT.includes(URUTAN_AWAL.kunci),
+  "urutan bawaan selalu termasuk kolom yang bisa dipilih",
+);
+ok(
+  KOLOM_URUT.every((k) => KOLOM_PENDANA.some((kolom) => kolom.kunci === k)),
+  "setiap kolom yang diurutkan punya labelnya di kontrak kolom",
+);
+
+// ===== Pangsa dana yang masih berjalan =====
+{
+  ok(
+    Math.abs(pangsaBerjalan(ROBERT) - 6 / 7) < 1e-9,
+    "pangsa berjalan = saldo berjalan / dana tersalurkan",
+  );
+  eq(pangsaBerjalan(SITI), 1, "dana yang belum kembali sama sekali bernilai 1");
+  eq(
+    pangsaBerjalan({ ...SITI, totalDisalurkan: 0, saldoBerjalan: 0 }),
+    0,
+    "tanpa dana tersalurkan, pangsanya nol (bukan NaN)",
+  );
+  eq(
+    pangsaBerjalan({ ...SITI, saldoBerjalan: 20_000_000 }),
+    1,
+    "pangsa dibatasi 1 supaya bilahnya tidak melebar keluar sel",
+  );
+  eq(
+    pangsaBerjalan({ ...SITI, saldoBerjalan: -1 }),
+    0,
+    "pangsa tidak pernah negatif",
+  );
+}
 
 // ===== Urutan =====
 {

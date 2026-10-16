@@ -1,6 +1,8 @@
 import { cn } from "@/lib/utils";
 
 import { FOLIO, nomorFolio } from "@/components/penyediaDana/folio";
+import { formatRupiahAman } from "@/lib/money";
+import { pangsaBerjalan } from "@/lib/tabelPendana";
 
 /**
  * Kepala bagian folio: nomor indeks, judul, dan catatan pendamping pada satu
@@ -37,6 +39,42 @@ export function KepalaFolio({
         <p className="max-w-md text-xs leading-5 text-muted-foreground">{catatan}</p>
       )}
       {aksi}
+    </div>
+  );
+}
+
+/**
+ * Dana tersalurkan sekaligus susunannya: berapa yang masih berjalan.
+ *
+ * "Masih berjalan" bukan angka kedua yang bisa dibandingkan dengan dana
+ * tersalurkan — ia BAGIAN dari angka itu. Karena itu ia tidak pernah dicetak
+ * sebagai kolom di sebelahnya, melainkan sebagai keterangan di bawah angka
+ * induknya, dengan bilah yang menunjukkan porsinya sekilas. Latar bilahnya abu
+ * dan bagian yang gelap adalah yang belum kembali, jadi arah bacaannya sama
+ * seperti angka di bawahnya: yang terisi = yang masih berjalan.
+ */
+export function BilahDana({
+  tersalurkan,
+  berjalan,
+}: {
+  tersalurkan: number;
+  berjalan: number;
+}) {
+  const persen = Math.round(pangsaBerjalan({ totalDisalurkan: tersalurkan, saldoBerjalan: berjalan }) * 100);
+  return (
+    <div className="mt-1">
+      {tersalurkan > 0 && (
+        <span
+          role="img"
+          aria-label={`${persen}% dana tersalurkan masih berjalan`}
+          className="block h-1 w-full overflow-hidden rounded-sm bg-slate-200"
+        >
+          <span className="block h-full bg-navy" style={{ width: `${persen}%` }} />
+        </span>
+      )}
+      <p className="mt-1 text-xs tabular-nums text-muted-foreground">
+        {formatRupiahAman(berjalan)} masih berjalan
+      </p>
     </div>
   );
 }

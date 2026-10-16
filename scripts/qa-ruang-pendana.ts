@@ -155,8 +155,9 @@ cek(
 );
 
 // 6. Tabel pendana muat di kontainernya, tanpa kolom terpotong.
-// Kontraknya: `table-fixed`, lebar kolom dipatok persen sampai jumlahnya ≤ 100,
-// judul kolom dan sel boleh turun baris, dan semua angka rata kanan.
+// Kontraknya: `table-fixed`, lebar kolom dipatok tetap, judul kolom dan sel
+// boleh turun baris, semua angka rata kanan, dan tidak ada kolom yang bisa
+// disembunyikan tombol.
 const tabelSumber = baca("src/components/penyediaDana/TabelPendana.tsx");
 cek(tabelSumber.includes("table-fixed"), "tabel pendana memakai table-fixed");
 cek(
@@ -176,13 +177,20 @@ cek(
   "tabel dibatasi tingginya, jadi isinya digulir di dalam tabel, bukan di halaman",
 );
 cek(
-  tabelSumber.includes("w-[10rem]") && !/w-\[\d+%\]/.test(tabelSumber),
+  tabelSumber.includes("w-40") &&
+    tabelSumber.includes("w-36") &&
+    !/w-\[\d+%\]/.test(tabelSumber),
   "kolom angka berlebar tetap: angkanya berdekatan, tidak ikut melebar bersama halaman",
 );
 cek(
-  tabelSumber.includes("min-w-[34rem]") &&
-    tabelSumber.includes("min-w-[74rem]"),
-  "lebar minimum menjaga kolom nama tetap terbaca saat enam kolom angka terbuka",
+  tabelSumber.includes("min-w-[60rem]"),
+  "lebar minimum menjaga kolom nama tetap terbaca",
+);
+// Kolomnya selalu lengkap: tidak ada lagi tombol yang menyalakan-mematikan
+// gugus kolom, jadi tidak ada angka yang bisa tersembunyi dari pembaca.
+cek(
+  !/gugus/i.test(tabelSumber),
+  "tidak ada tombol yang menyembunyikan kolom di tabel pendana",
 );
 
 const rekapUji = [
@@ -235,13 +243,26 @@ const kepala = tabelPendana.slice(
   tabelPendana.indexOf("<thead"),
   tabelPendana.indexOf("</thead>"),
 );
+// Tiga pita kolom: pengelompokannya dinamai sekali di kepala, dan angka
+// bagiannya tidak berdiri sebagai kolom sendiri.
+for (const pita of ["Dana pendana", "Hasil pendana", "Platform"]) {
+  cek(
+    cacah(kepala, new RegExp(`>${pita}<`, "g")) === 1,
+    `pita "${pita}" dinamai sekali di kepala tabel`,
+  );
+}
 cek(
-  cacah(kepala, /text-right/g) >= 2,
-  `dua judul kolom angka rata kanan, sejajar dengan angkanya (ditemukan ${cacah(kepala, /text-right/g)})`,
+  kepala.includes("Transfer keuntungan") &&
+    kepala.includes("Biaya platform (layanan)"),
+  "kolom sisi platform (transfer dan biaya layanan) selalu terbuka",
 );
 cek(
-  cacah(kepala, /aria-sort=/g) === 2,
-  `dua kolom angka membawa tanda urutannya (ditemukan ${cacah(kepala, /aria-sort=/g)})`,
+  !kepala.includes("Masih berjalan") && !kepala.includes("Total keuntungan"),
+  "angka bagian dan angka jumlah tidak berdiri sebagai kolom",
+);
+cek(
+  cacah(kepala, /aria-sort=/g) === 4,
+  `empat kolom angka membawa tanda urutannya (ditemukan ${cacah(kepala, /aria-sort=/g)})`,
 );
 cek(
   cacah(kepala, /aria-label="Urutkan menurut/g) === 0,
@@ -252,9 +273,8 @@ cek(
   "pengurut kolom tersedia di baris kendali",
 );
 
-// Tiap baris: nama (rata kiri, setinggi satu baris teks) + kolom angka yang
-// sedang terbuka. Bawaannya dua kolom modal; empat kolom hasil menyusul saat
-// gugusnya dinyalakan.
+// Tiap baris: nama (rata kiri, setinggi satu baris teks) + lima kolom pita, dan
+// hanya kolom angka yang rata kanan.
 const potongBaris = (html: string) =>
   html
     .slice(html.indexOf("<tbody"), html.indexOf("</table>"))
@@ -263,8 +283,8 @@ const potongBaris = (html: string) =>
     .map((baris) => baris.split("<td").slice(1));
 const barisTabel = potongBaris(tabelPendana);
 cek(
-  barisTabel.every((sel) => sel.length === 3),
-  `tiap baris punya 3 sel: nama + dua kolom modal (ditemukan ${barisTabel.map((s) => s.length).join(",")})`,
+  barisTabel.every((sel) => sel.length === 6),
+  `tiap baris punya 6 sel: nama + lima kolom pita (ditemukan ${barisTabel.map((s) => s.length).join(",")})`,
 );
 cek(
   barisTabel
@@ -272,38 +292,42 @@ cek(
     .every((sel) => sel.includes("text-right")),
   "semua sel angka rata kanan, sejajar judul kolomnya",
 );
-// Gugus kolom dipisah garis rambut antara nama dan angka pertamanya.
+// Garis rambut memisahkan nama dari angka, lalu antar pita.
 cek(
-  barisTabel[0].filter((sel) => sel.includes("border-l")).length === 1,
-  "satu pembatas gugus memisahkan nama dari angkanya",
+  barisTabel[0].filter((sel) => sel.includes("border-l")).length === 3,
+  "tiga pembatas pita memisahkan nama dari angkanya dan memisahkan pitanya",
 );
 cek(
   barisTabel[0][0].includes("py-1.5"),
   "sel nama rapat: padding barisnya tidak lagi sedalam dua baris teks",
 );
-
-const htmlPenuh = renderToStaticMarkup(
-  createElement(TabelPendana, {
-    rekap: rekapUji,
-    gugusAwal: ["dana", "hasil"],
-  }),
-);
-const barisPenuh = potongBaris(htmlPenuh);
+// Dana tersalurkan: angka induknya lebih besar, dan bagian yang masih berjalan
+// terbaca di dalam selnya sendiri (bilah + keterangan), bukan sebagai kolom.
+const selDana = barisTabel[0][1] ?? "";
 cek(
-  barisPenuh.every((sel) => sel.length === 7),
-  `gugus hasil menambah empat kolom angka (ditemukan ${barisPenuh.map((s) => s.length).join(",")})`,
+  selDana.includes("w-40") && selDana.includes("text-base"),
+  "sel dana tersalurkan tampil lebih besar dari angka lain",
 );
 cek(
-  cacah(htmlPenuh, /aria-sort=/g) === 6,
-  `enam kolom angka membawa tanda urutannya saat kedua gugus terbuka (ditemukan ${cacah(htmlPenuh, /aria-sort=/g)})`,
+  selDana.includes('role="img"') && selDana.includes("masih berjalan"),
+  "bagian yang masih berjalan ditunjukkan bilah dan keterangannya",
 );
+// Nama pitanya terpakai juga di kartu layar sempit, supaya dua tata letak
+// menyebut kelompok angka yang sama dengan istilah yang sama.
+const kartuPonsel = tabelPendana.slice(tabelPendana.indexOf("</table>"));
+for (const pita of ["Dana pendana", "Hasil pendana", "Platform"]) {
+  cek(
+    kartuPonsel.includes(pita),
+    `kartu layar sempit memakai nama pita "${pita}"`,
+  );
+}
 
 // 7. Istilah biaya 5%: nama yang dipilih pemilik, tanpa sisa istilah lama yang
 // masih terbaca pengguna di bagian yang benar-benar dirender.
 const bagianBerbiaya: readonly (readonly [string, string])[] = [
   ["aturan perhitungan", aturan],
   ["ringkasan keuntungan", keuntungan],
-  ["tabel pendana (kedua gugus)", htmlPenuh],
+  ["tabel pendana", tabelPendana],
   ["rincian baris tabel", rincianTerbuka],
 ];
 for (const [nama, html] of bagianBerbiaya) {

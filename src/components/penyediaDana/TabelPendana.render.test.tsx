@@ -7,18 +7,22 @@
  *
  * Yang dijaga:
  * 1. satu kolom = satu angka, dengan label yang sama seperti di kartu ringkasan
- *    ("Dibukukan (lunas)", "Perkiraan (belum lunas)", "Total keuntungan") —
- *    angka yang sudah jadi uang tidak boleh tertukar dengan angka perkiraan;
- * 2. kepala kolom melekat di puncak tabel dan baris total menempel di dasarnya,
+ *    ("Dibukukan (lunas)", "Perkiraan (belum lunas)", "Biaya platform
+ *    (layanan)") — angka yang sudah jadi uang tidak boleh tertukar dengan angka
+ *    perkiraan;
+ * 2. kolomnya lengkap sejak render pertama dan dikelompokkan ke dalam pitanya,
+ *    jadi tidak ada angka yang tersembunyi di balik tombol;
+ * 3. "Masih berjalan" bukan kolom sendiri melainkan bagian di dalam sel "Dana
+ *    tersalurkan" (bilah + keterangan), sehingga tidak ada angka turunan yang
+ *    dicetak berdampingan dengan angka induknya;
+ * 4. kepala kolom melekat di puncak tabel dan baris total menempel di dasarnya,
  *    jadi angka tetap punya judul saat isinya digulir (kelas sticky-nya diuji
  *    langsung, karena itu syarat yang membuat tabel ini dipakai);
- * 3. hanya dua kolom modal yang terbuka lebih dulu: angka hasil muncul saat
- *    gugusnya dinyalakan, dan urutan kolomnya tetap sesuai kepalanya;
- * 4. baris total benar-benar menjumlahkan baris yang sedang tampil;
- * 5. saringan baris mengeluarkan baris yang tidak cocok, dan keadaannya dijelaskan
- *    saat tidak ada yang cocok;
- * 6. rincian pembentuk angka perkiraan bisa ditelusuri, dan jumlah barisnya sama
- *    dengan kolom "Perkiraan (belum lunas)".
+ * 5. baris total benar-benar menjumlahkan baris yang sedang tampil;
+ * 6. saringan baris mengeluarkan baris yang tidak cocok, dan keadaannya
+ *    dijelaskan saat tidak ada yang cocok;
+ * 7. rincian pembentuk angka perkiraan bisa ditelusuri, jumlah barisnya
+ *    dicetak, dan angka yang sudah terbaca di barisnya tidak diulang di situ.
  *
  * Aturan urut dan penjumlahan kolomnya diuji terpisah sebagai fungsi murni —
  * lihat `src/lib/tabelPendana.test.ts`.
@@ -142,68 +146,65 @@ const html = renderToStaticMarkup(
 // dua tata letak yang hanya dibedakan CSS.
 const kendali = html.slice(0, html.indexOf("<table"));
 const tabel = html.slice(html.indexOf("<table"), html.indexOf("</table>"));
+const kepala = tabel.slice(tabel.indexOf("<thead"), tabel.indexOf("</thead>"));
 const ponsel = html.slice(html.indexOf("</table>"));
 ok(kendali.length > 0, "baris kendali dirender di atas tabel");
 ok(tabel.length > 0, "tabel layar lebar dirender");
+ok(kepala.length > 0, "kepala tabel dirender");
 ok(ponsel.length > 0, "kartu layar sempit dirender terpisah dari tabel");
 
 // ===== Baris kendali: ringkasan angka kepala, saringan, dan pengurut =====
 ada(kendali, "2 pendana", "ringkasan menyebut jumlah pendana");
-ada(
-  kendali,
-  "Rp 16.500.000",
-  "ringkasan menyebut dana tersalurkan seluruh rekap",
-);
-ada(
-  kendali,
-  "Rp 235.000",
-  "ringkasan menyebut keuntungan yang sudah dibukukan",
-);
-ada(
-  kendali,
-  "Rp 3.655.000",
-  "ringkasan menyebut keuntungan yang masih perkiraan",
-);
+ada(kendali, "seluruh rekap", "ringkasan menyebut cakupannya");
+ada(kendali, "Rp 16.500.000", "ringkasan menyebut dana tersalurkan seluruh rekap");
+ada(kendali, "Rp 235.000", "ringkasan menyebut keuntungan yang sudah dibukukan");
+ada(kendali, "Rp 3.655.000", "ringkasan menyebut keuntungan yang masih perkiraan");
 ada(kendali, "Rp 1.060.000", "ringkasan menyebut biaya platform (layanan)");
 // Istilah biaya 5% diseragamkan: yang dibaca pendana adalah biaya layanan
 // platform, bukan potongan milik tim internal.
 takAda(kendali, "potongan admin", "ringkasan tidak memakai istilah lama");
-ada(
-  kendali,
-  "Urutkan tabel menurut kolom",
-  "pengurut kolom punya satu tempat di baris kendali",
+ada(kendali, "Urutkan tabel menurut kolom", "pengurut kolom punya satu tempat di baris kendali");
+ada(kendali, "Terbesar dulu", "arah urutan dibaca sebagai kalimat, bukan hanya panah");
+// Kolomnya tidak lagi bisa dinyalakan-matikan: yang tersisa hanya tiga tombol
+// saring baris, jadi tidak ada angka yang bisa tersembunyi di balik tombol.
+eq(
+  (kendali.match(/aria-pressed=/g) ?? []).length,
+  3,
+  "hanya tiga tombol saring baris di baris kendali",
 );
-ada(
-  kendali,
-  "Terbesar dulu",
-  "arah urutan dibaca sebagai kalimat, bukan hanya panah",
-);
-ada(
-  kendali,
-  "Hasil pendana",
-  "gugus yang tertutup tetap punya tempat untuk dinyalakan",
-);
-ada(kendali, "Dana pendana", "gugus yang terbuka dinamai di baris kendali");
+takAda(kendali, "Tampilkan kolom", "tidak ada tombol yang menyembunyikan kolom");
 
-// ===== Kepala kolom: label sama dengan istilah yang dipakai halaman lain =====
-for (const judul of ["Pendana", "Dana tersalurkan", "Masih berjalan"]) {
-  ada(tabel, judul, `kepala kolom "${judul}"`);
-}
-// Kolom hasil belum terbuka: angka enam kolom sekaligus yang membuat angkanya
-// dulu menyebar, jadi yang bawaan hanya dua kolom modal.
-takAda(tabel, "Dibukukan (lunas)", "kolom hasil belum dibuka secara bawaan");
-takAda(
-  tabel,
+// ===== Kepala kolom: pita pengelompok + label yang sama dengan halaman lain =====
+for (const judul of [
+  "Pendana",
+  "Dana tersalurkan",
+  "Dibukukan (lunas)",
+  "Perkiraan (belum lunas)",
+  "Transfer keuntungan",
   "Biaya platform (layanan)",
-  "kolom biaya platform belum dibuka secara bawaan",
-);
+]) {
+  ada(kepala, judul, `kepala kolom "${judul}"`);
+}
+// Nama pitanya tepat sekali: satu baris kelompok di atas kolomnya, bukan diulang
+// di setiap sel.
+for (const pita of ["Dana pendana", "Hasil pendana", "Platform"]) {
+  eq(
+    (kepala.match(new RegExp(`>${pita}<`, "g")) ?? []).length,
+    1,
+    `pita "${pita}" dinamai sekali di kepala tabel`,
+  );
+}
+// "Masih berjalan" turun jadi keterangan di dalam selnya, dan "Total keuntungan"
+// (jumlah dua kolom lain) tidak berdiri sebagai kolom yang bisa diurutkan.
+takAda(kepala, "Masih berjalan", "angka bagian tidak lagi berdiri sebagai kolom");
+takAda(kepala, "Total keuntungan", "kolom turunan tidak dicetak berdampingan dengan pecahannya");
 
 // Kepala kolom dan baris total melekat: dua kelas inilah syarat tabelnya.
 ada(tabel, "sticky top-0", "kepala kolom melekat di puncak kotak gulir");
 ada(tabel, "sticky bottom-0", "baris total menempel di dasar kotak gulir");
 ada(tabel, "table-fixed", "lebar kolom dipatok supaya tidak bergoyang");
 
-// Titik urutan dipasang pada kepala kolom yang jadi dasar, dan hanya di situ.
+// Titik urutan dipasang pada kepala kolom angka yang jadi dasar, dan hanya di situ.
 eq(
   (tabel.match(/aria-sort="descending"/g) ?? []).length,
   1,
@@ -211,138 +212,96 @@ eq(
 );
 eq(
   (tabel.match(/aria-sort="none"/g) ?? []).length,
-  1,
+  3,
   "kolom angka lain bertanda tanpa urutan",
+);
+eq(
+  (kepala.match(/aria-sort=/g) ?? []).length,
+  4,
+  "kolom keadaan transfer tidak ikut mengaku bisa diurutkan",
 );
 
 // ===== Badan tabel: setiap angka berada di kolom yang benar =====
+// Enam sel: nama, lalu lima kolom pita (tersalurkan, dibukukan, perkiraan,
+// transfer, biaya platform).
 {
   const sel = selBaris(tabel, "ROBERT");
-  eq(sel.length, 3, "baris punya 3 sel (nama + dua kolom modal)");
+  eq(sel.length, 6, "baris punya 6 sel (nama + lima kolom)");
 
   ok(sel[0]?.includes("ROBERT") === true, "sel pertama memuat nama pendana");
   ada(
     sel[0] ?? "",
-    "8 pinjaman · 7 aktif · 1 lunas",
+    "8 pinjaman · 7 berjalan · 1 lunas",
     "hitungan pinjaman menyusul di baris nama, bukan sebagai baris kedua",
-  );
-  ada(
-    sel[0] ?? "",
-    "1 transfer keuntungan belum dicatat",
-    "transfer tertunda diumumkan di baris",
   );
   eq(
     sel[1]?.includes("Rp 7.000.000"),
     true,
     "kolom dana tersalurkan berisi dananya",
   );
+  ada(
+    sel[1] ?? "",
+    "Rp 6.000.000 masih berjalan",
+    "bagian yang masih berjalan terbaca di dalam sel dana, bukan sebagai kolom sendiri",
+  );
+  ada(
+    sel[1] ?? "",
+    "86% dana tersalurkan masih berjalan",
+    "porsi yang masih berjalan diumumkan ke pembaca layar",
+  );
+  eq(sel[2]?.includes("Rp 235.000"), true, "kolom dibukukan berisi keuntungan lunas");
   eq(
-    sel[2]?.includes("Rp 6.000.000"),
+    sel[3]?.includes("Rp 1.410.000"),
     true,
-    "kolom masih berjalan berisi saldonya",
+    "kolom perkiraan berisi keuntungan pinjaman berjalan",
+  );
+  ada(sel[4] ?? "", "1 belum dicatat", "kolom transfer menyebut tunggakannya");
+  eq(sel[5]?.includes("Rp 455.000"), true, "kolom biaya platform berisi biayanya");
+
+  // Angka kolom tidak menyeberang: nilai perkiraan tidak muncul di sel dibukukan
+  // dan sebaliknya, inti pemisahan uang yang sudah cair dari yang masih hitungan.
+  ok(
+    !(sel[2] ?? "").includes("Rp 1.410.000") &&
+      !(sel[3] ?? "").includes("Rp 235.000"),
+    "angka dibukukan dan angka perkiraan tidak tertukar kolom",
   );
 }
 
-// SITI belum punya pinjaman lunas dan tidak punya transfer tertunda: barisnya
-// tidak boleh mengaku ada yang belum dicatat.
+// SITI belum punya pinjaman lunas: barisnya tidak boleh mengaku ada yang belum
+// dicatat, dan porsi berjalannya penuh.
 {
   const sel = selBaris(tabel, "SITI");
-  takAda(
-    sel[0] ?? "",
-    "transfer keuntungan belum dicatat",
-    "baris tanpa transfer tertunda bersih",
+  ada(
+    sel[4] ?? "",
+    "belum ada pinjaman lunas",
+    "baris tanpa pinjaman lunas tidak mengaku ada tunggakan",
   );
   eq(
     sel[1]?.includes("Rp 9.500.000"),
     true,
     "kolom dana tersalurkan SITI berisi dananya",
   );
+  ada(
+    sel[1] ?? "",
+    "100% dana tersalurkan masih berjalan",
+    "dana yang belum kembali sama sekali terbaca penuh",
+  );
 }
 
-// ===== Kaki tabel: jumlah kolom yang sedang tampil =====
-ada(tabel, "Total · 2 pendana", "baris total menyebut jumlah pendana");
+// ===== Kaki tabel: jumlah baris yang sedang tampil =====
+ada(tabel, "Total baris di atas · 2 pendana", "baris total menyebut cakupannya");
 ada(
   tabel,
-  "11 pinjaman · 10 aktif · 1 lunas",
+  "11 pinjaman · 10 berjalan · 1 lunas",
   "baris total menjumlahkan hitungan pinjaman",
 );
 ada(tabel, "Rp 16.500.000", "baris total menjumlahkan dana tersalurkan");
-ada(tabel, "Rp 15.500.000", "baris total menjumlahkan saldo berjalan");
-ada(
-  tabel,
-  "1 transfer belum dicatat (Rp 235.000)",
-  "baris total menyebut transfer tertunda",
-);
+ada(tabel, "Rp 15.500.000 masih berjalan", "baris total menjumlahkan saldo berjalan");
+ada(tabel, "Rp 3.655.000", "baris total menjumlahkan keuntungan perkiraan");
+ada(tabel, "Rp 1.060.000", "baris total menjumlahkan biaya platform (layanan)");
+ada(tabel, '94% dana tersalurkan masih berjalan', "porsi berjalan seluruh baris diumumkan");
 
 bersih(html, "markup tabel pendana");
-
-// ===== Gugus hasil: dinyalakan, urutannya tetap mengikuti kepala kolom =====
-{
-  const htmlPenuh = renderToStaticMarkup(
-    <TabelPendana
-      rekap={REKAP}
-      gugusAwal={["dana", "hasil"]}
-      onPilih={() => {}}
-    />,
-  );
-  const penuh = htmlPenuh.slice(
-    htmlPenuh.indexOf("<table"),
-    htmlPenuh.indexOf("</table>"),
-  );
-
-  for (const judul of [
-    "Dibukukan (lunas)",
-    "Perkiraan (belum lunas)",
-    "Total keuntungan",
-    "Biaya platform (layanan)",
-  ]) {
-    ada(penuh, judul, `kepala kolom "${judul}" saat gugus hasil dinyalakan`);
-  }
-  eq(
-    (penuh.match(/aria-sort="none"/g) ?? []).length,
-    5,
-    "enam kolom angka bertanda urutannya saat kedua gugus terbuka",
-  );
-
-  const sel = selBaris(penuh, "ROBERT");
-  eq(sel.length, 7, "baris punya 7 sel saat kedua gugus terbuka");
-  takAda(
-    sel[0] ?? "",
-    "pinjaman",
-    "kolom nama yang sempit tidak memaksa hitungan pinjaman ikut muat",
-  );
-  const harapan = [
-    "ROBERT", // nama
-    "Rp 7.000.000", // dana tersalurkan
-    "Rp 6.000.000", // masih berjalan
-    "Rp 235.000", // dibukukan (lunas)
-    "Rp 1.410.000", // perkiraan (belum lunas)
-    "Rp 1.645.000", // total keuntungan
-    "Rp 455.000", // biaya platform (layanan)
-  ];
-  harapan.forEach((isi, i) => {
-    ok(sel[i]?.includes(isi) === true, `sel ${i + 1} memuat "${isi}"`);
-  });
-
-  // Angka kolom tidak menyeberang: nilai perkiraan tidak muncul di sel dibukukan
-  // dan sebaliknya, inti pemisahan uang yang sudah cair dari yang masih hitungan.
-  ok(
-    !(sel[3] ?? "").includes("Rp 1.410.000") &&
-      !(sel[4] ?? "").includes("Rp 235.000"),
-    "angka dibukukan dan angka perkiraan tidak tertukar kolom",
-  );
-
-  // SITI belum punya pinjaman lunas: bagian dibukukan nol, dicetak apa adanya.
-  ok(
-    (selBaris(penuh, "SITI")[3] ?? "").includes("Rp 0"),
-    "keuntungan dibukukan nol dicetak apa adanya",
-  );
-
-  ada(penuh, "Rp 3.655.000", "baris total menjumlahkan keuntungan perkiraan");
-  ada(penuh, "Rp 3.890.000", "baris total menjumlahkan total keuntungan");
-  ada(penuh, "Rp 1.060.000", "baris total menjumlahkan biaya platform (layanan)");
-  bersih(htmlPenuh, "markup tabel dengan kedua gugus terbuka");
-}
 
 // ===== Saringan baris =====
 {
@@ -355,8 +314,8 @@ bersih(html, "markup tabel pendana");
   );
   eq(
     (kendali.match(/aria-pressed="false"/g) ?? []).length,
-    3,
-    "dua saringan lain dan gugus yang tertutup tetap ditawarkan",
+    2,
+    "dua saringan lain tetap ditawarkan",
   );
   eq(
     (tabel.match(/aria-pressed=/g) ?? []).length,
@@ -379,7 +338,7 @@ bersih(html, "markup tabel pendana");
   takAda(tertunda, ">SITI<", "pendana tanpa tunggakan keluar dari tabel");
   ada(
     tertunda,
-    "Total baris tampil · 1 dari 2 pendana",
+    "Total baris di atas · 1 dari 2 pendana",
     "baris total mengaku sedang menyaring",
   );
   bersih(htmlTertunda, "markup tabel dengan saringan transfer tertunda");
@@ -402,19 +361,18 @@ bersih(html, "markup tabel pendana");
   bersih(htmlKosong, "markup keadaan tanpa baris yang cocok");
 }
 
-// ===== Layar sempit: kartu memuat angka yang sama =====
+// ===== Layar sempit: kartu memuat kelompok angka yang sama =====
 ada(ponsel, "Total · 2 pendana", "kartu total ikut tampil di layar sempit");
-ada(
-  ponsel,
-  "Dibukukan (lunas)",
-  "kartu memisahkan bagian yang sudah dibukukan",
-);
+for (const pita of ["Dana pendana", "Hasil pendana", "Platform"]) {
+  ada(ponsel, pita, `kartu memakai nama pita "${pita}"`);
+}
+ada(ponsel, "Dibukukan (lunas)", "kartu memisahkan bagian yang sudah dibukukan");
 ada(ponsel, "Perkiraan (belum lunas)", "kartu memisahkan bagian perkiraan");
 ada(ponsel, "Rp 9.500.000", "kartu memuat dana tersalurkan pendana terkecil");
 ada(ponsel, "Rp 16.500.000", "kartu total memuat jumlah kolomnya");
 ada(
   ponsel,
-  "3 pinjaman · 3 aktif · 0 lunas",
+  "3 pinjaman · 3 berjalan · 0 lunas",
   "kartu menyebut hitungan pinjaman pendana",
 );
 ada(
@@ -430,11 +388,7 @@ bersih(ponsel, "markup kartu pendana");
 // ===== Rincian pembentuk angka perkiraan =====
 {
   // Tertutup: rinciannya belum ada di DOM, bukan tampil sebagai bagian kosong.
-  takAda(
-    html,
-    "Pembentuk angka perkiraan",
-    "rincian tetap tertutup sebelum dibuka",
-  );
+  takAda(html, "Pembentuk angka perkiraan", "rincian tetap tertutup sebelum dibuka");
 
   // 5 × Rp200.000 + 2 × Rp205.000 = Rp1.410.000, yaitu angka perkiraan ROBERT.
   const RINCIAN: RincianPerkiraan[] = Array.from({ length: 7 }, (_, i) => ({
@@ -459,8 +413,8 @@ bersih(ponsel, "markup kartu pendana");
 
   ada(
     tabelRincian,
-    "8 pinjaman · 7 aktif · 1 lunas",
-    "rincian menyebut hitungan pinjaman pendana",
+    "8 pinjaman · 7 berjalan · 1 lunas",
+    "hitungan pinjaman sudah terbaca di barisnya sendiri",
   );
   ada(
     tabelRincian,
@@ -472,6 +426,9 @@ bersih(ponsel, "markup kartu pendana");
     "Jumlah baris di atas sama dengan kolom “Perkiraan (belum lunas)”.",
     "rincian menjelaskan hubungannya dengan kolom perkiraan",
   );
+  // Barisnya sudah membawa jumlahnya, jadi jumlah itu tidak perlu dihitung
+  // sendiri oleh pembaca.
+  ada(tabelRincian, "Rp 1.410.000", "jumlah baris rincian dicetak");
   for (const p of RINCIAN) {
     ada(
       tabelRincian,
@@ -490,6 +447,12 @@ bersih(ponsel, "markup kartu pendana");
     "rincian memecah biaya platform yang perkiraan",
   );
   ada(tabelRincian, "Saring daftar", "rincian bisa menyaring daftar pinjaman");
+  // Angka yang sudah berdiri di kolomnya tidak diulang sebagai daftar di sini.
+  takAda(
+    tabelRincian,
+    "Pinjaman (total · aktif · lunas)",
+    "rincian tidak mengulang hitungan yang sudah ada di barisnya",
+  );
 
   // Invarian yang dijanjikan catatan di rincian: jumlah barisnya = angka perkiraan.
   const jumlah = RINCIAN.reduce((total, p) => total + p.keuntunganPendana, 0);

@@ -1,5 +1,6 @@
 import { Coins, Wallet } from "lucide-react";
 
+import { BilahDana } from "@/components/penyediaDana/bagian-folio";
 import { FOLIO } from "@/components/penyediaDana/folio";
 import { KOLOM_ANGKA, labelKolom } from "@/components/penyediaDana/kolom-pendana";
 import type { RekapPendana } from "@/convex/penyediaDana";
@@ -53,7 +54,8 @@ export function PortofolioPendana({
           Alokasi atas nama <span className="text-navy">{namaTampil(r.nama)}</span>
         </p>
         <p className="text-xs tabular-nums text-muted-foreground">
-          {r.jumlahPinjaman} pinjaman · {r.jumlahAktif} aktif · {r.jumlahLunas} lunas
+          {r.jumlahPinjaman} pinjaman · {r.jumlahAktif} berjalan ·{" "}
+          {r.jumlahLunas} lunas
         </p>
       </div>
 
@@ -67,9 +69,9 @@ export function PortofolioPendana({
           <p className="mt-1.5 text-lg font-bold tabular-nums leading-tight text-navy">
             {rupiah(r.totalDisalurkan)}
           </p>
-          <p className="mt-0.5 text-xs tabular-nums text-muted-foreground">
-            {labelKolom("berjalan")} {rupiah(r.saldoBerjalan)}
-          </p>
+          {/* Susunan angkanya, bukan angka kedua di sebelahnya: yang masih
+              berjalan adalah bagian dari dana tersalurkan. */}
+          <BilahDana tersalurkan={r.totalDisalurkan} berjalan={r.saldoBerjalan} />
         </div>
 
         <div className={`${FOLIO.jalur} p-3`}>

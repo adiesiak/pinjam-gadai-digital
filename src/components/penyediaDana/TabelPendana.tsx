@@ -2,10 +2,8 @@ import {
   ArrowDown,
   ArrowUp,
   BadgeCheck,
-  Check,
   ChevronDown,
   ChevronRight,
-  Plus,
   TriangleAlert,
 } from "lucide-react";
 import { Fragment, useState } from "react";
@@ -27,26 +25,28 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { BilahDana } from "@/components/penyediaDana/bagian-folio";
 import { FOLIO } from "@/components/penyediaDana/folio";
 import {
-  GUGUS,
   KOLOM_ANGKA,
+  KOLOM_TABEL,
+  PITA,
   RINGKAS,
   labelKolom,
   labelSingkat,
-  mulaiGugus,
-  type Gugus,
+  type KunciTabel,
 } from "@/components/penyediaDana/kolom-pendana";
 import type { RekapPendana } from "@/convex/penyediaDana";
 import { formatRupiahAman } from "@/lib/money";
 import { namaHurufBesar } from "@/lib/nama";
 import {
-  KOLOM_PENDANA,
+  KOLOM_URUT,
   URUTAN_AWAL,
   nilaiAngka,
   nilaiTotal,
   totalPendana,
   urutkanPendana,
+  type KunciAngka,
   type KunciUrut,
   type RincianPerkiraan,
   type TotalPendana,
@@ -54,18 +54,24 @@ import {
 } from "@/lib/tabelPendana";
 
 /**
- * Lebar kolom angka dipatok 10rem, bukan dipersentase.
+ * Lebar kolom angka dipatok, bukan dipersentase.
  *
  * Kolom angka yang ikut melebar mengikuti halaman membuat angka sejenis
  * berjauhan, dan jarak itulah yang membuat dua baris tidak bisa dibandingkan
- * sekali pandang. Dengan lebar tetap, blok angkanya tetap rapat di kanan;
- * kolom nama yang menyerap sisa lebarnya.
+ * sekali pandang. Kolom dana tersalurkan lebih lebar satu tingkat karena isinya
+ * bukan cuma satu angka: ada bilah dan keterangan "masih berjalan" di bawahnya.
  */
-const LEBAR_ANGKA = "w-[10rem]";
+function lebarKolom(kunci: KunciTabel): string {
+  return kunci === "tersalurkan" ? "w-40" : "w-36";
+}
 
-/** Kepala kolom nama: rata kiri, selebar sisa tabel. */
+/** Kepala kolom nama: rata kiri, selebar sisa tabel, melintang dua baris kepala. */
 const KEPALA_NAMA =
-  "px-2 pb-1.5 pt-2 align-bottom text-xs font-semibold uppercase leading-tight tracking-[0.04em] text-slate-600";
+  "px-2 pb-1.5 align-bottom text-xs font-semibold uppercase leading-tight tracking-[0.04em] text-slate-600";
+
+/** Nama pita kolom di baris atas kepala tabel. */
+const KEPALA_PITA =
+  "border-b border-slate-200 bg-slate-50 px-2 pb-0.5 pt-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500";
 
 /**
  * Saringan baris: pertanyaan yang biasanya dibawa pembaca ke tabel ini, bukan
@@ -92,34 +98,42 @@ function teksArah(urutan: UrutanPendana): string {
 }
 
 /**
- * Sel angka: satu nilai di kolom yang angkanya rata kanan dan lebar tetap.
+ * Sel tabel: lebar tetap, rata kanan, dan garis pemisah pita di kolom pertama
+ * setiap pita.
  *
  * `kaki` menandai sel baris total. Selnya sendiri yang menempel (`sticky`),
  * bukan barisnya: pada tabel ber-`border-separate` inilah bentuk yang dipakai
  * mesin peramban untuk menggulir badan tabel, dan latarnya harus solid supaya
  * baris di belakangnya tidak tembus pandang.
  */
-function SelAngka({
-  nilai,
-  kelas = "",
-  pemisah = false,
+function Sel({
+  kunci,
+  mulai,
   kaki = false,
+  children,
 }: {
-  nilai: string;
-  kelas?: string;
-  pemisah?: boolean;
+  kunci: KunciTabel;
+  mulai: boolean;
   kaki?: boolean;
+  children: React.ReactNode;
 }) {
   const dasar = kaki
     ? "sticky bottom-0 z-10 border-t-2 border-slate-300 bg-slate-100 px-2 py-2 align-top"
     : "border-b border-slate-200 px-2 py-1.5 align-middle";
   return (
     <TableCell
-      className={`text-right tabular-nums ${pemisah ? "border-l border-slate-200" : ""} ${dasar} ${kelas}`}
+      className={`text-right tabular-nums ${lebarKolom(kunci)} ${
+        mulai ? "border-l border-slate-200" : ""
+      } ${dasar}`}
     >
-      {nilai}
+      {children}
     </TableCell>
   );
+}
+
+/** Kolom pertama setiap pita membuka pitanya, jadi dia yang diberi garis pemisah. */
+function mulaiPita(i: number): boolean {
+  return i === 0 || KOLOM_TABEL[i - 1]?.pita !== KOLOM_TABEL[i]?.pita;
 }
 
 /**
@@ -145,13 +159,16 @@ function TransferPendana({
   if (r.transferBelumDicatat === 0) {
     return (
       <span className="inline-flex items-center gap-1 rounded-md border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-800">
-        <BadgeCheck className="size-3.5 shrink-0" aria-hidden /> semua tercatat
+        <BadgeCheck className="size-3.5 shrink-0" aria-hidden />
+        semua tercatat
       </span>
     );
   }
   return (
     <span
-      className={`inline-flex flex-col gap-0.5 ${ringkas ? "items-start" : "items-end"}`}
+      className={`inline-flex flex-col gap-0.5 ${
+        ringkas ? "items-start" : "items-end"
+      }`}
     >
       <span className="inline-flex items-center gap-1 rounded-md border border-amber-200 bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-900">
         <TriangleAlert className="size-3.5 shrink-0" aria-hidden />{" "}
@@ -164,31 +181,23 @@ function TransferPendana({
   );
 }
 
-/**
- * Penanda di sel nama: transfer yang belum dicatat.
- *
- * Di baris yang harus tetap setipis mungkin, keadaannya dibawa ikon + jumlahnya,
- * bukan kalimat penuh; kalimatnya ada di rincian baris, di baris total, dan di
- * tombol saring di atas tabel, jadi tidak ada keadaan yang hanya bisa dibaca
- * dari warnanya.
- */
-function TandaTransfer({ jumlah }: { jumlah: number }) {
-  if (jumlah === 0) return null;
+/** Nama pita dipakai bersama oleh kepala tabel dan kartu layar sempit. */
+function LabelPita({ children }: { children: React.ReactNode }) {
   return (
-    <span
-      className="inline-flex shrink-0 items-center gap-0.5 text-amber-700"
-      title={`${jumlah} transfer keuntungan belum dicatat`}
-    >
-      <TriangleAlert className="size-3.5 shrink-0" aria-hidden />
-      <span className="text-xs font-semibold tabular-nums">{jumlah}</span>
-      <span className="sr-only"> transfer keuntungan belum dicatat</span>
-    </span>
+    <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+      {children}
+    </p>
   );
 }
 
 /**
- * Isi lipatan satu baris: pinjaman pembentuk angka perkiraan dan pembagian
- * biaya platform, dua angka pendamping yang tidak muat sebagai kolom.
+ * Isi lipatan satu baris: pinjaman pembentuk angka perkiraan dan angka pendamping
+ * yang tidak muat sebagai kolom.
+ *
+ * Yang ditampilkan tinggal yang belum terbaca di barisnya. Daftar pinjamannya
+ * digulir sendiri dan ditutup jumlahnya, supaya delapan pinjaman tidak mendorong
+ * sisa halaman keluar layar dan jumlahnya bisa dicocokkan dengan kolomnya tanpa
+ * menghitung manual.
  */
 function IsiRincian({
   r,
@@ -197,6 +206,7 @@ function IsiRincian({
   r: RekapPendana;
   rincian: readonly RincianPerkiraan[];
 }) {
+  const jumlah = rincian.reduce((t, p) => t + p.keuntunganPendana, 0);
   return (
     <div className="grid gap-3 lg:grid-cols-2">
       {/*
@@ -220,7 +230,7 @@ function IsiRincian({
               <span>Pinjaman (referensi · peminjam)</span>
               <span className="shrink-0">Perkiraan</span>
             </div>
-            <ul className="divide-y divide-slate-200">
+            <ul className="max-h-64 divide-y divide-slate-200 overflow-y-auto">
               {rincian.map((p) => (
                 <li
                   key={p.id}
@@ -237,6 +247,10 @@ function IsiRincian({
                 </li>
               ))}
             </ul>
+            <div className="flex items-baseline justify-between gap-3 border-t border-slate-300 pt-1.5 text-xs font-semibold text-navy">
+              <span>{rincian.length} pinjaman berjalan</span>
+              <span className="tabular-nums">{rupiah(jumlah)}</span>
+            </div>
           </>
         )}
         <p className="mt-2 text-xs leading-5 text-muted-foreground">
@@ -245,14 +259,12 @@ function IsiRincian({
       </div>
 
       <div className={`${FOLIO.jalur} p-3`}>
-        <p className="text-xs font-semibold text-navy">
-          Angka lain di baris ini
-        </p>
+        <p className="text-xs font-semibold text-navy">Angka lain di baris ini</p>
         <dl className="mt-2">
           {[
             {
-              label: "Pinjaman (total · aktif · lunas)",
-              nilai: `${r.jumlahPinjaman} · ${r.jumlahAktif} · ${r.jumlahLunas}`,
+              label: "Total keuntungan",
+              nilai: rupiah(r.keuntunganPendana),
             },
             {
               label: "Biaya platform (layanan) dibukukan",
@@ -289,20 +301,33 @@ function IsiRincian({
   );
 }
 
-/** Satu baris label-angka di kartu layar sempit. */
+/**
+ * Satu baris label-angka di kartu layar sempit.
+ *
+ * Kolomnya disebut dengan kuncinya, bukan dengan label dan kelas yang ditulis
+ * ulang: nama angka dan warnanya datang dari daftar kolom yang sama dengan tabel
+ * layar lebar, jadi kedua tata letak tidak bisa menyebut angka yang sama dengan
+ * istilah atau warna yang berbeda.
+ */
 function BarisAngka({
-  label,
+  kunci,
   nilai,
-  kelas = "",
+  label = labelKolom(kunci),
 }: {
-  label: string;
+  kunci: KunciAngka;
   nilai: string;
-  kelas?: string;
+  label?: string;
 }) {
   return (
     <div className="flex items-baseline justify-between gap-3">
       <dt className="text-muted-foreground">{label}</dt>
-      <dd className={`tabular-nums ${kelas}`}>{nilai}</dd>
+      <dd
+        className={`tabular-nums ${
+          KOLOM_ANGKA.find((k) => k.kunci === kunci)?.kelas ?? ""
+        }`}
+      >
+        {nilai}
+      </dd>
     </div>
   );
 }
@@ -311,17 +336,18 @@ function BarisAngka({
  * Baris kendali di atas tabel: ringkasan angka kepala, saringan baris, dan
  * pengurut.
  *
- * Pengurutan tidak lagi ditempel di judul kolom: judul yang bisa diklik memaksa
+ * Pengurutan tidak ditempel di judul kolom: judul yang bisa diklik memaksa
  * setiap kepala kolom memuat tombol, ikon, dan cincin fokus, sehingga kepala
  * tabel lebih tinggi daripada isinya. Di sini urutan punya satu tempat, dan
  * kepala kolom cukup jadi label.
+ *
+ * Pilihan pengurutnya sengaja hanya kolom yang benar-benar berdiri di tabel,
+ * jadi tidak ada urutan yang dasarnya harus dicari dulu di dalam lipatan.
  */
 function Kendali({
   total,
   saring,
   onSaring,
-  gugus,
-  onGugus,
   urutan,
   onKolom,
   onArah,
@@ -329,8 +355,6 @@ function Kendali({
   total: TotalPendana;
   saring: SaringBaris;
   onSaring: (s: SaringBaris) => void;
-  gugus: readonly Gugus[];
-  onGugus: (g: Gugus) => void;
   urutan: UrutanPendana;
   onKolom: (k: KunciUrut) => void;
   onArah: () => void;
@@ -362,56 +386,6 @@ function Kendali({
           ))}
         </div>
 
-        {/* Gugus kolom punya tempatnya sendiri di sini, bukan di judul kolom:
-            judul yang bisa diklik memaksa setiap kepala memuat tombol dan ikon,
-            sehingga kepala tabel lebih tinggi daripada datanya. */}
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-muted-foreground">Kolom</span>
-          <div
-            role="group"
-            aria-label="Gugus kolom angka yang ditampilkan"
-            className="flex items-center gap-1.5"
-          >
-            {GUGUS.map((g) => {
-              const nyala = gugus.includes(g.kunci);
-              // Gugus terakhir tidak bisa dimatikan, jadi labelnya bukan tombol:
-              // tidak ada kontrol yang tidak melakukan apa-apa.
-              const tetapTerbuka = nyala && gugus.length === 1;
-              const gaya = `inline-flex items-center gap-1 rounded-sm border px-1.5 py-0.5 text-[11px] font-semibold uppercase tracking-[0.06em] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2 ${
-                nyala
-                  ? "border-gold/60 bg-slate-50 text-navy"
-                  : "border-dashed border-slate-300 text-muted-foreground hover:border-slate-400 hover:text-navy"
-              }`;
-              return tetapTerbuka ? (
-                <span key={g.kunci} className={gaya}>
-                  <Check className="size-3 shrink-0" aria-hidden />
-                  {g.label}
-                </span>
-              ) : (
-                <button
-                  key={g.kunci}
-                  type="button"
-                  aria-pressed={nyala}
-                  title={
-                    nyala
-                      ? `Sembunyikan kolom ${g.label}`
-                      : `Tampilkan kolom ${g.label}`
-                  }
-                  onClick={() => onGugus(g.kunci)}
-                  className={gaya}
-                >
-                  {nyala ? (
-                    <Check className="size-3 shrink-0" aria-hidden />
-                  ) : (
-                    <Plus className="size-3 shrink-0" aria-hidden />
-                  )}
-                  {g.label}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
         <div className="ml-auto flex items-center gap-1.5">
           <Select
             value={urutan.kunci}
@@ -422,9 +396,9 @@ function Kendali({
               <SelectValue>{labelKolom(urutan.kunci)}</SelectValue>
             </SelectTrigger>
             <SelectContent>
-              {KOLOM_PENDANA.map((k) => (
-                <SelectItem key={k.kunci} value={k.kunci} className="text-xs">
-                  {k.label}
+              {KOLOM_URUT.map((k) => (
+                <SelectItem key={k} value={k} className="text-xs">
+                  {labelKolom(k)}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -446,15 +420,26 @@ function Kendali({
         </div>
       </div>
 
+      {/* Ringkasan seluruh rekap, bukan baris yang sedang tampil: angka yang
+          berubah ikut saringan ada di baris Total di dasar tabel, dan kedua
+          tempat itu menyebut cakupannya masing-masing. */}
       <p className="mt-1.5 flex flex-wrap items-baseline gap-x-2 gap-y-1 text-xs text-slate-600">
         <span className="font-medium text-slate-900">
           {total.jumlahPendana} pendana
         </span>
+        <span className="text-muted-foreground">seluruh rekap</span>
         {KOLOM_ANGKA.filter((k) => RINGKAS.includes(k.kunci)).map((k) => (
           <span key={k.kunci} className="inline-flex items-baseline gap-1.5">
             <span aria-hidden className="text-slate-300">
               ·
-            </span>            <span className={`tabular-nums ${k.kelas}`}>{rupiah(nilaiTotal(total, k.kunci))}</span>
+            </span>
+            <span
+              className={`tabular-nums ${
+                k.kunci === "tersalurkan" ? "font-semibold text-navy" : k.kelas
+              }`}
+            >
+              {rupiah(nilaiTotal(total, k.kunci))}
+            </span>
             <span>{labelSingkat(k.kunci)}</span>
           </span>
         ))}
@@ -467,17 +452,26 @@ function Kendali({
  * Tabel perbandingan pendana, satu-satunya permukaan rekap dana di ruang
  * pendana.
  *
- * Menjawab pertanyaan yang sama untuk SETIAP pendana dalam satu tatanan kolom:
- * berapa pokok yang sudah tersalurkan, berapa yang masih berjalan, berapa
- * keuntungan yang sudah dibukukan, berapa yang masih perkiraan, dan berapa
- * biaya platform (layanan)-nya. Kolomnya dipecah dua gugus supaya angkanya tetap lega,
- * kepala kolom melekat di puncak saat isinya digulir, barisnya diurutkan lewat
- * kontrol di atas tabel, dan setiap baris bisa diperluas untuk melihat pinjaman
- * pembentuk angka perkiraan.
+ * Menjawab pertanyaan yang sama untuk SETIAP pendana dalam satu tatanan kolom,
+ * dan kolomnya dikelompokkan menurut pertanyaan yang dijawabnya: pita "Dana
+ * pendana" (uang yang sedang bekerja), "Hasil pendana" (yang sudah jadi uang dan
+ * yang masih hitungan), dan "Platform" (biaya layanan yang dipungut serta
+ * transfer yang belum dicatat). Seluruh kolomnya selalu terbuka — dulu sebagian
+ * disembunyikan di balik tombol penampil kolom, sehingga pembaca yang tidak tahu
+ * tombolnya bisa mengambil kesimpulan dari separuh angka.
+ *
+ * "Masih berjalan" bukan kolom sendiri: ia bagian dari dana tersalurkan, jadi
+ * tempatnya di bawah angka itu sebagai bilah dan satu baris keterangan. Yang
+ * benar-benar dipisah adalah angka yang tidak bisa diturunkan dari kolom lain,
+ * sehingga tidak ada jumlah yang ditempatkan berdampingan dengan pecahannya.
+ *
+ * Kepala kolom melekat di puncak saat isinya digulir, baris Total menempel di
+ * dasarnya, dan setiap baris bisa diperluas untuk menelusuri pinjaman pembentuk
+ * angka perkiraannya.
  *
  * Di layar sempit tabel seperti ini tidak mungkin muat tanpa geser mendatar, jadi
- * setiap pendana ditampilkan sebagai kartu berisi angka yang sama, bukan tabel
- * yang dipotong.
+ * setiap pendana ditampilkan sebagai kartu berisi kelompok angka yang sama,
+ * bukan tabel yang dipotong.
  *
  * Aturan urut dan penjumlahannya tinggal di `@/lib/tabelPendana` supaya bisa
  * diuji sebagai fungsi; komponen ini hanya menggambar.
@@ -492,7 +486,6 @@ export function TabelPendana({
   aktif = null,
   onPilih,
   bukaAwal = [],
-  gugusAwal = ["dana"],
   saringAwal = "semua",
 }: {
   rekap: readonly RekapPendana[];
@@ -518,15 +511,12 @@ export function TabelPendana({
    * ini isinya tidak bisa diverifikasi lewat HTML.
    */
   bukaAwal?: readonly string[];
-  /** Gugus kolom yang terbuka sejak awal; minimal satu harus tetap terbuka. */
-  gugusAwal?: readonly Gugus[];
   /** Saringan baris awal. Pintu yang sama dengan `bukaAwal`, untuk uji markup. */
   saringAwal?: SaringBaris;
 }) {
   const tampil = namaTampil ?? ((nama: string) => nama);
   const [urutan, setUrutan] = useState<UrutanPendana>(URUTAN_AWAL);
   const [terbuka, setTerbuka] = useState<readonly string[]>(bukaAwal);
-  const [gugus, setGugus] = useState<readonly Gugus[]>(gugusAwal);
   const [saring, setSaring] = useState<SaringBaris>(saringAwal);
 
   const total = totalPendana(rekap);
@@ -538,9 +528,6 @@ export function TabelPendana({
         : true,
   );
   const totalBaris = totalPendana(baris);
-  const kolom = KOLOM_ANGKA.filter((k) => gugus.includes(k.gugus));
-  const jumlahSel = kolom.length + 1;
-  const banyakGugus = gugus.length > 1;
 
   function toggle(nama: string) {
     setTerbuka((lama) =>
@@ -555,30 +542,13 @@ export function TabelPendana({
     }));
   }
 
-  /** Gugus terakhir tidak bisa dimatikan: tabel tanpa kolom angka bukan tabel. */
-  function alihGugus(kunci: Gugus) {
-    setGugus((lama) =>
-      lama.includes(kunci)
-        ? lama.length === 1
-          ? lama
-          : lama.filter((g) => g !== kunci)
-        : [...lama, kunci],
-    );
-  }
-
-  /** Memilih kolom yang sedang tersembunyi sekaligus menyalakan gugusnya. */
+  /** Kolom baru: arahnya masuk akal sejak awal (nama A→Z, angka terbesar dulu). */
   function pilihKolom(kunci: KunciUrut) {
     setUrutan((lama) => ({
       kunci,
       arah:
         lama.kunci === kunci ? lama.arah : kunci === "nama" ? "naik" : "turun",
     }));
-    const gugusKolom = KOLOM_ANGKA.find((k) => k.kunci === kunci)?.gugus;
-    if (gugusKolom !== undefined) {
-      setGugus((lama) =>
-        lama.includes(gugusKolom) ? lama : [...lama, gugusKolom],
-      );
-    }
   }
 
   if (rekap.length === 0) {
@@ -595,8 +565,6 @@ export function TabelPendana({
       total={total}
       saring={saring}
       onSaring={setSaring}
-      gugus={gugus}
-      onGugus={alihGugus}
       urutan={urutan}
       onKolom={pilihKolom}
       onArah={balikArah}
@@ -623,76 +591,60 @@ export function TabelPendana({
              * barisnya saat digulir, dan judul kolom boleh turun baris
              * (`[&_th]:whitespace-normal`) tanpa melebarkan kolomnya.
              */}
-            <table
-              className={`w-full table-fixed caption-bottom border-separate border-spacing-0 text-sm [&_th]:whitespace-normal ${
-                banyakGugus ? "min-w-[74rem]" : "min-w-[34rem]"
-              }`}
-            >
-              <TableCaption className="sr-only">                Perbandingan dana tersalurkan, keuntungan, dan biaya platform per pendana
+            <table className="w-full min-w-[60rem] table-fixed caption-bottom border-separate border-spacing-0 text-sm [&_th]:whitespace-normal">
+              <TableCaption className="sr-only">
+                Perbandingan dana tersalurkan, hasil, dan biaya platform per
+                pendana, dikelompokkan menurut pita kolomnya
               </TableCaption>
 
               <TableHeader className="sticky top-0 z-20">
-                {/*
-                 * Baris gugus hanya muncul saat kedua gugus terbuka: di situ
-                 * enam kolom angka perlu diberi nama gugusnya supaya terbaca
-                 * mana modal dan mana hasil. Dengan satu gugus, baris itu cuma
-                 * mengulang judul kolom di bawahnya.
-                 */}
-                {banyakGugus && (
-                  <TableRow className="hover:bg-transparent">
+                {/* Baris pita: nama kelompok di atas kolom-kolomnya, supaya
+                    pembaca tahu mana uang yang bekerja, mana hasilnya, dan mana
+                    sisi platformnya sebelum membaca angkanya. */}
+                <TableRow className="hover:bg-transparent">
+                  <TableHead
+                    scope="col"
+                    rowSpan={2}
+                    className={`${KEPALA_NAMA} border-b border-slate-200 bg-slate-50`}
+                  >
+                    {labelKolom("nama")}
+                  </TableHead>
+                  {PITA.map((p) => (
                     <TableHead
+                      key={p.kunci}
                       scope="col"
-                      rowSpan={2}
-                      className={`${KEPALA_NAMA} border-b border-slate-200 bg-slate-50`}
+                      colSpan={p.kolom.length}
+                      className={`${KEPALA_PITA} ${
+                        p.kunci === "dana" ? "" : "border-l border-l-slate-200"
+                      }`}
                     >
-                      {labelKolom("nama")}
+                      {p.label}
                     </TableHead>
-                    {kolom.map((k, i) => (
-                      <TableHead
-                        key={k.kunci}
-                        scope="col"
-                        className={`h-auto ${LEBAR_ANGKA} border-b border-slate-200 bg-slate-50 px-2 pb-1 pt-1.5 align-bottom text-xs font-semibold uppercase tracking-[0.06em] text-slate-600 ${
-                          mulaiGugus(kolom, i)
-                            ? "border-l border-l-slate-200"
-                            : ""
-                        }`}
-                      >
-                        {mulaiGugus(kolom, i)
-                          ? GUGUS.find((g) => g.kunci === k.gugus)?.label
-                          : null}
-                      </TableHead>
-                    ))}
-                  </TableRow>
-                )}
+                  ))}
+                </TableRow>
 
                 {/* Baris judul kolom: label saja, tanpa tombol. */}
                 <TableRow className="hover:bg-transparent">
-                  {!banyakGugus && (
-                    <TableHead
-                      scope="col"
-                      className={`${KEPALA_NAMA} border-b border-gold/40 bg-slate-50`}
-                    >
-                      {labelKolom("nama")}
-                    </TableHead>
-                  )}
-                  {kolom.map((k, i) => (
+                  {KOLOM_TABEL.map((k, i) => (
                     <TableHead
                       key={k.kunci}
                       scope="col"
                       aria-sort={
-                        urutan.kunci === k.kunci
-                          ? urutan.arah === "naik"
-                            ? "ascending"
-                            : "descending"
-                          : "none"
+                        k.kunci === "transfer"
+                          ? undefined
+                          : urutan.kunci === k.kunci
+                            ? urutan.arah === "naik"
+                              ? "ascending"
+                              : "descending"
+                            : "none"
                       }
-                      className={`${banyakGugus ? "" : LEBAR_ANGKA} border-b border-gold/40 bg-slate-50 px-2 pb-1.5 text-right align-bottom text-xs font-semibold uppercase leading-tight tracking-[0.04em] text-slate-600 ${
-                        mulaiGugus(kolom, i)
-                          ? "border-l border-l-slate-200"
-                          : ""
-                      }`}
+                      className={`${lebarKolom(k.kunci)} border-b border-gold/40 bg-slate-50 px-2 pb-1.5 text-right align-bottom text-xs font-semibold uppercase leading-tight tracking-[0.04em] ${
+                        k.kunci === "tersalurkan"
+                          ? "text-navy"
+                          : "text-slate-600"
+                      } ${mulaiPita(i) ? "border-l border-l-slate-200" : ""}`}
                     >
-                      {labelKolom(k.kunci)}
+                      {k.label}
                     </TableHead>
                   ))}
                 </TableRow>
@@ -702,7 +654,7 @@ export function TabelPendana({
                 {baris.length === 0 ? (
                   <TableRow className="hover:bg-transparent">
                     <TableCell
-                      colSpan={jumlahSel}
+                      colSpan={KOLOM_TABEL.length + 1}
                       className="border-b border-slate-200 px-3 py-6"
                     >
                       <p className="text-center text-xs text-muted-foreground">
@@ -734,11 +686,13 @@ export function TabelPendana({
                               : "hover:bg-slate-50/70"
                           }`}
                         >
-                          {/* Satu baris setinggi satu baris teks: nama, penanda
-                              keadaan, dan pintu lipatan. Hitungan pinjamannya
-                              pindah ke rincian, karena bukan angka uang. */}
+                          {/* Sel nama: nama, hitungan pinjamannya, dan pintu
+                              lipatan. Tinggi barisnya ditentukan sel dana
+                              tersalurkan, jadi di sini cukup yang tidak punya
+                              kolom sendiri. Keadaan transfer tidak diulang di
+                              sini — tempatnya di kolomnya. */}
                           <TableCell className="border-b border-slate-200 px-2 py-1.5 align-middle">
-                            <div className="flex items-center gap-1.5">
+                            <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
                               <button
                                 type="button"
                                 aria-expanded={sedangTerbuka}
@@ -763,17 +717,10 @@ export function TabelPendana({
                                   {tampil(r.nama)}
                                 </span>
                               </button>
-                              {/* Hitungan pinjaman hanya muat saat satu gugus
-                                  terbuka (kolom nama jadi jauh lebih lebar).
-                                  Saat enam kolom angka terbuka, tempatnya di
-                                  rincian baris. */}
-                              {!banyakGugus && (
-                                <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
-                                  {r.jumlahPinjaman} pinjaman · {r.jumlahAktif}{" "}
-                                  aktif · {r.jumlahLunas} lunas
-                                </span>
-                              )}
-                              <TandaTransfer jumlah={r.transferBelumDicatat} />
+                              <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
+                                {r.jumlahPinjaman} pinjaman · {r.jumlahAktif}{" "}
+                                berjalan · {r.jumlahLunas} lunas
+                              </span>
                               {sedangAktif && (
                                 <span className="shrink-0 text-xs font-medium text-emerald-800">
                                   sedang disaring
@@ -781,19 +728,33 @@ export function TabelPendana({
                               )}
                             </div>
                           </TableCell>
-                          {kolom.map((k, i) => (                            <SelAngka
-                              key={k.kunci}
-                              nilai={rupiah(nilaiAngka(r, k.kunci))}
-                              kelas={k.kelas}
-                              pemisah={i === 0 || kolom[i - 1]?.gugus !== k.gugus}
-                            />
+                          {KOLOM_TABEL.map((k, i) => (
+                            <Sel key={k.kunci} kunci={k.kunci} mulai={mulaiPita(i)}>
+                              {k.kunci === "transfer" ? (
+                                <TransferPendana r={r} />
+                              ) : k.kunci === "tersalurkan" ? (
+                                <>
+                                  <p className="text-base font-semibold leading-tight text-navy">
+                                    {rupiah(r.totalDisalurkan)}
+                                  </p>
+                                  <BilahDana
+                                    tersalurkan={r.totalDisalurkan}
+                                    berjalan={r.saldoBerjalan}
+                                  />
+                                </>
+                              ) : (
+                                <span className={k.kelas}>
+                                  {rupiah(nilaiAngka(r, k.kunci))}
+                                </span>
+                              )}
+                            </Sel>
                           ))}
                         </TableRow>
 
                         {sedangTerbuka && (
                           <TableRow className="hover:bg-transparent">
                             <TableCell
-                              colSpan={jumlahSel}
+                              colSpan={KOLOM_TABEL.length + 1}
                               className="border-b border-slate-200 bg-slate-50/70 p-3"
                             >
                               <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
@@ -801,9 +762,7 @@ export function TabelPendana({
                                   Rincian{" "}
                                   <span className="font-semibold uppercase text-navy">
                                     {tampil(r.nama)}
-                                  </span>{" "}
-                                  · {r.jumlahPinjaman} pinjaman ·{" "}
-                                  {r.jumlahAktif} aktif · {r.jumlahLunas} lunas
+                                  </span>
                                 </p>
                                 {onPilih !== undefined && (
                                   <Button
@@ -837,30 +796,53 @@ export function TabelPendana({
                   <TableCell className="sticky bottom-0 z-10 border-t-2 border-slate-300 bg-slate-100 px-2 py-2 align-top">
                     <p className="font-semibold text-navy">
                       {saring === "semua"
-                        ? `Total · ${totalBaris.jumlahPendana} pendana`
-                        : `Total baris tampil · ${totalBaris.jumlahPendana} dari ${total.jumlahPendana} pendana`}
+                        ? `Total baris di atas · ${totalBaris.jumlahPendana} pendana`
+                        : `Total baris di atas · ${totalBaris.jumlahPendana} dari ${total.jumlahPendana} pendana`}
                     </p>
                     <p className="mt-1 text-xs tabular-nums text-muted-foreground">
                       {totalBaris.jumlahPinjaman} pinjaman ·{" "}
-                      {totalBaris.jumlahAktif} aktif · {totalBaris.jumlahLunas}{" "}
+                      {totalBaris.jumlahAktif} berjalan · {totalBaris.jumlahLunas}{" "}
                       lunas
                     </p>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      {totalBaris.transferBelumDicatat === 0
-                        ? "Semua transfer keuntungan sudah dicatat"
-                        : `${totalBaris.transferBelumDicatat} transfer belum dicatat (${rupiah(
-                            totalBaris.keuntunganBelumDicatat,
-                          )})`}
-                    </p>
                   </TableCell>
-                  {kolom.map((k, i) => (
-                    <SelAngka
+                  {KOLOM_TABEL.map((k, i) => (
+                    <Sel
                       key={k.kunci}
-                      nilai={rupiah(nilaiTotal(totalBaris, k.kunci))}
-                      kelas={k.kelas}
-                      pemisah={i === 0 || kolom[i - 1]?.gugus !== k.gugus}
+                      kunci={k.kunci}
+                      mulai={mulaiPita(i)}
                       kaki
-                    />
+                    >
+                      {k.kunci === "transfer" ? (
+                        totalBaris.transferBelumDicatat === 0 ? (
+                          <span className="text-xs text-emerald-800">
+                            semua tercatat
+                          </span>
+                        ) : (
+                          <span className="inline-flex flex-col items-end gap-0.5">
+                            <span className="text-xs font-semibold text-amber-900">
+                              {totalBaris.transferBelumDicatat} belum dicatat
+                            </span>
+                            <span className="text-xs tabular-nums text-muted-foreground">
+                              {rupiah(totalBaris.keuntunganBelumDicatat)}
+                            </span>
+                          </span>
+                        )
+                      ) : k.kunci === "tersalurkan" ? (
+                        <>
+                          <p className="text-sm font-semibold leading-tight text-navy">
+                            {rupiah(totalBaris.totalDisalurkan)}
+                          </p>
+                          <BilahDana
+                            tersalurkan={totalBaris.totalDisalurkan}
+                            berjalan={totalBaris.saldoBerjalan}
+                          />
+                        </>
+                      ) : (
+                        <span className={k.kelas}>
+                          {rupiah(nilaiTotal(totalBaris, k.kunci))}
+                        </span>
+                      )}
+                    </Sel>
                   ))}
                 </TableRow>
               </TableFooter>
@@ -869,25 +851,23 @@ export function TabelPendana({
         </div>
 
         <p className="mt-3 max-w-3xl text-xs leading-5 text-muted-foreground">
-          Kepala kolom melekat di puncak tabel saat isinya digulir, dan baris
-          total menempel di dasarnya. Tombol{" "}
-          <strong className="font-semibold text-slate-800">Dana pendana</strong>{" "}
-          dan{" "}
+          Tiga pita di kepala tabel menamai pertanyaan tiap kolomnya: dana yang
+          bekerja, hasilnya, dan sisi platform. Bilah di bawah{" "}
           <strong className="font-semibold text-slate-800">
-            Hasil pendana
+            Dana tersalurkan
           </strong>{" "}
-          di baris kendali menyalakan atau mematikan gugus kolomnya: satu gugus
-          menjaga angka tetap lega, dua gugus dipakai saat hasil perlu
-          dibandingkan langsung dengan dananya. Kolom{" "}
+          adalah bagiannya yang masih berjalan, dan{" "}
           <strong className="font-semibold text-slate-800">
             Perkiraan (belum lunas)
           </strong>{" "}
-          adalah hitungan atas pinjaman yang masih berjalan, belum menjadi uang
-          pendana sampai pinjamannya lunas.
+          adalah hitungan atas pinjaman berjalan — belum menjadi uang pendana
+          sampai pinjamannya lunas. Angka di baris kendali menghitung seluruh
+          rekap, sedangkan baris Total di dasar tabel menjumlahkan baris yang
+          sedang tampil.
         </p>
       </div>
 
-      {/* Layar sempit: kartu per pendana, angka yang sama. */}
+      {/* Layar sempit: kartu per pendana, kelompok angka yang sama. */}
       <ul className="space-y-3 lg:hidden">
         <li className={`overflow-hidden ${FOLIO.kertas}`}>{kendali}</li>
 
@@ -921,33 +901,59 @@ export function TabelPendana({
                   : "border-slate-200"
               }`}
             >
-              <div className="flex items-start justify-between gap-2">
-                <p className="min-w-0 text-sm font-semibold uppercase text-navy">
-                  {tampil(r.nama)}
-                </p>
-                <TandaTransfer jumlah={r.transferBelumDicatat} />
-              </div>
+              <p className="min-w-0 text-sm font-semibold uppercase text-navy">
+                {tampil(r.nama)}
+              </p>
               <p className="mt-1 text-xs tabular-nums text-muted-foreground">
-                {r.jumlahPinjaman} pinjaman · {r.jumlahAktif} aktif ·{" "}
+                {r.jumlahPinjaman} pinjaman · {r.jumlahAktif} berjalan ·{" "}
                 {r.jumlahLunas} lunas
               </p>
 
-              <dl className="mt-3 space-y-1.5 text-xs">
-                {KOLOM_ANGKA.map((k) => (
-                  <BarisAngka
-                    key={k.kunci}
-                    label={labelKolom(k.kunci)}
-                    nilai={rupiah(nilaiAngka(r, k.kunci))}
-                    kelas={k.kelas}
+              <div className="mt-3 space-y-3 text-xs">
+                <div>
+                  <LabelPita>Dana pendana</LabelPita>
+                  <p className="mt-1 text-lg font-bold tabular-nums leading-tight text-navy">
+                    {rupiah(r.totalDisalurkan)}
+                  </p>
+                  <BilahDana
+                    tersalurkan={r.totalDisalurkan}
+                    berjalan={r.saldoBerjalan}
                   />
-                ))}
-              </dl>
+                </div>
 
-              <div className="mt-2 flex items-center gap-2">
-                <span className="text-xs text-muted-foreground">
-                  Transfer keuntungan
-                </span>
-                <TransferPendana r={r} ringkas />
+                <div>
+                  <LabelPita>Hasil pendana</LabelPita>
+                  <dl className="mt-1.5 space-y-1.5">
+                    <BarisAngka
+                      kunci="dibukukan"
+                      nilai={rupiah(nilaiAngka(r, "dibukukan"))}
+                    />
+                    <BarisAngka
+                      kunci="perkiraan"
+                      nilai={rupiah(nilaiAngka(r, "perkiraan"))}
+                    />
+                    <BarisAngka
+                      kunci="total"
+                      nilai={rupiah(nilaiAngka(r, "total"))}
+                    />
+                  </dl>
+                </div>
+
+                <div>
+                  <LabelPita>Platform</LabelPita>
+                  <dl className="mt-1.5 space-y-1.5">
+                    <BarisAngka
+                      kunci="admin"
+                      nilai={rupiah(nilaiAngka(r, "admin"))}
+                    />
+                  </dl>
+                  <div className="mt-1.5 flex flex-wrap items-center justify-between gap-2">
+                    <span className="text-muted-foreground">
+                      Transfer keuntungan
+                    </span>
+                    <TransferPendana r={r} ringkas />
+                  </div>
+                </div>
               </div>
 
               {/* Kartu ini yang tampil di layar sentuh, jadi tombolnya diberi
@@ -991,19 +997,32 @@ export function TabelPendana({
             <p className="font-semibold text-navy">
               {saring === "semua"
                 ? `Total · ${totalBaris.jumlahPendana} pendana`
-                : `Total baris tampil · ${totalBaris.jumlahPendana} dari ${total.jumlahPendana} pendana`}
+                : `Total baris di atas · ${totalBaris.jumlahPendana} dari ${total.jumlahPendana} pendana`}
             </p>
             <p className="mt-1 text-xs tabular-nums text-muted-foreground">
               {totalBaris.jumlahPinjaman} pinjaman · {totalBaris.jumlahAktif}{" "}
-              aktif · {totalBaris.jumlahLunas} lunas
+              berjalan · {totalBaris.jumlahLunas} lunas
             </p>
             <dl className="mt-3 space-y-1.5 text-xs">
-              {KOLOM_ANGKA.map((k) => (
+              <div>
+                <dt className="text-muted-foreground">
+                  {labelKolom("tersalurkan")}
+                </dt>
+                <dd className="text-lg font-bold tabular-nums text-navy">
+                  {rupiah(nilaiTotal(totalBaris, "tersalurkan"))}
+                </dd>
+                <BilahDana
+                  tersalurkan={totalBaris.totalDisalurkan}
+                  berjalan={totalBaris.saldoBerjalan}
+                />
+              </div>
+              {(
+                ["dibukukan", "perkiraan", "total", "admin"] as const
+              ).map((kunci) => (
                 <BarisAngka
-                  key={k.kunci}
-                  label={labelKolom(k.kunci)}
-                  nilai={rupiah(nilaiTotal(totalBaris, k.kunci))}
-                  kelas={k.kelas}
+                  key={kunci}
+                  kunci={kunci}
+                  nilai={rupiah(nilaiTotal(totalBaris, kunci))}
                 />
               ))}
             </dl>
