@@ -6,8 +6,8 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
-import { KepalaFolio } from "@/components/penyediaDana/bagian-folio";
-import { FOLIO } from "@/components/penyediaDana/folio";
+import { BagianLipat } from "@/components/penyediaDana/bagian-folio";
+import { bagiKolom } from "@/components/penyediaDana/folio";
 import {
   ANCHOR_RISIKO_PENDANAAN,
   JUDUL_RISIKO_PENDANAAN,
@@ -56,18 +56,16 @@ export function BannerRisikoPendanaan() {
 }
 
 /**
- * Bagi daftar jadi dua kolom di layar lebar menurut urutan indeks, supaya
- * urutan bacanya tetap 1 sampai 12.
- */
-function bagiDua<T>(daftar: readonly T[]): readonly (readonly T[])[] {
-  const tengah = Math.ceil(daftar.length / 2);
-  return [daftar.slice(0, tengah), daftar.slice(tengah)];
-}
-
-/**
- * Panel dua belas poin risiko: accordion tertutup secara bawaan supaya tidak
- * mendorong angka keuntungan jauh ke bawah, dan dua kolom di layar lebar supaya
- * dua belas judulnya tidak lebih tinggi dari satu layar penuh.
+ * Panel dua belas poin risiko.
+ *
+ * Bentuknya dua lipatan yang bertingkat, dan itu disengaja. Bagiannya sendiri
+ * tertutup secara bawaan (hanya kepala satu baris yang tampak), karena dua belas
+ * judul poin yang selalu terbuka menghabiskan setengah layar sebelum pembaca
+ * melihat angka keuntungan sama sekali. Di dalamnya, tiap poin tetap accordion:
+ * yang ditampilkan sekaligus hanya judulnya, dan isinya dibuka satu per satu.
+ *
+ * Judulnya dipasang tiga kolom di layar lebar, jadi ke-12 poin terbaca dalam
+ * empat baris tanpa memutus urutan 1 sampai 12.
  */
 export function PanelRisikoPendanaan({
   bukaAwal = [],
@@ -80,23 +78,16 @@ export function PanelRisikoPendanaan({
   bukaAwal?: readonly number[];
 } = {}) {
   return (
-    <section
+    <BagianLipat
       id={ANCHOR_RISIKO_PENDANAAN}
-      aria-label={JUDUL_RISIKO_PENDANAAN}
-      className={`animate-masuk mt-4 scroll-mt-24 px-4 py-3 sm:px-5 ${FOLIO.kertas}`}
+      nomor={3}
+      judul={JUDUL_RISIKO_PENDANAAN}
+      ringkas={`${POIN_RISIKO_PENDANAAN.length} hal yang perlu Anda tahu sebelum mendanai`}
+      bukaAwal={bukaAwal.length > 0}
+      className="mt-4"
     >
-      <KepalaFolio
-        nomor={3}
-        judul={JUDUL_RISIKO_PENDANAAN}
-        aksi={
-          <p className="text-xs font-medium text-muted-foreground">
-            {POIN_RISIKO_PENDANAAN.length} hal yang perlu Anda tahu sebelum mendanai
-          </p>
-        }
-      />
-
-      <div className="mt-1 grid items-start gap-x-6 lg:grid-cols-2">
-        {bagiDua(POIN_RISIKO_PENDANAAN).map((bagian) => (
+      <div className="mt-1 grid items-start gap-x-6 sm:grid-cols-2 lg:grid-cols-3">
+        {bagiKolom(POIN_RISIKO_PENDANAAN, 3).map((bagian) => (
           <Accordion
             key={bagian[0]?.nomor ?? 0}
             type="multiple"
@@ -129,6 +120,6 @@ export function PanelRisikoPendanaan({
           </Accordion>
         ))}
       </div>
-    </section>
+    </BagianLipat>
   );
 }

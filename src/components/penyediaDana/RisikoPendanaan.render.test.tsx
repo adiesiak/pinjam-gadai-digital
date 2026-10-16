@@ -87,6 +87,42 @@ cek(
 cek("2g tanpa NaN", !panel.includes("NaN") && !banner.includes("NaN"));
 cek("2h tanpa undefined", !panel.includes("undefined") && !banner.includes("undefined"));
 
+// ===== 2b. Panel terlipat secara bawaan =====
+// Dua belas judul poin yang selalu terbuka menghabiskan setengah layar sebelum
+// pembaca melihat angka keuntungan, jadi bagiannya tertutup dan hanya kepalanya
+// yang tampak — dengan ringkasannya, supaya keadaannya tidak disembunyikan.
+{
+  const tertutup = renderToStaticMarkup(<PanelRisikoPendanaan />);
+  cek(
+    "2i kepala panel tetap terbaca saat tertutup",
+    tertutup.includes("Risiko pendanaan") &&
+      tertutup.includes("12 hal yang perlu Anda tahu sebelum mendanai"),
+  );
+  cek(
+    "2j isi dua belas poin tidak ikut dirender saat tertutup",
+    !tertutup.includes("Gagal bayar") && !tertutup.includes("Keterlambatan"),
+  );
+  cek(
+    "2k tombolnya menyatakan keadaan tertutup dan mengarah ke isinya",
+    tertutup.includes('aria-expanded="false"') && tertutup.includes(">Buka<"),
+  );
+  cek("2l tanpa NaN/undefined saat tertutup", !/NaN|undefined/.test(tertutup));
+
+  const terbuka = renderToStaticMarkup(<PanelRisikoPendanaan bukaAwal={[1]} />);
+  cek(
+    "2m tombolnya menyatakan keadaan terbuka",
+    terbuka.includes('aria-expanded="true"') && terbuka.includes(">Tutup<"),
+  );
+  cek(
+    "2n judul poinnya dipasang tiga kolom saat dibuka",
+    terbuka.includes("lg:grid-cols-3"),
+  );
+  cek(
+    "2o isi terbuka tetap memuat judul poinnya",
+    terbuka.includes("Gagal bayar") && terbuka.includes("Keterlambatan"),
+  );
+}
+
 // ===== 3. Kesehatan portofolio =====
 const tenang = renderToStaticMarkup(
   <KesehatanPortofolio

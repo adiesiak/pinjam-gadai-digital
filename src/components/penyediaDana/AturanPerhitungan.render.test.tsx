@@ -143,13 +143,37 @@ ok(!html.includes("pasti untung"), "tidak ada klaim keuntungan pasti");
 }
 
 // ===== Tertutup secara bawaan =====
+// Tujuh judul aturan yang selalu terbuka menghabiskan satu layar sebelum bagian
+// berikutnya terbaca, jadi bagiannya tertutup dan hanya kepalanya yang tampak —
+// lengkap dengan tarif yang berlaku, supaya angkanya tetap terbaca tanpa membuka
+// apa pun.
 {
   const tertutup = renderToStaticMarkup(
     <AturanPerhitungan persenBunga={30} persenPotonganAdmin={5} />,
   );
   ada(tertutup, "Aturan perhitungan", "judul tetap terlihat saat aturannya tertutup");
+  ada(
+    tertutup,
+    "bunga 30% · biaya platform (layanan) 5%",
+    "tarif yang berlaku tetap terbaca saat aturannya tertutup",
+  );
+  ada(
+    tertutup,
+    'aria-expanded="false"',
+    "tombolnya menyatakan keadaan tertutup",
+  );
+  ada(tertutup, ">Buka<", "satu tindakan yang jelas untuk membukanya");
   ok(!tertutup.includes("bukan jaminan"), "isi aturan tidak mendorong isi halaman ke bawah");
+  ok(!tertutup.includes("Bunga pinjaman dan Imbal Hasil"), "judul aturan tidak dirender saat tertutup");
   bersih(tertutup, "markup panel aturan yang tertutup");
+
+  const terbuka = renderToStaticMarkup(
+    <AturanPerhitungan persenBunga={30} persenPotonganAdmin={5} bukaAwal={[1]} />,
+  );
+  ada(terbuka, 'aria-expanded="true"', "tombolnya menyatakan keadaan terbuka");
+  ada(terbuka, ">Tutup<", "tindakan membaliknya tersedia");
+  ada(terbuka, "lg:grid-cols-3", "tujuh judul aturan dipasang tiga kolom saat dibuka");
+  bersih(terbuka, "markup panel aturan yang terbuka");
 }
 
 // ===== Persentase mengikuti Pengaturan Sistem =====

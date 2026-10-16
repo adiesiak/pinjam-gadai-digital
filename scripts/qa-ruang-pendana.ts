@@ -14,6 +14,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
 import { AturanPerhitungan } from "../src/components/penyediaDana/AturanPerhitungan";
+import { bagiKolom } from "../src/components/penyediaDana/folio";
 import { KesehatanPortofolio } from "../src/components/penyediaDana/KesehatanPortofolio";
 import { PanelRisikoPendanaan } from "../src/components/penyediaDana/RisikoPendanaan";
 import { RingkasanKeuntungan } from "../src/components/penyediaDana/RingkasanKeuntungan";
@@ -122,18 +123,94 @@ cek(
   "empat angka kesehatan memakai lembar folio yang sama",
 );
 
+// Pembagian kolomnya seimbang dan urutannya tidak berubah — kalau tidak, nomor
+// poin risiko bisa melompat dari kolom ke kolom.
+{
+  const dua = [...Array(12).keys()];
+  const bagi = bagiKolom(dua, 3);
+  cek(
+    bagi.map((b) => b.length).join(",") === "4,4,4",
+    `dua belas poin dibagi rata ke tiga kolom (ditemukan ${bagi.map((b) => b.length).join(",")})`,
+  );
+  cek(
+    bagi.flat().join(",") === dua.join(","),
+    "urutan poin tetap 1 sampai 12 setelah dibagi ke kolom",
+  );
+  cek(
+    bagiKolom([...Array(7).keys()], 3)
+      .map((b) => b.length)
+      .join(",") === "3,2,2",
+    "tujuh aturan dibagi 3/2/2, tanpa kolom yang menggantung satu baris",
+  );
+  cek(bagiKolom([], 3).every((b) => b.length === 0), "daftar kosong tidak menghasilkan kolom berisi");
+}
+
+// Lipatan itu sendiri: bagian yang dituju jangkar harus terbuka, baik saat
+// halaman baru dimuat maupun saat jangkarnya diklik dari dalam halaman.
+const lipat = baca("src/components/penyediaDana/bagian-folio.tsx");
+cek(
+  lipat.includes("dibukaLewatJangkar(id)"),
+  "bagian yang dituju jangkar terbuka saat halaman dimuat",
+);
+cek(
+  lipat.includes('addEventListener("hashchange"'),
+  "bagian terlipat ikut terbuka saat jangkarnya diklik dari dalam halaman",
+);
+
+// Dua bagian rujukan (risiko & aturan) memakai satu bentuk lipatan yang sama:
+// tertutup secara bawaan dengan ringkasan tetap terbaca di kepalanya, dan
+// isinya dipasang tiga kolom saat dibuka. Yang diperiksa di sini: keadaan
+// tertutupnya benar-benar tidak memuat isi, dan keadaan terbukanya tetap rapat.
+const risikoTertutup = renderToStaticMarkup(createElement(PanelRisikoPendanaan));
+cek(risikoTertutup.includes(">03<"), "nomor bagian 03 tercetak di panel risiko");
+cek(
+  risikoTertutup.includes("12 hal yang perlu Anda tahu sebelum mendanai"),
+  "ringkasan isi bagian tetap terbaca saat panel risiko tertutup",
+);
+cek(
+  risikoTertutup.includes('aria-expanded="false"'),
+  "tombol buka panel risiko menyatakan keadaannya",
+);
+cek(
+  !risikoTertutup.includes("Gagal bayar"),
+  "panel risiko yang tertutup tidak merender isinya",
+);
+
 const risiko = renderToStaticMarkup(
   createElement(PanelRisikoPendanaan, { bukaAwal: [1] }),
 );
-cek(risiko.includes(">03<"), "nomor bagian 03 tercetak di panel risiko");
+cek(
+  risiko.includes('aria-expanded="true"') && risiko.includes("lg:grid-cols-3"),
+  "panel risiko yang dibuka memasang judul poinnya tiga kolom",
+);
 
-const aturan = renderToStaticMarkup(
+const aturanTertutup = renderToStaticMarkup(
   createElement(AturanPerhitungan, {
     persenBunga: 1.5,
     persenPotonganAdmin: 5,
   }),
 );
-cek(aturan.includes(">05<"), "nomor bagian 05 tercetak di aturan perhitungan");
+cek(
+  aturanTertutup.includes(">05<") &&
+    aturanTertutup.includes("bunga 1.5% · biaya platform (layanan) 5%"),
+  "nomor bagian 05 dan tarif yang berlaku tercetak saat aturannya tertutup",
+);
+cek(
+  !aturanTertutup.includes("Bunga pinjaman dan Imbal Hasil"),
+  "aturan yang tertutup tidak merender isinya",
+);
+
+const aturan = renderToStaticMarkup(
+  createElement(AturanPerhitungan, {
+    persenBunga: 1.5,
+    persenPotonganAdmin: 5,
+    bukaAwal: [1, 2],
+  }),
+);
+cek(
+  aturan.includes("lg:grid-cols-3"),
+  "aturan yang dibuka memasang judulnya tiga kolom",
+);
 
 const keuntungan = renderToStaticMarkup(
   createElement(RingkasanKeuntungan, {

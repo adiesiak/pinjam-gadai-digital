@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 
-import { KepalaFolio } from "@/components/penyediaDana/bagian-folio";
-import { FOLIO } from "@/components/penyediaDana/folio";
+import { BagianLipat } from "@/components/penyediaDana/bagian-folio";
+import { bagiKolom } from "@/components/penyediaDana/folio";
 import {
   Accordion,
   AccordionContent,
@@ -16,15 +16,6 @@ import { formatRupiah, percentOf } from "@/lib/money";
  * Nomornya dipakai sebagai penanda urutan baca, bukan sebagai bagian judul.
  */
 type Aturan = { nomor: number; judul: string; isi: ReactNode };
-
-/**
- * Bagi daftar jadi dua kolom di layar lebar menurut urutan indeks, supaya urutan
- * bacanya tetap 1 sampai 7.
- */
-function bagiDua<T>(daftar: readonly T[]): readonly (readonly T[])[] {
-  const tengah = Math.ceil(daftar.length / 2);
-  return [daftar.slice(0, tengah), daftar.slice(tengah)];
-}
 
 /**
  * Panel "Aturan perhitungan": satu tempat untuk semua cara angka di ruang ini
@@ -43,10 +34,12 @@ function bagiDua<T>(daftar: readonly T[]): readonly (readonly T[])[] {
  * Sistem), bukan angka tetap yang ditulis di kode, jadi kalau pemilik produk
  * mengubah tarifnya, penjelasannya ikut berubah.
  *
- * Bentuk accordion (dan bukan dinding teks): semua judul tetap terlihat
- * sekaligus, sehingga pembaca bisa langsung menemukan aturan yang dicarinya.
- * Di layar lebar daftarnya dipasang dua kolom supaya tujuh judulnya tidak
- * menghabiskan satu layar sebelum bagian berikutnya terbaca.
+ * Bentuk lipatan bertingkat (dan bukan dinding teks): bagiannya sendiri tertutup
+ * secara bawaan dengan tarif yang berlaku tetap tercetak di kepalanya, dan di
+ * dalamnya semua judul aturan tampil sekaligus sehingga pembaca bisa langsung
+ * menemukan aturan yang dicarinya. Di layar lebar daftar itu dipasang tiga kolom
+ * supaya tujuh judulnya tidak menghabiskan satu layar sebelum bagian berikutnya
+ * terbaca.
  *
  * Murni presentasional, tanpa Convex, supaya bisa dirender langsung oleh uji
  * markup (`AturanPerhitungan.render.test.tsx`).
@@ -229,27 +222,21 @@ export function AturanPerhitungan({
   ];
 
   return (
-    <section
-      aria-label="Aturan perhitungan"
-      className={`animate-masuk mt-3 scroll-mt-24 px-4 py-3 sm:px-5 ${FOLIO.kertas}`}
+    <BagianLipat
       id="aturan-perhitungan"
+      nomor={5}
+      judul="Aturan perhitungan"
+      ringkas={`bunga ${persenBunga}% · biaya platform (layanan) ${persenPotonganAdmin}%`}
+      bukaAwal={bukaAwal.length > 0}
+      className="mt-3"
     >
-      <KepalaFolio
-        nomor={5}
-        judul="Aturan perhitungan"
-        aksi={
-          <p className="text-xs font-medium text-muted-foreground">
-            bunga {persenBunga}% · biaya platform (layanan) {persenPotonganAdmin}%
-          </p>
-        }
-      />
       <p className="mt-1 max-w-3xl text-xs leading-5 text-muted-foreground">
         Cara semua angka di halaman ini dihitung: dari bunga pinjaman sampai baris total tabel
         pendana. Buka aturan yang ingin Anda periksa.
       </p>
 
-      <div className="mt-1 grid items-start gap-x-6 lg:grid-cols-2">
-        {bagiDua(aturan).map((bagian) => (
+      <div className="mt-1 grid items-start gap-x-6 sm:grid-cols-2 lg:grid-cols-3">
+        {bagiKolom(aturan, 3).map((bagian) => (
           <Accordion
             key={bagian[0]?.nomor ?? 0}
             type="multiple"
@@ -282,6 +269,6 @@ export function AturanPerhitungan({
           </Accordion>
         ))}
       </div>
-    </section>
+    </BagianLipat>
   );
 }

@@ -46,3 +46,36 @@ export const FOLIO = {
 export function nomorFolio(nomor: number): string {
   return String(nomor).padStart(2, "0");
 }
+
+/**
+ * Bagi daftar jadi beberapa kolom yang seimbang, urutannya tetap.
+ *
+ * Dipakai daftar poin dan aturan: dua belas poin yang ditumpuk satu kolom lebih
+ * tinggi dari satu layar, dan urutan bacanya harus tetap 1 sampai 12. Sisanya
+ * diletakkan di kolom depan (12 → 4/4/4, 7 → 3/2/2), jadi tidak ada kolom yang
+ * menggantung satu baris sendirian di ujung.
+ */
+export function bagiKolom<T>(daftar: readonly T[], kolom: number): readonly (readonly T[])[] {
+  const dasar = Math.floor(daftar.length / kolom);
+  const sisa = daftar.length % kolom;
+  const hasil: T[][] = [];
+  let mulai = 0;
+  for (let i = 0; i < kolom; i += 1) {
+    const ukuran = dasar + (i < sisa ? 1 : 0);
+    hasil.push(daftar.slice(mulai, mulai + ukuran));
+    mulai += ukuran;
+  }
+  return hasil;
+}
+
+/**
+ * Apakah halaman sedang dibuka pada jangkar bagian tertentu (`#id`).
+ *
+ * Dipakai bagian yang terlipat: tautan jangkar (navigasi bagian dan tombol
+ * "Baca selengkapnya" di banner risiko) harus membuka bagiannya, bukan
+ * meninggalkan pembaca di depan judul yang tertutup. Dijaga `typeof window`
+ * supaya render statis di uji markup tetap aman.
+ */
+export function dibukaLewatJangkar(id: string): boolean {
+  return typeof window !== "undefined" && window.location.hash === `#${id}`;
+}
