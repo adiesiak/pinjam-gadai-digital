@@ -371,21 +371,21 @@ plugin lokasi tetap hidup.
    keamanan, bukan sekadar kontrol alur.
 3. ~~**Deteksi lokasi palsu di sisi native**~~ — **sudah dikerjakan** (termasuk
    peringatan otomatis ke nasabah via banner dashboard + WhatsApp, serta
-   daftar "Peringatan lokasi terbaru" untuk tim review di /admin). Rinciannya: Layanan
+   daftar "Peringatan lokasi terbaru" untuk tim review di panel operasional). Rinciannya: Layanan
    native memeriksa flag mock sebelum mengirim (`Location.isMock` /
    `isFromMockProvider` di Android, `CLLocation.sourceInformation` di iOS) dan
    tidak membuang kuota untuk titik yang pasti ditolak server. Sisi web juga
    sudah meneruskan `mock` dari plugin lokasi, dan `simpanTitik` menolak titik
    mock plus dua heuristik yang tidak butuh kerja sama klien: akurasi di bawah 1
    meter dan lompatan tidak wajar. Koordinat yang persis sama berulang kali
-   hanya **ditandai** (bukan ditolak) dan tampil di /admin sebagai "Lokasi
+   hanya **ditandai** (bukan ditolak) dan tampil di panel operasional sebagai "Lokasi
    Dicurigai". Yang tetap butuh attestation (poin 2) adalah jaminan bahwa flag
    mock itu sendiri tidak bisa disembunyikan klien yang menulis ulang request.
 
 Sampai poin 1 selesai, pemantauan latar belakang andal untuk sesi menengah dan
 **selalu segar kembali saat pengguna membuka aplikasi** (`LocationGate`
 mengirim titik baru setiap tab kembali aktif). Karena itu: **naikkan
-`lokasiMaxUmurMenit` ke 15–20 lewat /admin → Pengaturan Sistem** sebelum
+`lokasiMaxUmurMenit` ke 15–20 lewat panel operasional → Pengaturan Sistem** sebelum
 merilis aplikasi, agar nasabah tidak terblokir saat membuka aplikasi setelah
 lama menganggur.
 
@@ -397,11 +397,11 @@ lama menganggur.
 | Kasus | Hasil yang diharapkan |
 |---|---|
 | App dibuka, izin "sepanjang waktu" diberikan | Notifikasi "PINDAI memantau lokasi" muncul; pil status "Lokasi aktif (latar belakang)". |
-| Layar dikunci 10 menit | Titik tetap bertambah di /admin → peta/audit lokasi. |
+| Layar dikunci 10 menit | Titik tetap bertambah di panel operasional → peta/audit lokasi. |
 | Lokasi dimatikan di Setelan | Pengajuan/cicilan ditolak server; dashboard menampilkan layar blokir. |
 | Aplikasi di-force stop, lalu lokasi dimatikan | Transaksi ditolak (titik kedaluwarsa). |
 | Fake GPS (aplikasi mock location) | Titik ditolak saat dikirim, dan layar blokir menampilkan "Matikan aplikasi lokasi palsu" — bukan instruksi "nyalakan GPS". |
-| Aplikasi yang membekukan koordinat (tidak melaporkan flag mock) | Titik tetap dilayani, tetapi masuk daftar "Lokasi Dicurigai" di /admin setelah ±5 titik identik berturut-turut; nasabah menerima banner peringatan di dashboard **dan** pesan WhatsApp (maks 1×/24 jam), dan peringatannya tercatat di audit trail. |
+| Aplikasi yang membekukan koordinat (tidak melaporkan flag mock) | Titik tetap dilayani, tetapi masuk daftar "Lokasi Dicurigai" di panel operasional setelah ±5 titik identik berturut-turut; nasabah menerima banner peringatan di dashboard **dan** pesan WhatsApp (maks 1×/24 jam), dan peringatannya tercatat di audit trail. |
 | Perangkat tanpa GPS / browser lama | Fallback `navigator.geolocation` + pesan diagnosis yang benar. |
 | `wajibAplikasiNative` dinyalakan (di staging) | Pengguna web terblokir; pengguna app native lolos tanpa melihat layar "pasang aplikasi". |
 
@@ -423,7 +423,7 @@ Urutan ini **tidak boleh dibalik**:
    akun uji Peminjam.
 2. **Produksi, fase lunak**: rilis ke Play/App Store. Saklar tetap **OFF** —
    nasabah web masih bisa bertransaksi, aplikasi hanya menambah kemampuan.
-3. **Pantau** di /admin:
+3. **Pantau** di panel operasional:
    - Kartu **"Lokasi Tidak Mengalir"** → jumlah pinjaman didanai tanpa titik segar.
    - `statusSaya.perangkatTerdaftar` untuk melihat berapa Peminjam sudah di app.
 4. **Sosialisasi**: WhatsApp/email ke seluruh Peminjam aktif + banner pengumuman
@@ -437,7 +437,7 @@ Urutan ini **tidak boleh dibalik**:
    heartbeat. Semuanya pulih sendiri setelah aplikasi mengirim titik lokasi
    berikutnya — tidak ada yang perlu diubah admin.
 
-> Setiap perubahan konfigurasi ini diaudit di /admin → Pengaturan Sistem.
+> Setiap perubahan konfigurasi ini diaudit di panel operasional → Pengaturan Sistem.
 > Saklar bersifat global dan langsung berlaku ke seluruh pengguna.
 
 ---

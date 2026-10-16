@@ -64,8 +64,9 @@ kode benar-benar cocok.
 
 - **Nasabah**: tahap *Nomor WhatsApp* di dashboard KYC — tombol "Kirim kode ke
   WhatsApp", kolom 6 digit, dan status terverifikasi.
-- **Petugas**: rincian KYC di `/admin` menampilkan hasil pemeriksaan nomor
-  beserta peringatan bila bukti lama tidak lagi cocok dengan nomor tersimpan.
+- **Petugas**: rincian KYC di panel operasional (rute `ADMIN_ROUTE` di
+  `lib/routes.ts`, bukan `/admin`) menampilkan hasil pemeriksaan nomor beserta
+  peringatan bila bukti lama tidak lagi cocok dengan nomor tersimpan.
 - **Audit**: `auditLog` (`kyc_nomor_wa_terverifikasi`, nomor bertopeng),
   `loginLogs` (`metode: "wa_otp"`), dan `waLogs` (`jenis: otp_*`, isi disembunyikan).
 
