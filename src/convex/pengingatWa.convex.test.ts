@@ -56,6 +56,32 @@ function pasangGateway() {
   };
 }
 
+type KeluarJsonWa = { nomor?: string; pesan?: string };
+
+/**
+ * Gateway generik palsu (bukan Fonnte): body JSON dengan nama field dari panel,
+ * dan token dibaca dari `WHATSAPP_API_KEY`. Dipakai lewat try/finally juga.
+ */
+function pasangGatewayJson() {
+  const asli = globalThis.fetch;
+  const keluar: KeluarJsonWa[] = [];
+  process.env.WHATSAPP_API_KEY = TOKEN_UJI;
+  globalThis.fetch = (async (_url: unknown, init?: { body?: unknown }) => {
+    keluar.push(JSON.parse(String(init?.body ?? "{}")) as KeluarJsonWa);
+    return new Response(JSON.stringify({ status: true, detail: "queued" }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  }) as unknown as typeof fetch;
+  return {
+    keluar,
+    pulihkan: () => {
+      globalThis.fetch = asli;
+      delete process.env.WHATSAPP_API_KEY;
+    },
+  };
+}
+
 /** Satu baris pinjaman milik peminjam, dengan umur pendanaan yang ditentukan. */
 async function seedPinjaman(
   t: KonteksUji,
@@ -189,6 +215,23 @@ describe("saveConfig gerbang template pesan", () => {
     expect(bawaan.config.templatesWa).toEqual({});
     expect(bawaan.config.aktif).toBe(true);
   });
+
+  it("endpoint Fonnte: nama field tersimpan dipaksa target/message", async () => {
+    const t = convexTest(schema, modules);
+    const admin = await siapkanPengguna(t, "admin", {
+      email: "admin-wa5@pindai.test",
+      role: "admin",
+    });
+    await seedGateway(t, { aktif: true });
+    await admin.sesi.mutation(api.whatsapp.saveConfig, {
+      ...konfigurasiGerbang({}),
+      fieldNomor: "customer",
+      fieldPesan: "pesan",
+    });
+    const tersimpan = await t.run(async (ctx) => ctx.db.query("waSettings").first());
+    expect(tersimpan?.fieldNomor).toBe("target");
+    expect(tersimpan?.fieldPesan).toBe("message");
+  });
 });
 
 describe("pengingat WhatsApp otomatis", () => {
@@ -313,6 +356,61 @@ describe("pengingat WhatsApp otomatis", () => {
       expect(logs[0].status).toBe("tanpa_nomor");
       expect(logs[0].nomorTujuan).toBe("-");
       expect(logs[0].jenis).toBe("konfirmasi_pembayaran");
+    } finally {
+      gateway.pulihkan();
+    }
+  });
+
+  it("endpoint Fonnte memakai target/message walau panel menyimpan nama lain", async () => {
+    const t = convexTest(schema, modules);
+    const { userId } = await buatPengguna(t, "rani", { email: "rani7@pindai.test", role: "peminjam" });
+    const loanId = await seedPinjaman(t, { userId, status: "didanai", sisaHari: 10 });
+    await seedGateway(t, { aktif: true });
+    // Meniru konfigurasi yang tersimpan salah isi: panel menulis `customer`,
+    // sedangkan API Fonnte hanya mengenal `target`.
+    await t.run(async (ctx) => {
+      const row = await ctx.db.query("waSettings").first();
+      if (row) await ctx.db.patch(row._id, { fieldNomor: "customer", fieldPesan: "pesan" });
+    });
+    const gateway = pasangGateway();
+    try {
+      const hasil = await t.action(internal.whatsapp._kirimKonfirmasiPembayaran, {
+        loanId,
+        jumlah: 500_000,
+      });
+      expect(hasil.status).toBe("terkirim");
+      expect(gateway.keluar).toHaveLength(1);
+      expect(gateway.keluar[0].target).toBe(NOMOR_PEMINJAM);
+      expect(gateway.keluar[0].message).toContain("Rp 500.000");
+    } finally {
+      gateway.pulihkan();
+    }
+  });
+
+  it("gateway generik tetap memakai nama field dari panel", async () => {
+    const t = convexTest(schema, modules);
+    const { userId } = await buatPengguna(t, "rani", { email: "rani8@pindai.test", role: "peminjam" });
+    const loanId = await seedPinjaman(t, { userId, status: "didanai", sisaHari: 10 });
+    await seedGateway(t, { aktif: true });
+    await t.run(async (ctx) => {
+      const row = await ctx.db.query("waSettings").first();
+      if (row)
+        await ctx.db.patch(row._id, {
+          apiUrl: "https://api.example.com/send",
+          fieldNomor: "nomor",
+          fieldPesan: "pesan",
+        });
+    });
+    const gateway = pasangGatewayJson();
+    try {
+      const hasil = await t.action(internal.whatsapp._kirimKonfirmasiPembayaran, {
+        loanId,
+        jumlah: 500_000,
+      });
+      expect(hasil.status).toBe("terkirim");
+      expect(gateway.keluar).toHaveLength(1);
+      expect(gateway.keluar[0].nomor).toBe(NOMOR_PEMINJAM);
+      expect(gateway.keluar[0].pesan).toContain("Rp 500.000");
     } finally {
       gateway.pulihkan();
     }

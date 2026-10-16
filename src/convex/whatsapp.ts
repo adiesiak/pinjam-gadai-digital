@@ -321,6 +321,10 @@ export const saveConfig = mutation({
     if (!authHeader || !fieldNomor || !fieldPesan) {
       throw new Error("Nama header auth dan field body wajib diisi.");
     }
+    // Fonnte hanya mengenal `target`/`message`: menyimpan nama lain membuat
+    // pengiriman gagal di sana ("no target"), jadi yang tersimpan adalah nama
+    // yang benar-benar dipakai pengirim.
+    const fonnte = endpointFonnte(apiUrl);
     // Validasi SERVER atas setiap template: editor sudah menahannya, tetapi
     // serverlah yang memutuskan apa yang boleh tersimpan; permintaan yang
     // dibuat di luar panel tidak boleh menulis template cacat.
@@ -345,8 +349,8 @@ export const saveConfig = mutation({
       apiUrl,
       authHeader,
       authPrefix: args.authPrefix ?? "",
-      fieldNomor,
-      fieldPesan,
+      fieldNomor: fonnte ? "target" : fieldNomor,
+      fieldPesan: fonnte ? "message" : fieldPesan,
       aktif: args.aktif,
       templatesWa,
       // Kolom template lama dikosongkan: isinya sudah pindah ke `templatesWa`,
@@ -539,7 +543,8 @@ function penolakanEksplisit(teks: string): string | null {
  * Dipakai SELURUH jalur pengiriman (pengingat, kabar status, peringatan lokasi,
  * dan OTP) supaya satu konfigurasi gateway + satu token environment melayani
  * semua pesan. Perubahan penyedia tetap tidak perlu deploy ulang: endpoint dan
- * nama field diatur admin, sedangkan endpoint Fonnte ditangani sesuai formatnya.
+ * nama field diatur admin, sedangkan endpoint Fonnte ditangani sesuai formatnya
+ * dan nama fieldnya tetap (lihat `endpointFonnte`).
  */
 export async function kirimViaGateway(
   apiKey: string,
@@ -557,12 +562,11 @@ export async function kirimViaGateway(
   const header = settings.authHeader ?? "Authorization";
   const prefix = settings.authPrefix ?? "";
   const fonnte = endpointFonnte(url);
+  // Endpoint Fonnte TIDAK bisa ganti nama field: API-nya hanya mengenal
+  // `target`/`message`, jadi isian panel diabaikan di sini (jalur OTP langsung
+  // pun memakai nama yang sama). Isian panel tetap berlaku untuk gateway lain.
   const body = fonnte
-    ? new URLSearchParams({
-        [settings.fieldNomor?.trim() || "target"]: nomor,
-        [settings.fieldPesan?.trim() || "message"]: isi,
-        countryCode: "62",
-      }).toString()
+    ? new URLSearchParams({ target: nomor, message: isi, countryCode: "62" }).toString()
     : JSON.stringify({
         [settings.fieldNomor ?? "target"]: nomor,
         [settings.fieldPesan ?? "message"]: isi,
