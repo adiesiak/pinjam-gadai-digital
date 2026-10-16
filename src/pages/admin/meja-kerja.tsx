@@ -284,7 +284,8 @@ export function MejaKerja({
               </dl>
 
               {/* Sengaja tanpa tanda pisah "—": di panel ini karakter itu berarti
-                  "data server belum termuat" (lihat D1/E4 di scripts/qa-meja-kerja.ts),
+                  "data server belum termuat" (lihat D1/D1b dan E3 di
+                  scripts/qa-meja-kerja.ts),
                   jadi teks biasa tidak boleh memakainya atau admin salah membacanya. */}
               <p className="mt-2 text-[11px] leading-4 text-muted-foreground">
                 Contoh kebijakan perhitungan satu pinjaman, bukan angka catatan

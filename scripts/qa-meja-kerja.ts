@@ -25,12 +25,40 @@ mock.module("leaflet", () => ({ default: {} }));
 // distub dengan nilai "data belum tiba" — persis keadaan di peramban sebelum
 // langganan pertama mengirim data. Yang diuji tetap teks & lencana tab, bukan
 // angka analitik (itu diuji `RingkasanAnalitik.render.test.tsx` dari sisi murni).
+//
+// Stubnya harus SELENGKAP nama yang diimpor pohon impor, bukan hanya yang
+// dirender di sini: Bun menautkan nama ekspor saat modul dimuat, jadi satu nama
+// yang kurang membuat seluruh skrip ini gagal dengan SyntaxError sebelum satu
+// pemeriksaan pun berjalan. Nama seperti `ConvexProviderWithAuth` dan
+// `useConvexAuth` dipakai modul lain di dalam pohon (mis.
+// `@convex-dev/auth/react`, yang mengimpornya saat dimuat, dan `hooks/use-auth`).
+const lewatkan = ({ children }: { children?: unknown }) => children;
 mock.module("convex/react", () => ({
   useQuery: () => undefined,
   useQueries: () => ({ results: [] }),
   useMutation: () => async () => undefined,
   useAction: () => async () => undefined,
   useConvex: () => ({}),
+  useConvexAuth: () => ({ isLoading: false, isAuthenticated: false, isRefreshing: false }),
+  usePaginatedQuery: () => ({ results: [], status: "Exhausted", loadMore: () => undefined }),
+  useSubscription: () => undefined,
+  useConvexConnectionState: () => ({ isWebSocketConnected: false }),
+  useQuery_experimental: () => undefined,
+  usePaginatedQuery_experimental: () => ({
+    results: [],
+    status: "Exhausted",
+    loadMore: () => undefined,
+  }),
+  convexQueryOptions: (query: unknown) => ({ query }),
+  ConvexReactClient: class {
+    constructor() {}
+  },
+  ConvexProvider: lewatkan,
+  ConvexProviderWithAuth: lewatkan,
+  Authenticated: lewatkan,
+  Unauthenticated: lewatkan,
+  AuthLoading: lewatkan,
+  AuthRefreshing: lewatkan,
 }));
 
 const { AdminTabs } = await import("@/pages/admin/admin-tabs");
@@ -65,9 +93,39 @@ const bilahDari = (sumber: string) =>
 const lencanaTab = (sumber: string, label: string) =>
   new RegExp(`${label}<span[^>]*>([\\d!]+)<`).exec(sumber)?.[1];
 
-/** Lencana yang menempel pada judul grup sidebar (AccordionTrigger). */
-const badgeGrup = (sumber: string, judul: string) =>
-  new RegExp(`${judul}</span>[\\s\\S]*?>([\\d!OK]+)<`).exec(sumber)?.[1];
+/**
+ * Lencana yang menempel pada satu MODUL di sidebar (tombol `id="tab-..."`).
+ *
+ * Sejak sidebar memakai seksi (bukan accordion berjudul), lencana dipasang pada
+ * modulnya, bukan pada ringkasan grup. Jadi yang dibaca di sini pun lencana
+ * modul: angka yang tidak bisa ditelusuri ke pekerjaannya tidak dipakai lagi.
+ */
+const badgeModul = (sumber: string, modul: string): string | undefined => {
+  const mulai = sumber.indexOf(`id="tab-${modul}"`);
+  if (mulai === -1) return undefined;
+  const akhir = sumber.indexOf("</button>", mulai);
+  if (akhir === -1) return undefined;
+  return />([\d!OK]+)</.exec(sumber.slice(mulai, akhir))?.[1];
+};
+
+/**
+ * Angka besar satu kartu "Perlu tindakan", dibaca dari markup kartunya.
+ *
+ * Dipakai untuk menguji dua hal sekaligus: kartu yang sumbernya belum siap
+ * menampilkan tanda pisah (bukan 0), dan kartu yang sumbernya siap menampilkan
+ * angka yang benar.
+ */
+const angkaKartu = (sumber: string, label: string): string | undefined => {
+  const i = sumber.indexOf(label);
+  if (i === -1) return undefined;
+  // Sengaja "<p " (dengan spasi): "<p" juga cocok dengan `"<path"` milik ikon SVG,
+  // sehingga pembacaannya akan mulai dari tengah ikon, bukan dari angka kartunya.
+  const p = sumber.indexOf("<p ", i + label.length);
+  if (p === -1) return undefined;
+  const akhir = sumber.indexOf("</p>", p);
+  if (akhir === -1) return undefined;
+  return sumber.slice(sumber.indexOf(">", p) + 1, akhir);
+};
 
 type Props = Parameters<typeof AdminTabs>[0];
 type Loan = Props["overview"]["loans"][number];
@@ -150,13 +208,22 @@ const tabs = (o: Props["overview"], s: Props["stats"]) =>
 // ===== A. Tab default + panel "Hari Ini" terpasang =====
 const html = tabs(overview, stats0);
 const t = teksDari(html);
-cek("A1 region berlabel Ringkasan Hari Ini", html.includes('aria-label="Ringkasan Hari Ini"'));
+cek("A1 region panel Ringkasan terpasang", html.includes('aria-label="Ringkasan"'));
+cek(
+  "A1b deret kartu berlabel untuk pembaca layar",
+  html.includes('aria-label="Perlu tindakan"'),
+);
 cek("A2 tab Hari Ini ditandai aktif", html.includes('aria-current="page"'));
 cek("A3 bilah bawah terpasang (pengganti select)", html.includes('aria-label="Menu operasi"'));
-cek("A4 kartu Perlu keputusan", t.includes("Perlu keputusan"));
+cek("A4 kartu pengajuan menunggu keputusan", t.includes("Pengajuan menunggu keputusan"));
 cek("A5 CTA menuju antrean", t.includes("Tinjau antrean"));
-cek("A6 kartu tanggal acuan", t.includes("Lewat tanggal acuan"));
+cek("A6 kartu lewat jatuh tempo", t.includes("Lewat jatuh tempo"));
 cek("A7 kartu perhatian lokasi", t.includes("Perhatian lokasi"));
+// Verifikasi identitas punya antrean sendiri di panel ini; angkanya datang dari
+// prop `kycMenunggu` (diisi `pages/Admin.tsx` dari antrean KYC yang sama dengan
+// modulnya), jadi admin tidak perlu membuka modul untuk tahu ada yang menunggu.
+cek("A9 kartu KYC menunggu verifikasi", t.includes("KYC menunggu verifikasi"));
+cek("A10 CTA membuka verifikasi KYC", t.includes("Buka verifikasi KYC"));
 // Panel "Ledger internal" sudah dihapus dari menu admin — panel Hari Ini tidak
 // boleh lagi memuat kartu/labelnya.
 cek("A8 tanpa kartu ledger", !t.includes("Ledger internal"));
@@ -174,9 +241,13 @@ cek(
   "dapat: " + lencanaTab(bilah, "Operasional"),
 );
 cek("B2 angka 11 (2+2+7) tidak muncul", !bilah.includes(">11<"));
+// Lencana "perhatian lokasi" dihapus dari navigasi: empat sebab digabung jadi
+// satu angka tidak terbaca sebagai antrean kerja, dan cacahannya pindah ke kartu
+// "Perhatian lokasi" di panel Ringkasan yang menyebut sebabnya satu per satu.
+// Jadi tab Pemantauan hanya membawa keterlambatan.
 cek(
-  "B3 tab Pemantauan = 6 (terlambat 2 + perhatian lokasi 4)",
-  lencanaTab(bilah, "Pemantauan") === "6",
+  "B3 tab Pemantauan = 2 (keterlambatan saja)",
+  lencanaTab(bilah, "Pemantauan") === "2",
   "dapat: " + lencanaTab(bilah, "Pemantauan"),
 );
 cek(
@@ -187,34 +258,44 @@ cek(
 cek("B5 tab aktif tidak berlencana", lencanaTab(bilah, "Hari Ini") === undefined);
 cek("B6 ledger seimbang -> tanpa tanda seru", !bilah.includes(">!<"));
 
-// Sidebar desktop tetap menguji perbaikan yang sama (grup, bukan tab).
+// Sidebar desktop memakai aturan yang sama (R3), tetapi lencananya menempel pada
+// MODUL — bukan ringkasan grup lagi — supaya tiap angka bisa ditelusuri ke
+// pekerjaan yang ditanganinya.
 cek(
-  "B7 sidebar: grup Operasional & tindakan = 2 (bukan 9)",
-  badgeGrup(html, "Operasional &amp; tindakan") === "2",
-  "dapat: " + badgeGrup(html, "Operasional &amp; tindakan"),
+  "B7 sidebar: modul menunggu berlencana (pinjaman 2)",
+  badgeModul(html, "pinjaman") === "2",
+  "dapat: " + badgeModul(html, "pinjaman"),
 );
 cek(
-  "B8 sidebar: grup Pemantauan & finansial = 6",
-  badgeGrup(html, "Pemantauan &amp; finansial") === "6",
-  "dapat: " + badgeGrup(html, "Pemantauan &amp; finansial"),
+  "B7b lencana info (alokasi 7) tidak ikut dijumlahkan ke tab",
+  badgeModul(html, "alokasi") === "7" && lencanaTab(bilah, "Operasional") === "2",
+  "alokasi: " + badgeModul(html, "alokasi") + ", tab: " + lencanaTab(bilah, "Operasional"),
 );
-// Lima kategori sidebar yang diminta harus benar-benar ada, dan setiap modul
-// tetap berada di dalam tepat satu grup.
+cek(
+  "B8 sidebar: modul lokasi tanpa lencana gabungan",
+  badgeModul(html, "lokasi") === undefined,
+  "dapat: " + badgeModul(html, "lokasi"),
+);
+cek(
+  "B8b angka lokasi tetap terbaca di kartu Ringkasan (4 = 1+1+1+1)",
+  angkaKartu(html, "Perhatian lokasi") === "4",
+  "dapat: " + angkaKartu(html, "Perhatian lokasi"),
+);
+// Lima kategori sidebar yang diminta harus benar-benar ada sebagai judul seksi,
+// dan setiap modul tetap berada di dalam tepat satu seksi.
 cek(
   "B9 lima kategori sidebar terpasang",
-  [
-    "Operasional &amp; tindakan",
-    "Pemantauan &amp; finansial",
-    "CMS &amp; template website",
-    "Pemeliharaan sistem",
-    "Keamanan &amp; audit",
-  ].every((judul) => html.includes(`${judul}</span>`)),
+  ["Operasional", "Pemantauan", "Konten", "Sistem", "Keamanan &amp; audit"].every((judul) =>
+    html.includes(`>${judul}</p>`),
+  ),
 );
-// Isi grup yang tertutup tidak dirender Radix (bukan `forceMount`), jadi yang
-// bisa diperiksa dari markup adalah JUDUL grup + daftar modul di data menu.
+// Isi tiap seksi dirender langsung (bukan accordion), jadi modulnya bisa
+// diperiksa dari markup seksi tempat ia berada.
 cek(
-  "B10 grup pemeliharaan & keamanan terpasang",
-  html.includes("Pemeliharaan sistem</span>") && html.includes("Keamanan &amp; audit</span>"),
+  "B10 modul pemeliharaan & keamanan terpasang di sidebar",
+  ["config", "backup", "audit", "loglogin", "killswitch"].every((modul) =>
+    html.includes(`id="tab-${modul}"`),
+  ),
 );
 cek(
   "B10b modul pemeliharaan & kill switch terdaftar",
@@ -245,12 +326,34 @@ const mMemuat = renderToStaticMarkup(
   }),
 );
 const tmMemuat = teksDari(mMemuat);
+// Tiga kartu yang sumbernya belum siap: KYC (`kycMenunggu` bawaan null),
+// keterlambatan, dan lokasi (`stats` belum ada). Kartu pengajuan tetap berangka
+// karena `overview` sudah tersedia — itu memang beda keadaan, bukan beda kartu.
 const jumlahPisah = (tmMemuat.match(/—/g) ?? []).length;
-cek("D1 dua kartu menampilkan tanda pisah", jumlahPisah === 2, "jumlah: " + jumlahPisah);
+cek("D1 tiga kartu menampilkan tanda pisah", jumlahPisah === 3, "jumlah: " + jumlahPisah);
+cek(
+  "D1b tanda pisah ada di kartu yang sumbernya belum siap",
+  angkaKartu(mMemuat, "KYC menunggu verifikasi") === "—" &&
+    angkaKartu(mMemuat, "Lewat jatuh tempo") === "—" &&
+    angkaKartu(mMemuat, "Perhatian lokasi") === "—",
+  [
+    angkaKartu(mMemuat, "KYC menunggu verifikasi"),
+    angkaKartu(mMemuat, "Lewat jatuh tempo"),
+    angkaKartu(mMemuat, "Perhatian lokasi"),
+  ].join(" / "),
+);
+cek(
+  "D1c kartu yang sumbernya siap tetap berangka",
+  angkaKartu(mMemuat, "Pengajuan menunggu keputusan") === "2",
+  "dapat: " + angkaKartu(mMemuat, "Pengajuan menunggu keputusan"),
+);
 cek("D2 tidak ada 0 palsu", !/\b0\b/.test(tmMemuat), "teks: " + tmMemuat);
 cek("D3 tanpa NaN", !tmMemuat.includes("NaN"));
 
 // ===== E. Siap & nol -> benar-benar "0" + catatan =====
+// Semua sumber diisi di sini — termasuk `kycMenunggu`, satu-satunya yang tidak
+// punya nilai bawaan "siap" — supaya yang diuji benar-benar keadaan "data sudah
+// tiba dan hasilnya nol", bukan keadaan "sebagian data belum tiba".
 const mNol = renderToStaticMarkup(
   createElement(MejaKerja, {
     overview: { loans: [], pawns: [], kredit: [] },
@@ -262,6 +365,7 @@ const mNol = renderToStaticMarkup(
       titikDicurigai: 0,
       peringatanLokasiAktif: 0,
     },
+    kycMenunggu: 0,
     onBukaModul: () => {},
   }),
 );
@@ -269,12 +373,17 @@ const tmNol = teksDari(mNol);
 cek("E1 nol ditampilkan sebagai 0", /\b0\b/.test(tmNol));
 cek("E2 catatan saat nol", tmNol.includes("Tidak ada yang perlu ditindak"));
 cek("E3 tanpa tanda pisah", !tmNol.includes("—"));
+cek(
+  "E4 kartu KYC ikut menyatakan nol saat antreannya kosong",
+  angkaKartu(mNol, "KYC menunggu verifikasi") === "0",
+  "dapat: " + angkaKartu(mNol, "KYC menunggu verifikasi"),
+);
 
 // ===== F. Tiap produk membaca array-nya sendiri =====
 // Panjang tiap array sengaja berbeda (1/2/3) supaya salah pasang array
 // (mis. lencana gadai dihitung dari `overview.loans`) menghasilkan angka lain:
-// Operasional = pinjaman 1 + gadai 2 + kredit 3 = 6,
-// Pemantauan = dpd 2 (stats0) + perhatian lokasi 4 = 6.
+// Operasional = pinjaman 1 + gadai 2 + kredit 3 = 6, dan Pemantauan hanya
+// keterlambatan (2) karena lencana lokasi memang tidak dipasang.
 // Salah pasang akan memberi angka lain (mis. 5 / 7 / 8), bukan 6.
 const htmlCampur = tabs(
   {
@@ -295,13 +404,19 @@ cek(
   "dapat: " + lencanaTab(bilahCampur, "Operasional"),
 );
 cek(
-  "F2 sidebar: grup Operasional & tindakan = 6 (1+2+3)",
-  badgeGrup(htmlCampur, "Operasional &amp; tindakan") === "6",
-  "dapat: " + badgeGrup(htmlCampur, "Operasional &amp; tindakan"),
+  "F2 sidebar: tiap modul membaca array-nya sendiri (1 / 2 / 3)",
+  badgeModul(htmlCampur, "pinjaman") === "1" &&
+    badgeModul(htmlCampur, "gadai") === "2" &&
+    badgeModul(htmlCampur, "kredit") === "3",
+  [
+    badgeModul(htmlCampur, "pinjaman"),
+    badgeModul(htmlCampur, "gadai"),
+    badgeModul(htmlCampur, "kredit"),
+  ].join(" / "),
 );
 cek(
-  "F3 tab Pemantauan tetap 6 (keterlambatan + lokasi)",
-  lencanaTab(bilahCampur, "Pemantauan") === "6",
+  "F3 tab Pemantauan tetap 2 (keterlambatan saja)",
+  lencanaTab(bilahCampur, "Pemantauan") === "2",
   "dapat: " + lencanaTab(bilahCampur, "Pemantauan"),
 );
 
@@ -317,17 +432,19 @@ const itemMenu = (
 
 // Nama grup & nilai modul mengikuti `GRUP_NAV` yang berlaku (lima kategori),
 // karena bilah bawah meratakan modul lewat `grupDariModul` — grup yang tidak
-// dikenal tidak akan pernah muncul sebagai tab.
+// dikenal tidak akan pernah muncul sebagai tab. Lencana `lokasi` sengaja tetap
+// ada di data uji ini (di menu asli tidak): yang diuji di sini adalah aturan
+// `ringkasGrup` menjumlahkan lencana ber bobot "menunggu".
 const menuUji: GrupNavData[] = [
   {
-    judul: "Operasional & tindakan",
+    judul: "Operasional",
     items: [
       itemMenu("pinjaman", "Pinjaman", "Tinjau pengajuan pinjaman tunai.", "2", "menunggu", ClipboardList),
       itemMenu("gadai", "Gadai", "Nilai barang jaminan.", "1", "menunggu", Package),
     ],
   },
   {
-    judul: "Pemantauan & finansial",
+    judul: "Pemantauan",
     items: [
       itemMenu("dpd", "Jatuh Tempo", "Pinjaman yang melewati tanggal acuan.", "2", "menunggu", BellRing),
       itemMenu("lokasi", "Pemantauan lokasi", "Titik lokasi perangkat peminjam.", "1", "menunggu", MapPin),

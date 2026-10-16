@@ -230,6 +230,16 @@ sama(jenisRamahWa("terlambat_2"), "Keterlambatan tahap 2", "log memakai label ra
 sama(jenisRamahWa("pengingat"), "Pengingat tagihan (manual)", "jenis lama tetap terbaca manusia");
 sama(jenisRamahWa("otp_transaksi"), "Kode OTP persetujuan transaksi", "jenis OTP lama diterjemahkan");
 sama(jenisRamahWa("entah"), "entah", "jenis tak dikenal ditampilkan apa adanya, bukan disembunyikan");
+sama(
+  jenisRamahWa("laporan_pelunasan"),
+  "Laporan pelunasan ke pendana (PDF)",
+  "laporan pelunasan terbaca sebagai pekerjaan, bukan nama teknis",
+);
+sama(
+  jenisRamahWa("laporan_portofolio"),
+  "Laporan kinerja pendanaan (PDF)",
+  "laporan kinerja pendanaan terbaca sebagai pekerjaan",
+);
 
 // ===== 9. Metode pembayaran dari pengaturan sistem =====
 cek(

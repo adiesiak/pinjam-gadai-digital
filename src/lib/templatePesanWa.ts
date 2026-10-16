@@ -490,20 +490,30 @@ export function rencanaPengingat(
   return rencana;
 }
 
-/** Label ramah untuk jenis apa pun yang tersimpan di log (termasuk yang lama). */
+/**
+ * Label ramah untuk jenis apa pun yang tersimpan di log (termasuk yang lama).
+ *
+ * Katalog template di atas hanya memuat pesan yang teksnya bisa diatur admin.
+ * Jenis di bawah ini dikirim sistem dengan teks yang sudah ditentukan kode
+ * (termasuk dua laporan PDF pendana), jadi ia tidak masuk katalog — tetapi
+ * tetap muncul di riwayat pengiriman dan harus terbaca sebagai pekerjaan, bukan
+ * sebagai nama teknis.
+ */
 export function jenisRamahWa(jenis: string): string {
   if ((JENIS_TEMPLATE_WA as readonly string[]).includes(jenis)) {
     return LABEL_JENIS_WA[jenis as JenisTemplateWa];
   }
-  const lama: Record<string, string> = {
+  const diLuarKatalog: Record<string, string> = {
     pengingat: "Pengingat tagihan (manual)",
     tes: "Pesan tes",
     status_pinjaman: "Perubahan status pinjaman",
     lokasi_dicurigai: "Peringatan lokasi perangkat",
     otp_verifikasi_nomor: "Kode OTP verifikasi nomor",
     otp_transaksi: "Kode OTP persetujuan transaksi",
+    laporan_pelunasan: "Laporan pelunasan ke pendana (PDF)",
+    laporan_portofolio: "Laporan kinerja pendanaan (PDF)",
   };
-  return lama[jenis] ?? jenis;
+  return diLuarKatalog[jenis] ?? jenis;
 }
 
 /**

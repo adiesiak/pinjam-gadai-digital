@@ -9,7 +9,7 @@
  * yang tidak bisa dirender di sini diperiksa dari sumbernya, bukan diklaim sudah
  * diklik.
  */
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
@@ -41,6 +41,7 @@ const BERKAS = [
   "src/components/penyediaDana/AturanPerhitungan.tsx",
   "src/components/penyediaDana/PersetujuanRisikoPendana.tsx",
   "src/components/penyediaDana/LaporanTransferPendana.tsx",
+  "src/components/penyediaDana/KontakLaporanWhatsapp.tsx",
   "src/components/penyediaDana/TabelPendana.tsx",
   "src/components/penyediaDana/SaringanPengajuan.tsx",
   "src/components/penyediaDana/PetaLokasiPeminjam.tsx",
@@ -439,6 +440,61 @@ cek(
 cek(
   baca("src/components/penyediaDana/PortofolioPendana.tsx").includes("Alokasi atas nama"),
   "pendana melihat portofolionya sendiri, bukan papan perbandingan antarpendana",
+);
+
+// 9. Laporan ke WhatsApp: nomornya milik AKUN pendana, diisi sendiri di ruangnya,
+// dan tidak ada pihak lain yang bisa mengalihkan laporan keuangannya ke nomor
+// lain. Yang diperiksa di sini adalah bentuk kartunya dan sumber penjaganya;
+// perilakunya ditahan `laporanPendana.convex.test.ts`.
+const kontakSumber = baca("src/components/penyediaDana/KontakLaporanWhatsapp.tsx");
+cek(kontakSumber.includes("FOLIO.kertas"), "kartu laporan memakai lembar folio yang sama");
+cek(
+  cacah(kontakSumber, /min-h-11/g) >= 2,
+  "kedua tombol kartu laporan setinggi sasaran sentuh 44 px",
+);
+cek(
+  kontakSumber.includes("Laporan berisi angka pendanaan Anda"),
+  "kartu menyatakan laporan memuat angka pendanaan pemiliknya",
+);
+cek(
+  halaman.includes("<KontakLaporanWhatsapp"),
+  "kartu laporan terpasang di halaman ruang pendana",
+);
+cek(
+  halaman.includes("nomor={kontakLaporan.nomorWhatsApp}"),
+  "halaman membaca nomor dari akun, bukan dari isian yang diketik ulang",
+);
+cek(
+  halaman.includes("isPendana && kontakLaporan !== undefined && kontakLaporan !== null"),
+  "kartu laporan hanya untuk akun pemilik portofolio, bukan admin atau pemantau",
+);
+const pelaporan = baca("src/convex/laporanPendana.ts");
+cek(
+  pelaporan.includes("export const kirimLaporanPortofolio") &&
+    /kirimLaporanPortofolio = action\(\{\s*args: \{\}/.test(pelaporan),
+  "aksi laporan pendana tidak menerima nomor tujuan dari pemanggil",
+);
+cek(
+  pelaporan.includes("peranPenyedia") && pelaporan.includes("Nomor WhatsApp laporan belum diisi"),
+  "pengiriman menolak akun bukan pendana dan menjelaskan nomor yang belum diisi",
+);
+cek(
+  baca("src/convex/penyediaDana.ts").includes("export const simpanKontakLaporan"),
+  "nomor laporan disimpan lewat mutation yang memeriksa pemilik akunnya",
+);
+cek(
+  baca("src/convex/loans.ts").includes("internal.laporanPendana.kirimLaporanPelunasan"),
+  "laporan pelunasan dijadwalkan setelah status lunas tersimpan",
+);
+cek(
+  existsSync("src/components/penyediaDana/KontakLaporanWhatsapp.render.test.tsx"),
+  "kartu laporan punya uji markup sendiri",
+);
+cek(
+  baca("package.json").includes(
+    "bun src/components/penyediaDana/KontakLaporanWhatsapp.render.test.tsx",
+  ) && baca("package.json").includes("bun src/lib/laporanPendana.test.ts"),
+  "uji laporan pendana ikut dijalankan oleh `bun run test`",
 );
 
 const jumlah = lulus + gagal;
