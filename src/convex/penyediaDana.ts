@@ -75,6 +75,7 @@ import { namaHurufBesar } from "../lib/nama";
 import { nominalDisetujui, nominalTerkunci } from "../lib/statusPinjaman";
 import { ROLES } from "./schema";
 import { bulatkanTitikWilayah } from "../lib/geo";
+import { normalisasiNomorWa } from "../lib/otpWa";
 import { audit, getConfig } from "./system";
 
 /** Batas baris per kategori; daftar selalu diurutkan dari yang terbaru. */
@@ -164,6 +165,8 @@ export type BarisPinjaman = {
   diajukanPada: number;
   /** Waktu pendanaan penuh — null bila belum didanai. */
   didanaiPada: number | null;
+  /** Waktu pinjaman dicatat lunas — null selama belum lunas. */
+  lunasPada: number | null;
   /** Nama penyedia dana tunggal pinjaman ini — null bila belum didanai. */
   pendana: string | null;
   /** Bunga pinjaman = pokok × persen bunga (dari Pengaturan Sistem). */
@@ -525,18 +528,18 @@ async function kreditMilikPendana(
 }
 
 /**
- * Satu query untuk seluruh halaman: tiga daftar pengajuan + ringkasannya.
- * Baris dibatasi `BATAS_BARIS` per kategori dan diambil dari yang terbaru agar
- * payload tetap ringan; pemanggil menerima penanda `terpotong`.
+ * Isi ruang penyedia dana untuk satu pembaca, TANPA gerbang sesi.
  *
- * Untuk akun pendana, seluruh angka di query ini (rekap, ringkasan, dan
- * daftar) dihitung dari baris yang sudah dibatasi cakupan di atas.
+ * Dipisah dari query-nya supaya laporan PDF (`convex/laporanPendana.ts`)
+ * memakai perhitungan yang sama persis dengan layar. Laporan yang angkanya
+ * berbeda sedikit dari ruang penyedia dana akan membuat pemiliknya meragukan
+ * kedua tempat sekaligus, jadi tidak boleh ada versi hitungan kedua.
+ *
+ * Pemanggil WAJIB sudah memastikan pembacanya berhak: query memakai
+ * `requirePengamat`, laporan memakai `peranPenyedia` atas akun penerimanya.
  */
-export const daftarPengajuan = query({
-  args: {},
-  handler: async (ctx) => {
-    const { user } = await requirePengamat(ctx);
-    // Presisi penuh hanya untuk panel admin. Ruang penyedia dana/pengamat
+export async function ruangPendana(ctx: QueryCtx, user: Doc<"users">) {
+  // Presisi penuh hanya untuk panel admin. Ruang penyedia dana/pengamat
     // menerima koordinat tingkat wilayah (≈1 km) supaya peta tetap berguna
     // tanpa membuka lokasi presisi seorang peminjam kepada pihak luar.
     const presisiPenuh = user.role === ROLES.ADMIN;
@@ -704,6 +707,7 @@ export const daftarPengajuan = query({
         status: loan.status,
         diajukanPada: loan.diajukanPada ?? loan._creationTime,
         didanaiPada: loan.didanaiPada ?? null,
+        lunasPada: loan.lunasPada ?? null,
         pendana,
         bunga: bagi.bunga,
         totalLunas: bagi.totalLunas,
@@ -899,6 +903,84 @@ export const daftarPengajuan = query({
       gadai,
       kredit,
     };
+}
+
+/**
+ * Satu query untuk seluruh halaman: tiga daftar pengajuan + ringkasannya.
+ * Baris dibatasi `BATAS_BARIS` per kategori dan diambil dari yang terbaru agar
+ * payload tetap ringan; pemanggil menerima penanda `terpotong`.
+ *
+ * Untuk akun pendana, seluruh angka di query ini (rekap, ringkasan, dan
+ * daftar) dihitung dari baris yang sudah dibatasi cakupan di atas.
+ */
+export const daftarPengajuan = query({
+  args: {},
+  handler: async (ctx) => {
+    const { user } = await requirePengamat(ctx);
+    return await ruangPendana(ctx, user);
+  },
+});
+
+/**
+ * Nomor WhatsApp tempat laporan PDF pendana dikirim.
+ *
+ * Dibaca sebagai query terpisah dari `daftarPengajuan`: kartu kontak hanya
+ * butuh satu nilai, sedangkan tabel pengajuan adalah payload besar. Menyatukan
+ * keduanya berarti setiap kali pendana menyimpan nomornya, seluruh tabel ikut
+ * dimuat ulang.
+ *
+ * `null` untuk pembaca yang bukan pemilik akun pendana (admin dan sesi kode
+ * akses bersama tidak punya laporan untuk diri mereka sendiri).
+ */
+export const kontakLaporanSaya = query({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await getAuthUserId(ctx);
+    if (userId === null) return null;
+    const user = await ctx.db.get(userId);
+    if (user === null || !peranPenyedia(user.role as string | undefined)) return null;
+    return { nomorWhatsApp: user.nomorWhatsApp ?? null };
+  },
+});
+
+/**
+ * Simpan nomor WhatsApp laporan milik AKUN YANG SEDANG MASUK.
+ *
+ * Hanya akun pendana sendiri yang boleh mengubahnya: nomor ini menentukan ke
+ * mana laporan kinerjanya dikirim, jadi tidak ada pihak lain yang boleh
+ * mengalihkannya. Mengosongkan isian menghapus nomornya, dan sesudah itu tidak
+ * ada laporan yang dikirim sampai pemiliknya mengisinya lagi — lebih baik
+ * daripada mengirim laporan keuangan ke nomor lama yang mungkin bukan miliknya.
+ *
+ * Nomor dinormalkan ke bentuk `62…` lewat aturan yang sama dengan seluruh
+ * aplikasi (`lib/otpWa`), supaya satu nomor tidak tersimpan dalam dua bentuk.
+ */
+export const simpanKontakLaporan = mutation({
+  args: { nomor: v.string() },
+  handler: async (ctx, { nomor }) => {
+    const userId = await getAuthUserId(ctx);
+    if (userId === null) throw new Error("Harus masuk terlebih dahulu.");
+    const user = await ctx.db.get(userId);
+    if (user === null) throw new Error("Pengguna tidak ditemukan.");
+    if (!peranPenyedia(user.role as string | undefined)) {
+      throw new Error("Hanya akun penyedia dana yang menyimpan nomor laporan.");
+    }
+
+    const bersih = nomor.trim();
+    if (bersih === "") {
+      if (user.nomorWhatsApp !== undefined) await ctx.db.patch(userId, { nomorWhatsApp: undefined });
+      return { nomorWhatsApp: null };
+    }
+
+    const normal = normalisasiNomorWa(bersih);
+    if (normal === null) {
+      throw new Error(
+        "Nomor WhatsApp tidak dikenali. Tulis nomor Indonesia, mis. 0812 3456 7890.",
+      );
+    }
+    const berubah = normal !== (user.nomorWhatsApp ?? "");
+    if (berubah) await ctx.db.patch(userId, { nomorWhatsApp: normal });
+    return { nomorWhatsApp: normal };
   },
 });
 
@@ -1095,12 +1177,23 @@ export const berkasPengajuan = query({
  */
 const PERAN_PENDANA_LEGACY = "pendana";
 
-function peranPenyedia(role: string | undefined): boolean {
+/**
+ * Apakah peran akun ini pemilik portofolio pendana?
+ *
+ * Diekspor supaya modul laporan memakai definisi "akun pendana" yang sama dengan
+ * ruangnya, termasuk akun warisan berperan `pendana` yang alokasinya masih nyata.
+ */
+export function peranPenyedia(role: string | undefined): boolean {
   return role === ROLES.DANA || role === PERAN_PENDANA_LEGACY;
 }
 
-/** Nama tampil pendana: nama akun → email → label generik. */
-function namaTampilPendana(
+/**
+ * Nama tampil pendana: nama akun → email → label generik.
+ *
+ * Diekspor supaya laporan PDF menyebut pendananya dengan nama yang sama seperti
+ * di ruang penyedia dana, bukan aturan penamaan kedua.
+ */
+export function namaTampilPendana(
   nama: string | null | undefined,
   email: string | null | undefined,
 ): string {

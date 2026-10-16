@@ -177,6 +177,17 @@ const schema = defineSchema(
       /** Waktu sesi tamu terakhir diaktifkan dengan kode akses bersama. */
       aksesBersamaPada: v.optional(v.number()),
       /**
+       * Nomor WhatsApp pemilik akun untuk LAPORAN pendana (format 62…, tanpa
+       * tanda +), diisi sendiri oleh akun pendana di ruang pendana.
+       *
+       * Kenapa di `users` dan bukan di `kycProfil`: kolom KYC adalah milik alur
+       * verifikasi nasabah, sementara pendana tidak melewati alur itu. Nomor ini
+       * dipakai HANYA untuk mengirim salinan laporan kinerja ke WhatsApp milik
+       * pemiliknya; kosong berarti laporan tidak dikirim, bukan dikirim ke
+       * nomor lain.
+       */
+      nomorWhatsApp: v.optional(v.string()),
+      /**
        * Waktu admin mencatat pemohon yang BELUM punya akun (nasabah walk-in,
        * data lama dari buku) beserta dokumennya. Akun begini sengaja tidak
        * punya kredensial masuk: pengelolaannya lewat panel admin, dan bila

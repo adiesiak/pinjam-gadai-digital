@@ -1,4 +1,4 @@
-import { useMutation, useQuery } from "convex/react";
+import { useAction, useMutation, useQuery } from "convex/react";
 import {
   ArrowLeftRight,
   BadgeCheck,
@@ -52,6 +52,7 @@ import {
 } from "@/components/penyediaDana/RisikoPendanaan";
 import { ANCHOR_RISIKO_PENDANAAN, CATATAN_INTERNAL_SINGKAT } from "@/lib/teksRisikoPendanaan";
 import { PetaLokasiPeminjam } from "@/components/penyediaDana/PetaLokasiPeminjam";
+import { KontakLaporanWhatsapp } from "@/components/penyediaDana/KontakLaporanWhatsapp";
 import { RingkasanKeuntungan } from "@/components/penyediaDana/RingkasanKeuntungan";
 import { SaringanPengajuan } from "@/components/penyediaDana/SaringanPengajuan";
 import { PortofolioPendana } from "@/components/penyediaDana/PortofolioPendana";
@@ -1882,6 +1883,56 @@ function IsiRuang() {
   const [menyimpanSetuju, setMenyimpanSetuju] = useState(false);
   const [galatSetuju, setGalatSetuju] = useState<string | null>(null);
 
+  // Kontak laporan WhatsApp dibaca sebagai query terpisah: kartu kontak hanya
+  // butuh satu nilai, dan nomornya milik akun (bukan milik peramban), jadi ia
+  // tetap terisi saat pendana berganti perangkat.
+  const kontakLaporan = useQuery(
+    api.penyediaDana.kontakLaporanSaya,
+    user === undefined ? ("skip" as const) : {},
+  );
+  const simpanKontak = useMutation(api.penyediaDana.simpanKontakLaporan);
+  const kirimLaporan = useAction(api.laporanPendana.kirimLaporanPortofolio);
+  const [menyimpanKontak, setMenyimpanKontak] = useState(false);
+  const [mengirimLaporan, setMengirimLaporan] = useState(false);
+  const [galatLaporan, setGalatLaporan] = useState<string | null>(null);
+
+  /** Simpan nomor laporan milik akun yang sedang masuk. */
+  async function simpanNomorLaporan(nomor: string) {
+    setMenyimpanKontak(true);
+    setGalatLaporan(null);
+    try {
+      await simpanKontak({ nomor });
+      toast.success("Nomor laporan tersimpan pada akun Anda.");
+    } catch (err) {
+      setGalatLaporan(err instanceof Error ? err.message : "Nomor gagal disimpan. Coba lagi.");
+    } finally {
+      setMenyimpanKontak(false);
+    }
+  }
+
+  /**
+   * Minta laporan kinerja dikirim ke WhatsApp akun ini.
+   *
+   * Kegagalan gateway ditampilkan apa adanya di kartunya, bukan diringkas jadi
+   * "berhasil": pendana harus tahu kalau laporannya tidak jadi terkirim. Tiga
+   * sebab yang paling sering: nomor belum diisi, integrasi WhatsApp belum aktif,
+   * atau gateway yang dipasang admin tidak mendukung lampiran berkas.
+   */
+  async function kirimLaporanWhatsapp() {
+    setMengirimLaporan(true);
+    setGalatLaporan(null);
+    try {
+      await kirimLaporan({});
+      toast.success("Laporan dikirim ke WhatsApp Anda. Berkasnya menyusul di percakapan.");
+    } catch (err) {
+      setGalatLaporan(
+        err instanceof Error ? err.message : "Laporan gagal dikirim. Coba lagi.",
+      );
+    } finally {
+      setMengirimLaporan(false);
+    }
+  }
+
   /**
    * Kirim persetujuan risiko atas VERSI teks yang sedang tampil.
    *
@@ -2408,6 +2459,23 @@ function IsiRuang() {
                   )}
                 </div>
               </section>
+            )}
+
+            {/* Pengaturan kontak laporan + tombol minta laporan, hanya untuk akun
+                pemilik portofolio: laporan ini salinan angka di atasnya, dan
+                admin/pemantau tidak punya laporan untuk dikirim ke dirinya
+                sendiri. Diletakkan persis sesudah angka portofolionya supaya
+                yang diminta jelas: berkas berisi angka yang baru dibaca. */}
+            {isPendana && kontakLaporan !== undefined && kontakLaporan !== null && (
+              <KontakLaporanWhatsapp
+                className="mt-4"
+                nomor={kontakLaporan.nomorWhatsApp}
+                menyimpan={menyimpanKontak}
+                mengirim={mengirimLaporan}
+                galat={galatLaporan}
+                onSimpan={simpanNomorLaporan}
+                onKirim={kirimLaporanWhatsapp}
+              />
             )}
 
             {/* Kepala bagian daftar: nomor indeksnya sama dengan nomor yang

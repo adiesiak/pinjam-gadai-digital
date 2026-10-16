@@ -551,6 +551,12 @@ export async function kirimViaGateway(
   settings: WaSettings,
   nomor: string,
   isi: string,
+  /**
+   * Lampiran berkas opsional: URL yang bisa diambil gateway TANPA otentikasi
+   * (di produksi: URL berkas Convex dari `ctx.storage.getUrl`) dan nama berkas
+   * yang tampil di WhatsApp penerima.
+   */
+  berkas?: { url: string; nama: string },
 ): Promise<{ ok: boolean; respon: string }> {
   // Fail-closed: validasi ULANG saat kirim — konfigurasi lama yang tersimpan
   // sebelum aturan ini ada tetap tidak boleh di-fetch bila tidak lolos.
@@ -562,11 +568,30 @@ export async function kirimViaGateway(
   const header = settings.authHeader ?? "Authorization";
   const prefix = settings.authPrefix ?? "";
   const fonnte = endpointFonnte(url);
+  // Lampiran hanya dikenal endpoint Fonnte (`url` + `filename`), sementara
+  // gateway generik dipasang admin dengan nama field yang berbeda-beda. Daripada
+  // mengirim lampiran ke gateway lain dengan tebakan nama field — dan mencatatnya
+  // "terkirim" padahal berkasnya tidak ikut — permintaan lampiran ke gateway lain
+  // ditolak dengan alasan yang bisa dibaca admin.
+  if (berkas !== undefined && !fonnte) {
+    return {
+      ok: false,
+      respon:
+        "Gateway yang diatur belum mendukung lampiran berkas. Atur endpoint Fonnte (api.fonnte.com) untuk mengirim laporan PDF.",
+    };
+  }
   // Endpoint Fonnte TIDAK bisa ganti nama field: API-nya hanya mengenal
   // `target`/`message`, jadi isian panel diabaikan di sini (jalur OTP langsung
   // pun memakai nama yang sama). Isian panel tetap berlaku untuk gateway lain.
   const body = fonnte
-    ? new URLSearchParams({ target: nomor, message: isi, countryCode: "62" }).toString()
+    ? new URLSearchParams({
+        target: nomor,
+        message: isi,
+        countryCode: "62",
+        // `url` = berkas yang DIAMBIL Fonnte dari alamat publik; `filename`
+        // = nama yang dibaca penerima.
+        ...(berkas === undefined ? {} : { url: berkas.url, filename: berkas.nama }),
+      }).toString()
     : JSON.stringify({
         [settings.fieldNomor ?? "target"]: nomor,
         [settings.fieldPesan ?? "message"]: isi,

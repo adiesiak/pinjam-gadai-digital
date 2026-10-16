@@ -1232,6 +1232,19 @@ async function setLoanStatus(
     statusLama,
   });
 
+  // Laporan PDF pelunasan dikirim ke pendana pendana-nya pinjaman ini, juga
+  // SETELAH status tersimpan. Hanya pada perpindahan KE lunas: mengirim ulang
+  // saat status lain berubah akan mengabarkan pelunasan yang sudah lama terjadi.
+  // Penerimanya ditentukan pemilik kanonik pinjaman (`pendanaId`); pinjaman
+  // warisan yang hanya punya nama pendana dilewati, karena tidak ada akun yang
+  // bisa dikirimi tanpa menebak.
+  if (status === "lunas" && statusLama !== "lunas" && loan.pendanaId !== undefined) {
+    await ctx.scheduler.runAfter(0, internal.laporanPendana.kirimLaporanPelunasan, {
+      loanId,
+      olehUserId: adminId,
+    });
+  }
+
   return {
     ok: true,
     status,
