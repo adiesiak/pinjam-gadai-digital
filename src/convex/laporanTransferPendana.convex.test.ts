@@ -11,8 +11,9 @@
  *    kembali masuk antrean, sebab keuntungannya kembali belum tercatat;
  *  - pembatalan satu pinjaman tidak menyentuh catatan pinjaman lain (laporan
  *    pendana lain tidak boleh terbaca seolah transfernya diurungkan);
- *  - `idSaya` menandai baris milik pembaca, tanpa menyembunyikan baris milik
- *    pendana lain yang memang dipantau bersama di ruang ini;
+ *  - cakupan portofolio pribadi ikut berlaku di laporan: akun pendana hanya
+ *    menerima catatan DAN antrean atas namanya, sedangkan admin/pemantau tetap
+ *    menerima seluruh baris ruang ini;
  *  - gerbang ruang penyedia dana berlaku juga di laporan ini.
  *
  * Menjalankan: bunx vitest run src/convex/laporanTransferPendana.convex.test.ts
@@ -110,14 +111,20 @@ describe("laporan transfer keuntungan pendana", () => {
     expect(laporan.ringkasan.jumlahTercatat).toBe(1);
     expect(laporan.ringkasan.nilaiTercatat).toBe(UNTUNG);
     expect(laporan.ringkasan.jumlahDibatalkan).toBe(0);
-    // Hanya pinjaman lunas yang belum dicatat yang menunggu — dan pinjaman
-    // berjalan tidak pernah masuk antrean.
-    expect(laporan.ringkasan.jumlahBelumDicatat).toBe(1);
-    expect(laporan.ringkasan.nilaiBelumDicatat).toBe(UNTUNG);
-    expect(laporan.belum).toHaveLength(1);
-    expect(laporan.belum[0].referensi).toBe("PGD-LAPOR-B");
-    expect(laporan.belum[0].pendanaId).toBe(lunasB.penyedia.userId);
-    expect(laporan.belum[0].jumlah).toBe(UNTUNG);
+    // Antrean pembaca adalah antreannya SENDIRI: transfernya sudah dicatat,
+    // jadi tidak ada yang menunggu. Pinjaman berjalan tidak pernah masuk
+    // antrean siapa pun — keuntungannya belum jatuh tempo.
+    expect(laporan.ringkasan.jumlahBelumDicatat).toBe(0);
+    expect(laporan.ringkasan.nilaiBelumDicatat).toBe(0);
+    expect(laporan.belum).toHaveLength(0);
+
+    // Admin tetap menerima seluruh antrean: pinjaman lunas pendana lain (B)
+    // memang belum dicatat, dan itulah yang harus ia tindaklanjuti.
+    const laporanAdmin = await sesiAdmin.query(api.penyediaDana.laporanTransferPendana, {});
+    expect(laporanAdmin.ringkasan.jumlahBelumDicatat).toBe(1);
+    expect(laporanAdmin.belum.map((b) => b.referensi)).toEqual(["PGD-LAPOR-B"]);
+    expect(laporanAdmin.belum[0].pendanaId).toBe(lunasB.penyedia.userId);
+    expect(laporanAdmin.belum[0].jumlah).toBe(UNTUNG);
   });
 
   it("pembatalan tidak menghapus jejak dan mengembalikan pinjaman ke antrean", async () => {
@@ -186,12 +193,21 @@ describe("laporan transfer keuntungan pendana", () => {
     const barisB = laporanB.rows.find((r) => r.nomorReferensi === "PGD-LAPOR-F");
     expect(barisB?.status).toBe("dicatat");
     expect(barisB?.referensi).toBe("TRX-F");
+    expect(laporanB.rows).toHaveLength(1);
     expect(laporanB.ringkasan.jumlahTercatat).toBe(1);
-    expect(laporanB.ringkasan.jumlahDibatalkan).toBe(1);
-    expect(laporanB.ringkasan.jumlahBelumDicatat).toBe(1);
+    // Catatan pendana lain tidak ikut terkirim, jadi pembatalannya pun tidak
+    // terlihat di sini — bukan berarti pembatalan itu tidak terjadi.
+    expect(laporanB.ringkasan.jumlahDibatalkan).toBe(0);
+    expect(laporanB.ringkasan.jumlahBelumDicatat).toBe(0);
+
+    const laporanAdmin = await sesiAdmin.query(api.penyediaDana.laporanTransferPendana, {});
+    expect(laporanAdmin.ringkasan.jumlahDibatalkan).toBe(1);
+    // Antrean admin hanya memuat pinjaman yang catatannya tidak berlaku lagi:
+    // satu pinjaman yang dibatalkan, sedangkan pinjaman B tetap tercatat.
+    expect(laporanAdmin.belum.map((b) => b.referensi)).toEqual(["PGD-LAPOR-E"]);
   });
 
-  it("baris pendana lain tetap terbaca tetapi tidak ditandai milik pembaca", async () => {
+  it("baris pendana lain tidak terkirim ke akun pendana, tetapi tetap utuh bagi admin", async () => {
     const t = buatKontek();
     const sesiAdmin = await admin(t);
     const lunasA = await seedLunas(t, "PGD-LAPOR-G");
@@ -207,11 +223,17 @@ describe("laporan transfer keuntungan pendana", () => {
       {},
     );
 
-    // Ruang ini memang dipantau bersama; yang membedakan hanyalah penandanya.
-    expect(laporan.rows).toHaveLength(1);
-    expect(laporan.rows[0].pendanaId).toBe(lunasA.penyedia.userId);
+    // Portofolio pribadi: catatan milik pendana lain tidak pernah terkirim.
+    expect(laporan.rows).toHaveLength(0);
+    expect(laporan.ringkasan.jumlahTercatat).toBe(0);
+    // `idSaya` tetap dikirim: panel admin memakainya untuk menandai baris milik
+    // pembaca di antara seluruh catatan yang ia terima.
     expect(laporan.idSaya).toBe(lunasB.penyedia.userId);
-    expect(laporan.rows[0].pendanaId).not.toBe(laporan.idSaya);
+
+    const laporanAdmin = await sesiAdmin.query(api.penyediaDana.laporanTransferPendana, {});
+    expect(laporanAdmin.rows).toHaveLength(1);
+    expect(laporanAdmin.rows[0].pendanaId).toBe(lunasA.penyedia.userId);
+    expect(laporanAdmin.rows[0].pendanaId).not.toBe(laporanAdmin.idSaya);
   });
 
   it("gerbang ruang penyedia dana juga berlaku di laporan", async () => {

@@ -40,8 +40,19 @@ const NAMA_PEMOHON = "Rani Peminjam";
 
 const KODE_PEMINJAM = "PMN-UJICOBA12345678";
 
-/** Tiga pengajuan (pinjaman, gadai, kredit) milik satu peminjam. */
-async function seedPengajuan(t: KonteksUji, userId: Id<"users">) {
+/**
+ * Tiga pengajuan (pinjaman, gadai, kredit) milik satu peminjam.
+ *
+ * Bila `pendana` diberikan, pinjaman dan kreditnya dialokasikan ke akun itu —
+ * ruang penyedia dana kini portofolio pribadi, jadi akun pendana hanya melihat
+ * barisnya sendiri. Gadai sengaja tetap tanpa alokasi: tidak ada tabel alokasi
+ * untuk pawns, sehingga gadai memang tidak pernah masuk portofolio pendana.
+ */
+async function seedPengajuan(
+  t: KonteksUji,
+  userId: Id<"users">,
+  pendana?: { userId: Id<"users">; nama: string },
+) {
   return t.run(async (ctx) => {
     await ctx.db.patch(userId, { kodePeminjam: KODE_PEMINJAM });
 
@@ -59,6 +70,9 @@ async function seedPengajuan(t: KonteksUji, userId: Id<"users">) {
       status: "diajukan",
       nomorReferensi: "PGD-UJI-1",
       tenorHari: 30,
+      ...(pendana === undefined
+        ? {}
+        : { pendanaId: pendana.userId, pendanaNama: pendana.nama }),
     });
     const pawnId = await ctx.db.insert("pawns", {
       userId,
@@ -89,6 +103,16 @@ async function seedPengajuan(t: KonteksUji, userId: Id<"users">) {
       nomorRekening: RAHASIA.nomorRekening,
       nomorWhatsApp: RAHASIA.nomorWhatsApp,
     });
+    if (pendana !== undefined) {
+      await ctx.db.insert("kreditFundings", {
+        kreditId,
+        danaId: pendana.userId,
+        jumlahAlokasi: 4_800_000,
+        imbalHasil: 864_000,
+        status: "dialokasikan",
+        nomorReferensi: "FND-UJI-3",
+      });
+    }
 
     return { loanId, pawnId, kreditId };
   });
@@ -281,13 +305,28 @@ describe("ruang penyedia dana (lihat saja)", () => {
       email: "rani@pindai.test",
       role: "peminjam",
     });
-    const { sesi: dana } = await siapkanPengguna(t, "penyedia", {
+    const { sesi: dana, userId: danaId } = await siapkanPengguna(t, "Penyedia Uji", {
       email: "dana@pindai.test",
       role: "dana",
     });
-    await seedPengajuan(t, userId);
+    const { sesi: admin } = await siapkanPengguna(t, "admin", {
+      email: "admin-uji@pindai.test",
+      role: "admin",
+    });
+    await seedPengajuan(t, userId, { userId: danaId, nama: "Penyedia Uji" });
 
-    const hasil = await dana.query(api.penyediaDana.daftarPengajuan, {});
+    // Ruang ini portofolio pribadi: akun pendana menerima pinjaman dan kredit
+    // yang alokasinya atas namanya. Pengajuan gadai tidak pernah masuk — tidak
+    // ada tabel alokasi untuk pawns (lihat komentar seedPengajuan).
+    const pribadi = await dana.query(api.penyediaDana.daftarPengajuan, {});
+    expect(pribadi.pinjaman.map((b) => b.nomorReferensi)).toEqual(["PGD-UJI-1"]);
+    expect(pribadi.gadai).toEqual([]);
+    expect(pribadi.kredit.map((b) => b.nomorReferensi)).toEqual(["PGD-UJI-3"]);
+    expect(pribadi.pinjaman[0]?.pendana).toBe("Penyedia Uji");
+
+    // Bentuk baris lengkap diperiksa lewat admin: panel pemantau memang
+    // menerima seluruh baris ruang ini.
+    const hasil = await admin.query(api.penyediaDana.daftarPengajuan, {});
 
     expect(hasil.pinjaman).toHaveLength(1);
     expect(hasil.pinjaman[0]).toMatchObject({
@@ -299,7 +338,7 @@ describe("ruang penyedia dana (lihat saja)", () => {
       tenorHari: 30,
       status: "diajukan",
       didanaiPada: null,
-      pendana: null,
+      pendana: "Penyedia Uji",
     });
     expect(hasil.gadai[0]).toMatchObject({
       nomorReferensi: "PGD-UJI-2",
@@ -382,7 +421,7 @@ describe("ruang penyedia dana (lihat saja)", () => {
       email: "telat@pindai.test",
       role: "peminjam",
     });
-    const { sesi: dana } = await siapkanPengguna(t, "penyedia-nilai", {
+    const { sesi: dana, userId: danaId } = await siapkanPengguna(t, "penyedia-nilai", {
       email: "dana-nilai@pindai.test",
       role: "dana",
     });
@@ -410,6 +449,9 @@ describe("ruang penyedia dana (lihat saja)", () => {
           tenorHari: 30,
           didanaiPada: DIDANAI + i * 40 * HARI,
           lunasPada: DIDANAI + i * 40 * HARI + 30 * HARI,
+          // Portofolio pribadi: barisnya harus jelas milik pembaca.
+          pendanaId: danaId,
+          pendanaNama: "Penyedia Nilai",
         });
         if (i === 0) idPinjamanPertama = id;
       }
@@ -436,6 +478,8 @@ describe("ruang penyedia dana (lihat saja)", () => {
         nomorReferensi: "PGD-TELAT-1",
         tenorHari: 30,
         didanaiPada: Date.now() - 40 * HARI,
+        pendanaId: danaId,
+        pendanaNama: "Penyedia Nilai",
       });
     });
 
@@ -500,11 +544,14 @@ describe("ruang penyedia dana (lihat saja)", () => {
       email: "rani@pindai.test",
       role: "peminjam",
     });
-    const { sesi: dana } = await siapkanPengguna(t, "penyedia", {
+    const { sesi: dana, userId: danaId } = await siapkanPengguna(t, "Penyedia Uji", {
       email: "dana@pindai.test",
       role: "dana",
     });
-    const { loanId } = await seedPengajuan(t, userId);
+    const { loanId } = await seedPengajuan(t, userId, {
+      userId: danaId,
+      nama: "Penyedia Uji",
+    });
     await t.run((ctx) => ctx.db.patch(loanId, {
       pokokDiajukan: 2_500_000,
       pokokPinjaman: 1_500_000,
@@ -516,7 +563,9 @@ describe("ruang penyedia dana (lihat saja)", () => {
       pokokPinjaman: 1_500_000,
       status: "disetujui",
       didanaiPada: null,
-      pendana: null,
+      // Alokasinya sudah ditetapkan, jadi kolom Pendana menampilkan pemiliknya
+      // walau pinjaman belum ditandai tersalurkan.
+      pendana: "Penyedia Uji",
     });
     expect(hasil.ringkasan.nilaiPinjaman).toBe(1_500_000);
     expect(hasil.rekapPendana).toEqual([]);
@@ -530,7 +579,7 @@ describe("ruang penyedia dana (lihat saja)", () => {
       email: "rani-lama@pindai.test",
       role: "peminjam",
     });
-    const { sesi: dana } = await siapkanPengguna(t, "penyedia-lama", {
+    const { sesi: dana, userId: danaId } = await siapkanPengguna(t, "penyedia-lama", {
       email: "penyedia-lama@pindai.test",
       role: "dana",
     });
@@ -549,6 +598,8 @@ describe("ruang penyedia dana (lihat saja)", () => {
         status: "diajukan",
         nomorReferensi: "PGD-WARISAN-1",
         tenorHari: 30,
+        pendanaId: danaId,
+        pendanaNama: "Penyedia Lama",
       }),
     );
 
@@ -592,7 +643,7 @@ describe("ruang penyedia dana (lihat saja)", () => {
       email: "rani@pindai.test",
       role: "peminjam",
     });
-    const { sesi: dana } = await siapkanPengguna(t, "penyedia", {
+    const { sesi: dana, userId: danaId } = await siapkanPengguna(t, "Penyedia Uji", {
       email: "dana@pindai.test",
       role: "dana",
     });
@@ -608,6 +659,8 @@ describe("ruang penyedia dana (lihat saja)", () => {
           status: "diajukan",
           nomorReferensi: `PGD-BANJIR-${i}`,
           tenorHari: 30,
+          pendanaId: danaId,
+          pendanaNama: "Penyedia Uji",
         });
       }
     });
@@ -692,7 +745,213 @@ describe("ruang penyedia dana (lihat saja)", () => {
     }
   });
 
-  it("tahan baris alokasi lama (field `pendanaId`) dan memakai email sebagai identitas cadangan", async () => {
+  it("akun pendana hanya menerima alokasi atas namanya, tanpa angka pendana lain", async () => {
+    const t = convexTest(schema, modules);
+    const { userId: rani } = await siapkanPengguna(t, "rani", {
+      email: "rani@pindai.test",
+      role: "peminjam",
+    });
+    const { userId: budi } = await siapkanPengguna(t, "budi", {
+      email: "budi@pindai.test",
+      role: "peminjam",
+    });
+    const { sesi: robert, userId: robertId } = await siapkanPengguna(t, "Robert", {
+      email: "robert@pindai.test",
+      role: "dana",
+    });
+    const { sesi: siti, userId: sitiId } = await siapkanPengguna(t, "Siti", {
+      email: "siti@pindai.test",
+      role: "dana",
+    });
+    const { sesi: admin } = await siapkanPengguna(t, "admin", {
+      email: "admin-ruang@pindai.test",
+      role: "admin",
+    });
+
+    await t.run(async (ctx) => {
+      const dasar = {
+        pokokPinjaman: 1_000_000,
+        pokokDiajukan: 1_000_000,
+        tujuan: "Modal usaha",
+        namaLengkap: NAMA_PEMOHON,
+        nomorRekening: RAHASIA.nomorRekening,
+        tenorHari: 30,
+      };
+      // Satu pinjaman berjalan per pendana (model 1 pinjaman = 1 pendana), plus
+      // satu pengajuan yang belum dialokasikan ke siapa pun.
+      await ctx.db.insert("loans", {
+        ...dasar,
+        userId: rani,
+        status: "didanai",
+        nomorReferensi: "PGD-ROBERT-1",
+        didanaiPada: Date.now(),
+        pendanaId: robertId,
+        pendanaNama: "Robert",
+      });
+      await ctx.db.insert("loans", {
+        ...dasar,
+        userId: budi,
+        status: "didanai",
+        nomorReferensi: "PGD-SITI-1",
+        didanaiPada: Date.now(),
+        pendanaId: sitiId,
+        pendanaNama: "Siti",
+      });
+      await ctx.db.insert("loans", {
+        ...dasar,
+        userId: rani,
+        status: "diajukan",
+        nomorReferensi: "PGD-BELUM-1",
+      });
+    });
+
+    const robertHasil = await robert.query(api.penyediaDana.daftarPengajuan, {});
+    expect(robertHasil.pinjaman.map((b) => b.nomorReferensi)).toEqual(["PGD-ROBERT-1"]);
+    expect(robertHasil.rekapPendana).toHaveLength(1);
+    expect(robertHasil.rekapPendana[0].nama).toBe("Robert");
+    expect(robertHasil.rekapPendana[0].totalDisalurkan).toBe(1_000_000);
+    // Angka bersama fitur admin tidak ikut: ringkasannya hanya dirinya.
+    expect(robertHasil.ringkasan.totalKeuntunganPendana).toBe(
+      robertHasil.rekapPendana[0].keuntunganPendana,
+    );
+    expect(robertHasil.ringkasan.totalKeuntunganAdmin).toBe(
+      robertHasil.rekapPendana[0].keuntunganAdmin,
+    );
+    // Tidak ada jejak pendana lain maupun pengajuan yang bukan miliknya.
+    const mentahRobert = JSON.stringify(robertHasil);
+    expect(mentahRobert).not.toContain("Siti");
+    expect(mentahRobert).not.toContain("PGD-SITI-1");
+    expect(mentahRobert).not.toContain("PGD-BELUM-1");
+
+    const sitiHasil = await siti.query(api.penyediaDana.daftarPengajuan, {});
+    expect(sitiHasil.pinjaman.map((b) => b.nomorReferensi)).toEqual(["PGD-SITI-1"]);
+    expect(sitiHasil.rekapPendana).toHaveLength(1);
+    expect(sitiHasil.rekapPendana[0].nama).toBe("Siti");
+
+    // Admin tetap menerima seluruh baris: pekerjaannya merekonsiliasi semua
+    // pendana, dan angkanya harus lebih besar daripada satu pendana mana pun.
+    const adminHasil = await admin.query(api.penyediaDana.daftarPengajuan, {});
+    expect(adminHasil.pinjaman).toHaveLength(3);
+    expect(adminHasil.rekapPendana.map((r) => r.nama).sort()).toEqual(["Robert", "Siti"]);
+    expect(adminHasil.ringkasan.totalKeuntunganPendana).toBeGreaterThan(
+      robertHasil.ringkasan.totalKeuntunganPendana,
+    );
+  });
+
+  it("laporan transfer dan peta peminjam juga dibatasi ke alokasi milik pendana", async () => {
+    const t = convexTest(schema, modules);
+    const { userId: rani } = await siapkanPengguna(t, "rani", {
+      email: "rani@pindai.test",
+      role: "peminjam",
+    });
+    const { userId: budi } = await siapkanPengguna(t, "budi", {
+      email: "budi@pindai.test",
+      role: "peminjam",
+    });
+    const { sesi: robert, userId: robertId } = await siapkanPengguna(t, "Robert", {
+      email: "robert@pindai.test",
+      role: "dana",
+    });
+    const { sesi: siti, userId: sitiId } = await siapkanPengguna(t, "Siti", {
+      email: "siti@pindai.test",
+      role: "dana",
+    });
+    const { sesi: admin, userId: adminId } = await siapkanPengguna(t, "admin", {
+      email: "admin-ruang@pindai.test",
+      role: "admin",
+    });
+
+    await t.run(async (ctx) => {
+      const dasar = {
+        pokokPinjaman: 1_000_000,
+        pokokDiajukan: 1_000_000,
+        tujuan: "Modal usaha",
+        namaLengkap: NAMA_PEMOHON,
+        nomorRekening: RAHASIA.nomorRekening,
+        tenorHari: 30,
+        status: "lunas" as const,
+        didanaiPada: Date.now(),
+        lunasPada: Date.now(),
+      };
+      const loanRobert = await ctx.db.insert("loans", {
+        ...dasar,
+        userId: rani,
+        nomorReferensi: "PGD-ROBERT-1",
+        pendanaId: robertId,
+        pendanaNama: "Robert",
+      });
+      const loanSiti = await ctx.db.insert("loans", {
+        ...dasar,
+        userId: budi,
+        nomorReferensi: "PGD-SITI-1",
+        pendanaId: sitiId,
+        pendanaNama: "Siti",
+      });
+      await ctx.db.insert("transferPendana", {
+        loanId: loanRobert,
+        pendanaId: robertId,
+        pendanaNama: "Robert",
+        nomorReferensiPinjaman: "PGD-ROBERT-1",
+        jumlah: 235_000,
+        metode: "transfer_bank",
+        status: "dicatat",
+        dicatatOleh: adminId,
+        dicatatOlehLabel: "admin@pindai.test",
+        dicatatPada: Date.now(),
+      });
+      await ctx.db.insert("transferPendana", {
+        loanId: loanSiti,
+        pendanaId: sitiId,
+        pendanaNama: "Siti",
+        nomorReferensiPinjaman: "PGD-SITI-1",
+        jumlah: 305_000,
+        metode: "transfer_bank",
+        status: "dicatat",
+        dicatatOleh: adminId,
+        dicatatOlehLabel: "admin@pindai.test",
+        dicatatPada: Date.now(),
+      });
+      // Kedua peminjam melaporkan titik, supaya peta punya dua baris untuk admin.
+      for (const [userId, lng] of [
+        [rani, 106.816666],
+        [budi, 110.369999],
+      ] as const) {
+        await ctx.db.insert("lokasiStatus", {
+          userId,
+          lat: -6.2,
+          lng,
+          akurasi: 24,
+          waktu: Date.now(),
+          sumber: "web",
+        });
+      }
+    });
+
+    const laporanRobert = await robert.query(api.penyediaDana.laporanTransferPendana, {});
+    expect(laporanRobert.rows.map((r) => r.nomorReferensi)).toEqual(["PGD-ROBERT-1"]);
+    expect(JSON.stringify(laporanRobert)).not.toContain("PGD-SITI-1");
+    expect(laporanRobert.ringkasan.nilaiTercatat).toBe(235_000);
+
+    const laporanSiti = await siti.query(api.penyediaDana.laporanTransferPendana, {});
+    expect(laporanSiti.rows.map((r) => r.nomorReferensi)).toEqual(["PGD-SITI-1"]);
+
+    const petaRobert = await robert.query(api.penyediaDana.titikPeminjam, {});
+    expect(petaRobert.rows).toHaveLength(1);
+    expect(petaRobert.rows[0].nomorReferensi).toBe("PGD-ROBERT-1");
+    const petaSiti = await siti.query(api.penyediaDana.titikPeminjam, {});
+    expect(petaSiti.rows).toHaveLength(1);
+    expect(petaSiti.rows[0].nomorReferensi).toBe("PGD-SITI-1");
+    // Peta admin tetap memuat keduanya — pembatasannya hanya untuk akun pendana.
+    const petaAdmin = await admin.query(api.penyediaDana.titikPeminjam, {});
+    expect(petaAdmin.rows.map((r) => r.nomorReferensi).sort()).toEqual([
+      "PGD-ROBERT-1",
+      "PGD-SITI-1",
+    ]);
+    const laporanAdmin = await admin.query(api.penyediaDana.laporanTransferPendana, {});
+    expect(laporanAdmin.rows).toHaveLength(2);
+  });
+
+  it("tahan pinjaman warisan tanpa pendanaId: dibaca dari alokasi lama, identitas jatuh ke email", async () => {
     const t = convexTest(schema, modules);
     const { userId } = await siapkanPengguna(t, "rani", {
       email: "rani@pindai.test",
@@ -715,17 +974,20 @@ describe("ruang penyedia dana (lihat saja)", () => {
         tenorHari: 30,
         didanaiPada: Date.now(),
       });
-      // Bentuk baris lama: id penyedia tersimpan sebagai `pendanaId`.
+      // Bentuk alokasi model lama: pinjamannya belum pernah diberi `pendanaId`,
+      // jadi satu-satunya penunjuk pemiliknya ada di baris `fundings` ini.
       await ctx.db.insert("fundings", {
         loanId,
-        pendanaId: danaId,
+        danaId: danaId,
         jumlahAlokasi: 1_000_000,
         imbalHasil: 300_000,
         status: "dialokasikan",
         nomorReferensi: "FND-LEGACY-1",
-      } as never);
+      });
     });
 
+    // Portofolio pendana tetap utuh lewat jalur alokasi lama — bukan kosong
+    // hanya karena pinjaman warisan belum diberi `pendanaId`.
     const hasil = await dana.query(api.penyediaDana.daftarPengajuan, {});
     const baris = hasil.pinjaman.find((b) => b.nomorReferensi === "PGD-LEGACY-1");
     expect(baris?.pendana).toBe("robert@pindai.test");
@@ -1638,11 +1900,11 @@ describe("lokasi & berkas peminjam di ruang penyedia dana", () => {
       email: "rani@pindai.test",
       role: "peminjam",
     });
-    const { sesi: dana } = await siapkanPengguna(t, "penyedia", {
+    const { sesi: dana, userId: danaId } = await siapkanPengguna(t, "Penyedia Lokasi", {
       email: "penyedia@pindai.test",
       role: "dana",
     });
-    await seedPengajuan(t, userId);
+    await seedPengajuan(t, userId, { userId: danaId, nama: "Penyedia Lokasi" });
 
     // Sebelum ada titik: peminjam tetap muncul sebagai "belum ada titik".
     const kosong = await dana.query(api.penyediaDana.titikPeminjam, {});
@@ -1688,11 +1950,11 @@ describe("lokasi & berkas peminjam di ruang penyedia dana", () => {
       email: "rani@pindai.test",
       role: "peminjam",
     });
-    const { sesi: dana } = await siapkanPengguna(t, "penyedia", {
+    const { sesi: dana, userId: danaId } = await siapkanPengguna(t, "Penyedia Lokasi", {
       email: "penyedia@pindai.test",
       role: "dana",
     });
-    await seedPengajuan(t, userId);
+    await seedPengajuan(t, userId, { userId: danaId, nama: "Penyedia Lokasi" });
 
     // Tanpa heartbeat: pinjaman jatuh ke titik GPS saat pengajuan dikirim.
     await t.run((ctx) =>
@@ -1706,6 +1968,8 @@ describe("lokasi & berkas peminjam di ruang penyedia dana", () => {
         nomorReferensi: "PGD-LOKASI-1",
         tenorHari: 30,
         lokasiAjukan: { lat: -6.9, lng: 107.6, akurasi: 30, waktu: 1_700_000_000_000 },
+        pendanaId: danaId,
+        pendanaNama: "Penyedia Lokasi",
       }),
     );
     const awal = await dana.query(api.penyediaDana.daftarPengajuan, {});
@@ -1730,12 +1994,12 @@ describe("lokasi & berkas peminjam di ruang penyedia dana", () => {
     const barisAkhir = akhir.pinjaman.find((b) => b.nomorReferensi === "PGD-LOKASI-1");
     expect(barisAkhir?.lokasi?.sumber).toBe("aplikasi");
     expect(barisAkhir?.lokasi?.tanda).toEqual(["koordinat_berulang"]);
-    // Gadai & kredit ikut memakai titik yang sama (satu peminjam).
-    // -6.175392 dibulatkan ke -6.18: ruang penyedia dana TIDAK menerima lokasi
-    // presisi peminjam (hanya tingkat wilayah ≈1 km).
-    expect(akhir.gadai[0]?.lokasi?.lat).toBeCloseTo(-6.18);
+    // Kredit memakai titik yang sama (satu peminjam), dan -6.175392 dibulatkan
+    // ke -6.18: ruang penyedia dana TIDAK menerima lokasi presisi peminjam
+    // (hanya tingkat wilayah ≈1 km). Gadai tidak diperiksa di sini karena tidak
+    // pernah menjadi bagian portofolio pendana (tanpa tabel alokasi).
     expect(akhir.kredit[0]?.lokasi?.lat).toBeCloseTo(-6.18);
-    expect(akhir.gadai[0]?.lokasi?.lng).toBeCloseTo(106.83);
+    expect(akhir.kredit[0]?.lokasi?.lng).toBeCloseTo(106.83);
   });
 
   it("ruang penyedia dana hanya menerima koordinat tingkat wilayah; admin presisi penuh", async () => {
@@ -1744,11 +2008,11 @@ describe("lokasi & berkas peminjam di ruang penyedia dana", () => {
       email: "rani-presisi@pindai.test",
       role: "peminjam",
     });
-    const { sesi: dana } = await siapkanPengguna(t, "penyedia-presisi", {
+    const { sesi: dana, userId: danaId } = await siapkanPengguna(t, "penyedia-presisi", {
       email: "penyedia-presisi@pindai.test",
       role: "dana",
     });
-    await seedPengajuan(t, userId);
+    await seedPengajuan(t, userId, { userId: danaId, nama: "penyedia-presisi" });
     await t.run((ctx) =>
       ctx.db.insert("lokasiStatus", {
         userId,

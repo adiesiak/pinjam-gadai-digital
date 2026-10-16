@@ -164,7 +164,10 @@ ada(
   "Rp 3.655.000",
   "ringkasan menyebut keuntungan yang masih perkiraan",
 );
-ada(kendali, "Rp 1.060.000", "ringkasan menyebut potongan admin");
+ada(kendali, "Rp 1.060.000", "ringkasan menyebut biaya platform (layanan)");
+// Istilah biaya 5% diseragamkan: yang dibaca pendana adalah biaya layanan
+// platform, bukan potongan milik tim internal.
+takAda(kendali, "potongan admin", "ringkasan tidak memakai istilah lama");
 ada(
   kendali,
   "Urutkan tabel menurut kolom",
@@ -191,8 +194,8 @@ for (const judul of ["Pendana", "Dana tersalurkan", "Masih berjalan"]) {
 takAda(tabel, "Dibukukan (lunas)", "kolom hasil belum dibuka secara bawaan");
 takAda(
   tabel,
-  "Potongan admin",
-  "kolom potongan admin belum dibuka secara bawaan",
+  "Biaya platform (layanan)",
+  "kolom biaya platform belum dibuka secara bawaan",
 );
 
 // Kepala kolom dan baris total melekat: dua kelas inilah syarat tabelnya.
@@ -291,7 +294,7 @@ bersih(html, "markup tabel pendana");
     "Dibukukan (lunas)",
     "Perkiraan (belum lunas)",
     "Total keuntungan",
-    "Potongan admin",
+    "Biaya platform (layanan)",
   ]) {
     ada(penuh, judul, `kepala kolom "${judul}" saat gugus hasil dinyalakan`);
   }
@@ -315,7 +318,7 @@ bersih(html, "markup tabel pendana");
     "Rp 235.000", // dibukukan (lunas)
     "Rp 1.410.000", // perkiraan (belum lunas)
     "Rp 1.645.000", // total keuntungan
-    "Rp 455.000", // potongan admin
+    "Rp 455.000", // biaya platform (layanan)
   ];
   harapan.forEach((isi, i) => {
     ok(sel[i]?.includes(isi) === true, `sel ${i + 1} memuat "${isi}"`);
@@ -337,7 +340,7 @@ bersih(html, "markup tabel pendana");
 
   ada(penuh, "Rp 3.655.000", "baris total menjumlahkan keuntungan perkiraan");
   ada(penuh, "Rp 3.890.000", "baris total menjumlahkan total keuntungan");
-  ada(penuh, "Rp 1.060.000", "baris total menjumlahkan potongan admin");
+  ada(penuh, "Rp 1.060.000", "baris total menjumlahkan biaya platform (layanan)");
   bersih(htmlPenuh, "markup tabel dengan kedua gugus terbuka");
 }
 
@@ -478,13 +481,13 @@ bersih(ponsel, "markup kartu pendana");
   }
   ada(
     tabelRincian,
-    "Potongan admin dibukukan",
-    "rincian memecah potongan admin yang dibukukan",
+    "Biaya platform (layanan) dibukukan",
+    "rincian memecah biaya platform yang dibukukan",
   );
   ada(
     tabelRincian,
-    "Potongan admin perkiraan",
-    "rincian memecah potongan admin yang perkiraan",
+    "Biaya platform (layanan) perkiraan",
+    "rincian memecah biaya platform yang perkiraan",
   );
   ada(tabelRincian, "Saring daftar", "rincian bisa menyaring daftar pinjaman");
 

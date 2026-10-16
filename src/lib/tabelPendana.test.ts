@@ -103,9 +103,14 @@ eq(
     "Dibukukan (lunas)",
     "Perkiraan (belum lunas)",
     "Total keuntungan",
-    "Potongan admin",
+    "Biaya platform (layanan)",
   ]),
   "label kolom persis seperti kontrak halaman",
+);
+// Biaya 5% itu biaya layanan platform, bukan milik tim internal mana pun.
+ok(
+  KOLOM_PENDANA.every((k) => !k.label.toLowerCase().includes("admin")),
+  "tidak ada label kolom yang menyebut admin",
 );
 eq(
   JSON.stringify(KOLOM_PENDANA.map((k) => k.kunci)),

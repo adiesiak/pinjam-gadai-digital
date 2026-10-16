@@ -12,7 +12,7 @@ export type AngkaRingkasanKeuntungan = {
   totalKeuntunganPendanaBelumLunas: number;
   /** Jumlah keduanya. */
   totalKeuntunganPendana: number;
-  /** Potongan admin dari uang yang kembali (berjalan + lunas). */
+  /** Biaya platform (layanan) dari uang yang kembali (berjalan + lunas). */
   totalKeuntunganAdmin: number;
   totalKeuntunganAdminLunas: number;
   totalKeuntunganAdminBelumLunas: number;
@@ -91,8 +91,14 @@ function KartuAngka({
  */
 export function RingkasanKeuntungan({
   ringkasan,
+  pribadi = false,
 }: {
   ringkasan: AngkaRingkasanKeuntungan;
+  /**
+   * Portofolio pribadi: ruang pendana hanya mengirim alokasi atas nama pembaca,
+   * jadi label "Seluruh pendana" akan salah di sana.
+   */
+  pribadi?: boolean;
 }) {
   return (
     <section aria-label="Ringkasan keuntungan pendana" className="animate-masuk mt-3">
@@ -101,7 +107,7 @@ export function RingkasanKeuntungan({
         judul="Ringkasan keuntungan"
         aksi={
           <p className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
-            Seluruh pendana
+            {pribadi ? "Alokasi atas nama Anda" : "Seluruh pendana"}
           </p>
         }
       />
@@ -128,11 +134,11 @@ export function RingkasanKeuntungan({
       </div>
 
       <p className="mt-2 max-w-3xl text-xs leading-5 text-muted-foreground">
-        Angka <strong>perkiraan</strong> baru menjadi uang pendana saat pinjamannya lunas.
-        Potongan admin {formatRupiah(ringkasan.totalKeuntunganAdmin)} (dibukukan{" "}
+        Angka <strong>perkiraan</strong> baru menjadi uang pendana saat pinjamannya lunas. Biaya
+        platform (layanan) {formatRupiah(ringkasan.totalKeuntunganAdmin)} (dibukukan{" "}
         {formatRupiah(ringkasan.totalKeuntunganAdminLunas)} · perkiraan{" "}
         {formatRupiah(ringkasan.totalKeuntunganAdminBelumLunas)}) diambil dari uang yang kembali,
-        bukan dari Imbal Hasil saja — pokok tetap kembali utuh. Cara hitungnya ada di bagian
+        bukan dari Imbal Hasil saja, jadi pokok tetap kembali utuh. Cara hitungnya ada di bagian
         “Aturan perhitungan” pada halaman ini.
       </p>
 

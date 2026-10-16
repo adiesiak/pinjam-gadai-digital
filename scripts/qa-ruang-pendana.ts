@@ -226,7 +226,7 @@ const rincianTerbuka = renderToStaticMarkup(
 for (const teks of [
   "Pinjaman (referensi · peminjam)",
   "Angka lain di baris ini",
-  "Potongan admin dibukukan",
+  "Biaya platform (layanan) dibukukan",
   "Jumlah baris di atas sama dengan kolom “Perkiraan (belum lunas)”.",
 ]) {
   cek(rincianTerbuka.includes(teks), `rincian baris terbuka memuat "${teks}"`);
@@ -296,6 +296,48 @@ cek(
 cek(
   cacah(htmlPenuh, /aria-sort=/g) === 6,
   `enam kolom angka membawa tanda urutannya saat kedua gugus terbuka (ditemukan ${cacah(htmlPenuh, /aria-sort=/g)})`,
+);
+
+// 7. Istilah biaya 5%: nama yang dipilih pemilik, tanpa sisa istilah lama yang
+// masih terbaca pengguna di bagian yang benar-benar dirender.
+const bagianBerbiaya: readonly (readonly [string, string])[] = [
+  ["aturan perhitungan", aturan],
+  ["ringkasan keuntungan", keuntungan],
+  ["tabel pendana (kedua gugus)", htmlPenuh],
+  ["rincian baris tabel", rincianTerbuka],
+];
+for (const [nama, html] of bagianBerbiaya) {
+  cek(
+    html.includes("Biaya platform (layanan)"),
+    `${nama} menyebut biaya 5% sebagai "Biaya platform (layanan)"`,
+  );
+  cek(!/potongan admin/i.test(html), `${nama} tidak lagi menyebut "potongan admin"`);
+}
+
+// 8. Batas portofolio pribadi ditegakkan di SERVER: akun pendana hanya menerima
+// alokasi atas namanya, sedangkan admin/pemantau tetap menerima seluruh baris.
+// Yang diperiksa di sini adalah sumber penjaganya — perilakunya ditahan
+// `penyediaDana.convex.test.ts`.
+const penjaga = baca("src/convex/penyediaDana.ts");
+cek(
+  cacah(penjaga, /cakupanPendana\(/g) >= 4,
+  "cakupan pendana dipakai tiap query ruang: daftar, peta, dan laporan transfer",
+);
+cek(
+  penjaga.includes("pinjamanMilikPendana") && penjaga.includes("dipindahKePendanaLain"),
+  "kepemilikan pinjaman memakai aturan tunggal pendanaKepemilikan",
+);
+cek(
+  penjaga.includes('cakupan === null ? await ctx.db.query("pawns")'),
+  "gadai hanya dibaca untuk pemantau: pawns tidak punya tabel alokasi pendana",
+);
+cek(
+  halaman.includes("portofolio pribadi"),
+  "batas cakupan dinyatakan di halaman, bukan hanya ditegakkan di server",
+);
+cek(
+  baca("src/components/penyediaDana/PortofolioPendana.tsx").includes("Alokasi atas nama"),
+  "pendana melihat portofolionya sendiri, bukan papan perbandingan antarpendana",
 );
 
 const jumlah = lulus + gagal;

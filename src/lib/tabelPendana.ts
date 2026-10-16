@@ -51,6 +51,9 @@ export type KunciUrut =
   | "total"
   | "admin";
 
+/** Kolom angka tanpa kolom nama: kunci yang nilainya uang. */
+export type KunciAngka = Exclude<KunciUrut, "nama">;
+
 export type ArahUrut = "naik" | "turun";
 
 export type UrutanPendana = { kunci: KunciUrut; arah: ArahUrut };
@@ -77,7 +80,7 @@ export const KOLOM_PENDANA: readonly { kunci: KunciUrut; label: string }[] = [
   { kunci: "dibukukan", label: "Dibukukan (lunas)" },
   { kunci: "perkiraan", label: "Perkiraan (belum lunas)" },
   { kunci: "total", label: "Total keuntungan" },
-  { kunci: "admin", label: "Potongan admin" },
+  { kunci: "admin", label: "Biaya platform (layanan)" },
 ];
 
 /**
@@ -104,6 +107,36 @@ function nilai(r: SumberPendana, kunci: KunciUrut): number | string {
       return r.keuntunganPendana;
     case "admin":
       return r.keuntunganAdmin;
+  }
+}
+
+/**
+ * Nilai satu kolom angka pada satu baris rekap.
+ *
+ * Dipakai bersama oleh tabel perbandingan (dibaca admin dan pemantau) dan panel
+ * portofolio pribadi pendana, supaya kedua permukaan tidak pernah menghitung
+ * kolom yang sama dengan cara berbeda.
+ */
+export function nilaiAngka(r: SumberPendana, kunci: KunciAngka): number {
+  const angka = nilai(r, kunci);
+  return typeof angka === "number" ? angka : 0;
+}
+
+/** Jumlah satu kolom angka di seluruh baris yang sedang dihitung. */
+export function nilaiTotal(t: TotalPendana, kunci: KunciAngka): number {
+  switch (kunci) {
+    case "tersalurkan":
+      return t.totalDisalurkan;
+    case "berjalan":
+      return t.saldoBerjalan;
+    case "dibukukan":
+      return t.keuntunganPendanaLunas;
+    case "perkiraan":
+      return t.keuntunganPendanaBelumLunas;
+    case "total":
+      return t.keuntunganPendana;
+    case "admin":
+      return t.keuntunganAdmin;
   }
 }
 

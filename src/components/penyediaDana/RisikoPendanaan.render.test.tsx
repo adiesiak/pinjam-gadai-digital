@@ -41,7 +41,9 @@ const panel = renderToStaticMarkup(
 );
 
 // ===== 1. Banner =====
-cek("1a versi teks risiko masih 1", RISK_TEXT_VERSION === 1);
+// Versi 2: istilah biaya 5% berubah dari "potongan admin" menjadi "biaya
+// platform (layanan)", jadi persetujuan versi lama tidak lagi mewakili teksnya.
+cek("1a versi teks risiko naik ke 2 setelah istilah biaya berubah", RISK_TEXT_VERSION === 2);
 cek(
   "1b banner memuat kalimat lengkap yang disetujui pendana",
   banner.includes(teksHtml(TEKS_BANNER_RISIKO)),

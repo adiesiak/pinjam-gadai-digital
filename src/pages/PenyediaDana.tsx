@@ -14,7 +14,6 @@ import {
   MapPin,
   Package,
   Pencil,
-  Scissors,
   ShoppingBag,
   RotateCcw,
   Tag,
@@ -55,6 +54,7 @@ import { ANCHOR_RISIKO_PENDANAAN, CATATAN_INTERNAL_SINGKAT } from "@/lib/teksRis
 import { PetaLokasiPeminjam } from "@/components/penyediaDana/PetaLokasiPeminjam";
 import { RingkasanKeuntungan } from "@/components/penyediaDana/RingkasanKeuntungan";
 import { SaringanPengajuan } from "@/components/penyediaDana/SaringanPengajuan";
+import { PortofolioPendana } from "@/components/penyediaDana/PortofolioPendana";
 import { TabelPendana } from "@/components/penyediaDana/TabelPendana";
 import { LaporanTransferPendana } from "@/components/penyediaDana/LaporanTransferPendana";
 import {
@@ -682,10 +682,10 @@ function BarisDetail({
 /**
  * Satu kartu metrik pada baris "arus kas" di modal Detail.
  *
- * Dipakai untuk tiga angka yang menyentuh peminjam secara langsung (potongan
- * di muka, dana bersih diterima, total pelunasan) — dipisah dari boks
- * finansial supaya alur uang terbaca sebagai tiga langkah, bukan satu daftar.
- * Istilah teknisnya bisa diberi ikon bantuan (`IstilahBantuan`).
+ * Dipakai untuk angka yang menyentuh peminjam secara langsung (dana bersih yang
+ * ia terima, total pelunasannya), dipisah dari boks finansial supaya alur uang
+ * terbaca sebagai langkah, bukan satu daftar. Istilah teknisnya bisa diberi ikon
+ * bantuan (`IstilahBantuan`).
  */
 function MetricKartu({
   label,
@@ -748,7 +748,6 @@ function DetailPinjaman({
       : coba(() => simulasiBulananPinjaman({ pokokPinjaman: row.pokokPinjaman, tenorBulan, persenBunga }));
   const imbalHasil = harian?.bunga ?? bulanan?.bungaTotal ?? null;
   const totalPelunasan = harian?.totalKewajibanPelunasan ?? bulanan?.totalPengembalian ?? null;
-  const potongan = harian?.totalPotonganDiMuka ?? bulanan?.potonganDiMuka ?? null;
   const danaBersih = harian?.danaBersihDitransfer ?? bulanan?.danaDiterima ?? null;
   /**
    * Jatuh tempo memakai `lib/jatuhTempo` — modul yang sama dengan tabel dan
@@ -812,7 +811,7 @@ function DetailPinjaman({
             />
             <BarisDetail
               tebal
-              label="Potongan admin (dari uang yang kembali)"
+              label="Biaya platform (layanan), dari uang yang kembali"
               nilai={rupiah(row.potonganAdmin)}
             />
             <BarisDetail
@@ -830,19 +829,13 @@ function DetailPinjaman({
         </section>
       </div>
 
-      {/* Arus kas: tiga langkah uang peminjam dalam kartu metrik horizontal. */}
-      <div className="mt-3 grid gap-3 sm:grid-cols-3">
-        <MetricKartu
-          label="Potongan di Muka"
-          nilai={potongan === null ? "—" : rupiah(potongan)}
-          ikon={<Scissors className="size-3.5" aria-hidden />}
-          nada="amber"
-          bantuan={{
-            istilah: "potongan di muka",
-            penjelasan:
-              "Biaya yang dipotong lebih dulu dari pokok saat dana dicairkan — dana bersih yang diterima peminjam jadi lebih kecil dari pokok.",
-          }}
-        />
+      {/*
+       * Arus kas: uang yang diterima peminjam dan kewajiban yang harus ia bayar.
+       * Potongan di muka sengaja TIDAK ditampilkan di ruang pendana: biaya awal
+       * pencairan adalah urusan peminjam dengan platform, bukan angka yang
+       * dibandingkan pendana saat menilai alokasinya.
+       */}
+      <div className="mt-3 grid gap-3 sm:grid-cols-2">
         <MetricKartu
           label="Dana Bersih Diterima"
           nilai={danaBersih === null ? "—" : rupiah(danaBersih)}
@@ -865,9 +858,9 @@ function DetailPinjaman({
       <dl className="mt-3 rounded-xl border border-slate-200 bg-white p-4">
       {/* `row.keuntunganAdmin` sengaja tidak ditampilkan lagi: pada model bagi
           hasil PINDAI ia selalu sama dengan `row.potonganAdmin` di atas
-          (keuntungan admin = potongan admin atas uang yang kembali, yaitu
-          pokok + Imbal Hasil), jadi menampilkan keduanya berarti satu angka
-          muncul dua kali dengan label sama. */}
+          (pendapatan platform = biaya platform (layanan) atas uang yang
+          kembali, yaitu pokok + Imbal Hasil), jadi menampilkan keduanya berarti
+          satu angka muncul dua kali dengan label sama. */}
       <BarisDetail
         label="Tenor"
         nilai={row.tenorBulan === null ? `${row.tenorHari} hari` : `${row.tenorBulan} bulan`}
@@ -1406,7 +1399,7 @@ function DaftarPinjaman({
             <InfoKartu label="Keuntungan pendana">
               {row.pendana === null ? "—" : rupiah(row.keuntunganPendana)}
             </InfoKartu>
-            <InfoKartu label="Potongan admin (dari uang kembali)">
+            <InfoKartu label="Biaya platform (layanan)">
               {row.pendana === null ? "—" : rupiah(row.potonganAdmin)}
             </InfoKartu>
             <InfoKartu label="Transfer keuntungan">
@@ -1466,7 +1459,7 @@ function DaftarPinjaman({
                   Bunga {persenBunga}% {rupiah(row.bunga)}
                 </p>
                 <p className="mt-1 text-xs text-amber-700">
-                  Potongan admin (dari uang kembali){" "}
+                  Biaya platform (layanan) dari uang kembali{" "}
                   {row.pendana === null ? "—" : rupiah(row.potonganAdmin)}
                 </p>
               </TableCell>
@@ -1850,6 +1843,12 @@ function IsiRuang() {
    * identitas kita sendiri tidak kita rahasiakan dari kita sendiri.
    */
   const samar = role !== "admin";
+  /**
+   * Ruang ini portofolio pribadi peran `dana`: server hanya mengirim alokasi
+   * atas namanya, jadi tabel perbandingan antarpendana tidak punya apa-apa
+   * untuk dibandingkan dan tidak pernah dibuka untuknya.
+   */
+  const isPendana = role === "dana";
   const kunciSendiri = kunciNama(user?.name);
   const tampilNama = (nama: string): string =>
     namaRuangan(nama, samar && (kunciSendiri === "" || kunciNama(nama) !== kunciSendiri));
@@ -2110,7 +2109,7 @@ function IsiRuang() {
                 ? "Pemantau akun bersama · lihat saja"
                 : role === "admin"
                   ? "Super Admin · dapat mengoreksi data"
-                  : "Ruang pendana · lihat saja"}
+                  : "Portofolio Anda · lihat saja"}
             </span>
             <NotificationBell />
             <RoleDashboardMenu />
@@ -2289,9 +2288,11 @@ function IsiRuang() {
                   ({data.ringkasan.jumlahPinjaman} pengajuan, semua status termasuk ditolak)
                 </span>
                 <span>
-                  {data.ringkasan.jumlahGadai === 0 && data.ringkasan.jumlahKredit === 0
-                    ? "Produk lain: belum ada pengajuan"
-                    : `Produk lain: gadai ${data.ringkasan.jumlahGadai} · kredit barang ${data.ringkasan.jumlahKredit}`}
+                  {isPendana
+                    ? `Produk lain di portofolio Anda: kredit barang ${data.ringkasan.jumlahKredit}`
+                    : data.ringkasan.jumlahGadai === 0 && data.ringkasan.jumlahKredit === 0
+                      ? "Produk lain: belum ada pengajuan"
+                      : `Produk lain: gadai ${data.ringkasan.jumlahGadai} · kredit barang ${data.ringkasan.jumlahKredit}`}
                 </span>
                 <span>{data.ringkasan.menungguReview} pengajuan menunggu review</span>
               </div>
@@ -2338,8 +2339,8 @@ function IsiRuang() {
             <PengingatJatuhTempoPendana rows={jatuhTempoSaya} sekarang={sekarang} />
 
             {/*
-             * Aturan perhitungan menggantikan kotak "untuk apa potongan admin
-             * dipakai" yang dulu berdiri sendiri, sekaligus menggantikan ikon
+             * Aturan perhitungan menggantikan kotak "untuk apa biaya platform
+             * (layanan) dipakai" yang dulu berdiri sendiri, sekaligus menggantikan ikon
              * `?` yang dulu ditempel berulang di kartu angka: satu tempat untuk
              * semua cara angka di halaman ini dihitung, terbuka sesuai kebutuhan.
              */}
@@ -2351,7 +2352,7 @@ function IsiRuang() {
             {/* Ringkasan keuntungan selalu tampil: pertanyaan pendana
                 ("berapa yang sudah jadi uang, berapa yang masih perkiraan")
                 dijawab di puncak halaman, bukan di tengah daftar angka. */}
-            <RingkasanKeuntungan ringkasan={data.ringkasan} />
+            <RingkasanKeuntungan ringkasan={data.ringkasan} pribadi={isPendana} />
 
             {rekapPendana.length > 0 && (
               <section className="animate-masuk mt-6">
@@ -2363,30 +2364,48 @@ function IsiRuang() {
                     <span aria-hidden className={`text-xs text-emerald-700 ${FOLIO.kode}`}>
                       {nomorFolio(7)}
                     </span>
-                    <Coins className="size-4 text-emerald-700" aria-hidden /> Rekap Dana Pendana
+                    <Coins className="size-4 text-emerald-700" aria-hidden />{" "}
+                    {isPendana ? "Portofolio Anda" : "Rekap Dana Pendana"}
                   </h2>
                   <p className="max-w-md text-xs leading-5 text-muted-foreground">
-                    Model <strong>1 pinjaman = 1 pendana</strong>. Setiap angka dihitung dari
-                    pinjaman yang tercatat atas nama pendana itu.
+                    {isPendana ? (
+                      <>
+                        Seluruh angka di halaman ini hanya dihitung dari pinjaman yang alokasinya
+                        atas nama Anda.
+                      </>
+                    ) : (
+                      <>
+                        Model <strong>1 pinjaman = 1 pendana</strong>. Setiap angka dihitung dari
+                        pinjaman yang tercatat atas nama pendana itu.
+                      </>
+                    )}
                   </p>
                 </div>
                 {/*
-                 * Satu tabel perbandingan menggantikan dua grafik batang dan
-                 * grid kartu per pendana: angka yang sama dulu muncul tiga kali
-                 * dengan susunan berbeda, sehingga membandingkan pendana berarti
-                 * mencocokkan bacaan sendiri. Sekarang satu kolom = satu angka,
-                 * kepala kolomnya melekat saat tabelnya digulir, urutannya lewat
-                 * satu kontrol di atas tabel, dan kolomnya dijumlahkan di baris
-                 * total.
+                 * Dua pembaca, dua bentuk. Admin dan pemantau membandingkan
+                 * semua pendana, jadi mereka menerima satu tabel dengan kepala
+                 * kolom yang melekat saat digulir dan baris total di dasarnya.
+                 * Akun pendana menerima portofolionya sendiri: server tidak
+                 * pernah mengirimkan baris pendana lain kepadanya, jadi yang
+                 * ditampilkan hanya posisinya sendiri, tanpa tabel kosong satu
+                 * baris.
                  */}
                 <div className="mt-3">
-                  <TabelPendana
-                    rekap={rekapPendana}
-                    rincianPerkiraan={rincianPerkiraan}
-                    namaTampil={tampilNama}
-                    aktif={filter.pendana === "" ? null : filter.pendana}
-                    onPilih={pilihPendana}
-                  />
+                  {isPendana && rekapPendana[0] !== undefined ? (
+                    <PortofolioPendana
+                      r={rekapPendana[0]}
+                      namaTampil={tampilNama}
+                      persenLayanan={data.ringkasan.persenPotonganAdmin}
+                    />
+                  ) : (
+                    <TabelPendana
+                      rekap={rekapPendana}
+                      rincianPerkiraan={rincianPerkiraan}
+                      namaTampil={tampilNama}
+                      aktif={filter.pendana === "" ? null : filter.pendana}
+                      onPilih={pilihPendana}
+                    />
+                  )}
                 </div>
               </section>
             )}
@@ -2579,10 +2598,10 @@ function IsiRuang() {
                   <>
                     <CatatanTab nada="emerald" label="Lunas">
                       Pinjaman pada tab ini sudah berstatus <strong>lunas</strong> pada ledger
-                      internal. Angka keuntungan pendana dan potongan admin di bawah adalah hasil
-                      perhitungan atas kewajiban yang sudah terbayar penuh — potongan diambil dari
-                      uang yang kembali (pokok + Imbal Hasil), bukan dari Imbal Hasil saja — bukan
-                      bukti mutasi.
+                      internal. Angka keuntungan pendana dan biaya platform (layanan) di bawah
+                      adalah hasil perhitungan atas kewajiban yang sudah terbayar penuh: biayanya
+                      diambil dari uang yang kembali (pokok + Imbal Hasil), bukan dari Imbal Hasil
+                      saja, dan bukan bukti mutasi.
                     </CatatanTab>
                     <DaftarPinjaman
                       namaTampil={tampilNama}
@@ -2635,7 +2654,11 @@ function IsiRuang() {
                 {tampilGadai.length === 0 ? (
                   <KeadaanKosongDaftar
                     aktif={saringanAktif}
-                    pesan="Belum ada pengajuan gadai yang tercatat."
+                    pesan={
+                      isPendana
+                        ? "Gadai tidak masuk portofolio pendana: barang jaminan tidak punya alokasi dana, jadi tidak ada barisnya di sini."
+                        : "Belum ada pengajuan gadai yang tercatat."
+                    }
                   />
                 ) : (
                   <>

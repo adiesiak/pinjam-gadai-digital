@@ -13,8 +13,14 @@
  * "tidak dijamin").
  */
 
-/** Versi teks risiko yang berlaku sekarang. Naikkan bila isinya berubah. */
-export const RISK_TEXT_VERSION = 1;
+/**
+ * Versi teks risiko yang berlaku sekarang. Naikkan bila isinya berubah.
+ *
+ * Versi 2: istilah biaya 5% yang diambil dari uang yang kembali berubah dari
+ * "potongan admin" menjadi "biaya platform (layanan)". Bunyinya berubah, jadi
+ * persetujuan versi lama tidak lagi mewakili teks yang dibaca sekarang.
+ */
+export const RISK_TEXT_VERSION = 2;
 
 /** Id jangkar panel risiko, dipakai tombol "Baca selengkapnya" di banner. */
 export const ANCHOR_RISIKO_PENDANAAN = "risiko-pendanaan";
@@ -62,8 +68,8 @@ export const POIN_RISIKO_PENDANAAN: readonly PoinRisiko[] = [
   },
   {
     nomor: 6,
-    judul: "Potongan admin mengurangi hasil bersih",
-    isi: "Potongan admin diambil dari uang yang kembali, sehingga keuntungan bersih yang Anda terima lebih kecil daripada bunga yang tercatat pada pinjaman.",
+    judul: "Biaya platform (layanan) mengurangi hasil bersih",
+    isi: "Biaya platform (layanan) diambil dari uang yang kembali, sehingga keuntungan bersih yang Anda terima lebih kecil daripada bunga yang tercatat pada pinjaman.",
   },
   {
     nomor: 7,

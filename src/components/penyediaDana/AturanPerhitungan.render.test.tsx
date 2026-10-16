@@ -7,7 +7,7 @@
  * Yang dijaga:
  * 1. aturan yang menentukan arti angka benar-benar ada dan bisa dibuka —
  *    termasuk bedanya "Dibukukan (lunas)" dengan "Perkiraan (belum lunas)",
- *    dasar potongan admin, dan satuan tenor;
+ *    dasar biaya platform (layanan), dan satuan tenor;
  * 2. persentase yang tercetak datang dari Pengaturan Sistem, bukan angka tetap
  *    yang ditulis di kode;
  * 3. klaim yang tidak bisa dibuktikan tidak kembali: tidak ada janji asuransi
@@ -54,7 +54,10 @@ const html = renderToStaticMarkup(
 
 // ===== Judul + ringkasan tarif yang berlaku =====
 ada(html, "Aturan perhitungan", "judul panel");
-ada(html, "bunga 30% · potongan admin 5%", "tarif yang berlaku disebut di kepala panel");
+ada(html, "bunga 30% · biaya platform (layanan) 5%", "tarif yang berlaku disebut di kepala panel");
+// Istilah lama tidak boleh tertinggal: biaya 5% ini bukan "potongan admin" lagi.
+ok(!html.includes("potongan admin"), "istilah lama \"potongan admin\" tidak tertinggal");
+ok(!html.includes("keuntungan admin"), "istilah \"keuntungan admin\" tidak dipakai di sini");
 ada(html, "Buka aturan yang ingin Anda periksa", "cara memakai panel dijelaskan");
 eq(
   (html.match(/data-slot="accordion-item"/g) ?? []).length,
@@ -65,7 +68,7 @@ eq(
 // ===== Tiap aturan benar-benar terisi =====
 for (const judul of [
   "Bunga pinjaman dan Imbal Hasil",
-  "Potongan admin",
+  "Biaya platform (layanan)",
   "Dibukukan (lunas) vs Perkiraan (belum lunas)",
   "Dana tersalurkan dan masih berjalan",
   "Tenor dan jatuh tempo (satuan hari)",
@@ -82,15 +85,16 @@ ada(html, "Rp 1.300.000", "contoh total kewajiban dihitung dari persen yang berl
 ada(html, "Rp 300.000", "contoh Imbal Hasil dihitung dari persen yang berlaku");
 ada(html, "satu pinjaman = satu pendana", "model alokasi disebut");
 
-// 2. Potongan admin: dasar hitungnya, keperluannya, dan penyangkalannya.
-ada(html, "5%</strong> dari", "potongan admin disebut persennya");
-ada(html, "uang yang kembali", "dasar potongan admin: uang yang kembali");
-ada(html, "bukan", "dasar potongan admin dibedakan dari Imbal Hasil saja");
-ada(html, "pokok kembali utuh", "konsekuensi potongan pada pokok dijelaskan");
+// 2. Biaya platform (layanan): dasar hitungnya, keperluannya, dan
+// penyangkalannya.
+ada(html, "5%</strong> dari", "biaya platform (layanan) disebut persennya");
+ada(html, "uang yang kembali", "dasar biaya platform: uang yang kembali");
+ada(html, "bukan", "dasar biaya platform dibedakan dari Imbal Hasil saja");
+ada(html, "pokok kembali utuh", "konsekuensi biaya pada pokok dijelaskan");
 ada(html, "Server &amp; operasional PINDAI", "keperluan server & operasional");
 ada(html, "Collect / penagihan lapangan", "collect / penagihan lapangan");
 ada(html, "Penanganan pinjaman bermasalah", "keperluan penanganan pinjaman bermasalah");
-ada(html, "bukan jaminan", "potongan admin tidak diklaim sebagai jaminan");
+ada(html, "bukan jaminan", "biaya platform tidak diklaim sebagai jaminan");
 ada(html, "tidak dijamin oleh LPS", "status penjaminan dinyatakan apa adanya");
 ada(html, "Risiko pendanaan", "pembaca diarahkan ke bagian risikonya");
 
@@ -117,7 +121,7 @@ ada(html, "Transfer keuntungan", "transfer keuntungan dijelaskan");
 ada(html, "bukan bukti mutasi bank", "catatan transfer dibedakan dari bukti mutasi");
 
 // 7. Cara membaca tabel.
-ada(html, "baris total menjumlahkan kolomnya", "baris total dijelaskan");
+ada(html,  "baris total menjumlahkan baris yang sedang tampil", "baris total dijelaskan");
 ada(html, "bukan klaim total sepanjang masa", "batas cakupan angka dinyatakan");
 
 bersih(html, "markup panel aturan");
@@ -153,10 +157,10 @@ ok(!html.includes("pasti untung"), "tidak ada klaim keuntungan pasti");
   const lain = renderToStaticMarkup(
     <AturanPerhitungan persenBunga={12} persenPotonganAdmin={7} bukaAwal={SEMUA} />,
   );
-  ada(lain, "bunga 12% · potongan admin 7%", "tarif lain ikut tercetak");
+  ada(lain, "bunga 12% · biaya platform (layanan) 7%", "tarif lain ikut tercetak");
   ada(lain, "Rp 1.120.000", "contoh total kewajiban ikut berubah");
   ada(lain, "Rp 120.000", "contoh Imbal Hasil ikut berubah");
-  ada(lain, "7%</strong> dari", "potongan admin ikut berubah");
+  ada(lain, "7%</strong> dari", "biaya platform (layanan) ikut berubah");
   ok(!lain.includes("Rp 1.300.000"), "angka dari tarif lama tidak tertinggal");
   ok(!lain.includes("bunga 30%"), "persentase lama tidak tertinggal");
   bersih(lain, "markup panel dengan tarif lain");

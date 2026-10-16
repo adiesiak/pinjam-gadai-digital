@@ -31,8 +31,8 @@ function bagiDua<T>(daftar: readonly T[]): readonly (readonly T[])[] {
  * dihitung.
  *
  * Kenapa bentuknya begini: dulu penjelasan istilah ("dibukukan", "perkiraan",
- * "potongan admin") ditempel satu per satu sebagai ikon `?` di kartu-kartu
- * angka, dan callout "untuk apa potongan admin dipakai" berdiri sebagai
+ * "biaya platform (layanan)") ditempel satu per satu sebagai ikon `?` di
+ * kartu-kartu angka, dan callout "untuk apa biaya platform dipakai" berdiri sebagai
  * kotak sendiri di tengah halaman. Akibatnya istilah yang sama dijelaskan dari
  * beberapa tempat dengan kalimat yang berbeda-beda, dan penjelasan kebijakan
  * mendesak angka ke bawah lipatan. Sekarang aturannya dikumpulkan sekali di
@@ -58,7 +58,7 @@ export function AturanPerhitungan({
 }: {
   /** Bunga pinjaman per tenor, dari Pengaturan Sistem (persen dari pokok). */
   persenBunga: number;
-  /** Potongan admin dari uang yang kembali, dari Pengaturan Sistem. */
+  /** Biaya platform (layanan) dari uang yang kembali, dari Pengaturan Sistem. */
   persenPotonganAdmin: number;
   /**
    * Nomor aturan yang dibuka sejak awal. Dipakai uji markup: isi accordion yang
@@ -95,17 +95,17 @@ export function AturanPerhitungan({
     },
     {
       nomor: 2,
-      judul: "Potongan admin",
+      judul: "Biaya platform (layanan)",
       isi: (
         <>
           <p>
-            Potongan admin adalah <strong>{persenPotonganAdmin}%</strong> dari{" "}
+            Biaya platform (layanan) adalah <strong>{persenPotonganAdmin}%</strong> dari{" "}
             <strong>uang yang kembali</strong> (pokok + Imbal Hasil), bukan{" "}
             {persenPotonganAdmin}% dari Imbal Hasil saja. Konsekuensinya: pokok kembali utuh,
             sementara keuntungan bersih pendana lebih kecil daripada bunga yang tercatat pada
             pinjaman.
           </p>
-          <p className="mt-2">Potongan itu dipakai untuk:</p>
+          <p className="mt-2">Biaya platform itulah yang dipakai untuk:</p>
           <ul className="mt-1.5 space-y-1.5">
             <li className="flex gap-2">
               <span aria-hidden className="mt-2 size-1 shrink-0 rounded-full bg-primary" />
@@ -127,7 +127,7 @@ export function AturanPerhitungan({
             </li>
           </ul>
           <p className="mt-2">
-            Potongan admin <strong>bukan jaminan</strong>. Dana pendanaan tidak dijamin oleh LPS
+            Biaya platform (layanan) <strong>bukan jaminan</strong>. Dana pendanaan tidak dijamin oleh LPS
             maupun pihak lain, kecuali ada perjanjian tertulis yang menyatakannya, rinciannya ada
             di bagian “Risiko pendanaan”.
           </p>
@@ -214,13 +214,14 @@ export function AturanPerhitungan({
       isi: (
         <>
           <p>
-            Semua kolom tabel rekap pendana dihitung dari pinjaman yang tercatat pada masing-masing
-            pendana, dan baris total menjumlahkan kolomnya. Karena itu penjumlahannya bisa Anda
-            periksa sendiri dari baris di atasnya.
+            Semua kolom rekap dihitung dari pinjaman yang tercatat pada alokasi yang barisnya
+            ditampilkan, dan baris total menjumlahkan baris yang sedang tampil. Karena itu
+            penjumlahannya bisa Anda periksa sendiri dari baris di atasnya.
           </p>
           <p className="mt-2">
-            Tabel dibatasi jumlah baris terbaru yang dimuat halaman ini, jadi angka di sini adalah
-            ringkasan atas catatan yang benar-benar tersedia, bukan klaim total sepanjang masa.
+            Akun pendana hanya melihat alokasi atas namanya sendiri, dan daftarnya dibatasi jumlah
+            baris terbaru yang dimuat halaman ini. Jadi angka di sini adalah ringkasan atas catatan
+            yang benar-benar tampil untuk Anda, bukan klaim total sepanjang masa.
           </p>
         </>
       ),
@@ -238,7 +239,7 @@ export function AturanPerhitungan({
         judul="Aturan perhitungan"
         aksi={
           <p className="text-xs font-medium text-muted-foreground">
-            bunga {persenBunga}% · potongan admin {persenPotonganAdmin}%
+            bunga {persenBunga}% · biaya platform (layanan) {persenPotonganAdmin}%
           </p>
         }
       />

@@ -84,11 +84,16 @@ ada(
 );
 ada(html, "Angka <strong>perkiraan</strong>", "kata \"perkiraan\" sendiri ditandai tegas");
 
-// Potongan admin tetap dijelaskan dengan istilah yang sama dengan kartunya.
-ada(html, "Potongan admin Rp 910.000", "total potongan admin");
-ada(html, "dibukukan Rp 195.000", "potongan admin yang sudah dibukukan");
-ada(html, "perkiraan Rp 715.000", "potongan admin yang masih perkiraan");
-ada(html, "bukan dari Imbal Hasil saja — pokok tetap kembali utuh", "dasar potongan dijelaskan");
+// Biaya platform (layanan) tetap dijelaskan dengan istilah yang sama dengan
+// kartunya, dan dipecah sama seperti keuntungan: dibukukan vs perkiraan.
+ada(html, "Biaya platform (layanan) Rp 910.000", "total biaya platform (layanan)");
+ada(html, "dibukukan Rp 195.000", "biaya platform yang sudah dibukukan");
+ada(html, "perkiraan Rp 715.000", "biaya platform yang masih perkiraan");
+ada(
+  html,
+  "bukan dari Imbal Hasil saja, jadi pokok tetap kembali utuh",
+  "dasar biaya platform dijelaskan",
+);
 
 // Transfer yang belum dicatat ditandai sebagai lencana, bukan baris kecil.
 ada(html, "1 transfer keuntungan belum dicatat", "peringatan transfer belum dicatat");
@@ -121,6 +126,19 @@ const nol = renderToStaticMarkup(
 ada(nol, "Rp 0", "nol rupiah ditulis apa adanya");
 ok(!nol.includes("belum dicatat"), "tanpa transfer tertunda, tidak ada peringatan transfer");
 bersih(nol, "markup ringkasan nol");
+
+// Cakupan pribadi: ruang pendana hanya mengirim alokasi atas nama pembaca, jadi
+// label cakupan ikut berubah dan tidak boleh mengaku menghitung semua pendana.
+{
+  const pribadi = renderToStaticMarkup(<RingkasanKeuntungan ringkasan={ANGKA} pribadi />);
+  ada(pribadi, "Alokasi atas nama Anda", "cakupan portofolio pribadi dinyatakan");
+  ok(
+    !pribadi.includes("Seluruh pendana"),
+    "portofolio pribadi tidak mengaku menghitung seluruh pendana",
+  );
+  ada(pribadi, "Dibukukan (lunas)", "angka tetap dipisah dibukukan dan perkiraan");
+  bersih(pribadi, "markup ringkasan portofolio pribadi");
+}
 
 console.log(`RingkasanKeuntungan.render.test: ${passed} lulus, ${failed} gagal`);
 if (failed > 0) process.exit(1);

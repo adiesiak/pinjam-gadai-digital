@@ -28,12 +28,23 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { FOLIO } from "@/components/penyediaDana/folio";
+import {
+  GUGUS,
+  KOLOM_ANGKA,
+  RINGKAS,
+  labelKolom,
+  labelSingkat,
+  mulaiGugus,
+  type Gugus,
+} from "@/components/penyediaDana/kolom-pendana";
 import type { RekapPendana } from "@/convex/penyediaDana";
 import { formatRupiahAman } from "@/lib/money";
 import { namaHurufBesar } from "@/lib/nama";
 import {
   KOLOM_PENDANA,
   URUTAN_AWAL,
+  nilaiAngka,
+  nilaiTotal,
   totalPendana,
   urutkanPendana,
   type KunciUrut,
@@ -41,24 +52,6 @@ import {
   type TotalPendana,
   type UrutanPendana,
 } from "@/lib/tabelPendana";
-
-/** Kolom angka: nama tidak ikut, karena namanya jadi kolom pertama. */
-type KunciAngka = Exclude<KunciUrut, "nama">;
-
-/**
- * Dua gugus kolom.
- *
- * Enam kolom angka sekaligus membuat angka menyebar dan sulit dibandingkan, jadi
- * yang terbuka lebih dulu hanya dua kolom modal (paling lebar dan paling sering
- * dibaca berpasangan). Empat kolom hasil dinyalakan saat hasil memang perlu
- * dibandingkan langsung dengan dananya.
- */
-type Gugus = "dana" | "hasil";
-
-const GUGUS: readonly { kunci: Gugus; label: string }[] = [
-  { kunci: "dana", label: "Dana pendana" },
-  { kunci: "hasil", label: "Hasil pendana" },
-];
 
 /**
  * Lebar kolom angka dipatok 10rem, bukan dipersentase.
@@ -74,11 +67,6 @@ const LEBAR_ANGKA = "w-[10rem]";
 const KEPALA_NAMA =
   "px-2 pb-1.5 pt-2 align-bottom text-xs font-semibold uppercase leading-tight tracking-[0.04em] text-slate-600";
 
-/** Kolom pertama setiap gugus membuka gugusnya, jadi dia yang diberi garis pemisah. */
-function mulaiGugus(kolom: readonly { gugus: Gugus }[], i: number): boolean {
-  return i === 0 || kolom[i - 1]?.gugus !== kolom[i].gugus;
-}
-
 /**
  * Saringan baris: pertanyaan yang biasanya dibawa pembaca ke tabel ini, bukan
  * kategori data. "Masih berjalan" menyaring pendana yang dananya belum kembali,
@@ -92,88 +80,8 @@ const SARING: readonly { kunci: SaringBaris; label: string }[] = [
   { kunci: "tertunda", label: "Transfer tertunda" },
 ];
 
-/**
- * Kolom angka beserta gugus, pengambil nilainya, dan warnanya.
- *
- * Labelnya tidak ditulis ulang di sini: diambil dari `KOLOM_PENDANA` supaya
- * istilah tabel ini tidak pernah berbeda dari kontrak di `@/lib/tabelPendana`
- * (dan dari kartu ringkasan di halaman yang memakainya).
- */
-const KOLOM_ANGKA: readonly {
-  kunci: KunciAngka;
-  gugus: Gugus;
-  nilai: (r: RekapPendana) => number;
-  kelas: string;
-}[] = [
-  {
-    kunci: "tersalurkan",
-    gugus: "dana",
-    nilai: (r) => r.totalDisalurkan,
-    kelas: "font-medium text-slate-900",
-  },
-  {
-    kunci: "berjalan",
-    gugus: "dana",
-    nilai: (r) => r.saldoBerjalan,
-    kelas: "text-slate-900",
-  },
-  {
-    kunci: "dibukukan",
-    gugus: "hasil",
-    nilai: (r) => r.keuntunganPendanaLunas,
-    kelas: "font-semibold text-emerald-700",
-  },
-  {
-    kunci: "perkiraan",
-    gugus: "hasil",
-    nilai: (r) => r.keuntunganPendanaBelumLunas,
-    kelas: "font-medium text-amber-700",
-  },
-  {
-    kunci: "total",
-    gugus: "hasil",
-    nilai: (r) => r.keuntunganPendana,
-    kelas: "font-semibold text-emerald-800",
-  },
-  {
-    kunci: "admin",
-    gugus: "hasil",
-    nilai: (r) => r.keuntunganAdmin,
-    kelas: "text-slate-900",
-  },
-];
-
-/** Kolom yang jumlahnya ikut dicetak sebagai ringkasan di baris kendali. */
-const RINGKAS: readonly KunciAngka[] = [
-  "tersalurkan",
-  "dibukukan",
-  "perkiraan",
-  "admin",
-];
-
-/** Jumlah satu kolom di seluruh rekap, sepasang dengan `KOLOM_ANGKA`. */
-const NILAI_TOTAL: Record<KunciAngka, (t: TotalPendana) => number> = {
-  tersalurkan: (t) => t.totalDisalurkan,
-  berjalan: (t) => t.saldoBerjalan,
-  dibukukan: (t) => t.keuntunganPendanaLunas,
-  perkiraan: (t) => t.keuntunganPendanaBelumLunas,
-  total: (t) => t.keuntunganPendana,
-  admin: (t) => t.keuntunganAdmin,
-};
-
 function rupiah(nilai: number): string {
   return formatRupiahAman(nilai);
-}
-
-function labelKolom(kunci: KunciUrut): string {
-  return KOLOM_PENDANA.find((k) => k.kunci === kunci)?.label ?? kunci;
-}
-
-/** Label kolom tanpa keterangan dalam kurung, untuk ringkasan satu baris. */
-function labelSingkat(kunci: KunciUrut): string {
-  return labelKolom(kunci)
-    .replace(/ \(.*\)$/, "")
-    .toLocaleLowerCase("id-ID");
 }
 
 /** Arah urutan dibaca sebagai kalimat; nama dibaca sebagai huruf, bukan besar. */
@@ -280,7 +188,7 @@ function TandaTransfer({ jumlah }: { jumlah: number }) {
 
 /**
  * Isi lipatan satu baris: pinjaman pembentuk angka perkiraan dan pembagian
- * potongan admin, dua angka pendamping yang tidak muat sebagai kolom.
+ * biaya platform, dua angka pendamping yang tidak muat sebagai kolom.
  */
 function IsiRincian({
   r,
@@ -347,11 +255,11 @@ function IsiRincian({
               nilai: `${r.jumlahPinjaman} · ${r.jumlahAktif} · ${r.jumlahLunas}`,
             },
             {
-              label: "Potongan admin dibukukan",
+              label: "Biaya platform (layanan) dibukukan",
               nilai: rupiah(r.keuntunganAdminLunas),
             },
             {
-              label: "Potongan admin perkiraan",
+              label: "Biaya platform (layanan) perkiraan",
               nilai: rupiah(r.keuntunganAdminBelumLunas),
             },
             {
@@ -546,10 +454,7 @@ function Kendali({
           <span key={k.kunci} className="inline-flex items-baseline gap-1.5">
             <span aria-hidden className="text-slate-300">
               ·
-            </span>
-            <span className={`tabular-nums ${k.kelas}`}>
-              {rupiah(NILAI_TOTAL[k.kunci](total))}
-            </span>
+            </span>            <span className={`tabular-nums ${k.kelas}`}>{rupiah(nilaiTotal(total, k.kunci))}</span>
             <span>{labelSingkat(k.kunci)}</span>
           </span>
         ))}
@@ -565,7 +470,7 @@ function Kendali({
  * Menjawab pertanyaan yang sama untuk SETIAP pendana dalam satu tatanan kolom:
  * berapa pokok yang sudah tersalurkan, berapa yang masih berjalan, berapa
  * keuntungan yang sudah dibukukan, berapa yang masih perkiraan, dan berapa
- * potongan adminnya. Kolomnya dipecah dua gugus supaya angkanya tetap lega,
+ * biaya platform (layanan)-nya. Kolomnya dipecah dua gugus supaya angkanya tetap lega,
  * kepala kolom melekat di puncak saat isinya digulir, barisnya diurutkan lewat
  * kontrol di atas tabel, dan setiap baris bisa diperluas untuk melihat pinjaman
  * pembentuk angka perkiraan.
@@ -723,9 +628,7 @@ export function TabelPendana({
                 banyakGugus ? "min-w-[74rem]" : "min-w-[34rem]"
               }`}
             >
-              <TableCaption className="sr-only">
-                Perbandingan dana tersalurkan, keuntungan, dan potongan admin
-                per pendana
+              <TableCaption className="sr-only">                Perbandingan dana tersalurkan, keuntungan, dan biaya platform per pendana
               </TableCaption>
 
               <TableHeader className="sticky top-0 z-20">
@@ -878,14 +781,11 @@ export function TabelPendana({
                               )}
                             </div>
                           </TableCell>
-                          {kolom.map((k, i) => (
-                            <SelAngka
+                          {kolom.map((k, i) => (                            <SelAngka
                               key={k.kunci}
-                              nilai={rupiah(k.nilai(r))}
+                              nilai={rupiah(nilaiAngka(r, k.kunci))}
                               kelas={k.kelas}
-                              pemisah={
-                                i === 0 || kolom[i - 1]?.gugus !== k.gugus
-                              }
+                              pemisah={i === 0 || kolom[i - 1]?.gugus !== k.gugus}
                             />
                           ))}
                         </TableRow>
@@ -956,7 +856,7 @@ export function TabelPendana({
                   {kolom.map((k, i) => (
                     <SelAngka
                       key={k.kunci}
-                      nilai={rupiah(NILAI_TOTAL[k.kunci](totalBaris))}
+                      nilai={rupiah(nilaiTotal(totalBaris, k.kunci))}
                       kelas={k.kelas}
                       pemisah={i === 0 || kolom[i - 1]?.gugus !== k.gugus}
                       kaki
@@ -1037,7 +937,7 @@ export function TabelPendana({
                   <BarisAngka
                     key={k.kunci}
                     label={labelKolom(k.kunci)}
-                    nilai={rupiah(k.nilai(r))}
+                    nilai={rupiah(nilaiAngka(r, k.kunci))}
                     kelas={k.kelas}
                   />
                 ))}
@@ -1102,7 +1002,7 @@ export function TabelPendana({
                 <BarisAngka
                   key={k.kunci}
                   label={labelKolom(k.kunci)}
-                  nilai={rupiah(NILAI_TOTAL[k.kunci](totalBaris))}
+                  nilai={rupiah(nilaiTotal(totalBaris, k.kunci))}
                   kelas={k.kelas}
                 />
               ))}
