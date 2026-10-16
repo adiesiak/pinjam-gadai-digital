@@ -477,6 +477,24 @@ async function bacaPinjaman(
 }
 
 /**
+ * Pinjaman milik satu akun penyedia dana yang sudah dicatat LUNAS.
+ *
+ * Dipakai pusat notifikasi supaya kabar "pinjaman yang Anda danai lunas" memakai
+ * aturan kepemilikan yang SAMA dengan ruang pendana, bukan aturan kedua yang bisa
+ * berbeda. Akun yang bukan penyedia dana menerima daftar kosong.
+ */
+export async function pinjamanLunasMilikPendana(
+  ctx: QueryCtx,
+  user: Doc<"users">,
+  userId: Id<"users">,
+): Promise<Doc<"loans">[]> {
+  const cakupan = cakupanPendana(user, userId);
+  if (cakupan === null) return [];
+  const { rows } = await bacaPinjaman(ctx, cakupan);
+  return rows.filter((loan) => loan.status === "lunas" && loan.lunasPada !== undefined);
+}
+
+/**
  * Kredit barang yang alokasinya atas nama satu pendana, terbaru lebih dulu.
  *
  * Dibaca dari id alokasinya, bukan dari jendela 200 baris terbaru: alokasinya

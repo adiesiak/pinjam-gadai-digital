@@ -1186,6 +1186,12 @@ async function setLoanStatus(
     ...(status === "didanai" && loan.didanaiPada === undefined
       ? { didanaiPada: Date.now() }
       : {}),
+    // Tanggal acuan lunas juga ditetapkan di sini. Tanpa itu, pinjaman yang
+    // ditandai lunas lewat tombol admin tidak punya tanggal acuan, sehingga
+    // riwayat pelunasan dan notifikasi lunas tidak pernah muncul.
+    ...(status === "lunas" && loan.lunasPada === undefined
+      ? { lunasPada: Date.now() }
+      : {}),
   });
 
   const admin = await ctx.db.get(adminId);

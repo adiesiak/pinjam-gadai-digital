@@ -5,8 +5,9 @@
  * Yang dijaga di sini adalah janji modulnya, bukan tampilannya:
  *
  * - daftar SELALU dihitung dari catatan nyata (pengingat, peringatan lokasi,
- *   bukti pembayaran, pengumuman, keputusan KYC, dan perpindahan status
- *   pinjaman) — tidak ada baris contoh yang dikarang,
+ *   bukti pembayaran, pengumuman, keputusan KYC, perpindahan status pinjaman,
+ *   dan pinjaman yang didanai akun penyedia dana) — tidak ada baris contoh yang
+ *   dikarang,
  * - urutan mengikuti waktu server, terbaru lebih dulu,
  * - keadaan baca milik masing-masing pengguna dan tersimpan di server; peringatan
  *   lokasi memakai `dibacaPada` pada barisnya sendiri (satu keadaan, satu tempat),
@@ -362,5 +363,156 @@ describe("pusat notifikasi: menandai dibaca", () => {
 
     const kosong = await sesi.mutation(api.notifikasi.tandaiSemuaDibaca, {});
     expect(kosong).toEqual({ ok: true, ditandai: 0 });
+  });
+});
+
+describe("pusat notifikasi: kabar untuk penyedia dana", () => {
+  /** Pinjaman lunas dengan pemilik kanonik `pendanaId`. */
+  async function seedPinjamanLunas(
+    t: KonteksUji,
+    opsi: { peminjamId: Id<"users">; pendanaId: Id<"users">; nomorReferensi: string },
+  ): Promise<Id<"loans">> {
+    return t.run((ctx) =>
+      ctx.db.insert("loans", {
+        userId: opsi.peminjamId,
+        pokokPinjaman: 2_000_000,
+        tujuan: "Modal usaha",
+        namaLengkap: "Rani Peminjam",
+        nomorRekening: "1234567890",
+        status: "lunas",
+        nomorReferensi: opsi.nomorReferensi,
+        tenorHari: 30,
+        didanaiPada: T0,
+        lunasPada: T0 + 86_400_000,
+        pendanaId: opsi.pendanaId,
+      }),
+    );
+  }
+
+  it("pendana dikabari saat pinjaman yang didanainya lunas, peminjam tidak", async () => {
+    const t = convexTest(schema, modules);
+    const { sesi: sesiPendana, userId: pendanaId } = await siapkanPengguna(t, "Chatur Surya", {
+      email: "chatur@pindai.test",
+      role: "dana",
+    });
+    const { sesi: sesiPeminjam, userId: peminjamId } = await siapkanPengguna(t, "Rani Peminjam", {
+      email: "rani-pendana@pindai.test",
+      role: "peminjam",
+    });
+    const loanId = await seedPinjamanLunas(t, {
+      peminjamId,
+      pendanaId,
+      nomorReferensi: "PND-PENDANA-1",
+    });
+
+    const kunci = `pendana:${loanId}:lunas`;
+    const hasilPendana = await sesiPendana.query(api.notifikasi.daftar, {});
+    expect(hasilPendana.item.map((it) => it.kunci)).toEqual([kunci]);
+    expect(hasilPendana.belumDibaca).toBe(1);
+
+    const kabar = hasilPendana.item.find((it) => it.kunci === kunci);
+    expect(kabar?.jenis).toBe("sukses");
+    expect(kabar?.judul).toBe("Pinjaman yang Anda danai tercatat lunas");
+    expect(kabar?.ringkasan).toContain("PND-PENDANA-1");
+    expect(kabar?.ringkasan).toContain("Rp 2.000.000");
+    expect(kabar?.tautan).toBe("/penyedia-dana");
+
+    // Sisi peminjam hanya menerima kabar pinjamannya sendiri.
+    const hasilPeminjam = await sesiPeminjam.query(api.notifikasi.daftar, {});
+    expect(hasilPeminjam.item.map((it) => it.kunci)).toEqual([`pinjaman:${loanId}:lunas`]);
+  });
+
+  it("baris warisan tanpa pendanaId tetap dikabari lewat alokasi lama, dan bisa ditandai dibaca", async () => {
+    const t = convexTest(schema, modules);
+    const { sesi: sesiPendana, userId: pendanaId } = await siapkanPengguna(t, "Asep Pendana", {
+      email: "asep@pindai.test",
+      role: "dana",
+    });
+    const { userId: peminjamId } = await buatPengguna(t, "Rani Warisan", {
+      email: "rani-warisan@pindai.test",
+      role: "peminjam",
+    });
+
+    // Pinjaman warisan: belum punya `pendanaId`, hanya baris alokasi lama.
+    const loanId = await t.run(async (ctx) => {
+      const id = await ctx.db.insert("loans", {
+        userId: peminjamId,
+        pokokPinjaman: 1_000_000,
+        tujuan: "Modal usaha",
+        namaLengkap: "Rani Warisan",
+        nomorRekening: "1234567890",
+        status: "lunas",
+        nomorReferensi: "PND-WARISAN-1",
+        tenorHari: 30,
+        didanaiPada: T0,
+        lunasPada: T0 + 2_000,
+      });
+      await ctx.db.insert("fundings", {
+        loanId: id,
+        danaId: pendanaId,
+        jumlahAlokasi: 1_000_000,
+        imbalHasil: 300_000,
+        status: "selesai",
+        nomorReferensi: "ALO-WARISAN-1",
+        diselesaikanPada: T0 + 2_000,
+        imbalHasilNet: 1_170_000,
+      });
+      return id;
+    });
+
+    const kunci = `pendana:${loanId}:lunas`;
+    const hasil = await sesiPendana.query(api.notifikasi.daftar, {});
+    expect(hasil.item.map((it) => it.kunci)).toEqual([kunci]);
+
+    const hasilBaca = await sesiPendana.mutation(api.notifikasi.tandaiDibaca, { kunci });
+    expect(hasilBaca).toEqual({ ok: true, sudahDibaca: false });
+    const setelah = await sesiPendana.query(api.notifikasi.daftar, {});
+    expect(setelah.belumDibaca).toBe(0);
+
+    const baca = await t.run((ctx) => ctx.db.query("notifikasiBaca").collect());
+    expect(baca).toHaveLength(1);
+    expect(baca[0]).toMatchObject({ userId: pendanaId, kunci, sumber: "pendana" });
+  });
+
+  it("tombol admin \"Tandai lunas\" menulis lunasPada dan mengabari peminjam serta pendana", async () => {
+    const t = convexTest(schema, modules);
+    const { sesi: sesiAdmin } = await siapkanPengguna(t, "admin-notif", {
+      email: "admin-notif@pindai.test",
+      role: "admin",
+    });
+    const { sesi: sesiPendana, userId: pendanaId } = await siapkanPengguna(t, "Chatur Surya", {
+      email: "chatur2@pindai.test",
+      role: "dana",
+    });
+    const { sesi: sesiPeminjam, userId: peminjamId } = await siapkanPengguna(t, "Rani Peminjam", {
+      email: "rani-admin-lunas@pindai.test",
+      role: "peminjam",
+    });
+    const loanId = await t.run((ctx) =>
+      ctx.db.insert("loans", {
+        userId: peminjamId,
+        pokokPinjaman: 1_000_000,
+        tujuan: "Modal usaha",
+        namaLengkap: "Rani Peminjam",
+        nomorRekening: "1234567890",
+        status: "didanai",
+        nomorReferensi: "PND-ADMIN-LUNAS-1",
+        tenorHari: 30,
+        didanaiPada: T0,
+        pendanaId,
+      }),
+    );
+
+    await sesiAdmin.mutation(api.loans.ubahStatusPinjaman, { loanId, status: "lunas" });
+
+    const loan = await t.run((ctx) => ctx.db.get(loanId));
+    expect(loan?.status).toBe("lunas");
+    expect(loan?.lunasPada).toBeTypeOf("number");
+
+    const hasilPendana = await sesiPendana.query(api.notifikasi.daftar, {});
+    expect(hasilPendana.item.map((it) => it.kunci)).toEqual([`pendana:${loanId}:lunas`]);
+
+    const hasilPeminjam = await sesiPeminjam.query(api.notifikasi.daftar, {});
+    expect(hasilPeminjam.item.map((it) => it.kunci)).toEqual([`pinjaman:${loanId}:lunas`]);
   });
 });

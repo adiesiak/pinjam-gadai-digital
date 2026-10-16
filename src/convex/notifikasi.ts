@@ -6,6 +6,7 @@ import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/s
 import { formatRupiahAman } from "../lib/money";
 import { LABEL_STATUS_KYC, type StatusKyc } from "../lib/kycStatus";
 import { LABEL_STATUS_PENGADUAN } from "../lib/penagihan";
+import { pinjamanLunasMilikPendana } from "./penyediaDana";
 
 /**
  * Pusat notifikasi in-app PINDAI.
@@ -72,7 +73,15 @@ const BATAS_PESAN_PENGADUAN = 4;
 
 /** Notifikasi beserta rujukan internalnya — dipakai untuk menandai dibaca. */
 type ItemInternal = NotifikasiItem & {
-  sumber: "pengingat" | "lokasi" | "bukti" | "pengumuman" | "pengaduan" | "kyc" | "pinjaman";
+  sumber:
+    | "pengingat"
+    | "lokasi"
+    | "bukti"
+    | "pengumuman"
+    | "pengaduan"
+    | "kyc"
+    | "pinjaman"
+    | "pendana";
   /** Id baris sumber, bila sumbernya berbaris (pengingat/lokasi/bukti). */
   ref: string | null;
 };
@@ -440,6 +449,34 @@ async function susunNotifikasi(
     }
   }
   item.push(...itemPinjaman.slice(0, BATAS_PER_SUMBER));
+
+  // ===== Sumber 8: pinjaman yang DIDANAI akun ini tercatat lunas
+  //
+  // Khusus akun penyedia dana. Kepemilikannya dibaca lewat aturan yang sama
+  // dengan ruang pendana (`pinjamanLunasMilikPendana`), jadi kabar ini tidak
+  // pernah menyebut pinjaman yang tidak tampil di portofolionya. Yang bisa
+  // ditulis hanya angka yang memang tersimpan di pinjamannya.
+  const pengguna = await ctx.db.get(userId);
+  if (pengguna !== null) {
+    const lunasPendana = (await pinjamanLunasMilikPendana(ctx, pengguna, userId)).sort(
+      (a, b) => (b.lunasPada ?? 0) - (a.lunasPada ?? 0),
+    );
+    for (const loan of lunasPendana.slice(0, BATAS_PER_SUMBER)) {
+      const waktu = loan.lunasPada;
+      if (waktu === undefined) continue;
+      item.push({
+        kunci: `pendana:${loan._id}:lunas`,
+        sumber: "pendana",
+        ref: loan._id,
+        jenis: "sukses",
+        judul: "Pinjaman yang Anda danai tercatat lunas",
+        ringkasan: `${loan.nomorReferensi} · pokok ${formatRupiahAman(loan.pokokPinjaman)} · ${kalimatWaktu(waktu, sekarang)}. Hasil dananya tercatat di ruang pendana.`,
+        waktu,
+        tautan: "/penyedia-dana",
+        dibaca: false,
+      });
+    }
+  }
 
   // ===== Keadaan baca untuk sumber yang memakai tabel `notifikasiBaca`
   const baca = await ctx.db
