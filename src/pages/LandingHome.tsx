@@ -5,7 +5,6 @@ import {
   FileText,
   LockKeyhole,
   Menu,
-  ShieldCheck,
 } from "lucide-react";
 import { Link } from "react-router";
 
@@ -14,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { VaultLogo } from "@/components/VaultLogo";
 import { LandingHero } from "@/components/landing/LandingHero";
 import { CONTRACT_TERMS_VERSION } from "@/lib/contract";
+import { ADMIN_ROUTE } from "@/lib/routes";
 
 const layanan = [
   {
@@ -63,7 +63,7 @@ export default function LandingHome() {
   const { isAuthenticated, isLoading, user } = useAuth();
   const accountHref =
     isAuthenticated && user?.role === "admin"
-      ? "/admin"
+      ? ADMIN_ROUTE
       : isAuthenticated
         ? "/dashboard"
         : "/auth";

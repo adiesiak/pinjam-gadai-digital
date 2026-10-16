@@ -1154,7 +1154,7 @@ describe("ruang penyedia dana (lihat saja)", () => {
       email: "rani@pindai.test",
       role: "peminjam",
     });
-    const { userId: robertId } = await siapkanPengguna(t, "Robert", {
+    const { sesi: robert, userId: robertId } = await siapkanPengguna(t, "Robert", {
       email: "robert@pindai.test",
       role: "dana",
     });
@@ -1198,9 +1198,12 @@ describe("ruang penyedia dana (lihat saja)", () => {
     // Murni koreksi catatan: tidak ada saldo/ledger maupun dompet yang tersentuh.
     expect(await t.run((ctx) => ctx.db.query("ledger_entries").collect())).toEqual([]);
 
-    // Rekap dan baris daftar langsung mengikuti pendana baru.
+    // Rekap dan baris daftar langsung mengikuti pendana baru: ruang baru
+    // memuat barisnya, ruang lama tidak lagi (tidak ada baris yang tertinggal).
     const daftar = await asep.query(api.penyediaDana.daftarPengajuan, {});
     expect(daftar.pinjaman[0]?.pendana).toBe("Asep");
+    const daftarLama = await robert.query(api.penyediaDana.daftarPengajuan, {});
+    expect(daftarLama.pinjaman.map((p) => p.nomorReferensi)).not.toContain("PGD-UJI-1");
 
     // Catatan TIDAK wajib: koreksi pendana tanpa alasan apa pun harus tersimpan
     // (kebijakan pemilik produk) — dan audit trail tetap ditulis.
