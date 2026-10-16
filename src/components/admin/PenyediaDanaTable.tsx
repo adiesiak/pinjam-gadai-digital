@@ -1,6 +1,6 @@
 import { useMutation, useQuery } from "convex/react";
 import { Loader2, UserCheck } from "lucide-react";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
@@ -16,17 +16,30 @@ import {
 } from "@/components/ui/table";
 import { api } from "@/convex/_generated/api";
 
+import { TombolMasukSebagai } from "./MasukSebagaiDialog";
+import { TombolUbahAkunPendana } from "./UbahAkunPendanaDialog";
+
 /**
  * DAFTAR AKUN PENDANA & PEMANTAU — satu tabel, tanpa pengulangan.
  *
- * Hanya menampilkan akun beserta peran dan status aksesnya; pemberian akses
- * lewat email, pembuatan pendana baru, dan kode akses bersama dikelola di kartu
- * lain pada tab "Manajemen Akun & Hak Akses". Sakelar per baris memanggil
- * mutation `penyediaDana.ubahAkses` yang sama — memberi atau mencabut akses
- * lihat-saja tanpa menyentuh catatan pengajuan, dan tercatat di Audit Trail.
+ * Hanya menampilkan akun beserta peran, status akses, dan tindakannya;
+ * pemberian akses lewat email, pembuatan pendana baru, dan kode akses bersama
+ * dikelola di kartu lain pada tab "Manajemen Akun & Hak Akses". Sakelar per
+ * baris memanggil mutation `penyediaDana.ubahAkses` yang sama — memberi atau
+ * mencabut akses lihat-saja tanpa menyentuh catatan pengajuan, dan tercatat di
+ * Audit Trail.
  *
- * Akun pemantau bersama (peran `pengamat`) tidak punya sakelar: masa berlakunya
- * ditentukan oleh kode akses bersama (terbit/nonaktif), bukan per akun.
+ * Kolom Tindakan memuat dua pekerjaan yang hanya boleh dilakukan Super Admin:
+ *  - `penyediaDana.ubahAkunPendana` — isi/perbaiki nama & email login akun;
+ *  - pratinjau "masuk sebagai" — sesi nyata akun itu, lihat
+ *    `components/admin/MasukSebagaiDialog.tsx`.
+ *
+ * Akun pemantau bersama (peran `pengamat`) tidak punya sakelar maupun tindakan:
+ * masa berlakunya ditentukan oleh kode akses bersama (terbit/nonaktif), bukan
+ * per akun, dan sesinya terikat perangkat sehingga tidak dapat dipratinjau.
+ *
+ * Bagian tampilan (`TabelAkunPendana`) tetap MURNI — tindakannya datang lewat
+ * prop `renderAksi`, jadi tabel ini masih bisa dirender & diuji tanpa Convex.
  */
 
 /**
@@ -82,12 +95,15 @@ export function TabelAkunPendana({
   terpotong = false,
   batas,
   onUbahAkses,
+  renderAksi,
 }: {
   baris: readonly BarisAkunTampil[] | undefined;
   busy: string | null;
   terpotong?: boolean;
   batas?: number;
   onUbahAkses: (r: BarisAkunTampil, aktif: boolean) => void;
+  /** Kolom Tindakan; tidak dirender bila tidak diberikan. */
+  renderAksi?: (r: BarisAkunTampil) => ReactNode;
 }) {
   const jumlahAkses = baris === undefined ? 0 : baris.filter((r) => r.aksesAktif).length;
 
@@ -125,11 +141,17 @@ export function TabelAkunPendana({
           <Table className="[&_td]:whitespace-normal [&_td]:align-middle">
             <TableHeader>
               <TableRow className="bg-slate-50/80">
-                {["Akun", "Peran", "Status", "Akses"].map((kolom) => (
+                {[
+                  "Akun",
+                  "Peran",
+                  "Status",
+                  "Akses",
+                  ...(renderAksi === undefined ? [] : ["Tindakan"]),
+                ].map((kolom) => (
                   <TableHead
                     key={kolom}
                     className={`text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500 ${
-                      kolom === "Akses" ? "text-right" : ""
+                      kolom === "Akses" || kolom === "Tindakan" ? "text-right" : ""
                     }`}
                   >
                     {kolom}
@@ -188,6 +210,11 @@ export function TabelAkunPendana({
                         </span>
                       )}
                     </TableCell>
+                    {renderAksi !== undefined && (
+                      <TableCell className="text-right">
+                        {renderAksi(r)}
+                      </TableCell>
+                    )}
                   </TableRow>
                 );
               })}
@@ -241,6 +268,16 @@ export function PenyediaDanaTable() {
       terpotong={daftar?.terpotong}
       batas={daftar?.batas}
       onUbahAkses={(r, aktif) => void ubah(r, aktif)}
+      renderAksi={(r) =>
+        r.akunBersama ? (
+          <span className="text-[11px] text-muted-foreground">—</span>
+        ) : (
+          <span className="flex flex-wrap items-center justify-end gap-2">
+            <TombolUbahAkunPendana targetId={r.userId} nama={r.nama} email={r.email} />
+            <TombolMasukSebagai targetId={r.userId} nama={r.nama} tujuan="ruang pendana" />
+          </span>
+        )
+      }
     />
   );
 }

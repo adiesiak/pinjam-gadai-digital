@@ -27,6 +27,7 @@ import type { Id } from "@/convex/_generated/dataModel";
 import { LABEL_STATUS_KYC, NADA_STATUS_KYC, type StatusKyc } from "@/lib/kycStatus";
 import { formatRupiah } from "@/lib/money";
 import { formatDate } from "./admin-format";
+import { TombolMasukSebagai } from "./MasukSebagaiDialog";
 import { PanelRisikoNasabah } from "./PanelRisikoNasabah";
 
 /**
@@ -107,16 +108,29 @@ export function NasabahDetailDialog({
         ) : (
           <div className="space-y-5">
             <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5">
-              <p className="text-xs leading-5 text-amber-950">Buka pratinjau dashboard nasabah dalam mode baca-saja. Akses dicatat di audit trail.</p>
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                disabled={detail.role === "admin"}
-                onClick={() => navigate(`/dashboard?lihatNasabah=${encodeURIComponent(userId)}`)}
-              >
-                Lihat dashboard
-              </Button>
+              <p className="text-xs leading-5 text-amber-950">
+                Buka dashboard nasabah ini. "Masuk sebagai" memakai sesi nyata akunnya
+                sehingga tampilannya persis seperti yang ia lihat; "Lihat ringkas" hanya
+                menampilkan ringkasan baca-saja. Keduanya dicatat di audit trail.
+              </p>
+              <div className="flex flex-wrap items-center gap-2">
+                {detail.role !== "admin" && (
+                  <TombolMasukSebagai
+                    targetId={userId}
+                    nama={detail.nama}
+                    tujuan="dashboard nasabah"
+                  />
+                )}
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  disabled={detail.role === "admin"}
+                  onClick={() => navigate(`/dashboard?lihatNasabah=${encodeURIComponent(userId)}`)}
+                >
+                  Lihat ringkas
+                </Button>
+              </div>
             </div>
             {/* ===== Kepala: identitas ===== */}
             <div className="flex flex-wrap items-start justify-between gap-3">

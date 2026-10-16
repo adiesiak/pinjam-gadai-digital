@@ -14,6 +14,7 @@ import {
   pesanSandiNonAdmin,
 } from "./auth/enumerasi";
 import { emailOtp } from "./auth/emailOtp";
+import { pratinjauAdmin } from "./auth/pratinjau";
 import { whatsappOtp } from "./auth/whatsappOtp";
 import { internal } from "./_generated/api";
 import { ROLES } from "./schema";
@@ -145,7 +146,13 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
   // lewat OTP WhatsApp, lalu sesi diberikan untuk akun pemilik data impor itu
   // sendiri (bukan akun baru yang kosong). Verifikasi kode + penautannya hidup
   // di `convex/klaimPeminjam.ts`, bukan di provider ini.
-  providers: [emailOtp, adminPassword, whatsappOtp, Anonymous],
+  //
+  // `pratinjauAdmin` = pintu masuk PRATINJAU SUPER ADMIN: tiket sekali pakai
+  // dari `convex/pratinjau.ts` (hanya terbit setelah admin lolos TOTP) ditukar
+  // menjadi sesi NYATA akun pendana/peminjam, sehingga admin dapat melihat apa
+  // yang akun itu lihat. Tanpa tiket yang sah, provider ini tidak melayani
+  // siapa pun — tidak ada kata sandi atau OTP yang bisa ditebak di sini.
+  providers: [emailOtp, adminPassword, whatsappOtp, pratinjauAdmin, Anonymous],
   callbacks: {
     async afterUserCreatedOrUpdated(ctx, { userId, provider, type }) {
       const user = await ctx.db.get(userId);

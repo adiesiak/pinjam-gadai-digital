@@ -24,13 +24,16 @@ import { api } from "@/convex/_generated/api";
 
 import { PencatatanTransferPendana } from "./PencatatanTransferPendana";
 import { PenyediaDanaTable } from "./PenyediaDanaTable";
+import { PratinjauAktifPanel } from "./PratinjauAktifPanel";
 import { RekonsiliasiPendana } from "./RekonsiliasiPendana";
 
 /**
  * NASABAH & PENDANA — tiga tab utama, satu tempat.
  *
  * 1. Manajemen Akun & Hak Akses — buat pendana baru, beri akses per email,
- *    kelola kode akses bersama/tamu, dan daftar akun pendana & pemantau.
+ *    kelola kode akses bersama/tamu, daftar akun pendana & pemantau (beserta
+ *    tindakan isi/ubah data login dan pratinjau "masuk sebagai"), dan daftar
+ *    pratinjau yang sedang berjalan.
  * 2. Pencatatan Transfer Keuntungan — catat transfer keuntungan yang sudah
  *    dikirim di luar sistem (nominal dihitung server).
  * 3. Rekonsiliasi & Auditing Pendana — bandingkan posisi panel dengan rekap
@@ -410,6 +413,7 @@ function TabAkunAkses() {
       </div>
       <KartuKodeBersama />
       <PenyediaDanaTable />
+      <PratinjauAktifPanel />
     </div>
   );
 }

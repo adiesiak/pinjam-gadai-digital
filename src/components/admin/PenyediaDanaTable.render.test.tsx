@@ -105,5 +105,45 @@ const tanpaUbah = () => {};
   bersih(html, "tabel kosong");
 }
 
+// ===== 4. Kolom Tindakan: hanya dirender bila pemanggil menyediakannya =====
+{
+  const html = renderToStaticMarkup(
+    <TabelAkunPendana baris={[baris()]} busy={null} onUbahAkses={tanpaUbah} />,
+  );
+  ok(!html.includes("Tindakan"), "kolom tindakan tidak muncul tanpa renderAksi");
+  bersih(html, "tabel tanpa kolom tindakan");
+}
+
+{
+  const html = renderToStaticMarkup(
+    <TabelAkunPendana
+      baris={[
+        baris(),
+        baris({
+          userId: "users_2",
+          nama: "Pemantau bersama",
+          email: null,
+          peran: "pengamat",
+          akunBersama: true,
+          aksesAktif: false,
+        }),
+      ]}
+      busy={null}
+      onUbahAkses={tanpaUbah}
+      renderAksi={(r) =>
+        r.akunBersama ? (
+          <span>tanpa tindakan</span>
+        ) : (
+          <span>{`aksi-${r.userId}`}</span>
+        )
+      }
+    />,
+  );
+  ada(html, "Tindakan", "kolom tindakan muncul saat renderAksi diberikan");
+  ada(html, "aksi-users_1", "tindakan dirender per baris pendana");
+  ada(html, "tanpa tindakan", "pemantau bersama tanpa tindakan");
+  bersih(html, "tabel dengan kolom tindakan");
+}
+
 console.log(`\nPenyediaDanaTable.render: ${passed} passed, ${failed} failed`);
 if (failed > 0) process.exit(1);

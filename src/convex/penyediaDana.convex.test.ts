@@ -2421,3 +2421,181 @@ describe("pelacakan transfer keuntungan pendana", () => {
   });
 });
 
+describe("ubah data login akun (panel admin)", () => {
+  it("mengisi email akun tanpa email sehingga akun itu bisa menerima kode masuk", async () => {
+    const t = convexTest(schema, modules);
+    const { sesi: admin } = await siapkanPengguna(t, "admin", {
+      email: "admin@pindai.test",
+      role: "admin",
+    });
+    // Akun warisan: berperan pendana tetapi belum punya email sama sekali.
+    const { userId } = await buatPengguna(t, "Robert", { role: "dana" });
+
+    const hasil = await admin.mutation(api.penyediaDana.ubahAkunPendana, {
+      userId,
+      nama: "Robert Tanaya",
+      email: "  Robert.Tanaya@Pindai.test ",
+      alasan: "melengkapi data login pendana warisan",
+    });
+    expect(hasil).toMatchObject({
+      ok: true,
+      sudahSesuai: false,
+      akunLoginDiperbarui: 0,
+      email: "robert.tanaya@pindai.test",
+    });
+
+    const sesudah = await t.run((ctx) => ctx.db.get(userId));
+    expect(sesudah?.name).toBe("Robert Tanaya");
+    expect(sesudah?.email).toBe("robert.tanaya@pindai.test");
+
+    // Alamat baru benar-benar menjadi identitas masuk: akun ditemukan lewat
+    // indeks email, dan datanya tetap satu akun (tidak ada akun kedua).
+    const emailTerdaftar = await admin.query(api.penyediaDana.daftarInvestor, {});
+    expect(emailTerdaftar.rows.find((r) => r.userId === userId)?.email).toBe(
+      "robert.tanaya@pindai.test",
+    );
+
+    const audit = await t.run((ctx) =>
+      ctx.db
+        .query("auditLog")
+        .collect()
+        .then((rows) => rows.filter((r) => r.aksi === "ubah_akun_pendana")),
+    );
+    expect(audit).toHaveLength(1);
+    expect(audit[0].detail).toContain("(belum ada)");
+    expect(audit[0].detail).toContain("robert.tanaya@pindai.test");
+  });
+
+  it("memindahkan akun login ke alamat baru saat email pendana diganti", async () => {
+    const t = convexTest(schema, modules);
+    const { sesi: admin } = await siapkanPengguna(t, "admin", {
+      email: "admin@pindai.test",
+      role: "admin",
+    });
+    const { userId } = await siapkanPengguna(t, "Robert", {
+      email: "robert@pindai.test",
+      role: "dana",
+    });
+    // Jejak login lamanya: akun kata sandi/`authAccounts` milik alamat lama.
+    const akunLamaId = await t.run((ctx) =>
+      ctx.db.insert("authAccounts", {
+        userId,
+        provider: "email-otp",
+        providerAccountId: "robert@pindai.test",
+      }),
+    );
+
+    const hasil = await admin.mutation(api.penyediaDana.ubahAkunPendana, {
+      userId,
+      nama: "Robert Tanaya",
+      email: "robert.baru@pindai.test",
+    });
+    expect(hasil.akunLoginDiperbarui).toBe(1);
+
+    const akun = await t.run((ctx) => ctx.db.get(akunLamaId));
+    expect(akun?.providerAccountId).toBe("robert.baru@pindai.test");
+    expect(akun?.provider).toBe("email-otp");
+  });
+
+  it("menolak email yang sudah dipakai akun lain, termasuk akun tim", async () => {
+    const t = convexTest(schema, modules);
+    const { sesi: admin } = await siapkanPengguna(t, "admin", {
+      email: "admin@pindai.test",
+      role: "admin",
+    });
+    const { userId } = await siapkanPengguna(t, "Robert", {
+      email: "robert@pindai.test",
+      role: "dana",
+    });
+    await siapkanPengguna(t, "rani", { email: "rani@pindai.test", role: "peminjam" });
+
+    await expect(
+      admin.mutation(api.penyediaDana.ubahAkunPendana, {
+        userId,
+        nama: "Robert",
+        email: "rani@pindai.test",
+      }),
+    ).rejects.toThrow(/sudah dipakai akun lain/i);
+
+    await expect(
+      admin.mutation(api.penyediaDana.ubahAkunPendana, {
+        userId,
+        nama: "Robert",
+        email: "admin@pindai.test",
+      }),
+    ).rejects.toThrow(/akun tim/i);
+  });
+
+  it("menolak target akun tim, akun tamu, email tidak valid, dan pemanggil bukan admin", async () => {
+    const t = convexTest(schema, modules);
+    const { sesi: admin, userId: adminId } = await siapkanPengguna(t, "admin", {
+      email: "admin@pindai.test",
+      role: "admin",
+    });
+    const { sesi: pendana, userId: pendanaId } = await siapkanPengguna(t, "Robert", {
+      email: "robert@pindai.test",
+      role: "dana",
+    });
+    const tamu = await buatPengguna(t, "Pemantau bersama", { isAnonymous: true });
+
+    await expect(
+      admin.mutation(api.penyediaDana.ubahAkunPendana, {
+        userId: adminId,
+        nama: "Super Admin",
+        email: "admin.baru@pindai.test",
+      }),
+    ).rejects.toThrow(/Akun tim/i);
+
+    await expect(
+      admin.mutation(api.penyediaDana.ubahAkunPendana, {
+        userId: tamu.userId,
+        nama: "Pemantau bersama",
+        email: "pemantau@pindai.test",
+      }),
+    ).rejects.toThrow(/Akun tamu/i);
+
+    await expect(
+      admin.mutation(api.penyediaDana.ubahAkunPendana, {
+        userId: pendanaId,
+        nama: "Robert",
+        email: "bukan-email",
+      }),
+    ).rejects.toThrow(/email yang valid/i);
+
+    await expect(
+      pendana.mutation(api.penyediaDana.ubahAkunPendana, {
+        userId: pendanaId,
+        nama: "Robert",
+        email: "robert@pindai.test",
+      }),
+    ).rejects.toThrow(/Super Admin/i);
+  });
+
+  it("mengembalikan sudahSesuai tanpa menulis audit bila tidak ada yang berubah", async () => {
+    const t = convexTest(schema, modules);
+    const { sesi: admin } = await siapkanPengguna(t, "admin", {
+      email: "admin@pindai.test",
+      role: "admin",
+    });
+    const { userId } = await siapkanPengguna(t, "Robert", {
+      email: "robert@pindai.test",
+      role: "dana",
+    });
+
+    const hasil = await admin.mutation(api.penyediaDana.ubahAkunPendana, {
+      userId,
+      nama: "Robert",
+      email: "robert@pindai.test",
+    });
+    expect(hasil).toMatchObject({ ok: true, sudahSesuai: true, akunLoginDiperbarui: 0 });
+
+    const audit = await t.run((ctx) =>
+      ctx.db
+        .query("auditLog")
+        .collect()
+        .then((rows) => rows.filter((r) => r.aksi === "ubah_akun_pendana")),
+    );
+    expect(audit).toHaveLength(0);
+  });
+});
+

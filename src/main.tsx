@@ -2,6 +2,7 @@ import '@vly-ai/integrations';
 import { Toaster } from "@/components/ui/sonner";
 import { AnnouncementBar } from "@/components/AnnouncementBar";
 import { BilahSinkron } from "@/components/BilahSinkron";
+import { PratinjauBanner } from "@/components/PratinjauBanner";
 import { ErrorPage } from "@/components/ErrorPage";
 import { LoadingScreen } from "@/components/LoadingScreen";
 import { Snowfall } from "@/components/Snowfall";
@@ -268,6 +269,9 @@ createRoot(document.getElementById("root")!).render(
               seluruh layar: koneksi terputus atau proses panjang yang berjalan.
               Pemuatan awal & penyegaran biasa punya umpan baliknya sendiri. */}
           <BilahSinkron />
+          {/* Penanda pratinjau Super Admin: selama peramban ini memakai sesi
+              akun lain, bilah ini selalu tampil di atas seluruh halaman. */}
+          <PratinjauBanner />
           <SessionGuardBridge />
           <RouteSyncer />
           <RouteErrorBoundary>

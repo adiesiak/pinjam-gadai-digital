@@ -1885,6 +1885,120 @@ export const buatPendana = mutation({
 });
 
 /**
+ * ISI ATAU PERBAIKI DATA LOGIN SATU AKUN — nama dan alamat email.
+ *
+ * Dipakai saat pendana belum punya email (akun warisan "tanpa email"), salah
+ * tulis alamat, atau berganti alamat. Email adalah identitas masuk, jadi
+ * perubahannya harus benar-benar sampai ke jalur login — bukan hanya tampil di
+ * daftar akun.
+ *
+ * Yang dijaga server:
+ *  - hanya Super Admin dengan sesi TOTP terverifikasi (`requireAdminSession`);
+ *  - nama 2–120 karakter dan email wajib valid (huruf kecil, tanpa spasi);
+ *  - email yang sudah dipakai akun lain ditolak, termasuk bila itu akun tim;
+ *  - akun tim (admin) dan akun tamu tidak dapat diubah dari sini;
+ *  - **baris `authAccounts` pemilik akun ikut dipindahkan** ke alamat baru.
+ *    Ini bagian yang menentukan: tanpa itu, permintaan OTP ke alamat baru tidak
+ *    menemukan akun lamanya dan Convex Auth membuat akun BARU yang kosong,
+ *    sementara data pendana tetap tertinggal di akun lama;
+ *  - `emailVerificationTime` sengaja TIDAK dihapus. Untuk akun yang dibuat admin
+ *    (`buatPendana`), cap itulah yang membuat Convex Auth menautkan akun stub
+ *    ini — bukan membuat duplikat — saat alamatnya pertama kali diverifikasi
+ *    lewat OTP. Yang menjamin alamat baru milik pendana yang benar adalah admin
+ *    yang mengubahnya, bukan surat elektroniknya;
+ *  - setiap perubahan tercatat di audit trail beserta alamat lama dan barunya.
+ */
+export const ubahAkunPendana = mutation({
+  args: {
+    userId: v.id("users"),
+    nama: v.string(),
+    email: v.string(),
+    /** Alasan keputusan (disarankan) — masuk audit trail. */
+    alasan: v.optional(v.string()),
+  },
+  handler: async (ctx, { userId, nama, email, alasan }) => {
+    const { userId: adminId, user: admin } = await requireAdminSession(ctx);
+
+    const target = await ctx.db.get(userId);
+    if (target === null) throw new Error("Akun yang akan diubah tidak ditemukan.");
+    if (target.role === ROLES.ADMIN) {
+      throw new Error("Akun tim (admin) tidak diubah dari daftar pendana.");
+    }
+    if (target.isAnonymous === true) {
+      throw new Error(
+        "Akun tamu tidak punya data login yang bisa diubah. Minta pemiliknya masuk dengan email terverifikasi.",
+      );
+    }
+
+    const namaBersih = nama.trim();
+    if (namaBersih.length < 2 || namaBersih.length > 120) {
+      throw new Error("Nama akun wajib 2–120 karakter.");
+    }
+    const emailBersih = email.trim().toLowerCase();
+    if (emailBersih.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailBersih)) {
+      throw new Error("Masukkan alamat email yang valid, mis. nama@contoh.com.");
+    }
+
+    const emailLama = target.email?.trim().toLowerCase() ?? "";
+    const namaLama = target.name?.trim() ?? "";
+    const berubahEmail = emailBersih !== emailLama;
+    const berubahNama = namaBersih !== namaLama;
+
+    if (berubahEmail) {
+      const pemakai = await cariAkunEmail(ctx, emailBersih);
+      if (pemakai !== null && pemakai._id !== target._id) {
+        throw new Error(
+          pemakai.role === ROLES.ADMIN
+            ? `Email ${emailBersih} dipakai akun tim (admin).`
+            : `Email ${emailBersih} sudah dipakai akun lain. Pakai alamat lain, atau beri akses ruang ke akun itu.`,
+        );
+      }
+    }
+
+    /**
+     * Pindahkan akun login milik pemilik ini ke alamat baru. Hanya baris yang
+     * memang memakai alamat lama yang disentuh: akun login dengan penanda lain
+     * (mis. nomor WhatsApp) dibiarkan.
+     */
+    let akunLogin = 0;
+    if (berubahEmail) {
+      const akun = await ctx.db
+        .query("authAccounts")
+        .withIndex("userIdAndProvider", (q) => q.eq("userId", target._id))
+        .collect();
+      for (const barisAkun of akun) {
+        if (barisAkun.providerAccountId.trim().toLowerCase() !== emailLama) continue;
+        await ctx.db.patch(barisAkun._id, { providerAccountId: emailBersih });
+        akunLogin += 1;
+      }
+    }
+
+    if (!berubahNama && !berubahEmail) {
+      return { ok: true, sudahSesuai: true, akunLoginDiperbarui: 0, email: emailBersih };
+    }
+
+    await ctx.db.patch(target._id, { name: namaBersih, email: emailBersih });
+
+    await audit(
+      ctx,
+      adminId,
+      admin.email ?? admin.name ?? "admin",
+      "ubah_akun_pendana",
+      emailLama !== "" ? emailLama : (target.name ?? target._id),
+      `Data login akun diperbarui${
+        berubahNama ? `; nama "${namaLama || "(kosong)"}" → "${namaBersih}"` : ""
+      }${
+        berubahEmail ? `; email "${emailLama || "(belum ada)"}" → "${emailBersih}"` : ""
+      }${akunLogin > 0 ? `; ${akunLogin} akun login ikut dipindahkan` : ""}${
+        alasan?.trim() ? ` — ${alasan.trim()}` : ""
+      }`,
+    );
+
+    return { ok: true, sudahSesuai: false, akunLoginDiperbarui: akunLogin, email: emailBersih };
+  },
+});
+
+/**
  * Super Admin mengoreksi data satu pinjaman langsung dari ruang penyedia dana
  * — termasuk menetapkan siapa pendananya (mis. pinjaman A didanai Robert atau
  * Asep), tujuan, tenor, dan nominal yang disetujui.

@@ -29,6 +29,7 @@ import { EmptyQueue, MetrikKartu } from "@/components/admin/admin-shared";
 import { AturPlafonDialog, type NasabahPlafon } from "@/components/admin/AturPlafonDialog";
 import { DataDiriDialog } from "@/components/admin/DataDiriDialog";
 import { DuplikatNasabahPanel } from "@/components/admin/DuplikatNasabahPanel";
+import { TombolMasukSebagai } from "@/components/admin/MasukSebagaiDialog";
 import { NasabahDetailDialog } from "@/components/admin/NasabahDetailDialog";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
@@ -456,6 +457,11 @@ export function PlafonPanel() {
                             <IdCard className="mr-1 size-3.5" />
                             {r.adaDataDiri ? "Data diri" : "Isi data"}
                           </Button>
+                          <TombolMasukSebagai
+                            targetId={r.userId}
+                            nama={r.nama}
+                            tujuan="dashboard nasabah"
+                          />
                           <Button
                             type="button"
                             size="sm"
@@ -559,6 +565,11 @@ export function PlafonPanel() {
                       <IdCard className="mr-1 size-3.5" />
                       {r.adaDataDiri ? "Data diri" : "Isi data"}
                     </Button>
+                    <TombolMasukSebagai
+                      targetId={r.userId}
+                      nama={r.nama}
+                      tujuan="dashboard nasabah"
+                    />
                     <Button
                       type="button"
                       size="sm"

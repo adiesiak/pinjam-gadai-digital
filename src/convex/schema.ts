@@ -2381,6 +2381,62 @@ const schema = defineSchema(
     })
       .index("by_kunci_jenis_waktu", ["kunci", "jenis", "waktu"])
       .index("by_waktu", ["waktu"]),
+
+    /**
+     * PRATINJAU SUPER ADMIN — "masuk sebagai" akun pendana/peminjam.
+     *
+     * Satu baris melewati dua tahap:
+     *  1. TIKET — dibuat `mintaTiket` setelah admin lolos `requireAdminSession`
+     *     (TOTP terverifikasi). Tiket berumur pendek dan sekali pakai: tanpa itu
+     *     provider login akan menerima permintaan "masuk sebagai siapa saja"
+     *     tanpa bukti siapa yang memintanya.
+     *  2. SESI — tiket dipakai provider `pratinjau-admin`; dari titik itu sesi
+     *     NYATA akun target diberikan ke peramban admin (bukan tampilan tiruan),
+     *     dan `berlakuHingga` membatasi masa berlakunya.
+     *
+     * Yang dicatat adalah jejak akuntabilitas: siapa adminnya, akun siapa yang
+     * dibuka, kapan, batas waktunya, dan kapan ditutup. Barisnya tidak dihapus
+     * supaya pratinjau lama tetap bisa diaudit.
+     */
+    pratinjauSesi: defineTable({
+      adminId: v.id("users"),
+      /** Label admin saat tiket dibuat (snapshot agar tetap terbaca). */
+      adminLabel: v.string(),
+      targetId: v.id("users"),
+      /** Label akun target (nama/email) saat tiket dibuat. */
+      targetLabel: v.string(),
+      /** Peran akun target saat itu — untuk memilih ruang tujuan. */
+      targetPeran: v.optional(v.string()),
+      alasan: v.optional(v.string()),
+      /**
+       * Nonce acak dari peramban admin. Kunci baris ini untuk bilah pratinjau
+       * dan penutupan dari sisi klien; tanpa nonce, dua pratinjau bersamaan
+       * tidak bisa dibedakan.
+       */
+      nonce: v.string(),
+      /** Waktu tiket dibuat; tiket batal sendiri setelah `kedaluwarsa`. */
+      dibuatPada: v.number(),
+      kedaluwarsa: v.number(),
+      /** Terisi saat sesi nyata akun target benar-benar diberikan. */
+      dipakaiPada: v.optional(v.number()),
+      /**
+       * Sesi Auth hasil pratinjau. Dibuat server saat tiket ditukar, bukan oleh
+       * Convex Auth: jalur `signIn` bawaannya menghapus sesi pemanggil — yaitu
+       * sesi admin — sehingga admin harus masuk ulang setelah pratinjau.
+       * Kolom ini juga yang membuat "akhiri pratinjau" dari panel mencabut SESI
+       * YANG TEPAT, bukan setiap sesi yang dibuat setelah pratinjau mulai.
+       */
+      sesiPratinjauId: v.optional(v.id("authSessions")),
+      /** Batas waktu sesi pratinjau. */
+      berlakuHingga: v.optional(v.number()),
+      /** Waktu pratinjau ditutup. */
+      selesai: v.optional(v.number()),
+      /** "klien" (ditutup dari bilah pratinjau) | "admin" (dipaksa dari panel). */
+      ditutupOleh: v.optional(v.string()),
+    })
+      .index("by_admin", ["adminId"])
+      .index("by_target", ["targetId"])
+      .index("by_nonce", ["nonce"]),
   },
   {
     schemaValidation: false,
