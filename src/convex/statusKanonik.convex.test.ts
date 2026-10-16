@@ -12,6 +12,7 @@
  *  - berpindah ke "Disalurkan" (`didanai`) ikut mengisi tanggal acuan
  *    `didanaiPada`, supaya jatuh tempo tidak pernah kosong walau admin memakai
  *    pemilih status, bukan tombol "Tandai dana tersalurkan";
+ *  - pinjaman tanpa penyedia dana tidak dapat dipindahkan ke "Disalurkan";
  *  - pinjaman yang sudah lunas tetap terkunci.
  *
  * Menjalankan: bunx vitest run src/convex/statusKanonik.convex.test.ts
@@ -29,6 +30,7 @@ async function buatPinjaman(
   t: KonteksUji,
   userId: Id<"users">,
   status: "diajukan" | "sedang_direview" | "disetujui" | "didanai" | "lunas",
+  pendana?: { userId: Id<"users">; nama: string },
 ): Promise<Id<"loans">> {
   return t.run((ctx) =>
     ctx.db.insert("loans", {
@@ -42,6 +44,9 @@ async function buatPinjaman(
       status,
       nomorReferensi: `PGD-STATUS-${status}`,
       tenorHari: 30,
+      ...(pendana === undefined
+        ? {}
+        : { pendanaId: pendana.userId, pendanaNama: pendana.nama }),
     }),
   );
 }
@@ -57,8 +62,15 @@ describe("empat status pinjaman di server", () => {
       email: "rani@pindai.test",
       role: "peminjam",
     });
+    const { userId: pendanaId } = await siapkanPengguna(t, "penyedia", {
+      email: "penyedia-status@pindai.test",
+      role: "dana",
+    });
     // Baris lama: masih memakai ejaan sub-tahap `disetujui`.
-    const loanId = await buatPinjaman(t, peminjamId, "disetujui");
+    const loanId = await buatPinjaman(t, peminjamId, "disetujui", {
+      userId: pendanaId,
+      nama: "Penyedia Status",
+    });
 
     // 1. Ditinjau — ejaan kanonik dipetakan ke `sedang_direview` yang tersimpan.
     await admin.mutation(api.loans.ubahStatusPinjaman, {
@@ -137,7 +149,14 @@ describe("empat status pinjaman di server", () => {
       email: "rani-tanpa-catatan@pindai.test",
       role: "peminjam",
     });
-    const loanId = await buatPinjaman(t, peminjamId, "sedang_direview");
+    const { userId: pendanaId } = await siapkanPengguna(t, "penyedia", {
+      email: "penyedia-tanpa-catatan@pindai.test",
+      role: "dana",
+    });
+    const loanId = await buatPinjaman(t, peminjamId, "sedang_direview", {
+      userId: pendanaId,
+      nama: "Penyedia Status",
+    });
 
     // Kebijakan pemilik produk: admin tidak wajib mengisi alasan perubahan
     // status. Dialog mengirim argumen `reason` kosong ("") atau tidak sama sekali.

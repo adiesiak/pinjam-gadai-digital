@@ -7,7 +7,7 @@ import {
   QueryCtx,
 } from "./_generated/server";
 import { v } from "convex/values";
-import { Id } from "./_generated/dataModel";
+import { Doc, Id } from "./_generated/dataModel";
 import { internal } from "./_generated/api";
 import { periksaBerkasIdentitasStorage } from "./berkasIdentitas";
 import {
@@ -1081,6 +1081,25 @@ async function requireAdmin(ctx: MutationCtx) {
 }
 
 /**
+ * Tolak pencairan pinjaman yang belum punya penyedia dana.
+ *
+ * Pinjaman tanpa pendana tidak tampil di ruang pendana mana pun, sebab ruang
+ * itu portofolio pribadi. Pemiliknya bisa datang dari penetapan admin
+ * (`pendanaId`), nama warisan, atau baris alokasi lama.
+ */
+async function pastikanPunyaPendana(ctx: MutationCtx, loan: Doc<"loans">): Promise<void> {
+  if (loan.pendanaId !== undefined || (loan.pendanaNama ?? "").trim() !== "") return;
+  const alokasi = await ctx.db
+    .query("fundings")
+    .withIndex("by_loan", (q) => q.eq("loanId", loan._id))
+    .first();
+  if (alokasi !== null && alokasi.status !== "dibatalkan") return;
+  throw new Error(
+    "Pinjaman ini belum punya penyedia dana, jadi tidak akan muncul di ruang pendana mana pun. Tetapkan pendananya lebih dulu, lalu tandai dana tersalurkan.",
+  );
+}
+
+/**
  * Pindahkan status pinjaman (admin). Ini mengubah CATATAN saja: tidak ada uang
  * yang berpindah, tidak ada jurnal yang ditulis, tidak ada saldo yang berubah.
  *
@@ -1143,6 +1162,9 @@ async function setLoanStatus(
     pokokPinjaman = nominal.nilai;
   }
 
+  if (status === "didanai") {
+    await pastikanPunyaPendana(ctx, loan);
+  }
   if (status === "disetujui") {
     await ensureKodePeminjam(ctx, loan.userId);
   }
@@ -1363,6 +1385,7 @@ export const danaiPinjaman = mutation({
         "Hanya pinjaman yang masih berstatus Ditinjau dapat ditandai tersalurkan.",
       );
     }
+    await pastikanPunyaPendana(ctx, loan);
     await ctx.db.patch(loanId, {
       status: "didanai",
       didanaiPada: Date.now(),

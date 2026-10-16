@@ -1,9 +1,12 @@
 /**
- * Tes alur "admin menandai pengajuan berjalan" setelah ruang penyedia dana dihapus.
+ * Tes alur "admin menandai pengajuan berjalan".
  *
  * Tidak ada perpindahan dana di aplikasi: admin menyetujui pengajuan, lalu
  * menandainya berjalan pada ledger internal (status + tanggal acuan) sehingga
  * jadwal pelunasan dan bukti pembayaran manual QRIS/bank menjadi aktif.
+ *
+ * Pencairan wajib punya penyedia dana tertulis: tanpa itu pinjamannya tidak
+ * tampil di ruang pendana mana pun (ruang itu portofolio pribadi).
  */
 import { convexTest } from "convex-test";
 import { describe, expect, it } from "vitest";
@@ -44,7 +47,7 @@ async function idPengguna(t: KonteksUji, email: string) {
   });
 }
 
-describe("penandaan pengajuan berjalan oleh admin (tanpa penyedia dana)", () => {
+describe("penandaan pengajuan berjalan oleh admin", () => {
   it("pinjaman: hanya admin dan hanya selama tahap tinjauan", async () => {
     const t = convexTest(schema, modules);
     const asPeminjam = await buatSesi(t, "Peminjam dana", {
@@ -55,7 +58,12 @@ describe("penandaan pengajuan berjalan oleh admin (tanpa penyedia dana)", () => 
       email: "admin-dana@pindai.test",
       role: "admin",
     });
+    await buatSesi(t, "Pendana Uji", {
+      email: "pendana-uji@pindai.test",
+      role: "dana",
+    });
     const peminjamId = await idPengguna(t, "peminjam-dana@pindai.test");
+    const pendanaId = await idPengguna(t, "pendana-uji@pindai.test");
     const loanId = await t.run((ctx) =>
       ctx.db.insert("loans", {
         userId: peminjamId,
@@ -66,6 +74,8 @@ describe("penandaan pengajuan berjalan oleh admin (tanpa penyedia dana)", () => 
         status: "disetujui",
         nomorReferensi: "LON-DANA-01",
         tenorHari: 30,
+        pendanaId,
+        pendanaNama: "Pendana Uji",
       }),
     );
 
@@ -95,6 +105,8 @@ describe("penandaan pengajuan berjalan oleh admin (tanpa penyedia dana)", () => 
         status: "diajukan",
         nomorReferensi: "LON-DANA-02",
         tenorHari: 30,
+        pendanaId,
+        pendanaNama: "Pendana Uji",
       }),
     );
     await expect(
@@ -136,6 +148,94 @@ describe("penandaan pengajuan berjalan oleh admin (tanpa penyedia dana)", () => 
     await expect(
       asAdmin.mutation(api.loans.danaiPinjaman, { loanId: lunasId }),
     ).rejects.toThrow(/Ditinjau/i);
+  });
+
+  it("menolak pinjaman tanpa penyedia dana, dan menerima pemilik warisan", async () => {
+    const t = convexTest(schema, modules);
+    await buatSesi(t, "Peminjam tanpa pendana", {
+      email: "peminjam-tanpa-pendana@pindai.test",
+      role: "peminjam",
+    });
+    await buatSesi(t, "Pendana Warisan", {
+      email: "pendana-warisan@pindai.test",
+      role: "dana",
+    });
+    const asAdmin = await buatSesi(t, "Admin tanpa pendana", {
+      email: "admin-tanpa-pendana@pindai.test",
+      role: "admin",
+    });
+    const peminjamId = await idPengguna(t, "peminjam-tanpa-pendana@pindai.test");
+    const pendanaId = await idPengguna(t, "pendana-warisan@pindai.test");
+    const dasar = {
+      userId: peminjamId,
+      pokokPinjaman: 700_000,
+      tujuan: "kebutuhan_pribadi",
+      namaLengkap: "Peminjam Uji",
+      nomorRekening: "12345678",
+      status: "sedang_direview" as const,
+      tenorHari: 30,
+    };
+
+    // Tanpa pendana sama sekali: pencairan ditolak dan statusnya tetap.
+    const yatim = await t.run((ctx) =>
+      ctx.db.insert("loans", { ...dasar, nomorReferensi: "LON-DANA-05" }),
+    );
+    await expect(
+      asAdmin.mutation(api.loans.danaiPinjaman, { loanId: yatim }),
+    ).rejects.toThrow(/belum punya penyedia dana/i);
+    expect((await t.run((ctx) => ctx.db.get(yatim)))?.status).toBe("sedang_direview");
+
+    // Nama warisan tanpa `pendanaId` tetap dianggap punya pemilik.
+    const warisan = await t.run((ctx) =>
+      ctx.db.insert("loans", {
+        ...dasar,
+        nomorReferensi: "LON-DANA-06",
+        pendanaNama: "Pendana Warisan",
+      }),
+    );
+    await expect(
+      asAdmin.mutation(api.loans.danaiPinjaman, { loanId: warisan }),
+    ).resolves.toEqual({ ok: true });
+
+    // Alokasi lama yang masih berlaku juga cukup.
+    const dialokasikan = await t.run(async (ctx) => {
+      const id = await ctx.db.insert("loans", {
+        ...dasar,
+        nomorReferensi: "LON-DANA-07",
+      });
+      await ctx.db.insert("fundings", {
+        loanId: id,
+        danaId: pendanaId,
+        jumlahAlokasi: 700_000,
+        imbalHasil: 210_000,
+        status: "dialokasikan",
+        nomorReferensi: "ALOK-DANA-07",
+      });
+      return id;
+    });
+    await expect(
+      asAdmin.mutation(api.loans.danaiPinjaman, { loanId: dialokasikan }),
+    ).resolves.toEqual({ ok: true });
+
+    // Alokasi yang sudah dibatalkan bukan pemilik lagi.
+    const dibatalkan = await t.run(async (ctx) => {
+      const id = await ctx.db.insert("loans", {
+        ...dasar,
+        nomorReferensi: "LON-DANA-08",
+      });
+      await ctx.db.insert("fundings", {
+        loanId: id,
+        danaId: pendanaId,
+        jumlahAlokasi: 700_000,
+        imbalHasil: 210_000,
+        status: "dibatalkan",
+        nomorReferensi: "ALOK-DANA-08",
+      });
+      return id;
+    });
+    await expect(
+      asAdmin.mutation(api.loans.danaiPinjaman, { loanId: dibatalkan }),
+    ).rejects.toThrow(/belum punya penyedia dana/i);
   });
 
   it("gadai: wajib pokok acuan lebih dulu dan hanya admin", async () => {
