@@ -809,8 +809,10 @@ export function KycStatusStrip({ status, onBuka }: { status: StatusKyc; onBuka: 
 /**
  * Baris aksi satu tahap: SATU tombol utama (emerald) plus tombol "Kembali",
  * umpan balik simpan otomatis di sebelahnya, dan satu baris "Sisa wajib" di
- * atasnya. Menempel di dasar kartu selama formulirnya panjang. Tingginya 44px
- * supaya nyaman ditekan dengan ibu jari, bukan 36px seperti tombol lain.
+ * atasnya. Letaknya di AKHIR formulir, ikut alur halaman — bukan melayang di
+ * dasar layar, karena bilah melayang itu menutupi isian yang sedang dibaca saat
+ * halaman digulir. Tingginya 44px supaya nyaman ditekan dengan ibu jari, bukan
+ * 36px seperti tombol lain.
  *
  * Tombol "Simpan progres" dihapus karena simpan berjalan sendiri (lihat efek
  * autosave di `KycSection`): tombol simpan manual hanya menambah satu pilihan
@@ -870,7 +872,7 @@ export function KycBarisAksi({
   const labelUtama = pakaiAjukan ? labelAjukan : "Lanjut";
   const bolehUtama = !busy && (pakaiAjukan ? bolehAjukan : bolehLanjut);
   return (
-    <div className="sticky bottom-0 z-10 mt-4 border-t border-border bg-card pt-3">
+    <div className="mt-4 border-t border-border bg-card pt-3">
       {/* Sisa wajib WAJIB selalu terlihat (kriteria selesai) dan bisa diklik
           untuk melompat ke isian yang kurang. Dulu ini tombol Outline yang
           bersaing dengan aksi utama; sebagai satu baris penuh ia terbaca sebagai

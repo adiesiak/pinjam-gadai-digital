@@ -609,7 +609,10 @@ const aksiDasar = {
   ada(html, "h-11", "target sentuh baris aksi setinggi 44px, bukan 36px");
   ada(html, "Belum ada isian tersimpan", "keadaan simpan dinyatakan apa adanya");
   ada(html, 'role="status"', "umpan balik simpan diumumkan pembaca layar");
-  ada(html, "sticky bottom-0", "baris aksi menempel selama formulir panjang");
+  ok(
+    !html.includes("sticky") && !html.includes("fixed"),
+    "baris aksi ikut alur halaman di akhir formulir, tidak melayang menutupi isian",
+  );
   bersih(html, "baris aksi tahap lanjut");
 }
 {
