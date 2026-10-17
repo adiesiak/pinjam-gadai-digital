@@ -280,7 +280,21 @@ function KanvasPoster({
   );
 }
 
-/** Satu kartu poster pada galeri — terangkat & poster membesar halus saat disorot. */
+/**
+ * Satu kartu poster pada galeri.
+ *
+ * Kartu ini sengaja TIDAK memakai bahasa visual kartu aset Android di atasnya
+ * (garis slate tipis + tombol pil). Poster adalah materi cetak, jadi yang
+ * dipakai motif kemasan PINDAI: bidang kertas hangat, tepi kuningan ganda,
+ * dan garis putus seperti kop cetak yang memisahkan nomor kampanye dari
+ * bidang poster. Keseragaman kartu dipertahankan karena galeri ini katalog:
+ * sembilan aset dengan bobot setara perlu bisa dibandingkan baris demi baris;
+ * variasi datang dari artwork tiap poster, bukan dari ukuran kartu.
+ *
+ * Hierarki tindakan: Unduh (satu-satunya tombol terisi), lalu Salin caption
+ * dan Bagikan sebagai tombol tenang, dan tautan pratinjau untuk pengguna
+ * sentuh/papan tombol yang tidak mendapat petunjuk hover.
+ */
 function KartuPoster({
   poster,
   onLihat,
@@ -293,65 +307,81 @@ function KartuPoster({
   onSalinCaption: (p: PromoPoster) => void;
 }) {
   return (
-    <article className="group flex h-full flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm transition-[transform,box-shadow,border-color] duration-300 hover:-translate-y-1 hover:border-slate-300 hover:shadow-lg">
+    <article className="group flex h-full flex-col overflow-hidden rounded-2xl border border-gold/50 bg-card transition-[transform,box-shadow,border-color] duration-300 hover:-translate-y-0.5 hover:border-gold/80 hover:shadow-[0_22px_42px_-24px_rgba(28,26,21,0.5)]">
+      {/* Nomor kampanye memakai monospace (DESIGN: angka kode memakai
+          monospace) supaya terbaca sebagai nomor aset, bukan judul. */}
+      <div className="flex items-center justify-between gap-2 border-b border-dashed border-gold/45 px-4 py-2">
+        <span className="font-mono text-[11px] font-semibold tabular-nums text-gold-foreground">
+          No. {poster.nomor}
+        </span>
+        <span className="text-[11px] font-semibold text-gold-foreground">
+          {poster.category}
+        </span>
+      </div>
+
       <button
         type="button"
         onClick={() => onLihat(poster)}
-        className="block w-full overflow-hidden rounded-xl border border-slate-100 focus:outline-2 focus:outline-offset-2 focus:outline-primary"
+        className="block w-full px-3 pt-3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
         aria-label={`Buka pratinjau ${poster.title}`}
       >
-        <KanvasPoster
-          poster={poster}
-          lebar={LEBAR_KARTU}
-          ukuran={UKURAN_POSTER[rasio]}
-          className="block h-auto w-full transition-transform duration-500 ease-out group-hover:scale-[1.03]"
-        />
+        {/* Bingkai ganda: tepi kuningan + celah kertas, menandai poster sebagai
+            cetakan. Hover hanya menebalkan tepi dan membesarkan artwork sedikit. */}
+        <span className="block overflow-hidden rounded-lg bg-white p-1.5 ring-1 ring-gold/35 ring-offset-2 ring-offset-white transition-[box-shadow] duration-300 group-hover:ring-gold/60">
+          <KanvasPoster
+            poster={poster}
+            lebar={LEBAR_KARTU}
+            ukuran={UKURAN_POSTER[rasio]}
+            className="block h-auto w-full rounded-[6px] transition-transform duration-500 ease-out group-hover:scale-[1.03]"
+          />
+        </span>
       </button>
 
-      <div className="flex items-start justify-between gap-2 px-1">
-        <div className="min-w-0">
-          <h3 className="truncate text-sm font-semibold text-slate-900">
-            {poster.title}
-          </h3>
-          <p className="mt-0.5 text-xs text-muted-foreground">{poster.badge}</p>
-        </div>
-        <Badge variant="outline" className="shrink-0 text-[11px]">
-          {poster.category}
-        </Badge>
-      </div>
+      <div className="flex flex-1 flex-col px-4 pt-3 pb-4">
+        {/* Dua baris tetap supaya baris tombol antar kartu sejajar di katalog,
+            tanpa memotong judul yang panjang. */}
+        <h3 className="line-clamp-2 min-h-10 text-sm font-semibold leading-5 text-navy">
+          {poster.title}
+        </h3>
+        <p className="mt-1 text-xs leading-5 text-muted-foreground">
+          {poster.badge}
+        </p>
 
-      <div className="mt-auto flex flex-wrap gap-2 px-1 pb-1">
-        <Button
-          size="sm"
-          className="rounded-full transition-transform hover:-translate-y-0.5"
-          onClick={() => unduhPoster(poster, rasio)}
-        >
-          <Download className="size-4" /> Unduh {ukuranLabel(rasio)}
-        </Button>
-        <Button
-          size="sm"
-          variant="ghost"
-          className="rounded-full"
-          onClick={() => onSalinCaption(poster)}
-        >
-          <Copy className="size-4" /> Salin caption
-        </Button>
-        <Button
-          size="sm"
-          variant="outline"
-          className="rounded-full transition-transform hover:-translate-y-0.5"
-          onClick={() => void bagikanPoster(poster, rasio)}
-        >
-          <Share2 className="size-4" /> Bagikan
-        </Button>
-        <Button
-          size="sm"
-          variant="ghost"
-          className="rounded-full transition-colors hover:bg-slate-100"
+        {/* Tindakan menempel di dasar kartu supaya sejajar antar kolom,
+            berapa pun panjang tagline poster. */}
+        <div className="mt-auto flex flex-wrap items-center gap-1.5 pt-3">
+          <Button
+            size="sm"
+            className="h-11 rounded-lg sm:h-8"
+            onClick={() => unduhPoster(poster, rasio)}
+          >
+            <Download className="size-4" /> Unduh {ukuranLabel(rasio)}
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-11 rounded-lg text-navy hover:bg-secondary sm:h-8"
+            onClick={() => onSalinCaption(poster)}
+          >
+            <Copy className="size-4" /> Salin caption
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-11 rounded-lg text-navy hover:bg-secondary sm:h-8"
+            onClick={() => void bagikanPoster(poster, rasio)}
+          >
+            <Share2 className="size-4" /> Bagikan
+          </Button>
+        </div>
+
+        <button
+          type="button"
           onClick={() => onLihat(poster)}
+          className="mt-2 inline-flex min-h-11 w-fit items-center gap-1.5 rounded-md text-[11px] font-semibold text-gold-foreground underline-offset-2 transition-colors hover:text-navy hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary sm:min-h-0"
         >
-          <Eye className="size-4" /> Lihat
-        </Button>
+          <Eye className="size-3.5" aria-hidden="true" /> Pratinjau penuh
+        </button>
       </div>
     </article>
   );
