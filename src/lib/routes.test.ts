@@ -6,6 +6,9 @@
  * bawaan peramban/sistem), dan kombinasinya dibaca dari `code` sehingga tetap
  * sama di tata letak papan tombol non-QWERTY.
  */
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+
 import { ADMIN_ROUTE, kombinasiAdmin } from "./routes";
 
 let passed = 0;
@@ -39,6 +42,30 @@ ok(
 ok(
   ADMIN_ROUTE.startsWith("/") && ADMIN_ROUTE.length > 20,
   "rute admin tetap jalur internal yang panjang",
+);
+
+// Perkabelan di halaman yang BENAR: rute "/" merender `LandingHome`, bukan
+// `Landing`. Kedua pintu harus terpasang di berkas itu.
+const landing = readFileSync(
+  fileURLToPath(new URL("../pages/LandingHome.tsx", import.meta.url)),
+  "utf8",
+);
+ok(landing.includes("onClick={handleBrandClick}"), "logo landing menghitung ketukan");
+ok(
+  landing.includes("logoClickCountRef.current >= 5"),
+  "lima ketukan membuka pintu admin",
+);
+ok(
+  landing.includes("kombinasiAdmin(event)"),
+  "landing memakai pencocok Ctrl+Alt+A",
+);
+ok(
+  landing.includes("navigate(`/auth?returnTo="),
+  "pintu admin mengarah ke halaman masuk dengan returnTo",
+);
+ok(
+  !landing.match(/href=["']\/7c91f4d2/),
+  "tautan rute admin tidak pernah dirender di markup landing",
 );
 
 console.log(`routes: ${passed} lulus, ${failed} gagal`);

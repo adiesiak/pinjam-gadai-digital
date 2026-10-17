@@ -5,15 +5,17 @@ import {
   FileText,
   LockKeyhole,
   Menu,
+  ShieldCheck,
 } from "lucide-react";
-import { Link } from "react-router";
+import { useEffect, useRef, useState } from "react";
+import { Link, useNavigate } from "react-router";
 
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { VaultLogo } from "@/components/VaultLogo";
 import { LandingHero } from "@/components/landing/LandingHero";
 import { CONTRACT_TERMS_VERSION } from "@/lib/contract";
-import { ADMIN_ROUTE } from "@/lib/routes";
+import { ADMIN_ROUTE, kombinasiAdmin } from "@/lib/routes";
 
 const layanan = [
   {
@@ -61,6 +63,57 @@ const panduan = [
 
 export default function LandingHome() {
   const { isAuthenticated, isLoading, user } = useAuth();
+  const navigate = useNavigate();
+  /**
+   * Pintu admin TIDAK muncul di markup sampai diminta: 5× ketuk logo (jeda
+   * maksimal 3 detik antar ketukan) atau Ctrl+Alt+A. Rute panel sendiri tetap
+   * tidak pernah dirender sebelum pintu ini dibuka, dan gerbang sesungguhnya
+   * ada di halaman masuk (kata sandi + TOTP).
+   */
+  const [showAdminShortcut, setShowAdminShortcut] = useState(false);
+  const logoClickCountRef = useRef(0);
+  const logoClickTimerRef = useRef<number | null>(null);
+
+  const handleBrandClick = () => {
+    if (showAdminShortcut) return;
+    if (logoClickTimerRef.current !== null) window.clearTimeout(logoClickTimerRef.current);
+    logoClickCountRef.current += 1;
+    if (logoClickCountRef.current >= 5) {
+      logoClickCountRef.current = 0;
+      logoClickTimerRef.current = null;
+      setShowAdminShortcut(true);
+      return;
+    }
+    logoClickTimerRef.current = window.setTimeout(() => {
+      logoClickCountRef.current = 0;
+      logoClickTimerRef.current = null;
+    }, 3000);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (logoClickTimerRef.current !== null) window.clearTimeout(logoClickTimerRef.current);
+    };
+  }, []);
+
+  // Jalur kedua: Ctrl+Alt+A. Diabaikan saat fokus di medan isian supaya tidak
+  // mencuri pintasan dari pengguna yang sedang mengetik.
+  useEffect(() => {
+    const bukaAdmin = (event: KeyboardEvent) => {
+      if (!kombinasiAdmin(event)) return;
+      const sasaran = event.target as HTMLElement | null;
+      if (
+        sasaran !== null &&
+        (sasaran.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(sasaran.tagName))
+      ) {
+        return;
+      }
+      event.preventDefault();
+      navigate(`/auth?returnTo=${encodeURIComponent(ADMIN_ROUTE)}`);
+    };
+    window.addEventListener("keydown", bukaAdmin);
+    return () => window.removeEventListener("keydown", bukaAdmin);
+  }, [navigate]);
   const accountHref =
     isAuthenticated && user?.role === "admin"
       ? ADMIN_ROUTE
@@ -79,6 +132,7 @@ export default function LandingHome() {
           <Link
             to="/"
             aria-label="PINDAI, beranda"
+            onClick={handleBrandClick}
             className="flex shrink-0 items-center gap-2.5"
           >
             <VaultLogo size={34} />
@@ -107,6 +161,16 @@ export default function LandingHome() {
             </Link>
           </nav>
           <div className="flex items-center gap-2">
+            {showAdminShortcut && (
+              <Link
+                to={ADMIN_ROUTE}
+                aria-label="Masuk admin"
+                title="Masuk admin"
+                className="inline-flex size-11 items-center justify-center rounded-lg border border-[#d5e1d8] text-[#065f46] transition-colors hover:bg-[#edf4ef] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#065f46]"
+              >
+                <ShieldCheck className="size-5" aria-hidden="true" />
+              </Link>
+            )}
             <details className="group relative lg:hidden">
               <summary
                 className="flex size-11 cursor-pointer list-none items-center justify-center rounded-lg border border-[#d5e1d8] text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#065f46]"
