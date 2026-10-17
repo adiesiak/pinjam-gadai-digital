@@ -69,13 +69,20 @@ ada(cepat, "api.loans.createLoanApplication", "memakai mutasi pengajuan pinjaman
 tidakAda(cepat, "useMutation(api.loans.createPawnApplication", "tidak menambah mutasi gadai");
 ada(cepat, "persetujuanSyarat: true", "persetujuan S&K tetap dicatat server");
 ada(cepat, "tandaTangan:", "tanda tangan tetap dikirim (syarat server)");
-ada(cepat, "lokasiAjukan: lokasi", "titik GPS tetap dikirim (syarat server)");
+ada(cepat, "lokasiAjukan: titik", "titik GPS tetap dikirim (syarat server)");
+ada(
+  cepat,
+  "const titik = (await ambilLokasi()) ?? lokasi",
+  "titik GPS diambil saat tombol kirim ditekan, bukan dari tombol lokasi terpisah",
+);
+tidakAda(cepat, '"Ambil lokasi"', "tidak ada tombol lokasi terpisah");
+tidakAda(cepat, '"Perbarui lokasi"', "tidak ada tombol perbarui lokasi terpisah");
 ada(cepat, "dokKtpId,", "id dokumen KYC dipakai ulang, tidak diunggah lagi");
 
 // Aturan validasi berasal dari modul murni, bukan ditulis ulang di JSX — dan
 // parameternya SISA batas pinjaman dari server, bukan plafon maksimal: batas
 // yang tertulis di layar harus sama dengan yang diterima validasi pengajuan.
-ada(cepat, 'validasiPengajuanCepat(isianCepat, ktp, sisaBatas)', "validasi memakai aturan bersama atas sisa batas");
+ada(cepat, 'validasiPengajuanCepat(isianSaatKirim, ktp, sisaBatas)', "validasi memakai aturan bersama atas sisa batas");
 ada(cepat, 'from "@/lib/pengajuanCepat"', "komponen memakai modul aturan pengajuan cepat");
 ada(cepat, "api.nasabah.plafonRingkasSaya", "sisa batas dibaca dari ringkasan plafon server");
 tidakAda(cepat, "api.lokasi.plafonSaya", "tidak memakai plafon maksimal sebagai batas pengajuan");

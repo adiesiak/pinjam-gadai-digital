@@ -20,7 +20,7 @@
  */
 import { useMutation, useQuery } from "convex/react";
 import { BadgeCheck, Landmark, Loader2, MapPin, Send, ShieldCheck, Wallet } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import SignaturePad from "signature_pad";
 import { toast } from "sonner";
 
@@ -199,36 +199,56 @@ export function PengajuanCepatSection({
   }, []);
 
   // ===== Lokasi (titik yang dikirim bersama pengajuan) =====
-  const ambilLokasi = () => {
+  /**
+   * Ambil satu titik GPS.
+   *
+   * Dipakai otomatis saat formulir dibuka dan oleh tombol kirim — tidak ada
+   * tombol "Ambil lokasi" terpisah, karena satu pengajuan cukup satu tombol.
+   * Kegagalan dikembalikan sebagai `null` tanpa memasang pesan galat: pengambilan
+   * otomatis saat formulir dibuka tidak perlu menakut-nakuti nasabah, sedangkan
+   * tombol kirim memakai pesan galatnya sendiri.
+   */
+  const ambilLokasi = useCallback((): Promise<TitikLokasi | null> => {
     if (typeof navigator === "undefined" || !("geolocation" in navigator)) {
-      setError("Lokasi tidak bisa diambil dari perangkat ini.");
-      return;
+      return Promise.resolve(null);
     }
     setLokBusy(true);
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setLokasi({
-          lat: pos.coords.latitude,
-          lng: pos.coords.longitude,
-          akurasi: pos.coords.accuracy,
-          waktu: Date.now(),
-        });
+    return new Promise((resolve) => {
+      try {
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            const titik: TitikLokasi = {
+              lat: pos.coords.latitude,
+              lng: pos.coords.longitude,
+              akurasi: pos.coords.accuracy,
+              waktu: Date.now(),
+            };
+            setLokasi(titik);
+            setLokBusy(false);
+            resolve(titik);
+          },
+          () => {
+            setLokBusy(false);
+            resolve(null);
+          },
+          { enableHighAccuracy: true, timeout: 15000, maximumAge: 30000 },
+        );
+      } catch {
+        // Sebagian WebView melempar sinkron saat geolocation diblokir kebijakan.
+        // Tanpa ini promise tidak pernah selesai dan tombol kirim terkunci.
         setLokBusy(false);
-      },
-      () => {
-        setError("Lokasi gagal diambil. Izinkan akses lokasi pada peramban, lalu coba lagi.");
-        setLokBusy(false);
-      },
-      { enableHighAccuracy: true, timeout: 15000, maximumAge: 30000 },
-    );
-  };
-
-  // Diambil otomatis saat halaman dibuka; tombolnya tetap ada untuk mencoba ulang.
-  const ambilLokasiRef = useRef(ambilLokasi);
-  ambilLokasiRef.current = ambilLokasi;
-  useEffect(() => {
-    queueMicrotask(() => ambilLokasiRef.current());
+        resolve(null);
+      }
+    });
   }, []);
+
+  // Minta izin GPS otomatis saat formulir dibuka. Dijadwalkan sebagai microtask
+  // agar tidak memanggil setState langsung di dalam tubuh efek.
+  useEffect(() => {
+    queueMicrotask(() => {
+      void ambilLokasi();
+    });
+  }, [ambilLokasi]);
 
   // ===== Hitungan & kesiapan =====
   const q = quotePinjaman({ pokokPinjaman: pokok, persenBunga: bungaQuery ?? undefined });
@@ -248,26 +268,36 @@ export function PengajuanCepatSection({
 
   const kirim = async () => {
     setError(null);
-    const pesan = validasiPengajuanCepat(isianCepat, ktp, sisaBatas);
+    // Tombol kirim sekaligus mengambil titik GPS: yang terkirim adalah lokasi
+    // saat mengirim, bukan titik lama saat formulir baru dibuka. Bila GPS gagal
+    // tetapi titik lama sudah ada, pengajuan tetap boleh lanjut.
+    const titik = (await ambilLokasi()) ?? lokasi;
+    if (titik === null) {
+      setError(
+        "Lokasi belum bisa diambil. Izinkan akses lokasi pada peramban, lalu kirim lagi.",
+      );
+      return;
+    }
+    const isianSaatKirim: IsianPengajuanCepat = { ...isianCepat, lokasiTercatat: true };
+    const pesan = validasiPengajuanCepat(isianSaatKirim, ktp, sisaBatas);
     if (pesan !== null) {
       setError(pesan);
       return;
     }
     const pad = padRef.current;
     // Jaga-jaga: syarat yang lolos validasi tapi berubah sebelum tombol selesai
-    // diproses (mis. lokasi/kanvas dibersihkan) tidak boleh dikirim setengah jadi.
+    // diproses (mis. kanvas dibersihkan) tidak boleh dikirim setengah jadi.
     const dokKtpId = ktp.dokKtpId;
     const dokSelfieKtpId = ktp.dokSelfieKtpId;
     const dokSlipGajiId = ktp.dokSlipGajiId;
     if (
       pad === null ||
       pad.isEmpty() ||
-      lokasi === null ||
       dokKtpId === null ||
       dokSelfieKtpId === null ||
       dokSlipGajiId === null
     ) {
-      setError("Lengkapi tanda tangan, lokasi, dan dokumen sebelum mengirim pengajuan.");
+      setError("Lengkapi tanda tangan dan dokumen sebelum mengirim pengajuan.");
       return;
     }
     // Satu pengiriman saja walau tombol ditekan berulang.
@@ -298,7 +328,7 @@ export function PengajuanCepatSection({
         dokKtpId,
         dokSelfieKtpId,
         dokSlipGajiId,
-        lokasiAjukan: lokasi,
+        lokasiAjukan: titik,
         jebakan,
         formDibukaPada,
         kunciIdempotensi: kunciKirim,
@@ -542,7 +572,7 @@ export function PengajuanCepatSection({
             </p>
           </div>
 
-          {/* Tanda tangan & lokasi: tetap wajib karena server mensyaratkannya. */}
+          {/* Tanda tangan: tetap wajib karena server mensyaratkannya. */}
           <div className="min-w-0 sm:col-span-2">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <p className="text-xs font-semibold text-slate-900">Tanda tangan pengajuan</p>
@@ -563,28 +593,30 @@ export function PengajuanCepatSection({
                 {ktp.namaLengkap}
               </span>
             </div>
-            <div className="mt-2 flex flex-wrap items-center gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="h-8 gap-1.5 rounded-xl"
-                disabled={submitting || lokBusy}
-                onClick={ambilLokasi}
+          </div>
+
+          {/* Lokasi perangkat: dicatat dari tombol kirim, tanpa tombol terpisah. */}
+          <div className="min-w-0 rounded-xl border border-slate-200 bg-slate-50/70 px-3 py-2 sm:col-span-2">
+            <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
+              Lokasi Anda saat mengirim formulir (wajib)
+            </p>
+            {lokasi ? (
+              <p role="status" aria-live="polite" className="mt-1 text-xs leading-5 tabular-nums">
+                <MapPin className="mr-1 inline size-3.5 text-emerald-600" aria-hidden />
+                {lokasi.lat.toFixed(5)}, {lokasi.lng.toFixed(5)} · perkiraan ketelitian ±
+                {Math.round(lokasi.akurasi)} meter
+              </p>
+            ) : (
+              <p
+                role="status"
+                aria-live="polite"
+                className="mt-1 text-[11px] leading-5 text-muted-foreground"
               >
-                {lokBusy ? (
-                  <Loader2 className="size-3.5 animate-spin" />
-                ) : (
-                  <MapPin className="size-3.5" />
-                )}
-                {lokasi === null ? "Ambil lokasi" : "Perbarui lokasi"}
-              </Button>
-              <span className="text-[11px] leading-4 text-muted-foreground">
-                {lokasi === null
-                  ? "Lokasi perangkat wajib tercatat sebelum mengirim."
-                  : `Lokasi tercatat ± ${Math.round(lokasi.akurasi)} m.`}
-              </span>
-            </div>
+                {lokBusy
+                  ? "Mengambil lokasi…"
+                  : "Lokasi belum tercatat. Titik GPS diambil saat Anda menekan tombol kirim."}
+              </p>
+            )}
           </div>
 
           <label
