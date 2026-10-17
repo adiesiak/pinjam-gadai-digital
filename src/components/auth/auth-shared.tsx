@@ -28,7 +28,6 @@ import {
   LockKeyhole,
   LogIn,
   Mail,
-  MessageCircle,
   RefreshCw,
   ShieldCheck,
   Timer,
@@ -99,16 +98,11 @@ export const KELAS_INPUT =
 export const KELAS_TOMBOL_UTAMA =
   "w-full mt-3 bg-[#064E3B] hover:bg-[#042F2E] text-white font-medium py-3 rounded-xl shadow-md transition-all active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60";
 
-/** Tombol sekunder beraksen hijau untuk peminjam lama (nomor WhatsApp). */
-export const KELAS_TOMBOL_WA =
-  "w-full py-3 px-4 rounded-xl border border-emerald-600/30 bg-emerald-50/60 hover:bg-emerald-100/80 text-emerald-900 font-medium flex items-center justify-center gap-2 transition-all mt-3 shadow-2xs disabled:cursor-not-allowed disabled:opacity-60";
-
 /**
  * Tombol pintu GOOGLE: bidang putih bergaris, lebih tenang daripada tombol
- * utama supaya email tetap terbaca sebagai jalur pertama. Tanpa ikon merek:
- * lambang Google tidak digambar di sini (aset pihak ketiga tidak dibuat tanpa
- * persetujuan), dan labelnya sudah menyebut penyedianya. Teks `slate-700` di
- * atas putih ≈ 9,9:1, jadi tetap lolos kontras WCAG AA.
+ * utama supaya email tetap terbaca sebagai jalur pertama. Membawa lambang
+ * resmi Google; teks `slate-700` di atas putih ≈ 9,9:1, jadi tetap lolos
+ * kontras WCAG AA.
  */
 export const KELAS_TOMBOL_GOOGLE =
   "w-full py-3 px-4 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-medium flex items-center justify-center gap-2 transition-all mt-3 shadow-xs active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 disabled:active:scale-100";
@@ -711,10 +705,15 @@ export function PesanKesalahan({
    ========================================================================== */
 
 /**
- * Medan email/WhatsApp. Label di ATAS medan (bukan ikon di dalam medan):
- * dengan begitu padding `px-4` yang diminta tidak bertabrakan dengan ikon,
- * dan petunjuk penting tetap terbaca — alur nomor WhatsApp lama punya
- * tombolnya sendiri di bawah, karena medan ini mengirim kode ke EMAIL.
+ * Medan masuk TUNGGAL: email atau nomor WhatsApp dalam satu kolom.
+ *
+ * Label di ATAS medan (bukan ikon di dalam medan) supaya padding `px-4` yang
+ * diminta tidak bertabrakan dengan ikon, dan petunjuk penting tetap terbaca.
+ *
+ * `type="text"`, bukan `email`: validasi bawaan peramban untuk `type="email"`
+ * menolak nomor telepon SEBELUM formulir sempat dikirim, padahal nomor itulah
+ * pintu peminjam lama. Jalur email atau WhatsApp ditentukan
+ * `lib/masukKredensial.ts` di sisi halaman, bukan oleh peramban.
  */
 export function MedanEmailMasuk({ isLoading }: { isLoading: boolean }) {
   return (
@@ -729,17 +728,16 @@ export function MedanEmailMasuk({ isLoading }: { isLoading: boolean }) {
       <input
         id="masuk-email"
         name="email"
-        type="email"
-        inputMode="email"
-        autoComplete="email"
-        placeholder="nama@contoh.com"
+        type="text"
+        autoComplete="username"
+        placeholder="nama@contoh.com atau 08123456789"
         className={KELAS_INPUT}
         disabled={isLoading}
         required
       />
       <p className="text-xs leading-5 text-slate-500">
-        Kode verifikasi dikirim ke email. Peminjam lama yang terdaftar dengan
-        nomor WhatsApp: tekan tombol hijau di bawah.
+        Kode dikirim ke email Anda, atau ke WhatsApp bila yang Anda isi nomor —
+        termasuk nomor yang dipakai meminjam di web PINDAI lama.
       </p>
     </div>
   );
@@ -767,26 +765,35 @@ export function TombolLanjutEmail({ isLoading }: { isLoading: boolean }) {
 }
 
 /**
- * Tombol sekunder khusus PEMINJAM LAMA (data impor web lama): membuka alur
- * klaim nomor WhatsApp, bukan mengirim kode email seperti tombol utama.
+ * Lambang Google resmi (versi empat warna standar, tidak diwarnai ulang) —
+ * dipakai apa adanya sesuai pedoman merek Google. Murni hias: label tombolnya
+ * sudah menyebut penyedianya, jadi tidak perlu dibacakan pembaca layar.
  */
-export function TombolWhatsappPeminjamLama({
-  onClick,
-  disabled,
-}: {
-  onClick: () => void;
-  disabled: boolean;
-}) {
+function LambangGoogle() {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      className={KELAS_TOMBOL_WA}
+    <svg
+      viewBox="0 0 48 48"
+      className="size-4 shrink-0"
+      aria-hidden="true"
+      focusable="false"
     >
-      <MessageCircle className="size-4" aria-hidden="true" />
-      Peminjam lama? Masuk dengan nomor WhatsApp
-    </button>
+      <path
+        fill="#4285F4"
+        d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"
+      />
+      <path
+        fill="#34A853"
+        d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"
+      />
+      <path
+        fill="#FBBC05"
+        d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"
+      />
+      <path
+        fill="#EA4335"
+        d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"
+      />
+    </svg>
   );
 }
 
@@ -812,6 +819,7 @@ export function TombolGoogle({
       disabled={disabled}
       className={KELAS_TOMBOL_GOOGLE}
     >
+      <LambangGoogle />
       Masuk dengan Google
     </button>
   );

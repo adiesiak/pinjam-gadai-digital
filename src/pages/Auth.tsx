@@ -31,15 +31,14 @@ import {
   TombolGoogle,
   TombolKembaliAdmin,
   TombolLanjutEmail,
-  TombolWhatsappPeminjamLama,
   type TabPintuMasuk as TabAuth,
 } from "@/components/auth/auth-shared";
-import { KlaimPeminjamLama } from "@/components/klaim/KlaimPeminjamLama";
 import { FadeIn } from "@/components/Reveal";
 import { useAuth } from "@/hooks/use-auth";
 import { api } from "@/convex/_generated/api";
 import { getClientIp, getUserAgent } from "@/lib/session";
 import { ADMIN_ROUTE } from "@/lib/routes";
+import { kredensialMasuk } from "@/lib/masukKredensial";
 import {
   NILAI_GOOGLE_KEMBALI,
   PARAM_GOOGLE_KEMBALI,
@@ -53,13 +52,14 @@ import {
   Loader2,
   LockKeyhole,
   Mail,
+  MessageCircle,
   ShieldAlert,
   ShieldCheck,
   UserX,
   Zap,
 } from "lucide-react";
 import { Suspense, useEffect, useRef, useState, type FormEvent } from "react";
-import { useMutation } from "convex/react";
+import { useAction, useMutation } from "convex/react";
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router";
 
 interface AuthProps {
@@ -181,11 +181,14 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
    */
   const jalurAdmin =
     authMode === "admin" || searchParams.get("returnTo") === ADMIN_ROUTE;
-  // Langkah jalur nasabah: nomor email → kode email, atau jalur "klaim" untuk
-  // PEMINJAM LAMA (nomor WhatsApp lama → kode WhatsApp, lihat
-  // `components/klaim/KlaimPeminjamLama`).
+  // Langkah jalur nasabah — satu medan, dua jalur kode:
+  //  - `{ email }`: kode 6 angka ke email (provider `email-otp`);
+  //  - `{ nomor }`: kode 6 angka ke WhatsApp peminjam LAMA, dan kode yang benar
+  //    memberi sesi akun PEMILIK data lama (provider `whatsapp-otp`).
   const [clientStep, setClientStep] = useState<
-    "signIn" | "klaim" | { email: string }
+    | "signIn"
+    | { email: string }
+    | { nomor: string; nomorTampil: string; berkasLama: number }
   >("signIn");
   /**
    * Tab kartu masuk. "Masuk Akun" adalah DEFAULT (email → kode verifikasi);
@@ -221,6 +224,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
   }));
   const recordLogin = useMutation(api.security.recordLogin);
   const tandaiGagal = useMutation(api.security.recordFailedAttempt);
+  const mintaKodeKlaim = useAction(api.klaimPeminjam.mintaKodeKlaim);
 
   const captchaWajib = kegagalan >= 2;
   const captchaBenar =
@@ -242,18 +246,26 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
   }, [authLoading, isAuthenticated, navigate, redirect]);
 
   /**
-   * Pengguna kembali dari Google.
+   * Pengguna baru kembali dari Google dan sesinya BELUM ada.
    *
-   * `authLoading` masih bernilai benar selama kode di URL sedang ditukar
-   * menjadi sesi, jadi tunggu sampai selesai — dengan begitu keberhasilan tidak
-   * sempat menampilkan pesan gagal. Bila sesi tetap tidak ada setelah pemuatan
-   * selesai, baru halaman ini yang memberi tahu (lihat `PESAN_GOOGLE_GAGAL`).
-   * Penandanya dibersihkan dari URL supaya tidak menempel saat disegarkan.
+   * Diturunkan dari URL saat render, bukan disimpan di state: `authLoading`
+   * masih benar selama kode di URL sedang ditukar menjadi sesi, sehingga
+   * keberhasilan tidak sempat menampilkan pesan gagal. Pesannya sendiri seragam
+   * (`PESAN_GOOGLE_GAGAL`) karena Convex Auth pada kegagalan hanya kembali tanpa
+   * `code` — sebabnya memang tidak bisa dibedakan dari peramban.
    */
-  useEffect(() => {
-    if (searchParams.get(PARAM_GOOGLE_KEMBALI) !== NILAI_GOOGLE_KEMBALI) return;
-    if (authLoading) return;
-    if (!isAuthenticated) setError(PESAN_GOOGLE_GAGAL);
+  const googleKembaliGagal =
+    searchParams.get(PARAM_GOOGLE_KEMBALI) === NILAI_GOOGLE_KEMBALI &&
+    !authLoading &&
+    !isAuthenticated;
+
+  /**
+   * Buang penanda `google` dari URL begitu pengguna mencoba lagi (email, nomor,
+   * Google, atau tamu), supaya pesan gagal yang lama tidak terbawa ke kunjungan
+   * berikutnya seperti halaman yang disegarkan.
+   */
+  const bersihkanPenandaGoogle = () => {
+    if (searchParams.get(PARAM_GOOGLE_KEMBALI) === null) return;
     setSearchParams(
       (current) => {
         const next = new URLSearchParams(current);
@@ -262,7 +274,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
       },
       { replace: true },
     );
-  }, [authLoading, isAuthenticated, searchParams, setSearchParams]);
+  };
 
   /**
    * Timer token 32 karakter berjalan begitu langkah verifikasi terbuka. Server
@@ -322,9 +334,21 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
     });
   };
 
-  const handleEmailSubmit = async (event: FormEvent<HTMLFormElement>) => {
+  /**
+   * Langkah pertama jalur nasabah: EMAIL atau NOMOR WhatsApp dari satu medan.
+   *
+   * Keduanya lewat kolom yang sama sehingga peminjam lama tidak perlu
+   * menemukan tombol khusus dulu:
+   *  - berisi `@` → provider `email-otp` mengirim kode ke email itu;
+   *  - berbentuk nomor → `klaimPeminjam.mintaKodeKlaim` mengirim kode WhatsApp
+   *    ke nomor tersebut, dan kode yang benar nanti memberi sesi akun PEMILIK
+   *    data lama (`whatsapp-otp`), bukan akun baru yang kosong.
+   * Nomor yang tidak dikenali ditolak di sini, sebelum ada permintaan terkirim.
+   */
+  const handleMasukSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError(null);
+    bersihkanPenandaGoogle();
     if (!captchaBenar) {
       setError("Jawaban verifikasi anti-bot salah.");
       return;
@@ -332,10 +356,51 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
     setIsLoading(true);
     // Dibaca sebelum await: `event.currentTarget` tidak lagi valid setelahnya.
     const formData = new FormData(event.currentTarget);
-    const email = String(formData.get("email") ?? "");
+    const kredensial = kredensialMasuk(String(formData.get("email") ?? ""));
+
+    if (kredensial.jenis === "tidak-valid") {
+      setError("Masukkan email atau nomor WhatsApp yang benar.");
+      setIsLoading(false);
+      return;
+    }
+
+    if (kredensial.jenis === "nomor") {
+      try {
+        const hasil = await mintaKodeKlaim({
+          nomor: kredensial.nomor,
+          ip: await getClientIp(),
+          userAgent: getUserAgent(),
+        });
+        if (!hasil.ok) {
+          setKegagalan((k) => k + 1);
+          await recordFailedAttempt(kredensial.nomor);
+          setError(hasil.pesan);
+          return;
+        }
+        setOtp("");
+        setClientStep({
+          nomor: kredensial.nomor,
+          nomorTampil: hasil.nomorTampil,
+          berkasLama: hasil.berkasLama,
+        });
+      } catch (error) {
+        console.error("WhatsApp OTP request error:", error);
+        setKegagalan((k) => k + 1);
+        await recordFailedAttempt(kredensial.nomor);
+        setError("Gagal mengirim kode WhatsApp. Coba lagi sebentar lagi.");
+      } finally {
+        setIsLoading(false);
+      }
+      return;
+    }
+
     try {
-      await signIn("email-otp", formData);
-      setClientStep({ email });
+      // Alamat dikirim dalam bentuk yang sudah dipangkas supaya cocok persis
+      // dengan yang tersimpan di akun.
+      const data = new FormData();
+      data.set("email", kredensial.email);
+      await signIn("email-otp", data);
+      setClientStep({ email: kredensial.email });
       setIsLoading(false);
     } catch (error) {
       console.error("Email sign-in error:", error);
@@ -356,18 +421,39 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
       setError("Jawaban verifikasi anti-bot salah.");
       return;
     }
-    // Hanya langkah kode email yang dilanjutkan di sini; "klaim" memakai
-    // formulirnya sendiri (`KlaimPeminjamLama`) dan tidak pernah sampai ke sini.
+    // Kode dari dua jalur: email (`email-otp`) atau WhatsApp peminjam lama
+    // (`whatsapp-otp`). Keduanya memakai medan kode yang sama.
     if (typeof clientStep !== "object") return;
     setIsLoading(true);
+    const ip = await getClientIp();
     try {
-      const formData = new FormData(event.currentTarget);
-      await signIn("email-otp", formData);
+      if ("nomor" in clientStep) {
+        // Verifikasi + penautan terjadi di dalam provider
+        // (`convex/auth/whatsappOtp.ts`): kode yang benar menghasilkan sesi akun
+        // pemilik data lama, dan satu-satunya syarat adalah nomor itu sendiri.
+        await signIn("whatsapp-otp", {
+          phoneNumber: clientStep.nomor,
+          otpCode: otp,
+          ip,
+          userAgent: getUserAgent(),
+        });
+        await recordSuccessfulLogin("whatsapp");
+        return;
+      }
+      const data = new FormData();
+      data.set("email", clientStep.email);
+      data.set("code", otp);
+      await signIn("email-otp", data);
       await recordSuccessfulLogin("email_otp");
     } catch (error) {
       console.error("OTP verification error:", error);
       setKegagalan((k) => k + 1);
-      await recordFailedAttempt(clientStep.email.toLowerCase());
+      await recordFailedAttempt(
+        "nomor" in clientStep ? clientStep.nomor : clientStep.email.toLowerCase(),
+      );
+      // Pesan seragam untuk kedua jalur: kode salah dan kode kedaluwarsa tidak
+      // bisa dibedakan dari luar, dan sebab lain (nomor tanpa data lama) sudah
+      // dijawab jujur di langkah pertama.
       setError("Kode verifikasi salah atau kedaluwarsa.");
       setIsLoading(false);
       setOtp("");
@@ -515,6 +601,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
    */
   const handleGoogleSubmit = async () => {
     setError(null);
+    bersihkanPenandaGoogle();
     if (!captchaBenar) {
       setError("Jawaban verifikasi anti-bot salah.");
       return;
@@ -538,6 +625,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
 
   const handleGuestLogin = async () => {
     setError(null);
+    bersihkanPenandaGoogle();
     if (!captchaBenar) {
       setError("Jawaban verifikasi anti-bot salah.");
       return;
@@ -647,11 +735,17 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                           ikon={<ShieldCheck className="size-5" />}
                         />
                         <form
-                          onSubmit={handleEmailSubmit}
+                          onSubmit={handleMasukSubmit}
                           className="space-y-3"
                         >
                           <MedanEmailMasuk isLoading={isLoading} />
-                          {error && <PesanKesalahan pesan={error} />}
+                          {error ? (
+                            <PesanKesalahan pesan={error} />
+                          ) : (
+                            googleKembaliGagal && (
+                              <PesanKesalahan pesan={PESAN_GOOGLE_GAGAL} />
+                            )
+                          )}
                           <CaptchaChallenge
                             visible={captchaWajib}
                             a={captcha.a}
@@ -661,16 +755,6 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                             disabled={isLoading}
                           />
                           <TombolLanjutEmail isLoading={isLoading} />
-                          {/* Pintu PEMINJAM LAMA (data impor web lama): nomor
-                              WhatsApp → kode OTP → sesi akun PEMILIK data
-                              impor, jadi dashboard langsung berisi riwayat. */}
-                          <TombolWhatsappPeminjamLama
-                            disabled={isLoading}
-                            onClick={() => {
-                              setError(null);
-                              setClientStep("klaim");
-                            }}
-                          />
                           {/* Pintu GOOGLE: berlaku untuk PEMINJAM maupun
                               PENYEDIA DANA, karena yang dibuktikan adalah email
                               terverifikasi Google. Lihat `convex/auth/google.ts`. */}
@@ -729,39 +813,33 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                       </TabsContent>
                     </Tabs>
                   </>
-                ) : clientStep === "klaim" ? (
-                  <>
-                    <KepalaPane
-                      judul="Pemulihan akun web lama"
-                      keterangan="Masuk dengan nomor WhatsApp yang Anda pakai pada PINDAI sebelumnya."
-                      ikon={<KeyRound className="size-5" />}
-                    />
-                    <KlaimPeminjamLama
-                      onKembali={() => {
-                        setError(null);
-                        setClientStep("signIn");
-                      }}
-                    />
-                    <p className="mt-3 text-center text-[11px] leading-5 text-slate-500">
-                      Belum pernah mengajukan dari web lama? Kembali dan daftar
-                      dengan email.
-                    </p>
-                  </>
                 ) : (
                   <>
+                    {/* Langkah kode melayani DUA jalur: email dan WhatsApp
+                        peminjam lama. Judul, ikon, dan petunjuknya mengikuti
+                        jalur yang dipakai, bukan dua formulir terpisah. */}
                     <KepalaPane
-                      judul="Cek email Anda"
-                      keterangan={`Kami mengirim kode verifikasi ke ${clientStep.email}`}
-                      ikon={<Mail className="size-5" />}
+                      judul={
+                        "nomor" in clientStep ? "Cek WhatsApp Anda" : "Cek email Anda"
+                      }
+                      keterangan={
+                        "nomor" in clientStep
+                          ? `Kode 6 angka dikirim ke WhatsApp ${clientStep.nomorTampil}${
+                              clientStep.berkasLama > 0
+                                ? ` · ${clientStep.berkasLama} berkas dari web lama menunggu dipulihkan`
+                                : ""
+                            }`
+                          : `Kami mengirim kode verifikasi ke ${clientStep.email}`
+                      }
+                      ikon={
+                        "nomor" in clientStep ? (
+                          <MessageCircle className="size-5" />
+                        ) : (
+                          <Mail className="size-5" />
+                        )
+                      }
                     />
                     <form onSubmit={handleOtpSubmit} className="space-y-3">
-                      <input
-                        type="hidden"
-                        name="email"
-                        value={clientStep.email}
-                      />
-                      <input type="hidden" name="code" value={otp} />
-
                       <VerificationCodeField
                         value={otp}
                         onChange={setOtp}
@@ -806,7 +884,9 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                         disabled={isLoading}
                         className="w-full"
                       >
-                        Gunakan email lain
+                        {"nomor" in clientStep
+                          ? "Ganti nomor atau email"
+                          : "Gunakan email lain"}
                       </Button>
                     </form>
                   </>

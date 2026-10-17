@@ -7,13 +7,13 @@
  *  1. Token desain yang diminta benar-benar MUNCUL di markup — bukan sekadar
  *     ada di kode: gradient ambient + `min-h-screen` pada latar, `bg-white/85
  *     backdrop-blur-xl` pada kartu, kelas input fokus emerald, tombol hijau
- *     `#064E3B`, tombol WhatsApp peminjam lama, serta lencana keamanan.
+ *     `#064E3B`, serta lencana keamanan.
  *  2. Segmented tab: "Masuk Akun" AKTIF secara default dan "Akses Cepat" belum
  *     — pintu email tetap yang pertama dilihat pengunjung.
  *  3. `pages/Auth.tsx` memakai potongan ini sambil TETAP memanggil logika
- *     submit yang sama (`handleEmailSubmit`, `signIn("email-otp")`, tamu, dan
- *     pintu kode akses bersama) — merapikan tampilan tidak boleh menyentuh
- *     autentikasi.
+ *     submit yang sama (`signIn("email-otp")`, `signIn("whatsapp-otp")` untuk
+ *     peminjam lama dari medan yang sama, tamu, dan pintu kode akses bersama) —
+ *     merapikan tampilan tidak boleh menyentuh autentikasi.
  *  4. Navigasi bawah kartu menuju rute publik `/`, dan rute `/auth` tetap
  *     mendarat di `/dashboard` setelah berhasil masuk.
  */
@@ -40,7 +40,6 @@ import {
   MeterKekuatanSandi,
   PesanInfo,
   PesanKesalahan,
-  TAB_CEPAT,
   TAB_MASUK,
   TabPintuMasuk,
   TautanBeranda,
@@ -48,7 +47,6 @@ import {
   TombolGoogle,
   TombolKembaliAdmin,
   TombolLanjutEmail,
-  TombolWhatsappPeminjamLama,
 } from "@/components/auth/auth-shared";
 import { Tabs } from "@/components/ui/tabs";
 import { MASA_BERLAKU_TOKEN_DETIK, PANJANG_TOKEN_ADMIN } from "@/lib/authAdmin";
@@ -228,19 +226,32 @@ function aturanAktif(css: string): string {
     'name="email"',
     "nama field tetap `email` sehingga FormData submit tidak berubah",
   );
-  ada(medan, 'type="email"', "tipe email dipakai untuk papan ketik ponsel");
+  // `type="text"`, bukan `email`: validasi bawaan peramban untuk tipe email
+  // menolak nomor telepon sebelum formulir dikirim, padahal nomor itulah pintu
+  // peminjam lama — dan pintu itu kini satu medan dengan email.
+  ada(medan, 'type="text"', "medan menerima email maupun nomor telepon");
+  tidakAda(medan, 'type="email"', "medan tidak dikunci ke alamat email saja");
+  // `autoComplete="username"` (bukan `email`): medan ini identitas masuk yang
+  // boleh berupa email atau nomor, jadi pengelola sandi peramban harus
+  // memperlakukannya sebagai username. Diperiksa di sumbernya karena
+  // `react-dom/server` menuliskan nama atributnya apa adanya.
+  ada(
+    bacaSumber("components/auth/auth-shared.tsx"),
+    'autoComplete="username"',
+    "pengelola sandi peramban mengenali medan ini sebagai identitas masuk",
+  );
   ada(medan, 'for="masuk-email"', "label menunjuk medannya");
   ada(medan, 'id="masuk-email"', "medan punya id yang dirujuk label");
   ada(medan, "required", "medan wajib diisi");
   ada(
     medan,
-    "Kode verifikasi dikirim ke email",
-    "petunjuk menjelaskan kode dikirim ke email",
+    "Kode dikirim ke email Anda, atau ke WhatsApp bila yang Anda isi nomor",
+    "petunjuk menjelaskan kedua jalur kode dari satu medan",
   );
   ada(
     medan,
-    "tekan tombol hijau di bawah",
-    "jalan WhatsApp lama diarahkan ke tombolnya",
+    "termasuk nomor yang dipakai meminjam di web PINDAI lama",
+    "peminjam lama diarahkan ke medan yang sama, tanpa tombol khusus",
   );
   bersih(medan, "medan email");
 
@@ -258,29 +269,23 @@ function aturanAktif(css: string): string {
   ada(utamaMemuat, "disabled", "tombol utama nonaktif saat memuat");
   ada(utamaMemuat, "animate-spin", "keadaan memuat terlihat");
 
-  const wa = render(
-    <TombolWhatsappPeminjamLama onClick={() => {}} disabled={false} />,
-  );
-  ada(
-    wa,
-    "Peminjam lama? Masuk dengan nomor WhatsApp",
-    "label tombol WhatsApp tampil",
-  );
-  ada(wa, 'type="button"', "tombol WhatsApp tidak mengirim formulir email");
-  ada(
-    wa,
-    "w-full py-3 px-4 rounded-xl border border-emerald-600/30 bg-emerald-50/60 hover:bg-emerald-100/80 text-emerald-900 font-medium flex items-center justify-center gap-2 transition-all mt-3 shadow-2xs",
-    "kelas tombol WhatsApp peminjam lama persis seperti permintaan",
-  );
-  bersih(wa, "tombol WhatsApp");
 
   const google = render(<TombolGoogle onClick={() => {}} disabled={false} />);
   ada(google, "Masuk dengan Google", "label tombol Google tampil");
   ada(google, 'type="button"', "tombol Google tidak mengirim formulir email");
   ada(google, KELAS_TOMBOL_GOOGLE, "kelas tombol Google sesuai token desain");
-  // Lambang merek Google sengaja tidak digambar: labelnya sudah menyebut
-  // penyedianya, dan aset pihak ketiga tidak dibuat tanpa persetujuan.
-  tidakAda(google, "<svg", "tombol Google tanpa ikon merek");
+  // Lambang Google resmi: empat warna standar, tidak diwarnai ulang. Ikonnya
+  // hias saja, jadi harus tersembunyi dari pembaca layar.
+  ada(google, "<svg", "tombol Google membawa lambang Google");
+  ada(google, 'viewBox="0 0 48 48"', "lambang memakai kanvas 48x48 yang standar");
+  for (const warna of ["#4285F4", "#34A853", "#FBBC05", "#EA4335"]) {
+    ada(google, warna, `lambang memuat warna resmi ${warna}`);
+  }
+  ok(
+    jumlah(google, "<path") === 4,
+    "lambang Google digambar dari empat bidang warna",
+  );
+  ada(google, 'aria-hidden="true"', "lambang tidak dibacakan pembaca layar");
   bersih(google, "tombol Google");
 
   const googleNonaktif = render(
@@ -367,10 +372,38 @@ function aturanAktif(css: string): string {
   ada(halaman, "value={TAB_CEPAT}", "tab Akses Cepat jadi wadah opsi cepat");
   ada(halaman, "<MedanEmailMasuk", "halaman memakai medan email bersama");
   ada(halaman, "<TombolLanjutEmail", "halaman memakai tombol utama bersama");
-  ada(
+  // Satu medan untuk dua jalur: peminjam lama memakai kolom yang SAMA, jadi
+  // tombol pintu khususnya tidak ada lagi di halaman.
+  tidakAda(
     halaman,
     "<TombolWhatsappPeminjamLama",
-    "halaman memakai tombol WhatsApp bersama",
+    "tombol khusus peminjam lama sudah tidak dipakai",
+  );
+  tidakAda(
+    halaman,
+    "KlaimPeminjamLama",
+    "langkah klaim khusus dihapus dari halaman masuk",
+  );
+  ada(
+    halaman,
+    "onSubmit={handleMasukSubmit}",
+    "satu formulir melayani email maupun nomor WhatsApp",
+  );
+  ada(
+    halaman,
+    'kredensialMasuk(String(formData.get("email") ?? ""))',
+    "jenis kredensial ditentukan lib bersama, bukan peramban",
+  );
+  ada(halaman, "mintaKodeKlaim", "kode WhatsApp diminta lewat aksi klaim");
+  ada(
+    halaman,
+    'signIn("whatsapp-otp"',
+    "kode WhatsApp tetap lewat provider khusus pemilik data lama",
+  );
+  ada(
+    halaman,
+    "Masukkan email atau nomor WhatsApp yang benar.",
+    "isi yang bukan email maupun nomor ditolak sebelum ada permintaan terkirim",
   );
   ada(halaman, "<TombolGoogle", "halaman memakai tombol Google bersama");
   // Pintu Google tetap lewat Convex Auth, dan alamat pulangnya selalu satu
@@ -396,12 +429,12 @@ function aturanAktif(css: string): string {
   );
 
   // Logika autentikasi tidak boleh ikut berubah saat tampilan dirapikan.
+  ada(halaman, 'signIn("email-otp"', "autentikasi OTP email tidak berubah");
   ada(
     halaman,
-    "onSubmit={handleEmailSubmit}",
-    "submit email tetap handler yang sama",
+    'data.set("email", kredensial.email)',
+    "email dikirim dalam bentuk yang sudah dipangkas",
   );
-  ada(halaman, 'signIn("email-otp"', "autentikasi OTP email tidak berubah");
   ada(halaman, 'signIn("anonymous")', "login tamu tidak berubah");
   ada(halaman, "handleGuestLogin", "aksi tamu masih tersedia");
   ada(
