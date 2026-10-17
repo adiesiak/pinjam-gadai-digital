@@ -1,3 +1,4 @@
+import type { FunctionArgs } from "convex/server";
 import { useMutation, useQuery } from "convex/react";
 import { ArrowLeftRight, Check, Loader2, MessageSquare, Tags, Type, Wifi } from "lucide-react";
 import { useState, type ReactNode } from "react";
@@ -49,11 +50,6 @@ const FALLBACK = {
   gadaiJudul: "Gadai Digital",
   gadaiIsi: "Catat informasi barang dan nilai taksiran untuk pengajuan gadai. Status dan pembayaran tercatat di catatan internal.",
   gadaiCta: "Gadaikan barang",
-  apkLabel: "Unduh Aplikasi Android",
-  apkUrl: "#",
-  androidNote: "Aplikasi resmi memakai fitur lokasi dan login terverifikasi.",
-  waTemplateLabel: "Template pesan WhatsApp",
-  waTemplatePlaceholder: "{nama} · {ref} · {jumlah}",
 };
 
 function FieldGroup({ title, children }: { title: string; children: ReactNode }) {
@@ -165,6 +161,14 @@ function DividerLabel({ children }: { children: ReactNode }) {
   );
 }
 
+/**
+ * Bentuk payload CMS diambil LANGSUNG dari validator `announcements.save`.
+ * Dengan begitu field yang tidak dikenal server tidak bisa masuk ke state
+ * formulir — kalau ada, ini gagal saat typecheck, bukan saat admin menekan
+ * Simpan dengan pesan "Object contains extra field".
+ */
+type PayloadCms = FunctionArgs<typeof api.announcements.save>;
+
 export function AnnouncementCms() {
   const row = useQuery(api.announcements.getCmsRow);
   const publik = useQuery(api.announcements.getPublic);
@@ -173,17 +177,23 @@ export function AnnouncementCms() {
   const bersihkan = useMutation(api.announcements.bersihkanTeksLama);
 
   const [busy, setBusy] = useState(false);
-  const [draft, setDraft] = useState<Record<string, string | boolean | number> | null>(null);
-  const [status, setStatus] = useState<{ text: string; ok: boolean } | null>(null);
+  const [draft, setDraft] = useState<Partial<PayloadCms> | null>(null);
   // Tab aktif disimpan di state — sebelumnya `value` dipatok, sehingga mengklik
   // tab lain tidak memindahkan panel (form tetap di Tab 1).
   const [tab, setTab] = useState("tab-1");
 
-  const d = (key: string, fb: string | boolean | number): string | boolean | number =>
-    (draft?.[key] as string | undefined) ?? fb;
-  const db = (key: string, fb: boolean): boolean => (draft?.[key] as boolean | undefined) ?? fb;
-  const ds = (key: string, fb: string): string => (draft?.[key] as string | undefined) ?? fb;
-  const dn = (key: string, fb: number): number => (draft?.[key] as number | undefined) ?? fb;
+  const ds = <K extends keyof PayloadCms>(key: K, fb: string): string => {
+    const nilai = draft?.[key];
+    return typeof nilai === "string" ? nilai : fb;
+  };
+  const db = <K extends keyof PayloadCms>(key: K, fb: boolean): boolean => {
+    const nilai = draft?.[key];
+    return typeof nilai === "boolean" ? nilai : fb;
+  };
+  const dn = <K extends keyof PayloadCms>(key: K, fb: number): number => {
+    const nilai = draft?.[key];
+    return typeof nilai === "number" ? nilai : fb;
+  };
 
   if (row === undefined || publik === undefined) {
     return (
@@ -193,20 +203,17 @@ export function AnnouncementCms() {
     );
   }
 
-  const set = (key: string, value: string | boolean | number) =>
+  const set = <K extends keyof PayloadCms>(key: K, value: PayloadCms[K]) =>
     setDraft((prev) => ({ ...(prev ?? {}), [key]: value }));
 
   const simpan = async () => {
     if (!draft) return;
     setBusy(true);
-    setStatus(null);
     try {
-      await save({ ...draft } as Parameters<typeof save>[0]);
+      await save({ ...draft });
       setDraft(null);
-      setStatus({ text: "Changes saved — public pages updated.", ok: true });
       toast.success("Konten tersimpan — halaman utama langsung diperbarui.");
     } catch (err) {
-      setStatus({ text: err instanceof Error ? err.message : "Save failed.", ok: false });
       toast.error(err instanceof Error ? err.message : "Gagal menyimpan.");
     } finally {
       setBusy(false);
@@ -215,14 +222,11 @@ export function AnnouncementCms() {
 
   const kembalikanDefault = async () => {
     setBusy(true);
-    setStatus(null);
     try {
       await reset({});
       setDraft(null);
-      setStatus({ text: "CMS reset to system defaults.", ok: true });
       toast.success("Semua teks kembali ke default bawaan.");
     } catch (err) {
-      setStatus({ text: err instanceof Error ? err.message : "Reset failed.", ok: false });
       toast.error(err instanceof Error ? err.message : "Gagal reset.");
     } finally {
       setBusy(false);
@@ -231,19 +235,15 @@ export function AnnouncementCms() {
 
   const bersihkanTeksLama = async () => {
     setBusy(true);
-    setStatus(null);
     try {
       const hasil = await bersihkan({});
       if (hasil.diganti.length === 0) {
-        setStatus({ text: "No legacy texts found to clean.", ok: true });
         toast.success("Tidak ada teks lama yang perlu dibersihkan.");
         return;
       }
       setDraft(null);
-      setStatus({ text: `Legacy texts reverted: ${hasil.diganti.join(", ")}.`, ok: true });
       toast.success(`Teks lama dikembalikan ke default baru: ${hasil.diganti.join(", ")}.`);
     } catch (err) {
-      setStatus({ text: err instanceof Error ? err.message : "Clean failed.", ok: false });
       toast.error(err instanceof Error ? err.message : "Gagal membersihkan teks lama.");
     } finally {
       setBusy(false);
@@ -287,11 +287,6 @@ export function AnnouncementCms() {
     gadaiJudul: ds("gadaiJudul", p.gadaiJudul),
     gadaiIsi: ds("gadaiIsi", p.gadaiIsi),
     gadaiCta: ds("gadaiCta", p.gadaiCta),
-    apkUrl: ds("apkUrl", FALLBACK.apkUrl),
-    waTeks: ds("waTeks", FALLBACK.waTemplatePlaceholder),
-    androidNote: ds("androidNote", FALLBACK.androidNote),
-    waTemplateLabel: ds("waTemplateLabel", FALLBACK.waTemplateLabel),
-    apkLabel: ds("apkLabel", FALLBACK.apkLabel),
   };
 
   return (
@@ -646,44 +641,11 @@ export function AnnouncementCms() {
 
             <TabsContent value="tab-4" className="space-y-3 m-0">
               <FieldGroup title="Android &amp; WhatsApp">
-                <FieldEdit
-                  htmlFor="cms-apk-label"
-                  label="Link Download APK label"
-                  max={60}
-                  value={current.apkLabel}
-                  onChange={(v) => set("apkLabel", v)}
-                  placeholder={FALLBACK.apkLabel}
-                />
-                <FieldEdit
-                  htmlFor="cms-apk-url"
-                  label="URL tautan download"
-                  mono
-                  value={current.apkUrl}
-                  onChange={(v) => set("apkUrl", v)}
-                  placeholder={FALLBACK.apkUrl}
-                />
-                <FieldEdit
-                  htmlFor="cms-android-note"
-                  label="Catatan Android (opsional)"
-                  area
-                  max={240}
-                  value={current.androidNote}
-                  onChange={(v) => set("androidNote", v)}
-                  placeholder={FALLBACK.androidNote}
-                />
-                <DividerLabel>Template pesan WhatsApp</DividerLabel>
-                <p className="text-xs text-muted-foreground">
-                  Placeholder singkat untuk pratinjau CMS (pengiriman sesungguhnya memakai template gateway di menu WhatsApp).
+                <p className="text-sm leading-6 text-muted-foreground">
+                  Nama, ikon, dan tautan unduhan aplikasi diatur di menu <strong>Aplikasi Android</strong>.
+                  Template pesan WhatsApp diatur di menu <strong>WhatsApp</strong>. Keduanya tidak
+                  disimpan dari halaman ini, karena halaman ini hanya mengatur teks halaman publik.
                 </p>
-                <FieldEdit
-                  htmlFor="cms-wa-teks"
-                  label={current.waTemplateLabel}
-                  area
-                  max={240}
-                  value={current.waTeks}
-                  onChange={(v) => set("waTeks", v)}
-                  placeholder={FALLBACK.waTemplatePlaceholder}
-                />
               </FieldGroup>
             </TabsContent>
           </div>
@@ -789,11 +751,6 @@ function SitePreview({ values }: { values: {
   gadaiJudul: string;
   gadaiIsi: string;
   gadaiCta: string;
-  apkUrl: string;
-  waTeks: string;
-  androidNote: string;
-  waTemplateLabel: string;
-  apkLabel: string;
 }}) {
   const bar = values.barTeks;
   if (!bar) return null;
