@@ -75,13 +75,28 @@ export function kelompokkanDigit(teks: string): string {
  * the user types decimals — the half cent goes to the user, never to the house.
  * Throws on invalid, negative or out-of-business-range input.
  */
-export function parseRupiah(raw: string): Rupiah {
+function bacaNominal(raw: string): Rupiah {
   const cleaned = raw.replace(/[rp\s.]/gi, "").replace(/,/g, ".");
   if (!/^\d+(\.\d+)?$/.test(cleaned)) {
     throw new Error("Masukkan angka rupiah yang valid.");
   }
   const [whole, frac = ""] = cleaned.split(".");
-  const halfUp = Math.round(Number(`${whole}.${frac.slice(0, 2)}`) + 1e-9);
+  return Math.round(Number(`${whole}.${frac.slice(0, 2)}`) + 1e-9);
+}
+
+/**
+ * Nominal di luar pokok pinjaman (pembayaran sebagian, janji bayar,
+ * penyelesaian): batas bawahnya nol, bukan minimum pinjaman. Cicilan Rp 50.000
+ * harus bisa dicatat tanpa ditolak oleh aturan plafon pinjaman.
+ */
+export function parseNominalRupiah(raw: string, maks: Rupiah = MAX_LOAN_RP): Rupiah {
+  const nilai = bacaNominal(raw);
+  if (nilai > maks) throw new Error(`Nominal maksimal ${formatRupiah(maks)}.`);
+  return nilai;
+}
+
+export function parseRupiah(raw: string): Rupiah {
+  const halfUp = bacaNominal(raw);
   if (halfUp < MIN_LOAN_RP || halfUp > MAX_LOAN_RP) {
     throw new Error(
       `Jumlah harus antara ${formatRupiah(MIN_LOAN_RP)} dan ${formatRupiah(MAX_LOAN_RP)}.`,

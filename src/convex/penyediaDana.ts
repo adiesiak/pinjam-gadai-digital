@@ -1864,8 +1864,17 @@ async function cariAkunEmail(ctx: QueryCtx, email: string) {
     .withIndex("email", (q) => q.eq("email", dicari))
     .first();
   if (lewatIndeks !== null) return lewatIndeks;
-  const semua = await ctx.db.query("users").take(500);
-  return semua.find((u) => (u.email ?? "").toLowerCase() === dicari) ?? null;
+  // Email lama bisa tersimpan dengan huruf besar/kecil berbeda sehingga tidak
+  // cocok dengan indeks. Telusuri SEMUA akun lewat paginasi — batas 500 baris
+  // akan diam-diam menyembunyikan akun ke-501 dan seterusnya.
+  let kursor: string | null = null;
+  for (;;) {
+    const halaman = await ctx.db.query("users").paginate({ numItems: 200, cursor: kursor });
+    const ketemu = halaman.page.find((u) => (u.email ?? "").toLowerCase() === dicari);
+    if (ketemu !== undefined) return ketemu;
+    if (halaman.isDone) return null;
+    kursor = halaman.continueCursor;
+  }
 }
 
 export const ubahAkses = mutation({

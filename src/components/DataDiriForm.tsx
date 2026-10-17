@@ -149,6 +149,15 @@ export function FormDataDiri({
   const [progresFoto, setProgresFoto] = useState<ProgresUnggah | null>(null);
   const [galatLokal, setGalatLokal] = useState<string | null>(null);
   const inputFotoRef = useRef<HTMLInputElement | null>(null);
+  /** URL objek milik pratinjau lokal; harus dicabut agar tidak menumpuk di memori. */
+  const previewUrlRef = useRef<string | null>(null);
+
+  useEffect(
+    () => () => {
+      if (previewUrlRef.current !== null) URL.revokeObjectURL(previewUrlRef.current);
+    },
+    [],
+  );
 
   /** Isian yang sudah disentuh — galatnya baru boleh tampil. */
   const [disentuh, setDisentuh] = useState<Partial<Record<KunciIsian, boolean>>>({});
@@ -204,7 +213,11 @@ export function FormDataDiri({
     try {
       const id = await unggah(file, setProgresFoto);
       setFoto(id);
-      setPreview(typeof URL !== "undefined" && "createObjectURL" in URL ? URL.createObjectURL(file) : null);
+      if (previewUrlRef.current !== null) URL.revokeObjectURL(previewUrlRef.current);
+      const lokal =
+        typeof URL !== "undefined" && "createObjectURL" in URL ? URL.createObjectURL(file) : null;
+      previewUrlRef.current = lokal;
+      setPreview(lokal);
     } catch (err) {
       setGalatLokal(err instanceof Error ? err.message : "Foto KTP gagal diunggah.");
     } finally {
@@ -464,6 +477,10 @@ export function FormDataDiri({
                 className="h-8 gap-1 px-2.5 text-destructive hover:bg-destructive/10 hover:text-destructive"
                 disabled={busy || fotoBusy}
                 onClick={() => {
+                  if (previewUrlRef.current !== null) {
+                    URL.revokeObjectURL(previewUrlRef.current);
+                    previewUrlRef.current = null;
+                  }
                   setFoto(null);
                   setPreview(null);
                 }}

@@ -20,6 +20,7 @@ import {
   simpanHasilIdempoten,
 } from "./idempotensi";
 import { formatRupiah } from "../lib/money";
+import { kodeTanggalWIB } from "../lib/waktu";
 import { rejectUnverifiedMoneyMovement } from "./paymentGuard";
 import type { Doc, Id } from "./_generated/dataModel";
 import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
@@ -49,7 +50,7 @@ async function adminMasuk(ctx: QueryCtx) {
 
 /** Nomor referensi kredit barang — mis. KRD-20260927-7QK2. */
 function nomorReferensiKredit(now: number): string {
-  const tanggal = new Date(now).toISOString().slice(0, 10).replace(/-/g, "");
+  const tanggal = kodeTanggalWIB(now);
   const suffix = Array.from({ length: 4 }, () =>
     "ABCDEFGHJKLMNPQRSTUVWXYZ23456789".charAt(Math.floor(Math.random() * 32)),
   ).join("");

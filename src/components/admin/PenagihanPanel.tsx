@@ -68,7 +68,7 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
-import { formatRupiah, parseRupiah } from "@/lib/money";
+import { formatRupiah, parseNominalRupiah } from "@/lib/money";
 import {
   LABEL_KATEGORI_PENGADUAN,
   LABEL_SALURAN_TINDAKAN,
@@ -393,9 +393,11 @@ function KasusDialog({
     }
   };
 
+  // Nominal penagihan bukan pokok pinjaman: pembayaran sebagian bisa di bawah
+  // minimum pinjaman, jadi jangan memakai `parseRupiah` yang membatasi 100 rb.
   const nominalDari = (teks: string): number | null => {
     try {
-      return parseRupiah(teks);
+      return parseNominalRupiah(teks);
     } catch {
       return null;
     }
@@ -997,7 +999,11 @@ function KasusDialog({
             <Button
               disabled={busy !== null || !bolehTindak}
               onClick={() => {
-                const nominal = nominalDari(nominalSelesai) ?? 0;
+                const nominal = nominalSelesai.trim() === "" ? 0 : nominalDari(nominalSelesai);
+                if (nominal === null) {
+                  toast.error("Nominal penyelesaian tidak valid.");
+                  return;
+                }
                 void jalankan(
                   "selesai",
                   () =>

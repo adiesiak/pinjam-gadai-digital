@@ -16,6 +16,7 @@ import {
   quoteKreditBarang,
 } from "../lib/kredit";
 import { formatRupiah, type Rupiah } from "../lib/money";
+import { kodeTanggalWIB } from "../lib/waktu";
 import { hitungBiayaPencairan } from "../lib/withdrawal";
 import { kunciNamaPendana, pinjamanMilikPendana } from "./pendanaKepemilikan";
 import { bagiHasilPinjamanDari } from "../lib/bagiHasil";
@@ -229,7 +230,7 @@ function statusPersetujuanTim(status: string): string {
 }
 
 function referenceNumber(prefix: string): string {
-  const date = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+  const date = kodeTanggalWIB(Date.now());
   const suffix = Array.from({ length: 4 }, () =>
     "ABCDEFGHJKLMNPQRSTUVWXYZ23456789".charAt(Math.floor(Math.random() * 32)),
   ).join("");

@@ -53,8 +53,11 @@ export function BackupPanel() {
     const a = document.createElement("a");
     a.href = url;
     a.download = nama;
+    document.body.appendChild(a);
     a.click();
-    URL.revokeObjectURL(url);
+    a.remove();
+    // Safari/Firefox membatalkan unduhan bila URL dicabut di tick yang sama.
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
 
   const unduhJson = async () => {

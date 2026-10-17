@@ -42,6 +42,7 @@ import { internalMutation, mutation, query, type MutationCtx } from "./_generate
 import { requireAdminSession } from "./adminAuthz";
 import { audit } from "./system";
 import { ROLES } from "./schema";
+import { formatWaktuWIB } from "../lib/waktu";
 
 /** Masa berlaku tiket sebelum dipakai provider login (5 menit). */
 export const MASA_TIKET_MS = 5 * 60 * 1000;
@@ -224,9 +225,9 @@ export const _pakaiTiket = internalMutation({
       tiket.targetLabel,
       `Masuk sebagai ${tiket.targetLabel}${
         tiket.targetPeran ? ` (peran ${tiket.targetPeran})` : ""
-      } lewat sesi nyata akun itu, berlaku sampai ${new Date(berlakuHingga).toLocaleString(
-        "id-ID",
-      )}${tiket.alasan ? ` — ${tiket.alasan}` : ""}`,
+      } lewat sesi nyata akun itu, berlaku sampai ${formatWaktuWIB(berlakuHingga)}${
+        tiket.alasan ? ` — ${tiket.alasan}` : ""
+      }`,
     );
 
     return { userId: tiket.targetId, sessionId, targetLabel: tiket.targetLabel };

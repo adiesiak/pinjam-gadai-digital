@@ -23,6 +23,7 @@ import type { JenisPengajuan } from "./jenisPengajuan";
 import { LOAN_LIMITS, LOAN_PURPOSE_OPTIONS, TENOR_OPTIONS } from "./loan";
 import { formatRupiah, parseRupiah } from "./money";
 import { namaHurufBesar } from "./nama";
+import { kodeTanggalWIB } from "./waktu";
 import { PLAFON_NAIK_SETELAH_LUNAS } from "./plafon";
 import { COLLATERAL_CATEGORIES } from "./pawn";
 
@@ -79,7 +80,7 @@ export const JENIS_MANUAL: Record<
  * pencarian dan pengurutan antrean tidak perlu tahu siapa yang mencatat.
  */
 export function nomorReferensiManual(jenis: JenisPengajuan, now: number): string {
-  const tanggal = new Date(now).toISOString().slice(0, 10).replace(/-/g, "");
+  const tanggal = kodeTanggalWIB(now);
   const suffix = Array.from({ length: 4 }, () =>
     "ABCDEFGHJKLMNPQRSTUVWXYZ23456789".charAt(Math.floor(Math.random() * 32)),
   ).join("");

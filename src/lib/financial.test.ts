@@ -3,7 +3,13 @@
  * Runs with `bun test`-compatible asserts but kept dependency-free so it can
  * execute via tsx/node as a plain script.
  */
-import { formatRupiah, kelompokkanDigit, parseRupiah, percentOf } from "./money";
+import {
+  formatRupiah,
+  kelompokkanDigit,
+  parseNominalRupiah,
+  parseRupiah,
+  percentOf,
+} from "./money";
 import { calculateRepayment, quoteLoan, requote } from "./loan";
 
 let passed = 0;
@@ -50,6 +56,13 @@ eq(kelompokkanDigit("abc"), "", "tanpa digit tetap kosong");
 throws(() => parseRupiah("99.999"), "di bawah minimum ditolak");
 throws(() => parseRupiah("abc"), "input non-numerik ditolak");
 throws(() => parseRupiah("-1000"), "negatif ditolak");
+
+// ---- parseNominalRupiah: nominal di luar pokok pinjaman ----
+eq(parseNominalRupiah("50.000"), 50_000, "pembayaran sebagian Rp50.000 diterima");
+eq(parseNominalRupiah("0"), 0, "nol sah untuk jenis penyelesaian tanpa nominal");
+eq(parseNominalRupiah("1.234,5"), 1_235, "desimal dibulatkan half-up");
+throws(() => parseNominalRupiah("abc"), "teks bukan angka ditolak");
+throws(() => parseNominalRupiah("999999999"), "di atas batas atas ditolak");
 
 // ---- quoteLoan: formula wajib PINDAI ----
 const q1 = quoteLoan(10_000_000);

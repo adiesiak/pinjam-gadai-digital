@@ -37,6 +37,7 @@ import { assertPokokPinjamanValid,
   TENOR_OPTIONS,
 } from "../lib/loan";
 import { persenBungaEfektif } from "../lib/bunga";
+import { kodeTanggalWIB } from "../lib/waktu";
 import {
   assertSimulasiBulananValid,
   hitungSimulasiBulanan,
@@ -126,7 +127,7 @@ async function requirePeminjam(ctx: QueryCtx) {
 }
 
 function referenceNumber(now: number): string {
-  const date = new Date(now).toISOString().slice(0, 10).replace(/-/g, "");
+  const date = kodeTanggalWIB(now);
   const suffix = Array.from({ length: 4 }, () =>
     "ABCDEFGHJKLMNPQRSTUVWXYZ23456789".charAt(Math.floor(Math.random() * 32)),
   ).join("");

@@ -95,8 +95,10 @@ export function AuditTrailPanel() {
       const tautan = document.createElement("a");
       tautan.href = url;
       tautan.download = namaBerkasAudit(Date.now());
+      document.body.appendChild(tautan);
       tautan.click();
-      URL.revokeObjectURL(url);
+      tautan.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
       toast.success(`${baris.length} catatan audit diekspor ke CSV.`);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Gagal mengekspor audit trail.");

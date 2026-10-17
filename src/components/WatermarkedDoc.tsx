@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useId, useState } from "react";
 import { Loader2, ShieldCheck } from "lucide-react";
 
 /**
@@ -49,6 +49,9 @@ export function WatermarkedDoc({ src, label }: { src: string; label?: string }) 
  * menimpa pola satu sama lain.
  */
 export function LapisanTandaAir({ label }: { label?: string }) {
+  // Satu dokumen bisa tampil berkali-kali di halaman yang sama; id pola yang
+  // sama membuat lapisan ke-2 dan seterusnya memakai pola instance pertama.
+  const polaId = `wm-grid-${useId().replace(/:/g, "")}`;
   return (
     <div className="pointer-events-none absolute inset-0 select-none">
       <div className="absolute inset-0 flex items-center justify-center">
@@ -67,13 +70,13 @@ export function LapisanTandaAir({ label }: { label?: string }) {
       <div className="absolute inset-0 opacity-[0.06]" aria-hidden>
         <svg width="100%" height="100%">
           <defs>
-            <pattern id="wm-grid" width="24" height="24" patternUnits="userSpaceOnUse">
+            <pattern id={polaId} width="24" height="24" patternUnits="userSpaceOnUse">
               <text x="2" y="14" fontSize="7" fill="#1f6a62" fontFamily="sans-serif">
                 PINDAI
               </text>
             </pattern>
           </defs>
-          <rect width="100%" height="100%" fill="url(#wm-grid)" />
+          <rect width="100%" height="100%" fill={`url(#${polaId})`} />
         </svg>
       </div>
     </div>

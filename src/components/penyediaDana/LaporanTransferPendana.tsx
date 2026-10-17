@@ -142,8 +142,11 @@ function unduhCsv(isi: string): void {
   const tautan = document.createElement("a");
   tautan.href = url;
   tautan.download = namaBerkasTransfer(Date.now());
+  document.body.appendChild(tautan);
   tautan.click();
-  URL.revokeObjectURL(url);
+  tautan.remove();
+  // Pencabutan di tick yang sama membuat sebagian peramban membatalkan unduhan.
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 /** Penanda baris milik akun yang sedang membaca — angka orang lain tetap terbaca. */

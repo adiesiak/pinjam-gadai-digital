@@ -88,6 +88,7 @@ import {
   type StatusPembayaran,
 } from "../lib/penagihan";
 import type { Doc, Id as IdT } from "./_generated/dataModel";
+import { formatTanggalWIB } from "../lib/waktu";
 
 /** Slot tunggal aturan penagihan. */
 const SLOT_ATURAN = "global";
@@ -983,7 +984,7 @@ export const catatJanjiBayar = mutation({
       hasil: "janji_dibuat",
       pihak: "peminjam",
       nomorTujuan: loan.nomorWhatsApp,
-      catatan: `Janji pembayaran Rp ${args.nominal.toLocaleString("id-ID")} pada ${new Date(args.tanggalJanji).toLocaleDateString("id-ID")}.`,
+      catatan: `Janji pembayaran Rp ${args.nominal.toLocaleString("id-ID")} pada ${formatTanggalWIB(args.tanggalJanji)}.`,
       petugasUserId: admin.userId,
       petugasLabel: label,
       waktu: now,
@@ -1004,7 +1005,7 @@ export const catatJanjiBayar = mutation({
       label,
       "janji_bayar_penagihan",
       loan.nomorReferensi,
-      `Janji Rp ${args.nominal.toLocaleString("id-ID")} pada ${new Date(args.tanggalJanji).toLocaleDateString("id-ID")} via ${args.kanal}.`,
+      `Janji Rp ${args.nominal.toLocaleString("id-ID")} pada ${formatTanggalWIB(args.tanggalJanji)} via ${args.kanal}.`,
     );
     return { ok: true, janjiId };
   },

@@ -21,6 +21,7 @@ import {
 } from "../lib/loan";
 import { formatRupiah } from "../lib/money";
 import { namaHurufBesar } from "../lib/nama";
+import { formatTanggalWIB } from "../lib/waktu";
 import {
   pesanPerubahanStatus,
   statusKanonik,
@@ -186,11 +187,7 @@ function nilaiPesanPinjaman(
             ? loan.tenorBulan * BULAN_MS
             : (loan.tenorHari ?? 30) * 86_400_000))
       : opts.sekarang;
-  const tanggal = new Date(jatuhTempoPada).toLocaleDateString("id-ID", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
+  const tanggal = formatTanggalWIB(jatuhTempoPada);
   return {
     // Nama di pesan selalu HURUF BESAR (lib/nama.ts); pesan, pratinjau, dan
     // tabel admin menampilkan orang yang sama dengan tulisan yang sama.
