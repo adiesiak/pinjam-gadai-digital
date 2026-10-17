@@ -230,16 +230,6 @@ export async function seedKycTerverifikasiEmail(
   await seedKycTerverifikasi(t, user._id);
 }
 
-/**
- * Buang `versi` dari objek konfigurasi sebelum dikirim ke `saveConfig`.
- *
- * Nomor versi dimiliki SERVER (lihat `system.saveConfig`): ia dinaikkan sendiri
- * tiap penyimpanan dan dicatat di riwayat. Mengirimkannya dari klien membuat
- * validasi menolak argumen (field tak dikenal) — dan memang tidak boleh, karena
- * versi bukan pengaturan yang diubah admin.
- */
-export function tanpaVersiConfig<T extends { versi: number }>(config: T): Omit<T, "versi"> {
-  return Object.fromEntries(
-    Object.entries(config as Record<string, unknown>).filter(([kunci]) => kunci !== "versi"),
-  ) as Omit<T, "versi">;
-}
+// Satu implementasi untuk server, panel admin, dan uji — lihat catatan di
+// `lib/system-config` tentang mengapa `versi` tidak pernah dikirim klien.
+export { tanpaVersiConfig } from "../lib/system-config";

@@ -35,6 +35,21 @@ export function temaAman(nilai: unknown): ThemePreset {
     : DEFAULT_CONFIG.tema;
 }
 
+/**
+ * Konfigurasi tanpa nomor versi — bentuk yang diterima `system.saveConfig`.
+ *
+ * `versi` dimiliki SERVER: ia dinaikkan sendiri pada setiap simpan/rollback dan
+ * dicatat di riwayat. Panel admin menyimpan seluruh `SystemConfig` di state
+ * formulir, jadi nomor versi itu ikut terbawa saat objeknya di-spread dan
+ * ditolak validator sebagai field tak dikenal. Dibuang di sini supaya pemanggil
+ * tidak perlu ingat melakukannya sendiri.
+ */
+export function tanpaVersiConfig<T extends object>(config: T): Omit<T, "versi"> {
+  return Object.fromEntries(
+    Object.entries(config).filter(([kunci]) => kunci !== "versi"),
+  ) as Omit<T, "versi">;
+}
+
 export type SystemConfig = {
   /**
    * Nomor versi konfigurasi yang BERLAKU sekarang. Naik satu setiap penyimpanan

@@ -1,5 +1,5 @@
 import { useMutation, useQuery } from "convex/react";
-import { Loader2, MapPin, QrCode, RefreshCw, Settings2, ShieldAlert } from "lucide-react";
+import { Loader2, MapPin, QrCode, Settings2, ShieldAlert } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -14,6 +14,7 @@ import { clampPlafon, PLAFON_BATAS } from "@/lib/plafon";
 import {
   DEFAULT_CONFIG,
   RETENSI_LOKASI_BATAS,
+  tanpaVersiConfig,
   type SystemConfig,
 } from "@/lib/system-config";
 
@@ -230,7 +231,10 @@ export function SystemConfigPanel() {
   if (data === undefined) {
     return <PanelMemuat />;
   }
-  if (form === null) setForm({ ...DEFAULT_CONFIG, ...data.config } as ConfigForm);
+  // Nilai tersimpan membawa `versi`, yang dimiliki server. Buang sebelum masuk
+  // formulir agar tidak ikut terkirim balik saat simpan.
+  const formTersimpan = () => tanpaVersiConfig({ ...DEFAULT_CONFIG, ...data.config });
+  if (form === null) setForm(formTersimpan());
   if (form === null) return null;
 
   const upd = <K extends keyof ConfigForm>(k: K, v: ConfigForm[K]) => setForm({ ...form, [k]: v });
@@ -254,7 +258,7 @@ export function SystemConfigPanel() {
 
   const simpan = async () => {
     await wrapBusyStatus("Konfigurasi", async () => {
-      await save({ ...form } as Parameters<typeof save>[0]);
+      await save(tanpaVersiConfig(form));
     });
   };
 
@@ -764,10 +768,9 @@ export function SystemConfigPanel() {
                     wrapBusyStatus(
                       "Kill Switch",
                       async () => {
-                        await save({
-                          ...form,
-                          killSwitch: !form.killSwitch,
-                        } as Parameters<typeof save>[0]);
+                        await save(
+                          tanpaVersiConfig({ ...form, killSwitch: !form.killSwitch }),
+                        );
                       },
                     )
                   }
@@ -796,7 +799,7 @@ export function SystemConfigPanel() {
             <span className="text-muted-foreground">·</span>
             <span className="text-muted-foreground">
               {data.auditTerbaru?.[0]
-                ? new Date(data.auditTerbaru[0].waktu ?? Date.now()).toLocaleString("id-ID")
+                ? new Date(data.auditTerbaru[0].waktu).toLocaleString("id-ID")
                 : "—"}
             </span>
           </div>
@@ -808,7 +811,7 @@ export function SystemConfigPanel() {
               onClick={() => {
                 // "Batal" mengembalikan form ke nilai tersimpan terakhir, bukan
                 // sekadar membersihkan pesan status.
-                setForm({ ...DEFAULT_CONFIG, ...data.config } as ConfigForm);
+                setForm(formTersimpan());
                 setError(null);
                 setStatus(null);
               }}
