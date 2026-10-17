@@ -256,7 +256,20 @@ function aturanAktif(css: string): string {
   bersih(medan, "medan email");
 
   const utama = render(<TombolLanjutEmail isLoading={false} />);
-  ada(utama, "Lanjutkan dengan Email / WhatsApp", "label tombol utama tampil");
+  ada(utama, "Kirim kode verifikasi", "label tombol utama tampil");
+  // Label panjang lama membungkus jadi dua baris di 360px dan membuat tombolnya
+  // terlihat penuh; jalur email/WhatsApp sudah dijelaskan medan di atasnya.
+  tidakAda(
+    utama,
+    "Lanjutkan dengan Email / WhatsApp",
+    "label dua-baris lama tidak dipakai lagi",
+  );
+  ada(
+    utama,
+    "whitespace-nowrap",
+    "label dijaga satu baris pada layar sempit",
+  );
+  ada(utama, "size-5", "ikon tombol utama seukuran huruf labelnya");
   ada(utama, 'type="submit"', "tombol utama mengirim formulir");
   ada(
     utama,
@@ -268,6 +281,12 @@ function aturanAktif(css: string): string {
   const utamaMemuat = render(<TombolLanjutEmail isLoading={true} />);
   ada(utamaMemuat, "disabled", "tombol utama nonaktif saat memuat");
   ada(utamaMemuat, "animate-spin", "keadaan memuat terlihat");
+  ada(utamaMemuat, "size-5", "ikon keadaan memuat seukuran ikon labelnya");
+  ada(
+    utamaMemuat,
+    "Kirim kode verifikasi",
+    "label tombol tidak berubah saat memuat",
+  );
 
 
   const google = render(<TombolGoogle onClick={() => {}} disabled={false} />);
@@ -278,6 +297,9 @@ function aturanAktif(css: string): string {
   // hias saja, jadi harus tersembunyi dari pembaca layar.
   ada(google, "<svg", "tombol Google membawa lambang Google");
   ada(google, 'viewBox="0 0 48 48"', "lambang memakai kanvas 48x48 yang standar");
+  // Seukuran ikon tombol utama di kartu yang sama: dua tombol bertumpuk dengan
+  // ikon 16px dan 20px terbaca seperti dua sistem yang berbeda.
+  ada(google, "size-5", "lambang seukuran ikon tombol utama");
   for (const warna of ["#4285F4", "#34A853", "#FBBC05", "#EA4335"]) {
     ada(google, warna, `lambang memuat warna resmi ${warna}`);
   }

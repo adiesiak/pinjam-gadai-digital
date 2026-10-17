@@ -743,23 +743,33 @@ export function MedanEmailMasuk({ isLoading }: { isLoading: boolean }) {
   );
 }
 
-/** Tombol utama: lanjutkan dengan email (mengirim kode 6 digit). */
+/**
+ * Tombol utama: mengirim kode verifikasi 6 angka — ke email, atau ke WhatsApp
+ * bila medan di atasnya berisi nomor.
+ *
+ * Labelnya sengaja pendek dan dijaga satu baris (`whitespace-nowrap`). Jalur
+ * email maupun WhatsApp sudah dijelaskan medan beserta petunjuknya di atas
+ * tombol, sedangkan label panjang "Lanjutkan dengan Email / WhatsApp"
+ * membungkus jadi dua baris di layar 360px sehingga tombolnya terbaca penuh
+ * dan kotak ketuknya terlihat sempit. Ikonnya `size-5`, seukuran dengan huruf
+ * labelnya, supaya tidak terlihat mengambang kecil di tepi kiri.
+ */
 export function TombolLanjutEmail({ isLoading }: { isLoading: boolean }) {
   return (
     <button
       type="submit"
       className={cn(
         KELAS_TOMBOL_UTAMA,
-        "flex items-center justify-center gap-2",
+        "flex items-center justify-center gap-2 whitespace-nowrap",
       )}
       disabled={isLoading}
     >
       {isLoading ? (
-        <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+        <Loader2 className="size-5 animate-spin" aria-hidden="true" />
       ) : (
-        <ShieldCheck className="size-4" aria-hidden="true" />
+        <ShieldCheck className="size-5" aria-hidden="true" />
       )}
-      Lanjutkan dengan Email / WhatsApp
+      Kirim kode verifikasi
     </button>
   );
 }
@@ -773,7 +783,7 @@ function LambangGoogle() {
   return (
     <svg
       viewBox="0 0 48 48"
-      className="size-4 shrink-0"
+      className="size-5 shrink-0"
       aria-hidden="true"
       focusable="false"
     >
