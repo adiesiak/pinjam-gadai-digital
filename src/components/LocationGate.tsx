@@ -1,6 +1,5 @@
 import { useMutation, useQuery } from "convex/react";
 import {
-  CheckCircle2,
   Loader2,
   MapPin,
   RefreshCw,
@@ -91,7 +90,6 @@ export function LocationGate({
   const { signOut } = useAuth();
   const [izin, setIzin] = useState<StatusIzin>("memeriksa");
   const [pesan, setPesan] = useState<string | null>(null);
-  const [akurasi, setAkurasi] = useState<number | null>(null);
   const [percobaanDaftar, setPercobaanDaftar] = useState(0);
   const watchRef = useRef<number | null>(null);
   const pelacakanRef = useRef<PelacakanLatar | null>(null);
@@ -194,7 +192,6 @@ export function LocationGate({
     watchRef.current = navigator.geolocation.watchPosition(
       (pos) => {
         setIzin("siap");
-        setAkurasi(pos.coords.accuracy);
         kirimTitik(pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy);
       },
       (err) => {
@@ -217,7 +214,6 @@ export function LocationGate({
     void mulaiPelacakanLatar(
       (titik) => {
         setIzin("siap");
-        setAkurasi(titik.akurasi);
         kirimTitik(titik.lat, titik.lng, titik.akurasi, titik.mock);
       },
       (pesanGalat) => {
@@ -574,19 +570,7 @@ export function LocationGate({
 
   if (status.wajib === false) return <>{children}</>;
 
-  if (izin === "siap") {
-    return (
-      <>
-        {children}
-        <PilLokasi
-          akurasi={akurasi}
-          segar={status.segar}
-          umurMenit={status.umurMenit}
-          latarBelakang={perangkat.native}
-        />
-      </>
-    );
-  }
+  if (izin === "siap") return <>{children}</>;
 
   // Lokasi terdeteksi berasal dari aplikasi lokasi palsu: instruksinya sama
   // sekali berbeda dari "nyalakan GPS", jadi layarnya dipisah.
@@ -698,41 +682,6 @@ export function LocationGate({
         </div>
       </Kartu>
     </LayarPenuh>
-  );
-}
-
-/** Indikator kecil di kanan bawah selama lokasi mengalir ke server. */
-function PilLokasi({
-  akurasi,
-  segar,
-  umurMenit,
-  latarBelakang,
-}: {
-  akurasi: number | null;
-  segar: boolean;
-  umurMenit: number | null;
-  latarBelakang: boolean;
-}) {
-  return (
-    <div className="pointer-events-none fixed bottom-3 right-3 z-50 flex max-w-[calc(100vw-1.5rem)] flex-wrap items-center justify-end gap-x-2 gap-y-0.5 rounded-2xl border border-slate-200 bg-white/95 px-3 py-2 text-[11px] leading-4 shadow-sm backdrop-blur sm:bottom-4 sm:right-4 sm:rounded-full sm:py-1.5">
-      {segar ? (
-        <CheckCircle2 className="size-3.5 text-emerald-600" />
-      ) : (
-        <Loader2 className="size-3.5 animate-spin text-amber-600" />
-      )}
-      <span className={segar ? "text-emerald-700" : "text-amber-700"}>
-        {segar
-          ? latarBelakang
-            ? "Perangkat melaporkan koordinat · aplikasi"
-            : "Perangkat melaporkan koordinat"
-          : umurMenit === null
-            ? "Mengirim koordinat…"
-            : `Koordinat terakhir dilaporkan ${labelUmurLokasi(umurMenit)}`}
-      </span>
-      {akurasi !== null && (
-        <span className="tabular-nums text-muted-foreground">akurasi dilaporkan ± {Math.round(akurasi)} m</span>
-      )}
-    </div>
   );
 }
 
