@@ -28,7 +28,7 @@ import {
   X,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { Link } from "react-router";
+import { Link, useNavigate } from "react-router";
 
 import { useAuth } from "@/hooks/use-auth";
 
@@ -63,7 +63,7 @@ import { formatRupiah, type Rupiah } from "@/lib/money";
 import { EASE_OUT } from "@/lib/motion";
 import { PLAFON_BATAS } from "@/lib/plafon";
 import { promoPostersAktif } from "@/lib/promoPosters";
-import { ADMIN_ROUTE } from "@/lib/routes";
+import { ADMIN_ROUTE, kombinasiAdmin } from "@/lib/routes";
 
 function BrandWordmark({ name, compact = false }: { name: string; compact?: boolean }) {
   return (
@@ -1363,6 +1363,28 @@ export default function Landing() {
   });
   const adminLogoClickCountRef = useRef(0);
   const adminLogoClickTimerRef = useRef<number | null>(null);
+
+  // Pintu admin alternatif: Ctrl+Alt+A. Bekerja tanpa mengekspos rutenya di
+  // URL atau di markup, jadi crawler/pemindai tidak menemukannya; penjagaan
+  // sesungguhnya tetap di halaman masuk (kata sandi + TOTP).
+  const navigate = useNavigate();
+  useEffect(() => {
+    const bukaAdmin = (event: KeyboardEvent) => {
+      if (!kombinasiAdmin(event)) return;
+      const sasaran = event.target as HTMLElement | null;
+      if (
+        sasaran !== null &&
+        (sasaran.isContentEditable ||
+          ["INPUT", "TEXTAREA", "SELECT"].includes(sasaran.tagName))
+      ) {
+        return;
+      }
+      event.preventDefault();
+      navigate(`/auth?returnTo=${encodeURIComponent(ADMIN_ROUTE)}`);
+    };
+    window.addEventListener("keydown", bukaAdmin);
+    return () => window.removeEventListener("keydown", bukaAdmin);
+  }, [navigate]);
 
   const handleBrandClick = () => {
     if (showAdminShortcut) return;
