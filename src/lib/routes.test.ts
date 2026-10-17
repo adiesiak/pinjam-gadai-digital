@@ -68,5 +68,29 @@ ok(
   "tautan rute admin tidak pernah dirender di markup landing",
 );
 
+// `/promo` adalah ruang internal brand: rutenya dijaga `RequireAdmin`, dan
+// menu peran lain tidak menawarkannya.
+const main = readFileSync(fileURLToPath(new URL("../main.tsx", import.meta.url)), "utf8");
+ok(
+  main.includes("<RequireAdmin>") && main.includes("<Promo />"),
+  "/promo dijaga gerbang admin",
+);
+ok(
+  !main.includes("<RequireAuth>\n                      <Promo />"),
+  "/promo tidak lagi memakai gerbang semua pengguna",
+);
+const menu = readFileSync(
+  fileURLToPath(new URL("../components/RoleDashboardMenu.tsx", import.meta.url)),
+  "utf8",
+);
+ok(
+  /role === "admin"\s*\?\s*\[modeAdmin, ruangPromo/.test(menu),
+  "menu hanya menawarkan /promo untuk admin",
+);
+ok(
+  !/\]\)?,\s*ruangPromo,/.test(menu) && !/menuSpaces = \[\s*\.\.\./.test(menu),
+  "menu tidak menempelkan /promo di luar cabang admin",
+);
+
 console.log(`routes: ${passed} lulus, ${failed} gagal`);
 if (failed > 0) process.exit(1);

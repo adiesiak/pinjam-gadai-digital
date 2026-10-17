@@ -57,6 +57,7 @@ export function RoleDashboardMenu() {
   /** Ruang pamer promosi singkat (title/subtitle/peringatan/cta/link).
    *  Buka editor, lihat preview 2D canvas langsung, unduh PNG, dan bagikan
    *  ke WhatsApp/Instagram lewat Web Share + deep-link fallback.
+   *  Hanya untuk akun admin — ini ruang internal brand, bukan fitur nasabah.
    */
   const ruangPromo = {
     href: "/promo",
@@ -73,14 +74,15 @@ export function RoleDashboardMenu() {
     icon: ShieldCheck,
   };
 
-  const menuSpaces = [
-    ...(role === "admin"
-      ? [modeAdmin, ruangPenyediaDana, modeNasabah]
+  // `/promo` hanya milik admin (rutenya dijaga `RequireAdmin`), jadi tautannya
+  // pun tidak ditawarkan ke peran lain — menu tidak boleh menawarkan pintu yang
+  // pasti memantul kembali ke dashboard.
+  const menuSpaces =
+    role === "admin"
+      ? [modeAdmin, ruangPromo, ruangPenyediaDana, modeNasabah]
       : role === "dana" || role === "pengamat"
         ? [ruangPenyediaDana, modeNasabah]
-        : [modeNasabah]),
-    ruangPromo,
-  ];
+        : [modeNasabah];
 
   if (isLoading || !isAuthenticated) return null;
 

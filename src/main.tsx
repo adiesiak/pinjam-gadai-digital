@@ -7,7 +7,7 @@ import { ErrorPage } from "@/components/ErrorPage";
 import { LoadingScreen } from "@/components/LoadingScreen";
 import { Snowfall } from "@/components/Snowfall";
 import { KarnivalConfetti } from "@/components/KarnivalConfetti";
-import { RequireAuth } from "@/components/RequireAuth";
+import { RequireAdmin, RequireAuth } from "@/components/RequireAuth";
 import { VlyToolbar } from "../vly-toolbar-readonly.tsx";
 import { ConvexAuthProvider } from "@convex-dev/auth/react";
 import { ConvexReactClient, useQuery } from "convex/react";
@@ -22,7 +22,6 @@ import { api } from "@/convex/_generated/api";
 
 import { Promo } from "./pages/Promo";
 import PublicInfoPage from "./pages/PublicInfoPage";
-import LandingHome from "./pages/LandingHome";
 
 /**
  * Bungkus importer rute dengan percobaan ulang. Kegagalan memuat modul
@@ -44,7 +43,6 @@ function denganPercobaan<M>(muat: () => Promise<M>, maksPercobaan = 3): () => Pr
 }
 
 // Lazy load route components for better code splitting
-const Landing = lazy(denganPercobaan(() => import("./pages/Landing.tsx")));
 const PublicLanding = lazy(denganPercobaan(() => import("./pages/LandingHome.tsx")));
 const AuthPage = lazy(denganPercobaan(() => import("./pages/Auth.tsx")));
 const Dashboard = lazy(denganPercobaan(() => import("./pages/Dashboard.tsx")));
@@ -326,7 +324,16 @@ createRoot(document.getElementById("root")!).render(
                     </RequireAuth>
                   }
                 />
-                <Route path="/promo" element={<RequireAuth><Promo /></RequireAuth>} />
+                {/* /promo = ruang internal brand (poster & aset Android). Hanya
+                    akun admin; peran lain dialihkan ke dashboard-nya sendiri. */}
+                <Route
+                  path="/promo"
+                  element={
+                    <RequireAdmin>
+                      <Promo />
+                    </RequireAdmin>
+                  }
+                />
                 {/* QC konsistensi — suite pemeriksaan invariant uang, mandiri,
                     gerbang admin + TOTP di dalam halaman. */}
                 <Route
