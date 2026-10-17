@@ -267,6 +267,40 @@ export const pratinjauAktif = query({
   },
 });
 
+/**
+ * Apakah pratinjau yang dimulai peramban ini masih berjalan?
+ *
+ * Dipakai klien sebelum memulai pratinjau baru. Peramban yang pratinjaunya
+ * berakhir sendiri (batas 2 jam) atau diakhiri dari panel tetap menyimpan
+ * salinan sesi admin; tanpa pemeriksaan ini salinan itu memblokir "Masuk
+ * sebagai" berikutnya dengan pesan bilah yang sudah tidak ada di layar.
+ *
+ * Jawabannya sengaja hanya boolean untuk nonce itu — nama akun dan nama admin
+ * tidak ikut dikirim — jadi nonce milik peramban lain tidak membocorkan apa
+ * pun. Pemanggil tetap harus sudah masuk, karena hanya peramban ber-sesi yang
+ * bisa memulai pratinjau.
+ */
+export const pratinjauBerjalan = query({
+  args: { nonce: v.string() },
+  handler: async (ctx, { nonce }) => {
+    const userId = await getAuthUserId(ctx);
+    if (userId === null || !nonceSah(nonce)) return false;
+
+    const baris = await ctx.db
+      .query("pratinjauSesi")
+      .withIndex("by_nonce", (q) => q.eq("nonce", nonce))
+      .order("desc")
+      .first();
+    if (baris === null) return false;
+
+    return (
+      baris.dipakaiPada !== undefined &&
+      baris.selesai === undefined &&
+      (baris.berlakuHingga ?? 0) > Date.now()
+    );
+  },
+});
+
 /* Sesi pratinjau sudah tercatat server-side saat tiket ditukar, jadi tidak ada
    mutation untuk melaporkannya dari klien. */
 

@@ -14,8 +14,8 @@ import {
   bacaNonce,
   bersihkanPenandaPratinjau,
   buatNonce,
-  KUNCI_NONCE,
   KUNCI_SESI_ASLI,
+  penandaPratinjauUsang,
   pulihkanSesiAsli,
   simpanNonce,
   simpanSesiAsli,
@@ -143,6 +143,21 @@ function setAdmin(padaJwt = "token-admin", padaRefresh = "refresh-admin"): void 
 
   penyimpanan.setItem(KUNCI_SESI_ASLI, JSON.stringify({ pada: Date.now(), token: {} }));
   ok(!pulihkanSesiAsli(), "pulih gagal bila salinan kosong");
+}
+
+// ===== 7. Salinan sesi admin hanya menahan pratinjau baru bila pratinjaunya hidup =====
+{
+  const nonce = "0123456789abcdef0123456789abcdef";
+  ok(
+    !penandaPratinjauUsang(nonce, true),
+    "pratinjau yang masih berjalan tetap menahan pratinjau baru",
+  );
+  ok(
+    penandaPratinjauUsang(nonce, false),
+    "pratinjau yang sudah berakhir tidak menahan pratinjau baru",
+  );
+  ok(penandaPratinjauUsang(null, true), "penanda tanpa nonce dianggap usang");
+  ok(penandaPratinjauUsang(null, false), "penanda tanpa nonce dan tanpa pratinjau aktif");
 }
 
 console.log(`\npratinjau: ${passed} passed, ${failed} failed`);

@@ -279,6 +279,61 @@ describe("pratinjau Super Admin — bilah dan penutupan", () => {
     expect(await admin.sesi.query(api.pratinjau.pratinjauAktif, { nonce: NONCE })).toBe(null);
   });
 
+  it("menandai pratinjau berjalan, dan menganggap usang setelah ditutup atau kedaluwarsa", async () => {
+    const t = convexTest(schema, modules);
+    const admin = await siapkanPengguna(t, "super admin", {
+      email: "admin@pindai.test",
+      role: "admin",
+    });
+    const peminjam = await siapkanPengguna(t, "Rani", {
+      email: "rani@pindai.test",
+      role: "peminjam",
+    });
+
+    const tiket = await admin.sesi.mutation(api.pratinjau.mintaTiket, {
+      targetId: peminjam.userId,
+      nonce: NONCE,
+    });
+
+    // Tiket yang belum ditukar bukan pratinjau berjalan: salinan sesi admin di
+    // peramban tidak boleh menahan pratinjau baru karenanya.
+    expect(await admin.sesi.query(api.pratinjau.pratinjauBerjalan, { nonce: NONCE })).toBe(
+      false,
+    );
+
+    await t.mutation(internal.pratinjau._pakaiTiket, { tiketId: tiket.tiketId });
+    expect(await admin.sesi.query(api.pratinjau.pratinjauBerjalan, { nonce: NONCE })).toBe(
+      true,
+    );
+
+    // Nonce lain dan pemanggil tanpa sesi tidak mendapat jawaban "berjalan".
+    expect(
+      await admin.sesi.query(api.pratinjau.pratinjauBerjalan, { nonce: `${NONCE}9` }),
+    ).toBe(false);
+    expect(await t.query(api.pratinjau.pratinjauBerjalan, { nonce: NONCE })).toBe(false);
+
+    // Pratinjau berakhir sendiri: penanda di peramban menjadi usang.
+    const baris = await barisPratinjau(t);
+    await t.run((ctx) =>
+      ctx.db.patch(baris[0]._id, { berlakuHingga: Date.now() - 1 }),
+    );
+    expect(await admin.sesi.query(api.pratinjau.pratinjauBerjalan, { nonce: NONCE })).toBe(
+      false,
+    );
+
+    // Ditutup dari bilah: juga usang, walau batas waktunya belum lewat.
+    const nonceKedua = `${NONCE}1`;
+    const tiketKedua = await admin.sesi.mutation(api.pratinjau.mintaTiket, {
+      targetId: peminjam.userId,
+      nonce: nonceKedua,
+    });
+    await t.mutation(internal.pratinjau._pakaiTiket, { tiketId: tiketKedua.tiketId });
+    await peminjam.sesi.mutation(api.pratinjau.akhiriPratinjau, { nonce: nonceKedua });
+    expect(
+      await admin.sesi.query(api.pratinjau.pratinjauBerjalan, { nonce: nonceKedua }),
+    ).toBe(false);
+  });
+
   it("menutup pratinjau dari bilah hanya oleh akun target", async () => {
     const t = convexTest(schema, modules);
     const admin = await siapkanPengguna(t, "super admin", {

@@ -60,6 +60,13 @@ ditutup dan dicatat. Bila penyimpanan lokal diblokir peramban, **pratinjau tidak
 dijalankan sama sekali** — pratinjau tanpa jalan pulang lebih buruk daripada
 tidak mempratinjau.
 
+Pratinjau yang berakhir sendiri (batas 2 jam) atau diakhiri dari panel saat
+peramban masih menyimpan salinan sesi admin tidak mengunci pratinjau berikutnya.
+Sebelum menahan, klien menanyakan `pratinjau.pratinjauBerjalan` untuk nonce
+peramban itu: salinan hanya menahan bila server masih mencatat pratinjau
+tersebut hidup (mis. pratinjau dibuka di tab lain peramban yang sama). Salinan
+usang dibuang, lalu sesi admin yang sedang dipakai yang disimpan berikutnya.
+
 ## Pagar yang dijaga server
 
 - Hanya admin dengan sesi TOTP terverifikasi yang bisa menerbitkan tiket.

@@ -1,5 +1,5 @@
 import { useAuthActions } from "@convex-dev/auth/react";
-import { useMutation } from "convex/react";
+import { useConvex, useMutation } from "convex/react";
 import { useCallback, useState } from "react";
 
 import { api } from "@/convex/_generated/api";
@@ -9,6 +9,7 @@ import {
   bacaNonce,
   bersihkanPenandaPratinjau,
   buatNonce,
+  penandaPratinjauUsang,
   pulihkanSesiAsli,
   simpanNonce,
   simpanSesiAsli,
@@ -29,6 +30,7 @@ import { ADMIN_ROUTE } from "@/lib/routes";
  */
 export function usePratinjau() {
   const { signIn, signOut } = useAuthActions();
+  const convex = useConvex();
   const mintaTiket = useMutation(api.pratinjau.mintaTiket);
   const akhiriPratinjau = useMutation(api.pratinjau.akhiriPratinjau);
   const [busy, setBusy] = useState(false);
@@ -37,9 +39,28 @@ export function usePratinjau() {
   const mulai = useCallback(
     async ({ targetId, alasan }: { targetId: string; alasan?: string }) => {
       if (adaSesiAsli()) {
-        throw new Error(
-          'Pratinjau sebelumnya belum ditutup. Tekan "Kembali ke Mode Admin" di bilah atas lebih dulu.',
-        );
+        const nonceLama = bacaNonce();
+        let masihBerjalan = false;
+        try {
+          masihBerjalan =
+            nonceLama !== null &&
+            (await convex.query(api.pratinjau.pratinjauBerjalan, { nonce: nonceLama }));
+        } catch {
+          throw new Error(
+            "Tidak bisa memeriksa pratinjau sebelumnya. Periksa koneksi lalu coba lagi.",
+          );
+        }
+
+        if (!penandaPratinjauUsang(nonceLama, masihBerjalan)) {
+          throw new Error(
+            'Pratinjau dari peramban ini masih berjalan. Tekan "Kembali ke Mode Admin" di bilah atas pada tab pratinjau, lalu coba lagi.',
+          );
+        }
+
+        // Pratinjau itu sudah berakhir, dan peramban ini memegang sesi admin
+        // lagi: salinan lamanya dibuang supaya yang disimpan berikutnya adalah
+        // sesi yang benar-benar sedang dipakai.
+        bersihkanPenandaPratinjau();
       }
       if (!simpanSesiAsli()) {
         throw new Error(
@@ -70,7 +91,7 @@ export function usePratinjau() {
         setBusy(false);
       }
     },
-    [mintaTiket, signIn],
+    [convex, mintaTiket, signIn],
   );
 
   /**

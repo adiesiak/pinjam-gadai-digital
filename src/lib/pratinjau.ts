@@ -130,6 +130,22 @@ export function bersihkanPenandaPratinjau(): void {
 }
 
 /**
+ * Penanda pratinjau yang tersimpan sudah usang dan boleh dibuang?
+ *
+ * `berjalan` adalah jawaban server (`pratinjau.pratinjauBerjalan`) untuk nonce
+ * peramban ini. Penanda hanya boleh menahan pratinjau baru bila pratinjaunya
+ * memang masih hidup; pratinjau yang berakhir sendiri (batas 2 jam) atau
+ * diakhiri dari panel meninggalkan salinan sesi admin yang tidak ada lagi
+ * gunanya — membiarkannya memblokir membuat "Masuk sebagai" terkunci selamanya
+ * dengan pesan bilah yang sudah tidak tampil. Nonce yang hilang pun tidak bisa
+ * dilacak bilah mana pun, jadi diperlakukan sama.
+ */
+export function penandaPratinjauUsang(nonce: string | null, berjalan: boolean): boolean {
+  if (nonce === null) return true;
+  return !berjalan;
+}
+
+/**
  * Tulis kembali sesi admin: kunci Convex Auth yang sekarang (milik akun target)
  * dibuang lebih dulu, lalu salinan sesi admin diisi ulang. `true` berarti token
  * admin sudah terpasang dan halaman hanya perlu dimuat ulang.
