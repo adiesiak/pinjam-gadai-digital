@@ -185,5 +185,24 @@ const htmlCtaKredit = renderToStaticMarkup(
 ok("CTA kredit barang tidak menyebut pinjaman", !htmlCtaKredit.includes("Buat pengajuan pinjaman"));
 ok("CTA kredit barang tidak menyebut gadai", !htmlCtaKredit.includes("Buat pengajuan gadai"));
 
+// --- Lokasi hanya di pop-up konfirmasi kirim ------------------------------
+// Titik GPS diambil ulang saat tombol Kirim ditekan, jadi angkanya harus dibaca
+// pada saat persetujuan — bukan sebagai kartu di badan formulir yang bisa basi.
+const sumberForm = bacaSumber("pages/dashboard/forms-views.tsx");
+ok(
+  "kartu lokasi tidak lagi di badan formulir",
+  !sumberForm.includes("Lokasi Anda saat mengirim formulir (wajib)"),
+);
+const posisiDialogSetuju = sumberForm.indexOf("open={setujuOpen}");
+const posisiBlokLokasi = sumberForm.indexOf("<BlokLokasiKirim");
+ok(
+  "blok lokasi tampil di pop-up persetujuan",
+  posisiDialogSetuju !== -1 && posisiBlokLokasi > posisiDialogSetuju,
+);
+ok(
+  "blok lokasi hanya dirender saat titik sudah ada",
+  sumberForm.includes("{lokasi !== null && <BlokLokasiKirim lokasi={lokasi} />}"),
+);
+
 console.log(`form-pengajuan render tests: ${passed} passed, ${failed} failed`);
 if (failed > 0) process.exit(1);

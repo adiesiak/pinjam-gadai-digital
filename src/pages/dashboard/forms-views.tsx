@@ -1,5 +1,5 @@
 import { useAction, useMutation, useQuery } from "convex/react";
-import { ArrowRight, Camera, Loader2, MapPin, Save, ShieldCheck, Upload } from "lucide-react";
+import { ArrowRight, Camera, Loader2, Save, ShieldCheck, Upload } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
 import SignaturePad from "signature_pad";
@@ -9,6 +9,7 @@ import {
   MedanDariKyc,
   PeringatanKyc,
 } from "@/components/kyc/PeringatanKyc";
+import { BlokLokasiKirim } from "@/components/BlokLokasiKirim";
 import { JebakanFormulir } from "@/components/JebakanFormulir";
 import { kunciIdempotensiBaru } from "@/lib/gerbangKirim";
 import { Button } from "@/components/ui/button";
@@ -1247,28 +1248,6 @@ export function LoanForm({
       </div>
       )}
 
-      {/* Lokasi perangkat */}
-      <div className="rounded-2xl border border-slate-200 bg-white p-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="min-w-0 flex-1">
-            <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
-              Lokasi Anda saat mengirim formulir (wajib)
-            </p>
-            {lokasi ? (
-              <p role="status" aria-live="polite" className="mt-1 text-sm tabular-nums">
-                <MapPin className="mr-1 inline size-4 text-emerald-600" />
-                {lokasi.lat.toFixed(5)}, {lokasi.lng.toFixed(5)} · perkiraan ketelitian ±{Math.round(lokasi.akurasi)} meter
-              </p>
-            ) : (
-              <p role="status" aria-live="polite" className="mt-1 text-xs text-muted-foreground">
-                {lokBusy
-                  ? "Mengambil lokasi…"
-                  : "Lokasi belum tercatat. Titik GPS diambil saat Anda menekan tombol kirim."}
-              </p>
-            )}
-          </div>
-        </div>
-      </div>
       {error && (
         <p
           ref={errorRef}
@@ -1316,6 +1295,10 @@ export function LoanForm({
               </li>
             ))}
           </ul>
+
+          {/* Titik GPS hanya tampil di sini: pada saat persetujuan, pengguna
+              membaca titik terbaru yang ikut terkirim beserta jam ambilnya. */}
+          {lokasi !== null && <BlokLokasiKirim lokasi={lokasi} />}
 
           <p className="text-xs text-slate-500">
             Versi {CONTRACT_TERMS_VERSION}.{" "}
