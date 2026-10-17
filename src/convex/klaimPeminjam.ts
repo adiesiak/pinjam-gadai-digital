@@ -31,11 +31,14 @@
  *   MEMINDAHKAN kepemilikan (`userId`) berkas produktif + master identitas,
  *   dengan penanda `klaimDariUserId`/`klaimPada` pada barisnya dan satu baris
  *   `klaimPeminjam` (append-only) sebagai jejaknya.
- * - Data GANDA tidak digabung otomatis. Bila satu nomor tercatat pada lebih
- *   dari satu akun LAIN (selain akun yang sedang mengklaim), klaim DIHENTIKAN
- *   dan pemakai diarahkan ke admin — sama dengan sikap
- *   `convex/duplikatNasabah.ts`. Tanpa aturan ini, dua orang yang kebetulan
- *   memakai satu nomor bisa saling menarik berkas.
+ * - Data GANDA yang BERISI UANG tidak digabung otomatis. Bila satu nomor punya
+ *   riwayat pinjaman/gadai/kredit pada lebih dari satu akun LAIN (selain akun
+ *   yang sedang mengklaim), klaim DIHENTIKAN dan pemakai diarahkan ke admin —
+ *   sama dengan sikap `convex/duplikatNasabah.ts`. Tanpa aturan ini, dua orang
+ *   yang kebetulan memakai satu nomor bisa saling menarik berkas. Akun sisa
+ *   yang hanya menyimpan master identitas/KYC (tanpa berkas keuangan) TIDAK
+ *   menahan klaim: akun itu ikut ditautkan, karena tidak ada riwayat uang yang
+ *   bisa tertukar dan admin tidak punya alat untuk kasus semacam itu.
  * - Master identitas (`nasabahProfil`/`kycProfil`) hanya dipindahkan bila akun
  *   tujuan BELUM punya master sendiri. Kalau sudah punya, berkas lama
  *   dibiarkan di tempatnya dan sisa ganda itu dilaporkan ke admin (ada alat
@@ -199,6 +202,19 @@ async function kepemilikanNomor(ctx: QueryCtx, nomor: string): Promise<Kepemilik
 /** Pemilik dengan berkas terbanyak, atau `null` bila nomornya tak dikenal. */
 function pemilikUtama(kepemilikan: Kepemilikan): PemilikBerkas | null {
   return kepemilikan.pemilik[0] ?? null;
+}
+
+/**
+ * Apakah akun ini menyimpan berkas keuangan (pinjaman, gadai, atau kredit).
+ *
+ * Satu-satunya alasan menahan klaim otomatis. Dua akun yang sama-sama punya
+ * riwayat uang bisa jadi dua orang berbeda (mis. nomor dipakai satu keluarga),
+ * sedangkan akun sisa impor yang hanya menyimpan master identitas/KYC tidak
+ * memindahkan uang apa pun — menahannya justru mengunci pemilik nomor dari
+ * akunnya sendiri, dan admin pun tidak punya tombol untuk itu.
+ */
+function punyaBerkasKeuangan(berkas: BerkasLama): boolean {
+  return totalBerkas(berkas) > 0;
 }
 
 /** Kepemilikan data lama untuk sebuah nomor (dipakai action pengiriman kode). */
@@ -395,11 +411,15 @@ export const mintaKodeKlaim = action({
       { nomor: bersih },
     );
     const utama = pemilikUtama(kepemilikan);
-    if (kepemilikan.pemilik.length > 1) {
+    // Yang dihitung bentrok hanya akun yang benar-benar punya berkas keuangan;
+    // sisa akun impor bertanpa pinjaman/gadai/kredit ikut ditautkan otomatis
+    // saat kode diverifikasi (lihat `selesaikanKlaim`).
+    const bentrok = kepemilikan.pemilik.filter((p) => punyaBerkasKeuangan(p.berkas));
+    if (bentrok.length > 1) {
       return {
         ok: false,
         terkirim: false,
-        pesan: pesanDataGanda(kepemilikan.pemilik.length),
+        pesan: pesanDataGanda(bentrok.length),
         sisaDetik: 0,
         nomorTampil: topengNomor(bersih),
         berkasLama: 0,
@@ -639,10 +659,13 @@ async function selesaikanKlaim(
 
   // Akun yang berhak: sesi aktif bila ada, dan bila tidak — pemilik data lama.
   const tujuan = args.userId ?? utama.userId;
-  // Akun LAIN yang juga mengaku pemilik nomor ini. Lebih dari satu berarti data
-  // ganda: klaim otomatis dihentikan, bukan dipilih salah satu.
+  // Akun LAIN yang juga mengaku pemilik nomor ini. Yang menahan klaim hanya bila
+  // LEBIH DARI SATU di antaranya menyimpan berkas keuangan: akun sisa yang cuma
+  // punya master identitas/KYC tidak dapat memindahkan uang apa pun, jadi aman
+  // ditautkan otomatis alih-alih mengunci pemilik nomor dari akunnya sendiri.
   const lain = kepemilikan.pemilik.filter((p) => p.userId !== tujuan);
-  if (lain.length > 1) return gagal(pesanDataGanda(lain.length));
+  const bentrok = lain.filter((p) => punyaBerkasKeuangan(p.berkas));
+  if (bentrok.length > 1) return gagal(pesanDataGanda(bentrok.length));
 
   const sekarang = Date.now();
   const semua = await ctx.db
@@ -702,12 +725,28 @@ async function selesaikanKlaim(
     dipakaiOlehUserId: tujuan,
   });
 
-  const akunLama = lain[0]?.userId ?? tujuan;
-  const { dipindahkan, masterTertinggal } = await tautkanBerkas(ctx, {
-    dari: akunLama,
-    ke: tujuan,
-    pada: sekarang,
-  });
+  // Semua akun sisa ditautkan; master identitas hanya berpindah bila akun tujuan
+  // belum punya master sendiri (lihat `tautkanBerkas`).
+  const akunLamaList = lain.map((p) => p.userId);
+  const dipindahkan: BerkasLama =
+    akunLamaList.length === 0
+      ? // Masuk ke pemilik data itu sendiri: angkanya tetap jujur, tanpa memindah.
+        await berkasPemilik(ctx, tujuan)
+      : { ...BERKAS_LAMA_KOSONG };
+  let masterTertinggal = 0;
+  for (const dari of akunLamaList) {
+    const hasil = await tautkanBerkas(ctx, { dari, ke: tujuan, pada: sekarang });
+    dipindahkan.pinjaman += hasil.dipindahkan.pinjaman;
+    dipindahkan.gadai += hasil.dipindahkan.gadai;
+    dipindahkan.kredit += hasil.dipindahkan.kredit;
+    dipindahkan.masterNasabah += hasil.dipindahkan.masterNasabah;
+    dipindahkan.pokokPinjaman += hasil.dipindahkan.pokokPinjaman;
+    dipindahkan.pinjamanAktif += hasil.dipindahkan.pinjamanAktif;
+    dipindahkan.pinjamanLunas += hasil.dipindahkan.pinjamanLunas;
+    masterTertinggal += hasil.masterTertinggal;
+  }
+  dipindahkan.akunKandidat = 1;
+  const akunLama = akunLamaList[0] ?? tujuan;
 
   // Akun lama dari data impor tidak punya peran/kredensial; akun yang dipakai
   // masuk harus tetap sah sebagai Peminjam supaya portalnya terbuka.
@@ -723,7 +762,9 @@ async function selesaikanKlaim(
   }
   if (Object.keys(patchUser).length > 0) await ctx.db.patch(tujuan, patchUser);
 
-  const akunLamaUser = akunLama === tujuan ? null : await ctx.db.get(akunLama);
+  const labelAkunLamaList = (
+    await Promise.all(akunLamaList.map(async (id) => labelAkun(await ctx.db.get(id), id)))
+  ).join(", ");
   const ringkas = kalimatBerkasLama(dipindahkan, formatRupiahAman);
   const catatanMaster =
     masterTertinggal === 0
@@ -733,9 +774,9 @@ async function selesaikanKlaim(
   await ctx.db.insert("klaimPeminjam", {
     userId: tujuan,
     nomor: bersih,
-    akunLamaUserId: akunLama === tujuan ? undefined : akunLama,
+    akunLamaUserId: akunLamaList.length === 0 ? undefined : akunLama,
     userIdLabel: labelAkun(user, tujuan),
-    akunLamaLabel: akunLamaUser === null ? undefined : labelAkun(akunLamaUser, akunLama),
+    akunLamaLabel: akunLamaList.length === 0 ? undefined : labelAkunLamaList,
     pada: sekarang,
     metode: args.metode,
     pinjaman: dipindahkan.pinjaman,
@@ -744,9 +785,9 @@ async function selesaikanKlaim(
     masterNasabah: dipindahkan.masterNasabah,
     pokokPinjaman: dipindahkan.pokokPinjaman,
     keterangan:
-      akunLama === tujuan
+      akunLamaList.length === 0
         ? `Nomor ${topengNomor(bersih)} diverifikasi — berkas sudah berada pada akun ini (${ringkas}).`
-        : `Nomor ${topengNomor(bersih)} diverifikasi — berkas dipindahkan ke akun sesi aktif (${ringkas}).`,
+        : `Nomor ${topengNomor(bersih)} diverifikasi — berkas dipindahkan ke akun ini (${ringkas}).`,
   });
 
   await audit(
@@ -754,11 +795,11 @@ async function selesaikanKlaim(
     String(tujuan),
     labelAkun(user, tujuan),
     "klaim_peminjam_lama",
-    `users/${akunLama}`,
+    akunLamaList.length === 0 ? `users/${tujuan}` : akunLamaList.map((id) => `users/${id}`).join(", "),
     `Klaim peminjam lama (${args.metode}) untuk nomor ${topengNomor(bersih)}: ${ringkas}. ` +
-      (akunLama === tujuan
+      (akunLamaList.length === 0
         ? "Berkas sudah pada akun ini."
-        : `Kepemilikan dipindahkan dari akun ${labelAkun(akunLamaUser, akunLama)} ke akun ini.`) +
+        : `Kepemilikan dipindahkan dari akun ${labelAkunLamaList} ke akun ini.`) +
       catatanMaster,
   );
   await catatLogin(ctx, {
@@ -774,7 +815,7 @@ async function selesaikanKlaim(
     ok: true,
     pesan: `Berhasil! Data lama Anda sudah tersambung: ${ringkas}.`,
     userId: tujuan,
-    akunLama: akunLama === tujuan ? null : akunLama,
+    akunLama: akunLamaList.length === 0 ? null : akunLama,
     berkas: utama.berkas,
     dipindahkan,
     metode: args.metode,

@@ -248,7 +248,7 @@ describe("mintaKodeKlaim", () => {
     }
   });
 
-  it("menahan klaim saat satu nomor tercatat pada lebih dari satu akun", async () => {
+  it("menahan klaim saat satu nomor punya berkas keuangan di lebih dari satu akun", async () => {
     const t = convexTest(schema, modules);
     await seedPeminjamLama(t);
     const duplikat = await seedPeminjamLama(t, NOMOR, "PEMINJAM GANDA");
@@ -259,6 +259,75 @@ describe("mintaKodeKlaim", () => {
       expect(hasil.ok).toBe(false);
       expect(hasil.pesan).toMatch(/akun berbeda/i);
       expect(fonnte.keluar).toHaveLength(0);
+    } finally {
+      fonnte.pulihkan();
+    }
+  });
+
+  it("akun sisa bertanpa berkas keuangan tidak mengunci pemilik nomor", async () => {
+    const t = convexTest(schema, modules);
+    const akunData = await seedPeminjamLama(t);
+
+    // Kasus nyata: satu nomor tertinggal pada dua akun impor yang HANYA menyimpan
+    // master identitas/KYC (salah satunya KYC berjalan dengan NIK berbeda).
+    // Tidak ada pinjaman/gadai/kredit di sana, jadi tidak ada riwayat uang yang
+    // bisa tertukar — pemilik nomor harus tetap bisa masuk ke akun datanya.
+    const sisa: Id<"users">[] = [];
+    for (const [nama, nik, status] of [
+      ["CHAREL SOERYA", "3215212122119201", "VERIFIED"],
+      ["Charel soerya", "3213213212312221", "IN_PROGRESS"],
+    ] as const) {
+      const { userId } = await buatPengguna(t, nama, { role: "peminjam" });
+      await t.run(async (ctx) => {
+        await ctx.db.insert("nasabahProfil", {
+          userId,
+          namaLengkap: nama,
+          nik,
+          nomorWhatsApp: NOMOR,
+          diperbaruiPada: Date.now(),
+          diperbaruiOlehLabel: "migrasi data lama",
+          sumber: "admin",
+        });
+        await ctx.db.insert("kycProfil", {
+          userId,
+          status,
+          namaLengkap: nama,
+          nik,
+          nomorWhatsApp: NOMOR,
+          dibuatPada: Date.now(),
+          diperbaruiPada: Date.now(),
+        });
+      });
+      sisa.push(userId);
+    }
+
+    const fonnte = pasangFonnte();
+    try {
+      const minta = await t.action(api.klaimPeminjam.mintaKodeKlaim, { nomor: NOMOR });
+      expect(minta.ok).toBe(true);
+      expect(fonnte.keluar).toHaveLength(1);
+
+      const masuk = await t.mutation(internal.klaimPeminjam._klaimUntukMasuk, {
+        nomor: NOMOR,
+        kode: kodeTerkirim(fonnte.keluar),
+      });
+      expect(masuk.ok).toBe(true);
+      if (!masuk.ok) throw new Error("klaim seharusnya berhasil");
+      expect(masuk.userId).toBe(akunData);
+
+      // Berkas keuangan tetap pada pemilik datanya (tidak ada yang berpindah).
+      const loans = await t.run((ctx) => ctx.db.query("loans").collect());
+      expect(loans).toHaveLength(1);
+      expect(loans[0].userId).toBe(akunData);
+      expect(loans[0].klaimDariUserId).toBeUndefined();
+
+      // Master identitas tidak ditumpuk pada akun yang sudah punya master.
+      const profil = await t.run((ctx) => ctx.db.query("nasabahProfil").collect());
+      expect(profil.filter((p) => p.userId === akunData)).toHaveLength(1);
+
+      // Akun sisa TIDAK dihapus dan identitasnya tidak hilang.
+      const users = await t.run((ctx) => ctx.db.query("users").collect());
+      for (const id of sisa) expect(users.some((u) => u._id === id)).toBe(true);
     } finally {
       fonnte.pulihkan();
     }

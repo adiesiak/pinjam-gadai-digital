@@ -143,11 +143,16 @@ export function kalimatBerkasLama(berkas: BerkasLama, rupiah: (nilai: number) =>
   return daftar;
 }
 
-/** Alasan klaim ditolak karena data ganda — dipakai server dan formulir. */
+/**
+ * Alasan klaim ditolak karena data ganda — dipakai server dan formulir.
+ *
+ * `jumlahAkun` menghitung akun yang benar-benar punya riwayat pinjaman/gadai/
+ * kredit, bukan setiap baris identitas yang memuat nomor ini.
+ */
 export function pesanDataGanda(jumlahAkun: number): string {
   return (
-    `Nomor ini tercatat pada ${jumlahAkun} akun berbeda, sehingga klaim otomatis ` +
-    "dihentikan agar tidak ada data yang tergabung keliru. Hubungi admin PINDAI " +
-    "untuk menggabungkan data lama Anda."
+    `Nomor ini punya riwayat pinjaman/gadai/kredit pada ${jumlahAkun} akun berbeda, ` +
+    "sehingga penggabungan otomatis dihentikan agar tidak ada data yang tergabung keliru. " +
+    "Hubungi admin PINDAI untuk menggabungkan data lama Anda."
   );
 }
