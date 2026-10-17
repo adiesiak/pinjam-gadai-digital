@@ -9,6 +9,7 @@
 import {
   NILAI_GOOGLE_KEMBALI,
   PARAM_GOOGLE_KEMBALI,
+  googleSiapDari,
   identitasGoogle,
   urlPulangGoogle,
 } from "./akunGoogle";
@@ -106,6 +107,43 @@ eq(
   identitasGoogle({ sub: 7, email: "budi@contoh.com", email_verified: true }),
   null,
   "sub non-teks ditolak",
+);
+
+// ===== googleSiapDari =====
+
+eq(
+  googleSiapDari({
+    AUTH_GOOGLE_ID: "123-abc.apps.googleusercontent.com",
+    AUTH_GOOGLE_SECRET: "GOCSPX-rahasia",
+  }),
+  true,
+  "kedua kredensial ada = pintu Google siap",
+);
+
+eq(
+  googleSiapDari({ AUTH_GOOGLE_SECRET: "GOCSPX-rahasia" }),
+  false,
+  "tanpa client id, pintu Google belum siap",
+);
+
+eq(
+  googleSiapDari({ AUTH_GOOGLE_ID: "123-abc.apps.googleusercontent.com" }),
+  false,
+  "tanpa client secret, pintu Google belum siap",
+);
+
+eq(googleSiapDari({}), false, "tanpa keduanya, pintu Google belum siap");
+
+eq(
+  googleSiapDari({ AUTH_GOOGLE_ID: "  ", AUTH_GOOGLE_SECRET: "GOCSPX-x" }),
+  false,
+  "client id yang hanya berisi spasi dianggap belum ada",
+);
+
+eq(
+  googleSiapDari({ AUTH_GOOGLE_ID: "123-abc", AUTH_GOOGLE_SECRET: "  " }),
+  false,
+  "client secret yang hanya berisi spasi dianggap belum ada",
 );
 
 // ===== urlPulangGoogle =====

@@ -59,7 +59,7 @@ import {
   Zap,
 } from "lucide-react";
 import { Suspense, useEffect, useRef, useState, type FormEvent } from "react";
-import { useAction, useMutation } from "convex/react";
+import { useAction, useMutation, useQuery } from "convex/react";
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router";
 
 interface AuthProps {
@@ -225,6 +225,14 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
   const recordLogin = useMutation(api.security.recordLogin);
   const tandaiGagal = useMutation(api.security.recordFailedAttempt);
   const mintaKodeKlaim = useAction(api.klaimPeminjam.mintaKodeKlaim);
+  /**
+   * Kesiapan pintu Google di deployment ini (`undefined` = masih dimuat).
+   * Tombolnya dinonaktifkan saat kredensialnya belum ada, supaya pengunjung
+   * tidak dilempar ke halaman galat Google (`401: invalid_client`) — pesan
+   * jujurnya ditampilkan di bawah tombol. Begitu kredensialnya diisi, query ini
+   * bernilai benar dan tombolnya aktif kembali tanpa perubahan kode.
+   */
+  const googleSiap = useQuery(api.users.googleSiap);
 
   const captchaWajib = kegagalan >= 2;
   const captchaBenar =
@@ -759,9 +767,15 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                               PENYEDIA DANA, karena yang dibuktikan adalah email
                               terverifikasi Google. Lihat `convex/auth/google.ts`. */}
                           <TombolGoogle
-                            disabled={isLoading}
+                            disabled={isLoading || googleSiap === false}
                             onClick={handleGoogleSubmit}
                           />
+                          {googleSiap === false && (
+                            <p className="text-xs leading-5 text-slate-500">
+                              Masuk dengan Google belum diaktifkan di deployment
+                              ini. Pakai email atau nomor WhatsApp dulu ya.
+                            </p>
+                          )}
                         </form>
                       </TabsContent>
 

@@ -433,6 +433,24 @@ function aturanAktif(css: string): string {
   ada(halaman, 'signIn("google"', "pintu Google memakai Convex Auth");
   ada(halaman, "urlPulangGoogle(searchParams, lokasi.pathname)", "alamat pulang Google dibangun oleh lib bersama");
   ada(halaman, "PESAN_GOOGLE_GAGAL", "pesan gagal pintu Google seragam, tanpa membocorkan sebab");
+  // Kesiapan kredensial diperiksa ke server: tanpa `AUTH_GOOGLE_ID`/
+  // `AUTH_GOOGLE_SECRET`, tombolnya dinonaktifkan dengan penjelasan — bukan
+  // melempar pengunjung ke halaman galat Google (`401: invalid_client`).
+  ada(
+    halaman,
+    "api.users.googleSiap",
+    "halaman menanyakan kesiapan pintu Google ke server",
+  );
+  ada(
+    halaman,
+    "disabled={isLoading || googleSiap === false}",
+    "tombol Google nonaktif saat kredensialnya belum ada",
+  );
+  ada(
+    halaman,
+    "Masuk dengan Google belum diaktifkan di deployment",
+    "penjelasan jujur tampil alih-alih halaman galat",
+  );
   ada(halaman, "<LencanaKeamanan />", "lencana keamanan di dasar kartu");
   // Label jalur admin→nasabah membungkus jadi dua baris di 360px; tanpa
   // `h-auto`, `h-9` bawaan mengunci kotaknya ke 36px sehingga teksnya melimpah

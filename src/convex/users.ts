@@ -1,6 +1,7 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { internalQuery, query, QueryCtx } from "./_generated/server";
 import { v } from "convex/values";
+import { googleSiapDari } from "../lib/akunGoogle";
 import { ROLES } from "./schema";
 
 /**
@@ -50,6 +51,23 @@ export const statusAkunKataSandi = internalQuery({
       .unique();
     return { admin, punyaKataSandi: akun !== null };
   },
+});
+
+/**
+ * Apakah pintu masuk Google sudah dikonfigurasi di deployment ini.
+ *
+ * Hanya menjawab ADA/TIDAK: nilai kredensialnya tidak pernah keluar dari
+ * server. Halaman masuk memakainya supaya tombol "Masuk dengan Google" tidak
+ * melempar pengunjung ke halaman galat Google (`401: invalid_client`) ketika
+ * `AUTH_GOOGLE_ID`/`AUTH_GOOGLE_SECRET` belum diisi di deployment itu.
+ */
+export const googleSiap = query({
+  args: {},
+  handler: () =>
+    googleSiapDari({
+      AUTH_GOOGLE_ID: process.env.AUTH_GOOGLE_ID,
+      AUTH_GOOGLE_SECRET: process.env.AUTH_GOOGLE_SECRET,
+    }),
 });
 
 /**

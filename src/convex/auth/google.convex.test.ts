@@ -39,6 +39,33 @@ async function barisAudit(t: KonteksUji) {
   return t.run((ctx) => ctx.db.query("auditLog").collect());
 }
 
+describe("kesiapan pintu Google", () => {
+  it("melaporkan ada/tidaknya kredensial tanpa membocorkan isinya", async () => {
+    const t = convexTest(schema, modules);
+    const semula = {
+      id: process.env.AUTH_GOOGLE_ID,
+      secret: process.env.AUTH_GOOGLE_SECRET,
+    };
+    try {
+      delete process.env.AUTH_GOOGLE_ID;
+      delete process.env.AUTH_GOOGLE_SECRET;
+      await expect(t.query(api.users.googleSiap, {})).resolves.toBe(false);
+
+      process.env.AUTH_GOOGLE_ID = "1234567890-abc.apps.googleusercontent.com";
+      await expect(t.query(api.users.googleSiap, {})).resolves.toBe(false);
+
+      process.env.AUTH_GOOGLE_SECRET = "GOCSPX-rahasia";
+      await expect(t.query(api.users.googleSiap, {})).resolves.toBe(true);
+    } finally {
+      // `process.env.X = undefined` menyimpan teks "undefined", jadi harus dihapus.
+      if (semula.id === undefined) delete process.env.AUTH_GOOGLE_ID;
+      else process.env.AUTH_GOOGLE_ID = semula.id;
+      if (semula.secret === undefined) delete process.env.AUTH_GOOGLE_SECRET;
+      else process.env.AUTH_GOOGLE_SECRET = semula.secret;
+    }
+  });
+});
+
 describe("pintu masuk Google", () => {
   it("menolak akun Super Admin tanpa mengubah data atau menulis audit", async () => {
     const t = convexTest(schema, modules);

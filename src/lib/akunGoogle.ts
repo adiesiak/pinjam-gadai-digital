@@ -50,6 +50,29 @@ export function identitasGoogle(
 }
 
 /**
+ * Apakah kredensial pintu Google sudah terpasang di lingkungan yang menjalankan
+ * server.
+ *
+ * Hanya menjawab ADA/TIDAK — nilainya sendiri tidak pernah keluar dari server.
+ * Dipakai supaya tombol "Masuk dengan Google" tidak melempar pengunjung ke
+ * halaman galat Google (`401: invalid_client`) di deployment yang kredensialnya
+ * belum diisi; tanpa kredensial, `client_id` yang dikirim ke Google kosong.
+ *
+ * Nama variabelnya mengikuti `@auth/core`: untuk provider ber-`id: "google"`
+ * dibaca `AUTH_GOOGLE_ID` dan `AUTH_GOOGLE_SECRET`
+ * (lihat node_modules/@auth/core/lib/utils/env.js).
+ */
+export function googleSiapDari(lingkungan: {
+  AUTH_GOOGLE_ID?: string;
+  AUTH_GOOGLE_SECRET?: string;
+}): boolean {
+  return (
+    teksBerisi(lingkungan.AUTH_GOOGLE_ID) !== null &&
+    teksBerisi(lingkungan.AUTH_GOOGLE_SECRET) !== null
+  );
+}
+
+/**
  * Alamat kembali ke halaman masuk setelah Google selesai.
  *
  * Selalu jalur relatif satu situs (halaman pemanggil yang menentukan awalnya),
