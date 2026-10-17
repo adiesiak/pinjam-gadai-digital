@@ -16,7 +16,7 @@ function ok(condition: boolean, label: string): void {
   }
 }
 
-type Tulisan = { teks: string; x: number; y: number };
+type Tulisan = { teks: string; x: number; y: number; tinggi: number };
 function ctxTiruan(): { ctx: CanvasRenderingContext2D; tulisan: Tulisan[] } {
   const tulisan: Tulisan[] = [];
   const ctx = {
@@ -38,7 +38,9 @@ function ctxTiruan(): { ctx: CanvasRenderingContext2D; tulisan: Tulisan[] } {
       return { width: teks.length * 8 };
     },
     fillText(teks: string, x: number, y: number) {
-      tulisan.push({ teks, x, y });
+      // Tinggi baris diturunkan dari ukuran font yang sedang dipakai painter.
+      const ukuran = Number(/(\d+(?:\.\d+)?)px/.exec(this.font)?.[1] ?? 10);
+      tulisan.push({ teks, x, y, tinggi: ukuran * 1.15 });
     },
   };
   return { ctx: ctx as unknown as CanvasRenderingContext2D, tulisan };
@@ -48,6 +50,24 @@ function render(poster: PromoPoster, ukuran: UkuranPoster): Tulisan[] {
   const { ctx, tulisan } = ctxTiruan();
   gambarPoster(ctx, poster, ukuran);
   return tulisan;
+}
+
+/**
+ * Band kosong terpanjang di antara teks yang tergambar.
+ *
+ * Poster harus memenuhi kanvas: dulu CTA dan kaki dipatok dengan angka tetap,
+ * sehingga poster pendek menyisakan lubang sampai 45% tinggi. Ukuran ini yang
+ * menjaga tata letak tetap terisi saat isi poster berubah.
+ */
+function celahTerpanjang(tulisan: Tulisan[], tinggiKanvas: number): number {
+  const isi = [...tulisan].sort((a, b) => a.y - b.y);
+  let akhir = 0;
+  let celah = 0;
+  for (const item of isi) {
+    celah = Math.max(celah, item.y - akhir);
+    akhir = Math.max(akhir, item.y + item.tinggi);
+  }
+  return Math.max(celah, tinggiKanvas - akhir);
 }
 
 const rasio = { persegi: 1, potret: 0.8, cerita: 0.5625 } as const;
@@ -130,6 +150,19 @@ for (const poster of promoPosters) {
         `${poster.id}/${nama}: teks “${item.teks.slice(0, 20)}” dalam batas kanvas`,
       );
     }
+
+    const tagline = tulisan.find((item) => item.teks === TAGLINE);
+    ok(
+      tagline !== undefined &&
+        tagline.y === Math.max(...tulisan.map((item) => item.y)),
+      `${poster.id}/${nama}: tagline di dasar, kaki tidak menabraknya`,
+    );
+
+    const celah = celahTerpanjang(tulisan, ukuran.tinggi);
+    ok(
+      celah <= ukuran.tinggi * 0.15,
+      `${poster.id}/${nama}: tanpa lubang kosong > 15% kanvas (terukur ${Math.round(celah)} px)`,
+    );
   }
 }
 

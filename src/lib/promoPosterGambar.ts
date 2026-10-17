@@ -56,6 +56,20 @@ function teks(
   return cursor;
 }
 
+/** Tinggi teks (dalam px) tanpa menggambarnya — untuk menata blok. */
+function tinggiTeks(
+  ctx: Ctx,
+  value: string,
+  maxWidth: number,
+  size: number,
+  weight: number,
+  lineHeight: number,
+): number {
+  if (!value) return 0;
+  ctx.font = `${weight} ${size}px ${FONT}`;
+  return bungkus(ctx, value, maxWidth).length * lineHeight;
+}
+
 function garis(
   ctx: Ctx,
   x: number,
@@ -110,6 +124,21 @@ function ukurHeadline(
   return { size: 44, lines: bungkus(ctx, text, maxWidth), lineHeight: 48 };
 }
 
+/** Tinggi blok kaki poster: garis, legalitas (bila ada), dan disclaimer. */
+function tinggiFooter(
+  ctx: Ctx,
+  poster: PromoPoster,
+  maxWidth: number,
+  scale: number,
+): number {
+  let tinggi = 22 * scale;
+  const legal = poster.legalitas?.trim();
+  if (legal) {
+    tinggi += tinggiTeks(ctx, legal, maxWidth, 20 * scale, 600, 26 * scale) + 8 * scale;
+  }
+  return tinggi + tinggiTeks(ctx, poster.disclaimer, maxWidth, 18 * scale, 450, 25 * scale);
+}
+
 function footer(
   ctx: Ctx,
   poster: PromoPoster,
@@ -147,7 +176,16 @@ function footer(
   );
 }
 
-/** Gambar satu poster pada ukuran yang dipilih, mempertahankan bidang kosong dan keterbacaan. */
+/**
+ * Gambar satu poster pada ukuran yang dipilih.
+ *
+ * Tata letaknya diukur dulu, baru dirapatkan: tinggi tiap blok (kop, tagline,
+ * judul, deskripsi, daftar, CTA, kaki) dihitung dengan lebar font kanvas.
+ * Baris daftar menyerap sisa ruang sampai batasnya, dan sisa yang masih ada
+ * dibagi rata ke celah antar blok. Karena itu poster memenuhi kanvas, bukan
+ * menyisakan satu lubang besar di tengah seperti saat CTA dan kaki dipatok
+ * dengan angka tetap.
+ */
 export function gambarPoster(
   ctx: Ctx,
   poster: PromoPoster,
@@ -157,14 +195,110 @@ export function gambarPoster(
   const scale = lebar / 1080;
   const story = tinggi === 1920;
   const square = tinggi === 1080;
-  const top = story ? 270 : 72;
-  const bottom = story ? tinggi - 270 : tinggi - 64;
-  const safeHeight = bottom - top;
-  const margin = 76 * scale;
-  const maxWidth = lebar - margin * 2;
 
   ctx.fillStyle = LATAR;
   ctx.fillRect(0, 0, lebar, tinggi);
+
+  const margin = 76 * scale;
+  const maxWidth = lebar - margin * 2;
+
+  // Bidang kerja dipangkas dari pita kosong lama (cerita dulu menyisakan 270 px
+  // di atas dan bawah). Cerita tetap menyediakan ruang untuk UI Instagram.
+  const top = (story ? 150 : square ? 58 : 66) * scale;
+  const tepiTagline = tinggi - (story ? 132 : square ? 56 : 64) * scale;
+
+  const tinggiHeader = 52 * scale;
+  const tinggiBadge = 30 * scale;
+
+  const batasJudul = (story ? 680 : square ? 420 : 500) * scale;
+  const judul = ukurHeadline(
+    ctx,
+    poster.headline,
+    maxWidth,
+    batasJudul,
+    (story ? 168 : square ? 138 : 148) * scale,
+  );
+  const tinggiJudul = judul.lines.length * judul.lineHeight;
+
+  const descSize = (story ? 36 : 32) * scale;
+  const descBaris = descSize * 1.42;
+  const tinggiDesc = tinggiTeks(ctx, poster.description, maxWidth, descSize, 450, descBaris);
+
+  const ctaSize = 27 * scale;
+  const ctaBaris = 36 * scale;
+  const captionSize = 17 * scale;
+  const captionBaris = 24 * scale;
+  const catatanSize = 19 * scale;
+  const catatanBaris = 25 * scale;
+
+  const tinggiCatatan = poster.catatan
+    ? tinggiTeks(ctx, poster.catatan, maxWidth, catatanSize, 500, catatanBaris) + 18 * scale
+    : 0;
+  const tinggiCtaBlok =
+    tinggiCatatan +
+    2 * scale +
+    22 * scale +
+    tinggiTeks(ctx, poster.cta, maxWidth, ctaSize, 700, ctaBaris) +
+    (poster.caption
+      ? 32 * scale + tinggiTeks(ctx, poster.caption, maxWidth, captionSize, 450, captionBaris)
+      : 0);
+
+  const tinggiKaki = tinggiFooter(ctx, poster, maxWidth, scale);
+  const tinggiTagline = 20 * scale;
+
+  const gapDasar = (story ? 34 : square ? 26 : 30) * scale;
+  const jumlahGap = 6;
+
+  const items: NonNullable<PromoPoster["items"]> =
+    poster.items ??
+    (poster.features.length
+      ? poster.features.map((text) => ({ teks: text }))
+      : (poster.layanan ?? []).map((text) => ({ teks: text })));
+
+  const itemSize = 31 * scale;
+  const itemBaris = 40 * scale;
+  const itemPad = 18 * scale;
+  const barisMaks = (story ? 210 : square ? 150 : 170) * scale;
+
+  const tinggiBaris = items.map(
+    (item) =>
+      tinggiTeks(
+        ctx,
+        item.judul ? `${item.judul}: ${item.teks}` : item.teks,
+        maxWidth,
+        itemSize,
+        550,
+        itemBaris,
+      ) +
+      itemPad * 2,
+  );
+  const alamiItem = tinggiBaris.reduce((total, h) => total + h, 0);
+
+  const ruang = tepiTagline - tinggiTagline * 1.8 - top;
+  const tetap =
+    tinggiHeader +
+    tinggiBadge +
+    tinggiJudul +
+    tinggiDesc +
+    tinggiCtaBlok +
+    tinggiKaki +
+    gapDasar * jumlahGap;
+
+  let areaItem = alamiItem;
+  let tambahanGap = 0;
+  if (items.length > 0) {
+    const naik = Math.min(
+      Math.max(0, ruang - tetap - alamiItem),
+      items.length * barisMaks - alamiItem,
+    );
+    areaItem += Math.max(0, naik);
+    tambahanGap = Math.max(0, (ruang - tetap - areaItem) / jumlahGap);
+  } else {
+    tambahanGap = Math.max(0, (ruang - tetap) / jumlahGap);
+  }
+  const gap = gapDasar + tambahanGap;
+  const tinggiBarisAkhir = items.length > 0 ? areaItem / items.length : 0;
+
   const logoHeight = logo(ctx, margin, top, scale);
   ctx.font = `650 ${Math.round(19 * scale)}px ${FONT}`;
   ctx.fillStyle = SEKUNDER;
@@ -177,8 +311,8 @@ export function gambarPoster(
   );
   ctx.textAlign = "left";
 
-  const pad = (story ? 94 : square ? 42 : 66) * scale;
-  let cursor = top + logoHeight + pad;
+  let cursor = top + tinggiHeader + gap;
+
   teks(
     ctx,
     poster.badge,
@@ -190,124 +324,64 @@ export function gambarPoster(
     700,
     30 * scale,
   );
-  cursor += (story ? 50 : 42) * scale;
+  cursor += tinggiBadge + gap;
 
-  const usableContentHeight =
-    safeHeight - (cursor - top) - (story ? 500 : square ? 390 : 440) * scale;
-  const titleBox = Math.max(
-    145 * scale,
-    Math.min(340 * scale, usableContentHeight * 0.36),
-  );
-  const headline = ukurHeadline(
-    ctx,
-    poster.headline,
-    maxWidth,
-    titleBox,
-    (story ? 96 : 82) * scale,
-  );
-  for (const line of headline.lines) {
+  for (const line of judul.lines) {
+    teks(ctx, line, margin, cursor, maxWidth, judul.size, TINTA, 750, judul.lineHeight);
+    cursor += judul.lineHeight;
+  }
+  cursor += gap;
+
+  teks(ctx, poster.description, margin, cursor, maxWidth, descSize, SEKUNDER, 450, descBaris);
+  cursor += tinggiDesc + gap;
+
+  for (const [index, item] of items.entries()) {
+    const teksItem = item.judul ? `${item.judul}: ${item.teks}` : item.teks;
+    const tinggiIsi = tinggiTeks(ctx, teksItem, maxWidth, itemSize, 550, itemBaris);
+    const rowY = cursor + index * tinggiBarisAkhir;
+    if (index > 0) garis(ctx, margin, rowY, maxWidth, "#e2e8f0");
     teks(
       ctx,
-      line,
+      teksItem,
       margin,
-      cursor,
+      rowY + Math.max(itemPad, (tinggiBarisAkhir - tinggiIsi) / 2),
       maxWidth,
-      headline.size,
+      itemSize,
       TINTA,
-      750,
-      headline.lineHeight,
+      550,
+      itemBaris,
     );
-    cursor += headline.lineHeight;
   }
-  cursor += (story ? 40 : 26) * scale;
+  cursor += areaItem + gap;
 
-  const descSize = (story ? 34 : 30) * scale;
-  const descLine = descSize * 1.42;
-  const descEnd = teks(
-    ctx,
-    poster.description,
-    margin,
-    cursor,
-    maxWidth,
-    descSize,
-    SEKUNDER,
-    450,
-    descLine,
-  );
-  cursor = descEnd + (story ? 54 : 34) * scale;
-
-  const ctaY = bottom - (story ? 390 : square ? 280 : 320) * scale;
-  const itemArea = Math.max(70 * scale, ctaY - cursor - 26 * scale);
-  const items: NonNullable<PromoPoster["items"]> =
-    poster.items ?? poster.features.map((text) => ({ teks: text }));
-  if (items.length) {
-    const rowHeight = Math.min(
-      (story ? 92 : square ? 70 : 78) * scale,
-      itemArea / items.length,
-    );
-    ctx.font = `600 ${Math.round(28 * scale)}px ${FONT}`;
-    for (const [index, item] of items.entries()) {
-      const rowY = cursor + index * rowHeight;
-      if (rowY + rowHeight > ctaY) break;
-      if (index > 0) garis(ctx, margin, rowY, maxWidth, "#e2e8f0");
-      teks(
-        ctx,
-        item.judul ? `${item.judul}: ${item.teks}` : item.teks,
-        margin,
-        rowY + 14 * scale,
-        maxWidth,
-        27 * scale,
-        TINTA,
-        550,
-        36 * scale,
-      );
-    }
+  if (poster.catatan) {
+    teks(ctx, poster.catatan, margin, cursor, maxWidth, catatanSize, SEKUNDER, 500, catatanBaris);
   }
-
-  const noteY = ctaY - 72 * scale;
-  if (poster.catatan)
-    teks(
-      ctx,
-      poster.catatan,
-      margin,
-      noteY,
-      maxWidth,
-      19 * scale,
-      SEKUNDER,
-      500,
-      25 * scale,
-    );
-  garis(ctx, margin, ctaY, maxWidth, AKSEN);
-  teks(
-    ctx,
-    poster.cta,
-    margin,
-    ctaY + 22 * scale,
-    maxWidth,
-    27 * scale,
-    AKSEN,
-    700,
-    36 * scale,
-  );
-  if (poster.caption)
+  const ruleY = cursor + tinggiCatatan;
+  garis(ctx, margin, ruleY, maxWidth, AKSEN);
+  let cursorCta = ruleY + 2 * scale + 22 * scale;
+  cursorCta = teks(ctx, poster.cta, margin, cursorCta, maxWidth, ctaSize, AKSEN, 700, ctaBaris);
+  if (poster.caption) {
     teks(
       ctx,
       poster.caption,
       margin,
-      ctaY + 68 * scale,
+      cursorCta + 32 * scale,
       maxWidth,
-      17 * scale,
+      captionSize,
       SEKUNDER,
       450,
-      24 * scale,
+      captionBaris,
     );
+  }
+  cursor += tinggiCtaBlok + gap;
 
-  const footerY = bottom - (story ? 145 : 112) * scale;
-  footer(ctx, poster, footerY, maxWidth, scale);
+  footer(ctx, poster, cursor, maxWidth, scale);
+
   ctx.font = `600 ${Math.round(14 * scale)}px ${FONT}`;
   ctx.fillStyle = SEKUNDER;
   ctx.textAlign = "right";
   ctx.textBaseline = "bottom";
-  ctx.fillText(TAGLINE, lebar - margin, bottom - 6 * scale);
+  ctx.fillText(TAGLINE, lebar - margin, tepiTagline);
   ctx.textAlign = "left";
 }
