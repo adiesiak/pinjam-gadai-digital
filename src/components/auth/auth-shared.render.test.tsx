@@ -433,6 +433,18 @@ function aturanAktif(css: string): string {
   ada(halaman, 'signIn("google"', "pintu Google memakai Convex Auth");
   ada(halaman, "urlPulangGoogle(searchParams, lokasi.pathname)", "alamat pulang Google dibangun oleh lib bersama");
   ada(halaman, "PESAN_GOOGLE_GAGAL", "pesan gagal pintu Google seragam, tanpa membocorkan sebab");
+  // Jalur Google wajib meninggalkan jejak masuk yang sama dengan jalur lain:
+  // tanpa ini panel Login & Keamanan buta terhadap login lewat Google.
+  ada(
+    halaman,
+    'metode: "google"',
+    "masuk lewat Google dicatat sebagai login (IP + perangkat)",
+  );
+  ada(
+    halaman,
+    "kembaliDariGoogle.current && !loginGoogleDicatat.current",
+    "jejak login Google dicatat sekali, tidak setiap render",
+  );
   // Kesiapan kredensial diperiksa ke server: tanpa `AUTH_GOOGLE_ID`/
   // `AUTH_GOOGLE_SECRET`, tombolnya dinonaktifkan dengan penjelasan — bukan
   // melempar pengunjung ke halaman galat Google (`401: invalid_client`).

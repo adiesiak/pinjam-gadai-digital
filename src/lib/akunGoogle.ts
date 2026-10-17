@@ -114,8 +114,19 @@ export function alamatKembaliGoogle(redirectTo: string | undefined, origin: stri
   const dasar = origin.replace(/\/+$/, "");
   const nilai = teksBerisi(redirectTo);
   if (nilai === null) return `${dasar}/`;
+  // Karakter kontrol bisa menyamarkan alamat di log/UI; tidak pernah diteruskan.
+  const adaKontrol = [...nilai].some((huruf) => {
+    const kode = huruf.charCodeAt(0);
+    return kode < 32 || kode === 127;
+  });
+  if (adaKontrol) return `${dasar}/`;
   if (nilai.startsWith("?")) return `${dasar}/${nilai}`;
-  if (nilai.startsWith("/")) return `${dasar}${nilai}`;
+  if (nilai.startsWith("/")) {
+    // `//host` dan `/\host` adalah trik protokol-relatif: sebagian peramban
+    // membacanya sebagai situs lain. Tolak ke beranda, jangan ditempel.
+    if (nilai.startsWith("//") || nilai.startsWith("/\\")) return `${dasar}/`;
+    return `${dasar}${nilai}`;
+  }
   try {
     if (new URL(nilai).origin === dasar) return nilai;
   } catch {

@@ -241,8 +241,18 @@ eq(
 );
 eq(
   alamatKembaliGoogle("//situs-lain.test", "https://aplikasi.test"),
-  "https://aplikasi.test//situs-lain.test",
-  "protokol-relatif tidak membajak origin, hanya jadi jalur",
+  "https://aplikasi.test/",
+  "alamat protokol-relatif (//host) ditolak ke beranda",
+);
+eq(
+  alamatKembaliGoogle("/\\situs-lain.test", "https://aplikasi.test"),
+  "https://aplikasi.test/",
+  "alamat protokol-relatif ber-backslash ditolak ke beranda",
+);
+eq(
+  alamatKembaliGoogle("/dashboard\nX-Injected: 1", "https://aplikasi.test"),
+  "https://aplikasi.test/",
+  "alamat berisi karakter kontrol tidak diteruskan",
 );
 eq(
   new URL(

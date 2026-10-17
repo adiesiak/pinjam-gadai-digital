@@ -212,6 +212,17 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
    */
   const [tokenMulaiPada, setTokenMulaiPada] = useState<number | null>(null);
   const adminFormRef = useRef<HTMLFormElement | null>(null);
+  /**
+   * Penanda "kembali dari Google" dibaca SEKALI saat halaman dimuat: efek
+   * pembersih di bawah menghapus param `google` dari URL, jadi `searchParams`
+   * tidak lagi memuatnya pada render berikutnya.
+   */
+  const kembaliDariGoogle = useRef(
+    typeof window !== "undefined" &&
+      new URLSearchParams(window.location.search).get(PARAM_GOOGLE_KEMBALI) ===
+        NILAI_GOOGLE_KEMBALI,
+  );
+  const loginGoogleDicatat = useRef(false);
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -248,10 +259,25 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
   }, [adminTotp, captchaBenar]);
 
   useEffect(() => {
-    if (!authLoading && isAuthenticated) {
-      navigate(redirect);
+    if (authLoading || !isAuthenticated) return;
+    // Masuk lewat Google juga meninggalkan jejak di `loginLogs` (IP, perangkat,
+    // metode) seperti email/WhatsApp. Tanpa ini panel Login & Keamanan tidak
+    // pernah melihat jalur Google, sehingga login dari IP baru pun tidak
+    // ditandai. Pencatatan yang gagal tidak menahan pengguna.
+    if (kembaliDariGoogle.current && !loginGoogleDicatat.current) {
+      loginGoogleDicatat.current = true;
+      void (async () => {
+        try {
+          const ip = await getClientIp();
+          await recordLogin({ ip, userAgent: getUserAgent(), metode: "google" });
+        } catch {
+          /* jejak masuk gagal tidak boleh menahan pengguna */
+        }
+      })().finally(() => navigate(redirect));
+      return;
     }
-  }, [authLoading, isAuthenticated, navigate, redirect]);
+    navigate(redirect);
+  }, [authLoading, isAuthenticated, navigate, redirect, recordLogin]);
 
   /**
    * Pengguna baru kembali dari Google dan sesinya BELUM ada.
@@ -294,7 +320,16 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
    */
   useEffect(() => {
     if (typeof adminStep !== "object") return;
-    setTokenMulaiPada((sebelumnya) => sebelumnya ?? Date.now());
+    // Dijadwalkan sebagai microtask: setState langsung di badan efek dilarang
+    // aturan react-hooks (pola yang sama dipakai formulir lain di proyek ini).
+    let batal = false;
+    queueMicrotask(() => {
+      if (batal) return;
+      setTokenMulaiPada((sebelumnya) => sebelumnya ?? Date.now());
+    });
+    return () => {
+      batal = true;
+    };
   }, [adminStep]);
 
   const recordFailedAttempt = async (identifier: string) => {
