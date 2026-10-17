@@ -1,6 +1,6 @@
 import { useAction, useMutation, useQuery } from "convex/react";
 import { ArrowRight, Camera, Loader2, MapPin, Save, ShieldCheck, Upload } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
 import SignaturePad from "signature_pad";
 
@@ -239,12 +239,9 @@ export function LoanForm({
   }, []);
 
   // ===== Lokasi real (GPS) =====
-  const [lokasi, setLokasi] = useState<{
-    lat: number;
-    lng: number;
-    akurasi: number;
-    waktu: number;
-  } | null>(null);
+  /** Satu titik GPS yang siap dikirim bersama pengajuan. */
+  type TitikGps = { lat: number; lng: number; akurasi: number; waktu: number };
+  const [lokasi, setLokasi] = useState<TitikGps | null>(null);
   const [lokBusy, setLokBusy] = useState(false);
 
   const createLoan = useMutation(api.loans.createLoanApplication);
@@ -257,35 +254,54 @@ export function LoanForm({
   // lain langsung ke URL unggah.
   const periksaIsi = useAction(api.berkasIdentitas.periksaIsiBerkasKyc);
 
-  const captureLokasi = () => {
-    if (!("geolocation" in navigator)) {
-      setError("Lokasi tidak bisa diambil dari perangkat ini.");
-      return;
-    }
+  /**
+   * Ambil satu titik GPS.
+   *
+   * Dipakai otomatis saat formulir dibuka dan oleh tombol kirim — tidak ada
+   * tombol "Ambil lokasi" terpisah, karena satu pengajuan cukup satu tombol.
+   * Kegagalan dikembalikan sebagai `null` tanpa memasang pesan galat: pengambilan
+   * otomatis saat formulir dibuka tidak perlu menakut-nakuti nasabah, sedangkan
+   * tombol kirim memakai pesan galatnya sendiri.
+   */
+  const ambilLokasi = useCallback((): Promise<TitikGps | null> => {
+    if (!("geolocation" in navigator)) return Promise.resolve(null);
     setLokBusy(true);
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setLokasi({
-          lat: pos.coords.latitude,
-          lng: pos.coords.longitude,
-          akurasi: pos.coords.accuracy,
-          waktu: Date.now(),
-        });
+    return new Promise((resolve) => {
+      try {
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            const titik: TitikGps = {
+              lat: pos.coords.latitude,
+              lng: pos.coords.longitude,
+              akurasi: pos.coords.accuracy,
+              waktu: Date.now(),
+            };
+            setLokasi(titik);
+            setLokBusy(false);
+            resolve(titik);
+          },
+          () => {
+            setLokBusy(false);
+            resolve(null);
+          },
+          { enableHighAccuracy: true, timeout: 15000, maximumAge: 30000 },
+        );
+      } catch {
+        // Sebagian WebView melempar sinkron saat geolocation diblokir kebijakan.
+        // Tanpa ini promise tidak pernah selesai dan tombol kirim terkunci.
         setLokBusy(false);
-      },
-      () => {
-        setError("Lokasi gagal diambil. Izinkan akses lokasi pada browser, lalu coba lagi.");
-        setLokBusy(false);
-      },
-      { enableHighAccuracy: true, timeout: 15000, maximumAge: 30000 },
-    );
-  };
+        resolve(null);
+      }
+    });
+  }, []);
 
   // Minta izin GPS otomatis saat form dibuka. Dijadwalkan sebagai microtask
   // agar tidak memanggil setState langsung di dalam tubuh efek.
   useEffect(() => {
-    queueMicrotask(captureLokasi);
-  }, []);
+    queueMicrotask(() => {
+      void ambilLokasi();
+    });
+  }, [ambilLokasi]);
 
   const handleFile = async (key: KycFileKey, label: string, file: File | undefined) => {
     if (!file) return;
@@ -665,8 +681,14 @@ export function LoanForm({
         return;
       }
     }
-    if (lokasi === null) {
-      setError("Lokasi Anda belum tercatat. Izinkan akses lokasi, lalu pilih 'Ambil lokasi'.");
+    // Tombol kirim sekaligus mengambil titik GPS: yang terkirim adalah lokasi
+    // saat mengirim, bukan titik lama saat formulir baru dibuka. Bila GPS gagal
+    // tetapi titik lama sudah ada, pengajuan tetap boleh lanjut.
+    const titik = (await ambilLokasi()) ?? lokasi;
+    if (titik === null) {
+      setError(
+        "Lokasi belum bisa diambil. Izinkan akses lokasi pada browser, lalu kirim lagi.",
+      );
       return;
     }
     // Tanda tangan wajib — pengajuan tidak diteruskan tanpa gambar tanda tangan.
@@ -1239,19 +1261,12 @@ export function LoanForm({
               </p>
             ) : (
               <p role="status" aria-live="polite" className="mt-1 text-xs text-muted-foreground">
-                {lokBusy ? "Mengambil lokasi…" : "Lokasi belum tercatat. Izinkan akses lokasi pada browser."}
+                {lokBusy
+                  ? "Mengambil lokasi…"
+                  : "Lokasi belum tercatat. Titik GPS diambil saat Anda menekan tombol kirim."}
               </p>
             )}
           </div>
-          <Button
-            type="button"
-            variant="outline"
-            aria-label={lokBusy ? "Sedang mengambil lokasi" : "Ambil lokasi"}
-            disabled={lokBusy || submitting}
-            onClick={captureLokasi}
-          >
-            {lokBusy ? <Loader2 className="size-4 animate-spin" /> : "Ambil lokasi"}
-          </Button>
         </div>
       </div>
       {error && (
@@ -1387,6 +1402,7 @@ export function LoanForm({
         className="w-full"
         disabled={
           submitting ||
+          lokBusy ||
           !kycSiap ||
           !batasTerbaca ||
           !adaSisa ||
@@ -1397,6 +1413,10 @@ export function LoanForm({
         {submitting ? (
           <>
             <Loader2 className="mr-2 size-4 animate-spin" /> Mengirim…
+          </>
+        ) : lokBusy ? (
+          <>
+            <Loader2 className="mr-2 size-4 animate-spin" /> Mengambil lokasi…
           </>
         ) : (
           <>

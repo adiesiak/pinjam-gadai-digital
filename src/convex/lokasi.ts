@@ -332,7 +332,7 @@ export async function requireLokasiSegar(
     const jarak = jarakKm(status, titikPengajuan);
     if (jarak > LOKASI_KEBIJAKAN.toleransiJarakKm) {
       throw new Error(
-        `Titik lokasi pada pengajuan berbeda ±${Math.round(jarak)} km dari lokasi perangkat yang tercatat. Ambil lokasi sekali lagi lewat tombol "Ambil lokasi", lalu kirim ulang.`,
+        `Titik lokasi pada pengajuan berbeda ±${Math.round(jarak)} km dari lokasi perangkat yang tercatat. Kirim ulang pengajuan dari lokasi Anda sekarang.`,
       );
     }
   }
