@@ -103,6 +103,16 @@ export const KELAS_TOMBOL_UTAMA =
 export const KELAS_TOMBOL_WA =
   "w-full py-3 px-4 rounded-xl border border-emerald-600/30 bg-emerald-50/60 hover:bg-emerald-100/80 text-emerald-900 font-medium flex items-center justify-center gap-2 transition-all mt-3 shadow-2xs disabled:cursor-not-allowed disabled:opacity-60";
 
+/**
+ * Tombol pintu GOOGLE: bidang putih bergaris, lebih tenang daripada tombol
+ * utama supaya email tetap terbaca sebagai jalur pertama. Tanpa ikon merek:
+ * lambang Google tidak digambar di sini (aset pihak ketiga tidak dibuat tanpa
+ * persetujuan), dan labelnya sudah menyebut penyedianya. Teks `slate-700` di
+ * atas putih ≈ 9,9:1, jadi tetap lolos kontras WCAG AA.
+ */
+export const KELAS_TOMBOL_GOOGLE =
+  "w-full py-3 px-4 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-medium flex items-center justify-center gap-2 transition-all mt-3 shadow-xs active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 disabled:active:scale-100";
+
 /* ==========================================================================
    Kerangka halaman
    ========================================================================== */
@@ -776,6 +786,33 @@ export function TombolWhatsappPeminjamLama({
     >
       <MessageCircle className="size-4" aria-hidden="true" />
       Peminjam lama? Masuk dengan nomor WhatsApp
+    </button>
+  );
+}
+
+/**
+ * Tombol pintu GOOGLE.
+ *
+ * Untuk peminjam LAMA (`TombolWhatsappPeminjamLama`) jalurnya nomor WhatsApp;
+ * di sini yang dibuktikan adalah EMAIL yang sudah diverifikasi Google, dan
+ * akun lama ber-email terverifikasi otomatis memakai sesi akun itu (lihat
+ * `convex/auth/google.ts`) — jadi tidak ada akun kosong kedua.
+ */
+export function TombolGoogle({
+  onClick,
+  disabled,
+}: {
+  onClick: () => void;
+  disabled: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className={KELAS_TOMBOL_GOOGLE}
+    >
+      Masuk dengan Google
     </button>
   );
 }

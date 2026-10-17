@@ -14,6 +14,7 @@ import {
   pesanSandiNonAdmin,
 } from "./auth/enumerasi";
 import { emailOtp } from "./auth/emailOtp";
+import { google, jagaMasukGoogle } from "./auth/google";
 import { pratinjauAdmin } from "./auth/pratinjau";
 import { whatsappOtp } from "./auth/whatsappOtp";
 import { internal } from "./_generated/api";
@@ -152,10 +153,33 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
   // menjadi sesi NYATA akun pendana/peminjam, sehingga admin dapat melihat apa
   // yang akun itu lihat. Tanpa tiket yang sah, provider ini tidak melayani
   // siapa pun — tidak ada kata sandi atau OTP yang bisa ditebak di sini.
-  providers: [emailOtp, adminPassword, whatsappOtp, pratinjauAdmin, Anonymous],
+  // `google` = pintu masuk GOOGLE (OIDC) untuk peminjam maupun penyedia dana:
+  // google membuktikan email terverifikasi, dan Convex Auth menautkannya ke
+  // akun ber-email terverifikasi yang sama sehingga pengguna lama tidak
+  // mendapat akun kosong. Akun Super Admin ditolak di `jagaMasukGoogle`.
+  providers: [
+    emailOtp,
+    adminPassword,
+    whatsappOtp,
+    pratinjauAdmin,
+    google,
+    Anonymous,
+  ],
   callbacks: {
-    async afterUserCreatedOrUpdated(ctx, { userId, provider, type }) {
+    async afterUserCreatedOrUpdated(
+      ctx,
+      { userId, existingUserId, provider, type },
+    ) {
       const user = await ctx.db.get(userId);
+
+      // Google: akun sudah ditautkan/dibuat oleh Convex Auth sebelum baris ini,
+      // jadi yang tersisa adalah aturan peran (Super Admin tidak lewat sini)
+      // dan satu baris audit saat akun Google itu pertama dipakai.
+      if (provider.id === google.id) {
+        await jagaMasukGoogle(ctx, { userId, existingUserId });
+        return;
+      }
+
       // Provider WhatsApp OTP hanya cocok untuk akun PEMINJAM: `authorize`-nya
       // menolak nomor tanpa data lama, dan akun yang dibuatnya adalah akun
       // hasil impor/klaim (tidak pernah akun admin tanpa peran). Sesi yang

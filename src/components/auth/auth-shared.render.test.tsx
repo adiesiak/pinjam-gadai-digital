@@ -28,6 +28,7 @@ import {
   BadgeAksesAdmin,
   HitungMundurToken,
   KELAS_KARTU_ADMIN,
+  KELAS_TOMBOL_GOOGLE,
   KartuAuth,
   KepalaMerekAuth,
   KepalaPane,
@@ -44,6 +45,7 @@ import {
   TabPintuMasuk,
   TautanBeranda,
   TombolAdmin,
+  TombolGoogle,
   TombolKembaliAdmin,
   TombolLanjutEmail,
   TombolWhatsappPeminjamLama,
@@ -271,6 +273,20 @@ function aturanAktif(css: string): string {
     "kelas tombol WhatsApp peminjam lama persis seperti permintaan",
   );
   bersih(wa, "tombol WhatsApp");
+
+  const google = render(<TombolGoogle onClick={() => {}} disabled={false} />);
+  ada(google, "Masuk dengan Google", "label tombol Google tampil");
+  ada(google, 'type="button"', "tombol Google tidak mengirim formulir email");
+  ada(google, KELAS_TOMBOL_GOOGLE, "kelas tombol Google sesuai token desain");
+  // Lambang merek Google sengaja tidak digambar: labelnya sudah menyebut
+  // penyedianya, dan aset pihak ketiga tidak dibuat tanpa persetujuan.
+  tidakAda(google, "<svg", "tombol Google tanpa ikon merek");
+  bersih(google, "tombol Google");
+
+  const googleNonaktif = render(
+    <TombolGoogle onClick={() => {}} disabled={true} />,
+  );
+  ada(googleNonaktif, "disabled", "tombol Google nonaktif saat diminta");
 }
 
 // ===== 5. Judul pane, pesan galat, lencana keamanan, navigasi beranda =====
@@ -356,6 +372,12 @@ function aturanAktif(css: string): string {
     "<TombolWhatsappPeminjamLama",
     "halaman memakai tombol WhatsApp bersama",
   );
+  ada(halaman, "<TombolGoogle", "halaman memakai tombol Google bersama");
+  // Pintu Google tetap lewat Convex Auth, dan alamat pulangnya selalu satu
+  // situs (lib/akunGoogle.ts) supaya tujuan akhir tidak bisa dialihkan keluar.
+  ada(halaman, 'signIn("google"', "pintu Google memakai Convex Auth");
+  ada(halaman, "urlPulangGoogle(searchParams, lokasi.pathname)", "alamat pulang Google dibangun oleh lib bersama");
+  ada(halaman, "PESAN_GOOGLE_GAGAL", "pesan gagal pintu Google seragam, tanpa membocorkan sebab");
   ada(halaman, "<LencanaKeamanan />", "lencana keamanan di dasar kartu");
   // Label jalur admin→nasabah membungkus jadi dua baris di 360px; tanpa
   // `h-auto`, `h-9` bawaan mengunci kotaknya ke 36px sehingga teksnya melimpah

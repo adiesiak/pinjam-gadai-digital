@@ -28,6 +28,7 @@ import {
   TabPintuMasuk,
   TautanBeranda,
   TombolAdmin,
+  TombolGoogle,
   TombolKembaliAdmin,
   TombolLanjutEmail,
   TombolWhatsappPeminjamLama,
@@ -39,6 +40,11 @@ import { useAuth } from "@/hooks/use-auth";
 import { api } from "@/convex/_generated/api";
 import { getClientIp, getUserAgent } from "@/lib/session";
 import { ADMIN_ROUTE } from "@/lib/routes";
+import {
+  NILAI_GOOGLE_KEMBALI,
+  PARAM_GOOGLE_KEMBALI,
+  urlPulangGoogle,
+} from "@/lib/akunGoogle";
 import { nilaiKekuatanSandi, pesanGalatAdmin } from "@/lib/authAdmin";
 import { cn } from "@/lib/utils";
 import {
@@ -54,7 +60,7 @@ import {
 } from "lucide-react";
 import { Suspense, useEffect, useRef, useState, type FormEvent } from "react";
 import { useMutation } from "convex/react";
-import { Link, useNavigate, useSearchParams } from "react-router";
+import { Link, useLocation, useNavigate, useSearchParams } from "react-router";
 
 interface AuthProps {
   redirectAfterAuth?: string;
@@ -142,9 +148,22 @@ function resolveRedirectAfterAuth(
   return fallback;
 }
 
+/**
+ * Pesan gagal untuk pintu Google.
+ *
+ * Sengaja TIDAK menjelaskan sebabnya: Convex Auth pada kegagalan alih-alih
+ * hanya kembali tanpa `code` dan tanpa pesan apa pun, jadi sebab yang berbeda
+ * (izin dibatalkan, email belum terverifikasi, penolakan akun Super Admin)
+ * terlihat sama dari sisi peramban. Pesan yang seragam membuat penolakan akun
+ * admin tidak bisa dibedakan dari kegagalan biasa.
+ */
+const PESAN_GOOGLE_GAGAL =
+  "Masuk dengan Google tidak selesai. Coba lagi atau pakai email.";
+
 function Auth({ redirectAfterAuth }: AuthProps = {}) {
   const { isLoading: authLoading, isAuthenticated, signIn, user } = useAuth();
   const navigate = useNavigate();
+  const lokasi = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
   const [authMode, setAuthMode] = useState<"client" | "admin">(() =>
     searchParams.get("returnTo") === ADMIN_ROUTE ? "admin" : "client",
@@ -221,6 +240,29 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
       navigate(redirect);
     }
   }, [authLoading, isAuthenticated, navigate, redirect]);
+
+  /**
+   * Pengguna kembali dari Google.
+   *
+   * `authLoading` masih bernilai benar selama kode di URL sedang ditukar
+   * menjadi sesi, jadi tunggu sampai selesai — dengan begitu keberhasilan tidak
+   * sempat menampilkan pesan gagal. Bila sesi tetap tidak ada setelah pemuatan
+   * selesai, baru halaman ini yang memberi tahu (lihat `PESAN_GOOGLE_GAGAL`).
+   * Penandanya dibersihkan dari URL supaya tidak menempel saat disegarkan.
+   */
+  useEffect(() => {
+    if (searchParams.get(PARAM_GOOGLE_KEMBALI) !== NILAI_GOOGLE_KEMBALI) return;
+    if (authLoading) return;
+    if (!isAuthenticated) setError(PESAN_GOOGLE_GAGAL);
+    setSearchParams(
+      (current) => {
+        const next = new URLSearchParams(current);
+        next.delete(PARAM_GOOGLE_KEMBALI);
+        return next;
+      },
+      { replace: true },
+    );
+  }, [authLoading, isAuthenticated, searchParams, setSearchParams]);
 
   /**
    * Timer token 32 karakter berjalan begitu langkah verifikasi terbuka. Server
@@ -463,6 +505,37 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
     }
   };
 
+  /**
+   * Pintu masuk GOOGLE.
+   *
+   * Peramban dialihkan ke Google dan kembali ke halaman ini; `returnTo` ikut
+   * dibawa (`urlPulangGoogle`), sehingga tujuan akhir setelah masuk tetap sama
+   * dengan jalur email. Yang tersisa di sisi halaman hanya keadaan memuat: sesi
+   * dibangun Convex Auth dari kode di URL begitu halaman ini dimuat lagi.
+   */
+  const handleGoogleSubmit = async () => {
+    setError(null);
+    if (!captchaBenar) {
+      setError("Jawaban verifikasi anti-bot salah.");
+      return;
+    }
+    setIsLoading(true);
+    try {
+      await signIn("google", {
+        redirectTo: urlPulangGoogle(searchParams, lokasi.pathname),
+      });
+      // Tercapai hanya bila peramban gagal dialihkan; bila alihannya berjalan,
+      // halaman ini sudah ditinggalkan.
+      setIsLoading(false);
+    } catch (error) {
+      console.error("Google sign-in error:", error);
+      setKegagalan((k) => k + 1);
+      await recordFailedAttempt("auth-google");
+      setError("Gagal memulai masuk dengan Google. Coba lagi atau pakai email.");
+      setIsLoading(false);
+    }
+  };
+
   const handleGuestLogin = async () => {
     setError(null);
     if (!captchaBenar) {
@@ -597,6 +670,13 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                               setError(null);
                               setClientStep("klaim");
                             }}
+                          />
+                          {/* Pintu GOOGLE: berlaku untuk PEMINJAM maupun
+                              PENYEDIA DANA, karena yang dibuktikan adalah email
+                              terverifikasi Google. Lihat `convex/auth/google.ts`. */}
+                          <TombolGoogle
+                            disabled={isLoading}
+                            onClick={handleGoogleSubmit}
                           />
                         </form>
                       </TabsContent>
