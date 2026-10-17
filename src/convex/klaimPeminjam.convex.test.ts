@@ -332,6 +332,64 @@ describe("mintaKodeKlaim", () => {
       fonnte.pulihkan();
     }
   });
+
+  it("nomor pada akun tim tidak pernah menjadi tujuan klaim WhatsApp", async () => {
+    const t = convexTest(schema, modules);
+    const akunPeminjam = await seedPeminjamLama(t);
+    // Akun admin ikut memuat nomor yang sama (sisa impor). Klaim harus tetap
+    // diarahkan ke akun peminjam, bukan mencetak sesi admin lewat OTP — aturan
+    // yang sama dengan masuk lewat Google.
+    const { userId: adminId } = await buatPengguna(t, "Admin PINDAI", {
+      email: "admin@pindai.test",
+      role: "admin",
+    });
+    await t.run(async (ctx) => {
+      await ctx.db.insert("nasabahProfil", {
+        userId: adminId,
+        namaLengkap: "Admin PINDAI",
+        nik: "3201234567890011",
+        nomorWhatsApp: NOMOR,
+        diperbaruiPada: Date.now(),
+        diperbaruiOlehLabel: "migrasi data lama",
+        sumber: "admin",
+      });
+      await ctx.db.insert("kycProfil", {
+        userId: adminId,
+        status: "VERIFIED",
+        namaLengkap: "Admin PINDAI",
+        nik: "3201234567890011",
+        nomorWhatsApp: NOMOR,
+        dibuatPada: Date.now(),
+        diperbaruiPada: Date.now(),
+      });
+    });
+
+    const fonnte = pasangFonnte();
+    try {
+      const minta = await t.action(api.klaimPeminjam.mintaKodeKlaim, { nomor: NOMOR });
+      expect(minta.ok).toBe(true);
+
+      const masuk = await t.mutation(internal.klaimPeminjam._klaimUntukMasuk, {
+        nomor: NOMOR,
+        kode: kodeTerkirim(fonnte.keluar),
+      });
+      expect(masuk.ok).toBe(true);
+      if (!masuk.ok) throw new Error("klaim seharusnya berhasil");
+      expect(masuk.userId).toBe(akunPeminjam);
+      expect(masuk.userId).not.toBe(adminId);
+
+      // Identitas admin tidak ikut berpindah (akun tim tidak disentuh).
+      const profilAdmin = await t.run((ctx) =>
+        ctx.db
+          .query("nasabahProfil")
+          .withIndex("by_user", (q) => q.eq("userId", adminId))
+          .collect(),
+      );
+      expect(profilAdmin).toHaveLength(1);
+    } finally {
+      fonnte.pulihkan();
+    }
+  });
 });
 
 describe("login peminjam lama (kode → akun pemilik data)", () => {

@@ -176,13 +176,23 @@ async function kepemilikanNomor(ctx: QueryCtx, nomor: string): Promise<Kepemilik
       .collect(),
   ]);
 
-  const kandidat = [
+  const kandidatUnik = [
     ...new Set<string>([
       ...lewatPinjaman.map((l) => l.userId as string),
       ...lewatProfil.map((p) => p.userId as string),
       ...lewatKyc.map((k) => k.userId as string),
     ]),
   ] as Array<Id<"users">>;
+
+  // Akun tim (admin) tidak pernah menjadi pemilik nomor untuk jalur klaim: admin
+  // masuk dengan kata sandi + TOTP, dan nomor yang menempel pada akun admin
+  // tidak boleh mencetak sesi admin lewat OTP WhatsApp. Aturan yang sama sudah
+  // berlaku untuk masuk lewat Google (`auth/google.ts`).
+  const kandidat = (
+    await Promise.all(kandidatUnik.map(async (id) => ({ id, akun: await ctx.db.get(id) })))
+  )
+    .filter(({ akun }) => akun === null || akun.role !== ROLES.ADMIN)
+    .map(({ id }) => id);
 
   const pemilik = await Promise.all(
     kandidat.map(async (userId) => ({ userId, berkas: await berkasPemilik(ctx, userId) })),
@@ -659,6 +669,14 @@ async function selesaikanKlaim(
 
   // Akun yang berhak: sesi aktif bila ada, dan bila tidak — pemilik data lama.
   const tujuan = args.userId ?? utama.userId;
+  // Lapis kedua: sesi aktif pun tidak boleh memakai jalur ini untuk masuk ke
+  // akun tim, walau nomornya menempel di sana karena data impor lama.
+  const akunTujuan = await ctx.db.get(tujuan);
+  if (akunTujuan !== null && akunTujuan.role === ROLES.ADMIN) {
+    return gagal(
+      "Nomor ini menempel pada akun tim PINDAI. Akun tim masuk dengan kata sandi dan TOTP, bukan lewat WhatsApp.",
+    );
+  }
   // Akun LAIN yang juga mengaku pemilik nomor ini. Yang menahan klaim hanya bila
   // LEBIH DARI SATU di antaranya menyimpan berkas keuangan: akun sisa yang cuma
   // punya master identitas/KYC tidak dapat memindahkan uang apa pun, jadi aman
@@ -750,7 +768,7 @@ async function selesaikanKlaim(
 
   // Akun lama dari data impor tidak punya peran/kredensial; akun yang dipakai
   // masuk harus tetap sah sebagai Peminjam supaya portalnya terbuka.
-  const user = await ctx.db.get(tujuan);
+  const user = akunTujuan;
   const patchUser: Partial<Doc<"users">> = {};
   if (user !== null && user.role === undefined) patchUser.role = ROLES.PEMINJAM;
   if (user !== null && (user.name === undefined || user.name.trim() === "")) {

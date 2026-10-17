@@ -25,7 +25,13 @@
 import { v } from "convex/values";
 
 import { kelompokkanKembar } from "../lib/duplikatNasabah";
-import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
+import {
+  internalMutation,
+  mutation,
+  query,
+  type MutationCtx,
+  type QueryCtx,
+} from "./_generated/server";
 import { requireAdminSession } from "./adminAuthz";
 import { audit } from "./system";
 import type { Doc, Id } from "./_generated/dataModel";
@@ -303,5 +309,34 @@ export const batalkanMigrasiNasabah = mutation({
       profilDihapus: profilMigrasi.length,
       relasiDibersihkan: pinjamanTandai.length,
     };
+  },
+});
+
+/**
+ * PERBAIKAN DATA SATU BARIS — hapus nomor WhatsApp yang salah menempel pada
+ * sebuah pinjaman. Internal-only: tidak bisa dipanggil dari aplikasi, hanya
+ * lewat CLI operator, dan nomornya harus cocok dengan isi baris supaya tidak
+ * ada pinjaman lain yang ikut tersentuh. Nominal, status, dan tanggal tidak
+ * berubah — hanya kolom nomor yang dihapus, dengan jejak di Audit Trail.
+ */
+export const _hapusNomorPinjaman = internalMutation({
+  args: { pinjamanId: v.id("loans"), nomor: v.string() },
+  handler: async (ctx, { pinjamanId, nomor }) => {
+    const pinjaman = await ctx.db.get(pinjamanId);
+    if (pinjaman === null) throw new Error("Pinjaman tidak ditemukan.");
+    if (pinjaman.nomorWhatsApp !== nomor) {
+      throw new Error("Nomor pada pinjaman tidak cocok; tidak ada yang diubah.");
+    }
+    await ctx.db.patch(pinjamanId, { nomorWhatsApp: undefined });
+    await audit(
+      ctx,
+      undefined,
+      "perbaikan data operator",
+      "hapus_nomor_pinjaman",
+      `loans/${pinjamanId}`,
+      `Nomor WhatsApp dihapus dari pinjaman ${pinjaman.nomorReferensi} (${pinjaman.namaLengkap}) atas permintaan pemilik data. ` +
+        "Nominal, status, dan tanggal tidak diubah.",
+    );
+    return { ok: true, nomorReferensi: pinjaman.nomorReferensi };
   },
 });
