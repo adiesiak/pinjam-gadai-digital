@@ -39,9 +39,10 @@ import { v } from "convex/values";
 
 import type { Doc, Id } from "./_generated/dataModel";
 import { internalMutation, mutation, query, type MutationCtx } from "./_generated/server";
-import { requireAdminSession } from "./adminAuthz";
+import { getAdminGateStatus, requireAdminSession } from "./adminAuthz";
 import { audit } from "./system";
 import { ROLES } from "./schema";
+import { namaTampil } from "../lib/nama";
 import { formatWaktuWIB } from "../lib/waktu";
 
 /** Masa berlaku tiket sebelum dipakai provider login (5 menit). */
@@ -340,6 +341,98 @@ export const daftarPratinjauAktif = query({
         })),
       batas: BATAS_PRATINJAU_AKTIF,
       masaBerlakuMs: MASA_PRATINJAU_MS,
+    };
+  },
+});
+
+/** Jumlah akun yang dikirim pemilih Mode Nasabah sekali tampil. */
+const BATAS_HASIL_UJI = 20;
+
+/**
+ * AKUN NASABAH UNTUK MODE NASABAH — pencarian target pratinjau di /dashboard.
+ *
+ * Bedanya dengan `admin.daftarNasabah`: daftar itu memuat seluruh data nasabah
+ * untuk dikelola, sedangkan di sini admin hanya butuh MEMILIH satu akun uji.
+ * Karena itu yang dikirim hanya nama, email, kode nasabah, status KYC, serta
+ * dua penanda yang menentukan akun mana yang layak dicoba (sudah punya data
+ * diri, sudah pernah mengajukan). NIK dan nomor WhatsApp hanya dipakai untuk
+ * mencocokkan pencarian dan tidak pernah keluar dari server.
+ *
+ * Pagar: peran admin wajib. Sesi admin yang belum lolos TOTP tidak diberi galat
+ * (layarnya hanya menampilkan "verifikasi dulu"), sebab galat di query akan
+ * mematikan seluruh halaman alih-alih menjelaskan langkah berikutnya. Sesi yang
+ * sudah lolos tetap tidak mendapat izin menukar tiket tanpa `mintaTiket`, jadi
+ * daftar ini tidak menambah jalan masuk baru.
+ */
+export const cariNasabahUji = query({
+  args: { kueri: v.string() },
+  handler: async (ctx, { kueri }) => {
+    const gate = await getAdminGateStatus(ctx);
+    if (!gate.isAdmin) throw new Error("Akses khusus Super Admin.");
+    if (!gate.verified) return { siap: false, hasil: [], total: 0 };
+
+    const kunci = kueri.trim().toLowerCase().slice(0, 64);
+    const [users, profil, kyc] = await Promise.all([
+      ctx.db.query("users").collect(),
+      ctx.db.query("nasabahProfil").collect(),
+      ctx.db.query("kycProfil").collect(),
+    ]);
+    const profilPer = new Map(profil.map((p) => [p.userId, p]));
+    const kycPer = new Map(kyc.map((k) => [k.userId, k]));
+
+    const cocok = users
+      .filter((u) => {
+        if (u.isAnonymous === true) return false;
+        // Akun tanpa peran adalah pendaftar yang belum mengajukan apa pun;
+        // justru akun seperti ini yang perlu dicoba untuk alur onboarding dan
+        // KYC. Peran pendana/pemantau punya ruangnya sendiri, dan akun admin
+        // memang tidak boleh dipratinjau.
+        return u.role === undefined || u.role === ROLES.PEMINJAM;
+      })
+      .map((u) => {
+        const p = profilPer.get(u._id);
+        return {
+          userId: u._id,
+          nama: namaTampil([p?.namaLengkap, u.name, u.email], "TANPA NAMA"),
+          email: u.email?.trim() || null,
+          kodePeminjam: u.kodePeminjam ?? null,
+          kycStatus: kycPer.get(u._id)?.status ?? null,
+          punyaDataDiri: p !== undefined,
+          punyaPinjaman: false,
+          cari: [p?.namaLengkap, u.name, u.email, u.kodePeminjam, p?.nik, p?.nomorWhatsApp]
+            .filter((nilai): nilai is string => typeof nilai === "string")
+            .join(" ")
+            .toLowerCase(),
+        };
+      })
+      .filter((baris) => kunci === "" || baris.cari.includes(kunci))
+      .sort((a, b) => a.nama.localeCompare(b.nama, "id"));
+
+    const halaman = cocok.slice(0, BATAS_HASIL_UJI);
+    // Satu pembacaan berindeks per akun yang benar-benar tampil, bukan
+    // `collect()` seluruh tabel pinjaman: daftar ini hanya butuh penanda.
+    await Promise.all(
+      halaman.map(async (baris) => {
+        const pinjaman = await ctx.db
+          .query("loans")
+          .withIndex("by_user", (q) => q.eq("userId", baris.userId))
+          .first();
+        baris.punyaPinjaman = pinjaman !== null;
+      }),
+    );
+
+    return {
+      siap: true,
+      hasil: halaman.map((baris) => ({
+        userId: baris.userId,
+        nama: baris.nama,
+        email: baris.email,
+        kodePeminjam: baris.kodePeminjam,
+        kycStatus: baris.kycStatus,
+        punyaDataDiri: baris.punyaDataDiri,
+        punyaPinjaman: baris.punyaPinjaman,
+      })),
+      total: cocok.length,
     };
   },
 });

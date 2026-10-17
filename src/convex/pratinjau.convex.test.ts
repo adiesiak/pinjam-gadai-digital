@@ -355,3 +355,117 @@ describe("pratinjau Super Admin — pengawasan panel", () => {
     expect(await aksiAudit(t, "pratinjau_diakhiri_admin")).toHaveLength(1);
   });
 });
+
+describe("Mode Nasabah — pemilih akun uji", () => {
+  it("hanya menawarkan akun peminjam dan pendaftar baru", async () => {
+    const t = convexTest(schema, modules);
+    const admin = await siapkanPengguna(t, "super admin", {
+      email: "admin@pindai.test",
+      role: "admin",
+    });
+    const rani = await siapkanPengguna(t, "Rani", {
+      email: "rani@pindai.test",
+      role: "peminjam",
+    });
+    const pendaftar = await buatPengguna(t, "Budi", { email: "budi@pindai.test" });
+    const pendana = await siapkanPengguna(t, "Robert", {
+      email: "robert@pindai.test",
+      role: "dana",
+    });
+    await t.run((ctx) =>
+      ctx.db.insert("users", { name: "Pemantau", email: "pantau@pindai.test", role: "pengamat" }),
+    );
+    await buatPengguna(t, "Tamu", { isAnonymous: true });
+
+    const hasil = await admin.sesi.query(api.pratinjau.cariNasabahUji, { kueri: "" });
+    expect(hasil.siap).toBe(true);
+    expect(hasil.total).toBe(2);
+    expect(hasil.hasil.map((r) => r.userId).sort()).toEqual(
+      [rani.userId, pendaftar.userId].sort(),
+    );
+    expect(hasil.hasil.map((r) => r.nama)).not.toContain("ROBERT");
+    expect(hasil.hasil.map((r) => r.nama)).not.toContain("TAMU");
+    expect(hasil.hasil.map((r) => r.userId)).not.toContain(pendana.userId);
+  });
+
+  it("mencocokkan kode nasabah dan NIK tanpa mengirim NIK ke peramban", async () => {
+    const t = convexTest(schema, modules);
+    const admin = await siapkanPengguna(t, "super admin", {
+      email: "admin@pindai.test",
+      role: "admin",
+    });
+    const rani = await buatPengguna(t, "Rani", {
+      email: "rani@pindai.test",
+      role: "peminjam",
+    });
+    await t.run(async (ctx) => {
+      await ctx.db.patch(rani.userId, { kodePeminjam: "PMN-7K2QX9" });
+      await ctx.db.insert("nasabahProfil", {
+        userId: rani.userId,
+        namaLengkap: "RANI PUSPITA",
+        nik: "3201234567890003",
+        nomorWhatsApp: "628123456791",
+        diperbaruiPada: Date.now(),
+        diperbaruiOlehLabel: "admin uji",
+      });
+      await ctx.db.insert("kycProfil", {
+        userId: rani.userId,
+        status: "VERIFIED",
+        namaLengkap: "RANI PUSPITA",
+        nik: "3201234567890003",
+        nomorWhatsApp: "628123456791",
+        dibuatPada: Date.now(),
+        diperbaruiPada: Date.now(),
+      });
+    });
+
+    const lewatNik = await admin.sesi.query(api.pratinjau.cariNasabahUji, {
+      kueri: "3201234567890003",
+    });
+    expect(lewatNik.total).toBe(1);
+    expect(lewatNik.hasil[0]).toMatchObject({
+      userId: rani.userId,
+      nama: "RANI PUSPITA",
+      kodePeminjam: "PMN-7K2QX9",
+      kycStatus: "VERIFIED",
+      punyaDataDiri: true,
+      punyaPinjaman: false,
+    });
+
+    const lewatKode = await admin.sesi.query(api.pratinjau.cariNasabahUji, {
+      kueri: "pmn-7k2qx9",
+    });
+    expect(lewatKode.hasil).toHaveLength(1);
+
+    // NIK dan nomor WhatsApp hanya dipakai untuk mencocokkan, tidak dikirim.
+    const teks = JSON.stringify(lewatNik.hasil);
+    expect(teks).not.toContain("3201234567890003");
+    expect(teks).not.toContain("628123456791");
+  });
+
+  it("menahan daftar untuk admin yang belum lolos TOTP", async () => {
+    const t = convexTest(schema, modules);
+    const admin = await buatPengguna(t, "super admin", {
+      email: "admin@pindai.test",
+      emailVerificationTime: Date.now(),
+      role: "admin",
+    });
+    await siapkanPengguna(t, "Rani", { email: "rani@pindai.test", role: "peminjam" });
+
+    // Bukan galat: layar harus bisa menampilkan langkah verifikasinya.
+    const hasil = await admin.sesi.query(api.pratinjau.cariNasabahUji, { kueri: "" });
+    expect(hasil).toEqual({ siap: false, hasil: [], total: 0 });
+  });
+
+  it("menolak peran selain Super Admin", async () => {
+    const t = convexTest(schema, modules);
+    const pendana = await siapkanPengguna(t, "Robert", {
+      email: "robert@pindai.test",
+      role: "dana",
+    });
+
+    await expect(
+      pendana.sesi.query(api.pratinjau.cariNasabahUji, { kueri: "" }),
+    ).rejects.toThrow(/Super Admin/i);
+  });
+});

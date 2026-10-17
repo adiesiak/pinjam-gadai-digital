@@ -66,7 +66,7 @@ export function TombolMasukSebagai({
         type="button"
         size="sm"
         variant="outline"
-        className="gap-2 rounded-xl"
+        className="min-h-11 gap-2 rounded-xl sm:min-h-9"
         onClick={() => {
           setPesanGagal(null);
           setTerbuka(true);

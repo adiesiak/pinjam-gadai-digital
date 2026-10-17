@@ -9,6 +9,7 @@ import { formatRupiah } from "@/lib/money";
 import type { FunctionReturnType } from "convex/server";
 
 import { LocationGate } from "@/components/LocationGate";
+import { ModeNasabahUji } from "@/components/ModeNasabahUji";
 import { FadeIn } from "@/components/Reveal";
 import { SkeletonBarisDaftar, SkeletonKartu } from "@/components/ui/loading";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
@@ -110,8 +111,10 @@ export default function Dashboard() {
   }, [pratinjauUserId, catatLihatNasabah]);
 
   // Lewati query nasabah saat profil masih dimuat, sesi tamu, atau pratinjau admin.
+  // Admin tanpa target pratinjau tidak punya data nasabah sendiri; query
+  // peminjam dilewati supaya halaman pemilih akun tidak membaca catatan kosong.
   const argsPeminjam =
-    user === undefined || isAnonymous || adminPratinjauId !== null
+    user === undefined || isAnonymous || adminPratinjauId !== null || role === "admin"
       ? ("skip" as const)
       : {};
   const loans = useQuery(api.loans.listMyLoans, argsPeminjam);
@@ -185,6 +188,14 @@ export default function Dashboard() {
     await signOut();
     navigate("/auth?returnTo=%2Fdashboard");
   };
+
+  // Admin yang membuka /dashboard tanpa target pratinjau tidak diberi dashboard
+  // kosong: yang ia butuhkan adalah pintu masuk Mode Nasabah untuk memilih akun
+  // uji. Pratinjau yang sedang berjalan tetap memakai alur di bawah karena saat
+  // itu peramban sudah memegang sesi akun target.
+  if (role === "admin" && adminPratinjauId === null) {
+    return <ModeNasabahUji />;
+  }
 
   if (adminPratinjauId !== null) {
     if (dataPratinjau === undefined || !auditPratinjauSiap) {

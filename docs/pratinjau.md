@@ -17,6 +17,26 @@ Setiap tombol membuka konfirmasi yang menyebut akun tujuan, ruang yang akan
 dibuka, dan bahwa sesi admin disimpan sehingga bisa dikembalikan. Kolom *alasan*
 opsional dan ikut ke Audit Trail.
 
+### Mode Nasabah di `/dashboard`
+
+Admin yang membuka `/dashboard` tidak mendapat dashboard nasabah kosong,
+melainkan layar **Mode Nasabah**: satu kotak pencarian akun nasabah dan tombol
+**Masuk sebagai** per baris. Layar ini dipakai untuk menguji alur nasabah dari
+awal sampai akhir (pengajuan, KYC, kontrak, pembayaran) tanpa harus mencari
+akunnya lebih dulu di panel.
+
+- Yang ditawarkan hanya akun **peminjam** dan pendaftar baru yang belum punya
+  peran. Akun pendana tetap dibuka dari Manajemen Akun, dan akun admin memang
+  tidak bisa dipratinjau.
+- Pencarian mencocokkan nama, email, kode nasabah, NIK, dan nomor WhatsApp.
+  Dari kelima field itu, **NIK dan nomor WhatsApp tidak dikirim ke peramban** —
+  keduanya hanya dipakai server untuk mencocokkan, sementara layar menampilkan
+  nama, email, kode, status KYC, penanda data diri, dan riwayat pengajuan.
+- `pratinjau.cariNasabahUji` tidak menambah izin apa pun: ia hanya membaca daftar
+  untuk admin, dan sesi yang belum lolos TOTP mendapat `siap: false` (layar
+  menampilkan langkah verifikasi) alih-alih galat. Tiket tetap hanya terbit dari
+  `mintaTiket`.
+
 ## Cara kerjanya
 
 1. `pratinjau.mintaTiket` (convex/pratinjau.ts) menerbitkan **tiket sekali pakai**

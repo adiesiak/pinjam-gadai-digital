@@ -40,7 +40,13 @@ export function RoleDashboardMenu() {
   const modeNasabah = {
     href: "/dashboard",
     label: "Mode Nasabah",
-    description: "Catatan pinjaman, pengajuan, dan verifikasi identitas Anda",
+    // Untuk admin, /dashboard adalah layar pemilih akun uji — bukan ruang
+    // pribadinya. Keterangannya karena itu menyebut pekerjaannya, bukan isi
+    // dashboard nasabah.
+    description:
+      role === "admin"
+        ? "Buka satu akun nasabah untuk menguji semua alurnya"
+        : "Catatan pinjaman, pengajuan, dan verifikasi identitas Anda",
     icon: LayoutDashboard,
   };
 
