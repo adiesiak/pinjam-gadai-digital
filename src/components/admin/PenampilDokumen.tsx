@@ -77,12 +77,16 @@ export function PenampilDokumen({
               <img
                 src={src}
                 alt={label}
-                loading="lazy"
                 decoding="async"
                 draggable={false}
                 onLoad={() => setDimuat(true)}
                 onError={() => setGagal(true)}
-                className={`max-h-48 w-auto object-contain ${dimuat ? "" : "hidden"}`}
+                // Jangan `hidden`/`loading=lazy` di sini: gambar `display: none`
+                // tidak pernah dianggap terlihat oleh lazy-loading, sehingga
+                // `onLoad` tak pernah menyala dan spinner berputar selamanya.
+                // Transparan tetap mengambil ruang, jadi gambar benar-benar
+                // dimuat; tiga lampiran ini kecil dan hanya dibuka admin.
+                className={`max-h-48 w-auto object-contain transition-opacity duration-150 ${dimuat ? "opacity-100" : "opacity-0"}`}
               />
               {dimuat && <LapisanTandaAir label={label} />}
             </div>

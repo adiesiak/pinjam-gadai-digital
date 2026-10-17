@@ -8,21 +8,30 @@ import { Loader2, ShieldCheck } from "lucide-react";
  */
 export function WatermarkedDoc({ src, label }: { src: string; label?: string }) {
   const [loaded, setLoaded] = useState(false);
+  const [gagal, setGagal] = useState(false);
 
   return (
     <div className="relative overflow-hidden rounded-xl border border-sky-100 bg-white">
-      {!loaded && (
+      {!loaded && !gagal && (
         <div className="flex h-28 items-center justify-center text-muted-foreground">
           <Loader2 className="size-4 animate-spin" />
         </div>
       )}
+      {gagal && (
+        <p className="flex h-28 items-center justify-center px-3 text-center text-xs text-muted-foreground">
+          Dokumen gagal dimuat.
+        </p>
+      )}
       <img
         src={src}
         alt={label ?? "Dokumen KYC"}
-        loading="lazy"
         decoding="async"
         onLoad={() => setLoaded(true)}
-        className={`max-h-56 w-full object-contain ${loaded ? "" : "hidden"}`}
+        onError={() => setGagal(true)}
+        // `hidden` + `loading="lazy"` membuat gambar tak pernah dimuat browser
+        // (tidak punya kotak tata letak), sehingga spinner berputar selamanya.
+        // Transparan sampai termuat, tanpa menyembunyikannya dari tata letak.
+        className={`max-h-56 w-full object-contain transition-opacity duration-150 ${loaded ? "opacity-100" : "opacity-0"} ${gagal ? "hidden" : ""}`}
         draggable={false}
       />
       {loaded && <LapisanTandaAir label={label} />}
