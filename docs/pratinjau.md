@@ -67,6 +67,14 @@ peramban itu: salinan hanya menahan bila server masih mencatat pratinjau
 tersebut hidup (mis. pratinjau dibuka di tab lain peramban yang sama). Salinan
 usang dibuang, lalu sesi admin yang sedang dipakai yang disimpan berikutnya.
 
+Bila pratinjau itu memang masih hidup tetapi bilahnya tidak ada di layar mana
+pun — mis. sesi pratinjau ditinggalkan lewat **Keluar** lalu admin masuk lagi
+sebelum batas 2 jamnya habis — dialog **Masuk sebagai** menawarkan tombol
+**Hentikan pratinjau lama & coba lagi**. Tombol itu memanggil
+`pratinjau.akhiriPratinjauTersangkut` (nonce peramban, hanya untuk admin yang
+memulai baris itu), mencabut sesi hasil pratinjau, mencatat
+`pratinjau_diakhiri_admin`, dan membuang penanda lokal.
+
 ## Pagar yang dijaga server
 
 - Hanya admin dengan sesi TOTP terverifikasi yang bisa menerbitkan tiket.

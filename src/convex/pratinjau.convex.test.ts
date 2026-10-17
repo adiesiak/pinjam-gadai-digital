@@ -334,6 +334,56 @@ describe("pratinjau Super Admin — bilah dan penutupan", () => {
     ).toBe(false);
   });
 
+  it("mengakhiri pratinjau yang menyangkut di peramban, hanya oleh admin pemiliknya", async () => {
+    const t = convexTest(schema, modules);
+    const admin = await siapkanPengguna(t, "super admin", {
+      email: "admin@pindai.test",
+      role: "admin",
+    });
+    const adminLain = await siapkanPengguna(t, "admin dua", {
+      email: "admin2@pindai.test",
+      role: "admin",
+    });
+    const peminjam = await siapkanPengguna(t, "Rani", {
+      email: "rani@pindai.test",
+      role: "peminjam",
+    });
+
+    const tiket = await admin.sesi.mutation(api.pratinjau.mintaTiket, {
+      targetId: peminjam.userId,
+      nonce: NONCE,
+    });
+    await t.mutation(internal.pratinjau._pakaiTiket, { tiketId: tiket.tiketId });
+
+    // Admin lain tidak boleh menutup pratinjau ini lewat nonce.
+    await expect(
+      adminLain.sesi.mutation(api.pratinjau.akhiriPratinjauTersangkut, { nonce: NONCE }),
+    ).rejects.toThrow(/admin lain/i);
+
+    // Nonce tanpa baris: dilaporkan apa adanya, bukan galat.
+    expect(
+      await admin.sesi.mutation(api.pratinjau.akhiriPratinjauTersangkut, {
+        nonce: `${NONCE}9`,
+      }),
+    ).toEqual({ ok: false, sudahSelesai: false, dicabut: 0 });
+
+    // Pemiliknya menutup: sesi hasil pratinjau dicabut dan penandanya berhenti.
+    expect(
+      await admin.sesi.mutation(api.pratinjau.akhiriPratinjauTersangkut, { nonce: NONCE }),
+    ).toEqual({ ok: true, sudahSelesai: false, dicabut: 1 });
+    expect(await admin.sesi.query(api.pratinjau.pratinjauBerjalan, { nonce: NONCE })).toBe(
+      false,
+    );
+    expect(await admin.sesi.query(api.pratinjau.pratinjauAktif, { nonce: NONCE })).toBe(null);
+    expect(await aksiAudit(t, "pratinjau_diakhiri_admin")).toHaveLength(1);
+
+    // Menekan lagi tidak menggandakan catatan audit.
+    expect(
+      await admin.sesi.mutation(api.pratinjau.akhiriPratinjauTersangkut, { nonce: NONCE }),
+    ).toEqual({ ok: true, sudahSelesai: true, dicabut: 0 });
+    expect(await aksiAudit(t, "pratinjau_diakhiri_admin")).toHaveLength(1);
+  });
+
   it("menutup pratinjau dari bilah hanya oleh akun target", async () => {
     const t = convexTest(schema, modules);
     const admin = await siapkanPengguna(t, "super admin", {

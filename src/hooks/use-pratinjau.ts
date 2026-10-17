@@ -33,11 +33,15 @@ export function usePratinjau() {
   const convex = useConvex();
   const mintaTiket = useMutation(api.pratinjau.mintaTiket);
   const akhiriPratinjau = useMutation(api.pratinjau.akhiriPratinjau);
+  const akhiriTersangkutMutasi = useMutation(api.pratinjau.akhiriPratinjauTersangkut);
   const [busy, setBusy] = useState(false);
+  /** Penanda peramban menunjuk pratinjau yang masih hidup tetapi tidak bisa ditutup dari bilah. */
+  const [tersangkut, setTersangkut] = useState(false);
 
   /** Masuk sebagai akun target; peramban dimuat ulang ke ruang akun itu. */
   const mulai = useCallback(
     async ({ targetId, alasan }: { targetId: string; alasan?: string }) => {
+      setTersangkut(false);
       if (adaSesiAsli()) {
         const nonceLama = bacaNonce();
         let masihBerjalan = false;
@@ -52,6 +56,7 @@ export function usePratinjau() {
         }
 
         if (!penandaPratinjauUsang(nonceLama, masihBerjalan)) {
+          setTersangkut(true);
           throw new Error(
             'Pratinjau dari peramban ini masih berjalan. Tekan "Kembali ke Mode Admin" di bilah atas pada tab pratinjau, lalu coba lagi.',
           );
@@ -130,5 +135,28 @@ export function usePratinjau() {
     }
   }, [akhiriPratinjau, signOut]);
 
-  return { busy, mulai, kembali };
+  /**
+   * Akhiri pratinjau yang menahan peramban ini (dicari lewat nonce), lalu buang
+   * penandanya. Jalan keluar saat bilah "Kembali ke Mode Admin" tidak ada di
+   * layar mana pun — mis. sesi pratinjau ditinggalkan lewat Keluar.
+   */
+  const akhiriTersangkut = useCallback(async () => {
+    const nonce = bacaNonce();
+    if (nonce === null) {
+      bersihkanPenandaPratinjau();
+      setTersangkut(false);
+      return;
+    }
+
+    setBusy(true);
+    try {
+      await akhiriTersangkutMutasi({ nonce });
+      bersihkanPenandaPratinjau();
+      setTersangkut(false);
+    } finally {
+      setBusy(false);
+    }
+  }, [akhiriTersangkutMutasi]);
+
+  return { busy, mulai, kembali, tersangkut, akhiriTersangkut };
 }

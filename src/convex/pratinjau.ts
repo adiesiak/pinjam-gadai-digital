@@ -472,9 +472,9 @@ export const cariNasabahUji = query({
 });
 
 /**
- * Akhiri paksa sebuah pratinjau dari panel admin.
+ * Tutup satu baris pratinjau dan cabut sesi hasil pratinjau-nya.
  *
- * Selain menutup catatannya, sesi Auth HASIL PRATINJAU dicabut. Urutannya:
+ * Urutan pencabutannya:
  *  1. Sesi yang tercatat di barisnya (`sesiPratinjauId`, dibuat `_pakaiTiket`) —
  *     pencabutan paling tepat: hanya sesi itu yang gugur.
  *  2. Bila belum tercatat (baris dari bentuk sebelumnya), barulah sesi akun
@@ -483,6 +483,44 @@ export const cariNasabahUji = query({
  * Sesi sungguhan milik pemilik akun — dibuat sebelum pratinjau — tidak pernah
  * ikut tercabut.
  */
+async function cabutPratinjau(
+  ctx: MutationCtx,
+  baris: Doc<"pratinjauSesi">,
+  sekarang: number,
+): Promise<number> {
+  // Tiket yang belum pernah dipakai tidak punya sesi hasil pratinjau; menutup
+  // barisnya saja, karena sesi akun target yang ada bukan milik pratinjau ini.
+  if (baris.dipakaiPada === undefined) {
+    await ctx.db.patch(baris._id, { selesai: sekarang, ditutupOleh: "admin" });
+    return 0;
+  }
+
+  const mulai = baris.dipakaiPada;
+  let dicabut = 0;
+  if (baris.sesiPratinjauId !== undefined) {
+    const sesi = await ctx.db.get(baris.sesiPratinjauId);
+    if (sesi !== null) {
+      await ctx.db.delete(sesi._id);
+      dicabut += 1;
+    }
+  } else {
+    const sesiAuth = await ctx.db
+      .query("authSessions")
+      .withIndex("userId", (q) => q.eq("userId", baris.targetId))
+      .collect();
+    for (const sesi of sesiAuth) {
+      if (sesi._creationTime >= mulai) {
+        await ctx.db.delete(sesi._id);
+        dicabut += 1;
+      }
+    }
+  }
+
+  await ctx.db.patch(baris._id, { selesai: sekarang, ditutupOleh: "admin" });
+  return dicabut;
+}
+
+/** Akhiri paksa sebuah pratinjau dari panel admin (kartu "Pratinjau Aktif"). */
 export const akhiriPratinjauOlehAdmin = mutation({
   args: {
     id: v.id("pratinjauSesi"),
@@ -496,29 +534,7 @@ export const akhiriPratinjauOlehAdmin = mutation({
     if (baris.selesai !== undefined) return { ok: true, sudahSelesai: true, dicabut: 0 };
 
     const sekarang = Date.now();
-    const mulai = baris.dipakaiPada ?? baris.dibuatPada;
-
-    let dicabut = 0;
-    if (baris.sesiPratinjauId !== undefined) {
-      const sesi = await ctx.db.get(baris.sesiPratinjauId);
-      if (sesi !== null) {
-        await ctx.db.delete(sesi._id);
-        dicabut += 1;
-      }
-    } else {
-      const sesiAuth = await ctx.db
-        .query("authSessions")
-        .withIndex("userId", (q) => q.eq("userId", baris.targetId))
-        .collect();
-      for (const sesi of sesiAuth) {
-        if (sesi._creationTime >= mulai) {
-          await ctx.db.delete(sesi._id);
-          dicabut += 1;
-        }
-      }
-    }
-
-    await ctx.db.patch(id, { selesai: sekarang, ditutupOleh: "admin" });
+    const dicabut = await cabutPratinjau(ctx, baris, sekarang);
     await audit(
       ctx,
       adminId,
@@ -533,3 +549,50 @@ export const akhiriPratinjauOlehAdmin = mutation({
     return { ok: true, sudahSelesai: false, dicabut };
   },
 });
+
+/**
+ * Akhiri pratinjau yang menahan peramban ini, dicari lewat nonce.
+ *
+ * Dipakai dialog "Masuk sebagai" ketika peramban masih menyimpan penanda
+ * pratinjau yang server anggap hidup, sementara bilah "Kembali ke Mode Admin"
+ * tidak ada di layar — mis. sesi pratinjau ditinggalkan lewat Keluar lalu admin
+ * masuk lagi sebelum batas 2 jamnya habis. Hanya admin yang memulai baris itu
+ * yang boleh memakainya, dan aksinya masuk Audit Trail seperti penutupan dari
+ * panel.
+ */
+export const akhiriPratinjauTersangkut = mutation({
+  args: { nonce: v.string() },
+  handler: async (ctx, { nonce }) => {
+    const { userId: adminId, user: admin } = await requireAdminSession(ctx);
+    if (!nonceSah(nonce)) throw new Error("Penanda pratinjau tidak valid.");
+
+    const baris = await ctx.db
+      .query("pratinjauSesi")
+      .withIndex("by_nonce", (q) => q.eq("nonce", nonce))
+      .order("desc")
+      .first();
+    if (baris === null) return { ok: false, sudahSelesai: false, dicabut: 0 };
+    if (baris.adminId !== adminId) {
+      throw new Error(
+        "Pratinjau ini dimulai admin lain. Akhiri dari kartu Pratinjau Aktif di tab Nasabah & Pendana.",
+      );
+    }
+    if (baris.selesai !== undefined) return { ok: true, sudahSelesai: true, dicabut: 0 };
+
+    const sekarang = Date.now();
+    const dicabut = await cabutPratinjau(ctx, baris, sekarang);
+    await audit(
+      ctx,
+      adminId,
+      admin.email?.trim() || labelAkun(admin),
+      "pratinjau_diakhiri_admin",
+      baris.targetLabel,
+      `Pratinjau oleh ${baris.adminLabel} diakhiri dari dialog "Masuk sebagai" karena penanda di peramban menahannya${
+        dicabut > 0 ? `; ${dicabut} sesi hasil pratinjau dicabut` : ""
+      }`,
+    );
+
+    return { ok: true, sudahSelesai: false, dicabut };
+  },
+});
+

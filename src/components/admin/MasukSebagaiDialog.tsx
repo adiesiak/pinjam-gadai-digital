@@ -40,7 +40,7 @@ export function TombolMasukSebagai({
   tujuan: string;
 }) {
   const { user } = useAuth();
-  const { busy, mulai } = usePratinjau();
+  const { busy, mulai, tersangkut, akhiriTersangkut } = usePratinjau();
   const [terbuka, setTerbuka] = useState(false);
   const [alasan, setAlasan] = useState("");
   const [pesanGagal, setPesanGagal] = useState<string | null>(null);
@@ -57,6 +57,23 @@ export function TombolMasukSebagai({
       const pesan =
         error instanceof Error ? error.message : "Gagal memulai pratinjau.";
       setPesanGagal(pesan);
+    }
+  };
+
+  /**
+   * Hentikan pratinjau lama yang menahan peramban ini, lalu langsung ulangi.
+   * Tanpa ini, penanda yang tersisa setelah pratinjau ditinggalkan lewat Keluar
+   * memblokir "Masuk sebagai" sampai batas 2 jamnya habis.
+   */
+  const hentikanLaluUlangi = async () => {
+    setPesanGagal(null);
+    try {
+      await akhiriTersangkut();
+      await kirim();
+    } catch (error) {
+      setPesanGagal(
+        error instanceof Error ? error.message : "Gagal menghentikan pratinjau lama.",
+      );
     }
   };
 
@@ -118,6 +135,26 @@ export function TombolMasukSebagai({
               <p role="alert" className="text-sm leading-6 text-destructive">
                 {pesanGagal}
               </p>
+            )}
+
+            {tersangkut && pesanGagal !== null && (
+              <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-3">
+                <p className="text-xs leading-5 text-amber-950">
+                  Bilah itu tidak tampil lagi bila pratinjau lama ditinggalkan — misalnya setelah
+                  keluar dari akun yang dipratinjau. Kalau tidak menemukannya, hentikan dari sini;
+                  jejaknya tetap tercatat di Audit Trail.
+                </p>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="mt-2 min-h-11 rounded-xl sm:min-h-9"
+                  disabled={busy}
+                  onClick={() => void hentikanLaluUlangi()}
+                >
+                  Hentikan pratinjau lama &amp; coba lagi
+                </Button>
+              </div>
             )}
           </div>
 
