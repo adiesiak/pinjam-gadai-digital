@@ -12,7 +12,13 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { api } from "@/convex/_generated/api";
 import { useAuth } from "@/hooks/use-auth";
-import { LOKASI_KEBIJAKAN, labelUmurLokasi, pesanLokasiPalsu } from "@/lib/lokasi";
+import {
+  izinSetelahGalatLokasi,
+  LOKASI_KEBIJAKAN,
+  labelUmurLokasi,
+  pesanLokasiPalsu,
+  type IzinLokasi,
+} from "@/lib/lokasi";
 import {
   bukaSetelanAplikasi,
   hentikanLayananLokasi,
@@ -75,7 +81,7 @@ const PERIKSA_LAYANAN_MS = 30_000;
  * GPS menyala dan tidak bisa melacak saat tab ditutup. Itu keterbatasan
  * platform, bukan pengaturan PINDAI.
  */
-type StatusIzin = "memeriksa" | "siap" | "ditolak" | "mati" | "palsu";
+type StatusIzin = IzinLokasi;
 
 export function LocationGate({
   children,
@@ -89,6 +95,15 @@ export function LocationGate({
   const daftarkan = useMutation(api.lokasi.daftarkanPerangkat);
   const { signOut } = useAuth();
   const [izin, setIzin] = useState<StatusIzin>("memeriksa");
+  /**
+   * Salinan `izin` untuk callback geolocation. Dibaca dari ref supaya handler
+   * error tetap melihat keadaan terbaru tanpa membuat watcher ulang — dan supaya
+   * error sementara tidak pernah menjatuhkan gerbang yang sudah siap.
+   */
+  const izinRef = useRef<StatusIzin>("memeriksa");
+  useEffect(() => {
+    izinRef.current = izin;
+  }, [izin]);
   const [pesan, setPesan] = useState<string | null>(null);
   const [percobaanDaftar, setPercobaanDaftar] = useState(0);
   const watchRef = useRef<number | null>(null);
@@ -195,8 +210,10 @@ export function LocationGate({
         kirimTitik(pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy);
       },
       (err) => {
-        // 1 = izin ditolak/blokir, 2 = posisi tidak tersedia (GPS mati), 3 = timeout.
-        setIzin(err.code === 1 ? "ditolak" : "mati");
+        // 1 = izin ditolak/blokir; 2 = posisi tidak tersedia; 3 = timeout.
+        // Hanya penolakan izin yang boleh menutup gerbang yang sudah siap.
+        const berikutnya = izinSetelahGalatLokasi(izinRef.current, err.code === 1);
+        if (berikutnya !== null) setIzin(berikutnya);
       },
       { enableHighAccuracy: true, maximumAge: 15_000, timeout: 30_000 },
     );
@@ -218,7 +235,11 @@ export function LocationGate({
       },
       (pesanGalat) => {
         // Bedakan izin ditolak dari GPS mati — instruksi perbaikannya berbeda.
-        setIzin(/NOT_AUTHORIZED|PERMISSION|DENIED/i.test(pesanGalat) ? "ditolak" : "mati");
+        // Aturan "gerbang yang sudah siap tidak ditutup oleh galat sementara"
+        // sama dengan jalur browser (`izinSetelahGalatLokasi`).
+        const ditolak = /NOT_AUTHORIZED|PERMISSION|DENIED/i.test(pesanGalat);
+        const berikutnya = izinSetelahGalatLokasi(izinRef.current, ditolak);
+        if (berikutnya !== null) setIzin(berikutnya);
       },
     ).then((pelacakan) => {
       // `visibilitychange` dan `focus` sering memicu dua kali beruntun. Bila
@@ -302,12 +323,22 @@ export function LocationGate({
     status !== undefined &&
     (status.wajib !== false || status.wajibAplikasiNative);
 
-  /** Tombol “Coba lagi” & saat kembali ke tab: reset lalu pantau ulang. */
-  const cobaLagi = useCallback(() => {
-    setPesan(null);
-    setIzin("memeriksa");
-    mulaiWatch();
-  }, [mulaiWatch]);
+  /**
+   * Tombol “Coba lagi” & saat kembali ke tab: pantau ulang.
+   *
+   * `lembut` dipakai saat halaman kembali terlihat (galeri/kamera/aplikasi lain
+   * ditutup). Di jalur itu layar "memeriksa" TIDAK dipasang selama gerbang sudah
+   * siap: mengganti isi halaman dengan layar gerbang melepas formulir yang sedang
+   * diisi, dan itu yang membuat pengajuan ter-reset setiap kali memilih berkas.
+   */
+  const cobaLagi = useCallback(
+    (lembut = false) => {
+      setPesan(null);
+      if (!lembut || izinRef.current !== "siap") setIzin("memeriksa");
+      mulaiWatch();
+    },
+    [mulaiWatch],
+  );
 
   /** Ulangi pendaftaran perangkat bila gagal (mis. jaringan terputus). */
   const cobaLagiDaftar = useCallback(() => {
@@ -419,7 +450,7 @@ export function LocationGate({
     const onVisible = () => {
       if (document.visibilityState !== "visible") return;
       kirimTerakhirRef.current = 0;
-      cobaLagi();
+      cobaLagi(true);
     };
     document.addEventListener("visibilitychange", onVisible);
     window.addEventListener("focus", onVisible);
@@ -599,7 +630,7 @@ export function LocationGate({
             </p>
           )}
           <div className="mt-5 flex flex-col gap-2 sm:flex-row">
-            <Button className="h-11" onClick={cobaLagi}>
+            <Button className="h-11" onClick={() => cobaLagi()}>
               <RefreshCw className="mr-1.5 size-4" /> Coba lagi
             </Button>
             <Button variant="outline" className="h-11" onClick={keluar}>
@@ -668,7 +699,7 @@ export function LocationGate({
           </p>
         )}
         <div className="mt-5 flex flex-col gap-2 sm:flex-row">
-          <Button className="h-11" onClick={cobaLagi}>
+          <Button className="h-11" onClick={() => cobaLagi()}>
             <RefreshCw className="mr-1.5 size-4" /> Coba lagi
           </Button>
           {adaTombolSetelan && (

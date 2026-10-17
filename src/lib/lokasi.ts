@@ -231,6 +231,28 @@ export function pesanLokasiPalsu(pesan: string): boolean {
   return /lokasi palsu|melompat tidak wajar|tidak wajar \(di bawah 1 meter\)/i.test(pesan);
 }
 
+/** Keadaan gerbang lokasi yang dipakai `LocationGate`. */
+export type IzinLokasi = "memeriksa" | "siap" | "ditolak" | "mati" | "palsu";
+
+/**
+ * Keadaan gerbang setelah perangkat melaporkan galat lokasi.
+ *
+ * Galat "posisi tidak tersedia" dan "timeout" lazim muncul tepat saat aplikasi
+ * kembali dari latar — membuka galeri untuk memilih berkas, kamera, atau
+ * berpindah aplikasi. Menutup gerbang pada galat semacam itu melepas formulir
+ * yang sedang diisi, jadi gerbang yang SUDAH siap dibiarkan siap (`null`).
+ * Penolakan izin tetap berlaku kapan pun: izin yang dicabut bukan gangguan
+ * sementara, dan titik lokasi tidak akan pernah datang lagi.
+ */
+export function izinSetelahGalatLokasi(
+  izinSekarang: IzinLokasi,
+  ditolak: boolean,
+): "ditolak" | "mati" | null {
+  if (ditolak) return "ditolak";
+  if (izinSekarang === "siap") return null;
+  return "mati";
+}
+
 /**
  * Retensi jejak lokasi (`lokasiJejak`) — dijalankan cron harian di crons.ts.
  *

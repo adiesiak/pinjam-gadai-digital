@@ -4,6 +4,7 @@
  */
 import {
   batasRetensiMs,
+  izinSetelahGalatLokasi,
   INDONESIA_BOUNDS,
   kecepatanKmJam,
   koordinatIndonesia,
@@ -249,6 +250,30 @@ ok(
 ok(
   "batas atas retensi menutupi masa bukti pinjaman",
   RETENSI_LOKASI_BATAS.maks > LOKASI_RETENSI.buktiPinjamanHari,
+);
+
+// ===== Gerbang lokasi saat aplikasi kembali dari latar (galeri/kamera) =====
+// Tanpa aturan ini, setiap kembali dari pemilih berkas gerbang menutup halaman
+// dan formulir yang sedang diisi ter-reset.
+eq(
+  "izin ditolak tetap menutup gerbang walau sudah siap",
+  izinSetelahGalatLokasi("siap", true),
+  "ditolak",
+);
+eq(
+  "gerbang yang sudah siap tidak ditutup oleh galat sementara",
+  izinSetelahGalatLokasi("siap", false),
+  null,
+);
+eq(
+  "gerbang yang belum siap turun ke mati saat GPS gagal",
+  izinSetelahGalatLokasi("memeriksa", false),
+  "mati",
+);
+eq(
+  "gerbang yang sudah mati tetap mati",
+  izinSetelahGalatLokasi("mati", false),
+  "mati",
 );
 
 console.log(`lokasi tests: ${passed} passed, ${failed} failed`);
