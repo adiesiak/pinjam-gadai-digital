@@ -73,6 +73,58 @@ export function googleSiapDari(lingkungan: {
 }
 
 /**
+ * Origin aplikasi yang dipakai bila `SITE_URL` tidak bisa dipercaya.
+ *
+ * `SITE_URL` disediakan platform dan pada deployment ini berisi domain BACKEND
+ * Convex. Convex Auth memakai `SITE_URL` untuk menyelesaikan alamat kembali
+ * OAuth, jadi alamat relatif seperti `/auth?google=1` mendarat di backend dan
+ * tampil sebagai "No matching routes found". Nilai di bawah hanya cadangan:
+ * begitu `SITE_URL` (atau `APP_ORIGIN`) menunjuk domain aplikasi, nilai itu
+ * yang dipakai. Saat aplikasi pindah domain, cukup isi `APP_ORIGIN`.
+ */
+export const ORIGIN_APLIKASI_BAWAAN = "https://better-spoons-create.freebuff.dev";
+
+/** Origin halaman aplikasi; `cadangan` dipakai bila `SITE_URL` menunjuk backend. */
+export function originAplikasi(siteUrl: string | undefined, cadangan: string): string {
+  const dasar = cadangan.replace(/\/+$/, "");
+  const nilai = teksBerisi(siteUrl);
+  if (nilai === null) return dasar;
+  try {
+    const url = new URL(nilai);
+    // Domain backend Convex tidak pernah menyajikan halaman aplikasi.
+    if (url.hostname.endsWith(".convex.site") || url.hostname.endsWith(".convex.cloud")) {
+      return dasar;
+    }
+    return url.origin;
+  } catch {
+    return dasar;
+  }
+}
+
+/**
+ * Alamat kembali setelah OAuth.
+ *
+ * Relatif selalu ditempel ke origin APLIKASI (bukan backend), absolut hanya
+ * diterima bila origin-nya sama. Alamat asing tidak pernah dipakai — `code`
+ * sekali pakai di URL itu bisa dipakai orang lain — melainkan jatuh ke beranda
+ * aplikasi. Alamat relatif sengaja tetap diizinkan supaya param `returnTo` dari
+ * halaman masuk tidak hilang.
+ */
+export function alamatKembaliGoogle(redirectTo: string | undefined, origin: string): string {
+  const dasar = origin.replace(/\/+$/, "");
+  const nilai = teksBerisi(redirectTo);
+  if (nilai === null) return `${dasar}/`;
+  if (nilai.startsWith("?")) return `${dasar}/${nilai}`;
+  if (nilai.startsWith("/")) return `${dasar}${nilai}`;
+  try {
+    if (new URL(nilai).origin === dasar) return nilai;
+  } catch {
+    // Bukan URL yang sah — jatuh ke beranda aplikasi.
+  }
+  return `${dasar}/`;
+}
+
+/**
  * Alamat kembali ke halaman masuk setelah Google selesai.
  *
  * Selalu jalur relatif satu situs (halaman pemanggil yang menentukan awalnya),

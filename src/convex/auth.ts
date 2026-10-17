@@ -15,6 +15,7 @@ import {
 } from "./auth/enumerasi";
 import { emailOtp } from "./auth/emailOtp";
 import { google, jagaMasukGoogle } from "./auth/google";
+import { alamatKembaliGoogle, ORIGIN_APLIKASI_BAWAAN, originAplikasi } from "../lib/akunGoogle";
 import { pratinjauAdmin } from "./auth/pratinjau";
 import { whatsappOtp } from "./auth/whatsappOtp";
 import { internal } from "./_generated/api";
@@ -166,6 +167,24 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
     Anonymous,
   ],
   callbacks: {
+    /**
+     * Alamat kembali setelah OAuth Google.
+     *
+     * `SITE_URL` di deployment ini diisi platform dengan domain BACKEND Convex
+     * (`…convex.site`), padahal Convex Auth menyelesaikan alamat relatif
+     * terhadap nilai itu — akibatnya pengguna mendarat di backend dan melihat
+     * "No matching routes found". Di sini relatif selalu ditempel ke origin
+     * APLIKASI (`SITE_URL` bila sudah benar, lalu `APP_ORIGIN`, lalu cadangan),
+     * dan alamat absolut asing ditolak supaya `code` sekali pakai tidak bisa
+     * dibawa ke situs lain.
+     */
+    async redirect({ redirectTo }) {
+      const origin = originAplikasi(
+        process.env.SITE_URL,
+        process.env.APP_ORIGIN ?? ORIGIN_APLIKASI_BAWAAN,
+      );
+      return alamatKembaliGoogle(redirectTo, origin);
+    },
     async afterUserCreatedOrUpdated(
       ctx,
       { userId, existingUserId, provider, type },

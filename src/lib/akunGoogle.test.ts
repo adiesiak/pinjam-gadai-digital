@@ -8,9 +8,12 @@
  */
 import {
   NILAI_GOOGLE_KEMBALI,
+  ORIGIN_APLIKASI_BAWAAN,
   PARAM_GOOGLE_KEMBALI,
+  alamatKembaliGoogle,
   googleSiapDari,
   identitasGoogle,
+  originAplikasi,
   urlPulangGoogle,
 } from "./akunGoogle";
 
@@ -181,6 +184,72 @@ eq(
     .origin,
   "https://pindai.test",
   "alamat kembali relatif, jadi tetap di situs aplikasi",
+);
+
+// ===== originAplikasi & alamatKembaliGoogle =====
+// `SITE_URL` deployment ini diisi platform dengan domain backend Convex; alamat
+// kembali OAuth harus tetap mendarat di halaman aplikasi.
+eq(
+  originAplikasi("https://dapper-goshawk-437.convex.site", "https://aplikasi.test"),
+  "https://aplikasi.test",
+  "domain backend Convex tidak dipakai sebagai origin aplikasi",
+);
+eq(
+  originAplikasi("https://dapper-goshawk-437.convex.cloud", "https://aplikasi.test"),
+  "https://aplikasi.test",
+  "domain backend Convex (.cloud) juga ditolak",
+);
+eq(
+  originAplikasi("https://aplikasi.test/", "https://cadangan.test"),
+  "https://aplikasi.test",
+  "SITE_URL yang sudah benar dipakai apa adanya",
+);
+eq(
+  originAplikasi(undefined, "https://cadangan.test"),
+  "https://cadangan.test",
+  "tanpa SITE_URL memakai cadangan",
+);
+eq(
+  originAplikasi("bukan-url", "https://cadangan.test"),
+  "https://cadangan.test",
+  "SITE_URL rusak tidak membuat alur OAuth gagal",
+);
+eq(
+  alamatKembaliGoogle("/auth?google=1", "https://aplikasi.test"),
+  "https://aplikasi.test/auth?google=1",
+  "alamat relatif ditempel ke origin aplikasi",
+);
+eq(
+  alamatKembaliGoogle("?google=1", "https://aplikasi.test/"),
+  "https://aplikasi.test/?google=1",
+  "alamat berawalan ? tetap di origin aplikasi",
+);
+eq(
+  alamatKembaliGoogle("https://aplikasi.test/dashboard", "https://aplikasi.test"),
+  "https://aplikasi.test/dashboard",
+  "alamat absolut satu origin diterima",
+);
+eq(
+  alamatKembaliGoogle("https://situs-lain.test/curi", "https://aplikasi.test"),
+  "https://aplikasi.test/",
+  "alamat absolut asing jatuh ke beranda aplikasi",
+);
+eq(
+  alamatKembaliGoogle(undefined, "https://aplikasi.test"),
+  "https://aplikasi.test/",
+  "tanpa alamat kembali, jatuh ke beranda aplikasi",
+);
+eq(
+  alamatKembaliGoogle("//situs-lain.test", "https://aplikasi.test"),
+  "https://aplikasi.test//situs-lain.test",
+  "protokol-relatif tidak membajak origin, hanya jadi jalur",
+);
+eq(
+  new URL(
+    alamatKembaliGoogle("/auth", originAplikasi(undefined, ORIGIN_APLIKASI_BAWAAN)),
+  ).origin,
+  new URL(ORIGIN_APLIKASI_BAWAAN).origin,
+  "cadangan bawaan adalah origin aplikasi, bukan backend",
 );
 
 console.log(`akunGoogle: ${passed} lulus, ${failed} gagal`);
