@@ -23,7 +23,28 @@ export ANDROID_SDK=/path/ke/android-sdk        # butuh platforms/android-34 + bu
 bash android/build.sh
 ```
 
-Hasil: `public/pindai.apk` (±24 KB), ditandatangani, siap dipasang di Android 6+.
+Hasil: `public/pindai.apk` (±28 KB, versi 1.1.0 / versionCode 2), ditandatangani,
+siap dipasang di Android 6+.
+
+## Jembatan halaman ↔ aplikasi
+
+WebView memblokir `window.open` dan tidak menangani unduhan `blob:`. Aplikasi
+menyuntikkan objek `PindaiAndroid` (lihat `src/lib/jembatanAndroid.ts`):
+
+| Metode | Dipakai untuk | Pengganti di web |
+| --- | --- | --- |
+| `cetak(html)` | Dialog cetak Android → simpan PDF (perjanjian, audit) | `window.open` + `window.print()` |
+| `unduh(nama, mime, base64)` | Simpan CSV/poster ke folder Downloads | tautan `blob:` |
+| `bukaLuar(url)` | WhatsApp, telepon, surel | `window.open(url)` |
+
+Bila aplikasi tidak menyediakan metode itu (mis. dibuka di Chrome), halaman
+otomatis kembali ke jalur web biasa.
+
+### Naikkan versi sebelum merilis pembaruan
+
+Ubah `versionCode`/`versionName` di `AndroidManifest.xml` **dan** dua argumen
+`--version-code`/`--version-name` di `build.sh`. Android menolak memasang
+pembaruan dengan `versionCode` yang sama atau lebih kecil.
 
 ## Alamat aplikasi
 
