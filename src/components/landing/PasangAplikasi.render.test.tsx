@@ -1,22 +1,31 @@
 /**
- * Uji render bagian pemasangan aplikasi di beranda (`PasangAplikasi`).
+ * Uji bagian pemasangan aplikasi di beranda (`PasangAplikasi`) dan data
+ * pendukungnya.
  * Run: bun src/components/landing/PasangAplikasi.render.test.tsx
  *
  * Yang dijaga:
- *  1. Dua tombol platform ada dan merupakan tombol sungguhan, bukan tautan.
- *  2. Tidak ada tautan Play Store / App Store / skema market: listing-nya
- *     memang belum ada, dan tombol tidak boleh menipu.
- *  3. Status "belum ada di toko" ditulis di halaman, bukan disembunyikan.
- *  4. Panduan per platform lengkap: Android menyebut menu Instal aplikasi,
- *     iPhone menyebut Safari dan Tambah ke Layar Utama.
- *  5. Dialog tertutup saat pertama dirender, sehingga langkahnya tidak
- *     membanjiri markup beranda.
+ *  1. Hanya SATU tombol pasang, berupa tombol sungguhan, tanpa tautan toko.
+ *  2. Panduan tersedia untuk tiga perangkat (Android, iPhone, komputer) dan
+ *     deteksi perangkat memilih yang tepat, termasuk iPad yang menyamar sebagai
+ *     macOS.
+ *  3. Aset pemasangan benar-benar ada: manifest memuat ikon 192 & 512 PNG dan
+ *     berkasnya tidak kosong — tanpa itu tombol tidak akan pernah langsung
+ *     memasang di Chrome.
+ *  4. Dialog tertutup saat pertama dirender, jadi langkahnya tidak membanjiri
+ *     markup beranda.
  */
+import { readFileSync, statSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+
 import { renderToStaticMarkup } from "react-dom/server";
 import { MemoryRouter } from "react-router";
 
 import { PasangAplikasi } from "@/components/landing/PasangAplikasi";
-import { PANDUAN_PASANG, panduanPasang } from "@/lib/panduanPasang";
+import {
+  PANDUAN_PASANG,
+  panduanPasang,
+  platformPemasanganDari,
+} from "@/lib/panduanPasang";
 
 let passed = 0;
 let failed = 0;
@@ -43,13 +52,13 @@ ok(
     markup.includes('aria-labelledby="pasang-aplikasi-judul"'),
   "bagian punya id dan terhubung ke judulnya",
 );
-ada("Pasang di Android", "tombol Android tampil");
-ada("Pasang di iPhone", "tombol iPhone tampil");
-ada(
-  "belum ada di Play Store maupun App Store",
-  "status toko ditulis apa adanya",
+ada("Pasang aplikasi", "satu tombol pasang tampil");
+ok(
+  (markup.match(/<button/g) ?? []).length === 1,
+  "hanya satu tombol yang dirender",
 );
-ada("tidak ada berkas unduhan", "bagian menjelaskan aplikasi dari peramban");
+ada("belum ada di Play Store maupun App Store", "status toko ditulis apa adanya");
+ada("tanpa berkas unduhan", "bagian menjelaskan aplikasi dari peramban");
 
 ok(
   !markup.includes("play.google") &&
@@ -58,17 +67,22 @@ ok(
   "tidak ada tautan toko atau skema market",
 );
 ok(!markup.includes("<a "), "tidak ada tautan sama sekali di bagian ini");
-
-const tombol = markup.match(/type="button"/g) ?? [];
-ok(tombol.length >= 2, "kedua platform dirender sebagai tombol");
+ok(
+  (markup.match(/type="button"/g) ?? []).length === 1,
+  "tombol memakai type=button, bukan submit",
+);
 
 ok(
   !markup.includes("Tambah ke Layar Utama"),
   "langkah pemasangan tidak ikut tampil saat dialog tertutup",
 );
 
-// Data panduan: jumlah langkah dan istilah kunci tiap platform.
-ok(PANDUAN_PASANG.length === 2, "ada panduan untuk dua platform");
+// --- Data panduan -----------------------------------------------------------
+ok(PANDUAN_PASANG.length === 3, "panduan tersedia untuk tiga perangkat");
+ok(
+  new Set(PANDUAN_PASANG.map((p) => p.id)).size === 3,
+  "id panduan tidak berulang",
+);
 for (const panduan of PANDUAN_PASANG) {
   ok(
     panduan.langkah.length === 4,
@@ -78,7 +92,10 @@ for (const panduan of PANDUAN_PASANG) {
     panduan.langkah.every((l) => l.trim().length > 10),
     `setiap langkah ${panduan.label} terisi`,
   );
-  ok(panduan.catatan.trim().length > 10, `panduan ${panduan.label} punya catatan`);
+  ok(
+    panduan.catatan.trim().length > 10,
+    `panduan ${panduan.label} punya catatan`,
+  );
 }
 
 const android = panduanPasang("android");
@@ -89,13 +106,16 @@ ok(
 );
 
 const ios = panduanPasang("ios");
-ok(
-  ios.langkah.some((l) => l.includes("Safari")),
-  "panduan iPhone memakai Safari",
-);
+ok(ios.langkah.some((l) => l.includes("Safari")), "panduan iPhone memakai Safari");
 ok(
   ios.langkah.some((l) => l.includes("Tambah ke Layar Utama")),
   "panduan iPhone menyebut Tambah ke Layar Utama",
+);
+
+const desktop = panduanPasang("desktop");
+ok(
+  desktop.langkah.some((l) => l.includes("bilah alamat")),
+  "panduan komputer menyebut ikon di bilah alamat",
 );
 
 let melempar = false;
@@ -105,6 +125,82 @@ try {
   melempar = true;
 }
 ok(melempar, "platform tak dikenal ditolak, bukan diam-diam jatuh ke Android");
+
+// --- Deteksi perangkat ------------------------------------------------------
+const UA_ANDROID =
+  "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124 Mobile Safari/537.36";
+const UA_IPHONE =
+  "Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1";
+const UA_IPAD =
+  "Mozilla/5.0 (iPad; CPU OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1";
+const UA_MAC_TOUCH =
+  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Safari/605.1.15";
+const UA_WINDOWS =
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124 Safari/537.36";
+
+ok(platformPemasanganDari(UA_ANDROID) === "android", "Android terdeteksi");
+ok(platformPemasanganDari(UA_IPHONE) === "ios", "iPhone terdeteksi");
+ok(platformPemasanganDari(UA_IPAD) === "ios", "iPad terdeteksi");
+ok(
+  platformPemasanganDari(UA_MAC_TOUCH, 5) === "ios",
+  "iPadOS yang menyamar sebagai macOS terdeteksi sebagai iOS",
+);
+ok(
+  platformPemasanganDari(UA_MAC_TOUCH, 0) === "desktop",
+  "Mac tanpa layar sentuh tetap desktop",
+);
+ok(platformPemasanganDari(UA_WINDOWS) === "desktop", "Windows terdeteksi desktop");
+
+// --- Aset pemasangan --------------------------------------------------------
+const akar = fileURLToPath(new URL("../../../", import.meta.url));
+const manifest = JSON.parse(
+  readFileSync(`${akar}public/manifest.webmanifest`, "utf8"),
+) as { icons?: Array<{ src?: string; sizes?: string; type?: string }> };
+
+/** Lebar/tinggi dari header IHDR PNG — memastikan berkasnya benar-benar 192/512. */
+function ukuranPng(berkas: string): { lebar: number; tinggi: number } | null {
+  try {
+    const kepala = readFileSync(`${akar}public/${berkas}`).subarray(0, 24);
+    const tanda = kepala.subarray(1, 4).toString("ascii");
+    if (tanda !== "PNG") return null;
+    return { lebar: kepala.readUInt32BE(16), tinggi: kepala.readUInt32BE(20) };
+  } catch {
+    return null;
+  }
+}
+
+for (const [ukuran, berkas, sisi] of [
+  ["192x192", "icon-192.png", 192],
+  ["512x512", "icon-512.png", 512],
+] as const) {
+  const ikon = manifest.icons?.find(
+    (i) => i.sizes === ukuran && i.type === "image/png",
+  );
+  ok(ikon?.src === `/${berkas}`, `manifest memuat ikon ${ukuran}`);
+  ok(statSync(`${akar}public/${berkas}`).size > 1000, `berkas ${berkas} tidak kosong`);
+  const png = ukuranPng(berkas);
+  ok(
+    png?.lebar === sisi && png?.tinggi === sisi,
+    `${berkas} benar-benar ${sisi} x ${sisi} piksel`,
+  );
+}
+
+const ikonIos = ukuranPng("apple-touch-icon.png");
+ok(
+  ikonIos?.lebar === 180 && ikonIos?.tinggi === 180,
+  "apple-touch-icon berukuran 180 x 180",
+);
+
+const html = readFileSync(`${akar}index.html`, "utf8");
+ok(
+  html.includes('rel="apple-touch-icon"') &&
+    html.includes("/apple-touch-icon.png"),
+  "iOS memakai apple-touch-icon PNG",
+);
+ok(
+  statSync(`${akar}public/sw.js`).size > 100,
+  "service worker pemasangan tersedia",
+);
 
 console.log(`PasangAplikasi.render: ${passed} lulus, ${failed} gagal`);
 if (failed > 0) process.exit(1);

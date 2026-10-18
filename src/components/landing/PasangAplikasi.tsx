@@ -1,17 +1,17 @@
 /**
- * Tombol pemasangan aplikasi di beranda — Android dan iPhone.
+ * Satu tombol "Pasang aplikasi" di beranda.
  *
- * Keputusan penting: PINDAI belum punya listing Play Store maupun App Store,
- * jadi TIDAK ADA tautan toko di sini. Kedua tombol membuka panduan pemasangan
- * dari peramban, dan bagian ini menyebut status itu apa adanya. Tombol yang
- * menuju toko kosong akan membuat pengunjung menunggu sesuatu yang belum ada.
+ * Alurnya dibuat sesingkat mungkin:
+ *  1. Bila peramban sudah menawarkan pemasangan (`beforeinstallprompt`), tombol
+ *     langsung memanggil tawaran itu — satu ketuk, PINDAI terpasang.
+ *  2. Bila belum (iOS selalu begitu, dan sebagian peramban desktop), dialog
+ *     menampilkan langkah untuk perangkat yang terdeteksi. Deteksinya murni
+ *     (`lib/panduanPasang`), jadi tidak ada tebakan di dalam komponen.
  *
- * Android: bila Chrome sudah menawarkan pemasangan (`beforeinstallprompt`),
- * dialog menampilkan tombol "Instal sekarang" yang memakai tawaran itu. Bila
- * belum (manifest/service worker belum memenuhi syarat), yang tampil hanya
- * langkah manual — bukan tombol mati.
+ * Tidak ada tautan Play Store/App Store di sini: listing-nya memang belum ada,
+ * dan tombol yang menuju toko kosong akan mengecewakan pengunjung.
  */
-import { Apple, Download, Smartphone } from "lucide-react";
+import { Download, Smartphone } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -25,8 +25,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
-  PANDUAN_PASANG,
   panduanPasang,
+  platformPemasanganDari,
   type IdPlatformPasang,
 } from "@/lib/panduanPasang";
 
@@ -37,8 +37,7 @@ export function PasangAplikasi() {
   const [buka, setBuka] = useState<IdPlatformPasang | null>(null);
   const [tawaran, setTawaran] = useState<PeristiwaPasang | null>(null);
 
-  // Tawaran pemasangan hanya datang sekali dan bisa hilang setelah dipakai,
-  // jadi peristiwanya disimpan lalu ditawarkan ulang lewat dialog.
+  // Tawaran pemasangan datang sekali dan hilang setelah dipakai.
   useEffect(() => {
     const simpan = (e: Event) => {
       e.preventDefault();
@@ -50,10 +49,20 @@ export function PasangAplikasi() {
 
   const panduan = buka === null ? null : panduanPasang(buka);
 
-  const pasangSekarang = async () => {
-    if (tawaran === null) return;
-    await tawaran.prompt();
-    setTawaran(null);
+  const mulaiPasang = () => {
+    if (tawaran !== null) {
+      void tawaran.prompt();
+      setTawaran(null);
+      return;
+    }
+    setBuka(
+      typeof navigator === "undefined"
+        ? "desktop"
+        : platformPemasanganDari(
+            navigator.userAgent,
+            navigator.maxTouchPoints ?? 0,
+          ),
+    );
   };
 
   return (
@@ -65,7 +74,7 @@ export function PasangAplikasi() {
       <div className="mx-auto grid max-w-6xl gap-6 px-4 py-12 sm:px-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
         <div className="max-w-xl">
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#065f46]">
-            Pasang aplikasi
+            Aplikasi PINDAI
           </p>
           <h2
             id="pasang-aplikasi-judul"
@@ -74,31 +83,25 @@ export function PasangAplikasi() {
             PINDAI di layar utama
           </h2>
           <p className="mt-3 text-sm leading-6 text-slate-600">
-            Aplikasi berjalan dari peramban, jadi tidak ada berkas unduhan.
-            Memasangnya hanya menambah ikon — akun, status, dan data tetap sama.
+            Satu tombol. Bila peramban Anda mengizinkan, PINDAI langsung
+            terpasang; bila belum, panduan untuk perangkat ini terbuka dan
+            tinggal diikuti.
           </p>
           <p className="mt-3 text-xs leading-5 text-slate-600">
-            PINDAI belum ada di Play Store maupun App Store. Tombol di samping
-            membuka langkah pemasangan dari peramban.
+            Aplikasi berjalan dari peramban, tanpa berkas unduhan. PINDAI belum
+            ada di Play Store maupun App Store.
           </p>
         </div>
 
-        <div className="flex flex-wrap gap-3">
-          {PANDUAN_PASANG.map((item) => {
-            const Ikon = item.id === "ios" ? Apple : Smartphone;
-            return (
-              <Button
-                key={item.id}
-                type="button"
-                variant="outline"
-                onClick={() => setBuka(item.id)}
-                className="min-h-12 gap-2 rounded-full border-[#d5e1d8] bg-white px-5 text-[#1e293b] hover:bg-[#fbfcfa]"
-              >
-                <Ikon className="size-4" aria-hidden="true" />
-                Pasang di {item.label}
-              </Button>
-            );
-          })}
+        <div>
+          <Button
+            type="button"
+            onClick={mulaiPasang}
+            className="min-h-12 gap-2 rounded-full bg-[#065f46] px-6 text-white hover:bg-[#064e3b]"
+          >
+            <Download className="size-4" aria-hidden="true" />
+            Pasang aplikasi
+          </Button>
         </div>
       </div>
 
@@ -137,10 +140,13 @@ export function PasangAplikasi() {
               {panduan.id === "android" && tawaran !== null ? (
                 <Button
                   type="button"
-                  onClick={() => void pasangSekarang()}
+                  onClick={() => {
+                    void tawaran.prompt();
+                    setTawaran(null);
+                  }}
                   className="min-h-11 gap-2 bg-[#065f46] text-white hover:bg-[#064e3b]"
                 >
-                  <Download className="size-4" aria-hidden="true" />
+                  <Smartphone className="size-4" aria-hidden="true" />
                   Instal sekarang
                 </Button>
               ) : null}

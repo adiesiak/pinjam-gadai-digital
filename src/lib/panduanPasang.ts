@@ -1,21 +1,21 @@
 /**
- * Langkah memasang PINDAI ke layar utama — data murni, tanpa React.
+ * Langkah memasang PINDAI ke layar utama — data murni, tanpa React/DOM.
  *
- * Kenapa dipisah: halaman beranda tidak boleh menautkan Play Store atau App
- * Store yang belum ada, jadi tombol pemasangan membuka panduan peramban.
- * Langkahnya ditulis di satu tempat supaya teks Android dan iPhone tidak
- * menyimpang satu sama lain, dan bisa diuji tanpa merender komponen.
+ * Kenapa dipisah: satu tombol "Pasang aplikasi" harus tahu perangkat apa yang
+ * sedang dipakai supaya panduan yang muncul tepat. Deteksi perangkat ditulis
+ * sebagai fungsi murni yang menerima user agent + jumlah titik sentuh, jadi
+ * bisa diuji tanpa browser.
  *
  * Batas yang disebut apa adanya: PINDAI adalah web app. Tidak ada berkas yang
- * diunduh; pemasangan hanya menambah ikon. Di iPhone hanya Safari yang bisa
- * melakukannya.
+ * diunduh; pemasangan hanya menambah ikon. iOS tidak mengizinkan pemasangan
+ * otomatis — Safari hanya menyediakan menu Tambah ke Layar Utama.
  */
 
-export type IdPlatformPasang = "android" | "ios";
+export type IdPlatformPasang = "android" | "ios" | "desktop";
 
 export type PanduanPasang = {
   readonly id: IdPlatformPasang;
-  /** Nama platform pada label tombol ("Pasang di Android"). */
+  /** Nama platform pada judul dialog ("Pasang di Android"). */
   readonly label: string;
   /** Peramban yang dipakai pada langkah pertama. */
   readonly peramban: string;
@@ -49,7 +49,20 @@ export const PANDUAN_PASANG: readonly PanduanPasang[] = [
       "Ketuk “Tambah” — ikon PINDAI muncul di layar utama.",
     ],
     catatan:
-      "Kalau tombol Bagikan belum terlihat, gulir bilah bawah sampai ikonnya muncul.",
+      "Apple tidak menyediakan pemasangan otomatis, jadi langkah ini memang harus diketuk sendiri.",
+  },
+  {
+    id: "desktop",
+    label: "komputer",
+    peramban: "Chrome atau Edge di komputer",
+    langkah: [
+      "Buka PINDAI di Chrome atau Edge sampai beranda tampil.",
+      "Klik ikon “Instal” di ujung kanan bilah alamat.",
+      "Bila ikon itu tidak ada, buka menu ⋮ lalu pilih “Instal PINDAI”.",
+      "Konfirmasi “Instal” — PINDAI terbuka di jendela sendiri.",
+    ],
+    catatan:
+      "Firefox dan Safari di komputer belum punya tombol pasang; PINDAI tetap bisa dipakai di tab biasa.",
   },
 ];
 
@@ -60,4 +73,22 @@ export function panduanPasang(id: IdPlatformPasang): PanduanPasang {
     throw new Error(`Platform pemasangan tidak dikenal: ${id}`);
   }
   return ketemu;
+}
+
+/**
+ * Perangkat yang sedang dipakai, dari user agent + jumlah titik sentuh.
+ *
+ * iPadOS 13+ menyamar sebagai macOS pada user agent, jadi jumlah titik sentuh
+ * dipakai untuk membedakannya dari Mac sungguhan. Android diperiksa lebih dulu
+ * karena beberapa tablet Android juga menyertakan "Linux" dan "Mac" di UA-nya.
+ */
+export function platformPemasanganDari(
+  userAgent: string,
+  sentuhanMaks = 0,
+): IdPlatformPasang {
+  if (/android/i.test(userAgent)) return "android";
+  if (/iphone|ipod/i.test(userAgent)) return "ios";
+  if (/ipad/i.test(userAgent)) return "ios";
+  if (/macintosh/i.test(userAgent) && sentuhanMaks > 1) return "ios";
+  return "desktop";
 }

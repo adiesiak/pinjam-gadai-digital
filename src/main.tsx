@@ -24,6 +24,17 @@ import { Promo } from "./pages/Promo";
 import PublicInfoPage from "./pages/PublicInfoPage";
 
 /**
+ * Daftarkan service worker pemasangan (lihat `public/sw.js`). Tanpa cache:
+ * hanya memenuhi syarat browser sebelum menawarkan "Pasang aplikasi".
+ * Kegagalan pendaftaran diabaikan — tombol pasang tetap memberi panduan manual.
+ */
+if (typeof window !== "undefined" && "serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    void navigator.serviceWorker.register("/sw.js").catch(() => undefined);
+  });
+}
+
+/**
  * Bungkus importer rute dengan percobaan ulang. Kegagalan memuat modul
  * (dev server menggantung, 504 "Outdated Optimize Dep", jaringan putus
  * sesaat) umumnya sementara, jadi modul dicoba ulang beberapa kali sebelum

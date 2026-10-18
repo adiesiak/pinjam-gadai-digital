@@ -83,8 +83,11 @@ for (const role of ["peminjam", "dana"]) {
 //    yang belum ada (Play Store/App Store belum punya listing).
 {
   const markup = render({ isAuthenticated: false, user: undefined });
-  ada(markup, "Pasang di Android", "beranda menampilkan tombol Android");
-  ada(markup, "Pasang di iPhone", "beranda menampilkan tombol iPhone");
+  ada(markup, "Pasang aplikasi", "beranda menampilkan satu tombol pasang");
+  cek(
+    "tombol pasang tidak diduplikasi per platform",
+    (markup.match(/Pasang aplikasi/g) ?? []).length === 1,
+  );
   tidakAda(markup, "play.google", "beranda tidak menautkan Play Store");
   tidakAda(markup, "apps.apple", "beranda tidak menautkan App Store");
 }
