@@ -13,6 +13,7 @@ import { Link, useNavigate } from "react-router";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { VaultLogo } from "@/components/VaultLogo";
+import { DemoPengajuan } from "@/components/landing/DemoPengajuan";
 import { LandingHero } from "@/components/landing/LandingHero";
 import { CONTRACT_TERMS_VERSION } from "@/lib/contract";
 import { ADMIN_ROUTE, kombinasiAdmin } from "@/lib/routes";
@@ -299,6 +300,8 @@ export default function LandingHome() {
             </div>
           </div>
         </section>
+
+        <DemoPengajuan />
 
         <section
           aria-labelledby="panduan-title"

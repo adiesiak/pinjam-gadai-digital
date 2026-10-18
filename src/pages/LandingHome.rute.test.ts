@@ -36,6 +36,11 @@ const tidakAda = (sumber: string, teks: string, nama: string) =>
   ada(sumber, "ADMIN_ROUTE", "rute admin dibaca dari lib/routes");
   tidakAda(sumber, '"/admin"', "berkas tidak menyimpan jalur admin yang lama");
   ada(sumber, "accountHref", "tombol akun memakai satu variabel tujuan");
+  ada(
+    sumber,
+    "<DemoPengajuan />",
+    "beranda memasang demo alur pengajuan",
+  );
 }
 
 console.log(`LandingHome.rute: ${lulus} lulus, ${gagal} gagal`);
