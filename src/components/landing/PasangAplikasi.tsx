@@ -104,7 +104,7 @@ export function PasangAplikasi() {
           </Button>
           <a
             href="/pindai.apk"
-            download="PINDAI-1.1.0.apk"
+            download="PINDAI.apk"
             className="mt-3 inline-flex min-h-11 items-center text-xs font-semibold text-[#064e3b] underline underline-offset-4 hover:text-[#047857] focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#065f46]"
           >
             Unduh APK Android (pasang manual)

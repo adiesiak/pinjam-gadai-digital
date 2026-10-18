@@ -68,7 +68,8 @@ ok(
 );
 ok(
   (markup.match(/<a /g) ?? []).length === 1 &&
-    markup.includes('href="/pindai.apk"'),
+    markup.includes('href="/pindai.apk"') &&
+    markup.includes('download="PINDAI.apk"'),
   "satu tautan unduhan APK, bukan tautan toko",
 );
 ada("Unduh APK Android", "tautan unduhan APK berlabel jelas");
@@ -219,6 +220,61 @@ ok(
 ok(
   statSync(`${akar}public/sw.js`).size > 100,
   "service worker pemasangan tersedia",
+);
+
+// --- Cek versi di aplikasi Android -----------------------------------------
+// Aplikasi yang terpasang membandingkan VERSI_KODE-nya dengan berkas ini.
+// Angka di build.sh, MainActivity, dan version.json harus satu cerita: build.sh
+// menulis version.json, MainActivity membacanya.
+const versiServer = JSON.parse(
+  readFileSync(`${akar}public/version.json`, "utf8"),
+) as { versionCode?: unknown; versionName?: unknown; apkUrl?: unknown };
+
+ok(
+  Number.isInteger(versiServer.versionCode) &&
+    (versiServer.versionCode as number) > 0,
+  "version.json memuat versionCode bilangan bulat",
+);
+ok(
+  typeof versiServer.versionName === "string" &&
+    /^\d+\.\d+\.\d+$/.test(versiServer.versionName),
+  "version.json memuat versionName berbentuk x.y.z",
+);
+ok(
+  versiServer.apkUrl === "/pindai.apk",
+  "version.json menunjuk APK yang memang ada di public/",
+);
+
+const buildSh = readFileSync(`${akar}android/build.sh`, "utf8");
+const mainActivity = readFileSync(
+  `${akar}android/src/id/pindai/app/MainActivity.java`,
+  "utf8",
+);
+const kodeBuild = /VERSI_KODE\s*=\s*(\d+)/.exec(buildSh)?.[1];
+const kodeApp = /VERSI_KODE\s*=\s*(\d+)/.exec(mainActivity)?.[1];
+const namaBuild = /VERSI_NAMA\s*=\s*([\d.]+)/.exec(buildSh)?.[1];
+
+ok(kodeBuild !== undefined, "build.sh menulis versi di satu tempat");
+ok(
+  kodeBuild === kodeApp,
+  "MainActivity memakai versionCode yang sama dengan build.sh",
+);
+ok(
+  namaBuild === versiServer.versionName,
+  "version.json dan build.sh menyebut versi yang sama",
+);
+ok(
+  Number(versiServer.versionCode) === Number(kodeBuild),
+  "version.json menunjuk versionCode yang sudah dibangun",
+);
+ok(
+  mainActivity.includes('"version.json"'),
+  "MainActivity benar-benar memeriksa version.json",
+);
+ok(
+  mainActivity.includes("bilahPembaruan") &&
+    mainActivity.includes("VERSI_KODE"),
+  "MainActivity punya bilah pembaruan berbasis VERSI_KODE",
 );
 
 console.log(`PasangAplikasi.render: ${passed} lulus, ${failed} gagal`);

@@ -3,6 +3,7 @@ package id.pindai.app;
 import android.Manifest;
 import android.app.Activity;
 import android.content.ContentValues;
+import android.graphics.Color;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.net.Uri;
@@ -13,6 +14,8 @@ import android.print.PrintAttributes;
 import android.print.PrintManager;
 import android.provider.MediaStore;
 import android.util.Base64;
+import android.view.Gravity;
+import android.view.View;
 import android.view.ViewGroup;
 import android.webkit.GeolocationPermissions;
 import android.webkit.JavascriptInterface;
@@ -23,11 +26,21 @@ import android.webkit.WebResourceRequest;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
+import android.widget.Button;
+import android.widget.LinearLayout;
+import android.widget.TextView;
 import android.widget.Toast;
 
+import org.json.JSONObject;
+
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileOutputStream;
+import java.io.InputStreamReader;
 import java.io.OutputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.nio.charset.StandardCharsets;
 
 /**
  * PINDAI di Android: satu WebView yang memuat aplikasi web resmi.
@@ -52,7 +65,22 @@ public class MainActivity extends Activity {
     private static final int REQ_LOKASI = 7002;
     private static final int REQ_BERKAS = 7003;
 
+    /**
+     * Versi terpasang. Naikkan bersama `versionCode` di build.sh dan
+     * AndroidManifest setiap kali merilis APK baru — angka inilah yang
+     * dibandingkan dengan `version.json` di server.
+     */
+    private static final int VERSI_KODE = 3;
+
+    /** Beranda saja yang dimuat ulang setelah aplikasi lama ditinggal. */
+    private static final long JEDA_MUAT_ULANG_MS = 15L * 60 * 1000;
+
     private WebView web;
+    /** Bilah "versi baru tersedia" di atas WebView; tersembunyi sampai perlu. */
+    private LinearLayout bilahPembaruan;
+    private TextView teksPembaruan;
+    /** Waktu aplikasi terakhir ditinggal, 0 bila belum pernah. */
+    private long ditinggalPada;
     /** WebView sementara untuk dialog cetak; disimpan agar tidak dibersihkan GC. */
     private WebView webCetak;
     private PermissionRequest permintaanKamera;
@@ -65,9 +93,18 @@ public class MainActivity extends Activity {
         super.onCreate(state);
 
         web = new WebView(this);
-        setContentView(web, new ViewGroup.LayoutParams(
+
+        // WebView di bawah, bilah pembaruan di atas. Bilahnya dibuat sekali dan
+        // baru ditampilkan bila server melaporkan versionCode yang lebih tinggi.
+        LinearLayout akar = new LinearLayout(this);
+        akar.setOrientation(LinearLayout.VERTICAL);
+        siapkanBilahPembaruan();
+        akar.addView(bilahPembaruan, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.MATCH_PARENT));
+                ViewGroup.LayoutParams.WRAP_CONTENT));
+        akar.addView(web, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
+        setContentView(akar);
 
         WebSettings s = web.getSettings();
         s.setJavaScriptEnabled(true);
@@ -163,6 +200,86 @@ public class MainActivity extends Activity {
 
         if (state == null) web.loadUrl(ALAMAT);
         else web.restoreState(state);
+
+        periksaVersiTerbaru();
+    }
+
+    /**
+     * Bilah pembaruan: teks putih di atas hijau PINDAI, satu tombol Unduh.
+     * Tombol membuka APK di peramban sistem — WebView tidak bisa memasang APK
+     * sendiri, dan memasangnya butuh persetujuan pengguna.
+     */
+    private void siapkanBilahPembaruan() {
+        float dp = getResources().getDisplayMetrics().density;
+        int sisi = (int) (12 * dp);
+
+        bilahPembaruan = new LinearLayout(this);
+        bilahPembaruan.setOrientation(LinearLayout.HORIZONTAL);
+        bilahPembaruan.setGravity(Gravity.CENTER_VERTICAL);
+        bilahPembaruan.setBackgroundColor(Color.parseColor("#065F46"));
+        bilahPembaruan.setPadding(sisi, (int) (8 * dp), sisi, (int) (8 * dp));
+        bilahPembaruan.setVisibility(View.GONE);
+
+        teksPembaruan = new TextView(this);
+        teksPembaruan.setTextColor(Color.WHITE);
+        teksPembaruan.setTextSize(13);
+        teksPembaruan.setText("Versi baru PINDAI tersedia.");
+        bilahPembaruan.addView(teksPembaruan, new LinearLayout.LayoutParams(
+                0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+
+        Button tombol = new Button(this);
+        tombol.setText("Unduh");
+        tombol.setAllCaps(false);
+        tombol.setTextColor(Color.parseColor("#065F46"));
+        tombol.setBackgroundColor(Color.WHITE);
+        tombol.setOnClickListener(v -> bukaDiLuar(Uri.parse(ALAMAT + "pindai.apk")));
+        bilahPembaruan.addView(tombol, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT));
+    }
+
+    /**
+     * Ambil `version.json` sekali per peluncuran. Jaringan gagal, JSON rusak,
+     * atau `versionCode` kosong berarti tidak ada yang ditampilkan — cek versi
+     * tidak boleh mengganggu pemakaian aplikasi.
+     */
+    private void periksaVersiTerbaru() {
+        new Thread(() -> {
+            int kode = 0;
+            String nama = "";
+            HttpURLConnection koneksi = null;
+            try {
+                koneksi = (HttpURLConnection) new URL(ALAMAT + "version.json").openConnection();
+                koneksi.setConnectTimeout(5000);
+                koneksi.setReadTimeout(5000);
+                koneksi.setUseCaches(false);
+                koneksi.setRequestProperty("Cache-Control", "no-cache");
+                StringBuilder isi = new StringBuilder();
+                try (BufferedReader baca = new BufferedReader(new InputStreamReader(
+                        koneksi.getInputStream(), StandardCharsets.UTF_8))) {
+                    String baris;
+                    while ((baris = baca.readLine()) != null) isi.append(baris);
+                }
+                JSONObject json = new JSONObject(isi.toString());
+                kode = json.optInt("versionCode", 0);
+                nama = json.optString("versionName", "");
+            } catch (Exception ignored) {
+                return;
+            } finally {
+                if (koneksi != null) koneksi.disconnect();
+            }
+
+            if (kode <= VERSI_KODE) return;
+            final String versi = nama;
+            runOnUiThread(() -> {
+                if (versi.isEmpty()) {
+                    teksPembaruan.setText("Versi baru PINDAI tersedia.");
+                } else {
+                    teksPembaruan.setText("PINDAI " + versi + " tersedia.");
+                }
+                bilahPembaruan.setVisibility(View.VISIBLE);
+            });
+        }).start();
     }
 
     /**
@@ -306,6 +423,37 @@ public class MainActivity extends Activity {
         }
         callbackBerkas.onReceiveValue(uris);
         callbackBerkas = null;
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        ditinggalPada = System.currentTimeMillis();
+    }
+
+    /**
+     * Kembali dari aplikasi lain: muat ulang beranda bila sudah lama ditinggal,
+     * supaya teks dan konfigurasi terbaru dari server terpakai. Halaman lain
+     * (formulir, KYC) tidak dimuat ulang — isian yang sedang diketik jangan
+     * hilang hanya karena pengguna sempat membuka WhatsApp.
+     */
+    @Override
+    protected void onResume() {
+        super.onResume();
+        long lama = System.currentTimeMillis() - ditinggalPada;
+        if (ditinggalPada == 0 || lama < JEDA_MUAT_ULANG_MS) return;
+        if (!diBeranda()) return;
+        ditinggalPada = 0;
+        web.reload();
+    }
+
+    private boolean diBeranda() {
+        String url = web.getUrl();
+        if (url == null) return false;
+        String dasar = ALAMAT.endsWith("/")
+                ? ALAMAT.substring(0, ALAMAT.length() - 1)
+                : ALAMAT;
+        return url.equals(ALAMAT) || url.equals(dasar);
     }
 
     @Override

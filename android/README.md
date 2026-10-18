@@ -10,7 +10,7 @@ ditautkan dari tombol "Pasang aplikasi" di beranda.
 | Berkas | Peran |
 | --- | --- |
 | `AndroidManifest.xml` | Paket `id.pindai.app`, izin internet/lokasi/kamera, tema terang. |
-| `src/id/pindai/app/MainActivity.java` | WebView + kamera (getUserMedia), GPS, pemilih berkas, tautan luar. |
+| `src/id/pindai/app/MainActivity.java` | WebView + kamera (getUserMedia), GPS, pemilih berkas, tautan luar, bilah pembaruan. |
 | `res/values/` | Nama aplikasi dan tema. |
 | `res/mipmap-*/ic_launcher.png` | Ikon 48–192 px, dibuat dari `src/assets/logo.svg`. |
 | `build.sh` | aapt2 → javac → d8 → zipalign → apksigner, keluaran `public/pindai.apk`. |
@@ -23,8 +23,8 @@ export ANDROID_SDK=/path/ke/android-sdk        # butuh platforms/android-34 + bu
 bash android/build.sh
 ```
 
-Hasil: `public/pindai.apk` (±28 KB, versi 1.1.0 / versionCode 2), ditandatangani,
-siap dipasang di Android 6+.
+Hasil: `public/pindai.apk` (±28 KB), ditandatangani, siap dipasang di Android 6+.
+Versi yang terbit saat ini adalah 1.2.0 (versionCode 3).
 
 ## Jembatan halaman ↔ aplikasi
 
@@ -42,9 +42,35 @@ otomatis kembali ke jalur web biasa.
 
 ### Naikkan versi sebelum merilis pembaruan
 
-Ubah `versionCode`/`versionName` di `AndroidManifest.xml` **dan** dua argumen
-`--version-code`/`--version-name` di `build.sh`. Android menolak memasang
-pembaruan dengan `versionCode` yang sama atau lebih kecil.
+Versi ditulis di `build.sh` (`VERSI_KODE`, `VERSI_NAMA`). Skrip itu memakai
+angka tersebut untuk APK **dan** menulis `public/version.json`, lalu angka yang
+sama harus masuk ke `MainActivity.VERSI_KODE` dan `AndroidManifest.xml`.
+
+Android menolak memasang pembaruan dengan `versionCode` yang sama atau lebih
+kecil, jadi naikkan `VERSI_KODE` setiap kali merilis.
+
+## Pembaruan di aplikasi
+
+Aplikasi yang sudah terpasang mengecek `https://<alamat>/version.json` sekali
+setiap dibuka:
+
+```json
+{ "versionCode": 3, "versionName": "1.2.0", "apkUrl": "/pindai.apk" }
+```
+
+Bila `versionCode` di server lebih besar dari `MainActivity.VERSI_KODE`, bilah
+hijau "PINDAI 1.2.0 tersedia" muncul di atas halaman dengan tombol **Unduh**
+yang membuka APK di peramban sistem. Pemeriksaan ini diam saja bila jaringan
+gagal — aplikasi tetap bisa dipakai.
+
+Selain itu, bila aplikasi ditinggal lebih dari 15 menit dan saat kembali masih
+di beranda, beranda dimuat ulang agar teks dan konfigurasi terbaru dari server
+terpakai. Halaman formulir dan KYC tidak dimuat ulang supaya isian yang sedang
+diketik tidak hilang.
+
+`public/version.json` di repo sengaja menunjuk versi APK yang benar-benar ada
+di `public/pindai.apk`. Menjalankan `build.sh` menulis ulang berkas itu sesuai
+versi yang baru dibangun, jadi keduanya tidak bisa berbeda.
 
 ## Alamat aplikasi
 

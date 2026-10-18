@@ -24,6 +24,12 @@ ANDROID_JAR="$SDK/platforms/android-34/android.jar"
 KELUARAN="$PROYEK/public/pindai.apk"
 BANGUN="$AKAR/build"
 
+# Satu-satunya tempat versi ditulis. Nilai ini masuk ke APK dan ke
+# public/version.json yang dibaca aplikasi untuk menawarkan pembaruan, jadi
+# keduanya tidak bisa berbeda. Naikkan keduanya setiap merilis APK.
+VERSI_KODE=3
+VERSI_NAMA=1.2.0
+
 : "${JAVA_HOME:?JAVA_HOME belum diisi}"
 export PATH="$JAVA_HOME/bin:$PATH"
 
@@ -42,8 +48,8 @@ echo "→ tautkan manifest + resource"
   --java "$BANGUN/gen" \
   --min-sdk-version 23 \
   --target-sdk-version 34 \
-  --version-code 2 \
-  --version-name 1.1.0 \
+  --version-code "$VERSI_KODE" \
+  --version-name "$VERSI_NAMA" \
   --auto-add-overlay
 
 echo "→ kompilasi Java"
@@ -83,4 +89,13 @@ echo "→ tanda tangan"
   --out "$KELUARAN" "$BANGUN/aligned.apk"
 "$BT/apksigner" verify --print-certs "$KELUARAN" | head -3
 
-echo "→ selesai: $KELUARAN ($(du -h "$KELUARAN" | cut -f1))"
+# Aplikasi yang sudah terpasang membaca berkas ini untuk tahu ada versi baru.
+cat > "$PROYEK/public/version.json" <<JSON
+{
+  "versionCode": $VERSI_KODE,
+  "versionName": "$VERSI_NAMA",
+  "apkUrl": "/pindai.apk"
+}
+JSON
+
+echo "→ selesai: $KELUARAN ($(du -h "$KELUARAN" | cut -f1)) versi $VERSI_NAMA ($VERSI_KODE)"
