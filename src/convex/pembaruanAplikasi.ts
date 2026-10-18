@@ -39,6 +39,7 @@ import {
   MAKS_KIRIM_SEKALI,
   pesanPembaruanWhatsapp,
   validasiPembaruan,
+  versiMinimumWajib,
 } from "../lib/pembaruanAplikasi";
 import { nomorPenerimaUnik } from "../lib/pembaruanAplikasi";
 
@@ -46,6 +47,8 @@ import { nomorPenerimaUnik } from "../lib/pembaruanAplikasi";
 const KIRIM_PER_KLIK = 10;
 /** Bagian penerima yang dikirim ke panel dalam satu query. */
 const BATAS_PENERIMA = 300;
+/** Riwayat pengumuman yang diperiksa untuk versi wajib (satu baris per rilis). */
+const BATAS_PENGUMUMAN = 100;
 
 type Penerima = { userId: Id<"users">; nama: string; nomor: string };
 
@@ -55,6 +58,7 @@ type BarisPembaruan = {
   versiNama: string;
   tautan: string;
   catatan: string | null;
+  wajibDiperbarui: boolean;
   diumumkanPada: number;
   diumumkanOleh: string | null;
 };
@@ -73,6 +77,7 @@ async function versiTerbaru(ctx: QueryCtx): Promise<BarisPembaruan | null> {
     versiNama: row.versiNama,
     tautan: row.tautan,
     catatan: row.catatan ?? null,
+    wajibDiperbarui: row.wajibDiperbarui === true,
     diumumkanPada: row.diumumkanPada,
     diumumkanOleh: row.diumumkanOleh ?? null,
   };
@@ -123,6 +128,33 @@ async function susunPenerima(
 export const terbaru = query({
   args: {},
   handler: async (ctx) => await versiTerbaru(ctx),
+});
+
+/**
+ * Batas bawah versi yang masih boleh dipakai — dibaca lapisan web dari UA.
+ *
+ * Publik dan tanpa data penerima: yang dikembalikan hanya angka versi dan
+ * tautan unduhan yang memang sudah dikirim ke semua penerima. Halaman yang
+ * memakainya tidak perlu sesi, justru karena APK lama harus bisa menampilkan
+ * layar perbarui sebelum apa pun dimuat.
+ */
+export const wajib = query({
+  args: {},
+  handler: async (ctx) => {
+    const baris = await ctx.db
+      .query("pembaruanAplikasi")
+      .withIndex("by_versiKode")
+      .order("desc")
+      .take(BATAS_PENGUMUMAN);
+    const minimum = versiMinimumWajib(baris);
+    if (minimum === null) return { versiMinimum: null, versiNama: null, tautan: null };
+    const barisMinimum = baris.find((b) => b.versiKode === minimum) ?? null;
+    return {
+      versiMinimum: minimum,
+      versiNama: barisMinimum?.versiNama ?? null,
+      tautan: barisMinimum?.tautan ?? null,
+    };
+  },
 });
 
 /**
@@ -203,6 +235,8 @@ export const umumkan = mutation({
     versiNama: v.string(),
     tautan: v.string(),
     catatan: v.optional(v.string()),
+    /** Versi di bawah ini berhenti bisa dipakai (layar wajib perbarui). */
+    wajibDiperbarui: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     const { userId, user } = await requireAdminSession(ctx);
@@ -236,7 +270,11 @@ export const umumkan = mutation({
       label,
       "umumkan_pembaruan_aplikasi",
       `PINDAI ${cek.nilai.versiNama}`,
-      `Pengingat pembaruan aplikasi diumumkan (versionCode ${cek.nilai.versiKode}); notifikasi dalam aplikasi aktif untuk semua pengguna.`,
+      `Pengingat pembaruan aplikasi diumumkan (versionCode ${cek.nilai.versiKode}); notifikasi dalam aplikasi aktif untuk semua pengguna.${
+        cek.nilai.wajibDiperbarui === true
+          ? ` Versi di bawah ${cek.nilai.versiKode} diwajibkan memperbarui.`
+          : ""
+      }`,
     );
     return { ok: true as const, versiKode: cek.nilai.versiKode };
   },

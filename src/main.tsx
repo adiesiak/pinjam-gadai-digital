@@ -2,6 +2,7 @@ import '@vly-ai/integrations';
 import { Toaster } from "@/components/ui/sonner";
 import { AnnouncementBar } from "@/components/AnnouncementBar";
 import { BilahSinkron } from "@/components/BilahSinkron";
+import { GerbangVersiWajib } from "@/components/GerbangVersiWajib";
 import { PratinjauBanner } from "@/components/PratinjauBanner";
 import { ErrorPage } from "@/components/ErrorPage";
 import { LoadingScreen } from "@/components/LoadingScreen";
@@ -267,6 +268,9 @@ createRoot(document.getElementById("root")!).render(
       </ToolbarErrorBoundary>
       <ConvexAuthProvider client={convex}>
         <ThemeSync />
+        {/* APK di bawah versi wajib berhenti di layar perbarui — dipasang di
+            atas router supaya tidak ada rute yang bisa menyelinap lewat. */}
+        <GerbangVersiWajib />
         <BrowserRouter>
           {/* Tautan lewat-navigasi: hanya tampil saat difokuskan dengan Tab,
               memindahkan pengguna keyboard langsung ke konten utama. */}

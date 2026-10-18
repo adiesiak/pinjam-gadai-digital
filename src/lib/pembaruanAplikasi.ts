@@ -29,6 +29,11 @@ export type DataPembaruan = {
   /** Alamat http(s) utuh atau jalur `/…` di aplikasi ini. */
   tautan: string;
   catatan?: string;
+  /**
+   * Versi di bawah ini tidak boleh dipakai lagi. Bila true, APK dengan
+   * `versionCode` lebih kecil menampilkan layar wajib perbarui.
+   */
+  wajibDiperbarui?: boolean;
 };
 
 export type HasilValidasiPembaruan =
@@ -47,6 +52,7 @@ export function validasiPembaruan(input: {
   versiNama: string;
   tautan: string;
   catatan?: string | null;
+  wajibDiperbarui?: boolean;
 }): HasilValidasiPembaruan {
   const kode = input.versiKode;
   if (!Number.isInteger(kode) || kode < 1 || kode > 1_000_000) {
@@ -79,6 +85,7 @@ export function validasiPembaruan(input: {
       versiNama: nama,
       tautan,
       ...(catatan === "" ? {} : { catatan }),
+      ...(input.wajibDiperbarui === true ? { wajibDiperbarui: true } : {}),
     },
   };
 }
@@ -100,6 +107,61 @@ export function urlUnduhAplikasi(asal: string, tautan: string): string | null {
 /** Kunci notifikasi stabil per versi — dasar keadaan "sudah dibaca". */
 export function kunciNotifikasiPembaruan(versiKode: number): string {
   return `pembaruan:${versiKode}`;
+}
+
+/**
+ * Penanda aplikasi Android di User-Agent WebView (`PINDAIApp/<versionCode>`).
+ *
+ * Inilah satu-satunya cara lapisan web tahu APK mana yang sedang dipakai:
+ * berkas web dimuat dari server, sedangkan shell APK yang menyebut dirinya
+ * sendiri lewat UA. Tanpa penanda ini, halaman tidak bisa membedakan aplikasi
+ * lama dari peramban biasa.
+ */
+export const PENANDA_UA_APLIKASI = "PINDAIApp";
+
+/**
+ * `versionCode` APK dari User-Agent, atau null bila bukan aplikasi PINDAI.
+ *
+ * - peramban biasa → `null` (tidak ada yang perlu diblokir);
+ * - aplikasi → angkanya;
+ * - APK lama yang menulis `PINDAIApp/1.0` (tanpa kode angka) → `0`, yaitu
+ *   "versi tak dikenal" dan diperlakukan sebagai yang paling tua. Itu memang
+ *   build sebelum penomoran ini ada.
+ */
+export function versiAplikasiDariUA(ua: string): number | null {
+  if (!ua.includes(`${PENANDA_UA_APLIKASI}/`)) return null;
+  const cocok = /PINDAIApp\/(\d+)(?![.\d])/.exec(ua);
+  return cocok === null ? 0 : Number(cocok[1]);
+}
+
+/**
+ * Versi tertinggi yang ditandai wajib — batas bawah yang masih boleh dipakai.
+ *
+ * null berarti tidak ada pengumuman wajib, jadi tidak ada yang diblokir.
+ */
+export function versiMinimumWajib(
+  baris: ReadonlyArray<{ versiKode: number; wajibDiperbarui?: boolean | null }>,
+): number | null {
+  let minimum: number | null = null;
+  for (const b of baris) {
+    if (b.wajibDiperbarui !== true) continue;
+    if (minimum === null || b.versiKode > minimum) minimum = b.versiKode;
+  }
+  return minimum;
+}
+
+/**
+ * Apakah APK ini harus berhenti dipakai.
+ *
+ * Peramban (`terpasang === null`) tidak pernah diblokir: mengunci halaman
+ * publik karena versi APK akan menghalangi orang yang justru ingin mengunduh.
+ */
+export function wajibPerbarui(
+  terpasang: number | null,
+  minimum: number | null,
+): boolean {
+  if (terpasang === null || minimum === null) return false;
+  return terpasang < minimum;
 }
 
 /**

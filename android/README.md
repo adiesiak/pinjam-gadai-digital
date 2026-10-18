@@ -63,6 +63,12 @@ hijau "PINDAI 1.2.0 tersedia" muncul di atas halaman dengan tombol **Unduh**
 yang membuka APK di peramban sistem. Pemeriksaan ini diam saja bila jaringan
 gagal — aplikasi tetap bisa dipakai.
 
+Aplikasi juga menambahkan penanda versinya ke User-Agent:
+`PINDAIApp/<VERSI_KODE>`. Halaman membacanya untuk layar **wajib perbarui**
+(bila admin menandai sebuah versi wajib). Angka itu harus berasal dari
+`VERSI_KODE`, bukan ditulis tetap, agar pemeriksaan mengenai versi yang benar.
+APK yang lebih tua menulis `PINDAIApp/1.0` dan dibaca sebagai versi 0.
+
 Selain itu, bila aplikasi ditinggal lebih dari 15 menit dan saat kembali masih
 di beranda, beranda dimuat ulang agar teks dan konfigurasi terbaru dari server
 terpakai. Halaman formulir dan KYC tidak dimuat ulang supaya isian yang sedang

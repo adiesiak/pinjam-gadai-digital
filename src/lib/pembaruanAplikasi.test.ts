@@ -18,6 +18,9 @@ import {
   pesanPembaruanWhatsapp,
   urlUnduhAplikasi,
   validasiPembaruan,
+  versiAplikasiDariUA,
+  versiMinimumWajib,
+  wajibPerbarui,
 } from "@/lib/pembaruanAplikasi";
 
 let passed = 0;
@@ -168,6 +171,44 @@ ok(
   kunciNotifikasiPembaruan(3) !== kunciNotifikasiPembaruan(4),
   "versi berbeda menghasilkan kunci berbeda",
 );
+
+// ===== Penanda versi di User-Agent =====
+ok(
+  versiAplikasiDariUA("Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 PINDAIApp/4") === 4,
+  "kode versi dibaca dari penanda aplikasi",
+);
+ok(versiAplikasiDariUA("Mozilla/5.0 (Linux; Android 13)") === null, "peramban biasa tidak dianggap aplikasi");
+ok(
+  versiAplikasiDariUA("Mozilla/5.0 (Linux; Android 13) PINDAIApp/1.0") === 0,
+  "APK lama tanpa kode angka dianggap versi 0",
+);
+ok(
+  versiAplikasiDariUA("Mozilla/5.0 PINDAIApp/") === 0,
+  "penanda tanpa angka dianggap versi 0",
+);
+ok(
+  versiAplikasiDariUA("Mozilla/5.0 PINDAIApp/12 Safari/537.36") === 12,
+  "angka diikuti penanda lain tetap terbaca",
+);
+
+// ===== Versi minimum wajib =====
+ok(versiMinimumWajib([]) === null, "tanpa pengumuman wajib, tidak ada batas");
+ok(
+  versiMinimumWajib([
+    { versiKode: 4 },
+    { versiKode: 6, wajibDiperbarui: true },
+    { versiKode: 5, wajibDiperbarui: true },
+    { versiKode: 7, wajibDiperbarui: false },
+  ]) === 6,
+  "batas memakai versi wajib tertinggi",
+);
+
+ok(wajibPerbarui(3, 6) === true, "versi di bawah batas harus diperbarui");
+ok(wajibPerbarui(6, 6) === false, "versi tepat di batas masih boleh");
+ok(wajibPerbarui(7, 6) === false, "versi di atas batas tidak diblokir");
+ok(wajibPerbarui(0, 6) === true, "APK tanpa kode dianggap paling tua");
+ok(wajibPerbarui(null, 6) === false, "peramban tidak pernah diblokir");
+ok(wajibPerbarui(3, null) === false, "tanpa batas tidak ada yang diblokir");
 
 console.log(`pembaruanAplikasi: ${passed} lulus, ${failed} gagal`);
 if (failed > 0) process.exit(1);

@@ -181,6 +181,50 @@ describe("pembaruanAplikasi", () => {
     ]);
   });
 
+  it("menetapkan versi minimum wajib dari pengumuman bertanda wajib", async () => {
+    const t = convexTest(schema, modules);
+    const admin = await siapkanPengguna(t, "Admin Pembaruan", {
+      email: "admin.wajib@pindai.test",
+      role: "admin",
+    });
+
+    // Belum ada pengumuman wajib: tidak ada yang diblokir.
+    expect(await t.query(api.pembaruanAplikasi.wajib, {})).toMatchObject({
+      versiMinimum: null,
+      tautan: null,
+    });
+
+    await admin.sesi.mutation(api.pembaruanAplikasi.umumkan, {
+      versiKode: 10,
+      versiNama: "2.0.0",
+      tautan: TAUTAN,
+    });
+    expect((await t.query(api.pembaruanAplikasi.wajib, {})).versiMinimum).toBeNull();
+
+    await admin.sesi.mutation(api.pembaruanAplikasi.umumkan, {
+      versiKode: 11,
+      versiNama: "2.1.0",
+      tautan: TAUTAN,
+      wajibDiperbarui: true,
+    });
+    const wajib = await t.query(api.pembaruanAplikasi.wajib, {});
+    expect(wajib.versiMinimum).toBe(11);
+    expect(wajib.versiNama).toBe("2.1.0");
+    expect(wajib.tautan).toBe(TAUTAN);
+
+    // Pengumuman biasa sesudahnya tidak menurunkan batas yang sudah berlaku.
+    await admin.sesi.mutation(api.pembaruanAplikasi.umumkan, {
+      versiKode: 12,
+      versiNama: "2.2.0",
+      tautan: TAUTAN,
+    });
+    expect((await t.query(api.pembaruanAplikasi.wajib, {})).versiMinimum).toBe(11);
+
+    const ringkas = await admin.sesi.query(api.pembaruanAplikasi.status, {});
+    expect(ringkas?.terbaru?.versiKode).toBe(12);
+    expect(ringkas?.terbaru?.wajibDiperbarui).toBe(false);
+  });
+
   it("melewati penerima yang sudah menerima versi itu", async () => {
     const t = convexTest(schema, modules);
     const admin = await siapkanPengguna(t, "Admin Pembaruan", {

@@ -117,7 +117,11 @@ public class MainActivity extends Activity {
         s.setMediaPlaybackRequiresUserGesture(false);
         s.setLoadWithOverviewMode(true);
         s.setUseWideViewPort(true);
-        s.setUserAgentString(s.getUserAgentString() + " PINDAIApp/1.0");
+        // Penanda ini dibaca halaman (`lib/pembaruanAplikasi`) untuk tahu versi
+        // APK mana yang sedang dipakai. Angkanya HARUS `VERSI_KODE`: layar
+        // wajib perbarui membandingkan angka itu dengan versi yang diumumkan
+        // admin. Menulis angka tetap di sini membuat pemeriksaan salah sasaran.
+        s.setUserAgentString(s.getUserAgentString() + " PINDAIApp/" + VERSI_KODE);
 
         // Jembatan untuk halaman: cetak/PDF, simpan berkas, buka tautan luar.
         // Hanya tiga metode beranotasi @JavascriptInterface yang terekspos.

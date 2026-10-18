@@ -19,6 +19,7 @@ import { AlertTriangle, Loader2, Megaphone, Send } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -62,6 +63,7 @@ export function PengingatPembaruanPanel() {
   const [nama, setNama] = useState("");
   const [tautan, setTautan] = useState(TAUTAN_UNDUH_BAWAAN);
   const [catatan, setCatatan] = useState("");
+  const [wajib, setWajib] = useState(false);
   const [galat, setGalat] = useState<string | null>(null);
   const [busy, setBusy] = useState<"umumkan" | "kirim" | null>(null);
   const [progres, setProgres] = useState<string | null>(null);
@@ -128,6 +130,7 @@ export function PengingatPembaruanPanel() {
       versiNama: nama,
       tautan: tautan,
       catatan,
+      wajibDiperbarui: wajib,
     });
     if (!cek.ok) {
       setGalat(cek.alasan);
@@ -145,11 +148,17 @@ export function PengingatPembaruanPanel() {
         versiNama: cek.nilai.versiNama,
         tautan: alamatUnduh,
         ...(cek.nilai.catatan === undefined ? {} : { catatan: cek.nilai.catatan }),
+        ...(cek.nilai.wajibDiperbarui === true ? { wajibDiperbarui: true } : {}),
       });
       setKode("");
       setCatatan("");
+      setWajib(false);
       toast.success(
-        `PINDAI ${cek.nilai.versiNama} diumumkan. Notifikasi muncul di pusat notifikasi semua akun.`,
+        `PINDAI ${cek.nilai.versiNama} diumumkan. Notifikasi muncul di pusat notifikasi semua akun.${
+          cek.nilai.wajibDiperbarui === true
+            ? " Versi aplikasi di bawahnya kini wajib diperbarui."
+            : ""
+        }`,
       );
     } catch (err) {
       setGalat(err instanceof Error ? err.message : "Pengumuman gagal disimpan.");
@@ -214,9 +223,19 @@ export function PengingatPembaruanPanel() {
           </p>
         </div>
         {terbaru !== null ? (
-          <Badge variant="outline" className="text-[11px] tabular-nums">
-            terumumkan: {terbaru.versiNama} · kode {terbaru.versiKode}
-          </Badge>
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge variant="outline" className="text-[11px] tabular-nums">
+              terumumkan: {terbaru.versiNama} · kode {terbaru.versiKode}
+            </Badge>
+            {terbaru.wajibDiperbarui && (
+              <Badge
+                variant="outline"
+                className="border-amber-300 text-[11px] text-amber-800"
+              >
+                wajib diperbarui
+              </Badge>
+            )}
+          </div>
         ) : (
           <Badge variant="outline" className="text-[11px]">
             belum ada versi diumumkan
@@ -283,6 +302,25 @@ export function PengingatPembaruanPanel() {
               value={catatan}
               onChange={(e) => setCatatan(e.target.value)}
             />
+          </div>
+
+          <div className="flex items-start gap-2.5 rounded-lg border border-slate-200 bg-slate-50/60 px-3 py-2.5">
+            <Checkbox
+              id="pembaruan-wajib"
+              checked={wajib}
+              onCheckedChange={(nilai) => setWajib(nilai === true)}
+              className="mt-0.5"
+            />
+            <div className="min-w-0">
+              <Label htmlFor="pembaruan-wajib" className="text-xs font-semibold text-navy">
+                Wajib diperbarui
+              </Label>
+              <p className="mt-0.5 text-[11px] leading-4 text-muted-foreground">
+                APK dengan kode lebih kecil berhenti di layar “PINDAI perlu diperbarui” dan
+                tidak bisa dipakai sampai versi ini terpasang. Tandai hanya setelah berkas APK
+                versi ini benar-benar tersedia di tautan di atas.
+              </p>
+            </div>
           </div>
 
           {galat !== null && (

@@ -1183,6 +1183,12 @@ const schema = defineSchema(
       /** Alamat unduhan yang dikirim ke penerima (http(s) atau jalur `/…`). */
       tautan: v.string(),
       catatan: v.optional(v.string()),
+      /**
+       * Versi ini wajib dipasang: APK dengan `versionCode` lebih kecil menampilkan
+       * layar wajib perbarui dan tidak bisa melanjutkan. Versi tertinggi yang
+       * bertanda true menjadi batas bawah yang berlaku.
+       */
+      wajibDiperbarui: v.optional(v.boolean()),
       diumumkanPada: v.number(),
       /** Label admin yang mengumumkan — snapshot agar tetap terbaca. */
       diumumkanOleh: v.optional(v.string()),
