@@ -7,20 +7,34 @@ import { DEMO_CARD_NUMBER } from "@/lib/demoCardNumber";
 export const TILT_MAKSIMUM_DERAJAT = 12;
 const NOMOR_TAMPILAN = DEMO_CARD_NUMBER;
 
-export interface BatikPatternProps {
+export interface GelombangPatternProps {
   warna?: string;
   opacity?: number;
   className?: string;
 }
 
-export function BatikPattern({
+/**
+ * Motif ombak berlapis: tiga garis swell sejajar yang bergeser ke bawah,
+ * masing-masing dengan wash biru tipis dan aksen biru muda di puncaknya,
+ * plus satu titik kuningan di tiap puncak. Menggantikan pola Kawung lama,
+ * dengan palet dan bobot visual yang sama supaya identitas kartu tidak
+ * berubah — hanya iramanya yang kini mengalir seperti air.
+ */
+export function GelombangPattern({
   warna = "#326eb1",
   opacity = 0.56,
   className,
-}: BatikPatternProps) {
-  const id = `batik-kawung-${useId().replace(/[^a-zA-Z0-9]/g, "")}`;
+}: GelombangPatternProps) {
+  const id = `ombak-pindai-${useId().replace(/[^a-zA-Z0-9]/g, "")}`;
   const opacityAman = Math.min(0.56, Math.max(0, opacity));
-  const kelopak = "M36 5C47 17 47 28 36 36C25 28 25 17 36 5Z";
+  // Titik sambung (0,12) dan (96,12) memakai kemiringan yang sama, jadi pola
+  // berulang tanpa garis patah di tepi ubin.
+  const ombak = "M0 12C6 4 18 4 24 12S42 20 48 12S66 4 72 12S90 20 96 12";
+  const lapis = [
+    { geser: 0, tebal: 1 },
+    { geser: 10, tebal: 0.82 },
+    { geser: 20, tebal: 0.64 },
+  ];
 
   return (
     <svg
@@ -34,24 +48,31 @@ export function BatikPattern({
       preserveAspectRatio="none"
     >
       <defs>
-        <pattern id={id} width="72" height="72" patternUnits="userSpaceOnUse">
-          <g fill="rgba(50,110,177,0.16)" stroke={warna} strokeLinejoin="round" strokeWidth="1.7">
-            <path d={kelopak} />
-            <path d={kelopak} transform="rotate(90 36 36)" />
-            <path d={kelopak} transform="rotate(180 36 36)" />
-            <path d={kelopak} transform="rotate(270 36 36)" />
-            <path
-              d="M36 11C43 19 43 27 36 32C29 27 29 19 36 11ZM36 40C44 40 51 47 51 55M32 36C32 28 25 21 17 21M40 36C40 28 47 21 55 21M36 40C28 40 21 47 21 55"
-              fill="none"
-              stroke="#9bcdf0"
-              strokeWidth="1.1"
-            />
+        <pattern id={id} width="96" height="48" patternUnits="userSpaceOnUse">
+          <g fill="none" strokeLinecap="round">
+            {lapis.map(({ geser, tebal }) => (
+              <g
+                key={geser}
+                transform={`translate(0 ${geser})`}
+                opacity={tebal}
+              >
+                <path
+                  d={ombak}
+                  stroke="rgba(50,110,177,0.16)"
+                  strokeWidth="7"
+                />
+                <path d={ombak} stroke={warna} strokeWidth="1.6" />
+                <path
+                  d={ombak}
+                  stroke="#9bcdf0"
+                  strokeWidth="0.9"
+                  transform="translate(0 -4)"
+                />
+              </g>
+            ))}
           </g>
-          <circle cx="36" cy="36" r="3" fill="#c9a86a" />
-          <circle cx="8" cy="8" r="1.5" fill={warna} />
-          <circle cx="64" cy="8" r="1.5" fill={warna} />
-          <circle cx="8" cy="64" r="1.5" fill={warna} />
-          <circle cx="64" cy="64" r="1.5" fill={warna} />
+          <circle cx="24" cy="6" r="1.8" fill="#c9a86a" />
+          <circle cx="72" cy="6" r="1.8" fill="#c9a86a" />
         </pattern>
       </defs>
       <rect width="420" height="265" fill={`url(#${id})`} />
@@ -468,7 +489,7 @@ export function PindaiCard3D({ className }: KartuHeroPindaiProps) {
             WebkitBackdropFilter: "blur(24px)",
           }}
         >
-          <BatikPattern warna="#326eb1" opacity={0.56} />
+          <GelombangPattern warna="#326eb1" opacity={0.56} />
           <svg
             aria-hidden="true"
             className="pointer-events-none absolute inset-0 size-full opacity-[0.035]"

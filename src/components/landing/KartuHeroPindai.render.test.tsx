@@ -1,16 +1,16 @@
 /**
- * Uji render kartu hero PINDAI: Kawung biru berulang di atas kertas gading.
+ * Uji render kartu hero PINDAI: ombak biru berulang di atas kertas gading.
  * Run: bun src/components/landing/KartuHeroPindai.render.test.tsx
  *
  * Yang dijaga (tanpa browser — render statis):
  *  1. Token desain yang diminta benar-benar ada di MARKUP: ukuran/rasio kartu,
- *     permukaan gading berkaca, motif Kawung, chip kuningan, ikon
+ *     permukaan gading berkaca, motif ombak, chip kuningan, ikon
  *     contactless, wordmark, dan data kartu demo.
  *  2. Sisi kanan atas BENAR-BENAR kosong: tidak ada pita holografik/deret ikon
  *     yang dihapus dari desain lama.
  *  3. Isi kartu menampilkan wordmark, chip, identitas serta nomor demo tetap;
  *     rincian pokok, tenor, dan total di bawah kartu tidak ditampilkan.
- *  4. Dua kartu di satu halaman tidak berbagi `id` pola batik (kalau berbagi,
+ *  4. Dua kartu di satu halaman tidak berbagi `id` pola ombak (kalau berbagi,
  *     SVG kedua akan memakai pola pertama) — id datang dari `useId()`, jadi
  *     huruf besar/kecilnya tidak bisa ditebak dan diuji apa adanya.
  */
@@ -65,29 +65,35 @@ function bersih(html: string, label: string): void {
   bersih(html, "kartu bawaan");
 }
 
-// ===== 2. Kawung biru jelas berulang di seluruh kartu =====
+// ===== 2. Ombak biru berlapis berulang di seluruh kartu =====
 {
   const html = renderToStaticMarkup(<PindaiCard3D />);
   ada(
     html,
-    "batik-kawung-",
-    "SVG memakai pola Kawung berulang dengan id unik",
+    "ombak-pindai-",
+    "SVG memakai pola ombak berulang dengan id unik",
   );
-  ada(html, 'opacity="0.56"', "motif Kawung lebih tegas di atas kertas gading");
-  ada(html, "#326eb1", "motif memakai warna biru batik yang dalam");
-  ada(html, "#9bcdf0", "garis dalam memakai aksen biru muda");
-  ada(html, "rgba(50,110,177,0.16)", "bidang motif tetap transparan di atas kertas");
+  ada(html, 'opacity="0.56"', "motif ombak lebih tegas di atas kertas gading");
+  ada(html, "#326eb1", "motif memakai warna biru laut yang dalam");
+  ada(html, "#9bcdf0", "garis puncak memakai aksen biru muda");
+  ada(html, "rgba(50,110,177,0.16)", "wash ombak tetap transparan di atas kertas");
   ada(html, 'viewBox="0 0 420 265"', "bidang motif mengikuti rasio kartu");
-  ada(html, 'width="72" height="72"', "motif Kawung berulang teratur di seluruh kartu");
-  ada(html, "M36 5C47 17 47 28 36 36", "kelopak Kawung memanjang tampil pada tiap arah");
-  ada(html, "rotate(90 36 36)", "empat kelopak Kawung tersusun simetris");
-  ada(html, "#c9a86a", "titik tengah Kawung memakai aksen kuningan");
+  ada(html, 'width="96" height="48"', "ombak berulang teratur di seluruh kartu");
+  ada(
+    html,
+    "M0 12C6 4 18 4 24 12S42 20 48 12S66 4 72 12S90 20 96 12",
+    "garis ombak bergelombang dua puncak per ubin",
+  );
+  ada(html, "translate(0 10)", "tiga lapis ombak bergeser ke bawah");
+  ada(html, "translate(0 20)", "lapis terbawah ikut tampil");
+  ada(html, "#c9a86a", "puncak ombak memakai titik kuningan");
   ada(
     html,
     'patternUnits="userSpaceOnUse"',
     "motif dipasang sebagai pola berulang",
   );
-  tidakAda(html, "M16 96C31 96", "kontur Mega Mendung telah dihapus");
+  tidakAda(html, "M36 5C47 17 47 28 36 36", "kelopak Kawung sudah tidak dipakai");
+  tidakAda(html, "rotate(90 36 36)", "susunan kelopak Kawung benar-benar hilang");
   ada(
     html,
     'preserveAspectRatio="none"',
@@ -148,7 +154,7 @@ function bersih(html: string, label: string): void {
   bersih(html, "baris data");
 }
 
-// ===== 6. Panggung tilt & id pola batik yang unik =====
+// ===== 6. Panggung tilt & id pola ombak yang unik =====
 {
   ok(
     TILT_MAKSIMUM_DERAJAT === 12,
@@ -169,11 +175,11 @@ function bersih(html: string, label: string): void {
       <PindaiCard3D />
     </>,
   );
-  const id = [...dua.matchAll(/id="(batik-kawung-[A-Za-z0-9]+)"/g)].map(
+  const id = [...dua.matchAll(/id="(ombak-pindai-[A-Za-z0-9]+)"/g)].map(
     (m) => m[1],
   );
-  ok(id.length === 2, "setiap kartu merender satu pola Kawung");
-  ok(id[0] !== id[1], "dua kartu memakai id pola batik yang berbeda");
+  ok(id.length === 2, "setiap kartu merender satu pola ombak");
+  ok(id[0] !== id[1], "dua kartu memakai id pola ombak yang berbeda");
   ada(dua, `url(#${id[0]})`, "rect motif menunjuk pola miliknya sendiri");
   bersih(dua, "dua kartu");
 }

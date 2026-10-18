@@ -21,7 +21,7 @@ Seluruh halaman — nasabah, verifikasi aset, ruang Pendana, meja kerja super-ad
 
 Wajah gelap `obsidian` yang sempat dicoba **dicabut seluruhnya**: presetnya tidak lagi terdaftar di `src/lib/system-config.ts`, kartunya hilang dari panel admin, dan blok token gelapnya dihapus dari `src/index.css`. Tidak ada lagi aturan yang cocok dengan `data-theme="obsidian"` maupun `data-wajah="obsidian"`, jadi tidak ada jalan mengaktifkan tampilan gelap.
 
-Catatan status: kartu hero landing (`components/landing/KartuHeroPindai.tsx`) kini juga **cerah**. Keputusan pemilik 2026-10-12: permukaan obsidian pada kartu ditinggalkan supaya titik fokus halaman ikut satu wajah terang, dan tidak ada lagi token gelap yang tersisa di kartu itu. Permukaan barunya kertas hangat berkaca; bobot dan kemewahannya dibawa tepi kuningan, tekstur batik, dan bayangan bertinta — lihat §3A.
+Catatan status: kartu hero landing (`components/landing/KartuHeroPindai.tsx`) kini juga **cerah**. Keputusan pemilik 2026-10-12: permukaan obsidian pada kartu ditinggalkan supaya titik fokus halaman ikut satu wajah terang, dan tidak ada lagi token gelap yang tersisa di kartu itu. Permukaan barunya kertas hangat berkaca; bobot dan kemewahannya dibawa tepi kuningan, pola ombak berlapis, dan bayangan bertinta — lihat §3A.
 
 ## 2. Color Palette & Lighting System
 
@@ -61,7 +61,7 @@ Skala utilitas Tailwind di proyek ini dipetakan ulang per preset, jadi kelas nam
 - Aspect Ratio: Standard credit card aspect ratio (`aspect-[1.586/1]`).
 - Frame: Rounded-2xl dengan garis ganda kuningan (ring luar + celah kertas di dalamnya), bukan pendaran emerald.
 - Surface: Kertas gading berkaca (`linear-gradient(135deg, rgba(255,255,255,0.94) → rgba(241,237,227,0.92))` + blur 24px) dengan garis kuningan dan pantulan lembut.
-- Texture Pattern: Mega Mendung biru langit (`#5b9bd5`) berupa satu awan besar memanjang dengan lapisan kontur dan pusaran pada ujungnya, bukan ikon awan kecil yang tersusun seperti baris. Unit berulang berukuran 210 × 132.5 mengikuti bidang 420 × 265 kartu (kisi 2 × 2), sehingga motif tampil utuh dan tersambung di seluruh permukaan tanpa terpotong. Opasitas 32% menjaga tekstur terbaca lembut di atas kertas gading; teks tetap memakai warna tinta dan kuningan sesuai palet kartu terang.
+- Texture Pattern: ombak biru laut (`#326eb1`) berupa tiga garis swell sejajar yang bergeser 10 satuan ke bawah, masing-masing dengan wash `rgba(50,110,177,0.16)` dan aksen biru muda `#9bcdf0` di puncaknya, serta titik kuningan `#c9a86a` pada dua puncak. Unit berulang 96 × 48 di bidang 420 × 265 kartu; titik sambung kiri-kanan memakai kemiringan yang sama sehingga motif tersambung tanpa garis patah. Opasitas 56% menjaga tekstur terbaca di atas kertas gading; teks tetap memakai warna tinta dan kuningan sesuai palet kartu terang.
 
 Card Details:
 
@@ -87,4 +87,4 @@ Card Details:
 - No Generic Cards, and glass stays at the focal point (keputusan pemilik): kaca kertas cerah + garis ganda kuningan hanya untuk **satu titik fokus per layar** (mis. kartu hero, atau satu kartu angka utama). Kartu lain memakai permukaan padat, tanpa blur dan tanpa pendaran; garis emerald tipis boleh tetap ada sebagai penanda batas. Teknik kaca/glow di tempat lain harus punya alasan tertulis, bukan diulang karena resep ini ada.
 - No Placeholder Icons: Do not sprinkle unnecessary shopping cart or world icons on credit cards or dashboards.
 - No Mismatched Gradients: Gradients are strictly reserved for Gold metallic finishes (`from-amber-200 via-amber-400 to-amber-600`) and Emerald lighting cues.
-- Authentic Cultural Fusion: motif Mega Mendung biru berlapis memakai kontur biru muda dan putih sesuai referensi pemilik; pertahankan bentuk pusaran awan, tanpa menambahkan ornamen yang tidak ada pada motif.
+- Authentic Cultural Fusion: motif ombak berlapis memakai kontur biru laut dan biru muda dengan titik kuningan di puncak; pertahankan irama gelombangnya, tanpa menambahkan ornamen yang tidak ada pada motif.
