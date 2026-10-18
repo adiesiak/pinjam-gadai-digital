@@ -58,13 +58,12 @@ export function assertPokokPinjamanValid(pokok: Rupiah): void {
 }
 
 /** Tenor default untuk data warisan (pinjaman pra-tenor). */
-/** Tenor default untuk data warisan (pinjaman pra-tenor). */
 export const DEFAULT_TENOR_HARI: Tenor = 30;
 
 /**
  * Kebijakan denda keterlambatan (dihitung server, integer exact):
  * - 2% dari pokok pinjaman per hari keterlambatan;
- * - dibatasi maksimum 100% dari pokok (50 hari terlambat). 
+ * - dibatasi maksimum 100% dari pokok (pada 2%/hari berarti 50 hari).
  * Tidak ada grace period: jatuh tempo dilewati satu hari penuh = denda 1 hari.
  */
 export const LATE_FEE_POLICY = {
@@ -72,10 +71,18 @@ export const LATE_FEE_POLICY = {
   maxPercent: 100,
 } as const;
 
-/** Hari denda maksimum = cap denda dibagi persentase denda harian. */
-export const MAX_LATE_DAYS = Math.floor(
-  LATE_FEE_POLICY.maxPercent / LATE_FEE_POLICY.percentPerDay,
-);
+/**
+ * Hari denda maksimum untuk satu tarif harian: cap 100% dari pokok dibagi
+ * tarifnya. Tarif 0 (atau tidak wajar) berarti tidak ada hari denda, sehingga
+ * denda bisa dimatikan tanpa mengubah tenor atau bunga.
+ */
+export function maxHariDenda(persenPerHari: number): number {
+  if (!Number.isFinite(persenPerHari) || persenPerHari <= 0) return 0;
+  return Math.floor(LATE_FEE_POLICY.maxPercent / persenPerHari);
+}
+
+/** Hari denda maksimum pada tarif bawaan (50 hari untuk 2%/hari). */
+export const MAX_LATE_DAYS = maxHariDenda(LATE_FEE_POLICY.percentPerDay);
 
 const DAY_MS = 86_400_000;
 
@@ -206,6 +213,8 @@ export function calculateRepayment(
   didanaiPada: number,
   now: number,
   persenBunga?: number,
+  /** Tarif denda per hari (% pokok); default kebijakan bawaan. */
+  dendaPerHari: number = LATE_FEE_POLICY.percentPerDay,
 ): RepaymentQuote {
   const base = persenBunga === undefined ? quoteLoan(pokok) : quoteLoanBunga(pokok, persenBunga);
   if (!Number.isSafeInteger(tenor) || tenor <= 0) {
@@ -219,12 +228,16 @@ export function calculateRepayment(
   const sisaHari = Math.max(0, Math.ceil(sisaMs / DAY_MS));
   const hariTerlambat = Math.max(0, Math.floor(-sisaMs / DAY_MS));
 
-  // Denda: 2% × pokok × hari, di-cap 100% dari pokok. Hari di-cap dulu agar hasil tidak melewati kebijakan.
-  const hariDenda = Math.min(hariTerlambat, MAX_LATE_DAYS);
+  // Denda: tarif × pokok × hari, di-cap 100% dari pokok. Hari di-cap dulu agar
+  // hasil tidak melewati kebijakan, berapa pun tarif yang dipasang admin.
+  const hariDenda = Math.min(hariTerlambat, maxHariDenda(dendaPerHari));
   const dendaTerlambat =
     hariDenda === 0
       ? 0
-      : percentOf(pokok, LATE_FEE_POLICY.percentPerDay * hariDenda);
+      : percentOf(
+          pokok,
+          Math.min(dendaPerHari * hariDenda, LATE_FEE_POLICY.maxPercent),
+        );
 
   return {
     ...base,
@@ -278,6 +291,8 @@ export function pelunasanPinjaman(
     persenBunga?: number;
   },
   now: number,
+  /** Tarif denda per hari (% pokok); default kebijakan bawaan. */
+  dendaPerHari: number = LATE_FEE_POLICY.percentPerDay,
 ): PelunasanPinjaman | null {
   if (loan.status !== "didanai" || loan.didanaiPada === undefined) {
     return null;
@@ -294,7 +309,7 @@ export function pelunasanPinjaman(
         : percentOf(
             loan.pokokPinjaman,
             Math.min(
-              LATE_FEE_POLICY.percentPerDay * Math.min(hariTerlambat, MAX_LATE_DAYS),
+              dendaPerHari * Math.min(hariTerlambat, maxHariDenda(dendaPerHari)),
               LATE_FEE_POLICY.maxPercent,
             ),
           );
@@ -309,7 +324,14 @@ export function pelunasanPinjaman(
   }
   // Data warisan pra-tenor memakai default 30 hari agar tetap bisa dilunasi.
   const tenor = loan.tenorHari ?? DEFAULT_TENOR_HARI;
-  const rep = calculateRepayment(loan.pokokPinjaman, tenor, loan.didanaiPada, now, loan.persenBunga);
+  const rep = calculateRepayment(
+    loan.pokokPinjaman,
+    tenor,
+    loan.didanaiPada,
+    now,
+    loan.persenBunga,
+    dendaPerHari,
+  );
   return {
     jatuhTempoPada: rep.jatuhTempoPada,
     sisaHari: rep.sisaHari,
@@ -393,7 +415,7 @@ export function loanStatusMeta(status: LoanStatus): {
       return {
         label: "Disalurkan",
         description:
-          "Dana ditandai tersalurkan pada ledger internal. Tombol pelunasan mencatat perubahan status dan seluruh kewajiban sekaligus. Keterlambatan menambah perhitungan denda 2% per hari dari pokok (maksimum 100%).",
+          "Dana ditandai tersalurkan pada ledger internal. Tombol pelunasan mencatat perubahan status dan seluruh kewajiban sekaligus. Keterlambatan menambah denda harian dari pokok, dibatasi 100% dari pokok.",
       };
     case "lunas":
       return {

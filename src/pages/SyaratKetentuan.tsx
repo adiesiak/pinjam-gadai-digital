@@ -1,3 +1,4 @@
+import { useQuery } from "convex/react";
 import { motion } from "framer-motion";
 import {
   ArrowLeft,
@@ -16,10 +17,11 @@ import {
   Vault,
   Wallet,
 } from "lucide-react";
-import type { ReactNode } from "react";
+import { createContext, useContext, type ReactNode } from "react";
 import { Link } from "react-router";
 
 import { Button } from "@/components/ui/button";
+import { api } from "@/convex/_generated/api";
 import { CONTRACT_TERMS_VERSION } from "@/lib/contract";
 import { formatRupiah } from "@/lib/money";
 import {
@@ -98,6 +100,31 @@ function Catatan({
 
 function Ayat({ children }: { children: ReactNode }) {
   return <li className="text-sm leading-7 text-slate-600">{children}</li>;
+}
+
+type TarifDenda = { perHari: number; maks: number };
+
+/** Nilai bawaan dipakai saat halaman dirender tanpa Convex (mis. test statis). */
+const TarifDendaContext = createContext<TarifDenda>({
+  perHari: LATE_FEE_POLICY.percentPerDay,
+  maks: LATE_FEE_POLICY.maxPercent,
+});
+
+/**
+ * Ayat denda mengikuti tarif yang benar-benar dipakai mesin pinjaman. Sebelum
+ * ini angkanya ditulis tetap di sini, sehingga mengubah pengaturan admin tidak
+ * pernah mengubah halaman syarat. Selama query belum termuat, yang tampil
+ * adalah kebijakan bawaan, bukan angka kosong.
+ */
+function AyatDendaKeterlambatan() {
+  const { perHari, maks } = useContext(TarifDendaContext);
+  return (
+    <Ayat>
+      Denda keterlambatan sebesar <strong>{perHari}% per hari dari pokok</strong>
+      , dibatasi maksimum <strong>{maks}% dari pokok</strong>. Tidak ada masa
+      tenggang: melewati satu hari penuh jatuh tempo terhitung satu hari denda.
+    </Ayat>
+  );
 }
 
 const PASAL: Pasal[] = [
@@ -279,16 +306,7 @@ const PASAL: Pasal[] = [
             Kewajiban dilunasi dalam tenor yang dipilih sejak tanggal pendanaan
             dicatat di aplikasi.
           </Ayat>
-          <Ayat>
-            Denda keterlambatan sebesar{" "}
-            <strong>
-              {LATE_FEE_POLICY.percentPerDay}% per hari dari pokok
-            </strong>
-            , dibatasi maksimum{" "}
-            <strong>{LATE_FEE_POLICY.maxPercent}% dari pokok</strong>. Tidak ada
-            masa tenggang: melewati satu hari penuh jatuh tempo terhitung satu
-            hari denda.
-          </Ayat>
+          <AyatDendaKeterlambatan />
           <Ayat>
             Pelunasan ditangani di luar aplikasi; statusnya dicatat tim PINDAI
             pada ledger internal.
@@ -492,7 +510,37 @@ function Wordmark() {
   );
 }
 
+export type KetentuanDendaTampil = {
+  persenDendaKeterlambatan?: number;
+  maksDendaPersen?: number;
+};
+
+/** Isi halaman tanpa query; tarif denda masuk lewat context di atas. */
+export function SyaratKetentuanView({
+  ketentuan,
+}: {
+  ketentuan?: KetentuanDendaTampil | null;
+}) {
+  return (
+    <TarifDendaContext.Provider
+      value={{
+        perHari:
+          ketentuan?.persenDendaKeterlambatan ?? LATE_FEE_POLICY.percentPerDay,
+        maks: ketentuan?.maksDendaPersen ?? LATE_FEE_POLICY.maxPercent,
+      }}
+    >
+      <IsiSyaratKetentuan />
+    </TarifDendaContext.Provider>
+  );
+}
+
+/** Rute publik: angka denda mengikuti pengaturan admin yang berlaku. */
 export default function SyaratKetentuan() {
+  const ketentuan = useQuery(api.system.getKetentuanBiaya);
+  return <SyaratKetentuanView ketentuan={ketentuan} />;
+}
+
+function IsiSyaratKetentuan() {
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900">
       <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/95 backdrop-blur">

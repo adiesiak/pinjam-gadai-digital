@@ -58,7 +58,13 @@ import {
   hitungSimulasiBulanan,
   TENOR_BULANAN_OPTIONS,
 } from "@/lib/bulanan";
-import { LOAN_LIMITS, quoteLoan, TENOR_OPTIONS, type LoanQuote } from "@/lib/loan";
+import {
+  LATE_FEE_POLICY,
+  LOAN_LIMITS,
+  quoteLoan,
+  TENOR_OPTIONS,
+  type LoanQuote,
+} from "@/lib/loan";
 import { formatRupiah, type Rupiah } from "@/lib/money";
 import { EASE_OUT } from "@/lib/motion";
 import { PLAFON_BATAS } from "@/lib/plafon";
@@ -622,8 +628,17 @@ export const FAQ_ITEMS = [
   },
 ] as const;
 
-/** Poin ringkas Syarat & Ketentuan untuk landing; versi lengkap di /syarat-ketentuan. */
-const RINGKASAN_SYARAT: Array<{ judul: string; isi: string; Icon: typeof Scale }> = [
+/**
+ * Poin ringkas Syarat & Ketentuan untuk landing; versi lengkap di
+ * /syarat-ketentuan. Denda memakai tarif yang berlaku saat halaman dibuka,
+ * bukan angka tetap, supaya kalimatnya tidak bertentangan dengan tagihan.
+ */
+function ringkasanSyarat(denda: { perHari: number; maks: number }): Array<{
+  judul: string;
+  isi: string;
+  Icon: typeof Scale;
+}> {
+  return [
   {
     judul: "Pencatatan internal, bukan transfer dana",
     isi: "PINDAI mencatat pengajuan, perhitungan, dan status di ledger internal. Perpindahan dana di luar aplikasi.",
@@ -651,10 +666,11 @@ const RINGKASAN_SYARAT: Array<{ judul: string; isi: string; Icon: typeof Scale }
   },
   {
     judul: "Keputusan & pelunasan",
-    isi: "Persetujuan pengajuan bukan jaminan pencairan. Keterlambatan dikenai denda 2% per hari dari pokok (maksimum 100%).",
+    isi: `Persetujuan pengajuan bukan jaminan pencairan. Keterlambatan dikenai denda ${denda.perHari}% per hari dari pokok (maksimum ${denda.maks}%).`,
     Icon: Scale,
   },
-];
+  ];
+}
 
 // Skema harian: Rp 100 rb–1 jt / maks 30 hari. Skema bulanan: sampai plafon
 // tertinggi yang boleh disimpan admin (Rp 10 jt) dengan tenor 1/3/6 bulan
@@ -1310,6 +1326,12 @@ function HeroDarurat({
 
 export default function Landing() {
   const cms = useQuery(api.announcements.getPublic);
+  const ketentuanBiaya = useQuery(api.system.getKetentuanBiaya, {});
+  const denda = {
+    perHari:
+      ketentuanBiaya?.persenDendaKeterlambatan ?? LATE_FEE_POLICY.percentPerDay,
+    maks: ketentuanBiaya?.maksDendaPersen ?? LATE_FEE_POLICY.maxPercent,
+  };
   const { isAuthenticated, isLoading, user } = useAuth();
   const c = (v: string | undefined, fallback: string) => v ?? fallback;
   const accountHref = isLoading || !isAuthenticated
@@ -1990,7 +2012,7 @@ export default function Landing() {
                 }}
                 className="grid gap-4 sm:grid-cols-2"
               >
-                {RINGKASAN_SYARAT.map((item) => (
+                {ringkasanSyarat(denda).map((item) => (
                   <motion.div
                     key={item.judul}
                     variants={{

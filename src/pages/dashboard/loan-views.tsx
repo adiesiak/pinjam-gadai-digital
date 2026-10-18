@@ -1,4 +1,4 @@
-import { useMutation } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { ArrowRight, CalendarClock, Send, Wallet } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -10,11 +10,11 @@ import {
   type StatusTagihan,
 } from "@/components/StatusBadge";
 import { api } from "@/convex/_generated/api";
-import { ManualPaymentEvidenceForm } from "@/components/ManualPaymentEvidenceForm";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import type { Id } from "@/convex/_generated/dataModel";
 import { ringkasJatuhTempo } from "@/lib/jatuhTempo";
+import { LATE_FEE_POLICY } from "@/lib/loan";
 import { formatRupiah } from "@/lib/money";
 import { bolehDibatalkan } from "@/lib/statusPinjaman";
 import { EmptyState } from "./empty-state";
@@ -222,11 +222,16 @@ function ActiveLoanCard({
   const q = loan.quote;
   const bulanan = loan.tenorBulan !== null;
   const terlambat = (loan.pelunasan?.hariTerlambat ?? 0) > 0;
+  // Jam dikunci sekali saat kartu dipasang: status tagihan tidak berubah-ubah
+  // hanya karena komponen dirender ulang.
+  const [sekarang] = useState(() => Date.now());
+  // Tarif denda untuk label di bawah angka — mengikuti pengaturan yang berlaku.
+  const ketentuanBiaya = useQuery(api.system.getKetentuanBiaya, {});
   // Status tagihan satu-satunya: nada dari `lib/jatuhTempo.ts` diterjemahkan ke
   // kosakata Aman / Segera jatuh tempo / Terlambat / Belum dicairkan.
   const statusTagihan: StatusTagihan = terlambat
     ? "terlambat"
-    : statusTagihanDari(ringkasJatuhTempo(loan, Date.now()).nada);
+    : statusTagihanDari(ringkasJatuhTempo(loan, sekarang).nada);
   return (
     <article className="card-lift rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -363,7 +368,9 @@ function ActiveLoanCard({
           />
           {terlambat && (
             <p className="mt-2 text-xs text-destructive">
-              Denda: {formatRupiah(loan.pelunasan.dendaTerlambat)} (2%/hari, maks 100%)
+              Denda: {formatRupiah(loan.pelunasan.dendaTerlambat)} (
+              {ketentuanBiaya?.persenDendaKeterlambatan ?? LATE_FEE_POLICY.percentPerDay}%/hari,
+              maks {ketentuanBiaya?.maksDendaPersen ?? LATE_FEE_POLICY.maxPercent}%)
             </p>
           )}
         </div>
@@ -388,6 +395,7 @@ function ActiveLoanCard({
 
 /** Tab 2 — Jadwal kewajiban pinjaman. */
 export function ScheduleSection({ schedule }: { schedule: LoanScheduleRow[] }) {
+  const [sekarang] = useState(() => Date.now());
   if (schedule.length === 0) {
     return (
       <EmptyState
@@ -405,7 +413,7 @@ export function ScheduleSection({ schedule }: { schedule: LoanScheduleRow[] }) {
         const overdue = !lunas && (l.pelunasan?.hariTerlambat ?? 0) > 0;
         const state: StatusTagihan = lunas
           ? "lunas"
-          : statusTagihanDari(ringkasJatuhTempo(l, Date.now()).nada);
+          : statusTagihanDari(ringkasJatuhTempo(l, sekarang).nada);
         return (
           <li
             key={l._id}

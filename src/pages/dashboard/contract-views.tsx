@@ -140,6 +140,7 @@ function LoanContractCard({
     lokasiAjukan: { lat: number; lng: number } | null;
   };
 }) {
+  const ketentuan = useQuery(api.system.getKetentuanBiaya);
   const q = quotePinjaman({ pokokPinjaman: c.pokokPinjaman, persenBunga: c.persenBunga ?? undefined });
   // Ringkasan bulanan: data warisan di luar rentang skema dilewati dengan aman.
   const bulanan = useMemo(() => {
@@ -176,8 +177,9 @@ function LoanContractCard({
         },
         c.tenorHari,
         bulanan,
+        ketentuan?.persenDendaKeterlambatan,
       ),
-    [c, q, bulanan],
+    [c, q, bulanan, ketentuan?.persenDendaKeterlambatan],
   );
 
   return (

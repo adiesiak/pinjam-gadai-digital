@@ -28,6 +28,7 @@ import { requireAdminSession } from "./adminAuthz";
 import { ROLES } from "./schema";
 import { audit } from "./system";
 import { pelunasanPinjaman } from "../lib/loan";
+import { tarifDendaBerlaku } from "./system";
 import {
   AMBANG_TUNGGAKAN_DEFAULT,
   HASIL_TINDAKAN,
@@ -222,7 +223,11 @@ function statusKasusSah(dari: string, ke: string): string | null {
 
 /** Kewajiban tercatat menurut ledger internal (0 bila tidak dapat dihitung). */
 async function kewajibanTercatat(ctx: QueryCtx | MutationCtx, loan: Doc<"loans">): Promise<number> {
-  const pelunasan = pelunasanPinjaman(loan, Date.now());
+  const pelunasan = pelunasanPinjaman(
+    loan,
+    Date.now(),
+    await tarifDendaBerlaku(ctx),
+  );
   if (pelunasan !== null) return pelunasan.totalKewajibanDenganPenalti;
   // Pinjaman yang sudah lunas/menunggu: pakai angka terakhir yang pernah
   // dicatat pada kasus ini, supaya laporan tidak menampilkan kewajiban palsu.
@@ -275,6 +280,7 @@ async function hitungBarisKasus(
   aturan: AturanPenagihan,
 ): Promise<BarisKasus[]> {
   const now = Date.now();
+  const tarifDenda = await tarifDendaBerlaku(ctx);
   const loans = await ctx.db.query("loans").order("desc").take(BATAS_KASUS);
   const kasusRows = await ctx.db.query("penagihanKasus").collect();
   const kasusPerLoan = new Map<string, Doc<"penagihanKasus">>();
@@ -293,7 +299,7 @@ async function hitungBarisKasus(
   const baris: BarisKasus[] = [];
   for (const loan of loans) {
     const kasus = kasusPerLoan.get(loan._id as string);
-    const pelunasan = pelunasanPinjaman(loan, now);
+    const pelunasan = pelunasanPinjaman(loan, now, tarifDenda);
     const hariTerlambat = pelunasan?.hariTerlambat ?? 0;
     // Baris muncul bila pinjaman sedang terlambat ATAU sudah punya kasus
     // (kasus yang selesai tetap terlihat agar dapat ditinjau ulang).
@@ -915,11 +921,16 @@ export const catatTindakan = mutation({
       loan.nomorReferensi,
       `${LABEL_JENIS_TINDAKAN[args.jenis as keyof typeof LABEL_JENIS_TINDAKAN] ?? args.jenis} via ${args.saluran} · hasil: ${LABEL_HASIL_TINDAKAN[args.hasil as keyof typeof LABEL_HASIL_TINDAKAN] ?? args.hasil} · pihak: ${pihak}.`,
     );
+    const pelunasan = pelunasanPinjaman(
+      loan,
+      now,
+      await tarifDendaBerlaku(ctx),
+    );
     return { ok: true, contohPesanNetral: pesanPengingatNetral({
       nama: loan.namaLengkap,
       nomorReferensi: loan.nomorReferensi,
-      hariTerlambat: pelunasanPinjaman(loan, now)?.hariTerlambat ?? 0,
-      totalKewajiban: pelunasanPinjaman(loan, now)?.totalKewajibanDenganPenalti ?? 0,
+      hariTerlambat: pelunasan?.hariTerlambat ?? 0,
+      totalKewajiban: pelunasan?.totalKewajibanDenganPenalti ?? 0,
     }) };
   },
 });

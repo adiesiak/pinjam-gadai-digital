@@ -22,6 +22,9 @@ export function LoanContractBlock({ loanId }: { loanId: Id<"loans"> }) {
   const save = useMutation(api.admin.simpanTandaTangan);
   const detail = useQuery(api.admin.contractDetail, { loanId });
   const contractData = useQuery(api.admin.contractData, { loanId });
+  // Tarif denda dibaca dari konfigurasi yang berlaku, bukan angka tetap di
+  // berkas kontrak: perjanjian yang dicetak harus memuat tarif yang benar.
+  const ketentuan = useQuery(api.system.getKetentuanBiaya, {});
 
   if (detail === undefined || contractData === undefined) {
     return (
@@ -73,6 +76,7 @@ export function LoanContractBlock({ loanId }: { loanId: Id<"loans"> }) {
     },
     detail.tenorHari ?? 30,
     detail.bulanan ?? null,
+    ketentuan?.persenDendaKeterlambatan,
   );
 
   return (

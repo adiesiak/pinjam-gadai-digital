@@ -7,7 +7,7 @@ import type { SimulasiBulanan } from "./bulanan";
 import { quoteGadai } from "./gadai";
 import { formatRupiah } from "./money";
 import { namaHurufBesar } from "./nama";
-import type { LoanQuote } from "./loan";
+import { LATE_FEE_POLICY, type LoanQuote } from "./loan";
 
 /** Naikkan versi setiap kali syarat akad berubah secara material. */
 export const CONTRACT_TERMS_VERSION = "v1.4";
@@ -225,7 +225,10 @@ export function buildPinjamanContract(
   tenorHari: number,
   /** Ringkasan skema bulanan — kosong berarti skema harian. */
   bulanan: SimulasiBulanan | null = null,
+  /** Tarif denda harian yang berlaku (% pokok); default kebijakan bawaan. */
+  dendaPerHari: number = LATE_FEE_POLICY.percentPerDay,
 ): string {
+  const dendaTeks = `Denda keterlambatan ${dendaPerHari}% per hari dari pokok, maksimum ${LATE_FEE_POLICY.maxPercent}%.`;
   const tgl = fmtTanggal(meta.timestampPada);
   const pasalTenor =
     bulanan === null
@@ -255,8 +258,8 @@ export function buildPinjamanContract(
       <li><strong>Ilustrasi cicilan rata: bulan pertama ${formatRupiah(bulanan.cicilanPerBulan)}, bulan terakhir ${formatRupiah(bulanan.cicilanTerakhir)}; total ${formatRupiah(bulanan.totalPengembalian)} untuk ${bulanan.tenorBulan} bulan (sudah termasuk pokok, bunga, dan biaya admin cicilan).</strong> Rincian per bulan: ${bulanan.jadwal.map((angsuran) => `bulan ${angsuran.bulan} ${formatRupiah(angsuran.total)}`).join("; ")}. Jadwal bersifat ilustrasi; perubahan status lunas di aplikasi dicatat sebagai entri ledger.</li>`;
   const pasalKewajiban =
     bulanan === null
-      ? `Kewajiban dilunasi dalam ${tenorHari} hari sejak tanggal pencairan. Pelunasan ditangani di luar aplikasi dan statusnya dicatat tim PINDAI pada ledger internal. Denda keterlambatan 2% per hari dari pokok, maksimum 100%.`
-      : `Cicilan bulanan dibayar sesuai jadwal pada Pasal 2. Setiap perubahan status dicatat pada ledger internal aplikasi. Denda keterlambatan 2% per hari dari pokok, maksimum 100%.`;
+      ? `Kewajiban dilunasi dalam ${tenorHari} hari sejak tanggal pencairan. Pelunasan ditangani di luar aplikasi dan statusnya dicatat tim PINDAI pada ledger internal. ${dendaTeks}`
+      : `Cicilan bulanan dibayar sesuai jadwal pada Pasal 2. Setiap perubahan status dicatat pada ledger internal aplikasi. ${dendaTeks}`;
   return `
   <div class="contract">
     ${kopSurat("pinjaman", meta)}

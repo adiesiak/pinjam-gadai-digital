@@ -737,7 +737,7 @@ export const myPortfolio = query({
       const peminjam = await ctx.db.get(loan.userId);
       if (peminjam?.kodePeminjam === undefined) return null;
       // Satu sumber kebenaran pelunasan: skema harian & bulanan sekaligus.
-      const rep = pelunasanPinjaman(loan, now);
+      const rep = pelunasanPinjaman(loan, now, cfg.persenDendaKeterlambatan);
       // Status pelunasan dari sudut pandang penyedia dana.
       const statusPelunasan: "lancar" | "berjalan" | "menunggak" =
         loan.status === "lunas"

@@ -349,6 +349,18 @@ export function SystemConfigPanel() {
                   withHint
                 />
                 <SuffixInput
+                  id="cfg-persen-denda"
+                  label="Denda Keterlambatan (%/hari)"
+                  value={form.persenDendaKeterlambatan}
+                  min={0}
+                  max={100}
+                  step={0.5}
+                  suffix="%"
+                  onChange={(v) => upd("persenDendaKeterlambatan", Number(v) || 0)}
+                  hint="Dihitung dari pokok per hari terlambat; total dibatasi 100%."
+                  withHint
+                />
+                <SuffixInput
                   id="cfg-ltv"
                   label="LTV Gadai (%)"
                   value={form.maxLtvPersen}
@@ -530,6 +542,14 @@ export function SystemConfigPanel() {
                     Bunga Flat
                   </dt>
                   <dd className="mt-1 text-lg font-semibold tabular-nums text-navy">{form.persenBunga}%</dd>
+                </div>
+                <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                  <dt className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+                    Denda Keterlambatan
+                  </dt>
+                  <dd className="mt-1 text-lg font-semibold tabular-nums text-navy">
+                    {form.persenDendaKeterlambatan}%/hari
+                  </dd>
                 </div>
                 <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
                   <dt className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">

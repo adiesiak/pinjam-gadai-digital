@@ -42,7 +42,7 @@ import {
   type JenisTemplateWa,
   type KandidatPengingat,
 } from "../lib/templatePesanWa";
-import { getConfig } from "./system";
+import { getConfig, tarifDendaBerlaku } from "./system";
 
 /**
  * Integrasi WhatsApp untuk pengingat penagihan.
@@ -160,6 +160,8 @@ function nilaiPesanPinjaman(
     sekarang: number;
     /** Nominal yang ditampilkan bila berbeda dari total kewajiban (mis. cicilan). */
     jumlahTampil?: number | null;
+    /** Tarif denda harian yang berlaku (% pokok); bawaan mengikuti kebijakan. */
+    dendaPerHari?: number;
   },
 ): Record<string, string | null> {
   const pelunasan = pelunasanPinjaman(
@@ -172,6 +174,7 @@ function nilaiPesanPinjaman(
       persenBunga: loan.persenBunga,
     },
     opts.sekarang,
+    opts.dendaPerHari,
   );
   const totalKewajibanPenuh =
     loan.tenorBulan !== undefined
@@ -456,9 +459,13 @@ function pesanDariLoan(
   loan: PinjamanPesan,
   sekarang: number,
   metodeBayar: string,
+  dendaPerHari?: number,
 ): { isi: string } {
   return {
-    isi: rangkaiPesanWa(template, nilaiPesanPinjaman(loan, { metodeBayar, sekarang })).isi,
+    isi: rangkaiPesanWa(
+      template,
+      nilaiPesanPinjaman(loan, { metodeBayar, sekarang, dendaPerHari }),
+    ).isi,
   };
 }
 
@@ -484,6 +491,7 @@ export const previewMessage = query({
       },
       Date.now(),
       await metodeBayarQuery(ctx),
+      await tarifDendaBerlaku(ctx),
     );
     return isi;
   },
@@ -677,6 +685,7 @@ export const sendReminder = action({
         },
         Date.now(),
         await metodeBayarAction(ctx),
+        await ctx.runQuery(internal.system._tarifDenda, {}),
       ).isi;
 
     const apiKey = apiKeyGatewayWa();
@@ -761,6 +770,7 @@ function pesanKabarStatus(
   statusLama: string,
   metodeBayar: string,
   sekarang: number,
+  dendaPerHari?: number,
 ): { isi: string; jenis: JenisTemplateWa } {
   const kanonikBaru = statusKanonik(data.status);
   const kanonikLama = statusKanonik(statusLama);
@@ -775,7 +785,7 @@ function pesanKabarStatus(
       jenis: jenisKhusus,
       isi: rangkaiPesanWa(
         templateUntukJenis(settings, jenisKhusus, undefined),
-        nilaiPesanPinjaman(data, { metodeBayar, sekarang }),
+        nilaiPesanPinjaman(data, { metodeBayar, sekarang, dendaPerHari }),
       ).isi,
     };
   }
@@ -824,6 +834,7 @@ export const previewStatusPinjaman = query({
         loan.status,
         await metodeBayarQuery(ctx),
         Date.now(),
+        await tarifDendaBerlaku(ctx),
       ).isi,
     };
   },
@@ -861,6 +872,7 @@ export const kirimStatusPinjaman = action({
       statusLama ?? "ditinjau",
       await metodeBayarAction(ctx),
       Date.now(),
+      await ctx.runQuery(internal.system._tarifDenda, {}),
     );
 
     const hasil = await kirimPesanStatus(
@@ -918,6 +930,7 @@ export const _kirimStatusPinjaman = internalAction({
       statusLama ?? "ditinjau",
       await metodeBayarAction(ctx),
       Date.now(),
+      await ctx.runQuery(internal.system._tarifDenda, {}),
     );
     const hasil = await kirimPesanStatus(
       ctx,
@@ -1185,8 +1198,9 @@ export const jalankanPengingatJatuhTempo = internalAction({
     const pinjaman = await ctx.runQuery(internal.whatsapp._pinjamanPengingat, {});
     const peta = new Map<string, (typeof pinjaman)[number]>();
     const kandidat: KandidatPengingat[] = [];
+    const tarifDenda = await ctx.runQuery(internal.system._tarifDenda, {});
     for (const p of pinjaman) {
-      const info = pelunasanPinjaman(p, now);
+      const info = pelunasanPinjaman(p, now, tarifDenda);
       if (info === null) continue;
       peta.set(p.loanId, p);
       kandidat.push({
@@ -1211,7 +1225,7 @@ export const jalankanPengingatJatuhTempo = internalAction({
       if (p === undefined) continue;
       const isi = rangkaiPesanWa(
         templateUntukJenis(settings, r.jenis, undefined),
-        nilaiPesanPinjaman(p, { metodeBayar, sekarang: now }),
+        nilaiPesanPinjaman(p, { metodeBayar, sekarang: now, dendaPerHari: tarifDenda }),
       ).isi;
       if (p.nomorWhatsApp === null) {
         await ctx.runMutation(internal.whatsapp._appendLog, {
@@ -1272,6 +1286,7 @@ export const _kirimKonfirmasiPembayaran = internalAction({
         metodeBayar: await metodeBayarAction(ctx),
         sekarang: Date.now(),
         jumlahTampil: jumlah,
+        dendaPerHari: await ctx.runQuery(internal.system._tarifDenda, {}),
       }),
     ).isi;
     const hasil = await kirimPesanStatus(

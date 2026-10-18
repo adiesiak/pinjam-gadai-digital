@@ -52,6 +52,7 @@ import {
   TENOR_BULANAN_OPTIONS,
 } from "@/lib/bulanan";
 import {
+  LATE_FEE_POLICY,
   LOAN_LIMITS,
   LOAN_PURPOSE_OPTIONS,
   quotePinjaman,
@@ -438,6 +439,9 @@ export function LoanForm({
   // mencerminkannya lebih dulu supaya formulir panjang tidak diisi sia-sia.
   const kycQuery = useQuery(api.kyc.kycSaya, {});
   const kycSiap = isKycVerified(kycQuery?.status);
+  // Tarif denda yang berlaku — ringkasan syarat di dialog memakai angka ini,
+  // bukan persentase tetap, supaya sama dengan perhitungan server.
+  const ketentuanBiaya = useQuery(api.system.getKetentuanBiaya, {});
   // Identitas yang SUDAH diperiksa petugas dipakai ulang: bagian data diri &
   // dokumen tidak ditanyakan dua kali. `null` berarti belum bisa dipakai ulang
   // (status belum VERIFIED, isian belum lengkap, atau berkasnya hilang dari
@@ -1286,7 +1290,11 @@ export function LoanForm({
               "PINDAI mencatat pengajuan, perhitungan, dan status — bukan memindahkan dana.",
               "Bunga flat 30% dari pokok dan biaya dipotong di muka sesuai tenor yang dipilih.",
               "Persetujuan pengajuan bukan jaminan pencairan; keputusan dibuat tim PINDAI dan tercatat pada audit trail.",
-              "Keterlambatan dikenai denda 2% per hari dari pokok (maksimum 100%).",
+              `Keterlambatan dikenai denda ${
+                ketentuanBiaya?.persenDendaKeterlambatan ?? LATE_FEE_POLICY.percentPerDay
+              }% per hari dari pokok (maksimum ${
+                ketentuanBiaya?.maksDendaPersen ?? LATE_FEE_POLICY.maxPercent
+              }%).`,
               "Data dan dokumen yang Anda kirim hanya dibuka oleh akun Anda dan tim PINDAI.",
             ].map((item) => (
               <li key={item} className="flex gap-2">

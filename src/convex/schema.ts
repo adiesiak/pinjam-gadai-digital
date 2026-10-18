@@ -1064,6 +1064,8 @@ const schema = defineSchema(
       persenAdmin: v.optional(v.number()),
       persenPlatform: v.optional(v.number()),
       persenBunga: v.optional(v.number()),
+      /** Denda keterlambatan per hari (% dari pokok); total dibatasi 100%. */
+      persenDendaKeterlambatan: v.optional(v.number()),
       /** Persentase biaya admin & platform saat integrasi pinjaman lama ke ledger. */
       persenBiayaIntegrasi: v.optional(v.number()),
       /** Maks LTV gadai (default 70%). */

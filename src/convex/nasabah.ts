@@ -23,7 +23,7 @@ import { v } from "convex/values";
 
 import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import { requireAdminSession } from "./adminAuthz";
-import { audit, getConfig } from "./system";
+import { audit, getConfig, tarifDendaBerlaku } from "./system";
 import { persenBungaEfektif } from "../lib/bunga";
 import { pelunasanPinjaman, quotePinjaman, simulasiBulananPinjaman } from "../lib/loan";
 import {
@@ -111,7 +111,7 @@ async function ambilOverrideAktif(
 }
 
 /** Turunan pelunasan satu pinjaman beserta status keterlambatannya. */
-function turunanPelunasan(loan: LoanDoc, now: number) {
+function turunanPelunasan(loan: LoanDoc, now: number, tarifDenda?: number) {
   const info = pelunasanPinjaman(
     {
       pokokPinjaman: loan.pokokPinjaman,
@@ -122,6 +122,7 @@ function turunanPelunasan(loan: LoanDoc, now: number) {
       persenBunga: loan.persenBunga,
     },
     now,
+    tarifDenda,
   );
   return {
     jatuhTempoPada: info?.jatuhTempoPada ?? null,
@@ -271,7 +272,7 @@ export const detailNasabah = query({
         a._creationTime - b._creationTime,
     );
     const riwayatPengajuan = diurut.map((loan, i) => {
-      const turunan = turunanPelunasan(loan, now);
+      const turunan = turunanPelunasan(loan, now, cfg.persenDendaKeterlambatan);
       return {
         nomorUrut: i + 1,
         id: loan._id,
@@ -502,7 +503,8 @@ export const detailPengajuan = query({
       loan.pendanaId !== undefined ? ctx.db.get(loan.pendanaId) : Promise.resolve(null),
     ]);
 
-    const turunan = turunanPelunasan(loan, now);
+    const tarifDenda = await tarifDendaBerlaku(ctx);
+    const turunan = turunanPelunasan(loan, now, tarifDenda);
     const disalurkan = fundings
       .filter((f) => f.status === "dialokasikan")
       .reduce((t, f) => t + f.jumlahAlokasi, 0);

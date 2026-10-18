@@ -25,6 +25,7 @@ export const LABEL_CONFIG: Record<string, string> = {
   persenAdmin: "Persentase biaya admin (%)",
   persenPlatform: "Persentase biaya platform (%)",
   persenBunga: "Persentase bunga (%)",
+  persenDendaKeterlambatan: "Denda keterlambatan (% per hari)",
   persenBiayaIntegrasi: "Biaya integrasi pinjaman lama (%)",
   maxLtvPersen: "LTV maksimum gadai (%)",
   sessionTimeoutMenit: "Timeout sesi admin (menit)",

@@ -1,8 +1,8 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { MemoryRouter } from "react-router";
 
-import PublicInfoPage from "./PublicInfoPage";
-import SyaratKetentuan from "./SyaratKetentuan";
+import { PublicInfoPageView } from "./PublicInfoPage";
+import { SyaratKetentuanView } from "./SyaratKetentuan";
 
 const routes = [
   ["/biaya", "Contoh perhitungan"],
@@ -45,7 +45,7 @@ function check(condition: boolean, label: string): void {
 }
 
 for (const [path, expectedText] of routes) {
-  const html = renderPage(path, <PublicInfoPage />);
+  const html = renderPage(path, <PublicInfoPageView />);
   check(html.includes(expectedText), `${path} renders its route content`);
   if (path !== "/keamanan" && path !== "/faq") {
     check(html.includes('href="/auth"'), `${path} links into the account flow`);
@@ -59,7 +59,7 @@ for (const [path, expectedText] of routes) {
   );
 }
 
-const biaya = renderPage("/biaya", <PublicInfoPage />);
+const biaya = renderPage("/biaya", <PublicInfoPageView />);
 check(
   biaya.includes("overflow-x-auto") && biaya.includes("min-w-[36rem]"),
   "pricing table stays inside a horizontal scroll container on narrow screens",
@@ -69,7 +69,7 @@ check(
   "monthly schedule is disclosed as illustrative, not a payment record",
 );
 
-const syarat = renderPage("/syarat-ketentuan", <SyaratKetentuan />);
+const syarat = renderPage("/syarat-ketentuan", <SyaratKetentuanView />);
 check(
   syarat.includes("Diperbarui 14 Oktober 2026"),
   "terms show the current update date",

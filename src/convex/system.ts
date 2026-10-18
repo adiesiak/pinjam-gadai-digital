@@ -11,6 +11,7 @@ import {
   type ThemePreset,
 } from "../lib/system-config";
 import { clampPlafon } from "../lib/plafon";
+import { LATE_FEE_POLICY } from "../lib/loan";
 import { bandingkanConfig, type PerubahanConfig } from "../lib/bandingkanConfig";
 import {
   AKSI_PER_JENIS,
@@ -77,6 +78,8 @@ export async function getConfig(ctx: QueryCtx): Promise<SystemConfig> {
     persenAdmin: row.persenAdmin ?? DEFAULT_CONFIG.persenAdmin,
     persenPlatform: row.persenPlatform ?? DEFAULT_CONFIG.persenPlatform,
     persenBunga: row.persenBunga ?? DEFAULT_CONFIG.persenBunga,
+    persenDendaKeterlambatan:
+      row.persenDendaKeterlambatan ?? DEFAULT_CONFIG.persenDendaKeterlambatan,
     persenBiayaIntegrasi:
       row.persenBiayaIntegrasi ?? DEFAULT_CONFIG.persenBiayaIntegrasi,
     maxLtvPersen: row.maxLtvPersen ?? DEFAULT_CONFIG.maxLtvPersen,
@@ -99,6 +102,11 @@ export async function getConfig(ctx: QueryCtx): Promise<SystemConfig> {
   };
 }
 
+/** Tarif denda keterlambatan yang berlaku sekarang (% pokok per hari). */
+export async function tarifDendaBerlaku(ctx: QueryCtx): Promise<number> {
+  return (await getConfig(ctx)).persenDendaKeterlambatan;
+}
+
 /**
  * Data penerimaan pembayaran untuk MERANGKAI PESAN (internal, tanpa gerbang
  * sesi): pengirim otomatis berjalan di action dan tidak punya sesi admin.
@@ -106,6 +114,12 @@ export async function getConfig(ctx: QueryCtx): Promise<SystemConfig> {
  * Hanya field yang benar-benar dipakai template yang keluar dari sini;
  * pengaturan lain (persentase, kill switch, koordinat) tetap di jalur admin.
  */
+/** Tarif denda untuk action yang tidak punya akses db langsung (cron). */
+export const _tarifDenda = internalQuery({
+  args: {},
+  handler: async (ctx) => (await getConfig(ctx)).persenDendaKeterlambatan,
+});
+
 export const _penerimaanInternal = internalQuery({
   args: {},
   handler: async (ctx) => {
@@ -150,6 +164,25 @@ export const getPaymentInstructions = query({
 export const getThemePublic = query({
   args: {},
   handler: async (ctx) => ({ tema: (await getConfig(ctx)).tema }),
+});
+
+/**
+ * Tarif yang benar-benar dipakai mesin pinjaman — untuk Syarat & Ketentuan,
+ * FAQ publik, dan label di dashboard. Hanya angka kebijakan: tidak ada
+ * rekening, koordinat, sakelar, atau data pengguna.
+ */
+export const getKetentuanBiaya = query({
+  args: {},
+  handler: async (ctx) => {
+    const cfg = await getConfig(ctx);
+    return {
+      persenBunga: cfg.persenBunga,
+      persenAdmin: cfg.persenAdmin,
+      persenPlatform: cfg.persenPlatform,
+      persenDendaKeterlambatan: cfg.persenDendaKeterlambatan,
+      maksDendaPersen: LATE_FEE_POLICY.maxPercent,
+    };
+  },
 });
 
 /** Konfigurasi untuk semua pengguna ter-autentikasi (status kill switch & maintenance). */
@@ -299,9 +332,13 @@ async function bersihkanConfigMasuk(
     input.persenAdmin < 0 ||
     input.persenPlatform < 0 ||
     input.persenBunga < 0 ||
+    input.persenDendaKeterlambatan < 0 ||
     input.persenBiayaIntegrasi < 0
   ) {
     throw new Error("Persentase biaya/bunga tidak boleh negatif.");
+  }
+  if (input.persenDendaKeterlambatan > 100) {
+    throw new Error("Denda keterlambatan tidak boleh lebih dari 100% per hari.");
   }
   if (input.persenBiayaIntegrasi > 100) {
     throw new Error("Biaya integrasi pinjaman lama tidak boleh lebih dari 100%.");
@@ -430,6 +467,7 @@ export const saveConfig = mutation({
     persenAdmin: v.number(),
     persenPlatform: v.number(),
     persenBunga: v.number(),
+    persenDendaKeterlambatan: v.number(),
     persenBiayaIntegrasi: v.number(),
     maxLtvPersen: v.number(),
     sessionTimeoutMenit: v.number(),
@@ -459,6 +497,7 @@ export const saveConfig = mutation({
       persenAdmin: args.persenAdmin,
       persenPlatform: args.persenPlatform,
       persenBunga: args.persenBunga,
+      persenDendaKeterlambatan: args.persenDendaKeterlambatan,
       persenBiayaIntegrasi: args.persenBiayaIntegrasi,
       maxLtvPersen: args.maxLtvPersen,
       sessionTimeoutMenit: args.sessionTimeoutMenit,

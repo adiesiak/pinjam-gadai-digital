@@ -10,7 +10,7 @@ import {
 } from "./_generated/server";
 import { requireAdminSession } from "./adminAuthz";
 import { acakHex, simpanTitik } from "./lokasi";
-import { audit } from "./system";
+import { audit, tarifDendaBerlaku } from "./system";
 import { pelunasanPinjaman } from "../lib/loan";
 import { labelStatusPinjaman } from "../lib/statusPinjaman";
 import { tanggalRingkas } from "../lib/jatuhTempo";
@@ -239,6 +239,7 @@ export const infoTautan = query({
         persenBunga: loan.persenBunga ?? undefined,
       },
       now,
+      await tarifDendaBerlaku(ctx),
     );
 
     return {

@@ -31,6 +31,7 @@ function argumenConfig(ubah: Record<string, unknown> = {}) {
     persenAdmin: DEFAULT_CONFIG.persenAdmin,
     persenPlatform: DEFAULT_CONFIG.persenPlatform,
     persenBunga: DEFAULT_CONFIG.persenBunga,
+    persenDendaKeterlambatan: DEFAULT_CONFIG.persenDendaKeterlambatan,
     persenBiayaIntegrasi: DEFAULT_CONFIG.persenBiayaIntegrasi,
     maxLtvPersen: DEFAULT_CONFIG.maxLtvPersen,
     sessionTimeoutMenit: DEFAULT_CONFIG.sessionTimeoutMenit,
@@ -150,6 +151,31 @@ describe("konfigurasi: versi, riwayat, rollback", () => {
     await expect(
       asAdmin.mutation(api.system.rollbackConfig, { versi: 2 }),
     ).rejects.toThrow(/sedang berlaku/i);
+  });
+
+  it("menyimpan tarif denda keterlambatan dan menerbitkannya ke halaman publik", async () => {
+    const t = buatKontek();
+    const { sesi: asAdmin } = await siapkanPengguna(t, "admin-cfg4", {
+      email: "admin-cfg4@pindai.test",
+      role: "admin",
+    });
+
+    await asAdmin.mutation(
+      api.system.saveConfig,
+      argumenConfig({ persenDendaKeterlambatan: 4 }),
+    );
+
+    const publik = await t.query(api.system.getKetentuanBiaya, {});
+    expect(publik.persenDendaKeterlambatan).toBe(4);
+    expect(publik.maksDendaPersen).toBe(100);
+
+    // Nilai di luar kebijakan ditolak, bukan disimpan diam-diam.
+    await expect(
+      asAdmin.mutation(
+        api.system.saveConfig,
+        argumenConfig({ persenDendaKeterlambatan: 101 }),
+      ),
+    ).rejects.toThrow(/Denda keterlambatan/i);
   });
 
   it("menolak penyimpanan & rollback dari akun non-admin", async () => {

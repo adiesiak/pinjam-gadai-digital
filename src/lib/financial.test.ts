@@ -120,6 +120,37 @@ eq(r4.dendaTerlambat, 8_000_000, "denda 40 hari = 80% dari pokok");
 const r4Cap = calculateRepayment(10_000_000, 30, didanai, jatuhTempo + 60 * 24 * 60 * 60 * 1000);
 eq(r4Cap.dendaTerlambat, 10_000_000, "denda di-cap maksimum 100% dari pokok (50 hari × 2%)");
 
+// ---- tarif denda dari Pengaturan Sistem dipakai apa adanya ----
+const rTarif = calculateRepayment(
+  10_000_000,
+  30,
+  didanai,
+  jatuhTempo + 10 * 24 * 60 * 60 * 1000,
+  undefined,
+  4,
+);
+eq(rTarif.dendaTerlambat, 4_000_000, "tarif 4%/hari × 10 hari");
+
+const rTarifCap = calculateRepayment(
+  10_000_000,
+  30,
+  didanai,
+  jatuhTempo + 40 * 24 * 60 * 60 * 1000,
+  undefined,
+  4,
+);
+eq(rTarifCap.dendaTerlambat, 10_000_000, "tarif 4%/hari tetap dibatasi 100% dari pokok");
+
+const rTanpaDenda = calculateRepayment(
+  10_000_000,
+  30,
+  didanai,
+  jatuhTempo + 10 * 24 * 60 * 60 * 1000,
+  undefined,
+  0,
+);
+eq(rTanpaDenda.dendaTerlambat, 0, "tarif 0 mematikan denda");
+
 // ---- denda tidak boleh negatif / desimal ----
 const r5 = calculateRepayment(333_333, 30, didanai, jatuhTempo + 1 * 24 * 60 * 60 * 1000);
 eq(

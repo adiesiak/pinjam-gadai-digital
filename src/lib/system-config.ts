@@ -65,6 +65,13 @@ export type SystemConfig = {
   persenPlatform: number;
   persenBunga: number;
   /**
+   * Denda keterlambatan per hari, dalam persen dari pokok pinjaman. Dipakai
+   * `lib/loan` untuk menghitung kewajiban terlambat; totalnya tetap dibatasi
+   * 100% dari pokok (lihat `LATE_FEE_POLICY.maxPercent`). Nilai 0 mematikan
+   * denda tanpa mengubah tenor atau bunga.
+   */
+  persenDendaKeterlambatan: number;
+  /**
    * Persentase biaya admin & platform yang diakui saat integrasi pinjaman
    * lama ke ledger internal (panel Ledger admin). Bukan biaya pinjaman baru —
    * hanya dipakai untuk membukukan pinjaman warisan yang belum tercatat.
@@ -118,6 +125,7 @@ export const DEFAULT_CONFIG: SystemConfig = {
   persenAdmin: 5,
   persenPlatform: 3,
   persenBunga: 30,
+  persenDendaKeterlambatan: 2,
   /** Biaya integrasi default saat membukukan pinjaman lama ke ledger. */
   persenBiayaIntegrasi: 2,
   maxLtvPersen: 70,

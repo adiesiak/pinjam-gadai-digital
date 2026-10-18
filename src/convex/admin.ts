@@ -96,6 +96,7 @@ export const daftarPlafonPeminjam = query({
     }
     /** Acuan waktu penilaian risiko — sama untuk seluruh baris dalam satu muatan. */
     const sekarang = Date.now();
+    const tarifDenda = (await getConfig(ctx)).persenDendaKeterlambatan;
     const pelunasanTepatWaktuPerUser = new Map<string, number>();
     for (const loan of loans) {
       if (!apakahPelunasanTepatWaktu(loan)) continue;
@@ -176,6 +177,7 @@ export const daftarPlafonPeminjam = query({
               persenBunga: l.persenBunga,
             },
             sekarang,
+            tarifDenda,
           );
           return {
             status: l.status,
@@ -639,12 +641,13 @@ export const adminOverview = query({
       return nama;
     };
 
+    const tarifDenda = (await getConfig(ctx)).persenDendaKeterlambatan;
     const loanRows = await Promise.all(
       loans
         .sort((a, b) => b._creationTime - a._creationTime)
         .map(async (l) => {
           const borrower = await ctx.db.get(l.userId);
-          const pelunasan = pelunasanPinjaman(l, Date.now());
+          const pelunasan = pelunasanPinjaman(l, Date.now(), tarifDenda);
           // Skema bulanan (tenorBulan 1/3/6+): angka dari engine lib/bulanan —
           // bukan 130% — agar tim menelaah kewajiban yang benar.
           const bulanan =
@@ -1005,12 +1008,14 @@ export const adminStats = query({
         }
       }, 0);
 
+    const cfg = await getConfig(ctx);
+
     // Keterlambatan pelunasan — dihitung live dari tanggal pendanaan + tenor.
     let pinjamanTerlambat = 0;
     let totalDendaBerjalan = 0;
     for (const l of loans) {
       if (l.status !== "didanai") continue;
-      const info = pelunasanPinjaman(l, Date.now());
+      const info = pelunasanPinjaman(l, Date.now(), cfg.persenDendaKeterlambatan);
       if (info === null) continue;
       if (info.hariTerlambat > 0) {
         pinjamanTerlambat += 1;
@@ -1031,8 +1036,6 @@ export const adminStats = query({
     const totalPinjamanDiajukan = loans
       .filter((l) => STATUS_MENUNGGU.pinjaman.includes(l.status))
       .reduce((acc, l) => acc + (l.pokokDiajukan ?? l.pokokPinjaman), 0);
-
-    const cfg = await getConfig(ctx);
 
     // Keuntungan admin = potongan admin atas uang yang kembali dari Peminjam
     // (pokok + Imbal Hasil), memakai model yang sama dengan panel penyedia dana

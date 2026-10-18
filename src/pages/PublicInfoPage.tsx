@@ -1,3 +1,4 @@
+import { useQuery } from "convex/react";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation } from "react-router";
 import {
@@ -11,6 +12,7 @@ import {
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { api } from "@/convex/_generated/api";
 import {
   Accordion,
   AccordionContent,
@@ -41,7 +43,12 @@ import { LOKASI_KEBIJAKAN } from "@/lib/lokasi";
 import { DEFAULT_CONFIG } from "@/lib/system-config";
 import { MAX_FILE_BYTES, GAMBAR_DITERIMA } from "@/lib/kyc";
 
-const FAQ = [
+/**
+ * FAQ disusun dari tarif yang berlaku supaya jawaban denda tidak lagi ditulis
+ * tetap: angka di halaman ini harus sama dengan yang dipakai mesin pinjaman.
+ */
+function daftarFaq(dendaPerHari: number, maksDenda: number) {
+  return [
   {
     q: "Apakah PINDAI mengirim uang ke rekening saya?",
     a: "Tidak. PINDAI mencatat pengajuan, perhitungan, dan status di aplikasi. Perpindahan dana ditangani di luar aplikasi; belum ada penyedia pembayaran yang terhubung.",
@@ -64,13 +71,14 @@ const FAQ = [
   },
   {
     q: "Apakah ada denda jika terlambat?",
-    a: `Perhitungan pinjaman tunai menetapkan denda ${LATE_FEE_POLICY.percentPerDay}% per hari dari pokok, maksimum ${LATE_FEE_POLICY.maxPercent}% dari pokok. Periksa rincian pengajuan dan perjanjian Anda.`,
+    a: `Perhitungan pinjaman tunai menetapkan denda ${dendaPerHari}% per hari dari pokok, maksimum ${maksDenda}% dari pokok. Periksa rincian pengajuan dan perjanjian Anda.`,
   },
   {
     q: "Siapa yang dapat melihat data pengajuan?",
     a: "Informasi akun dan pengajuan tidak ditampilkan ke publik. Data dapat diakses akun terkait dan tim PINDAI; akses pendana, bila diberikan, dibatasi. Rincian lengkap ada di Syarat & Ketentuan.",
   },
-] as const;
+  ];
+}
 
 const ROUTES = [
   "/biaya",
@@ -449,8 +457,25 @@ function Footer() {
   );
 }
 
-export default function PublicInfoPage() {
+/**
+ * Halaman ini menerima tarif denda lewat prop supaya bisa dirender tanpa
+ * Convex (test render statis), sementara rute memakai versi live di bawah.
+ */
+export type KetentuanDendaTampil = {
+  persenDendaKeterlambatan?: number;
+  maksDendaPersen?: number;
+};
+
+export function PublicInfoPageView({
+  ketentuan,
+}: {
+  ketentuan?: KetentuanDendaTampil | null;
+}) {
   const { pathname } = useLocation();
+  const dendaPerHari =
+    ketentuan?.persenDendaKeterlambatan ?? LATE_FEE_POLICY.percentPerDay;
+  const maksDenda = ketentuan?.maksDendaPersen ?? LATE_FEE_POLICY.maxPercent;
+  const faqItems = daftarFaq(dendaPerHari, maksDenda);
   const biaya = pathname === "/biaya";
   const cara = pathname === "/cara-kerja";
   const gadai = pathname === "/layanan/gadai";
@@ -640,8 +665,8 @@ export default function PublicInfoPage() {
                 Jadwal cicilan bulanan adalah ilustrasi, bukan catatan
                 pembayaran angsuran. Tim PINDAI mencatat pelunasan penuh saat
                 kewajiban dinyatakan selesai. Denda pinjaman tunai{" "}
-                {LATE_FEE_POLICY.percentPerDay}% per hari dari pokok, maksimum{" "}
-                {LATE_FEE_POLICY.maxPercent}%. Bunga, biaya, dan jadwal yang
+                {dendaPerHari}% per hari dari pokok, maksimum {maksDenda}%.
+                Bunga, biaya, dan jadwal yang
                 berlaku harus diperiksa pada rincian pengajuan Anda.
               </p>
             </div>
@@ -873,7 +898,7 @@ export default function PublicInfoPage() {
               collapsible
               className="overflow-hidden rounded-2xl border border-slate-200 bg-white px-4 sm:px-6"
             >
-              {FAQ.map((item) => (
+              {faqItems.map((item) => (
                 <AccordionItem key={item.q} value={item.q}>
                   <AccordionTrigger className="min-h-12 text-left font-semibold">
                     {item.q}
@@ -913,3 +938,9 @@ export default function PublicInfoPage() {
 }
 
 export { ROUTES as PUBLIC_INFO_ROUTES };
+
+/** Rute publik: tarif denda dibaca dari pengaturan admin yang berlaku. */
+export default function PublicInfoPage() {
+  const ketentuan = useQuery(api.system.getKetentuanBiaya);
+  return <PublicInfoPageView ketentuan={ketentuan} />;
+}

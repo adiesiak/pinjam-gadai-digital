@@ -48,7 +48,7 @@ import { formatRupiah, type Rupiah } from "../lib/money";
 import { COLLATERAL_CATEGORIES } from "../lib/pawn";
 import { CONTRACT_TERMS_VERSION } from "../lib/contract";
 import { akunDompetDana, appendJournal } from "./ledger";
-import { getConfig, audit } from "./system";
+import { getConfig, audit, tarifDendaBerlaku } from "./system";
 import { requireGerbangLokasi } from "./lokasi";
 import { requireAdminSession } from "./adminAuthz";
 import { ensureKodePeminjam } from "./peminjamCode";
@@ -816,11 +816,12 @@ export const myLoanSchedule = query({
       .withIndex("by_user", (q) => q.eq("userId", userId))
       .collect();
     const now = Date.now();
+    const tarifDenda = await tarifDendaBerlaku(ctx);
     return loans
       .filter((l) => l.status === "didanai" || l.status === "lunas")
       .sort((a, b) => b._creationTime - a._creationTime)
       .map((l) => {
-        const info = pelunasanInfo(l, now);
+        const info = pelunasanInfo(l, now, tarifDenda);
         return {
           _id: l._id,
           nomorReferensi: l.nomorReferensi,
@@ -883,9 +884,10 @@ export const dueReminder = query({
       totalKewajibanPelunasan: Rupiah;
     } | null = null;
 
+    const tarifDenda = await tarifDendaBerlaku(ctx);
     for (const loan of loans) {
       if (loan.status !== "didanai") continue;
-      const info = pelunasanInfo(loan, Date.now());
+      const info = pelunasanInfo(loan, Date.now(), tarifDenda);
       if (info === null) continue;
       if (
         worst === null ||
@@ -1820,7 +1822,7 @@ export const repayLoan = mutation({
       throw new Error("Pinjaman ini belum memiliki waktu mulai berjalan yang valid.");
     }
     const cfg = await getConfig(ctx);
-    const pelunasan = pelunasanInfo(loan, now);
+    const pelunasan = pelunasanInfo(loan, now, cfg.persenDendaKeterlambatan);
     if (pelunasan === null) {
       throw new Error("Kewajiban pelunasan tidak dapat dihitung untuk pinjaman ini.");
     }
@@ -2090,8 +2092,9 @@ async function generateRemindersHandler(ctx: MutationCtx) {
 
   let created = 0;
   let skipped = 0;
+  const tarifDenda = await tarifDendaBerlaku(ctx);
   for (const loan of loans) {
-    const info = pelunasanInfo(loan, now);
+    const info = pelunasanInfo(loan, now, tarifDenda);
     if (info === null) continue;
     if (info.sisaHari > 3) continue; // hanya H-3, H-0, dan terlambat
 
