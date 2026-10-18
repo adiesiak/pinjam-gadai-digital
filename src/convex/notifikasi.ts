@@ -4,6 +4,7 @@ import { v } from "convex/values";
 import type { Id } from "./_generated/dataModel";
 import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import { formatRupiahAman } from "../lib/money";
+import { kunciNotifikasiPembaruan } from "../lib/pembaruanAplikasi";
 import { LABEL_STATUS_KYC, type StatusKyc } from "../lib/kycStatus";
 import { LABEL_STATUS_PENGADUAN } from "../lib/penagihan";
 import { pinjamanLunasMilikPendana } from "./penyediaDana";
@@ -25,6 +26,7 @@ import { pinjamanLunasMilikPendana } from "./penyediaDana";
  * | `pengaduanNasabah` + `pengaduanPesan` | info / sukses / peringatan | `notifikasiBaca` |
  * | `kycRiwayat`           | info / sukses / peringatan | `notifikasiBaca`        |
  * | `loans` (status berubah) | info / sukses / peringatan | `notifikasiBaca`      |
+ * | `pembaruanAplikasi`    | info                    | `notifikasiBaca`          |
  *
  * Konsekuensinya penting dan disengaja:
  *
@@ -81,7 +83,8 @@ type ItemInternal = NotifikasiItem & {
     | "pengaduan"
     | "kyc"
     | "pinjaman"
-    | "pendana";
+    | "pendana"
+    | "pembaruan";
   /** Id baris sumber, bila sumbernya berbaris (pengingat/lokasi/bukti). */
   ref: string | null;
 };
@@ -476,6 +479,35 @@ async function susunNotifikasi(
         dibaca: false,
       });
     }
+  }
+
+  // ===== Sumber 9: versi aplikasi Android yang baru diumumkan
+  //
+  // Sumbernya `pembaruanAplikasi` — baris yang HANYA ditulis admin saat benar-
+  // benar mengumumkan versi. Tidak ada pengecekan versi di sini: server tidak
+  // tahu APK mana yang sedang dipasang penerima, dan menebaknya akan membuat
+  // notifikasi muncul untuk orang yang sudah memakai versi itu. Kuncinya
+  // `pembaruan:<versionCode>` sehingga satu versi hanya satu kabar per akun.
+  const versiTerbaru = await ctx.db
+    .query("pembaruanAplikasi")
+    .withIndex("by_versiKode")
+    .order("desc")
+    .first();
+  if (versiTerbaru !== null) {
+    const catatan = (versiTerbaru.catatan ?? "").trim();
+    item.push({
+      kunci: kunciNotifikasiPembaruan(versiTerbaru.versiKode),
+      sumber: "pembaruan",
+      ref: versiTerbaru._id,
+      jenis: "info",
+      judul: `PINDAI ${versiTerbaru.versiNama} sudah bisa dipasang`,
+      ringkasan: `Versi baru diumumkan ${kalimatWaktu(versiTerbaru.diumumkanPada, sekarang)}.${
+        catatan === "" ? "" : ` ${catatan}`
+      } Buka bagian pemasangan untuk mengunduh dan memasang.`,
+      waktu: versiTerbaru.diumumkanPada,
+      tautan: "/#pasang-aplikasi",
+      dibaca: false,
+    });
   }
 
   // ===== Keadaan baca untuk sumber yang memakai tabel `notifikasiBaca`

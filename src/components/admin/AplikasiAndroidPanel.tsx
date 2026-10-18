@@ -31,6 +31,7 @@ import {
 import { Link } from "react-router";
 
 import { Badge } from "@/components/ui/badge";
+import { PengingatPembaruanPanel } from "@/components/admin/PengingatPembaruanPanel";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -306,6 +307,8 @@ export function AplikasiAndroidPanel() {
           </Button>
         </div>
       </div>
+
+      <PengingatPembaruanPanel />
 
       <div className="grid gap-5 xl:grid-cols-2">
         {/* Identitas di dalam aplikasi */}

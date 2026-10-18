@@ -72,6 +72,10 @@ diketik tidak hilang.
 di `public/pindai.apk`. Menjalankan `build.sh` menulis ulang berkas itu sesuai
 versi yang baru dibangun, jadi keduanya tidak bisa berbeda.
 
+Mengabari pengguna bahwa versi baru terbit (notifikasi di pusat notifikasi dan
+pesan WhatsApp) adalah langkah terpisah dari build: lihat
+[`docs/pembaruan-aplikasi.md`](../docs/pembaruan-aplikasi.md).
+
 ## Alamat aplikasi
 
 Alamat ada di `MainActivity.ALAMAT` dan `HOST`:

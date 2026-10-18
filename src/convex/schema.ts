@@ -1167,6 +1167,49 @@ const schema = defineSchema(
     }).index("by_slot", ["slot"]),
 
     /**
+     * Pengumuman versi aplikasi Android — satu baris per versi yang BENAR-BENAR
+     * diumumkan admin, bukan daftar versi yang mungkin ada.
+     *
+     * Baris di sini adalah sumber dua hal sekaligus: notifikasi "versi baru"
+     * yang muncul di pusat notifikasi setiap akun, dan teks pesan WhatsApp
+     * pengingat. Karena itu `versiKode` unik (dijaga mutation, indeks dipakai
+     * untuk mencarinya): satu versi tidak bisa diumumkan dua kali dan setiap
+     * pengguna hanya punya satu kunci baca per versi.
+     */
+    pembaruanAplikasi: defineTable({
+      /** `versionCode` APK — pembanding yang dipakai aplikasi Android. */
+      versiKode: v.number(),
+      versiNama: v.string(),
+      /** Alamat unduhan yang dikirim ke penerima (http(s) atau jalur `/…`). */
+      tautan: v.string(),
+      catatan: v.optional(v.string()),
+      diumumkanPada: v.number(),
+      /** Label admin yang mengumumkan — snapshot agar tetap terbaca. */
+      diumumkanOleh: v.optional(v.string()),
+    }).index("by_versiKode", ["versiKode"]),
+
+    /**
+     * Catatan kirim WhatsApp per penerima untuk satu versi.
+     *
+     * Satu baris per (versi, akun). Baris `terkirim` dilewati pada klik
+     * berikutnya, sedangkan baris `gagal` dicoba ulang — jadi menekan tombol
+     * kirim dua kali tidak pernah mengirim pesan yang sama dua kali ke nomor
+     * yang sama, tetapi kegagalan tetap bisa diperbaiki tanpa menghapus data.
+     * Nomor disimpan yang sudah dinormalkan (`62…`), tanpa nama atau data lain.
+     */
+    pembaruanAplikasiWa: defineTable({
+      versiKode: v.number(),
+      userId: v.id("users"),
+      nomor: v.string(),
+      status: v.union(v.literal("terkirim"), v.literal("gagal")),
+      /** Alasan dari gateway, dipotong — untuk admin, bukan untuk penerima. */
+      respon: v.string(),
+      pada: v.number(),
+    })
+      .index("by_versiKode", ["versiKode"])
+      .index("by_versiKode_userId", ["versiKode", "userId"]),
+
+    /**
      * Audit trail — append-only. Mencatat setiap aksi berdampak:
      * keputusan review, kill switch, perubahan konfigurasi, backup.
      */

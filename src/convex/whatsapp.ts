@@ -647,6 +647,30 @@ export async function kirimViaGateway(
 }
 
 /**
+ * Kirim satu pesan BEBAS lewat gateway yang diatur admin.
+ *
+ * Dipakai pengingat pembaruan aplikasi: isinya disusun modul pemanggil dari
+ * data versi yang tersimpan, bukan dari argumen klien mana pun. Konfigurasi
+ * gateway, token environment, dan penilaian hasil tetap di modul ini supaya
+ * hanya ada satu jalur pengiriman. Tidak melempar: kegagalan dikembalikan
+ * sebagai `{ ok: false, respon }` agar pemanggil dapat mencatatnya apa adanya.
+ */
+export const _kirimPesanUmum = internalAction({
+  args: { nomor: v.string(), isi: v.string() },
+  handler: async (ctx, { nomor, isi }): Promise<{ ok: boolean; respon: string }> => {
+    const settings: WaSettings = await ctx.runQuery(internal.whatsapp._getSettings, {});
+    if (settings.aktif !== true || !settings.apiUrl) {
+      return { ok: false, respon: "Integrasi WhatsApp belum aktif — pesan tidak dikirim." };
+    }
+    const apiKey = apiKeyGatewayWa();
+    if (!apiKey) {
+      return { ok: false, respon: "WHATSAPP_API_KEY belum diisi di environment." };
+    }
+    return await kirimViaGateway(apiKey, settings, nomor, isi);
+  },
+});
+
+/**
  * Kirim pengingat penagihan untuk satu pinjaman (admin).
  * Pesan dirangkai dari template CMS + data pinjaman live; nomor tujuan
  * diambil dari KYC peminjam (nomorWhatsApp). API key dibaca dari env.
