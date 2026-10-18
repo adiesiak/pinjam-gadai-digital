@@ -78,14 +78,15 @@ function bersih(html: string, label: string): void {
   ada(html, "#9bcdf0", "garis puncak memakai aksen biru muda");
   ada(html, "rgba(50,110,177,0.16)", "wash ombak tetap transparan di atas kertas");
   ada(html, 'viewBox="0 0 420 265"', "bidang motif mengikuti rasio kartu");
-  ada(html, 'width="96" height="48"', "ombak berulang teratur di seluruh kartu");
+  ada(html, 'width="64" height="40"', "ombak berulang rapat di seluruh kartu");
   ada(
     html,
-    "M0 12C6 4 18 4 24 12S42 20 48 12S66 4 72 12S90 20 96 12",
+    "M0 8C4 2 10 2 16 8S28 14 32 8S44 2 48 8S60 14 64 8",
     "garis ombak bergelombang dua puncak per ubin",
   );
-  ada(html, "translate(0 10)", "tiga lapis ombak bergeser ke bawah");
-  ada(html, "translate(0 20)", "lapis terbawah ikut tampil");
+  ada(html, "translate(0 8)", "empat lapis ombak berjarak 8 satuan");
+  ada(html, "translate(0 16)", "lapis ketiga ikut tampil");
+  ada(html, "translate(0 24)", "lapis terbawah ikut tampil");
   ada(html, "#c9a86a", "puncak ombak memakai titik kuningan");
   ada(
     html,

@@ -61,7 +61,7 @@ Skala utilitas Tailwind di proyek ini dipetakan ulang per preset, jadi kelas nam
 - Aspect Ratio: Standard credit card aspect ratio (`aspect-[1.586/1]`).
 - Frame: Rounded-2xl dengan garis ganda kuningan (ring luar + celah kertas di dalamnya), bukan pendaran emerald.
 - Surface: Kertas gading berkaca (`linear-gradient(135deg, rgba(255,255,255,0.94) → rgba(241,237,227,0.92))` + blur 24px) dengan garis kuningan dan pantulan lembut.
-- Texture Pattern: ombak biru laut (`#326eb1`) berupa tiga garis swell sejajar yang bergeser 10 satuan ke bawah, masing-masing dengan wash `rgba(50,110,177,0.16)` dan aksen biru muda `#9bcdf0` di puncaknya, serta titik kuningan `#c9a86a` pada dua puncak. Unit berulang 96 × 48 di bidang 420 × 265 kartu; titik sambung kiri-kanan memakai kemiringan yang sama sehingga motif tersambung tanpa garis patah. Opasitas 56% menjaga tekstur terbaca di atas kertas gading; teks tetap memakai warna tinta dan kuningan sesuai palet kartu terang.
+- Texture Pattern: ombak biru laut (`#326eb1`) berupa empat garis swell sejajar yang bergeser 8 satuan ke bawah, masing-masing dengan wash `rgba(50,110,177,0.16)` dan aksen biru muda `#9bcdf0` di puncaknya, serta titik kuningan `#c9a86a` pada dua puncak. Unit berulang 64 × 40 di bidang 420 × 265 kartu; titik sambung kiri-kanan memakai kemiringan yang sama sehingga motif tersambung tanpa garis patah. Opasitas 56% menjaga tekstur terbaca di atas kertas gading; teks tetap memakai warna tinta dan kuningan sesuai palet kartu terang.
 
 Card Details:
 

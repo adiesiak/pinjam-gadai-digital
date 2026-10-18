@@ -14,10 +14,10 @@ export interface GelombangPatternProps {
 }
 
 /**
- * Motif ombak berlapis: tiga garis swell sejajar yang bergeser ke bawah,
- * masing-masing dengan wash biru tipis dan aksen biru muda di puncaknya,
- * plus satu titik kuningan di tiap puncak. Menggantikan pola Kawung lama,
- * dengan palet dan bobot visual yang sama supaya identitas kartu tidak
+ * Motif ombak berlapis: empat garis swell sejajar yang bergeser 8 satuan ke
+ * bawah, masing-masing dengan wash biru tipis dan aksen biru muda di
+ * puncaknya, plus satu titik kuningan di tiap puncak. Menggantikan pola Kawung
+ * lama, dengan palet dan bobot visual yang sama supaya identitas kartu tidak
  * berubah — hanya iramanya yang kini mengalir seperti air.
  */
 export function GelombangPattern({
@@ -27,13 +27,14 @@ export function GelombangPattern({
 }: GelombangPatternProps) {
   const id = `ombak-pindai-${useId().replace(/[^a-zA-Z0-9]/g, "")}`;
   const opacityAman = Math.min(0.56, Math.max(0, opacity));
-  // Titik sambung (0,12) dan (96,12) memakai kemiringan yang sama, jadi pola
+  // Titik sambung (0,8) dan (64,8) memakai kemiringan yang sama, jadi pola
   // berulang tanpa garis patah di tepi ubin.
-  const ombak = "M0 12C6 4 18 4 24 12S42 20 48 12S66 4 72 12S90 20 96 12";
+  const ombak = "M0 8C4 2 10 2 16 8S28 14 32 8S44 2 48 8S60 14 64 8";
   const lapis = [
     { geser: 0, tebal: 1 },
-    { geser: 10, tebal: 0.82 },
-    { geser: 20, tebal: 0.64 },
+    { geser: 8, tebal: 0.86 },
+    { geser: 16, tebal: 0.72 },
+    { geser: 24, tebal: 0.58 },
   ];
 
   return (
@@ -48,7 +49,7 @@ export function GelombangPattern({
       preserveAspectRatio="none"
     >
       <defs>
-        <pattern id={id} width="96" height="48" patternUnits="userSpaceOnUse">
+        <pattern id={id} width="64" height="40" patternUnits="userSpaceOnUse">
           <g fill="none" strokeLinecap="round">
             {lapis.map(({ geser, tebal }) => (
               <g
@@ -59,20 +60,20 @@ export function GelombangPattern({
                 <path
                   d={ombak}
                   stroke="rgba(50,110,177,0.16)"
-                  strokeWidth="7"
+                  strokeWidth="5"
                 />
-                <path d={ombak} stroke={warna} strokeWidth="1.6" />
+                <path d={ombak} stroke={warna} strokeWidth="1.4" />
                 <path
                   d={ombak}
                   stroke="#9bcdf0"
-                  strokeWidth="0.9"
-                  transform="translate(0 -4)"
+                  strokeWidth="0.8"
+                  transform="translate(0 -2)"
                 />
               </g>
             ))}
           </g>
-          <circle cx="24" cy="6" r="1.8" fill="#c9a86a" />
-          <circle cx="72" cy="6" r="1.8" fill="#c9a86a" />
+          <circle cx="16" cy="3.5" r="1.5" fill="#c9a86a" />
+          <circle cx="48" cy="3.5" r="1.5" fill="#c9a86a" />
         </pattern>
       </defs>
       <rect width="420" height="265" fill={`url(#${id})`} />
