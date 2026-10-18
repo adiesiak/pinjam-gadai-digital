@@ -147,6 +147,23 @@ export function rekapTransferPendana(
   };
 }
 
+/**
+ * Aksi pencatatan keuntungan yang boleh ditawarkan untuk satu pinjaman.
+ *
+ * Pencatatan hanya masuk akal pada pinjaman lunas yang punya pendana: sebelum
+ * lunas belum ada hak yang jatuh tempo, dan tanpa pendana tidak ada penerima.
+ * Catatan yang masih berlaku ditawari pembatalan — bukan pencatatan ulang —
+ * sedangkan catatan yang sudah dibatalkan boleh dicatat ulang.
+ */
+export type AksiKeuntungan = "catat" | "batalkan" | null;
+
+export function aksiKeuntunganPinjaman(
+  pinjaman: Pick<PinjamanTransfer, "status" | "adaPendana" | "transfer">,
+): AksiKeuntungan {
+  if (pinjaman.status !== "lunas" || !pinjaman.adaPendana) return null;
+  return pinjaman.transfer.status === "dicatat" ? "batalkan" : "catat";
+}
+
 /** Label Indonesia untuk status transfer — dipakai UI dan ringkasan. */
 export const LABEL_TRANSFER: Record<StatusTransfer, string> = {
   belum_dicatat: "belum dicatat",

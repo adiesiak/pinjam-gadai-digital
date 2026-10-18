@@ -59,6 +59,11 @@ import { PortofolioPendana } from "@/components/penyediaDana/PortofolioPendana";
 import { TabelPendana } from "@/components/penyediaDana/TabelPendana";
 import { LaporanTransferPendana } from "@/components/penyediaDana/LaporanTransferPendana";
 import {
+  DialogBatalkanKeuntungan,
+  DialogCatatKeuntungan,
+  type TargetKeuntungan,
+} from "@/components/penyediaDana/DialogKeuntunganPendana";
+import {
   CatatanKebijakan,
   KepalaFolio,
 } from "@/components/penyediaDana/bagian-folio";
@@ -104,7 +109,7 @@ import {
   type StatusPinjaman,
 } from "@/lib/statusPinjaman";
 import type { RincianPerkiraan } from "@/lib/tabelPendana";
-import type { RingkasTransfer } from "@/lib/transferPendana";
+import { aksiKeuntunganPinjaman, type RingkasTransfer } from "@/lib/transferPendana";
 import type {
   BarisGadai,
   BarisKredit,
@@ -131,9 +136,10 @@ import {
  *
  * Menampilkan catatan pengajuan Peminjam (pinjaman tunai, gadai, kredit barang)
  * sebagai tabel per kategori kepada akun yang diberi akses lihat saja oleh
- * admin, termasuk pemantau yang masuk dengan kode akses bersama. Halaman ini
- * tidak pernah memanggil mutation apa pun; seluruh pengubahan data tetap di
- * panel admin.
+ * admin, termasuk pemantau yang masuk dengan kode akses bersama. Peran `dana`
+ * dan `pengamat` tetap lihat saja; Super Admin punya dua aksi di sini —
+ * mengoreksi data pinjaman, serta mencatat atau membatalkan keuntungan pendana
+ * pada pinjaman lunas.
  *
  * Ruang ini juga menampilkan (1) foto BARANG jaminan pada gadai — foto benda,
  * bukan identitas orang — yang diambil hanya saat dialog Detail dibuka, dan
@@ -278,7 +284,7 @@ function BadgeKredit({ status }: { status: string }) {
 /**
  * Badge status catatan transfer keuntungan pendana.
  *
- * Ruang ini hanya menampilkan; pencatatan transfer dibuat admin di panel. Istilah
+ * Super Admin dapat mencatat atau membatalkan catatan ini dari tab Lunas. Istilah
  * sengaja berbunyi "dicatat", bukan "terbayar": PINDAI tidak memindahkan uang,
  * jadi yang bisa dibaca di sini adalah catatan admin, bukan bukti mutasi bank.
  */
@@ -608,6 +614,8 @@ function KartuPengajuan({
   status,
   onDetail,
   onUbah,
+  onCatatKeuntungan,
+  onBatalkanKeuntungan,
   children,
 }: {
   nama: string;
@@ -617,6 +625,10 @@ function KartuPengajuan({
   onDetail: () => void;
   /** Hanya diberikan untuk Super Admin — mengoreksi data pinjaman. */
   onUbah?: () => void;
+  /** Hanya diberikan untuk Super Admin saat keuntungan belum dicatat. */
+  onCatatKeuntungan?: () => void;
+  /** Hanya diberikan untuk Super Admin saat catatan keuntungan masih berlaku. */
+  onBatalkanKeuntungan?: () => void;
   children: React.ReactNode;
 }) {
   return (
@@ -642,6 +654,21 @@ function KartuPengajuan({
           </Button>
         )}
       </div>
+      {onCatatKeuntungan !== undefined && (
+        <Button variant="outline" size="sm" className="mt-2 w-full" onClick={onCatatKeuntungan}>
+          <Coins className="mr-1.5 size-3.5" aria-hidden /> Catat untung
+        </Button>
+      )}
+      {onBatalkanKeuntungan !== undefined && (
+        <Button
+          variant="outline"
+          size="sm"
+          className="mt-2 w-full text-red-700 hover:bg-red-50 hover:text-red-800"
+          onClick={onBatalkanKeuntungan}
+        >
+          <XCircle className="mr-1.5 size-3.5" aria-hidden /> Batalkan catatan
+        </Button>
+      )}
     </article>
   );
 }
@@ -1343,6 +1370,8 @@ function DaftarPinjaman({
   sekarang,
   onDetail,
   onUbah,
+  onCatatKeuntungan,
+  onBatalkanKeuntungan,
   namaTampil,
 }: {
   rows: BarisPinjaman[];
@@ -1351,6 +1380,10 @@ function DaftarPinjaman({
   onDetail: (row: BarisPinjaman) => void;
   /** Hanya diisi untuk Super Admin (koreksi data pinjaman). */
   onUbah?: (row: BarisPinjaman) => void;
+  /** Hanya diisi untuk Super Admin: catat keuntungan yang belum tercatat. */
+  onCatatKeuntungan?: (row: BarisPinjaman) => void;
+  /** Hanya diisi untuk Super Admin: batalkan catatan yang masih berlaku. */
+  onBatalkanKeuntungan?: (row: BarisPinjaman) => void;
   /** Penyamaran nama orang (peminjam & pendana) untuk ruang bersama. */
   namaTampil: (nama: string) => string;
 }) {
@@ -1360,6 +1393,29 @@ function DaftarPinjaman({
    * ikut menua tanpa perlu muat ulang.
    */
   const jatuhTempo = (row: BarisPinjaman) => ringkasJatuhTempo(row, sekarang);
+
+  /**
+   * Aksi keuntungan mengikuti aturan murni `aksiKeuntunganPinjaman`: hanya
+   * pinjaman lunas berpendana, dan catatan yang masih berlaku ditawari
+   * pembatalan. Handler-nya sendiri hanya diberikan kepada Super Admin.
+   */
+  const aksiKeuntungan = (row: BarisPinjaman) => {
+    const aksi = aksiKeuntunganPinjaman({
+      status: row.status,
+      adaPendana: row.pendana !== null,
+      transfer: row.transfer,
+    });
+    return {
+      catat:
+        aksi === "catat" && onCatatKeuntungan !== undefined
+          ? () => onCatatKeuntungan(row)
+          : undefined,
+      batal:
+        aksi === "batalkan" && onBatalkanKeuntungan !== undefined
+          ? () => onBatalkanKeuntungan(row)
+          : undefined,
+    };
+  };
 
   return (
     <>
@@ -1374,6 +1430,8 @@ function DaftarPinjaman({
             status={<StatusBadge status={row.status} kind="loan" />}
             onDetail={() => onDetail(row)}
             onUbah={onUbah === undefined ? undefined : () => onUbah(row)}
+            onCatatKeuntungan={aksiKeuntungan(row).catat}
+            onBatalkanKeuntungan={aksiKeuntungan(row).batal}
           >
             <InfoKartu label="Nominal diajukan">
               {rupiah(row.pokokDiajukan ?? row.pokokPinjaman)}
@@ -1504,6 +1562,21 @@ function DaftarPinjaman({
                   {onUbah !== undefined && (
                     <Button variant="outline" size="sm" onClick={() => onUbah(row)}>
                       <Pencil className="mr-1.5 size-3.5" aria-hidden /> Ubah
+                    </Button>
+                  )}
+                  {aksiKeuntungan(row).catat !== undefined && (
+                    <Button variant="outline" size="sm" onClick={() => aksiKeuntungan(row).catat?.()}>
+                      <Coins className="mr-1.5 size-3.5" aria-hidden /> Catat untung
+                    </Button>
+                  )}
+                  {aksiKeuntungan(row).batal !== undefined && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-red-700 hover:bg-red-50 hover:text-red-800"
+                      onClick={() => aksiKeuntungan(row).batal?.()}
+                    >
+                      <XCircle className="mr-1.5 size-3.5" aria-hidden /> Batalkan catatan
                     </Button>
                   )}
                 </div>
@@ -1823,6 +1896,10 @@ function IsiRuang() {
   const [tab, setTab] = useState("belum");
   const [detail, setDetail] = useState<IsiDetail | null>(null);
   const [ubah, setUbah] = useState<BarisPinjaman | null>(null);
+  // Pencatatan keuntungan pendana: target disimpan sebagai data ringkas supaya
+  // dialog tetap memegang nominal yang dibaca saat tombolnya ditekan.
+  const [catatKeuntungan, setCatatKeuntungan] = useState<TargetKeuntungan | null>(null);
+  const [batalKeuntungan, setBatalKeuntungan] = useState<TargetKeuntungan | null>(null);
   // Saringan di atas tabel: nama peminjam + pendana.
   const [filter, setFilter] = useState<FilterPengajuan>(FILTER_PENGAJUAN_KOSONG);
   const sekarang = useJamBerjalan();
@@ -1853,6 +1930,17 @@ function IsiRuang() {
   const kunciSendiri = kunciNama(user?.name);
   const tampilNama = (nama: string): string =>
     namaRuangan(nama, samar && (kunciSendiri === "" || kunciNama(nama) !== kunciSendiri));
+
+  /** Data ringkas yang dibutuhkan dialog pencatatan keuntungan pendana. */
+  const targetKeuntungan = (row: BarisPinjaman): TargetKeuntungan | null =>
+    row.pendana === null
+      ? null
+      : {
+          loanId: row._id,
+          pendanaNama: tampilNama(row.pendana),
+          nomorReferensi: row.nomorReferensi,
+          jumlah: row.keuntunganPendana,
+        };
   // Query tidak dipanggil sebelum peran diketahui atau tanpa akses; server tetap
   // penjaga utama karena gerbangnya juga dijalankan di sisi Convex.
   const data = useQuery(
@@ -2678,6 +2766,16 @@ function IsiRuang() {
                       sekarang={sekarang}
                       onDetail={(row) => setDetail({ jenis: "pinjaman", row })}
                       onUbah={role === "admin" ? (row) => setUbah(row) : undefined}
+                      onCatatKeuntungan={
+                        role === "admin"
+                          ? (row) => setCatatKeuntungan(targetKeuntungan(row))
+                          : undefined
+                      }
+                      onBatalkanKeuntungan={
+                        role === "admin"
+                          ? (row) => setBatalKeuntungan(targetKeuntungan(row))
+                          : undefined
+                      }
                     />
                     <CatatanTerpotong
                       terpotong={data.terpotong.pinjaman}
@@ -3075,6 +3173,24 @@ function IsiRuang() {
       {/* Koreksi data pinjaman — hanya Super Admin yang dapat membukanya. */}
       {role === "admin" && (
         <DialogUbahPinjaman row={ubah} onClose={() => setUbah(null)} />
+      )}
+
+      {/*
+       * Pencatatan keuntungan pendana — dibuka dari tab Lunas. Server tetap
+       * penjaga utama: hanya pinjaman lunas yang bisa dicatat, nominal dihitung
+       * ulang di sana, dan setiap catatan masuk Audit Trail.
+       */}
+      {role === "admin" && (
+        <>
+          <DialogCatatKeuntungan
+            target={catatKeuntungan}
+            onClose={() => setCatatKeuntungan(null)}
+          />
+          <DialogBatalkanKeuntungan
+            target={batalKeuntungan}
+            onClose={() => setBatalKeuntungan(null)}
+          />
+        </>
       )}
 
       {/*

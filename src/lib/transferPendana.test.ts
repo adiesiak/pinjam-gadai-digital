@@ -1,5 +1,6 @@
 /** Run: bun src/lib/transferPendana.test.ts */
 import {
+  aksiKeuntunganPinjaman,
   LABEL_TRANSFER,
   rekapTransferPendana,
   ringkasTransfer,
@@ -124,6 +125,41 @@ const dibatalkan = rekapTransferPendana([
 eq(dibatalkan.jumlahTercatat, 0, "catatan dibatalkan bukan tercatat");
 eq(dibatalkan.jumlahBelumDicatat, 1, "kembali jadi belum dicatat");
 eq(dibatalkan.keuntunganBelumDicatat, 200_000, "nominal kembali jadi kewajiban");
+
+// ===== aksi pencatatan keuntungan (Super Admin) =====
+
+eq(
+  aksiKeuntunganPinjaman(pinjaman()),
+  "catat",
+  "lunas berpendana tanpa catatan menawarkan pencatatan",
+);
+eq(
+  aksiKeuntunganPinjaman(pinjaman({ transfer: ringkasTransfer([baris()]) })),
+  "batalkan",
+  "catatan yang masih berlaku menawarkan pembatalan",
+);
+eq(
+  aksiKeuntunganPinjaman(
+    pinjaman({
+      transfer: ringkasTransfer([
+        baris(),
+        baris({ status: "dibatalkan", dicatatPada: 5_000 }),
+      ]),
+    }),
+  ),
+  "catat",
+  "catatan yang dibatalkan boleh dicatat ulang",
+);
+eq(
+  aksiKeuntunganPinjaman(pinjaman({ status: "didanai" })),
+  null,
+  "pinjaman berjalan belum bisa dicatat",
+);
+eq(
+  aksiKeuntunganPinjaman(pinjaman({ adaPendana: false })),
+  null,
+  "tanpa pendana tidak ada keuntungan untuk dicatat",
+);
 
 // ===== label =====
 
