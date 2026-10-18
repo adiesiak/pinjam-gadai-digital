@@ -87,8 +87,8 @@ pesan WhatsApp) adalah langkah terpisah dari build: lihat
 Alamat ada di `MainActivity.ALAMAT` dan `HOST`:
 
 ```java
-private static final String ALAMAT = "https://better-spoons-create.freebuff.dev/";
-private static final String HOST = "better-spoons-create.freebuff.dev";
+private static final String ALAMAT = "https://pindai.biz.id/";
+private static final String HOST = "pindai.biz.id";
 ```
 
 Ganti keduanya bila domain produksi berubah, lalu build ulang. APK menyimpan

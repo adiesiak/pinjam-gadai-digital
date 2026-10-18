@@ -82,7 +82,7 @@ export function googleSiapDari(lingkungan: {
  * begitu `SITE_URL` (atau `APP_ORIGIN`) menunjuk domain aplikasi, nilai itu
  * yang dipakai. Saat aplikasi pindah domain, cukup isi `APP_ORIGIN`.
  */
-export const ORIGIN_APLIKASI_BAWAAN = "https://better-spoons-create.freebuff.dev";
+export const ORIGIN_APLIKASI_BAWAAN = "https://pindai.biz.id";
 
 /** Origin halaman aplikasi; `cadangan` dipakai bila `SITE_URL` menunjuk backend. */
 export function originAplikasi(siteUrl: string | undefined, cadangan: string): string {

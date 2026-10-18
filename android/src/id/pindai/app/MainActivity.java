@@ -58,8 +58,8 @@ import java.nio.charset.StandardCharsets;
 public class MainActivity extends Activity {
 
     /** Alamat aplikasi. Ganti di sini bila domain produksi berubah. */
-    private static final String ALAMAT = "https://better-spoons-create.freebuff.dev/";
-    private static final String HOST = "better-spoons-create.freebuff.dev";
+    private static final String ALAMAT = "https://pindai.biz.id/";
+    private static final String HOST = "pindai.biz.id";
 
     private static final int REQ_KAMERA = 7001;
     private static final int REQ_LOKASI = 7002;
