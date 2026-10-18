@@ -79,5 +79,15 @@ for (const role of ["peminjam", "dana"]) {
   tidakAda(markup, ADMIN_ROUTE, "tamu tidak diberi rute panel admin");
 }
 
+// 4. Tombol pemasangan aplikasi ikut ter-render di beranda, tanpa tautan toko
+//    yang belum ada (Play Store/App Store belum punya listing).
+{
+  const markup = render({ isAuthenticated: false, user: undefined });
+  ada(markup, "Pasang di Android", "beranda menampilkan tombol Android");
+  ada(markup, "Pasang di iPhone", "beranda menampilkan tombol iPhone");
+  tidakAda(markup, "play.google", "beranda tidak menautkan Play Store");
+  tidakAda(markup, "apps.apple", "beranda tidak menautkan App Store");
+}
+
 console.log(`qa-landing-rute: ${lulus} lulus, ${gagal} gagal`);
 if (gagal > 0) process.exit(1);

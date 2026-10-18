@@ -14,6 +14,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { VaultLogo } from "@/components/VaultLogo";
 import { DemoPengajuan } from "@/components/landing/DemoPengajuan";
+import { PasangAplikasi } from "@/components/landing/PasangAplikasi";
 import { LandingHero } from "@/components/landing/LandingHero";
 import { CONTRACT_TERMS_VERSION } from "@/lib/contract";
 import { ADMIN_ROUTE, kombinasiAdmin } from "@/lib/routes";
@@ -363,7 +364,9 @@ export default function LandingHome() {
           </div>
         </section>
 
-        <section className="border-y border-[#dce7df] bg-[#f4f7f5]">
+        <PasangAplikasi />
+
+        <section className="border-y border-[#dce7df] bg-[#fbfcfa]">
           <div className="mx-auto flex max-w-6xl flex-col gap-5 px-4 py-10 sm:flex-row sm:items-center sm:justify-between sm:px-6">
             <div className="flex items-start gap-3">
               <BadgeCheck

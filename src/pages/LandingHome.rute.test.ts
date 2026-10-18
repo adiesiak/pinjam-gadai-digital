@@ -41,6 +41,11 @@ const tidakAda = (sumber: string, teks: string, nama: string) =>
     "<DemoPengajuan />",
     "beranda memasang demo alur pengajuan",
   );
+  ada(
+    sumber,
+    "<PasangAplikasi />",
+    "beranda memasang tombol pemasangan aplikasi",
+  );
 }
 
 console.log(`LandingHome.rute: ${lulus} lulus, ${gagal} gagal`);
