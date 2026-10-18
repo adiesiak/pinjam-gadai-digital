@@ -5,6 +5,7 @@ import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { api } from "@/convex/_generated/api";
+import { cetakLewatAplikasi } from "@/lib/jembatanAndroid";
 
 /**
  * Escape teks sebelum ditempel ke HTML yang dirender di tab baru.
@@ -157,11 +158,14 @@ export function BackupPanel() {
       const html = `<!doctype html><html><head><meta charset="utf-8"><title>Audit Trail PINDAI</title><style>body{font-family:system-ui,sans-serif;padding:32px;color:#1c1a15}h1{font-size:20px}table{width:100%;border-collapse:collapse;font-size:12px}td,th{border:1px solid #e3ddd0;padding:6px 8px;text-align:left}</style></head><body><h1>Audit Trail — Pinjam Gadai Digital</h1><p>Dicetak: ${new Date().toLocaleString("id-ID")}</p><table><tr><th>Waktu</th><th>Aktor</th><th>Aksi</th><th>Target</th><th>Detail</th></tr>${log
         .map((a) => `<tr><td>${escapeHtml(new Date(a.waktu).toLocaleString("id-ID"))}</td><td>${escapeHtml(a.aktorLabel)}</td><td>${escapeHtml(a.aksi)}</td><td>${escapeHtml(a.target ?? "-")}</td><td>${escapeHtml(a.detail ?? "-")}</td></tr>`)
         .join("")}</table></body></html>`;
-      const w = window.open("", "_blank");
-      if (w) {
-        w.document.write(html);
-        w.document.close();
-        w.print();
+      // Aplikasi Android: window.open diblokir, jadi dialog cetak Android dipakai.
+      if (!cetakLewatAplikasi(html)) {
+        const w = window.open("", "_blank");
+        if (w) {
+          w.document.write(html);
+          w.document.close();
+          w.print();
+        }
       }
       await catat({ jenis: "audit-pdf" });
       toast.success("Audit log dikirim ke dialog cetak PDF.");

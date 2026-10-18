@@ -3,6 +3,8 @@ import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 
+import { cetakLewatAplikasi } from "@/lib/jembatanAndroid";
+
 import { wrapContractHtml } from "./contract-doc";
 
 /** Tombol cetak/cetak-ke-PDF catatan HTML via dialog browser. */
@@ -14,12 +16,15 @@ export function ContractPrintButton({
   label?: string;
 }) {
   const cetak = () => {
+    const dokumen = wrapContractHtml(html);
+    // Di aplikasi Android, window.open diblokir; dialog cetak Android dipakai.
+    if (cetakLewatAplikasi(dokumen)) return;
     const w = window.open("", "_blank");
     if (!w) {
       toast.error("Popup diblokir browser. Izinkan popup untuk mencetak catatan.");
       return;
     }
-    w.document.write(wrapContractHtml(html));
+    w.document.write(dokumen);
     w.document.close();
     w.focus();
     w.print();

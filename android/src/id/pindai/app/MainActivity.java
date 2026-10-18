@@ -2,13 +2,20 @@ package id.pindai.app;
 
 import android.Manifest;
 import android.app.Activity;
+import android.content.ContentValues;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Environment;
+import android.print.PrintAttributes;
+import android.print.PrintManager;
+import android.provider.MediaStore;
+import android.util.Base64;
 import android.view.ViewGroup;
 import android.webkit.GeolocationPermissions;
+import android.webkit.JavascriptInterface;
 import android.webkit.PermissionRequest;
 import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
@@ -16,6 +23,11 @@ import android.webkit.WebResourceRequest;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
+import android.widget.Toast;
+
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.OutputStream;
 
 /**
  * PINDAI di Android: satu WebView yang memuat aplikasi web resmi.
@@ -41,6 +53,8 @@ public class MainActivity extends Activity {
     private static final int REQ_BERKAS = 7003;
 
     private WebView web;
+    /** WebView sementara untuk dialog cetak; disimpan agar tidak dibersihkan GC. */
+    private WebView webCetak;
     private PermissionRequest permintaanKamera;
     private GeolocationPermissions.Callback callbackLokasi;
     private String asalLokasi;
@@ -67,6 +81,10 @@ public class MainActivity extends Activity {
         s.setLoadWithOverviewMode(true);
         s.setUseWideViewPort(true);
         s.setUserAgentString(s.getUserAgentString() + " PINDAIApp/1.0");
+
+        // Jembatan untuk halaman: cetak/PDF, simpan berkas, buka tautan luar.
+        // Hanya tiga metode beranotasi @JavascriptInterface yang terekspos.
+        web.addJavascriptInterface(new Jembatan(), "PindaiAndroid");
 
         web.setWebViewClient(new WebViewClient() {
             @Override
@@ -145,6 +163,82 @@ public class MainActivity extends Activity {
 
         if (state == null) web.loadUrl(ALAMAT);
         else web.restoreState(state);
+    }
+
+    /**
+     * Metode yang dipanggil halaman lewat `window.PindaiAndroid`.
+     * Semuanya dijalankan di UI thread karena menyentuh WebView/PrintManager.
+     */
+    private class Jembatan {
+
+        @JavascriptInterface
+        public void cetak(final String html) {
+            runOnUiThread(() -> {
+                webCetak = new WebView(MainActivity.this);
+                webCetak.setWebViewClient(new WebViewClient() {
+                    @Override
+                    public void onPageFinished(WebView view, String url) {
+                        PrintManager pm = (PrintManager) getSystemService(PRINT_SERVICE);
+                        if (pm == null) return;
+                        String judul = "PINDAI";
+                        pm.print(judul,
+                                view.createPrintDocumentAdapter(judul),
+                                new PrintAttributes.Builder().build());
+                    }
+                });
+                webCetak.loadDataWithBaseURL(ALAMAT, html, "text/html", "utf-8", null);
+            });
+        }
+
+        @JavascriptInterface
+        public void unduh(final String nama, final String mime, final String base64) {
+            runOnUiThread(() -> {
+                try {
+                    byte[] data = Base64.decode(base64, Base64.DEFAULT);
+                    simpanBerkas(nama, mime, data);
+                    Toast.makeText(MainActivity.this,
+                            "Tersimpan di Downloads: " + nama, Toast.LENGTH_LONG).show();
+                } catch (Exception e) {
+                    Toast.makeText(MainActivity.this,
+                            "Gagal menyimpan berkas", Toast.LENGTH_LONG).show();
+                }
+            });
+        }
+
+        @JavascriptInterface
+        public void bukaLuar(final String url) {
+            runOnUiThread(() -> bukaDiLuar(Uri.parse(url)));
+        }
+    }
+
+    /**
+     * Simpan byte ke folder Downloads. Android 10+ memakai MediaStore (tanpa
+     * izin penyimpanan); versi lama memakai folder aplikasi agar tidak perlu
+     * meminta izin tambahan.
+     */
+    private void simpanBerkas(String nama, String mime, byte[] data) throws Exception {
+        if (Build.VERSION.SDK_INT >= 29) {
+            ContentValues nilai = new ContentValues();
+            nilai.put(MediaStore.MediaColumns.DISPLAY_NAME, nama);
+            nilai.put(MediaStore.MediaColumns.MIME_TYPE, mime);
+            nilai.put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS);
+            Uri tujuan = getContentResolver()
+                    .insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, nilai);
+            if (tujuan == null) throw new IllegalStateException("Downloads tidak bisa ditulis");
+            try (OutputStream keluar = getContentResolver().openOutputStream(tujuan)) {
+                if (keluar == null) throw new IllegalStateException("Aliran kosong");
+                keluar.write(data);
+            }
+            return;
+        }
+        File folder = getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS);
+        if (folder == null) throw new IllegalStateException("Folder unduhan tidak ada");
+        if (!folder.exists() && !folder.mkdirs()) {
+            throw new IllegalStateException("Folder unduhan tidak bisa dibuat");
+        }
+        try (FileOutputStream keluar = new FileOutputStream(new File(folder, nama))) {
+            keluar.write(data);
+        }
     }
 
     /** MIME pertama dari atribut accept; jatuh ke semua berkas bila kosong. */

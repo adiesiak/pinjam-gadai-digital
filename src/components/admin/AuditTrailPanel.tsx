@@ -14,6 +14,7 @@ import {
   ringkasRincianHapus,
   type JenisHapus,
 } from "@/lib/auditHapus";
+import { unduhLewatAplikasi } from "@/lib/jembatanAndroid";
 import {
   keCsvAudit,
   labelAksi,
@@ -65,7 +66,7 @@ export function AuditTrailPanel() {
    * muncul di aktivitas terbaru) dibuang lewat `_id` supaya berkas audit tidak
    * melaporkan satu kejadian dua kali.
    */
-  const ekspor = () => {
+  const ekspor = async () => {
     setMengekspor(true);
     try {
       const terlihat = new Set<string>();
@@ -91,10 +92,16 @@ export function AuditTrailPanel() {
       const blob = new Blob([`\uFEFF${keCsvAudit(baris)}`], {
         type: "text/csv;charset=utf-8",
       });
+      const nama = namaBerkasAudit(Date.now());
+      // Di aplikasi Android, unduhan blob: tidak ditangani WebView.
+      if (await unduhLewatAplikasi(nama, "text/csv", blob)) {
+        toast.success(`${baris.length} catatan audit diekspor ke CSV.`);
+        return;
+      }
       const url = URL.createObjectURL(blob);
       const tautan = document.createElement("a");
       tautan.href = url;
-      tautan.download = namaBerkasAudit(Date.now());
+      tautan.download = nama;
       document.body.appendChild(tautan);
       tautan.click();
       tautan.remove();

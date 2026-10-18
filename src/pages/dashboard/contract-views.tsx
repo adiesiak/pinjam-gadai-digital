@@ -16,6 +16,7 @@ import {
   judulContract,
   nomorContract,
 } from "@/lib/contract";
+import { cetakLewatAplikasi } from "@/lib/jembatanAndroid";
 import { quotePinjaman, simulasiBulananPinjaman } from "@/lib/loan";
 import { formatRupiah } from "@/lib/money";
 import { EmptyState } from "./empty-state";
@@ -228,12 +229,15 @@ function ContractPreviewButton({ html }: { html: string }) {
       variant="outline"
       className="rounded-full"
       onClick={() => {
+        const dokumen = wrapContractHtml(html);
+        // Aplikasi Android: tampilkan lewat dialog cetak (sekaligus pratinjau).
+        if (cetakLewatAplikasi(dokumen)) return;
         const w = window.open("", "_blank");
         if (!w) {
           toast.error("Popup diblokir browser. Izinkan popup untuk melihat dokumen.");
           return;
         }
-        w.document.write(wrapContractHtml(html));
+        w.document.write(dokumen);
         w.document.close();
       }}
     >

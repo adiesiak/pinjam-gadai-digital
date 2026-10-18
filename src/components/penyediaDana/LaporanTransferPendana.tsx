@@ -44,6 +44,7 @@ import {
   type RingkasanServerTransfer,
   type SaringanTransfer,
 } from "@/lib/laporanTransfer";
+import { unduhLewatAplikasi } from "@/lib/jembatanAndroid";
 import { formatRupiahAman } from "@/lib/money";
 import { labelRentang, potongHalaman } from "@/lib/paginasi";
 
@@ -136,12 +137,15 @@ function LencanaStatus({ status }: { status: string }) {
  * membaca jam di dalam badan komponen membuatnya terbaca sebagai perhitungan
  * yang tidak murni (aturan `react-hooks/purity`).
  */
-function unduhCsv(isi: string): void {
+async function unduhCsv(isi: string): Promise<void> {
   const blob = new Blob([isi], { type: "text/csv;charset=utf-8" });
+  const nama = namaBerkasTransfer(Date.now());
+  // Di aplikasi Android, unduhan blob: tidak ditangani WebView.
+  if (await unduhLewatAplikasi(nama, "text/csv", blob)) return;
   const url = URL.createObjectURL(blob);
   const tautan = document.createElement("a");
   tautan.href = url;
-  tautan.download = namaBerkasTransfer(Date.now());
+  tautan.download = nama;
   document.body.appendChild(tautan);
   tautan.click();
   tautan.remove();
@@ -220,7 +224,7 @@ export function LaporanTransferPendana({
         return;
       }
       // BOM UTF-8 supaya Excel membaca huruf beraksen dengan benar.
-      unduhCsv(`\uFEFF${keCsvTransfer(hasil)}`);
+      void unduhCsv(`\uFEFF${keCsvTransfer(hasil)}`);
       toast.success(`${hasil.length} catatan transfer diekspor ke CSV.`);
     } catch (err) {
       toast.error(

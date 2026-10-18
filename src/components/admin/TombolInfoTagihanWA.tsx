@@ -5,6 +5,7 @@ import { Loader2, Send } from "lucide-react";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { Button } from "@/components/ui/button";
+import { bukaLuarJendela } from "@/lib/jembatanAndroid";
 import { templateSesuaiSisaHari, urlCekStatus, urlWhatsapp } from "@/lib/pengingatWhatsapp";
 
 /**
@@ -82,7 +83,10 @@ export function TombolInfoTagihanWA({
         return;
       }
 
-      window.open(wa, "_blank", "noopener,noreferrer");
+      // Aplikasi Android memblokir jendela baru; tautan dibuka di luar WebView.
+      if (!bukaLuarJendela(wa)) {
+        window.open(wa, "_blank", "noopener,noreferrer");
+      }
       setKabar(
         jenis === "h1"
           ? "Draf pengingat H-1 dibuka di WhatsApp — periksa lalu kirim."
