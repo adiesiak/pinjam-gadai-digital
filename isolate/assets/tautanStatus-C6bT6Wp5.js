@@ -1,0 +1,1 @@
+const t={masaBerlakuHari:30,maksByteSelfie:512e3};function r(n){const a=n.trim().replace(/\s+/g," ");if(a==="")return"Peminjam";const e=a.split(" ")[0]??a;return e.length>0?e:"Peminjam"}export{t as T,r as n};
