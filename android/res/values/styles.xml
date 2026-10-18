@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Wajah terang PINDAI: kertas hangat, status bar hijau tinta. -->
+    <style name="AppTheme" parent="@android:style/Theme.Material.Light.NoActionBar">
+        <item name="android:statusBarColor">#0F3D3A</item>
+        <item name="android:navigationBarColor">#FBFCFA</item>
+        <item name="android:windowBackground">#FBFCFA</item>
+        <item name="android:colorAccent">#065F46</item>
+    </style>
+</resources>

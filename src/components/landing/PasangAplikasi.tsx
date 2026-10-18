@@ -93,7 +93,7 @@ export function PasangAplikasi() {
           </p>
         </div>
 
-        <div>
+        <div className="max-w-xs">
           <Button
             type="button"
             onClick={mulaiPasang}
@@ -102,6 +102,17 @@ export function PasangAplikasi() {
             <Download className="size-4" aria-hidden="true" />
             Pasang aplikasi
           </Button>
+          <a
+            href="/pindai.apk"
+            download="PINDAI-1.0.0.apk"
+            className="mt-3 inline-flex min-h-11 items-center text-xs font-semibold text-[#064e3b] underline underline-offset-4 hover:text-[#047857] focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#065f46]"
+          >
+            Unduh APK Android (pasang manual)
+          </a>
+          <p className="mt-1 text-[11px] leading-5 text-slate-500">
+            Untuk Android yang tidak menampilkan tawaran pemasangan. Izinkan
+            “instal dari sumber ini” saat diminta.
+          </p>
         </div>
       </div>
 

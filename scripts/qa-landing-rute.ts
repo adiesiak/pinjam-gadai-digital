@@ -84,6 +84,7 @@ for (const role of ["peminjam", "dana"]) {
 {
   const markup = render({ isAuthenticated: false, user: undefined });
   ada(markup, "Pasang aplikasi", "beranda menampilkan satu tombol pasang");
+  ada(markup, 'href="/pindai.apk"', "beranda menautkan berkas APK");
   cek(
     "tombol pasang tidak diduplikasi per platform",
     (markup.match(/Pasang aplikasi/g) ?? []).length === 1,

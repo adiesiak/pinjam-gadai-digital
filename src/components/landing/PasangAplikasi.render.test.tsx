@@ -66,7 +66,12 @@ ok(
     !markup.includes("market://"),
   "tidak ada tautan toko atau skema market",
 );
-ok(!markup.includes("<a "), "tidak ada tautan sama sekali di bagian ini");
+ok(
+  (markup.match(/<a /g) ?? []).length === 1 &&
+    markup.includes('href="/pindai.apk"'),
+  "satu tautan unduhan APK, bukan tautan toko",
+);
+ada("Unduh APK Android", "tautan unduhan APK berlabel jelas");
 ok(
   (markup.match(/type="button"/g) ?? []).length === 1,
   "tombol memakai type=button, bukan submit",
@@ -184,6 +189,20 @@ for (const [ukuran, berkas, sisi] of [
     `${berkas} benar-benar ${sisi} x ${sisi} piksel`,
   );
 }
+
+// APK-nya harus benar-benar ada; tautan tanpa berkas lebih buruk daripada
+// tidak ada tautan sama sekali.
+const apk = readFileSync(`${akar}public/pindai.apk`);
+ok(apk.length > 10_000, "berkas APK ada dan berukuran wajar");
+ok(
+  apk.subarray(0, 2).toString("ascii") === "PK",
+  "APK adalah arsip zip yang sah",
+);
+ok(apk.includes(Buffer.from("classes.dex")), "APK memuat classes.dex");
+ok(
+  apk.includes(Buffer.from("META-INF/PINDAI.RSA")),
+  "APK sudah ditandatangani",
+);
 
 const ikonIos = ukuranPng("apple-touch-icon.png");
 ok(
