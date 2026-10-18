@@ -24,7 +24,7 @@ bash android/build.sh
 ```
 
 Hasil: `public/pindai.apk` (±28 KB), ditandatangani, siap dipasang di Android 6+.
-Versi yang terbit saat ini adalah 1.2.0 (versionCode 3).
+Versi yang terbit saat ini adalah 1.3.0 (versionCode 4).
 
 ## Jembatan halaman ↔ aplikasi
 
@@ -55,11 +55,11 @@ Aplikasi yang sudah terpasang mengecek `https://<alamat>/version.json` sekali
 setiap dibuka:
 
 ```json
-{ "versionCode": 3, "versionName": "1.2.0", "apkUrl": "/pindai.apk" }
+{ "versionCode": 4, "versionName": "1.3.0", "apkUrl": "/pindai.apk" }
 ```
 
 Bila `versionCode` di server lebih besar dari `MainActivity.VERSI_KODE`, bilah
-hijau "PINDAI 1.2.0 tersedia" muncul di atas halaman dengan tombol **Unduh**
+hijau "PINDAI 1.3.0 tersedia" muncul di atas halaman dengan tombol **Unduh**
 yang membuka APK di peramban sistem. Pemeriksaan ini diam saja bila jaringan
 gagal — aplikasi tetap bisa dipakai.
 
