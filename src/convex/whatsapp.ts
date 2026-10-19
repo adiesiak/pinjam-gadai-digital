@@ -1163,6 +1163,8 @@ export const _pinjamanPengingat = internalQuery({
       .take(BATAS_PENGINGAT_SEKALI_JALAN);
     return loans.map((loan) => ({
       loanId: loan._id,
+      // Dipakai membaca pilihan kanal milik peminjam sebelum mengirim.
+      userId: loan.userId,
       namaLengkap: loan.namaLengkap,
       nomorReferensi: loan.nomorReferensi,
       nomorWhatsApp: loan.nomorWhatsApp ?? null,
@@ -1249,6 +1251,9 @@ export const jalankanPengingatJatuhTempo = internalAction({
     let terkirim = 0;
     let gagal = 0;
     let tanpaNomor = 0;
+    // Satu pinjaman bisa punya beberapa jenis pengingat dalam satu jalan; pilihan
+    // pemiliknya dibaca sekali saja per pengguna.
+    const prefWa = new Map<string, boolean>();
     for (const r of rencana) {
       const p = peta.get(r.loanId);
       if (p === undefined) continue;
@@ -1256,29 +1261,50 @@ export const jalankanPengingatJatuhTempo = internalAction({
         templateUntukJenis(settings, r.jenis, undefined),
         nilaiPesanPinjaman(p, { metodeBayar, sekarang: now, dendaPerHari: tarifDenda }),
       ).isi;
-      if (p.nomorWhatsApp === null) {
-        await ctx.runMutation(internal.whatsapp._appendLog, {
-          loanId: p.loanId,
-          nomorTujuan: "-",
-          jenis: r.jenis,
-          isiPesan: "(tidak dikirim)",
-          status: "tanpa_nomor",
-          respon: "Peminjam belum punya nomor WhatsApp di data KYC.",
+
+      let waAktif = prefWa.get(p.userId);
+      if (waAktif === undefined) {
+        waAktif = await ctx.runQuery(internal.notifikasiPreferensi._kanalAktif, {
+          userId: p.userId,
+          kanal: "whatsapp",
         });
-        tanpaNomor += 1;
-        continue;
+        prefWa.set(p.userId, waAktif);
       }
-      const hasil = await kirimViaGateway(apiKey, settings, p.nomorWhatsApp, isi);
-      await ctx.runMutation(internal.whatsapp._appendLog, {
-        loanId: p.loanId,
-        nomorTujuan: p.nomorWhatsApp,
+      if (waAktif) {
+        if (p.nomorWhatsApp === null) {
+          await ctx.runMutation(internal.whatsapp._appendLog, {
+            loanId: p.loanId,
+            nomorTujuan: "-",
+            jenis: r.jenis,
+            isiPesan: "(tidak dikirim)",
+            status: "tanpa_nomor",
+            respon: "Peminjam belum punya nomor WhatsApp di data KYC.",
+          });
+          tanpaNomor += 1;
+        } else {
+          const hasil = await kirimViaGateway(apiKey, settings, p.nomorWhatsApp, isi);
+          await ctx.runMutation(internal.whatsapp._appendLog, {
+            loanId: p.loanId,
+            nomorTujuan: p.nomorWhatsApp,
+            jenis: r.jenis,
+            isiPesan: isi,
+            status: hasil.ok ? "terkirim" : "gagal",
+            respon: hasil.respon,
+          });
+          if (hasil.ok) terkirim += 1;
+          else gagal += 1;
+        }
+      }
+
+      // Email mengikuti pilihannya sendiri dan idempoten per pengingat, jadi
+      // tetap berangkat saat WhatsApp dimatikan tanpa menunggu log WhatsApp.
+      await ctx.runAction(internal.emailNotifikasi.kirimPengingat, {
+        userId: p.userId,
+        kunci: `jatuh-tempo:${p.loanId}:${r.jenis}:${sejak}`,
         jenis: r.jenis,
-        isiPesan: isi,
-        status: hasil.ok ? "terkirim" : "gagal",
-        respon: hasil.respon,
+        judul: `Pengingat pinjaman ${p.nomorReferensi}`,
+        isi,
       });
-      if (hasil.ok) terkirim += 1;
-      else gagal += 1;
     }
     return { terkirim, gagal, tanpaNomor, jumlahRencana: rencana.length, alasan: "jalan" };
   },

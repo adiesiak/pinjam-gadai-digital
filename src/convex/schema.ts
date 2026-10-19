@@ -188,6 +188,19 @@ const schema = defineSchema(
        */
       nomorWhatsApp: v.optional(v.string()),
       /**
+       * Pilihan pemilik akun untuk pengingat tagihan lewat WhatsApp.
+       * Kosong = aktif, supaya akun lama tidak berubah perilaku saat kolom ini
+       * ditambahkan. Hanya pengingat otomatis yang mengikuti pilihan ini; kode
+       * OTP dan peringatan keamanan tetap dikirim.
+       */
+      notifWhatsapp: v.optional(v.boolean()),
+      /**
+       * Pilihan pemilik akun untuk pengingat tagihan lewat email. Kosong =
+       * aktif. Email tujuan adalah `email` akun ini; tanpa email, pengingat
+       * email tidak dikirim dan tidak ada alamat lain yang dipakai.
+       */
+      notifEmail: v.optional(v.boolean()),
+      /**
        * Waktu admin mencatat pemohon yang BELUM punya akun (nasabah walk-in,
        * data lama dari buku) beserta dokumennya. Akun begini sengaja tidak
        * punya kredensial masuk: pengelolaannya lewat panel admin, dan bila
@@ -2258,6 +2271,34 @@ const schema = defineSchema(
     })
       .index("by_user", ["userId"])
       .index("by_user_kunci", ["userId", "kunci"]),
+
+    /**
+     * Jejak percobaan pengiriman EMAIL notifikasi.
+     *
+     * Kenapa perlu tabel sendiri: pengingat WhatsApp idempoten lewat `waLogs`
+     * (jenis pesan per hari), sedangkan email bisa menyala walau WhatsApp
+     * dimatikan pemilik akun — tanpa kunci idempoten sendiri, cron tiap jam
+     * akan mengirim email yang sama berkali-kali. `kunci` adalah identitas
+     * logis pengingat (mis. `angsuran:<id>:<tanggal>:<jenis>`), bukan isi
+     * pesan, sehingga perubahan kecil pada teks tidak menggandakan kiriman.
+     */
+    emailNotifikasiLog: defineTable({
+      userId: v.id("users"),
+      /** Identitas logis satu pengingat; satu baris per kunci per pengguna. */
+      kunci: v.string(),
+      /** Jenis ramah untuk diagnosis (mis. "pengingat_angsuran"). */
+      jenis: v.string(),
+      /** Alamat tujuan yang BENAR-BENAR dipakai saat percobaan itu. */
+      ke: v.string(),
+      subjek: v.string(),
+      /** "terkirim" | "gagal" | "tanpa_konfigurasi" | "tanpa_email". */
+      status: v.string(),
+      /** Keterangan kegagalan untuk diagnosis; tidak pernah berisi kredensial. */
+      respon: v.optional(v.string()),
+      /** Jumlah percobaan; dibatasi supaya gateway bermasalah tidak dispam. */
+      percobaan: v.number(),
+      waktu: v.number(),
+    }).index("by_user_kunci", ["userId", "kunci"]),
 
     /**
      * Sidik jari dokumen kontrak yang sudah ditandatangani.

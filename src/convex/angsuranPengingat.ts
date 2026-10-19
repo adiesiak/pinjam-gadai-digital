@@ -223,32 +223,51 @@ export const jalankanPengingatAngsuran = internalAction({
         sisaHari: k.sisaHari,
         jumlah: k.jumlah,
       });
-      if (!catat.bolehKirim) continue;
-      if (k.nomorWhatsApp === null) {
-        await ctx.runMutation(internal.angsuranPengingat._catatHasil, {
-          pengingatId: catat.pengingatId,
-          loanId: k.loanId,
-          nomorTujuan: "-",
-          isiPesan: "(tidak dikirim)",
-          status: "tanpa_nomor",
-          respon: "Peminjam belum punya nomor WhatsApp pada data pinjaman.",
-        });
-        continue;
-      }
       const isi = susunPesan(k, rekening);
-      const hasil = await ctx.runAction(internal.whatsapp._kirimPesanUmum, {
-        nomor: k.nomorWhatsApp,
+
+      // Pilihan pemilik akun dibaca dari server, bukan ditebak dari UI. Saat
+      // WhatsApp dimatikan, tidak ada percobaan kirim sama sekali — tetapi baris
+      // pengingat tetap dibuat supaya pusat notifikasi in-app tidak ikut hilang.
+      const waAktif = await ctx.runQuery(internal.notifikasiPreferensi._kanalAktif, {
+        userId: k.userId,
+        kanal: "whatsapp",
+      });
+      if (catat.bolehKirim && waAktif) {
+        if (k.nomorWhatsApp === null) {
+          await ctx.runMutation(internal.angsuranPengingat._catatHasil, {
+            pengingatId: catat.pengingatId,
+            loanId: k.loanId,
+            nomorTujuan: "-",
+            isiPesan: "(tidak dikirim)",
+            status: "tanpa_nomor",
+            respon: "Peminjam belum punya nomor WhatsApp pada data pinjaman.",
+          });
+        } else {
+          const hasil = await ctx.runAction(internal.whatsapp._kirimPesanUmum, {
+            nomor: k.nomorWhatsApp,
+            isi,
+          });
+          await ctx.runMutation(internal.angsuranPengingat._catatHasil, {
+            pengingatId: catat.pengingatId,
+            loanId: k.loanId,
+            nomorTujuan: k.nomorWhatsApp,
+            isiPesan: isi,
+            status: hasil.ok ? "terkirim" : "gagal",
+            respon: hasil.respon,
+          });
+          if (hasil.ok) dikirim += 1;
+        }
+      }
+
+      // Email punya jalur dan idempotensinya sendiri: tetap dikirim walau
+      // WhatsApp dimatikan, dan tidak bergantung pada log WhatsApp.
+      await ctx.runAction(internal.emailNotifikasi.kirimPengingat, {
+        userId: k.userId,
+        kunci: `angsuran:${k.angsuranId}:${k.tanggal}:${k.jenis}`,
+        jenis: "pengingat_angsuran",
+        judul: `Pengingat angsuran ke-${k.nomor} pinjaman ${k.nomorReferensi}`,
         isi,
       });
-      await ctx.runMutation(internal.angsuranPengingat._catatHasil, {
-        pengingatId: catat.pengingatId,
-        loanId: k.loanId,
-        nomorTujuan: k.nomorWhatsApp,
-        isiPesan: isi,
-        status: hasil.ok ? "terkirim" : "gagal",
-        respon: hasil.respon,
-      });
-      if (hasil.ok) dikirim += 1;
     }
     return { dikirim, kandidat: kandidat.length };
   },
