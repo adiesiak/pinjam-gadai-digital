@@ -52,6 +52,7 @@ import { namaHurufBesar } from "@/lib/nama";
 import { formatDate } from "./admin-format";
 import { type LoanRow } from "./admin-shared";
 import { AliranDanaPinjaman } from "./AliranDanaPinjaman";
+import { KirimRincianPinjaman } from "./KirimRincianPinjaman";
 import { LoanKycPanel } from "./LoanKycPanel";
 import { PanelDataDiriNasabah } from "./PanelDataDiriNasabah";
 import { PenampilDokumen } from "./PenampilDokumen";
@@ -422,6 +423,20 @@ export function LoanReviewDialog({
   const tabDetail = (
     <div className="space-y-4">
       {kotakRingkas}
+
+      {/* Dokumen rincian untuk peminjam. Terpisah dari tombol keputusan karena
+          kiriman ini tidak mengubah status apa pun, dan dibuka untuk seluruh
+          pinjaman yang barisnya bisa dibuka admin. */}
+      <section className="rounded-2xl border border-slate-200/80 bg-white p-3">
+        <p className="text-sm font-semibold text-slate-800">Dokumen rincian pinjaman</p>
+        <p className="mt-0.5 text-[11px] leading-4 text-muted-foreground">
+          Kirim rincian resmi (potongan di muka, bunga, jadwal bayar) sebagai berkas PDF ke
+          kontak peminjam yang tercatat, atau simpan berkasnya untuk diserahkan sendiri.
+        </p>
+        <div className="mt-2">
+          <KirimRincianPinjaman loanId={row._id} />
+        </div>
+      </section>
 
       {/* Rincian pendukung: bukan dihapus, hanya ditutup sampai diminta. */}
       <section className="rounded-2xl border border-slate-200/80 bg-white p-3">

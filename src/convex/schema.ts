@@ -628,6 +628,26 @@ const schema = defineSchema(
     }).index("by_loan", ["loanId"]),
 
     /**
+     * Pengiriman dokumen rincian pinjaman (email/WhatsApp) — append-only.
+     * Dipakai dua hal sekaligus: jejak audit "siapa mengirim apa ke siapa"
+     * dan pembatas laju, karena email berbayar per kirim.
+     */
+    rincianKirimLog: defineTable({
+      loanId: v.id("loans"),
+      /** "email" | "whatsapp". */
+      kanal: v.string(),
+      /** Alamat email atau nomor WhatsApp tujuan (kontak terdaftar peminjam). */
+      tujuan: v.string(),
+      /** "diproses" | "terkirim" | "gagal". */
+      status: v.string(),
+      respon: v.optional(v.string()),
+      olehUserId: v.id("users"),
+      pada: v.number(),
+    })
+      .index("by_loan_kanal", ["loanId", "kanal"])
+      .index("by_oleh", ["olehUserId", "pada"]),
+
+    /**
      * Jejak lokasi berkelanjutan Peminjam (opt-in, dengan persetujuan).
      * Satu baris per titik GPS yang dikirim device secara batch.
      */
