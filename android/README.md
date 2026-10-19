@@ -27,6 +27,18 @@ bash android/build.sh
 Hasil: `public/pindai.apk` (±144 KB), ditandatangani, siap dipasang di Android 6+.
 Versi yang terbit saat ini adalah 1.3.1 (versionCode 5).
 
+## Rilis satu perintah
+
+```bash
+bun run rilis:android
+```
+
+Perintah itu menaikkan versi berikutnya (mis. 1.3.1 → 1.3.2), menyamakan angka di
+`build.sh`, `AndroidManifest.xml`, `MainActivity.java`, dan README, membangun
+APK, lalu memeriksa versi di dalam APK, tanda tangan, ikon, halaman unduh, dan
+TypeScript. Untuk nomor tertentu, beri argumen: `bun run rilis:android 6 1.4.0`.
+Setelah selesai, tekan Publish agar APK dan `version.json` baru tersaji.
+
 ## Ikon
 
 Ikon peluncur Android 7 ke bawah memakai PNG `res/mipmap-*/ic_launcher.png`.

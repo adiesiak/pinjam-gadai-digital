@@ -81,8 +81,8 @@ async function main() {
   eq(await verifyTotpCode(RFC_SECRET, "12345", atMs), false, "tolak kode pendek");
 
   // ---- otpauth URI ----
-  const uri = otpauthUri("JBSWY3DPEHPK3PXP", "admin@pindai.id");
-  ok(uri.startsWith("otpauth://totp/PINDAI%3Aadmin%40pindai.id?"), "otpauth label ter-encode");
+  const uri = otpauthUri("JBSWY3DPEHPK3PXP", "admin@pindai.biz.id");
+  ok(uri.startsWith("otpauth://totp/PINDAI%3Aadmin%40pindai.biz.id?"), "otpauth label ter-encode");
   ok(uri.includes("secret=JBSWY3DPEHPK3PXP"), "otpauth berisi secret");
   ok(uri.includes("issuer=PINDAI"), "otpauth berisi issuer");
   ok(uri.includes("digits=6") && uri.includes("period=30"), "otpauth parameter 6 digit / 30 detik");

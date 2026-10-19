@@ -1,3 +1,5 @@
+import { SITUS_RESMI } from "./tautanAplikasi";
+
 /**
  * Aturan bersama pintu masuk "Masuk dengan Google".
  *
@@ -82,7 +84,7 @@ export function googleSiapDari(lingkungan: {
  * begitu `SITE_URL` (atau `APP_ORIGIN`) menunjuk domain aplikasi, nilai itu
  * yang dipakai. Saat aplikasi pindah domain, cukup isi `APP_ORIGIN`.
  */
-export const ORIGIN_APLIKASI_BAWAAN = "https://pindai.biz.id";
+export const ORIGIN_APLIKASI_BAWAAN = SITUS_RESMI;
 
 /** Origin halaman aplikasi; `cadangan` dipakai bila `SITE_URL` menunjuk backend. */
 export function originAplikasi(siteUrl: string | undefined, cadangan: string): string {

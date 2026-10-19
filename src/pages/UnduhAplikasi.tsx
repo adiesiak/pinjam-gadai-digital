@@ -11,13 +11,23 @@
  *  - siap: versi, ukuran, dan tautan unduhan;
  *  - gagal: alasan yang bisa dibaca, tombol coba lagi, dan tautan APK cadangan.
  */
-import { ChevronDown, Download, Menu, RefreshCw } from "lucide-react";
+import { ChevronDown, Download, Menu, MessageCircle, RefreshCw } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router";
 
 import { Button } from "@/components/ui/button";
 import { VaultLogo } from "@/components/VaultLogo";
+import { bukaLuarJendela } from "@/lib/jembatanAndroid";
+import {
+  panduanPasang,
+  platformPemasanganDari,
+  type IdPlatformPasang,
+} from "@/lib/panduanPasang";
 import { versiAplikasiDariUA } from "@/lib/pembaruanAplikasi";
+import {
+  URL_HALAMAN_UNDUH,
+  tautanWhatsappAplikasi,
+} from "@/lib/tautanAplikasi";
 import {
   NAMA_BERKAS_UNDUHAN,
   TAUTAN_UNDUH_CADANGAN,
@@ -145,6 +155,8 @@ export type PropsUnduhAplikasiView = {
   info?: InfoUnduhan | null;
   alasan?: string | null;
   terpasang?: number | null;
+  /** Perangkat pengunjung; null saat belum terdeteksi (mis. render statis). */
+  perangkat?: IdPlatformPasang | null;
   onMuatUlang?: () => void;
 };
 
@@ -159,6 +171,7 @@ export function UnduhAplikasiView({
   info = null,
   alasan = null,
   terpasang = null,
+  perangkat = null,
   onMuatUlang,
 }: PropsUnduhAplikasiView) {
   const ukuran = ukuranTerbaca(info?.ukuranByte ?? null);
@@ -384,15 +397,24 @@ export function UnduhAplikasiView({
                         </div>
                       </dl>
 
-                      <Button
-                        asChild
-                        className="mt-5 min-h-12 w-full gap-2 rounded-lg bg-[#065f46] px-5 text-base text-white hover:bg-[#064e3b]"
-                      >
-                        <a href={info.tautan} download={NAMA_BERKAS_UNDUHAN}>
-                          <Download className="size-5" aria-hidden="true" />
-                          Unduh APK {info.versiNama}
-                        </a>
-                      </Button>
+                      {perangkat === "ios" ? (
+                        <Button
+                          asChild
+                          className="mt-5 min-h-12 w-full gap-2 rounded-lg bg-[#065f46] px-5 text-base text-white hover:bg-[#064e3b]"
+                        >
+                          <a href="#bagikan">Cara pasang di iPhone</a>
+                        </Button>
+                      ) : (
+                        <Button
+                          asChild
+                          className="mt-5 min-h-12 w-full gap-2 rounded-lg bg-[#065f46] px-5 text-base text-white hover:bg-[#064e3b]"
+                        >
+                          <a href={info.tautan} download={NAMA_BERKAS_UNDUHAN}>
+                            <Download className="size-5" aria-hidden="true" />
+                            Unduh APK {info.versiNama}
+                          </a>
+                        </Button>
+                      )}
 
                       <p
                         aria-live="polite"
@@ -413,6 +435,99 @@ export function UnduhAplikasiView({
                   {keadaanVersi.teks}
                 </p>
               )}
+            </div>
+          </div>
+        </section>
+
+        <section
+          id="bagikan"
+          aria-labelledby="bagikan-judul"
+          className="border-b border-[#dce7df] bg-[#f4f7f5]"
+        >
+          <div className="mx-auto grid max-w-6xl gap-6 px-4 py-9 sm:px-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+            <div>
+              <h2
+                id="bagikan-judul"
+                className="text-lg font-semibold tracking-tight"
+              >
+                Buka di ponsel atau bagikan
+              </h2>
+
+              {perangkat === "android" && (
+                <p className="mt-2 max-w-xl text-sm leading-6 text-slate-600">
+                  Perangkat ini Android. Tombol unduh di atas memasang APK di
+                  perangkat ini; Android akan meminta izin “instal dari sumber
+                  ini”.
+                </p>
+              )}
+
+              {perangkat === "ios" && (
+                <div className="mt-2 max-w-xl">
+                  <p className="text-sm leading-6 text-slate-600">
+                    iPhone dan iPad tidak bisa memasang APK. Pasang versi web
+                    PINDAI lewat Safari:
+                  </p>
+                  <ol className="mt-2 list-decimal space-y-1 pl-5 text-xs leading-5 text-slate-600">
+                    {panduanPasang("ios").langkah.map((langkah) => (
+                      <li key={langkah}>{langkah}</li>
+                    ))}
+                  </ol>
+                </div>
+              )}
+
+              {perangkat === "desktop" && (
+                <p className="mt-2 max-w-xl text-sm leading-6 text-slate-600">
+                  Anda membuka halaman ini di komputer. Pindai QR di samping
+                  dengan kamera ponsel untuk membuka halaman unduh di Android.
+                </p>
+              )}
+
+              {perangkat === null && (
+                <p className="mt-2 max-w-xl text-sm leading-6 text-slate-600">
+                  Pindai QR di samping untuk membuka halaman ini di ponsel
+                  Android, atau bagikan tautannya.
+                </p>
+              )}
+
+              <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2">
+                <Button asChild variant="outline" className="min-h-11 gap-2 bg-[#fbfcfa]">
+                  <a
+                    href={tautanWhatsappAplikasi()}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={(event) => {
+                      if (bukaLuarJendela(tautanWhatsappAplikasi())) {
+                        event.preventDefault();
+                      }
+                    }}
+                  >
+                    <MessageCircle className="size-4" aria-hidden="true" />
+                    Bagikan lewat WhatsApp
+                  </a>
+                </Button>
+                <a
+                  href={URL_HALAMAN_UNDUH}
+                  className="inline-flex min-h-11 items-center text-xs font-semibold text-[#064e3b] underline underline-offset-4 hover:text-[#047857] focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#065f46]"
+                >
+                  pindai.biz.id/aplikasi
+                </a>
+              </div>
+            </div>
+
+            <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:gap-4">
+              <div className="rounded-xl border border-[#d5e1d8] bg-white p-2">
+                <img
+                  src="/qr-aplikasi.svg"
+                  alt="QR code untuk membuka halaman unduh PINDAI di ponsel"
+                  width={112}
+                  height={112}
+                  className="size-28"
+                />
+              </div>
+              <div className="max-w-40 text-xs leading-5 text-slate-600">
+                <p className="font-semibold text-slate-900">Pindai dengan kamera</p>
+                <p className="mt-1">Membuka halaman ini di ponsel Android.</p>
+              </div>
             </div>
           </div>
         </section>
@@ -553,6 +668,17 @@ export default function UnduhAplikasi() {
     [],
   );
 
+  const perangkat = useMemo(
+    () =>
+      typeof navigator === "undefined"
+        ? null
+        : platformPemasanganDari(
+            navigator.userAgent,
+            navigator.maxTouchPoints ?? 0,
+          ),
+    [],
+  );
+
   useEffect(() => {
     const judulSemula = document.title;
     document.title = "Unduh Aplikasi Android | PINDAI";
@@ -581,6 +707,7 @@ export default function UnduhAplikasi() {
       info={hasil?.ok === true ? hasil.info : null}
       alasan={hasil?.ok === false ? hasil.alasan : null}
       terpasang={terpasang}
+      perangkat={perangkat}
       onMuatUlang={() => setPercobaan((n) => n + 1)}
     />
   );

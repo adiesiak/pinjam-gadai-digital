@@ -13,6 +13,7 @@
 import { readFileSync, statSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
+import QRCode from "qrcode";
 import { renderToStaticMarkup } from "react-dom/server";
 import { MemoryRouter } from "react-router";
 
@@ -26,6 +27,10 @@ import {
   type InfoUnduhan,
 } from "@/lib/unduhAplikasi";
 import { UnduhAplikasiView } from "@/pages/UnduhAplikasi";
+import {
+  URL_HALAMAN_UNDUH,
+  tautanWhatsappAplikasi,
+} from "@/lib/tautanAplikasi";
 
 let passed = 0;
 let failed = 0;
@@ -63,6 +68,36 @@ ok(
   "berkas APK di public/ ada dan berukuran wajar",
 );
 
+ok(
+  URL_HALAMAN_UNDUH === "https://pindai.biz.id/aplikasi",
+  "alamat bagikan memakai domain resmi",
+);
+ok(
+  decodeURIComponent(tautanWhatsappAplikasi().split("text=")[1] ?? "").includes(
+    URL_HALAMAN_UNDUH,
+  ),
+  "pesan WhatsApp memuat alamat halaman unduh",
+);
+
+{
+  const qr = readFileSync(`${akar}public/qr-aplikasi.svg`, "utf8");
+  ok(qr.startsWith("<svg"), "berkas QR berupa SVG");
+  ok(qr.includes('fill="#ffffff"'), "QR punya bidang putih untuk quiet zone");
+  ok(qr.includes('stroke="#0f3d3a"'), "QR memakai warna lambang");
+
+  const qrHarapan = await QRCode.toString(URL_HALAMAN_UNDUH, {
+    type: "svg",
+    width: 240,
+    margin: 2,
+    errorCorrectionLevel: "M",
+    color: { dark: "#0f3d3a", light: "#ffffff" },
+  });
+  ok(
+    qr === qrHarapan,
+    "QR di public/ dihasilkan dari alamat halaman unduh resmi",
+  );
+}
+
 // ===== 1. Keadaan siap ======================================================
 {
   const html = renderToStaticMarkup(
@@ -82,9 +117,13 @@ ok(
   ada(html, "Unduh PINDAI untuk Android", "judul halaman tampil");
   ada(
     html,
-    'src="/icon-192.png?v=1.3.1"',
+    `src="/icon-192.png?v=${info.versiNama}"`,
     "kartu memakai ikon lambang dengan cache-busting",
   );
+  ada(html, 'src="/qr-aplikasi.svg"', "QR halaman unduh tampil");
+  ada(html, "Bagikan lewat WhatsApp", "tombol bagikan tersedia");
+  ada(html, "wa.me/?text=", "tautan bagikan menuju WhatsApp");
+  ada(html, URL_HALAMAN_UNDUH, "alamat halaman unduh ditampilkan");
   ok((html.match(/<h1/g) ?? []).length === 1, "hanya satu h1");
   ada(html, `Unduh APK ${info.versiNama}`, "tombol menyebut versi dari version.json");
   ada(html, `href="${info.tautan}"`, "tombol menuju tautan dari version.json");
@@ -109,6 +148,65 @@ ok(
     "tidak ada tautan toko aplikasi",
   );
   bersih(html, "keadaan siap");
+}
+
+// ===== 1b. Panduan per perangkat ===========================================
+const infoSiap = {
+  ...info,
+  ukuranByte: statSync(`${akar}public/pindai.apk`).size,
+};
+
+for (const [perangkat, teks] of [
+  ["android", "Perangkat ini Android"],
+  ["ios", "iPhone dan iPad tidak bisa memasang APK"],
+  ["desktop", "Anda membuka halaman ini di komputer"],
+] as const) {
+  const html = renderToStaticMarkup(
+    <MemoryRouter initialEntries={["/aplikasi"]}>
+      <UnduhAplikasiView
+        status="siap"
+        info={infoSiap}
+        perangkat={perangkat}
+        onMuatUlang={() => undefined}
+      />
+    </MemoryRouter>,
+  );
+  ada(html, teks, `panduan untuk ${perangkat} tampil`);
+  bersih(html, `panduan ${perangkat}`);
+}
+
+{
+  const html = renderToStaticMarkup(
+    <MemoryRouter initialEntries={["/aplikasi"]}>
+      <UnduhAplikasiView
+        status="siap"
+        info={infoSiap}
+        perangkat="ios"
+        onMuatUlang={() => undefined}
+      />
+    </MemoryRouter>,
+  );
+  ada(html, "Tambah ke Layar Utama", "langkah pasang web iPhone tampil");
+  ada(html, 'href="#bagikan"', "tombol iPhone menuju panduan pemasangan");
+  ok(
+    !html.includes(`Unduh APK ${info.versiNama}`),
+    "iPhone tidak ditawari berkas APK",
+  );
+}
+
+{
+  const html = renderToStaticMarkup(
+    <MemoryRouter initialEntries={["/aplikasi"]}>
+      <UnduhAplikasiView
+        status="siap"
+        info={infoSiap}
+        perangkat="android"
+        onMuatUlang={() => undefined}
+      />
+    </MemoryRouter>,
+  );
+  ada(html, `Unduh APK ${info.versiNama}`, "Android tetap mendapat tombol APK");
+  ada(html, "instal dari sumber", "Android diberi tahu izin pemasangan");
 }
 
 // ===== 2. Keadaan memuat ====================================================

@@ -41,7 +41,7 @@ export function TotpSetupDialog({
   const [copied, setCopied] = useState(false);
 
   const uri = useMemo(
-    () => (secret ? otpauthUri(secret, "admin@pindai.id") : null),
+    () => (secret ? otpauthUri(secret, "admin@pindai.biz.id") : null),
     [secret],
   );
 

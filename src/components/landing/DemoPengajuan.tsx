@@ -361,7 +361,7 @@ export function DemoPengajuan() {
                 <span className="size-2 rounded-full bg-[#dce7df]" />
               </span>
               <span className="ml-1 truncate rounded-full border border-[#dce7df] bg-white px-2.5 py-1 font-mono text-[10px] text-slate-500">
-                pindai.app/pengajuan
+                pindai.biz.id/pengajuan
               </span>
               <span className="ml-auto shrink-0 rounded-full bg-[#e5f2e9] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-[#064e3b]">
                 Contoh layar

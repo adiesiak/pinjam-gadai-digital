@@ -167,7 +167,7 @@ function kopSurat(jenis: "pinjaman" | "gadai" | "pendanaan", meta: ContractMeta)
 function footerDokumen(): string {
   return `<footer class="footer-dok">
     <span>Dokumen ini sah dan diterbitkan secara elektronik melalui sistem pencatatan internal PT Pinjam Gadai Digital (PINDAI).</span>
-    <span>Legalitas &amp; Verifikasi: support@pindai.id | www.pindai.id</span>
+    <span>Legalitas &amp; Verifikasi: support@pindai.biz.id | pindai.biz.id</span>
   </footer>`;
 }
 
