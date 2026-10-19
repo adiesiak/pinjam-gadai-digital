@@ -68,7 +68,11 @@ export function NasabahDetailDialog({
         if (!terbuka) onClose();
       }}
     >
-      <DialogContent className="max-w-3xl">
+      {/* `sm:max-w-3xl` menimpa bawaan `sm:max-w-lg`; tanpa varian `sm:`
+          bawaan itu tetap menang di layar lebar dan dialog terjepit selebar
+          form pendek. `overflow-x-hidden` menjaga baris kode panjang tidak
+          memunculkan gulir horizontal di dalam modal. */}
+      <DialogContent className="overflow-x-hidden sm:max-w-3xl">
         <DialogHeader>
           <DialogTitle className="flex flex-wrap items-center gap-2">
             Profil &amp; Data Diri
@@ -155,13 +159,13 @@ export function NasabahDetailDialog({
             {/* ===== Grid dua kolom: SIAPA (kiri) & SEBERAPA AMAN (kanan) ===== */}
             <div className="grid gap-4 lg:grid-cols-2">
               {/* ── KOLOM KIRI ── */}
-              <div className="space-y-3">
+              <div className="min-w-0 space-y-3">
                 <KartuKolom
                   icon={<IdCard className="size-4" />}
                   judul="Informasi personal"
                   keterangan="Identitas dasar yang tercatat di master nasabah."
                 >
-                  <dl className="grid grid-cols-2 gap-2">
+                  <dl className="grid grid-cols-1 gap-2 min-[380px]:grid-cols-2">
                     <Kartu label="Nama lengkap" nilai={detail.profil?.namaLengkap ?? detail.nama} />
                     <Kartu label="NIK" nilai={detail.profil?.nik ?? "—"} />
                     <Kartu
@@ -179,7 +183,7 @@ export function NasabahDetailDialog({
                   judul="Kontak WA & pekerjaan"
                   keterangan="Dipakai tim untuk penagihan dan verifikasi penghasilan."
                 >
-                  <dl className="grid grid-cols-2 gap-2">
+                  <dl className="grid grid-cols-1 gap-2 min-[380px]:grid-cols-2">
                     <Kartu label="Nomor WhatsApp" nilai={detail.profil?.nomorWhatsApp ?? "—"} />
                     <Kartu label="Pekerjaan" nilai={detail.profil?.pekerjaan ?? "—"} />
                     <Kartu
@@ -236,7 +240,7 @@ export function NasabahDetailDialog({
               </div>
 
               {/* ── KOLOM KANAN ── */}
-              <div className="space-y-3">
+              <div className="min-w-0 space-y-3">
                 {/* Skor risiko: grade sistem + override berjejak. */}
                 <section className="rounded-2xl border border-slate-200 bg-white p-3">
                   <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
