@@ -7,7 +7,9 @@ import { Loader2, PenLine } from "lucide-react";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { buildGadaiContract, CONTRACT_TERMS_VERSION, nomorContract } from "@/lib/contract";
+import { urlVerifikasi } from "@/lib/kontrakDigital";
 import { namaHurufBesar } from "@/lib/nama";
+import { useQrDataUrl } from "@/hooks/use-qr";
 
 import { ContractSigningDialog } from "./ContractSigningDialog";
 
@@ -15,6 +17,8 @@ import { ContractSigningDialog } from "./ContractSigningDialog";
 export function PawnContractBlock({ pawnId, pawnRef }: { pawnId: Id<"pawns">; pawnRef: string }) {
   const [open, setOpen] = useState(false);
   const detail = useQuery(api.admin.contractDetailPawn, { pawnId });
+  const digital = useQuery(api.kontrakDigital.infoGadai, { pawnId });
+  const qr = useQrDataUrl(digital ? urlVerifikasi(digital.kode) : null);
   const save = useMutation(api.admin.simpanTandaTanganGadai);
 
   if (detail === undefined) {
@@ -81,6 +85,17 @@ Perjanjian gadai tersedia setelah nilai taksiran dimasukkan ke aplikasi.
       lokasi: null,
       timestampPada: tandaTanganPeminjam?.tandaTanganPada ?? detail._creationTime,
       ...(tandaTanganPeminjam ? { tandaTanganPeminjam } : {}),
+      ...(digital
+        ? {
+            verifikasi: {
+              kode: digital.kode,
+              hash: digital.hash,
+              diterbitkanPada: digital.diterbitkanPada,
+              url: urlVerifikasi(digital.kode),
+              qrDataUrl: qr,
+            },
+          }
+        : {}),
     },
   );
 

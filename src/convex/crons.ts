@@ -57,4 +57,15 @@ crons.daily(
   {},
 );
 
+// Pemeriksa kesehatan sistem: ledger tidak seimbang, gateway WhatsApp gagal,
+// dan cron yang berhenti berdenyut. Menulis audit hanya saat ada masalah kritis.
+crons.interval(
+  "pemeriksaan-sistem",
+  // Enam jam: pemeriksaan membaca seluruh ledger, jadi tidak dijalankan tiap
+  // menit. Denyut cron yang berhenti tetap terdeteksi pada putaran berikutnya.
+  { hours: 6 },
+  internal.monitoring.periksaSistem,
+  {},
+);
+
 export default crons;

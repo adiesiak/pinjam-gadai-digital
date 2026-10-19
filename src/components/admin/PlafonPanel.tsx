@@ -380,6 +380,12 @@ export function PlafonPanel() {
                                   ? `Risk ${r.risikoGrade} · ${r.risikoSkor}/100`
                                   : "Belum ada riwayat"}
                               </Badge>
+                              <Badge
+                                className="border-emerald-200 bg-emerald-50 text-emerald-800"
+                                title="Skor perilaku bayar internal, dipakai menaikkan plafon otomatis. Bukan skor kredit pihak ketiga."
+                              >
+                                Perilaku {r.skorPerilaku}/100
+                              </Badge>
                               <Badge className="border-slate-200 bg-slate-100 text-slate-600">
                                 {r.jumlahPengajuan} pengajuan · {r.pinjamanAktif} aktif
                               </Badge>
@@ -509,8 +515,8 @@ export function PlafonPanel() {
                         </p>
                       </div>
                     </div>
-                    <Badge className={nadaGrade(r.risikoGrade, r.risikoDinilai)}>
-                      {r.risikoDinilai ? `Risk ${r.risikoGrade} · ${r.risikoSkor}/100` : "Baru"}
+                    <Badge className={nadaGrade(r.risikoGrade, r.risikoDinilai)}>                                {r.risikoDinilai ? `Risk ${r.risikoGrade} · ${r.risikoSkor}/100` : "Baru"}
+                                {" · "}Perilaku {r.skorPerilaku}/100
                     </Badge>
                   </div>
 

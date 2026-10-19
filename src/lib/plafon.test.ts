@@ -12,8 +12,12 @@ import {
   PLAFON_KENAIKAN_PER_PELUNASAN,
   PLAFON_NAIK_SETELAH_LUNAS,
   PLAFON_POKOK_MINIMUM_LUNAS,
+  perilakuDariRiwayat,
+  plafonDariPerilaku,
   plafonDasarDariRiwayat,
   plafonEfektif,
+  plafonEfektifDariPerilaku,
+  skorPerilaku,
   pokokDalamPlafon,
   ringkasPlafon,
   tanggalJatuhTempoPinjaman,
@@ -164,6 +168,53 @@ ok(
 eq("batas pokok kredit barang tetap Rp10 juta", KREDIT_BARANG_POKOK_MAKS, 10_000_000);
 eq("tenor maksimal penerbitan kredit barang 6 bulan", KREDIT_TENOR_MAKS_BULAN, 6);
 eq("tenor baru hanya 1/3/6 bulan", KREDIT_TENOR_PENGAJUAN_OPTIONS.join(","), "1,3,6");
+
+// ===== Perilaku bayar → plafon otomatis =====
+const HARI_MS = 86_400_000;
+const sekarangUji = 1_760_000_000_000;
+const riwayat = [
+  { status: "lunas", pokokPinjaman: 1_000_000, didanaiPada: sekarangUji - 60 * HARI_MS, lunasPada: sekarangUji - 35 * HARI_MS, tenorHari: 30 },
+  { status: "lunas", pokokPinjaman: 1_000_000, didanaiPada: sekarangUji - 90 * HARI_MS, lunasPada: sekarangUji - 65 * HARI_MS, tenorHari: 30 },
+  { status: "didanai", pokokPinjaman: 1_000_000, didanaiPada: sekarangUji - 10 * HARI_MS, tenorHari: 30 },
+];
+const perilaku = perilakuDariRiwayat(riwayat, sekarangUji);
+eq("dua pelunasan tepat waktu", perilaku.tepatWaktu, 2);
+eq("satu pinjaman berjalan", perilaku.berjalan, 1);
+eq("tidak ada tunggakan", perilaku.menunggak, 0);
+eq("skor perilaku catatan bersih", skorPerilaku(perilaku), 85);
+eq(
+  "dua tepat waktu dapat bonus 1 juta",
+  plafonDariPerilaku(PLAFON_DEFAULT, perilaku),
+  PLAFON_DEFAULT + 2 * PLAFON_KENAIKAN_PER_PELUNASAN + 1_000_000,
+);
+const perilakuTiga = { tepatWaktu: 3, terlambat: 0, menunggak: 0, berjalan: 0 };
+eq(
+  "tiga tepat waktu dapat bonus 2 juta",
+  plafonDariPerilaku(PLAFON_DEFAULT, perilakuTiga),
+  PLAFON_DEFAULT + 3 * PLAFON_KENAIKAN_PER_PELUNASAN + 2_000_000,
+);
+const perilakuTelat = { tepatWaktu: 3, terlambat: 1, menunggak: 0, berjalan: 0 };
+eq(
+  "keterlambatan membatalkan bonus",
+  plafonDariPerilaku(PLAFON_DEFAULT, perilakuTelat),
+  PLAFON_DEFAULT + 3 * PLAFON_KENAIKAN_PER_PELUNASAN,
+);
+const perilakuNunggak = { tepatWaktu: 5, terlambat: 0, menunggak: 1, berjalan: 1 };
+eq(
+  "tunggakan menahan plafon di default",
+  plafonDariPerilaku(PLAFON_DEFAULT, perilakuNunggak),
+  PLAFON_DEFAULT,
+);
+eq(
+  "plafon perilaku dibatasi maksimum",
+  plafonDariPerilaku(PLAFON_DEFAULT, { tepatWaktu: 20, terlambat: 0, menunggak: 0, berjalan: 0 }),
+  PLAFON_NAIK_SETELAH_LUNAS,
+);
+eq(
+  "override admin menang atas perilaku",
+  plafonEfektifDariPerilaku(7_500_000, PLAFON_DEFAULT, perilakuTiga),
+  7_500_000,
+);
 
 console.log(`plafon tests: ${passed} passed, ${failed} failed`);
 if (failed > 0) process.exit(1);

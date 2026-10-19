@@ -21,6 +21,7 @@
  */
 import { query } from "./_generated/server";
 import { requireAdminSession } from "./adminAuthz";
+import { susunPeringatan } from "./monitoring";
 import { getConfig } from "./system";
 
 /** Jendela "terakhir 24 jam" untuk sinyal laju. */
@@ -54,6 +55,7 @@ export const kesehatanSistem = query({
       ]);
 
     const cfg = await getConfig(ctx);
+    const { peringatan, denyut } = await susunPeringatan(ctx);
 
     // ===== WhatsApp =====
     const waTerbaru = waLogs.filter((w) => w.waktu >= batas24Jam);
@@ -88,6 +90,10 @@ export const kesehatanSistem = query({
     return {
       dihitungPada: sekarang,
       jendela: { mulai: batas24Jam, selesai: sekarang, label: "24 jam terakhir" },
+      /** Masalah yang layak ditindaklanjuti, terurut kritis lebih dulu. */
+      peringatan,
+      /** Denyut cron terakhir — kosong berarti job belum pernah selesai. */
+      denyut,
       konfigurasi: {
         versi: cfg.versi,
         killSwitch: cfg.killSwitch,

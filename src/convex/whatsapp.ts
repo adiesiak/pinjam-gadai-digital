@@ -1205,6 +1205,11 @@ export const _logPengingatHariIni = internalQuery({
 export const jalankanPengingatJatuhTempo = internalAction({
   args: {},
   handler: async (ctx) => {
+    // Denyut ditulis lebih dulu: jadwal yang berjalan tetapi gateway dimatikan
+    // tetap sehat, dan tidak boleh tampak seperti cron yang berhenti.
+    await ctx.runMutation(internal.monitoring.catatDenyutInternal, {
+      nama: "pengingat-jatuh-tempo-wa",
+    });
     const settings: WaSettings = await ctx.runQuery(internal.whatsapp._getSettings, {});
     if (settings.aktif !== true || !settings.apiUrl) {
       return { terkirim: 0, gagal: 0, tanpaNomor: 0, jumlahRencana: 0, alasan: "nonaktif" };

@@ -26,6 +26,7 @@ import { v } from "convex/values";
 
 import { internalMutation, type MutationCtx } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
+import { catatDenyut } from "./monitoring";
 
 /** Masa simpan baris kunci — 7 hari, jauh melewati jendela retry mana pun. */
 export const MASA_SIMPAN_KUNCI_MS = 7 * 86_400_000;
@@ -106,6 +107,7 @@ export const bersihkanKunciLama = internalMutation({
     for (const baris of lama) {
       await ctx.db.delete(baris._id);
     }
+    await catatDenyut(ctx, "retensi-idempotensi");
     return { dihapus: lama.length };
   },
 });

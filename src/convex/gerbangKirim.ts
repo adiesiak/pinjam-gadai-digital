@@ -30,6 +30,7 @@ import { v } from "convex/values";
 import { internalMutation, mutation, type MutationCtx } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { periksaGerbangKirim } from "../lib/gerbangKirim";
+import { catatDenyut } from "./monitoring";
 
 /** Batas kiriman per akun dalam satu jendela laju. */
 export const MAKS_KIRIM = 5;
@@ -280,6 +281,7 @@ export const bersihkanJejakGerbang = internalMutation({
     for (const baris of lama) {
       await ctx.db.delete(baris._id);
     }
+    await catatDenyut(ctx, "retensi-gerbang");
     return { dihapus: lama.length };
   },
 });

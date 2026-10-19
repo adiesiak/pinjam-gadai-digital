@@ -32,6 +32,19 @@ export type ContractMeta = {
     persetujuanSyaratPada?: number | null;
     persetujuanSyaratVersi?: string | null;
   };
+  /**
+   * Sidik jari dokumen dari server (tabel `kontrakDigital`). Kosong berarti
+   * kontrak belum/tidak memiliki kode verifikasi — mis. data lama yang
+   * ditandatangani sebelum fitur ini ada.
+   */
+  verifikasi?: {
+    kode: string;
+    hash: string;
+    diterbitkanPada: number;
+    url: string;
+    /** QR data URL; kosong = QR belum selesai dibuat di klien. */
+    qrDataUrl?: string | null;
+  };
   /** Blok klausul khusus gadai. */
   gadai?: {
     deskripsiBarang: string;
@@ -161,6 +174,38 @@ function kopSurat(jenis: "pinjaman" | "gadai" | "pendanaan", meta: ContractMeta)
       <span class="kop-ref">Ref: ${escapeHtml(nomorContract(jenis, meta.nomorReferensi))}</span>
     </div>
   </header>`;
+}
+
+/**
+ * Blok verifikasi: kode, hash, waktu terbit, dan QR ke halaman publik.
+ *
+ * Kode dan hash berasal dari server; yang dicetak di sini hanyalah salinannya.
+ * Halaman verifikasi menampilkan hash yang tersimpan, sehingga pembaca bisa
+ * membandingkan keduanya tanpa mempercayai berkas PDF itu sendiri.
+ */
+function blokVerifikasi(meta: ContractMeta): string {
+  const v = meta.verifikasi;
+  if (!v) return "";
+  const waktu = new Date(v.diterbitkanPada).toLocaleString("id-ID", {
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+  const qr = v.qrDataUrl
+    ? `<img class="verif-qr" src="${escapeHtml(v.qrDataUrl)}" alt="QR halaman verifikasi dokumen"/>`
+    : `<div class="verif-qr verif-qr-kosong">QR</div>`;
+  return `<section class="verif">
+    ${qr}
+    <div class="verif-teks">
+      <p class="verif-judul">Verifikasi keaslian dokumen</p>
+      <p>Kode <span class="verif-kode">${escapeHtml(v.kode)}</span> · diterbitkan ${escapeHtml(waktu)} (WIB)</p>
+      <p class="verif-hash">SHA-256 ${escapeHtml(v.hash)}</p>
+      <p>Pindai QR atau buka ${escapeHtml(v.url)}. Cocokkan hash di halaman itu dengan hash pada dokumen ini.</p>
+    </div>
+  </section>`;
 }
 
 /** Footer legal dokumen — tampil di dasar setiap surat perjanjian. */
@@ -299,6 +344,7 @@ export function buildPinjamanContract(
       ${blokTandaTanganPeminjam(namaHurufBesar(peminjam.namaLengkap), "Peminjam — Pihak Kedua", meta)}
       ${blokPlatform()}
     </div>
+    ${blokVerifikasi(meta)}
     ${footerDokumen()}
   </div>`;
 }
@@ -363,6 +409,7 @@ export function buildGadaiContract(
       ${blokTandaTanganPeminjam(namaHurufBesar(peminjam.namaLengkap), "Peminjam — Pihak Kedua", meta)}
       ${blokPlatform()}
     </div>
+    ${blokVerifikasi(meta)}
     ${footerDokumen()}
   </div>`;
 }

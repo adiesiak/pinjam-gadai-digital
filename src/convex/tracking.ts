@@ -4,6 +4,7 @@ import { v } from "convex/values";
 import { requireAdminSession } from "./adminAuthz";
 import { simpanTitik } from "./lokasi";
 import { getConfig } from "./system";
+import { catatDenyut } from "./monitoring";
 import { batasRetensiMs, LOKASI_RETENSI, titikBolehDihapus } from "../lib/lokasi";
 import type { LoanStatus } from "../lib/loan";
 
@@ -245,6 +246,7 @@ export const bersihkanLokasiLama = internalMutation({
       if (baris.length < perBatch) break;
     }
 
+    await catatDenyut(ctx, "retensi-lokasi");
     return { ok: true, diperiksa, dihapus, dipertahankan };
   },
 });

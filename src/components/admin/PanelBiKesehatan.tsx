@@ -11,7 +11,7 @@
  * keduanya admin ber-TOTP.
  */
 import { useQuery } from "convex/react";
-import { Activity, BarChart3, Loader2 } from "lucide-react";
+import { Activity, BarChart3, Loader2, TriangleAlert } from "lucide-react";
 import { useState } from "react";
 
 import { api } from "@/convex/_generated/api";
@@ -216,6 +216,41 @@ export function PanelBiKesehatan() {
                 Konfigurasi versi {kesehatan.konfigurasi.versi}
               </span>
             </div>
+
+            {kesehatan.peringatan.length > 0 ? (
+              <div className="mt-4 space-y-2" role="alert">
+                <p className="flex items-center gap-2 text-xs font-semibold text-rose-800">
+                  <TriangleAlert className="size-4" aria-hidden="true" />
+                  Perlu perhatian ({kesehatan.peringatan.length})
+                </p>
+                {kesehatan.peringatan.map((p) => (
+                  <div
+                    key={p.kunci}
+                    className={
+                      p.tingkat === "kritis"
+                        ? "rounded-xl border border-rose-200 bg-rose-50 px-3 py-2.5"
+                        : "rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5"
+                    }
+                  >
+                    <p
+                      className={
+                        p.tingkat === "kritis"
+                          ? "text-xs font-semibold text-rose-900"
+                          : "text-xs font-semibold text-amber-900"
+                      }
+                    >
+                      {p.judul}
+                    </p>
+                    <p className="mt-1 text-[11px] leading-5 text-slate-700">{p.pesan}</p>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs leading-5 text-emerald-900">
+                Tidak ada peringatan otomatis: jurnal seimbang, tidak ada kegagalan
+                WhatsApp dalam 24 jam, dan semua cron berdenyut sesuai jadwal.
+              </p>
+            )}
 
             <div className="mt-4">
               <DaftarSinyalKesehatan sinyal={kesehatan.sinyal} />

@@ -30,6 +30,14 @@ ol{padding-left:18px}
 .stamp-bulat text{font:700 9px ui-sans-serif,system-ui,sans-serif;fill:currentColor;letter-spacing:.08em}
 .stamp-bulat text.kecil{font:700 7.5px ui-sans-serif,system-ui,sans-serif;letter-spacing:.12em}
 .footer-dok{display:flex;flex-direction:column;gap:8px;border-top:1px solid #e2e8f0;padding-top:16px;margin-top:32px;font:11px/1.6 ui-sans-serif,system-ui,sans-serif;color:#64748b}
+.verif{display:flex;gap:14px;align-items:flex-start;border:1px solid #cfe0d6;background:#f5faf7;border-radius:10px;padding:12px 14px;margin-top:30px;break-inside:avoid}
+.verif-qr{width:92px;height:92px;flex:none;border:1px solid #cbd5e1;border-radius:6px;background:#fff;object-fit:contain}
+.verif-qr-kosong{display:grid;place-items:center;font:700 10px ui-sans-serif,system-ui,sans-serif;color:#94a3b8;letter-spacing:.14em}
+.verif-teks{min-width:0}
+.verif-judul{font:700 11px/1.3 ui-sans-serif,system-ui,sans-serif;letter-spacing:.06em;text-transform:uppercase;color:#064E3B;margin:0 0 3px}
+.verif p{font:10.5px/1.65 ui-sans-serif,system-ui,sans-serif;margin:2px 0;color:#334155}
+.verif-kode{font-weight:700;letter-spacing:.08em;color:#064E3B}
+.verif-hash{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:9.5px;word-break:break-all;color:#475569}
 @media (min-width:768px){.footer-dok{flex-direction:row;justify-content:space-between;align-items:center;gap:8px}}
 @media print{.no-print{display:none}}`;
 

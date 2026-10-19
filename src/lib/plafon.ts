@@ -23,7 +23,7 @@ export type RiwayatPinjamanPlafon = {
   tenorBulan?: number;
 };
 
-/** Plafon efektif Peminjam — override admin menang atas hasil riwayat. */
+/** Plafon efektif Peminjam — override admin menang atas hasil perilaku. */
 export async function plafonPeminjam(
   ctx: QueryCtx,
   userId: Id<"users">,
@@ -33,8 +33,103 @@ export async function plafonPeminjam(
     getConfigServer(ctx),
     ctx.db.query("loans").withIndex("by_user", (q) => q.eq("userId", userId)).collect(),
   ]);
-  const jumlahPelunasanTepatWaktu = loans.filter(apakahPelunasanTepatWaktu).length;
-  return plafonEfektif(user?.plafonPinjaman, cfg, jumlahPelunasanTepatWaktu);
+  return plafonEfektifDariPerilaku(
+    user?.plafonPinjaman,
+    cfg,
+    perilakuDariRiwayat(loans, Date.now()),
+  );
+}
+
+/**
+ * Ringkasan perilaku bayar dari riwayat pinjaman tunai.
+ *
+ * Hanya pinjaman yang SUDAH CAIR yang menilai perilaku: pengajuan yang ditolak
+ * atau belum berjalan bukan bukti pembayaran. Pinjaman aktif yang melewati
+ * jatuh tempo dihitung menunggak; pinjaman lunas setelah jatuh tempo dihitung
+ * terlambat.
+ */
+export type PerilakuBayar = {
+  tepatWaktu: number;
+  terlambat: number;
+  menunggak: number;
+  berjalan: number;
+};
+
+export function perilakuDariRiwayat(
+  loans: readonly RiwayatPinjamanPlafon[],
+  sekarang: number,
+): PerilakuBayar {
+  let tepatWaktu = 0;
+  let terlambat = 0;
+  let menunggak = 0;
+  let berjalan = 0;
+  for (const loan of loans) {
+    if (loan.status === "lunas") {
+      // Tanpa tanggal jatuh tempo yang sah, keterlambatan tidak bisa dibuktikan.
+      // Pelunasan seperti itu tidak dihitung tepat waktu MAUPUN terlambat —
+      // bukan menghukum nasabah karena data lama tidak lengkap.
+      if (tanggalJatuhTempoPinjaman(loan) === null) continue;
+      if (apakahPelunasanTepatWaktu(loan)) tepatWaktu += 1;
+      else terlambat += 1;
+      continue;
+    }
+    if (loan.status !== "didanai") continue;
+    berjalan += 1;
+    const jatuhTempo = tanggalJatuhTempoPinjaman(loan);
+    if (jatuhTempo !== null && sekarang > jatuhTempo) menunggak += 1;
+  }
+  return { tepatWaktu, terlambat, menunggak, berjalan };
+}
+
+/** Skor perilaku 0–100 — ditampilkan, bukan pengganti keputusan kredit. */
+export function skorPerilaku(p: PerilakuBayar): number {
+  let skor = 55;
+  skor += Math.min(45, p.tepatWaktu * 15);
+  skor -= Math.min(45, p.terlambat * 15);
+  skor -= Math.min(50, p.menunggak * 25);
+  return Math.min(100, Math.max(0, Math.round(skor)));
+}
+
+/**
+ * Plafon dari perilaku bayar — MENGGANTIKAN hitungan "per pelunasan" di
+ * `plafonDasarDariRiwayat` untuk plafon efektif.
+ *
+ * Aturan (sengaja konservatif, tanpa menurunkan plafon di bawah default):
+ *  - tunggakan aktif menahan semua kenaikan; plafon kembali ke default global;
+ *  - setiap pelunasan tepat waktu memberi Rp1 juta (aturan lama tetap);
+ *  - catatan bersih (tanpa terlambat) memberi bonus: 2 pelunasan +Rp1 juta,
+ *    3 pelunasan atau lebih +Rp2 juta;
+ *  - maksimum tetap `PLAFON_NAIK_SETELAH_LUNAS`; override admin tetap menang.
+ *
+ * Bonus hanya berlaku bila semua pelunasan tercatat tepat waktu — keterlambatan
+ * tidak menghapus kenaikan pokok, tetapi tidak pernah mendapat bonus.
+ */
+export function plafonDariPerilaku(
+  globalDefault: number,
+  p: PerilakuBayar,
+): Rupiah {
+  const dasar = clampPlafon(globalDefault);
+  if (p.menunggak > 0) return dasar;
+  const kenaikanPokok = p.tepatWaktu * PLAFON_KENAIKAN_PER_PELUNASAN;
+  const bonusBersih =
+    p.terlambat === 0 && p.tepatWaktu >= 3
+      ? 2_000_000
+      : p.terlambat === 0 && p.tepatWaktu >= 2
+        ? 1_000_000
+        : 0;
+  return Math.min(
+    PLAFON_NAIK_SETELAH_LUNAS,
+    dasar + kenaikanPokok + bonusBersih,
+  ) as Rupiah;
+}
+
+/** Plafon efektif: override admin, lalu perilaku bayar, lalu default global. */
+export function plafonEfektifDariPerilaku(
+  override: number | null | undefined,
+  globalDefault: number,
+  perilaku: PerilakuBayar,
+): Rupiah {
+  return clampPlafon(override ?? plafonDariPerilaku(globalDefault, perilaku));
 }
 
 /** Baca default global dari systemConfig tanpa menarik dependensi convex/system. */

@@ -21,8 +21,10 @@ import { jarakKm } from "../lib/geo";
 import {
   apakahPelunasanTepatWaktu,
   clampPlafon,
-  plafonEfektif,
+  perilakuDariRiwayat,
+  plafonEfektifDariPerilaku,
   ringkasPlafon,
+  skorPerilaku,
 } from "../lib/plafon";
 import { clampPersenBunga, persenBungaEfektif } from "../lib/bunga";
 import { profilRisiko } from "../lib/risikoNasabah";
@@ -38,6 +40,7 @@ import {
   MS_HARI,
 } from "../lib/analitikAdmin";
 import { statusKanonik } from "../lib/statusPinjaman";
+import { terbitkanKontrakGadai, terbitkanKontrakPinjaman } from "./kontrakDigital";
 import type { Id } from "./_generated/dataModel";
 import {
   kelompokkanJurnalYatim,
@@ -136,6 +139,14 @@ export const daftarPlafonPeminjam = query({
       persenBungaPribadi: number | null;
       persenBungaEfektif: number;
       jumlahPelunasanTepatWaktu: number;
+      /** Skor perilaku bayar 0–100 (bukan skor kredit pihak ketiga). */
+      skorPerilaku: number;
+      perilaku: {
+        tepatWaktu: number;
+        terlambat: number;
+        menunggak: number;
+        berjalan: number;
+      };
       jumlahPengajuan: number;
       pinjamanAktif: number;
       /** true bila admin sudah pernah mengisi data diri nasabah ini. */
@@ -206,10 +217,11 @@ export const daftarPlafonPeminjam = query({
       ) {
         continue;
       }
-      const plafonEfektifNilai = plafonEfektif(
+      const perilaku = perilakuDariRiwayat(pinjamanUser, sekarang);
+      const plafonEfektifNilai = plafonEfektifDariPerilaku(
         user.plafonPinjaman,
         cfg.plafonPinjaman,
-        pelunasanTepatWaktuPerUser.get(id) ?? 0,
+        perilaku,
       );
       // Maksimal/terpakai/tersedia dihitung di SERVER dari master + pinjaman
       // aktif, supaya panel dan validasi pengajuan tidak mungkin berbeda angka.
@@ -225,6 +237,8 @@ export const daftarPlafonPeminjam = query({
         persenBungaPribadi: user.persenBunga ?? null,
         persenBungaEfektif: persenBungaEfektif(user.persenBunga, cfg.persenBunga),
         jumlahPelunasanTepatWaktu: pelunasanTepatWaktuPerUser.get(id) ?? 0,
+        skorPerilaku: skorPerilaku(perilaku),
+        perilaku,
         jumlahPengajuan: pinjamanUser.length + kreditUser.length,
         pinjamanAktif: pinjamanUser.filter((l) => l.status === "didanai").length,
         adaDataDiri: adaDataDiri.has(id),
@@ -273,15 +287,16 @@ export const setPlafonPeminjam = mutation({
       .withIndex("by_user", (q) => q.eq("userId", userId))
       .collect();
     const jumlahPelunasanTepatWaktu = loans.filter(apakahPelunasanTepatWaktu).length;
-    const sebelumnya = plafonEfektif(
+    const perilaku = perilakuDariRiwayat(loans, Date.now());
+    const sebelumnya = plafonEfektifDariPerilaku(
       target.plafonPinjaman,
       cfg.plafonPinjaman,
-      jumlahPelunasanTepatWaktu,
+      perilaku,
     );
-    const sesudah = plafonEfektif(
+    const sesudah = plafonEfektifDariPerilaku(
       nilaiBaru,
       cfg.plafonPinjaman,
-      jumlahPelunasanTepatWaktu,
+      perilaku,
     );
 
     await ctx.db.patch(userId, { plafonPinjaman: nilaiBaru ?? undefined });
@@ -1882,15 +1897,23 @@ export const simpanTandaTangan = mutation({
       persetujuanSyaratPada: now,
       persetujuanSyaratVersi: CONTRACT_TERMS_VERSION,
     });
+    // Sidik jari dokumen dibuat dari data yang BARU SAJA ditandatangani, dalam
+    // transaksi yang sama — tidak ada dokumen tertanda tangan tanpa kode
+    // verifikasi karena kegagalan di tengah jalan.
+    const digital = await terbitkanKontrakPinjaman(
+      ctx,
+      { ...loan, tandaTanganPada: now },
+      now,
+    );
     await audit(
       ctx,
       userId,
       user.email ?? user.name ?? "admin",
       "kontrak_pinjaman_disetujui",
       loan.nomorReferensi,
-      `Peminjam menyetujui syarat ${CONTRACT_TERMS_VERSION} dan menandatangani melalui alur yang difasilitasi admin.`,
+      `Peminjam menyetujui syarat ${CONTRACT_TERMS_VERSION} dan menandatangani melalui alur yang difasilitasi admin. Kode verifikasi ${digital.kode}, SHA-256 ${digital.hash}.`,
     );
-    return { ok: true, waktu: now, versi: CONTRACT_TERMS_VERSION };
+    return { ok: true, waktu: now, versi: CONTRACT_TERMS_VERSION, kode: digital.kode };
   },
 });
 
@@ -1930,15 +1953,20 @@ export const simpanTandaTanganGadai = mutation({
       persetujuanSyaratPada: now,
       persetujuanSyaratVersi: CONTRACT_TERMS_VERSION,
     });
+    const digital = await terbitkanKontrakGadai(
+      ctx,
+      { ...pawn, tandaTanganPada: now },
+      now,
+    );
     await audit(
       ctx,
       userId,
       user.email ?? user.name ?? "admin",
       "kontrak_gadai_disetujui",
       pawn.nomorReferensi,
-      `Peminjam menyetujui syarat ${CONTRACT_TERMS_VERSION} dan menandatangani melalui alur yang difasilitasi admin.`,
+      `Peminjam menyetujui syarat ${CONTRACT_TERMS_VERSION} dan menandatangani melalui alur yang difasilitasi admin. Kode verifikasi ${digital.kode}, SHA-256 ${digital.hash}.`,
     );
-    return { ok: true, waktu: now, versi: CONTRACT_TERMS_VERSION };
+    return { ok: true, waktu: now, versi: CONTRACT_TERMS_VERSION, kode: digital.kode };
   },
 });
 

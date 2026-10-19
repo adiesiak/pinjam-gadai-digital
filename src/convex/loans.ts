@@ -10,6 +10,7 @@ import { v } from "convex/values";
 import { Doc, Id } from "./_generated/dataModel";
 import { internal } from "./_generated/api";
 import { periksaBerkasIdentitasStorage } from "./berkasIdentitas";
+import { catatDenyut } from "./monitoring";
 import {
   ROLES,
   loanStatusKanonikValidator,
@@ -2152,7 +2153,11 @@ async function generateRemindersHandler(ctx: MutationCtx) {
  */
 export const generateDueReminders = internalMutation({
   args: {},
-  handler: generateRemindersHandler,
+  handler: async (ctx) => {
+    const hasil = await generateRemindersHandler(ctx);
+    await catatDenyut(ctx, "daily-due-reminders");
+    return hasil;
+  },
 });
 
 /**

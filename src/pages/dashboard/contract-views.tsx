@@ -16,7 +16,9 @@ import {
   judulContract,
   nomorContract,
 } from "@/lib/contract";
+import { useQrDataUrl } from "@/hooks/use-qr";
 import { cetakLewatAplikasi } from "@/lib/jembatanAndroid";
+import { urlVerifikasi } from "@/lib/kontrakDigital";
 import { quotePinjaman, simulasiBulananPinjaman } from "@/lib/loan";
 import { formatRupiah } from "@/lib/money";
 import { EmptyState } from "./empty-state";
@@ -142,6 +144,8 @@ function LoanContractCard({
   };
 }) {
   const ketentuan = useQuery(api.system.getKetentuanBiaya);
+  const digital = useQuery(api.kontrakDigital.infoPinjaman, { loanId: c._id });
+  const qr = useQrDataUrl(digital ? urlVerifikasi(digital.kode) : null);
   const q = quotePinjaman({ pokokPinjaman: c.pokokPinjaman, persenBunga: c.persenBunga ?? undefined });
   // Ringkasan bulanan: data warisan di luar rentang skema dilewati dengan aman.
   const bulanan = useMemo(() => {
@@ -175,12 +179,23 @@ function LoanContractCard({
                 },
               }
             : {}),
+          ...(digital
+            ? {
+                verifikasi: {
+                  kode: digital.kode,
+                  hash: digital.hash,
+                  diterbitkanPada: digital.diterbitkanPada,
+                  url: urlVerifikasi(digital.kode),
+                  qrDataUrl: qr,
+                },
+              }
+            : {}),
         },
         c.tenorHari,
         bulanan,
         ketentuan?.persenDendaKeterlambatan,
       ),
-    [c, q, bulanan, ketentuan?.persenDendaKeterlambatan],
+    [c, q, bulanan, ketentuan?.persenDendaKeterlambatan, digital, qr],
   );
 
   return (
@@ -248,6 +263,8 @@ function ContractPreviewButton({ html }: { html: string }) {
 
 function PawnContractActions({ pawnId, pawnRef }: { pawnId: Id<"pawns">; pawnRef: string }) {
   const detail = useQuery(api.loans.getMyPawn, { pawnId });
+  const digital = useQuery(api.kontrakDigital.infoGadai, { pawnId });
+  const qr = useQrDataUrl(digital ? urlVerifikasi(digital.kode) : null);
   if (detail === undefined) {
     // Rangka tombol, bukan spinner: tinggi dan lebarnya sama dengan deret aksi
     // sungguhan, jadi baris tabel tidak bergeser saat data tiba.
@@ -262,7 +279,18 @@ function PawnContractActions({ pawnId, pawnRef }: { pawnId: Id<"pawns">; pawnRef
   if (detail === null || detail.nilaiTaksiran === undefined) {
     return <span className="text-xs text-muted-foreground">Menunggu catatan taksiran</span>;
   }
-  const html = buildGadaiContractMilikSendiri(detail);
+  const html = buildGadaiContractMilikSendiri(
+    detail,
+    digital
+      ? {
+          kode: digital.kode,
+          hash: digital.hash,
+          diterbitkanPada: digital.diterbitkanPada,
+          url: urlVerifikasi(digital.kode),
+          qrDataUrl: qr,
+        }
+      : undefined,
+  );
   return (
     <div className="flex shrink-0 gap-2">
       <ContractPrintButton html={html} label="Cetak catatan" />
@@ -273,7 +301,8 @@ function PawnContractActions({ pawnId, pawnRef }: { pawnId: Id<"pawns">; pawnRef
 }
 
 /** Rangkai catatan gadai dari data yang tersimpan untuk peminjam. */
-function buildGadaiContractMilikSendiri(detail: {
+function buildGadaiContractMilikSendiri(
+  detail: {
   nomorReferensi: string;
   tandaTanganPeminjam?: string;
   tandaTanganPada?: number;
@@ -289,7 +318,15 @@ function buildGadaiContractMilikSendiri(detail: {
   kondisiFisik?: string;
   kodeRakVault?: string;
   _creationTime: number;
-}): string {
+  },
+  verifikasi?: {
+    kode: string;
+    hash: string;
+    diterbitkanPada: number;
+    url: string;
+    qrDataUrl: string | null;
+  },
+): string {
   return buildGadaiContract(
     {
       namaLengkap: detail.namaLengkap,
@@ -321,6 +358,7 @@ function buildGadaiContractMilikSendiri(detail: {
             },
           }
         : {}),
+      ...(verifikasi ? { verifikasi } : {}),
     },
   );
 }

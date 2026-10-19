@@ -11,8 +11,10 @@ import {
   CONTRACT_TERMS_VERSION,
   nomorContract,
 } from "@/lib/contract";
+import { urlVerifikasi } from "@/lib/kontrakDigital";
 import { formatRupiah } from "@/lib/money";
 import { namaHurufBesar } from "@/lib/nama";
+import { useQrDataUrl } from "@/hooks/use-qr";
 
 import { ContractSigningDialog } from "./ContractSigningDialog";
 
@@ -22,6 +24,8 @@ export function LoanContractBlock({ loanId }: { loanId: Id<"loans"> }) {
   const save = useMutation(api.admin.simpanTandaTangan);
   const detail = useQuery(api.admin.contractDetail, { loanId });
   const contractData = useQuery(api.admin.contractData, { loanId });
+  const digital = useQuery(api.kontrakDigital.infoPinjaman, { loanId });
+  const qr = useQrDataUrl(digital ? urlVerifikasi(digital.kode) : null);
   // Tarif denda dibaca dari konfigurasi yang berlaku, bukan angka tetap di
   // berkas kontrak: perjanjian yang dicetak harus memuat tarif yang benar.
   const ketentuan = useQuery(api.system.getKetentuanBiaya, {});
@@ -73,6 +77,17 @@ export function LoanContractBlock({ loanId }: { loanId: Id<"loans"> }) {
       lokasi: detail.lokasiAjukan,
       timestampPada: tandaTanganPeminjam?.tandaTanganPada ?? detail._creationTime,
       ...(tandaTanganPeminjam ? { tandaTanganPeminjam } : {}),
+      ...(digital
+        ? {
+            verifikasi: {
+              kode: digital.kode,
+              hash: digital.hash,
+              diterbitkanPada: digital.diterbitkanPada,
+              url: urlVerifikasi(digital.kode),
+              qrDataUrl: qr,
+            },
+          }
+        : {}),
     },
     detail.tenorHari ?? 30,
     detail.bulanan ?? null,

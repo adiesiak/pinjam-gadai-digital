@@ -2131,6 +2131,41 @@ const schema = defineSchema(
       .index("by_user", ["userId"])
       .index("by_user_kunci", ["userId", "kunci"]),
 
+    /**
+     * Sidik jari dokumen kontrak yang sudah ditandatangani.
+     *
+     * Hanya kode, hash, dan ringkasan non-pribadi yang disimpan — payload
+     * kanonik (yang memuat nama & NIK) TIDAK pernah ditulis ke tabel ini,
+     * sehingga halaman verifikasi publik tidak bisa membocorkan data nasabah.
+     * `refId` disimpan sebagai string agar satu tabel menampung pinjaman dan
+     * gadai; `jenis` menjaga arti id-nya.
+     */
+    /**
+     * Denyut penjadwal: satu baris per cron, ditulis setiap kali job selesai.
+     * Dipakai panel kesehatan untuk membedakan "tidak ada pekerjaan" dari
+     * "penjadwal berhenti" — dua keadaan yang dulu tampak sama.
+     */
+    cronDenyut: defineTable({
+      nama: v.string(),
+      terakhirPada: v.number(),
+      /** Berapa kali job ini tercatat berjalan (bukan jumlah pekerjaan). */
+      jumlah: v.number(),
+    }).index("by_nama", ["nama"]),
+
+    kontrakDigital: defineTable({
+      kode: v.string(),
+      jenis: v.union(v.literal("pinjaman"), v.literal("gadai")),
+      refId: v.string(),
+      nomorReferensi: v.string(),
+      hash: v.string(),
+      versi: v.string(),
+      diterbitkanPada: v.number(),
+      /** Pokok pinjaman / pokok gadai saat dokumen diterbitkan. */
+      pokok: v.number(),
+    })
+      .index("by_kode", ["kode"])
+      .index("by_ref", ["refId"]),
+
     /*
      * ==================================================================
      * Pengelolaan keterlambatan & penagihan

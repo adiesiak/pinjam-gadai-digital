@@ -3,6 +3,7 @@ import { BellRing, Gavel, Wallet } from "lucide-react";
 import { useState } from "react";
 
 import { StatusBadge } from "@/components/StatusBadge";
+import { AgingPortofolioPanel } from "@/components/admin/AgingPortofolioPanel";
 import { KirimRincianPinjaman } from "@/components/admin/KirimRincianPinjaman";
 import { TombolInfoTagihanWA } from "@/components/admin/TombolInfoTagihanWA";
 import { Input } from "@/components/ui/input";
@@ -70,17 +71,17 @@ export function DpdTab() {
       l.status === "didanai" &&
       ((l.hariTerlambat ?? 0) > 0 || (l.sisaHari !== null && l.sisaHari <= AMBANG_SEGERA_HARI)),
   );
-  if (perluDiingatkan.length === 0) {
-    return (
-      <EmptyQueue
-        icon={BellRing}
-        title="Tidak ada pinjaman yang mendekati atau melewati jatuh tempo"
-        deskripsi="Baris muncul di sini saat sisa hari ≤ 3 atau jatuh tempo pelunasan sudah terlewati."
-      />
-    );
-  }
   return (
-    <div className="animate-masuk space-y-3">
+    <div className="space-y-4">
+      <AgingPortofolioPanel />
+      {perluDiingatkan.length === 0 ? (
+        <EmptyQueue
+          icon={BellRing}
+          title="Tidak ada pinjaman yang mendekati atau melewati jatuh tempo"
+          deskripsi="Baris muncul di sini saat sisa hari ≤ 3 atau jatuh tempo pelunasan sudah terlewati."
+        />
+      ) : (
+      <div className="animate-masuk space-y-3">
       <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900">
         Daftar ini memuat jatuh tempo yang dihitung aplikasi, bukan tunggakan/tagihan terverifikasi. Tombol pengingat membuat tautan cek status resmi lalu membuka draf WhatsApp (H-3/H-1 otomatis sesuai sisa hari); pesannya selalu ditinjau admin sebelum dikirim. Tombol WA dan Email di baris yang sama mengirim dokumen rincian terkini ke kontak peminjam, tanpa mengubah status pinjaman.
       </p>
@@ -124,6 +125,8 @@ export function DpdTab() {
           );
         })}
       </ul>
+      </div>
+      )}
     </div>
   );
 }

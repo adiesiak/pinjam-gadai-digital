@@ -65,6 +65,9 @@ const AksesBersama = lazy(denganPercobaan(() => import("./pages/AksesBersama.tsx
 const SyaratKetentuan = lazy(denganPercobaan(() => import("./pages/SyaratKetentuan.tsx")));
 // Halaman publik dari tautan WhatsApp admin (lihat pages/CekStatus.tsx).
 const CekStatus = lazy(denganPercobaan(() => import("./pages/CekStatus.tsx")));
+const VerifikasiKontrak = lazy(
+  denganPercobaan(() => import("./pages/VerifikasiKontrak.tsx")),
+);
 const NotFound = lazy(denganPercobaan(() => import("./pages/NotFound.tsx")));
 const Qc = lazy(denganPercobaan(() => import("./pages/Qc.tsx")));
 
@@ -327,6 +330,8 @@ createRoot(document.getElementById("root")!).render(
                     membuka sesi tamu sebelum memverifikasi kode. */}
                 <Route path="/akses-bersama" element={<AksesBersama />} />
                 <Route path="/syarat-ketentuan" element={<SyaratKetentuan />} />
+                {/* Publik: pembaca dokumen cetak bisa memeriksa hash tanpa akun. */}
+                <Route path="/verifikasi-kontrak/:kode" element={<VerifikasiKontrak />} />
                 {/* Pintu publik kwitansi digital: dibuka dari tautan WhatsApp
                     yang dikirim admin. Sengaja di luar RequireAuth — peminjam
                     lama belum tentu punya sesi aktif; otorisasinya adalah token
