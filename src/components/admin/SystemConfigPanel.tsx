@@ -508,6 +508,54 @@ export function SystemConfigPanel() {
                 </p>
               </div>
 
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                  Identitas surat resmi
+                </p>
+                <p className="mt-1 text-[11px] leading-4 text-muted-foreground">
+                  Dipakai pada surat somasi dan dokumen resmi lain. Kolom yang dikosongkan tidak dicetak.
+                </p>
+                <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                  <div>
+                    <Label htmlFor="cfg-nama-badan">Nama badan</Label>
+                    <Input
+                      id="cfg-nama-badan"
+                      value={form.namaBadan}
+                      onChange={(e) => upd("namaBadan", e.target.value)}
+                      className="mt-1.5 shadow-none focus-visible:ring-2"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="cfg-alamat-usaha">Alamat</Label>
+                    <Input
+                      id="cfg-alamat-usaha"
+                      value={form.alamatUsaha}
+                      onChange={(e) => upd("alamatUsaha", e.target.value)}
+                      className="mt-1.5 shadow-none focus-visible:ring-2"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="cfg-email-resmi">Email resmi</Label>
+                    <Input
+                      id="cfg-email-resmi"
+                      type="email"
+                      value={form.emailResmi}
+                      onChange={(e) => upd("emailResmi", e.target.value)}
+                      className="mt-1.5 shadow-none focus-visible:ring-2"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="cfg-telepon-resmi">Telepon resmi</Label>
+                    <Input
+                      id="cfg-telepon-resmi"
+                      value={form.teleponResmi}
+                      onChange={(e) => upd("teleponResmi", e.target.value)}
+                      className="mt-1.5 shadow-none focus-visible:ring-2"
+                    />
+                  </div>
+                </div>
+              </div>
+
               {error && (
                 <p role="alert" className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
                   {error}

@@ -2,10 +2,15 @@
 import { formatRupiah } from "./money";
 import {
   BATAS_BAYAR_HARI,
+  MIN_HARI_SOMASI,
   cekSomasi,
+  htmlSomasiEmail,
   namaBerkasSomasi,
   nomorSuratSomasi,
+  subjekSomasiEmail,
   susunSuratSomasi,
+  teksSomasi,
+  teksSomasiWhatsapp,
   type DataSuratSomasi,
 } from "./suratSomasi";
 import { buatPdfSomasi } from "./suratSomasiPdf";
@@ -40,6 +45,12 @@ const data: DataSuratSomasi = {
   totalKewajiban: 750_000,
   persenDendaPerHari: 2,
   rekening: { nama: "PT PINDAI", bank: "BCA", nomor: "1234567890" },
+  identitas: {
+    namaBadan: "PT PINDAI SEJAHTERA",
+    alamat: "Jl. Contoh No. 1, Jakarta",
+    email: "tagihan@pindai.test",
+    telepon: "021-555-0100",
+  },
 };
 
 // Gerbang: hanya pinjaman yang benar-benar lewat jatuh tempo.
@@ -48,7 +59,18 @@ const belum = cekSomasi({ hariTerlambat: 0, totalKewajiban: 750_000 });
 if (!belum.ok) ok(/belum melewati jatuh tempo/i.test(belum.alasan), "alasan belum jatuh tempo");
 eq(cekSomasi({ hariTerlambat: 3, totalKewajiban: null }).ok, false, "kewajiban kosong ditolak");
 eq(cekSomasi({ hariTerlambat: 3, totalKewajiban: 0 }).ok, false, "kewajiban nol ditolak");
-eq(cekSomasi({ hariTerlambat: 1, totalKewajiban: 1 }).ok, true, "terlambat satu hari diterima");
+eq(MIN_HARI_SOMASI, 3, "ambang somasi H+3");
+eq(cekSomasi({ hariTerlambat: 1, totalKewajiban: 1 }).ok, false, "H+1 belum boleh somasi");
+const terlaluAwal = cekSomasi({ hariTerlambat: 2, totalKewajiban: 750_000 });
+if (!terlaluAwal.ok) {
+  ok(/setelah keterlambatan 3 hari/i.test(terlaluAwal.alasan), "alasan ambang H+3");
+}
+eq(cekSomasi({ hariTerlambat: 3, totalKewajiban: 1 }).ok, true, "H+3 diterima");
+eq(
+  cekSomasi({ hariTerlambat: 1, totalKewajiban: 1 }, { minHari: 1 }).ok,
+  true,
+  "ambang dapat diturunkan pemanggil",
+);
 
 // Nomor surat memakai tanggal WIB.
 eq(nomorSuratSomasi("PNJ-2026-0042", SEKARANG), "SOMASI/PNJ-2026-0042/20261019", "nomor surat");
@@ -85,6 +107,33 @@ ok(
   surat.penutup.some((p) => /penjadwalan ulang/i.test(p)),
   "ruang pembicaraan tetap dibuka",
 );
+ok(surat.penutup.some((p) => p.includes("tagihan@pindai.test")), "email resmi di surat");
+ok(surat.penutup.some((p) => p.includes("021-555-0100")), "telepon resmi di surat");
+eq(surat.pembuat, "Tim Penagihan PT PINDAI SEJAHTERA", "nama badan di pembuat");
+
+// Versi teks dipakai untuk salin dan WhatsApp.
+const teks = teksSomasi(surat);
+ok(teks.includes("SURAT SOMASI"), "teks salinan memuat judul");
+ok(
+  teks.includes(`Total yang harus dibayar: ${formatRupiah(750_000)}`),
+  "teks salinan memuat total",
+);
+ok(teks.includes("PT PINDAI SEJAHTERA"), "teks salinan memuat nama badan");
+const wa = teksSomasiWhatsapp(surat);
+ok(wa.includes("terlambat 10 hari"), "pesan WA menyebut keterlambatan");
+ok(wa.includes(formatRupiah(750_000)), "pesan WA menyebut total");
+ok(wa.includes("26 Oktober 2026"), "pesan WA menyebut batas bayar");
+ok(wa.length < teks.length, "pesan WA lebih ringkas daripada surat penuh");
+ok(/—/.test(wa) === false, "pesan WA tanpa em dash");
+eq(
+  subjekSomasiEmail(surat),
+  "Somasi keterlambatan pinjaman PNJ-2026-0042 - PT PINDAI SEJAHTERA",
+  "subjek email",
+);
+const email = htmlSomasiEmail(surat);
+ok(email.includes("Surat somasi"), "email menyebut surat somasi");
+ok(email.includes(formatRupiah(750_000)), "email memuat total");
+ok(email.includes("tagihan@pindai.test"), "email memuat kontak resmi");
 
 // Bank kosong tidak menghasilkan kalimat rancu.
 const tanpaBank = susunSuratSomasi(
@@ -126,6 +175,7 @@ const byte = buatPdfSomasi(surat);
 const teksPdf = new TextDecoder("latin1").decode(byte);
 ok(teksPdf.startsWith("%PDF-"), "header PDF");
 ok(teksPdf.includes("SURAT SOMASI"), "judul di PDF");
+ok(teksPdf.includes("PT PINDAI SEJAHTERA"), "nama badan di PDF");
 ok(teksPdf.includes("SOMASI/PNJ-2026-0042/20261019"), "nomor di PDF");
 ok(!teksPdf.includes("undefined"), "tidak ada nilai kosong tercetak");
 ok(byte.length > 1_000, "PDF berisi halaman");

@@ -1119,6 +1119,11 @@ const schema = defineSchema(
       rekeningUsahaNama: v.optional(v.string()),
       rekeningUsahaBank: v.optional(v.string()),
       rekeningUsahaNomor: v.optional(v.string()),
+      /** Identitas badan yang tercetak di surat resmi (somasi). */
+      namaBadan: v.optional(v.string()),
+      alamatUsaha: v.optional(v.string()),
+      emailResmi: v.optional(v.string()),
+      teleponResmi: v.optional(v.string()),
       qrisMerchantNama: v.optional(v.string()),
       qrisImageId: v.optional(v.union(v.id("_storage"), v.null())),
       /** Gate off until downstream allocations, disbursements, and withdrawals are ready. */
@@ -2235,6 +2240,46 @@ const schema = defineSchema(
       .index("by_loan", ["loanId"])
       .index("by_petugas", ["petugasUserId"])
       .index("by_waktu", ["waktu"]),
+
+    /**
+     * Surat somasi yang sudah diterbitkan. Satu baris per pinjaman.
+     *
+     * Dokumen disimpan sebagai JSON final (`dokumenJson`) supaya unduhan
+     * berikutnya persis sama dengan yang pertama: nomor, angka, dan tanggal
+     * tidak berubah hanya karena waktu berjalan atau pembayaran baru dicatat.
+     */
+    somasiTerbit: defineTable({
+      loanId: v.id("loans"),
+      nomorSurat: v.string(),
+      dokumenJson: v.string(),
+      namaBerkas: v.string(),
+      /** Angka saat diterbitkan, untuk mendeteksi surat yang sudah kedaluwarsa. */
+      totalKewajiban: v.number(),
+      hariTerlambat: v.number(),
+      olehUserId: v.id("users"),
+      olehLabel: v.string(),
+      pada: v.number(),
+      /** "manual" | "whatsapp" | "email" — pengiriman juga berarti diserahkan. */
+      diserahkanMelalui: v.optional(v.string()),
+      diserahkanPada: v.optional(v.number()),
+      diserahkanOlehLabel: v.optional(v.string()),
+    })
+      .index("by_loan", ["loanId"])
+      .index("by_nomor", ["nomorSurat"]),
+
+    /** Jejak pengiriman surat somasi lewat email/WhatsApp. */
+    somasiKirimLog: defineTable({
+      somasiId: v.id("somasiTerbit"),
+      loanId: v.id("loans"),
+      kanal: v.string(),
+      tujuan: v.string(),
+      status: v.string(),
+      respon: v.optional(v.string()),
+      olehUserId: v.id("users"),
+      pada: v.number(),
+    })
+      .index("by_loan", ["loanId", "pada"])
+      .index("by_oleh", ["olehUserId", "pada"]),
 
     /** Janji pembayaran (promise to pay) beserta hasilnya. */
     penagihanJanji: defineTable({

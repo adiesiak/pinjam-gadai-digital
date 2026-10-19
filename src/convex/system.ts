@@ -96,6 +96,10 @@ export async function getConfig(ctx: QueryCtx): Promise<SystemConfig> {
     rekeningUsahaNama: row.rekeningUsahaNama ?? DEFAULT_CONFIG.rekeningUsahaNama,
     rekeningUsahaBank: row.rekeningUsahaBank ?? DEFAULT_CONFIG.rekeningUsahaBank,
     rekeningUsahaNomor: row.rekeningUsahaNomor ?? DEFAULT_CONFIG.rekeningUsahaNomor,
+    namaBadan: row.namaBadan ?? DEFAULT_CONFIG.namaBadan,
+    alamatUsaha: row.alamatUsaha ?? DEFAULT_CONFIG.alamatUsaha,
+    emailResmi: row.emailResmi ?? DEFAULT_CONFIG.emailResmi,
+    teleponResmi: row.teleponResmi ?? DEFAULT_CONFIG.teleponResmi,
     qrisMerchantNama: row.qrisMerchantNama ?? DEFAULT_CONFIG.qrisMerchantNama,
     qrisImageId: row.qrisImageId ?? null,
     manualDepositEnabled: row.manualDepositEnabled ?? DEFAULT_CONFIG.manualDepositEnabled,
@@ -309,12 +313,20 @@ type ConfigMasuk = Omit<
   | "rekeningUsahaNama"
   | "rekeningUsahaBank"
   | "rekeningUsahaNomor"
+  | "namaBadan"
+  | "alamatUsaha"
+  | "emailResmi"
+  | "teleponResmi"
   | "qrisMerchantNama"
   | "qrisImageId"
 > & {
   rekeningUsahaNama?: string;
   rekeningUsahaBank?: string;
   rekeningUsahaNomor?: string;
+  namaBadan?: string;
+  alamatUsaha?: string;
+  emailResmi?: string;
+  teleponResmi?: string;
   qrisMerchantNama?: string;
   qrisImageId?: Id<"_storage"> | null;
 };
@@ -382,6 +394,10 @@ async function bersihkanConfigMasuk(
     rekeningUsahaNama: (input.rekeningUsahaNama ?? "").trim(),
     rekeningUsahaBank: (input.rekeningUsahaBank ?? "").trim(),
     rekeningUsahaNomor: nomorUsaha,
+    namaBadan: (input.namaBadan ?? "").trim(),
+    alamatUsaha: (input.alamatUsaha ?? "").trim(),
+    emailResmi: (input.emailResmi ?? "").trim(),
+    teleponResmi: (input.teleponResmi ?? "").trim(),
     qrisMerchantNama: (input.qrisMerchantNama ?? "").trim(),
   };
 }
@@ -483,6 +499,10 @@ export const saveConfig = mutation({
     rekeningUsahaNama: v.optional(v.string()),
     rekeningUsahaBank: v.optional(v.string()),
     rekeningUsahaNomor: v.optional(v.string()),
+    namaBadan: v.optional(v.string()),
+    alamatUsaha: v.optional(v.string()),
+    emailResmi: v.optional(v.string()),
+    teleponResmi: v.optional(v.string()),
     qrisMerchantNama: v.optional(v.string()),
     qrisImageId: v.optional(v.union(v.id("_storage"), v.null())),
     manualDepositEnabled: v.boolean(),
@@ -513,6 +533,10 @@ export const saveConfig = mutation({
       rekeningUsahaNama: args.rekeningUsahaNama,
       rekeningUsahaBank: args.rekeningUsahaBank,
       rekeningUsahaNomor: args.rekeningUsahaNomor,
+      namaBadan: args.namaBadan,
+      alamatUsaha: args.alamatUsaha,
+      emailResmi: args.emailResmi,
+      teleponResmi: args.teleponResmi,
       qrisMerchantNama: args.qrisMerchantNama,
       qrisImageId: args.qrisImageId,
       manualDepositEnabled: args.manualDepositEnabled,

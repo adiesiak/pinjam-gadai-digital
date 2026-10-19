@@ -143,6 +143,12 @@ type BarisKasus = {
   tindakanTerakhirPada: number | null;
   janjiAktif: { id: Id<"penagihanJanji">; nominal: number; tanggalJanji: number } | null;
   pengaduanTerbuka: number;
+  somasi: {
+    nomorSurat: string;
+    pada: number;
+    diserahkanPada: number | null;
+    diserahkanMelalui: string | null;
+  } | null;
   kontak: { whatsapp: string | null; rekening: string | null };
   /** Server memutuskan: masih di dalam jendela jam kontak atau tidak. */
   bolehKontakSekarang: boolean;
@@ -1922,9 +1928,12 @@ export function PenagihanPanel() {
                           </p>
                           <p className="mt-1 text-xs text-muted-foreground">
                             Kontak tersamar: WA {b.kontak.whatsapp ?? "—"} · rekening{" "}
-                            {b.kontak.rekening ?? "—"} · {b.jumlahTindakan} tindakan tercatat
+                            {b.kontak.rekening ?? "—"} ·                            {b.jumlahTindakan} tindakan tercatat
                             {b.janjiAktif !== null
                               ? ` · janji ${formatRupiah(b.janjiAktif.nominal)} pada ${formatDate(b.janjiAktif.tanggalJanji)}`
+                              : ""}
+                            {b.somasi !== null
+                              ? ` · somasi ${formatDate(b.somasi.pada)}${b.somasi.diserahkanPada !== null ? " (diserahkan)" : ""}`
                               : ""}
                           </p>
                         </div>

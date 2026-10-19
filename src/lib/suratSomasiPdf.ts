@@ -7,8 +7,14 @@ import { susunPdf, type BarisPdf } from "./pdfSederhana";
 import type { SuratSomasi } from "./suratSomasi";
 
 export function buatPdfSomasi(surat: SuratSomasi): Uint8Array {
+  const namaBadan = surat.identitas.namaBadan.trim() || "PINDAI";
+  const identitas = [surat.identitas.alamat, surat.identitas.email, surat.identitas.telepon]
+    .map((teks) => teks.trim())
+    .filter((teks) => teks !== "");
+
   const baris: BarisPdf[] = [
-    { teks: "PINDAI", gaya: "judul" },
+    { teks: namaBadan, gaya: "judul" },
+    ...identitas.map((teks): BarisPdf => ({ teks, gaya: "kecil" })),
     { teks: "SURAT SOMASI", gaya: "subjudul" },
     { teks: `Nomor: ${surat.nomorSurat}`, gaya: "biasa" },
     { teks: `Tanggal: ${surat.tanggalTeks}`, gaya: "biasa" },
@@ -44,7 +50,7 @@ export function buatPdfSomasi(surat: SuratSomasi): Uint8Array {
   );
 
   return susunPdf({
-    kaki: `Surat somasi ${surat.nomorSurat} - PINDAI`,
+    kaki: `Surat somasi ${surat.nomorSurat} - ${namaBadan}`,
     baris,
   });
 }

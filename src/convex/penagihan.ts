@@ -114,14 +114,14 @@ function labelAktor(user: { email?: string; name?: string }): string {
   return user.email ?? user.name ?? "admin";
 }
 
-type AturanPenagihan = {
+export type AturanPenagihan = {
   aktif: boolean;
   ambang: AmbangTunggakan;
   jamKontak: JamKontak;
 };
 
 /** Baca aturan penagihan (fallback default lib bila belum pernah disimpan). */
-async function bacaAturan(ctx: QueryCtx | MutationCtx): Promise<AturanPenagihan> {
+export async function bacaAturan(ctx: QueryCtx | MutationCtx): Promise<AturanPenagihan> {
   const row = await ctx.db
     .query("penagihanAturan")
     .withIndex("by_slot", (q) => q.eq("slot", SLOT_ATURAN))
@@ -147,7 +147,7 @@ async function bacaAturan(ctx: QueryCtx | MutationCtx): Promise<AturanPenagihan>
   };
 }
 
-function kasusUntuk(
+export function kasusUntuk(
   ctx: QueryCtx | MutationCtx,
   loanId: IdT<"loans">,
 ) {
@@ -268,6 +268,13 @@ type BarisKasus = {
   tindakanTerakhirPada: number | null;
   janjiAktif: { id: IdT<"penagihanJanji">; nominal: number; tanggalJanji: number } | null;
   pengaduanTerbuka: number;
+  /** Surat somasi yang sudah diterbitkan untuk pinjaman ini, bila ada. */
+  somasi: {
+    nomorSurat: string;
+    pada: number;
+    diserahkanPada: number | null;
+    diserahkanMelalui: string | null;
+  } | null;
   /** Kontak & informasi finansial SELALU tersamar di daftar kerja. */
   kontak: { whatsapp: string | null; rekening: string | null };
   bolehKontakSekarang: boolean;
@@ -285,6 +292,9 @@ async function hitungBarisKasus(
   const kasusRows = await ctx.db.query("penagihanKasus").collect();
   const kasusPerLoan = new Map<string, Doc<"penagihanKasus">>();
   for (const k of kasusRows) kasusPerLoan.set(k.loanId as string, k);
+  const somasiRows = await ctx.db.query("somasiTerbit").collect();
+  const somasiPerLoan = new Map<string, Doc<"somasiTerbit">>();
+  for (const s of somasiRows) somasiPerLoan.set(s.loanId as string, s);
 
   // Pengaduan yang belum selesai dihitung sekali untuk semua baris.
   const pengaduan = await ctx.db.query("pengaduanNasabah").collect();
@@ -299,6 +309,7 @@ async function hitungBarisKasus(
   const baris: BarisKasus[] = [];
   for (const loan of loans) {
     const kasus = kasusPerLoan.get(loan._id as string);
+    const somasi = somasiPerLoan.get(loan._id as string);
     const pelunasan = pelunasanPinjaman(loan, now, tarifDenda);
     const hariTerlambat = pelunasan?.hariTerlambat ?? 0;
     // Baris muncul bila pinjaman sedang terlambat ATAU sudah punya kasus
@@ -352,6 +363,15 @@ async function hitungBarisKasus(
       jumlahTindakan: kasus?.jumlahTindakan ?? 0,
       tindakanTerakhirPada: kasus?.tindakanTerakhirPada ?? null,
       janjiAktif,
+      somasi:
+        somasi === undefined
+          ? null
+          : {
+              nomorSurat: somasi.nomorSurat,
+              pada: somasi.pada,
+              diserahkanPada: somasi.diserahkanPada ?? null,
+              diserahkanMelalui: somasi.diserahkanMelalui ?? null,
+            },
       pengaduanTerbuka: pengaduanTerbukaPerLoan.get(loan._id as string) ?? 0,
       kontak: {
         whatsapp: maskNomorTelepon(loan.nomorWhatsApp),

@@ -104,6 +104,14 @@ export type SystemConfig = {
   rekeningUsahaNama: string;
   rekeningUsahaBank: string;
   rekeningUsahaNomor: string;
+  /** Nama badan yang tercetak di surat resmi (somasi). */
+  namaBadan: string;
+  /** Alamat badan; kosong berarti tidak dicetak. */
+  alamatUsaha: string;
+  /** Email resmi untuk tanggapan; kosong berarti tidak dicetak. */
+  emailResmi: string;
+  /** Telepon resmi untuk tanggapan; kosong berarti tidak dicetak. */
+  teleponResmi: string;
   qrisMerchantNama: string;
   qrisImageId: Id<"_storage"> | null;
   manualDepositEnabled: boolean;
@@ -142,6 +150,10 @@ export const DEFAULT_CONFIG: SystemConfig = {
   rekeningUsahaNama: "Chatur Surya Carel Ramadhan",
   rekeningUsahaBank: "BNI",
   rekeningUsahaNomor: "1324167013",
+  namaBadan: "PINDAI",
+  alamatUsaha: "",
+  emailResmi: "",
+  teleponResmi: "",
   qrisMerchantNama: "Toko koedoes",
   qrisImageId: null,
   manualDepositEnabled: false,
