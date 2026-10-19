@@ -4,6 +4,7 @@ import { v } from "convex/values";
 import type { Id } from "./_generated/dataModel";
 import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import { formatRupiahAman } from "../lib/money";
+import { formatTanggalWIB } from "../lib/waktu";
 import { kunciNotifikasiPembaruan } from "../lib/pembaruanAplikasi";
 import { LABEL_STATUS_KYC, type StatusKyc } from "../lib/kycStatus";
 import { LABEL_STATUS_PENGADUAN } from "../lib/penagihan";
@@ -77,6 +78,7 @@ const BATAS_PESAN_PENGADUAN = 4;
 type ItemInternal = NotifikasiItem & {
   sumber:
     | "pengingat"
+    | "pengingatAngsuran"
     | "lokasi"
     | "bukti"
     | "pengumuman"
@@ -228,6 +230,37 @@ async function susunNotifikasi(
       ringkasan: `Bukti ${formatRupiahAman(r.jumlah)} untuk ${r.nomorReferensi} · status ${r.status.replace(/_/g, " ")} · ${kalimatWaktu(r._creationTime, sekarang)}.${catatan}`,
       waktu: r.dicocokkanPada ?? r._creationTime,
       tautan: "/dashboard?tab=riwayat",
+      dibaca: false,
+    });
+  }
+
+  // ===== Sumber 3b: pengingat angsuran H-3 / hari-H / H+1
+  const pengingatAngsuran = await ctx.db
+    .query("pengingatAngsuran")
+    .withIndex("by_user", (q) => q.eq("userId", userId))
+    .order("desc")
+    .take(BATAS_PER_SUMBER);
+  for (const p of pengingatAngsuran) {
+    const angsuran = await ctx.db.get(p.angsuranId);
+    if (angsuran === null) continue;
+    const loan = await ctx.db.get(p.loanId);
+    const jenis: NotifikasiJenis =
+      p.sisaHari < 0 ? "error" : p.sisaHari === 0 ? "peringatan" : "info";
+    const judul =
+      p.sisaHari < 0
+        ? "Angsuran sudah lewat jatuh tempo"
+        : p.sisaHari === 0
+          ? "Angsuran jatuh tempo hari ini"
+          : `Angsuran jatuh tempo ${p.sisaHari} hari lagi`;
+    item.push({
+      kunci: `pengingatAngsuran:${p._id}`,
+      sumber: "pengingatAngsuran",
+      ref: p._id,
+      jenis,
+      judul,
+      ringkasan: `Angsuran ${angsuran.nomor} · ${loan?.nomorReferensi ?? "pinjaman"} · ${formatRupiahAman(p.jumlahKewajiban)} · jatuh tempo ${formatTanggalWIB(angsuran.jatuhTempoPada)} · ${kalimatWaktu(p.waktu, sekarang)}.`,
+      waktu: p.waktu,
+      tautan: "/dashboard?tab=cicilan",
       dibaca: false,
     });
   }

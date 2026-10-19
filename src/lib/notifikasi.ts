@@ -51,6 +51,7 @@ export const JENIS_NOTIFIKASI: Record<NotifikasiJenis, { label: string; kelas: s
  */
 export const TAB_DASHBOARD = [
   "ringkasan",
+  "cicilan",
   "form",
   "pinjaman",
   "diri",
@@ -66,7 +67,7 @@ export const TAB_DASHBOARD = [
  * penjelasan. Pemetaan ini dihapus bersama tautan lama terakhir.
  */
 const TAB_LAMA: Record<string, string> = {
-  jadwal: "ringkasan",
+  jadwal: "cicilan",
   riwayat: "pinjaman",
   gadai: "pinjaman",
   kontrak: "pinjaman",

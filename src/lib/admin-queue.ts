@@ -31,6 +31,7 @@ export const NILAI_MODUL_ADMIN = [
   "kredit",
   "kyc",
   "alokasi",
+  "rekonsiliasi",
   "dpd",
   "lelang",
   "plafon",
@@ -79,7 +80,16 @@ export const GRUP_NAV: readonly GrupNav[] = [
   {
     id: "operasional",
     label: "Operasional",
-    modul: ["pinjaman", "gadai", "kredit", "kyc", "alokasi", "plafon", "akses"],
+    modul: [
+      "pinjaman",
+      "gadai",
+      "kredit",
+      "kyc",
+      "alokasi",
+      "rekonsiliasi",
+      "plafon",
+      "akses",
+    ],
     default: "pinjaman",
   },
   {

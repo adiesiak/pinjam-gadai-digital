@@ -52,6 +52,7 @@ const LABEL: Record<string, string> = {
   kredit: "Pengajuan Kredit Barang",
   kyc: "Verifikasi KYC",
   alokasi: "Pinjaman siap disalurkan",
+  rekonsiliasi: "Rekonsiliasi Angsuran",
   plafon: "Plafon Nasabah",
   akses: "Nasabah & Pendana",
   dpd: "Jatuh Tempo",

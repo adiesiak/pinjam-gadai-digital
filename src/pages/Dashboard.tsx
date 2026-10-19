@@ -34,6 +34,7 @@ import { DashboardBottomNav, type TabBadge } from "./dashboard/dashboard-tab-nav
 import { LoanDetailDialog } from "./dashboard/detail-dialogs";
 import { PersetujuanVerifikasiPembayaran } from "@/components/PersetujuanVerifikasiPembayaran";
 import { FormPengajuanSection } from "./dashboard/form-pengajuan-views";
+import { AngsuranSection } from "./dashboard/angsuran-views";
 import { CatatanPinjamanSection } from "./dashboard/history-views";
 import { ActiveLoanSection } from "./dashboard/loan-views";
 import { DueReminderBanner, LokasiPeringatanBanner } from "./dashboard/notice-views";
@@ -121,6 +122,7 @@ export default function Dashboard() {
   const summary = useQuery(api.loans.myLoanSummary, argsPeminjam);
   const dueReminder = useQuery(api.loans.dueReminder, argsPeminjam);
   const schedule = useQuery(api.loans.myLoanSchedule, argsPeminjam);
+  const angsuran = useQuery(api.angsuran.myAngsuran, argsPeminjam);
   // Status KYC dipakai untuk lencana tab (butuh tindakan nasabah), tidak ikut
   // menahan seluruh dashboard saat masih dimuat: tanpa data, tabnya cukup tanpa
   // lencana.
@@ -323,10 +325,23 @@ export default function Dashboard() {
   ).length;
   const tabBadges: Partial<Record<string, TabBadge>> = {};
   if (pinjamanAktif > 0) tabBadges.pinjaman = { count: pinjamanAktif };
-  // Lencana kewajiban menempel di Ringkasan: di situlah kartu jatuh tempo
-  // terdekat berada, jadi angkanya menunjuk halaman yang benar.
-  if (tagihanTerlambat > 0) tabBadges.ringkasan = { count: tagihanTerlambat, tone: "danger" };
-  else if (tagihanDekat > 0) tabBadges.ringkasan = { count: tagihanDekat, tone: "warning" };
+
+  // Lencana tagihan menempel di Cicilan — di situlah tagihan berikutnya dan
+  // tombol bayar berada. Bila jadwal angsuran belum ada (data lama), Ringkasan
+  // tetap memakai pengingat tingkat pinjaman supaya tidak ada tagihan yang
+  // hilang dari layar.
+  const adaJadwalAngsuran = (angsuran?.ringkasan.jumlah ?? 0) > 0;
+  if (adaJadwalAngsuran && angsuran !== undefined) {
+    const r = angsuran.ringkasan;
+    if (r.terlambat > 0) tabBadges.cicilan = { count: r.terlambat, tone: "danger" };
+    else if (r.jatuhTempoHariIni > 0)
+      tabBadges.cicilan = { count: r.jatuhTempoHariIni, tone: "warning" };
+    else if (r.berikutnya?.tampilan === "segera")
+      tabBadges.cicilan = { count: r.berikutnya.sisaHari, tone: "warning" };
+  } else {
+    if (tagihanTerlambat > 0) tabBadges.ringkasan = { count: tagihanTerlambat, tone: "danger" };
+    else if (tagihanDekat > 0) tabBadges.ringkasan = { count: tagihanDekat, tone: "warning" };
+  }
   // Hanya status yang MENUNGGU TINDAKAN NASABAH yang diberi lencana, VERIFIED
   // dan PENDING_REVIEW bukan pekerjaan pengguna.
   if (
@@ -394,7 +409,10 @@ export default function Dashboard() {
               <>
                 {/* Pengingat jatuh tempo live. Satu-satunya pengingat di layar;
                     membukanya berarti membuka rincian pinjaman terkait. */}
-                {dueReminder !== null && (
+                {/* Pengingat tingkat pinjaman hanya dipakai bila jadwal angsuran
+                    belum ada. Untuk pinjaman bulanan, tanggal akhir tenor bukan
+                    tagihan berikutnya — halaman Cicilan yang memegang angka itu. */}
+                {dueReminder !== null && !adaJadwalAngsuran && (
                   <DueReminderBanner reminder={dueReminder} onLihatDetail={setLoanDetailId} />
                 )}
 
@@ -434,6 +452,10 @@ export default function Dashboard() {
                 {/* ===== TAB 2: CATATAN PINJAMAN =====
                     Daftar semua pinjaman dengan saringan status; rincian satu
                     pinjaman dibuka lewat dialog, bukan kartu kedua di layar. */}
+                <TabsContent value="cicilan" className="mt-6 animate-masuk">
+                  <AngsuranSection />
+                </TabsContent>
+
                 <TabsContent value="pinjaman" className="mt-6 animate-masuk">
                   <CatatanPinjamanSection loans={loans ?? []} onOpenLoan={setLoanDetailId} />
                 </TabsContent>

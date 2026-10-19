@@ -60,6 +60,8 @@ import {
   simpanHasilIdempoten,
 } from "./idempotensi";
 import { gerbangPengajuan } from "./gerbangKirim";
+import { pastikanAngsuran } from "./angsuranJadwal";
+import { dendaAngsuran } from "../lib/angsuran";
 import { rejectUnverifiedMoneyMovement } from "./paymentGuard";
 import {
   bolehDibatalkan,
@@ -250,6 +252,8 @@ export const submitManualPaymentReceipt = mutation({
     loanId: v.optional(v.id("loans")),
     kreditId: v.optional(v.id("kreditBarang")),
     pawnId: v.optional(v.id("pawns")),
+    /** Angsuran yang diklaim dibayar. Kosong = bukti lama tanpa jadwal. */
+    angsuranId: v.optional(v.id("angsuran")),
     jumlah: v.number(),
     metodePembayaran: v.union(v.literal("qris"), v.literal("transfer")),
     tanggalTransfer: v.number(),
@@ -258,7 +262,7 @@ export const submitManualPaymentReceipt = mutation({
   },
   returns: v.object({ nomorReferensi: v.string() }),
   handler: async (ctx, args) => {
-    const { userId } = await requirePeminjam(ctx);
+    const { userId, user } = await requirePeminjam(ctx);
     if (!Number.isSafeInteger(args.jumlah) || args.jumlah <= 0 || args.jumlah > MAX_POKOK) {
       throw new Error("Jumlah pembayaran harus rupiah bulat positif dan tidak melebihi batas sistem.");
     }
@@ -275,6 +279,36 @@ export const submitManualPaymentReceipt = mutation({
       (args.jenis === "kredit_barang" && (!args.kreditId || args.loanId || args.pawnId)) ||
       (args.jenis === "gadai" && (!args.pawnId || args.loanId || args.kreditId))) {
       throw new Error("Pilih tepat satu catatan pembayaran dengan jenis yang sesuai.");
+    }
+    let angsuran: Doc<"angsuran"> | null = null;
+    if (args.angsuranId !== undefined) {
+      if (args.jenis !== "pinjaman" || args.loanId === undefined) {
+        throw new Error("Angsuran hanya boleh dipakai untuk bukti pinjaman.");
+      }
+      angsuran = await ctx.db.get(args.angsuranId);
+      if (
+        angsuran === null ||
+        angsuran.userId !== userId ||
+        angsuran.loanId !== args.loanId
+      ) {
+        throw new Error("Angsuran milik pinjaman Anda tidak ditemukan.");
+      }
+      if (angsuran.status !== "belum_dibayar") {
+        throw new Error("Angsuran ini sudah menunggu verifikasi atau lunas.");
+      }
+      const tarif = await tarifDendaBerlaku(ctx);
+      const denda = dendaAngsuran(
+        angsuran.pokok,
+        angsuran.jatuhTempoPada,
+        args.tanggalTransfer,
+        tarif,
+      );
+      const seharusnya = angsuran.total + denda;
+      if (args.jumlah !== seharusnya) {
+        throw new Error(
+          `Nominal bukti harus ${formatRupiah(seharusnya)} (angsuran ${formatRupiah(angsuran.total)} + denda ${formatRupiah(denda)}).`,
+        );
+      }
     }
     if (args.jenis === "pinjaman") {
       const loan = args.loanId ? await ctx.db.get(args.loanId) : null;
@@ -298,12 +332,13 @@ export const submitManualPaymentReceipt = mutation({
       throw new Error("Bukti harus berupa JPG, PNG, WebP, atau PDF maksimal 5 MB.");
     }
     const nomorReferensi = referenceNumber(Date.now());
-    await ctx.db.insert("manualPaymentReceipts", {
+    const receiptId = await ctx.db.insert("manualPaymentReceipts", {
       userId,
       jenis: args.jenis,
       loanId: args.loanId,
       kreditId: args.kreditId,
       pawnId: args.pawnId,
+      angsuranId: args.angsuranId,
       jumlah: args.jumlah,
       metodePembayaran: args.metodePembayaran,
       tanggalTransfer: args.tanggalTransfer,
@@ -312,6 +347,21 @@ export const submitManualPaymentReceipt = mutation({
       status: "menunggu_pencocokan",
       nomorReferensi,
     });
+    if (angsuran !== null) {
+      await ctx.db.patch(angsuran._id, {
+        status: "menunggu_verifikasi",
+        receiptId,
+        buktiPembayaranId: args.buktiPembayaranId,
+      });
+      await audit(
+        ctx,
+        userId,
+        user.email ?? user.name ?? "peminjam",
+        "angsuran_bukti_dikirim",
+        angsuran._id,
+        `Bukti ${nomorReferensi} untuk angsuran ${angsuran.nomor} pinjaman ${args.loanId}.`,
+      );
+    }
     return { nomorReferensi };
   },
 });
@@ -332,6 +382,7 @@ export const myManualPaymentReceipts = query({
       loanId: row.loanId ?? null,
       kreditId: row.kreditId ?? null,
       pawnId: row.pawnId ?? null,
+      angsuranId: row.angsuranId ?? null,
       status: row.status,
       catatanAdmin: row.catatanAdmin ?? null,
       referensiMutasi: row.referensiMutasi ?? null,
@@ -1198,6 +1249,10 @@ async function setLoanStatus(
       : {}),
   });
 
+  // Pencairan lewat jalur ubah status juga membuat jadwal angsuran — supaya
+  // peminjam memegang tagihan yang sama dengan yang tampil di kontrak.
+  await pastikanAngsuran(ctx, (await ctx.db.get(loanId)) ?? loan);
+
   const admin = await ctx.db.get(adminId);
   const nominalBerubah = pokokPinjaman !== loan.pokokPinjaman;
   await audit(
@@ -1422,6 +1477,8 @@ export const danaiPinjaman = mutation({
       status: "didanai",
       didanaiPada: Date.now(),
     });
+    const loanSetelah = await ctx.db.get(loanId);
+    await pastikanAngsuran(ctx, loanSetelah ?? loan);
     const admin = await ctx.db.get(adminId);
     await audit(
       ctx,

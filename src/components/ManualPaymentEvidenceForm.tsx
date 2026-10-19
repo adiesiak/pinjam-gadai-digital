@@ -48,11 +48,20 @@ export function ManualPaymentEvidenceForm({
   targetId,
   reference,
   suggestedAmount,
+  angsuranId,
+  kunciJumlah = false,
+  onBerhasil,
 }: {
   jenis: "pinjaman" | "kredit_barang" | "gadai";
   targetId: Id<"loans"> | Id<"kreditBarang"> | Id<"pawns">;
   reference: string;
   suggestedAmount: number;
+  /** Diisi bila bukti untuk satu angsuran; server mencocokkan nominal persis. */
+  angsuranId?: Id<"angsuran">;
+  /** Nominal tagihan tidak boleh diubah saat membayar angsuran tertentu. */
+  kunciJumlah?: boolean;
+  /** Dipanggil setelah SERVER menyimpan bukti — bukan setelah unggahan lokal. */
+  onBerhasil?: () => void;
 }) {
   const instructions = useQuery(api.system.getPaymentInstructions);
   const generateUploadUrl = useMutation(api.loans.generatePaymentReceiptUploadUrl);
@@ -126,6 +135,7 @@ export function ManualPaymentEvidenceForm({
       const saved = await submit({
         jenis,
         ...target,
+        angsuranId,
         jumlah: rupiah,
         metodePembayaran: method,
         tanggalTransfer: new Date(`${transferDate}T00:00:00`).getTime(),
@@ -135,6 +145,7 @@ export function ManualPaymentEvidenceForm({
       toast.success(`Bukti ${saved.nomorReferensi} masuk antrean pencocokan manual.`);
       setBankReference("");
       setFile(null);
+      onBerhasil?.();
     } catch (error) {
       // Isian SENGAJA tidak dibersihkan: kegagalan harus bisa dicoba ulang.
       setGalatKirim(
@@ -160,12 +171,12 @@ export function ManualPaymentEvidenceForm({
   // Label tombol memakai kalimat pendek: bilah di atasnya sudah menjelaskan
   // tahapnya secara lengkap, jadi tombol tidak perlu mengulang peringatannya.
   const labelTombol =
-    tahap === "mengunggah" ? "Mengunggah…" : tahap === "mengirim" ? "Mencatat…" : "Kirim bukti saja";
+    tahap === "mengunggah" ? "Mengunggah…" : tahap === "mengirim" ? "Mencatat…" : "Kirim bukti transfer";
 
   return (
     <section className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
-      <h4 className="text-sm font-semibold">Kirim bukti untuk pencocokan manual</h4>
-      <p className="mt-1 text-xs leading-5 text-muted-foreground">Referensi {reference}. Pengiriman dan pencocokan bukti tidak mencatat cicilan, mengubah status, atau memengaruhi ledger. Pastikan instruksi penerima dengan kanal resmi sebelum transfer.</p>
+      <h4 className="text-sm font-semibold">Kirim bukti transfer</h4>
+      <p className="mt-1 text-xs leading-5 text-muted-foreground">Referensi {reference}. Bukti masuk antrean pencocokan; setelah admin mencocokkan mutasi bank, angsuran ditandai lunas. Pastikan rekening tujuan sesuai instruksi resmi sebelum transfer.</p>
       {instructions && (
         <div className="mt-3 grid gap-3 rounded-lg border border-slate-200 bg-white p-3 text-xs sm:grid-cols-2">
           <div><p className="font-medium">Transfer bank (instruksi)</p><p className="mt-1">{instructions.namaBank} · {instructions.nomorRekening}</p><p>{instructions.namaRekening}</p></div>
@@ -189,6 +200,7 @@ export function ManualPaymentEvidenceForm({
             min="1"
             step="1"
             value={amount}
+            readOnly={kunciJumlah}
             onChange={(e) => setAmount(e.target.value)}
             aria-invalid={galatIsian.jumlah !== undefined}
             aria-describedby={galatIsian.jumlah !== undefined ? `receipt-amount-galat-${targetId}` : undefined}

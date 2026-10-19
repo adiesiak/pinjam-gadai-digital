@@ -35,6 +35,15 @@ crons.hourly(
   internal.whatsapp.jalankanPengingatJatuhTempo,
 );
 
+// Pengingat ANGSURAN — H-3, hari-H, dan H+1 per tagihan, bukan hanya jatuh
+// tempo akhir tenor. Jendela 08.00-20.00 WIB diperiksa di action; baris
+// pengingat idempoten per angsuran/hari, jadi jalan tiap jam tidak menggandakan.
+crons.hourly(
+  "pengingat-angsuran-wa",
+  { minuteUTC: 5 },
+  internal.angsuranPengingat.jalankanPengingatAngsuran,
+);
+
 crons.daily(
   "bersihkan-kunci-idempotensi",
   { hourUTC: 18, minuteUTC: 0 },

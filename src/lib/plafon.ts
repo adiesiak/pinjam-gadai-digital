@@ -21,6 +21,12 @@ export type RiwayatPinjamanPlafon = {
   lunasPada?: number;
   tenorHari?: number;
   tenorBulan?: number;
+  /**
+   * Ada angsuran yang dibayar melewati jatuh tempo. Pinjaman yang lunas di
+   * akhir tenor tetapi pernah telat TIDAK menaikkan plafon — penanda ini
+   * ditulis saat pelunasan angsuran terakhir.
+   */
+  terlambatAngsuran?: boolean;
 };
 
 /** Plafon efektif Peminjam — override admin menang atas hasil perilaku. */
@@ -176,6 +182,7 @@ export function tanggalJatuhTempoPinjaman(
 export function apakahPelunasanTepatWaktu(loan: RiwayatPinjamanPlafon): boolean {
   if (
     loan.status !== "lunas" ||
+    loan.terlambatAngsuran === true ||
     !Number.isSafeInteger(loan.pokokPinjaman) ||
     loan.pokokPinjaman < PLAFON_POKOK_MINIMUM_LUNAS ||
     !Number.isSafeInteger(loan.lunasPada)

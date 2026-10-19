@@ -273,6 +273,12 @@ const schema = defineSchema(
       /** Denda keterlambatan rupiah bulat yang dibayar saat pelunasan. */
       dendaTerlambat: v.optional(v.number()),
       /**
+       * Ada angsuran yang dibayar melewati jatuh tempo. Dipakai penilai plafon:
+       * pinjaman yang lunas di akhir tenor TIDAK dihitung tepat waktu bila salah
+       * satu angsurannya pernah telat. Kosong pada data lama.
+       */
+      terlambatAngsuran: v.optional(v.boolean()),
+      /**
        * Penyedia dana TUNGGAL pinjaman ini (model 1 pinjaman = 1 pendana —
        * tanpa sistem alokasi bertingkat). Diisi saat pinjaman didanai/di-seed.
        */
@@ -1515,8 +1521,47 @@ const schema = defineSchema(
       .index("by_status", ["status"]),
 
     /**
-     * Bukti pembayaran manual peminjam; pencocokan tidak menulis jurnal,
-     * mencatat cicilan, atau mengubah status pinjaman menjadi lunas.
+     * Angsuran satu pinjaman — dibuat sekali saat pencairan dari jadwal yang
+     * SAMA dengan form pengajuan, kontrak, dan kuitansi (`lib/angsuran`).
+     *
+     * Status disimpan, bukan hanya diturunkan dari tanggal: "menunggu_verifikasi"
+     * berarti bukti transfer sudah dikirim peminjam dan belum dicocokkan admin.
+     * Denda TIDAK disimpan sebagai tagihan tetap; ia dihitung dari tanggal saat
+     * dibaca (`lib/angsuran`), lalu nominal yang benar-benar dibayar dicatat di
+     * `dendaDibayar` saat admin mencocokkan mutasi bank.
+     */
+    angsuran: defineTable({
+      userId: v.id("users"),
+      loanId: v.id("loans"),
+      /** Urutan angsuran, mulai 1. */
+      nomor: v.number(),
+      jatuhTempoPada: v.number(),
+      pokok: v.number(),
+      bunga: v.number(),
+      /** Biaya admin cicilan yang dibayar bersama angsuran ini (0 pada harian). */
+      biayaAdmin: v.number(),
+      total: v.number(),
+      status: v.union(
+        v.literal("belum_dibayar"),
+        v.literal("menunggu_verifikasi"),
+        v.literal("lunas"),
+      ),
+      dibayarPada: v.optional(v.number()),
+      dendaDibayar: v.optional(v.number()),
+      buktiPembayaranId: v.optional(v.id("_storage")),
+      receiptId: v.optional(v.id("manualPaymentReceipts")),
+    })
+      .index("by_loan", ["loanId"])
+      .index("by_user", ["userId"])
+      .index("by_jatuh_tempo", ["jatuhTempoPada"]),
+
+    /**
+     * Bukti pembayaran manual peminjam.
+     *
+     * Pencocokan oleh admin TIDAK mengubah saldo/status secara otomatis: bukti
+     * hanya menjadi antrean. Perubahan angsuran/ledger hanya terjadi lewat
+     * `angsuran.verifikasiBuktiAngsuran`, yang mewajibkan referensi mutasi bank
+     * dan nominal yang cocok — bukan sekadar persetujuan admin.
      */
     manualPaymentReceipts: defineTable({
       userId: v.id("users"),
@@ -1524,6 +1569,8 @@ const schema = defineSchema(
       loanId: v.optional(v.id("loans")),
       kreditId: v.optional(v.id("kreditBarang")),
       pawnId: v.optional(v.id("pawns")),
+      /** Angsuran yang diklaim dibayar; kosong untuk bukti lama. */
+      angsuranId: v.optional(v.id("angsuran")),
       jumlah: v.number(),
       metodePembayaran: v.union(v.literal("qris"), v.literal("transfer")),
       tanggalTransfer: v.number(),
@@ -1541,7 +1588,8 @@ const schema = defineSchema(
       .index("by_status", ["status"])
       .index("by_loan", ["loanId"])
       .index("by_kredit", ["kreditId"])
-      .index("by_pawn", ["pawnId"]),
+      .index("by_pawn", ["pawnId"])
+      .index("by_angsuran", ["angsuranId"]),
 
     /**
      * Alokasi dana ke satu pinjaman. Satu pinjaman bisa didanai
@@ -1702,6 +1750,33 @@ const schema = defineSchema(
       waktu: v.number(),
     })
       .index("by_loan", ["loanId"])
+      .index("by_tanggal", ["tanggal"]),
+
+    /**
+     * Pengingat SATU ANGSURAN — append-only, idempoten per (angsuran, tanggal,
+     * jenis). Ditulis cron harian untuk H-3, hari-H, dan H+1; `waStatus`
+     * mencatat hasil percobaan WhatsApp apa adanya (termasuk "dinonaktifkan").
+     * In-app membaca baris yang sama, jadi pesan dan notifikasi tidak bisa
+     * berbeda jenis.
+     */
+    pengingatAngsuran: defineTable({
+      angsuranId: v.id("angsuran"),
+      loanId: v.id("loans"),
+      userId: v.id("users"),
+      /** Tanggal kalender WIB (epoch ms tengah malam UTC) saat dibuat. */
+      tanggal: v.number(),
+      /** "h_minus_3" | "hari_h" | "terlambat_h1". */
+      jenis: v.string(),
+      sisaHari: v.number(),
+      jumlahKewajiban: v.number(),
+      waStatus: v.optional(v.string()),
+      waKeterangan: v.optional(v.string()),
+      /** Jumlah percobaan kirim; dibatasi supaya gateway yang mati tidak dispam. */
+      percobaan: v.number(),
+      waktu: v.number(),
+    })
+      .index("by_angsuran", ["angsuranId"])
+      .index("by_user", ["userId"])
       .index("by_tanggal", ["tanggal"]),
 
     /**

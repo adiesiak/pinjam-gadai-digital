@@ -23,6 +23,7 @@ import { bagiHasilPinjamanDari } from "../lib/bagiHasil";
 import { akunDompetDana, appendJournal, danaWalletBalance } from "./ledger";
 import { getConfig } from "./system";
 import { rejectUnverifiedMoneyMovement } from "./paymentGuard";
+import { pastikanAngsuran } from "./angsuranJadwal";
 
 /** Rentang bisnis alokasi pendanaan per transaksi. */
 export const MIN_ALOKASI = 100_000;
@@ -609,6 +610,8 @@ export const allocateFunding = mutation({
       }
 
       await ctx.db.patch(loan._id, { status: "didanai", didanaiPada: now });
+      const loanSetelah = await ctx.db.get(loan._id);
+      if (loanSetelah !== null) await pastikanAngsuran(ctx, loanSetelah);
     }
 
     return { success: true, terkumpulSetelah };

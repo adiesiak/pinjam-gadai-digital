@@ -44,6 +44,12 @@ export default function Admin() {
   // Cacah antrean verifikasi identitas untuk lencana menu. Hanya dihitung saat
   // sesi admin sudah terverifikasi TOTP; sebelum itu query dilewati.
   const kycAntrean = useQuery(api.kyc.daftarKycAdmin, adminVerified ? {} : "skip");
+  // Antrean bukti transfer angsuran. Query yang sama dipakai panel rekonsiliasi,
+  // jadi lencana menu dan isi antrean selalu menunjukkan angka yang sama.
+  const buktiAngsuran = useQuery(
+    api.angsuran.daftarBuktiAngsuran,
+    adminVerified ? {} : "skip",
+  );
 
   const [loanDetail, setLoanDetail] = useState<LoanRow | null>(null);
   const [pawnDetail, setPawnDetail] = useState<PawnRow | null>(null);
@@ -153,6 +159,7 @@ export default function Admin() {
         onOpenPawn={setPawnDetail}
         onOpenSetup={() => setTotpSetupOpen(true)}
         kycMenunggu={kycAntrean === undefined ? null : (kycAntrean.cacah.PENDING_REVIEW ?? 0)}
+        angsuranMenunggu={buktiAngsuran === undefined ? null : buktiAngsuran.jumlah}
       />
 
       {/* Dialogs */}

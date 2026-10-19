@@ -1,15 +1,15 @@
-import { FilePlus2, FileText, Home, IdCard, ShieldCheck } from "lucide-react";
+import { CalendarClock, FilePlus2, FileText, Home, IdCard, ShieldCheck } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
 /**
- * Lima menu dashboard nasabah — satu menu, satu halaman.
+ * Enam menu dashboard nasabah — satu menu, satu halaman.
  *
- * Kenapa datar, bukan pintu bertingkat lagi: tujuan halaman nasabah hanya lima
- * (ringkasan, ajukan, catatan pinjaman, profil & rekening, status KYC), jadi
- * pengelompokan pintu hanya menambah satu ketukan tanpa memuat apa pun. Urutan
- * mengikuti alur pemakaian: lihat keadaan hari ini → ajukan → periksa catatan →
- * rapikan data → urus identitas.
+ * Kenapa datar: tujuannya sudah spesifik (ringkasan, cicilan, ajukan, catatan
+ * pinjaman, profil & rekening, status KYC), jadi pintu bertingkat hanya
+ * menambah ketukan tanpa memuat apa pun. Urutan mengikuti alur pemakaian:
+ * lihat keadaan hari ini → bayar tagihan → ajukan → periksa catatan → rapikan
+ * data → urus identitas.
  *
  * `labelPendek` dipakai bilah navigasi bawah di ponsel: pada 360px lebar tiap
  * tombol hanya ±70px, jadi label panjang akan terpotong. Nama lengkapnya tetap
@@ -17,6 +17,7 @@ import { cn } from "@/lib/utils";
  */
 export const MENU_DASHBOARD = [
   { value: "ringkasan", label: "Ringkasan", labelPendek: "Ringkasan", icon: Home },
+  { value: "cicilan", label: "Cicilan", labelPendek: "Cicilan", icon: CalendarClock },
   { value: "form", label: "Ajukan Pinjaman", labelPendek: "Ajukan", icon: FilePlus2 },
   { value: "pinjaman", label: "Catatan Pinjaman", labelPendek: "Catatan", icon: FileText },
   { value: "diri", label: "Profil & Rekening", labelPendek: "Profil", icon: IdCard },

@@ -7,6 +7,7 @@ import {
   Gavel,
   LayoutDashboard,
   Lock,
+  Landmark,
   Map as MapIcon,
   MessageSquare,
   Newspaper,
@@ -48,6 +49,7 @@ import { DpdTab, LelangTab, LoanAllocationQueueTab } from "@/components/admin/Op
 import { PanelBiKesehatan } from "@/components/admin/PanelBiKesehatan";
 import { SystemConfigPanel } from "@/components/admin/SystemConfigPanel";
 import { PlafonPanel } from "@/components/admin/PlafonPanel";
+import { RekonsiliasiAngsuran } from "@/components/admin/RekonsiliasiAngsuran";
 import { WhatsAppPanel } from "@/components/admin/WhatsAppPanel";
 import { WebsiteTemplatePanel } from "@/components/admin/WebsiteTemplatePanel";
 import {
@@ -88,6 +90,7 @@ export function AdminTabs({
   onOpenPawn,
   onOpenSetup,
   kycMenunggu = null,
+  angsuranMenunggu = null,
 }: {
   /**
    * Kepala panel (judul/breadcrumb, notifikasi, status sistem, menu profil).
@@ -113,6 +116,8 @@ export function AdminTabs({
    * `ConvexProvider` (mis. skrip QA meja kerja).
    */
   kycMenunggu?: number | null;
+  /** Jumlah bukti transfer angsuran yang belum dicocokkan. */
+  angsuranMenunggu?: number | null;
 }) {
   // Default "Hari Ini": ini meja kerja, bukan satu antrean. Mendarat di
   // ringkasan dulu berarti admin melihat apa yang menunggu sebelum memilih modul.
@@ -212,6 +217,14 @@ export function AdminTabs({
           // "info" supaya tidak ikut dijumlahkan pada ringkasan grup tertutup.
           hitung: "info",
           Icon: Wallet,
+        },
+        {
+          value: "rekonsiliasi",
+          label: "Rekonsiliasi Angsuran",
+          hint: "Cocokkan bukti transfer ke angsuran, isi referensi mutasi bank, lalu tandai lunas.",
+          badge: angsuranMenunggu === null ? null : `${angsuranMenunggu}`,
+          hitung: "menunggu",
+          Icon: Landmark,
         },
         {
           value: "plafon",
@@ -433,6 +446,7 @@ export function AdminTabs({
     kredit: <KreditQueuePanel />,
     kyc: <KycPanel />,
     alokasi: <LoanAllocationQueueTab onOpen={onOpenLoan} />,
+    rekonsiliasi: <RekonsiliasiAngsuran />,
     // Peta live + audit verifikasi dari tautan WhatsApp: dua sisi data lokasi
     // yang sama (titik dari `/cek-status` juga mengalir ke peta lewat jejak
     // lokasi), jadi sengaja satu modul — bukan tab tersendiri di sidebar.
