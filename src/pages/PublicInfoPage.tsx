@@ -113,6 +113,7 @@ function Header() {
           <Link to="/cara-kerja">Cara kerja</Link>
           <Link to="/keamanan">Keamanan</Link>
           <Link to="/faq">FAQ</Link>
+          <Link to="/aplikasi">Aplikasi</Link>
         </nav>
         <div className="flex items-center gap-2">
           <details className="group relative lg:hidden">
@@ -167,6 +168,12 @@ function Header() {
                 to="/faq"
               >
                 FAQ
+              </Link>
+              <Link
+                className="rounded-lg px-3 py-3 hover:bg-slate-50"
+                to="/aplikasi"
+              >
+                Aplikasi Android
               </Link>
             </nav>
           </details>
@@ -450,6 +457,7 @@ function Footer() {
           <Link to="/cara-kerja">Cara kerja</Link>
           <Link to="/keamanan">Keamanan</Link>
           <Link to="/faq">FAQ</Link>
+          <Link to="/aplikasi">Aplikasi</Link>
           <Link to="/syarat-ketentuan">Syarat &amp; Ketentuan</Link>
         </nav>
       </div>

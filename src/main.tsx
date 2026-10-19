@@ -56,6 +56,7 @@ function denganPercobaan<M>(muat: () => Promise<M>, maksPercobaan = 3): () => Pr
 
 // Lazy load route components for better code splitting
 const PublicLanding = lazy(denganPercobaan(() => import("./pages/LandingHome.tsx")));
+const UnduhAplikasi = lazy(denganPercobaan(() => import("./pages/UnduhAplikasi.tsx")));
 const AuthPage = lazy(denganPercobaan(() => import("./pages/Auth.tsx")));
 const Dashboard = lazy(denganPercobaan(() => import("./pages/Dashboard.tsx")));
 const Admin = lazy(denganPercobaan(() => import("./pages/Admin.tsx")));
@@ -298,6 +299,9 @@ createRoot(document.getElementById("root")!).render(
                 <Route path="/layanan/kredit-barang" element={<PublicInfoPage />} />
                 <Route path="/keamanan" element={<PublicInfoPage />} />
                 <Route path="/faq" element={<PublicInfoPage />} />
+                {/* Halaman unduh APK: menu khusus yang menjelaskan versi,
+                    ukuran, dan langkah pemasangan sebelum berkas diunduh. */}
+                <Route path="/aplikasi" element={<UnduhAplikasi />} />
                 <Route
                   path="/auth"
                   element={<AuthPage redirectAfterAuth="/dashboard" />}

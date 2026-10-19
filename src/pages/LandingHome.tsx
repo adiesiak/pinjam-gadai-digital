@@ -161,6 +161,9 @@ export default function LandingHome() {
             <Link className="hover:text-[#065f46]" to="/faq">
               FAQ
             </Link>
+            <Link className="hover:text-[#065f46]" to="/aplikasi">
+              Aplikasi
+            </Link>
           </nav>
           <div className="flex items-center gap-2">
             {showAdminShortcut && (
@@ -225,6 +228,12 @@ export default function LandingHome() {
                   to="/faq"
                 >
                   FAQ
+                </Link>
+                <Link
+                  className="rounded-lg px-3 py-3 hover:bg-[#edf4ef]"
+                  to="/aplikasi"
+                >
+                  Aplikasi Android
                 </Link>
               </nav>
             </details>
@@ -411,6 +420,7 @@ export default function LandingHome() {
             <Link to="/cara-kerja">Cara kerja</Link>
             <Link to="/keamanan">Keamanan</Link>
             <Link to="/faq">FAQ</Link>
+            <Link to="/aplikasi">Aplikasi Android</Link>
             <Link to="/syarat-ketentuan">Syarat &amp; Ketentuan</Link>
           </nav>
           <p className="text-xs text-slate-500 md:col-span-2">

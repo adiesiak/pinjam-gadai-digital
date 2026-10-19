@@ -93,5 +93,13 @@ for (const role of ["peminjam", "dana"]) {
   tidakAda(markup, "apps.apple", "beranda tidak menautkan App Store");
 }
 
+// 5. Menu unduh aplikasi: halaman /aplikasi nyata dan bisa dijangkau dari
+//    navigasi beranda, bukan tautan mati.
+{
+  const markup = render({ isAuthenticated: false, user: undefined });
+  ada(markup, 'href="/aplikasi"', "beranda menautkan halaman unduh aplikasi");
+  ada(markup, "Aplikasi Android", "menu menyebut aplikasi Android");
+}
+
 console.log(`qa-landing-rute: ${lulus} lulus, ${gagal} gagal`);
 if (gagal > 0) process.exit(1);
