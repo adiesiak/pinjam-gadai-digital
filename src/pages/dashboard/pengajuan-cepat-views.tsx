@@ -40,8 +40,18 @@ import { useKirimSekali } from "@/hooks/use-cegah-tinggalkan";
 import { JebakanFormulir } from "@/components/JebakanFormulir";
 import { kunciIdempotensiBaru } from "@/lib/gerbangKirim";
 import { maskRekening } from "@/lib/kycTahapan";
-import { LOAN_LIMITS, LOAN_PURPOSE_OPTIONS, quotePinjaman, TENOR_OPTIONS } from "@/lib/loan";
+import {
+  LATE_FEE_POLICY,
+  LOAN_LIMITS,
+  LOAN_PURPOSE_OPTIONS,
+  quotePinjaman,
+  TENOR_OPTIONS,
+} from "@/lib/loan";
 import { formatRupiah } from "@/lib/money";
+import {
+  peringatanKemampuanBayar,
+  ringkasKonsekuensi,
+} from "@/lib/peringatanPinjaman";
 import {
   batasNominalCepat,
   kekuranganKtpTerverifikasi,
@@ -118,6 +128,11 @@ export function PengajuanCepatSection({
   const ringkas: RingkasanPlafon | null = plafonQuery ?? null;
   const sisaBatas = ringkas?.tersedia; // undefined selama belum termuat
   const bungaQuery = useQuery(api.lokasi.bungaSaya, {});
+  const ketentuanBiaya = useQuery(api.system.getKetentuanBiaya, {});
+  const tarifDenda = {
+    perHari: ketentuanBiaya?.persenDendaKeterlambatan ?? LATE_FEE_POLICY.percentPerDay,
+    maks: ketentuanBiaya?.maksDendaPersen ?? LATE_FEE_POLICY.maxPercent,
+  };
   const createLoan = useMutation(api.loans.createLoanApplication);
   // Gerbang izin server: mencatat percobaan mencurigakan dan menegakkan kunci
   // sementara sebelum payload mahal apa pun disusun.
@@ -252,6 +267,11 @@ export function PengajuanCepatSection({
 
   // ===== Hitungan & kesiapan =====
   const q = quotePinjaman({ pokokPinjaman: pokok, persenBunga: bungaQuery ?? undefined });
+  const peringatanBayar = peringatanKemampuanBayar({
+    penghasilanBulanan: ktp.penghasilanBulanan ?? 0,
+    kewajiban: q.totalKewajibanPelunasan,
+    hari: Number(tenorHari) || 30,
+  });
   const tenor = Number(tenorHari);
   const kurangKtp = kekuranganKtpTerverifikasi(ktp);
   const rekeningSiap = rekeningTersimpanSiap(ktp.namaBank, ktp.nomorRekening);
@@ -619,6 +639,21 @@ export function PengajuanCepatSection({
             )}
           </div>
 
+          {/* Peringatan singkat sebelum centang: peminjam membaca akibat
+              keterlambatan di layar yang sama dengan tombol kirim, bukan di
+              halaman syarat yang jarang dibuka. */}
+          {peringatanBayar !== null && (
+            <p
+              role="status"
+              className="rounded-xl border border-amber-300 bg-amber-100/80 px-3 py-2 text-[11px] leading-5 text-amber-950 sm:col-span-2"
+            >
+              {peringatanBayar}
+            </p>
+          )}
+          <p className="rounded-xl border border-amber-200 bg-amber-50/70 px-3 py-2 text-[11px] leading-5 text-amber-950 sm:col-span-2">
+            {ringkasKonsekuensi(tarifDenda)}
+          </p>
+
           <label
             htmlFor="cepat-setuju"
             className="flex cursor-pointer items-start gap-2.5 rounded-xl border border-slate-200 bg-slate-50/70 px-3 py-2 text-[11px] leading-5 sm:col-span-2"
@@ -634,8 +669,9 @@ export function PengajuanCepatSection({
               className="mt-0.5"
             />
             <span>
-              Saya menyetujui Syarat &amp; Ketentuan PINDAI dan menyatakan data pengajuan ini benar.
-              Persetujuan dicatat server bersama versi syaratnya.
+              Saya menyetujui Syarat &amp; Ketentuan PINDAI, sudah membaca
+              konsekuensi keterlambatan, dan menyatakan data pengajuan ini benar
+              serta kewajiban ini mampu saya bayar.
             </span>
           </label>
         </div>

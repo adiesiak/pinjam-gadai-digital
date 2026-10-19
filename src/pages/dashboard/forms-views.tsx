@@ -60,6 +60,10 @@ import {
 } from "@/lib/loan";
 import { formatRupiah } from "@/lib/money";
 import {
+  konsekuensiKeterlambatan,
+  peringatanKemampuanBayar,
+} from "@/lib/peringatanPinjaman";
+import {
   batasDiajukan,
   kalimatBatasPlafon,
   pesanPlafonTerlampaui,
@@ -430,6 +434,14 @@ export function LoanForm({
   const bungaSaya = bungaQuery ?? undefined;
   const sim = bulanan ? simulasiBulananAman(pokok, tenorBulanNum, bungaSaya) : null;
   const q = quotePinjaman({ pokokPinjaman: pokok, persenBunga: bungaSaya });
+  // Kewajiban satu periode dipakai untuk menilai kemampuan bayar: cicilan
+  // bulanan untuk skema bulanan, total pelunasan untuk tenor harian.
+  const kewajibanPeriode = bulanan && sim !== null ? sim.cicilanPerBulan : q.totalKewajibanPelunasan;
+  const peringatanBayar = peringatanKemampuanBayar({
+    penghasilanBulanan: penghasilan,
+    kewajiban: kewajibanPeriode,
+    hari: bulanan ? 30 : Number(tenorHari) || 30,
+  });
   // Batas pinjaman dari SERVER (`nasabah.plafonRingkasSaya`): plafon master
   // dipotong pokok pinjaman berjalan, memakai `ringkasPlafon` yang sama dengan
   // validasi `loans.createLoanApplication`. Selama belum termuat, `ringkas` null
@@ -444,6 +456,10 @@ export function LoanForm({
   // Tarif denda yang berlaku — ringkasan syarat di dialog memakai angka ini,
   // bukan persentase tetap, supaya sama dengan perhitungan server.
   const ketentuanBiaya = useQuery(api.system.getKetentuanBiaya, {});
+  const tarifDenda = {
+    perHari: ketentuanBiaya?.persenDendaKeterlambatan ?? LATE_FEE_POLICY.percentPerDay,
+    maks: ketentuanBiaya?.maksDendaPersen ?? LATE_FEE_POLICY.maxPercent,
+  };
   // Identitas yang SUDAH diperiksa petugas dipakai ulang: bagian data diri &
   // dokumen tidak ditanyakan dua kali. `null` berarti belum bisa dipakai ulang
   // (status belum VERIFIED, isian belum lengkap, atau berkasnya hilang dari
@@ -1100,6 +1116,15 @@ export function LoanForm({
             <Input id="sumber" value={sumberPenghasilan} required aria-required="true" aria-invalid={error !== null && sumberPenghasilan.trim().length < 3} aria-describedby={error !== null && sumberPenghasilan.trim().length < 3 ? "loan-form-error" : undefined} onChange={(e) => setSumberPenghasilan(e.target.value)} placeholder="Contoh: gaji, usaha" disabled={submitting} />
           </div>
         </div>
+
+        {peringatanBayar !== null && (
+          <p
+            role="status"
+            className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-950"
+          >
+            {peringatanBayar}
+          </p>
+        )}
         <div className="mt-4 space-y-3">
           {KYC_FILES.map(({ key, label }) => {
             const kameraAktif = cameraDoc?.key === key;
@@ -1298,11 +1323,6 @@ export function LoanForm({
               "PINDAI mencatat pengajuan, perhitungan, dan status — bukan memindahkan dana.",
               "Bunga flat mengikuti tarif akun (bawaan 30%); biaya dipotong di muka, dan setiap cicilan bulanan dikenai biaya admin cicilan 2%.",
               "Persetujuan pengajuan bukan jaminan pencairan; keputusan dibuat tim PINDAI dan tercatat pada audit trail.",
-              `Keterlambatan dikenai denda ${
-                ketentuanBiaya?.persenDendaKeterlambatan ?? LATE_FEE_POLICY.percentPerDay
-              }% per hari dari pokok (maksimum ${
-                ketentuanBiaya?.maksDendaPersen ?? LATE_FEE_POLICY.maxPercent
-              }%).`,
               "Data dan dokumen yang Anda kirim hanya dibuka oleh akun Anda dan tim PINDAI.",
             ].map((item) => (
               <li key={item} className="flex gap-2">
@@ -1311,6 +1331,24 @@ export function LoanForm({
               </li>
             ))}
           </ul>
+
+          {/* Konsekuensi keterlambatan dipisah dari syarat umum supaya terbaca
+              sebagai peringatan, bukan pasal yang dilewati. Isinya hanya
+              langkah yang benar-benar dijalankan: denda, pengingat, somasi ke
+              kontak peminjam, dan restrukturisasi. */}
+          <section className="rounded-xl border border-amber-200 bg-amber-50/70 p-3">
+            <h3 className="text-[11px] font-semibold uppercase tracking-[0.14em] text-amber-900">
+              Bila pembayaran terlambat
+            </h3>
+            <ul className="mt-2 space-y-1.5 text-xs leading-5 text-amber-950">
+              {konsekuensiKeterlambatan(tarifDenda).map((item) => (
+                <li key={item} className="flex gap-2">
+                  <span className="mt-1.5 size-1 shrink-0 rounded-full bg-amber-700" aria-hidden />
+                  <span>{item}</span>
+                </li>
+              ))}
+            </ul>
+          </section>
 
           {/* Titik GPS hanya tampil di sini: pada saat persetujuan, pengguna
               membaca titik terbaru yang ikut terkirim beserta jam ambilnya. */}
@@ -1334,7 +1372,10 @@ export function LoanForm({
               checked={setujuCentang}
               onChange={(event) => setSetujuCentang(event.target.checked)}
             />
-            <span>Saya telah membaca dan menyetujui Syarat &amp; Ketentuan PINDAI.</span>
+            <span>
+              Saya telah membaca Syarat &amp; Ketentuan serta konsekuensi
+              keterlambatan, dan menilai kewajiban ini mampu saya bayar.
+            </span>
           </label>
 
           <div className="flex flex-wrap justify-end gap-2">

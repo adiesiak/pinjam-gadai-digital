@@ -85,6 +85,8 @@ ada(cepat, "dokKtpId,", "id dokumen KYC dipakai ulang, tidak diunggah lagi");
 ada(cepat, 'validasiPengajuanCepat(isianSaatKirim, ktp, sisaBatas)', "validasi memakai aturan bersama atas sisa batas");
 ada(cepat, 'from "@/lib/pengajuanCepat"', "komponen memakai modul aturan pengajuan cepat");
 ada(cepat, "api.nasabah.plafonRingkasSaya", "sisa batas dibaca dari ringkasan plafon server");
+ada(cepat, "ringkasKonsekuensi", "peringatan konsekuensi tampil sebelum centang");
+ada(cepat, "mampu saya bayar", "persetujuan menyebut penilaian kemampuan bayar");
 tidakAda(cepat, "api.lokasi.plafonSaya", "tidak memakai plafon maksimal sebagai batas pengajuan");
 ada(cepat, "kalimatBatasPlafon", "kalimat batas memakai sumber kata yang sama dengan layar lain");
 
