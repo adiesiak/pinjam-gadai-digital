@@ -107,6 +107,17 @@ export type SystemConfig = {
   /** Wajib transaksi dari aplikasi native — aktifkan setelah app dirilis. */
   wajibAplikasiNative: boolean;
   /**
+   * Pengingat tagihan otomatis lewat WhatsApp untuk SEMUA akun. Sakelar global
+   * milik admin — bukan pilihan per nasabah. Kode OTP dan peringatan keamanan
+   * tidak ikut dimatikan karena keduanya bukan pengingat tagihan.
+   */
+  notifWhatsappAktif: boolean;
+  /**
+   * Pengingat tagihan otomatis lewat email akun nasabah untuk SEMUA akun.
+   * Tanpa alamat email, kanal ini tidak mengirim apa pun.
+   */
+  notifEmailAktif: boolean;
+  /**
    * Retensi jejak lokasi (hari) — job cron harian menghapus titik yang lebih
    * tua dari ini. Titik milik pinjaman belum selesai selalu ditahan minimal
    * LOKASI_RETENSI.buktiPinjamanHari (400 hari), berapa pun nilai di sini.
@@ -164,6 +175,8 @@ export const DEFAULT_CONFIG: SystemConfig = {
   lokasiWajib: true,
   lokasiMaxUmurMenit: 10,
   wajibAplikasiNative: false,
+  notifWhatsappAktif: true,
+  notifEmailAktif: true,
   retensiLokasiHari: LOKASI_RETENSI.jejakHari,
   plafonPinjaman: PLAFON_DEFAULT,
   rekeningUsahaNama: "Chatur Surya Carel Ramadhan",

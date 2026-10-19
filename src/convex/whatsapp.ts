@@ -1213,17 +1213,22 @@ export const jalankanPengingatJatuhTempo = internalAction({
       nama: "pengingat-jatuh-tempo-wa",
     });
     const settings: WaSettings = await ctx.runQuery(internal.whatsapp._getSettings, {});
-    if (settings.aktif !== true || !settings.apiUrl) {
-      return { terkirim: 0, gagal: 0, tanpaNomor: 0, jumlahRencana: 0, alasan: "nonaktif" };
-    }
     const now = Date.now();
     if (!dalamJamKirim(jamWib(now))) {
       return { terkirim: 0, gagal: 0, tanpaNomor: 0, jumlahRencana: 0, alasan: "luar_jam_kirim" };
     }
+    // Gateway dan sakelar notifikasi adalah dua hal berbeda: gateway yang belum
+    // siap hanya menahan WhatsApp. Email tetap dihitung dan dikirim sesuai
+    // sakelarnya sendiri, supaya admin bisa beralih kanal tanpa mematikan
+    // pengingat sama sekali.
     const apiKey = apiKeyGatewayWa();
-    if (apiKey === "") {
-      return { terkirim: 0, gagal: 0, tanpaNomor: 0, jumlahRencana: 0, alasan: "tanpa_token" };
-    }
+    const bolehWa = settings.aktif === true && !!settings.apiUrl && apiKey !== "";
+    const alasan =
+      settings.aktif !== true || !settings.apiUrl
+        ? "nonaktif"
+        : apiKey === ""
+          ? "tanpa_token"
+          : "jalan";
 
     const sejak = awalHariUtc(now);
     const pinjaman = await ctx.runQuery(internal.whatsapp._pinjamanPengingat, {});
@@ -1251,9 +1256,10 @@ export const jalankanPengingatJatuhTempo = internalAction({
     let terkirim = 0;
     let gagal = 0;
     let tanpaNomor = 0;
-    // Satu pinjaman bisa punya beberapa jenis pengingat dalam satu jalan; pilihan
-    // pemiliknya dibaca sekali saja per pengguna.
-    const prefWa = new Map<string, boolean>();
+    // Sakelar global admin dibaca sekali per jalan cron, bukan per pengingat.
+    const waAktif = await ctx.runQuery(internal.system._kanalNotifikasiAktif, {
+      kanal: "whatsapp",
+    });
     for (const r of rencana) {
       const p = peta.get(r.loanId);
       if (p === undefined) continue;
@@ -1262,15 +1268,7 @@ export const jalankanPengingatJatuhTempo = internalAction({
         nilaiPesanPinjaman(p, { metodeBayar, sekarang: now, dendaPerHari: tarifDenda }),
       ).isi;
 
-      let waAktif = prefWa.get(p.userId);
-      if (waAktif === undefined) {
-        waAktif = await ctx.runQuery(internal.notifikasiPreferensi._kanalAktif, {
-          userId: p.userId,
-          kanal: "whatsapp",
-        });
-        prefWa.set(p.userId, waAktif);
-      }
-      if (waAktif) {
+      if (waAktif && bolehWa) {
         if (p.nomorWhatsApp === null) {
           await ctx.runMutation(internal.whatsapp._appendLog, {
             loanId: p.loanId,
@@ -1306,7 +1304,7 @@ export const jalankanPengingatJatuhTempo = internalAction({
         isi,
       });
     }
-    return { terkirim, gagal, tanpaNomor, jumlahRencana: rencana.length, alasan: "jalan" };
+    return { terkirim, gagal, tanpaNomor, jumlahRencana: rencana.length, alasan };
   },
 });
 

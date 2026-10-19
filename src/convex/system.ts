@@ -13,6 +13,7 @@ import {
 } from "../lib/system-config";
 import { GAYA_PRESETS, type GayaPreset } from "../lib/template-gaya";
 import { clampPlafon } from "../lib/plafon";
+import { kanalAktif } from "../lib/preferensiNotifikasi";
 import { LATE_FEE_POLICY } from "../lib/loan";
 import { bandingkanConfig, type PerubahanConfig } from "../lib/bandingkanConfig";
 import {
@@ -101,6 +102,10 @@ export async function getConfig(ctx: QueryCtx): Promise<SystemConfig> {
     lokasiWajib: row.lokasiWajib ?? DEFAULT_CONFIG.lokasiWajib,
     lokasiMaxUmurMenit: row.lokasiMaxUmurMenit ?? DEFAULT_CONFIG.lokasiMaxUmurMenit,
     wajibAplikasiNative: row.wajibAplikasiNative ?? DEFAULT_CONFIG.wajibAplikasiNative,
+    // Dua sakelar ini GLOBAL: kosong berarti aktif, termasuk untuk baris
+    // konfigurasi yang dibuat sebelum kolomnya ada.
+    notifWhatsappAktif: kanalAktif(row.notifWhatsappAktif),
+    notifEmailAktif: kanalAktif(row.notifEmailAktif),
     retensiLokasiHari: row.retensiLokasiHari ?? DEFAULT_CONFIG.retensiLokasiHari,
     plafonPinjaman: row.plafonPinjaman ?? DEFAULT_CONFIG.plafonPinjaman,
     rekeningUsahaNama: row.rekeningUsahaNama ?? DEFAULT_CONFIG.rekeningUsahaNama,
@@ -115,6 +120,21 @@ export async function getConfig(ctx: QueryCtx): Promise<SystemConfig> {
     manualDepositEnabled: row.manualDepositEnabled ?? DEFAULT_CONFIG.manualDepositEnabled,
   };
 }
+
+/**
+ * Gerbang pengiriman notifikasi otomatis — dibaca action cron lewat `runQuery`.
+ *
+ * Satu sumber untuk WhatsApp dan email supaya dua sakelar admin tidak bisa
+ * berbeda pendapat dengan proses yang benar-benar mengirim. Internal: klien
+ * tidak perlu (dan tidak boleh) menanyakan keputusan pengiriman secara langsung.
+ */
+export const _kanalNotifikasiAktif = internalQuery({
+  args: { kanal: v.union(v.literal("whatsapp"), v.literal("email")) },
+  handler: async (ctx, { kanal }): Promise<boolean> => {
+    const cfg = await getConfig(ctx);
+    return kanal === "whatsapp" ? cfg.notifWhatsappAktif : cfg.notifEmailAktif;
+  },
+});
 
 /** Tarif denda keterlambatan yang berlaku sekarang (% pokok per hari). */
 export async function tarifDendaBerlaku(ctx: QueryCtx): Promise<number> {
@@ -421,6 +441,11 @@ async function bersihkanConfigMasuk(
     emailResmi: (input.emailResmi ?? "").trim(),
     teleponResmi: (input.teleponResmi ?? "").trim(),
     qrisMerchantNama: (input.qrisMerchantNama ?? "").trim(),
+    // Snapshot lama (sebelum sakelar notifikasi ada) tidak memuat kolom ini.
+    // Rollback ke snapshot itu mengembalikannya ke bawaan aktif, bukan
+    // membiarkan nilai sekarang secara diam-diam.
+    notifWhatsappAktif: kanalAktif(input.notifWhatsappAktif),
+    notifEmailAktif: kanalAktif(input.notifEmailAktif),
   };
 }
 
@@ -522,6 +547,8 @@ export const saveConfig = mutation({
     lokasiWajib: v.boolean(),
     lokasiMaxUmurMenit: v.number(),
     wajibAplikasiNative: v.boolean(),
+    notifWhatsappAktif: v.boolean(),
+    notifEmailAktif: v.boolean(),
     retensiLokasiHari: v.number(),
     plafonPinjaman: v.number(),
     rekeningUsahaNama: v.optional(v.string()),
@@ -558,6 +585,8 @@ export const saveConfig = mutation({
       lokasiWajib: args.lokasiWajib,
       lokasiMaxUmurMenit: args.lokasiMaxUmurMenit,
       wajibAplikasiNative: args.wajibAplikasiNative,
+      notifWhatsappAktif: args.notifWhatsappAktif,
+      notifEmailAktif: args.notifEmailAktif,
       retensiLokasiHari: args.retensiLokasiHari,
       plafonPinjaman: args.plafonPinjaman,
       rekeningUsahaNama: args.rekeningUsahaNama,

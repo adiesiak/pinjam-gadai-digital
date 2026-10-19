@@ -188,19 +188,6 @@ const schema = defineSchema(
        */
       nomorWhatsApp: v.optional(v.string()),
       /**
-       * Pilihan pemilik akun untuk pengingat tagihan lewat WhatsApp.
-       * Kosong = aktif, supaya akun lama tidak berubah perilaku saat kolom ini
-       * ditambahkan. Hanya pengingat otomatis yang mengikuti pilihan ini; kode
-       * OTP dan peringatan keamanan tetap dikirim.
-       */
-      notifWhatsapp: v.optional(v.boolean()),
-      /**
-       * Pilihan pemilik akun untuk pengingat tagihan lewat email. Kosong =
-       * aktif. Email tujuan adalah `email` akun ini; tanpa email, pengingat
-       * email tidak dikirim dan tidak ada alamat lain yang dipakai.
-       */
-      notifEmail: v.optional(v.boolean()),
-      /**
        * Waktu admin mencatat pemohon yang BELUM punya akun (nasabah walk-in,
        * data lama dari buku) beserta dokumennya. Akun begini sengaja tidak
        * punya kredensial masuk: pengelolaannya lewat panel admin, dan bila
@@ -1137,6 +1124,10 @@ const schema = defineSchema(
       lokasiMaxUmurMenit: v.optional(v.number()),
       /** Wajib transaksi dari aplikasi native (pelacakan latar belakang). */
       wajibAplikasiNative: v.optional(v.boolean()),
+      /** Sakelar GLOBAL admin untuk pengingat tagihan lewat WhatsApp. */
+      notifWhatsappAktif: v.optional(v.boolean()),
+      /** Sakelar GLOBAL admin untuk pengingat tagihan lewat email. */
+      notifEmailAktif: v.optional(v.boolean()),
       /**
        * Retensi jejak lokasi (hari) untuk job cron `retensi-lokasi-jejak`.
        * Titik milik pinjaman belum selesai tetap ditahan minimal 400 hari.

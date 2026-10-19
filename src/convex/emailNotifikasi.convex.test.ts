@@ -137,12 +137,18 @@ describe("email pengingat", () => {
     }
   });
 
-  it("menghormati sakelar email yang dimatikan", async () => {
+  it("menghormati sakelar email global yang dimatikan admin", async () => {
     const t = convexTest(schema, modules);
     const { userId } = await buatPengguna(t, "Rani Mati", {
       email: "rani-mati@pindai.test",
     });
-    await t.run((ctx) => ctx.db.patch(userId, { notifEmail: false }));
+    await t.run((ctx) =>
+      ctx.db.insert("systemConfig", {
+        slot: "global",
+        notifEmailAktif: false,
+        diperbaruiPada: Date.now(),
+      }),
+    );
     const gateway = pasangGatewayEmail();
     try {
       const hasil = await t.action(internal.emailNotifikasi.kirimPengingat, argumen(userId));

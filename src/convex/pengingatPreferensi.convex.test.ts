@@ -1,10 +1,10 @@
 /**
  * Tes integrasi sakelar WhatsApp pada cron pengingat ANGSURAN.
  *
- * Yang dijaga: saat pemilik akun mematikan WhatsApp, tidak ada satu pun pesan
- * keluar — tetapi baris pengingat tetap dibuat supaya pusat notifikasi in-app
- * tidak ikut hilang. Saat sakelar dinyalakan kembali pada hari yang sama,
- * pengingat yang belum terkirim berangkat sekali.
+ * Yang dijaga: saat ADMIN mematikan WhatsApp di Pengaturan Sistem, tidak ada
+ * satu pun pesan keluar — tetapi baris pengingat tetap dibuat supaya pusat
+ * notifikasi in-app tidak ikut hilang. Saat sakelar dinyalakan kembali pada hari
+ * yang sama, pengingat yang belum terkirim berangkat sekali.
  *
  * Gateway diganti `globalThis.fetch`, jadi yang diperiksa adalah permintaan
  * yang benar-benar keluar, bukan nilai balik fungsi.
@@ -109,7 +109,13 @@ describe("sakelar WhatsApp pada pengingat angsuran", () => {
     const { userId } = await buatPengguna(t, "Rani Mati", {
       email: "rani-mati-angsuran@pindai.test",
     });
-    await t.run((ctx) => ctx.db.patch(userId, { notifWhatsapp: false }));
+    await t.run((ctx) =>
+      ctx.db.insert("systemConfig", {
+        slot: "global",
+        notifWhatsappAktif: false,
+        diperbaruiPada: Date.now(),
+      }),
+    );
     await seedPengingatHariIni(t, userId);
     const gateway = pasangGateway();
     try {
@@ -136,14 +142,26 @@ describe("sakelar WhatsApp pada pengingat angsuran", () => {
     const { userId } = await buatPengguna(t, "Rani Nyala", {
       email: "rani-nyala-angsuran@pindai.test",
     });
-    await t.run((ctx) => ctx.db.patch(userId, { notifWhatsapp: false }));
+    await t.run((ctx) =>
+      ctx.db.insert("systemConfig", {
+        slot: "global",
+        notifWhatsappAktif: false,
+        diperbaruiPada: Date.now(),
+      }),
+    );
     await seedPengingatHariIni(t, userId);
     const gateway = pasangGateway();
     try {
       await t.action(internal.angsuranPengingat.jalankanPengingatAngsuran, {});
       expect(gateway.keluar).toHaveLength(0);
 
-      await t.run((ctx) => ctx.db.patch(userId, { notifWhatsapp: true }));
+      await t.run(async (ctx) => {
+        const cfg = await ctx.db
+          .query("systemConfig")
+          .withIndex("by_slot", (q) => q.eq("slot", "global"))
+          .first();
+        if (cfg !== null) await ctx.db.patch(cfg._id, { notifWhatsappAktif: true });
+      });
       const hasil = await t.action(
         internal.angsuranPengingat.jalankanPengingatAngsuran,
         {},

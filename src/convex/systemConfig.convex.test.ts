@@ -15,7 +15,7 @@ import { convexTest } from "convex-test";
 import { describe, expect, it } from "vitest";
 
 import { DEFAULT_CONFIG } from "../lib/system-config";
-import { api } from "./_generated/api";
+import { api, internal } from "./_generated/api";
 import schema from "./schema";
 import { siapkanPengguna } from "./test.helpers";
 import { modules } from "./test.setup";
@@ -44,6 +44,8 @@ function argumenConfig(ubah: Record<string, unknown> = {}) {
     lokasiWajib: DEFAULT_CONFIG.lokasiWajib,
     lokasiMaxUmurMenit: DEFAULT_CONFIG.lokasiMaxUmurMenit,
     wajibAplikasiNative: DEFAULT_CONFIG.wajibAplikasiNative,
+    notifWhatsappAktif: DEFAULT_CONFIG.notifWhatsappAktif,
+    notifEmailAktif: DEFAULT_CONFIG.notifEmailAktif,
     retensiLokasiHari: DEFAULT_CONFIG.retensiLokasiHari,
     plafonPinjaman: DEFAULT_CONFIG.plafonPinjaman,
     rekeningUsahaNama: DEFAULT_CONFIG.rekeningUsahaNama,
@@ -101,6 +103,39 @@ describe("konfigurasi: versi, riwayat, rollback", () => {
         .collect(),
     );
     expect(auditRows).toHaveLength(1);
+  });
+
+  it("sakelar notifikasi tersimpan sebagai keputusan global admin", async () => {
+    const t = buatKontek();
+    const { sesi: asAdmin } = await siapkanPengguna(t, "admin-notif", {
+      email: "admin-notif@pindai.test",
+      role: "admin",
+    });
+
+    await asAdmin.mutation(
+      api.system.saveConfig,
+      argumenConfig({ notifWhatsappAktif: false, notifEmailAktif: false }),
+    );
+
+    expect(
+      await t.query(internal.system._kanalNotifikasiAktif, { kanal: "whatsapp" }),
+    ).toBe(false);
+    expect(
+      await t.query(internal.system._kanalNotifikasiAktif, { kanal: "email" }),
+    ).toBe(false);
+
+    const cfg = await asAdmin.query(api.system.getConfigAdmin, {});
+    expect(cfg.config.notifWhatsappAktif).toBe(false);
+    expect(cfg.config.notifEmailAktif).toBe(false);
+
+    // Perubahan ikut terlihat di riwayat dengan label yang bisa dibaca admin.
+    const riwayat = await asAdmin.query(api.system.riwayatConfig, {});
+    expect(
+      riwayat[0].perubahan
+        .map((p) => p.kunci)
+        .filter((kunci) => kunci.startsWith("notif"))
+        .sort(),
+    ).toEqual(["notifEmailAktif", "notifWhatsappAktif"]);
   });
 
   it("rollback membuat versi baru tanpa menghapus riwayat", async () => {

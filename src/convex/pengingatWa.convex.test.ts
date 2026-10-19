@@ -18,7 +18,7 @@
  * Menjalankan: bunx vitest run src/convex/pengingatWa.convex.test.ts
  */
 import { convexTest } from "convex-test";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
@@ -236,6 +236,10 @@ describe("saveConfig gerbang template pesan", () => {
 
 describe("pengingat WhatsApp otomatis", () => {
   it("gateway nonaktif: tidak ada pesan keluar dan tidak ada log", async () => {
+    // Jam dikunci di dalam jendela kirim supaya hasilnya tidak bergantung pada
+    // jam saat tes dijalankan: yang diuji keadaan gateway, bukan jam.
+    vi.useFakeTimers();
+    vi.setSystemTime(Date.UTC(2026, 10, 1, 3, 0, 0));
     const t = convexTest(schema, modules);
     const { userId } = await buatPengguna(t, "rani", { email: "rani@pindai.test", role: "peminjam" });
     await seedPinjaman(t, { userId, status: "didanai", sisaHari: 3 });
@@ -248,6 +252,7 @@ describe("pengingat WhatsApp otomatis", () => {
       expect(await t.run((ctx) => ctx.db.query("waLogs").collect())).toHaveLength(0);
     } finally {
       gateway.pulihkan();
+      vi.useRealTimers();
     }
   });
 

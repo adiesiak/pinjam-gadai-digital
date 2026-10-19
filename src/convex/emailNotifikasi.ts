@@ -3,7 +3,6 @@ import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import { internalAction, internalMutation, internalQuery } from "./_generated/server";
 import { isiEmailPengingat, subjekEmailPengingat } from "../lib/emailPengingat";
-import { kanalAktif } from "../lib/preferensiNotifikasi";
 
 /** Batas percobaan per pengingat — gateway yang bermasalah tidak dispam tiap jam. */
 const BATAS_PERCOBAAN = 3;
@@ -31,7 +30,6 @@ export const _dataKirim = internalQuery({
         sebelumnya.percobaan >= BATAS_PERCOBAAN);
     return {
       email: user.email ?? null,
-      aktif: kanalAktif(user.notifEmail),
       sudahSelesai,
     };
   },
@@ -114,7 +112,10 @@ export const kirimPengingat = internalAction({
     });
     if (data === null) return { status: "tanpa_pengguna" };
     if (data.email === null) return { status: "tanpa_email" };
-    if (!data.aktif) return { status: "dimatikan" };
+    const emailAktif = await ctx.runQuery(internal.system._kanalNotifikasiAktif, {
+      kanal: "email",
+    });
+    if (!emailAktif) return { status: "dimatikan" };
     if (data.sudahSelesai) return { status: "sudah_selesai" };
     const email = data.email;
 

@@ -775,6 +775,28 @@ export function SystemConfigPanel() {
                   onChange={(v) => upd("wajibAplikasiNative", v)}
                 />
               </div>
+
+              <div className="space-y-3">
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                  Notifikasi Otomatis
+                </p>
+                <SwitchRow
+                  htmlFor="cfg-notif-wa"
+                  label="Notifikasi WhatsApp"
+                  hint="Pengingat tagihan untuk semua akun. Kode OTP dan peringatan keamanan tetap dikirim."
+                  checked={form.notifWhatsappAktif}
+                  onChange={(v) => upd("notifWhatsappAktif", v)}
+                  accent="emerald"
+                />
+                <SwitchRow
+                  htmlFor="cfg-notif-email"
+                  label="Notifikasi Email"
+                  hint="Pengingat tagihan ke alamat email akun nasabah. Akun tanpa email tidak menerima apa pun."
+                  checked={form.notifEmailAktif}
+                  onChange={(v) => upd("notifEmailAktif", v)}
+                  accent="emerald"
+                />
+              </div>
             </div>
 
             <div className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">

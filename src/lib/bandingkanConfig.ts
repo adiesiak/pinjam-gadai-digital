@@ -36,6 +36,8 @@ export const LABEL_CONFIG: Record<string, string> = {
   lokasiWajib: "Gerbang lokasi wajib",
   lokasiMaxUmurMenit: "Umur maks titik lokasi (menit)",
   wajibAplikasiNative: "Wajib aplikasi native",
+  notifWhatsappAktif: "Notifikasi WhatsApp",
+  notifEmailAktif: "Notifikasi Email",
   retensiLokasiHari: "Retensi jejak lokasi (hari)",
   plafonPinjaman: "Plafon awal pinjaman (Rp)",
   rekeningUsahaNama: "Nama rekening usaha",
