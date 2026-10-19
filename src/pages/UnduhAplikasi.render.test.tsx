@@ -80,7 +80,11 @@ ok(
   );
 
   ada(html, "Unduh PINDAI untuk Android", "judul halaman tampil");
-  ada(html, 'src="/icon-192.png"', "kartu memakai ikon lambang, bukan placeholder");
+  ada(
+    html,
+    'src="/icon-192.png?v=1.3.1"',
+    "kartu memakai ikon lambang dengan cache-busting",
+  );
   ok((html.match(/<h1/g) ?? []).length === 1, "hanya satu h1");
   ada(html, `Unduh APK ${info.versiNama}`, "tombol menyebut versi dari version.json");
   ada(html, `href="${info.tautan}"`, "tombol menuju tautan dari version.json");

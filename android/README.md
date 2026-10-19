@@ -12,7 +12,8 @@ ditautkan dari tombol "Pasang aplikasi" di beranda.
 | `AndroidManifest.xml` | Paket `id.pindai.app`, izin internet/lokasi/kamera, tema terang. |
 | `src/id/pindai/app/MainActivity.java` | WebView + kamera (getUserMedia), GPS, pemilih berkas, tautan luar, bilah pembaruan. |
 | `res/values/` | Nama aplikasi dan tema. |
-| `res/mipmap-*/ic_launcher.png` | Ikon 48–192 px, dibuat dari `src/assets/logo.svg`. |
+| `res/mipmap-*/ic_launcher.png` | Ikon 48–192 px untuk Android 7 ke bawah, dibuat dari `src/assets/logo.svg`. |
+| `res/mipmap-anydpi-v26/ic_launcher.xml` | Adaptive icon Android 8+, memakai lapisan dari `ikon/adaptive-*.svg`. |
 | `build.sh` | aapt2 → javac → d8 → zipalign → apksigner, keluaran `public/pindai.apk`. |
 
 ## Build
@@ -23,8 +24,17 @@ export ANDROID_SDK=/path/ke/android-sdk        # butuh platforms/android-34 + bu
 bash android/build.sh
 ```
 
-Hasil: `public/pindai.apk` (±28 KB), ditandatangani, siap dipasang di Android 6+.
-Versi yang terbit saat ini adalah 1.3.0 (versionCode 4).
+Hasil: `public/pindai.apk` (±144 KB), ditandatangani, siap dipasang di Android 6+.
+Versi yang terbit saat ini adalah 1.3.1 (versionCode 5).
+
+## Ikon
+
+Ikon peluncur Android 7 ke bawah memakai PNG `res/mipmap-*/ic_launcher.png`.
+Android 8 ke atas memakai `res/mipmap-anydpi-v26/ic_launcher.xml` dengan dua
+lapisan: `res/drawable-nodpi/ic_launcher_foreground.png` (lambang transparan)
+dan `res/drawable-nodpi/ic_launcher_background.png` (kertas krem). Kedua lapisan
+dirender dari `ikon/adaptive-foreground.svg` dan `ikon/adaptive-background.svg`
+pada 432 px; lambang berada di dalam lingkaran aman 66dp.
 
 ## Jembatan halaman ↔ aplikasi
 
@@ -55,11 +65,11 @@ Aplikasi yang sudah terpasang mengecek `https://<alamat>/version.json` sekali
 setiap dibuka:
 
 ```json
-{ "versionCode": 4, "versionName": "1.3.0", "apkUrl": "/pindai.apk" }
+{ "versionCode": 5, "versionName": "1.3.1", "apkUrl": "/pindai.apk" }
 ```
 
 Bila `versionCode` di server lebih besar dari `MainActivity.VERSI_KODE`, bilah
-hijau "PINDAI 1.3.0 tersedia" muncul di atas halaman dengan tombol **Unduh**
+hijau "PINDAI 1.3.1 tersedia" muncul di atas halaman dengan tombol **Unduh**
 yang membuka APK di peramban sistem. Pemeriksaan ini diam saja bila jaringan
 gagal — aplikasi tetap bisa dipakai.
 

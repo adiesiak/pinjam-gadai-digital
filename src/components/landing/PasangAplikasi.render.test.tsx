@@ -182,7 +182,11 @@ for (const [ukuran, berkas, sisi] of [
   const ikon = manifest.icons?.find(
     (i) => i.sizes === ukuran && i.type === "image/png",
   );
-  ok(ikon?.src === `/${berkas}`, `manifest memuat ikon ${ukuran}`);
+  ok(
+    ikon?.src?.split("?")[0] === `/${berkas}`,
+    `manifest memuat ikon ${ukuran}`,
+  );
+  ok((ikon?.src ?? "").includes("?v="), `ikon ${ukuran} memakai cache-busting`);
   ok(statSync(`${akar}public/${berkas}`).size > 1000, `berkas ${berkas} tidak kosong`);
   const png = ukuranPng(berkas);
   ok(
@@ -214,7 +218,7 @@ ok(
 const html = readFileSync(`${akar}index.html`, "utf8");
 ok(
   html.includes('rel="apple-touch-icon"') &&
-    html.includes("/apple-touch-icon.png"),
+    html.includes("/apple-touch-icon.png?v="),
   "iOS memakai apple-touch-icon PNG",
 );
 ok(

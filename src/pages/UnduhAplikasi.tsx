@@ -287,7 +287,7 @@ export function UnduhAplikasiView({
                 <div className="relative">
                   <div className="flex items-center gap-3">
                     <img
-                      src="/icon-192.png"
+                      src="/icon-192.png?v=1.3.1"
                       alt=""
                       width={48}
                       height={48}

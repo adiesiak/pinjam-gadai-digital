@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="432" height="432" viewBox="0 0 432 432">
+  <defs>
+    <radialGradient id="pendar" cx="50%" cy="30%" r="70%">
+      <stop offset="0" stop-color="#c9a86a" stop-opacity=".30"/>
+      <stop offset=".55" stop-color="#c9a86a" stop-opacity=".08"/>
+      <stop offset="1" stop-color="#c9a86a" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="tepi" cx="50%" cy="50%" r="72%">
+      <stop offset=".42" stop-color="#b99b62" stop-opacity="0"/>
+      <stop offset="1" stop-color="#b99b62" stop-opacity=".16"/>
+    </radialGradient>
+    <pattern id="titik" width="20" height="20" patternUnits="userSpaceOnUse">
+      <circle cx="10" cy="10" r="1.2" fill="#b99b62" fill-opacity=".10"/>
+    </pattern>
+  </defs>
+  <rect width="432" height="432" fill="#f5f2e9"/>
+  <rect width="432" height="432" fill="url(#pendar)"/>
+  <rect width="432" height="432" fill="url(#tepi)"/>
+  <rect width="432" height="432" fill="url(#titik)"/>
+</svg>

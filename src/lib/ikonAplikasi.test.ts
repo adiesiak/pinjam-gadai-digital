@@ -154,8 +154,8 @@ for (const jalur of ["src/assets/logo.svg", "public/logo.svg"]) {
 {
   const halaman = readFileSync(`${akar}src/pages/UnduhAplikasi.tsx`, "utf8");
   ok(
-    halaman.includes('src="/icon-192.png"'),
-    "kartu unduh memakai ikon 192 px yang sudah diperbaiki",
+    halaman.includes('src="/icon-192.png?v='),
+    "kartu unduh memakai ikon 192 px dengan cache-busting",
   );
 }
 
