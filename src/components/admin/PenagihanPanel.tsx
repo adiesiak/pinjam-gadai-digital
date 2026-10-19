@@ -76,6 +76,7 @@ import {
 } from "@/lib/penagihan";
 
 import { formatDate } from "./admin-format";
+import { SuratSomasi } from "./SuratSomasi";
 import {
   EmptyQueue,
   MetrikKartu,
@@ -458,6 +459,9 @@ function KasusDialog({
             dicatat sekarang; gunakan catatan sistem atau coba lagi di dalam jendela tersebut.
           </p>
         )}
+
+        {/* --- Surat somasi: hanya muncul setelah jatuh tempo terlewati --- */}
+        <SuratSomasi loanId={baris.loanId} />
 
         {/* --- Kontak tersamar + buka kontak --- */}
         <div className="rounded-xl border border-slate-200 bg-slate-50/60 px-4 py-3">

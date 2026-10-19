@@ -1,0 +1,134 @@
+/** Run: bun src/lib/suratSomasi.test.ts */
+import { formatRupiah } from "./money";
+import {
+  BATAS_BAYAR_HARI,
+  cekSomasi,
+  namaBerkasSomasi,
+  nomorSuratSomasi,
+  susunSuratSomasi,
+  type DataSuratSomasi,
+} from "./suratSomasi";
+import { buatPdfSomasi } from "./suratSomasiPdf";
+
+let passed = 0;
+let failed = 0;
+function eq(actual: unknown, expected: unknown, label: string) {
+  if (actual === expected) passed += 1;
+  else {
+    failed += 1;
+    console.error(`FAIL ${label}: expected ${expected}, got ${actual}`);
+  }
+}
+function ok(nilai: boolean, label: string) {
+  if (nilai) passed += 1;
+  else {
+    failed += 1;
+    console.error(`FAIL ${label}`);
+  }
+}
+
+const HARI = 86_400_000;
+const SEKARANG = Date.UTC(2026, 9, 19, 4, 0, 0);
+
+const data: DataSuratSomasi = {
+  nomorReferensi: "PNJ-2026-0042",
+  namaPeminjam: "Rani Peminjam",
+  pokokPinjaman: 500_000,
+  jatuhTempoPada: SEKARANG - 10 * HARI,
+  hariTerlambat: 10,
+  dendaTerlambat: 100_000,
+  totalKewajiban: 750_000,
+  persenDendaPerHari: 2,
+  rekening: { nama: "PT PINDAI", bank: "BCA", nomor: "1234567890" },
+};
+
+// Gerbang: hanya pinjaman yang benar-benar lewat jatuh tempo.
+eq(cekSomasi({ hariTerlambat: 0, totalKewajiban: 750_000 }).ok, false, "belum jatuh tempo ditolak");
+const belum = cekSomasi({ hariTerlambat: 0, totalKewajiban: 750_000 });
+if (!belum.ok) ok(/belum melewati jatuh tempo/i.test(belum.alasan), "alasan belum jatuh tempo");
+eq(cekSomasi({ hariTerlambat: 3, totalKewajiban: null }).ok, false, "kewajiban kosong ditolak");
+eq(cekSomasi({ hariTerlambat: 3, totalKewajiban: 0 }).ok, false, "kewajiban nol ditolak");
+eq(cekSomasi({ hariTerlambat: 1, totalKewajiban: 1 }).ok, true, "terlambat satu hari diterima");
+
+// Nomor surat memakai tanggal WIB.
+eq(nomorSuratSomasi("PNJ-2026-0042", SEKARANG), "SOMASI/PNJ-2026-0042/20261019", "nomor surat");
+eq(nomorSuratSomasi("  ", SEKARANG), "SOMASI/PINDAI/20261019", "nomor surat tanpa referensi");
+
+const surat = susunSuratSomasi(data, { sekarang: SEKARANG });
+eq(surat.tanggalTeks, "19 Oktober 2026", "tanggal surat");
+eq(surat.batasBayarTeks, "26 Oktober 2026", "batas bayar 7 hari");
+eq(surat.batasBayarPada, SEKARANG + BATAS_BAYAR_HARI * HARI, "epoch batas bayar");
+eq(surat.kepada, "Rani Peminjam", "penerima");
+ok(surat.paragraf.some((p) => p.includes("PNJ-2026-0042")), "referensi disebut di paragraf");
+ok(surat.paragraf.some((p) => p.includes("10 hari")), "lama keterlambatan disebut");
+const barisRincian = (awalan: string) =>
+  surat.rincian.find((r) => r.label.startsWith(awalan));
+eq(barisRincian("Pokok pinjaman")?.nilai, formatRupiah(500_000), "pokok di rincian");
+eq(
+  barisRincian("Bunga dan biaya tercatat")?.nilai,
+  formatRupiah(150_000),
+  "bunga di rincian",
+);
+eq(barisRincian("Denda keterlambatan")?.nilai, formatRupiah(100_000), "denda di rincian");
+const barisTerakhir = surat.rincian[surat.rincian.length - 1];
+eq(barisTerakhir?.label, "Total yang harus dibayar", "total di baris terakhir");
+eq(barisTerakhir?.nilai, formatRupiah(750_000), "nilai total di rincian");
+ok(
+  barisRincian("Denda keterlambatan")?.label.includes("2% dari pokok per hari") ?? false,
+  "tarif denda di label",
+);
+ok(surat.instruksiBayar.some((i) => i.includes("BCA 1234567890")), "rekening tujuan disebut");
+ok(surat.instruksiBayar.some((i) => i.includes("PNJ-2026-0042")), "referensi di instruksi bayar");
+ok(surat.penutup.some((p) => p.includes("bukan putusan pengadilan")), "batas dokumen disebut");
+ok(surat.penutup.some((p) => p.includes("OTP")), "peringatan OTP disebut");
+ok(
+  surat.penutup.some((p) => /penjadwalan ulang/i.test(p)),
+  "ruang pembicaraan tetap dibuka",
+);
+
+// Bank kosong tidak menghasilkan kalimat rancu.
+const tanpaBank = susunSuratSomasi(
+  { ...data, rekening: { nama: "PT PINDAI", bank: "  ", nomor: "1234567890" } },
+  { sekarang: SEKARANG },
+);
+ok(
+  tanpaBank.instruksiBayar.some((i) => i.includes("rekening usaha 1234567890")),
+  "tanpa nama bank, nomor rekening tetap terbaca",
+);
+
+// Tanpa rekening usaha, surat tidak mengarang nomor rekening.
+const tanpaRekening = susunSuratSomasi({ ...data, rekening: null }, { sekarang: SEKARANG });
+ok(
+  tanpaRekening.instruksiBayar.every((i) => !i.includes("Transfer ke rekening")),
+  "tanpa rekening tidak menyebut transfer",
+);
+ok(
+  tanpaRekening.instruksiBayar.some((i) => i.includes("menu Bantuan")),
+  "tanpa rekening mengarahkan ke petugas",
+);
+
+eq(namaBerkasSomasi(surat), "somasi-pnj-2026-0042.pdf", "nama berkas");
+
+// Bahasa surat: tanpa em dash dan tanpa klaim yang melewati batas.
+const semuaTeks = [
+  surat.perihal,
+  ...surat.paragraf,
+  ...surat.rincian.map((r) => `${r.label}: ${r.nilai}`),
+  ...surat.instruksiBayar,
+  ...surat.penutup,
+].join("\n");
+ok(!semuaTeks.includes("\u2014"), "tanpa em dash");
+ok(!/\bsita\b/i.test(semuaTeks), "tanpa ancaman penyitaan");
+ok(!/sebar(kan)? data/i.test(semuaTeks), "tanpa penyebaran data");
+
+// PDF benar-benar terbentuk dan memuat isi surat.
+const byte = buatPdfSomasi(surat);
+const teksPdf = new TextDecoder("latin1").decode(byte);
+ok(teksPdf.startsWith("%PDF-"), "header PDF");
+ok(teksPdf.includes("SURAT SOMASI"), "judul di PDF");
+ok(teksPdf.includes("SOMASI/PNJ-2026-0042/20261019"), "nomor di PDF");
+ok(!teksPdf.includes("undefined"), "tidak ada nilai kosong tercetak");
+ok(byte.length > 1_000, "PDF berisi halaman");
+
+console.log(`suratSomasi: ${passed} lulus, ${failed} gagal`);
+if (failed > 0) process.exit(1);
