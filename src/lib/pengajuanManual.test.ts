@@ -96,7 +96,7 @@ function galat(fn: () => unknown): string | null {
 {
   const bersih = validasiPinjamanManual({
     pokokPinjaman: 1_000_000,
-    tenorHari: 30,
+    tenorHari: 28,
     tujuan: "modal_usaha",
     namaLengkap: "rani peminjam",
     namaBank: "BCA",
@@ -104,7 +104,7 @@ function galat(fn: () => unknown): string | null {
     catatanPeminjam: "  diterima di kantor  ",
   });
   eq(bersih.pokokPinjaman, 1_000_000, "pokok skema harian disimpan apa adanya");
-  eq(bersih.tenorHari, 30, "tenor harian tersimpan");
+  eq(bersih.tenorHari, 28, "tenor harian tersimpan");
   eq(bersih.tenorBulan, undefined, "skema harian tidak mengisi tenor bulanan");
   eq(bersih.namaLengkap, "RANI PEMINJAM", "nama pinjaman manual disimpan UPPERCASE");
   eq(bersih.catatanPeminjam, "diterima di kantor", "catatan dipangkas");
@@ -127,7 +127,7 @@ function galat(fn: () => unknown): string | null {
   // `POKOK_MANUAL_MAKS` (Rp 10 juta) — sama dengan plafon sistem maksimum.
   const harianBesar = validasiPinjamanManual({
     pokokPinjaman: 2_000_000,
-    tenorHari: 30,
+    tenorHari: 28,
     tujuan: "modal_usaha",
     namaLengkap: "rani",
     namaBank: "BCA",
@@ -138,7 +138,7 @@ function galat(fn: () => unknown): string | null {
   eq(
     validasiPinjamanManual({
       pokokPinjaman: POKOK_MANUAL_MAKS,
-      tenorHari: 30,
+      tenorHari: 28,
       tujuan: "modal_usaha",
       namaLengkap: "rani",
       namaBank: "BCA",
@@ -151,7 +151,7 @@ function galat(fn: () => unknown): string | null {
     galat(() =>
       validasiPinjamanManual({
         pokokPinjaman: 10_100_000,
-        tenorHari: 30,
+        tenorHari: 28,
         tujuan: "modal_usaha",
         namaLengkap: "rani",
         namaBank: "BCA",
@@ -164,7 +164,7 @@ function galat(fn: () => unknown): string | null {
     galat(() =>
       validasiPinjamanManual({
         pokokPinjaman: 50_000,
-        tenorHari: 30,
+        tenorHari: 28,
         tujuan: "modal_usaha",
         namaLengkap: "rani",
         namaBank: "BCA",
@@ -203,7 +203,7 @@ function galat(fn: () => unknown): string | null {
     galat(() =>
       validasiPinjamanManual({
         pokokPinjaman: 1_000_000,
-        tenorHari: 30,
+        tenorHari: 28,
         tujuan: "liburan",
         namaLengkap: "rani",
         namaBank: "BCA",

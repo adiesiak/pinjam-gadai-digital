@@ -25,7 +25,7 @@ const layanan = [
     judul: "Pinjaman tunai",
     ringkasan:
       "Tinjau skema harian dan bulanan, termasuk rincian potongan dan bunga.",
-    detail: "Harian 7 hingga 30 hari · Bulanan 1/3/6 bulan",
+    detail: "Harian 7 hingga 28 hari · Bulanan 1/3/6 bulan",
   },
   {
     href: "/layanan/gadai",

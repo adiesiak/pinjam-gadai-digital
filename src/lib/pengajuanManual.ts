@@ -299,7 +299,7 @@ export function validasiPinjamanManual(
     }
     if (!(TENOR_OPTIONS as readonly number[]).includes(input.tenorHari ?? 0)) {
       throw new Error(
-        `Tenor harus salah satu dari ${TENOR_OPTIONS.join(" / ")} hari (maksimal 30 hari).`,
+        `Tenor harus salah satu dari ${TENOR_OPTIONS.join(" / ")} hari (maksimal ${TENOR_OPTIONS[TENOR_OPTIONS.length - 1]} hari).`,
       );
     }
   }

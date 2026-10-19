@@ -10,7 +10,7 @@ export function DashboardFooter() {
             sehingga tidak memenuhi beberapa layar ponsel dengan tembok teks. */}
         <ul className="mt-2 list-disc space-y-1 pl-4">
           <li>
-            Harian (7–30 hari): nilai bersih 98% (potongan di muka 2%),
+            Harian (7–28 hari): nilai bersih 98% (potongan di muka 2%),
             kewajiban 130%.
           </li>
           <li>

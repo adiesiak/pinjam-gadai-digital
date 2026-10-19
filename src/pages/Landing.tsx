@@ -286,7 +286,7 @@ const ISI_BRANKAS: ReadonlyArray<{
     label: "Pinjaman harian",
     rak: "Laci 01",
     Icon: Banknote,
-    judul: "Skema harian (7 sampai 30 hari)",
+    judul: "Skema harian (7 sampai 28 hari)",
     isi: "Kewajiban dihitung sekali di akhir tenor: bunga flat 30% dari pokok, potongan 2% di muka.",
     baris: [
       ["Nomor referensi", "PDI-••••-••"],
@@ -509,7 +509,7 @@ function IsiBrankas() {
 
 /** Fakta ringkas yang berjalan (marquee) di bawah hero. */
 const HERO_FACTS = [
-  "Skema harian 7–30 hari · nilai bersih 98% · kewajiban 130%",
+  "Skema harian 7–28 hari · nilai bersih 98% · kewajiban 130%",
   "Skema bulanan tenor 1/3/6 bulan · biaya 2% dipotong di muka",
   "Bunga flat dari pokok penuh · mengikuti tarif akun (bawaan 30% per bulan)",
   "Kredit barang hingga Rp 10 juta · biaya admin cicilan 2% tiap pembayaran",
@@ -673,7 +673,7 @@ function ringkasanSyarat(denda: { perHari: number; maks: number }): Array<{
   ];
 }
 
-// Skema harian: Rp 100 rb–1 jt / maks 30 hari. Skema bulanan: sampai plafon
+// Skema harian: Rp 100 rb–1 jt / maks 28 hari. Skema bulanan: sampai plafon
 // tertinggi yang boleh disimpan admin (Rp 10 jt) dengan tenor 1/3/6 bulan
 // (DP 0%, potongan di muka 2% untuk semua tenor; bunga FLAT dari pokok penuh
 // mengikuti tarif akun, bawaan 30% per bulan, untuk semua tenor; setiap
@@ -708,7 +708,7 @@ export function LiveCalculator({ persenBunga }: { persenBunga: number }) {
   const [skema, setSkema] = useState<"harian" | "bulanan">("harian");
   const bulanan = skema === "bulanan";
   const [amount, setAmount] = useState<Rupiah>(LOAN_LIMITS.maxPokok);
-  const [tenor, setTenor] = useState<number>(30);
+  const [tenor, setTenor] = useState<number>(TENOR_OPTIONS[TENOR_OPTIONS.length - 1]);
   const [tenorBulan, setTenorBulan] = useState<number>(3);
   const quote: LoanQuote = useMemo(
     () => quoteLoanBunga(amount, persenBunga),
@@ -752,7 +752,7 @@ export function LiveCalculator({ persenBunga }: { persenBunga: number }) {
         <p className="mt-1 text-xs leading-5 text-slate-500">Ubah nominal dan tenor untuk melihat perhitungan sebelum masuk.</p>
       </div>
 
-      {/* Dua skema harga: harian (1 jt / 30 hari) atau bulanan (1–6 bulan). */}
+      {/* Dua skema harga: harian (1 jt / 28 hari) atau bulanan (1–6 bulan). */}
       <div className="mt-5 grid grid-cols-2 gap-1 rounded-xl border border-slate-200 bg-slate-50 p-1">
         {([
           ["harian", "Harian · s.d. 1 jt"],
@@ -1784,7 +1784,7 @@ export default function Landing() {
             <div className="mt-8 grid gap-5 sm:mt-10 sm:gap-6 lg:grid-cols-2">
               <SchemeCard
                 badge="Skema harian"
-                title="7–30 hari · Rp 100 rb–1 jt"
+                title="7–28 hari · Rp 100 rb–1 jt"
                 body="Untuk kebutuhan jangka pendek. Pelunasan sekali di akhir tenor, dan semua potongan terlihat sejak awal."
                 rows={[
                   { label: "Biaya admin 2% (platform dihapus)", value: "2% dari pokok" },

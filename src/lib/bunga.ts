@@ -7,7 +7,7 @@
  * agar angka sebuah pinjaman tidak berubah setelah dana cair.
  *
  * Interpretasi persen mengikuti skema masing-masing (satu angka yang sama):
- *  - skema harian (1 juta / 30 hari): persen bunga FLAT atas pokok;
+ *  - skema harian (1 juta / 28 hari): persen bunga FLAT atas pokok;
  *  - skema bulanan: persen bunga per bulan (flat dari pokok penuh).
  */
 import { BUNGA_PINJAMAN_DEFAULT_PERSEN } from "./bagiHasil";

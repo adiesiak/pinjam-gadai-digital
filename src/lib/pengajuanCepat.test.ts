@@ -57,7 +57,7 @@ const KTP: KtpTerverifikasi = {
 /** Isian pengajuan cepat yang siap kirim. */
 const SIAP: IsianPengajuanCepat = {
   pokokPinjaman: 500_000,
-  tenorHari: 30,
+  tenorHari: 28,
   tujuan: "modal_usaha",
   rekeningBenar: true,
   persetujuanSyarat: true,

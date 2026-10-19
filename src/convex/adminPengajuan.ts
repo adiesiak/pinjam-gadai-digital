@@ -226,7 +226,7 @@ export const catatPinjamanManual = mutation({
   args: {
     userIdTarget: v.id("users"),
     pokokPinjaman: v.number(),
-    /** Skema harian (7/14/30 hari). Diabaikan bila `tenorBulan` diisi. */
+    /** Skema harian (7/14/28 hari). Diabaikan bila `tenorBulan` diisi. */
     tenorHari: v.optional(v.number()),
     /** Skema bulanan (1/3/6 bulan). */
     tenorBulan: v.optional(v.number()),

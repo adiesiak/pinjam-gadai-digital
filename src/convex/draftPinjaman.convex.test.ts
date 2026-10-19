@@ -37,7 +37,7 @@ type Tx = ReturnType<typeof convexTest>;
 const DRAF = {
   skema: "harian",
   pokokPinjaman: 750_000,
-  tenorHari: 30,
+  tenorHari: 28,
   tujuan: "Modal usaha kecil",
   catatanPeminjam: "Belum lengkap, lanjut besok",
 };
@@ -85,7 +85,7 @@ describe("draf pengajuan pinjaman", () => {
         namaLengkap: "Rani Peminjam",
         namaBank: "BCA",
         nomorRekening: "1234567890",
-        tenorHari: 30,
+        tenorHari: 28,
         nik: "3201234567890003",
         nomorWhatsApp: "628123456791",
         penghasilanBulanan: 4_000_000,
@@ -187,7 +187,7 @@ describe("pembatalan pengajuan oleh peminjam", () => {
       namaLengkap: "Rani Peminjam",
       namaBank: "BCA",
       nomorRekening: "1234567890",
-      tenorHari: 30,
+      tenorHari: 28,
       nik: "3201234567890003",
       nomorWhatsApp: "628123456791",
       penghasilanBulanan: 4_000_000,

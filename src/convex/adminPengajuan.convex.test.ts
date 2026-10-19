@@ -90,7 +90,7 @@ describe("pencatatan pengajuan manual oleh admin", () => {
     const hasil = await admin.mutation(api.adminPengajuan.catatPinjamanManual, {
       userIdTarget: userId,
       pokokPinjaman: 900_000,
-      tenorHari: 30,
+      tenorHari: 28,
       tujuan: "modal_usaha",
       namaLengkap: "rani peminjam",
     });
@@ -105,7 +105,7 @@ describe("pencatatan pengajuan manual oleh admin", () => {
       namaLengkap: "RANI PEMINJAM",
       namaBank: "BRI",
       nomorRekening: "1234567890",
-      tenorHari: 30,
+      tenorHari: 28,
       // Identitas & pekerjaan datang dari data diri, bukan diketik admin.
       nik: "3201234567890003",
       nomorWhatsApp: "628123456791",
@@ -186,7 +186,7 @@ describe("pencatatan pengajuan manual oleh admin", () => {
       admin.mutation(api.adminPengajuan.catatPinjamanManual, {
         userIdTarget: userId,
         pokokPinjaman: 10_000_000,
-        tenorHari: 30,
+        tenorHari: 28,
         tujuan: "modal_usaha",
         namaLengkap: "Budi Peminjam",
         namaBank: "BCA",
@@ -198,7 +198,7 @@ describe("pencatatan pengajuan manual oleh admin", () => {
       admin.mutation(api.adminPengajuan.catatPinjamanManual, {
         userIdTarget: userId,
         pokokPinjaman: 10_100_000,
-        tenorHari: 30,
+        tenorHari: 28,
         tujuan: "modal_usaha",
         namaLengkap: "Budi Peminjam",
         namaBank: "BCA",
@@ -309,7 +309,7 @@ describe("pencatatan pengajuan manual oleh admin", () => {
       peminjam.mutation(api.adminPengajuan.catatPinjamanManual, {
         userIdTarget: targetId,
         pokokPinjaman: 500_000,
-        tenorHari: 30,
+        tenorHari: 28,
         tujuan: "modal_usaha",
         namaLengkap: "Bayu Peminjam",
         namaBank: "BCA",
@@ -452,7 +452,7 @@ describe("pencatatan pengajuan manual oleh admin", () => {
     const hasil = await admin.mutation(api.adminPengajuan.catatPinjamanManual, {
       userIdTarget: pemohon.userId,
       pokokPinjaman: 900_000,
-      tenorHari: 30,
+      tenorHari: 28,
       tujuan: "modal_usaha",
       dokSelfieKtpId: selfie,
       dokSlipGajiId: slip,

@@ -34,12 +34,12 @@ export const LOAN_LIMITS = {
   minPokok: 100_000,
   /** Pinjaman tunai baru dibatasi maksimum Rp 1 juta. */
   maxPokok: 1_000_000,
-  /** Tenor pinjaman maksimum 30 hari. */
-  maxTenorHari: 30,
+  /** Tenor pinjaman harian maksimum 28 hari (4 minggu). */
+  maxTenorHari: 28,
 } as const;
 
-/** Tenor pinjaman dalam hari — dipilih nasabah saat mengajukan (maks 30 hari). */
-export const TENOR_OPTIONS = [7, 14, 30] as const;
+/** Tenor pinjaman dalam hari — dipilih nasabah saat mengajukan (maks 28 hari). */
+export const TENOR_OPTIONS = [7, 14, 28] as const;
 export type Tenor = (typeof TENOR_OPTIONS)[number];
 
 /**
@@ -57,8 +57,11 @@ export function assertPokokPinjamanValid(pokok: Rupiah): void {
   }
 }
 
-/** Tenor default untuk data warisan (pinjaman pra-tenor). */
-export const DEFAULT_TENOR_HARI: Tenor = 30;
+/**
+ * Tenor default untuk data warisan (pinjaman pra-tenor, termasuk baris lama
+ * 30 hari). Bukan pilihan tenor baru — daftar pilihan ada di `TENOR_OPTIONS`.
+ */
+export const DEFAULT_TENOR_HARI = 30;
 
 /**
  * Kebijakan denda keterlambatan (dihitung server, integer exact):

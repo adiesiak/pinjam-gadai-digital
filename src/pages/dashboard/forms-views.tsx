@@ -100,11 +100,13 @@ export function LoanForm({
   /** Pindah ke tab Verifikasi KYC — dipakai gerbang KYC di UI. */
   onBukaKyc?: () => void;
 }) {
-  // Skema harian (1 jt / 30 hari) atau bulanan (1/3/6 bulan) — dua paket
+  // Skema harian (1 jt / 28 hari) atau bulanan (1/3/6 bulan) — dua paket
   // harga berbeda; formulir menampilkan rincian sesuai skema terpilih.
   const [skema, setSkema] = useState<"harian" | "bulanan">("harian");
   const [pokok, setPokok] = useState<number>(LOAN_LIMITS.maxPokok);
-  const [tenorHari, setTenorHari] = useState<string>("30");
+  const [tenorHari, setTenorHari] = useState<string>(
+    String(TENOR_OPTIONS[TENOR_OPTIONS.length - 1]),
+  );
   const [tenorBulan, setTenorBulan] = useState<string>("3");
   const [tujuan, setTujuan] = useState<string>("");
   const [namaLengkap, setNamaLengkap] = useState("");
@@ -486,7 +488,13 @@ export function LoanForm({
       setDraftId(draftQuery._id);
       setSkema(draftQuery.skema === "bulanan" ? "bulanan" : "harian");
       setPokok(draftQuery.pokokPinjaman);
-      setTenorHari(String(draftQuery.tenorHari));
+      // Draf lama bisa menyimpan tenor 30 hari yang tidak lagi ditawarkan.
+      // Tampilkan pilihan terpanjang yang sah supaya draf tetap bisa dikirim.
+      setTenorHari(
+        (TENOR_OPTIONS as readonly number[]).includes(draftQuery.tenorHari)
+          ? String(draftQuery.tenorHari)
+          : String(TENOR_OPTIONS[TENOR_OPTIONS.length - 1]),
+      );
       if (draftQuery.tenorBulan !== null) setTenorBulan(String(draftQuery.tenorBulan));
       setTujuan(draftQuery.tujuan);
       if (draftQuery.catatanPeminjam !== null) setCatatanPeminjam(draftQuery.catatanPeminjam);
@@ -804,7 +812,7 @@ export function LoanForm({
       )}
       {/* Jumlah pinjaman */}
       <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
-        {/* Pemilih skema harga: harian 1 jt / 30 hari, atau bulanan 1/3/6 bulan. */}
+        {/* Pemilih skema harga: harian 1 jt / 28 hari, atau bulanan 1/3/6 bulan. */}
         <div role="group" aria-label="Pilih skema pinjaman" className="grid grid-cols-2 gap-1 rounded-xl border border-slate-200 bg-slate-50 p-1">
           {([
             ["harian", "Pinjaman harian"],

@@ -1,9 +1,9 @@
 /**
- * PINDAI — Skema Bulanan: KREDIT & PINJAMAN DI LUAR 1 JT / 30 HARI.
+ * PINDAI — Skema Bulanan: KREDIT & PINJAMAN DI LUAR 1 JT / 28 HARI.
  *
  * Formula kredit bulanan (tenor 1, 3, 6 bulan — dst) dengan
  * pembulatan integer rupiah HALF-UP. Dipakai untuk kredit barang maupun
- * pinjaman tunai yang tenornya bukan skema 1 juta / 30 hari.
+ * pinjaman tunai yang tenornya bukan skema 1 juta / 28 hari.
  *
  * Aturan skema:
  *  - Uang muka (DP) 0% → pokok dibiayai = harga/pokok penuh.
@@ -88,7 +88,7 @@ export const BULANAN_PRICING = {
   maxProfitTotalPersen: 130,
 } as const;
 
-/** Batas pokok/harga untuk skema bulanan (di luar skema 1 jt/30 hari). */
+/** Batas pokok/harga untuk skema bulanan (di luar skema 1 jt/28 hari). */
 export const BULANAN_LIMITS = {
   minPokok: 100_000,
   maxPokok: 500_000_000,

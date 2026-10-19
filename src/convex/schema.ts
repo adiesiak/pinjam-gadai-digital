@@ -248,7 +248,7 @@ const schema = defineSchema(
       /**
        * Tenor bulanan skema bulanan (1/3/6 bln: DP 0%, potongan di muka 2%, bunga
        * 10/8/7,5%/bln — lib/bulanan.ts) untuk pinjaman DI LUAR plafon 1 jt /
-       * 30 hari. Kosong = pinjaman memakai skema harian quoteLoan().
+       * 28 hari. Kosong = pinjaman memakai skema harian quoteLoan().
        */
       tenorBulan: v.optional(v.number()),
       /**
@@ -392,7 +392,7 @@ const schema = defineSchema(
       userId: v.id("users"),
       /** Hanya satu nilai: draf selalu draf sampai dikirim atau dihapus. */
       status: v.literal("draft"),
-      /** Skema harga terpilih: "harian" (1 jt / 30 hari) atau "bulanan". */
+      /** Skema harga terpilih: "harian" (1 jt / 28 hari) atau "bulanan". */
       skema: v.string(),
       pokokPinjaman: v.number(),
       tenorHari: v.number(),

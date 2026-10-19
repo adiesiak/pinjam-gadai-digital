@@ -195,7 +195,7 @@ function Header() {
 function KalkulatorRingkas({ persenBunga }: { persenBunga: number }) {
   const [pokokHarian, setPokokHarian] = useState(500_000);
   const [tenorHarian, setTenorHarian] =
-    useState<(typeof TENOR_OPTIONS)[number]>(30);
+    useState<(typeof TENOR_OPTIONS)[number]>(TENOR_OPTIONS[TENOR_OPTIONS.length - 1]);
   const [pokokGadai, setPokokGadai] = useState(1_000_000);
   const [pokokBulanan, setPokokBulanan] = useState(1_000_000);
   const [tenorBulanan, setTenorBulanan] =

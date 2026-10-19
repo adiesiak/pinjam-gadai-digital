@@ -56,7 +56,7 @@ async function ajukan(
     namaLengkap: "Rani Peminjam",
     namaBank: "BCA",
     nomorRekening: "1234567890",
-    tenorHari: 30,
+    tenorHari: 28,
     nik: identitas.nik,
     nomorWhatsApp: identitas.wa,
     penghasilanBulanan: 4_000_000,

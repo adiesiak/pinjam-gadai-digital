@@ -372,7 +372,7 @@ export const createLoanApplication = mutation({
      */
     persetujuanSyarat: v.literal(true),
     /**
-     * Tenor pinjaman dalam hari (skema 1 jt / 30 hari) — divalidasi server
+     * Tenor pinjaman dalam hari (skema 1 jt / 28 hari) — divalidasi server
      * terhadap opsi resmi. Diabaikan bila `tenorBulan` disertakan.
      */
     tenorHari: v.number(),
@@ -380,7 +380,7 @@ export const createLoanApplication = mutation({
      * Tenor bulanan (DP 0%, potongan di muka 2% — biaya admin 2% untuk tenor
      * 3/6, biaya layanan 2% untuk tenor 1, biaya platform dihapus; bunga flat
      * dari pokok penuh mengikuti tarif akun, bawaan 30% per bulan; biaya admin
-     * cicilan 2% pada setiap pembayaran) — pinjaman DI LUAR plafon 1 jt / 30
+     * cicilan 2% pada setiap pembayaran) — pinjaman DI LUAR plafon 1 jt / 28
      * hari. Bila diisi, `tenorHari` diabaikan.
      */
     tenorBulan: v.optional(v.number()),
@@ -484,7 +484,7 @@ export const createLoanApplication = mutation({
     const quote = quoteLoan(args.pokokPinjaman);
     if (tenorBulanSim === undefined && !(TENOR_OPTIONS as readonly number[]).includes(args.tenorHari)) {
       throw new Error(
-        `Tenor harus salah satu dari ${TENOR_OPTIONS.join(" / ")} hari (maksimal 30 hari).`,
+        `Tenor harus salah satu dari ${TENOR_OPTIONS.join(" / ")} hari (maksimal ${TENOR_OPTIONS[TENOR_OPTIONS.length - 1]} hari).`,
       );
     }
 
