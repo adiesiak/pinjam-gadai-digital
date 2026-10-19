@@ -29,6 +29,7 @@ import { formatRupiah } from "@/lib/money";
 import { formatDate } from "./admin-format";
 import { TombolMasukSebagai } from "./MasukSebagaiDialog";
 import { PanelRisikoNasabah } from "./PanelRisikoNasabah";
+import { PengaturanNotifikasiNasabah } from "./PengaturanNotifikasiNasabah";
 
 /**
  * DETAIL NASABAH (panel admin) — satu pintu yang memisahkan MASTER nasabah dari
@@ -360,6 +361,9 @@ export function NasabahDetailDialog({
                 </KartuKolom>
               </div>
             </div>
+
+            {/* ===== Notifikasi per nasabah — lebar penuh ===== */}
+            <PengaturanNotifikasiNasabah userId={userId} />
 
             {/* ===== Riwayat pengajuan (kronologis) — lebar penuh ===== */}
             <section>

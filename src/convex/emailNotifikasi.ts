@@ -112,7 +112,9 @@ export const kirimPengingat = internalAction({
     });
     if (data === null) return { status: "tanpa_pengguna" };
     if (data.email === null) return { status: "tanpa_email" };
-    const emailAktif = await ctx.runQuery(internal.system._kanalNotifikasiAktif, {
+    // Gerbang efektif: sakelar global admin DAN override nasabah ini.
+    const emailAktif = await ctx.runQuery(internal.notifikasiNasabah._kanalAktif, {
+      userId: args.userId,
       kanal: "email",
     });
     if (!emailAktif) return { status: "dimatikan" };

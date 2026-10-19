@@ -188,6 +188,14 @@ const schema = defineSchema(
        */
       nomorWhatsApp: v.optional(v.string()),
       /**
+       * Override ADMIN untuk pengingat tagihan lewat WhatsApp milik nasabah ini.
+       * Kosong = ikut aktif. Nilai efektif selalu `global && override`, jadi
+       * mematikan sakelar global tetap menahan pengingat walau baris ini true.
+       */
+      notifWhatsapp: v.optional(v.boolean()),
+      /** Override ADMIN untuk pengingat tagihan lewat email nasabah ini. */
+      notifEmail: v.optional(v.boolean()),
+      /**
        * Waktu admin mencatat pemohon yang BELUM punya akun (nasabah walk-in,
        * data lama dari buku) beserta dokumennya. Akun begini sengaja tidak
        * punya kredensial masuk: pengelolaannya lewat panel admin, dan bila

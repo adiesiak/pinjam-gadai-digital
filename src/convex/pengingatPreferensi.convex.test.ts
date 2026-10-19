@@ -135,6 +135,32 @@ describe("sakelar WhatsApp pada pengingat angsuran", () => {
     }
   });
 
+  it("override nasabah mati: tidak ada pesan walau global menyala", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(PAGI);
+    const t = convexTest(schema, modules);
+    const { userId } = await buatPengguna(t, "Rani Override", {
+      email: "rani-override-angsuran@pindai.test",
+    });
+    // Tidak ada baris systemConfig = sakelar global bawaan aktif.
+    await t.run((ctx) => ctx.db.patch(userId, { notifWhatsapp: false }));
+    await seedPengingatHariIni(t, userId);
+    const gateway = pasangGateway();
+    try {
+      const hasil = await t.action(
+        internal.angsuranPengingat.jalankanPengingatAngsuran,
+        {},
+      );
+      expect(hasil.dikirim).toBe(0);
+      expect(gateway.keluar).toHaveLength(0);
+      const baris = await t.run((ctx) => ctx.db.query("pengingatAngsuran").collect());
+      expect(baris).toHaveLength(1);
+      expect(baris[0].waStatus).toBeUndefined();
+    } finally {
+      gateway.pulihkan();
+    }
+  });
+
   it("dinyalakan kembali: pengingat yang belum terkirim berangkat sekali", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(PAGI);

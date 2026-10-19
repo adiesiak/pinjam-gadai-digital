@@ -23,3 +23,22 @@ export const PREFERENSI_BAWAAN = {
 export function kanalAktif(disimpan: boolean | undefined): boolean {
   return disimpan !== false;
 }
+
+/**
+ * Keadaan efektif satu kanal untuk satu nasabah.
+ *
+ * Dua lapis sengaja: sakelar global adalah kebijakan operasional, sedangkan
+ * sakelar nasabah adalah pengecualian. Pengecualian tidak boleh menghidupkan
+ * kembali kanal yang dimatikan global — karena itu `&&`, bukan `||`.
+ */
+export function kanalEfektif(
+  global: boolean,
+  override: boolean | undefined,
+): boolean {
+  return global && kanalAktif(override);
+}
+
+/** Label keadaan sakelar — dibaca sebagai teks, bukan hanya posisi sakelar. */
+export function labelKanalAktif(aktif: boolean): "Aktif" | "Nonaktif" {
+  return aktif ? "Aktif" : "Nonaktif";
+}

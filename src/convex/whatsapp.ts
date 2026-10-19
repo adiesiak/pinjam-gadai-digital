@@ -1256,10 +1256,9 @@ export const jalankanPengingatJatuhTempo = internalAction({
     let terkirim = 0;
     let gagal = 0;
     let tanpaNomor = 0;
-    // Sakelar global admin dibaca sekali per jalan cron, bukan per pengingat.
-    const waAktif = await ctx.runQuery(internal.system._kanalNotifikasiAktif, {
-      kanal: "whatsapp",
-    });
+    // Gerbang efektif (global + override nasabah) dibaca sekali per pengguna,
+    // bukan sekali per pengingat.
+    const prefWa = new Map<string, boolean>();
     for (const r of rencana) {
       const p = peta.get(r.loanId);
       if (p === undefined) continue;
@@ -1268,6 +1267,14 @@ export const jalankanPengingatJatuhTempo = internalAction({
         nilaiPesanPinjaman(p, { metodeBayar, sekarang: now, dendaPerHari: tarifDenda }),
       ).isi;
 
+      let waAktif = prefWa.get(p.userId);
+      if (waAktif === undefined) {
+        waAktif = await ctx.runQuery(internal.notifikasiNasabah._kanalAktif, {
+          userId: p.userId,
+          kanal: "whatsapp",
+        });
+        prefWa.set(p.userId, waAktif);
+      }
       if (waAktif && bolehWa) {
         if (p.nomorWhatsApp === null) {
           await ctx.runMutation(internal.whatsapp._appendLog, {

@@ -6,7 +6,12 @@
  * `false` eksplisit yang mematikan kanal. Sakelar ini milik admin, bukan
  * pilihan per akun.
  */
-import { PREFERENSI_BAWAAN, kanalAktif } from "./preferensiNotifikasi";
+import {
+  PREFERENSI_BAWAAN,
+  kanalAktif,
+  kanalEfektif,
+  labelKanalAktif,
+} from "./preferensiNotifikasi";
 
 let passed = 0;
 let failed = 0;
@@ -34,6 +39,17 @@ eq(kanalAktif(true), true, "sakelar yang dinyatakan aktif tetap aktif");
 eq(kanalAktif(false), false, "hanya false eksplisit yang mematikan kanal");
 
 ok(kanalAktif(undefined) && !kanalAktif(false), "bawaan dan pilihan admin dibedakan");
+
+// ===== Gabungan global + override nasabah =====
+eq(kanalEfektif(true, true), true, "global dan nasabah aktif = kanal berjalan");
+eq(kanalEfektif(true, undefined), true, "nasabah tanpa override mengikuti global");
+eq(kanalEfektif(true, false), false, "nasabah dapat mematikan kanal");
+eq(kanalEfektif(false, true), false, "override nasabah tidak melawan sakelar global");
+eq(kanalEfektif(false, undefined), false, "global mati menahan semua nasabah");
+eq(kanalEfektif(false, false), false, "dua-duanya mati tetap mati");
+
+eq(labelKanalAktif(true), "Aktif", "sakelar aktif berlabel teks");
+eq(labelKanalAktif(false), "Nonaktif", "sakelar mati berlabel teks");
 
 console.log(`preferensiNotifikasi.test: ${passed} lulus, ${failed} gagal`);
 if (failed > 0) process.exit(1);

@@ -185,6 +185,23 @@ describe("email pengingat", () => {
     }
   });
 
+  it("override email nasabah yang dimatikan menahan pengiriman", async () => {
+    const t = convexTest(schema, modules);
+    const { userId } = await buatPengguna(t, "Rani Override Email", {
+      email: "rani-override-email@pindai.test",
+    });
+    await t.run((ctx) => ctx.db.patch(userId, { notifEmail: false }));
+    const gateway = pasangGatewayEmail();
+    try {
+      const hasil = await t.action(internal.emailNotifikasi.kirimPengingat, argumen(userId));
+      expect(hasil.status).toBe("dimatikan");
+      expect(gateway.keluar).toHaveLength(0);
+      expect(await t.run((ctx) => ctx.db.query("emailNotifikasiLog").collect())).toHaveLength(0);
+    } finally {
+      gateway.pulihkan();
+    }
+  });
+
   it("akun tanpa email tidak dikirimi apa pun", async () => {
     const t = convexTest(schema, modules);
     const { userId } = await buatPengguna(t, "Rani Tanpa Email");

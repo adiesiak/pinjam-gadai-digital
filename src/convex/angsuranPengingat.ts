@@ -212,10 +212,9 @@ export const jalankanPengingatAngsuran = internalAction({
       rekeningUsahaNomor: string;
     };
 
-    // Sakelar global admin dibaca sekali per jalan cron, bukan per pengingat.
-    const waAktif = await ctx.runQuery(internal.system._kanalNotifikasiAktif, {
-      kanal: "whatsapp",
-    });
+    // Satu nasabah bisa punya beberapa pengingat dalam satu jalan; gerbang
+    // efektifnya (global + override nasabah) dibaca sekali per pengguna.
+    const prefWa = new Map<string, boolean>();
 
     let dikirim = 0;
     for (const k of kandidat) {
@@ -230,9 +229,18 @@ export const jalankanPengingatAngsuran = internalAction({
       });
       const isi = susunPesan(k, rekening);
 
-      // Saat admin mematikan WhatsApp, tidak ada percobaan kirim sama sekali —
-      // tetapi baris pengingat tetap dibuat supaya pusat notifikasi in-app tidak
-      // ikut hilang.
+      let waAktif = prefWa.get(k.userId);
+      if (waAktif === undefined) {
+        waAktif = await ctx.runQuery(internal.notifikasiNasabah._kanalAktif, {
+          userId: k.userId,
+          kanal: "whatsapp",
+        });
+        prefWa.set(k.userId, waAktif);
+      }
+
+      // Saat kanal dimatikan (global atau untuk nasabah ini), tidak ada percobaan
+      // kirim sama sekali — tetapi baris pengingat tetap dibuat supaya pusat
+      // notifikasi in-app tidak ikut hilang.
       if (catat.bolehKirim && waAktif) {
         if (k.nomorWhatsApp === null) {
           await ctx.runMutation(internal.angsuranPengingat._catatHasil, {
