@@ -1,16 +1,27 @@
 import { useQuery } from "convex/react";
-import { BellRing, Gavel, Wallet } from "lucide-react";
+import { BellRing, FileText, Gavel, Wallet } from "lucide-react";
 import { useState } from "react";
 
 import { StatusBadge } from "@/components/StatusBadge";
+import { SuratSomasi } from "@/components/admin/SuratSomasi";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { AgingPortofolioPanel } from "@/components/admin/AgingPortofolioPanel";
 import { DaftarPermohonanRestrukturisasi } from "@/components/admin/DaftarPermohonanRestrukturisasi";
 import { KirimRincianPinjaman } from "@/components/admin/KirimRincianPinjaman";
 import { TombolInfoTagihanWA } from "@/components/admin/TombolInfoTagihanWA";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { api } from "@/convex/_generated/api";
+import type { Id } from "@/convex/_generated/dataModel";
 import { formatRupiah, parseRupiah } from "@/lib/money";
+import { MIN_HARI_SOMASI } from "@/lib/suratSomasi";
 import { namaHurufBesar } from "@/lib/nama";
 import { AMBANG_SEGERA_HARI, tanggalRingkas } from "@/lib/jatuhTempo";
 
@@ -111,6 +122,13 @@ export function DpdTab() {
                 </p>
               </div>
               <div className="flex shrink-0 flex-wrap items-center gap-2">
+                {terlambatHari >= MIN_HARI_SOMASI && (
+                  <TombolSomasi
+                    loanId={l._id}
+                    nama={l.namaLengkap}
+                    nomorReferensi={l.nomorReferensi}
+                  />
+                )}
                 <KirimRincianPinjaman loanId={l._id} ringkas />
                 <TombolInfoTagihanWA
                   loanId={l._id}
@@ -130,6 +148,51 @@ export function DpdTab() {
       </div>
       )}
     </div>
+  );
+}
+
+/**
+ * Pintu somasi dari baris Jatuh Tempo.
+ *
+ * Panel `BagianSuratSomasi` sudah memuat pratinjau, unduhan, pengiriman, dan
+ * tindak lanjut; dialog ini hanya menampungnya agar daftar jatuh tempo tetap
+ * ringkas. Surat baru bisa dibuat setelah H+3, jadi tombolnya hanya muncul
+ * untuk keterlambatan yang memenuhi ambang itu.
+ */
+function TombolSomasi({
+  loanId,
+  nama,
+  nomorReferensi,
+}: {
+  loanId: Id<"loans">;
+  nama: string;
+  nomorReferensi: string;
+}) {
+  const [buka, setBuka] = useState(false);
+  return (
+    <>
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        className="h-11 sm:h-9"
+        onClick={() => setBuka(true)}
+      >
+        <FileText className="mr-1.5 size-4" aria-hidden="true" /> Somasi
+      </Button>
+      <Dialog open={buka} onOpenChange={setBuka}>
+        <DialogContent className="overflow-x-hidden sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Surat somasi</DialogTitle>
+            <DialogDescription>
+              {nama} · {nomorReferensi}. Pratinjau, unduhan, dan pengiriman dicatat di
+              jejak audit.
+            </DialogDescription>
+          </DialogHeader>
+          <SuratSomasi loanId={loanId} />
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 
