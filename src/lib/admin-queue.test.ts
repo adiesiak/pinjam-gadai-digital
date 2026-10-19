@@ -391,8 +391,8 @@ eq(
 
 eq(
   NILAI_MODUL_ADMIN.length,
-  21,
-  "21 nilai modul yang ada (bi + killswitch di Keamanan & audit)",
+  22,
+  "22 nilai modul yang ada (landing + bi + killswitch)",
 );
 eq(
   new Set(NILAI_MODUL_ADMIN).size,
@@ -417,13 +417,13 @@ eq(
 );
 eq(
   GRUP_NAV.map((g) => g.modul.length).join(","),
-  "1,7,4,4,5",
-  "jumlah modul tiap tab (1+7+4+4+5 = 21)",
+  "1,7,4,5,5",
+  "jumlah modul tiap tab (1+7+4+5+5 = 22)",
 );
 eq(
   GRUP_NAV.reduce((total, g) => total + g.modul.length, 0),
   NILAI_MODUL_ADMIN.length,
-  "GRUP_NAV memuat seluruh modul yang sudah ada (21)",
+  "GRUP_NAV memuat seluruh modul yang sudah ada (22)",
 );
 
 // Modul default tiap grup harus salah satu anggotanya.

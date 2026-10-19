@@ -15,10 +15,25 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { MemoryRouter } from "react-router";
 
 import { ADMIN_ROUTE } from "@/lib/routes";
+import { KONTEN_LANDING_DEFAULT } from "@/lib/landing-cms";
 
 type Sesi = { isAuthenticated: boolean; user: { role?: string } | undefined };
 
 let sesi: Sesi = { isAuthenticated: false, user: undefined };
+
+/**
+ * Beranda membaca teks dari `announcements.getPublic`. Harness ini tidak punya
+ * deployment Convex, jadi hook-nya diganti nilai tetap: `undefined` untuk
+ * membuktikan fallback bawaan, atau objek `landing` untuk membuktikan teks CMS
+ * benar-benar dipakai.
+ */
+let cmsUji: { landing: typeof KONTEN_LANDING_DEFAULT } | undefined;
+
+const convexReact = await import("convex/react");
+mock.module("convex/react", () => ({
+  ...convexReact,
+  useQuery: () => cmsUji,
+}));
 
 mock.module("@/hooks/use-auth", () => ({
   useAuth: () => ({
@@ -93,7 +108,35 @@ for (const role of ["peminjam", "dana"]) {
   tidakAda(markup, "apps.apple", "beranda tidak menautkan App Store");
 }
 
-// 5. Menu unduh aplikasi: halaman /aplikasi nyata dan bisa dijangkau dari
+// 5. Teks CMS benar-benar dipakai beranda — bukan hanya tersimpan di database.
+{
+  cmsUji = {
+    landing: {
+      ...KONTEN_LANDING_DEFAULT,
+      heroJudul1: "Judul dari CMS",
+      layanan: KONTEN_LANDING_DEFAULT.layanan.map((kartu, i) =>
+        i === 0 ? { ...kartu, judul: "Kartu dari CMS" } : kartu,
+      ),
+      panduan: KONTEN_LANDING_DEFAULT.panduan.map((item, i) =>
+        i === 1 ? { ...item, isi: "Panduan dari CMS." } : item,
+      ),
+      footerDeskripsi: "Footer dari CMS.",
+    },
+  };
+  const markup = render({ isAuthenticated: false, user: undefined });
+  ada(markup, "Judul dari CMS", "judul hero memakai teks CMS");
+  ada(markup, "Kartu dari CMS", "kartu layanan memakai teks CMS");
+  ada(markup, "Panduan dari CMS.", "panduan memakai teks CMS");
+  ada(markup, "Footer dari CMS.", "footer memakai teks CMS");
+  tidakAda(
+    markup,
+    KONTEN_LANDING_DEFAULT.heroJudul1,
+    "teks bawaan tidak menimpa teks CMS",
+  );
+  cmsUji = undefined;
+}
+
+// 6. Menu unduh aplikasi: halaman /aplikasi nyata dan bisa dijangkau dari
 //    navigasi beranda, bukan tautan mati.
 {
   const markup = render({ isAuthenticated: false, user: undefined });

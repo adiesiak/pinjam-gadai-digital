@@ -9,7 +9,9 @@ import {
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router";
+import { useQuery } from "convex/react";
 
+import { api } from "@/convex/_generated/api";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { VaultLogo } from "@/components/VaultLogo";
@@ -17,55 +19,49 @@ import { DemoPengajuan } from "@/components/landing/DemoPengajuan";
 import { PasangAplikasi } from "@/components/landing/PasangAplikasi";
 import { LandingHero } from "@/components/landing/LandingHero";
 import { CONTRACT_TERMS_VERSION } from "@/lib/contract";
+import {
+  JUMLAH_KARTU_LAYANAN,
+  JUMLAH_PANDUAN,
+  KONTEN_LANDING_DEFAULT,
+} from "@/lib/landing-cms";
 import { ADMIN_ROUTE, kombinasiAdmin } from "@/lib/routes";
 
-const layanan = [
-  {
-    href: "/layanan/pinjaman-tunai",
-    judul: "Pinjaman tunai",
-    ringkasan:
-      "Tinjau skema harian dan bulanan, termasuk rincian potongan dan bunga.",
-    detail: "Harian 7 hingga 28 hari · Bulanan 1/3/6 bulan",
-  },
-  {
-    href: "/layanan/gadai",
-    judul: "Gadai",
-    ringkasan: "Catat informasi barang, nilai taksiran, dan skema sewa modal.",
-    detail: "Taksiran dan status dicatat di aplikasi",
-  },
-  {
-    href: "/layanan/kredit-barang",
-    judul: "Kredit barang",
-    ringkasan:
-      "Lihat cara aplikasi menghitung pembiayaan barang dan cicilannya.",
-    detail: "Pilihan tenor 1, 3, atau 6 bulan",
-  },
-];
+/**
+ * Tujuan kartu layanan dan panduan. Rute tinggal di kode — CMS hanya mengganti
+ * tulisan, bukan arah tautan — jadi urutan di sini harus sama dengan urutan
+ * kartu pada `KONTEN_LANDING_DEFAULT`.
+ */
+const HREF_LAYANAN = [
+  "/layanan/pinjaman-tunai",
+  "/layanan/gadai",
+  "/layanan/kredit-barang",
+] as const;
 
-const panduan = [
-  {
-    href: "/biaya",
-    ikon: Calculator,
-    judul: "Periksa perhitungan",
-    isi: "Ubah nominal dan tenor pada kalkulator sebelum membuat akun.",
-  },
-  {
-    href: "/cara-kerja",
-    ikon: FileText,
-    judul: "Kenali alurnya",
-    isi: "Baca tahapan pengajuan dan batas proses yang dilakukan aplikasi.",
-  },
-  {
-    href: "/keamanan",
-    ikon: LockKeyhole,
-    judul: "Pahami pencatatan",
-    isi: "Ketahui bagaimana akses akun, status, dan data ditangani.",
-  },
-];
+const HREF_PANDUAN = [
+  { href: "/biaya", ikon: Calculator },
+  { href: "/cara-kerja", ikon: FileText },
+  { href: "/keamanan", ikon: LockKeyhole },
+] as const;
 
 export default function LandingHome() {
   const { isAuthenticated, isLoading, user } = useAuth();
   const navigate = useNavigate();
+  /**
+   * Teks beranda dari CMS. Selama query belum termuat (atau server belum punya
+   * baris CMS), bawaan dari `lib/landing-cms` yang dirender — halaman tidak
+   * pernah kosong hanya untuk menunggu teks.
+   */
+  const cms = useQuery(api.announcements.getPublic);
+  const konten = cms?.landing ?? KONTEN_LANDING_DEFAULT;
+  /** Teks CMS dipasangkan dengan rute/ikon tetap; CMS tidak mengubah tujuan. */
+  const layanan = Array.from({ length: JUMLAH_KARTU_LAYANAN }, (_, i) => ({
+    ...konten.layanan[i],
+    href: HREF_LAYANAN[i],
+  }));
+  const panduan = Array.from({ length: JUMLAH_PANDUAN }, (_, i) => ({
+    ...HREF_PANDUAN[i],
+    ...konten.panduan[i],
+  }));
   /**
    * Pintu admin TIDAK muncul di markup sampai diminta: 5× ketuk logo (jeda
    * maksimal 3 detik antar ketukan) atau Ctrl+Alt+A. Rute panel sendiri tetap
@@ -252,22 +248,22 @@ export default function LandingHome() {
 
       <main id="konten" tabIndex={-1}>
         <LandingHero
-          eyebrow="Informasi layanan PINDAI"
-          judul1="Biaya dan status"
-          judul2="terlihat sebelum melangkah."
-          deskripsi="PINDAI mencatat pilihan pinjaman, gadai, dan kredit barang beserta perhitungannya. Perpindahan dana dan penanganan barang berlangsung di luar aplikasi."
+          eyebrow={konten.heroEyebrow}
+          judul1={konten.heroJudul1}
+          judul2={konten.heroJudul2}
+          deskripsi={konten.heroDeskripsi}
           ctaUtama={{
             label: isLoading ? "Memuat…" : accountLabel,
             href: accountHref,
             disabled: isLoading,
           }}
           ctaSekunder={{
-            label: "Lihat kalkulator",
+            label: konten.heroCtaSekunder,
             onClick: () => {
               window.location.assign("/biaya");
             },
           }}
-          mikro="Kalkulator memberi ilustrasi berdasarkan nominal dan tenor pilihan, bukan persetujuan atau bukti pembayaran."
+          mikro={konten.heroMikro}
           sudahMasuk={isAuthenticated}
         />
 
@@ -277,13 +273,13 @@ export default function LandingHome() {
         >
           <div className="mx-auto max-w-6xl px-4 py-14 sm:px-6 sm:py-18">
             <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#065f46]">
-              Tiga jenis catatan
+              {konten.layananEyebrow}
             </p>
             <h2
               id="layanan-title"
               className="mt-2 text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl"
             >
-              Pilih layanan untuk ditinjau
+              {konten.layananJudul}
             </h2>
             <div className="mt-7 grid gap-4 md:grid-cols-3">
               {layanan.map((item) => (
@@ -302,7 +298,7 @@ export default function LandingHome() {
                     className="mt-4 inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-[#064e3b] hover:text-[#047857] focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#065f46]"
                     to={item.href}
                   >
-                    Lihat rincian{" "}
+                    {konten.layananCta}{" "}
                     <ArrowRight className="size-4" aria-hidden="true" />
                   </Link>
                 </article>
@@ -320,27 +316,28 @@ export default function LandingHome() {
           <div className="grid gap-8 lg:grid-cols-[0.8fr_1.2fr] lg:items-start">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#065f46]">
-                Sebelum mengajukan
+                {konten.panduanEyebrow}
               </p>
               <h2
                 id="panduan-title"
                 className="mt-2 text-2xl font-semibold tracking-tight sm:text-3xl"
               >
-                Mulai dari informasi yang Anda perlukan.
+                {konten.panduanJudul}
               </h2>
               <p className="mt-3 text-sm leading-6 text-slate-600">
-                Periksa simulasi, pahami alur, dan baca batas sistem. Keputusan
-                pengajuan tetap ditinjau tim PINDAI.
+                {konten.panduanDeskripsi}
               </p>
               <div className="mt-6 flex flex-wrap gap-3">
                 <Button
                   asChild
                   className="min-h-11 bg-[#065f46] text-white hover:bg-[#064e3b]"
                 >
-                  <Link to="/biaya">Buka kalkulator</Link>
+                  <Link to="/biaya">{konten.panduanCtaKalkulator}</Link>
                 </Button>
                 <Button asChild variant="outline" className="min-h-11">
-                  <Link to="/syarat-ketentuan">Baca syarat</Link>
+                  <Link to="/syarat-ketentuan">
+                    {konten.panduanCtaSyarat}
+                  </Link>
                 </Button>
               </div>
             </div>
@@ -408,8 +405,7 @@ export default function LandingHome() {
               </span>
             </Link>
             <p className="mt-3 max-w-md text-xs leading-5 text-slate-600">
-              Aplikasi pencatatan pinjaman, gadai, dan kredit barang.
-              Perpindahan dana serta penanganan barang berada di luar aplikasi.
+              {konten.footerDeskripsi}
             </p>
           </div>
           <nav

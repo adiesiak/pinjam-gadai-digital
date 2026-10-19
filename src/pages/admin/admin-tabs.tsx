@@ -9,6 +9,7 @@ import {
   Lock,
   Map as MapIcon,
   MessageSquare,
+  Newspaper,
   Package,
   Power,
   Send,
@@ -34,6 +35,7 @@ import {
 import { AksesPenyediaDanaPanel } from "@/components/admin/AksesPenyediaDanaPanel";
 import { AnnouncementCms } from "@/components/admin/AnnouncementCms";
 import { AplikasiAndroidPanel } from "@/components/admin/AplikasiAndroidPanel";
+import { LandingCmsPanel } from "@/components/admin/LandingCmsPanel";
 import { AuditTrailPanel } from "@/components/admin/AuditTrailPanel";
 import { BackupPanel } from "@/components/admin/BackupPanel";
 import { LiveLocationMap } from "@/components/admin/LiveLocationMap";
@@ -284,6 +286,14 @@ export function AdminTabs({
           Icon: PanelsTopLeft,
         },
         {
+          value: "landing",
+          label: "Konten Beranda",
+          hint: "Teks hero, tiga kartu layanan, panduan, dan footer halaman publik.",
+          badge: null,
+          hitung: "tidak",
+          Icon: Newspaper,
+        },
+        {
           value: "pengumuman",
           label: "Banner & Pengumuman Sistem",
           hint: "Terbitkan pengumuman untuk pengguna aplikasi.",
@@ -436,6 +446,7 @@ export function AdminTabs({
     lelang: <LelangTab />,
     plafon: <PlafonPanel />,
     akses: <AksesPenyediaDanaPanel />,
+    landing: <LandingCmsPanel />,
     pengumuman: <AnnouncementCms />,
     whatsapp: <WhatsAppPanel />,
     config: <SystemConfigPanel />,

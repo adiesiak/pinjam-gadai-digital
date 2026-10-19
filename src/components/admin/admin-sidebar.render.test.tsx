@@ -51,7 +51,10 @@ const GRUP: Array<{ judul: string; modul: string[] }> = [
     ],
   },
   { judul: "Pemantauan", modul: ["lokasi", "dpd", "lelang", "bi"] },
-  { judul: "Konten", modul: ["template", "pengumuman", "whatsapp", "aplikasi"] },
+  {
+    judul: "Konten",
+    modul: ["template", "landing", "pengumuman", "whatsapp", "aplikasi"],
+  },
   { judul: "Sistem", modul: ["config", "backup"] },
   { judul: "Keamanan & audit", modul: ["audit", "loglogin", "killswitch"] },
 ];
@@ -70,6 +73,7 @@ const LABEL: Record<string, string> = {
   lelang: "Kalkulator Lelang Jaminan",
   bi: "Catatan Internal & Kesehatan Sistem",
   template: "Template Website",
+  landing: "Konten Beranda",
   pengumuman: "Banner & Pengumuman Sistem",
   whatsapp: "WhatsApp",
   aplikasi: "Aplikasi Android",

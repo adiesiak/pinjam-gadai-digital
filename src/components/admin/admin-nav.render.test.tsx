@@ -59,6 +59,7 @@ const LABEL: Record<string, string> = {
   lelang: "Kalkulator Lelang Jaminan",
   bi: "Catatan Internal & Kesehatan Sistem",
   template: "Template Website",
+  landing: "Konten Beranda",
   pengumuman: "Banner & Pengumuman Sistem",
   whatsapp: "WhatsApp",
   aplikasi: "Aplikasi Android",

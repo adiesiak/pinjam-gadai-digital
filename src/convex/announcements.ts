@@ -1,6 +1,12 @@
 import { mutation, query, type QueryCtx } from "./_generated/server";
 import { v } from "convex/values";
 import type { Doc } from "./_generated/dataModel";
+import {
+  BATAS_LANDING,
+  JUMLAH_KARTU_LAYANAN,
+  JUMLAH_PANDUAN,
+  lengkapiKontenLanding,
+} from "../lib/landing-cms";
 import { getAdminGateStatus, requireAdminSession } from "./adminAuthz";
 
 /** Gerbang admin untuk CMS. */
@@ -10,6 +16,45 @@ async function requireAdmin(ctx: QueryCtx) {
 }
 
 const SLOT = "global";
+
+/**
+ * Validator konten beranda. Semua field opsional: admin boleh menyimpan
+ * sebagian, dan pembacaan melengkapinya dengan bawaan di `lib/landing-cms`.
+ */
+const VALIDASI_LANDING = v.object({
+  heroEyebrow: v.optional(v.string()),
+  heroJudul1: v.optional(v.string()),
+  heroJudul2: v.optional(v.string()),
+  heroDeskripsi: v.optional(v.string()),
+  heroCtaSekunder: v.optional(v.string()),
+  heroMikro: v.optional(v.string()),
+  layananEyebrow: v.optional(v.string()),
+  layananJudul: v.optional(v.string()),
+  layananCta: v.optional(v.string()),
+  layanan: v.optional(
+    v.array(
+      v.object({
+        judul: v.optional(v.string()),
+        ringkasan: v.optional(v.string()),
+        detail: v.optional(v.string()),
+      }),
+    ),
+  ),
+  panduanEyebrow: v.optional(v.string()),
+  panduanJudul: v.optional(v.string()),
+  panduanDeskripsi: v.optional(v.string()),
+  panduanCtaKalkulator: v.optional(v.string()),
+  panduanCtaSyarat: v.optional(v.string()),
+  panduan: v.optional(
+    v.array(
+      v.object({
+        judul: v.optional(v.string()),
+        isi: v.optional(v.string()),
+      }),
+    ),
+  ),
+  footerDeskripsi: v.optional(v.string()),
+});
 
 /** Teks default (kondisi kalah/opsional) — dipakai saat admin belum menyimpan. */
 export const DEFAULTS = {
@@ -105,6 +150,12 @@ export const getPublic = query({
       gadaiJudul: v(row?.gadaiJudul, DEFAULTS.layanan.gadaiJudul),
       gadaiIsi: v(row?.gadaiIsi, DEFAULTS.layanan.gadaiIsi),
       gadaiCta: v(row?.gadaiCta, DEFAULTS.layanan.gadaiCta),
+      /**
+       * Teks beranda `/` yang benar-benar dirender. Selalu berbentuk utuh:
+       * field kosong atau data lama yang belum punya kolom ini diisi bawaan,
+       * jadi klien tidak perlu merakit fallback sendiri.
+       */
+      landing: lengkapiKontenLanding(row?.landing),
     };
   },
 });
@@ -162,6 +213,7 @@ export const save = mutation({
     gadaiJudul: v.optional(v.string()),
     gadaiIsi: v.optional(v.string()),
     gadaiCta: v.optional(v.string()),
+    landing: v.optional(VALIDASI_LANDING),
   },
   handler: async (ctx, args) => {
     const { userId } = await requireAdmin(ctx);
@@ -216,6 +268,61 @@ export const save = mutation({
     ];
     for (const [key, val] of angka) {
       if (val !== undefined) patch[key as keyof Doc<"pengumuman">] = val as never;
+    }
+
+    // Landing disimpan per field: kolom yang dikosongkan TIDAK ditulis sebagai
+    // string kosong, melainkan dibiarkan undefined supaya pembacaan memakai
+    // teks bawaan. Dengan begitu admin bisa menghapus satu paragraf tanpa
+    // meninggalkan judul kosong di halaman publik.
+    if (args.landing !== undefined) {
+      const l = args.landing;
+      patch.landing = {
+        heroEyebrow: bersih(l.heroEyebrow, BATAS_LANDING.heroEyebrow),
+        heroJudul1: bersih(l.heroJudul1, BATAS_LANDING.heroJudul1),
+        heroJudul2: bersih(l.heroJudul2, BATAS_LANDING.heroJudul2),
+        heroDeskripsi: bersih(l.heroDeskripsi, BATAS_LANDING.heroDeskripsi),
+        heroCtaSekunder: bersih(
+          l.heroCtaSekunder,
+          BATAS_LANDING.heroCtaSekunder,
+        ),
+        heroMikro: bersih(l.heroMikro, BATAS_LANDING.heroMikro),
+        layananEyebrow: bersih(
+          l.layananEyebrow,
+          BATAS_LANDING.layananEyebrow,
+        ),
+        layananJudul: bersih(l.layananJudul, BATAS_LANDING.layananJudul),
+        layananCta: bersih(l.layananCta, BATAS_LANDING.layananCta),
+        layanan: l.layanan?.slice(0, JUMLAH_KARTU_LAYANAN).map((kartu) => ({
+          judul: bersih(kartu.judul, BATAS_LANDING.kartuJudul),
+          ringkasan: bersih(kartu.ringkasan, BATAS_LANDING.kartuRingkasan),
+          detail: bersih(kartu.detail, BATAS_LANDING.kartuDetail),
+        })),
+        panduanEyebrow: bersih(
+          l.panduanEyebrow,
+          BATAS_LANDING.panduanEyebrow,
+        ),
+        panduanJudul: bersih(l.panduanJudul, BATAS_LANDING.panduanJudul),
+        panduanDeskripsi: bersih(
+          l.panduanDeskripsi,
+          BATAS_LANDING.panduanDeskripsi,
+        ),
+        panduanCtaKalkulator: bersih(
+          l.panduanCtaKalkulator,
+          BATAS_LANDING.panduanCta,
+        ),
+        panduanCtaSyarat: bersih(
+          l.panduanCtaSyarat,
+          BATAS_LANDING.panduanCta,
+        ),
+        panduan: l.panduan?.slice(0, JUMLAH_PANDUAN).map((item) => ({
+          judul: bersih(item.judul, BATAS_LANDING.itemJudul),
+          isi: bersih(item.isi, BATAS_LANDING.itemIsi),
+        })),
+        footerDeskripsi: bersih(
+          l.footerDeskripsi,
+          BATAS_LANDING.footerDeskripsi,
+        ),
+      };
     }
     // Tautan boleh dikosongkan untuk menghapusnya (string kosong = hapus).
     if (args.tautan !== undefined && args.tautan.trim() === "") {

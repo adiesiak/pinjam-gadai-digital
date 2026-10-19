@@ -12,6 +12,7 @@ import schema from "./schema";
 import { siapkanPengguna } from "./test.helpers";
 import { modules } from "./test.setup";
 import { DEFAULTS } from "./announcements";
+import { BATAS_LANDING, KONTEN_LANDING_DEFAULT } from "../lib/landing-cms";
 
 describe("CMS situs publik — pengaturan admin", () => {
   it("admin mengubah konten landing, publik melihatnya, lalu reset ke default", async () => {
@@ -71,6 +72,64 @@ describe("CMS situs publik — pengaturan admin", () => {
       barTeks: DEFAULTS.bar.teks,
       barAktif: true,
     });
+  });
+
+  it("admin mengubah teks beranda, publik memakai teks CMS, field kosong kembali ke bawaan", async () => {
+    const t = convexTest(schema, modules);
+    const { sesi: admin } = await siapkanPengguna(t, "Admin Landing", {
+      email: "admin-landing@pindai.test",
+      role: "admin",
+    });
+
+    // Sebelum disimpan: publik membaca konten utuh dari bawaan, termasuk tiga
+    // kartu dan tiga panduan — bukan undefined yang harus dirakit klien.
+    const awal = await t.query(api.announcements.getPublic, {});
+    expect(awal.landing.heroJudul1).toBe(KONTEN_LANDING_DEFAULT.heroJudul1);
+    expect(awal.landing.layanan).toHaveLength(3);
+    expect(awal.landing.panduan).toHaveLength(3);
+
+    await expect(
+      admin.mutation(api.announcements.save, {
+        landing: {
+          heroJudul1: "  Biaya yang terbaca  ",
+          // Kosong → pembacaan memakai bawaan, bukan judul kosong.
+          heroJudul2: "   ",
+          heroMikro: "m".repeat(BATAS_LANDING.heroMikro + 40),
+          layanan: [
+            { judul: "Kartu utama", ringkasan: "Ringkasan utama", detail: "Detail utama" },
+          ],
+          panduan: [{ judul: "Langkah satu", isi: "Isi langkah satu" }],
+          footerDeskripsi: "Footer baru.",
+        },
+      }),
+    ).resolves.toEqual({ ok: true });
+
+    // Baris mentah hanya menyimpan yang dikirim, sudah dipangkas dan dipotong.
+    const baris = await admin.query(api.announcements.getCmsRow, {});
+    expect(baris?.landing?.heroJudul1).toBe("Biaya yang terbaca");
+    expect(baris?.landing?.heroJudul2).toBeUndefined();
+    expect(baris?.landing?.heroMikro).toHaveLength(BATAS_LANDING.heroMikro);
+    expect(baris?.landing?.layanan).toHaveLength(1);
+
+    const publik = await t.query(api.announcements.getPublic, {});
+    expect(publik.landing.heroJudul1).toBe("Biaya yang terbaca");
+    expect(publik.landing.heroJudul2).toBe(
+      KONTEN_LANDING_DEFAULT.heroJudul2,
+    );
+    expect(publik.landing.heroMikro).toHaveLength(BATAS_LANDING.heroMikro);
+    expect(publik.landing.layanan[0].judul).toBe("Kartu utama");
+    // Kartu yang tidak dikirim dilengkapi bawaan pada indeks yang sama.
+    expect(publik.landing.layanan[1].judul).toBe(
+      KONTEN_LANDING_DEFAULT.layanan[1].judul,
+    );
+    expect(publik.landing.panduan[0].judul).toBe("Langkah satu");
+    expect(publik.landing.panduan[2].judul).toBe(
+      KONTEN_LANDING_DEFAULT.panduan[2].judul,
+    );
+    expect(publik.landing.footerDeskripsi).toBe("Footer baru.");
+
+    // Bar pengumuman tidak ikut berubah hanya karena teks beranda disimpan.
+    expect(publik.barTeks).toBe(DEFAULTS.bar.teks);
   });
 
   it("migrasi membersihkan teks CMS lama era penyedia dana dan idempoten", async () => {
@@ -141,6 +200,11 @@ describe("CMS situs publik — pengaturan admin", () => {
     await expect(peminjam.query(api.announcements.getCmsRow, {})).resolves.toBeNull();
     await expect(
       peminjam.mutation(api.announcements.save, { heroJudul: "Teks tidak sah" }),
+    ).rejects.toThrow(/admin/i);
+    await expect(
+      peminjam.mutation(api.announcements.save, {
+        landing: { heroJudul1: "Teks tidak sah" },
+      }),
     ).rejects.toThrow(/admin/i);
     await expect(peminjam.mutation(api.announcements.resetToDefaults, {})).rejects.toThrow(
       /admin/i,

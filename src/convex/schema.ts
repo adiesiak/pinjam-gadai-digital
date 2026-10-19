@@ -1775,6 +1775,49 @@ const schema = defineSchema(
       gadaiIsi: v.optional(v.string()),
       gadaiCta: v.optional(v.string()),
       langkahJudul: v.optional(v.string()),
+      /**
+       * Teks beranda `/` yang benar-benar dirender (`pages/LandingHome.tsx`).
+       * Disimpan sebagai satu objek utuh — bukan puluhan kolom datar — karena
+       * kartu layanan dan baris panduan berbentuk daftar. Field di dalamnya
+       * tetap opsional saat dibaca agar data lama dan kolom yang dikosongkan
+       * jatuh ke `lengkapiKontenLanding`, bukan menghasilkan judul kosong.
+       */
+      landing: v.optional(
+        v.object({
+          heroEyebrow: v.optional(v.string()),
+          heroJudul1: v.optional(v.string()),
+          heroJudul2: v.optional(v.string()),
+          heroDeskripsi: v.optional(v.string()),
+          heroCtaSekunder: v.optional(v.string()),
+          heroMikro: v.optional(v.string()),
+          layananEyebrow: v.optional(v.string()),
+          layananJudul: v.optional(v.string()),
+          layananCta: v.optional(v.string()),
+          layanan: v.optional(
+            v.array(
+              v.object({
+                judul: v.optional(v.string()),
+                ringkasan: v.optional(v.string()),
+                detail: v.optional(v.string()),
+              }),
+            ),
+          ),
+          panduanEyebrow: v.optional(v.string()),
+          panduanJudul: v.optional(v.string()),
+          panduanDeskripsi: v.optional(v.string()),
+          panduanCtaKalkulator: v.optional(v.string()),
+          panduanCtaSyarat: v.optional(v.string()),
+          panduan: v.optional(
+            v.array(
+              v.object({
+                judul: v.optional(v.string()),
+                isi: v.optional(v.string()),
+              }),
+            ),
+          ),
+          footerDeskripsi: v.optional(v.string()),
+        }),
+      ),
       /** Audit ringan: kapan terakhir diubah admin. */
       diperbaruiPada: v.number(),
     }).index("by_slot", ["slot"]),
