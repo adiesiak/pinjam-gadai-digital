@@ -1,4 +1,5 @@
 /** Run: bun src/lib/pengingatWhatsapp.test.ts */
+import { CS_WHATSAPP, urlChatCs } from "./kontak";
 import {
   normalkanNomorWa,
   pesanInfoTagihan,
@@ -99,6 +100,15 @@ const WA = urlWhatsapp("081234567890", INFO);
 ok((WA ?? "").startsWith("https://wa.me/6281234567890?text="), "tautan WA memakai nomor ternormalkan");
 ok((WA ?? "").includes(encodeURIComponent(TAUTAN)), "pesan WA di-encode dan memuat tautan");
 eq(urlWhatsapp("", INFO), null, "nomor tidak sah tidak menghasilkan tautan WA");
+
+// ===== Kontak CS =====
+const CS = urlChatCs("Halo CS PINDAI, saya ingin bertanya.");
+ok(CS.startsWith(`https://wa.me/${CS_WHATSAPP}?text=`), "tautan CS memakai nomor resmi");
+ok(
+  CS.includes(encodeURIComponent("Halo CS PINDAI, saya ingin bertanya.")),
+  "pesan CS di-encode utuh",
+);
+eq(normalkanNomorWa(CS_WHATSAPP), CS_WHATSAPP, "nomor CS sudah format internasional");
 
 if (failed > 0) {
   console.error(`\n${failed} gagal, ${passed} lulus`);

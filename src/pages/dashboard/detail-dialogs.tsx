@@ -16,6 +16,7 @@ import { MessageCircle } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import type { SimulasiBulanan } from "@/lib/bulanan";
+import { urlChatCs } from "@/lib/kontak";
 import { loanPurposeLabel, loanStatusMeta, type LoanQuote } from "@/lib/loan";
 import { formatRupiah } from "@/lib/money";
 import { pawnStatusMeta, type PawnStatus } from "@/lib/pawn";
@@ -245,7 +246,9 @@ export function LoanDetailDialog({
                   </Button>
                   <Button asChild variant="outline" size="sm" className="gap-1.5">
                     <a
-                      href="https://wa.me/6281234567890?text=Halo%20CS%20PINDAI%2C%20saya%20ingin%20bertanya%20tentang%20pelunasan%20pinjaman%20saya."
+                      href={urlChatCs(
+                        "Halo CS PINDAI, saya ingin bertanya tentang pelunasan pinjaman saya.",
+                      )}
                       target="_blank"
                       rel="noreferrer"
                     >

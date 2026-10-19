@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import type { Id } from "@/convex/_generated/dataModel";
 import { ringkasJatuhTempo } from "@/lib/jatuhTempo";
+import { urlChatCs } from "@/lib/kontak";
 import { LATE_FEE_POLICY } from "@/lib/loan";
 import { formatRupiah } from "@/lib/money";
 import { bolehDibatalkan } from "@/lib/statusPinjaman";
@@ -383,7 +384,9 @@ function ActiveLoanCard({
         </Button>
         <Button asChild variant="outline">
           <a
-            href="https://wa.me/6281234567890?text=Halo%20CS%20PINDAI%2C%20saya%20ingin%20bertanya%20tentang%20pinjaman%20saya."
+            href={urlChatCs(
+              "Halo CS PINDAI, saya ingin bertanya tentang pinjaman saya.",
+            )}
             target="_blank"
             rel="noreferrer"
           >
