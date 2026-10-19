@@ -1,10 +1,13 @@
 /**
- * Uji RESTRUKTURISASI perpanjangan tenor (convex-test + vitest).
+ * Uji RESTRUKTURISASI perpanjangan tenor dan permohonan nasabah
+ * (convex-test + vitest).
  *
  * Yang dijaga:
- *  - hanya admin ber-TOTP yang boleh mengajukan dan memutuskan;
- *  - persetujuan menggeser jatuh tempo dengan mengubah tenor, tanpa menyentuh
- *    pokok/status pinjaman;
+ *  - hanya admin ber-TOTP yang boleh memutuskan;
+ *  - nasabah hanya bisa mengajukan untuk pinjamannya sendiri;
+ *  - persetujuan perpanjangan menggeser jatuh tempo dengan mengubah tenor,
+ *    tanpa menyentuh pokok/status pinjaman;
+ *  - persetujuan cicilan hanya mencatat kesepakatan, tidak mengubah tenor;
  *  - penolakan tidak mengubah tenor sama sekali;
  *  - skema bulanan, pinjaman lunas, dan usulan ganda ditolak dengan alasan.
  *
@@ -24,15 +27,21 @@ const HARI = 86_400_000;
 
 const buatKontek = () => convexTest(schema, modules);
 
-async function seedPinjaman(
+type OpsiPinjamanUji = {
+  tenorHari?: number;
+  tenorBulan?: number;
+  status?: "didanai" | "lunas";
+  hariTerlambat?: number;
+};
+
+async function seedPinjamanMilik(
   t: KonteksUji,
-  opsi: { tenorHari?: number; tenorBulan?: number; status?: "didanai" | "lunas"; hariTerlambat?: number } = {},
-): Promise<{ userId: Id<"users">; loanId: Id<"loans"> }> {
-  const userId = await t.run((ctx) =>
-    ctx.db.insert("users", { name: "SITI PEMINJAM", role: "peminjam" }),
-  );
-  const didanaiPada = Date.now() - ((opsi.tenorHari ?? 30) + (opsi.hariTerlambat ?? 4)) * HARI;
-  const loanId = await t.run((ctx) =>
+  userId: Id<"users">,
+  opsi: OpsiPinjamanUji = {},
+): Promise<Id<"loans">> {
+  const didanaiPada =
+    Date.now() - ((opsi.tenorHari ?? 30) + (opsi.hariTerlambat ?? 4)) * HARI;
+  return await t.run((ctx) =>
     ctx.db.insert("loans", {
       userId,
       pokokPinjaman: 1_000_000,
@@ -47,6 +56,16 @@ async function seedPinjaman(
       ...(opsi.status === "lunas" ? { lunasPada: Date.now() } : {}),
     }),
   );
+}
+
+async function seedPinjaman(
+  t: KonteksUji,
+  opsi: OpsiPinjamanUji = {},
+): Promise<{ userId: Id<"users">; loanId: Id<"loans"> }> {
+  const userId = await t.run((ctx) =>
+    ctx.db.insert("users", { name: "SITI PEMINJAM", role: "peminjam" }),
+  );
+  const loanId = await seedPinjamanMilik(t, userId, opsi);
   return { userId, loanId };
 }
 
@@ -183,6 +202,120 @@ describe("pengajuan & keputusan", () => {
         setuju: true,
       }),
     ).rejects.toThrow(/sudah diputuskan/);
+  });
+});
+
+describe("permohonan dari dashboard nasabah", () => {
+  it("nasabah mengajukan perpanjangan untuk pinjamannya sendiri", async () => {
+    const t = buatKontek();
+    const nasabah = await buatPengguna(t, "SITI PEMINJAM", { role: "peminjam" });
+    const loanId = await seedPinjamanMilik(t, nasabah.userId);
+
+    const r = await nasabah.sesi.mutation(api.restrukturisasi.ajukanPermohonanNasabah, {
+      loanId,
+      jenis: "perpanjangan_tenor",
+      tambahanHari: 14,
+      alasan: "Penghasilan turun karena usaha sepi.",
+    });
+    expect(r.tenorBaruHari).toBe(44);
+
+    const ringkas = await nasabah.sesi.query(
+      api.restrukturisasi.ringkasanPermohonanNasabah,
+      { loanId },
+    );
+    expect(ringkas.bolehPerpanjangan).toBe(false);
+    expect(ringkas.menunggu?.jenis).toBe("perpanjangan_tenor");
+    expect(ringkas.menunggu?.tambahanHari).toBe(14);
+
+    const admin = await adminUtama(t);
+    const antrean = await admin.sesi.query(
+      api.restrukturisasi.daftarPermohonanMenunggu,
+      {},
+    );
+    expect(antrean).toHaveLength(1);
+    expect(antrean[0].diajukanOlehNasabah).toBe(true);
+    expect(antrean[0].namaLengkap).toBe("SITI PEMINJAM");
+
+    const putus = await admin.sesi.mutation(api.restrukturisasi.putuskanRestrukturisasi, {
+      id: r.id,
+      setuju: true,
+      catatan: "Disetujui setelah konfirmasi penghasilan.",
+    });
+    expect(putus.jenis).toBe("perpanjangan_tenor");
+    expect(putus.tenorBaruHari).toBe(44);
+
+    const loan = await t.run((ctx) => ctx.db.get(loanId));
+    expect(loan?.tenorHari).toBe(44);
+    expect(await aksiAudit(t)).toContain("permohonan_nasabah_diajukan");
+    expect(
+      await admin.sesi.query(api.restrukturisasi.daftarPermohonanMenunggu, {}),
+    ).toHaveLength(0);
+  });
+
+  it("menyetujui usulan cicilan tidak mengubah tenor", async () => {
+    const t = buatKontek();
+    const nasabah = await buatPengguna(t, "SITI PEMINJAM", { role: "peminjam" });
+    const loanId = await seedPinjamanMilik(t, nasabah.userId, {
+      tenorBulan: 3,
+      tenorHari: 90,
+    });
+
+    const r = await nasabah.sesi.mutation(api.restrukturisasi.ajukanPermohonanNasabah, {
+      loanId,
+      jenis: "cicilan",
+      usulanCicilan: 400_000,
+      alasan: "Ingin membayar bertahap setiap dua minggu.",
+    });
+    expect(r.jenis).toBe("cicilan");
+    expect(r.tenorBaruHari).toBeNull();
+    expect(r.perkiraanJumlahCicilan).toBeGreaterThan(1);
+
+    const admin = await adminUtama(t);
+    const putus = await admin.sesi.mutation(api.restrukturisasi.putuskanRestrukturisasi, {
+      id: r.id,
+      setuju: true,
+      catatan: "Cicilan disepakati lewat telepon.",
+    });
+    expect(putus.jenis).toBe("cicilan");
+    expect(putus.tenorBaruHari).toBeNull();
+
+    const loan = await t.run((ctx) => ctx.db.get(loanId));
+    expect(loan?.tenorHari).toBe(90);
+    expect(loan?.tenorBulan).toBe(3);
+  });
+
+  it("menolak permohonan untuk pinjaman milik orang lain", async () => {
+    const t = buatKontek();
+    const pemilik = await buatPengguna(t, "SITI PEMINJAM", { role: "peminjam" });
+    const lain = await buatPengguna(t, "ORANG LAIN", { role: "peminjam" });
+    const loanId = await seedPinjamanMilik(t, pemilik.userId);
+
+    await expect(
+      lain.sesi.mutation(api.restrukturisasi.ajukanPermohonanNasabah, {
+        loanId,
+        jenis: "perpanjangan_tenor",
+        tambahanHari: 7,
+        alasan: "Mencoba mengajukan untuk pinjaman orang lain.",
+      }),
+    ).rejects.toThrow(/tidak ditemukan/);
+    await expect(
+      lain.sesi.query(api.restrukturisasi.ringkasanPermohonanNasabah, { loanId }),
+    ).rejects.toThrow(/tidak ditemukan/);
+  });
+
+  it("menolak usulan cicilan di atas total kewajiban", async () => {
+    const t = buatKontek();
+    const nasabah = await buatPengguna(t, "SITI PEMINJAM", { role: "peminjam" });
+    const loanId = await seedPinjamanMilik(t, nasabah.userId);
+
+    await expect(
+      nasabah.sesi.mutation(api.restrukturisasi.ajukanPermohonanNasabah, {
+        loanId,
+        jenis: "cicilan",
+        usulanCicilan: 5_000_000,
+        alasan: "Nominal ini jelas melebihi kewajiban.",
+      }),
+    ).rejects.toThrow(/melebihi total kewajiban/);
   });
 });
 

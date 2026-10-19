@@ -377,6 +377,10 @@ function ActiveLoanCard({
       )}
 
       <div className="mt-5 flex flex-wrap gap-2">
+        <Button variant="outline" onClick={() => onOpenDetail(loan._id)}>
+          <CalendarClock className="mr-1.5 size-4" />
+          {bulanan ? "Ajukan cicilan" : "Minta perpanjangan"}
+        </Button>
         <Button asChild variant="outline">
           <a
             href="https://wa.me/6281234567890?text=Halo%20CS%20PINDAI%2C%20saya%20ingin%20bertanya%20tentang%20pinjaman%20saya."

@@ -7,34 +7,45 @@ import { Textarea } from "@/components/ui/textarea";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import {
+  LABEL_JENIS_RESTRUKTURISASI,
   LABEL_STATUS_RESTRUKTURISASI,
   TAMBAHAN_HARI_PILIHAN,
+  type JenisRestrukturisasi,
   type StatusRestrukturisasi,
 } from "@/lib/restrukturisasi";
+import { formatRupiah } from "@/lib/money";
 import { formatTanggalWIB } from "@/lib/waktu";
 
 /**
- * Panel perpanjangan tenor di dalam kasus penagihan.
+ * Panel restrukturisasi di dalam kasus penagihan.
  *
- * Hanya pinjaman harian yang bisa diperpanjang; skema bulanan ditolak server
- * dengan alasan yang tampil di sini. Persetujuan menggeser jatuh tempo tanpa
- * mengubah pokok, bunga, atau total kewajiban.
+ * Admin dapat mengajukan perpanjangan tenor untuk pinjaman harian. Permohonan
+ * nasabah dari dashboard — perpanjangan maupun usulan cicilan — muncul di sini
+ * dengan sumbernya, sehingga keputusan tetap satu pintu. Persetujuan
+ * perpanjangan menggeser jatuh tempo tanpa mengubah pokok, bunga, atau total
+ * kewajiban; persetujuan cicilan hanya mencatat kesepakatan.
  */
 
 export type RingkasanRestrukturisasi = {
   boleh: boolean;
   alasan: string | null;
+  bolehCicilan: boolean;
+  alasanCicilan: string | null;
   tenorHari: number | null;
   tenorBulan: number | null;
+  totalKewajiban: number | null;
   didanaiPada: number | null;
   jatuhTempoPada: number | null;
   hariTerlambat: number;
   menunggu: {
     _id: Id<"restrukturisasiPinjaman">;
+    jenis: string;
     tambahanHari: number;
     tenorBaruHari: number;
+    usulanCicilan: number | null;
     alasan: string;
     diajukanOlehLabel: string;
+    diajukanOlehNasabah: boolean;
     dibuatPada: number;
   } | null;
   riwayat: {
@@ -44,8 +55,10 @@ export type RingkasanRestrukturisasi = {
     tenorLamaHari: number;
     tenorBaruHari: number;
     tambahanHari: number;
+    usulanCicilan: number | null;
     alasan: string;
     diajukanOlehLabel: string;
+    diajukanOlehNasabah: boolean;
     dibuatPada: number;
     diputuskanOlehLabel: string | null;
     diputuskanPada: number | null;
@@ -94,7 +107,7 @@ export function BagianRestrukturisasi({
     <div className="rounded-xl border border-slate-200 bg-white px-4 py-4">
       <p className="flex items-center gap-2 text-sm font-semibold text-navy">
         <CalendarClock className="size-4 text-primary" aria-hidden="true" />
-        Perpanjangan tenor
+        Restrukturisasi pinjaman
       </p>
       <p className="mt-1 text-xs leading-5 text-muted-foreground">
         {hasil.tenorBulan !== null
@@ -111,13 +124,25 @@ export function BagianRestrukturisasi({
       {hasil.menunggu !== null && (
         <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5">
           <p className="text-xs font-semibold text-amber-900">
-            Usulan menunggu keputusan: {hasil.menunggu.tenorBaruHari} hari (+
-            {hasil.menunggu.tambahanHari})
+            {hasil.menunggu.jenis === "cicilan"
+              ? `Usulan cicilan ${formatRupiah(hasil.menunggu.usulanCicilan ?? 0)} per pembayaran`
+              : `Usulan perpanjangan: ${hasil.menunggu.tenorBaruHari} hari (+${hasil.menunggu.tambahanHari})`}
           </p>
           <p className="mt-1 text-[11px] leading-4 text-amber-900">
             Diajukan {formatTanggalWIB(hasil.menunggu.dibuatPada)} oleh{" "}
-            {hasil.menunggu.diajukanOlehLabel}. Alasan: {hasil.menunggu.alasan}
+            {hasil.menunggu.diajukanOlehLabel}
+            {hasil.menunggu.diajukanOlehNasabah ? " lewat dashboard nasabah" : ""}.
+            Alasan: {hasil.menunggu.alasan}
           </p>
+          {hasil.menunggu.jenis === "cicilan" && hasil.totalKewajiban !== null && (
+            <p className="mt-1 text-[11px] leading-4 text-amber-900">
+              Total kewajiban {formatRupiah(hasil.totalKewajiban)} · sekitar{" "}
+              {Math.ceil(
+                hasil.totalKewajiban / Math.max(1, hasil.menunggu.usulanCicilan ?? 1),
+              )}{" "}
+              kali pembayaran.
+            </p>
+          )}
           <Textarea
             value={catatan}
             onChange={(e) => onUbahCatatan(e.target.value)}
@@ -229,8 +254,12 @@ export function BagianRestrukturisasi({
               <strong>
                 {LABEL_STATUS_RESTRUKTURISASI[r.status as StatusRestrukturisasi] ?? r.status}
               </strong>{" "}
-              · {r.tenorLamaHari} → {r.tenorBaruHari} hari (+{r.tambahanHari}) ·{" "}
-              {formatTanggalWIB(r.diputuskanPada ?? r.dibuatPada)}
+              · {LABEL_JENIS_RESTRUKTURISASI[r.jenis as JenisRestrukturisasi] ?? r.jenis}
+              {r.jenis === "cicilan"
+                ? ` ${formatRupiah(r.usulanCicilan ?? 0)} per pembayaran`
+                : ` ${r.tenorLamaHari} → ${r.tenorBaruHari} hari (+${r.tambahanHari})`}{" "}
+              · {formatTanggalWIB(r.diputuskanPada ?? r.dibuatPada)}
+              {r.diajukanOlehNasabah ? " · diajukan nasabah" : ""}
               {r.diputuskanOlehLabel !== null ? ` oleh ${r.diputuskanOlehLabel}` : ""}
               {r.catatanKeputusan !== null ? ` · ${r.catatanKeputusan}` : ""}
             </li>
@@ -294,6 +323,11 @@ export function RestrukturisasiPinjaman({ loanId }: { loanId: Id<"loans"> }) {
             catatan: catatan.trim() === "" ? undefined : catatan,
           });
           setCatatan("");
+          if (r.jenis === "cicilan") {
+            return setuju
+              ? "Usulan cicilan dicatat sebagai kesepakatan. Jadwal dan pembayaran tetap ditangani di luar aplikasi."
+              : "Usulan cicilan ditolak. Jadwal pinjaman tidak berubah.";
+          }
           return setuju
             ? `Perpanjangan disetujui. Tenor pinjaman kini ${r.tenorBaruHari ?? 0} hari.`
             : "Usulan perpanjangan ditolak. Tenor pinjaman tidak berubah.";

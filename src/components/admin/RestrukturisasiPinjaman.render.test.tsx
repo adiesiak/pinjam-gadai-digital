@@ -25,8 +25,11 @@ function tidakAda(html: string, teks: string, label: string): void {
 const DASAR: RingkasanRestrukturisasi = {
   boleh: true,
   alasan: null,
+  bolehCicilan: true,
+  alasanCicilan: null,
   tenorHari: 30,
   tenorBulan: null,
+  totalKewajiban: 1_300_000,
   didanaiPada: Date.UTC(2026, 9, 1),
   jatuhTempoPada: Date.UTC(2026, 9, 31),
   hariTerlambat: 4,
@@ -91,16 +94,18 @@ const menunggu = gambar({
     ...DASAR,
     menunggu: {
       _id: "r1" as never,
+      jenis: "perpanjangan_tenor",
       tambahanHari: 30,
       tenorBaruHari: 60,
+      usulanCicilan: null,
       alasan: "Penghasilan turun sementara.",
       diajukanOlehLabel: "admin@pindai.test",
+      diajukanOlehNasabah: false,
       dibuatPada: Date.UTC(2026, 9, 19),
     },
   },
 });
-ada(menunggu, "Usulan menunggu keputusan", "usulan menggantung");
-ada(menunggu, "60 hari (+30)", "rincian usulan");
+ada(menunggu, "Usulan perpanjangan: 60 hari (+30)", "usulan menggantung");
 ada(menunggu, "Setujui", "tombol setujui");
 ada(menunggu, "Tolak", "tombol tolak");
 tidakAda(menunggu, "Ajukan perpanjangan", "tanpa form saat ada usulan");
@@ -116,8 +121,10 @@ const riwayat = gambar({
         tenorLamaHari: 30,
         tenorBaruHari: 44,
         tambahanHari: 14,
+        usulanCicilan: null,
         alasan: "Alasan yang cukup panjang.",
         diajukanOlehLabel: "admin@pindai.test",
+        diajukanOlehNasabah: false,
         dibuatPada: Date.UTC(2026, 9, 10),
         diputuskanOlehLabel: "admin@pindai.test",
         diputuskanPada: Date.UTC(2026, 9, 11),

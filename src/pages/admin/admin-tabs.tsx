@@ -249,7 +249,7 @@ export function AdminTabs({
         {
           value: "dpd",
           label: "Jatuh Tempo",
-          hint: "Pinjaman yang melewati jatuh tempo pelunasan.",
+          hint: "Pinjaman yang melewati jatuh tempo dan permohonan restrukturisasi yang menunggu keputusan.",
           badge: stats ? `${stats.pinjamanTerlambat}` : null,
           hitung: "menunggu",
           Icon: BellRing,

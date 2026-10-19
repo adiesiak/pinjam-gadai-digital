@@ -4,6 +4,7 @@ import { useState } from "react";
 
 import { StatusBadge } from "@/components/StatusBadge";
 import { AgingPortofolioPanel } from "@/components/admin/AgingPortofolioPanel";
+import { DaftarPermohonanRestrukturisasi } from "@/components/admin/DaftarPermohonanRestrukturisasi";
 import { KirimRincianPinjaman } from "@/components/admin/KirimRincianPinjaman";
 import { TombolInfoTagihanWA } from "@/components/admin/TombolInfoTagihanWA";
 import { Input } from "@/components/ui/input";
@@ -73,6 +74,7 @@ export function DpdTab() {
   );
   return (
     <div className="space-y-4">
+      <DaftarPermohonanRestrukturisasi />
       <AgingPortofolioPanel />
       {perluDiingatkan.length === 0 ? (
         <EmptyQueue

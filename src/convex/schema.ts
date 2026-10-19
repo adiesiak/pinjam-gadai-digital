@@ -2392,11 +2392,13 @@ const schema = defineSchema(
       .index("by_loan", ["loanId"]),
 
     /**
-     * RESTRUKTURISASI PINJAMAN — usulan & keputusan perpanjangan tenor.
+     * RESTRUKTURISASI PINJAMAN — permohonan & keputusan perpanjangan/cicilan.
      *
-     * Satu baris per usulan. Persetujuan mengubah `loans.tenorHari` sehingga
-     * jatuh tempo bergeser; pokok, bunga, dan total kewajiban tidak dihitung
-     * ulang di sini. Hanya pinjaman skema harian yang boleh diperpanjang.
+     * Satu baris per permohonan, baik dari admin maupun dashboard nasabah.
+     * Persetujuan perpanjangan mengubah `loans.tenorHari` sehingga jatuh tempo
+     * bergeser; pokok, bunga, dan total kewajiban tidak dihitung ulang di sini.
+     * Hanya pinjaman skema harian yang boleh diperpanjang. Persetujuan cicilan
+     * hanya mencatat kesepakatan — jadwal tidak diubah otomatis.
      */
     restrukturisasiPinjaman: defineTable({
       loanId: v.id("loans"),
@@ -2411,6 +2413,13 @@ const schema = defineSchema(
       status: v.string(),
       diajukanOlehUserId: v.id("users"),
       diajukanOlehLabel: v.string(),
+      /**
+       * Benar bila permohonan datang dari dashboard nasabah, bukan dicatat
+       * admin. Kosong pada baris lama yang semuanya diajukan admin.
+       */
+      diajukanOlehNasabah: v.optional(v.boolean()),
+      /** Nominal per pembayaran yang diusulkan nasabah (jenis `cicilan`). */
+      usulanCicilan: v.optional(v.number()),
       dibuatPada: v.number(),
       diputuskanOlehUserId: v.optional(v.id("users")),
       diputuskanOlehLabel: v.optional(v.string()),

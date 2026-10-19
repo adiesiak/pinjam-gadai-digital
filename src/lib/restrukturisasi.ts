@@ -1,10 +1,14 @@
 /**
- * Aturan restrukturisasi pinjaman — perpanjangan tenor skema harian.
+ * Aturan restrukturisasi pinjaman — perpanjangan tenor dan usulan cicilan.
  *
  * Batas yang dipegang berkas ini:
- *  - hanya pinjaman harian (bukan skema bulanan) yang bisa diperpanjang;
+ *  - perpanjangan tenor hanya untuk pinjaman harian; usulan cicilan boleh
+ *    diajukan untuk pinjaman harian maupun bulanan yang sedang berjalan;
  *  - perpanjangan MENGGESER jatuh tempo, tidak mengubah pokok, bunga, atau
  *    total kewajiban yang sudah tercatat;
+ *  - usulan cicilan hanya usulan nominal — jadwal dan pencatatan pembayaran
+ *    tetap ditangani tim di luar aplikasi, jadi tidak ada angka yang diubah
+ *    otomatis saat disetujui;
  *  - pengajuan wajib beralasan minimal 10 karakter, keputusan tetap di tangan
  *    admin ber-TOTP, setiap langkah diaudit, dan hanya satu pengajuan boleh
  *    menggantung per pinjaman.
@@ -13,11 +17,12 @@
  * `lib/loan.ts` supaya tidak ada dua mesin uang.
  */
 
-export const JENIS_RESTRUKTURISASI = ["perpanjangan_tenor"] as const;
+export const JENIS_RESTRUKTURISASI = ["perpanjangan_tenor", "cicilan"] as const;
 export type JenisRestrukturisasi = (typeof JENIS_RESTRUKTURISASI)[number];
 
 export const LABEL_JENIS_RESTRUKTURISASI: Record<JenisRestrukturisasi, string> = {
   perpanjangan_tenor: "Perpanjangan tenor",
+  cicilan: "Usulan cicilan",
 };
 
 export const STATUS_RESTRUKTURISASI = ["diajukan", "disetujui", "ditolak"] as const;
@@ -38,6 +43,8 @@ export const BATAS_RESTRUKTURISASI = {
   maxTenor: 365,
   minAlasan: 10,
   maxAlasan: 500,
+  /** Cicilan di bawah ini tidak masuk akal untuk pinjaman PINDAI. */
+  minUsulanCicilan: 50_000,
 } as const;
 
 export type HasilValidasi = { ok: true } | { ok: false; alasan: string };
@@ -96,4 +103,49 @@ export function validasiPerpanjanganTenor(data: {
 /** Jatuh tempo setelah perpanjangan, memakai aturan yang sama dengan lib/loan. */
 export function jatuhTempoSetelahPerpanjangan(didanaiPada: number, tenorBaruHari: number): number {
   return didanaiPada + tenorBaruHari * 86_400_000;
+}
+
+/**
+ * Usulan awal cicilan: bagi total menjadi tiga kali, dibulatkan ke atas 10
+ * ribu. Dipakai formulir nasabah supaya angka awalnya tidak nol.
+ */
+export function saranUsulanCicilan(totalKewajiban: number): number {
+  if (totalKewajiban <= 0) return BATAS_RESTRUKTURISASI.minUsulanCicilan;
+  const kasar = Math.ceil(totalKewajiban / 3 / 10_000) * 10_000;
+  return Math.max(BATAS_RESTRUKTURISASI.minUsulanCicilan, kasar);
+}
+
+/**
+ * Periksa usulan nominal cicilan dari nasabah.
+ *
+ * Batas atas memakai total kewajiban yang dihitung mesin pinjaman, bukan angka
+ * pilihan klien: usulan di atas kewajiban berarti nasabah salah paham, dan
+ * lebih baik ditolak di formulir daripada diteruskan ke admin.
+ */
+export function validasiUsulanCicilan(data: {
+  usulanCicilan: number;
+  totalKewajiban: number;
+}):
+  | { ok: true; perkiraanJumlahCicilan: number }
+  | { ok: false; alasan: string } {
+  const { usulanCicilan, totalKewajiban } = data;
+  if (!Number.isSafeInteger(usulanCicilan) || usulanCicilan <= 0) {
+    return { ok: false, alasan: "Usulan cicilan harus rupiah bulat positif." };
+  }
+  if (usulanCicilan < BATAS_RESTRUKTURISASI.minUsulanCicilan) {
+    return {
+      ok: false,
+      alasan: `Usulan cicilan minimal ${BATAS_RESTRUKTURISASI.minUsulanCicilan.toLocaleString("id-ID")} rupiah per pembayaran.`,
+    };
+  }
+  if (!Number.isSafeInteger(totalKewajiban) || totalKewajiban <= 0) {
+    return { ok: false, alasan: "Total kewajiban pinjaman belum bisa dihitung, jadi usulan cicilan belum dapat diperiksa." };
+  }
+  if (usulanCicilan > totalKewajiban) {
+    return {
+      ok: false,
+      alasan: "Usulan cicilan melebihi total kewajiban pinjaman. Periksa kembali nominalnya.",
+    };
+  }
+  return { ok: true, perkiraanJumlahCicilan: Math.ceil(totalKewajiban / usulanCicilan) };
 }

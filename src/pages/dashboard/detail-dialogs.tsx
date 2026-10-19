@@ -1,5 +1,6 @@
 import { useQuery } from "convex/react";
 
+import { PermohonanRestrukturisasi } from "@/components/PermohonanRestrukturisasi";
 import { StatusBadge } from "@/components/StatusBadge";
 import {
   Dialog,
@@ -200,6 +201,8 @@ export function LoanDetailDialog({
                 <p className="mt-1 text-sm">{loan.catatanReview}</p>
               </div>
             )}
+
+            {loan.status === "didanai" && <PermohonanRestrukturisasi loanId={loan._id} />}
 
             {loan.status === "didanai" && loan.pelunasan && (
               <div
