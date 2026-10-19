@@ -22,7 +22,13 @@
  * (`pages/dashboard/pengajuan-cepat-views.tsx`) hanya merender hasilnya.
  */
 import { validateKycInput } from "./kyc";
-import { LOAN_LIMITS, TENOR_OPTIONS } from "./loan";
+import {
+  LOAN_LIMITS,
+  TENOR_OPTIONS,
+  tenorHarianTersedia,
+  validasiTenorHarian,
+  type Tenor,
+} from "./loan";
 import { formatRupiah } from "./money";
 import { PLAFON_DEFAULT } from "./plafon";
 
@@ -69,8 +75,16 @@ export function nominalAwalCepat(sisaBatas?: number | null): number {
   return Math.min(maks, Math.max(min, setengah));
 }
 
-/** Tenor yang boleh dipilih pada pengajuan cepat (hari). */
+/** Seluruh tenor yang dikenal produk (hari) — dipakai untuk label & fallback. */
 export const TENOR_CEPAT = TENOR_OPTIONS;
+
+/**
+ * Tenor yang benar-benar boleh dipilih untuk satu nominal pengajuan cepat.
+ * Nominal berubah → daftar ini ikut berubah (mis. Rp1 juta hanya 28 hari).
+ */
+export function tenorCepat(pokok: number): readonly Tenor[] {
+  return tenorHarianTersedia(pokok);
+}
 
 /** Apakah rekening tersimpan cukup lengkap untuk dikonfirmasi & dipakai. */
 export function rekeningTersimpanSiap(
@@ -192,8 +206,13 @@ export function validasiPengajuanCepat(
       sebutSisa ? ` Sisa batas pinjaman Anda ${formatRupiah(maks)}.` : ""
     }`;
   }
-  if (!(TENOR_OPTIONS as readonly number[]).includes(isian.tenorHari)) {
-    return `Pilih lama pinjaman: ${TENOR_OPTIONS.join(" / ")} hari.`;
+  // Tenor mengikuti matriks nominal: 7/14/28 hari di bawah Rp500.000,
+  // 14/28 hari sampai di bawah Rp1 juta, dan 28 hari untuk Rp1 juta.
+  const pesanTenor = validasiTenorHarian(isian.pokokPinjaman, isian.tenorHari);
+  if (pesanTenor !== null) {
+    return `${pesanTenor} Pilih lama pinjaman: ${tenorHarianTersedia(
+      isian.pokokPinjaman,
+    ).join(" / ")} hari.`;
   }
   if (isian.tujuan.trim() === "") {
     return "Pilih keperluan pinjaman.";

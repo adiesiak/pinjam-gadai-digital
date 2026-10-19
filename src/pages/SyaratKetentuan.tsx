@@ -27,6 +27,7 @@ import { formatRupiah } from "@/lib/money";
 import {
   LOAN_LIMITS,
   LATE_FEE_POLICY,
+  persenBungaHarian,
   PINDAI_PRICING,
   TENOR_OPTIONS,
 } from "@/lib/loan";
@@ -56,10 +57,12 @@ import {
  * yang berlaku di kode, bukan dikarang bebas.
  */
 
-const TERAKHIR_DIPERBARUI = "14 Oktober 2026";
+const TERAKHIR_DIPERBARUI = "19 Oktober 2026";
+/** Tarif harian Rp1 juta/28 hari dari matriks produk. */
+const BUNGA_CONTOH_HARIAN = persenBungaHarian(1_000_000, 28) ?? PINDAI_PRICING.bungaPercent;
 const CONTOH_BAGI_HASIL = bagiHasilPinjaman(
   1_000_000,
-  PINDAI_PRICING.bungaPercent,
+  BUNGA_CONTOH_HARIAN,
   POTONGAN_ADMIN_DEFAULT_PERSEN,
 );
 
@@ -278,9 +281,18 @@ const PASAL: Pasal[] = [
             pokok.
           </Ayat>
           <Ayat>
-            <strong>Bunga pinjaman {PINDAI_PRICING.bungaPercent}%</strong> dari
-            pokok, sehingga total kewajiban pelunasan pada hitungan menjadi{" "}
-            {PINDAI_PRICING.totalRepaymentPercent}% dari pokok.
+            <strong>Bunga pinjaman harian mengikuti matriks nominal–tenor.</strong>{" "}
+            Pokok {formatRupiah(LOAN_LIMITS.minPokok)} sampai{" "}
+            {formatRupiah(499_999)}: tenor 7 hari (bunga{" "}
+            {persenBungaHarian(100_000, 7)}%, bawaan), 14 hari ({" "}
+            {persenBungaHarian(100_000, 14)}%), atau 28 hari ({" "}
+            {persenBungaHarian(100_000, 28)}%). Pokok {formatRupiah(500_000)}{" "}
+            sampai {formatRupiah(999_999)}: tenor 14 hari ({" "}
+            {persenBungaHarian(500_000, 14)}%) atau 28 hari ({" "}
+            {persenBungaHarian(500_000, 28)}%). Pokok{" "}
+            {formatRupiah(1_000_000)}: tenor 28 hari ({" "}
+            {persenBungaHarian(1_000_000, 28)}%). Bunga dihitung flat dari pokok;
+            total kewajiban pelunasan = pokok + bunga.
           </Ayat>
           <Ayat>
             Untuk pinjaman bulanan, bunga flat dari pokok penuh mengikuti tarif
@@ -401,8 +413,8 @@ const PASAL: Pasal[] = [
             {POTONGAN_ADMIN_DEFAULT_PERSEN}%. Untuk pinjaman harian, dasar
             potongan adalah pokok dan bunga yang kembali. Pada pinjaman bulanan,
             biaya admin cicilan, bila berlaku, tidak masuk ke dasar potongan.
-            Contoh harian: pokok {formatRupiah(1_000_000)} dengan bunga{" "}
-            {PINDAI_PRICING.bungaPercent}% menghasilkan kewajiban{" "}
+            Contoh harian: pokok {formatRupiah(1_000_000)} tenor 28 hari dengan
+            bunga {BUNGA_CONTOH_HARIAN}% menghasilkan kewajiban{" "}
             {formatRupiah(CONTOH_BAGI_HASIL.totalLunas)}. Dengan potongan
             bawaan, pendana menerima{" "}
             {formatRupiah(CONTOH_BAGI_HASIL.pendanaTerima)} dan potongan admin

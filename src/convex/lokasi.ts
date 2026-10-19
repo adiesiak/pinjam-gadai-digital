@@ -728,6 +728,24 @@ export const bungaSaya = query({
   },
 });
 
+/**
+ * Override bunga milik nasabah, tanpa jatuh ke tarif global.
+ *
+ * Form tenor harian memakai matriks produk sebagai tarif bawaan. Nilai ini
+ * hanya mengisi kolom tarif bila admin memang menetapkan bunga khusus untuk
+ * nasabah tersebut; `null` berarti "pakai matriks", bukan "pakai 30%".
+ */
+export const bungaPribadiSaya = query({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await getAuthUserId(ctx);
+    if (userId === null) return null;
+    const user = await ctx.db.get(userId);
+    if (user === null || user.isAnonymous === true) return null;
+    return user.persenBunga ?? null;
+  },
+});
+
 /** Nasabah menandai peringatan lokasi sudah ditindaklanjuti (banner hilang). */
 export const akuiPeringatan = mutation({
   args: { id: v.id("lokasiPeringatan") },

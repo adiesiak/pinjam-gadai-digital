@@ -24,7 +24,11 @@ import { formatRupiah } from "@/lib/money";
 import {
   quoteLoanBunga,
   LOAN_LIMITS,
+  persenBungaHarian,
+  sesuaikanTenorHarian,
   TENOR_OPTIONS,
+  tenorHarianDefault,
+  tenorHarianTersedia,
   LATE_FEE_POLICY,
   PINDAI_PRICING,
 } from "@/lib/loan";
@@ -195,11 +199,15 @@ function Header() {
 function KalkulatorRingkas({ persenBunga }: { persenBunga: number }) {
   const [pokokHarian, setPokokHarian] = useState(500_000);
   const [tenorHarian, setTenorHarian] =
-    useState<(typeof TENOR_OPTIONS)[number]>(TENOR_OPTIONS[TENOR_OPTIONS.length - 1]);
+    useState<(typeof TENOR_OPTIONS)[number]>(tenorHarianDefault(500_000));
   const [pokokGadai, setPokokGadai] = useState(1_000_000);
   const [pokokBulanan, setPokokBulanan] = useState(1_000_000);
   const [tenorBulanan, setTenorBulanan] =
     useState<(typeof TENOR_BULANAN_OPTIONS)[number]>(3);
+  const tenorHarianEfektif = sesuaikanTenorHarian(pokokHarian, tenorHarian);
+  const tenorHarianOpsi = tenorHarianTersedia(pokokHarian);
+  const tarifHarian =
+    persenBungaHarian(pokokHarian, tenorHarianEfektif) ?? PINDAI_PRICING.bungaPercent;
   const simulasiHarian = useMemo(() => {
     if (
       !Number.isSafeInteger(pokokHarian) ||
@@ -208,11 +216,17 @@ function KalkulatorRingkas({ persenBunga }: { persenBunga: number }) {
     )
       return null;
     try {
-      return quoteLoanBunga(pokokHarian, persenBunga);
+      return quoteLoanBunga(pokokHarian, tarifHarian);
     } catch {
       return null;
     }
-  }, [pokokHarian, persenBunga]);
+  }, [pokokHarian, tarifHarian]);
+
+  // Nominal berubah → tenor dan tarif ikut menyesuaikan tanpa menunggu submit.
+  const pilihPokokHarian = (nilai: number) => {
+    setPokokHarian(nilai);
+    setTenorHarian(sesuaikanTenorHarian(nilai, tenorHarianEfektif));
+  };
   const simulasiBulanan = useMemo(() => {
     try {
       return hitungSimulasiBulanan(pokokBulanan, tenorBulanan, {
@@ -250,7 +264,7 @@ function KalkulatorRingkas({ persenBunga }: { persenBunga: number }) {
               max={LOAN_LIMITS.maxPokok}
               step={10_000}
               value={pokokHarian}
-              onChange={(event) => setPokokHarian(Number(event.target.value))}
+              onChange={(event) => pilihPokokHarian(Number(event.target.value))}
               className="mt-1 min-h-11"
             />
           </div>
@@ -258,7 +272,7 @@ function KalkulatorRingkas({ persenBunga }: { persenBunga: number }) {
             <Label htmlFor="tenor-harian">Tenor</Label>
             <select
               id="tenor-harian"
-              value={tenorHarian}
+              value={tenorHarianEfektif}
               onChange={(event) =>
                 setTenorHarian(
                   Number(event.target.value) as (typeof TENOR_OPTIONS)[number],
@@ -266,17 +280,20 @@ function KalkulatorRingkas({ persenBunga }: { persenBunga: number }) {
               }
               className="mt-1 min-h-11 w-full rounded-md border border-slate-200 bg-white px-3 text-sm sm:w-32"
             >
-              {TENOR_OPTIONS.map((hari) => (
-                <option key={hari} value={hari}>
-                  {hari} hari
-                </option>
-              ))}
+              {TENOR_OPTIONS.map((hari) => {
+                const aktif = (tenorHarianOpsi as readonly number[]).includes(hari);
+                return (
+                  <option key={hari} value={hari} disabled={!aktif}>
+                    {hari} hari{aktif ? "" : " (terkunci)"}
+                  </option>
+                );
+              })}
             </select>
           </div>
         </div>
         {simulasiHarian ? (
           <dl className="mt-4 divide-y divide-slate-100 text-sm">
-            <Baris label={`Tenor pilihan ${tenorHarian} hari`} nilai="" />
+            <Baris label={`Tenor pilihan ${tenorHarianEfektif} hari`} nilai="" />
             <Baris
               label={`Potongan awal ${PINDAI_PRICING.upfrontDeductionPercent}%`}
               nilai={formatRupiah(simulasiHarian.totalPotonganDiMuka)}
@@ -286,7 +303,7 @@ function KalkulatorRingkas({ persenBunga }: { persenBunga: number }) {
               nilai={formatRupiah(simulasiHarian.danaBersihDitransfer)}
             />
             <Baris
-              label={`Bunga ${persenBunga}%`}
+              label={`Bunga ${tarifHarian}%`}
               nilai={formatRupiah(simulasiHarian.bunga)}
             />
             <Baris
@@ -667,7 +684,17 @@ export function PublicInfoPageView({
                         Bunga flat
                       </th>
                       <td className="px-4 py-3">
-                        {persenBunga}% dari pokok
+                        <span className="block">
+                          {formatRupiah(LOAN_LIMITS.minPokok)}–{formatRupiah(499_999)}: tenor
+                          7/14/28 hari, bunga 30/35/40%.
+                        </span>
+                        <span className="mt-1 block">
+                          {formatRupiah(500_000)}–{formatRupiah(999_999)}: tenor 14/28 hari,
+                          bunga 35/40%.
+                        </span>
+                        <span className="mt-1 block">
+                          {formatRupiah(1_000_000)}: tenor 28 hari, bunga 35%.
+                        </span>
                       </td>
                       <td className="px-4 py-3">
                         {persenBunga}% per bulan dari pokok penuh untuk semua
@@ -690,7 +717,10 @@ export function PublicInfoPageView({
                 </table>
               </div>
               <p className="mt-3 text-sm leading-6 text-slate-600">
-                Jadwal cicilan bulanan adalah ilustrasi, bukan catatan
+                Bunga harian mengikuti matriks nominal–tenor di atas dan
+                ditampilkan langsung oleh kalkulator. Perpanjangan tenor di
+                bawah {formatRupiah(500_000)} menaikkan bunga dari 30% ke
+                35–40%. Jadwal cicilan bulanan adalah ilustrasi, bukan catatan
                 pembayaran angsuran. Tim PINDAI mencatat pelunasan penuh saat
                 kewajiban dinyatakan selesai. Denda pinjaman tunai{" "}
                 {dendaPerHari}% per hari dari pokok, maksimum {maksDenda}%.

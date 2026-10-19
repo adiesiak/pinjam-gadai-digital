@@ -20,7 +20,12 @@ import type { Id } from "../convex/_generated/dataModel";
 import { assertSimulasiBulananValid, TENOR_BULANAN_OPTIONS } from "./bulanan";
 import { KREDIT_PRICING, KREDIT_TENOR_PENGAJUAN_OPTIONS } from "./kredit";
 import type { JenisPengajuan } from "./jenisPengajuan";
-import { LOAN_LIMITS, LOAN_PURPOSE_OPTIONS, TENOR_OPTIONS } from "./loan";
+import {
+  LOAN_LIMITS,
+  LOAN_PURPOSE_OPTIONS,
+  TENOR_OPTIONS,
+  validasiTenorHarian,
+} from "./loan";
 import { formatRupiah, parseRupiah } from "./money";
 import { namaHurufBesar } from "./nama";
 import { kodeTanggalWIB } from "./waktu";
@@ -301,6 +306,16 @@ export function validasiPinjamanManual(
       throw new Error(
         `Tenor harus salah satu dari ${TENOR_OPTIONS.join(" / ")} hari (maksimal ${TENOR_OPTIONS[TENOR_OPTIONS.length - 1]} hari).`,
       );
+    }
+    // Dalam batas produk harian, pasangan nominal–tenor mengikuti matriks.
+    // Pencatatan manual di atas Rp1 juta tetap bebas karena menampung pinjaman
+    // lama/keputusan luar aplikasi yang tidak mengikuti paket produk ini.
+    if (input.pokokPinjaman <= LOAN_LIMITS.maxPokok) {
+      const pesanTenor = validasiTenorHarian(
+        input.pokokPinjaman,
+        input.tenorHari as number,
+      );
+      if (pesanTenor !== null) throw new Error(pesanTenor);
     }
   }
   if (!LOAN_PURPOSE_OPTIONS.some((o) => o.value === input.tujuan)) {

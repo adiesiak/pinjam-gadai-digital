@@ -134,6 +134,46 @@ function galat(fn: () => unknown): string | null {
     nomorRekening: "1234567890",
   });
   eq(harianBesar.pokokPinjaman, 2_000_000, "pokok 2 juta diterima pada skema harian manual");
+  // Di dalam batas produk Rp1 juta, tenor manual mengikuti matriks yang sama
+  // dengan pengajuan nasabah. Di atasnya, pencatatan lama tetap bebas tenor.
+  eq(
+    validasiPinjamanManual({
+      pokokPinjaman: 500_000,
+      tenorHari: 14,
+      tujuan: "modal_usaha",
+      namaLengkap: "rani",
+      namaBank: "BCA",
+      nomorRekening: "1234567890",
+    }).tenorHari,
+    14,
+    "Rp500.000/14 hari diterima pada jalur manual",
+  );
+  ok(
+    galat(() =>
+      validasiPinjamanManual({
+        pokokPinjaman: 500_000,
+        tenorHari: 7,
+        tujuan: "modal_usaha",
+        namaLengkap: "rani",
+        namaBank: "BCA",
+        nomorRekening: "1234567890",
+      }),
+    ) !== null,
+    "Rp500.000/7 hari ditolak pada jalur manual",
+  );
+  ok(
+    galat(() =>
+      validasiPinjamanManual({
+        pokokPinjaman: 1_000_000,
+        tenorHari: 14,
+        tujuan: "modal_usaha",
+        namaLengkap: "rani",
+        namaBank: "BCA",
+        nomorRekening: "1234567890",
+      }),
+    ) !== null,
+    "Rp1 juta/14 hari ditolak pada jalur manual",
+  );
   eq(POKOK_MANUAL_MAKS, 10_000_000, "langit-langit jalur manual Rp 10 juta");
   eq(
     validasiPinjamanManual({

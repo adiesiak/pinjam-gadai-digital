@@ -26,7 +26,6 @@ import type { Id } from "./_generated/dataModel";
 import schema from "./schema";
 import { simpanBerkasUji, siapkanPengguna } from "./test.helpers";
 import { modules } from "./test.setup";
-import { DEFAULT_CONFIG } from "../lib/system-config";
 
 /** Data diri lengkap satu nasabah — sumber identitas pencatatan manual. */
 async function simpanDataDiri(
@@ -111,7 +110,8 @@ describe("pencatatan pengajuan manual oleh admin", () => {
       nomorWhatsApp: "628123456791",
       penghasilanBulanan: 3_500_000,
       sumberPenghasilan: "Usaha warung",
-      persenBunga: DEFAULT_CONFIG.persenBunga,
+      // Rp900.000/28 hari berada di matriks harian: bunga 40%.
+      persenBunga: 40,
     });
     // Baris baru tidak melewati keputusan: catatan review masih kosong.
     expect(loan?.catatanReview).toBeUndefined();

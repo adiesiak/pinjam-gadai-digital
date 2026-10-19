@@ -44,8 +44,11 @@ import {
   LATE_FEE_POLICY,
   LOAN_LIMITS,
   LOAN_PURPOSE_OPTIONS,
-  quotePinjaman,
-  TENOR_OPTIONS,
+  persenBungaHarian,
+  PINDAI_PRICING,
+  quoteLoanBunga,
+  sesuaikanTenorHarian,
+  tenorHarianDefault,
 } from "@/lib/loan";
 import { formatRupiah } from "@/lib/money";
 import {
@@ -58,6 +61,7 @@ import {
   nominalAwalCepat,
   rekeningTersimpanSiap,
   TENOR_CEPAT,
+  tenorCepat,
   validasiPengajuanCepat,
   type KtpTerverifikasi,
   type IsianPengajuanCepat,
@@ -127,7 +131,8 @@ export function PengajuanCepatSection({
   const plafonQuery = useQuery(api.nasabah.plafonRingkasSaya, {});
   const ringkas: RingkasanPlafon | null = plafonQuery ?? null;
   const sisaBatas = ringkas?.tersedia; // undefined selama belum termuat
-  const bungaQuery = useQuery(api.lokasi.bungaSaya, {});
+  // Tarif matriks adalah bawaan; override admin hanya menimpa bila memang ada.
+  const bungaPribadiQuery = useQuery(api.lokasi.bungaPribadiSaya, {});
   const ketentuanBiaya = useQuery(api.system.getKetentuanBiaya, {});
   const tarifDenda = {
     perHari: ketentuanBiaya?.persenDendaKeterlambatan ?? LATE_FEE_POLICY.percentPerDay,
@@ -176,6 +181,18 @@ export function PengajuanCepatSection({
       batal = true;
     };
   }, [batas.adaSisa, batas.min, batas.maks]);
+
+  // Tenor ikut terkunci saat nominal berubah: Rp1 juta hanya menerima 28 hari,
+  // Rp500 ribu–di bawah Rp1 juta menerima 14/28 hari. Pilihan lama digeser ke
+  // tenor sah terdekat supaya dropdown tidak menampilkan nilai yang ditolak.
+  useEffect(() => {
+    if (!batas.adaSisa) return;
+    queueMicrotask(() => {
+      setTenorHari((sebelumnya) =>
+        String(sesuaikanTenorHarian(pokok, Number(sebelumnya) || tenorHarianDefault(pokok))),
+      );
+    });
+  }, [pokok, batas.adaSisa]);
 
   // ===== Tanda tangan (canvas) =====
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -266,13 +283,34 @@ export function PengajuanCepatSection({
   }, [ambilLokasi]);
 
   // ===== Hitungan & kesiapan =====
-  const q = quotePinjaman({ pokokPinjaman: pokok, persenBunga: bungaQuery ?? undefined });
+  // Saat sisa batas habis, state nominal bisa masih 0 sebelum efek perbaikan
+  // berjalan. Hitungan memakai batas minimum agar layar tidak gagal render;
+  // tombol kirim tetap terkunci oleh `batas.adaSisa`.
+  const pokokHitung = pokok > 0 ? pokok : batas.min;
+  const tenorTersedia = tenorCepat(pokokHitung);
+  const tenor = sesuaikanTenorHarian(
+    pokokHitung,
+    Number(tenorHari) || tenorHarianDefault(pokokHitung),
+  );
+  // Tarif khusus nasabah (bila ada) menang; tanpa override, tarif diambil dari
+  // matriks nominal–tenor yang sama dengan yang ditegakkan server.
+  const tarifBunga =
+    bungaPribadiQuery ??
+    persenBungaHarian(pokokHitung, tenor) ??
+    PINDAI_PRICING.bungaPercent;
+  const q = quoteLoanBunga(pokokHitung, tarifBunga);
   const peringatanBayar = peringatanKemampuanBayar({
     penghasilanBulanan: ktp.penghasilanBulanan ?? 0,
     kewajiban: q.totalKewajibanPelunasan,
-    hari: Number(tenorHari) || 30,
+    hari: tenor,
   });
-  const tenor = Number(tenorHari);
+  const pilihPokok = (nilai: number) => {
+    const angka = Math.min(Math.max(nilai, batas.min), batas.maks);
+    setPokok(angka);
+    setTenorHari((sebelumnya) =>
+      String(sesuaikanTenorHarian(angka, Number(sebelumnya) || tenorHarianDefault(angka))),
+    );
+  };
   const kurangKtp = kekuranganKtpTerverifikasi(ktp);
   const rekeningSiap = rekeningTersimpanSiap(ktp.namaBank, ktp.nomorRekening);
   const isianCepat: IsianPengajuanCepat = {
@@ -430,7 +468,7 @@ export function PengajuanCepatSection({
                   value={pokok.toLocaleString("id-ID")}
                   onChange={(e) => {
                     const angka = Number(e.target.value.replace(/\D/g, ""));
-                    setPokok(Number.isFinite(angka) ? Math.min(angka, batas.maks) : batas.min);
+                    pilihPokok(Number.isFinite(angka) ? angka : batas.min);
                   }}
                   disabled={submitting || !batas.adaSisa}
                   aria-describedby="cepat-pokok-batas"
@@ -446,7 +484,7 @@ export function PengajuanCepatSection({
                     size="sm"
                     className="h-9 rounded-xl tabular-nums"
                     disabled={submitting || !batas.adaSisa}
-                    onClick={() => setPokok(n)}
+                    onClick={() => pilihPokok(n)}
                   >
                     {formatRupiah(n)}
                   </Button>
@@ -486,24 +524,38 @@ export function PengajuanCepatSection({
             <label htmlFor="cepat-tenor" className="text-xs font-semibold text-slate-900">
               Lama pinjaman
             </label>
-            <Select value={tenorHari} onValueChange={setTenorHari}>
+            <Select
+              value={String(tenor)}
+              onValueChange={(nilai) => setTenorHari(nilai)}
+              disabled={submitting || !batas.adaSisa}
+            >
               <SelectTrigger
                 id="cepat-tenor"
                 aria-label="Lama pinjaman"
                 className="mt-1.5 h-11 w-full rounded-xl text-sm"
               >
-                <SelectValue />
+                <SelectValue>{`${tenor} hari`}</SelectValue>
               </SelectTrigger>
               <SelectContent>
-                {TENOR_CEPAT.map((hari) => (
-                  <SelectItem key={hari} value={String(hari)}>
-                    {hari} hari
-                  </SelectItem>
-                ))}
+                {TENOR_CEPAT.map((hari) => {
+                  const aktif = (tenorTersedia as readonly number[]).includes(hari);
+                  return (
+                    <SelectItem key={hari} value={String(hari)} disabled={!aktif}>
+                      {hari} hari
+                      {hari === tenorHarianDefault(pokok) ? " · bawaan" : ""}
+                      {!aktif ? " · terkunci" : ""}
+                    </SelectItem>
+                  );
+                })}
               </SelectContent>
             </Select>
             <p className="mt-1 text-[11px] leading-4 text-muted-foreground">
-              Pilihan tenor: {TENOR_OPTIONS.join(" / ")} hari.
+              Nominal ini menerima tenor {tenorTersedia.join(" / ")} hari. Bunga{" "}
+              <strong className="font-semibold text-slate-800">{tarifBunga}%</strong>
+              {bungaPribadiQuery !== null && bungaPribadiQuery !== undefined
+                ? " (tarif khusus akun)"
+                : " sesuai matriks produk"}
+              .
             </p>
           </div>
 
@@ -571,7 +623,11 @@ export function PengajuanCepatSection({
 
           {/* Perkiraan hitungan — angka dari mesin harga yang sama dengan server. */}
           <div className="min-w-0 sm:col-span-2">
-            <dl className="grid gap-2 rounded-xl border border-slate-200 bg-slate-50/70 px-3 py-2 text-[11px] leading-5 sm:grid-cols-3">
+            <dl className="grid gap-2 rounded-xl border border-slate-200 bg-slate-50/70 px-3 py-2 text-[11px] leading-5 sm:grid-cols-4">
+              <div>
+                <dt className="text-muted-foreground">Bunga {tarifBunga}% · {tenor} hari</dt>
+                <dd className="font-semibold tabular-nums">{formatRupiah(q.bunga)}</dd>
+              </div>
               <div>
                 <dt className="text-muted-foreground">Potongan di muka</dt>
                 <dd className="font-semibold tabular-nums">{formatRupiah(q.totalPotonganDiMuka)}</dd>
@@ -688,7 +744,8 @@ export function PengajuanCepatSection({
         <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-slate-200 pt-4">
           <p className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
             <Wallet className="size-3.5 shrink-0" aria-hidden />
-            Kewajiban total {formatRupiah(q.totalKewajibanPelunasan)} · tenor {tenor || "—"} hari
+            Kewajiban total {formatRupiah(q.totalKewajibanPelunasan)} · tenor {tenor} hari · bunga{" "}
+            {tarifBunga}%
           </p>
           <Button
             type="button"

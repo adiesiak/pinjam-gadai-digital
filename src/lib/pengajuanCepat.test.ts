@@ -18,7 +18,12 @@ import {
   type IsianPengajuanCepat,
   type KtpTerverifikasi,
 } from "@/lib/pengajuanCepat";
-import { LOAN_LIMITS, TENOR_OPTIONS } from "@/lib/loan";
+import {
+  LOAN_LIMITS,
+  persenBungaHarian,
+  TENOR_OPTIONS,
+  tenorHarianDefault,
+} from "@/lib/loan";
 
 let passed = 0;
 let failed = 0;
@@ -90,7 +95,8 @@ for (const sisa of [null, 100_000, 400_000, 1_000_000, 5_000_000]) {
 eq(nominalAwalCepat(1_000_000), 500_000, "sisa 1 juta menawarkan 500 ribu");
 eq(nominalAwalCepat(0), 0, "sisa habis tidak menawarkan nominal awal");
 
-// Tenor pada pengajuan cepat = tenor produk.
+// Tenor pada pengajuan cepat = tenor produk; pilihan yang sah menyempit
+// mengikuti nominal (lihat pemeriksaan matriks di bawah).
 eq(TENOR_CEPAT, TENOR_OPTIONS, "pilihan tenor memakai daftar tenor produk");
 
 // ===== 2. Rekening tersimpan =====
@@ -142,6 +148,16 @@ ok(
 );
 ada(tolak({ pokokPinjaman: 500_000.5 }), "minimal", "nominal pecahan ditolak");
 ada(tolak({ tenorHari: 45 }), "Pilih lama pinjaman", "tenor di luar daftar ditolak");
+ada(
+  tolak({ pokokPinjaman: 500_000, tenorHari: 7 }),
+  "tenor yang tersedia 14 / 28 hari",
+  "Rp500.000 tidak menerima tenor 7 hari",
+);
+ada(
+  tolak({ pokokPinjaman: 1_000_000, tenorHari: 14 }),
+  "tenor yang tersedia 28 hari",
+  "Rp1 juta terkunci pada tenor 28 hari",
+);
 ada(tolak({ tujuan: "" }), "keperluan", "keperluan kosong ditolak");
 ada(tolak({ rekeningBenar: false }), "rekening bank", "konfirmasi rekening wajib");
 ada(tolak({ lokasiTercatat: false }), "Lokasi", "lokasi wajib");
@@ -171,9 +187,29 @@ ada(
   "sumber penghasilan kosong dianggap data KYC kurang",
 );
 
-// Semua tenor produk boleh dipakai.
-for (const tenor of TENOR_OPTIONS) {
-  eq(validasiPengajuanCepat({ ...SIAP, tenorHari: tenor }, KTP, 1_000_000), null, `tenor ${tenor} hari diterima`);
+// Kombinasi nominal–tenor mengikuti matriks, bukan semua tenor bebas.
+eq(tenorHarianDefault(250_000), 7, "di bawah Rp500.000: tenor bawaan 7 hari");
+eq(tenorHarianDefault(500_000), 14, "Rp500.000: tenor bawaan 14 hari");
+eq(tenorHarianDefault(1_000_000), 28, "Rp1 juta: tenor bawaan 28 hari");
+eq(persenBungaHarian(250_000, 7), 30, "Rp250.000/7 hari: bunga 30%");
+eq(persenBungaHarian(250_000, 14), 35, "Rp250.000/14 hari: bunga naik ke 35%");
+eq(persenBungaHarian(250_000, 28), 40, "Rp250.000/28 hari: bunga naik ke 40%");
+eq(persenBungaHarian(500_000, 14), 35, "Rp500.000/14 hari: bunga 35%");
+eq(persenBungaHarian(500_000, 28), 40, "Rp500.000/28 hari: bunga 40%");
+eq(persenBungaHarian(1_000_000, 28), 35, "Rp1 juta/28 hari: bunga 35%");
+for (const [pokok, tenor] of [
+  [250_000, 7],
+  [250_000, 14],
+  [250_000, 28],
+  [500_000, 14],
+  [500_000, 28],
+  [1_000_000, 28],
+] as const) {
+  eq(
+    validasiPengajuanCepat({ ...SIAP, pokokPinjaman: pokok, tenorHari: tenor }, KTP, 1_000_000),
+    null,
+    `kombinasi ${pokok}/${tenor} hari diterima`,
+  );
 }
 // Seluruh rentang nominal yang sah diterima.
 for (const pokok of [100_000, 250_000, 500_000, 1_000_000]) {

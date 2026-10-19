@@ -61,9 +61,13 @@ import {
 import {
   LATE_FEE_POLICY,
   LOAN_LIMITS,
+  persenBungaHarian,
   PINDAI_PRICING,
   quoteLoanBunga,
+  sesuaikanTenorHarian,
   TENOR_OPTIONS,
+  tenorHarianDefault,
+  tenorHarianTersedia,
   type LoanQuote,
 } from "@/lib/loan";
 import { formatRupiah, type Rupiah } from "@/lib/money";
@@ -700,19 +704,22 @@ function rupiahToSlider(r: Rupiah, min: number, max: number, steps: number): num
 }
 
 /**
- * Kalkulator landing memakai tarif bunga yang sama dengan dashboard Peminjam
- * (bawaan 30%/bulan, dari Pengaturan Sistem) — bukan tarif tenor bawaan mesin
- * bulanan (25%/20%) yang hanya berlaku untuk kredit barang.
+ * Kalkulator landing: tenor harian mengikuti matriks nominal–tenor, sedangkan
+ * skema bulanan memakai tarif akun per bulan dari Pengaturan Sistem.
  */
 export function LiveCalculator({ persenBunga }: { persenBunga: number }) {
   const [skema, setSkema] = useState<"harian" | "bulanan">("harian");
   const bulanan = skema === "bulanan";
   const [amount, setAmount] = useState<Rupiah>(LOAN_LIMITS.maxPokok);
-  const [tenor, setTenor] = useState<number>(TENOR_OPTIONS[TENOR_OPTIONS.length - 1]);
+  const [tenor, setTenor] = useState<number>(tenorHarianDefault(LOAN_LIMITS.maxPokok));
   const [tenorBulan, setTenorBulan] = useState<number>(3);
+  // Tenor yang ditampilkan selalu tenor sah untuk nominal saat ini.
+  const tenorHarian = sesuaikanTenorHarian(amount, tenor);
+  const tenorHarianOpsi = tenorHarianTersedia(amount);
+  const tarifHarian = persenBungaHarian(amount, tenorHarian) ?? PINDAI_PRICING.bungaPercent;
   const quote: LoanQuote = useMemo(
-    () => quoteLoanBunga(amount, persenBunga),
-    [amount, persenBunga],
+    () => quoteLoanBunga(amount, tarifHarian),
+    [amount, tarifHarian],
   );
   const sim = useMemo(() => {
     if (!bulanan) return null;
@@ -732,13 +739,19 @@ export function LiveCalculator({ persenBunga }: { persenBunga: number }) {
   const cepat = bulanan ? QUICK_AMOUNTS_BULANAN : QUICK_AMOUNTS;
   const totalPelunasan = sim !== null ? sim.totalPengembalian : quote.totalKewajibanPelunasan;
 
+  const pilihNominal = (nilai: number) => {
+    setAmount(nilai);
+    setTenor((sebelumnya) => sesuaikanTenorHarian(nilai, sebelumnya));
+  };
+
   const gantiSkema = (next: "harian" | "bulanan") => {
-    setSkema(next);
-    setAmount((a) =>
+    const nilai =
       next === "bulanan"
-        ? Math.min(Math.max(a, BULANAN_LIMITS.minPokok), MAX_SLIDER_BULANAN)
-        : Math.min(Math.max(a, MIN_SLIDER), MAX_SLIDER),
-    );
+        ? Math.min(Math.max(amount, BULANAN_LIMITS.minPokok), MAX_SLIDER_BULANAN)
+        : Math.min(Math.max(amount, MIN_SLIDER), MAX_SLIDER);
+    setSkema(next);
+    setAmount(nilai);
+    if (next === "harian") setTenor(sesuaikanTenorHarian(nilai, tenor));
   };
 
   return (
@@ -794,7 +807,7 @@ export function LiveCalculator({ persenBunga }: { persenBunga: number }) {
           max={steps}
           value={rupiahToSlider(amount, min, max, steps)}
           onChange={(e) =>
-            setAmount(sliderToRupiah(Number(e.target.value), min, max, steps, stepBulat))
+            pilihNominal(sliderToRupiah(Number(e.target.value), min, max, steps, stepBulat))
           }
           className="mt-3 w-full accent-primary"
         />
@@ -803,7 +816,7 @@ export function LiveCalculator({ persenBunga }: { persenBunga: number }) {
             <button
               key={q}
               type="button"
-              onClick={() => setAmount(q)}
+              onClick={() => pilihNominal(q)}
               className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
                 amount === q
                   ? "bg-primary text-white"
@@ -841,28 +854,42 @@ export function LiveCalculator({ persenBunga }: { persenBunga: number }) {
                   <span className="relative">{t} bulan</span>
                 </button>
               ))
-            : TENOR_OPTIONS.map((t) => (
-                <button
-                  key={t}
-                  type="button"
-                  onClick={() => setTenor(t)}
-                  className={`relative rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
-                    tenor === t
-                      ? "border-primary text-primary"
-                      : "border-slate-200 text-slate-600 hover:bg-slate-50"
-                  }`}
-                >
-                  {tenor === t && (
-                    <motion.span
-                      layoutId="calc-tenor"
-                      className="absolute inset-0 rounded-lg bg-primary/10"
-                      transition={{ type: "spring", stiffness: 380, damping: 32 }}
-                    />
-                  )}
-                  <span className="relative">{t} hari</span>
-                </button>
-              ))}
+            : TENOR_OPTIONS.map((t) => {
+                const aktif = (tenorHarianOpsi as readonly number[]).includes(t);
+                const dipilih = tenorHarian === t;
+                return (
+                  <button
+                    key={t}
+                    type="button"
+                    onClick={() => setTenor(t)}
+                    disabled={!aktif}
+                    aria-pressed={dipilih}
+                    className={`relative rounded-lg border px-3 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-300 ${
+                      dipilih
+                        ? "border-primary text-primary"
+                        : aktif
+                          ? "border-slate-200 text-slate-600 hover:bg-slate-50"
+                          : ""
+                    }`}
+                  >
+                    {dipilih && (
+                      <motion.span
+                        layoutId="calc-tenor"
+                        className="absolute inset-0 rounded-lg bg-primary/10"
+                        transition={{ type: "spring", stiffness: 380, damping: 32 }}
+                      />
+                    )}
+                    <span className="relative">{t} hari</span>
+                  </button>
+                );
+              })}
         </div>
+        {!bulanan && (
+          <p className="mt-2 text-xs leading-5 text-slate-500">
+            Bunga <strong className="font-semibold text-slate-800">{tarifHarian}%</strong> untuk
+            tenor {tenorHarian} hari. Nominal ini menerima tenor {tenorHarianOpsi.join(" / ")} hari.
+          </p>
+        )}
       </div>
 
       <div aria-hidden="true" className="mt-6 flex items-center gap-2.5">
@@ -903,7 +930,11 @@ export function LiveCalculator({ persenBunga }: { persenBunga: number }) {
                 ],
               ] as Array<[string, string, boolean?]>)
             : ([
-                [`Bunga (${persenBunga}%)`, formatRupiah(quote.bunga), false],
+                [
+                  `Bunga ${tarifHarian}% · tenor ${tenorHarian} hari`,
+                  formatRupiah(quote.bunga),
+                  false,
+                ],
                 ["Nilai bersih (98% dari pokok)", formatRupiah(quote.danaBersihDitransfer), true],
               ] as Array<[string, string, boolean?]>)
         ).map(([term, value, strong]) => (

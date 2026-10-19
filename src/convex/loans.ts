@@ -28,14 +28,17 @@ import {
   pokokDalamPlafon,
   ringkasPlafon,
 } from "../lib/plafon";
-import { assertPokokPinjamanValid,
+import {
+  assertPokokPinjamanValid,
   calculateRepayment,
   pelunasanPinjaman,
+  persenBungaHarian,
+  PINDAI_PRICING,
   quoteLoan,
   quoteLoanBunga,
   quotePinjaman,
   simulasiBulananPinjaman,
-  TENOR_OPTIONS,
+  validasiTenorHarian,
 } from "../lib/loan";
 import { persenBungaEfektif } from "../lib/bunga";
 import { kodeTanggalWIB } from "../lib/waktu";
@@ -533,10 +536,20 @@ export const createLoanApplication = mutation({
     }
     // Server-side pricing engine — fee fields are never accepted from the client.
     const quote = quoteLoan(args.pokokPinjaman);
-    if (tenorBulanSim === undefined && !(TENOR_OPTIONS as readonly number[]).includes(args.tenorHari)) {
-      throw new Error(
-        `Tenor harus salah satu dari ${TENOR_OPTIONS.join(" / ")} hari (maksimal ${TENOR_OPTIONS[TENOR_OPTIONS.length - 1]} hari).`,
-      );
+    // Matriks tenor harian ditegakkan di server, bukan hanya disembunyikan di
+    // UI: nominal Rp1 juta hanya menerima 28 hari, Rp500 ribu–di bawah Rp1 juta
+    // 14/28 hari, dan di bawah Rp500 ribu 7/14/28 hari.
+    let persenBungaSimpanan: number;
+    if (tenorBulanSim === undefined) {
+      const pesanTenor = validasiTenorHarian(args.pokokPinjaman, args.tenorHari);
+      if (pesanTenor !== null) throw new Error(pesanTenor);
+      // Override admin (bila ada) tetap menang; tanpa override, tarif mengikuti
+      // matriks produk — bukan angka global 30% yang sudah tidak berlaku untuk
+      // tenor menengah/panjang.
+      persenBungaSimpanan =
+        user.persenBunga ?? persenBungaHarian(args.pokokPinjaman, args.tenorHari) ?? PINDAI_PRICING.bungaPercent;
+    } else {
+      persenBungaSimpanan = persenBungaEfektif(user.persenBunga, sys.persenBunga);
     }
 
     // Nama peminjam selalu disimpan UPPERCASE agar konsisten di dashboard.
@@ -644,8 +657,10 @@ export const createLoanApplication = mutation({
       nomorReferensi,
       tenorHari: args.tenorHari,
       tenorBulan: tenorBulanSim,
-      // Snapshot bunga efektif nasabah — angka pinjaman ini stabil setelahnya.
-      persenBunga: persenBungaEfektif(user.persenBunga, sys.persenBunga),
+      // Snapshot bunga efektif nasabah/matriks — angka pinjaman ini stabil
+      // setelahnya. Untuk tenor harian, nilai ini sudah dihitung dari matriks
+      // di atas; untuk bulanan tetap memakai tarif akun per bulan.
+      persenBunga: persenBungaSimpanan,
       nik,
       nomorWhatsApp: wa,
       penghasilanBulanan: args.penghasilanBulanan,

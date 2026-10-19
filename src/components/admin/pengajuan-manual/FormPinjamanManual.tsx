@@ -15,7 +15,14 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { api } from "@/convex/_generated/api";
 import { TENOR_BULANAN_OPTIONS } from "@/lib/bulanan";
-import { LOAN_LIMITS, LOAN_PURPOSE_OPTIONS, TENOR_OPTIONS } from "@/lib/loan";
+import {
+  LOAN_LIMITS,
+  LOAN_PURPOSE_OPTIONS,
+  sesuaikanTenorHarian,
+  TENOR_OPTIONS,
+  tenorHarianDefault,
+  tenorHarianTersedia,
+} from "@/lib/loan";
 import { formatRupiah } from "@/lib/money";
 import {
   POKOK_MANUAL_MAKS,
@@ -75,7 +82,19 @@ export function FormPinjamanManual({
 
   const bulanan = skema === "bulanan";
   const pokok = rupiahDariTeks(pokokTeks);
-  const tenorTerpilih = bulanan ? Number(tenorBulan) : Number(tenorHari);
+  // Di dalam batas produk harian, tenor mengikuti matriks. Pencatatan nominal
+  // di atas Rp1 juta tetap bebas karena menampung pinjaman lama/keputusan luar
+  // aplikasi; daftar tenor penuh baru dipakai di wilayah itu.
+  const adaMatriksHarian =
+    pokok !== null && pokok >= LOAN_LIMITS.minPokok && pokok <= LOAN_LIMITS.maxPokok;
+  const tenorHarianOpsi = adaMatriksHarian
+    ? tenorHarianTersedia(pokok ?? 0)
+    : TENOR_OPTIONS;
+  const tenorHarianManual =
+    pokok !== null
+      ? sesuaikanTenorHarian(pokok, Number(tenorHari) || tenorHarianDefault(pokok))
+      : Number(tenorHari) || 28;
+  const tenorTerpilih = bulanan ? Number(tenorBulan) : tenorHarianManual;
   // Pratinjau hanya diminta saat pokoknya sudah masuk batas jalur manual
   // (harian: Rp 100.000 – Rp 10 juta); skema bulanan dibatasi plafon nasabah
   // yang hanya diketahui server.
@@ -84,7 +103,10 @@ export function FormPinjamanManual({
   const pratinjau = useQuery(
     api.admin.adminLoanQuote,
     pokokBisaDihitung && pokok !== null
-      ? { pokokPinjaman: pokok, ...(bulanan ? { tenorBulan: tenorTerpilih } : {}) }
+      ? {
+          pokokPinjaman: pokok,
+          ...(bulanan ? { tenorBulan: tenorTerpilih } : { tenorHari: tenorTerpilih }),
+        }
       : "skip",
   );
 
@@ -179,7 +201,7 @@ export function FormPinjamanManual({
         <div className="space-y-2">
           <Label htmlFor="manual-pinjaman-tenor">Tenor</Label>
           <Select
-            value={bulanan ? tenorBulan : tenorHari}
+            value={bulanan ? tenorBulan : String(tenorHarianManual)}
             onValueChange={(nilai) => {
               if (bulanan) setTenorBulan(nilai);
               else setTenorHari(nilai);
@@ -192,14 +214,30 @@ export function FormPinjamanManual({
             </SelectTrigger>
             <SelectContent>
               {(bulanan ? TENOR_BULANAN_OPTIONS.map((t) => `${t}`) : TENOR_OPTIONS.map((t) => `${t}`)).map(
-                (nilai) => (
-                  <SelectItem key={nilai} value={nilai}>
-                    {bulanan ? `${nilai} bulan` : `${nilai} hari`}
-                  </SelectItem>
-                ),
+                (nilai) => {
+                  const aktif = bulanan
+                    ? true
+                    : (tenorHarianOpsi as readonly number[]).includes(Number(nilai));
+                  return (
+                    <SelectItem key={nilai} value={nilai} disabled={!aktif}>
+                      {bulanan ? `${nilai} bulan` : `${nilai} hari`}
+                      {!bulanan &&
+                      adaMatriksHarian &&
+                      Number(nilai) === tenorHarianDefault(pokok ?? 0)
+                        ? " · bawaan"
+                        : ""}
+                      {!aktif ? " · terkunci" : ""}
+                    </SelectItem>
+                  );
+                },
               )}
             </SelectContent>
           </Select>
+          {!bulanan && (
+            <p className="text-xs leading-5 text-muted-foreground">
+              Tenor yang tersedia: {tenorHarianOpsi.join(" / ")} hari.
+            </p>
+          )}
         </div>
       </div>
 
@@ -210,7 +248,19 @@ export function FormPinjamanManual({
           inputMode="numeric"
           value={pokokTeks}
           onChange={(event) => {
-            setPokokTeks(event.target.value);
+            const nilai = event.target.value;
+            setPokokTeks(nilai);
+            const angka = rupiahDariTeks(nilai);
+            if (angka !== null) {
+              setTenorHari((sebelumnya) =>
+                String(
+                  sesuaikanTenorHarian(
+                    angka,
+                    Number(sebelumnya) || tenorHarianDefault(angka),
+                  ),
+                ),
+              );
+            }
             setError(null);
           }}
           placeholder="mis. 1.000.000"

@@ -51,6 +51,7 @@ import { bacaDataDiri } from "../lib/dataDiri";
 import { formatRupiah } from "../lib/money";
 import { namaTampil } from "../lib/nama";
 import { persenBungaEfektif } from "../lib/bunga";
+import { persenBungaHarian } from "../lib/loan";
 import {
   cariNasabahKembar,
   kumpulkanNamaCatatan,
@@ -301,7 +302,14 @@ export const catatPinjamanManual = mutation({
       tenorHari: bersih.tenorHari,
       tenorBulan: bersih.tenorBulan,
       // Snapshot bunga efektif nasabah — angka pinjaman ini stabil setelahnya.
-      persenBunga: persenBungaEfektif(user.persenBunga, cfg.persenBunga),
+      // Jalur harian dalam batas produk memakai tarif matriks; pencatatan manual
+      // di luar batas itu tetap memakai tarif akun yang berlaku.
+      persenBunga:
+        user.persenBunga ??
+        (bersih.tenorBulan === undefined
+          ? persenBungaHarian(bersih.pokokPinjaman, bersih.tenorHari) ??
+            persenBungaEfektif(user.persenBunga, cfg.persenBunga)
+          : persenBungaEfektif(user.persenBunga, cfg.persenBunga)),
       // Identitas dari data diri tersimpan, tidak diketik ulang admin.
       nik: profil?.nik,
       nomorWhatsApp: profil?.nomorWhatsApp,

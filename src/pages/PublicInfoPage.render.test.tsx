@@ -99,7 +99,7 @@ check(
 
 const syarat = renderPage("/syarat-ketentuan", <SyaratKetentuanView />);
 check(
-  syarat.includes("Diperbarui 14 Oktober 2026"),
+  syarat.includes("Diperbarui 19 Oktober 2026"),
   "terms show the current update date",
 );
 check(

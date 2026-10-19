@@ -55,8 +55,13 @@ import {
   LATE_FEE_POLICY,
   LOAN_LIMITS,
   LOAN_PURPOSE_OPTIONS,
-  quotePinjaman,
+  persenBungaHarian,
+  PINDAI_PRICING,
+  quoteLoanBunga,
+  sesuaikanTenorHarian,
   TENOR_OPTIONS,
+  tenorHarianDefault,
+  tenorHarianTersedia,
 } from "@/lib/loan";
 import { formatRupiah } from "@/lib/money";
 import {
@@ -431,9 +436,34 @@ export function LoanForm({
   const bulanan = skema === "bulanan";
   const tenorBulanNum = Number(tenorBulan);
   const bungaQuery = useQuery(api.lokasi.bungaSaya, {});
+  const bungaPribadiQuery = useQuery(api.lokasi.bungaPribadiSaya, {});
   const bungaSaya = bungaQuery ?? undefined;
   const sim = bulanan ? simulasiBulananAman(pokok, tenorBulanNum, bungaSaya) : null;
-  const q = quotePinjaman({ pokokPinjaman: pokok, persenBunga: bungaSaya });
+  // Tenor harian mengikuti matriks nominal. Pilihan yang tidak sah digeser ke
+  // tenor terdekat supaya dropdown dan rincian tidak pernah berbeda dari yang
+  // diterima server.
+  const tenorHarian = sesuaikanTenorHarian(
+    pokok,
+    Number(tenorHari) || tenorHarianDefault(pokok),
+  );
+  const tenorHarianOpsi = tenorHarianTersedia(pokok);
+  const tarifHarian =
+    bungaPribadiQuery ??
+    persenBungaHarian(pokok, tenorHarian) ??
+    PINDAI_PRICING.bungaPercent;
+  const q = quoteLoanBunga(pokok, bulanan ? (bungaSaya ?? PINDAI_PRICING.bungaPercent) : tarifHarian);
+
+  // Nominal berubah → tenor harian yang tersedia ikut berubah. Geser pilihan
+  // lama ke tenor sah terdekat (mis. Rp1 juta mengunci 28 hari).
+  useEffect(() => {
+    if (bulanan) return;
+    queueMicrotask(() => {
+      setTenorHari((sebelumnya) =>
+        String(sesuaikanTenorHarian(pokok, Number(sebelumnya) || tenorHarianDefault(pokok))),
+      );
+    });
+  }, [bulanan, pokok]);
+
   // Kewajiban satu periode dipakai untuk menilai kemampuan bayar: cicilan
   // bulanan untuk skema bulanan, total pelunasan untuk tenor harian.
   const kewajibanPeriode = bulanan && sim !== null ? sim.cicilanPerBulan : q.totalKewajibanPelunasan;
@@ -504,12 +534,18 @@ export function LoanForm({
       setDraftId(draftQuery._id);
       setSkema(draftQuery.skema === "bulanan" ? "bulanan" : "harian");
       setPokok(draftQuery.pokokPinjaman);
-      // Draf lama bisa menyimpan tenor 30 hari yang tidak lagi ditawarkan.
-      // Tampilkan pilihan terpanjang yang sah supaya draf tetap bisa dikirim.
+      // Draf lama bisa menyimpan tenor 30 hari atau kombinasi yang tidak lagi
+      // ditawarkan untuk nominal itu. Sesuaikan ke tenor sah terdekat supaya
+      // draf tetap bisa dikirim tanpa ditolak matriks.
       setTenorHari(
-        (TENOR_OPTIONS as readonly number[]).includes(draftQuery.tenorHari)
-          ? String(draftQuery.tenorHari)
-          : String(TENOR_OPTIONS[TENOR_OPTIONS.length - 1]),
+        String(
+          sesuaikanTenorHarian(
+            draftQuery.pokokPinjaman,
+            (TENOR_OPTIONS as readonly number[]).includes(draftQuery.tenorHari)
+              ? draftQuery.tenorHari
+              : TENOR_OPTIONS[TENOR_OPTIONS.length - 1],
+          ),
+        ),
       );
       if (draftQuery.tenorBulan !== null) setTenorBulan(String(draftQuery.tenorBulan));
       setTujuan(draftQuery.tujuan);
@@ -527,7 +563,7 @@ export function LoanForm({
         ...(draftId !== null ? { draftId } : {}),
         skema,
         pokokPinjaman: pokok,
-        tenorHari: bulanan ? 30 : Number(tenorHari),
+        tenorHari: bulanan ? 30 : tenorHarian,
         ...(bulanan ? { tenorBulan: tenorBulanNum } : {}),
         tujuan: tujuan.trim(),
         ...(catatanPeminjam.trim() !== "" ? { catatanPeminjam: catatanPeminjam.trim() } : {}),
@@ -758,7 +794,7 @@ export function LoanForm({
       const result = await createLoan({
         pokokPinjaman: pokok,
         // tenorHari tetap dikirim (diabaikan server) saat skema bulanan aktif.
-        tenorHari: bulanan ? 30 : Number(tenorHari),
+        tenorHari: bulanan ? 30 : tenorHarian,
         tenorBulan: bulanan ? tenorBulanNum : undefined,
         tujuan,
         namaLengkap: namaPengajuan,
@@ -939,6 +975,12 @@ export function LoanForm({
           </dl>
         ) : (
           <dl className="mt-4 divide-y divide-slate-200 overflow-hidden rounded-xl border border-slate-200">
+            <div className="flex flex-col gap-1 bg-white px-3 py-2 text-sm sm:flex-row sm:items-baseline sm:justify-between">
+              <dt className="font-medium text-slate-700">
+                Bunga {tarifHarian}% · tenor {tenorHarian} hari
+              </dt>
+              <dd className="font-medium tabular-nums">{formatRupiah(q.bunga)}</dd>
+            </div>
             <div className="flex flex-col gap-1 bg-emerald-50 px-3 py-2.5 text-sm sm:flex-row sm:items-baseline sm:justify-between">
               <dt className="font-semibold text-emerald-800">Perkiraan uang yang diterima (belum dikirim)</dt>
               <dd className="font-semibold tabular-nums text-emerald-700">{formatRupiah(q.danaBersihDitransfer)}</dd>
@@ -955,9 +997,9 @@ export function LoanForm({
         <div className="space-y-2">
           <Label htmlFor="loan-tenor-trigger">Pilih lama pinjaman</Label>
           <Select
-            value={bulanan ? tenorBulan : tenorHari}
+            value={bulanan ? tenorBulan : String(tenorHarian)}
             onValueChange={(v) => (bulanan ? setTenorBulan(v) : setTenorHari(v))}
-            disabled={submitting}
+            disabled={submitting || !adaSisa}
           >
             <SelectTrigger
               id="loan-tenor-trigger"
@@ -971,7 +1013,7 @@ export function LoanForm({
                   item yang sudah pernah dirender, jadi tanpa children ini
                   dropdown tenor tampak kosong sampai dibuka sekali. */}
               <SelectValue placeholder="Pilih lama pinjaman">
-                {bulanan ? `${tenorBulan} bulan` : `${tenorHari} hari`}
+                {bulanan ? `${tenorBulan} bulan` : `${tenorHarian} hari`}
               </SelectValue>
             </SelectTrigger>
             <SelectContent>
@@ -981,13 +1023,28 @@ export function LoanForm({
                       {t} bulan
                     </SelectItem>
                   ))
-                : TENOR_OPTIONS.map((t) => (
-                    <SelectItem key={t} value={String(t)}>
-                      {t} hari
-                    </SelectItem>
-                  ))}
+                : TENOR_OPTIONS.map((t) => {
+                    const aktif = (tenorHarianOpsi as readonly number[]).includes(t);
+                    return (
+                      <SelectItem key={t} value={String(t)} disabled={!aktif}>
+                        {t} hari
+                        {t === tenorHarianDefault(pokok) ? " · bawaan" : ""}
+                        {!aktif ? " · terkunci" : ""}
+                      </SelectItem>
+                    );
+                  })}
             </SelectContent>
           </Select>
+          {!bulanan && (
+            <p className="text-xs leading-5 text-muted-foreground">
+              Nominal ini menerima tenor {tenorHarianOpsi.join(" / ")} hari. Bunga{" "}
+              <strong className="font-semibold text-slate-800">{tarifHarian}%</strong>
+              {bungaPribadiQuery !== null && bungaPribadiQuery !== undefined
+                ? " (tarif khusus akun)"
+                : " sesuai matriks produk"}
+              .
+            </p>
+          )}
         </div>
         <div className="space-y-2">
           <Label htmlFor="loan-purpose-trigger">Untuk apa pinjaman ini?</Label>
@@ -1321,7 +1378,7 @@ export function LoanForm({
           <ul className="space-y-2 text-sm leading-6 text-slate-600">
             {[
               "PINDAI mencatat pengajuan, perhitungan, dan status — bukan memindahkan dana.",
-              "Bunga flat mengikuti tarif akun (bawaan 30%); biaya dipotong di muka, dan setiap cicilan bulanan dikenai biaya admin cicilan 2%.",
+              "Bunga harian mengikuti matriks nominal–tenor (30–40%); bunga bulanan mengikuti tarif akun. Biaya dipotong di muka, dan setiap cicilan bulanan dikenai biaya admin cicilan 2%.",
               "Persetujuan pengajuan bukan jaminan pencairan; keputusan dibuat tim PINDAI dan tercatat pada audit trail.",
               "Data dan dokumen yang Anda kirim hanya dibuka oleh akun Anda dan tim PINDAI.",
             ].map((item) => (

@@ -5,6 +5,7 @@ import { ROLES } from "./schema";
 import { requireAdminSession } from "./adminAuthz";
 import {
   pelunasanPinjaman,
+  persenBungaHarian,
   quoteLoan,
   quotePinjaman,
   simulasiBulananPinjaman,
@@ -357,7 +358,16 @@ export const setBungaPeminjam = mutation({
     let pengajuanDiperbarui = 0;
     for (const l of loans) {
       if (l.status === "didanai" || l.status === "lunas") continue;
-      await ctx.db.patch(l._id, { persenBunga: nilaiBaru ?? undefined });
+      // Menghapus override tidak boleh menjatuhkan pengajuan harian ke tarif
+      // global lama 30%: kembalikan ke tarif matriks yang berlaku untuk
+      // nominal/tenornya. Skema bulanan tetap memakai tarif akun per bulan.
+      // Kombinasi data lama yang tidak ada di matriks (mis. tenor 30 hari)
+      // memakai tarif akun, bukan tarif tenor lain yang akan menyesatkan.
+      const bungaReset =
+        l.tenorBulan === undefined
+          ? persenBungaHarian(l.pokokPinjaman, l.tenorHari ?? 28) ?? cfg.persenBunga
+          : cfg.persenBunga;
+      await ctx.db.patch(l._id, { persenBunga: nilaiBaru ?? bungaReset });
       pengajuanDiperbarui += 1;
     }
 
@@ -1172,6 +1182,8 @@ export const adminStats = query({
 export const adminLoanQuote = query({
   args: {
     pokokPinjaman: v.number(),
+    /** Tenor harian — dipakai agar pratinjau memakai matriks yang sama dengan penyimpanan. */
+    tenorHari: v.optional(v.number()),
     tenorBulan: v.optional(v.number()),
     /** Bunga khusus nasabah (persen) bila baris pinjaman punya snapshot. */
     persenBunga: v.optional(v.number()),
@@ -1210,12 +1222,20 @@ export const adminLoanQuote = query({
             : quotePinjaman({ pokokPinjaman: args.pokokPinjaman, persenBunga: args.persenBunga }),
       };
     }
+    // Tanpa override, tarif harian berasal dari matriks nominal–tenor. Bila
+    // tenor tidak dikirim (pemanggil lama), perilaku lama dipertahankan.
+    const persenHarian =
+      args.persenBunga ??
+      (args.tenorHari === undefined
+        ? undefined
+        : persenBungaHarian(args.pokokPinjaman, args.tenorHari) ?? undefined);
     return {
       skema: "harian" as const,
+      tenorHari: args.tenorHari ?? null,
       quote:
-        args.persenBunga === undefined
+        persenHarian === undefined
           ? quoteLoan(args.pokokPinjaman)
-          : quotePinjaman({ pokokPinjaman: args.pokokPinjaman, persenBunga: args.persenBunga }),
+          : quotePinjaman({ pokokPinjaman: args.pokokPinjaman, persenBunga: persenHarian }),
     };
   },
 });

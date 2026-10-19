@@ -20,9 +20,9 @@ export const PINDAI_PRICING = {
   upfrontDeductionPercent: 2,
   /** Net disbursement is 98% of principal. */
   netDisbursementPercent: 98,
-  /** Bunga (Imbal Hasil penyedia dana) is 30% of principal. */
+  /** Tarif bunga DASAR 30% dari pokok (dipakai tenor 7 hari & fallback). */
   bungaPercent: 30,
-  /** Total repayment obligation = 130% of principal. */
+  /** Total kewajiban pada tarif dasar = 130% dari pokok. */
   totalRepaymentPercent: 130,
 } as const;
 
@@ -41,6 +41,109 @@ export const LOAN_LIMITS = {
 /** Tenor pinjaman dalam hari — dipilih nasabah saat mengajukan (maks 28 hari). */
 export const TENOR_OPTIONS = [7, 14, 28] as const;
 export type Tenor = (typeof TENOR_OPTIONS)[number];
+
+/**
+ * Matriks tenor & bunga pinjaman HARIAN.
+ *
+ * Aturan produk yang dijaga di sini (berlaku sama di klien dan server):
+ *  - pokok di bawah Rp500.000: tenor bawaan 7 hari (bunga dasar 30%). Memilih
+ *    perpanjangan 14 atau 28 hari menaikkan bunga ke 35% / 40%.
+ *  - pokok Rp500.000 sampai di bawah Rp1.000.000: tenor bawaan 14 hari;
+ *    bunga 35% (14 hari) atau 40% (28 hari).
+ *  - pokok tepat Rp1.000.000: tenor terkunci 28 hari dengan bunga 35%.
+ *
+ * Tenor di luar baris matriks tidak ditawarkan UI dan DITOLAK server — bukan
+ * sekadar disembunyikan — supaya kombinasi nominal/tenor/bunga tidak bisa
+ * dikirim langsung ke mutation.
+ */
+const MATRIKS_HARIAN: readonly {
+  /** Batas bawah inklusif. */
+  readonly minPokok: Rupiah;
+  /** Batas atas inklusif. */
+  readonly maksPokok: Rupiah;
+  readonly tenorDefault: Tenor;
+  readonly tarif: readonly { readonly tenor: Tenor; readonly persenBunga: number }[];
+}[] = [
+  {
+    minPokok: 100_000,
+    maksPokok: 499_999,
+    tenorDefault: 7,
+    tarif: [
+      { tenor: 7, persenBunga: 30 },
+      { tenor: 14, persenBunga: 35 },
+      { tenor: 28, persenBunga: 40 },
+    ],
+  },
+  {
+    minPokok: 500_000,
+    maksPokok: 999_999,
+    tenorDefault: 14,
+    tarif: [
+      { tenor: 14, persenBunga: 35 },
+      { tenor: 28, persenBunga: 40 },
+    ],
+  },
+  {
+    minPokok: 1_000_000,
+    maksPokok: 1_000_000,
+    tenorDefault: 28,
+    tarif: [{ tenor: 28, persenBunga: 35 }],
+  },
+] as const;
+
+/** Baris matriks yang berlaku untuk satu pokok; `null` bila di luar batas produk. */
+function barisMatriksHarian(pokok: number) {
+  if (!Number.isSafeInteger(pokok)) return null;
+  return (
+    MATRIKS_HARIAN.find((baris) => pokok >= baris.minPokok && pokok <= baris.maksPokok) ??
+    null
+  );
+}
+
+/** Tenor yang boleh dipilih untuk satu nominal, urut naik. */
+export function tenorHarianTersedia(pokok: number): readonly Tenor[] {
+  const baris = barisMatriksHarian(pokok);
+  return baris === null ? TENOR_OPTIONS : baris.tarif.map((barisTarif) => barisTarif.tenor);
+}
+
+/** Tenor bawaan untuk satu nominal; 28 hari bila nominal belum valid. */
+export function tenorHarianDefault(pokok: number): Tenor {
+  return barisMatriksHarian(pokok)?.tenorDefault ?? 28;
+}
+
+/**
+ * Sesuaikan tenor lama ke pilihan terdekat yang sah. Dipakai saat nominal
+ * berubah: pilihan yang tadinya 14 hari tidak boleh tertinggal di nominal yang
+ * hanya menerima 28 hari.
+ */
+export function sesuaikanTenorHarian(pokok: number, tenor: number): Tenor {
+  const opsi = tenorHarianTersedia(pokok);
+  if ((opsi as readonly number[]).includes(tenor)) return tenor as Tenor;
+  return opsi.reduce((terbaik, kandidat) =>
+    Math.abs(kandidat - tenor) < Math.abs(terbaik - tenor) ? kandidat : terbaik,
+  );
+}
+
+/** Persentase bunga untuk kombinasi nominal & tenor; `null` bila tidak sah. */
+export function persenBungaHarian(pokok: number, tenor: number): number | null {
+  const baris = barisMatriksHarian(pokok);
+  return baris?.tarif.find((tarif) => tarif.tenor === tenor)?.persenBunga ?? null;
+}
+
+/**
+ * Validasi kombinasi nominal & tenor versi server — mengembalikan pesan siap
+ * tampil, atau `null` bila kombinasi sah.
+ */
+export function validasiTenorHarian(pokok: number, tenor: number): string | null {
+  assertPokokPinjamanValid(pokok);
+  const opsi = tenorHarianTersedia(pokok);
+  if (!(opsi as readonly number[]).includes(tenor)) {
+    return `Untuk nominal ${formatRupiah(pokok)}, tenor yang tersedia ${opsi.join(
+      " / ",
+    )} hari.`;
+  }
+  return null;
+}
 
 /**
  * Validasi pokok pinjaman terhadap batas bisnis — satu sumber kebenaran untuk

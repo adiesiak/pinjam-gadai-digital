@@ -3,21 +3,27 @@
  * supaya bisa dirender di uji statis.
  *
  * Aturan yang dijaga berkas ini:
- *  - Angka demo TIDAK ditulis tangan. `quoteDemo()` memanggil `quotePinjaman()`
- *    dari `lib/loan`, mesin yang sama dengan kalkulator `/biaya` dan formulir
- *    pengajuan, jadi demo tidak pernah menampilkan rincian yang berbeda dari
- *    yang akan dilihat peminjam sungguhan.
+ *  - Angka demo TIDAK ditulis tangan. `quoteDemo()` memanggil mesin harga dan
+ *    matriks tenor harian dari `lib/loan`, sumber yang sama dengan kalkulator
+ *    `/biaya` dan formulir pengajuan, jadi demo tidak pernah menampilkan
+ *    rincian yang berbeda dari yang akan dilihat peminjam sungguhan.
  *  - Langkahnya mengikuti alur yang benar-benar ada di aplikasi: masuk lewat
  *    WhatsApp, verifikasi KYC, formulir pinjaman, peninjauan tim, lalu catatan
  *    di dashboard. Pencairan dana tetap di luar aplikasi dan disebut apa adanya.
  */
-import { quotePinjaman, type LoanQuote } from "./loan";
+import {
+  persenBungaHarian,
+  PINDAI_PRICING,
+  quoteLoanBunga,
+  tenorHarianDefault,
+  type LoanQuote,
+} from "./loan";
 
 /** Nominal contoh pada demo — cukup kecil untuk terbaca, tetap dalam batas. */
 export const DEMO_POKOK = 500_000;
 
-/** Tenor contoh (hari). Termasuk dalam `TENOR_OPTIONS` skema harian. */
-export const DEMO_TENOR_HARI = 30;
+/** Tenor contoh (hari) — tenor bawaan matriks untuk nominal demo. */
+export const DEMO_TENOR_HARI = tenorHarianDefault(DEMO_POKOK);
 
 /**
  * Lama satu layar tampil sebelum berganti sendiri. 5,2 detik: cukup untuk
@@ -81,5 +87,8 @@ export const LANGKAH_DEMO: readonly LangkahDemo[] = [
 
 /** Rincian contoh dari mesin pinjaman — bukan angka yang ditulis di berkas ini. */
 export function quoteDemo(): LoanQuote {
-  return quotePinjaman({ pokokPinjaman: DEMO_POKOK });
+  return quoteLoanBunga(
+    DEMO_POKOK,
+    persenBungaHarian(DEMO_POKOK, DEMO_TENOR_HARI) ?? PINDAI_PRICING.bungaPercent,
+  );
 }
