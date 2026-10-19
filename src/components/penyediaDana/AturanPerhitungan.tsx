@@ -8,7 +8,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
-import { DEFAULT_TENOR_HARI } from "@/lib/loan";
+import { DEFAULT_TENOR_HARI, persenBungaHarian } from "@/lib/loan";
 import { formatRupiah, percentOf } from "@/lib/money";
 
 /**
@@ -30,9 +30,8 @@ type Aturan = { nomor: number; judul: string; isi: ReactNode };
  * sini, terbuka satu per satu saat pembaca benar-benar ingin tahu, dan kartu
  * angkanya kembali ringkas tanpa ikon bantuan berulang.
  *
- * Isinya sengaja memakai persentase yang berlaku sekarang (dari Pengaturan
- * Sistem), bukan angka tetap yang ditulis di kode, jadi kalau pemilik produk
- * mengubah tarifnya, penjelasannya ikut berubah.
+ * Tarif harian dari matriks tenor di `lib/loan`; tarif bulanan dari Pengaturan
+ * Sistem, jadi penjelasan ini tidak menjanjikan satu angka untuk semua pinjaman.
  *
  * Bentuk lipatan bertingkat (dan bukan dinding teks): bagiannya sendiri tertutup
  * secara bawaan dengan tarif yang berlaku tetap tercetak di kepalanya, dan di
@@ -49,7 +48,7 @@ export function AturanPerhitungan({
   persenPotonganAdmin,
   bukaAwal = [],
 }: {
-  /** Bunga pinjaman per tenor, dari Pengaturan Sistem (persen dari pokok). */
+  /** Tarif bulanan bawaan dari Pengaturan Sistem; tarif harian mengikuti matriks. */
   persenBunga: number;
   /** Biaya platform (layanan) dari uang yang kembali, dari Pengaturan Sistem. */
   persenPotonganAdmin: number;
@@ -60,11 +59,36 @@ export function AturanPerhitungan({
    */
   bukaAwal?: readonly number[];
 }) {
-  // Contoh angka memakai `percentOf`, jalur aritmetika uang yang sama dengan
-  // perhitungan sebenarnya (Rule 3: uang tidak dibangun dari perkalian
-  // pecahan), sehingga contohnya bulat dan tidak merobohkan pemformat rupiah.
+  // Contoh memakai jalur uang yang sama dengan perhitungan sebenarnya, supaya
+  // angka yang dibaca pendana tidak berbeda dari angkanya di tabel.
   const contohPokok = 1_000_000;
-  const contohImbal = percentOf(contohPokok, persenBunga);
+  const contohTenor = 28;
+  const contohPersen = persenBungaHarian(contohPokok, contohTenor) ?? persenBunga;
+  const contohImbal = percentOf(contohPokok, contohPersen);
+  const tarifHarian = [
+    { batas: "Di bawah Rp500.000", pokok: 300_000, tenor: [7, 14, 28] },
+    { batas: "Rp500.000 sampai Rp999.999", pokok: 750_000, tenor: [14, 28] },
+    { batas: "Tepat Rp1.000.000", pokok: 1_000_000, tenor: [28] },
+  ].map((baris) => {
+    const tarif = baris.tenor.map((tenor) => ({
+      tenor,
+      persen: persenBungaHarian(baris.pokok, tenor),
+    }));
+    return {
+      batas: baris.batas,
+      teks: tarif.map(({ tenor, persen }) => `${tenor} hari ${persen}%`).join(" · "),
+      nilai: tarif
+        .map(({ persen }) => persen)
+        .filter((persen): persen is number => persen !== null),
+    };
+  });
+  const semuaTarif = tarifHarian.flatMap((baris) => baris.nilai);
+  const tarifTerendah = Math.min(...semuaTarif);
+  const tarifTertinggi = Math.max(...semuaTarif);
+  const ringkasTarif =
+    tarifTerendah === tarifTertinggi
+      ? `${tarifTerendah}%`
+      : `${tarifTerendah}–${tarifTertinggi}%`;
 
   const aturan: readonly Aturan[] = [
     {
@@ -73,10 +97,24 @@ export function AturanPerhitungan({
       isi: (
         <>
           <p>
-            Bunga pinjaman dihitung sebagai <strong>{persenBunga}%</strong> dari pokok, bukan
-            per bulan. Pinjaman {formatRupiah(contohPokok)} dengan bunga {persenBunga}% berarti
-            total kewajiban peminjam {formatRupiah(contohPokok + contohImbal)}, dan selisihnya{" "}
-            {formatRupiah(contohImbal)} adalah Imbal Hasil yang menjadi dasar keuntungan pendana.
+            Bunga pinjaman harian dihitung dari pokok dengan tarif yang mengikuti nominal dan
+            tenor, bukan satu tarif untuk semua pinjaman dan bukan bunga per bulan.
+          </p>
+          <ul className="mt-2 space-y-1.5">
+            {tarifHarian.map((baris) => (
+              <li key={baris.batas} className="flex flex-wrap gap-x-1.5">
+                <span className="font-medium text-slate-800">{baris.batas}:</span>
+                <span>{baris.teks}.</span>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-2">
+            Contoh: pinjaman {formatRupiah(contohPokok)} tenor {contohTenor} hari dikenai bunga{" "}
+            <strong>{contohPersen}%</strong>. Total kewajiban peminjam{" "}
+            {formatRupiah(contohPokok + contohImbal)}, dan selisihnya {formatRupiah(contohImbal)}{" "}
+            adalah Imbal Hasil yang menjadi dasar keuntungan pendana. Skema bulanan memakai tarif
+            per bulan yang tercatat pada pinjaman (bawaan Pengaturan Sistem saat ini{" "}
+            {persenBunga}%).
           </p>
           <p className="mt-2">
             Karena modelnya <strong>satu pinjaman = satu pendana</strong>, seluruh Imbal Hasil satu
@@ -172,13 +210,16 @@ export function AturanPerhitungan({
       isi: (
         <>
           <p>
-            Tenor ditulis dalam <strong>hari</strong>, satuannya sama di seluruh halaman ini.
-            Jatuh tempo dihitung dari tanggal pendanaan ditambah tenor pinjaman.
+            Pinjaman baru memakai tenor <strong>7, 14, atau 28 hari</strong>, bukan tenor 30 hari
+            untuk semua pinjaman. Pilihan tenor mengikuti nominal: di bawah Rp500.000 boleh 7, 14,
+            atau 28 hari; Rp500.000 sampai Rp999.999 memakai 14 atau 28 hari; tepat Rp1.000.000
+            memakai 28 hari. Jatuh tempo dihitung dari tanggal pendanaan ditambah tenor pinjaman.
           </p>
           <p className="mt-2">
-            Untuk catatan lama yang tenornya belum tercatat, perkiraan jatuh temponya memakai
-            bawaan <strong>{DEFAULT_TENOR_HARI} hari</strong> supaya tetap ada tanggal yang bisa
-            dipakai menagih. Perkiraan bawaan itu ikut ditandai apa adanya, tidak disamarkan sebagai
+            Angka tenor di tabel adalah tenor pinjaman itu sendiri, jadi pinjaman 7 dan 14 hari
+            tidak perlu dibaca sebagai 30 hari. Hanya catatan lama yang tenornya belum tercatat
+            yang memakai perkiraan bawaan <strong>{DEFAULT_TENOR_HARI} hari</strong> supaya masih
+            ada tanggal untuk menagih. Perkiraan itu ditandai apa adanya, tidak disamarkan sebagai
             tenor yang disepakati.
           </p>
         </>
@@ -226,7 +267,7 @@ export function AturanPerhitungan({
       id="aturan-perhitungan"
       nomor={5}
       judul="Aturan perhitungan"
-      ringkas={`bunga ${persenBunga}% · biaya platform (layanan) ${persenPotonganAdmin}%`}
+      ringkas={`bunga harian ${ringkasTarif} sesuai tenor · biaya platform (layanan) ${persenPotonganAdmin}%`}
       bukaAwal={bukaAwal.length > 0}
       className="mt-3"
     >

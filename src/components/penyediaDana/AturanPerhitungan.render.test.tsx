@@ -8,8 +8,8 @@
  * 1. aturan yang menentukan arti angka benar-benar ada dan bisa dibuka —
  *    termasuk bedanya "Dibukukan (lunas)" dengan "Perkiraan (belum lunas)",
  *    dasar biaya platform (layanan), dan satuan tenor;
- * 2. persentase yang tercetak datang dari Pengaturan Sistem, bukan angka tetap
- *    yang ditulis di kode;
+ * 2. tarif harian yang tercetak mengikuti matriks tenor, sedangkan tarif bulanan
+ *    mengikuti Pengaturan Sistem;
  * 3. klaim yang tidak bisa dibuktikan tidak kembali: tidak ada janji asuransi
  *    yang menjamin pokok/Imbal Hasil cair dalam 14 hari kerja (itu bertentangan
  *    dengan bagian "Risiko pendanaan"), dan kata "jaminan" hanya dipakai dalam
@@ -54,7 +54,11 @@ const html = renderToStaticMarkup(
 
 // ===== Judul + ringkasan tarif yang berlaku =====
 ada(html, "Aturan perhitungan", "judul panel");
-ada(html, "bunga 30% · biaya platform (layanan) 5%", "tarif yang berlaku disebut di kepala panel");
+ada(
+  html,
+  "bunga harian 30–40% sesuai tenor · biaya platform (layanan) 5%",
+  "rentang tarif harian dan biaya platform disebut di kepala panel",
+);
 // Istilah lama tidak boleh tertinggal: biaya 5% ini bukan "potongan admin" lagi.
 ok(!html.includes("potongan admin"), "istilah lama \"potongan admin\" tidak tertinggal");
 ok(!html.includes("keuntungan admin"), "istilah \"keuntungan admin\" tidak dipakai di sini");
@@ -78,11 +82,19 @@ for (const judul of [
   ada(html, judul, `judul aturan "${judul}"`);
 }
 
-// 1. Bunga: contoh angkanya dihitung dengan jalur uang yang benar.
-ada(html, "30%</strong> dari pokok", "bunga dinyatakan persen dari pokok, bukan per bulan");
+// 1. Bunga: matriks tenor dan contoh angkanya memakai jalur uang yang benar.
+ada(html, "Di bawah Rp500.000", "batas nominal pertama disebut");
+ada(html, "7 hari 30%", "tarif 7 hari disebut");
+ada(html, "14 hari 35%", "tarif 14 hari disebut");
+ada(html, "28 hari 40%", "tarif 28 hari untuk nominal kecil disebut");
+ada(html, "Rp500.000 sampai Rp999.999", "batas nominal kedua disebut");
+ada(html, "Tepat Rp1.000.000", "batas nominal ketiga disebut");
+ada(html, "28 hari 35%", "tarif Rp1 juta tenor 28 hari disebut");
 ada(html, "Rp 1.000.000", "contoh pokok disebut");
-ada(html, "Rp 1.300.000", "contoh total kewajiban dihitung dari persen yang berlaku");
-ada(html, "Rp 300.000", "contoh Imbal Hasil dihitung dari persen yang berlaku");
+ada(html, "<strong>35%</strong>", "contoh memakai tarif tenor 28 hari");
+ada(html, "Rp 1.350.000", "contoh total kewajiban dihitung dari tarif tenor");
+ada(html, "Rp 350.000", "contoh Imbal Hasil dihitung dari tarif tenor");
+ok(!html.includes("Rp 1.300.000"), "contoh tarif dasar tidak dipakai untuk tenor 28 hari");
 ada(html, "satu pinjaman = satu pendana", "model alokasi disebut");
 
 // 2. Biaya platform (layanan): dasar hitungnya, keperluannya, dan
@@ -110,9 +122,10 @@ ada(html, "Dana tersalurkan", "dana tersalurkan dijelaskan");
 ada(html, "Masih berjalan", "masih berjalan dijelaskan");
 ada(html, "catatan penyaluran, bukan laba", "dana tersalurkan dibedakan dari laba");
 
-// 5. Satuan tenor.
-ada(html, "satuan hari", "satuan tenor dinyatakan: hari");
-ada(html, "seluruh halaman ini", "satuan itu disebut berlaku di seluruh halaman");
+// 5. Tenor produk dan tenor data lama dibedakan.
+ada(html, "7, 14, atau 28 hari", "pilihan tenor produk disebut lengkap");
+ada(html, "bukan tenor 30 hari", "tenor 30 hari tidak lagi diklaim untuk semua pinjaman");
+ada(html, "pinjaman 7 dan 14 hari", "pinjaman pendek disebut eksplisit");
 ada(html, "30 hari", "bawaan tenor untuk catatan lama disebut");
 ada(html, "tidak disamarkan sebagai tenor yang disepakati", "bawaan tenor ditandai apa adanya");
 
@@ -154,8 +167,8 @@ ok(!html.includes("pasti untung"), "tidak ada klaim keuntungan pasti");
   ada(tertutup, "Aturan perhitungan", "judul tetap terlihat saat aturannya tertutup");
   ada(
     tertutup,
-    "bunga 30% · biaya platform (layanan) 5%",
-    "tarif yang berlaku tetap terbaca saat aturannya tertutup",
+    "bunga harian 30–40% sesuai tenor · biaya platform (layanan) 5%",
+    "rentang tarif tetap terbaca saat aturannya tertutup",
   );
   ada(
     tertutup,
@@ -176,18 +189,21 @@ ok(!html.includes("pasti untung"), "tidak ada klaim keuntungan pasti");
   bersih(terbuka, "markup panel aturan yang terbuka");
 }
 
-// ===== Persentase mengikuti Pengaturan Sistem =====
+// ===== Tarif bulanan dan biaya platform mengikuti Pengaturan Sistem =====
 {
   const lain = renderToStaticMarkup(
     <AturanPerhitungan persenBunga={12} persenPotonganAdmin={7} bukaAwal={SEMUA} />,
   );
-  ada(lain, "bunga 12% · biaya platform (layanan) 7%", "tarif lain ikut tercetak");
-  ada(lain, "Rp 1.120.000", "contoh total kewajiban ikut berubah");
-  ada(lain, "Rp 120.000", "contoh Imbal Hasil ikut berubah");
+  ada(lain, "Pengaturan Sistem saat ini 12%", "tarif bulanan dari pengaturan ikut tercetak");
   ada(lain, "7%</strong> dari", "biaya platform (layanan) ikut berubah");
-  ok(!lain.includes("Rp 1.300.000"), "angka dari tarif lama tidak tertinggal");
-  ok(!lain.includes("bunga 30%"), "persentase lama tidak tertinggal");
-  bersih(lain, "markup panel dengan tarif lain");
+  ada(
+    lain,
+    "bunga harian 30–40% sesuai tenor · biaya platform (layanan) 7%",
+    "tarif harian tetap mengikuti matriks, bukan tarif bulanan",
+  );
+  ok(!lain.includes("Rp 1.120.000"), "tarif bulanan tidak dipakai untuk contoh pinjaman harian");
+  ok(!lain.includes("bunga 30% · biaya platform"), "tarif dasar lama tidak kembali di kepala panel");
+  bersih(lain, "markup panel dengan tarif bulanan lain");
 }
 
 console.log(`AturanPerhitungan.render.test: ${passed} lulus, ${failed} gagal`);

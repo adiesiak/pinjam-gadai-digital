@@ -193,8 +193,10 @@ const aturanTertutup = renderToStaticMarkup(
 );
 cek(
   aturanTertutup.includes(">05<") &&
-    aturanTertutup.includes("bunga 1.5% · biaya platform (layanan) 5%"),
-  "nomor bagian 05 dan tarif yang berlaku tercetak saat aturannya tertutup",
+    aturanTertutup.includes(
+      "bunga harian 30–40% sesuai tenor · biaya platform (layanan) 5%",
+    ),
+  "nomor bagian 05 dan rentang tarif harian tercetak saat aturannya tertutup",
 );
 cek(
   !aturanTertutup.includes("Bunga pinjaman dan Imbal Hasil"),
@@ -211,6 +213,10 @@ const aturan = renderToStaticMarkup(
 cek(
   aturan.includes("lg:grid-cols-3"),
   "aturan yang dibuka memasang judulnya tiga kolom",
+);
+cek(
+  aturan.includes("Pengaturan Sistem saat ini 1.5%"),
+  "tarif bulanan tetap dibaca dari Pengaturan Sistem",
 );
 
 const keuntungan = renderToStaticMarkup(

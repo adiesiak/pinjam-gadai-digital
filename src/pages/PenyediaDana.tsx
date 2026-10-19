@@ -118,7 +118,12 @@ import type {
 } from "@/convex/penyediaDana";
 import { useAuth } from "@/hooks/use-auth";
 import { quoteKreditBarang } from "@/lib/kredit";
-import { BULAN_MS, quotePinjaman, simulasiBulananPinjaman } from "@/lib/loan";
+import {
+  BULAN_MS,
+  PINDAI_PRICING,
+  quotePinjaman,
+  simulasiBulananPinjaman,
+} from "@/lib/loan";
 import { batasPelunasan, ringkasJatuhTempo } from "@/lib/jatuhTempo";
 import type { RingkasKepercayaan } from "@/lib/kepercayaanPeminjam";
 import { formatRupiahAman } from "@/lib/money";
@@ -753,13 +758,7 @@ function labelPokok(status: string): string {
     : "Pokok tercatat";
 }
 
-/**
- * Tarif yang benar-benar dipakai satu pinjaman.
- *
- * Bunga harian mengikuti matriks nominal/tenor dan disimpan sebagai snapshot
- * di pinjaman. Memakai tarif global di sini membuat pinjaman 7/14 hari terbaca
- * seolah semuanya 30% — angka bunganya benar, labelnya yang menyesatkan.
- */
+/** Tarif snapshot pinjaman; tarif global hanya cadangan untuk data lama. */
 function tarifBungaPinjaman(row: BarisPinjaman, tarifGlobal: number): number {
   return row.persenBunga ?? tarifGlobal;
 }
@@ -768,23 +767,35 @@ function DetailPinjaman({
   row,
   namaTampil,
   sekarang,
+  persenBungaDefault,
 }: {
   row: BarisPinjaman;
   /** Penyamaran nama untuk ruang bersama (nama orang disamarkan). */
   namaTampil: (nama: string) => string;
   /** Jam berjalan halaman — dipakai untuk hitung hari jatuh tempo. */
   sekarang: number;
+  /** Tarif cadangan untuk pinjaman lama yang belum menyimpan snapshot bunga. */
+  persenBungaDefault: number;
 }) {
   const tenorBulan = row.tenorBulan;
-  const persenBunga = row.persenBunga ?? undefined;
+  const tarifBunga = tarifBungaPinjaman(row, persenBungaDefault);
+  const persenBungaPinjaman = row.persenBunga ?? persenBungaDefault;
   const harian =
     tenorBulan === null
-      ? coba(() => quotePinjaman({ pokokPinjaman: row.pokokPinjaman, persenBunga }))
+      ? coba(() =>
+          quotePinjaman({ pokokPinjaman: row.pokokPinjaman, persenBunga: persenBungaPinjaman }),
+        )
       : null;
   const bulanan =
     tenorBulan === null
       ? null
-      : coba(() => simulasiBulananPinjaman({ pokokPinjaman: row.pokokPinjaman, tenorBulan, persenBunga }));
+      : coba(() =>
+          simulasiBulananPinjaman({
+            pokokPinjaman: row.pokokPinjaman,
+            tenorBulan,
+            persenBunga: persenBungaPinjaman,
+          }),
+        );
   const imbalHasil = harian?.bunga ?? bulanan?.bungaTotal ?? null;
   const totalPelunasan = harian?.totalKewajibanPelunasan ?? bulanan?.totalPengembalian ?? null;
   const danaBersih = harian?.danaBersihDitransfer ?? bulanan?.danaDiterima ?? null;
@@ -838,8 +849,8 @@ function DetailPinjaman({
               label="Tarif bunga"
               nilai={
                 row.tenorBulan === null
-                  ? `${tarifBungaPinjaman(row, persenBunga)}% untuk tenor ${row.tenorHari} hari`
-                  : `${tarifBungaPinjaman(row, persenBunga)}% per bulan`
+                  ? `${tarifBunga}% untuk tenor ${row.tenorHari} hari`
+                  : `${tarifBunga}% per bulan`
               }
             />
             <BarisDetail tebal label="Bunga pinjaman" nilai={rupiah(row.bunga)} />
@@ -1262,18 +1273,25 @@ function IsiDialog({
   bolehBerkas,
   namaTampil,
   sekarang,
+  persenBungaDefault,
 }: {
   detail: IsiDetail;
   bolehBerkas: boolean;
   namaTampil: (nama: string) => string;
   /** Jam berjalan halaman — diteruskan ke tampilan jatuh tempo. */
   sekarang: number;
+  persenBungaDefault: number;
 }) {
   return (
     <>
       <div>
         {detail.jenis === "pinjaman" && (
-          <DetailPinjaman row={detail.row} namaTampil={namaTampil} sekarang={sekarang} />
+          <DetailPinjaman
+            row={detail.row}
+            namaTampil={namaTampil}
+            sekarang={sekarang}
+            persenBungaDefault={persenBungaDefault}
+          />
         )}
         {detail.jenis === "gadai" && <DetailGadai row={detail.row} namaTampil={namaTampil} />}
         {detail.jenis === "kredit" && (
@@ -3186,6 +3204,9 @@ function IsiRuang() {
                 bolehBerkas={bolehBerkas}
                 namaTampil={tampilNama}
                 sekarang={sekarang}
+                persenBungaDefault={
+                  data?.ringkasan.persenBunga ?? PINDAI_PRICING.bungaPercent
+                }
               />
             )}
           </div>
