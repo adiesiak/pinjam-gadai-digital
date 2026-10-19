@@ -176,6 +176,87 @@
   --sidebar-accent-foreground: #1c1a15;
   --sidebar-border: #e3ddd0;
   --sidebar-ring: #1f6a62;
+
+  /* ===== Gaya tampilan (sumbu kedua template) =====
+     Palet mengatur WARNA; token di bawah mengatur BENTUK: tipografi judul,
+     radius, ketebalan garis, bayangan, dan permukaan hero. Bawaan = "lembaga".
+     Komponen landing hanya membaca token ini, jadi gaya baru tidak menyentuh
+     markup — cukup menambah blok `[data-gaya="…"]` di bawah. */
+  --font-display: Georgia, "Times New Roman", serif;
+  --display-italic: italic;
+  --display-weight: 500;
+  --radius-kartu: calc(var(--radius) + 2px);
+  --radius-tombol: 0.5rem;
+  --garis-tebal: 1px;
+  --bayangan-kartu: 0 1px 2px rgb(0 0 0 / 0.04);
+  /* Permukaan hero: warna dasar + pola (kosong = polos). */
+  --hero-latar: #f4f7f5;
+  --hero-pola: none;
+  --hero-pola-ukuran: 0 0;
+}
+
+/* Gaya "tenang": sans besar, sudut membulat, bayangan lembut, polos. */
+:root:where([data-gaya="tenang"]) {
+  --font-display: inherit;
+  --display-italic: normal;
+  --display-weight: 600;
+  --radius-kartu: calc(var(--radius) + 10px);
+  --radius-tombol: 9999px;
+  --garis-tebal: 1px;
+  --bayangan-kartu: 0 18px 40px -28px rgb(15 61 58 / 0.35);
+  --hero-pola: none;
+  --hero-pola-ukuran: 0 0;
+}
+
+/* Gaya "komunitas": judul tebal, sudut penuh, permukaan berpola titik. */
+:root:where([data-gaya="komunitas"]) {
+  --font-display: inherit;
+  --display-italic: normal;
+  --display-weight: 800;
+  --radius-kartu: calc(var(--radius) + 16px);
+  --radius-tombol: 9999px;
+  --garis-tebal: 1.5px;
+  --bayangan-kartu: 0 22px 50px -30px rgb(15 61 58 / 0.45);
+  --hero-pola: radial-gradient(
+    circle at 1px 1px,
+    color-mix(in srgb, var(--primary) 14%, transparent) 1px,
+    transparent 0
+  );
+  --hero-pola-ukuran: 22px 22px;
+}
+
+/* Bagian di bawah lipatan: peramban melewati render isinya sampai mendekati
+   viewport, sehingga paint pertama tidak menghitung tata letak seluruh halaman.
+   `contain-intrinsic-size` memberi tinggi perkiraan supaya bilah gulir tidak
+   melompat, dan nilainya sengaja besar (satu bagian landing penuh) karena
+   bagian-bagian ini memang bertinggi tetap pada semua lebar layar. */
+.pindai-bawah-lipatan {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 640px;
+}
+
+/* Utilitas turunan gaya — dipakai landing agar satu perubahan token cukup. */
+@utility font-display {
+  font-family: var(--font-display);
+  font-style: var(--display-italic);
+  font-weight: var(--display-weight);
+}
+@utility rounded-kartu {
+  border-radius: var(--radius-kartu);
+}
+@utility rounded-tombol {
+  border-radius: var(--radius-tombol);
+}
+@utility shadow-kartu {
+  box-shadow: var(--bayangan-kartu);
+}
+@utility bg-hero {
+  background-color: var(--hero-latar);
+  background-image: var(--hero-pola);
+  background-size: var(--hero-pola-ukuran);
+}
+@utility border-tegas {
+  border-width: var(--garis-tebal);
 }
 
 /* Preset tema: ubah semantic tokens dan palet utilitas bersama tanpa

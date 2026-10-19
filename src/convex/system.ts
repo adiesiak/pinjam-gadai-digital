@@ -6,10 +6,12 @@ import {
   DEFAULT_CONFIG,
   RETENSI_LOKASI_BATAS,
   THEME_PRESETS,
+  gayaAman,
   temaAman,
   type SystemConfig,
   type ThemePreset,
 } from "../lib/system-config";
+import { GAYA_PRESETS, type GayaPreset } from "../lib/template-gaya";
 import { clampPlafon } from "../lib/plafon";
 import { LATE_FEE_POLICY } from "../lib/loan";
 import { bandingkanConfig, type PerubahanConfig } from "../lib/bandingkanConfig";
@@ -73,6 +75,14 @@ export async function getConfig(ctx: QueryCtx): Promise<SystemConfig> {
   return {
     versi: row.versi ?? DEFAULT_CONFIG.versi,
     tema: temaAman(row.tema),
+    gaya: gayaAman(row.gaya),
+    // Data lama (sebelum efek musiman jadi sakelar) menyimpan palet salju /
+    // karnival dengan efek menyala. Tanpa nilai eksplisit, perlakukan itu
+    // sebagai "menyala" agar kampanye yang sedang berjalan tidak mati sendiri;
+    // admin tetap bisa mematikannya, dan pilihan itu tersimpan sebagai false.
+    efekMusiman:
+      row.efekMusiman ??
+      ((row.tema === "salju" || row.tema === "karnival") as boolean),
     killSwitch: row.killSwitch ?? DEFAULT_CONFIG.killSwitch,
     maintenanceMode: row.maintenanceMode ?? DEFAULT_CONFIG.maintenanceMode,
     persenAdmin: row.persenAdmin ?? DEFAULT_CONFIG.persenAdmin,
@@ -164,10 +174,22 @@ export const getPaymentInstructions = query({
   },
 });
 
-/** Preset tema publik saja; tidak mengekspos konfigurasi operasional. */
+/**
+ * Template publik saja (palet + gaya + efek musiman); tidak mengekspos
+ * konfigurasi operasional. Satu query untuk seluruh bootstrap tampilan supaya
+ * halaman publik tidak perlu beberapa perjalanan bolak-balik hanya untuk
+ * mengetahui warna dan bentuknya.
+ */
 export const getThemePublic = query({
   args: {},
-  handler: async (ctx) => ({ tema: (await getConfig(ctx)).tema }),
+  handler: async (ctx) => {
+    const cfg = await getConfig(ctx);
+    return {
+      tema: cfg.tema,
+      gaya: cfg.gaya,
+      efekMusiman: cfg.efekMusiman,
+    };
+  },
 });
 
 /**
@@ -478,6 +500,12 @@ export const saveConfig = mutation({
       v.literal("salju"),
       v.literal("karnival"),
     ),
+    gaya: v.union(
+      v.literal("lembaga"),
+      v.literal("tenang"),
+      v.literal("komunitas"),
+    ),
+    efekMusiman: v.boolean(),
     killSwitch: v.boolean(),
     maintenanceMode: v.boolean(),
     persenAdmin: v.number(),
@@ -512,6 +540,8 @@ export const saveConfig = mutation({
     const label = user.email ?? user.name ?? "admin";
     const bersih = await bersihkanConfigMasuk(ctx, {
       tema: args.tema,
+      gaya: args.gaya,
+      efekMusiman: args.efekMusiman,
       killSwitch: args.killSwitch,
       maintenanceMode: args.maintenanceMode,
       persenAdmin: args.persenAdmin,
@@ -662,42 +692,89 @@ export const generatePaymentAssetUploadUrl = mutation({
   },
 });
 
-/** Pilih template/tema visual website untuk seluruh pengunjung. */
+/**
+ * Pilih template visual website untuk seluruh pengunjung.
+ *
+ * Tiga sumbu yang masing-masing opsional — admin boleh mengubah satu saja:
+ *   - `tema`  : palet warna;
+ *   - `gaya`  : bentuk (tipografi judul, radius, garis, bayangan, pola hero);
+ *   - `efekMusiman` : salju/konfeti di rute publik.
+ * Nilai yang tidak dikirim dipertahankan apa adanya, jadi memilih palet tidak
+ * diam-diam mereset gaya pilihan admin sebelumnya.
+ */
 export const setWebsiteTemplate = mutation({
   args: {
-    tema: v.union(
-      v.literal("tinta"),
-      v.literal("pesisir"),
-      v.literal("terakota"),
-      v.literal("salju"),
-      v.literal("karnival"),
+    tema: v.optional(
+      v.union(
+        v.literal("tinta"),
+        v.literal("pesisir"),
+        v.literal("terakota"),
+        v.literal("salju"),
+        v.literal("karnival"),
+      ),
     ),
+    gaya: v.optional(
+      v.union(
+        v.literal("lembaga"),
+        v.literal("tenang"),
+        v.literal("komunitas"),
+      ),
+    ),
+    efekMusiman: v.optional(v.boolean()),
   },
-  handler: async (ctx, { tema }) => {
+  handler: async (ctx, args) => {
     const { userId, user } = await requireAdmin(ctx);
-    if (!(THEME_PRESETS as readonly string[]).includes(tema)) {
+    const { tema, gaya, efekMusiman } = args;
+    if (tema === undefined && gaya === undefined && efekMusiman === undefined) {
+      throw new Error("Tidak ada perubahan template untuk disimpan.");
+    }
+    if (tema !== undefined && !(THEME_PRESETS as readonly string[]).includes(tema)) {
       throw new Error("Template website tidak valid.");
     }
+    if (
+      gaya !== undefined &&
+      !(GAYA_PRESETS as readonly string[]).includes(gaya)
+    ) {
+      throw new Error("Gaya website tidak valid.");
+    }
+
     const existing = await ctx.db
       .query("systemConfig")
       .withIndex("by_slot", (q) => q.eq("slot", SYSTEM_SLOT))
       .first();
+    const patch: Record<string, unknown> = { diperbaruiPada: Date.now() };
+    if (tema !== undefined) patch.tema = tema as ThemePreset;
+    if (gaya !== undefined) patch.gaya = gaya as GayaPreset;
+    if (efekMusiman !== undefined) patch.efekMusiman = efekMusiman;
+
+    const baris = {
+      slot: SYSTEM_SLOT,
+      diperbaruiPada: patch.diperbaruiPada as number,
+      ...(tema !== undefined ? { tema: tema as ThemePreset } : {}),
+      ...(gaya !== undefined ? { gaya: gaya as GayaPreset } : {}),
+      ...(efekMusiman !== undefined ? { efekMusiman } : {}),
+    };
     if (existing === null) {
-      await ctx.db.insert("systemConfig", {
-        slot: SYSTEM_SLOT,
-        tema: tema as ThemePreset,
-        diperbaruiPada: Date.now(),
-      });
+      await ctx.db.insert("systemConfig", baris);
     } else {
-      await ctx.db.patch(existing._id, { tema: tema as ThemePreset, diperbaruiPada: Date.now() });
+      await ctx.db.patch(existing._id, baris);
     }
+
+    const bagian = [
+      tema !== undefined ? `warna ${tema}` : null,
+      gaya !== undefined ? `gaya ${gaya}` : null,
+      efekMusiman !== undefined
+        ? `efek musiman ${efekMusiman ? "aktif" : "nonaktif"}`
+        : null,
+    ].filter((s): s is string => s !== null);
+
     await audit(
       ctx,
       userId,
       user.email ?? user.name ?? "admin",
       "template_website",
       "Website publik",
-      `Template warna website diubah menjadi ${tema}.`,
+      `Template website diubah: ${bagian.join(", ")}.`,
     );
     return { ok: true };
   },

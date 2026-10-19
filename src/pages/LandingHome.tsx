@@ -7,7 +7,7 @@ import {
   Menu,
   ShieldCheck,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { Suspense, lazy, useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { useQuery } from "convex/react";
 
@@ -15,7 +15,6 @@ import { api } from "@/convex/_generated/api";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { VaultLogo } from "@/components/VaultLogo";
-import { DemoPengajuan } from "@/components/landing/DemoPengajuan";
 import { PasangAplikasi } from "@/components/landing/PasangAplikasi";
 import { LandingHero } from "@/components/landing/LandingHero";
 import { CONTRACT_TERMS_VERSION } from "@/lib/contract";
@@ -42,6 +41,55 @@ const HREF_PANDUAN = [
   { href: "/cara-kerja", ikon: FileText },
   { href: "/keamanan", ikon: LockKeyhole },
 ] as const;
+
+/**
+ * Demo alur pengajuan dimuat saat hampir terlihat, bukan saat beranda dibuka.
+ *
+ * Komponen ini menarik `framer-motion` (puluhan KB) untuk animasi contoh yang
+ * baru berguna setelah pengunjung menggulir. Menundanya membuat paint pertama
+ * hanya membawa hero dan daftar layanan, sementara animasinya tetap tersedia
+ * sebelum bagian itu benar-benar terbaca (`rootMargin` 400px).
+ */
+const DemoPengajuan = lazy(() =>
+  import("@/components/landing/DemoPengajuan").then((m) => ({
+    default: m.DemoPengajuan,
+  })),
+);
+
+function DemoPengajuanTerlihat() {
+  const wadah = useRef<HTMLDivElement>(null);
+  const [tampil, setTampil] = useState(false);
+
+  useEffect(() => {
+    const el = wadah.current;
+    if (el === null || tampil) return;
+    if (typeof IntersectionObserver === "undefined") {
+      setTampil(true);
+      return;
+    }
+    const pengamat = new IntersectionObserver(
+      (entri) => {
+        if (entri.some((satu) => satu.isIntersecting)) {
+          setTampil(true);
+          pengamat.disconnect();
+        }
+      },
+      { rootMargin: "400px 0px" },
+    );
+    pengamat.observe(el);
+    return () => pengamat.disconnect();
+  }, [tampil]);
+
+  return (
+    <div ref={wadah}>
+      {tampil ? (
+        <Suspense fallback={<div aria-hidden="true" className="h-96" />}>
+          <DemoPengajuan />
+        </Suspense>
+      ) : null}
+    </div>
+  );
+}
 
 export default function LandingHome() {
   const { isAuthenticated, isLoading, user } = useAuth();
@@ -121,11 +169,11 @@ export default function LandingHome() {
   const accountLabel = isAuthenticated ? "Buka dashboard" : "Buat akun";
 
   return (
-    <div className="min-h-screen w-full overflow-x-hidden bg-[#fbfcfa] text-slate-900">
+    <div className="min-h-screen w-full overflow-x-hidden bg-background text-foreground">
       <a className="skip-link" href="#konten">
         Lewati ke konten utama
       </a>
-      <header className="sticky top-0 z-40 border-b border-[#dce7df] bg-[#fbfcfa]">
+      <header className="sticky top-0 z-40 border-b border-border bg-background">
         <div className="mx-auto flex min-h-16 w-full max-w-6xl items-center justify-between gap-3 px-4 sm:px-6">
           <Link
             to="/"
@@ -142,22 +190,22 @@ export default function LandingHome() {
             aria-label="Navigasi utama"
             className="hidden items-center gap-5 text-sm text-slate-600 lg:flex"
           >
-            <Link className="hover:text-[#065f46]" to="/layanan/pinjaman-tunai">
+            <Link className="hover:text-primary" to="/layanan/pinjaman-tunai">
               Layanan
             </Link>
-            <Link className="hover:text-[#065f46]" to="/biaya">
+            <Link className="hover:text-primary" to="/biaya">
               Biaya
             </Link>
-            <Link className="hover:text-[#065f46]" to="/cara-kerja">
+            <Link className="hover:text-primary" to="/cara-kerja">
               Cara kerja
             </Link>
-            <Link className="hover:text-[#065f46]" to="/keamanan">
+            <Link className="hover:text-primary" to="/keamanan">
               Keamanan
             </Link>
-            <Link className="hover:text-[#065f46]" to="/faq">
+            <Link className="hover:text-primary" to="/faq">
               FAQ
             </Link>
-            <Link className="hover:text-[#065f46]" to="/aplikasi">
+            <Link className="hover:text-primary" to="/aplikasi">
               Aplikasi
             </Link>
           </nav>
@@ -167,66 +215,66 @@ export default function LandingHome() {
                 to={ADMIN_ROUTE}
                 aria-label="Masuk admin"
                 title="Masuk admin"
-                className="inline-flex size-11 items-center justify-center rounded-lg border border-[#d5e1d8] text-[#065f46] transition-colors hover:bg-[#edf4ef] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#065f46]"
+                className="inline-flex size-11 items-center justify-center rounded-lg border border-border text-primary transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 <ShieldCheck className="size-5" aria-hidden="true" />
               </Link>
             )}
             <details className="group relative lg:hidden">
               <summary
-                className="flex size-11 cursor-pointer list-none items-center justify-center rounded-lg border border-[#d5e1d8] text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#065f46]"
+                className="flex size-11 cursor-pointer list-none items-center justify-center rounded-lg border border-border text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 aria-label="Buka menu informasi"
               >
                 <Menu className="size-5" aria-hidden="true" />
               </summary>
               <nav
                 aria-label="Menu informasi"
-                className="absolute right-0 top-full z-50 mt-2 grid w-56 gap-1 rounded-xl border border-[#d5e1d8] bg-[#fbfcfa] p-2 text-sm shadow-lg"
+                className="absolute right-0 top-full z-50 mt-2 grid w-56 gap-1 rounded-xl border border-border bg-background p-2 text-sm shadow-lg"
               >
                 <Link
-                  className="rounded-lg px-3 py-3 hover:bg-[#edf4ef]"
+                  className="rounded-lg px-3 py-3 hover:bg-muted"
                   to="/layanan/pinjaman-tunai"
                 >
                   Pinjaman tunai
                 </Link>
                 <Link
-                  className="rounded-lg px-3 py-3 hover:bg-[#edf4ef]"
+                  className="rounded-lg px-3 py-3 hover:bg-muted"
                   to="/layanan/gadai"
                 >
                   Gadai
                 </Link>
                 <Link
-                  className="rounded-lg px-3 py-3 hover:bg-[#edf4ef]"
+                  className="rounded-lg px-3 py-3 hover:bg-muted"
                   to="/layanan/kredit-barang"
                 >
                   Kredit barang
                 </Link>
                 <Link
-                  className="rounded-lg px-3 py-3 hover:bg-[#edf4ef]"
+                  className="rounded-lg px-3 py-3 hover:bg-muted"
                   to="/biaya"
                 >
                   Biaya
                 </Link>
                 <Link
-                  className="rounded-lg px-3 py-3 hover:bg-[#edf4ef]"
+                  className="rounded-lg px-3 py-3 hover:bg-muted"
                   to="/cara-kerja"
                 >
                   Cara kerja
                 </Link>
                 <Link
-                  className="rounded-lg px-3 py-3 hover:bg-[#edf4ef]"
+                  className="rounded-lg px-3 py-3 hover:bg-muted"
                   to="/keamanan"
                 >
                   Keamanan
                 </Link>
                 <Link
-                  className="rounded-lg px-3 py-3 hover:bg-[#edf4ef]"
+                  className="rounded-lg px-3 py-3 hover:bg-muted"
                   to="/faq"
                 >
                   FAQ
                 </Link>
                 <Link
-                  className="rounded-lg px-3 py-3 hover:bg-[#edf4ef]"
+                  className="rounded-lg px-3 py-3 hover:bg-muted"
                   to="/aplikasi"
                 >
                   Aplikasi Android
@@ -236,7 +284,7 @@ export default function LandingHome() {
             <Button
               asChild
               disabled={isLoading}
-              className="min-h-11 bg-[#065f46] text-white hover:bg-[#064e3b]"
+              className="min-h-11 bg-primary text-primary-foreground hover:bg-primary/90"
             >
               <Link to={accountHref}>
                 {isLoading ? "Memuat…" : accountLabel}
@@ -269,10 +317,10 @@ export default function LandingHome() {
 
         <section
           aria-labelledby="layanan-title"
-          className="border-t border-[#dce7df] bg-[#f4f7f5]"
+          className="border-t border-border bg-muted"
         >
           <div className="mx-auto max-w-6xl px-4 py-14 sm:px-6 sm:py-18">
-            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#065f46]">
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">
               {konten.layananEyebrow}
             </p>
             <h2
@@ -285,17 +333,17 @@ export default function LandingHome() {
               {layanan.map((item) => (
                 <article
                   key={item.href}
-                  className="flex h-full flex-col rounded-2xl border border-[#dce7df] bg-[#fbfcfa] p-5 sm:p-6"
+                  className="shadow-kartu flex h-full flex-col rounded-kartu border border-border bg-card p-5 sm:p-6"
                 >
                   <h3 className="text-lg font-semibold">{item.judul}</h3>
                   <p className="mt-2 flex-1 text-sm leading-6 text-slate-600">
                     {item.ringkasan}
                   </p>
-                  <p className="mt-4 border-t border-[#e8eee9] pt-3 text-xs font-medium text-slate-600">
+                  <p className="mt-4 border-t border-border pt-3 text-xs font-medium text-muted-foreground">
                     {item.detail}
                   </p>
                   <Link
-                    className="mt-4 inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-[#064e3b] hover:text-[#047857] focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#065f46]"
+                    className="mt-4 inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-primary hover:text-primary/80 focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                     to={item.href}
                   >
                     {konten.layananCta}{" "}
@@ -307,15 +355,15 @@ export default function LandingHome() {
           </div>
         </section>
 
-        <DemoPengajuan />
+        <DemoPengajuanTerlihat />
 
         <section
           aria-labelledby="panduan-title"
-          className="mx-auto max-w-6xl px-4 py-14 sm:px-6 sm:py-18"
+          className="pindai-bawah-lipatan mx-auto max-w-6xl px-4 py-14 sm:px-6 sm:py-18"
         >
           <div className="grid gap-8 lg:grid-cols-[0.8fr_1.2fr] lg:items-start">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#065f46]">
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">
                 {konten.panduanEyebrow}
               </p>
               <h2
@@ -330,7 +378,7 @@ export default function LandingHome() {
               <div className="mt-6 flex flex-wrap gap-3">
                 <Button
                   asChild
-                  className="min-h-11 bg-[#065f46] text-white hover:bg-[#064e3b]"
+                  className="min-h-11 bg-primary text-primary-foreground hover:bg-primary/90"
                 >
                   <Link to="/biaya">{konten.panduanCtaKalkulator}</Link>
                 </Button>
@@ -341,14 +389,14 @@ export default function LandingHome() {
                 </Button>
               </div>
             </div>
-            <ul className="divide-y divide-slate-200 border-y border-[#dce7df]">
+            <ul className="divide-y divide-border border-y border-border">
               {panduan.map(({ href, ikon: Icon, judul, isi }) => (
                 <li key={href}>
                   <Link
                     to={href}
-                    className="flex min-h-20 items-start gap-4 py-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#065f46]"
+                    className="flex min-h-20 items-start gap-4 py-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   >
-                    <span className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-xl bg-[#e5f2e9] text-[#064e3b]">
+                    <span className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-xl bg-secondary text-secondary-foreground">
                       <Icon className="size-4" aria-hidden="true" />
                     </span>
                     <span className="min-w-0 flex-1">
@@ -370,13 +418,15 @@ export default function LandingHome() {
           </div>
         </section>
 
-        <PasangAplikasi />
+        <div className="pindai-bawah-lipatan">
+          <PasangAplikasi />
+        </div>
 
-        <section className="border-y border-[#dce7df] bg-[#fbfcfa]">
+        <section className="border-y border-border bg-background">
           <div className="mx-auto flex max-w-6xl flex-col gap-5 px-4 py-10 sm:flex-row sm:items-center sm:justify-between sm:px-6">
             <div className="flex items-start gap-3">
               <BadgeCheck
-                className="mt-0.5 size-5 shrink-0 text-[#065f46]"
+                className="mt-0.5 size-5 shrink-0 text-primary"
                 aria-hidden="true"
               />
               <p className="max-w-2xl text-sm leading-6 text-slate-700">
@@ -387,7 +437,7 @@ export default function LandingHome() {
             </div>
             <Link
               to="/faq"
-              className="min-h-11 shrink-0 self-start text-sm font-semibold text-[#064e3b] underline underline-offset-4 focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#065f46] sm:self-center"
+              className="min-h-11 shrink-0 self-start text-sm font-semibold text-primary underline underline-offset-4 focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:self-center"
             >
               Baca pertanyaan umum
             </Link>
@@ -395,7 +445,7 @@ export default function LandingHome() {
         </section>
       </main>
 
-      <footer className="bg-[#fbfcfa]">
+      <footer className="bg-background">
         <div className="mx-auto grid max-w-6xl gap-8 px-4 py-10 sm:px-6 md:grid-cols-[1fr_auto] md:items-end">
           <div>
             <Link to="/" className="inline-flex items-center gap-2.5">

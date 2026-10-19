@@ -69,11 +69,11 @@ export function PasangAplikasi() {
     <section
       id="pasang-aplikasi"
       aria-labelledby="pasang-aplikasi-judul"
-      className="border-y border-[#dce7df] bg-[#f4f7f5]"
+      className="border-y border-border bg-muted"
     >
       <div className="mx-auto grid max-w-6xl gap-6 px-4 py-12 sm:px-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
         <div className="max-w-xl">
-          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#065f46]">
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">
             Aplikasi PINDAI
           </p>
           <h2
@@ -97,7 +97,7 @@ export function PasangAplikasi() {
           <Button
             type="button"
             onClick={mulaiPasang}
-            className="min-h-12 gap-2 rounded-full bg-[#065f46] px-6 text-white hover:bg-[#064e3b]"
+            className="min-h-12 gap-2 rounded-tombol bg-primary px-6 text-primary-foreground hover:bg-primary/90"
           >
             <Download className="size-4" aria-hidden="true" />
             Pasang aplikasi
@@ -105,7 +105,7 @@ export function PasangAplikasi() {
           <a
             href="/pindai.apk"
             download="PINDAI.apk"
-            className="mt-3 inline-flex min-h-11 items-center text-xs font-semibold text-[#064e3b] underline underline-offset-4 hover:text-[#047857] focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#065f46]"
+            className="mt-3 inline-flex min-h-11 items-center text-xs font-semibold text-primary underline underline-offset-4 hover:text-primary/80 focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             Unduh APK Android (pasang manual)
           </a>
@@ -135,7 +135,7 @@ export function PasangAplikasi() {
                   key={teks}
                   className="flex gap-3 text-sm leading-6 text-slate-700"
                 >
-                  <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-[#e5f2e9] text-[11px] font-semibold tabular-nums text-[#064e3b]">
+                  <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-secondary text-[11px] font-semibold tabular-nums text-secondary-foreground">
                     {i + 1}
                   </span>
                   <span>{teks}</span>
@@ -143,7 +143,7 @@ export function PasangAplikasi() {
               ))}
             </ol>
 
-            <p className="mt-1 rounded-lg bg-[#f4f7f5] px-3 py-2 text-xs leading-5 text-slate-600">
+            <p className="mt-1 rounded-lg bg-muted px-3 py-2 text-xs leading-5 text-slate-600">
               {panduan.catatan}
             </p>
 
@@ -155,7 +155,7 @@ export function PasangAplikasi() {
                     void tawaran.prompt();
                     setTawaran(null);
                   }}
-                  className="min-h-11 gap-2 bg-[#065f46] text-white hover:bg-[#064e3b]"
+                  className="min-h-11 gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
                 >
                   <Smartphone className="size-4" aria-hidden="true" />
                   Instal sekarang

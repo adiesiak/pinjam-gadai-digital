@@ -26,6 +26,8 @@ const buatKontek = () => convexTest(schema, modules);
 function argumenConfig(ubah: Record<string, unknown> = {}) {
   return {
     tema: DEFAULT_CONFIG.tema,
+    gaya: DEFAULT_CONFIG.gaya,
+    efekMusiman: DEFAULT_CONFIG.efekMusiman,
     killSwitch: DEFAULT_CONFIG.killSwitch,
     maintenanceMode: DEFAULT_CONFIG.maintenanceMode,
     persenAdmin: DEFAULT_CONFIG.persenAdmin,
@@ -176,6 +178,82 @@ describe("konfigurasi: versi, riwayat, rollback", () => {
         argumenConfig({ persenDendaKeterlambatan: 101 }),
       ),
     ).rejects.toThrow(/Denda keterlambatan/i);
+  });
+
+  it("template punya tiga sumbu terpisah: palet, gaya, efek musiman", async () => {
+    const t = buatKontek();
+    const { sesi: asAdmin } = await siapkanPengguna(t, "admin-template", {
+      email: "admin-template@pindai.test",
+      role: "admin",
+    });
+
+    // Bawaan: palet tinta, gaya lembaga, efek musiman mati.
+    const awal = await t.query(api.system.getThemePublic, {});
+    expect(awal).toMatchObject({
+      tema: DEFAULT_CONFIG.tema,
+      gaya: DEFAULT_CONFIG.gaya,
+      efekMusiman: false,
+    });
+
+    // Mengubah palet TIDAK boleh mereset gaya yang sudah dipilih.
+    await asAdmin.mutation(api.system.setWebsiteTemplate, {
+      gaya: "komunitas",
+    });
+    await asAdmin.mutation(api.system.setWebsiteTemplate, { tema: "pesisir" });
+    const setelahPalet = await t.query(api.system.getThemePublic, {});
+    expect(setelahPalet.tema).toBe("pesisir");
+    expect(setelahPalet.gaya).toBe("komunitas");
+
+    // Efek musiman bisa dinyalakan terpisah dari palet.
+    await asAdmin.mutation(api.system.setWebsiteTemplate, {
+      efekMusiman: true,
+    });
+    const menyala = await t.query(api.system.getThemePublic, {});
+    expect(menyala.efekMusiman).toBe(true);
+    expect(menyala.tema).toBe("pesisir");
+
+    // Nilai asing ditolak, bukan disimpan diam-diam.
+    await expect(
+      asAdmin.mutation(api.system.setWebsiteTemplate, {
+        gaya: "liar" as never,
+      }),
+    ).rejects.toThrow();
+    await expect(
+      asAdmin.mutation(api.system.setWebsiteTemplate, {}),
+    ).rejects.toThrow(/Tidak ada perubahan/i);
+
+    // Data lama tanpa kolom gaya/efekMusiman tetap terbaca dengan bawaan.
+    await t.run(async (ctx) => {
+      const baris = await ctx.db.query("systemConfig").first();
+      if (baris) {
+        await ctx.db.patch(baris._id, { gaya: undefined, efekMusiman: undefined });
+      }
+    });
+    const lama = await t.query(api.system.getThemePublic, {});
+    expect(lama.gaya).toBe(DEFAULT_CONFIG.gaya);
+    // Data lama tanpa kolom efekMusiman: palet non-musiman berarti mati.
+    expect(lama.efekMusiman).toBe(false);
+
+    // Data lama yang memakai palet musiman: efek dianggap menyala, karena
+    // sebelumnya salju/konfeti memang selalu aktif untuk palet itu.
+    await t.run(async (ctx) => {
+      const baris = await ctx.db.query("systemConfig").first();
+      if (baris) {
+        await ctx.db.patch(baris._id, { tema: "salju", efekMusiman: undefined });
+      }
+    });
+    expect((await t.query(api.system.getThemePublic, {})).efekMusiman).toBe(
+      true,
+    );
+
+    // Non-admin tidak boleh mengganti template.
+    const { sesi: asPeminjam } = await siapkanPengguna(t, "peminjam-template", {
+      email: "peminjam-template@pindai.test",
+      role: "peminjam",
+    });
+    await expect(
+      asPeminjam.mutation(api.system.setWebsiteTemplate, { gaya: "tenang" }),
+    ).rejects.toThrow(/Super Admin/i);
   });
 
   it("menolak penyimpanan & rollback dari akun non-admin", async () => {

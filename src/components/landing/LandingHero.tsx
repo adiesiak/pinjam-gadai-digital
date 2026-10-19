@@ -18,9 +18,12 @@ export interface LandingHeroProps {
 
 export function LandingHero(props: LandingHeroProps) {
   return (
+    // Warna dan bentuk datang dari token tema/gaya: `bg-hero` memasang warna
+    // dasar + pola permukaan, `font-display` memilih tipografi judul. Tidak ada
+    // heksadesimal di sini, supaya template benar-benar mengubah landing.
     <section
       aria-labelledby="hero-judul"
-      className="relative w-full overflow-hidden bg-[#f4f7f5]"
+      className="bg-hero relative w-full overflow-hidden"
     >
       <div
         aria-hidden="true"
@@ -28,30 +31,30 @@ export function LandingHero(props: LandingHeroProps) {
       >
         <span className="absolute -right-28 top-[8%] size-[220px] rounded-full bg-emerald-200/65 blur-2xl sm:right-[4%] sm:top-[8%] sm:size-[480px]" />
         <span className="absolute -left-16 -top-12 size-[150px] rounded-full bg-emerald-100/70 blur-xl sm:-left-20 sm:-top-24 sm:size-[280px]" />
-        <span className="absolute -bottom-16 left-[8%] size-[110px] rounded-full bg-[#a7f3d0]/55 blur-2xl sm:bottom-4 sm:left-[34%] sm:size-[160px]" />
+        <span className="absolute -bottom-16 left-[8%] size-[110px] rounded-full bg-emerald-200/55 blur-2xl sm:bottom-4 sm:left-[34%] sm:size-[160px]" />
       </div>
 
       <div className="relative z-10 mx-auto grid w-full max-w-7xl items-center gap-10 px-4 pb-12 pt-12 sm:gap-12 sm:px-6 sm:pb-16 sm:pt-16 lg:grid-cols-[1.05fr_0.95fr] lg:gap-14 lg:pb-20 lg:pt-20">
         <div className="max-w-xl">
-          <p className="motion-slide-up inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3.5 py-1.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#065f46]">
+          <p className="motion-slide-up inline-flex items-center gap-2 rounded-full border border-border bg-card px-3.5 py-1.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">
             <Sparkles className="size-3.5" aria-hidden="true" />
             {props.eyebrow}
           </p>
 
           <h1
             id="hero-judul"
-            className="motion-slide-up mt-6 text-[2.15rem] font-semibold leading-[1.08] tracking-[-0.035em] text-slate-900 min-[480px]:text-[2.7rem] sm:text-5xl lg:text-[3.4rem]"
+            className="motion-slide-up mt-6 text-[2.15rem] font-semibold leading-[1.08] tracking-[-0.035em] text-foreground min-[480px]:text-[2.7rem] sm:text-5xl lg:text-[3.4rem]"
             style={{ animationDelay: "0.06s" }}
           >
             {props.judul1}
             <br />
-            <span className="font-serif font-medium italic text-[#064e3b]">
+            <span className="font-display text-primary">
               {props.judul2}
             </span>
           </h1>
 
           <p
-            className="motion-slide-up mt-6 max-w-lg text-base leading-7 text-[#334155] sm:text-lg sm:leading-8"
+            className="motion-slide-up mt-6 max-w-lg text-base leading-7 text-slate-700 sm:text-lg sm:leading-8"
             style={{ animationDelay: "0.12s" }}
           >
             {props.deskripsi}
@@ -64,7 +67,7 @@ export function LandingHero(props: LandingHeroProps) {
             <Button
               asChild
               disabled={props.ctaUtama.disabled}
-              className="h-12 rounded-full bg-[#065f46] px-6 text-white hover:bg-[#064e3b]"
+              className="h-12 rounded-tombol bg-primary px-6 text-primary-foreground hover:bg-primary/90"
             >
               <Link to={props.ctaUtama.href}>
                 {props.ctaUtama.label}
@@ -75,7 +78,7 @@ export function LandingHero(props: LandingHeroProps) {
               type="button"
               variant="outline"
               onClick={props.ctaSekunder.onClick}
-              className="group h-12 rounded-full border-slate-200 bg-white px-6 text-[#1e293b] hover:bg-slate-50"
+              className="group h-12 rounded-tombol border-border bg-card px-6 text-foreground hover:bg-muted"
             >
               {props.ctaSekunder.label}
               <ArrowRight
@@ -86,25 +89,22 @@ export function LandingHero(props: LandingHeroProps) {
           </div>
 
           <p
-            className="motion-slide-up mt-6 max-w-lg text-xs leading-5 text-[#334155]"
+            className="motion-slide-up mt-6 max-w-lg text-xs leading-5 text-slate-700"
             style={{ animationDelay: "0.24s" }}
           >
             {props.mikro}
           </p>
 
           <div
-            className="motion-slide-up mt-8 flex flex-wrap items-center gap-x-6 gap-y-3 border-t border-slate-200 pt-5 text-xs font-medium text-[#334155] sm:text-sm"
+            className="motion-slide-up mt-8 flex flex-wrap items-center gap-x-6 gap-y-3 border-t border-border pt-5 text-xs font-medium text-slate-700 sm:text-sm"
             style={{ animationDelay: "0.3s" }}
           >
             <span className="flex items-center gap-2">
-              <ShieldCheck
-                className="size-4 text-[#065f46]"
-                aria-hidden="true"
-              />
+              <ShieldCheck className="size-4 text-primary" aria-hidden="true" />
               Rincian biaya terbuka
             </span>
             <span className="flex items-center gap-2">
-              <Lock className="size-4 text-[#065f46]" aria-hidden="true" />
+              <Lock className="size-4 text-primary" aria-hidden="true" />
               Verifikasi OTP WhatsApp
             </span>
           </div>
@@ -112,7 +112,7 @@ export function LandingHero(props: LandingHeroProps) {
 
         <div className="relative mx-auto w-full max-w-[340px] lg:max-w-[420px]">
           <PindaiCard3D />
-          <p className="mt-2 text-center text-[11px] font-medium text-[#334155]">
+          <p className="mt-2 text-center text-[11px] font-medium text-slate-700">
             {props.sudahMasuk ? "Sesi aktif" : "Akun PINDAI"} · Pinjam &amp;
             gadai digital
           </p>

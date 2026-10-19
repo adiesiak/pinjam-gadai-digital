@@ -1091,6 +1091,16 @@ const schema = defineSchema(
       persenDendaKeterlambatan: v.optional(v.number()),
       /** Persentase biaya admin & platform saat integrasi pinjaman lama ke ledger. */
       persenBiayaIntegrasi: v.optional(v.number()),
+      /**
+       * Gaya tampilan situs (lembaga/tenang/komunitas) — sumbu kedua template,
+       * terpisah dari palet warna di `tema`. Lihat `lib/template-gaya`.
+       */
+      gaya: v.optional(v.string()),
+      /**
+       * Sakelar efek musiman (salju/konfeti). Terpisah dari palet supaya admin
+       * bisa memakai warna musiman tanpa animasi layar penuh, dan sebaliknya.
+       */
+      efekMusiman: v.optional(v.boolean()),
       /** Maks LTV gadai (default 70%). */
       maxLtvPersen: v.optional(v.number()),
       /** Logout otomatis admin pasif (menit, 0 = nonaktif). */

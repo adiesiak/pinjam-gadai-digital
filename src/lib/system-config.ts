@@ -1,6 +1,7 @@
 /** Konfigurasi sistem PINDAI — tipe + default bersama (server & client). */
 import { LOKASI_RETENSI } from "./lokasi";
 import { PLAFON_DEFAULT } from "./plafon";
+import { gayaAman, type GayaPreset } from "./template-gaya";
 import type { Id } from "../convex/_generated/dataModel";
 
 /**
@@ -28,6 +29,9 @@ export type ThemePreset = (typeof THEME_PRESETS)[number];
  * ke bawaan `tinta`. Akibatnya situs selalu tampil terang, dan penyimpanan
  * berikutnya sudah menulis nilai yang sah.
  */
+export { gayaAman };
+export type { GayaPreset };
+
 export function temaAman(nilai: unknown): ThemePreset {
   return typeof nilai === "string" &&
     (THEME_PRESETS as readonly string[]).includes(nilai)
@@ -59,6 +63,19 @@ export type SystemConfig = {
    */
   versi: number;
   tema: ThemePreset;
+  /**
+   * Gaya tampilan situs — sumbu kedua template. `tema` hanya mengubah warna;
+   * `gaya` mengubah tipografi judul, radius, garis, bayangan, dan pola hero.
+   * Disimpan terpisah supaya admin bisa memasangkan palet apa pun dengan gaya
+   * apa pun tanpa kartu template gabungan.
+   */
+  gaya: GayaPreset;
+  /**
+   * Efek musiman (salju/konfeti) dipisah dari palet: template `salju` dan
+   * `karnival` membawa warnanya sendiri, tetapi efeknya hanya dipasang bila
+   * sakelar ini aktif, dan hanya di rute publik.
+   */
+  efekMusiman: boolean;
   killSwitch: boolean;
   maintenanceMode: boolean;
   persenAdmin: number;
@@ -120,6 +137,8 @@ export type SystemConfig = {
 export const DEFAULT_CONFIG: SystemConfig = {
   versi: 1,
   tema: "tinta",
+  gaya: "lembaga",
+  efekMusiman: false,
   killSwitch: false,
   maintenanceMode: false,
   /**

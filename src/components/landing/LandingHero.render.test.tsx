@@ -14,6 +14,9 @@
  *  5. Penanda sesi mengikuti `sudahMasuk`, dan tidak ada "undefined" maupun
  *     "[object Object]" yang bocor ke markup.
  */
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+
 import { renderToStaticMarkup } from "react-dom/server";
 import { MemoryRouter } from "react-router";
 
@@ -65,8 +68,19 @@ ok(!/rotate-360|animate-spin/.test(html), "tanpa kelas spin/rotasi 360°");
 
 // ── 2. Permukaan terang, bukan panggung gelap ──
 ok(
-  html.includes("bg-[#f4f7f5]"),
-  "section memakai latar hijau-kertas yang terang",
+  html.includes("bg-hero"),
+  "section memakai permukaan hero dari token template (bg-hero)",
+);
+// Permukaan hero harus berasal dari token, bukan warna tetap: kalau nilai ini
+// kembali ditulis langsung, template tidak lagi mengubah landing.
+const css = readFileSync(
+  fileURLToPath(new URL("../../index.css", import.meta.url)),
+  "utf8",
+);
+ok(css.includes("--hero-latar"), "token permukaan hero ada di stylesheet");
+ok(
+  css.includes('[data-gaya="tenang"]') && css.includes('[data-gaya="komunitas"]'),
+  "gaya template punya token bentuk sendiri",
 );
 ok(
   !html.includes("border-b border-slate-200"),
@@ -111,8 +125,12 @@ ok(
 );
 ok(html.includes("relative z-10"), "konten hero berada di atas bubble");
 ok(
-  html.includes("overflow-hidden bg-[#f4f7f5]"),
+  html.includes("bg-hero relative w-full overflow-hidden"),
   "bubble dibatasi rapi dalam hero",
+);
+ok(
+  !html.includes("text-[#064e3b]") && !html.includes("bg-[#065f46]"),
+  "tidak ada warna brand hardcoded di markup hero",
 );
 ok(
   !html.includes("Rp 1.300.000"),

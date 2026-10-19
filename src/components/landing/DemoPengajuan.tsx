@@ -33,7 +33,7 @@ import { LABEL_STATUS_PINJAMAN } from "@/lib/statusPinjaman";
 /** Satu baris label–nilai di dalam layar contoh. */
 function Baris({ label, nilai }: { label: string; nilai: string }) {
   return (
-    <div className="flex items-baseline justify-between gap-3 border-b border-[#eef2ee] py-2 last:border-0">
+    <div className="flex items-baseline justify-between gap-3 border-b border-border py-2 last:border-0">
       <span className="text-xs text-slate-500">{label}</span>
       <span className="text-sm font-medium tabular-nums text-slate-900">
         {nilai}
@@ -44,7 +44,7 @@ function Baris({ label, nilai }: { label: string; nilai: string }) {
 
 function JudulLayar({ children }: { children: string }) {
   return (
-    <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#065f46]">
+    <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-primary">
       {children}
     </p>
   );
@@ -58,9 +58,9 @@ function LayarAkun() {
       <p className="mt-2 text-sm font-semibold text-slate-900">
         Nomor WhatsApp
       </p>
-      <div className="mt-2 flex items-center gap-2 rounded-xl border border-[#dce7df] bg-white px-3 py-2.5">
+      <div className="mt-2 flex items-center gap-2 rounded-xl border border-border bg-card px-3 py-2.5">
         <span className="text-sm tabular-nums text-slate-900">62812 3456 7890</span>
-        <span className="ml-auto h-4 w-px bg-[#065f46]" aria-hidden="true" />
+        <span className="ml-auto h-4 w-px bg-primary" aria-hidden="true" />
       </div>
       <div className="mt-4">
         <p className="text-xs text-slate-500">Kode 6 angka dari WhatsApp</p>
@@ -68,14 +68,14 @@ function LayarAkun() {
           {["4", "2", "9", "7", "1", "5"].map((angka, i) => (
             <span
               key={i}
-              className="flex size-9 items-center justify-center rounded-lg border border-[#dce7df] bg-white text-sm font-semibold tabular-nums text-slate-900"
+              className="flex size-9 items-center justify-center rounded-lg border border-border bg-card text-sm font-semibold tabular-nums text-slate-900"
             >
               {angka}
             </span>
           ))}
         </div>
       </div>
-      <p className="mt-4 rounded-lg bg-[#f4f7f5] px-3 py-2 text-[11px] leading-5 text-slate-600">
+      <p className="mt-4 rounded-lg bg-muted px-3 py-2 text-[11px] leading-5 text-slate-600">
         Kode berlaku 5 menit. Tidak ada kata sandi yang perlu diingat.
       </p>
     </div>
@@ -96,13 +96,13 @@ function LayarVerifikasi() {
       <p className="mt-2 text-sm font-semibold text-slate-900">
         Empat hal ini selesai dulu
       </p>
-      <ul className="mt-3 overflow-hidden rounded-xl border border-[#dce7df] bg-white">
+      <ul className="mt-3 overflow-hidden rounded-xl border border-border bg-card">
         {baris.map((teks) => (
           <li
             key={teks}
-            className="flex items-center gap-2 border-b border-[#eef2ee] px-3 py-2.5 text-xs text-slate-700 last:border-0"
+            className="flex items-center gap-2 border-b border-border px-3 py-2.5 text-xs text-slate-700 last:border-0"
           >
-            <span className="flex size-5 items-center justify-center rounded-full bg-[#e5f2e9] text-[#064e3b]">
+            <span className="flex size-5 items-center justify-center rounded-full bg-secondary text-secondary-foreground">
               <Check className="size-3" aria-hidden="true" />
             </span>
             {teks}
@@ -110,7 +110,7 @@ function LayarVerifikasi() {
         ))}
       </ul>
       <p className="mt-4 flex items-start gap-2 text-[11px] leading-5 text-slate-600">
-        <ShieldCheck className="mt-0.5 size-3.5 shrink-0 text-[#065f46]" aria-hidden="true" />
+        <ShieldCheck className="mt-0.5 size-3.5 shrink-0 text-primary" aria-hidden="true" />
         Berkas diperiksa tim PINDAI; pengajuan terkunci sampai verifikasi lengkap.
       </p>
     </div>
@@ -123,14 +123,14 @@ function LayarAjukan() {
   return (
     <div className="mx-auto max-w-sm">
       <JudulLayar>Form pengajuan pinjaman</JudulLayar>
-      <div className="mt-2 overflow-hidden rounded-xl border border-[#dce7df] bg-white px-3 py-1">
+      <div className="mt-2 overflow-hidden rounded-xl border border-border bg-card px-3 py-1">
         <Baris label="Nominal" nilai={formatRupiah(DEMO_POKOK)} />
         <Baris label="Tenor" nilai={`${DEMO_TENOR_HARI} hari`} />
         <Baris label="Potongan di muka" nilai={formatRupiah(q.totalPotonganDiMuka)} />
         <Baris label="Dana bersih diterima" nilai={formatRupiah(q.danaBersihDitransfer)} />
         <Baris label="Total kewajiban" nilai={formatRupiah(q.totalKewajibanPelunasan)} />
       </div>
-      <p className="mt-3 rounded-lg bg-[#f4f7f5] px-3 py-2 text-[11px] leading-5 text-slate-600">
+      <p className="mt-3 rounded-lg bg-muted px-3 py-2 text-[11px] leading-5 text-slate-600">
         Ilustrasi dari mesin hitung, bukan persetujuan pinjaman.
       </p>
     </div>
@@ -156,10 +156,10 @@ function LayarTinjau() {
               className={[
                 "flex size-5 items-center justify-center rounded-full border",
                 tahap.selesai
-                  ? "border-[#065f46] bg-[#065f46] text-white"
+                  ? "border-primary bg-primary text-primary-foreground"
                   : tahap.aktif
-                    ? "border-[#065f46] bg-white text-[#065f46]"
-                    : "border-[#dce7df] bg-white text-transparent",
+                    ? "border-primary bg-card text-primary"
+                    : "border-border bg-card text-transparent",
               ].join(" ")}
             >
               {tahap.selesai ? (
@@ -181,7 +181,7 @@ function LayarTinjau() {
               {tahap.teks}
             </span>
             {tahap.aktif ? (
-              <span className="ml-auto rounded-full bg-[#e5f2e9] px-2 py-0.5 text-[10px] font-semibold text-[#064e3b]">
+              <span className="ml-auto rounded-full bg-secondary px-2 py-0.5 text-[10px] font-semibold text-secondary-foreground">
                 sekarang
               </span>
             ) : null}
@@ -205,11 +205,11 @@ function LayarCatatan() {
         <p className="text-sm font-semibold text-slate-900">
           Pinjaman tunai · {formatRupiah(DEMO_POKOK)}
         </p>
-        <span className="rounded-full bg-[#e5f2e9] px-2 py-0.5 text-[10px] font-semibold text-[#064e3b]">
+        <span className="rounded-full bg-secondary px-2 py-0.5 text-[10px] font-semibold text-secondary-foreground">
           {LABEL_STATUS_PINJAMAN.lunas}
         </span>
       </div>
-      <div className="mt-2 overflow-hidden rounded-xl border border-[#dce7df] bg-white px-3 py-1">
+      <div className="mt-2 overflow-hidden rounded-xl border border-border bg-card px-3 py-1">
         <Baris label="Total kewajiban" nilai={formatRupiah(q.totalKewajibanPelunasan)} />
         <Baris label="Tenor" nilai={`${DEMO_TENOR_HARI} hari`} />
         <Baris label="Riwayat" nilai="Tersimpan di dashboard" />
@@ -286,11 +286,11 @@ export function DemoPengajuan() {
     <section
       id="demo-pengajuan"
       aria-labelledby="demo-pengajuan-judul"
-      className="border-t border-[#dce7df] bg-[#fbfcfa]"
+      className="border-t border-border bg-background"
     >
       <div className="mx-auto max-w-6xl px-4 py-14 sm:px-6 sm:py-18">
         <div className="max-w-2xl">
-          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#065f46]">
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">
             Demo alur
           </p>
           <h2
@@ -322,10 +322,10 @@ export function DemoPengajuan() {
                       onClick={() => pilih(i)}
                       aria-current={ini ? "step" : undefined}
                       className={[
-                        "flex min-h-11 w-auto items-center gap-2.5 rounded-xl border px-3 py-2 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#065f46] lg:w-full",
+                        "flex min-h-11 w-auto items-center gap-2.5 rounded-xl border px-3 py-2 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring lg:w-full",
                         ini
-                          ? "border-[#065f46] bg-[#065f46] text-white"
-                          : "border-[#dce7df] bg-white text-slate-700 hover:bg-[#f4f7f5]",
+                          ? "border-primary bg-primary text-primary-foreground"
+                          : "border-border bg-card text-slate-700 hover:bg-muted",
                       ].join(" ")}
                     >
                       <span
@@ -334,8 +334,8 @@ export function DemoPengajuan() {
                           ini
                             ? "bg-white/15 text-white"
                             : lewat
-                              ? "bg-[#e5f2e9] text-[#064e3b]"
-                              : "bg-[#f4f7f5] text-slate-500",
+                              ? "bg-secondary text-secondary-foreground"
+                              : "bg-muted text-slate-500",
                         ].join(" ")}
                       >
                         {lewat ? <Check className="size-3.5" aria-hidden="true" /> : item.nomor}
@@ -353,17 +353,17 @@ export function DemoPengajuan() {
             </p>
           </div>
 
-          <div className="min-w-0 overflow-hidden rounded-2xl border border-[#dce7df] bg-white">
-            <div className="flex items-center gap-2 border-b border-[#e8eee9] bg-[#f4f7f5] px-3 py-2.5">
+          <div className="min-w-0 overflow-hidden rounded-2xl border border-border bg-card">
+            <div className="flex items-center gap-2 border-b border-border bg-muted px-3 py-2.5">
               <span className="flex gap-1.5" aria-hidden="true">
-                <span className="size-2 rounded-full bg-[#dce7df]" />
-                <span className="size-2 rounded-full bg-[#dce7df]" />
-                <span className="size-2 rounded-full bg-[#dce7df]" />
+                <span className="size-2 rounded-full bg-border" />
+                <span className="size-2 rounded-full bg-border" />
+                <span className="size-2 rounded-full bg-border" />
               </span>
-              <span className="ml-1 truncate rounded-full border border-[#dce7df] bg-white px-2.5 py-1 font-mono text-[10px] text-slate-500">
+              <span className="ml-1 truncate rounded-full border border-border bg-card px-2.5 py-1 font-mono text-[10px] text-slate-500">
                 pindai.biz.id/pengajuan
               </span>
-              <span className="ml-auto shrink-0 rounded-full bg-[#e5f2e9] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-[#064e3b]">
+              <span className="ml-auto shrink-0 rounded-full bg-secondary px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-secondary-foreground">
                 Contoh layar
               </span>
             </div>
@@ -371,7 +371,7 @@ export function DemoPengajuan() {
             <div
               role="img"
               aria-label={`Pratinjau layar langkah ${langkah.nomor}: ${langkah.judul}`}
-              className="relative min-h-[19rem] overflow-hidden bg-[#fbfcfa] p-4 sm:min-h-[17rem] sm:p-5"
+              className="relative min-h-[19rem] overflow-hidden bg-background p-4 sm:min-h-[17rem] sm:p-5"
             >
               <AnimatePresence mode="wait" initial={false}>
                 <motion.div
@@ -387,11 +387,11 @@ export function DemoPengajuan() {
               </AnimatePresence>
             </div>
 
-            <div className="border-t border-[#e8eee9] p-4 sm:p-5">
+            <div className="border-t border-border p-4 sm:p-5">
               {kurangiGerak ? null : (
-                <span className="block h-1 overflow-hidden rounded-full bg-[#eef2ee]">
+                <span className="block h-1 overflow-hidden rounded-full bg-border">
                   <span
-                    className="block h-full origin-left rounded-full bg-[#065f46]"
+                    className="block h-full origin-left rounded-full bg-primary"
                     // Meter progres: linear memang yang benar di sini, dan
                     // tempo tetap memakai token `--motion-fast`.
                     style={{
@@ -404,7 +404,7 @@ export function DemoPengajuan() {
 
               <div className="mt-3 flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#065f46]">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-primary">
                     Langkah {langkah.nomor} dari {LANGKAH_DEMO[LANGKAH_DEMO.length - 1].nomor}
                   </p>
                   <p className="mt-1 text-sm font-semibold text-slate-900">
@@ -419,7 +419,7 @@ export function DemoPengajuan() {
                     type="button"
                     onClick={() => setJalan((n) => !n)}
                     aria-label={berjalan ? "Jeda demo" : "Putar demo"}
-                    className="flex min-h-11 shrink-0 items-center gap-1.5 rounded-full border border-[#dce7df] bg-white px-3.5 text-xs font-semibold text-[#064e3b] transition-colors hover:bg-[#f4f7f5] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#065f46]"
+                    className="flex min-h-11 shrink-0 items-center gap-1.5 rounded-full border border-border bg-card px-3.5 text-xs font-semibold text-secondary-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   >
                     {berjalan ? (
                       <Pause className="size-3.5" aria-hidden="true" />

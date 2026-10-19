@@ -18,11 +18,22 @@ import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-route
 import "./index.css";
 import { useSessionGuard } from "@/hooks/use-session-guard";
 import { ADMIN_ROUTE, QC_ROUTE } from "@/lib/routes";
-import { THEME_PRESETS, type ThemePreset } from "@/lib/system-config";
+import { THEME_PRESETS } from "@/lib/system-config";
+import { GAYA_PRESETS } from "@/lib/template-gaya";
 import { api } from "@/convex/_generated/api";
 
-import { Promo } from "./pages/Promo";
-import PublicInfoPage from "./pages/PublicInfoPage";
+// Keduanya sengaja lazy seperti rute lain: `Promo` menarik framer-motion dan
+// kanvas poster, `PublicInfoPage` menarik kalkulator pinjaman/gadai/bulanan.
+// Impor statis membuat keduanya ikut bundel awal dan memperlambat paint
+// beranda, yang tidak membutuhkan satu pun dari berkas itu.
+const Promo = lazy(
+  denganPercobaan(() =>
+    import("./pages/Promo").then((m) => ({ default: m.Promo })),
+  ),
+);
+const PublicInfoPage = lazy(
+  denganPercobaan(() => import("./pages/PublicInfoPage")),
+);
 
 /**
  * Daftarkan service worker pemasangan (lihat `public/sw.js`). Tanpa cache:
@@ -183,19 +194,62 @@ const convex = new ConvexReactClient(import.meta.env.VITE_CONVEX_URL as string);
 
 
 
+/** Rute yang boleh memakai efek musiman layar penuh. */
+const RUTE_PUBLIK = [
+  "/biaya",
+  "/cara-kerja",
+  "/layanan",
+  "/keamanan",
+  "/faq",
+  "/aplikasi",
+  "/syarat-ketentuan",
+] as const;
+
+/**
+ * Menyegerakkan template (palet + gaya) dari server ke `data-*` di <html>.
+ *
+ * Nilai disimpan ke localStorage supaya `index.html` bisa memasangnya pada
+ * paint pertama (lihat skrip inline di sana) — tanpa itu, pengunjung melihat
+ * warna bawaan sekilas sebelum query Convex selesai.
+ *
+ * Efek musiman hanya dipasang di rute publik dan hanya bila sakelarnya aktif:
+ * dashboard, KYC, dan panel admin tidak boleh tertutup salju/konfeti.
+ */
 function ThemeSync() {
   const config = useQuery(api.system.getThemePublic, {});
+  const lokasi = useLocation();
 
   useEffect(() => {
-    const tema = config?.tema;
-    if (tema && (THEME_PRESETS as readonly string[]).includes(tema)) {
-      document.documentElement.dataset.theme = tema as ThemePreset;
+    if (!config) return;
+    const akar = document.documentElement;
+    if ((THEME_PRESETS as readonly string[]).includes(config.tema)) {
+      akar.dataset.theme = config.tema;
+      try {
+        localStorage.setItem("pindai-tema", config.tema);
+      } catch {
+        // Penyimpanan diblokir: tema tetap berlaku untuk sesi ini.
+      }
     }
-  }, [config?.tema]);
+    if ((GAYA_PRESETS as readonly string[]).includes(config.gaya)) {
+      akar.dataset.gaya = config.gaya;
+      try {
+        localStorage.setItem("pindai-gaya", config.gaya);
+      } catch {
+        // idem
+      }
+    }
+  }, [config?.tema, config?.gaya]);
 
-  // Tema beranimasi menambahkan lapisan efek layar penuh di atas aplikasi.
-  if (config?.tema === "salju") return <Snowfall />;
-  if (config?.tema === "karnival") return <KarnivalConfetti />;
+  const publik =
+    lokasi.pathname === "/" ||
+    RUTE_PUBLIK.some(
+      (awalan) =>
+        lokasi.pathname === awalan ||
+        lokasi.pathname.startsWith(`${awalan}/`),
+    );
+  if (!config?.efekMusiman || !publik) return null;
+  if (config.tema === "salju") return <Snowfall />;
+  if (config.tema === "karnival") return <KarnivalConfetti />;
   return null;
 }
 
