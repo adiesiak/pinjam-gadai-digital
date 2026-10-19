@@ -33,15 +33,20 @@ async function requirePengguna(ctx: QueryCtx) {
   return { userId, user };
 }
 
-function barisTampil(
+async function barisTampil(
+  ctx: QueryCtx,
   row: Doc<"angsuran">,
   sekarang: number,
   tarif: number,
-): AngsuranTampil {
+): Promise<AngsuranTampil> {
   const dendaBerjalan =
     row.status === "lunas"
       ? 0
       : dendaAngsuran(row.pokok, row.jatuhTempoPada, sekarang, tarif);
+  const buktiUrl =
+    row.buktiPembayaranId === undefined
+      ? null
+      : await ctx.storage.getUrl(row.buktiPembayaranId);
   return {
     _id: row._id,
     nomor: row.nomor,
@@ -56,6 +61,7 @@ function barisTampil(
     dendaBerjalan,
     totalDibayar:
       row.status === "lunas" ? row.total + (row.dendaDibayar ?? 0) : 0,
+    buktiUrl,
     tampilan: tampilanAngsuran(row, sekarang),
     hariTerlambat: hariTerlambatAngsuran(row.jatuhTempoPada, sekarang),
     sisaHari: sisaHariAngsuran(row.jatuhTempoPada, sekarang),
@@ -104,9 +110,11 @@ export const myAngsuran = query({
     for (const [loanId, daftar] of perPinjaman) {
       const loan = await ctx.db.get(loanId as Id<"loans">);
       if (loan === null) continue;
-      const angsuran = daftar
-        .sort((a, b) => a.nomor - b.nomor)
-        .map((row) => barisTampil(row, sekarang, tarif));
+      const angsuran = await Promise.all(
+        daftar
+          .sort((a, b) => a.nomor - b.nomor)
+          .map((row) => barisTampil(ctx, row, sekarang, tarif)),
+      );
       grup.push({
         loanId: loan._id,
         nomorReferensi: loan.nomorReferensi,
@@ -183,8 +191,17 @@ async function jurnalAngsuran(
     {
       akun: `pinjaman:${loan._id}`,
       arah: "kredit" as const,
-      jumlah: row.pokok + row.bunga,
+      jumlah: row.pokok,
     },
+    ...(row.bunga > 0
+      ? [
+          {
+            akun: `pinjaman:${loan._id}`,
+            arah: "kredit" as const,
+            jumlah: row.bunga,
+          },
+        ]
+      : []),
   ];
   if (row.biayaAdmin > 0) {
     lines.push({ akun: "platform:FEE", arah: "kredit" as const, jumlah: row.biayaAdmin });
@@ -423,6 +440,17 @@ export const daftarBuktiAngsuran = query({
           (a, b) =>
             a.selisih - b.selisih || a.jatuhTempoPada - b.jatuhTempoPada,
         );
+      // Bukti yang sudah ditautkan ke satu angsuran harus tetap muncul di
+      // pilihan, walau angsuran itu tidak masuk tiga saran teratas. Tanpa ini
+      // select menampilkan opsi lain sementara state masih menunjuk angsuran
+      // lama, dan admin bisa memverifikasi ke baris yang tidak dilihatnya.
+      const tertaut = receipt.angsuranId
+        ? kandidat.filter((k) => k.angsuranId === receipt.angsuranId)
+        : [];
+      const pilihan = [
+        ...tertaut,
+        ...kandidat.filter((k) => k.angsuranId !== receipt.angsuranId),
+      ].slice(0, 3);
       rows.push({
         _id: receipt._id,
         nomorReferensi: receipt.nomorReferensi,
@@ -440,7 +468,7 @@ export const daftarBuktiAngsuran = query({
         tenorHari: loan.tenorHari,
         angsuranId: receipt.angsuranId ?? null,
         saran: kandidat[0] ?? null,
-        kandidat: kandidat.slice(0, 3),
+        kandidat: pilihan,
       });
     }
 

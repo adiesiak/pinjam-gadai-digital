@@ -112,11 +112,12 @@ function renderMenuDashboard(
   );
 }
 
-// Menu dashboard kini DATAR: lima menu, satu menu satu halaman. Tidak ada lagi
+// Menu dashboard kini DATAR: enam menu, satu menu satu halaman. Tidak ada lagi
 // pintu bertingkat maupun pengalih menu di layar sempit (digantikan bilah
 // bawah), jadi label halaman yang dihapus tidak boleh tertinggal.
 const MENU_DASHBOARD = [
   "Ringkasan",
+  "Cicilan",
   "Ajukan Pinjaman",
   "Catatan Pinjaman",
   "Profil & Rekening",
@@ -144,13 +145,13 @@ const sumberDashboard = bacaSumber("pages/Dashboard.tsx");
 const nilaiTabDashboard = [...sumberDashboard.matchAll(/<TabsContent value="([a-z]+)"/g)].map(
   (cocok) => cocok[1],
 );
-ok("dashboard hanya punya lima halaman", nilaiTabDashboard.length === 5);
+ok("dashboard punya enam halaman", nilaiTabDashboard.length === 6);
 const sumberMenu = bacaSumber("pages/dashboard/dashboard-tab-nav.tsx");
 for (const nilai of nilaiTabDashboard) {
   ok(`halaman "${nilai}" punya baris menunya`, sumberMenu.includes(`value: "${nilai}"`));
 }
 
-// Bilah bawah (layar sempit): lima tombol, nama pendek di layar + nama lengkap
+// Bilah bawah (layar sempit): enam tombol, nama pendek di layar + nama lengkap
 // untuk pembaca layar, dan penanda menu aktif.
 const htmlBilahBawah = renderToStaticMarkup(
   <DashboardBottomNav
@@ -159,7 +160,7 @@ const htmlBilahBawah = renderToStaticMarkup(
     badges={{ pinjaman: { count: 2 } }}
   />,
 );
-ok("bilah bawah merender lima tombol", htmlBilahBawah.split("<button").length - 1 === 5);
+ok("bilah bawah merender enam tombol", htmlBilahBawah.split("<button").length - 1 === 6);
 ok("bilah bawah menandai menu aktif", htmlBilahBawah.includes('aria-current="page"'));
 ok(
   "bilah bawah memakai nama lengkap sebagai label",

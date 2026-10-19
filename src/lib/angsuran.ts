@@ -150,6 +150,8 @@ export type AngsuranTampil = {
   dendaDibayar: number | null;
   dendaBerjalan: number;
   totalDibayar: number;
+  /** Tautan bukti transfer yang tersimpan; null bila belum ada. */
+  buktiUrl?: string | null;
   tampilan: TampilanAngsuran;
   hariTerlambat: number;
   sisaHari: number;

@@ -1,5 +1,5 @@
 import { useMutation, useQuery } from "convex/react";
-import { FileUp, Loader2 } from "lucide-react";
+import { Check, Copy, FileUp, Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
@@ -77,6 +77,7 @@ export function ManualPaymentEvidenceForm({
   const [progres, setProgres] = useState<ProgresUnggah | null>(null);
   const [galatIsian, setGalatIsian] = useState<GalatIsian>({});
   const [galatKirim, setGalatKirim] = useState<string | null>(null);
+  const [tersalin, setTersalin] = useState(false);
   const kirimSekali = useKirimSekali();
   const busy = tahap !== "diam";
 
@@ -84,6 +85,21 @@ export function ManualPaymentEvidenceForm({
   useEffect(() => {
     if (!busy) bukaKunci();
   }, [busy, bukaKunci]);
+
+  useEffect(() => {
+    if (!tersalin) return;
+    const timer = window.setTimeout(() => setTersalin(false), 2000);
+    return () => window.clearTimeout(timer);
+  }, [tersalin]);
+
+  const salinNomorRekening = async (nomor: string) => {
+    try {
+      await navigator.clipboard.writeText(nomor);
+      setTersalin(true);
+    } catch {
+      toast.error(`Nomor rekening tidak bisa disalin otomatis. Salin manual: ${nomor}`);
+    }
+  };
 
   /** Periksa isian dengan aturan yang sama seperti sebelumnya (tanpa perubahan). */
   const periksaIsian = (): GalatIsian => {
@@ -172,15 +188,77 @@ export function ManualPaymentEvidenceForm({
   // tahapnya secara lengkap, jadi tombol tidak perlu mengulang peringatannya.
   const labelTombol =
     tahap === "mengunggah" ? "Mengunggah…" : tahap === "mengirim" ? "Mencatat…" : "Kirim bukti transfer";
+  // Instruksi rekening mengikuti nominal yang diketik, kecuali saat tagihan
+  // angsuran dikunci ke angka server.
+  const nominalTampil =
+    kunciJumlah || !Number.isSafeInteger(Number(amount)) || Number(amount) <= 0
+      ? suggestedAmount
+      : Number(amount);
 
   return (
     <section className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
       <h4 className="text-sm font-semibold">Kirim bukti transfer</h4>
       <p className="mt-1 text-xs leading-5 text-muted-foreground">Referensi {reference}. Bukti masuk antrean pencocokan; setelah admin mencocokkan mutasi bank, angsuran ditandai lunas. Pastikan rekening tujuan sesuai instruksi resmi sebelum transfer.</p>
-      {instructions && (
-        <div className="mt-3 grid gap-3 rounded-lg border border-slate-200 bg-white p-3 text-xs sm:grid-cols-2">
-          <div><p className="font-medium">Transfer bank (instruksi)</p><p className="mt-1">{instructions.namaBank} · {instructions.nomorRekening}</p><p>{instructions.namaRekening}</p></div>
-          <div><p className="font-medium">QRIS · {instructions.namaMerchantQris}</p>{instructions.qrisUrl ? <img src={instructions.qrisUrl} alt={`QRIS ${instructions.namaMerchantQris}`} className="mt-2 max-h-36 max-w-full object-contain" /> : <p className="mt-1 text-muted-foreground">Gambar QRIS belum diunggah admin.</p>}</div>
+      {instructions === undefined ? (
+        <p role="status" className="mt-3 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-muted-foreground">
+          Memuat rekening penerimaan…
+        </p>
+      ) : instructions.tersedia ? (
+        <div className="mt-3 overflow-hidden rounded-xl border border-[#c9a86a]/45 bg-white">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 bg-[#faf7ef] px-3 py-2">
+            <p className="text-xs font-semibold text-navy">Rekening penerimaan PINDAI</p>
+            <span className="text-[11px] text-muted-foreground">Transfer manual</span>
+          </div>
+          <dl className="grid gap-3 px-3 py-3 text-xs sm:grid-cols-2">
+            <div>
+              <dt className="text-muted-foreground">Bank</dt>
+              <dd className="mt-0.5 font-medium">{instructions.namaBank}</dd>
+            </div>
+            <div>
+              <dt className="text-muted-foreground">Nomor rekening</dt>
+              <dd className="mt-0.5 flex flex-wrap items-center gap-2">
+                <span className="font-mono text-sm font-semibold tracking-wide">{instructions.nomorRekening}</span>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="h-11 gap-1.5 px-3 text-[11px]"
+                  onClick={() => void salinNomorRekening(instructions.nomorRekening)}
+                >
+                  {tersalin ? <Check className="size-3.5" aria-hidden /> : <Copy className="size-3.5" aria-hidden />}
+                  {tersalin ? "Tersalin" : "Salin"}
+                </Button>
+              </dd>
+            </div>
+            <div>
+              <dt className="text-muted-foreground">Atas nama</dt>
+              <dd className="mt-0.5 font-medium">{instructions.namaRekening}</dd>
+            </div>
+            <div>
+              <dt className="text-muted-foreground">Nominal transfer</dt>
+              <dd className="mt-0.5 font-semibold tabular-nums text-emerald-800">{formatRupiah(nominalTampil)}</dd>
+            </div>
+          </dl>
+          <p className="border-t border-slate-100 px-3 py-2 text-[11px] leading-5 text-slate-600">
+            Transfer tepat {formatRupiah(nominalTampil)} dan cantumkan “{reference}” pada
+            berita transfer. Rekening selain yang tercantum di sini bukan rekening PINDAI.
+          </p>
+        </div>
+      ) : (
+        <p role="alert" className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900">
+          Rekening penerimaan belum diatur admin. Jangan transfer ke rekening lain;
+          hubungi tim PINDAI lewat menu Bantuan untuk meminta nomor rekening resmi.
+        </p>
+      )}
+      {method === "qris" && instructions?.qrisUrl && (
+        <div className="mt-3 rounded-lg border border-slate-200 bg-white p-3 text-xs">
+          <p className="font-medium">QRIS · {instructions.namaMerchantQris}</p>
+          <img
+            src={instructions.qrisUrl}
+            alt={`QRIS ${instructions.namaMerchantQris}`}
+            className="mt-2 max-h-36 max-w-full object-contain"
+          />
+          <p className="mt-2 text-muted-foreground">Pindai, bayar, lalu unggah bukti di bawah.</p>
         </div>
       )}
       <form
@@ -271,7 +349,11 @@ export function ManualPaymentEvidenceForm({
         )}
         <Button type="submit" size="sm" disabled={busy} className="gap-2 sm:col-span-2">{busy ? <Loader2 className="size-4 animate-spin" /> : <FileUp className="size-4" />}{labelTombol}</Button>
       </form>
-      <p className="mt-2 text-[11px] text-muted-foreground">Jumlah contoh {formatRupiah(suggestedAmount)} · pencocokan dilakukan manual oleh tim PINDAI.</p>
+      <p className="mt-2 text-[11px] text-muted-foreground">
+        {kunciJumlah
+          ? `Nominal dikunci ke tagihan server ${formatRupiah(suggestedAmount)}. Pencocokan dilakukan manual oleh tim PINDAI.`
+          : `Jumlah contoh ${formatRupiah(suggestedAmount)} · pencocokan dilakukan manual oleh tim PINDAI.`}
+      </p>
     </section>
   );
 }

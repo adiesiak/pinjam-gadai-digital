@@ -1,12 +1,11 @@
 import { useMutation, useQuery } from "convex/react";
-import { ArrowLeft, FilePlus2, TrendingUp } from "lucide-react";
+import { ArrowLeft, FilePlus2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import { tabDariParams } from "@/lib/notifikasi";
 import { Button } from "@/components/ui/button";
 import { JENIS_PENGAJUAN_AWAL, type JenisPengajuan } from "@/lib/jenisPengajuan";
 import { formatRupiah } from "@/lib/money";
-import type { FunctionReturnType } from "convex/server";
 
 import { LocationGate } from "@/components/LocationGate";
 import { ModeNasabahUji } from "@/components/ModeNasabahUji";
@@ -18,12 +17,10 @@ import { Id } from "@/convex/_generated/dataModel";
 import { useAuth } from "@/hooks/use-auth";
 import type { IdTahapKyc } from "@/lib/kycTahapan";
 
-import { MyContractsSection } from "./dashboard/contract-views";
 import { DataDiriSection } from "./dashboard/data-diri-views";
 import {
   KycMenuSidebar,
   KycSection,
-  KycStatusStrip,
   menuTahapKyc,
   tampilkanMenuTahapKyc,
 } from "./dashboard/kyc-views";
@@ -90,20 +87,20 @@ export default function Dashboard() {
     pratinjauUserId === null ? "skip" : { userId: pratinjauUserId },
   );
   const catatLihatNasabah = useMutation(api.nasabah.catatLihatDashboardNasabah);
-  const [auditPratinjauSiap, setAuditPratinjauSiap] = useState(false);
+  // Simpan id yang auditnya sudah tercatat, bukan boolean: saat pratinjau
+  // berganti akun, hasil akun sebelumnya tidak lagi dianggap siap.
+  const [auditSiapUntuk, setAuditSiapUntuk] = useState<Id<"users"> | null>(null);
+  const auditPratinjauSiap =
+    pratinjauUserId !== null && auditSiapUntuk === pratinjauUserId;
   useEffect(() => {
-    if (pratinjauUserId === null) {
-      setAuditPratinjauSiap(false);
-      return;
-    }
+    if (pratinjauUserId === null) return;
     let aktif = true;
-    setAuditPratinjauSiap(false);
     void catatLihatNasabah({ userId: pratinjauUserId }).then(
       () => {
-        if (aktif) setAuditPratinjauSiap(true);
+        if (aktif) setAuditSiapUntuk(pratinjauUserId);
       },
       () => {
-        if (aktif) setAuditPratinjauSiap(false);
+        if (aktif) setAuditSiapUntuk(null);
       },
     );
     return () => {
@@ -353,7 +350,7 @@ export default function Dashboard() {
     tabBadges.kyc = { count: 1, tone: kyc.status === "REJECTED" ? "danger" : "warning" };
   }
 
-  /** Isi kolom kiri (layar lebar): kartu profil, lima menu, tahap KYC, Keluar. */
+  /** Isi kolom kiri (layar lebar): kartu profil, enam menu, tahap KYC, Keluar. */
   const isiMenu = (
     <DashboardSidebar
       greetingName={greetingName}

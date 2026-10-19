@@ -10,6 +10,7 @@ import {
 import { useEffect, useRef, useState } from "react";
 
 import { ManualPaymentEvidenceForm, ManualPaymentEvidenceHistory } from "@/components/ManualPaymentEvidenceForm";
+import { ContractPrintButton } from "@/components/contract/ContractPrintButton";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -33,6 +34,7 @@ import { EmptyState } from "./empty-state";
 type DataAngsuran = FunctionReturnType<typeof api.angsuran.myAngsuran>;
 type Grup = DataAngsuran["grup"][number];
 type Baris = Grup["angsuran"][number];
+type Kuitansi = { grup: Grup; baris: Baris };
 
 /** Nada visual mengikuti status, bukan warna acak. */
 const NADA: Record<TampilanAngsuran, string> = {
@@ -88,6 +90,21 @@ function RincianBaris({ baris }: { baris: Baris }) {
           <dt>Denda berjalan ({baris.hariTerlambat} hari)</dt>
           <dd className="font-semibold tabular-nums sm:mt-0.5">
             +{formatRupiah(baris.dendaBerjalan)}
+          </dd>
+        </div>
+      )}
+      {baris.buktiUrl != null && (
+        <div className="flex items-baseline justify-between gap-2 sm:col-span-2 sm:block">
+          <dt className="text-muted-foreground">Bukti bayar</dt>
+          <dd className="sm:mt-0.5">
+            <a
+              href={baris.buktiUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="font-medium text-emerald-800 underline-offset-4 hover:underline"
+            >
+              Lihat bukti transfer
+            </a>
           </dd>
         </div>
       )}
@@ -156,22 +173,28 @@ function KartuBerikutnya({
         ) : (
           <Button
             type="button"
-            className="gap-2 bg-emerald-800 text-white hover:bg-emerald-900"
+            className="h-11 gap-2 bg-emerald-800 text-white hover:bg-emerald-900"
             onClick={() => onBayar(berikutnya)}
           >
             <ReceiptText className="size-4" aria-hidden />
-            Bayar angsuran
+            Bayar transfer manual
           </Button>
         )}
         <span className="text-[11px] leading-5 text-muted-foreground">
-          Transfer manual ke rekening resmi, lalu unggah bukti di halaman ini.
+          Nomor rekening PINDAI tampil di dialog pembayaran, lalu unggah buktinya di sana.
         </span>
       </div>
     </article>
   );
 }
 
-function DaftarAngsuran({ grup }: { grup: Grup }) {
+function DaftarAngsuran({
+  grup,
+  onKuitansi,
+}: {
+  grup: Grup;
+  onKuitansi: (baris: Baris) => void;
+}) {
   return (
     <section className="mt-5 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
@@ -204,7 +227,21 @@ function DaftarAngsuran({ grup }: { grup: Grup }) {
                   {baris.dendaBerjalan > 0 ? ` + denda ${formatRupiah(baris.dendaBerjalan)}` : ""}
                 </p>
               </div>
-              <Lencana tampilan={baris.tampilan} />
+              <div className="flex shrink-0 flex-wrap items-center gap-2">
+                <Lencana tampilan={baris.tampilan} />
+                {baris.status === "lunas" && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="h-11 gap-1.5 px-3 text-xs"
+                    onClick={() => onKuitansi(baris)}
+                  >
+                    <ReceiptText className="size-3.5" aria-hidden />
+                    Kuitansi
+                  </Button>
+                )}
+              </div>
             </div>
             <RincianBaris baris={baris} />
           </li>
@@ -226,7 +263,8 @@ export function AngsuranSection() {
   const data = useQuery(api.angsuran.myAngsuran, {});
   const pastikan = useMutation(api.angsuran.pastikanAngsuranSaya);
   const sudahPastikan = useRef(false);
-  const [bayar, setBayar] = useState<{ grup: Grup; baris: Baris } | null>(null);
+  const [bayar, setBayar] = useState<Kuitansi | null>(null);
+  const [kuitansi, setKuitansi] = useState<Kuitansi | null>(null);
 
   useEffect(() => {
     if (data === undefined || sudahPastikan.current) return;
@@ -279,7 +317,10 @@ export function AngsuranSection() {
             grup={grup}
             onBayar={(baris) => setBayar({ grup, baris })}
           />
-          <DaftarAngsuran grup={grup} />
+          <DaftarAngsuran
+            grup={grup}
+            onKuitansi={(baris) => setKuitansi({ grup, baris })}
+          />
         </div>
       ))}
 
@@ -293,13 +334,11 @@ export function AngsuranSection() {
       >
         <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
-            <DialogTitle>
-              Bayar angsuran {bayar?.baris.nomor ?? ""}
-            </DialogTitle>
+            <DialogTitle>Bayar angsuran {bayar?.baris.nomor ?? ""}</DialogTitle>
             <DialogDescription>
               {bayar === null
                 ? ""
-                : `${bayar.grup.nomorReferensi} · jatuh tempo ${formatTanggalWIB(bayar.baris.jatuhTempoPada)}. Transfer sesuai nominal, lalu unggah bukti.`}
+                : `${bayar.grup.nomorReferensi} · jatuh tempo ${formatTanggalWIB(bayar.baris.jatuhTempoPada)}. Transfer ke rekening PINDAI di bawah, atau pindai QRIS, lalu unggah buktinya.`}
             </DialogDescription>
           </DialogHeader>
           {bayar !== null && (
@@ -315,6 +354,117 @@ export function AngsuranSection() {
           )}
         </DialogContent>
       </Dialog>
+
+      <KuitansiDialog data={kuitansi} onClose={() => setKuitansi(null)} />
     </div>
+  );
+}
+
+/** Teks masuk ke HTML cetak; escape dulu supaya nomor referensi tidak bisa
+ * menyusupkan markup ke dokumen kuitansi. */
+function escapeHtml(teks: string): string {
+  return teks.replace(
+    /[&<>"']/g,
+    (c) =>
+      ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c] ?? c,
+  );
+}
+
+function htmlKuitansi(grup: Grup, baris: Baris): string {
+  const denda = baris.dendaDibayar ?? 0;
+  return `
+    <div class="kop">
+      <div class="kop-kiri">
+        <div>
+          <p class="kop-judul">PINDAI</p>
+          <p class="kop-sub">Kuitansi pembayaran angsuran</p>
+        </div>
+      </div>
+      <div class="kop-kanan">
+        <span class="kop-badge">LUNAS</span>
+        <span class="kop-ref">${escapeHtml(grup.nomorReferensi)}</span>
+      </div>
+    </div>
+    <h1>Kuitansi Angsuran ${baris.nomor}</h1>
+    <p>Jatuh tempo ${formatTanggalWIB(baris.jatuhTempoPada)}. Dana diterima ${baris.dibayarPada === null ? "sesuai bukti transfer" : formatTanggalWIB(baris.dibayarPada)} dan sudah dicocokkan admin.</p>
+    <table class="rincian">
+      <tbody>
+        <tr><td>Pokok</td><td class="angka">${formatRupiah(baris.pokok)}</td></tr>
+        <tr><td>Bunga</td><td class="angka">${formatRupiah(baris.bunga)}</td></tr>
+        <tr><td>Biaya admin</td><td class="angka">${formatRupiah(baris.biayaAdmin)}</td></tr>
+        <tr><td>Denda keterlambatan</td><td class="angka">${formatRupiah(denda)}</td></tr>
+        <tr class="total"><td>Total dibayar</td><td class="angka">${formatRupiah(baris.totalDibayar)}</td></tr>
+      </tbody>
+    </table>
+    <p>Kuitansi ini dihasilkan dari jadwal angsuran PINDAI dan bukti transfer yang telah dicocokkan admin.</p>
+  `;
+}
+
+function KuitansiDialog({ data, onClose }: { data: Kuitansi | null; onClose: () => void }) {
+  const baris = data?.baris ?? null;
+  const denda = baris?.dendaDibayar ?? 0;
+  return (
+    <Dialog
+      open={data !== null}
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
+    >
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Kuitansi angsuran {baris?.nomor ?? ""}</DialogTitle>
+          <DialogDescription>
+            {data === null || baris === null
+              ? ""
+              : `${data.grup.nomorReferensi} · ${baris.dibayarPada === null ? "sudah lunas" : `dibayar ${formatTanggalWIB(baris.dibayarPada)}`}`}
+          </DialogDescription>
+        </DialogHeader>
+        {data !== null && baris !== null && (
+          <>
+            <dl className="grid gap-2 rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm">
+              <div className="flex items-baseline justify-between gap-3">
+                <dt className="text-muted-foreground">Pokok</dt>
+                <dd className="tabular-nums">{formatRupiah(baris.pokok)}</dd>
+              </div>
+              <div className="flex items-baseline justify-between gap-3">
+                <dt className="text-muted-foreground">Bunga</dt>
+                <dd className="tabular-nums">{formatRupiah(baris.bunga)}</dd>
+              </div>
+              <div className="flex items-baseline justify-between gap-3">
+                <dt className="text-muted-foreground">Biaya admin</dt>
+                <dd className="tabular-nums">{formatRupiah(baris.biayaAdmin)}</dd>
+              </div>
+              <div className="flex items-baseline justify-between gap-3">
+                <dt className="text-muted-foreground">Denda keterlambatan</dt>
+                <dd className="tabular-nums">{formatRupiah(denda)}</dd>
+              </div>
+              <div className="flex items-baseline justify-between gap-3 border-t border-slate-200 pt-2 font-semibold text-emerald-800">
+                <dt>Total dibayar</dt>
+                <dd className="tabular-nums">{formatRupiah(baris.totalDibayar)}</dd>
+              </div>
+            </dl>
+            <p className="text-xs leading-5 text-muted-foreground">
+              Angka ini dari jadwal angsuran dan bukti transfer yang sudah dicocokkan admin.
+            </p>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              {baris.buktiUrl != null && (
+                <a
+                  href={baris.buktiUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-xs font-medium text-emerald-800 underline-offset-4 hover:underline"
+                >
+                  Lihat bukti transfer
+                </a>
+              )}
+              <ContractPrintButton
+                html={htmlKuitansi(data.grup, baris)}
+                label="Cetak kuitansi"
+              />
+            </div>
+          </>
+        )}
+      </DialogContent>
+    </Dialog>
   );
 }

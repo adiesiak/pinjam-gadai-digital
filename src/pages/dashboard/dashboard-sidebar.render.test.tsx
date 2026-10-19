@@ -62,9 +62,16 @@ const props = {
   onSignOut: () => {},
 };
 
-const MENU = ["Ringkasan", "Ajukan Pinjaman", "Catatan Pinjaman", "Profil & Rekening", "Status KYC"];
+const MENU = [
+  "Ringkasan",
+  "Cicilan",
+  "Ajukan Pinjaman",
+  "Catatan Pinjaman",
+  "Profil & Rekening",
+  "Status KYC",
+];
 
-// ===== 1. Peminjam: lima menu datar + Keluar =====
+// ===== 1. Peminjam: enam menu datar + Keluar =====
 {
   const html = renderToStaticMarkup(<DashboardSidebar greetingName="Rani" {...props} />);
   for (const label of MENU) {
@@ -106,11 +113,12 @@ const MENU = ["Ringkasan", "Ajukan Pinjaman", "Catatan Pinjaman", "Profil & Reke
   bersih(html, "sidebar akun admin");
 }
 
-// ===== 4. Dashboard hanya punya lima halaman dan bilah bawah di layar sempit =====
+// ===== 4. Dashboard punya enam halaman dan bilah bawah di layar sempit =====
 {
   const dashboard = bacaSumber("pages/Dashboard.tsx");
   const nilaiTab = [...dashboard.matchAll(/<TabsContent value="([a-z]+)"/g)].map((c) => c[1]);
-  ok(nilaiTab.length === 5, `tepat lima halaman (ditemukan ${nilaiTab.length})`);
+  ok(nilaiTab.length === 6, `tepat enam halaman (ditemukan ${nilaiTab.length})`);
+  ada(dashboard, "<AngsuranSection", "halaman Cicilan dipasang");
   ok(
     MENU.every((label) => dashboard.includes(`value: "${label.toLowerCase()}"`) || true),
     "halaman dipasang oleh nilai tab",
@@ -120,7 +128,9 @@ const MENU = ["Ringkasan", "Ajukan Pinjaman", "Catatan Pinjaman", "Profil & Reke
   tidakAda(dashboard, "ManualPaymentEvidenceHistory", "riwayat bukti bayar dilepas dari dashboard");
   tidakAda(dashboard, "RingkasanPeminjamLama", "kartu riwayat peminjam lama dihapus dari dashboard");
   tidakAda(dashboard, "CreditProgressCard", "bar progres kredit 0% dihapus dari dashboard");
-  tidakAda(dashboard, "tombol bayar", "tidak ada tombol bayar");
+  // Tombol bayar hidup di halaman Cicilan, bukan tersebar di Ringkasan.
+  const cicilan = bacaSumber("pages/dashboard/angsuran-views.tsx");
+  ada(cicilan, "Bayar transfer manual", "tombol bayar transfer manual ada di Cicilan");
 }
 
 // ===== 5. Catatan Pinjaman: daftar + saringan status =====

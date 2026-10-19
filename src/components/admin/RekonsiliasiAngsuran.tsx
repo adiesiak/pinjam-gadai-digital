@@ -26,14 +26,16 @@ type Baris = Data["rows"][number];
 
 function KartuBukti({ row }: { row: Baris }) {
   const verifikasi = useMutation(api.angsuran.verifikasiBuktiAngsuran);
+  const tertaut = row.kandidat.find((k) => k.angsuranId === row.angsuranId);
   const awal =
-    row.angsuranId ?? row.saran?.angsuranId ?? row.kandidat[0]?.angsuranId ?? null;
+    tertaut?.angsuranId ?? row.saran?.angsuranId ?? row.kandidat[0]?.angsuranId ?? null;
   const [angsuranId, setAngsuranId] = useState<string>(awal ?? "");
   const terpilih = row.kandidat.find((k) => k.angsuranId === angsuranId) ?? null;
   const [referensi, setReferensi] = useState("");
   const [jumlah, setJumlah] = useState(String(terpilih?.seharusnya ?? row.jumlah));
   const [catatan, setCatatan] = useState("");
   const [modeTolak, setModeTolak] = useState(false);
+  const [konfirmasiTolak, setKonfirmasiTolak] = useState(false);
   const [busy, setBusy] = useState(false);
   const [galat, setGalat] = useState<string | null>(null);
 
@@ -214,19 +216,46 @@ function KartuBukti({ row }: { row: Baris }) {
         >
           <Check className="size-4" aria-hidden /> Verifikasi & tandai lunas
         </Button>
-        <Button
-          type="button"
-          size="sm"
-          variant="outline"
-          disabled={busy || row.kandidat.length === 0}
-          onClick={() => {
-            setModeTolak(true);
-            void kirim("tolak");
-          }}
-          className="gap-1.5 text-destructive"
-        >
-          <X className="size-4" aria-hidden /> Tolak bukti
-        </Button>
+        {konfirmasiTolak ? (
+          <span className="flex flex-wrap items-center gap-2">
+            <Button
+              type="button"
+              size="sm"
+              variant="destructive"
+              disabled={busy}
+              onClick={() => void kirim("tolak")}
+              className="gap-1.5"
+            >
+              <X className="size-4" aria-hidden /> Ya, tolak bukti
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              disabled={busy}
+              onClick={() => {
+                setKonfirmasiTolak(false);
+                setModeTolak(false);
+              }}
+            >
+              Batal
+            </Button>
+          </span>
+        ) : (
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={busy || row.kandidat.length === 0}
+            onClick={() => {
+              setModeTolak(true);
+              setKonfirmasiTolak(true);
+            }}
+            className="gap-1.5 text-destructive"
+          >
+            <X className="size-4" aria-hidden /> Tolak bukti
+          </Button>
+        )}
         <span className="text-[11px] leading-5 text-muted-foreground">
           Verifikasi mewajibkan referensi mutasi dan nominal yang cocok — bukan
           sekadar persetujuan.
