@@ -753,6 +753,17 @@ function labelPokok(status: string): string {
     : "Pokok tercatat";
 }
 
+/**
+ * Tarif yang benar-benar dipakai satu pinjaman.
+ *
+ * Bunga harian mengikuti matriks nominal/tenor dan disimpan sebagai snapshot
+ * di pinjaman. Memakai tarif global di sini membuat pinjaman 7/14 hari terbaca
+ * seolah semuanya 30% — angka bunganya benar, labelnya yang menyesatkan.
+ */
+function tarifBungaPinjaman(row: BarisPinjaman, tarifGlobal: number): number {
+  return row.persenBunga ?? tarifGlobal;
+}
+
 function DetailPinjaman({
   row,
   namaTampil,
@@ -822,6 +833,15 @@ function DetailPinjaman({
               nilai={rupiah(row.pokokDiajukan ?? row.pokokPinjaman)}
             />
             <BarisDetail tebal label={labelPokok(row.status)} nilai={rupiah(row.pokokPinjaman)} />
+            <BarisDetail
+              tebal
+              label="Tarif bunga"
+              nilai={
+                row.tenorBulan === null
+                  ? `${tarifBungaPinjaman(row, persenBunga)}% untuk tenor ${row.tenorHari} hari`
+                  : `${tarifBungaPinjaman(row, persenBunga)}% per bulan`
+              }
+            />
             <BarisDetail tebal label="Bunga pinjaman" nilai={rupiah(row.bunga)} />
             <BarisDetail
               tebal
@@ -1437,7 +1457,9 @@ function DaftarPinjaman({
               {rupiah(row.pokokDiajukan ?? row.pokokPinjaman)}
             </InfoKartu>
             <InfoKartu label={labelPokok(row.status)}>{rupiah(row.pokokPinjaman)}</InfoKartu>
-            <InfoKartu label={`Bunga ${persenBunga}%`}>{rupiah(row.bunga)}</InfoKartu>
+            <InfoKartu label={`Bunga ${tarifBungaPinjaman(row, persenBunga)}%`}>
+              {rupiah(row.bunga)}
+            </InfoKartu>
             <InfoKartu label="Total lunas">{rupiah(row.totalLunas)}</InfoKartu>
             <InfoKartu label="Tenor">
               {row.tenorBulan === null ? `${row.tenorHari} hari` : `${row.tenorBulan} bulan`}
@@ -1515,7 +1537,7 @@ function DaftarPinjaman({
               <TableCell className="align-top tabular-nums">
                 <p className="font-medium text-slate-800">{rupiah(row.totalLunas)}</p>
                 <p className="mt-1 text-xs text-emerald-700">
-                  Bunga {persenBunga}% {rupiah(row.bunga)}
+                  Bunga {tarifBungaPinjaman(row, persenBunga)}% {rupiah(row.bunga)}
                 </p>
                 <p className="mt-1 text-xs text-amber-700">
                   Biaya platform (layanan) dari uang kembali{" "}
