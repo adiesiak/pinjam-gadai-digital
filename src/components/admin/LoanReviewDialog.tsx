@@ -41,7 +41,7 @@ import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
-import { loanPurposeLabel, quotePinjaman } from "@/lib/loan";
+import { loanPurposeLabel } from "@/lib/loan";
 import { formatRupiah } from "@/lib/money";
 import { rincianPinjamanNyata } from "@/lib/rincianAliranDana";
 import type { StatusKyc } from "@/lib/kycStatus";
@@ -167,15 +167,6 @@ export function LoanReviewDialog({
   const pokokDiajukan =
     (row as { pokokDiajukan?: number }).pokokDiajukan ?? row.pokokPinjaman;
   const rowWithOptional = row as LoanRowWithOptionalProps;
-  const q = quotePinjaman({
-    pokokPinjaman: row.pokokPinjaman,
-    persenBunga: rowWithOptional?.persenBunga ?? undefined,
-  });
-  // Pinjaman dianggap sudah berpindah dana bila statusnya berjalan/lunas atau
-  // sudah ada pendana tercatat — di situlah alokasi dana & jurnal ledger
-  // muncul, dan di situlah centang "Hapus menyeluruh" dibutuhkan.
-  const sudahBerpindahDana =
-    row.status === "didanai" || row.status === "lunas" || row.pendanaNama != null;
 
   // ===== Ringkasan eksekutif (tiga kotak) =====
   // Angka metrik diambil dari mesin uang yang SAMA dengan ledger
@@ -424,6 +415,17 @@ export function LoanReviewDialog({
     <div className="space-y-4">
       {kotakRingkas}
 
+      {/* Galat perubahan status tampil di sini, bukan di balik toast: dialog
+          tetap terbuka setelah gagal, jadi admin perlu membaca sebabnya. */}
+      {error !== null && (
+        <p
+          role="alert"
+          className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs leading-5 text-rose-800"
+        >
+          {error}
+        </p>
+      )}
+
       {/* Dokumen rincian untuk peminjam. Terpisah dari tombol keputusan karena
           kiriman ini tidak mengubah status apa pun, dan dibuka untuk seluruh
           pinjaman yang barisnya bisa dibuka admin. */}
@@ -432,6 +434,8 @@ export function LoanReviewDialog({
         <p className="mt-0.5 text-[11px] leading-4 text-muted-foreground">
           Kirim rincian resmi (potongan di muka, bunga, jadwal bayar) sebagai berkas PDF ke
           kontak peminjam yang tercatat, atau simpan berkasnya untuk diserahkan sendiri.
+          Begitu dana ditandai tersalurkan, rincian juga dikirim otomatis ke WhatsApp
+          peminjam, dengan email sebagai cadangan bila nomornya kosong atau gagal.
         </p>
         <div className="mt-2">
           <KirimRincianPinjaman loanId={row._id} />

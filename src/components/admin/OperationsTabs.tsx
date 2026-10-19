@@ -3,6 +3,7 @@ import { BellRing, Gavel, Wallet } from "lucide-react";
 import { useState } from "react";
 
 import { StatusBadge } from "@/components/StatusBadge";
+import { KirimRincianPinjaman } from "@/components/admin/KirimRincianPinjaman";
 import { TombolInfoTagihanWA } from "@/components/admin/TombolInfoTagihanWA";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -81,7 +82,7 @@ export function DpdTab() {
   return (
     <div className="animate-masuk space-y-3">
       <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900">
-        Daftar ini memuat jatuh tempo yang dihitung aplikasi, bukan tunggakan/tagihan terverifikasi. Tombolnya membuat tautan cek status resmi lalu membuka draf WhatsApp (H-3/H-1 otomatis sesuai sisa hari) — pesannya selalu ditinjau admin sebelum dikirim, dan tautan itu membuka halaman kwitansi resmi PINDAI.
+        Daftar ini memuat jatuh tempo yang dihitung aplikasi, bukan tunggakan/tagihan terverifikasi. Tombol pengingat membuat tautan cek status resmi lalu membuka draf WhatsApp (H-3/H-1 otomatis sesuai sisa hari); pesannya selalu ditinjau admin sebelum dikirim. Tombol WA dan Email di baris yang sama mengirim dokumen rincian terkini ke kontak peminjam, tanpa mengubah status pinjaman.
       </p>
       <ul className="divide-y divide-slate-200 rounded-2xl border border-slate-200 bg-white">
         {perluDiingatkan.map((l) => {
@@ -107,6 +108,7 @@ export function DpdTab() {
                 </p>
               </div>
               <div className="flex shrink-0 flex-wrap items-center gap-2">
+                <KirimRincianPinjaman loanId={l._id} ringkas />
                 <TombolInfoTagihanWA
                   loanId={l._id}
                   namaPeminjam={l.namaLengkap}

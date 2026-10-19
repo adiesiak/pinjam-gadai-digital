@@ -3,7 +3,7 @@ import { v } from "convex/values";
 
 import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
-import { action, type ActionCtx } from "./_generated/server";
+import { action, internalAction, type ActionCtx } from "./_generated/server";
 import { buatPdfRincian } from "../lib/rincianPdf";
 import {
   htmlRincianEmail,
@@ -102,6 +102,104 @@ async function catatHasil(
   });
 }
 
+/**
+ * Kirim dokumen rincian lewat WhatsApp dan tutup baris lognya.
+ *
+ * Melempar bila gateway menolak, sehingga pemanggil otomatis bisa mencoba
+ * email sebagai cadangan. `lampiran: false` berarti pesan teksnya terkirim
+ * tetapi gateway belum mendukung berkas.
+ */
+async function kirimPdfWhatsapp(
+  ctx: ActionCtx,
+  input: { nomor: string; dokumen: DokumenRincianPinjaman; logId: Id<"rincianKirimLog"> },
+): Promise<{ lampiran: boolean }> {
+  let ditutup = false;
+  const tutup = async (status: "terkirim" | "gagal", respon: string) => {
+    if (ditutup) return;
+    ditutup = true;
+    await catatHasil(ctx, input.logId, status, respon);
+  };
+
+  const isi = teksRincianWhatsapp(input.dokumen);
+  try {
+    const settings: WaSettings = await ctx.runQuery(internal.whatsapp._getSettings, {});
+    if (settings.aktif !== true || !settings.apiUrl) {
+      throw new Error("Integrasi WhatsApp belum aktif, jadi rincian tidak dikirim.");
+    }
+    const apiKey = apiKeyGatewayWa();
+    if (apiKey === "") {
+      throw new Error("WHATSAPP_API_KEY belum diisi di environment.");
+    }
+
+    const byte = buatPdfRincian(input.dokumen);
+    if (byte.length > BATAS_LAMPIRAN_BYTE) {
+      throw new Error(`Dokumen rincian terlalu besar untuk lampiran WhatsApp (${byte.length} byte).`);
+    }
+    // Salinan tipis dari byte: `BlobPart` menuntut buffer yang pasti.
+    const berkasId = await ctx.storage.store(
+      new Blob([new Uint8Array(byte)], { type: "application/pdf" }),
+    );
+    const url = await ctx.storage.getUrl(berkasId);
+    if (url === null) throw new Error("Berkas rincian gagal disiapkan di penyimpanan.");
+
+    const hasil = await kirimViaGateway(apiKey, settings, input.nomor, isi, {
+      url,
+      nama: namaBerkasRincian(input.dokumen),
+    });
+
+    // Berkas dihapus belakangan: gateway mengambil lampirannya setelah
+    // menjawab, dan penghapusan terjadwal tetap membuat tautannya berumur
+    // pendek walau kiriman gagal.
+    await ctx.scheduler.runAfter(RETENSI_BERKAS_MS, internal.laporanPendana._hapusBerkas, {
+      storageId: berkasId,
+    });
+
+    if (hasil.ok) {
+      await tutup("terkirim", "WhatsApp dengan lampiran PDF");
+      return { lampiran: true };
+    }
+
+    // Gateway generik menolak lampiran SEBELUM pesan dikirim, jadi pesan
+    // ringkasnya masih boleh menyusul tanpa risiko kiriman ganda.
+    if (hasil.respon.includes(ALASAN_TANPA_LAMPIRAN)) {
+      const teks = await kirimViaGateway(apiKey, settings, input.nomor, isi);
+      if (teks.ok) {
+        await tutup("terkirim", `tanpa lampiran PDF: ${hasil.respon}`);
+        return { lampiran: false };
+      }
+      throw new Error(teks.respon);
+    }
+
+    throw new Error(hasil.respon);
+  } catch (err) {
+    const pesan = pesanGalat(err);
+    await tutup("gagal", pesan);
+    throw new Error(pesan);
+  }
+}
+
+/** Kirim dokumen rincian lewat email gateway dan tutup baris lognya. */
+async function kirimPdfEmail(
+  ctx: ActionCtx,
+  input: { email: string; dokumen: DokumenRincianPinjaman; logId: Id<"rincianKirimLog"> },
+): Promise<void> {
+  try {
+    await kirimEmailGateway({
+      email: input.email,
+      subjek: `Rincian pinjaman ${input.dokumen.nomorReferensi} - PINDAI`,
+      html: htmlRincianEmail(input.dokumen),
+      teks: teksRincianEmail(input.dokumen),
+      namaBerkas: namaBerkasRincian(input.dokumen),
+      pdf: buatPdfRincian(input.dokumen),
+    });
+    await catatHasil(ctx, input.logId, "terkirim", "email dengan lampiran PDF");
+  } catch (err) {
+    const pesan = pesanGalat(err);
+    await catatHasil(ctx, input.logId, "gagal", pesan);
+    throw new Error(pesan);
+  }
+}
+
 /** Kirim email lewat gateway integrasi (VLY) beserta lampiran PDF. */
 async function kirimEmailGateway(input: {
   email: string;
@@ -193,22 +291,8 @@ export const kirimRincianEmail = action({
     });
     if (!siap.ok) throw new Error(siap.pesan);
 
-    try {
-      await kirimEmailGateway({
-        email,
-        subjek: `Rincian pinjaman ${data.dokumen.nomorReferensi} - PINDAI`,
-        html: htmlRincianEmail(data.dokumen),
-        teks: teksRincianEmail(data.dokumen),
-        namaBerkas: namaBerkasRincian(data.dokumen),
-        pdf: buatPdfRincian(data.dokumen),
-      });
-      await catatHasil(ctx, siap.logId, "terkirim", "email dengan lampiran PDF");
-      return { ok: true as const, kanal: "email" as const, tujuan: email };
-    } catch (err) {
-      const pesan = pesanGalat(err);
-      await catatHasil(ctx, siap.logId, "gagal", pesan);
-      throw new Error(pesan);
-    }
+    await kirimPdfEmail(ctx, { email, dokumen: data.dokumen, logId: siap.logId });
+    return { ok: true as const, kanal: "email" as const, tujuan: email };
   },
 });
 
@@ -238,71 +322,95 @@ export const kirimRincianWhatsapp = action({
     });
     if (!siap.ok) throw new Error(siap.pesan);
 
-    const isi = teksRincianWhatsapp(data.dokumen);
-    try {
-      const settings: WaSettings = await ctx.runQuery(internal.whatsapp._getSettings, {});
-      if (settings.aktif !== true || !settings.apiUrl) {
-        throw new Error("Integrasi WhatsApp belum aktif, jadi rincian tidak dikirim.");
-      }
-      const apiKey = apiKeyGatewayWa();
-      if (apiKey === "") {
-        throw new Error("WHATSAPP_API_KEY belum diisi di environment.");
-      }
+    const hasil = await kirimPdfWhatsapp(ctx, {
+      nomor,
+      dokumen: data.dokumen,
+      logId: siap.logId,
+    });
+    return { ok: true as const, kanal: "whatsapp" as const, tujuan: nomor, lampiran: hasil.lampiran };
+  },
+});
 
-      const byte = buatPdfRincian(data.dokumen);
-      if (byte.length > BATAS_LAMPIRAN_BYTE) {
-        throw new Error(
-          `Dokumen rincian terlalu besar untuk lampiran WhatsApp (${byte.length} byte).`,
-        );
-      }
-      // Salinan tipis dari byte: `BlobPart` menuntut buffer yang pasti.
-      const berkasId = await ctx.storage.store(
-        new Blob([new Uint8Array(byte)], { type: "application/pdf" }),
-      );
-      const url = await ctx.storage.getUrl(berkasId);
-      if (url === null) throw new Error("Berkas rincian gagal disiapkan di penyimpanan.");
+type HasilKirimRincian = {
+  ok: boolean;
+  kanal: "whatsapp" | "email" | null;
+  respon: string;
+};
 
-      const hasil = await kirimViaGateway(apiKey, settings, nomor, isi, {
-        url,
-        nama: namaBerkasRincian(data.dokumen),
-      });
-
-      // Berkas dihapus belakangan: gateway mengambil lampirannya setelah
-      // menjawab, dan penghapusan terjadwal tetap membuat tautannya berumur
-      // pendek walau kiriman gagal.
-      await ctx.scheduler.runAfter(RETENSI_BERKAS_MS, internal.laporanPendana._hapusBerkas, {
-        storageId: berkasId,
-      });
-
-      if (hasil.ok) {
-        await catatHasil(ctx, siap.logId, "terkirim", "WhatsApp dengan lampiran PDF");
-        return { ok: true as const, kanal: "whatsapp" as const, tujuan: nomor, lampiran: true };
-      }
-
-      // Gateway generik menolak lampiran SEBELUM pesan dikirim, jadi pesan
-      // ringkasnya masih boleh menyusul tanpa risiko kiriman ganda.
-      if (hasil.respon.includes(ALASAN_TANPA_LAMPIRAN)) {
-        const teks = await kirimViaGateway(apiKey, settings, nomor, isi);
-        if (teks.ok) {
-          await catatHasil(ctx, siap.logId, "terkirim", `tanpa lampiran PDF: ${hasil.respon}`);
-          return {
-            ok: true as const,
-            kanal: "whatsapp" as const,
-            tujuan: nomor,
-            lampiran: false,
-          };
-        }
-        await catatHasil(ctx, siap.logId, "gagal", teks.respon);
-        throw new Error(teks.respon);
-      }
-
-      await catatHasil(ctx, siap.logId, "gagal", hasil.respon);
-      throw new Error(hasil.respon);
-    } catch (err) {
-      const pesan = pesanGalat(err);
-      await catatHasil(ctx, siap.logId, "gagal", pesan);
-      throw new Error(pesan);
+/**
+ * Kirim rincian tanpa klik admin, dipicu penjadwal saat pinjaman ditandai
+ * tersalurkan.
+ *
+ * WhatsApp dicoba lebih dulu karena peminjam membacanya paling cepat; email
+ * menjadi cadangan bila nomornya kosong atau gatewaynya menolak. Hasilnya
+ * dikembalikan, bukan dilempar: pencairan yang sah tidak boleh terlihat gagal
+ * hanya karena gateway sedang tidak bisa dihubungi.
+ */
+export const kirimRincianOtomatis = internalAction({
+  args: { loanId: v.id("loans"), olehUserId: v.id("users") },
+  handler: async (ctx, { loanId, olehUserId }): Promise<HasilKirimRincian> => {
+    const data = await ctx.runQuery(internal.rincianPinjaman._dataKirim, { loanId });
+    if (data === null) {
+      return { ok: false, kanal: null, respon: "Pinjaman tidak ditemukan." };
     }
+
+    const nomor = data.whatsapp?.trim() ?? "";
+    const email = data.email?.trim() ?? "";
+    const emailSah = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+    const kegagalan: string[] = [];
+
+    if (nomor !== "") {
+      const siap = await ctx.runMutation(internal.rincianPinjaman.mulaiKirimOtomatis, {
+        loanId,
+        kanal: "whatsapp",
+        tujuan: nomor,
+        olehUserId,
+      });
+      if (!siap.ok) {
+        return { ok: true, kanal: "whatsapp", respon: "Rincian sudah dikirim otomatis sebelumnya." };
+      }
+      try {
+        const hasil = await kirimPdfWhatsapp(ctx, {
+          nomor,
+          dokumen: data.dokumen,
+          logId: siap.logId,
+        });
+        return {
+          ok: true,
+          kanal: "whatsapp",
+          respon: hasil.lampiran ? "WhatsApp dengan lampiran PDF" : "WhatsApp tanpa lampiran PDF",
+        };
+      } catch (err) {
+        kegagalan.push(`WhatsApp: ${pesanGalat(err)}`);
+      }
+    }
+
+    if (emailSah) {
+      const siap = await ctx.runMutation(internal.rincianPinjaman.mulaiKirimOtomatis, {
+        loanId,
+        kanal: "email",
+        tujuan: email,
+        olehUserId,
+      });
+      if (!siap.ok) {
+        return { ok: true, kanal: "email", respon: "Rincian sudah dikirim otomatis sebelumnya." };
+      }
+      try {
+        await kirimPdfEmail(ctx, { email, dokumen: data.dokumen, logId: siap.logId });
+        return { ok: true, kanal: "email", respon: "email dengan lampiran PDF" };
+      } catch (err) {
+        kegagalan.push(`email: ${pesanGalat(err)}`);
+      }
+    }
+
+    return {
+      ok: false,
+      kanal: null,
+      respon:
+        kegagalan.length > 0
+          ? kegagalan.join(" | ")
+          : "Peminjam belum punya nomor WhatsApp maupun email, jadi rincian tidak dikirim otomatis.",
+    };
   },
 });
 

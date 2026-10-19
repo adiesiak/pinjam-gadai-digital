@@ -95,8 +95,48 @@ ok(
   "sedang bekerja berarti tombol terkunci",
 );
 
+// Mode ringkas untuk baris antrean: hanya kanal kirim, tanpa unduh PDF.
+const ringkas = gambar({ ringkas: true });
+ada(ringkas, 'aria-label="Kirim rincian pinjaman lewat WhatsApp"', "tombol WA ringkas");
+ada(ringkas, 'aria-label="Kirim rincian pinjaman lewat email"', "tombol email ringkas");
+tidakAda(ringkas, "Simpan PDF", "mode ringkas tanpa tombol PDF");
+
+// Riwayat menampilkan kanal, status, penanda otomatis, dan alasan gagal.
+const denganRiwayat = gambar({
+  riwayat: [
+    {
+      kanal: "whatsapp",
+      tujuan: "628123456789",
+      status: "terkirim",
+      respon: null,
+      otomatis: true,
+      pada: Date.UTC(2026, 9, 19, 3, 0),
+    },
+    {
+      kanal: "email",
+      tujuan: "rani@pindai.test",
+      status: "gagal",
+      respon: "Gateway email menolak kiriman.",
+      otomatis: false,
+      pada: Date.UTC(2026, 9, 19, 2, 0),
+    },
+  ],
+});
+ada(denganRiwayat, "WhatsApp", "kanal riwayat");
+ada(denganRiwayat, "terkirim", "status riwayat");
+ada(denganRiwayat, "otomatis", "penanda kiriman otomatis");
+ada(denganRiwayat, "Gateway email menolak kiriman.", "alasan gagal tampil");
+
 // Aturan copy proyek: tanpa em dash di teks yang dihasilkan.
-for (const [nama, html] of Object.entries({ memuat, bukanAdmin, siap, kosong, denganKabar })) {
+for (const [nama, html] of Object.entries({
+  memuat,
+  bukanAdmin,
+  siap,
+  kosong,
+  denganKabar,
+  ringkas,
+  denganRiwayat,
+})) {
   tidakAda(html, "\u2014", `${nama} tanpa em dash`);
 }
 

@@ -642,8 +642,11 @@ const schema = defineSchema(
       status: v.string(),
       respon: v.optional(v.string()),
       olehUserId: v.id("users"),
+      /** Diisi bila kiriman dipicu pencairan, bukan klik admin. */
+      otomatis: v.optional(v.boolean()),
       pada: v.number(),
     })
+      .index("by_loan", ["loanId", "pada"])
       .index("by_loan_kanal", ["loanId", "kanal"])
       .index("by_oleh", ["olehUserId", "pada"]),
 

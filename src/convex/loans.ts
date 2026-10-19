@@ -1248,6 +1248,15 @@ async function setLoanStatus(
     });
   }
 
+  // Rincian resmi menyusul pencairan, supaya peminjam memegang jadwal dan
+  // kewajibannya sejak dana turun. Hanya pada perpindahan KE didanai.
+  if (status === "didanai" && statusLama !== "didanai") {
+    await ctx.scheduler.runAfter(0, internal.rincianKirim.kirimRincianOtomatis, {
+      loanId,
+      olehUserId: adminId,
+    });
+  }
+
   return {
     ok: true,
     status,
@@ -1428,6 +1437,11 @@ export const danaiPinjaman = mutation({
       loanId,
       alasan: "Dana ditandai tersalurkan.",
       statusLama: loan.status,
+    });
+    // Jalur tombol ini juga pencairan, jadi rincian resmi ikut dikirim.
+    await ctx.scheduler.runAfter(0, internal.rincianKirim.kirimRincianOtomatis, {
+      loanId,
+      olehUserId: adminId,
     });
     return { ok: true };
   },

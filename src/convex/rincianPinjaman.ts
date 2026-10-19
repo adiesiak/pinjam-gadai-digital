@@ -1,8 +1,8 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { v } from "convex/values";
 
-import type { Id } from "./_generated/dataModel";
-import { internalMutation, query } from "./_generated/server";
+import type { Doc, Id } from "./_generated/dataModel";
+import { internalMutation, internalQuery, query, type QueryCtx } from "./_generated/server";
 import { getAdminGateStatus, requireAdminSession } from "./adminAuthz";
 import { tarifDendaBerlaku } from "./system";
 import { susunRincianPinjaman } from "../lib/rincianPinjaman";
@@ -24,6 +24,39 @@ const JEDA_KIRIM_MS = 60_000;
 const MAKS_KIRIM_PER_HARI = 10;
 
 /**
+ * Dokumen dari satu baris pinjaman. Semua jalur baca memakai fungsi ini supaya
+ * PDF, email, dan WhatsApp tidak pernah berbeda angka.
+ */
+async function dokumenRincian(ctx: QueryCtx, loan: Doc<"loans">) {
+  return susunRincianPinjaman(
+    {
+      nomorReferensi: loan.nomorReferensi,
+      namaLengkap: loan.namaLengkap,
+      status: loan.status,
+      pokokPinjaman: loan.pokokPinjaman,
+      tenorHari: loan.tenorHari,
+      tenorBulan: loan.tenorBulan ?? null,
+      persenBunga: loan.persenBunga ?? null,
+      didanaiPada: loan.didanaiPada ?? null,
+      diajukanPada: loan.diajukanPada ?? loan._creationTime,
+      tujuan: loan.tujuan,
+      namaBank: loan.namaBank ?? null,
+      nomorRekening: loan.nomorRekening,
+    },
+    { sekarang: Date.now(), dendaPerHari: await tarifDendaBerlaku(ctx) },
+  );
+}
+
+/** Kontak kirim milik peminjam: email akun dan nomor dari KYC lebih dulu. */
+async function kontakPeminjam(ctx: QueryCtx, loan: Doc<"loans">) {
+  const pemilik = await ctx.db.get(loan.userId);
+  return {
+    email: pemilik?.email ?? null,
+    whatsapp: loan.nomorWhatsApp ?? pemilik?.nomorWhatsApp ?? null,
+  };
+}
+
+/**
  * Dokumen rincian satu pinjaman + kesiapan kanal kirimnya.
  *
  * Pemilik pinjaman boleh membaca rinciannya sendiri; pengiriman ke peminjam
@@ -39,34 +72,65 @@ export const dataRincian = query({
     if (loan === null) throw new Error("Pinjaman tidak ditemukan.");
     if (loan.userId !== userId) await requireAdminSession(ctx);
 
-    const pemilik = await ctx.db.get(loan.userId);
     const gerbang = await getAdminGateStatus(ctx);
-    const dokumen = susunRincianPinjaman(
-      {
-        nomorReferensi: loan.nomorReferensi,
-        namaLengkap: loan.namaLengkap,
-        status: loan.status,
-        pokokPinjaman: loan.pokokPinjaman,
-        tenorHari: loan.tenorHari,
-        tenorBulan: loan.tenorBulan ?? null,
-        persenBunga: loan.persenBunga ?? null,
-        didanaiPada: loan.didanaiPada ?? null,
-        diajukanPada: loan.diajukanPada ?? loan._creationTime,
-        tujuan: loan.tujuan,
-        namaBank: loan.namaBank ?? null,
-        nomorRekening: loan.nomorRekening,
-      },
-      { sekarang: Date.now(), dendaPerHari: await tarifDendaBerlaku(ctx) },
-    );
+    const kontak = await kontakPeminjam(ctx, loan);
 
     return {
-      dokumen,
+      dokumen: await dokumenRincian(ctx, loan),
       bolehKirim: gerbang.isAdmin && gerbang.verified,
-      /** Email akun peminjam; null bila akunnya belum punya email. */
-      email: pemilik?.email ?? null,
-      /** Nomor dari KYC pinjaman lebih dulu, lalu nomor akun. */
-      whatsapp: loan.nomorWhatsApp ?? pemilik?.nomorWhatsApp ?? null,
+      email: kontak.email,
+      whatsapp: kontak.whatsapp,
     };
+  },
+});
+
+/**
+ * Data kiriman untuk action otomatis. Tidak memeriksa sesi: dipanggil penjadwal
+ * setelah admin menandai pinjaman tersalurkan, bukan oleh peramban.
+ */
+export const _dataKirim = internalQuery({
+  args: { loanId: v.id("loans") },
+  handler: async (ctx, { loanId }) => {
+    const loan = await ctx.db.get(loanId);
+    if (loan === null) return null;
+    const kontak = await kontakPeminjam(ctx, loan);
+    return {
+      dokumen: await dokumenRincian(ctx, loan),
+      email: kontak.email,
+      whatsapp: kontak.whatsapp,
+    };
+  },
+});
+
+/**
+ * Riwayat kiriman rincian satu pinjaman, terbaru dulu. Dipakai panel admin
+ * supaya admin tahu kiriman mana yang sudah diterima dan mana yang gagal
+ * sebelum menekan tombol lagi.
+ */
+export const riwayatKirim = query({
+  args: { loanId: v.id("loans") },
+  handler: async (ctx, { loanId }) => {
+    const userId = await getAuthUserId(ctx);
+    if (userId === null) throw new Error("Harus masuk terlebih dahulu.");
+
+    const loan = await ctx.db.get(loanId);
+    if (loan === null) throw new Error("Pinjaman tidak ditemukan.");
+    if (loan.userId !== userId) await requireAdminSession(ctx);
+
+    const baris = await ctx.db
+      .query("rincianKirimLog")
+      .withIndex("by_loan", (q) => q.eq("loanId", loanId))
+      .order("desc")
+      .take(8);
+
+    return baris.map((b) => ({
+      kanal: b.kanal,
+      tujuan: b.tujuan,
+      status: b.status,
+      respon: b.respon ?? null,
+      otomatis: b.otomatis === true,
+      pada: b.pada,
+    }));
   },
 });
 
@@ -124,6 +188,43 @@ export const mulaiKirim = internalMutation({
       status: "diproses",
       olehUserId: args.olehUserId,
       pada: sekarang,
+    });
+    return { ok: true, logId };
+  },
+});
+
+/**
+ * Buka baris log untuk kiriman otomatis. Berbeda dari `mulaiKirim`, tidak ada
+ * batas per admin: pencairan hanya terjadi sekali per pinjaman, dan kiriman
+ * yang sudah berhasil tidak diulang bila penjadwal sempat berjalan dua kali.
+ */
+export const mulaiKirimOtomatis = internalMutation({
+  args: {
+    loanId: v.id("loans"),
+    kanal: kanalValidator,
+    tujuan: v.string(),
+    olehUserId: v.id("users"),
+  },
+  handler: async (
+    ctx,
+    args,
+  ): Promise<{ ok: true; logId: Id<"rincianKirimLog"> } | { ok: false; sudah: boolean }> => {
+    const sebelumnya = await ctx.db
+      .query("rincianKirimLog")
+      .withIndex("by_loan", (q) => q.eq("loanId", args.loanId))
+      .collect();
+    if (sebelumnya.some((baris) => baris.otomatis === true && baris.status === "terkirim")) {
+      return { ok: false, sudah: true };
+    }
+
+    const logId = await ctx.db.insert("rincianKirimLog", {
+      loanId: args.loanId,
+      kanal: args.kanal,
+      tujuan: args.tujuan,
+      status: "diproses",
+      otomatis: true,
+      olehUserId: args.olehUserId,
+      pada: Date.now(),
     });
     return { ok: true, logId };
   },

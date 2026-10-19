@@ -17,6 +17,7 @@ import { siapkanPengguna, type KonteksUji } from "./test.helpers";
 import { modules } from "./test.setup";
 
 const HARI = 86_400_000;
+const NOMOR_UJI = "628123456789";
 
 /** Pinjaman harian yang sudah dicairkan milik satu pengguna. */
 async function buatPinjaman(
@@ -186,5 +187,98 @@ describe("pembatas laju kirim rincian", () => {
       olehUserId: admin.userId,
     });
     expect(emailPertama.ok).toBe(true);
+  });
+
+  it("kiriman otomatis tidak dibatasi jatah harian admin", async () => {
+    const t = convexTest(schema, modules);
+    const rani = await siapkanPengguna(t, "Rani Peminjam", {
+      email: "rani@pindai.test",
+      role: "peminjam",
+    });
+    const admin = await siapkanPengguna(t, "Super Admin", {
+      email: "admin@pindai.test",
+      role: "admin",
+    });
+    const loanId = await buatPinjaman(t, rani.userId);
+
+    const siap = await t.mutation(internal.rincianPinjaman.mulaiKirimOtomatis, {
+      loanId,
+      kanal: "whatsapp",
+      tujuan: NOMOR_UJI,
+      olehUserId: admin.userId,
+    });
+
+    expect(siap.ok).toBe(true);
+    const log = await t.run((ctx) => ctx.db.query("rincianKirimLog").collect());
+    expect(log).toHaveLength(1);
+    expect(log[0].otomatis).toBe(true);
+    expect(log[0].status).toBe("diproses");
+  });
+});
+
+describe("log kiriman otomatis", () => {
+  it("kiriman otomatis yang sudah berhasil tidak diulang", async () => {
+    const t = convexTest(schema, modules);
+    const rani = await siapkanPengguna(t, "Rani Peminjam", {
+      email: "rani@pindai.test",
+      role: "peminjam",
+    });
+    const admin = await siapkanPengguna(t, "Super Admin", {
+      email: "admin@pindai.test",
+      role: "admin",
+    });
+    const loanId = await buatPinjaman(t, rani.userId);
+    const arg = {
+      loanId,
+      kanal: "whatsapp" as const,
+      tujuan: NOMOR_UJI,
+      olehUserId: admin.userId,
+    };
+
+    const pertama = await t.mutation(internal.rincianPinjaman.mulaiKirimOtomatis, arg);
+    expect(pertama.ok).toBe(true);
+    if (!pertama.ok) return;
+    await t.mutation(internal.rincianPinjaman.selesaikanKirim, {
+      logId: pertama.logId,
+      status: "terkirim",
+    });
+
+    const kedua = await t.mutation(internal.rincianPinjaman.mulaiKirimOtomatis, arg);
+    expect(kedua.ok).toBe(false);
+    if (kedua.ok) return;
+    expect(kedua.sudah).toBe(true);
+  });
+
+  it("riwayat kirim terbaca admin, bukan pengguna lain", async () => {
+    const t = convexTest(schema, modules);
+    const rani = await siapkanPengguna(t, "Rani Peminjam", {
+      email: "rani@pindai.test",
+      role: "peminjam",
+    });
+    const lain = await siapkanPengguna(t, "Budi Peminjam", {
+      email: "budi@pindai.test",
+      role: "peminjam",
+    });
+    const admin = await siapkanPengguna(t, "Super Admin", {
+      email: "admin@pindai.test",
+      role: "admin",
+    });
+    const loanId = await buatPinjaman(t, rani.userId);
+    await t.mutation(internal.rincianPinjaman.mulaiKirimOtomatis, {
+      loanId,
+      kanal: "whatsapp",
+      tujuan: NOMOR_UJI,
+      olehUserId: admin.userId,
+    });
+
+    const riwayat = await admin.sesi.query(api.rincianPinjaman.riwayatKirim, { loanId });
+    expect(riwayat).toHaveLength(1);
+    expect(riwayat[0].kanal).toBe("whatsapp");
+    expect(riwayat[0].status).toBe("diproses");
+    expect(riwayat[0].otomatis).toBe(true);
+
+    await expect(lain.sesi.query(api.rincianPinjaman.riwayatKirim, { loanId })).rejects.toThrow(
+      /Super Admin|khusus/i,
+    );
   });
 });
