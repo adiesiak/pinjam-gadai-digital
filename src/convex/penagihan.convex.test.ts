@@ -612,6 +612,11 @@ describe("pembaruan status pembayaran", () => {
     expect(kewajiban).toBeGreaterThan(0);
     expect(daftar.baris[0].hariTerlambat).toBeGreaterThan(0);
     expect(daftar.baris[0].tahapKode).toBe("sedang");
+    // Antrean kerja memakai skor prioritas yang bisa dijelaskan.
+    expect(daftar.baris[0].prioritas.skor).toBeGreaterThan(0);
+    expect(daftar.baris[0].prioritas.disarankanHariIni).toBe(true);
+    expect(daftar.baris[0].prioritas.alasan.length).toBeGreaterThan(0);
+    expect(daftar.baris[0].prioritas.alasan).toContain("Belum ada tindakan tercatat");
 
     await expect(
       admin.sesi.mutation(api.penagihan.perbaruiStatusPembayaran, {

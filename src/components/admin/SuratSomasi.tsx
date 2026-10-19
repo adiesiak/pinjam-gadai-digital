@@ -16,7 +16,13 @@ import { Button } from "@/components/ui/button";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { unduhLewatAplikasi } from "@/lib/jembatanAndroid";
-import { teksSomasi, type SuratSomasi as IsiSuratSomasi } from "@/lib/suratSomasi";
+import {
+  LABEL_TINDAK_LANJUT_SOMASI,
+  TINDAK_LANJUT_SOMASI,
+  teksSomasi,
+  type SuratSomasi as IsiSuratSomasi,
+  type TindakLanjutSomasi,
+} from "@/lib/suratSomasi";
 import { formatTanggalWIB } from "@/lib/waktu";
 
 /**
@@ -37,6 +43,10 @@ export type TerbitSomasi = {
   diserahkanPada: number | null;
   diserahkanMelalui: string | null;
   diserahkanOlehLabel: string | null;
+  tindakLanjut: string | null;
+  tindakLanjutPada: number | null;
+  tindakLanjutOlehLabel: string | null;
+  tindakLanjutCatatan: string | null;
 };
 
 export type RiwayatKirimSomasi = {
@@ -61,7 +71,14 @@ export type HasilSomasi =
       riwayatKirim: RiwayatKirimSomasi[];
     };
 
-export type AksiSomasi = "unduh" | "salin" | "whatsapp" | "email" | "serahkan" | "batal";
+export type AksiSomasi =
+  | "unduh"
+  | "salin"
+  | "whatsapp"
+  | "email"
+  | "serahkan"
+  | "batal"
+  | "tindak";
 
 function blokDariBase64(base64: string): Blob {
   const biner = atob(base64);
@@ -119,6 +136,7 @@ export function BagianSuratSomasi({
   onKirim,
   onSerahkan,
   onBatalSerahkan,
+  onTindakLanjut,
 }: {
   /** undefined = surat masih disusun server. */
   hasil: HasilSomasi | undefined;
@@ -132,6 +150,7 @@ export function BagianSuratSomasi({
   onKirim: (kanal: "whatsapp" | "email") => void;
   onSerahkan: () => void;
   onBatalSerahkan: () => void;
+  onTindakLanjut: (nilai: TindakLanjutSomasi) => void;
 }) {
   if (hasil === undefined) {
     return (
@@ -179,6 +198,19 @@ export function BagianSuratSomasi({
               Diserahkan {formatTanggalWIB(terbit.diserahkanPada ?? 0)} melalui{" "}
               {labelKanal(terbit.diserahkanMelalui)}
               {terbit.diserahkanOlehLabel !== null ? ` oleh ${terbit.diserahkanOlehLabel}` : ""}
+            </p>
+          )}
+          {terbit?.tindakLanjut != null && (
+            <p className="mt-1 text-[11px] leading-4 text-slate-600">
+              Tindak lanjut:{" "}
+              <strong>
+                {LABEL_TINDAK_LANJUT_SOMASI[terbit.tindakLanjut as TindakLanjutSomasi] ??
+                  terbit.tindakLanjut}
+              </strong>
+              {terbit.tindakLanjutPada !== null
+                ? ` · ${formatTanggalWIB(terbit.tindakLanjutPada)}`
+                : ""}
+              {terbit.tindakLanjutCatatan !== null ? ` · ${terbit.tindakLanjutCatatan}` : ""}
             </p>
           )}
         </div>
@@ -321,6 +353,36 @@ export function BagianSuratSomasi({
         )}
       </div>
 
+      {diserahkan && (
+        <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50/60 px-3 py-2.5">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-600">
+            Catat hasil setelah surat diserahkan
+          </p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {TINDAK_LANJUT_SOMASI.map((nilai) => (
+              <Button
+                key={nilai}
+                type="button"
+                variant={terbit?.tindakLanjut === nilai ? "default" : "outline"}
+                size="sm"
+                className={tombolKecil(
+                  terbit?.tindakLanjut === nilai ? "" : "border-slate-200 bg-white",
+                )}
+                disabled={adaPekerjaan}
+                aria-busy={sibuk === "tindak"}
+                onClick={() => onTindakLanjut(nilai)}
+              >
+                {LABEL_TINDAK_LANJUT_SOMASI[nilai]}
+              </Button>
+            ))}
+          </div>
+          <p className="mt-1.5 text-[11px] leading-4 text-muted-foreground">
+            Catatan ini tidak memindahkan uang dan tidak mengubah tenor. Pembayaran tetap dicatat
+            lewat jalur pinjaman; perpanjangan tenor lewat modul restrukturisasi.
+          </p>
+        </div>
+      )}
+
       {kabar !== null && (
         <p role="status" className="mt-2 text-xs leading-5 text-emerald-700">
           {kabar}
@@ -437,6 +499,7 @@ export function SuratSomasi({ loanId }: { loanId: Id<"loans"> }) {
   const kirimEmail = useAction(api.somasi.kirimSomasiEmail);
   const tandai = useMutation(api.somasi.tandaiSomasiDiserahkan);
   const batalTandai = useMutation(api.somasi.batalkanPenyerahanSomasi);
+  const catatTindakLanjut = useMutation(api.somasi.catatTindakLanjutSomasi);
 
   const [terbuka, setTerbuka] = useState(false);
   const [sibuk, setSibuk] = useState<AksiSomasi | null>(null);
@@ -500,6 +563,12 @@ export function SuratSomasi({ loanId }: { loanId: Id<"loans"> }) {
         void jalankan("batal", async () => {
           await batalTandai({ loanId });
           return "Tanda penyerahan dibatalkan.";
+        })
+      }
+      onTindakLanjut={(nilai) =>
+        void jalankan("tindak", async () => {
+          const hasil = await catatTindakLanjut({ loanId, tindakLanjut: nilai });
+          return `Tindak lanjut dicatat: ${hasil.label}.`;
         })
       }
     />

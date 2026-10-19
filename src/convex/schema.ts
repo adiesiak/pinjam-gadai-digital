@@ -2263,6 +2263,11 @@ const schema = defineSchema(
       diserahkanMelalui: v.optional(v.string()),
       diserahkanPada: v.optional(v.number()),
       diserahkanOlehLabel: v.optional(v.string()),
+      /** Hasil pasca-somasi; catatan, bukan eksekusi pembayaran/tenor. */
+      tindakLanjut: v.optional(v.string()),
+      tindakLanjutPada: v.optional(v.number()),
+      tindakLanjutOlehLabel: v.optional(v.string()),
+      tindakLanjutCatatan: v.optional(v.string()),
     })
       .index("by_loan", ["loanId"])
       .index("by_nomor", ["nomorSurat"]),
@@ -2350,6 +2355,35 @@ const schema = defineSchema(
     })
       .index("by_kasus", ["kasusId"])
       .index("by_loan", ["loanId"]),
+
+    /**
+     * RESTRUKTURISASI PINJAMAN — usulan & keputusan perpanjangan tenor.
+     *
+     * Satu baris per usulan. Persetujuan mengubah `loans.tenorHari` sehingga
+     * jatuh tempo bergeser; pokok, bunga, dan total kewajiban tidak dihitung
+     * ulang di sini. Hanya pinjaman skema harian yang boleh diperpanjang.
+     */
+    restrukturisasiPinjaman: defineTable({
+      loanId: v.id("loans"),
+      userId: v.id("users"),
+      /** Salah satu `JENIS_RESTRUKTURISASI`. */
+      jenis: v.string(),
+      tenorLamaHari: v.number(),
+      tenorBaruHari: v.number(),
+      tambahanHari: v.number(),
+      alasan: v.string(),
+      /** Salah satu `STATUS_RESTRUKTURISASI`. */
+      status: v.string(),
+      diajukanOlehUserId: v.id("users"),
+      diajukanOlehLabel: v.string(),
+      dibuatPada: v.number(),
+      diputuskanOlehUserId: v.optional(v.id("users")),
+      diputuskanOlehLabel: v.optional(v.string()),
+      diputuskanPada: v.optional(v.number()),
+      catatanKeputusan: v.optional(v.string()),
+    })
+      .index("by_loan", ["loanId"])
+      .index("by_status", ["status"]),
 
     /**
      * Pengaduan nasabah atas proses penagihan (atau catatan aplikasi).

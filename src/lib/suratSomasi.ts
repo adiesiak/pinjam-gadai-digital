@@ -19,6 +19,40 @@ const HARI_MS = 86_400_000;
 export const BATAS_BAYAR_HARI = 7;
 
 /**
+ * Hasil yang dicatat setelah surat diserahkan. Ini CATATAN tindak lanjut,
+ * bukan eksekusi pembayaran atau perubahan tenor: jalur uang tetap lewat
+ * pencatatan pembayaran, dan perubahan tenor lewat modul restrukturisasi.
+ */
+export const TINDAK_LANJUT_SOMASI = [
+  "dibayar",
+  "janji_baru",
+  "restrukturisasi",
+  "penanganan_khusus",
+] as const;
+
+export type TindakLanjutSomasi = (typeof TINDAK_LANJUT_SOMASI)[number];
+
+export const LABEL_TINDAK_LANJUT_SOMASI: Record<TindakLanjutSomasi, string> = {
+  dibayar: "Kewajiban sudah dibayar",
+  janji_baru: "Ada janji pembayaran baru",
+  restrukturisasi: "Diajukan restrukturisasi",
+  penanganan_khusus: "Masuk penanganan khusus",
+};
+
+/** Validasi nilai tindak lanjut dari klien; alasan siap ditampilkan. */
+export function validasiTindakLanjutSomasi(
+  nilai: string,
+): { ok: true; nilai: TindakLanjutSomasi } | { ok: false; alasan: string } {
+  if ((TINDAK_LANJUT_SOMASI as readonly string[]).includes(nilai)) {
+    return { ok: true, nilai: nilai as TindakLanjutSomasi };
+  }
+  return {
+    ok: false,
+    alasan: `Tindak lanjut "${nilai}" tidak dikenal. Pilih salah satu dari ${TINDAK_LANJUT_SOMASI.length} pilihan yang tersedia.`,
+  };
+}
+
+/**
  * Keterlambatan minimum sebelum somasi boleh dibuat. Hari pertama terlambat
  * masih tahap pengingat; somasi di hari itu memperkeruh hubungan tanpa memberi
  * peminjam kesempatan memperbaiki.

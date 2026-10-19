@@ -84,6 +84,10 @@ const TERBIT: HasilSomasi = {
     diserahkanPada: null,
     diserahkanMelalui: null,
     diserahkanOlehLabel: null,
+    tindakLanjut: null,
+    tindakLanjutPada: null,
+    tindakLanjutOlehLabel: null,
+    tindakLanjutCatatan: null,
   },
 };
 
@@ -98,6 +102,10 @@ const DISERAHKAN: HasilSomasi = {
     diserahkanPada: Date.UTC(2026, 9, 20, 3, 0),
     diserahkanMelalui: "whatsapp",
     diserahkanOlehLabel: "admin@pindai.test",
+    tindakLanjut: "janji_baru",
+    tindakLanjutPada: Date.UTC(2026, 9, 21, 3, 0),
+    tindakLanjutOlehLabel: "admin@pindai.test",
+    tindakLanjutCatatan: "Janji 24 Oktober 2026.",
   },
 };
 
@@ -117,6 +125,7 @@ function gambar(props: Partial<Parameters<typeof BagianSuratSomasi>[0]> = {}): s
       onKirim={tanpaAksi}
       onSerahkan={tanpaAksi}
       onBatalSerahkan={tanpaAksi}
+      onTindakLanjut={tanpaAksi}
       {...props}
     />,
   );
@@ -150,6 +159,11 @@ const diserahkan = gambar({ hasil: DISERAHKAN });
 ada(diserahkan, "Diserahkan 20 Oktober 2026 melalui WhatsApp", "status penyerahan");
 ada(diserahkan, "Batalkan tanda", "koreksi penyerahan");
 tidakAda(diserahkan, "Tandai diserahkan", "tidak menawarkan tanda ulang");
+ada(diserahkan, "Catat hasil setelah surat diserahkan", "bagian tindak lanjut");
+ada(diserahkan, "Ada janji pembayaran baru", "pilihan tindak lanjut");
+ada(diserahkan, "Tindak lanjut:", "status tindak lanjut");
+ada(diserahkan, "Janji 24 Oktober 2026.", "catatan tindak lanjut");
+tidakAda(calon, "Catat hasil setelah surat diserahkan", "tindak lanjut setelah diserahkan");
 
 const ditahan = gambar({
   hasil: {

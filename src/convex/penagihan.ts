@@ -28,6 +28,7 @@ import { requireAdminSession } from "./adminAuthz";
 import { ROLES } from "./schema";
 import { audit } from "./system";
 import { pelunasanPinjaman } from "../lib/loan";
+import { hitungPrioritasPenagihan } from "../lib/prioritasPenagihan";
 import { tarifDendaBerlaku } from "./system";
 import {
   AMBANG_TUNGGAKAN_DEFAULT,
@@ -278,6 +279,12 @@ type BarisKasus = {
   /** Kontak & informasi finansial SELALU tersamar di daftar kerja. */
   kontak: { whatsapp: string | null; rekening: string | null };
   bolehKontakSekarang: boolean;
+  /** Urutan kerja hari ini; lihat `lib/prioritasPenagihan`. */
+  prioritas: {
+    skor: number;
+    alasan: string[];
+    disarankanHariIni: boolean;
+  };
 };
 
 /** Susun seluruh baris kasus (dipakai daftar kasus DAN laporan). */
@@ -333,13 +340,32 @@ async function hitungBarisKasus(
 
     const statusKasus = kasus?.status ?? "baru";
     const milikSaya = kasus?.petugasUserId === undefined || kasus?.petugasUserId === admin.userId;
+    const jumlahKewajiban =
+      pelunasan?.totalKewajibanDenganPenalti ?? (await kewajibanTercatat(ctx, loan));
+    const prioritas = hitungPrioritasPenagihan({
+      hariTerlambat,
+      tahapTingkat: tahap.tingkat,
+      jumlahKewajiban,
+      janjiAktif:
+        janjiAktif === null
+          ? null
+          : { tanggalJanji: janjiAktif.tanggalJanji, nominal: janjiAktif.nominal },
+      pengaduanTerbuka: pengaduanTerbukaPerLoan.get(loan._id as string) ?? 0,
+      somasi:
+        somasi === undefined
+          ? null
+          : { diserahkanPada: somasi.diserahkanPada ?? null },
+      jumlahTindakan: kasus?.jumlahTindakan ?? 0,
+      tindakanTerakhirPada: kasus?.tindakanTerakhirPada ?? null,
+      statusKasus,
+      statusPembayaran: kasus?.statusPembayaran ?? "belum_bayar",
+      sekarang: now,
+    });
     baris.push({
       loanId: loan._id,
       nomorReferensi: loan.nomorReferensi,
       namaLengkap: loan.namaLengkap,
-      jumlahKewajiban:
-        pelunasan?.totalKewajibanDenganPenalti ??
-        (await kewajibanTercatat(ctx, loan)),
+      jumlahKewajiban,
       jatuhTempoPada: pelunasan?.jatuhTempoPada ?? null,
       hariTerlambat,
       dendaTerlambat: pelunasan?.dendaTerlambat ?? 0,
@@ -378,12 +404,16 @@ async function hitungBarisKasus(
         rekening: maskRekening(loan.nomorRekening),
       },
       bolehKontakSekarang: bolehKontakSekarang(now, aturan.jamKontak),
+      prioritas,
     });
   }
 
-  // Paling mendesak lebih dulu: tingkat tahap, lalu lama keterlambatan.
+  // Skor risiko lebih dulu; tahap dan lama keterlambatan menjadi pemecah seri.
   baris.sort(
-    (a, b) => b.tahapTingkat - a.tahapTingkat || b.hariTerlambat - a.hariTerlambat,
+    (a, b) =>
+      b.prioritas.skor - a.prioritas.skor ||
+      b.tahapTingkat - a.tahapTingkat ||
+      b.hariTerlambat - a.hariTerlambat,
   );
   return baris;
 }

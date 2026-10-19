@@ -76,6 +76,7 @@ import {
 } from "@/lib/penagihan";
 
 import { formatDate } from "./admin-format";
+import { RestrukturisasiPinjaman } from "./RestrukturisasiPinjaman";
 import { SuratSomasi } from "./SuratSomasi";
 import {
   EmptyQueue,
@@ -152,6 +153,7 @@ type BarisKasus = {
   kontak: { whatsapp: string | null; rekening: string | null };
   /** Server memutuskan: masih di dalam jendela jam kontak atau tidak. */
   bolehKontakSekarang: boolean;
+  prioritas: { skor: number; alasan: string[]; disarankanHariIni: boolean };
 };
 
 type Riwayat = {
@@ -438,7 +440,17 @@ function KasusDialog({
             label="Eskalasi"
             nilai={baris.eskalasiLabel ?? "Belum dieskalasi"}
           />
+          <MetrikKartu label="Prioritas" nilai={`${baris.prioritas.skor}/100`} />
         </dl>
+        {baris.prioritas.alasan.length > 0 && (
+          <p className="text-xs leading-5 text-slate-600">
+            <span className="font-semibold text-slate-700">Dasar prioritas:</span>{" "}
+            {baris.prioritas.alasan.join(" · ")}
+            {baris.prioritas.disarankanHariIni
+              ? " · masuk antrean hari ini"
+              : " · cukup dipantau"}
+          </p>
+        )}
         <p className={CATATAN_AMAN}>
           Semua angka berasal dari catatan ledger internal PINDAI — bukan tagihan resmi dan bukan
           bukti mutasi. Nomor kontak & rekening di bawah tampil tersamar; angka utuhnya hanya
@@ -468,6 +480,9 @@ function KasusDialog({
 
         {/* --- Surat somasi: hanya muncul setelah jatuh tempo terlewati --- */}
         <SuratSomasi loanId={baris.loanId} />
+
+        {/* --- Perpanjangan tenor untuk pinjaman harian yang berjalan --- */}
+        <RestrukturisasiPinjaman loanId={baris.loanId} />
 
         {/* --- Kontak tersamar + buka kontak --- */}
         <div className="rounded-xl border border-slate-200 bg-slate-50/60 px-4 py-3">
@@ -1915,6 +1930,13 @@ export function PenagihanPanel() {
                           <p className="flex flex-wrap items-center gap-2 text-sm font-medium">
                             {b.namaLengkap}
                             <LabelTahap tingkat={b.tahapTingkat} label={b.tahapLabel} />
+                            <Badge
+                              variant={b.prioritas.disarankanHariIni ? "default" : "outline"}
+                              className={b.prioritas.disarankanHariIni ? "" : "text-slate-600"}
+                              title={b.prioritas.alasan.join(" · ")}
+                            >
+                              Prioritas {b.prioritas.skor}
+                            </Badge>
                             {b.pengaduanTerbuka > 0 && (
                               <Badge variant="outline" className="text-amber-700">
                                 {b.pengaduanTerbuka} pengaduan

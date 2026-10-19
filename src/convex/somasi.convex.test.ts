@@ -374,6 +374,60 @@ describe("surat somasi", () => {
     if (dibatalkan.tersedia) expect(dibatalkan.terbit?.diserahkanPada).toBeNull();
   });
 
+  it("tindak lanjut hanya bisa dicatat setelah surat diserahkan", async () => {
+    const t = convexTest(schema, modules);
+    const rani = await siapkanPengguna(t, "Rani Peminjam", {
+      email: "rani@pindai.test",
+      role: "peminjam",
+    });
+    const admin = await siapkanPengguna(t, "Super Admin", {
+      email: "admin@pindai.test",
+      role: "admin",
+    });
+    const loanId = await buatPinjaman(t, rani.userId, {
+      didanaiPada: Date.now() - 40 * HARI,
+    });
+    await admin.sesi.action(api.somasi.unduhSomasi, { loanId });
+
+    await expect(
+      admin.sesi.mutation(api.somasi.catatTindakLanjutSomasi, {
+        loanId,
+        tindakLanjut: "dibayar",
+      }),
+    ).rejects.toThrow(/diserahkan dulu/i);
+
+    await admin.sesi.mutation(api.somasi.tandaiSomasiDiserahkan, {
+      loanId,
+      melalui: "manual",
+    });
+    await admin.sesi.mutation(api.somasi.catatTindakLanjutSomasi, {
+      loanId,
+      tindakLanjut: "dibayar",
+    });
+
+    const data = await admin.sesi.query(api.somasi.dataSomasi, { loanId });
+    expect(data.tersedia).toBe(true);
+    if (data.tersedia) {
+      expect(data.terbit?.tindakLanjut).toBe("dibayar");
+      expect(data.terbit?.tindakLanjutPada).not.toBeNull();
+    }
+
+    const audit = await t.run((ctx) =>
+      ctx.db
+        .query("auditLog")
+        .collect()
+        .then((rows) => rows.map((r) => r.aksi)),
+    );
+    expect(audit).toContain("somasi_tindak_lanjut");
+
+    await expect(
+      admin.sesi.mutation(api.somasi.catatTindakLanjutSomasi, {
+        loanId,
+        tindakLanjut: "tidak_dikenal",
+      }),
+    ).rejects.toThrow(/tidak dikenal/i);
+  });
+
   it("WhatsApp terkirim dengan lampiran lalu menandai diserahkan", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(PAGI);

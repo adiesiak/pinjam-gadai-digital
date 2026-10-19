@@ -34,14 +34,17 @@ import { requireAdminSession } from "./adminAuthz";
 import { pelunasanPinjaman } from "../lib/loan";
 import { bolehKontakSekarang, maskNomorTelepon } from "../lib/penagihan";
 import {
+  LABEL_TINDAK_LANJUT_SOMASI,
   cekSomasi,
   htmlSomasiEmail,
   namaBerkasSomasi,
   subjekSomasiEmail,
   susunSuratSomasi,
   teksSomasiWhatsapp,
+  validasiTindakLanjutSomasi,
   type IdentitasBadan,
   type SuratSomasi,
+  type TindakLanjutSomasi,
 } from "../lib/suratSomasi";
 import { buatPdfSomasi } from "../lib/suratSomasiPdf";
 import { OFFSET_WIB_MS, formatTanggalWIB } from "../lib/waktu";
@@ -83,6 +86,10 @@ type TerbitInfo = {
   diserahkanPada: number | null;
   diserahkanMelalui: string | null;
   diserahkanOlehLabel: string | null;
+  tindakLanjut: string | null;
+  tindakLanjutPada: number | null;
+  tindakLanjutOlehLabel: string | null;
+  tindakLanjutCatatan: string | null;
 };
 
 type HasilSusun =
@@ -145,6 +152,10 @@ function infoTerbit(row: {
   diserahkanPada?: number;
   diserahkanMelalui?: string;
   diserahkanOlehLabel?: string;
+  tindakLanjut?: string;
+  tindakLanjutPada?: number;
+  tindakLanjutOlehLabel?: string;
+  tindakLanjutCatatan?: string;
 }): TerbitInfo {
   return {
     nomorSurat: row.nomorSurat,
@@ -155,6 +166,10 @@ function infoTerbit(row: {
     diserahkanPada: row.diserahkanPada ?? null,
     diserahkanMelalui: row.diserahkanMelalui ?? null,
     diserahkanOlehLabel: row.diserahkanOlehLabel ?? null,
+    tindakLanjut: row.tindakLanjut ?? null,
+    tindakLanjutPada: row.tindakLanjutPada ?? null,
+    tindakLanjutOlehLabel: row.tindakLanjutOlehLabel ?? null,
+    tindakLanjutCatatan: row.tindakLanjutCatatan ?? null,
   };
 }
 
@@ -560,6 +575,60 @@ export const batalkanPenyerahanSomasi = mutation({
     );
 
     return { ok: true as const };
+  },
+});
+
+/**
+ * Catat hasil pasca-somasi setelah surat diserahkan.
+ *
+ * Yang disimpan adalah KEPUTUSAN petugas, bukan akibat finansialnya: pembayaran
+ * tetap dicatat lewat jalur pinjaman, dan perubahan tenor lewat modul
+ * restrukturisasi. Karena itu catatan ini tidak mengubah status pinjaman.
+ */
+export const catatTindakLanjutSomasi = mutation({
+  args: {
+    loanId: v.id("loans"),
+    tindakLanjut: v.string(),
+    catatan: v.optional(v.string()),
+  },
+  handler: async (ctx, { loanId, tindakLanjut, catatan }) => {
+    const { userId, user } = await requireAdminSession(ctx);
+    const sah = validasiTindakLanjutSomasi(tindakLanjut);
+    if (!sah.ok) throw new Error(sah.alasan);
+
+    const row = await ctx.db
+      .query("somasiTerbit")
+      .withIndex("by_loan", (q) => q.eq("loanId", loanId))
+      .first();
+    if (row === null) throw new Error("Terbitkan surat somasi lebih dulu.");
+    if (row.diserahkanPada === undefined) {
+      throw new Error("Tandai surat sudah diserahkan dulu sebelum mencatat tindak lanjut.");
+    }
+
+    const isiCatatan = catatan?.trim() ?? "";
+    if (isiCatatan.length > 500) {
+      throw new Error("Catatan tindak lanjut maksimal 500 karakter.");
+    }
+    const label = user.email ?? user.name ?? "admin";
+    const labelHasil = LABEL_TINDAK_LANJUT_SOMASI[sah.nilai as TindakLanjutSomasi];
+    await ctx.db.patch(row._id, {
+      tindakLanjut: sah.nilai,
+      tindakLanjutPada: Date.now(),
+      tindakLanjutOlehLabel: label,
+      tindakLanjutCatatan: isiCatatan === "" ? undefined : isiCatatan,
+    });
+
+    const loan = await ctx.db.get(loanId);
+    await audit(
+      ctx,
+      userId,
+      label,
+      "somasi_tindak_lanjut",
+      loan?.nomorReferensi ?? loanId,
+      `Tindak lanjut surat ${row.nomorSurat}: ${labelHasil}${isiCatatan === "" ? "." : ` · ${isiCatatan}`}`,
+    );
+
+    return { ok: true as const, tindakLanjut: sah.nilai, label: labelHasil };
   },
 });
 
