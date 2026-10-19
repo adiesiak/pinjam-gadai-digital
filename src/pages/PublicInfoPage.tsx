@@ -22,7 +22,7 @@ import {
 import { VaultLogo } from "@/components/VaultLogo";
 import { formatRupiah } from "@/lib/money";
 import {
-  quoteLoan,
+  quoteLoanBunga,
   LOAN_LIMITS,
   TENOR_OPTIONS,
   LATE_FEE_POLICY,
@@ -186,7 +186,13 @@ function Header() {
   );
 }
 
-function KalkulatorRingkas() {
+/**
+ * Kalkulator publik memakai tarif bunga yang sama dengan dashboard Peminjam
+ * (`system.getKetentuanBiaya`), bukan tarif tenor bawaan mesin bulanan. Untuk
+ * pinjaman 3 dan 6 bulan, dashboard/form memakai bunga efektif akun per bulan
+ * (bawaan 30%), sehingga angka di sini harus mengikuti angka itu.
+ */
+function KalkulatorRingkas({ persenBunga }: { persenBunga: number }) {
   const [pokokHarian, setPokokHarian] = useState(500_000);
   const [tenorHarian, setTenorHarian] =
     useState<(typeof TENOR_OPTIONS)[number]>(30);
@@ -202,18 +208,20 @@ function KalkulatorRingkas() {
     )
       return null;
     try {
-      return quoteLoan(pokokHarian);
+      return quoteLoanBunga(pokokHarian, persenBunga);
     } catch {
       return null;
     }
-  }, [pokokHarian]);
+  }, [pokokHarian, persenBunga]);
   const simulasiBulanan = useMemo(() => {
     try {
-      return hitungSimulasiBulanan(pokokBulanan, tenorBulanan);
+      return hitungSimulasiBulanan(pokokBulanan, tenorBulanan, {
+        persenBungaPerBulan: persenBunga,
+      });
     } catch {
       return null;
     }
-  }, [pokokBulanan, tenorBulanan]);
+  }, [pokokBulanan, tenorBulanan, persenBunga]);
   const simulasiGadai = useMemo(() => {
     try {
       return quoteGadai(pokokGadai, GADAI_PRICING.sewaModalMinPercent);
@@ -278,7 +286,7 @@ function KalkulatorRingkas() {
               nilai={formatRupiah(simulasiHarian.danaBersihDitransfer)}
             />
             <Baris
-              label={`Bunga ${PINDAI_PRICING.bungaPercent}%`}
+              label={`Bunga ${persenBunga}%`}
               nilai={formatRupiah(simulasiHarian.bunga)}
             />
             <Baris
@@ -353,8 +361,16 @@ function KalkulatorRingkas() {
               nilai={formatRupiah(simulasiBulanan.bungaPerBulan)}
             />
             <Baris
-              label="Cicilan pertama termasuk admin bila berlaku"
+              label="Bunga selama tenor"
+              nilai={formatRupiah(simulasiBulanan.bungaTotal)}
+            />
+            <Baris
+              label="Cicilan bulanan termasuk admin bila berlaku"
               nilai={formatRupiah(simulasiBulanan.cicilanPerBulan)}
+            />
+            <Baris
+              label="Cicilan bulan terakhir (pembulatan pokok)"
+              nilai={formatRupiah(simulasiBulanan.cicilanTerakhir)}
             />
             <Baris
               label="Total jadwal cicilan"
@@ -472,6 +488,8 @@ function Footer() {
 export type KetentuanDendaTampil = {
   persenDendaKeterlambatan?: number;
   maksDendaPersen?: number;
+  /** Tarif bunga global (Pengaturan Sistem) — dipakai kalkulator publik. */
+  persenBunga?: number;
 };
 
 export function PublicInfoPageView({
@@ -484,6 +502,9 @@ export function PublicInfoPageView({
     ketentuan?.persenDendaKeterlambatan ?? LATE_FEE_POLICY.percentPerDay;
   const maksDenda = ketentuan?.maksDendaPersen ?? LATE_FEE_POLICY.maxPercent;
   const faqItems = daftarFaq(dendaPerHari, maksDenda);
+  // Tarif bunga publik = tarif global Pengaturan Sistem (bawaan 30%). Bunga
+  // khusus per nasabah bisa berbeda dan hanya terlihat setelah masuk.
+  const persenBunga = ketentuan?.persenBunga ?? PINDAI_PRICING.bungaPercent;
   const biaya = pathname === "/biaya";
   const cara = pathname === "/cara-kerja";
   const gadai = pathname === "/layanan/gadai";
@@ -589,7 +610,7 @@ export function PublicInfoPageView({
                 <h2 className="mb-4 text-xl font-semibold">
                   Contoh perhitungan
                 </h2>
-                <KalkulatorRingkas />
+                <KalkulatorRingkas persenBunga={persenBunga} />
               </div>
             )}
             <div>
@@ -646,12 +667,11 @@ export function PublicInfoPageView({
                         Bunga flat
                       </th>
                       <td className="px-4 py-3">
-                        {PINDAI_PRICING.bungaPercent}% dari pokok
+                        {persenBunga}% dari pokok
                       </td>
                       <td className="px-4 py-3">
-                        {persenBungaPerBulan(1)}% / {persenBungaPerBulan(3)}% /{" "}
-                        {persenBungaPerBulan(6)}% per bulan untuk tenor 1 / 3 /
-                        6 bulan
+                        {persenBunga}% per bulan dari pokok penuh untuk semua
+                        tenor (tarif dasar; bunga khusus akun dapat berbeda)
                       </td>
                     </tr>
                     <tr>

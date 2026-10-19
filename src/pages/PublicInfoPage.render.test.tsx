@@ -69,6 +69,29 @@ check(
   biaya.includes("bukan catatan pembayaran angsuran"),
   "monthly schedule is disclosed as illustrative, not a payment record",
 );
+// Kalkulator bulanan harus memakai bunga efektif yang sama dengan dashboard
+// Peminjam (bawaan 30%/bulan), bukan tarif tenor bawaan mesin (25%/20%).
+check(
+  biaya.includes("Bunga flat 30% per bulan"),
+  "monthly calculator uses the account interest rate for 3-month tenor",
+);
+check(
+  biaya.includes("Rp 1.938.001"),
+  "monthly calculator total matches the borrower dashboard for 1jt/3bln",
+);
+check(
+  biaya.includes("Bunga selama tenor") && biaya.includes("Rp 900.000"),
+  "monthly calculator shows total interest for the whole tenor",
+);
+const biayaBunga10 = renderPage(
+  "/biaya",
+  <PublicInfoPageView ketentuan={{ persenBunga: 10 }} />,
+);
+check(
+  biayaBunga10.includes("Bunga flat 10% per bulan") &&
+    biayaBunga10.includes("Rp 1.326.001"),
+  "monthly calculator follows the configured global interest rate",
+);
 
 const syarat = renderPage("/syarat-ketentuan", <SyaratKetentuanView />);
 check(

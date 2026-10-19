@@ -61,7 +61,8 @@ import {
 import {
   LATE_FEE_POLICY,
   LOAN_LIMITS,
-  quoteLoan,
+  PINDAI_PRICING,
+  quoteLoanBunga,
   TENOR_OPTIONS,
   type LoanQuote,
 } from "@/lib/loan";
@@ -698,21 +699,31 @@ function rupiahToSlider(r: Rupiah, min: number, max: number, steps: number): num
   return Math.round((Math.log(clamped / min) / Math.log(max / min)) * steps);
 }
 
-export function LiveCalculator() {
+/**
+ * Kalkulator landing memakai tarif bunga yang sama dengan dashboard Peminjam
+ * (bawaan 30%/bulan, dari Pengaturan Sistem) — bukan tarif tenor bawaan mesin
+ * bulanan (25%/20%) yang hanya berlaku untuk kredit barang.
+ */
+export function LiveCalculator({ persenBunga }: { persenBunga: number }) {
   const [skema, setSkema] = useState<"harian" | "bulanan">("harian");
   const bulanan = skema === "bulanan";
   const [amount, setAmount] = useState<Rupiah>(LOAN_LIMITS.maxPokok);
   const [tenor, setTenor] = useState<number>(30);
   const [tenorBulan, setTenorBulan] = useState<number>(3);
-  const quote: LoanQuote = useMemo(() => quoteLoan(amount), [amount]);
+  const quote: LoanQuote = useMemo(
+    () => quoteLoanBunga(amount, persenBunga),
+    [amount, persenBunga],
+  );
   const sim = useMemo(() => {
     if (!bulanan) return null;
     try {
-      return hitungSimulasiBulanan(amount, tenorBulan);
+      return hitungSimulasiBulanan(amount, tenorBulan, {
+        persenBungaPerBulan: persenBunga,
+      });
     } catch {
       return null;
     }
-  }, [bulanan, amount, tenorBulan]);
+  }, [bulanan, amount, tenorBulan, persenBunga]);
 
   const min = bulanan ? BULANAN_LIMITS.minPokok : MIN_SLIDER;
   const max = bulanan ? MAX_SLIDER_BULANAN : MAX_SLIDER;
@@ -864,7 +875,7 @@ export function LiveCalculator() {
           sim !== null
             ? ([
                 [
-                  `Bunga ${sim.persenBungaPerBulan}%/bulan (flat dari pokok)`,
+                  `Bunga selama tenor (${sim.persenBungaPerBulan}%/bulan flat dari pokok)`,
                   formatRupiah(sim.bungaTotal),
                   false,
                 ],
@@ -892,7 +903,7 @@ export function LiveCalculator() {
                 ],
               ] as Array<[string, string, boolean?]>)
             : ([
-                ["Bunga (30%)", formatRupiah(quote.bunga), false],
+                [`Bunga (${persenBunga}%)`, formatRupiah(quote.bunga), false],
                 ["Nilai bersih (98% dari pokok)", formatRupiah(quote.danaBersihDitransfer), true],
               ] as Array<[string, string, boolean?]>)
         ).map(([term, value, strong]) => (
@@ -1831,7 +1842,11 @@ export default function Landing() {
           />
           <div className="relative grid gap-10 lg:grid-cols-2">
             <Reveal>
-              <LiveCalculator />
+              <LiveCalculator
+                persenBunga={
+                  ketentuanBiaya?.persenBunga ?? PINDAI_PRICING.bungaPercent
+                }
+              />
             </Reveal>
             <div>
               <Reveal>
