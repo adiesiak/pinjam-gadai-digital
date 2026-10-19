@@ -283,13 +283,13 @@ const PASAL: Pasal[] = [
             {PINDAI_PRICING.totalRepaymentPercent}% dari pokok.
           </Ayat>
           <Ayat>
-            Untuk pinjaman bulanan, bunga flat per bulan dari pokok penuh adalah{" "}
-            {persenBungaPerBulan(1)}%, {persenBungaPerBulan(3)}%, atau{" "}
-            {persenBungaPerBulan(6)}% sesuai tenor. Potongan awal{" "}
-            {BULANAN_PRICING.biayaLayananPersen}% berlaku pada skema bulanan;
-            tenor 3 dan 6 bulan juga memiliki biaya admin cicilan{" "}
-            {BULANAN_PRICING.biayaAdminCicilanPersen}% dari cicilan setiap
-            bulan. Periksa angka khusus pada pengajuan dan perjanjian Anda.
+            Untuk pinjaman bulanan, bunga flat dari pokok penuh mengikuti tarif
+            akun (bawaan {PINDAI_PRICING.bungaPercent}% per bulan) untuk semua
+            tenor. Potongan awal {BULANAN_PRICING.biayaLayananPersen}% berlaku
+            pada skema bulanan; setiap pembayaran bulanan juga memiliki biaya
+            admin cicilan {BULANAN_PRICING.biayaAdminCicilanPersen}% dari
+            nominal cicilan. Periksa angka khusus pada pengajuan dan perjanjian
+            Anda.
           </Ayat>
         </ul>
       </>
@@ -372,9 +372,9 @@ const PASAL: Pasal[] = [
           Biaya awal {BULANAN_PRICING.biayaLayananPersen}% dipotong di muka.
           Bunga flat per bulan dari pokok penuh adalah {persenBungaPerBulan(1)}
           %, {persenBungaPerBulan(3)}%, atau {persenBungaPerBulan(6)}% sesuai
-          tenor. Pada tenor 3 dan 6 bulan, biaya admin cicilan{" "}
-          {BULANAN_PRICING.biayaAdminCicilanPersen}% dari cicilan dibayar tiap
-          bulan.
+          tenor. Biaya admin cicilan{" "}
+          {BULANAN_PRICING.biayaAdminCicilanPersen}% dari nominal cicilan
+          dibayar pada setiap pembayaran bulanan.
         </Ayat>
         <Ayat>
           Jadwal cicilan per bulan adalah ilustrasi, bukan catatan pembayaran

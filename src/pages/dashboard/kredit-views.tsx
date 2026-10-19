@@ -435,12 +435,10 @@ export function KreditBarangForm({
                   <dt className="font-semibold">Total potongan di muka perkiraan (2%)</dt>
                   <dd className="font-semibold tabular-nums">{formatRupiah(preview.biayaLayanan)}</dd>
                 </div>
-                {(tenorBulan === 3 || tenorBulan === 6) && (
-                  <div className="flex flex-col gap-1 px-3 py-2 text-sm sm:flex-row sm:items-baseline sm:justify-between">
-                    <dt className="text-muted-foreground">Biaya admin cicilan (2% per bayar)</dt>
-                    <dd className="tabular-nums">{formatRupiah(preview.biayaAdminCicilanTotal)}</dd>
-                  </div>
-                )}
+                <div className="flex flex-col gap-1 px-3 py-2 text-sm sm:flex-row sm:items-baseline sm:justify-between">
+                  <dt className="text-muted-foreground">Biaya admin cicilan (2% per bayar)</dt>
+                  <dd className="tabular-nums">{formatRupiah(preview.biayaAdminCicilanTotal)}</dd>
+                </div>
               </>
             ) : (
               <div className="flex flex-col gap-1 px-3 py-2 text-sm sm:flex-row sm:items-baseline sm:justify-between">
@@ -457,9 +455,7 @@ export function KreditBarangForm({
           </dl>
           <p className="mt-2 text-xs leading-5 text-muted-foreground">
             {KREDIT_TENOR_BIAYA_ADMIN_PLATFORM.includes(tenorBulan)
-              ? tenorBulan === 3 || tenorBulan === 6
-                ? "Biaya admin 2% dipotong di muka (platform 0%); setiap cicilan ditambah biaya admin 2% dari nominal cicilan."
-                : "Biaya admin 2% dipotong di muka dari dana yang diterima (platform 0%)."
+              ? "Biaya admin 2% dipotong di muka (platform 0%); setiap cicilan bulanan ditambah biaya admin cicilan 2% dari nominal cicilan."
               : "Biaya layanan 3% dimodelkan dalam skema tenor ini (kontrak lama)."} Kredit barang ini bukan pencairan uang tunai; PINDAI tidak membeli barang atau mengirim dana ke merchant.
           </p>
           </>
@@ -664,14 +660,12 @@ export function KreditSayaSection() {
                     <dt className="text-muted-foreground">Biaya platform (0%)</dt>
                     <dd className="tabular-nums">{k.biayaPlatform !== null ? formatRupiah(k.biayaPlatform) : "—"}</dd>
                   </div>
-                  {(k.tenorBulan === 3 || k.tenorBulan === 6) && (
-                    <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between sm:gap-3">
-                      <dt className="text-muted-foreground">Biaya admin cicilan (2% per bayar)</dt>
-                      <dd className="tabular-nums">
-                        {k.biayaAdminCicilanTotal !== null ? formatRupiah(k.biayaAdminCicilanTotal) : "—"}
-                      </dd>
-                    </div>
-                  )}
+                  <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between sm:gap-3">
+                    <dt className="text-muted-foreground">Biaya admin cicilan (2% per bayar)</dt>
+                    <dd className="tabular-nums">
+                      {k.biayaAdminCicilanTotal !== null ? formatRupiah(k.biayaAdminCicilanTotal) : "—"}
+                    </dd>
+                  </div>
                   <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between sm:gap-3">
                     <dt className="text-muted-foreground">Total potongan di muka (2%)</dt>
                     <dd className="tabular-nums">{k.biayaLayanan !== null ? formatRupiah(k.biayaLayanan) : "—"}</dd>

@@ -83,6 +83,10 @@ check(
   biaya.includes("Bunga selama tenor") && biaya.includes("Rp 900.000"),
   "monthly calculator shows total interest for the whole tenor",
 );
+check(
+  biaya.includes("pada setiap pembayaran bulanan"),
+  "public pricing table charges the admin fee on every monthly payment",
+);
 const biayaBunga10 = renderPage(
   "/biaya",
   <PublicInfoPageView ketentuan={{ persenBunga: 10 }} />,

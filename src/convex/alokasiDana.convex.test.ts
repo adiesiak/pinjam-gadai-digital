@@ -394,7 +394,7 @@ describe("alur penyedia dana — pinjaman tunai", () => {
         expect.objectContaining({ bulan: 1 }),
       ]),
       catatanJadwal:
-        "Biaya admin 2% (biaya platform dihapus) untuk tenor 3/6 bulan (atau biaya layanan 2% untuk tenor 1) dipotong di muka dari dana yang diterima; tenor 3 dan 6 bulan dikenai tambahan biaya admin 2% dari nominal cicilan yang dibayar bersama setiap cicilan.",
+        "Biaya admin 2% (biaya platform dihapus) untuk tenor 3/6 bulan (atau biaya layanan 2% untuk tenor 1) dipotong di muka dari dana yang diterima; setiap pembayaran bulanan (tenor 1, 3, dan 6 bulan) dikenai tambahan biaya admin 2% dari nominal cicilan.",
     });
     expect(peluang.jadwalPelunasan).toHaveLength(1);
     expect(peluang.simulasiCicilanBulanan).toHaveLength(3);

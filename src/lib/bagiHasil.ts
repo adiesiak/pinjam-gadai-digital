@@ -92,8 +92,8 @@ export type BagiHasilPinjaman = {
   bunga: Rupiah;
   /**
    * Kas yang dikembalikan Peminjam: pokok + Imbal Hasil. Biaya admin cicilan
-   * tenor 3/6 bulan dibayar Peminjam di luar angka ini (biaya itu sudah milik
-   * platform, jadi bukan bagian dari uang yang dipotong).
+   * tiap pembayaran bulanan dibayar Peminjam di luar angka ini (biaya itu
+   * sudah milik platform, jadi bukan bagian dari uang yang dipotong).
    */
   totalLunas: Rupiah;
   /** Bagian platform = uang yang kembali × persen potongan (pembulatan ke bawah). */
@@ -187,7 +187,7 @@ export function bagiHasilPinjamanDari(
     persenBunga === null ? {} : { persenBungaPerBulan: persenBunga },
   );
   // `totalPengembalian` = seluruh kas yang dibayar Peminjam, termasuk biaya
-  // admin cicilan tenor 3/6. Dasar potongan mengeluarkan biaya itu lebih dulu:
+  // admin cicilan tiap pembayaran bulanan. Dasar potongan mengeluarkan biaya itu lebih dulu:
   // ia sudah menjadi pendapatan platform, jadi tidak boleh ikut dipotong lagi
   // (dasar = pokok + Imbal Hasil seluruh tenor, sama dengan yang dijurnal
   // ledger sebagai total kewajiban penyedia dana).

@@ -1,8 +1,8 @@
 /**
- * Tests engine simulasi bulanan (DP 0%, fee 2% admin tenor 3/6 dengan biaya
- * platform dihapus, tenor lain layanan 2%, SELURUHNYA dipotong di muka, bunga 30%/25% menurun
- * untuk tenor 1–5 bulan dan 20% FLAT dari pokok penuh untuk tenor ≥ 6 bulan) —
- * dependency-free (konvensi kredit.test.ts / financial.test.ts).
+ * Tests engine simulasi bulanan (DP 0%, fee 2% di muka — admin pada tenor 3/6,
+ * layanan pada tenor 1, platform dihapus; biaya admin cicilan 2% pada SETIAP
+ * pembayaran bulanan; bunga flat per tenor) — dependency-free (konvensi
+ * kredit.test.ts / financial.test.ts).
  * Run: bun src/lib/bulanan.test.ts
  */
 import {
@@ -147,10 +147,12 @@ throws(() => metodeBungaBulanan(2.5), "metode: tenor pecahan ditolak");
   eq(q.biayaPlatformTotal, 0, "1jt/1bln: tidak ada biaya platform baru");
   eq(q.potonganDiMuka, 20_000, "1jt/1bln: layanan 2% dipotong di muka");
   eq(q.danaDiterima, 980_000, "1jt/1bln: dana diterima 980rb");
-  eq(q.cicilanPerBulan, 1_300_000, "1jt/1bln: cicilan 1.300.000 (pokok + bunga)");
-  eq(q.cicilanTerakhir, 1_300_000, "1jt/1bln: cicilan tunggal = terakhir");
-  eq(q.totalPengembalian, 1_300_000, "1jt/1bln: total cicilan = pokok + bunga 30%");
-  eq(q.persentaseProfitTotal, 32, "1jt/1bln: biaya total 32% (bunga 30% + layanan 2%)");
+  eq(q.biayaAdminCicilanPerBulan, 26_000, "1jt/1bln: admin cicilan 2% dari 1.300.000");
+  eq(q.biayaAdminCicilanTotal, 26_000, "1jt/1bln: satu pembayaran bulanan tetap dikenai admin cicilan");
+  eq(q.cicilanPerBulan, 1_326_000, "1jt/1bln: cicilan = pokok + bunga + admin cicilan");
+  eq(q.cicilanTerakhir, 1_326_000, "1jt/1bln: cicilan tunggal = terakhir");
+  eq(q.totalPengembalian, 1_326_000, "1jt/1bln: total cicilan = pokok + bunga 30% + admin cicilan");
+  eq(q.persentaseProfitTotal, 34.6, "1jt/1bln: biaya total 34,6% (bunga 30% + layanan 2% + admin cicilan 2,6%)");
 }
 
 // ============================================================
@@ -239,24 +241,16 @@ for (const pokok of POKOK_LIST) {
       q.potonganDiMuka + q.bungaTotal + q.biayaAdminCicilanTotal,
       `${pokok}/${tenor}bln: biaya total = potongan di muka + bunga + admin cicilan`,
     );
-    // Biaya admin cicilan hanya untuk tenor 3 dan 6 bulan.
-    if (tenor === 3 || tenor === 6) {
-      ok(
-        q.jadwal.every((r) => r.biayaAdminCicilan > 0),
-        `${pokok}/${tenor}bln: setiap bulan dikenai biaya admin cicilan 2%`,
-      );
-      eq(
-        q.biayaAdminCicilanTotal,
-        q.jadwal.reduce((a, r) => a + r.biayaAdminCicilan, 0),
-        `${pokok}/${tenor}bln: Σ biaya admin cicilan = totalnya`,
-      );
-    } else {
-      eq(
-        q.biayaAdminCicilanTotal,
-        0,
-        `${pokok}/${tenor}bln: tenor ini tanpa biaya admin cicilan`,
-      );
-    }
+    // Biaya admin cicilan berlaku pada setiap pembayaran bulanan tenor resmi.
+    ok(
+      q.jadwal.every((r) => r.biayaAdminCicilan > 0),
+      `${pokok}/${tenor}bln: setiap bulan dikenai biaya admin cicilan 2%`,
+    );
+    eq(
+      q.biayaAdminCicilanTotal,
+      q.jadwal.reduce((a, r) => a + r.biayaAdminCicilan, 0),
+      `${pokok}/${tenor}bln: Σ biaya admin cicilan = totalnya`,
+    );
     ok(
       q.persentaseProfitTotal < BULANAN_PRICING.maxProfitTotalPersen,
       `${pokok}/${tenor}bln: biaya total < batas profit`,

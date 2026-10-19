@@ -308,8 +308,8 @@ const ISI_BRANKAS: ReadonlyArray<{
       ["Nomor referensi", "PDI-••••-••"],
       ["Nominal", "Rp 500 rb – Rp 10 jt"],
       ["Potongan di muka", "2% (semua tenor)"],
-      ["Bunga flat per bulan", "30% / 25% / 20%"],
-      ["Biaya admin cicilan", "2% per bayar (tenor 3 & 6)"],
+      ["Bunga flat per bulan", "tarif akun · bawaan 30%"],
+      ["Biaya admin cicilan", "2% per bayar (setiap pembayaran)"],
       ["Pencatatan pelunasan", "Sekali saat jatuh tempo"],
     ],
   },
@@ -511,8 +511,8 @@ function IsiBrankas() {
 const HERO_FACTS = [
   "Skema harian 7–30 hari · nilai bersih 98% · kewajiban 130%",
   "Skema bulanan tenor 1/3/6 bulan · biaya 2% dipotong di muka",
-  "Bunga flat dari pokok penuh · 30% / 25% / 20% per bulan",
-  "Kredit barang hingga Rp 10 juta · biaya admin cicilan 2% pada tenor 3/6",
+  "Bunga flat dari pokok penuh · mengikuti tarif akun (bawaan 30% per bulan)",
+  "Kredit barang hingga Rp 10 juta · biaya admin cicilan 2% tiap pembayaran",
   "Semua angka adalah perhitungan ledger internal PINDAI",
 ] as const;
 
@@ -609,11 +609,11 @@ export const FAQ_ITEMS = [
   },
   {
     q: "Dari mana angka cicilan di kalkulator berasal?",
-    a: "Semua angka dihitung aplikasi dari nominal dan tenor yang Anda pilih, bukan angka yang diketik manual. Harian: potongan di muka 2% dan bunga flat 30%. Bulanan: bunga flat 30% (1 bulan), 25% (3 bulan), 20% (6 bulan).",
+    a: "Semua angka dihitung aplikasi dari nominal dan tenor yang Anda pilih, bukan angka yang diketik manual. Harian: potongan di muka 2% dan bunga flat 30%. Bulanan: bunga flat mengikuti tarif akun, bawaan 30% per bulan untuk semua tenor.",
   },
   {
     q: "Kapan biaya dipotong?",
-    a: "Biaya dipotong di muka dari dana yang diterima, bukan diangsur. Tenor 3 dan 6 bulan juga dikenai biaya admin cicilan 2% dari nominal cicilan.",
+    a: "Biaya di muka dipotong dari dana yang diterima, bukan diangsur. Setiap pembayaran bulanan juga dikenai biaya admin cicilan 2% dari nominal cicilan.",
   },
   {
     q: "Apa yang dicatat untuk gadai?",
@@ -675,9 +675,9 @@ function ringkasanSyarat(denda: { perHari: number; maks: number }): Array<{
 
 // Skema harian: Rp 100 rb–1 jt / maks 30 hari. Skema bulanan: sampai plafon
 // tertinggi yang boleh disimpan admin (Rp 10 jt) dengan tenor 1/3/6 bulan
-// (DP 0%, potongan di muka 2% untuk semua tenor; bunga FLAT dari
-// pokok penuh — 30% (tenor 1), 25% (tenor 3), 20% (tenor 6) per bulan).
-// Angka di bawah ini
+// (DP 0%, potongan di muka 2% untuk semua tenor; bunga FLAT dari pokok penuh
+// mengikuti tarif akun, bawaan 30% per bulan, untuk semua tenor; setiap
+// pembayaran bulanan dikenai biaya admin cicilan 2%). Angka di bawah ini
 // sengaja tidak lebih besar dari plafon — lihat lib/plafon.ts.
 const QUICK_AMOUNTS = [100_000, 250_000, 500_000, 1_000_000];
 const QUICK_AMOUNTS_BULANAN = [500_000, 1_000_000, 2_500_000, 5_000_000, 10_000_000];
@@ -1804,13 +1804,13 @@ export default function Landing() {
                 body="Cicilan rata dari pokok penuh: angsuran berisi pokok dan bunga; biaya tenor dipotong di muka."
                 rows={[
                   { label: "Biaya admin 2% (platform dihapus)", value: "2% dipotong di muka" },
-                  { label: "Biaya admin cicilan (tenor 3 & 6)", value: "2% per bayar" },
-                  { label: "Bunga flat per bulan (1/3/6 bulan)", value: "30% / 25% / 20%" },
+                  { label: "Biaya admin cicilan (setiap pembayaran)", value: "2% per bayar" },
+                  { label: "Bunga flat per bulan (semua tenor)", value: "tarif akun · bawaan 30%" },
                 ]}
                 stats={[
                   { to: 2, suffix: "%", label: "biaya di muka" },
-                  { to: 25, suffix: "%", label: "bunga tenor 3" },
-                  { to: 2, suffix: "%", label: "admin cicilan 3/6" },
+                  { to: 30, suffix: "%", label: "bunga per bulan" },
+                  { to: 2, suffix: "%", label: "admin cicilan" },
                 ]}
               />
             </div>
@@ -1890,7 +1890,7 @@ export default function Landing() {
               </div>
               <Reveal delay={0.1}>
                 <p className="mt-8 rounded-xl bg-slate-50 p-4 text-xs leading-5 text-slate-600">
-                  Seluruh angka berikut adalah <b className="font-semibold text-slate-900">perhitungan ledger internal</b> dari pencatatan PINDAI. Skema harian menghitung nilai bersih 98% (potongan di muka 2%) dan total kewajiban 130%; perpindahan dana ditangani di luar aplikasi. Skema bulanan (1/3/6 bulan, hingga Rp 10 juta) menampilkan DP 0%, biaya admin 2% (biaya platform dihapus) untuk tenor 3/6 bulan (atau biaya layanan 2% untuk tenor 1 bulan) yang dipotong di muka dari dana yang diterima, sehingga cicilan berisi pokok dan bunga saja; bunga flat dari pokok penuh sebesar 30% per bulan (tenor 1 bulan), 25% (tenor 3 bulan), dan 20% (tenor 6 bulan), jadi cicilannya rata dan tidak menurun. Status dan rincian kontrak mengikuti pencatatan pada ledger internal.
+                  Seluruh angka berikut adalah <b className="font-semibold text-slate-900">perhitungan ledger internal</b> dari pencatatan PINDAI. Skema harian menghitung nilai bersih 98% (potongan di muka 2%) dan total kewajiban 130%; perpindahan dana ditangani di luar aplikasi. Skema bulanan (1/3/6 bulan, hingga Rp 10 juta) menampilkan DP 0%, biaya 2% yang dipotong di muka dari dana yang diterima (biaya admin pada tenor 3/6, biaya layanan pada tenor 1), dan biaya admin cicilan 2% dari nominal cicilan pada setiap pembayaran bulanan; bunga flat dari pokok penuh mengikuti tarif akun (bawaan 30% per bulan) untuk semua tenor, jadi cicilannya rata dan tidak menurun. Status dan rincian kontrak mengikuti pencatatan pada ledger internal.
                 </p>
               </Reveal>
             </div>

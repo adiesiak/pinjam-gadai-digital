@@ -36,8 +36,8 @@ type RincianPinjamanInput = {
 /**
  * Rincian biaya pinjaman dalam kelompok yang BISA DIJUMLAHKAN sendiri.
  *
- * - "Yang harus Anda bayar": pokok + bunga (+ biaya admin cicilan pada tenor 3/6
- *   bulan) = total. Baris bunga inilah yang dulu tidak pernah ditampilkan,
+ * - "Yang harus Anda bayar": pokok + bunga + biaya admin cicilan (setiap
+ *   cicilan bulanan) = total. Baris bunga inilah yang dulu tidak pernah ditampilkan,
  *   sehingga daftarnya tampak kurang dari totalnya.
  * - "Potongan di muka": biaya admin 2% dan platform 0% yang dipotong dari dana
  *   yang Anda terima — TIDAK menambah total kewajiban, jadi dipisah.
@@ -47,6 +47,8 @@ type RincianPinjamanInput = {
  */
 function RincianPinjaman({ loan, final }: { loan: RincianPinjamanInput; final: boolean }) {
   const bulanan = loan.tenorBulan !== null;
+  // Tenor 3/6 memakai nama "biaya admin" di muka; tenor 1 memakai "biaya
+  // layanan". Keduanya sama-sama membayar admin cicilan di setiap angsuran.
   const tenorAdminCicilan = loan.tenorBulan === 3 || loan.tenorBulan === 6;
 
   const pengajuan: BarisRincian[] = [["Keperluan", loanPurposeLabel(loan.tujuan)]];
@@ -58,11 +60,11 @@ function RincianPinjaman({ loan, final }: { loan: RincianPinjamanInput; final: b
   if (bulanan) {
     if (loan.simulasiBulanan !== null) {
       bayar.push(["Bunga selama tenor", formatRupiah(loan.simulasiBulanan.bungaTotal)]);
+      bayar.push([
+        "Biaya admin cicilan (2% per bayar)",
+        formatRupiah(loan.simulasiBulanan.biayaAdminCicilanTotal),
+      ]);
       if (tenorAdminCicilan) {
-        bayar.push([
-          "Biaya admin cicilan (2% per bayar)",
-          formatRupiah(loan.simulasiBulanan.biayaAdminCicilanTotal),
-        ]);
         potongan.push(
           ["Biaya admin (2%, dipotong di muka)", formatRupiah(loan.simulasiBulanan.biayaAdminTotal)],
           ["Biaya platform (0%)", formatRupiah(loan.simulasiBulanan.biayaPlatformTotal)],

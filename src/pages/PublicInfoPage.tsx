@@ -59,7 +59,7 @@ function daftarFaq(dendaPerHari: number, maksDenda: number) {
   },
   {
     q: "Kapan biaya pinjaman dipotong?",
-    a: `Biaya awal ${PINDAI_PRICING.upfrontDeductionPercent}% dihitung dari pokok dan ditampilkan sebagai potongan di muka. Pada tenor 3 dan 6 bulan, ada pula biaya admin cicilan ${BULANAN_PRICING.biayaAdminCicilanPersen}% dari cicilan setiap bulan.`,
+    a: `Biaya awal ${PINDAI_PRICING.upfrontDeductionPercent}% dihitung dari pokok dan ditampilkan sebagai potongan di muka. Setiap pembayaran bulanan juga dikenai biaya admin cicilan ${BULANAN_PRICING.biayaAdminCicilanPersen}% dari nominal cicilan.`,
   },
   {
     q: "Apa yang dicatat untuk gadai?",
@@ -443,7 +443,7 @@ function KalkulatorRingkas({ persenBunga }: { persenBunga: number }) {
       <p className="text-sm leading-6 text-slate-600 lg:col-span-2">
         Hasil ini ilustrasi hitung, bukan persetujuan atau bukti pencairan.
         Skema bulanan memakai bunga flat dari pokok penuh; admin cicilan 2%
-        berlaku pada tenor 3 dan 6 bulan. Periksa angka final pada rincian
+        berlaku pada setiap pembayaran bulanan. Periksa angka final pada rincian
         pengajuan.
       </p>
     </div>
@@ -683,7 +683,7 @@ export function PublicInfoPageView({
                       </td>
                       <td className="px-4 py-3">
                         {BULANAN_PRICING.biayaAdminCicilanPersen}% dari cicilan
-                        pada tenor 3 dan 6 bulan
+                        pada setiap pembayaran bulanan (tenor 1, 3, dan 6 bulan)
                       </td>
                     </tr>
                   </tbody>
@@ -725,9 +725,9 @@ export function PublicInfoPageView({
                 {BULANAN_PRICING.dpPersen}%, potongan awal{" "}
                 {BULANAN_PRICING.biayaLayananPersen}%, bunga flat{" "}
                 {persenBungaPerBulan(1)}/{persenBungaPerBulan(3)}/
-                {persenBungaPerBulan(6)}% per bulan; tenor 3 dan 6 bulan
-                memiliki biaya admin cicilan{" "}
-                {BULANAN_PRICING.biayaAdminCicilanPersen}% dari cicilan.{" "}
+                {persenBungaPerBulan(6)}% per bulan; setiap cicilan bulanan
+                dikenai biaya admin cicilan{" "}
+                {BULANAN_PRICING.biayaAdminCicilanPersen}% dari nominal cicilan.{" "}
                 <Link
                   to="/layanan/kredit-barang"
                   className="font-semibold text-emerald-900 underline underline-offset-4"
@@ -780,7 +780,8 @@ export function PublicInfoPageView({
                 </li>
                 <li>
                   Biaya admin cicilan {BULANAN_PRICING.biayaAdminCicilanPersen}%
-                  dari cicilan berlaku pada tenor 3 dan 6 bulan.
+                  dari nominal cicilan berlaku pada setiap pembayaran bulanan
+                  (tenor 1, 3, dan 6 bulan).
                 </li>
                 <li>
                   Pokok pembiayaan maksimal{" "}

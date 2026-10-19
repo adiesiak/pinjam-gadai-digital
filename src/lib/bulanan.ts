@@ -19,8 +19,10 @@
  *      tenor ≥ 6 bln  → 20% / bulan
  *  - Cicilan = angsuran pokok + bunga bulan itu. Karena bunga flat, cicilan
  *    bulanan rata (bulan terakhir hanya menyerap pembulatan pokok).
- *  - Tenor 3 dan 6 bulan dikenai biaya admin layanan 2% DARI NOMINAL CICILAN
- *    yang dibayar bersama cicilan setiap bulan (bukan dipotong di muka).
+ *  - SETIAP tenor bulanan resmi (1, 3, dan 6 bulan) dikenai biaya admin
+ *    layanan 2% DARI NOMINAL CICILAN yang dibayar bersama cicilan setiap
+ *    bulan (bukan dipotong di muka). Tenor warisan 12/24 tidak dikenai agar
+ *    angka kontrak lama tidak berubah.
  *  - Dana diterima Peminjam = pokok − potongan di muka.
  *
  * Guardrail Rule 3: semua uang integer rupiah — pembagian pokok memakai
@@ -65,7 +67,7 @@ export const BULANAN_PRICING = {
   biayaTenor3_6Persen: 2,
   /**
    * Biaya admin layanan yang dibayar bersama SETIAP cicilan (% dari nominal
-   * cicilan pokok + bunga). Berlaku pada tenor 3 dan 6 bulan.
+   * cicilan pokok + bunga). Berlaku pada semua tenor resmi (1, 3, 6 bulan).
    */
   biayaAdminCicilanPersen: 2,
   /** Biaya admin (% pokok) pada tenor yang memakai admin + platform di muka. */
@@ -120,13 +122,16 @@ export function metodeBungaBulanan(tenorBulan: number): "menurun" | "flat" {
 
 /**
  * Apakah tenor dikenai biaya admin cicilan 2% dari nominal cicilan.
- * Berlaku untuk tenor 3 dan 6 bulan; tenor lain tidak dikenai biaya ini.
+ *
+ * Berlaku untuk SETIAP pembayaran bulanan pada tenor resmi (1, 3, dan 6
+ * bulan). Tenor warisan 12/24 sengaja tetap tanpa biaya ini supaya angka
+ * kontrak lama tidak berubah.
  */
 export function tenorDenganBiayaAdminCicilan(tenorBulan: number): boolean {
   if (!Number.isSafeInteger(tenorBulan) || tenorBulan <= 0) {
     throw new Error("Tenor harus bilangan bulan positif.");
   }
-  return tenorBulan === 3 || tenorBulan === 6;
+  return (TENOR_BULANAN_OPTIONS as readonly number[]).includes(tenorBulan);
 }
 
 /** Satu baris jadwal cicilan bulanan. */
@@ -145,7 +150,7 @@ export interface CicilanBulananRow {
   biayaLayanan: Rupiah;
   /**
    * Biaya admin layanan 2% dari nominal cicilan bulan ini — dibayar bersama
-   * cicilan pada tenor 3 dan 6 bulan; nol pada tenor lain.
+   * setiap cicilan pada tenor resmi (1, 3, 6 bulan); nol pada tenor warisan.
    */
   biayaAdminCicilan: Rupiah;
   /** Total yang dibayar bulan ini = pokok + bunga + biaya admin cicilan. */
@@ -167,9 +172,9 @@ export interface SimulasiBulanan {
   persenBungaPerBulan: number;
   /** Metode bunga: menurun dari sisa pokok, atau flat dari pokok penuh. */
   metodeBunga: "menurun" | "flat";
-  /** Total biaya admin (2% pada tenor 3/6; nol selainnya) — dipotong di muka. */
+  /** Total biaya admin (2% pada tenor 3/6; nol pada tenor 1) — dipotong di muka. */
   biayaAdminTotal: Rupiah;
-  /** Total biaya platform (3% pada tenor 3/6; nol selainnya) — dipotong di muka. */
+  /** Total biaya platform (selalu 0 — dihapus) — dipotong di muka. */
   biayaPlatformTotal: Rupiah;
   /** Total biaya tenor: admin + platform (3/6) atau layanan (tenor lain). */
   biayaLayananTotal: Rupiah;
@@ -193,7 +198,7 @@ export interface SimulasiBulanan {
   bungaTotal: Rupiah;
   /** Total cicilan yang dibayar Peminjam = Σ cicilan = pokok + bunga. */
   totalPengembalian: Rupiah;
-  /** Total biaya admin cicilan 2% selama tenor (tenor 3/6; nol selainnya). */
+  /** Total biaya admin cicilan 2% selama tenor (semua tenor resmi; nol pada tenor warisan). */
   biayaAdminCicilanTotal: Rupiah;
   /** Biaya admin cicilan pada bulan pertama. */
   biayaAdminCicilanPerBulan: Rupiah;
@@ -225,8 +230,8 @@ export function assertSimulasiBulananValid(pokok: Rupiah, tenorBulan: number): v
  *  - Jadwal hanya berisi pokok + bunga (Σ jadwal.total = totalPengembalian)
  *  - seluruh tenor resmi memakai bunga flat dari pokok penuh (30%/25%/20%
  *    per bulan sesuai tenor) sehingga cicilan rata
- *  - tenor 3/6 menambahkan biaya admin cicilan 2% dari nominal cicilan setiap
- *    bulan (Σ = biayaAdminCicilanTotal), tenor lain nol
+ *  - setiap tenor resmi (1/3/6) menambahkan biaya admin cicilan 2% dari
+ *    nominal cicilan setiap bulan (Σ = biayaAdminCicilanTotal)
  *  - cicilanPerBulan = total bayar bulan pertama; cicilanTerakhir = bulan terakhir
  *  - totalKeuntunganBersih = potonganDiMuka + bungaTotal + biayaAdminCicilanTotal
  */
@@ -278,10 +283,11 @@ export function hitungSimulasiBulanan(
   const potonganDiMuka = biayaLayananTotal;
   const danaDiterima = pokokDibiayai - potonganDiMuka;
 
-  // Tenor 3 dan 6 bulan dikenai biaya admin 2% dari nominal cicilan.
+  // Setiap pembayaran bulanan tenor resmi dikenai biaya admin 2% dari
+  // nominal cicilan (termasuk tenor 1 bulan).
   const tenorBiayaAdminCicilan = tenorDenganBiayaAdminCicilan(tenorBulan);
 
-  // ===== Jadwal: pokok + bunga (+ biaya admin cicilan pada tenor 3/6) =====
+  // ===== Jadwal: pokok + bunga (+ biaya admin cicilan tiap pembayaran) =====
   const jadwal: CicilanBulananRow[] = [];
   let sisaPokok = pokokDibiayai;
   for (let bulan = 1; bulan <= tenorBulan; bulan += 1) {

@@ -261,7 +261,7 @@ function ActiveLoanCard({
                 value={formatRupiah(loan.simulasiBulanan.bungaTotal)}
               />
             ) : null}
-            {loan.simulasiBulanan !== null && (loan.tenorBulan === 3 || loan.tenorBulan === 6) ? (
+            {loan.simulasiBulanan !== null ? (
               <RincianBaris
                 label="Biaya admin cicilan (2% per bayar)"
                 value={formatRupiah(loan.simulasiBulanan.biayaAdminCicilanTotal)}
@@ -441,7 +441,7 @@ export function ScheduleSection({ schedule }: { schedule: LoanScheduleRow[] }) {
                   <p className="mt-1 max-w-xl text-xs leading-5 text-slate-600">
                     {l.tenorBulan === 3 || l.tenorBulan === 6
                       ? "Biaya admin 2% dipotong di muka dari dana yang diterima (platform 0%); cicilan berisi pokok dan bunga, ditambah biaya admin cicilan 2% dari nominal cicilan. Jadwal bersifat ilustrasi."
-                      : "Biaya layanan 2% dipotong di muka dari dana yang diterima. Jadwal hanya ilustrasi."}
+                      : "Biaya layanan 2% dipotong di muka dari dana yang diterima; setiap cicilan ditambah biaya admin cicilan 2% dari nominal cicilan. Jadwal bersifat ilustrasi."}
                   </p>
                 )}
               </div>
@@ -464,9 +464,13 @@ export function ScheduleSection({ schedule }: { schedule: LoanScheduleRow[] }) {
                   )}
                 </dd>
               </div>
-              {l.simulasiBulanan !== null && (l.tenorBulan === 3 || l.tenorBulan === 6) && (
+              {l.simulasiBulanan !== null && (
                 <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4">
-                  <dt className="text-muted-foreground">Biaya admin 2% (dipotong di muka)</dt>
+                  <dt className="text-muted-foreground">
+                    {l.tenorBulan === 3 || l.tenorBulan === 6
+                      ? "Biaya admin 2% (dipotong di muka)"
+                      : "Biaya layanan 2% (dipotong di muka)"}
+                  </dt>
                   <dd className="tabular-nums">{formatRupiah(l.simulasiBulanan.biayaLayananTotal)}</dd>
                 </div>
               )}

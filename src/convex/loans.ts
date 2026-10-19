@@ -377,10 +377,10 @@ export const createLoanApplication = mutation({
     tenorHari: v.number(),
     /**
      * Tenor bulanan (DP 0%, potongan di muka 2% — biaya admin 2% untuk tenor
-     * 3/6, biaya layanan 2% untuk tenor 1, biaya platform dihapus; bunga flat dari pokok
-     * penuh 30%/25%/20% per bulan sesuai tenor) —
-     * pinjaman DI LUAR plafon 1 jt / 30 hari. Bila diisi, `tenorHari`
-     * diabaikan.
+     * 3/6, biaya layanan 2% untuk tenor 1, biaya platform dihapus; bunga flat
+     * dari pokok penuh mengikuti tarif akun, bawaan 30% per bulan; biaya admin
+     * cicilan 2% pada setiap pembayaran) — pinjaman DI LUAR plafon 1 jt / 30
+     * hari. Bila diisi, `tenorHari` diabaikan.
      */
     tenorBulan: v.optional(v.number()),
     // ===== KYC wajib =====
@@ -1842,7 +1842,7 @@ export const repayLoan = mutation({
     const totalKewajibanDana = totalPokokDana + totalImbalDana;
     // Potongan di muka (biaya admin 2%, biaya platform dihapus) sudah dipotong saat
     // pencairan. Yang tersisa di pelunasan hanya biaya admin cicilan 2% untuk
-    // tenor 3/6 bulan, yang memang dibayar bersama cicilan.
+    // setiap pembayaran bulanan, yang memang dibayar bersama cicilan.
     const feePlatform = 0;
     const feeAdmin = simBulanan !== null ? simBulanan.biayaAdminCicilanTotal : 0;
 
@@ -1948,8 +1948,8 @@ export const repayLoan = mutation({
     }
 
     // 3. Biaya tenor dipotong di muka saat pencairan (convex/alokasiDana.ts);
-    //    yang dijurnal di sini hanya biaya admin cicilan tenor 3/6 (feePlatform
-    //    selalu nol). Jurnal dibuat seimbang: debit platform:FEE, kredit akun
+    //    yang dijurnal di sini hanya biaya admin cicilan tiap pembayaran bulanan
+    //    (feePlatform selalu nol). Jurnal dibuat seimbang: debit platform:FEE, kredit akun
     //    pinjaman yang menanggung biaya.
     if (feePlatform + feeAdmin > 0) {
       await appendJournal(ctx, {

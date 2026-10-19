@@ -122,7 +122,7 @@ type RingkasanPinjaman = {
   biayaPlatform: number;
   totalPotonganDiMuka: number;
   biayaLayananTotal: number;
-  /** Biaya admin 2% per cicilan (tenor 3/6; nol untuk tenor lain). */
+  /** Biaya admin 2% per cicilan (semua tenor resmi; nol pada tenor warisan). */
   biayaAdminCicilanTotal: number;
   danaDiterimaPeminjam: number;
   jadwalPelunasan: BarisJadwalDana[];
@@ -163,8 +163,8 @@ function ringkasPinjaman(loan: {
           hariKe: tenorHari,
           pokok: loan.pokokPinjaman,
           imbalHasil: sim.bungaTotal,
-          // Biaya tenor dipotong di muka; tenor 3/6 menambahkan biaya admin 2%
-          // per cicilan yang dibayar bersama cicilan.
+          // Biaya tenor dipotong di muka; setiap pembayaran bulanan resmi
+          // menambahkan biaya admin 2% yang dibayar bersama cicilan.
           biayaLayanan: 0,
           biayaAdmin: sim.biayaAdminCicilanTotal,
           biayaPlatform: 0,
@@ -185,7 +185,7 @@ function ringkasPinjaman(loan: {
         sisaPokok: c.sisaPokok,
       })),
       catatanJadwal:
-        "Biaya admin 2% (biaya platform dihapus) untuk tenor 3/6 bulan (atau biaya layanan 2% untuk tenor 1) dipotong di muka dari dana yang diterima; tenor 3 dan 6 bulan dikenai tambahan biaya admin 2% dari nominal cicilan yang dibayar bersama setiap cicilan.",
+        "Biaya admin 2% (biaya platform dihapus) untuk tenor 3/6 bulan (atau biaya layanan 2% untuk tenor 1) dipotong di muka dari dana yang diterima; setiap pembayaran bulanan (tenor 1, 3, dan 6 bulan) dikenai tambahan biaya admin 2% dari nominal cicilan.",
     };
   }
   const q = quotePinjaman(loan);
@@ -1105,7 +1105,7 @@ export const marketplaceKredit = query({
         catatanJadwal:
           simulasiBulanan === null
             ? "Biaya layanan dibayar di muka dan tidak termasuk dalam jumlah cicilan bulanan."
-            : "Biaya admin 2% dari pokok (biaya platform dihapus) dipotong di muka untuk seluruh tenor 1/3/6 bulan; tenor 3 dan 6 bulan dikenai tambahan biaya admin 2% dari nominal cicilan yang dibayar bersama setiap cicilan.",
+            : "Biaya admin 2% dari pokok (biaya platform dihapus) dipotong di muka untuk seluruh tenor 1/3/6 bulan; setiap pembayaran bulanan dikenai tambahan biaya admin 2% dari nominal cicilan.",
         terkumpul,
         sisaKebutuhan: quote.pokokDibiayai - terkumpul,
       });

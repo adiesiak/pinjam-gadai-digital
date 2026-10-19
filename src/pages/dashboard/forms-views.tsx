@@ -880,12 +880,6 @@ export function LoanForm({
                   <dt className="font-medium text-slate-700">Total potongan di muka 2%</dt>
                   <dd className="font-medium tabular-nums">{formatRupiah(sim.biayaLayananTotal)}</dd>
                 </div>
-                <div className="flex flex-col gap-1 bg-white px-3 py-2 text-sm sm:flex-row sm:items-baseline sm:justify-between">
-                  <dt className="font-medium text-slate-700">
-                    Biaya admin cicilan 2% dari nominal cicilan ({sim.tenorBulan} kali bayar)
-                  </dt>
-                  <dd className="font-medium tabular-nums">{formatRupiah(sim.biayaAdminCicilanTotal)}</dd>
-                </div>
               </>
             ) : (
               <div className="flex flex-col gap-1 bg-white px-3 py-2 text-sm sm:flex-row sm:items-baseline sm:justify-between">
@@ -893,6 +887,12 @@ export function LoanForm({
                 <dd className="font-medium tabular-nums">{formatRupiah(sim.biayaLayananTotal)}</dd>
               </div>
             )}
+            <div className="flex flex-col gap-1 bg-white px-3 py-2 text-sm sm:flex-row sm:items-baseline sm:justify-between">
+              <dt className="font-medium text-slate-700">
+                Biaya admin cicilan 2% dari nominal cicilan ({sim.tenorBulan} kali bayar)
+              </dt>
+              <dd className="font-medium tabular-nums">{formatRupiah(sim.biayaAdminCicilanTotal)}</dd>
+            </div>
             <div className="bg-sky-50 px-3 py-2.5 text-sm">
               <dt className="font-semibold text-sky-900">
                 Jadwal angsuran rata · bunga {sim.persenBungaPerBulan}%/bulan flat dari pokok penuh
@@ -1288,7 +1288,7 @@ export function LoanForm({
           <ul className="space-y-2 text-sm leading-6 text-slate-600">
             {[
               "PINDAI mencatat pengajuan, perhitungan, dan status — bukan memindahkan dana.",
-              "Bunga flat 30% dari pokok dan biaya dipotong di muka sesuai tenor yang dipilih.",
+              "Bunga flat mengikuti tarif akun (bawaan 30%); biaya dipotong di muka, dan setiap cicilan bulanan dikenai biaya admin cicilan 2%.",
               "Persetujuan pengajuan bukan jaminan pencairan; keputusan dibuat tim PINDAI dan tercatat pada audit trail.",
               `Keterlambatan dikenai denda ${
                 ketentuanBiaya?.persenDendaKeterlambatan ?? LATE_FEE_POLICY.percentPerDay

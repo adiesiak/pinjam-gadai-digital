@@ -16,8 +16,9 @@
  *    Skema DP + margin flat 12/24 bulan hanya untuk kontrak warisan (tidak
  *    ditawarkan lagi). Bagian penyedia dana proporsional dengan porsi pendanaannya.
  *  - Seluruh tenor resmi (1/3/6 bulan) memakai biaya admin 2% (platform 0%)
- *    dari pokok, DIPOTONG DI MUKA (= 2%); tenor 3/6 juga dikenai biaya admin
- *    cicilan 2% dari nominal cicilan. Kontrak lama 12/24 tetap layanan 3%.
+ *    dari pokok, DIPOTONG DI MUKA (= 2%); setiap pembayaran bulanan juga dikenai
+ *    biaya admin cicilan 2% dari nominal cicilan. Kontrak lama 12/24 tetap
+ *    layanan 3% dan tanpa biaya admin cicilan.
  */
 import { isRupiah, percentOf, type Rupiah } from "./money";
 import {
@@ -68,7 +69,7 @@ export const KREDIT_PRICING = {
    * 1/3/6 bulan dengan skema bulanan (DP 0%, biaya admin 2% dari pokok untuk
    * SELURUH tenor resmi, dipotong di muka; bunga FLAT dari
    * pokok penuh 30%/25%/20% per bulan sesuai tenor; TAMBAHAN biaya admin
-   * cicilan 2% dari nominal cicilan pada tenor 3/6). Tenor 12/24 bulan tidak
+   * cicilan 2% dari nominal cicilan pada setiap pembayaran bulanan). Tenor 12/24 bulan tidak
    * ditawarkan lagi — kontrak warisan itu memakai layanan 3% di muka.
    */
   tenorBulanOptions: KREDIT_TENOR_PENGAJUAN_OPTIONS,
@@ -126,10 +127,10 @@ export interface KreditBarangJadwalRow {
   biayaLayanan: Rupiah;
   /**
    * Biaya admin cicilan 2% dari nominal cicilan baris ini — dibayar bersama
-   * cicilan pada tenor 3 dan 6 bulan; nol pada tenor lain.
+   * setiap cicilan pada tenor resmi (1, 3, 6 bulan); nol pada tenor warisan.
    */
   biayaAdmin: Rupiah;
-  /** Porsi biaya platform pada baris ini (tenor 3/6) — nol, dipotong di muka. */
+  /** Porsi biaya platform pada baris ini — nol, dipotong di muka. */
   biayaPlatform: Rupiah;
   /** Total cicilan bulan ini. */
   total: Rupiah;
@@ -148,7 +149,7 @@ export interface KreditBarangQuote {
   /** Total biaya platform (0% — dihapus) dari pokok; field dipertahankan agar
    * rincian di UI/kontrak tetap punya satu nilai eksplisit. */
   biayaPlatform: Rupiah;
-  /** Total biaya admin cicilan 2% (tenor 3/6); nol untuk tenor lain. */
+  /** Total biaya admin cicilan 2% (semua tenor resmi); nol pada tenor warisan. */
   biayaAdminCicilanTotal: Rupiah;
   /** Imbal Hasil bulan pertama (skema bulanan) atau margin bulanan flat. */
   marginPerBulan: Rupiah;
@@ -185,7 +186,7 @@ function bulatDuaDesimal(v: number): number {
 /**
  * True bila tenor memakai skema bulanan (1/3/6 bulan): DP 0%, biaya 2%
  * (admin 2%, platform dihapus) dari pokok untuk seluruh tenor resmi — dipotong
- * di muka, tenor 3/6 menambah biaya admin cicilan 2% — dan bunga flat per
+ * di muka, setiap pembayaran menambah biaya admin cicilan 2% — dan bunga flat per
  * tenor; input DP/margin manual diabaikan engine.
  * Dipakai UI agar slider yang tidak berpengaruh disembunyikan.
  */
