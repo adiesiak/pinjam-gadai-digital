@@ -325,11 +325,15 @@ createRoot(document.getElementById("root")!).render(
         <VlyToolbar />
       </ToolbarErrorBoundary>
       <ConvexAuthProvider client={convex}>
-        <ThemeSync />
         {/* APK di bawah versi wajib berhenti di layar perbarui — dipasang di
             atas router supaya tidak ada rute yang bisa menyelinap lewat. */}
         <GerbangVersiWajib />
         <BrowserRouter>
+          {/* `ThemeSync` membaca `useLocation` untuk membatasi salju/konfeti ke
+              rute publik, jadi ia WAJIB berada di dalam router. Di luar router
+              hook itu melempar dan boundary teratas mengganti seluruh aplikasi
+              dengan halaman kendala. */}
+          <ThemeSync />
           {/* Tautan lewat-navigasi: hanya tampil saat difokuskan dengan Tab,
               memindahkan pengguna keyboard langsung ke konten utama. */}
           <a className="skip-link" href="#konten">

@@ -48,5 +48,20 @@ const tidakAda = (sumber: string, teks: string, nama: string) =>
   );
 }
 
+// Shell aplikasi: sinkronisasi tema memakai `useLocation`, jadi ia harus
+// dirender DI DALAM router. Sebelumnya ia dipasang di luar `<BrowserRouter>`
+// dan hook itu melempar di setiap halaman — boundary teratas lalu menutupi
+// seluruh aplikasi dengan halaman "kendala teknis".
+{
+  const shell = readFileSync(fileURLToPath(new URL("../main.tsx", import.meta.url)), "utf8");
+  const buka = shell.indexOf("<BrowserRouter>");
+  const tutup = shell.indexOf("</BrowserRouter>");
+  const tema = shell.indexOf("<ThemeSync />");
+  cek(
+    "ThemeSync dirender di dalam BrowserRouter",
+    buka !== -1 && tutup !== -1 && tema > buka && tema < tutup,
+  );
+}
+
 console.log(`LandingHome.rute: ${lulus} lulus, ${gagal} gagal`);
 if (gagal > 0) process.exit(1);
